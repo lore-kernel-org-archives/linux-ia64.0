@@ -1,47 +1,69 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 22 Oct 2003 18:08:20 +0000
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Thu, 23 Oct 2003 01:52:30 +0000
 Subject: Re: [PATCH] Re: Gate DSO not building properly?
-Message-Id: <marc-linux-ia64-106684611528567@msgid-missing>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="LpQ9ahxlCli8rRTG"
+Message-Id: <marc-linux-ia64-106687401324479@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106679437709356@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106679437709356@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 22 Oct 2003 13:45:47 +1000, Ian Wienand <ianw@gelato.unsw.edu.au> said:
 
-  Ian> On Tue, Oct 21, 2003 at 04:10:51PM +1000, Ian Wienand wrote:
+--LpQ9ahxlCli8rRTG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-  >> arch/ia64/kernel/gate-data.S:1: Warning: setting incorrect
-  >> section attributes for .data.gate
+On Wed, Oct 22, 2003 at 11:08:20AM -0700, David Mosberger wrote:
+>   Ian> Issuing
+>   Ian> .section .data.gate, "ax"
+>   Ian> thus conflicts as it's assumed to be an extension of a .data
+>   Ian> section.
 
-  Ian> I figured out why (sorry if it's obvious); gas matches anything
-  Ian> with prefix '.data.' as a data special section and flags it as
-  Ian> 'SHF_ALLOC + SHF_WRITE' as per ELF [*].
+> I'm not sure why I put "ax" there---it was most likely a left-over
+> from earlier experimentation.  So I think the fix is to change "ax"
+> to "aw" (the data isn't really writable, but to avoid losing more
+> memory to page-alignment, it's better to keep the gate page in the
+> writeable data section).  Do you want to try this?
 
-It wasn't obvious to me.  I really disklike all this section-name
-based matching in BFD/GAS, but it appears to ingrained to have an easy
-fix.
+Yep, this stops the warning and everything looks fine.  I'd say you
+put it there because it gets lumped with
 
-  Ian> Issuing
+        .section __special_page_section,"ax"
 
-  Ian> .section .data.gate, "ax"
+from head.S, so in the end the whole thing ends up with AWX.
 
-  Ian> thus conflicts as it's assumed to be an extension of a .data
-  Ian> section.
+  [21] .data.page_aligne PROGBITS         a000000100610000  00620000
+       0000000000008d50  0000000000000000 WAX       0     0     1
 
-  Ian> Should this even be in data at all, considering it's code?
-  Ian> What about something along the lines of the attached patch
-  Ian> which puts it in it's own section?
+You're of course right about wasting memory with a separate section, I
+didn't think of that. 
 
-Actually, as far as the kernel is concerned, it _is_ data.  Only when
-it's mapped at the gate address is it used as text.  I'm not sure why
-I put "ax" there---it was most likely a left-over from earlier
-experimentation.  So I think the fix is to change "ax" to "aw" (the
-data isn't really writable, but to avoid losing more memory to
-page-alignment, it's better to keep the gate page in the writeable
-data section).  Do you want to try this?
+Maybe just change it and add something like 
 
-	--david
+Even though this is put with __special_page_section which is given
+attributes "ax" (head.S), gas will match anything with a prefix
+'.data.' as a data special section.  Thus to stop unnecessary warning
+about changing attributes, we use the .data section standard
+attributes "aw" when creating gate-data.o
+
+to the changelog?
+
+-i
+ianw@gelato.unsw.edu.au
+http://www.gelato.unsw.edu.au
+
+--LpQ9ahxlCli8rRTG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="gate-data-aw.diff"
+
+===== gate-data.S 1.1 vs edited =====
+--- 1.1/arch/ia64/kernel/gate-data.S	Thu Jun 12 18:09:19 2003
++++ edited/gate-data.S	Thu Oct 23 11:51:03 2003
+@@ -1,3 +1,3 @@
+-	.section .data.gate, "ax"
++	.section .data.gate, "aw"
+ 
+ 	.incbin "arch/ia64/kernel/gate.so"
+
+--LpQ9ahxlCli8rRTG--
