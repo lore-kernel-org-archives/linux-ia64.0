@@ -1,7 +1,7 @@
 From: Paul Jackson <pj@sgi.com>
-Date: Thu, 20 Nov 2003 02:17:03 +0000
+Date: Thu, 20 Nov 2003 02:38:28 +0000
 Subject: Re: [PATCH] - prof_cpu_mask problems
-Message-Id: <marc-linux-ia64-106929475727936@msgid-missing>
+Message-Id: <marc-linux-ia64-106929606629830@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106901123527791@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106901123527791@msgid-missing>
@@ -10,35 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> It was to silence a warning.
+> There will be a single routine for each, in a new lib file.
 
-ah - ok - thanks.
+My apologies to Bill Irwin.  As I was well aware earlier today,
+and had already spaced out, this removal of duplicate code is
+already a feature of his latest -mm format_cpumask() patch.
 
-
-> You'll have write your own to replace
-> the fix now in -mm if this is what you really want.
-
-I'm doing that now; and un-duplicating about a dozen instances of the
-binary->string conversion loops used when reading out masks, and almost
-as many string->binary parse_hex_value() routines used when reading in
-masks.  There will be a single routine for each, in a new lib file.
-
-Can you tell me, Bill, how it is that having:
-
-  #define HEX_DIGITS (2*sizeof(cpumask_t))
-
-leaves room for the terminating nul-byte?  Seems to me that
-a lot of hexnum[] arrays might be one byte short.
-
-One incompatibility with existing code:
-
-    If I proceed along my current path, cpumasks, such as for
-    irq or smp_affinity, will no longer be displayed in /proc
-    with leading zero padding.
-
-    I expect that this could be a problem ...
-
-Complaints invited.
+I should not have spoken as if I was breaking new ground there.
 
 -- 
                           I won't rest till it's the best ...
