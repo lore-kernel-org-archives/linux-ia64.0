@@ -1,7 +1,7 @@
 From: Paul Jackson <pj@sgi.com>
-Date: Thu, 20 Nov 2003 02:59:02 +0000
+Date: Thu, 20 Nov 2003 04:47:04 +0000
 Subject: Re: [PATCH] - prof_cpu_mask problems
-Message-Id: <marc-linux-ia64-106929747231964@msgid-missing>
+Message-Id: <marc-linux-ia64-106930373005828@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106901123527791@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106901123527791@msgid-missing>
@@ -10,22 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Can you tell me, Bill, how it is that having:
-> 
->   #define HEX_DIGITS (2*sizeof(cpumask_t))
-> 
-> leaves room for the terminating nul-byte?  Seems to me that
-> a lot of hexnum[] arrays might be one byte short.
+pj wrote:
+> There will be a single routine for each, in a new lib file.
 
-To answer my own question - on the output side (reads from /proc), the
-code verifies that the user provided HEX_DIGITS+1 count bytes - good.
+Bill replied:
+> The format_cpumask() bits did that in ...
 
-On the input side (writes into /proc), the code doesn't rely on a
-nul-terminator, and ensures that only at most HEX_DIGITS worth are
-copied into hexnum[].
+Yup, as I knew, before and after that point in time.  Just not then.
+The older I get, the more I appreciate how non-linear awareness is.
 
-It works.  Now let me fire up my time machine and undo one of my posts
-from earlier today ...
+> I'm not convinced it does. 
+
+You're right - the code seems ok on this point.
+
+> I don't see any problems with changing the format at this stage ...
+
+Ok - I will continue along this path ... at least until when and
+if someone raises a good objection.
 
 -- 
                           I won't rest till it's the best ...
