@@ -1,83 +1,39 @@
-From: Christoph Lameter <christoph@lameter.com>
-Date: Thu, 31 Mar 2005 03:50:22 +0000
-Subject: Re: [PATCH] Pageset Localization V2
-Message-Id: <Pine.LNX.4.58.0503301947450.26235@server.graphe.net>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 01 Mar 2005 23:32:52 +0000
+Subject: RE: [patch 2.6.11-rc3-bk4] Correctly dereference ia64_mca_data
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03008567@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0503292147200.32571@server.graphe.net>
- <20050330134049.GA21986@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20050330134049.GA21986@parcelfarce.linux.theplanet.co.uk>
+References: <23464.1107851114@kao2.melbourne.sgi.com>
+In-Reply-To: <23464.1107851114@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Manfred Spraul <manfred@colorfullife.com>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mm@kvack.org, shai@scalex86.org, Christoph Hellwig <hch@infradead.org>
+To: linux-ia64@vger.kernel.org
 
-Patch to fix the issues mentioned so far. The MAKE_LIST macro would also
-not be good to some things that I have planned so lets drop it.
+Back on February 9th, I wrote:
+>I wrote a test program that loads up random values into registers
+>(just r1-r31, a bunch of stacked registers, and f2-f127 for now)
+>and then checks that all the registers haven't changed value a
+>few thousand times, before reloading with a new set of random
+>values.
 
-Index: linux-2.6.11/mm/page_alloc.c
-=================================--- linux-2.6.11.orig/mm/page_alloc.c	2005-03-30 19:45:23.000000000 -0800
-+++ linux-2.6.11/mm/page_alloc.c	2005-03-30 19:46:23.000000000 -0800
-@@ -1613,15 +1613,6 @@ void zone_init_free_lists(struct pglist_
- 	memmap_init_zone((size), (nid), (zone), (start_pfn))
- #endif
+A few people asked whether I could post the program ... it took
+a while to get sign-off ... but that gave me time to add "branch",
+"predicate" and half a dozen "application" registers to the mix,
+plus make it print the name of the register that was nuked (instead
+of a number that required manual translation).
 
--#define MAKE_LIST(list, nlist)  \
--	do {    \
--		if(list_empty(&list))      \
--			INIT_LIST_HEAD(nlist);          \
--		else {  nlist->next->prev = nlist;      \
--			nlist->prev->next = nlist;      \
--		}                                       \
--	}while(0)
--
- /*
-  * Dynamicaly allocate memory for the
-  * per cpu pageset array in struct zone.
-@@ -1629,6 +1620,7 @@ void zone_init_free_lists(struct pglist_
- static inline int __devinit process_zones(int cpu)
- {
- 	struct zone *zone, *dzone;
-+	int i;
+I've tested it by using a debugger to zap one of each class of register
+that is being monitored to check that it works.
 
- 	for_each_zone(zone) {
- 		struct per_cpu_pageset *npageset = NULL;
-@@ -1642,9 +1634,17 @@ static inline int __devinit process_zone
+http://www.kernel.org/pub/linux/kernel/people/aegl/ia64regcheck.tgz 
 
- 		if(zone->pageset[cpu]) {
- 			memcpy(npageset, zone->pageset[cpu], sizeof(struct per_cpu_pageset));
--			MAKE_LIST(zone->pageset[cpu]->pcp[0].list, (&npageset->pcp[0].list));
--			MAKE_LIST(zone->pageset[cpu]->pcp[1].list, (&npageset->pcp[1].list));
--		}
-+
-+			/* Fix up the list pointers */
-+			for(i = 0; i<2; i++) {
-+				if (list_empty(&zone->pageset[cpu]->pcp[i].list))
-+					INIT_LIST_HEAD(&npageset->pcp[i].list);
-+				else {
-+					npageset->pcp[i].list.next->prev = &npageset->pcp[i].list;
-+					npageset->pcp[i].list.prev->next = &npageset->pcp[i].list;
-+				}
-+			}
-+ 		}
- 		else {
- 			struct per_cpu_pages *pcp;
- 			unsigned long batch;
-@@ -1721,11 +1721,14 @@ struct notifier_block pageset_notifier 
- void __init setup_per_cpu_pageset()
- {
--	/*Iintialize per_cpu_pageset for cpu 0.
--	  A cpuup callback will do this for every cpu
--	  as it comes online
-+	int err;
-+
-+	/* Initialize per_cpu_pageset for cpu 0.
-+	 * A cpuup callback will do this for every cpu
-+	 * as it comes online
- 	 */
--	BUG_ON(process_zones(smp_processor_id()));
-+	err = process_zones(smp_processor_id());
-+	BUG_ON(err);
- 	register_cpu_notifier(&pageset_notifier);
- }
+Usage ... compile, and run a few copies.  If they all "exit(0)" (which
+may take a couple of days) the test passed.  Otherwise you should see
+the name of the register printed to stderr, and exit code 1.
+
+Apart from the MCA case, I haven't seen it report a problem yet ... but
+I've only run a few hours.
+
+-Tony
 
