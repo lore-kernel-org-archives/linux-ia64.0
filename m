@@ -1,118 +1,92 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 29 Apr 2005 19:59:01 +0000
-Subject: [PATCH 0/3] Page Fault Scalability V20: Overview
-Message-Id: <20050429195901.15694.28520.sendpatchset@schroedinger.engr.sgi.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 04 Apr 2005 20:29:43 +0000
+Subject: fix AGP code to work again with non-PCI AGP bridges
+Message-Id: <200504042029.j34KThCw012610@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-mm@kvack.org, linux-ia64@vger.kernel.org, Christoph Lameter <clameter@sgi.com>
+To: davej@redhat.com
+Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-This patch addresses the scalability issues that arise in Linux if
-more than 4 processors generate page faults to populate memory
-simultaneously. One example where this occurs is during the startup
-phase of large scale applications. These typically start by forking
-multiple threads that then concurrently initialize memory in order
-to reduce the time needed. However, concurrent memory initialization
-does only work as expected for Linux if more than 4 threads are
-started. For more than 8 processors the performance begins to drop
-until we reach single thread performance at 16-32 cpus. Performance
-drops exponentially for configurations of higher cpu counts.
+Dave,
 
-Without this patch these application may seem to freeze for long times
-due to contention around the page_table_lock. These modifications
-allow the page fault handler for anonymous faults scale linearly
-(verified for up to 64 cpus).
+As mentioned earlier, the current check_bridge_mode() code assumes
+that AGP bridges are PCI devices.  This isn't always true.  Definitely
+not for HP zx1 chipset and the same seems to be the case for SGI's AGP
+bridge.
 
-Changelog:
+The patch below fixes the problem by picking up the AGP_MODE_3_0 bit
+from bridge->mode.  I feel like I may be missing something, since I
+can't see any reason why check_bridge_mode() wasn't doing that in the
+first place.  According to the AGP 3.0 specs, the AGP_MODE_3_0 bit is
+determined during the hardware reset and cannot be changed, so it
+seems to me it should be safe to pick it up from bridge->mode.
 
-V19->V20
- - Adapted to use set_pte_at and conform to the other pte api changes.
-   This also required a change to pte_cmpxchg and pte_xchg.
- - Use atomic64_t if available for counters to allow more than 8TB memory.
- - Enable ATOMIC_TABLE_OPS via Kconfig for SMP configurations with
-   suitable processors under IA32, X86_64 and IA64.
- - Drop rss patch which was already accepted.
+With the patch applied, I can definitely use AGP acceleration both
+with AGP 2.0 and AGP 3.0 (one with an Nvidia card, the other with an
+ATI FireGL card).
 
-Charts with performance data and a short description is available at
-http://oss.sgi.com/projects/page_fault_performance/atomic-ptes.pdf
+Unless someone spots a problem, please apply this patch so 3d
+acceleration can work on zx1 boxes again.
 
-The basic approach in this patch set is the same as used in SGI's 2.4.X
-based kernels which have been in production use by SGI in ProPack 3
-for a long time. More information may be found at
-http://oss.sgi.com/projects/page_fault_performance .
+Thanks,
 
-The patch set is currently composed of 3 patches:
+	--david
 
-1/3: Avoid spurious page faults
+[AGPGART] Replace check_bridge_mode() with (bridge->mode & AGSTAT_MODE_3_0).
 
-	ptes are currently sporadically set to zero for synchronization
-	with the MMU which may cause spurious page faults. This patch
-	uses ptep_xchg and ptep_cmpxchg to avoid clearing ptes and
-	therefore also spurious page faults.
+This makes AGP work again on machines with an AGP bridge that isn't a
+PCI device.
 
-	The patch introduces CONFIG_ATOMIC_TABLE_OPS that is enabled
-	if the hardware is able to support atomic operations and if
-	a SMP kernel is being configured. A Kconfig update for i386,
-	x86_64 and ia64 has been provided. On i386 this options is
-	restricted to CPUs better than a 486 and non PAE mode (that
-	way all the cmpxchg issues on old i386 CPUS and the problems
-	with 64bit atomic operations on recent i386 CPUS are avoided).
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-	If CONFIG_ATOMIC_TABLE_OPS is not set then ptep_xchg and
-	ptep_xcmpxchg are realized by falling back to clearing a pte
-	before updating it.
-
-	The patch does not change the use of mm->page_table_lock and
-	the only performance improvement is the replacement of
-	xchg-with-zero-and-then-write-new-pte-value with an xchg with
-	the new value for SMP on some architectures if
-	CONFIG_ATOMIC_TABLE_OPS is configured. It should not do anything
-	major to VM operations.
-
-2/3: Drop the first use of the page_table_lock in handle_mm_fault
-
-	The patch introduces two new functions:
-
-	page_table_atomic_start(mm), page_table_atomic_stop(mm)
-
-	that fall back to the use of the page_table_lock if
-	CONFIG_ATOMIC_TABLE_OPS is not defined.
-
-	If CONFIG_ATOMIC_TABLE_OPS is defined those functions may
-	be used to prep the CPU for atomic table ops (i386 in PAE mode
-	may f.e. get the MMX register ready for 64bit atomic ops) but
-	these are currently empty by default.
-
-	Two operations may then be performed on the page table without
-	acquiring the page table lock:
-
-	a) updating access bits in pte
-	b) anonymous read faults installed a mapping to the zero page.
-
-	All counters are still protected with the page_table_lock thus
-	avoiding any issues there.
-
-	Some additional statistics are added to /proc/meminfo to
-	give some statistics. This includes counting spurious faults
-	with no effect.
-
-3/3: Drop the use of the page_table_lock in do_anonymous_page
-
-	The second acquisition of the page_table_lock is removed
-	from do_anonymous_page and allows the anonymous
-	write fault to be possible without the page_table_lock.
-
-	The macros for manipulating rss and anon_rss in include/linux/sched.h
-	are changed if CONFIG_ATOMIC_TABLE_OPS is set to use atomic
-	operations for rss and anon_rss (safest solution for now, other
-	solutions may easily be implemented by changing those macros).
-	A 64 bit atomic type will be used if available.
-
-	This patch typically yield significant increases in page fault
-	performance for threaded applications on SMP systems. A nice
-	color chart can be see at
-	http://oss.sgi.com/projects/page_fault_performance/atomic-ptes.pdf
-
-
+=== drivers/char/agp/generic.c 1.87 vs edited ==--- 1.87/drivers/char/agp/generic.c	2005-03-28 14:21:41 -08:00
++++ edited/drivers/char/agp/generic.c	2005-04-04 13:16:43 -07:00
+@@ -295,19 +295,6 @@
+ EXPORT_SYMBOL_GPL(agp_num_entries);
+ 
+ 
+-static int check_bridge_mode(struct pci_dev *dev)
+-{
+-	u32 agp3;
+-	u8 cap_ptr;
+-
+-	cap_ptr = pci_find_capability(dev, PCI_CAP_ID_AGP);
+-	pci_read_config_dword(dev, cap_ptr+AGPSTAT, &agp3);
+-	if (agp3 & AGPSTAT_MODE_3_0)
+-		return 1;
+-	return 0;
+-}
+-
+-
+ /**
+  *	agp_copy_info  -  copy bridge state information
+  *
+@@ -328,7 +315,7 @@
+ 	info->version.minor = bridge->version->minor;
+ 	info->chipset = SUPPORTED;
+ 	info->device = bridge->dev;
+-	if (check_bridge_mode(bridge->dev))
++	if (bridge->mode & AGPSTAT_MODE_3_0)
+ 		info->mode = bridge->mode & ~AGP3_RESERVED_MASK;
+ 	else
+ 		info->mode = bridge->mode & ~AGP2_RESERVED_MASK;
+@@ -661,7 +648,7 @@
+ 		bridge_agpstat &= ~AGPSTAT_FW;
+ 
+ 	/* Check to see if we are operating in 3.0 mode */
+-	if (check_bridge_mode(agp_bridge->dev))
++	if (agp_bridge->mode & AGPSTAT_MODE_3_0)
+ 		agp_v3_parse_one(&requested_mode, &bridge_agpstat, &vga_agpstat);
+ 	else
+ 		agp_v2_parse_one(&requested_mode, &bridge_agpstat, &vga_agpstat);
+@@ -732,7 +719,7 @@
+ 
+ 	/* Do AGP version specific frobbing. */
+ 	if (bridge->major_version >= 3) {
+-		if (check_bridge_mode(bridge->dev)) {
++		if (bridge->mode & AGPSTAT_MODE_3_0) {
+ 			/* If we have 3.5, we can do the isoch stuff. */
+ 			if (bridge->minor_version >= 5)
+ 				agp_3_5_enable(bridge);
