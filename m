@@ -1,33 +1,29 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Sun, 25 Jan 2004 19:54:28 +0000
-Subject: Fix xbow.c compilation
-Message-Id: <jesmi3reh7.fsf@sykes.suse.de>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 23 Jan 2004 16:57:55 +0000
+Subject: [PATCH] remove MCA (MicroChannel) cruft
+Message-Id: <200401230957.55116.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This fixes a conflicting declaration in xbow.c.
+MCA_bus is now referenced only when CONFIG_MCA is set,
+so we should be able to remove the definition from ia64.
 
---- linux-2.6.1/arch/ia64/sn/io/sn2/xbow.c.~1~	2004-01-25 20:22:21.00000000=
-0 +0100
-+++ linux-2.6.1/arch/ia64/sn/io/sn2/xbow.c	2004-01-25 20:41:37.000000000 +0=
-100
-@@ -153,7 +153,7 @@ xbow_attach(vertex_hdl_t conn)
- #if DEBUG && ATTACH_DEBUG
-     char		    name[MAXDEVNAME];
- #endif
--    static void xbow_errintr_handler(int, void *, struct pt_regs *);
-+    static irqreturn_t xbow_errintr_handler(int, void *, struct pt_regs *);
-=20
- =09
- #if DEBUG && ATTACH_DEBUG
+=== include/asm-ia64/processor.h 1.53 vs edited ==--- 1.53/include/asm-ia64/processor.h	Wed Dec 31 02:10:03 2003
++++ edited/include/asm-ia64/processor.h	Fri Jan 23 09:28:11 2004
+@@ -53,12 +53,6 @@
+  */
+ #define TASK_UNMAPPED_BASE	(current->thread.map_base)
+ 
+-/*
+- * Bus types
+- */
+-#define MCA_bus 0
+-#define MCA_bus__is_a_macro /* for versions in ksyms.c */
+-
+ #define IA64_THREAD_FPH_VALID	(__IA64_UL(1) << 0)	/* floating-point high state valid? */
+ #define IA64_THREAD_DBG_VALID	(__IA64_UL(1) << 1)	/* debug registers valid? */
+ #define IA64_THREAD_PM_VALID	(__IA64_UL(1) << 2)	/* performance registers valid? */
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
