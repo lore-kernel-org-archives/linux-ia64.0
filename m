@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 11 Nov 2003 02:38:49 +0000
-Subject: Re: bk pull on ia64 linux tree
-Message-Id: <marc-linux-ia64-106851834432358@msgid-missing>
+Date: Wed, 12 Nov 2003 07:18:12 +0000
+Subject: bk pull on ia64 linux tree
+Message-Id: <marc-linux-ia64-106862150802884@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105942507026161@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105942507026161@msgid-missing>
@@ -16,26 +16,27 @@ please do a
 
 	bk pull http://lia64.bkbits.net/to-linus-2.5
 
-This should fix the PROT_NONE botch, along with a bug that caused
-/proc/irq/prof_cpu_mask to output bad info, which could break
-user-level tools.
+This will update the files shown below.
 
 Thanks!
 
 	--david
 
- arch/ia64/kernel/irq.c     |    2 +-
- include/asm-ia64/pgtable.h |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/signal.c     |    4 +++-
+ include/asm-ia64/sn/nodepda.h |    2 +-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
 
 through these ChangeSets:
 
-<davidm@tiger.hpl.hp.com> (03/11/10 1.1359)
-   ia64: Fix _PAGE_CHG_MASK so PROT_NONE works again.  Caught by Linus.
+<davidm@wailua.hpl.hp.com> (03/11/11 1.1361)
+   ia64: From Linus: Always disable system call restart when invoking a
+   	signal handler.  Otherwise, a restarted system call that gets
+   	interrupted before the restart has taken effect by _another_
+   	signal will potentially restart the wrong system call.
 
-<pj@sgi.com> (03/11/10 1.1358)
-   [PATCH] ia64: fix bug in prof_cpu_mask_read_proc()
+<steiner@sgi.com> (03/11/11 1.1360)
+   [PATCH] ia64: fix is_headless_node() for SN
    
-   Display of cpumask for /proc/irq/prof_cpu_mask has a botch in the print
-   loop - should consume 2 bytes per loop.
+   Without this patch, SN machines which have nodes that contain memory only (no
+   CPUs will hang.
 
