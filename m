@@ -1,112 +1,51 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 08 Sep 2004 11:07:22 +0000
-Subject: Re: [patch 1/2]  minmax-removal arch/ia64/kernel/unwind.c
-Message-Id: <16702.59370.787152.513978@napali.hpl.hp.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 16 Sep 2004 06:20:59 +0000
+Subject: [patch 2.6.9-test] Remove remnants of ar.k[56] being physical
+Message-Id: <9317.1095315659@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <E1C2cb5-0000Jc-Md@sputnik>
-In-Reply-To: <E1C2cb5-0000Jc-Md@sputnik>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tony,
+ar.k[56] used to contain physical addresses but now contain virtual
+addresses.  There are code remnants which still believe that they are
+physical and "convert" ar.k[56] to virtual.  This breaks when current
+is not in region 7 (e.g. the idle task on cpu 0).
 
->>>>> On Wed, 01 Sep 2004 23:24:51 +0200, janitor@sternwelten.at said:
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-  janitor> Patch (against 2.6.8.1) removes unnecessary min/max macros
-  janitor> and changes calls to use kernel.h macros instead.
+Index: linux/arch/ia64/kernel/minstate.h
+=================================--- linux.orig/arch/ia64/kernel/minstate.h	Thu Sep 16 12:25:31 2004
++++ linux/arch/ia64/kernel/minstate.h	Thu Sep 16 15:05:22 2004
+@@ -54,8 +54,6 @@
+ (pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */		\
+ 
+ #define MINSTATE_END_SAVE_MIN_PHYS								\
+-	or r12=r12,r14;		/* make sp a kernel virtual address */				\
+-	or r13=r13,r14;		/* make `current' a kernel virtual address */			\
+ 	;;
+ 
+ #ifdef MINSTATE_VIRT
+@@ -172,7 +170,6 @@
+ 	;;											\
+ .mem.offset 0,0; st8.spill [r16]=r15,16;							\
+ .mem.offset 8,0; st8.spill [r17]=r14,16;							\
+-	dep r14=-1,r0,61,3;									\
+ 	;;											\
+ .mem.offset 0,0; st8.spill [r16]=r2,16;								\
+ .mem.offset 8,0; st8.spill [r17]=r3,16;								\
+Index: linux/include/asm-ia64/mca_asm.h
+=================================--- linux.orig/include/asm-ia64/mca_asm.h	Sat Aug 14 15:37:55 2004
++++ linux/include/asm-ia64/mca_asm.h	Thu Sep 16 14:38:26 2004
+@@ -162,9 +162,6 @@
+ 	;;							\
+ 	srlz.d;							\
+ 	mov	r13 = ar.k6;					\
+-	;;							\
+-	DATA_PA_TO_VA(r13,temp1);				\
+-	;;							\
+ 	mov	temp2 = ar.bspstore;				\
+ 	;;							\
+ 	DATA_PA_TO_VA(temp2,temp1);				\
 
-I reviewed and tested this patch and approve of it.  Please apply.
-
-	--david
-
----
-ia64: minmax-removal in arch/ia64/kernel/unwind.c
-
-Patch (against 2.6.8.1) removes unnecessary min/max macros and changes
-calls to use kernel.h macros instead.
-
-Signed-off-by: Michael Veeck <michael.veeck@gmx.net>
-Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
-
----
-
- linux-2.6.9-rc1-bk7-max/arch/ia64/kernel/unwind.c |   15 +++++++--------
- 1 files changed, 7 insertions(+), 8 deletions(-)
-
-diff -puN arch/ia64/kernel/unwind.c~min-max-arch_ia64_kernel_unwind arch/ia64/kernel/unwind.c
---- linux-2.6.9-rc1-bk7/arch/ia64/kernel/unwind.c~min-max-arch_ia64_kernel_unwind	2004-09-01 19:38:20.000000000 +0200
-+++ linux-2.6.9-rc1-bk7-max/arch/ia64/kernel/unwind.c	2004-09-01 19:38:20.000000000 +0200
-@@ -47,7 +47,6 @@
- #include "entry.h"
- #include "unwind_i.h"
- 
--#define MIN(a,b)	((a) < (b) ? (a) : (b))
- #define p5		5
- 
- #define UNW_LOG_CACHE_SIZE	7	/* each unw_script is ~256 bytes in size */
-@@ -963,13 +962,13 @@ static inline void
- desc_mem_stack_f (unw_word t, unw_word size, struct unw_state_record *sr)
- {
- 	set_reg(sr->curr.reg + UNW_REG_PSP, UNW_WHERE_NONE,
--		sr->region_start + MIN((int)t, sr->region_len - 1), 16*size);
-+		sr->region_start + min_t(int, t, sr->region_len - 1), 16*size);
- }
- 
- static inline void
- desc_mem_stack_v (unw_word t, struct unw_state_record *sr)
- {
--	sr->curr.reg[UNW_REG_PSP].when = sr->region_start + MIN((int)t, sr->region_len - 1);
-+	sr->curr.reg[UNW_REG_PSP].when = sr->region_start + min_t(int, t, sr->region_len - 1);
- }
- 
- static inline void
-@@ -1005,7 +1004,7 @@ desc_reg_when (unsigned char regnum, unw
- 
- 	if (reg->where = UNW_WHERE_NONE)
- 		reg->where = UNW_WHERE_GR_SAVE;
--	reg->when = sr->region_start + MIN((int)t, sr->region_len - 1);
-+	reg->when = sr->region_start + min_t(int, t, sr->region_len - 1);
- }
- 
- static inline void
-@@ -1073,7 +1072,7 @@ desc_label_state (unw_word label, struct
- static inline int
- desc_is_active (unsigned char qp, unw_word t, struct unw_state_record *sr)
- {
--	if (sr->when_target <= sr->region_start + MIN((int)t, sr->region_len - 1))
-+	if (sr->when_target <= sr->region_start + min_t(int, t, sr->region_len - 1))
- 		return 0;
- 	if (qp > 0) {
- 		if ((sr->pr_val & (1UL << qp)) = 0)
-@@ -1114,7 +1113,7 @@ desc_spill_reg_p (unsigned char qp, unw_
- 
- 	r = sr->curr.reg + decode_abreg(abreg, 0);
- 	r->where = where;
--	r->when = sr->region_start + MIN((int)t, sr->region_len - 1);
-+	r->when = sr->region_start + min_t(int, t, sr->region_len - 1);
- 	r->val = (ytreg & 0x7f);
- }
- 
-@@ -1129,7 +1128,7 @@ desc_spill_psprel_p (unsigned char qp, u
- 
- 	r = sr->curr.reg + decode_abreg(abreg, 1);
- 	r->where = UNW_WHERE_PSPREL;
--	r->when = sr->region_start + MIN((int)t, sr->region_len - 1);
-+	r->when = sr->region_start + min_t(int, t, sr->region_len - 1);
- 	r->val = 0x10 - 4*pspoff;
- }
- 
-@@ -1144,7 +1143,7 @@ desc_spill_sprel_p (unsigned char qp, un
- 
- 	r = sr->curr.reg + decode_abreg(abreg, 1);
- 	r->where = UNW_WHERE_SPREL;
--	r->when = sr->region_start + MIN((int)t, sr->region_len - 1);
-+	r->when = sr->region_start + min_t(int, t, sr->region_len - 1);
- 	r->val = 4*spoff;
- }
- 
-
-_
