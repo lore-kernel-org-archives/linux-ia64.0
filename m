@@ -1,7 +1,7 @@
 From: William Lee Irwin III <wli@holomorphy.com>
-Date: Thu, 25 Sep 2003 07:08:39 +0000
+Date: Thu, 25 Sep 2003 07:14:18 +0000
 Subject: Re: [Lse-tech] CPUSET Proposal
-Message-Id: <marc-linux-ia64-106447367009434@msgid-missing>
+Message-Id: <marc-linux-ia64-106447400909735@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106442121824485@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106442121824485@msgid-missing>
@@ -10,20 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 24 Sep 2003 23:02:34 -0700, William Lee Irwin III <wli@holomorphy.com> said:
-Bill> Custom interrupt controllers may exceed these limits, but I don't know
-Bill> of any that have actually been made use of to do so. Though it sucks
-Bill> and very, very badly, x86 is not limited to anything like 8x.
+On Wed, 24 Sep 2003 23:57:10 -0700, David Mosberger <davidm@linux.hpl.hp.com> said:
+David> I wasn't suggesting that x86 is limited to 8-way, I was
+David> wondering how many > 8-way x86 Linux machines are actually
+David> out there.  I wasn't even being facetious---just curious.
 
-On Wed, Sep 24, 2003 at 11:57:10PM -0700, David Mosberger wrote:
-> I wasn't suggesting that x86 is limited to 8-way, I was wondering how
-> many > 8-way x86 Linux machines are actually out there.  I wasn't even
-> being facetious---just curious.
+On Thu, Sep 25, 2003 at 12:07:03AM -0700, David Mosberger wrote:
+> Incidentally, the first "big" SMP machine I had access to was some
+> sort of Sequent (S81/10?), with ~12 80386 CPUs (yes, that was a long
+> time ago... ;-).
 
-I am not able to get any kind of useful numerical estimate of how mahy
-machines of that kind are manufactured or sold. I suspect the numbers
-are meaningful to and kept secret by someone, e.g. marketing ppl. Not to
-say that I've tried very hard.
+Aha, I've been on S-81's myself. Those definitely predated APIC's.
+I think they used the SLIC or whatever the precursor to the CSLIC was
+for an interrupt controller, and I'm sure there's a Sequent historian
+around somewhere to correct me if my memory's (which wouldn't have been
+of kernel hacking back then) failed me. =)
 
 
 -- wli
