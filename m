@@ -1,39 +1,24 @@
-From: Thomas Hiller <thomas.hiller@sap.com>
-Date: Tue, 18 Jul 2000 11:47:06 +0000
-Subject: [Linux-ia64] gcc/as problem: integer operand out of range
-Message-Id: <marc-linux-ia64-105590678205202@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Tue, 18 Jul 2000 18:13:28 +0000
+Subject: Re: [Linux-ia64] gcc/as problem: integer operand out of range
+Message-Id: <marc-linux-ia64-105590678205206@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205202@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205202@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-When I compile a c++ program with gcc I get the following messages:
+	iaxxsldc.S: Assembler messages:
 
-iaxxsldc.S: Assembler messages:
-iaxxsldc.S:4791: Error: Bad operand value: integer operand out of range
-iaxxsldc.S:4861: Error: Bad operand value: integer operand out of range
-iaxxsldc.S:4879: Error: Bad operand value: integer operand out of range
-iaxxsldc.S:8895: Error: Bad operand value: integer operand out of range
-iaxxsldc.S:8933: Error: Bad operand value: integer operand out of range
+If the compiler generated this instruction, then the compiler is at fault.
 
-where 4791 reads as follows:
-add     r32 = -8808, r32
+However, it looks like you are compiling a hand-written assembly file, because
+the filename in the error message ends in .S.  The only way that can happen
+is if you feed an assembly file to the compiler.  In this case, the error would
+be in the hand-written assembly language code.
 
-Is this a gas problem ? A gcc problem ?
-
-Thanks in advance.
-
-Kind regards,
-Thomas
-
---
-Thomas Hiller                                           thomas.hiller@compaq.com
-COMPAQ Computer Corporation                             thomas.hiller@sap.com
-Global SAP Solution Center                              Tel: +49 6227 / 7-45426
-LinuxLab @ SAP, Walldorf                                Fax: +49 6227 / 7-43027
-
-
-
+Jim
 
 
