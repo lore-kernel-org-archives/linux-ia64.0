@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Mon, 25 Aug 2003 17:05:32 +0000
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Date: Mon, 25 Aug 2003 17:27:12 +0000
 Subject: Re: [patch] turn off CONFIG_FD on ia64?
-Message-Id: <marc-linux-ia64-106183191904711@msgid-missing>
+Message-Id: <marc-linux-ia64-106183296606067@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106015002132453@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106015002132453@msgid-missing>
@@ -10,28 +10,34 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Aug 25, 2003 at 10:21:03AM +0100, Christoph Hellwig wrote:
-> Anyway, we should test explicitly for configurations supported by
-> floppy.c.
+On Mon, 25 Aug 2003 10:21:03 +0100 Christoph Hellwig <hch@infradead.org> wrote:
 
-yes - agreed
+| On Mon, Aug 25, 2003 at 05:03:31AM -0400, Jes Sorensen wrote:
+| > Martin> Other systems (such as Amiga and m68k) have non-ISA floppy
+| > Martin> drives, which are reached through an ad-hoc abstraction layer
+| > Martin> defined by different implementations of asm/floppy.h:
+| > 
+| > Catching up on old mail here, however Amiga never used the standard
+| > style floppy driver, we had our own. I think there is one m68k based
+| > box which used the ISA style one.
+| > 
+| > Sparc also uses drivers/block/floppy.c and they don't have ISA.
+| 
+| Anyway, we should test explicitly for configurations supported by
+| floppy.c.  So far this would be:
+| 
+| CONFIG_ISA
+| CONFIG_M68K
+| CONFIG_SPARC
+| 
+| any more?
 
-> So far this would be:
-> 
-> CONFIG_ISA
-> CONFIG_M68K
-> CONFIG_SPARC
-> 
-> any more?
+Currently BLK_DEV_FD says
+	depends on !X86_PC9800
 
-CONFIG_GSC_LASI and CONFIG_SUPERIO in drivers/parisc/Kconfig.
-Search for "Floppy" in  drivers/parisc/lasi.c and superio.c
+so it still needs to be excluded since it apparently supports ISA.
+(but it's hard to tell since parts of its Kconfig seem to be missing)
 
-Because of an on-going lawsuit, HP was not able to publish documentation
-for LASI floppy controller (or it's bugs). We only have one cheesy
-document for the NS87560UBD chip.
-
-I don't recall any work was completed to enable floppy under those
-chips but someone might want to take another whack at it in the future.
-
-grant
+--
+~Randy   [mantra:  Always include kernel version.]
+"Everything is relative."
