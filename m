@@ -1,37 +1,49 @@
-From: Erich Focht <efocht@ess.nec.de>
-Date: Thu, 22 Nov 2001 10:29:05 +0000
-Subject: [Linux-ia64] kernel/sched.c -1ULL vs. (cycles_t) -1
-Message-Id: <marc-linux-ia64-105590698805541@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Wed, 21 Nov 2001 21:20:12 +0000
+Subject: [Linux-ia64] resend: gcc NaT bug
+Message-Id: <marc-linux-ia64-105590698805539@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David,
+I'm resending this message from Jim here because I think it's of
+general interest (and the original submission bounced due to temporary
+mailer problems at HP Labs).
 
-in your ia64 patches you have a small cosmetic change which is (sort of)
-making kernel/sched.c platform dependent:
+Jim says he has no plans to backport the changes to earlier versions
+of the compiler, but I'd of course encourage distributors to ensure
+that the compiler they ship has this important problem fixed.
 
-diff -urN linux-2.4.14/kernel/sched.c linux-2.4.14-lia/kernel/sched.c
---- linux-2.4.14/kernel/sched.c Wed Oct 24 10:18:08 2001
-+++ linux-2.4.14-lia/kernel/sched.c     Wed Oct 24 10:21:35 2001
-@@ -266,7 +266,7 @@
-                                target_tsk = tsk;
-                        }
-                } else {
--                       if (oldest_idle = -1ULL) {
-+                       if (oldest_idle = (cycles_t) -1) {
-                                int prio = preemption_goodness(tsk, p,
-cpu);
- 
-[ in two places ].
-Because of this one needs separate patches for IA-64 and other platforms
-when
-working on the scheduler. Would you mind taking this out or trying to
-get it into
-the base-line kernel?
+	--david
 
-Thanks,
-Erich
+Subject: Re: gcc compiler bug 
+Date: Mon, 19 Nov 2001 23:13:21 -0800
+From: Jim Wilson <wilson@cygnus.com>
+
+This is in response to an earlier thread.
+
+Andrew MacLeod has written two gcc patches to fix NaT related problems
+originally reported in this thread.
+
+One patch is substantially the same as the patch Steve Ellcey wrote.  This
+fixes the testcase in his FSF gcc PR target/2246.  See 
+http://gcc.gnu.org/ml/gcc-bugs/2001-11/msg00501.html
+This patch only handles the specific case where a structure is being returned.
+It doesn't fix the general case.
+
+The second patch is more general, and does what I have suggested before.
+It uses dataflow info to find registers whose first set is a partial register
+set, and then clears the entire register before the set.  This makes sure that
+the NaT bit is clear before we use the register.  See
+http://gcc.gnu.org/ml/gcc-bugs/2001-11/msg00500.html
+This fixes the testcase Sunil posted.  The extra register clear is emitted
+before the combine optimization pass, so we are able to optimize away the
+extra set in some cases.
+
+Both patches have been approved for gcc 3.1, but neither one has been checked
+in yet.  The first patch is safe, but the second one is a little risky.
+
+Jim
 
