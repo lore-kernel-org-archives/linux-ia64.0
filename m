@@ -1,34 +1,35 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Fri, 11 Jun 2004 20:13:11 +0000
-Subject: Re: wait4 causes segfault in i386 chroot
-Message-Id: <40CA1257.2010606@intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Mon, 21 Jun 2004 20:59:39 +0000
+Subject: [PATCH] define cpu_logical_id() always
+Message-Id: <200406211459.39151.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040610051605.GA21936@cse.unsw.EDU.AU>
-In-Reply-To: <20040610051605.GA21936@cse.unsw.EDU.AU>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 6/10/2004 7:02 PM, Ian Wienand wrote:
+Define cpu_logical_id() even when !SMP.  I added uses of this in some
+iosapic printk's, which broke the UP build.
 
-> A guess : the only major difference with the optimised libraries is
-> they enable __thread which has the effect of putting errno in the TLS
-> area (sysdeps/unix/sysv/linux/i386).  TLS uses the %gs register to get
-> at the thread local data.  Now for some reason the gs register gets
-> trashed somewhere along the way, say in a signal handler, it's
-> possible that you'd get a segfault?  Anyone got any other ideas (cc:
-> debian-glibc@lists.debian.org in case they do).
-> 
-
-Sounds like a variant of this problem:
-
-http://lia64.bkbits.net:8080/linux-ia64-2.5/cset@3f9717925gK7Yi_LUHPyFzsyLpHMsA?nav=index.html|src/|src/arch|src/arch/ia64|src/arch/ia64/ia32|related/arch/ia64/ia32/ia32_signal.c
-
-Is it possible for you to make a tarball for this particular glibc available ? It doesn't fail for me with 
-
-# rpm -q glibc
-glibc-2.3.2-95.3
-
-	-Arun
-
+=== include/asm-ia64/smp.h 1.17 vs edited ==--- 1.17/include/asm-ia64/smp.h	2004-05-14 20:00:12 -06:00
++++ edited/include/asm-ia64/smp.h	2004-06-21 14:44:12 -06:00
+@@ -123,5 +123,9 @@
+ extern void lock_ipi_calllock(void);
+ extern void unlock_ipi_calllock(void);
+ 
++#else
++
++#define cpu_logical_id(cpuid)		0
++
+ #endif /* CONFIG_SMP */
+ #endif /* _ASM_IA64_SMP_H */
+=== include/asm-ia64/sn/sn_cpuid.h 1.8 vs edited ==--- 1.8/include/asm-ia64/sn/sn_cpuid.h	2004-02-03 22:39:51 -07:00
++++ edited/include/asm-ia64/sn/sn_cpuid.h	2004-06-21 14:53:37 -06:00
+@@ -84,7 +84,6 @@
+  */
+ 
+ #ifndef CONFIG_SMP
+-#define cpu_logical_id(cpu)				0
+ #define cpu_physical_id(cpuid)			((ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff)
+ #endif
+ 
