@@ -1,49 +1,91 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 06 Aug 2003 07:01:40 +0000
-Subject: Re: [patch] fix "struct irq_desc"
-Message-Id: <marc-linux-ia64-106015430302971@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 13 Aug 2003 22:11:44 +0000
+Subject: [PATCH] Trivial 2.5 efivars.c whitespace cleanup
+Message-Id: <marc-linux-ia64-106081285931321@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 6 Aug 2003 16:52:45 +1000, Martin Pool <mbp@samba.org> said:
+Against linux-2.5.  Convert leading spaces to tabs.
 
-  Martin> In linux-2.6.0-test2-ia64-030729 configured for generic ia64,
-  Martin> asm-ia64/machvec.h returns a 'struct irq_desc'.  There is a forward
-  Martin> declaration for the struct, but it is never actually defined under
-  Martin> that name, only as irq_desc_t.
+=== arch/ia64/kernel/efivars.c 1.12 vs edited ==--- 1.12/arch/ia64/kernel/efivars.c	Mon Jun 23 01:09:40 2003
++++ edited/arch/ia64/kernel/efivars.c	Wed Aug 13 17:12:55 2003
+@@ -168,13 +168,12 @@
+ 			 efi_char16_t *variable_name,
+ 			 efi_guid_t *vendor_guid)
+ {
+-
+ 	int i, short_name_size = variable_name_size / sizeof(efi_char16_t) + 38;
+ 	char *short_name;
+ 	efivar_entry_t *new_efivar;
+ 
+-        short_name = kmalloc(short_name_size+1, GFP_KERNEL);
+-        new_efivar = kmalloc(sizeof(efivar_entry_t), GFP_KERNEL);
++	short_name = kmalloc(short_name_size+1, GFP_KERNEL);
++	new_efivar = kmalloc(sizeof(efivar_entry_t), GFP_KERNEL);
+ 
+ 	if (!short_name || !new_efivar)  {
+ 		if (short_name)        kfree(short_name);
+@@ -210,9 +209,9 @@
+ 	new_efivar->entry->read_proc = efivar_read;
+ 	new_efivar->entry->write_proc = efivar_write;
+ 
+-        spin_lock(&efivars_lock);
+-        list_add(&new_efivar->list, &efivar_list);
+-        spin_unlock(&efivars_lock);
++	spin_lock(&efivars_lock);
++	list_add(&new_efivar->list, &efivar_list);
++	spin_unlock(&efivars_lock);
+ 
+ 	return 0;
+ }
+@@ -283,7 +282,7 @@
+ 	if (!var_data)
+ 		return -ENOMEM;
+ 	if (copy_from_user(var_data, buffer, size)) {
+-                kfree(var_data);
++		kfree(var_data);
+ 		return -EFAULT;
+ 	}
+ 
+@@ -349,7 +348,6 @@
+ static int __init
+ efivars_init(void)
+ {
+-
+ 	efi_status_t status;
+ 	efi_guid_t vendor_guid;
+ 	efi_char16_t *variable_name = kmalloc(1024, GFP_KERNEL);
+@@ -357,13 +355,13 @@
+ 
+ 	printk(KERN_INFO "EFI Variables Facility v%s\n", EFIVARS_VERSION);
+ 
+-        /* Since efi.c happens before procfs is available,
+-           we create the directory here if it doesn't
+-           already exist.  There's probably a better way
+-           to do this.
+-        */
+-        if (!efi_dir)
+-                efi_dir = proc_mkdir("efi", NULL);
++	/* Since efi.c happens before procfs is available,
++	   we create the directory here if it doesn't
++	   already exist.  There's probably a better way
++	   to do this.
++	*/
++	if (!efi_dir)
++		efi_dir = proc_mkdir("efi", NULL);
+ 
+ 	efi_vars_dir = proc_mkdir("vars", efi_dir);
+ 
+@@ -407,7 +405,7 @@
+ 	struct list_head *pos, *n;
+ 	efivar_entry_t *efivar;
+ 
+-        spin_lock(&efivars_lock);
++	spin_lock(&efivars_lock);
+ 	list_for_each_safe(pos, n, &efivar_list) {
+ 		efivar = efivar_entry(pos);
+ 		remove_proc_entry(efivar->entry->name, efi_vars_dir);
 
-  Martin> This means that the type of ia64_mv_irq_desc is wrong, which causes
-  Martin> the build to break in some files that are built with -Werror.  Really
-  Martin> this is incorrect even for non-generic builds although it does not
-  Martin> actually fail.
-
-  Martin> This patch puts in both the struct name and _t name:
-
-  Martin> --- linux-2.6.0test2-ia64/include/linux/irq.h.~1~	2003-07-29 12:05:34.000000000 +1000
-  Martin> +++ linux-2.6.0test2-ia64/include/linux/irq.h	2003-08-06 16:33:30.000000000 +1000
-  Martin> @@ -56,7 +56,7 @@ typedef struct hw_interrupt_type  hw_irq
-  Martin> *
-  Martin> * Pad this out to 32 bytes for cache and indexing reasons.
-  Martin> */
-  Martin> -typedef struct {
-  Martin> +typedef struct irq_desc {
-  Martin> unsigned int status;		/* IRQ status */
-  Martin> hw_irq_controller *handler;
-  Martin> struct irqaction *action;	/* IRQ action list */
-
-  Martin> Perhaps it would be better to make everything use the
-  Martin> irq_desc_t name?  That would require a somewhat larger
-  Martin> rearrangement of the headers to make it visible at that
-  Martin> point, but I can do that if desired.
-
-Can you run it past Andrew Morton and see if he accepts this patch?  I
-think it makes tons of sense on the grounds that in Linux typedef's
-are usually frowned upon (exactly because they can't be
-forward-declared).  I dropped that patch a while ago because I thought
-it wasn't needed anymore (and I was trying to get sync'd up with
-Linus' tree).
-
-	--david
