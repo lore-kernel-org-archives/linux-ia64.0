@@ -1,12 +1,24 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Date: Thu, 31 Aug 2000 17:57:11 +0000
-Subject: [Linux-ia64] SMP TLB flushes
-Message-Id: <marc-linux-ia64-105590678205428@msgid-missing>
+From: Stephan.Zeisset@intel.com
+Date: Thu, 31 Aug 2000 18:40:22 +0000
+Subject: RE: [Linux-ia64] SMP TLB flushes
+Message-Id: <marc-linux-ia64-105590678205429@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205428@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205428@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+As for the ptc.g, the region id comes from the region register that
+is selected through bits [63:61] of the address.
+
+-----Original Message-----
+From: Manfred Spraul [mailto:manfred@colorfullife.com]
+Sent: Thursday, August 31, 2000 10:57 AM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] SMP TLB flushes
+
 
 Is it correct that the SMP part of the SMP flushing code is still
 missing? I'm just noisy and I don't understand yet how the ia64 cpu is
@@ -32,4 +44,10 @@ Please cc me, I'm not subscribed to the list.
 
 --
 	Manfred
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
