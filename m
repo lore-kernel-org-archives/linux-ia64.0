@@ -1,47 +1,102 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Fri, 23 Mar 2001 06:53:51 +0000
-Subject: Re: [Linux-ia64] kernel update (second patch relative to 2.4.2)
-Message-Id: <marc-linux-ia64-105590693005344@msgid-missing>
+From: Tom King <Tom.King@bullant.com>
+Date: Wed, 07 Mar 2001 03:51:44 +0000
+Subject: Re: [linux-ia64] re: Lockups on 2.4.1
+Message-Id: <marc-linux-ia64-105590693005251@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005334@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005334@msgid-missing>
+References: <marc-linux-ia64-105590693005175@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005175@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Sounds reasonable.  But I hope you don't mind if I recommend against
->using gcc3 for the kernel until the things I mentioned get fixed.
+>>2. What is this new unwind stuff?
 
-Yes, that is OK, but I'm of mixed mind about it.  Half of me is happy that
-I don't have to support gcc3.  But half of me is wondering that if you forced
-use of gcc3, then perhaps everyone would be asking about the same kernel
-miscompilation problem, instead of everyone asking about different problems
-most of which aren't as important, but still have to be answered.
+> You probably want to know in the context of the kernel.  I can't answer
+that.
 
->Incidentally, I think you mentioned that someone is considering to
->implement the unwind api proposed by the C++ ABI.  Is the plan to use
+> I can answer in the context of C++.  The unwind stuff is used for
+exception
+> handling.  When a program throws, we use the unwind stuff to unwind stack
+> frames back to where the exception handler (catch clause) is.  The unwind
+> data is similar in spirit to the DWARF2 frame info that is currently used
+by
+> most all other gcc targets.  It is basically the same data just encoded
+> differently.
+> The format of the data is documented in the Software Conventions and
+Runtime
+> Architecture manual, section 11.  The library interface for C++ EH is
+> documented in the psABI, section 6.  This hasn't been implemented yet, we
+are
+> working on it right now.
 
-Yes, Richard Henderson is working on it, and making good progress.  This
-is one of the issues holding up the gcc3 release, as the gcc3 release manager
-would like this patch to be in it.  For a recent report (yesterday), see
-http://gcc.gnu.org/ml/gcc-patches/2001-03/msg01599.html
-http://gcc.gnu.org/ml/gcc-patches/2001-03/msg01600.html
-To be usable in gcc3, the unwinder has to work for all targets, and that
-makes it time consuming to implement and debug.
+> Jim
 
-This is just an API.  It dictates what functions the compiler is supposed
-to call to implement unwinding.  It doesn't specify the implementation of
-the unwinders.  For those, we are using all of the existing ones, the
-setjmp/longjmp unwinder, the DWARF2 frame info unwinder, and the IA-64
-unwind info unwinder.  I haven't examined the patches in great detail, but
-I believe there is little change to the existing unwinders at this time.
+This is really a question about throw/catch on g++. I wonder if your
+description of NYI is the reason for the failure?
+I am running gnupro-1117-6 (gcc version 2.96-ia64-000717 snap 001117)
+on Redhat 7.0 fisher (kernel 2.4.0-0.99.11smp) on a lion processor
+the following program runs o.k. with ./a.out 5 - but fails with ./a.out 6
 
-I am not surprised to see C in the list.  Gcc is emitting unwind info by
-default for all languages, because I think that is the right thing to do.
-It did not do this in the beginning.  This means the -fexception-tables
-(or whatever) option that the kernel is using isn't necessary once you
-switch to gcc3.
+# throws.h
+#include <iostream>
+#include <stdlib.h>
+class exc {
+  private :
+    int level;
+  public :
 
-Jim
+  void setLevel(int il) { level = il; cout << "set exc " << level << "\n"; }
+  int getLevel() { return level; }
+  void here(){ cout << "exception" ; } 
+
+  };
+void doit(int, int);
+void doit2(int, int);
+//--------------------------------------------------------------------------
+---------------------------
+//throws.cpp
+
+#include "throws.h"
+int main(int argc, char ** argv, char **envp)
+{
+  int count = atoi(*(argv+1));
+  try {
+    doit(count, count);
+  } 
+  catch(exc e) {
+    cout << "doit at top level " << e.getLevel() << "\n";
+  }
+}
+
+void doit(int start, int level) {
+  if (level = 0 ) {
+    cout << "o.k.\n" ;
+    exc e;
+    e.setLevel(start);
+    throw(e);
+  } 
+  else {
+    doit(start, level - 1);
+  }
+}
+//--------------------------------------------------------------------------
+-----------------
+bash% g++ -Wall -ggdb -fPIC -fexceptions  -mb-step  throws.cpp
+bash% ./a.out 5
+o.k.
+set exc 5
+doit at top level 5
+bash% ./a.out 6
+o.k.
+set exc 6
+Illegal instruction (core dumped)
+
+ 
+Tom King
+Kernel Engineer
+Bullant Technology
+DID +61-2-8925-1618
+http://www.bullant.com
+
 
