@@ -1,36 +1,36 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 31 Aug 2000 22:29:34 +0000
-Subject: Re: [Linux-ia64] new toolchain snapshots
-Message-Id: <marc-linux-ia64-105590678205437@msgid-missing>
+From: Jes Sorensen <jes@linuxcare.com>
+Date: Tue, 01 Aug 2000 00:49:20 +0000
+Subject: Re: [Linux-ia64] integer -> pointer question
+Message-Id: <marc-linux-ia64-105590678205260@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205422@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205422@msgid-missing>
+References: <marc-linux-ia64-105590678205250@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205250@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 31 Aug 2000 15:19:10 -0700, Jim Wilson <wilson@cygnus.com> said:
+>>>>> "Michael" = Michael Madore <mmadore@turbolinux.com> writes:
 
-  Jim> We can either live with the current set of warnings, or I can
-  Jim> try to bring over patches from more recent FSF gcc sources to
-  Jim> make them go away.
+>> Hi Michael
+>> 
+>> Storing integers in void pointers without a cast is simply broken
+>> and nobody should do that or to be more precise you cannot expect
+>> void * to be the same size as int.
+>> 
+>> Basically the correct solution is to LART the programmer of the bad
+>> code.
+>> 
+>> Jes
 
-  >> OK, sounds good.
+Michael> The code does perform the cast, but since the upper four
+Michael> bytes of the pointer will be meaningless, it's spits out a
+Michael> warning.
 
-  Jim> What sounds good: living with it, or patching it away?
+Good point, what they really should be doing is to use long instead of
+void * then - you know that long = sizeof(void *) but you shouldn't
+get the error for that.
 
-Either way, actually.  I don't care much which way it goes, though in
-the short term the old behavior (no warning when a pointer to a type
-other than void is passed) is better, as it avoids massive amounts of
-warnings.
+Jes
 
-  >> PS: Yeah, I realize that I'm probably barking up the wrong
-  >> tree.... ;-)
-
-  Jim> You are welcome to send a complaint to gcc-bugs@gcc.gnu.org.
-
-Will do.
-
-	--david
 
