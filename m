@@ -1,51 +1,44 @@
-From: Gururaj Ananthateerta <gururaj@cup.hp.com>
-Date: Wed, 17 Oct 2001 19:03:14 +0000
-Subject: [Linux-ia64] Weird PIO behavior.
-Message-Id: <marc-linux-ia64-105590698805362@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Wed, 17 Oct 2001 13:25:02 +0000
+Subject: [Linux-ia64] console_loglevel is broken on ia64
+Message-Id: <marc-linux-ia64-105590698805357@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I am experiencing some bizarre problem when I try to do PIO (memory writes) to
-MMIO space for a 64-bits
-addressing capable PCI NIC on a Lion platform (The one I have is a 2 processors,
-733 MHz Itanium, 1GB RAM).
-This problem is on HP-UX and not I haven't tried on Linux (for which I need to
-port my driver).
+kernel/printk.c has this abomination.
 
-Problem
------
-When multiple PIO writes are in flight, there is something that is
-happening that caused  the values to get interchanged.
-Something like this below.
+/* Keep together for sysctl support */
+int console_loglevel = DEFAULT_CONSOLE_LOGLEVEL;
+int default_message_loglevel = DEFAULT_MESSAGE_LOGLEVEL;
+int minimum_console_loglevel = MINIMUM_CONSOLE_LOGLEVEL;
+int default_console_loglevel = DEFAULT_CONSOLE_LOGLEVEL;
 
-Notations
-------
-Ri = Register i
-Vi = Value i intended to be written on Register Ri.
+sysctl assumes that the 4 variables occupy contiguous storage.  They
+don't on ia64, console_loglevel is separate from the other variables.
 
+  echo 6 4 1 7 > /proc/sys/kernel/printk
+  
+on ia64 overwrites console_loglevel and the next 3 integers, whatever
+they happen to be.  On 2.4.12 it corrupts console_sem, other ia64
+kernels will corrupt different data.
 
-If  the PIO writes are
-R1  ------- V1
-R2 --------V2
-R3 --------V3
+Does anybody fancy a small project to clean up these variables?  They
+need to become an integer array (say console_printk) containing 4
+elements, which is what sysctl assumes.  All references to these fields
+have to be changed to refer to the corresponding array element.  That
+should be as simple as
 
-The traces on the PCI analyzer shows something like this
-R1 --------V2
-R2--------V1
-R3--------V3
+  #define console_loglevel (console_printk[0])
+  
+in kernel.h, as long as no other files declare console_loglevel or the
+other variables.  Alas at least two other files declare console_loglevel,
+they need to be fixed to use the common declaration.  I have not
+checked the other console_xxx variables for extra declarations.
 
-The problem is seen very arbitrary and can be easily reproduced.
-Has anyone observed this type of problem or have any clue why this might be
-happening.
-
-I somewhere bumped into memory fence and sync instruction.  Do they help me in any
-way?.
-
-Thanks for your help
-Guru
-
+  arch/parisc/kernel/traps.c:   extern int console_loglevel;
+  arch/i386/mm/fault.c:extern int console_loglevel;
 
 
