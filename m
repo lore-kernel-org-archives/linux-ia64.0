@@ -1,256 +1,788 @@
-From: Peter Martuccelli <peterm@redhat.com>
-Date: Wed, 30 Jun 2004 15:56:16 +0000
-Subject: [PATCH] IA64 audit support
-Message-Id: <200406301556.i5UFuGg8009251@redrum.boston.redhat.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Thu, 24 Jun 2004 20:47:10 +0000
+Subject: [PATCH] another sn2_defconfig update
+Message-Id: <200406241647.10342.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_O3z2AcfssM43EmK"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: akpm@osdl.org
-Cc: peterm@redhat.com, faith@redhat.com, davidm@hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, ray.lanza@hp.com
+To: linux-ia64@vger.kernel.org
 
 
-Hello Andrew,
+--Boundary-00=_O3z2AcfssM43EmK
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Here is one of the audit tasks we talked about.  This patch adds=20
-ia64 support to the audit subsystem.  I have tested the ia64 audit=20
-support without any issues to report. The original patch was from
-from Ray Lanza.  Requesting patch to be merged in the next version.=20
+This update fixes the FAT default NLS options and trims some others.
 
-Please CC me with any comments, problems, changes, etc.
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-Regards,
+Jesse
 
-Peter
+--Boundary-00=_O3z2AcfssM43EmK
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="sn2-defconfig-update-2.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sn2-defconfig-update-2.patch"
 
-
-diffstat:
- arch/ia64/ia32/ia32_entry.S    |    8 ++++---
- arch/ia64/kernel/entry.S       |   10 +++++----
- arch/ia64/kernel/ivt.S         |    7 ++++--
- arch/ia64/kernel/ptrace.c      |   43 ++++++++++++++++++++++++++++++++++++=
-+++--
- include/asm-ia64/thread_info.h |    5 +++-
- init/Kconfig                   |    2 -
- 6 files changed, 62 insertions(+), 13 deletions(-)
-
-diff -Naurp linux-2.6.7-pristine/arch/ia64/ia32/ia32_entry.S linux-2.6.7/ar=
-ch/ia64/ia32/ia32_entry.S
---- linux-2.6.7-pristine/arch/ia64/ia32/ia32_entry.S	2004-06-16 16:32:05.00=
-0000000 -0400
-+++ linux-2.6.7/arch/ia64/ia32/ia32_entry.S	2004-06-16 16:34:10.000000000 -=
-0400
-@@ -110,7 +110,9 @@ GLOBAL_ENTRY(ia32_ret_from_clone)
- 	ld4 r2=3D[r2]
- 	;;
- 	mov r8=3D0
--	tbit.nz p6,p0=3Dr2,TIF_SYSCALL_TRACE
-+	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2
-+	;;=20
-+	cmp.ne p6,p0=3Dr2,r0
- (p6)	br.cond.spnt .ia32_strace_check_retval
- 	;;					// prevent RAW on r8
- END(ia32_ret_from_clone)
-@@ -142,7 +144,7 @@ GLOBAL_ENTRY(ia32_trace_syscall)
- 	adds r2=3DIA64_PT_REGS_R8_OFFSET+16,sp
- 	;;
- 	st8 [r2]=3Dr3				// initialize return code to -ENOSYS
--	br.call.sptk.few rp=3Dsyscall_trace	// give parent a chance to catch sysc=
-all args
-+	br.call.sptk.few rp=3Dsyscall_trace_enter	// give parent a chance to catc=
-h syscall args
- .ret2:	// Need to reload arguments (they may be changed by the tracing pro=
-cess)
- 	adds r2=3DIA64_PT_REGS_R1_OFFSET+16,sp	// r2 =3D &pt_regs.r1
- 	adds r3=3DIA64_PT_REGS_R13_OFFSET+16,sp	// r3 =3D &pt_regs.r13
-@@ -170,7 +172,7 @@ GLOBAL_ENTRY(ia32_trace_syscall)
- 	adds r2=3DIA64_PT_REGS_R8_OFFSET+16,sp	// r2 =3D &pt_regs.r8
- 	;;
- 	st8.spill [r2]=3Dr8			// store return value in slot for r8
--	br.call.sptk.few rp=3Dsyscall_trace	// give parent a chance to catch retu=
-rn value
-+	br.call.sptk.few rp=3Dsyscall_trace_leave	// give parent a chance to catc=
-h return value
- .ret4:	alloc r2=3Dar.pfs,0,0,0,0			// drop the syscall argument frame
- 	br.cond.sptk.many ia64_leave_kernel
- END(ia32_trace_syscall)
-diff -Naurp linux-2.6.7-pristine/arch/ia64/kernel/entry.S linux-2.6.7/arch/=
-ia64/kernel/entry.S
---- linux-2.6.7-pristine/arch/ia64/kernel/entry.S	2004-06-16 16:32:05.00000=
-0000 -0400
-+++ linux-2.6.7/arch/ia64/kernel/entry.S	2004-06-16 16:34:10.000000000 -0400
-@@ -506,7 +506,7 @@ GLOBAL_ENTRY(ia64_trace_syscall)
- 	;;
-  	stf.spill [r16]=F10
-  	stf.spill [r17]=F11
--	br.call.sptk.many rp=3Dsyscall_trace // give parent a chance to catch sys=
-call args
-+	br.call.sptk.many rp=3Dsyscall_trace_enter // give parent a chance to cat=
-ch syscall args
- 	adds r16=3DPT(F6)+16,sp
- 	adds r17=3DPT(F7)+16,sp
- 	;;
-@@ -546,7 +546,7 @@ GLOBAL_ENTRY(ia64_trace_syscall)
- .strace_save_retval:
- .mem.offset 0,0; st8.spill [r2]=3Dr8		// store return value in slot for r8
- .mem.offset 8,0; st8.spill [r3]=3Dr10		// clear error indication in slot f=
-or r10
--	br.call.sptk.many rp=3Dsyscall_trace // give parent a chance to catch ret=
-urn value
-+	br.call.sptk.many rp=3Dsyscall_trace_leave // give parent a chance to cat=
-ch return value
- .ret3:	br.cond.sptk ia64_leave_syscall
-=20
- strace_error:
-@@ -573,7 +573,7 @@ GLOBAL_ENTRY(ia64_strace_leave_kernel)
- 	 */
- 	nop.m 0
- 	nop.i 0
--	br.call.sptk.many rp=3Dsyscall_trace // give parent a chance to catch ret=
-urn value
-+	br.call.sptk.many rp=3Dsyscall_trace_leave // give parent a chance to cat=
-ch return value
- }
- .ret4:	br.cond.sptk ia64_leave_kernel
- END(ia64_strace_leave_kernel)
-@@ -599,7 +599,9 @@ GLOBAL_ENTRY(ia64_ret_from_clone)
- 	ld4 r2=3D[r2]
- 	;;
- 	mov r8=3D0
--	tbit.nz p6,p0=3Dr2,TIF_SYSCALL_TRACE
-+	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2
-+	;;
-+	cmp.ne p6,p0=3Dr2,r0
- (p6)	br.cond.spnt .strace_check_retval
- 	;;					// added stop bits to prevent r8 dependency
- END(ia64_ret_from_clone)
-diff -Naurp linux-2.6.7-pristine/arch/ia64/kernel/ivt.S linux-2.6.7/arch/ia=
-64/kernel/ivt.S
---- linux-2.6.7-pristine/arch/ia64/kernel/ivt.S	2004-06-16 16:32:05.0000000=
-00 -0400
-+++ linux-2.6.7/arch/ia64/kernel/ivt.S	2004-06-16 16:42:44.000000000 -0400
-@@ -752,7 +752,9 @@ ENTRY(break_fault)
- 	;;
- 	ld4 r2=3D[r2]				// r2 =3D current_thread_info()->flags
- 	;;
--	tbit.z p8,p0=3Dr2,TIF_SYSCALL_TRACE
-+	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2	// mask trace or audit
-+	;;=20
-+	cmp.eq p8,p0=3Dr2,r0
- 	mov b6=3Dr20
- 	;;
- (p8)	br.call.sptk.many b6=B6			// ignore this return addr
-@@ -1573,10 +1575,11 @@ ENTRY(dispatch_to_ia32_handler)
- 	ld4 r2=3D[r2]		// r2 =3D current_thread_info()->flags
- 	;;
- 	ld8 r16=3D[r16]
--	tbit.z p8,p0=3Dr2,TIF_SYSCALL_TRACE
-+	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2	// mask trace or audit
- 	;;
- 	mov b6=3Dr16
- 	movl r15=3Dia32_ret_from_syscall
-+	cmp.eq p8,p0=3Dr2,r0
- 	;;
- 	mov rp=3Dr15
- (p8)	br.call.sptk.many b6=B6
-diff -Naurp linux-2.6.7-pristine/arch/ia64/kernel/ptrace.c linux-2.6.7/arch=
-/ia64/kernel/ptrace.c
---- linux-2.6.7-pristine/arch/ia64/kernel/ptrace.c	2004-06-16 16:32:05.0000=
-00000 -0400
-+++ linux-2.6.7/arch/ia64/kernel/ptrace.c	2004-06-16 16:34:10.000000000 -04=
-00
-@@ -1447,9 +1447,8 @@ sys_ptrace (long request, pid_t pid, uns
- 	return ret;
- }
-=20
--/* "asmlinkage" so the input arguments are preserved... */
-=20
--asmlinkage void
-+void
- syscall_trace (void)
- {
- 	if (!test_thread_flag(TIF_SYSCALL_TRACE))
-@@ -1472,3 +1471,43 @@ syscall_trace (void)
- 		current->exit_code =3D 0;
- 	}
- }
+===== arch/ia64/configs/sn2_defconfig 1.7 vs edited =====
+--- 1.7/arch/ia64/configs/sn2_defconfig	Wed Jun 16 09:03:12 2004
++++ edited/arch/ia64/configs/sn2_defconfig	Thu Jun 24 13:42:21 2004
+@@ -140,6 +140,7 @@
+ #
+ # Generic Driver Options
+ #
++CONFIG_PREVENT_FIRMWARE_BUILD=y
+ CONFIG_FW_LOADER=m
+ # CONFIG_DEBUG_DRIVER is not set
+ 
+@@ -162,12 +163,12 @@
+ #
+ # CONFIG_BLK_CPQ_DA is not set
+ # CONFIG_BLK_CPQ_CISS_DA is not set
+-CONFIG_BLK_DEV_DAC960=m
+-CONFIG_BLK_DEV_UMEM=m
++# CONFIG_BLK_DEV_DAC960 is not set
++# CONFIG_BLK_DEV_UMEM is not set
+ CONFIG_BLK_DEV_LOOP=y
+ CONFIG_BLK_DEV_CRYPTOLOOP=m
+ CONFIG_BLK_DEV_NBD=m
+-# CONFIG_BLK_DEV_CARMEL is not set
++# CONFIG_BLK_DEV_SX8 is not set
+ CONFIG_BLK_DEV_RAM=y
+ CONFIG_BLK_DEV_RAM_SIZE=4096
+ CONFIG_BLK_DEV_INITRD=y
+@@ -181,12 +182,12 @@
+ #
+ # Please see Documentation/ide.txt for help/info on IDE drives
+ #
+-CONFIG_BLK_DEV_IDEDISK=y
+-# CONFIG_IDEDISK_MULTI_MODE is not set
+-CONFIG_BLK_DEV_IDECD=m
+-CONFIG_BLK_DEV_IDETAPE=m
+-CONFIG_BLK_DEV_IDEFLOPPY=y
+-CONFIG_BLK_DEV_IDESCSI=m
++# CONFIG_BLK_DEV_IDE_SATA is not set
++# CONFIG_BLK_DEV_IDEDISK is not set
++CONFIG_BLK_DEV_IDECD=y
++# CONFIG_BLK_DEV_IDETAPE is not set
++# CONFIG_BLK_DEV_IDEFLOPPY is not set
++# CONFIG_BLK_DEV_IDESCSI is not set
+ # CONFIG_IDE_TASK_IOCTL is not set
+ # CONFIG_IDE_TASKFILE_IO is not set
+ 
+@@ -195,9 +196,9 @@
+ #
+ CONFIG_IDE_GENERIC=y
+ CONFIG_BLK_DEV_IDEPCI=y
+-CONFIG_IDEPCI_SHARE_IRQ=y
++# CONFIG_IDEPCI_SHARE_IRQ is not set
+ # CONFIG_BLK_DEV_OFFBOARD is not set
+-CONFIG_BLK_DEV_GENERIC=y
++# CONFIG_BLK_DEV_GENERIC is not set
+ # CONFIG_BLK_DEV_OPTI621 is not set
+ CONFIG_BLK_DEV_IDEDMA_PCI=y
+ # CONFIG_BLK_DEV_IDEDMA_FORCED is not set
+@@ -207,20 +208,19 @@
+ # CONFIG_BLK_DEV_AEC62XX is not set
+ # CONFIG_BLK_DEV_ALI15X3 is not set
+ # CONFIG_BLK_DEV_AMD74XX is not set
+-CONFIG_BLK_DEV_CMD64X=m
++# CONFIG_BLK_DEV_CMD64X is not set
+ # CONFIG_BLK_DEV_TRIFLEX is not set
+ # CONFIG_BLK_DEV_CY82C693 is not set
+ # CONFIG_BLK_DEV_CS5520 is not set
+ # CONFIG_BLK_DEV_CS5530 is not set
+-CONFIG_BLK_DEV_HPT34X=m
+-CONFIG_HPT34X_AUTODMA=y
+-CONFIG_BLK_DEV_HPT366=m
++# CONFIG_BLK_DEV_HPT34X is not set
++# CONFIG_BLK_DEV_HPT366 is not set
+ # CONFIG_BLK_DEV_SC1200 is not set
+ # CONFIG_BLK_DEV_PIIX is not set
+ # CONFIG_BLK_DEV_NS87415 is not set
+ # CONFIG_BLK_DEV_PDC202XX_OLD is not set
+ # CONFIG_BLK_DEV_PDC202XX_NEW is not set
+-CONFIG_BLK_DEV_SVWKS=m
++# CONFIG_BLK_DEV_SVWKS is not set
+ CONFIG_BLK_DEV_SGIIOC4=y
+ # CONFIG_BLK_DEV_SIIMAGE is not set
+ # CONFIG_BLK_DEV_SLC90E66 is not set
+@@ -243,8 +243,8 @@
+ #
+ CONFIG_BLK_DEV_SD=y
+ CONFIG_CHR_DEV_ST=m
+-CONFIG_CHR_DEV_OSST=m
+-CONFIG_BLK_DEV_SR=y
++# CONFIG_CHR_DEV_OSST is not set
++CONFIG_BLK_DEV_SR=m
+ # CONFIG_BLK_DEV_SR_VENDOR is not set
+ CONFIG_CHR_DEV_SG=m
+ 
+@@ -265,37 +265,25 @@
+ # SCSI low-level drivers
+ #
+ # CONFIG_BLK_DEV_3W_XXXX_RAID is not set
++# CONFIG_SCSI_3W_9XXX is not set
+ # CONFIG_SCSI_ACARD is not set
+ # CONFIG_SCSI_AACRAID is not set
+-CONFIG_SCSI_AIC7XXX=m
+-CONFIG_AIC7XXX_CMDS_PER_DEVICE=32
+-CONFIG_AIC7XXX_RESET_DELAY_MS=15000
+-# CONFIG_AIC7XXX_BUILD_FIRMWARE is not set
+-CONFIG_AIC7XXX_DEBUG_ENABLE=y
+-CONFIG_AIC7XXX_DEBUG_MASK=0
+-CONFIG_AIC7XXX_REG_PRETTY_PRINT=y
+-CONFIG_SCSI_AIC7XXX_OLD=m
+-CONFIG_SCSI_AIC79XX=m
+-CONFIG_AIC79XX_CMDS_PER_DEVICE=32
+-CONFIG_AIC79XX_RESET_DELAY_MS=15000
+-# CONFIG_AIC79XX_BUILD_FIRMWARE is not set
+-# CONFIG_AIC79XX_ENABLE_RD_STRM is not set
+-CONFIG_AIC79XX_DEBUG_ENABLE=y
+-CONFIG_AIC79XX_DEBUG_MASK=0
+-CONFIG_AIC79XX_REG_PRETTY_PRINT=y
++# CONFIG_SCSI_AIC7XXX is not set
++# CONFIG_SCSI_AIC7XXX_OLD is not set
++# CONFIG_SCSI_AIC79XX is not set
+ # CONFIG_SCSI_ADVANSYS is not set
+-CONFIG_SCSI_MEGARAID=m
++# CONFIG_SCSI_MEGARAID is not set
+ CONFIG_SCSI_SATA=y
+-CONFIG_SCSI_SATA_SVW=m
+-CONFIG_SCSI_ATA_PIIX=m
+-CONFIG_SCSI_SATA_PROMISE=m
++# CONFIG_SCSI_SATA_SVW is not set
++# CONFIG_SCSI_ATA_PIIX is not set
++# CONFIG_SCSI_SATA_NV is not set
++# CONFIG_SCSI_SATA_PROMISE is not set
+ # CONFIG_SCSI_SATA_SX4 is not set
+ # CONFIG_SCSI_SATA_SIL is not set
+ # CONFIG_SCSI_SATA_SIS is not set
+-CONFIG_SCSI_SATA_VIA=m
++# CONFIG_SCSI_SATA_VIA is not set
+ CONFIG_SCSI_SATA_VITESSE=y
+ # CONFIG_SCSI_BUSLOGIC is not set
+-# CONFIG_SCSI_CPQFCTS is not set
+ # CONFIG_SCSI_DMX3191D is not set
+ # CONFIG_SCSI_EATA is not set
+ # CONFIG_SCSI_EATA_PIO is not set
+@@ -303,11 +291,7 @@
+ # CONFIG_SCSI_GDTH is not set
+ # CONFIG_SCSI_IPS is not set
+ # CONFIG_SCSI_INIA100 is not set
+-CONFIG_SCSI_SYM53C8XX_2=m
+-CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE=1
+-CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS=16
+-CONFIG_SCSI_SYM53C8XX_MAX_TAGS=64
+-# CONFIG_SCSI_SYM53C8XX_IOMAPPED is not set
++# CONFIG_SCSI_SYM53C8XX_2 is not set
+ # CONFIG_SCSI_IPR is not set
+ # CONFIG_SCSI_QLOGIC_ISP is not set
+ # CONFIG_SCSI_QLOGIC_FC is not set
+@@ -317,8 +301,8 @@
+ CONFIG_SCSI_QLA22XX=y
+ CONFIG_SCSI_QLA2300=y
+ CONFIG_SCSI_QLA2322=y
+-CONFIG_SCSI_QLA6312=y
+-CONFIG_SCSI_QLA6322=y
++# CONFIG_SCSI_QLA6312 is not set
++# CONFIG_SCSI_QLA6322 is not set
+ # CONFIG_SCSI_DC395x is not set
+ # CONFIG_SCSI_DC390T is not set
+ # CONFIG_SCSI_DEBUG is not set
+@@ -336,6 +320,9 @@
+ CONFIG_MD_MULTIPATH=y
+ CONFIG_BLK_DEV_DM=y
+ CONFIG_DM_CRYPT=m
++CONFIG_DM_SNAPSHOT=m
++CONFIG_DM_MIRROR=m
++CONFIG_DM_ZERO=m
+ 
+ #
+ # Fusion MPT device support
+@@ -344,7 +331,6 @@
+ CONFIG_FUSION_MAX_SGE=40
+ CONFIG_FUSION_ISENSE=m
+ CONFIG_FUSION_CTL=m
+-# CONFIG_FUSION_LAN is not set
+ 
+ #
+ # IEEE 1394 (FireWire) support
+@@ -371,126 +357,38 @@
+ # CONFIG_NET_KEY is not set
+ CONFIG_INET=y
+ CONFIG_IP_MULTICAST=y
+-CONFIG_IP_ADVANCED_ROUTER=y
+-CONFIG_IP_MULTIPLE_TABLES=y
+-# CONFIG_IP_ROUTE_FWMARK is not set
+-CONFIG_IP_ROUTE_NAT=y
+-CONFIG_IP_ROUTE_MULTIPATH=y
+-CONFIG_IP_ROUTE_TOS=y
+-CONFIG_IP_ROUTE_VERBOSE=y
++# CONFIG_IP_ADVANCED_ROUTER is not set
+ # CONFIG_IP_PNP is not set
+-CONFIG_NET_IPIP=m
+-CONFIG_NET_IPGRE=m
+-# CONFIG_NET_IPGRE_BROADCAST is not set
+-CONFIG_IP_MROUTE=y
+-CONFIG_IP_PIMSM_V1=y
+-CONFIG_IP_PIMSM_V2=y
+-CONFIG_ARPD=y
++# CONFIG_NET_IPIP is not set
++# CONFIG_NET_IPGRE is not set
++# CONFIG_IP_MROUTE is not set
++# CONFIG_ARPD is not set
+ CONFIG_SYN_COOKIES=y
+-CONFIG_INET_AH=m
+-CONFIG_INET_ESP=m
+-CONFIG_INET_IPCOMP=m
+-
+-#
+-# IP: Virtual Server Configuration
+-#
+-# CONFIG_IP_VS is not set
++# CONFIG_INET_AH is not set
++# CONFIG_INET_ESP is not set
++# CONFIG_INET_IPCOMP is not set
+ CONFIG_IPV6=m
+-CONFIG_IPV6_PRIVACY=y
+-CONFIG_INET6_AH=m
+-CONFIG_INET6_ESP=m
+-CONFIG_INET6_IPCOMP=m
+-CONFIG_IPV6_TUNNEL=m
+-CONFIG_NETFILTER=y
+-# CONFIG_NETFILTER_DEBUG is not set
+-CONFIG_BRIDGE_NETFILTER=y
+-
+-#
+-# IP: Netfilter Configuration
+-#
+-CONFIG_IP_NF_CONNTRACK=m
+-CONFIG_IP_NF_FTP=m
+-CONFIG_IP_NF_IRC=m
+-CONFIG_IP_NF_TFTP=m
+-CONFIG_IP_NF_AMANDA=m
+-CONFIG_IP_NF_QUEUE=m
+-CONFIG_IP_NF_IPTABLES=m
+-CONFIG_IP_NF_MATCH_LIMIT=m
+-CONFIG_IP_NF_MATCH_IPRANGE=m
+-CONFIG_IP_NF_MATCH_MAC=m
+-CONFIG_IP_NF_MATCH_PKTTYPE=m
+-CONFIG_IP_NF_MATCH_MARK=m
+-CONFIG_IP_NF_MATCH_MULTIPORT=m
+-CONFIG_IP_NF_MATCH_TOS=m
+-CONFIG_IP_NF_MATCH_RECENT=m
+-CONFIG_IP_NF_MATCH_ECN=m
+-CONFIG_IP_NF_MATCH_DSCP=m
+-CONFIG_IP_NF_MATCH_AH_ESP=m
+-CONFIG_IP_NF_MATCH_LENGTH=m
+-CONFIG_IP_NF_MATCH_TTL=m
+-CONFIG_IP_NF_MATCH_TCPMSS=m
+-CONFIG_IP_NF_MATCH_HELPER=m
+-CONFIG_IP_NF_MATCH_STATE=m
+-CONFIG_IP_NF_MATCH_CONNTRACK=m
+-CONFIG_IP_NF_MATCH_OWNER=m
+-CONFIG_IP_NF_MATCH_PHYSDEV=m
+-CONFIG_IP_NF_FILTER=m
+-CONFIG_IP_NF_TARGET_REJECT=m
+-CONFIG_IP_NF_NAT=m
+-CONFIG_IP_NF_NAT_NEEDED=y
+-CONFIG_IP_NF_TARGET_MASQUERADE=m
+-CONFIG_IP_NF_TARGET_REDIRECT=m
+-CONFIG_IP_NF_TARGET_NETMAP=m
+-CONFIG_IP_NF_TARGET_SAME=m
+-# CONFIG_IP_NF_NAT_LOCAL is not set
+-CONFIG_IP_NF_NAT_SNMP_BASIC=m
+-CONFIG_IP_NF_NAT_IRC=m
+-CONFIG_IP_NF_NAT_FTP=m
+-CONFIG_IP_NF_NAT_TFTP=m
+-CONFIG_IP_NF_NAT_AMANDA=m
+-CONFIG_IP_NF_MANGLE=m
+-CONFIG_IP_NF_TARGET_TOS=m
+-CONFIG_IP_NF_TARGET_ECN=m
+-CONFIG_IP_NF_TARGET_DSCP=m
+-CONFIG_IP_NF_TARGET_MARK=m
+-CONFIG_IP_NF_TARGET_CLASSIFY=m
+-CONFIG_IP_NF_TARGET_LOG=m
+-CONFIG_IP_NF_TARGET_ULOG=m
+-CONFIG_IP_NF_TARGET_TCPMSS=m
+-CONFIG_IP_NF_ARPTABLES=m
+-CONFIG_IP_NF_ARPFILTER=m
+-CONFIG_IP_NF_ARP_MANGLE=m
+-# CONFIG_IP_NF_COMPAT_IPCHAINS is not set
+-# CONFIG_IP_NF_COMPAT_IPFWADM is not set
+-# CONFIG_IP_NF_RAW is not set
+-
+-#
+-# IPv6: Netfilter Configuration
+-#
+-# CONFIG_IP6_NF_QUEUE is not set
+-# CONFIG_IP6_NF_IPTABLES is not set
+-
+-#
+-# Bridge: Netfilter Configuration
+-#
+-# CONFIG_BRIDGE_NF_EBTABLES is not set
+-CONFIG_XFRM=y
+-CONFIG_XFRM_USER=m
++# CONFIG_IPV6_PRIVACY is not set
++# CONFIG_INET6_AH is not set
++# CONFIG_INET6_ESP is not set
++# CONFIG_INET6_IPCOMP is not set
++# CONFIG_IPV6_TUNNEL is not set
++# CONFIG_NETFILTER is not set
+ 
+ #
+ # SCTP Configuration (EXPERIMENTAL)
+ #
+ # CONFIG_IP_SCTP is not set
+ # CONFIG_ATM is not set
+-CONFIG_BRIDGE=m
+-CONFIG_VLAN_8021Q=m
++# CONFIG_BRIDGE is not set
++# CONFIG_VLAN_8021Q is not set
+ # CONFIG_DECNET is not set
+ # CONFIG_LLC2 is not set
+ # CONFIG_IPX is not set
+ # CONFIG_ATALK is not set
+ # CONFIG_X25 is not set
+ # CONFIG_LAPB is not set
+-CONFIG_NET_DIVERT=y
++# CONFIG_NET_DIVERT is not set
+ # CONFIG_ECONET is not set
+ # CONFIG_WAN_ROUTER is not set
+ # CONFIG_NET_FASTROUTE is not set
+@@ -499,31 +397,8 @@
+ #
+ # QoS and/or fair queueing
+ #
+-CONFIG_NET_SCHED=y
+-CONFIG_NET_SCH_CBQ=m
+-CONFIG_NET_SCH_HTB=m
+-CONFIG_NET_SCH_HFSC=m
+-CONFIG_NET_SCH_CSZ=m
+-CONFIG_NET_SCH_PRIO=m
+-CONFIG_NET_SCH_RED=m
+-CONFIG_NET_SCH_SFQ=m
+-CONFIG_NET_SCH_TEQL=m
+-CONFIG_NET_SCH_TBF=m
+-CONFIG_NET_SCH_GRED=m
+-CONFIG_NET_SCH_DSMARK=m
+-# CONFIG_NET_SCH_DELAY is not set
+-# CONFIG_NET_SCH_INGRESS is not set
+-CONFIG_NET_QOS=y
+-CONFIG_NET_ESTIMATOR=y
+-CONFIG_NET_CLS=y
+-CONFIG_NET_CLS_TCINDEX=m
+-CONFIG_NET_CLS_ROUTE4=m
+-CONFIG_NET_CLS_ROUTE=y
+-CONFIG_NET_CLS_FW=m
+-CONFIG_NET_CLS_U32=m
+-CONFIG_NET_CLS_RSVP=m
+-CONFIG_NET_CLS_RSVP6=m
+-CONFIG_NET_CLS_POLICE=y
++# CONFIG_NET_SCHED is not set
++# CONFIG_NET_CLS_ROUTE is not set
+ 
+ #
+ # Network testing
+@@ -537,10 +412,10 @@
+ # CONFIG_IRDA is not set
+ # CONFIG_BT is not set
+ CONFIG_NETDEVICES=y
+-CONFIG_DUMMY=m
+-CONFIG_BONDING=m
+-CONFIG_EQUALIZER=m
+-CONFIG_TUN=m
++# CONFIG_DUMMY is not set
++# CONFIG_BONDING is not set
++# CONFIG_EQUALIZER is not set
++# CONFIG_TUN is not set
+ # CONFIG_ETHERTAP is not set
+ 
+ #
+@@ -551,66 +426,27 @@
+ #
+ # Ethernet (10 or 100Mbit)
+ #
+-CONFIG_NET_ETHERNET=y
+-CONFIG_MII=m
+-# CONFIG_HAPPYMEAL is not set
+-# CONFIG_SUNGEM is not set
+-# CONFIG_NET_VENDOR_3COM is not set
+-
+-#
+-# Tulip family network device support
+-#
+-CONFIG_NET_TULIP=y
+-# CONFIG_DE2104X is not set
+-CONFIG_TULIP=m
+-# CONFIG_TULIP_MWI is not set
+-# CONFIG_TULIP_MMIO is not set
+-# CONFIG_TULIP_NAPI is not set
+-# CONFIG_DE4X5 is not set
+-# CONFIG_WINBOND_840 is not set
+-# CONFIG_DM9102 is not set
+-# CONFIG_HP100 is not set
+-CONFIG_NET_PCI=y
+-# CONFIG_PCNET32 is not set
+-# CONFIG_AMD8111_ETH is not set
+-# CONFIG_ADAPTEC_STARFIRE is not set
+-# CONFIG_B44 is not set
+-# CONFIG_FORCEDETH is not set
+-# CONFIG_DGRS is not set
+-CONFIG_EEPRO100=m
+-# CONFIG_EEPRO100_PIO is not set
+-# CONFIG_E100 is not set
+-# CONFIG_FEALNX is not set
+-# CONFIG_NATSEMI is not set
+-# CONFIG_NE2K_PCI is not set
+-# CONFIG_8139CP is not set
+-# CONFIG_8139TOO is not set
+-# CONFIG_SIS900 is not set
+-# CONFIG_EPIC100 is not set
+-# CONFIG_SUNDANCE is not set
+-# CONFIG_VIA_RHINE is not set
++# CONFIG_NET_ETHERNET is not set
+ 
+ #
+ # Ethernet (1000 Mbit)
+ #
+-CONFIG_ACENIC=m
+-# CONFIG_ACENIC_OMIT_TIGON_I is not set
+-CONFIG_DL2K=m
+-CONFIG_E1000=y
+-# CONFIG_E1000_NAPI is not set
+-CONFIG_NS83820=m
+-CONFIG_HAMACHI=m
+-CONFIG_YELLOWFIN=m
+-CONFIG_R8169=m
+-CONFIG_SK98LIN=m
++# CONFIG_ACENIC is not set
++# CONFIG_DL2K is not set
++# CONFIG_E1000 is not set
++# CONFIG_NS83820 is not set
++# CONFIG_HAMACHI is not set
++# CONFIG_YELLOWFIN is not set
++# CONFIG_R8169 is not set
++# CONFIG_SK98LIN is not set
+ CONFIG_TIGON3=y
+ 
+ #
+ # Ethernet (10000 Mbit)
+ #
+-CONFIG_IXGB=m
+-# CONFIG_IXGB_NAPI is not set
+-# CONFIG_S2IO is not set
++# CONFIG_IXGB is not set
++CONFIG_S2IO=m
++# CONFIG_S2IO_NAPI is not set
+ 
+ #
+ # Token Ring devices
+@@ -628,16 +464,9 @@
+ # CONFIG_WAN is not set
+ # CONFIG_FDDI is not set
+ # CONFIG_HIPPI is not set
+-CONFIG_PPP=m
+-CONFIG_PPP_MULTILINK=y
+-CONFIG_PPP_FILTER=y
+-CONFIG_PPP_ASYNC=m
+-CONFIG_PPP_SYNC_TTY=m
+-CONFIG_PPP_DEFLATE=m
+-# CONFIG_PPP_BSDCOMP is not set
+-# CONFIG_PPPOE is not set
++# CONFIG_PPP is not set
+ # CONFIG_SLIP is not set
+-CONFIG_NET_FC=y
++# CONFIG_NET_FC is not set
+ # CONFIG_SHAPER is not set
+ CONFIG_NETCONSOLE=y
+ 
+@@ -660,7 +489,7 @@
+ # Userland interfaces
+ #
+ CONFIG_INPUT_MOUSEDEV=y
+-CONFIG_INPUT_MOUSEDEV_PSAUX=y
++# CONFIG_INPUT_MOUSEDEV_PSAUX is not set
+ CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
+ CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
+ # CONFIG_INPUT_JOYDEV is not set
+@@ -673,25 +502,14 @@
+ #
+ # CONFIG_GAMEPORT is not set
+ CONFIG_SOUND_GAMEPORT=y
+-CONFIG_SERIO=y
+-CONFIG_SERIO_I8042=y
+-# CONFIG_SERIO_SERPORT is not set
+-# CONFIG_SERIO_CT82C710 is not set
+-# CONFIG_SERIO_PCIPS2 is not set
++# CONFIG_SERIO is not set
++# CONFIG_SERIO_I8042 is not set
+ 
+ #
+ # Input Device Drivers
+ #
+-CONFIG_INPUT_KEYBOARD=y
+-CONFIG_KEYBOARD_ATKBD=y
+-# CONFIG_KEYBOARD_SUNKBD is not set
+-# CONFIG_KEYBOARD_LKKBD is not set
+-# CONFIG_KEYBOARD_XTKBD is not set
+-# CONFIG_KEYBOARD_NEWTON is not set
+-CONFIG_INPUT_MOUSE=y
+-CONFIG_MOUSE_PS2=y
+-# CONFIG_MOUSE_SERIAL is not set
+-# CONFIG_MOUSE_VSXXXAA is not set
++# CONFIG_INPUT_KEYBOARD is not set
++# CONFIG_INPUT_MOUSE is not set
+ # CONFIG_INPUT_JOYSTICK is not set
+ # CONFIG_INPUT_TOUCHSCREEN is not set
+ # CONFIG_INPUT_MISC is not set
+@@ -746,6 +564,7 @@
+ # CONFIG_AGP is not set
+ # CONFIG_DRM is not set
+ CONFIG_RAW_DRIVER=m
++# CONFIG_HPET is not set
+ CONFIG_MAX_RAW_DEVS=256
+ 
+ #
+@@ -787,7 +606,102 @@
+ #
+ # USB support
+ #
+-# CONFIG_USB is not set
++CONFIG_USB=m
++# CONFIG_USB_DEBUG is not set
 +
-+/* "asmlinkage" so the input arguments are preserved... */
++#
++# Miscellaneous USB options
++#
++# CONFIG_USB_DEVICEFS is not set
++# CONFIG_USB_BANDWIDTH is not set
++# CONFIG_USB_DYNAMIC_MINORS is not set
 +
-+asmlinkage void=20
-+syscall_trace_enter (long arg0, long arg1, long arg2, long arg3,
-+	  long arg4, long arg5, long arg6, long arg7, long stack)
-+{
-+	struct pt_regs *regs =3D (struct pt_regs *) &stack;
-+	long syscall;
-+	unsigned long 	psr =3D regs->cr_ipsr;	/* process status word */
++#
++# USB Host Controller Drivers
++#
++CONFIG_USB_EHCI_HCD=m
++# CONFIG_USB_EHCI_SPLIT_ISO is not set
++# CONFIG_USB_EHCI_ROOT_HUB_TT is not set
++CONFIG_USB_OHCI_HCD=m
++CONFIG_USB_UHCI_HCD=m
 +
-+	if (unlikely(current->audit_context)) {
-+		if (psr & IA64_PSR_IS)=20
-+			syscall =3D regs->r1;
-+		else
-+			syscall =3D regs->r15;
++#
++# USB Device Class drivers
++#
++# CONFIG_USB_BLUETOOTH_TTY is not set
++# CONFIG_USB_ACM is not set
++# CONFIG_USB_PRINTER is not set
++# CONFIG_USB_STORAGE is not set
 +
-+		audit_syscall_entry(current, syscall, arg0, arg1, arg2, arg3);
-+	}
++#
++# USB Human Interface Devices (HID)
++#
++CONFIG_USB_HID=m
++CONFIG_USB_HIDINPUT=y
++# CONFIG_HID_FF is not set
++# CONFIG_USB_HIDDEV is not set
 +
-+	if (test_thread_flag(TIF_SYSCALL_TRACE)
-+	    && (current->ptrace & PT_PTRACED))
-+		syscall_trace();
-+}
++#
++# USB HID Boot Protocol drivers
++#
++# CONFIG_USB_KBD is not set
++# CONFIG_USB_MOUSE is not set
++# CONFIG_USB_AIPTEK is not set
++# CONFIG_USB_WACOM is not set
++# CONFIG_USB_KBTAB is not set
++# CONFIG_USB_POWERMATE is not set
++# CONFIG_USB_MTOUCH is not set
++# CONFIG_USB_EGALAX is not set
++# CONFIG_USB_XPAD is not set
++# CONFIG_USB_ATI_REMOTE is not set
 +
-+/* "asmlinkage" so the input arguments are preserved... */
++#
++# USB Imaging devices
++#
++# CONFIG_USB_MDC800 is not set
++# CONFIG_USB_MICROTEK is not set
++# CONFIG_USB_HPUSBSCSI is not set
 +
-+asmlinkage void=20
-+syscall_trace_leave (long arg0, long arg1, long arg2, long arg3,
-+	  long arg4, long arg5, long arg6, long arg7, long stack)
-+{
-+	struct pt_regs *regs =3D (struct pt_regs *) &stack;
++#
++# USB Multimedia devices
++#
++# CONFIG_USB_DABUSB is not set
 +
-+	if (unlikely(current->audit_context))
-+		audit_syscall_exit(current, regs->r8);
++#
++# Video4Linux support is needed for USB Multimedia device support
++#
 +
-+	if (test_thread_flag(TIF_SYSCALL_TRACE)
-+	    && (current->ptrace & PT_PTRACED))
-+		syscall_trace();
-+}
-diff -Naurp linux-2.6.7-pristine/include/asm-ia64/thread_info.h linux-2.6.7=
-/include/asm-ia64/thread_info.h
---- linux-2.6.7-pristine/include/asm-ia64/thread_info.h	2004-06-16 16:32:09=
-.000000000 -0400
-+++ linux-2.6.7/include/asm-ia64/thread_info.h	2004-06-16 16:34:10.00000000=
-0 -0400
-@@ -73,12 +73,15 @@ struct thread_info {
- #define TIF_SIGPENDING		1	/* signal pending */
- #define TIF_NEED_RESCHED	2	/* rescheduling necessary */
- #define TIF_SYSCALL_TRACE	3	/* syscall trace active */
-+#define TIF_SYSCALL_AUDIT	4	/* syscall auditing active */
- #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_R=
-ESCHED */
-=20
- #define TIF_WORK_MASK		0x7	/* like TIF_ALLWORK_BITS but sans TIF_SYSCALL_T=
-RACE */
--#define TIF_ALLWORK_MASK	0xf	/* bits 0..3 are "work to do on user-return" =
-bits */
-+#define TIF_ALLWORK_MASK	0x1f	/* bits 0..4 are "work to do on user-return"=
- bits */
-=20
- #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
-+#define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
-+#define _TIF_SYSCALL_TRACEAUDIT	(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT)
- #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
- #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
- #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
-diff -Naurp linux-2.6.7-pristine/init/Kconfig linux-2.6.7/init/Kconfig
---- linux-2.6.7-pristine/init/Kconfig	2004-06-16 16:33:52.000000000 -0400
-+++ linux-2.6.7/init/Kconfig	2004-06-16 16:34:10.000000000 -0400
-@@ -149,7 +149,7 @@ config AUDIT
-=20
- config AUDITSYSCALL
- 	bool "Enable system-call auditing support"
--	depends on AUDIT && (X86 || PPC64 || ARCH_S390)
-+	depends on AUDIT && (X86 || PPC64 || ARCH_S390 || IA64)
- 	default y if SECURITY_SELINUX
- 	default n
- 	help
++#
++# USB Network adaptors
++#
++# CONFIG_USB_CATC is not set
++# CONFIG_USB_KAWETH is not set
++# CONFIG_USB_PEGASUS is not set
++# CONFIG_USB_RTL8150 is not set
++# CONFIG_USB_USBNET is not set
++
++#
++# USB port drivers
++#
++
++#
++# USB Serial Converter support
++#
++# CONFIG_USB_SERIAL is not set
++
++#
++# USB Miscellaneous drivers
++#
++# CONFIG_USB_EMI62 is not set
++# CONFIG_USB_EMI26 is not set
++# CONFIG_USB_TIGL is not set
++# CONFIG_USB_AUERSWALD is not set
++# CONFIG_USB_RIO500 is not set
++# CONFIG_USB_LEGOTOWER is not set
++# CONFIG_USB_LCD is not set
++# CONFIG_USB_LED is not set
++# CONFIG_USB_CYTHERM is not set
++# CONFIG_USB_PHIDGETSERVO is not set
+ 
+ #
+ # USB Gadget Support
+@@ -797,18 +711,23 @@
+ #
+ # File systems
+ #
+-CONFIG_EXT2_FS=y
++CONFIG_EXT2_FS=m
+ CONFIG_EXT2_FS_XATTR=y
+ CONFIG_EXT2_FS_POSIX_ACL=y
+-# CONFIG_EXT2_FS_SECURITY is not set
++CONFIG_EXT2_FS_SECURITY=y
+ CONFIG_EXT3_FS=y
+ CONFIG_EXT3_FS_XATTR=y
+ CONFIG_EXT3_FS_POSIX_ACL=y
+-# CONFIG_EXT3_FS_SECURITY is not set
++CONFIG_EXT3_FS_SECURITY=y
+ CONFIG_JBD=y
+ # CONFIG_JBD_DEBUG is not set
+ CONFIG_FS_MBCACHE=y
+-# CONFIG_REISERFS_FS is not set
++CONFIG_REISERFS_FS=y
++# CONFIG_REISERFS_CHECK is not set
++# CONFIG_REISERFS_PROC_INFO is not set
++CONFIG_REISERFS_FS_XATTR=y
++CONFIG_REISERFS_FS_POSIX_ACL=y
++CONFIG_REISERFS_FS_SECURITY=y
+ # CONFIG_JFS_FS is not set
+ CONFIG_FS_POSIX_ACL=y
+ CONFIG_XFS_FS=y
+@@ -822,8 +741,8 @@
+ # CONFIG_QFMT_V1 is not set
+ # CONFIG_QFMT_V2 is not set
+ CONFIG_QUOTACTL=y
+-CONFIG_AUTOFS_FS=y
+-CONFIG_AUTOFS4_FS=y
++CONFIG_AUTOFS_FS=m
++CONFIG_AUTOFS4_FS=m
+ 
+ #
+ # CD-ROM/DVD Filesystems
+@@ -839,6 +758,8 @@
+ CONFIG_FAT_FS=y
+ # CONFIG_MSDOS_FS is not set
+ CONFIG_VFAT_FS=y
++CONFIG_FAT_DEFAULT_CODEPAGE=437
++CONFIG_FAT_DEFAULT_IOCHARSET="iso8859-1"
+ # CONFIG_NTFS_FS is not set
+ 
+ #
+@@ -874,22 +795,25 @@
+ #
+ # Network File Systems
+ #
+-CONFIG_NFS_FS=y
++CONFIG_NFS_FS=m
+ CONFIG_NFS_V3=y
+-# CONFIG_NFS_V4 is not set
+-# CONFIG_NFS_DIRECTIO is not set
+-CONFIG_NFSD=y
++CONFIG_NFS_V4=y
++CONFIG_NFS_DIRECTIO=y
++CONFIG_NFSD=m
+ CONFIG_NFSD_V3=y
+-# CONFIG_NFSD_V4 is not set
+-# CONFIG_NFSD_TCP is not set
+-CONFIG_LOCKD=y
++CONFIG_NFSD_V4=y
++CONFIG_NFSD_TCP=y
++CONFIG_LOCKD=m
+ CONFIG_LOCKD_V4=y
+-CONFIG_EXPORTFS=y
+-CONFIG_SUNRPC=y
+-# CONFIG_RPCSEC_GSS_KRB5 is not set
++CONFIG_EXPORTFS=m
++CONFIG_SUNRPC=m
++CONFIG_SUNRPC_GSS=m
++CONFIG_RPCSEC_GSS_KRB5=m
+ CONFIG_SMB_FS=m
+ # CONFIG_SMB_NLS_DEFAULT is not set
+-# CONFIG_CIFS is not set
++CONFIG_CIFS=m
++# CONFIG_CIFS_STATS is not set
++# CONFIG_CIFS_POSIX is not set
+ # CONFIG_NCP_FS is not set
+ # CONFIG_CODA_FS is not set
+ # CONFIG_AFS_FS is not set
+@@ -909,7 +833,6 @@
+ # CONFIG_SOLARIS_X86_PARTITION is not set
+ # CONFIG_UNIXWARE_DISKLABEL is not set
+ # CONFIG_LDM_PARTITION is not set
+-# CONFIG_NEC98_PARTITION is not set
+ CONFIG_SGI_PARTITION=y
+ # CONFIG_ULTRIX_PARTITION is not set
+ # CONFIG_SUN_PARTITION is not set
+@@ -920,7 +843,7 @@
+ #
+ CONFIG_NLS=y
+ CONFIG_NLS_DEFAULT="iso8859-1"
+-# CONFIG_NLS_CODEPAGE_437 is not set
++CONFIG_NLS_CODEPAGE_437=y
+ # CONFIG_NLS_CODEPAGE_737 is not set
+ # CONFIG_NLS_CODEPAGE_775 is not set
+ # CONFIG_NLS_CODEPAGE_850 is not set
+@@ -943,7 +866,8 @@
+ # CONFIG_NLS_ISO8859_8 is not set
+ # CONFIG_NLS_CODEPAGE_1250 is not set
+ # CONFIG_NLS_CODEPAGE_1251 is not set
+-# CONFIG_NLS_ISO8859_1 is not set
++# CONFIG_NLS_ASCII is not set
++CONFIG_NLS_ISO8859_1=y
+ # CONFIG_NLS_ISO8859_2 is not set
+ # CONFIG_NLS_ISO8859_3 is not set
+ # CONFIG_NLS_ISO8859_4 is not set
+@@ -956,7 +880,7 @@
+ # CONFIG_NLS_ISO8859_15 is not set
+ # CONFIG_NLS_KOI8_R is not set
+ # CONFIG_NLS_KOI8_U is not set
+-# CONFIG_NLS_UTF8 is not set
++CONFIG_NLS_UTF8=y
+ 
+ #
+ # Library routines
+@@ -985,7 +909,7 @@
+ # CONFIG_DEBUG_SPINLOCK_SLEEP is not set
+ # CONFIG_IA64_DEBUG_CMPXCHG is not set
+ # CONFIG_IA64_DEBUG_IRQ is not set
+-# CONFIG_DEBUG_INFO is not set
++CONFIG_DEBUG_INFO=y
+ CONFIG_SYSVIPC_COMPAT=y
+ 
+ #
 
+--Boundary-00=_O3z2AcfssM43EmK--
