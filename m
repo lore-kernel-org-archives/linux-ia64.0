@@ -1,15 +1,35 @@
-From: John Baboval <baboval@mclinux.com>
-Date: Tue, 22 Aug 2000 18:49:57 +0000
-Subject: [Linux-ia64] Memory clearing at reboot
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="ZGiS0Q5IWpPtfppv"
-Message-Id: <marc-linux-ia64-105590678205378@msgid-missing>
+From: "Saxena, Sunil" <sunil.saxena@intel.com>
+Date: Wed, 23 Aug 2000 00:37:59 +0000
+Subject: RE: [Linux-ia64] Memory clearing at reboot
+Message-Id: <marc-linux-ia64-105590678205383@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205378@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205378@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---ZGiS0Q5IWpPtfppv
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hi John,
+
+Big Sur initializes it's memory only on power on; it does not do so on a
+soft reboot.  The behavior you are seeing should continue on all build of
+our BIOS.
+
+I am waiting for the answer on the Lion machine and do not know if Lion team
+can also enable this functionality.  I will respond again once I have the
+answer.  (By the way, my gut feelings says that they will not be able to
+enable this functionality.)
+
+Thanks
+Sunil 
+
+-----Original Message-----
+From: John Baboval [mailto:baboval@mclinux.com]
+Sent: Tuesday, August 22, 2000 11:50 AM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] Memory clearing at reboot
+
 
 I have a small test program that I run at the EFI shell prompt to set an
 area of memory and then perform a warm reboot. After the reboot our BigSur
@@ -36,66 +56,4 @@ dump patches MUCH easier! Thanks for any help,
 --John
 jbaboval@missioncriticallinux.com
 
---ZGiS0Q5IWpPtfppv
-Content-Type: text/x-csrc; charset=us-ascii
-Content-Disposition: attachment; filename="set_reset.c"
-
-#include <efi.h>
-#include <efilib.h>
-
-EFI_STATUS
-efi_main (EFI_HANDLE image, EFI_SYSTEM_TABLE *systab)
-{
-	unsigned long bytes, mbytes;
-	CHAR16 *prompt = W2U(L"Enter number of Mbytes: ");
-	CHAR16 input[255];
-	int input_len = 255;
-	void *buffer;
-	EFI_STATUS status;
-	unsigned long i;
-	long *temp;
-	CHAR16 *ugh = W2U(L"test");
-
-	InitializeLib(image, systab);
-
-	Input(prompt, input, input_len);
-	mbytes = Atoi(input);
-	bytes = mbytes*1024*1024;
-
-	Print (W2U(L"\nAllocating pool of %d bytes\n"), bytes);
-	status = BS->AllocatePool(EfiBootServicesData, bytes, &buffer);
-
-	if(status != EFI_SUCCESS) {
-		Print(W2U(L"AllocatePool Failed with "));
-		switch(status) {
-			case EFI_OUT_OF_RESOURCES:
-				Print(W2U(L"EFI_OUT_OF_RESOURCES\n"));
-				break;
-			case EFI_INVALID_PARAMETER:
-				Print(W2U(L"EFI_INVALID_PARAMETER\n"));
-				break;
-			default:
-				Print(W2U(L"%d\n"), status);
-		}
-		return status;
-	}
-
-	Print(W2U(L"Allocation succeeded. Buffer start :%016x\n"), buffer);
-
-	Print(W2U(L"Setting Memory to 0xDEADBEEF"));
-	for(i=0; i<bytes/8; i++) {
-		temp = (long *)(buffer + i*8);
-		*temp = (0xEFBEADDEEFBEADDE);
-		if(((i*8)%(1024*1024)) == 0)
-			Print(W2U(L"."));
-	}
-
-	Print(W2U(L"Press any key to reboot\n"));
-        WaitForSingleEvent(ST->ConIn->WaitForKey, 0);
-	RT->ResetSystem(EfiResetWarm, EFI_SUCCESS, 0, NULL);
-		
-	return EFI_SUCCESS;
-}
-
---ZGiS0Q5IWpPtfppv--
 
