@@ -1,153 +1,62 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Tue, 06 Apr 2004 11:04:49 +0000
-Subject: [RFC] readX_check() - Interface for PCI-X error recovery
-Message-Id: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
+From: Matthew Wilcox <willy@debian.org>
+Date: Tue, 06 Apr 2004 11:51:45 +0000
+Subject: Re: [RFC] readX_check() - Interface for PCI-X error recovery
+Message-Id: <20040406115145.GA23258@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
+In-Reply-To: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel mailing list <linux-kernel@vger.kernel.org>, Linux IA64 Mailing List <linux-ia64@vger.kernel.org>
-Cc: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
+To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: Linux Kernel mailing list <linux-kernel@vger.kernel.org>, Linux IA64 Mailing List <linux-ia64@vger.kernel.org>, Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
 
-Hi, all,
+On Tue, Apr 06, 2004 at 08:04:49PM +0900, Hidetoshi Seto wrote:
+> - Resources newly required:
+> 
+>     on struct device:
+> 	error flag
+> 	list of recoverable physical address regions
 
+Can't you just use the pci_dev->resource regions for this?
 
-This is a request for comments.
+> 	pointer to host bridge of the device
 
-We are considering about PCI-X error recovery.
+Again, there's already ways of getting to this from the pci_dev.
+Simply wander up through pdev->bus->self until you get to a self that
+is NULL and you've found a root bus.  Alternatively, you might just look
+at PCI_CONTROLLER() on ia64.
 
-What we deal as a problem here is that there is some cases that 
-a PCI error which is recoverable by a device driver is only passed to 
-a kernel but not to the driver, and that it results a system down 
-because the kernel cannot determine a relevant driver which should 
-recover the error.
-For example, in the case of PCI-X on ia64, PCI write error is recoverable 
-because the error is recorded in a status register, and the proper driver 
-can read the register after its transaction. However, PCI read error 
-become a system down because the error cause a MCA(Machine Check Abort) 
-interruption to the kernel instantly, but the kernel has no idea.
+>     on per_cpu:
+> 	list of currently checking devices
+> 
+> 
+> - Interfaces newly required:
+> 
+>     clear_pcix_errors(dev)
+> 	Clear the error flag of the dev, and start to check the device.
+> 	This also clears the status register of its host bridge.
 
+For consistency, how about naming these functions pci_clear_errors()
+and pci_check_errors()?  PCI-Express has similar error-checking abilities
+and I'd hate to see two extremely similar capabilities at war with each
+other over unacceoptable names ;-)
 
-We have post our ideas for this recovery before now.
-This time, we accede to Linus's idea and reconsider our interfaces.
+>     readX_check(dev,vaddr)
+> 	Read a register of the device mapped to vaddr, and check errors 
+> 	if possible(This is depending on its architecture. In the case of 
+> 	ia64, we can generate a MCA from an error by simple operation to 
+> 	test the read data.)
+> 	If any error happen on the recoverable region, set the error flag.
 
- Seto: "[RFC] How drivers notice a HW error?" (readX_check() I/F)
-   http://marc.theaimsgroup.com/?l=linux-kernel&m6992207709400&w=2
+I really don't think we want another readX variant.  Do we then also
+add readX_check_relaxed()?  Can't we just pretend the MCA is asynchronous
+on ia64?  I'm sure we'd get better performance.
 
- Ishii: "[RFC/PATCH, 1/4] readX_check() performance evaluation"
-   http://marc.theaimsgroup.com/?l=linux-kernel&m7525559029806&w=2
-
- Linus: "Re: [RFC/PATCH, 2/4] readX_check() performance evaluation"
-   http://marc.theaimsgroup.com/?l=linux-kernel&m7525904702681&w=2
-
-
-We are supposing the use of these interfaces will be in some fundamental 
-drivers such as for SCSI or NIC, and now we are working for implementation.
-
-We would appreciate if you point us any problem of this or something you 
-noticed about this.
-
-
-Thanks,
-
-H.Seto
-
------
-
-Abstract is as following:
-
-
-- Resources newly required:
-
-    on struct device:
-	error flag
-	list of recoverable physical address regions
-	pointer to host bridge of the device
-
-    on per_cpu:
-	list of currently checking devices
-
-
-- Interfaces newly required:
-
-    clear_pcix_errors(dev)
-	Clear the error flag of the dev, and start to check the device.
-	This also clears the status register of its host bridge.
-
-    readX_check(dev,vaddr)
-	Read a register of the device mapped to vaddr, and check errors 
-	if possible(This is depending on its architecture. In the case of 
-	ia64, we can generate a MCA from an error by simple operation to 
-	test the read data.)
-	If any error happen on the recoverable region, set the error flag.
-
-    read_pcix_errors(dev)
-	Return whether here was an error or not referring the error flag in 
-	struct device and the status register of the host bridge, and stop 
-	checking of the device.
-
-    register_pcix_region(dev,paddr,len)
-    unregister_pcix_region(dev)
-	Register/Unregister a physical address region that the driver can 
-	recover. This function would be in the init/cleanup of the driver.
-
-
-- Flow
-
-  xx_probe(dev, ...)
-  {
-    ..
-	register_pcix_region(dev,paddr,len);
-    ..
-  }
-
-  xx_intr()
-  {
-	spin_lock_irqsave();		/* disable interrupt & preemption */
-
-	clear_pcix_errors(dev);		/* clear error flag */
-	{
-	  ..
-	    x = readX_check(dev, vaddr);
-	  ..
-	}
-	error = read_pcix_errors(dev);	/* read error flag */
-	if (error)
-		recovery_or_offline(dev);
-
-	spin_lock_irqrestore();		/* enable interrupt & preemption */
-  }
-
-  xx_remove()
-  {
-    ..
-	unregister_pcix_region(dev) ;
-    ..
-  }
-
-
-- Note
-
-    on clear_pcix_errors():
-	If the status of the host bridge indicates an error when it let be 
-	clear, it should be cleared after setting each flags of all devices 
-	under the bridge. This is for other clear-read block on other cpu.
-
-    on ia64:
-	We can generate a MCA from a poisoned data synchronously in 
-	readX_check(), so it is required a MCA handler to check the error 
-	and deal error flags in struct device.
-
-    on ia32:
-	Since ia32's MCE(Machine Check Exception) is asynchronous, it's 
-	hard to check errors in readX_check(). So we check it by reading 
-	the status register of host bridge in read_pcix_errors().
-
-    on other arch:
-	if it is not possible on the arch, do like:
-	#ifndef CONFIG_PCI_RECOVERY
-	  #define clear_pcix_errors(dev) do { } while (0)
-	  #define read_pcix_errors(dev)  (0)
-	#endif
-
-
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
