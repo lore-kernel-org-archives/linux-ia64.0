@@ -1,15 +1,33 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Thu, 18 Mar 2004 23:52:50 +0000
-Subject: [3/3] claim PCI resources on ia64
-Message-Id: <20040318235250.GK25059@parcelfarce.linux.theplanet.co.uk>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 19 Mar 2004 01:48:11 +0000
+Subject: Re: [3/3] claim PCI resources on ia64
+Message-Id: <16474.20827.21678.283540@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk>
+	<20040318235250.GK25059@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040318235250.GK25059@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@zip.com.au>
+Cc: Matthew Wilcox <willy@debian.org>, Greg KH <greg@kroah.com>, David Mosberger <davidm@hpl.hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+
+Matthew tells me that applying this patch without the others will result
+in error messages (harmless, but still...).  I'm OK with the patch, so
+I'd appreciate it if whoever takes the other patches could apply this
+one, too.
+
+Thanks,
+
+-----------------------------------------------------------------------
+From: Matthew Wilcox <willy@debian.org>
+Sender: <willy@www.linux.org.uk>
 To: Matthew Wilcox <willy@debian.org>
-Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@zip.com.au>, Greg KH <greg@kroah.com>, David Mosberger <davidm@hpl.hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@zip.com.au>,
+        Greg KH <greg@kroah.com>, David Mosberger <davidm@hpl.hp.com>,
+        linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Subject: [3/3] claim PCI resources on ia64
+Date: Thu, 18 Mar 2004 23:52:50 +0000
 
 
 Call pci_claim_resources() so we can see what PCI resources are being used.
@@ -30,9 +48,3 @@ diff -u -p -r1.7 pci.c
  
 
 -- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
