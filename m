@@ -1,36 +1,38 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Fri, 21 Mar 2003 17:49:14 +0000
-Subject: Re: [Linux-ia64] provide /proc/sal/itc_drift through AUX?
-Message-Id: <marc-linux-ia64-105590723705284@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 04 Mar 2003 19:57:53 +0000
+Subject: Re: [Linux-ia64] _raw_write_trylock() missing
+Message-Id: <marc-linux-ia64-105590709805960@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705273@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705273@msgid-missing>
+References: <marc-linux-ia64-105590709805809@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805809@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Jes" = Jes Sorensen <jes@wildopensource.com> writes:
+>>>>> On Tue, 4 Feb 2003 15:18:22 +0100 (NFT), Joel GUILLET <Joel.Guillet@bull.net> said:
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
-David> No, not at all.  I was simply suggesting to always use
-David> gettimeofday().  The light-weight implementation of
-David> gettimeofday() runs in ~130 cycles, which isn't much slower
-David> than what you could do in user-level.
+  Joel> Here is an implementation of "_raw_write_trylock_ " needed for
+  Joel> preemption support with SMP.  I tested it on a 2.5.59 kernel
+  Joel> with 2 Itaniums. It seems to work.
 
-Jes> Ok, that makes it even simpler, I will do that then.
+I included your change, after dropping the (unnecessary) clobber of r2
+and and the label (final result is below).  Let me know if you have
+any issue with this.
 
-Thinking about this, I still think we need the patch for glibc-2.2 and
-maybe glibc-2.3 for compiling with kernels < 2.5.x? Though I'd
-probably just say we should take the hit for people using 2.4 kernels
-with glibc-2.3. The fast syscall support isn't going into glibc-2.2.
+Thanks,
 
-I assume some of the BuzzwordCompliantServer packages from various
-distributions are going to stick to glibc-2.2 and kernel-2.4.x for a
-while.
+	--david
 
-Back to mangling glibc-2.3.
-
-Cheers,
-Jes
+#define _raw_spin_trylock(x)								\
+({											\
+	register long result;								\
+											\
+	__asm__ __volatile__ (								\
+		"mov ar.ccv=r0\n"							\
+		";;\n"									\
+		"cmpxchg4.acq %0=[%2],%1,ar.ccv\n"					\
+		: "=r"(result) : "r"(1), "r"(&(x)->lock) : "ar.ccv", "memory");		\
+	(result = 0);									\
+})
 
