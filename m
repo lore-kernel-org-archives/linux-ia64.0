@@ -1,7 +1,7 @@
-From: "David S. Miller" <davem@redhat.com>
-Date: Thu, 15 May 2003 23:53:30 +0000
+From: Colin Ngam <cngam@sgi.com>
+Date: Thu, 15 May 2003 23:57:09 +0000
 Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705863@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705869@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,22 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-   From: Colin Ngam <cngam@sgi.com>
-   Date: Thu, 15 May 2003 18:32:31 -0500
-   
-   I do not understand what you are saying .. how would a consistent_dma_mask
-   attribute in the device struct helps pci_alloc_consistent() to return a dma
-   hanlde that can have the Upper 32 Bits Non 0's, and, moreover,
-   these Upper 32 Bits are not constants, but can vary greatly, and is
-   part of the 64 bit Physical System Memory Address?
-   
-The mask says that the consistent address "can" have the upper
-32-bits non-zero.  Then you define a consistent_dma_attrs bitmask
-that can define things like "requires >4GB address" etc.
+"David S. Miller" wrote:
 
-Again, all of this is device attribute stuff and not an issue
-concerning the DMA api calls.
+>    From: Colin Ngam <cngam@sgi.com>
+>    Date: Thu, 15 May 2003 18:45:42 -0500
+>
+>    Something else I do not understand .. in the PCI world, what does
+>    Physical Memory Address got to do with 32Bit Mapped DMA
+>    Bus Address?
+>
+> Many platforms direct map, that is what I assumed was happening
+> here and causing the problems.
+>
+>    I have not seen any of the drivers broken yet - e.g. qlXXX, acenic,
+>    tg3 etc.
+>
+> It only works because these devices happen to allow >32-bit DMA
+> addresses for descriptors.  You will find eventually that many
+> comodity pieces of PCI-X hardware will opt to only support 32-bit
+> DMA addressing for descriptor tables and whatnot.
 
-But I am ever further confused, how do things like tg3 cards even
-function TODAY on any PCI-X systems.
+Hi David,
+
+It is in the PCI-X Spec that all PCI-X devices in PCI-X Mode have to support
+DAC.
+It did not say that it cannot support SAC or should not support SAC,
+but it has to support DAC.
+
+Thanks.
+
+colin
+
+
 
