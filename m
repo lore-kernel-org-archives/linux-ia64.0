@@ -1,7 +1,7 @@
 From: "David S. Miller" <davem@redhat.com>
-Date: Wed, 24 Sep 2003 00:04:08 +0000
+Date: Wed, 24 Sep 2003 00:06:34 +0000
 Subject: Re: NS83820 2.6.0-test5 driver seems unstable on IA64
-Message-Id: <marc-linux-ia64-106436275332259@msgid-missing>
+Message-Id: <marc-linux-ia64-106436321832657@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106394503001622@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106394503001622@msgid-missing>
@@ -10,14 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 23 Sep 2003 17:13:33 -0700
-Grant Grundler <iod00d@hp.com> wrote:
+On Wed, 24 Sep 2003 01:14:56 +0100
+Matthew Wilcox <willy@debian.org> wrote:
 
-> It might. I be happy to share what I know about i860/i960 over pizza.
-> I worked on ATT SVR4 port to i860 in 1989/90 and things were quite
-> different then...
+> (I can see this descending into get_unaligned_likely() and
+> get_aligned_unlikely() which i'd rather avoid ...)
 
-Q: How does an OS context switch work on the i860?
-A: The user sneezes and the kernel cleans up after it.
+get_unaligned_unlikely() is exactly what just loading the 32-bit value
+as if it were aligned is, ie. what we're doing right now.
 
-I've hung out with i860 hackers already in my past :)
+People who want top performance should not put a networking card into
+their machine that can only DMA packets to 32-byte or whatever
+boundaries.  That's exactly the limitation NS83820 has and therefore
+why it should be avoided like the plague by performance conscious
+folks.
