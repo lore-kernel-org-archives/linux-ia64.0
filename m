@@ -1,173 +1,64 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 15 Jul 2004 00:08:19 +0000
+From: john stultz <johnstul@us.ibm.com>
+Date: Thu, 15 Jul 2004 00:48:06 +0000
 Subject: Re: gettimeofday nanoseconds patch (makes it possible for the
-Message-Id: <Pine.LNX.4.58.0407141703360.17055@schroedinger.engr.sgi.com>
+Message-Id: <1089852486.1388.256.camel@cog.beaverton.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0407140940260.14704@schroedinger.engr.sgi.com> 
- <1089835776.1388.216.camel@cog.beaverton.ibm.com> 
- <Pine.LNX.4.58.0407141323530.15874@schroedinger.engr.sgi.com>
- <1089839740.1388.230.camel@cog.beaverton.ibm.com>
-In-Reply-To: <1089839740.1388.230.camel@cog.beaverton.ibm.com>
+References: <Pine.LNX.4.58.0407140940260.14704@schroedinger.engr.sgi.com>
+	 <1089835776.1388.216.camel@cog.beaverton.ibm.com>
+	 <Pine.LNX.4.58.0407141323530.15874@schroedinger.engr.sgi.com>
+	 <1089839740.1388.230.camel@cog.beaverton.ibm.com>
+	 <Pine.LNX.4.58.0407141703360.17055@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0407141703360.17055@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: john stultz <johnstul@us.ibm.com>
+To: Christoph Lameter <clameter@sgi.com>, george anzinger <george@mvista.com>
 Cc: lkml <linux-kernel@vger.kernel.org>, ia64 <linux-ia64@vger.kernel.org>
 
-On Wed, 14 Jul 2004, john stultz wrote:
-
-> On Wed, 2004-07-14 at 13:28, Christoph Lameter wrote:
-> > > None the less, I do understand the desire for the change (and am working
-> > > to address it in 2.7), so could you at least use a better name then
-> > > gettimeofday()? Maybe get_ns_time() or something? Its just too similar
-> > > to do_gettimeofday and the syscall gettimeofday().
+On Wed, 2004-07-14 at 17:08, Christoph Lameter wrote:
+> On Wed, 14 Jul 2004, john stultz wrote:
+> > On Wed, 2004-07-14 at 13:28, Christoph Lameter wrote:
+> > > > None the less, I do understand the desire for the change (and am working
+> > > > to address it in 2.7), so could you at least use a better name then
+> > > > gettimeofday()? Maybe get_ns_time() or something? Its just too similar
+> > > > to do_gettimeofday and the syscall gettimeofday().
+> > >
+> > > Right. I had it named getnstimeofday before but the feeling was that the
+> > > patch should not introduce a new name. Any approach that would allow
+> > > progress on the issue would be fine with me.
 > >
-> > Right. I had it named getnstimeofday before but the feeling was that the
-> > patch should not introduce a new name. Any approach that would allow
-> > progress on the issue would be fine with me.
->
-> Fair enough. getnstimeofday() sounds good enough for me.
+> > Fair enough. getnstimeofday() sounds good enough for me.
+> 
+> Ok. A modified patch is following.
 
-Ok. A modified patch is following.
+I guess it looks good enough for me. I'd say send it to Andrew when
+you're ready.
 
->
-> > > Really, I feel the cleaner method is to fix do_gettimeofday() so it
-> > > returns a timespec and then convert it to a timeval in
-> > > sys_gettimeofday(). However this would add overhead to the syscall, so I
-> > > doubt folks would go for it.
+George, do you have any additional comments?
+
+Although you still have the issue w/ NTP adjustments being ignored, but
+last time I looked at the time_interpolator code, it seemed it was being
+ignored there too, so at least your not doing worse then the ia64
+do_gettimeofday(). [If I'm doing the time_interpolator code a great
+injustice with the above, someone please correct me]
+
+> > > > Really, I feel the cleaner method is to fix do_gettimeofday() so it
+> > > > returns a timespec and then convert it to a timeval in
+> > > > sys_gettimeofday(). However this would add overhead to the syscall, so I
+> > > > doubt folks would go for it.
+> > >
+> > > do_gettimeofday is used all over the linux kernel for a variety of
+> > > purposes and lots of code depends on the presence of a timeval struct.
 > >
-> > do_gettimeofday is used all over the linux kernel for a variety of
-> > purposes and lots of code depends on the presence of a timeval struct.
->
-> Indeed, it would be a decent amount of work to clean that up as well.
+> > Indeed, it would be a decent amount of work to clean that up as well.
+> 
+> The cleanup can be done gradually after this patch is in. I volunteer
+> to work on this (hoping that my employer may support that  ;-) ).
 
-The cleanup can be done gradually after this patch is in. I volunteer
-to work on this (hoping that my employer may support that  ;-) ).
+I'll try to remember to cc you on the 2.7 code when I get the first pass
+ready (re-implementing the NTP mechanism is the last blocker). I'm sure
+to appreciate additional feedback from non i386 arch specific views.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+thanks
+-john
 
-Index: linux-2.6.7/kernel/timer.c
-=================================--- linux-2.6.7.orig/kernel/timer.c
-+++ linux-2.6.7/kernel/timer.c
-@@ -1241,8 +1241,7 @@
- 		 * too.
- 		 */
-
--		do_gettimeofday((struct timeval *)&tp);
--		tp.tv_nsec *= NSEC_PER_USEC;
-+		getnstimeofday(&tp);
- 		tp.tv_sec += wall_to_monotonic.tv_sec;
- 		tp.tv_nsec += wall_to_monotonic.tv_nsec;
- 		if (tp.tv_nsec - NSEC_PER_SEC >= 0) {
-Index: linux-2.6.7/kernel/posix-timers.c
-=================================--- linux-2.6.7.orig/kernel/posix-timers.c
-+++ linux-2.6.7/kernel/posix-timers.c
-@@ -1168,15 +1168,10 @@
-  */
- static int do_posix_gettime(struct k_clock *clock, struct timespec *tp)
- {
--	struct timeval tv;
--
- 	if (clock->clock_get)
- 		return clock->clock_get(tp);
-
--	do_gettimeofday(&tv);
--	tp->tv_sec = tv.tv_sec;
--	tp->tv_nsec = tv.tv_usec * NSEC_PER_USEC;
--
-+	getnstimeofday(tp);
- 	return 0;
- }
-
-@@ -1192,24 +1187,16 @@
- 	struct timespec *tp, struct timespec *mo)
- {
- 	u64 jiff;
--	struct timeval tpv;
- 	unsigned int seq;
-
- 	do {
- 		seq = read_seqbegin(&xtime_lock);
--		do_gettimeofday(&tpv);
-+		getnstimeofday(tp);
- 		*mo = wall_to_monotonic;
- 		jiff = jiffies_64;
-
- 	} while(read_seqretry(&xtime_lock, seq));
-
--	/*
--	 * Love to get this before it is converted to usec.
--	 * It would save a div AND a mpy.
--	 */
--	tp->tv_sec = tpv.tv_sec;
--	tp->tv_nsec = tpv.tv_usec * NSEC_PER_USEC;
--
- 	return jiff;
- }
-
-Index: linux-2.6.7/include/linux/time.h
-=================================--- linux-2.6.7.orig/include/linux/time.h
-+++ linux-2.6.7/include/linux/time.h
-@@ -348,6 +348,7 @@
- struct itimerval;
- extern int do_setitimer(int which, struct itimerval *value, struct itimerval *ovalue);
- extern int do_getitimer(int which, struct itimerval *value);
-+extern void getnstimeofday (struct timespec *tv);
-
- static inline void
- set_normalized_timespec (struct timespec *ts, time_t sec, long nsec)
-Index: linux-2.6.7/kernel/time.c
-=================================--- linux-2.6.7.orig/kernel/time.c
-+++ linux-2.6.7/kernel/time.c
-@@ -22,6 +22,9 @@
-  *	"A Kernel Model for Precision Timekeeping" by Dave Mills
-  *	Allow time_constant larger than MAXTC(6) for NTP v4 (MAXTC = 10)
-  *	(Even though the technical memorandum forbids it)
-+ * 2004-07-14	 Christoph Lameter
-+ *	Added getnstimeofday to allow the posix timer functions to return
-+ *	with nanosecond accuracy
-  */
-
- #include <linux/module.h>
-@@ -421,6 +424,41 @@
-
- EXPORT_SYMBOL(current_kernel_time);
-
-+#ifdef CONFIG_TIME_INTERPOLATION
-+void getnstimeofday (struct timespec *tv)
-+{
-+	unsigned long seq,sec,nsec;
-+
-+	do {
-+		seq = read_seqbegin(&xtime_lock);
-+		sec = xtime.tv_sec;
-+		nsec = xtime.tv_nsec+time_interpolator_get_offset();
-+	} while (unlikely(read_seqretry(&xtime_lock, seq)));
-+
-+	while (unlikely(nsec >= NSEC_PER_SEC)) {
-+		nsec -= NSEC_PER_SEC;
-+		++sec;
-+	}
-+	tv->tv_sec = sec;
-+	tv->tv_nsec = nsec;
-+}
-+#else
-+/*
-+ * Simulate gettimeofday using do_gettimeofday which only allows a timeval
-+ * and therefore only yields usec accuracy
-+ */
-+void getnstimeofday(struct timespec *tv)
-+{
-+	struct timeval x;
-+
-+	do_gettimeofday(&x);
-+	tv->tv_sec = x.tv_sec;
-+	tv->tv_nsec = x.tv_usec * NSEC_PER_USEC;
-+}
-+#endif
-+
-+EXPORT_SYMBOL(getnstimeofday);
-+
- #if (BITS_PER_LONG < 64)
- u64 get_jiffies_64(void)
- {
