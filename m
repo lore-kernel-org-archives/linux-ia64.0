@@ -1,44 +1,50 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Mon, 09 Aug 2004 18:19:04 +0000
+From: "Seth, Rohit" <rohit.seth@intel.com>
+Date: Mon, 09 Aug 2004 18:43:32 +0000
 Subject: RE: Hugetlb demanding paging for -mm tree
-Message-Id: <200408091819.i79IJ3Y12216@unix-os.sc.intel.com>
+Message-Id: <01EF044AAEE12F4BAAD955CB7506494302005232@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20040806210750.GT17188@holomorphy.com>
 References: <200408051329.i75DT3Y26431@unix-os.sc.intel.com>
 In-Reply-To: <200408051329.i75DT3Y26431@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'William Lee Irwin III' <wli@holomorphy.com>
-Cc: 'Hirokazu Takahashi' <taka@valinux.co.jp>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, "Seth, Rohit" <rohit.seth@intel.com>
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, William Lee Irwin III <wli@holomorphy.com>
+Cc: Hirokazu Takahashi <taka@valinux.co.jp>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-William Lee Irwin III wrote on Friday, August 06, 2004 2:08 PM
-> On Fri, Aug 06, 2004 at 01:55:38PM -0700, Chen, Kenneth W wrote:
-> > diff -Nurp linux-2.6.7/mm/hugetlb.c linux-2.6.7.hugetlb/mm/hugetlb.c
-> > --- linux-2.6.7/mm/hugetlb.c	2004-08-06 11:44:59.000000000 -0700
-> > +++ linux-2.6.7.hugetlb/mm/hugetlb.c	2004-08-06 13:15:24.000000000 -0700
-> > @@ -276,9 +276,10 @@ retry:
-> >  	}
-> >
-> >  	spin_lock(&mm->page_table_lock);
-> > -	if (pte_none(*pte))
-> > +	if (pte_none(*pte)) {
-> >  		set_huge_pte(mm, vma, page, pte, vma->vm_flags & VM_WRITE);
-> > -	else
-> > +		update_mmu_cache(vma, addr, *pte);
-> > +	} else
-> >  		put_page(page);
-> >  out:
-> >  	spin_unlock(&mm->page_table_lock);
->
-> update_mmu_cache() does not appear to check the size of the translation
-> to be established in many architectures. e.g. on arch/ia64/ it does
-> flush_icache_range(addr, addr + PAGE_SIZE) unconditionally, and only
-> sets PG_arch_1 on a single struct page. Similar comments apply to
-> sparc64 and ppc64; I didn't check any others.
+Chen, Kenneth W <mailto:kenneth.w.chen@intel.com> wrote on Monday,
+August 09, 2004 11:19 AM:
 
-I suppose this is fixable in update_mmu_cache() where it can check the
-type of pte and do appropriate sizing and other things.  ia64 would have
-to check the address instead of looking at the pte.
+> William Lee Irwin III wrote on Friday, August 06, 2004 2:08 PM
+>> On Fri, Aug 06, 2004 at 01:55:38PM -0700, Chen, Kenneth W wrote:
+>>> diff -Nurp linux-2.6.7/mm/hugetlb.c linux-2.6.7.hugetlb/mm/hugetlb.c
+>>> --- linux-2.6.7/mm/hugetlb.c	2004-08-06 11:44:59.000000000
+-0700
+>>> +++ linux-2.6.7.hugetlb/mm/hugetlb.c	2004-08-06
+13:15:24.000000000
+>>>  	-0700 @@ -276,9 +276,10 @@ retry: }
+>>> 
+>>>  	spin_lock(&mm->page_table_lock);
+>>> -	if (pte_none(*pte))
+>>> +	if (pte_none(*pte)) {
+>>>  		set_huge_pte(mm, vma, page, pte, vma->vm_flags &
+VM_WRITE);
+>>> -	else +		update_mmu_cache(vma, addr, *pte);
+>>> +	} else
+>>>  		put_page(page);
+>>>  out:
+>>>  	spin_unlock(&mm->page_table_lock);
+>> 
+>> update_mmu_cache() does not appear to check the size of the
+>> translation to be established in many architectures. e.g. on
+>> arch/ia64/ it does flush_icache_range(addr, addr + PAGE_SIZE)
+>> unconditionally, and only sets PG_arch_1 on a single struct page.
+>> Similar comments apply to sparc64 and ppc64; I didn't check any
+>> others. 
+> 
+> I suppose this is fixable in update_mmu_cache() where it can check the
+> type of pte and do appropriate sizing and other things.  ia64 would
+> have 
+> to check the address instead of looking at the pte.
 
 
+Why do we need update_mmu_cache for hugepages?
