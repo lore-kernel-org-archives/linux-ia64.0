@@ -1,7 +1,7 @@
-From: Rahul Chaturvedi <justanotheraliasforrahul@yahoo.com>
-Date: Wed, 14 Apr 2004 05:34:32 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 14 Apr 2004 16:06:18 +0000
 Subject: RE: Questions on the stack for IA64
-Message-Id: <20040414053432.2971.qmail@web61206.mail.yahoo.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F010E2239@scsmsx401.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040413051722.84368.qmail@web61202.mail.yahoo.com>
 In-Reply-To: <20040413051722.84368.qmail@web61202.mail.yahoo.com>
@@ -10,60 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->   Rahul> Does the compiler ever touch this backing
-> store?
-> 
-> Not directly.
+>Another question on this, who allocates the memory for
+>the backing store? What if the RSE runs out of memory
+>there?
 
-Another question on this, who allocates the memory for
-the backing store? What if the RSE runs out of memory
-there?
+For the user ... the kernel allocates space for RSE.  If it
+runs out, then the kernel will grow the vma (just like it
+does when you run out of regular stack ... except the RSE
+grows up to higher addresses instead of down to lower addresses).
 
-> 
->   Rahul> I believe it is used during a stack unwind?
-> 
-> Yes (as is the memory stack and the registers).
-> 
->   Rahul>         printf("", a, b, c, d, e, f, g, h,
-> i, j, k, l, m, n,
->   Rahul> o, p, q, r, s, t, u, v, w, x, y, z, aa, bb,
-> cc, dd, ee, ff,
->   Rahul> gg);
-> 
->   Rahul> As you can see, almost all the parameters
-> are being "st4'd"
->   Rahul> to memory. From the architecture
-> specification, shouldn't all
->   Rahul> these be moved into registers? I have a
-> total of much lesser
->   Rahul> than 96 parameters?
-> 
-> You need to look at the software conventions &
-> runtime architecture guide:
-> 
->  
->
-http://www.intel.com/design/itanium/downloads/245358.htm
-> 
-> It specifies that up to 8 registers are used for
-> argument passing.
-> 
+In the kernel the RSE starts just above the task structure and
+grows up towards the stack which is growing down from the 
+the pt_regs that are allocated at the top of the pages allocated
+for the task.  Running out of kernel RSE (or stack) results in
+clobbering the switch_stack which lies in between. There is
+a pretty ascii picture in include/asm-ia64/ptrace.h
 
-Oh okay. I'll read the rest of the guide before I ask
-more stupid questions on this :)
-
-
-> There are also some fine books that might help you
-> get started. ;-)
-
-Books are expensive (especially in India) :( Processor
-manuals and mailing lists are free :)
-
-
-
-	
-		
-__________________________________
-Do you Yahoo!?
-Yahoo! Tax Center - File online by April 15th
-http://taxes.yahoo.com/filing.html
+-Tony
