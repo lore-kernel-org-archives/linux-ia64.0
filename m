@@ -1,46 +1,56 @@
-From: Alex Williamson <alex_williamson@hp.com>
-Date: Thu, 03 Apr 2003 17:53:27 +0000
-Subject: [Linux-ia64] [PATCH] 3/4 trivial generic fix
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------1681CF59BC5FF7EC149ECDF8"
-Message-Id: <marc-linux-ia64-105590723705422@msgid-missing>
+From: Martin Hicks <mort@wildopensource.com>
+Date: Thu, 03 Apr 2003 18:31:03 +0000
+Subject: Re: [Linux-ia64] [patch] logical CPU numbering
+Message-Id: <marc-linux-ia64-105590723705399@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705395@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705395@msgid-missing>
+References: <marc-linux-ia64-105590723705277@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723705277@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------1681CF59BC5FF7EC149ECDF8
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+On Thu, Mar 20, 2003 at 02:03:57PM -0500, Martin Hicks wrote:
+> 
+> Hello,
+> 
+> If a CPU fails to start during smp_boot_cpus(), then the logical CPU
+> numbering gets will have a "hole".  Using the number of booted CPU's
+> instead of the loop index will correct this.
+> 
+> This patch is against 2.4.21-pre5.
+
+This patch should be applied.  I finally got around to doing some more
+testing with it.  If a CPU fails to start, currently we get messages
+like the following for subsequent CPU's:
 
 
-   Patch 3 is a trivial build fix for the generic kernel target.
+CPU 17: nasid 18, slice 0, cnode 9
+CPU 17: base freq 0.000MHz, ITC ratio/2, ITC freq00.000MHz
+Calibrating delay loop... 1494.72 BogoMIPS
+phys CPU#17 (0x12) not responding - cannot use it.               <<-BOGUS
+
+
+The patch below fixes this problem.  This is the same patch as before,
+reposted just to make things easier.  It is against
+2.4.21-pre5-ia64-0303012.
+
 Thanks,
+mh
 
-	Alex
+-- 
+Wild Open Source Inc.                  mort@wildopensource.com
 
---
-Alex Williamson                             HP Linux & Open Source Lab
---------------1681CF59BC5FF7EC149ECDF8
-Content-Type: text/plain; charset=us-ascii;
- name="patch-03.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-03.diff"
 
-diff -urN linux-2.5.64/arch/ia64/boot/Makefile linux-work/arch/ia64/boot/Makefile
---- linux-2.5.64/arch/ia64/boot/Makefile	Tue Mar  4 20:29:23 2003
-+++ linux-work/arch/ia64/boot/Makefile	Tue Apr  1 09:19:53 2003
-@@ -11,7 +11,6 @@
- EXTRA_TARGETS := vmlinux.bin vmlinux.gz
+--- linux-2.4.21-pre5-ia64-030312.pristine/arch/ia64/kernel/smpboot.c	Sun Mar 16 10:18:53 2003
++++ linux-2.4.21-pre5-ia64-030312/arch/ia64/kernel/smpboot.c	Thu Mar 20 10:47:07 2003
+@@ -522,7 +522,7 @@
+ 			/*
+ 			 * Make sure we unmap all failed CPUs
+ 			 */
+-			if (ia64_cpu_to_sapicid[cpu] = -1)
++			if (ia64_cpu_to_sapicid[cpucount] = -1)
+ 				printk("phys CPU#%d not responding - cannot use it.\n", cpu);
+ 		}
  
- targets-$(CONFIG_IA64_HP_SIM)  += bootloader
--targets-$(CONFIG_IA64_GENERIC) += bootloader
- EXTRA_TARGETS += $(sort $(targets-y))
- 
- quiet_cmd_cptotop = LN      $@
-
---------------1681CF59BC5FF7EC149ECDF8--
-
 
