@@ -1,7 +1,7 @@
-From: Marc Aurele La France <tsi@gpu.srv.ualberta.ca>
-Date: Mon, 21 Aug 2000 21:02:38 +0000
-Subject: Re: [Linux-ia64] Re: IA-64 XFree86 (was: XFree 4.0.1 module loading)
-Message-Id: <marc-linux-ia64-105590678205367@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Mon, 21 Aug 2000 21:19:11 +0000
+Subject: [Linux-ia64] Re: IA-64 XFree86 (was: XFree 4.0.1 module loading)
+Message-Id: <marc-linux-ia64-105590678205368@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205362@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205362@msgid-missing>
@@ -10,32 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 21 Aug 2000, Jes Sorensen wrote:
+Mark Vojkovich (mvojkovich@valinux.com) said: 
+> 1) Firmware issues that prevent the X-server from working reliably
+>    with SMP (even lspci locks up in the SAL code).
 
-> >> If no proprietary information will be discussed, I'd be happier
-> >> with a public list, they're easier to administer.
+There is a kernel patch for this; there's a buffer overflow
+in the PCI code. (Unless you are running into something else,
+which is possible...)
 
-> Marc> I'm suggesting it be non-public to keep the S/N ratio up.
+> 3) The bios not assigning interrupts to cards that need them.
+>    My A3 machine will not boot with an NVIDIA card in it for
+>    this reason.
 
-> Please don't it makes it a royal pain in the butt for people who post
-> from random email addresses and it isn't that likely that there will
-> be a pile of noise makers on a list like this.
+Is it sitting behind a PCI card with a bridge on it?
 
-I disagree.  This is to be a working group, and, given the timelines
-involved, not one bogged down by answering FAQ's or dealing with 
-dichotomous net presences.
-
-Marc.
-
-+----------------------------------+-----------------------------------+
-|  Marc Aurele La France           |  work:   1-780-492-9310           |
-|  Computing and Network Services  |  fax:    1-780-492-1729           |
-|  352 General Services Building   |  email:  tsi@ualberta.ca          |
-|  University of Alberta           +-----------------------------------+
-|  Edmonton, Alberta               |                                   |
-|  T6G 2H1                         |     Standard disclaimers apply    |
-|  CANADA                          |                                   |
-+----------------------------------+-----------------------------------+
-XFree86 Core Team member.  ATI driver and X server internals.
-
+Bill
 
