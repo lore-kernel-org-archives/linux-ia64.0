@@ -1,39 +1,23 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 06 Jan 2005 21:53:24 +0000
-Subject: [PATCH] - Delete duplicate SN2 definition of cpu_logical_id for non-SMP
-Message-Id: <20050106215324.GA22647@sgi.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Thu, 06 Jan 2005 22:04:10 +0000
+Subject: Re: [PATCH] - Delete duplicate SN2 definition of cpu_logical_id for non-SMP
+Message-Id: <200501061404.10300.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050106215324.GA22647@sgi.com>
+In-Reply-To: <20050106215324.GA22647@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Thursday, January 6, 2005 1:53 pm, Jack Steiner wrote:
+> Looks like this patch is needed to build non-SMP configurations.
+>
+> Delete duplicate / stale definition of cpu_logical_id for non-SMP
+> configurations.
 
-Looks like this patch is needed to build non-SMP configurations.
+I think a lot more than that is needed to fix the UP build.  The patch Dann 
+posted contains this hunk and several others (also move the physical_id macro 
+out to a generic file).
 
-Delete duplicate / stale definition of cpu_logical_id for non-SMP
-configurations.
-
-
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-
-
-Index: linux/include/asm-ia64/sn/sn_cpuid.h
-=================================--- linux.orig/include/asm-ia64/sn/sn_cpuid.h	2005-01-03 19:55:30.048998168 -0600
-+++ linux/include/asm-ia64/sn/sn_cpuid.h	2005-01-06 15:50:15.335369557 -0600
-@@ -82,7 +82,6 @@
-  */
- 
- #ifndef CONFIG_SMP
--#define cpu_logical_id(cpu)			0
- #define cpu_physical_id(cpuid)			((ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff)
- #endif
- 
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
-
+Jesse
