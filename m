@@ -1,7 +1,7 @@
 From: Michael Madore <mmadore@turbolinux.com>
-Date: Wed, 16 Jan 2002 19:58:42 +0000
+Date: Wed, 16 Jan 2002 20:01:09 +0000
 Subject: Re: [Linux-ia64] PXE Boot
-Message-Id: <marc-linux-ia64-105590698805858@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805859@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805846@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805846@msgid-missing>
@@ -10,14 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> > Is aftpd required?
+"Tolentino, Matthew E" wrote:
 > 
-> No I don't run it and I netboot everyday. I use the tftpd shipped with RH7.2.
+> Mike,
+> 
+> I just tested this functionality last week on a Lion.  Using the ISC DHCP
+> 3.0 with the attached patch I was able to remotely install and boot Lion
+> systems.  I used the tftpd that comes with Redhat 7.2 as well...
+> 
+> I hope this helps..
 
-I switched to a different tftp server and now I can successfully kernel
-panic via the network. ;-)
-
-Thanks
+Do you have a sample configuration file for the patched dhcpd?  Also, is
+this patch being considered for inclusion by the ISC folks?
 
 Mike
 
