@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 08 Sep 2004 22:10:08 +0000
-Subject: Re: [PATCH] general config option cleanup
-Message-Id: <200409081510.08823.jbarnes@engr.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 08 Sep 2004 22:11:16 +0000
+Subject: RE: [PATCH] general config option cleanup
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01FB77FE@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200409081447.38703.jbarnes@engr.sgi.com>
 In-Reply-To: <200409081447.38703.jbarnes@engr.sgi.com>
@@ -10,26 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday, September 8, 2004 3:03 pm, Matthew Wilcox wrote:
-> On Wed, Sep 08, 2004 at 02:47:38PM -0700, Jesse Barnes wrote:
-> > As threatened, here's a patch that unifies the ia64 memory init and
-> > memmap codepaths by unconditionalizing the CONFIG_VIRTUAL_MEM_MAP code
-> > and making CONFIG_DISCONTIGMEM required.  It also allows building with
-> > CONFIG_SMP=n and/or CONFIG_NUMA=n.  The end result should be easier to
-> > understand and hack on, and should make things like memory hotplug that
-> > much easier since people will only have to worry about one code path
-> > instead of every combination of the three options.
->
-> I don't really like this.  It penalises platforms like Intel's Tiger box
-> that have contiguous memory.  I'd really like to see VIRTUAL_MEM_MAP go
-> away and the DISCONTIGMEM code be usable for both zx1/sx1000 and sn2.
+>I don't really like this.  It penalises platforms like Intel's 
+>Tiger box that have contiguous memory.  I'd really like to
+>see VIRTUAL_MEM_MAP go away and the DISCONTIGMEM code be
+>usable for both zx1/sx1000 and sn2.
 
-Have you tried to measure the penalty for discontigmem?  I have, and without 
-writing a kernel module that counts the number of alloc_pages calls one could 
-do in a tight loop, I don't think it's measurable.  virtual memmap is a 
-little more expensive (i.e. it shows up on benchmarks as something slightly 
-more than noise), but isn't the simplification worth it?  We've had 
-CONFIG_DISCONTIGMEM=y/n and/or CONFIG_VIRTUAL_MEM_MAP=y/n breakages several 
-times now...
+Caveat: I haven't read all of Jesse's patch yet.
 
-Jesse
+CONFIG_VIRTUAL_MEM_MAP isn't entirely accurately named.  It
+*used* to enable the virtual mem_map, but quite a while ago
+the code was changed so that even if VIRTUAL_MEM_MAP was set,
+you would only actually use a virtual mem_map if you had big
+holes in your physical address space.  See the:
+
+	if (max_gap < LARGE_GAP)
+
+in arch/ia64/mm/contig.c
+
+Also ... Tiger systems only have contiguous physical memory
+if they have <= 2GB.  There is a hole in the physical address
+space from 2G to 4G to make space for memory mapped I/O devices.
+
+-Tony
+
