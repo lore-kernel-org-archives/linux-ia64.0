@@ -1,36 +1,23 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Wed, 30 Jun 2004 16:14:36 +0000
-Subject: Re: Using GDB kills kernel
-Message-Id: <1088612076.3911.17.camel@tdi>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 09 Jun 2004 18:09:42 +0000
+Subject: Unaligned accesses in net/ipv4/netfilter/arp_tables.c:184
+Message-Id: <Pine.LNX.4.58.0406091106210.21291@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16610.19218.349114.463377@wombat.chubb.wattle.id.au>
-In-Reply-To: <16610.19218.349114.463377@wombat.chubb.wattle.id.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
 
-On Wed, 2004-06-30 at 15:09 +1000, Peter Chubb wrote:
-> 
-> With David's current patch against 2.6.7-BK, attempting to use GDB
-> causes a firmware assertion failure on my ZX2000.  Looks like it's
-> causing a SAL call or something.
-> 
-> gdb ./h
-> (gdb) r
-> Firmware assertion failed: (((DATA8) addr - salNvm) < NVM_SIZE) ||
-> (((DATA8) addr - efiNvm) < EFI_NVM_SIZE), file bbsram_new.c line 570 
-> ....
-> 
+The following code casts pointers to char to long in order to do a fast
+comparison. This causes alignment errors on IA64 and likely also on
+other platforms:
 
-   According to our firmware guys, that message is trying to say that
-something tried to access non-volatile memory outside of the SAL or EFI
-address ranges (ie. bad address that happened to hit NVM).  I can't
-reproduce it on my box.  Does it happen every time?  Any dependency on
-the binary gdb is debugging?  Thanks,
+        /* Look for ifname matches; this should unroll nicely. */
+        for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
+                ret |= (((const unsigned long *)indev)[i]
+                        ^ ((const unsigned long *)arpinfo->iniface)[i])
+                        & ((const unsigned long *)arpinfo->iniface_mask)[i];
+        }
 
-	Alex
-
--- 
-Alex Williamson                             HP Linux & Open Source Lab
-
+iniface is a pointer to char.
