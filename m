@@ -1,7 +1,7 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Thu, 02 Sep 2004 15:25:16 +0000
-Subject: Re: compiling 2.4.21 vanilla kernel
-Message-Id: <1094138716.5156.25.camel@tdi>
+From: gowda_avinash@emc.com
+Date: Fri, 03 Sep 2004 12:11:06 +0000
+Subject: RE: compiling 2.4.21 vanilla kernel
+Message-Id: <50C05B7AA7D6924FB5E384EF14BC647B0DB8D4@inba1mx2.corp.emc.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <50C05B7AA7D6924FB5E384EF14BC647B0DB8C7@inba1mx2.corp.emc.com>
 In-Reply-To: <50C05B7AA7D6924FB5E384EF14BC647B0DB8C7@inba1mx2.corp.emc.com>
@@ -11,7 +11,23 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
-   You're still applying the 2.4.21-ia64 patch, right?  There are a
+
+-----Original Message-----
+From: Alex Williamson [mailto:alex.williamson@hp.com] 
+Sent: Thursday, September 02, 2004 8:55 PM
+To: gowda_avinash@emc.com
+Cc: linux-ia64@vger.kernel.org
+Subject: Re: compiling 2.4.21 vanilla kernel
+
+
+   You're still applying the 2.4.21-ia64 patch, right? 
+
+[avinash] 
+this is the patch I am applying 
+linux-2.4.21-ia64-030702.diff 
+the one from kernel.org
+
+ There are a
 couple things to check:
 
      1. The ia64 patch adds a -g build option, which makes all the
@@ -20,14 +36,57 @@ couple things to check:
         to see if you're being bitten by this.  If you are, edit the
         mkinitrd script to make a bigger ramdisk (search for ia64) or
         build your kernel w/o -g.
+[avinash] 
+ Yes. Makefile has the -g option enabled. I also updated the modutils.
+
+
      2. Seems like RH renamed one of the sym53c8xx scsi modules, but I
         forget the details.  You may not be loading the right scsi
         driver into your ramdisk.  Running mkinitrd w/ the '-v' option
         should shed some light on what's getting included.
 
+[avinash]  
+The mkinitrd -v option does not give out any warnings. This is the output of
+mkinitrd -f -v option 
+
+Looking for deps of module scsi_mod     
+Looking for deps of module sd_mod       
+Looking for deps of module unknown      
+Looking for deps of module mptbase      
+Looking for deps of module mptscsih     mptbase
+Looking for deps of module mptbase      
+Looking for deps of module qla2300      
+Looking for deps of module ide-disk     
+Looking for deps of module ext3 
+Using modules:  ./kernel/drivers/message/fusion/mptbase.o
+./kernel/drivers/message/fusion/mptscsih.o ./kernel/drivers/scsi/qla2300.o
+Using loopback device /dev/loop0
+/sbin/nash -> /tmp/initrd.KGuZIV/bin/nash
+/sbin/insmod.static -> /tmp/initrd.KGuZIV/bin/insmod
+`/lib/modules/2.4.21/./kernel/drivers/message/fusion/mptbase.o' ->
+`/tmp/initrd.KGuZIV/lib/mptbase.o'
+`/lib/modules/2.4.21/./kernel/drivers/message/fusion/mptscsih.o' ->
+`/tmp/initrd.KGuZIV/lib/mptscsih.o'
+`/lib/modules/2.4.21/./kernel/drivers/scsi/qla2300.o' ->
+`/tmp/initrd.KGuZIV/lib/qla2300.o'
+Loading module mptbase
+Loading module mptscsih
+Loading module qla2300
+
+This looks like a good initrd output. 
+
 If you're still having problem, please provide more details, like what
 box this is and a console log of the failure.  Also, there are much
 newer kernels out there than 2.4.21...
+
+[avinash] 
+It is a Dell 3250 Poweredge.
+I am trying to get kdb running on tht kernel. So that is the reason I am
+looking at 2.4.21. 
+I did try 2.4.25 kernel but this is the message I am getting
+arch/ia64/Makefile:38: Warning: Found binutils that supports hint
+instruction
+
 
 	Alex
 
@@ -78,7 +137,8 @@ On Thu, 2004-09-02 at 12:00 +0100, gowda_avinash@emc.com wrote:
 > make menuconfig
 > make dep
 > make vmlinux 
-> I copied the vmlinux to /boot/efi/efi/Redhat (where all my images are) and 
+> I copied the vmlinux to /boot/efi/efi/Redhat (where all my images are) and
+
 > Lastly did the mkinitrd. 
 > 
 > I am wondering where I am going wrong. 
@@ -95,4 +155,3 @@ On Thu, 2004-09-02 at 12:00 +0100, gowda_avinash@emc.com wrote:
 > 
 -- 
 Alex Williamson                             HP Linux & Open Source Lab
-
