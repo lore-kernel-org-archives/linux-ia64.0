@@ -1,66 +1,63 @@
-From: "eugenio" <daddypacker@beer-garden.com>
-Date: Thu, 20 May 2004 07:22:03 +0000
-Subject: Looking for a promotion?
-Message-Id: <1085037723-17430@excite.com>
+From: MAEDA Naoaki <maeda.naoaki@jp.fujitsu.com>
+Date: Thu, 13 May 2004 09:23:57 +0000
+Subject: /proc/ioports regression in 2.6.6 on Tiger4
+Message-Id: <20040513.182357.104026513.maeda@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1084922304-28056@excite.com>
-In-Reply-To: <1084922304-28056@excite.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 40free.net.ph@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Incredible DEALS on SOFTWARE you NEED!
+Hi, 
 
-Save 40% on Windows XP Professional!
-Save 40% on Microsoft Office 2003 Professional!
-Save $90 on Adobe Photoshop!
-Save 60% on Norton AntiVirus!!
+Since 2.6.6, "cat /proc/ioports" loops infinity on Tiger4, because 
+there is a loop in ioport_resource tree.
 
-Save your company thousands of dollars when it needs software!
+$ cat /proc/ioports 
+00000000-00005fff : PCI Bus 0000:00
+  00000060-0000006f : i8042
+  000001f0-000001f7 : ide0
+  000003c0-000003df : vga+
+  000003f6-000003f6 : ide0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+          00000500-0000053f : 0000:00:1f.0
+	  ... 
 
-That promotion just got closer...
+$ /sbin/lspci -vs 00:1f.0
+00:1f.0 ISA bridge: Intel Corp. 82801DB LPC Interface Controller (rev 02)
+        Flags: bus master, medium devsel, latency 0
 
-Click here!!
-http://teddychoice.biz/index.php?su55
+0000:00:1f.0, which causes the loop, is an Intel LPC interface bridge,
+and quirk_ich4_lpc_acpi() has become called for the bridge since 2.6.6.
 
+The reason of the loop is, pci_claim_resource() is issued twice with
+the exactly same resource structure, the first one is called by 
+quirk_io_region() for quirk_ich4_lpc_acpi() at pci_fixup_device() and
+the second one is called by pcibios_fixup_device_resources(), 
+and in this condition, insert_resource() sets the resource's child pointer
+to itself. Oviously, it causes the loop.
 
-Software packages you can save big on:
+There are a few ways to fix the problem as following, but I'm not sure
+which one is the best. 
 
-Windows XP Professional
-Norton Antivirus 2004
-Adobe Photoshop 7.0
-Microsoft Office XP Professional
-Microsoft Office 2003 Professional
-Microsoft Money 2004
-Microsoft 2000 Professional
-Adobe Photoshop CS
-Adobe Pagemaker 7.0
-Adobe Illustrator 10
-Corel Draw Graphics Suite 11
-Adobe Acrobat 6.0 Professional
-Borland Delphi 7 Professional
-Visual Studio.Net Enterprise Architecht
-MS SQL Server 2000 Enterprise
-MS Windows Server 2003 Enterprise
-MS Windows 2000 Server
-Red Hat Linux 7.3
+1) Do not claim the resource in quirk_io_region().
+2) Put additional check in pcibios_fixup_device_resources() if the resource
+   has already been claimed.
+3) Modify insert_resource() not to claim the resource that has already been
+   claimed and return with -EBUSY.
 
+Does anybody have comments?
 
-
-Click here!!
-http://teddychoice.biz/index.php?su55
-
-
-
-
-
-
-
-
-
-nick mikifirst dexter diana dude god julia 
-tattoo fozziehappyday mayday tigre
-tiffany republic beanie 
-
-REMOV3: http://teddychoice.biz/soft/chair.php
+Thanks,
+Naoaki Maeda
