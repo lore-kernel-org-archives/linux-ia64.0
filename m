@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Fri, 14 Nov 2003 13:11:43 +0000
-Subject: Re: problem in booting HP zx6000 with stock kernel 2.5.75
-Message-Id: <marc-linux-ia64-106881558014067@msgid-missing>
+From: "Deepak Kumar Gupta, Noida" <dkumar@noida.hcltech.com>
+Date: Tue, 18 Nov 2003 06:39:29 +0000
+Subject: problem in booting HP zx6000 with stock kernel 2.4.18
+Message-Id: <marc-linux-ia64-106913694118596@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106840426422921@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106840426422921@msgid-missing>
@@ -10,19 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Nov 14, 2003 at 09:45:29AM +1100, Peter Chubb wrote:
-> >>>>> "Jesse" = Jesse Barnes <jbarnes@sgi.com> writes:
-> 
-> Jesse> On Thu, Nov 13, 2003 at 02:51:43PM +0000, Matthew Wilcox wrote:
-> >> I'd suggest we want to have defconfig as generic, then add configs/
-> 
-> Are you planning for separate SMP and UP configs?
+Hello everybody
 
-I wasn't.  These are only default configs; it's pretty straightforward
-to turn an SMP config into a UP config.  Much more simple than maintaining
-two configs which differ only in UP vs SMP.
+I am trying to boot 2 CPU hp zx6000 machine (ia64, itanium2) from STOCK
+kernel version 2.4.18. I have followed following steps.
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+1. I have downloaded the kernel from www.kernel.org . Also I have applied
+ia64 patch (from
+http://www.kernel.org/pub/linux/kernel/ports/ia64/v2.4/linux-2.4.18-ia64-020
+226.bz2) on it  .
+
+2. Now I have build the kernel (using make compressed) for ia64 processor
+type generic.
+
+3. I have copied vmlinuz.gz (using mcopy) to vfat mounted partition
+(/boot/efi/efi/redhat) and made appropriate entries in elilo.conf. 
+
+4. Now I have rebooted the system and tried to load the image using EFI
+shell.
+
+5. The kernel is not able to boot it stops executing after displaying
+message "kernel bug at bootmem.c line:113!".
+
+I have following doubts: -
+
+1. Is it possible to build and run _stock_ kernel (not redhat patched
+kernel) on hp zx6000 machine ? Do I need additional patches the stock kernel
+2.4.18 + ia64 patch ?
+
+PLEASE CC REPLY TO ME ALSO..
+
+Thanks in advance..
+
+Deepak Kumar Gupta
+HCL Technologies Limited
+NOIDA, UP
+INDIA.
+
+ 
