@@ -1,41 +1,39 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Thu, 06 Mar 2003 18:31:25 +0000
-Subject: Re: [Linux-ia64] discontigmem patch for 2.4.20
-Message-Id: <marc-linux-ia64-105590709805986@msgid-missing>
+From: Jes Sorensen <jes@wildopensource.com>
+Date: Wed, 19 Mar 2003 21:39:31 +0000
+Subject: [Linux-ia64] provide /proc/sal/itc_drift through AUX?
+Message-Id: <marc-linux-ia64-105590723705273@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805959@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805959@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I back ported the IA64 discontigmem function in 2.5 to 2.4.20.
-> I tested the patch on 8 way Itanium2 NUMA server with
-> a NUMA kernel and an SMP kernel.
-> 
-> David, Bjorn, please let me know is there any possibility
-> that you take this patch into the ia64-patch for 2.4.
+Hi
 
-I'm in the process of merging this patch, but when I build a
-"generic" kernel (with CONFIG_NUMA=y and CONFIG_DISCONTIGMEM=y),
-I get many new warnings:
+I was wondering what people think about providing the information of
+/proc/sal/itc_drift as an AUX vector?
 
-/home/helgaas/bk/testing/include/asm/mmzone.h:62:21: warning: "virt_to_page" redefined
-/home/helgaas/bk/testing/include/asm/page.h:57:1: warning: this is the location of the previous definition
-/home/helgaas/bk/testing/include/asm/mmzone.h:71:21: warning: "page_to_phys" redefined
-/home/helgaas/bk/testing/include/asm/page.h:58:1: warning: this is the location of the previous definition
-/home/helgaas/bk/testing/include/linux/mmzone.h:229:21: warning: "numa_node_id" redefined
-/home/helgaas/bk/testing/include/asm/processor.h:206:1: warning: this is the location of the previous definition
+The problem is that on some NUMA boxen (such as the SGI boxes), the ITC
+isn't synchronized across nodes and we can't rely on ar.itc in userland
+for implementing the high-precision timing. I believe the IBM NUMA-Q
+team has a similar problem that could be solved in a similar way on
+ia32?
 
-Could you look into these and send a new patch to correct them?
-Also, the resulting kernel doesn't boot (it MCAs) on HP rx2600
-and zx2000.  I'll look into it in my spare time, but you can
-probably do so more efficiently.
+Instead one can switch to using gettimeofday() for the timing, which
+with the new fast syscalls should be quite pleasant.
 
-A small patch that applies on top of the previous patch would be
-easiest.
+I have a patch which implements this for glibc-2.2 (will do 2.3 later),
+however what I don't like about it is that one ends up opening and
+reading /proc/sal/itc_drift in every single binary executed. To avoid
+the overhead of this it seems a good idea to me to provide this
+information via an AUX vector.
 
-Bjorn
+If anybody is interested in the glibc patch, feel free to grab it from
+http://www.wildopensource.com/~jes/glibc/itc-drift-patch.diff
+For now it's a test patch, though it does seem to behave as expected.
 
+Thoughts?
+
+Cheers,
+Jes
 
