@@ -1,57 +1,32 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 16 May 2001 10:33:39 +0000
-Subject: Re: [Linux-ia64] Announcing efibootmgr-0.2.0
-Message-Id: <marc-linux-ia64-105590693005588@msgid-missing>
+From: Mike Shaver <shaver@mozilla.org>
+Date: Tue, 15 May 2001 15:56:46 +0000
+Subject: [Linux-ia64] Re: mozilla/ia64 patch
+Message-Id: <marc-linux-ia64-105590693005582@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005585@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005585@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Matt_Domsch@Dell.com writes:
+David Mosberger wrote:
 
-|> Announcing efibootmgr-0.2.0, a Linux user-space application which intera=
-cts
-|> with the EFI Boot Manager.  It may be downloaded from
-|> http://domsch.com/linux/ia64/efibootmgr-0.2.0.tar.gz.
+> Below is a patch that makes mozilla work on IA-64 (native, not via
+> IA-32 emulation).
 
-Here is another patch that fixes a crash.
 
---- efibootmgr-0.2.0/src/lib/efi.c.~1~	Wed May 16 12:16:03 2001
-+++ efibootmgr-0.2.0/src/lib/efi.c	Wed May 16 12:31:02 2001
-@@ -88,7 +88,6 @@
- efi_status_t
- write_variable(efi_variable_t *var)
- {
--	char *newname;
- 	int fd;
- 	size_t writesize;
- 	char buffer[PATH_MAX];
-@@ -99,7 +98,6 @@
- 	if (fd =3D=3D -1) {
- 		sprintf(buffer, "write_variable():open(%s)", name);
- 		perror(buffer);
--		free(newname);
- 		return EFI_INVALID_PARAMETER;
- 	}
- 	writesize =3D write(fd, var, sizeof(*var));
-@@ -108,7 +106,6 @@
- 		sprintf(buffer, "write_variable():write(%s)", name);
- 		perror(buffer);
- 		dump_raw_data(var, sizeof(*var));
--		free(newname);
- #endif
- 		close(fd);
- 		return EFI_INVALID_PARAMETER;
+I'll try and get this stuff into the tree before 0.9.1, including build 
+mechanics for determining if we need to link against libffi, and 
+verifying that it's present.
 
-Andreas.
+I'll also attach the libffi patch to the IA/64 xptcall bug, for the 
+brave users who want to work with it.
 
---=20
-Andreas Schwab                                  "And now for something
-SuSE Labs                                        completely different."
-Andreas.Schwab@suse.de
-SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+Does anyone out there want to apply this patch to the 0.9 tree and do a 
+build with a static libffi linkage?  I'd be overjoyed to put such a 
+build on our site.
+
+Thanks a million, David, for your work here.  You're a star.
+
+Mike
+
 
