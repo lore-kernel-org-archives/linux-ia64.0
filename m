@@ -1,29 +1,48 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 01 Sep 2004 16:19:35 +0000
-Subject: ia64 2.6.8 patch
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01F09A76@scsmsx401.amr.corp.intel.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 15 Sep 2004 21:07:10 +0000
+Subject: [PATCH] help text for CONFIG_IA64_SGI_SN2
+Message-Id: <200409151407.10154.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_+7KSBrtYq403nGZ"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger gently reminded me:
->A tiger4 owner asked me why there isn't an ia64-specific patch for
->2.6.8.1 yet.  Are you planning to put one out shortly?
+--Boundary-00=_+7KSBrtYq403nGZ
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-I've put linux-2.6.8-ia64-040901.diff.gz in the usual place
-on kernel.org ... this is a patch against Linus 2.6.8, but
-includes the 2.6.8 -> 2.6.8.1 generic patches as well as all
-the pieces that I put into my linux-ia64-release-2.6.8.1 tree
-(which turns out to be more than I really should have, many
-of the pieces should just have gone to the release-2.6.9 tree).
+Mark Goodwin suggested that we document our platform a bit.  This patch adds 
+help text for the sn2 specific kernel option.
 
-The only piece anyone really *needs* to build 2.6.8 or 2.6.8.1
-on ia64 is the one line addition to include/asm-ia64/acpi.h
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
- #define acpi_disabled 0        /* ACPI always enabled on IA64 */
-+#define acpi_noirq 0   /* ACPI always enabled on IA64 */
- #define acpi_pci_disabled 0 /* ACPI PCI always enabled on IA64 */
+Jesse
 
--Tony
+--Boundary-00=_+7KSBrtYq403nGZ
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sn2-kconfig-desc-2.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sn2-kconfig-desc-2.patch"
+
+===== arch/ia64/Kconfig 1.80 vs edited =====
+--- 1.80/arch/ia64/Kconfig	2004-09-13 11:31:52 -07:00
++++ edited/arch/ia64/Kconfig	2004-09-15 11:24:28 -07:00
+@@ -76,6 +76,12 @@
+ 
+ config IA64_SGI_SN2
+ 	bool "SGI-SN2"
++	help
++	  Selecting this option will optimize the kernel for use on sn2 based
++	  systems, but the resulting kernel binary will not run on other
++	  types of ia64 systems.  If you have an SGI Altix system, it's safe
++	  to select this option.  If in doubt, select ia64 generic support
++	  instead.
+ 
+ config IA64_HP_SIM
+ 	bool "Ski-simulator"
+
+--Boundary-00=_+7KSBrtYq403nGZ--
