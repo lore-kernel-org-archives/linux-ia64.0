@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 28 May 2002 23:05:24 +0000
-Subject: RE: [Linux-ia64] NTP broken?
-Message-Id: <marc-linux-ia64-105590701905605@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Wed, 29 May 2002 05:04:54 +0000
+Subject: Re: [Linux-ia64] NTP broken?
+Message-Id: <marc-linux-ia64-105590701905609@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905591@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905591@msgid-missing>
@@ -10,15 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 28 May 2002 15:48:49 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+>>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
 
-  Tony> I compared a HZ0 kernel with a HZ24 kernel on a BigSur
-  Tony> ... it made no obvious difference, both kernels lost time at
-  Tony> about 38.5 milliseconds/minute relative to a machine running
-  Tony> NTP.
+>>>>> On Wed, 22 May 2002 13:08:08 +1000, Peter Chubb <peter@chubb.wattle.id.au> said:
+Peter> NTP on Linux 2.4.17/IA64 appears broken.  ntpd never seems to
+Peter> be able to pull the PLL into sync, even after using ntpdate to
+Peter> set the clock to the correct server time.
 
-Hmmh, interesting data.  So the rate is 633ppm.  Does anyone know what
-the crystals on the BigSurs are rated at?
+Peter> What are other peoples' experiences with NTP on IA64?
 
-	--david
+David> I'm not aware of any problems with NTP keeping in sync with
+David> realtime.  
+
+OK, I now have two i2000s both running the same kernel, both
+configured identically.  On one of them, NTP pulls into sync within a
+few minutes.  The other just drifts further and further away.
+
+One interesting `feature' is that on the one that keeps running away,
+the CPU clock is detected as 718.793988 MHz not the supposedly correct
+733MHz.  The boot message says:
+	 CPU 0: base freq0.684MHz, ITC ratio/2, ITC
+		freqq8.764MHz
+My suspicion is that this is incorrect on this machine, and it is
+*really* at 733MHz --- which would explain the lack of sync (NTP just
+can't slow the clock down enough) and the runaway time (733/718 is
+around 1.02; which corresponds to a second a minute) 
+
+The BIOS reports 733MHz, though.
+
+Peter C
 
