@@ -1,99 +1,75 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Tue, 27 Feb 2001 00:26:21 +0000
-Subject: Re: [Linux-ia64] IA64 Boot/Installer CD
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="cNdxnHkX5QqsyA0e"
-Message-Id: <marc-linux-ia64-105590693005210@msgid-missing>
+From: Jack Steiner <steiner@sgi.com>
+Date: Mon, 12 Feb 2001 22:25:38 +0000
+Subject: [Linux-ia64] ia64_get_dcr problem
+Message-Id: <marc-linux-ia64-105590693005143@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005208@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005208@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---cNdxnHkX5QqsyA0e
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Hi,
-
-Here is how we do it.
-
-1) Create a directory called cdroot.  Create a subdirectory called boot.
-
-2) Inside the boot directory, place your kernel and your initial ramdisk.  
-You will also want to put any efi apps or shell scripts that you might need.
-
-3) From inside the cdroot directory, run the attached "mkboot" script.  This
-will create a boot image for your cd.
-
-4) Run the attached "mkiso" script to build the cd image.
-
-5) Run the attached "mkcd" script to burn the image onto the CD.  The "mkcd"
-script is used with an IDE CD-ROM burner, so you may need to adjust cdrecord
-command for your hardware.
+Is this a GCC problem or a problem with the asm/ia64/processor.h
+inline functions??
 
 
-On Mon, Feb 26, 2001 at 03:07:08PM -0800, Nick Pollitt wrote:
-> Could someone explain what the bare minimum requirements are for a bootable
-> CD on IA64.  I have a kernel and an initrd ready, but I'm not sure how to 
-> package them up.
-> 
-> Thanks,
-> Nick
-> 
-> -- 
-> Nick Pollitt                                   phone: 650.933.7406
-> Scalable Linux Project                           fax: 650.933.3542
-> SGI                                               npollitt@sgi.com
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+I used the ia64_set_dcr & ia64_get_dcr functions in
+a loop & got bad code. I had references to both ia64_get_dcr 
+in ia64_set_dcr in the loop. The "get" was optimized out of the loop &
+did not see the result of the "set".
+
+If I add "volatile" to the ia64_get_dcr asm statement, I can 
+avoid the problem. But I am not sure whether this is the correct
+solution. (I hit a similar problem with ia64_get_irr0() earlier too).
+
+
+I am using the "2.96-ia64-000717 snap 001117" compiler.
+
+
+
+Source (stupid test but illustrates the problem):
+
+        void
+        dcrtest() {
+
+                long    i, dcr;
+                for (i=0; i<10; i++) {
+                        printk("0x%lx\n", ia64_get_dcr());
+                        ia64_set_dcr(0x5555);
+                }
+        }
+
+
+Generated code:
+         <dcrtest.0>        alloc r36=ar.pfs,0,5,2,0  
+         <dcrtest.1>        mov r34=cr.dcr                      <<< get
+         <dcrtest.2>        mov r35=rp  
+         <dcrtest+0x10.0>        mov r33!845  
+         <dcrtest+0x10.1>        mov r32=9  
+         <dcrtest+0x10.2>        nop.i 0  
+
+         <dcrtest+0x20.0>        addl r37=-1091248,gp;;
+         <dcrtest+0x20.1>        mov r38=r34  
+         <dcrtest+0x20.2>        nop.i 0  
+         <dcrtest+0x30.0>        ld8 r37=[r37]  
+         <dcrtest+0x30.1>        nop.i 0  
+         <dcrtest+0x30.2>        br.call.sptk.many rp=printk;;
+         <dcrtest+0x40.0>        mov cr.dcr=r33;;               <<< set
+         <dcrtest+0x40.1>        srlz.d  
+         <dcrtest+0x40.2>        adds r32=-1,r32;;
+         <dcrtest+0x50.0>        cmp.lt p7,p6=r32,r0  
+         <dcrtest+0x50.1>        nop.i 0  
+         <dcrtest+0x50.2>   (p6) br.cond.dptk.few dcrtest+0x20  
+
+         <dcrtest+0x60.0>        nop.m 0  
+         <dcrtest+0x60.1>        mov.i ar.pfs=r36  
+         <dcrtest+0x60.2>        mov rp=r35  
+         <dcrtest+0x70.0>        nop.m 0  
+         <dcrtest+0x70.1>        nop.i 0  
+         <dcrtest+0x70.2>        br.ret.sptk.many rp;;
 
 -- 
-Mike Madore
-Software Engineer
-TurboLinux, Inc.
+Thanks
 
---cNdxnHkX5QqsyA0e
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=mkboot
+Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
 
-dd if=/dev/zero of=boot.img bs=1024k count=18
-/sbin/mkdosfs boot.img 
-mkdir dos
-mount -t msdos -o loop boot.img dos
-cp -av boot/* dos/
-df dos
-umount dos
-rmdir dos
-
-
---cNdxnHkX5QqsyA0e
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=mkiso
-
-mkisofs  -no-emul-boot -b boot.img -c boot.catalog -R -T -J -o ../cdrom.img .
-
---cNdxnHkX5QqsyA0e
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=mkcd
-
-#!/bin/bash
-if [ $# -lt 1 ]
-then
-   echo "usage: mkcd [-speed #] <image file>"
-   exit 1
-fi
-#default speed
-speed=8
-case $1 in
--speed)  shift;
-         speed=$1
-         shift;;
-esac
-image=$1
-cdrecord fs=8196k speed=$speed dev=2,0,0 -v -eject $image
-
---cNdxnHkX5QqsyA0e--
 
