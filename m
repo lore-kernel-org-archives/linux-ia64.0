@@ -1,25 +1,23 @@
-From: Jes Sorensen <jes@linuxcare.com>
-Date: Mon, 12 Jun 2000 20:44:49 +0000
-Subject: Re: [Linux-ia64] Dynamic linking?
-Message-Id: <marc-linux-ia64-105590678205130@msgid-missing>
+From: "Long, Jesse" <Jesse.Long@COMPAQ.com>
+Date: Tue, 13 Jun 2000 15:21:41 +0000
+Subject: [Linux-ia64] No Keyboard/Mouse
+Message-Id: <marc-linux-ia64-105590678205132@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205129@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205129@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Eduardo" = Eduardo Horvath <eeh@turbolinux.com> writes:
+I have been testing with the latest kernel, 2.4.0-test1, including David's
+latest diffs, and cannot seem to get a kernel with the Keyboard and Mouse
+active.  The system boots normally, but, has no keyboard / mouse on the
+system console.  Network is functional, and I can telnet from another system
+and everything is working properly.
 
-Eduardo> How well is dynamic linking working?  Well enough to start
-Eduardo> working on XFree86 4.0?
+Any ideas?
 
-It's been working well enough to run PAM for ages so I'd say there is
-a fair chance that XFree should survive.
+Jess Long
 
-It even works in glibc-2.2 now.
 
-Jes
 
 
