@@ -1,683 +1,100 @@
-From: Darren Williams <dsw@gelato.unsw.edu.au>
-Date: Fri, 28 May 2004 01:42:55 +0000
-Subject: [patch] define pending_irq_cpumask in irq.c and move #endif up wrt #ifdef __ARCH_WANT_SYS_SIGPROCMAS
-Message-Id: <20040528014255.GA4596@cse.unsw.EDU.AU>
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Wed, 12 May 2004 11:27:04 +0000
+Subject: Who owns those locks ? (2)
+Message-Id: <40A20A08.9EAAD8E@nospam.org>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="yEPQxsgoJgBvi8ip"
+Content-Type: multipart/mixed; boundary="------------0866B09AA21AF112BB5F74E4"
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------0866B09AA21AF112BB5F74E4
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
---yEPQxsgoJgBvi8ip
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I have forgotten the function "_raw_spin_trylock()" :-(
 
-When compiling the HP simulator ioapci is not included
-and defines 'pending_irq_cpumask' for SMP machines,
-because of this we are getting the following build
-error on our auto build system:
-arch/ia64/kernel/built-in.o(.text+0x66e0): In function `irq_affinity_write_proc':
-arch/ia64/kernel/irq.c:1011: undefined reference to `pending_irq_cpumask'
+Zolt=E1n
+--------------0866B09AA21AF112BB5F74E4
+Content-Type: text/plain; charset=us-ascii;
+ name="n475"
+Content-Disposition: inline;
+ filename="n475"
+Content-Transfer-Encoding: 7bit
 
-This patch was originally submitted by Ian Wienand,
-I have updated it so that generic_defconfig,
-zx1_defconfig, and the attached simulator config
-compiles. I have also tested the simulator config
-with and without SMP and for booting.
-
-The patch was created against current bk 2.6.7-rc1,
-and this is Ian's original post:
-http://marc.theaimsgroup.com/?t=108492985500002&r=1&w=2
-
-
-Also if
-CONFIG_IA32_SUPPORT
-is not set in the attached config we are getting
-the follwing errors, I can chase this back to when
-__ARCH_WANT_foo was introduced to ia64. 
-
-I think the #endif to #ifdef __ARCH_WANT_SYS_SIGPROCMASK
-may be out by one routine patch attached. I have tested it with
-the attached config, with and without CONFIG_IA32_SUPPORT and
-simulator boot, and generic_defconfig, zx1_defconfig.
-
-Darren
-
---------------------------------------------------
-Darren Williams <dsw AT gelato.unsw.edu.au>
-Gelato@UNSW <www.gelato.unsw.edu.au>
---------------------------------------------------
-
---yEPQxsgoJgBvi8ip
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="pending_irq_cpumask.patch"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/05/27 22:44:46+10:00 dsw@torrone.gelato.unsw.edu.au 
-#   irq.c:
-#     define pending_irq_cpumask since irq.c is included is all kernel configurations.
-#   iosapic.c:
-#     define pending_irq_cpumask extern since it is also defined in irq.c.
-# 
-# arch/ia64/kernel/irq.c
-#   2004/05/27 22:43:40+10:00 dsw@torrone.gelato.unsw.edu.au +5 -1
-#   define pending_irq_cpumask since irq.c is included is all kernel configurations.
-# 
-# arch/ia64/kernel/iosapic.c
-#   2004/05/27 22:42:42+10:00 dsw@torrone.gelato.unsw.edu.au +1 -1
-#   define pending_irq_cpumask extern since it is also defined in irq.c.
-# 
-diff -Nru a/arch/ia64/kernel/iosapic.c b/arch/ia64/kernel/iosapic.c
---- a/arch/ia64/kernel/iosapic.c	2004-05-27 22:46:17 +10:00
-+++ b/arch/ia64/kernel/iosapic.c	2004-05-27 22:46:17 +10:00
-@@ -100,7 +100,7 @@
- #endif
+--- 2.6.5.ref/include/asm-ia64/spinlock.h	Sun Apr  4 05:36:17 2004
++++ 2.6.5.new/include/asm-ia64/spinlock.h	Wed May 12 13:17:50 2004
+@@ -45,7 +45,8 @@
+ 	asm volatile ("{\n\t"
+ 		      "  mov ar.ccv = r0\n\t"
+ 		      "  mov r28 = ip\n\t"
+-		      "  mov r30 = 1;;\n\t"
++		      /* "  mov r30 = 1;;\n\t" */
++		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
+ 		      "}\n\t"
+ 		      "cmpxchg4.acq r30 = [%1], r30, ar.ccv\n\t"
+ 		      "movl r29 = ia64_spinlock_contention_pre3_4;;\n\t"
+@@ -57,7 +58,8 @@
+ 	asm volatile ("{\n\t"
+ 		      "  mov ar.ccv = r0\n\t"
+ 		      "  mov r28 = ip\n\t"
+-		      "  mov r30 = 1;;\n\t"
++		      /* "  mov r30 = 1;;\n\t" */
++		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
+ 		      "}\n\t"
+ 		      "cmpxchg4.acq r30 = [%1], r30, ar.ccv;;\n\t"
+ 		      "cmp4.ne p14, p0 = r30, r0\n"
+@@ -68,7 +70,8 @@
+ # ifdef CONFIG_ITANIUM
+ 	/* don't use brl on Itanium... */
+ 	/* mis-declare, so we get the entry-point, not it's function descriptor: */
+-	asm volatile ("mov r30 = 1\n\t"
++	asm volatile (/* "  mov r30 = 1;;\n\t" */
++		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
+ 		      "mov ar.ccv = r0;;\n\t"
+ 		      "cmpxchg4.acq r30 = [%0], r30, ar.ccv\n\t"
+ 		      "movl r29 = ia64_spinlock_contention;;\n\t"
+@@ -77,7 +80,8 @@
+ 		      "(p14) br.call.spnt.many b6 = b6"
+ 		      : "=r"(ptr) : "r"(ptr) : IA64_SPINLOCK_CLOBBERS);
+ # else
+-	asm volatile ("mov r30 = 1\n\t"
++	asm volatile (/* "  mov r30 = 1;;\n\t" */
++		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
+ 		      "mov ar.ccv = r0;;\n\t"
+ 		      "cmpxchg4.acq r30 = [%0], r30, ar.ccv;;\n\t"
+ 		      "cmp4.ne p14, p0 = r30, r0\n\t"
+@@ -89,14 +93,17 @@
+ #else /* !ASM_SUPPORTED */
+ # define _raw_spin_lock(x)								\
+ do {											\
+-	__u32 *ia64_spinlock_ptr = (__u32 *) (x);					\
+-	__u64 ia64_spinlock_val;							\
+-	ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, 1, 0);			\
++	__u32	*ia64_spinlock_ptr = (__u32 *) (x);					\
++	__u64	ia64_spinlock_val;							\
++	__u32	new_spinlock_val = (__u32)((__u64) current >> 12);			\
++											\
++	ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, new_spinlock_val, 0);	\
+ 	if (unlikely(ia64_spinlock_val)) {						\
+ 		do {									\
+ 			while (*ia64_spinlock_ptr)					\
+ 				ia64_barrier();						\
+-			ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, 1, 0);	\
++			ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr,	\
++								new_spinlock_val, 0);	\
+ 		} while (ia64_spinlock_val);						\
+ 	}										\
+ } while (0)
+@@ -104,7 +111,7 @@
  
- static spinlock_t iosapic_lock = SPIN_LOCK_UNLOCKED;
--cpumask_t	__cacheline_aligned pending_irq_cpumask[NR_IRQS];
-+extern cpumask_t	__cacheline_aligned pending_irq_cpumask[NR_IRQS];
+ #define spin_is_locked(x)	((x)->lock != 0)
+ #define _raw_spin_unlock(x)	do { barrier(); ((spinlock_t *) x)->lock = 0; } while (0)
+-#define _raw_spin_trylock(x)	(cmpxchg_acq(&(x)->lock, 0, 1) == 0)
++#define _raw_spin_trylock(x)	(cmpxchg_acq(&(x)->lock, 0, (__u32)((__u64) current >> 12)) == 0)
+ #define spin_unlock_wait(x)	do { barrier(); } while ((x)->lock)
  
- /* These tables map IA-64 vectors to the IOSAPIC pin that generates this vector. */
- 
-diff -Nru a/arch/ia64/kernel/irq.c b/arch/ia64/kernel/irq.c
---- a/arch/ia64/kernel/irq.c	2004-05-27 22:46:17 +10:00
-+++ b/arch/ia64/kernel/irq.c	2004-05-27 22:46:17 +10:00
-@@ -56,7 +56,6 @@
- #include <asm/delay.h>
- #include <asm/irq.h>
- 
--extern cpumask_t    __cacheline_aligned pending_irq_cpumask[NR_IRQS];
- 
- /*
-  * Linux has a controller-independent x86 interrupt architecture.
-@@ -84,6 +83,11 @@
- 		.lock = SPIN_LOCK_UNLOCKED
- 	}
- };
-+
-+/*
-+ * This is updated when the user sets irq affinity via /proc
-+ */
-+cpumask_t    __cacheline_aligned pending_irq_cpumask[NR_IRQS];
- 
- #ifdef CONFIG_IA64_GENERIC
- irq_desc_t * __ia64_irq_desc (unsigned int irq)
+ typedef struct {
 
---yEPQxsgoJgBvi8ip
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="config-2.6.5-simulator-ia32"
+--------------0866B09AA21AF112BB5F74E4--
 
-#
-# Automatically generated make config: don't edit
-#
-
-#
-# Code maturity level options
-#
-CONFIG_EXPERIMENTAL=y
-# CONFIG_CLEAN_COMPILE is not set
-# CONFIG_STANDALONE is not set
-CONFIG_BROKEN=y
-CONFIG_BROKEN_ON_SMP=y
-
-#
-# General setup
-#
-CONFIG_SWAP=y
-CONFIG_SYSVIPC=y
-# CONFIG_POSIX_MQUEUE is not set
-# CONFIG_BSD_PROCESS_ACCT is not set
-CONFIG_SYSCTL=y
-# CONFIG_AUDIT is not set
-CONFIG_LOG_BUF_SHIFT=16
-# CONFIG_HOTPLUG is not set
-CONFIG_IKCONFIG=y
-CONFIG_IKCONFIG_PROC=y
-# CONFIG_EMBEDDED is not set
-CONFIG_KALLSYMS=y
-# CONFIG_KALLSYMS_ALL is not set
-CONFIG_FUTEX=y
-CONFIG_EPOLL=y
-CONFIG_IOSCHED_NOOP=y
-CONFIG_IOSCHED_AS=y
-CONFIG_IOSCHED_DEADLINE=y
-CONFIG_IOSCHED_CFQ=y
-# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
-
-#
-# Loadable module support
-#
-CONFIG_MODULES=y
-CONFIG_MODULE_UNLOAD=y
-CONFIG_MODULE_FORCE_UNLOAD=y
-CONFIG_OBSOLETE_MODPARM=y
-CONFIG_MODVERSIONS=y
-CONFIG_KMOD=y
-CONFIG_STOP_MACHINE=y
-
-#
-# Processor type and features
-#
-CONFIG_IA64=y
-CONFIG_64BIT=y
-CONFIG_MMU=y
-CONFIG_RWSEM_XCHGADD_ALGORITHM=y
-CONFIG_TIME_INTERPOLATION=y
-CONFIG_EFI=y
-# CONFIG_IA64_GENERIC is not set
-# CONFIG_IA64_DIG is not set
-# CONFIG_IA64_HP_ZX1 is not set
-# CONFIG_IA64_SGI_SN2 is not set
-CONFIG_IA64_HP_SIM=y
-# CONFIG_ITANIUM is not set
-CONFIG_MCKINLEY=y
-# CONFIG_IA64_PAGE_SIZE_4KB is not set
-# CONFIG_IA64_PAGE_SIZE_8KB is not set
-# CONFIG_IA64_PAGE_SIZE_16KB is not set
-CONFIG_IA64_PAGE_SIZE_64KB=y
-CONFIG_IA64_L1_CACHE_SHIFT=7
-# CONFIG_MCKINLEY_ASTEP_SPECIFIC is not set
-# CONFIG_VIRTUAL_MEM_MAP is not set
-# CONFIG_IA64_CYCLONE is not set
-CONFIG_FORCE_MAX_ZONEORDER=18
-CONFIG_SMP=y
-CONFIG_NR_CPUS=64
-CONFIG_PREEMPT=y
-CONFIG_HAVE_DEC_LOCK=y
-CONFIG_IA32_SUPPORT=y
-CONFIG_COMPAT=y
-# CONFIG_PERFMON is not set
-CONFIG_IA64_PALINFO=m
-
-#
-# Firmware Drivers
-#
-CONFIG_EFI_VARS=y
-# CONFIG_SMBIOS is not set
-CONFIG_BINFMT_ELF=y
-CONFIG_BINFMT_MISC=y
-
-#
-# Power management and ACPI
-#
-
-#
-# Device Drivers
-#
-
-#
-# Generic Driver Options
-#
-# CONFIG_DEBUG_DRIVER is not set
-
-#
-# Memory Technology Devices (MTD)
-#
-# CONFIG_MTD is not set
-
-#
-# Parallel port support
-#
-# CONFIG_PARPORT is not set
-
-#
-# Plug and Play support
-#
-
-#
-# Block devices
-#
-CONFIG_BLK_DEV_LOOP=y
-# CONFIG_BLK_DEV_CRYPTOLOOP is not set
-# CONFIG_BLK_DEV_NBD is not set
-CONFIG_BLK_DEV_RAM=y
-CONFIG_BLK_DEV_RAM_SIZE=4096
-# CONFIG_BLK_DEV_INITRD is not set
-
-#
-# ATA/ATAPI/MFM/RLL support
-#
-# CONFIG_IDE is not set
-
-#
-# SCSI device support
-#
-CONFIG_SCSI=y
-CONFIG_SCSI_PROC_FS=y
-
-#
-# SCSI support type (disk, tape, CD-ROM)
-#
-CONFIG_BLK_DEV_SD=y
-# CONFIG_CHR_DEV_ST is not set
-# CONFIG_CHR_DEV_OSST is not set
-# CONFIG_BLK_DEV_SR is not set
-# CONFIG_CHR_DEV_SG is not set
-
-#
-# Some SCSI devices (e.g. CD jukebox) support multiple LUNs
-#
-CONFIG_SCSI_MULTI_LUN=y
-CONFIG_SCSI_CONSTANTS=y
-CONFIG_SCSI_LOGGING=y
-
-#
-# SCSI Transport Attributes
-#
-CONFIG_SCSI_SPI_ATTRS=y
-# CONFIG_SCSI_FC_ATTRS is not set
-
-#
-# SCSI low-level drivers
-#
-# CONFIG_SCSI_AIC7XXX_OLD is not set
-# CONFIG_SCSI_SATA is not set
-# CONFIG_SCSI_EATA_PIO is not set
-# CONFIG_SCSI_DEBUG is not set
-
-#
-# Multi-device support (RAID and LVM)
-#
-# CONFIG_MD is not set
-
-#
-# Fusion MPT device support
-#
-
-#
-# IEEE 1394 (FireWire) support
-#
-# CONFIG_IEEE1394 is not set
-
-#
-# I2O device support
-#
-
-#
-# Networking support
-#
-CONFIG_NET=y
-
-#
-# Networking options
-#
-CONFIG_PACKET=y
-# CONFIG_PACKET_MMAP is not set
-# CONFIG_NETLINK_DEV is not set
-# CONFIG_UNIX is not set
-# CONFIG_NET_KEY is not set
-CONFIG_INET=y
-CONFIG_IP_MULTICAST=y
-# CONFIG_IP_ADVANCED_ROUTER is not set
-# CONFIG_IP_PNP is not set
-# CONFIG_NET_IPIP is not set
-# CONFIG_NET_IPGRE is not set
-# CONFIG_IP_MROUTE is not set
-# CONFIG_ARPD is not set
-# CONFIG_SYN_COOKIES is not set
-# CONFIG_INET_AH is not set
-# CONFIG_INET_ESP is not set
-# CONFIG_INET_IPCOMP is not set
-# CONFIG_IPV6 is not set
-# CONFIG_NETFILTER is not set
-
-#
-# SCTP Configuration (EXPERIMENTAL)
-#
-# CONFIG_IP_SCTP is not set
-# CONFIG_ATM is not set
-# CONFIG_BRIDGE is not set
-# CONFIG_VLAN_8021Q is not set
-# CONFIG_DECNET is not set
-# CONFIG_LLC2 is not set
-# CONFIG_IPX is not set
-# CONFIG_ATALK is not set
-# CONFIG_X25 is not set
-# CONFIG_LAPB is not set
-# CONFIG_NET_DIVERT is not set
-# CONFIG_ECONET is not set
-# CONFIG_WAN_ROUTER is not set
-# CONFIG_NET_FASTROUTE is not set
-# CONFIG_NET_HW_FLOWCONTROL is not set
-
-#
-# QoS and/or fair queueing
-#
-# CONFIG_NET_SCHED is not set
-
-#
-# Network testing
-#
-# CONFIG_NET_PKTGEN is not set
-# CONFIG_NETPOLL is not set
-# CONFIG_NET_POLL_CONTROLLER is not set
-# CONFIG_HAMRADIO is not set
-# CONFIG_IRDA is not set
-# CONFIG_BT is not set
-# CONFIG_NETDEVICES is not set
-
-#
-# ISDN subsystem
-#
-# CONFIG_ISDN is not set
-
-#
-# Telephony Support
-#
-# CONFIG_PHONE is not set
-
-#
-# Input device support
-#
-CONFIG_INPUT=y
-
-#
-# Userland interfaces
-#
-CONFIG_INPUT_MOUSEDEV=y
-CONFIG_INPUT_MOUSEDEV_PSAUX=y
-CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
-CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
-# CONFIG_INPUT_JOYDEV is not set
-# CONFIG_INPUT_TSDEV is not set
-# CONFIG_INPUT_EVDEV is not set
-# CONFIG_INPUT_EVBUG is not set
-
-#
-# Input I/O drivers
-#
-# CONFIG_GAMEPORT is not set
-CONFIG_SOUND_GAMEPORT=y
-CONFIG_SERIO=y
-# CONFIG_SERIO_I8042 is not set
-CONFIG_SERIO_SERPORT=y
-# CONFIG_SERIO_CT82C710 is not set
-
-#
-# Input Device Drivers
-#
-# CONFIG_INPUT_KEYBOARD is not set
-# CONFIG_INPUT_MOUSE is not set
-# CONFIG_INPUT_JOYSTICK is not set
-# CONFIG_INPUT_TOUCHSCREEN is not set
-# CONFIG_INPUT_MISC is not set
-
-#
-# Character devices
-#
-CONFIG_VT=y
-CONFIG_VT_CONSOLE=y
-CONFIG_HW_CONSOLE=y
-# CONFIG_SERIAL_NONSTANDARD is not set
-
-#
-# Serial drivers
-#
-# CONFIG_SERIAL_8250 is not set
-
-#
-# Non-8250 serial port support
-#
-CONFIG_UNIX98_PTYS=y
-# CONFIG_LEGACY_PTYS is not set
-# CONFIG_QIC02_TAPE is not set
-
-#
-# IPMI
-#
-# CONFIG_IPMI_HANDLER is not set
-
-#
-# Watchdog Cards
-#
-# CONFIG_WATCHDOG is not set
-CONFIG_EFI_RTC=y
-# CONFIG_DTLK is not set
-# CONFIG_R3964 is not set
-# CONFIG_APPLICOM is not set
-
-#
-# Ftape, the floppy tape device driver
-#
-# CONFIG_FTAPE is not set
-# CONFIG_AGP is not set
-# CONFIG_DRM is not set
-# CONFIG_RAW_DRIVER is not set
-
-#
-# I2C support
-#
-# CONFIG_I2C is not set
-
-#
-# Misc devices
-#
-
-#
-# Multimedia devices
-#
-# CONFIG_VIDEO_DEV is not set
-
-#
-# Digital Video Broadcasting Devices
-#
-# CONFIG_DVB is not set
-
-#
-# Graphics support
-#
-# CONFIG_FB is not set
-
-#
-# Console display driver support
-#
-# CONFIG_VGA_CONSOLE is not set
-# CONFIG_MDA_CONSOLE is not set
-CONFIG_DUMMY_CONSOLE=y
-
-#
-# Sound
-#
-# CONFIG_SOUND is not set
-
-#
-# USB support
-#
-
-#
-# USB Gadget Support
-#
-# CONFIG_USB_GADGET is not set
-
-#
-# File systems
-#
-CONFIG_EXT2_FS=y
-# CONFIG_EXT2_FS_XATTR is not set
-CONFIG_EXT3_FS=y
-# CONFIG_EXT3_FS_XATTR is not set
-CONFIG_JBD=y
-# CONFIG_JBD_DEBUG is not set
-# CONFIG_REISERFS_FS is not set
-# CONFIG_JFS_FS is not set
-# CONFIG_XFS_FS is not set
-# CONFIG_MINIX_FS is not set
-# CONFIG_ROMFS_FS is not set
-# CONFIG_QUOTA is not set
-# CONFIG_AUTOFS_FS is not set
-# CONFIG_AUTOFS4_FS is not set
-
-#
-# CD-ROM/DVD Filesystems
-#
-# CONFIG_ISO9660_FS is not set
-# CONFIG_UDF_FS is not set
-
-#
-# DOS/FAT/NT Filesystems
-#
-# CONFIG_FAT_FS is not set
-# CONFIG_NTFS_FS is not set
-
-#
-# Pseudo filesystems
-#
-CONFIG_PROC_FS=y
-CONFIG_PROC_KCORE=y
-CONFIG_SYSFS=y
-# CONFIG_DEVFS_FS is not set
-# CONFIG_DEVPTS_FS_XATTR is not set
-# CONFIG_TMPFS is not set
-CONFIG_HUGETLBFS=y
-CONFIG_HUGETLB_PAGE=y
-CONFIG_RAMFS=y
-
-#
-# Miscellaneous filesystems
-#
-# CONFIG_ADFS_FS is not set
-# CONFIG_AFFS_FS is not set
-# CONFIG_HFS_FS is not set
-# CONFIG_HFSPLUS_FS is not set
-# CONFIG_BEFS_FS is not set
-# CONFIG_BFS_FS is not set
-# CONFIG_EFS_FS is not set
-# CONFIG_CRAMFS is not set
-# CONFIG_VXFS_FS is not set
-# CONFIG_HPFS_FS is not set
-# CONFIG_QNX4FS_FS is not set
-# CONFIG_SYSV_FS is not set
-# CONFIG_UFS_FS is not set
-
-#
-# Network File Systems
-#
-CONFIG_NFS_FS=y
-# CONFIG_NFS_V3 is not set
-# CONFIG_NFS_V4 is not set
-CONFIG_NFS_DIRECTIO=y
-CONFIG_NFSD=y
-CONFIG_NFSD_V3=y
-# CONFIG_NFSD_V4 is not set
-# CONFIG_NFSD_TCP is not set
-CONFIG_LOCKD=y
-CONFIG_LOCKD_V4=y
-CONFIG_EXPORTFS=y
-CONFIG_SUNRPC=y
-# CONFIG_RPCSEC_GSS_KRB5 is not set
-# CONFIG_SMB_FS is not set
-# CONFIG_CIFS is not set
-# CONFIG_NCP_FS is not set
-# CONFIG_CODA_FS is not set
-# CONFIG_AFS_FS is not set
-
-#
-# Partition Types
-#
-CONFIG_PARTITION_ADVANCED=y
-# CONFIG_ACORN_PARTITION is not set
-# CONFIG_OSF_PARTITION is not set
-# CONFIG_AMIGA_PARTITION is not set
-# CONFIG_ATARI_PARTITION is not set
-# CONFIG_MAC_PARTITION is not set
-CONFIG_MSDOS_PARTITION=y
-# CONFIG_BSD_DISKLABEL is not set
-# CONFIG_MINIX_SUBPARTITION is not set
-# CONFIG_SOLARIS_X86_PARTITION is not set
-# CONFIG_UNIXWARE_DISKLABEL is not set
-# CONFIG_LDM_PARTITION is not set
-# CONFIG_NEC98_PARTITION is not set
-# CONFIG_SGI_PARTITION is not set
-# CONFIG_ULTRIX_PARTITION is not set
-# CONFIG_SUN_PARTITION is not set
-CONFIG_EFI_PARTITION=y
-
-#
-# Native Language Support
-#
-# CONFIG_NLS is not set
-
-#
-# Library routines
-#
-CONFIG_CRC32=y
-# CONFIG_LIBCRC32C is not set
-
-#
-# HP Simulator drivers
-#
-CONFIG_HP_SIMETH=y
-CONFIG_HP_SIMSERIAL=y
-CONFIG_HP_SIMSERIAL_CONSOLE=y
-CONFIG_HP_SIMSCSI=y
-
-#
-# Profiling support
-#
-# CONFIG_PROFILING is not set
-
-#
-# Kernel hacking
-#
-# CONFIG_IA64_GRANULE_16MB is not set
-CONFIG_IA64_GRANULE_64MB=y
-CONFIG_DEBUG_KERNEL=y
-# CONFIG_IA64_PRINT_HAZARDS is not set
-# CONFIG_DISABLE_VHPT is not set
-# CONFIG_MAGIC_SYSRQ is not set
-# CONFIG_DEBUG_SLAB is not set
-# CONFIG_DEBUG_SPINLOCK is not set
-# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
-# CONFIG_IA64_DEBUG_CMPXCHG is not set
-# CONFIG_IA64_DEBUG_IRQ is not set
-CONFIG_DEBUG_INFO=y
-CONFIG_SYSVIPC_COMPAT=y
-
-#
-# Security options
-#
-# CONFIG_SECURITY is not set
-
-#
-# Cryptographic options
-#
-# CONFIG_CRYPTO is not set
-
---yEPQxsgoJgBvi8ip
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sys_rt_sigaction.patch"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/05/28 01:36:49+10:00 dsw@torrone.gelato.unsw.edu.au 
-#   signal.c:
-#     Move #endif wrt #ifdef __ARCH_WANT_SYS_SIGPROCMASK, up one routine. Fixes build failures when CONFIG_IA32_SUPPORT is not set.
-# 
-# kernel/signal.c
-#   2004/05/28 01:35:04+10:00 dsw@torrone.gelato.unsw.edu.au +1 -1
-#   Move #endif wrt #ifdef __ARCH_WANT_SYS_SIGPROCMASK, up one routine. Fixes build failures when CONFIG_IA32_SUPPORT is not set.
-# 
-diff -Nru a/kernel/signal.c b/kernel/signal.c
---- a/kernel/signal.c	2004-05-28 01:38:08 +10:00
-+++ b/kernel/signal.c	2004-05-28 01:38:08 +10:00
-@@ -2475,6 +2475,7 @@
- out:
- 	return error;
- }
-+#endif /* __ARCH_WANT_SYS_SIGPROCMASK */
- 
- #ifndef __sparc__
- asmlinkage long
-@@ -2505,7 +2506,6 @@
- 	return ret;
- }
- #endif /* __sparc__ */
--#endif
- 
- #ifdef __ARCH_WANT_SYS_SGETMASK
- 
-
---yEPQxsgoJgBvi8ip--
