@@ -1,19 +1,38 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 12 Nov 2004 15:02:27 +0000
+From: Ray Bryant <raybry@sgi.com>
+Date: Fri, 12 Nov 2004 23:45:35 +0000
 Subject: Re: removing mm->rss and mm->anon_rss from kernel?
-Message-Id: <Pine.LNX.4.58.0411120700060.8932@schroedinger.engr.sgi.com>
+Message-Id: <41954B1F.5060900@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0411060120190.22874@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0411060120190.22874@schroedinger.engr.sgi.com>
+References: <200411081547.iA8FlH90124208@ben.americas.sgi.com> <41919EA5.7030200@yahoo.com.au>
+In-Reply-To: <41919EA5.7030200@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Nick Piggin <nickpiggin@yahoo.com.au>
+Cc: Russ Anderson <rja@sgi.com>, Matthew Wilcox <matthew@wil.cx>, "Martin J. Bligh" <mbligh@aracnet.com>, Christoph Lameter <clameter@sgi.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-On Fri, 12 Nov 2004, Robin Holt wrote:
+Nick Piggin wrote:
 
-> Are you saying that there is no way to solve this in a scalable fashion?
+> 
+> Also, are you using 2.6 kernels on these 512 CPU systems? or are your
+> 2.4 kernels still holding together at that many CPUs?
 
-No. I am saying that a variety of approaches may be needed and I actually
-got a raw draft of a patch here that allows to employ a variety of
-ways of obtaining vm statistics.
+Nick,
+
+My response to your email was (unfortunately) overly broad.  While the
+NASA 512P systems are running a kernel based on 2.4.x, SLES 9, which is 
+2.6.5-based, has been certified on a 64p SGI Altix
+system (cf. http://developer.novell.com/yes/78980.htm).
+
+So it is possible to buy a supported 2.6 kernel from SuSE that will run your
+(up to) 64P Altix.
+-- 
+Best Regards,
+Ray
+-----------------------------------------------
+                   Ray Bryant
+512-453-9679 (work)         512-507-7807 (cell)
+raybry@sgi.com             raybry@austin.rr.com
+The box said: "Requires Windows 98 or better",
+            so I installed Linux.
+-----------------------------------------------
