@@ -1,26 +1,25 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 20 Jun 2003 19:51:43 +0000
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Fri, 20 Jun 2003 19:56:00 +0000
 Subject: Re: 2.5.72 for ia64 released
-Message-Id: <marc-linux-ia64-105613878125182@msgid-missing>
+Message-Id: <marc-linux-ia64-105613900025498@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105605890319553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105605890319553@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-jbarnes@sgi.com (Jesse Barnes) writes:
+On Fri, Jun 20, 2003 at 09:44:13PM +0200, Andreas Schwab wrote:
+> jbarnes@sgi.com (Jesse Barnes) writes:
+> 
+> |> This one Works For Me (tm).  Does it look ok?
+> 
+> Does it require other patches?
 
-|> What's your .config look like?  Is CONFIG_NUMA=3Dy?
+Yes, as it turns out.  You'll need the discontig patch I posted earlier.
+2.5.69 used to build for me just fine without the patch, because it had
+the right stuff in mmzone.h (or at least, some earlier version had it).
+Don't know where that code went...
 
-Yes, also CONFIG_DISCONTIGMEM=3Dy, CONFIG_VIRTUAL_MEM_MAP=3Dy and
-CONFIG_ACPI_NUMA=3Dy.
-
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Jesse
