@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 12 Nov 2003 07:18:12 +0000
+Date: Fri, 21 Nov 2003 22:12:40 +0000
 Subject: bk pull on ia64 linux tree
-Message-Id: <marc-linux-ia64-106862150802884@msgid-missing>
+Message-Id: <marc-linux-ia64-106945277508083@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105942507026161@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105942507026161@msgid-missing>
@@ -22,21 +22,25 @@ Thanks!
 
 	--david
 
- arch/ia64/kernel/signal.c     |    4 +++-
- include/asm-ia64/sn/nodepda.h |    2 +-
- 2 files changed, 4 insertions(+), 2 deletions(-)
+ arch/ia64/ia32/ia32_signal.c |    3 +++
+ arch/ia64/kernel/patch.c     |    2 +-
+ arch/ia64/kernel/signal.c    |    6 +++---
+ arch/ia64/kernel/traps.c     |    6 ++----
+ 4 files changed, 9 insertions(+), 8 deletions(-)
 
 through these ChangeSets:
 
-<davidm@wailua.hpl.hp.com> (03/11/11 1.1361)
-   ia64: From Linus: Always disable system call restart when invoking a
-   	signal handler.  Otherwise, a restarted system call that gets
-   	interrupted before the restart has taken effect by _another_
-   	signal will potentially restart the wrong system call.
+<davidm@tiger.hpl.hp.com> (03/11/21 1.1366)
+   ia64: Drop printk from ia64_ni_syscall().  This is a temporary fix
+   	for 2.6.0.  The proper fix is to replace ia64_ni_syscall with
+   	sys_ni_syscall, but that would make the patch quite large, so
+   	we defer that till 2.6.1.
 
-<steiner@sgi.com> (03/11/11 1.1360)
-   [PATCH] ia64: fix is_headless_node() for SN
-   
-   Without this patch, SN machines which have nodes that contain memory only (no
-   CPUs will hang.
+<davidm@tiger.hpl.hp.com> (03/11/21 1.1365)
+   ia64: From Linus/Paulus: reset restart_block function in
+   	restore_sigcontext().  Also update ia32 subsystem accordingly.
 
+<davidm@tiger.hpl.hp.com> (03/11/21 1.1364)
+   ia64: Fix off-by-1 error in imm60 patching.  The bug hasn't been observed
+   	in practice, but it's clearly wrong and just waiting there to
+   	get triggered...
