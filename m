@@ -1,7 +1,7 @@
-From: Christopher Wedgwood <cw@sgi.com>
-Date: Tue, 29 Jul 2003 23:54:05 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Tue, 29 Jul 2003 23:56:15 +0000
 Subject: Re: [PATCH] (2.4.x bk) efi_memmap_walk_uc
-Message-Id: <marc-linux-ia64-105952294523287@msgid-missing>
+Message-Id: <marc-linux-ia64-105952298923313@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105883467032028@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105883467032028@msgid-missing>
@@ -10,21 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Jul 29, 2003 at 06:49:04PM -0500, Jack Steiner wrote:
+> 
+> >>>>> On Tue, 29 Jul 2003 15:35:16 -0700, Christopher Wedgwood <cw@sgi.com> said:
+> 
+>   Christopher> That sounds pretty good.  Even a naive bitmap allocator
+>   Christopher> would probably work initially.  Might we ever want to
+>   Christopher> allocate 2+ pages?  Forcing all allocations to be a
+>   Christopher> single page makes many things easier.
+> 
+> The allocation granularity should be bytes, in my opinion.  The point
+> of the UC allocator is so that we can share a single 64MB UC granule
+> across the multiple users (of which there are a grand total of 2, at
+> the moment...).
+> 
+> 	--david
+> 
 
-> True, but on NUMA systems (at least ours) you want MINSTATE area to
-> be node local for other reasons. Some types of errors cause the
-> interconnect to fail.
+If granularity is bytes, we need to support page-aligned allocations. Fetchop
+pages are mmap'ed to user space.
 
-I think that's a slightly different issue but related.  Being able to
-avoid any platform specific code here would be good thing and should
-be possible if we are given a cpu/nodeid in the allocator.
+As far as fetchop is concerned, we always allocate 1 page at a time.
 
-> The PAL/SAL should be able to log errors without making offnode
-> references.
+-- 
+Thanks
 
-The question then is are these areas as used by the kernel going to be
-referenced globally or only on a cpu/node local sense?  Tony?
+Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
 
-
-  --cw
