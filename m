@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 14 Jul 2004 18:34:23 +0000
-Subject: RE: free bootmem feedback patch
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01A5D4FA@scsmsx401.amr.corp.intel.com>
+From: William Lee Irwin III <wli@holomorphy.com>
+Date: Wed, 14 Jul 2004 22:12:47 +0000
+Subject: Re: free bootmem feedback patch
+Message-Id: <20040714221247.GU3411@holomorphy.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40F46962.4090604@sgi.com>
 In-Reply-To: <40F46962.4090604@sgi.com>
@@ -10,31 +10,40 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There are certainly some opportunities to speed up the code in
-free_all_bootmem_core() ... only one cpu is running, so using
-atomic operations to "ClearPageReserved(page)" is overkill. As
-is calling __free_page() [Which promptly tests that this isn't
-a reserved page, and does more atomic ops to decrement the count
-from 1 (which we just set it to) to zero.   What a waste of time!]
+At some point in the past, I wrote:
+>> Also, it may make more sense to speed this up by freeing higher-order
+>> pages at a time.
+
+On Wed, Jul 14, 2004 at 11:34:23AM -0700, Luck, Tony wrote:
+> This looks like the most promising way to put a major dent in the
+> time taken.  If you make sure that the bits in the bitmap line up
+> correctly so that the physical addresses come out right, then you
+> have an easy test for "if (v = ~0UL) {" to find larger order pages
+> (5 on 32-bit systems, 6 on 64-bit).  A factor 64 speedup would
+> turn your 5 minute hang into a 5 second pause :-).
+> Some prefetches in that loop might help too (so you don't
+> have to take a full L3 cache miss on every page structure).
+> Another approach might be to just free enough pages on each node
+> to get all the cpus up and running, and then have one cpu on each
+> node free the remaining pages for the node. But this sounds like
+> major surgery (and wouldn't help my hypothetical machine that has
+> huge memory on just one node).
+
+I'd even go so far as to suggest scanning the bitmap until the
+maximally sized higher-order page to free at the cursor (determined
+by cursor alignment and the first bit indicating a reserved page or
+otherwise MAX_ORDER bits out from the cursor) is found. More ideally
+(2.7) I'd prefer to rewrite the thing altogether and explicitly track
+ranges at all times, so eliminating all linear scans but the final one,
+which is then very natural to arrange to free maximally sized higher-
+order pages and has far fewer degenerate cases than the bitmaps.
+
+Parallelization sounds very interesting, but something I don't have the
+machine and other resources to address. I suspect as node initialization
+is rearranged for the purpose of hotplugging memory this will become
+easier, but have no specific ideas (or even knowledge of what's going on)
+about the hotplug memory and/or bootmem parallelization topic, apart
+from believing it's a good idea.
 
 
->Also, it may make more sense to speed this up by freeing higher-order
->pages at a time.
-
-This looks like the most promising way to put a major dent in the
-time taken.  If you make sure that the bits in the bitmap line up
-correctly so that the physical addresses come out right, then you
-have an easy test for "if (v = ~0UL) {" to find larger order pages
-(5 on 32-bit systems, 6 on 64-bit).  A factor 64 speedup would
-turn your 5 minute hang into a 5 second pause :-).
-
-Some prefetches in that loop might help too (so you don't
-have to take a full L3 cache miss on every page structure).
-
-Another approach might be to just free enough pages on each node
-to get all the cpus up and running, and then have one cpu on each
-node free the remaining pages for the node. But this sounds like
-major surgery (and wouldn't help my hypothetical machine that has
-huge memory on just one node).
-
--Tony
+-- wli
