@@ -1,31 +1,22 @@
-From: yvchan@ca.ibm.com
-Date: Thu, 30 Mar 2000 20:57:37 +0000
-Subject: [Linux-ia64] question about -fpermissive flag in g++
-Message-Id: <marc-linux-ia64-105590678204998@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Thu, 30 Mar 2000 22:07:58 +0000
+Subject: Re: [Linux-ia64] question about -fpermissive flag in g++
+Message-Id: <marc-linux-ia64-105590678204999@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678204998@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678204998@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+It sounds like the option is working as intended, but does not do what you
+hoped it would do.
 
-Hi All,
+If you want a better answer, you will probably have to ask on 
+gcc-bugs@gcc.gnu.org, since I doubt that anyone here has enough g++
+expertise to comment on the specifics of what -fpermissive does.
 
-I've got a question concerning the gcc (version 2.9-ia64-000216) and
-the -fpermissive flag.  I was wondering if this is turned on in the
-compiler?
-I tried compiling with it, and there was no message indicating it doesn't
-exist, but then it also did not get rid of certain errors I had hoped it
-would.
-
-If this is currently not available, when could it be, or is there a
-way I could turn it on?
-
-Thanks in advance for your time.
-yvonne
-
-Email:  yvchan@ca.ibm.com
-
-
+Jim
 
 
