@@ -1,42 +1,91 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 19 Jan 2001 01:43:44 +0000
-Subject: Re: [Linux-ia64] CONFIG_IA64_PAGE_SIZE
-Message-Id: <marc-linux-ia64-105590693005087@msgid-missing>
+From: "Faccini, Bruno" <bruno.faccini@intel.com>
+Date: Thu, 11 Jan 2001 23:45:47 +0000
+Subject: [Linux-ia64] Problem to build Kernel 2.4.0 with gcc version "2.96-ia64-000717"
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C07C28.9EEC5B80"
+Message-Id: <marc-linux-ia64-105590693005032@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005077@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005077@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 18 Jan 2001 12:43:06 -0800, Rich Altmaier <richa@engr.sgi.com> said:
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
 
-  Rich> However be aware of one significant downside to larger page
-  Rich> sizes, for workloads involving a large number of small
-  Rich> processes.  Suppose you fire up 1000 processes on a system,
-  Rich> then the additional physical memory consumption is
-  Rich> significant.  I actually don't know the correct calculation
-  Rich> but guesstimate that per-process data structures which
-  Rich> increase in size include kernel stack, task struct, each
-  Rich> shared lib data segment, user data segment.  If the pagesize
-  Rich> is increased from 4K to 64K, then 4 such elements yield
-  Rich> 60K*4*1000 processes = 240Mbyte.
+------_=_NextPart_000_01C07C28.9EEC5B80
+Content-Type: text/plain;
+	charset="iso-8859-1"
 
-The minimum task size was an important consideration in the design of
-IA-64 Linux.  As Don pointed out, the process data structure is at
-least 32KB no matter what page size is in use (to avoid stack
-overflow), so this really makes a difference only when the page size
-is 64KB.
 
-However, the real biggie are the page tables.  Even the smallest task
-needs at the least three page table pages, so here the page size can
-have a big impact.
+When trying to build Kernel 2.4.0 (from
+"http://www.kernel.org/pub/linux/kernel/v2.4/linux-2.4.0.tar.gz" +
+"http://www.kernel.org/pub/linux/kernel/ports/ia64//linux-2.4.0-ia64-010109.
+diff.gz" downloads) with gcc version "2.96-ia64-000717" + snap "001117" we
+experienced compilation errors with the specific
+"net/ipv4/netfilter/ip_tables.c" source file.
+After some investigations, it appeared to be due to a problem/regression
+with version "2.96-ia64-000717" (+ snap "001117" applied, the gcc pkg
+shipped as part of RedHat64 "December-2000" Beta release) to deal with the
+following macro in "include/linux/netfilter_ipv4/ip_tables.h" header : 
+--------------------------------
+#define IPT_MATCH_ITERATE(e, fn, args...)	\
+({						\
+	unsigned int __i;			\
+	int __ret = 0;				\
+	struct ipt_entry_match *__m;		\
+						\
+	for (__i = sizeof(struct ipt_entry);	\
+	     __i < (e)->target_offset;		\
+	     __i += __m->u.match_size) {	\
+		__m = (void *)(e) + __i;	\
+						\
+		__ret = fn(__m , ## args);	\
+		if (__ret != 0)			\
+			break;			\
+	}					\
+	__ret;					\
+})
+--------------------------------
+where "## args" substitution was wrongly done (the first argument in the
+"...[,...]" list was garbled depending on its first character, "*" or "&"
+are missing if specified and if none the full argument/variable name is
+fully missing !!, leading to the compiler error because of 2x"," in a row ).
+The simplest way to bypass this was to generate a pre-processed only C
+source file, to manually edit+fix the problems/missing characters/names and
+to use it as the original source file.
+This points to some regression between latest gcc versions vs Linux Kernel
+source files content and the syntax used (there was a lot of warnings about
+"depracated" use of "##" constructs during the Kernel build but the only
+error found) and may be highlights the need of a "generic" gcc ship+use for
+Kernel builds ...
+Bruno.
 
-  Rich> Some customers do complain about this (and I tell them to buy
-  Rich> more memory and enjoy the performance).
 
-Good answer! ;-)
+ <<Bruno Faccini (E-mail).vcf>> 
 
-	--david
+------_=_NextPart_000_01C07C28.9EEC5B80
+Content-Type: application/octet-stream;
+	name="Bruno Faccini (E-mail).vcf"
+Content-Disposition: attachment;
+	filename="Bruno Faccini (E-mail).vcf"
+
+BEGIN:VCARD
+VERSION:2.1
+N:Faccini;Bruno
+FN:Bruno Faccini (E-mail)
+ORG:Intel;Technical Marketing/Content Group EMEA
+TITLE:Tech. Mktg. Engr.
+TEL;WORK;VOICE:+33 (0) 146947228
+TEL;WORK;VOICE:+33 (0) 155498427
+TEL;WORK;FAX:+33 (0) 146947068
+ADR;WORK;ENCODING=QUOTED-PRINTABLE:;Munich, Germany.;Intel Corporation=0D=0ATour Chenonceaux=0D=0A204 Rond Poin=
+t Du Pont De Sevres;Boulogne Billancourt;Cedex;92516;France
+LABEL;WORK;ENCODING=QUOTED-PRINTABLE:Munich, Germany.=0D=0AIntel Corporation=0D=0ATour Chenonceaux=0D=0A204 Rond =
+Point Du Pont De Sevres=0D=0ABoulogne Billancourt, Cedex 92516=0D=0AFrance
+ADR;HOME:;;20 Rue Du Marechal Joffre;Brie Comte Robert;;77170;France
+LABEL;HOME;ENCODING=QUOTED-PRINTABLE:20 Rue Du Marechal Joffre=0D=0ABrie Comte Robert 77170=0D=0AFrance
+EMAIL;PREF;INTERNET:bruno.faccini@intel.com
+REV:20001111T162700Z
+END:VCARD
+
+------_=_NextPart_000_01C07C28.9EEC5B80--
+
 
