@@ -1,12 +1,32 @@
-From: Matt_Domsch@Dell.com
-Date: Thu, 30 Nov 2000 16:02:19 +0000
-Subject: [Linux-ia64] NIC not working after ACPI PXE boot - solution!
-Message-Id: <marc-linux-ia64-105590678205777@msgid-missing>
+From: "Ahna, Christopher J" <christopher.j.ahna@intel.com>
+Date: Thu, 30 Nov 2000 16:21:20 +0000
+Subject: RE: [Linux-ia64] NIC not working after ACPI PXE boot - solution!
+Message-Id: <marc-linux-ia64-105590678205778@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205777@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205777@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Matt,
+
+This very same fix was developed here at Intel and integrated into the
+BigSur BIOS a few weeks back.  The next released version of BigSur FW will
+include this fix.  I believe this fix will get pushed into standard releases
+of EFI, so all EFI based FW should get this problem solved in time.  This is
+pretty much a bug in EFI, so I don't think a workaround needs to go into the
+kernel permanently.  Thanks,
+
+Chris
+
+-----Original Message-----
+From: Matt_Domsch@Dell.com [mailto:Matt_Domsch@Dell.com]
+Sent: Thursday, November 30, 2000 8:02 AM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] NIC not working after ACPI PXE boot - solution!
+
 
 Some engineers here at Dell have developed a solution to the issue where the
 on-board NIC is unresponsive to Linux if first EFI tried to use it.  We're
@@ -32,5 +52,11 @@ Dell Enterprise Systems Group
 Linux Development Team
 
 
+
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
 
