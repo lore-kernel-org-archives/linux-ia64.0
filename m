@@ -1,21 +1,26 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Mon, 25 Aug 2003 19:08:40 +0000
-Subject: Re: [PATCH] ia64/lib/Makefile: use call-if-changed
-Message-Id: <marc-linux-ia64-106183855212801@msgid-missing>
+From: n0ano@n0ano.com
+Date: Wed, 06 Aug 2003 13:41:25 +0000
+Subject: Sourceforge wants to remove the IA64 project
+Message-Id: <marc-linux-ia64-106018364428759@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106183721811204@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106183721811204@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Aug 25, 2003 at 07:42:09PM +0100, Matthew Wilcox wrote:
-> 
-> Sam, how does this look?
+According to Sourceforge the IA64 project they are hosting meets
+their definition of a `dead' project, e.g. not producing software :-)
+Given that all of our work winds up on `kernel.org' and the
+mailing list has been moved to `vger' we probably are a dead
+project in their eyes.
 
-Good - and you included FORCE which is a typical mistake to forget.
-An additional advantage obtained using 'if_changed_dep' is that kbuild will
-check dependencies - thats only asm/asmmacro.h - but it is worth it.
+I don't have a problem with this so, unless anyone has any objections,
+Sourceforge will remove the IA64 project in 21 days.  Note that
+this is just the IA64 project, this has no affect on the
+`linux-ia64.org' web page, that will still be maintained by them.
 
-	Sam
+-- 
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@n0ano.com
+Ph: 303/447-2201
