@@ -1,36 +1,46 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 09 Oct 2003 03:13:50 +0000
-Subject: Re: Why does salinfo_log_read_cpu use kmalloc?
-Message-Id: <marc-linux-ia64-106566927917419@msgid-missing>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Wed, 22 Oct 2003 21:46:21 +0000
+Subject: [PATCH] trivial ia64 numa/discontig fixes
+Message-Id: <marc-linux-ia64-106685936312275@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106559698807998@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106559698807998@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 8 Oct 2003 09:55:44 -0600, 
-Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
->On Wednesday 08 October 2003 1:08 am, Keith Owens wrote:
->> Why does arch/ia64/kernel/salinfo.c::salinfo_log_read_cpu() use
->> kmalloc() for the log buffer?  The code is running virtual with
->> interrupts enabled, SAL_GET_STATE_INFO has no special requirements for
->> the buffer attributes, so why not use vmalloc()?
->
->It's usually called via smp_call_function_single(), which uses
->an IPI to make it happen on another processor.  I thought
->this meant the function got called with interrupts disabled,
->but I could be wrong.
 
-So the question becomes, why use smp_call_function_single() and have
-the code run disabled?  salinfo_log_read_cpu() is performing work on
-behalf of a user process, we can use set_cpus_allowed() and let the
-scheduler run the code on the required cpu with interrupts enabled.
+   I stumbled on a couple trivial bugs in ia64 numa/discontig support. 
+The first just sets the default number of nodes to something reasonable
+for a generic kernel, otherwise it's really easy to start walking over
+your initdata (more error checking should probably be added).  The
+second fixes a memcpy to a physical address.  Patch below, please
+apply.  Thanks,
 
-Any objections if I do a patch to replace smp_call_function_single()
-with set_cpus_allowed(), so reading the records from SAL does not block
-OS interrupts?  For the special case when the task is on the cpu that
-salinfo wants to read from, the existing code does not use IPI so it
-calls SAL with interrupts enabled.
+	Alex
+
+-- 
+Alex Williamson                             HP Linux & Open Source Lab
+
+--- linux-2.5/include/asm-ia64/numnodes.h	Wed Oct 22 15:14:03 2003
++++ linux-2.5/include/asm-ia64/numnodes.h	Wed Oct 22 13:26:08 2003
+@@ -4,7 +4,7 @@
+ #ifdef CONFIG_IA64_DIG
+ /* Max 8 Nodes */
+ #define NODES_SHIFT	3
+-#elif defined(CONFIG_IA64_SGI_SN2)
++#elif defined(CONFIG_IA64_SGI_SN2) || defined(CONFIG_IA64_GENERIC)
+ /* Max 128 Nodes */
+ #define NODES_SHIFT	7
+ #endif
+--- linux-2.5/arch/ia64/mm/discontig.c	Wed Oct 22 15:13:48 2003
++++ linux-2.5/arch/ia64/mm/discontig.c	Wed Oct 22 15:16:42 2003
+@@ -186,7 +186,7 @@
+ 			 */
+ 			for (cpu = 0; cpu < NR_CPUS; cpu++) {
+ 				if (node = node_cpuid[cpu].nid) {
+-					memcpy(cpu_data, __phys_per_cpu_start,
++					memcpy(__va(cpu_data), __phys_per_cpu_start,
+ 					       __per_cpu_end-__per_cpu_start);
+ 					__per_cpu_offset[cpu]  						(char*)__va(cpu_data) -
+
 
