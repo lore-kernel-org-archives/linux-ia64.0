@@ -1,292 +1,153 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Date: Thu, 25 Mar 2004 17:03:33 +0000
-Subject: [PATCH] [6/6] HUGETLB memory commitment
-Message-Id: <18970668.1080234213@42.150.104.212.access.eclipse.net.uk>
+From: Matthew Wilcox <willy@debian.org>
+Date: Mon, 01 Mar 2004 16:20:47 +0000
+Subject: [PATCH] Add support for extended PCI config space
+Message-Id: <20040301162047.GZ25779@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
-In-Reply-To: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anton Blanchard <anton@samba.org>, Andrew Morton <akpm@osdl.org>, Stephen Smalley <sds@epoch.ncsc.mil>
-Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Martin J. Bligh" <mbligh@aracnet.com>
+To: linux-ia64@vger.kernel.org
 
-[080-mem_acctdom_hugetlb_sysctl]
 
----
- include/linux/mman.h     |    4 ++--
- include/linux/sysctl.h   |    2 ++
- kernel/sysctl.c          |   28 ++++++++++++++++++++++------
- mm/mmap.c                |   11 +++++++----
- mm/nommu.c               |    8 ++++++--
- security/commoncap.c     |   19 ++++++++++---------
- security/dummy.c         |   19 ++++++++++---------
- security/selinux/hooks.c |   19 ++++++++++---------
- 8 files changed, 69 insertions(+), 41 deletions(-)
+Support for extended config space on ia64.
 
-diff -X /home/apw/lib/vdiff.excl -rupN reference/include/linux/mman.h current/include/linux/mman.h
---- reference/include/linux/mman.h	2004-03-25 15:03:32.000000000 +0000
-+++ current/include/linux/mman.h	2004-03-25 16:43:46.000000000 +0000
-@@ -10,8 +10,8 @@
- #define MREMAP_MAYMOVE	1
- #define MREMAP_FIXED	2
+ - Add the new parameter 'type' to ia64_sal_pci_config_{read,write}
+ - Change callers to match.
+ - Don't check `value' for NULL -- drivers/pci/access.c guarantees it isn't.
+ - Make pci_sal_ops static.
+ - Add pci_sal_ext_ops.
+ - Introduce pci_set_sal_ops() as an arch_initcall to ensure the raw_pci_ops
+   get set before we walk the ACPI namespace to discover PCI root bridges
+
+Index: arch/ia64/pci/pci.c
+=================================RCS file: /var/cvs/linux-2.6/arch/ia64/pci/pci.c,v
+retrieving revision 1.6
+diff -u -p -r1.6 pci.c
+--- a/arch/ia64/pci/pci.c	28 Feb 2004 01:49:51 -0000	1.6
++++ b/arch/ia64/pci/pci.c	1 Mar 2004 16:06:22 -0000
+@@ -57,17 +57,16 @@ struct pci_fixup pcibios_fixups[1];
+ 	((u64)(seg << 24) | (u64)(bus << 16) | \
+ 	 (u64)(devfn << 8) | (u64)(reg))
  
--extern int sysctl_overcommit_memory;
--extern int sysctl_overcommit_ratio;
-+extern int sysctl_overcommit_memory[];
-+extern int sysctl_overcommit_ratio[];
- extern atomic_t vm_committed_space[];
+-
+ static int
+ pci_sal_read (int seg, int bus, int devfn, int reg, int len, u32 *value)
+ {
+ 	int result = 0;
+ 	u64 data = 0;
  
- #ifdef CONFIG_SMP
-diff -X /home/apw/lib/vdiff.excl -rupN reference/include/linux/sysctl.h current/include/linux/sysctl.h
---- reference/include/linux/sysctl.h	2004-03-11 20:47:28.000000000 +0000
-+++ current/include/linux/sysctl.h	2004-03-25 16:45:06.000000000 +0000
-@@ -158,6 +158,8 @@ enum
- 	VM_SWAPPINESS,	/* Tendency to steal mapped memory */
- 	VM_LOWER_ZONE_PROTECTION ,/* Amount of protection of lower zones */
- 	VM_MIN_FREE_KBYTES!,	/* Minimum free kilobytes to maintain */
-+	VM_OVERCOMMIT_MEMORY_HUGEPAGES",	/* Turn off the virtual memory safety limit */
-+	VM_OVERCOMMIT_RATIO_HUGEPAGES#,	/* percent of RAM to allow overcommit in */
+-	if (!value || (seg > 255) || (bus > 255) || (devfn > 255) || (reg > 255))
++	if ((seg > 255) || (bus > 255) || (devfn > 255) || (reg > 255))
+ 		return -EINVAL;
+ 
+-	result = ia64_sal_pci_config_read(PCI_SAL_ADDRESS(seg, bus, devfn, reg), len, &data);
++	result = ia64_sal_pci_config_read(PCI_SAL_ADDRESS(seg, bus, devfn, reg), 0, len, &data);
+ 
+ 	*value = (u32) data;
+ 
+@@ -80,15 +79,61 @@ pci_sal_write (int seg, int bus, int dev
+ 	if ((seg > 255) || (bus > 255) || (devfn > 255) || (reg > 255))
+ 		return -EINVAL;
+ 
+-	return ia64_sal_pci_config_write(PCI_SAL_ADDRESS(seg, bus, devfn, reg), len, value);
++	return ia64_sal_pci_config_write(PCI_SAL_ADDRESS(seg, bus, devfn, reg), 0, len, value);
+ }
+ 
+-struct pci_raw_ops pci_sal_ops = {
++static struct pci_raw_ops pci_sal_ops = {
+ 	.read = 	pci_sal_read,
+ 	.write =	pci_sal_write
  };
  
- 
-diff -X /home/apw/lib/vdiff.excl -rupN reference/kernel/sysctl.c current/kernel/sysctl.c
---- reference/kernel/sysctl.c	2004-03-25 15:03:28.000000000 +0000
-+++ current/kernel/sysctl.c	2004-03-25 16:44:46.000000000 +0000
-@@ -50,8 +50,8 @@
- /* External variables not in a header file. */
- extern int panic_timeout;
- extern int C_A_D;
--extern int sysctl_overcommit_memory;
--extern int sysctl_overcommit_ratio;
-+extern int sysctl_overcommit_memory[];
-+extern int sysctl_overcommit_ratio[];
- extern int max_threads;
- extern atomic_t nr_queued_signals;
- extern int max_queued_signals;
-@@ -628,16 +628,16 @@ static ctl_table vm_table[] = {
- 	{
- 		.ctl_name	= VM_OVERCOMMIT_MEMORY,
- 		.procname	= "overcommit_memory",
--		.data		= &sysctl_overcommit_memory,
--		.maxlen		= sizeof(sysctl_overcommit_memory),
-+		.data		= &sysctl_overcommit_memory[VM_AD_DEFAULT],
-+		.maxlen		= sizeof(sysctl_overcommit_memory[VM_AD_DEFAULT]),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec,
- 	},
- 	{
- 		.ctl_name	= VM_OVERCOMMIT_RATIO,
- 		.procname	= "overcommit_ratio",
--		.data		= &sysctl_overcommit_ratio,
--		.maxlen		= sizeof(sysctl_overcommit_ratio),
-+		.data		= &sysctl_overcommit_ratio[VM_AD_DEFAULT],
-+		.maxlen		= sizeof(sysctl_overcommit_ratio[VM_AD_DEFAULT]),
- 		.mode		= 0644,
- 		.proc_handler	= &proc_dointvec,
- 	},
-@@ -715,6 +715,22 @@ static ctl_table vm_table[] = {
- 		.mode		= 0644,
- 		.proc_handler	= &hugetlb_sysctl_handler,
- 	 },
-+	 {
-+		.ctl_name	= VM_OVERCOMMIT_MEMORY_HUGEPAGES,
-+		.procname	= "overcommit_memory_hugepages",
-+		.data		= &sysctl_overcommit_memory[VM_AD_HUGETLB],
-+		.maxlen		= sizeof(sysctl_overcommit_memory[VM_AD_HUGETLB]),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+	},
-+	{
-+		.ctl_name	= VM_OVERCOMMIT_RATIO_HUGEPAGES,
-+		.procname	= "overcommit_ratio_hugepages",
-+		.data		= &sysctl_overcommit_ratio[VM_AD_HUGETLB],
-+		.maxlen		= sizeof(sysctl_overcommit_ratio[VM_AD_HUGETLB]),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+	},
- #endif
- 	{
- 		.ctl_name	= VM_LOWER_ZONE_PROTECTION,
-diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/mmap.c current/mm/mmap.c
---- reference/mm/mmap.c	2004-03-25 15:03:32.000000000 +0000
-+++ current/mm/mmap.c	2004-03-25 17:23:45.000000000 +0000
-@@ -52,8 +52,12 @@ pgprot_t protection_map[16] = {
- 	__S000, __S001, __S010, __S011, __S100, __S101, __S110, __S111
- };
- 
--int sysctl_overcommit_memory = 0;	/* default is heuristic overcommit */
--int sysctl_overcommit_ratio = 50;	/* default is 50% */
-+/* Defaults are:
-+ *  VM_AD_DEFAULT       heuristic overcommit, ratio 50%
-+ *  VM_AD_HUGETLB       strict commit, ratio 100%
-+ */
-+int sysctl_overcommit_memory[VM_ACCTDOM_NR] = {  0,    0 };
-+int sysctl_overcommit_ratio[VM_ACCTDOM_NR]  = { 50,  100 };
- atomic_t vm_committed_space[VM_ACCTDOM_NR] = 
-      { [ 0 ... VM_ACCTDOM_NR-1 ] = ATOMIC_INIT(0) };
- 
-@@ -612,8 +616,7 @@ munmap_back:
- 	    > current->rlim[RLIMIT_AS].rlim_cur)
- 		return -ENOMEM;
- 
--	if (!(flags & MAP_NORESERVE) || 
--	    (acctdom = VM_AD_DEFAULT && sysctl_overcommit_memory > 1)) {
-+	if (!(flags & MAP_NORESERVE) || sysctl_overcommit_memory[acctdom] > 1) {
- 		if (vm_flags & VM_SHARED) {
- 			/* Check memory availability in shmem_file_setup? */
- 			vm_flags |= VM_ACCOUNT;
-diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/nommu.c current/mm/nommu.c
---- reference/mm/nommu.c	2004-03-25 15:03:32.000000000 +0000
-+++ current/mm/nommu.c	2004-03-25 17:23:22.000000000 +0000
-@@ -31,8 +31,12 @@ unsigned long num_physpages;
- unsigned long askedalloc, realalloc;
- atomic_t vm_committed_space[VM_ACCTDOM_NR] = 
-      { [ 0 ... VM_ACCTDOM_NR-1 ] = ATOMIC_INIT(0) };
--int sysctl_overcommit_memory; /* default is heuristic overcommit */
--int sysctl_overcommit_ratio = 50; /* default is 50% */
-+/* Defaults are:
-+ *  VM_AD_DEFAULT       heuristic overcommit, ratio 50%
-+ *  VM_AD_HUGETLB       strict commit, ratio 100%
-+ */ 
-+int sysctl_overcommit_memory[VM_ACCTDOM_NR] = {  0,    0 };
-+int sysctl_overcommit_ratio[VM_ACCTDOM_NR]  = { 50,  100 };
- 
- /*
-  * Handle all mappings that got truncated by a "truncate()"
-diff -X /home/apw/lib/vdiff.excl -rupN reference/security/commoncap.c current/security/commoncap.c
---- reference/security/commoncap.c	2004-03-25 15:03:33.000000000 +0000
-+++ current/security/commoncap.c	2004-03-25 17:15:17.000000000 +0000
-@@ -315,9 +315,16 @@ int cap_vm_enough_memory(int domain, lon
- 
- 	vm_acct_memory(domain, pages);
- 
-+        /*
-+	 * Sometimes we want to use more memory than we have
-+	 */
-+	if (sysctl_overcommit_memory[domain] = 1)
-+		return 0;
+-struct pci_raw_ops *raw_pci_ops = &pci_sal_ops;	/* default to SAL */
++/* SAL 3.2 adds support for extended config space. */
 +
- 	/* Check against the full compliment of hugepages, no reserve. */
- 	if (domain = VM_AD_HUGETLB) {
--		allowed = hugetlb_total_pages();
-+		allowed = hugetlb_total_pages() *
-+			sysctl_overcommit_ratio[domain] / 100;
- 
- 		goto check;
- 	}
-@@ -328,13 +335,7 @@ int cap_vm_enough_memory(int domain, lon
- 	if (domain != VM_AD_DEFAULT)
- 		return 0;
- 
--        /*
--	 * Sometimes we want to use more memory than we have
--	 */
--	if (sysctl_overcommit_memory = 1)
--		return 0;
--
--	if (sysctl_overcommit_memory = 0) {
-+	if (sysctl_overcommit_memory[domain] = 0) {
- 		unsigned long n;
- 
- 		free = get_page_cache_size();
-@@ -372,7 +373,7 @@ int cap_vm_enough_memory(int domain, lon
- 		return -ENOMEM;
- 	}
- 
--	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
-+	allowed = totalram_pages * sysctl_overcommit_ratio[domain] / 100;
- 	allowed += total_swap_pages;
- 
- check:
-diff -X /home/apw/lib/vdiff.excl -rupN reference/security/dummy.c current/security/dummy.c
---- reference/security/dummy.c	2004-03-25 15:03:33.000000000 +0000
-+++ current/security/dummy.c	2004-03-25 17:16:21.000000000 +0000
-@@ -116,9 +116,16 @@ static int dummy_vm_enough_memory(int do
- 
- 	vm_acct_memory(domain, pages);
- 
-+        /*
-+	 * Sometimes we want to use more memory than we have
-+	 */
-+	if (sysctl_overcommit_memory[domain] = 1)
-+		return 0;
++#define PCI_SAL_EXT_ADDRESS(seg, bus, devfn, reg) \
++	((u64)(seg << 28) | (u64)(bus << 20) | \
++	 (u64)(devfn << 12) | (u64)(reg))
 +
- 	/* Check against the full compliment of hugepages, no reserve. */
- 	if (domain = VM_AD_HUGETLB) {
--		allowed = hugetlb_total_pages();
-+		allowed = hugetlb_total_pages() *
-+			sysctl_overcommit_ratio[domain] / 100;
- 
- 		goto check;
- 	}
-@@ -129,13 +136,7 @@ static int dummy_vm_enough_memory(int do
- 	if (domain != VM_AD_DEFAULT)
- 		return 0;
- 
--        /*
--	 * Sometimes we want to use more memory than we have
--	 */
--	if (sysctl_overcommit_memory = 1)
--		return 0;
--
--	if (sysctl_overcommit_memory = 0) {
-+	if (sysctl_overcommit_memory[domain] = 0) {
- 		free = get_page_cache_size();
- 		free += nr_free_pages();
- 		free += nr_swap_pages;
-@@ -160,7 +161,7 @@ static int dummy_vm_enough_memory(int do
- 		return -ENOMEM;
- 	}
- 
--	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
-+	allowed = totalram_pages * sysctl_overcommit_ratio[domain] / 100;
- 	allowed += total_swap_pages;
- 
- check:
-diff -X /home/apw/lib/vdiff.excl -rupN reference/security/selinux/hooks.c current/security/selinux/hooks.c
---- reference/security/selinux/hooks.c	2004-03-25 15:03:33.000000000 +0000
-+++ current/security/selinux/hooks.c	2004-03-25 17:16:44.000000000 +0000
-@@ -1505,9 +1505,16 @@ static int selinux_vm_enough_memory(int 
- 
- 	vm_acct_memory(domain, pages);
- 
-+        /*
-+	 * Sometimes we want to use more memory than we have
-+	 */
-+	if (sysctl_overcommit_memory[domain] = 1)
-+		return 0;
++static int
++pci_sal_ext_read (int seg, int bus, int devfn, int reg, int len, u32 *value)
++{
++	int result = 0;
++	u64 data = 0;
 +
- 	/* Check against the full compliment of hugepages, no reserve. */
- 	if (domain = VM_AD_HUGETLB) {
--		allowed = hugetlb_total_pages();
-+		allowed = hugetlb_total_pages() *
-+			sysctl_overcommit_ratio[domain] / 100;
++	if ((seg > 65535) || (bus > 255) || (devfn > 255) || (reg > 4095))
++		return -EINVAL;
++
++	result = ia64_sal_pci_config_read(PCI_SAL_EXT_ADDRESS(seg, bus, devfn, reg), 1, len, &data);
++
++	*value = (u32) data;
++
++	return result;
++}
++
++static int
++pci_sal_ext_write (int seg, int bus, int devfn, int reg, int len, u32 value)
++{
++	if ((seg > 65535) || (bus > 255) || (devfn > 255) || (reg > 4095))
++		return -EINVAL;
++
++	return ia64_sal_pci_config_write(PCI_SAL_EXT_ADDRESS(seg, bus, devfn, reg), 1, len, value);
++}
++
++static struct pci_raw_ops pci_sal_ext_ops = {
++	.read = 	pci_sal_ext_read,
++	.write =	pci_sal_ext_write
++};
++
++struct pci_raw_ops *raw_pci_ops = &pci_sal_ops;	/* default to SAL < 3.2 */
++
++static int __init pci_set_sal_ops(void)
++{
++	if (sal_version >= SAL_VERSION_CODE(3, 2)) {
++		raw_pci_ops = &pci_sal_ext_ops;
++	}
++	return 0;
++}
++
++arch_initcall(pci_set_sal_ops);
  
- 		goto check;
- 	}
-@@ -1518,13 +1525,7 @@ static int selinux_vm_enough_memory(int 
- 	if (domain != VM_AD_DEFAULT)
- 		return 0;
  
--        /*
--	 * Sometimes we want to use more memory than we have
--	 */
--	if (sysctl_overcommit_memory = 1)
--		return 0;
--
--	if (sysctl_overcommit_memory = 0) {
-+	if (sysctl_overcommit_memory[domain] = 0) {
- 		free = get_page_cache_size();
- 		free += nr_free_pages();
- 		free += nr_swap_pages;
-@@ -1558,7 +1559,7 @@ static int selinux_vm_enough_memory(int 
- 		return -ENOMEM;
- 	}
+ static int
+Index: include/asm-ia64/sal.h
+=================================RCS file: /var/cvs/linux-2.6/include/asm-ia64/sal.h,v
+retrieving revision 1.4
+diff -u -p -r1.4 sal.h
+--- a/include/asm-ia64/sal.h	7 Jan 2004 21:30:42 -0000	1.4
++++ b/include/asm-ia64/sal.h	1 Mar 2004 16:06:30 -0000
+@@ -741,10 +746,10 @@ ia64_sal_mc_set_params (u64 param_type, 
  
--	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
-+	allowed = totalram_pages * sysctl_overcommit_ratio[domain] / 100;
- 	allowed += total_swap_pages;
+ /* Read from PCI configuration space */
+ static inline s64
+-ia64_sal_pci_config_read (u64 pci_config_addr, u64 size, u64 *value)
++ia64_sal_pci_config_read (u64 pci_config_addr, int type, u64 size, u64 *value)
+ {
+ 	struct ia64_sal_retval isrv;
+-	SAL_CALL(isrv, SAL_PCI_CONFIG_READ, pci_config_addr, size, 0, 0, 0, 0, 0);
++	SAL_CALL(isrv, SAL_PCI_CONFIG_READ, pci_config_addr, size, type, 0, 0, 0, 0);
+ 	if (value)
+ 		*value = isrv.v0;
+ 	return isrv.status;
+@@ -752,11 +757,11 @@ ia64_sal_pci_config_read (u64 pci_config
  
- check:
+ /* Write to PCI configuration space */
+ static inline s64
+-ia64_sal_pci_config_write (u64 pci_config_addr, u64 size, u64 value)
++ia64_sal_pci_config_write (u64 pci_config_addr, int type, u64 size, u64 value)
+ {
+ 	struct ia64_sal_retval isrv;
+ 	SAL_CALL(isrv, SAL_PCI_CONFIG_WRITE, pci_config_addr, size, value,
+-	         0, 0, 0, 0);
++	         type, 0, 0, 0);
+ 	return isrv.status;
+ }
+ 
 
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
