@@ -1,29 +1,34 @@
-From: Uros Prestor <uros@turbolinux.com>
-Date: Tue, 29 Aug 2000 22:08:08 +0000
-Subject: Re: [Linux-ia64] Problem with QLogic
-Message-Id: <marc-linux-ia64-105590678205416@msgid-missing>
+From: "G\\351raud Krawezik" <gk@scali.no>
+Date: Tue, 08 Aug 2000 07:14:53 +0000
+Subject: [Linux-ia64] Kernel: which machine to choose?
+Message-Id: <marc-linux-ia64-105590678205272@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205399@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205399@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tim Riker wrote:
+Hello,
 
-> What are you using to boot test7 with, lilo or eli? Just curious.
+In order to use a kernel that support modules, I have downloaded
+2.4.0-test5.
+There are four different kind of workstations available: Generic,
+HP-simulator, SN1, DIG Compliant.
 
-lilo-0.9.0.  With ACPI support in the kernel now the bootloader shouldn't
-matter that much.
+HP-Sim crashes at the very beginning of the booting sequence
+SN1 cannot compile
+DIG compliant crashes while booting.
 
-Uros
+I'm ok to make minor modifications by myself to haev this fixed, but could
+someone tell me what version should I use? (from what I have seen, Generic
+uses all the others, so it does not compile and some definitions seem to
+be rather old...)
+I'm using an SDV from intel.
 
 
---
-Uros Prestor
-uros@turbolinux.com
+Thanks by advance
 
 
+Geraud
 
 
