@@ -1,72 +1,88 @@
-From: Hugh Dickins <hugh@veritas.com>
-Date: Mon, 22 Nov 2004 15:00:37 +0000
-Subject: Re: page fault scalability patch V11 [1/7]: sloppy rss
-Message-Id: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Sun, 07 Nov 2004 20:03:51 +0000
+Subject: Re: EFI partition code broken..
+Message-Id: <20041107200351.GA3169@lists.us.dell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.58.0411191729240.1719@schroedinger.engr.sgi.com>
-References: <Pine.LNX.4.58.0411191142540.24095@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0411191142540.24095@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.58.0411070959560.2223@ppc970.osdl.org> <Pine.LNX.4.58.0411071128240.24286@ppc970.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0411071128240.24286@ppc970.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: torvalds@osdl.org, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: davej@redhat.com, "Luck, Tony" <tony.luck@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Fri, 19 Nov 2004, Christoph Lameter wrote:
-> On Fri, 19 Nov 2004, Hugh Dickins wrote:
+On Sun, Nov 07, 2004 at 11:30:18AM -0800, Linus Torvalds wrote:
+> There's a few reports of various USB storage devices locking up. The last 
+> one was an iPod, but there's apparently others too.
 > 
-> > Sorry, against what tree do these patches apply?
-> > Apparently not linux-2.6.9, nor latest -bk, nor -mm?
+> The reason? They are unhappy if you access them past the end, and they 
+> seem to have problems reporting their true size.
 > 
-> 2.6.10-rc2-bk3
+> And the EFI partitioning code will happily just blindly try to access the 
+> last sector, because that's where the EFI partition is. Boom. Immediately 
+> dead iPod/whatever.
+> 
+> I'm going to make EFI depend on ia64. Does anybody else use them? 
 
-Ah, thanks - got it patched now, but your mailer (or something else)
-is eating trailing spaces.  Better than adding them, but we have to
-apply this patch before your set:
+It has been suggested on lkml that CONFIG_EFI_PARTITION (aka GUID
+Partition Tables, or GPT), be used as a partitioning strategy
+(assuming you want partitions instead of whole-disk LVM) for >2TB
+non-boot block devices, on all architectures, not just on ia64.
+Granted, you've got to have a RAID controller to get there today, but
+SANs can.
 
---- 2.6.10-rc2-bk3/include/asm-i386/system.h	2004-11-15 16:21:12.000000000 +0000
-+++ linux/include/asm-i386/system.h	2004-11-22 14:44:30.761904592 +0000
-@@ -273,9 +273,9 @@ static inline unsigned long __cmpxchg(vo
- #define cmpxchg(ptr,o,n)\
- 	((__typeof__(*(ptr)))__cmpxchg((ptr),(unsigned long)(o),\
- 					(unsigned long)(n),sizeof(*(ptr))))
--    
-+
- #ifdef __KERNEL__
--struct alt_instr { 
-+struct alt_instr {
- 	__u8 *instr; 		/* original instruction */
- 	__u8 *replacement;
- 	__u8  cpuid;		/* cpuid bit set for replacement */
---- 2.6.10-rc2-bk3/include/asm-s390/pgalloc.h	2004-05-10 03:33:39.000000000 +0100
-+++ linux/include/asm-s390/pgalloc.h	2004-11-22 14:54:43.704723120 +0000
-@@ -99,7 +99,7 @@ static inline void pgd_populate(struct m
+Also, Intel is heavily pushing for Extensible Firmware Interface (EFI)
+to be implemented in x86 and x86_64 environments in the next couple of
+years, so it may become more widespread.
  
- #endif /* __s390x__ */
- 
--static inline void 
-+static inline void
- pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmd, pte_t *pte)
- {
- #ifndef __s390x__
---- 2.6.10-rc2-bk3/mm/memory.c	2004-11-18 17:56:11.000000000 +0000
-+++ linux/mm/memory.c	2004-11-22 14:39:33.924030808 +0000
-@@ -1424,7 +1424,7 @@ out:
- /*
-  * We are called with the MM semaphore and page_table_lock
-  * spinlock held to protect against concurrent faults in
-- * multithreaded programs. 
-+ * multithreaded programs.
-  */
- static int
- do_anonymous_page(struct mm_struct *mm, struct vm_area_struct *vma,
-@@ -1615,7 +1615,7 @@ static int do_file_page(struct mm_struct
- 	 * Fall back to the linear mapping if the fs does not support
- 	 * ->populate:
- 	 */
--	if (!vma->vm_ops || !vma->vm_ops->populate || 
-+	if (!vma->vm_ops || !vma->vm_ops->populate ||
- 			(write_access && !(vma->vm_flags & VM_SHARED))) {
- 		pte_clear(pte);
- 		return do_no_page(mm, vma, address, write_access, pte, pmd);
+> Anyway, if anybody is interested in EFI tables on anything else, or if 
+> ia64 people ever care about actually working in any interesting hw 
+> situation, I'd strongly suggest EFI be fixed to not accept any random 
+> crap. 
+> 
+> As far as I can tell from reading the source, the EFI driver already
+> checks the first sector to see if it has a valid gpt, but apparently it
+> happily ends up doing all the end-of-disk checks even if the GPT isn't
+> there. Whatever the GPT is.
 
+GPT = GUID Partition Table, that's the metadata as described in the
+EFI Specification.  There's two copies, one at the front of the disk,
+and one at the end of the disk, as a backup.  (why, I'm not too sure,
+but that's the way it was specfied).  So the code needs to check both,
+if it gets that far...
+ 
+> Anyway, it is possible that the fix is to just exit EFI partition checking 
+> early if the first sector isn't palatable. But I don't know what the EFI 
+> rules are, and quite frankly, I think it's a hell of a lot more important 
+> to not do random access patterns to a disk and confuse it than it is to 
+> have EFI, so for now I'm just making it conditional on IA64.
+
+The check for invalid primary master boot record (PMBR) needs to be
+moved up ahead of the reads for the GPTs (primary at the start of the
+disk, alternate/backup at the end of the disk).  When first written,
+Intel didn't specify that the PMBR (a normal DOS-like MBR partition
+table with a single entry of type 0xEE covering the whole disk) *had*
+to exist, so we let the code try looking for GPTs first.  When the
+PMBR test was added, it should have been added ahead of the GPT tests,
+not after.  I'll work up a patch to do just that, and will then remove
+the dependency on IA64.  Fair enough?
+ 
+> Btw, USB devices are _not_ the only devices that don't necessarily know 
+> their size very well. CD-roms tend to sometimes have the same issues. They 
+> just don't have partitions on them, so people probably never cared. Also, 
+> I think some things like nbd end up being "allocate on demand", and the 
+> size is meaningless.
+> 
+> Basic rule of thumb: be _careful_ when accessing a disk. There are too 
+> damn many buggy or strange setups out there.
+
+Indeed.
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
