@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 22 Feb 2002 19:06:26 +0000
+From: "Seth, Rohit" <rohit.seth@intel.com>
+Date: Sat, 23 Feb 2002 02:02:29 +0000
 Subject: RE: [Linux-ia64] Linux IA64 ToDo List
-Message-Id: <marc-linux-ia64-105590701905178@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905183@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905170@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905170@msgid-missing>
@@ -10,14 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I'm working (in collaboration with people at SGI, NEC, HP, IBM,
-TurboLinux), on ccNUMA and other large system support.  Bits of
-the project are scattered around on sourceforge, but there is a
-good page at:
-	http://atlas.turbolinux.com
-that gives an overview and points to the various pieces.
+Don,
 
--Tony
+Currently working on the following:
+
+1- NAT page support
+2- Large Page support (for shared memory and anonymous pages).
+3- Mckinley specific optimizations in Kernel memory related functions
+(clear_page, copy_page, memset, memcp, TCP checksum)
+
+rohit
 
 -----Original Message-----
 From: n0ano@indstorage.com [mailto:n0ano@indstorage.com]
