@@ -1,41 +1,53 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 17 Jan 2001 20:04:48 +0000
-Subject: Re: [Linux-ia64] Incorrect unwind data in entry.S
-Message-Id: <marc-linux-ia64-105590693005068@msgid-missing>
+Date: Fri, 26 Jan 2001 08:09:55 +0000
+Subject: [Linux-ia64] gcc bug
+Message-Id: <marc-linux-ia64-105590693005105@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205870@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205870@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 17 Jan 2001 10:54:26 -0800, Cary Coutant <cary@cup.hp.com> said:
+The attached program demonstrates a gcc code generation bug.  I'm
+seeing this bug with the November snapshot with all patches applied.
+Specifically, if I compile the program with "-O", it works fine and I
+get:
 
-  Cary> Perhaps there's something in the first set of "assorted
-  Cary> .spillsp directives," but I don't see where the outer 416-byte
-  Cary> stack frame is being allocated or deallocated.
+	$ gcc -O t.c
+	$ ./a.out 
+	feed0000beef
 
-That happens in a very different place of the kernel (the IVT).
-Basically, what's happening is that a code fragment A sets up a stack
-frame and then calls a handler B, while arranging that B will return
-to a code fragment C.  Logically, A and C form a single procedure, but
-there really are several different As (and only one C).
+However, if I compile it with "-O2", I get:
 
-  Cary> The code then allocates an additional 576 bytes, but prologue
-  Cary> 2 describes the *total* frame size as 576.  It then pops
-  Cary> prologue 2, but doesn't deallocate the 576 bytes until the
-  Cary> beginning of body region 3, leaving a narrow window where the
-  Cary> unwinder will think the frame size is 416 bytes.
+	$ gcc -O2 t.c
+	$ ./a.out
+	beef
 
-Oops, you are right: the size/offsets should have been adjusted by the
-size of the first frame.  However, I think we can just drop prologue 1
-and 3.  I believe the reason we used to need those was because the
-return pointer didn't point to the right place (because the handler B
-knew that it's going to "return" to C and simply hardcoded a branch to
-C), but with the current setup, "rp" (or the location at which it was
-saved) will point to the right place so there is no need to manually
-craft unwind info for the frame set up by A.
+which obviously can't be right.
 
 	--david
+
+struct f {
+  unsigned long lo : 32;
+  unsigned long hi : 32;
+};
+
+unsigned long r;
+
+void
+doit (unsigned long value1, unsigned long value2)
+{
+  unsigned long w, t;
+
+  ((struct f*)&w)->lo = ((struct f*)&value1)->lo;
+  ((struct f*)&w)->hi = ((struct f*)&value2)->hi;
+  r = w;
+}
+
+int
+main (int argc, char **argv)
+{
+  doit(0xbeef, 0xfeed00000000);
+  printf ("%lx\n", r);
+}
 
