@@ -1,45 +1,42 @@
-From: hiren_mehta@agilent.com
-Date: Wed, 02 May 2001 18:27:07 +0000
-Subject: [Linux-ia64] problem with scsi/2.4.2 kernel : help
-Message-Id: <marc-linux-ia64-105590693005511@msgid-missing>
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 03 May 2001 12:30:31 +0000
+Subject: Re: Re: [Linux-ia64] NMI handling
+Message-Id: <marc-linux-ia64-105590693005527@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi List,
+>
+> I'm trying to add an NMI oopser to ia64 kdb to help debug disabled
+> spinloops.  I can add the NMI handler but AFAICT I am wasting my time.
+> local_irq_save and friends do rsm psr.i which will mask all interrupts,
+> including NMI (arch volume 2, table 5-7).
 
-I am running a couple of dd processes on the scsi drives
-on ia64 running 2.4.2 kernel.
+I agree.
 
-e.g.
-while [ 1 ]; do
-dd if=/dev/zero of=/dev/sdb1 bs24 count%000000
-done &
-while [ 1 ] ; do
-dd if=/dev/zero of=/dev/sdb2 bs24 count%000000
-done &
-while [ 1 ] ; do
-dd if=/dev/zero of=/dev/sdb3 bs24 count%000000
-done &
+I cant speak to how other platforms use NMI/INIT.
+
+As far as SNIA is concerned, we dont use what Itanium describes
+as NMI,
+
+On SNIA, the traditional NMI signal that the chipset understands
+is sent to the cpu chip as an INIT.  INIT gets propagated thru
+the PAL/SAL and shows up in linux at ia64_init_handler().
+
+We have also added an "init" command to kdb (arch/ia64/kdbasupport.c) 
+to send the INIT signal to other cpus that dont respond to CTL-A.
+Last time I checked, it was working ok & allowed you to get into kdb on
+cpus that did not respond to CTL-A. You can see the register state
+on these cpus but traceback thru an MCA/INIT frame doesnt currently
+work. Resuming after an INIT doest work either.
 
 
-What I have observed is whenever one of the dd processes completes
-and starts another process ( because of while [ 1 ] loop), the system
-freezez. I have no idea what is going on. 
 
-In fact I tried this on ia32 system as well. On ia32, I see lot of delay
-before I see any activity on the disk and during that time system freezes
-and I cannot do any thing. Well, on ia32 finally the system comes back up.
-But on ia64 the delay is very huge and sometimes the system does not
-come back up even after many hours (even after leaving the system
-overnight).
+---- 
+Thanks
 
-Has anybody seen this problem ? Does anybody know what the problem is ?
-I need to have solution for this problem ASAP. Please help me out.
+Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
 
-Regards,
--hiren
-hiren_mehta@agilent.com
 
