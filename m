@@ -1,27 +1,64 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 16 Mar 2005 19:34:29 +0000
-Subject: Re: [PATCH/RFC]: Clean up of sn_irq_info list for PCI Hotplug
-Message-Id: <200503161134.29905.jbarnes@engr.sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 02 Mar 2005 18:41:03 +0000
+Subject: [Patch 2/3] Free page tables belonging to remote nodes.
+Message-Id: <20050302184103.GC16517@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42276523.3060107@sgi.com>
-In-Reply-To: <42276523.3060107@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tuesday, March 15, 2005 12:32 pm, Prarit Bhargava wrote:
-> I propose the following change to the sn/kernel arch SN IRQ handling.
->
-> The central issue here is that the current unidirectional list
-> implementation in sn_irq_info does not easily allow sn_irq_info struct
-> removals when PCI devices are hotplug removed from the system.
->
-> After input from a few others I changed my approach in the patch.
-> Please reconsider it for submission to the community.
 
-Patch looks ok to me, Prarit, much better than what we had (i.e. it works 
-during hotplug).  We can continue to cleanup this file later, after you get 
-the hotplug driver accepted.
+Tony,
 
-Jesse
+This patch is simple but necessary for large numa configurations.
+It simply ensures that only pages from the local node are added to a
+cpus quicklist.  This prevents the trapping of pages on a remote nodes
+quicklist by starting a process, touching a large number of pages to
+fill pmd and pte entries, migrating to another node, and then unmapping
+or exiting.  With those conditions, the pages get trapped and if the
+machine has more than 100 nodes of the same size, the calculation of
+the pgtable high water mark will be larger than any single node so page
+table cache flushing will never occur.
+
+I ran lmbench lat_proc fork and lat_proc exec on a zx1 with and without
+this patch and did not notice any change.
+
+On an sn2 machine, there was a slight improvement which is possibly
+due to pages from other nodes trapped on the test node before starting
+the run.  I did not investigate further.
+
+Signed-off-by: Robin Holt <holt@sgi.com>
+
+Before:
+Process fork+exit: 186.7037 microseconds
+Process fork+execve: 699.0000 microseconds
+Process fork+/bin/sh -c: 2960.0000 microseconds
+
+After:
+Process fork+exit: 182.2333 microseconds
+Process fork+execve: 692.7500 microseconds
+Process fork+/bin/sh -c: 2905.5000 microseconds
+
+
+ pgalloc.h |   10 ++++++++++
+ 1 files changed, 10 insertions(+)
+
+
+Index: linux-2.6/include/asm-ia64/pgalloc.h
+=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-02 12:19:09.672133971 -0600
++++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-02 12:23:57.155152045 -0600
+@@ -64,6 +64,13 @@
+ static inline void
+ pgtable_quicklist_free (void *pgtable_entry)
+ {
++#ifdef CONFIG_NUMA
++	if (unlikely(page_to_nid(virt_to_page(pgtable_entry)) != numa_node_id())) {
++		free_page((unsigned long) pgtable_entry);
++		return;
++	}
++#endif
++
+ 	preempt_disable();
+ 	*(unsigned long *)pgtable_entry = (unsigned long) __ia64_per_cpu_var(pgtable_quicklist);
+ 	__ia64_per_cpu_var(pgtable_quicklist) = (unsigned long *) pgtable_entry;
