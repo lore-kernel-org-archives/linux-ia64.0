@@ -1,28 +1,46 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Mon, 07 Mar 2005 19:07:48 +0000
-Subject: Re: need ia64 testers: no per-arch mem_map init
-Message-Id: <1110222468.6446.24.camel@localhost>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 01 Mar 2005 19:23:21 +0000
+Subject: Re: [Patch 1/3] Reclaim pmd and pte entries to quicklists.
+Message-Id: <16932.49449.300899.778608@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1109981490.1976.17.camel@localhost>
-In-Reply-To: <1109981490.1976.17.camel@localhost>
+References: <20050226142541.GE10965@lnx-holt.americas.sgi.com>
+In-Reply-To: <20050226142541.GE10965@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 2005-03-07 at 11:04 -0800, Jesse Barnes wrote:
-> On Friday, March 4, 2005 6:04 pm, Jesse Barnes wrote:
-> > > However, ia64 has perhaps the most complex mem_map[ initialization, and
-> > > a diverse set of configurations.  I'd much prefer to fix any corner
-> > > cases now, than try to fix it up after it's in -mm.  I'd appreciate all
-> > > of the ia64 testing I can get, especially when CONFIG_NUMA is on.
-> >
-> > Sure, I'll test this on some Altix platforms (I'll try to find a big one),
-> > but I might not get to it until next Monday.
-> 
-> Boots fine on a 28 node Altix system.
+>>>>> On Sat, 26 Feb 2005 08:25:41 -0600, Robin Holt <holt@sgi.com> said:
 
-Excellent.  Thanks for the testing!
+  Robin> Tony, This patch introduces using the quicklists for pgd,
+  Robin> pmd, and pte levels by combining the alloc and free functions
+  Robin> into a common set of routines.  This greatly simplifies the
+  Robin> reading of this header file.
 
--- Dave
+Agreed, but now you implicitly assume that the directories at all
+levels are the same size.  I think it would be better to pass the
+desired size to the alloc routine such that you can at least fail
+noisily if somebody ever tried to use different-size directories.
+
+  Robin> Before:
+  Robin> Process fork+exit: 255.0909 microseconds
+
+  Robin> After:
+  Robin> Process fork+exit: 184.2333 microseconds
+
+Nice.
+
+  Robin> +	ret = local_cpu_data->pgtable_quicklist;
+
+Is there any reason pgtable_quicklist isn't a normal per-CPU variable?
+We didn't use to have that facility, that's why we used to keep it in
+local_cpu_data, but noadays, there should be no need for that ugly
+hack.
+
+Since this is performance-critical, it's probably worthwhile to use
+__ia64_per_cpu_var() to access the quicklist.  That way, the address
+of pgtable_quicklist can be obtained with a single "addl" instruction.
+
+	--david
+
 
