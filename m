@@ -1,39 +1,39 @@
-From: "=?gb2312?B?zMYg0+4=?=" <ytang5@hotmail.com>
-Date: Mon, 03 Dec 2001 10:01:05 +0000
-Subject: Re: [Linux-ia64] about linux/ia64 mm
-Message-Id: <marc-linux-ia64-105590698805579@msgid-missing>
+From: Chris McDermott <lcm@us.ibm.com>
+Date: Mon, 10 Dec 2001 20:46:07 +0000
+Subject: [Linux-ia64] Hard "hangs" with 2.4.16
+Message-Id: <marc-linux-ia64-105590698805665@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805562@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805562@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-b2ssIGkgZm91bmQgbXkgYW5zd2VyOwpmb3IgcmVnaW9uIDcsYml0IHJyLnZlIGlzIDAsIHNvIHRo
-ZSBWSFBUIHdhbGtlciBpcyBkaXNhYmxlZCBmb3IgdGhlc2UgdHdvIApyZWdpb25zOyBmYXVsdCBo
-YW5kbGVyIGFsdF9bZC9pXXRsYl9taXNzIGltcGxlbWVudCByZWdpb24tc3BlY2lmaWMgCnRyYW5z
-bGF0aW9uIGFsZ29yaXRobXMobW9yZSBzaW1wbGUgYW5kIGVmZmVjaWVudCkgZm9yIGl0OwoKdGh4
-IGFnYWluOwoKPkZyb206IERhdmlkIE1vc2JlcmdlciA8ZGF2aWRtQGhwbC5ocC5jb20+Cj5SZXBs
-eS1UbzogZGF2aWRtQGhwbC5ocC5jb20KPlRvOiAizMYg0+4iIDx5dGFuZzVAaG90bWFpbC5jb20+
-Cj5DQzogbGludXgtaWE2NEBsaW51eGlhNjQub3JnCj5TdWJqZWN0OiBSZTogW0xpbnV4LWlhNjRd
-IGFib3V0IGxpbnV4L2lhNjQgbW0KPkRhdGU6IFRodSwgMjkgTm92IDIwMDEgMjE6NDM6MTggLTA4
-MDAKPgo+ID4+Pj4+IE9uIFRodSwgMjkgTm92IDIwMDEgMjM6MTk6NTMgKzA4MDAsICI9P2diMjMx
-Mj9CP3pNWWcwKzQ9Pz0iIAo8eXRhbmc1QGhvdG1haWwuY29tPiBzYWlkOgo+Cj4gICBUYW5nPiBo
-aSBhbGwsIGkgd2FzIGEgbGl0dGxlIGNvbmZ1c2VkIGJ5IGxpbnV4L2lhNjQgbW07IGFzIGkga25v
-dywKPiAgIFRhbmc+IGxpbnV4IHJlcXVpcmVzIHBoeXNpY2FsIG1lbW9yeSB0byBiZSBtYXBwZWQg
-Y29udGlndW91c2x5IHRvCj4gICBUYW5nPiBrZXJuZWwgc3BhY2UoIGRvbid0IGNhcmUgaGlnaG1l
-bSk7IGFuZCBQQUdFX09GRlNFVCBpcyBkZWZpbmVkCj4gICBUYW5nPiB0byAweGUwMDAwMDAwMDAw
-MDAwMDAgaW4gbGludXgvaWE2NDsgdGhhdCdzIHJlZ2lvbiA3LCBpdHMgcGFnZQo+ICAgVGFuZz4g
-c2l6ZSBpcyBmaXhlZCB0byA2NE0oMi40LjEyKS4gaG93IGNvdWxkIF9fZ2V0X2ZyZWVfcGFnZXMo
-KQo+ICAgVGFuZz4gYWxsb2NhdGUgc3VjaCBhIGJpZyBfcGFnZV8/IGl0J3MgYWJzb2x1dGVseSBp
-bXBvc3NpYmxlLiAgc28gaQo+ICAgVGFuZz4gdGhpbmsgaSBtYWRlIGEgYmlnIG1pc3Rha2Ugc29t
-ZXdoZXJlLCB3b3VsZCBzb21lb25lIGhlbHAgbWUKPiAgIFRhbmc+IG91dD8gIHRoeCA6LSkKPgo+
-VGhlIHBhZ2UgYWxsb2NhdG9yIHdvcmtzIGF0IHRoZSBwYWdlIGZyYW1lIGxldmVsLCB3aGljaCBj
-YW4gYmUKPmNvbmZpZ3VyZWQgdG8gaGF2ZSBhIHNpemUgb2YgNCwgOCwgMTYsIG9yIDY0S0IuICBU
-aGUgbGFyZ2UgVExCCj5tYXBwaW5ncyBhcmUgdXNlZCBtZXJlbHkgdG8gYWNjZXNzIHRoZSB1bmRl
-cmx5aW5nIG1lbW9yeSAodGhpbmsgb2YgaXQKPmFzIGEgcGh5c2ljYWwgYWRkcmVzcyBzcGFjZSB3
-aXRoIGEgbm9uLXplcm8gc3RhcnRpbmcgYWRkcmVzcykuCj4KPgktLWRhdmlkCgoKX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-xPq/ydLU1NogTVNOIEhvdG1haWwg1b614yBodHRwOi8vd3d3LmhvdG1haWwuY29tL2NuIMPit9HK
-1beitefX09PKvP4KCgo=
+Anybody else been seeing hangs with 2.4.16+ia64-1128.diff?  
+
+I'm running on 4x Lions, some with B3's and some with C0's.  
+The BIOS revision is 83B. I have seen the hang on at least 
+4 of the systems. This is a hard hang, no kb interrupts, so 
+kdb doesn't help. I don't have much to go on yet. The hangs 
+occur in random places, sometimes at various places during 
+boot and sometimes after the system has been up for a few 
+minutes. I put an ITP (American Arium) on one of the failing 
+systems and it didn't fail. Stayed up all night. I moved the 
+ITP to another failing system and was able to catch 1 
+occurrence of a "hang". I'm still trying to characterize this
+hang to determine whether this is the same thing I am seeing 
+on the other systems or just a hardware (configuration) problem.
+What I saw from the ITP was that all of the processors had 
+apparently reset (all of their IPs had returned to the reset 
+vector, 0x80000000FFFFFF90 (I did have the ITP set to break on
+reset, but it didn't trigger). Not much else to go on, since I
+couldn't even dump any useful processor context.
+
+Anyone else seeing this sort of odd behavior with 2.4.16 on 
+Intel Lion SDVs?
+
+
+Thanks,
+
+Chris McDermott
+
+
