@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Feb 2004 18:52:55 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Mon, 23 Feb 2004 18:58:46 +0000
 Subject: RE: HUGEPAGE SIZE a boottime option
-Message-Id: <16442.19463.788527.89930@napali.hpl.hp.com>
+Message-Id: <B05667366EE6204181EABE9C1B1C0EB501F2AB0E@scsmsx401.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040220010731.GA28820@sgi.com>
 In-Reply-To: <20040220010731.GA28820@sgi.com>
@@ -10,7 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 23 Feb 2004 08:26:32 -0800, "Chen, Kenneth W" <kenneth.w.chen@intel.com> said:
+Sure, we can do that.  It would clean up a chunk of code as well :-)
+
+- Ken
+
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com] 
+Sent: Monday, February 23, 2004 10:53 AM
+To: Chen, Kenneth W
+Cc: Jack Steiner; linux-ia64@vger.kernel.org
+Subject: RE: HUGEPAGE SIZE a boottime option
+
+
+>>>>> On Mon, 23 Feb 2004 08:26:32 -0800, "Chen, Kenneth W"
+<kenneth.w.chen@intel.com> said:
 
  >  -(p8)	shr r22=r22,HPAGE_SHIFT-PAGE_SHIFT
  >  +(p8)	shr r22=r22,r27
