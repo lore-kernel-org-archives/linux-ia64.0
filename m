@@ -1,19 +1,24 @@
 From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Mon, 20 Sep 2004 16:47:19 +0000
-Subject: PATCH-ACPI based CPU hotplug[6/6]-ACPI Container driver
-Message-Id: <20040920094719.H14208@unix-os.sc.intel.com>
+Date: Fri, 24 Sep 2004 23:51:57 +0000
+Subject: Re: PATCH-ACPI based CPU hotplug[6/6]-ACPI Container driver
+Message-Id: <20040924165157.F27778@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com>
-In-Reply-To: <20040920092520.A14208-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Mon, Sep 20, 2004 at 09:25:20AM -0700
+References: <20040920092520.A14208@unix-os.sc.intel.com> <20040920094719.H14208@unix-os.sc.intel.com>
+In-Reply-To: <20040920094719.H14208@unix-os.sc.intel.com>; from anil.s.keshavamurthy@intel.com on Mon, Sep 20, 2004 at 09:47:19AM -0700
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-To: Keshavamurthy Anil S <anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ACPI Developer <acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, LHNS list <lhns-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, Linux IA64 <linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Cc: Len Brown <len.brown@intel.com>, ACPI Developer <acpi-devel@lists.sourceforge.net>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
 
-Changes from previous release:
-1) Typo fix- ACPI004 to ACPI0004
-2) Added depends on EXPERIMENTAL in Kconfig file
+On Mon, Sep 20, 2004 at 09:47:19AM -0700, Keshavamurthy Anil S wrote:
+> Changes from previous release:
+> 1) Typo fix- ACPI004 to ACPI0004
+> 2) Added depends on EXPERIMENTAL in Kconfig file
+Refreshed this patch and added printk for ACPI_NOTIFY_BUS_CHECK=20
+and for ACPI_NOTIFY_DEVICE_CHECK as no major issues were identified with th=
+is patch.
+
 
 ---
 Name:container_drv.patch
@@ -28,12 +33,18 @@ hotplug notifications on ACPI0004, PNP0A05 and PNP0A06 devices.
 	1) Mergerd the typo fix patch which changes "ACPI004" to "ACPI0004"
 ---
 
+ linux-2.6.9-rc2-askeshav/drivers/acpi/Kconfig     |   10=20
+ linux-2.6.9-rc2-askeshav/drivers/acpi/Makefile    |    1=20
+ linux-2.6.9-rc2-askeshav/drivers/acpi/container.c |  344 +++++++++++++++++=
++++++
+ linux-2.6.9-rc2-askeshav/include/acpi/container.h |   13=20
+ 4 files changed, 367 insertions(+), 1 deletion(-)
 
 diff -puN drivers/acpi/Kconfig~container_drv drivers/acpi/Kconfig
---- linux-2.6.9-rc2/drivers/acpi/Kconfig~container_drv	2004-09-20 06:12:12.=
-485927048 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/acpi/Kconfig	2004-09-20 06:15:25.02065=
-7320 -0700
+--- linux-2.6.9-rc2/drivers/acpi/Kconfig~container_drv	2004-09-24 15:26:33.=
+791637629 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/Kconfig	2004-09-24 15:26:33.88734=
+0753 -0700
 @@ -133,6 +133,7 @@ config ACPI_HOTPLUG_CPU
  	bool "Processor Hotplug (EXPERIMENTAL)"
  	depends on ACPI_PROCESSOR && HOTPLUG_CPU && EXPERIMENTAL
@@ -57,10 +68,10 @@ diff -puN drivers/acpi/Kconfig~container_drv drivers/acpi/Kconfig
 =20
 +endmenu
 diff -puN drivers/acpi/Makefile~container_drv drivers/acpi/Makefile
---- linux-2.6.9-rc2/drivers/acpi/Makefile~container_drv	2004-09-20 06:12:12=
-.490926288 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/acpi/Makefile	2004-09-20 06:12:12.5709=
-14128 -0700
+--- linux-2.6.9-rc2/drivers/acpi/Makefile~container_drv	2004-09-24 15:26:33=
+.796520442 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/Makefile	2004-09-24 15:26:33.8883=
+17315 -0700
 @@ -41,6 +41,7 @@ obj-$(CONFIG_ACPI_FAN)		+=3D fan.o
  obj-$(CONFIG_ACPI_PCI)		+=3D pci_root.o pci_link.o pci_irq.o pci_bind.o
  obj-$(CONFIG_ACPI_POWER)	+=3D power.o
@@ -70,9 +81,9 @@ diff -puN drivers/acpi/Makefile~container_drv drivers/acpi/Makefile
  obj-$(CONFIG_ACPI_SYSTEM)	+=3D system.o event.o
  obj-$(CONFIG_ACPI_DEBUG)	+=3D debug.o
 diff -puN /dev/null include/acpi/container.h
---- /dev/null	2004-04-06 06:27:52.000000000 -0700
-+++ linux-2.6.9-rc2-askeshav/include/acpi/container.h	2004-09-20 06:12:12.5=
-71913976 -0700
+--- /dev/null	2004-06-30 13:03:36.000000000 -0700
++++ linux-2.6.9-rc2-askeshav/include/acpi/container.h	2004-09-24 15:26:33.8=
+89293878 -0700
 @@ -0,0 +1,13 @@
 +#ifndef __ACPI_CONTAINER_H
 +#define __ACPI_CONTAINER_H
@@ -88,10 +99,10 @@ diff -puN /dev/null include/acpi/container.h
 +#endif /* __ACPI_CONTAINER_H */
 +
 diff -puN /dev/null drivers/acpi/container.c
---- /dev/null	2004-04-06 06:27:52.000000000 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/acpi/container.c	2004-09-20 06:12:12.5=
-73913672 -0700
-@@ -0,0 +1,341 @@
+--- /dev/null	2004-06-30 13:03:36.000000000 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/container.c	2004-09-24 15:26:33.8=
+90270440 -0700
+@@ -0,0 +1,344 @@
 +/*
 + * acpi_container.c  - ACPI Generic Container Driver
 + * ($Revision: )
@@ -316,6 +327,9 @@ diff -puN /dev/null drivers/acpi/container.c
 +	case ACPI_NOTIFY_BUS_CHECK:
 +		/* Fall through */
 +	case ACPI_NOTIFY_DEVICE_CHECK:
++		printk("Container driver received %s event\n",
++			(type =3D ACPI_NOTIFY_BUS_CHECK)?
++			"ACPI_NOTIFY_BUS_CHECK":"ACPI_NOTIFY_DEVICE_CHECK");
 +		if (present) {
 +			status =3D acpi_bus_get_device(handle, &device);
 +			if (ACPI_FAILURE(status) || !device) {
@@ -436,3 +450,4 @@ diff -puN /dev/null drivers/acpi/container.c
 +module_init(acpi_container_init);
 +module_exit(acpi_container_exit);
 _
+
