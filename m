@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 17 May 2001 14:59:14 +0000
+From: Hiroshi Aono <aono@hpc.bs1.fc.nec.co.jp>
+Date: Fri, 18 May 2001 07:42:48 +0000
 Subject: Re: [Linux-ia64] NFS v3 server
-Message-Id: <marc-linux-ia64-105590693005603@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005614@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005598@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005598@msgid-missing>
@@ -10,18 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 17 May 2001 16:58:19 +0900, Hiroshi Aono <aono@hpc.bs1.fc.nec.co.jp> said:
+At Thu, 17 May 2001 07:59:14 -0700,
+David Mosberger wrote:
 
-  Hiroshi> Hello everyone, I've tried to work NFS v3 server on Bigsur,
-  Hiroshi> but it doesn't work.  When mounting with NFS v3, the mount
-  Hiroshi> command says NFSv3 not supported!
+> 
+> There is a 64-bit fix for NFS v3 in 2.4.5-pre3.  Haven't tried it
+> myself, though.
+> 
+> 	--david
 
-  Hiroshi> Anyone tried to use the NFS v3 server on ia64 linux?
+I applied NFSv3 related patch and it works fine.
 
-  Hiroshi> The kernel version is 2.4.4.
+-pre3:
+ - Neil Brown: knfsd fix for 64-bit architectures, and filehandle resolveir
 
-There is a 64-bit fix for NFS v3 in 2.4.5-pre3.  Haven't tried it
-myself, though.
-
-	--david
+Thanks,
+----
+Hiroshi Aono, NEC Solutions
+(h-aono@ap.jp.nec.com)
 
