@@ -1,7 +1,7 @@
-From: "David S. Miller" <davem@redhat.com>
-Date: Sun, 15 Aug 2004 20:09:19 +0000
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Sun, 15 Aug 2004 22:38:06 +0000
 Subject: Re: page fault fastpath: Increasing SMP scalability by introducing
-Message-Id: <20040815130919.44769735.davem@redhat.com>
+Message-Id: <1092609485.9538.27.camel@gaston>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
@@ -9,9 +9,23 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Christoph Lameter <clameter@sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>, Anton Blanchard <anton@samba.org>
+
+On Sun, 2004-08-15 at 23:50, Christoph Lameter wrote:
+> Well this is more an idea than a real patch yet. The page_table_lock
+> becomes a bottleneck if more than 4 CPUs are rapidly allocating and using
+> memory. "pft" is a program that measures the performance of page faults on
+> SMP system. It allocates memory simultaneously in multiple threads thereby
+> causing lots of page faults for anonymous pages.
+
+Just a note: on ppc64, we already have a PTE lock bit, we use it to
+guard against concurrent hash table insertion, it could be extended
+to the whole page fault path provided we can guarantee we will never
+fault in the hash table on that PTE while it is held. This shouldn't
+be a problem as long as only user pages are locked that way (which
+should be the case with do_page_fault) provided update_mmu_cache()
+is updated to not take this lock, but assume it already held.
+
+Ben.
 
 
-Is the read lock in the VMA semaphore enough to let you do
-the pgd/pmd walking without the page_table_lock?
-I think it is, but just checking.
