@@ -1,28 +1,36 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 19 Jun 2003 20:44:14 +0000
-Subject: Re: local symbols in discarded section
-Message-Id: <marc-linux-ia64-105605607216309@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 19 Jun 2003 18:33:59 +0000
+Subject: __you_cannot_kmalloc_that_much
+Message-Id: <marc-linux-ia64-105604765306485@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105605499315077@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105605499315077@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 19 Jun 2003 13:34:55 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+While trying to compile the latest pull from
+the lia64.bkbits.net:8080/linux-ia64-2.5
+repository I hit the "you_cannot_kmalloc_that_much"
+message in the final link.
 
-  Tony> undefined reference to `local symbols in discarded
-  >> section .exit.text'
+The culprit is in
 
-  Tony> message.  Is this related to the warning about using
-  >> an old linker?
+	drivers/usb/host/uhci-debug.c
 
-  >> Not likely.  It sounds like a driver is failing to use __exit_p()
-  >> (see linux/init.h).
+which contains:
 
-  Tony> The offending driver is i460-agp.c.  Patch attached.
+#define MAX_OUTPUT      (PAGE_SIZE * 16)
 
-Applied, thanks.
+	...
 
-	--david
+	up->data = kmalloc(MAX_OUTPUT, GFP_KERNEL);
+
+With the default 16k page size we are trying to
+allocate 256K of memory, which is bigger that the
+largest size pool in include/linux/kmalloc_sizes.h
+
+
+Do we need a larger pool (I don't think so) or is
+this allocation excessive?
+
+-Tony
