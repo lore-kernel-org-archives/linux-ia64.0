@@ -1,48 +1,33 @@
-From: "Hall, Jenna S" <jenna.s.hall@intel.com>
-Date: Thu, 09 Aug 2001 07:01:28 +0000
-Subject: RE: [Linux-ia64] BIOS 96
-Message-Id: <marc-linux-ia64-105590698805049@msgid-missing>
+From: =?iso-8859-1?q?Andr=E9=20Margis?= <andre@sam.com.br>
+Date: Wed, 08 Aug 2001 10:40:39 +0000
+Subject: [Linux-ia64] Performance
+Message-Id: <marc-linux-ia64-105590693006010@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693006008@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693006008@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-BIOS 96 is no longer the recommended version, due to some console
-redirection issues.  BIOS 97 has fixed those issues (otherwise I believe it
-contains the same firmware components as 96).
+I know this is not the best place to put my question, but is very important 
+to me.
 
-I have booted Linux and done limited testing on BIOS 97 with no issues.  I
-have not yet tried to build a kernel or any heavy-duty stress testing
-though.
+I need to buy 3 servers in my company and I don't know what machine I buy.
 
-Jenna
+I have two differents machine:
+       - 8xPentium III 700 Mhz 2 MB Cache;
+       - 4xItanium      800 Mhz 4 MB Cache.
 
------Original Message-----
-From: Martin Wilck [mailto:Martin.Wilck@fujitsu-siemens.com]
-Sent: Tuesday, August 07, 2001 4:22 AM
-To: Linux-IA64 Mailing list
-Subject: [Linux-ia64] BIOS 96
+I will run Sybase 11.9.2 on Linux.
+
+
+What machine has the best performance, since Sybase is a 32 bits technology.
 
 
 
-Has anybody tested Linux on the new BIOS 96 from Intel yet?
-Are there any problems to be expected?
-
-Martin
-
--- 
-Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
-FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
+Thanks in Advance
 
 
 
 
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
+Andre
 
