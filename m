@@ -1,44 +1,33 @@
-From: Joe Griffin <joe.griffin@mscsoftware.com>
-Date: Wed, 26 Mar 2003 17:04:22 +0000
-Subject: Re: [Linux-ia64] IA64 Distributions
-Message-Id: <marc-linux-ia64-105590723705323@msgid-missing>
+From: "Stephen Gaudet" <sgaudet@wildopensource.com>
+Date: Wed, 26 Mar 2003 18:13:11 +0000
+Subject: RE: [Linux-ia64] IA64 Distributions
+Message-Id: <marc-linux-ia64-105590723705327@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705322@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705322@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-MSC.Linux is freely available:
+Hello Brent,
 
-ftp://ftp.msclinux.com/msclinux/ia64/July2002/iso
+> Does anyone know of a list of Freely available ia64 based distributions
+> besides debian?
 
-Also, we are very close to having an LSB complient version as well.
+I'm sure it not free but it is new.  SuSe just announced they're shipping.
 
-Regards,
-Joe Griffin
+http://msnbc-cnet.com.com/2100-1016-994165.html?type=3Dpt&part=3Dmsnbc&tag=
+=3Dalert
+&form=FEed&subj=3Dcnetnews
 
-
-
-Brent Clements wrote:
-
->Does anyone know of a list of Freely available ia64 based distributions
->besides debian?
->
->Thanks,
->Brent Clements
->
->
->
->
->_______________________________________________
->Linux-IA64 mailing list
->Linux-IA64@linuxia64.org
->http://lists.linuxia64.org/lists/listinfo/linux-ia64
->
->
->  
->
+Stephen Gaudet
+ .....
+<(=A9=BF=A9)>
+----------------------
+Wild Open Source
+Bedford, NH 03110
+pH: 603-488-1599
+http://www.wildopensource.com
 
 
