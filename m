@@ -1,73 +1,101 @@
-From: Hugh Dickins <hugh@veritas.com>
-Date: Wed, 18 Aug 2004 17:55:07 +0000
-Subject: Re: page fault fastpath patch v2: fix race conditions, stats for 8,32
-Message-Id: <Pine.LNX.4.44.0408181807500.15027-100000@localhost.localdomain>
+From: Ray Bryant <raybry@sgi.com>
+Date: Wed, 18 Aug 2004 20:13:39 +0000
+Subject: Re: page fault fastpath patch v2: fix race conditions, stats for
+Message-Id: <4123B873.4010403@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.58.0408170804430.8365@schroedinger.engr.sgi.com>
-References: <Pine.LNX.4.58.0408170804430.8365@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0408170804430.8365@schroedinger.engr.sgi.com>
+References: <fa.ofiojek.hkeujs@ifi.uio.no> <fa.o1kt2ua.1bm6n0c@ifi.uio.no>
+In-Reply-To: <fa.o1kt2ua.1bm6n0c@ifi.uio.no>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: William Lee Irwin III <wli@holomorphy.com>, "David S. Miller" <davem@redhat.com>, raybry@sgi.com, ak@muc.de, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hugh Dickins <hugh@veritas.com>
+Cc: Christoph Lameter <clameter@sgi.com>, William Lee Irwin III <wli@holomorphy.com>, "David S. Miller" <davem@redhat.com>, ak@muc.de, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, 17 Aug 2004, Christoph Lameter wrote:
+Hi Hugh,
 
-> This is the second release of the page fault fastpath path. The fast path
-> avoids locking during the creation of page table entries for anonymous
-> memory in a threaded application running on a SMP system. The performance
-> increases significantly for more than 4 threads running concurrently.
+Hugh Dickins wrote:
+> On Tue, 17 Aug 2004, Christoph Lameter wrote:
+> 
+> 
 
-It is interesting.  I don't like it at all in its current state,
-#ifdef'ed special casing for one particular path through the code,
-but it does seem worth taking further.
+<snip>
 
-Just handling that one anonymous case is not worth it, when we know
-that the next day someone else from SGI will post a similar test
-which shows the same on file pages ;)
+> 
+> Just handling that one anonymous case is not worth it, when we know
+> that the next day someone else from SGI will post a similar test
+> which shows the same on file pages ;)
+> 
 
-Your ptep lock bit avoids collision with pte bits, but does it not
-also need to avoid collision with pte swap entry bits?  And the
-pte_file bit too, at least once it's extended to nopage areas.
+Hugh -- this is called full employment for kernel scalability analysts.
+:-) :-)
 
-I'm very suspicious of the way you just return VM_FAULT_MINOR when
-you find the lock bit already set.  Yes, you can do that, but the
-lock bit is held right across the alloc_page_vma, so other threads
-trying to fault the same pte will be spinning back out to user and
-refaulting back into kernel while they wait: we'd usually use a
-waitqueue and wakeup with that kind of lock; or not hold it across,
-and make it a bitspin lock.
+Actually, disks are so slow that I wouldn't expect that scalability problem to 
+show up in the page fault code, but rather in the block I/O or page cache 
+management portions of the code instead.
 
-It's a realistic case, which I guess your test program won't be trying.
-Feels livelocky to me, but I may be overreacting against: it's not as
-if you're changing the page_table_lock to be treated that way.
+<snip>
 
-> Introducing the page_table_lock even for a short time makes performance
-> drop to the level before the patch.
+> 
+>>Introducing the page_table_lock even for a short time makes performance
+>>drop to the level before the patch.
+> 
+> 
+> That's interesting, and disappointing.
+> 
 
-That's interesting, and disappointing.
+I think that the major impact here is actually grabbing the lock when
+30 or more processors are trying to obtain it -- the amount of time that the 
+lock is actually held is insignificant in comparison.
 
-The main lesson I took from your patch (I think wli was hinting at
-the same) is that we ought now to question page_table_lock usage,
-should be possible to cut it a lot.
+> The main lesson I took from your patch (I think wli was hinting at
+> the same) is that we ought now to question page_table_lock usage,
+> should be possible to cut it a lot.
+> 
 
-I recall from exchanges with Dave McCracken 18 months ago that the
-page_table_lock is _almost_ unnecessary in rmap.c, should be possible
-to get avoid it there and in some other places.
+That would be a useful avenue to explore.  Unfortunately, we are on kind of a 
+tight fuse here trying to get the next kernel release ready.   At the moment 
+we are in the mode of moving fixes from 2.4.21 to 2.6, and this is one such 
+fix.   I'd be willing to pursue both in parallel so that in a future release
+we have gotten to page_table_lock reduction as well.  Does that make sense at 
+all?
 
-We take page_table_lock when making absent present and when making
-present absent: I like your observation that those are exclusive cases.
+(I just don't want to get bogged down in a 6-month effort here unless we can't 
+avoid it.)
 
-But you've found that narrowing the width of the page_table_lock
-in a particular path does not help.  You sound surprised, me too.
-Did you find out why that was?
- 
-> - One could avoid pte locking by introducing a pte_cmpxchg. cmpxchg
-> seems to be supported by all ia64 and i386 cpus except the original 80386.
+> I recall from exchanges with Dave McCracken 18 months ago that the
+> page_table_lock is _almost_ unnecessary in rmap.c, should be possible
+> to get avoid it there and in some other places.
+> 
+> We take page_table_lock when making absent present and when making
+> present absent: I like your observation that those are exclusive cases.
+> 
+> But you've found that narrowing the width of the page_table_lock
+> in a particular path does not help.  You sound surprised, me too.
+> Did you find out why that was?
+>  
 
-I do think this will be a more fruitful direction than pte locking:
-just looking through the arches for spare bits puts me off pte locking.
+See above comment.
 
-Hugh
+> 
+>>- One could avoid pte locking by introducing a pte_cmpxchg. cmpxchg
+>>seems to be supported by all ia64 and i386 cpus except the original 80386.
+> 
+> 
+> I do think this will be a more fruitful direction than pte locking:
+> just looking through the arches for spare bits puts me off pte locking.
+>
+
+The original patch that we had for 2.4.21 did exactly that, we shied away from 
+that due to concerns as to which processors allow you to update a running pte 
+using a cmpxchg (= the set of processors for which set_pte() is a simple 
+store.)  AFAIK, the only such processor is i386, but if Christoph is correct, 
+then more recent Intel x86 processors don't even have that restriction.  I'll 
+admit that I encouraged Christoph not to follow that path due to concerns of 
+arch dependent code creeping into the do_anonymous_page() path.
+
+Best Regards,
+
+Ray
+
+raybry@sgi.com
 
