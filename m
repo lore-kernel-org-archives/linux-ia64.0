@@ -1,23 +1,30 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 10 Nov 2003 17:50:36 +0000
-Subject: anyone want to volunteer as 2.6 maintainer?
-Message-Id: <marc-linux-ia64-106848670128353@msgid-missing>
+Date: Tue, 18 Nov 2003 22:39:22 +0000
+Subject: Re: anyone want to volunteer as 2.6 maintainer?
+Message-Id: <marc-linux-ia64-106919536820856@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106848670128353@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106848670128353@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-As the kernel is inching ever closer to the release of 2.6.0, I
-thought it is time to start looking for someone to maintain the 2.6
-tree.  I'd expect the hand-off to happen as soon as 2.7.x opens up
-(with me continuing to watch over the development kernel).
+OK, it's been a good week now and about half a dozen
+volunteers/nominations have come forward, so it's time to make a
+choice.
 
-Could everyone interested in maintaining the stable 2.6 tree drop me a
-note?  Ideally, I'd like to find someone who has been around for a
-while in ia64 linux land, is responsive, knows at least a little bit
-about bitkeeper, etc.  I can think of several potential candidates,
-but I do have a very open mind on this and if you really think you
-want to do this, by all means drop me a note.
+To be honest, everybody who expressed interest in being the ia64 2.6
+maintainer easily qualified and would have had my vote of confidence,
+but since there can be only one, I decided to ask Tony Luck to take on
+the responsibility.  Tony is of course well-known on this list and
+needs no introduction, but my hope is that his deep knowledge of ia64
+Linux and professionalism should ensure that the 2.6 kernel will have
+a good live under his stewardship.
+
+In terms of actual transition, I expect for the hand-over to occur
+just about the same time that 2.7 opens up.
+
+In the meantime, please welcome Tony in his new role!
 
 	--david
