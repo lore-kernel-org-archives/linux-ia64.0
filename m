@@ -1,27 +1,32 @@
 From: "Sourav Sen" <souravs@india.hp.com>
-Date: Thu, 06 May 2004 08:53:23 +0000
+Date: Thu, 06 May 2004 09:30:32 +0000
 Subject: [2.6.6 PATCH] Exposing EFI memory map
-Message-Id: <003801c43347$812a1590$39624c0f@india.hp.com>
+Message-Id: <003901c4334b$1a8a6de0$39624c0f@india.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <003801c43347$812a1590$39624c0f@india.hp.com>
+In-Reply-To: <003801c43347$812a1590$39624c0f@india.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Matt_Domsch@dell.com, matthew.e.tolentino@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+Resending it as the last one line wrapped :-(
+
+----------------------------------------------------
 Hi,
 
-The following simple patch creates a read-only file
-"memmap" under <mount point>/firmware/efi/ in sysfs
+The following simple patch creates a read-only file 
+"memmap" under <mount point>/firmware/efi/ in sysfs 
 and exposes the efi memory map thru it.
-
+ 
 Thanks
 Sourav
-
+HP-STS, Bangalore
 
 The patch is w.r.t 2.6.6-rc3
 ----------------------------
 =====================================--- a/drivers/firmware/efivars.c        2004-05-05 13:55:40.000000000 +0530
-+++ b/drivers/firmware/efivars.c        2004-05-06 11:43:40.000000000 +0530
++++ b/drivers/firmware/efivars.c        2004-05-06 14:03:13.000000000 +0530
 @@ -580,10 +580,42 @@ systab_read(struct subsystem *entry, cha
         return str - buf;
  }
@@ -49,8 +54,7 @@ The patch is w.r.t 2.6.6-rc3
 +
 +       for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
 +               md = (efi_memory_desc_t *)p;
-+               str += sprintf(str, "%2u     %-#18lx    %#016lx %#016lx\n",
-\
++               str += sprintf(str, "%2u  %-#18lx  %#016lx %#016lx\n", \
 +                       md->type, md->attribute, md->phys_addr, \
 +                       md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT));
 +       }
@@ -64,5 +68,4 @@ The patch is w.r.t 2.6.6-rc3
         &efi_attr_systab,
 +       &efi_attr_memmap,       /* Here comes one */
         NULL,   /* maybe more in the future? */
- };
-
+ }; 
