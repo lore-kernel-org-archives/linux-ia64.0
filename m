@@ -1,7 +1,7 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Wed, 30 Jul 2003 16:14:20 +0000
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Wed, 30 Jul 2003 16:15:47 +0000
 Subject: Re: A new patch for hint_pause
-Message-Id: <marc-linux-ia64-105958187408531@msgid-missing>
+Message-Id: <marc-linux-ia64-105958187408535@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105951916520159@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105951916520159@msgid-missing>
@@ -10,7 +10,7 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jul 30, 2003 at 09:12:03AM -0700, jbarnes wrote:
+On Wed, Jul 30, 2003 at 09:12:03AM -0700, Jesse Barnes wrote:
 > On Wed, Jul 30, 2003 at 08:51:37AM -0700, H. J. Lu wrote:
 > > On Wed, Jul 30, 2003 at 08:31:18AM -0700, Jesse Barnes wrote:
 > > > So all of this is in the latest CVS version of binutils?  Any idea when
@@ -21,8 +21,12 @@ On Wed, Jul 30, 2003 at 09:12:03AM -0700, jbarnes wrote:
 > > current one is 2.14.90.0.5 which was released on 07/22/2003.
 > 
 > I see them now--at the redhat site, earlier I was looking at gnu.org.
+> 
 
-Err, I meant kernel.org.  I'll give this release a try.
+FYI, the Linux binutils is available at
 
-Thanks,
-Jesse
+http://www.kernel.org/pub/linux/devel/binutils/
+
+
+
+H.J.
