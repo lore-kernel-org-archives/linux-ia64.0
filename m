@@ -1,43 +1,29 @@
-From: Michael Raymond <mraymond@sgi.com>
-Date: Thu, 24 Mar 2005 14:50:50 +0000
-Subject: Re: [PATCH] User Level Interrupts
-Message-Id: <20050324085047.F110444@goliath.americas.sgi.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Mon, 14 Mar 2005 04:16:46 +0000
+Subject: Context switch time regression...
+Message-Id: <16949.4142.908795.242198@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050323103832.A108873@goliath.americas.sgi.com> <20050323145738.A29828@unix-os.sc.intel.com>
-In-Reply-To: <20050323145738.A29828@unix-os.sc.intel.com>; from ashok.raj@intel.com on Wed, Mar 23, 2005 at 02:57:39PM -0800
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ashok Raj <ashok.raj@intel.com>
-Cc: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-    I did the test you suggested.  The turning-on and turning-off appeared
-to work but our SN Hub ASIC still sent interrupts to the specific CPU.
-    I looked at my code again and from your description of Hotplug I do not
-see any conflicts.
-    		  				Thanks,
-    		  					Michael
 
-On Wed, Mar 23, 2005 at 02:57:39PM -0800, Ashok Raj wrote:
-> Hi Michael
-> 
-> have you thought about how this infrastructure would play well with 
-> existing CPU hotplug code for ia64?
-> 
-> Once you return to user mode via the iret, is it possible that user mode
-> thread could get switched due to a pending cpu quiese attempt to remove
-> a cpu? (Current cpu removal code would bring the entire system to knees
-> by scheduling a high priority thread and looping with intr disabled, until the
-> target cpu is removed)
-> 
-> the cpu removal code would also attempt to migrate user process to another cpu,
-> retarget interrupts to another existing cpu etc. I havent tested the hotplug
-> code on sgi boxes so far. (only tested on some hp boxes by Alex Williamson
-> and on tiger4 boxes so far)
-> 
-> Cheers,
-> ashok
+
+According to LMbench2 on a 2-way 900MHz Itanium 2:
+
+Context switching 0K - times in microseconds - smaller is better
+----------------------------------------------------------------
+OS                               2p/0k      4p/0k      8p/0k
+                               ctx swtch  ctx swtch  ctx swtch 
+-----------------------------  ---------  ---------  ---------
+Linux 2.5.72                   1.5700000  1.6200000  1.7700000
+Linux 2.6.0                      15.0600  8.6900000  8.8600000
+Linux 2.6.11                     17.1900    17.2100    10.5400
+
+I have to go now, but I'll try to track this down tomorrow.
+
 
 -- 
-Michael A. Raymond              Office: (651) 683-3434
-Core OS Group                   Real-Time System Software
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
