@@ -1,27 +1,48 @@
-From: Paul Jackson <pj@sgi.com>
-Date: Mon, 03 May 2004 22:26:54 +0000
-Subject: Re: arch/ia64/ia32/binfmt_elf32.c: elf32_map() broken ia64 build
-Message-Id: <20040503152654.2b623e99.pj@sgi.com>
+From: Aron Griffis <aron@hp.com>
+Date: Fri, 28 May 2004 21:41:05 +0000
+Subject: lib64 in fedora glibc
+Message-Id: <20040528214105.GK9115@mustard.zk3.dec.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040426185633.7969ca0d.pj@sgi.com>
-	<20040501013304.32a750d3.pj@sgi.com>
-	<4096526C.4060503@BitWagon.com>
-	<20040503140459.10b9d3eb.pj@sgi.com>
-	<1083619742.24587.3.camel@linux.littlegreen>
-	<20040503151044.087d79ca.pj@sgi.com>
-	<1083622837.24587.9.camel@linux.littlegreen>
-In-Reply-To: <1083622837.24587.9.camel@linux.littlegreen>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Hearn <mh@codeweavers.com>
-Cc: jreiser@BitWagon.com, akpm@osdl.org, pageexec@freemail.hu, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, ashok.raj@intel.com
+To: linux-ia64@vger.kernel.org
 
-> so if you have higher priorities don't worry about Wine.
+These snippets from the current fedora glibc.spec look suspicious to
+me.. I was under the impression that ia64 would use /lib for 64-bit
+and /lib32 for 32-bit (or something like that), but it looks like RH
+is preparing to transition to lib64.
 
-Excellent - I think I can easily follow your suggestion ;).
+Patch4: %{name}-ia64-lib64.patch
 
--- 
-                          I won't rest till it's the best ...
-                          Programmer, Linux Scalability
-                          Paul Jackson <pj@sgi.com> 1.650.933.1373
+%prep:
+    %ifarch ia64
+    %if "%{_lib}" = "lib64"
+    %patch4 -p1
+    %endif
+
+%install:
+    %ifarch ia64
+    %if "%{_lib}" = "lib64"
+    # Compatibility symlink
+    mkdir -p $RPM_BUILD_ROOT/lib
+    ln -sf /%{_lib}/ld-linux-ia64.so.2 $RPM_BUILD_ROOT/lib/ld-linux-ia64.so.2
+    %endif
+    %endif
+
+%files:
+    %ifarch ia64
+    %if "%{_lib}" = "lib64"
+    %dir /lib
+    /lib/ld-linux-ia64.so.2
+    %endif
+    %endif
+
+%changelog:
+    * Thu May 20 2004 Jakub Jelinek <jakub@redhat.com> 2.3.3-29
+    - use lib64 instead of lib on ia64 if %%{_lib} is defined to lib64
+
+--
+Aron Griffis
+hp Linux and Open Source Lab
+
