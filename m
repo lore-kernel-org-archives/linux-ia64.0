@@ -1,7 +1,7 @@
-From: Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
-Date: Mon, 28 Oct 2002 00:51:19 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Mon, 28 Oct 2002 01:51:40 +0000
 Subject: Re: [Linux-ia64] quick ia64 patch for 2.5.44 (UP only)
-Message-Id: <marc-linux-ia64-105590709805266@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805269@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805243@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805243@msgid-missing>
@@ -10,46 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>>>>> "Kimio" = Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp> writes:
 
-On Mon, 28 Oct 2002 10:57:17 +1100
-Peter Chubb <peter@chubb.wattle.id.au> wrote:
 
-> >>>>> "Kimio" = Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp> writes:
-> 
-> Kimio> Hi Erich,
-> Kimio> Here is the patch.
-> Kimio> I changed cpu_init() in setup.c so that BSP prepares
-> Kimio> per_cpu data for all CPUS.
-> 
-> After applying this patch, I can boot on SMP.  However, the machine
-> hangs on shutdown
-> 
-> ...
-> Deconfiguring network interfaces... done.
-> Deactivating swap... done.
-> Unmounting local filesystems... done.
-> Rebooting... Shutting down devices
+Kimio> I have a same problem on Bigsur since 2.5.39.
+Kimio> So the problem caused by another bug.
 
-I have a same problem on Bigsur since 2.5.39.
-So the problem caused by another bug.
+ Yes, I agree there's another problem here.
 
-I've heard a rumor that this patch might fix it, but I haven't
-test it, yet.
+Kimio> I've heard a rumor that this patch might fix it, but I haven't
+Kimio> test it, yet.
 
-http://marc.theaimsgroup.com/?l=linux-kernel&m3371059120183&w=2
+Kimio> http://marc.theaimsgroup.com/?l=linux-kernel&m3371059120183&w=2
 
-> so there's still something wrong, not sure what (as interrupts are
-> disabled, I can't use the magic sysrq key to find out what's
-> happening)
+This patch is for the sound driver, that I haven't compiled in.  So
+it's unlikely to fix my problem.  Although maybe there's a similar
+problem somewhere else?
 
-Keyboard cannot be used on my Bigsur since 2.5.3? also.
-I've heard that there was a same problem at early 2.4.
+I did *not* have the problem on 2.5.39 or on 2.5.44 UP (it appears to
+be an SMP problem that was introduced between 2.5.39 and 2.5.44).
+I'm using serial console only.
 
-Thanks,
-Kimi
-
--- 
-Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
-
+Peter C
 
