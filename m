@@ -1,28 +1,32 @@
-From: "Wichmann, Mats D" <mats.d.wichmann@intel.com>
-Date: Fri, 14 Jun 2002 21:17:10 +0000
-Subject: RE: [Linux-ia64] Back to the future: which gcc for kernel 2.4.18
-Message-Id: <marc-linux-ia64-105590701905681@msgid-missing>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Wed, 19 Jun 2002 23:29:37 +0000
+Subject: Re: [Linux-ia64] about arch/ia64/sn
+Message-Id: <marc-linux-ia64-105590701905692@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905641@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905641@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>Is there a clean way to do that for an unexperimented gcc user, in
->>particular, can we have a gcc3.1 like installation that allows keeping 
->>the gcc2.96 ?
+The code in arch/ia64/sn is to support SGI Itanium based servers.
+It's not expected to compile or work without patches since not all of
+the infrastructure we need has been accepted into the kernel yet.  Is
+that what you meant by ok?
 
->I'd suggest trying something like
->        ftp://gcc.gnu.org/pub/gcc/releases/gcc-3.1/gcc-3.1.tar.bz2
->It shouldn't be too hard to build and install this. 
+Jesse
 
-In fact, if you just accept the default configure, the gcc built
-from this tree will install into /usr/local and not step on
-the existing gcc (but watch your paths).  You're also pretty 
-much sure to end up needing a late-model binutils (the
-current gnu release is 2.12.1, I believe) as gcc3 will,
-depending on circumstances, emit some debugging stuff that the 
-linker can't handle if it's not recent enough.
+On Thu, Jun 20, 2002 at 07:20:34AM +0800, wuqb@nudt.edu.cn wrote:
+> Hi, all,
+> 
+> I am new to this maillist. I do not know if the codes
+> under arch/ia64/sn is ok. Who is responsible for these
+> codes? If someone knows, please give me a reply.
+> Thanks.
+> 
+> Barry
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
