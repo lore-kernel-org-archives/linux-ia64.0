@@ -1,19 +1,23 @@
 From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Mon, 27 Sep 2004 23:39:09 +0000
+Date: Mon, 27 Sep 2004 23:41:19 +0000
 Subject: linux-2.6.9-rc2-mm4 kernel unaligned access
-Message-Id: <20040927163909.A32627@unix-os.sc.intel.com>
+Message-Id: <20040927164119.B32627@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040927163909.A32627@unix-os.sc.intel.com>
+In-Reply-To: <20040927163909.A32627@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+To: ACPI Developer <acpi-devel@lists.sourceforge.net>
+Cc: Linux IA64 <linux-ia64@vger.kernel.org>
 
 Hi All,
 	I am seeing the kernel unaligned access during linux-2.6.9-rc2-m4 boot on =
 
 IA64 tiger platform.  But the system boots fine except I don;t see console =
 login prompt,
-but I can telnet. Is anyone on the mailing list seeing the same.
+but I can telnet. Is anyone on the mailing list seeing the same or has a fi=
+x?
 
 thanks,
 Anil
