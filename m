@@ -1,293 +1,369 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Fri, 03 Dec 2004 14:00:09 +0000
-Subject: [PATCH 3/4]  SN support for new chipset
-Message-Id: <20041203140009.GA7240@sgi.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 17 Dec 2004 03:38:23 +0000
+Subject: page fault scalability patch V13 [7/8]: Split RSS
+Message-Id: <Pine.LNX.4.58.0412161937480.11341@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <41BBF923.6040207@yahoo.com.au>
+ <Pine.LNX.4.44.0412120914190.3476-100000@localhost.localdomain>
+ <20041212212456.GB2714@holomorphy.com> <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: William Lee Irwin III <wli@holomorphy.com>
+Cc: Hugh Dickins <hugh@veritas.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Add support for a future SGI chipset (shub2).
-(All code is SN-specific)
+Changelog
+	* Split rss counter into the task structure
+	* remove 3 checks of rss in mm/rmap.c
+	* increment current->rss instead of mm->rss in the page fault handler
+	* move incrementing of anon_rss out of page_add_anon_rmap to group
+	  the increments more tightly and allow a better cache utilization
 
-Change the IPI & TLB flushing code so that it works on
-both shub1 & shub2.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
+Index: linux-2.6.9/include/linux/sched.h
+=================================--- linux-2.6.9.orig/include/linux/sched.h	2004-11-30 20:33:31.000000000 -0800
++++ linux-2.6.9/include/linux/sched.h	2004-11-30 20:33:50.000000000 -0800
+@@ -30,6 +30,7 @@
+ #include <linux/pid.h>
+ #include <linux/percpu.h>
+ #include <linux/topology.h>
++#include <linux/rcupdate.h>
 
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
+ struct exec_domain;
 
+@@ -217,6 +218,7 @@
+ 	int map_count;				/* number of VMAs */
+ 	struct rw_semaphore mmap_sem;
+ 	spinlock_t page_table_lock;		/* Protects page tables, mm->rss, mm->anon_rss */
++	long rss, anon_rss;
 
+ 	struct list_head mmlist;		/* List of maybe swapped mm's.  These are globally strung
+ 						 * together off init_mm.mmlist, and are protected
+@@ -226,7 +228,7 @@
+ 	unsigned long start_code, end_code, start_data, end_data;
+ 	unsigned long start_brk, brk, start_stack;
+ 	unsigned long arg_start, arg_end, env_start, env_end;
+-	unsigned long rss, anon_rss, total_vm, locked_vm, shared_vm;
++	unsigned long total_vm, locked_vm, shared_vm;
+ 	unsigned long exec_vm, stack_vm, reserved_vm, def_flags, nr_ptes;
 
+ 	unsigned long saved_auxv[42]; /* for /proc/PID/auxv */
+@@ -236,6 +238,8 @@
 
-Index: linux/include/asm-ia64/sn/rw_mmr.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/include/asm-ia64/sn/rw_mmr.h	2004-12=
--01 14:15:15.714071672 -0600
-+++ linux/include/asm-ia64/sn/rw_mmr.h	2004-12-01 14:29:25.604960698 -0600
-@@ -14,8 +14,8 @@
-  * uncached physical addresses.
-  * 	pio_phys_read_mmr  - read an MMR
-  * 	pio_phys_write_mmr - write an MMR
-- * 	pio_atomic_phys_write_mmrs - atomically write 2 MMRs with psr.ic=3D0
-- * 		(interrupt collection)
-+ * 	pio_atomic_phys_write_mmrs - atomically write 1 or 2 MMRs with psr.ic=
-=3D0
-+ *		Second MMR will be skipped if address is NULL
-  *
-  * Addresses passed to these routines should be uncached physical addresses
-  * ie., 0x80000....
-@@ -61,13 +61,14 @@ pio_atomic_phys_write_mmrs(volatile long
-         asm volatile
-             ("mov r2=3Dpsr;;"
-              "rsm psr.i | psr.dt | psr.ic;;"
-+	     "cmp.ne p9,p0=3D%2,r0;"
-              "srlz.i;;"
-              "st8.rel [%0]=3D%1;"
--             "st8.rel [%2]=3D%3;;"
-+             "(p9) st8.rel [%2]=3D%3;;"
-              "mov psr.l=3Dr2;;"
-              "srlz.i;;"
- 	     :: "r"(mmr1), "r"(val1), "r"(mmr2), "r"(val2)
--             : "r2", "memory");
-+             : "p9", "r2", "memory");
- }           =20
-=20
- #endif /* _ASM_IA64_SN_RW_MMR_H */
-Index: linux/arch/ia64/sn/kernel/sn2/sn2_smp.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/sn/kernel/sn2/sn2_smp.c	20=
-04-12-01 14:29:11.722651870 -0600
-+++ linux/arch/ia64/sn/kernel/sn2/sn2_smp.c	2004-12-01 14:30:09.133525029 -=
-0600
-@@ -38,7 +38,8 @@
- #include <asm/sn/nodepda.h>
- #include <asm/sn/rw_mmr.h>
-=20
--void sn2_ptc_deadlock_recovery(unsigned long data0, unsigned long data1);
-+void sn2_ptc_deadlock_recovery(volatile unsigned long *, unsigned long dat=
-a0,=20
-+	volatile unsigned long *, unsigned long data1);
-=20
- static spinlock_t sn2_global_ptc_lock __cacheline_aligned =3D SPIN_LOCK_UN=
-LOCKED;
-=20
-@@ -46,14 +47,14 @@ static unsigned long sn2_ptc_deadlock_co
-=20
- static inline unsigned long wait_piowc(void)
+ 	/* Architecture-specific MM context */
+ 	mm_context_t context;
++	struct list_head task_list;		/* Tasks using this mm */
++	struct rcu_head rcu_head;		/* For freeing mm via rcu */
+
+ 	/* Token based thrashing protection. */
+ 	unsigned long swap_token_time;
+@@ -545,6 +549,9 @@
+ 	struct list_head ptrace_list;
+
+ 	struct mm_struct *mm, *active_mm;
++	/* Split counters from mm */
++	long rss;
++	long anon_rss;
+
+ /* task state */
+ 	struct linux_binfmt *binfmt;
+@@ -578,6 +585,9 @@
+ 	struct completion *vfork_done;		/* for vfork() */
+ 	int __user *set_child_tid;		/* CLONE_CHILD_SETTID */
+ 	int __user *clear_child_tid;		/* CLONE_CHILD_CLEARTID */
++
++	/* List of other tasks using the same mm */
++	struct list_head mm_tasks;
+
+ 	unsigned long rt_priority;
+ 	unsigned long it_real_value, it_prof_value, it_virt_value;
+@@ -1111,6 +1121,14 @@
+
+ #endif
+
++unsigned long get_rss(struct mm_struct *mm);
++unsigned long get_anon_rss(struct mm_struct *mm);
++unsigned long get_shared(struct mm_struct *mm);
++
++void mm_remove_thread(struct mm_struct *mm, struct task_struct *tsk);
++void mm_add_thread(struct mm_struct *mm, struct task_struct *tsk);
++
+ #endif /* __KERNEL__ */
+
+ #endif
++
+Index: linux-2.6.9/fs/proc/task_mmu.c
+=================================--- linux-2.6.9.orig/fs/proc/task_mmu.c	2004-11-30 20:33:26.000000000 -0800
++++ linux-2.6.9/fs/proc/task_mmu.c	2004-11-30 20:33:50.000000000 -0800
+@@ -22,7 +22,7 @@
+ 		"VmPTE:\t%8lu kB\n",
+ 		(mm->total_vm - mm->reserved_vm) << (PAGE_SHIFT-10),
+ 		mm->locked_vm << (PAGE_SHIFT-10),
+-		mm->rss << (PAGE_SHIFT-10),
++		get_rss(mm) << (PAGE_SHIFT-10),
+ 		data << (PAGE_SHIFT-10),
+ 		mm->stack_vm << (PAGE_SHIFT-10), text, lib,
+ 		(PTRS_PER_PTE*sizeof(pte_t)*mm->nr_ptes) >> 10);
+@@ -37,7 +37,7 @@
+ int task_statm(struct mm_struct *mm, int *shared, int *text,
+ 	       int *data, int *resident)
  {
--	volatile unsigned long *piows, piows_val;
-+	volatile unsigned long *piows, zeroval;
- 	unsigned long ws;
-=20
- 	piows =3D pda->pio_write_status_addr;
--	piows_val =3D pda->pio_write_status_val;
-+	zeroval =3D pda->pio_write_status_val;
- 	do {
- 		cpu_relax();
--	} while (((ws =3D *piows) & SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_MASK)=
- !=3D piows_val);
-+	} while (((ws =3D *piows) & SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_MASK)=
- !=3D zeroval);
- 	return ws;
+-	*shared = mm->rss - mm->anon_rss;
++	*shared = get_shared(mm);
+ 	*text = (PAGE_ALIGN(mm->end_code) - (mm->start_code & PAGE_MASK))
+ 								>> PAGE_SHIFT;
+ 	*data = mm->total_vm - mm->shared_vm;
+Index: linux-2.6.9/fs/proc/array.c
+=================================--- linux-2.6.9.orig/fs/proc/array.c	2004-11-30 20:33:26.000000000 -0800
++++ linux-2.6.9/fs/proc/array.c	2004-11-30 20:33:50.000000000 -0800
+@@ -420,7 +420,7 @@
+ 		jiffies_to_clock_t(task->it_real_value),
+ 		start_time,
+ 		vsize,
+-		mm ? mm->rss : 0, /* you might want to shift this left 3 */
++		mm ? get_rss(mm) : 0, /* you might want to shift this left 3 */
+ 	        rsslim,
+ 		mm ? mm->start_code : 0,
+ 		mm ? mm->end_code : 0,
+Index: linux-2.6.9/mm/rmap.c
+=================================--- linux-2.6.9.orig/mm/rmap.c	2004-11-30 20:33:46.000000000 -0800
++++ linux-2.6.9/mm/rmap.c	2004-11-30 20:33:50.000000000 -0800
+@@ -263,8 +263,6 @@
+ 	pte_t *pte;
+ 	int referenced = 0;
+
+-	if (!mm->rss)
+-		goto out;
+ 	address = vma_address(page, vma);
+ 	if (address = -EFAULT)
+ 		goto out;
+@@ -438,7 +436,7 @@
+ 	BUG_ON(PageReserved(page));
+ 	BUG_ON(!anon_vma);
+
+-	vma->vm_mm->anon_rss++;
++	current->anon_rss++;
+
+ 	anon_vma = (void *) anon_vma + PAGE_MAPPING_ANON;
+ 	index = (address - vma->vm_start) >> PAGE_SHIFT;
+@@ -510,8 +508,6 @@
+ 	pte_t pteval;
+ 	int ret = SWAP_AGAIN;
+
+-	if (!mm->rss)
+-		goto out;
+ 	address = vma_address(page, vma);
+ 	if (address = -EFAULT)
+ 		goto out;
+@@ -799,8 +795,7 @@
+ 			if (vma->vm_flags & (VM_LOCKED|VM_RESERVED))
+ 				continue;
+ 			cursor = (unsigned long) vma->vm_private_data;
+-			while (vma->vm_mm->rss &&
+-				cursor < max_nl_cursor &&
++			while (cursor < max_nl_cursor &&
+ 				cursor < vma->vm_end - vma->vm_start) {
+ 				try_to_unmap_cluster(cursor, &mapcount, vma);
+ 				cursor += CLUSTER_SIZE;
+Index: linux-2.6.9/kernel/fork.c
+=================================--- linux-2.6.9.orig/kernel/fork.c	2004-11-30 20:33:42.000000000 -0800
++++ linux-2.6.9/kernel/fork.c	2004-11-30 20:33:50.000000000 -0800
+@@ -151,6 +151,7 @@
+ 	*tsk = *orig;
+ 	tsk->thread_info = ti;
+ 	ti->task = tsk;
++	tsk->rss = 0;
+
+ 	/* One for us, one for whoever does the "release_task()" (usually parent) */
+ 	atomic_set(&tsk->usage,2);
+@@ -292,6 +293,7 @@
+ 	atomic_set(&mm->mm_count, 1);
+ 	init_rwsem(&mm->mmap_sem);
+ 	INIT_LIST_HEAD(&mm->mmlist);
++	INIT_LIST_HEAD(&mm->task_list);
+ 	mm->core_waiters = 0;
+ 	mm->nr_ptes = 0;
+ 	spin_lock_init(&mm->page_table_lock);
+@@ -323,6 +325,13 @@
+ 	return mm;
  }
-=20
-@@ -87,9 +88,9 @@ void
- sn2_global_tlb_purge(unsigned long start, unsigned long end,
- 		     unsigned long nbits)
- {
--	int i, cnode, mynasid, cpu, lcpu =3D 0, nasid, flushed =3D 0;
-+	int i, shub1, cnode, mynasid, cpu, lcpu =3D 0, nasid, flushed =3D 0;
- 	volatile unsigned long *ptc0, *ptc1;
--	unsigned long flags =3D 0, data0, data1;
-+	unsigned long flags =3D 0, data0 =3D 0, data1 =3D 0;
- 	struct mm_struct *mm =3D current->active_mm;
- 	short nasids[NR_NODES], nix;
- 	DECLARE_BITMAP(nodes_flushed, NR_NODES);
-@@ -128,28 +129,42 @@ sn2_global_tlb_purge(unsigned long start
- 	     cnode =3D find_next_bit(&nodes_flushed, NR_NODES, ++cnode))
- 		nasids[nix++] =3D cnodeid_to_nasid(cnode);
-=20
--	data0 =3D (1UL << SH1_PTC_0_A_SHFT) |
--	    (nbits << SH1_PTC_0_PS_SHFT) |
--	    ((ia64_get_rr(start) >> 8) << SH1_PTC_0_RID_SHFT) |
--	    (1UL << SH1_PTC_0_START_SHFT);
--
--	ptc0 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_0);
--	ptc1 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_1);
-+	shub1 =3D is_shub1();
-+	if (shub1) {
-+		data0 =3D (1UL << SH1_PTC_0_A_SHFT) |
-+		    	(nbits << SH1_PTC_0_PS_SHFT) |
-+		    	((ia64_get_rr(start) >> 8) << SH1_PTC_0_RID_SHFT) |
-+		    	(1UL << SH1_PTC_0_START_SHFT);
-+		ptc0 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_0);
-+		ptc1 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_1);
-+	} else {
-+		data0 =3D (1UL << SH2_PTC_A_SHFT) |
-+			(nbits << SH2_PTC_PS_SHFT) |
-+		    	(1UL << SH2_PTC_START_SHFT);
-+		ptc0 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH2_PTC +=20
-+			((ia64_get_rr(start) >> 8) << SH2_PTC_RID_SHFT) );
-+		ptc1 =3D NULL;
-+	}
-+=09
-=20
- 	mynasid =3D get_nasid();
-=20
- 	spin_lock_irqsave(&sn2_global_ptc_lock, flags);
-=20
- 	do {
--		data1 =3D start | (1UL << SH1_PTC_1_START_SHFT);
-+		if (shub1)
-+			data1 =3D start | (1UL << SH1_PTC_1_START_SHFT);
-+		else
-+			data0 =3D (data0 & ~SH2_PTC_ADDR_MASK) | (start & SH2_PTC_ADDR_MASK);
- 		for (i =3D 0; i < nix; i++) {
- 			nasid =3D nasids[i];
--			if (likely(nasid =3D mynasid)) {
-+			if (unlikely(nasid =3D mynasid)) {
- 				ia64_ptcga(start, nbits << 2);
- 				ia64_srlz_i();
- 			} else {
- 				ptc0 =3D CHANGE_NASID(nasid, ptc0);
--				ptc1 =3D CHANGE_NASID(nasid, ptc1);
-+				if (ptc1)
-+					ptc1 =3D CHANGE_NASID(nasid, ptc1);
- 				pio_atomic_phys_write_mmrs(ptc0, data0, ptc1,
- 							   data1);
- 				flushed =3D 1;
-@@ -159,7 +174,7 @@ sn2_global_tlb_purge(unsigned long start
- 		if (flushed
- 		    && (wait_piowc() &
- 			SH_PIO_WRITE_STATUS_WRITE_DEADLOCK_MASK)) {
--			sn2_ptc_deadlock_recovery(data0, data1);
-+			sn2_ptc_deadlock_recovery(ptc0, data0, ptc1, data1);
- 		}
-=20
- 		start +=3D (1UL << nbits);
-@@ -178,18 +193,19 @@ sn2_global_tlb_purge(unsigned long start
-  * TLB flush transaction.  The recovery sequence is somewhat tricky & is
-  * coded in assembly language.
-  */
--void sn2_ptc_deadlock_recovery(unsigned long data0, unsigned long data1)
-+void sn2_ptc_deadlock_recovery(volatile unsigned long *ptc0, unsigned long=
- data0,
-+	volatile unsigned long *ptc1, unsigned long data1)
- {
--	extern void sn2_ptc_deadlock_recovery_core(long *, long, long *, long,
--						   long *);
-+	extern void sn2_ptc_deadlock_recovery_core(volatile unsigned long *, unsi=
-gned long,
-+	        volatile unsigned long *, unsigned long, volatile unsigned long *=
-, unsigned long);
- 	int cnode, mycnode, nasid;
--	long *ptc0, *ptc1, *piows;
-+	volatile unsigned long *piows;
-+	volatile unsigned long zeroval;
-=20
- 	sn2_ptc_deadlock_count++;
-=20
--	ptc0 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_0);
--	ptc1 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_1);
--	piows =3D (long *)pda->pio_write_status_addr;
-+	piows =3D pda->pio_write_status_addr;
-+	zeroval =3D pda->pio_write_status_val;
-=20
- 	mycnode =3D numa_node_id();
-=20
-@@ -198,8 +214,9 @@ void sn2_ptc_deadlock_recovery(unsigned=20
- 			continue;
- 		nasid =3D cnodeid_to_nasid(cnode);
- 		ptc0 =3D CHANGE_NASID(nasid, ptc0);
--		ptc1 =3D CHANGE_NASID(nasid, ptc1);
--		sn2_ptc_deadlock_recovery_core(ptc0, data0, ptc1, data1, piows);
-+		if (ptc1)
-+			ptc1 =3D CHANGE_NASID(nasid, ptc1);
-+		sn2_ptc_deadlock_recovery_core(ptc0, data0, ptc1, data1, piows, zeroval);
+
++static void rcu_free_mm(struct rcu_head *head)
++{
++	struct mm_struct *mm = container_of(head ,struct mm_struct, rcu_head);
++
++	free_mm(mm);
++}
++
+ /*
+  * Called when the last reference to the mm
+  * is dropped: either by a lazy thread or by
+@@ -333,7 +342,7 @@
+ 	BUG_ON(mm = &init_mm);
+ 	mm_free_pgd(mm);
+ 	destroy_context(mm);
+-	free_mm(mm);
++	call_rcu(&mm->rcu_head, rcu_free_mm);
+ }
+
+ /*
+@@ -400,6 +409,8 @@
+
+ 	/* Get rid of any cached register state */
+ 	deactivate_mm(tsk, mm);
++	if (mm)
++		mm_remove_thread(mm, tsk);
+
+ 	/* notify parent sleeping on vfork() */
+ 	if (vfork_done) {
+@@ -447,8 +458,8 @@
+ 		 * new threads start up in user mode using an mm, which
+ 		 * allows optimizing out ipis; the tlb_gather_mmu code
+ 		 * is an example.
++		 * (mm_add_thread does use the ptl .... )
+ 		 */
+-		spin_unlock_wait(&oldmm->page_table_lock);
+ 		goto good_mm;
  	}
+
+@@ -470,6 +481,7 @@
+ 		goto free_pt;
+
+ good_mm:
++	mm_add_thread(mm, tsk);
+ 	tsk->mm = mm;
+ 	tsk->active_mm = mm;
+ 	return 0;
+Index: linux-2.6.9/mm/memory.c
+=================================--- linux-2.6.9.orig/mm/memory.c	2004-11-30 20:33:46.000000000 -0800
++++ linux-2.6.9/mm/memory.c	2004-11-30 20:33:50.000000000 -0800
+@@ -1467,7 +1467,7 @@
+ 		 */
+ 		lru_cache_add_active(page);
+ 		page_add_anon_rmap(page, vma, addr);
+-		mm->rss++;
++		current->rss++;
+
+ 	}
+ 	pte_unmap(page_table);
+@@ -1859,3 +1859,87 @@
  }
-=20
-Index: linux/arch/ia64/sn/kernel/sn2/ptc_deadlock.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/sn/kernel/sn2/ptc_deadlock=
-.S	2004-12-01 14:29:11.725581245 -0600
-+++ linux/arch/ia64/sn/kernel/sn2/ptc_deadlock.S	2004-12-01 14:29:25.626442=
-783 -0600
-@@ -8,9 +8,8 @@
-=20
- #include <asm/sn/shub_mmr.h>
-=20
--#define ZEROVAL		0x3f		// "zero" value for outstanding PIO requests
- #define DEADLOCKBIT	SH_PIO_WRITE_STATUS_WRITE_DEADLOCK_SHFT
--#define WRITECOUNT	SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_SHFT
-+#define WRITECOUNTMASK	SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_MASK
- #define ALIAS_OFFSET	(SH1_PIO_WRITE_STATUS_0_ALIAS-SH1_PIO_WRITE_STATUS_0)
-=20
-=20
-@@ -18,24 +17,24 @@
- 	.proc  	sn2_ptc_deadlock_recovery_core
-=20
- sn2_ptc_deadlock_recovery_core:
--	.regstk 5,0,0,0
-+	.regstk 6,0,0,0
-=20
- 	ptc0  	 =3D in0
- 	data0 	 =3D in1
- 	ptc1  	 =3D in2
- 	data1 	 =3D in3
- 	piowc 	 =3D in4
-+	zeroval  =3D in5
- 	piowcphy =3D r30
- 	psrsave  =3D r2
--	zeroval  =3D r3
- 	scr1	 =3D r16
- 	scr2	 =3D r17
-+	mask	 =3D r18
-=20
-=20
- 	extr.u	piowcphy=3Dpiowc,0,61;;	// Convert piowc to uncached physical addr=
-ess
- 	dep	piowcphy=3D-1,piowcphy,63,1
--
--	mov	zeroval=3DZEROVAL		// "zero" value for PIO write count
-+	movl	mask=3DWRITECOUNTMASK
-=20
- 1:
- 	add	scr2=3DALIAS_OFFSET,piowc	// Address of WRITE_STATUS alias register=20
-@@ -43,7 +42,7 @@ sn2_ptc_deadlock_recovery_core:
- 	st8.rel	[scr2]=3Dscr1;;
-=20
- 5:	ld8.acq	scr1=3D[piowc];;		// Wait for PIOs to complete.
--	extr.u	scr2=3Dscr1,WRITECOUNT,7;;// PIO count
-+	and	scr2=3Dscr1,mask;;	// mask of writecount bits
- 	cmp.ne	p6,p0=3Dzeroval,scr2
- (p6)	br.cond.sptk 5b
- =09
-@@ -57,16 +56,17 @@ sn2_ptc_deadlock_recovery_core:
- 	st8.rel [ptc0]=DAta0		// Write PTC0 & wait for completion.
-=20
- 5:	ld8.acq	scr1=3D[piowcphy];;	// Wait for PIOs to complete.
--	extr.u	scr2=3Dscr1,WRITECOUNT,7;;// PIO count
-+	and	scr2=3Dscr1,mask;;	// mask of writecount bits
- 	cmp.ne	p6,p0=3Dzeroval,scr2
- (p6)	br.cond.sptk 5b;;
-=20
- 	tbit.nz	p8,p7=3Dscr1,DEADLOCKBIT;;// Test for DEADLOCK
-+(p7)	cmp.ne p7,p0=3Dr0,ptc1;;		// Test for non-null ptc1
- =09
- (p7)	st8.rel [ptc1]=DAta1;;		// Now write PTC1.
-=20
- 5:	ld8.acq	scr1=3D[piowcphy];;	// Wait for PIOs to complete.
--	extr.u	scr2=3Dscr1,WRITECOUNT,7;;// PIO count
-+	and	scr2=3Dscr1,mask;;	// mask of writecount bits
- 	cmp.ne	p6,p0=3Dzeroval,scr2
- (p6)	br.cond.sptk 5b
- =09
---=20
-Thanks
 
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
+ #endif
++
++unsigned long get_rss(struct mm_struct *mm)
++{
++	struct list_head *y;
++	struct task_struct *t;
++        long rss;
++
++	if (!mm)
++		return 0;
++
++	rcu_read_lock();
++	rss = mm->rss;
++	list_for_each_rcu(y, &mm->task_list) {
++		t = list_entry(y, struct task_struct, mm_tasks);
++		rss += t->rss;
++	}
++	if (rss < 0)
++		rss = 0;
++	rcu_read_unlock();
++	return rss;
++}
++
++unsigned long get_anon_rss(struct mm_struct *mm)
++{
++	struct list_head *y;
++	struct task_struct *t;
++        long rss;
++
++	if (!mm)
++		return 0;
++
++	rcu_read_lock();
++	rss = mm->anon_rss;
++	list_for_each_rcu(y, &mm->task_list) {
++		t = list_entry(y, struct task_struct, mm_tasks);
++		rss += t->anon_rss;
++	}
++	if (rss < 0)
++		rss = 0;
++	rcu_read_unlock();
++	return rss;
++}
++
++unsigned long get_shared(struct mm_struct *mm)
++{
++	struct list_head *y;
++	struct task_struct *t;
++        long rss;
++
++	if (!mm)
++		return 0;
++
++	rcu_read_lock();
++	rss = mm->rss - mm->anon_rss;
++	list_for_each_rcu(y, &mm->task_list) {
++		t = list_entry(y, struct task_struct, mm_tasks);
++		rss += t->rss - t->anon_rss;
++	}
++	if (rss < 0)
++		rss = 0;
++	rcu_read_unlock();
++	return rss;
++}
++
++void mm_remove_thread(struct mm_struct *mm, struct task_struct *tsk)
++{
++	if (!mm)
++		return;
++
++	spin_lock(&mm->page_table_lock);
++	mm->rss += tsk->rss;
++	mm->anon_rss += tsk->anon_rss;
++	list_del_rcu(&tsk->mm_tasks);
++	spin_unlock(&mm->page_table_lock);
++}
++
++void mm_add_thread(struct mm_struct *mm, struct task_struct *tsk)
++{
++	spin_lock(&mm->page_table_lock);
++	list_add_rcu(&tsk->mm_tasks, &mm->task_list);
++	spin_unlock(&mm->page_table_lock);
++}
++
++
+Index: linux-2.6.9/include/linux/init_task.h
+=================================--- linux-2.6.9.orig/include/linux/init_task.h	2004-11-30 20:33:30.000000000 -0800
++++ linux-2.6.9/include/linux/init_task.h	2004-11-30 20:33:50.000000000 -0800
+@@ -42,6 +42,7 @@
+ 	.mmlist		= LIST_HEAD_INIT(name.mmlist),		\
+ 	.cpu_vm_mask	= CPU_MASK_ALL,				\
+ 	.default_kioctx = INIT_KIOCTX(name.default_kioctx, name),	\
++	.task_list	= LIST_HEAD_INIT(name.task_list),	\
+ }
 
+ #define INIT_SIGNALS(sig) {	\
+@@ -112,6 +113,7 @@
+ 	.proc_lock	= SPIN_LOCK_UNLOCKED,				\
+ 	.switch_lock	= SPIN_LOCK_UNLOCKED,				\
+ 	.journal_info	= NULL,						\
++	.mm_tasks	= LIST_HEAD_INIT(tsk.mm_tasks),			\
+ }
+
+
+Index: linux-2.6.9/fs/exec.c
+=================================--- linux-2.6.9.orig/fs/exec.c	2004-11-30 20:33:41.000000000 -0800
++++ linux-2.6.9/fs/exec.c	2004-11-30 20:33:50.000000000 -0800
+@@ -543,6 +543,7 @@
+ 	active_mm = tsk->active_mm;
+ 	tsk->mm = mm;
+ 	tsk->active_mm = mm;
++	mm_add_thread(mm, current);
+ 	activate_mm(active_mm, mm);
+ 	task_unlock(tsk);
+ 	arch_pick_mmap_layout(mm);
 
