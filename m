@@ -1,35 +1,28 @@
-From: "McCaffity, Ray" <ray.mccaffity@wcg.com>
-Date: Wed, 20 Jun 2001 17:28:59 +0000
-Subject: [Linux-ia64] IA-64 compile flags for gcc
-Message-Id: <marc-linux-ia64-105590693005745@msgid-missing>
+From: "T H" <takulinux@hotmail.com>
+Date: Fri, 29 Jun 2001 01:28:26 +0000
+Subject: [Linux-ia64] framebuffer
+Message-Id: <marc-linux-ia64-105590693005803@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Many times when using gcc, I use certain flags to optimize the compilation,
-for example with Solaris8 and a sparc IIe v9 cpu, I would use something
-like...
+HI,
+I had a B2-machine that is running RedHat Linux Beta7.0.98(Wolverine). 
+I updated kernel2.4.5 and patched ia64-010626.
 
-CC=gcc CFLAGS="-O4 -mcpu=v8"; export CC CFLAGS
+Does anyone know how to use framebuffer?
+IA-32 which runs well because vga option can set LILO.
+But IA-64,I dont't know how to set ELILO.
 
-There are others as well.  Also many times when doing a configure there is
-an
-option for something like --prefix=/foo/bar --hosth6 to optimize the code
-for
-my specific hardware.
+Can anyone use framebuffer?
+Advice,please.
 
-Does anyone know what the "optimal" flags are for an IA-64 in gcc?  I
-realize you
-can't always use the ones you want, but if you could...?
+thanks
 
-I have gone through a lot of the gcc documentation, but there is so much,
-and
-what I have seen so far doesn't cover this.  Can anyone point me in the
-right
-direction?
-
-Ray
+Taku
+_________________________________________________________________________
+Get Your Private, Free E-mail from MSN Hotmail at http://www.hotmail.com.
 
 
