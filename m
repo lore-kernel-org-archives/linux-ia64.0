@@ -1,70 +1,39 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 12 Mar 2004 22:57:21 +0000
-Subject: [PATCH] clean up ACPI GSI/IRQ conversions (ia64 part)
-Message-Id: <200403121557.21889.bjorn.helgaas@hp.com>
+From: markw@osdl.org
+Date: Fri, 26 Mar 2004 22:00:01 +0000
+Subject: PostgreSQL block size vs. LVM2 stripe width
+Message-Id: <200403262200.i2QM04223972@mail.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Mosberger <davidm-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
-Cc: acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: pgsql-hackers@postgresql.org
+Cc: linux-ia64@vger.kernel.org, linux-lvm@redhat.com
 
-Hi David,
+I have some results from DBT-2 testing PostgreSQL with difference block
+sizes against different lvm stripe widths on Linux.  I've found that
+iostat appears to report more erratic numbers as the block size of the
+database increases but I'm not able to see any reason for it.
 
-Here's the ia64 part, again based on 2.6.4.  This should be safe to
-apply by itself.  I've compiled and booted this, both with and without
-the upcoming ACPI patch.
+I have pg_xlog on a separate set of drives from the rest of the database
+and was wondering if having different block sizes for the log and the
+data has been discusses?
 
-Changelog:
+Or does anyone have any tips for an optimal combination of settings?
 
-Add "acpi_gsi_to_irq()" as a generic replacement for "acpi_irq_to_vector()".
-This converts from an ACPI global system interrupt number to a Linux IRQ.
-Also, convert ia64-specific terminology to use GSI when appropriate.
+Here's a summary from an Itanium2 system, where bigger is better:
 
-=== arch/ia64/kernel/acpi.c 1.63 vs edited ==--- 1.63/arch/ia64/kernel/acpi.c	Wed Feb 18 08:10:58 2004
-+++ edited/arch/ia64/kernel/acpi.c	Fri Mar 12 12:32:11 2004
-@@ -626,6 +626,7 @@
- 	return 0;
- }
- 
-+/* deprecated in favor of acpi_gsi_to_irq */
- int
- acpi_irq_to_vector (u32 gsi)
- {
-@@ -633,6 +634,23 @@
- 		return isa_irq_to_vector(gsi);
- 
- 	return gsi_to_vector(gsi);
-+}
-+
-+int
-+acpi_gsi_to_irq (u32 gsi, unsigned int *irq)
-+{
-+	int vector;
-+
-+	if (has_8259 && gsi < 16)
-+		*irq = isa_irq_to_vector(gsi);
-+	else {
-+		vector = gsi_to_vector(gsi);
-+		if (vector = -1)
-+			return -1;
-+
-+		*irq = vector;
-+	}
-+	return 0;
- }
- 
- int
-=== include/asm-ia64/acpi.h 1.14 vs edited ==--- 1.14/include/asm-ia64/acpi.h	Thu Feb 26 23:49:53 2004
-+++ edited/include/asm-ia64/acpi.h	Fri Mar 12 12:32:41 2004
-@@ -93,7 +93,8 @@
- const char *acpi_get_sysname (void);
- int acpi_request_vector (u32 int_type);
- int acpi_register_irq (u32 gsi, u32 polarity, u32 trigger);
--int acpi_irq_to_vector (u32 irq);
-+int acpi_irq_to_vector (u32 irq); /* deprecated in favor of acpi_gsi_to_irq */
-+int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
- 
- #ifdef CONFIG_ACPI_NUMA
- /* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
+                        Linux-2.6.3, LVM2 Stripe Width
+                        (going across)
+PostgreSQL
+BLCKSZ
+(going down)    16 KB   32 KB   64 KB   128 KB  256 KB  512 KB
+2 KB            2617    2656    2652    2664    2667    2642
+4 KB            4393    4486    4577    4557    4511    4448
+8 KB            4337    4423    4471    4576    4111    3642
+16 KB           4412    4495    4532    4536    2985    2312
+32 KB           3705    3784    3886    3925    2936    2362
 
+Links to more data:
+	http://developer.osdl.org/markw/lvm2/blocks.html
+
+Mark
