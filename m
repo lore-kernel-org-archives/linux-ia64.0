@@ -1,7 +1,7 @@
-From: Jes Sorensen <Jes.Sorensen@cern.ch>
-Date: Tue, 25 Apr 2000 14:37:30 +0000
+From: Christoph Rohland <cr@sap.com>
+Date: Tue, 25 Apr 2000 17:20:32 +0000
 Subject: Re: [Linux-ia64] serial efishell anybody?
-Message-Id: <marc-linux-ia64-105590678205040@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205042@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205037@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205037@msgid-missing>
@@ -10,23 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Stephane" = Stephane Eranian <eranian@cello.hpl.hp.com> writes:
+Stephane Eranian <eranian@cello.hpl.hp.com> writes:
 
->> >>>>> "Christoph" = Christoph Rohland <cr@sap.com> writes:
->>  115k2 8n1 afaik
->> 
-Stephane> Well, that's the speed of the serial connection by
-Stephane> default. That's good enough to connect a Linux serial
-Stephane> console.
+> > 115k2 8n1 afaik
+> > 
+> Well, that's the speed of the serial connection by default. That's
+> good enough to connect a Linux serial console.
+> 
+> I think Roland was talking about COMPLETELY booting via serial, i.e. 
+> getting EFI on serial line. 
 
-Stephane> I think Roland was talking about COMPLETELY booting via
-Stephane> serial, i.e.  getting EFI on serial line. Yes, that's
-Stephane> possible but I haven't certainely tried that yet. I think
-Stephane> you have to set some EFI variable in NVRAM and reboot. Check
-Stephane> out the EFI spec near the end.
+Yes, that's right. 
 
-Ahhh, I would be quite interested in that bit in fact ;-)
+> Yes, that's possible but I haven't certainely tried that yet. I
+> think you have to set some EFI variable in NVRAM and reboot. Check
+> out the EFI spec near the end.
 
-Jes
+I checked the spec and found the variables to set: 
+
+ConIn, ConOut and ErrOut
+
+Actually ErrOut is set to the serial line on my machine. But how do I
+change these variables?
+
+Greetings
+		Christoph
 
 
