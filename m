@@ -1,7 +1,7 @@
-From: "Nguyen, Tom L" <tom.l.nguyen@intel.com>
-Date: Wed, 09 Mar 2005 16:35:00 +0000
-Subject: RE: PCI Express
-Message-Id: <C7AB9DA4D0B1F344BF2489FA165E502407F93B0F@orsmsx404.amr.corp.intel.com>
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 09 Mar 2005 17:33:09 +0000
+Subject: Re: PCI Express
+Message-Id: <20050309173309.GB10338@esmail.cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4228F250.7C5E2E3C@sgi.com>
 In-Reply-To: <4228F250.7C5E2E3C@sgi.com>
@@ -10,27 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Mar 08, 2005 at 05:29:13PM -0800, Jesse Barnes wrote:
-...
-> An MSI should behave like a processor sending an IPI to itself since
-its 
-> address can be targeted at the processor's interrupt block and set to 
-> generate a local interrupt.  Is that right, Tom & Grant?
+On Wed, Mar 09, 2005 at 08:35:00AM -0800, Nguyen, Tom L wrote:
+> Existing MSI support implements a direct
+> memory-write mechanism (generic solution without platform dependency and
+> limitation to MSI-X support as an example). With existing direct
+> memory-write mechanism, a device's MSI address is configured with
+> current running CPU as a target.
 
-MSI address is programmed at 0xfeex_xxxx (based on PCI Specs) to
-generate a memory write to FSB. This address can be configured to target
-a platform interrupt controller (like IOAPIC for example), which in turn
-generates a memory write to a FSB, or be configured to send a memory
-write directly to FSB. Existing MSI support implements a direct
-memory-write mechanism (generic solution without platform dependency and
-limitation to MSI-X support as an example). With existing direct
-memory-write mechanism, a device's MSI address is configured with
-current running CPU as a target. MSI support also implements MSI SMP
-affinity, which supports IRQ rebalance and allows user to select which
-CPU target through /proc/irq/...
+At some point, PARISC (and Alpha?) will also want to support MSI
+using "direct memory write". But like Altix, does not implement
+0xfeeXXXXX (1) PIB since PARISC arch predates PCI by a decade or so.
 
-I hope it helps.
+We'll have to figure out which platform specific hooks would enable
+parisc/alpha/altix to use existing PCI MSI/MSI-X support.
 
-Thanks,
-Long 
+PA-RISC IPI is as straight forward as Jesse described - just write
+to a per CPU address with a data value (vector).
 
+thanks,
+grant
+
+(1) the most recent two or three PA-RISC chipsets do implement 0xfeeXXXXX
+interrupt block. But firmware hands us the CPU "ID/EID" values to use
+when programming the IO SAPIC IRT. See drivers/parisc/iosapic.c
+iosapic_set_irt_data() for more details.
+
+Bottomline is, even if we know it's implemented in HW, we don't know if
+we are using 0xfeeXXXXX or not for IO SAPIC today. platform hooks
+into MSI code would have to sort that out.
