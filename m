@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 11 Jun 2004 23:41:50 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Sat, 12 Jun 2004 10:20:36 +0000
 Subject: Re: [PATCH] Fixups for the Altix Block Transfer Engine.
-Message-Id: <16586.17214.632415.603963@napali.hpl.hp.com>
+Message-Id: <20040612102036.GA26482@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040611203336.GA10896@lnx-holt.americas.sgi.com>
 In-Reply-To: <20040611203336.GA10896@lnx-holt.americas.sgi.com>
@@ -10,9 +10,12 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Can you or Robin resend the patch will the change log & the full
-signed-off log.  It'd be weird to get the patch from Robin but have it
-signed off only by you.
+On Fri, Jun 11, 2004 at 03:33:36PM -0500, Robin Holt wrote:
+> The attached patch contains some cleanups to the bte code
+> and introduces the ability to excercise bte interfaces on
+> other nodes.  This is an Altix specific piece of hardware.
 
-	--david
+While the patch look okay you're patching dead code and even add symbol
+exports to it.  What about just completelty removing it instead and adding
+it to whatever out of tree module actually uses it?
 
