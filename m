@@ -1,17 +1,19 @@
 From: Roland McGrath <roland@redhat.com>
-Date: Wed, 08 Jan 2003 22:17:06 +0000
+Date: Wed, 08 Jan 2003 22:20:02 +0000
 Subject: [Linux-ia64] Re: strace improvement patch
-Message-Id: <marc-linux-ia64-105590709805650@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805651@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590709805650@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805650@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Thanks, David.  That original patch was indeed by me.  I am now doing most
-of the strace maintenance on the sourceforge version directly.  I was
-already planning to merge those changes in, along with some more
-clone-related changes I have to handle the 2.5 threads stuff that I will
-finish up and merge.  I will incorporate your fixes and test it on IA64
-before I commit those changes.
+> Also, I'd recommend to use gcc-3.2 for compiling strace.  I
+> encountered some strange bugs with gcc-2.96, though I did not try to
+> track them down.  With gcc-3.2, those bugs went away and strace now
+> seems to work quite nicely (once again, that is).
+
+Can you give me at least a clue what to look for?
 
