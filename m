@@ -1,25 +1,40 @@
-From: Xavier Leroy <xavier.leroy@inria.fr>
-Date: Tue, 13 Nov 2001 20:42:00 +0000
-Subject: [Linux-ia64] Re: PTHREAD_PROCESS_SHARED not supported
-Message-Id: <marc-linux-ia64-105590698805499@msgid-missing>
+From: "David S. Miller" <davem@redhat.com>
+Date: Wed, 05 Dec 2001 11:23:04 +0000
+Subject: [Linux-ia64] Re: alpha bug in signal handling
+Message-Id: <marc-linux-ia64-105590698805617@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Current version of libpthread (libpthread-0.9.so based on glibc-2.2.3) 
-> provided with RH 7.1 distribution do not support
->   PTHREAD_PROCESS_SHARED flag; pthread_mutexattr_setpshared(&mutatr,
->   PTHREAD_PROCESS_SHARED) returns ENOSYS.
-> 
-> Does a patch exist that implements it or are they plans to do that ?
+   From: Richard Henderson <rth@redhat.com>
+   Date: Tue, 4 Dec 2001 19:00:48 -0800
 
-Briefly: no, and no.  For more information, please refer to question E.7
-of the LinuxThreads FAQ, 
-        http://pauillac.inria.fr/~xleroy/linuxthreads/faq.html
+   On Tue, Dec 04, 2001 at 06:15:50PM -0800, David Mosberger wrote:
+   > Oh, sorry, I was referring to teh *other* problem... ;-)
+   > 
+   > What I meant is that the check for re-scheduling
+   > (current->need_resched) and signal deliverify (current->sigpending)
+   > needs to be done with interrupts turned off, and the interrupts need
+   > to be left off until user space is reached.  Otherwise, you could get
+   > an interrupt which would wake up a higher priority task or post a
+   > signal between the check and the return to user space.
+   > 
+   > I didn't see this interrupt disabling in the Alpha version of entry.S,
+   > but I have to admit my Alpha assembly is getting quite rusty.
+   
+   Oh, yes, I see.  This should fix it.
+   
+I don't understand why this is even necessary.
 
-Regards,
+What if the interrupt comes in on another processor.  How does this
+return from trap behavior avoid that interrupt modifying the signal
+and/or scheduling state wrt. the current cpu's task?
 
-- Xavier Leroy
+I think the change is bogus, we don't do this on sparc64 and things
+have been perfectly fine.
+
+And if the change isn't necessary, it's bad to disable interrupts for
+a longer period of time than necessary.
 
