@@ -1,27 +1,55 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Thu, 11 Mar 2004 12:40:51 +0000
-Subject: Re: BUG in fs/buffer.c under heavy ext3 file-system load
-Message-Id: <20040311124051.GF2148@parcelfarce.linux.theplanet.co.uk>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Tue, 30 Mar 2004 00:30:52 +0000
+Subject: Re: milstone reached: ia64 linux builds out of Linus' tree
+Message-Id: <20040330003052.GD2986@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="EY/WZ/HvNxOox07X"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1078959918.12405.64.camel@bluto.andrew>
-In-Reply-To: <1078959918.12405.64.camel@bluto.andrew>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Mar 10, 2004 at 10:17:03PM -0800, Jesse Barnes wrote:
-> If you don't think it's ia64 specific, you should probably post this
-> message to linux-kernel@vger.kernel.org as well (I didn't see it in the
-> Cc list).  It might be a generic block layer problem or an ext2/3
-> problem...
 
-I already forwarded it to the ext2-devel list ... no reply yet.
+--EY/WZ/HvNxOox07X
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+On Wed, Sep 10, 2003 at 10:53:17AM +1000, Ian Wienand wrote:
+> On Wed, Aug 13, 2003 at 10:07:51AM +1000, Ian Wienand wrote:
+> For those who are interested, we now attempt to boot the autobuilt
+> kernels on the simulator daily.  See
+>=20
+> http://www.gelato.unsw.edu.au/kerncomp/simboot.php
+
+Hi,
+
+A short update because I know from our logs at least a few people
+other than me do actually look at this.  We've integrated everything
+into
+
+http://www.gelato.unsw.edu.au/kerncomp
+
+Also, we now have the ability to automatically patch the kernel and
+build it, so if you have a patch you are sitting on and want to make
+sure it's always compatible with the latest and greatest please just
+email me and we can work something out.
+
+Thanks
+
+-i
+ianw@gelato.unsw.edu.au
+http://www.gelato.unsw.edu.au
+
+--EY/WZ/HvNxOox07X
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAaL+8WDlSU/gp6ecRAplVAKCI9z9WFHLwBIREB5VxaqVzNY3grACfeTlK
+L/B+C4nhx8XeV+tJX2ekVqE=
+=qC3U
+-----END PGP SIGNATURE-----
+
+--EY/WZ/HvNxOox07X--
