@@ -1,46 +1,33 @@
-From: Matt_Domsch@Dell.com
-Date: Sat, 18 Nov 2000 02:06:20 +0000
-Subject: RE: [Linux-ia64] FAT32 file system not mounting on IA-64
-Message-Id: <marc-linux-ia64-105590678205747@msgid-missing>
+From: "Faccini, Bruno" <bruno.faccini@intel.com>
+Date: Mon, 06 Nov 2000 08:33:58 +0000
+Subject: [Linux-ia64] RE: Out of memory panic on boot...
+Message-Id: <marc-linux-ia64-105590678205657@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205745@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205745@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Chris, thanks for investigating further.  Glad to hear you can reproduce the
-problem there.
+Ken,
 
-w/o the -F 32, it makes a FAT16 file system, which supports long file names
-and the vfat type, just as Windows NT FAT16 file systems support long file
-names.   If you mount with:  mount -ofat  or with -ofat2, you'll see it
-force the choice, and then you can see if the kernel thinks it's a FAT16 or
-FAT32.
+Thank's for pointing this to me.
+I thought we were carefully using "cat" vs "cp", but due to the number of
+tests and commands made this definitelly need to be double-checked.
 
-Thanks,
-Matt
+Thank's.
 
+Bruno.
 
------Original Message-----
-From: Ahna, Christopher J [mailto:christopher.j.ahna@intel.com]
-Sent: Friday, November 17, 2000 7:25 PM
-Subject: RE: [Linux-ia64] FAT32 file system not mounting on IA-64
-
-
-Matt,
-
-I looked a little more and think you're probably onto something.  I believe
-there is a problem with 'mkdosfs -F 32'.  I ran this program on a 100MB file
-I built with dd and got the errors you reported when I tried to mount it.
-Doing the same thing without the '-F 32' switch built a mountable filesystem
-which looks for all the world like FAT32 (for example, it doesn't have a
-problem with arbitrarily long filenames and mounted successfully with 'mount
--t vfat').
-
-Somebody might want to look into this if they have time.  Thanks,
-
-Chris
+> -----Original Message-----
+> From: Ken Hill [mailto:khill2@mediaone.net]
+> Sent: lundi 6 novembre 2000 04:54
+> To: 'bruno.faccini@intel.com'
+> Subject: Out of memory panic on boot...
+> 
+> 
+> sounds like you copied the kernel to /boot/efi using the copy 
+> command instead of using cat. 
+> 
+> 
 
 
