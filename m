@@ -1,95 +1,98 @@
-From: cliff white <cliffw@osdl.org>
-Date: Thu, 02 Dec 2004 18:43:30 +0000
-Subject: Re: page fault scalability patch V12 [0/7]: Overview and
-Message-Id: <20041202104330.4938fb11.cliffw@osdl.org>
+From: linux-os <linux-os@chaos.analogic.com>
+Date: Thu, 02 Dec 2004 20:25:07 +0000
+Subject: Re: page fault scalability patch V12 [0/7]: Overview and performance
+Message-Id: <Pine.LNX.4.61.0412021522210.5287@chaos.analogic.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
-	<Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
-	<Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
-	<Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0412011608500.22796@ppc970.osdl.org>
-	<41AEB44D.2040805@pobox.com>
-	<20041201223441.3820fbc0.akpm@osdl.org>
-	<41AEBAB9.3050705@pobox.com>
-	<20041201230217.1d2071a8.akpm@osdl.org>
-	<179540000.1101972418@[10.10.2.4]>
-In-Reply-To: <179540000.1101972418@[10.10.2.4]>
+ <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412011608500.22796@ppc970.osdl.org> <41AEB44D.2040805@pobox.com>
+ <20041201223441.3820fbc0.akpm@osdl.org> <41AEBAB9.3050705@pobox.com>
+ <20041201230217.1d2071a8.akpm@osdl.org> <179540000.1101972418@[10.10.2.4]>
+ <41AEC4D7.4060507@pobox.com> <20041202101029.7fe8b303.cliffw@osdl.org>
+In-Reply-To: <20041202101029.7fe8b303.cliffw@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Martin J. Bligh" <mbligh@aracnet.com>
-Cc: akpm@osdl.org, jgarzik@pobox.com, torvalds@osdl.org, clameter@sgi.com, hugh@veritas.com, benh@kernel.crashing.org, nickpiggin@yahoo.com.au, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: cliff white <cliffw@osdl.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, mbligh@aracnet.com, akpm@osdl.org, torvalds@osdl.org, clameter@sgi.com, hugh@veritas.com, benh@kernel.crashing.org, nickpiggin@yahoo.com.au, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Wed, 01 Dec 2004 23:26:59 -0800
-"Martin J. Bligh" <mbligh@aracnet.com> wrote:
+On Thu, 2 Dec 2004, cliff white wrote:
 
-> --Andrew Morton <akpm@osdl.org> wrote (on Wednesday, December 01, 2004 23:02:17 -0800):
-> 
-> > Jeff Garzik <jgarzik@pobox.com> wrote:
-> >> 
-> >> Andrew Morton wrote:
-> >> > We need to be be achieving higher-quality major releases than we did in
-> >> > 2.6.8 and 2.6.9.  Really the only tool we have to ensure this is longer
-> >> > stabilisation periods.
-> >> 
-> >> 
-> >> I'm still hoping that distros (like my employer) and orgs like OSDL will 
-> >> step up, and hook 2.6.x BK snapshots into daily test harnesses.
-> > 
-> > I believe that both IBM and OSDL are doing this, or are getting geared up
-> > to do this.  With both Linus bk and -mm.
-> 
-> I already run a bunch of tests on a variety of machines for every new 
-> kernel ... but don't have an automated way to compare the results as yet, 
-> so don't actually look at them much ;-(. Sometime soon (quite possibly over 
-> Christmas) things will calm down enough I'll get a couple of days to write 
-> the appropriate perl script, and start publishing stuff.
+> On Thu, 02 Dec 2004 02:31:35 -0500
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+>
+>> Martin J. Bligh wrote:
+>>> Yeah, probably. Though the stress tests catch a lot more than the
+>>> functionality ones. The big pain in the ass is drivers, because I don't
+>>> have a hope in hell of testing more than 1% of them.
+>>
+>> My dream is that hardware vendors rotate their current machines through
+>> a test shop :)  It would be nice to make sure that the popular drivers
+>> get daily test coverage.
+>>
+>> 	Jeff, dreaming on
+>
 
-We've had the most success when one person has an itch to scratch, and works
-with us to scratch it. We (OSDL) worked with Sebastien at Bull, and we're very 
-glad he had the time to do such excellent work. We worked with Con Kolivas, likewise.
+It isn't going to happen until the time when the vendors
+call somebody a liar, try to get them fired, and then
+that somebody takes them to court and they lose 100
+million dollars or so.
 
-We've done tools to automate LTP comparisons ( bryce@osdl.org  has posted results )
-and reaim, we've been able to post some regression to lkml, and tied in with developers
-to get bugs fixed. But OSDL has been limited by manpower.
- 
-One of the issues with the performance tests is the amount of data produced - 
- for example, the deep IO tests produce ton's o'  numbers, but the developer community wants
-a single "+/- 5%" type response-  we need some opinions and help on how to do the data reduction 
-necessary. 
+Until that happens, vendors will continue to make junk
+and they will continue to lie about the performance of
+that junk. It doesn't help that Software Engineering has
+become a "hardware junk fixing" job.
 
-What would be really kewl is some test/analysis code that could be re-used, so the Martin's of the future
-have a good starting place. 
-cliffw
-OSDL
+Basically many vendors in the PC and PC peripheral
+business are, for lack of a better word, liars who
+are in the business of perpetrating fraud upon the
+unsuspecting PC user.
 
+We have vendors who convincingly change mega-bits
+to mega-bytes, improving performance 8-fold without
+any expense at all. We have vendors reducing the
+size of a kilobyte and a megabyte, then getting
+the new lies entered into dictionaries, etc. The
+scheme goes on.
 
+In the meantime, if you try to perform DMA
+across a PCI/Bus at or near the specified rates,
+you will learn that the specifications are
+for "this chip" or "that chip", and have nothing
+to do with the performance when these chips
+get connected together. You will find that real
+performance is about 20 percent of the specification.
 
+Occasionally you find a vendor that doesn't lie and
+the same chip-set magically performs close to
+the published specifications. This is becoming
+rare because it costs money to build motherboards
+that work. This might require two or more
+prototypes to get the timing just right so the
+artificial delays and re-clocking, used to make
+junk work, isn't required.
 
-> 
-> > However I have my doubts about how useful it will end up being.  These test
-> > suites don't seem to pick up many regressions.  I've challenged Gerrit to
-> > go back through a release cycle's bugfixes and work out how many of those
-> > bugs would have been detected by the test suite.
-> > 
-> > My suspicion is that the answer will be "a very small proportion", and that
-> > really is the bottom line.
-> 
-> Yeah, probably. Though the stress tests catch a lot more than the 
-> functionality ones. The big pain in the ass is drivers, because I don't
-> have a hope in hell of testing more than 1% of them.
-> 
-> M.
-> --
-> To unsubscribe, send a message with 'unsubscribe linux-mm' in
-> the body to majordomo@kvack.org.  For more info on Linux MM,
-> see: http://www.linux-mm.org/ .
-> Don't email: <a href=mailto:"aart@kvack.org"> aart@kvack.org </a>
-> 
+Once the PC (and not just the desk-top PC) became
+a commodity, everything points to the bottom-line.
+You get into the business by making something that
+looks and smells new. Then you sell it by writing
+specifications that are better than the most
+expensive on the market. Your sales-price is
+set below average market so you can unload this
+junk as rapidly as possible.
 
+Then, you do this over again, claiming that your
+equipment is "state-of-the-art"! And if anybody
+ever tests the junk and claims that it doesn't
+work as specified, you contact the president of
+his company and try to kill the messenger.
 
--- 
-The church is near, but the road is icy.
-The bar is far, but i will walk carefully. - Russian proverb
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.6.9 on an i686 machine (5537.79 BogoMips).
+  Notice : All mail here is now cached for review by John Ashcroft.
+                  98.36% of all statistics are fiction.
