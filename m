@@ -1,47 +1,159 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 06 Oct 2004 09:53:56 +0000
-Subject: Re: ucontext.h
-Message-Id: <16739.49332.196714.933028@napali.hpl.hp.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 26 Oct 2004 21:57:02 +0000
+Subject: [PATCH] ia64 iomap implementation
+Message-Id: <200410261557.02701.bjorn.helgaas@hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_ugsfBl0XookVqkc"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 5 Oct 2004 23:56:21 -0700 (PDT), pramod sharma <pramod8378@yahoo.com> said:
+--Boundary-00=_ugsfBl0XookVqkc
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-  Pramod> For the intel x86 , running on Linux, the struct ucontext
-  Pramod> *ucp ; ucp-> uc_mcontext.gregs[ERR]" field can be used to
-  Pramod> find out whether READ or WRITE caused the page fault. This
-  Pramod> field simply means that we get the interrupted instruction
-  Pramod> from ucontext (saved user context) and check whether it is
-  Pramod> read or write.
+ia64: implement iomap interfaces
 
-  Pramod> but for IA -64 , there is no structure defined like this
-  Pramod> .......is this not supported for IA64 .
+This preserves the ioreadX() == inX() semantics (same as i386),
+since it's not clear that the speedup of omitting the mf.a for
+port operations is worth the risk of breaking drivers.
 
-  Pramod> How can I acheive this in IA64 ?
+This touches lib/iomap.c as well as the ia64-specific stuff, so
+I guess you and Linus can sort that out.
 
-  Pramod> Any pointers in this direction will be helpful.
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-See this mail:
+===== include/asm-ia64/io.h 1.22 vs edited =====
+--- 1.22/include/asm-ia64/io.h 2004-10-25 14:06:49 -06:00
++++ edited/include/asm-ia64/io.h 2004-10-26 14:17:37 -06:00
+@@ -32,7 +32,8 @@
+  */
+ #define IO_SPACE_LIMIT  0xffffffffffffffffUL
+ 
+-#define MAX_IO_SPACES   16
++#define MAX_IO_SPACES_BITS  4
++#define MAX_IO_SPACES   (1UL << MAX_IO_SPACES_BITS)
+ #define IO_SPACE_BITS   24
+ #define IO_SPACE_SIZE   (1UL << IO_SPACE_BITS)
+ 
+@@ -52,10 +53,24 @@
+ 
+ # ifdef __KERNEL__
+ 
++/*
++ * All MMIO iomem cookies are in region 6; anything less is a PIO cookie:
++ * 0xCxxxxxxxxxxxxxxx MMIO cookie (return from ioremap)
++ * 0x000000001SPPPPPP PIO cookie (S=space number, P..P=port)
++ *
++ * ioread/writeX() uses the leading 1 in PIO cookies (PIO_OFFSET) to catch
++ * code that uses bare port numbers without the prerequisite pci_iomap().
++ */
++#define PIO_OFFSET  (1UL << (MAX_IO_SPACES_BITS + IO_SPACE_BITS))
++#define PIO_MASK  (PIO_OFFSET - 1)
++#define PIO_RESERVED  __IA64_UNCACHED_OFFSET
++#define HAVE_ARCH_PIO_SIZE
++
+ #include <asm/intrinsics.h>
+ #include <asm/machvec.h>
+ #include <asm/page.h>
+ #include <asm/system.h>
++#include <asm-generic/iomap.h>
+ 
+ /*
+  * Change virtual addresses to physical addresses and vv.
+===== lib/iomap.c 1.5 vs edited =====
+--- 1.5/lib/iomap.c 2004-10-18 23:27:35 -06:00
++++ edited/lib/iomap.c 2004-10-26 14:10:11 -06:00
+@@ -19,7 +19,10 @@
+  *
+  * Architectures for which this is not true can't use this generic
+  * implementation and should do their own copy.
+- *
++ */
++
++#ifndef HAVE_ARCH_PIO_SIZE
++/*
+  * We encode the physical PIO addresses (0-0xffff) into the
+  * pointer by offsetting them with a constant (0x10000) and
+  * assuming that all the low addresses are always PIO. That means
+@@ -29,6 +32,7 @@
+ #define PIO_OFFSET 0x10000UL
+ #define PIO_MASK 0x0ffffUL
+ #define PIO_RESERVED 0x40000UL
++#endif
+ 
+ /*
+  * Ugly macros are a way of life.
 
-  http://www.gelato.unsw.edu.au/linux-ia64/0202/3059.html
+--Boundary-00=_ugsfBl0XookVqkc
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="iomap.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="iomap.patch"
 
-And/or the comment near si_isr in /usr/include/asm/siginfo.h:
+===== include/asm-ia64/io.h 1.22 vs edited =====
+--- 1.22/include/asm-ia64/io.h	2004-10-25 14:06:49 -06:00
++++ edited/include/asm-ia64/io.h	2004-10-26 14:17:37 -06:00
+@@ -32,7 +32,8 @@
+  */
+ #define IO_SPACE_LIMIT		0xffffffffffffffffUL
+ 
+-#define MAX_IO_SPACES			16
++#define MAX_IO_SPACES_BITS		4
++#define MAX_IO_SPACES			(1UL << MAX_IO_SPACES_BITS)
+ #define IO_SPACE_BITS			24
+ #define IO_SPACE_SIZE			(1UL << IO_SPACE_BITS)
+ 
+@@ -52,10 +53,24 @@
+ 
+ # ifdef __KERNEL__
+ 
++/*
++ * All MMIO iomem cookies are in region 6; anything less is a PIO cookie:
++ *	0xCxxxxxxxxxxxxxxx	MMIO cookie (return from ioremap)
++ *	0x000000001SPPPPPP	PIO cookie (S=space number, P..P=port)
++ *
++ * ioread/writeX() uses the leading 1 in PIO cookies (PIO_OFFSET) to catch
++ * code that uses bare port numbers without the prerequisite pci_iomap().
++ */
++#define PIO_OFFSET		(1UL << (MAX_IO_SPACES_BITS + IO_SPACE_BITS))
++#define PIO_MASK		(PIO_OFFSET - 1)
++#define PIO_RESERVED		__IA64_UNCACHED_OFFSET
++#define HAVE_ARCH_PIO_SIZE
++
+ #include <asm/intrinsics.h>
+ #include <asm/machvec.h>
+ #include <asm/page.h>
+ #include <asm/system.h>
++#include <asm-generic/iomap.h>
+ 
+ /*
+  * Change virtual addresses to physical addresses and vv.
+===== lib/iomap.c 1.5 vs edited =====
+--- 1.5/lib/iomap.c	2004-10-18 23:27:35 -06:00
++++ edited/lib/iomap.c	2004-10-26 14:10:11 -06:00
+@@ -19,7 +19,10 @@
+  *
+  * Architectures for which this is not true can't use this generic
+  * implementation and should do their own copy.
+- *
++ */
++
++#ifndef HAVE_ARCH_PIO_SIZE
++/*
+  * We encode the physical PIO addresses (0-0xffff) into the
+  * pointer by offsetting them with a constant (0x10000) and
+  * assuming that all the low addresses are always PIO. That means
+@@ -29,6 +32,7 @@
+ #define PIO_OFFSET	0x10000UL
+ #define PIO_MASK	0x0ffffUL
+ #define PIO_RESERVED	0x40000UL
++#endif
+ 
+ /*
+  * Ugly macros are a way of life.
 
-/*
- * si_isr is valid for SIGILL, SIGFPE, SIGSEGV, SIGBUS, and SIGTRAP provided
- * that si_code is non-zero and __ISR_VALID is set in si_flags.
- */
-#define si_isr          _sifields._sigfault._isr
-
-For a description of the contents of si_isr, see page 2-154 in Volume
-2 of the ``Intel Itanium Architecture Software Developer's Manual'':
-
-  http://www.intel.com/design/itanium/manuals/iiasdmanual.htm
-
-BTW: you'd be better off asking such technical questions on
-linux-ia64@vger.kernel.org, which I cc'd on this reply.
-
-	--david
+--Boundary-00=_ugsfBl0XookVqkc--
