@@ -1,35 +1,24 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 03 Mar 2004 15:52:46 +0000
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Wed, 03 Mar 2004 17:19:37 +0000
 Subject: Re: Fix staircase effect on Altix serial console.
-Message-Id: <jellmihqr5.fsf@sykes.suse.de>
+Message-Id: <20040303171936.GC2026@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je1xoa7qtb.fsf@sykes.suse.de>
 In-Reply-To: <je1xoa7qtb.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt <holt@sgi.com> writes:
+On Wed, Mar 03, 2004 at 11:57:21AM +0100, Andreas Schwab wrote:
+> The system controller should not change the output in any way.  It's the
+> job of the serial console write function (which is used for printk) to
 
-> On Wed, Mar 03, 2004 at 03:20:46PM +0100, Andreas Schwab wrote:
->> Robin Holt <holt@sgi.com> writes:
->>=20
->> > Are you connected via usb or a DB-9 serial connector?
->>=20
->> DB-9, I think.
->
-> The last time I connected to the DB-9 on the back of an Altix,
-> I was using minicom (I think) and just changed it so it
-> would interpret LF as CRLF.
+Right, but I think our L2 system controller *does* molest the output
+(and the 2.6 console driver relies on this behavior).  I've filed a bug
+with our system controller group to make the behavior of the L2 and L1
+system controllers consistent (I believe you're using an L1), which I
+think is the proper fix.
 
-This is plain wrong.  Just try running a fullscreen program like vi and
-watch your screen being garbled.
-
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Thanks,
+Jesse
