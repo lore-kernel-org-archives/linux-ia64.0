@@ -1,52 +1,76 @@
-From: Hirofumi Fujita <h-fujita@ebina.hitachi.co.jp>
-Date: Wed, 15 Nov 2000 08:15:52 +0000
-Subject: [Linux-ia64] SW IO TLB buffer management in kernel test10
-Message-Id: <marc-linux-ia64-105590678205720@msgid-missing>
+From: nomura@hpc.bs1.fc.nec.co.jp
+Date: Wed, 15 Nov 2000 14:10:38 +0000
+Subject: Re: [Linux-ia64] SW IO TLB buffer management in kernel test10
+Message-Id: <marc-linux-ia64-105590678205722@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205720@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205720@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1254"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-SGksCgp0aGVyZSBzZWVtcyB0byBiZSBhIHByb2JsZW0gb24gYnVmZmVyIG1hbmFnZW1lbnQgb2Yg
-U1cgSU8gVExCLgpUaGUgY29udGVudHMgb2YgaW9fdGxiX2xpc3RbXSBiZWNvbWUgYnJva2VuLgoK
-VGhpcyBoYXBwZW5zIHdoZW4gYSBtYWNoaW5lIGhhcyBtb3JlIHRoZW4gMkdCIG1lbW9yeSwKYW5k
-IENELVJPTSBvciBTQ1NJICg+NEdCIGFkZHJlc3NpbmcgaXMgZGlzYWJsZWQpIGFyZSBhY2Nlc3Nl
-ZC4KCkJ1dCB0aGVyZSBtYXkgYmUgYW5vdGhlciBidWcgPwoKSSBhcHBsaWVkIHRoZSBhdHRhY2hl
-ZCBwYXRjaCBhbmQga2VybmVsIHBhbmljIHdoZW4gbWtlMmZzIC9kZXYvc2RhNC4KKFFMb2dpYyBC
-SU9TIHNldHRpbmc6ID40R0IgYWRkcmVzc2luZyBpcyBkaXNhYmxlZCkKS2VybmVsIHBhbmljOiBf
-X3BjaV9tYXBfc2luZ2xlOiBjb3VsZCBub3QgYWxsb2NhdGUgc29mdHdhcmUgSU8gVExCICgxNjM4
-NCBieXRlcykKQXQgdGhpcyB0aW1lLCBpb190bGJfbGlzdFtdIGFyZSBhbG1vc3QgMC4KClNhbWUg
-d2l0aCBzd2lvdGxiEDI0IG9wdGlvbiAod2hpY2ggZXh0ZW5kcyB0aGlzIGJvdW5jZSBidWZmZXIg
-dG8KODE5MiB4IDJLQikuCgpXaXRoIHN3aW90bGKBOTIgb3B0aW9uLCBta2UyZnMgc3VjY2Vzc2Vz
-LApidXQgNjAlIG9mIGlvX3RsYl9saXN0W10gcmVtYWluIDAgYWZ0ZXIgbWtlMmZzIGZpbmlzaGVk
-LgpUaGlzIGlzIGJlY2F1c2UgcGNpX3VubWFwIGlzIG5vdCBjYWxsZWQgY29ycmVjdGx5ID8KCkhp
-cm9mdW1pIEZ1aml0YQpIaXRhY2hpLCBMdGQuCgotLS0gbGludXgtMi40LjAtdGVzdDEwLWlhNjQt
-MDAxMTAxL2FyY2gvaWE2NC9rZXJuZWwvcGNpLWRtYS5jLm9yZwlNb24gTm92IDEzIDEyOjA1OjEz
-IDIwMDAKKysrIGxpbnV4LTIuNC4wLXRlc3QxMC1pYTY0LTAwMTEwMS9hcmNoL2lhNjQva2VybmVs
-L3BjaS1kbWEuYwlXZWQgTm92IDE1IDE2OjE5OjEyIDIwMDAKQEAgLTEwOSw3ICsxMDksOCBAQAog
-ewogCXVuc2lnbmVkIGxvbmcgZmxhZ3M7CiAJY2hhciAqZG1hX2FkZHI7Ci0JdW5zaWduZWQgaW50
-IGksIG5zbG90cywgc3RyaWRlLCBpbmRleCwgd3JhcDsKKwl1bnNpZ25lZCBpbnQgbnNsb3RzLCBz
-dHJpZGUsIGluZGV4LCB3cmFwOworCWludCBpOwogCiAJLyoKIAkgKiBGb3IgbWFwcGluZ3MgZ3Jl
-YXRlciB0aGFuIGEgcGFnZSBzaXplLCB3ZSBsaW1pdCB0aGUgc3RyaWRlIChhbmQgaGVuY2UgYWxp
-Z25tZW50KQpAQCAtMTMzLDcgKzEzNCw3IEBACiAJCXdyYXAgPSBpbmRleCA9IEFMSUdOKGlvX3Rs
-Yl9pbmRleCwgc3RyaWRlKTsKIAogCQlpZiAoaW5kZXggPj0gaW9fdGxiX25zbGFicykgCi0JCQlp
-bmRleCA9IDA7CisJCQl3cmFwID0gaW5kZXggPSAwOwogCiAJCWRvIHsKIAkJCS8qCkBAIC0xNDIs
-OCArMTQzLDExIEBACiAJCQkgKiBlbnRyaWVzIGFzICcwJyBpbmRpY2F0aW5nIHVuYXZhaWxhYmxl
-LgogCQkJICovCiAJCQlpZiAoaW9fdGxiX2xpc3RbaW5kZXhdID49IG5zbG90cykgeworCQkJCWlu
-dCBjb3VudCA9IDA7CiAJCQkJZm9yIChpID0gaW5kZXg7IGkgPCBpbmRleCArIG5zbG90czsgaSsr
-KQogCQkJCQlpb190bGJfbGlzdFtpXSA9IDA7CisJCQkJZm9yIChpID0gaW5kZXggLSAxOyAoaSA+
-PSAwKSAmJiBpb190bGJfbGlzdFtpXTsgaS0tKQorCQkJCQlpb190bGJfbGlzdFtpXSA9ICsrY291
-bnQ7CiAJCQkJZG1hX2FkZHIgPSBpb190bGJfc3RhcnQgKyAoaW5kZXggPDwgSU9fVExCX1NISUZU
-KTsKIAogCQkJCS8qCkBAIC0yMTAsMTQgKzIxNCwxMCBAQAogCQlpbnQgY291bnQgPSAoKGluZGV4
-ICsgbnNsb3RzKSA8IGlvX3RsYl9uc2xhYnMgPyBpb190bGJfbGlzdFtpbmRleCArIG5zbG90c10g
-OiAwKTsKIAkJLyoKIAkJICogU3RlcCAxOiByZXR1cm4gdGhlIHNsb3RzIHRvIHRoZSBmcmVlIGxp
-c3QsIG1lcmdpbmcgdGhlIHNsb3RzIHdpdGggc3VwZXJjZWVkaW5nIHNsb3RzCi0JCSAqLwotCQlm
-b3IgKGkgPSBpbmRleCArIG5zbG90cyAtIDE7IGkgPj0gaW5kZXg7IGktLSkKLQkJCWlvX3RsYl9s
-aXN0W2ldID0gKytjb3VudDsKLQkJLyoKIAkJICogU3RlcCAyOiBtZXJnZSB0aGUgcmV0dXJuZWQg
-c2xvdHMgd2l0aCB0aGUgcHJlY2VlZGluZyBzbG90cywgaWYgYXZhaWxhYmxlIChub24gemVybykK
-IAkJICovCi0JCWZvciAoaSA9IGluZGV4IC0gMTsgKGkgPj0gMCkgJiYgaW9fdGxiX2xpc3RbaV07
-IGktLSkKLQkJCWlvX3RsYl9saXN0W2ldICs9IGlvX3RsYl9saXN0W2luZGV4XTsKKwkJZm9yIChp
-ID0gaW5kZXggKyBuc2xvdHMgLSAxOyAoaSA+PSAwKSAmJiBpb190bGJfbGlzdFtpXTsgaS0tKQor
-CQkJaW9fdGxiX2xpc3RbaV0gPSArK2NvdW50OwogCX0KIAlzcGluX3VubG9ja19pcnFyZXN0b3Jl
-KCZpb190bGJfbG9jaywgZmxhZ3MpOwogfQoK
+Hello,
+
+From: Hirofumi Fujita <h-fujita@ebina.hitachi.co.jp>
+Subject: [Linux-ia64] SW IO TLB buffer management in kernel test10
+Date: Wed, 15 Nov 2000 17:15:52 +0900
+
+> there seems to be a problem on buffer management of SW IO TLB.
+> The contents of io_tlb_list[] become broken.
+...
+> I applied the attached patch and kernel panic when mke2fs /dev/sda4.
+> (QLogic BIOS setting: >4GB addressing is disabled)
+> Kernel panic: __pci_map_single: could not allocate software IO TLB (16384=
+ bytes)
+> At this time, io_tlb_list[] are almost 0.
+...
+> With swiotlb=8192 option, mke2fs successes,
+> but 60% of io_tlb_list[] remain 0 after mke2fs finished.
+> This is because pci_unmap is not called correctly ?
+
+I think it's because your patch makes pci_unmap do nothing on io_tlb_list[].
+In __pci_unmap_single, making 2 steps apart has its meaning.
+
+The patch should be something like this?
+
+--- arch/ia64/kernel/pci-dma.c	2000/11/07 06:49:39	1.1.1.4.2.1
++++ arch/ia64/kernel/pci-dma.c	2000/11/15 13:50:28
+@@ -109,7 +109,8 @@
+ {
+ 	unsigned long flags;
+ 	char *dma_addr;
+-	unsigned int i, nslots, stride, index, wrap;
++	unsigned int nslots, stride, index, wrap, count;
++	int i;
+=20
+ 	/*
+ 	 * For mappings greater than a page size, we limit the stride (and hence =
+alignment)
+@@ -133,7 +134,7 @@
+ 		wrap =3D index =3D ALIGN(io_tlb_index, stride);
+=20
+ 		if (index >=3D io_tlb_nslabs)=20
+-			index =3D 0;
++			wrap =3D index =3D 0;
+=20
+ 		do {
+ 			/*
+@@ -144,6 +145,9 @@
+ 			if (io_tlb_list[index] >=3D nslots) {
+ 				for (i =3D index; i < index + nslots; i++)
+ 					io_tlb_list[i] =3D 0;
++				count =3D 0;
++				for (i =3D index - 1; (i >=3D 0) && io_tlb_list[i]; i--)
++					io_tlb_list[i] =3D ++count;
+ 				dma_addr =3D io_tlb_start + (index << IO_TLB_SHIFT);
+=20
+ 				/*
+
+--
+NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
+HPC Operating System Group, 1st Computers Software Division,
+Computers Software Operations Unit, NEC Solutions.
+
+
+
