@@ -1,48 +1,42 @@
-From: Don Dugger <n0ano@valinux.com>
-Date: Thu, 07 Jun 2001 20:02:08 +0000
-Subject: Re: [Linux-ia64] Help with running IA32 apps on SuSE 7.1b Itanium
-Message-Id: <marc-linux-ia64-105590693005698@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Mon, 18 Jun 2001 21:26:15 +0000
+Subject: [Linux-ia64] gcc3.0 tarball available
+Message-Id: <marc-linux-ia64-105590693005739@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005697@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005697@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Uday-
+As you may have heard, gcc3.0 has been released.  A tar ball
+containing the binaries for ia64 linux can be found at:
 
-Uh, we need a little more detail on what your problem is.  Exactly how
-does your IA32 program fail?  My guess would be that you don't have
-the necessary IA32 shared libraries installed on your machine.  Can
-you run an IA32 version of `ldd' on your app. to see if all of its
-libraries are available?
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/
 
-On Thu, Jun 07, 2001 at 12:03:12PM -0700, Ivaturi, Uday B wrote:
-> 
->  Hi,
-> 
->  I'm trying to run IA32 apps on SuSE 7.1 beta (2.4.2 kernel) BigSur-B3
-> Itanium. It works on Turbo Linux Beta 3 Itanium, but I cant seem to run them
-> on SuSE 7.1 beta. 
->    
->  Does anyone know if this version of SuSE has/doesnt have this feature ? Do
-> I need to install any patches or change some configurations etc to make this
-> work ? Any information is appreciated. Thanks in advance.
-> 
-> Uday Ivaturi
-> Sofware Engineer
-> MSL, Intel Corporation.
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Everything is built with debug info, so the tar ball is quite big
+(71MB). It extracts into /opt/gcc3/ and the "bin" directory contains
+the C, C++, Java, and Fortran compiler (the latter two haven't been
+tested much).  The tar ball also includes a recent version of binutils
+and gdb.  This makes it possible to the Linux kernel with:
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@valinux.com
-Ph: 303/938-9838
+	make CROSS_COMPILE=/opt/gcc3/bin/
+
+There are some known issues with gcc3.0.  For example, glibc doesn't
+build out of the box (though there are easy workarounds for this) and
+there is a remaining C++ ABI incompatibility with respect to the
+layout of the vtables (they should contain function descriptors, but
+currently contain function pointers) but other than that, gcc3.0 seems
+to work quite well and is definitely worth playing with.  For example,
+I have been building Linux kernels with it for some time now and would
+generally recommend to use it.
+
+Many thanks in particular to Jim Wilson and Richard Henderson on
+working so hard to make gcc3.0 useful for ia64 linux!
+
+Enjoy,
+
+	--david
+
+PS: Of course, the tar ball is provided "as is", without warrant,
+    support, etc.
 
