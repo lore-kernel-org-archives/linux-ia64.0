@@ -1,34 +1,21 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Fri, 23 Jul 2004 04:29:05 +0000
-Subject: Re: [RFC] Patch for isolated scheduler domains
-Message-Id: <41009411.1080401@yahoo.com.au>
+From: Mario Smarduch <cms063@email.mot.com>
+Date: Thu, 15 Jul 2004 15:20:41 +0000
+Subject: mf visibility
+Message-Id: <40F6A0C9.69815A0E@email.mot.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040722164126.GB13189@sgi.com> <20040722175459.GA30059@elte.hu> <4100859C.9060409@yahoo.com.au> <20040723041349.GB15188@sgi.com>
-In-Reply-To: <20040723041349.GB15188@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dimitri Sivanich <sivanich@sgi.com>
-Cc: Ingo Molnar <mingo@elte.hu>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Dimitri Sivanich wrote:
-> On Fri, Jul 23, 2004 at 01:27:24PM +1000, Nick Piggin wrote:
-> 
->>Cool. Have you actually tried running it? With Ingo's correction, it
->>should work fine but I don't think anyone has tested this.
->>
-> 
-> Yup, I've been running it on an Altix.
-> 
+What is the meaning of memory access visibility
+(i.e. mf, rel, acq)? Are memory access with
+deferred response phase visible? For non-deferred
+responses which bus phase determines visibility
+(i.e. bus phase prior to data phase)?
 
-Great.
+If there is a more appropriatte news group please
+let me know.
 
-> I've created a version for sched.c (all platform) which I'll be posting
-> soon.  That will include code for both CONFIG_NUMA_SCHED and non
-> CONFIG_NUMA_SCHED configurations.
+- mario
 
-Sorry to throw a spanner in the works, but could you have a look
-at the "[PATCH] consolidate sched domains" I just sent in, and
-see if you can work on top of that.
-
-I really should have done that patch earlier :\
