@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 21 Apr 2004 22:13:26 +0000
+From: Jean-Marc Saffroy <jean-marc.saffroy@ext.bull.net>
+Date: Wed, 21 Apr 2004 22:50:59 +0000
 Subject: Re: [PATCH] module relocation code
-Message-Id: <16518.61958.903544.253058@napali.hpl.hp.com>
+Message-Id: <Pine.LNX.4.44.0404220034030.1782-100000@daphne.frec.bull.fr>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.44.0404211718200.1782-100000@daphne.frec.bull.fr>
 In-Reply-To: <Pine.LNX.4.44.0404211718200.1782-100000@daphne.frec.bull.fr>
@@ -10,19 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 21 Apr 2004 23:56:01 +0200 (CEST), Jean-Marc Saffroy <jean-marc.saffroy@ext.bull.net> said:
+On Wed, 21 Apr 2004, David Mosberger wrote:
 
-  Jean-Marc> I suspect that other types of relocation that use "short"
-  Jean-Marc> GP- or IP-relative offsets have the same problem, but
-  Jean-Marc> first I'd like to have confirmation from people who are
-  Jean-Marc> more knowledgeable on this.
+> Apart from formatting issues, I didn't see where/how the patch handles
+> the case in_core() && !in_init(), but that's just based on a quick read.
 
-Your analysis sounds correct to me.
+The code uses <val> to fix the relocation at <location>:
+ - location is always in the module, so either in core or in init
+ - val can be in core, in init, or far, far away (kernel or other module)
 
-  Jean-Marc> Here is a fix for R_IA64_PCREL21B (should apply to 2.6.5
-  Jean-Marc> as is):
+When val and location are both in init or both in core, there's nothing to
+do[*]. When val and location are in different areas, I always use a plt
+(and then a function descriptor for val is needed if val is in the
+module).
 
-Apart from formatting issues, I didn't see where/how the patch handles
-the case in_core() && !in_init(), but that's just based on a quick read.
 
-	--david
+[*] unless the text grows larger than 32MB, now that I think about it. It 
+may be better to use a plt depending on the offset between val and plt, 
+after all.
+
+-- 
+Jean-Marc Saffroy - jean-marc.saffroy@ext.bull.net
+
