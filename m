@@ -1,45 +1,49 @@
-From: "Jeff Lee" <jeff@falconstor.com.tw>
-Date: Tue, 20 Aug 2002 11:41:47 +0000
-Subject: RE: [Linux-ia64] Kernel dumps stacks while calling exported function from a loadable module
-Message-Id: <marc-linux-ia64-105590701905958@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Thu, 01 Aug 2002 03:17:25 +0000
+Subject: [Linux-ia64] [patch] Assign __gp to middle of short data sections
+Message-Id: <marc-linux-ia64-105590701905870@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905956@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905956@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-TXkga2VybmVsIHdhcyBmcm9tIHRoZSBSSCBpbnN0YWxsYXRpb24gQ0QuICBJIGhhdmVuJ3QgdG91
-Y2hlZCBpdCB5ZXQuDQoNCkkgdXNlZCBnY2MzLjEgZm9yIGEgcmVhc29uOiB0aGUgMi45NiBnY2Mg
-Y2F1c2VzIHRoZSBzYW1lIHByb2JsZW07IGhlbmNlIEkgdHJpZWQgZ2NjMy4xIGJ1dCB0aGF0IGRv
-ZXNuJ3Qgc2VlbSB0byBtYXR0ZXIsDQoNCkFjdHVhbGx5LCBJIHRyaWVkIGEgbGl0dGxlIGV4cGVy
-aW1lbnQuICBJIHByaW50ZWQgdGhlIGFkZHJlc3Mgb2YgZHVtbXkoKSBvdXQ7ICBzdXJwcmlzaW5n
-bHksIHRoZSByZWFkaW5nIG9mIGR1bW15KCkgaXMgZGlmZmVyZW50IGluIHRoZSBleHBvcnRpbmcg
-bW9kdWxlIGZyb20gdGhlIGNhbGxpbmcgbW9kdWxlIChubyB3b25kZXIgdGhlIGtlcm5lbCBzdGFj
-a3MpLiAgQnV0LCBhbnkgb3RoZXIgZ2xvYmFsIHZhcmlhYmxlcyBsb29rIGZpbmUuICANCg0KV2hh
-dCBzbyBzcGVjaWFsIGFib3V0IHRoZSBrZXJuZWwgZnVuY3Rpb24gc3ltYm9scyBpbiBJQSA2ND8N
-Cg0KSmVmZg0KDQoNCi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQpGcm9tOiB3aWxseUB3d3cu
-bGludXgub3JnLnVrIFttYWlsdG86d2lsbHlAd3d3LmxpbnV4Lm9yZy51a11PbiBCZWhhbGYgT2Yg
-TWF0dGhldyBXaWxjb3gNClNlbnQ6IFR1ZXNkYXksIEF1Z3VzdCAyMCwgMjAwMiA3OjExIFBNDQpU
-bzogSmVmZiBMZWUNCkNjOiBsaW51eC1pYTY0QGxpbnV4aWE2NC5vcmcNClN1YmplY3Q6IFJlOiBb
-TGludXgtaWE2NF0gS2VybmVsIGR1bXBzIHN0YWNrcyB3aGlsZSBjYWxsaW5nIGV4cG9ydGVkIGZ1
-bmN0aW9uIGZyb20gYSBsb2FkYWJsZSBtb2R1bGUNCg0KT24gVHVlLCBBdWcgMjAsIDIwMDIgYXQg
-MDU6NTI6MzJQTSArMDgwMCwgSmVmZiBMZWUgd3JvdGU6DQo+IEkgYW0gaGF2aW5nIHRyb3VibGUg
-aW4gY2FsbGluZyBleHBvcnRlZCBmdW5jdGlvbnMgb24gbXkgUkggNy4yIGJveC4NCj4gcnVubmlu
-ZyAyLjQuOS0xOCBrZXJuZWwuICBUaGUgY2FsbGluZyBtb2R1bGUgY2F1c2VzIGtlcm5lbCBzdGFj
-ayBkdW1wcw0KDQpNeSB1bmRlcnN0YW5kaW5nIGlzIHRoYXQgdGhpcyBrZXJuZWwgd2FzIGNvbXBp
-bGVkIHdpdGggZ2NjIDIuOTYgLi4uDQoNCj4gVGhlIGNvbXBpbGF0aW9uIGxpbmUgbG9va3MgbGlr
-ZSB0aGlzOg0KPg0KPiAvb3B0L2djYzMuMS9iaW4vZ2NjIC1jIC1ETElOVVggLURfX1NNUF9fIC1E
-Il9fQk9PVF9LRVJORUxfU01QPTEiDQo+IC1EIl9fQk9PVF9LRVJORUxfVVA9MCIgIC1PMiAtV2Fs
-bCAtV3N0cmljdC1wcm90b3R5cGVzICAtRF9faWE2NF9fIC1EX0xQNjQNCj4gLWZmaXhlZC1yMTMg
-LW1maXhlZC1yYW5nZT1mMTAtZjE1LGYzMi1mMTI3IC1mYWxpZ24tZnVuY3Rpb25zPTMyDQo+IC1m
-bm8tY29tbW9uIC1Xbm8tdW51c2VkIC1tYi1zdGVwIC1JIC1JL3Vzci9zcmMvbGludXgtMi40L2Ry
-aXZlcnMvc2NzaSAtSQ0KPiAtSS9zY3NpICAtSS91c3Ivc3JjL2xpbnV4LTIuNC9kcml2ZXJzL3Nj
-c2kgLURNT0RVTEUgLURNT0RWRVJTSU9OUyAtaW5jbHVkZQ0KPiAvdXNyL3NyYy9saW51eC0yLjQv
-aW5jbHVkZS9saW51eC9tb2R2ZXJzaW9ucy5oLURfX0tFUk5FTF9fICBteWhlbGxvMS5jDQoNCi4u
-IGFuZCB5b3UncmUgdXNpbmcgZ2NjIDMuMSwgc28gbWF5YmUgdGhpcyBjb21waWxlciBtaXNtYXRj
-aCBpcyBjYXVzaW5nDQp0aGUgcHJvYmxlbT8NCg0KLS0NClJldm9sdXRpb25zIGRvIG5vdCByZXF1
-aXJlIGNvcnBvcmF0ZSBzdXBwb3J0LiANCg=
+I was getting '__gp does not cover short data segment'.
+arch/ia64/vmlinus.lds.S assigns __gp well away from the short data
+sections, for no good reason that I can see.  A kernel with more than
+2^21 bytes between __gp and the end of sbss cannot link.
+
+This patch (against 2.4.18) puts __gp right in the middle of the short
+data sections.  The comment 'gp must be 16-byte aligned for exc. table'
+puzzles me, AFAICT the exception tables are not accessed via gp.
+
+Index: 19-pre10.10/arch/ia64/vmlinux.lds.S
+--- 19-pre10.10/arch/ia64/vmlinux.lds.S Thu, 09 May 2002 12:00:25 +1000 kaos (linux-2.4/p/c/50_vmlinux.ld 1.1.5.1.2.1.1.1.1.2 644)
++++ 19-pre10.10(w)/arch/ia64/vmlinux.lds.S Thu, 01 Aug 2002 13:09:02 +1000 kaos (linux-2.4/p/c/50_vmlinux.ld 1.1.5.1.2.1.1.1.1.2 644)
+@@ -40,8 +40,6 @@ SECTIONS
+ 
+   /* Read-only data */
+ 
+-  __gp = ALIGN(16) + 0x200000;	/* gp must be 16-byte aligned for exc. table */
+-
+   /* Global data */
+   _data = .;
+ 
+@@ -130,6 +128,7 @@ SECTIONS
+   .data : AT(ADDR(.data) - PAGE_OFFSET)
+ 	{ *(.data) *(.gnu.linkonce.d*) CONSTRUCTORS }
+ 
++  __got = ALIGN(16);
+   .got : AT(ADDR(.got) - PAGE_OFFSET)
+ 	{ *(.got.plt) *(.got) }
+   /* We want the small data sections together, so single-instruction offsets
+@@ -141,6 +140,7 @@ SECTIONS
+   _bss = .;
+   .sbss : AT(ADDR(.sbss) - PAGE_OFFSET)
+ 	{ *(.sbss) *(.scommon) }
++  __gp = (. - (. - __got) / 2) & -16;	/* put __gp in the middle of the short data areas */
+   .bss : AT(ADDR(.bss) - PAGE_OFFSET)
+ 	{ *(.bss) *(COMMON) }
+   . = ALIGN(64 / 8);
 
 
