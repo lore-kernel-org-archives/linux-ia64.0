@@ -1,272 +1,170 @@
-From: Greg KH <greg@kroah.com>
-Date: Fri, 15 Nov 2002 00:35:25 +0000
-Subject: [Linux-ia64] Re: 2.5.45 cpqphp driver patch w/ intcphp driver enhancements
-Message-Id: <marc-linux-ia64-105590709805438@msgid-missing>
+From: Christian Cotte-Barrot <Christian.Cotte-Barrot@bull.net>
+Date: Thu, 14 Nov 2002 08:28:45 +0000
+Subject: [Linux-ia64] [Fwd: memcpy failure]
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------8B895613766A1B691CD05BE3"
+Message-Id: <marc-linux-ia64-105590709805421@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805396@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805396@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Nov 14, 2002 at 03:52:12PM -0800, Lee, Jung-Ik wrote:
-> Hi Greg,
-> 
-> Thanks for the comments.
-> Most of your comments regarding style/preference are applied.
-> My answers to your questions are below, and let me know your idea.
-> 
-> 
-> > This driver doesn't need a list of Updates, as these are only done by
-> > your group, not anyone else.  Please delete this, thanks.
-> 
-> Isn't it a good time to start logging as a little appreciation and
-> recognition of each individual's contribution ?
+This is a multi-part message in MIME format.
+--------------8B895613766A1B691CD05BE3
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-If you really want to.  What I have seen in the past is that this either
-quickly grows quite large, or is ignored.  If you really want it there,
-fine, but at least sync up the dates with ones that reflect that the
-change made it into the kernel (your multiple dates doesn't show that.)
+Forwarded this here because it looks like really a bug.
+--------------8B895613766A1B691CD05BE3
+Content-Type: message/rfc822
+Content-Disposition: inline
 
-> >  struct pci_resource {
-> >  	struct pci_resource * next;
-> > -	u32 base;
-> > -	u32 length;
-> > +	ulong base;
-> > +	ulong length;
-> >  };
-> > 
-> > No, don't use "ulong", here, or anywhere else in the kernel, 
-> > use the u32
-> > and friends types only.
-> 
-> I'm toggling between your comment and the kernel's "struct resource" pci_dev
-> res is based on.
-> In linux/ioport.h, struct resource is defined as unsigned long as follows,
-> and that is used for pci io/mem/dma resources in struct pci_dev. And
-> pci/setup-*.c is also unsigned long. Even I'm leaning toward your's, ulong
-> seems to be the safest bet for the kernel ala "struct kernel" and related
-> are in ulong.
-> What do you suggest ?
+Received: from ecbull20.frec.bull.fr (ecbull20.frec.bull.fr [129.183.4.3])
+	by isatis.frec.bull.fr (AIX4.3/8.9.3/8.9.3) with ESMTP id QAA121780
+	for <ccb@isatis.frec.bull.fr>; Tue, 12 Nov 2002 16:51:26 +0100
+Received: from isatis.frec.bull.fr (isatis.frec.bull.fr [129.183.144.1])
+	by ecbull20.frec.bull.fr (8.9.2/8.9.1) with ESMTP id QAA27144;
+	Tue, 12 Nov 2002 16:51:26 +0100
+Received: from bull.net (localhost [127.0.0.1])
+	by isatis.frec.bull.fr (AIX4.3/8.9.3/8.9.3) with ESMTP id QAA233902;
+	Tue, 12 Nov 2002 16:51:19 +0100
+Sender: Christian.Cotte-Barrot@bull.net
+Message-ID: <3DD12376.AC558193@bull.net>
+Date: Tue, 12 Nov 2002 16:51:19 +0100
+From: Christian Cotte-Barrot <Christian.Cotte-Barrot@bull.net>
+Organization: Bull S.A.
+X-Mailer: Mozilla 4.78 [en] (X11; U; AIX 4.3)
+X-Accept-Language: fr, en
+MIME-Version: 1.0
+To: Ken Chen <kenneth.w.chen@intel.com>
+CC: David Mosberger <davidm@napali.hpl.hp.com>,
+        Stephane Eranian <eranian@frankl.hpl.hp.com>,
+        Cotte-Barrot Christian <Christian.Cotte-Barrot@bull.net>
+Subject: memcpy failure
+Content-Type: text/plain; charset=us-ascii
+X-Mozilla-Status2: 00000000
+Content-Transfer-Encoding: 7bit
 
-If you are trying to keep in sync with the struct resource, then use
-unsigned long (and spell it out, don't use ulong please).  If not, then
-specifically set the length of the variable.  In this case, it looks
-like unsigned long is what you want.
+Hi Ken,
 
-> > And why the varargs on set_led_state()?
-> 
-> It is to control *multiple* LEDs in one call, instead of sequence of LED
-> setup calls.
+sorry to disturb you directly, but I found your name in the source file
+I have some concern with (./arch/ia64/lib/memcpy_mck.S)
+I am currently porting a serial line driver to linux IA64 release 2.4.19
+on a tiger machine.
+This driver checks the return from the memcpy function that should be
+a pointer to dest as the man says.
+The return from the memcpy function seems to be always null.
+I put some printk traces in the driver and it appeared that although
+the return does not comply with the man the copy is correctly (hopefully) done
+(the printk reports the first three and the last three bytes of the dest
+area before and after the memcpy call and we can see that they have been
+overwritten).
+Is it right to check the return from memcpy ?
 
-That's all nice and good, but is it really that hard to just sequence
-the calls?  I'd prefer that to varargs trickery which doesn't play nice
-with the stack.
+Here are some typical outputs picked up in /var/log/messages:
+...
+Nov  8 16:13:51 bza kernel: epca: receive_data : dest before memcpy  0x72 0x77 0x2D ...
+0x6B 0x20 0x20
+Nov  8 16:13:51 bza kernel: epca: receive_data : memcpy failed, dest 0xE000000071112468
+src 0xC0000000E2C1A9DC n 512 rdest 0x0000000000000000
+Nov  8 16:13:51 bza kernel: epca: receive_data : dest after memcpy  0x33 0x33 0x3B ...
+0x20 0x20 0x20
+...
 
-> > +# ifndef __IN_HPC__
-> > +#define phphpc_power_on_slot(slot) \
-> > +((slot)->hpc_ops->power_on_slot(slot))
-> >  
-> > Ok, this is just nasty.  Don't have functions be one thing if compiled
-> > into one file, and another in a different file.  That's just _too_
-> > complicated.  If you want to use the structure's hpc_ops function, say
-> > that is what you are really doing.
-> 
-> I removed the #ifndef __IN_HPC__ to avoid confusion, but want to keep the
-> macro for convenience sake.
+From memcpy_mck.S, both memcpy and __copy_user functions return
+the same null value initialized in the common_code part:
+  ./arch/ia64/lib/memcpy_mck.S
+    ...
+  GLOBAL_ENTRY(memcpy)
+          and     r28=0x7,in0
+          and     r29=0x7,in1
+          mov     f6=f0
+          br.cond.sptk .common_code
+          ;;
+  END(memcpy)
+  GLOBAL_ENTRY(__copy_user)
+          .prologue
+  // check dest alignment
+          and     r28=0x7,in0
+          and     r29=0x7,in1
+          mov     f6=f1
+          mov     saved_in0=in0   // save dest pointer
+          mov     saved_in1=in1   // save src pointer
+          mov     saved_in2=in2   // save len
+          ;;
+  .common_code:
+          cmp.gt  p15,p0=8,in2    // check for small size
+          cmp.ne  p13,p0=0,r28    // check dest alignment
+          cmp.ne  p14,p0=0,r29    // check src alignment
+          add     src0=0,in1
+          sub     r30=8,r28       // for .align_dest
+          mov     retval=r0       // initialize return value
+          ;;
+    ...
 
-Then you have changed the names of the other functions that matched up
-with these macro names?
+But According to the old sources memcpy.S and copy_user.S they
+used to return different values, dest for memcpy and null for copy_user
+  ./arch/ia64/lib/memcpy.S
+    ...
+    GLOBAL_ENTRY(memcpy)
+    ...
+          .body
+          cmp.eq p6,p0=in2,r0     // zero length?
+          mov retval=in0          // return dst
+    ...
 
-> Removed all macros per your recomendation except the two entry/exit macro
-> pair. "_" prefix is also removed too. Allow these simple two entry/exit
-> macros in hpc code only for a while since it's useful in debugging revisions
-> of HPC hardwares on multiple revisions of servers... The rest of the driver
-> codes is relatively mature but HPC codes are always hot because of new
-> revisions of HWs... 
+  ./arch/ia64/lib/copy_user.S
+    ...
+    GLOBAL_ENTRY(__copy_user)
+    ...
+          adds len2=-1,len        // br.ctop is repeat/until
+          mov ret0=r0
+    ...
 
-Ok, that sounds good.
+It's certainly not the better way to modify memcpy_mck.S but
+here is a simple and trivial patch I tried and that corrects
+the problem:
+  ./arch/ia64/lib/memcpy_mck.S
+    ...
+  GLOBAL_ENTRY(memcpy)
+          and     r28=0x7,in0
+          and     r29=0x7,in1
+          mov     f6=f0
+          mov retval=in0          // return dst
+          br.cond.sptk .common_code
+          ;;
+  END(memcpy)
+  GLOBAL_ENTRY(__copy_user)
+          .prologue
+  // check dest alignment
+          and     r28=0x7,in0
+          and     r29=0x7,in1
+          mov     f6=f1
+          mov     saved_in0=in0   // save dest pointer
+          mov     saved_in1=in1   // save src pointer
+          mov     saved_in2=in2   // save len
+          mov     retval=r0       // initialize return value
+          ;;
+  .common_code:
+          cmp.gt  p15,p0=8,in2    // check for small size
+          cmp.ne  p13,p0=0,r28    // check dest alignment
+          cmp.ne  p14,p0=0,r29    // check src alignment
+          add     src0=0,in1
+          sub     r30=8,r28       // for .align_dest
+          ;;
+    ...
 
-> > +struct sema_struct {
-> > +	struct semaphore crit_sect;
-> > +	int owner_id;
-> > +};
-> >
-> > Ok, this is crazy.  The only reason you have a owner_id is to prevent
-> > yourself from trying to grab a lock twice.  Instead you should know what
-> > you are doing and not try to do that.  In short, do not do this.
-> 
-> This sis not a q&d trick for impaired lock-unlock. This is for controlled
-> multiple lock requests where subsequent lock requests from lower-primitive
-> functions are simply granted success w/o actual lock when mother caller
-> already grabbed the exclusive hw access lock. Lock-unlock pair is managed in
-> callee's side who knows where/when exclusive access is needed to perform
-> certain controller operations. Caller, as consumer of the controller APIs
-> shouldn't worry about the lock. 
-> Caller still can request lock to perform a sequence of functions w/
-> exclusive hw access. In this case, callees(child functions)' individual lock
-> requests will simply succeed w/o actual lock. 
-> Actual instance of this is in init probe() function only. So, we know where
-> and what :)
+Regards.
+-- 
++===========+=======================+==================================+
+|  |\/\/\/| |                       |                                  |
+|  |      | |Christian Cotte-Barrot |org.  :BULL/                      |
+|  | (~)(o) |Bull S.A.              |office:FREC/B1-401                |
+| C      _) |1, rue de Provence     |mailto:                           |
+|  | ,___|  |B.P. 208               |   Christian.Cotte-Barrot@bull.net|
+|  |   /    |38432 ECHIROLLES CEDEX |phone :+33 (0)476297725 (229 7725)|
+| /----\    |FRANCE                 |fax   :+33 (0)476297891 (229 7891)|
++===========+=======================+==================================+
 
-But the old code did not need this type of locking mess.  I'd suggest to
-just stick with a simple semaphore.  It is cleaner, smaller, and easier
-to maintain over time.
 
-> > +_DEFINE_DBG_BUFFER		/* Debug string buffer for 
-> > entire HPC defined here */
-> > 
-> > Why here?  What was wrong with a few lines above this?
-> 
-> That is definition, this is declaration.
+--------------8B895613766A1B691CD05BE3--
 
-But a one time declaration, which kind of means that making a definition
-for it was useless :)
-
-> > +#ifdef CONFIG_IA64
-> > +static wait_queue_head_t delay_wait_q_head;
-> > +
-> > +/* delay in jiffies to wait */
-> > +static void longdelay(int delay)
-> > +{
-> > +	init_waitqueue_head(&delay_wait_q_head);
-> > +
-> > +	interruptible_sleep_on_timeout(&delay_wait_q_head, delay);
-> > +}
-> > +#endif				/* CONFIG_IA64 */
-> > 
-> > Why does ia64 need an extra delay?  And if it _really_ needs 
-> > it, please
-> > provide a non-ia64 version of the function so you don't need 
-> > the #ifdef
-> > later on in the code where you call this function.
-> 
-> #ifdef is removed to allow delay for both i386 and ia64.
-
-Is that what you really want?  Why?  What is the delay for?
-
-> > +	_phphpc_acquire_lock(ctrl->hpc_ctlr_handle);
-> > 
-> > So the "global" phphpc_acquire_lock() function isn't to be 
-> > called here?
-> > Why not?  This is just causing another level of indirection that isn't
-> > needed (not to mention that this doesn't need to be a 
-> > function call, but
-> > just grab the lock instead.)
-> 
-> OK. only global phphpc_acquire|release_lock().
-
-thanks.
-
-> > +	/* turn on board without attaching to the bus */
-> > +	pPhpCtlr->creg->slot_power |= (0x01 << slot);
-> > 
-> > Do NOT write directly to memory. You do this a LOT.  Use the proper
-> > functions to do this instead.
-> 
-> No direct mem access ??? This memory mapped access is very convenient
-> feature that kernel provides, as many others do. Moreover, coming
-> PCI-Express native hpc registers are all accessed thru memory-map too, by
-> the spec. Am I missing something ?
-
-Yes you are, please read Documentation/IO-mapping.txt.  You are getting
-away with this by the fact that these archs allow a pointer to a remaped
-area to be directly written to.  That's not portable at all.
-
-> This single set_led_state(slot, green_on, amber_blink, ...) replaces at
-> least 6 LED APIs such as   
->  green_on(slot); green_off(slot); green_blink(slot), amber_on(slot), ..., 
-> and controls LEDs at a single API/lock overhead.
-> Unfolding to individual LED colors is just one of many implementation
-> choices. 
-
-Please do that, it saves kernel stack space and reduces complexity.
-
-> Agreed. pci_dev should be used whenever possible as you pointed out.
-> So I changed pci_device_id table in pci_driver (core.c) into an array of id
-> tables covering different cpq, intc controllers. And the above routine is
-> removed.
-
-thank you.
-
-> > +	if (hpc_did = PCI_INTC_P64H2_DID) {
-> > +		dev = pci_find_subsys(PCI_VENDOR_ID_INTEL, 
-> > PCI_INTC_P64H2_HUB_PCI, PCI_ANY_ID, PCI_ANY_ID, NULL);
-> > 
-> > Why not just save off pci_dev, instead of constantly having to find it
-> > again.  That's why it is passed to the probe() function :)
-> 
-> We need either pci_find_subsystem() or pci_find_device() here because if hpc
-> is "PCI_INTC_P64H2_DID", speed is obtained by "PCI_INTC_P64H2_HUB_PCI"
-> device on the bus. Hence, we have to find "PCI_INTC_P64H2_HUB_PCI" device on
-> the same pci bus. hpc_did is removed and pci_dev->device is used instead.
-
-So you need to talk to the "main" controller instead?  Do you have a
-spec citation for this anywhere?
-
-> >  static u32 access_EV (u16 operation, u8 *ev_name, u8 
-> > *buffer, u32 *buf_size)
-> >  {
-> > +#ifdef	CONFIG_IA64
-> > +	return 0;
-> > +#else
-> > 
-> > Why not just prevent this file from being compiled in on ia64.  That
-> > would make things easier instead of having to put #ifdefs in the code.
-> 
-> Then all access_EV caller codes need #ifdef CONFIG_IA64 around this (3 ~ 4
-> instances).
-
-No, the "no nvram" functions will be called as defined in the header
-file.
-
-> In fact, if compaq controller makes to IA64 platform, it'll need IA64
-> version of this code, if needed.
-
-Yes it would, but as you stated earlier, you aren't doing that work :)
-
-> >  int cpqhp_set_irq (u8 bus_num, u8 dev_num, u8 int_pin, u8 irq_num)
-> >  {
-> > +#if defined(CONFIG_HOTPLUG_PCI_COMPAQ_NVRAM) && defined(CONFIG_X86)
-> >  	int rc;
-> >  	u16 temp_word;
-> >  	struct pci_dev fakedev;
-> > @@ -372,35 +359,27 @@
-> >  	// This should only be for x86 as it sets the Edge 
-> > Level Control Register
-> >  	outb((u8) (temp_word & 0xFF), 0x4d0);
-> >  	outb((u8) ((temp_word & 0xFF00) >> 8), 0x4d1);
-> > -
-> > +#endif
-> >  	return 0;
-> >  }
-> > 
-> > Why doesn't ia64 work properly here?
-> 
-> IA64 servers and Intel i386 servers don't need this code.
-> This routine is from original cpqphp, and I saved it for cpq servers.
-
-But what about cpq servers who do not specify the NVRAM option?  They
-need them, but it is now broken.
-
-> > +	struct pci_bus lpci_bus, *pci_bus;
-> > +	memcpy(&lpci_bus, ctrl->pci_bus, sizeof(lpci_bus));
-> > +	pci_bus = &lpci_bus;
-> > +	pci_bus->number = new_slot->bus;
-> > 
-> > Why mock up a pci_bus on the stack here?  Don't we know it 
-> > based on the
-> > controller's pci_bus?  Why did you change this?
-> 
-> To support PCI bridge cards where dev and funcs are populated over bridge
-> devices recursively.
-> Using ctrl->pci_bus->number in current cpqphp and ibmphp is not recursion
-> safe. Do they support bridge card hot-add ?
-
-They should, I haven't seen any instances where this would not work.
-
-thanks,
-
-greg k-h
 
