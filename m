@@ -1,112 +1,47 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 17 Sep 2004 20:16:43 +0000
-Subject: [PATCH] sn2_defconfig update
-Message-Id: <200409171316.43289.jbarnes@engr.sgi.com>
+Date: Fri, 10 Sep 2004 22:14:54 +0000
+Subject: [PATCH] sn2: fix warning in prominfo_proc.c
+Message-Id: <200409101514.54621.jbarnes@engr.sgi.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_rY0SBuNKNbTYX+w"
+Content-Type: multipart/mixed; boundary="Boundary-00=_ediQBuG0Lf6Eqzj"
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_rY0SBuNKNbTYX+w
+--Boundary-00=_ediQBuG0Lf6Eqzj
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Update sn2_defconfig mainly to enable the mmtimer driver by default.
+The compiler has no way of knowing whether nentries will be greater than 0, so 
+it was generating a warning that qw might be used uninitialized.  Fix it by 
+explicitly setting it to 0.  Cc'ing Brian in case he has an internal version 
+he'd like to keep in sync.
 
 Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
+Thanks,
 Jesse
 
-
---Boundary-00=_rY0SBuNKNbTYX+w
+--Boundary-00=_ediQBuG0Lf6Eqzj
 Content-Type: text/plain;
   charset="us-ascii";
-  name="sn2-defconfig-update-5.patch"
+  name="prominfo-warning-fix.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="sn2-defconfig-update-5.patch"
+	filename="prominfo-warning-fix.patch"
 
-===== arch/ia64/configs/sn2_defconfig 1.12 vs edited =====
---- 1.12/arch/ia64/configs/sn2_defconfig	2004-09-02 22:46:36 -07:00
-+++ edited/arch/ia64/configs/sn2_defconfig	2004-09-17 12:57:40 -07:00
-@@ -1,7 +1,7 @@
- #
- # Automatically generated make config: don't edit
--# Linux kernel version: 2.6.9-rc1
--# Fri Aug 27 22:00:00 2004
-+# Linux kernel version: 2.6.9-rc2
-+# Fri Sep 17 12:57:29 2004
- #
+===== arch/ia64/sn/kernel/sn2/prominfo_proc.c 1.5 vs edited =====
+--- 1.5/arch/ia64/sn/kernel/sn2/prominfo_proc.c	2004-08-25 10:27:31 -07:00
++++ edited/arch/ia64/sn/kernel/sn2/prominfo_proc.c	2004-09-10 15:09:28 -07:00
+@@ -222,7 +222,7 @@
+ {
+ 	int nentries;
+ 	int fentry;
+-	unsigned long qw;
++	unsigned long qw = 0;
+ 	int len;
+ 	nasid_t nasid = NASID_GET(fit);
  
- #
-@@ -13,6 +13,7 @@
- #
- # General setup
- #
-+CONFIG_LOCALVERSION=""
- CONFIG_SWAP=y
- CONFIG_SYSVIPC=y
- CONFIG_POSIX_MQUEUE=y
-@@ -33,6 +34,8 @@
- CONFIG_IOSCHED_DEADLINE=y
- CONFIG_IOSCHED_CFQ=y
- # CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
-+CONFIG_SHMEM=y
-+# CONFIG_TINY_SHMEM is not set
- 
- #
- # Loadable module support
-@@ -54,6 +57,7 @@
- CONFIG_RWSEM_XCHGADD_ALGORITHM=y
- CONFIG_TIME_INTERPOLATION=y
- CONFIG_EFI=y
-+CONFIG_GENERIC_IOMAP=y
- # CONFIG_IA64_GENERIC is not set
- # CONFIG_IA64_DIG is not set
- # CONFIG_IA64_HP_ZX1 is not set
-@@ -210,7 +214,6 @@
- # CONFIG_BLK_DEV_IDEDMA_FORCED is not set
- CONFIG_IDEDMA_PCI_AUTO=y
- # CONFIG_IDEDMA_ONLYDISK is not set
--CONFIG_BLK_DEV_ADMA=y
- # CONFIG_BLK_DEV_AEC62XX is not set
- # CONFIG_BLK_DEV_ALI15X3 is not set
- # CONFIG_BLK_DEV_AMD74XX is not set
-@@ -277,7 +280,8 @@
- # CONFIG_SCSI_AIC7XXX is not set
- # CONFIG_SCSI_AIC7XXX_OLD is not set
- # CONFIG_SCSI_AIC79XX is not set
--# CONFIG_SCSI_MEGARAID is not set
-+# CONFIG_MEGARAID_NEWGEN is not set
-+# CONFIG_MEGARAID_LEGACY is not set
- CONFIG_SCSI_SATA=y
- # CONFIG_SCSI_SATA_SVW is not set
- # CONFIG_SCSI_ATA_PIIX is not set
-@@ -335,7 +339,6 @@
- #
- CONFIG_FUSION=y
- CONFIG_FUSION_MAX_SGE=40
--CONFIG_FUSION_ISENSE=m
- CONFIG_FUSION_CTL=m
- 
- #
-@@ -550,7 +553,6 @@
- CONFIG_UNIX98_PTYS=y
- CONFIG_LEGACY_PTYS=y
- CONFIG_LEGACY_PTY_COUNT=256
--# CONFIG_QIC02_TAPE is not set
- 
- #
- # IPMI
-@@ -575,6 +577,7 @@
- CONFIG_RAW_DRIVER=m
- # CONFIG_HPET is not set
- CONFIG_MAX_RAW_DEVS=256
-+CONFIG_MMTIMER=y
- 
- #
- # I2C support
 
---Boundary-00=_rY0SBuNKNbTYX+w--
+--Boundary-00=_ediQBuG0Lf6Eqzj--
