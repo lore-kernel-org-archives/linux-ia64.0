@@ -1,54 +1,122 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 10 Oct 2003 15:06:16 +0000
-Subject: Misnamed syscalls
-Message-Id: <marc-linux-ia64-106579856912123@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 16 Oct 2003 20:55:30 +0000
+Subject: [PATCH 2.6] MCA min_state area must be uncacheable
+Message-Id: <marc-linux-ia64-106633799429227@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This fixes a misnomer of some syscalls in 2.6.0-test[567].  Glibc wants
-them without the sys_ infix.
+Software Developer's Manual page 2:270, section 11.3.2.3
+says that the processor min-state save area must be in an
+uncacheable region ... but current MCA recovery code
+allocates the min-state area "ia64_mca_min_state_save_info"
+in regular kernel data/bss.
 
-Andreas.
+This patch re-uses the same min-state area that the PAL/SAL
+used to report the error to Linux ... which mostly requires
+deleting code and declarations (some of which were wrong,
+MIN_STATE_AREA_SIZE ought to have been 58).  The real "work"
+is copying the pointer to the min-state area from the
+sal_to_os handoff structure into the os_to_sal structure.
 
---- linux-2.6.0-test7/include/asm-ia64/unistd.h.~1~	2003-10-08 21:24:02.000=
-000000 +0200
-+++ linux-2.6.0-test7/include/asm-ia64/unistd.h	2003-10-10 16:57:46.0000000=
-00 +0200
-@@ -237,17 +237,17 @@
- #define __NR_epoll_wait			1245
- #define __NR_restart_syscall		1246
- #define __NR_semtimedop			1247
--#define __NR_sys_timer_create		1248
--#define __NR_sys_timer_settime		1249
--#define __NR_sys_timer_gettime		1250
--#define __NR_sys_timer_getoverrun	1251
--#define __NR_sys_timer_delete		1252
--#define __NR_sys_clock_settime		1253
--#define __NR_sys_clock_gettime		1254
--#define __NR_sys_clock_getres		1255
--#define __NR_sys_clock_nanosleep	1256
--#define __NR_sys_fstatfs64		1257
--#define __NR_sys_statfs64		1258
-+#define __NR_timer_create		1248
-+#define __NR_timer_settime		1249
-+#define __NR_timer_gettime		1250
-+#define __NR_timer_getoverrun		1251
-+#define __NR_timer_delete		1252
-+#define __NR_clock_settime		1253
-+#define __NR_clock_gettime		1254
-+#define __NR_clock_getres		1255
-+#define __NR_clock_nanosleep		1256
-+#define __NR_fstatfs64			1257
-+#define __NR_statfs64			1258
-=20
- #ifdef __KERNEL__
-=20
+-Tony
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+diff -ru mosberger-bk/arch/ia64/kernel/mca.c mca-uncache/arch/ia64/kernel/mca.c
+--- mosberger-bk/arch/ia64/kernel/mca.c	Thu Oct 16 10:39:33 2003
++++ mca-uncache/arch/ia64/kernel/mca.c	Thu Oct 16 12:04:47 2003
+@@ -81,8 +81,6 @@
+ u64				ia64_mca_sal_data_area[1356];
+ u64				ia64_tlb_functional;
+ u64				ia64_os_mca_recovery_successful;
+-/* TODO: need to assign min-state structure to UC memory */
+-u64				ia64_mca_min_state_save_info[MIN_STATE_AREA_SIZE] __attribute__((aligned(512)));
+ static void			ia64_mca_wakeup_ipi_wait(void);
+ static void			ia64_mca_wakeup(int cpu);
+ static void			ia64_mca_wakeup_all(void);
+@@ -466,26 +464,6 @@
+ #endif /* PLATFORM_MCA_HANDLERS */
+ 
+ /*
+- * routine to process and prepare to dump min_state_save
+- * information for debugging purposes.
+- */
+-void
+-ia64_process_min_state_save (pal_min_state_area_t *pmss)
+-{
+-	int i, max = MIN_STATE_AREA_SIZE;
+-	u64 *tpmss_ptr = (u64 *)pmss;
+-	u64 *return_min_state_ptr = ia64_mca_min_state_save_info;
+-
+-	for (i=0;i<max;i++) {
+-
+-		/* copy min-state register info for eventual return to PAL */
+-		*return_min_state_ptr++ = *tpmss_ptr;
+-
+-		tpmss_ptr++;  /* skip to next entry */
+-	}
+-}
+-
+-/*
+  * ia64_mca_cmc_vector_setup
+  *
+  *  Setup the corrected machine check vector register in the processor and
+@@ -961,9 +939,8 @@
+ 	/* Default = tell SAL to return to same context */
+ 	ia64_os_to_sal_handoff_state.imots_context = IA64_MCA_SAME_CONTEXT;
+ 
+-	/* Register pointer to new min state values */
+ 	ia64_os_to_sal_handoff_state.imots_new_min_state -		ia64_mca_min_state_save_info;
++		(u64 *)ia64_sal_to_os_handoff_state.pal_min_state;
+ }
+ 
+ /*
+@@ -2154,9 +2131,6 @@
+ 	if (slpi->valid.psi_static_struct) {
+ 		spsi = (sal_processor_static_info_t *)p_data;
+ 
+-		/* copy interrupted context PAL min-state info */
+-		ia64_process_min_state_save(&spsi->min_state_area);
+-
+ 		/* Print branch register contents if valid */
+ 		if (spsi->valid.br)
+ 			ia64_log_processor_regs_print(spsi->br, 8, "Branch", "br",
+diff -ru mosberger-bk/arch/ia64/kernel/mca_asm.S mca-uncache/arch/ia64/kernel/mca_asm.S
+--- mosberger-bk/arch/ia64/kernel/mca_asm.S	Thu Oct 16 10:39:33 2003
++++ mca-uncache/arch/ia64/kernel/mca_asm.S	Thu Oct 16 12:06:32 2003
+@@ -77,12 +77,11 @@
+ (p6)	movl	r10=IA64_MCA_SAME_CONTEXT;		\
+ (p6)	add     _tmp=0x18,_tmp;;			\
+ (p6)	ld8	r9=[_tmp],0x10;				\
+-(p6)	movl	r22=ia64_mca_min_state_save_info;;	\
++(p6)	mov	r22=r0;;				\
+ (p7)	ld8	r8=[_tmp],0x08;;			\
+ (p7)	ld8	r9=[_tmp],0x08;;			\
+ (p7)	ld8     r10=[_tmp],0x08;;			\
+-(p7)	ld8     r22=[_tmp],0x08;;			\
+-	DATA_VA_TO_PA(r22)
++(p7)	ld8     r22=[_tmp],0x08;;
+ 	// now _tmp is pointing to SAL rtn save location
+ 
+ 
+@@ -97,7 +96,6 @@
+ 	.global ia64_init_stack
+ 	.global ia64_mca_sal_data_area
+ 	.global ia64_tlb_functional
+-	.global ia64_mca_min_state_save_info
+ 
+ 	.text
+ 	.align 16
+diff -ru mosberger-bk/include/asm-ia64/mca.h mca-uncache/include/asm-ia64/mca.h
+--- mosberger-bk/include/asm-ia64/mca.h	Thu Oct 16 10:40:25 2003
++++ mca-uncache/include/asm-ia64/mca.h	Thu Oct 16 12:07:22 2003
+@@ -108,8 +108,6 @@
+ 	IA64_MCA_NEW_CONTEXT	=	-1	/* SAL to return to new context */
+ };
+ 
+-#define MIN_STATE_AREA_SIZE     57
+-
+ typedef struct ia64_mca_os_to_sal_state_s {
+ 	u64		imots_os_status;	/*   OS status to SAL as to what happened
+ 						 *   with the MCA handling.
