@@ -1,319 +1,995 @@
-From: "Yu, Luming" <luming.yu@intel.com>
-Date: Wed, 14 Jan 2004 09:29:03 +0000
-Subject: RE:  IA64 test report: 2.6.1-rc1/Lion 2004-1-14: 9/10 pass
-Message-Id: <3ACA40606221794F80A5670F0AF15F8401720CCF@PDSMSX403.ccr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3DA80.D938B4F3"
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Mon, 12 Jan 2004 20:16:29 +0000
+Subject: [PATCH] sba_iommu update (2.6 version)
+Message-Id: <1073938588.6497.56.camel@patsy.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3ACA40606221794F80A5670F0AF15F8401720CCE@PDSMSX403.ccr.corp.intel.com>
-In-Reply-To: <3ACA40606221794F80A5670F0AF15F8401720CCE@PDSMSX403.ccr.corp.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C3DA80.D938B4F3
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+   Here's an update to sba_iommu for 2.6.  This patch does a couple
+things:
 
-Sorry wrong log is attached.  It should be:
- <<2.6.ZIP>>=20
+      * Allows iommu page size different than PAGE_SIZE.  This was
+        largely done by Bjorn.  The motivation for this is that sx1000
+        hardware officially only supports use of the iommu with a 4k
+        page size.  Thus the default is now 4k for sx1000 and PAGE_SIZE
+        for zx1.
+      * Cleanup the runtime statistics gathering such that we can turn
+        it on for some info w/o impacting runtime performance.
 
->  -----Original Message-----
-> From: 	Yu, Luming =20
-> Sent:	Wednesday, January 14, 2004 5:15 PM
-> To:	linux-acpi
-> Cc:	'linux-ia64@vger.kernel.org'
-> Subject:	 IA64 test report: 2.6.1-rc1/Lion 2004-1-14: 9/10 pass
->=20
-> ACPI Test Report  for 2.6 ia64 kernel=20
-> =
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+Comments and feedback welcome.  I'll followup with a 2.4 version in a
+separate email momentarily.  Thanks,
 
-> Hardware Configuration:
-> -----------------------
-> System Name: ACPI-LION
-> System Type: 4 way 800M Itanium, Lion
-> M/B revision: N/A
-> Processor version: N/A
-> Firmware Versions: N/A
-> I/O configuration summary:
-> 	QLogic QLA12160, Seagate ST39205LC boot drive
-> 	IDE floppy and CDROM
-> 	Serial console
-> 	PS/2 keyboard and mouse
-> 	USB mouse
-> 	Ethernet Pro 100
->=20
-> Software Configuration:
-> 	1.Bk pull form  lia64.bkbits.net/linux-ia64-2.5 on 1/14=20
-> (Shanghai time)
-> 		pull nothing
-> 	2.bk pull from =20
-> linux-acpi.bkbits.net/linux-acpi-test-2.6.0 on 1/14 (Shanghai time)
-> 		pull nothing
->=20
-> ACPI Features Tested: (prioritized).
-> --------------------
-> 1. Boot 					tested ok
-> 2. PS/2 keyboard			Only work for about 5=20
-> minutes. Starting X can make keyboard works for a few seconds.
-> 3. ATI (run X window system)		tested ok
-> 4. PS/2 mouse				tested ok
-> 5. USB mouse				tested ok
-> 6. NIC (eg. Ping or ftp)			tested ok
-> 7. IDE (eg. r/w floppy or CDROM)	tested ok
-> 8. SCI (eg. Press power button)		tested ok
-> 9.  Soft Power off 			tested ok
-> 10. serial console			tested ok
->=20
->            CPU0       CPU1       CPU2
->  29:          0          0          0          LSAPIC  cmc_poll
->  30:          0          0          0  IO-SAPIC-level  cpe_hndlr
->  31:          0          0          0          LSAPIC  cmc_hndlr
->  32:        573          0         10   IO-SAPIC-edge  i8042
->  33:         52          2          0   IO-SAPIC-edge  ide1
->  34:          6          2          0   IO-SAPIC-edge  ide0
->  36:        242          0         24   IO-SAPIC-edge  i8042
->  39:          4          0          0  IO-SAPIC-level  acpi
->  44:          4          3          0   IO-SAPIC-edge  serial
->  45:         14          3          0   IO-SAPIC-edge  serial
->  54:        267          0         32  IO-SAPIC-level  uhci_hcd
->  55:        618         28          7  IO-SAPIC-level  eth0
->  61:       3142        154         18  IO-SAPIC-level  qla1280
-> 232:          0          0          0          LSAPIC  mca_rdzv
-> 238:          0          0          0          LSAPIC  perfmon
-> 239:     260365     255785     255198          LSAPIC  timer
-> 240:          0          0          0          LSAPIC  mca_wkup
-> 254:         36         90         92          LSAPIC  IPI
-> NMI:          0          0          0
-> ERR:          0
->=20
-> Problems:
->=20
-> 1. ACPI: No IRQ known for interrupt pin B of device 0000:00:03.3
-> Please refer to http://bugme.osdl.org/show_bug.cgi?id=3D1534
->=20
-> 2.  PS/2 keyboard only work for about 5 minutes. Starting X=20
-> can make keyboard works for a few seconds.
->=20
-> Ps. log file is attatched.
->=20
->  << File: lion (Compressed) >>=20
+	Alex
 
-------_=_NextPart_001_01C3DA80.D938B4F3
-Content-Type: application/x-zip-compressed;
-	name="2.6.ZIP"
-Content-Transfer-Encoding: base64
-Content-Description: 2.6.ZIP
-Content-Disposition: attachment;
-	filename="2.6.ZIP"
+-- 
+Alex Williamson                             HP Linux & Open Source Lab
 
-UEsDBBQAAAAIAIeLLjBANo67ay0AADy1AAAIAAAAMl82Lmxpb27UWllz20iSfleE/kNObD9Q0Txw
-8sCsN5oSRZtrUWKLlNsTHgcDBIokmiAA46DEftp/vvtlASCp05KnO3aX0S3jyMzKysrjyyoE2R1t
-RJx4YUBavVlXa7GjUiUOw/QX24m8WuotRHxClYXj7Aj1ulbXSVMUXTEVjSrXwiXj+Oi8P6CNWseT
-2ZYGl5PzC4vG3Ytkm6T27J1yZ87nWlNtKdQ9Gw3kveg0ddGW9xhdKZ81dYWGI+X4iF9YdD3ujaiy
-USA4F0uv+J3QL6TcKcUvF7uT+Hncm0iJ6k7i+NpoKt2zPY9Ow3F/wveqvLefktguJfa7hUT9eYnN
-V0hs7XQcdr+vo/0Kie2djr1Hsy4EGq/WsfgdH/1mx4EXLCxiJ5lifX0xjew4ERUeazq+7k5OKBZp
-FgdwDuVv3+e4GDzkEHOvnsbeepqGkUXeIghjCCDj4ymFc1qLdRhvyU5ZPXIzQWlIi9gOMl/QMsSf
-/NXzcoz2Y0k86x8S9lhU60dlPaFWS/tBWdDhsbR269XSZmGahusDgU3DVLWn7faCzOMjJALa6HVF
-sSgU63dlHA/HeTRfn/flv0zGvypFcehmTvpOslokgjTeWhTZ/hRvnDydGG24aZWSw4diZupCKbhG
-vp3Ow3hNc2HDs0RCp1lyETorGlz/OkXe8mLhpMhpBX13RLf2SmQRZQnPVtylIg5sn7wAF3EWpUiC
-ThrGmPIcg5yNbggzMlXaeHGagdAOkAsNipbbxHP43nUxbEIzL02Oj7wwsSPPmXJOFOupF3gp4tJL
-EA083Ois1p2QE64jO/UQINTWzM5+7KSMZMwAorujwdlOvnLnFME5F6II0oJ4LAkrMu489wtH81fy
-c0Ue3ovdAxFwiLonxSSpkmeBk/IFVU7Ho5MXBlEfDKJ9dxBVDqIdDPKCeO2BeP274jUpXn+deP2+
-eNt+QrwrF24nX2f5ts3yyzcvDGC8fQDjTQOYbx/AfNMAzbcP0HzTAK23D9B6foDBVTGC5IX5F344
-Q+bw4m/TmZ0IFvi1jKcvZambizyuvu5cfXTRnUyRv1DkIMwPb0m4C6S9bcQi4PWFbuxChZ54VgR+
-nj3wDO779fiIZfWvrocc45xFLXo/HuBCd1lwlQWfUO0/SIag9N0y/2jPq+OLjfBLffRX6qOKx+ro
-O3UcqY4U/Iw++i7fFLpMrz5dU2WWITUR/rKZqXNgc9wsvcUy1xbGjcXCQ1KMkRTT2CJnaQcLzoml
-/A7N43CNVazJZazlRg/3D6Sg4yOdlUvI3tiez+tfpXb+JA1TG++vi3FYti8WtrOls6shRWGcJoRa
-QQneIbs6YZCgfB0fDR0buASFBDmPEzZeen/YXDTIDQMQfCpSP+rhdG1HBLjLsmRdhCcqrTn/2u08
-KV8FFISugFWkQpG9EIlFHV1X9OMjot6wS39AbPGI5PsqXQz6VzSzU2dpGUx2iaKGIXNK5Qkqlak+
-wMBDsX6Z7DTzfJetwVQ+bCOtIHW0uHJ/RAUUbI/1mosbChVknV5dweuG3ffn7xIn8RQL4P+fsXCX
-dvrPzRo02V1daxJxI/Gu4YpNI3FtjY0aHh/No+TWzsva3HYkQjDnM91AMUfrITak1lUNLjEa9Ghp
-J0uSaFFCAI+NZSgdJJIwdkVMqmZR0zT1JpqOVCRlubKIQxouI769U3W9ruv68MMfVRpMzijmxXun
-ag0tv5dErU6n3um0QfRzo1ZTo2gNSbkLwBlDP8xi+vS++zO1EbsmdPNth42WhPP01o4F/JAmF6c0
-E+mtEAGWXpQpxNRVXnuq3XtoyodwL4miLFKNttpUlFVDNTpa22iv9i5MFeA/PHCwJlXS1Ca/RZYS
-8Ua4VYJ4dUWundp4ecIO+9ELfLGl8xhTtRFot2G8suMww/IFYUqBEK5w/15kSJ6Fl2K28OsZ2wb3
-Lvx9S34YRvV6nVqdVr2t0Gm4CIeD0fj4qCfRGDm2sxRPrpCqq0pLK9YIC1QFEDXaZmu/SgN2sNq/
-ImGI+aQvSVA0Y8cPlKg29bax4x5djQef2R8ZHtoBvBDP5dzRvN5cDvqDzwgNeC8DUQcVATHhuZz0
-GhIhp3ayorW3iPNMkKvhCgdmS721CLOUNaB1IpykDnTJOYGl71nSZSxsVwabE2UcaaeclJgI+BOB
-OdoNDMjdUMlLKIm8IMgpsDAFanoD/izo/4TY+LkQxYDdDxdsydT2goSGZ10CXIXWgNawPkjhh3Qt
-b2jQY083Ou0S7F+LjUWk1BUUtJ8nsBzWSm0orQZgoEGabumGxYkE1MjvsZdu2VJv8NVCz2QbOMs4
-DLw/kMZ5ZrdeuqQC2vo2sp7rzee4cbaOz0lybd9hGoQ4LR7lqQWimAkORzN4h3DrhwulyhdJlAX3
-VogGY7q8+o1uRn97jSuo911BOxyh1Ww3tOdcQXujK2h/nito/09cQfvzXEF70RW0J11Be6MraJJt
-LJEGMtjx0YRBA3ff+j4xAWugid1IhFLR9I5WN/bTPsHIl+cTi0rgAyJwpiGKGs3ttedvpeAcvI2z
-Wd6bYsk2Xr4tCOSoahKdpLM7Ltg1RVVb9IUBpUTrfmi7+Y5Okm++WfmW3iR/lGQO6znPfAxlO98y
-NN3whZEdyx7b9n1CpU1j6DMU6TJ0E6v+Az/YRhaAL7zP9RUon/rwG8BVICmDrma/A0gm+Vqriko9
-zA9qkdoyymFJ7Ugroezn9qBLey2SiDHKvUnwhGFG4BbGN2TnJV1VFNtsz4328ZHY3M3FBuVJUTo6
-LGUUlsr7zoNtSosmsR0kXr72YW63NWOv/YAsbhGJmb+qKS2DDY/OS2ymDjwlFVO8ms583tNgce9H
-56QwtiTVpC9T3H6F0wFc54BU/jpvlqg2WaKuviDxLFxHvpDenNuw0feE7zZOs/lcxI2R7ayAPh8g
-6BcWmiFCQQpTq53GfnEINZik9IQ0o4Eynw+CBUSd1KgYK6FKx9AkkuWIPb8TTpaWHpcvP03Hky4n
-SnRQsPubvO/4CKmr9KK5BFdF5pPbnHjJwqtoSQ+F77okRr9RLPD34W7EjQyLsl3lTLDffQKI4yns
-mr+zAV2zC6JecD/0BQ/Q3VUUxUILvKMKbwWn3QQgFnP+cnM9QptaCefzl0i075D0e73Rd0guRpNH
-JE9orBYaqy9SaQWV8SKVXlC1X6QyCirnRSqzoHpZ+2ZOJTuWZ6jOTi8LIhNE4zM01cku0Xp7Nz8+
-cmOPT1kaWTJroEoKvqg7FsX75B2IW8rJaJnNECa5o1hlp2waBx06ftW9f1HkeNx719C5awcJvHg8
-BVSGXBn1N3mmQtQXDwfXv0pfdPPAYcl6OeHLUL5eBeFt8MBhgVJI7hYf8Fn8H8DGE7qbz+r+iLT5
-atKm+npS7a8gbbX+CtL28wv9BlI4a5lyZPHh5ePF3GWaCF36Gqn64JxQkRSa3j54O0jtwMvWNBre
-YK1TjMu9qWrgwRkwlNrGRQ8XBrJkxu6B9KxrEoye5GeHn+zYyxFDH721z/huAzTYZASi1XrCqalK
-gTaV/y20OQLnIO8ZZck+1NQ8sAawNkI1sVET2bI5A+wytzM/nea3O/Jp+TwBufWAijZs7338lxDw
-Q7YQvOFQnsL4KNi2tLnCpTMBjRx6FcwTwEInjLaxt1imVDk7QTntNClcefEvGN5268ntrO4KhoqZ
-O99nG6m6hxWRmep+lj/N0hQGqPT7J0iDv133v+7e7zDwF6wVl6Mki/L9tbODFH+PSn0VlfaIKkq3
-FmnIBTeBd4fFxX0iu3pvkUljsWPx6mIV47xU9/LciQUzkIvlZp/FBy1KQ22aplLm1p+uCwAMv6l3
-FPoJnisHrkrnT5a2NM9+l/m/03Q7VhgTDRpXvGk6b1OFNzrfoQs74ZbNJjlC9/iISdU9qXZAaj4g
-ve4Oe4Pxx1Ktg2phMSzDa9ZhlXCO5Y2xj5TgZb77IUEc3x4fcVNklcC1go6G2kVKzndjUuFXrk9o
-dH3VkOeWlyLlXaPSWrVd9Jt1ra4ptZXKkG/nU470qU6NmwWJbRjTx7CXDBP41SwMeJMRtQz+bNRV
-qoxFBKea8R6eWZVdxsmOTJ6MVU4sEoDroFh7HhyV4AZ2HE1lddkUHa58EKH9iBciZejMB4+RHQO5
-p6IY+DB+ZAeA3EbDwYA3M1fgwWDydLMK80oboS327UBu8FXkvlktDmdecELrlyR2r0cHwgCyBRot
-WJMnrdaVzu+1lDoNrdPodKiHuPNdOhXOigt5mkZWo3F7e1tPnK3v1p1w3QjyJWiUYvx7Eu87qN6E
-g/IhcUNVG2jOhiF6WA+6zbbUDdD3b+lTncb2JnSWK0zy3xP79pckKdJ/X6JXdmsU4AdFXhZrs668
-qVgD6yJFH7IjLSlWT7FOW1a/Y/UNq9+sFiPWeav6NLSRpe0kgUugw2ppLaVjon0yqjQqNzAQ14Ec
-OkEHKxIRpOhq/9MwmX8Ue2sbeXC/q+wsvYg8BDb0HH34B/2bKgd6LwIRQ1gi/HmN9/z4UBnDuvJt
-ng8YndUKePY0nYTvfDBcukHyDOH11RCaYJWT7AlZ8kTSmBum2p5x9kUWk8fVQ+R/r7Y7vT6vDXrn
-ZQbYL3urjo7Tj5Y2SpjnooB1E4zCTiu3caiYAZ/BJJEQ+a7CaHAlG8zk7xRCHBCqyJtiXIDy3d3d
-8dHStflAroa2n8bwKlRGuvnQo74fRtG2St0JHIH6F1ej0T9ytZgHPnnWq2macV5SnPUavU+9Gtug
-oMqBhh2knuNFdsqVywspgYU4bmM5D6X4pGCu1Phvq8q5FOUqIE6RuiGJ1IKoJYlakqi1J9ILhXI9
-NOMzq7bTA3BEa69O6Yx3bfdWPyQ5tLNeV3ML1+bSACWFUu906oDjeFPYDECYkzGnkZ1Z8FjVdK1p
-rE6r1GnqjXYDuOfsw7hKpq7T6jRCSTHRtiZ5WHG+RtcI08e8u/YgQIFlHwWoainaUwH6Au795tsw
-AWL014uuqqlNpehgYT/uXthl1CqPwjtQfMJTUU54C8mWJ0WXn1B2yudW/iYRqWyuZXdzejPevVaf
-ef3XTEyeRhHPK1x4zn56PCs0M3L4D2GCZO3aqD+xlc+1HFeT7tOUp2fy1/fitTzfKeof7+rXFaOu
-a9Udkth/FoemplWXzJ9E4IaQPj7vvu9OziEJKVkAaYwnekdTzIuz3R6QRKKm0pTnf5NthEAm6skv
-U2pduQlET/66l5iLnFC8c1XuycplsfKlGW8DBAKgphe61KkCJ8yxGIiJKv3m8YFSb1Klib1YIEF8
-y0Qmdy9cFOclgBVyK2erTyX0l3uBWrsKWHjH1SWbS7Sha60mHiaNBbx4kTAiOz4KE5jZwiJP7EiU
-MSNTzVUwTmNhIyHmYG5nQhlR6gHrTwPAHL6rO1U+F2wpUocGb0vrAPSWpqHzptsYtU7Q+V1EPxUN
-drGgiYy/VkdT27rJYVbjEyBaurdxEXC8TaQidQxPT55glWrnxzsWDwPeme2ssFTyNf6oJI828Yf7
-4TRlUkB/LEKeC/CCc5V0zKo81+bjVFzycVKV/CxgxH6fccFFCu6bLJTv8lZJnvWzkH4mrTgcTfJ9
-/cLmiCFUYLit+Txmu8C885A5wG3HR+soZUl8eMxS7Txoiv0u1HRkOtlpyGp3MPw+zp7Q4XCTYwma
-RrZ0vNrScRnW3IxPGcwzAXc5LKLYHUZ9yOuuLO+FXKBJ9TGKMZ5EMQjQN22XsFpTqHVPAjT8cDZ4
-qNizxJxOTIQaqpxcEuXg15y3lWcZeZuHbcHpaY81qwyRvEUgYy+hIMsB9HdsWvbjSG+yhcGgyYzw
-vyo7LP7O7tlp7QiHdpDB8vwZHfLaBR/xH3wyXM7ikCMHU5dSR+ve9FAXsxmpNVSHupKvOT+QXvXg
-XaHybg5v3iPz0IpvfoDrPosXRFnawOMaMzMj9+UWa/5h0CN+WPAiaOB1MOy4oQFpZRyHuSPyJxRh
-vkHGW9BMhvTKiRl+0lYMjbo3n+V0c3DTVIBqmkaOaJoP7FL6RyEbciWjeuAh5YEfgxdWv9DpfZFc
-hlI3RkyJDWdUGlIVNV9BtXbPNzDQb0uB3COZvmcaJ419yuIZfwqTwk1rOh8YOAI87k6X0nTcGimF
-Ml8eDPSV1cMYtUPnqakPrPbxtPec1fZT707o2r6FT6L00UpsZ7LheDh75fuHZZxDRla5P/b4Iwg+
-m+NyiABFb5fm4O6j/O7g+GhyBtYPO+LDvQqqCP5Q3vcSLgNaU1MNdPAeUpr8vgXFiVvdnM2Suzi8
-L0Y9e4NiMK7T0Msj9nv6q68gaR0frX4Ps1j2qElxSlknZIb12ktp14CbXEPRDmNm558nem0OzdZy
-e8892DjKi778EgPP+UMV2YGgYnzqjy0aFgzyLK0i7lL9gJe/CbfdMPC3XGBiIeSRd5Bx87TKv0xa
-F1/QaIYCTD8HDZzsvx7+CuIMUyqiI4dWAIX5Z1pKeYLnGAgiL3p3+BhG+9cE6LrWMf6PSTnAkrxR
-t79U95fwdtI61p5S2V09c1l8yEnO2plGqCIQoCuvEXD/Sz4IiMR0Gbh+zBLU10gof4cq7CRoOwlm
-S3+KTeXL+98X5gmGufX9+Ka25z64fIobfSozGwfKN9/ArDBzc8esGQ84ysdPMJd6Hy6d8RT3U5bn
-QyEwG8bTzA+s92Do/PtJZjf37Orb2c396FqzdZ+nEKQ9Vn2PQ8jcj99U2zsubX9JrccCeOsKzM2d
-w+nq3uyquZ8Hi3zIXLTVx0fagbu9wWHXjj2N3T82LKD9IwKKEwXmL1Zeayp608wvTbPV3l2qnQND
-lPz/w96z9jaOI/kL9j8Yux8uDUx3ItlW7AH6Ay1RNsd6RaIcpwcNwZ04j5skDhxnt/d+/VVRkk3K
-pJzuPRzgwQx2ZuOqYrHIKhar+BKeXYPRAq70Z2pH8f/1x9sLMJC0Bya8/XO4KzWUjLlmwBIGs1PI
-DlcOE06a/qoAyvDgrMMy0vkmdl5/lZaiP3UGdvfc9kedhLF5X1CJw6Zi27lm4z8u7l7LNYGnBc6O
-v8D0coP7WhBnvS4fIedabJbP12IzqK7S6uDy3HblsbVWIKxr7ZzAvHv38eG2Mzjr/B5CdZIg24M4
-Cjfcly13Wauwr2f1rn9Geqe3K4V7EGWMDfGTWPz/HZP6z5bzdddGW8Rru8ygrZFIud9I5As5xv9n
-G6sVZlNbMf+q2tq1pbZ2O1k4entta6Ig0NjPf9IkpRkGka+FeupNp6/7murBABDprSy7M+ie9bsY
-zt+tF09PIkxl2y366ijMnsb+s2EB2X6H4ubNM0Tc10a7AZd0Ojgddn7f0oKUaIVfK4EGB3tXcBl2
-fDy5t+USkAiD+3CFABHr/0xrtibU35UOd9feqn9uF7fiXDduaH/89rD5pfO8ev74sl7eLjfX99jb
-HypF9aZfjba4HXdO72t7beUh8sO1WaHEyF28LL7hXrU4HP37zfXXaiMX8vrF3fJp+bxbhrNrJTqg
-xNmYyFfSZFUSzjp8eX3/vHpc3QFf0Mo1ZFkwjc+DUn32eW1PB9X4vkEiKw3++/Iitu0Oqc9p7dBv
-Z+/tUCc06m+w1Z/ddw4o8Pb2ffUp5kK/v+BJQVAPblKo/MQdJY1fsAdTswn032MCuNpdrgrpptSe
-czaedz52Br3yr6zM90i18CAt3J1k5LDr/3l+lXXcitO7lQMF+csNhHI18nWzWqNpygZ8sVvy/AQR
-QVLuFXh4etqtFlvzx8160RUs9PLLPPZsGNRy3mrDjhPe/89BA5Y2JFSzG/yA2Vn/x2Zn/ZzZ9Xot
-ZmfVarv9VO7ZTFabjy+Pb3ctU0jPccBUEIaHqCEZxjIJlint5aDZ7WvNsr+1T8+VWuwDHf7OaaFU
-HTS896do+PL8vZa2bfjgSBp+ft7W8JubH2749Z+j4f0fbvjtkTR80Gtr+PUPa9yy/xwN/2GNW/1f
-z445mCjlt45cfvvI5e8eufy9I5e/f+TyO0cu//lRy28duf+3jtz/W0fu/60j9//Wkft/68j9v3Xk
-/t86cv/f+wn/7+F5EaUyz/3QOflp+bX83iH8Ua+ElvK3TV79s0jUZ/f6vWh+WteLaapYAryBqkbl
-fdaT9Tvkfz+/PdnfsTFj2YO6WUceU1j20cv/npioWsjAE+fi2pZghMawnO+M4Qfkfxe/m7v9Frx/
-8b0rLXI21rCHZ4e2TrBnukeu2e5fmjVo9mfmscOaONQzP8rPrNneX5o1aLZ/5Jrt/6VZg2adI9es
-85dmDZo9P3LNnv+lWY1m/wH/65C3zQqf2rhe4Ltb4lqc2AV7WvyxrO5O/IqPo/3XpgMibESpqqiL
-r2g94bPf+D5HeUB39bIpX/cCCjeOfDYu6DyhKQtpxEnw+d9bsBtQEhVuHCYsoBI84yTySBBHAlhV
-tbtTvsHDrzvm2SVJ5MJX2YwlrgQZZV6RpLFLs6wgrstVYpfLIgUx0Od+kU2Yzz/jm23QyBLFpuUf
-+HQEvvAJgkhYGo6o51FPwVa4KQmC7CrMpHr8nNO59JsmcSDLweLMnVCviOI40YBJpgF6lHgBKztt
-K5frFnHCWci+0MKP0yKDPxQZq+4NVosbcWaxet2hujUqd3QYe3lA5ZpLSJFHQUy8fTjU52qw8SiL
-A8opkiUkDdWCM5pmLI7kaqYAlixh916JuJMpxlX19LwsLiNOT2Li9EZMVn0Y5tKv9DKjYTF3J2Pi
-QfcG4zhlfCKLBn1I8Q1omoKqCAcRZRWAxbI8VHo+dKcsCuiV3l5QumJMIxgXrs5mBN5jY4WlAE4S
-UGLYwhUIvsytFoJszIosslsoEjKmwlQK/OjCe+gGDTo9leVMR/st2uGdZnUVGT5UI3U3/qx0kYIh
-pU3UlKYRDYoSJKsJaxulAYzWXBWj1B+4Ck6hexPqMr9FL4FVuATGXOUmnC02ykMi1eexDP7ibBxS
-2ZRmLOU5CQqAFqHivAT30JV5JHLJ6mKt7EjEGAvJvPgC/jJOPegNayA1bZKPKQ9GskrHBpXuk1rv
-J7X7TqjV3T6p0wtVK9BU3GTW1p73k1rvJ4X2tJp0UDBPnbXCRGkUmCbFa9paFl27yPIkiVPZJeFM
-SGTAhMwouHUXpiV3KtsETf1QdUCVUCzyYwlMfab+KmYklV1rlBb49qmY6SrQCHiEvKCBL9FVwBAM
-WvLE4jGzE3LzT3zc+QbjMnHPsny2C/1yGX1gaCRubXyAgGlvWhEjFt86b47iUc650kgB9ckeqJrc
-4z0/wCc0DZWQQ4Abo1TAPDrKx/sSZHt1xZf7/gYiuiYIIgtO1QlBwFMakDnO4GGgswyVE/wqvDgk
-TJkOERrQMXGvRMsbmIiEyhw9iXkSlE2r58/yVJQ4FCXrYzcYyiLIThcqJG7oMnLqLtY3eEHjVcei
-pNGWXqzxLYPH8jaxvjBJcWToStf3qqtnQWIp1twW9y8LjDhoqmNQnbLanqj/9/Z50ZOQex9UTgDR
-NgF7Tpg3PoWsb0KU6EqOxIuvN2WNaolRMAUjnBW+WqWCd5OLwiPteJdBmNtGhJV4xB06Z+00OUxP
-OhOt8UEVmu4VdNOrhMeIbq8gGmmj5RqdEnnmk6DCP3/Gd9j2sCxiPJVjRcLJqXif6DT0w9M0CHSB
-LfOopqYKutX5Ep+WeF0uO97q+g1TKeHmTiG1+7T5Xn7Q4X75+HL68Hy7wmsx2+eklKhU4o5Pzsku
-vIQUYR5whpEw1SAznsZTg7Sup4dD8w0lytel9Dg8jK8KUHACErBYzZhqhA85HCClLsMOwAfCQLl1
-r59+e7vDV21MXaK6vxIAQRZJgXV6oRE09v1RTFJdy6vgWlcIEiLHtvTt9kJSe+E9i63QIuYyDNMd
-h4LkPD5IdMmStkFAvHKq2hOFUNex5/P2EQbxgNWfdw8Qhd557xAnN/Sc3gEanjI/oIcYXQ1s1xke
-kMnN+n37gH9Cmu4BmknCu4fERhrHaafJXAufaGulwUuLBxxeNjjvWf0DbDzXPgPNFnHQMhMolBG9
-PCD+7HKaHSBh4kszB4gCd3hGD3UWT0N7eKCzZoyAHcwbZqcdbor5VyOHzUxZaYk3Dz3ERnHUDG32
-rUI78zNKacfqDnudE/9hvbyEfz9sH9g6kZe5GpEEFhTldEztuAoJ9LEE4jXFyvcL1YKdk5QwT8Qm
-wSxsRjPaJkkPSmmEqIr6eaYueJSAZtheQTEbzcY4RUu1VziW0SgzmFlFAvOLTlDl2bB9ERvzFf4U
-4XHhZ9KcVL0LXnaWWD46wQfEfulsFi/LX6rXCT/IfLe2L88x7iQtgVwDjDMFvGWQaoHFjEaekrps
-mctBe7bC93V3XQDx6vLT3SeQuPPfb38sv62+7wzxCS3j5XHZCfLotdlHVXwBqGZvpRSjbsRkTRT8
-jYuyfA8RxOMxixRBUcbH1b+q5xqqR4xUS6xb370swAXMC2G0WpMQlRAXZvg2PHEPcWDuucHZyHj0
-uYq72SKHpgmypPBmJIKMz8g/hHQNRdxnnkF02sIZMlDoYua2kEDQ77vc4N4FhRfOu9bQausg2i4G
-omGCM/hUQeLnPIcwrUxXW+jGHp+0oFnS1hKI74nVmIiV3rwK+113AJq0m5a6Q4kJwvNSmmVgumWk
-bRmJqU9gwECIO1ZWSRpk6PIECT760NDwlohB3ySJKXIUxBdC2+AlDbmTTORrFyhlCnwnZd/kPLc7
-7H9vsxcgOOMtBFGWdA3LxyUDXEzR+fDqxWt8X0rjwiPKJUci0Wq2lBLiTkvybdUlqAihk/WyAf+A
-RcL16Houj9hcYQj0xbSxgF+hWCVr/TMp3apLMlUmQAjnAPlCkcY5byxKyHTNJQNFDJawVuw4Ncyp
-KJmoWI8maWJKZJAxdU1D+Qo37uIpo4bhKooTw0gveZtsnJVNwtVQnQ3hw3D15yDxwfnlWl14/Jsa
-PCXFzCRiMjNEspBLgwx63ChlXiNO3mkCkuBqO0LWTwk1jwpsEVj77cPj5mBjIh8n44inYOxGjQPR
-RU5zs0kAAUs4GQVUO2eVFGAbJUnToktc2aq2KoAIHGM0DloFKVe9UeETXOh8F6l/CYmxriszlyeN
-dWhNWC4ZQIEliqLZRMFHP2K4Ye9tFpCoGJzZ1oUeHwSuacstMQQXMOsGBi3PbUMeGZDEkBvhsPLY
-jKYGy6bw/yarv4S2tfkv5O0TXJ0yuhokmVwWfhBfAgQotVH+xSrD9OV0te7cLh7W4rXkpXjp/x8N
-XmLTW8ei/qxC9bHJ/ZLJlI+p6th2WJgcmEvlnIGkLr52o121BVyzzyqMl4ehsrQWR14VKe96/CIn
-Afti6lSeR7r2bd/fObHO8HMNEBCF3x42imkLB4vbH+o8FTJ1YWsC8chVSEmgFyDLozE1mDvWUKYu
-RRc/7qsRlL89Prx0qvcuqy8ttGa6yJPngWmqmySG2E8otbFml6BiTFEKCb2BZVnYRQYCjyScungU
-JfWZaXId9Xp6hDdOtY6VUkhJoRGqFVRAc4BNm+3eYnzQXWTwHhHhGQ0N6xwRtad7Gzxb7MDqDl2D
-FhDHY1MqwLKhSVaaMNfYEDA1D8MkPXbGSJFOIDA4NB6A/W4s7LTp0ogZcigvsFUXK/V5Q08IgV5N
-TF2aDboD06rlhITEnRhKXtEAvKJvypvSgeUMjf1tmdbasulwEDCtn+NsHEfdz0+GPtR2IpubDgP4
-nmdo2IQlpt5KElOK0xz/lRi42PaIx//w2bETfAnhfvG0Xtw8rBqCojdIice0q2Z89cfyuZOKzwrp
-HDpvm+BMaTi4Uf1u4+XiefdmYaMmmFJ1RcjTYrN8W3dSbJneTYItGdvH1h7pnDw8364X6+XNBz0D
-ljY2CCv06PFtuVmtNvf6YiPtlizLvGj3qb1GRYDDRULtVM/w0eiWFT0WJbmcEOavy/UjLm02elQm
-h2w+zyjM4XJypiCKJCP53IzO3JTSqJh/xq87HSC6+nzuDBo0v8VXVfW7XhAInhnyzhJNZ/pidGbK
-GkT34UtV2jW2MQnp3i56bbAxeNsthbxSAoFy3PxdMHzodg+a0VRXunD5wHbPrbM9BMw2SWZLCi1b
-UO6/Vzv6Go1CBt7c4qtBECBPR+qi2hYFE8q0scG8TzTnh2kiesljrReVjEKOsfB3UbV0y66EYkeY
-gq2t+WScGXO70pLi3J2UJthGhod1dIbj3i/Wi2tMNWUPWBWdyQqdcbHyGyvnnCCGl4A7Jyiahnsr
-5fHdVBubV99+utlXdlUePxLXsJwKqhFFxjaOCMqoieslBlSUFjlJefa5t98UQUDnHIJcQ6IBcxAS
-dcr3lPdPtKj83DjVCI9QTdNwMWo4KBJ+lWmhUCSP+GfxEZh6ONmuaQNJawcIJo93q/XD5v6p1IWE
-mSzWN+KjPM0zPjqabPn8il95cfF7YCYZCtz6ifWncsRnGpS5Js/EkNEb+AVzz+wCDzZoG5aErFE7
-QGDajLzANE9vru9vVncdPNTUcKSXhLsTLzac+4bRkALf2JQl4Vec9ChIQYuUa9dw8aAeoJTx5XHT
-UkDaHTqGPATSu4AZsjO/3PKCwK9TfXJrI74hVLrj+jsbOysm4wQDxt2vgvWcswaoPHssAb1UPQQH
-vwvu+YaUBbEwLYWGvQhEp5Y90PWZwBGPxhHWrhQJxy38III2dCu5BAJcL9FaLO6x4ZWMhT6OnDEQ
-ZW+luaLxHu4e8Puis4eb5aozWq8WN9cLsVhRn0ZTmXmN7e5agw94UF+EXYorBZ9lV9ueKqSYE87V
-5ckak8QZm4MTNUxONVlG3TxlXLsmjl+n2Ku2a6y2+75qu4eq/a0RAcBvzVJrhQRe4Uic3VbKpJSB
-OwakbzCG31pw8xZcyMBjG7FpHLaUvcjjxqZcPdByHotyShtKaK/JrrYksbONnwoUZqOxGpbFQ8c5
-UzX4WxywxjbLFyBs1FFhcs9Xd9u9ODv1CT+NuKlSwKoVhhkUUkGzHdHOr/L9jqsqTV6Xbzcr6fMm
-SoXSkQAZMq0n592Yo7P9Kna4hO8pYAst7V1XkIeJUnd17FwHE0fRJTDMI0rfhg+v18tHyIeWK5ig
-m63dWYXXYmHEb0FOWnAj2oZswbWVc0UT9bhZ2yCbJG2jKJr3WtB4XcyIzI1GVq8xCxec7ZtZtB2f
-EmDWbQJ6qlEDyGMpdXkjt9/hPZWDV/GUWQDMEA0IJG+s61U4vGEgMxe/KwFr3c0x31NaBUlWqty1
-KwHFOFOHRhaOzGpnJkzkJuZSsUeMSHE1KKRfvsQtpm/0H/glJrFzhN+JVJ0HpAoMr35tN3VVDwxO
-JNoR6SuOM/8QCQnZmBwk4iRlh4hC4hpIagLhbrckSnPw3iQeOg7IiBrm53J6y/LRATkguQFpwTEO
-nEMiY4pzSfAkSXvVgRceYhVRF5OlA6KND/ZiHvAUmnmIUW7SfT1+fKb2dO1LFhv8/mWweL57w8fT
-NXdkokDxJUFWn0v5/PeH19Vg0B9+tP6u4GF8UHGZqdc9bxTdos5bUOd9E2qgJOgNlG1GtTA0ijFw
-zHU5lhllFsPpmlE9M8osvOOYUUMTatg1lhqau3fYNbZr2DPWNThvtgsCODSZYqBOHXIhC5c1dFNQ
-g6ipg5q1Cd5sQA1vaqWGm0Rv6qOGN7u1hjctrIY3e20rv0kgyySR1RRpGrNBkeqAeQOYc1+oovIH
-4/Xi5f7h+lW3lOSrFyf9UeFejWiKX6XXeyWgYGHGtcvAgIP8lij5MsBCwtNYe1YSC5QpdkMIwq+a
-aXkDbcQZ82/ARTQOifH0IxB0jSsJgJzFsRfHhovQgAen7tHIcOABy5fXdHUxgrt6fl1B5Hfz8PqC
-d8CqL5pqFDaDmdzVLJeG3hau62lxekCzLOhDjAy5re/TVIPFCyW6yvw4ahwQlRDF4PtArqEEWY5k
-kcHqbrX9iubuXFJVIojHsVIdAoqARfm8COPIsFMsEUEfWY5OPInGDXJu2z1JqKz8kO1ODrGrIRFs
-76WW39EV9B2yvr5/wK/cvq2XSmEo+iT/KjJ6kVOI8VJlfFSYUkGGQABI4iyjYW46VgEEM5qOYtwn
-SCFYNSzsIZ3x0Fh9E1K7+iRKtksI1h0y074tEoQ8ITMzulq+zi2n3zdtQCOXJO+dWboG4OEDo/Ak
-YP1e3zB2BcEX3u2aXA4SuFnPMR7aLvH2oKUCUJ91Nm0hmMbp2LIt0zlYoIhCu284YYhoyFCMp2hL
-9LC99NDpt5SfeMZDxIBtdX5IcBX6xuMhpYaynnHWER0cslYGNMqs7nkLg5KgTUWZNey2mADinRZ8
-SCieWOvqXA/i/XBwZu2NfuZS67xN7YLANuTgggDS02Awb2l6FkfMnbGR6XRtOYDJwHgDUBDMbVsV
-sxpnoDoifddaM/wAWZDccMQgflk+V9400+z5l5vLCZ641JXGejXzJIClSQjr397I/5tuwQvZrHS3
-v8uieIbPsEgJ+BGJvEvm8YkybYmSVxFk3y4mtnGqXR4Qn9TGh6SkV6g0e9fIjE5gPp4o13IRHOvB
-uQSW6qq2x93HxeurfqdfrywFPQpyyuOYTwpuCsWQzDwhiDpcw04WIsU8ZjrIiAQZj9PmBUO5S9+e
-Fs+7lyJ2t/InrLqVL/GasGbnAWR7XGRbLQAL3zcZwf8Wd329bcJA/L1Sv4MfNyntSLt0VaQ9OIQR
-VJogoM22akIOOA1KFxhh6rJPX9856YDYpA+R9hIh33HYd/H5z51/FtRmxgW20vFCSzMgA31Km/G0
-GvlmEFJNmhSqCeAjxARbE9cElq8eVUabQUvOT/aoTV1CCw7Na51TRiuYdDxuM5P48/uTVgWMPPGL
-p7w0lTwUGsN+RgfAqpCAMbGPcsq2O9AGbJwncOF5Vqi/oQpRA+Nuo5YlLC8zVdcxaahZYKA96VSb
-JIoGtWwa3On2jwWDH7rXXd0MCft9MGimEFfqj+2vdvsKbZtMIRyRoJaN9Ufd7Pt5J1WD1Tyr1seE
-jq2Z0GK/ubP8YEp1h5ZRFc6k1/bndC17EkIHaXFkvntvtzG4ZksFbDq01ap201nBig0pst9luqrv
-+pq+eVlNW/KKbJ4+Nc8wvX7I8ydfHLFoUc7ab+Sl8gsWL/dS0yUkmE/HgJ22B4CkYtoBKW1pOGJu
-wa8qxRIbCPxzNKLfqT9shK2cAE55RPcjNVgRrsAhTiIBGOrVtajvfmtdxMhKBa7OK27pnjOGkMNb
-eIQwy9KdHULYNGQ3bz3AczvIB/dwtXwVEJVUlgx4LFEPlbMQZcB6x1JshCt6lLs86tclhErtZVYu
-Z8l5/O+qsSXfkBzwMIVbfFewZ2AjFx2xTk84Mf50PzFAIUnXzDCujA+QopQZ78+PKEg46jOZOdIn
-i4T1MReRF0VWdEgek8+EGB0ULp6EOLaGskuGT7+Q/AYZ3dlBGfjeOIPNmCVJV9KBHbGdRxN0sLH/
-V2HBZhUvimyV/gXfhiN8zGJIDxKDLvKuxYunJxLUKxGaAOXEeRrlUBJl8zkBDFGenJ6QxfP6ifP8
-zLi46pEHo/uDICeHCV6EpGhdspL3iQVF6E2hlGApeQh6eKHdC1BLAQIUCxQAAAAIAIeLLjBANo67
-ay0AADy1AAAIAAAAAAAAAAEAIAAAAAAAAAAyXzYubGlvblBLBQYAAAAAAQABADYAAACRLQAAAAA=
+=== arch/ia64/hp/common/sba_iommu.c 1.33 vs edited ==--- 1.33/arch/ia64/hp/common/sba_iommu.c	Fri Sep 19 09:03:40 2003
++++ edited/arch/ia64/hp/common/sba_iommu.c	Mon Jan 12 12:07:57 2004
+@@ -1,9 +1,9 @@
+ /*
+ **  IA64 System Bus Adapter (SBA) I/O MMU manager
+ **
+-**	(c) Copyright 2002-2003 Alex Williamson
++**	(c) Copyright 2002-2004 Alex Williamson
+ **	(c) Copyright 2002-2003 Grant Grundler
+-**	(c) Copyright 2002-2003 Hewlett-Packard Company
++**	(c) Copyright 2002-2004 Hewlett-Packard Company
+ **
+ **	Portions (c) 2000 Grant Grundler (from parisc I/O MMU code)
+ **	Portions (c) 1999 Dave S. Miller (from sparc64 I/O MMU code)
+@@ -39,12 +39,19 @@
+ #include <asm/page.h>		/* PAGE_OFFSET */
+ #include <asm/dma.h>
+ #include <asm/system.h>		/* wmb() */
++#include <asm/bitops.h>		/* hweight64() */
+ 
+ #include <asm/acpi-ext.h>
+ 
+ #define PFX "IOC: "
+ 
+ /*
++** Enabling timing search of the pdir resource map.  Output in /proc.
++** Disabled by default to optimize performance.
++*/
++#undef PDIR_SEARCH_TIMING
++
++/*
+ ** This option allows cards capable of 64bit DMA to bypass the IOMMU.  If
+ ** not defined, all DMA will be 32bit and go through the TLB.
+ ** There's potentially a conflict in the bio merge code with us
+@@ -54,11 +61,6 @@
+ */
+ #define ALLOW_IOV_BYPASS
+ 
+-#ifdef CONFIG_PROC_FS
+-  /* turn it off for now; without per-CPU counters, it's too much of a scalability bottleneck: */
+-# define SBA_PROC_FS 0
+-#endif
+-
+ /*
+ ** If a device prefetches beyond the end of a valid pdir entry, it will cause
+ ** a hard failure, ie. MCA.  Version 3.0 and later of the zx1 LBA should
+@@ -160,21 +162,18 @@
+ #define ZX1_SBA_IOMMU_COOKIE	0x0000badbadc0ffeeUL
+ 
+ /*
+-** IOC supports 4/8/16/64KB page sizes (see TCNFG register)
+-** It's safer (avoid memory corruption) to keep DMA page mappings
+-** equivalently sized to VM PAGE_SIZE.
++** The zx1 IOC supports 4/8/16/64KB page sizes (see TCNFG register)
+ **
+-** We really can't avoid generating a new mapping for each
+-** page since the Virtual Coherence Index has to be generated
+-** and updated for each page.
++** Some IOCs (sx1000) can run at the above pages sizes, but are
++** really only supported using the IOC at a 4k page size.
+ **
+-** IOVP_SIZE could only be greater than PAGE_SIZE if we are
++** iovp_size could only be greater than PAGE_SIZE if we are
+ ** confident the drivers really only touch the next physical
+ ** page iff that driver instance owns it.
+ */
+-#define IOVP_SIZE	PAGE_SIZE
+-#define IOVP_SHIFT	PAGE_SHIFT
+-#define IOVP_MASK	PAGE_MASK
++static unsigned long iovp_size;
++static unsigned long iovp_shift;
++static unsigned long iovp_mask;
+ 
+ struct ioc {
+ 	void		*ioc_hpa;	/* I/O MMU base address */
+@@ -198,24 +197,10 @@
+ 	} saved[DELAYED_RESOURCE_CNT];
+ #endif
+ 
+-#if SBA_PROC_FS
++#ifdef PDIR_SEARCH_TIMING
+ #define SBA_SEARCH_SAMPLE	0x100
+ 	unsigned long avg_search[SBA_SEARCH_SAMPLE];
+ 	unsigned long avg_idx;	/* current index into avg_search */
+-	unsigned long used_pages;
+-	unsigned long msingle_calls;
+-	unsigned long msingle_pages;
+-	unsigned long msg_calls;
+-	unsigned long msg_pages;
+-	unsigned long usingle_calls;
+-	unsigned long usingle_pages;
+-	unsigned long usg_calls;
+-	unsigned long usg_pages;
+-#ifdef ALLOW_IOV_BYPASS
+-	unsigned long msingle_bypass;
+-	unsigned long usingle_bypass;
+-	unsigned long msg_bypass;
+-#endif
+ #endif
+ 
+ 	/* Stuff we don't need in performance path */
+@@ -252,7 +237,7 @@
+ ** rather than the HW. I/O MMU allocation alogorithms can be
+ ** faster with smaller size is (to some degree).
+ */
+-#define DMA_CHUNK_SIZE  (BITS_PER_LONG*PAGE_SIZE)
++#define DMA_CHUNK_SIZE  (BITS_PER_LONG*iovp_size)
+ 
+ #define ROUNDUP(x,y) ((x + ((y)-1)) & ~((y)-1))
+ 
+@@ -416,18 +401,37 @@
+ #define PAGES_PER_RANGE 1	/* could increase this to 4 or 8 if needed */
+ 
+ /* Convert from IOVP to IOVA and vice versa. */
+-#define SBA_IOVA(ioc,iovp,offset,hint_reg) ((ioc->ibase) | (iovp) | (offset) |		\
+-					    ((hint_reg)<<(ioc->hint_shift_pdir)))
+-#define SBA_IOVP(ioc,iova) (((iova) & ioc->hint_mask_pdir) & ~(ioc->ibase))
++#define SBA_IOVA(ioc,iovp,offset,hint_reg) ((ioc->ibase) | (iovp) | (offset))
++#define SBA_IOVP(ioc,iova) ((iova) & ~(ioc->ibase))
+ 
+-/* FIXME : review these macros to verify correctness and usage */
+-#define PDIR_INDEX(iovp)   ((iovp)>>IOVP_SHIFT)
++#define PDIR_ENTRY_SIZE	sizeof(u64)
++
++#define PDIR_INDEX(iovp)   ((iovp)>>iovp_shift)
+ 
+ #define RESMAP_MASK(n)    ~(~0UL << (n))
+ #define RESMAP_IDX_MASK   (sizeof(unsigned long) - 1)
+ 
+ 
+ /**
++ * For most cases the normal get_order is sufficient, however it limits us
++ * to PAGE_SIZE being the minimum mapping alignment and TC flush granularity.
++ * It only incurs about 1 clock cycle to use this one with the static variable
++ * and makes the code more intuitive.
++ */
++static SBA_INLINE int
++get_iovp_order (unsigned long size)
++{
++	double d = size - 1;
++	long order;
++
++	__asm__ ("getf.exp %0=%1" : "=r"(order) : "f"(d));
++	order = order - iovp_shift - 0xffff + 1;
++	if (order < 0)
++		order = 0;
++	return order;
++}
++
++/**
+  * sba_search_bitmap - find free space in IO PDIR resource bitmap
+  * @ioc: IO MMU structure which owns the pdir we are interested in.
+  * @bits_wanted: number of entries we need.
+@@ -465,7 +469,7 @@
+ 		** We need the alignment to invalidate I/O TLB using
+ 		** SBA HW features in the unmap path.
+ 		*/
+-		unsigned long o = 1 << get_order(bits_wanted << PAGE_SHIFT);
++		unsigned long o = 1 << get_iovp_order(bits_wanted << iovp_shift);
+ 		uint bitshiftcnt = ROUNDUP(ioc->res_bitshift, o);
+ 		unsigned long mask;
+ 
+@@ -521,16 +525,15 @@
+ static int
+ sba_alloc_range(struct ioc *ioc, size_t size)
+ {
+-	unsigned int pages_needed = size >> IOVP_SHIFT;
+-#if SBA_PROC_FS
++	unsigned int pages_needed = size >> iovp_shift;
++#ifdef PDIR_SEARCH_TIMING
+ 	unsigned long itc_start = ia64_get_itc();
+ #endif
+ 	unsigned long pide;
+ 
+ 	ASSERT(pages_needed);
+-	ASSERT((pages_needed * IOVP_SIZE) <= DMA_CHUNK_SIZE);
+ 	ASSERT(pages_needed <= BITS_PER_LONG);
+-	ASSERT(0 = (size & ~IOVP_MASK));
++	ASSERT(0 = (size & ~iovp_mask));
+ 
+ 	/*
+ 	** "seek and ye shall find"...praying never hurts either...
+@@ -546,7 +549,7 @@
+ 
+ #ifdef ASSERT_PDIR_SANITY
+ 	/* verify the first enable bit is clear */
+-	if(0x00 != ((u8 *) ioc->pdir_base)[pide*sizeof(u64) + 7]) {
++	if(0x00 != ((u8 *) ioc->pdir_base)[pide*PDIR_ENTRY_SIZE + 7]) {
+ 		sba_dump_pdir_entry(ioc, "sba_search_bitmap() botched it?", pide);
+ 	}
+ #endif
+@@ -556,17 +559,9 @@
+ 		(uint) ((unsigned long) ioc->res_hint - (unsigned long) ioc->res_map),
+ 		ioc->res_bitshift );
+ 
+-#if SBA_PROC_FS
+-	{
+-		unsigned long itc_end = ia64_get_itc();
+-		unsigned long tmp = itc_end - itc_start;
+-		/* check for roll over */
+-		itc_start = (itc_end < itc_start) ?  -(tmp) : (tmp);
+-	}
+-	ioc->avg_search[ioc->avg_idx++] = itc_start;
++#ifdef PDIR_SEARCH_TIMING
++	ioc->avg_search[ioc->avg_idx++] = ia64_get_itc() - itc_start;
+ 	ioc->avg_idx &= SBA_SEARCH_SAMPLE - 1;
+-
+-	ioc->used_pages += pages_needed;
+ #endif
+ 
+ 	return (pide);
+@@ -589,7 +584,7 @@
+ 	unsigned int ridx = pide >> 3;	/* convert bit to byte address */
+ 	unsigned long *res_ptr = (unsigned long *) &((ioc)->res_map[ridx & ~RESMAP_IDX_MASK]);
+ 
+-	int bits_not_wanted = size >> IOVP_SHIFT;
++	int bits_not_wanted = size >> iovp_shift;
+ 
+ 	/* 3-bits "bit" address plus 2 (or 3) bits for "byte" = bit in word */
+ 	unsigned long m = RESMAP_MASK(bits_not_wanted) << (pide & (BITS_PER_LONG - 1));
+@@ -598,13 +593,9 @@
+ 		__FUNCTION__, (uint) iova, size,
+ 		bits_not_wanted, m, pide, res_ptr, *res_ptr);
+ 
+-#if SBA_PROC_FS
+-	ioc->used_pages -= bits_not_wanted;
+-#endif
+-
+ 	ASSERT(m != 0);
+ 	ASSERT(bits_not_wanted);
+-	ASSERT((bits_not_wanted * IOVP_SIZE) <= DMA_CHUNK_SIZE);
++	ASSERT((bits_not_wanted * iovp_size) <= DMA_CHUNK_SIZE);
+ 	ASSERT(bits_not_wanted <= BITS_PER_LONG);
+ 	ASSERT((*res_ptr & m) = m); /* verify same bits are set */
+ 	*res_ptr &= ~m;
+@@ -702,7 +693,7 @@
+ 
+ 	/* Must be non-zero and rounded up */
+ 	ASSERT(byte_cnt > 0);
+-	ASSERT(0 = (byte_cnt & ~IOVP_MASK));
++	ASSERT(0 = (byte_cnt & ~iovp_mask));
+ 
+ #ifdef ASSERT_PDIR_SANITY
+ 	/* Assert first pdir entry is set */
+@@ -711,11 +702,11 @@
+ 	}
+ #endif
+ 
+-	if (byte_cnt <= IOVP_SIZE)
++	if (byte_cnt <= iovp_size)
+ 	{
+ 		ASSERT(off < ioc->pdir_size);
+ 
+-		iovp |= IOVP_SHIFT;     /* set "size" field for PCOM */
++		iovp |= iovp_shift;     /* set "size" field for PCOM */
+ 
+ #ifndef FULL_VALID_PDIR
+ 		/*
+@@ -734,7 +725,7 @@
+ 		ioc->pdir_base[off] = (0x80000000000000FFULL | prefetch_spill_page);
+ #endif
+ 	} else {
+-		u32 t = get_order(byte_cnt) + PAGE_SHIFT;
++		u32 t = get_iovp_order(byte_cnt) + iovp_shift;
+ 
+ 		iovp |= t;
+ 		ASSERT(t <= 31);   /* 2GB! Max value of "size" field */
+@@ -749,7 +740,7 @@
+ 			ioc->pdir_base[off] = (0x80000000000000FFULL | prefetch_spill_page);
+ #endif
+ 			off++;
+-			byte_cnt -= IOVP_SIZE;
++			byte_cnt -= iovp_size;
+ 		} while (byte_cnt > 0);
+ 	}
+ 
+@@ -790,11 +781,6 @@
+  		** Device is bit capable of DMA'ing to the buffer...
+ 		** just return the PCI address of ptr
+  		*/
+-#if SBA_PROC_FS
+-		spin_lock_irqsave(&ioc->res_lock, flags);
+-		ioc->msingle_bypass++;
+-		spin_unlock_irqrestore(&ioc->res_lock, flags);
+-#endif
+ 		DBG_BYPASS("sba_map_single() bypass mask/addr: 0x%lx/0x%lx\n",
+ 		           *dev->dma_mask, pci_addr);
+ 		return pci_addr;
+@@ -805,10 +791,10 @@
+ 	ASSERT(size <= DMA_CHUNK_SIZE);
+ 
+ 	/* save offset bits */
+-	offset = ((dma_addr_t) (long) addr) & ~IOVP_MASK;
++	offset = ((dma_addr_t) (long) addr) & ~iovp_mask;
+ 
+-	/* round up to nearest IOVP_SIZE */
+-	size = (size + offset + ~IOVP_MASK) & IOVP_MASK;
++	/* round up to nearest iovp_size */
++	size = (size + offset + ~iovp_mask) & iovp_mask;
+ 
+ 	spin_lock_irqsave(&ioc->res_lock, flags);
+ #ifdef ASSERT_PDIR_SANITY
+@@ -816,12 +802,8 @@
+ 		panic("Sanity check failed");
+ #endif
+ 
+-#if SBA_PROC_FS
+-	ioc->msingle_calls++;
+-	ioc->msingle_pages += size >> IOVP_SHIFT;
+-#endif
+ 	pide = sba_alloc_range(ioc, size);
+-	iovp = (dma_addr_t) pide << IOVP_SHIFT;
++	iovp = (dma_addr_t) pide << iovp_shift;
+ 
+ 	DBG_RUN("%s() 0x%p -> 0x%lx\n",
+ 		__FUNCTION__, addr, (long) iovp | offset);
+@@ -834,8 +816,8 @@
+ 
+ 		DBG_RUN("     pdir 0x%p %lx\n", pdir_start, *pdir_start);
+ 
+-		addr += IOVP_SIZE;
+-		size -= IOVP_SIZE;
++		addr += iovp_size;
++		size -= iovp_size;
+ 		pdir_start++;
+ 	}
+ 	/* force pdir update */
+@@ -875,11 +857,6 @@
+ 		/*
+ 		** Address does not fall w/in IOVA, must be bypassing
+ 		*/
+-#if SBA_PROC_FS
+-		spin_lock_irqsave(&ioc->res_lock, flags);
+-		ioc->usingle_bypass++;
+-		spin_unlock_irqrestore(&ioc->res_lock, flags);
+-#endif
+ 		DBG_BYPASS("sba_unmap_single() bypass addr: 0x%lx\n", iova);
+ 
+ #ifdef ENABLE_MARK_CLEAN
+@@ -890,20 +867,16 @@
+ 		return;
+ 	}
+ #endif
+-	offset = iova & ~IOVP_MASK;
++	offset = iova & ~iovp_mask;
+ 
+ 	DBG_RUN("%s() iovp 0x%lx/%x\n",
+ 		__FUNCTION__, (long) iova, size);
+ 
+ 	iova ^= offset;        /* clear offset bits */
+ 	size += offset;
+-	size = ROUNDUP(size, IOVP_SIZE);
++	size = ROUNDUP(size, iovp_size);
+ 
+ 	spin_lock_irqsave(&ioc->res_lock, flags);
+-#if SBA_PROC_FS
+-	ioc->usingle_calls++;
+-	ioc->usingle_pages += size >> IOVP_SHIFT;
+-#endif
+ 
+ #if DELAYED_RESOURCE_CNT > 0
+ 	d = &(ioc->saved[ioc->saved_cnt]);
+@@ -930,7 +903,7 @@
+ 		int off = PDIR_INDEX(iovp);
+ 		void *addr;
+ 
+-		if (size <= IOVP_SIZE) {
++		if (size <= iovp_size) {
+ 			addr = phys_to_virt(ioc->pdir_base[off] &
+ 					    ~0xE000000000000FFFULL);
+ 			mark_clean(addr, size);
+@@ -940,9 +913,9 @@
+ 			do {
+ 				addr = phys_to_virt(ioc->pdir_base[off] &
+ 				                    ~0xE000000000000FFFULL);
+-				mark_clean(addr, min(byte_cnt, IOVP_SIZE));
++				mark_clean(addr, min(byte_cnt, iovp_size));
+ 				off++;
+-				byte_cnt -= IOVP_SIZE;
++				byte_cnt -= iovp_size;
+ 
+ 			   } while (byte_cnt > 0);
+ 		}
+@@ -1061,11 +1034,11 @@
+ 		*/
+ 		if (startsg->dma_address & PIDE_FLAG) {
+ 			u32 pide = startsg->dma_address & ~PIDE_FLAG;
+-			dma_offset = (unsigned long) pide & ~IOVP_MASK;
++			dma_offset = (unsigned long) pide & ~iovp_mask;
+ 			startsg->dma_address = 0;
+ 			dma_sg++;
+ 			dma_sg->dma_address = pide | ioc->ibase;
+-			pdirp = &(ioc->pdir_base[pide >> IOVP_SHIFT]);
++			pdirp = &(ioc->pdir_base[pide >> iovp_shift]);
+ 			n_mappings++;
+ 		}
+ 
+@@ -1082,14 +1055,11 @@
+ 			dma_sg->dma_length += cnt;
+ 			cnt += dma_offset;
+ 			dma_offset=0;	/* only want offset on first chunk */
+-			cnt = ROUNDUP(cnt, IOVP_SIZE);
+-#if SBA_PROC_FS
+-			ioc->msg_pages += cnt >> IOVP_SHIFT;
+-#endif
++			cnt = ROUNDUP(cnt, iovp_size);
+ 			do {
+ 				sba_io_pdir_entry(pdirp, vaddr);
+-				vaddr += IOVP_SIZE;
+-				cnt -= IOVP_SIZE;
++				vaddr += iovp_size;
++				cnt -= iovp_size;
+ 				pdirp++;
+ 			} while (cnt > 0);
+ 		}
+@@ -1107,12 +1077,12 @@
+ 
+ /*
+ ** Two address ranges are DMA contiguous *iff* "end of prev" and
+-** "start of next" are both on a page boundry.
++** "start of next" are both on an IOV page boundary.
+ **
+ ** (shift left is a quick trick to mask off upper bits)
+ */
+ #define DMA_CONTIG(__X, __Y) \
+-	(((((unsigned long) __X) | ((unsigned long) __Y)) << (BITS_PER_LONG - PAGE_SHIFT)) = 0UL)
++	(((((unsigned long) __X) | ((unsigned long) __Y)) << (BITS_PER_LONG - iovp_shift)) = 0UL)
+ 
+ 
+ /**
+@@ -1150,7 +1120,7 @@
+ 		dma_sg = vcontig_sg = startsg;
+ 		dma_len = vcontig_len = vcontig_end = startsg->length;
+ 		vcontig_end +=  vaddr;
+-		dma_offset = vaddr & ~IOVP_MASK;
++		dma_offset = vaddr & ~iovp_mask;
+ 
+ 		/* PARANOID: clear entries */
+ 		startsg->dma_address = startsg->dma_length = 0;
+@@ -1175,7 +1145,7 @@
+ 			** exceed DMA_CHUNK_SIZE if we coalesce the
+ 			** next entry.
+ 			*/
+-			if (((dma_len + dma_offset + startsg->length + ~IOVP_MASK) & IOVP_MASK)
++			if (((dma_len + dma_offset + startsg->length + ~iovp_mask) & iovp_mask)
+ 			    > DMA_CHUNK_SIZE)
+ 				break;
+ 
+@@ -1194,7 +1164,7 @@
+ 			}
+ 
+ #ifdef DEBUG_LARGE_SG_ENTRIES
+-			dump_run_sg = (vcontig_len > IOVP_SIZE);
++			dump_run_sg = (vcontig_len > iovp_size);
+ #endif
+ 
+ 			/*
+@@ -1233,10 +1203,10 @@
+ 		** Allocate space for DMA stream.
+ 		*/
+ 		vcontig_sg->dma_length = vcontig_len;
+-		dma_len = (dma_len + dma_offset + ~IOVP_MASK) & IOVP_MASK;
++		dma_len = (dma_len + dma_offset + ~iovp_mask) & iovp_mask;
+ 		ASSERT(dma_len <= DMA_CHUNK_SIZE);
+ 		dma_sg->dma_address = (dma_addr_t) (PIDE_FLAG
+-			| (sba_alloc_range(ioc, dma_len) << IOVP_SHIFT)
++			| (sba_alloc_range(ioc, dma_len) << iovp_shift)
+ 			| dma_offset);
+ 		n_mappings++;
+ 	}
+@@ -1273,11 +1243,6 @@
+ 			sg->dma_length = sg->length;
+ 			sg->dma_address = virt_to_phys(sba_sg_address(sg));
+ 		}
+-#if SBA_PROC_FS
+-		spin_lock_irqsave(&ioc->res_lock, flags);
+-		ioc->msg_bypass++;
+-		spin_unlock_irqrestore(&ioc->res_lock, flags);
+-#endif
+ 		return filled;
+ 	}
+ #endif
+@@ -1285,13 +1250,7 @@
+ 	if (nents = 1) {
+ 		sglist->dma_length = sglist->length;
+ 		sglist->dma_address = sba_map_single(dev, sba_sg_address(sglist), sglist->length,
+-						     dir);
+-#if SBA_PROC_FS
+-		/*
+-		** Should probably do some stats counting, but trying to
+-		** be precise quickly starts wasting CPU time.
+-		*/
+-#endif
++		                                     dir);
+ 		return 1;
+ 	}
+ 
+@@ -1305,10 +1264,6 @@
+ 	}
+ #endif
+ 
+-#if SBA_PROC_FS
+-	ioc->msg_calls++;
+-#endif
+-
+ 	/*
+ 	** First coalesce the chunks and allocate I/O pdir space
+ 	**
+@@ -1368,10 +1323,6 @@
+ 	ioc = GET_IOC(dev);
+ 	ASSERT(ioc);
+ 
+-#if SBA_PROC_FS
+-	ioc->usg_calls++;
+-#endif
+-
+ #ifdef ASSERT_PDIR_SANITY
+ 	spin_lock_irqsave(&ioc->res_lock, flags);
+ 	sba_check_pdir(ioc,"Check before sba_unmap_sg()");
+@@ -1381,16 +1332,6 @@
+ 	while (nents && sglist->dma_length) {
+ 
+ 		sba_unmap_single(dev, sglist->dma_address, sglist->dma_length, dir);
+-#if SBA_PROC_FS
+-		/*
+-		** This leaves inconsistent data in the stats, but we can't
+-		** tell which sg lists were mapped by map_single and which
+-		** were coalesced to a single entry.  The stats are fun,
+-		** but speed is more important.
+-		*/
+-		ioc->usg_pages += ((sglist->dma_address & ~IOVP_MASK) + sglist->dma_length
+-				   + IOVP_SIZE - 1) >> PAGE_SHIFT;
+-#endif
+ 		sglist++;
+ 		nents--;
+ 	}
+@@ -1414,8 +1355,7 @@
+ static void __init
+ ioc_iova_init(struct ioc *ioc)
+ {
+-	u32 iova_space_mask;
+-	int iov_order, tcnfg;
++	int tcnfg;
+ 	int agp_found = 0;
+ 	struct pci_dev *device = NULL;
+ #ifdef FULL_VALID_PDIR
+@@ -1428,23 +1368,27 @@
+ 	** IBASE and IMASK registers.
+ 	*/
+ 	ioc->ibase = READ_REG(ioc->ioc_hpa + IOC_IBASE) & ~0x1UL;
+-	ioc->iov_size = ~(READ_REG(ioc->ioc_hpa + IOC_IMASK) & 0xFFFFFFFFUL) + 1;
++	ioc->imask = READ_REG(ioc->ioc_hpa + IOC_IMASK) | 0xFFFFFFFF00000000UL;
+ 
+-	/*
+-	** iov_order is always based on a 1GB IOVA space since we want to
+-	** turn on the other half for AGP GART.
+-	*/
+-	iov_order = get_order(ioc->iov_size >> (IOVP_SHIFT - PAGE_SHIFT));
+-	ioc->pdir_size = (ioc->iov_size / IOVP_SIZE) * sizeof(u64);
++	ioc->iov_size = ~ioc->imask + 1;
+ 
+-	DBG_INIT("%s() hpa %p IOV %dMB (%d bits) PDIR size 0x%x\n",
+-		 __FUNCTION__, ioc->ioc_hpa, ioc->iov_size >> 20,
+-		 iov_order + PAGE_SHIFT, ioc->pdir_size);
+-
+-	/* FIXME : DMA HINTs not used */
+-	ioc->hint_shift_pdir = iov_order + PAGE_SHIFT;
+-	ioc->hint_mask_pdir = ~(0x3 << (iov_order + PAGE_SHIFT));
++	DBG_INIT("%s() hpa %p IOV base 0x%lx mask 0x%lx (%dMB)\n",
++		__FUNCTION__, ioc->ioc_hpa, ioc->ibase, ioc->imask,
++		ioc->iov_size >> 20);
++
++	switch (iovp_size) {
++		case  4*1024: tcnfg = 0; break;
++		case  8*1024: tcnfg = 1; break;
++		case 16*1024: tcnfg = 2; break;
++		case 64*1024: tcnfg = 3; break;
++		default:
++			panic(PFX "Unsupported IOTLB page size %ldK",
++				iovp_size >> 10);
++			break;
++	}
++	WRITE_REG(tcnfg, ioc->ioc_hpa + IOC_TCNFG);
+ 
++	ioc->pdir_size = (ioc->iov_size / iovp_size) * PDIR_ENTRY_SIZE;
+ 	ioc->pdir_base = (void *) __get_free_pages(GFP_KERNEL,
+ 						   get_order(ioc->pdir_size));
+ 	if (!ioc->pdir_base)
+@@ -1452,61 +1396,12 @@
+ 
+ 	memset(ioc->pdir_base, 0, ioc->pdir_size);
+ 
+-	DBG_INIT("%s() pdir %p size %x hint_shift_pdir %x hint_mask_pdir %lx\n",
+-		__FUNCTION__, ioc->pdir_base, ioc->pdir_size,
+-		ioc->hint_shift_pdir, ioc->hint_mask_pdir);
++	DBG_INIT("%s() IOV page size %ldK pdir %p size %x\n", __FUNCTION__,
++		iovp_size >> 10, ioc->pdir_base, ioc->pdir_size);
+ 
+-	ASSERT((((unsigned long) ioc->pdir_base) & PAGE_MASK) = (unsigned long) ioc->pdir_base);
++	ASSERT(ALIGN((unsigned long) ioc->pdir_base, 4*1024) = (unsigned long) ioc->pdir_base);
+ 	WRITE_REG(virt_to_phys(ioc->pdir_base), ioc->ioc_hpa + IOC_PDIR_BASE);
+ 
+-	DBG_INIT(" base %p\n", ioc->pdir_base);
+-
+-	/* build IMASK for IOC and Elroy */
+-	iova_space_mask =  0xffffffff;
+-	iova_space_mask <<= (iov_order + PAGE_SHIFT);
+-	ioc->imask = iova_space_mask;
+-
+-	DBG_INIT("%s() IOV base 0x%lx mask 0x%0lx\n",
+-		__FUNCTION__, ioc->ibase, ioc->imask);
+-
+-	/*
+-	** FIXME: Hint registers are programmed with default hint
+-	** values during boot, so hints should be sane even if we
+-	** can't reprogram them the way drivers want.
+-	*/
+-	WRITE_REG(ioc->imask, ioc->ioc_hpa + IOC_IMASK);
+-
+-	/*
+-	** Setting the upper bits makes checking for bypass addresses
+-	** a little faster later on.
+-	*/
+-	ioc->imask |= 0xFFFFFFFF00000000UL;
+-
+-	/* Set I/O PDIR Page size to system page size */
+-	switch (PAGE_SHIFT) {
+-		case 12: tcnfg = 0; break;	/*  4K */
+-		case 13: tcnfg = 1; break;	/*  8K */
+-		case 14: tcnfg = 2; break;	/* 16K */
+-		case 16: tcnfg = 3; break;	/* 64K */
+-		default:
+-			panic(PFX "Unsupported system page size %d",
+-				1 << PAGE_SHIFT);
+-			break;
+-	}
+-	WRITE_REG(tcnfg, ioc->ioc_hpa + IOC_TCNFG);
+-
+-	/*
+-	** Program the IOC's ibase and enable IOVA translation
+-	** Bit zero = enable bit.
+-	*/
+-	WRITE_REG(ioc->ibase | 1, ioc->ioc_hpa + IOC_IBASE);
+-
+-	/*
+-	** Clear I/O TLB of any possible entries.
+-	** (Yes. This is a bit paranoid...but so what)
+-	*/
+-	WRITE_REG(ioc->ibase | (iov_order+PAGE_SHIFT), ioc->ioc_hpa + IOC_PCOM);
+-
+ 	/*
+ 	** If an AGP device is present, only use half of the IOV space
+ 	** for PCI DMA.  Unfortunately we can't know ahead of time
+@@ -1534,12 +1429,12 @@
+ 		int poison_size = 16;
+ 		void *poison_addr, *addr;
+ 
+-		addr = (void *)__get_free_pages(GFP_KERNEL, get_order(IOVP_SIZE));
++		addr = (void *)__get_free_pages(GFP_KERNEL, get_order(iovp_size));
+ 		if (!addr)
+ 			panic(PFX "Couldn't allocate PDIR spill page\n");
+ 
+ 		poison_addr = addr;
+-		for ( ; (u64) poison_addr < addr + IOVP_SIZE; poison_addr += poison_size)
++		for ( ; (u64) poison_addr < addr + iovp_size; poison_addr += poison_size)
+ 			memcpy(poison_addr, spill_poison, poison_size);
+ 
+ 		prefetch_spill_page = virt_to_phys(addr);
+@@ -1549,10 +1444,17 @@
+ 	/*
+   	** Set all the PDIR entries valid w/ the spill page as the target
+ 	*/
+-	for (index = 0 ; index < (ioc->pdir_size / sizeof(u64)) ; index++)
++	for (index = 0 ; index < (ioc->pdir_size / PDIR_ENTRY_SIZE) ; index++)
+ 		((u64 *)ioc->pdir_base)[index] = (0x80000000000000FF | prefetch_spill_page);
+ #endif
+ 
++	/* Clear I/O TLB of any possible entries */
++	WRITE_REG(ioc->ibase | (get_iovp_order(ioc->iov_size) + iovp_shift), ioc->ioc_hpa + IOC_PCOM);
++	READ_REG(ioc->ioc_hpa + IOC_PCOM);
++
++	/* Enable IOVA translation */
++	WRITE_REG(ioc->ibase | 1, ioc->ioc_hpa + IOC_IBASE);
++	READ_REG(ioc->ioc_hpa + IOC_IBASE);
+ }
+ 
+ static void __init
+@@ -1561,7 +1463,7 @@
+ 	spin_lock_init(&ioc->res_lock);
+ 
+ 	/* resource map size dictated by pdir_size */
+-	ioc->res_size = ioc->pdir_size / sizeof(u64); /* entries */
++	ioc->res_size = ioc->pdir_size / PDIR_ENTRY_SIZE; /* entries */
+ 	ioc->res_size >>= 3;  /* convert bit count to byte count */
+ 	DBG_INIT("%s() res_size 0x%x\n", __FUNCTION__, ioc->res_size);
+ 
+@@ -1582,7 +1484,7 @@
+ #ifdef FULL_VALID_PDIR
+ 	/* Mark the last resource used so we don't prefetch beyond IOVA space */
+ 	ioc->res_map[ioc->res_size - 1] |= 0x80UL; /* res_map is chars */
+-	ioc->pdir_base[(ioc->pdir_size / sizeof(u64)) - 1] = (0x80000000000000FF
++	ioc->pdir_base[(ioc->pdir_size / PDIR_ENTRY_SIZE) - 1] = (0x80000000000000FF
+ 							      | prefetch_spill_page);
+ #endif
+ 
+@@ -1627,6 +1529,23 @@
+ 		panic(PFX "IOC 2.0 or later required for IOMMU support\n");
+ 
+ 	ioc->dma_mask = 0xFFFFFFFFFFUL;
++
++	if (!iovp_shift) {
++		/* 64k is max iommu page size */
++		iovp_shift = min(PAGE_SHIFT, 16);
++		iovp_size = (1 << iovp_shift);
++		iovp_mask = ~(iovp_size - 1);
++	}
++}
++
++static void __init
++ioc_sx1000_init(struct ioc *ioc)
++{
++	if (!iovp_shift) {
++		iovp_shift = 12;	/* 4K for now */
++		iovp_size = (1 << iovp_shift);
++		iovp_mask = ~(iovp_size - 1);
++	}
+ }
+ 
+ typedef void (initfunc)(struct ioc *);
+@@ -1639,8 +1558,8 @@
+ 
+ static struct ioc_iommu ioc_iommu_info[] __initdata = {
+ 	{ ZX1_IOC_ID, "zx1", ioc_zx1_init },
+-	{ REO_IOC_ID, "REO" },
+-	{ SX1000_IOC_ID, "sx1000" },
++	{ REO_IOC_ID, "REO", ioc_sx1000_init },
++	{ SX1000_IOC_ID, "sx1000", ioc_sx1000_init },
+ };
+ 
+ static struct ioc * __init
+@@ -1665,6 +1584,11 @@
+ 	ioc->rev = READ_REG(ioc->ioc_hpa + IOC_FCLASS) & 0xFFUL;
+ 	ioc->dma_mask = 0xFFFFFFFFFFFFFFFFUL;	/* conservative */
+ 
++	if (iovp_shift) {
++		iovp_size = (1 << iovp_shift);
++		iovp_mask = ~(iovp_size - 1);
++	}
++
+ 	for (info = ioc_iommu_info; info < ioc_iommu_info + ARRAY_SIZE(ioc_iommu_info); info++) {
+ 		if (ioc->func_id = info->func_id) {
+ 			ioc->name = info->name;
+@@ -1672,6 +1596,8 @@
+ 				(info->init)(ioc);
+ 		}
+ 	}
++	DBG_INIT("%s: PAGE_SIZE %ldK, iovp_size %ldK\n", __FUNCTION__,
++		PAGE_SIZE >> 10, iovp_size >> 10);
+ 
+ 	if (!ioc->name) {
+ 		ioc->name = kmalloc(24, GFP_KERNEL);
+@@ -1686,8 +1612,8 @@
+ 	ioc_resource_init(ioc);
+ 	ioc_sac_init(ioc);
+ 
+-	if ((long) ~IOVP_MASK > (long) ia64_max_iommu_merge_mask)
+-		ia64_max_iommu_merge_mask = ~IOVP_MASK;
++	if ((long) ~iovp_mask > (long) ia64_max_iommu_merge_mask)
++		ia64_max_iommu_merge_mask = ~iovp_mask;
+ 	MAX_DMA_ADDRESS = ~0UL;
+ 
+ 	printk(KERN_INFO PFX
+@@ -1709,7 +1635,7 @@
+ **
+ **************************************************************************/
+ 
+-#if SBA_PROC_FS
++#ifdef CONFIG_PROC_FS
+ static void *
+ ioc_start(struct seq_file *s, loff_t *pos)
+ {
+@@ -1741,55 +1667,37 @@
+ ioc_show(struct seq_file *s, void *v)
+ {
+ 	struct ioc *ioc = v;
+-	int total_pages = (int) (ioc->res_size << 3); /* 8 bits per byte */
+-	unsigned long i = 0, avg = 0, min, max;
++	unsigned long *res_ptr = (unsigned long *)ioc->res_map;
++	int i, used = 0;
+ 
+ 	seq_printf(s, "Hewlett Packard %s IOC rev %d.%d\n",
+ 		ioc->name, ((ioc->rev >> 4) & 0xF), (ioc->rev & 0xF));
+-	seq_printf(s, "IO PDIR size    : %d bytes (%d entries)\n",
+-		(int) ((ioc->res_size << 3) * sizeof(u64)), /* 8 bits/byte */
+-		total_pages);
+-
+-	seq_printf(s, "IO PDIR entries : %ld free  %ld used (%d%%)\n",
+-		total_pages - ioc->used_pages, ioc->used_pages,
+-		(int) (ioc->used_pages * 100 / total_pages));
+-
+-	seq_printf(s, "Resource bitmap : %d bytes (%d pages)\n",
+-		ioc->res_size, ioc->res_size << 3);   /* 8 bits per byte */
+-
+-	min = max = ioc->avg_search[0];
+-	for (i = 0; i < SBA_SEARCH_SAMPLE; i++) {
+-		avg += ioc->avg_search[i];
+-		if (ioc->avg_search[i] > max) max = ioc->avg_search[i];
+-		if (ioc->avg_search[i] < min) min = ioc->avg_search[i];
+-	}
+-	avg /= SBA_SEARCH_SAMPLE;
+-	seq_printf(s, "  Bitmap search : %ld/%ld/%ld (min/avg/max CPU Cycles)\n", min, avg, max);
+-
+-	seq_printf(s, "pci_map_single(): %12ld calls  %12ld pages (avg %d/1000)\n",
+-		   ioc->msingle_calls, ioc->msingle_pages,
+-		   (int) ((ioc->msingle_pages * 1000)/ioc->msingle_calls));
+-#ifdef ALLOW_IOV_BYPASS
+-	seq_printf(s, "pci_map_single(): %12ld bypasses\n", ioc->msingle_bypass);
+-#endif
+-
+-	seq_printf(s, "pci_unmap_single: %12ld calls  %12ld pages (avg %d/1000)\n",
+-		   ioc->usingle_calls, ioc->usingle_pages,
+-		   (int) ((ioc->usingle_pages * 1000)/ioc->usingle_calls));
+-#ifdef ALLOW_IOV_BYPASS
+-	seq_printf(s, "pci_unmap_single: %12ld bypasses\n", ioc->usingle_bypass);
+-#endif
++	seq_printf(s, "IOVA size       : %d MB\n", ioc->iov_size/(1024*1024));
++	seq_printf(s, "IOVA page size  : %ld kb\n", iovp_size/1024);
+ 
+-	seq_printf(s, "pci_map_sg()    : %12ld calls  %12ld pages (avg %d/1000)\n",
+-		   ioc->msg_calls, ioc->msg_pages,
+-		   (int) ((ioc->msg_pages * 1000)/ioc->msg_calls));
+-#ifdef ALLOW_IOV_BYPASS
+-	seq_printf(s, "pci_map_sg()    : %12ld bypasses\n", ioc->msg_bypass);
+-#endif
++	for (i = 0; i < (ioc->res_size / sizeof(unsigned long)); ++i, ++res_ptr)
++		used += hweight64(*res_ptr);
+ 
+-	seq_printf(s, "pci_unmap_sg()  : %12ld calls  %12ld pages (avg %d/1000)\n",
+-		   ioc->usg_calls, ioc->usg_pages, (int) ((ioc->usg_pages * 1000)/ioc->usg_calls));
++	seq_printf(s, "PDIR size       : %d entries\n", ioc->res_size << 3);
++	seq_printf(s, "PDIR used       : %d entries\n", used);
+ 
++#ifdef PDIR_SEARCH_TIMING
++	{
++		unsigned long i = 0, avg = 0, min, max;
++		min = max = ioc->avg_search[0];
++		for (i = 0; i < SBA_SEARCH_SAMPLE; i++) {
++			avg += ioc->avg_search[i];
++			if (ioc->avg_search[i] > max) max = ioc->avg_search[i];
++			if (ioc->avg_search[i] < min) min = ioc->avg_search[i];
++		}
++		avg /= SBA_SEARCH_SAMPLE;
++		seq_printf(s, "Bitmap search   : %ld/%ld/%ld (min/avg/max CPU Cycles)\n",
++		           min, avg, max);
++	}
++#endif
++#ifndef ALLOW_IOV_BYPASS
++	 seq_printf(s, "IOVA bypass disabled\n");
++#endif
+ 	return 0;
+ }
+ 
+@@ -1813,39 +1721,6 @@
+ 	.release = seq_release
+ };
+ 
+-static int
+-ioc_map_show(struct seq_file *s, void *v)
+-{
+-	struct ioc *ioc = v;
+-	unsigned int i, *res_ptr = (unsigned int *)ioc->res_map;
+-
+-	for (i = 0; i < ioc->res_size / sizeof(unsigned int); ++i, ++res_ptr)
+-		seq_printf(s, "%s%08x", (i & 7) ? " " : "\n   ", *res_ptr);
+-	seq_printf(s, "\n");
+-
+-	return 0;
+-}
+-
+-static struct seq_operations ioc_map_ops = {
+-	.start = ioc_start,
+-	.next  = ioc_next,
+-	.stop  = ioc_stop,
+-	.show  = ioc_map_show
+-};
+-
+-static int
+-ioc_map_open(struct inode *inode, struct file *file)
+-{
+-	return seq_open(file, &ioc_map_ops);
+-}
+-
+-static struct file_operations ioc_map_fops = {
+-	.open    = ioc_map_open,
+-	.read    = seq_read,
+-	.llseek  = seq_lseek,
+-	.release = seq_release
+-};
+-
+ static void __init
+ ioc_proc_init(void)
+ {
+@@ -1858,10 +1733,6 @@
+ 	entry = create_proc_entry(ioc_list->name, 0, dir);
+ 	if (entry)
+ 		entry->proc_fops = &ioc_fops;
+-
+-	entry = create_proc_entry("bitmap", 0, dir);
+-	if (entry)
+-		entry->proc_fops = &ioc_map_fops;
+ }
+ #endif
+ 
+@@ -1958,7 +1829,7 @@
+ 	}
+ #endif
+ 
+-#if SBA_PROC_FS
++#ifdef CONFIG_PROC_FS
+ 	ioc_proc_init();
+ #endif
+ 	return 0;
+@@ -1981,6 +1852,40 @@
+ }
+ 
+ __setup("nosbagart", nosbagart);
++
++static int __init
++sba_page_override(char *str)
++{
++	int page_size;
++
++	if (get_option(&str,&page_size) > 0) {
++		switch (page_size) {
++			case 4:
++			case 4096:
++				iovp_shift = 12;
++				break;
++			case 8:
++			case 8192:
++				iovp_shift = 13;
++				break;
++			case 16:
++			case 16384:
++				iovp_shift = 14;
++				break;
++			case 64:
++			case 65536:
++				iovp_shift = 16;
++				break;
++			default:
++				printk("%s: unknown/unsupported iommu page size %d\n",
++				       __FUNCTION__, page_size);
++		}
++	}
++
++	return 1;
++}
++
++__setup("sbapagesize=",sba_page_override);
+ 
+ EXPORT_SYMBOL(sba_map_single);
+ EXPORT_SYMBOL(sba_unmap_single);
 
-------_=_NextPart_001_01C3DA80.D938B4F3--
+
