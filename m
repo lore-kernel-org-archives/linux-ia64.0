@@ -1,7 +1,7 @@
-From: john stultz <johnstul@us.ibm.com>
-Date: Thu, 18 Dec 2003 22:37:47 +0000
+From: Andrew Morton <akpm@osdl.org>
+Date: Sat, 20 Dec 2003 10:41:59 +0000
 Subject: Re: [RFC][PATCH] 2.6.0-test11 sched_clock() broken for "drifty ITC"
-Message-Id: <marc-linux-ia64-107178714701868@msgid-missing>
+Message-Id: <marc-linux-ia64-107191690614174@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-107178053026093@msgid-missing>
 In-Reply-To: <marc-linux-ia64-107178053026093@msgid-missing>
@@ -10,45 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 2003-12-18 at 12:44, John Hawkes wrote:
+John Hawkes <hawkes@babylon.engr.sgi.com> wrote:
+>
 > David Mosberger suggests raising this issue on LKML to encourage a search
-> for a more general solution to my ia64 problem.
+>  for a more general solution to my ia64 problem.
 > 
-> My specific problem is that the generic ia64 sched_clock() is broken for
-> "drifty ITC" (the per-CPU cycle counter clock) platforms, such as the SGI
-> sn.  sched_clock() currently uses its local CPU's ITC and therefore on
-> drifty platforms its values are not synchronized across the CPUs.  This
-> results (in part) in an invalid load_balance() is-the-cache-hot-or-not
-> calculation.
+>  My specific problem is that the generic ia64 sched_clock() is broken for
+>  "drifty ITC" (the per-CPU cycle counter clock) platforms, such as the SGI
+>  sn.  sched_clock() currently uses its local CPU's ITC and therefore on
+>  drifty platforms its values are not synchronized across the CPUs.  This
+>  results (in part) in an invalid load_balance() is-the-cache-hot-or-not
+>  calculation.
 
-[snip]
+Requiring that sched_clock() be synchronised is difficult for some
+platforms.  Clearly, it is better if we can relax that.
 
-> My personal preference is to keep sched_clock() semantics unchanged (i.e.,
-> to presume that all CPU values are synchronized), and to bury non-compliant
-> platform complexity in arch-specific and platform-specific implementations,
-> rather than add any unnecessary complications to sched.c.
-> 
-> As a reference point, the current i386 2.6.0-test11 algorithm is platform-
-> specific and is, in my opinion, less clean than the arch/ia64 change I have
-> proposed:  all i386 NUMA platforms are forced to use the low-resolution
-> "jiffies" value as the only officially synchronized timebase.  (However,
-> with my sched.c patch, it is possible that i386 NUMA platforms could use the
-> unsynchronized higher resolution TSC.)
+> However, David Mosberger rejected this patch, and he seeks instead some
+> hypothetical more generic approach to "drifty timebase platforms".  One
+> possible generic change would be to relax the semantics of sched_clock() to
+> no longer expect that the values be synchronized across all CPUs.
 
-I've tried switching sched_clock() to call monotonic_clock() on i386
-(both functions do basically the same thing, only monotonic_clock
-redirects to the system's chosen time source). However,the consensus was
-that the access time to read the systems non-"drifty" time source can be
-too expensive to make it worth while. 
+Your patch to kernel/sched.c looks good: low overhead, simple, Ingo likes
+it.
 
-I'll concede that I haven't done enough testing to measure it in any
-great detail, but the interest in my patch was very very low. So I'd be
-interested in any measurements you have to the contrary.
+Could you please finalise it, cook up the ia64 and numaq implementations
+and send it over?
 
-Personally, I'd keep your changes arch specific for 2.6. When 2.7 opens
-I'd be very interested in ideas and input for broader change in the time
-subsystem.
-
-thanks
--john
 
