@@ -1,61 +1,71 @@
-From: "Boehm, Hans" <hans.boehm@hp.com>
-Date: Mon, 22 Nov 2004 23:01:27 +0000
-Subject: RE: [Lse-tech] scalability of signal delivery for Posix Threads
-Message-Id: <65953E8166311641A685BDF71D865826058B5F@cacexc12.americas.cpqcorp.net>
+From: Ray Bryant <raybry@sgi.com>
+Date: Mon, 22 Nov 2004 23:39:23 +0000
+Subject: Re: [Lse-tech] scalability of signal delivery for Posix Threads
+Message-Id: <41A278AB.2050608@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041122162214.GE21861@wotan.suse.de>
-In-Reply-To: <20041122162214.GE21861@wotan.suse.de>
+References: <200411222127.iAMLRtN7020062@owlet.beaverton.ibm.com>
+In-Reply-To: <200411222127.iAMLRtN7020062@owlet.beaverton.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: Ray Bryant <raybry@sgi.com>, Andreas Schwab <schwab@suse.de>, Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, lse-tech <lse-tech@lists.sourceforge.net>, holt@sgi.com, Dean Roe <roe@sgi.com>, Brian Sumner <bls@sgi.com>, John Hawkes <hawkes@tomahawk.engr.sgi.com>
+To: Rick Lindsley <ricklind@us.ibm.com>
+Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, lse-tech <lse-tech@lists.sourceforge.net>, holt@sgi.com, Dean Roe <roe@sgi.com>, Brian Sumner <bls@sgi.com>, John Hawkes <hawkes@tomahawk.engr.sgi.com>
 
-Just to clarify:
+Rick Lindsley wrote:
+> So with CLONE_SIGHAND, we share the handler assignments and which signals
+> are blocked, but retain the ability for individual threads to receive
+> a signal.  And when all of them receive signals in quick succession,
+> we see lock contention because they're sharing the same (effectively)
+> global lock to receive all of their (effectively) individual signals
+> .. is that correct?
+> 
 
-I have no problem with special-casing signals sent to a specific
-thread.  Our garbage collector uses pthread_kill, and thus should
-also benefit from that change.  And it makes sense to me that this
-kind of signal should be cheaper to deliver.
+Yes, I think that's whats happening, except that I think the blocked
+signal list is per thread as well.  The shared sighand structure just
+has the saved arguments from sigaction, as I remember.   (It's confusing:
+the set of signals blocked during execution of the signal handler is
+part of the sigaction structure and hence is global to the entire
+thread group, whilst the set of signals blocked in general is per thread.)
 
-SIGSEGV delivery also matters to me.  But that should presumably
-also fall into the same class.
+> Are you contending on tasklist_lock, or on siglock?
 
-I would prefer to avoid special handling for just SIGPROF.
-If that was never proposed, please ignore my comments.
+Definately: siglock.  All of the profiling ticks occur at
+unlock_irqrestore(&p->sighand->siglock) in the routines I
+mentioned before.  [we don't have NMI profiling on Altix...
+so profiling typically can't look inside
+of code sections with interrupts suspended.]
 
-Hans
+> 
+>     It seems to me that scalability would be improved if we moved the
+>     siglock from the sighand structure to the task_struct.
+> 
+> Only if you want to keep its current semantics of it being a lock for
+> all things signal.  Finer granularity would, it seems at first look,
+> afford you the benefits you're looking for.  (But not without the cost of
+> a fair amount of work to make sure the new locks are utilized correctly.)
+> For the problem you're describing, it sounds like the contention is occuring
+> at delivery, so a new lock for pending, blocked, and real_blocked might be
+> in order.
+> 
+> Rick
+> 
 
-> -----Original Message-----
-> From: Andi Kleen [mailto:ak@suse.de]
-> Sent: Monday, November 22, 2004 1:35 PM
-> To: Boehm, Hans
-> Cc: Ray Bryant; Andi Kleen; Andreas Schwab; Kernel Mailing List;
-> linux-ia64@vger.kernel.org; lse-tech; holt@sgi.com; Dean Roe; Brian
-> Sumner; John Hawkes
-> Subject: Re: [Lse-tech] scalability of signal delivery for 
-> Posix Threads
-> 
-> 
-> > I think this is a more general issue.  Special casing one
-> 
-> It just cannot be done in the general case without slowing
-> down sigaction significantly. Or maybe it can, but nobody
-> has proposed a way to do it so far. 
-> 
-> It's difficult to design for machines where a simple spinlock
-> doesn't work properly anymore.
-> 
-> > piece of it is only going to make performance more surprising,
-> > something I think should be avoided if at all possible.
-> 
-> The special case in particular would be signals directed to a 
-> specific TID;
-> compared to signals load balanced over the thread group which needs
-> shared writable state. To simplify the fast path you could also make
-> more simplications: no queueing (otherwise you would need to duplicate
-> a lot of state to handle that into the task_struct) and probably
-> no SIGCHILD which is also full of special cases.
-> 
-> -And
-> 
+Yes, I was hoping to keep the current semantics of siglock as the lock for
+all things signal, just make it local per thread, and require that all of the
+siglocks be held to change the sighand structure.  That seemed like a change I
+could manage.  My personal notion was that the slowdown of sigaction()
+processing for multi-threaded POSIX programs was not that big of deal because
+it doesn't happen very often, and for non-CLONE_SIGHAND threads the additional
+cost would be minor.  But if the slowdown in the CLONE_SIGHAND case is not
+acceptable then I'm stuck as to how to do this
+
+-- 
+Best Regards,
+Ray
+-----------------------------------------------
+                   Ray Bryant
+512-453-9679 (work)         512-507-7807 (cell)
+raybry@sgi.com             raybry@austin.rr.com
+The box said: "Requires Windows 98 or better",
+            so I installed Linux.
+-----------------------------------------------
