@@ -1,12 +1,39 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 07 Jun 2001 22:00:11 +0000
-Subject: [Linux-ia64] 2.4.5 hangs in smp_call_function.
-Message-Id: <marc-linux-ia64-105590693005699@msgid-missing>
+From: "Seth, Rohit" <rohit.seth@intel.com>
+Date: Fri, 08 Jun 2001 18:49:55 +0000
+Subject: RE: [Linux-ia64] 2.4.5 hangs in smp_call_function.
+Message-Id: <marc-linux-ia64-105590693005702@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005699@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005699@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Jack,
+
+The only change that is needed is to change the value of timeout from HZ to
+400...   The race condition where source processor is getting out of while
+(timeout) loop and target processor is just about to send the
+acknowledgement (by setting the started field) will most likely not happen
+for such a big timeout. And as this code is only for earlier stepping so it
+should be okay.  Though I think that HZ itself is big enough but then seems
+like your system is under severe load and taking longer to respond for IPIs.
+
+Besides that the other changes are not needed.  In fact there are couple of
+things that you should not do 1: don't include resend_list_IPI even when
+CONFIG_ITANIUM_PTCG is defined 2: don't just continue to be in while loop
+without resending the IPI again for the cases when you really have a lost
+IPI.
+
+rohit
+-----Original Message-----
+From: Jack Steiner [mailto:steiner@sgi.com]
+Sent: Thursday, June 07, 2001 3:00 PM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] 2.4.5 hangs in smp_call_function.
+
+
 
 Since upgrading to 2.4.5, we have seen several system hangs 
 where multiple cpus were spinning in smp_call_function.
@@ -29,7 +56,8 @@ I havent seen any more hangs after applying the patch.
 
 
 
-----------------------------------------------------------------------------------
+----------------------------------------------------------------------------
+------
 diff -Naur linux_base/arch/ia64/kernel/smp.c linux/arch/ia64/kernel/smp.c
 --- linux_base/arch/ia64/kernel/smp.c	Thu Jun  7 14:44:07 2001
 +++ linux/arch/ia64/kernel/smp.c	Thu Jun  7 14:46:05 2001
@@ -37,12 +65,14 @@ diff -Naur linux_base/arch/ia64/kernel/smp.c linux/arch/ia64/kernel/smp.c
  	send_IPI_single(smp_processor_id(), op);
  }
  
-+#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_BSTEP_SPECIFIC) || defined(CONFIG_ITANIUM_PTCG))
++#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) ||
+defined(CONFIG_ITANIUM_BSTEP_SPECIFIC) || defined(CONFIG_ITANIUM_PTCG))
 +void
 +resend_lost_IPI (void)
 +{
 +	/*
-+	 * Really need a null IPI but since this rarely should happen & since this code
++	 * Really need a null IPI but since this rarely should happen &
+since this code
 +	 * will go away, lets not add one.
 +	 */
 +	send_IPI_allbutself(IPI_RESCHEDULE);
@@ -52,12 +82,14 @@ diff -Naur linux_base/arch/ia64/kernel/smp.c linux/arch/ia64/kernel/smp.c
 +resend_lost_IPI_single (int cpu)
 +{
 +	/*
-+	 * Really need a null IPI but since this rarely should happen & since this code
++	 * Really need a null IPI but since this rarely should happen &
+since this code
 +	 * will go away, lets not add one.
 +	 */
 +	send_IPI_single(cpu, IPI_RESCHEDULE);
 +}
-+#endif /* CONFIG_ITANIUM_ASTEP_SPECIFIC || CONFIG_ITANIUM_BSTEP_SPECIFIC || CONFIG_ITANIUM_PTCG */
++#endif /* CONFIG_ITANIUM_ASTEP_SPECIFIC || CONFIG_ITANIUM_BSTEP_SPECIFIC ||
+CONFIG_ITANIUM_PTCG */
 +
  void
  smp_send_reschedule (int cpu)
@@ -70,7 +102,8 @@ diff -Naur linux_base/arch/ia64/kernel/smp.c linux/arch/ia64/kernel/smp.c
 -smp_resend_flush_tlb (void)
 -{
 -	/*
--	 * Really need a null IPI but since this rarely should happen & since this code
+-	 * Really need a null IPI but since this rarely should happen &
+since this code
 -	 * will go away, lets not add one.
 -	 */
 -	send_IPI_allbutself(IPI_RESCHEDULE);
@@ -86,12 +119,14 @@ diff -Naur linux_base/arch/ia64/kernel/smp.c linux/arch/ia64/kernel/smp.c
 -  resend:
    	send_IPI_single(cpuid, IPI_CALL_FUNC);
  
- #if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_BSTEP_SPECIFIC))
+ #if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) ||
+defined(CONFIG_ITANIUM_BSTEP_SPECIFIC))
  	/*  Wait for response */
 -	timeout = jiffies + HZ;
 +  again:
 +	timeout = jiffies + 400000UL;
- 	while ((atomic_read(&data.started) != cpus) && time_before(jiffies, timeout))
+ 	while ((atomic_read(&data.started) != cpus) && time_before(jiffies,
+timeout))
  		barrier();
 -	if (atomic_read(&data.started) != cpus)
 -		goto resend;
@@ -110,12 +145,14 @@ diff -Naur linux_base/arch/ia64/kernel/smp.c linux/arch/ia64/kernel/smp.c
  	/*  Send a message to all other CPUs and wait for them to respond */
  	send_IPI_allbutself(IPI_CALL_FUNC);
  
- #if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_BSTEP_SPECIFIC))
+ #if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) ||
+defined(CONFIG_ITANIUM_BSTEP_SPECIFIC))
  	/* Wait for response */
 -	timeout = jiffies + HZ;
 +  again:
 +	timeout = jiffies + 400000UL;
- 	while ((atomic_read(&data.started) != cpus) && time_before(jiffies, timeout))
+ 	while ((atomic_read(&data.started) != cpus) && time_before(jiffies,
+timeout))
  		barrier();
 -	if (atomic_read(&data.started) != cpus)
 -		goto resend;
@@ -131,7 +168,8 @@ diff -Naur linux_base/arch/ia64/mm/tlb.c linux/arch/ia64/mm/tlb.c
 +++ linux/arch/ia64/mm/tlb.c	Thu Jun  7 14:46:07 2001
 @@ -99,12 +99,12 @@
  	 */
- #if defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_BSTEP_SPECIFIC)
+ #if defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) ||
+defined(CONFIG_ITANIUM_BSTEP_SPECIFIC)
  	{
 -		extern void smp_resend_flush_tlb (void);
 +		extern void smp_resend_lost_IPI (void);
@@ -149,5 +187,11 @@ diff -Naur linux_base/arch/ia64/mm/tlb.c linux/arch/ia64/mm/tlb.c
 Thanks
 
 Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
+
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
 
