@@ -1,45 +1,24 @@
-From: "Boehm, Hans" <hans_boehm@hp.com>
-Date: Thu, 21 Nov 2002 01:07:12 +0000
-Subject: RE: [Linux-ia64] clone system call
-Message-Id: <marc-linux-ia64-105590709805464@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 05 Nov 2002 00:22:01 +0000
+Subject: [Linux-ia64] Re: O(1) scheduler fix for 2.5-ia64
+Message-Id: <marc-linux-ia64-105590709805332@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805463@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805463@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Please see https://external-lists.vasoftware.com/archives/linux-ia64/2002-May/003516.html and https://external-lists.vasoftware.com/archives/linux-ia64/2002-February/002995.html.
+>>>>> On Mon, 4 Nov 2002 19:53:07 +0100, Erich Focht <efocht@ess.nec.de> said:
 
-Hans
+  Erich> Hi David, this problem is wellknown and I actually thought
+  Erich> that it was solved. But it looks like the complex
+  Erich> prepare_arch_switch() etc. macros didn't make it into the 2.5
+  Erich> kernels for IA64. They are needed on IA64 because we have to
+  Erich> release the runqueue lock during context switch. This is
+  Erich> similar to sparc64. Thanks to John Hawks for noticing this.
 
-> -----Original Message-----
-> From: shiva chetan [mailto:chetan@uiuc.edu]
-> Sent: Wednesday, November 20, 2002 4:51 PM
-> To: linux-ia64
-> Subject: [Linux-ia64] clone system call
-> 
-> 
-> Hi,
-> 
-> Is clone system call supported on linux/ia64 ? if not, what is the
-> equivalent system call ?
-> 
-> thanks a lot
-> 
-> chetan
-> 
-> Dept of Computer Science
-> Univ of Illinois at Urbana-Champaign
-> 
-> Ph: (217) 333-9051, (217) 244-5110 (O)
->       (217) 384-2173 (R)
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
+Yes, this seems to have fallen through the cracks.  Can you remind me
+what the deadlock scenario looked like?
+
+	--david
 
