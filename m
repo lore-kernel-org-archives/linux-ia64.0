@@ -1,30 +1,39 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Wed, 06 Oct 2004 20:33:30 +0000
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 06 Oct 2004 20:44:38 +0000
 Subject: Re: [PATCH] 2.6 SGI Altix I/O code reorganization
-Message-Id: <20041006203330.GH16153@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <200410061344.38265.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com> <41644301.9EC028B3@sgi.com> <20041006195424.GF25773@cup.hp.com> <200410061327.28572.jbarnes@engr.sgi.com>
-In-Reply-To: <200410061327.28572.jbarnes@engr.sgi.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com> <20041006195424.GF25773@cup.hp.com> <41645150.6020608@sgi.com>
+In-Reply-To: <41645150.6020608@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@engr.sgi.com>
-Cc: Grant Grundler <iod00d@hp.com>, Colin Ngam <cngam@sgi.com>, Patrick Gefre <pfg@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, Matthew Wilcox <matthew@wil.cx>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Patrick Gefre <pfg@sgi.com>
+Cc: Grant Grundler <iod00d@hp.com>, Colin Ngam <cngam@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, Matthew Wilcox <matthew@wil.cx>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Wed, Oct 06, 2004 at 01:27:28PM -0700, Jesse Barnes wrote:
-> Though now what's there seems awfully redundant, wouldn't you say?  Just 
-> allowing direct access to pci_root_ops is a much simpler approach and gets 
-> rid of a bunch of extra, unneeded code (i.e. closer to Pat's original 
-> version).
+On Wednesday, October 6, 2004 1:10 pm, Patrick Gefre wrote:
+> I don't plan on respinning the large patches (unless of course they get out
+> of date). It would be great to get the kill, add and qla patch in so we can
+> move forward and address some these other smaller issues - rather than
+> holding up the larger mods for them.
 
-now that I understand what's going on, I think it's better to make
-pci_root_ops non-static.  Of course, it'd be better if SN2 used acpi to
-discover its root busses, but I guess that'll take longer to implement.
+I agree, but could you please just 'vi' the 002-add-files patch and remove 
+these?
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+ drivers/char/mmtimer.c                          |    1
+ drivers/char/snsc.c                             |   25
+ drivers/ide/pci/sgiioc4.c                       |   23
+ drivers/serial/sn_console.c                     |  214
+
+They should each be separate cleanup patches.  What I've done in the past is 
+make copies (in this case 5) of the big patch.  Then I edit all of them to 
+include only the hunks I want there.  Hopefully that'll minimize the pain of 
+respinning the big patch (i.e. no respin).  Also, Tony doesn't want to deal 
+with the above files, patches for them should be sent to Andrew as separate 
+mails with lkml in the cc list.
+
+Other than that, I'm all for getting these into the tree.  Thanks for all the 
+work you've put into this!
+
+Thanks,
+Jesse
