@@ -1,37 +1,44 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Mon, 24 Jul 2000 19:17:34 +0000
-Subject: Re: [Linux-ia64] Bad unwind record ...
-Message-Id: <marc-linux-ia64-105590678205224@msgid-missing>
+From: "Christian Groessler" <cpg@aladdin.de>
+Date: Wed, 19 Jul 2000 13:45:29 +0000
+Subject: [Linux-ia64] kernel modules
+Message-Id: <marc-linux-ia64-105590678205210@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205222@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205222@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-	Bad unwind record format value '51' at offset 0 in record
-	0x4000000000cc31ef
-	Aborted (core dumped)
 
-You probably have an inconsistent set of gcc/gas/libraries on your system.
 
-There were a number of problems with the unwind sections created by gas
-that were fixed by David Mosberger as part of his kernel unwinding work.
-Some of the problems were endian related.  These changes made the new unwind
-sections ABI incompatible with the old unwind sections.  David wrote only
-gas changes.  Since C++ EH uses the unwind sections, this required
-corresponding gcc changes that I wrote.  Also, this requires recompiling all
-libraries on the system with the new compiler.
+Hi,
 
-If you accidentally mix the new compiler with old libraries, or the old
-compiler with new libraries, then you will see the error above.
+I'm asking, whether loadable modules support is working and if not,
+what's still missing.
 
-Are you perhaps using TurboLinux?  I think TurboLinux applied the gas patches
-to their toolchain on their own initiative, but they didn't add the gcc
-changes, which means that kernel unwinding will work with the TurboLinux
-toolchain, but C++ EH won't.
+I tried the current RH6.2 beta, and compiled the parport code
+as module. (which compiled after I copied include/asm-i386/parport.h
+to include/asm-ia64).
 
-Jim
+But it crashed at load time. The crash seems to be happening at
+a function call itself, as a printk exactly before the call is
+displayed and a printk right at the beginning of the called
+function isn't. Seems like the module hasn't been linked
+correctly.
+
+I upgraded the kernel then to 2.4.0-test4, but no change.
+
+Then I upgraded modutils to 2.3.12, and now when I do lsmod
+it aborts with "get_kernel_syms: Function not implemented".
+
+As far as I can tell, browsing thru the kernel code, there is
+a handler for this function and also in the sys_call_table.
+But I couldn't find the place where this error is generated.
+
+Any insights would be greatly appreciated.
+
+regards,
+chris
+
+
 
 
