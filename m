@@ -1,34 +1,43 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Sat, 06 Jan 2001 20:54:58 +0000
-Subject: Re: [Linux-ia64] anybody from S.U.S.E. on this list?
-Message-Id: <marc-linux-ia64-105590678205893@msgid-missing>
+From: John Kohl <jtk@rational.com>
+Date: Tue, 02 Jan 2001 15:30:36 +0000
+Subject: [Linux-ia64] [re-send] more missing symbols (test12 patch)?
+Message-Id: <marc-linux-ia64-105590678205877@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Dambacher <ulf.dambacher@mach.uni-karlsruhe.de> writes:
+I'm resending this again, as the list seems to be dead or comatose at
+least (if anybody at linuxia64.org is reading this, please fix the list
+and its archives).
 
-|> Hi at linux-ia64.
-|>=20
-|> Is there an employee from S.U.S.E. on this list?=20
+Date: Mon, 18 Dec 2000 15:20:48 -0500 (EST)
+From: John Kohl <jtk@rational.com>
+To: linux-ia64@linuxia64.org
+Subject: more missing symbols (test12 patch)?
 
-Yes, that's me. :-)
+These look like more missing symbol exports from the test12-based patch
+kit.  I'm presuming they should be exported without versions, similarly
+to what i386 does with its locking-related exports?
 
-|> Wo is in charge of the suse linux ia64 distribution and how up to date i=
-s it?
+#include <asm/semaphore.h>
+EXPORT_SYMBOL_NOVERS(__down);
+EXPORT_SYMBOL_NOVERS(__down_interruptible);
+EXPORT_SYMBOL_NOVERS(__down_trylock);
+EXPORT_SYMBOL_NOVERS(__up);
+EXPORT_SYMBOL_NOVERS(__down_read_failed);
+EXPORT_SYMBOL_NOVERS(__down_write_failed);
+EXPORT_SYMBOL_NOVERS(__rwsem_wake);
 
-I am in charge of our ia64 distribution.  The latest test release is
-available under ftp.suse.com:/pub/suse/ia64, which is currently being
-based on SuSE 7.0 with the new toolchain and glibc 2.2.  Please also look
-at ftp.suse.com:/pub/people/schwab/7.0-ia64 for updated glibc RPMs.
+p.s. we got test12 kernels running on our Big Sur system, after
+upgrading to BIOS 60.  (It took a while to determine that our processors
+are A2 stepping, and we're arranging to get upgrades soon.)
+Thanks for all the suggestions!
 
-Andreas.
-
---=20
-Andreas Schwab                                  "And now for something
-SuSE Labs                                        completely different."
-Andreas.Schwab@suse.de
-SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
+-- 
+=John Kohl <jtk@rational.com>, Software Engineer
+Rational Software, Configuration Management Business Unit
+Mark your calendars!  Rational User Conference 2001, July 22-26, 2001
+in beautiful Denver, Colorado
 
