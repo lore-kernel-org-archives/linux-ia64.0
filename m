@@ -1,47 +1,64 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 24 Mar 2005 00:49:51 +0000
-Subject: syscall improvement patch [1/12]
-Message-Id: <200503240049.j2O0npme022262@napali.hpl.hp.com>
+Date: Fri, 11 Mar 2005 06:10:39 +0000
+Subject: [patch] add missing cpu_relax() in ITC syncing code
+Message-Id: <16945.13919.265444.179679@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-ia64: __ia64_syscall() is no longer used anywhere in the kernel.  Remove it.
+Hi Tony,
+
+Attached trivial patch adds 3 cpu_relax() calls in busy-waiting loops.
+Please apply.
+
+Thanks,
+
+	--david
+
+Call cpu_relax() in busy-waiting loops of the ITC-syncing code.
 
 Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-=== arch/ia64/kernel/entry.S 1.82 vs edited ==--- 1.82/arch/ia64/kernel/entry.S	2005-03-23 11:09:53 -08:00
-+++ edited/arch/ia64/kernel/entry.S	2005-03-23 11:07:29 -08:00
-@@ -470,18 +470,6 @@
- 	br.cond.sptk.many b7
- END(load_switch_stack)
+=== arch/ia64/kernel/smpboot.c 1.65 vs edited ==--- 1.65/arch/ia64/kernel/smpboot.c	2005-01-22 13:13:47 -08:00
++++ edited/arch/ia64/kernel/smpboot.c	2005-03-10 22:08:36 -08:00
+@@ -1,7 +1,7 @@
+ /*
+  * SMP boot-related support
+  *
+- * Copyright (C) 1998-2003 Hewlett-Packard Co
++ * Copyright (C) 1998-2003, 2005 Hewlett-Packard Co
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+  *
+  * 01/05/16 Rohit Seth <rohit.seth@intel.com>	Moved SMP booting functions from smp.c to here.
+@@ -124,7 +124,8 @@
+ 	local_irq_save(flags);
+ 	{
+ 		for (i = 0; i < NUM_ROUNDS*NUM_ITERS; ++i) {
+-			while (!go[MASTER]);
++			while (!go[MASTER])
++				cpu_relax();
+ 			go[MASTER] = 0;
+ 			go[SLAVE] = ia64_get_itc();
+ 		}
+@@ -147,7 +148,8 @@
+ 	for (i = 0; i < NUM_ITERS; ++i) {
+ 		t0 = ia64_get_itc();
+ 		go[MASTER] = 1;
+-		while (!(tm = go[SLAVE]));
++		while (!(tm = go[SLAVE]))
++			cpu_relax();
+ 		go[SLAVE] = 0;
+ 		t1 = ia64_get_itc();
  
--GLOBAL_ENTRY(__ia64_syscall)
--	.regstk 6,0,0,0
--	mov r15=in5				// put syscall number in place
--	break __BREAK_SYSCALL
--	movl r2=errno
--	cmp.eq p6,p7=-1,r10
--	;;
--(p6)	st4 [r2]=r8
--(p6)	mov r8=-1
--	br.ret.sptk.many rp
--END(__ia64_syscall)
--
- GLOBAL_ENTRY(execve)
- 	mov r15=__NR_execve			// put syscall number in place
- 	break __BREAK_SYSCALL
-=== arch/ia64/kernel/ia64_ksyms.c 1.38 vs edited ==--- 1.38/arch/ia64/kernel/ia64_ksyms.c	2005-01-04 18:48:23 -08:00
-+++ edited/arch/ia64/kernel/ia64_ksyms.c	2005-03-23 11:13:28 -08:00
-@@ -58,9 +58,6 @@
- EXPORT_SYMBOL(__strncpy_from_user);
- EXPORT_SYMBOL(__strnlen_user);
+@@ -226,7 +228,8 @@
+ 		return;
+ 	}
  
--#include <asm/unistd.h>
--EXPORT_SYMBOL(__ia64_syscall);
--
- /* from arch/ia64/lib */
- extern void __divsi3(void);
- extern void __udivsi3(void);
+-	while (go[MASTER]);	/* wait for master to be ready */
++	while (go[MASTER])
++		cpu_relax();	/* wait for master to be ready */
+ 
+ 	spin_lock_irqsave(&itc_sync_lock, flags);
+ 	{
