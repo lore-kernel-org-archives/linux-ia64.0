@@ -1,16 +1,18 @@
 From: Nathan Straz <nstraz@sgi.com>
-Date: Fri, 12 Oct 2001 15:19:11 +0000
-Subject: [Linux-ia64] SGI XFS 1.0.1-IA64 Preview Release 1 available for testing
-Message-Id: <marc-linux-ia64-105590698805339@msgid-missing>
+Date: Wed, 17 Oct 2001 22:13:23 +0000
+Subject: [Linux-ia64] SGI XFS 1.0.1-IA64 Preview Release 2 available for testing
+Message-Id: <marc-linux-ia64-105590698805364@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805339@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805339@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The first preview release of SGI XFS 1.0.1-IA64 is available at:
+The second preview release of SGI XFS 1.0.1-IA64 is available at:
 
-ftp://oss.sgi.com/projects/xfs/download/testing/Release-1.0.1-IA64-PR1/
+ftp://oss.sgi.com/projects/xfs/download/testing/Release-1.0.1-IA64-PR2/
 
 These files are currently undergoing BETA testing.  
 
@@ -32,6 +34,15 @@ patches/  A patch against Linux-2.4.9-ia64-010820.  Separate patches are
 This kernel is built with 16k pages.  
 
 An installer is not available at this time.  We're still working on it.
+
+
+Changes since last release:
+
+ - Updated commands
+   This should fix the unaligned access warnings
+
+ - Updated KDB
+   Moved to KDB 1.9 to keep up with current development
 
 -- 
 Nate Straz                                              nstraz@sgi.com
