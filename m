@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 08 Mar 2002 06:38:20 +0000
-Subject: [Linux-ia64] kernel update (relative to 2.5.5)
-Message-Id: <marc-linux-ia64-105590701905237@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Sat, 09 Mar 2002 11:08:31 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to 2.5.5)
+Message-Id: <marc-linux-ia64-105590701905243@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,21 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-OK, I finally got around to take another stab at 2.5.5.  The result
-can be found at ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/
-in file:
+On Thu, 7 Mar 2002 22:38:20 -0800, 
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
+>OK, I finally got around to take another stab at 2.5.5.  The result
+>can be found at ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/
+>in file:
+>
+>	linux-2.5.5-ia64-020307.diff.gz
 
-	linux-2.5.5-ia64-020307.diff.gz
+# bzcat linux-2.5.5-ia64-020307.diff.bz2 | patch -p1 -E --quiet
+The next patch would create the file arch/mips/.gdbinit,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+1 out of 1 hunk ignored -- saving rejects to file arch/mips/.gdbinit.rej
 
-This is mostly a sync up with 2.5.5, though all the changes that made
-it into 2.4.18 should be there as well.  With this patch, the task
-memory has the following layout:
+No big deal, the rejected patch is just trying to create exactly the
+same contents.
 
-	- "current" points to "struct task_struct"
-	- "struct thread_info" follows directly above "struct task_struct"
-	- rest of the memory is used for the kernel stack
-
-I tested this on a dual Big Sur and the HP Ski simulator (SMP only).
-
-	--david
 
