@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 21 Oct 2003 20:56:49 +0000
+From: Cary Coutant <cary@cup.hp.com>
+Date: Tue, 21 Oct 2003 21:57:50 +0000
 Subject: Re: [RFC] Endianness and signals
-Message-Id: <marc-linux-ia64-106677006020854@msgid-missing>
+Message-Id: <marc-linux-ia64-106677371825584@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106669369711349@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106669369711349@msgid-missing>
@@ -10,27 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 21 Oct 2003 13:37:00 -0700, Cary Coutant <cary@cup.hp.com> said:
+> The fourth case is that the application has signal handlers that
+> expect to get called in the "opposite" byte-order and those are the
+> ones that would break if we changed the current behavior.
 
-  Cary> I think the right thing to do is set the PSR.be bit on
-  Cary> delivery of a signal to match (elf_header.e_flags &
-  Cary> EF_IA_64_BE).
+Do you know of any such applications?
 
-The kernel does not support the loading of big-endian executables, so
-this would be equivalent to always clearing PSR.be on a signal.
+How likely is it that someone would code an application in such a way 
+that they guarantee that a certain signal will occur only when 
+executing in big-endian mode? (And, conversely, that other signals will 
+occur only when executing in little-endian mode?)
 
-  Cary> I'm not sure I buy the argument that you shouldn't change the
-  Cary> behavior now because it's been that way for a long time. What
-  Cary> you have now is unpredictable, so the only ways a signal
-  Cary> handler could work in an application that switches the PSR.be
-  Cary> bit on a regular basis are: (1) it just gets lucky, and never
-  Cary> gets an interrupt while in the wrong state, (2) the
-  Cary> application blocks signals while in the opposite state, or (3)
-  Cary> the signal handler forces the PSR.be to what it wants. In any
-  Cary> of these cases, the proposed behavior will work.
+If I were writing such an application, and I wanted to figure out what 
+to expect when a signal handler is called, my first thought* would be 
+to expect it to get called in a standard (i.e., little-endian) mode, no 
+matter what. I might then test it and discover that I was wrong. At 
+that point, I'd hardly consider that a definitive feature of Linux on 
+IA-64; I'd be much more likely to consider it a bug, and bring it to 
+someone's attention.
 
-The fourth case is that the application has signal handlers that
-expect to get called in the "opposite" byte-order and those are the
-ones that would break if we changed the current behavior.
+Of course, I realize that most people don't go through that thought 
+process -- they assume that the way it works today is the way it will 
+always work. I just have a hard time working up any sympathy for those 
+people.
 
-	--david
+By the way, when you arm the signal handler, do you copy the function 
+pointer or the function descriptor? Will the user-space code that makes 
+the call to the signal handler work if you're in big-endian mode?
+
+-cary
+
+* Actually, my first thought would be to see if it's documented 
+somewhere. But this is Linux. :-)
+
