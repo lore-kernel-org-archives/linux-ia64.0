@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 08 Nov 2002 19:09:14 +0000
-Subject: Re: [Linux-ia64] Newbie questions
-Message-Id: <marc-linux-ia64-105590709805372@msgid-missing>
+From: "Saxena, Sunil" <sunil.saxena@intel.com>
+Date: Mon, 11 Nov 2002 02:56:12 +0000
+Subject: RE: [Linux-ia64] Newbie questions
+Message-Id: <marc-linux-ia64-105590709805378@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805370@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805370@msgid-missing>
@@ -10,7 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 9 Nov 2002 00:21:40 +0530 (IST), CH Gowri Kumar <gkumar@csa.iisc.ernet.in> said:
+The Software conventions document is at
+http://developer.intel.com/design/itanium/downloads/245358.htm 
+
+All documents can now be found at
+http://developer.intel.com/design/itanium/arch_spec.htm 
+
+Thanks
+Sunil
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com] 
+Sent: Friday, November 08, 2002 11:09 AM
+To: CH Gowri Kumar
+Cc: 'linux-ia64@linuxia64.org '
+Subject: Re: [Linux-ia64] Newbie questions
+
+>>>>> On Sat, 9 Nov 2002 00:21:40 +0530 (IST), CH Gowri Kumar
+<gkumar@csa.iisc.ernet.in> said:
 
   Gowri> char sc[] ="\x0a" "\x10" "\x00"
   Gowri> "\x18\x00\x21\x00\x92\x00\x00\x42\xe0\x11\x00\x20\x84\x0a";
@@ -131,4 +147,9 @@ int main(int argc, char *argv[])
   printf ("done!\n");
   return(0);
 }
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
