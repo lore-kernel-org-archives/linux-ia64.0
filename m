@@ -1,43 +1,22 @@
-From: Clay Cooper <clay_cooper@dell.com>
-Date: Fri, 20 Oct 2000 22:28:52 +0000
-Subject: [Linux-ia64] Aspen on Bordeaux
-Message-Id: <marc-linux-ia64-105590678205603@msgid-missing>
+From: "Ross A. Towle" <rat@cchkms.engr.sgi.com>
+Date: Mon, 02 Oct 2000 16:36:16 +0000
+Subject: [Linux-ia64] workaround-1.1.efi causes processors to be "stuck"
+Message-Id: <marc-linux-ia64-105590678205530@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  Here are the results of the Aspen in the individual Bordeaux slots:
-I created a 4 disk Raid 5 container.
-Slot 1 -- Kernel Panic
-Slot 2 --  Attempt to insmod Megaraid module locks up machine.  At.....
-                       "Found a MegaRaid controller at 0xf0000000, IRQ: 17"
-Slot 3 --  Lock at insmod.....    0xec000000  IRQ: 18
-Slot 4 --  Lock at insmod.....    0xe8000000  IRQ: 19
-Slot 5 --  Kernel Panic
-Slot 6 --  Lock at insmod.....    0xe4000000  IRQ: 21
-Slot 7 --  Locked up at Aspen Bios before "logical drive found" after 
-cold boot. 
-                    Second cold boot went through Aspen Bios and kernel 
-panicked
-                    Then a warm boot which also kernel panicked.
-Slot 8 --  After "EFI version strings" and after "FRU buffer size8"
-                    Received a message stating:  "Didn't find Multi_record
-                                                                        
-      KCS Send Message failed.  rc=1
-                                                                        
-      Press any key"
-                   Then....  a lock at insmod
-                    0xe0000000  IRQ: 23
-Slot 9 --  Kernel Panic
-Slot 10 -- Lock at insmod
-                      0xd8000000  IRQ: 25
+On a 4P Lion box with A3 processors, I have applied workaround-1.1.efi
+with an argument of 3.  You see 4 messages that it has been applied.
+However, during the Linux boot there are messages that processors 1, 2,
+and 3 are "stuck".  And I endup with only one processor.  If I reboot
+and don't applied workaround-1.1.efi then I endup with 4 processors.
+This is with kernel-2.4.0test8-45.
 
--- 
-Clay Cooper
-Engineering Tech/Sr. Analyst
-Clay_Cooper@Dell.com
-512.723.5951
+Any idea on how to get multiple processors AND the stability that
+workaround-1.1 provides?
 
+-Ross
 
