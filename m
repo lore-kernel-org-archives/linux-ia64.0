@@ -1,24 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Mon, 12 Jan 2004 20:10:06 +0000
-Subject: Re: [PATCH] Updating our sn code in 2.6] - Patch 028
-Message-Id: <20040112121006.1f85fdcb.akpm@osdl.org>
+From: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
+Date: Wed, 28 Jan 2004 01:54:42 +0000
+Subject: [RFC/PATCH, 3/4] readX_check() performance evaluation
+Message-Id: <00a401c3e541$c1d347f0$2987110a@lsd.css.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040109234608.18009a2a.akpm@osdl.org>
-In-Reply-To: <20040109234608.18009a2a.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
 
-jbarnes@sgi.com (Jesse Barnes) wrote:
->
->  2.6.1-mm2 compiles with NR_CPUSQ2 (and for sn2 btw, thanks), but I
->  haven't actually booted it on a >256p machine since they're still
->  somewhat rare :).
+This is a patch for rawread 1.0.3.
+Original rawread 1.0.3 depends on i386.
 
-Yup.
+Thanks, 
+Hironobu Ishii
 
-> Do you think you'll do an official 2.6.2 release
->  before Linus gets back with this stuff in it?
+--- rawread.c.old 2004-01-22 19:33:43.000000000 +0900
++++ rawread.c 2004-01-27 23:26:24.406717936 +0900
+@@ -94,8 +94,14 @@
+ 
+ __inline__ unsigned long long int rdtsc()
+ {
+-  unsigned long long int x;
+-  __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
++ unsigned long long int x;
++#if __i386__
++ __asm__ volatile (".byte 0x0f, 0x31" : "=A" (x));
++#elif __ia64__
++ __asm__ volatile ("mov r8 = ar44");
++#else
++ #error "Please write your own rdtsc()"
++#endif
+   return x;
+ }
+ 
 
-No, 2.6.2 will be at least a couple of weeks away I expect.
