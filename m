@@ -1,7 +1,7 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Date: Sun, 02 May 2004 17:50:46 +0000
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Mon, 03 May 2004 16:48:55 +0000
 Subject: Re: [PATCH] 8250_hcdp needs irq sharing
-Message-Id: <20040502185046.C17905@flint.arm.linux.org.uk>
+Message-Id: <1083602934.3225.147.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1082990579.15656.31.camel@localhost>
 In-Reply-To: <1082990579.15656.31.camel@localhost>
@@ -10,18 +10,96 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Apr 26, 2004 at 08:42:59AM -0600, Alex Williamson wrote:
->    Here's a trivial patch that makes 8250_hcdp setup the correct flags
-> when IRQ sharing is enabled for serial ports.  Please apply.  Thanks,
+On Sun, 2004-05-02 at 11:50, Russell King wrote:
+> On Mon, Apr 26, 2004 at 08:42:59AM -0600, Alex Williamson wrote:
+> >    Here's a trivial patch that makes 8250_hcdp setup the correct flags
+> > when IRQ sharing is enabled for serial ports.  Please apply.  Thanks,
+> 
+> If IRQ sharing is a property of 8250_hdcp-based ports, I'd rather
+> this was done unconditionally rather than being dependent on
+> CONFIG_SERIAL_8250_SHARE_IRQ.  8250_pci does it this way as well -
+> PCI inherently allows IRQs to be shared, so there's no reason to
+> make it depend on the configuration.
 
-If IRQ sharing is a property of 8250_hdcp-based ports, I'd rather
-this was done unconditionally rather than being dependent on
-CONFIG_SERIAL_8250_SHARE_IRQ.  8250_pci does it this way as well -
-PCI inherently allows IRQs to be shared, so there's no reason to
-make it depend on the configuration.
+Russell,
+
+   Good suggestion.  The HCDP table tells us if the device is a PCI
+UART.  We can use this to set the shared interrupt flag as well as
+program the interrupt with the correct polarity/trigger (should get rid
+of "changing vector <x> from IO-SAPIC-edge to IO-SAPIC-level" messages
+at bootup).  This also allows non-PCI UARTs to be left un-shareable,
+which is likely much more safe (edge triggered).
+
+   The bit that I'm keying on is still part of the older 1.0a HCDP spec,
+so should be implemented (it was on all the boxes I tested).  If there's
+firmware out there that doesn't set this bit or the interrupt supported
+flag, the HCDP UART may run in polling mode, but should still be
+functional.  Does this look more reasonable?  Thanks,
+
+	Alex
 
 -- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+Alex Williamson                             HP Linux & Open Source Lab
+
+=== drivers/serial/8250_hcdp.c 1.4 vs edited ==--- 1.4/drivers/serial/8250_hcdp.c	Sat Apr 10 03:26:14 2004
++++ edited/drivers/serial/8250_hcdp.c	Mon May  3 10:37:11 2004
+@@ -147,7 +147,7 @@
+ 		printk("  gsi = %d, baud rate = %lu, bits = %d, clock = %d\n",
+ 		       gsi, (unsigned long) hcdp_dev->baud, hcdp_dev->bits,
+ 		       hcdp_dev->clock_rate);
+-		if (hcdp_dev->base_addr.space_id = ACPI_PCICONF_SPACE)
++		if (HCDP_PCI_UART(hcdp_dev))
+ 			printk(" PCI id: %02x:%02x:%02x, vendor ID=0x%x, "
+ 				"dev ID=0x%x\n", hcdp_dev->pci_seg,
+ 				hcdp_dev->pci_bus, hcdp_dev->pci_dev,
+@@ -179,16 +179,26 @@
+ 			printk(KERN_WARNING"warning: No support for PCI serial console\n");
+ 			return;
+ 		}
++
++		if (HCDP_IRQ_SUPPORTED(hcdp_dev)) {
+ #ifdef CONFIG_IA64
+-		port.irq = acpi_register_irq(gsi, ACPI_ACTIVE_HIGH,
+-				ACPI_EDGE_SENSITIVE);
++			if (HCDP_PCI_UART(hcdp_dev))
++				port.irq = acpi_register_irq(gsi,
++					ACPI_ACTIVE_LOW, ACPI_LEVEL_SENSITIVE);
++			else
++				port.irq = acpi_register_irq(gsi,
++					ACPI_ACTIVE_HIGH, ACPI_EDGE_SENSITIVE);
+ #else
+-		port.irq = gsi;
++			port.irq = gsi;
+ #endif
+-		port.flags = UPF_SKIP_TEST | UPF_BOOT_AUTOCONF | UPF_RESOURCES;
+-		if (gsi)
+ 			port.flags |= UPF_AUTO_IRQ;
+ 
++			if (HCDP_PCI_UART(hcdp_dev))
++				port.flags |= UPF_SHARE_IRQ;
++		}
++
++		port.flags |= UPF_SKIP_TEST | UPF_BOOT_AUTOCONF | UPF_RESOURCES;
++
+ 		/*
+ 		 * Note: the above memset() initializes port.line to 0,
+ 		 * so we register this port as ttyS0.
+@@ -197,6 +207,7 @@
+ 			printk("setup_serial_hcdp(): early_serial_setup() "
+ 				"for HCDP serial console port failed. "
+ 				"Will try any additional consoles in HCDP.\n");
++			memset(&port, 0, sizeof(port));
+ 			continue;
+ 		}
+ 		break;
+=== drivers/serial/8250_hcdp.h 1.1 vs edited ==--- 1.1/drivers/serial/8250_hcdp.h	Wed May 14 08:50:38 2003
++++ edited/drivers/serial/8250_hcdp.h	Mon May  3 09:17:22 2004
+@@ -77,3 +77,6 @@
+ 	u32	num_entries;
+ 	hcdp_dev_t	hcdp_dev[MAX_HCDP_DEVICES];
+ } hcdp_t;
++
++#define HCDP_PCI_UART(x) (x->pci_func & 1UL<<7)
++#define HCDP_IRQ_SUPPORTED(x) (x->pci_func & 1UL<<6)
+
+
