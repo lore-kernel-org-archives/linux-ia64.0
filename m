@@ -1,30 +1,23 @@
-From: Roland McGrath <roland@redhat.com>
-Date: Mon, 24 Feb 2003 21:20:57 +0000
-Subject: [Linux-ia64] Re: strace improvement patch
-Message-Id: <marc-linux-ia64-105590709805921@msgid-missing>
+From: D S <itanaccount@yahoo.com>
+Date: Sat, 08 Feb 2003 01:11:32 +0000
+Subject: [Linux-ia64] Oracle Installation on Ia64 Linux
+Message-Id: <marc-linux-ia64-105590709805821@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805650@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805650@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I tried it and it works fine with 2.5.52.  Then I also tried on a
-> 2.4.20 machine and sure enough, there it dies with a SIGSEGV.  I can
-> look into it, but not tonight, so you may want to go ahead with the
-> test-release.
+Hi EveryOne
+I am trying to Install Oracle9i Enterprise Edition for
+Linux/IA64, Release 2 (v9.2.0.2) and I am facing lot
+of problems. Anyone who had installed it kindly let me
+know
+-regards
+ Desh 
 
-Have you (or anyone) looked into strace -f on ia64 Linux 2.4.x yet?
-This is still broken, and I haven't heard a peep from you in six weeks.
-I really don't know ia64 well enough to be likely to have much luck myself.
-
-It's not reasonable to release strace 4.5 with this still broken,
-and I've run out of other reasons not to make the release already.
-
-A little help?
-
-
-Thanks,
-Roland
+__________________________________________________
+Do you Yahoo!?
+Yahoo! Mail Plus - Powerful. Affordable. Sign up now.
+http://mailplus.yahoo.com
 
