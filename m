@@ -1,7 +1,7 @@
-From: William Taber <wtaber@rational.com>
-Date: Thu, 18 Jan 2001 15:47:07 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 18 Jan 2001 16:29:27 +0000
 Subject: Re: [Linux-ia64] PATCH:  Building on ia32
-Message-Id: <marc-linux-ia64-105590693005075@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005076@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005061@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005061@msgid-missing>
@@ -10,32 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->
->But your patch breaks the lazy-execute bit scheme that IA-64 relies on to avoid
->cache flushing.  Your kernel will probably hang on any app that does dynamic
->code generation (e.g., such as due to nested C functions).
->
->You're probably better off implementing is_exec_access() on x86 as always
->returning 0.
->
->	--david
+>>>>> On Thu, 18 Jan 2001 10:47:07 -0500 (EST), William Taber <wtaber@rational.com> said:
 
-David,
+  William> Actually, I think the best solution is to move
+  William> is_exec_access() and is_write_access() out of
+  William> asm-ia64/pgtable.h, and into some machine independent
+  William> header (perhaps mm.h ?), redefining the magic numbers 2 and
+  William> 4 to be VM_WRITE and VM_EXEC respectively.  This still
+  William> leaves the question of who is responsible for changing all
+  William> of the platform specific callers of handle_mm_fault to
+  William> reflect the new semantics?
 
-Actually, I think the best solution is to move is_exec_access() and
-is_write_access() out of asm-ia64/pgtable.h, and into some machine independent
-header (perhaps mm.h ?), redefining the magic numbers 2 and 4 to be VM_WRITE
-and VM_EXEC respectively.  This still leaves the question of who is 
-responsible for changing all of the platform specific callers of 
-handle_mm_fault to reflect the new semantics?
+The sole reason for the existence of those macros is so they can be
+defined in a platform-specific way.  No other platform is currently
+using lazy-execute bits and on those platforms, there is no need to
+check the executable bit in the page fault handler.  However, I don't
+think is_exec_access() is the final answer either---that's why I don't
+bother updating the other ports: it's still very much works in
+progress.
 
-Will
-
-+---------------------------------------------------------------------+
-| Will Taber                                                          |
-| Software Engineer, CMBU                 E-mail  wtaber@rational.com |
-| Rational Software Corporation           Phone:  781-676-2436        |
-| 20 Maguire Road, Lexington, Mass. 02421                             |
-+---------------------------------------------------------------------+
-
+	--david
 
