@@ -1,38 +1,24 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 11 Feb 2004 19:26:20 +0000
-Subject: Re: u64 vs %llu format
-Message-Id: <20040211192620.GE10901@cup.hp.com>
+From: Pavel Machek <pavel@suse.cz>
+Date: Mon, 16 Feb 2004 10:19:24 +0000
+Subject: Re: [RFC/PATCH, 1/4] readX_check() performance evaluation
+Message-Id: <20040216101924.GA335@elf.ucw.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040211181730.GC10901@cup.hp.com>
-In-Reply-To: <20040211181730.GC10901@cup.hp.com>
+References: <00a201c3e541$c0e7d680$2987110a@lsd.css.fujitsu.com> <20040128172004.GB5494@cup.hp.com> <20040128184137.616b6425.ak@suse.de> <16408.30.896895.980121@napali.hpl.hp.com> <20040128195246.47a84498.ak@suse.de> <16408.3157.336306.812481@napali.hpl.hp.com> <20040128203915.22d84e8d.ak@suse.de>
+In-Reply-To: <20040128203915.22d84e8d.ak@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
+Cc: davidm@hpl.hp.com, davidm@napali.hpl.hp.com, iod00d@hp.com, ishii.hironobu@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Wed, Feb 11, 2004 at 10:47:42AM -0800, David Mosberger wrote:
-> >>>>> On Wed, 11 Feb 2004 10:17:30 -0800, Grant Grundler <iod00d@hp.com> said:
-> 
->   Grant> Why is __u64 defined as "unsigned long" and not "unsigned long long"?
-> 
-> Because that's the way it is for pretty much every other 64-bit
-> UNIX-like platform.  64-bit UNIX/Linux platforms existed long before
-> "long long" was widely supported.
+Hi!
 
-ok. I initially read this as "64-bit unix source compat is more important
-than ILP32-linux compat". But that's not a fair statement since it implies
-alot more than this silly %llu vs u64 issue.
+> But when printed in Linux they will report it to the linux maintainer or their 
+> distribution vendor.  "My Linux is buggy and giving these weird messages" And they
+> are both in no position at all to do something about it. 
 
->   Grant> will generate this warning:
->   Grant> <file>:<line>: warning: long long unsigned int format, __u64 arg (arg 2)
-> 
-> Just cast "i" to (unsigned long long) and the code will be fine.
-
-Yes, or use "unsigned long long" instead of u64 in the first place.
-I'll try to convince the code owner to only use "u64" for stuff
-representing HW or other "shared" data structures. The distinction
-is artificial since both are the same size on LP64 platforms.
-But it would reduce the number of warnings we need to fix.
-
-thanks,
-grant
+What about new KERN_HWBUG loglevel?
+									Pavel
+-- 
+When do you have a heart between your knees?
+[Johanka's followup: and *two* hearts?]
