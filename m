@@ -1,48 +1,52 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Sat, 26 Feb 2005 00:48:40 +0000
-Subject: Re: [PATCH] random ia64 sched-domains values
-Message-Id: <421FC768.3000905@yahoo.com.au>
+From: Max Kovgan <maxk@cs.Technion.AC.IL>
+Date: Wed, 23 Feb 2005 01:29:05 +0000
+Subject: discontinued zx1 based machine: hp zx6000. problems
+Message-Id: <200502230129.j1N1T5Ap007480@csd.cs.technion.ac.il>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <421EDE70.3010501@yahoo.com.au>
-In-Reply-To: <421EDE70.3010501@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Chen, Kenneth W wrote:
-> Nick Piggin wrote on Friday, February 25, 2005 12:15 AM
-> 
->>These are some values I just found from thin-air that should
->>hopefully make ia64 work after the latest sched patches.
->>
->>+#define SD_CPU_INIT (struct sched_domain) {		\
->>...
->>+	.max_interval		= 4,			\
->>+	.busy_factor		= 64,			\
->>+	.imbalance_pct		= 125,			\
-> 
-> 
-> For one db workload, performance increases with the following
-> values compare to the values proposed above.
-> 
+Hello, list!
 
-Sorry if I wasn't clear earlier - this patch is not meant to
-go into 2.6. It is for Andrew to get ia64 working after my
-last round of scheduler patches.
+Either my hands are skewed or something is wrong with this ia64 port, or even worse.
 
-There are pretty significant changes, so the optimal values
-for various things will have changed quite a bit.
+i am a debian user.
+hardware: zx6000, no ps/2, only usb keyboard ( this one has also 2 usb sockets, so it should also be a USB hub )
 
-> .max_interval = 100
-> .busy_factor = 32
-> .imbalance_pct = 100
-> 
+my woes:
+tried installing sarge: linux 2.4.21 (mckinley-smp).
+during the installer keyboard worked.
+after the installation's 1st boot - everything worked.
+ok.. trying to upgrade....
 
-I can imagine max_interval could probably be increased.
+tried 2.6.9-2 ( mckinley-smp ) - installer worked ok.
+after a reboot - cannot use neither keyboard nor mouse.
 
-Setting imbalance_pct to 100 is interesting, I wonder why this
-helps performance... It would be good to get schedstats output.
+ok, i thought to myself. let's tune a kernel for the machine.
+got 2.6.10. vanilla.
+configured, built, rebooted: 
+same result as with mckinley 2.6.9
 
-Nick
+at 1st i suspected it's a problem of bad usb driver taking over the hardware. so i've rebuilt the system with:
+a) only ehci - no success
+b) only uhci - no success
+c) both.
 
+i probably will next week recompile only with ohci support, and so on through all the combinations.
+
+
+
+i just am curious: why don't the keyboard/mouse work ?
+i am ready to test code, even to code the code, as soon as can locate who's responsible for the problem (which part of the kernel)
+i have grepped through the kernel source about zx1 ... haven't found anything interesting  related to usb.
+well.... direct me, please.
+what shall i do next ? 
+
+
+Best regards,
+M.
+
+--
+When you are at Rome live in the Roman style; when you are elsewhere live as they live elsewhere. -- St. Ambrose
