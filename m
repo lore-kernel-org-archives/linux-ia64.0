@@ -1,53 +1,42 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Date: Wed, 15 Dec 2004 07:41:25 +0000
+From: Andi Kleen <ak@suse.de>
+Date: Wed, 15 Dec 2004 07:46:36 +0000
 Subject: Re: [PATCH 0/3] NUMA boot hash allocation interleaving
-Message-Id: <41BFEAA5.1090109@cosmosbay.com>
+Message-Id: <20041215074636.GR27225@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.SGI.4.61.0412141140030.22462@kzerza.americas.sgi.com> <9250000.1103050790@flay> <20041214191348.GA27225@wotan.suse.de> <19030000.1103054924@flay> <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com> <20041215040854.GC27225@wotan.suse.de>
-In-Reply-To: <20041215040854.GC27225@wotan.suse.de>
+References: <Pine.SGI.4.61.0412141140030.22462@kzerza.americas.sgi.com> <9250000.1103050790@flay> <20041214191348.GA27225@wotan.suse.de> <19030000.1103054924@flay> <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com> <20041215040854.GC27225@wotan.suse.de> <41BFEAA5.1090109@cosmosbay.com>
+In-Reply-To: <41BFEAA5.1090109@cosmosbay.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: Brent Casavant <bcasavan@sgi.com>, "Martin J. Bligh" <mbligh@aracnet.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: Eric Dumazet <dada1@cosmosbay.com>
+Cc: Andi Kleen <ak@suse.de>, Brent Casavant <bcasavan@sgi.com>, "Martin J. Bligh" <mbligh@aracnet.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-Andi Kleen wrote:
-
+On Wed, Dec 15, 2004 at 08:41:25AM +0100, Eric Dumazet wrote:
 > 
-> I actually considered implementing it for x86-64 some time ago
-> for the modules, but then I never bothered. On AMD systems
-> I actually prefer to use small pages here. The reason is that
-> Opteron has a separated large and small pages TLB and the small
-> pages TLB is much bigger. When someone else uses huge TLB 
-> pages too (user space or kernel direct mapping) then it's actually
-> a good idea to use small pages.
+> My questions are :
+> 
+> 1) Are the route cache and tcp hashes use big pages (2MB) on 2.6.5/2.6.9 
+> x86_64 kernels.
 
-Interesting...
+Yes.
 
-I actually use dual Opterons systems, with very large route cache hashes 
-and tcp hashes. (rhash_entriesR4288 thash_entriesR4288), and a 
-Hugetlb aware user space programs.
+On i386 kernels you can use mem=nopentium to force 4K pages for
+the direct mapping, but that was dropped on x86-64. 
 
-x86info tells me (maybe wrongly)
+> 2) What are the exact number of data TLB entries (for small pages and 
+> huge ones) for opterons ?
 
-Family: 15 Model: 5 Stepping: 8
-CPU Model : Opteron
-Instruction TLB: Fully associative. 32 entries.
-Data TLB: Fully associative. 32 entries.
+check the data sheets, but iirc 64 large DTLBs and 1024+ 4K DTLBS.
+That is the L2 TLB, there is also a L1 but it is likely inclusive (?)
 
-and /proc/cpuinfo tells me :
-model name      : AMD Opteron(tm) Processor 248
-TLB size        : 1088 4K pages
+> 3) All networks interrupts are handled by CPU0. Should we really use 
+> NUMA interleaved memory for hashes in this case ?
 
+First it depends on if you run irqbalanced or not and how many
+interrupt sources you have.
 
-My questions are :
+Even when they are only handled on irq0 it can be still a good idea
+to interleave to use the bandwidth of all memory controllers
+in the system evenly.
 
-1) Are the route cache and tcp hashes use big pages (2MB) on 2.6.5/2.6.9 
-x86_64 kernels.
-2) What are the exact number of data TLB entries (for small pages and 
-huge ones) for opterons ?
-3) All networks interrupts are handled by CPU0. Should we really use 
-NUMA interleaved memory for hashes in this case ?
-
-Thank you
-Eric Dumazet
+-Andi
