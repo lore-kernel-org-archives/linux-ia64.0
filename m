@@ -1,7 +1,7 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Wed, 07 Jul 2004 10:57:27 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 08 Jul 2004 01:18:15 +0000
 Subject: Re: Using GDB kills kernel
-Message-Id: <16619.55063.4174.538889@wombat.chubb.wattle.id.au>
+Message-Id: <16620.41175.419863.881926@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16610.19218.349114.463377@wombat.chubb.wattle.id.au>
 In-Reply-To: <16610.19218.349114.463377@wombat.chubb.wattle.id.au>
@@ -10,70 +10,63 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Peter" = Peter Chubb <peterc@gelato.unsw.edu.au> writes:
+>>>>> On Wed, 7 Jul 2004 20:57:27 +1000, Peter Chubb <peterc@gelato.unsw.edu.au> said:
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
->>>>> On Wed, 7 Jul 2004 11:03:08 +1000, Peter Chubb <peterc@gelato.unsw.edu.au> said:
-Peter> I'm currently trying binary chop to see what change(s) caused
-Peter> the problem.  But there were a lot of them in a very tangled
-Peter> revision history, so progress is slow.
+  Peter> OK, the problem arises when GDB tries to step over or access something
+  Peter> in the gate page.  The changeset mentioned above changes things so that
+  Peter> instead of doing
+  Peter> pgd = pgd_offset_k(addr)
+  Peter> it does
+  Peter> pgd = pgd_offset(mm, addr)
+  Peter> for a gate page address.
 
-David> I'd guess that it may be another bug related to moving
-David> "current" for init_task to region 5.  Though it's not apparent
-David> how or why this would only bite you (so far).
+Yeah, that'd do it.
 
-Peter> The problem is changeset
+Does the attached patch work for you?
 
-Peter>   roland@redhat.com[torvalds]|ChangeSet|20040624165002|30880
+	--david
 
-Peter> which changes the way PTEs are looked up for the gate page.
-
-
-OK, the problem arises when GDB tries to step over or access something
-in the gate page.  The changeset mentioned above changes things so that
-instead of doing
-	pgd = pgd_offset_k(addr)
-it does
-	pgd = pgd_offset(mm, addr)
-for a gate page address.
-
-Here's a patch that makes pgd_offset work for gate page addresses.
-I'm not entirely happy about adding work everywhere to satisfy one
-fairly rare use of pgd_offset() to get a gate page address.
-Is there a better solution?  The problematical change was to fix
-X86_64 when ptracing 32-bit processes.
-
-
-Index: linux-2.5-fixit/include/asm-ia64/pgtable.h
-=================================--- linux-2.5-fixit.orig/include/asm-ia64/pgtable.h
-+++ linux-2.5-fixit/include/asm-ia64/pgtable.h
-@@ -308,18 +308,21 @@
- 	return (region << (PAGE_SHIFT - 6)) | l1index;
- }
+=== include/asm-generic/pgtable.h 1.6 vs edited ==--- 1.6/include/asm-generic/pgtable.h	Wed May 26 07:56:17 2004
++++ edited/include/asm-generic/pgtable.h	Wed Jul  7 18:02:20 2004
+@@ -122,4 +122,8 @@
+ #define page_test_and_clear_young(page) (0)
+ #endif
  
-+/* In the kernel's mapped region we have a full 43 bit space available and completely
-+   ignore the region number (since we know its in region number 5). */
-+#define pgd_offset_k(addr) \
-+	(init_mm.pgd + (((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)))
++#ifndef __HAVE_ARCH_PGD_OFFSET_GATE
++#define pgd_offset_gate(mm, addr)	pgd_offset(mm, addr)
++#endif
 +
- /* The offset in the 1-level directory is given by the 3 region bits
-    (61..63) and the seven level-1 bits (33-39).  */
- static inline pgd_t*
- pgd_offset (struct mm_struct *mm, unsigned long address)
- {
-+	if ((address >> 61) = 5)
-+		return pgd_offset_k(address);
- 	return mm->pgd + pgd_index(address);
- }
+ #endif /* _ASM_GENERIC_PGTABLE_H */
+=== include/asm-ia64/pgtable.h 1.43 vs edited ==--- 1.43/include/asm-ia64/pgtable.h	Sat Jun 19 07:48:59 2004
++++ edited/include/asm-ia64/pgtable.h	Wed Jul  7 18:03:55 2004
+@@ -321,6 +321,11 @@
+ #define pgd_offset_k(addr) \
+ 	(init_mm.pgd + (((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)))
  
--/* In the kernel's mapped region we have a full 43 bit space available and completely
--   ignore the region number (since we know its in region number 5). */
--#define pgd_offset_k(addr) \
--	(init_mm.pgd + (((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)))
- 
++/* Look up a pgd entry in the gate area.  On IA-64, the gate-area
++   resides in the kernel-mapped segment, hence we use pgd_offset_k()
++   here.  */
++#define pgd_offset_gate(mm, addr)	pgd_offset_k(addr)
++
  /* Find an entry in the second-level page table.. */
  #define pmd_offset(dir,addr) \
-
--- 
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+ 	((pmd_t *) pgd_page(*(dir)) + (((addr) >> PMD_SHIFT) & (PTRS_PER_PMD - 1)))
+@@ -552,6 +557,7 @@
+ #define __HAVE_ARCH_PTEP_SET_WRPROTECT
+ #define __HAVE_ARCH_PTEP_MKDIRTY
+ #define __HAVE_ARCH_PTE_SAME
++#define __HAVE_ARCH_PGD_OFFSET_GATE
+ #include <asm-generic/pgtable.h>
+ 
+ #endif /* _ASM_IA64_PGTABLE_H */
+=== mm/memory.c 1.148 vs edited ==--- 1.148/mm/memory.c	Tue Jul  6 22:19:26 2004
++++ edited/mm/memory.c	Wed Jul  7 18:02:29 2004
+@@ -727,7 +727,7 @@
+ 			pte_t *pte;
+ 			if (write) /* user gate pages are read-only */
+ 				return i ? : -EFAULT;
+-			pgd = pgd_offset(mm, pg);
++			pgd = pgd_offset_gate(mm, pg);
+ 			if (!pgd)
+ 				return i ? : -EFAULT;
+ 			pmd = pmd_offset(pgd, pg);
