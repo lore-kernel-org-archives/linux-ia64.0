@@ -1,20 +1,21 @@
 From: "Pat O'Rourke" <orourke@mclinux.com>
-Date: Fri, 01 Sep 2000 21:00:36 +0000
-Subject: [Linux-ia64] [PATCH] duplicate #define's in arch/ia64/kernel/minstate.h??
-Message-Id: <marc-linux-ia64-105590678205442@msgid-missing>
+Date: Sat, 02 Sep 2000 14:26:11 +0000
+Subject: [Linux-ia64] [PATCH] duplicate #define's in arch/ia64/kernel/minstate.h?
+Message-Id: <marc-linux-ia64-105590678205449@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205442@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205442@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It seems that the definition of STOPS, SAVE_MIN_WITH_COVER,
-SAVE_MIN_WITH_COVER_R19 and SAVE_MIN are duplicated at the end
-of arch/ia64/kernel/minstate.h.  Is this a typo, or am I missing
-something?
+It seems the definition of STOPS, SAVE_MIN_WITH_COVER, SAVE_MIN_WITH_COVER_R19
+and SAVE_MIN are duplicated at the end of arch/ia64/kernel/minstate.h.  Is this
+a typo, or am I missing something?
 
-Here's a patch (based on 2.4.0-test7) which removes the duplicates
-if it's an error.
+Here's a patch (based on 2.4.0-test7) which removes the duplicates if it's an
+error.
 
 Pat
 
