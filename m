@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Mon, 17 May 2004 23:54:35 +0000
+From: Ashok Raj <ashok.raj@intel.com>
+Date: Tue, 18 May 2004 20:16:30 +0000
 Subject: Re: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <20040517235435.GA25354@cup.hp.com>
+Message-Id: <20040518131630.A28921@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040513150842.22F5.YGOTO@us.fujitsu.com>
 In-Reply-To: <20040513150842.22F5.YGOTO@us.fujitsu.com>
@@ -10,12 +10,44 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, May 17, 2004 at 09:15:50PM +0200, Matthias Fouquet-Lapar wrote:
-...
-> I always wondered if hotplug would be a useful feature
->   for larger configurations to reduce boot-time.
+On Tue, May 18, 2004 at 09:58:38AM -0500, Russ Anderson wrote:
+> Matthias Fouquet-Lapar wrote:
+> > 
+> > [ Just as a site-note, I always wondered if hotplug would be a useful feature
+> >   for larger configurations to reduce boot-time. For example, on a 64P system 
+> >   you start the kernel on some "root" CPU with a relativly small amount of
+> >   memory, so it should boot relativly fast. While the system is going into
+> >   the desired run-level, hotplug/add now adds in parallel all available CPUs,
+> >   main memory, I/O etc. The idea is that you probably don't need 64P and
+> >   1 Terabyte to start system services
+> > ]
+> 
+> I can certainly think of cases (customers) where minimizing the total
+> system down time is a huge issue.  Getting a subset of the system
+> back into production as quickly as possible would be very desirable.
+> 
+> Another advantage of that type boot process is that it would catch
+> any bugs (or regressions) in the hot add code.  At a minumum, it 
+> would be a very good test of the hot add functionality.
+> 
+> I think a boot option to allow that type of booting process
+> would be a good idea.
 
-yes. definitely. We also considering this for parisc port just to
-simplify the boot code.
+The boot already follows the same methodology, the boot cpu comes up, and the rest of the cpu's are brought up. for e.g. smp_init() does call cpu_up() which is the same path for hotplug.
 
-grant
+Not sure if cpu_up is a time consuming process, i think if you have more cpu's
+the startup could be faster as you have now more resources to complete the 
+statup of kernel.
+
+Often what i have seen is that the IO part of the probe is the most time
+consuming process. Splitting the discovery of controllers and boot resources
+first, and then deferring the rest if the io discovery process would 
+speedup boot. Also its your firmware that would do the same work as OS 
+in identifying all the controllers and disks upfront that contributes to 
+slow boot.
+
+bringup all cpu() and then defer part of the probe/discovery (especially
+disks) in parallel would provide real benefit i think.
+
+Cheers,
+ashok
