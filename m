@@ -1,21 +1,22 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 29 Apr 2002 18:41:42 +0000
-Subject: Re: [Linux-ia64] ACPI without PCI
-Message-Id: <marc-linux-ia64-105590701905537@msgid-missing>
+Date: Mon, 22 Apr 2002 22:34:38 +0000
+Subject: [Linux-ia64] Re: PCI DAC routines for SN
+Message-Id: <marc-linux-ia64-105590701905493@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905533@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905533@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 27 Apr 2002 16:35:48 +1000, Keith Owens <kaos@ocs.com.au> said:
+>>>>> On Mon, 22 Apr 2002 15:31:56 -0700, Jesse Barnes <jbarnes@sgi.com> said:
 
-  Keith> Either ia64 config.in must force PCI=y or acpi_osl must cope
-  Keith> with PCI=n.
+  Jesse> Here's an implementation of the PCI DAC API for SN, along
+  Jesse> with some fixes to the existing implementation.  If this
+  Jesse> looks ok, I'd like it to get integrated into the next
+  Jesse> release, otherwise I'll fix it up.  Please take a look.
 
-It seems to me the latter would be the cleaner solution.
+You do realize that there it is never necessary to use this API for
+ia64 linux?  dma_addr_t is already 64 bits.
 
 	--david
 
