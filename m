@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 24 Mar 2003 21:54:05 +0000
-Subject: Re: [Linux-ia64] ia64_mca_rendez_int_handler use of hard_smp_processor_id
-Message-Id: <marc-linux-ia64-105590723705305@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 25 Mar 2003 16:45:56 +0000
+Subject: RE: [Linux-ia64] ia64_mca_rendez_int_handler use of hard_smp_processor_id
+Message-Id: <marc-linux-ia64-105590723705309@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705289@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705289@msgid-missing>
@@ -23,8 +23,17 @@ To: linux-ia64@vger.kernel.org
   Keith> expression instead of the simpler
   Keith> cpu = smp_processor_id();
 
-I don't know either.  Perhaps the original author remembers (Jenna or
-Tony, perhaps?).
+  David> I don't know either.  Perhaps the original author remembers (Jenna or
+  David> Tony, perhaps?).
 
-	--david
+This code predates me.  I checked with Jenna and she says that it's before
+her time too.
+
+<speculation>
+That convoluted expression avoids use of the per-cpu mapping, but I can't see
+why we'd be scared to use that here, and not be paranoid elsewhere.  How was
+smp_processor_id() implemented far back in days of 2.4.0 and before?
+</speculation>
+
+-Tony
 
