@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 04 Apr 2002 15:54:57 +0000
+Date: Thu, 04 Apr 2002 18:44:31 +0000
 Subject: Re: [Linux-ia64] SIGILL errors in strncpu (NAT consumption)
-Message-Id: <marc-linux-ia64-105590701905378@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905379@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905358@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905358@msgid-missing>
@@ -10,16 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 04 Apr 2002 19:29:46 +0900, "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp> said:
+>>>>> On Thu, 04 Apr 2002 10:36:20 +0200, Francois-Xavier Kowalski <francois-xavier_kowalski@hp.com> said:
 
-  Hideki>  I have a favor to ask David.  If possible, plase give me
-  Hideki> the patch you had resolved this problem. I have been looking
-  Hideki> for the patch in all email(linux-ia64) but I could not find
-  Hideki> this patch.
+  Francois-Xavier> Do you have the bug-report ID on GNATS? I am not
+  Francois-Xavier> able to find it in the database to known if it is
+  Francois-Xavier> being worked-out by the maintainer.
 
-Jack just sent the patch.  Caveat: it has not been tested much.  You
-may be better off reverting to the pre-August 2001 version of
-strncpy() if stability is what you want.
+No, I don't.  I just reported it to Jakub Jelenik.
 
 	--david
 
