@@ -1,30 +1,29 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Sun, 11 Jul 2004 10:11:27 +0000
-Subject: Re: [PATCH 3/4] SGI Altix cross partition functionality
-Message-Id: <20040711101127.GB11249@infradead.org>
+From: kallol@comcast.net
+Date: Fri, 16 Jul 2004 21:33:54 +0000
+Subject: can't install redhat linux upgrade v3 on rx5670
+Message-Id: <071620042133.15591.40F849C10008D72500003CE72200750330040104040E05@comcast.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040617183638.GA3712@sgi.com>
-In-Reply-To: <20040617183638.GA3712@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jul 07, 2004 at 02:40:17PM -0500, Dean Nelson wrote:
-> > +	memset((u8 *)&part->references + sizeof(part->references), 0,
-> > 
-> > cast to u8 * in memset? Ummm..
-> 
-> I'm not exactly sure what you're objecting to here. The cast is necessary for
-> a correct result. The following two lines do not give the same result (the
-> 'references' field is an atomic_t):
+Hi,
+    I have been trying to install redhat linux for Itanium upgrade v.3 on a 
+rx5670 system.
+It seems the installation process hangs. The vmlinux and the initrd are loaded 
+onto the system
+but system does not boot.
 
-Actually I was misreading the code to see a simple case to (u8 *) of the
-variable, but the actual code looks even more fishy now that I look in-depth
-;-)
+I tired to use an enbalement kit from hp, it also hung in the same way.
 
-What about the readable variant:
+Any help?
 
-memset(&part->nchannels, 0,
-       sizeof(xpc_partition_t) - offsetoff(xpc_partition_t, nchannels));
+Kallol
 
+--
+NucleoDyne Systems Inc.
+kallol@nucleodyne.com
+www.nucleodyne.com
+Phone: 408-718-8164
+Fax:408-732-2284
