@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 15 Sep 2004 15:35:16 +0000
-Subject: RE: INIT dumps broken?
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02051268@scsmsx401.amr.corp.intel.com>
+From: Kazuto Miyoshi <miyoshi@linux.bs1.fc.nec.co.jp>
+Date: Wed, 15 Sep 2004 16:00:04 +0000
+Subject: Re: INIT dumps broken?
+Message-Id: <20040916.010004.846960466.miyoshi@linux.bs1.fc.nec.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200409141450.i8EEotfk029379@napali.hpl.hp.com>
 In-Reply-To: <200409141450.i8EEotfk029379@napali.hpl.hp.com>
@@ -11,22 +11,31 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
->Can anybody describe why cpu 0 changed from 0xe... to 0xa... for the
->idle task between 2.6.7-rc3 and 2.6.8?
+Hello, 
 
-Because the initialized lists in the init_task structure were all
-messed up.  When we moved the kernel to region 5 we originally tried
-to keep the task for proc 0 in region 7 ... so head.S converted from
-the region 5 address that &init_task now gave us to a region 7 1:1
-mapped address.  But the initialized list_head structures inside the
-init_task used the region 5 addresses ... and this upset the other
-list macros (e.g. the actually empty list didn't appear empty anymore
-because it apparently didn't point to itself because of the mix of
-region 5 and region 7 addresses.  There were a few patch attempts to
-try any rescue the "address via region 7" solution, but the kernel is
-now littered with "&init_task" references in generic code ... so we
-changed head.S to drop the region5->region7 conversion.
+> Can anybody describe why cpu 0 changed from 0xe... to 0xa... for the
+> idle task between 2.6.7-rc3 and 2.6.8?
 
-I'll take a look at fixing the INIT code today.
+init_task is initialized by INIT_TASK macro and it fills the init_task
+with 0xa.. value, which is computed at compilation time. 
+Thus, we observed 0xa.. link lists from 0xe.. mapping and it caused
+panic with components which refer swapper.
 
--Tony
+Actually, there was different approach which is to initialize init_task
+again with 0xe.. value after boot, but it requries future maintainance
+of the re-initialization with the changes of task_struct.
+That is the reason we proposed the patch to maintain coherent view of
+task_struct.
+
+Currently we do not have consistent way to solve the problem,
+but we will try to think about fixing the problem.
+
+BTW, I tried INIT on my box but it seemed to produce correct task
+dump to the console. I will look at it more closely...
+
+Best Regards,
+--
+Kazuto Miyoshi, NEC
+miyoshi@hpc.bs1.fc.nec.co.jp
+
+
