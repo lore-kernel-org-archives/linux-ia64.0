@@ -1,200 +1,61 @@
-From: Grant Grundler <grundler@cup.hp.com>
-Date: Tue, 27 Aug 2002 18:00:25 +0000
-Subject: [Linux-ia64] PATCH 2.4.19 ppp_generic.c
-Message-Id: <marc-linux-ia64-105590701905985@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Tue, 27 Aug 2002 19:24:21 +0000
+Subject: Re: [Linux-ia64] PATCH 2.4.19 ppp_generic.c
+Message-Id: <marc-linux-ia64-105590701905987@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905985@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905985@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-9"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-ppp_generic.c won't build as a module.
-Using "outl" as a label is a bad idea.
-Also fixed one warning - might pick a different value
-for the "ret" value though.
+Grant Grundler <grundler@cup.hp.com> writes:
 
-grant
+|> ppp_generic.c won't build as a module.
+|> Using "outl" as a label is a bad idea.
 
-Index: drivers/net/ppp_generic.c
-=================================RCS file: /var/cvs/linux/drivers/net/ppp_generic.c,v
-retrieving revision 1.4
-diff -u -p -r1.4 ppp_generic.c
---- drivers/net/ppp_generic.c	27 Aug 2002 15:21:04 -0000	1.4
-+++ drivers/net/ppp_generic.c	27 Aug 2002 17:54:56 -0000
-@@ -378,7 +378,7 @@ static ssize_t ppp_read(struct file *fil
- {
- 	struct ppp_file *pf = file->private_data;
- 	DECLARE_WAITQUEUE(wait, current);
--	ssize_t ret;
-+	ssize_t ret = -1;
- 	struct sk_buff *skb = 0;
- 
- 	if (pf = 0)
-@@ -404,19 +404,19 @@ static ssize_t ppp_read(struct file *fil
- 	remove_wait_queue(&pf->rwait, &wait);
- 
- 	if (skb = 0)
--		goto out;
-+		goto err1;
- 
- 	ret = -EOVERFLOW;
- 	if (skb->len > count)
--		goto outf;
-+		goto err2;
- 	ret = -EFAULT;
- 	if (copy_to_user(buf, skb->data, skb->len))
--		goto outf;
-+		goto err2;
- 	ret = skb->len;
- 
-- outf:
-+ err2:
- 	kfree_skb(skb);
-- out:
-+ err1:
- 	return ret;
- }
- 
-@@ -432,12 +432,12 @@ static ssize_t ppp_write(struct file *fi
- 	ret = -ENOMEM;
- 	skb = alloc_skb(count + pf->hdrlen, GFP_KERNEL);
- 	if (skb = 0)
--		goto out;
-+		goto err1;
- 	skb_reserve(skb, pf->hdrlen);
- 	ret = -EFAULT;
- 	if (copy_from_user(skb_put(skb, count), buf, count)) {
- 		kfree_skb(skb);
--		goto out;
-+		goto err1;
- 	}
- 
- 	skb_queue_tail(&pf->xq, skb);
-@@ -453,7 +453,7 @@ static ssize_t ppp_write(struct file *fi
- 
- 	ret = count;
- 
-- out:
-+ err1:
- 	return ret;
- }
- 
-@@ -806,7 +806,7 @@ ppp_start_xmit(struct sk_buff *skb, stru
- 
- 	npi = ethertype_to_npindex(ntohs(skb->protocol));
- 	if (npi < 0)
--		goto outf;
-+		goto err1;
- 
- 	/* Drop, accept or reject the packet */
- 	switch (ppp->npmode[npi]) {
-@@ -815,10 +815,10 @@ ppp_start_xmit(struct sk_buff *skb, stru
- 	case NPMODE_QUEUE:
- 		/* it would be nice to have a way to tell the network
- 		   system to queue this one up for later. */
--		goto outf;
-+		goto err1;
- 	case NPMODE_DROP:
- 	case NPMODE_ERROR:
--		goto outf;
-+		goto err1;
- 	}
- 
- 	/* Put the 2-byte PPP protocol number on the front,
-@@ -828,7 +828,7 @@ ppp_start_xmit(struct sk_buff *skb, stru
- 
- 		ns = alloc_skb(skb->len + dev->hard_header_len, GFP_ATOMIC);
- 		if (ns = 0)
--			goto outf;
-+			goto err1;
- 		skb_reserve(ns, dev->hard_header_len);
- 		memcpy(skb_put(ns, skb->len), skb->data, skb->len);
- 		kfree_skb(skb);
-@@ -844,7 +844,7 @@ ppp_start_xmit(struct sk_buff *skb, stru
- 	ppp_xmit_process(ppp);
- 	return 0;
- 
-- outf:
-+err1:
- 	kfree_skb(skb);
- 	++ppp->stats.tx_dropped;
- 	return 0;
-@@ -1945,11 +1945,11 @@ ppp_set_compress(struct ppp *ppp, unsign
- 	if (copy_from_user(&data, (void *) arg, sizeof(data))
- 	    || (data.length <= CCP_MAX_OPTION_LENGTH
- 		&& copy_from_user(ccp_option, data.ptr, data.length)))
--		goto out;
-+		goto err1;
- 	err = -EINVAL;
- 	if (data.length > CCP_MAX_OPTION_LENGTH
- 	    || ccp_option[1] < 2 || ccp_option[1] > data.length)
--		goto out;
-+		goto err1;
- 
- 	cp = find_compressor(ccp_option[0]);
- #ifdef CONFIG_KMOD
-@@ -1960,7 +1960,7 @@ ppp_set_compress(struct ppp *ppp, unsign
- 	}
- #endif /* CONFIG_KMOD */
- 	if (cp = 0)
--		goto out;
-+		goto err1;
- 	/*
- 	 * XXX race: the compressor module could get unloaded between
- 	 * here and when we do the comp_alloc or decomp_alloc call below.
-@@ -1998,7 +1998,7 @@ ppp_set_compress(struct ppp *ppp, unsign
- 		}
- 	}
- 
-- out:
-+err1:
- 	return err;
- }
- 
-@@ -2144,15 +2144,15 @@ ppp_register_compressor(struct compresso
- 	spin_lock(&compressor_list_lock);
- 	ret = -EEXIST;
- 	if (find_comp_entry(cp->compress_proto) != 0)
--		goto out;
-+		goto err1;
- 	ret = -ENOMEM;
- 	ce = kmalloc(sizeof(struct compressor_entry), GFP_ATOMIC);
- 	if (ce = 0)
--		goto out;
-+		goto err1;
- 	ret = 0;
- 	ce->comp = cp;
- 	list_add(&ce->list, &compressor_list);
-- out:
-+ err1:
- 	spin_unlock(&compressor_list_lock);
- 	return ret;
- }
-@@ -2431,11 +2431,12 @@ ppp_connect_channel(struct channel *pch,
- 	down(&all_ppp_sem);
- 	ppp = ppp_find_unit(unit);
- 	if (ppp = 0)
--		goto out;
-+		goto err1;
-+
- 	write_lock_bh(&pch->upl);
- 	ret = -EINVAL;
- 	if (pch->ppp != 0)
--		goto outl;
-+		goto err2;
- 
- 	ppp_lock(ppp);
- 	if (pch->file.hdrlen > ppp->file.hdrlen)
-@@ -2450,9 +2451,9 @@ ppp_connect_channel(struct channel *pch,
- 	ppp_unlock(ppp);
- 	ret = 0;
- 
-- outl:
-+ err2:
- 	write_unlock_bh(&pch->upl);
-- out:
-+ err1:
- 	up(&all_ppp_sem);
- 	return ret;
- }
+IMHO <asm/io.h> should be fixed:
+
+--- linux/include/asm-ia64/io.h.~1~
++++ linux/include/asm-ia64/io.h
+@@ -272,18 +272,18 @@ __outsl (unsigned long port, void *src,=20
+ #define __outw		platform_outw
+ #define __outl		platform_outl
+=20
+-#define inb		__inb
+-#define inw		__inw
+-#define inl		__inl
+-#define insb		__insb
+-#define insw		__insw
+-#define insl		__insl
+-#define outb		__outb
+-#define outw		__outw
+-#define outl		__outl
+-#define outsb		__outsb
+-#define outsw		__outsw
+-#define outsl		__outsl
++#define inb(a)		__inb(a)
++#define inw(a)		__inw(a)
++#define inl(a)		__inl(a)
++#define insb(a,b,c)	__insb(a,b,c)
++#define insw(a,b,c)	__insw(a,b,c)
++#define insl(a,b,c)	__insl(a,b,c)
++#define outb(a,b)	__outb(a,b)
++#define outw(a,b)	__outw(a,b)
++#define outl(a,b)	__outl(a,b)
++#define outsb(a,b,c)	__outsb(a,b,c)
++#define outsw(a,b,c)	__outsw(a,b,c)
++#define outsl(a,b,c)	__outsl(a,b,c)
+=20
+ /*
+  * The address passed to these functions are ioremap()ped already.
+
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
 
