@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Fri, 21 May 2004 18:15:58 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 21 May 2004 18:23:16 +0000
 Subject: Re: Can gcc 3.4 compile 2.6.6 kernel?
-Message-Id: <20040521181558.GA6683@lucon.org>
+Message-Id: <16558.18708.883233.880882@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040521170820.GA5516@lucon.org>
 In-Reply-To: <20040521170820.GA5516@lucon.org>
@@ -10,31 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, May 21, 2004 at 11:09:52AM -0700, David Mosberger wrote:
-> >>>>> On Fri, 21 May 2004 10:08:20 -0700, "H. J. Lu" <hjl@lucon.org> said:
-> 
->   HJ> Has anyone tried to use gcc 3.4 to compile 2.6.6 kernel? I got many
->   HJ> dependency violation messages from assembler and
-> 
->   HJ> mm/memory.c: In function `copy_page_range':
->   HJ> mm/memory.c:391: internal compiler error: in verify_local_live_at_start, at
->   HJ> flow.c:546
->   HJ> Please submit a full bug report,
->   HJ> with preprocessed source if appropriate.
->   HJ> See <URL:http://gcc.gnu.org/bugs.html> for instructions.
-> 
-> I have been using a pre-release version of 3.4 with good success.
+>>>>> On Fri, 21 May 2004 11:15:58 -0700, "H. J. Lu" <hjl@lucon.org> said:
 
-Can you show me your
+  >> I have been using a pre-release version of 3.4 with good success.
 
-# gcc -v
+  HJ> Can you show me your
 
-> I haven't had a need to switch to 3.4 final so far, so I haven't really
-> tried it.
+  HJ> # gcc -v
 
-I filed a bug report
+Sure:
 
-http://gcc.gnu.org/bugzilla/show_bug.cgi?id569
+gcc version 3.4 20031201 (experimental)
 
+BTW: I also tried CVS gcc pre-3.5 recently and it compiled the kernel
+fine, too (it had problems with glibc, though).
 
-H.J.
+	--david
