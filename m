@@ -1,54 +1,73 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Fri, 25 Apr 2003 16:43:04 +0000
-Subject: [Linux-ia64] [PATCH] 2.5 new IOC recognition
-Message-Id: <marc-linux-ia64-105590723705608@msgid-missing>
+From: Jack Steiner <steiner@sgi.com>
+Date: Fri, 04 Apr 2003 14:56:08 +0000
+Subject: [Linux-ia64] Re: spin_unlock() problem
+Message-Id: <marc-linux-ia64-105590723705419@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a trivial patch that makes sba_iommu recognize a new IOC.
-Only change is that it will print
+> 
+> Hi,
+> 
+> I have been tracing a problem with tty->count hitting an unidenfied
+> state and I am starting to ponder if our current spin_unlock()
+> implementation is sufficient.
+> 
+> Currently the spin_unlock() implementation looks like this:
+> 
+> #define spin_unlock(x)		do { barrier(); ((spinlock_t *) x)->lock = 0;} while (0)
+> 
+> barrier() doesn't guarantee memory ordering, in other words, we are not
+> guaranteed that writes have been flushed to physical memory on exit. Now
+> Jesse pointed out to me that spin_lock() uses aquire semantics which
+> should take care of this, however this is only the case if the other CPU
+> grabs a spin lock before reading the variable we wrote while holding the
+> lock.
+> 
+> Consider the following example:
+> 
+> cpu1()
+> {
+>    spin_lock(&bleh);
+>    *a = foo;
+>    *b = bar;
+>    spin_unlock(&bleh);
+> }
+> 
+> cpu2()
+> {
+>    if (*b = bar)
+>       boink(*a);
+> }
+> 
+> With our weak memory ordering, b might have been written back to memory
+> while a still hasn't made it out. Or am I missing something here?
 
-    IOC: sx1000 0.1 HPA 0xf8120002000 IOVA space 1024Mb at 0x80000000
+I think IA64 is ok.
 
-instead of
+spinlock_t defines "lock" as volatile. On IA64, all references to volatile are required
+to use loads/stores with acquire/release semantics. gcc ensures this.
 
-    IOC: Unknown (103c:127c) 0.1 HPA 0xf8120002000 IOVA space 1024Mb at 0x80000000
+The barrier() statement prevents compiler optimizations. The st.rel [lock]=0
+clears the lock. The "st.rel" ensure that all previously issued stores have reached
+visibilty in the coherency domain before the lock is cleared.
 
-Bjorn
+
+> 
+> The question is, shouldn't our spin_unlock() implementation call wmb()
+> instead of barrier()? I noticed Alpha calls mb() in their spin_unlock()
+> implementation.
+> 
+> Cheers,
+> Jes
+> 
 
 
-diff -u -ur linux-2.5.67-ia64-030416-io4/arch/ia64/hp/common/sba_iommu.c linux-2.5.67-ia64-030416-io5/arch/ia64/hp/common/sba_iommu.c
---- linux-2.5.67-ia64-030416-io4/arch/ia64/hp/common/sba_iommu.c	2003-04-24 10:10:58.000000000 -0600
-+++ linux-2.5.67-ia64-030416-io5/arch/ia64/hp/common/sba_iommu.c	2003-04-24 16:29:11.000000000 -0600
-@@ -134,6 +134,7 @@
- 
- #define ZX1_IOC_ID	((PCI_DEVICE_ID_HP_ZX1_IOC << 16) | PCI_VENDOR_ID_HP)
- #define REO_IOC_ID	((PCI_DEVICE_ID_HP_REO_IOC << 16) | PCI_VENDOR_ID_HP)
-+#define SX1000_IOC_ID	((PCI_DEVICE_ID_HP_SX1000_IOC << 16) | PCI_VENDOR_ID_HP)
- 
- #define ZX1_IOC_OFFSET	0x1000	/* ACPI reports SBA, we want IOC */
- 
-@@ -1651,6 +1652,7 @@
- static struct ioc_iommu ioc_iommu_info[] __initdata = {
- 	{ ZX1_IOC_ID, "zx1", ioc_zx1_init },
- 	{ REO_IOC_ID, "REO" },
-+	{ SX1000_IOC_ID, "sx1000" },
- };
- 
- static struct ioc * __init
-diff -u -ur linux-2.5.67-ia64-030416-io4/include/linux/pci_ids.h linux-2.5.67-ia64-030416-io5/include/linux/pci_ids.h
---- linux-2.5.67-ia64-030416-io4/include/linux/pci_ids.h	2003-04-24 10:10:58.000000000 -0600
-+++ linux-2.5.67-ia64-030416-io5/include/linux/pci_ids.h	2003-04-24 16:30:23.000000000 -0600
-@@ -606,6 +606,7 @@
- #define PCI_DEVICE_ID_HP_ZX1_SBA	0x1229
- #define PCI_DEVICE_ID_HP_ZX1_IOC	0x122a
- #define PCI_DEVICE_ID_HP_ZX1_LBA	0x122e
-+#define PCI_DEVICE_ID_HP_SX1000_IOC	0x127c
- #define PCI_DEVICE_ID_HP_DIVA_EVEREST	0x1282
- #define PCI_DEVICE_ID_HP_DIVA_AUX	0x1290
- 
+-- 
+Thanks
+
+Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
 
 
