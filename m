@@ -1,28 +1,29 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 02 Apr 2002 07:52:17 +0000
+From: Gwenole Beauchesne <gbeauchesne@mandrakesoft.com>
+Date: Tue, 02 Apr 2002 08:29:28 +0000
 Subject: Re: [Linux-ia64] Basic Advice Needed
-Message-Id: <marc-linux-ia64-105590701905360@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905361@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905348@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905348@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jeremy Fox <jerfox@Stanford.EDU> writes:
+Hi,
 
-|> As someone pointed out, the network and SCSI adapters may be causing
-|> problems. It has an Adaptec Ultra160 dual channel SCSI card for
-|> example, which definitely seems nonstandard.
+>  Thanks for the link. RedHat ia64 seems to be open source as long as
+>  you are willling to open your wallet for $495. Seriously you can
+>  download the individual files but not isos and the seller wasn't able
+>  to make bootable CDs properly.
 
-Passing "swiotlb@96" to the kernel might make it more stable.
+You mean that you could not boot off the CD from the EFI shell? Anyhow, if 
+you have an ls120, you still have the option to make a boot disk and make a 
+net install from one their FTP mirrors.
 
-Andreas.
+Besides, there are also ISOs available for Mandrake Linux 8.1, OpenLinux 3.0 
+(Caldera?) and SuSE Linux 7.2.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE GmbH, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Bye,
+Gwenole
 
