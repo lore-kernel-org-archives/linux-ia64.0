@@ -1,47 +1,48 @@
-From: Paul Mackerras <paulus@samba.org>
-Date: Thu, 03 Mar 2005 05:00:10 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Thu, 03 Mar 2005 05:17:01 +0000
 Subject: Re: Page fault scalability patch V18: Drop first acquisition of ptl
-Message-Id: <16934.39386.686708.768378@cargo.ozlabs.ibm.com>
+Message-Id: <Pine.LNX.4.58.0503022110280.4083@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0503011947001.25441@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0503011951100.25441@schroedinger.engr.sgi.com>
-	<20050302174507.7991af94.akpm@osdl.org>
-	<Pine.LNX.4.58.0503021803510.3080@schroedinger.engr.sgi.com>
-	<20050302185508.4cd2f618.akpm@osdl.org>
-	<Pine.LNX.4.58.0503021856380.3365@schroedinger.engr.sgi.com>
-	<20050302201425.2b994195.akpm@osdl.org>
-In-Reply-To: <20050302201425.2b994195.akpm@osdl.org>
+ <Pine.LNX.4.58.0503011951100.25441@schroedinger.engr.sgi.com>
+ <20050302174507.7991af94.akpm@osdl.org> <Pine.LNX.4.58.0503021803510.3080@schroedinger.engr.sgi.com>
+ <20050302185508.4cd2f618.akpm@osdl.org> <Pine.LNX.4.58.0503021856380.3365@schroedinger.engr.sgi.com>
+ <20050302201425.2b994195.akpm@osdl.org> <Pine.LNX.4.58.0503022021150.3816@schroedinger.engr.sgi.com>
+ <20050302205612.451d220b.akpm@osdl.org>
+In-Reply-To: <20050302205612.451d220b.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@osdl.org>
-Cc: Christoph Lameter <clameter@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, benh@kernel.crashing.org, anton@samba.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Andrew Morton writes:
+On Wed, 2 Mar 2005, Andrew Morton wrote:
 
-> But if the approach which these patches take is not suitable for these
-> architectures then they have no solution to the scalability problem.  The
-> machines will perform suboptimally and more (perhaps conflicting)
-> development will be needed.
+> Have the ppc64 and sparc64 people reviewed and acked the change?  (Not a
+> facetious question - I just haven't been following the saga sufficiently
+> closely to remember).
 
-We can do a pte_cmpxchg on ppc64.  We already have a busy bit in the
-PTE and do most operations atomically, in order to ensure that we
-don't get races or inconsistencies due to accesses to the PTE by the
-low-level hash_page() routine (which instantiates a hardware PTE in
-the hardware hash table based on a Linux PTE), because it already
-accesses the linux page tables without taking the mm->page_table_lock.
+There should be no change to these arches
 
-However, there are other developments we are considering in this area:
-notably Ben wants to change things so that when we invalidate a Linux
-PTE we leave it busy until we actually remove the hardware PTE from
-the hash table.  Also we are looking forward to DaveM's patch which
-will change the generic MM code to give us the mm and address on all
-PTE operations, which will simplify some things for us.  I don't
-really want to have to think about pte_cmpxchg until those other
-things are sorted out.
+> > Because if a pte is locked it should not be used.
+>
+> Confused.  Why not just spin on the lock in the normal manner?
 
-More generally, I would be interested to know what sorts of
-applications or benchmarks show scalability problems on large machines
-due to contention on mm->page_table_lock.
+I thought you wanted to lock the pte? This is realized through a lock bit
+in the pte. If that lock bit is set one should not use the pte. Otherwise
+the lock is bypassed. Or are you proposing a write lock only?
 
-Paul.
+> If the other relvant architecture people say "we can use this" then perhaps
+> we should grin and bear it.  But one does wonder whether some more sweeping
+> design change is needed.
+
+Could we at least get the first two patches in? I can then gradually
+address the other issues piece by piece.
+
+The necessary more sweeping design change can be found at
+
+http://marc.theaimsgroup.com/?l=linux-kernel&m0922543030922&w=2
+
+but these may be a long way off. These patches address an urgent issue
+that we have with higher CPU counts for a long time and the method used
+here has been used for years in our ProPack line.
