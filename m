@@ -1,18 +1,25 @@
 From: Andreas Schwab <schwab@suse.de>
-Date: Mon, 05 Jan 2004 18:50:02 +0000
-Subject: Cleanup EXPORT_SYMBOL usage
-Message-Id: <jer7yemdr9.fsf@sykes.suse.de>
+Date: Mon, 05 Jan 2004 19:44:37 +0000
+Subject: Re: Cleanup EXPORT_SYMBOL usage
+Message-Id: <jeekuemb8a.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <jer7yemdr9.fsf@sykes.suse.de>
+In-Reply-To: <jer7yemdr9.fsf@sykes.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-This cleans up the use of EXPORT_SYMBOL in ia64_ksyms.c by moving most of
-them to the place where the symbol is defined.  Ideally, only symbols
-defined in assembler sources should remain here, but there are some cases
-where an EXPORT_SYMBOL is missing outside the arch/ia64 tree.  I did not
-change them for now.  Also, EXPORT_SYMBOL_NOVERS is obsolete.
+Andreas Schwab <schwab@suse.de> writes:
+
+> This cleans up the use of EXPORT_SYMBOL in ia64_ksyms.c by moving most of
+> them to the place where the symbol is defined.  Ideally, only symbols
+> defined in assembler sources should remain here, but there are some cases
+> where an EXPORT_SYMBOL is missing outside the arch/ia64 tree.  I did not
+> change them for now.  Also, EXPORT_SYMBOL_NOVERS is obsolete.
+
+There was a compilation failure for certain configurations, here is a new
+patch.
 
 Andreas.
 
@@ -124,8 +131,8 @@ Andreas.
  EXPORT_SYMBOL(clear_page);
 =20
  #ifdef CONFIG_VIRTUAL_MEM_MAP
--#include <linux/bootmem.h>
- #include <asm/pgtable.h>
+ #include <linux/bootmem.h>
+-#include <asm/pgtable.h>
 -EXPORT_SYMBOL(vmalloc_end);
 -EXPORT_SYMBOL(ia64_pfn_valid);
  EXPORT_SYMBOL(max_low_pfn);	/* defined by bootmem.c, but not exported by g=
