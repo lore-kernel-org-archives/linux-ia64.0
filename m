@@ -1,27 +1,21 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Tue, 09 Sep 2003 12:39:22 +0000
-Subject: Re: [patch] sn2 dma_mask fix
-Message-Id: <marc-linux-ia64-106311117914652@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 08 Sep 2003 18:17:30 +0000
+Subject: Re: [patch] remove unused sn2 header files
+Message-Id: <marc-linux-ia64-106304523718787@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106308461923543@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106308461923543@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
+  Jes> [resent - this time to the correct server - I hope]
 
-On Mon, Sep 08, 2003 at 10:38:09PM -0400, Jes Sorensen wrote:
-> Hi David,
-> 
-> Here's a pretty trivial one fixing the SN2 code to set the DMA mask
-> correctly when using the dma_ API.
-> 
+For what it's worth, I got three copies of this mail. ;-)
 
-Jesse already sent this one.
+  Jes> This patch eliminates two unused SN2 header files:
+  Jes> include/asm-ia64/sn/klclock.h and include/asm-ia64/sn/ioc3.h.
 
-mh
+Applied, thanks.
 
--- 
-Wild Open Source Inc.                  mort@wildopensource.com
+	--david
