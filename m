@@ -1,7 +1,7 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Wed, 17 Oct 2001 15:00:09 +0000
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Date: Wed, 17 Oct 2001 15:29:43 +0000
 Subject: [Linux-ia64] Re: console_loglevel is broken on ia64
-Message-Id: <marc-linux-ia64-105590698805360@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805361@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805358@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805358@msgid-missing>
@@ -10,7 +10,8 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 17 Oct 2001, Keith Owens wrote:
+Keith Owens wrote:
+> 
 > kernel/printk.c has this abomination.
 > 
 > /* Keep together for sysctl support */
@@ -23,7 +24,7 @@ On Wed, 17 Oct 2001, Keith Owens wrote:
 > don't on ia64, console_loglevel is separate from the other variables.
 > 
 >   echo 6 4 1 7 > /proc/sys/kernel/printk
->   
+> 
 > on ia64 overwrites console_loglevel and the next 3 integers, whatever
 > they happen to be.  On 2.4.12 it corrupts console_sem, other ia64
 > kernels will corrupt different data.
@@ -34,37 +35,10 @@ On Wed, 17 Oct 2001, Keith Owens wrote:
 > have to be changed to refer to the corresponding array element.  That
 > should be as simple as
 
-This is not the only problem related to sysctl. We still have
+Yep.  I asked someone to clean this up about
+3 weeks ago, and he said that he would do so, but....?
 
-    {KERN_REALROOTDEV, "real-root-dev", &real_root_dev, sizeof(int)
+So Jesper or someone else should jump on it.
 
-in kernel/sysctl.c, with
-
-    kdev_t real_root_dev;
-
-in init/main.c,
-
-    extern kdev_t real_root_dev;
-    
-in drivers/block/rd.c, and
-
-    typedef unsigned short kdev_t;
-    
-in <linux/kdev_t.h>. Kaboom on big endian boxes, escpecially if the alignment
-rules are 2-bytes, like on m68k.
-
-In the m68k tree we have (since ages) a patch to change real_root_dev to int
-and add some casts. Patch available upon request.
-
-Gr{oetje,eeting}s,
-
-						Geert
-
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
-
+~Randy
 
