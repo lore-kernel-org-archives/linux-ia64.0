@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Wed, 16 Aug 2000 03:00:43 +0000
+From: Uros Prestor <uros@turbolinux.com>
+Date: Wed, 16 Aug 2000 03:20:04 +0000
 Subject: Re: [Linux-ia64] [PATCH] fix for modules_install
-Message-Id: <marc-linux-ia64-105590678205331@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205332@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205329@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205329@msgid-missing>
@@ -10,14 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 15 Aug 2000 16:43:39 -0700, 
-Uros Prestor <uros@turbolinux.com> wrote:
->This trivial patch against 2.4.0-test6 + 000812 fixes a problem with
->modules_install target.
->
->-.PHONY: all modules
->+.PHONY: all modules modules_install
+Keith Owens wrote:
 
-What problem does it fix?
+> On Tue, 15 Aug 2000 16:43:39 -0700,
+> Uros Prestor <uros@turbolinux.com> wrote:
+> >This trivial patch against 2.4.0-test6 + 000812 fixes a problem with
+> >modules_install target.
+> >
+> >-.PHONY: all modules
+> >+.PHONY: all modules modules_install
+>
+> What problem does it fix?
+
+File arch/ia64/tools/Makefile didn't have a target modules_install so
+`make modules_install' returned an error.  This patch adds a phony
+target which does nothing.
+
+Uros
+
+--
+Uros Prestor
+uros@turbolinux.com
+
+
 
 
