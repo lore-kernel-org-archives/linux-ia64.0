@@ -1,38 +1,41 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 18 Jul 2001 21:32:26 +0000
-Subject: Re: [Linux-ia64] atomic add instruction
-Message-Id: <marc-linux-ia64-105590693005853@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Tue, 10 Jul 2001 14:42:27 +0000
+Subject: [Linux-ia64] Red Hat Linux 7.1 for Itanium now available
+Message-Id: <marc-linux-ia64-105590693005835@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005852@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005852@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There are compiler intrinisics for this purpose.  See the IA-64
-processor-specific ABI for a description.  You have to include
-<ia64intrin.h> to get the intrinsics defined.
+Red Hat is proud to announce the availability of Red Hat Linux
+7.1 for Itanium.
 
-	--david
+You can get this release from:
 
->>>>> On Tue, 17 Jul 2001 15:09:46 -0700, "Swaminathan Sivasubramanian" <ssivasu@us.ibm.com> said:
+ ftp://ftp.redhat.com/pub/redhat/linux/7.1/en/os/ia64
+ 
+It is also available on the following mirror sites:
 
-  Swami> Hello Everyone,
+ftp://linux.nssl.noaa.gov/pub/linux/
+ftp://ftp.tu-chemnitz.de/pub/linux/redhat-ftp/
+ftp://ftp.uvsq.fr/pub/redhat/
+ftp://ftp.cse.buffalo.edu/pub/Linux/redhat/
+ftp://ftp.free.fr/mirrors/ftp.redhat.com/redhat/
+ftp://rpmfind.net/linux/7/redhat/
+ftp://ftp.webtrek.com/pub/mirrors/redhat/
 
-  Swami> I want an atomic function that does addition of a constant to
-  Swami> the value in a memory location and returns the previous value
-  Swami> in that location.
+This release includes the 2.4.3 kernel, and more.
 
-  Swami>  Is there any macro/function defined in IA-64's atomic.h
-  Swami> already. (will fetch-and-add solve the purpose?) or one
-  Swami> should write his own function for it
+Please see the attached RELEASE-NOTES file for more information
+about this release, and the README included in the distribution
+for installation instructions.
 
-  Swami> Thanking in advance, Swami
+There is a mailing list you can join for discussion of this Red Hat
+Linux release on ia64; to subscribe, send mail to
+ia64-list-request@redhat.com with
+    
+  subscribe
 
-
-
-  Swami> _______________________________________________ Linux-IA64
-  Swami> mailing list Linux-IA64@linuxia64.org
-  Swami> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+in the subject line. You can leave the body empty.
 
