@@ -1,27 +1,30 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 04 Jul 2002 08:03:50 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 08 Jul 2002 18:31:04 +0000
 Subject: Re: [Linux-ia64] [patch] kdb-v2.1-2.4.18-ia64-usb-keyboard
-Message-Id: <marc-linux-ia64-105590701905737@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905739@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905735@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905735@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Sebastien Lelarge <Sebastien.Lelarge@bull.net> writes:
+>>>>> On Thu, 04 Jul 2002 10:03:50 +0200, Andreas Schwab <schwab@suse.de> said:
 
-|> Notice that you won't be able to use your USB Keyboard before USB
-|> subsystem is started. But it's a solution to debug a system running.
+  Andreas> Sebastien Lelarge <Sebastien.Lelarge@bull.net> writes:
 
-Another solution is to use a serial console.
+  Sebastien> Notice that you won't be able to use your USB Keyboard
+  Sebastien> before USB is started. But it's a solution to
+  Sebastien> debug a system running.
 
-Andreas.
+  Andreas> Another solution is to use a serial console.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+The hp zx1-based machines are legacy-free, so there is no old-fashion
+serial port.  Instead, the serial ports can be found via ACPI.  In the
+current machines, they're in memory-mapped I/O space.  I have a kdb
+patch to support this and will send it out soon (it needs a bit of
+cleaning up).
+
+	--david
 
