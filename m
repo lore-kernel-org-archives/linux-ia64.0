@@ -1,32 +1,28 @@
-From: Bruno Cornec <Bruno.Cornec@hp.com>
-Date: Mon, 31 Mar 2003 17:43:59 +0000
-Subject: Re: [Linux-ia64] IA64 Distributions
-Message-Id: <marc-linux-ia64-105590723705413@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Fri, 07 Mar 2003 23:35:58 +0000
+Subject: Re: [Linux-ia64] sigaltstack and RBS
+Message-Id: <marc-linux-ia64-105590709806007@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705322@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705322@msgid-missing>
+References: <marc-linux-ia64-105590709805824@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805824@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Brent Clements (bclem@rice.edu) said:
->=20
-> Does anyone know of a list of Freely available ia64 based distributions
-> besides debian?
+On Monday 10 February 2003 8:06 pm, David Mosberger wrote:
+> >>>>> On Sun, 9 Feb 2003 16:19:20 +1100, Matt Chapman <matthewc@cse.unsw.edu.au> said:
+> 
+>   Matt> I'm having some difficulty "demand paging" register backing
+>   Matt> store from userspace (i.e. using SIGSEGV to map pages in on
+>   Matt> demand).
+> 
+> OK, I looked into this.  The patch below should fix the problem.
+> Bjorn, you might want to consider applying the same patch for 2.4.xx
+> (with some extra testing).
 
-MandrakeSoft is finalizing his port (based on 9.0) and should announce it
-RSN.
+I applied this patch to 2.4.
 
-Best regards,
-Bruno.
---=20
-Linux Solution Consultant         T=E9l: +33 476 143 278 - Fax: +33 476 146=
- 105
-HP/Intel Solution Center http://hpintelco.net Hewlett-Packard Grenoble/Fran=
-ce
-Des infos sur Linux?  http://www.HyPer-Linux.org      http://www.hp.com/lin=
-ux
-La musique ancienne?  http://www.musique-ancienne.org http://www.medieval.o=
-rg
+Bjorn
+
 
