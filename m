@@ -1,99 +1,65 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 01 Jun 2004 15:59:52 +0000
-Subject: Re: [PATCH]  Reduce TLB flushing during process migration
-Message-Id: <20040601155952.GA2491@sgi.com>
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 30 Jun 2004 19:21:43 +0000
+Subject: Linker bug in Debian unstable?
+Message-Id: <20040630192143.GE30334@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040522121159.GB19454@sgi.com>
-In-Reply-To: <20040522121159.GB19454@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-> > 
-> > But I don't understand why your patch adds two flush_tlb_mm() calls into
-> > sched.c on ia32 where there previously was no such call.
-> 
-> I thought I had a good reason. Let me check & make sure I didnt overlook
-> something. I'll get back to you.....
-> 
 
-You are right - the second call is not needed. I wanted to clear
-cpu_vm_mask after an exec migration. That is not required because
-exec calls init_new_context() shortly after the migrate anyway.
+GNU ld version 2.14.90.0.7 20031029 Debian GNU/Linux
 
+Here's the snippet of code (from libgnome-2.6.1-5):
 
+GnomeProgram *
+gnome_program_init (const char *app_id, const char *app_version,
+                    const GnomeModuleInfo *module_info,
+                    int argc, char **argv,
+                    const char *first_property_name, ...)
+{
+    GnomeProgram *program;
+    va_list args;
 
-However, I found an unrelated issue.
-It looks like the call to sched_balance_exec() from do_execve()
-is in the wrong spot.
+    g_type_init ();
 
+    va_start(args, first_property_name);
+    program =3D gnome_program_initv (GNOME_TYPE_PROGRAM,
+                                   app_id, app_version, module_info,
+                                   argc, argv, first_property_name, args);
+    va_end(args);
 
-	int do_execve(char * filename,
-        	char __user *__user *argv,
-        	char __user *__user *envp,
-        	struct pt_regs * regs)
-	{
-        	struct linux_binprm bprm;
-        	struct file *file;
-        	int retval;
-        	int i;
-	
-        	sched_balance_exec();
-	
-        	file = open_exec(filename);
-	
-        	retval = PTR_ERR(file);
-        	if (IS_ERR(file))
-                	return retval;
-	
-        	bprm.p = PAGE_SIZE*MAX_ARG_PAGES-sizeof(void *);
-		...
+    return program;
+}
 
+objdump -dr gnome-program.o gives:
 
+    ac40:       1c 00 94 1c 98 11       [MFB]       st8 [r14]=3Dr37
+                        ac42: PCREL21B  g_type_init
+    ac46:       00 00 00 02 00 00                   nop.f 0x0
+    ac4c:       08 00 00 50                         br.call.sptk.many b0=AC=
+40 <g
+nome_program_init+0x90>
 
-The code calls sched_balance_exec() before determining whether "filename"
-actually exists. 
+But objdump -dr .libs/libgnome-2.so.0.601.0:
 
-In many cases, users have several entries in $PATH.
-If a full path name is not specified on the 'exec" call, the library 
-code iterates thru the files in the PATH list until it finds the program. This
-can result is numerous migrations of the parent process before
-the program is actually found.
+   25750:       1c 00 94 1c 98 11       [MFB]       st8 [r14]=3Dr37
+   25756:       00 00 00 02 00 00                   nop.f 0x0
+   2575c:       08 00 00 50                         br.call.sptk.many b0%75=
+0 <
+gnome_program_init+0x90>
 
+The reloc has gone, but presumably it should still be there as g_type_init()
+is part of glib-2.0.
 
-Shouldn't the call to sched_balance_exec() be moved to just before "bprm...."
-or am I overlooking something?
+NB: This problem currently prevents mozilla from running.  Probably other
+gnome apps too ...
 
-
-
-
---- linuxbase/fs/exec.c	2004-05-21 20:47:27.000000000 -0500
-+++ linux/fs/exec.c	2004-06-01 10:46:35.000000000 -0500
-@@ -1083,14 +1083,14 @@
- 	int retval;
- 	int i;
- 
--	sched_balance_exec();
--
- 	file = open_exec(filename);
- 
- 	retval = PTR_ERR(file);
- 	if (IS_ERR(file))
- 		return retval;
- 
-+	sched_balance_exec();
-+
- 	bprm.p = PAGE_SIZE*MAX_ARG_PAGES-sizeof(void *);
- 	memset(bprm.page, 0, MAX_ARG_PAGES*sizeof(bprm.page[0]));
- 
-
-
-
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
-
+--=20
+"Next the statesmen will invent cheap lies, putting the blame upon=20
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince=20
+himself that the war is just, and will thank God for the better sleep=20
+he enjoys after this process of grotesque self-deception." -- Mark Twain
