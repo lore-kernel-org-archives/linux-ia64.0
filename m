@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 08 Feb 2005 18:42:42 +0000
-Subject: RE: [patch 2.6.11-rc3-bk4] Correctly dereference ia64_mca_data
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02DFB1D1@scsmsx401.amr.corp.intel.com>
+From: Robin Holt <holt@sgi.com>
+Date: Tue, 08 Feb 2005 19:35:20 +0000
+Subject: Re: [patch 2.6.11-rc3-bk4] Correctly dereference ia64_mca_data
+Message-Id: <20050208193520.GA17807@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <23464.1107851114@kao2.melbourne.sgi.com>
 In-Reply-To: <23464.1107851114@kao2.melbourne.sgi.com>
@@ -10,10 +10,9 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->I assume you already checked that I didn't introduce any other stupid
->dereferencing bugs?  I'd do it myself, but I'm still catching up with
->my email backlog...
+> Russ: Any detail on why the system died?
 
-I haven't spotted any others yet.  Still looking.
+Russ is out in the woods for the next couple days.  He should be
+back on Thursday.
 
--Tony
+Robin
