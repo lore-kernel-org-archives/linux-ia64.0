@@ -1,18 +1,24 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Thu, 14 Mar 2002 23:46:04 +0000
-Subject: [Linux-ia64] compiler version for kernel builds
-Message-Id: <marc-linux-ia64-105590701905289@msgid-missing>
+From: humbert kashtan <alison@phayze.com>
+Date: Sun, 07 Apr 2002 08:49:17 +0000
+Subject: I fonud the rihgt prorgam for you
+Message-Id: <0cea01c1de11$93ddd0b5$63a10730@phayze.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David, which compiler version do you use for kernel builds these days?
-Also, is there a document somewhere that describes building that
-version as a cross compiler?  Last time I tried building 3.0.2 as an
-x86 hosted ia64 cross compiler, I ran into some trouble.
+Hi pal,
+how are you?
+I think I found a great opportunity to make money online, would like to share it with you.
+Just check out this site, http://www.incotrust.com - they're paying 5% daily on your investment, can you imagine?
+First i was a  bit sceptical, but it works! I more than tripled my investment now. They accept e-gold or e-bullion.
+Just use my referral link http://incotrust.com?ref%13451
+Best,
+stay in touch
 
-Thanks,
-Jesse
+Tom
 
+
+
+djej
