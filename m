@@ -1,7 +1,7 @@
-From: Arjan van de Ven <arjanv@redhat.com>
-Date: Mon, 03 Dec 2001 21:53:42 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 04 Dec 2001 18:14:44 +0000
 Subject: Re: [Linux-ia64] patch to no longer use ia64's software mmu
-Message-Id: <marc-linux-ia64-105590698805589@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805596@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805585@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805585@msgid-missing>
@@ -10,26 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Dec 03, 2001 at 01:47:41PM -0800, David Mosberger wrote:
+>>>>> On Tue, 4 Dec 2001 18:19:55 +0000 (GMT), Alan Cox <alan@lxorguk.ukuu.org.uk> said:
 
-> How soon will Jens' patch make it into the official tree?  I think
-> that would be a pre-requisite before switching to a highmem based
-> implementation.
+  Alan> I don't see the need: GFP_DMA is the ISA DMA zone. pci_* API
+  Alan> is used by everyone else [for 2.5].
+  >>  Without a 4GB zone, you may end up creating bounce buffers
+  >> needlessly for 32-bit capable DMA devices, no?
 
-I understood (and hope) "soon". 
+  Alan> Yes - but it becomes an implementation detail. Drivers don't
+  Alan> go around asking for kmalloc in 4Gb zone anymore they ask for
+  Alan> PCI memory that a 32bit pci address can hit. I'm sure a 4Gb
+  Alan> zone is what will be there internally but you don't need
+  Alan> GFP_4GBZONE as a visible driver detail.
 
-> Another concern I have is that, fundamentally, I dislike the idea of
-> penalizing all IA-64 platforms due to one chipset that is, shall we
-> say, "lacking" (i.e., doesn't have an I/O TLB).
+Oh, OK, we're in agreement then.  When I looked at the zone stuff the
+last time, I didn't think you could have an internal 4GB zone without
+abusing an existing zone making some changes to the header files in
+linux/*.h, but perhaps I missed something.
 
-I think some of it (if not all) can be abstracted in the machine vectors;
-setting CONFIG_HIGHMEM doesn't hurt anything; the only important part is
-where you put > 4Gb memory, eg in the NORMAL or HIGH zone. That choice,
-while hardcoded in my patch, can obviously be made at runtime based on
-capabilities of the machine... (the remaining overhead due to 
-kmap is (almost) zero already as the compiler will basically optimize 
-the inline away as it's a nop in the context of the users)
-
-Greetings,
-   Arjan van de Ven
+	--david
 
