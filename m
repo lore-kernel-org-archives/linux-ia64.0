@@ -1,7 +1,7 @@
-From: Tim Riker <TimR@CalderaSystems.com>
-Date: Tue, 08 Feb 2000 19:31:50 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 08 Feb 2000 20:06:53 +0000
 Subject: Re: [Linux-ia64] booting? or is this list dead? ;-)
-Message-Id: <marc-linux-ia64-105590678204921@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678204922@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678204916@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678204916@msgid-missing>
@@ -10,49 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Whimper....
+>>>>> On Tue, 08 Feb 2000 12:31:50 -0700, Tim Riker <TimR@CalderaSystems.com> said:
 
-Thank you, thank you, thank you! for putting together this CD! This is a
-huge step forward! I didn't mean to be ungrateful at all, I was just
-making suggestions. I am VERY pleased with the CD. I am also willing to
-help in any way I can. I'll be at IDF next week. Hope to meet some of
-you folks there.
+  Tim> I was just making suggestions.
 
-An the other hand, feel free to rant if helps. ;-)
+As far as CD-RW and DVD read capability goes: I have no idea if it
+does.  Not something I can test easily.
 
-David Mosberger wrote:
-> 
-> >>>>> On Tue, 08 Feb 2000 12:06:16 -0700, Tim Riker <TimR@CalderaSystems.com> said:
-> 
->   Tim> Doesn't the included CD read CD-RW, or at least CD-R? Couln't
->   Tim> you have tested with one of those? That's what we do here and
->   Tim> then we ship the CD-R to mastering.
-> 
-> <RANT>
-> 
-> Gee, could just _someone_ at least consider saying thanks for having a
-> bootable CD in the first place?
-> 
-> I'm getting a little tired of hearing all sorts of complaints about
-> not having a perfect CD.  If I hadn't worked all night Thursday/Friday
-> before LWE and Mike Balma and Lorraine Bartlett hadn't pulled all
-> kinds of strings at HP with the CD manufacturing, we would not have a
-> CD at all and you'd be struggling with boot floppies instead.
-> 
-> </RANT>.
-> 
-> Wow, I feel so much better now. ;-)
-> 
->         --david
-> 
-> _______________________________________________
-> Linux-ia64 mailing list
-> Linux-ia64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+  Tim> An the other hand, feel free to rant if helps. ;-)
 
--- 
-Tim Riker - http://rikers.org/ - short SIGs! <g>
-All I need to know I could have learned in Kindergarten
-... if I'd just been paying attention.
+Yep, it did! ;-)
+
+On a related note: I actually had to hack mkisofs to make it possible to
+install an El-Torito image bigger than 2.88MB.  I'm sure I didn't do it
+entirely correctly, so this is something that should be looked into.
+
+Also, if you use a recent mkisofs, no hacking will be necessary.
+Instead, there is now an option that let's you write "harddisk"-typed
+boot images (sorry, I forgot the option name, but you'll find it by
+searching for El Torito in the cdrecord man page).  This will take
+some fiddling and experimenting to get right, I assume.
+
+	--david
 
 
