@@ -1,39 +1,145 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Sun, 19 Dec 2004 05:24:53 +0000
-Subject: [PATCH] Perfmon over-initialises its inodes
-Message-Id: <20041219052453.GC7113@parcelfarce.linux.theplanet.co.uk>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Thu, 23 Dec 2004 19:35:36 +0000
+Subject: Prezeroing V2 [4/4]: Hardware Zeroing through SGI BTE
+Message-Id: <Pine.LNX.4.58.0412231135000.31791@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
+ <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org, linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
 
+o Zeroing driver implemented with the Block Transfer Engine in the Altix SN2 SHub
 
-i_sb and i_sock are both initialised by alloc_inode().
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+Index: linux-2.6.9/arch/ia64/sn/kernel/bte.c
+=================================--- linux-2.6.9.orig/arch/ia64/sn/kernel/bte.c	2004-12-17 14:40:10.000000000 -0800
++++ linux-2.6.9/arch/ia64/sn/kernel/bte.c	2004-12-22 12:48:23.000000000 -0800
+@@ -4,6 +4,8 @@
+  * for more details.
+  *
+  * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
++ *
++ * Support for zeroing pages, Christoph Lameter, SGI, December 2004.
+  */
 
-Index: linux/arch/ia64/kernel/perfmon.c
-=================================RCS file: /var/cvs/linux-2.6/arch/ia64/kernel/perfmon.c,v
-retrieving revision 1.20
-diff -u -p -r1.20 perfmon.c
---- linux/arch/ia64/kernel/perfmon.c	4 Dec 2004 07:02:04 -0000	1.20
-+++ linux/arch/ia64/kernel/perfmon.c	19 Dec 2004 05:22:28 -0000
-@@ -2160,9 +2160,7 @@ pfm_alloc_fd(struct file **cfile)
- 
- 	DPRINT(("new inode ino=%ld @%p\n", inode->i_ino, inode));
- 
--	inode->i_sb   = pfmfs_mnt->mnt_sb;
- 	inode->i_mode = S_IFCHR|S_IRUGO;
--	inode->i_sock = 0;
- 	inode->i_uid  = current->fsuid;
- 	inode->i_gid  = current->fsgid;
- 
+ #include <linux/config.h>
+@@ -20,6 +22,8 @@
+ #include <linux/bootmem.h>
+ #include <linux/string.h>
+ #include <linux/sched.h>
++#include <linux/mm.h>
++#include <linux/scrub.h>
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+ #include <asm/sn/bte.h>
+
+@@ -30,7 +34,7 @@
+ /* two interfaces on two btes */
+ #define MAX_INTERFACES_TO_TRY		4
+
+-static struct bteinfo_s *bte_if_on_node(nasid_t nasid, int interface)
++static inline struct bteinfo_s *bte_if_on_node(nasid_t nasid, int interface)
+ {
+ 	nodepda_t *tmp_nodepda;
+
+@@ -132,7 +136,6 @@
+ 			if (bte = NULL) {
+ 				continue;
+ 			}
+-
+ 			if (spin_trylock(&bte->spinlock)) {
+ 				if (!(*bte->most_rcnt_na & BTE_WORD_AVAILABLE) ||
+ 				    (BTE_LNSTAT_LOAD(bte) & BTE_ACTIVE)) {
+@@ -157,7 +160,7 @@
+ 		}
+ 	} while (1);
+
+-	if (notification = NULL) {
++	if (notification = NULL || (mode & BTE_NOTIFY_AND_GET_POINTER)) {
+ 		/* User does not want to be notified. */
+ 		bte->most_rcnt_na = &bte->notify;
+ 	} else {
+@@ -192,6 +195,8 @@
+
+ 	itc_end = ia64_get_itc() + (40000000 * local_cpu_data->cyc_per_usec);
+
++	if (mode & BTE_NOTIFY_AND_GET_POINTER)
++		 *(u64 volatile **)(notification) = &bte->notify;
+ 	spin_unlock_irqrestore(&bte->spinlock, irq_flags);
+
+ 	if (notification != NULL) {
+@@ -449,5 +454,37 @@
+ 		mynodepda->bte_if[i].cleanup_active = 0;
+ 		mynodepda->bte_if[i].bh_error = 0;
+ 	}
++}
++
++u64 *bte_zero_notify[MAX_COMPACT_NODES];
++
++static int bte_check_bzero(void)
++{
++	int node = get_nasid();
++
++	return *(bte_zero_notify[node]) != BTE_WORD_BUSY;
++}
++
++static int bte_start_bzero(void *p, unsigned long len)
++{
++	int node = get_nasid();
++
++	/* Check limitations.
++		1. System must be running (weird things happen during bootup)
++		2. Size >64KB. Smaller requests cause too much bte traffic
++	 */
++	if (len >= BTE_MAX_XFER || len < 60000 || system_state != SYSTEM_RUNNING)
++		return EINVAL;
++
++	return bte_zero(ia64_tpa(p), len, BTE_NOTIFY_AND_GET_POINTER, bte_zero_notify+node);
++}
++
++static struct zero_driver bte_bzero = {
++	.start = bte_start_bzero,
++	.check = bte_check_bzero,
++	.rate = 500000000		/* 500 MB /sec */
++};
+
++void sn_bte_bzero_init(void) {
++	register_zero_driver(&bte_bzero);
+ }
+Index: linux-2.6.9/arch/ia64/sn/kernel/setup.c
+=================================--- linux-2.6.9.orig/arch/ia64/sn/kernel/setup.c	2004-12-17 14:40:10.000000000 -0800
++++ linux-2.6.9/arch/ia64/sn/kernel/setup.c	2004-12-22 12:28:00.000000000 -0800
+@@ -243,6 +243,7 @@
+ 	int pxm;
+ 	int major = sn_sal_rev_major(), minor = sn_sal_rev_minor();
+ 	extern void sn_cpu_init(void);
++	extern void sn_bte_bzero_init(void);
+
+ 	/*
+ 	 * If the generic code has enabled vga console support - lets
+@@ -333,6 +334,7 @@
+ 	screen_info = sn_screen_info;
+
+ 	sn_timer_init();
++	sn_bte_bzero_init();
+ }
+
+ /**
+Index: linux-2.6.9/include/asm-ia64/sn/bte.h
+=================================--- linux-2.6.9.orig/include/asm-ia64/sn/bte.h	2004-12-17 14:40:16.000000000 -0800
++++ linux-2.6.9/include/asm-ia64/sn/bte.h	2004-12-22 12:28:00.000000000 -0800
+@@ -48,6 +48,8 @@
+ #define BTE_ZERO_FILL (BTE_NOTIFY | IBCT_ZFIL_MODE)
+ /* Use a reserved bit to let the caller specify a wait for any BTE */
+ #define BTE_WACQUIRE (0x4000)
++/* Return the pointer to the notification cacheline to the user */
++#define BTE_NOTIFY_AND_GET_POINTER (0x8000)
+ /* Use the BTE on the node with the destination memory */
+ #define BTE_USE_DEST (BTE_WACQUIRE << 1)
+ /* Use any available BTE interface on any node for the transfer */
+
