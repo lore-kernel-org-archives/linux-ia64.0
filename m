@@ -1,7 +1,7 @@
-From: "Patil, Harish" <harish.patil@intel.com>
-Date: Tue, 17 Dec 2002 16:33:38 +0000
-Subject: [Linux-ia64] Re: gas generates incorrect ia64 unwind rlen values
-Message-Id: <marc-linux-ia64-105590709805601@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 19 Dec 2002 20:19:18 +0000
+Subject: Re: [Linux-ia64] Re: gas generates incorrect ia64 unwind rlen values
+Message-Id: <marc-linux-ia64-105590709805617@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805569@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805569@msgid-missing>
@@ -10,62 +10,59 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> Mon, 16 Dec 2002 14:08:43 -0800, David Mosberger
-<davidm@napali.hpl.hp.com> said:
-> There have been many unwind-related bug fixes to the toolchain.  It's
-> one reason why 2.9x is hopelessly obsolete.  Distros should really
-> switch to gcc-3.2.
->	--david
+>>>>> On Tue, 17 Dec 2002 08:33:38 -0800, "Patil, Harish" <harish.patil@intel.com> said:
 
-David:
+  Harish> I have a RHAS kernel compiled with *gcc3.2*. Using a script
+  Harish> based on readelf/objdmp I found out that there are 7
+  Harish> instances in this kernel where 'rlen' may be wrong. The
+  Harish> invariant the script is looking for is this: Sum(rlen for
+  Harish> various regions) = Number of slots in the code range.
 
-I have a RHAS kernel compiled with *gcc3.2*. Using a script based on
-readelf/objdmp I found out that there are 7 instances in this kernel where
-'rlen' may be wrong. The invariant the script is looking for is this:
-	Sum(rlen for various regions) = Number of slots in the code range.
+  Harish> The script found following violations of the invariant:
 
-The script found following violations of the invariant:
+  Harish> <ia64_trace_syscall>:
+  Harish> <ia64_ret_from_clone>:
+  Harish> <ia64_prepare_handle_unaligned>:
+  Harish> <ia32_ret_from_clone>:
+  Harish> <memset>:
+  Harish> <memcpy>:
 
-<ia64_trace_syscall>: [0xe00000000440e1a0-0xe00000000440e240), info at
-+0x54cdd8
-        lo =  440E1A0  hi = 440E240
-        sum_rlen =  28 no_slots = 30
-            *******ERROR ***********
-            sum_rlen: 28  != no_slots:30
-<ia64_ret_from_clone>: [0xe00000000440e240-0xe00000000440e270), info at
-+0x54ce08
-        lo =  440E240  hi = 440E270
-        sum_rlen =  7 no_slots = 9
-            *******ERROR ***********
-            sum_rlen: 7  != no_slots:9
-<ia64_prepare_handle_unaligned>: [0xe00000000440e7a0-0xe00000000440e800),
-info at +0x54cf70
-        lo =  440E7A0  hi = 440E800
-        sum_rlen =  17 no_slots = 18
-            *******ERROR ***********
-            sum_rlen: 17  != no_slots:18
-<ia32_ret_from_clone>: [0xe0000000044506a0-0xe0000000044506d0), info at
-+0x54fd00
-        lo =  44506A0  hi = 44506D0
-        sum_rlen =  7 no_slots = 9
-            *******ERROR ***********
-            sum_rlen: 7  != no_slots:9
-<memset>: [0xe0000000049338a0-0xe000000004933cc0), info at +0x5803d0
-        lo =  49338A0  hi = 4933CC0
-        sum_rlen =  195 no_slots = 198
-            *******ERROR ***********
-            sum_rlen: 195  != no_slots:198
-<memcpy>: [0xe0000000049365a0-0xe000000004936a40), info at +0x580618
-        lo =  49365A0  hi = 4936A40
-        sum_rlen =  219 no_slots = 222
-            *******ERROR ***********
-            sum_rlen: 219  != no_slots:222
-code_range= 0xe000000004b18000-0xe000000004b182b0
-        lo =  4B18000  hi = 4B182B0
-        sum_rlen =  130 no_slots = 129
-            *******ERROR ***********
-            sum_rlen: 130  != no_slots:129
+These are all handwritten assembly routines.  I think I see what's wrong:
 
--Harish
+ (a) for the first 4 routines, note how they all start with an empty
+     prologue (e.g., PT_REGS_UNWIND_INFO(0)); these empty prologues
+     seem to cause gas to not count the "nop"s at the beginning of the
+     code. Or perhaps gas never counts the starting "nop"s and this is
+     just one of the places where the first instruction cannot go into
+     the first slot of a bundle.
 
+ (b) for memcpy and memset, I suspect the ".align 32" directives are
+     confusing gas
+
+(a) is probably a bug in gas.  For (b), gas can't guarantee much
+because (in general) it can't know the alignment of the first
+instruction of a procedure (not beyond the minimum of 16 bytes).  We
+should fix the assembly source here (use label_state/copy_state around
+the .align directives, or get rid of them alltogether).  One thing we
+could do in gas, however, is add a warning so that a programmer will
+know when s/he accidentally uses a .align directive inside a region.
+
+  Harish> code_range= 0xe000000004b18000-0xe000000004b182b0
+  Harish>         lo =  4B18000  hi = 4B182B0
+  Harish>         sum_rlen =  130 no_slots = 129
+  Harish>             *******ERROR ***********
+  Harish>             sum_rlen: 130  != no_slots:129
+
+Do you know what code this is?  The addresses are not terribly useful
+because they'll vary from one kernel to another.
+
+Is your script fully automatic?  If so, perhaps we could add it to the
+kernel sources and run it as part of "make check".  I'd love to have
+better unwind-info checking tools.  Actually, it's even more important
+to use such tools to verify the correctness of the user-level unwind
+info.
+
+Someone wants to volunteer to fix this stuff?
+
+	--david
 
