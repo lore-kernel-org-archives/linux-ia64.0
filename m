@@ -1,248 +1,47 @@
-From: Mark Goodwin <markgw@sgi.com>
-Date: Thu, 09 Sep 2004 20:33:40 +0000
-Subject: [PATCH final version] arch/ia64/sn: use seq_file in sn_proc_fs.c
-Message-Id: <Pine.LNX.4.44.0409100629270.16386-100000@woolami.melbourne.sgi.com>
+From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Date: Tue, 28 Sep 2004 02:46:04 +0000
+Subject: [PATCH] Check enabled field of processor affinity
+Message-Id: <20040928114604.5a2a89e4.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, acpi-devel@lists.sourceforge.net
+Cc: tokunaga.keiich@jp.fujitsu.com
+
+Hi there,
+
+I think that acpi_numa_processor_affinity_init() should check the
+enabled field of processor affinity because ACPI spec says "If clear,
+the OSPM ignores the contents of the Processor Local APIC/SAPIC
+Affinity Structure".
+
+Thanks,
+Keiichiro Tokunaga
 
 
-Convert arch/ia64/sn/kernel/sn2/sn_proc_fs.c to use the seq_file API.
-Tony, this has been reviewed by Randy Dunlap, please apply. Thanks.
+Name: Check enabled field of processor affinity
+Status: Compiled on 2.6.9-rc2
+Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
 
-Signed-off-by: Mark Goodwin <markgw@sgi.com>
---
+---
 
---- linux-2.6-9-rc2/arch/ia64/sn/kernel/sn2/sn_proc_fs.c	Mon Sep  6 12:09:40 2004
-+++ linux-2.6-9-rc2-seq_file/arch/ia64/sn/kernel/sn2/sn_proc_fs.c	Mon Sep  6 13:16:35 2004
-@@ -10,67 +10,41 @@
- 
- #ifdef CONFIG_PROC_FS
- #include <linux/proc_fs.h>
-+#include <linux/seq_file.h>
- #include <asm/sn/sgi.h>
- #include <asm/sn/sn_sal.h>
- 
--
--static int partition_id_read_proc(char *page, char **start, off_t off,
--		int count, int *eof, void *data) {
--
--	return sprintf(page, "%d\n", sn_local_partid());
-+static int partition_id_show(struct seq_file *s, void *p)
-+{
-+	seq_printf(s, "%d\n", sn_local_partid());
-+	return 0;
- }
- 
--static struct proc_dir_entry * sgi_proc_dir;
--
--void
--register_sn_partition_id(void) {
--	struct proc_dir_entry *entry;
--
--	if (!sgi_proc_dir) {
--		sgi_proc_dir = proc_mkdir("sgi_sn", 0);
--	}
--	entry = create_proc_entry("partition_id", 0444, sgi_proc_dir);
--	if (entry) {
--		entry->nlink = 1;
--		entry->data = 0;
--		entry->read_proc = partition_id_read_proc;
--		entry->write_proc = NULL;
--	}
-+static int partition_id_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, partition_id_show, NULL);
- }
- 
--static int
--system_serial_number_read_proc(char *page, char **start, off_t off,
--		int count, int *eof, void *data) {
--	return sprintf(page, "%s\n", sn_system_serial_number());
-+static int system_serial_number_show(struct seq_file *s, void *p)
-+{
-+	seq_printf(s, "%s\n", sn_system_serial_number());
-+	return 0;
- }
- 
--static int
--licenseID_read_proc(char *page, char **start, off_t off,
--		int count, int *eof, void *data) {
--	return sprintf(page, "0x%lx\n",sn_partition_serial_number_val());
-+static int system_serial_number_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, system_serial_number_show, NULL);
- }
- 
--void
--register_sn_serial_numbers(void) {
--	struct proc_dir_entry *entry;
-+static int licenseID_show(struct seq_file *s, void *p)
-+{
-+	seq_printf(s, "0x%lx\n", sn_partition_serial_number_val());
-+	return 0;
-+}
- 
--	if (!sgi_proc_dir) {
--		sgi_proc_dir = proc_mkdir("sgi_sn", 0);
--	}
--	entry = create_proc_entry("system_serial_number", 0444, sgi_proc_dir);
--	if (entry) {
--		entry->nlink = 1;
--		entry->data = 0;
--		entry->read_proc = system_serial_number_read_proc;
--		entry->write_proc = NULL;
--	}
--	entry = create_proc_entry("licenseID", 0444, sgi_proc_dir);
--	if (entry) {
--		entry->nlink = 1;
--		entry->data = 0;
--		entry->read_proc = licenseID_read_proc;
--		entry->write_proc = NULL;
--	}
-+static int licenseID_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, licenseID_show, NULL);
- }
- 
- /*
-@@ -81,70 +55,83 @@
-  */
- int sn_force_interrupt_flag = 1;
- 
--static int
--sn_force_interrupt_read_proc(char *page, char **start, off_t off,
--		int count, int *eof, void *data) {
--	if (sn_force_interrupt_flag) {
--		return sprintf(page, "Force interrupt is enabled\n");
--	}
--	return sprintf(page, "Force interrupt is disabled\n");
-+static int sn_force_interrupt_show(struct seq_file *s, void *p)
-+{
-+	seq_printf(s, "Force interrupt is %s\n",
-+		sn_force_interrupt_flag ? "enabled" : "disabled");
-+	return 0;
- }
- 
--static int 
--sn_force_interrupt_write_proc(struct file *file, const char *buffer,
--                                        unsigned long count, void *data)
-+static ssize_t sn_force_interrupt_write_proc(struct file *file,
-+		const __user char *buffer, size_t count, loff_t *data)
+ linux-2.6.9-rc2-enabled-bit-kei/arch/ia64/kernel/acpi.c |    4 ++++
+ 1 files changed, 4 insertions(+)
+
+diff -puN arch/ia64/kernel/acpi.c~enabled_fix arch/ia64/kernel/acpi.c
+--- linux-2.6.9-rc2-enabled-bit/arch/ia64/kernel/acpi.c~enabled_fix	2004-09-28 10:24:18.620152358 +0900
++++ linux-2.6.9-rc2-enabled-bit-kei/arch/ia64/kernel/acpi.c	2004-09-28 10:24:18.623082067 +0900
+@@ -385,6 +385,10 @@ acpi_numa_slit_init (struct acpi_table_s
+ void __init
+ acpi_numa_processor_affinity_init (struct acpi_table_processor_affinity *pa)
  {
--	if (*buffer = '0') {
--		sn_force_interrupt_flag = 0;
--	} else {
--		sn_force_interrupt_flag = 1;
--	}
--	return 1;
-+	sn_force_interrupt_flag = (*buffer = '0') ? 0 : 1;
-+	return count;
- }
- 
--void
--register_sn_force_interrupt(void) {
--	struct proc_dir_entry *entry;
-+static int sn_force_interrupt_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, sn_force_interrupt_show, NULL);
-+}
- 
--	if (!sgi_proc_dir) {
--		sgi_proc_dir = proc_mkdir("sgi_sn", 0);
--	}
--	entry = create_proc_entry("sn_force_interrupt",0444, sgi_proc_dir);
--	if (entry) {
--		entry->nlink = 1;
--		entry->data = 0;
--		entry->read_proc = sn_force_interrupt_read_proc;
--		entry->write_proc = sn_force_interrupt_write_proc;
--	}
-+static int coherence_id_show(struct seq_file *s, void *p)
-+{
-+	seq_printf(s, "%d\n", cpuid_to_coherence_id(smp_processor_id()));
-+	return 0;
- }
- 
--static int coherence_id_read_proc(char *page, char **start, off_t off,
--		int count, int *eof, void *data) {
--	return sprintf(page, "%d\n", cpuid_to_coherence_id(smp_processor_id()));
-+static int coherence_id_open(struct inode *inode, struct file *file)
-+{
-+	return single_open(file, coherence_id_show, NULL);
- }
- 
--void
--register_sn_coherence_id(void) {
--	struct proc_dir_entry *entry;
-+static struct proc_dir_entry *sn_procfs_create_entry(
-+	const char *name, struct proc_dir_entry *parent,
-+	int (*openfunc)(struct inode *, struct file *),
-+	int (*releasefunc)(struct inode *, struct file *))
-+{
-+	struct proc_dir_entry *e = create_proc_entry(name, 0444, parent);
- 
--	if (!sgi_proc_dir) {
--		sgi_proc_dir = proc_mkdir("sgi_sn", 0);
--	}
--	entry = create_proc_entry("coherence_id", 0444, sgi_proc_dir);
--	if (entry) {
--		entry->nlink = 1;
--		entry->data = 0;
--		entry->read_proc = coherence_id_read_proc;
--		entry->write_proc = NULL;
-+	if (e) {
-+		e->proc_fops = (struct file_operations *)kmalloc(
-+			sizeof(struct file_operations), GFP_KERNEL);
-+		if (e->proc_fops) {
-+			memset(e->proc_fops, 0, sizeof(struct file_operations));
-+			e->proc_fops->open = openfunc;
-+			e->proc_fops->read = seq_read;
-+			e->proc_fops->llseek = seq_lseek;
-+			e->proc_fops->release = releasefunc;
-+		}
- 	}
-+
-+	return e;
- }
- 
--void
--register_sn_procfs(void) {
--	register_sn_partition_id();
--	register_sn_serial_numbers();
--	register_sn_force_interrupt();
--	register_sn_coherence_id();
-+void register_sn_procfs(void)
-+{
-+	static struct proc_dir_entry *sgi_proc_dir = NULL;
-+	struct proc_dir_entry *e;
-+
-+	BUG_ON(sgi_proc_dir != NULL);
-+	if (!(sgi_proc_dir = proc_mkdir("sgi_sn", 0)))
++	/* Ignore disabled entries */
++	if (!pa->flags.enabled)
 +		return;
 +
-+	sn_procfs_create_entry("partition_id", sgi_proc_dir,
-+		partition_id_open, single_release);
-+
-+	sn_procfs_create_entry("system_serial_number", sgi_proc_dir,
-+		system_serial_number_open, single_release);
-+
-+	sn_procfs_create_entry("licenseID", sgi_proc_dir, 
-+		licenseID_open, single_release);
-+
-+	e = sn_procfs_create_entry("sn_force_interrupt", sgi_proc_dir, 
-+		sn_force_interrupt_open, single_release);
-+	if (e) 
-+		e->proc_fops->write = sn_force_interrupt_write_proc;
-+
-+	sn_procfs_create_entry("coherence_id", sgi_proc_dir, 
-+		coherence_id_open, single_release);
- }
+ 	/* record this node in proximity bitmap */
+ 	pxm_bit_set(pa->proximity_domain);
  
- #endif /* CONFIG_PROC_FS */
 
-
-
-
+_
