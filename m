@@ -1,7 +1,7 @@
-From: "David S. Miller" <davem@redhat.com>
-Date: Fri, 16 May 2003 00:59:23 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Fri, 16 May 2003 01:20:51 +0000
 Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705879@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705881@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,14 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-   From: Colin Ngam <cngam@sgi.com>
-   Date: Thu, 15 May 2003 19:36:55 -0500
-   
-   I do not believe it is within spec to perform DAC when the
-   Upper 32bits are 0s.
+On Thu, May 15, 2003 at 04:53:30PM -0700, David S. Miller wrote:
+> But I am ever further confused, how do things like tg3 cards even
+> function TODAY on any PCI-X systems.
 
-That is an illogical requirement in that it means PCI-X mode is
-illegal in the presence of such addresses.  It means that PCI-X
-devices cannot work in x86 systems with <4GB of memory which is
-obviously not true.
+They work just fine on most platforms with 32-bit addresses.
+The issue is with what the SGI platform can support, not what
+the PCI-X devices can support.
+
+BTW, adding consistent_dma_mask to struct pci_dev and a
+corresponding pci_set_consistent_dma_mask() is a good idea.
+I think it would simplify our SBA code a bit.
+
+thanks,
+grant
 
