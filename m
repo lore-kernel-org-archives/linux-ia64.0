@@ -1,38 +1,53 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 02 Apr 2002 00:15:25 +0000
-Subject: Re: [Linux-ia64] [PATCH] set ar.k0 on APs
-Message-Id: <marc-linux-ia64-105590701905356@msgid-missing>
+From: "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com>
+Date: Wed, 03 Apr 2002 16:18:45 +0000
+Subject: RE: [Linux-ia64] determining read or write on a page fault
+Message-Id: <marc-linux-ia64-105590701905369@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905355@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905355@msgid-missing>
+References: <marc-linux-ia64-105590701905163@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905163@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 1 Apr 2002 16:54:20 -0700, Bjorn Helgaas <bjorn_helgaas@hp.com> said:
+We want to report success using the 2.4.18 kernel and the 
+info sent to the segv handler on a page fault for our distributed
+virtual shared memory system on IA64.  Thanks for your help.  We had
+to make one assumption, though, that wasn't covered in your mail
+(below).
 
-  Bjorn> We currently set ar.k0 on the BP, but not on the APs.  The following
-  Bjorn> patch does it for APs as well.
+The assumption was that if si_code=0, that the access was a "read".
+We had originally assumed it was a "write", but this caused some errors.
+When we changed to assuming "read", things worked.  Is this assumption
+valid?  When does this case occur?  Our scan of the kernel source seemed
+to indicate that this case can't happen.
 
-  Bjorn> Apparently Intel firmware sets ar.k0, but HP firmware doesn't.
-  Bjorn> If the kernel doesn't set ar.k0, X won't start up on APs because
-  Bjorn> it uses ar.k0 to access I/O port space.
+Thanks
 
-Sounds good.
+Jay Hoeflinger and Naveen Neelakantam
 
-  Bjorn> +	/*
-  Bjorn> +	 * Set I/O port base per CPU
-  Bjorn> +	 */
-  Bjorn> +	ia64_set_kr(IA64_KR_IO_BASE, ia64_iobase & ~PAGE_OFFSET);
 
-But you shouldn't mask anything with PAGE_OFFSET (it's a base-address,
-not a mask).  __pa() can be used instead.  I see that setup.c had the
-same problem, so I cleaned that up as well, plus I made it use
-ioremap(), instead of hardcoding the formation of an uncachable
-mapping).
 
-Thanks,
+-----Original Message-----
+From: David Mosberger [mailto:davidm@hpl.hp.com]
+Sent: Friday, February 22, 2002 7:25 PM
+To: Hoeflinger, Jay P
+Cc: linux-ia64@linuxia64.org
+Subject: RE: [Linux-ia64] determining read or write on a page fault
+
+
+If you want to try with a new kernel, the attached patch should give
+you what you want.  Specifically, if you get a SIGSEGV or a SIGBUS and
+si_code is non-zero, you can check si_flags.  If it has the
+__ISR_VALID flag set, then the code in si_isr is valid.  If si_isr is
+valid, you can check whether bit 34 (read exception) or bit 35
+(non-access exception) is set.  If so, you may assume that the signal
+was due to a load (or lfetch or some such).  In all other cases, you'd
+have to play it safe and assume that you're dealing with a write
+access.
 
 	--david
+
+
+< patch deleted >
 
