@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Thu, 08 May 2003 02:16:29 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 08 May 2003 04:59:41 +0000
 Subject: Re: [Linux-ia64] Re: [PATCH] head.S fix for unusual load addrs
-Message-Id: <marc-linux-ia64-105590723705675@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705676@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705550@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705550@msgid-missing>
@@ -10,54 +10,50 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 7 May 2003 17:23:31 -0700, 
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
->>>>>> On Wed, 7 May 2003 17:21:18 -0700, David Mosberger <davidm@linux.hpl.hp.com> said:
->
->>>>>> On Wed, 7 May 2003 17:00:45 -0700, Jesse Barnes <jbarnes@sgi.com> said:
->  Jesse> Ahh, this might be a good way to go.  We'd basically be
->  Jesse> relinking the kernel at load time with a new KERNEL_START,
->  Jesse> right?
->
->  David> Yup.
->
->On second thought, "relinking" might be confusing.  "Relocating" is
->more accurate (we don't rearrange anything within the kernel, just
->moving the whole thing around, which is a lot easier).
+>>>>> On Thu, 08 May 2003 12:16:29 +1000, Keith Owens <kaos@ocs.com.au> said:
 
-Using what data?  vmlinux does not contain any relocation data,
-everything is converted to absolute addresses in the the final link
-stage.  If you only use standard ld output then elilo will have to
-handle all the relocations, messy.
+  >>  On second thought, "relinking" might be confusing.  "Relocating"
+  >> is more accurate (we don't rearrange anything within the kernel,
+  >> just moving the whole thing around, which is a lot easier).
 
-One possibility is to link vmlinux to a temporary file, using -r to
-preserve the relocation data, followed by a link to the real vmlinux,
-without -r.  From the temporary file, extract the information that is
-required to perform boot time relocation and append that data to vmlinux,
-at _end.  The kernel startup code (PIC assembler) runs the additional
-table, adjusts the relocations then discards the table.
+  Keith> Using what data?  vmlinux does not contain any relocation
+  Keith> data, everything is converted to absolute addresses in the
+  Keith> the final link stage.
 
-A quick check of a 2.4 ia64 kernel shows only these relocation types:
+Oh, I would recommend to build the kernel as a shared object.  That's
+what we do for EFI apps under GNU EFI and it works well.  (There are
+some ugly corners in GNU EFI, but they have to do with converting the
+ELF shared object into PE+ format.)
 
-DIR32LSB
-DIR64LSB
-FPTR64LSB
-GPREL22
-IMM64
-LTOFF22
-LTOFF_FPTR22
-PCREL21B
-PCREL60B
-SEGREL64LSB
+  Keith> One possibility is to link vmlinux to a temporary file, using
+  Keith> -r to preserve the relocation data, followed by a link to the
+  Keith> real vmlinux, without -r.  From the temporary file, extract
+  Keith> the information that is required to perform boot time
+  Keith> relocation and append that data to vmlinux, at _end.  The
+  Keith> kernel startup code (PIC assembler) runs the additional
+  Keith> table, adjusts the relocations then discards the table.
 
-GPREL22, LTOFF22, LTOFF_FPTR22, PCREL21B, PCREL60B, SEGREL64LSB are not
-a problem, they are already PIC.  DIR32LSB, DIR64LSB, FPTR64LSB are
-easy to adjust.  IMM64 is the only messy bit of code, lots of shifts.
-Even IMM64 is not that hard to do in PIC asm.
+Sounds rather fragile to me.  Relocating shared objects is quite easy
+actually. GNU EFI does it in 102 lines of ia64 assembly code.  That's
+probably pretty hard to beat.
 
-This approach keeps all the kernel relocation code inside the ia64
-tree, it does not rely on keeping elilo in sync with future kernel
-and/or gcc changes.  By extracting and formatting the relocation data
-at build time, it simplifies and speeds up the load process.
+  Keith> A quick check of a 2.4 ia64 kernel shows only these
+  Keith> relocation types:
 
+  Keith> DIR32LSB DIR64LSB FPTR64LSB GPREL22 IMM64 LTOFF22
+  Keith> LTOFF_FPTR22 PCREL21B PCREL60B SEGREL64LSB
+
+  Keith> GPREL22, LTOFF22, LTOFF_FPTR22, PCREL21B, PCREL60B,
+  Keith> SEGREL64LSB are not a problem, they are already PIC.
+  Keith> DIR32LSB, DIR64LSB, FPTR64LSB are easy to adjust.  IMM64 is
+  Keith> the only messy bit of code, lots of shifts.  Even IMM64 is
+  Keith> not that hard to do in PIC asm.
+
+Remember, we already have the in-kernel module loader, which has to
+deal with "ld -r" modules.  I'd have preferred if those had been
+shared objects, too, but apparently the toolchains on some other
+platforms is sufficiently broken that this wasn't a feasible option
+(not for 2.6, anyhow).
+
+	--david
 
