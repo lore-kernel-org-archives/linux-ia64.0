@@ -1,35 +1,60 @@
-From: David Gibson <david@gibson.dropbear.id.au>
-Date: Wed, 23 Mar 2005 00:53:05 +0000
-Subject: Re: [PATCH 2.6.11] AIO panic on PPC64 caused by is_hugepage_only_range()
-Message-Id: <20050323005305.GB29765@localhost.localdomain>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 24 Mar 2005 00:49:09 +0000
+Subject: syscall improvement patch [0/12]
+Message-Id: <200503240049.j2O0n91k022256@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1111108348.31932.43.camel@ibm-c.pdx.osdl.net> <20050321184113.0f5e2f6b.akpm@osdl.org> <1111519474.15956.40.camel@ibm-c.pdx.osdl.net>
-In-Reply-To: <1111519474.15956.40.camel@ibm-c.pdx.osdl.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Daniel McNeil <daniel@osdl.org>
-Cc: Andrew Morton <akpm@osdl.org>, "linuxppc64-dev@ozlabs.org" <linuxppc64-dev@ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-aio@kvack.org" <linux-aio@kvack.org>
+To: linux-ia64@vger.kernel.org
 
-On Tue, Mar 22, 2005 at 11:24:34AM -0800, Daniel McNeil wrote:
-> On Mon, 2005-03-21 at 18:41, Andrew Morton wrote:
-> > Did we fix this yet?
-> > 
-> 
-> Here's a patch against 2.6.11 that fixes the problem.
-> It changes is_hugepage_only_range() to take mm as an argument
-> and then changes the places that call it to pass 'mm'.
-> It includes a change for ia64 which has not been compiled.
-> It applies against the latest bk with some offset.
-> 
-> Signed-off-by: Daniel McNeil <daniel@osdl.org>
+Tony,
 
-Looks good to me.
+Inspired by the excellent work the UNSW folks did to optimize the L4
+IPC hot path, I took another look at the syscall paths (well, I did
+cheat a little to get this done in a reasonable amount of time).
 
-Acked-by: David Gibson <dwg@au1.ibm.com>
+The result of this work in in the following series of 12 patches.
+They successively improve various aspects of the kernel's syscall
+entry and exit paths.  I tried to split them as much as possible into
+independent pieces, but since many of them touch the same areas of
+code, it's by far easiest to apply them in order.
 
--- 
-David Gibson			| I'll have my music baroque, and my code
-david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
-				| _way_ _around_!
-http://www.ozlabs.org/people/dgibson
+I have done as much testing as I can and think the patches are all
+safe.  For the most part, they're just shuffling instructions around
+without any functional/behavior change but then again this is very
+low-level code so it's easy to goof.  In particular, I'd very much
+like critical minds to review the fsys_bubble_down() changes,
+specifically the rationale for why we don't need a srlz.i in that code
+(the rationale is both in the patch header and the code comment).
+
+I would be very interested to hear how these patches behave on
+syscall-intensive workloads with huge workingsets.
+
+A summary of the effect of the patches on getpid() and getuid()
+performance is in the table below (4 of the patches are
+cosmetic/cleanup only, so they don't have any performance effects).
+In the table below, "EPC" is for EPC-based system calls, "BREAK" for
+BREAK-based system-calls (note: the test-programs ensure that getpid()
+isn't cached by the C library).  All numbers are cycle counts as
+measured on a 1.5GHz/6M Madison.
+
+					  getpid	  getuid
+					EPC	BREAK	EPC	BREAK
+ Baseline (linux-ia64-test-2.6.12):	40	254	232	249
+ Dynamic prediction of RSE-clearing br:	40	252	231	249
+ Avoid F-unit stalls after ar.bsp read: 40	246	225	246
+ Hint b7 with __kernel_syscall_via_epc:	40	246	219	246
+ Use st8 instead of stf8 to clear pt.r8:40	245	217	242
+ Read bsp early in ia64_leave_syscall:	40	237	208	232
+ Reschedule break_fault:		40	207	208	206
+ Reschedule __kernel_syscall_via_epc:	38	207	201	206
+ Reschedule fsys_bubble_down:		38	207	180	206
+
+I'd appreciate if you could check these patches into the
+linux-ia64-test-2.6.12 repository as soon as possible so we can give
+it additional testing-exposure before feeding it into 2.6.13.
+
+Thanks!
+
+	--david
