@@ -1,7 +1,7 @@
-From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
-Date: Tue, 30 Jul 2002 18:04:58 +0000
+From: Grant Grundler <grundler@cup.hp.com>
+Date: Tue, 30 Jul 2002 22:14:03 +0000
 Subject: Re: [Linux-ia64] [PATCH] dynamic IRQ allocation
-Message-Id: <marc-linux-ia64-105590701905858@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905859@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905851@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905851@msgid-missing>
@@ -10,58 +10,75 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Thanks for comments.
+"KOCHI, Takayoshi" wrote:
+> Thanks for comments.
 
-On Mon, 29 Jul 2002 22:01:28 -0700
-Grant Grundler <grundler@cup.hp.com> wrote:
+welcome...one of my favorite topics...
 
-> "KOCHI, Takayoshi" wrote:
-> > This patch fixes the behavior and only allocates vectors
-> > for existing pci_dev only.
-> 
-> Another approach is to defer allocating the vector until
-> request_irq() registers the interrupt handler. That way,
-> only devices that have drivers get interrupts.
+> But how to distinguish PCI irqs from others?
 
-But how to distinguish PCI irqs from others?
-It seems that all PCI drivers pass its pci_dev structure
-as the 4th argument of request_irq, but others won't
-(for example, serial.c).
+IRQ number. I assume you mean PCI vs other IO subsystems.
+The pcibios support has to uniquely identify each PCI IRQ Line
+with a different IRQ number. And that number space has to
+be shared with all interrupt sources.
 
-I thought allocating a new vector in request_irq() is another
-level of dynamic allocation.
+request_irq() can (does?) branch to iosapic support based on IRQ number.
 
-Once I took another approach and wrote a version that
-allocates a new vector when a driver calls pcibios_enable,
-but it turned out to be problematic because not all PCI
-device drivers call pci_enable() at their startup.
+> It seems that all PCI drivers pass its pci_dev structure
+> as the 4th argument of request_irq, but others won't
+> (for example, serial.c).
 
-It seems that, for i386, irq lookup is done in pcibios_enable()
-(to be exact, pcibios_enable_irq() and other functions in
- arch/i386/kernel/pci-irq.c).  So drivers that doesn't
-call pci_enable() are just working luckily (due to proper
-setting by BIOS etc.)
+The 4th arg is a "void *". It can be anything the driver wants
+to identify device instance or even NULL (see ob600 mouse driver).
+Don't make any assumptions about what the 4th argument is.
 
-> > As usual, interrupt sharing often imply performance
-> > degradation and such a configuration should be avoided.
-> 
-> Another way to reduce/avoid sharing of vector table entries is to have
-> multiple Vector Tables. Either one for each CPU or each node of
-> a ccNUMA-like machine. I thought SGI's NUMA machines implement
-> this already but haven't checked.
+> I thought allocating a new vector in request_irq() is another
+> level of dynamic allocation.
 
-Yes, once Alan Mayer at sgi did the work.
-But ccNUMA platforms can have various connection topology
-and simply dividing vector table into the number of nodes
-may not the best choice to do.
+It doesn't need to be. Just replaces the allocation
+which happens per PCI IRQ Line or per PCI Device.
 
-I think iosapic.c should be as generic as possible enough to
-cover all IO SAPIC-based platforms and tuning for specific
-ccNUMA platforms should be considered separately.
+BTW, "in request_irq()" to me means in that code path, not
+immediately in that function.
 
+> Once I took another approach and wrote a version that
+> allocates a new vector when a driver calls pcibios_enable,
+> but it turned out to be problematic because not all PCI
+> device drivers call pci_enable() at their startup.
 
-Thanks,
--- 
-KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+That's a driver bug. Please submit patches to David or the driver
+maintainer. cpqfc driver doesn't call pci_enable_device() either.
+I found this out since parisc-linux port will crash on A500 if
+a driver attempts to access a PCI device that isn't enabled.
+With PCI Hotplug of PCI cards, this will become more critical.
 
+> So drivers that doesn't
+> call pci_enable() are just working luckily (due to proper
+> setting by BIOS etc.)
+
+Yup. x86 is the least strict in terms of following programming interfaces.
+But lots of issues (eg Posted PCI writes, DMA Mapping, long vs int)
+make drivers non-portable to other arches. Alan Cox (LinuxTag 2002)
+and Arjen van de Ven (OLS2002) both gave excellent talks on
+driver portability. I also gave a talk on HP ZX1 at OLS 2002.
+I highly reccomend David and Stephane's "IA64 Linux" book
+to those seeking detailed 2.4 driver interface descriptions.
+
+> Yes, once Alan Mayer at sgi did the work.
+> But ccNUMA platforms can have various connection topology
+> and simply dividing vector table into the number of nodes
+> may not the best choice to do.
+
+Right. That's why I suggested per CPU (vs per Node) as an alternative.
+Different platforms can do it differently. I'd be interested in
+implementing per CPU vector tables but HP isn't interested in funding it.
+
+> I think iosapic.c should be as generic as possible enough to
+> cover all IO SAPIC-based platforms and tuning for specific
+> ccNUMA platforms should be considered separately.
+
+Agreed.
+
+cheers,
+grant
 
