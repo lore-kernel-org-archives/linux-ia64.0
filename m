@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 05 Dec 2003 00:59:02 +0000
-Subject: [RFE] Add stacked registers to SAL records (resend)
-Message-Id: <marc-linux-ia64-107058596016407@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 05 Dec 2003 16:28:30 +0000
+Subject: Re: [RFE] Add stacked registers to SAL records (resend)
+Message-Id: <marc-linux-ia64-107064199830870@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106870740330038@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106870740330038@msgid-missing>
@@ -10,19 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Originally sent November 13 with no response, try again.
+On Thursday 04 December 2003 5:59 pm, Keith Owens wrote:
+> SAL error records contain most registers in sal_processor_static_info,
+> but not the stacked registers.  What is the process for adding another
+> GUID to the SAL specification to contain the stacked registers?
 
-SAL error records contain most registers in sal_processor_static_info,
-but not the stacked registers.  What is the process for adding another
-GUID to the SAL specification to contain the stacked registers?
+I've always been puzzled about why the stacked registers aren't
+available after an INIT, so this proposal sounds incredibly useful
+to me.  Much of the useful information, i.e., function arguments,
+is in the stacked registers and hence currently unavailable.
 
-Layout:
+As for getting it added to the spec, I don't really know the process.
+But I'll forward this to our people who deal with the spec.  I think
+it would help to have an actual draft of a proposal.
 
-  number of stacked registers in this record
-  cfm for frame at the time of failure
-  stacked registers, ending with the cfm.sof registers
+Tony Luck might have a good Intel contact, too.
 
-This GUID would be optional, if a particular SAL implementation did not
-produce it then that platform would not have stacked registers printed
-via salinfo.
+Bjorn
 
