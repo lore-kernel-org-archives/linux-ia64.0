@@ -1,7 +1,7 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Wed, 19 Nov 2003 22:54:14 +0000
+From: Paul Jackson <pj@sgi.com>
+Date: Thu, 20 Nov 2003 02:17:03 +0000
 Subject: Re: [PATCH] - prof_cpu_mask problems
-Message-Id: <marc-linux-ia64-106928289216095@msgid-missing>
+Message-Id: <marc-linux-ia64-106929475727936@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106901123527791@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106901123527791@msgid-missing>
@@ -10,19 +10,37 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Matthew wrote (on the linux-ia64 list):
->> Why u16 rather than u32?
+> It was to silence a warning.
 
-On Wed, Nov 19, 2003 at 01:45:30PM -0800, Paul Jackson wrote:
-> You'd probably have to ask whomever wrote that part in the first place.
-> I'd guess Jack was using u16 because it was already there.
-> My take - we should:
->  1) change the loop to u32,
->  2) add a separator character, say comma ',', between u32 words, and
->  3) drop the zero %04x fill.
-
-It was to silence a warning. You'll have write your own to replace
-the fix now in -mm if this is what you really want.
+ah - ok - thanks.
 
 
--- wli
+> You'll have write your own to replace
+> the fix now in -mm if this is what you really want.
+
+I'm doing that now; and un-duplicating about a dozen instances of the
+binary->string conversion loops used when reading out masks, and almost
+as many string->binary parse_hex_value() routines used when reading in
+masks.  There will be a single routine for each, in a new lib file.
+
+Can you tell me, Bill, how it is that having:
+
+  #define HEX_DIGITS (2*sizeof(cpumask_t))
+
+leaves room for the terminating nul-byte?  Seems to me that
+a lot of hexnum[] arrays might be one byte short.
+
+One incompatibility with existing code:
+
+    If I proceed along my current path, cpumasks, such as for
+    irq or smp_affinity, will no longer be displayed in /proc
+    with leading zero padding.
+
+    I expect that this could be a problem ...
+
+Complaints invited.
+
+-- 
+                          I won't rest till it's the best ...
+                          Programmer, Linux Scalability
+                          Paul Jackson <pj@sgi.com> 1.650.933.1373
