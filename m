@@ -1,55 +1,71 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 26 Nov 2002 22:30:35 +0000
-Subject: Re: [Linux-ia64] Rdesktop 1.10
-Message-Id: <marc-linux-ia64-105590709805489@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Thu, 14 Nov 2002 04:41:38 +0000
+Subject: [Linux-ia64] Debugging early ode under the simulator
+Message-Id: <marc-linux-ia64-105590709805418@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805488@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805488@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith,
 
-Don't know much about rdesktop or how WTS works, but I was able to get
-it to work here at work (pretty neat program, really).  The attached
-small patch was needed to avoid a bug that caused the upper 32 bits of
-a pointer returned by xmalloc() to be cleared to zero.  There are
-certainly better ways of fixing this, but it's probably best to leave
-that to the expert (I'm cc'ing Matt on this mail...).
+Hi,
+	There's no easy way to set breakpoints or watchpoints in the
+kernel before the kernel starts running, when running under the SKI
+simulator.
 
-	--david
+One way to fix this is appended.
 
---- rdesktop-1.1.0/crypto/bn.h~	Mon Sep 17 04:01:03 2001
-+++ rdesktop-1.1.0/crypto/bn.h	Tue Nov 26 14:25:55 2002
-@@ -67,6 +67,8 @@
- extern "C" {
- #endif
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.814   -> 1.815  
+#	arch/ia64/boot/bootloader.c	1.3     -> 1.4    
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 02/11/14	peterc@gelato.unsw.edu.au	1.815
+# Add a debug breakpoint dummy function.
+# 
+# When in the simulator, one cannot set a break point or watchpoint 
+# before the symbol table for the kernel is in memory, 
+# and the kernel has set things up to run in a virtual addrs space.
+# 
+# Therefore, insert a dummy function here that one can set a breakpoint
+# on, then single step a  few dozen times, then set up the 
+# breakpoints one really wants.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/boot/bootloader.c b/arch/ia64/boot/bootloader.c
+--- a/arch/ia64/boot/bootloader.c	Thu Nov 14 15:36:29 2002
++++ b/arch/ia64/boot/bootloader.c	Thu Nov 14 15:36:29 2002
+@@ -53,6 +53,14 @@
  
-+extern void *xmalloc (int size);
+ #include "../kernel/fw-emu.c"
+ 
++/*
++ * Set a break point on this function so that
++ * symbols are available to set breakpoints in the 
++ * kernel being debugged.
++ */
++void debug_break(void) {
++}
 +
- #define BNerr(context,err)   error("crypto error\n");
- #define OPENSSL_malloc(size) xmalloc(size)
- #define OPENSSL_free(ptr)    xfree(ptr);
+ static void
+ cons_write (const char *buf)
+ {
+@@ -187,6 +195,7 @@
+ 
+ 	ssc(0, (long) kpath, 0, 0, SSC_LOAD_SYMBOLS);
+ 
++	debug_break();
+ 	asm volatile ("mov sp=%2; mov r28=%1; br.sptk.few %0"
+ 		      :: "b"(e_entry), "r"(bp), "r"(__pa(&stack)));
+ 
 
 
->>>>> On Tue, 26 Nov 2002 14:01:54 -0500, Keith A Howells <keith.howells@bms.com> said:
-
-  Keith> Hi all, downloaded the source from http://www.rdesktop.org
-
-  Keith> ran ./configure then make which seems to complete fine.
-
-  Keith> Getting Error: Recv: Connection reset by peer Broken Pipe
-
-  Keith> Any ideas?  I'm running Rhat 7.2 Advanced Technical
-  Keith> Workstation on HP ZX2000 workstation.
-
-  Keith> I don't think there is an IA64 version that i know of.  Maybe
-  Keith> in the next release it will be included by Redhat as it is
-  Keith> part of the 8.0 release.
-
-  Keith> Thank you for any feedback.
-
-  Keith> Keith
+--
+Dr Peter Chubb				    peterc@gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories, all almost the same.
 
