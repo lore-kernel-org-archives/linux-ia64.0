@@ -1,51 +1,65 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Mon, 06 Oct 2003 16:57:41 +0000
-Subject: Re: [PATCH] more discontig stuff
-Message-Id: <marc-linux-ia64-106546177618144@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Wed, 01 Oct 2003 00:01:31 +0000
+Subject: Re: [PATCH] disable legacy floppy related ioctl32s
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------030408080107070001090406"
+Message-Id: <marc-linux-ia64-106496695204846@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106488076517737@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106488076517737@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <marc-linux-ia64-106495318021597@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106495318021597@msgid-missing>
 To: linux-ia64@vger.kernel.org
 
-On Mon, Oct 06, 2003 at 06:54:09PM +0200, Xavier Bru wrote:
-> 
-> Hi Jesse
-> 
-> Thanks for your answer. This new one boots OK with CONFIG_NUMA (zones
-> have now free_pages non 0 at first __alloc_pages).
-> 
-> I applied it on 2.6.0-test5 + your patch dated Sept 22.
-> 
-> I just added a fix to prevent some redeclarations in  meminit.h with
-> gcc 3.2 :
-> 
-> --- linux-2.6.0-test5/include/asm-ia64/meminit.h 2003-10-06 10:51:45.000000000 +0200
-> +++ 0t5/include/asm-ia64/meminit.h	2003-10-01 18:56:09.000000000 +0200
-> @@ -14,6 +14,8 @@
->   *
->   * More could be added if necessary
->   */
-> +#ifndef _ASM_IA64_MEMINIT_H
-> +#define _ASM_IA64_MEMINIT_H
->  #define IA64_MAX_RSVD_REGIONS 5
->  
->  struct rsvd_region {
-> @@ -58,3 +60,4 @@
->  
->  #define IGNORE_PFN0	1	/* XXX fix me: ignore pfn 0 until TLB miss
->  				   handler is updated... */
-> +#endif /* _ASM_IA64_MEMINIT_H */
-> 
-> Thanks again.
+This is a multi-part message in MIME format.
+--------------030408080107070001090406
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yeah, David added that to his tree before he put the patch in.  I'll
-have to rediff once he comes back and comes out with a patch against
--test6 (or maybe -test7 by then).
+Arun Sharma wrote:
+> http://marc.theaimsgroup.com/?t=106015010700002&r=1&w=2
+> 
+> depends on ISA || M68K || SPARC64
+> 
+> seems to be what was suggested in the thread, but I didn't see a patch. 
+> I also agree that the check should be in one place (KConfig). Will send 
+> a new patch.
 
-Thanks a lot for helping me keep this patch working, I really appreciate
-it!
+Here's the new patch. It should probably go to LKML now.
 
-Jesse
+	-Arun
+
+--------------030408080107070001090406
+Content-Type: text/plain;
+ name="ioctl32-floppy.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ioctl32-floppy.patch"
+
+Index: linux-2.6/drivers/block/Kconfig
+===================================================================
+--- linux-2.6/drivers/block/Kconfig	(revision 13274)
++++ linux-2.6/drivers/block/Kconfig	(working copy)
+@@ -6,7 +6,7 @@
+ 
+ config BLK_DEV_FD
+ 	tristate "Normal floppy disk support"
+-	depends on !X86_PC9800
++	depends on ISA || M68K || SPARC64
+ 	---help---
+ 	  If you want to use the floppy disk drive(s) of your PC under Linux,
+ 	  say Y. Information about this driver, especially important for IBM
+Index: linux-2.6/include/linux/compat_ioctl.h
+===================================================================
+--- linux-2.6/include/linux/compat_ioctl.h	(revision 13274)
++++ linux-2.6/include/linux/compat_ioctl.h	(working copy)
+@@ -68,7 +68,7 @@
+ COMPATIBLE_IOCTL(HDIO_DRIVE_CMD)
+ COMPATIBLE_IOCTL(HDIO_SET_PIO_MODE)
+ COMPATIBLE_IOCTL(HDIO_SET_NICE)
+-#ifndef CONFIG_ARCH_S390
++#ifdef CONFIG_BLK_DEV_FD
+ /* 0x02 -- Floppy ioctls */
+ COMPATIBLE_IOCTL(FDMSGON)
+ COMPATIBLE_IOCTL(FDMSGOFF)
+
+--------------030408080107070001090406--
+
