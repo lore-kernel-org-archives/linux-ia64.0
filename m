@@ -1,27 +1,144 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Tue, 01 May 2001 22:51:29 +0000
-Subject: Re: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related orphans from Configure.help
-Message-Id: <marc-linux-ia64-105590693005508@msgid-missing>
+From: "Maribasavaiah, Prasad" <prasad.maribasavaiah@intel.com>
+Date: Thu, 10 May 2001 21:11:30 +0000
+Subject: [Linux-ia64] Kernel Bug
+Message-Id: <marc-linux-ia64-105590693005565@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005460@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005460@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 1 May 2001 08:49:10 -0700, 
-"Chris McDermott" <mcdermoc@us.ibm.com> wrote:
->Actually, CONFIG_ITANIUM_PTCG is still required if you have systems with
->Itanium
->processor steppings less than B3. I still have some of these and I'm sure
->there are
->quite a few others out there who still do as well.
+We are getting kernel BUG message when running a stress test on Redhat Linux
+Beta 1,  the message says bug at line 82 in page_alloc.c. The line 82 calls
+function BUG().
+When I looked at the function it is in __free_pages_ok().
 
-Configure.help is designed for humans to query what an option does
-while they are configuring the system.  CONFIG_ITANIUM_PTCG is a
-derived setting, humans have no direct control over it and it never
-appears on a config menu.  Help text is not required for derived config
-settings and is discouraged.
+The line 81 & 82 in the below function corresponds to 
+if (page->buffers)
+	BUG();
+
+I would like to know is this a know issue or it is already fixed in the next
+kernel?
+
+static void __free_pages_ok (struct page *page, unsigned long order)
+{
+	unsigned long index, page_idx, mask, flags;
+	free_area_t *area;
+	struct page *base;
+	zone_t *zone;
+
+	/*
+	 * Subtle. We do not want to test this in the inlined part of
+	 * __free_page() - it's a rare condition and just increases
+	 * cache footprint unnecesserily. So we do an 'incorrect'
+	 * decrement on page->count for reserved pages, but this part
+	 * makes it safe.
+	 */
+	if (PageReserved(page))
+		return;
+
+	if (page->buffers)
+		BUG();
+	if (page->mapping)
+		BUG();
+	if (!VALID_PAGE(page))
+		BUG();
+	if (PageSwapCache(page))
+		BUG();
+	if (PageLocked(page))
+		BUG();
+	if (PageDecrAfter(page))
+		BUG();
+	if (PageDirty(page))
+		BUG();
+	if (PageActive(page))
+		BUG();
+	if (PageInactiveDirty(page))
+		BUG();
+	if (PageInactiveClean(page))
+		BUG();
+
+	page->flags &= ~(1<<PG_referenced);
+	page->age = PAGE_AGE_START;
+	
+	zone = page->zone;
+
+	mask = (~0UL) << order;
+	base = mem_map + zone->offset;
+	page_idx = page - base;
+	if (page_idx & ~mask)
+		BUG();
+	index = page_idx >> (1 + order);
+
+	area = zone->free_area + order;
+
+	spin_lock_irqsave(&zone->lock, flags);
+
+	zone->free_pages -= mask;
+
+	while (mask + (1 << (MAX_ORDER-1))) {
+		struct page *buddy1, *buddy2;
+
+		if (area >= zone->free_area + MAX_ORDER)
+			BUG();
+		if (!test_and_change_bit(index, area->map))
+			/*
+			 * the buddy page is still allocated.
+			 */
+			break;
+		/*
+		 * Move the buddy up one level.
+		 */
+		buddy1 = base + (page_idx ^ -mask);
+		buddy2 = base + page_idx;
+		if (BAD_RANGE(zone,buddy1))
+			BUG();
+		if (BAD_RANGE(zone,buddy2))
+			BUG();
+
+		memlist_del(&buddy1->list);
+		mask <<= 1;
+		area++;
+		index >>= 1;
+		page_idx &= mask;
+	}
+	memlist_add_head(&(base + page_idx)->list, &area->free_list);
+
+	spin_unlock_irqrestore(&zone->lock, flags);
+
+	/*
+	 * We don't want to protect this variable from race conditions
+	 * since it's nothing important, but we do want to make sure
+	 * it never gets negative.
+	 */
+	if (memory_pressure > NR_CPUS)
+		memory_pressure--;
+}
+
+void __free_pages(struct page *page, unsigned long order)
+{
+	if (put_page_testzero(page))
+		__free_pages_ok(page, order);
+}
+
+void free_pages(unsigned long addr, unsigned long order)
+{
+	struct page *fpage;
+
+#ifdef CONFIG_DISCONTIGMEM
+	if (addr = 0) return;
+#endif
+	fpage = virt_to_page(addr);
+	if (VALID_PAGE(fpage))
+		__free_pages(fpage, order);
+}
+
+
+Prasad Maribasavaiah
+DP CV Debug
+Intel Corporation
+Phone : (253) 371 4803
+
+
 
 
