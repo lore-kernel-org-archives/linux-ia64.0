@@ -1,38 +1,45 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 28 Jan 2004 23:35:01 +0000
+From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
+Date: Thu, 29 Jan 2004 08:23:20 +0000
 Subject: Re: [RFC/PATCH, 1/4] readX_check() performance evaluation
-Message-Id: <16408.18213.790850.66687@napali.hpl.hp.com>
+Message-Id: <200401290823.i0T8NTDi024477@mtv-vpn-hw-mfl-2.corp.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <16408.3157.336306.812481@napali.hpl.hp.com> from "David Mosberger" at Jan 28, 2004 11:24:05 AM
 References: <00a201c3e541$c0e7d680$2987110a@lsd.css.fujitsu.com>
-	<20040128172004.GB5494@cup.hp.com>
-	<20040128184137.616b6425.ak@suse.de>
-	<16408.30.896895.980121@napali.hpl.hp.com>
-	<20040128195246.47a84498.ak@suse.de>
-	<16408.3157.336306.812481@napali.hpl.hp.com>
-	<20040128203915.22d84e8d.ak@suse.de>
-	<16408.4597.123125.788631@napali.hpl.hp.com>
-	<20040128210132.2b0e5a96.ak@suse.de>
-In-Reply-To: <20040128210132.2b0e5a96.ak@suse.de>
+In-Reply-To: <00a201c3e541$c0e7d680$2987110a@lsd.css.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: davidm@hpl.hp.com, davidm@napali.hpl.hp.com, iod00d@hp.com, ishii.hironobu@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: davidm@hpl.hp.com
+Cc: Andi Kleen <ak@suse.de>, davidm@napali.hpl.hp.com, iod00d@hp.com, ishii.hironobu@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>>> On Wed, 28 Jan 2004 21:01:32 +0100, Andi Kleen <ak@suse.de> said:
+>   Andi> e.g. one bit ECC errors in memory are quite common.  And with
+>   Andi> ECC memory they are not really fatal.
+> 
+> Yet they are a good indicator that something is wrong (not performing
+> properly) or may be failing soon.  I don't think putting on blinders
+> for such problems is a good idea.  Though I agree that the question of
+> how to report such things without needlessly alerting Joe Clueless is
+> an interesting challenge.
 
-  Andi> Seriously you can count it somewhere and present it in sysfs
-  Andi> or /proc.  Or log it somewhere else and supply a special
-  Andi> utility to show them that makes it clear that the events are
-  Andi> hardware and not software related.  I suppose if your server
-  Andi> vendor is serious they will supply a tool to read the firmware
-  Andi> log from a running system.
+We have done a rather large study with DIMMs that had SBEs and have
+found no evidence that a SBE turns into a UCE, i.e. the fact that a SBE is
+reported, is no indication that the device might fail soon.
 
-  Andi> But printks enabled by default are a bad idea (and a bug too
-  Andi> BTW - printk called from MCE handlers can randomly deadlock)
+As a matter of fact the soft error rates increases while parts use
+smaller process technologies and lower supply voltages. Cosmic rays
+are one source for soft errors. Another source are alpha particles
+emitted by the solder.
 
-No argument here.  I didn't get/see the earlier part of this
-discussion so I didn't realize you were complaining about printks
-only.  Never mind.
+Still I think it's important to log SBEs, but you probably will need
+a treshhold in case you hit a hard SBE. Also scrubbing the memory location
+(and re-read the location to check if the error was transient or not)
+might be a good idea if the memory controller supports this.
+If it is a true, hard SBE it should be reported. It also might be a good
+idea to mark the page, so it does not get re-allocated. 
 
-	--david
+
+Thanks
+
+Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
+Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
+
