@@ -1,43 +1,82 @@
-From: Gerald Pfeifer <gp@suse.de>
-Date: Tue, 02 Nov 2004 08:48:29 +0000
+From: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+Date: Tue, 02 Nov 2004 09:31:22 +0000
 Subject: Re: [PATCH] top level scheduler domain for ia64
-Message-Id: <Pine.LNX.4.61.0411020937510.24640@lifschitz.suse.de>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="168476160-968527680-1099380432=:24640"
+Message-Id: <20041102.183122.115904953.t-kochi@bq.jp.nec.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200410191427.27336.jbarnes@engr.sgi.com>
 In-Reply-To: <200410191427.27336.jbarnes@engr.sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+From: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+Subject: Re: [PATCH] top level scheduler domain for ia64
+Date: Tue, 02 Nov 2004 16:36:36 +0900 (JST)
 
---168476160-968527680-1099380432=:24640
-Content-Type: TEXT/PLAIN; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+> I think the short-term solution is to make the boot-time parameter
+> like Jesse said to control the creation and span size of the
+> node domain and see what is necessary next.
 
-On Mon, 1 Nov 2004, Matthew Wilcox wrote:
-> Doesn't sound like a great idea.  HP's already shipping 128-way Superdome
-> IA-64 systems, and they'll want to be set up rather differently from the
-> Altix systems.  I think this code needs to be autotuning so it doesn't
-> need to be touched whenever a vendor releases a new configuration (I
-> think I heard that NASA's Altixes had a custom CPU brick with twice the
-> CPUs in it?)
+This patch adds a new kernel parameter "nodes_per_domain"
+which specifies how many nodes are included in a node 
+scheduling domain.
 
-Yup.  Though that new brick is not specific to NASA's new Columbia system.
+Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
 
-http://www.sgi.com/company_info/newsroom/press_releases/2004/october/altix_=
-bx2.html
+Index: 269-bk/arch/ia64/kernel/domain.c
+=================================--- 269-bk/arch/ia64/kernel/domain.c	(revision 49)
++++ 269-bk/arch/ia64/kernel/domain.c	(working copy)
+@@ -12,9 +12,9 @@
+ #include <linux/init.h>
+ #include <linux/topology.h>
+ 
+-#define SD_NODES_PER_DOMAIN 6
++#ifdef CONFIG_NUMA
++static int sd_nodes_per_domain = 6;
+ 
+-#ifdef CONFIG_NUMA
+ /**
+  * find_next_best_node - find the next node to include in a sched_domain
+  * @node: node whose sched_domain we're building
+@@ -77,7 +77,7 @@
+ 	cpus_or(span, span, nodemask);
+ 	set_bit(node, used_nodes);
+ 
+-	for (i = 1; i < SD_NODES_PER_DOMAIN; i++) {
++	for (i = 1; i < sd_nodes_per_domain; i++) {
+ 		int next_node = find_next_best_node(node, used_nodes);
+ 		nodemask = node_to_cpumask(next_node);
+ 		cpus_or(span, span, nodemask);
+@@ -158,7 +158,7 @@
+ 
+ #ifdef CONFIG_NUMA
+ 		if (num_online_cpus()
+-				> SD_NODES_PER_DOMAIN*cpus_weight(nodemask)) {
++				> sd_nodes_per_domain*cpus_weight(nodemask)) {
+ 			sd = &per_cpu(allnodes_domains, i);
+ 			*sd = SD_ALLNODES_INIT;
+ 			sd->span = cpu_default_map;
+@@ -379,3 +379,18 @@
+ #endif
+ }
+ 
++#ifdef CONFIG_NUMA
++static int __init
++set_nodes_per_domain (char *str)
++{
++	int tmp;
++
++	get_option(&str, &tmp);
++	if (tmp > 1 && tmp <= MAX_NUMNODES)
++		sd_nodes_per_domain = tmp;
++
++	return 1;
++}
++
++__setup("nodes_per_domain=", set_nodes_per_domain);
++#endif
 
-| SGI Doubles Density of High-End Altix Server
-|
-| New Altix 3700 Bx2 Ratchets Up Performance and Cost-Efficiency with=20
-| Twice the Bandwidth, Half the Footprint of Flagship System=20
-|
-| MOUNTAIN VIEW, Calif., (October 28, 2004) [...] Silicon Graphics today=20
-| unveiled a new version of its SGI=AE Altix=AE 3700 system that delivers=20
-| twice the bandwidth and processor density of its flagship high-end=20
-| model.
 
-Gerald (not working for SGI ;-)
---168476160-968527680-1099380432=:24640--
+---
+Takayoshi Kochi
