@@ -1,64 +1,88 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Thu, 27 May 2004 16:06:18 +0000
-Subject: Re: Hot plug vs. reliability
-Message-Id: <200405271606.i4RG6IYC001896@ben.americas.sgi.com>
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Wed, 26 May 2004 11:59:11 +0000
+Subject: sched_clock
+Message-Id: <40B4868F.B649611C@nospam.org>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <40B5D68C.466FE969@nospam.org> from "Zoltan Menyhart" at May 27, 2004 01:52:44 PM
-References: <40B5D68C.466FE969@nospam.org>
-In-Reply-To: <40B5D68C.466FE969@nospam.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Zoltan.Menyhart@bull.net
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Zoltan Menyhart wrote:
-> 
-> We cannot remove safely failing memory / CPUs. In most of the cases
-> it is too late. 
+Time can go backward.
+At least for the IA64 implementation where "sched_clock()" overflows.
+Example:
 
-This is a key point.  To get the most value out of hot plug (as
-a reliability feature) the system must be able to detect and
-"ride through" component failures.  Conversly, if the system
-crashes on the first component failure, the ability to hot remove
-the broken component has little value.
+sched_clock[MFI]	    mov.m r3=3Dar.itc
 
-For example, memory hot-plug has the most value if the system can
-"ride through" a memory uncorrectable, isolate the bad memory 
-(ie not re-use the page with the bad DIMM cells), shoot the application
-that hit the uncorrectable (or better yet, have some checkpoint/restart
-mechanism to avoid killing the application), migrate data off
-the physical DIMM (etc) to get the system to the point that the
-bad DIMM can be physically replaced, and re-integrate the new memory.
+// r3: 0x0000002d19db39e7
 
-My point is that a key part of the whole hot plug story is the
-ability to detect and ride thought the initial errors that would
-prompt someone to want to replace the component.  And without that
-part the significant effort to do the rest of the pieces has significantly
-less value.
+sched_clock+0xc		    addl r10=3D-2096336,r1;;
+sched_clock+0x10[MFI]       setf.sig f9=3Dr3
+sched_clock+0x20[MMI]       ld8 r9=3D[r10];;
+sched_clock+0x26            adds r8$,r9;;
+sched_clock+0x30[MMI]       ld8 r2=3D[r8];;
 
->                  We (in the OS) can see some corrected CPU, memory, I/O
-> and platform errors. Yet the OS has not got and should not have the
-> knowledge when a component is "enough bad". I think it is the firmware
-> that has all the information about the details of the HW events.
-> Do you know of some firmware services which can say something like:
-> "hey, remove the component X otherwise your MTBF will drop by 95 %..." ?
+// r2: 0x0000000050383e5f   -- itc MHz: 797.809000
 
-The difficulty with predictive analysis is determining the exact
-indicator of a potential failure.  Many times the first indication
-is a fatal error that crashes the system (which is why error recovery
-to "ride through" failures is so important).  Other errors, such 
-as memory singlebits, may (or may not) increase the probability of
-failure, but does is increase the probability enough to warrent
-a service action?  (Service actions have costs, too.)
+sched_clock+0x36            setf.sig f6=3Dr2;;
+sched_clock+0x46            xmpy.l f8=F9,f6;;
+sched_clock+0x50[MMI]       getf.sig r2=F8;;
 
-A technical difficulty with predictive analysis is that each component 
-has a different failure characteristics and the failure charicteristics
-can change with spacific technologies.  For example, smaller die 
-technologies can increase the soft failure rates.  And by the 
-time the long term failure characteristics are fully understood 
-the technology is obsolete.  :-(
+// r2: 0x21fd270c8ae86eb9   -- has overflown
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+sched_clock+0x5c            extr.u r8=3Dr2,30,34
+
+// r8: 0x0000000087f49c32   -- *Previously* I got 3fe001a68
+
+Funny results can be obtained in "schedule()". E.g.:
+
+	unsigned long run_time;
+	now =3D sched_clock();
+        run_time =3D now - prev->timestamp;
+
+I do think it is a good programming solution to abuse the fact that
+the variables are unsigned, and should "sched_clock()" overflow, we would
+be saved by the "else" branch.
+
+        if (likely(now - prev->timestamp < NS_MAX_SLEEP_AVG))
+                run_time =3D now - prev->timestamp;
+        else
+                run_time =3D NS_MAX_SLEEP_AVG;
+
+BTW is completely unfair if a task (even if it has run for just a fraction
+of microsec.) is given "NS_MAX_SLEEP_AVG" just because "sched_clock()" has
+overflown.
+
+I do not think this comment below could be right (neither what it states nor
+how it is used) because the ITC is a running counter, it is not restated
+every time when a task is scheduled or time-stamp-ed.
+
+/*
+ * This shift should be large enough to be able to represent 1000000000/itc=
+_freq with good
+ * accuracy while being small enough to fit 10*1000000000<<IA64_NSEC_PER_CY=
+C_SHIFT in 64 bits
+ * (this will give enough slack to represent 10 seconds worth of time as a =
+scaled number).
+ */
+
+I do not really see why we multiply the value read out from the ITC by
+"local_cpu_data->nsec_per_cyc" in "sched_clock()".
+
+Why do not we simply count nanoseconds as the scheduler wants us ?
+We should convert carefully the ITC ticks into nanoseconds, doing something=
+ like:
+
+unsigned long long sched_clock (void)
+{
+	return ia64_get_itc() * local_cpu_data->mult / local_cpu_data->div;
+}
+
+By "carefully" I mean avoiding overflows.
+
+Time stamps should form an ever increasing "chain of time".
+
+Thanks.
+
+
+Zolt=E1n Menyh=E1rt
