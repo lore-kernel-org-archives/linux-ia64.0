@@ -1,21 +1,22 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 25 Feb 2004 17:32:34 +0000
-Subject: MCA bad unwind info
-Message-Id: <16444.56370.794788.158418@napali.hpl.hp.com>
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 20 Feb 2004 02:33:43 +0000
+Subject: The new radeon driver in 2.6.3
+Message-Id: <20040220023343.GX11824@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Could somebody please look into cleaning up mca_asm.S so it doesn't
-trigger any unwind-check errors?  If it's difficult to provide correct
-unwind info _and_ it can be proved that we'll never have to unwind
-through the offending code, it might be OK for now to simply omit the
-unwind info.  In my opinion it's unacceptable to have knowingly bad
-unwind info in mca_asm.S---I'm sure we'll get
-bug-reports/worry-reports about this sooner or later because unwcheck
-is now run on a regular basis.
 
-	--daivd
+I've had problems with the new RadeonFB driver with my Radeon 7000
+card.  Turns out you need to enable I2C and then RADEON_I2C.  Then
+it works nicely.
 
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
