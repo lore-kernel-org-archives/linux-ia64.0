@@ -1,50 +1,28 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 21 Oct 2003 22:24:27 +0000
-Subject: Re: [RFC] Endianness and signals
-Message-Id: <marc-linux-ia64-106677568627771@msgid-missing>
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 16 Oct 2003 18:32:06 +0000
+Subject: BUG 2.4.23-pre6 megaraid2 fails to build
+Message-Id: <marc-linux-ia64-106632918018841@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106669369711349@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106669369711349@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 21 Oct 2003 14:57:50 -0700, Cary Coutant <cary@cup.hp.com> said:
+FYI, In case anyone cares about megaraid2, it fails to build for ia64
+from bjorns linux-ia64-2.4 bk tree. I've got too many other things
+to chase this now.
 
-  >> The fourth case is that the application has signal handlers that
-  >> expect to get called in the "opposite" byte-order and those are
-  >> the ones that would break if we changed the current behavior.
+...
+gcc -D__KERNEL__ -I/usr/src/linux-ia64-2.4/include -Wall -Wstrict-prototype=
+s -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -g -fomit-frame-point=
+er -pipe  -ffixed-r13 -mfixed-range=F12-f15,f32-f127 -falign-functions2 -DG=
+AS_HAS_HINT_INSN -frename-registers --param max-inline-insnsP00 -DMODULE -D=
+MODVERSIONS -include /usr/src/linux-ia64-2.4/include/linux/modversions.h  -=
+nostdinc -iwithprefix include -DKBUILD_BASENAME=3Dmegaraid2  -c -o megaraid=
+2.o megaraid2.c
+megaraid2.c: In function `mega_find_card':
+megaraid2.c:403: error: structure has no member named `lock'
+megaraid2.c: In function `megaraid_iombox_ack_sequence':
+...
 
-  Cary> Do you know of any such applications?
-
-I don't know of _any_ mixed-endian-mode applications for ia64 linux.
-It has come up now and then, but I have never seen a strong demand for
-it.  That's sort of my point: if you want to do mixed-endian-mode, you
-(probably) can do it, but you're pretty much on your own.  It's not
-just the kernel, but gdb, libunwind, etc. etc. all of which may or may
-not react the "right" way when encountering big-endian data.
-
-  Cary> How likely is it that someone would code an application in
-  Cary> such a way that they guarantee that a certain signal will
-  Cary> occur only when executing in big-endian mode? (And,
-  Cary> conversely, that other signals will occur only when executing
-  Cary> in little-endian mode?)
-
-I can certainly imagine an application that switches into big-endian
-mode completely before installing any signal handlers.
-
-  Cary> By the way, when you arm the signal handler, do you copy the
-  Cary> function pointer or the function descriptor? Will the
-  Cary> user-space code that makes the call to the signal handler work
-  Cary> if you're in big-endian mode?
-
-We copy the pointer and then dereference it in user-mode (in the trampoline).
-
-Perhaps you misunderstand what I'm saying: I'm not religiously opposed
-to making a change in this area, but I'm not going to change it on a
-whim.  If someone is serious about supporting mixed-endian-mode
-applications, they'll have to put some time into it and at least
-answer what happens, e.g., to gdb, etc.
-
-	--david
+grant
