@@ -1,27 +1,44 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 11 Apr 2003 22:02:40 +0000
-Subject: RE: [Linux-ia64] ias and stack unwind
-Message-Id: <marc-linux-ia64-105590723705481@msgid-missing>
+From: Alex Williamson <alex_williamson@hp.com>
+Date: Thu, 03 Apr 2003 17:53:27 +0000
+Subject: [Linux-ia64] [PATCH] 3/4 trivial generic fix
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------1681CF59BC5FF7EC149ECDF8"
+Message-Id: <marc-linux-ia64-105590723705395@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705471@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705471@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 11 Apr 2003 14:55:15 -0700, "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com> said:
+This is a multi-part message in MIME format.
+--------------1681CF59BC5FF7EC149ECDF8
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-  Jay> I don't think that explains it in my case.  I'm using ecc version 7.1.
 
-Ugh, not good.
+   Patch 3 is a trivial build fix for the generic kernel target.
+Thanks,
 
-  Jay> Did you have to use any special options?
+	Alex
 
-Nope, nothing special at all.  Please keep me posted on this.  I very
-much want libunwind to work with all compilers.  I was happy to see
-that ecc 7.0 puts out SCRA-compliant unwind info.  Let's hope it stays
-so.
+--
+Alex Williamson                             HP Linux & Open Source Lab
+--------------1681CF59BC5FF7EC149ECDF8
+Content-Type: text/plain; charset=us-ascii;
+ name="patch-03.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch-03.diff"
 
-	--david
+diff -urN linux-2.5.64/arch/ia64/boot/Makefile linux-work/arch/ia64/boot/Makefile
+--- linux-2.5.64/arch/ia64/boot/Makefile	Tue Mar  4 20:29:23 2003
++++ linux-work/arch/ia64/boot/Makefile	Tue Apr  1 09:19:53 2003
+@@ -11,7 +11,6 @@
+ EXTRA_TARGETS := vmlinux.bin vmlinux.gz
+ 
+ targets-$(CONFIG_IA64_HP_SIM)  += bootloader
+-targets-$(CONFIG_IA64_GENERIC) += bootloader
+ EXTRA_TARGETS += $(sort $(targets-y))
+ 
+ quiet_cmd_cptotop = LN      $@
+
+--------------1681CF59BC5FF7EC149ECDF8--
+
 
