@@ -1,28 +1,46 @@
-From: John Hesterberg <jh@sgi.com>
-Date: Wed, 04 Dec 2002 20:17:08 +0000
-Subject: Re: [Linux-ia64] [TRIVIAL PATCH 2.5] get rid of CONFIG_UDF_RW (ia64)
-Message-Id: <marc-linux-ia64-105590709805501@msgid-missing>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Wed, 04 Dec 2002 01:11:46 +0000
+Subject: Re: [Linux-ia64] 2.5.45 with CONFIG_NUMA=y
+Message-Id: <marc-linux-ia64-105590709805500@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805496@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805496@msgid-missing>
+References: <marc-linux-ia64-105590709805486@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805486@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Dec 03, 2002 at 02:02:09PM +0100, Erlend Aasland wrote:
-> Remove CONFIG_UDF_RW from ia64 defconfigs (it's not used anymore)
+On Wed, Nov 27, 2002 at 05:22:04PM +0100, Xavier Bru wrote:
+>  > > . Current settings for DIG are : 512MB/bank, 16GB/node,(mmzone.h)  but our
+>  > > platform can support 64 GB/node (Even with less memory, bios maps
+>  > > each node memory modulo 64GB). 
+>  > > As it has been cleanly coded :-), we just changed DIG_BANKSHIFT to 31 
+>  > > (2GB banks) and system runs. 
+>  > > Should these values bee incremented in the future ?
+>  > 
+>  > Maybe that should be an option for the kernel configuration system?
+> 
+> This should be OK for us.
 
-I just sent David & Bjorn a note yesterday to remove all the files
-in arch/ia64/sn/configs/.  They are stale, they're really
-just SGI internal files, and our current versions are in a
-different location anyway.
+Wanna come up with a patch? :)  It could just be something like 'MB per
+bank' or somesuch, only visible when DIG and DISCONTIG are turned on.
 
-I do want to put out a default SN defconfig file, but in a location
-that sets a reasonable precedent for other ia64 platforms.
-More on that later...
+> Seems that we use the VGA mode through /dev/mem (No driver is actually 
+> loaded). 
+> Are there some known problems with /dev/mem and DISCONTIG_MEM ? 
 
-Cheers,
+I don't think there are discontig mem issues really, but platform issues
+possibly.  On our platform for example, X might go looking in /dev/mem
+for a list of PCI cards and then use the info in the PCI config space
+incorrectly (e.g. IRQ values).  Other platforms probably have this issue
+too, not sure about yours though.
 
-John Hesterberg
+> Do you think we should have more chances validating Frame buffer support and the
+> card driver ? (I think platform has no AGP support).
+
+Possibly.  I know that some of the frame buffer drivers were written to
+expect the card to be uninitialized so that they'll work on non-x86
+platforms.
+
+Jesse
 
