@@ -1,39 +1,30 @@
-From: Paul Mackerras <paulus@samba.org>
-Date: Wed, 28 Jan 2004 04:44:39 +0000
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Date: Wed, 28 Jan 2004 08:58:25 +0000
 Subject: Re: [RFC/PATCH, 2/4] readX_check() performance evaluation
-Message-Id: <16407.15927.632084.223700@cargo.ozlabs.ibm.com>
+Message-Id: <20040128085825.A3591@flint.arm.linux.org.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <00a301c3e541$c13a6350$2987110a@lsd.css.fujitsu.com>
-	<Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
-In-Reply-To: <Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
+References: <00a301c3e541$c13a6350$2987110a@lsd.css.fujitsu.com> <Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0401271847440.10794@home.osdl.org>; from torvalds@osdl.org on Tue, Jan 27, 2004 at 06:55:17PM -0800
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Linus Torvalds <torvalds@osdl.org>
 Cc: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>, linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
 
-Linus Torvalds writes:
-
+On Tue, Jan 27, 2004 at 06:55:17PM -0800, Linus Torvalds wrote:
 > Does anybody see any downsides to something like this?
 
-Looks OK to me.
+What if the failing PCI access happened in an interrupt routine?
+(I'm thinking of the situation where you may need to read the PCI
+status registers to find out whether an error occurred.)
 
-On pSeries (ppc64) machines, we don't get an asynchronous machine
-check, but instead the read will return all 1s, and the system will
-isolate the slot and arrange that all further reads return all 1s.
-If you get all 1s back on a read, you are supposed to do a firmware
-call to find out if there was actually an error.
+Also, for that matter, what if a network device receives an abort
+while performing BM-DMA?
 
-With your design, I would make readX_check set a bit somewhere
-(associated with the dev argument) if it saw all 1s, and then make
-read_pcix_errors do the firmware call if the bit is set.
+Do we even care about either of these two scenarios?
 
-The only thing to be careful of is that drivers cope correctly with an
-all-1s value returned.  E.g. they shouldn't do:
-
-	while (readb_check(dev, offset) & BUSY)
-		udelay(1);
-
-But of course they shouldn't do that anyway. :)
-
-Paul.
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
