@@ -1,31 +1,32 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 01 Aug 2002 18:17:00 +0000
-Subject: Re: [Linux-ia64] 64K pages on Itanium 1
-Message-Id: <marc-linux-ia64-105590701905879@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Tue, 13 Aug 2002 22:38:11 +0000
+Subject: [Linux-ia64] move asm-ia64/efi.h to linux/efi.h ?
+Message-Id: <marc-linux-ia64-105590701905936@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905876@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905876@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 02 Aug 2002 01:00:42 +1000, Keith Owens <kaos@ocs.com.au> said:
+David, any further thoughts on moving include/asm-ia64/efi.h to linux/efi.h?
+Now that EFI GUID Partition Tables are part of the stock 2.4 and 2.5 kernel
+series, and can be (and will be!) used on x86 platforms too, several people
+have commented on l-k this week that it doesn't make sense to keep it in
+asm-ia64.  I agree.  There's also no ia64-specific code in there.
 
-  Keith> A recent 2.4.18 ia64 patch removed 64K page support for
-  Keith> Itanium 1, only allowing it for McKinley.  What is the
-  Keith> restriction on Itanium 1?  I have a test case that needs 64K
-  Keith> pages and I was hoping to run it on Big Sur.  The simple test
-  Keith> of allowing 64K for Itanium 1 breaks as soon as it enters
-  Keith> user space, during binfmt_elf processing.
+I'd be happy to work up a patch to move it if there was a chance it would be
+accepted and submitted to Marcelo and Linus.
 
-The problem is that Itanium 1 has few enough virtual address bits that
-with 64KB pages, you end up with an overlap between the user address
-space and the virtually mapped linear page table.  This can be worked
-around (there was a patch from someone at SGI, at some point), but it
-wasn't very clean and I didn't think it's worth bothering with it
-introduced, given that Itanium 2 solves the problem automagically
-(since it supports the full 64 bits of virtual address space).
+Thanks,
+Matt
 
-	--david
+--
+Matt Domsch
+Sr. Software Engineer, Lead Engineer, Architect
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+#1 US Linux Server provider for 2001 and Q1/2002! (IDC May 2002)
+
+
+
 
