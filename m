@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 09 Jun 2004 23:35:48 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 10 Jun 2004 00:58:41 +0000
 Subject: RE: [PATCH] Kernel panic on IA-64 Linux with SELinux
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F016C4732@scsmsx401.amr.corp.intel.com>
+Message-Id: <16583.45633.130888.933576@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <013f01c44ddb$636d4aa0$f97d220a@linux.bs1.fc.nec.co.jp>
 In-Reply-To: <013f01c44ddb$636d4aa0$f97d220a@linux.bs1.fc.nec.co.jp>
@@ -10,18 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->For the particular case of the init_task, we could just fix it up
->at boot time (as suggested by the earlier patch).
->
->My bigger worry is that this will be an issue _whenever_ somebody
->initializes a linked list with a static initializer.  There needs to
->be a way to protect from this happening accidentially.  Without that,
->I'm not sure the virtual remapping is really viable.
+>>>>> On Wed, 9 Jun 2004 16:35:48 -0700, "Luck, Tony" <tony.luck@intel.com> said:
 
-This is only an issue if we view the same structure via both its
-region 5 and region 7 aliases.  I think that init_task may currently
-be a special case here ... in general arbitrary structures that users
-declare and statically initialize with lists will only be referenced
-via the region 5 alias ... so they will be safe.
+  Tony> This is only an issue if we view the same structure via both
+  Tony> its region 5 and region 7 aliases.  I think that init_task may
+  Tony> currently be a special case here ... in general arbitrary
+  Tony> structures that users declare and statically initialize with
+  Tony> lists will only be referenced via the region 5 alias ... so
+  Tony> they will be safe.
 
--Tony
+You're probably right.
+
+We _could_ do something like this in init_task.c:
+
+void
+initialize_init_task (void)
+{
+	*current = (task_t) INIT_TASK((*current));
+}
+
+and then call this function from setup_arch().
+
+The code does compile but doesn't seem to work.  I suspect there are
+other lists that are inconsistent now.  Anybody want to track this
+down?
+
+
+	--david
