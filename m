@@ -1,245 +1,194 @@
-From: Rajesh Shah <rajesh.shah@intel.com>
-Date: Fri, 18 Mar 2005 21:48:35 +0000
-Subject: [Patch 1/12] ACPI based root bridge hot-add
-Message-Id: <20050318134834.A1145@unix-os.sc.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 24 Mar 2005 00:51:52 +0000
+Subject: syscall improvement patch [12/12]
+Message-Id: <200503240051.j2O0pqsK022328@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050318133856.A878@unix-os.sc.intel.com>
-In-Reply-To: <20050318133856.A878@unix-os.sc.intel.com>; from rajesh.shah@intel.com on Fri, Mar 18, 2005 at 01:38:57PM -0800
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: gregkh@suse.de, tony.luck@intel.com, matthew@wil.cx, len.brown@intel.com
-Cc: linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-ia64@vger.kernel.org, parisc-linux@parisc-linux.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-When you hot-plug a (root) bridge hierarchy, it may have p2p
-bridges and devices attached to it that have not been configured
-by firmware. In this case, we need to configure the devices 
-before starting them. This patch separates device start from
-device scan so that we can introduce the configuration step in
-the middle. 
+ia64: Annotate fsys_bubble_down() with McKinley dispatch info.
 
-I kept the existing semantics for pci_scan_bus() since there
-are a huge number of callers to that function.
+This patch changes comments & formatting only.  There is no code
+change.
 
-Also, I have no way of testing the changes I made to the parisc
-files, so this needs review by those folks. Sorry for the massive
-cross-post, this touches files in many different places.
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-Signed-off-by: Rajesh Shah <rajesh.shah@intel.com>
----
-
- linux-2.6.11-mm4-iohp-rshah1/arch/i386/pci/common.c   |    2 -
- linux-2.6.11-mm4-iohp-rshah1/arch/i386/pci/legacy.c   |    2 +
- linux-2.6.11-mm4-iohp-rshah1/arch/i386/pci/numa.c     |    2 +
- linux-2.6.11-mm4-iohp-rshah1/arch/ia64/pci/pci.c      |    2 -
- linux-2.6.11-mm4-iohp-rshah1/drivers/acpi/pci_bind.c  |   16 +++++++++++-
- linux-2.6.11-mm4-iohp-rshah1/drivers/acpi/pci_root.c  |   24 +++++++++++++++++-
- linux-2.6.11-mm4-iohp-rshah1/drivers/parisc/dino.c    |    1 
- linux-2.6.11-mm4-iohp-rshah1/drivers/parisc/lba_pci.c |    2 +
- linux-2.6.11-mm4-iohp-rshah1/drivers/pci/probe.c      |    2 -
- linux-2.6.11-mm4-iohp-rshah1/include/linux/pci.h      |    8 ++++--
- 10 files changed, 53 insertions(+), 8 deletions(-)
-
-diff -puN arch/i386/pci/common.c~pci_serparate_device_add arch/i386/pci/common.c
---- linux-2.6.11-mm4-iohp/arch/i386/pci/common.c~pci_serparate_device_add	2005-03-16 13:06:53.259117000 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/arch/i386/pci/common.c	2005-03-16 13:06:53.419273248 -0800
-@@ -133,7 +133,7 @@ struct pci_bus * __devinit pcibios_scan_
- 
- 	printk("PCI: Probing PCI hardware (bus %02x)\n", busnum);
- 
--	return pci_scan_bus(busnum, &pci_root_ops, NULL);
-+	return pci_scan_bus_parented(NULL, busnum, &pci_root_ops, NULL);
- }
- 
- extern u8 pci_cache_line_size;
-diff -puN arch/i386/pci/legacy.c~pci_serparate_device_add arch/i386/pci/legacy.c
---- linux-2.6.11-mm4-iohp/arch/i386/pci/legacy.c~pci_serparate_device_add	2005-03-16 13:06:53.263999812 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/arch/i386/pci/legacy.c	2005-03-16 13:06:53.420249810 -0800
-@@ -45,6 +45,8 @@ static int __init pci_legacy_init(void)
- 
- 	printk("PCI: Probing PCI hardware\n");
- 	pci_root_bus = pcibios_scan_root(0);
-+	if (pci_root_bus)
-+		pci_bus_add_devices(pci_root_bus);
- 
- 	pcibios_fixup_peer_bridges();
- 
-diff -puN arch/i386/pci/numa.c~pci_serparate_device_add arch/i386/pci/numa.c
---- linux-2.6.11-mm4-iohp/arch/i386/pci/numa.c~pci_serparate_device_add	2005-03-16 13:06:53.267906062 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/arch/i386/pci/numa.c	2005-03-16 13:06:53.421226373 -0800
-@@ -115,6 +115,8 @@ static int __init pci_numa_init(void)
- 		return 0;
- 
- 	pci_root_bus = pcibios_scan_root(0);
-+	if (pci_root_bus)
-+		pci_bus_add_devices(pci_root_bus);
- 	if (num_online_nodes() > 1)
- 		for_each_online_node(quad) {
- 			if (quad = 0)
-diff -puN arch/ia64/pci/pci.c~pci_serparate_device_add arch/ia64/pci/pci.c
---- linux-2.6.11-mm4-iohp/arch/ia64/pci/pci.c~pci_serparate_device_add	2005-03-16 13:06:53.272788874 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/arch/ia64/pci/pci.c	2005-03-16 13:06:53.430991997 -0800
-@@ -330,7 +330,7 @@ pci_acpi_scan_root(struct acpi_device *d
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, add_window,
- 			&info);
- 
--	pbus = pci_scan_bus(bus, &pci_root_ops, controller);
-+	pbus = pci_scan_bus_parented(NULL, bus, &pci_root_ops, controller);
- 	if (pbus)
- 		pcibios_setup_root_windows(pbus, controller);
- 
-diff -puN drivers/acpi/pci_bind.c~pci_serparate_device_add drivers/acpi/pci_bind.c
---- linux-2.6.11-mm4-iohp/drivers/acpi/pci_bind.c~pci_serparate_device_add	2005-03-16 13:06:53.276695124 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/drivers/acpi/pci_bind.c	2005-03-16 13:06:53.431968560 -0800
-@@ -129,6 +129,8 @@ acpi_pci_bind (
- 	char			*pathname = NULL;
- 	struct acpi_buffer	buffer = {0, NULL};
- 	acpi_handle		handle = NULL;
-+	struct pci_dev		*dev;
-+	struct pci_bus 		*bus;
- 
- 	ACPI_FUNCTION_TRACE("acpi_pci_bind");
- 
-@@ -193,8 +195,20 @@ acpi_pci_bind (
- 	 * Locate matching device in PCI namespace.  If it doesn't exist
- 	 * this typically means that the device isn't currently inserted
- 	 * (e.g. docking station, port replicator, etc.).
-+	 * We cannot simply search the global pci device list, since
-+	 * PCI devices are added to the global pci list when the root
-+	 * bridge start ops are run, which may not have happened yet.
+diff -Nru a/arch/ia64/kernel/fsys.S b/arch/ia64/kernel/fsys.S
+--- a/arch/ia64/kernel/fsys.S	2005-03-23 16:33:21 -08:00
++++ b/arch/ia64/kernel/fsys.S	2005-03-23 16:33:21 -08:00
+@@ -531,84 +531,114 @@
+ 	.altrp b6
+ 	.body
+ 	/*
+-	 * We get here for syscalls that don't have a lightweight handler.  For t=
+hose, we
+-	 * need to bubble down into the kernel and that requires setting up a min=
+imal
+-	 * pt_regs structure, and initializing the CPU state more or less as if an
+-	 * interruption had occurred.  To make syscall-restarts work, we setup pt=
+_regs
+-	 * such that cr_iip points to the second instruction in syscall_via_break.
+-	 * Decrementing the IP hence will restart the syscall via break and not
+-	 * decrementing IP will return us to the caller, as usual.  Note that we =
+preserve
+-	 * the value of psr.pp rather than initializing it from dcr.pp.  This mak=
+es it
+-	 * possible to distinguish fsyscall execution from other privileged execu=
+tion.
++	 * We get here for syscalls that don't have a lightweight
++	 * handler.  For those, we need to bubble down into the kernel
++	 * and that requires setting up a minimal pt_regs structure,
++	 * and initializing the CPU state more or less as if an
++	 * interruption had occurred.  To make syscall-restarts work,
++	 * we setup pt_regs such that cr_iip points to the second
++	 * instruction in syscall_via_break.  Decrementing the IP
++	 * hence will restart the syscall via break and not
++	 * decrementing IP will return us to the caller, as usual.
++	 * Note that we preserve the value of psr.pp rather than
++	 * initializing it from dcr.pp.  This makes it possible to
++	 * distinguish fsyscall execution from other privileged
++	 * execution.
+ 	 *
+ 	 * On entry:
+-	 *	- normal fsyscall handler register usage, except that we also have:
++	 *	- normal fsyscall handler register usage, except
++	 *	  that we also have:
+ 	 *	- r18: address of syscall entry point
+ 	 *	- r21: ar.fpsr
+ 	 *	- r26: ar.pfs
+ 	 *	- r27: ar.rsc
+ 	 *	- r29: psr
++	 *
++	 * We used to clear some PSR bits here but that requires slow
++	 * serialization.  Fortuntely, that isn't really necessary.
++	 * The rationale is as follows: we used to clear bits
++	 * ~PSR_PRESERVED_BITS in PSR.L.  Since
++	 * PSR_PRESERVED_BITS=3DPSR.{UP,MFL,MFH,PK,DT,PP,SP,RT,IC}, we
++	 * ended up clearing PSR.{BE,AC,I,DFL,DFH,DI,DB,SI,TB}.
++	 * However,
++	 *
++	 * PSR.BE : already is turned off in __kernel_syscall_via_epc()
++	 * PSR.AC : don't care (kernel normally turns PSR.AC on)
++	 * PSR.I  : already turned off by the time fsys_bubble_down gets
++	 *	    invoked
++	 * PSR.DFL: always 0 (kernel never turns it on)
++	 * PSR.DFH: don't care --- kernel never touches f32-f127 on its own
++	 *	    initiative
++	 * PSR.DI : always 0 (kernel never turns it on)
++	 * PSR.SI : always 0 (kernel never turns it on)
++	 * PSR.DB : don't care --- kernel never enables kernel-level
++	 *	    breakpoints
++	 * PSR.TB : must be 0 already; if it wasn't zero on entry to
++	 *          __kernel_syscall_via_epc, the branch to fsys_bubble_down
++	 *          will trigger a taken branch; the taken-trap-handler then
++	 *          converts the syscall into a break-based system-call.
  	 */
--	data->dev = pci_find_slot(data->id.bus, PCI_DEVFN(data->id.device, data->id.function));
-+	bus = pci_find_bus(data->id.segment, data->id.bus);
-+	if (bus) {
-+		list_for_each_entry(dev, &bus->devices, bus_list) {
-+			if (dev->devfn = PCI_DEVFN(data->id.device,
-+						data->id.function)) {
-+				data->dev = dev;
-+				break;
-+			}
-+		}
-+	}
- 	if (!data->dev) {
- 		ACPI_DEBUG_PRINT((ACPI_DB_INFO, 
- 			"Device %02x:%02x:%02x.%02x not present in PCI namespace\n",
-diff -puN drivers/acpi/pci_root.c~pci_serparate_device_add drivers/acpi/pci_root.c
---- linux-2.6.11-mm4-iohp/drivers/acpi/pci_root.c~pci_serparate_device_add	2005-03-16 13:06:53.281577937 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/drivers/acpi/pci_root.c	2005-03-16 13:06:53.432945122 -0800
-@@ -46,6 +46,7 @@ ACPI_MODULE_NAME		("pci_root")
- 
- static int acpi_pci_root_add (struct acpi_device *device);
- static int acpi_pci_root_remove (struct acpi_device *device, int type);
-+static int acpi_pci_root_start (struct acpi_device *device);
- 
- static struct acpi_driver acpi_pci_root_driver = {
- 	.name =		ACPI_PCI_ROOT_DRIVER_NAME,
-@@ -54,6 +55,7 @@ static struct acpi_driver acpi_pci_root_
- 	.ops =		{
- 				.add =    acpi_pci_root_add,
- 				.remove = acpi_pci_root_remove,
-+				.start =  acpi_pci_root_start,
- 			},
- };
- 
-@@ -169,6 +171,7 @@ acpi_pci_root_add (
- 	if (!root)
- 		return_VALUE(-ENOMEM);
- 	memset(root, 0, sizeof(struct acpi_pci_root));
-+	INIT_LIST_HEAD(&root->node);
- 
- 	root->handle = device->handle;
- 	strcpy(acpi_device_name(device), ACPI_PCI_ROOT_DEVICE_NAME);
-@@ -298,12 +301,31 @@ acpi_pci_root_add (
- 			root->id.bus);
- 
- end:
--	if (result)
-+	if (result) {
-+		if (!list_empty(&root->node))
-+			list_del(&root->node);
- 		kfree(root);
-+	}
- 
- 	return_VALUE(result);
- }
- 
-+static int
-+acpi_pci_root_start (
-+	struct acpi_device	*device)
-+{
-+	struct acpi_pci_root	*root;
-+
-+	ACPI_FUNCTION_TRACE("acpi_pci_root_start");
-+
-+	list_for_each_entry(root, &acpi_pci_roots, node) {
-+		if (root->handle = device->handle) {
-+			pci_bus_add_devices(root->bus);
-+			return_VALUE(0);
-+		}
-+	}
-+	return_VALUE(-ENODEV);
-+}
- 
- static int
- acpi_pci_root_remove (
-diff -puN drivers/parisc/dino.c~pci_serparate_device_add drivers/parisc/dino.c
---- linux-2.6.11-mm4-iohp/drivers/parisc/dino.c~pci_serparate_device_add	2005-03-16 13:06:53.285484187 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/drivers/parisc/dino.c	2005-03-16 13:06:53.433921685 -0800
-@@ -993,6 +993,7 @@ dino_driver_callback(struct parisc_devic
- 	bus = pci_scan_bus_parented(&dev->dev, dino_current_bus,
- 				    &dino_cfg_ops, NULL);
- 	if(bus) {
-+		pci_bus_add_devices(bus);
- 		/* This code *depends* on scanning being single threaded
- 		 * if it isn't, this global bus number count will fail
- 		 */
-diff -puN drivers/parisc/lba_pci.c~pci_serparate_device_add drivers/parisc/lba_pci.c
---- linux-2.6.11-mm4-iohp/drivers/parisc/lba_pci.c~pci_serparate_device_add	2005-03-16 13:06:53.290366999 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/drivers/parisc/lba_pci.c	2005-03-16 13:06:53.435874810 -0800
-@@ -1570,6 +1570,8 @@ lba_driver_probe(struct parisc_device *d
- 	lba_bus = lba_dev->hba.hba_bus  		pci_scan_bus_parented(&dev->dev, lba_dev->hba.bus_num.start,
- 				cfg_ops, NULL);
-+	if (lba_bus)
-+		pci_bus_add_devices(lba_bus);
- 
- 	/* This is in lieu of calling pci_assign_unassigned_resources() */
- 	if (is_pdc_pat()) {
-diff -puN drivers/pci/probe.c~pci_serparate_device_add drivers/pci/probe.c
---- linux-2.6.11-mm4-iohp/drivers/pci/probe.c~pci_serparate_device_add	2005-03-16 13:06:53.294273249 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/drivers/pci/probe.c	2005-03-16 13:06:53.436851372 -0800
-@@ -916,8 +916,6 @@ struct pci_bus * __devinit pci_scan_bus_
- 
- 	b->subordinate = pci_scan_child_bus(b);
- 
--	pci_bus_add_devices(b);
--
- 	return b;
- 
- sys_create_link_err:
-diff -puN include/linux/pci.h~pci_serparate_device_add include/linux/pci.h
---- linux-2.6.11-mm4-iohp/include/linux/pci.h~pci_serparate_device_add	2005-03-16 13:06:53.299156062 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/include/linux/pci.h	2005-03-16 13:06:53.449546685 -0800
-@@ -732,16 +732,20 @@ void pcibios_update_irq(struct pci_dev *
- /* Generic PCI functions used internally */
- 
- extern struct pci_bus *pci_find_bus(int domain, int busnr);
-+void pci_bus_add_devices(struct pci_bus *bus);
- struct pci_bus *pci_scan_bus_parented(struct device *parent, int bus, struct pci_ops *ops, void *sysdata);
- static inline struct pci_bus *pci_scan_bus(int bus, struct pci_ops *ops, void *sysdata)
- {
--	return pci_scan_bus_parented(NULL, bus, ops, sysdata);
-+	struct pci_bus *root_bus;
-+	root_bus = pci_scan_bus_parented(NULL, bus, ops, sysdata);
-+	if (root_bus)
-+		pci_bus_add_devices(root_bus);
-+	return root_bus;
- }
- int pci_scan_slot(struct pci_bus *bus, int devfn);
- struct pci_dev * pci_scan_single_device(struct pci_bus *bus, int devfn);
- unsigned int pci_scan_child_bus(struct pci_bus *bus);
- void pci_bus_add_device(struct pci_dev *dev);
--void pci_bus_add_devices(struct pci_bus *bus);
- void pci_name_device(struct pci_dev *dev);
- char *pci_class_name(u32 class);
- void pci_read_bridge_bases(struct pci_bus *child);
-_
+ 	/*
+-	 * Reading psr.l gives us only bits 0-31, psr.it, and psr.mc.  The rest w=
+e have
+-	 * to synthesize.
++	 * Reading psr.l gives us only bits 0-31, psr.it, and psr.mc.
++	 * The rest we have to synthesize.
+ 	 */
+-#	define PSR_ONE_BITS		((3 << IA64_PSR_CPL0_BIT) | (0x1 << IA64_PSR_RI_BIT=
+) \
++#	define PSR_ONE_BITS		((3 << IA64_PSR_CPL0_BIT)	\
++					 | (0x1 << IA64_PSR_RI_BIT)	\
+ 					 | IA64_PSR_BN | IA64_PSR_I)
+=20
+-	invala
+-	movl r14=3Dia64_ret_from_syscall
++	invala					// M0|1
++	movl r14=3Dia64_ret_from_syscall		// X
+=20
+ 	nop.m 0
+-	movl r28=3D__kernel_syscall_via_break
++	movl r28=3D__kernel_syscall_via_break	// X	create cr.iip
+ 	;;
+=20
+-	mov r2=3Dr16			// copy current task addr to addl-addressable register
+-	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16
+-	mov r31=3Dpr			// save pr (2 cyc)
+-	;;
+-	st1 [r16]=3Dr0			// clear current->thread.on_ustack flag
+-	addl r22=3DIA64_RBS_OFFSET,r2	// compute base of RBS
+-	add r3=3DTI_FLAGS+IA64_TASK_SIZE,r2
++	mov r2=3Dr16				// A    get task addr to addl-addressable register
++	adds r16=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r16 // A
++	mov r31=3Dpr				// I0   save pr (2 cyc)
++	;;
++	st1 [r16]=3Dr0				// M2|3 clear current->thread.on_ustack flag
++	addl r22=3DIA64_RBS_OFFSET,r2		// A    compute base of RBS
++	add r3=3DTI_FLAGS+IA64_TASK_SIZE,r2	// A
+ 	;;
+-	ld4 r3=3D[r3]				// r2 =3D current_thread_info()->flags
+-	lfetch.fault.excl.nt1 [r22]
++	ld4 r3=3D[r3]				// M0|1 r3 =3D current_thread_info()->flags
++	lfetch.fault.excl.nt1 [r22]		// M0|1 prefetch register backing-store
+ 	nop.i 0
+ 	;;
+-	mov ar.rsc=3D0			// set enforced lazy mode, pl 0, little-endian, loadrs=
+=3D0
++	mov ar.rsc=3D0				// M2   set enforced lazy mode, pl 0, LE, loadrs=3D0
+ 	nop.m 0
+ 	nop.i 0
+ 	;;
+-	mov r23=3Dar.bspstore		// save ar.bspstore (12 cyc)
+-	mov.m r24=3Dar.rnat		// read ar.rnat (5 cyc lat)
++	mov r23=3Dar.bspstore			// M2 (12 cyc) save ar.bspstore
++	mov.m r24=3Dar.rnat			// M2 (5 cyc) read ar.rnat (dual-issues!)
+ 	nop.i 0
+ 	;;
+-	mov ar.bspstore=3Dr22		// switch to kernel RBS
++	mov ar.bspstore=3Dr22			// M2 (6 cyc) switch to kernel RBS
+ 	movl r8=3DPSR_ONE_BITS			// X
+ 	;;
+-	mov r25=3Dar.unat			// save ar.unat (5 cyc)
+-	mov r19=B6			// save b6 (2 cyc)
+-	mov r20=3Dr1			// save caller's gp in r20
+-	;;
+-	or r29=3Dr8,r29			// construct cr.ipsr value to save
+-	mov b6=3Dr18			// copy syscall entry-point to b6 (7 cyc)
+-	addl r1=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r2	// compute base of memory =
+stack
++	mov r25=3Dar.unat				// M2 (5 cyc) save ar.unat
++	mov r19=B6				// I0   save b6 (2 cyc)
++	mov r20=3Dr1				// A    save caller's gp in r20
++	;;
++	or r29=3Dr8,r29				// A    construct cr.ipsr value to save
++	mov b6=3Dr18				// I0   copy syscall entry-point to b6 (7 cyc)
++	addl r1=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r2 // A compute base of memor=
+y stack
+=20
+-	mov r18=3Dar.bsp			// save (kernel) ar.bsp (12 cyc)
+-	cmp.ne pKStk,pUStk=3Dr0,r0	// set pKStk <- 0, pUStk <- 1
+-	br.call.sptk.many b7=3Dia64_syscall_setup
++	mov r18=3Dar.bsp				// M2   save (kernel) ar.bsp (12 cyc)
++	cmp.ne pKStk,pUStk=3Dr0,r0		// A    set pKStk <- 0, pUStk <- 1
++	br.call.sptk.many b7=3Dia64_syscall_setup	// B
+ 	;;
+-	mov ar.rsc=3D0x3			// set eager mode, pl 0, little-endian, loadrs=3D0
+-	mov rp=3Dr14				// set the real return addr
++	mov ar.rsc=3D0x3				// M2   set eager mode, pl 0, LE, loadrs=3D0
++	mov rp=3Dr14				// I0   set the real return addr
+ 	nop.i 0
+ 	;;
+-	ssm psr.i
+-	tbit.z p8,p0=3Dr3,TIF_SYSCALL_TRACE
+-(p10)	br.cond.spnt.many ia64_ret_from_syscall	// p10=3Dtrue means out regi=
+sters are more than 8
++	ssm psr.i				// M2   we're on kernel stacks now, reenable irqs
++	tbit.z p8,p0=3Dr3,TIF_SYSCALL_TRACE	// I0
++(p10)	br.cond.spnt.many ia64_ret_from_syscall	// B    return if bad call-f=
+rame or r15 is a NaT
+=20
+ 	nop.m 0
+-(p8)	br.call.sptk.many b6=B6		// ignore this return addr
+-	br.cond.spnt ia64_trace_syscall
++(p8)	br.call.sptk.many b6=B6			// B    (ignore return address)
++	br.cond.spnt ia64_trace_syscall		// B
+ END(fsys_bubble_down)
+=20
+ 	.rodata
