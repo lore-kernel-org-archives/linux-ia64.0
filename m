@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 10 Feb 2005 01:13:00 +0000
-Subject: RE: [patch 2.6.11-rc3-bk4] Correctly dereference ia64_mca_data
-Message-Id: <16906.46364.860076.109807@napali.hpl.hp.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Thu, 10 Feb 2005 23:59:58 +0000
+Subject: Re: [patch 2.6.11-rc3-bk4] Correctly dereference ia64_mca_data
+Message-Id: <200502102359.j1ANxwAl23861823@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <23464.1107851114@kao2.melbourne.sgi.com>
 In-Reply-To: <23464.1107851114@kao2.melbourne.sgi.com>
@@ -10,24 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 9 Feb 2005 17:05:52 -0800, "Luck, Tony" <tony.luck@intel.com> said:
+Tony Luck wrote:
+> 
+> But Russ's last report of running with effectively the same patch
+> wasn't positive:
+> 
+> > The patch (below) helps in that they system gets through the
+> > MCA code and back to the error injection app, but then
+> > the system dies.
+> 
+> Russ: Any detail on why the system died?
 
-  >> Am I seeing this right: the path doesn't save practically nothing
-  >> other than what is saved in the PAL min-state area?  The path
-  >> presumably also ought to switch the register-backing store (I
-  >> think Keith alluded to this previously).
+No real additional information.  It still fails with the latest 
+release-2.6.11 tree.  It sometimes recovers once or twice, but
+not more than that.  Something is getting trashed or not restored
+correctly.  At least it is easily reproduceable, which makes 
+problems much easier to track down.
 
-  Tony> No ... we jump down to ia64_os_mca_proc_state_dump that saves
-  Tony> a lot of stuff ... but not apparently the right stuff.
-
-Ah, yes, that looks (slightly) better.  That code is really hard to
-follow and could use serious cleanup.
-
-BTW: just as a heads-up: as I'm working on integrating libunwind, I'm
-changing the way INIT stack-dumps are done.  The idea is to do things
-in such a way that we avoid having to create a (dummy) switch-stack
-structure before invoking the INIT-handler.  Basically, it'll just
-simplify the assembly code.  Hopefully, this will also make it easier
-to create a stack trace from an MCA-handler, but I'm not there yet.
-
-	--david
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
