@@ -1,63 +1,35 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 11 Mar 2004 05:35:41 +0000
-Subject: Re: [linux-usb-devel] Re: serious 2.6 bug in USB subsystem?
-Message-Id: <16463.64173.334000.250278@napali.hpl.hp.com>
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 17 Mar 2004 19:27:31 +0000
+Subject: Re: ia64-linux.org
+Message-Id: <20040317192731.GR25059@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20031028013013.GA3991@kroah.com>
-	<200310280300.h9S30Hkw003073@napali.hpl.hp.com>
-	<3FA12A2E.4090308@pacbell.net>
-	<16289.29015.81760.774530@napali.hpl.hp.com>
-	<16289.55171.278494.17172@napali.hpl.hp.com>
-	<3FA28C9A.5010608@pacbell.net>
-	<16457.12968.365287.561596@napali.hpl.hp.com>
-	<404959A5.6040809@pacbell.net>
-	<16457.26208.980359.82768@napali.hpl.hp.com>
-	<4049FE57.2060809@pacbell.net>
-	<20040308061802.GA25960@cup.hp.com>
-	<16460.49761.482020.911821@napali.hpl.hp.com>
-	<404CEA36.2000903@pacbell.net>
-	<16461.35657.188807.501072@napali.hpl.hp.com>
-	<404E00B5.5060603@pacbell.net>
-	<16462.1463.686711.622754@napali.hpl.hp.com>
-	<404E2B98.6080901@pacbell.net>
-	<16462.48341.393442.583311@napali.hpl.hp.com>
-	<404F40C2.3080003@pacbell.net>
-	<16463.22710.230252.777998@napali.hpl.hp.com>
-	<404FD24D.1070200@pacbell.net>
-In-Reply-To: <404FD24D.1070200@pacbell.net>
+References: <20040216174339.GL31168@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040216174339.GL31168@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Brownell <david-b@pacbell.net>
-Cc: davidm@hpl.hp.com, Grant Grundler <iod00d@hp.com>, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
+To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 10 Mar 2004 18:43:25 -0800, David Brownell <david-b@pacbell.net> said:
+On Mon, Feb 16, 2004 at 11:45:45AM -0700, n0ano@n0ano.com wrote:
+> According to SourceForge the domain was renewed late last week and
+> they are in the process of re-setting the DNS info so the address
+> should be back up shortly.
 
-  David.B> David Mosberger wrote:
+Well, it still isn't (a month later).
 
-  >> The current OHCI relies on the internals of the dma_pool()
-  >> implementation.  ...
+http://www.ia64-linux.org/ is newly redesigned.  It's pretty minimalist at
+the moment; I'd definitely like to hear from anyone with graphical talent.
 
-  David.B> It'd be good if you said _how_ you think it relies on such
-  David.B> internals.
+You can check out the source to the website with anonymous CVS
 
-  >>  I thought I did.  Suppose somebody changed the dma_pool code
-  >> such that it would overwrite freed memory with an
-  >> 0xf00000000000000 pattern.
+cvs co -d :pserver:anonymous@cvs.ia64-linux.org:/var/cvs co ia64-web
 
-  David.B> Erm, _anything_ the dma_pool code does with freed memory is
-  David.B> legal.
+patches welcomed ;-)
 
-Glad to see we agree on that!
-
-  David.B> Anyway, please (a) see if 2.6.4 works for you, and (b)
-  David.B> direct any future followups on this thread _only_ to
-  David.B> linux-usb-devel.
-
-The patch that's in 2.6.4 definitely looks like a step in the right
-direction.  I still have some concerns.  I'll follow up on
-linux-usb-devel with more details.
-
-Thanks,
-
-	--david
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
