@@ -1,7 +1,7 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Mon, 13 Sep 2004 22:11:55 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 13 Sep 2004 22:22:42 +0000
 Subject: Re: [PATCH] 2.6.9-rc1 Ia64 build broken due to HPET
-Message-Id: <1095113515.20631.108.camel@tdi>
+Message-Id: <Pine.LNX.4.58.0409131519080.616@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040910041200.GN5668@cse.unsw.EDU.AU>
 In-Reply-To: <20040910041200.GN5668@cse.unsw.EDU.AU>
@@ -10,47 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 2004-09-13 at 13:28 -0700, Christoph Lameter wrote:
-> On Mon, 13 Sep 2004, Alex Williamson wrote:
-> 
-> >
-> >           Gettimeofday() = 1095104931.812600000
-> >            CLOCK_REALTIME= 1095104931.812639404 resolution= 3712.000240992
-> >           CLOCK_MONOTONIC=        369.103451704 resolution= 3712.000240992
-> >  CLOCK_PROCESS_CPUTIME_ID=          0.000782450 resolution= 0.000000001
-> >   CLOCK_THREAD_CPUTIME_ID=          0.000794115 resolution= 0.000000001
-> >
-> 
-> That looks better but the resolution is still screwed up. The nanoseconds
-> should be 3712 not the seconds.... The kernel clock_getres always sets the
-> second part to zero. So does glibc when emulating CLOCK_REALTIME....
-> 
-> Could you figure out what is going on there? If the nsecs are 3712 or 4000
-> or so then all is fine. My small program does not check for errors and
-> may be screwing up here. Adding some error reporting may help. Or could
-> you give me access to a system with hpet timer? I could also test some
-> other things like the accuracy of time interpolation.
+On Mon, 13 Sep 2004, Alex Williamson wrote:
 
-   There are several problems here.  The HPET really isn't coming into
-play, and won't until we have systems that have a drifty ITC.  Here's
-what's happening:
+> So, first and foremost, the ITC interpolator is broken for any ITC
+> greater than 1GHz.  Secondary, the HPET interpolator comes in too late,
+> and the code doesn't really seem to be able to support that.
 
-      * The itc_interpolator gets registered with a frequency of 1.2GHz
-      * init_posix_timers() runs, setting the realtime and monotonic
-        clock resolutions via time_interpolator_resolution().
-        Unfortunately, 1*10^9/1.2*10^9 = 0.
-      * hpet_init gets called after the fact, registering the hpet
-        interpolator, but it's got nowhere near the frequency of the
-        ITC.
-      * sys_clock_getres() returns EINVAL because the clock resolutions
-        are zero.
+Well. This means that the resolution is broken for any clock > 1GHZ.
 
-So, first and foremost, the ITC interpolator is broken for any ITC
-greater than 1GHz.  Secondary, the HPET interpolator comes in too late,
-and the code doesn't really seem to be able to support that.
+The hpet interpolator is in a module? or is it compiled into the kernel?
+register_time_interpolator allows a later registration of a time
+interpolator. The question though is: Will it win against the one
+already installed. It may win if you specify a smaller drift than the ITC
+interpolator. Gotta look at that.
 
-	Alex
+Could you try if the following patch fixes the precision problem:
 
--- 
-Alex Williamson                             HP Linux & Open Source Lab
+Index: linux-2.6.9-rc1/kernel/timer.c
+=================================--- linux-2.6.9-rc1.orig/kernel/timer.c 2004-09-13 08:14:46.000000000 -0700
++++ linux-2.6.9-rc1/kernel/timer.c      2004-09-13 15:20:36.000000000 -0700
+@@ -1492,7 +1492,10 @@
+
+ unsigned long time_interpolator_resolution(void)
+ {
+-       return NSEC_PER_SEC / time_interpolator->frequency;
++       if (time_interpolator->frequency < NSEC_PER_SEC)
++               return NSEC_PER_SEC / time_interpolator->frequency;
++       else
++               return 1;
+ }
+
+ #define GET_TI_NSECS(count,i) ((((count) - i->last_counter) *
+i->nsec_per_cyc) >> i->shift)
 
