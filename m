@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Sat, 23 Feb 2002 01:24:33 +0000
+From: "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com>
+Date: Mon, 25 Feb 2002 17:07:29 +0000
 Subject: RE: [Linux-ia64] determining read or write on a page fault
-Message-Id: <marc-linux-ia64-105590701905182@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905187@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905163@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905163@msgid-missing>
@@ -9,6 +9,18 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Thanks, David.  Which released version will this appear in?
+
+Jay
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@hpl.hp.com]
+Sent: Friday, February 22, 2002 7:25 PM
+To: Hoeflinger, Jay P
+Cc: linux-ia64@linuxia64.org
+Subject: RE: [Linux-ia64] determining read or write on a page fault
+
 
 If you want to try with a new kernel, the attached patch should give
 you what you want.  Specifically, if you get a SIGSEGV or a SIGBUS and
@@ -22,13 +34,15 @@ access.
 
 	--david
 
-diff -urN linux-2.4.17/arch/ia64/ia32/ia32_support.c lia64-2.4/arch/ia64/ia32/ia32_support.c
+diff -urN linux-2.4.17/arch/ia64/ia32/ia32_support.c
+lia64-2.4/arch/ia64/ia32/ia32_support.c
 --- linux-2.4.17/arch/ia64/ia32/ia32_support.c	Mon Nov 26 11:18:20 2001
 +++ lia64-2.4/arch/ia64/ia32/ia32_support.c	Fri Feb 22 16:37:53 2002
 @@ -172,6 +174,10 @@
  
  	siginfo.si_signo = SIGTRAP;
- 	siginfo.si_errno = int_num;	/* XXX is it OK to abuse si_errno like this? */
+ 	siginfo.si_errno = int_num;	/* XXX is it OK to abuse si_errno
+like this? */
 +	siginfo.si_flags = 0;
 +	siginfo.si_isr = 0;
 +	siginfo.si_addr = 0;
@@ -36,7 +50,8 @@ diff -urN linux-2.4.17/arch/ia64/ia32/ia32_support.c lia64-2.4/arch/ia64/ia32/ia
  	siginfo.si_code = TRAP_BRKPT;
  	force_sig_info(SIGTRAP, &siginfo, current);
  }
-diff -urN linux-2.4.17/arch/ia64/ia32/ia32_traps.c lia64-2.4/arch/ia64/ia32/ia32_traps.c
+diff -urN linux-2.4.17/arch/ia64/ia32/ia32_traps.c
+lia64-2.4/arch/ia64/ia32/ia32_traps.c
 --- linux-2.4.17/arch/ia64/ia32/ia32_traps.c	Mon Nov 26 11:18:20 2001
 +++ lia64-2.4/arch/ia64/ia32/ia32_traps.c	Fri Feb 22 16:32:45 2002
 @@ -2,7 +2,7 @@
@@ -52,7 +67,8 @@ diff -urN linux-2.4.17/arch/ia64/ia32/ia32_traps.c lia64-2.4/arch/ia64/ia32/ia32
  {
  	struct siginfo siginfo;
  
-+	/* initialize these fields to avoid leaking kernel bits to user space: */
++	/* initialize these fields to avoid leaking kernel bits to user
+space: */
  	siginfo.si_errno = 0;
 +	siginfo.si_flags = 0;
 +	siginfo.si_isr = 0;
@@ -61,7 +77,8 @@ diff -urN linux-2.4.17/arch/ia64/ia32/ia32_traps.c lia64-2.4/arch/ia64/ia32/ia32
  	      case 1:
  	      case 2:
 @@ -103,6 +107,8 @@
- 			 * and it will suffer the consequences since we won't be able to
+ 			 * and it will suffer the consequences since we
+won't be able to
  			 * fully reproduce the context of the exception
  			 */
 +			siginfo.si_isr = isr;
@@ -69,7 +86,8 @@ diff -urN linux-2.4.17/arch/ia64/ia32/ia32_traps.c lia64-2.4/arch/ia64/ia32/ia32
  			switch(((~fcr) & (fsr & 0x3f)) | (fsr & 0x240)) {
  				case 0x000:
  				default:
-diff -urN linux-2.4.17/arch/ia64/kernel/brl_emu.c lia64-2.4/arch/ia64/kernel/brl_emu.c
+diff -urN linux-2.4.17/arch/ia64/kernel/brl_emu.c
+lia64-2.4/arch/ia64/kernel/brl_emu.c
 --- linux-2.4.17/arch/ia64/kernel/brl_emu.c	Thu Apr  5 12:51:47 2001
 +++ lia64-2.4/arch/ia64/kernel/brl_emu.c	Fri Feb 22 16:39:55 2002
 @@ -195,6 +195,9 @@
@@ -104,7 +122,8 @@ diff -urN linux-2.4.17/arch/ia64/kernel/brl_emu.c lia64-2.4/arch/ia64/kernel/brl
  		force_sig_info(SIGTRAP, &siginfo, current);
  	}
  	return rv;
-diff -urN linux-2.4.17/arch/ia64/kernel/signal.c lia64-2.4/arch/ia64/kernel/signal.c
+diff -urN linux-2.4.17/arch/ia64/kernel/signal.c
+lia64-2.4/arch/ia64/kernel/signal.c
 --- linux-2.4.17/arch/ia64/kernel/signal.c	Mon Nov 26 11:18:24 2001
 +++ lia64-2.4/arch/ia64/kernel/signal.c	Fri Feb 22 16:04:49 2002
 @@ -160,6 +160,7 @@
@@ -115,7 +134,8 @@ diff -urN linux-2.4.17/arch/ia64/kernel/signal.c lia64-2.4/arch/ia64/kernel/sign
  			err |= __put_user(from->si_isr, &to->si_isr);
  		      case __SI_POLL >> 16:
  			err |= __put_user(from->si_addr, &to->si_addr);
-diff -urN linux-2.4.17/arch/ia64/kernel/traps.c lia64-2.4/arch/ia64/kernel/traps.c
+diff -urN linux-2.4.17/arch/ia64/kernel/traps.c
+lia64-2.4/arch/ia64/kernel/traps.c
 --- linux-2.4.17/arch/ia64/kernel/traps.c	Mon Nov 26 11:18:24 2001
 +++ lia64-2.4/arch/ia64/kernel/traps.c	Fri Feb 22 16:42:59 2002
 @@ -1,7 +1,7 @@
@@ -128,7 +148,8 @@ diff -urN linux-2.4.17/arch/ia64/kernel/traps.c lia64-2.4/arch/ia64/kernel/traps
   *
   * 05/12/00 grao <goutham.rao@intel.com> : added isr in siginfo for SIGFPE
 @@ -133,6 +133,8 @@
- 	/* SIGILL, SIGFPE, SIGSEGV, and SIGBUS want these field initialized: */
+ 	/* SIGILL, SIGFPE, SIGSEGV, and SIGBUS want these field initialized:
+*/
  	siginfo.si_addr = (void *) (regs->cr_iip + ia64_psr(regs)->ri);
  	siginfo.si_imm = break_num;
 +	siginfo.si_flags = 0;		/* clear __ISR_VALID */
@@ -156,7 +177,8 @@ diff -urN linux-2.4.17/arch/ia64/kernel/traps.c lia64-2.4/arch/ia64/kernel/traps
  	}
 @@ -490,6 +496,8 @@
  			siginfo.si_errno = 0;
- 			siginfo.si_addr = (void *) (regs->cr_iip + ia64_psr(regs)->ri);
+ 			siginfo.si_addr = (void *) (regs->cr_iip +
+ia64_psr(regs)->ri);
  			siginfo.si_imm = vector;
 +			siginfo.si_flags = __ISR_VALID;
 +			siginfo.si_isr = isr;
@@ -177,7 +199,8 @@ diff -urN linux-2.4.17/arch/ia64/kernel/traps.c lia64-2.4/arch/ia64/kernel/traps
 @@ -528,6 +540,9 @@
  			siginfo.si_errno = 0;
  			siginfo.si_code = FPE_FLTINV;
- 			siginfo.si_addr = (void *) (regs->cr_iip + ia64_psr(regs)->ri);
+ 			siginfo.si_addr = (void *) (regs->cr_iip +
+ia64_psr(regs)->ri);
 +			siginfo.si_flags = __ISR_VALID;
 +			siginfo.si_isr = isr;
 +			siginfo.si_imm = 0;
@@ -191,10 +214,12 @@ diff -urN linux-2.4.17/arch/ia64/kernel/traps.c lia64-2.4/arch/ia64/kernel/traps
 +			siginfo.si_flags = 0;
 +			siginfo.si_isr = 0;
 +			siginfo.si_imm = 0;
- 			siginfo.si_addr = (void *) (regs->cr_iip + ia64_psr(regs)->ri);
+ 			siginfo.si_addr = (void *) (regs->cr_iip +
+ia64_psr(regs)->ri);
  			force_sig_info(SIGILL, &siginfo, current);
  			return;
-diff -urN linux-2.4.17/arch/ia64/kernel/unaligned.c lia64-2.4/arch/ia64/kernel/unaligned.c
+diff -urN linux-2.4.17/arch/ia64/kernel/unaligned.c
+lia64-2.4/arch/ia64/kernel/unaligned.c
 --- linux-2.4.17/arch/ia64/kernel/unaligned.c	Mon Nov 26 11:18:24 2001
 +++ lia64-2.4/arch/ia64/kernel/unaligned.c	Fri Feb 22 16:36:18 2002
 @@ -1488,6 +1488,9 @@
@@ -219,7 +244,8 @@ diff -urN linux-2.4.17/arch/ia64/mm/fault.c lia64-2.4/arch/ia64/mm/fault.c
  		force_sig_info(signal, &si, current);
  		return;
  	}
-diff -urN linux-2.4.17/include/asm-ia64/siginfo.h lia64-2.4/include/asm-ia64/siginfo.h
+diff -urN linux-2.4.17/include/asm-ia64/siginfo.h
+lia64-2.4/include/asm-ia64/siginfo.h
 --- linux-2.4.17/include/asm-ia64/siginfo.h	Wed Dec 26 16:58:57 2001
 +++ lia64-2.4/include/asm-ia64/siginfo.h	Fri Feb 22 16:49:28 2002
 @@ -2,8 +2,8 @@
@@ -235,8 +261,10 @@ diff -urN linux-2.4.17/include/asm-ia64/siginfo.h lia64-2.4/include/asm-ia64/sig
  #include <linux/types.h>
 @@ -57,7 +57,7 @@
  		struct {
- 			void *_addr;		/* faulting insn/memory ref. */
- 			int _imm;		/* immediate value for "break" */
+ 			void *_addr;		/* faulting insn/memory ref.
+*/
+ 			int _imm;		/* immediate value for
+"break" */
 -			int _pad0;
 +			unsigned int _flags;	/* see below */
  			unsigned long _isr;	/* isr */
@@ -245,11 +273,14 @@ diff -urN linux-2.4.17/include/asm-ia64/siginfo.h lia64-2.4/include/asm-ia64/sig
 @@ -88,10 +88,21 @@
  #define si_ptr		_sifields._rt._sigval.sival_ptr
  #define si_addr		_sifields._sigfault._addr
- #define si_imm		_sifields._sigfault._imm	/* as per UNIX SysV ABI spec */
--#define si_isr		_sifields._sigfault._isr	/* valid if si_code=FPE_FLTxxx */
+ #define si_imm		_sifields._sigfault._imm	/* as per UNIX SysV
+ABI spec */
+-#define si_isr		_sifields._sigfault._isr	/* valid if
+si_code=FPE_FLTxxx */
 +#define si_flags	_sifields._sigfault._flags
 +/*
-+ * si_isr is valid for SIGILL, SIGFPE, SIGSEGV, SIGBUS, and SIGTRAP provided that
++ * si_isr is valid for SIGILL, SIGFPE, SIGSEGV, SIGBUS, and SIGTRAP
+provided that
 + * si_code is non-zero and __ISR_VALID is set in si_flags.
 + */
 +#define si_isr		_sifields._sigfault._isr
