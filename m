@@ -1,69 +1,61 @@
-From: "Qiu HongBing" <qiuhb@necas.nec.co.jp>
-Date: Tue, 13 Nov 2001 00:57:40 +0000
-Subject: [Linux-ia64] do me a favor
-Message-Id: <marc-linux-ia64-105590698805482@msgid-missing>
+From: Dan Pop <Dan.Pop@cern.ch>
+Date: Tue, 13 Nov 2001 01:20:52 +0000
+Subject: Re: [Linux-ia64] do me a favor
+Message-Id: <marc-linux-ia64-105590698805483@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805482@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805482@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
 
-I'm Qiu HongBing. Now I process some project from IA32 to IA64 on Linux. Now
-I have one question. If someone know it why and have spare time, Please help
-me.Thanks a lot.
+On Tue, 13 Nov 2001, Qiu HongBing wrote:
 
-My problem is as follows:
+> My problem is as follows:
+> 
+> struct aa{
+> unsigned short a;
+> unsigned short b;
+> unsigned short c;
+> unsigned short d;
+> unsigned int e;
+> unsigned int f;
+> unsigned int g;
+> unsigned int h;
+> unsigned short i;
+> }
+> ...
+> struct aa *a1;
+> ...
+> 
+> fun1(char *,unsigned int *,char *,char *,unsigned int * temp,unsigned int *)
+> {
+> ...
+> *temp;
+> ...
+> }
+> ...
+> 
+> fun1(a,b,c,d,&a1->b,e);
+> ...
+> 
+> On IA64 Linux RedHat 7.1(2.4.3-3), when the program run to
+> fun1(a,b,c,d,&a1->b,e), the kernel write into syslog some message which is
+> "Nov  5 10:12:02 sdv2 kernel: ESMmlx(7837): unaligned access to
+> 0x600000000001684c, ip=0x2000000000624370".
 
-struct aa{
-unsigned short a;
-unsigned short b;
-unsigned short c;
-unsigned short d;
-unsigned int e;
-unsigned int f;
-unsigned int g;
-unsigned int h;
-unsigned short i;
-}
-...
-struct aa *a1;
-...
+The reason is obvious: fun1 expects temp to be a pointer to unsigned
+int, but you're passing it &a1->b, which is a pointer to unsigned
+short.  The compiler should have actually warned you about that.
 
-fun1(char *,unsigned int *,char *,char *,unsigned int * temp,unsigned int *)
-{
-...
-*temp=10;
-...
-}
-...
+> But if I modify the source as follows and it is OK. I dont know why. So I
+> want to get some help to solve the real cause.
 
-fun1(a,b,c,d,&a1->b,e);
-...
+Then, either define the b member as unsigned int, or the temp
+parameter as pointer to unsigned short.
 
-On IA64 Linux RedHat 7.1(2.4.3-3), when the program run to
-fun1(a,b,c,d,&a1->b,e), the kernel write into syslog some message which is
-"Nov  5 10:12:02 sdv2 kernel: ESMmlx(7837): unaligned access to
-0x600000000001684c, ip=3D0x2000000000624370".
-
-But if I modify the source as follows and it is OK. I dont know why. So I
-want to get some help to solve the real cause.
-
-...
-{
-    unsigned int tt;
-    tt=A1->b;
-
-    fun1(a,b,c,d,&a1->b,e);
-
-    a1->b=3Dtt;
-}
-...
-
-    That's all.
-
-
-
+Dan
 
 
