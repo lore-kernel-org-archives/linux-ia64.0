@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Sat, 10 Jun 2000 01:07:23 +0000
+Date: Sat, 10 Jun 2000 01:11:16 +0000
 Subject: [Linux-ia64] kernel update (relative to v2.4.0-test1)
-Message-Id: <marc-linux-ia64-105590678205127@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205128@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
