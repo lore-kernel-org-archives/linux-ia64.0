@@ -1,43 +1,143 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 05 Oct 2004 07:20:02 +0000
-Subject: RE: more serious sparse-detected bug (with fix)
-Message-Id: <16738.19234.874996.94824@napali.hpl.hp.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 22 Oct 2004 17:05:57 +0000
+Subject: ptrace problem in 2.6.9
+Message-Id: <20041022170557.GW19372@frankl.hpl.hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="pAwQNkOnpTn9IO2O"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200410041312.i94DCslZ030821@napali.hpl.hp.com>
-In-Reply-To: <200410041312.i94DCslZ030821@napali.hpl.hp.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 4 Oct 2004 21:30:20 -0700, "Luck, Tony" <tony.luck@intel.com> said:
 
-  >> for (i = 4; i < 8; i++) {
-  >> -		retval |= unw_access_gr(&info, i, &ppr->gr[i], &nat, 0);
-  >> +		unsigned long val;
-  >> +
-  >> +		if (unw_access_gr(&info, i, &val, &nat, 0) < 0)
-  >> +			return -EIO;
-  >> +		retval |= __put_user(val, &ppr->gr[i]);
-  >> }
+--pAwQNkOnpTn9IO2O
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-  Tony> Couldn't see why you added another local 'val' here as well as
-  Tony> the one declared at the top of the function ... so I dropped this
-  Tony> one.  Otherwise it *looks* good.  I've put it in my tree
-  Tony> (linux-ia64-release-2.6.9) which I'll push in a few minutes.
+Hi Roland,
 
-I added the declaration in the outer scope later on and then forgot to
-delete the inner declaration.  Thanks for spotting that.
+I have some problems with the recent modifications to the
+Ptrace infrastructure in 2.6.9 release. Basically I have
+the smiple test program attached to this E-mail and it
+hangs in 2.6.9 but not in 2.6.9-rc4. Somehow the first
+waitpid() does not return. It is not clear to me why.
+Is there something Ineed to change in the call itself?
+I am running all of this on a 2-way IA-64 machine with
+2.6.9. I have not tried on x86. 
 
-  >> trivially.  Patch below should fix the problem, but it's completely
-  >> untested (I don't have any testcases for getregs/putregs).
+I would appreciate your thoughts on this.
 
-  Tony> I'd be happy to hear from anyone who does have some sort of test
-  Tony> exercising this before I ask Linus to pull.  The current crop of
-  Tony> bugs have shown how easy it is for the eyes to skip over typos
-  Tony> in this code.
+Thanks.
 
-Check with the IA32EL folks.  AFAIR, that was the primary reason for
-the getregs/putregs addition.
+-- 
+-Stephane
 
-	--david
+--pAwQNkOnpTn9IO2O
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="test_ptrace.c"
+
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <errno.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/wait.h>
+#include <sys/ptrace.h>
+
+static int p[2];
+
+int
+child(void)
+{
+	int ret;
+	char c;
+
+	printf("child %d started\n", getpid());
+	ret = read(p[0], &c, 1);
+	if (ret != 1) {
+		perror("read");
+		return -1;
+	}
+	return 0;
+}
+
+int
+do_test(int argc, char **argv)
+{
+	int ret, status;
+	pid_t pid;
+	char c;
+
+	ret = pipe(p);
+	if (ret) {
+		perror("pipe");
+		return -1;
+	}
+
+	pid = fork();
+	switch(pid) {
+		case 0: close(p[1]); exit(child());
+
+		case -1: perror("fork"); return -1;
+
+		default: close(p[0]);
+			 sleep(5);
+			 /*
+			  * stop child
+			  */
+			 ret = ptrace(PTRACE_ATTACH, pid, NULL, NULL);
+			 if (ret) {
+				 perror("ptrace_attach");
+				 goto abort;
+			 }
+			 printf("issued ptrace attach ret=%d\n", ret);
+
+			 /*
+			  * wait for child stop
+			  */
+			 ret = waitpid(pid, &status, WUNTRACED);
+			 if (ret != pid) {
+				 perror("waitpid");
+				 goto abort;
+			 }
+			 printf("got process stopped\n");
+
+			 if (WIFEXITED(status)) {
+				printf("child has exited\n");
+				goto abort;
+			 }
+
+			 /*
+			  * detach and resume execution
+			  */
+			 ptrace(PTRACE_DETACH, pid, NULL, NULL);
+
+			 /*
+			  * signal child can proceed
+			  */
+			 ret = write(p[1], &c, 1);
+			 if (ret != 1) {
+				 perror("write");
+				 kill(pid, SIGKILL);
+				 return -1;
+			 }
+
+			/* wait for child exit */
+			 ret = waitpid(pid, &status, 0);
+			 if (ret == -1) {
+				perror("final waitpid");
+			 }
+	}
+	return ret == -1 || WEXITSTATUS(status) != 0? -1: 0;
+abort:
+	 kill(pid, SIGKILL);
+	 return -1;
+}
+
+int
+main(int argc, char **argv)
+{
+	return do_test(argc, argv);
+}
+
+--pAwQNkOnpTn9IO2O--
