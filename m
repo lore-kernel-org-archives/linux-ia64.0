@@ -1,41 +1,69 @@
-From: Maeda Naoaki <maeda.naoaki@jp.fujitsu.com>
-Date: Fri, 28 May 2004 04:06:00 +0000
-Subject: Re: /proc/ioports regression in 2.6.6 on Tiger4
-Message-Id: <20040528.130600.74732284.maeda@jp.fujitsu.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Wed, 19 May 2004 01:23:26 +0000
+Subject: Disable CONFIG_SMP for IA64_HP_SIM
+Message-Id: <20040519012326.GA27655@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="ZoaI/ZTpAVc4A5k6"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040513.182357.104026513.maeda@jp.fujitsu.com>
-In-Reply-To: <20040513.182357.104026513.maeda@jp.fujitsu.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi David,
 
-> I have no problem with the patch, but please submit a proper changelog
-> with it (together with the patch).
+--ZoaI/ZTpAVc4A5k6
+Content-Type: multipart/mixed; boundary="jI8keyz6grp/JLjh"
+Content-Disposition: inline
 
-OK. Here you are.
 
-This patch fixes a problem that "cat /proc/ioports" loops
-on some IA64 machines that use quirk_io_region(). The problem
-is caused by redundant resource claim by quirk_io_region()
-and pcibios_fixup_device_resources(). The patch prevents 
-this condition and is written by Matthew Wilcox.
+--jI8keyz6grp/JLjh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Maeda Naoaki <maeda.naoaki@jp.fujitsu.com>
+CONFIG_SMP depends on CONFIG_IOSAPIC to build (maybe this is the real
+problem, I don't know). =20
 
-diff -urp a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
---- a/arch/ia64/pci/pci.c	2004-05-13 12:19:52.000000000 -0700
-+++ b/arch/ia64/pci/pci.c	2004-05-13 12:21:32.000000000 -0700
-@@ -323,8 +323,10 @@ pcibios_fixup_device_resources (struct p
- 	struct pci_controller *controller = PCI_CONTROLLER(dev);
- 	struct pci_window *window;
- 	int i, j;
-+	int limit = (dev->hdr_type = PCI_HEADER_TYPE_NORMAL) ? \
-+		PCI_ROM_RESOURCE : PCI_NUM_RESOURCES;
- 
--	for (i = 0; i < PCI_NUM_RESOURCES; i++) {
-+	for (i = 0; i < limit; i++) {
- 		if (!dev->resource[i].start)
- 			continue;
+CONFIG_IOSAPIC excludes IA64_HP_SIM.  Some sample configs [1] have SMP
+enabled for the simulator, and it broke my autobuild, so maybe making
+it explicit would be good?
+
+-i
+ianw@gelato.unsw.edu.au
+http://www.gelato.unsw.edu.au
+
+[1] http://www.hpl.hp.com/research/linux/ski/get.php?file=3D2.6.5-config&na=
+me=3Dconfig.2.5.5
+
+
+
+--jI8keyz6grp/JLjh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="Kconfig-nosimsmp.patch"
+Content-Transfer-Encoding: quoted-printable
+
+=3D=3D=3D=3D=3D arch/ia64/Kconfig 1.73 vs edited =3D=3D=3D=3D=3D
+--- 1.73/arch/ia64/Kconfig	Sat May 15 12:00:12 2004
++++ edited/arch/ia64/Kconfig	Wed May 19 10:52:57 2004
+@@ -225,6 +225,7 @@
+=20
+ config SMP
+ 	bool "Symmetric multi-processing support"
++	depends on !IA64_HP_SIM
+ 	help
+ 	  This enables support for systems with more than one CPU. If you have
+ 	  a system with only one CPU, say N.  If you have a system with more
+
+--jI8keyz6grp/JLjh--
+
+--ZoaI/ZTpAVc4A5k6
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAqrcOWDlSU/gp6ecRAgtzAKDOhHMecxfpnyBVtHK4xp2x8lskaACgt0VM
+AcNZPgR7YIoY5ISn65/UMiA=
+=7bKt
+-----END PGP SIGNATURE-----
+
+--ZoaI/ZTpAVc4A5k6--
