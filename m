@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Mon, 31 May 2004 14:32:04 +0000
+From: dann frazier <dannf@hp.com>
+Date: Mon, 31 May 2004 15:15:29 +0000
 Subject: Re: IA64_GENERIC vs. NUMA/DISCONTIG/VIRTUAL_MEM_MAP
-Message-Id: <20040531143204.GG5850@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <20040531151529.GA5436@ldl.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040531044843.GA25705@dannf.org>
 In-Reply-To: <20040531044843.GA25705@dannf.org>
@@ -10,32 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, May 30, 2004 at 10:48:43PM -0600, dann frazier wrote:
-> hey,
->   It was requested that I turn on DISCONTIGMEM in my builds for Debian, in order to support
-> Altix boxes.  This option is not currently selectable w/ a 2.6.6 "Generic" kernel, but
-> it is with all other flavors.
-> 
->   I dug around to see if this is intentional, and found evidence[1] that it is not.
-> >From what I can grok from Documentation/kbuild/kconfig-language.txt, select will force
-> these options off - maybe "depends on" is what was intended?
+On Mon, May 31, 2004 at 03:32:04PM +0100, Matthew Wilcox wrote:
+> No, select forces these options on.  It's like Enhances: versus Suggests:
+> (if Enhances actually worked, which it doesn't).  The reason you can't
+> turn DISCONTIGMEM on with a generic kernel is because it's forced on.  I
+> suspect the bug submitter was smoking something good.
 
-No, select forces these options on.  It's like Enhances: versus Suggests:
-(if Enhances actually worked, which it doesn't).  The reason you can't
-turn DISCONTIGMEM on with a generic kernel is because it's forced on.  I
-suspect the bug submitter was smoking something good.
+I suspected that initially, but this is what confused me:
+$ make oldconfig > /dev/null && grep IA64_GENERIC .config && grep CONFIG_NUMA .config
+CONFIG_IA64_GENERIC=y
+# CONFIG_NUMA is not set
 
-> | config IA64_GENERIC
-> | 	bool "generic"
-> |+	select NUMA
-> |+	select ACPI_NUMA
-> |+	select VIRTUAL_MEM_MAP
-> |+	select DISCONTIGMEM
+However, I can set it by editing .config by hand, and oldconfig doesn't drop
+it, so I'm good to go.
 
 -- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+---------------------------
+dann frazier
+Hewlett-Packard
+Linux and Open Source Lab
+dannf@hp.com
+
