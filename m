@@ -1,7 +1,7 @@
-From: Matt Chapman <matthewc@cse.unsw.edu.au>
-Date: Fri, 11 Apr 2003 02:20:46 +0000
-Subject: Re: [Linux-ia64] Itanium gets supercomputing software
-Message-Id: <marc-linux-ia64-105590723705463@msgid-missing>
+From: "Adriano Galano" <adriano@satec.es>
+Date: Fri, 11 Apr 2003 08:37:39 +0000
+Subject: RE: [Linux-ia64] Itanium gets supercomputing software
+Message-Id: <marc-linux-ia64-105590723705465@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705455@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705455@msgid-missing>
@@ -10,20 +10,34 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Apr 11, 2003 at 09:58:08AM +1000, Duraid Madina wrote:
+> >>>>> On Fri, 11 Apr 2003 06:55:30 +1000, Duraid Madina 
+> <duraid@octopus.com.au> said:
 > 
-> Can I then conclude that Intel has not yet had any interest whatsoever 
-> in driving IA64 into the realm of reasonble prices?
+>   Duraid> You and I both know the only real barrier to Itanium
+>   Duraid> adoption is the price. Can anyone here shed some light on
+>   Duraid> this? Why is Itanium hardware still so expensive?
+> 
+> Remember that Intel is targeting Itanium 2 against Power4 and SPARC.
+> In that space, the price of Itanium 2 is very competitive.
+> 
 
-My understanding is that Deerfield will be targeted at the lower cost
-market, though I haven't seen much info about it recently.
+What's mean very competitive? How it compare with Power* for example? 
 
-> I put it to you that software is easier to develop on hardware. Nothing 
-> unique to IA64, indeed.
+>   Duraid> Seriously, IA64 must be the first architecture in history
+>   Duraid> where a software simulator is still being developed 4 years
+>   Duraid> after commercial availability of silicon (indeed, entire
+>   Duraid> systems).
+> 
+> What's a software simulator got to do with anything?  Certain things
+> are easier to develop on a simulator, others are easier to develop on
+> hardware.  Nothing unique to IA64.
+> 
 
-We still use simulators despite the availability of hardware.  Operating
-system software is often easier to debug on a simulator.
+AMD's Opteron is in a simulator yet...
 
-Matt
+Regards,
+
+--Adriano
+
 
 
