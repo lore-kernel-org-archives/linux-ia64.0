@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 16 Jul 2003 15:22:37 +0000
-Subject: RE: [PATCH] (2.4.21-bjorn-bk) Minimalist PAL mapping for SN2
-Message-Id: <marc-linux-ia64-105836903607087@msgid-missing>
+From: Christopher Wedgwood <cw@sgi.com>
+Date: Wed, 16 Jul 2003 18:23:58 +0000
+Subject: Re: [PATCH] (2.4.21-bjorn-bk) Minimalist PAL mapping for SN2
+Message-Id: <marc-linux-ia64-105838014023148@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105832171829546@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105832171829546@msgid-missing>
@@ -10,21 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Wed, Jul 16, 2003 at 08:22:37AM -0700, Luck, Tony wrote:
 
-> Altix/SN2 presently has the PAL located in a granule that has mixed
-> cachability --- for this reason we need to map the PAL using the
-> smallest mapping possible.
+> If SN2 guarantees that the PAL code is the only executable code in
+> the whole of your mixed cacheability granule, then this code is
+> safe.
 
-I tried some similar code for Tiger a while ago, but ran into a problem
-as there is other code in the same granule, that isn't covered by the
-address range for PAL routines (I think that the other code was the
-EFI loaded FPSWA code, but I didn't look too closely at the time this
-happened).  As soon as the processor tried to execute this other code,
-the Alt-ITLB handler tried to insert a mapping for the whole granule,
-which overlaps with the ITR[1] that was set to map the PAL, and boom,
-the system died with a machine check.
+Yes, for SN2 this works and is what I presently use here.
 
-If SN2 guarantees that the PAL code is the only executable code in the
-whole of your mixed cacheability granule, then this code is safe.
+Somewhere I have/had an instrumented version of the ivt code which
+allows to to profile fault patterns across regions and such-like, by
+sucking data our of /proc and making pretty graphs --- I wrote this
+mostly to ensure what I thought was going on really was and also to
+get some idea of the distribution of things.
 
--Tony
+Since it doesn't affect non-SN2 users I'm hoping to get something like
+this merged if nobody objects...
+
+
+  --cw
