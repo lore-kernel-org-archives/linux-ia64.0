@@ -1,23 +1,34 @@
-From: Jes Sorensen <jes@trained-monkey.org>
-Date: Fri, 10 Oct 2003 17:11:09 +0000
-Subject: Re: [PATCH] kill dead code from ml_iograph.c
-Message-Id: <marc-linux-ia64-106580636122162@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 24 Oct 2003 20:56:31 +0000
+Subject: [PATCH 2.4.23-pre8]  Remove broken prefetching in free_one_pgd()
+Message-Id: <marc-linux-ia64-106702916015259@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106451999732536@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106451999732536@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Christoph" =3D Christoph Hellwig <hch@infradead.org> writes:
+This patch was accepted into 2.5.55, attributed to "davej@uk".
 
-Christoph> What about syncing that magic internal tree more often.
-Christoph> The qu=81=E6rterly SN updates are a mess, so if SGI could
-Christoph> decide to send one patch per change in a timely fashion
-Christoph> live would be a lot simpler.
+This code will prefetch from beyond the end of the page table
+being cleared ... which is clearly a bad thing if the page table
+in question is allocated from the last page of memory (or precedes
+a hole on a discontig mem system).
 
-Thats certainly the intention, for 2.4 it's going to be hard but for
-2.6 sure.
+-Tony Luck
 
-Jes
+diff -ru linux-2.4.23-pre8/mm/memory.c fix/mm/memory.c
+--- linux-2.4.23-pre8/mm/memory.c	Fri Oct 24 13:37:23 2003
++++ fix/mm/memory.c	Fri Oct 24 13:40:47 2003
+@@ -120,10 +120,8 @@
+ 	}
+ 	pmd = pmd_offset(dir, 0);
+ 	pgd_clear(dir);
+-	for (j = 0; j < PTRS_PER_PMD ; j++) {
+-		prefetchw(pmd+j+(PREFETCH_STRIDE/16));
++	for (j = 0; j < PTRS_PER_PMD ; j++)
+ 		free_one_pmd(pmd+j);
+-	}
+ 	pmd_free(pmd);
+ }
+ 
