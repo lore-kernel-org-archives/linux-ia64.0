@@ -1,81 +1,37 @@
-From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
-Date: Wed, 18 Aug 2004 01:22:03 +0000
-Subject: Kernel 2.6.8 fails to boot on Tiger-4 when commandline parameter mem=8GB
-Message-Id: <8126E4F969BA254AB43EA03C59F44E842B6A7A@pdsmsx404>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C484C1.C5092C5C"
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 26 Aug 2004 21:51:36 +0000
+Subject: [PATCH] Give PCI ROM resources a parent
+Message-Id: <20040826215136.GP16196@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C484C1.C5092C5C
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Jon Smirl's patch to export roms via sysfs exposes a bug in the ia64
+PCI code; we're not assigning a parent to the ROM resource.  Please apply.
 
-My tiger-4 machine has 16GB memory. Kernel 2.6.8 fails to boot on it
-when command line parameter mem=3D8G, and it also fails when mem being =
-set
-to other value, such as 7G, 10G.
+Index: vpd-2.6/arch/ia64/pci/pci.c
+=================================RCS file: /var/cvs/linux-2.6/arch/ia64/pci/pci.c,v
+retrieving revision 1.13
+diff -u -p -r1.13 pci.c
+--- vpd-2.6/arch/ia64/pci/pci.c	20 Jul 2004 22:05:26 -0000	1.13
++++ vpd-2.6/arch/ia64/pci/pci.c	26 Aug 2004 21:29:48 -0000
+@@ -332,7 +332,7 @@ pcibios_fixup_device_resources (struct p
+ 	struct pci_window *window;
+ 	int i, j;
+ 	int limit = (dev->hdr_type = PCI_HEADER_TYPE_NORMAL) ? \
+-		PCI_ROM_RESOURCE : PCI_NUM_RESOURCES;
++		PCI_BRIDGE_RESOURCES : PCI_NUM_RESOURCES;
+ 
+ 	for (i = 0; i < limit; i++) {
+ 		if (!dev->resource[i].start)
 
-Basically, in function efi_memmap_walk, md->num_pages might be decreased
-if mem_limit is set, and then at the next time when efi_memmap_walk is
-called, trim_top might trim the md again because of IA64_GRANULE_SIZE
-alignment, then another md which is beyond mem_limit at the beginning
-will be chosen, and its physical page number is larger than max_pfn.
-Then, a BUG check is triggered.
-
-Below is the patch to fix it.
-
-Signed-off-by: Zhang Yanmin		<yanmin.zhang@intel.com>
-Signed-off-by: Yao Jun			<junx.yao@intel.com>
-
-diff -Nraup linux-2.6.8/arch/ia64/kernel/efi.c
-linux-2.6.8_fix/arch/ia64/kernel/efi.c
---- linux-2.6.8/arch/ia64/kernel/efi.c	2004-08-16 07:59:53.151655436
-+0800
-+++ linux-2.6.8_fix/arch/ia64/kernel/efi.c	2004-08-16
-08:01:43.348919711 +0800
-@@ -357,8 +357,10 @@ efi_memmap_walk (efi_freemem_callback_t=20
- 			if (total_mem >=3D mem_limit)
- 				continue;
- 			total_mem +=3D (md->num_pages << EFI_PAGE_SHIFT);
--			if (total_mem > mem_limit)
-+			if (total_mem > mem_limit) {
- 				md->num_pages -=3D ((total_mem -
-mem_limit) >> EFI_PAGE_SHIFT);
-+				max_addr =3D md->phys_addr +
-(md->num_pages << EFI_PAGE_SHIFT);
-+			}
-=20
- 			if (md->num_pages =3D=3D 0)
- 				continue;
-
-
-
-
- <<mem_boot_err.patch.diff>>=20
-
-------_=_NextPart_001_01C484C1.C5092C5C
-Content-Type: application/octet-stream;
-	name="mem_boot_err.patch.diff"
-Content-Transfer-Encoding: base64
-Content-Description: mem_boot_err.patch.diff
-Content-Disposition: attachment;
-	filename="mem_boot_err.patch.diff"
-
-ZGlmZiAtTnJhdXAgbGludXgtMi42LjgvYXJjaC9pYTY0L2tlcm5lbC9lZmkuYyBsaW51eC0yLjYu
-OF9maXgvYXJjaC9pYTY0L2tlcm5lbC9lZmkuYwotLS0gbGludXgtMi42LjgvYXJjaC9pYTY0L2tl
-cm5lbC9lZmkuYwkyMDA0LTA4LTE2IDA3OjU5OjUzLjE1MTY1NTQzNiArMDgwMAorKysgbGludXgt
-Mi42LjhfZml4L2FyY2gvaWE2NC9rZXJuZWwvZWZpLmMJMjAwNC0wOC0xNiAwODowMTo0My4zNDg5
-MTk3MTEgKzA4MDAKQEAgLTM1Nyw4ICszNTcsMTAgQEAgZWZpX21lbW1hcF93YWxrIChlZmlfZnJl
-ZW1lbV9jYWxsYmFja190IAogCQkJaWYgKHRvdGFsX21lbSA+PSBtZW1fbGltaXQpCiAJCQkJY29u
-dGludWU7CiAJCQl0b3RhbF9tZW0gKz0gKG1kLT5udW1fcGFnZXMgPDwgRUZJX1BBR0VfU0hJRlQp
-OwotCQkJaWYgKHRvdGFsX21lbSA+IG1lbV9saW1pdCkKKwkJCWlmICh0b3RhbF9tZW0gPiBtZW1f
-bGltaXQpIHsKIAkJCQltZC0+bnVtX3BhZ2VzIC09ICgodG90YWxfbWVtIC0gbWVtX2xpbWl0KSA+
-PiBFRklfUEFHRV9TSElGVCk7CisJCQkJbWF4X2FkZHIgPSBtZC0+cGh5c19hZGRyICsgKG1kLT5u
-dW1fcGFnZXMgPDwgRUZJX1BBR0VfU0hJRlQpOworCQkJfQogCiAJCQlpZiAobWQtPm51bV9wYWdl
-cyA9PSAwKQogCQkJCWNvbnRpbnVlOwo=
-
-------_=_NextPart_001_01C484C1.C5092C5C--
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
