@@ -1,7 +1,7 @@
-From: "H . J . Lu" <hjl@valinux.com>
-Date: Mon, 13 Nov 2000 23:08:29 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Mon, 13 Nov 2000 23:14:54 +0000
 Subject: Re: [Linux-ia64] Recommended compiler for compiling kernels test10 and upper?
-Message-Id: <marc-linux-ia64-105590678205712@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205713@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205680@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205680@msgid-missing>
@@ -10,28 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Nov 13, 2000 at 03:01:56PM -0800, Jim Wilson wrote:
-> >I'm trying to build the 2.4.0-test10 kernel with the ia64 patch.  We
-> >recently upgaded the hardware on one of our boxes to B1 stepping, and
-> >now it won't boot.  I'm hoping the newer kernel will work better.
-> 
-> The Red Hat August Linux OS release won't boot on a B1.  This was due to a
-> misapplied kernel patch, and was fixed immediately after the problem was
-> discovered, which was unfortunately a couple of days after the OS release.
-> 
-> There is a kernel update available from Red Hat that fixes this, but it is
-> a little tricky to install the kernel update if the machine doesn't boot.
-> Since you presumably still have A step machines, you should be able to install
-> the kernel update on an Ax machine, and then move a hard disk over to the B1
-> machine, and then it should boot.
-> ftp://ftp.redhat.com/pub/redhat/ia64/updates/RPMS
-> 
+>Actually, it does boot, but the Ethernet card reports that the 
+>receiver overflows, and I end up not connected to the net.
 
-That is what happened to me when my machine was upgraded to B1. I
-wound up putting a working kernel on the RedHat ia64 bootable LS120
-floppy and booted it with root=.... It assumes you have RedHat already
-installed on your machine befor upgrade.
+If you are seeing:
+"eth0: card reports no RX buffers."
+"eth0: card reports no resources."
+then the same problem has been observed on ia32 machines, and is believed to be
+a bug in the eepro100 driver.
 
--- 
-H.J. Lu (hjl@valinux.com)
+Just do something like
+	ifconfig eth0 down
+	ifconfig eth0 up
+and it will go away.  If it doesn't go away, repeat until it does.
+Alternatively, you can go into /etc/rc.d/init.d and do
+	./network stop
+	./network start
+
+I don't know anything about kernel workarounds for the problem.  A kernel
+person would have to comment on that.  If there is a kernel problem, then
+that might explain why this ethernet problem shows up more frequently on
+some kernel versions than others.
+
+Jim
 
