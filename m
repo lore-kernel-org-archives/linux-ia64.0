@@ -1,101 +1,117 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Thu, 17 Apr 2003 17:59:12 +0000
-Subject: [Linux-ia64] [PATCH] 3/3 sba_iommu trivial cleanup
-Message-Id: <marc-linux-ia64-105590723705535@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Sun, 06 Apr 2003 13:07:26 +0000
+Subject: [Linux-ia64] Announce: kdb v4.1 is available for kernels 2.4.19, 2.4.20, i386 and ia64
+Message-Id: <marc-linux-ia64-105590723705423@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is mostly trivial whitespace and printk text tweaks.  I did add the
-segment number to a printk that previously just had the bus.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1054  -> 1.1055 
-#	arch/ia64/hp/common/sba_iommu.c	1.15    -> 1.16   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/04/17	bjorn_helgaas@hp.com	1.1055
-# ia64: sba_iommu: whitespace, comment, and printk changes.
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
---- a/arch/ia64/hp/common/sba_iommu.c	Thu Apr 17 11:29:54 2003
-+++ b/arch/ia64/hp/common/sba_iommu.c	Thu Apr 17 11:29:54 2003
-@@ -1437,7 +1437,7 @@
- 	iov_order = get_order(ioc->iov_size >> (IOVP_SHIFT - PAGE_SHIFT));
- 	ioc->pdir_size = (ioc->iov_size / IOVP_SIZE) * sizeof(u64);
- 
--	DBG_INIT("%s() hpa %p IOV %dMB (%d bits) PDIR size 0x%0x\n",
-+	DBG_INIT("%s() hpa %p IOV %dMB (%d bits) PDIR size 0x%x\n",
- 		 __FUNCTION__, ioc->ioc_hpa, ioc->iov_size >> 20,
- 		 iov_order + PAGE_SHIFT, ioc->pdir_size);
- 
-@@ -1521,9 +1521,9 @@
- 	if (agp_found && reserve_sba_gart) {
- 		DBG_INIT("%s: AGP device found, reserving half of IOVA for GART support\n",
- 			 __FUNCTION__);
--  		ioc->pdir_size /= 2;
-+		ioc->pdir_size /= 2;
- 		((u64 *)ioc->pdir_base)[PDIR_INDEX(ioc->iov_size/2)] = ZX1_SBA_IOMMU_COOKIE;
--  	}
-+	}
- #ifdef FULL_VALID_PDIR
- 	/*
-   	** Check to see if the spill page has been allocated, we don't need more than
-@@ -1684,7 +1684,7 @@
- 	ioc_sac_init(ioc);
- 
- 	printk(KERN_INFO PFX
--		"Found %s IOC %d.%d HPA 0x%lx IOVA space %dMb at 0x%lx\n",
-+		"%s %d.%d HPA 0x%lx IOVA space %dMb at 0x%lx\n",
- 		ioc->name, (ioc->rev >> 4) & 0xF, ioc->rev & 0xF,
- 		hpa, ioc->iov_size >> 20, ioc->ibase);
- 
-@@ -1813,7 +1813,7 @@
- 	if (ioc_list) {
- 		struct proc_dir_entry * proc_mckinley_root;
- 
--		proc_mckinley_root = proc_mkdir("bus/mckinley",0);
-+		proc_mckinley_root = proc_mkdir("bus/mckinley", 0);
- 		create_proc_info_entry(ioc_list->name, 0, proc_mckinley_root, sba_proc_info);
- 		create_proc_info_entry("bitmap", 0, proc_mckinley_root, sba_resource_map);
- 	}
-@@ -1853,7 +1853,7 @@
- 		handle = parent;
- 	} while (ACPI_SUCCESS(status));
- 
--	printk("No IOC for PCI Bus %d in ACPI\n", bus->number);
-+	printk(KERN_WARNING "No IOC for PCI Bus %02x:%02x in ACPI\n", PCI_SEGMENT(bus), bus->number);
- }
- 
- static int __init
-@@ -1864,10 +1864,6 @@
- 	u64 hpa, length;
- 	struct acpi_device_info dev_info;
- 
--	/*
--	 * Only SBA appears in ACPI namespace.  It encloses the PCI
--	 * root bridges, and its CSR space includes the IOC function.
--	 */
- 	status = hp_acpi_csr_space(device->handle, &hpa, &length);
- 	if (ACPI_FAILURE(status))
- 		return 1;
-@@ -1876,6 +1872,10 @@
- 	if (ACPI_FAILURE(status))
- 		return 1;
- 
-+	/*
-+	 * For HWP0001, only SBA appears in ACPI namespace.  It encloses the PCI
-+	 * root bridges, and its CSR space includes the IOC function.
-+	 */
- 	if (strncmp("HWP0001", dev_info.hardware_id, 7) = 0)
- 		hpa += ZX1_IOC_OFFSET;
- 
+Content-Type: text/plain; charset=us-ascii
+
+ftp://oss.sgi.com/projects/kdb/download/v4.1/
+
+  kdb-v4.1-2.4.19-common-1.bz2
+  kdb-v4.1-2.4.19-i386-1.bz2
+  kdb-v4.1-2.4.19-ia64-020821-1.bz2
+  kdb-v4.1-2.4.20-common-1.bz2
+  kdb-v4.1-2.4.20-i386-1.bz2
+  kdb-v4.1-2.4.20-ia64-021210-1.bz2
+
+Changelog extracts since v4.0.
+
+2.4.{19,20}-common-1
+
+2003-04-04 Keith Owens  <kaos@sgi.com>
+
+	* Remove one kallsyms pass.
+	* Automatic detection of O(1) scheduler.
+	* Rename cpu_online to cpu_is_online.
+	* Workarounds for scheduler bugs.
+	* Tweak algorithm for detecting if cpu process data is available.
+	* Add 'kill' command.  Sonic Zhang, Keith Owens.
+
+2.4.{19,20}-i386-1
+
+2003-04-04 Keith Owens  <kaos@sgi.com>
+
+	* Workarounds for scheduler bugs.
+
+2.4.{19,20}-ia64-*-1
+
+2003-04-04 Keith Owens  <kaos@sgi.com>
+
+	* Add support for INIT slave interrupts.
+	* Tell SAL to always rendezvous on MCA.
+	* No lock on SAL rendezvous call.
+	* Include unwind.c from 2.4.21-pre5.
+	* Rename cpu_online to cpu_is_online.
+	* Workarounds for scheduler bugs.
+
+
+v4.1/README
+
+Starting with kdb v2.0 there is a common patch against each kernel which
+contains all the architecture independent code plus separate architecture
+dependent patches.  Apply the common patch for your kernel plus at least
+one architecture dependent patch, the architecture patches activate kdb.
+
+The naming convention for kdb patches is :-
+
+ vx.y    The version of kdb.  x.y is updated as new features are added to kdb.
+ -v.p.s  The kernel version that the patch applies to.  's' may include -pre,
+	 -rc or whatever numbering system the kernel keepers have thought up this
+	 week.
+ -common The common kdb code.  Everybody needs this.
+ -i386   Architecture dependent code for i386.
+ -ia64   Architecture dependent code for ia64, etc.
+ -n      If there are multiple kdb patches against the same kernel version then
+	 the last number is incremented.
+
+To build kdb for your kernel, apply the common kdb patch which is less
+than or equal to the kernel v.p.s, taking the highest value of '-n'
+if there is more than one.  Apply the relevant arch dependent patch
+with the same value of 'vx.y-v.p.s-', taking the highest value of '-n'
+if there is more than one.
+
+For example, to use kdb for i386 on kernel 2.4.20, apply
+  kdb-v4.1-2.4.20-common-<n>            (use highest value of <n>)
+  kdb-v4.1-2.4.20-i386-<n>              (use highest value of <n>)
+in that order.  To use kdb for ia64-021210 on kernel 2.4.20, apply
+  kdb-v4.1-2.4.20-common-<n>            (use highest value of <n>)
+  kdb-v4.1-2.4.20-ia64-021210-<n>       (use highest value of <n>)
+in that order.
+
+Use patch -p1 for all patches.
+
+I do not have any time to work on 2.5, so there are no patches available
+for 2.5 kernels.  If somebody wants to port the latest kdb patches to
+2.5 kernels and send patches to kaos@sgi.com then I will put them up in
+this directory.
+
+The kdb-smphdr* patches in the v4.0 directory are Sonic Zhang's changes
+to improve hardware breakpoint handling on i386 and ia64.  They are
+not official kdb patches yet, they are available for review.  They will
+probably fit v4.1.
+
+The next step is to integrate Sonic Zhang's breakpoint changes into kdb
+and to change the kdb entry logic to cope with multiple cpus doing
+concurrent entry into kdb.  At the moment kdb tries to serialize so it
+only processes one event at a time.  The bad news is that this does not
+work well with IA64 SAL interrupts so kdb has to change.  The good news
+is that the change will remove the deadlock when two cpus hit a
+breakpoint at the same time.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQE+kCaJi4UHNye0ZOoRAvSZAKC/aXyVRPjaho5/RY+JbhUF8xNGlwCeKtUv
+BBrDAhSon5J4woF3+65q+sY=VZPB
+-----END PGP SIGNATURE-----
 
 
