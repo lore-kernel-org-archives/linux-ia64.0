@@ -1,30 +1,29 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Tue, 29 Jun 2004 14:29:27 +0000
-Subject: Re: Three random questions
-Message-Id: <20040629142927.GT30334@parcelfarce.linux.theplanet.co.uk>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Sun, 27 Jun 2004 17:42:14 +0000
+Subject: Why large stack frame for PAL call
+Message-Id: <200406271740.i5RHeaY24803@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40E01743.4060309@octopus.com.au>
-In-Reply-To: <40E01743.4060309@octopus.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Jun 28, 2004 at 11:16:21PM -0700, David Mosberger wrote:
-> It might be easier to generate assembly code.  I have done that
-> occasionally but the real issue is of course that HP-UX is big-endian,
-> so only endian-neutral code will work directly that way (and even so
-> there may be a licensing issue with running HP-UX generated code on a
-> Linux system; IANAL...).
+Does anyone know why we need such large stack frame for PAL static
+call?  PAL isn't even suppose to touch any stack register for static
+calling convention.  Is it for legacy reason or something?
 
-How could that be?  That's like the wackos who thought that compiling
-your code with GCC would lead to you having to release all your source
-code ...
+GLOBAL_ENTRY(ia64_pal_call_static)
+        .prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(6)
+        alloc loc1 = ar.pfs,6,90,0,0
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+GLOBAL_ENTRY(ia64_pal_call_phys_static)
+        .prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(6)
+        alloc loc1 = ar.pfs,6,90,0,0
+
+96 local registers?
+
+Also caller is support to setup callee's stack frame for PAL stacked
+convention?  Wasn't clear from the PAL spec.  Though I couldn't make
+up any story why it needs to.
+
+
