@@ -1,7 +1,7 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 14 Nov 2002 15:47:34 +0000
-Subject: [Linux-ia64] RE: memcpy failure
-Message-Id: <marc-linux-ia64-105590709805428@msgid-missing>
+Date: Thu, 14 Nov 2002 15:53:25 +0000
+Subject: RE: [Linux-ia64] Re: memcpy failure
+Message-Id: <marc-linux-ia64-105590709805429@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805424@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805424@msgid-missing>
@@ -10,33 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David,
+> >On Thu, Nov 14, 2002 at 10:01:44AM +0100, Christian Cotte-Barrot wrote:
+> > But memcpy from memcpy.S is returning a pointer to dest area.
+> > That would lead to quasi non-portable code when the return from memcopy
+> > is correctly checked depending on which memcopy function is addressed.
+> > But BTW, is it meaningful to take into account a return code
+> > that is always the same and which value is known in advance ?
+> > Does memcpy suppose to failed in some cases ?
 
-I was thinking along the same line as returning void for memcpy.  And that is what implemented in memcpy_mck.S. r8 is initialized to zero in the code path mainly for copy_user.
+> no, memcpy cannot fail (you get a SIGSEGV in userspace or an MCA in
+> kernel space).  checking the return value is meaningless.
 
-I suppose I should follow the convention since everyone except me expect memcpy to return dest pointer and actually use the return value ;-)  I can work on that although I need to shuffle some instruction around to avoid  expand the code size and worsen the copy throughput.
+That's what I feel as well that it is kind of silly to return something that the caller already has. BUt then, I'm not here to judge the specification ;-)
+
+Anyhow, the fix is fairly easy and won't affect the code size as well as the copy throughput, I should have a patch ready shortly to make everyone happy!
 
 - Ken
-
-
------Original Message-----
-From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
-Sent: Wednesday, November 13, 2002 9:52 PM
-To: Chen, Kenneth W
-Cc: Christian Cotte-Barrot; David Mosberger; Stephane Eranian
-Subject: RE: memcpy failure
-
-
->>>>> On Tue, 12 Nov 2002 10:29:23 -0800, "Chen, Kenneth W" <kenneth.w.chen@intel.com> said:
-
-  Ken> The retrun value for memcpy doesn't follow the user space
-  Ken> memcpy exactly.  kernel memcpy always return 0.
-
-Why are you saying this?  As far as I know, the kernel memcpy() is
-expected to return the (initial) destination address.  Perhaps you're
-thinking of copy_user()?
-
-(If it was up to me, memcpy() would be returning void...).
-
-	--david
 
