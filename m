@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 08 Apr 2002 15:52:31 +0000
+Date: Mon, 08 Apr 2002 17:25:05 +0000
 Subject: Re: [Linux-ia64] epilogue count exceeds number of nested prologues
-Message-Id: <marc-linux-ia64-105590701905405@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905409@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905403@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905403@msgid-missing>
@@ -22,11 +22,14 @@ To: linux-ia64@vger.kernel.org
   Randolph> David in February. Is libffi broken? What is needed to fix
   Randolph> it?
 
-  Randolph> The offending assembly code is attached. it's the
-  Randolph> ".restore sp" near the end that is triggering the error.
+I now realize that you must have been using the latest binutils, as the
+old one silently generated bad unwind info.
 
-This is a bug in the assembler that was fixed on Feb 22nd.  I think
-it should be in binutils-2.12, though I didn't not verify.
+As Richard pointed out in his mail, the offending code really is
+broken.  I was planning to update the mozilla libffi anyhow, both to
+sync up with Hans's recent unwind fixes and to look into whether we
+could use the assembler directives added for C++ vtables to simplify
+the generation of static closures.  Let me take a look at it.
 
 	--david
 
