@@ -1,58 +1,29 @@
-From: "riedel" <jsriedel@me.nps.navy.mil>
-Date: Wed, 25 Oct 2000 02:28:07 +0000
-Subject: [Linux-ia64] (no subject)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----=_NextPart_000_0004_01C03E01.4D19CDC0"
-Message-Id: <marc-linux-ia64-105590678205619@msgid-missing>
+From: "Broadfoot, KenX" <kenx.broadfoot@intel.com>
+Date: Fri, 27 Oct 2000 16:26:28 +0000
+Subject: [Linux-ia64] Common kernel paging error I get
+Message-Id: <marc-linux-ia64-105590678205637@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205296@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205296@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+Just wondering if you all see this error often:
 
-------=_NextPart_000_0004_01C03E01.4D19CDC0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Unable to handle kernel paging request at virtual address 0000000000000008
 
-hi everybody,
-does anybody know what happens to static registers (gr0-gr31) in case of =
-a context switch.
-in the manual, it says static registers are visible to all procedures(i =
-guess it shouldn't otherwise on a context switch another process would =
-have the same static registers) On the other hand, stacked registers are =
-local to procedures and saved and restored by RSE which makes sense to =
-me.
+I am using 2.4.0-test9 patched + kdb
 
-------=_NextPart_000_0004_01C03E01.4D19CDC0
-Content-Type: text/html;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+When this happens I can't even get into the debugger.
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD W3 HTML//EN">
-<HTML>
-<HEAD>
+This is on a Quad Lion with 2 gigs of Ram
 
-<META content=3Dtext/html;charset=3Diso-8859-1 =
-http-equiv=3DContent-Type>
-<META content=3D'"MSHTML 4.72.2106.6"' name=3DGENERATOR>
-</HEAD>
-<BODY bgColor=3D#ffffff>
-<DIV><FONT color=3D#000000 size=3D2>hi everybody,</FONT></DIV>
-<DIV><FONT color=3D#000000 size=3D2>does anybody know what happens to =
-static=20
-registers (gr0-gr31) in case of a context switch.</FONT></DIV>
-<DIV><FONT color=3D#000000 size=3D2>in the manual, it says static =
-registers are=20
-visible to all procedures(i guess it shouldn't otherwise on a context =
-switch=20
-another process would have the same static registers) On the other hand, =
-stacked=20
-registers are local to procedures and saved and restored by RSE which =
-makes=20
-sense to me.</FONT></DIV></BODY></HTML>
+I see this mostly when running fairly heavy network traffic.
 
-------=_NextPart_000_0004_01C03E01.4D19CDC0--
+
+If anyone is familiar with this and has found a way to minimize it, or can
+explain what it is to me I would appreciate it.
+
+--ken broadfoot
 
 
