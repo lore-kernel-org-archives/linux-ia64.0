@@ -1,7 +1,7 @@
-From: Nathan Straz <nstraz@sgi.com>
-Date: Wed, 17 Oct 2001 22:13:23 +0000
-Subject: [Linux-ia64] SGI XFS 1.0.1-IA64 Preview Release 2 available for testing
-Message-Id: <marc-linux-ia64-105590698805364@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 18 Oct 2001 01:22:56 +0000
+Subject: Re: [Linux-ia64] SGI XFS 1.0.1-IA64 Preview Release 2 available for testing
+Message-Id: <marc-linux-ia64-105590698805367@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805339@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805339@msgid-missing>
@@ -10,42 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The second preview release of SGI XFS 1.0.1-IA64 is available at:
+>>>>> On Wed, 17 Oct 2001 17:13:23 -0500, Nathan Straz <nstraz@sgi.com> said:
 
-ftp://oss.sgi.com/projects/xfs/download/testing/Release-1.0.1-IA64-PR2/
+  Nathan> Trillian 2.4.9-010820
 
-These files are currently undergoing BETA testing.  
+Please stop using this name.  There is no such thing anymore.
 
-RPMS/     Kernel RPMs based on:
-          - Linux 2.4.9 (Linus's tree)
-          - Trillian 2.4.9-010820
-          - XFS 2.4.9 010826
-          - kdb-v1.8a-2.4.9-ia64-010820
-
-cmd_rpms/ Command RPMs built for IA64, including lvm tools
-cmd_tars/ Command tarballs built for IA64.  The lvm tarball is source.
-
-configs/  The config file from the kernel RPMs.  Please check these
-          over to see if anything important is missing.
-
-patches/  A patch against Linux-2.4.9-ia64-010820.  Separate patches are
-          available in the source RPM. 
-
-This kernel is built with 16k pages.  
-
-An installer is not available at this time.  We're still working on it.
-
-
-Changes since last release:
-
- - Updated commands
-   This should fix the unaligned access warnings
-
- - Updated KDB
-   Moved to KDB 1.9 to keep up with current development
-
--- 
-Nate Straz                                              nstraz@sgi.com
-sgi, inc                                           http://www.sgi.com/
-Linux Test Project                                  http://ltp.sf.net/
+	--david
 
