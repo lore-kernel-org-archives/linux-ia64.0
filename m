@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 23 Feb 2000 00:40:24 +0000
-Subject: RE: [Linux-ia64] ILP32 support?
-Message-Id: <marc-linux-ia64-105590678204961@msgid-missing>
+From: Rich Altmaier <richa@cthulhu.engr.sgi.com>
+Date: Wed, 23 Feb 2000 00:47:35 +0000
+Subject: Re: [Linux-ia64] ILP32 support?
+Message-Id: <marc-linux-ia64-105590678204962@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678204954@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678204954@msgid-missing>
@@ -10,28 +10,47 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 22 Feb 2000 16:11:53 -0800, "Vadim Furman" <vadimf@mainsoft.com> said:
+I would like to express real concern with this proposal.  We went down this
+path with IRIX on the MIPS processor.  
+The situation is:  We are asking ISVs to generate native IA64 binaries.  
+If there are two formats of such
+binaries, and they are not link compatible, now any ISV failing to release
+both formats will cause a terrible fragmentation.  Any given user will not
+be sure of being able to find link compatible stuff for their needs.  This
+is a terrible inhibitor to the spread of software, not to mention creating
+dual libraries for all IA64 stuff (ok guys, where are you going to put these
+new libs?  This is a new ABI you understand!!!).
 
-  Vadim> IMHO benefits of ILP32 are huge, since you can relatively
-  Vadim> simply port existing 32 apps to ia64 and in the same time
-  Vadim> enjoy the perfomance of the new chip.
+But perhaps you were not suggesting this.  I believe Microsoft has defined
+a special form of native 64bit-address IA64 code, called "the sandbox", where
+the linker and kernel simply assign all addresses below say 2Gbyte.  This
+code still contains 64bit pointer types, but it has no actual values exceeding
+32bit container.  Hence sloppy code converting pointers to say ints doesn't
+lose bits.  But the pointer data type still changes size to 64bits, hence porting
+is not 0 effort.  I'm not clear on the linkage compatibility issues here.
 
-If it's not a performance critical program, you might just as well
-leave it an x86 binary and do no porting at all.  If it's a
-performance critical program, then it's probably worthwhile to make it
-64-bit clean (which isn't hard) and get the benefit of wide arithmetic
-and assurance that the program can deal with 64-bit files, address
-spaces, and y2038 without any problem at all.
+I would implore you to not issue such buggy code.   Please make your code
+64bit-address clean.  Please don't split the IA64 marketplace!!!!!!!!!
 
-  Vadim> Is it possible to force LP64 processes below 4G? Is there a
-  Vadim> compiler/linker switch to do so?
+Thanks, Rich
 
-You can use a linker script to force things below 4GB.  For mmap,
-you'd need to change the kernel to push the mmap base below 4GB.
-You'll be on your own though if you do this.  All open source programs
-I know of are 64-bit clean so the incentive for the open source
-community to support ILP32 is very small.
 
-	--david
+Vadim Furman wrote:
+> 
+> >
+> >   Vadim> Are there any plans to support ILP32 mode?  Vadim Furman
+> >
+> > No.  So far, nobody has felt that the (small) benefits of ILP32 are
+> > worth its trouble.
+> IMHO benefits of ILP32 are huge, since you can relatively simply port
+> existing 32 apps to ia64 and in the same time enjoy the perfomance of the
+> new chip.
+> Is it possible to force LP64 processes below 4G? Is there a compiler/linker
+> switch to do so?
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
 
