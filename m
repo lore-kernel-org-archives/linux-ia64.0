@@ -1,40 +1,30 @@
-From: Don Dugger <n0ano@n0ano.com>
-Date: Wed, 30 Oct 2002 15:14:22 +0000
-Subject: Re: [Linux-ia64] gdb'ing 32-bit executable on IA64
-Message-Id: <marc-linux-ia64-105590709805293@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 31 Oct 2002 16:48:35 +0000
+Subject: [Linux-ia64] Header dependencies
+Message-Id: <marc-linux-ia64-105590709805316@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805292@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805292@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Nitin-
+I took a look at converting to the asm-offsets.c method for generating
+offsets.h that the other architectures are using.  Basically, I ran
+into the same problem Keith Owens alluded to earlier with the circular
+dependencies:
 
-Use an IA32 `gdb'.  The standard `gdb' on IA64 machines only deals with
-IA64 processes.  All you have to do is copy `gdb' over from an IA32
-machine and then use that to debug your IA32 processes.
+asm/thread-info.h declares:
+#define current_thread_info() ((struct thread_info *) ((char *) current + IA64_TASK_SIZE))
+To get IA64_TASK_SIZE, it includes asm/offsets.h
+To build asm/offsets.h, we need include linux/sched.h which includes
+linux/thread_info.h which includes asm/thread_info.h.
 
-On Wed, Oct 30, 2002 at 09:58:05AM -0500, Sane_Purushottam@emc.com wrote:
-> When I try to run a 32-bit executable in gdb on a IA-64 linux (RH 7.2), I
-> can set the breakpoint fine but when I try to run it, I get an error "Can't
-> insert breakpoint for slot numbers greater than 2"
-> 
-> What's the solution ??
-> 
-> Nitin Sane
-> sane_purushottam@emc.com
-> (508) 382-7319
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+I think the basic problem is that thread_info and task_struct are the
+wrong way round on the stack.  If we put thread_info first then we don't
+need IA64_TASK_SIZE in current_thread_info's definition.  What would
+people think to this rearrangement?  I guess some asm code might need
+to be changed, and I'm still scared of ia64 assembler ;-)
 
 -- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@n0ano.com
+Revolutions do not require corporate support.
 
