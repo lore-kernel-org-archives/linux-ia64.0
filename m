@@ -1,7 +1,7 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Mon, 07 Mar 2005 17:21:08 +0000
+From: Colin Ngam <cngam@sgi.com>
+Date: Mon, 07 Mar 2005 20:40:42 +0000
 Subject: Re: PCI Express
-Message-Id: <20050307172108.GJ28741@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <422CBC4A.7050904@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4228F250.7C5E2E3C@sgi.com>
 In-Reply-To: <4228F250.7C5E2E3C@sgi.com>
@@ -10,22 +10,64 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Mar 07, 2005 at 11:02:38AM -0600, Mark Maule wrote:
-> On Mon, 7 Mar 2005, Matthew Wilcox wrote:
-> > Various PCIe features are in the process of being added.  It all depends
-> > what you mean when you say "supported".
-> 
-> Are there specific lists (other than this one) to be watching for
-> PCIe discussions?
+Grant Grundler wrote:
 
-There's linux-pci@atrey.karlin.mff.cuni.cz and some stuff also gets
-discussed on l-k.  There's not a whole lot of ia64-specific content,
-so I would only expect it to come up rarely on this list.
+Hi Grant,
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Thanks for your respond.
+
+>On Fri, Mar 04, 2005 at 05:42:08PM -0600, Colin Ngam wrote:
+>  
+>
+>>Is MSI/MSIX support available for ia64?
+>>    
+>>
+>
+>Yes
+>
+I looked at Documentation/MSI-HOWTO.txt(linux-ia64-release-2.6.11) and 
+it mentioned that CONFIG_X86_LOCAL_APIC has to be configured.  I did not 
+find this configured on in any sample ia64 config files, but it does 
+exist in defconfig for i386.  Is this just an ia32 config option?
+
+>
+>  
+>
+>>Are PCIE devices supported in ia
+>>
+>>    
+>>
+>
+>I'm having trouble with the word "supported".
+>You have a PCI-E Bridge and firmware that can talk to it
+>hooked up to an ia64 box?
+>
+Pretty soon.
+
+Is there any ia64 box with MSI and PCIE actually "activated and running"?
+
+Thanks.
+
+colin
+
+>
+>Anyway, linux has some PCI-E support in the generic PCI code.
+>
+>  
+>
+>>A pointer to any documentations with regards to PCIE and ia64 will
+>>be very much appreciated.
+>>    
+>>
+>
+>I don't think anything ia64 or linux specific exists.
+>
+>grant
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  
+>
+
+
