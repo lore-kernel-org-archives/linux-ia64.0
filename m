@@ -1,72 +1,112 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Fri, 03 Sep 2004 19:32:03 +0000
-Subject: [PATCH] ia64 misc fixes [2/5]
-Message-Id: <20040903193203.GQ642@parcelfarce.linux.theplanet.co.uk>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 17 Sep 2004 20:16:43 +0000
+Subject: [PATCH] sn2_defconfig update
+Message-Id: <200409171316.43289.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_rY0SBuNKNbTYX+w"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040903193027.GO642@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040903193027.GO642@parcelfarce.linux.theplanet.co.uk>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+--Boundary-00=_rY0SBuNKNbTYX+w
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@debian.org>
-Cc: Greg KH <greg@kroah.com>, pcihpd-discuss@lists.sourceforge.net, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Disposition: inline
+
+Update sn2_defconfig mainly to enable the mmtimer driver by default.
+
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+
+Jesse
 
 
-Some miscellaneous fixes:
+--Boundary-00=_rY0SBuNKNbTYX+w
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sn2-defconfig-update-5.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sn2-defconfig-update-5.patch"
 
- - flags can be a simple assignment since the resource is newly created
- - Zero the allocated memory for the PCI windows
- - pcibios_fixup_device_resources is called from pcibios_fixup_bus which
-   is __devinit, so it cannot be __init.
- - pci_claim_resource is called from pcibios_fixup_device_resources so must
-   also be __devinit.
-
-diff -urpNX build-tools/dontdiff linux-2.6/arch/ia64/pci/pci.c hotplug-2.6/arch/ia64/pci/pci.c
---- linux-2.6/arch/ia64/pci/pci.c	2004-07-20 16:05:26.000000000 -0600
-+++ hotplug-2.6/arch/ia64/pci/pci.c	2004-09-02 13:10:03.000000000 -0600
-@@ -272,7 +272,7 @@ add_window (struct acpi_resource *res, v
- 			return AE_OK;
+===== arch/ia64/configs/sn2_defconfig 1.12 vs edited =====
+--- 1.12/arch/ia64/configs/sn2_defconfig	2004-09-02 22:46:36 -07:00
++++ edited/arch/ia64/configs/sn2_defconfig	2004-09-17 12:57:40 -07:00
+@@ -1,7 +1,7 @@
+ #
+ # Automatically generated make config: don't edit
+-# Linux kernel version: 2.6.9-rc1
+-# Fri Aug 27 22:00:00 2004
++# Linux kernel version: 2.6.9-rc2
++# Fri Sep 17 12:57:29 2004
+ #
  
- 		window = &info->controller->window[info->controller->windows++];
--		window->resource.flags |= flags;
-+		window->resource.flags  = flags;
- 		window->resource.start  = addr.min_address_range;
- 		window->resource.end    = addr.max_address_range;
- 		window->offset		= offset;
-@@ -305,6 +305,7 @@ pci_acpi_scan_root (struct acpi_device *
- 	controller->window = kmalloc(sizeof(*controller->window) * windows, GFP_KERNEL);
- 	if (!controller->window)
- 		goto out2;
-+	memset(controller->window, 0, sizeof(*controller->window) * windows);
+ #
+@@ -13,6 +13,7 @@
+ #
+ # General setup
+ #
++CONFIG_LOCALVERSION=""
+ CONFIG_SWAP=y
+ CONFIG_SYSVIPC=y
+ CONFIG_POSIX_MQUEUE=y
+@@ -33,6 +34,8 @@
+ CONFIG_IOSCHED_DEADLINE=y
+ CONFIG_IOSCHED_CFQ=y
+ # CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
++CONFIG_SHMEM=y
++# CONFIG_TINY_SHMEM is not set
  
- 	name = kmalloc(16, GFP_KERNEL);
- 	if (!name)
-@@ -325,7 +326,7 @@ out1:
- 	return NULL;
- }
+ #
+ # Loadable module support
+@@ -54,6 +57,7 @@
+ CONFIG_RWSEM_XCHGADD_ALGORITHM=y
+ CONFIG_TIME_INTERPOLATION=y
+ CONFIG_EFI=y
++CONFIG_GENERIC_IOMAP=y
+ # CONFIG_IA64_GENERIC is not set
+ # CONFIG_IA64_DIG is not set
+ # CONFIG_IA64_HP_ZX1 is not set
+@@ -210,7 +214,6 @@
+ # CONFIG_BLK_DEV_IDEDMA_FORCED is not set
+ CONFIG_IDEDMA_PCI_AUTO=y
+ # CONFIG_IDEDMA_ONLYDISK is not set
+-CONFIG_BLK_DEV_ADMA=y
+ # CONFIG_BLK_DEV_AEC62XX is not set
+ # CONFIG_BLK_DEV_ALI15X3 is not set
+ # CONFIG_BLK_DEV_AMD74XX is not set
+@@ -277,7 +280,8 @@
+ # CONFIG_SCSI_AIC7XXX is not set
+ # CONFIG_SCSI_AIC7XXX_OLD is not set
+ # CONFIG_SCSI_AIC79XX is not set
+-# CONFIG_SCSI_MEGARAID is not set
++# CONFIG_MEGARAID_NEWGEN is not set
++# CONFIG_MEGARAID_LEGACY is not set
+ CONFIG_SCSI_SATA=y
+ # CONFIG_SCSI_SATA_SVW is not set
+ # CONFIG_SCSI_ATA_PIIX is not set
+@@ -335,7 +339,6 @@
+ #
+ CONFIG_FUSION=y
+ CONFIG_FUSION_MAX_SGE=40
+-CONFIG_FUSION_ISENSE=m
+ CONFIG_FUSION_CTL=m
  
--void __init
-+void __devinit
- pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
- {
- 	struct pci_controller *controller = PCI_CONTROLLER(dev);
-diff -urpNX build-tools/dontdiff linux-2.6/drivers/pci/setup-res.c hotplug-2.6/drivers/pci/setup-res.c
---- linux-2.6/drivers/pci/setup-res.c	2004-03-20 13:29:41.000000000 -0700
-+++ hotplug-2.6/drivers/pci/setup-res.c	2004-09-02 08:07:37.000000000 -0600
-@@ -90,7 +90,7 @@ pci_update_resource(struct pci_dev *dev,
- 		new & ~PCI_REGION_FLAG_MASK));
- }
+ #
+@@ -550,7 +553,6 @@
+ CONFIG_UNIX98_PTYS=y
+ CONFIG_LEGACY_PTYS=y
+ CONFIG_LEGACY_PTY_COUNT=256
+-# CONFIG_QIC02_TAPE is not set
  
--int __init
-+int __devinit
- pci_claim_resource(struct pci_dev *dev, int resource)
- {
- 	struct resource *res = &dev->resource[resource];
+ #
+ # IPMI
+@@ -575,6 +577,7 @@
+ CONFIG_RAW_DRIVER=m
+ # CONFIG_HPET is not set
+ CONFIG_MAX_RAW_DEVS=256
++CONFIG_MMTIMER=y
+ 
+ #
+ # I2C support
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+--Boundary-00=_rY0SBuNKNbTYX+w--
