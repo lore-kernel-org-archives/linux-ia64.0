@@ -1,113 +1,24 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Fri, 25 Feb 2005 08:14:40 +0000
-Subject: [PATCH] random ia64 sched-domains values
-Message-Id: <421EDE70.3010501@yahoo.com.au>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------020002080000090606010108"
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 25 Feb 2005 18:46:21 +0000
+Subject: RE: [PATCH] random ia64 sched-domains values
+Message-Id: <200502251846.j1PIkKg08394@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <421EDE70.3010501@yahoo.com.au>
+In-Reply-To: <421EDE70.3010501@yahoo.com.au>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020002080000090606010108
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Nick Piggin wrote on Friday, February 25, 2005 12:15 AM
+> These are some values I just found from thin-air that should
+> hopefully make ia64 work after the latest sched patches.
+>
+> +	.cache_hot_time		= (10*1000000),		\
 
-Hi,
-These are some values I just found from thin-air that should
-hopefully make ia64 work after the latest sched patches.
+In 2.6.9, cache_hot_time gets the value from cache_decay_tick, since
+when this become a constant again?
 
-Though it did look like there may have been some problems with
-the old values, which I tried to fix up too:
+- Ken
 
-- SD_ALLNODES_INIT had .balance_interval set a specific way -
-this field is internal to the scheduler and will end up
-sitting between min_interval and max_interval and not do what
-was intended, so tweak max_interval instead.
-
-- SD_ALLNODES_INIT had SD_BALANCE_EXEC set. The scheduler
-doesn't cope _really_ well with doing balance-on-exec over the
-top level of a multi-level NUMA setup like this. It will tend
-to fill up the first CPUs in each high level group (cluster of
-6 nodes) rather than spreading the load on a per-node basis.
-This could be improved if we really need it, but for now remove
-the flag from the top level.
-
-- Increase SD_NODES_PER_DOMAIN in the low level NUMA domain so we
-still push tasks out a reasonable distance. Set SD_BALANCE_FORK
-in this domain too.
-
-Not compiled or tested, sorry.
-
---------------020002080000090606010108
-Content-Type: text/plain;
- name="sched-tune-ia64.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="sched-tune-ia64.patch"
-
-CgoKLS0tCgogbGludXgtMi42LW5waWdnaW4vYXJjaC9pYTY0L2tlcm5lbC9kb21haW4uYyAg
-IHwgICAgMiAKIGxpbnV4LTIuNi1ucGlnZ2luL2luY2x1ZGUvYXNtLWlhNjQvdG9wb2xvZ3ku
-aCB8ICAgNjIgKysrKysrKysrKysrKysrKysrKystLS0tLS0KIDIgZmlsZXMgY2hhbmdlZCwg
-NDkgaW5zZXJ0aW9ucygrKSwgMTUgZGVsZXRpb25zKC0pCgpkaWZmIC1wdU4gaW5jbHVkZS9h
-c20taWE2NC90b3BvbG9neS5ofnNjaGVkLXR1bmUtaWE2NCBpbmNsdWRlL2FzbS1pYTY0L3Rv
-cG9sb2d5LmgKLS0tIGxpbnV4LTIuNi9pbmNsdWRlL2FzbS1pYTY0L3RvcG9sb2d5Lmh+c2No
-ZWQtdHVuZS1pYTY0CTIwMDUtMDItMjUgMTg6MTg6NDMuMDAwMDAwMDAwICsxMTAwCisrKyBs
-aW51eC0yLjYtbnBpZ2dpbi9pbmNsdWRlL2FzbS1pYTY0L3RvcG9sb2d5LmgJMjAwNS0wMi0y
-NSAxODo1Njo1MC4wMDAwMDAwMDAgKzExMDAKQEAgLTQyLDI1ICs0Miw1NSBAQAogCiB2b2lk
-IGJ1aWxkX2NwdV90b19ub2RlX21hcCh2b2lkKTsKIAorI2RlZmluZSBTRF9DUFVfSU5JVCAo
-c3RydWN0IHNjaGVkX2RvbWFpbikgewkJXAorCS5zcGFuCQkJPSBDUFVfTUFTS19OT05FLAlc
-CisJLnBhcmVudAkJCT0gTlVMTCwJCQlcCisJLmdyb3VwcwkJCT0gTlVMTCwJCQlcCisJLm1p
-bl9pbnRlcnZhbAkJPSAxLAkJCVwKKwkubWF4X2ludGVydmFsCQk9IDQsCQkJXAorCS5idXN5
-X2ZhY3RvcgkJPSA2NCwJCQlcCisJLmltYmFsYW5jZV9wY3QJCT0gMTI1LAkJCVwKKwkuY2Fj
-aGVfaG90X3RpbWUJCT0gKDEwKjEwMDAwMDApLAkJXAorCS5jYWNoZV9uaWNlX3RyaWVzCT0g
-MiwJCQlcCisJLnBlcl9jcHVfZ2FpbgkJPSAxMDAsCQkJXAorCS5jYWNoZV9uaWNlX3RyaWVz
-CT0gMiwJCQlcCisJLmJ1c3lfaWR4CQk9IDIsCQkJXAorCS5pZGxlX2lkeAkJPSAxLAkJCVwK
-KwkubmV3aWRsZV9pZHgJCT0gMiwJCQlcCisJLndha2VfaWR4CQk9IDEsCQkJXAorCS5mb3Jr
-ZXhlY19pZHgJCT0gMSwJCQlcCisJLmZsYWdzCQkJPSBTRF9MT0FEX0JBTEFOQ0UJXAorCQkJ
-CXwgU0RfQkFMQU5DRV9ORVdJRExFCVwKKwkJCQl8IFNEX0JBTEFOQ0VfRVhFQwlcCisJCQkJ
-fCBTRF9XQUtFX0FGRklORSwJXAorCS5sYXN0X2JhbGFuY2UJCT0gamlmZmllcywJCVwKKwku
-YmFsYW5jZV9pbnRlcnZhbAk9IDEsCQkJXAorCS5ucl9iYWxhbmNlX2ZhaWxlZAk9IDAsCQkJ
-XAorfQorCiAvKiBzY2hlZF9kb21haW5zIFNEX05PREVfSU5JVCBmb3IgSUE2NCBOVU1BIG1h
-Y2hpbmVzICovCiAjZGVmaW5lIFNEX05PREVfSU5JVCAoc3RydWN0IHNjaGVkX2RvbWFpbikg
-ewkJXAogCS5zcGFuCQkJPSBDUFVfTUFTS19OT05FLAlcCiAJLnBhcmVudAkJCT0gTlVMTCwJ
-CQlcCiAJLmdyb3VwcwkJCT0gTlVMTCwJCQlcCi0JLm1pbl9pbnRlcnZhbAkJPSA4MCwJCQlc
-Ci0JLm1heF9pbnRlcnZhbAkJPSAzMjAsCQkJXAotCS5idXN5X2ZhY3RvcgkJPSAzMjAsCQkJ
-XAorCS5taW5faW50ZXJ2YWwJCT0gOCwJCQlcCisJLm1heF9pbnRlcnZhbAkJPSA4KihtaW4o
-bnVtX29ubGluZV9jcHVzKCksIDMyKSksIFwKKwkuYnVzeV9mYWN0b3IJCT0gNjQsCQkJXAog
-CS5pbWJhbGFuY2VfcGN0CQk9IDEyNSwJCQlcCiAJLmNhY2hlX2hvdF90aW1lCQk9ICgxMCox
-MDAwMDAwKSwJCVwKLQkuY2FjaGVfbmljZV90cmllcwk9IDEsCQkJXAorCS5jYWNoZV9uaWNl
-X3RyaWVzCT0gMiwJCQlcCisJLmJ1c3lfaWR4CQk9IDMsCQkJXAorCS5pZGxlX2lkeAkJPSAy
-LAkJCVwKKwkubmV3aWRsZV9pZHgJCT0gMCwgLyogdW51c2VkICovCVwKKwkud2FrZV9pZHgJ
-CT0gMSwJCQlcCisJLmZvcmtleGVjX2lkeAkJPSAxLAkJCVwKIAkucGVyX2NwdV9nYWluCQk9
-IDEwMCwJCQlcCiAJLmZsYWdzCQkJPSBTRF9MT0FEX0JBTEFOQ0UJXAogCQkJCXwgU0RfQkFM
-QU5DRV9FWEVDCVwKLQkJCQl8IFNEX0JBTEFOQ0VfTkVXSURMRQlcCi0JCQkJfCBTRF9XQUtF
-X0lETEUJCVwKKwkJCQl8IFNEX0JBTEFOQ0VfRk9SSwlcCiAJCQkJfCBTRF9XQUtFX0JBTEFO
-Q0UsCVwKIAkubGFzdF9iYWxhbmNlCQk9IGppZmZpZXMsCQlcCi0JLmJhbGFuY2VfaW50ZXJ2
-YWwJPSAxLAkJCVwKKwkuYmFsYW5jZV9pbnRlcnZhbAk9IDY0LAkJCVwKIAkubnJfYmFsYW5j
-ZV9mYWlsZWQJPSAwLAkJCVwKIH0KIApAQCAtNjksMTcgKzk5LDIxIEBAIHZvaWQgYnVpbGRf
-Y3B1X3RvX25vZGVfbWFwKHZvaWQpOwogCS5zcGFuCQkJPSBDUFVfTUFTS19OT05FLAlcCiAJ
-LnBhcmVudAkJCT0gTlVMTCwJCQlcCiAJLmdyb3VwcwkJCT0gTlVMTCwJCQlcCi0JLm1pbl9p
-bnRlcnZhbAkJPSA4MCwJCQlcCi0JLm1heF9pbnRlcnZhbAkJPSAzMjAsCQkJXAotCS5idXN5
-X2ZhY3RvcgkJPSAzMjAsCQkJXAotCS5pbWJhbGFuY2VfcGN0CQk9IDEyNSwJCQlcCisJLm1p
-bl9pbnRlcnZhbAkJPSA2NCwJCQlcCisJLm1heF9pbnRlcnZhbAkJPSA2NCpudW1fb25saW5l
-X2NwdXMoKSwJXAorCS5idXN5X2ZhY3RvcgkJPSAxMjgsCQkJXAorCS5pbWJhbGFuY2VfcGN0
-CQk9IDEzMywJCQlcCiAJLmNhY2hlX2hvdF90aW1lCQk9ICgxMCoxMDAwMDAwKSwJCVwKIAku
-Y2FjaGVfbmljZV90cmllcwk9IDEsCQkJXAorCS5idXN5X2lkeAkJPSAzLAkJCVwKKwkuaWRs
-ZV9pZHgJCT0gMywJCQlcCisJLm5ld2lkbGVfaWR4CQk9IDAsIC8qIHVudXNlZCAqLwlcCisJ
-Lndha2VfaWR4CQk9IDAsIC8qIHVudXNlZCAqLwlcCisJLmZvcmtleGVjX2lkeAkJPSAwLCAv
-KiB1bnVzZWQgKi8JXAogCS5wZXJfY3B1X2dhaW4JCT0gMTAwLAkJCVwKLQkuZmxhZ3MJCQk9
-IFNEX0xPQURfQkFMQU5DRQlcCi0JCQkJfCBTRF9CQUxBTkNFX0VYRUMsCVwKKwkuZmxhZ3MJ
-CQk9IFNEX0xPQURfQkFMQU5DRSwJXAogCS5sYXN0X2JhbGFuY2UJCT0gamlmZmllcywJCVwK
-LQkuYmFsYW5jZV9pbnRlcnZhbAk9IDEwMCooNjMrbnVtX29ubGluZV9jcHVzKCkpLzY0LCAg
-IFwKKwkuYmFsYW5jZV9pbnRlcnZhbAk9IDY0LAkJCVwKIAkubnJfYmFsYW5jZV9mYWlsZWQJ
-PSAwLAkJCVwKIH0KIApkaWZmIC1wdU4gYXJjaC9pYTY0L2tlcm5lbC9kb21haW4uY35zY2hl
-ZC10dW5lLWlhNjQgYXJjaC9pYTY0L2tlcm5lbC9kb21haW4uYwotLS0gbGludXgtMi42L2Fy
-Y2gvaWE2NC9rZXJuZWwvZG9tYWluLmN+c2NoZWQtdHVuZS1pYTY0CTIwMDUtMDItMjUgMTg6
-MTg6NDguMDAwMDAwMDAwICsxMTAwCisrKyBsaW51eC0yLjYtbnBpZ2dpbi9hcmNoL2lhNjQv
-a2VybmVsL2RvbWFpbi5jCTIwMDUtMDItMjUgMTg6NDk6NDMuMDAwMDAwMDAwICsxMTAwCkBA
-IC0xNCw3ICsxNCw3IEBACiAjaW5jbHVkZSA8bGludXgvdG9wb2xvZ3kuaD4KICNpbmNsdWRl
-IDxsaW51eC9ub2RlbWFzay5oPgogCi0jZGVmaW5lIFNEX05PREVTX1BFUl9ET01BSU4gNgor
-I2RlZmluZSBTRF9OT0RFU19QRVJfRE9NQUlOIDE2CiAKICNpZmRlZiBDT05GSUdfTlVNQQog
-LyoqCgpfCg==
---------------020002080000090606010108--
 
