@@ -1,7 +1,7 @@
-From: Bruce Losure <blosure@sgi.com>
-Date: Thu, 24 Mar 2005 12:28:24 +0000
-Subject: [PATCH 2.6.12 0/0] Altix only: Remove hubdev SAL call
-Message-Id: <Pine.LNX.4.44.0503240618380.4759-100000@fsgi025.americas.sgi.com>
+From: akpm@osdl.org
+Date: Wed, 30 Mar 2005 21:39:59 +0000
+Subject: [patch 3/3] ia64: reduce cacheline bouncing in cpu_idle_wait
+Message-Id: <200503302139.j2ULdmpH029252@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -9,57 +9,99 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
-Hi Tony,
+From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
 
-This patch against ia64-test-2.6.12 fixes a bug where the tiocx code
-was inadvertently un-doing some address modifications done in earlier
-fixup code.    This patch just removes the offending code.
+Andi noted that during normal runtime cpu_idle_map is bounced around a lot,
+and occassionally at a higher frequency than the timer interrupt wakeup
+which we normally exit pm_idle from.  So switch to a percpu variable.
 
-Please accept.
+I didn't move things to the slow path because it would involve adding
+scheduler code to wakeup the idle thread on the cpus we're waiting for.
 
-Signed-off-by: Bruce Losure <blosure@sgi.com>
+Signed-off-by: Zwane Mwaikambo <zwane@arm.linux.org.uk>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
 
-Thanks,
--Bruce
+ 25-akpm/arch/ia64/kernel/process.c |   41 +++++++++++++++++++++++--------------
+ 1 files changed, 26 insertions(+), 15 deletions(-)
 
-Index: tiocx-test-2.6.12/arch/ia64/sn/kernel/tiocx.c
-=================================--- tiocx-test-2.6.12.orig/arch/ia64/sn/kernel/tiocx.c	2005-03-23 18:49:50.585780038 -0600
-+++ tiocx-test-2.6.12/arch/ia64/sn/kernel/tiocx.c	2005-03-23 18:56:06.670621925 -0600
-@@ -330,19 +330,6 @@
- EXPORT_SYMBOL(tiocx_dma_addr);
- EXPORT_SYMBOL(tiocx_swin_base);
+diff -puN arch/ia64/kernel/process.c~ia64-reduce-cacheline-bouncing-in-cpu_idle_wait arch/ia64/kernel/process.c
+--- 25/arch/ia64/kernel/process.c~ia64-reduce-cacheline-bouncing-in-cpu_idle_wait	Wed Mar 30 13:38:32 2005
++++ 25-akpm/arch/ia64/kernel/process.c	Wed Mar 30 13:38:35 2005
+@@ -50,7 +50,7 @@
+ #include "sigframe.h"
  
--static uint64_t tiocx_get_hubdev_info(u64 handle, u64 address)
--{
+ void (*ia64_mark_idle)(int);
+-static cpumask_t cpu_idle_map;
++static DEFINE_PER_CPU(unsigned int, cpu_idle_state);
+ 
+ unsigned long boot_option_idle_override = 0;
+ EXPORT_SYMBOL(boot_option_idle_override);
+@@ -223,20 +223,31 @@ static inline void play_dead(void)
+ }
+ #endif /* CONFIG_HOTPLUG_CPU */
+ 
 -
--	struct ia64_sal_retval ret_stuff;
--	ret_stuff.status = 0;
--	ret_stuff.v0 = 0;
--
--	ia64_sal_oemcall_nolock(&ret_stuff,
--				SN_SAL_IOIF_GET_HUBDEV_INFO,
--				handle, address, 0, 0, 0, 0, 0);
--	return ret_stuff.v0;
--}
--
- static void tio_conveyor_set(nasid_t nasid, int enable_flag)
+ void cpu_idle_wait(void)
  {
- 	uint64_t ice_frz;
-@@ -477,18 +464,12 @@
+-        int cpu;
+-        cpumask_t map;
++	unsigned int cpu, this_cpu = get_cpu();
++	cpumask_t map;
++
++	set_cpus_allowed(current, cpumask_of_cpu(this_cpu));
++	put_cpu();
  
- 		if (nasid & 0x1) {	/* TIO's are always odd */
- 			struct hubdev_info *hubdev;
--			uint64_t status;
- 			struct xwidget_info *widgetp;
+-        for_each_online_cpu(cpu)
+-                cpu_set(cpu, cpu_idle_map);
++	cpus_clear(map);
++	for_each_online_cpu(cpu) {
++		per_cpu(cpu_idle_state, cpu) = 1;
++		cpu_set(cpu, map);
++	}
  
- 			DBG("Found TIO at nasid 0x%x\n", nasid);
+-        wmb();
+-        do {
+-                ssleep(1);
+-                cpus_and(map, cpu_idle_map, cpu_online_map);
+-        } while (!cpus_empty(map));
++	__get_cpu_var(cpu_idle_state) = 0;
++
++	wmb();
++	do {
++		ssleep(1);
++		for_each_online_cpu(cpu) {
++			if (cpu_isset(cpu, map) && !per_cpu(cpu_idle_state, cpu))
++				cpu_clear(cpu, map);
++		}
++		cpus_and(map, map, cpu_online_map);
++	} while (!cpus_empty(map));
+ }
+ EXPORT_SYMBOL_GPL(cpu_idle_wait);
  
- 			hubdev  			    (struct hubdev_info *)(NODEPDA(cnodeid)->pdinfo);
--			status -			    tiocx_get_hubdev_info(nasid,
--						  (uint64_t) __pa(hubdev));
--			if (status)
--				continue;
+@@ -244,7 +255,6 @@ void __attribute__((noreturn))
+ cpu_idle (void)
+ {
+ 	void (*mark_idle)(int) = ia64_mark_idle;
+-	int cpu = smp_processor_id();
  
- 			widgetp = &hubdev->hdi_xwidget_info[TIOCX_CORELET];
+ 	/* endless idle loop with no priority at all */
+ 	while (1) {
+@@ -255,12 +265,13 @@ cpu_idle (void)
+ 		while (!need_resched()) {
+ 			void (*idle)(void);
  
-
++			if (__get_cpu_var(cpu_idle_state))
++				__get_cpu_var(cpu_idle_state) = 0;
++
++			rmb();
+ 			if (mark_idle)
+ 				(*mark_idle)(1);
+ 
+-			if (cpu_isset(cpu, cpu_idle_map))
+-				cpu_clear(cpu, cpu_idle_map);
+-			rmb();
+ 			idle = pm_idle;
+ 			if (!idle)
+ 				idle = default_idle;
+_
