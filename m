@@ -1,30 +1,47 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 02 Oct 2001 03:37:05 +0000
-Subject: Re: [Linux-ia64] Re: kernel update (relative to 2.4.10)
-Message-Id: <marc-linux-ia64-105590698805284@msgid-missing>
+From: Steve Lord <lord@sgi.com>
+Date: Fri, 12 Oct 2001 15:24:06 +0000
+Subject: [Linux-ia64] Re: SGI XFS 1.0.1-IA64 Preview Release 1 available for testing
+Message-Id: <marc-linux-ia64-105590698805340@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205855@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205855@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 1 Oct 2001 14:14:06 -0400, Bill Nottingham <notting@redhat.com> said:
+Nate, have you tried recovery testing - see PV 838706 from Keith
+Owens.
 
-  Bill> Chris Ahna (christopher.j.ahna@intel.com) said:
-  >> Well, I do now :-) On ia64 we want to map even AGP memory as
-  >> writecombined.  The appended patch should fix the rendering
-  >> problems Bill reported earlier.
+Steve
 
-  Bill> Yup, works great. Running ia32 glxinfo appears to crash the X
-  Bill> server, though...
+> The first preview release of SGI XFS 1.0.1-IA64 is available at:
+> 
+> ftp://oss.sgi.com/projects/xfs/download/testing/Release-1.0.1-IA64-PR1/
+> 
+> These files are currently undergoing BETA testing.  
+> 
+> RPMS/     Kernel RPMs based on:
+>           - Linux 2.4.9 (Linus's tree)
+>           - Trillian 2.4.9-010820
+>           - XFS 2.4.9 010826
+>           - kdb-v1.8a-2.4.9-ia64-010820
+> 
+> cmd_rpms/ Command RPMs built for IA64, including lvm tools
+> cmd_tars/ Command tarballs built for IA64.  The lvm tarball is source.
+> 
+> configs/  The config file from the kernel RPMs.  Please check these
+>           over to see if anything important is missing.
+> 
+> patches/  A patch against Linux-2.4.9-ia64-010820.  Separate patches are
+>           available in the source RPM. 
+> 
+> This kernel is built with 16k pages.  
+> 
+> An installer is not available at this time.  We're still working on it.
+> 
+> -- 
+> Nate Straz                                              nstraz@sgi.com
+> sgi, inc                                           http://www.sgi.com/
+> Linux Test Project                                  http://ltp.sf.net/
 
-Speaking of the X server: I recently tried the stuff in the "rawhide"
-directory (XFree 4.1.0).  The X server *still* easily crashes the
-machine when switching back between the X server and the virtual
-consoles.  This is very painful.  I hope someone can find some time to
-look into this.  (By "crash" I mean "instant reboot".)
 
-	--david
 
