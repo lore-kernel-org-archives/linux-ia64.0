@@ -1,31 +1,29 @@
-From: Hiroshi Aono <aono@hpc.bs1.fc.nec.co.jp>
-Date: Fri, 18 May 2001 07:42:48 +0000
-Subject: Re: [Linux-ia64] NFS v3 server
-Message-Id: <marc-linux-ia64-105590693005614@msgid-missing>
+From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
+Date: Tue, 15 May 2001 08:48:30 +0000
+Subject: [Linux-ia64] EFI GPT tools ?
+Message-Id: <marc-linux-ia64-105590693005576@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005598@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005598@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-At Thu, 17 May 2001 07:59:14 -0700,
-David Mosberger wrote:
+Some months ago, my colleague Josef Moellers posted
+a question on the availability of fdisk and friends
+with support for the EFI GPT. The tools on Redhat 7.1
+beta do not support this format, thus RedHat cannot
+be installed on GPT-Formatted disks.
 
-> 
-> There is a 64-bit fix for NFS v3 in 2.4.5-pre3.  Haven't tried it
-> myself, though.
-> 
-> 	--david
+Does anybody know if someone works on this problem,
+or do these tools already exist somewhere ?
 
-I applied NFSv3 related patch and it works fine.
+Regards,
+Martin
 
--pre3:
- - Neil Brown: knfsd fix for 64-bit architectures, and filehandle resolveir
+-- 
+Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
+FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
 
-Thanks,
-----
-Hiroshi Aono, NEC Solutions
-(h-aono@ap.jp.nec.com)
+
+
 
