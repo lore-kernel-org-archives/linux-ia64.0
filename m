@@ -1,31 +1,19 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Thu, 17 Apr 2003 19:37:49 +0000
-Subject: Re: [Linux-ia64] brl emulation bug fix
-Message-Id: <marc-linux-ia64-105590723705539@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Fri, 18 Apr 2003 02:49:21 +0000
+Subject: [Linux-ia64] Missing 2.4 changesets in bk http interface
+Message-Id: <marc-linux-ia64-105590723705559@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705514@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705514@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday 16 April 2003 3:00 pm, Arun Sharma wrote:
-> This applies to both 2.4 and 2.5. A 64 bit value was being assigned to
-> an int.
+http://lia64.bkbits.net:8080/linux-ia64-2.4 says
 
-I applied this for 2.4 as well.
+1 Changesets in the last four weeks
+233 Changesets in the last eight weeks
 
-> --- arch/ia64/kernel/brl_emu.c.orig     Thu Oct 17 10:02:52 2002
-> +++ arch/ia64/kernel/brl_emu.c  Thu Oct 17 15:40:29 2002
-> @@ -59,7 +59,7 @@
->         unsigned long next_ip;
->         struct siginfo siginfo;
->         struct illegal_op_return rv;
-> -       int tmp_taken, unimplemented_address;
-> +       long tmp_taken, unimplemented_address;
-> 
->         rv.fkt = (unsigned long) -1;
-> 
+Selecting the first option shows nothing.  Selecting the second option
+shows nothing more recent than 5 weeks ago.
 
 
