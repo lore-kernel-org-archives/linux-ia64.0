@@ -1,122 +1,80 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 29 Mar 2001 08:50:23 +0000
-Subject: [Linux-ia64] kdb patch
-Message-Id: <marc-linux-ia64-105590693005367@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Fri, 16 Mar 2001 07:22:18 +0000
+Subject: [Linux-ia64] Finally: success with 2.4.2-ia64-010228
+Message-Id: <marc-linux-ia64-105590693005276@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Here is a patch to make "rd s" and "rd %rN" (N>2) work again.
-Without this patch, kdb dies when trying to access the stacked
-registers, which isn't very useful.
+Several independent bugs combined to make 2.4.2-ia64-010228 fail.  The
+first two patches below came from an SGI mailing list and may already
+be known on this list, although I have not seen them mentioned here.
 
-	--david
+The ivt.S change caused random errors on kdb break points.
 
---- arch/ia64/kdb/kdbasupport.c~	Wed Mar 28 21:59:06 2001
-+++ arch/ia64/kdb/kdbasupport.c	Thu Mar 29 00:25:52 2001
-@@ -424,48 +424,57 @@
- static int
- show_cur_stack_frame(struct pt_regs *regs, int regno, unsigned long *contents)
- {
--	/* FIXME: convert to unwind */
--        long sof = regs->cr_ifs & ((1<<7)-1) ;	/* size of frame */
--        unsigned long   i ;
--	int j;
--	struct switch_stack *prs_regs = getprsregs(regs) ;
--        unsigned long *sofptr = (prs_regs? ia64_rse_skip_regs(
--			(unsigned long *)prs_regs->ar_bspstore, -sof) : NULL) ;
-+        unsigned long sof, i, cfm, val, sp, *bsp;
-+	struct unw_frame_info info;
-+	mm_segment_t old_fs;
-+
-+	/* XXX It would be better to simply create a copy of an unw_frame_info structure
-+	 * that is set up in kdba_main_loop().  That way, we could avoid having to skip
-+	 * over the first few frames every time...
-+	 */
-+	unw_init_frame_info(&info, current, kdb_sw[smp_processor_id()]);
-+	do {
-+		if (unw_unwind(&info) < 0) {
-+			kdb_printf("Failed to unwind\n");
-+			return 0;
-+		}
-+		unw_get_sp(&info, &sp);
-+	} while (sp <= (unsigned long) regs);
-+	unw_get_bsp(&info, (unsigned long *) &bsp);
-+	unw_get_cfm(&info, &cfm);
- 
--	if (!sofptr) {
--		kdb_printf("Unable to display Current Stack Frame\n") ;
--		return 0 ;
-+	if (!bsp) {
-+		kdb_printf("Unable to display Current Stack Frame\n");
-+		return 0;
+The missing '\' in ia64/config.in slips through menuconfig and results
+in CONFIG_ITANIUM_PTCG being set to y for B1 and B2.  As soon as init
+calls mprotect() on my B1 it does ptcg and hangs.  This explains why
+some people were reporting hang after the kernel gives control to user
+space.
+
+I am still seeing random EFI delays, before it even gets to the kernel,
+using build 84.  AFAICT there is no higher build for B1.
+
+Index: 2.17/drivers/acpi/resources/rscalc.c
+--- 2.17/drivers/acpi/resources/rscalc.c Sat, 10 Feb 2001 13:20:52 +1100 kaos (linux-2.4/q/b/43_rscalc.c 1.3 644)
++++ 2.17(w)/drivers/acpi/resources/rscalc.c Fri, 16 Mar 2001 13:31:09 +1100 kaos (linux-2.4/q/b/43_rscalc.c 1.3 644)
+@@ -866,7 +866,7 @@ acpi_rs_calculate_pci_routing_table_leng
  	}
  
--	if (regno < 0) 
--		return 0 ;
-+	sof = (cfm & 0x7f);
  
--	for (i=sof, j=0;i;i--,j++) {
--		/* remember to skip the nat collection dword */
--		if ((((unsigned long)sofptr>>3) & (((1<<6)-1))) 
--				= ((1<<6)-1))
--			sofptr++ ;
--
--		/* return the value in the reg if regno is non zero */
--
--		if (regno) {
--			if ((j+1) = regno) {
--				if (contents)
--					*contents = *sofptr ;
--				return -1;
--			}
--			sofptr++ ;
--		} else {
--			kdb_printf(" r%d: %016lx ", 32+j, *sofptr++) ;
--			if (!((j+1)%3)) kdb_printf("\n") ;
-+	if (regno) {
-+		if ((unsigned) regno - 32 >= sof)
-+			return 0;
-+		bsp = ia64_rse_skip_regs(bsp, regno - 32);
-+		old_fs = set_fs(KERNEL_DS);
-+		{
-+			get_user(val, bsp);
- 		}
-+		set_fs(old_fs);
-+		*contents = val;
-+		return 1;
- 	}
+-	*buffer_size_needed = temp_size_needed;
++	*buffer_size_needed = temp_size_needed + sizeof(PCI_ROUTING_TABLE);
  
--	if (regno) {
--		if (!i) /* bogus rse number */
--			return 0 ;
--	} else
--		kdb_printf("\n") ;
-+	old_fs = set_fs(KERNEL_DS);
-+	{
-+		for (i = 0; i < sof; ++i) {
-+			get_user(val, bsp);
-+			kdb_printf(" r%lu: %016lx ", 32 + i, val);
-+			if (!((i + 1) % 3))
-+				kdb_printf("\n");
-+			bsp = ia64_rse_skip_regs(bsp, 1);
-+		}
-+		kdb_printf("\n");
-+	}
-+	set_fs(old_fs);
- 
- 	return 0 ;
+ 	return (AE_OK);
  }
-@@ -613,8 +622,7 @@
- 	if (i = nkdbreglist) {
- 		/* Lets check the rse maybe */
- 		if (regname[0] = 'r')
--			if (show_cur_stack_frame(regs, simple_strtoul(regname+1, 0, 0) - 31, 
--					contents))
-+			if (show_cur_stack_frame(regs, simple_strtoul(regname+1, 0, 0), contents))
- 				return 0 ;
- 		return KDB_BADREG;
- 	}
+Index: 2.17/drivers/acpi/common/cmxface.c
+--- 2.17/drivers/acpi/common/cmxface.c Sat, 10 Feb 2001 13:20:52 +1100 kaos (linux-2.4/s/b/41_cmxface.c 1.4 644)
++++ 2.17(w)/drivers/acpi/common/cmxface.c Fri, 16 Mar 2001 13:33:07 +1100 kaos (linux-2.4/s/b/41_cmxface.c 1.4 644)
+@@ -158,7 +158,12 @@ acpi_enable_subsystem (
+ 	if (!(flags & ACPI_NO_ACPI_ENABLE)) {
+ 		status = acpi_enable ();
+ 		if (ACPI_FAILURE (status)) {
++#define BIGSUR_WA
++#ifdef BIGSUR_WA
++			printk("acpi_enable fail:ignored\n");
++#else
+ 			return (status);
++#endif
+ 		}
+ 
+ 	/*
+ 	 * Note:
+Index: 2.17/arch/ia64/kernel/ivt.S
+--- 2.17/arch/ia64/kernel/ivt.S Fri, 02 Mar 2001 13:03:52 +1100 kaos (linux-2.4/s/c/6_ivt.S 1.1.2.1 644)
++++ 2.17(w)/arch/ia64/kernel/ivt.S Fri, 16 Mar 2001 15:05:27 +1100 kaos (linux-2.4/s/c/6_ivt.S 1.1.2.1 644)
+@@ -899,7 +899,7 @@ ENTRY(non_syscall)
+ 	// suitable spot...
+ 
+ 	alloc r14=ar.pfs,0,0,2,0
+-	mov out0=r8
++	mov out0=cr.iim			// get break immediate (must be done while psr.ic is off)
+ 	add out1,sp
+ 	adds r3=8,r2			// set up second base pointer for SAVE_REST
+ 
+Index: 2.17/arch/ia64/config.in
+--- 2.17/arch/ia64/config.in Fri, 02 Mar 2001 23:28:22 +1100 kaos (linux-2.4/s/c/38_config.in 1.1.2.1.1.2 644)
++++ 2.17(w)/arch/ia64/config.in Fri, 16 Mar 2001 17:47:20 +1100 kaos (linux-2.4/s/c/38_config.in 1.1.2.1.1.2 644)
+@@ -57,7 +57,7 @@ if [ "$CONFIG_ITANIUM" = "y" ]; then
+ 	if [ "$CONFIG_ITANIUM_CSTEP_SPECIFIC" = "y" ]; then
+ 	  bool '   Enable Itanium C0-step specific code' CONFIG_ITANIUM_C0_SPECIFIC
+ 	fi
+-	if [ "$CONFIG_ITANIUM_ASTEP_SPECIFIC" = "y" -o "$CONFIG_ITANIUM_B0_SPECIFIC" = "y"
++	if [ "$CONFIG_ITANIUM_ASTEP_SPECIFIC" = "y" -o "$CONFIG_ITANIUM_B0_SPECIFIC" = "y" \
+ 	     -o "$CONFIG_ITANIUM_B1_SPECIFIC" = "y" -o "$CONFIG_ITANIUM_B2_SPECIFIC" = "y" ]; then
+ 	  define_bool CONFIG_ITANIUM_PTCG n
+ 	else
+
 
