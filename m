@@ -1,30 +1,126 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 02 May 2000 21:52:09 +0000
-Subject: Re: [Linux-ia64] new kernel diff (relative to v2.3.99-pre6)
-Message-Id: <marc-linux-ia64-105590678205065@msgid-missing>
+From: Greg Harris <gregh@unify.com>
+Date: Fri, 26 May 2000 15:27:49 +0000
+Subject: [Linux-ia64] Linux IA-64 yacc error
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01BFC726.F32535D0"
+Message-Id: <marc-linux-ia64-105590678205109@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205032@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205032@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 2 May 2000 12:17:02 -0700, Kevin Buettner <kev@primenet.com> said:
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
 
-  Kevin> On May 1, 11:59pm, David Mosberger wrote:
-  >> The full diff is at ftp.kernel.org:/pub/linux/kernel/ports/ia64/
-  >> in:
-  >> 
-  >> linux-2.3.99-pre6-ia64-000501.diff.bz2
+------_=_NextPart_000_01BFC726.F32535D0
+Content-Type: text/plain
 
-  Kevin> I'm getting some rejects when I attempt to apply this patch
-  Kevin> against linux-2.3.99-pre6.tar.bz2.  Specifically,
+Is this the correct forum for this question?
 
-OK, I updated the patch at
-ftp.kernel.org:/pub/linux/kernel/ports/ia64.  Same filename
-(linux-2.3.99-pre6-ia64-000501.diff.gz).
+> Here is my problem. I am currently trying to build tools/src/nmake 
+> on trillian machine(received from Intel) with linux as OS. Here is the
+> error
+> I get
+> 
+> yacc makey.y
+> 
+> yacc:f - out of space.
+> 
+> The machine has ample disk space.
+> 
+ We are  able to compile simple y file with existing yacc.   
+> yacc is unable to handle complex
+> file such as makey.y. 
+> 
+> 
+> Greg Harris
+> Senior Software Engineer (I18N)
+> Unify Corporation <<makey.y>> 
 
-	--david
+------_=_NextPart_000_01BFC726.F32535D0
+Content-Type: TEXT/plain;
+	name="makey.y"
+Content-Disposition: attachment;
+	filename="makey.y"
+
+%term number stop DEFINED
+%term EQ NE LE GE LS RS
+%term ANDAND OROR
+%left ','
+%right '='
+%right '?' ':'
+%left OROR
+%left ANDAND
+%left '|' '^'
+%left '&'
+%binary EQ NE
+%binary '<' '>' LE GE
+%left LS RS
+%left '+' '-'
+%left '*' '/' '%'
+%right '!' '~' UMINUS
+%left '(' '.'
+%%
+S:	e stop	={return($1);}
+
+
+e:	  e '*' e
+		={$$ = $1 * $3;}
+	| e '/' e
+		={$$ = ($3 != 0) ? $1 / $3 : 0;}
+	| e '%' e
+		={$$ = ($3 != 0) ? $1 % $3 : 0;}
+	| e '+' e
+		={$$ = $1 + $3;}
+	| e '-' e
+		={$$ = $1 - $3;}
+	| e LS e
+		={$$ = $1 << $3;}
+	| e RS e
+		={$$ = $1 >> $3;}
+	| e '<' e
+		={$$ = $1 < $3;}
+	| e '>' e
+		={$$ = $1 > $3;}
+	| e LE e
+		={$$ = $1 <= $3;}
+	| e GE e
+		={$$ = $1 >= $3;}
+	| e EQ e
+		={$$ = $1 == $3;}
+	| e NE e
+		={$$ = $1 != $3;}
+	| e '&' e
+		={$$ = $1 & $3;}
+	| e '^' e
+		={$$ = $1 ^ $3;}
+	| e '|' e
+		={$$ = $1 | $3;}
+	| e ANDAND e
+		={$$ = $1 && $3;}
+	| e OROR e
+		={$$ = $1 || $3;}
+	| e '?' e ':' e
+		={$$ = $1 ? $3 : $5;}
+	| e ',' e
+		={$$ = $3;}
+	| term
+		={$$ = $1;}
+term:
+	  '-' term %prec UMINUS
+		={$$ = -$2;}
+	| '!' term
+		={$$ = !$2;}
+	| '~' term
+		={$$ = ~$2;}
+	| '(' e ')'
+		={$$ = $2;}
+	| DEFINED '(' number ')'
+		={$$= $3;}
+	| DEFINED number
+		={$$ = $2;}
+	| number
+		={$$= $1;}
+%%
+
+------_=_NextPart_000_01BFC726.F32535D0--
 
 
