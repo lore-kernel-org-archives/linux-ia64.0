@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 02 Nov 2000 08:50:33 +0000
-Subject: [Linux-ia64] kernel update (relative to 2.4.0-test10)
-Message-Id: <marc-linux-ia64-105590678205644@msgid-missing>
+From: "Pimenov, Sergei" <sergei.pimenov@intel.com>
+Date: Thu, 02 Nov 2000 10:39:39 +0000
+Subject: RE: [Linux-ia64] kernel update (relative to 2.4.0-test10)
+Message-Id: <marc-linux-ia64-105590678205645@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -9,6 +9,21 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+The URL is broken, correct one is
+
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/linux-2.4.0-test10-ia64-001101.diff.gz
+
+p.s.
+
+
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@hpl.hp.com]
+Sent: Thursday, November 02, 2000 11:51 AM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] kernel update (relative to 2.4.0-test10)
+
 
 The patch at:
 
@@ -1413,4 +1428,10 @@ diff -urN linux-davidm/include/linux/skbuff.h linux-2.4.0-test10-lia/include/lin
  	if (skb)
  		skb_reserve(skb,16);
  	return skb;
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
