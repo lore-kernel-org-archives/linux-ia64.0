@@ -1,26 +1,33 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 12 Feb 2004 04:15:31 +0000
-Subject: RE: Query regarding Itanium (Mapping of register values)
-Message-Id: <16426.64995.577530.234664@napali.hpl.hp.com>
+From: MAEDA Naoaki <maeda.naoaki@jp.fujitsu.com>
+Date: Wed, 18 Feb 2004 07:43:27 +0000
+Subject: [PATCH] possible memory leak fix
+Message-Id: <20040218.164327.74757142.maeda@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <374639AB1012AA4C840022842AA95BC20138E3FC@ruby.patni.com>
-In-Reply-To: <374639AB1012AA4C840022842AA95BC20138E3FC@ruby.patni.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 12 Feb 2004 09:11:09 +0530, "Kotian, Deepak" <Deepak.Kotian@patni.com> said:
+Hi,
 
-  Deepak> Thanks David, gdb uses gregset structure, could you please
-  Deepak> provide a link in gdb source, because we need something like
-  Deepak> gdb core analysis.
+I found a possible memory leak problem in alloc_resource().
+The following patch against 2.6.3 fix the problem.
 
-Sure, but in the future, why not use a search engine such as Google?
-Many of your questions can be answered trivially with a search engine.
+Regards,
+- Naoaki Maeda
 
-Here is the official gdb source:
-
-	ftp://ftp.gnu.org/pub/gnu/gdb/
-
-  --david
+diff -Naur linux-2.6.3.org/arch/ia64/pci/pci.c linux-2.6.3/arch/ia64/pci/pci.c
+--- linux-2.6.3.org/arch/ia64/pci/pci.c	2004-02-18 12:57:46.000000000 +0900
++++ linux-2.6.3/arch/ia64/pci/pci.c	2004-02-18 16:36:13.736205500 +0900
+@@ -153,8 +153,10 @@
+ 	res->end = end;
+ 	res->flags = flags;
+ 
+-	if (insert_resource(root, res))
++	if (insert_resource(root, res))	{
++		kfree(res);
+ 		return -EBUSY;
++	}
+ 
+ 	return 0;
+ }
