@@ -1,29 +1,49 @@
 From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Sun, 02 Feb 2003 20:04:03 +0000
-Subject: Re: [Linux-ia64] clock goes out of sync on itanium
-Message-Id: <marc-linux-ia64-105590709805796@msgid-missing>
+Date: Sun, 02 Feb 2003 22:54:11 +0000
+Subject: [Linux-ia64] [PATCH] IA32 support without sysctl doesn't work
+Message-Id: <marc-linux-ia64-105590709805797@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805793@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805793@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "tausq" = Randolph Chung <randolph@tausq.org> writes:
-tausq> Hi, I've noticed that my i2000 running 2.4.1[89] kernels is
-tausq> pretty poor at keeping time. It seems to drift backwards in
-tausq> time ~5-10 minutes a week.
+If you try to compile with CONFIG_IA32 on and CONFIG_SYSCTL off, then
+you get an undefined reference to do_sysctl() on final link.
 
-I had that problem --- even ntp couldn't keep the clock in time.
-Turns out that there's a bug in early firmware revisions that
-misreports the hardware clock time, leading to bad real-time tracking.
-After updating the firmware, the problem went away.
+I believe that if sysctl is turned off, it should be off for IA32
+processes as well as for IA64 processes.  Here's a patch:
 
-I suggest you check to see if your firmware is at the current
-revision.
-
---
-Dr Peter Chubb				    peterc@gelato.unsw.edu.au
-You are lost in a maze of BitKeeper repositories, all almost the same.
+=== arch/ia64/ia32/ia32_entry.S 1.18 vs edited ==--- 1.18/arch/ia64/ia32/ia32_entry.S	Mon Jan 13 11:07:06 2003
++++ edited/arch/ia64/ia32/ia32_entry.S	Mon Feb  3 09:49:48 2003
+@@ -347,7 +347,11 @@
+ 	data8 sys32_writev
+ 	data8 sys_getsid
+ 	data8 sys_fdatasync
++#ifdef CONFIG_SYSCTL
+ 	data8 sys32_sysctl
++#else
++	data8 sys32_ni_syscall
++#endif
+ 	data8 sys_mlock		  /* 150 */
+ 	data8 sys_munlock
+ 	data8 sys_mlockall
+=== arch/ia64/ia32/sys_ia32.c 1.43 vs edited ==--- 1.43/arch/ia64/ia32/sys_ia32.c	Tue Jan 28 10:44:14 2003
++++ edited/arch/ia64/ia32/sys_ia32.c	Mon Feb  3 09:48:39 2003
+@@ -3148,6 +3148,7 @@
+ 
+ extern asmlinkage long sys_sysctl(struct __sysctl_args *args);
+ 
++#ifdef CONFIG_SYSCTL
+ asmlinkage long
+ sys32_sysctl (struct sysctl32 *args)
+ {
+@@ -3189,6 +3190,7 @@
+ 
+ 	return ret;
+ }
++#endif
+ 
+ asmlinkage long
+ sys32_newuname (struct new_utsname *name)
 
