@@ -1,50 +1,138 @@
-From: Dmitry Torokhov <dtor_core@ameritech.net>
-Date: Wed, 22 Sep 2004 03:10:07 +0000
-Subject: Re: [ACPI] PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject interface support
-Message-Id: <200409212210.07580.dtor_core@ameritech.net>
+From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Date: Wed, 22 Sep 2004 04:17:57 +0000
+Subject: Re: [ACPI] PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject interface
+Message-Id: <20040922131757.509ba88d.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com> <200409210051.36251.dtor_core@ameritech.net> <20040921145150.A27211@unix-os.sc.intel.com>
-In-Reply-To: <20040921145150.A27211@unix-os.sc.intel.com>
+References: <20040920092520.A14208@unix-os.sc.intel.com>
+ <20040920093532.D14208@unix-os.sc.intel.com>
+In-Reply-To: <20040920093532.D14208@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: acpi-devel@lists.sourceforge.net, Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Cc: "Brown, Len" <len.brown@intel.com>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
+To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Cc: tokunaga.keiich@jp.fujitsu.com, len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tuesday 21 September 2004 04:51 pm, Keshavamurthy Anil S wrote:
-> On Tue, Sep 21, 2004 at 12:51:36AM -0500, Dmitry Torokhov wrote:
-> > On Monday 20 September 2004 08:38 pm, Keshavamurthy Anil S wrote:
-> > > Currently I am handling both the surprise removal and the eject request in the same
-> > > way, i,e send the notification to the userland and the usermode agent scripts
-> > > is responsible for offlining of all the devices and then echoing onto eject file.
-> > > 
-> > 
-> > I actually think that on the highest level we should treat controlled and
-> > surprise ejects differently. With controlled ejects the system (kernel +
-> > userspace) can abort the sequence if something goes wrong while with surprise
-> > eject the device is physically gone. Even if driver refuses to detach or we
-> > have partition still mounted or something else if physical device is gone we
-> > don't have any choice except for trimming the tree and doing whatever we need
-> > to do.
+On Mon, 20 Sep 2004 09:35:33 -0700 Keshavamurthy Anil S wrote:
+> ---
+> Name:acpi_core_eject.patch
+> Status: Tested on 2.6.9-rc2
+> Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+> Depends:acpi_core
+> Version: applies on 2.6.9-rc2
 > 
-> I agree, but when dealing with devices like CPU and Memory, not sure how the
-> rest of the Operating System handles surprise removal. For now I will go ahead and
-> add a PRINTK saying that BUS_CHECK(surprise removal request) was received in the 
-> ACPI Processor and in the container driver, and when we hit that printk on a 
-> real hardware, I believe it would be the right time then to see how the OS behaves 
-> and do the right code then. For Now I will just go ahead and add a PRINTK.
->
+> This patch support /sys/firmware/acpi/eject interface where in 
+> the ACPI device say "LSB0" can be ejected by echoing "\_SB.LSB0" > 
+> /sys/firmware/acpi/eject
+> 
+> The kernel when it receives an hardware sci eject request it simply passes this
+> to user mode agent and the agent in turn will offline all the child devices and
+> then echo's the ACPI device name onto /sys/firware/acpi/eject file and then the
+> kernel will then actually remove the device.
 
-Heh, I really don't expect the kernel to survive if somebody just yanks out a
-CPU without a warning, especially if the CPU is the last one :) I hand in mind
-devices like my port replicator that only has an additional network card and
-could survive surprise removal.
+In acpi_eject_store(), eject_operation() is called regardless of the
+result of acpi_bus_trim().  I think that eject_operation() should be
+called only when acpi_bus_trim() returns success.  Otherwise, a
+device stil being online will be ejected forcibly.
 
-> Let me know if this step by step approach is okay to you.
+Two steps might be needed to do this.
 
-It sure is, we can always adjust the process down the road.
+    1. Modify acpi_bus_trim() to return success only when all the
+        acpi_bus_remove() are done successfully.
+    2. Modify acpi_eject_store() to see the result and call eject_operation()
+        only when the result is success.
 
-Thank you for your work!
+Here is a patch just to show what I have in mind.  It is still based on
+the recursion, so please fix it as appropriate ;)
 
--- 
-Dmitry
+Thanks,
+Keiichiro Tokunaga
+
+
+Name: acpi_core_eject_fix.patch
+Status: Tested on 2.6.9-rc2
+---
+
+ linux-2.6.9-rc2-fix-kei/drivers/acpi/scan.c     |   26 +++++++++++++++---------
+ linux-2.6.9-rc2-fix-kei/include/acpi/acpi_bus.h |    2 -
+ 2 files changed, 18 insertions(+), 10 deletions(-)
+
+diff -puN drivers/acpi/scan.c~acpi_core_eject_fix drivers/acpi/scan.c
+--- linux-2.6.9-rc2-fix/drivers/acpi/scan.c~acpi_core_eject_fix	2004-09-22 08:42:49.402689136 +0900
++++ linux-2.6.9-rc2-fix-kei/drivers/acpi/scan.c	2004-09-22 09:29:51.056265232 +0900
+@@ -404,11 +404,14 @@ acpi_eject_store(struct subsystem *subsy
+ 	 * remove from ACPI bus.
+ 	 */
+ 	if (type = ACPI_BUS_TYPE_PROCESSOR)
+-		acpi_bus_trim(device, 0);
++		result = acpi_bus_trim(device, 0);
+ 	else
+-		acpi_bus_trim(device, 1);
++		result = acpi_bus_trim(device, 1);
+ 		
+-
++	if (result) {
++		ret = -EBUSY;
++		goto err;
++	}
+ 	result = eject_operation(hlsb, islockable);
+ 	if (result) {
+ 		ret = -EBUSY;
+@@ -1203,7 +1206,7 @@ int acpi_bus_scan (struct acpi_device	*s
+ 	return_VALUE(0);
+ }
+ 
+-void
++int
+ acpi_bus_trim(struct acpi_device	*start,
+ 		int rmdevice)
+ {
+@@ -1212,25 +1215,30 @@ acpi_bus_trim(struct acpi_device	*start,
+ 	struct acpi_device	*child = NULL;
+ 	acpi_handle		phandle = 0;
+ 	acpi_handle		chandle = 0;
+-
++	int err = 0;
+ 	parent  = start;
+ 	phandle = start->handle;
+ 
+ 	/*
+ 	 * NOTE: must be freed in a depth-first manner.
+ 	 */
+-	while (1)	{
++	while (1) {
+ 		status = acpi_get_next_object(ACPI_TYPE_ANY, phandle,
+ 			chandle, &chandle);
+-		if (ACPI_SUCCESS(status) && chandle != NULL)	{
++		if (ACPI_SUCCESS(status) && chandle != NULL) {
+ 			if (acpi_bus_get_device(chandle, &child) = 0)
+-				acpi_bus_trim(child, 1);
++				if (acpi_bus_trim(child, 1))
++					err = 1;
+ 		} else {
+ 			/* this is a leaf */
+-			acpi_bus_remove(parent, rmdevice);
++			if (!err)  {
++				if (acpi_bus_remove(parent, rmdevice))
++					err = 1;
++			}
+ 			break;
+ 		}
+ 	}
++	return err;
+ }
+ 
+ static int
+diff -puN include/acpi/acpi_bus.h~acpi_core_eject_fix include/acpi/acpi_bus.h
+--- linux-2.6.9-rc2-fix/include/acpi/acpi_bus.h~acpi_core_eject_fix	2004-09-22 08:42:49.404642274 +0900
++++ linux-2.6.9-rc2-fix-kei/include/acpi/acpi_bus.h	2004-09-22 08:42:49.408548551 +0900
+@@ -325,7 +325,7 @@ int acpi_bus_receive_event (struct acpi_
+ int acpi_bus_register_driver (struct acpi_driver *driver);
+ int acpi_bus_unregister_driver (struct acpi_driver *driver);
+ int acpi_bus_scan (struct acpi_device *start);
+-void acpi_bus_trim(struct acpi_device *start, int rmdevice);
++int acpi_bus_trim(struct acpi_device *start, int rmdevice);
+ int acpi_bus_add (struct acpi_device **child, struct acpi_device *parent, acpi_handle handle, int type);
+ 
+ 
+
+_
