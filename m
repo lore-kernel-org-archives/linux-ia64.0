@@ -1,57 +1,55 @@
-From: Hugh Dickins <hugh@veritas.com>
-Date: Wed, 12 Jan 2005 12:43:10 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 12 Jan 2005 16:39:21 +0000
 Subject: Re: page table lock patch V15 [0/7]: overview
-Message-Id: <Pine.LNX.4.44.0501121217580.6133-100000@localhost.localdomain>
+Message-Id: <Pine.LNX.4.58.0501120833060.10380@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
+ <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412011545060.5721@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0501041129030.805@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0501041137410.805@schroedinger.engr.sgi.com> <m1652ddljp.fsf@muc.de>
+ <Pine.LNX.4.58.0501110937450.32744@schroedinger.engr.sgi.com>
+ <41E4BCBE.2010001@yahoo.com.au> <20050112014235.7095dcf4.akpm@osdl.org>
 In-Reply-To: <20050112014235.7095dcf4.akpm@osdl.org>
-References: <Pine.LNX.4.58.0501110937450.32744@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0501110937450.32744@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@osdl.org>
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, clameter@sgi.com, torvalds@osdl.org, ak@muc.de, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, torvalds@osdl.org, ak@muc.de, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 
 On Wed, 12 Jan 2005, Andrew Morton wrote:
-> Nick Piggin <nickpiggin@yahoo.com.au> wrote:
-> >
-> > Christoph Lameter wrote:
-> >  > Changes from V14->V15 of this patch:
-> > 
-> >  I wonder what everyone thinks about moving forward with these patches?
-> 
-> I was waiting for them to settle down before paying more attention.
-
-They seem to have settled down, without advancing to anything satisfactory.
-7/7 is particularly amusing at the moment (added complexity with no payoff).
 
 > My general take is that these patches address a single workload on
-> exceedingly rare and expensive machines.
-
-Well put.  Christoph's patches stubbornly remain a _good_ hack for one
-very specific initial workload (multi-parallel faulting of anon memory)
-on one architecture (ia64, perhaps a few more) important to SGI.
-I don't see why the mainline kernel should want them.
-
-> If they adversely affect common
+> exceedingly rare and expensive machines.  If they adversely affect common
 > and cheap machines via code complexity, memory footprint or via runtime
 > impact then it would be pretty hard to justify their inclusion.
 
-Aside from 7/7 (and some good asm primitives within headers),
-the code itself is not complex; but it is more complex to think about,
-and so less obviously correct.
+The future is in higher and higher SMP counts since the chase for the
+higher clock frequency has ended. We will increasingly see multi-core
+cpus etc. Machines with higher CPU counts are becoming common in business.
+Of course SGI uses much higher CPU counts and our supercomputer
+applications would benefit most from this patch.
+
+I thought this patch was already approved by Linus?
 
 > Do we have measurements of the negative and/or positive impact on smaller
 > machines?
 
-I don't think so.  But my main worry remains the detriment to other
-architectures, which still remains unaddressed.
+Here is a measurement of 256M allocation on a 2 way SMP machine 2x
+PIII-500Mhz:
 
-Nick's patches (I've not seen for some while) are a different case:
-on the minus side, considerably more complex; on the plus side,
-more general and more aware of the range of architectures.
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  0  10    1    0.005s      0.016s   0.002s 54357.280  52261.895
+  0  10    2    0.008s      0.019s   0.002s 43112.368  42463.566
 
-I'll write at greater length to support these accusations later on.
+With patch:
 
-Hugh
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  0  10    1    0.005s      0.016s   0.002s 54357.280  53439.357
+  0  10    2    0.008s      0.018s   0.002s 44650.831  44202.412
 
+So only a very minor improvements for old machines (this one from ~ 98).
