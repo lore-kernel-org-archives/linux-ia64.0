@@ -1,7 +1,7 @@
 From: "David S. Miller" <davem@redhat.com>
-Date: Thu, 15 May 2003 20:07:39 +0000
+Date: Thu, 15 May 2003 20:15:01 +0000
 Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705843@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705844@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -11,19 +11,17 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
    From: Colin Ngam <cngam@sgi.com>
-   Date: Thu, 15 May 2003 08:17:58 -0500
+   Date: Thu, 15 May 2003 10:05:28 -0500
    
-   Anyway, to make a long story short, we like to "extend" these
-   interfaces to return DMA addresses of 64 bits if and when the
-   driver has the full capabality to support DAC - via it's
-   DMA mask capability setting.
+   I actually like the flag as a parameter because it allows platform
+   specific extensions to pass in platform specific capabilities that
+   can be ignored by platform that does not support these capabilities.
 
-All devices I am aware of do not support 64-bit addresses for their
-descriptors, only 32-bit.
+I hate this concept.  I can't think of any attribute that all
+platforms can't take advantage of in some way and we'd actually
+want drivers to use.
 
-There is a huge difference between using a "64-bit address" and
-requiring to generate a DAC cycle, the latter of which is
-probably what you need and that is independant of what kind of
-address pci_alloc_consistent() is giving you.
-
+Here be the way to private platform-specific interfaces, which is
+totally against the reason we have these interfaces in the first
+place.
 
