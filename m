@@ -1,29 +1,72 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 30 Jul 2004 15:34:56 +0000
-Subject: Re: Timer updates revision 7 (asm sets predicates/various fixes)
-Message-Id: <Pine.LNX.4.58.0407300831280.7250@schroedinger.engr.sgi.com>
+From: Joshua Aas <josha@sgi.com>
+Date: Tue, 13 Jul 2004 22:59:46 +0000
+Subject: free bootmem feedback patch
+Message-Id: <40F46962.4090604@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0407292044500.3633@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0407292044500.3633@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 30 Jul 2004, Jack Steiner wrote:
+Hello,
 
-> The new code certainly is faster, but does it scale at high cpu counts?
->
-> The numbers above indicate a substantial slowdown going from 1 to 2
-> cpus. What happens at higher cpu counts.
+NUMA machines with a lot of memory/nodes appear to hang when freeing boot memory, as it can take on the order of 4 minutes. I would like to propose this patch, which adds progress feedback during this time. On a machine with only one memory region (a single node), it prints:
 
-The code that uses cmpxchg will always be a scalability issue. There is no
-slowdown if that is switched off (nojitter option for ITC based systems)
-which can be done for most systems.
+Freeing boot memory... done
 
-For SN2 systems the cmpxchg is never used and therefore
-there is barely any scalability issues (See the numbers posted for the
-version 6 patch). I will try to increase the scalability
-for systems needing the cmpxchg (large ITC offsets) but frankly I do
-not see much hope for major improvements beyond what David already
-accomplished with the old routine.
+It prints more dots every x nodes handled based on the total number of nodes, in such a way that the line never exceeds 80 chars. This way it is possible to see progress being made. I have tested this on a few machines, including a 512p/512GB machine, and it works fine.
+
+Please apply.
+
+Signed-off-by: Josh Aas <josha@sgi.com>
+
+-----------------------------------------------------------------------
+--- linux-2.6.7-clean/arch/ia64/mm/init.c       2004-06-16 00:19:22.000000000 -0500
++++ linux-2.6.7/arch/ia64/mm/init.c     2004-07-13 15:25:46.000000000 -0500
+@@ -516,7 +516,7 @@ mem_init (void)
+        long reserved_pages, codesize, datasize, initsize;
+        unsigned long num_pgt_pages;
+        pg_data_t *pgdat;
+-       int i;
++       int i, pgdat_count;
+        static struct kcore_list kcore_mem, kcore_vmem, kcore_kernel;
+ 
+ #ifdef CONFIG_PCI
+@@ -540,8 +540,29 @@ mem_init (void)
+        kclist_add(&kcore_vmem, (void *)VMALLOC_START, VMALLOC_END-VMALLOC_START);
+        kclist_add(&kcore_kernel, _stext, _end - _stext);
+ 
++       /*
++        * Give nice feedback while freeing boot memory. Each entry in pgdat corresponds to
++        * a memory zone, presumably a node in a NUMA machine. We need nice feedback so that 
++        * machines with lots of nodes/memory don't appear to be hanging.
++        */
++       printk(KERN_INFO "Freeing boot memory...");
++#      define NUM_FREE_BOOT_MEM_MSG_CHAR_COUNT 27 /* 22 + 5 for done message */
++       pgdat_count = 0;
++       i = 0;
+        for_each_pgdat(pgdat)
++               pgdat_count++;
++       pgdat_count = (pgdat_count / (80 - NUM_FREE_BOOT_MEM_MSG_CHAR_COUNT)) - 1;
++       for_each_pgdat(pgdat) {
+                totalram_pages += free_all_bootmem_node(pgdat);
++               if (i = pgdat_count) {
++                       printk(".");
++                       i = 0;
++               }
++               else {
++                       i++;
++               }
++       }
++       printk(" done\n");
+ 
+        reserved_pages = 0;
+        efi_memmap_walk(count_reserved_pages, &reserved_pages);
+
+-----------------------------------------------------------------------
+
+-- 
+Josh Aas
+Silicon Graphics, Inc. (SGI)
+Linux System Software
+651-683-3068
