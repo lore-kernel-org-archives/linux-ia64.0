@@ -3,8 +3,10 @@ Date: Thu, 14 Feb 2002 17:11:19 +0000
 Subject: [Linux-ia64] [PATCH] linux/fs/partitions/efi.c error handling
 MIME-Version: 1
 Content-Type: multipart/mixed; boundary="------------ED50CD7C3154735BA5B81ACD"
-Message-Id: <marc-linux-ia64-105590698806044@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905089@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698806044@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698806044@msgid-missing>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
