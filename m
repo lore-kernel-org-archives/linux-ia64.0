@@ -1,186 +1,155 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 06 Aug 2003 22:44:53 +0000
-Subject: PATCH: remove unused PCI root bridge resource stuff
-Message-Id: <marc-linux-ia64-106021000131789@msgid-missing>
+From: Matt Tolentino <metolent@snoqualmie.dp.intel.com>
+Date: Thu, 07 Aug 2003 22:22:41 +0000
+Subject: [patch] modify data types in efi.h
+Message-Id: <marc-linux-ia64-106029508618243@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch against the current 2.4 tree removes a bunch of
-ill-advised code I added to get _TRA information from PCI
-root bridges.
+David, Bjorn,
 
-This was the wrong approach because for one thing, it only
-handled one MEM window and one IO window, and root bridges
-may have several of each.
+Here's a small patch against 2.6.0-test2 to change several data types from u64 to unsigned long in efi.h.  These changes enable the use of the same data structures and function prototypes for ia32 EFI kernels. Comments? 
 
-This patch can be applied for both 2.4 and 2.5.  ia64 was the
-only user of this code, and we no longer need it.  The current
-approach we use is to walk the _CRS in pcibios_scan_root(),
-as shown here:
+Please apply...
 
-http://lia64.bkbits.net:8080/linux-ia64-2.4/anno/arch/ia64/kernel/pci.c@1.21?nav=index.html|src/.|src/arch|src/arch/ia64|src/arch/ia64/kernel
+thanks,
+matt
 
-#### AUTHOR bjorn.helgaas@hp.com
-#### COMMENT START
-### Comments for ChangeSet
-ACPI: Remove acpi_pci_get_translations() and support.  pcibios_scan_root()
-	should walk the _CRS if necessary.
-### Comments for include/acpi/acpi_drivers.h
-(acpi_pci_get_translations): Removed.
-### Comments for drivers/acpi/pci_root.c
-(acpi_pci_get_translations)
-(acpi_pci_root_bus_tra)
-(acpi_pci_evaluate_crs): Removed.
-#### COMMENT END
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1066  -> 1.1067 
-#	drivers/acpi/pci_root.c	1.5     -> 1.6    
-#	include/acpi/acpi_drivers.h	1.5     -> 1.6    
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/08/06	bjorn.helgaas@hp.com	1.1067
-# ACPI: Remove acpi_pci_get_translations() and support.  pcibios_scan_root()
-# 	should walk the _CRS if necessary.
-# --------------------------------------------
-#
-diff -Nru a/drivers/acpi/pci_root.c b/drivers/acpi/pci_root.c
---- a/drivers/acpi/pci_root.c	Wed Aug  6 17:29:00 2003
-+++ b/drivers/acpi/pci_root.c	Wed Aug  6 17:29:00 2003
-@@ -61,8 +61,6 @@
- 	acpi_handle		handle;
- 	struct acpi_pci_id	id;
- 	struct pci_bus		*bus;
--	u64			mem_tra;
--	u64			io_tra;
- };
+diff -urN linux-2.6.0-test2-ia64-vanilla/arch/ia64/kernel/efi.c linux-2.6.0-test2-ia64-efi/arch/ia64/kernel/efi.c
+--- linux-2.6.0-test2-ia64-vanilla/arch/ia64/kernel/efi.c	2003-07-27 09:56:32.000000000 -0700
++++ linux-2.6.0-test2-ia64-efi/arch/ia64/kernel/efi.c	2003-08-07 13:04:27.000000000 -0700
+@@ -140,7 +140,7 @@
  
- struct list_head		acpi_pci_roots;
-@@ -114,97 +112,6 @@
- 	}
- }
+ #define STUB_SET_VARIABLE(prefix, adjust_arg)						\
+ static efi_status_t									\
+-prefix##_set_variable (efi_char16_t *name, efi_guid_t *vendor, u32 attr,		\
++prefix##_set_variable (efi_char16_t *name, efi_guid_t *vendor, unsigned long attr,	\
+ 		       unsigned long data_size, void *data)				\
+ {											\
+ 	struct ia64_fpreg fr[6];							\
+@@ -156,7 +156,7 @@
  
--void
--acpi_pci_get_translations (
--	struct acpi_pci_id	*id,
--	u64			*mem_tra,
--	u64			*io_tra)
--{
--	struct list_head	*node = NULL;
--	struct acpi_pci_root	*entry;
--
--	/* TBD: Locking */
--	list_for_each(node, &acpi_pci_roots) {
--		entry = list_entry(node, struct acpi_pci_root, node);
--		if ((id->segment = entry->id.segment)
--			&& (id->bus = entry->id.bus)) {
--			*mem_tra = entry->mem_tra;
--			*io_tra = entry->io_tra;
--			return;
--		}
--	}
--
--	*mem_tra = 0;
--	*io_tra = 0;
--}
--
--
--static u64
--acpi_pci_root_bus_tra (
--       struct acpi_resource	*resource,
--       int			type)
--{
--	struct acpi_resource_address16 *address16;
--	struct acpi_resource_address32 *address32;
--	struct acpi_resource_address64 *address64;
--
--	while (1) {
--		switch (resource->id) {
--		case ACPI_RSTYPE_END_TAG:
--			return 0;
--
--		case ACPI_RSTYPE_ADDRESS16:
--			address16 = (struct acpi_resource_address16 *) &resource->data;
--			if (type = address16->resource_type) {
--				return address16->address_translation_offset;
--			}
--			break;
--
--		case ACPI_RSTYPE_ADDRESS32:
--			address32 = (struct acpi_resource_address32 *) &resource->data;
--			if (type = address32->resource_type) {
--				return address32->address_translation_offset;
--			}
--			break;
--
--		case ACPI_RSTYPE_ADDRESS64:
--			address64 = (struct acpi_resource_address64 *) &resource->data;
--			if (type = address64->resource_type) {
--				return address64->address_translation_offset;
--			}
--			break;
--		}
--		resource = ACPI_PTR_ADD (struct acpi_resource,
--				resource, resource->length);
--	}
--
--	return 0;
--}
--
--
--static int
--acpi_pci_evaluate_crs (
--	struct acpi_pci_root	*root)
--{
--	acpi_status		status;
--	struct acpi_buffer	buffer = {ACPI_ALLOCATE_BUFFER, NULL};
--
--	ACPI_FUNCTION_TRACE("acpi_pci_evaluate_crs");
--
--	status = acpi_get_current_resources (root->handle, &buffer);
--	if (ACPI_FAILURE(status))
--		return_VALUE(-ENODEV);
--
--	root->io_tra = acpi_pci_root_bus_tra ((struct acpi_resource *)
--			buffer.pointer, ACPI_IO_RANGE);
--	root->mem_tra = acpi_pci_root_bus_tra ((struct acpi_resource *)
--			buffer.pointer, ACPI_MEMORY_RANGE);
--
--	acpi_os_free(buffer.pointer);
--	return_VALUE(0);
--}
--
--
- static int
- acpi_pci_root_add (
- 	struct acpi_device	*device)
-@@ -287,10 +194,8 @@
- 	root->id.function = device->pnp.bus_address & 0xFFFF;
+ #define STUB_GET_NEXT_HIGH_MONO_COUNT(prefix, adjust_arg)					\
+ static efi_status_t										\
+-prefix##_get_next_high_mono_count (u64 *count)							\
++prefix##_get_next_high_mono_count (u32 *count)							\
+ {												\
+ 	struct ia64_fpreg fr[6];								\
+ 	efi_status_t ret;									\
+diff -urN linux-2.6.0-test2-ia64-vanilla/include/linux/efi.h linux-2.6.0-test2-ia64-efi/include/linux/efi.h
+--- linux-2.6.0-test2-ia64-vanilla/include/linux/efi.h	2003-07-27 10:09:40.000000000 -0700
++++ linux-2.6.0-test2-ia64-efi/include/linux/efi.h	2003-08-07 13:01:48.000000000 -0700
+@@ -21,12 +21,12 @@
+ #include <asm/system.h>
  
- 	/*
--	 * Evaluate _CRS to get root bridge resources
- 	 * TBD: Need PCI interface for enumeration/configuration of roots.
- 	 */
-- 	acpi_pci_evaluate_crs(root);
+ #define EFI_SUCCESS		0
+-#define EFI_LOAD_ERROR          ( 1 | (1UL << 63))
+-#define EFI_INVALID_PARAMETER	( 2 | (1UL << 63))
+-#define EFI_UNSUPPORTED		( 3 | (1UL << 63))
+-#define EFI_BAD_BUFFER_SIZE     ( 4 | (1UL << 63))
+-#define EFI_BUFFER_TOO_SMALL	( 5 | (1UL << 63))
+-#define EFI_NOT_FOUND		(14 | (1UL << 63))
++#define EFI_LOAD_ERROR          ( 1 | (1UL << (BITS_PER_LONG-1)))
++#define EFI_INVALID_PARAMETER	( 2 | (1UL << (BITS_PER_LONG-1)))
++#define EFI_UNSUPPORTED		( 3 | (1UL << (BITS_PER_LONG-1)))
++#define EFI_BAD_BUFFER_SIZE     ( 4 | (1UL << (BITS_PER_LONG-1)))
++#define EFI_BUFFER_TOO_SMALL	( 5 | (1UL << (BITS_PER_LONG-1)))
++#define EFI_NOT_FOUND		(14 | (1UL << (BITS_PER_LONG-1)))
  
-  	/* TBD: Locking */
-  	list_add_tail(&root->node, &acpi_pci_roots);
-diff -Nru a/include/acpi/acpi_drivers.h b/include/acpi/acpi_drivers.h
---- a/include/acpi/acpi_drivers.h	Wed Aug  6 17:29:00 2003
-+++ b/include/acpi/acpi_drivers.h	Wed Aug  6 17:29:00 2003
-@@ -162,7 +162,6 @@
+ typedef unsigned long efi_status_t;
+ typedef u8 efi_bool_t;
+@@ -98,7 +98,7 @@
+ 	u64 attribute;
+ } efi_memory_desc_t;
  
- int acpi_pci_root_init (void);
- void acpi_pci_root_exit (void);
--void acpi_pci_get_translations (struct acpi_pci_id* id, u64* mem_tra, u64* io_tra);
+-typedef int efi_freemem_callback_t (u64 start, u64 end, void *arg);
++typedef int efi_freemem_callback_t (unsigned long start, unsigned long end, void *arg);
  
- /* ACPI PCI Interrupt Link (pci_link.c) */
+ /*
+  * Types and defines for Time Services
+@@ -141,17 +141,17 @@
  
+ typedef struct {
+ 	efi_table_hdr_t hdr;
+-	u64 get_time;
+-	u64 set_time;
+-	u64 get_wakeup_time;
+-	u64 set_wakeup_time;
+-	u64 set_virtual_address_map;
+-	u64 convert_pointer;
+-	u64 get_variable;
+-	u64 get_next_variable;
+-	u64 set_variable;
+-	u64 get_next_high_mono_count;
+-	u64 reset_system;
++	unsigned long get_time;
++	unsigned long set_time;
++	unsigned long get_wakeup_time;
++	unsigned long set_wakeup_time;
++	unsigned long set_virtual_address_map;
++	unsigned long convert_pointer;
++	unsigned long get_variable;
++	unsigned long get_next_variable;
++	unsigned long set_variable;
++	unsigned long get_next_high_mono_count;
++	unsigned long reset_system;
+ } efi_runtime_services_t;
+ 
+ typedef efi_status_t efi_get_time_t (efi_time_t *tm, efi_time_cap_t *tc);
+@@ -163,9 +163,10 @@
+ 					 unsigned long *data_size, void *data);
+ typedef efi_status_t efi_get_next_variable_t (unsigned long *name_size, efi_char16_t *name,
+ 					      efi_guid_t *vendor);
+-typedef efi_status_t efi_set_variable_t (efi_char16_t *name, efi_guid_t *vendor, u32 attr,
+-					 unsigned long data_size, void *data);
+-typedef efi_status_t efi_get_next_high_mono_count_t (u64 *count);
++typedef efi_status_t efi_set_variable_t (efi_char16_t *name, efi_guid_t *vendor, 
++					 unsigned long attr, unsigned long data_size, 
++					 void *data);
++typedef efi_status_t efi_get_next_high_mono_count_t (u32 *count);
+ typedef void efi_reset_system_t (int reset_type, efi_status_t status,
+ 				 unsigned long data_size, efi_char16_t *data);
+ 
+@@ -195,7 +196,7 @@
+ 
+ typedef struct {
+ 	efi_guid_t guid;
+-	u64 table;
++	unsigned long table;
+ } efi_config_table_t;
+ 
+ #define EFI_SYSTEM_TABLE_SIGNATURE 0x5453595320494249
+@@ -203,18 +204,18 @@
+ 
+ typedef struct {
+ 	efi_table_hdr_t hdr;
+-	u64 fw_vendor;		/* physical addr of CHAR16 vendor string */
++	unsigned long fw_vendor;	/* physical addr of CHAR16 vendor string */
+ 	u32 fw_revision;
+-	u64 con_in_handle;
+-	u64 con_in;
+-	u64 con_out_handle;
+-	u64 con_out;
+-	u64 stderr_handle;
+-	u64 stderr;
+-	u64 runtime;
+-	u64 boottime;
+-	u64 nr_tables;
+-	u64 tables;
++	unsigned long con_in_handle;
++	unsigned long con_in;
++	unsigned long con_out_handle;
++	unsigned long con_out;
++	unsigned long stderr_handle;
++	unsigned long stderr;
++	efi_runtime_services_t *runtime;
++	unsigned long boottime;
++	unsigned long nr_tables;
++	unsigned long tables;
+ } efi_system_table_t;
+ 
+ /*
 
