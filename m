@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 16 Apr 2001 22:21:17 +0000
-Subject: Re: [Linux-ia64] Page size
-Message-Id: <marc-linux-ia64-105590693005411@msgid-missing>
+From: "Donny Cooper" <dcooper@hstc.necsyl.com>
+Date: Mon, 16 Apr 2001 22:24:18 +0000
+Subject: RE: [Linux-ia64] Page size
+Message-Id: <marc-linux-ia64-105590693005412@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005409@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005409@msgid-missing>
@@ -10,25 +10,75 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 16 Apr 2001 12:50:13 -0700, Michael Madore <mmadore@turbolinux.com> said:
+What portion of source would I need to modify to change the memory page
+size?
 
-  Mike> Someone asked me the followind two questions, and I wanted to
-  Mike> verify before I gave an answer:
+I ran across some info stating that a current optimum page size for
+IA64-Linux is 16KB; any validity to this?
 
-  Mike> Is page size tunable at run time, and can the page size be
-  Mike> determined at run time.
+Are there any major side effects of changing the page size?
 
-  Mike> I was under the impression that page size was a build time
-  Mike> parameter.
+---------------------------
+We are porting and beginning to benchmark a subset of high performance
+applications, are there any other recommendations for optimizing the Linux
+kernel, or is there a better tuned kernel available anywhere?
 
-Don already answered the question as far as the status quo is
-concerned.
+Thanks.
 
-As for the future: I'd like to start playing with superpage support
-fairly soon (once I get some spare time on my hands... ;-).  With
-superpages, physically contiguous regions of memory could be mapped
-with a single TLB entry, giving you most of the benefit of (very)
-large page sizes.
+***************************************************************************
+Donny Cooper                     | Direct Phone : (281) 465-1506
+NEC Systems, Inc.                | Houston Metro: (281) 296-0912 x 1506
+High Performance Computing Center| Fax          : (281) 465-1599
+4200 Research Forest Dr, #400    | E-mail       : dcooper@atcc.necsyl.com
+The Woodlands, TX 77381          | URL          : http://www.necservers.com
+***************************************************************************
 
-	--david
+-----Original Message-----
+From: linux-ia64-admin@linuxia64.org
+[mailto:linux-ia64-admin@linuxia64.org]On Behalf Of Don Dugger
+Sent: Monday, April 16, 2001 3:16 PM
+To: Michael Madore
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] Page size
+
+
+Mike-
+
+You are correct, page size is a compile time constant, you cannot change
+it at run time.
+
+The `getpagesize' GLIBC function returns the kernel's page size.
+
+On Mon, Apr 16, 2001 at 12:50:13PM -0700, Michael Madore wrote:
+> Someone asked me the followind two questions, and I wanted to verify
+before
+> I gave an answer:
+>
+> Is page size tunable at run time, and can the page size be determined at
+run
+> time.
+>
+> I was under the impression that page size was a build time parameter.
+>
+> --
+> Mike Madore
+> Software Engineer
+> TurboLinux, Inc.
+>
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
+--
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@valinux.com
+Ph: 303/938-9838
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
