@@ -1,56 +1,28 @@
-From: Patrick Gefre <pfg@sgi.com>
-Date: Fri, 27 Aug 2004 15:35:48 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Fri, 27 Aug 2004 15:36:54 +0000
 Subject: Re: Latest Altix I/O code reorganization code
-Message-Id: <412F54D4.2020905@sgi.com>
+Message-Id: <20040827163654.A32236@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200408042014.i74KE8fD141211@fsgi900.americas.sgi.com> <20040806141836.A9854@infradead.org> <411AAABB.8070707@sgi.com> <412F4EC9.7050003@sgi.com> <412F4FCF.6010507@sgi.com> <20040827162127.A32090@infradead.org>
-In-Reply-To: <20040827162127.A32090@infradead.org>
+References: <200408042014.i74KE8fD141211@fsgi900.americas.sgi.com> <20040806141836.A9854@infradead.org> <411AAABB.8070707@sgi.com> <412F4EC9.7050003@sgi.com>
+In-Reply-To: <412F4EC9.7050003@sgi.com>; from pfg@sgi.com on Fri, Aug 27, 2004 at 10:10:01AM -0500
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Patrick Gefre <pfg@sgi.com>
+Cc: Christoph Hellwig <hch@infradead.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Christoph Hellwig wrote:
-> On Fri, Aug 27, 2004 at 10:14:23AM -0500, Patrick Gefre wrote:
+On Fri, Aug 27, 2004 at 10:10:01AM -0500, Patrick Gefre wrote:
+> io_init.c  iomv.c  Makefile  pci  pci_dma.c  pci_extension.c
 > 
->>Patch 1 of 26
->>
->>This patch is too large for email see:
->>
->>ftp://oss.sgi.com/projects/sn2/sn2-update/001-kill-files
-> 
-> 
-> 
-> Stoop again.  This absolutely does not look like a change after which the
-> tree build, right?  After how many of the patches do we get a useable
-
-Right
-
-> kernel for SN2?  Please split your changes into LOGICAL steps, e.g.
-
-26 - hence the 1 of 26
-
-> 
->  - dma mapping rework
->  - usage of SAL interfaces
->  - hwgrpah removal
->  - renaming of files without code changes
->  - addition of new hardware support
->  - etc..
+> arch/ia64/sn/ioif/pci:
+> Makefile  pcibr_ate.c  pcibr_dma.c  pcibr_provider.c  pcibr_reg.c  xtalk_providers.c
 > 
 
-The code was completely redone. It was not done in sections. Breaking them into
-pieces is nothing more than an academic exercise. It is not useable until all
-the code changes have been made because it would require a prom that followed these
-changes.  The point of a review was to get comments on the CONTENT of the code not
-the format of the patches.
+So why are pci_dma.c and pci_extensions.c not under pci?  You probably should
+just kill that pci subdir, too when there's just two other files left.  Or
+move those two to kernel/ and have a pci/ subdir which seems to fit other
+ports quite well.  But I'd rather see the functional changes first and then
+do renaming of unchanged files last anyway so you changed get actually
+reviewable.  The current patchkit is not.
 
-
-> everything else is simply not reviewable. (and the above is intentionally
-> an order which I think would make sense)
-
-The easiest way to review is to delete the old directorory and apply the new ioif
-files. Reviewing it as patches doesn't make any sense. The new code is very small and
-it should be possible to look at it intact.
 
