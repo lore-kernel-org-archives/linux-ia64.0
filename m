@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Jun 2003 16:52:06 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Mon, 23 Jun 2003 20:24:03 +0000
 Subject: Re: SCSI ERRORS triggered by BIO_VMERGE_BOUNDARY
-Message-Id: <marc-linux-ia64-105638713909251@msgid-missing>
+Message-Id: <marc-linux-ia64-105640005723820@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105604433402604@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105604433402604@msgid-missing>
@@ -10,40 +10,42 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 23 Jun 2003 00:11:19 -0700, Grant Grundler <iod00d@hp.com> said:
+On Mon, Jun 23, 2003 at 09:52:06AM -0700, David Mosberger wrote:
+> No, BIO_VMERGE_BOUNDARY must be 0xffffffffffffffff if there is no
+> hardware I/O MMU present (i.e., the I/O MMU page size is 2^64) and
+> PAGE_SIZE if an I/O MMU is present (which can support PAGE_SIZE
+> pages).
 
-  Grant> Hmm...convoluted code.  ./arch/ia64/kernel/setup.c:unsigned
-  Grant> long ia64_max_iommu_merge_mask = ~0UL;
+yes - that's what I thought. I'm just having problems counting tildes.
 
-  Grant> arch/ia64/hp/common/sba_iommu.c: #define IOVP_MASK PAGE_MASK
-  Grant> ...  if ((long) ~IOVP_MASK > (long)
-  Grant> ia64_max_iommu_merge_mask) ia64_max_iommu_merge_mask   Grant> ~IOVP_MASK;
+#define BIO_VMERGE_BOUNDARY   (0UL)//(ia64_max_iommu_merge_mask + 1)
 
-  Grant> AFAICT, that's the equivalent to (PAGE_SIZE-1) > (-1) on the
-  Grant> first round.  Or did I missed a tilde?
+Which for sba_iommu should have been:
+   (ia64_max_iommu_merge_mask + 1)
+		= (~IOVP_MASK + 1)
+		= (~PAGE_MASK + 1)
+		= (~(~(PAGE_SIZE-1)) + 1)
+		= PAGE_SIZE
 
-No, that's what it is.
+(I hope I have that right now)
 
-  Grant> I'd think that ia64 wants:
+> No, you got this backwards:
 
-  Grant> 	#define BIO_VMERGE_BOUNDARY (~ia64_max_iommu_merge_mask + 1)
-  Grant>     or #define BIO_VMERGE_BOUNDARY PAGE_SIZE
+:^(
 
-No, BIO_VMERGE_BOUNDARY must be 0xffffffffffffffff if there is no
-hardware I/O MMU present (i.e., the I/O MMU page size is 2^64) and
-PAGE_SIZE if an I/O MMU is present (which can support PAGE_SIZE
-pages).
+> the bio-level code _assumes_ that
+> discontiguous physical pages can be remapped linearly by the I/O MMU
+> code.  If the I/O MMU code doesn't actually do the merging, the kernel
+> will fall flat on its face.
 
-  Grant> It's easy to get the block merging code wrong when merging
-  Grant> random chunks which can be bigger or smaller than
-  Grant> PAGE_SIZE. My gut feeling this can all get ripped out of 2.5
-  Grant> sba_iommu.c if the bio code is going to merge for us. That
-  Grant> means pci_map_sg() support only needs to map each address/len
-  Grant> pair and forget trying to merge them.
+uhmm...why does the bio-level code care what can/can't be merged if
+it's not going to do it?
 
-No, you got this backwards: the bio-level code _assumes_ that
-discontiguous physical pages can be remapped linearly by the I/O MMU
-code.  If the I/O MMU code doesn't actually do the merging, the kernel
-will fall flat on its face.
+Seems like a waste of CPU cycles to walk the sg_list an extra time
+in the IOMMU code to figure what can (and will) be merged.  My gut
+feeling is bio-level code doesn't know enough to do it efficiently
+and the IOMMU code needs to walk the list at least once to program
+the HW (effectively twice if sba_iommu wants to attempt coalescing).
 
-	--david
+thanks,
+grant
