@@ -1,64 +1,78 @@
 From: "Yu, Luming" <luming.yu@intel.com>
-Date: Wed, 03 Mar 2004 11:19:22 +0000
-Subject: IA64 test report: 2.6.4-rc1 /Lion 2004-3-3: 10/10 pass
-Message-Id: <3ACA40606221794F80A5670F0AF15F8401720DBC@PDSMSX403.ccr.corp.intel.com>
+Date: Wed, 03 Mar 2004 11:28:22 +0000
+Subject: RE: IA64 test report: 2.6.4-rc1 /Lion 2004-3-3: 10/10 pass
+Message-Id: <3ACA40606221794F80A5670F0AF15F8401720DBE@PDSMSX403.ccr.corp.intel.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C40111.611E58B4"
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C40112.A29D3E73"
 List-Id: <linux-ia64.vger.kernel.org>
+References: <3ACA40606221794F80A5670F0AF15F8401720DBC@PDSMSX403.ccr.corp.intel.com>
+In-Reply-To: <3ACA40606221794F80A5670F0AF15F8401720DBC@PDSMSX403.ccr.corp.intel.com>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C40111.611E58B4
+------_=_NextPart_001_01C40112.A29D3E73
 Content-Type: text/plain;
 	charset="us-ascii"
 Content-Transfer-Encoding: quoted-printable
 
-ACPI Test Report  for 2.6 ia64 kernel=20
+Sorry, correct log
+
+> -----Original Message-----
+> From: Yu, Luming=20
+> Sent: Wednesday, March 03, 2004 7:19 PM
+> To: linux-acpi
+> Cc: 'linux-ia64@vger.kernel.org'; Brown, Len
+> Subject: IA64 test report: 2.6.4-rc1 /Lion 2004-3-3: 10/10 pass
+>=20
+>=20
+> ACPI Test Report  for 2.6 ia64 kernel=20
+> =
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 
-Hardware Configuration:
------------------------
-System Name: ACPI-LION
-System Type: 4 way 800M Itanium, Lion
-M/B revision: N/A
-Processor version: N/A
-Firmware Versions: N/A
-I/O configuration summary:
-	QLogic QLA12160, Seagate ST39205LC boot drive
-	IDE floppy and CDROM
-	Serial console
-	PS/2 keyboard and mouse
-	USB mouse
-	Ethernet Pro 100
+> Hardware Configuration:
+> -----------------------
+> System Name: ACPI-LION
+> System Type: 4 way 800M Itanium, Lion
+> M/B revision: N/A
+> Processor version: N/A
+> Firmware Versions: N/A
+> I/O configuration summary:
+> 	QLogic QLA12160, Seagate ST39205LC boot drive
+> 	IDE floppy and CDROM
+> 	Serial console
+> 	PS/2 keyboard and mouse
+> 	USB mouse
+> 	Ethernet Pro 100
+>=20
+> Software Configuration:
+> 	1.Bk pull form http://lia64.bkbits.net/linux-ia64-2.5=20
+> on 3/3 (Shanghai time)
+> 	2.bk pull from=20
+> http://linux-acpi.bkbits.net/linux-acpi-test-2.6.3 on 3/3=20
+> (Shanghai time)
+>=20
+> ACPI Features Tested: (prioritized).
+> --------------------
+> 1. Boot 					tested ok
+> 2. PS/2 keyboard			tested ok
+> 3. ATI (run X window system)		tested ok
+> 4. PS/2 mouse				tested ok
+> 5. USB mouse				tested ok
+> 6. NIC (eg. Ping or ftp)			tested ok
+> 7. IDE (eg. r/w floppy or CDROM)	tested ok
+> 8. SCI (eg. Press power button)		tested ok
+> 9.   Soft Power off 			tested ok
+> 10. serial console			tested ok
+>=20
+>=20
+>=20
+>=20
+>=20
+>=20
+>=20
 
-Software Configuration:
-	1.Bk pull form http://lia64.bkbits.net/linux-ia64-2.5 on 3/3
-(Shanghai time)
-	2.bk pull from
-http://linux-acpi.bkbits.net/linux-acpi-test-2.6.3 on 3/3 (Shanghai
-time)
-
-ACPI Features Tested: (prioritized).
---------------------
-1. Boot 					tested ok
-2. PS/2 keyboard			tested ok
-3. ATI (run X window system)		tested ok
-4. PS/2 mouse				tested ok
-5. USB mouse				tested ok
-6. NIC (eg. Ping or ftp)			tested ok
-7. IDE (eg. r/w floppy or CDROM)	tested ok
-8. SCI (eg. Press power button)		tested ok
-9.   Soft Power off 			tested ok
-10. serial console			tested ok
-
-
-
-
-
-
-
-------_=_NextPart_001_01C40111.611E58B4
+------_=_NextPart_001_01C40112.A29D3E73
 Content-Type: application/octet-stream;
 	name="lion.2.6"
 Content-Transfer-Encoding: base64
@@ -554,4 +568,4 @@ XQ0KICAgICAgICBDYXBhYmlsaXRpZXM6IFs2NF0gUENJLVggbm9uLWJyaWRnZSBkZXZpY2UuDQoN
 ClBvd2VyIGRvd24uDQphY3BpX3Bvd2VyX29mZiBjYWxsZWQNCiBod3NsZWVwLTAzMDAgWzAxXSBh
 Y3BpX2VudGVyX3NsZWVwX3N0YXRlOiBFbnRlcmluZyBzbGVlcCBzdGF0ZSBbUzVdDQo=
 
-------_=_NextPart_001_01C40111.611E58B4--
+------_=_NextPart_001_01C40112.A29D3E73--
