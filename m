@@ -1,39 +1,116 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 22 Sep 2003 22:04:25 +0000
-Subject: Re: [HELP] latest discontig
-Message-Id: <marc-linux-ia64-106426828601134@msgid-missing>
+From: Khalid Aziz <khalid@fc.hp.com>
+Date: Wed, 24 Sep 2003 17:21:19 +0000
+Subject: [PATCH] do_gettimeofday() fails to compensate for lost ticks
+Message-Id: <marc-linux-ia64-106442430128845@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106305453930076@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106305453930076@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 22 Sep 2003 14:04:46 -0700, jbarnes@sgi.com (Jesse Barnes) said:
+do_gettimeofday() needs to account for lost ticks before returning
+current time and it fails to do that. do_gettimeofday() on other 
+architectures compensate for lost ticks correctly. Due to this bug, if
+you repeatedly do clock_settime() immediately followed by clock_gettime() 
+and compare the time returned by clock_gettime() to the time set by
+clock_settime(), you will eventually see clock going backwards. I am
+attaching a test program from POSIX testsuite at the end that exposes
+this bug. Run this test in a continuous loop that stops when test fails.
 
-  Jesse> See
-  Jesse> http://linux-acpi.bkbits.net:8080/linux-acpi-test-2.6.0/cset@1.1323.1.3?nav=index.html|ChangeSet@-4d.
-  Jesse> It'll be part of Len's next push.
+Following patch should address this issue.
 
-Please hold back that patch until Len pushes his changes.  I really
-don't want to break things that are already working.
+--
+Khalid
 
-  Jesse> Sorry I should have kept that in the patch so as not to
-  Jesse> confuse people.  I've been working hard to get all of the
-  Jesse> non-ia64 specific code out into Linus' tree already,
-  Jesse> including some bootmem allocator fixes and such, this one
-  Jesse> just took a little longer because Andy stepped down as
-  Jesse> maintainer at around the same time I sent my (trivial) patch
-  Jesse> out to fix this.
 
-OK.
+===========
+--- linux-2.4.22/arch/ia64/kernel/time.c	Mon Aug 25 05:44:39 2003
++++ linux-2.4.22-clock_fix/arch/ia64/kernel/time.c	Wed Sep 24 11:14:54 2003
+@@ -132,6 +132,7 @@
+ 
+ 		sec = xtime.tv_sec;
+ 		usec += xtime.tv_usec;
++		usec += (jiffies - wall_jiffies) * (1000000 / HZ);
+ 	}
+ 	read_unlock_irqrestore(&xtime_lock, flags);
+ 
 
-  Jesse> Btw, which piece(s) of the patch would you like first?  Is
-  Jesse> seperating the contig and discontig functions into seperate
-  Jesse> files worthwhile?  I can comment things a bit more too while
-  Jesse> I'm at it...
 
-Sure, that sounds good.
+========= Test program =========
+/*   
+ * Copyright (c) 2002, Intel Corporation. All rights reserved.
+ * Created by:  julie.n.fleischer REMOVE-THIS AT intel DOT com
+ * This file is licensed under the GPL license.  For the full content
+ * of this license, see the COPYING file at the top level of this 
+ * source tree.
 
-	--david
+ * Test that clock_settime() sets clock_id to tp.
+ *
+ * The clock_id chosen for this test is CLOCK_REALTIME.
+ * The date chosen is Nov 12, 2002 ~11:13am (date when test was first
+ * written).
+ */
+#include <stdio.h>
+#include <time.h>
+/*#include "posixtest.h"
+#include "helpers.h"*/
+
+#define TESTTIME 1037128358
+#define ACCEPTABLEDELTA 1
+#define PTS_UNRESOLVED 2
+#define PTS_PASS 0
+#define PTS_FAIL 1
+
+int getBeforeTime(struct timespec *tpget)
+{
+	if (clock_gettime(CLOCK_REALTIME, tpget) != 0) {
+		perror("clock_gettime() did not return success\n");
+		perror("clock may not be reset properly\n");
+		return PTS_UNRESOLVED;
+	}
+	return PTS_PASS;
+}
+
+int setBackTime(struct timespec tpset)
+{
+	if (clock_settime(CLOCK_REALTIME, &tpset) != 0) {
+		perror("clock_settime() did not return success\n");
+		perror("clock may not be reset properly\n");
+		return PTS_UNRESOLVED;
+	}
+	return PTS_PASS;
+}
+
+int main(int argc, char *argv[])
+{
+	struct timespec tpset, tpget, tpreset;
+	int delta;
+
+	getBeforeTime(&tpreset);
+
+	tpset.tv_sec = TESTTIME;
+	tpset.tv_nsec = 0;
+	if (clock_settime(CLOCK_REALTIME, &tpset) = 0) {
+		if (clock_gettime(CLOCK_REALTIME, &tpget) = -1) {
+			perror("Error in clock_gettime()");
+			return 2;
+		}
+		delta = tpget.tv_sec-tpset.tv_sec;
+		if ( (delta <= ACCEPTABLEDELTA) && (delta >= 0) ) {
+			printf("Test PASSED\n");
+			setBackTime(tpreset);
+			return 0;
+		} else {
+			printf("delta = %d, tpget=%d,%d, tpset=%d,%d\n", delta, tpget.tv_sec, tpget.tv_nsec, tpset.tv_sec, tpset.tv_nsec);
+			printf("clock does not appear to be set\n");
+			setBackTime(tpreset);
+			return 1;
+		}
+	} else {
+		printf("clock_settime() failed\n");
+		return 2;
+	}
+
+	printf("This code should not be executed.\n");
+	return 2;
+}
