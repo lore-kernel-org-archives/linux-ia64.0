@@ -1,34 +1,49 @@
-From: Paul Jackson <pj@sgi.com>
-Date: Thu, 20 Nov 2003 04:47:04 +0000
-Subject: Re: [PATCH] - prof_cpu_mask problems
-Message-Id: <marc-linux-ia64-106930373005828@msgid-missing>
+From: Yaroslav Halchenko <yoh@onerussian.com>
+Date: Sun, 23 Nov 2003 08:52:36 +0000
+Subject: Re: weird speed problem
+Message-Id: <marc-linux-ia64-106957761119369@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106901123527791@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106901123527791@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-pj wrote:
-> There will be a single routine for each, in a new lib file.
+Hi. I'm currently running unstable debian with 2.4.20 smp prepackaged
+kernel but the problem started appearing before on RH. So I thought may
+be you can give me a good guess why this might happen
 
-Bill replied:
-> The format_cpumask() bits did that in ...
+I have a really weird problem with estimating how fast my itanium is.
 
-Yup, as I knew, before and after that point in time.  Just not then.
-The older I get, the more I appreciate how non-linear awareness is.
+I have a really simple/stupid program which is the loop which iterates
+1000 times around the point of iterative approximation of PI. 
 
-> I'm not convinced it does. 
+First I've compiled it under shipped red hat... it ran 12 sec, I was
+happy because it took the same amount of time for 64bit amd opteron...
+Then I played with how fast ia32 emulation is (took it about 2-3 minutes
+for the same but ia32 bit compiled program). But then at some point
+after I recompiled it back to ia64 it started running almost as slow as
+ia32 though file says
+a.out: ELF 64-bit LSB executable, IA-64 (Intel 64 bit architecture)
+version 1 (SYSV), for GNU/Linux 2.4.0, dynamically linked (uses shared
+libs), not stripped
 
-You're right - the code seems ok on this point.
+I reinstalled linux with debian... The same story - that damn program
+which runs fast under all other architerctures runs stupidly slow 64bit
+on itanium...
 
-> I don't see any problems with changing the format at this stage ...
+What could I screw by checking ia32 emulation so 'thoroughly'??
+What can I check? I've checked /proc/acpi/cpu but didn't find anything
+usefull/weird there...
 
-Ok - I will continue along this path ... at least until when and
-if someone raises a good objection.
+P.S. bogomips run from command line reports just ~400 when /proc/cpuinfo
+is 1400...
 
--- 
-                          I won't rest till it's the best ...
-                          Programmer, Linux Scalability
-                          Paul Jackson <pj@sgi.com> 1.650.933.1373
+WHAT is WRONG??? Please advise
+
+                                  .-.
+=------------------------------   /v\  ----------------------------Keep in touch                    // \\     (yoh@|www.)onerussian.com
+Yaroslav Halchenko              /(   )\               ICQ#: 60653192
+                   Linux User    ^^-^^    [175555]
+             Key  http://www.onerussian.com/gpg-yoh.asc
+GPG fingerprint   3BB6 E124 0643 A615 6F00  6854 8D11 4563 75C0 24C8
+
