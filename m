@@ -1,27 +1,39 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Wed, 16 Jan 2002 20:01:09 +0000
-Subject: Re: [Linux-ia64] PXE Boot
-Message-Id: <marc-linux-ia64-105590698805859@msgid-missing>
+From: Francois-Xavier Kowalski <francois-xavier_kowalski@hp.com>
+Date: Mon, 21 Jan 2002 15:01:25 +0000
+Subject: [Linux-ia64] native ia64 32-bits compile & run on linux-ia64?
+Message-Id: <marc-linux-ia64-105590698805893@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805846@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805846@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"Tolentino, Matthew E" wrote:
-> 
-> Mike,
-> 
-> I just tested this functionality last week on a Lion.  Using the ISC DHCP
-> 3.0 with the attached patch I was able to remotely install and boot Lion
-> systems.  I used the tftpd that comes with Redhat 7.2 as well...
-> 
-> I hope this helps..
+Hi all,
 
-Do you have a sample configuration file for the patched dhcpd?  Also, is
-this patch being considered for inclusion by the ISC folks?
+I am wondering if the Linux & GCC port on ia64 allows compilation & 
+execution of native i64 32-bits executables (not speaking about ia32 
+compatibility, but native 32-bits on ia64).
 
-Mike
+HP-UX & AIX (at least) have this generation & execution options, because 
+execution speed would be sorted as follows, in descending order:
+
+    * native 32-bits executables
+    * native 64-bits
+    * ia32 emulation
+
+I did not find any clue of that neither in the GCC web site, nor from 
+the "Linux on ia64" site.
+
+Anyone has information on that? Is it part of the "non-said" wish/todo 
+list ?
+
+TIA
+
+-- 
+Francois-Xavier "FiX" KOWALSKI     /_ __    Tel:+33 (0)4 76 14 63 27
+Telecom Infrastructure Division   / //_/    Telnet: 779-6327
+SigTech eXpert                      /       http://www.hp.com/go/opencall
+                               i n v e n t
+
+
 
