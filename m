@@ -1,7 +1,7 @@
-From: Erich Focht <efocht@ess.nec.de>
-Date: Fri, 12 Jul 2002 17:26:07 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 12 Jul 2002 17:37:47 +0000
 Subject: [Linux-ia64] Re: switch_mm race condition with Ingo's scheduler
-Message-Id: <marc-linux-ia64-105590701905771@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905772@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805973@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805973@msgid-missing>
@@ -10,28 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> But the only time you might reuse an old context number is when you
-> allocate one.  Yes, you will have old entries hanging around in the
-> TLB for a while, but you _know_ that the corresponding tasks already
-> died and you also know that you'll flush the TLB before re-using one
-> of those context numbers.
+>>>>> On Fri, 12 Jul 2002 19:26:07 +0200, Erich Focht <efocht@ess.nec.de> said:
 
-Context numbers are global, used by all CPUs in common. Suppose
-task 123 is newly created and we want a context number for it. Unfortunately
-it's time to wrap around context numbers and we reuse the context number
-of task 100 which died a short while ago and left over TLB entries on all
-CPUs of the machine.
+  Erich> get_new_mmu_context is called on the CPU where task 123 is
+  Erich> scheduled first.  We can flush TLB there. But on the other
+  Erich> CPUs the stale entries of task 100 survive. If no new context
+  Erich> is needed before task 123 gets migrated to another CPU, it
+  Erich> might reuse TLB entries of task 100, which are wrong.  I'm
+  Erich> not worried about taking an old context number but of using
+  Erich> old TLB entries when my newly created task with reused
+  Erich> context number switches CPUs. flush_tlb_all() was flushing
+  Erich> all TLB entries by sending an IPI but this can lead to a
+  Erich> deadlock... Do I misunderstand something?
 
-get_new_mmu_context is called on the CPU where task 123 is scheduled first.
-We can flush TLB there. But on the other CPUs the stale entries of task 100
-survive. If no new context is needed before task 123 gets migrated to
-another CPU, it might reuse TLB entries of task 100, which are wrong.
-I'm not worried about taking an old context number but of using old TLB
-entries when my newly created task with reused context number switches
-CPUs. flush_tlb_all() was flushing all TLB entries by sending an IPI but
-this can lead to a deadlock... Do I misunderstand something?
+Ah, I see now what you mean.  Yes, you're right it could happen that
+we allocate a context number for a task on one CPU, task gets
+rescheduled, and then we have to flush the TLB when activating the
+context number.
 
-Regards,
-Erich
- 
+	--david
 
