@@ -1,7 +1,7 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Fri, 19 May 2000 19:13:10 +0000
+From: Kevin Buettner <kev@primenet.com>
+Date: Fri, 19 May 2000 19:16:41 +0000
 Subject: Re: [Linux-ia64] problem building gnu tool
-Message-Id: <marc-linux-ia64-105590678205101@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205102@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205100@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205100@msgid-missing>
@@ -10,16 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-You can't build a complete cross toolchain unless you have ia64 headers and
-libraries.  Just copy the ia64-linux /usr/lib and /usr/include directories
-to someplace on your x86 host.  Then point to those copies using the
-configure --with-headers and --with-libs options.  The cross toolchain will
-then build and work fine.
+On May 19,  3:07pm, Russell Mok wrote:
 
-If all you want to do is build the kernel, then you don't need headers and
-libraries.  I haven't done this myself, so I can't give details.  But you
-probably already have enough of the toolchain to enable building kernels.
+> I download the source on a redhat 5.2 machine and try to build a cross
+> compiler for ia64.  The build fails because unistd.h and other system
+> headers are missing.  I tried to make configure to think I don't have
+> any system headers using --with-headers=empty-dir and
+> --without-headers but neither worked.
 
-Jim
+Why don't you just extract the header files from the glibc and kernel
+RPMS?  Actually, to be useful, you'll need the libraries too.  But
+those are also available in the RPM.  (When you install these RPMS,
+you'll want to use the --root option to cause the RPM to be installed
+at a different location than normal.  You might also need the
+--ignorearch option.)
+
+Kevin
+
+-- 
+Kevin Buettner
+kev@primenet.com, kevinb@redhat.com
 
 
