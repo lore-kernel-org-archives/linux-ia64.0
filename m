@@ -1,62 +1,201 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Thu, 09 Sep 2004 18:51:08 +0000
-Subject: [PATCH] sn2: disable non-display ROM resources
-Message-Id: <200409091151.08990.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_cYKQBOOJaVvCVdE"
+From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Date: Mon, 20 Sep 2004 16:35:33 +0000
+Subject: PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject interface support
+Message-Id: <20040920093532.D14208@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
---Boundary-00=_cYKQBOOJaVvCVdE
-Content-Type: text/plain;
-  charset="us-ascii"
+References: <20040920092520.A14208@unix-os.sc.intel.com>
+In-Reply-To: <20040920092520.A14208@unix-os.sc.intel.com>; from anil.s.keshavamurthy@intel.com on Mon, Sep 20, 2004 at 09:25:20AM -0700
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Cc: "Brown, Len" <len.brown@intel.com>, ACPI Developer <acpi-devel@lists.sourceforge.net>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
 
-This patch is needed to correctly support the new sysfs rom file.  On sn2, we 
-only allocate PIO space for display option ROMs since PIO space is a 
-relatively scarce resource (we've seen exhaustion when running with several 
-qla cards in the same domain).  And without this patch we won't zero out 
-non-display ROM resources which can lead to panics if anyone tries to use the 
-bogus addresses left over there from the generic PCI probing code.  
 
-Thanks,
-Jesse
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+---
+Name:acpi_core_eject.patch
+Status: Tested on 2.6.9-rc2
+Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+Depends:acpi_core
+Version: applies on 2.6.9-rc2
 
---Boundary-00=_cYKQBOOJaVvCVdE
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="disable-non-vga-roms.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="disable-non-vga-roms.patch"
+This patch support /sys/firmware/acpi/eject interface where in 
+the ACPI device say "LSB0" can be ejected by echoing "\_SB.LSB0" > 
+/sys/firmware/acpi/eject
 
-===== arch/ia64/sn/io/machvec/pci_bus_cvlink.c 1.43 vs edited =====
---- 1.43/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	2004-08-18 09:38:41 -07:00
-+++ edited/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	2004-09-09 09:43:10 -07:00
-@@ -357,7 +357,20 @@
-                         if (dev->resource[PCI_ROM_RESOURCE].flags & IORESOURCE_MEM)
-                                 cmd |= PCI_COMMAND_MEMORY;
-                 }
--        }
-+        } else {
-+		/*
-+		 * Remove other ROM resources since they don't have valid
-+		 * CPU addresses.
-+		 */
-+                size = dev->resource[PCI_ROM_RESOURCE].end -
-+                        dev->resource[PCI_ROM_RESOURCE].start;
-+
-+		if (size) {
-+			dev->resource[PCI_ROM_RESOURCE].start = 0;
-+			dev->resource[PCI_ROM_RESOURCE].end = 0;
-+			dev->resource[PCI_ROM_RESOURCE].flags = 0;
-+		}
-+	}
+The kernel when it receives an hardware sci eject request it simply passes this
+to user mode agent and the agent in turn will offline all the child devices and
+then echo's the ACPI device name onto /sys/firware/acpi/eject file and then the
+kernel will then actually remove the device.
+
+---
+
+ linux-2.6.9-rc2-askeshav/drivers/acpi/scan.c |  141 +++++++++++++++++++++++++++
+ 1 files changed, 141 insertions(+)
+
+diff -puN drivers/acpi/scan.c~acpi_core_eject drivers/acpi/scan.c
+--- linux-2.6.9-rc2/drivers/acpi/scan.c~acpi_core_eject	2004-09-17 17:56:46.027451654 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/scan.c	2004-09-17 17:56:46.114365716 -0700
+@@ -2,6 +2,7 @@
+  * scan.c - support for transforming the ACPI namespace into individual objects
+  */
  
- 	/*
- 	 * Update the Command Word on the Card.
-
---Boundary-00=_cYKQBOOJaVvCVdE--
++#include <linux/module.h>
+ #include <linux/init.h>
+ #include <linux/acpi.h>
+ 
+@@ -291,6 +292,141 @@ end:
+ }
+ 
+ /* --------------------------------------------------------------------------
++                              ACPI hotplug Eject support
++   -------------------------------------------------------------------------- */
++static ssize_t acpi_eject_store(struct subsystem *subsys, const char *buf, size_t count);
++static struct subsys_attribute acpi_eject_attr +	__ATTR(eject,0200,NULL,acpi_eject_store);
++
++/*
++ * evaluate _EJ0, detach driver, and remove from ACPI bus
++ */
++static int
++eject_operation(acpi_handle handle, int lockable)
++{
++	struct acpi_object_list arg_list;
++	union acpi_object arg;
++	acpi_status status = AE_OK;
++
++	/*
++	 * TBD: evaluate _PS3?
++	 */
++
++	if (lockable) {
++		arg_list.count = 1;
++		arg_list.pointer = &arg;
++		arg.type = ACPI_TYPE_INTEGER;
++		arg.integer.value = 0;
++		acpi_evaluate_object(handle, "_LCK", &arg_list, NULL);
++	}
++
++	arg_list.count = 1;
++	arg_list.pointer = &arg;
++	arg.type = ACPI_TYPE_INTEGER;
++	arg.integer.value = 1;
++
++	/*
++	 * TBD: _EJD support.
++	 */
++
++	status = acpi_evaluate_object(handle, "_EJ0", &arg_list, NULL);
++	if (ACPI_FAILURE(status)) {
++		return(-ENODEV);
++	}
++
++	return(0);
++}
++
++static ssize_t
++acpi_eject_store(struct subsystem *subsys, const char *buf, size_t count)
++{
++	acpi_status status;
++	acpi_handle hlsb;
++	struct acpi_device *device = NULL;
++	int result;
++	int ret = count;
++
++	char *acpi_name;
++	char *p;
++	int islockable;
++	acpi_object_type	type = 0;
++
++	if (!count) {
++		return -EINVAL;
++	}
++
++	acpi_name = kmalloc(count+1, GFP_KERNEL);
++	if (!acpi_name) {
++		return -ENOMEM;
++	}
++
++	acpi_name[count] = '\0';
++	strncpy(acpi_name, buf, count);
++
++	for (p = acpi_name+(count-1); p >= acpi_name; --p) {
++		if (isspace(*p))
++			*p = '\0';
++		else
++			break;
++	}
++
++	status = acpi_get_handle(NULL, acpi_name, &hlsb);
++	if(ACPI_FAILURE(status)) {
++		ret = -ENODEV;
++		goto err;
++	}
++
++	status = acpi_get_type(hlsb, &type);
++	if (ACPI_FAILURE(status)) {
++		ret = -ENODEV;
++		goto err;
++	}
++
++	result = acpi_bus_get_device(hlsb, &device);
++	if (result) {
++		ret = -ENODEV;
++		goto err;
++	}
++#ifndef FORCE_EJECT
++	if (device->driver = NULL) {
++		ret = -ENODEV;
++		goto err;
++	}
++#endif
++	if (!device->flags.ejectable) {
++		ret = -ENODEV;
++		goto err;
++	}
++
++	islockable = device->flags.lockable;
++
++	/*
++	 * remove from ACPI bus.
++	 */
++	if (type = ACPI_BUS_TYPE_PROCESSOR)
++		acpi_bus_trim(device, 0);
++	else
++		acpi_bus_trim(device, 1);
++		
++
++	result = eject_operation(hlsb, islockable);
++	if (result) {
++		ret = -EBUSY;
++	}
++err:
++	kfree(acpi_name);
++	return ret;
++}
++
++
++static int __init register_acpi_eject(void)
++{
++	subsys_create_file(&acpi_subsys, &acpi_eject_attr);
++	return 0;
++}
++
++
++/* --------------------------------------------------------------------------
+                               Performance Management
+    -------------------------------------------------------------------------- */
+ 
+@@ -1153,6 +1289,11 @@ static int __init acpi_scan_init(void)
+ 	if (result)
+ 		acpi_device_unregister(acpi_root, ACPI_BUS_REMOVAL_NORMAL);
+ 
++	/*
++	 * Register hotplug eject interface
++	 */
++	register_acpi_eject();
++
+  Done:
+ 	return_VALUE(result);
+ }
+_
