@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 13 Nov 2001 17:57:01 +0000
-Subject: Re: [Linux-ia64] kacpidpc process takes 100% of CPU
-Message-Id: <marc-linux-ia64-105590698805495@msgid-missing>
+From: "Paris, DavidX" <davidx.paris@intel.com>
+Date: Tue, 13 Nov 2001 18:13:31 +0000
+Subject: RE: [Linux-ia64] kacpidpc process takes 100% of CPU
+Message-Id: <marc-linux-ia64-105590698805496@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805494@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805494@msgid-missing>
@@ -10,7 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 13 Nov 2001 09:43:52 -0800, "Paris, DavidX" <davidx.paris@intel.com> said:
+I have the exact same ACPI configuration you do, with just those four things
+turned on. I have also tried commenting all of those things out, but then
+the kernel doesn't build (almost does, just barfs at the end when it's
+linking everything). I think the bios I'm using is the latest development
+one, v1.1 (release date was October 9th). Any ideas? I did a lot of
+searching on this and I'm afraid that I'm the only person in the universe
+having this problem.
+
+David
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@hpl.hp.com]
+Sent: Tuesday, November 13, 2001 9:57 AM
+To: Paris, DavidX
+Cc: 'linux-ia64@linuxia64.org'
+Subject: Re: [Linux-ia64] kacpidpc process takes 100% of CPU
+
+
+>>>>> On Tue, 13 Nov 2001 09:43:52 -0800, "Paris, DavidX"
+<davidx.paris@intel.com> said:
 
   >> I've just built 2.4.13 and 2.4.14 with and without the KDB patch
   >> and in all cases when the system comes up there is a kacpidpc
