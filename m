@@ -1,40 +1,33 @@
-From: Valdis.Kletnieks@vt.edu
-Date: Fri, 20 Feb 2004 22:14:05 +0000
-Subject: Re: radeon warning on 64-bit platforms
-Message-Id: <200402202214.i1KME5cd003438@turing-police.cc.vt.edu>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="==_Exmh_-2119665302P"
+From: Matthew Wilcox <willy@debian.org>
+Date: Mon, 23 Feb 2004 19:18:57 +0000
+Subject: [PATCH] SAL version is not zero-padded
+Message-Id: <20040223191857.GE25779@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1077054385.2714.72.camel@thor.asgaard.local> <16434.36137.623311.751484@napali.hpl.hp.com> <1077055209.2712.80.camel@thor.asgaard.local> <16434.37025.840577.826949@napali.hpl.hp.com> <1077058106.2713.88.camel@thor.asgaard.local> <16434.41884.249541.156083@napali.hpl.hp.com> <20040217234848.GB22534@krispykreme> <16434.46860.429861.157242@napali.hpl.hp.com> <20040218015423.GH11824@parcelfarce.linux.theplanet.co.uk> <16434.50928.682219.187846@napali.hpl.hp.com> <20040218022831.GI11824@parcelfarce.linux.theplanet.co.uk> <200402192230.i1JMUifj004565@turing-police.cc.vt.edu>
-            <jehdxl697f.fsf@sykes.suse.de>
-In-Reply-To: Your message of "Fri, 20 Feb 2004 16:51:00 +0100."
-             <jehdxl697f.fsf@sykes.suse.de> 
-To: Andreas Schwab <schwab@suse.de>
-Cc: Matthew Wilcox <willy@debian.org>, davidm@hpl.hp.com, torvalds@osdl.org, Michel D?nzer <michel@daenzer.net>, Anton Blanchard <anton@samba.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-
---==_Exmh_-2119665302P
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 20 Feb 2004 16:51:00 +0100, Andreas Schwab said:
-
-> Use expand.
-
-Learn something new every day.  Usually, the task at hand is the inverse =
-task -
-fixing a file that has leading blanks to have leading tabs instead. ;)
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
 
---==_Exmh_-2119665302P
-Content-Type: application/pgp-signature
+SAL is version 3.1, not 3.01.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+diff -urpNX build-tools/dontdiff linus-2.6/arch/ia64/kernel/sal.c pciexp-2.6/arch/ia64/kernel/sal.c
+--- linus-2.6/arch/ia64/kernel/sal.c	2003-07-29 13:00:27.000000000 -0400
++++ pciexp-2.6/arch/ia64/kernel/sal.c	2004-02-23 11:53:12.000000000 -0500
+@@ -106,7 +106,7 @@ ia64_sal_init (struct ia64_sal_systab *s
+ 	/*
+ 	 * revisions are coded in BCD, so %x does the job for us
+ 	 */
+-	printk(KERN_INFO "SAL v%x.%02x: oem=%.32s, product=%.32s\n",
++	printk(KERN_INFO "SAL v%x.%x: oem=%.32s, product=%.32s\n",
+ 	       systab->sal_rev_major, systab->sal_rev_minor,
+ 	       systab->oem_id, systab->product_id);
+ 
 
-iD8DBQFANoatcC3lWbTT17ARAohUAKC++NDNM2tgRO2yXNUcIY3SVlHdLgCgnFN9
-KN8491HqB9bRqIcOtTj5Ks0=
-=gUuB
------END PGP SIGNATURE-----
-
---==_Exmh_-2119665302P--
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
