@@ -1,54 +1,37 @@
-From: Tim Schmielau <tim@physik3.uni-rostock.de>
-Date: Mon, 17 Mar 2003 13:55:14 +0000
-Subject: [Linux-ia64] Re: [BUG] nanosleep() granularity bumps up in 2.5.64
-Message-Id: <marc-linux-ia64-105590709806137@msgid-missing>
+From: m.delahaye@esiee.fr (Matthieu Delahaye)
+Date: Wed, 26 Mar 2003 10:07:46 +0000
+Subject: Re: [parisc-linux] Re: [Linux-ia64] Linux, Itanium and PA/RISC
+Message-Id: <marc-linux-ia64-105590723705314@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709806094@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709806094@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 17 Mar 2003, Vitezslav Samel wrote:
+On Mon, Mar 24, 2003 at 11:19:08AM -0800, David Mosberger wrote:
+> >>>>> On Mon, 24 Mar 2003 12:10:37 +0000, Matthew Wilcox <willy@debian.org> said:
+> 
+>   Matthew> On Mon, Mar 24, 2003 at 11:41:18AM +0100, Adriano Galano
+>   Matthew> wrote:
+>   >> Hi all:
+> 
+>   >> I read that IA-64 support PA-RISC instruction mapping. That's
+>   >> mean that I can use Linux for PA/RISC
+>   >> (http://www.parisc-linux.org/) in a Itanium 2 computer?
+> 
+>   Matthew> No.  You certainly can't run a PA-RISC kernel on an IA64
+>   Matthew> box, just like you can't run an x86 kernel on an ia64 box.
+> 
+> Ugh, that's not strictly true.  You definitely can boot x86 linux and
+> windows 98 on Itanium.  I believe the same is true for Itanium 2 if
+> you have Intel's firmware, though I have never tried that myself.
 
-> On Fri, Mar 14, 2003 at 02:48:59PM +0000, Matthew Wilcox wrote:
-> > On Fri, Mar 14, 2003 at 03:34:36PM +0100, Eric Piel wrote:
-> > > I think lines like that from patch-2.5.64 are very suspicious to be
-> > > related to the bug:
-> > > +	base->timer_jiffies = INITIAL_JIFFIES;
-> > > +	base->tv1.index = INITIAL_JIFFIES & TVR_MASK;
-> > > +	base->tv2.index = (INITIAL_JIFFIES >> TVR_BITS) & TVN_MASK;
-> > > +	base->tv3.index = (INITIAL_JIFFIES >> (TVR_BITS+TVN_BITS)) & TVN_MASK;
-> > > +	base->tv4.index = (INITIAL_JIFFIES >> (TVR_BITS+2*TVN_BITS)) &
-> > > TVN_MASK;
-> > > +	base->tv5.index = (INITIAL_JIFFIES >> (TVR_BITS+3*TVN_BITS)) &
-> > > TVN_MASK;
-> >
-> > No, I don't think so.  Those lines are for starting `jiffies' at a very
-> > high number so we spot jiffie-wrap bugs early on.
->
->   The nanosleep() bug narrowed down to 2.5.63-bk2. That's version, the "initial
-> jiffies" patch went in. And yes, it's on i686 machine.
+...And perhaps you don't forget to add support for the chipset in the
+x86/hppa kernel. 
 
-You can easily check whether it's connected with this change by setting
-INITIAL_JIFFIES to zero. This should exactly recover the previous
-situation.
-I.e., something like the following (untested, hand-crafted) patch:
+Is the Intel's firmware freely distributed or it is
+internal only?
 
---- linux-2.5.64/include/linux/time.h
-+++ linux-2.5.64/include/linux/time.h
-@@ -28,7 +28,7 @@
-  * Have the 32 bit jiffies value wrap 5 minutes after boot
-  * so jiffies wrap bugs show up earlier.
-  */
-- #define INITIAL_JIFFIES ((unsigned int) (-300*HZ))
-+ #define INITIAL_JIFFIES 0
-
- /*
-  * Change timeval to jiffies, trying to avoid the
-
-
-Tim
+Matthieu
 
 
