@@ -1,28 +1,23 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 28 Mar 2001 11:44:44 +0000
-Subject: Re: [Linux-ia64] Error messages during link step
-Message-Id: <marc-linux-ia64-105590693005361@msgid-missing>
+From: Jes Sorensen <jes@linuxcare.com>
+Date: Thu, 01 Mar 2001 19:29:28 +0000
+Subject: [Linux-ia64] CONFIG_IA64_L1_CACHE_SHIFT
+Message-Id: <marc-linux-ia64-105590693005236@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005360@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005360@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Thomas Hiller <thomas.hiller@sap.com> writes:
+Hi
 
-|> @gprel relocation against dynamic symbol rstrswbptr
+Anyone who can explain why there is a 
 
-This is most likely due to trying to link a non-PIC object into a shared
-library.   All code in a shared libarary must be compiled with -fPIC.
+define_int CONFIG_IA64_L1_CACHE_SHIFT 6
 
-Andreas.
+in the config file? We already have SMP_CACHE_BYTES and L1_CACHE bytes
+for all architectures, it doesn't make a whole lot of sense to me ot
+invent yet another alignment rule.
 
---=20
-Andreas Schwab                                  "And now for something
-SuSE Labs                                        completely different."
-Andreas.Schwab@suse.de
-SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+Jes
+
 
