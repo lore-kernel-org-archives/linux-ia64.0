@@ -1,39 +1,35 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 02 Mar 2005 23:40:09 +0000
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Fri, 04 Mar 2005 02:03:29 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <200503021540.10222.jbarnes@engr.sgi.com>
+Message-Id: <4227C1F1.6040508@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <422428EC.3090905@jp.fujitsu.com> <1109803303.5611.108.camel@gaston> <20050302233003.GO1220@austin.ibm.com>
-In-Reply-To: <20050302233003.GO1220@austin.ibm.com>
+References: <422428EC.3090905@jp.fujitsu.com> <20050301144211.GI28741@parcelfarce.linux.theplanet.co.uk> <20050301192711.GE1220@austin.ibm.com> <42255971.4070608@jp.fujitsu.com> <20050302192043.GJ1220@austin.ibm.com>
+In-Reply-To: <20050302192043.GJ1220@austin.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-pci@atrey.karlin.mff.cuni.cz
-Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
+To: Linas Vepstas <linas@austin.ibm.com>
+Cc: Matthew Wilcox <matthew@wil.cx>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "Luck, Tony" <tony.luck@intel.com>
 
-On Wednesday, March 2, 2005 3:30 pm, Linas Vepstas wrote:
-> Put it another way: a device driver author should have the opportunity
-> to poll the pci bus status if they so desire.  Polling for bus status
-> on ppc64 is real easy.  Given what Jesse Barnes was saying, it sounded
-> like a simple (optional, the dev driver doesn't have to use it) poll
-> is not enough, because some errors might be transactional.
+Linas Vepstas wrote:
+>>If their defaults are no-ops, device
+>>maintainers who develops their driver on not-implemented arch should be
+>>more careful. 
+> 
+> Why? People who write device drivers already know if/when they need to
+> disable interrupts, and so they already disable if they need it.  
 
-Yeah, I'm not arguing against your call, it could be useful for polling for 
-errors or for use in an error handling callback.  What I was trying to say 
-earlier (maybe I wasn't very clear) was that the idea of creating 
-transactions for certain types of I/O (even if those transactions are 
-artificial and purely in software) can be useful since it creates boundaries 
-and context, making it easier to figure out what went wrong, hopefully making 
-it easier to fix things and carry on.
+OK, I'll remake them as no-ops.
+Nothing will start unless trust in driver folks.
 
-IOW, using Seto-san's iochk_clear/iochk_read interface makes certain types of 
-errors much easier to deal with since you *know* where an error occurred and 
-can presumably deal with it right away.  The problem comes in for things that 
-aren't well encapsulated, like DMA, for which error polling or some sort of 
-callback is needed (and even with polling you'll need to poll in an error 
-handling thread as you mentioned since the driver may start DMA, return, and 
-the error can happen later when we're not actually in driver code).  So I 
-think we mostly agree on what things need to be done, you and benh just have 
-to fight it out over the details. :)
+> p.s. I would like to have iochk_read() take struct pci_dev * as an
+> argument.  (I could store a pointer to pci_dev in the "cookie" but
+> that seems odd).
 
-Jesse
+I'd like to store the pointer and handle all only with the cookie...
+Or is it needed to pass different device to iochk_clear() and iochk_read()?
+
+
+Thanks,
+H.Seto
+
