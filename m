@@ -1,128 +1,30 @@
-From: Francis Galiegue <fg@mandrakesoft.com>
-Date: Sun, 25 Feb 2001 02:43:10 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Mon, 26 Feb 2001 20:52:41 +0000
 Subject: Re: [Linux-ia64] Re: Lockups on 2.4.1
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="-1463800575-902790651-983068990=:884"
-Message-Id: <marc-linux-ia64-105590693005200@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005207@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005175@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005175@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+>2. What is this new unwind stuff?
 
----1463800575-902790651-983068990=:884
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by mandrakesoft.mandrakesoft.com id UAA26238
+You probably want to know in the context of the kernel.  I can't answer that.
 
-On Sat, 24 Feb 2001, Joseph V Moss wrote:
+I can answer in the context of C++.  The unwind stuff is used for exception
+handling.  When a program throws, we use the unwind stuff to unwind stack
+frames back to where the exception handler (catch clause) is.  The unwind
+data is similar in spirit to the DWARF2 frame info that is currently used by
+most all other gcc targets.  It is basically the same data just encoded
+differently.
 
->=20
-> You've got a small cut'n'paste error there:
-> =20
+The format of the data is documented in the Software Conventions and Runtime
+Architecture manual, section 11.  The library interface for C++ EH is
+documented in the psABI, section 6.  This hasn't been implemented yet, we are
+working on it right now.
 
-[...]
-> > +  with a B1-step CPU.  You have a B0-step CPU if the "revision" fiel=
-d in
->                                      ^^
-
-Oops! Corrected version attached. Thanks for noticing.
-
---=20
-Francis Galiegue, fg@mandrakesoft.com - Normand et fier de l'=EAtre
-"Programming is a race between programmers, who try and make more and mor=
-e
-idiot-proof software, and universe, which produces more and more remarkab=
-le
-idiots. Until now, universe leads the race"  -- R. Cook
-
----1463800575-902790651-983068990=:884
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ia64-config-help.patch"
-Content-ID: <Pine.LNX.4.21.0102250343100.884@toy.mandrakesoft.com>
-Content-Description: 
-Content-Disposition: attachment; filename="ia64-config-help.patch"
-Content-Transfer-Encoding: BASE64
-
-ZGlmZiAtdXJOIGxpbnV4LW9sZC9Eb2N1bWVudGF0aW9uL0NvbmZpZ3VyZS5o
-ZWxwIGxpbnV4L0RvY3VtZW50YXRpb24vQ29uZmlndXJlLmhlbHANCi0tLSBs
-aW51eC1vbGQvRG9jdW1lbnRhdGlvbi9Db25maWd1cmUuaGVscAlTYXQgRmVi
-IDI0IDA4OjI5OjQ1IDIwMDENCisrKyBsaW51eC9Eb2N1bWVudGF0aW9uL0Nv
-bmZpZ3VyZS5oZWxwCVNhdCBGZWIgMjQgMDk6MjQ6MTUgMjAwMQ0KQEAgLTE3
-MTE5LDE3ICsxNzExOSwzNiBAQA0KICAgd2l0aCBhIEIwLXN0ZXAgQ1BVLiAg
-WW91IGhhdmUgYSBCMC1zdGVwIENQVSBpZiB0aGUgInJldmlzaW9uIiBmaWVs
-ZCBpbg0KICAgL3Byb2MvY3B1aW5mbyBpcyAxLg0KIA0KK0VuYWJsZSBJdGFu
-aXVtIEIxLXN0ZXAgc3BlY2lmaWMgY29kZQ0KK0NPTkZJR19JVEFOSVVNX0Ix
-X1NQRUNJRklDDQorICBTZWxlY3QgdGhpcyBvcHRpb24gdG8gYmlsZCBhIGtl
-cm5lbCBmb3IgYW4gSXRhbml1bSBwcm90b3R5cGUgc3lzdGVtDQorICB3aXRo
-IGEgQjEtc3RlcCBDUFUuICBZb3UgaGF2ZSBhIEIxLXN0ZXAgQ1BVIGlmIHRo
-ZSAicmV2aXNpb24iIGZpZWxkIGluDQorICAvcHJvYy9jcHVpbmZvIGlzIDIu
-DQorDQorRW5hYmxlIEl0YW5pdW0gQjItc3RlcCBzcGVjaWZpYyBjb2RlDQor
-Q09ORklHX0lUQU5JVU1fQjJfU1BFQ0lGSUMNCisgIFNlbGVjdCB0aGlzIG9w
-dGlvbiB0byBiaWxkIGEga2VybmVsIGZvciBhbiBJdGFuaXVtIHByb3RvdHlw
-ZSBzeXN0ZW0NCisgIHdpdGggYSBCMi1zdGVwIENQVS4gIFlvdSBoYXZlIGEg
-QjItc3RlcCBDUFUgaWYgdGhlICJyZXZpc2lvbiIgZmllbGQgaW4NCisgIC9w
-cm9jL2NwdWluZm8gaXMgMy4NCisNCiBGb3JjZSBpbnRlcnJ1cHQgcmVkaXJl
-Y3Rpb24NCiBDT05GSUdfSUE2NF9IQVZFX0lSUVJFRElSDQogICBTZWxlY3Qg
-dGhpcyBvcHRpb24gaWYgeW91IGtub3cgdGhhdCB5b3VyIHN5c3RlbSBoYXMg
-dGhlIGFiaWxpdHkgdG8NCiAgIHJlZGlyZWN0IGludGVycnVwdHMgdG8gZGlm
-ZmVyZW50IENQVXMuICBTZWxlY3QgTiBoZXJlIGlmIHlvdSdyZQ0KICAgdW5z
-dXJlLg0KIA0KLUVuYWJsZSB1c2Ugb2YgZ2xvYmFsIFRMQiBwdXJnZSBpbnN0
-cnVjdGlvbiAocHRjLmcpDQorRW5hYmxlIHVzZSBvZiBnbG9iYWwgVExCIHB1
-cmdlIGluc3RydWN0aW9uIChwdGMuZykgKFJFQUQgSEVMUCEpDQogQ09ORklH
-X0lUQU5JVU1fUFRDRw0KLSAgU2F5IFkgaGVyZSBpZiB5b3Ugd2FudCB0aGUg
-a2VybmVsIHRvIHVzZSB0aGUgSUEtNjQgInB0Yy5nIg0KLSAgaW5zdHJ1Y3Rp
-b24gdG8gZmx1c2ggdGhlIFRMQiBvbiBhbGwgQ1BVcy4gIFNlbGVjdCBOIGhl
-cmUgaWYNCi0gIHlvdSdyZSB1bnN1cmUuDQorICBTYXlpbmcgWSBoZXJlIHdp
-bGwgYWxsb3cgdGhlIGtlcm5lbCB0byB1c2UgdGhlIElBLTY0ICJwdGMuZyIN
-CisgIGluc3RydWN0aW9uIHRvIGZsdXNoIHRoZSBUTEIgb24gYWxsIENQVXMu
-DQorICANCisgIFNheSBOIGhlcmUgaWYgdGhlIGtlcm5lbCB3aWxsIHJ1biBv
-biBlYXJseSBCIHN0ZXAgQ1BVcyAoQjAsIEIxIGFuZCBCMikuIFlvdQ0KKyAg
-aGF2ZSBzdWNoIGEgQ1BVIChvciBDUFVzKSBpZiB0aGUgcmV2aXNpb24gZmll
-bGQocykgaW4gL3Byb2MvY3B1aW5mbyByYW5nZShzKQ0KKyAgZnJvbSAxIHRv
-IDMuIEluIHRoaXMgY2FzZSwgeW91IHNob3VsZCBhbHNvIHNheSBZIHRvICJE
-aXNhYmxlIFZIUFQiICh0aGlzIGlzDQorICBpbiAiS2VybmVsIGhhY2tpbmci
-IHNlY3Rpb24pLg0KKw0KKyAgSWYgeW91IGhhdmUgYSBtb3JlIHJlY2VudCBD
-UFUsIGhvd2V2ZXIsIHlvdSB3aWxsIGhhdmUgdG8gZG8gdGhlIG9wcG9zaXRl
-OiBzYXkNCisgIFkgaGVyZSBidXQgTiB0byAiRGlzYWJsZSBWSFBUIi4NCiAN
-CiBFbmFibGUgU29mdFNEViBoYWNrcw0KIENPTkZJR19JQTY0X1NPRlRTRFZf
-SEFDS1MNCkBAIC0xNzE2OCw2ICsxNzE4NywxNiBAQA0KIA0KICAgVG8gdXNl
-IHRoaXMgb3B0aW9uLCB5b3UgaGF2ZSB0byBjaGVjayB0aGF0IHRoZSAiL3By
-b2MgZmlsZSBzeXN0ZW0NCiAgIHN1cHBvcnQiIChDT05GSUdfUFJPQ19GUykg
-aXMgZW5hYmxlZCwgdG9vLg0KKw0KK0Rpc2FibGUgVkhQVCAoUkVBRCBIRUxQ
-ISkNCitDT05GSUdfRElTQUJMRV9WSFBUDQorICBTYXkgWSBoZXJlIGlmIHRo
-ZSBrZXJuZWwgd2lsbCBydW4gb24gZWFybHkgQiBzdGVwIENQVXMgKEIwLCBC
-MSBhbmQgQjIpLiBZb3UNCisgIGhhdmUgc3VjaCBhIENQVSAob3IgQ1BVcykg
-aWYgdGhlIHJldmlzaW9uIGZpZWxkKHMpIGluIC9wcm9jL2NwdWluZm8gcmFu
-Z2UocykNCisgIGZyb20gMSB0byAzLiBJbiB0aGlzIGNhc2UsIHlvdSBzaG91
-bGQgYWxzbyBzYXkgTiB0byAiRW5hYmxlIHVzZSBvZiBnbG9iYWwgVExCDQor
-ICBwdXJnZSBpbnN0cnVjdGlvbiIgKENPTkZJR19JVEFOSVVNX1BUQ0cpIGlu
-IHRoZSAiR2VuZXJhbCBTZXR1cCIgc2VjdGlvbi4NCisNCisgIElmIHlvdXIg
-Q1BVKHMpIGlzL2FyZSBtb3JlIHJlY2VudCwgaG93ZXZlciwgeW91IHdpbGwg
-cHJlZmVyYWJseSBkbyB0aGUNCisgIG9wcG9zaXRlOiBzYXkgTiBoZXJlLCBi
-dXQgc2F5IFkgdG8gQ09ORklHX0lUQU5JVU1fUFRDRy4NCiANCiAjDQogIyBB
-IGNvdXBsZSBvZiB0aGluZ3MgSSBrZWVwIGZvcmdldHRpbmc6DQpkaWZmIC11
-ck4gbGludXgtb2xkL2FyY2gvaWE2NC9jb25maWcuaW4gbGludXgvYXJjaC9p
-YTY0L2NvbmZpZy5pbg0KLS0tIGxpbnV4LW9sZC9hcmNoL2lhNjQvY29uZmln
-LmluCVNhdCBGZWIgMjQgMDg6Mjk6NDUgMjAwMQ0KKysrIGxpbnV4L2FyY2gv
-aWE2NC9jb25maWcuaW4JU2F0IEZlYiAyNCAwOToyNjoyNyAyMDAxDQpAQCAt
-NTgsNyArNTgsNyBAQA0KIAlpZiBbICIkQ09ORklHX0lUQU5JVU1fQ1NURVBf
-U1BFQ0lGSUMiID0gInkiIF07IHRoZW4NCiAJICBib29sICcgICBFbmFibGUg
-SXRhbml1bSBDMC1zdGVwIHNwZWNpZmljIGNvZGUnIENPTkZJR19JVEFOSVVN
-X0MwX1NQRUNJRklDDQogCWZpDQotCWJvb2wgJyAgRW5hYmxlIHVzZSBvZiBn
-bG9iYWwgVExCIHB1cmdlIGluc3RydWN0aW9uIChwdGMuZyknIENPTkZJR19J
-VEFOSVVNX1BUQ0cNCisJYm9vbCAnICBFbmFibGUgdXNlIG9mIGdsb2JhbCBU
-TEIgcHVyZ2UgaW5zdHJ1Y3Rpb24gKHB0Yy5nKSAoUkVBRCBIRUxQISknIENP
-TkZJR19JVEFOSVVNX1BUQ0cNCiBmaQ0KIA0KIGlmIFsgIiRDT05GSUdfSUE2
-NF9ESUciID0gInkiIF07IHRoZW4NCkBAIC0yNTksNiArMjU5LDYgQEANCiBi
-b29sICdUdXJuIG9uIGlycSBkZWJ1ZyBjaGVja3MgKHNsb3chKScgQ09ORklH
-X0lBNjRfREVCVUdfSVJRDQogYm9vbCAnUHJpbnQgcG9zc2libGUgSUE2NCBo
-YXphcmRzIHRvIGNvbnNvbGUnIENPTkZJR19JQTY0X1BSSU5UX0hBWkFSRFMN
-CiBib29sICdFbmFibGUgbmV3IHVud2luZCBzdXBwb3J0JyBDT05GSUdfSUE2
-NF9ORVdfVU5XSU5EDQotYm9vbCAnRGlzYWJsZSBWSFBUJyBDT05GSUdfRElT
-QUJMRV9WSFBUDQorYm9vbCAnRGlzYWJsZSBWSFBUIChSRUFEIEhFTFAhKScg
-Q09ORklHX0RJU0FCTEVfVkhQVA0KIA0KIGVuZG1lbnUNCg==
----1463800575-902790651-983068990=:884--
+Jim
 
