@@ -1,46 +1,38 @@
-From: Khalid Aziz <khalid_aziz@hp.com>
-Date: Tue, 09 Jul 2002 15:53:44 +0000
-Subject: [Linux-ia64] [PATCH] make xconfig broken in ia64-020622
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------2298D78BFDA8E4FDDA2C400D"
-Message-Id: <marc-linux-ia64-105590701905745@msgid-missing>
+From: Xavier Bru  <Xavier.Bru@bull.net>
+Date: Wed, 10 Jul 2002 16:06:03 +0000
+Subject: RE: [Linux-ia64] [PATCH] make xconfig broken in ia64-020622
+Message-Id: <marc-linux-ia64-105590701905757@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905745@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905745@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------2298D78BFDA8E4FDDA2C400D
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Unfortunatly, there are more things broken with make xconfig:
 
-020622 version of ia64 patch breaks "make xconfig". This is due to a bug
-in sound drivers configuration file. Attached patch fixes this problem.
+. multiple conditions are not handled by tkparse:
 
---
-Khalid 
+eg: unable to set CONFIG_IA64_MCA when CONFIG_IA64_DIG is set.
 
-====================================================================
-Khalid Aziz                                   Linux Systems Division
-(970)898-9214                                        Hewlett-Packard
-khalid@fc.hp.com                                    Fort Collins, CO
---------------2298D78BFDA8E4FDDA2C400D
-Content-Type: text/plain; charset=us-ascii;
- name="patch.sound"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch.sound"
+if [ "$CONFIG_IA64_GENERIC" = "y" ] || [ "$CONFIG_IA64_DIG" = "y" ] \
+   || [ "$CONFIG_IA64_HP_ZX1" = "y" ]; then
+	bool '  Enable IA-64 Machine Check Abort' CONFIG_IA64_MCA
+	define_bool CONFIG_PM y
+fi
 
---- linux-2.4.18-ia64-020622/drivers/sound/Config.in	Mon Jul  8 15:57:30 2002
-+++ linux-2.4.18-ia64-020622-fixed/drivers/sound/Config.in	Mon Jul  8 15:58:43 2002
-@@ -30,7 +30,7 @@
- 	fi
-     fi
- fi
--dep_tristate '  FM801' CONFIG_FM801 
-+dep_tristate '  FM801' CONFIG_FM801 $CONFIG_SOUND $CONFIG_PCI
- dep_tristate '  Creative SBLive! (EMU10K1)' CONFIG_SOUND_EMU10K1 $CONFIG_SOUND $CONFIG_PCI
- dep_mbool    '    Creative SBLive! MIDI' CONFIG_MIDI_EMU10K1 $CONFIG_SOUND_EMU10K1 $CONFIG_EXPERIMENTAL
- dep_tristate '  Crystal SoundFusion (CS4280/461x)' CONFIG_SOUND_FUSION $CONFIG_SOUND
+. block device options are not generated in 2.4.18:
 
---------------2298D78BFDA8E4FDDA2C400D--
+ERROR - Attempting to write value for unconfigured variable (CONFIG_BLK_DEV_LOOP).
+ERROR - Attempting to write value for unconfigured variable (CONFIG_BLK_DEV_NBD).
+ERROR - Attempting to write value for unconfigured variable (CONFIG_BLK_DEV_RAM).
+Having a look in tkparse.c, we can read:
+" * TO DO:
+ * - xconfig is at the end of its life cycle.  Contact <mec@shout.net> if
+ *   you are interested in working on the replacement."
 
+I think that the linux hackers probably use make menuconfig, as they
+did not report such problems :-) ???
+Xavier
 
