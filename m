@@ -1,51 +1,69 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Wed, 21 Mar 2001 00:24:23 +0000
+From: Keith Owens <kaos@melbourne.sgi.com>
+Date: Wed, 21 Mar 2001 06:03:00 +0000
 Subject: Re: [Linux-ia64] Unwind problem for __attribute__ noreturn
-Message-Id: <marc-linux-ia64-105590693005307@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005309@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005303@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005303@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-I'm not able to understand any of this.
+On Tue, 20 Mar 2001 13:10:16 +1100,=20
+Keith Owens <kaos@melbourne.sgi.com> wrote:
+>panic() is defined as __attribute__ ((noreturn)).  Either gcc is
+>generating invalid unwind data for this attribute or the kernel unwind
+>code is mishandling the data.
 
-I'm not a kernel expert.  It has been months since I've booted a kernel that
-I built, and much longer since I've booted a kernel that included kdb.
-I do not know what the kernel uses the unwind info for.  This question has
-been asked on this list by others recently and has not been answered.
-If I have to reproduce this problem by building a kernel and running kdb,
-then you will have a very long wait before I look at this, since I will fix
-everything I know how to fix first.
+Replying to my own mail.  It is a fencepost problem caused by gcc
+discarding code after a call to a noreturn function.  The user that hit
+this problem wanted an unconditional panic when scsi_malloc was called
+so he inserted panic("testing\n") into scsi_malloc().  gcc recognised
+that the rest of scsi_malloc could never be reached and discarded all
+the following code.  The generated object contains
 
-The comment about "control reaches end of non-void function" warnings doesn't
-make sense.  panic() is defined as returning void, so it should not be possible
-to get this warning.  I downloaded 2.4.2 today just to be sure, along with
-David's 010228 patch.
+e0000000007c0ea0 <scsi_malloc>:
+e0000000007c0ea0:       01 08 0d 04 80 05       [MII]       alloc r33=3Dar.=
+pfs,3,2,0
+e0000000007c0ea6:       20 82 f6 d7 4f 00                   addl r34=3D-260=
+8,r1
+e0000000007c0eac:       04 00 c4 00                         mov r32=B0;;
+e0000000007c0eb0:       11 10 01 44 18 10       [MIB]       ld8 r34=3D[r34]
+e0000000007c0eb6:       00 00 00 02 00 00                   nop.i 0x0
+e0000000007c0ebc:       58 67 e2 58                         br.call.sptk.ma=
+ny b0=E0000000005e7600 <panic>;;
 
-I tried deleting the NORET_TYPE from the .c file, but I get identical .i
-with and without it (disregarding whitespace).  It doesn't seem to do anything.
-I tried deleting the noreturn attribute that came from the kernel.h header
-file, but doesn't do anything either.  I get identical .s files with or
-without it.
+e0000000007c0ec0 <scsi_free>:
+e0000000007c0ec0:       00 18 15 08 80 05       [MII]       alloc r35=3Dar.=
+pfs,5,4,0
+e0000000007c0ec6:       20 02 00 62 00 00                   mov r34=B0
+e0000000007c0ecc:       00 00 04 00                         nop.i 0x0
 
-If you want me to look at this, you will have to give me something I can
-understand.  Preferably a .i file and a gcc command.  But if you want me
-to look at a kernel, then you need to tell me what kernel you are using,
-what patches you have applied to it, where you got the patches from,
-what kernel config file you are using, and what compiler version you are using.
-And possibly other stuff that I don't know yet that I need.
+panic() called kdb, kdb used the unwind data to work out where panic
+was called from.  Alas b0 is pointing at the first instruction of
+scsi_free which completely confuses the unwinder.  Instead of unwinding
+the body of scsi_malloc it tries to unwind the prologue of scsi_free
+and gets gibberish.
 
-I have linux-2.4.2 and David's 010228 patch.  I am looking at the function
-panic() in the kernel/panic.c file.  I am using current FSF gcc development
-sources.
+My first thought was for the unwind code to adjust b0 to reflect where
+the call instruction was issued, which would correctly pick up
+scsi_malloc.  However bits of the kernel set b0 explicitly instead of
+via call so adjusting b0 would not work in all cases.
 
-The only thing that occurs to me at the moment is that maybe the kdb patch
-is doing something here that causes the problem.  I've never downloaded the
-kdb patch.  Last time I used kdb, it was still part of the ia64-linux kernel
-sources.  If I need the kdb patch, where to I get it from?
+The long term fix is for gcc to add nop after calls to non-return
+functions.  That would preserve enough of a code body for the unwinder
+to work correctly.  BTW this problem almost certainly affects gdb as
+well as the kernel.  Jim, do you need a gcc change request for this?
 
-Jim
+The short term fix is to use conditional calls to panic() and other
+routines marked as noreturn.  Make it conditional on something that you
+know is true but the compiler cannot optimize away.  This works:
+
+        if (current)
+		panic("testing\n");
+
+I will look at hacking kdb to recognise a panic call as a special case
+and work around this problem.
+
 
