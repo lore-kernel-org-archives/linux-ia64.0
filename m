@@ -1,7 +1,7 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Wed, 30 Jan 2002 06:21:53 +0000
+From: "Niels Christiansen" <nchr@us.ibm.com>
+Date: Wed, 30 Jan 2002 06:26:31 +0000
 Subject: Re: [Linux-ia64] What's taking all the system time..?
-Message-Id: <marc-linux-ia64-105590698805951@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805952@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805950@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805950@msgid-missing>
@@ -10,27 +10,70 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Duraid,
+> You can grab the source (18kB) here:
+>
+> http://www.idesign.fl.net.au/why_systime/why_systime.tar.gz
+>
+> just 'make' (be sure 'gcc' and 'g++' point to a recent enough
+> version of gcc/g++ - preferably 3.0 or later) and then run 'a.out'.
 
-> 
-> 	I've got a big (production) code that depends on a simple 'graph'
-> library in C++. To try it out on Itanium, I stripped it down and whipped up
-> a tiny 'benchmark' of the graph library. When I tried this on an Itanium
-> system here (2.4.9-SMP, gcc/g++ 2.96/3.0.3 and intel c++ 6.0) the code runs
-> for about 30 seconds, 20 of which is reported as 'system' time. The thing
-> is, this is (supposed to be) a CPU-bound job: on my home x86 system, it runs
-> in about 3 seconds, and with negligible system time.
-> 
-> 	'top' and 'time' show the gobs of system time being used, but
-> 'strace' picks up nothing out of the ordinary (0.014 seconds system time,
-> dominated by calls to brk() (this is expected).
-> 
-Just by curiosity, have you looked at the system log in /var/log/messages?
-I am guessing your program does some floating point operations.
-Have you seen something about floating-point software assist? Another 
-potential cause could be unaligned accesses. That you can also see 
-in the system log.
+I tried using gcc 3.0.2 on a RedHat 7.2 4-way with 2.4.16 kernel
+but got errors as shown below.  I have a profiling tool (currently
+internal use only) which I intended to use but I need the make to
+succeed first...
 
--- 
--Stephane
+You say you run on an SMP.  How many processors?
+
+... Niels
+
+-------------------------------------------------------------------
+
+[nchris@tollway why_systime]$ make
+gcc -c mt19937b-int.c
+g++ Graph.cpp bench.cpp mt19937b-int.o
+In file included from BlockTree.cpp:17,
+                 from Graph.h:7,
+                 from Graph.cpp:2:
+BlockTree.h:121:8: warning: extra tokens at end of #endif directive
+/tmp/ccC11dFe.s: Assembler messages:
+/tmp/ccC11dFe.s:15538: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic13ResourceCacheI4Edge4DCSOE10AddNewPageEv#)'
+/tmp/ccC11dFe.s:15539: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic13ResourceCacheI4Edge4DCSOE10RemovePageEPNS_17ResourceCachePageE#)'
+/tmp/ccC11dFe.s:15548: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic13ResourceCacheI6Vertex4DCSOE10AddNewPageEv#)'
+/tmp/ccC11dFe.s:15549: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic13ResourceCacheI6Vertex4DCSOE10RemovePageEPNS_17ResourceCachePageE#)'
+/tmp/ccC11dFe.s:15558: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic11MemoryCacheI4DCSOE10AddNewPageEv#)'
+/tmp/ccC11dFe.s:15559: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic11MemoryCacheI4DCSOE10RemovePageEPNS_17ResourceCachePageE#)'
+In file included from BlockTree.cpp:17,
+                 from Graph.h:7,
+                 from bench.cpp:3:
+BlockTree.h:121:8: warning: extra tokens at end of #endif directive
+/tmp/ccC11dFe.s: Assembler messages:
+/tmp/ccC11dFe.s:3233: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic13ResourceCacheI4Edge4DCSOE10AddNewPageEv#)'
+/tmp/ccC11dFe.s:3234: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic13ResourceCacheI4Edge4DCSOE10RemovePageEPNS_17ResourceCachePageE#)'
+/tmp/ccC11dFe.s:3243: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic13ResourceCacheI6Vertex4DCSOE10AddNewPageEv#)'
+/tmp/ccC11dFe.s:3244: Error: Unknown opcode `data16.ua @iplt
+(_ZN5basic13ResourceCacheI6Vertex4DCSOE10RemovePageEPNS_17ResourceCachePageE#)'
+make: *** [default] Error 1
+[nchris@tollway why_systime]$. gcc -v
+Reading specs from /usr/lib/gcc-lib/ia64-unknown-linux/3.0.2/specs
+Configured with: /usr/src/gcc-3.0.2/configure --prefix /usr --mandir
+/usr/share/man
+Thread model: single
+gcc version 3.0.2
+[nchris@tollway why_systime]$ g++ -v
+Reading specs from /usr/lib/gcc-lib/ia64-unknown-linux/3.0.2/specs
+Configured with: /usr/src/gcc-3.0.2/configure --prefix /usr --mandir
+/usr/share/man
+Thread model: single
+gcc version 3.0.2
+[nchris@tollway why_systime]$
+
 
