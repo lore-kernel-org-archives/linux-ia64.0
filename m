@@ -1,49 +1,59 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 10 Sep 2003 18:42:58 +0000
-Subject: small perfmon1 patch for 2.4
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 26 Sep 2003 23:11:16 +0000
+Subject: Hugetlbfs and hugetlb_page config menu
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="cWoXeonUoKmBZSoM"
-Message-Id: <marc-linux-ia64-106321946025751@msgid-missing>
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C38483.7C946E96"
+Message-Id: <marc-linux-ia64-106461789029929@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
+This is a multi-part message in MIME format.
 
---cWoXeonUoKmBZSoM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+------_=_NextPart_001_01C38483.7C946E96
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: quoted-printable
 
-Hi,
+Hugetlbfs is not module'able at current state, so tristate the "HugeTLB
+file system support" option is kind of silly.  Also, at present you can
+set CONFIG_HUGETLB_PAGE and not CONFIG_HUGETLBFS, which give the kernel
+low-level hugepage support, but no userspace API to access it is also
+kind of silly.
 
-The attached patch fixes a long standing bug in the perfmon-1 implementation
-for all 2.4 based kernels.  The PFM_FL_INHERIT_ONCE flag is defined as
-allowing a perfmon context to be clone ONCE across fork. Without this
-fix, it is in fact clone to all first level child of the parent process.
-That's why, for instance, when you run pfmon-2.0 on a command, you see
-3 active per-process sessions instead of two (pfmon is multi-threaded).
+While I'm at it, here is a patch that flips dependency around:
+CONFIG_HUGETLB_PAGE mirrors CONFIG_HUGETLBFS option and hugetlb page
+size selection appear/disappear depending on whether hugetlbfs is
+selected or not.  (this is taken from 2.6).
 
-Bjorn, please apply this patch in your 2.4 tree.
+- Ken
 
-Thanks.
+------_=_NextPart_001_01C38483.7C946E96
+Content-Type: application/octet-stream;
+	name="hugetlbfs-config.patch"
+Content-Transfer-Encoding: base64
+Content-Description: hugetlbfs-config.patch
+Content-Disposition: attachment;
+	filename="hugetlbfs-config.patch"
 
--- 
--Stephane
+ZGlmZiAtTnVyIDIuNC4yMy1wcmU1L2FyY2gvaWE2NC9jb25maWcuaW4gMi40LjIzLXByZTUua2Vu
+L2FyY2gvaWE2NC9jb25maWcuaW4KLS0tIDIuNC4yMy1wcmU1L2FyY2gvaWE2NC9jb25maWcuaW4J
+RnJpIFNlcCAyNiAxNDoyMTo1NCAyMDAzCisrKyAyLjQuMjMtcHJlNS5rZW4vYXJjaC9pYTY0L2Nv
+bmZpZy5pbglGcmkgU2VwIDI2IDE1OjU1OjIwIDIwMDMKQEAgLTg2LDggKzg2LDYgQEAKIAogZGVm
+aW5lX2ludCBDT05GSUdfRk9SQ0VfTUFYX1pPTkVPUkRFUiAxOQogCi1ib29sICdJQS02NCBIdWdl
+IFRMQiBQYWdlIFN1cHBvcnQnIENPTkZJR19IVUdFVExCX1BBR0UKLQogaWYgWyAiJENPTkZJR19I
+VUdFVExCX1BBR0UiID0gInkiIF07IHRoZW4KIAlpZiBbICIkQ09ORklHX01DS0lOTEVZIiA9ICJ5
+IiBdOyB0aGVuCiAJCWNob2ljZSAnICAgIElBLTY0IEh1Z2UgVExCIFBhZ2UgU2l6ZScJCVwKZGlm
+ZiAtTnVyIDIuNC4yMy1wcmU1L2ZzL0NvbmZpZy5pbiAyLjQuMjMtcHJlNS5rZW4vZnMvQ29uZmln
+LmluCi0tLSAyLjQuMjMtcHJlNS9mcy9Db25maWcuaW4JRnJpIFNlcCAyNiAxNDoyMjowMyAyMDAz
+CisrKyAyLjQuMjMtcHJlNS5rZW4vZnMvQ29uZmlnLmluCUZyaSBTZXAgMjYgMTU6NTY6NTEgMjAw
+MwpAQCAtNTQsOCArNTQsMTEgQEAKIGJvb2wgJ1ZpcnR1YWwgbWVtb3J5IGZpbGUgc3lzdGVtIHN1
+cHBvcnQgKGZvcm1lciBzaG0gZnMpJyBDT05GSUdfVE1QRlMKIGRlZmluZV9ib29sIENPTkZJR19S
+QU1GUyB5CiAKLWlmIFsgIiRDT05GSUdfSFVHRVRMQl9QQUdFIiA9ICJ5IiBdOyB0aGVuCi0JdHJp
+c3RhdGUgJ0h1Z2VUTEIgZmlsZSBzeXN0ZW0gc3VwcG9ydCcgQ09ORklHX0hVR0VUTEJGUyAKK2Jv
+b2wgJ0h1Z2VUTEIgZmlsZSBzeXN0ZW0gc3VwcG9ydCcgQ09ORklHX0hVR0VUTEJGUworaWYgWyAi
+JENPTkZJR19IVUdFVExCRlMiID0gInkiIF07IHRoZW4KKwlkZWZpbmVfYm9vbCBDT05GSUdfSFVH
+RVRMQl9QQUdFIHkKK2Vsc2UKKwlkZWZpbmVfYm9vbCBDT05GSUdfSFVHRVRMQl9QQUdFIG4KIGZp
+CiAKIHRyaXN0YXRlICdJU08gOTY2MCBDRFJPTSBmaWxlIHN5c3RlbSBzdXBwb3J0JyBDT05GSUdf
+SVNPOTY2MF9GUwo=
 
---cWoXeonUoKmBZSoM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="kernel24-perfmon1-030910.diff"
-
---- linux-ia64-2.4/arch/ia64/kernel/perfmon.c.old	2003-09-10 11:36:15.000000000 -0700
-+++ linux-ia64-2.4/arch/ia64/kernel/perfmon.c	2003-09-10 11:37:01.000000000 -0700
-@@ -4013,6 +4013,10 @@
- 	if (CTX_INHERIT_MODE(ctx) == PFM_FL_INHERIT_ONCE) {
- 		nctx->ctx_fl_inherit = PFM_FL_INHERIT_NONE;
- 		DBprintk(("downgrading to INHERIT_NONE for [%d]\n", task->pid));
-+		/*
-+		 * downgrade parent: once means only first child!
-+		 */
-+		ctx->ctx_fl_inherit = PFM_FL_INHERIT_NONE;
- 	}
- 	/*
- 	 * task is not yet visible in the tasklist, so we do 
-
---cWoXeonUoKmBZSoM--
+------_=_NextPart_001_01C38483.7C946E96--
