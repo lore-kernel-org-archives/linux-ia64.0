@@ -1,36 +1,52 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Tue, 22 Apr 2003 21:22:19 +0000
-Subject: Re: [Linux-ia64] [PATCH] move mmu_gathers into local_cpu_data
-Message-Id: <marc-linux-ia64-105590723705587@msgid-missing>
+From: Steve Woodruff <sjwoodr@yahoo.com>
+Date: Wed, 23 Apr 2003 14:54:04 +0000
+Subject: [Linux-ia64] RT Timers problem
+Message-Id: <marc-linux-ia64-105590723705588@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705585@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705585@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-
-On Tue, Apr 22, 2003 at 09:39:38PM +0100, Christoph Hellwig wrote:
-> On Tue, Apr 22, 2003 at 02:23:31PM -0400, Martin Hicks wrote:
-> > 
-> > Hi,
-> > 
-> > This is a patch that moves mmu_gathers into local_cpu_data on IA64 NUMA.
-> > I'm not exactly sure where to push this patch, because it does touch
-> > include/asm-generic/tlb.h although it has no effect on non ia64 arches.
-> > 
-> > The main reason for making this change is that the mmu_gathers array
-> > gets very large as the number of processors increases.
-> 
-> For 2.5 please just make mmu_gathers per-cpu data for all arches.
-> 
-
-That was my intention.  For 2.4 my goal was "touch as little as
-possible, and hopefully it will get accepted".
-
-mh
-
--- 
-Wild Open Source Inc.                  mort@wildopensource.com
-
+SGkgLSBpJ3ZlIGVuY291bnRlcmVkIGEgY291cGxlIG9mIGRpZmZlcmVudCwgYnV0Cm1heWJlIHJl
+bGF0ZWQgcHJvYmxlbXMgaW4gRGViaWFuIGxpbnV4IG9uIGFuIFJYMjYwMAooaWE2NCkuICBNYXli
+ZSBzb21lb25lIGNhbiBjb21tZW50IGlmIHRoZXkndmUgc2Vlbgp0aGlzIGJlZm9yZT8KCjEuIFJU
+IHNpZ25hbHMgUlRNSU4sIFJUTUlOKzEsIFJUTUlOKzIgYXJlIG5vdCBiZWluZwogICBkZWxpdmVy
+ZWQuICBJIGNyZWF0ZWQgYSBzaW1wbGUgdGVzdCBjYXNlIHRoYXQgc2V0cwogICBhbiBpbnRlcnZh
+bCB0aW1lciBzZXQgdG8gZmlyZSBvbmNlIHBlciBzZWNvbmQsIAogICBidXQgdGhlIHNpZ25hbCBu
+ZXZlciBhcnJpdmVzISAgV2hlbiBpIHVzZSBSVE1JTiszCiAgIG9yIGdyZWF0ZXIsIHRoZW4gdGhl
+IGNvZGUgd29ya3MgZmluZS4gIEkgY2FuIAogICBwcm92aWRlIHRoZSB0ZXN0IGNvZGUgdG8gYW55
+b25lIHdobyBpcyBpbnRlcmVzdGVkCiAgIGluIHRyeWluZyBpdCBvdXQgb24gdGhlaXIgc3lzdGVt
+LgoKMi4gSW4gc29tZSBjYXNlcywgYSBjYWxsIHRvIHRpbWVyX2NyZWF0ZSgpIHdpbGwgYmxvY2su
+CiAgIFRoaXMgb25lIGlzIGhhcmRlciB0byByZXByb2R1Y2UsIGJ1dCBpJ3ZlIGRvbmUgaXQKICAg
+bXVsdGlwbGUgdGltZXMgYW5kIGhhdmUgc29tZXRoaW5nIGxpa2UgdGhpcyBpbiAKICAgbXkgY29k
+ZToKCmZwcmludGYoc3RkZXJyLCAKICAiSE1NOiBDcmVhdGluZyB0aW1lciB3aXRoIHNpZ25vPSVk
+XG4iLCAKICBzaWduYWxfbm8pOwpzdGF0dXMgPSAgdGltZXJfY3JlYXRlKENMT0NLX1JFQUxUSU1F
+LAogICZoX2V2ZW50X3N0cnVjdCwgJmhfdGltZXJfaWQpOwpmcHJpbnRmKHN0ZGVyciwgCiAgIkhN
+TTogVGltZXIgY3JlYXRlZCwgc3RhdHVzID0gJWRcbiIsIHN0YXR1cyk7CgpBbmQgaW4gdGhlIG91
+dHB1dCwgb25seSB0aGUgZmlyc3QgbGluZSBpcwpwcmludGVkLiAgVGhlIHRpbWVyX2NyZWF0ZSgp
+IG5ldmVyIHJldHVybnMhICBJIGFsc28KZGlkIGEgc3RyYWNlIGFuZCB0aGUgdGFpbCBvZiB0aGF0
+IGlzOgoKd3JpdGUoMiwgIkhNTTogQ3JlYXRpbmcgdGltZXIgd2l0aCBzaWdubz0iLi4uLCAzNUhN
+TToKQ3JlYXRpbmcgdGltZXIgd2l0aCBzaWdubzUKKSA9IDM1CmdldHBpZCgpICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICA9IDU5MQpnZXRybGltaXQoUkxJTUlUX1NUQUNLLCB7cmxpbV9j
+dXKBOTIqMTAyNCwKcmxpbV9tYXg9UkxJTV9JTkZJTklUWX0pID0gMApicmsoMCkgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgICAgICAgMHg2MDAwMDAwMDAwMDljMDAwCmJyaygweDYwMDAwMDAw
+MDAwYTQwMDApICAgICAgICAgICAgICAgICAweDYwMDAwMDAwMDAwYTQwMDAKcGlwZShbMjk3Mzg3
+MiwgNTM2ODcwOTEyXSkgICAgICAgICAgICAgID0gNApTWVNfMTIxMygweDIwMDAwMDAwMDAwMzkz
+YTgsIDB4NjAwMDAwMDAwMDA5ODhjMCwKMHg3ZmUwLCAweGYwMCwgMHgyMDAwMDAwMDAwMmZjNjQw
+LCAweDIwMDAwMDAwMDAwMzkzYTgsCjB4MjAwMDAwMDAwMDJmYzY0MCwgMHhmMDApID0gNjAwCndy
+aXRlKDUsICJcMVwwXDBcMFwwXDBcMFwwXDVcMFwwXDBcMFwwXDBcMHBqLVwwXDBcMFwwClwzMFww
+XDNcMFwwIi4uLiwgMTY4KSA9IDE2OApydF9zaWdwcm9jbWFzayhTSUdfU0VUTUFTSywgTlVMTCwg
+W1JUMF0sIDgpID0gMAp3cml0ZSg1LCAiXDIwMFwzMDAvXDBcMFwwXDAKXDBcMFwwXDBcMFwwXDBc
+MFwxMHtcN1wwXDBcMFwwIFwxMFwyNTciLi4uLCAxNjgpID0gMTY4CnJ0X3NpZ3Byb2NtYXNrKFNJ
+R19TRVRNQVNLLCBOVUxMLCBbUlQwXSwgOCkgPSAwCnJ0X3NpZ3N1c3BlbmQoW10KCmFuZCB0aGVy
+ZSBpdCBzaXRzLgoKSGFzIGFueW9uZSBzZWVuIGVpdGhlciBvZiB0aGVzZSBwcm9ibGVtcyBjb21l
+IHVwCm9uIGRlYmlhbiBsaW51eC9pYTY0PyBGb3Igd2hhdCBpdHMgd29ydGgsIGkgd2FzCnVzaW5n
+IHJlZGhhdCBBUyBiYWNrIGluIEphbnVhcnkgYW5kIHRoZSBwcm9ibGVtcwpuZXZlciBwb3BwZWQg
+dXAgYmFjayB0aGVuLCBzbyBpIGRvIHRoaW5rIG1heSBiZQpzcGVjaWZpYyB0byB0aGUgbGlicnQg
+cHJvdmlkZWQgaW4gZGViaWFuOgpsaWJjNi4xLWRldjogL3Vzci9saWIvbGlicnQuc28KClRoYW5r
+cywKCi9zdGV2ZQoKCj09LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLQogU3RldmUgV29vZHJ1ZmYsIE45T0ggQCA0Mi4xOE4gODguMzRXLCBz
+andvb2RyQHlhaG9vLmNvbQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KRG8geW91IFlhaG9vIT8KVGhlIE5ldyBZYWhvbyEgU2VhcmNoIC0gRmFzdGVy
+LiBFYXNpZXIuIEJpbmdvCmh0dHA6Ly9zZWFyY2gueWFob28uY29tCgo=
