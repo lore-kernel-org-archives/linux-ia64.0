@@ -1,128 +1,169 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Sat, 27 Sep 2003 14:24:00 +0000
-Subject: [PATCH] sanitize SN2 pci resource setup
-Message-Id: <marc-linux-ia64-106467267026750@msgid-missing>
+From: Jes Sorensen <jes@wildopensource.com>
+Date: Tue, 09 Sep 2003 14:22:19 +0000
+Subject: [patch] glibc/ia64 memccpy segfault
+Message-Id: <marc-linux-ia64-106311758422915@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-A new function, sn_fixup_resource centralizes all handling of pci
-resource fixups.  Code slightly cleaned up.
+Hi,
 
+Please find attached a patch which I have been sitting on for way too
+long. It should apply cleanly to both glibc-2.2 and glibc-2.3.
 
-diff -Nru a/arch/ia64/sn/io/machvec/pci_bus_cvlink.c b/arch/ia64/sn/io/machvec/pci_bus_cvlink.c
---- a/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Sat Sep 27 16:20:32 2003
-+++ b/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Sat Sep 27 16:20:32 2003
-@@ -425,6 +425,39 @@
- 	}
- }
+It basically solve a bug in the ia64 memccpy implementation where the
+readahead will cause a segfault if you try to memccpy from across a page
+boundary, with the second page not being mapped and the end-of-stream
+character is found in the original page.
+
+This is a segfault bugfix and I recommend distributions to include it in
+their next updates.
+
+Cheers,
+Jes
+
+2003-04-11  Jes Sorensen  <jes@wildopensource.com>
+
+	* sysdeps/ia64/memccpy.S: When recovering for src_aligned and the
+	character is found during recovery, use correct register when
+	determining the position of the found character.
+	
+2003-04-01  Jes Sorensen  <jes@wildopensource.com>
+
+	* sysdeps/ia64/memccpy.S: Use speculatively loads for readahead to
+	avoid segfaults when reading from unmapped pages. For aligned
+	reload and continue, for misaligned, roll back and use byte copy.
+	Save ar.ec on entry and restore on exit.
+
+Index: sysdeps/ia64/memccpy.S
+=================================RCS file: /cvs/glibc/libc/sysdeps/ia64/memccpy.S,v
+retrieving revision 1.5
+diff -u -r1.5 memccpy.S
+--- sysdeps/ia64/memccpy.S	6 Jul 2001 04:55:54 -0000	1.5
++++ sysdeps/ia64/memccpy.S	9 Sep 2003 14:15:32 -0000
+@@ -1,6 +1,6 @@
+ /* Optimized version of the memccpy() function.
+    This file is part of the GNU C Library.
+-   Copyright (C) 2000, 2001 Free Software Foundation, Inc.
++   Copyright (C) 2000, 2001, 2003 Free Software Foundation, Inc.
+    Contributed by Dan Pop <Dan.Pop@cern.ch>.
  
-+
-+static void sn_fixup_resource(struct pci_dev *pdev, int idx)
-+{
-+	struct resource *resource = &pdev->resource[idx];
-+	vertex_hdl_t		vhdl = PCIDEV_VERTEX(pdev);
-+	pciio_space_t		space = PCIIO_SPACE_WIN(idx);
-+	unsigned long		size = resource->end - resource->start;
-+	caddr_t                 res = 0;
-+	unsigned		flags = 0;
-+
-+	if (IS_PIC_DEVICE(pdev))
-+		flags |= PCIIO_BYTE_STREAM;
-+
-+	if (!size)
-+		return;
-+
-+	res = pcibr_piotrans_addr(vhdl, NULL, space, 0, size, flags);
-+	if (!res) {
-+		struct pcibr_piomap_s *map;
-+
-+		map = pcibr_piomap_alloc(vhdl, NULL, space, 0,
-+				size, size, flags);
-+		if (map) {
-+			res = pcibr_piomap_addr(map, 0, size);
-+			if (!res) /* XXX: handle error properly */
-+				pcibr_piomap_free(map);
-+		}
-+	}
-+
-+	resource->start = (unsigned long)res | __IA64_UNCACHED_OFFSET;
-+	resource->end = resource->start + size;
-+}
-+
- static void __init sn_pci_fixup_one(struct pci_dev *pdev)
- {
- 	struct sn_device_sysdata *device_sysdata;
-@@ -461,17 +494,7 @@
- 	 * Infrastructure ..
- 	 */
- 	for (idx = 0; idx < PCI_ROM_RESOURCE; idx++) {
--		size = pdev->resource[idx].end -
--			pdev->resource[idx].start;
--		if (!size)
--			continue;
--		pdev->resource[idx].start -			(unsigned long)pciio_pio_addr(device_vertex, 0,
--				PCIIO_SPACE_WIN(idx), 0, size, 0,
--				(IS_PIC_DEVICE(pdev)) ? 0 :
--					PCIIO_BYTE_STREAM);
--		pdev->resource[idx].start |= __IA64_UNCACHED_OFFSET;
--		pdev->resource[idx].end = pdev->resource[idx].start + size;
-+		sn_fixup_resource(pdev, idx);
+    The GNU C Library is free software; you can redistribute it and/or
+@@ -46,6 +46,7 @@
+ #define tmp		r23
+ #define char		r24
+ #define charx8		r25
++#define saved_ec	r26
+ #define sh2		r28
+ #define	sh1		r29
+ #define loopcnt		r30
+@@ -56,25 +57,27 @@
+ 	alloc 	r2 = ar.pfs, 4, 40 - 4, 0, 40
  
- 		if (pdev->resource[idx].flags & IORESOURCE_IO)
- 			cmd |= PCI_COMMAND_IO;
-diff -Nru a/arch/ia64/sn/io/sn2/pciio.c b/arch/ia64/sn/io/sn2/pciio.c
---- a/arch/ia64/sn/io/sn2/pciio.c	Sat Sep 27 16:20:32 2003
-+++ b/arch/ia64/sn/io/sn2/pciio.c	Sat Sep 27 16:20:32 2003
-@@ -345,49 +345,6 @@
- 	(dev, dev_desc, space, addr, byte_count, flags);
- }
+ #include "softpipe.h"
+-	.rotr	r[MEMLAT + 3], tmp1[4], tmp2[4], val[4], tmp3[2], pos0[2]
++	.rotr	r[MEMLAT + 7], tmp1[4], tmp2[4], val[4], tmp3[2], pos0[2]
+ 	.rotp	p[MEMLAT + 6 + 1]
  
--caddr_t
--pciio_pio_addr(vertex_hdl_t dev,	/* translate for this device */
--	       device_desc_t dev_desc,	/* device descriptor */
--	       pciio_space_t space,	/* CFG, MEM, IO, or a device-decoded window */
--	       iopaddr_t addr,		/* starting address (or offset in window) */
--	       size_t byte_count,	/* map this many bytes */
--	       pciio_piomap_t *mapp,	/* where to return the map pointer */
--	       unsigned flags)
--{					/* PIO flags */
--    pciio_piomap_t          map = 0;
--    int			    errfree = 0;
--    caddr_t                 res;
--
--    if (mapp) {
--	map = *mapp;			/* possible pre-allocated map */
--	*mapp = 0;			/* record "no map used" */
--    }
--
--    res = pciio_piotrans_addr
--	(dev, dev_desc, space, addr, byte_count, flags);
--    if (res)
--	return res;			/* pciio_piotrans worked */
--
--    if (!map) {
--	map = pciio_piomap_alloc
--	    (dev, dev_desc, space, addr, byte_count, byte_count, flags);
--	if (!map)
--	    return res;			/* pciio_piomap_alloc failed */
--	errfree = 1;
--    }
--
--    res = pciio_piomap_addr
--	(map, addr, byte_count);
--    if (!res) {
--	if (errfree)
--	    pciio_piomap_free(map);
--	return res;			/* pciio_piomap_addr failed */
--    }
--    if (mapp)
--	*mapp = map;			/* pass back map used */
--
--    return res;				/* pciio_piomap_addr succeeded */
--}
- 
- iopaddr_t
- pciio_piospace_alloc(vertex_hdl_t dev,	/* Device requiring space */
+ 	mov	ret0 = r0		// return NULL if no match
+ 	.save pr, saved_pr
+ 	mov	saved_pr = pr		// save the predicate registers
++	mov 	dest = in0		// dest
+ 	.save ar.lc, saved_lc
+         mov 	saved_lc = ar.lc	// save the loop counter
++        mov 	saved_ec = ar.ec	// save the loop counter
+ 	.body
+-	mov 	dest = in0		// dest
+ 	mov 	src = in1		// src
+ 	extr.u	char = in2, 0, 8	// char
+ 	mov	len = in3		// len
+ 	sub	tmp = r0, in0		// tmp = -dest
+ 	cmp.ne	p7, p0 = r0, r0		// clear p7
+ 	;;
+-	and	loopcnt = 7, tmp		// loopcnt = -dest % 8
++	and	loopcnt = 7, tmp	// loopcnt = -dest % 8
+ 	cmp.ge	p6, p0 = OP_T_THRES, len	// is len <= OP_T_THRES
+-(p6)	br.cond.spnt	.cpyfew			// copy byte by byte
++	mov	ar.ec = 0		// ec not guaranteed zero on entry
++(p6)	br.cond.spnt	.cpyfew		// copy byte by byte
+ 	;;
+ 	cmp.eq	p6, p0 = loopcnt, r0
+ 	mux1	charx8 = char, @brcst
+@@ -109,26 +112,31 @@
+ 	cmp.ne	p6, p0 = r0, r0	;;	// clear p6
+ 	.align	32
+ .l2:
+-(p[0])		ld8	r[0] = [asrc], 8		// r[0] = w1
++(p[0])		ld8.s	r[0] = [asrc], 8		// r[0] = w1
+ (p[MEMLAT])	shr.u	tmp1[0] = r[1 + MEMLAT], sh1	// tmp1 = w0 >> sh1
+ (p[MEMLAT])	shl	tmp2[0] = r[0 + MEMLAT], sh2  	// tmp2 = w1 << sh2
+ (p[MEMLAT+4])	xor	tmp3[0] = val[1], charx8
+ (p[MEMLAT+5])	czx1.r	pos0[0] = tmp3[1]
++(p[MEMLAT+6])	chk.s	r[6 + MEMLAT], .recovery1	// our data isn't
++							// valid - rollback!
+ (p[MEMLAT+6])	cmp.ne	p6, p0 = 8, pos0[1]
+ (p6)		br.cond.spnt	.gotit
+ (p[MEMLAT+6])	st8	[dest] = val[3], 8		// store val to dest
+ (p[MEMLAT+3])	or	val[0] = tmp1[3], tmp2[3] 	// val = tmp1 | tmp2
+ 		br.ctop.sptk    .l2
+ 		br.cond.sptk .cpyfew
++
+ .src_aligned:
+ 		cmp.ne  p6, p0 = r0, r0			// clear p6
+ 		mov     ar.ec = MEMLAT + 2 + 1 ;;	// set EC
+ .l3:
+-(p[0])		ld8	r[0] = [src], 8
++(p[0])		ld8.s	r[0] = [src], 8
+ (p[MEMLAT])	xor	tmp3[0] = r[MEMLAT], charx8
+ (p[MEMLAT+1])	czx1.r	pos0[0] = tmp3[1]
+ (p[MEMLAT+2])	cmp.ne	p7, p0 = 8, pos0[1]
++(p[MEMLAT+2])	chk.s	r[MEMLAT+2], .recovery2
+ (p7)		br.cond.spnt	.gotit
++.back2:
+ (p[MEMLAT+2])	st8	[dest] = r[MEMLAT+2], 8
+ 		br.ctop.dptk .l3
+ .cpyfew:
+@@ -148,6 +156,7 @@
+ .restore_and_exit:
+ 	mov     pr = saved_pr, -1    	// restore the predicate registers
+ 	mov 	ar.lc = saved_lc	// restore the loop counter
++	mov 	ar.ec = saved_ec ;;	// restore the epilog counter
+ 	br.ret.sptk.many b0
+ .gotit:
+ 	.pred.rel "mutex" p6, p7
+@@ -163,4 +172,33 @@
+ 	mov	pr = saved_pr, -1
+ 	mov	ar.lc = saved_lc
+ 	br.ret.sptk.many b0
++
++.recovery1:
++	adds	src = -(MEMLAT + 6 + 1) * 8, asrc
++	mov	loopcnt = ar.lc
++	mov	tmp = ar.ec ;;
++	sub	sh1 = (MEMLAT + 6 + 1), tmp
++	shr.u	sh2 = sh2, 3
++	;; 
++	shl	loopcnt = loopcnt, 3
++	sub	src = src, sh2
++	shl	sh1 = sh1, 3
++	shl	tmp = tmp, 3
++	;;
++	add	len = len, loopcnt
++	add	src = sh1, src ;;
++	add	len = tmp, len
++.back1:
++	br.cond.sptk .cpyfew
++
++.recovery2:
++	add	tmp = -(MEMLAT + 3) * 8, src
++(p7)	br.cond.spnt .gotit
++	;;
++	ld8	r[MEMLAT+2] = [tmp] ;;
++	xor	pos0[1] = r[MEMLAT+2], charx8 ;;
++	czx1.r	pos0[1] = pos0[1] ;;
++	cmp.ne	p7, p6 = 8, pos0[1]
++(p7)	br.cond.spnt .gotit
++	br.cond.sptk .back2
+ END(memccpy)
