@@ -1,21 +1,20 @@
-From: "Geddes, Brian J" <brian.j.geddes@intel.com>
-Date: Tue, 05 Sep 2000 22:13:52 +0000
-Subject: RE: [Linux-ia64] Serial Port communication
-Message-Id: <marc-linux-ia64-105590678205439@msgid-missing>
+From: Christoph Rohland <cr@sap.com>
+Date: Wed, 06 Sep 2000 17:30:45 +0000
+Subject: [Linux-ia64] Re: KGDB patch for ia64 for 2.4.0-testN
+Message-Id: <marc-linux-ia64-105590678205457@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205453@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205453@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Does anyone know if the serial port is working on Big Sur under Linux64?  I
-need to be able to transfer information through the serial port, but I'm a
-Linux newbie, so I'm sure I've been looking in the wrong places.  Any info
-would be greatly appreciated.  
+"Woller, Thomas" <twoller@crystal.cirrus.com> writes:
 
-Thanks!
-- Brian 
+> anyone have a KGDB patch for ia64 SMP 2.4.0-testN?  UP is also ok. 
+> or another recommendation for a kernel level debugger for Linux ia64.
 
+http://kgdb.sourceforge.net/
+
+Greetings
+		Christoph
 
