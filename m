@@ -1,46 +1,38 @@
-From: roneng@ca.ibm.com
-Date: Tue, 06 Jun 2000 22:34:01 +0000
-Subject: [Linux-ia64] ia64 gcc implementation of alloca
-Message-Id: <marc-linux-ia64-105590678205122@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 07 Jun 2000 01:29:03 +0000
+Subject: Re: [Linux-ia64] ia64 gcc implementation of alloca
+Message-Id: <marc-linux-ia64-105590678205123@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205122@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205122@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+	Has anyone had any problem using alloca, or knows where in the gcc code it
+	is implemented?
 
-Hi,
-Has anyone had any problem using alloca, or knows where in the gcc code it
-is implemented?
-when I run my program get the following error:
+There is a lot of GNU code that uses alloca.  I haven't seen any alloca bug
+reports.
 
-Program received signal SIGSEGV, Segmentation fault.
-loose (code, fd=6, name=0x9ffffffffff05ca0 "libnss_files.so.2",
-    realname=0x60000000000115b0 "/lib/libnss_files.so.2", l=0x0,
-    msg=0x200000000002f880 "cannot read file data") at dl-load.c:642
-642       a[0] = fd;
-(gdb)
+There are a number of places in gcc that deal with alloca.  The main one
+is allocate_dynamic_stack_space in explow.c.
 
-the code around line 642 is the following
-__attribute__ ((noreturn))
-lose (int code, int fd, const char *name, char *realname, struct link_map
-*l,
-      const char *msg)
-{
-  /* The use of `alloca' here looks ridiculous but it helps.  The goal
-     is to avoid the function from being inlined.  There is no official
-     way to do this so we use this trick.  gcc never inlines functions
-     which use `alloca'.  */
-int *a = alloca (sizeof (int));
-a[0] = fd;
+It is probably easier to debug your failing code before trying to debug gcc.
+Look at the instruction that failed, disassemble the loose routine, and figure
+out why you get the segmentation fault.  It could be a problem with the code
+rather than a gcc problem.  Is the stack pointer valid?  Is it aligned
+properly, does it point to a valid stack address?
 
-simple testcases of alloca seem to work, so this is probably an
-intermittent problem.
+It looks like the program is dying in the dynamic loader when trying to load a
+shared library.  Do you have a reasonably up to date copy of the dynamic
+loader?  Are your shared libraries up to date?  There were many reports of
+problems with glibc failing when a /etc/nsswitch.conf file was present early
+this year, but it seems to work fine now.  The Red Hat May 17, 2000 OS release
+has the file and it works fine.  I suspect a glibc bug that was fixed maybe a
+month or two ago.
 
-Thank you,
-Ronen Grosman
-- e-mail roneng@ca.ibm.com
-
-
+Jim
 
 
