@@ -1,8 +1,10 @@
 From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 03 Mar 2005 05:14:53 +0000
-Subject: take8: vector sharing (Large I/O system support)
-Message-Id: <42269D4D.1040506@jp.fujitsu.com>
+Date: Tue, 08 Mar 2005 02:59:49 +0000
+Subject: Re: take8: vector sharing (Large I/O system support)
+Message-Id: <422D1525.6000109@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42269D4D.1040506@jp.fujitsu.com>
+In-Reply-To: <42269D4D.1040506@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,18 +12,8 @@ To: linux-ia64@vger.kernel.org
 
 Hi,
 
-Here is an updated vector sharing patch based on feedbacks (Thank you!).
-Summary of changes are:
-
-  - Changed iosapic_rte_info structure allocation to use alloc_bootmem()
-    at the early boot time.
-  - Added ____cacheline_aligned to iosapic_rte_info structure.
-  - Small cleanup in register_intr().
-
-This patch is against 2.6.11.
-
-I hope especially new iosapic_rte_info structure allocation code will
-be reviewed.
+My mailer seemed to convert my patch incorrectly.
+I send the patch again.
 
 Thanks,
 Kenji Kaneshige
@@ -712,3 +704,4 @@ diff -puN include/asm-ia64/hw_irq.h~vector_sharing include/asm-ia64/hw_irq.h
  extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
 
 _
+
