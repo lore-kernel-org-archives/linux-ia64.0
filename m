@@ -1,14 +1,28 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 04 Aug 2004 14:59:24 +0000
-Subject: Re: IA64 test report: 2.4.27-rc3 /tiger 2004-8-4: 9/9 pass, atapi ide floppy issue
-Message-Id: <200408040859.24425.bjorn.helgaas@hp.com>
+From: "Wang, Zhenyu Z" <zhenyu.z.wang@intel.com>
+Date: Thu, 05 Aug 2004 04:27:39 +0000
+Subject: RE: IA64 test report: 2.4.27-rc3 /tiger 2004-8-4: 9/9 pass, atapi ide floppy issue
+Message-Id: <9DE394C12A921946AEECE1F71944ECD50F06AA@pdsmsx404>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <6E0C289723A0564F9A8279E236E8565F07CB29CC@pdsmsx402.pd.intel.com>
 In-Reply-To: <6E0C289723A0564F9A8279E236E8565F07CB29CC@pdsmsx402.pd.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+ 
+I have no fixed available tiger, so I can't tell if the ide floppy was good before.
+I'll do the check soon.
+
+thanks,
+-zhen
+
+-----Original Message-----
+From: Bjorn Helgaas [mailto:bjorn.helgaas@hp.com] 
+Sent: 2004年8月4日 22:59
+To: Wang, Zhenyu Z
+Cc: linux-ia64@vger.kernel.org; linux-acpi
+Subject: Re: IA64 test report: 2.4.27-rc3 /tiger 2004-8-4: 9/9 pass, atapi ide floppy issue
 
 On Tuesday 03 August 2004 9:04 pm, Wang, Zhenyu Z wrote:
 > End request I/O error of ATAPI IDE floppy when doing partition check. 
