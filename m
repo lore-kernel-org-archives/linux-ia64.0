@@ -1,57 +1,43 @@
-From: "Rao, Goutham" <goutham.rao@intel.com>
-Date: Thu, 26 Oct 2000 17:42:09 +0000
-Subject: RE: [Linux-ia64] Remapping of the IA64 interrupts?
-Message-Id: <marc-linux-ia64-105590678205635@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Mon, 30 Oct 2000 21:55:19 +0000
+Subject: [Linux-ia64] gnu-efi-1.1 released
+Message-Id: <marc-linux-ia64-105590678205639@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205634@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205634@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
-To answer your question... the legacy interrupts need to be re-mapped since
-the vectors 0-15 are reserved on IA-64.  
-Currently I have a patch that re-maps these interrupts and the PCI
-interrupts via a pci_irq_to_vector interface... we will make this patch
-available soon.  This may be a solution to the problem you are facing if you
-are in fact facing a collision of vectors (PCI to ISA).
+Hi All,
 
-Thanks
-Goutham
------Original Message-----
-From: White, Charles [mailto:Charles.White@COMPAQ.com]
-Sent: Thursday, October 26, 2000 8:23 AM
-To: 'linux-ia64@linuxia64.org'
-Subject: [Linux-ia64] Remapping of the IA64 interrupts?
+I have uploaded version 1.1 of the gnu-efi package on our FTP site.
+
+This is a minor revision over the 1.0 release. It fixes the problems 
+with the small data section (with the new toolchain). Please note that 
+to get a working lilo with this toolchain, you still need to use the old 
+objcopy binary.
+
+Also some cleanups in the Makefiles to pick up the right headers files. 
+Thanks to David Mosberger for those fixes.
 
 
-I am currently looking at an issue with the ISA interrupts, and it appears
-to be caused by the re-mapping of these interrupts. 
+IMPORTANT: ACPI support in LILO
 
-From arch/ia64/kernel/irq_ia64.c
-----------------------------------------
-/*
- * Legacy IRQ to IA-64 vector translation table.  Any vector not in
- * this table maps to itself (ie: irq 0x30 => IA64 vector 0x30)
- */
-__u8 isa_irq_to_vector_map[16] = {
-	/* 8259 IRQ translation, first 16 entries */
-	0x60, 0x50, 0x10, 0x51, 0x52, 0x53, 0x43, 0x54,
-	0x55, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x40, 0x41
-};
-------------------------------------------
+	Since 2.4.0-test7 the kernel is doing the ACPI parsing for 
+	device enumeration. Therefore the ACPI code in LILO is now obsolete. 
+	It will be removed in the next release. 
 
-Why do this legacy interrupts need to be remapped on the IA64 system?  What
-specification did these re-map values come from? 
+This new version is available at:
 
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/gnu-efi-1.1.tgz
 
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
++--------------------------------------------------------------------+
+| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
+| Hewlett-Packard Laboratories            |                          |
+| 1501, Page Mill Road MS 1U-15           |                          |
+| Palo  Alto, CA 94303-096                |                          |
+| USA                                     |                          |
+| Tel : (650) 857-7174                    |                          |
+| Fax : (650) 857-5548                    |                          |
++--------------------------------------------------------------------+
 
