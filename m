@@ -1,52 +1,35 @@
 From: Matt Domsch <Matt_Domsch@dell.com>
-Date: Sat, 24 Apr 2004 03:41:09 +0000
+Date: Mon, 26 Apr 2004 18:57:58 +0000
 Subject: Re: [patch 1/3] efivars driver update and move
-Message-Id: <20040424034109.GA15589@lists.us.dell.com>
+Message-Id: <20040426185758.GA32755@lists.us.dell.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="nFreZHaLTZJo0R7j"
+Content-Type: multipart/mixed; boundary="h31gzZEtNLTqOjlF"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200404221732.i3MHWJcc023373@snoqualmie.dp.intel.com> <20040423222945.GA9594@lists.us.dell.com>
-In-Reply-To: <20040423222945.GA9594@lists.us.dell.com>
-To: Matt Tolentino <metolent@snoqualmie.dp.intel.com>
-Cc: akpm@osdl.org, bjorn.helgaas@hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, matthew.e.tolentino@intel.com
+References: <200404221732.i3MHWJcc023373@snoqualmie.dp.intel.com> <20040423222945.GA9594@lists.us.dell.com> <20040424034109.GA15589@lists.us.dell.com>
+In-Reply-To: <20040424034109.GA15589@lists.us.dell.com>
+To: akpm@osdl.org, Matt Tolentino <metolent@snoqualmie.dp.intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
 
---nFreZHaLTZJo0R7j
+--h31gzZEtNLTqOjlF
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Fri, Apr 23, 2004 at 05:29:45PM -0500, Matt Domsch wrote:
+Patch below fixes three small bugs in efivars.c as posted by Matt
+Tolentino last week and included in the latest -mm.  Aside from this
+small patch, I'm quite pleased with Matt T's work, thanks!=20
 
-> Trying these against 2.6.5 + ia64 patch, with efibootmgr-0.5.2-test2.
->=20
-> Works: reading, deleting values.
-> Doesn't work:  creating and editing values
->=20
-> I note that efibootmgr prints out a warning when it can't read
-> nonexistant variables, like BootNext.  I'll remove that warning.
->=20
-> It's likely a bug in efibootmgr, as this is the first time I've tried
-> the sysfs side of things.  If you're in a position to help debug, I'd
-> appreciate it.
+* dummy() used for reading write-only sysfs files should return
+  -ENODEV to indicate failure, not 0.
+* efivar_create() should return the number of bytes written on
+  success, not zero. =20
+* efivar_delete() should return the number of bytes written on
+  success, not zero.
 
-In fact, it *was* a bug in efibootmgr.  Here's the patch to fix it...=20
-
-There's also a bug in efivars.c:efivar_delete(), this one-liner should fix =
-it.
-
---- linux-2.6.5/drivers/firmware/efivars.c      2004-04-24 06:58:08.0000000=
-00 -0400
-+++ linux-2.6.5.mld/drivers/firmware/efivars.c  2004-04-24 12:09:28.0995454=
-22 -0400
-@@ -532,7 +532,7 @@ efivar_delete(struct subsystem *sub, con
-        efivar_unregister(search_efivar);
- =20
-        /* It's dead Jim.... */
--       return status;
-+       return size;
- }
-
+Compiled, tested with efibootmgr-0.5.0-test3.  The anomolies I noted
+late Friday night are resolved by this kernel patch - efibootmgr was
+actually testing the values returned by writes.
 
 --=20
 Matt Domsch
@@ -54,55 +37,80 @@ Sr. Software Engineer, Lead Engineer
 Dell Linux Solutions linux.dell.com & www.dell.com/linux
 Linux on Dell mailing lists @ http://lists.us.dell.com
 
-diff -urNp --exclude=3D'*~' efibootmgr-0.5.0-test2.orig/src/lib/efi.c efibo=
-otmgr-0.5.0-test2/src/lib/efi.c
---- efibootmgr-0.5.0-test2.orig/src/lib/efi.c	2003-09-07 00:24:18.000000000=
- -0400
-+++ efibootmgr-0.5.0-test2/src/lib/efi.c	2004-04-24 12:15:25.375908233 -0400
-@@ -166,7 +166,7 @@ create_or_edit_variable(efi_variable_t *
- 	memcpy(&testvar, var, sizeof(*var));
- 	variable_to_name(var, name);
+--- linux-2.6.5.orig/drivers/firmware/efivars.c	2004-04-24 06:58:08.0000000=
+00 -0400
++++ linux-2.6.5/drivers/firmware/efivars.c	2004-04-27 03:48:33.037318467 -0=
+400
+@@ -1,7 +1,7 @@
+ /*
+  * EFI Variables - efivars.c
+  *
+- * Copyright (C) 2001,2003 Dell <Matt_Domsch@dell.com>
++ * Copyright (C) 2001,2003,2004 Dell <Matt_Domsch@dell.com>
+  * Copyright (C) 2004 Intel Corporation <matthew.e.tolentino@intel.com>
+  *
+  * This code takes all variables accessible from EFI runtime and
+@@ -23,6 +23,9 @@
+  *
+  * Changelog:
+  *
++ *  26 Apr 2004 - Matt Domsch <Matt_Domsch@dell.com>
++ *   minor bug fixes
++ *
+  *  21 Apr 2004 - Matt Tolentino <matthew.e.tolentino@intel.com)
+  *   converted driver to export variable information via sysfs
+  *   and moved to drivers/firmware directory
+@@ -78,7 +81,7 @@ MODULE_AUTHOR("Matt Domsch <Matt_Domsch@
+ MODULE_DESCRIPTION("sysfs interface to EFI Variables");
+ MODULE_LICENSE("GPL");
 =20
--	if (read_variable(name, &testvar))
-+	if (read_variable(name, &testvar) =3D=3D EFI_SUCCESS)
- 		return edit_variable(var);
- 	else
- 		return create_variable(var);
-diff -urNp --exclude=3D'*~' efibootmgr-0.5.0-test2.orig/src/lib/efivars_sys=
-fs.c efibootmgr-0.5.0-test2/src/lib/efivars_sysfs.c
---- efibootmgr-0.5.0-test2.orig/src/lib/efivars_sysfs.c	2003-09-07 00:21:37=
-.000000000 -0400
-+++ efibootmgr-0.5.0-test2/src/lib/efivars_sysfs.c	2004-04-24 12:35:38.2079=
-24626 -0400
-@@ -49,8 +49,6 @@ sysfs_read_variable(const char *name, ef
- 	snprintf(filename, PATH_MAX-1, "%s/%s/raw_var", SYSFS_DIR_EFI_VARS,name);
- 	fd =3D open(filename, O_RDONLY);
- 	if (fd =3D=3D -1) {
--		sprintf(buffer, "sysfs_read_variable():open(%s)", filename);
--		perror(buffer);
- 		return EFI_NOT_FOUND;
- 	}
- 	readsize =3D read(fd, var, sizeof(*var));
-@@ -74,8 +72,6 @@ sysfs_write_variable(const char *filenam
+-#define EFIVARS_VERSION "0.07 2003-Aug-29"
++#define EFIVARS_VERSION "0.07 2004-Apr-26"
 =20
- 	fd =3D open(filename, O_WRONLY);
- 	if (fd =3D=3D -1) {
--		sprintf(buffer, "sysfs_write_variable():open(%s)", filename);
--		perror(buffer);
- 		return EFI_INVALID_PARAMETER;
- 	}
- 	writesize =3D write(fd, var, sizeof(*var));
+ /*
+  * efivars_lock protects two things:
+@@ -408,7 +411,7 @@ static struct kobj_type ktype_efivar =3D {
+ static ssize_t
+ dummy(struct subsystem *sub, char *buf)
+ {
+-	return 0;
++	return -ENODEV;
+ }
+=20
+ static inline void
+@@ -472,7 +475,10 @@ efivar_create(struct subsystem *sub, con
+ 	/* Create the entry in sysfs.  Locking is not required here */
+ 	status =3D efivar_create_sysfs_entry(utf8_strsize(new_var->VariableName,
+ 			1024), new_var->VariableName, &new_var->VendorGuid);
+-	return status;
++	if (status) {
++		printk(KERN_WARNING "efivars: variable created, but sysfs entry wasn't.\=
+n");
++	}
++	return count;
+ }
+=20
+ static ssize_t
+@@ -532,7 +538,7 @@ efivar_delete(struct subsystem *sub, con
+ 	efivar_unregister(search_efivar);
+=20
+ 	/* It's dead Jim.... */
+-	return status;
++	return count;
+ }
+=20
+ static VAR_SUBSYS_ATTR(new_var, 0200, dummy, efivar_create);
 
---nFreZHaLTZJo0R7j
+--h31gzZEtNLTqOjlF
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.1 (GNU/Linux)
 
-iD8DBQFAieHVIavu95Lw/AkRAhvdAJ9zPlScvf/v2zF6MrkG8GHprynp2gCcCvbz
-TC5aF5vJaJncO7OakfWYS4k=
-=kVgz
+iD8DBQFAjVu2Iavu95Lw/AkRAk/MAJ9rRM3jXZIi+pr36KktlPEW1xKc+wCggwRJ
+gZ8AK8N/CjhyeQLaNlgwDPo=
+=NxIW
 -----END PGP SIGNATURE-----
 
---nFreZHaLTZJo0R7j--
+--h31gzZEtNLTqOjlF--
