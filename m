@@ -1,48 +1,45 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 17 Apr 2003 00:14:00 +0000
-Subject: [Linux-ia64] one-liner to improve 2.5.67 stability
-Message-Id: <marc-linux-ia64-105590723705526@msgid-missing>
+From: Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
+Date: Tue, 15 Apr 2003 10:59:42 +0000
+Subject: [Linux-ia64] [PATCH] iosapic fix
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="--Next_Part(Tue_Apr_15_19:59:42_2003_641)--"
+Message-Id: <marc-linux-ia64-105590723705504@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I'm still waiting for confirmation, but the attached patch clearly and
-greatly improved long-term stability of 2.5.67 for me.  Without the
-patch, 2.5.67 would seemingly randomly get stuck occasionally (usually
-only when working remotely, from home).  I won't claim victory just
-yet, but with this patch in, 2.5.67 has been running all day without
-any apparent problems so far.  And with Arun's x86 patch, even ia32
-binaries work fine again.  2.5 is starting to look quite good.
+----Next_Part(Tue_Apr_15_19:59:42_2003_641)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-	--david
+Hi,
 
+This patch fixes waste of interrupt vector pool by not
+allocating an interrupt vector to a GSI which has no corresponding
+IO SAPIC.
+
+Tested on NEC TX7 and BigSur.
+
+Thanks,
 ---
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Subject: fix fs->lock deadlock
-Newsgroups: linux.kernel
-Date: Wed, 16 Apr 2003 19:50:12 +0200
-Organization: linux.* mail to news gateway
+Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
 
-The patch below is needed to avoid a deadlock on fs->lock.  Without
-the patch, if __emul_lookup_dentry() returns 0, we fail to reacquire
-current->fs->lock and then go ahead to read_unlock() it anyhow.  Bad
-for your health.
+----Next_Part(Tue_Apr_15_19:59:42_2003_641)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="iosapic.c.diff"
 
-I believe the bug was introduced by this change set (about 9 weeks ago):
+--- linux/arch/ia64/kernel/iosapic.c.orig	Tue Apr 15 19:41:22 2003
++++ linux/arch/ia64/kernel/iosapic.c	Tue Apr 15 19:39:19 2003
+@@ -709,6 +709,9 @@
+ 
+ 		vector = gsi_to_vector(gsi);
+ 		if (vector < 0) {
++			if (find_iosapic(gsi) < 0)
++				continue;
++
+ 			/* allocate a vector for this interrupt line */
+ 			if (pcat_compat && (gsi < 16))
+ 				vector = isa_irq_to_vector(gsi);
 
-  http://linux.bkbits.net:8080/linux-2.5/diffs/fs/namei.c@1.63.1.2
+----Next_Part(Tue_Apr_15_19:59:42_2003_641)----
 
-	--david
-
-=== fs/namei.c 1.69 vs edited ==--- 1.69/fs/namei.c	Wed Apr  2 22:51:31 2003
-+++ edited/fs/namei.c	Wed Apr 16 10:18:40 2003
-@@ -847,6 +847,7 @@
-			read_unlock(&current->fs->lock);
-			if (__emul_lookup_dentry(name,nd))
-				return 0;
-+			read_lock(&current->fs->lock);
-		}
-		nd->mnt = mntget(current->fs->rootmnt);
-		nd->dentry = dget(current->fs->root);
