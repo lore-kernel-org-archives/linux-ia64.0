@@ -1,54 +1,31 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Tue, 04 Nov 2003 11:00:57 +0000
-Subject: Re: Page table mapped and identity segments!
-Message-Id: <marc-linux-ia64-106794372722594@msgid-missing>
+From: =?iso-8859-1?q?Shiju=20A=20Mathew?= <shiju_m@yahoo.com>
+Date: Wed, 12 Nov 2003 07:03:21 +0000
+Subject: Odd IA32 mmap calls - Is this fixed
+Message-Id: <marc-linux-ia64-106862063402317@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106794072219848@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106794072219848@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ameya Mitragotri schrieb:
+Hi,
+The mummap is failing to unmap the pages allocated by
+mmap when a ia32 application ( 4k Pagesize) is run on
+ia64 system( 16k pagesize). This happens when the
+offset  in mmap does not fall on 16k boundary. The
+problem seems to be similar to the problem " Odd IA32
+mmap calls" (Calls to mmap/munmap where the length is
+a fraction of the page size cause a memory leak,
+eventually running out of VM for the IA32 process)
+listed in the ToDo list of ia64 homepage.I am doing
+the test on sles-8 running 2.4.19 kernel. Is this
+problem fixed in the 2.6 test kernel ? If it is not
+fixed are there anyone working on it to fix the
+problem?
 
->Hello,
->I am refering to David's and Stephanes's book on the IA64 linux kernel.
-From my understanding, 
->
->1) I can see that the PAGE_OFFSET which designates the start of
->the identity mapped segment starts at 0xe000000000000000 (region 7).
->
->2) This region has the linux kernel text/data/stack segments.
->
->Now after compiling the linux-2.6.0-test5 on an itanium-2 machine,
->the System.map generated contains addresses only starting with
->0xa0000..which means all these lie in the page table mapped segments
->(region 5).
->
->Why is this happening?
->
-Kernel mapping has changed in the 2.6 kernel. The kernel is now 
-relocatable (needed for new hardware). Because of that it was decided to 
-move the kernel outside the identity mapped region. But the virtual to 
-physical mappings are nevertheless done with the old mechanism of pinned 
-large 64M pages for text and data. See head.S where these mappings are done.
+Thanks & Regards,
+Shiju
 
-Christian
-
-> 
->
->Apologies if this is too trivial to be asked.
->
->Thanks
->Ameya
->
->-
->To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->  
->
-
-
+________________________________________________________________________
+Want to chat instantly with your online friends?  Get the FREE Yahoo!
+Messenger http://mail.messenger.yahoo.co.uk
