@@ -1,75 +1,88 @@
-From: "Eric S. Raymond" <esr@thyrsus.com>
-Date: Thu, 13 Dec 2001 02:33:07 +0000
-Subject: [Linux-ia64] We're down to just 32 missing Configure.help symbols
-Message-Id: <marc-linux-ia64-105590698805689@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Fri, 07 Dec 2001 22:43:55 +0000
+Subject: [Linux-ia64] 2.4.16 and truncating a file on open()
+Message-Id: <marc-linux-ia64-105590698805652@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-We're down to just 32 missing Configure.help entries, thanks to excellent
-cooperation from the ARM developers and a siege of rooting through kernel 
-sources by yours truly.  That's a big improvement from 96 last week.
+Hi, 
 
-If you can supply a Configure.help entry for any of these
+I am struggling with a problem with open() on 2.4.16-011128. I don't 
+think that the bug is IA-64 specific but I post it here in case someone
+has seen this one before. I'll post it to lkm later.
 
-ARM port:
+--------------------------------------------------------------------------
+I am running a multithreaded program in which each of the to "slave" 
+thread opens a different file via a fopen(myfile, "w"). Because I run 
+this program several times in a row, the file is almost always in the buffer
+cache. The open will truncate the content of the file. 
 
-CPU_ARM1020_CPU_IDLE: arch/arm/mm/proc-arm1020.S
-CPU_ARM1020_D_CACHE_ON: arch/arm/config.in arch/arm/mm/proc-arm1020.S
-CPU_ARM1020_FORCE_WRITE_THROUGH: arch/arm/config.in arch/arm/mm/proc-arm1020.S
-CPU_ARM1020_I_CACHE_ON: arch/arm/config.in arch/arm/mm/proc-arm1020.S
-CPU_ARM1020_ROUND_ROBIN: arch/arm/config.in arch/arm/mm/proc-arm1020.S
-CPU_ARM920_CPU_IDLE: arch/arm/config.in arch/arm/mm/proc-arm920.S
-CPU_ARM920_D_CACHE_ON: arch/arm/config.in arch/arm/mm/proc-arm920.S
-CPU_ARM920_I_CACHE_ON: arch/arm/config.in arch/arm/mm/proc-arm920.S
-CPU_ARM920_WRITETHROUGH: arch/arm/config.in arch/arm/mm/proc-arm920.S
-CPU_ARM926_CPU_IDLE: arch/arm/config.in arch/arm/mm/proc-arm926.S
-CPU_ARM926_D_CACHE_ON: arch/arm/config.in arch/arm/mm/proc-arm926.S
-CPU_ARM926_I_CACHE_ON: arch/arm/config.in arch/arm/mm/proc-arm926.S
-CPU_ARM926_ROUND_ROBIN: arch/arm/config.in arch/arm/mm/proc-arm926.S
-CPU_ARM926_WRITETHROUGH: arch/arm/config.in arch/arm/mm/proc-arm926.S
-CPU_FREQ: drivers/video/sa1100fb.c drivers/video/sa1100fb.h drivers/pcmcia/sa1100_generic.c arch/arm/config.in arch/arm/mach-sa1100/Makefile arch/arm/mach-sa1100/generic.c arch/arm/mach-integrator/cpu.c
+Now I get a kernel panic due to a failed sanity check in __free_pages_ok() 
+because the page that the kernel tries to free is still locked. Using KDB 
+I captured the following stack trace. This is with kernel-2.4.16 release + 
+IA-64 patche (011128). I do not think that this problem is IA-64 related 
+however. 
 
-S390 port:
+I looked at the code path and sure enough, by the time the free_pages_ok() 
+routine is called, the page will always be locked due to the TryLockPage() 
+that is in truncate_list_pages(). This seems to be required to perform the 
+remove_inode_page() operation but this is treated as a failure by 
+free_pages_ok() which immedialely follows in this case.
 
-DASD_AUTO_DIAG: drivers/s390/Config.in drivers/s390/block/dasd.c
-DASD_AUTO_ECKD: drivers/s390/Config.in drivers/s390/block/dasd.c
-DASD_AUTO_FBA: drivers/s390/Config.in drivers/s390/block/dasd.c
-HWC_CPI: drivers/s390/Config.in drivers/s390/char/Makefile
-PFAULT: arch/s390/config.in arch/s390/kernel/smp.c arch/s390/kernel/traps.c arch/s390/mm/fault.c arch/s390x/config.in arch/s390x/kernel/smp.c arch/s390x/kernel/traps.c arch/s390x/mm/fault.c
-SHARED_KERNEL: arch/s390/Makefile arch/s390/config.in arch/s390/kernel/head.S arch/s390x/Makefile arch/s390x/config.in arch/s390x/kernel/head.S
+My question is: Is there a missing UnlockPage() somewhere on this code path?
+	        If not then, how did I get into this situation?
 
-CRIS port:
+Here is the stack trace obtained with KDB/ia64:
 
-ETRAX_ETHERNET_LPSLAVE: arch/cris/drivers/Config.in arch/cris/drivers/Makefile arch/cris/kernel/head.S
-ETRAX_ETHERNET_LPSLAVE_HAS_LEDS: arch/cris/drivers/Config.in arch/cris/drivers/lpslave/e100lpslave.S
-ETRAX_NETWORK_LED_ON_WHEN_ACTIVITY: arch/cris/drivers/Config.in arch/cris/drivers/ethernet.c arch/cris/drivers/lpslave/e100lpslave.S
-ETRAX_NETWORK_LED_ON_WHEN_LINK: arch/cris/drivers/Config.in arch/cris/drivers/ethernet.c arch/cris/drivers/lpslave/e100lpslave.S
-ETRAX_SHUTDOWN_BIT: include/asm-cris/io.h arch/cris/config.in
+	sys_open+0xa0
+        args (0x20000000008077c0, 0x241, 0x1b6, 0xc000000000000690, 0xc000000000000308)
 
-IA64 port:
+	filp_open+0x60
+        args (0xe000000004293000, 0x8241, 0x1b6, 0xe00000000453cfe0, 0x813)
 
-IA64_SGI_AUTOTEST: arch/ia64/config.in arch/ia64/sn/sn1/Makefile arch/ia64/sn/sn1/llsc4.c arch/ia64/sn/sn1/sn1_asm.S
-SERIAL_SGI_L1_PROTOCOL: arch/ia64/config.in arch/ia64/sn/sn1/setup.c arch/ia64/sn/io/eeprom.c arch/ia64/sn/io/hubspc.c arch/ia64/sn/io/l1.c
+	open_namei+0xb90
+        args (0xe00000003dfbc248, 0x8242, 0x1b6, 0xe00000003e88fe40, 0x0)
 
-Miscellaneous:
+	do_truncate+0x90
+        args (0xe00000003c5d89c0, 0x0, 0xe00000003b6ae578, 0xe00000000455c470, 0x711)
 
-ITE_I2C_ADAP: drivers/i2c/Config.in drivers/i2c/Makefile
-ITE_I2C_ALGO: drivers/i2c/Config.in drivers/i2c/Makefile
-MTD_ARM_INTEGRATOR: drivers/mtd/maps/Config.in drivers/mtd/maps/Makefile
-VLAN_8021Q: include/linux/autoconf.h net/Makefile net/netsyms.c net/Config.in net/ipv4/af_inet.c
+	notify_change+0x2a0
+        args (0xe00000003c5d89c0, 0xe00000003e88fdf0, 0x0, 0xe00000003b6ae4c0, 0x48)
+
+	inode_setattr+0x50
+        args (0xe00000003b6ae4c0, 0xe00000003e88fdf0, 0x48, 0x0, 0xe0000000045774e0)
+
+	vmtruncate+0x160
+        args (0xe00000003b6ae4c0, 0x0, 0xe00000003b6ae648, 0xe00000003b6ae650, 0xe00000003b6ae5f8)
+
+	truncate_inode_pages+0xc0
+        args (0xe00000003b6ae5f8, 0x0, 0xe0000000044971e0, 0x0, 0xe00000003b6ae618)
+
+	truncate_list_pages+0x2e0
+        args (0xe00000003b6ae5f8, 0x0, 0xe00000003e88fde0, 0xe00000000085ca00, 0x0)
+
+	truncate_complete_page+0x110
+       args (0xe00000000085ca00, 0xe000000004518f40, 0x60f)
+
+	page_cache_release+0x80
+        args (0xe00000000085ca00, 0xe000000004518c30, 0x185)
+
+	__free_pages_ok+0x1e0
+        args (0xe00000000085ca00, 0x0, 0xe00000000085ca30, 0xe00000000085ca30, 0x0)
+
+Failed in __free_pages_ok() (mm/page_alloc.c): if (PageLocked(page)) BUG()
+
+	ia64_leave_kernel
+        args (0xe00000003e88fc30, 0x80200000000, 0xe00000003e88fc40)
+
+	ia64_do_page_fault+0x810
+        args (0xe00000003e88fc30, 0x80200000000, 0xe00000003e88fc40, 0x0, 0xe00000003d6bcc00)
+
+	die+0x220
+        args (0xe0000000049ddab8, 0xe00000003e88fc40, 0x80200000000, 0xe0000000044c59f0, 0x58f)
 -- 
-		<a href="http://www.tuxedo.org/~esr/">Eric S. Raymond</a>
-
-It will be of little avail to the people, that the laws are made by
-men of their own choice, if the laws be so voluminous that they cannot
-be read, or so incoherent that they cannot be understood; if they be
-repealed or revised before they are promulgated, or undergo such
-incessant changes that no man, who knows what the law is to-day, can
-guess what it will be to-morrow. Law is defined to be a rule of
-action; but how can that be a rule, which is little known, and less
-fixed?
-	-- James Madison, Federalist Papers 62
+-Stephane
 
