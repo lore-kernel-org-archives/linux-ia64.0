@@ -1,116 +1,152 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Thu, 29 Jan 2004 18:18:07 +0000
-Subject: [PATCH] Extended PCI config space
-Message-Id: <20040129181807.GF18725@parcelfarce.linux.theplanet.co.uk>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 20 Jan 2004 21:22:39 +0000
+Subject: 2.4.x arch/ia64 update
+Message-Id: <200401201422.39522.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi Marcelo,
 
-SAL 3.2 defines a mechanism for accessing extended PCI configuration
-space (registers 256 to 4095).  Those with bigger boxes may be interested
-to know that it also allows up to 65536 independent PCI domains.
+Please do a
 
-This patch would be one way to take advantage of the new SAL call.
-It tries to use the old format SAL calls if it can, and if not it will
-use the new format.  I can imagine people might prefer to examine the
-EFI SAL version and have a boot-time switch from one to the other.
-I've only compile-tested it since I think it's plausible people might
-disagree with me on this.  Plus, I don't have a SAL 3.2 box just yet.
+	bk pull http://lia64.bkbits.net/to-marcelo-2.4
 
-diff -urpNX build-tools/dontdiff linus-2.6/arch/ia64/pci/pci.c pciexp-2.6/arch/ia64/pci/pci.c
---- linus-2.6/arch/ia64/pci/pci.c	2004-01-27 21:05:17.000000000 -0500
-+++ pciexp-2.6/arch/ia64/pci/pci.c	2004-01-29 12:37:27.000000000 -0500
-@@ -53,10 +53,13 @@ struct pci_fixup pcibios_fixups[1];
-  * synchronization mechanism here.
-  */
- 
--#define PCI_SAL_ADDRESS(seg, bus, devfn, reg) \
-+#define PCI_SAL_ADDRESS_0(seg, bus, devfn, reg) \
- 	((u64)(seg << 24) | (u64)(bus << 16) | \
- 	 (u64)(devfn << 8) | (u64)(reg))
- 
-+#define PCI_SAL_ADDRESS_1(seg, bus, devfn, reg) \
-+	((u64)(seg << 28) | (u64)(bus << 20) | \
-+	 (u64)(devfn << 12) | (u64)(reg))
- 
- static int
- pci_sal_read (int seg, int bus, int devfn, int reg, int len, u32 *value)
-@@ -64,10 +67,14 @@ pci_sal_read (int seg, int bus, int devf
- 	int result = 0;
- 	u64 data = 0;
- 
--	if (!value || (seg > 255) || (bus > 255) || (devfn > 255) || (reg > 255))
-+	if (!value || (seg > 65535) || (bus > 255) || (devfn > 255) || (reg > 4095))
- 		return -EINVAL;
- 
--	result = ia64_sal_pci_config_read(PCI_SAL_ADDRESS(seg, bus, devfn, reg), len, &data);
-+	if ((seg < 256) && (reg < 256)) {
-+		result = ia64_sal_pci_config_read(PCI_SAL_ADDRESS_0(seg, bus, devfn, reg), len, &data, 0);
-+	} else {
-+		result = ia64_sal_pci_config_read(PCI_SAL_ADDRESS_1(seg, bus, devfn, reg), len, &data, 1);
-+	}
- 
- 	*value = (u32) data;
- 
-@@ -77,13 +84,17 @@ pci_sal_read (int seg, int bus, int devf
- static int
- pci_sal_write (int seg, int bus, int devfn, int reg, int len, u32 value)
- {
--	if ((seg > 255) || (bus > 255) || (devfn > 255) || (reg > 255))
-+	if ((seg > 65535) || (bus > 255) || (devfn > 255) || (reg > 4095))
- 		return -EINVAL;
- 
--	return ia64_sal_pci_config_write(PCI_SAL_ADDRESS(seg, bus, devfn, reg), len, value);
-+	if ((seg < 256) && (reg < 256)) {
-+		return ia64_sal_pci_config_write(PCI_SAL_ADDRESS_0(seg, bus, devfn, reg), len, value, 0);
-+	} else {
-+		return ia64_sal_pci_config_write(PCI_SAL_ADDRESS_1(seg, bus, devfn, reg), len, value, 1);
-+	}
- }
- 
--struct pci_raw_ops pci_sal_ops = {
-+static struct pci_raw_ops pci_sal_ops = {
- 	.read = 	pci_sal_read,
- 	.write =	pci_sal_write
- };
-diff -urpNX build-tools/dontdiff linus-2.6/include/asm-ia64/sal.h pciexp-2.6/include/asm-ia64/sal.h
---- linus-2.6/include/asm-ia64/sal.h	2004-01-07 18:02:59.000000000 -0500
-+++ pciexp-2.6/include/asm-ia64/sal.h	2004-01-29 12:24:48.000000000 -0500
-@@ -741,10 +741,10 @@ ia64_sal_mc_set_params (u64 param_type, 
- 
- /* Read from PCI configuration space */
- static inline s64
--ia64_sal_pci_config_read (u64 pci_config_addr, u64 size, u64 *value)
-+ia64_sal_pci_config_read (u64 pci_config_addr, u64 size, u64 *value, int type)
- {
- 	struct ia64_sal_retval isrv;
--	SAL_CALL(isrv, SAL_PCI_CONFIG_READ, pci_config_addr, size, 0, 0, 0, 0, 0);
-+	SAL_CALL(isrv, SAL_PCI_CONFIG_READ, pci_config_addr, size, type, 0, 0, 0, 0);
- 	if (value)
- 		*value = isrv.v0;
- 	return isrv.status;
-@@ -752,11 +752,11 @@ ia64_sal_pci_config_read (u64 pci_config
- 
- /* Write to PCI configuration space */
- static inline s64
--ia64_sal_pci_config_write (u64 pci_config_addr, u64 size, u64 value)
-+ia64_sal_pci_config_write (u64 pci_config_addr, u64 size, u64 value, int type)
- {
- 	struct ia64_sal_retval isrv;
- 	SAL_CALL(isrv, SAL_PCI_CONFIG_WRITE, pci_config_addr, size, value,
--	         0, 0, 0, 0);
-+	         type, 0, 0, 0);
- 	return isrv.status;
- }
- 
+This will update the following files:
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+ arch/ia64/config.in             |   30 +-
+ arch/ia64/hp/common/sba_iommu.c |  544 ++++++++++++++++------------------------
+ arch/ia64/ia32/sys_ia32.c       |    2 
+ arch/ia64/kernel/acpi.c         |   18 +
+ arch/ia64/kernel/efi.c          |   12 
+ arch/ia64/kernel/ia64_ksyms.c   |    4 
+ arch/ia64/kernel/ivt.S          |   24 +
+ arch/ia64/kernel/mca.c          |  111 ++++----
+ arch/ia64/kernel/mca_asm.S      |  342 ++++++++++++++++---------
+ arch/ia64/kernel/pci.c          |   10 
+ arch/ia64/kernel/perfmon.c      |    2 
+ arch/ia64/kernel/salinfo.c      |    9 
+ arch/ia64/kernel/setup.c        |    3 
+ arch/ia64/kernel/sys_ia64.c     |    5 
+ arch/ia64/mm/Makefile           |    1 
+ arch/ia64/mm/hugetlbpage.c      |  513 +++++++++++++++++++++++++++++++++++++
+ arch/ia64/mm/init.c             |   24 +
+ arch/ia64/tools/print_offsets.c |    2 
+ include/asm-ia64/mca.h          |   14 -
+ include/asm-ia64/mmu_context.h  |    9 
+ include/asm-ia64/page.h         |   35 ++
+ include/asm-ia64/pgtable.h      |    6 
+ include/asm-ia64/processor.h    |    1 
+ include/asm-ia64/tlb.h          |    2 
+ include/asm-ia64/xor.h          |   10 
+ 25 files changed, 1213 insertions(+), 520 deletions(-)
+
+through these ChangeSets:
+
+<bjorn.helgaas@hp.com> (04/01/20 1.1283)
+   ia64: Add acpi_register_irq() interface.
+   
+   (This is only the ia64-specific part of this patch)
+
+<willy@fc.hp.com> (04/01/20 1.1282)
+   ia64: Add generic RAID xor routines with prefetch.
+   
+   (This includes only the ia64-specific parts of this patch)
+
+<mort@wildopensource.com> (04/01/20 1.1281)
+   ia64: Move mmu_gathers[] to local_cpu_data on ia64 (only ia64-specific bits)
+   
+   This is a patch that moves mmu_gathers into local_cpu_data on IA64 NUMA.
+   I'm not exactly sure where to push this patch, because it does touch
+   include/asm-generic/tlb.h although it has no effect on non ia64 arches.
+   
+   The main reason for making this change is that the mmu_gathers array
+   gets very large as the number of processors increases.
+
+<rohit.seth@intel.com> (04/01/20 1.1280)
+   ia64: hugetlb support (ia64-specific parts)
+
+<bjorn.helgaas@hp.com> (04/01/15 1.1267.35.21)
+   ia64: Export acpi_hp_csr_space() for modular agpgart.
+
+<bjorn.helgaas@hp.com> (04/01/15 1.1267.35.20)
+   ia64: sba_iommu: print note about reserving IOVA space for agpgart.
+
+<alex.williamson@hp.com> (04/01/15 1.1267.35.19)
+   ia64: sba_iommu: use memparse, long double
+
+<alex.williamson@hp.com> (04/01/14 1.1267.35.18)
+   [PATCH] ia64: sba_iommu update
+   
+   This patch does a couple things:
+         * Allows iommu page size different than PAGE_SIZE.  This was
+           largely done by Bjorn.  The motivation for this is that sx1000
+           hardware officially only supports use of the iommu with a 4k
+           page size.  Thus the default is now 4k for sx1000 and PAGE_SIZE
+           for zx1.
+         * Cleanup the runtime statistics gathering such that we can turn
+           it on for some info w/o impacting runtime performance.
+
+<bjorn.helgaas@hp.com> (04/01/14 1.1267.35.17)
+   ia64: Skip zero-length resources in PCI root bridge _CRS
+
+<bjorn.helgaas@hp.com> (04/01/14 1.1267.35.16)
+   ia64: Fix broken merge (remove mmu_gathers[] defn)
+
+<bjorn.helgaas@hp.com> (04/01/14 1.1267.35.15)
+   ia64: Fix system type selection to workaround menuconfig bug (select "HP",
+   	get "HP-simulator").
+
+<arun.sharma@intel.com> (04/01/14 1.1267.35.14)
+   [PATCH] ia64: ia32 sigaltstack() fix
+   
+   The attached patch fixes a bug introduced by the earlier patch to
+   handle the differences between ia32 and ia64 in the definition of
+   MINSIGSTKSZ.
+
+<steiner@sgi.com> (04/01/14 1.1267.35.13)
+   [PATCH] ia64: fix ia64_ctx.lock deadlock
+   
+   I hit a deadlock involving the ia64_ctx.lock. The lock
+   may be taken in interrupt context to process an IPI from smp_flush_tlb_mm.
+
+<kaos@sgi.com> (04/01/14 1.1267.35.12)
+   [PATCH] ia64: Avoid double clear of CMC/CPE records
+   
+   Credit to Ben Woodard <ben@zork.net>.
+
+<tony.luck@intel.com> (04/01/14 1.1267.35.11)
+   [PATCH] ia64: enable recovery from TLB errors
+   
+   Here's the updated version of the MCA TLB recovery patch.
+
+<kaos@sgi.com> (04/01/14 1.1267.35.10)
+   [PATCH] ia64: fix deadlock in ia64_mca_cmc_int_caller()
+   
+   smp_call_function() must not be called from interrupt context (can
+   deadlock on tasklist_lock).  Use keventd to call smp_call_function().
+
+<bjorn.helgaas@hp.com> (04/01/14 1.1267.35.9)
+   ia64: work around a menuconfig bug.
+   
+   Re-order "HP" and "HP-simulator" to workaround menuconfig bug.  If "HP-simulator"
+   appears first, menuconfig selects it when the user selects "HP".
+
+<bjorn_helgaas@hp.com> (04/01/14 1.1267.35.8)
+   ia64 HP iommu: add "sx1000" detection (no functional change).
+
+<eranian@hpl.hp.com> (04/01/14 1.1267.35.7)
+   ia64: Fix PFM_WRITE_PMCS failure in system-wide mode when PMC12 is zero
+   
+           - fixes a typo in pfm_write_pmcs() by which we were not using the
+             correct index variable to check for the default value of a PMC.
+             This caused calls to PFM_WRITE_PMCS to fail in system wide mode
+             when PMC12 is programmed to be zero.
+
+
+Thanks!
+
+Bjorn
+
