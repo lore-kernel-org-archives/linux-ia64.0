@@ -1,89 +1,28 @@
-From: Vaibhav Sharma <vaibhav.sh@gmail.com>
-Date: Sun, 20 Feb 2005 11:30:50 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Sun, 20 Feb 2005 15:57:43 +0000
 Subject: Re: IA64 memory
-Message-Id: <851caabb05022003185f647a06@mail.gmail.com>
+Message-Id: <20050220155743.GA32640@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <851caabb05020220513945437@mail.gmail.com>
 In-Reply-To: <851caabb05020220513945437@mail.gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-hi, 
-Thanks for all the help..
+On Sun, Feb 20, 2005 at 04:48:50PM +0530, Vaibhav Sharma wrote:
+> The memory map from efi is also defined for locations more than that
+> which is available (I had 6GB of RAM on the machine, but the memory
+> map covered addresses more than 6GB). I could not understand why it
+> does so...
 
-I am actually very new to EFI. 
+The memory in the machine isn't necessarily contiguous.  For example, an
+hp zx1 machine would map 6GB of memory at 0-1GB then 257-260GB, then 4-6GB
 
-I had studied the EFI provided memory map...(Efiloader data,
-Eficonventional memory etc)..
-But I had one doubt...
-The memory map from efi is also defined for locations more than that
-which is available (I had 6GB of RAM on the machine, but the memory
-map covered addresses more than 6GB). I could not understand why it
-does so...
-These addresses contained efi memory types as in the "actual"
-available memory (< 6GB) like "efiConventionaMemory"and type
-"MemoryIOPortSpace" in the end.
-
-It would be great if I could get some documentation on how this memory
-map is created and why the memory map is supplied to the kernel for
-address ranges more than that existing in physical memory. Also the
-kernel will be using the "WB" type of memory only, and in the dump of
-efi memory map, i found that the these zones had "WB" type. Are these
-zones also used by the kernel and if not, for what purpose these zones
-are.
-TIA
----
-vaibhav
-On Sun, 6 Feb 2005 11:39:02 +0530, Vaibhav Sharma <vaibhav.sh@gmail.com> wrote:
-> hi,
-> 
-> Thanks for the reply again.
-> 
-> Actually, my task requires me to modify the available physical memory.
-> I was trying to locate the place where the kernel stores the amount of
-> memory. Is this value stored in ia64_boot_param structure..?..If I am
-> wrong, please so tell, and whether that there is some other place
-> where this value is stored?
-> 
-> I have not tried the elilo sources to locate the structure.
-> I tried to locate the structure in the kernel sources, but i couldn't
-> find the place where this structure is initialized, or where the
-> particular elements of the data structure are asigned values. As you
-> told, the  boot param structure is set up by elilo. I wanted to know
-> that when the EFI comes into play..
-> Is it that elilo reads the values from EFI?
-> Also, i wanted to ask that whether EFI is stored in memory, so that it
-> is accessible to the kernel sources?
-> 
-> Please do reply...
-> ---
-> Vaibhav
-> 
-> On Thu, 3 Feb 2005 18:31:36 -0800, David Mosberger
-> <davidm@napali.hpl.hp.com> wrote:
-> > >>>>> On Thu, 3 Feb 2005 12:33:40 +0530, Vaibhav Sharma <vaibhav.sh@gmail.com> said:
-> >
-> >  Vaibhav> Hi, Thanks a lot for a quick response, I appreciate.  If
-> >  Vaibhav> you could only help me out a little more $,1s&(B.
-> >
-> >  Vaibhav> See, I need to change some of the boot parameters as
-> >  Vaibhav> read/seen by the kernel. Once these parameters have been
-> >  Vaibhav> setup by elilo, the Kernel must read it from these
-> >  Vaibhav> predefined areas in memory, into some of its variables. I
-> >  Vaibhav> need to understand where this reading part happens in the
-> >  Vaibhav> kernel. This is where I want to modify the resources, for
-> >  Vaibhav> future use by the kernel !! I don't want to touch the elilo
-> >  Vaibhav> source, only the kernel.
-> >
-> > Why not grep the sources for ia64_boot_param?
-> >
-> >        --david
-> >
-> > -
-> > To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> > the body of a message to majordomo@vger.kernel.org
-> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> 
-> --
-> Vaibhav Sharma.
->
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
