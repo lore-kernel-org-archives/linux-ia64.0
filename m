@@ -1,29 +1,41 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Fri, 19 Mar 2004 01:33:46 +0000
-Subject: Re: [PATCH] ia64/Kconfig
-Message-Id: <20040319013346.GL25059@parcelfarce.linux.theplanet.co.uk>
+From: "Raj Pati" <rpatil0299@hotmail.com>
+Date: Mon, 22 Mar 2004 03:00:35 +0000
+Subject: Question about ia64 linux
+Message-Id: <BAY14-F301ImxoKYUVs0007e432@hotmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403151717.39545.bjorn.helgaas@hp.com>
-In-Reply-To: <200403151717.39545.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Thu, Mar 18, 2004 at 05:15:16PM -0800, Jesse Barnes wrote:
-> Yeah baby!  In fact, I'm writing this mail on a Bug^WBig Sur box right
-> now.  :)  A dual 733 MHz Merced isn't half bad as a desktop, though
-> it's a bit loud.
 
-Indeed, the Merced came with either 2MB or 4MB caches ... implying that
-on some carefully chosen workloads it just might outperform a McKinley ;-)
+Hello,
 
-I really doubt it though.
+A question wrt to ia64 linux environment:
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Is it possible to modify a running code (in a module or kernel)
+in ia64 linux? (It is not a good practise to do it.
+But, I need to check  this out as it was done in ia32.....)
+
+Probably, it is possible. I just wanted to see whether
+there are any issues one should be aware of other than
+serialization/flushing. There are couple of pages of
+documentation regarding self-modifying code in one of
+the ia64 software developers manual. I am curious
+whether there are any other notes/writeups or sample
+code where similar kind of things are done in ia64
+linux.  I really appreciate if some one can direct me
+to such doc or code (if they exist) which can give
+some
+more ia64  specific information.
+
+Thank you very much in advance.
+
+Regards,
+
+Raj
+
+_________________________________________________________________
+FREE pop-up blocking with the new MSN Toolbar =96 get it now!=20
+http://clk.atdmt.com/AVE/go/onm00200415ave/direct/01/
+
