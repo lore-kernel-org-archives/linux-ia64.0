@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Wed, 19 Nov 2003 20:20:20 +0000
-Subject: Re: [PATCH] remove unimplemented syscalls noise
-Message-Id: <marc-linux-ia64-106927324202872@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 19 Nov 2003 20:20:42 +0000
+Subject: RE: [PATCH] remove unimplemented syscalls noise
+Message-Id: <marc-linux-ia64-106927330102939@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106926030617023@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106926030617023@msgid-missing>
@@ -10,44 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Nov 19, 2003 at 12:11:03PM -0800, David Mosberger wrote:
-> >>>>> On Wed, 19 Nov 2003 19:54:02 +0000, Matthew Wilcox <willy@debian.org> said:
-> 
->   Matthew> This is the same thing as printing the user unaligned
->   Matthew> exceptions.  It's something no other architecture does, and
->   Matthew> for a reason, which has been explained to you before, but
->   Matthew> you don't want to fix it.
-> 
-> And yet both features are incredibly useful when debugging, something
-> you seem to ignore.
+>>>>> On Wed, 19 Nov 2003 12:15:23 -0800, "Seth, Rohit" <rohit.seth@intel.com> said:
 
-No, it *isn't*.  The majority of systems in use are not being debugged
-(regardless of how you & I spend most of our time).  Having these
-messages constantly stream past in dmesg (which no other architecture
-does) serves only to potentially mask other, useful pieces of information
-and confuse the customer.
+  Rohit> Well, in the case of unaligned faults, there is no other way
+  Rohit> for an application to know that there were unaligned faults.
+  Rohit> Whereas for unsupported system calls, the kernel will return
+  Rohit> ENOSYS and thus the application gets the required
+  Rohit> notification (so that it can take any action it wants).  It
+  Rohit> does not need to depend on dmesg stuff to find that
+  Rohit> information out.
 
-Every time we emit something to the system log, it's a potential support
-call.  Our friends in other parts of HP are already unhappy with how much
-output Linux produces even when everything's OK.  It's also a sysadmin
-hassle as logfiles fill up more quickly when this kind of junk goes by.
+True in principle, but in practice, you can't always run strace to
+find out what's going on, either because the problem starts in early
+boot or because the problem is triggered indirectly through daemons
+etc.
 
-I'm sure this was useful for debugging once, but those days are gone.
-We need to print less of this stuff.  Something a lot of places do is:
+  Rohit> So, it does make sense to remove this printk (even though it
+  Rohit> is _debug_) in this path.
 
-#undef DEBUG
+I really much favor for distro's to make dmesg -n4 the default.  There
+is no reason to bother average users with KERN_{NOTICE,INFO,DEBUG}
+stuff unless they ask for it.
 
-#ifdef DEBUG
-#define DBG(x...) printk(x)
-#else
-#define DBG(x...)
-#endif
-
-Would it mollify you if these printks were turned into DBGs?
-
-Or perhaps better, we could use pr_debug() from <linux/kernel.h>.
-
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+	--david
