@@ -1,70 +1,78 @@
-From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
-Date: Thu, 24 Jul 2003 13:53:27 +0000
-Subject: RE: a nice way to reboot :-)
-Message-Id: <marc-linux-ia64-105905505204446@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Thu, 31 Jul 2003 19:02:05 +0000
+Subject: efibootmgr 0.4.2-test1
+Message-Id: <marc-linux-ia64-105967815211635@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105887789030732@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105887789030732@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I think we've beaten this to death: yes, it is an annoying bug, and
-deserves to be fixed.
+Announcing efibootmgr 0.4.2-test1.  If you have systems you can test
+this on, please do so.  It appears to work fine on my BigSur.
 
-Just to clarify: I think you want to use tar with --exclude=3D/proc or -l;
-tar doesn't have an -xdev option (that is for find, used with cpio).
-I've also used --exclude-from=3D/nodump where /nodump lists the
-directories to skip: /tmp, /proc, /dev, etc.  I actually started
-doing that because my IA64 Linux system rebooted when using tar to
-backup (several filesystems at once) to tape :-(
-Also note that those are GNU tar extension, and are not available
-on SysV (but then, I've never seen a SVR4 machine reboot reading /proc).
-
-Andreas, I don't think your analogy is even close: tar is documented
-create an archive; shutdown is documented to reboot the system:
-what Bruno was saying is that running tar (even on /proc) is no more
-expected to reboot the system than doing an "ls" on /proc.
-The UnitedLinux man page for tar makes no indication that root can
-reboot the system with it...  Even worse, this behavior does not
-occur on other Linux/BSD systems, so people don't have a "reasonable
-expectation" for it to kill the system, especially when "properly"
-invoked.  (Now, trying to extract an old /proc from a tarfile is
-different -- I'll believe that attempting to replace /proc could
-reasonably be expected to cause problems, but not reading /proc).
-
-Kevin
-
------Original Message-----
-From: Andreas Schwab [mailto:schwab@suse.de]
-Sent: Thursday, July 24, 2003 6:52 AM
-To: Bruno Cornec
-Cc: Matthew Wilcox; ia64-list; giovanni_pala@hp.com
-Subject: Re: a nice way to reboot :-)
+* Thu Jul 31 2003 Matt Domsch <Matt_Domsch@dell.com>
+- Applied patch from Dann Frazier to enable creating netboot entries.
+- update AUTHORS with Dann's netboot contribution.
+- Until we can get the ACPI HID and UID programatically, make the user
+  pass them in when creating a netboot entry.
+- Add O_DIRECT support for reading the disk.
+- Fix unparse_hardware_path() for the PCI case - the device and function
+  values were printed in reverse order.
+- Fix the README file to reflect all the options that can be passed, and
+  add a new item for netboot entries.
+- whitespace cleanups
 
 
-Bruno Cornec <Bruno.Cornec@hp.com> writes:
+If there are no problems with this, I'd like to also fix up the
+unaligned access messages that the kernel prints when this creates new
+boot entries, but I wanted to clear the plate of this stuff first.
 
-|> I just wonder if this could be used as a DOS from outside the system. In
-|> which case, it would be a Bad Thing (tm :-)
-|>=20
-|> > root can crash
-|> > the system any way they want. =20
-|>=20
-|> Yes, that's true. But it just more surprising when you think you just
-|> pass a normal command ;-)
+The netboot entries are kind of interesting.  Dann added the -i
+<interface> option, but we don't know a programatic way to get ahold of
+the ACPI HID and UID information for the device path, so we make the
+user pass it in.  That can be removed if we find an automated method for
+determining it.  The README gives examples of what to use: 
 
-If you are already root then shutdown -h is just as effective.
+6) A system administrator wants to create a boot option to network
+   boot (PXE).  Unfortunately, this requires knowing a little more
+   information about your system than can be easily found by
+   efibootmgr, so you've got to pass additional information - the ACPI
+   HID and UID values.  These can generally be found by using the EFI
+   Boot Manager (in the EFI environment) to create a network boot
+   entry, then using efibootmgr to print it verbosely.  Here's one example:
+ 
 
-Andreas.
+     Boot003* Acpi(PNP0A03,0)/PCI(5|0)/Mac(00D0B7F9F510) \
+        ACPI(a0341d0,0)PCI(0,5)MAC(00d0b7f9f510,0)
+ 
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
--
-To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+   In this case, the ACPI HID is "0A0341d0" and the UID is "0".
+   For the zx2000 gigE, the HID is "222F" and the UID is "500".
+   For the rx2000 gigE, the HID is "0002" and the UID is "100".
+   You create the boot entry with:
+   'efibootmgr -c -i eth0 -H 222F -U 500 -L netboot'
+
+
+For kernels that support O_DIRECT (2.5.x), this should allow us to read
+the last sector of an odd-sized disk.  If you can test this, please
+report success or failure.
+
+
+
+Tarballs at:
+http://domsch.com/linux/ia64/efibootmgr/efibootmgr-0.4.2-test1.tar.gz
+http://domsch.com/linux/ia64/efibootmgr/efibootmgr-0.4.2-test1.tar.gz.asc
+
+
+Feedback welcome!
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+
