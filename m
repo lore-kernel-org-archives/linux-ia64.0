@@ -1,66 +1,141 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 09 Feb 2004 18:02:57 +0000
-Subject: RE: mca.c: Incorrect recovery from TLB errors?
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F4FB16C@scsmsx401.sc.intel.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 19 Feb 2004 06:05:26 +0000
+Subject: [patch] 2.4.25 Print SN oemdata through the prom
+Message-Id: <8309.1077170726@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <2848.1076291608@kao2.melbourne.sgi.com>
-In-Reply-To: <2848.1076291608@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> In both 2.4 and 2.6 kernels, arch/ia64/kernel/mca.c
-> ia64_return_to_sal_check() has
-> 
-> 	if (psp->cc = 1 && psp->bc = 1 && psp->rc = 1 && 
-> psp->uc = 1)
-> 		ia64_os_to_sal_handoff_state.imots_os_status = 
-> IA64_MCA_COLD_BOOT;
-> 	else
-> 		ia64_os_to_sal_handoff_state.imots_os_status = 
-> IA64_MCA_CORRECTED;
-> 
-> Why does it test for all the cc/bc/rc/uc bits being set?  Surely that
-> should be or, not and?  The real test for recovery is
-> 
-> 	psp->tc && !(psp->cc || psp->bc || psp->rc || psp->uc)
+salinfo_decode can call into the kernel to decode oem data, via the
+optional and platform specific program called salinfo_decode_oem.  SGI
+SN platforms decode oemdata by calling from kernel into the prom.
 
-Oops!  My code is totally bogus ... yours looks a whole lot better.
-
-> The existing code is also inconsistent with the test in 
-> mca_asm.S, that
-> only tests for psp->tc being 1 and ignores the other bits.
-
-I don't think that is inconsistent ... just incomplete.  The
-"tc" error is going to be the only one that is recovered in
-mca_asm.S ... we have to do it there because we can't go into
-virtual mode until we know that the ITR/DTR are correct.  Some
-day there will be other MCA recoveries, but they should happen
-in C code called from mca.c
+--- 2.4.25-ia64-040218/arch/ia64/sn/kernel/mca.c	Thu Feb 19 08:50:02 2004
++++ 2.4.25-ia64-040218/arch/ia64/sn/kernel/mca.c	Sat Nov  8 14:24:51 2003
+@@ -36,6 +36,8 @@
+ #include <linux/types.h>
+ #include <linux/kernel.h>
+ #include <linux/timer.h>
++#include <linux/vmalloc.h>
++#include <asm/machvec.h>
+ #include <asm/mca.h>
+ #include <asm/sal.h>
+ #include <asm/sn/sn_sal.h>
+@@ -53,6 +55,42 @@
+ struct timer_list sn_cpei_timer;
+ void sn_init_cpei_timer(void);
  
-> Tony: it makes life easier for kdb if the "am I going to recover" test
-> is promoted from ia64_return_to_sal_check() to ia64_mca_ucmc_handler()
-> and passed down to ia64_return_to_sal_check().  Otherwise kdb has to
-> duplicate the code in ia64_return_to_sal_check() to decide if the MCA
-> is recoverable or not, normally you do not want kdb to handle a
-> recovered error.  Any objections to this?
-> 
-> void
-> ia64_mca_ucmc_handler(void)
-> {
-> 	pal_processor_state_info_t *psp = (pal_processor_state_info_t *)
-> 		&ia64_sal_to_os_handoff_state.proc_state_param;
-> 	int recover = psp->tc && !(psp->cc || psp->bc || 
-> psp->rc || psp->uc);
-> 	...
-> 	ia64_return_to_sal_check(psp, recover)
-> }
++/* Printing oemdata from mca uses data that is not passed through SAL, it is
++ * global.  Only one user at a time.
++ */
++static DECLARE_MUTEX(sn_oemdata_mutex);
++static prfunc_t sn_oemdata_prfunc;
++static u8 **sn_oemdata;
++static u64 *sn_oemdata_size, sn_oemdata_bufsize;
++
++/* Called as the "printk" routine via sn_platform_plat_specific_err_print,
++ * ia64_sn_plat_specific_err_print through SAL to print_hook.  It only handles
++ * a print of '"%s", buf'.  buf is appended to sn_oemdata, resizing as required.
++ */
++static int
++sn_oemdata_print(const char *fmt, ...)
++{
++	va_list args;
++	char *buf;
++	int len;
++	va_start(args, fmt);
++	buf = va_arg(args, char *);
++	va_end(args);
++	len = strlen(buf);
++	while (*sn_oemdata_size + len + 1 > sn_oemdata_bufsize) {
++		u8 *newbuf = vmalloc(sn_oemdata_bufsize += 1000);
++		if (!newbuf) {
++			printk(KERN_ERR "%s: unable to extend sn_oemdata\n", __FUNCTION__);
++			return 0;
++		}
++		memcpy(newbuf, *sn_oemdata, *sn_oemdata_size);
++		vfree(*sn_oemdata);
++		*sn_oemdata = newbuf;
++	}
++	memcpy(*sn_oemdata + *sn_oemdata_size, buf, len + 1);
++	*sn_oemdata_size += len;
++	return len;
++}
+ 
+ /*
+  * print_hook
+@@ -86,11 +124,28 @@ print_hook(const char *fmt, ...)
+ 	newline = (p != 0);
+ 
+ 	va_end(args);
+-	printk("%s", buf);
++	sn_oemdata_prfunc("%s", buf);	/* args must be '%s", buf' */
+ 	return len;
+ }
+ 
+ 
++
++/*
++ * ia64_sn2_platform_plat_specific_err_print
++ *
++ * Called by the MCA handler to log platform-specific errors.
++ */
++void
++ia64_sn2_platform_plat_specific_err_print(int header_len, int sect_len, u8 *p_data, prfunc_t prfunc)
++{
++	down(&sn_oemdata_mutex);
++	sn_oemdata_prfunc = prfunc;
++	ia64_sn_plat_specific_err_print(print_hook, p_data - sect_len);
++	up(&sn_oemdata_mutex);
++}
++
++
++
+ static void
+ sn_cpei_handler(int irq, void *devid, struct pt_regs *regs)
+ {
+@@ -118,3 +173,41 @@ sn_init_cpei_timer() {
+         sn_cpei_timer.function = sn_cpei_timer_handler;
+         add_timer(&sn_cpei_timer);
+ }
++
++static int
++sn_platform_plat_specific_err_print(const u8 *sect_header, u8 **oemdata, u64 *oemdata_size)
++{
++	sal_log_plat_specific_err_info_t *psei = (sal_log_plat_specific_err_info_t *)sect_header;
++	if (!psei->valid.oem_data)
++		return 0;
++	down(&sn_oemdata_mutex);
++	sn_oemdata = oemdata;
++	sn_oemdata_size = oemdata_size;
++	sn_oemdata_prfunc = &sn_oemdata_print;
++	ia64_sn_plat_specific_err_print(print_hook, (char *)psei);
++	up(&sn_oemdata_mutex);
++	return 0;
++}
++
++/* Callback when userspace salinfo wants to decode oem data via the platform
++ * kernel and/or prom.
++ */
++int sn_salinfo_platform_oemdata(const u8 *sect_header, u8 **oemdata, u64 *oemdata_size)
++{
++	efi_guid_t guid = *(efi_guid_t *)sect_header;
++	*oemdata_size = 0;
++	sn_oemdata_bufsize = 0;
++	vfree(*oemdata);
++	*oemdata = NULL;
++	if (efi_guidcmp(guid, SAL_PLAT_SPECIFIC_ERR_SECT_GUID) = 0)
++		return sn_platform_plat_specific_err_print(sect_header, oemdata, oemdata_size);
++	return 0;
++}
++
++static int __init sn_salinfo_init(void)
++{
++	salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
++        return 0;
++}
++
++module_init(sn_salinfo_init)
 
-Looks clean ... and if it makes your life easier, and avoids
-duplicating this test, then go for it.  This test for "did we
-recover" is likely to see a lot of changes as more recovery cases
-are added ... so avoiding duplicating it will make maintenance
-easier as time goes by.
-
--Tony
