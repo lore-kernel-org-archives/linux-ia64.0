@@ -1,47 +1,35 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Fri, 22 Apr 2005 06:38:30 +0000
-Subject: Re: [ACPI] [RFC/PATCH 1/3] ACPI based I/O APIC hot-plug
-Message-Id: <42689BE6.4040004@jp.fujitsu.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 05 Apr 2005 20:25:40 +0000
+Subject: Re: [Gelato-technical] Serious performance degradation on a RAID with
+Message-Id: <16978.62532.841151.100745@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4267AD13.5080900@jp.fujitsu.com> <1114104091.2784.40.camel@eeyore>
-In-Reply-To: <1114104091.2784.40.camel@eeyore>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Andrew Morton <akpm@osdl.org>, Len Brown <len.brown@intel.com>, "Luck, Tony" <tony.luck@intel.com>, Greg KH <greg@kroah.com>, acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net
+To: linux-ia64@vger.kernel.org
 
-Hi Bjorn,
+>>>>> On Tue, 05 Apr 2005 20:11:51 +0200, Andreas Hirstius <Andreas.Hirstius@cern.ch> said:
 
-Thank you very much for comments.
-I'll update my patches based on your comments.
+  Andreas> Hi, We have a rx4640 with 3x 3Ware 9500 SATA controllers
+  Andreas> and 24x WD740GD HDD in a software RAID0 configuration
+  Andreas> (using md).  With kernel 2.6.11 the read performance on the
+  Andreas> md is reduced by a factor of 20 (!!)  compared to previous
+  Andreas> kernels.  The write rate to the md doesn't change!! (it
+  Andreas> actually improves a bit).
 
-Regards,
-Kenji Kaneshige
+Is there any reason to believe this change in behavior is
+ia64-specific?  I doubt it.  The q-syscollect profiles on your
+web-site shows that the CPU is basically completely idle.  You may
+want to try 2.6.10 to see whether the bad behavior was introduced
+before or after that.  Unfortunately, 2.6 is developing very rapidly
+so you may have to do more binary searching between 2.6.9 and 2.6.10
+or 2.6.10 and 2.6.11 to pin the problem down to a useful granularity.
+You may also want to look at the bitkeeper changelogs to see if you
+can find anything suspicious (you can do that easily via the web by
+browsing the source code [1]).  Lastly, you may want to ask on
+linux-kernel whether anybody can think of a change that could have
+this effect.
 
+	--david
 
-Bjorn Helgaas wrote:
->>+++ linux-2.6.12-rc2-mm3-kanesige/arch/ia64/kernel/acpi.c	2005-04-20 10:51:30.136299152 +0900
->>@@ -892,4 +892,21 @@ acpi_map_iosapic (acpi_handle handle, u3
->> 	return AE_OK;
->> }
->> #endif /* CONFIG_NUMA */
->>+
->>+int
->>+acpi_register_ioapic(acpi_handle handle, u64 phys_addr, u32 gsi_base)
->>+{
->>+	/* TBD */
->>+	return -EINVAL;
->>+}
->>+EXPORT_SYMBOL(acpi_register_ioapic);
->>+
->>+int
->>+acpi_unregister_ioapic(acpi_handle handle, u32 gsi_base)
-> 
-> 
-> Nitpick: these declarations should follow the style of the rest
-> of the file, i.e., add a space between the function name and the
-> opening parenthesis.
-> 
-> 
-
+[1] http://linux.bkbits.net:8080/linux-2.5/src?nav=index.html
