@@ -1,7 +1,7 @@
-From: Uros Prestor <uros@turbolinux.com>
-Date: Tue, 08 Aug 2000 22:43:37 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 09 Aug 2000 00:14:54 +0000
 Subject: Re: [Linux-ia64] Where are sources?
-Message-Id: <marc-linux-ia64-105590678205287@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205289@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205286@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205286@msgid-missing>
@@ -10,26 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Daniel Schepler wrote:
+	The Cygnus toolchain 2.9-ia64-000216-final from
+	ftp.cygnus.com/private/intel.  It has a gcc/version.c dated May 1, and
+	seems to be out of date since it won't accept -mconstant-gp.
 
-> The Cygnus toolchain 2.9-ia64-000216-final from
-> ftp.cygnus.com/private/intel.  It has a gcc/version.c dated May 1, and
-> seems to be out of date since it won't accept -mconstant-gp.
+We are working on a new toolchain release to replace this one.  This release
+will be made in conjunction with the glibc-2.2 release, because of numerous
+incompatible ABI changes.  Meanwhile, you might try an SRPM from one of the
+other linux releases.
 
-You need extra patches for -mconstant-gp.  Your best bet is to get a
-gnupro SRPM from our ftp site, unpack the SRPM and build from there.
+You will have to rebuild everything from scratch when the new toolchain/glibc
+releases come out though.
 
-> No glibc-2.1.3 distribution (except embedded in SRPM's).
-
-Glibc 2.1 sources are not available externally AFAIK.  The good thing is
-that 2.1 didn't change much recently.  Again, SRPM is your only option.
-
-Uros
-
---
-Uros Prestor
-uros@turbolinux.com
-
-
-
+Jim
 
