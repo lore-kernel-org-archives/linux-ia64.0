@@ -1,15 +1,30 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 17 May 2004 15:41:35 +0000
-Subject: Re: [ACPI] Re: [PATCH] ACPI PCI IRQ routing rework
-Message-Id: <200405170941.35673.bjorn.helgaas@hp.com>
+From: "Kenji Kaneshige" <kaneshige.kenji@jp.fujitsu.com>
+Date: Mon, 17 May 2004 16:16:39 +0000
+Subject: RE: [ACPI] Re: [PATCH] ACPI PCI IRQ routing rework
+Message-Id: <200405171616.i4HGGht06511@incapgw2.fujitsu.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <941A6821ACE16D4BBB8A958A0EB047F7264554@pdsmsx404.ccr.corp.intel.com>
-In-Reply-To: <941A6821ACE16D4BBB8A958A0EB047F7264554@pdsmsx404.ccr.corp.intel.com>
+References: <200405170941.35673.bjorn.helgaas@hp.com>
+In-Reply-To: <200405170941.35673.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Li, Shaohua" <shaohua.li@intel.com>
-Cc: acpi-devel@lists.sourceforge.net, "Brown, Len" <len.brown@intel.com>, David Mosberger <davidm@hpl.hp.com>, Andi Kleen <ak@suse.de>, "Nakajima, Jun" <jun.nakajima@intel.com>, linux-ia64@vger.kernel.org
+To: 'Bjorn Helgaas' <bjorn.helgaas@hp.com>, "'Li, Shaohua'" <shaohua.li@intel.com>
+Cc: acpi-devel@lists.sourceforge.net, "'Brown, Len'" <len.brown@intel.com>, 'David Mosberger' <davidm@hpl.hp.com>, 'Andi Kleen' <ak@suse.de>, "'Nakajima, Jun'" <jun.nakajima@intel.com>, linux-ia64@vger.kernel.org
+
+I agree with you about CPEI, but how about PMI and INIT?
+I think PMI and INIT need to be unmasked in somewhere.
+
+Thanks,
+Kenji Kaneshige
+
+-----Original Message-----
+From: linux-ia64-owner@vger.kernel.org
+[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Bjorn Helgaas
+Sent: Tuesday, May 18, 2004 12:42 AM
+To: Li, Shaohua
+Cc: acpi-devel@lists.sourceforge.net; Brown, Len; David Mosberger; Andi
+Kleen; Nakajima, Jun; linux-ia64@vger.kernel.org
+Subject: Re: [ACPI] Re: [PATCH] ACPI PCI IRQ routing rework
 
 On Monday 17 May 2004 3:58 am, Li, Shaohua wrote:
 > For the IOSAPIC, your patch mask interrupts in initialization, but
@@ -37,3 +52,9 @@ works), but I think the current scheme should work.  Or do you
 have evidence to the contrary?
 
 Bjorn
+-
+To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+
