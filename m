@@ -1,291 +1,38 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 17 Dec 2004 03:34:36 +0000
-Subject: page fault scalability patch V13 [3/8]: universal cmpxchg for i386
-Message-Id: <Pine.LNX.4.58.0412161933580.11341@schroedinger.engr.sgi.com>
+From: Sachithanantham_Saravanan@emc.com
+Date: Tue, 25 Jan 2005 15:16:21 +0000
+Subject: LKCD on 2.6 IA64 Linux Kernel
+Message-Id: <50C05B7AA7D6924FB5E384EF14BC647BCBBD63@inba1mx2.corp.emc.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41BBF923.6040207@yahoo.com.au>
- <Pine.LNX.4.44.0412120914190.3476-100000@localhost.localdomain>
- <20041212212456.GB2714@holomorphy.com> <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: William Lee Irwin III <wli@holomorphy.com>
-Cc: Hugh Dickins <hugh@veritas.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org, yakker@sgi.com, yakker@turbolinux.com, yakker@alacritech.com, matt@aparity.com
+Cc: linux-kernel@vger.kernel.org
 
-Changelog
-        * Make cmpxchg and cmpxchg8b generally available on the i386
-	  platform.
-        * Provide emulation of cmpxchg suitable for uniprocessor if
-	  build and run on 386.
-        * Provide emulation of cmpxchg8b suitable for uniprocessor
-	  systems if build and run on 386 or 486.
-	* Provide an inline function to atomically get a 64 bit value
-	  via cmpxchg8b in an SMP system (courtesy of Nick Piggin)
-	  (important for i386 PAE mode and other places where atomic
-	  64 bit operations are useful)
+Hi all,
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+I tried using lkcd on a ia64 machine running on 2.6.5-7.111 SuSe Kernel for
+debugging. I configured the swap device as the dump device and I created
+panics,oops to generate dumps. The dump happens in /var/log/dump on a "lkcd
+save" after a reboot. When I use lcrash to trace the task of the process
+that caused the dump, I get some data misalignment errors as listed below.
+And interestingly this happens only for the trace of the process that
+generated the panic/oops. For all other processes in the dump trace is
+giving me the proper output. Looks like the issue is specific to ia64 as I
+did not encounter any such errors on my i386 machine on the same kernel. 
+Pointers to any patches or what the problem is will be of help to me.
 
-Index: linux-2.6.9/arch/i386/Kconfig
-=================================--- linux-2.6.9.orig/arch/i386/Kconfig	2004-12-10 09:58:03.000000000 -0800
-+++ linux-2.6.9/arch/i386/Kconfig	2004-12-10 09:59:27.000000000 -0800
-@@ -351,6 +351,11 @@
- 	depends on !M386
- 	default y
+>> trace
+lcrash(9187): unaligned access to 0x6000000001185ff7, ip=0x400000000004fa90
+lcrash(9187): unaligned access to 0x6000000001185ff6, ip=0x400000000004fa90
+lcrash(9187): unaligned access to 0x6000000001185ff5, ip=0x400000000004fa90
+lcrash(9187): unaligned access to 0x6000000001185ff4, ip=0x400000000004fa90
+Can't find trace for running task!
+================================
+STACK TRACE FOR TASK: 0xe0000001cc458000 (insmod)
 
-+config X86_CMPXCHG8B
-+	bool
-+	depends on !M386 && !M486
-+	default y
-+
- config X86_XADD
- 	bool
- 	depends on !M386
-Index: linux-2.6.9/arch/i386/kernel/cpu/intel.c
-=================================--- linux-2.6.9.orig/arch/i386/kernel/cpu/intel.c	2004-12-06 17:23:49.000000000 -0800
-+++ linux-2.6.9/arch/i386/kernel/cpu/intel.c	2004-12-10 09:59:27.000000000 -0800
-@@ -6,6 +6,7 @@
- #include <linux/bitops.h>
- #include <linux/smp.h>
- #include <linux/thread_info.h>
-+#include <linux/module.h>
+================================
+>>
 
- #include <asm/processor.h>
- #include <asm/msr.h>
-@@ -287,5 +288,103 @@
- 	return 0;
- }
-
-+#ifndef CONFIG_X86_CMPXCHG
-+unsigned long cmpxchg_386_u8(volatile void *ptr, u8 old, u8 new)
-+{
-+	u8 prev;
-+	unsigned long flags;
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but the
-+	 * currently running cpu can do cmpxchg after all
-+	 * All CPUs except 386 support CMPXCHG
-+	 */
-+	if (cpu_data->x86 > 3)
-+		return __cmpxchg(ptr, old, new, sizeof(u8));
-+
-+	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
-+	local_irq_save(flags);
-+	prev = *(u8 *)ptr;
-+	if (prev = old)
-+		*(u8 *)ptr = new;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg_386_u8);
-+
-+unsigned long cmpxchg_386_u16(volatile void *ptr, u16 old, u16 new)
-+{
-+	u16 prev;
-+	unsigned long flags;
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but the
-+	 * currently running cpu can do cmpxchg after all
-+	 * All CPUs except 386 support CMPXCHG
-+	 */
-+	if (cpu_data->x86 > 3)
-+		return __cmpxchg(ptr, old, new, sizeof(u16));
-+
-+	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
-+	local_irq_save(flags);
-+	prev = *(u16 *)ptr;
-+	if (prev = old)
-+		*(u16 *)ptr = new;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg_386_u16);
-+
-+unsigned long cmpxchg_386_u32(volatile void *ptr, u32 old, u32 new)
-+{
-+	u32 prev;
-+	unsigned long flags;
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but the
-+	 * currently running cpu can do cmpxchg after all
-+	 * All CPUs except 386 support CMPXCHG
-+	 */
-+	if (cpu_data->x86 > 3)
-+		return __cmpxchg(ptr, old, new, sizeof(u32));
-+
-+	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
-+	local_irq_save(flags);
-+	prev = *(u32 *)ptr;
-+	if (prev = old)
-+		*(u32 *)ptr = new;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg_386_u32);
-+#endif
-+
-+#ifndef CONFIG_X86_CMPXCHG8B
-+unsigned long long cmpxchg8b_486(volatile unsigned long long *ptr,
-+	       unsigned long long old, unsigned long long newv)
-+{
-+	unsigned long long prev;
-+	unsigned long flags;
-+
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but
-+	 * we are running really on a cpu capable of cmpxchg8b
-+	 */
-+
-+	if (cpu_has(cpu_data, X86_FEATURE_CX8))
-+		return __cmpxchg8b(ptr, old, newv);
-+
-+	/* Poor mans cmpxchg8b for 386 and 486. Not suitable for SMP */
-+	local_irq_save(flags);
-+	prev = *ptr;
-+	if (prev = old)
-+		*ptr = newv;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg8b_486);
-+#endif
-+
- // arch_initcall(intel_cpu_init);
-
-Index: linux-2.6.9/include/asm-i386/system.h
-=================================--- linux-2.6.9.orig/include/asm-i386/system.h	2004-12-06 17:23:55.000000000 -0800
-+++ linux-2.6.9/include/asm-i386/system.h	2004-12-10 10:00:49.000000000 -0800
-@@ -149,6 +149,9 @@
- #define __xg(x) ((struct __xchg_dummy *)(x))
-
-
-+#define ll_low(x)	*(((unsigned int*)&(x))+0)
-+#define ll_high(x)	*(((unsigned int*)&(x))+1)
-+
- /*
-  * The semantics of XCHGCMP8B are a bit strange, this is why
-  * there is a loop and the loading of %%eax and %%edx has to
-@@ -184,8 +187,6 @@
- {
- 	__set_64bit(ptr,(unsigned int)(value), (unsigned int)((value)>>32ULL));
- }
--#define ll_low(x)	*(((unsigned int*)&(x))+0)
--#define ll_high(x)	*(((unsigned int*)&(x))+1)
-
- static inline void __set_64bit_var (unsigned long long *ptr,
- 			 unsigned long long value)
-@@ -203,6 +204,26 @@
-  __set_64bit(ptr, (unsigned int)(value), (unsigned int)((value)>>32ULL) ) : \
-  __set_64bit(ptr, ll_low(value), ll_high(value)) )
-
-+static inline unsigned long long __get_64bit(unsigned long long * ptr)
-+{
-+	unsigned long long ret;
-+	__asm__ __volatile__ (
-+		"\n1:\t"
-+		"movl (%1), %%eax\n\t"
-+		"movl 4(%1), %%edx\n\t"
-+		"movl %%eax, %%ebx\n\t"
-+		"movl %%edx, %%ecx\n\t"
-+		LOCK_PREFIX "cmpxchg8b (%1)\n\t"
-+		"jnz 1b"
-+		:	"=A"(ret)
-+		:	"D"(ptr)
-+		:	"ebx", "ecx", "memory");
-+	return ret;
-+}
-+
-+#define get_64bit(ptr) __get_64bit(ptr)
-+
-+
- /*
-  * Note: no "lock" prefix even on SMP: xchg always implies lock anyway
-  * Note 2: xchg has side effect, so that attribute volatile is necessary,
-@@ -240,7 +261,41 @@
-  */
-
- #ifdef CONFIG_X86_CMPXCHG
-+
- #define __HAVE_ARCH_CMPXCHG 1
-+#define cmpxchg(ptr,o,n)\
-+	((__typeof__(*(ptr)))__cmpxchg((ptr), (unsigned long)(o), \
-+					(unsigned long)(n), sizeof(*(ptr))))
-+
-+#else
-+
-+/*
-+ * Building a kernel capable running on 80386. It may be necessary to
-+ * simulate the cmpxchg on the 80386 CPU. For that purpose we define
-+ * a function for each of the sizes we support.
-+ */
-+
-+extern unsigned long cmpxchg_386_u8(volatile void *, u8, u8);
-+extern unsigned long cmpxchg_386_u16(volatile void *, u16, u16);
-+extern unsigned long cmpxchg_386_u32(volatile void *, u32, u32);
-+
-+static inline unsigned long cmpxchg_386(volatile void *ptr, unsigned long old,
-+				      unsigned long new, int size)
-+{
-+	switch (size) {
-+	case 1:
-+		return cmpxchg_386_u8(ptr, old, new);
-+	case 2:
-+		return cmpxchg_386_u16(ptr, old, new);
-+	case 4:
-+		return cmpxchg_386_u32(ptr, old, new);
-+	}
-+	return old;
-+}
-+
-+#define cmpxchg(ptr,o,n)\
-+	((__typeof__(*(ptr)))cmpxchg_386((ptr), (unsigned long)(o), \
-+					(unsigned long)(n), sizeof(*(ptr))))
- #endif
-
- static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
-@@ -270,12 +325,34 @@
- 	return old;
- }
-
--#define cmpxchg(ptr,o,n)\
--	((__typeof__(*(ptr)))__cmpxchg((ptr),(unsigned long)(o),\
--					(unsigned long)(n),sizeof(*(ptr))))
--
-+static inline unsigned long long __cmpxchg8b(volatile unsigned long long *ptr,
-+		unsigned long long old, unsigned long long newv)
-+{
-+	unsigned long long prev;
-+	__asm__ __volatile__(
-+	LOCK_PREFIX "cmpxchg8b (%4)"
-+		: "=A" (prev)
-+		: "0" (old), "c" ((unsigned long)(newv >> 32)),
-+		  "b" ((unsigned long)(newv & 0xffffffffULL)), "D" (ptr)
-+		: "memory");
-+	return prev;
-+}
-+
-+#ifdef CONFIG_X86_CMPXCHG8B
-+#define cmpxchg8b __cmpxchg8b
-+#else
-+/*
-+ * Building a kernel capable of running on 80486 and 80386. Both
-+ * do not support cmpxchg8b. Call a function that emulates the
-+ * instruction if necessary.
-+ */
-+extern unsigned long long cmpxchg8b_486(volatile unsigned long long *,
-+		unsigned long long, unsigned long long);
-+#define cmpxchg8b cmpxchg8b_486
-+#endif
-+
- #ifdef __KERNEL__
--struct alt_instr {
-+struct alt_instr {
- 	__u8 *instr; 		/* original instruction */
- 	__u8 *replacement;
- 	__u8  cpuid;		/* cpuid bit set for replacement */
-
+Regards
+Saravanan S
