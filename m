@@ -1,44 +1,147 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 26 Mar 2005 00:59:04 +0000
-Subject: Re: [patch] lfetch.fault [NULL] speedup
-Message-Id: <16964.46040.699345.631759@napali.hpl.hp.com>
+From: Daniel McNeil <daniel@osdl.org>
+Date: Tue, 22 Mar 2005 19:24:34 +0000
+Subject: [PATCH 2.6.11] AIO panic on PPC64 caused by
+Message-Id: <1111519474.15956.40.camel@ibm-c.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16964.41018.199600.952301@napali.hpl.hp.com>
-In-Reply-To: <16964.41018.199600.952301@napali.hpl.hp.com>
+References: <1111108348.31932.43.camel@ibm-c.pdx.osdl.net>
+	 <20050321184113.0f5e2f6b.akpm@osdl.org>
+In-Reply-To: <20050321184113.0f5e2f6b.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: "linuxppc64-dev@ozlabs.org" <linuxppc64-dev@ozlabs.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-aio@kvack.org" <linux-aio@kvack.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>
 
->>>>> On Sat, 26 Mar 2005 11:47:30 +1100, Keith Owens <kaos@sgi.com> said:
+On Mon, 2005-03-21 at 18:41, Andrew Morton wrote:
+> Did we fix this yet?
+> 
 
-  Keith> On Fri, 25 Mar 2005 15:35:22 -0800,
-  Keith> David Mosberger <davidm@napali.hpl.hp.com> wrote:
-  >> === arch/ia64/kernel/ivt.S 1.34 vs edited ==  >> --- 1.34/arch/ia64/kernel/ivt.S	2005-03-24 14:06:40 -08:00
-  >> +++ edited/arch/ia64/kernel/ivt.S	2005-03-25 15:13:07 -08:00
-  >> @@ -1235,6 +1235,25 @@
-  >> // 0x5600 Entry 26 (size 16 bundles) Nat Consumption (11,23,37,50)
-  >> ENTRY(nat_consumption)
-  >> DBG_FAULT(26)
-  >> +
-  >> +	mov r16=cr.ipsr
-  >> +	mov r17=cr.isr
-  >> +	mov r31=pr				// save PR
-  >> +	cmp.ne p6=r0,r0				// p6 = FALSE
-  >> +	;;
-  >> +	and r18=0xf,r17				// r18 = cr.ipsr.code{3:0}
-  >> +	tbit.z.or p6,p0=r17,IA64_ISR_NA_BIT
-  >> +	;;
-  >> +	cmp.ne.or p6,p0=IA64_ISR_CODE_LFETCH,r18
+Here's a patch against 2.6.11 that fixes the problem.
+It changes is_hugepage_only_range() to take mm as an argument
+and then changes the places that call it to pass 'mm'.
+It includes a change for ia64 which has not been compiled.
+It applies against the latest bk with some offset.
 
-  Keith> Why use tbit.*.or and cmp.*.or?  The normal form works just as well in
-  Keith> this case (r17 cannot be NaT) and the normal form does not need cmp.ne
-  Keith> p6=r0,r0 first.
+Signed-off-by: Daniel McNeil <daniel@osdl.org>
 
-Sure, that's fine.  It's a left-over because originally I was planning
-to have the tbit.z and cmp.ne.or in the same instruction-group.
+diff -urp linux-2.6.11.orig/arch/ppc64/mm/hugetlbpage.c linux-2.6.11/arch/ppc64/mm/hugetlbpage.c
+--- linux-2.6.11.orig/arch/ppc64/mm/hugetlbpage.c	2005-03-22 09:43:09.000000000 -0800
++++ linux-2.6.11/arch/ppc64/mm/hugetlbpage.c	2005-03-22 09:45:46.000000000 -0800
+@@ -512,7 +512,7 @@ unsigned long arch_get_unmapped_area(str
+ 		vma = find_vma(mm, addr);
+ 		if (((TASK_SIZE - len) >= addr)
+ 		    && (!vma || (addr+len) <= vma->vm_start)
+-		    && !is_hugepage_only_range(addr,len))
++		    && !is_hugepage_only_range(mm, addr,len))
+ 			return addr;
+ 	}
+ 	start_addr = addr = mm->free_area_cache;
+@@ -522,7 +522,7 @@ full_search:
+ 	while (TASK_SIZE - len >= addr) {
+ 		BUG_ON(vma && (addr >= vma->vm_end));
+ 
+-		if (touches_hugepage_low_range(addr, len)) {
++		if (touches_hugepage_low_range(mm, addr, len)) {
+ 			addr = ALIGN(addr+1, 1<<SID_SHIFT);
+ 			vma = find_vma(mm, addr);
+ 			continue;
+@@ -583,7 +583,7 @@ arch_get_unmapped_area_topdown(struct fi
+ 		vma = find_vma(mm, addr);
+ 		if (TASK_SIZE - len >= addr &&
+ 				(!vma || addr + len <= vma->vm_start)
+-				&& !is_hugepage_only_range(addr,len))
++				&& !is_hugepage_only_range(mm, addr,len))
+ 			return addr;
+ 	}
+ 
+@@ -596,7 +596,7 @@ try_again:
+ 	addr = (mm->free_area_cache - len) & PAGE_MASK;
+ 	do {
+ hugepage_recheck:
+-		if (touches_hugepage_low_range(addr, len)) {
++		if (touches_hugepage_low_range(mm, addr, len)) {
+ 			addr = (addr & ((~0) << SID_SHIFT)) - len;
+ 			goto hugepage_recheck;
+ 		} else if (touches_hugepage_high_range(addr, len)) {
+diff -urp linux-2.6.11.orig/include/asm-ia64/page.h linux-2.6.11/include/asm-ia64/page.h
+--- linux-2.6.11.orig/include/asm-ia64/page.h	2005-03-01 23:37:48.000000000 -0800
++++ linux-2.6.11/include/asm-ia64/page.h	2005-03-21 16:58:54.000000000 -0800
+@@ -137,7 +137,7 @@ typedef union ia64_va {
+ # define htlbpage_to_page(x)	(((unsigned long) REGION_NUMBER(x) << 61)			\
+ 				 | (REGION_OFFSET(x) >> (HPAGE_SHIFT-PAGE_SHIFT)))
+ # define HUGETLB_PAGE_ORDER	(HPAGE_SHIFT - PAGE_SHIFT)
+-# define is_hugepage_only_range(addr, len)		\
++# define is_hugepage_only_range(mm, addr, len)		\
+ 	 (REGION_NUMBER(addr) = REGION_HPAGE &&	\
+ 	  REGION_NUMBER((addr)+(len)) = REGION_HPAGE)
+ extern unsigned int hpage_shift;
+diff -urp linux-2.6.11.orig/include/asm-ppc64/page.h linux-2.6.11/include/asm-ppc64/page.h
+--- linux-2.6.11.orig/include/asm-ppc64/page.h	2005-03-01 23:37:30.000000000 -0800
++++ linux-2.6.11/include/asm-ppc64/page.h	2005-03-21 16:59:46.000000000 -0800
+@@ -48,8 +48,8 @@
+ #define ARCH_HAS_HUGEPAGE_ONLY_RANGE
+ #define ARCH_HAS_PREPARE_HUGEPAGE_RANGE
+ 
+-#define touches_hugepage_low_range(addr, len) \
+-	(LOW_ESID_MASK((addr), (len)) & current->mm->context.htlb_segs)
++#define touches_hugepage_low_range(mm, addr, len) \
++	(LOW_ESID_MASK((addr), (len)) & mm->context.htlb_segs)
+ #define touches_hugepage_high_range(addr, len) \
+ 	(((addr) > (TASK_HPAGE_BASE-(len))) && ((addr) < TASK_HPAGE_END))
+ 
+@@ -61,9 +61,9 @@
+ #define within_hugepage_high_range(addr, len) (((addr) >= TASK_HPAGE_BASE) \
+ 	  && ((addr)+(len) <= TASK_HPAGE_END) && ((addr)+(len) >= (addr)))
+ 
+-#define is_hugepage_only_range(addr, len) \
++#define is_hugepage_only_range(mm, addr, len) \
+ 	(touches_hugepage_high_range((addr), (len)) || \
+-	  touches_hugepage_low_range((addr), (len)))
++	  touches_hugepage_low_range((mm), (addr), (len)))
+ #define HAVE_ARCH_HUGETLB_UNMAPPED_AREA
+ 
+ #define in_hugepage_area(context, addr) \
+diff -urp linux-2.6.11.orig/include/linux/hugetlb.h linux-2.6.11/include/linux/hugetlb.h
+--- linux-2.6.11.orig/include/linux/hugetlb.h	2005-03-21 16:50:21.000000000 -0800
++++ linux-2.6.11/include/linux/hugetlb.h	2005-03-22 09:41:24.000000000 -0800
+@@ -36,7 +36,7 @@ extern const unsigned long hugetlb_zero,
+ extern int sysctl_hugetlb_shm_group;
+ 
+ #ifndef ARCH_HAS_HUGEPAGE_ONLY_RANGE
+-#define is_hugepage_only_range(addr, len)	0
++#define is_hugepage_only_range(mm, addr, len)	0
+ #define hugetlb_free_pgtables(tlb, prev, start, end) do { } while (0)
+ #endif
+ 
+@@ -71,7 +71,7 @@ static inline unsigned long hugetlb_tota
+ #define is_aligned_hugepage_range(addr, len)	0
+ #define prepare_hugepage_range(addr, len)	(-EINVAL)
+ #define pmd_huge(x)	0
+-#define is_hugepage_only_range(addr, len)	0
++#define is_hugepage_only_range(mm, addr, len)	0
+ #define hugetlb_free_pgtables(tlb, prev, start, end) do { } while (0)
+ #define alloc_huge_page()			({ NULL; })
+ #define free_huge_page(p)			({ (void)(p); BUG(); })
+diff -urp linux-2.6.11.orig/mm/mmap.c linux-2.6.11/mm/mmap.c
+--- linux-2.6.11.orig/mm/mmap.c	2005-03-21 17:00:35.000000000 -0800
++++ linux-2.6.11/mm/mmap.c	2005-03-21 17:01:20.000000000 -0800
+@@ -1334,7 +1334,7 @@ get_unmapped_area(struct file *file, uns
+ 			 * reserved hugepage range.  For some archs like IA-64,
+ 			 * there is a separate region for hugepages.
+ 			 */
+-			ret = is_hugepage_only_range(addr, len);
++			ret = is_hugepage_only_range(current->mm, addr, len);
+ 		}
+ 		if (ret)
+ 			return -EINVAL;
+@@ -1707,7 +1707,7 @@ static void unmap_region(struct mm_struc
+ 	unmap_vmas(&tlb, mm, vma, start, end, &nr_accounted, NULL);
+ 	vm_unacct_memory(nr_accounted);
+ 
+-	if (is_hugepage_only_range(start, end - start))
++	if (is_hugepage_only_range(mm, start, end - start))
+ 		hugetlb_free_pgtables(tlb, prev, start, end);
+ 	else
+ 		free_pgtables(tlb, prev, start, end);
 
-It doesn't matter though: execution-time is completely dominated by
-the time to read and write the control registers.
 
-	--david
