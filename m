@@ -1,22 +1,34 @@
-From: Paul Jackson <pj@sgi.com>
-Date: Wed, 28 Apr 2004 16:05:35 +0000
-Subject: Re: ia64-cpu-hotplug-cpu_present.patch?
-Message-Id: <20040428090535.49cd9165.pj@sgi.com>
+From: "Raj Patil" <rpatil0299@hotmail.com>
+Date: Mon, 12 Apr 2004 20:03:15 +0000
+Subject: newbie question regarding alloc instruction
+Message-Id: <BAY14-F14u04koK5uA700042e41@hotmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040427225741.2fe78d88.pj@sgi.com>
-	<20040428075255.A8859@unix-os.sc.intel.com>
-In-Reply-To: <20040428075255.A8859@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ashok Raj <ashok.raj@intel.com>
-Cc: akpm@osdl.org, ashok.raj@intel.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-> sorry for the trouble. I will try to address them
 
-Ok - that's no problem.  Thanks for looking into it.
+Hello,
 
--- 
-                          I won't rest till it's the best ...
-                          Programmer, Linux Scalability
-                          Paul Jackson <pj@sgi.com> 1.650.933.1373
+I have a basic question about alloc instruction. I apologise if it  is too 
+basic. BUt,
+I could not find the info in the docs I looked at...
+
+Are there any restrictions in using alloc  instruction more than once in a 
+function?
+(I see that some of the kernel functions do use more than once)
+If not, do I need to worry about setting/unsetting the CFM etc or will it be
+taken care by setting/resetting ar.pfs in the block.  (According to one of 
+the
+manuals CFM can not bet set manually.)
+
+Thanks for any pointers/info.
+
+Regards,
+Raj
+
+_________________________________________________________________
+Check out MSN PC Safety & Security to help ensure your PC is protected and 
+safe. http://specials.msn.com/msn/security.asp
+
