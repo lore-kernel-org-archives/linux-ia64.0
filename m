@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Wed, 10 Oct 2001 16:34:02 +0000
-Subject: Re: [Linux-ia64] Re: prctl patch for fpu faults
-Message-Id: <marc-linux-ia64-105590698805317@msgid-missing>
+From: "Mallick, Asit K" <asit.k.mallick@intel.com>
+Date: Wed, 10 Oct 2001 20:18:38 +0000
+Subject: RE: [Linux-ia64] Re: prctl patch for fpu faults
+Message-Id: <marc-linux-ia64-105590698805319@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805302@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805302@msgid-missing>
@@ -10,88 +10,155 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Alright, I'll put a patch together that has noprint and signal options for
-the unaligned and fpswa faults.  The current, rate limited output will be
-the default.
+David/Jesse,
 
-Jesse
+I would like the default to be noprint. As Jack mentioned that there are
+applications that will generate lots of these messages. These messages are
+ok for development systems and debugging applications but for production
+systems this creates problem. Most of the users want to run the applications
+(production) that do not require changing the configuration. We have seen
+people running applications on top of Linux and complaining about the
+performance compared to other OSes. The performance difference is due to the
+logging of these messages.
 
-On Wed, 10 Oct 2001, Jack Steiner wrote:
+Thanks,
+Asit
 
+
+> -----Original Message-----
+> From: Jesse Barnes [mailto:jbarnes@sgi.com]
+> Sent: Wednesday, October 10, 2001 9:34 AM
+> Cc: linux-ia64@linuxia64.org
+> Subject: Re: [Linux-ia64] Re: prctl patch for fpu faults
+> 
+> 
+> Alright, I'll put a patch together that has noprint and 
+> signal options for
+> the unaligned and fpswa faults.  The current, rate limited 
+> output will be
+> the default.
+> 
+> Jesse
+> 
+> On Wed, 10 Oct 2001, Jack Steiner wrote:
+> 
+> > > 
+> > > What if I were to get rid of the rate limited logging for both the
+> > > unaligned and fpswa handlers?  Then there could just be a 
+> NOPRINT option
+> > > and a signal option for each; the default behavior would 
+> be to log all
+> > > messages.  If you'd rather not get rid of it, then I'll 
+> just send a patch
+> > > to enable NOPRINT for fpswa (similar to what the 
+> unaligned handler does
+> > > now) and a signal option.
 > > 
-> > What if I were to get rid of the rate limited logging for both the
-> > unaligned and fpswa handlers?  Then there could just be a NOPRINT option
-> > and a signal option for each; the default behavior would be to log all
-> > messages.  If you'd rather not get rid of it, then I'll just send a patch
-> > to enable NOPRINT for fpswa (similar to what the unaligned handler does
-> > now) and a signal option.
-> 
-> IMHO, the default for FPSWA fault (& probably unaligned access) should be OFF.
-> Lots of apps cause FP faults. AIM7, for example, causes faults at a fairly high
-> rate. I doubt that any server site would like to see the log polluted with 
-> these errors - especially since there is no way to identify the offending app.
-> 
-> There should be a way a site can change the default logging behavior & have it
-> apply to ALL tasks.. 
-> 
-> 
-> Remember that FPSWA is invoked for numerous reasons that are NOT necessarily 
-> errors in the application. (AIM7 generates FPSWA faults when it divides a
-> very small number by 2.0). Intel doesnt even specify all the conditions that cause
-> FPSWA to be invoked.
-> 
-> As far as rate limited vs full logging, I like rate limited. Otherwise, you can
-> flood the system with messages. If you are truly trying to debug an app & identify 
-> places that cause faults, the SIGNAL method should be used by the app. 
-> That way, additional info such as traceback & arguments can be captured. 
-> 
-> ---
-> 
-> After thinking about it for a while, it seems to me that the kernel logging options
-> should be orthoginal to the user SIGNAL option. A site should be able to select
-> NOPRINT/RATE-LOGGING/FULL_LOGGING. Independently, the user to be able to select 
-> SIGNAL/NO_SIGNAL/PRINTALL. 
-> 
-> The kernel logging option should NOT be a task attribute. Just have
-> a static flag that controls logging. The value of the flag is 
-> NOPRINT/RATEPRINT/FULLPRINT. Default should be NOPRINT. This option should
-> be able to be changed via operator command (/proc).
-> 
-> Independently, users might want to select SIGNAL/NOSIGNAL/(PRINT?) 
-> for faults from their application. 
-> 
-> 
+> > IMHO, the default for FPSWA fault (& probably unaligned 
+> access) should be OFF.
+> > Lots of apps cause FP faults. AIM7, for example, causes 
+> faults at a fairly high
+> > rate. I doubt that any server site would like to see the 
+> log polluted with 
+> > these errors - especially since there is no way to identify 
+> the offending app.
 > > 
-> > Does anyone else have an opinion on the rate limited logging for the
-> > unaligned and fpswa handlers?  Some people have told me that they don't
-> > think it's useful for admins or users to have some of the messages but not
-> > all of them.
+> > There should be a way a site can change the default logging 
+> behavior & have it
+> > apply to ALL tasks.. 
 > > 
-> > Thanks,
-> > Jesse
 > > 
-> > On Tue, 9 Oct 2001, David Mosberger wrote:
+> > Remember that FPSWA is invoked for numerous reasons that 
+> are NOT necessarily 
+> > errors in the application. (AIM7 generates FPSWA faults 
+> when it divides a
+> > very small number by 2.0). Intel doesnt even specify all 
+> the conditions that cause
+> > FPSWA to be invoked.
 > > 
-> > > >>>>> On Tue, 9 Oct 2001 10:38:57 -0700, Jesse Barnes <jbarnes@sgi.com> said:
+> > As far as rate limited vs full logging, I like rate 
+> limited. Otherwise, you can
+> > flood the system with messages. If you are truly trying to 
+> debug an app & identify 
+> > places that cause faults, the SIGNAL method should be used 
+> by the app. 
+> > That way, additional info such as traceback & arguments can 
+> be captured. 
+> > 
+> > ---
+> > 
+> > After thinking about it for a while, it seems to me that 
+> the kernel logging options
+> > should be orthoginal to the user SIGNAL option. A site 
+> should be able to select
+> > NOPRINT/RATE-LOGGING/FULL_LOGGING. Independently, the user 
+> to be able to select 
+> > SIGNAL/NO_SIGNAL/PRINTALL. 
+> > 
+> > The kernel logging option should NOT be a task attribute. Just have
+> > a static flag that controls logging. The value of the flag is 
+> > NOPRINT/RATEPRINT/FULLPRINT. Default should be NOPRINT. 
+> This option should
+> > be able to be changed via operator command (/proc).
+> > 
+> > Independently, users might want to select SIGNAL/NOSIGNAL/(PRINT?) 
+> > for faults from their application. 
+> > 
+> > 
 > > > 
-> > >   Jesse> Wouldn't that mean you could only do one at a time,
-> > >   Jesse> i.e. you'd be stuck with the rate limiting code even if you
-> > >   Jesse> just wanted a signal, since there'd be no way to say NOPRINT
-> > >   Jesse> | SIGFPE?  I'm really just trying to fill the needs of our
-> > >   Jesse> application programmers, who say they want to get all the
-> > >   Jesse> messages and/or get a signal.
+> > > Does anyone else have an opinion on the rate limited 
+> logging for the
+> > > unaligned and fpswa handlers?  Some people have told me 
+> that they don't
+> > > think it's useful for admins or users to have some of the 
+> messages but not
+> > > all of them.
 > > > 
-> > > No, I don't think so:
+> > > Thanks,
+> > > Jesse
 > > > 
-> > > 	DEFAULT:	log message (with rate limit)
-> > > 	NOPRINT:	be quiet about fixups (not rate limited)
-> > > 	SIGNAL:		send signal (not rate limited)
-> > > 	PRINTALL:	log message (not rate limited)
+> > > On Tue, 9 Oct 2001, David Mosberger wrote:
 > > > 
-> > > In other words, the rate-limiting only applies for the DEFAULT setting.
+> > > > >>>>> On Tue, 9 Oct 2001 10:38:57 -0700, Jesse Barnes 
+> <jbarnes@sgi.com> said:
+> > > > 
+> > > >   Jesse> Wouldn't that mean you could only do one at a time,
+> > > >   Jesse> i.e. you'd be stuck with the rate limiting 
+> code even if you
+> > > >   Jesse> just wanted a signal, since there'd be no way 
+> to say NOPRINT
+> > > >   Jesse> | SIGFPE?  I'm really just trying to fill the 
+> needs of our
+> > > >   Jesse> application programmers, who say they want to 
+> get all the
+> > > >   Jesse> messages and/or get a signal.
+> > > > 
+> > > > No, I don't think so:
+> > > > 
+> > > > 	DEFAULT:	log message (with rate limit)
+> > > > 	NOPRINT:	be quiet about fixups (not rate limited)
+> > > > 	SIGNAL:		send signal (not rate limited)
+> > > > 	PRINTALL:	log message (not rate limited)
+> > > > 
+> > > > In other words, the rate-limiting only applies for the 
+> DEFAULT setting.
+> > > > 
+> > > > 	--david
+> > > > 
 > > > 
-> > > 	--david
 > > > 
+> > > _______________________________________________
+> > > Linux-IA64 mailing list
+> > > Linux-IA64@linuxia64.org
+> > > http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> > > 
+> > 
+> > 
+> > -- 
+> > Thanks
+> > 
+> > Jack Steiner    (651-683-5302)   (vnet 233-5302)      
+> steiner@sgi.com
 > > 
 > > 
 > > _______________________________________________
@@ -101,16 +168,9 @@ On Wed, 10 Oct 2001, Jack Steiner wrote:
 > > 
 > 
 > 
-> -- 
-> Thanks
-> 
-> Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
-> 
-> 
 > _______________________________________________
 > Linux-IA64 mailing list
 > Linux-IA64@linuxia64.org
 > http://lists.linuxia64.org/lists/listinfo/linux-ia64
 > 
-
 
