@@ -1,46 +1,108 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Fri, 04 Jun 2004 23:43:01 +0000
-Subject: Re: [PATCH] ia64 MAINTAINERS update
-Message-Id: <20040604234301.GN11111@cup.hp.com>
+From: Pat Gefre <pfg@sgi.com>
+Date: Thu, 17 Jun 2004 15:46:02 +0000
+Subject: [PATCH] fix interrupt rerouting for Altix
+Message-Id: <200406171546.i5HFk3wF407364@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200406041551.25405.jbarnes@engr.sgi.com>
-In-Reply-To: <200406041551.25405.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@engr.sgi.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, davidm@hpl.hp.com, akpm@osdl.org, willy@debian.org
+To: linux-ia64@vger.kernel.org
 
-On Fri, Jun 04, 2004 at 03:51:25PM -0700, Jesse Barnes wrote:
-> Dave Hansen pointed out that linux-ia64@linuxia64.org is broken.  Since the 
-> list has moved and the domain is gone, update the list address and kill the 
-> URL.  I think willy has a new domain for ia64 Linux, but it was down for me, 
-> so I'll let him update the file later with the new URL if he wants to.
+Patch to fix our interrupt re-routing.
 
-The correct URL still is:
-	http://www.ia64-linux.org/
 
-Please update the URL.
+-- Pat
 
-grundler <512>host www.ia64-linux.org
-www.ia64-linux.org has address 192.25.206.7
 
-192.25.206.7 also hosted parisc-linux.org.
-But recently all the parisc-linux services migrated to another box.
-I'm not sure when/why the "old" box was disconnected or
-if it just crashed.
 
-In any case, despite being at gcc-summit conf, willy did find time to
-migrate ia64-linux.org to the same host as parisc-linux.org.
-IIRC, that was yesterday. The DNS just hasn't propagated yet
-but ISTR willy said it would today at some point.
 
-The entire ia64-linux web site is available via anon CVS.
-See cvs.parisc-linux.org but use "ia64-web" instead as
-the repository.
+Signed-off-by: Patrick Gefre <pfg@sgi.com>
 
-I've checked out a snapshot anyone can access for now on
-	http://iou.parisc-linux.org/ia64-web/
 
-hth,
-grant
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/06/17 10:40:46-05:00 pfg@sgi.com 
+#   Patch to fix interrupt re-routing.
+# 
+# arch/ia64/sn/kernel/irq.c
+#   2004/06/17 10:40:38-05:00 pfg@sgi.com +17 -0
+# 
+# arch/ia64/sn/io/sn2/ml_iograph.c
+#   2004/06/17 10:40:38-05:00 pfg@sgi.com +8 -8
+#    
+# 
+diff -Nru a/arch/ia64/sn/io/sn2/ml_iograph.c b/arch/ia64/sn/io/sn2/ml_iograph.c
+--- a/arch/ia64/sn/io/sn2/ml_iograph.c	2004-06-17 10:42:20 -05:00
++++ b/arch/ia64/sn/io/sn2/ml_iograph.c	2004-06-17 10:42:20 -05:00
+@@ -518,6 +518,14 @@
+ 	ASSERT(hubv != GRAPH_VERTEX_NONE);
+ 
+ 	/* 
++	 * attach our hub_provider information to hubv,
++	 * so we can use it as a crosstalk provider "master"
++	 * vertex.
++	 */
++	xtalk_provider_register(hubv, &hub_provider);
++	xtalk_provider_startup(hubv);
++
++	/* 
+ 	 * If nothing connected to this hub's xtalk port, we're done.
+ 	 */
+ 	early_probe_for_widget(hubv, &hwid);
+@@ -526,14 +534,6 @@
+ 		return;
+ 		/* NOTREACHED */
+ 	}
+-
+-	/* 
+-	 * attach our hub_provider information to hubv,
+-	 * so we can use it as a crosstalk provider "master"
+-	 * vertex.
+-	 */
+-	xtalk_provider_register(hubv, &hub_provider);
+-	xtalk_provider_startup(hubv);
+ 
+ 	/*
+ 	 * Create a vertex to represent the crosstalk bus
+diff -Nru a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
+--- a/arch/ia64/sn/kernel/irq.c	2004-06-17 10:42:20 -05:00
++++ b/arch/ia64/sn/kernel/irq.c	2004-06-17 10:42:20 -05:00
+@@ -41,6 +41,7 @@
+ extern void pcibr_force_interrupt(pcibr_intr_t intr);
+ extern int sn_force_interrupt_flag;
+ struct irq_desc * sn_irq_desc(unsigned int irq);
++extern cpumask_t    __cacheline_aligned pending_irq_cpumask[NR_IRQS];
+ 
+ struct sn_intr_list_t {
+ 	struct sn_intr_list_t *next;
+@@ -71,6 +72,21 @@
+ {
+ }
+ 
++static inline void move_irq(int irq)
++{
++	/* note - we hold desc->lock */
++	cpumask_t tmp;
++	irq_desc_t *desc = irq_descp(irq);
++
++	if (!cpus_empty(pending_irq_cpumask[irq])) {
++		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
++		if (unlikely(!cpus_empty(tmp))) {
++			desc->handler->set_affinity(irq, pending_irq_cpumask[irq]);
++		}
++		cpus_clear(pending_irq_cpumask[irq]);
++	}
++}
++
+ static void
+ sn_ack_irq(unsigned int irq)
+ {
+@@ -94,6 +110,7 @@
+ 	}
+ 	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_EVENT_OCCURRED_ALIAS), mask );
+ 	__set_bit(irq, (volatile void *)pda->sn_in_service_ivecs);
++	move_irq(irq);
+ }
+ 
+ static void
