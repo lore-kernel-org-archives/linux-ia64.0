@@ -1,7 +1,7 @@
-From: Doug Rabson <dfr@nlsystems.com>
-Date: Wed, 25 Oct 2000 10:16:59 +0000
+From: Don Dugger <n0ano@valinux.com>
+Date: Wed, 25 Oct 2000 14:28:06 +0000
 Subject: Re: [Linux-ia64] static registers during a context switch
-Message-Id: <marc-linux-ia64-105590678205622@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205624@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205620@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205620@msgid-missing>
@@ -10,23 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 24 Oct 2000, riedel wrote:
+If you are thinking of a context switch in the sense of switching
+from one process to another then ALL registers, static and stacked,
+are saved and restored.  If you are talking about making a subroutine
+call then the uses of the static registers are covered by software
+convention and registers R4-R7 are preserved across a function call.
 
-> hi everybody, does anybody know what happens to static registers
-> (gr0-gr31) in case of a context switch. in the manual, it says static
-> registers are visible to all procedures(i guess it shouldn't otherwise
-> on a context switch another process would have the same static
-> registers) On the other hand, stacked registers are local to
-> procedures and saved and restored by RSE which makes sense to me.
+Conceptually the static registers are similar to the X86 registers
+EAX, EBX and so on.  These registers are also saved and restored
+across context switches and have software conventions that control
+which ones are saved across subroutine calls.
 
-Normally on a context switch, only the callee saved registers are
-preserved (since the context switch appears as a function call to the
-process which initiates it). In the case of ia64, this means that gr4-gr7
-are preserved from the static register set.
+On Tue, Oct 24, 2000 at 09:47:41PM -0500, riedel wrote:
+> hi everybody,
+> does anybody know what happens to static registers (gr0-gr31) in case of a context switch.
+> in the manual, it says static registers are visible to all procedures(i guess it shouldn't otherwise on a context switch another process would have the same static registers) On the other hand, stacked registers are local to procedures and saved and restored by RSE which makes sense to me.
 
 -- 
-Doug Rabson				Mail:  dfr@nlsystems.com
-					Phone: +44 20 8348 6160
-
-
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@valinux.com
+Ph: 303/938-9838
 
