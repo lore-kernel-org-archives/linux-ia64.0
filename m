@@ -1,35 +1,89 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Date: Wed, 25 Aug 2004 23:35:27 +0000
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Sat, 28 Aug 2004 01:23:07 +0000
 Subject: Re: [RFC&PATCH 1/2] PCI Error Recovery (readX_check)
-Message-Id: <Pine.LNX.4.58.0408251633580.17766@ppc970.osdl.org>
+Message-Id: <412FDE7B.3070609@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <412AD123.8050605@jp.fujitsu.com>  <Pine.LNX.4.58.0408232231070.17766@ppc970.osdl.org>
-  <1093417267.2170.47.camel@gaston>  <Pine.LNX.4.58.0408250015420.17766@ppc970.osdl.org>
- <1093476204.2170.55.camel@gaston>
-In-Reply-To: <1093476204.2170.55.camel@gaston>
+References: <412AD123.8050605@jp.fujitsu.com>
+In-Reply-To: <412AD123.8050605@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: Grant Grundler <iod00d@hp.com>
+Cc: Linus Torvalds <torvalds@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
+(I couldn't see my last mail posted few days ago in list (kicked?),
+  so I send it again...
+  Grant, Linus and Benjamin, I'd appreciate it if you could read this mail
+  and let me know when you receive it. Of course, new comments are welcome.)
 
+-------- Original Message --------
 
-On Thu, 26 Aug 2004, Benjamin Herrenschmidt wrote:
+Grant Grundler wrote:
+> Do we only need to determine there was an error in the IO hierarchy
+> or do we also need to know which device/driver caused the error?
 > 
-> Yup, but then, the user have to take care that behind a single "error
-> checking" entity (a bridge for example), all devices have such drivers
-> that honor the bridge-level locking and not their own.
+> If the latter I agree with linus. If the former, then the error recovery
+> can support asyncronous errors (like the bad DMA address case) and tell
+> all affected (thanks willy) drivers.
 
-Yes. I suspect that this all matters in places where you have pretty 
-strict hardware controls anyway, so it's likely not a big deal. 
+What I supposed here is the former.
 
-> On ppc64, I think we always have 1 bridge = 1 slot though, makes things
-> easier (well, provided we don't start to try playing with error coming
-> from slots on the g5).
+As Linus said, I also assume that most high-end hardware has enough bridges
+and that the number of devices sharing same bridge would be minimized.
+(And additionally, I assume that there is no "mixed" bridge - having both of
+  device which owned by RAS-aware driver supporting recovery infrastructure
+  and one which owned by not-aware driver.  Generally all should be RAS-aware.)
 
-Yes, I'd assume that most high-end hardware (ie the kind that people have
-who care about these things in the first place) wants to minimize the
-number of shared error reporting bridges anyway.
+However, my implementation was not designed on the assumption that
+"1 bridge = 1 device" like on ppc64, but on "1 bridge = 1 device group."
+Of course, there could be some group of only 1 device.
+It will depend on the structure of the system which you could configure it.
 
-		Linus
+Devices in same group can run at same time keeping with a certain level of
+performance, and not mind being affected(or even killed!) by (PCI bus)error
+caused by someone in the group.  They either swim together or sink together.
+
+Fortunately, such error is rare occurrence, and even if it had occurred,
+it would be either "recoverable by a retry since it was a usual soft-error"
+or "unrecoverable since it was a seldom hard-error."
+
+Without this new recovery infrastructure, system cannot have proper drivers
+to retry the transaction to determine whether the error was a soft or a hard,
+and also cannot have these drivers not to return the broken data to user.
+So now, system will down, last resort comes first.
+
+
+> Does anyone expect to recover from devices attempting unmapped DMA?
+> Ie an IOMMU which services multiple PCI busses getting a bad DMA address
+> will cause the next MMIO read by any of the (grandchildren) PCI devices to 
+> see an error (MCA on IA64). I'm asking only to determine if this is
+> outside the scope of what the PCI error recovery is trying to support.
+
+At present, unmapped DMA is outside of the scope... but alongside I also
+trying to possible IA64 specific recovery(with MCA & CPE) using prototypes.
+
+
+>>> +	bool "PCI device error recovery"
+>>> +	depends on PCI
+> 
+> 	depends on PCI && EXPERIMENTAL
+> 
+>>> +	---help---
+>>> +	By default, the device driver hardly recovers from PCI errors. When
+>>> +	this feature is available, the special io interface are provided
+>>> +	from the kernel.
+> 
+> May I suggest an alternate text?
+> 	Saying Y provides PCI infrastructure to recover from some PCI errors.
+> 	Currently, very few PCI drivers actually implement this.
+> 	See Documentation/pci-errors.txt for a description of the
+> 	infrastructure provided.
+
+Thank you for good substitution :-D
+
+I understand the needs of Documentation/pci-errors.txt for driver developers,
+so I'll write the document and post it asap.
+
+
+Thanks,
+H.Seto
