@@ -1,43 +1,29 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Sat, 06 Dec 2003 06:26:40 +0000
-Subject: Re: Announce: kdb v4.3 is available for kernel 2.4.23
-Message-Id: <marc-linux-ia64-107069202810924@msgid-missing>
+Date: Fri, 19 Dec 2003 05:06:42 +0000
+Subject: Re: [patch] 2.6.0 MCA TLB error recovery
+Message-Id: <marc-linux-ia64-107181047921141@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105609297910151@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105609297910151@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+On Thu, 18 Dec 2003 15:37:09 -0800, 
+"Luck, Tony" <tony.luck@intel.com> wrote:
+>It looks like salinfo_log_wakeup() is called right before
+>ia64_log_print() ... so I'm not sure why the salinfo_decode
+>daemon kept on snoozing.  Keith: am I missing something obvious?
 
-Content-Type: text/plain; charset=3Dus-ascii
+From the top of salinfo_log_wakeup()
 
-The latest version of the Linux Kernel Debugger (kdb) is in
+ * ...  MCA and INIT events are
+ * not irq safe, do not call any routines that use spinlocks, they may deadlock.
 
-ftp://oss.sgi.com/projects/kdb/download/v4.3/
-
-Current versions are
-  kdb-v4.3-2.4.23-common-2.bz2
-  kdb-v4.3-2.4.23-i386-1.bz2
-  kdb-v4.3-2.4.23-ia64-031205-1.bz2
-
-ia64 has just been added.  Changelog extracts for ia64 since 2.4.22.
-
-2003-12-06 Keith Owens  <kaos@sgi.com>
-
-	* Coexist with the new salinfo interface.
-	* Redo the workaround for backtrace through spinlock contention called
-	  from leaf functions.
-	* kdb v4.3-2.4.23-ia64-031205-1.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQE/0Xagi4UHNye0ZOoRAiBZAJsFkZE9YNG7C8K8K9HJsl/7X4u3EQCfa2GK
-2Nj2Ou21kJEEiiI5dCNYXj4=CFJG
------END PGP SIGNATURE-----
+MCA and INIT records are noted but it is not safe to call up() from
+those interrupts, so the daemon cannot be woken.  This has not been a
+problem in the past because MCA and INIT were not recoverable, the
+records are picked up on the next boot.  Once my patches are in David's
+tree, I will update salinfo to periodically check for any MCA or INIT
+records and kick the daemon.  There was no point before, I had no way
+of testing this case.
 
