@@ -1,7 +1,7 @@
 From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Date: Wed, 22 Sep 2004 02:10:56 +0000
+Date: Wed, 22 Sep 2004 13:15:38 +0000
 Subject: Re: [ACPI] PATCH-ACPI based CPU hotplug[3/6]-Mapping lsapic to cpu
-Message-Id: <20040922111056.3360443c.tokunaga.keiich@jp.fujitsu.com>
+Message-Id: <20040922221538.650986f2.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040920092520.A14208@unix-os.sc.intel.com>
  <20040920093819.E14208@unix-os.sc.intel.com>
@@ -24,34 +24,79 @@ On Mon, 20 Sep 2004 09:38:19 -0700 Keshavamurthy Anil S wrote:
 > Currently this supports just IA64. Support for IA32 and x86_64 is in progress
 > ---
 
-Here is a small fix.
+I would like to suggest introducing a new function 'acpi_get_pxm()'
+since other drivers might need it in the future.  Acutally, ACPI container
+hotplug will be use it soon.
+
+Here is a patch creating the function.
 
 Thanks,
 Keiichiro Tokunaga
 
-
-Name: pxm_to_nid_map_fix.patch
-Status: Tested on 2.6.9-rc2
-Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Name: acpi_pxm_support.patch
+Status: 2.6.9-rc2
+Signed-off-by: Keiichiro Tokunaga <tokuanga.keiich@jp.fujitsu.com>
 Description:
-Change an attribute of pxm_to_nid_map[] from __initdata to __devinitdata.
+Introduce acpi_get_pxm().
+
 
 ---
 
- linux-2.6.9-rc2-fix-kei/include/asm-ia64/acpi.h |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ linux-2.6.9-rc2-fix-kei/drivers/acpi/numa.c  |   22 +++++++++++++++++++++-
+ linux-2.6.9-rc2-fix-kei/include/linux/acpi.h |    8 ++++++++
+ 2 files changed, 29 insertions(+), 1 deletion(-)
 
-diff -puN include/asm-ia64/acpi.h~pxm_to_nid_map_fix include/asm-ia64/acpi.h
---- linux-2.6.9-rc2-fix/include/asm-ia64/acpi.h~pxm_to_nid_map_fix	2004-09-22 09:30:17.692176696 +0900
-+++ linux-2.6.9-rc2-fix-kei/include/asm-ia64/acpi.h	2004-09-22 09:30:17.694129834 +0900
-@@ -101,7 +101,7 @@ int acpi_gsi_to_irq (u32 gsi, unsigned i
- #ifdef CONFIG_ACPI_NUMA
- /* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
- #define MAX_PXM_DOMAINS (256)
--extern int __initdata pxm_to_nid_map[MAX_PXM_DOMAINS];
-+extern int __devinitdata pxm_to_nid_map[MAX_PXM_DOMAINS];
- extern int __initdata nid_to_pxm_map[MAX_NUMNODES];
- #endif
+diff -puN drivers/acpi/numa.c~acpi_pxm_support drivers/acpi/numa.c
+--- linux-2.6.9-rc2-fix/drivers/acpi/numa.c~acpi_pxm_support	2004-09-22 21:53:53.490202242 +0900
++++ linux-2.6.9-rc2-fix-kei/drivers/acpi/numa.c	2004-09-22 21:53:53.495085087 +0900
+@@ -22,7 +22,7 @@
+  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  *
+  */
+-
++#include <linux/module.h>
+ #include <linux/config.h>
+ #include <linux/init.h>
+ #include <linux/kernel.h>
+@@ -195,3 +195,23 @@ acpi_numa_init()
+ 	acpi_numa_arch_fixup();
+ 	return 0;
+ }
++
++int
++acpi_get_pxm(acpi_handle h)
++{
++	unsigned long pxm=-1;
++	acpi_status status;
++	acpi_handle handle ;
++	acpi_handle phandle = h;
++
++	do {
++		handle = phandle;
++		status = acpi_evaluate_integer(handle,"_PXM",NULL,&pxm);
++		if (ACPI_SUCCESS(status))  {
++			return (int)pxm;
++		}
++		status = acpi_get_parent(handle,&phandle);
++	} while( ACPI_SUCCESS(status) );
++	return -1;
++}
++EXPORT_SYMBOL(acpi_get_pxm);
+diff -puN include/linux/acpi.h~acpi_pxm_support include/linux/acpi.h
+--- linux-2.6.9-rc2-fix/include/linux/acpi.h~acpi_pxm_support	2004-09-22 18:53:53.492155380 +0900
++++ linux-2.6.9-rc2-fix-kei/include/linux/acpi.h	2004-09-22 18:53:53.495085087 +0900
+@@ -477,4 +477,12 @@ static inline int acpi_blacklisted(void)
  
+ #endif /*!CONFIG_ACPI_INTERPRETER*/
+ 
++#ifdef CONFIG_ACPI_NUMA
++int acpi_get_pxm(acpi_handle handle);
++#else
++static inline int acpi_get_pxm(acpi_handle hanle)
++{
++	return 0;
++}
++#endif
+ #endif /*_LINUX_ACPI_H*/
 
 _
