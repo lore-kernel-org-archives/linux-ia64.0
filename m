@@ -1,38 +1,44 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 15 Dec 2004 23:15:51 +0000
-Subject: Re: [PATCH] add legacy I/O and memory access routines to /proc/bus/pci API
-Message-Id: <200412151515.51450.jbarnes@engr.sgi.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Thu, 16 Dec 2004 14:55:22 +0000
+Subject: Re: [PATCH] add legacy I/O and memory access routines to
+Message-Id: <1103208922.25262.10.camel@gaston>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200412140941.56116.jbarnes@engr.sgi.com> <200412150927.51733.jbarnes@engr.sgi.com> <20041215210346.GK9923@schnapps.adilger.int>
-In-Reply-To: <20041215210346.GK9923@schnapps.adilger.int>
+References: <200412140941.56116.jbarnes@engr.sgi.com>
+	 <200412141655.04416.bjorn.helgaas@hp.com> <1103101057.6246.19.camel@gaston>
+	 <200412150900.18890.jbarnes@engr.sgi.com>
+In-Reply-To: <200412150900.18890.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andreas Dilger <adilger@clusterfs.com>
-Cc: linux-pci@atrey.karlin.mff.cu, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org, bjorn.helgaas@hp.com
+To: Jesse Barnes <jbarnes@engr.sgi.com>
+Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, linux-pci@atrey.karlin.mff.cu, linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>
 
-On Wednesday, December 15, 2004 1:03 pm, Andreas Dilger wrote:
-> On Dec 15, 2004  09:27 -0800, Jesse Barnes wrote:
-> > +write
-> > +  Legacy I/O port space reads and writes must also be to a file
-> > +  position >64k--the kernel will route them to the target device.
->
-> Shouldn't that be < 64k based on the description of lseek?
+On Wed, 2004-12-15 at 09:00 -0800, Jesse Barnes wrote:
 
-Err.. yes
+> Good, because that's exactly what it does.  The arch is responsible for 
+> returning the legacy I/O port or legacy ISA memory base address given a 
+> pci_dev, which is used as a base for the page offset passed into mmap.  So 
+> e.g. mmap(..., 0xa0000) after doing ioctl(fd, PCIIOC_MMAP_IS_LEGACY_MEM, ...) 
+> would get you the VGA framebuffer for the device corresponding to 'fd'.
 
-> > +lseek
-> > +  Can be used to set the current file position.  Note that the file
-> > +  size is limited to 64k as that's how big legacy I/O space is.
-> >
-> > +ioctl
-> > +  Note that not all architectures support the *_MMAP_* or *_RW_* ioctl
-> > +  commands.  If they're not supported, ioctl will return -EINVAL.
->
-> Shouldn't they return -ENOTTY?  That indicates to the caller that the
-> ioctl isn't handled, vs -EINVAL which indicates bad value being passed
-> (e.g. bad write size).
+Sounds good... The only thing is a pci_dev may not be available if you
+have a PCI->ISA bridge, tho you may just use the pci_dev of the
+bridge...
 
-Maybe, but that's not how /proc/bus/pci behaves right now...
+> > There is some work done by Jon Smirl in this area (a VGA access
+> > arbitration driver).
+> 
+> I think Dave Airlie did a version of the vga class driver, and the backend 
+> used for /proc/bus/pci could be used for both drivers.  I'm 
+> using /proc/bus/pci because it's available now and nearly good enough (i.e. 
+> this patch was all I needed to get going).
+> 
+> Anyway, I'll post another version with Bjorn's suggestion about the ioctl for 
+> choosing config or legacy I/O port read/writes, since it looks like the rest 
+> of your concerns are dealt with.
+> 
+> Thanks,
+> Jesse
+-- 
+Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-Jesse
