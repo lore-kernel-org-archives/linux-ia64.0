@@ -1,7 +1,7 @@
 From: Hubertus Franke <frankeh@watson.ibm.com>
-Date: Fri, 26 Sep 2003 12:57:58 +0000
+Date: Fri, 26 Sep 2003 13:29:57 +0000
 Subject: Re: [Lse-tech] Re: CPUSET Proposal
-Message-Id: <marc-linux-ia64-106458116219336@msgid-missing>
+Message-Id: <marc-linux-ia64-106458305921458@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106444308519469@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106444308519469@msgid-missing>
@@ -12,49 +12,56 @@ To: linux-ia64@vger.kernel.org
 
 Sylvain Jeaugey wrote:
 
->On Thu, 25 Sep 2003, Hubertus Franke wrote:
+>>>With cpusets each application can ask the kernel for 5 cpus
+>>>(or a wrapper that invokes the application can do so), and then
+>>>the application can happily divide its work between virtual cpus
+>>>0, 1, 2, 3, 4 (using sched_setaffinity()).  The kernel can be smart
+>>>and provide different physical cpus for each of the cpusets.
+>>>      
+>>>
+>Actually, the intelligence is located in the wrapper application. The 
+>kernel part of cpusets is given absolute masks. The virtualization is 
+>located in the fact that calls to sched_setaffinity() are interpreted 
+>within the cpuset, and that /proc/cpuinfo is also modified to reflect 
+>available CPUs.
 >
 >  
 >
->>Again, I see cpusets and CKRM as addressing two orthogonal issues wrt to 
->>cpu's
->>
->>cpusets  (partitioning in space)   with hierarchies
->>CKRM  (time partitioning)         how much of  time does a class get...
+Exactly ....   virtualization of the virtual cpu number is the trick to 
+isolation from a code base
+perspective .... it
+
+>>In this case, the applications can get all of current affinity info by
+>>calling sched_getaffinity(). Thus, the applications can schedule the
+>>processes to different cpus without bothering kernel.
 >>    
 >>
->We do agree. We took a look at CKRM and that is the conclusion we 
->achieved. At first sight, it could look like the goal are the same -and in 
->some points it is- but the two approaches are different. It looks 
->like it would be better to combine them rather to try to merge them.
+>The problem is not only to run on a different CPU. We want that the used 
+>CPU is decided by the admin and not the application. Otherwise you would 
+>have no control on it. It could have been a solution for applications we 
+>write like MPI (and that is the first thing we did).
+>But we wanted to create something that could be a little united for all 
+>applications, without rewrite of applications. We add a lot of customized 
+>apps, each having been hacked to do something like this, but this resulted 
+>in a huge mess, lots of different configuration files, and no 
+>interoperability. By pushing it in the kernel, everything is _simple_ and 
+>_united_.
 >
 >Sylvain
 >
 >
 >  
 >
-Correct.  These are both worthwhile efforts and they do different things.
-A combination of  both at some point (not now) should be investigated.
-On the CPU front, which cpusets at this point provide its simply orthogonal.
+Yipp, the lesson from the MPI ( I was involved in that as the 
+implementer of the first IBM MPI implementation
+for the IBM SP2) is that these abstractions (such as communicators, 
+topologies) really mattered. It allowed application
+writers to code algorithms without worrying how many cpu's which cpu, 
+who's the next physical neighbor.
+It stayed at the virtual level.
+cpusets are the same .
 
-cpusets provide you means to lock process down to cpus through some
-abstraction/virtual layer that does not determine the exact cpu but 
-guarantees that
-some cpu will be choosen to represent that number.
+Enough on this topic now .. :-)
 
-This is analogous to MPI applications which provide communicators which 
-effectively
-are "cpusets" in the broader sense. On top of that they provide topology 
-information
-as such..
-
-Actually I don't see why CKRM can't enforce class shares on top of cpu sets.
-They simply don't need to know about each others presense. CKRM through
-its loadbalancing algorithm enforces shares for SMPs while at the same time
-observes cpu_affinity constraints, which effectively cpusets boil down 
-to ....
-
-So  "combine" is the correct wording here....
-
--- Hubertus Franke   (CKRM team)
+-- Hubertus Franke  (CKRM  team)
 
