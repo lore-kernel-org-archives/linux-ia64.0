@@ -1,44 +1,24 @@
-From: "Seth, Rohit" <rohit.seth@intel.com>
-Date: Thu, 14 Mar 2002 23:46:46 +0000
-Subject: RE: [Linux-ia64] Kernel Shared Memory Max (shmmax)
-Message-Id: <marc-linux-ia64-105590701905290@msgid-missing>
+From: Aaron Burt <aaron@osdl.org>
+Date: Fri, 22 Mar 2002 23:40:48 +0000
+Subject: [Linux-ia64] Sym53c8xxx woes
+Message-Id: <marc-linux-ia64-105590701905332@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905286@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905286@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David,
+OK, so I've upgraded our NEC AzusA 16-way to 2.4.18, and ran into a li'l
+problem.  When I've 20GB of RAM or more enabled, the Sym53c8xxx v1 driver
+crases on boot.  The v2 driver won't even compile.
 
-If you need any preference of value for shmmax, then please go with 4G
-(though there are utilities that expect size of shared memory segment to be
-only int :) but that should be fixed seperately). Could you please make this
-change in your next patch.
+Luckily, the SCSI drives are all on a qla1280 controller, so I can simply
+leave the Symbios support out, but still this is a problem.
 
-thanks,
-rohit
+Without the Symbios driver, I can run it with all 16 procs and 32GB ram.
 
+ObPlug: Our 16-way is available to all and sundry, and I'm currently
+bringing up a couple of 4-way Lions as well.  A couple 2-ways are in the
+pipeline.
 
------Original Message-----
-From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
-Sent: Thursday, March 14, 2002 3:32 PM
-To: Seth, Rohit
-Cc: 'dcooper@atcc.necsys.com'; ia64-list@redhat.com;
-linux-ia64@linuxia64.org
-Subject: RE: [Linux-ia64] Kernel Shared Memory Max (shmmax)
-
-
->>>>> On Thu, 14 Mar 2002 15:13:35 -0800, "Seth, Rohit"
-<rohit.seth@intel.com> said:
-
-  Rohit> Besides that, this low default
-  Rohit> value of 32MB just adds overhead for big memory systems.  It
-  Rohit> will be nice to change this default value to 2G at least for
-  Rohit> IA-64 machines.
-
-I agree; it always struck me as a curiosity from days long gone... ;-)
-
-	--david
 
