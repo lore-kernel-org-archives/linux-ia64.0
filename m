@@ -1,247 +1,543 @@
-From: "Zhu, Yi" <yi.zhu@intel.com>
-Date: Tue, 30 Mar 2004 12:31:29 +0000
-Subject: RE: realfeel4 for libpfm-3.0
-Message-Id: <3ACA40606221794F80A5670F0AF15F8403BD53C0@PDSMSX403.ccr.corp.intel.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Tue, 30 Mar 2004 18:42:28 +0000
+Subject: Re: realfeel4 for libpfm-3.0
+Message-Id: <20040330184228.GD27493@frankl.hpl.hp.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C41652.ED654A19"
+Content-Type: multipart/mixed; boundary="SUOF0GtieIMvvwua"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <3ACA40606221794F80A5670F0AF15F842DB199@PDSMSX403.ccr.corp.intel.com>
 In-Reply-To: <3ACA40606221794F80A5670F0AF15F842DB199@PDSMSX403.ccr.corp.intel.com>
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C41652.ED654A19
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-Peter Chubb wrote:
->=20
-> I haven't yet needed to convert it to the new interface.  It
-> should be fairly straightforward if you follow the examples
-> in the libpfm3 documentation.
+--SUOF0GtieIMvvwua
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
 Hi,
 
-I've changed the realfeel4.c to use libpfm-3.0. Because I don't
-know perfmon very much, I didn't make it work. It seems my
-signal handler never gets called.
+On Tue, Mar 30, 2004 at 02:07:59PM +0800, Zhu, Yi wrote:
+> 
+> I'm a user of realfeel4.
+> 
+> Recently SuSE ships SLES 9 beta with 2.6 kernel and libpfm-3.0.
+> Since libpfm 3.0 changes its interface from 2.0, I cannot compile
+> realfeel4.c. Do you have a version of realfeel4 that works on
+> libpfm-3.0?
+> 
+I looked at your ported version of realfeel4.c. There were three
+problems with it:
 
-# ./realfeel4
-897.566 MHz
-secondsPerTick=3D1.11412e-09
-ticksPerSecond=3D897566155.477994
-sample_period =3D 6282963
-smallest =3D 18446744073709551615, largest =3D 0, nsamples =3D 0, sigma =
-=3D 0,
-sigmasqr =3D 0
+	- with the new perfmon interface, a system-wide context
+	  is not automatically pinned to a CPU. You need an
+	  explicit call to sched_setaffinity(). The perfmonctl()
+	  calls, in this case, are only authorized from when the
+	  calling tasking is running on the CPU that was used when
+	  PFM_LOAD_CONTEXT was issued. To avoid problems it is always
+	  best to explicitely call sched_setaffinity() prior to 
+	  PFM_LOAD_CONTEXT.
 
-Could someone on the list help me to point out where I did wrong?
+	- for system-wide context, you currently cannot use
+	  pfm_self_start()/pfm_self_stop() which are lighweight
+	  versions of PFM_START/PFM_STOP. I am hoping to remove
+	  this restrictions soon.
 
-Thanks,
--yi
+	- You had two calls to PFM_RESTART in you overflow handler.
 
-------_=_NextPart_001_01C41652.ED654A19
-Content-Type: application/octet-stream;
-	name="realfeel4.c"
-Content-Transfer-Encoding: base64
-Content-Description: realfeel4.c
-Content-Disposition: attachment;
-	filename="realfeel4.c"
+The attached program does work for me.
 
-LyoKICogcmVhbGZlZWw0LmMgLS0gcHJvZHVjZSBoaXN0b2dyYW0gb2YgaW50ZXJydXB0IHRvIHVz
-ZXItc3BhY2UgbGF0ZW5jeS4KICoKICogQmFzZWQgb24gbm90aWZ5LXNlbGYuYyBmcm9tIHRoZSBw
-Zm1vbjIuMCBwYWNrYWdlIGFuZCByZWFsZmVlbC5jIGZyb20KICogIE1hcmsgSGFobiBodHRwOi8v
-YnJhaW4ubWttYXN0ZXIuY2EvfmhhaG4vcmVhbGZlZWwuYwogKgogKiBQb3J0aW9ucyBDb3B5cmln
-aHQgKEMpIDIwMDEtMjAwMiBIZXdsZXR0LVBhY2thcmQgQ28KICogQ29udHJpYnV0ZWQgYnkgU3Rl
-cGhhbmUgRXJhbmlhbiA8ZXJhbmlhbkBocGwuaHAuY29tPgogKgogKiBSZWxlYXNlZCB1bmRlciBH
-UEwuCiAqLwoKI2luY2x1ZGUgPHN5cy90eXBlcy5oPgojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1
-ZGUgPHN0ZGxpYi5oPgojaW5jbHVkZSA8c3RkYXJnLmg+CiNpbmNsdWRlIDxlcnJuby5oPgojaW5j
-bHVkZSA8dW5pc3RkLmg+CiNpbmNsdWRlIDxzdHJpbmcuaD4KI2luY2x1ZGUgPHNpZ25hbC5oPgoj
-aW5jbHVkZSA8bWF0aC5oPgojaW5jbHVkZSA8bGltaXRzLmg+CiNpbmNsdWRlIDxzeXMvdGltZS5o
-PgojaW5jbHVkZSA8c3lzL21tYW4uaD4KI2luY2x1ZGUgPHNjaGVkLmg+CiNpbmNsdWRlIDxzdHJp
-bmcuaD4KI2luY2x1ZGUgPGZjbnRsLmg+CiNpbmNsdWRlIDxwZXJmbW9uL3BmbWxpYi5oPgojaW5j
-bHVkZSA8cGVyZm1vbi9wZXJmbW9uX2RlZmF1bHRfc21wbC5oPgojaW5jbHVkZSA8cGVyZm1vbi9w
-Zm1saWJfaXRhbml1bTIuaD4KCnR5cGVkZWYgdW5zaWduZWQgbG9uZyBzdGFtcF90OwoKc3RhdGlj
-IGlubGluZSBzdGFtcF90IHRpbWVfc3RhbXAodm9pZCkKewogIHN0YW1wX3QgcmVzdWx0OwogIF9f
-YXNtX18gX192b2xhdGlsZV9fKCJtb3YgJTA9YXIuaXRjOzsiIDogIj1yIihyZXN1bHQpIDo6ICJt
-ZW1vcnkiKTsKICByZXR1cm4gcmVzdWx0Owp9CgpzdGF0aWMgcGlkX3QgbWU7Cmxvbmcgc2FtcGxl
-X3BlcmlvZDsKCgojZGVmaW5lIE5VTV9QTURTIFBGTUxJQl9NQVhfUE1EUwojZGVmaW5lIE5VTV9Q
-TUNTIFBGTUxJQl9NQVhfUE1DUwoKc3RhdGljIHBmYXJnX3JlZ190IHBkW05VTV9QTURTXTsKcGZh
-cmdfcmVnX3QgcGNbTlVNX1BNQ1NdOwpzdGF0aWMgcGZtbGliX2lucHV0X3BhcmFtX3QgaW5wOwpz
-dGF0aWMgcGZtbGliX291dHB1dF9wYXJhbV90IG91dHA7CnN0YXRpYyB2b2lkICpzbXBsX3ZhZGRy
-OwpzdGF0aWMgdW5zaWduZWQgaW50IGVudHJ5X3NpemU7CnN0YXRpYyBpbnQgY3R4X2ZkOwoKCnN0
-YXRpYyBzdGFtcF90IHNtYWxsZXN0ID0gVUxPTkdfTUFYOwpzdGF0aWMgc3RhbXBfdCBsYXJnZXN0
-OwoKc3RhdGljIHVuc2lnbmVkIGxvbmcgbnNhbXBsZXM7CnN0YXRpYyB1bnNpZ25lZCBsb25nIHNp
-Z21hOwpzdGF0aWMgdW5zaWduZWQgbG9uZyBzaWdtYXNxcjsKCgpzdGF0aWMgdm9pZCBmYXRhbF9l
-cnJvcihjaGFyICpmbXQsLi4uKSBfX2F0dHJpYnV0ZV9fKChub3JldHVybikpOwoKc3RhdGljIHZv
-aWQKZmF0YWxfZXJyb3IoY2hhciAqZm10LCAuLi4pIAp7Cgl2YV9saXN0IGFwOwoKCXZhX3N0YXJ0
-KGFwLCBmbXQpOwoJdmZwcmludGYoc3RkZXJyLCBmbXQsIGFwKTsKCXZhX2VuZChhcCk7CgoJZXhp
-dCgxKTsKfQoKaW50IHNldF9yZWFsdGltZV9wcmlvcml0eSh2b2lkKQp7CglzdHJ1Y3Qgc2NoZWRf
-cGFyYW0gc2NocDsKCS8qCgkgKiBzZXQgdGhlIHByb2Nlc3MgdG8gcmVhbHRpbWUgcHJpdnMKCSAq
-LwoJbWVtc2V0KCZzY2hwLCAwLCBzaXplb2Yoc2NocCkpOwoJc2NocC5zY2hlZF9wcmlvcml0eSA9
-IHNjaGVkX2dldF9wcmlvcml0eV9tYXgoU0NIRURfRklGTyk7CgkKCWlmIChzY2hlZF9zZXRzY2hl
-ZHVsZXIoMCwgU0NIRURfRklGTywgJnNjaHApICE9IDApIHsKCQlwZXJyb3IoInNjaGVkX3NldHNj
-aGVkdWxlciIpOwoJCWV4aXQoMSk7Cgl9CgoJcmV0dXJuIDA7Cn0KCmRvdWJsZSBzZWNvbmQoKSB7
-CglzdHJ1Y3QgdGltZXZhbCB0djsKCWdldHRpbWVvZmRheSgmdHYsMCk7CglyZXR1cm4gdHYudHZf
-c2VjICsgMWUtNiAqIHR2LnR2X3VzZWM7Cn0KCnR5cGVkZWYgdW5zaWduZWQgbG9uZyBsb25nIHU2
-NDsKCnZvaWQgc2VsZWN0c2xlZXAodW5zaWduZWQgdXMpIHsKCXN0cnVjdCB0aW1ldmFsIHR2OwoJ
-dHYudHZfc2VjID0gMDsKCXR2LnR2X3VzZWMgPSB1czsKCXNlbGVjdCgwLDAsMCwwLCZ0dik7Cn0K
-CmRvdWJsZSBzZWNvbmRzUGVyVGljaywgdGlja3NQZXJTZWNvbmQ7Cgp2b2lkIGNhbGlicmF0ZSgp
-CnsKCWRvdWJsZSBzdW14ID0gMDsKCWRvdWJsZSBzdW15ID0gMDsKCWRvdWJsZSBzdW14eCA9IDA7
-Cglkb3VibGUgc3VteHkgPSAwOwoJZG91YmxlIHNsb3BlOwoKCS8vIGxlYXN0IHNxdWFyZXMgbGlu
-ZWFyIHJlZ3Jlc3Npb24gb2YgdGlja3Mgb250byByZWFsIHRpbWUKCS8vIGFzIHJldHVybmVkIGJ5
-IGdldHRpbWVvZmRheS4KCgljb25zdCB1bnNpZ25lZCBuID0gMzA7Cgl1bnNpZ25lZCBpOwoKCWZv
-ciAoaT0wOyBpPG47IGkrKykgewoJCWRvdWJsZSBicmVhbCxyZWFsLHRpY2tzOwoJCXN0YW1wX3Qg
-YnRpY2tzOwoJCgkJYnJlYWwgPSBzZWNvbmQoKTsKCQlidGlja3MgPSB0aW1lX3N0YW1wKCk7CgoJ
-CXNlbGVjdHNsZWVwKCh1bnNpZ25lZCkoMTAwMDAgKyBkcmFuZDQ4KCkgKiAyMDAwMDApKTsKCgkJ
-dGlja3MgPSB0aW1lX3N0YW1wKCkgLSBidGlja3M7CgkJcmVhbCA9IHNlY29uZCgpIC0gYnJlYWw7
-CgoJCXN1bXggKz0gcmVhbDsKCQlzdW14eCArPSByZWFsICogcmVhbDsKCQlzdW14eSArPSByZWFs
-ICogdGlja3M7CgkJc3VteSArPSB0aWNrczsKCX0KCXNsb3BlID0gKChzdW14eSAtIChzdW14KnN1
-bXkpIC8gbikgLwoJCSAoc3VteHggLSAoc3VteCpzdW14KSAvIG4pKTsKCXRpY2tzUGVyU2Vjb25k
-ID0gc2xvcGU7CglzZWNvbmRzUGVyVGljayA9IDEuMCAvIHNsb3BlOwoJcHJpbnRmKCIlMy4zZiBN
-SHpcbiIsdGlja3NQZXJTZWNvbmQqMWUtNik7Cn0KCgoKCgpzaWdfYXRvbWljX3QgYWxhcm1lZDsK
-c3RhdGljIHZvaWQgYWxybShpbnQgc2lnbm8pCnsKICBhbGFybWVkID0gMTsKfQoKc3RhdGljIHZv
-aWQgZGVsYXkodW5zaWduZWQgc2Vjb25kcykKewoJc2lnc2V0X3QgbWFzazsKCXNpZ2VtcHR5c2V0
-KCZtYXNrKTsKCglzaWduYWwoU0lHQUxSTSwgYWxybSk7CglzaWduYWwoU0lHSU5ULCBhbHJtKTsK
-CWFsYXJtZWQgPSAwOwoJYWxhcm0oc2Vjb25kcyk7CgoJd2hpbGUgKGFsYXJtZWQ9PTAgJiYgc2ln
-c3VzcGVuZCgmbWFzaykpCgkgIDsKfQoKc3RhdGljIHZvaWQKcHJvY2VzcyhzdGFtcF90IG5vdykK
-ewoJc3RhdGljIHN0YW1wX3QgbGFzdDsKCglpZiAobGFzdCkgewoJCXN0YW1wX3QgZGlmZiA9IG5v
-dyAtIGxhc3Q7CgkJaWYgKG5vdyA8IGxhc3QpCgkJCWRpZmYgPSB+KHN0YW1wX3QpMCAtIGxhc3Qg
-KyBub3cgKyAxOwoJCW5zYW1wbGVzKys7CgkJZGlmZiAtPSBzYW1wbGVfcGVyaW9kOwoJCXNpZ21h
-ICs9IGRpZmY7CgkJc2lnbWFzcXIgKz0gZGlmZiAqIGRpZmY7CgkJaWYgKGRpZmYgPCBzbWFsbGVz
-dCkKCQkJc21hbGxlc3QgPSBkaWZmOwoJCWlmIChkaWZmID4gbGFyZ2VzdCkKCQkJbGFyZ2VzdCA9
-IGRpZmY7Cgl9CglsYXN0ID0gbm93OwoJLyoKCSAqIEFuZCByZXN1bWUgbW9uaXRvcmluZwoJICov
-CglpZiAocGVyZm1vbmN0bChtZSwgUEZNX1JFU1RBUlQsTlVMTCwgMCkgPT0gLTEpIHsKCQlwZXJy
-b3IoIlBGTV9SRVNUQVJUIik7CgkJZXhpdCgxKTsKCX0KfQoKdm9pZApwcm9jZXNzX3NtcGxfYnVm
-ZmVyKHZvaWQpCnsKCXBmbV9kZWZhdWx0X3NtcGxfaGRyX3QgKmhkcjsKCXBmbV9kZWZhdWx0X3Nt
-cGxfZW50cnlfdCAqZW50OwoJdW5zaWduZWQgbG9uZyBwb3M7Cgl1bnNpZ25lZCBsb25nIHNtcGxf
-ZW50cnkgPSAwOwoJcGZtX2l0YTJfcG1kX3JlZ190ICpyZWcsICpwbWQxNjsKCXVuc2lnbmVkIGxv
-bmcgaTsKCWludCByZXQ7CglzdGF0aWMgdW5zaWduZWQgbG9uZyBsYXN0X292ZmwgPSB+MFVMOwoK
-CgloZHIgPSAocGZtX2RlZmF1bHRfc21wbF9oZHJfdCAqKXNtcGxfdmFkZHI7CgoJLyoKCSAqIGNo
-ZWNrIHRoYXQgd2UgYXJlIG5vdCBkaXBsYXlpbmcgdGhlIHByZXZpb3VzIHNldCBvZiBzYW1wbGVz
-IGFnYWluLgoJICogUmVxdWlyZWQgdG8gdGFrZSBjYXJlIG9mIHRoZSBsYXN0IGJhdGNoIG9mIHNh
-bXBsZXMuCgkgKi8KCWlmIChoZHItPmhkcl9vdmVyZmxvd3MgPD0gbGFzdF9vdmZsICYmIGxhc3Rf
-b3ZmbCAhPSB+MFVMKSB7CgkJcHJpbnRmKCJza2lwcGluZyBpZGVudGljYWwgc2V0IG9mIHNhbXBs
-ZXMgJWx1IDw9ICVsdVxuIiwgaGRyLT5oZHJfb3ZlcmZsb3dzLCBsYXN0X292ZmwpOwoJCXJldHVy
-bjsKCX0KCglwb3MgPSAodW5zaWduZWQgbG9uZykoaGRyKzEpOwoJLyoKCSAqIHdhbGsgdGhyb3Vn
-aCBhbGwgdGhlIGVudHJpZXMgcmVjb3JlZCBpbiB0aGUgYnVmZmVyCgkgKi8KCWZvcihpPTA7IGkg
-PCBoZHItPmhkcl9jb3VudDsgaSsrKSB7CgoJCXJldCA9IDA7CgoJCWVudCA9IChwZm1fZGVmYXVs
-dF9zbXBsX2VudHJ5X3QgKilwb3M7CgkJLyoKCQkgKiBwcmludCBlbnRyeSBoZWFkZXIKCQkgKi8K
-CQlwcmludGYoIkVudHJ5ICVsZCBQSUQ6JWQgQ1BVOiVkIFNUQU1QOjB4JWx4IElJUDoweCUwMTZs
-eFxuIiwKCQkJc21wbF9lbnRyeSsrLAoJCQllbnQtPnBpZCwKCQkJZW50LT5jcHUsCgkJCWVudC0+
-dHN0YW1wLAoJCQllbnQtPmlwKTsKCgkJLyoKCQkgKiBwb2ludCB0byBmaXJzdCByZWNvcmRlZCBy
-ZWdpc3RlciAoYWx3YXlzIGNvbnRpZ3VvdXMgd2l0aCBlbnRyeSBoZWFkZXIpCgkJICovCgkJcmVn
-ID0gKHBmbV9pdGEyX3BtZF9yZWdfdCopKGVudCsxKTsKCgkJLyoKCQkgKiBpbiB0aGlzIHBhcnRp
-Y3VsYXIgZXhhbXBsZSwgd2UgaGF2ZSBwbWQ4LXBtZDE1IGhhcyB0aGUgQlRCLiBXZSBoYXZlIGFs
-c28KCQkgKiBpbmNsdWRlZCBwbWQxNiAoQlRCIGluZGV4KSBoYXMgcGFydCBvZiB0aGUgcmVnaXN0
-ZXJzIHRvIHJlY29yZC4gVGhpcyB0cmljawoJCSAqIGFsbG93cyB1cyB0byBnZXQgdGhlIGluZGV4
-IHRvIGRlY29kZSB0aGUgc2VxdWVudGlhbCBvcmRlciBvZiB0aGUgQlRCLgoJCSAqCgkJICogUmVj
-b3JkZWQgcmVnaXN0ZXJzIGFyZSBhbHdheXMgcmVjb3JkZWQgaW4gaW5jcmVhc2luZyBvcmRlci4g
-U28gd2Uga25vdwoJCSAqIHRoYXQgcG1kMTYgaXMgYXQgYSBmaXhlZCBvZmZzZXQgKCs4KnNpemVv
-Zih1bnNpZ25lZCBsb25nKSkgZnJvbSBwbWQ4LgoJCSAqLwoJCXBtZDE2ID0gcmVnKzg7CgkJLy9z
-aG93X2J0YihyZWcsIHBtZDE2KTsKCgkJLyoKCQkgKiBtb3ZlIHRvIG5leHQgZW50cnkKCQkgKi8K
-CQlwb3MgKz0gZW50cnlfc2l6ZTsKCX0KfQoKc3RhdGljIHZvaWQKb3ZlcmZsb3dfaGFuZGxlcihp
-bnQgbiwgc3RydWN0IHNpZ2luZm8gKmluZm8sIHN0cnVjdCBzaWdjb250ZXh0ICpzYykKewoJc3Rh
-bXBfdCBub3cgPSB0aW1lX3N0YW1wKCk7CgoJLyogZGFuZ2Vyb3VzICovCglwcmludGYoIk5vdGlm
-aWNhdGlvbiByZWNlaXZlZFxuIik7CgoJLy9wcm9jZXNzX3NtcGxfYnVmZmVyKCk7Cglwcm9jZXNz
-KG5vdyk7CgoJLyoKCSAqIEFuZCByZXN1bWUgbW9uaXRvcmluZwoJICovCglpZiAocGVyZm1vbmN0
-bChjdHhfZmQsIFBGTV9SRVNUQVJULE5VTEwsIDApID09IC0xKSB7CgkJcGVycm9yKCJQRk1fUkVT
-VEFSVCIpOwoJCWV4aXQoMSk7Cgl9Cn0KCmludAptYWluKGludCBhcmdjLCBjaGFyICoqYXJndikK
-ewoJaW50IHJldDsKCWludCBpOwoJcGZhcmdfY29udGV4dF90IGN0eFsxXTsKCXBmbWxpYl9vcHRp
-b25zX3QgcGZtbGliX29wdGlvbnM7CglzdHJ1Y3Qgc2lnYWN0aW9uIGFjdDsKCXBmYXJnX2xvYWRf
-dCBsb2FkX2FyZ3M7CgoKCW1lID0gZ2V0cGlkKCk7CgogCglpZiAobWxvY2thbGwoTUNMX0NVUlJF
-TlR8TUNMX0ZVVFVSRSkgIT0gMCkgewoJCXBlcnJvcigibWxvY2thbGwiKTsKCQlleGl0KDEpOwoJ
-fQoKCXNldF9yZWFsdGltZV9wcmlvcml0eSgpOwoJY2FsaWJyYXRlKCk7CgoJcHJpbnRmKCJzZWNv
-bmRzUGVyVGljaz0lZ1xuIiwgc2Vjb25kc1BlclRpY2spOwoJcHJpbnRmKCJ0aWNrc1BlclNlY29u
-ZD0lZlxuIiwgdGlja3NQZXJTZWNvbmQpOwoKCS8qCgkgKiBJbml0aWFsaXplIHBmbSBsaWJyYXJ5
-IChyZXF1aXJlZCBiZWZvcmUgd2UgY2FuIHVzZSBpdCkKCSAqLwoJaWYgKHBmbV9pbml0aWFsaXpl
-KCkgIT0gUEZNTElCX1NVQ0NFU1MpIHsKCQlwcmludGYoIkNhbid0IGluaXRpYWxpemUgbGlicmFy
-eVxuIik7CgkJZXhpdCgxKTsKCX0KCgkvKgoJICogSW5zdGFsbCB0aGUgb3ZlcmZsb3cgaGFuZGxl
-ciAoU0lHUFJPRikKCSAqLwoJbWVtc2V0KCZhY3QsIDAsIHNpemVvZihhY3QpKTsKCWFjdC5zYV9o
-YW5kbGVyID0gKHNpZ190KW92ZXJmbG93X2hhbmRsZXI7CglhY3Quc2FfZmxhZ3MgPSBTQV9OT01B
-U0s7CglzaWdhY3Rpb24oU0lHSU8sICZhY3QsIDApOwoKCS8qCgkgKiBwYXNzIG9wdGlvbnMgdG8g
-bGlicmFyeSAob3B0aW9uYWwpCgkgKi8KCW1lbXNldCgmcGZtbGliX29wdGlvbnMsIDAsIHNpemVv
-ZihwZm1saWJfb3B0aW9ucykpOwoJcGZtbGliX29wdGlvbnMucGZtX2RlYnVnID0gMDsgLyogc2V0
-IHRvIDEgZm9yIGRlYnVnICovCglwZm1fc2V0X29wdGlvbnMoJnBmbWxpYl9vcHRpb25zKTsKCglt
-ZW1zZXQocGQsIDAsIHNpemVvZihwZCkpOwoJbWVtc2V0KGN0eCwgMCwgc2l6ZW9mKGN0eCkpOwog
-ICAgICAgIG1lbXNldCgmbG9hZF9hcmdzLCAwLCBzaXplb2YobG9hZF9hcmdzKSk7CgoJLyoKCSAq
-IHByZXBhcmUgcGFyYW1ldGVycyB0byBsaWJyYXJ5LiB3ZSBkb24ndCB1c2UgYW55IEl0YW5pdW0K
-CSAqIHNwZWNpZmljIGZlYXR1cmVzIGhlcmUuIHNvIHRoZSBwZnBfbW9kZWwgaXMgTlVMTC4KCSAq
-LwoJbWVtc2V0KCZpbnAsIDAsIHNpemVvZihpbnApKTsKICAgICAgICBtZW1zZXQoJm91dHAsMCwg
-c2l6ZW9mKG91dHApKTsKCglpZiAocGZtX2ZpbmRfZXZlbnQoImNwdV9jeWNsZXMiLCAmaW5wLnBm
-cF9ldmVudHNbMF0uZXZlbnQpICE9IFBGTUxJQl9TVUNDRVNTKSB7CgkJCWZhdGFsX2Vycm9yKCJD
-YW5ub3QgZmluZCBjcHVfY3ljbGVzIGV2ZW50XG4iKTsKCX0KCgkvKgoJICogc2V0IHRoZSBkZWZh
-dWx0IHByaXZpbGVnZSBtb2RlIGZvciBhbGwgY291bnRlcnM6CgkgKiAJUEZNX1BMTTMgOiB1c2Vy
-IGxldmVsIAoJICoJUEZNX1BMTTAgOiBrZXJuZWwgbGV2ZWwKCSAqLwoJaW5wLnBmcF9kZmxfcGxt
-ID0gUEZNX1BMTTB8UEZNX1BMTTM7CglpbnAucGZwX2ZsYWdzID0gUEZNTElCX1BGUF9TWVNURU1X
-SURFOwoJLyoKCSAqIGhvdyBtYW55IGNvdW50ZXJzIHdlIHVzZQoJICovCglpbnAucGZwX2V2ZW50
-X2NvdW50ID0gMTsKCgkvKgoJICogdXNlIHRoZSBsaWJyYXJ5IHRvIGZpbmQgdGhlIG1vbml0b3Jz
-IHRvIHVzZQoJICovCglpZiAoKHJldCA9IHBmbV9kaXNwYXRjaF9ldmVudHMoJmlucCwgTlVMTCwg
-Jm91dHAsIE5VTEwpKSAhPSBQRk1MSUJfU1VDQ0VTUykgewoJCWZhdGFsX2Vycm9yKCJDYW5ub3Qg
-Y29uZmlndXJlIGV2ZW50czogJXNcbiIsIHBmbV9zdHJlcnJvcihyZXQpKTsKCX0KCS8qCgkgKiBG
-b3IgdGhpcyBleGFtcGxlLCB3ZSB3YW50IHRvIGJlIG5vdGlmaWVkIG9uIGNvdW50ZXIgb3ZlcmZs
-b3dzLgoJICovCgljdHhbMF0uY3R4X2ZsYWdzICAgICAgPSBQRk1fRkxfU1lTVEVNX1dJREU7Cgkv
-KgoJICogbm93IGNyZWF0ZSB0aGUgY29udGV4dCBmb3Igc2VsZiBtb25pdG9yaW5nL2Fjcm9zcyBz
-eXN0ZW0KCSAqLwoJaWYgKHBlcmZtb25jdGwobWUsIFBGTV9DUkVBVEVfQ09OVEVYVCwgY3R4LCAx
-KSA9PSAtMSApIHsKCQlpZiAoZXJybm8gPT0gRU5PU1lTKSB7CgkJCWZhdGFsX2Vycm9yKCJZb3Vy
-IGtlcm5lbCBkb2VzIG5vdCBoYXZlIHBlcmZvcm1hbmNlIG1vbml0b3Jpbmcgc3VwcG9ydCFcbiIp
-OwoJCX0KCQlmYXRhbF9lcnJvcigiQ2FuJ3QgY3JlYXRlIFBGTSBjb250ZXh0ICVzXG4iLCBzdHJl
-cnJvcihlcnJubykpOwoJfQoJY3R4X2ZkID0gY3R4LT5jdHhfZmQ7CgkvKiAKCSAqIE11c3QgYmUg
-ZG9uZSBiZWZvcmUgYW55IFBNRC9QTUQgY2FsbHMgKHVuZnJlZXplIFBNVSkuIEluaXRpYWxpemUK
-CSAqIFBNQy9QTUQgdG8gc2FmZSB2YWx1ZXMuIHBzci51cCBpcyBjbGVhcmVkLgoJICovCgkvKiBv
-YnNvbGV0ZQoJaWYgKHBlcmZtb25jdGwobWUsIFBGTV9FTkFCTEUsIE5VTEwsIDApID09IC0xKSB7
-CgkJZmF0YWxfZXJyb3IoICJjaGlsZDogcGVyZm1vbmN0bCBlcnJvciBQRk1fRU5BQkxFIGVycm5v
-ICVkXG4iLGVycm5vKTsKCX0KCSovCgoJLyoKCSAqIFdlIHdhbnQgdG8gZ2V0IG5vdGlmaWVkIHdo
-ZW4gdGhlIGNvdW50ZXIgdXNlZCBmb3Igb3VyIGZpcnN0CgkgKiBldmVudCBvdmVyZmxvd3MKCSAq
-LwoJcGNbMF0ucmVnX2ZsYWdzIAl8PSBQRk1fUkVHRkxfT1ZGTF9OT1RJRlk7CglwY1swXS5yZWdf
-cmVzZXRfcG1kc1swXSB8PSAxVUwgPDwgb3V0cC5wZnBfcG1jc1sxXS5yZWdfbnVtOwoKCXBjWzBd
-LnJlZ19udW0gICA9IG91dHAucGZwX3BtY3NbMF0ucmVnX251bTsKCXBjWzBdLnJlZ192YWx1ZSA9
-IG91dHAucGZwX3BtY3NbMF0ucmVnX3ZhbHVlOwoKCXBkWzBdLnJlZ19udW0JPSBvdXRwLnBmcF9w
-bWNzWzBdLnJlZ19udW07CgoKCS8qCgkgKiB3ZSBhcm0gdGhlIGZpcnN0IGNvdW50ZXIsIHN1Y2gg
-dGhhdCBpdCB3aWxsIG92ZXJmbG93CgkgKiBhZnRlciBzYW1wbGVfcGVyaW9kIGV2ZW50cyBoYXZl
-IGJlZW4gb2JzZXJ2ZWQgLS0gYXJvdW5kIDdtcwoJICovCglzYW1wbGVfcGVyaW9kID0gNyAqIHRp
-Y2tzUGVyU2Vjb25kIC8gMTAwMDsgCglwcmludGYoInNhbXBsZV9wZXJpb2QgPSAlbHVcbiIsIHNh
-bXBsZV9wZXJpb2QpOwoJcGRbMF0ucmVnX3ZhbHVlICAgICAgID0gKH4wVUwpIC0gc2FtcGxlX3Bl
-cmlvZDsKCXBkWzBdLnJlZ19zaG9ydF9yZXNldCAgPSAofjBVTCkgLSBzYW1wbGVfcGVyaW9kOwoJ
-cGRbMF0ucmVnX2xvbmdfcmVzZXQgID0gKH4wVUwpIC0gc2FtcGxlX3BlcmlvZDsKCgkvKgoJICog
-Tm93IHByb2dyYW0gdGhlIHJlZ2lzdGVycwoJICoKCSAqIFdlIGRvbid0IHVzZSB0aGUgc2F2ZSB2
-YXJpYWJsZSB0byBpbmRpY2F0ZSB0aGUgbnVtYmVyIG9mIGVsZW1lbnRzIHBhc3NlZCB0bwoJICog
-dGhlIGtlcm5lbCBiZWNhdXNlLCBhcyB3ZSBzYWlkIGVhcmxpZXIsIHBjIG1heSBjb250YWluIG1v
-cmUgZWxlbWVudHMgdGhhbgoJICogdGhlIG51bWJlciBvZiBldmVudHMgd2Ugc3BlY2lmaWVkLCBp
-LmUuLCBjb250YWlucyBtb3JlIHRoYW4gY291bnRpbmcgbW9uaXRvcnMuCgkgKi8KCWlmIChwZXJm
-bW9uY3RsKGN0eF9mZCwgUEZNX1dSSVRFX1BNQ1MsIHBjLCBvdXRwLnBmcF9wbWNfY291bnQpID09
-IC0xKSB7CgkJZmF0YWxfZXJyb3IoImNoaWxkOiBwZXJmbW9uY3RsIGVycm9yIFBGTV9XUklURV9Q
-TUNTIGVycm5vICVkOiAlc1xuIixlcnJubywgc3RyZXJyb3IoZXJybm8pKTsKCX0KCglpZiAocGVy
-Zm1vbmN0bChjdHhfZmQsIFBGTV9XUklURV9QTURTLCBwZCwgaW5wLnBmcF9ldmVudF9jb3VudCkg
-PT0gLTEpIHsKCQlmYXRhbF9lcnJvciggImNoaWxkOiBwZXJmbW9uY3RsIGVycm9yIFBGTV9XUklU
-RV9QTURTIGVycm5vICVkOiAlc1xuIixlcnJubywgc3RyZXJyb3IoZXJybm8pKTsKCX0KCgkvKgog
-ICAgICAgICAqIHdlIHdhbnQgdG8gbW9uaXRvciBvdXJzZWxmCiAgICAgICAgICovCiAgICAgICAg
-bG9hZF9hcmdzLmxvYWRfcGlkID0gZ2V0cGlkKCk7CgoJaWYgKHBlcmZtb25jdGwoY3R4X2ZkLCBQ
-Rk1fTE9BRF9DT05URVhULCAmbG9hZF9hcmdzLCAxKSA9PSAtMSkgewogICAgICAgICAgICAgICAg
-ZmF0YWxfZXJyb3IoInBlcmZtb25jdGwgZXJyb3IgUEZNX1dSSVRFX1BNRFMgZXJybm8gJWRcbiIs
-ZXJybm8pOwogICAgICAgIH0KCgkvKgogICAgICAgICAqIHNldHVwIGFzeW5jaHJvbm91cyBub3Rp
-ZmljYXRpb24gb24gdGhlIGZpbGUgZGVzY3JpcHRvcgogICAgICAgICAqLwogICAgICAgIHJldCA9
-IGZjbnRsKGN0eF9mZCwgRl9TRVRGTCwgZmNudGwoY3R4X2ZkLCBGX0dFVEZMLCAwKSB8IE9fQVNZ
-TkMpOwogICAgICAgIGlmIChyZXQgPT0gLTEpIHsKICAgICAgICAgICAgICAgIGZhdGFsX2Vycm9y
-KCJjYW5ub3Qgc2V0IEFTWU5DOiAlc1xuIiwgc3RyZXJyb3IoZXJybm8pKTsKICAgICAgICB9CgoK
-ICAgICAgICAvKgogICAgICAgICAqIGdldCBvd25lcnNoaXAgb2YgdGhlIGRlc2NyaXB0b3IKICAg
-ICAgICAgKi8KICAgICAgICByZXQgPSBmY250bChjdHhfZmQsIEZfU0VUT1dOLCBnZXRwaWQoKSk7
-CiAgICAgICAgaWYgKHJldCA9PSAtMSkgewogICAgICAgICAgICAgICAgZmF0YWxfZXJyb3IoImNh
-bm5vdCBzZXRvd246ICVzXG4iLCBzdHJlcnJvcihlcnJubykpOwogICAgICAgIH0KCgkvKgoJICog
-TGV0J3Mgcm9sbCBub3cKCSAqLwoJcGZtX3NlbGZfc3RhcnQoY3R4X2ZkKTsKCglkZWxheSgxMCk7
-CgogICAgICAgIHBmbV9zZWxmX3N0b3AoY3R4X2ZkKTsKCgkvL3BlcmZtb25jdGwobWUsIFBGTV9T
-VEFSVCwgMCwgMCk7CgkvL3BlcmZtb25jdGwobWUsIFBGTV9TVE9QLCAwLCAwKTsKCgkvKiAKCSAq
-IGxldCdzIHN0b3AgdGhpcyBub3cKCSAqLwoJLyogb2Jzb2xldGUKCWlmIChwZXJmbW9uY3RsKG1l
-LCBQRk1fREVTVFJPWV9DT05URVhULCBOVUxMLCAwKSA9PSAtMSkgewoJCWZhdGFsX2Vycm9yKCAi
-Y2hpbGQ6IHBlcmZtb25jdGwgZXJyb3IgUEZNX0RFU1RST1kgZXJybm8gJWRcbiIsZXJybm8pOwoJ
-fQoJKi8KCglwcmludGYoInNtYWxsZXN0ID0gJWx1LCBsYXJnZXN0ID0gJWx1LCBuc2FtcGxlcyA9
-ICVsdSwgc2lnbWEgPSAlbHUsIHNpZ21hc3FyID0gJWx1XG4iLAoJICAgICAgIHNtYWxsZXN0LCBs
-YXJnZXN0LCBuc2FtcGxlcywgc2lnbWEsIHNpZ21hc3FyKTsKCWlmIChuc2FtcGxlcykgewoJCXBy
-aW50ZigiTWVhbiAlZywgc3RkZGV2ICVnXG4iLAoJCSAgICAgICAoZG91YmxlKXNpZ21hLyhkb3Vi
-bGUpbnNhbXBsZXMsCgkJICAgICAgIHNxcnQoKChkb3VibGUpc2lnbWFzcXIgLSAoZG91YmxlKShz
-aWdtYSAqIHNpZ21hKS8oZG91YmxlKW5zYW1wbGVzKS8oZG91YmxlKW5zYW1wbGVzKSk7Cgl9CgoJ
-Y2xvc2UoY3R4X2ZkKTsKCXJldHVybiAwOwp9Cg==
 
-------_=_NextPart_001_01C41652.ED654A19--
+-- 
+
+-Stephane
+
+--SUOF0GtieIMvvwua
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="realfeel4n.c"
+
+/*
+ * realfeel4.c -- produce histogram of interrupt to user-space latency.
+ *
+ * Based on notify-self.c from the pfmon2.0 package and realfeel.c from
+ *  Mark Hahn http://brain.mkmaster.ca/~hahn/realfeel.c
+ *
+ * Portions Copyright (C) 2001-2002 Hewlett-Packard Co
+ * Contributed by Stephane Eranian <eranian@hpl.hp.com>
+ *
+ * Released under GPL.
+ */
+
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <errno.h>
+#include <unistd.h>
+#include <string.h>
+#include <signal.h>
+#include <math.h>
+#include <limits.h>
+#include <sys/time.h>
+#include <sys/mman.h>
+#include <sched.h>
+#include <string.h>
+#include <fcntl.h>
+#include <perfmon/pfmlib.h>
+#include <perfmon/perfmon.h>
+#include <perfmon/perfmon_default_smpl.h>
+#include <perfmon/pfmlib_itanium2.h>
+
+typedef unsigned long stamp_t;
+
+static inline stamp_t time_stamp(void)
+{
+  stamp_t result;
+  __asm__ __volatile__("mov %0=ar.itc;;" : "=r"(result) :: "memory");
+  return result;
+}
+
+long sample_period;
+
+
+#define NUM_PMDS PFMLIB_MAX_PMDS
+#define NUM_PMCS PFMLIB_MAX_PMCS
+
+static pfarg_reg_t pd[NUM_PMDS];
+pfarg_reg_t pc[NUM_PMCS];
+static pfmlib_input_param_t inp;
+static pfmlib_output_param_t outp;
+static void *smpl_vaddr;
+static unsigned int entry_size;
+static int ctx_fd;
+
+
+static stamp_t smallest = ULONG_MAX;
+static stamp_t largest;
+
+static unsigned long nsamples;
+static unsigned long sigma;
+static unsigned long sigmasqr;
+
+
+static void fatal_error(char *fmt,...) __attribute__((noreturn));
+
+static void
+fatal_error(char *fmt, ...) 
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+
+	exit(1);
+}
+
+
+int set_realtime_priority(void)
+{
+	struct sched_param schp;
+	/*
+	 * set the process to realtime privs
+	 */
+	memset(&schp, 0, sizeof(schp));
+	schp.sched_priority = sched_get_priority_max(SCHED_FIFO);
+	
+	if (sched_setscheduler(0, SCHED_FIFO, &schp) != 0) {
+		perror("sched_setscheduler");
+		exit(1);
+	}
+
+	return 0;
+}
+
+double second() {
+	struct timeval tv;
+	gettimeofday(&tv,0);
+	return tv.tv_sec + 1e-6 * tv.tv_usec;
+}
+
+typedef unsigned long long u64;
+
+void selectsleep(unsigned us) {
+	struct timeval tv;
+	tv.tv_sec = 0;
+	tv.tv_usec = us;
+	select(0,0,0,0,&tv);
+}
+
+double secondsPerTick, ticksPerSecond;
+
+void calibrate()
+{
+	double sumx = 0;
+	double sumy = 0;
+	double sumxx = 0;
+	double sumxy = 0;
+	double slope;
+
+	// least squares linear regression of ticks onto real time
+	// as returned by gettimeofday.
+
+	const unsigned n = 30;
+	unsigned i;
+
+	for (i=0; i<n; i++) {
+		double breal,real,ticks;
+		stamp_t bticks;
+	
+		breal = second();
+		bticks = time_stamp();
+
+		selectsleep((unsigned)(10000 + drand48() * 200000));
+
+		ticks = time_stamp() - bticks;
+		real = second() - breal;
+
+		sumx += real;
+		sumxx += real * real;
+		sumxy += real * ticks;
+		sumy += ticks;
+	}
+	slope = ((sumxy - (sumx*sumy) / n) /
+		 (sumxx - (sumx*sumx) / n));
+	ticksPerSecond = slope;
+	secondsPerTick = 1.0 / slope;
+	printf("%3.3f MHz\n",ticksPerSecond*1e-6);
+}
+
+
+
+
+
+sig_atomic_t alarmed;
+static void alrm(int signo)
+{
+  alarmed = 1;
+}
+
+static void delay(unsigned seconds)
+{
+	sigset_t mask;
+	sigemptyset(&mask);
+
+	signal(SIGALRM, alrm);
+	signal(SIGINT, alrm);
+	alarmed = 0;
+	alarm(seconds);
+
+	while (alarmed==0 && sigsuspend(&mask));
+
+	printf("alarmed=%d\n", alarmed);
+}
+
+static void
+process(stamp_t now)
+{
+	static stamp_t last;
+	unsigned long m;
+
+	if (last) {
+		stamp_t diff = now - last;
+		if (now < last)
+			diff = ~(stamp_t)0 - last + now + 1;
+		nsamples++;
+		diff -= sample_period;
+		sigma += diff;
+		sigmasqr += diff * diff;
+		if (diff < smallest)
+			smallest = diff;
+		if (diff > largest)
+			largest = diff;
+	}
+	last = now;
+}
+
+void
+process_smpl_buffer(void)
+{
+	pfm_default_smpl_hdr_t *hdr;
+	pfm_default_smpl_entry_t *ent;
+	unsigned long pos;
+	unsigned long smpl_entry = 0;
+	pfm_ita2_pmd_reg_t *reg, *pmd16;
+	unsigned long i;
+	int ret;
+	static unsigned long last_ovfl = ~0UL;
+
+
+	hdr = (pfm_default_smpl_hdr_t *)smpl_vaddr;
+
+	/*
+	 * check that we are not diplaying the previous set of samples again.
+	 * Required to take care of the last batch of samples.
+	 */
+	if (hdr->hdr_overflows <= last_ovfl && last_ovfl != ~0UL) {
+		printf("skipping identical set of samples %lu <= %lu\n", hdr->hdr_overflows, last_ovfl);
+		return;
+	}
+
+	pos = (unsigned long)(hdr+1);
+	/*
+	 * walk through all the entries recored in the buffer
+	 */
+	for(i=0; i < hdr->hdr_count; i++) {
+
+		ret = 0;
+
+		ent = (pfm_default_smpl_entry_t *)pos;
+		/*
+		 * print entry header
+		 */
+		printf("Entry %ld PID:%d CPU:%d STAMP:0x%lx IIP:0x%016lx\n",
+			smpl_entry++,
+			ent->pid,
+			ent->cpu,
+			ent->tstamp,
+			ent->ip);
+
+		/*
+		 * point to first recorded register (always contiguous with entry header)
+		 */
+		reg = (pfm_ita2_pmd_reg_t*)(ent+1);
+
+		/*
+		 * in this particular example, we have pmd8-pmd15 has the BTB. We have also
+		 * included pmd16 (BTB index) has part of the registers to record. This trick
+		 * allows us to get the index to decode the sequential order of the BTB.
+		 *
+		 * Recorded registers are always recorded in increasing order. So we know
+		 * that pmd16 is at a fixed offset (+8*sizeof(unsigned long)) from pmd8.
+		 */
+		pmd16 = reg+8;
+		//show_btb(reg, pmd16);
+
+		/*
+		 * move to next entry
+		 */
+		pos += entry_size;
+	}
+}
+
+static void
+overflow_handler(int n, struct siginfo *info, struct sigcontext *sc)
+{
+	stamp_t now = time_stamp();
+
+	/* dangerous */
+	//printf("Notification received\n");
+
+	//process_smpl_buffer();
+	process(now);
+
+	/*
+	 * And resume monitoring
+	 */
+	if (perfmonctl(ctx_fd, PFM_RESTART,NULL, 0) == -1) {
+		perror("PFM_RESTART");
+		exit(1);
+	}
+}
+
+#ifndef SYS_sched_setaffinity
+# define SYS_sched_setaffinity 1231
+
+int
+sched_setaffinity (pid_t pid, unsigned int len, unsigned long *mask)
+{
+  return syscall (SYS_sched_setaffinity, pid, len, mask);
+}
+
+#endif
+
+
+int
+main(int argc, char **argv)
+{
+	int ret;
+	int i;
+	pfarg_context_t ctx[1];
+	pfmlib_options_t pfmlib_options;
+	struct sigaction act;
+	pfarg_load_t load_args;
+	unsigned long cpu_mask;
+
+	if (mlockall(MCL_CURRENT|MCL_FUTURE) != 0) {
+		perror("mlockall");
+		exit(1);
+	}
+
+	set_realtime_priority();
+	calibrate();
+
+	printf("secondsPerTick=%g\n", secondsPerTick);
+	printf("ticksPerSecond=%f\n", ticksPerSecond);
+
+	/*
+	 * Initialize pfm library (required before we can use it)
+	 */
+	if (pfm_initialize() != PFMLIB_SUCCESS) {
+		printf("Can't initialize library\n");
+		exit(1);
+	}
+
+	/*
+	 * Install the overflow handler (SIGPROF)
+	 */
+	memset(&act, 0, sizeof(act));
+	act.sa_handler = (sig_t)overflow_handler;
+	act.sa_flags = SA_NOMASK;
+	sigaction(SIGIO, &act, 0);
+
+	/*
+	 * pass options to library (optional)
+	 */
+	memset(&pfmlib_options, 0, sizeof(pfmlib_options));
+	pfmlib_options.pfm_debug = 0; /* set to 1 for debug */
+	pfm_set_options(&pfmlib_options);
+
+	memset(pd, 0, sizeof(pd));
+	memset(ctx, 0, sizeof(ctx));
+        memset(&load_args, 0, sizeof(load_args));
+
+	/*
+	 * prepare parameters to library. we don't use any Itanium
+	 * specific features here. so the pfp_model is NULL.
+	 */
+	memset(&inp, 0, sizeof(inp));
+        memset(&outp,0, sizeof(outp));
+
+	if (pfm_find_event("cpu_cycles", &inp.pfp_events[0].event) != PFMLIB_SUCCESS) {
+			fatal_error("Cannot find cpu_cycles event\n");
+	}
+
+	/*
+	 * set the default privilege mode for all counters:
+	 * 	PFM_PLM3 : user level 
+	 *	PFM_PLM0 : kernel level
+	 */
+	inp.pfp_dfl_plm = PFM_PLM0|PFM_PLM3;
+	inp.pfp_flags = PFMLIB_PFP_SYSTEMWIDE;
+	/*
+	 * how many counters we use
+	 */
+	inp.pfp_event_count = 1;
+
+	/*
+	 * use the library to find the monitors to use
+	 */
+	if ((ret = pfm_dispatch_events(&inp, NULL, &outp, NULL)) != PFMLIB_SUCCESS) {
+		fatal_error("Cannot configure events: %s\n", pfm_strerror(ret));
+	}
+	/*
+	 * set affinity to CPU0
+	 */
+	cpu_mask = 1UL;
+	ret = sched_setaffinity(getpid(), sizeof(unsigned long), &cpu_mask);
+	if (ret == -1) fatal_error("cannot set affinity: %d\n", errno);
+
+	/*
+	 * For this example, we want to be notified on counter overflows.
+	 */
+	ctx[0].ctx_flags      = PFM_FL_SYSTEM_WIDE | PFM_FL_OVFL_NO_MSG;
+	/*
+	 * now create the context for self monitoring/across system
+	 */
+	if (perfmonctl(0, PFM_CREATE_CONTEXT, ctx, 1) == -1 ) {
+		if (errno == ENOSYS) {
+			fatal_error("Your kernel does not have performance monitoring support!\n");
+		}
+		fatal_error("Can't create PFM context %s\n", strerror(errno));
+	}
+	ctx_fd = ctx->ctx_fd;
+	/*
+	 * We want to get notified when the counter used for our first
+	 * event overflows
+	 */
+	pc[0].reg_flags 	|= PFM_REGFL_OVFL_NOTIFY;
+	pc[0].reg_reset_pmds[0] |= 1UL << outp.pfp_pmcs[1].reg_num;
+
+	pc[0].reg_num   = outp.pfp_pmcs[0].reg_num;
+	pc[0].reg_value = outp.pfp_pmcs[0].reg_value;
+
+	pd[0].reg_num	= outp.pfp_pmcs[0].reg_num;
+
+
+	/*
+	 * we arm the first counter, such that it will overflow
+	 * after sample_period events have been observed -- around 7ms
+	 */
+	sample_period = 7 * ticksPerSecond / 1000; 
+	printf("sample_period = %lu\n", sample_period);
+	pd[0].reg_value       = (~0UL) - sample_period;
+	pd[0].reg_short_reset  = (~0UL) - sample_period;
+	pd[0].reg_long_reset  = (~0UL) - sample_period;
+
+	/*
+	 * Now program the registers
+	 *
+	 * We don't use the save variable to indicate the number of elements passed to
+	 * the kernel because, as we said earlier, pc may contain more elements than
+	 * the number of events we specified, i.e., contains more than counting monitors.
+	 */
+	if (perfmonctl(ctx_fd, PFM_WRITE_PMCS, pc, outp.pfp_pmc_count) == -1) {
+		fatal_error("child: perfmonctl error PFM_WRITE_PMCS errno %d: %s\n",errno, strerror(errno));
+	}
+
+	if (perfmonctl(ctx_fd, PFM_WRITE_PMDS, pd, inp.pfp_event_count) == -1) {
+		fatal_error( "child: perfmonctl error PFM_WRITE_PMDS errno %d: %s\n",errno, strerror(errno));
+	}
+
+	/*
+         * we want to monitor ourself
+         */
+        load_args.load_pid = getpid();
+
+	if (perfmonctl(ctx_fd, PFM_LOAD_CONTEXT, &load_args, 1) == -1) {
+                fatal_error("perfmonctl error PFM_WRITE_PMDS errno %d\n",errno);
+        }
+
+	/*
+         * setup asynchronous notification on the file descriptor
+         */
+        ret = fcntl(ctx_fd, F_SETFL, fcntl(ctx_fd, F_GETFL, 0) | O_ASYNC);
+        if (ret == -1) {
+                fatal_error("cannot set ASYNC: %s\n", strerror(errno));
+        }
+
+
+        /*
+         * get ownership of the descriptor
+         */
+        ret = fcntl(ctx_fd, F_SETOWN, getpid());
+        if (ret == -1) {
+                fatal_error("cannot setown: %s\n", strerror(errno));
+        }
+
+	/*
+	 * Let's roll now
+	 */
+	perfmonctl(ctx_fd, PFM_START, 0, 0);
+
+	delay(10);
+
+	perfmonctl(ctx_fd, PFM_STOP, 0, 0);
+
+
+	/* 
+	 * let's stop this now
+	 */
+
+	printf("smallest = %lu, largest = %lu, nsamples = %lu, sigma = %lu, sigmasqr = %lu\n",
+	       smallest, largest, nsamples, sigma, sigmasqr);
+	if (nsamples) {
+		printf("Mean %g, stddev %g\n",
+		       (double)sigma/(double)nsamples,
+		       sqrt(((double)sigmasqr - (double)(sigma * sigma)/(double)nsamples)/(double)nsamples));
+	}
+
+	close(ctx_fd);
+	return 0;
+}
+
+--SUOF0GtieIMvvwua--
