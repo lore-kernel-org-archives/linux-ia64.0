@@ -1,32 +1,50 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Mon, 12 Feb 2001 22:16:55 +0000
-Subject: Re: [Linux-ia64] modutils 2.4.2 and USB
-Message-Id: <marc-linux-ia64-105590693005142@msgid-missing>
+From: Einar Saltnes <eisa@scali.no>
+Date: Fri, 09 Feb 2001 17:28:27 +0000
+Subject: [Linux-ia64] Serial console during linux boot
+Message-Id: <marc-linux-ia64-105590693005123@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005137@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005137@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Yes, you are correct.  I've removed the patch and given myself 20 lashes
-with a wet noodle.
+Hi all,
 
-On Tue, Feb 13, 2001 at 09:04:10AM +1100, Keith Owens wrote:
-> On Mon, 12 Feb 2001 09:14:27 -0800, 
-> Michael Madore <mmadore@turbolinux.com> wrote:
-> >depmod: Module /lib/modules/2.4.1-010131-1smp/kernel/drivers/usb/acm.o has
-> >an unknown version (2) usb_device table
-> >	It is likely that the kernel structure has changed, if so then
-> >	you probably need a new version of modutils to handle this kernel.
-> >	Check linux/Documentation/Changes.
-> 
-> Somebody has included patch-2.4.0-hotplug.gz in your source tree.  That
-> patch is not to be used.
+I'm using the RedHat 7.0 ia64 beta distro (13 Dec 2000) on a couple of
+Dual B1-stepping BigSurs. BIOS 84.
 
+I am trying to get the linux boot messages/output over the serial port
+as I want to operate it remotely by using a serial console switch +
+power switch.
+
+Using getty seems to work OK on different serial port speed settings as
+does on common x86 machines.
+Directing standard output, standard input and standard error to serial
+port in EFIs Boot Option Maintenance Boot Menu with speed 115200, seems
+to work OK from power on up to start of linux kernel load. BTW, is it
+possible to adjust the serial port speed at this level to e.g. 9600 or
+19200?
+
+When ELI starts to load the linux kernel, I am not able to get any
+output on the serial console. I have tried with the line
+
+append="console=ttyS0,9600n8"
+
+in the beginning of /boot/efi/eli.cfg. (Console switch port speed also
+set to 9600)
+
+In the eli README file is says that append commands are implemented, but
+serial is not listed as a valid command.
+Is there some way I can direct the linux load-/boot-messages on my
+current machines?
+
+Thank you!
+
+Best regards
+Einar Saltnes
 -- 
-Mike Madore
-Software Engineer
-TurboLinux, Inc.
+| Einar Saltnes          |         Scali AS         |
+| mailto:eisa@scali.no   |   http://www.scali.com   |
+| Phone:+47 22 62 89 50  |  Scalable Linux Systems  |
+| Fax  :+47 22 62 89 51  |      and Technology      |
 
