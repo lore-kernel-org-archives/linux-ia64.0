@@ -1,61 +1,30 @@
 From: Prarit Bhargava <prarit@sgi.com>
-Date: Thu, 03 Mar 2005 19:27:31 +0000
-Subject: [PATCH/RFC]: Clean up of sn_irq_info list
-Message-Id: <42276523.3060107@sgi.com>
+Date: Thu, 03 Mar 2005 20:07:36 +0000
+Subject: Re: [PATCH/RFC]: Clean up of sn_irq_info list
+Message-Id: <42276E88.30004@sgi.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------050407030004010605030501"
+Content-Type: multipart/mixed; boundary="------------060409070109020802000107"
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42276523.3060107@sgi.com>
+In-Reply-To: <42276523.3060107@sgi.com>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------050407030004010605030501
+--------------060409070109020802000107
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Hello,
-
-This patch solves a coding problem that was noticed during hotplug 
-driver testing on SGI systems. 
-
-When a hotpluggable PCI device is introduced to the system, it is linked 
-to a sn_irq_info struct.  These sn_irq_info tructs are linked together 
-via a unprotected unidirectional list, which implies FIFO list 
-behaviour.  If a PCI device was taken out of service the sn_irq_info 
-struct must be removed.
-
-Due to the FIFO nature of the list, the element remove function became 
-cumbersome to code. Since the list was unprotected by locks a race was 
-quickly noticed where sn_irq_info structs were accessed as they were 
-being removed.
-
-The fix is to implement a list using the standard list.h structs and to 
-lock using an RCU lock implementation (the list can be accessed in an 
-interrupt context).
-
-The attached patch is against latest 2.6 bk pull.
+After input from Jesse Barnes, jbarnes@sgi.com here's a new patch.
 
 P.
 
-
---------------050407030004010605030501
+--------------060409070109020802000107
 Content-Type: text/plain;
- name="sn_irq.patch"
+ name="sn_irq2.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="sn_irq.patch"
+ filename="sn_irq2.patch"
 
-===== Makefile 1.564 vs edited =====
---- 1.564/Makefile	2005-02-12 21:58:24 -05:00
-+++ edited/Makefile	2005-03-02 13:52:54 -05:00
-@@ -1,7 +1,7 @@
- VERSION = 2
- PATCHLEVEL = 6
- SUBLEVEL = 11
--EXTRAVERSION =-rc4
-+EXTRAVERSION =-bk
- NAME=Woozy Numbat
- 
- # *DOCUMENTATION*
 ===== arch/ia64/sn/kernel/io_init.c 1.9 vs edited =====
 --- 1.9/arch/ia64/sn/kernel/io_init.c	2005-01-11 19:22:08 -05:00
 +++ edited/arch/ia64/sn/kernel/io_init.c	2005-03-02 13:52:37 -05:00
@@ -72,7 +41,7 @@ Content-Disposition: inline;
  
 ===== arch/ia64/sn/kernel/irq.c 1.31 vs edited =====
 --- 1.31/arch/ia64/sn/kernel/irq.c	2005-01-22 18:54:50 -05:00
-+++ edited/arch/ia64/sn/kernel/irq.c	2005-03-02 13:54:52 -05:00
++++ edited/arch/ia64/sn/kernel/irq.c	2005-03-03 14:52:39 -05:00
 @@ -9,6 +9,7 @@
   */
  
@@ -94,7 +63,7 @@ Content-Disposition: inline;
  
  static inline uint64_t sn_intr_alloc(nasid_t local_nasid, int local_widget,
  				     u64 sn_irq_info,
-@@ -128,69 +130,72 @@
+@@ -128,69 +130,71 @@
  
  static void sn_set_affinity_irq(unsigned int irq, cpumask_t mask)
  {
@@ -168,6 +137,12 @@ Content-Disposition: inline;
 -			    tmp_sn_irq_info->irq_xtalkaddr;
 -			sn_irq_info->irq_cookie = tmp_sn_irq_info->irq_cookie;
 -			register_intr_pda(sn_irq_info);
+-
+-			if (IS_PCI_BRIDGE_ASIC(sn_irq_info->irq_bridge_type)) {
+-				pcibr_change_devices_irq(sn_irq_info);
+-			}
+-
+-			sn_irq_info = sn_irq_info->irq_next;
 +		/* SAL call failed */	
 +		if (status)
 +			break;
@@ -176,15 +151,10 @@ Content-Disposition: inline;
 +		tmp_irq_info->irq_nasid = t_nasid;
 +		tmp_irq_info->irq_slice = t_slice;
 +		register_intr_pda(tmp_irq_info);
- 
--			if (IS_PCI_BRIDGE_ASIC(sn_irq_info->irq_bridge_type)) {
--				pcibr_change_devices_irq(sn_irq_info);
--			}
-+		if (IS_PCI_BRIDGE_ASIC(tmp_irq_info->irq_bridge_type)) {
++
++		if (IS_PCI_BRIDGE_ASIC(tmp_irq_info->irq_bridge_type))
 +			pcibr_change_devices_irq(tmp_irq_info);
-+		}
- 
--			sn_irq_info = sn_irq_info->irq_next;
++
 +		spin_lock(&sn_irq_info_lock);
 +		list_add_rcu(&tmp_irq_info->list, &sn_irq_info->list);
 +		list_del_rcu(&sn_irq_info->list);
@@ -203,15 +173,8 @@ Content-Disposition: inline;
  }
  
  struct hw_interrupt_type irq_type_sn = {
-@@ -221,62 +226,49 @@
- 	}
- }
+@@ -223,60 +227,42 @@
  
-+// PRARIT: these strange functions appear to keep track of 
-+// sn_last_irq and sn_first_irq.  The only reason to do this
-+// appears to be to keep track of pdacpu(cpu)->sn_first_irq
-+// and pdacpu(cpu)->sn_last_irq
-+
  static void register_intr_pda(struct sn_irq_info *sn_irq_info)
  {
 -	int irq = sn_irq_info->irq_irq;
@@ -276,8 +239,8 @@ Content-Disposition: inline;
 +		spin_lock(&tmp_irq_info->lock);
 +
 +		if (tmp_irq_info->irq_cpuid == cpu) {
-+		// I'm only interested in irq's on cpus
-+		// that correspond to sn_irq_info
++		/* I'm only interested in irq's on cpus
++		   that correspond to sn_irq_info */
 +			if (tmp_irq_info->irq_irq < irq)
 +				pdacpu(cpu)->sn_last_irq = 
 +					max(tmp_irq_info->irq_irq, 
@@ -295,7 +258,7 @@ Content-Disposition: inline;
  }
  
  struct sn_irq_info *sn_irq_alloc(nasid_t local_nasid, int local_widget, int irq,
-@@ -285,11 +277,11 @@
+@@ -285,11 +271,11 @@
  	struct sn_irq_info *sn_irq_info;
  	int status;
  
@@ -309,7 +272,7 @@ Content-Disposition: inline;
  
  	status =
  	    sn_intr_alloc(local_nasid, local_widget, __pa(sn_irq_info), irq,
-@@ -303,6 +295,13 @@
+@@ -303,6 +289,13 @@
  	}
  }
  
@@ -323,7 +286,7 @@ Content-Disposition: inline;
  void sn_irq_free(struct sn_irq_info *sn_irq_info)
  {
  	uint64_t bridge = (uint64_t) sn_irq_info->irq_bridge;
-@@ -328,26 +327,49 @@
+@@ -328,26 +321,49 @@
  	sn_irq_info->irq_cpuid = cpu;
  	sn_irq_info->irq_pciioinfo = SN_PCIDEV_INFO(pci_dev);
  
@@ -384,7 +347,7 @@ Content-Disposition: inline;
  	}
  }
  
-@@ -360,7 +382,7 @@
+@@ -360,7 +376,7 @@
   * the interrupt is in flight, so we may generate a spurious interrupt,
   * but we should never miss a real lost interrupt.
   */
@@ -393,7 +356,7 @@ Content-Disposition: inline;
  {
  	uint64_t regval;
  	int irr_reg_num;
-@@ -368,6 +390,7 @@
+@@ -368,6 +384,7 @@
  	uint64_t irr_reg;
  	struct pcidev_info *pcidev_info;
  	struct pcibus_info *pcibus_info;
@@ -401,7 +364,7 @@ Content-Disposition: inline;
  
  	pcidev_info = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
  	if (!pcidev_info)
-@@ -413,19 +436,19 @@
+@@ -413,19 +430,18 @@
  
  void sn_lb_int_war_check(void)
  {
@@ -419,15 +382,15 @@ Content-Disposition: inline;
 -				sn_check_intr(i, sn_irq_info);
 -			}
 -			sn_irq_info = sn_irq_info->irq_next;
+-		}
 +
 +	rcu_read_lock();
 +	list_for_each_entry_rcu(sn_irq_info, &sn_irq_info_list, list) {
 +
 +		/* Only call for PCI bridges that are fully initialized. */
 +		if (IS_PCI_BRIDGE_ASIC(sn_irq_info->irq_bridge_type) &&
-+		    (sn_irq_info->irq_bridge != NULL)) {
++		    (sn_irq_info->irq_bridge != NULL))
 +			sn_check_intr(sn_irq_info);
- 		}
  	}
 +	rcu_read_unlock();
  }
@@ -454,4 +417,4 @@ Content-Disposition: inline;
  
  extern void sn_send_IPI_phys(int, long, int, int);
 
---------------050407030004010605030501--
+--------------060409070109020802000107--
