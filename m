@@ -1,39 +1,49 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 05 Oct 2004 19:16:42 +0000
-Subject: RE: [PATCH] 2.6 SGI Altix I/O code reorganization
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0221C900@scsmsx401.amr.corp.intel.com>
+From: Patrick Gefre <pfg@sgi.com>
+Date: Tue, 05 Oct 2004 19:35:40 +0000
+Subject: Re: [PATCH] 2.6 SGI Altix I/O code reorganization
+Message-Id: <4162F78C.9020606@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200410042157.i94Lv7UC104750@fsgi900.americas.sgi.com>
-In-Reply-To: <200410042157.i94Lv7UC104750@fsgi900.americas.sgi.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C900@scsmsx401.amr.corp.intel.com>
+In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F0221C900@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: cngam@sgi.com, Matthew Wilcox <matthew@wil.cx>, Grant Grundler <iod00d@hp.com>
-Cc: Jesse Barnes <jbarnes@engr.sgi.com>, Pat Gefre <pfg@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: "Luck, Tony" <tony.luck@intel.com>
+Cc: cngam@sgi.com, Matthew Wilcox <matthew@wil.cx>, Grant Grundler <iod00d@hp.com>, Jesse Barnes <jbarnes@engr.sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->Yes, after looking at Grant's review/suggestion, we found that we can 
->actually just use raw_pci_ops.  This will work well for us.  We have 
->incoorporated this change.  No changes in pci/pci.c needed.
+Luck, Tony wrote:
+>>Yes, after looking at Grant's review/suggestion, we found that we can 
+>>actually just use raw_pci_ops.  This will work well for us.  We have 
+>>incoorporated this change.  No changes in pci/pci.c needed.
+> 
+> 
+> Good.  Let's try to make some forward progress here.  I'd like
+> to see the patches broken into a sequence something like this:
+> 
+> 1) Add new interfaces to header files to support any new API
+>    needed by new files
+> 2) Create all the new files (plain copies of old files where
+>    a move is involved).
+> 3) Functional changes to copied files.
+> 4) Whitespace cleanup of copied files.
+> 5) Point Makefiles to new files
+> 6) Delete all the old/unused files.
+> 7) Delete any API in headers that were only used by old files.
+> 
+> We'll need to coordinate with some other maintainrs for
+> drivers/pci/hotplug/Kconfig and drivers/scsi/qla1280.c,
+> but I'm ok with running all the other parts through the
+> ia64 tree.
+> 
+> This follows the usual guidelines of a sequence of steps where
+> the system is buildable+usable at each stage.
+> 
 
-Good.  Let's try to make some forward progress here.  I'd like
-to see the patches broken into a sequence something like this:
+Tony,
 
-1) Add new interfaces to header files to support any new API
-   needed by new files
-2) Create all the new files (plain copies of old files where
-   a move is involved).
-3) Functional changes to copied files.
-4) Whitespace cleanup of copied files.
-5) Point Makefiles to new files
-6) Delete all the old/unused files.
-7) Delete any API in headers that were only used by old files.
+It had been suggested that we submit this as new code - since it can't be transitioned to. And I 
+thought that was what we had decided on - a 'kill' patch and an 'add' patch. I can remove any 
+Lindent'ing of older files if you don't want that. I will take out the Kconfig mod. I believe 
+Christoph is the maintainer of the qla driver (he was one of the reviewers).
 
-We'll need to coordinate with some other maintainrs for
-drivers/pci/hotplug/Kconfig and drivers/scsi/qla1280.c,
-but I'm ok with running all the other parts through the
-ia64 tree.
-
-This follows the usual guidelines of a sequence of steps where
-the system is buildable+usable at each stage.
-
--Tony
+-- Pat
