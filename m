@@ -1,7 +1,7 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Thu, 24 Jan 2002 05:41:50 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 25 Jan 2002 06:38:54 +0000
 Subject: Re: [Linux-ia64] patch for vmlinux.lds.S
-Message-Id: <marc-linux-ia64-105590698805925@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805928@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805920@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805920@msgid-missing>
@@ -10,12 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith Owens (kaos@ocs.com.au) said: 
-> Oops, wrong version of the script in previous mail.
+>>>>> On Wed, 23 Jan 2002 21:23:32 -0500, Bill Nottingham <notting@redhat.com> said:
 
-It appears to be OK:
-Unwind section   [ 6] .IA_64.unwind     IA_64_UNWIND     e00000000483fba0  0044fba0        000000000001b9f0  0000000000000000  AL       1     1     8
-0 out of order entries detected
+  Bill> This fixes building the kernel for me; possibly a recent
+  Bill> binutils thing? (Otherwise, I'm getting dangling references to
+  Bill> the text.exit code in .IA_64.unwind.text.exit sections.)
 
-Bill
+Yes, I added a similar fix.  It will be in the next patch (hopefully
+next week, but with LinuxWorld happening, it may end up being the week
+after).
+
+	--david
 
