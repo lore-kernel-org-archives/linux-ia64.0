@@ -1,7 +1,7 @@
 From: Jesse Barnes <jbarnes@redhat.com>
-Date: Wed, 19 May 2004 13:14:40 +0000
+Date: Wed, 19 May 2004 13:21:31 +0000
 Subject: Re: Disable CONFIG_SMP for IA64_HP_SIM
-Message-Id: <200405190914.40803.jbarnes@redhat.com>
+Message-Id: <200405190921.31175.jbarnes@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040519012326.GA27655@cse.unsw.EDU.AU>
 In-Reply-To: <20040519012326.GA27655@cse.unsw.EDU.AU>
@@ -20,8 +20,7 @@ On Tuesday, May 18, 2004 11:10 pm, Ian Wienand wrote:
 > I don't think it would effect the SGI machines as they have their own
 > arch/sn/kernel/irq.c?
 
-I'll try it out now.  At one point, we needed iosapic.c since some files 
-referenced symbols there in unused codepaths.  I think that's since been 
-fixed though.
+The patch looks fine.  sn2 still needs iosapic though (ACPI support relies on 
+it), but that's a seperate issue.
 
 Jesse
