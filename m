@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 20 Jan 2005 23:51:22 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 21 Jan 2005 03:32:48 +0000
 Subject: RE: [patch] ia64: fix potential NaT bit error for sys_pipe().
-Message-Id: <16880.17402.208039.592157@napali.hpl.hp.com>
+Message-Id: <200501210332.j0L3Wmg24796@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16878.2168.388519.26567@napali.hpl.hp.com>
 In-Reply-To: <16878.2168.388519.26567@napali.hpl.hp.com>
@@ -11,39 +11,28 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 >>>>> On Thu, 20 Jan 2005 15:22:59 -0800, "Seth, Rohit" <rohit.seth@intel.com> said:
+>
+>   Rohit> We are also thinking of reseting the mfh bit on every syscall
+>   Rohit> entry as an optimization.
+>
+>   Rohit> Comments?
 
-  Rohit> We are also thinking of reseting the mfh bit on every syscall
-  Rohit> entry as an optimization.
+David Mosberger wrote on Thursday, January 20, 2005 3:51 PM
+> Sounds OK with me.  We should delete this comment from process.c then,
+> ....
+> and change:
+>
+> #define THREAD_FLAGS_TO_CLEAR (IA64_THREAD_FPH_VALID | IA64_THREAD_DBG_VALID \
+>                                | IA64_THREAD_PM_VALID)
+>
+> to:
+>
+> #define THREAD_FLAGS_TO_CLEAR (IA64_THREAD_DBG_VALID | IA64_THREAD_PM_VALID)
 
-  Rohit> Comments?
+We would rather not to change THREAD_FLAGS_TO_CLEAR definition.  mfh bit in child
+pt_regs is cleared right above where the comment is.  I think it is better as is
+so that child thread fph partition stays invalidated.
 
-Sounds OK with me.  We should delete this comment from process.c then,
-too:
+- Ken
 
-        /*
-         * NOTE: The calling convention considers all floating point
-         * registers in the high partition (fph) to be scratch.  Since
-         * the only way to get to this point is through a system call,
-         * we know that the values in fph are all dead.  Hence, there
-         * is no need to inherit the fph state from the parent to the
-         * child and all we have to do is to make sure that
-         * IA64_THREAD_FPH_VALID is cleared in the child.
-         *
-         * XXX We could push this optimization a bit further by
-         * clearing IA64_THREAD_FPH_VALID on ANY system call.
-         * However, it's not clear this is worth doing.  Also, it
-         * would be a slight deviation from the normal Linux system
-         * call behavior where scratch registers are preserved across
-         * system calls (unless used by the system call itself).
-         */
 
-and change:
-
-#define THREAD_FLAGS_TO_CLEAR (IA64_THREAD_FPH_VALID | IA64_THREAD_DBG_VALID \
-                               | IA64_THREAD_PM_VALID)
-
-to:
-
-#define THREAD_FLAGS_TO_CLEAR (IA64_THREAD_DBG_VALID | IA64_THREAD_PM_VALID)
-
-	--david
