@@ -1,7 +1,7 @@
 From: Francois Wellenreiter <Francois.Wellenreiter@Ext.Bull.Net>
-Date: Wed, 31 Mar 2004 06:37:01 +0000
+Date: Wed, 31 Mar 2004 06:43:01 +0000
 Subject: Re: Abnormal behaviour towards "INIT" interrupt management
-Message-Id: <406A670D.8040101@Ext.Bull.Net>
+Message-Id: <406A6875.7030500@Ext.Bull.Net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40691B80.9070309@Ext.Bull.Net>
 In-Reply-To: <40691B80.9070309@Ext.Bull.Net>
@@ -10,55 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-
->>Then I push on the "dump" button that generates an INIT interruption to 
->>all the processors. This signal is then caught by PAL, and SAL which 
->>calls (with a reason [register GR11] equal to 2) 
->>"ia64_monarch_init_handler" on the monarch processor and 
->>"ia64_slave_init_handler" on the slave ones (to this point, I hope to be 
->>right, isn't it ?).
+>>>What I've noticed using traces (and further an ITP tool) is that for 
+>>>each processor the "ia64_monarch_init_handler" is ever called. :-(
+>>
+>>Are you saying that more than one processor calls
+>>ia64_monarch_init_handler()?  If so, I think something
+>>is broken.
 > 
 > 
-> Yes.  If I understand correctly, you observe that one processor
-> calls ia64_monarch_init_handler(), and all the others call
-> ia64_slave_init_handler().  So far, that is correct behavior.
+> Or are you saying that NO processor gets to ia64_monarch_init_handler?
 
-Hum, in fact, that's the behaviour I was expecting to observe... reading 
-the kernel code.
+All the processors call the "ia64_monarch_init_handler",
+the result is that the same trace appears many times (1 per CPU in fact)
+and a kernel oops occurs (I think it is due to a concurrent access
+to the same stack without any lock mechanism).
 
->>What I've noticed using traces (and further an ITP tool) is that for 
->>each processor the "ia64_monarch_init_handler" is ever called. :-(
-> 
-> 
-> Are you saying that more than one processor calls
-> ia64_monarch_init_handler()?  If so, I think something
-> is broken.  But I haven't seen that behavior.  Here is
-> ia64_slave_init_handler():
-> 
-> 	GLOBAL_ENTRY(ia64_slave_init_handler)
-> 	1:      br.sptk 1b
-> 	END(ia64_slave_init_handler)
-> 
+> Just a sanity check ... when you set the ITP breakpoint to catch
+> the entry ... you did set it at the *physical* address of this function?
 
-Right, I was just surprised to see 4 times the trace "Entered OS INIT 
-handler" appearing on my console screen. Then, I ran a JTAG debugger
-to set breakpoints in the kernel code and noticed that all CPUs called
-the same function, e.g. "ia64_monarch_init_handler" (without using
-any Rendez-Vous mechanism ?!).
+Yes, using Hardware breakpoints. When managing INIT interrupt, SAL calls
+the physical address of my function.
 
-> So I'd be surprised to see the slave processors do anything
-> interesting.
-> 
-> I do know that we are missing some useful behavior in this area --
-> namely, we don't extract the min-state area for the slave processors,
-> so we don't get backtraces for the currently-running tasks on them.
-
-On that precise point, I thougt that PAL was recording register states
-in a processor dedicated area called "min-state area" for each processor
-receiving INIT signal (and in the present case all the processors catch 
-it). Can you confirm this ?
-
-In fact, I want to be able pushing the "dump" button to get the 
-information for all the running processors (and not just one) and then 
-determine for example which one is "deadlocking".
 
