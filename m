@@ -1,77 +1,46 @@
-From: "Iniguez, Jorge" <jorge.iniguez@intel.com>
-Date: Wed, 03 Jul 2002 13:12:22 +0000
-Subject: [Linux-ia64] Where to get rpc.pcnfs for Red Hat 7.2 for ITP
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C22293.447C5110"
-Message-Id: <marc-linux-ia64-105590701905730@msgid-missing>
+From: Erich Focht <efocht@ess.nec.de>
+Date: Tue, 16 Jul 2002 16:23:52 +0000
+Subject: [Linux-ia64] O(1) scheduler for 2.4.18-ia64
+Message-Id: <marc-linux-ia64-105590701905778@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+Hi,
 
-------_=_NextPart_001_01C22293.447C5110
-Content-Type: text/plain;
-	charset="ISO-8859-1"
-Content-Transfer-Encoding: quoted-printable
+for those working with IA64 systems: at
+  http://home.arcor.de/efocht/sched/MQO1_ia64-ef7-2.4.18.patch.bz2
+you can find a port of the O(1) scheduler. It is the "old" one, i.e.
+not having SCHED_BATCH, etc. But it has some important changes compared
+to my last port:
 
-All,
+  - Uses the "complex" macros which release the RQ lock before switching
+    context. This is a MUST on IA64, as there is a potential deadlock
+    when the context numbers are wrapped around.
 
-We are testing an ITP based sever with Red Had 7.2 and the application =
-we
-are using requires the driver RPC.PCNFS to be able to configure the =
-virtual
-disk for NFS.  Any body has any idea on where to get this driver?
+  - cpu_idle() is changed such that platforms which just return from
+    pm_idle() don't call schedule() in a tight loop. This was the reason
+    for massive cache line bouncings when some CPUs were idle as they
+    not only locked their RQs but also loaded nr_running (on the same cache
+    line as the lock) for every other RQ. The position of nr_running inside
+    the RQ structure is changed, such that it doesn't share the cacheline
+    with lock.
 
-Saludos,=09
-Jorge I=F1iguez
-Intel Tecnolog=EDa de M=E9xico=09
-Partner Development Manager
+  - load_balance() only steals at most one task. Before it could sometimes
+    steal half of the tasks of the most loaded CPU. This is OK on small
+    machines but on large ones the tasks were bounced around a while until
+    "settling" on a particular CPU. Maybe this is not yet optimal, but it
+    improves hackbench results.
 
+The patch applies to  2.4.18  +  4th ia64 patch from David. It also can
+be applied to the vanilla 2.4.18, (kernel/timer.c needs to be edited by
+hand), but this port is not intended to be an alternative to Robert Love's
+backports... It is for IA64 and/or the node affine scheduler.
 
-------_=_NextPart_001_01C22293.447C5110
-Content-Type: text/html;
-	charset="ISO-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Best regards,
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
-<HTML>
-<HEAD>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
-charset=3DISO-8859-1">
-<META NAME=3D"Generator" CONTENT=3D"MS Exchange Server version =
-5.5.2653.12">
-<TITLE>Where to get rpc.pcnfs for Red Hat 7.2 for ITP</TITLE>
-</HEAD>
-<BODY>
+Erich
 
-<P ALIGN=3DLEFT><FONT SIZE=3D2 FACE=3D"Courier New">All,</FONT></P>
-
-<P ALIGN=3DLEFT><FONT SIZE=3D2 FACE=3D"Courier New">We are</FONT> <FONT =
-SIZE=3D2 FACE=3D"Courier New">testing an ITP based sever with Red Had =
-7.2 and the application</FONT> <FONT SIZE=3D2 FACE=3D"Courier =
-New">we</FONT><FONT SIZE=3D2 FACE=3D"Courier New"> are using requires =
-the driver RPC.PCNFS to be able to configure the virtual disk for =
-NFS.&nbsp; Any body has any idea on where to get</FONT> <FONT SIZE=3D2 =
-FACE=3D"Courier New">this driver?</FONT></P>
-
-<P ALIGN=3DLEFT><A NAME=3D"_MailAutoSig"><FONT SIZE=3D2 FACE=3D"Comic =
-Sans MS">Saludos,&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</FONT></A> =
-</P>
-
-<P ALIGN=3DLEFT><FONT SIZE=3D1 FACE=3D"Arial">Jorge =
-I=F1iguez</FONT></P>
-
-<P ALIGN=3DLEFT><B><FONT COLOR=3D"#0000FF" SIZE=3D1 =
-FACE=3D"Arial">Intel Tecnolog=EDa de =
-M=E9xico</FONT></B>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </P>
-
-<P ALIGN=3DLEFT><FONT SIZE=3D1 FACE=3D"Arial">Partner Development =
-Manager</FONT></P>
-
-<P ALIGN=3DLEFT></P>
-
-</BODY>
-</HTML>
-------_=_NextPart_001_01C22293.447C5110--
 
