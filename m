@@ -1,34 +1,29 @@
-From: "Martin J. Bligh" <mbligh@aracnet.com>
-Date: Thu, 07 Oct 2004 16:02:57 +0000
-Subject: RE: [RFC/PATCH]  pfn_valid() more generic : arch independent part[0/2]
-Message-Id: <1260420000.1097164975@[10.10.2.4]>
+From: Hiroyuki KAMEZAWA <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Thu, 07 Oct 2004 23:38:24 +0000
+Subject: Re: [RFC/PATCH]  pfn_valid() more generic : arch independent part[0/2]
+Message-Id: <4165D370.1090208@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F022668D0@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F022668D0@scsmsx401.amr.corp.intel.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0226680C@scsmsx401.amr.corp.intel.com>
+ <4164E20D.5020400@jp.fujitsu.com> <1248570000.1097159887@[10.10.2.4]>
+In-Reply-To: <1248570000.1097159887@[10.10.2.4]>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, Hiroyuki KAMEZAWA <kamezawa.hiroyu@jp.fujitsu.com>
-Cc: LinuxIA64 <linux-ia64@vger.kernel.org>, linux-mm <linux-mm@kvack.org>
+To: "Martin J. Bligh" <mbligh@aracnet.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, LinuxIA64 <linux-ia64@vger.kernel.org>, linux-mm <linux-mm@kvack.org>
 
---"Luck, Tony" <tony.luck@intel.com> wrote (on Thursday, October 07, 2004 08:53:32 -0700):
 
->> The normal way to fix the above is just to have a bitmap array 
->> to test - in your case a 1GB granularity would be sufficicent. That 
->> takes < 1 word to implement for the example above ;-)
+Martin J. Bligh wrote:
+> The normal way to fix the above is just to have a bitmap array to test - 
+> in your case a 1GB granularity would be sufficicent. That takes < 1 word
+> to implement for the example above ;-)
 > 
-> In the general case you need a bit for each granule (since that is the
-> unit that the kernel admits/denies the existence of memory).  But the
-> really sparse systems end up with a large bitmap.  SGI Altix uses 49
-> physical address bits, and a granule size of 16MB ... so we need 2^25
-> bits ... i.e. 4MBbytes.  While that's a drop in the ocean on a 4TB
-> machine, it still seems a pointless waste.
+> M.
+> 
 
-If it's that sparse, it might be worth having another data structure,
-perhaps a tree, or some form of hierarchical bitmap. But probably the
-most important thing is to do it in one cacheline read, so personally
-I'd stick with the array. Whatever you chose, I still don't understand 
-where all that code came from ;-)
+Although I don't like a page fault, I now understand it doesn't often happen.
+I'd like to use current implementation.
 
-M.
+Thanks
 
+Kame <kamezawa.hiroyu@jp.fujitsu.com>
