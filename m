@@ -1,12 +1,27 @@
-From: Jes Sorensen <jes@linuxcare.com>
-Date: Tue, 24 Apr 2001 20:43:35 +0000
-Subject: [Linux-ia64] patch: qla1280 cleanup
-Message-Id: <marc-linux-ia64-105590693005456@msgid-missing>
+From: "McCaffity, Ray" <ray.mccaffity@wcg.com>
+Date: Wed, 25 Apr 2001 16:42:13 +0000
+Subject: RE: [Linux-ia64] patch: qla1280 cleanup
+Message-Id: <marc-linux-ia64-105590693005461@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005456@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005456@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Probably a dumb question, but...
+How can I tell if I'm running "big sur".
+
+Ray
+
+-----Original Message-----
+From: Jes Sorensen [mailto:jes@linuxcare.com]
+Sent: Tuesday, April 24, 2001 3:44 PM
+To: linux-ia64@linuxia64.org
+Cc: arjanv@redhat.com
+Subject: [Linux-ia64] patch: qla1280 cleanup
+
 
 Hi
 
@@ -31,26 +46,34 @@ PS: The qla1280 firmware image included with the 010405 patch is under
 a license that is conflicting with the GPL. Anyone have a contact at
 QLogic so we can get this resolved?
 
---- ../linux-2.4.3-zc-010405-backup/drivers/scsi/qla1280.c	Fri Apr 13 17:52:25 2001
+--- ../linux-2.4.3-zc-010405-backup/drivers/scsi/qla1280.c	Fri Apr 13
+17:52:25 2001
 +++ drivers/scsi/qla1280.c	Tue Apr 24 15:36:43 2001
 @@ -1,4 +1,4 @@
--/********************************************************************************
-+/******************************************************************************
+-/**************************************************************************
+******
++/**************************************************************************
+****
  *                  QLOGIC LINUX SOFTWARE
  *
  * QLogic  QLA1280 (Ultra2)  and  QLA12160 (Ultra3) SCSI driver
 @@ -16,9 +16,18 @@
  * General Public License for more details.
  **
- ******************************************************************************/
+ 
+****************************************************************************
+**/
 -#define QLA1280_VERSION      "3.23 Beta"
--/****************************************************************************
+-/**************************************************************************
+**
 +#define QLA1280_VERSION      "3.24 Beta"
-+/******************************************************************************
++/**************************************************************************
+****
      Revision History:
 +    Rev  3.24 Beta April 24, Jes Sorensen
 +        - Remove pre 2.2 kernel support
-+        - clean up 64 bit DMA setting to use 2.4 API (provide backwards compat)
++        - clean up 64 bit DMA setting to use 2.4 API (provide backwards
+compat)
 +        - Fix MMIO access to use readl/writel instead of directly
 +          dereferencing pointers
 +        - Nuke MSDOS debugging code
@@ -159,8 +182,10 @@ QLogic so we can get this resolved?
 +#ifdef QLA_64BIT_PTR
 +#define MS_64BITS(x)		0
  #else
--#define  VIRT_TO_BUS_LOW(a) (uint32_t)(0xffffffff & virt_to_bus((void *)(a)))
--#define  VIRT_TO_BUS_HIGH(a) (uint32_t)(0xffffffff & (virt_to_bus((void *)(a))>>32))
+-#define  VIRT_TO_BUS_LOW(a) (uint32_t)(0xffffffff & virt_to_bus((void
+*)(a)))
+-#define  VIRT_TO_BUS_HIGH(a) (uint32_t)(0xffffffff & (virt_to_bus((void
+*)(a))>>32))
 +#define MS_64BITS(x)		(x >> 32)
  #endif
  
@@ -180,7 +205,8 @@ QLogic so we can get this resolved?
  
 -#define  CACHE_FLUSH(a) (RD_REG_WORD(a))
 -#define  INVALID_HANDLE    (MAX_OUTSTANDING_COMMANDS+1)
-+static inline void *pci_alloc_consistent(struct pci_dev *hwdev, size_t size,
++static inline void *pci_alloc_consistent(struct pci_dev *hwdev, size_t
+size,
 +					 dma_addr_t *dma_handle)
 +{
 +	void *virt_ptr;
@@ -229,8 +255,10 @@ QLogic so we can get this resolved?
  static void qla1280_panic(char *, struct Scsi_Host *host);
  #endif
 -void qla1280_print_scsi_cmd(Scsi_Cmnd *cmd);
--STATIC void qla1280_abort_queue_single(scsi_qla_host_t *,uint32_t,uint32_t,uint32_t,uint32_t);
-+static void qla1280_abort_queue_single(scsi_qla_host_t *,uint32_t,uint32_t,uint32_t,uint32_t);
+-STATIC void qla1280_abort_queue_single(scsi_qla_host_t
+*,uint32_t,uint32_t,uint32_t,uint32_t);
++static void qla1280_abort_queue_single(scsi_qla_host_t
+*,uint32_t,uint32_t,uint32_t,uint32_t);
  
 -STATIC int qla1280_return_status( sts_entry_t *sts, Scsi_Cmnd       *cp);
 -STATIC void qla1280_removeq(scsi_lu_t *q, srb_t *sp);
@@ -258,10 +286,13 @@ QLogic so we can get this resolved?
 -STATIC uint8_t   qla1280_setup_chip(scsi_qla_host_t *);
 -STATIC uint8_t   qla1280_init_rings(scsi_qla_host_t *);
 -STATIC uint8_t   qla1280_nvram_config(scsi_qla_host_t *);
--STATIC uint8_t   qla1280_mailbox_command(scsi_qla_host_t *, uint8_t, uint16_t *);
+-STATIC uint8_t   qla1280_mailbox_command(scsi_qla_host_t *, uint8_t,
+uint16_t *);
 -STATIC uint8_t   qla1280_bus_reset(scsi_qla_host_t *, uint8_t);
--STATIC uint8_t   qla1280_device_reset(scsi_qla_host_t *, uint8_t, uint32_t);
--STATIC uint8_t   qla1280_abort_device(scsi_qla_host_t *, uint8_t, uint32_t, uint32_t);
+-STATIC uint8_t   qla1280_device_reset(scsi_qla_host_t *, uint8_t,
+uint32_t);
+-STATIC uint8_t   qla1280_abort_device(scsi_qla_host_t *, uint8_t, uint32_t,
+uint32_t);
 -STATIC uint8_t   qla1280_abort_command(scsi_qla_host_t *, srb_t *),
 -                 qla1280_64bit_start_scsi(scsi_qla_host_t *, srb_t *),
 -                 qla1280_32bit_start_scsi(scsi_qla_host_t *, srb_t *),
@@ -270,13 +301,16 @@ QLogic so we can get this resolved?
 -                 qla1280_nv_delay(scsi_qla_host_t *),
 -                 qla1280_poll(scsi_qla_host_t *),
 -                 qla1280_reset_adapter(scsi_qla_host_t *),
--                 qla1280_marker(scsi_qla_host_t *, uint8_t, uint32_t, uint32_t, uint8_t),
+-                 qla1280_marker(scsi_qla_host_t *, uint8_t, uint32_t,
+uint32_t, uint8_t),
 -                 qla1280_isp_cmd(scsi_qla_host_t *),
 -                 qla1280_isr(scsi_qla_host_t *, srb_t **, srb_t **),
 -                 qla1280_rst_aen(scsi_qla_host_t *),
--                 qla1280_status_entry(scsi_qla_host_t *, sts_entry_t *, srb_t **,
+-                 qla1280_status_entry(scsi_qla_host_t *, sts_entry_t *,
+srb_t **,
 -                                      srb_t **),
--                 qla1280_error_entry(scsi_qla_host_t *, response_t *, srb_t **,
+-                 qla1280_error_entry(scsi_qla_host_t *, response_t *, srb_t
+**,
 -                                     srb_t **),
 +static int qla1280_initialize_adapter(struct scsi_qla_host   *ha);
 +static int qla1280_enable_tgt(scsi_qla_host_t *, uint8_t);
@@ -315,16 +349,21 @@ QLogic so we can get this resolved?
 +static request_t *qla1280_req_pkt(scsi_qla_host_t *);
  int  qla1280_check_for_dead_scsi_bus(scsi_qla_host_t *ha, srb_t *sp);
 -STATIC uint8_t qla1280_mem_alloc(scsi_qla_host_t *ha);
--STATIC uint8_t  qla1280_register_with_Linux(scsi_qla_host_t *ha, uint8_t maxchannels);
+-STATIC uint8_t  qla1280_register_with_Linux(scsi_qla_host_t *ha, uint8_t
+maxchannels);
 +static int	 qla1280_mem_alloc(scsi_qla_host_t *ha);
 +static int	 qla1280_register_with_Linux(scsi_qla_host_t *ha,
 +                                             unsigned int maxchannels);
 +
-+static int	 qla12160_set_target_parameters(scsi_qla_host_t *, uint32_t, uint32_t, uint32_t, nvram160_t *);
-+static void	 qla12160_get_target_parameters(scsi_qla_host_t *, uint32_t, uint32_t, uint32_t);
++static int	 qla12160_set_target_parameters(scsi_qla_host_t *, uint32_t,
+uint32_t, uint32_t, nvram160_t *);
++static void	 qla12160_get_target_parameters(scsi_qla_host_t *, uint32_t,
+uint32_t, uint32_t);
  
--STATIC uint8_t qla12160_set_target_parameters(scsi_qla_host_t *, uint32_t, uint32_t, uint32_t, nvram160_t *);
--STATIC void qla12160_get_target_parameters(scsi_qla_host_t *, uint32_t, uint32_t, uint32_t);
+-STATIC uint8_t qla12160_set_target_parameters(scsi_qla_host_t *, uint32_t,
+uint32_t, uint32_t, nvram160_t *);
+-STATIC void qla12160_get_target_parameters(scsi_qla_host_t *, uint32_t,
+uint32_t, uint32_t);
 +#if QL1280_LUN_SUPPORT
 +static void      qla1280_enable_lun(scsi_qla_host_t *, uint8_t, uint32_t);
 +#endif
@@ -392,7 +431,8 @@ QLogic so we can get this resolved?
   * command line, we define a dummy buffer here to avoid having insmod
   * write wild stuff into our code segment
   */
- static char dummy_buffer[60] = "Please don't add commas in your insmod command!!\n";
+ static char dummy_buffer[60] = "Please don't add commas in your insmod
+command!!\n";
 -
  #endif
  
@@ -420,7 +460,8 @@ QLogic so we can get this resolved?
 +#endif
 +
  #ifdef QL_DEBUG_LEVEL_3 
- #define ENTER(x)	sprintf(debug_buff,"qla1280 : Entering %s()\n\r", x); \
+ #define ENTER(x)	sprintf(debug_buff,"qla1280 : Entering %s()\n\r",
+x); \
                          qla1280_print(debug_buff);
 @@ -471,15 +495,6 @@
  #define DEBUG3(x)
@@ -447,7 +488,8 @@ QLogic so we can get this resolved?
 -#else
 -#   define OFFSET(w)   (((uint32_t) &w) & 0xFF)   /* 256 byte offsets */
 -#endif
-+#define OFFSET(w)	(((unsigned long) &w) & 0xFF)   /* 256 byte offsets */
++#define OFFSET(w)	(((unsigned long) &w) & 0xFF)   /* 256 byte offsets
+*/
  
  #define SCSI_BUS_32(scp)   ((scp)->channel)
  #define SCSI_TCN_32(scp)    ((scp)->target)
@@ -462,16 +504,18 @@ QLogic so we can get this resolved?
          return (qla1280_set_info(buffer, length, host));
 @@ -598,9 +609,9 @@
  
-     size = sprintf(PROC_BUF, "SCSI Host Adapter Information: %s\n", bdp->bdName);
+     size = sprintf(PROC_BUF, "SCSI Host Adapter Information: %s\n",
+bdp->bdName);
      len += size;
--    size = sprintf(PROC_BUF, "Request Queue = 0x%x, Response Queue = 0x%x\n",
+-    size = sprintf(PROC_BUF, "Request Queue = 0x%x, Response Queue 0x%x\n",
 -                        ha->request_dma,
 -                        ha->response_dma);
-+    size = sprintf(PROC_BUF, "Request Queue = 0x%p, Response Queue = 0x%p\n",
++    size = sprintf(PROC_BUF, "Request Queue = 0x%p, Response Queue 0x%p\n",
 +                        (void *)ha->request_dma,
 +                        (void *)ha->response_dma);
      len += size;
-     size = sprintf(PROC_BUF, "Request Queue count= 0x%x, Response Queue count= 0x%x\n",
+     size = sprintf(PROC_BUF, "Request Queue count= 0x%x, Response Queue
+count= 0x%x\n",
                          REQUEST_ENTRY_CNT,
 @@ -698,18 +709,10 @@
  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,18)
@@ -525,7 +569,8 @@ QLogic so we can get this resolved?
 +                      (PCI_SLOT(pdev->devfn) = 2))
 +                    continue;
  
-  		  printk("qla1x160: Supported Device Found VID=%x DID=%x SSVID=%x SSDID=%x\n",
+  		  printk("qla1x160: Supported Device Found VID=%x DID=%x
+SSVID=%x SSDID=%x\n",
  			pdev->vendor, pdev->device,
  			pdev->subsystem_vendor, pdev->subsystem_device); 
  
@@ -535,7 +580,8 @@ QLogic so we can get this resolved?
  		  pci_read_config_word(pdev, PCI_SUBSYSTEM_VENDOR_ID,
                                         &subsys);
 @@ -905,7 +903,6 @@
-                       printk("qla1x160: Skip AMI SubSys Vendor ID  Chip\n");
+                       printk("qla1x160: Skip AMI SubSys Vendor ID
+Chip\n");
                        continue;
                      }
 -#endif /* 2,1,95 */
@@ -543,7 +589,8 @@ QLogic so we can get this resolved?
  		host = scsi_register(template, sizeof(scsi_qla_host_t));
  		ha = (scsi_qla_host_t *) host->hostdata;
 @@ -913,25 +910,11 @@
- 		for( j =0, cp = (char *)ha;  j < sizeof(scsi_qla_host_t); j++)
+ 		for( j =0, cp = (char *)ha;  j < sizeof(scsi_qla_host_t);
+j++)
  			*cp++ = 0;
  		/* Sanitize the information from PCI BIOS.  */
 -#if LINUX_VERSION_CODE > KERNEL_VERSION(2,1,95)
@@ -557,8 +604,10 @@ QLogic so we can get this resolved?
  		ha->pci_device_fn = pdev->devfn;
  		ha->pdev = pdev;
 -#else
--		pcibios_read_config_byte(pci_bus, pci_devfn, OFFSET(cfgp->interrupt_line), &pci_irq);
--		pcibios_read_config_dword(pci_bus, pci_devfn, OFFSET(cfgp->base_port), &piobase);
+-		pcibios_read_config_byte(pci_bus, pci_devfn,
+OFFSET(cfgp->interrupt_line), &pci_irq);
+-		pcibios_read_config_dword(pci_bus, pci_devfn,
+OFFSET(cfgp->base_port), &piobase);
 -		host->irq = pci_irq;
 -		host->io_port = (unsigned int) piobase;
 -		host->io_port &= PCI_BASE_ADDRESS_IO_MASK;
@@ -572,7 +621,8 @@ QLogic so we can get this resolved?
  *  0 - Sucessfully reserved resources.
  *  1 - Failed to reserved a resource.
  **************************************************************************/
--STATIC uint8_t  qla1280_register_with_Linux(scsi_qla_host_t *ha, uint8_t maxchannels)
+-STATIC uint8_t  qla1280_register_with_Linux(scsi_qla_host_t *ha, uint8_t
+maxchannels)
 +static int qla1280_register_with_Linux(scsi_qla_host_t *ha,
 +                                       unsigned int maxchannels)
  {
@@ -602,9 +652,11 @@ QLogic so we can get this resolved?
 -	/* set our host ID  (need to do something about our two IDs) */
 -       host->this_id = ha->bus_settings[0].id;
 -       /* Register the IRQ with Linux (sharable) */
--       if ( request_irq(host->irq, qla1280_intr_handler, SA_INTERRUPT| SA_SHIRQ, "qla1280", ha))
+-       if ( request_irq(host->irq, qla1280_intr_handler, SA_INTERRUPT|
+SA_SHIRQ, "qla1280", ha))
 -       {
--          printk("qla1280 : Failed to reserved interrupt %d already in use\n", host->irq);
+-          printk("qla1280 : Failed to reserved interrupt %d already in
+use\n", host->irq);
 -          qla1280_mem_free(ha);
 -          scsi_unregister(host);
 -	     return 1;
@@ -618,7 +670,8 @@ QLogic so we can get this resolved?
 -       /* Register the I/O space with Linux */
 -       if (check_region(host->io_port, 0xff))
 -       {
--           printk("qla1280 : Failed to reserved i/o region 0x%04lx-0x%04lx already in use\n",
+-           printk("qla1280 : Failed to reserved i/o region 0x%04lx-0x%04lx
+already in use\n",
 -              host->io_port, host->io_port + 0xff);
 -           free_irq(host->irq, NULL);
 -           qla1280_mem_free(ha);
@@ -628,9 +681,11 @@ QLogic so we can get this resolved?
 +    /* set our host ID  (need to do something about our two IDs) */
 +    host->this_id = ha->bus_settings[0].id;
 +    /* Register the IRQ with Linux (sharable) */
-+    if ( request_irq(host->irq, qla1280_intr_handler, SA_INTERRUPT| SA_SHIRQ, "qla1280", ha))
++    if ( request_irq(host->irq, qla1280_intr_handler, SA_INTERRUPT|
+SA_SHIRQ, "qla1280", ha))
 +    {
-+      printk("qla1280 : Failed to reserved interrupt %d already in use\n", host->irq);
++      printk("qla1280 : Failed to reserved interrupt %d already in use\n",
+host->irq);
 +      qla1280_mem_free(ha);
 +      scsi_unregister(host);
 +      return 1;
@@ -640,7 +695,8 @@ QLogic so we can get this resolved?
 +    /* Register the I/O space with Linux */
 +    if (check_region(host->io_port, 0xff))
 +    {
-+      printk("qla1280 : Failed to reserved i/o region 0x%04lx-0x%04lx already"
++      printk("qla1280 : Failed to reserved i/o region 0x%04lx-0x%04lx
+already"
 +             " in use\n", host->io_port, host->io_port + 0xff);
 +      free_irq(host->irq, NULL);
 +      qla1280_mem_free(ha);
@@ -705,9 +761,11 @@ QLogic so we can get this resolved?
          {
             LU_Q(ha, b, t, l) = q;
 -           BZERO(q,sizeof(struct scsi_lu));
--           DEBUG(sprintf(debug_buff,"Allocate new device queue 0x%x\n\r",q));
+-           DEBUG(sprintf(debug_buff,"Allocate new device queue
+0x%x\n\r",q));
 +           memset(q, 0, sizeof(struct scsi_lu));
-+           DEBUG(sprintf(debug_buff,"Allocate new device queue 0x%p\n\r",(void *)q));
++           DEBUG(sprintf(debug_buff,"Allocate new device queue
+0x%p\n\r",(void *)q));
             DEBUG(qla1280_print(debug_buff));
 -           DRIVER_UNLOCK
          }
@@ -776,7 +834,8 @@ QLogic so we can get this resolved?
 -    handle = (u_long) CMD_HANDLE(cmd);
 +    handle = CMD_HANDLE(cmd);
      if (qla1280_verbose)
--        printk("scsi(%d): ABORT Command=0x%lx, handle=0x%lx\n",(int)ha->host_no,(long)cmd,handle);
+-        printk("scsi(%d): ABORT Command=0x%lx,
+handle=0x%lx\n",(int)ha->host_no,(long)cmd,handle);
 +        printk("scsi(%li): ABORT Command=0x%p, handle=0x%p\n",
 +               ha->host_no, (void *)cmd, (void *)handle);
  
@@ -788,16 +847,19 @@ QLogic so we can get this resolved?
 -        /* we never got this command */
 -        printk(KERN_INFO "qla1280: Aborting a NULL handle\n");
 -        DRIVER_UNLOCK
--                return(SCSI_ABORT_NOT_RUNNING);  /* no action - we don't have command */
+-                return(SCSI_ABORT_NOT_RUNNING);  /* no action - we don't
+have command */
 +      COMTRACE('a');
 +      /* we never got this command */
 +      printk(KERN_INFO "qla1280: Aborting a NULL handle\n");
-+      return(SCSI_ABORT_NOT_RUNNING);  /* no action - we don't have command */
++      return(SCSI_ABORT_NOT_RUNNING);  /* no action - we don't have command
+*/
      }
      data = qla1280_debounce_register(&ha->iobase->istatus);
      if( !(ha->flags.in_isr) && (data & RISC_INT) )
 @@ -1272,7 +1236,12 @@
-         qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t **)&ha->done_q_last);
+         qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t
+**)&ha->done_q_last);
      }
  
 -    handle = (u_long) CMD_HANDLE(cmd);
@@ -817,19 +879,24 @@ QLogic so we can get this resolved?
 -    COMTRACE('a')
 -        /* No lun queue -- command must not be active */
 -        DRIVER_UNLOCK
--        printk(KERN_WARNING "qla1280 (%d:%d:%d): No LUN queue for the specified device\n",(int)b,(int)t,(int)l);
--        return(SCSI_ABORT_NOT_RUNNING);  /* no action - we don't have command */
+-        printk(KERN_WARNING "qla1280 (%d:%d:%d): No LUN queue for the
+specified device\n",(int)b,(int)t,(int)l);
+-        return(SCSI_ABORT_NOT_RUNNING);  /* no action - we don't have
+command */
 +      COMTRACE('a');
 +      /* No lun queue -- command must not be active */
-+      printk(KERN_WARNING "qla1280 (%d:%d:%d): No LUN queue for the specified device\n",(int)b,(int)t,(int)l);
-+      return(SCSI_ABORT_NOT_RUNNING);  /* no action - we don't have command */
++      printk(KERN_WARNING "qla1280 (%d:%d:%d): No LUN queue for the
+specified device\n",(int)b,(int)t,(int)l);
++      return(SCSI_ABORT_NOT_RUNNING);  /* no action - we don't have command
+*/
      }
  
  #if AUTO_ESCALATE_ABORT
      if ( (sp->flags & SRB_ABORTED) )
      {
 -        DRIVER_UNLOCK
-         DEBUG(qla1280_print("qla1280_abort: Abort escalayted - returning SCSI_ABORT_SNOOZE.\n\r"));
+         DEBUG(qla1280_print("qla1280_abort: Abort escalayted - returning
+SCSI_ABORT_SNOOZE.\n\r"));
          return(SCSI_ABORT_SNOOZE);
      }
 @@ -1298,10 +1265,9 @@
@@ -839,15 +906,19 @@ QLogic so we can get this resolved?
 -    COMTRACE('a')
 -        DRIVER_UNLOCK
 -        if( qla1280_verbose  )
--            printk("scsi(): Command has a pending abort message - ABORT_PENDING.\n");
+-            printk("scsi(): Command has a pending abort message -
+ABORT_PENDING.\n");
 +      COMTRACE('a');
 +      if( qla1280_verbose  )
-+        printk("scsi(): Command has a pending abort message - ABORT_PENDING.\n");
-         DEBUG(qla1280_print("qla1280: Command has a pending abort message - ABORT_PENDING.\n\r"));
++        printk("scsi(): Command has a pending abort message -
+ABORT_PENDING.\n");
+         DEBUG(qla1280_print("qla1280: Command has a pending abort message -
+ABORT_PENDING.\n\r"));
          return(SCSI_ABORT_PENDING);
      }
 @@ -1317,7 +1283,7 @@
-     * but; since our sp contains the cmd ptr, we can just remove it from our
+     * but; since our sp contains the cmd ptr, we can just remove it from
+our
      * LUN queue.
      */
 -    if( !(sp->flags&SRB_SENT) )
@@ -884,7 +955,8 @@ QLogic so we can get this resolved?
 -    COMTRACE('R')
 +    COMTRACE('R');
      if (qla1280_verbose)
-         printk("scsi(): Resetting Cmnd=0x%lx, Handle=0x%lx, flags=0x%x\n",(long)cmd,(long)CMD_HANDLE(cmd),flags);
+         printk("scsi(): Resetting Cmnd=0x%lx, Handle=0x%lx,
+flags=0x%x\n",(long)cmd,(long)CMD_HANDLE(cmd),flags);
      if ( cmd = NULL )
 @@ -1428,20 +1390,16 @@
      qla1280_panic("qla1280_reset",ha->host);
@@ -895,10 +967,12 @@ QLogic so we can get this resolved?
      data = qla1280_debounce_register(&ha->iobase->istatus);
      if( !(ha->flags.in_isr) && (data & RISC_INT) )
 -    {
--        qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t **)&ha->done_q_last);
+-        qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t
+**)&ha->done_q_last);
 -    }
 -    DRIVER_UNLOCK
-+      qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t **)&ha->done_q_last);
++      qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t
+**)&ha->done_q_last);
  
      /*
      * Determine the suggested action that the mid-level driver wants
@@ -930,7 +1004,8 @@ QLogic so we can get this resolved?
      return( result );
  }
 @@ -1609,29 +1565,26 @@
-  **************************************************************************/
+ 
+**************************************************************************/
  void qla1280_intr_handler(int irq, void *dev_id, struct pt_regs *regs)
  {
 -#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,1,95)
@@ -969,12 +1044,14 @@ QLogic so we can get this resolved?
 @@ -1643,7 +1596,7 @@
      {
          /* spurious interrupts can happen legally */
-         DEBUG(printk("scsi(%d): Spurious interrupt - ignoring\n",(int)ha->host_no));
+         DEBUG(printk("scsi(%d): Spurious interrupt -
+ignoring\n",(int)ha->host_no));
 -        COMTRACE('X')
 +        COMTRACE('X');
      }
      else
-       qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t **)&ha->done_q_last);
+       qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t
+**)&ha->done_q_last);
 @@ -1652,54 +1605,12 @@
  
      clear_bit(QLA1280_IN_ISR_BIT, &ha->flags);
@@ -984,7 +1061,8 @@ QLogic so we can get this resolved?
 -    if( test_bit(QLA1280_IN_ISR_BIT, (int *)&ha->flags) )
 -    {
 -          COMTRACE('X')
--          printk(KERN_INFO "scsi(%d): Already in interrupt - returning \n", (int)ha->host_no);
+-          printk(KERN_INFO "scsi(%d): Already in interrupt - returning \n",
+(int)ha->host_no);
 -          spin_unlock_irqrestore(&io_request_lock, cpu_flags);
 -          return;
 -    }
@@ -999,15 +1077,18 @@ QLogic so we can get this resolved?
 -    if ( !(data & RISC_INT) )
 -    {
 -        /* spurious interrupts can happen legally */
--        DEBUG(printk("scsi(%d): Spurious interrupt - ignoring\n",(int)ha->host_no));
+-        DEBUG(printk("scsi(%d): Spurious interrupt -
+ignoring\n",(int)ha->host_no));
 -        COMTRACE('X')
 -    }
 -    else
--     qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t **)&ha->done_q_last);
+-     qla1280_isr(ha, (srb_t **)&ha->done_q_first, (srb_t
+**)&ha->done_q_last);
 -
 -    /* if no work to do then call the SCSI mid-level right away */
 -    if( ha->done_q_first )
--        qla1280_done(ha, (srb_t **)&ha->done_q_first, (srb_t **)&ha->done_q_last);
+-        qla1280_done(ha, (srb_t **)&ha->done_q_first, (srb_t
+**)&ha->done_q_last);
 -
 -    /* Schedule the DPC routine */
 -    if (ha->flags.isp_abort_needed || ha->flags.reset_marker ||
@@ -1053,7 +1134,8 @@ QLogic so we can get this resolved?
  
 @@ -1734,9 +1642,8 @@
      if (ha->done_q_first)
-         qla1280_done(ha, (srb_t **)&ha->done_q_first, (srb_t **)&ha->done_q_last);
+         qla1280_done(ha, (srb_t **)&ha->done_q_first, (srb_t
+**)&ha->done_q_last);
      ha->flags.dpc_sched = FALSE;
 -#if LINUX_VERSION_CODE > KERNEL_VERSION(2,1,95)
 +
@@ -1065,16 +1147,20 @@ QLogic so we can get this resolved?
 @@ -1750,7 +1657,7 @@
   *   as the default queue depth.  Otherwise, we use either 4 or 8 as the
   *   default queue depth (dependent on the number of hardware SCBs).
-  **************************************************************************/
--STATIC void qla1280_device_queue_depth(scsi_qla_host_t *p, Scsi_Device *device)
-+static void qla1280_device_queue_depth(scsi_qla_host_t *p, Scsi_Device *device)
+ 
+**************************************************************************/
+-STATIC void qla1280_device_queue_depth(scsi_qla_host_t *p, Scsi_Device
+*device)
++static void qla1280_device_queue_depth(scsi_qla_host_t *p, Scsi_Device
+*device)
  {
      int default_depth = 3;
      int bus = device->channel;
 @@ -1780,7 +1687,7 @@
   *   host adapter.  We use a queue depth of 2 for devices that do not
   *   support tagged queueing.
-  **************************************************************************/
+ 
+**************************************************************************/
 -STATIC void
 +static void
  qla1280_select_queue_depth(struct Scsi_Host *host, Scsi_Device *scsi_devs)
@@ -1109,7 +1195,8 @@ QLogic so we can get this resolved?
   */
 -STATIC void
 +static void
- qla1280_done(scsi_qla_host_t *ha, srb_t **done_q_first, srb_t **done_q_last)
+ qla1280_done(scsi_qla_host_t *ha, srb_t **done_q_first, srb_t
+**done_q_last)
  {
      srb_t           *sp;
 @@ -1833,14 +1724,9 @@
@@ -1145,7 +1232,8 @@ QLogic so we can get this resolved?
                           cmd->use_sg,
 @@ -1907,32 +1793,27 @@
                                    cmd->request_bufflen,
-                                   scsi_to_pci_dma_dir(cmd->sc_data_direction));
+ 
+scsi_to_pci_dma_dir(cmd->sc_data_direction));
         }
 -#endif 
 +
@@ -1187,7 +1275,8 @@ QLogic so we can get this resolved?
                          "\n\rqla1280_isr: response packet data\n\r");
 -                        qla1280_dump_buffer((caddr_t)sts,
 -                        RESPONSE_ENTRY_SIZE); 
-+                        qla1280_dump_buffer((char *)sts, RESPONSE_ENTRY_SIZE); 
++                        qla1280_dump_buffer((char *)sts,
+RESPONSE_ENTRY_SIZE); 
  #endif
              host_status = DID_ERROR;
              break;
@@ -1239,14 +1328,16 @@ QLogic so we can get this resolved?
      ENTER("qla1280_next");
  
 -    DRIVER_LOCK
-     while ( ((sp = q->q_first) != NULL) &&     /* we have a queue pending */
+     while ( ((sp = q->q_first) != NULL) &&     /* we have a queue pending
+*/
          !(q->q_flag &  QLA1280_QBUSY) &&      /* device not busy */
          !ha->flags.abort_isp_active &&      /* not resetting the adapter */
 @@ -2084,7 +1954,8 @@
          /* Remove srb from SCSI LU queue. */
          qla1280_removeq(q, sp);
  
--        DEBUG(sprintf(debug_buff,"starting request 0x%p<-(0x%p)\n\r",q,sp));
+-        DEBUG(sprintf(debug_buff,"starting request
+0x%p<-(0x%p)\n\r",q,sp));
 +        DEBUG(sprintf(debug_buff,"starting request 0x%p<-(0x%p)\n\r",
 +                      (void *)q, (void *)sp));
          DEBUG(qla1280_print(debug_buff));
@@ -1297,7 +1388,8 @@ QLogic so we can get this resolved?
      ENTER("qla1280_putq_t");
  #endif
 -    DRIVER_LOCK
--    DEBUG(sprintf(debug_buff,"Adding to device q=0x%p<-(0x%p)sp\n\r",q,sp));
+-    DEBUG(sprintf(debug_buff,"Adding to device
+q=0x%p<-(0x%p)sp\n\r",q,sp));
 +    DEBUG(sprintf(debug_buff,"Adding to device q=0x%p<-(0x%p)sp\n\r",
 +                  (void *)q, (void *)sp));
      DEBUG(qla1280_print(debug_buff));
@@ -1325,7 +1417,8 @@ QLogic so we can get this resolved?
 -#if LINUX_VERSION_CODE < KERNEL_VERSION(2,1,95)
 -    unsigned long cpu_flags = 0;
 -#endif
--    DEBUG(sprintf(debug_buff,"Removing from device_q (0x%p)->(0x%p)\n\r",q,sp));
+-    DEBUG(sprintf(debug_buff,"Removing from device_q
+(0x%p)->(0x%p)\n\r",q,sp));
 +    DEBUG(sprintf(debug_buff,"Removing from device_q (0x%p)->(0x%p)\n\r",
 +                  (void *)q, (void *)sp));
      DEBUG(qla1280_print(debug_buff));
@@ -1353,7 +1446,8 @@ QLogic so we can get this resolved?
 @@ -2295,13 +2151,6 @@
  
          /* 3.13 */
-         /* get consistent memory allocated for request and response rings */
+         /* get consistent memory allocated for request and response rings
+*/
 -#if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,18)
 -	ha->request_ring = &ha->req[0];
 -	ha->request_dma = VIRT_TO_BUS(&ha->req[0]);
@@ -1384,7 +1478,7 @@ QLogic so we can get this resolved?
 @@ -2348,8 +2196,8 @@
              for (t = 0; t < MAX_TARGETS; t++)
                  for (l = 0; l < MAX_LUNS; l++)
-                     if (LU_Q(ha, b, t, l) != NULL && LU_Q(ha, b, t, l) != q)
+                     if (LU_Q(ha, b, t, l) != NULL && LU_Q(ha, b, t, l) !q)
 -                        KMFREE(LU_Q(ha, b, t, l),sizeof(struct scsi_lu));
 -                    KMFREE(q, sizeof(struct scsi_lu));
 +                        kfree(LU_Q(ha, b, t, l));
@@ -1397,10 +1491,12 @@ QLogic so we can get this resolved?
      /* 3.13 */
      /* free consistent memory allocated for request and response rings */
 -#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,3,18)
-     pci_free_consistent(ha->pdev, ((REQUEST_ENTRY_CNT+1)*(sizeof(request_t))),
+     pci_free_consistent(ha->pdev,
+((REQUEST_ENTRY_CNT+1)*(sizeof(request_t))),
                          ha->request_ring, ha->request_dma);
  
-     pci_free_consistent(ha->pdev,((RESPONSE_ENTRY_CNT+1)*(sizeof(response_t))),
+ 
+pci_free_consistent(ha->pdev,((RESPONSE_ENTRY_CNT+1)*(sizeof(response_t))),
      ha->response_ring, ha->response_dma); 
 -#endif 
  
@@ -1563,7 +1659,8 @@ QLogic so we can get this resolved?
 -    uint16_t     mb[MAILBOX_REGISTER_COUNT];
  
  #ifdef QL_DEBUG_LEVEL_3
-     sprintf(debug_buff, "qla1280_chip_diag: testing device at 0x%p \n\r",&reg->id_l);
+     sprintf(debug_buff, "qla1280_chip_diag: testing device at 0x%p
+\n\r",&reg->id_l);
 @@ -2915,21 +2762,21 @@
   *      0 = success.
   */
@@ -1614,7 +1711,8 @@ QLogic so we can get this resolved?
           (int)risc_code_size));
      DEBUG(sprintf(debug_buff,
 -       "qla1280_setup_chip: DMA RISC code (%d) words\n\r",risc_code_size);)
-+       "qla1280_setup_chip: DMA RISC code (%li) words\n\r",risc_code_size);)
++       "qla1280_setup_chip: DMA RISC code (%li)
+words\n\r",risc_code_size);)
      DEBUG(qla1280_print(debug_buff));
      num =0;
      while (risc_code_size > 0 && !status)
@@ -1639,13 +1737,15 @@ QLogic so we can get this resolved?
 -        mb[2] = (uint16_t) (ha->request_dma >> 16) & 0xffff;
 -        mb[7] = (uint16_t) (MS_64BITS(ha->request_dma) & 0xffff);
 -        mb[6] = (uint16_t) (MS_64BITS(ha->request_dma) >> 16) & 0xffff;
--        DEBUG(printk("qla1280_setup_chip: op=%d  0x%p = 0x%4x,0x%4x,0x%4x,0x%4x\n",mb[0],ha->request_dma,mb[6],mb[7],mb[2],mb[3]));
+-        DEBUG(printk("qla1280_setup_chip: op=%d  0x%p 0x%4x,0x%4x,0x%4x,0x%4x\n",mb[0],ha->request_dma,mb[6],mb[7],mb[2],mb[3]));
 +        mb[3] = ha->request_dma & 0xffff;
 +        mb[2] = (ha->request_dma >> 16) & 0xffff;
 +        mb[7] = MS_64BITS(ha->request_dma) & 0xffff;
 +        mb[6] = MS_64BITS(ha->request_dma) >> 16;
-+        DEBUG(printk("qla1280_setup_chip: op=%d  0x%p = 0x%4x,0x%4x,0x%4x,0x%4x\n",mb[0],(void *)ha->request_dma,mb[6],mb[7],mb[2],mb[3]));
-         if( (status = qla1280_mailbox_command(ha, BIT_4|BIT_3|BIT_2|BIT_1|BIT_0,
++        DEBUG(printk("qla1280_setup_chip: op=%d  0x%p 0x%4x,0x%4x,0x%4x,0x%4x\n",mb[0],(void
+*)ha->request_dma,mb[6],mb[7],mb[2],mb[3]));
+         if( (status = qla1280_mailbox_command(ha,
+BIT_4|BIT_3|BIT_2|BIT_1|BIT_0,
              &mb[0]))  )
          {
 @@ -3061,13 +2898,9 @@
@@ -1737,10 +1837,12 @@ QLogic so we can get this resolved?
      ENTER("qla1280_nvram_config");
  #if defined(QL_DEBUG_ROUTINES) && !defined(QL_DEBUG_LEVEL_4)
 @@ -3216,7 +3049,7 @@
-         DEBUG(printk("checksum=0x%x, Id=%c, version=0x%x\n",chksum,nv->id[0],nv->version));
+         DEBUG(printk("checksum=0x%x, Id=%c,
+version=0x%x\n",chksum,nv->id[0],nv->version));
  #if defined(QL_DEBUG_LEVEL_3)
          /* ql_debug_print = 1;
--        qla1280_dump_buffer((caddr_t)ha->response_ring, REQUEST_ENTRY_SIZE);
+-        qla1280_dump_buffer((caddr_t)ha->response_ring,
+REQUEST_ENTRY_SIZE);
 +        qla1280_dump_buffer((char *)ha->response_ring, REQUEST_ENTRY_SIZE);
          ql_debug_print = 0; */
  #endif
@@ -1751,7 +1853,8 @@ QLogic so we can get this resolved?
 -#if BITS_PER_LONG > 32
 +#ifdef QLA_64BIT_PTR
      /* Enable 64bit addressing for OS/System combination supporting it   */
-     /* actual NVRAM bit is: nv->cntr_flags_1.enable_64bit_addressing     */ 
+     /* actual NVRAM bit is: nv->cntr_flags_1.enable_64bit_addressing     */
+
      /* but we will ignore it and use BITS_PER_LONG macro to setup for    */
 @@ -3359,12 +3192,7 @@
      if (ha->flags.enable_64bit_addressing) {
@@ -1945,7 +2048,8 @@ QLogic so we can get this resolved?
   *      0 = success
   */
 -STATIC uint8_t
--qla1280_abort_device(scsi_qla_host_t *ha, uint8_t b, uint32_t t, uint32_t l)
+-qla1280_abort_device(scsi_qla_host_t *ha, uint8_t b, uint32_t t, uint32_t
+l)
 +static int
 +qla1280_abort_device(scsi_qla_host_t *ha, u8 b, u32 t, u32 l)
  {
@@ -1980,7 +2084,8 @@ QLogic so we can get this resolved?
          mb[2] = handle >> 16;
 -        mb[3] = (uint16_t)handle;
 +        mb[3] = handle & 0xffff;
-         status = qla1280_mailbox_command(ha, BIT_3|BIT_2|BIT_1|BIT_0, &mb[0]);
+         status = qla1280_mailbox_command(ha, BIT_3|BIT_2|BIT_1|BIT_0,
+&mb[0]);
  
  #if defined(QL_DEBUG_LEVEL_2) || defined(QL_DEBUG_LEVEL_3)
 @@ -3992,7 +3799,7 @@
@@ -2005,7 +2110,8 @@ QLogic so we can get this resolved?
   *      type = marker modifier
   */
 -STATIC void
--qla1280_marker(scsi_qla_host_t *ha, uint8_t b, uint32_t t, uint32_t l, uint8_t type)
+-qla1280_marker(scsi_qla_host_t *ha, uint8_t b, uint32_t t, uint32_t l,
+uint8_t type)
 +static void
 +qla1280_marker(scsi_qla_host_t *ha, u8 bus, u32 id, u32 lun, u8 type)
  {
@@ -2098,7 +2204,8 @@ QLogic so we can get this resolved?
              pkt->cdb_len = (uint16_t)CMD_CDBLEN(cmd);
 -            BCOPY(&(CMD_CDBP(cmd)), pkt->scsi_cdb, pkt->cdb_len);
 +            memcpy(pkt->scsi_cdb, &(CMD_CDBP(cmd)), pkt->cdb_len);
-             //DEBUG(printk("Build packet for command[0]=0x%x\n",pkt->scsi_cdb[0]));
+             //DEBUG(printk("Build packet for
+command[0]=0x%x\n",pkt->scsi_cdb[0]));
  
              /*
 @@ -4215,7 +4023,7 @@
@@ -2112,10 +2219,13 @@ QLogic so we can get this resolved?
                      * Build continuation packets.
 @@ -4280,7 +4088,7 @@
                          qla1280_print(" d ");
-                         qla1280_output_number((uint32_t)SCSI_LUN_32(cmd), 10);
+                         qla1280_output_number((uint32_t)SCSI_LUN_32(cmd),
+10);
                          qla1280_print("\n\r");
--                        qla1280_dump_buffer((caddr_t)pkt, REQUEST_ENTRY_SIZE);
-+                        qla1280_dump_buffer((char *)pkt, REQUEST_ENTRY_SIZE);
+-                        qla1280_dump_buffer((caddr_t)pkt,
+REQUEST_ENTRY_SIZE);
++                        qla1280_dump_buffer((char *)pkt,
+REQUEST_ENTRY_SIZE);
  #endif
                      }
                  }
@@ -2139,7 +2249,8 @@ QLogic so we can get this resolved?
              /* Adjust ring index. */
 @@ -4355,7 +4163,7 @@
              qla1280_print(
-                     "qla1280_64bit_start_scsi: NO ROOM IN OUTSTANDING ARRAY\n\r");
+                     "qla1280_64bit_start_scsi: NO ROOM IN OUTSTANDING
+ARRAY\n\r");
              qla1280_print(" req_q_cnt=");
 -            qla1280_output_number((uint32_t)ha->req_q_cnt, 16);
 +            qla1280_output_number((u32)ha->req_q_cnt, 16);
@@ -2197,12 +2308,14 @@ QLogic so we can get this resolved?
      if (cmd->use_sg)
      {
          /*
--        * We must build an SG list in adapter format, as the kernel's SG list
+-        * We must build an SG list in adapter format, as the kernel's SG
+list
 -        * cannot be used directly because of data field size (__alpha__)
 -        * differences and the kernel SG list uses virtual addresses where
 -        * we need physical addresses.
 -        */
-+         * We must build an SG list in adapter format, as the kernel's SG list
++         * We must build an SG list in adapter format, as the kernel's SG
+list
 +         * cannot be used directly because of data field size (__alpha__)
 +         * differences and the kernel SG list uses virtual addresses where
 +         * we need physical addresses.
@@ -2271,7 +2384,8 @@ QLogic so we can get this resolved?
                  if (cmd->use_sg)     /* If scatter gather */
                  {
 +#if QL_DEBUG_ROUTINES
-                     DEBUG(qla1280_print("Building S/G data segments..\n\r"));
+                     DEBUG(qla1280_print("Building S/G data
+segments..\n\r"));
 -                    DEBUG(qla1280_dump_buffer((caddr_t)sg, 4*16 ));
 +                    DEBUG(qla1280_dump_buffer((char *)sg, 4*16 ));
 +#endif
@@ -2280,36 +2394,46 @@ QLogic so we can get this resolved?
                      {
                          /* 3.13 32 bit */
  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,18)
--                        *dword_ptr++ = (uint32_t) cpu_to_le32(VIRT_TO_BUS(sg->address));
-+                        *dword_ptr++ = cpu_to_le32(virt_to_bus(sg->address));
+-                        *dword_ptr++ = (uint32_t)
+cpu_to_le32(VIRT_TO_BUS(sg->address));
++                        *dword_ptr++ cpu_to_le32(virt_to_bus(sg->address));
                          *dword_ptr++ = sg->length;
                          DEBUG(sprintf(debug_buff,
                           "S/G Segment phys_addr=0x%x, len=0x%x\n\r",
--                          cpu_to_le32(VIRT_TO_BUS(sg->address)),sg->length));
-+                          cpu_to_le32(virt_to_bus(sg->address)),sg->length));
+-
+cpu_to_le32(VIRT_TO_BUS(sg->address)),sg->length));
++
+cpu_to_le32(virt_to_bus(sg->address)),sg->length));
                          DEBUG(qla1280_print(debug_buff));
  #else
-                         *dword_ptr++ = cpu_to_le32(pci_dma_lo32(sg_dma_address(sg)));
+                         *dword_ptr++ cpu_to_le32(pci_dma_lo32(sg_dma_address(sg)));
 @@ -4642,11 +4449,11 @@
                          {
                             /* 3.13 32 bit */
  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,18)
--                           *dword_ptr++ = (u_int) cpu_to_le32(VIRT_TO_BUS(sg->address));
-+                           *dword_ptr++ = cpu_to_le32(virt_to_bus(sg->address));
+-                           *dword_ptr++ = (u_int)
+cpu_to_le32(VIRT_TO_BUS(sg->address));
++                           *dword_ptr++ cpu_to_le32(virt_to_bus(sg->address));
                             *dword_ptr++ = sg->length;
                             DEBUG(sprintf(debug_buff,
-                            "S/G Segment Cont. phys_addr=0x%x, len=0x%x\n\r",
--                           cpu_to_le32(pci_dma_lo32(VIRT_TO_BUS(sg->address))),
-+                           cpu_to_le32(pci_dma_lo32(virt_to_bus(sg->address))),
+                            "S/G Segment Cont. phys_addr=0x%x,
+len=0x%x\n\r",
+-
+cpu_to_le32(pci_dma_lo32(VIRT_TO_BUS(sg->address))),
++
+cpu_to_le32(pci_dma_lo32(virt_to_bus(sg->address))),
                             sg->length);)
                             DEBUG(qla1280_print(debug_buff));
  #else
 @@ -4669,7 +4476,7 @@
                          qla1280_print(":");
-                         qla1280_output_number((uint32_t)SCSI_LUN_32(cmd), 10);
+                         qla1280_output_number((uint32_t)SCSI_LUN_32(cmd),
+10);
                          qla1280_print(")\n\r");
--                        qla1280_dump_buffer((caddr_t)pkt, REQUEST_ENTRY_SIZE);
-+                        qla1280_dump_buffer((char *)pkt, REQUEST_ENTRY_SIZE);
+-                        qla1280_dump_buffer((caddr_t)pkt,
+REQUEST_ENTRY_SIZE);
++                        qla1280_dump_buffer((char *)pkt,
+REQUEST_ENTRY_SIZE);
  #endif
                      }
                  }
@@ -2317,23 +2441,28 @@ QLogic so we can get this resolved?
                  {
                      /* 3.13 32 bit */
  #if LINUX_VERSION_CODE < KERNEL_VERSION(2,3,18)
--                    *dword_ptr++ = (uint32_t) cpu_to_le32(VIRT_TO_BUS(cmd->request_buffer));
-+                    *dword_ptr++ = cpu_to_le32(virt_to_bus(cmd->request_buffer));
+-                    *dword_ptr++ = (uint32_t)
+cpu_to_le32(VIRT_TO_BUS(cmd->request_buffer));
++                    *dword_ptr++ cpu_to_le32(virt_to_bus(cmd->request_buffer));
                      *dword_ptr = (uint32_t) cmd->request_bufflen;
  #else
                      dma_handle = pci_map_single(ha->pdev, 
 @@ -4702,12 +4509,12 @@
                  qla1280_print(
-                         "qla1280_32bit_start_scsi: No data, command packet data - ");
+                         "qla1280_32bit_start_scsi: No data, command packet
+data - ");
                  qla1280_print("\n\r");
 -                qla1280_dump_buffer((caddr_t)pkt, REQUEST_ENTRY_SIZE);
 +                qla1280_dump_buffer((char *)pkt, REQUEST_ENTRY_SIZE);
  #endif
              }
  #ifdef QL_DEBUG_LEVEL_5
-             qla1280_print("qla1280_32bit_start_scsi: First IOCB block:\n\r");
--            qla1280_dump_buffer((caddr_t)ha->request_ring_ptr, REQUEST_ENTRY_SIZE);
-+            qla1280_dump_buffer((char *)ha->request_ring_ptr, REQUEST_ENTRY_SIZE);
+             qla1280_print("qla1280_32bit_start_scsi: First IOCB
+block:\n\r");
+-            qla1280_dump_buffer((caddr_t)ha->request_ring_ptr,
+REQUEST_ENTRY_SIZE);
++            qla1280_dump_buffer((char *)ha->request_ring_ptr,
+REQUEST_ENTRY_SIZE);
  #endif
              /* Adjust ring index. */
              ha->req_ring_index++;
@@ -2386,7 +2515,8 @@ QLogic so we can get this resolved?
  
  #ifdef QL_DEBUG_LEVEL_5
      qla1280_print("qla1280_isp_cmd: IOCB data:\n\r");
--    qla1280_dump_buffer((caddr_t)ha->request_ring_ptr, REQUEST_ENTRY_SIZE); 
+-    qla1280_dump_buffer((caddr_t)ha->request_ring_ptr, REQUEST_ENTRY_SIZE);
+
 +    qla1280_dump_buffer((char *)ha->request_ring_ptr, REQUEST_ENTRY_SIZE); 
  #endif
  
@@ -2415,7 +2545,9 @@ QLogic so we can get this resolved?
 +#endif
  
  #if QL1280_TARGET_MODE_SUPPORT
- /****************************************************************************/
+ 
+/***************************************************************************
+*/
 @@ -4949,7 +4758,7 @@
   *      ha      = adapter block pointer.
   *      inotify = immediate notify entry pointer.
@@ -2449,7 +2581,8 @@ QLogic so we can get this resolved?
   */
 -STATIC void
 +static void
- qla1280_64bit_continue_io(scsi_qla_host_t *ha, atio_entry_t *atio, uint32_t len,
+ qla1280_64bit_continue_io(scsi_qla_host_t *ha, atio_entry_t *atio, uint32_t
+len,
                      paddr32_t *addr)
  {
 @@ -5131,7 +4940,7 @@
@@ -2458,13 +2591,16 @@ QLogic so we can get this resolved?
   */
 -STATIC void
 +static void
- qla1280_32bit_continue_io(scsi_qla_host_t *ha, atio_entry_t *atio, uint32_t len,
+ qla1280_32bit_continue_io(scsi_qla_host_t *ha, atio_entry_t *atio, uint32_t
+len,
                      paddr32_t *addr)
  {
 @@ -5191,7 +5000,7 @@
   *      done_q_last  = done queue last pointer.
   *      INTR_LOCK must be already obtained.
-  ****************************************************************************/
+ 
+****************************************************************************
+/
 -STATIC void
 +static void
  qla1280_isr(scsi_qla_host_t *ha, srb_t **done_q_first, srb_t **done_q_last)
@@ -2528,7 +2664,8 @@ QLogic so we can get this resolved?
  #endif
              if (pkt->status & BIT_7)
              {
--                BCOPY((caddr_t)&pkt->sense_data, sense_ptr,TARGET_SENSE_SIZE);
+-                BCOPY((caddr_t)&pkt->sense_data,
+sense_ptr,TARGET_SENSE_SIZE);
 +                memcpy(sense_ptr, &pkt->sense_data, TARGET_SENSE_SIZE);
              }
              else
@@ -2577,8 +2714,10 @@ QLogic so we can get this resolved?
 @@ -5970,9 +5779,9 @@
                  default:
  #ifdef QL_DEBUG_LEVEL_2
-                     qla1280_print("qla1280_atio_entry: Unknown SCSI command\n\r");
--                    qla1280_dump_buffer((caddr_t)&pkt->cdb[0], pkt->cdb_len);
+                     qla1280_print("qla1280_atio_entry: Unknown SCSI
+command\n\r");
+-                    qla1280_dump_buffer((caddr_t)&pkt->cdb[0],
+pkt->cdb_len);
 +                    qla1280_dump_buffer(&pkt->cdb[0], pkt->cdb_len);
  #endif
 -                    bzero(sense_ptr, TARGET_SENSE_SIZE);
@@ -2601,7 +2740,8 @@ QLogic so we can get this resolved?
   */
 -STATIC void
 +static void
- qla1280_status_entry(scsi_qla_host_t *ha, sts_entry_t *pkt, srb_t **done_q_first,
+ qla1280_status_entry(scsi_qla_host_t *ha, sts_entry_t *pkt, srb_t
+**done_q_first,
                       srb_t **done_q_last)
  {
 @@ -6097,7 +5906,7 @@
@@ -2617,8 +2757,10 @@ QLogic so we can get this resolved?
                      else
                          sense_sz = CMD_SNSLEN(cp) - 1;
  
--                    BCOPY((caddr_t)&pkt->req_sense_data, cp->sense_buffer, sense_sz);
-+                    memcpy(cp->sense_buffer, &pkt->req_sense_data, sense_sz);
+-                    BCOPY((caddr_t)&pkt->req_sense_data, cp->sense_buffer,
+sense_sz);
++                    memcpy(cp->sense_buffer, &pkt->req_sense_data,
+sense_sz);
  
                  }
  #ifdef QL_DEBUG_LEVEL_2
@@ -2627,7 +2769,8 @@ QLogic so we can get this resolved?
                  DEBUG(qla1280_print("\n\r");)
                  DEBUG(if (sense_sz))
 -                    DEBUG(qla1280_dump_buffer(cp->sense_buffer, sense_sz);)
-+                    DEBUG(qla1280_dump_buffer((char *)cp->sense_buffer, sense_sz);)
++                    DEBUG(qla1280_dump_buffer((char *)cp->sense_buffer,
+sense_sz);)
  #endif
              }
          }
@@ -2637,7 +2780,8 @@ QLogic so we can get this resolved?
   */
 -STATIC void
 +static void
- qla1280_error_entry(scsi_qla_host_t *ha, response_t *pkt, srb_t **done_q_first,
+ qla1280_error_entry(scsi_qla_host_t *ha, response_t *pkt, srb_t
+**done_q_first,
                      srb_t **done_q_last)
  {
 @@ -6199,7 +6008,7 @@
@@ -2712,8 +2856,10 @@ QLogic so we can get this resolved?
   * Input:
   *      ha = adapter block pointer.
   */
--STATIC void qla1280_abort_queue_single(scsi_qla_host_t *ha,uint32_t b,uint32_t t,uint32_t l,uint32_t stat)
-+static void qla1280_abort_queue_single(scsi_qla_host_t *ha,uint32_t b,uint32_t t,uint32_t l,uint32_t stat)
+-STATIC void qla1280_abort_queue_single(scsi_qla_host_t *ha,uint32_t
+b,uint32_t t,uint32_t l,uint32_t stat)
++static void qla1280_abort_queue_single(scsi_qla_host_t *ha,uint32_t
+b,uint32_t t,uint32_t l,uint32_t stat)
  {
      scsi_lu_t *q;
      srb_t     *sp, *sp_next; 
@@ -2775,7 +2921,8 @@ QLogic so we can get this resolved?
  }
  
 -STATIC uint8_t
--qla12160_set_target_parameters(scsi_qla_host_t *ha, uint32_t b, uint32_t t, uint32_t l, nvram160_t *nv)
+-qla12160_set_target_parameters(scsi_qla_host_t *ha, uint32_t b, uint32_t t,
+uint32_t l, nvram160_t *nv)
 +static int
 +qla12160_set_target_parameters(scsi_qla_host_t *ha, uint32_t b,
 +                               uint32_t t, uint32_t l, nvram160_t *nv)
@@ -2783,12 +2930,14 @@ QLogic so we can get this resolved?
      uint16_t        mb[MAILBOX_REGISTER_COUNT];
  
 @@ -6563,7 +6364,7 @@
-     return( qla1280_mailbox_command(ha, BIT_6|BIT_3|BIT_2|BIT_1|BIT_0, &mb[0]) ) ;
+     return( qla1280_mailbox_command(ha, BIT_6|BIT_3|BIT_2|BIT_1|BIT_0,
+&mb[0]) ) ;
  }
  
 -STATIC void
 +static void
- qla12160_get_target_parameters(scsi_qla_host_t *ha, uint32_t b, uint32_t t, uint32_t l)
+ qla12160_get_target_parameters(scsi_qla_host_t *ha, uint32_t b, uint32_t t,
+uint32_t l)
  {
      uint16_t        mb[MAILBOX_REGISTER_COUNT];
 @@ -6582,6 +6383,32 @@
@@ -2822,8 +2971,11 @@ QLogic so we can get this resolved?
 +#endif
 +
  #ifdef QL_DEBUG_ROUTINES
- /****************************************************************************/
- /*                         Driver Debug Functions.                          */
+ 
+/***************************************************************************
+*/
+ /*                         Driver Debug Functions.
+*/
 @@ -6590,15 +6417,15 @@
  /*
   *  Get byte from I/O port
@@ -3182,7 +3334,8 @@ QLogic so we can get this resolved?
  /**************************************************************************
   *   ql1280_print_scsi_cmd
   *
-  **************************************************************************/
+ 
+**************************************************************************/
 -void qla1280_print_scsi_cmd(Scsi_Cmnd *cmd)
 +static void qla1280_print_scsi_cmd(Scsi_Cmnd *cmd)
  {
@@ -3192,12 +3345,15 @@ QLogic so we can get this resolved?
      {
         sg = (struct scatterlist *) cmd->request_buffer;
         qla1280_print("  SG buffer: \n\r");
--       qla1280_dump_buffer((caddr_t)sg, (cmd->use_sg*sizeof(struct scatterlist)) );
-+       qla1280_dump_buffer((char *)sg, (cmd->use_sg*sizeof(struct scatterlist)) );
+-       qla1280_dump_buffer((caddr_t)sg, (cmd->use_sg*sizeof(struct
+scatterlist)) );
++       qla1280_dump_buffer((char *)sg, (cmd->use_sg*sizeof(struct
+scatterlist)) );
      } */
      sprintf(debug_buff,"  tag=%d, flags=0x%x, transfersize=0x%x \n\r", 
              cmd->tag, cmd->flags,cmd->transfersize );
---- ../linux-2.4.3-zc-010405-backup/drivers/scsi/qla1280.h	Fri Apr 13 18:36:23 2001
+--- ../linux-2.4.3-zc-010405-backup/drivers/scsi/qla1280.h	Fri Apr 13
+18:36:23 2001
 +++ drivers/scsi/qla1280.h	Tue Apr 24 15:18:11 2001
 @@ -21,10 +21,6 @@
  #define _IO_HBA_QLA1280_H           /* subject to change without notice */
@@ -3220,7 +3376,8 @@ QLogic so we can get this resolved?
 -
 -#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,1,92)
 -#  if defined(__sparc_v9__) || defined(__powerpc__)
--#    error "PPC and Sparc platforms are only support under 2.1.92 and above"
+-#    error "PPC and Sparc platforms are only support under 2.1.92 and
+above"
 -#  endif
 -#endif
 -
@@ -3291,8 +3448,10 @@ QLogic so we can get this resolved?
  /*
   * I/O port macros
  */
--#define LINUX_IOPORTS                     /* Linux in/out routines are define*/
--                                          /* differently from other OSs      */
+-#define LINUX_IOPORTS                     /* Linux in/out routines are
+define*/
+-                                          /* differently from other OSs
+*/
  /* #define MEMORY_MAPPED_IO */            /* Enable memory mapped I/O */
  #undef MEMORY_MAPPED_IO            /* Disable memory mapped I/O */
  
@@ -3315,9 +3474,9 @@ QLogic so we can get this resolved?
 -      #define RD_REG_BYTE(addr)         (*((volatile uint8_t *)addr))
 -       #define RD_REG_WORD(addr)         (*((volatile uint16_t *)addr))
 -       #define RD_REG_DWORD(addr)        (*((volatile uint32_t *)addr))
--       #define WRT_REG_BYTE(addr, data)  (*((volatile uint8_t *)addr) = data)
--       #define WRT_REG_WORD(addr, data)  (*((volatile uint16_t *)addr) = data)
--       #define WRT_REG_DWORD(addr, data) (*((volatile uint32_t *)addr) = data) 
+-       #define WRT_REG_BYTE(addr, data)  (*((volatile uint8_t *)addr) data)
+-       #define WRT_REG_WORD(addr, data)  (*((volatile uint16_t *)addr) data)
+-       #define WRT_REG_DWORD(addr, data) (*((volatile uint32_t *)addr) data) 
 +#define RD_REG_BYTE(addr)		readb(addr)
 +#define RD_REG_WORD(addr)		readw(addr)
 +#define RD_REG_DWORD(addr)		readl(addr)
@@ -3463,4 +3622,9 @@ QLogic so we can get this resolved?
  
  #endif /* _IO_HBA_QLA1280_H */
  
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
