@@ -1,7 +1,7 @@
-From: "Lee, Jung-Ik" <jung-ik.lee@intel.com>
-Date: Thu, 24 Oct 2002 18:39:35 +0000
-Subject: [Linux-ia64] RE: PCI Hotplug Drivers for 2.5
-Message-Id: <marc-linux-ia64-105590709805239@msgid-missing>
+From: Greg KH <greg@kroah.com>
+Date: Thu, 24 Oct 2002 22:06:08 +0000
+Subject: [Linux-ia64] Re: PCI Hotplug Drivers for 2.5
+Message-Id: <marc-linux-ia64-105590709805241@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805223@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805223@msgid-missing>
@@ -10,60 +10,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> > We need this driver as it's the only solution for DIG64 
-> compliant IPF
-> > platforms.
+On Thu, Oct 24, 2002 at 10:40:05AM -0700, Lee, Jung-Ik wrote:
 > 
-> No, not for all DIG64 compliant IPF platforms.  NEC TX7 is also
-> a DIG64 compliant IPF platform but doesn't need your driver.
-
-Well, I forgot acpiphp driver was removed in this driver patch :)
-acpiphp is also for DIG64/ACPI and will do for some DIG64/ACPI machines
-while intcphp is feature full driver for IPF platform PHP.
-
+> **resource management**
+> Non-ACPI platforms uses $HRT/EBDA, pcibios_*(), SMBIOS, etc. for slot
+> enumeration/configuration.
+> DIG64/ACPI, and SHPC requires ACPI for this. IPF platforms only have ACPI
+> _CRS, _PRT, _HPP, _BBN, _STA, _ADR, _SUN, etc on the namespace for PHP, and
+> we have to use them. (as a side note, this functionality is common for other
+> hotplug-* as mentioned in first mail. No API will be common for
+> hotplug-everything, but functionality is common and has not to be
+> duplicated)
 > 
-> DIG64(2.1) only states that:
-> 
->  Firmware Support for PCI Hot-Plug
->                                : Recommended if PCI Hot-Plug is
->                                  implemented
->  ACPI Support for PCI Hot-Plug : Recommended for platforms that
->                                  implement PCI Hot-Plug without SHPC
->  Using PCI Hot-Plug Specifications
->                                : Recommended if PCI Hot-Plug is
->                                  implemented
+> **event management in terms of controller/slot operations **
+> ACPI provides only _EJ0, _PS?, _STA, etc for slot operations but these are
+> not mandatory. That means, we can use either ACPI method or controller
+> driver.
+> intcphp driver has not enabled ACPI method based solution but uses
+> controller driver.
+> intcphp driver is also capable of performing ACPI method based solution
+> since it works on ACPI namespace. This is why acpiphp and intcphp could be
+> sharing resource management and event management.
 
-ACPI IS mandatory for DIG64 PHP resource management by SHPC, while ACPI
-based slot operation is not required.
-The above sentence only could be misleading.
+Ok, that makes more sense to me now.  Thank you for taking the time to
+explain this.
 
+> > As this means there is a lot of "dead code" in the driver, you should
+> > take all of it out.
 > 
-> The spec also states that any PCI Hot-Plug controller must
-> follow one of PCI Hot-Plug spec 1.1, SHPC 1.0 or CompactPCI Hot Swap
-> spec.  It also strongly recommends SHPC 1.0, which is not covered
-> by J.I.'s driver yet.
+> Well, I removed many dead codes from the base driver. This is not dead code
+> but needed to support other types.
+> However, if it's not acceptable, I'll remove them.
 
-intcphp is desined with SHPC on plan in terms of ACPI resource management,
-as SHPC spec says
-"DIG64 compliant platforms must use ACPI to describe resource allocation."
-But it is not completely ready for SHPC yet. It's a matter of deployment
-schedules of dependencies such as HPRT, ACPI methods OSHP, HBRB, etc which
-will need to be enabled in Linux kernel ACPI driver/platform firmware.
+If the code can never be called, it looks pretty dead to me :)
 
-> 
-> But anyway Itanium2 platform using intel's hot-plug controller
-> will be shipping soon and J.I.'s driver has much better functionality
-> than acpiphp.  This would be a decent reason for having the
-> driver in the mainline.
-> 
-> And this also motivates us to clean up the duplicated code if
-> it were in mainline:)
+But as you're going to be sending me a patch for the existing driver, we
+don't have to worry about this anymore.
 
-\o/ second to this :)
+> OK, then, I'll send you a patch against your cpqphp driver asap.
 
-> 
-> Thanks,
-> -- 
-> KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
-> 
+Looking forward to it.
+
+thanks,
+
+greg k-h
 
