@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Wed, 23 Jul 2003 12:00:15 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 25 Jul 2003 01:10:13 +0000
 Subject: Re: [PATCH] don't use ld.bias
-Message-Id: <marc-linux-ia64-105896175111168@msgid-missing>
+Message-Id: <marc-linux-ia64-105909543217350@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105883179830025@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105883179830025@msgid-missing>
@@ -10,23 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Jul 22, 2003 at 09:40:02PM -0700, Mallick, Asit K wrote:
-> It does make sense to not use the ld.bias in the spinlock, it will make
-> more cacheline bouncing in a larger SMP system.
+>>>>> On Mon, 21 Jul 2003 16:55:59 -0700, jbarnes@sgi.com (Jesse Barnes) said:
 
-it certainly makes a mockery of the comment:
+  Jesse> Patch to fix spin_lock to not use ld.bias since it causes a
+  Jesse> bunch of bus activity that hurts scalability when a lock is
+  Jesse> contended.
 
- * Streamlined test_and_set_bit(0, (x)).  We use test-and-test-and-set
- * rather than a simple xchg to avoid writing the cache-line when
- * there is contention.
+Yes, using ld.bias really was wrong there.  However, instead of
+applying your patch, I dropped the old lock code (which was
+effectively dead code) and instead removed the .bias from the
+ia64_spinlock_contention() routine in head.S.
 
-since there's no real advantage (AIUI) to have the cacheline
-clean-exclusive vs dirty-exclusive.
+Thanks,
 
-but why not delete this code?  it's under #else /* !NEW_LOCK */ and
-NEW_LOCK looks to be the better code as well as the default in 2.5.
-
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+	--david
