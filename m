@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 27 Apr 2004 23:53:40 +0000
-Subject: RE: cacheble to uncachble change
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F011E69EF@scsmsx401.sc.intel.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 28 Apr 2004 01:43:53 +0000
+Subject: Re: cacheble to uncachble change
+Message-Id: <20040428014353.GA28216@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <408D5C58.E07A5FBE@email.mot.com>
 In-Reply-To: <408D5C58.E07A5FBE@email.mot.com>
@@ -10,19 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Tue, Apr 27, 2004 at 03:45:48PM -0700, David Mosberger wrote:
+> 
+> Yes, but that's the _easy_ part, so to speak.
+> 
+> To be honest, I would appreciate if you could outline your strategy to
+> avoid memory-attribute aliasing.  If only because it would give me a
+> warm-and-fuzzy feeling... ;-)
+> 
+> If this isn't something you're comfortable discussing on a public
+> list, a private mail would still be appreciated.
 
->  Mario> I guess the question wasn't so much about attribute aliasing
->  Mario> but killing all intransit memory accesses and prefetch before
->  Mario> its safe to change the TLB attribute to uncacheble, with
->  Mario> assurance that all new mem refs/prefetch will come from
->  Mario> memory. I appreciate all your inputs.
->
->  David>Yes, but that's the _easy_ part, so to speak.
+I think this is important enough to SGI that we would like to be
+included in this discussion.  One of our employees started working
+on adapting what is currently the needing to be renamed fetchop
+driver to take a whole granule when there are no remaining pages
+in the uncached drivers space, doing the flushes, sync.i, srlz.i
+sequences to ensure all cache lines are flushed and then shoot down
+the existing TLB entries before adding the pages of the granule to
+the uncached drivers space.  This sounds similar to what is being
+proposed here, I believe.
 
-Buried in one of the e-mails on this thread was the fact that you must
-allocate a whole granule (16MB or 64MB ... check your .config) to make
-sure that you don't have a kernel cacheable mapping setup by the
-Alt-DTLB
-miss handler.
-
--Tony
+Thanks,
+Robin
