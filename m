@@ -1,7 +1,7 @@
 From: Dean Nelson <dcn@sgi.com>
-Date: Mon, 23 Aug 2004 16:50:59 +0000
+Date: Mon, 23 Aug 2004 17:10:08 +0000
 Subject: Re: [PATCH 1/4] SGI Altix cross partition functionality
-Message-Id: <20040823165059.GA11321@sgi.com>
+Message-Id: <20040823171008.GB11321@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040616163339.GA27891@sgi.com>
 In-Reply-To: <20040616163339.GA27891@sgi.com>
@@ -10,22 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jun 16, 2004 at 05:39:44PM +0100, Christoph Hellwig wrote:
-> On Wed, Jun 16, 2004 at 11:33:39AM -0500, Dean Nelson wrote:
-> > --- linux.orig/arch/ia64/sn/kernel/setup.c	Thu Jun 10 16:29:44 2004
-> > +++ linux/arch/ia64/sn/kernel/setup.c	Thu Jun 10 16:31:55 2004
-> > @@ -50,6 +50,7 @@
-> >  #include <asm/sn/sn2/shub.h>
-> >  
-> >  DEFINE_PER_CPU(struct pda_s, pda_percpu);
-> > +EXPORT_SYMBOL(per_cpu__pda_percpu);
+On Thu, Jul 15, 2004 at 10:00:04PM +0100, Christoph Hellwig wrote:
+> On Wed, Jul 14, 2004 at 11:04:48AM -0500, Dean Nelson wrote:
+> > > bad idea.  I have patches to completely kill numnodes, don't try to
+> > > mess with it.  So far it's also completly an architecture-thing.
+> > 
+> > What are you planning to replace numnodes with?
 > 
-> Umm, no.  Poking into kernel per-cpu data like the pda from modules sounds
-> like a bad idea.  And if you absolutely must use the proper helpers for
-> exporting it.
+> A bitmap of online nodes once pj's nodemask_t is in.  That way the silly
+> distinctinon of nasid_t and cnodeid_t values in IP27 and SN2 code can go
+> away.
+> 
+> > XPC has two functions (xpc_allow_IPI_ops() and xpc_restrict_IPI_ops()) which
+> > need to change the protections governing IPI operations and AMO (memory)
+> > operations for each node in a partition. What mechanism are you proposing
+> > to allow one to iterate through all of the nodes in a partition?
+> 
+> I'm not exactly sure.  I'll look through once I get a little time.
 
-Just an FYI, XPC needs to use the enable_shub_wars_1_1() macro which
-accesses pda->shub_1_1_found. So we do need to export per_cpu__pda_percpu.
-I've switched EXPORT_SYMBOL() to EXPORT_PER_CPU_SYMBOL() instead.
+Although I agree that the nodemask_t patch is the proper solution to the
+numnodes issue, I don't feel that waiting for its arrival should prevent
+my continuing on with my XP[C|NET] patch. So I'm going to resubmit my
+proposed patch with numnodes exported. This is with the understanding
+that once the nodemask_t patch is accepted by the community (resulting
+in the 'EXPORT_SYMBOL(numnodes);' line being deleted), I'll be glade to
+rework the two XPC functions to use the 'for_each_node()' macro instead.
 
 Dean
