@@ -1,24 +1,32 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 27 Nov 2001 05:19:26 +0000
-Subject: [Linux-ia64] Re: kernel/sched.c -1ULL vs. (cycles_t) -1
-Message-Id: <marc-linux-ia64-105590698805547@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Fri, 02 Nov 2001 15:24:39 +0000
+Subject: [Linux-ia64] Re: Upgrading from 2.4.3
+Message-Id: <marc-linux-ia64-105590698805435@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 22 Nov 2001 11:29:05 +0100, Erich Focht <efocht@ess.nec.de> said:
+Jonathan Thackray (jthackray@zeus.com) said: 
+> Can I run newer kernels, or will I have to get a new box?
+> /proc/cpuinfo says:
+> 
+> processor  : 0
+> vendor     : GenuineIntel
+> family     : IA-64
+> model      : Itanium
+> revision   : 2
+> archrev    : 0
+> features   : standard
+> cpu number : 0
+> cpu regs   : 4
+> cpu MHz    : 666.738000
+> itc MHz    : 666.738000
+> BogoMIPS   : 442.49
 
-  Erich> David, in your ia64 patches you have a small cosmetic change
-  Erich> which is (sort of) making kernel/sched.c platform dependent:
+revision 2 is B1. You're pretty much out of luck without getting your
+box upgraded.
 
-  Erich> Would you mind taking this out or trying to get it into the
-  Erich> base-line kernel?
-
-Yes, on both accounts: now that 2.5 exists, I moved the patch to the
-2.5 tree, i.e., it will be gone from 2.4 (along with a couple of other
-minor patches).
-
-	--david
+Bill
 
