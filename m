@@ -1,25 +1,31 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Sat, 30 Aug 2003 02:08:41 +0000
-Subject: Re: [PATCH] efivars update
-Message-Id: <marc-linux-ia64-106220934727031@msgid-missing>
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Wed, 06 Aug 2003 15:45:04 +0000
+Subject: 2.4 PATCH: Fix acpi for bigsur
+Message-Id: <marc-linux-ia64-106018473231291@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106219352715985@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106219352715985@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Aug 29, 2003 at 02:59:43PM -0700, Patrick Mochel wrote:
-> That patch is below. I'll be sending it to Linus once he gets back from
-> vacation, unless anyone has any serious objections to it. Note that it
-> completely removes any limitation on the length of a kobject (and sysfs
-> directory) name.
+I need this patch to get the current 2.4 kernel to boot on bigsur.
 
-Why keep another copy of the name?  Why not use kobj->dentry->qstr->name?
-I thoroughly approve of kobject_name() though -- hide the implementation.
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+H.J.
+----
+--- linux/drivers/acpi/osl.c.acpi	Mon Jul 21 15:27:59 2003
++++ linux/drivers/acpi/osl.c	Wed Aug  6 07:34:41 2003
+@@ -251,7 +251,12 @@ acpi_os_install_interrupt_handler(u32 ir
+ 	irq = acpi_fadt.sci_int;
+ 
+ #ifdef CONFIG_IA64
+-	irq = gsi_to_vector(irq);
++	irq = acpi_irq_to_vector (irq);
++	if (irq < 0) {
++		printk(KERN_ERR PREFIX "SCI (IRQ%d/%d) not registerd\n",
++		       irq, acpi_fadt.sci_int);
++		return AE_OK;
++	}
+ #endif
+ 	acpi_irq_irq = irq;
+ 	acpi_irq_handler = handler;
