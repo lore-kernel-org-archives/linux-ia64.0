@@ -1,25 +1,43 @@
-From: "Santosh Abraham" <santosha@india.hp.com>
-Date: Fri, 30 Apr 2004 11:57:27 +0000
-Subject: Cache related question
-Message-Id: <005c01c42ea8$a22c9270$e5624c0f@india.hp.com>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Thu, 01 Apr 2004 21:28:12 +0000
+Subject: [PATCH] bring ia64 nodes online properly
+Message-Id: <200404011328.12544.jbarnes@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_slIbAafy5PYVIU3"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
 
-I came to know recently that the itanium based processors
-do not implement the inclusion principle wrt caches ? Is
-this information correct ?
+--Boundary-00=_slIbAafy5PYVIU3
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-This was a bit surprising, as I had imagined that inclusion
-would'nt be maitained perhaps only after a certain L1 cache
-size. What are the trade-offs involved ?
+Andi's libnuma exposed the fact that we don't bring nodes online properly as 
+we discover them in ia64.  Here's a quick patch to fix that.  Tested with 
+Andi's numademo program; seems to work fine.
 
-Would there be any s/w (kernel) visible effects of not 
-implementing inclusion ?
+Jesse
 
-thx,
-santosh.
+--Boundary-00=_slIbAafy5PYVIU3
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="node-set-online.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="node-set-online.patch"
+
+===== arch/ia64/kernel/acpi.c 1.65 vs edited =====
+--- 1.65/arch/ia64/kernel/acpi.c	Sat Mar 20 21:28:40 2004
++++ edited/arch/ia64/kernel/acpi.c	Thu Apr  1 13:20:58 2004
+@@ -455,6 +455,7 @@
+ 	for (i = 0; i < MAX_PXM_DOMAINS; i++) {
+ 		if (pxm_bit_test(i)) {
+ 			pxm_to_nid_map[i] = numnodes;
++			node_set_online(numnodes);
+ 			nid_to_pxm_map[numnodes++] = i;
+ 		}
+ 	}
+
+--Boundary-00=_slIbAafy5PYVIU3--
