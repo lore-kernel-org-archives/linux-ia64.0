@@ -1,7 +1,7 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Mon, 03 Nov 2003 21:18:55 +0000
+From: Alan Mayer <ajm@sgi.com>
+Date: Mon, 03 Nov 2003 22:07:53 +0000
 Subject: Re: [PATCH] Bug in sn_pci_map_sg causes MCA
-Message-Id: <marc-linux-ia64-106789450614383@msgid-missing>
+Message-Id: <marc-linux-ia64-106789757918532@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106789192810902@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106789192810902@msgid-missing>
@@ -10,22 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Nov 03, 2003 at 01:14:00PM -0800, David Mosberger wrote:
-> >>>>> On Mon, 3 Nov 2003 12:47:55 -0800, jbarnes@sgi.com (Jesse Barnes) said:
-> 
->   Jesse> David, this fixes a critical bug for us.  Can you push it to
->   Jesse> Linus or should we send it straight to Andrew?
-> 
-> The patch doesn't apply for me, otherwise, I'd have been happy to take
-> it (since it's a critical bug fix).  I think it fails to apply because
-> TABs got replaced by blanks.
+Sorry, here's one that should actually work:
 
-Sorry about that, please try this one.
 
-Jesse
-
---- /usr/tmp/TmpDir.16109-0/linux/arch/ia64/sn/io/machvec/pci_dma.c_1.5	Mon Nov  3 13:00:46 2003
-+++ linux/arch/ia64/sn/io/machvec/pci_dma.c	Mon Nov  3 13:00:27 2003
+--- /home/poppy15/ajm/work/davidm.bk/arch/ia64/sn/io/machvec/pci_dma.c	Mon Nov  3 11:49:00 2003
++++ arch/ia64/sn/io/machvec/pci_dma.c	Mon Nov  3 13:16:20 2003
 @@ -279,8 +279,7 @@
  	 * scatterlist.
  	 */
@@ -36,3 +25,37 @@ Jesse
  
  		/*
  		 * Handle the most common case: 64 bit cards.  This
+
+
+		--ajm
+
+
+On Mon, 3 Nov 2003, David Mosberger wrote:
+
+> >>>>> On Mon, 3 Nov 2003 12:47:55 -0800, jbarnes@sgi.com (Jesse Barnes) said:
+> 
+>   Jesse> David, this fixes a critical bug for us.  Can you push it to
+>   Jesse> Linus or should we send it straight to Andrew?
+> 
+> The patch doesn't apply for me, otherwise, I'd have been happy to take
+> it (since it's a critical bug fix).  I think it fails to apply because
+> TABs got replaced by blanks.
+> 
+> 	--david
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+But he can't be a man,
+'cause he doesn't smoke
+the same cigarettes as me.
+--
+Alan J. Mayer
+SGI
+ajm@sgi.com
+WORK: 651-683-3131
+HOME: 651-407-0134
+--
+
