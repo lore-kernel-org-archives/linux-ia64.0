@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@sunsite.dk>
-Date: Mon, 30 Jul 2001 22:06:48 +0000
+From: Rik van Riel <riel@conectiva.com.br>
+Date: Mon, 30 Jul 2001 22:15:42 +0000
 Subject: Re: [Linux-ia64] gcc 3.0 question: ILP32 mode ?
-Message-Id: <marc-linux-ia64-105590693005953@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005957@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005928@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005928@msgid-missing>
@@ -10,41 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Jose" = Jose Luu <jluu@mainsoft.com> writes:
+On Fri, 27 Jul 2001, Jose Luu wrote:
+> Hans wrote:
+> > Supporting another ABI is very expensive.  The tradeoffs for HP/UX are
+> > different.
+>
+> I am sure I don't realize how expensive it is, but it seems
+> worth investigating, for our purposes we need the libc and
+> libX11, little else.
 
-Jose> Hans wrote:
->> Supporting another ABI is very expensive.  The tradeoffs for HP/UX
->> are different.
->> 
+And the compiler, the linker, support for the ABI in
+the kernel, system call wrappers, etc...
 
-Jose> I am sure I don't realize how expensive it is, but it seems
-Jose> worth investigating, for our purposes we need the libc and
-Jose> libX11, little else.
+Oh, and of course all of these will need to be maintained
+across 25 different releases the next 10 years - in random
+combinations of version numbers.
 
-Lets just say that libc (glibc) itself is reason enough not to do
-it. It's a TON of work and I don't want to see glibc/ia64 being split
-for this unless there is a real good reason. I certainly do not want
-to maintain two versions.
+I'm sure you have the time to implement all of the above
+right now, but do you have the time to maintain it for the
+next decade ?
 
-Jose> Some code is just not worth cleaning up because it is too big,
-Jose> and will never require 64 bit addressing, but still useful to
-Jose> have in native mode, mostly because of the performance gap
-Jose> between ia32 and ILP32 which will moreover widen with the
-Jose> McKinley chip. Look at netscape, it has never been cleaned up,
-Jose> it was ported on linux alpha using the DEC/Compaq/(Intel now?)
-Jose> compiler in taso mode (32 bit pointers).
+(oh, and with "you" I really do mean YOU, unless of course
+you hire somebody else to take care of it for you ;))
 
-Linux/Alpha's glibc doesn't support 32 bit pointers afaik.
+cheers,
 
-Jose> DEC/Compaq developped a technology for VMS where one can mix 32
-Jose> and 64 bit libraries, I am wondering if the same ideas can be
-Jose> applied here (see references below), nowadays this technology
-Jose> should be with Intel. This would avoid the fork in the ABI.
+Rik
+--
+Executive summary of a recent Microsoft press release:
+   "we are concerned about the GNU General Public License (GPL)"
 
-The only way what you are asking for requires all library calls to be
-made 64 bit. Not to mention that Linux/ia64 doesn't support loading
-native ia64 binaries into the lower 4GB segment, we currently load the
-text segment at 0x4000000000000000.
 
-Jes
+		http://www.surriel.com/
+http://www.conectiva.com/	http://distro.conectiva.com/
+
 
