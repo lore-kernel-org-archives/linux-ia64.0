@@ -1,44 +1,42 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Mon, 20 Oct 2003 20:35:37 +0000
-Subject: [PATCH] zero out topology related sysfs nodes
-Message-Id: <marc-linux-ia64-106668318400859@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 16 Oct 2003 16:58:56 +0000
+Subject: [PATCH] serial console registration bugfix (2.6)
+Message-Id: <marc-linux-ia64-106632357111519@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tony pointed out (thanks Tony!) that in -test8 kobject_set_name() will
-try to free a kobject's k_name field if it's non-NULL, so we need to
-zero it out in case kmalloc() gave us recycled memory or we'll try to
-kfree a bogus area.
+uart_set_options() can dereference a null pointer.  This happens
+if you specify a console that hasn't previously been setup by
+early_serial_setup().
 
-Jesse
+For example, on ia64, the HCDP typically tells us about line 0,
+so we calls early_serial_setup() for it.  If the user specifies
+"console=ttyS3", we machine-check when trying to follow the
+uninitialized port->ops pointer.
 
- -Nru a/arch/ia64/mm/numa.c b/arch/ia64/mm/numa.c
---- a/arch/ia64/mm/numa.c	Mon Oct 20 13:23:40 2003
-+++ b/arch/ia64/mm/numa.c	Mon Oct 20 13:23:40 2003
-@@ -60,6 +60,7 @@
- 		err = -ENOMEM;
- 		goto out;
- 	}
-+	memset(sysfs_nodes, 0, sizeof(struct node) * numnodes);
+It's not entirely clear to me whether we should return 0 or -ENODEV
+or something.  The advantage of returning zero is that if the user
+specifies "console=ttyS0" and we just lack the HCDP, the console
+doesn't work as early as usual, but it does start working after the
+serial driver detects the port (though the baud/parity/etc from the
+command line are lost).  Returning -ENODEV seems to prevent it from
+ever working.
+
+Bjorn
+
+=== drivers/serial/serial_core.c 1.72 vs edited ==--- 1.72/drivers/serial/serial_core.c	Mon Sep 29 18:35:33 2003
++++ edited/drivers/serial/serial_core.c	Thu Oct 16 09:56:55 2003
+@@ -1859,6 +1859,9 @@
+ 	if (flow = 'r')
+ 		termios.c_cflag |= CRTSCTS;
  
- 	sysfs_memblks = kmalloc(sizeof(struct memblk) * num_memblks,
- 				GFP_KERNEL);
-@@ -68,6 +69,7 @@
- 		err = -ENOMEM;
- 		goto out;
- 	}
-+	memset(sysfs_memblks, 0, sizeof(struct memblk) * num_memblks);
++	if (!port->ops)
++		return 0;
++
+ 	port->ops->set_termios(port, &termios, NULL);
+ 	co->cflag = termios.c_cflag;
  
- 	sysfs_cpus = kmalloc(sizeof(struct cpu) * NR_CPUS, GFP_KERNEL);
- 	if (!sysfs_cpus) {
-@@ -76,6 +78,7 @@
- 		err = -ENOMEM;
- 		goto out;
- 	}
-+	memset(sysfs_cpus, 0, sizeof(struct cpu) * NR_CPUS);
- 
- 	for (i = 0; i < numnodes; i++)
- 		if ((err = register_node(&sysfs_nodes[i], i, 0)))
+
