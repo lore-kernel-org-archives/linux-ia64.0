@@ -1,39 +1,83 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 26 Sep 2002 20:09:33 +0000
-Subject: Re: [Linux-ia64] Syscall tracing bug
-Message-Id: <marc-linux-ia64-105590701906073@msgid-missing>
+From: "Eastham, M. Thomas (Anitel Technologies)" <EasthaMT@bp.com>
+Date: Wed, 11 Sep 2002 14:18:00 +0000
+Subject: [Linux-ia64] Greater than 2TB Filesystem support?
+Message-Id: <marc-linux-ia64-105590701906020@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701906071@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701906071@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@napali.hpl.hp.com> writes:
+Is there anyone out there that can give me an indication of when the 2TB FS
+limitation will be addressed?  We are ready to implement XFS based IDE Raid
+IA64 servers with 4+TB today.  Any information you can provide me about
+timelines would be very helpful.
 
-|> >>>>> On Thu, 26 Sep 2002 21:19:31 +0200, Andreas Schwab <schwab@suse.de=
-> said:
-|>=20
-|>   Andreas> Is this a bug in strace or in the kernel (maybe
-|>   Andreas> <asm/rse.h>)?
-|>=20
-|> It's a bug in the strace you're using.  This was fixed a long time ago
-|> in the CVS tree of strace.  I haven't updated my tree since Oct 2001,
-|> but it has the right code: around line 1279 in syscall.c, it should
-|> say something like this:
-|>=20
-|> 			sof =3D (cfm >> 0) & 0x7f;
-|> 			sol =3D (cfm >> 7) & 0x7f;
-|> 			out0 =3D ia64_rse_skip_regs(rbs_end, -sof + sol);
+Regards,
+Thomas Eastham
 
-Thanks, it works now.
+-----Original Message-----
+From: Keith Owens [mailto:kaos@sgi.com]
+Sent: Wednesday, September 11, 2002 12:51 AM
+To: Steven Cole
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] [trivial] Request for merging of two sets of
+redundant SGI IA64Configure.help texts
 
-Andreas.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Steven Cole <elenstev@mesatop.com> wrote:
+>Could one of you help resolve the following very trivial problem.  In
+>2.4.20-pre5 Documentation/Configure.help, there exists two
+>Configure.help entries for CONFIG_IA64_SGI_SN_SIM and
+>CONFIG_IA64_SGI_SN_DEBUG.
+>
+>The configurators will of course only display the first of the two.
+>Would someone please indicate which of the texts is the more accurate or
+>combine them as you see fit.  You can send me the results or make up a
+>patch yourself.
+>
+>If this is a moot point, deleting the second text would be the default
+>thing to do.
+
+The first set is wrong.  There is also an error in ia64/config.in for
+one of these variables.  Patch against 2.4.19.
+
+--- Documentation/Configure.help.orig	Wed Sep 11 15:44:36 2002
++++ Documentation/Configure.help	Wed Sep 11 15:45:24 2002
+@@ -24409,16 +24409,6 @@
+ 
+   If you don't know what to do, choose "generic".
+ 
+-CONFIG_IA64_SGI_SN_SIM
+-  Build a kernel that runs on both the SGI simulator AND on hardware.
+-  There is a very slight performance penalty on hardware for including this
+-  option.
+-
+-CONFIG_IA64_SGI_SN_DEBUG
+-  This enables addition debug code that helps isolate
+-  platform/kernel bugs. There is a small but measurable performance
+-  degradation when this option is enabled.
+-
+ # Choice: pagesize
+ Kernel page size
+ CONFIG_IA64_PAGE_SIZE_4KB
+--- arch/ia64/config.in.orig	Wed Sep 11 15:45:29 2002
++++ arch/ia64/config.in	Wed Sep 11 15:49:01 2002
+@@ -75,7 +75,7 @@
+ 
+ if [ "$CONFIG_IA64_SGI_SN1" = "y" ] || [ "$CONFIG_IA64_SGI_SN2" = "y" ];
+then
+ 	define_bool CONFIG_IA64_SGI_SN y
+-	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG n
++	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG
+ 	bool '  Enable SGI Medusa Simulator Support' CONFIG_IA64_SGI_SN_SIM
+ 	bool '  Enable autotest (llsc). Option to run cache test instead of
+booting' \
+ 			CONFIG_IA64_SGI_AUTOTEST n
+
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
