@@ -1,145 +1,46 @@
-From: Matthew Wilcox <willy@fc.hp.com>
-Date: Wed, 12 Jun 2002 16:19:36 +0000
-Subject: [Linux-ia64] [PATCH] random ia64 acpi fixes
-Message-Id: <marc-linux-ia64-105590701905666@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 20 Jun 2002 01:40:09 +0000
+Subject: [Linux-ia64] IMPORTANT: memory corruption bug (with prelimenary fix)
+Message-Id: <marc-linux-ia64-105590701905693@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Several changes in this message, pay attention ;-)
+There is a longstanding bug in the ia64 linux kernel which, under just
+the right circumstances, can cause virtual memory corruption.  The
+exact conditions to trigger this are a bit complicated, but basically,
+the bug doesn't trigger unless an munmap() occurs near the end of the
+per-region mappable address space and that region contains some other
+mappings.  In 2.4.18, triggering this bug has become slightly easier
+because we moved the stack down from region 4 to region 3 (the stack
+is at the end of the mappable space and the low part of region 3 is
+occupied by the data segment, which is the likely victim of a memory
+corruption triggered by someone doing mapping games near the stack
+area).
 
-This change is required on systems which don't support both legacy &
-acpi modes.
+The patch below is a two-liner which _should_ fix the problem.  I plan
+to verify the fix some more for correctness, but it's definitely safe
+and fixes the one scenario that is known to trigger the bug.
 
-diff -urNX ../dontdiff linux-2418/drivers/acpi/hardware/hwacpi.c linux-acpi/drivers/acpi/hardware/hwacpi.c
---- linux-2418/drivers/acpi/hardware/hwacpi.c	Wed Jun 12 09:08:54 2002
-+++ linux-acpi/drivers/acpi/hardware/hwacpi.c	Wed Jun 12 09:49:25 2002
-@@ -96,6 +96,14 @@
- 
- 	ACPI_FUNCTION_TRACE ("Hw_set_mode");
- 
-+
-+	if (mode = acpi_hw_get_mode())
-+		return_ACPI_STATUS (AE_OK);
-+
-+	/* If no SMI_CMD, system does not support SMI */
-+	if (!acpi_gbl_FADT->smi_cmd)
-+		return_ACPI_STATUS (AE_NO_HARDWARE_RESPONSE);
-+
- 	switch (mode) {
- 	case ACPI_SYS_MODE_ACPI:
- 
-@@ -108,6 +116,10 @@
- 
- 	case ACPI_SYS_MODE_LEGACY:
- 
-+		/* If both enable/disable are zero, legacy mode is not supported */
-+		if (!acpi_gbl_FADT->acpi_enable && !acpi_gbl_FADT->acpi_disable)
-+			return_ACPI_STATUS (AE_NO_HARDWARE_RESPONSE);
-+			
- 		/*
- 		 * BIOS should clear all fixed status bits and restore fixed event
- 		 * enable bits to default
+Jack, I'm wondering whether this is related to the pthread problem you
+reported earlier?  Can you try this patch?
 
+Thanks to Steve Goldman for bringing this problem to my attention and
+for providing a test case.
 
-Four changes in this file.  First, we don't define _IA64, only
-CONFIG_IA64.  Second, we should check the writeback bit, not the
-uncacheable bit.  Third, these aren't ISA irqs, they're GSIs, so they're
-actually in a different number space from the ISA irqs.  And fourth,
-skipping the braces in this kind of construct always leads to trouble.
+	--david
 
-diff -urNX ../dontdiff linux-2418/drivers/acpi/osl.c linux-acpi/drivers/acpi/osl.c
---- linux-2418/drivers/acpi/osl.c	Wed Jun 12 09:08:54 2002
-+++ linux-acpi/drivers/acpi/osl.c	Wed Jun 12 07:20:26 2002
-@@ -41,7 +41,7 @@
- u64 efi_mem_attributes (u64 phys_addr);
- #endif
- 
--#ifdef _IA64
-+#ifdef CONFIG_IA64
- #include <asm/hw_irq.h>
- #include <asm/delay.h>
- #endif
-@@ -176,7 +176,7 @@
- acpi_os_map_memory(ACPI_PHYSICAL_ADDRESS phys, ACPI_SIZE size, void **virt)
- {
- #ifdef CONFIG_ACPI_EFI
--	if (EFI_MEMORY_UC & efi_mem_attributes(phys)) {
-+	if (!(EFI_MEMORY_WB & efi_mem_attributes(phys))) {
- 		*virt = ioremap(phys, size);
- 	} else {
- 		*virt = phys_to_virt(phys);
-@@ -234,9 +234,9 @@
- acpi_status
- acpi_os_install_interrupt_handler(u32 irq, OSD_HANDLER handler, void *context)
- {
--#ifdef _IA64
--	irq = isa_irq_to_vector(irq);
--#endif /*_IA64*/
-+#ifdef CONFIG_IA64
-+	irq = gsi_to_vector(irq);
-+#endif /* CONFIG_IA64 */
- 	acpi_irq_irq = irq;
- 	acpi_irq_handler = handler;
- 	acpi_irq_context = context;
-@@ -252,9 +252,9 @@
- acpi_os_remove_interrupt_handler(u32 irq, OSD_HANDLER handler)
- {
- 	if (acpi_irq_handler) {
--#ifdef _IA64
--		irq = isa_irq_to_vector(irq);
--#endif /*_IA64*/
-+#ifdef CONFIG_IA64
-+		irq = gsi_to_vector(irq);
-+#endif /* CONFIG_IA64 */
- 		free_irq(irq, acpi_irq);
- 		acpi_irq_handler = NULL;
+--- mm/mmap.c~	Wed Jun 19 14:21:37 2002
++++ mm/mmap.c	Wed Jun 19 17:19:53 2002
+@@ -883,6 +883,8 @@
+ 		break;
  	}
-@@ -352,9 +352,9 @@
- 	if (EFI_MEMORY_UC & efi_mem_attributes(phys_addr)) {
- 		iomem = 1;
- 		virt_addr = ioremap(phys_addr, width);
--	} 
--	else
-+	} else {
- 		virt_addr = phys_to_virt(phys_addr);
-+	}
- #else
- 	virt_addr = phys_to_virt(phys_addr);
- #endif
-@@ -397,9 +397,9 @@
- 	if (EFI_MEMORY_UC & efi_mem_attributes(phys_addr)) {
- 		iomem = 1;
- 		virt_addr = ioremap(phys_addr,width);
--	} 
--	else
-+	} else {
- 		virt_addr = phys_to_virt(phys_addr);
-+	}
- #else
- 	virt_addr = phys_to_virt(phys_addr);
- #endif
-
-
-Won't build on ia64 without this change.
-
-diff -urNX ../dontdiff linux-2418/drivers/acpi/system.c linux-acpi/drivers/acpi/system.c
---- linux-2418/drivers/acpi/system.c	Wed Jun 12 09:08:54 2002
-+++ linux-acpi/drivers/acpi/system.c	Wed Jun 12 07:20:26 2002
-@@ -37,7 +37,9 @@
- #include <linux/proc_fs.h>
- #include <asm/uaccess.h>
- #include <asm/acpi.h>
-+#ifdef __i386__
- #include <asm/save_state.h>
-+#endif
- #include "acpi_bus.h"
- #include "acpi_drivers.h"
- 
-
--- 
-It's always legal to use Linux (TM) systems
-http://www.gnu.org/philosophy/why-free.html
+ no_mmaps:
++	if (last < first)
++		return;
+ 	/*
+ 	 * If the PGD bits are not consecutive in the virtual address, the
+ 	 * old method of shifting the VA >> by PGDIR_SHIFT doesn't work.
 
