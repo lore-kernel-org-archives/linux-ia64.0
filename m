@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 16 Oct 2003 01:34:41 +0000
-Subject: RE: WAW dependency messages
-Message-Id: <marc-linux-ia64-106626810627108@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 16 Oct 2003 01:49:33 +0000
+Subject: Re: WAW dependency messages
+Message-Id: <marc-linux-ia64-106626899327674@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106625678318659@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106625678318659@msgid-missing>
@@ -10,22 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Kernel is a totally different issue. You can send me small asm
-> testcases. I will see what I can do.
+>>>>> On Wed, 15 Oct 2003 16:51:44 -0700, "H. J. Lu" <hjl@lucon.org> said:
 
-Something as simple as:
+  HJ> Kernel is a totally different issue. You can send me small asm
+  HJ> testcases. I will see what I can do.
 
-        itc.i r18
-        ;;
-        ld8 r19=[r17]
+Here is one that bugs me (adapted from fsys.S):
 
-Will generate
-aa.S: Assembler messages:
-aa.S:3: Warning: Use of 'ld8' violates RAW dependency 'DTC' (data)
-aa.S:1: Warning: This is the location of the conflicting usage
+$ cat t.S
+        mov psr.l = r2;;
+        mov r25=ar.rnat
+$ as -x t.S
+/r/wailua/tmp/t.S: Assembler messages:
+/r/wailua/tmp/t.S:3: Warning: Use of 'mov.m' violates RAW dependency 'PSR.si' (data)
+/r/wailua/tmp/t.S:1: Warning: This is the location of the conflicting usage
+$ as --version |head -1
+GNU assembler 2.13.90 20030425
 
-Oddly enough, "as test.S" doesn't have warning message, but "as -x
-test.S" does.  gcc is execve with "as -x" which triggers the warning
-message.
+I think the warnings shows up because the assembler doesn't detect
+that we're reading ar.rnat, not ar.itc.
 
-- Ken
+	--david
