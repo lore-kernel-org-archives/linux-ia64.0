@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sun, 09 Feb 2003 05:27:54 +0000
+From: Matt Chapman <matthewc@cse.unsw.edu.au>
+Date: Sun, 09 Feb 2003 05:47:11 +0000
 Subject: Re: [Linux-ia64] sigaltstack and RBS
-Message-Id: <marc-linux-ia64-105590709805825@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805826@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805824@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805824@msgid-missing>
@@ -10,29 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sun, 9 Feb 2003 16:19:20 +1100, Matt Chapman <matthewc@cse.unsw.edu.au> said:
+On Sat, Feb 08, 2003 at 09:27:54PM -0800, David Mosberger wrote:
+> 
+> It sounds like you're using an old kernel.
 
-  Matt> I'm having some difficulty "demand paging" register backing
-  Matt> store from userspace (i.e. using SIGSEGV to map pages in on
-  Matt> demand).
+Sorry, I should have given more information.  I'm using 2.5.59-ia64-030124.
 
-  Matt> The problem is that even when using sigaltstack, the original
-  Matt> backing store (which caused the fault) is still touched when
-  Matt> returning to the signal trampoline, before it switches to the
-  Matt> alternate RBS.  Thus I get recursive faulting before it gets
-  Matt> to the signal handler.
+> I don't recall exactly
+> when this was fixed, but recent kernels will put the dirty partition
+> on the _new_ stack, not the old one.
+> 
+> You can check gate.S:ia64_sigtramp().  If it branches to "setup_rbs"
+> _before_ the first "alloc" instruction, you should be fine.
 
-  Matt> Ideally, signal handling on an alternate RBS/stack wouldn't
-  Matt> touch the original RBS/stack at all.
+Yes, it does.  Hmm, the faults I'm getting are at ia64_sigtramp (exactly).
+The first instruction (add r2@,r12) doesn't look like it could possibly
+be the cause, so I presume it is the RFI that is forcing a frame to be
+loaded (?).
 
-  Matt> Any suggestions how to deal with this?
+Matt
 
-It sounds like you're using an old kernel.  I don't recall exactly
-when this was fixed, but recent kernels will put the dirty partition
-on the _new_ stack, not the old one.
-
-You can check gate.S:ia64_sigtramp().  If it branches to "setup_rbs"
-_before_ the first "alloc" instruction, you should be fine.
-
-	--david
 
