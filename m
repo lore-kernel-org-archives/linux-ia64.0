@@ -1,14 +1,34 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 18 Jun 2004 03:02:48 +0000
+From: "Wang, Zhenyu Z" <zhenyu.z.wang@intel.com>
+Date: Fri, 18 Jun 2004 03:12:36 +0000
 Subject: RE: Question on 2xECC status
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01794F95@scsmsx401.amr.corp.intel.com>
+Message-Id: <6E0C289723A0564F9A8279E236E8565F07A00657@pdsmsx402.pd.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <6E0C289723A0564F9A8279E236E8565F07A0057F@pdsmsx402.pd.intel.com>
 In-Reply-To: <6E0C289723A0564F9A8279E236E8565F07A0057F@pdsmsx402.pd.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+ 
+Tony,
+
+Thanks for the answer.
+
+So MCA recovery for uncorrectable memory error is not supported by linux now, right?
+
+I said "report to user space" means linux can retrieve the error and by some way like
+proc interface to tell user there is corrected error.
+
+salinfo_decode daemon is doing this job, right?
+
+-zhen
+ 
+-----Original Message-----
+From: Luck, Tony 
+Sent: 2004年6月18日 11:03
+To: Wang, Zhenyu Z; linux-ia64@vger.kernel.org
+Subject: RE: Question on 2xECC status
 
 >I have question about current support of 2xECC in linux-ia64.
 >Does it support uncorrectable memory errors now?
