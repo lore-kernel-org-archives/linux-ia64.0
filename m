@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Sun, 05 Oct 2003 16:33:00 +0000
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Sun, 05 Oct 2003 20:47:05 +0000
 Subject: Re: [PATCH] kill sn_ksyms.c
-Message-Id: <marc-linux-ia64-106537167010646@msgid-missing>
+Message-Id: <marc-linux-ia64-106538699221740@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106451999732538@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106451999732538@msgid-missing>
@@ -10,14 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Christoph" = Christoph Hellwig <hch@lst.de> writes:
+On Sun, Oct 05, 2003 at 12:33:00PM -0400, Jes Sorensen wrote:
+> >>>>> "Christoph" = Christoph Hellwig <hch@lst.de> writes:
+> 
+> Christoph> None of the exported symbols is referenced by a module,
+> Christoph> even more the file doesn't compile shen
+> Christoph> CONFIG_IA64_SGI_SN_DEBUG is set.
+> 
+> There are some device drivers coming that will depend on some of these
+> symbols so I'd prefer to keep this file in place, at least for
+> now. And yes, said drivers are GPL'ed.
 
-Christoph> None of the exported symbols is referenced by a module,
-Christoph> even more the file doesn't compile shen
-Christoph> CONFIG_IA64_SGI_SN_DEBUG is set.
+Or just move that stuff when we submit the drivers.  I think Robin
+looked at this a bit...
 
-There are some device drivers coming that will depend on some of these
-symbols so I'd prefer to keep this file in place, at least for
-now. And yes, said drivers are GPL'ed.
-
-Jes
+Jesse
