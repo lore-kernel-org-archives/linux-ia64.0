@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 17 Jan 2002 08:06:51 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 17 Jan 2002 09:43:21 +0000
 Subject: Re: [Linux-ia64] Help with Ingo scheduler on IA64
-Message-Id: <marc-linux-ia64-105590698805869@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805866@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805816@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805816@msgid-missing>
@@ -10,20 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 17 Jan 2002 10:43:21 +0100 (CET), Ingo Molnar <mingo@elte.hu> said:
+On Wed, 16 Jan 2002, David Mosberger wrote:
 
-  Ingo> Every architecture has to define the following function:
+> The fundamental problem is that current set_cpus_allowed() lets the
+> same task run on two CPUs for a brief period of time.  This violates
+> scheduling assumptions made by the kernel and hence results in race
+> conditions.
 
-  Ingo>      extern void smp_migrate_task(int cpu, task_t *task);
+i've fixed this in -J0 already, without adding overhead to the scheduler
+hotpath. I've added better task-migration code as well. Every architecture
+has to define the following function:
 
-  Ingo> the lowlevel code has to pass the 'task' pointer over to the
-  Ingo> target CPU.  (architectures that can send information in
-  Ingo> cross-CPU messages can send it over directly - in the x86 case
-  Ingo> it's done similarly to smp_call_function().)
+     extern void smp_migrate_task(int cpu, task_t *task);
 
-That sounds much better.
+the lowlevel code has to pass the 'task' pointer over to the target CPU.
+(architectures that can send information in cross-CPU messages can send it
+over directly - in the x86 case it's done similarly to
+smp_call_function().)
 
-Thanks,
+	Ingo
 
-	--david
 
