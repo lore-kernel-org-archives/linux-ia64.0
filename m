@@ -1,23 +1,28 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 21 Mar 2001 16:40:22 +0000
-Subject: Re: [Linux-ia64] sprofil() implementation
-Message-Id: <marc-linux-ia64-105590693005316@msgid-missing>
+From: "Robboy, David G" <david.g.robboy@intel.com>
+Date: Thu, 08 Mar 2001 09:07:08 +0000
+Subject: [Linux-ia64] Pointer to function has a bad value
+Message-Id: <marc-linux-ia64-105590693005265@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005308@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005308@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On 21 Mar 2001 11:02:16 +0100, Andreas Schwab <schwab@suse.de> said:
+Is this a known bug or fixed in a later compiler?  Using gcc version
+2.9-ia64-000216-final, assigning the address of a function to a pointer
+gives the wrong value.  In the following program, the address of twiddle is
+0x40000000000003f0, but the value of the pointer i is 0x4000000000078300.
 
-  Andreas> This is missing the address for elf32/m68k, which is
-  Andreas> 0x80000000.  Note that you will get a warning on 32 bit
-  Andreas> systems for the 64 bit constants.
+void twiddle(void)
+{
+	int i = 34;
+}
+main()
+{
+	unsigned long i = (unsigned long)twiddle;
+	printf("i=%lx\n", i);
+}
 
-There is no harm in that.  The list is not meant to be complete, nor does
-it have to be.
+ - David Robboy
 
-	--david
 
