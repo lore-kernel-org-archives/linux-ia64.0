@@ -1,31 +1,48 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 15 Oct 2002 12:08:24 +0000
-Subject: Re: [Linux-ia64] loading a kernel module
-Message-Id: <marc-linux-ia64-105590709805161@msgid-missing>
+From: "shiva chetan" <chetan@uiuc.edu>
+Date: Sun, 06 Oct 2002 17:43:21 +0000
+Subject: [Linux-ia64] sigcontext structure
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_NextPart_000_023D_01C26D35.F43EDD10"
+Message-Id: <marc-linux-ia64-105590701906086@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805160@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805160@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Christian Hildner <christian.hildner@hob.de> writes:
+This is a multi-part message in MIME format.
 
-|> Hi,
-|>=20
-|> when doing insmod on my kernel module, I get the error message
-|> "Unhandled relocation of type 72 for label_name"
-|>=20
-|> Any help would be very appreciated.
+------=_NextPart_000_023D_01C26D35.F43EDD10
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-I'd suggest upgrading modutils.
+where can i find info on sigcontext structure on linux/ia-64 ? =
+specifically which registers hold the faulting address/type on a =
+segmention fault and the trap no on a SIGTRAP ?
 
-Andreas.
+thanks
+chetan
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+------=_NextPart_000_023D_01C26D35.F43EDD10
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=3DContent-Type content=3D"text/html; =
+charset=3Diso-8859-1">
+<META content=3D"MSHTML 6.00.2719.2200" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT face=3DArial size=3D2>where can i find info on sigcontext =
+structure on=20
+linux/ia-64 ? specifically which registers hold the faulting =
+address/type on a=20
+segmention fault and the trap no on a SIGTRAP ?</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
+<DIV><FONT face=3DArial size=3D2>thanks</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>chetan</FONT></DIV></BODY></HTML>
+
+------=_NextPart_000_023D_01C26D35.F43EDD10--
+
 
