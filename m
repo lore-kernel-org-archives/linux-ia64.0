@@ -1,51 +1,79 @@
-From: "David N. Lombard" <david.lombard@mscsoftware.com>
-Date: Tue, 23 Jul 2002 23:58:30 +0000
-Subject: [Linux-ia64] [PATCH] arch/ia64/tools/Makefile
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 18 Jul 2002 20:36:52 +0000
+Subject: [Linux-ia64] forwarded message from Rusty Trivial Russell
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------070208050407070405000503"
-Message-Id: <marc-linux-ia64-105590701905826@msgid-missing>
+Content-Type: multipart/mixed; boundary="vLr0uSZoR4"
+Message-Id: <marc-linux-ia64-105590701905781@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070208050407070405000503
-Content-Type: text/plain; charset=us-ascii; format=flowed
+--vLr0uSZoR4
+Content-Type: text/plain; charset=us-ascii
+Content-Description: message body text
 Content-Transfer-Encoding: 7bit
 
-The arch/ia64/tools/Makefile has an empty action for the mrproper 
-target.  The result is that arch/ia64/tools/print_offsets.s, 
-arch/ia64/tools/print_offsets, and arch/ia64/tools/offsets.h remain 
-after a "make mrproper".  The files are deleted with "make distclean".
+Could someone from SGI take care of this?
 
-So, this could be a (subtle) intended difference between the mrproper 
-and distclean targets, but that seems unlikely.
+Thanks,
 
-The attached patch moves the file deletion from the clean target 
-(invoked via distclean) to the mrproper target; the distclean target 
-still results in the files being deleted.
+	--david
 
+
+--vLr0uSZoR4
+Content-Type: message/rfc822
+Content-Description: forwarded message
+Content-Transfer-Encoding: 7bit
+
+Return-Path: <rusty@samba.org>
+Received: from hplms2.hpl.hp.com (root@hplms2.hpl.hp.com [15.0.152.33])
+	by napali.hpl.hp.com (8.12.2/8.12.2/Debian -5) with ESMTP id g6I3Mpuh007784
+	for <davidm@napali.hpl.hp.com>; Wed, 17 Jul 2002 20:22:51 -0700
+Received: from deimos.hpl.hp.com (deimos.hpl.hp.com [15.0.48.190])
+	by hplms2.hpl.hp.com (8.10.2/8.10.2 HPL-PA Hub) with ESMTP id g6I3Mok16455
+	for <davidm@hpl.hp.com>; Wed, 17 Jul 2002 20:22:51 -0700 (PDT)
+Received: from lists.samba.org (samba.sourceforge.net [198.186.203.85])
+	by deimos.hpl.hp.com (8.9.3 (PHNE_24419)/HPL-PA Relay) with ESMTP id UAA09300
+	for <davidm@hpl.hp.com>; Wed, 17 Jul 2002 20:22:50 -0700 (PDT)
+Received: by lists.samba.org (Postfix, from userid 1080)
+	id A35FA4474; Wed, 17 Jul 2002 20:23:29 -0700 (PDT)
+Message-Id: <20020718032329.A35FA4474@lists.samba.org>
+From: Rusty Trivial Russell <rusty@rustcorp.com.au>
+Sender: rusty@rustcorp.com.au
+To: davidm@hpl.hp.com
+Subject: [TRIVIAL] PATCH 2.5: kconfig spurious bool default value (1_3)
+Date: Thu, 18 Jul 2002 13:08:30 +1000
+
+From: (via Rusty) Greg Banks <gnb@alphalink.com.au>
+
+  
+  Some CML1 rule contributors seem to think that the "bool" statement
+  takes a third argument which is the default value.  It doesn't.
+  
+
+--- trivial-2.5.26/arch/ia64/config.in.orig	Thu Jul 18 13:00:51 2002
++++ trivial-2.5.26/arch/ia64/config.in	Thu Jul 18 13:00:51 2002
+@@ -71,15 +71,15 @@
+ 
+ if [ "$CONFIG_IA64_SGI_SN1" = "y" -o  "$CONFIG_IA64_SGI_SN2" = "y" ]; then
+ 	define_bool CONFIG_IA64_SGI_SN y
+-	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG n
++	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG
+ 	bool '  Enable SGI Medusa Simulator Support' CONFIG_IA64_SGI_SN_SIM
+ 	bool '  Enable autotest (llsc). Option to run cache test instead of booting' \
+-			CONFIG_IA64_SGI_AUTOTEST n
++			CONFIG_IA64_SGI_AUTOTEST
+ 	define_bool CONFIG_DEVFS_FS y
+ 	if [ "$CONFIG_DEVFS_FS" = "y" ]; then
+-	  bool '    Enable DEVFS Debug Code' CONFIG_DEVFS_DEBUG n
++	  bool '    Enable DEVFS Debug Code' CONFIG_DEVFS_DEBUG
+ 	fi
+-	bool '  Enable protocol mode for the L1 console' CONFIG_SERIAL_SGI_L1_PROTOCOL y
++	bool '  Enable protocol mode for the L1 console' CONFIG_SERIAL_SGI_L1_PROTOCOL
+ 	define_bool CONFIG_DISCONTIGMEM y
+ 	define_bool CONFIG_IA64_MCA y
+ 	define_bool CONFIG_NUMA y
 -- 
-David N. Lombard
-MSC.Software
+  Don't blame me: the Monkey is driving
 
---------------070208050407070405000503
-Content-Type: text/plain;
- name="ia64-tools.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ia64-tools.diff"
-
---- arch/ia64/tools/Makefile.orig	Mon Feb 25 11:37:53 2002
-+++ arch/ia64/tools/Makefile	Tue Jul 23 11:27:50 2002
-@@ -5,6 +5,7 @@
- all: 
- 
- mrproper:
-+	rm -f print_offsets.s print_offsets offsets.h
- 
- clean:
- 	rm -f print_offsets.s print_offsets offsets.h
-
---------------070208050407070405000503--
-
+--vLr0uSZoR4--
 
