@@ -1,26 +1,62 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 03 Mar 2005 05:19:31 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Thu, 03 Mar 2005 05:24:52 +0000
 Subject: Re: Page fault scalability patch V18: Drop first acquisition of ptl
-Message-Id: <Pine.LNX.4.58.0503022117450.4083@schroedinger.engr.sgi.com>
+Message-Id: <42269FA4.5020009@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0503011947001.25441@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0503011951100.25441@schroedinger.engr.sgi.com>
- <20050302174507.7991af94.akpm@osdl.org> <Pine.LNX.4.58.0503021803510.3080@schroedinger.engr.sgi.com>
- <20050302185508.4cd2f618.akpm@osdl.org> <Pine.LNX.4.58.0503021856380.3365@schroedinger.engr.sgi.com>
- <20050302201425.2b994195.akpm@osdl.org> <16934.39386.686708.768378@cargo.ozlabs.ibm.com>
-In-Reply-To: <16934.39386.686708.768378@cargo.ozlabs.ibm.com>
+References: <Pine.LNX.4.58.0503011947001.25441@schroedinger.engr.sgi.com>	<Pine.LNX.4.58.0503011951100.25441@schroedinger.engr.sgi.com>	<20050302174507.7991af94.akpm@osdl.org>	<Pine.LNX.4.58.0503021803510.3080@schroedinger.engr.sgi.com>	<20050302185508.4cd2f618.akpm@osdl.org>	<Pine.LNX.4.58.0503021856380.3365@schroedinger.engr.sgi.com> <20050302201425.2b994195.akpm@osdl.org>
+In-Reply-To: <20050302201425.2b994195.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Paul Mackerras <paulus@samba.org>
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, benh@kernel.crashing.org, anton@samba.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: Christoph Lameter <clameter@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, 3 Mar 2005, Paul Mackerras wrote:
+Andrew Morton wrote:
 
-> More generally, I would be interested to know what sorts of
-> applications or benchmarks show scalability problems on large machines
-> due to contention on mm->page_table_lock.
+>Christoph Lameter <clameter@sgi.com> wrote:
+>
+>>On Wed, 2 Mar 2005, Andrew Morton wrote:
+>>
+>>
+>>>>Earlier releases back in September 2004 had some pte locking code (and
+>>>>AFAIK Nick also played around with pte locking) but that
+>>>>was less efficient than atomic operations.
+>>>>
+>>>How much less efficient?
+>>>Does anyone else have that code around?
+>>>
+>>Nick may have some data. It got far too complicated too fast when I tried
+>>to introduce locking for individual ptes. It required bit
+>>spinlocks for the pte meaning multiple atomic operations.
+>>
+>
+>One could add a spinlock to the pageframe, or use hashed spinlocking.
+>
+>
 
-Number crunching apps that use vast amounts of memory through MPI or
-large databases etc. They stall for a long time during their
-initialization phase without these patches.
+I did have a version using bit spin locks in the pte on ia64. That
+only works efficiently on architectures who's MMU hardware won't
+concurrently update the pte (so you can do non-atomic pte operations
+and non-atomic unlocks on a locked pte).
+
+I pretty much solved all the efficiency problems IIRC. Of course
+this doesn't work on i386 or x86_64.
+
+Having a spinlock for example per pte page might be another good
+option that we haven't looked at.
+
+>>One
+>>would have to check for the lock being active leading to significant code
+>>changes.
+>>
+>
+>Why?
+>
+>
+
+When using per-pte locks on ia64 for example, the low level code that
+walks page tables and sets dirty, accessed, etc bits needs to be made
+aware of the pte lock. But Keith made me up a little patch to do this,
+and it is pretty simple.
+
+
