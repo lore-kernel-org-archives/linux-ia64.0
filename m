@@ -1,32 +1,106 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 09 Mar 2004 23:26:54 +0000
-Subject: Re: [ACPI] [PATCH] 5 of 6 avoid double conversion of ACPI OS interrupt
-Message-Id: <200403091626.54746.bjorn.helgaas@hp.com>
+From: Pat Gefre <pfg@sgi.com>
+Date: Wed, 10 Mar 2004 15:17:12 +0000
+Subject: [2.6 PATCH] Altix affinity fix
+Message-Id: <200403101517.i2AFHCfZ084981@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403091619.04333.bjorn.helgaas@hp.com>
-In-Reply-To: <200403091619.04333.bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Cc: Andi Kleen <ak-l3A5Bk7waGM@public.gmane.org>, "Nakajima, Jun" <jun.nakajima-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+To: davidm@napali.hpl.hp.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-ACPI: Avoid double conversion of ACPI OS interrupt
 
-The global IRQ used to be converted once in
-acpi_os_install_interrupt_handler() and again in
-acpi_os_remove_interrupt_handler().
+Fix for affinity bug.
 
-diff -Nru a/drivers/acpi/osl.c b/drivers/acpi/osl.c
---- a/drivers/acpi/osl.c	Tue Mar  9 14:24:15 2004
-+++ b/drivers/acpi/osl.c	Tue Mar  9 14:24:15 2004
-@@ -262,7 +262,7 @@
- 		printk(KERN_ERR PREFIX "SCI (IRQ%d) allocation failed\n", irq);
- 		return AE_NOT_ACQUIRED;
+
+-- Pat
+
+Patrick Gefre
+Silicon Graphics, Inc.                     (E-Mail)  pfg@sgi.com
+2750 Blue Water Rd                         (Voice)   (651) 683-3127
+Eagan, MN 55121-1400                       (FAX)     (651) 683-3054
+
+
+
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1694  -> 1.1695 
+#	arch/ia64/sn/kernel/irq.c	1.20    -> 1.21   
+#	arch/ia64/sn/io/sn2/shub_intr.c	1.9     -> 1.10   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/03/08	pfg@sgi.com	1.1695
+# arch/ia64/sn/io/sn2/shub_intr.c
+#     Use the proper calling args for the pcireg_ functions
+# arch/ia64/sn/kernel/irq.c
+#     Use the cpu mask as an input arg rather than the cpu ID
+#     Discard the redirect bit if set.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/sn/io/sn2/shub_intr.c b/arch/ia64/sn/io/sn2/shub_intr.c
+--- a/arch/ia64/sn/io/sn2/shub_intr.c	Mon Mar  8 17:48:39 2004
++++ b/arch/ia64/sn/io/sn2/shub_intr.c	Mon Mar  8 17:48:39 2004
+@@ -200,7 +200,6 @@
+ 	int cpuphys, slice;
+ 	nasid_t nasid;
+ 	unsigned long xtalk_addr;
+-	void		*bridge = intr->bi_soft->bs_base;
+ 	int		irq;
+ 	int		i;
+ 	int		old_cpu;
+@@ -237,13 +236,13 @@
+ 	for (bit = 0; bit < 8; bit++) {
+ 		if (intr->bi_ibits & (1 << bit) ) {
+ 			/* Disable interrupts. */
+-			pcireg_intr_enable_bit_clr(bridge, bit);
++			pcireg_intr_enable_bit_clr(intr->bi_soft, bit);
+ 			/* Reset Host address (Interrupt destination) */
+-			pcireg_intr_addr_addr_set(bridge, bit, xtalk_addr);
++			pcireg_intr_addr_addr_set(intr->bi_soft, bit, xtalk_addr);
+ 			/* Enable interrupt */
+-			pcireg_intr_enable_bit_set(bridge, bit);
++			pcireg_intr_enable_bit_set(intr->bi_soft, bit);
+ 			/* Force an interrupt, just in case. */
+-			pcireg_force_intr_set(bridge, bit);
++			pcireg_force_intr_set(intr->bi_soft, bit);
+ 		}
  	}
--	acpi_irq_irq = irq;
-+	acpi_irq_irq = global_irq;
- 
- 	return AE_OK;
+ 	irq = intr->bi_irq;
+diff -Nru a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
+--- a/arch/ia64/sn/kernel/irq.c	Mon Mar  8 17:48:39 2004
++++ b/arch/ia64/sn/kernel/irq.c	Mon Mar  8 17:48:39 2004
+@@ -15,6 +15,7 @@
+ #include <linux/interrupt.h>
+ #include <linux/slab.h>
+ #include <linux/bootmem.h>
++#include <linux/cpumask.h>
+ #include <asm/page.h>
+ #include <asm/pgtable.h>
+ #include <asm/sn/sgi.h>
+@@ -118,10 +119,11 @@
  }
-
+ 
+ static void
+-sn_set_affinity_irq(unsigned int irq, unsigned long cpu)
++sn_set_affinity_irq(unsigned int irq, cpumask_t mask)
+ {
+ #ifdef CONFIG_SMP
+ 	int redir = 0;
++	int cpu;
+ 	struct sn_intr_list_t *p = sn_intr_list[irq];
+ 	pcibr_intr_t intr;
+ 	extern void sn_shub_redirect_intr(pcibr_intr_t intr, unsigned long cpu);
+@@ -135,7 +137,9 @@
+ 	if (intr = NULL)
+ 		return; 
+ 
++	cpu = first_cpu(mask);
+ 	sn_shub_redirect_intr(intr, cpu);
++	irq = irq & 0xff;  /* strip off redirect bit, if someone stuck it on. */
+ 	(void) set_irq_affinity_info(irq, cpu_physical_id(intr->bi_cpu), redir);
+ #endif /* CONFIG_SMP */
+ }
