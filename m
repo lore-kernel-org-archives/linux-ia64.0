@@ -1,41 +1,67 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Date: Fri, 18 May 2001 22:28:53 +0000
-Subject: [Linux-ia64] Announcing efibootmgr-0.3.0
-Message-Id: <marc-linux-ia64-105590693005625@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Thu, 31 May 2001 04:44:34 +0000
+Subject: [Linux-ia64] new version of NUE (IA-64 LDK) available for downloads
+Message-Id: <marc-linux-ia64-105590693005676@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Announcing efibootmgr-0.3.0, a Linux user-space application which
-interacts with the EFI Boot Manager.  It may be downloaded from
-http://domsch.com/linux/ia64/efibootmgr-0.3.0.tar.gz.
+Hello,
 
-This requires the efivars module be loaded, and expects them
-to be at /proc/efi/vars/* which is consistent with the kernel
-2.4.4 IA-64 patch.  You must be root to run this (as /proc/efi/vars/*
-are only read/write root).
 
-Changes since v0.2.0:
+I wanted to let you know that there is now a new version of the 
+HP IA-64 Linux Development Kit (LDK) available for free download at:
 
-* Fri May 18 2001 Matt Domsch <Matt_Domsch@dell.com>
-- Padded HARDDRIVE_DEVICE_PATH out to please EFI Boot Manager.
-- Incorporated patches from Andreas Schwab
-  - replace __u{8,16,32,64} with uint{8,16,32,64}_t
-  - use _FILE_OFFSET_BITS
-  - fix a segfault
-- release v0.3.0
+	http://www.software.hp.com/LIA64
 
-I believe this is functional, would be happy for the various
-distributions to include this.  As always, comments and patches (such as
-sent by Andreas!) are appreciated.
+The LDK allows users to easily (most of the time, no makefile modifications 
+required) port/develop Linux/ia64 applications on their Linux/ia32 systems. 
+You can compile, RUN and DEBUG the generated binaries using the HP ski IA-64 
+simulator included in the kit.
 
+It is also possible to do kernel developments and boot the latest Linux/ia64
+kernel using this simulator.
+
+The full environment has been tested on Redhat6.2, 7.0, 7.1 versions and 
+should be fine on most other RPM-based distributions. You need about 400MB
+of disk space to install the kit. Upgrading from previous versions is supported.
+
+The new version includes:
+	- an updated NUE filesystem 
+
+	- the latest gcc-2.x stable version for Linux/ia64
+
+	- glibc version 2.2
+
+	- an updated version of ski (0.943)
+
+	- an updated root filesystem for booting the Linux kernel with the 
+	  simulator
+
+You can download the 4 RPMS for free from the web site mentioned above
+or have a CDROM sent to you.
+
+Users are encouraged to subscribe to the lia64-sim public mailing-list:
+
+To subscribe:
+	- send mail to majordomo@linux.hpl.hp.com
+	  with "subscribe lia64-sim" in the body of the message
+
+or participate in the discussion forum at:
+
+	http://devresource.hp.com/devresource/Forums/Forums.html
+
+Enjoy,
 -- 
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions
-www.dell.com/linux
-
-
++--------------------------------------------------------------------+
+| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
+| Hewlett-Packard Laboratories            |                          |
+| 1501, Page Mill Road MS 1U-15           |                          |
+| Palo  Alto, CA 94303-096                |                          |
+| USA                                     |                          |
+| Tel : (650) 857-7174                    |                          |
+| Fax : (650) 857-5548                    |                          |
++--------------------------------------------------------------------+
 
