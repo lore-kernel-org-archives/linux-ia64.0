@@ -1,59 +1,57 @@
 From: John Levon <levon@movementarian.org>
-Date: Tue, 07 Oct 2003 23:27:51 +0000
-Subject: OProfile vs. Perfmon
-Message-Id: <marc-linux-ia64-106556940523002@msgid-missing>
+Date: Wed, 08 Oct 2003 19:46:49 +0000
+Subject: Re: OProfile vs. Perfmon
+Message-Id: <marc-linux-ia64-106564249926532@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106556940523002@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106556940523002@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Wed, Oct 08, 2003 at 10:40:30AM -0700, Stephane Eranian wrote:
 
-2.6 still lacks proper OProfile support. Will Cohen's older patch was
-rejected due to issues over lack of re-use of the perfmon interface.
+> Again, different tools have different goals. The important point
+> is that I believe we can provide that kind of flexibility while still using 
+> a single kernel interface.
 
-I've been looking briefly at perfmon just now, and wanted to gather your
-thoughts on the best way this needs to be integrated.
+Absolutely agreed, it is not sensible to have multiple interfaces to the
+same thing, and flexibility in the type of performance counting is
+important.
 
-First, what OProfile needs :
+> If you looked at the default format (perfmon_default_smpl.c), you see how this 
+> can be implemented.  As for buffer management, again, perfmon-2 gives you a 
+> choice. You can have perfmon-2 allocates and remap the buffer into the address 
+> space of the tool OR you can do this yourself, i.e., allocate you own buffer 
+> AND export it in ANY WAY you want.
 
-o some way to set up the counter values
-o system-wide statistical profiling
-o an in-kernel notification on counter overflow, and reset of the
-  counter value at that point
-o some way to mark each generated event by a small integer value and the
-  IP saved at the time of the overflow interrupt
+Sounds great.
 
-And that's it, I think.
+> The idea is that the user space tools would go through the perfmonctl() system
+> call to setup the counters for a system-wide session. You do NOT need to use
+> pfmlib if you already have your own libary to handle the IA-64 events and
+> their encodings. In fact, the upcoming version 3.0 of the libpfm library is 
+> TOTALLY disconnected from the kernel interface. In any case, Keep in mind 
+> that the library DOES NOT call perfmonctl(), it is just here to help you 
+> figure out what values to program into the PMC registers given what you want to
+> measure.
 
-Previously mentioned was the suggestion that OProfile kernel glue should
-hook into perfmon's custom buffer API. Having looked briefly at it, it
-seems the perfmon core has a lot of buffer management code, that we
-really do not want to use, as it would massively complicate the
-arch-independent oprofile core. IOW, the overflow handler would feed
-straight into oprofile_add_sample().  In effect, all we need is to be
-able to receive the overflow interrupts.
+We do have our own stuff but it would certainly make sense for us to use
+pfmlib for the allocation/setup.
 
-It certainly looks like this is easy enough.
+> The tool simply needs to fork/pthread_create a worker task for each CPU
+> it wants to measure on and it must pinned the task. The system-wide perfmon 
+> context will be bound to the CPU is was created on. The creator task can 
+> later migrate to other CPUs, but the context can only be accessed from tasks 
+> running on its CPU. I realize that this is not the model you have chosen, but
+> I believe you can fairly easily hide the difference into some small library.
 
-The next issue is setting up the counters. Basically the userspace
-should be using pfmlib to program the required events, and using
-sys_perfmonctl to set up a system-wide session. From oprofiled's point
-of view, it would basically write the pmc's, create a session, and start
-the profiling.
+OK, thanks for clarifying. It's certainly not much code to fork off N
+tasks and pin them to each CPU before calling the stuff to create a
+context.
 
-I'm a bit baffled by the code concerning ctx_cpu in system-wide mode. Is
-user-space supposed to figure out how many CPUs are up and create a
-context for each of them ? In particular:
-
-   4229         the_cpu = ctx->ctx_cpu = smp_processor_id();
-
-I cannot make head or tail of why the CPU that happens to be running the
-task calling sys_perfmonctl() is relevant at all to system-wide
-profiling. Can someone explain ?
-
-Finally, is the above summary roughly accurate, and are there any
-pitfalls I might need to watch out for ?
+I'll get hacking :)
 
 thanks,
 john
