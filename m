@@ -1,61 +1,49 @@
-From: Paulo Marques <pmarques@grupopie.com>
-Date: Mon, 27 Dec 2004 13:00:34 +0000
-Subject: Re: Announce: kdb v4.4 is available for kernel 2.6.10
-Message-Id: <41D00772.1050600@grupopie.com>
+From: Dean Nelson <dcn@sgi.com>
+Date: Mon, 20 Dec 2004 18:45:48 +0000
+Subject: Re: [PATCH 2/4] SGI Altix cross partition functionality (1st revision)
+Message-Id: <20041220184548.GA23346@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <18921.1103977059@ocs3.ocs.com.au>
-In-Reply-To: <18921.1103977059@ocs3.ocs.com.au>
+References: <20040616163514.GB27891@sgi.com>
+In-Reply-To: <20040616163514.GB27891@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keith Owens <kaos@sgi.com>
-Cc: kdb@oss.sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Keith Owens wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
+On Tue, Aug 24, 2004 at 08:17:33PM +0100, Christoph Hellwig wrote:
+> On Tue, Aug 24, 2004 at 01:23:44PM -0500, Dean Nelson wrote:
+> > This patch contains the shim module (XP) which interfaces between the
+> > communication module (XPC) and the functional support modules (like XPNET).
+> > 
+> is to have all three enabled at the same time.  Also as I mentioned previously
+> please merge at least xp and xpc into a single module.
 > 
-> KDB (Linux Kernel Debugger) has been updated.
 
-Hi,
+As mentioned in the prologue to this series of patches having XP separate
+from XPC has proven invaluable for debugging, which I'm guessing is not
+a big selling point for you. But the main reason why we created it was
+for XPMEM.
 
-I browsed the patch quickly to check for kallsyms uses, and validate 
-them, and it generally seems correct.
+XPMEM, like XPNET, is a user of XPC and provides the ability to share
+memory between processes on different partitions. It also provides the
+ability for processes within the same partition to share memory.
 
-There is however one comment that makes me wonder:
-*2.6 kallsyms has a "feature" where it unpacks the name into a string.
-*If that string is reused before the caller expects it then the caller
-*sees its string change without warning.
+XPMEM now carries the GNU General Public License. (You can find the source
+at bonnie.engr.sgi.com:/proj/sgilinux/stout/isms/opensource/xpmem. This
+source has been shipped to some customers as part of a BETA test program
+and will be generally available with the next release of ProPack.) We are
+planning to push XPMEM to the community as soon as we can find the time to
+do so. (Note that it suffers from a number of the same 'issues' that were
+raised about XP[C|NET], and we plan on addressing these before the initial
+submission.)
 
-kallsyms_lookup always uses the buffer passed to it in the case the 
-symbol is a kernel symbol, as opposed to a module symbol, and so it is 
-not responsible for the buffer.
+Having the XP module separate from XPC allows for XPC to come and go
+as needed without disturbing XPMEM and its users. This allows a site to
+run a particular partition in isolation for a time (XPC not loaded) and
+then open it up to the other partitions (XPC loaded).
 
-So this probably only happens when a module symbol is returned directly 
-from its symbol table, and then the module is unloaded (or something 
-like that).
+In light of the above I would like to keep XP and XPC as separate modules.
 
-Later there is another comment:
-* Another 2.6 kallsyms "feature".  Sometimes the sym_name is
-* set but the buffer passed into kallsyms_lookup is not used,
-* so it contains garbage.
-
-It seems to be the same problem. If we modify kallsyms_lookup to always 
-use the buffer passed, even if the symbol comes from a module, maybe we 
-could solve both problems with just one change.
-
-On the downside, a caller that just wants to print the name, would pay 
-an unnecessary string copy.
-
-On the upside, this would make the interface more coherent with standard 
-C functions like strcpy, where the buffer passed is always the buffer 
-returned.
-
-So, is it worth the change?
-
--- 
-Paulo Marques - www.grupopie.com
-
-"A journey of a thousand miles begins with a single step."
-Lao-tzu, The Way of Lao-tzu
+Thanks,
+Dean
 
