@@ -1,96 +1,113 @@
 From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Fri, 20 Sep 2002 17:03:08 +0000
-Subject: [Linux-ia64] Re: pfmon with kernel 2.5.35?
+Date: Wed, 11 Sep 2002 16:55:34 +0000
+Subject: [Linux-ia64] elilo-3.3 EFI assertion failure bug fix
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="IJpNTDwzlM2Ie8A6"
-Message-Id: <marc-linux-ia64-105590701906044@msgid-missing>
+Content-Type: multipart/mixed; boundary="Kj7319i9nmIyA2yE"
+Message-Id: <marc-linux-ia64-105590701906021@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
---IJpNTDwzlM2Ie8A6
+--Kj7319i9nmIyA2yE
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Bonjour Jean-Francois,
+Hi,
 
+The attached patch fixes a problem with elilo-3.3 and netbooting.
 
-On Fri, Sep 20, 2002 at 12:30:18PM +0200, lemerrjf wrote:
-> I have tried pfmon on a Tiger machine with 4 CPUs.
-> it works pretty well on a kernel 2.4.18
-> 
-> However on a kernel 2.5.35, I obtain, with the command
-> 
-> pfmon --system-wide
-> 
-> Thread does not run on correct CPU: 0 instead of 1
-> Thread does not run on correct CPU: 0 instead of 2
-> Thread does not run on correct CPU: 0 instead of 3
-> 
-> I observe the same problem with other kernels adding the
-> "multiple run queue" functionnalities.
-> 
-> Have you observed the same problem?
+The 3.3. release triggers an EFI assertion failure at least
+of the HP Itanium2 machines when you type ESC or CTRL-D (i.e. abort) 
+at the elilo prompt when you netboot (and only then). 
+This is due to a buffer overrun.
 
-Obviously this has not been tested with 2.5.x. Keep in mind
-that this is a development (unstable) kernel. 
-
-The problem is not in the kernel but in pfmon. The routine
-that retrieves the current CPU is bogus. From 2.4.x to 2.5.x
-the content of /proc/pid/stat has changed and this exposed
-a bug in pfmon/pfmon_util.c:find_cpu(). The thread is indeed
-running on the right CPU. 
-
-You can apply the attached patch to pfmon-1.1 to fix 
-the problem with pfmon. Note that this fix works for both
-2.4.x and 2.5.x
-
-Thanks for finding this problem.
+Please apply this patch on top of elilo-3.3.
 
 -- 
 -Stephane
 
---IJpNTDwzlM2Ie8A6
+--Kj7319i9nmIyA2yE
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="pfmon-find-cpu.diff"
+Content-Disposition: attachment; filename="elilo33.diff"
 
---- pfmon-1.1/pfmon/pfmon_util.c	Fri Jun 14 16:41:20 2002
-+++ pfmon-1.1a/pfmon/pfmon_util.c	Fri Sep 20 09:51:02 2002
-@@ -566,8 +566,10 @@
- int
- find_cpu(pid_t pid)
- {
--	FILE *fp;	
--	char *p;
-+#define TASK_CPU_POSITION	39 /* position of the task cpu in /proc/pid/stat */
-+	FILE *fp;
-+	int count = TASK_CPU_POSITION;
-+	char *p, *pp = NULL;
- 	char fn[32];
- 	char buffer[1024];
- 
-@@ -581,13 +583,19 @@
- 
- 	/* remove \n */
- 	p[strlen(p)] = '\0';
-+	p--;
- 
--	p = strrchr(buffer, ' ');
--	if (p == NULL) goto error;
-+	while (count-- && p) {
-+		pp = ++p;
-+		p = strchr(p, ' ');
-+	}
-+	if (count>-1) goto error;
+diff -urN elilo-3.3/ChangeLog elilo-3.3a/ChangeLog
+--- elilo-3.3/ChangeLog	Mon Aug 26 16:40:08 2002
++++ elilo-3.3a/ChangeLog	Tue Sep 10 17:31:08 2002
+@@ -1,3 +1,6 @@
++2002-09-10 Stephane Eranian <eranian@hpl.hp.com>
++ 	* fix a bug in argify() that was causing an EFI assertion 
++	  when aborting at the elilo prompt when netbooted.
+ 2002-08-26 Stephane Eranian <eranian@hpl.hp.com>
+ 	* fixed devschemes/simple.c to use SPrint() instead of its own buggy
+ 	  conversion code (spotted by Richard Hirst).
+diff -urN elilo-3.3/elilo.c elilo-3.3a/elilo.c
+--- elilo-3.3/elilo.c	Mon Aug 26 16:36:10 2002
++++ elilo-3.3a/elilo.c	Wed Sep 11 09:48:26 2002
+@@ -239,6 +239,10 @@
+  * from network. In this case, it looks like LoadOptions/LoadOptionsSize contain
+  * garbage
+  */
++static CHAR16 *default_load_options;
++static UINTN default_load_options_size;
++static INTN done_fixups;
 +
-+	if (p) *p = '\0';
+ static VOID
+ fixupargs(EFI_LOADED_IMAGE *info)
+ {
+@@ -250,11 +254,30 @@
+ 	status = BS->HandleProtocol (info->DeviceHandle, &PxeBaseCodeProtocol, (VOID **)&pxe);
+ 	if (EFI_ERROR(status)) return;
  
- 	fclose(fp);
++	default_load_options      = info->LoadOptions;
++	default_load_options_size = info->LoadOptionsSize;
++
+ 	info->LoadOptions     = FAKE_ELILONAME;
+ 	info->LoadOptionsSize = StrLen(info->LoadOptions)*sizeof(CHAR16);
++
++	done_fixups = 1;
+ }
  
--	return atoi(p);
-+	return atoi(pp);
- error:
- 	if (fp) fclose(fp);
- 	return -1;
+ /*
++ * we restore the arguments in case we modified them just to make sure
++ * we don't confuse caller.
++ */
++static VOID
++unfixupargs(EFI_LOADED_IMAGE *info)
++{
++	if (done_fixups == 0) return;
++
++	info->LoadOptions     = default_load_options;
++	info->LoadOptionsSize = default_load_options_size;
++}
++
++
++/*
+  * in order to get fully detailed EFI path names to devices, EDD3.0 specification must
+  * be turned on. On new versions of EFI, this is the default. An environment variable
+  * called EDD30 reflects the current settings. If true, then EDD3.0 is enabled 
+@@ -410,8 +433,11 @@
+ 	 * we must copy argument because argify modifies the string.
+ 	 * This caused problems when arguments are coming from NVRAM
+ 	 * as passed by the EFI boot manager
++	 *
++	 * We add an extra character to the buffer in case the LoadOptions is not 
++	 * NULL terminated. The extra space will be used to ADD the extra terminator.
+ 	 */
+-	arglist = alloc(info->LoadOptionsSize, EfiLoaderData);
++	arglist = alloc(info->LoadOptionsSize+sizeof(CHAR16), EfiLoaderData);
+ 	if (arglist == NULL) {
+ 		ERR_PRT((L"cannot copy argument list"));
+ 		return EFI_OUT_OF_RESOURCES;
+@@ -603,7 +629,9 @@
+ 	main_loop(info->DeviceHandle, argv, argc, Optind, image);
+ 	/* should not return */
+ do_exit:
+-	if (arglist) free(arglist);
++	unfixupargs(info);
++
++	//if (arglist) free(arglist);
+ 
+ 	/* free all resources assiocated with file accesses */
+ 	if (devices_initialized) close_devices();
 
---IJpNTDwzlM2Ie8A6--
+--Kj7319i9nmIyA2yE--
 
