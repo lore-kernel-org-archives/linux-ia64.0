@@ -1,7 +1,7 @@
 From: Grant Grundler <iod00d@hp.com>
-Date: Fri, 16 Jan 2004 05:00:59 +0000
+Date: Fri, 16 Jan 2004 05:50:31 +0000
 Subject: Re: [PATCH] readX_relaxed interface
-Message-Id: <20040116050059.GA13222@cup.hp.com>
+Message-Id: <20040116055031.GD13222@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040115204913.GA8172@sgi.com> <20040116003224.GF23253@kroah.com>
 In-Reply-To: <20040116003224.GF23253@kroah.com>
@@ -12,43 +12,31 @@ To: Greg KH <greg@kroah.com>
 Cc: Jesse Barnes <jbarnes@sgi.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, jeremy@sgi.com
 
 On Thu, Jan 15, 2004 at 04:32:25PM -0800, Greg KH wrote:
-> It looks ok, but it would really be good if we could indicate if the
-> read actually was successful.  Right now some platforms can detect
-> faults and do not have a way to get that error back to the driver in a
-> sane manner.  If we were to change the read* functions to look something
-> like:
-> 	int readb(void *addr, u8 *data);
-> it would be a world easier.
-
-I've worked on systems with that kind of an interface and it
-really makes a mess of the code. And many of the drivers just
-ignored the read return value.
-
-> Now I'm not saying I want to change the existing interfaces to support
-> this, that's too much code to change for even me (and is a 2.7 thing.)
-
-I think you'll find it's extremely invasive if it's going to be useful.
-The drivers have to be rewritten to check each PIO return value
-and then do something intelligent at that point. HPUX had drivers
-that did this for "Host Power Fail" support 10 years ago but
-it's *very* difficult to get all the error handling right in
-each of the code pathes.
-
-My preference is the driver register a "clean up all pending IO and
-free related data structures" so it's back to a state as if it hadn't
-been started. Then when a PIO read (or write) fails, the mechanism for
-detecting the read failure doesn't depend on synchronous errors being
-reported/checked by software on each read. ie the mechanism for
-detecting the failure *can* be in the PIO read code path but
-doesn't have to be if HW has facilities to detect failures.
-(I'm thinking of parisc HPMC and ia64 MCA handling).
-
+[ deleted reminder for readb() to return success/fail codes ]
 > Just wanted to put this idea in people's heads that we need to start
 > planning for something like it.
 
-yeah - getting to the next level of availability on higher end systems
-is hard. I'm not totally convinced it's the right thing for linux
-to do, but if someone wants to fund the work, it'll be interesting
-to work on.
+I just remembered another part of linux 2.4/2.6 that needs revisiting:
+DMA mapping routines don't return an error code.
+ie pci_map_single() must panic since it can't return a failure.
+It was designed that way on purpose to make life easier for driver
+writers (and I agree, it has).
+
+(my guess is x86-64 needs this change more urgently than any other arch.)
+
+I'm sure there are other robustness issues too.
+Looking for "panic" will probably give alot of them away.
+The current 2.6.1 tree has over 1000 panic() calls.
+I used "find -name \*.c | fgrep panic\( | wc ".
+
+And for my amusement:
+grundler <506>find drivers/scsi -name \*.c | xargs fgrep panic\( | wc
+    183    1243   14722
+grundler <507>find drivers/net -name \*.c | xargs fgrep panic\( | wc
+     10      53     662
+
+My point is a substantial number of things can be done to improve
+robustness besides (or in addition to?) recovering from IO subsystem
+crashes.
 
 grant
