@@ -1,7 +1,7 @@
-From: Rich Altmaier <richa@engr.sgi.com>
-Date: Wed, 14 Nov 2001 17:22:31 +0000
+From: Christoph Hellwig <hch@caldera.de>
+Date: Wed, 14 Nov 2001 17:49:35 +0000
 Subject: Re: [Linux-ia64] correct seg fault address on ia-64??
-Message-Id: <marc-linux-ia64-105590698805510@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805511@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805506@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805506@msgid-missing>
@@ -10,17 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Such horrible things are being done in source code in the 64bit
-environment.   Is there any kind of "porting guide" available?
-A long time ago we did a porting guide for MIPSPro, see
+On Wed, Nov 14, 2001 at 09:22:31AM -0800, Rich Altmaier wrote:
+> What is out there for gcc?
 
-    http://techpubs.sgi.com/library/tpl/cgi-bin/init.cgi
-    in search enter:  mipspro 64-bit
-    and take a look at the MIPSpro 64-bit Porting and Transition Guide,
-    select Chapter 3, second portion (first portion is Fortran, second is C).
+gcc -W -Werror..
 
-What is out there for gcc?
-Thanks, Rich
+Seriously, gcc supports 64bit targets for a _very_ long time now
+(more than 5 years) - people should have gotten their code cleaned
+up..
 
+	Christoph
 
+-- 
+Of course it doesn't work. We've performed a software upgrade.
 
