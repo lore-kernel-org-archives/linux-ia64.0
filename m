@@ -1,21 +1,33 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 18 Jun 2003 18:15:01 +0000
-Subject: Re: time interpolation for sn2
-Message-Id: <marc-linux-ia64-105596021424584@msgid-missing>
+From: "Wichmann, Mats D" <mats.d.wichmann@intel.com>
+Date: Mon, 02 Jun 2003 18:23:51 +0000
+Subject: RE: [Linux-ia64] Re: trailing white space...
+Message-Id: <marc-linux-ia64-105590723706111@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105595957823718@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105595957823718@msgid-missing>
+References: <marc-linux-ia64-105590723706105@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723706105@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 18 Jun 2003 14:07:22 -0400, Jes Sorensen <jes@sgi.com> said:
+> > Emacs users can (and should!)  consider:
+> > 
+> > 	(setq show-trailing-whitespace t)
+> 
+> Anything similar for vi and gvim?
 
-  Jes> Sorry I never got around to subscribing to the new list, so I didn't
-  Jes> see this. Have you decided if the list move is going to be permanent?
+:set list
 
-I haven't seen any discussion of this yet.  I'm in favor of making it
-permanent, though.
+but in either case this just shows you
+the stuff, it doesn't remove it.
+If it's a persistent problem, a simple
+filter is easier to use.  I find Python's
+rstrip string method useful for this,
+i.e. if you have a line of text in 'line',
 
-	--david
+    line = line.rstrip()
+
+saves a new copy of the line with the
+trailing whitespace removed.
+
+
