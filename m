@@ -1,7 +1,7 @@
-From: Mike Smith <msmith@freebsd.org>
-Date: Tue, 24 Oct 2000 01:21:42 +0000
+From: "Christian Groessler" <cpg@aladdin.de>
+Date: Tue, 24 Oct 2000 09:53:17 +0000
 Subject: Re: [Linux-ia64] Making a CD that is readable under efi
-Message-Id: <marc-linux-ia64-105590678205612@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205614@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205609@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205609@msgid-missing>
@@ -10,29 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> You need to create an El Torito bootable CD.  An El Torito bootable CD contains
-> a floppy image (boot.img typically) that EFI can read.
-> 
-> I've never created an El Torito bootable CD, so I can't give details on that.
-> 
-> http://www.cdpage.com/Compact_Disc_Variations/bootablecd.html
 
-If EFI can *only* read the boot image off an El Torito CD, I'd have to 
-put that in the "extremely lame" category.  However, I wouldn't be 
-surprised if EFI at the moment doesn't support the iso9660 filesystem; I 
-certainly don't see anything in the EFI sample implementation which looks 
-like it would do the trick.
 
-You might want to poke the Intel boys and tell them to go steal some more 
-code from the FreeBSD loader; they've done a great job so far turning it 
-into platform firmware. 8)
 
--- 
-... every activity meets with opposition, everyone who acts has his
-rivals and unfortunately opponents also.  But not because people want
-to be opponents, rather because the tasks and relationships force
-people to take different points of view.  [Dr. Fritz Todt]
-           V I C T O R Y   N O T   V E N G E A N C E
+Sorry, when I jump in here...
+
+On 10/24/2000 01:04:31 AM GMT Uros Prestor wrote:
+>
+>Create ISO image with mkisofs (we use version 1.13a05) as follows:
+>
+>     mkisofs  -no-emul-boot -b boot.img -c boot.catalog \
+>         -R -T -J -o cdrom.img /path/to/the/cd/root
+>
+>When you burn the ISO image be sure to disable MS Jolliet extensions.
+
+What do you mean by that? The "-J" option to mkisofs selects
+adding the Joliet extension. AFAIL one cannot specify it in
+the burn program (cdrecord in my case).
+
+regards,
+chris
+
 
 
 
