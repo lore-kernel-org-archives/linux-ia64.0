@@ -1,32 +1,25 @@
-From: Uros Prestor <uros@turbolinux.com>
-Date: Tue, 29 Aug 2000 18:09:46 +0000
-Subject: Re: [Linux-ia64] cross compile (assembler) error: Unknown pseudo-op:
-Message-Id: <marc-linux-ia64-105590678205408@msgid-missing>
+From: "G\\351raud Krawezik" <gk@scali.no>
+Date: Thu, 24 Aug 2000 13:16:26 +0000
+Subject: [Linux-ia64] Device drivers for Linux2.4
+Message-Id: <marc-linux-ia64-105590678205387@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Joerg Gittinger wrote:
+Hi,
 
-> I have a cross compile environment with the newest (I think) gnopro gcc,gas,...
-> tools. When I try to compile a 2.4.0-test4 kernel (+07/28 patch, kdb-test4
-> patch), I get lots of the following assembler error message:
->
-> entry.S:1040: Error: Unknown pseudo-op:  `.spillsp'
+This question is not specific to IA64, but may also be useful for 2.4
+kernels in general: is there a place where the differences in the
+implementation of drivers from 2.2 to 2.4 is clearly explained? Because
+for the moment all I have been doing is catching the problems while
+compaling, looking at the others' code, and modifying mine from this...
+I know that there are some changes that are being made every day, but...
+Is there a repository where I could have the precise list of them?
 
-Did you enable new unwind support in the kernel configuration?  Don't -- you need
-a toolchain which supports new unwind directives.  AFAIK none of the Linux/IA-64
-distributions ship a toolchain with these patches.
+Thank you by advance
 
-Uros
-
-
---
-Uros Prestor
-uros@turbolinux.com
-
-
+Geraud
 
 
