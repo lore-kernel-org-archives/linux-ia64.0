@@ -1,36 +1,149 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 12 Dec 2002 19:14:31 +0000
-Subject: Re: [Linux-ia64] fpswa logging redux
-Message-Id: <marc-linux-ia64-105590709805555@msgid-missing>
+From: "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp>
+Date: Mon, 09 Dec 2002 14:28:45 +0000
+Subject: [Linux-ia64] unalinged access by loadpair instruction
+Message-Id: <marc-linux-ia64-105590709805518@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805545@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805545@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-  Jesse> How about something like this then?  It just prints out the
-  Jesse> isr in addition to the ip for the case of printk, and decodes
-  Jesse> the right si_code for signals.  If this approach looks ok, I
-  Jesse> can add trap decoding too.
+ Hi everyone,
 
-Basically OK with me, however:
+ When unaligned access is happened by loadpair
+ instruction, reloading by kernel is wrong.
+=20
+ When unalined access is happeded by loadpair
+ instruction in NORMAL loop, it is no problem.
+ Please try to run the attached programs(c.c and a.s)=20
+ compiled by gcc.
 
- o What's the point of declaring fp_fault_info in a header file?  It's
-   used only in one place.
+ However, When it is happned by loadpair instruction in
+ SWP loop, it fails to reload the data.
+ Please try to run the attached programs(c.c and aa.s)
+ compiled by gcc. aa.s is included loadpair in SWP loop.
+ If there is no happening, please change the n
+ parameter to bigger number.
 
- o si_code is NOT a bitmask; it makes no sense at all for
-   fp_fault_si_code() to OR multiple values together; this makes me
-   highly suspicious that there is a misunderstanding somewhere...
+ Sorry, I could not isolate whether or not it is caused
+ by HW bug or Kernel problem.
 
- o Who defined FP_SWASST and FPE_DENORM?  I don't recall seeing them
-   in the ia64 psABI and they definitely look ia64-specific, so their
-   names should at least be prefixed by a double-underscore
-   (siginfo.h).
+ Let me know somebody understood the cause why it is happened.
 
- o If you add stuff to asm/siginfo.h, don't forget to update glibc (in
-   sysdeps/unix/sysv/linux/ia64/bits/siginfo.h).
+ Thanks.
 
-	--david
+-- c.c
+#define n 100
+    double d[n],d2[n+1];
+main() {
+    int i,j;
+
+    for( i =3D 0; i < n; i++ ) {
+        d[i] =3D 123.0;
+        d2[i] =3D 0.0;
+    }
+    // verify
+    for( i =3D 0; i < n; i++ ) {
+        if( d[i] !=3D 123.0 ) {
+            printf("Assignment to d[%d] is wrong\n", i);
+            exit(-1);
+        }
+    }
+    printf("Verify is ok\n");
+    copy_by_loadpair(&d, &d2, n);
+    for( i =3D 0; i < n; i++ ) {
+        if( d2[i] !=3D 123.0 ) {
+            printf("Something is wrong!!\n d2[%d] =3D %f(should be d[%d]=3D=
+%f)\n", i, d2[i], i, d[i]);
+            printf("%f\n", d2[i+1]);
+        }
+    }
+}
+
+-- a.s=20
+	.file	"a.c"
+	.pred.safe_across_calls p1-p5,p16-p63
+.text
+	.align 16
+	.global copy_by_loadpair#
+	.proc copy_by_loadpair#
+copy_by_loadpair:
+ {   .mmi
+        alloc   r8=3Dar.pfs,3,0,0,0 ;;                     //0:  1   19
+        nop.m   0
+        add     r17=3D1,r0
+ }
+L1:
+ {   .mii
+        ldfpd   f6,f7=3D[r32]                                 //1:  2    4
+        add     r2=3D8,r33                                 //1:  3    8
+        nop.i   0
+ }
+ {   .mmi
+        nop.m   0 ;;                              //1:  3    6
+        stfd    [r33]=F6
+        add     r33=3D8,r33
+ }
+ {   .mmi
+        nop.m   0 ;;                               //10:  3    7
+        stfd    [r2]=F7                                  //19:  3    9
+        add     r32=3D8,r32;;
+ }
+ {   .mib
+        cmp4.ne p8,p0=3Dr17,r34
+        add     r17=3D1,r17
+  (p8)  br.cond.dpnt.many       L1 ;;                 //7:  3   19
+ }
+ {   .mib
+        nop.m   0
+        nop.i   0
+        br.ret.sptk.many        b0 ;;                    //19:  4   10
+ }
+	.endp get_by_loadpair#
+--
+	.file	"a.c"
+	.pred.safe_across_calls p1-p5,p16-p63
+.text
+	.align 16
+	.global copy_by_loadpair#
+	.proc copy_by_loadpair#
+copy_by_loadpair:
+ {   .mmi
+        alloc   r8=3Dar.pfs,3,6,0,0 ;;
+        nop.m   0
+        add     r17=3D1,r0
+ }
+ {   .mmi
+        add     r15=3D0,r32
+        add     r2=3D0,r33
+        add     r3=3D8,r33;;
+ }
+ {   .mii
+        nop.m   0
+        mov     ar.lc=3Dr34
+        nop.i   0 ;;
+ }
+ {   .mii
+        nop.m   0
+        mov     pr.rot=3D0x10000 ;;
+        mov     ar.ec=3D5 ;;
+ }
+L1:
+ {   .mmi
+  (p16) ldfpd   f32,f33=3D[r15]
+  (p16) add     r15=3D8,r15
+        nop.i   0
+ }
+ {   .mmb
+  (p20) stfd    [r3]=F37,8
+        //nop.m   0
+  (p20) stfd    [r2]=F36,8
+        br.ctop.sptk    L1
+ }
+ {   .mib
+        nop.m   0
+        nop.i   0
+        br.ret.sptk.many        b0 ;;                    //19:  4   10
+ }
+	.endp get_by_loadpair#
 
