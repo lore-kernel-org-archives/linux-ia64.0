@@ -1,28 +1,24 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 22 Dec 2004 16:58:17 +0000
+Date: Wed, 22 Dec 2004 18:31:51 +0000
 Subject: Re: [PATCH] add legacy resources to sysfs
-Message-Id: <200412220858.18287.jbarnes@engr.sgi.com>
+Message-Id: <200412221031.52026.jbarnes@engr.sgi.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_qeayBhrHfHVymjC"
+Content-Type: multipart/mixed; boundary="Boundary-00=_X2byBl5KoQmwCoK"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200412211247.44883.jbarnes@engr.sgi.com> <20041222160952.GB9358@kroah.com> <1103733278.31693.83.camel@gaston>
-In-Reply-To: <1103733278.31693.83.camel@gaston>
+References: <200412211247.44883.jbarnes@engr.sgi.com> <1103733278.31693.83.camel@gaston> <200412220858.18287.jbarnes@engr.sgi.com>
+In-Reply-To: <200412220858.18287.jbarnes@engr.sgi.com>
 To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
 Cc: Greg KH <greg@kroah.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, willy@debian.org, Bjorn Helgaas <bjorn.helgaas@hp.com>
 
---Boundary-00=_qeayBhrHfHVymjC
+--Boundary-00=_X2byBl5KoQmwCoK
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-On Wednesday, December 22, 2004 8:34 am, Benjamin Herrenschmidt wrote:
-> Oh, I misread. If it's in /sys/class/pci_bus/(instance)/file it's fine,
-> sorry, my fault.
-
-Ok, then here's the latest.  Bjorn is on vacation so unless willy has 
-objections I think it's good to go.  I'll send the ia64 part separately to 
-Tony as it's totally standalone.
+Here's one with additions to the cleanup routine.  Please check it out to make 
+sure it's ok.  I moved around some functions to avoid having to prototype 
+them at the top of the file.
 
 This patch adds legacy_io and legacy_mem files to the pci_bus class hierarchy 
 in sysfs.  The files can be used (if the platform supports them) to access 
@@ -30,25 +26,72 @@ legacy I/O port space and legacy ISA memory space--useful for things like x86
 emulators or VGA card POSTing.  The interfaces are documented in 
 Documentation/filesystems/sysfs-pci.txt.
 
- Documentation/filesystems/sysfs-pci.txt |   26 +++++++++++
- drivers/pci/pci-sysfs.c                 |   70 ++++++++++++++++++++++++++++++
- drivers/pci/probe.c                     |   39 +++++++++++++++++
+ Documentation/filesystems/sysfs-pci.txt |   26 +++++++++-
+ drivers/pci/pci-sysfs.c                 |   70 +++++++++++++++++++++++++++
+ drivers/pci/probe.c                     |   82 ++++++++++++++++++++++++------
  include/linux/pci.h                     |    2
- 4 files changed, 136 insertions(+), 1 deletion(-)
+ 4 files changed, 164 insertions(+), 16 deletions(-)
 
 Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
 Thanks,
 Jesse
 
---Boundary-00=_qeayBhrHfHVymjC
+--Boundary-00=_X2byBl5KoQmwCoK
 Content-Type: text/plain;
   charset="iso-8859-1";
-  name="sysfs-legacy-resource-8.patch"
+  name="sysfs-legacy-resource-9.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="sysfs-legacy-resource-8.patch"
+	filename="sysfs-legacy-resource-9.patch"
 
+===== Documentation/filesystems/sysfs-pci.txt 1.1 vs edited =====
+--- 1.1/Documentation/filesystems/sysfs-pci.txt	2004-12-21 11:50:26 -08:00
++++ edited/Documentation/filesystems/sysfs-pci.txt	2004-12-21 16:57:43 -08:00
+@@ -3,7 +3,7 @@
+ sysfs, usually mounted at /sys, provides access to PCI resources on platforms
+ that support it.  For example, a given bus might look like this:
+ 
+-     pci0000:17
++     /sys/devices/pci0000:17
+      |-- 0000:17:00.0
+      |   |-- class
+      |   |-- config
+@@ -56,9 +56,33 @@
+ from userspace.  Note that some platforms don't support mmapping of certain
+ resources, so be sure to check the return value from any attempted mmap.
+ 
++Accessing legacy resources through sysfs
++
++Legacy I/O port and ISA memory resources are also provided in sysfs if the
++underlying platform supports them.  They're located in the PCI class heirarchy,
++e.g.
++
++	/sys/class/pci_bus/0000:17/
++	|-- bridge -> ../../../devices/pci0000:17
++	|-- cpuaffinity
++	|-- legacy_io
++	`-- legacy_mem
++
++The legacy_io file is a read/write file that can be used by applications to
++do legacy port I/O.  The application should open the file, seek to the desired
++port (e.g. 0x3e8) and do a read or a write of 1, 2 or 4 bytes.  The legacy_mem
++file should be mmapped with an offset corresponding to the memory offset
++desired, e.g. 0xa0000 for the VGA frame buffer.  The application can then
++simply dereference the returned pointer (after checking for errors of course)
++to access legacy memory space.
++
+ Supporting PCI access on new platforms
+ 
+ In order to support PCI resource mapping as described above, Linux platform
+ code must define HAVE_PCI_MMAP and provide a pci_mmap_page_range function.
+ Platforms are free to only support subsets of the mmap functionality, but
+ useful return codes should be provided.
++
++Legacy resources are protected by the HAVE_PCI_LEGACY define.  Platforms
++wishing to support legacy functionality should define it and provide
++pci_legacy_read, pci_legacy_write and pci_mmap_legacy_page_range functions.
+\ No newline at end of file
 ===== drivers/pci/pci-sysfs.c 1.14 vs edited =====
 --- 1.14/drivers/pci/pci-sysfs.c	2004-12-21 11:28:57 -08:00
 +++ edited/drivers/pci/pci-sysfs.c	2004-12-21 14:03:35 -08:00
@@ -131,10 +174,10 @@ Content-Disposition: attachment;
   * pci_mmap_resource - map a PCI resource into user memory space
 ===== drivers/pci/probe.c 1.72 vs edited =====
 --- 1.72/drivers/pci/probe.c	2004-11-11 12:53:33 -08:00
-+++ edited/drivers/pci/probe.c	2004-12-21 13:58:10 -08:00
-@@ -764,6 +764,42 @@
- 	return max;
- }
++++ edited/drivers/pci/probe.c	2004-12-22 10:28:40 -08:00
+@@ -27,12 +27,76 @@
+ 
+ LIST_HEAD(pci_devices);
  
 +#ifdef HAVE_PCI_LEGACY
 +/**
@@ -168,14 +211,70 @@ Content-Disposition: attachment;
 +		class_device_create_bin_file(&b->class_dev, b->legacy_mem);
 +	}
 +}
++
++static void pci_remove_legacy_files(struct pci_bus *b)
++{
++	class_device_remove_bin_file(&b->class_dev, b->legacy_io);
++	class_device_remove_bin_file(&b->class_dev, b->legacy_mem);
++	kfree(b->legacy_io); /* both are allocated here */
++}
 +#else /* !HAVE_PCI_LEGACY */
 +static inline void pci_create_legacy_files(struct pci_bus *bus) { return; }
++static inline void pci_remove_legacy_files(struct pci_bus *bus) { return; }
 +#endif /* HAVE_PCI_LEGACY */
 +
- struct pci_bus * __devinit pci_scan_bus_parented(struct device *parent, int bus, struct pci_ops *ops, void *sysdata)
++/*
++ * PCI Bus Class Devices
++ */
++static ssize_t pci_bus_show_cpuaffinity(struct class_device *class_dev, char *buf)
++{
++	cpumask_t cpumask = pcibus_to_cpumask((to_pci_bus(class_dev))->number);
++	int ret;
++
++	ret = cpumask_scnprintf(buf, PAGE_SIZE, cpumask);
++	if (ret < PAGE_SIZE)
++		buf[ret++] = '\n';
++	return ret;
++}
++static CLASS_DEVICE_ATTR(cpuaffinity, S_IRUGO, pci_bus_show_cpuaffinity, NULL);
++
+ /*
+  * PCI Bus Class
+  */
+ static void release_pcibus_dev(struct class_device *class_dev)
  {
- 	int error;
-@@ -807,6 +843,9 @@
+ 	struct pci_bus *pci_bus = to_pci_bus(class_dev);
++
++	pci_remove_legacy_files(pci_bus);
++	class_device_remove_file(&pci_bus->class_dev,
++				 &class_device_attr_cpuaffinity);
++	sysfs_remove_link(&pci_bus->class_dev.kobj, "bridge");
+ 	if (pci_bus->bridge)
+ 		put_device(pci_bus->bridge);
+ 	kfree(pci_bus);
+@@ -50,21 +114,6 @@
+ postcore_initcall(pcibus_class_init);
+ 
+ /*
+- * PCI Bus Class Devices
+- */
+-static ssize_t pci_bus_show_cpuaffinity(struct class_device *class_dev, char *buf)
+-{
+-	cpumask_t cpumask = pcibus_to_cpumask((to_pci_bus(class_dev))->number);
+-	int ret;
+-
+-	ret = cpumask_scnprintf(buf, PAGE_SIZE, cpumask);
+-	if (ret < PAGE_SIZE)
+-		buf[ret++] = '\n';
+-	return ret;
+-}
+-static CLASS_DEVICE_ATTR(cpuaffinity, S_IRUGO, pci_bus_show_cpuaffinity, NULL);
+-
+-/*
+  * Translate the low bits of the PCI base
+  * to the resource type
+  */
+@@ -807,6 +856,9 @@
  	error = class_device_create_file(&b->class_dev, &class_device_attr_cpuaffinity);
  	if (error)
  		goto class_dev_create_file_err;
@@ -197,52 +296,5 @@ Content-Disposition: attachment;
  };
  
  #define pci_bus_b(n)	list_entry(n, struct pci_bus, node)
-===== Documentation/filesystems/sysfs-pci.txt 1.1 vs edited =====
---- 1.1/Documentation/filesystems/sysfs-pci.txt	2004-12-21 11:50:26 -08:00
-+++ edited/Documentation/filesystems/sysfs-pci.txt	2004-12-21 16:57:43 -08:00
-@@ -3,7 +3,7 @@
- sysfs, usually mounted at /sys, provides access to PCI resources on platforms
- that support it.  For example, a given bus might look like this:
- 
--     pci0000:17
-+     /sys/devices/pci0000:17
-      |-- 0000:17:00.0
-      |   |-- class
-      |   |-- config
-@@ -56,9 +56,33 @@
- from userspace.  Note that some platforms don't support mmapping of certain
- resources, so be sure to check the return value from any attempted mmap.
- 
-+Accessing legacy resources through sysfs
-+
-+Legacy I/O port and ISA memory resources are also provided in sysfs if the
-+underlying platform supports them.  They're located in the PCI class heirarchy,
-+e.g.
-+
-+	/sys/class/pci_bus/0000:17/
-+	|-- bridge -> ../../../devices/pci0000:17
-+	|-- cpuaffinity
-+	|-- legacy_io
-+	`-- legacy_mem
-+
-+The legacy_io file is a read/write file that can be used by applications to
-+do legacy port I/O.  The application should open the file, seek to the desired
-+port (e.g. 0x3e8) and do a read or a write of 1, 2 or 4 bytes.  The legacy_mem
-+file should be mmapped with an offset corresponding to the memory offset
-+desired, e.g. 0xa0000 for the VGA frame buffer.  The application can then
-+simply dereference the returned pointer (after checking for errors of course)
-+to access legacy memory space.
-+
- Supporting PCI access on new platforms
- 
- In order to support PCI resource mapping as described above, Linux platform
- code must define HAVE_PCI_MMAP and provide a pci_mmap_page_range function.
- Platforms are free to only support subsets of the mmap functionality, but
- useful return codes should be provided.
-+
-+Legacy resources are protected by the HAVE_PCI_LEGACY define.  Platforms
-+wishing to support legacy functionality should define it and provide
-+pci_legacy_read, pci_legacy_write and pci_mmap_legacy_page_range functions.
-\ No newline at end of file
 
---Boundary-00=_qeayBhrHfHVymjC--
+--Boundary-00=_X2byBl5KoQmwCoK--
