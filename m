@@ -1,30 +1,25 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 22 Jan 2004 09:42:31 +0000
+From: Robin Holt <holt@sgi.com>
+Date: Thu, 22 Jan 2004 09:52:06 +0000
 Subject: Re: [2.6.1] eepro100 Taints kernel warning:
-Message-Id: <jezncgtj3s.fsf@sykes.suse.de>
+Message-Id: <20040122095206.GB27408@lnx-holt>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040122024556.GA399@cse.unsw.EDU.AU>
 In-Reply-To: <20040122024556.GA399@cse.unsw.EDU.AU>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Darren Williams <dsw@gelato.unsw.edu.au> writes:
-
-> When loading the eepro100 driver module I get the=20
+On Thu, Jan 22, 2004 at 01:45:56PM +1100, Darren Williams wrote:
+> When loading the eepro100 driver module I get the 
 > following warning:
->
-> eepro100: no version for "per_cpu__local_per_cpu_offset" found: kernel ta=
-inted.
+> 
+> eepro100: no version for "per_cpu__local_per_cpu_offset" found: kernel tainted.
 
-This is a bug in genksyms, see
-<http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=106570613115664&w=3D2>.
+Simple answer is CONFIG_SMP is not set.  Try setting CONFIG_SMP
+an rebuilding.
 
-Andreas.
+I will put together a quick patch to move these EXPORT_SYMBOL
+declarations to the right place.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Robin
