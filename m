@@ -1,48 +1,23 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Wed, 15 Oct 2003 23:14:26 +0000
-Subject: Re: GENERIC still failing?
-Message-Id: <marc-linux-ia64-106625995621310@msgid-missing>
+From: Martin Pool <mbp@sourcefrog.net>
+Date: Tue, 28 Oct 2003 05:29:12 +0000
+Subject: show_mem panics in 2.4.22
+Message-Id: <marc-linux-ia64-106731898417513@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106617635106445@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106617635106445@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Oct 15, 2003 at 12:24:30PM +0100, Matthew Wilcox wrote:
-> Which *config tool are you using?  make config/oldconfig/defconfig have
-> a bug which Roman hasn't got round to pushing upstream yet.
-> 
-> This whitespace-damaged diff shows what needs to be fixed:
+I'm running linux-2.4.22-ia64-030909 on an rx2600.  The show_mem()
+function always causes a kernel panic.  This is reached when you send
+'SysRq m' or serial 'BREAK m' to find out about used memory, etc.
 
-Thanks but that patch didn't seem to make any difference; a make
-config seems to work as expected.
+The problem seems to be that this function is written assuming that
+the discontiguous memory scheme is used, but that's not the case in my
+configuration.  I see that in 2.6.0-test8 there are two versions of
+the function for the contig/discontig cases.  The crash is on the line
+that reads through pgdat->node_mem_map.  I'm not sure exactly what is
+wrong with that.
 
-I'm using menuconfig; the problems I see appear two fold.
-
-Firstly, I would have expected that when I selected 'Help' on, say,
-
-IA-64 system type (generic)  ---> 
-
-I would get the help text that says something like what is actually
-assocated with the IA64_GENERIC option.  This seems to be an ordering
-decision in the ia64 Kconfig file.
-
-But, as that help text is associated with IA64_GENERIC, I would have
-expected as I when I was in the choice and selected help for 
-
- (X) generic  
-
-I would have got that big spiel  
-
-"This selects the system type of your hardware.  A "generic" kernel
-..."
-
-If I use make config, when I select '1?' in the IA-64 system type
-choice, I receive the help text associated with it.  But with make
-config, I can't see a way to get help for the choice overall.
-
--i
-ianw@gelato.unsw.edu.au
-http://www.gelato.unsw.edu.au
+-- 
+Martin 
