@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 31 Jan 2003 05:08:55 +0000
-Subject: Re: [Linux-ia64] Script for decoding PSR in oopses
-Message-Id: <marc-linux-ia64-105590709805790@msgid-missing>
+From: "Jim Hull" <jim.hull@hp.com>
+Date: Fri, 31 Jan 2003 20:10:29 +0000
+Subject: RE: [Linux-ia64] Script for decoding PSR in oopses
+Message-Id: <marc-linux-ia64-105590709805791@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805784@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805784@msgid-missing>
@@ -10,20 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 31 Jan 2003 14:31:43 +1100, Peter Chubb <peter@chubb.wattle.id.au> said:
-  >>>> Usage is decode_psr hex_number if you save the script as
-  >>>> decode_psr.
+Peter wrote:
 
-  Keith> Below are Perl ia64_psr and ia64_isr.  Run as echo hex_number
-  Keith> ia64_[pi]sr
+> BTW, there's a bug in the AWK script:
 
-  David> OK, now where is the Python version?? ;-))
+There's also a bug in perl version of ia64_psr:
+--- ia64_psr_orig	Fri Jan 31 11:49:35 2003
++++ ia64_psr	Fri Jan 31 11:49:35 2003
+@@ -11,7 +11,7 @@
+ 	[ 4, 1, "mfl" ],
+ 	[ 5, 1, "mfh" ],
+ 	[ 0, 24, "System mask" ],
+-	[ 6, 6, "rv" ],
++	[ 6, 7, "rv" ],
+ 	[ 13, 1, "ic" ],
+ 	[ 14, 1, "i" ],
+ 	[ 15, 1, "pk" ],
 
-  Peter> Who cares?  Once you've got a script you can use it.
+ -- Jim
 
-Oh, man, are you one of those heathens who think that _any_ language will do??
-
-	--david
-
-PS: Sorry if my jokes aren't funny.  Just couldn't resist... ;-)
 
