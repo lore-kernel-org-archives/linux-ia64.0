@@ -1,7 +1,7 @@
-From: Steffen Persvold <sp@scali.com>
-Date: Mon, 14 Oct 2002 18:17:43 +0000
+From: Grant Grundler <grundler@cup.hp.com>
+Date: Mon, 14 Oct 2002 20:44:41 +0000
 Subject: Re: [Linux-ia64] BitKeeper tree for 2.4.x
-Message-Id: <marc-linux-ia64-105590709805157@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805159@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805154@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805154@msgid-missing>
@@ -10,32 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 10 Oct 2002, Bjorn Helgaas wrote:
+Bjorn Helgaas wrote:
+> We've got a mechanism for looking up the supported attributes
+> (efi_mem_attributes()); what I'd really like is for somebody to
+> hook that up with the mmap infrastructure so that we only allow
+> the supported attributes.
 
-> NOTE: I removed the mmap support for MAP_WRITECOMBINED and
-> MAP_NONCACHED to avoid issues with memory attribute aliasing.
-> The only user of these that I know about is XFree86, which still
-> seems functional when we ignore the attributes it requests.  I'm
-> very interested in any problems caused by this change.
-> 
+If MAP_WRITECOMBINED attribute isn't supported, is there any harm
+in returning memory without that attribute?
 
-Well, without MAP_WRITECOMBINED, streaming PIO accesses to the PCI bus 
-drops from 330MByte/sec to approx. 100MByte/s using the Dolphin SCI card. 
+I'd expect some platform specific support to know when it's
+required vs a "performance hint". Forcing exact matches is one way
+to deal with it but pushes the burden to the "application"
+(may a device driver in this case) to find an exact match.
 
-This is an rather significant drop which makes the IA64 platform kind of 
-uninteresting for high performance clustering (the Dolphin SCI cards are 
-used for shared memory message passing between nodes).
-
-We can of course hack this in for our usage (in our kernel driver) if you 
-are totally against having it in the kernel headers, but I think since the 
-hardware allows different mapping types, the kernel should take advantage 
-of it.
-
-Regards,
- -- 
-  Steffen Persvold   |       Scali AS      
- mailto:sp@scali.com |  http://www.scali.com
-Tel: (+47) 2262 8950 |   Olaf Helsets vei 6
-Fax: (+47) 2262 8951 |   N0621 Oslo, NORWAY
-
+grant
 
