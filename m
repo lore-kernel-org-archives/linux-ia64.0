@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 10 Dec 2004 19:21:12 +0000
-Subject: RE: [patch] per cpu MCA/INIT save areas (take 3)
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02882C6A@scsmsx401.amr.corp.intel.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 10 Dec 2004 19:38:28 +0000
+Subject: Re: [patch] per cpu MCA/INIT save areas (take 3)
+Message-Id: <200412101138.28442.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200412100201.iBA21LtP173001@ben.americas.sgi.com>
 In-Reply-To: <200412100201.iBA21LtP173001@ben.americas.sgi.com>
@@ -10,16 +10,10 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Tony, do you plan to apply this patch to your post-2.6.10 tree?  If so, can 
->you expose it on lia64.bkbits.net along with the other stuff you've applied?  
->That would make it a bit easier to work on some of these new MCA features.
+On Friday, December 10, 2004 11:21 am, Luck, Tony wrote:
+> Maybe I need to startup a pair of 2.6.11 trees?
 
-I don't have a suitable tree.  I can't put it into the 2.6.10-release tree, because
-then I'll have no place for last minute urgent patches to send to Linus.
+If it's not too much trouble...
 
-I'd put it into the 2.6.10-test tree, except that Andrew is trying to just
-clean up regression problems.
-
-Maybe I need to startup a pair of 2.6.11 trees?
-
--Tony
+Thanks,
+Jesse
