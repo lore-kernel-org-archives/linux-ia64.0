@@ -1,24 +1,22 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 26 Mar 2003 22:22:46 +0000
-Subject: Re: [Linux-ia64] Unwinder bug
-Message-Id: <marc-linux-ia64-105590723705332@msgid-missing>
+From: Sane_Purushottam@emc.com
+Date: Fri, 28 Mar 2003 15:39:39 +0000
+Subject: [Linux-ia64] Problems installing Red Hat AS 2.1 on Itanium
+Message-Id: <marc-linux-ia64-105590723705357@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705308@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705308@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 25 Mar 2003 14:41:01 +0100, Andreas Schwab <schwab@suse.de> said:
+I tried to install above mentioned version on itanium system (it's
+successfully running RH 7.2)
+After the kernel started booting from the CD-ROM, it hung with messages
+indicating PCI probe failed.
 
-  Andreas> I've found this by inspecting the code: pt_regs_off returns
-  Andreas> an offset into struct pt_regs.  Relative to latest bk, 2.5
-  Andreas> has the same bug.
+How do I get around this problem ??
 
-Yes, indeed.  Applied.
+Nitin Sane
+sane_purushottam@emc.com
+(508) 382-7319
 
-Thanks,
-
-	--david
 
