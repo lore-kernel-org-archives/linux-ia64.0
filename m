@@ -1,31 +1,42 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Sat, 20 Nov 2004 08:25:36 +0000
+From: "Martin J. Bligh" <mbligh@aracnet.com>
+Date: Sat, 20 Nov 2004 16:59:36 +0000
 Subject: Re: page fault scalability patch V11 [0/7]: overview
-Message-Id: <20041120082536.GQ2714@holomorphy.com>
+Message-Id: <1834180000.1100969975@[10.10.2.4]>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <419EC205.5030604@yahoo.com.au> <20041120042340.GJ2714@holomorphy.com> <419EC829.4040704@yahoo.com.au> <20041120053802.GL2714@holomorphy.com> <419EDB21.3070707@yahoo.com.au> <20041120062341.GM2714@holomorphy.com> <419EE911.20205@yahoo.com.au> <20041120071514.GO2714@holomorphy.com> <419EF257.8010103@yahoo.com.au> <419EF8F2.1050909@yahoo.com.au>
-In-Reply-To: <419EF8F2.1050909@yahoo.com.au>
+References: <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com>	<Pine.LNX.4.58.0411191155180.2222@ppc970.osdl.org>	<20041120020306.GA2714@holomorphy.com>	<419EBBE0.4010303@yahoo.com.au>	<20041120035510.GH2714@holomorphy.com>	<419EC205.5030604@yahoo.com.au>	<20041120042340.GJ2714@holomorphy.com>	<419EC829.4040704@yahoo.com.au>	<20041120053802.GL2714@holomorphy.com>	<419EDB21.3070707@yahoo.com.au>	<20041120062341.GM2714@holomorphy.com>	<419EE911.20205@yahoo.com.au> <20041119225701.0279f846.akpm@osdl.org> <419EEE7F.3070509@yahoo.com.au>
+In-Reply-To: <419EEE7F.3070509@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: Linus Torvalds <torvalds@osdl.org>, Christoph Lameter <clameter@sgi.com>, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>
+Cc: wli@holomorphy.com, torvalds@osdl.org, clameter@sgi.com, benh@kernel.crashing.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Nick Piggin wrote:
->> OK then put a touch_nmi_watchdog in there if you must.
+>> Given that we have contention problems updating a single mm-wide rss and
+>> given that the way to fix that up is to spread things out a bit, it seems
+>> wildly arbitrary to me that the way in which we choose to spread the
+>> counter out is to stick a bit of it into each task_struct.
+>> 
+>> I'd expect that just shoving a pointer into mm_struct which points at a
+>> dynamically allocated array[NR_CPUS] of longs would suffice.  We probably
+>> don't even need to spread them out on cachelines - having four or eight
+>> cpus sharing the same cacheline probably isn't going to hurt much.
+>> 
+>> At least, that'd be my first attempt.  If it's still not good enough, try
+>> something else.
+>> 
+>> 
+> 
+> That is what Bill thought too. I guess per-cpu and per-thread rss are
+> the leading candidates.
+> 
+> Per thread rss has the benefits of cacheline exclusivity, and not
+> causing task bloat in the common case.
+> 
+> Per CPU array has better worst case /proc properties, but shares
+> cachelines (or not, if using percpu_counter as you suggested).
 
-On Sat, Nov 20, 2004 at 06:57:38PM +1100, Nick Piggin wrote:
-> Duh, there is one in there :\
-> Still, that doesn't really say much about a normal tasklist traversal
-> because this thing will spend ages writing stuff to serial console.
-> Now I know going over the whole tasklist is crap. Anything O(n) for
-> things like this is crap. I happen to just get frustrated to see
-> concessions being made to support more efficient /proc access. I know
-> you are one of the ones who has to deal with the practical realities
-> of that though. Sigh. Well try to bear with me... :|
+Per thread seems much nicer to me - mainly because it degrades cleanly to 
+a single counter for 99% of processes, which are single threaded.
 
-I sure as Hell don't have any interest in /proc/ in and of itself,
-but this stuff does really bite people, and hard, too.
+M.
 
-
--- wli
