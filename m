@@ -1,29 +1,35 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Sun, 27 Jun 2004 17:42:14 +0000
-Subject: Why large stack frame for PAL call
-Message-Id: <200406271740.i5RHeaY24803@unix-os.sc.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 29 Jun 2004 05:50:15 +0000
+Subject: Re: Why large stack frame for PAL call
+Message-Id: <16609.791.65478.362755@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200406271740.i5RHeaY24803@unix-os.sc.intel.com>
+In-Reply-To: <200406271740.i5RHeaY24803@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Does anyone know why we need such large stack frame for PAL static
-call?  PAL isn't even suppose to touch any stack register for static
-calling convention.  Is it for legacy reason or something?
+>>>>> On Sun, 27 Jun 2004 10:42:14 -0700, "Chen, Kenneth W" <kenneth.w.chen@intel.com> said:
 
-GLOBAL_ENTRY(ia64_pal_call_static)
-        .prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(6)
-        alloc loc1 = ar.pfs,6,90,0,0
+  Ken> Does anyone know why we need such large stack frame for PAL
+  Ken> static call?  PAL isn't even suppose to touch any stack
+  Ken> register for static calling convention.  Is it for legacy
+  Ken> reason or something?
 
-GLOBAL_ENTRY(ia64_pal_call_phys_static)
-        .prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(6)
-        alloc loc1 = ar.pfs,6,90,0,0
+Good question.  I was able to track the source down to a patch that
+was sent to me by Walt Drummond on Aug 11, 1999.  The authors listed
+in the relevant file (it was called palcall.S back then) were Don
+Dugger and Walt Drummond (in this order), so my guess is the code was
+originally written by Don.  At that time, the primary target for Don
+would have been SoftSDV.  Perhaps it was to work around a bug in
+SoftSDV, though I suspect it's just as likely that the code came about
+by a misunderstood/misdocumented PAL-requirement.
 
-96 local registers?
+Perhaps Don or Asit remember how this came about?
 
-Also caller is support to setup callee's stack frame for PAL stacked
-convention?  Wasn't clear from the PAL spec.  Though I couldn't make
-up any story why it needs to.
+I also cannot find a requirement that would demand allocating 96
+stacked registers before making a PAL call and I'd be in favor of
+cleaning that up.
 
-
+	--david
