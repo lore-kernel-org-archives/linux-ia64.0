@@ -1,59 +1,42 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 31 Jul 2000 23:21:21 +0000
-Subject: Re: [Linux-ia64] integer -> pointer question
-Message-Id: <marc-linux-ia64-105590678205256@msgid-missing>
+From: Christoph Rohland <cr@sap.com>
+Date: Wed, 19 Jul 2000 09:07:15 +0000
+Subject: [Linux-ia64] Re: Support for more than 2GB RAM
+Message-Id: <marc-linux-ia64-105590678205208@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205250@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205250@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 31 Jul 2000 15:22:09 -0700 (PDT), Michael Madore <mmadore@turbolinux.com> said:
+David Mosberger <davidm@hpl.hp.com> writes:
 
-  Michael> Hi, When porting packages to IA64, it is very common to
-  Michael> come across code where integers are being assigned to
-  Michael> pointers.  This results in warning messages from the
-  Michael> compiler about assigning integers to pointers of a
-  Michael> different size.
+> >>>>> On 18 Jul 2000 14:40:42 +0200, Christoph Rohland <cr@sap.com> said:
+> 
+>   Christoph> Hi, Are there any plans to support more than 2GB RAM in
+>   Christoph> the near future?
+> 
+> There never was a limit for 2GB.  4GB is no problem and more than 4GB
+> works fine also except if there are 32-bit PCI devices that do DMA (or
+> the machine has huge holes in the physical address space, which isn't
+> true for the prototypes).  For the DMA issue, a solution is in the
+> works (Goutham has been working on this).
 
-  Michael> This is very helpful in the case where a function prototype
-  Michael> has been omitted, or the programmer has simply made bad
-  Michael> assumptions about the sizes of pointers and integers.
+So why do I get the following:
 
-  Michael> On the other hand, it is not unusual to see void pointers
-  Michael> used for storing integers, and the programmer has no
-  Michael> intention of ever de-referencing the pointer.  Glib and
-  Michael> GTK+ make extensive use of this technique.
+Linux version 2.4.0-0.8smp (root@boris.devel.redhat.com) (gcc version 2.9-ia64-0
+00216-final) #1 SMP Sun Jun 18 00:32:35 EDT 2000
+EFI v0.92 by INTEL AL460GX.86B.0027.D27.021800: SALsystab=0x7ff29d60 ACPI=0x7ffd
+9718 MPS=0x7ffd0000
+map_pal_code: mapping PAL code [0x7ff40000-0x7ff7b000) into [0xe00000007fc00000-
+0xe000000080000000)
+Warning: ignoring 0MB of memory above 1GB!
+Warning: ignoring 0MB of memory above 1GB!
+Warning: ignoring 2046MB of memory above 1GB!
 
-It's sad that GTK/Glib is propagating this poor programming habit.
-The clean solution is to use a union type such as:
+and I can only use 2GB of my 4GB machine?
 
-	typedef union {
-		void *v;
-		long l;
-		int i;
-		char c;
-		float f;
-		double d;
-		...other types you might like...;
-	} any_type_t;
+Greetings
+		Christoph
 
-and then you can assign to a variable of type "any_type_t" without any
-ugly casts.  It also makes it much clearer what the intended use of
-the argument in question is.  If you don't like the additional
-any_type_t variables you need to declare in return, you can avoid even
-that by introducing cpp macros of the form:
-
-	#define int_to_any_type(i)	({any_type_t a; a.i = i;})
-	#define long_to_any_type(i)	({any_type_t a; a.l = l;})
-	etc.
-
-Unfortunately, it's unlikely that GTK/Glib will be fixed soon in this
-respect, so in the meantime, just use the cast "(void *)(long) i" if
-"i" is an integer.
-
-	--david
 
 
