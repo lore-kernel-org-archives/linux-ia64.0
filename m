@@ -1,74 +1,49 @@
-From: "Mallick, Asit K" <asit.k.mallick@intel.com>
-Date: Wed, 01 Aug 2001 20:02:18 +0000
-Subject: RE: [Linux-ia64] settings AR.k0 to ia64_iobase is wrong?
-Message-Id: <marc-linux-ia64-105590693005980@msgid-missing>
+From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
+Date: Fri, 03 Aug 2001 14:54:59 +0000
+Subject: [Linux-ia64] Kernel BUG report
+Message-Id: <marc-linux-ia64-105590693005999@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005964@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005964@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David,
+I hit this running mkfs on a 8GB, 4X Lion running 4 mkfs processes,
+each on an 8-disk "md", with 8 disks on each of 4 Adaptec scsi channels
+[each md has 2 disks on each controller], with the boot disk on a separate
+adaptec controller; ql12160 unused.
 
-The setup code is not setting the virtual address in the ar.k0. Here is a
-patch to set the virtual address.
+Running the latest 2.4.7 IA64 patches, plus SGI's kernel profiling patches
+and the latest 6.20 adaptec driver from Justin Gibbs
+(people.freebsd.org/~gibbs/linux).
 
-Thanks,
-Asit
+I had previously run that test with a couple "sync"s running in other
+vt logins and it ran (*very* slowly, hence the profiling).
 
---- linux-2.4.7/arch/ia64/kernel/setup.c        Tue Jul 31 14:57:10 2001
-+++ linux/arch/ia64/kernel/setup.c      Wed Aug  1 14:26:44 2001
-@@ -314,15 +314,15 @@
-         *  AR.KR0 if no appropriate entry is found in the memory map.
-         */
-        ia64_iobase = efi_get_iobase();
--       if (ia64_iobase)
--               /* set AR.KR0 since this is all we use it for anyway */
--               ia64_set_kr(IA64_KR_IO_BASE, ia64_iobase);
--       else {
-+       if (!ia64_iobase) {
-                ia64_iobase = ia64_get_kr(IA64_KR_IO_BASE);
-                printk("No I/O port range found in EFI memory map, falling
-back to AR.KR0\n");
-                printk("I/O port base = 0x%lx\n", ia64_iobase);
-        }
-        ia64_iobase = __IA64_UNCACHED_OFFSET | (ia64_iobase & ~PAGE_OFFSET);
-+
-+       /* set AR.KR0 since this is all we use it for anyway */
-+       ia64_set_kr(IA64_KR_IO_BASE, ia64_iobase);
- 
- #ifdef CONFIG_SMP
-        cpu_physical_id(0) = hard_smp_processor_id();
+  Kernel BUG at page_alloc.c: 75!
+  Unable to handle kernel paging request at virtual address 0000000000000000
+  mkfs.ext2[1582]: Oops 11003706212352
+
+This is in __free_pages_ok:
+	if (page->mapping)
+=>		BUG();
+
+Unfortunatly I didn't write down more info before the machine was rebooted;
+looks like I'll have to set up a serial console.
 
 
-> -----Original Message-----
-> From: David Mosberger [mailto:davidm@hpl.hp.com]
-> Sent: Tuesday, July 31, 2001 12:23 PM
-> To: dong@rose.hp.com
-> Cc: nomura@hpc.bs1.fc.nec.co.jp; linux-ia64@linuxia64.org;
-> mani.ayyar@intel.com
-> Subject: RE: [Linux-ia64] settings AR.k0 to ia64_iobase is wrong?
-> 
-> 
-> >>>>> On Tue, 31 Jul 2001 11:57:09 -0700, "Dong Wei" 
-> <dong_wei@hp.com> said:
-> 
->   Dong> AR.k0 contains the virtual address that SAL uses for the IO
->   Dong> Port Base.  The SAL spec asks the OSes not to change this
->   Dong> value until the IVAs are taken over. The reason for this is
->   Dong> that some implementation of SAL contains the x86 BIOS code.
-> 
-> Yup.  We don't violate this assumption as we switch the IVA long
-> before we touch AR.k0.
-> 
-> 	--david
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
+I've also been getting a LOT (100's, not 10's) of these:
+  Warning - running *really* short on DMA buffers
+which appear to be coming from the SCSI subsystem.
 
+
+Update: I ran the "test" again, and I got a bunch more "short on DMA
+buffers"
+messages, and then I got a bunch of lines like:
+  Segment 0xe000000228eb7840, blocks 2, addr 0x228eb13ff
+followed by:
+  Kernel panic:  Ththththaats all folks.  Too dangerous to continue.
+
+
+Kevin
 
