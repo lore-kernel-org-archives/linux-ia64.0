@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 11 Apr 2003 21:35:07 +0000
-Subject: Re: [Linux-ia64] Itanium gets supercomputing software
-Message-Id: <marc-linux-ia64-105590723705479@msgid-missing>
+From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
+Date: Fri, 11 Apr 2003 22:36:13 +0000
+Subject: RE: [Linux-ia64] Itanium gets supercomputing software
+Message-Id: <marc-linux-ia64-105590723705483@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705455@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705455@msgid-missing>
@@ -10,25 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 11 Apr 2003 14:25:16 -0700, Grant Grundler <iod00d@hp.com> said:
+> I don't know exactly what price/configuration Power4 machines start.
+> Perhaps one of the IBMers on this list could chime in?
+> 
+> 	--david
 
-  Grant> Anyway, my point still stands, comparing a "server" (rackable, remote console)
-  Grant> with a "workstation" (3D gfx, sound, DVD-ROM) has alot of variables and
-  Grant> different folks value these things differently.  But even here, I would
-  Grant> guess the difference in CPU perf alone is 2x or more by most measures.
-  Grant> Yes, I know the price is 3x but other things make zx2000 attract to
-  Grant> a different set of customers (like linux support).
+Okay, my turn to plug: Itanium 2-based systems _are_ very competitive
+with RISC machines, even at the mid-range and high end.
 
-Also, don't forget memory bandwidth.
+Unisys is currently selling 4 to 16-processor Itanium 2 machines.
+They are very competitively priced against mid-sized RISC machines,
+although pricing information is not available on the web.
+SCO's UnitedLinux will be available as soon as SCO ships.
+http://www.unisys.com/products/es7000__servers/hardware/aries__130.htm
 
-The zx2000 is a very nice workstation.  Granted, it's not $1k, but it
-doesn't perform like a Multia either!  And yes, it's quiet, too (I use
-one as my main workstation these days... ;-)
+For a quote in North America, you can contact Rob Luke, rob.luke@unisys.com
+(801) 594-5088.  I can get you contact info for other parts of the world.
 
-As for what the future holds, I guess we'll just have to wait and see.
-Remember though: just a year ago, the cheapest ia64 workstation you
-could get was priced at $7k+.  This year, you can get a zx2000 for
-$3k+, so, judging from where I sit, prices certainly are coming down.
-
-	--david
+Kevin Van Maren
+Unisys
 
