@@ -1,63 +1,46 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 22 Apr 2004 02:20:24 +0000
-Subject: RE: [RFC] ACPI IRQ proposal
-Message-Id: <MDEEKOKJPMPMKGHIFAMAAEELDNAA.kaneshige.kenji@jp.fujitsu.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 14 Apr 2004 01:03:38 +0000
+Subject: kernel update (relative to 2.6.5)
+Message-Id: <200404140103.i3E13cB0004406@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403231537.14505.bjorn.helgaas@hp.com>
-In-Reply-To: <200403231537.14505.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Bjorn,
+At long last, the ia64-patch for 2.6.5...
+It's in the usual place:
 
-It will be possible that iosapic_register_intr() runs on multiple CPUs in
-parallel when your patch is applied. But I think current
-iosapic_register_int()
-doesn't take care of this. If iosapic_register_intr() is called for one gsi
-on
-multiple CPUs in parallel, two or more vectors might be assigned to one
-gsi. A following patch is a sample patch to fix this issue. (This patch is
-not
-tested yet.)
+ ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.6/
 
-Thanks,
-Kenji Kaneshige
+in file
 
----
+ linux-2.6.5-ia64-040413.diff.gz
 
- linux-2.6.6-rc1-kanesige/arch/ia64/kernel/iosapic.c |    5 +++++
- 1 files changed, 5 insertions(+)
+There is one significant change: I decided to fix signal delivery so
+signal handlers are forced to be invoked with little-endian
+byte-order.  My position in the past has been that if you turn-on
+big-endian byte-order, you're on your own.  Indeed, if you happened to
+get a signal in big-endian byte-order, you were pretty much guaranteed
+to get a SIGSEGV.  I decided to fix this particular issue because I
+found some "legacy" code which was taking advantage of big-endian
+byte-order and so that code ran the risk of crashing if a signal
+occurred.  Having said that, you're still mostly on your own with
+big-endian byte-order.  In particular, things could go horribly wrong
+if pointers or frame-related values (such as the return-address) were
+stored in big-endian byte-order.  On the other hand, if you turn on
+big-endian mode temporarily, say, in a leaf-routine doing some
+calculations, you should be OK.
 
-diff -puN arch/ia64/kernel/iosapic.c~lock_iosapic_register_intr
-arch/ia64/kernel/iosapic.c
---- linux-2.6.6-rc1/arch/ia64/kernel/iosapic.c~lock_iosapic_register_intr
-2004-04-21 14:58:25.229102461 +0900
-+++ linux-2.6.6-rc1-kanesige/arch/ia64/kernel/iosapic.c	2004-04-21
-15:44:04.719878795 +0900
-@@ -499,9 +499,12 @@ int
- iosapic_register_intr (unsigned int gsi,
- 		       unsigned long polarity, unsigned long trigger)
- {
-+	unsigned long flags;
- 	int vector;
- 	unsigned int dest = (ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff;
+Also, I decided to change the extended config-space addressing support
+in SAL such that we can avoid version number checking---that's just
+too fragile and has been a repeated source of trouble and lost time.
 
-+	spin_lock_irqsave(&iosapic_lock, flags);
-+
- 	vector = gsi_to_vector(gsi);
- 	if (vector < 0)
- 		vector = assign_irq_vector(AUTO_ASSIGN);
-@@ -509,6 +512,8 @@ iosapic_register_intr (unsigned int gsi,
- 	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
- 		      polarity, trigger);
+Oh, there is a big perfmon update with some important fixes.  See the
+ChangeLog entry here for details:
 
-+	spin_unlock_irqrestore(&iosapic_lock, flags);
-+
- 	printk(KERN_INFO "GSI 0x%x(%s,%s) -> CPU 0x%04x vector %d\n",
- 	       gsi, (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
- 	       (trigger = IOSAPIC_EDGE ? "edge" : "level"), dest, vector);
+ http://linux.bkbits.net:8080/linux-2.5/cset@eranian@hpl.hp.com|ChangeSet|20040409002153|03271
 
-_
+Enjoy,
 
+	--david
