@@ -1,52 +1,83 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 07 Sep 2001 21:12:10 +0000
-Subject: RE: [Linux-ia64] Re: AT Keyboard not present?
-Message-Id: <marc-linux-ia64-105590698805146@msgid-missing>
+From: Andreas Jaeger <aj@suse.de>
+Date: Tue, 18 Sep 2001 08:34:50 +0000
+Subject: [Linux-ia64] Re: PROPOSED: 32/64 bit coexistance
+Message-Id: <marc-linux-ia64-105590698805199@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805145@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805145@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I used to have that problem with my BigSur too.  I changed
-a whole bunch of things all at once when I moved the machine
-from the lab to my cube, and the problem went away, so I'm
-not sure what the problem was.  Here's what I changed:
+George, you forgot to add the appended part.  Especially the paragraph
+is important that this will not imply a binary incompatible change for
+ia64, ia64 has an emulation for 32-bit binaries but is not a real
+32/64-bit platform like Sparc64, x86-64, PPC64 and S390.
 
-	Upgraded processor from A3 to B3
-	Upgraded f/w (from ?? to ?? ... I forget versions)
-	Keyboard was directly connected in the lab,
-	   started using a Belkin OmniCube 4-port KVM
-	   switch to share keyboard between machines.
-	It's not the same keyboard that was in the lab.
-	Machine is now faces east instead of north :-)
-	My cube is at least 10F degrees warmer than the lab.
+David, does this satisfy your ia64 concerns?
 
--Tony
+Andreas
 
------Original Message-----
-From: Bill Nottingham [mailto:notting@redhat.com]
-Sent: Friday, September 07, 2001 1:46 PM
-To: KOCHI Takayoshi
-Cc: linux-ia64@linuxia64.org
-Subject: [Linux-ia64] Re: AT Keyboard not present?
+3. Recommendations
 
+   We recommend the use of /lib64 to contain the 64bit
+   libraries on multi-library capable 64bit Linux ports and a
+   /lib which isn't a symbolic link but a real directory to
+   contain 32bit libraries for the following reasons:
 
-KOCHI Takayoshi (t-kouchi@mvf.biglobe.ne.jp) said: 
-> It was a BigSur with a PS/2 keyboard and a PS/2 mouse.
-> I didn't configure usb driver in the kernel nor load
-> as a module.
+   * existing 32bit applications will install with rpm directly
+     and run without a change in a 64bit system (zSeries and
+     sparc64 today)
 
-I've noticed some oddness with the keyboard controller on my BigSur;
-for whatever reason, on a cold boot, one keyboard I have needs replugged
-for it to work. The same keyboard works fine on other machines.
+   * rpm is known to fail on nested symlinks within in pathes
+     on updating those directories; therefore /lib should not
+     be a link to /lib32.
 
-Bill
+   * dedicated directory structure for a 32bit subsystem does
+     not integrate smoothly into the existing FHS / (root)
+     directory structure. FHS today does not allow new
+     directories below / (root). Possible options would be
+     /opt/emu32, /usr/emu32 ... rpm needs to install
+     accordingly, too, but will not work with todays versions
+     (this could be achieved with intelligent wrapper scripts
+     analysing the target system but this does not reflect a
+     generic approach). Addtional problems might show up since
+     /opt might not be available when booting up the system.
 
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+   * existing commercial binary-only applications like
+     middleware and applications are and might only be
+     available as 32-bit binaries for the time being due to
+     porting efforts and quality assurance cycles.
+
+   * exisiting binary executable code generating tool chain
+     (gcc, binutils, glibc) already are capable to handle the
+     /lib64 approach
+
+   * /lib: consistent scheme for all 32bit systems and x86-64,
+     sparc64, ppc64, zSeries (s390x).
+
+   * iA64 today has a 32bit emulation mode, but 64bit is the
+     (only) favored one; Alpha is too long established. (64bit
+     libs will go to /lib)
+
+   * only few applications or middleware will benefit from full
+     64bit support in general (databases, ERP systems,
+     applications using large memory caches for speed, numeric
+     intense applications, ...)
+
+   * 32bit applications tend to have a smaller memory footprint
+     due code/data alignment in physical memory, thus total
+     memory usage is more efficient on large systems with
+     multiple Linux system instances (iSeries, zSeries)
+
+   * compiler and toolchain can be used to build 32-bit
+     applications on a 64-bit architecture; they can be
+     transferred to 32-bit architecture hardware (cross
+     development with tested executables) without further
+     changes.
+
+-- 
+ Andreas Jaeger
+  SuSE Labs aj@suse.de
+   private aj@arthur.inka.de
+    http://www.suse.de/~aj
 
