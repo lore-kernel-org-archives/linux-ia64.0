@@ -1,56 +1,49 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 31 Jul 2001 00:49:59 +0000
-Subject: [Linux-ia64] strace fix
-Message-Id: <marc-linux-ia64-105590693005962@msgid-missing>
+From: "Leonard N. Zubkoff" <lnz@dandelion.com>
+Date: Tue, 24 Jul 2001 14:59:03 +0000
+Subject: [Linux-ia64] Re: DAC960 on IA/64
+Message-Id: <marc-linux-ia64-105590693005897@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Recently I noticed that strace reports bogus syscall return values
-after any execve() system call.  This was quite annoying and it turns
-out to be due to the fact that strace was falling out of sync with the
-kernel due to an extra SIGTRAP that is being sent from the kernel's
-ELF loader.  The patch below fixes this problem.
+  Date: Tue, 24 Jul 2001 14:58:14 +0200 (CEST)
+  From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
 
-	--david
+  Hi Leonard,
 
---- defs.h.~1.17.~	Sun Sep  3 16:57:48 2000
-+++ defs.h	Mon Jul 30 17:44:56 2001
-@@ -274,7 +274,9 @@
- #define TCB_FOLLOWFORK	00400	/* Process should have forks followed */
- #define TCB_REPRINT	01000	/* We should reprint this syscall on exit */
- #ifdef LINUX
--#if defined(ALPHA) || defined(SPARC) || defined(POWERPC)
-+#if defined(ALPHA) || defined(SPARC) || defined(POWERPC) || defined(IA64)
-+  /* When execve'ing an ELF binary, the kernel sends an extra SIGTRAP
-+     which we need to ignore.  */
- #define TCB_WAITEXECVE	02000	/* ignore SIGTRAP after exceve */
- #endif /* ALPHA */
- #endif /* LINUX */
---- process.c.~1.26.2.2.~	Thu May 17 01:39:53 2001
-+++ process.c	Mon Jul 30 17:40:37 2001
-@@ -1162,7 +1162,7 @@
- 		}
- 	}
- #ifdef LINUX
--#if defined(ALPHA) || defined(SPARC) || defined(POWERPC)
-+#if defined(ALPHA) || defined(SPARC) || defined(POWERPC) || defined(IA64)
- 	tcp->flags |= TCB_WAITEXECVE;
- #endif /* ALPHA || SPARC || POWERPC */
- #endif /* LINUX */
---- syscall.c.~1.25.2.3.~	Tue Mar  6 17:13:25 2001
-+++ syscall.c	Mon Jul 30 17:42:21 2001
-@@ -691,6 +691,10 @@
- 			if (upeek(pid, PT_R8, &scno) < 0)
- 				return -1;
- 		} else {
-+			if ((tcp->flags & TCB_WAITEXECVE)) {
-+				tcp->flags &= ~TCB_WAITEXECVE;
-+				return 0;
-+			}
- 			if (upeek (pid, PT_R15, &scno) < 0)
- 				return -1;
- 		}
+  I have made a very small step forward in debugging the problems.
+  After reading this message from Linux to the LK mailinglist
+  <http://www.uwsg.indiana.edu/hypermail/linux/kernel/0107.2/0533.html>
+  I suspected that SMP may have something to do with it.
+
+  So I repeated our test with the stock RedHat UP kernel (2.4.3),
+  and with much less catastrophic results. I got no more hanging
+  processes, no system crash, "just" some data errors that suggest
+  that 18 512-byte blocks in a 2GB file were pointing at a wrong disk
+  area (there were valid bit patterns there, but patterns that should
+  appear elsewhere in the file).
+
+  This may look like a VFS or ext2-related problem, but similar tests
+  on other controllers have revealed nothing of the kind.
+
+  Interestingly, the driver also reported
+  no "vendor-specific" or other errors during the test.
+
+  I cannot exclude 100% that this test went better than the previous
+  tests simply by "luck", but it seems unlikely, because the system
+  survived 12 hours of heavy copy-compare whereas it always showed
+  uninterruptibly sleeping processes or even total crashes after
+  ca. 5 hours with SMP.
+
+  Hope that helps a bit, regards,
+  Martin
+
+Hmmm.  That's certainly a possibility, though I don't fully undertand yet the
+form of the failure.  I posted a patch for Linux kernel 2.4.7 on my web page
+last night that updates the 2.4.10 DAC960 driver to use the new completion
+code.  Please try 2.4.7 with that patch and see if it works in UP or SMP.
+
+		Leonard
 
