@@ -1,75 +1,309 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 09 Mar 2004 23:27:12 +0000
-Subject: Re: [ACPI] [PATCH] 6 of 6 rename some ACPI IRQ variables
-Message-Id: <200403091627.12824.bjorn.helgaas@hp.com>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Thu, 25 Mar 2004 22:27:40 +0000
+Subject: [PATCH] update sn2_defconfig
+Message-Id: <200403251427.40862.jbarnes@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_cz1YA1nYBy+6K9z"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403091619.04333.bjorn.helgaas@hp.com>
-In-Reply-To: <200403091619.04333.bjorn.helgaas@hp.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+
+--Boundary-00=_cz1YA1nYBy+6K9z
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
-Cc: Andi Kleen <ak@suse.de>, "Nakajima, Jun" <jun.nakajima@intel.com>, "Brown, Len" <len.brown@intel.com>
+Content-Disposition: inline
 
-ACPI: Rename ACPI IRQ variables for clarity
+Just a quick update to the sn2_defconfig file.  Turns on a few more options.
 
-	acpi_irq_irq -> acpi_irq_global_irq
-	acpi_irq -> acpi_irq_trampoline
+Jesse
 
-diff -Nru a/drivers/acpi/osl.c b/drivers/acpi/osl.c
---- a/drivers/acpi/osl.c	Tue Mar  9 14:44:25 2004
-+++ b/drivers/acpi/osl.c	Tue Mar  9 14:44:25 2004
-@@ -63,7 +63,7 @@
- extern char line_buf[80];
- #endif /*ENABLE_DEBUGGER*/
- 
--static int acpi_irq_irq;
-+static int acpi_irq_global_irq;
- static OSD_HANDLER acpi_irq_handler;
- static void *acpi_irq_context;
- 
-@@ -88,7 +88,7 @@
- acpi_os_terminate(void)
- {
- 	if (acpi_irq_handler) {
--		acpi_os_remove_interrupt_handler(acpi_irq_irq,
-+		acpi_os_remove_interrupt_handler(acpi_irq_global_irq,
- 						 acpi_irq_handler);
- 	}
- 
-@@ -234,7 +234,7 @@
- }
- 
- static irqreturn_t
--acpi_irq(int irq, void *dev_id, struct pt_regs *regs)
-+acpi_irq_trampoline(int irq, void *dev_id, struct pt_regs *regs)
- {
- 	return (*acpi_irq_handler)(acpi_irq_context) ? IRQ_HANDLED : IRQ_NONE;
- }
-@@ -258,11 +258,11 @@
- 	}
- 	acpi_irq_handler = handler;
- 	acpi_irq_context = context;
--	if (request_irq(irq, acpi_irq, SA_SHIRQ, "acpi", acpi_irq)) {
-+	if (request_irq(irq, acpi_irq_trampoline, SA_SHIRQ, "acpi", acpi_irq_trampoline)) {
- 		printk(KERN_ERR PREFIX "SCI (IRQ%d) allocation failed\n", irq);
- 		return AE_NOT_ACQUIRED;
- 	}
--	acpi_irq_irq = global_irq;
-+	acpi_irq_global_irq = global_irq;
- 
- 	return AE_OK;
- }
-@@ -277,9 +277,9 @@
- 			printk(KERN_ERR PREFIX "Can't remove ACPI interrupt handler\n");
- 			return AE_ERROR;
- 		}
--		free_irq(irq, acpi_irq);
-+		free_irq(irq, acpi_irq_trampoline);
- 		acpi_irq_handler = NULL;
--		acpi_irq_irq = 0;
-+		acpi_irq_global_irq = 0;
- 	}
- 
- 	return AE_OK;
 
+--Boundary-00=_cz1YA1nYBy+6K9z
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sn2-defconfig-update.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sn2-defconfig-update.patch"
+
+===== arch/ia64/configs/sn2_defconfig 1.4 vs edited =====
+--- 1.4/arch/ia64/configs/sn2_defconfig	Mon Mar 15 05:55:41 2004
++++ edited/arch/ia64/configs/sn2_defconfig	Thu Mar 25 14:18:56 2004
+@@ -48,31 +48,26 @@
+ CONFIG_RWSEM_XCHGADD_ALGORITHM=y
+ CONFIG_TIME_INTERPOLATION=y
+ CONFIG_EFI=y
+-# CONFIG_ITANIUM is not set
+-CONFIG_MCKINLEY=y
+ # CONFIG_IA64_GENERIC is not set
+ # CONFIG_IA64_DIG is not set
+ # CONFIG_IA64_HP_ZX1 is not set
+ CONFIG_IA64_SGI_SN2=y
+ # CONFIG_IA64_HP_SIM is not set
++# CONFIG_ITANIUM is not set
++CONFIG_MCKINLEY=y
+ # CONFIG_IA64_PAGE_SIZE_4KB is not set
+ # CONFIG_IA64_PAGE_SIZE_8KB is not set
+ CONFIG_IA64_PAGE_SIZE_16KB=y
+ # CONFIG_IA64_PAGE_SIZE_64KB is not set
+-CONFIG_ACPI=y
+-CONFIG_ACPI_INTERPRETER=y
+-CONFIG_ACPI_KERNEL_CONFIG=y
+ CONFIG_IA64_L1_CACHE_SHIFT=7
+ # CONFIG_MCKINLEY_ASTEP_SPECIFIC is not set
+ CONFIG_NUMA=y
+ CONFIG_VIRTUAL_MEM_MAP=y
+ CONFIG_DISCONTIGMEM=y
+-CONFIG_IA64_MCA=y
+ # CONFIG_IA64_CYCLONE is not set
+ CONFIG_IOSAPIC=y
+-# CONFIG_IA64_SGI_SN_SIM is not set
++CONFIG_IA64_SGI_SN_SIM=y
+ CONFIG_FORCE_MAX_ZONEORDER=18
+-# CONFIG_IA64_PAL_IDLE is not set
+ CONFIG_SMP=y
+ CONFIG_NR_CPUS=512
+ # CONFIG_PREEMPT is not set
+@@ -86,9 +81,15 @@
+ # CONFIG_BINFMT_MISC is not set
+ 
+ #
++# Power management and ACPI
++#
++CONFIG_ACPI=y
++
++#
+ # ACPI (Advanced Configuration and Power Interface) Support
+ #
+ CONFIG_ACPI_BOOT=y
++CONFIG_ACPI_INTERPRETER=y
+ # CONFIG_ACPI_BUTTON is not set
+ # CONFIG_ACPI_FAN is not set
+ # CONFIG_ACPI_PROCESSOR is not set
+@@ -98,6 +99,10 @@
+ CONFIG_ACPI_POWER=y
+ CONFIG_ACPI_PCI=y
+ CONFIG_ACPI_SYSTEM=y
++
++#
++# Bus options (PCI, PCMCIA)
++#
+ CONFIG_PCI=y
+ CONFIG_PCI_DOMAINS=y
+ CONFIG_PCI_LEGACY_PROC=y
+@@ -106,7 +111,13 @@
+ #
+ # PCI Hotplug Support
+ #
+-# CONFIG_HOTPLUG_PCI is not set
++CONFIG_HOTPLUG_PCI=y
++# CONFIG_HOTPLUG_PCI_FAKE is not set
++# CONFIG_HOTPLUG_PCI_ACPI is not set
++# CONFIG_HOTPLUG_PCI_CPCI is not set
++# CONFIG_HOTPLUG_PCI_PCIE is not set
++# CONFIG_HOTPLUG_PCI_SHPC is not set
++CONFIG_HOTPLUG_PCI_SGI=y
+ 
+ #
+ # PCMCIA/CardBus support
+@@ -120,7 +131,7 @@
+ #
+ # Generic Driver Options
+ #
+-# CONFIG_FW_LOADER is not set
++CONFIG_FW_LOADER=m
+ # CONFIG_DEBUG_DRIVER is not set
+ 
+ #
+@@ -140,13 +151,12 @@
+ #
+ # Block devices
+ #
+-# CONFIG_BLK_DEV_FD is not set
+ # CONFIG_BLK_CPQ_DA is not set
+ # CONFIG_BLK_CPQ_CISS_DA is not set
+ CONFIG_BLK_DEV_DAC960=m
+ CONFIG_BLK_DEV_UMEM=m
+ CONFIG_BLK_DEV_LOOP=y
+-# CONFIG_BLK_DEV_CRYPTOLOOP is not set
++CONFIG_BLK_DEV_CRYPTOLOOP=m
+ CONFIG_BLK_DEV_NBD=m
+ # CONFIG_BLK_DEV_CARMEL is not set
+ CONFIG_BLK_DEV_RAM=y
+@@ -272,6 +282,7 @@
+ CONFIG_SCSI_SATA_SVW=m
+ CONFIG_SCSI_ATA_PIIX=m
+ CONFIG_SCSI_SATA_PROMISE=m
++# CONFIG_SCSI_SATA_SIL is not set
+ CONFIG_SCSI_SATA_VIA=m
+ CONFIG_SCSI_SATA_VITESSE=y
+ # CONFIG_SCSI_BUSLOGIC is not set
+@@ -314,12 +325,12 @@
+ # CONFIG_MD_RAID6 is not set
+ CONFIG_MD_MULTIPATH=y
+ CONFIG_BLK_DEV_DM=y
+-# CONFIG_DM_CRYPT is not set
++CONFIG_DM_CRYPT=m
+ 
+ #
+ # Fusion MPT device support
+ #
+-CONFIG_FUSION=m
++CONFIG_FUSION=y
+ CONFIG_FUSION_MAX_SGE=40
+ CONFIG_FUSION_ISENSE=m
+ CONFIG_FUSION_CTL=m
+@@ -364,7 +375,6 @@
+ CONFIG_IP_PIMSM_V1=y
+ CONFIG_IP_PIMSM_V2=y
+ CONFIG_ARPD=y
+-# CONFIG_INET_ECN is not set
+ CONFIG_SYN_COOKIES=y
+ CONFIG_INET_AH=m
+ CONFIG_INET_ESP=m
+@@ -460,7 +470,6 @@
+ #
+ # SCTP Configuration (EXPERIMENTAL)
+ #
+-CONFIG_IPV6_SCTP__=m
+ # CONFIG_IP_SCTP is not set
+ # CONFIG_ATM is not set
+ CONFIG_VLAN_8021Q=m
+@@ -490,6 +499,7 @@
+ CONFIG_NET_SCH_TBF=m
+ CONFIG_NET_SCH_GRED=m
+ CONFIG_NET_SCH_DSMARK=m
++# CONFIG_NET_SCH_DELAY is not set
+ # CONFIG_NET_SCH_INGRESS is not set
+ CONFIG_NET_QOS=y
+ CONFIG_NET_ESTIMATOR=y
+@@ -523,12 +533,10 @@
+ # Ethernet (10 or 100Mbit)
+ #
+ CONFIG_NET_ETHERNET=y
+-CONFIG_MII=y
++CONFIG_MII=m
+ # CONFIG_HAPPYMEAL is not set
+ # CONFIG_SUNGEM is not set
+-CONFIG_NET_VENDOR_3COM=y
+-CONFIG_VORTEX=m
+-CONFIG_TYPHOON=m
++# CONFIG_NET_VENDOR_3COM is not set
+ 
+ #
+ # Tulip family network device support
+@@ -550,7 +558,7 @@
+ # CONFIG_B44 is not set
+ # CONFIG_FORCEDETH is not set
+ # CONFIG_DGRS is not set
+-CONFIG_EEPRO100=y
++CONFIG_EEPRO100=m
+ # CONFIG_EEPRO100_PIO is not set
+ # CONFIG_E100 is not set
+ # CONFIG_FEALNX is not set
+@@ -582,7 +590,8 @@
+ #
+ # Ethernet (10000 Mbit)
+ #
+-# CONFIG_IXGB is not set
++CONFIG_IXGB=m
++# CONFIG_IXGB_NAPI is not set
+ # CONFIG_FDDI is not set
+ # CONFIG_HIPPI is not set
+ CONFIG_PPP=m
+@@ -606,7 +615,7 @@
+ # CONFIG_TR is not set
+ CONFIG_NET_FC=y
+ # CONFIG_SHAPER is not set
+-# CONFIG_NETCONSOLE is not set
++CONFIG_NETCONSOLE=y
+ 
+ #
+ # Wan interfaces
+@@ -627,8 +636,10 @@
+ # Bluetooth support
+ #
+ # CONFIG_BT is not set
+-# CONFIG_NETPOLL is not set
+-# CONFIG_NET_POLL_CONTROLLER is not set
++CONFIG_NETPOLL=y
++# CONFIG_NETPOLL_RX is not set
++# CONFIG_NETPOLL_TRAP is not set
++CONFIG_NET_POLL_CONTROLLER=y
+ 
+ #
+ # ISDN subsystem
+@@ -674,9 +685,13 @@
+ CONFIG_INPUT_KEYBOARD=y
+ CONFIG_KEYBOARD_ATKBD=y
+ # CONFIG_KEYBOARD_SUNKBD is not set
++# CONFIG_KEYBOARD_LKKBD is not set
+ # CONFIG_KEYBOARD_XTKBD is not set
+ # CONFIG_KEYBOARD_NEWTON is not set
+-# CONFIG_INPUT_MOUSE is not set
++CONFIG_INPUT_MOUSE=y
++CONFIG_MOUSE_PS2=y
++# CONFIG_MOUSE_SERIAL is not set
++# CONFIG_MOUSE_VSXXXAA is not set
+ # CONFIG_INPUT_JOYSTICK is not set
+ # CONFIG_INPUT_TOUCHSCREEN is not set
+ # CONFIG_INPUT_MISC is not set
+@@ -714,11 +729,6 @@
+ CONFIG_UNIX98_PTYS=y
+ CONFIG_LEGACY_PTYS=y
+ CONFIG_LEGACY_PTY_COUNT=256
+-
+-#
+-# Mice
+-#
+-# CONFIG_BUSMOUSE is not set
+ # CONFIG_QIC02_TAPE is not set
+ 
+ #
+@@ -742,7 +752,8 @@
+ #
+ # CONFIG_AGP is not set
+ # CONFIG_DRM is not set
+-# CONFIG_RAW_DRIVER is not set
++CONFIG_RAW_DRIVER=m
++CONFIG_MAX_RAW_DEVS=256
+ 
+ #
+ # I2C support
+@@ -825,9 +836,9 @@
+ # CD-ROM/DVD Filesystems
+ #
+ CONFIG_ISO9660_FS=y
+-# CONFIG_JOLIET is not set
++CONFIG_JOLIET=y
+ # CONFIG_ZISOFS is not set
+-# CONFIG_UDF_FS is not set
++CONFIG_UDF_FS=m
+ 
+ #
+ # DOS/FAT/NT Filesystems
+@@ -887,6 +898,7 @@
+ # CONFIG_CIFS is not set
+ # CONFIG_NCP_FS is not set
+ # CONFIG_CODA_FS is not set
++# CONFIG_INTERMEZZO_FS is not set
+ # CONFIG_AFS_FS is not set
+ 
+ #
+@@ -980,6 +992,7 @@
+ # CONFIG_IA64_DEBUG_CMPXCHG is not set
+ # CONFIG_IA64_DEBUG_IRQ is not set
+ # CONFIG_DEBUG_INFO is not set
++CONFIG_SYSVIPC_COMPAT=y
+ 
+ #
+ # Security options
+@@ -1006,4 +1019,5 @@
+ # CONFIG_CRYPTO_CAST6 is not set
+ # CONFIG_CRYPTO_ARC4 is not set
+ CONFIG_CRYPTO_DEFLATE=m
++# CONFIG_CRYPTO_MICHAEL_MIC is not set
+ # CONFIG_CRYPTO_TEST is not set
+
+--Boundary-00=_cz1YA1nYBy+6K9z--
