@@ -1,63 +1,65 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 18 Mar 2004 01:04:36 +0000
-Subject: Re: add lowpower_idle sysctl
-Message-Id: <20040317170436.430acfbe.akpm@osdl.org>
+From: "Kenneth Chen" <kenneth.w.chen@intel.com>
+Date: Thu, 18 Mar 2004 03:18:12 +0000
+Subject: RE: add lowpower_idle sysctl
+Message-Id: <200403180318.i2I3IDF03166@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <20040317170436.430acfbe.akpm@osdl.org>
 References: <200403180031.i2I0VQF02038@unix-os.sc.intel.com>
 In-Reply-To: <200403180031.i2I0VQF02038@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kenneth Chen <kenneth.w.chen@intel.com>
+To: 'Andrew Morton' <akpm@osdl.org>
 Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-"Kenneth Chen" <kenneth.w.chen@intel.com> wrote:
+>>>>> Andrew Morton on Wednesday, March 17, 2004 5:05 PM
+> >
+> > On ia64, we need runtime control to manage CPU power state in the
+> > idle loop.
 >
-> On ia64, we need runtime control to manage CPU power state in the idle
-> loop. 
+> Can you expand on this?
 
-Can you expand on this?  Does this mean that the admin can select different
-idle-loop algorithms?  If so, what alternative algorithms exist?
+If architecture provides a facility for low power state, we would like
+to turn that on in the idle loop to conserve power.  However, in some
+specific situation like for performance, it is desired to be off at
+least during that period of time.  A runtime control would allow power
+state to be managed dynamically to accommodate both.
 
-On x86 I'd like to be able to turn idle=poll on when performing oprofile
-run, so the numbers come out right.  Will this let me do that?
+That's what we are trying to do: to have a sysctl to control whether
+CPU goes into low power state or not in the default_idle() loop. In the
+generic code, kernel provides a mechanism to set/clear a flag, and in each
+arch, we can then test the flag before entering into low power state.
 
 
-> Logically it means a sysctl entry in /proc/sys/kernel.
+> Does this mean that the admin can select
+> different idle-loop algorithms?  If so, what alternative algorithms exist?
 
-Yes, but the *meanings* of the different values of that sysctl need to be
-defined, and documented.  If lowpower_idleB has a totally different
-meaning on different architectures then that's unfortunate but
-understandable.  But we should at least enumerate the different values and
-try to get different architectures to honour `42' in the same way.
+This patch isn't that fancy, nice feature but maybe next step :-)
 
-> +atomic_t halt_counter;
 
-Needs to be initialised - atomic_t's may have spinlocks inside them or
-anything else.
+> > Logically it means a sysctl entry in /proc/sys/kernel.
+> Yes, but the *meanings* of the different values of that sysctl need
+> to be defined, and documented.  If lowpower_idleB has a totally
+> different meaning on different architectures then that's unfortunate
+> but understandable.  But we should at least enumerate the different
+> values and try to get different architectures to honour `42' in the
+> same way.
 
-> +extern atomic_t halt_counter;
+Writing to sysctl should be a bool, reading the value can be number of
+module currently disabled low power idle.  I think the original intent
+is to use ref count for enabling/disabling.  (granted, we copied the
+code from other arch).
 
-Needs to be in a header, not in .c
 
->  /* this is needed for the proc_dointvec_minmax for [fs_]overflow UID and GID */
->  static int maxolduid = 65535;
-> @@ -615,6 +616,14 @@
->  		.mode		= 0444,
->  		.proc_handler	= &proc_dointvec,
->  	},
-> +	{
-> +		.ctl_name	= KERN_LOWPOWER_IDLE,
-> +		.procname	= "lowpower_idle",
-> +		.data		= &halt_counter,
-> +		.maxlen		= sizeof (int),
-> +		.mode		= 0644,
-> +		.proc_handler	= &proc_dointvec,
-> +	},
->  	{ .ctl_name = 0 }
->  };
+> Needs to be initialised - atomic_t's may have spinlocks inside them or
+> anything else.
+>
+> Needs to be in a header, not in .c
+>
+> You cannot treat an int* as an atomic_t*!
 
-You cannot treat an int* as an atomic_t*!
+My monkey work, must be not having enough coffee today :-P
 
-Why do we want to inc and dec a user-specified tunable anyway?  I think I
-don't understand what you're trying to do with this patch. 
+- Ken
+
+
