@@ -1,29 +1,37 @@
-From: "Niels Christiansen" <nchr@us.ibm.com>
-Date: Fri, 15 Feb 2002 20:20:44 +0000
-Subject: Re: [Linux-ia64] csum_ipv6_magic
-Message-Id: <marc-linux-ia64-105590701905115@msgid-missing>
+From: n0ano@indstorage.com
+Date: Fri, 22 Feb 2002 16:57:05 +0000
+Subject: [Linux-ia64] Linux IA64 ToDo List
+Message-Id: <marc-linux-ia64-105590701905170@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005901@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005901@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> > Can anybody tell me which version of IA64 Linux contains
-csum_ipv6_magic?
-> > I'm currently on 2.4.16.
+It's been brought to my attention that the Linux IA64 ToDo list
+has gotten rather out of date.  I'm willing to fix this and    
+keep the list up to date but I need help from everyone else.
 
-> None of them (afaict).
+I need to know what people are doing.  (I also need to know what
+you're not doing :-)                                            
 
-> Delete the declaration in include/asm-ia64/checksum.h so it uses
-> the generic code. We (HP LSO) have a patch but I don't think david
-> has seen that yet.
->
-> grant
+What I'm looking for is both what you are actively working on
+and also what you would like to see done.  If you could send 
+me a simple email about this I'll collate everything and put
+it up on the ToDo list at `www.linuxia64.org/todo.html'.    
 
-That worked, Thanks Grant.
+I'll start it off.  I have two tasks I'm working on right now.
 
--nc-
+1.  Remove race from IA32 `mmap' system call.
 
+2.  Fix coredump when OpenOffice/ia32 saves a spreadsheet as
+a StarCalc 6.0 file.                                        
+
+Anyone else?
+
+-- 
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@indstorage.com
+Ph: 303/652-0870x117
 
