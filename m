@@ -1,36 +1,58 @@
 From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Date: Thu, 23 Sep 2004 16:32:55 +0000
-Subject: [PATCH][3/4] Add hotplug support to drivers/acpi/numa.c
-Message-Id: <20040924013255.00000337.tokunaga.keiich@jp.fujitsu.com>
+Date: Mon, 27 Sep 2004 12:58:56 +0000
+Subject: Re: [PATCH][3/4] Add hotplug support to drivers/acpi/numa.c
+Message-Id: <20040927215856.7c3227ff.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040920092520.A14208@unix-os.sc.intel.com>
-	<20040920094719.H14208@unix-os.sc.intel.com>
-	<20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
-In-Reply-To: <20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
+ <20040920094719.H14208@unix-os.sc.intel.com>
+ <20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
+ <20040924013255.00000337.tokunaga.keiich@jp.fujitsu.com>
+In-Reply-To: <20040924013255.00000337.tokunaga.keiich@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: anil.s.keshavamurthy@intel.com
-Cc: len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+To: Anil Keshavamurthy <anil.s.keshavamurthy@intel.com>
+Cc: tokunaga.keiich@jp.fujitsu.com, len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+On Fri, 24 Sep 2004 01:32:55 +0900 Keiichiro Tokunaga wrote:
+> 
+> Name: acpi_numa_hp.patch
+> Status: Tested on 2.6.9-rc2
+> Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+> Description:
+> Add hotplug support to drivers/acpi/numa.c.
 
-Name: acpi_numa_hp.patch
-Status: Tested on 2.6.9-rc2
-Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Description:
-Add hotplug support to drivers/acpi/numa.c.
+Sorry, I found a bug in the printk's message.
+
+> +	if (pxm_to_nid_map[pxm] >= 0) {
+> +		printk(KERN_INFO"PXM <%d> already has a nid <%d>.\n",
+> +		       pxm_to_nid_map[pxm], pxm);
+> +		return ;
+> +	}
+
+The second and third arguments should change place with each
+other like,
+
+> +		printk(KERN_INFO"PXM <%d> already has a nid <%d>.\n",
+> +		       pxm, pxm_to_nid_map[pxm]);
+
+I am attaching an updated patch.  Anil, please include it instead of
+the old one.
 
 Thanks,
 Keiichiro Tokunaga
+
+Status: Tested on 2.6.9-rc2
+Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
 ---
 
- linux-2.6.9-rc2-fix-kei/drivers/acpi/numa.c |  267 ++++++++++++++++++++++++++++
- linux-2.6.9-rc2-fix-kei/include/acpi/numa.h |   30 +++
+ linux-2.6.9-rc2-092704-kei/drivers/acpi/numa.c |  267 +++++++++++++++++++++++++
+ linux-2.6.9-rc2-092704-kei/include/acpi/numa.h |   30 ++
  2 files changed, 297 insertions(+)
 
 diff -puN drivers/acpi/numa.c~acpi_numa_hp drivers/acpi/numa.c
---- linux-2.6.9-rc2-fix/drivers/acpi/numa.c~acpi_numa_hp	2004-09-24 00:14:56.382611368 +0900
-+++ linux-2.6.9-rc2-fix-kei/drivers/acpi/numa.c	2004-09-24 00:44:58.135989078 +0900
+--- linux-2.6.9-rc2-092704/drivers/acpi/numa.c~acpi_numa_hp	2004-09-27 17:36:31.454783390 +0900
++++ linux-2.6.9-rc2-092704-kei/drivers/acpi/numa.c	2004-09-27 17:36:31.456736527 +0900
 @@ -31,6 +31,7 @@
  #include <linux/acpi.h>
  #include <acpi/acpi_bus.h>
@@ -39,7 +61,7 @@ diff -puN drivers/acpi/numa.c~acpi_numa_hp drivers/acpi/numa.c
  
  #define ACPI_NUMA	0x80000000
  #define _COMPONENT	ACPI_NUMA
-@@ -214,3 +215,269 @@ acpi_get_pxm(acpi_handle h)
+@@ -212,3 +213,269 @@ acpi_get_pxm(acpi_handle handle)
  	return -1;
  }
  EXPORT_SYMBOL(acpi_get_pxm);
@@ -94,7 +116,7 @@ diff -puN drivers/acpi/numa.c~acpi_numa_hp drivers/acpi/numa.c
 +{
 +	if (pxm_to_nid_map[pxm] >= 0) {
 +		printk(KERN_INFO"PXM <%d> already has a nid <%d>.\n",
-+		       pxm_to_nid_map[pxm], pxm);
++		       pxm, pxm_to_nid_map[pxm]);
 +		return ;
 +	}
 +
@@ -311,7 +333,7 @@ diff -puN drivers/acpi/numa.c~acpi_numa_hp drivers/acpi/numa.c
 +#endif /* defined(CONFIG_ACPI_CONTAINER) && defined(CONFIG_HOTPLUG) */
 diff -puN /dev/null include/acpi/numa.h
 --- /dev/null	2003-08-16 05:19:42.000000000 +0900
-+++ linux-2.6.9-rc2-fix-kei/include/acpi/numa.h	2004-09-24 00:14:56.386517641 +0900
++++ linux-2.6.9-rc2-092704-kei/include/acpi/numa.h	2004-09-27 17:36:31.457713095 +0900
 @@ -0,0 +1,30 @@
 +#ifndef _ACPI_NUMA_H_
 +#define _ACPI_NUMA_H_
