@@ -1,30 +1,32 @@
-From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
-Date: Fri, 04 Jun 2004 11:11:26 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 04 Jun 2004 22:23:41 +0000
 Subject: Re: sched_clock
-Message-Id: <40C058DE.EF547CFB@nospam.org>
+Message-Id: <16576.63085.459570.276414@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40B4868F.B649611C@nospam.org>
 In-Reply-To: <40B4868F.B649611C@nospam.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
->=20
-> Yes, you're right, there is an intermediate-result overflow problem in
-> sched_clock() that I missed.  How does the attached patch work for you?
+>>>>> On Fri, 4 Jun 2004 05:43:08 -0400 (EDT), Ingo Molnar <mingo@redhat.com> said:
 
-Thank you, it is O.K.
+  Ingo> On Thu, 3 Jun 2004, David Mosberger wrote:
 
-On the other hand, we might have similar problems in fsys.S. Some comments
-like the one below makes me worry a bit:
+  >> Ingo, is there something on x86 that guarantees that the
+  >> cycle-counter will start out near zero at boot time?
 
-	// if now < last_tick, set p7 =3D 1, p8 =3D 0
+  Ingo> it starts at zero, but there's no guarantee as far as i
+  Ingo> know. Would there be any reason for it to start at another
+  Ingo> reason?
 
-I cannot really say that I fully understand what is in fsys.S, but
-should not "now" always be after no matter what time stamp, last tick ?
+I was thinking that firmware might do some testing of the
+cycle-counter and then leave the counter in an indeterminate state.
+It's reasonable to expect that the firmware would clear the counter to
+zero afterwards, but since it's not required by the specs, I wouldn't
+want to _rely_ on it (especially if the resulting errors could be
+obscure).  I think I'll go ahead and clear the cycle-counter in
+cpu_init().  That ought to be safe.
 
-Thanks,
-
-Zolt=E1n
+	--david
