@@ -1,58 +1,57 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 22 Nov 2004 16:54:58 +0000
-Subject: [PATCH] ia64 iosapic: ignore offline CPUs when routing interrupts
-Message-Id: <200411220954.59228.bjorn.helgaas@hp.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_jnhoBbgpQgo0rqo"
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 12 Nov 2004 05:42:43 +0000
+Subject: scary GCC bug (causes hpoj v0.91 crash)
+Message-Id: <200411120542.iAC5ghk3008313@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_jnhoBbgpQgo0rqo
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+There is a rather scary and longstanding GCC bug [1] which causes
+instant crashes if a program defines a struct with function-pointers
+and that structure happens to be "packed".  Why anybody would want to
+do such a thing is beyond me, but suffice it to say that hpoj v0.91 is
+doing precisely that.  The current Debian/sarge package for hpoj is
+definitely affected (any attempt to scan an image results in an
+instant crash).
 
-Ignore offline CPUs when registering IOSAPIC interrupts.  We previously
-directed interrupts even to offline CPUs, which means that if you have some
-unused CPUs (e.g., you used "maxcpus="), some interrupts won't work.
+A patch to work around the problem is attached.
 
-This really hurts because distro installs typically use "maxcpus=1".
+Perhaps the hpoj developers can tell us whether it was really
+intentional to have the #pragma pack(1) span all of <stdlib.h> and
+<xform.h>?
 
---Boundary-00=_jnhoBbgpQgo0rqo
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="diffs"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="diffs"
+Thanks,
 
-Ignore offline CPUs when registering IOSAPIC interrupts.  We previously
-directed interrupts even to offline CPUs, which means that if you have some
-unused CPUs (e.g., you used "maxcpus="), some interrupts won't work.
+	--david
 
-This really hurts because distro installs typically use "maxcpus=1".
+[1] http://gcc.gnu.org/bugzilla/show_bug.cgi?id44
 
-Patch by Alex Williamson.
-
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-
-===== arch/ia64/kernel/iosapic.c 1.48 vs edited =====
---- 1.48/arch/ia64/kernel/iosapic.c	2004-10-05 12:30:39 -06:00
-+++ edited/arch/ia64/kernel/iosapic.c	2004-11-21 20:34:57 -07:00
-@@ -521,7 +521,12 @@
- 			goto skip_numa_setup;
+--- hpoj-0.91/include/hpojip.h	2002-07-25 02:01:24.000000000 -0700
++++ hpoj-0.91-davidm/include/hpojip.h	2004-11-11 21:19:58.775236374 -0800
+@@ -131,12 +132,15 @@
+ 	float fl;
+ } DWORD_OR_PVOID;
  
- 		cpu_mask = node_to_cpumask(iosapic_lists[iosapic_index].node);
--		
++#pragma pack ()
 +
-+		for_each_cpu_mask(numa_cpu, cpu_mask) {
-+			if (!cpu_online(numa_cpu))
-+				cpu_clear(numa_cpu, cpu_mask);
-+		}
-+
- 		num_cpus = cpus_weight(cpu_mask);
+ #ifdef HPOJIP_INTERNAL
+ #include "../lib/hpojip/xform.h"   // this file uses the above definitions
+ #else
+ typedef struct IP_XFORM_TBL_s FAR *LPIP_XFORM_TBL;
+ #endif
  
- 		if (!num_cpus)
-
---Boundary-00=_jnhoBbgpQgo0rqo--
++#pragma pack (1)
+ 
+ /****************************************************************************\
+  ****************************************************************************
+@@ -587,8 +591,6 @@
+ 
+ EXPORT(WORD) ipGetFuncPtrs (LPIP_JUMP_TBL lpJumpTbl);
+ 
+-#pragma pack ()
+-
+ /****************************************************************************\
+  ****************************************************************************
+  *
