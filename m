@@ -1,44 +1,66 @@
-From: Hirokazu Takahashi <taka@valinux.co.jp>
-Date: Tue, 30 Mar 2004 09:05:23 +0000
-Subject: Re: Migrate pages from a ccNUMA node to another - patch
-Message-Id: <20040330.180523.08003015.taka@valinux.co.jp>
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Tue, 30 Mar 2004 09:57:08 +0000
+Subject: Re: Migrate pages from a ccNUMA node to another
+Message-Id: <40694474.50776A10@nospam.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4063F581.ACC5C511@nospam.org>
-	<1080321646.31638.105.camel@nighthawk>
-	<20040330082741.541B77054E@sv1.valinux.co.jp>
-In-Reply-To: <20040330082741.541B77054E@sv1.valinux.co.jp>
+References: <4063F188.66DB690A@nospam.org> <200403300116.01877.efocht@hpce.nec.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Zoltan.Menyhart@bull.net
-Cc: haveblue@us.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, iwamoto@valinux.co.jp
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Erich Focht <efocht@hpce.nec.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hello,
+Erich Focht wrote:
+>=20
+> Szia Zoltan,
+>=20
+> > - Migrate pages identified by their physical addresses to another NUMA =
+node
+> You want this only for your "AI" keeping track of the hw counters in
+> the chipset? I hope you can teach it to keep track of the bandwidth of
+> all processes on the machine, otherwise it might disturb the processes
+> more than it helps them... and waste the machine's bandwidth with
+> migrating pages.
 
-> > Have you considered any common ground your patch might share with the
-> > people doing memory hotplug?
-> > 
-> > 	http://people.valinux.co.jp/~iwamoto/mh.html
-> > 
-> > They have a similar problem to your migration that occurs when a user
-> > wants to remove a whole or partial NUMA node.  
-> > lhms-devel@lists.sourceforge.net
-> 
-> Processes must be migrated to other nodes when a node is being
-> removed.  Conversely, processes may be migrated from other nodes when
-> a node is added.  I'm not familiar with NUMA things, and I think our
-> team doesn't have a particular solution.  If you have some idea,
-> that's great.
-> 
-> BTW, it seems page migration can use my remap_onepage function.  Our
-> code can move most kinds of pages including hugetlbfs pages and page
-> caches.
+Szervusz Erich,
 
-I believe his patch will interest you since most of the code is
-independent of cpu architecture and it also covers mmaped files,
-shmem, ramdisk, mlocked pages and so on.
+I put AI between quotation marks because it is not a real intelligence.
+It should not waste much time on being intelligent :-)
+At least we have not managed to find out a general purpose solution that
+could cope with no matter what application.
+We try to tune parameters, like sampling period / time, how many pages
+are checked, when we consider a page as "hot", how many % or # cycles
+distant vs. local justifies the migration...
+We try to set up a "profile" for an application.
+The launcher of the application takes into account the profile and
+the AI evaluates the HW counters according this profile info.
+I think most of the huge applications of our clients will run several
+times with different data but with the data of similar behavior.
+The clients will have the ability to tune their application profiles.=20
 
-We will post new version of the memory hotplug patches in a week.
+> > - Migrate pages of a virtual user address range to another NUMA node
+> This is good. I'm thinking about the rss/node patches, they would tell
+> you when you should think about migrating something for a process. My
+> current usage model would be simpler: for a given mm migrate all pages
+> currently on node A to node B. But the flexibility of your API will
+> certainly not remain unused.
 
-Thank you,
-Hirokazu Takahashi.
+You should migrate if it worth the cost of the migration to do
+(private malloc()-ed data, stack,...).
+
+Do you mean to guess in the kernel what pages to move ?
+
+I need "real information" :-)) to decide, this is either I ask the HW or
+I wait the application to tell me its requirement.
+
+> > BTW Has someone a machine with a chip set other than i82870 ?
+> ??? As far as I know SGI, HP, NEC and IBM have all their own NUMA
+> chipsets for IA64. Was this the question? Are you looking for hardware
+> counters?
+
+I'd like to know - and someone to try :-)) - how much it costs on another
+chip set to measure the page usage statistics, say for 1 Gbytes of memory...
+
+Thanks,
+
+Zolt=E1n
