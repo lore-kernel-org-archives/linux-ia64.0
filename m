@@ -1,7 +1,7 @@
 From: "David S. Miller" <davem@redhat.com>
-Date: Thu, 15 May 2003 20:15:01 +0000
+Date: Thu, 15 May 2003 20:19:40 +0000
 Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705844@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705845@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,18 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-   From: Colin Ngam <cngam@sgi.com>
-   Date: Thu, 15 May 2003 10:05:28 -0500
+   From: Grant Grundler <iod00d@hp.com>
+   Date: Thu, 15 May 2003 12:06:22 -0700
    
-   I actually like the flag as a parameter because it allows platform
-   specific extensions to pass in platform specific capabilities that
-   can be ignored by platform that does not support these capabilities.
+   This would help chipset specific DMA support pick "optimal"
+   settings for DMA operations.
 
-I hate this concept.  I can't think of any attribute that all
-platforms can't take advantage of in some way and we'd actually
-want drivers to use.
+I vehemently will fight any such rediculious ideas.
 
-Here be the way to private platform-specific interfaces, which is
-totally against the reason we have these interfaces in the first
-place.
+The whole concept behind these portable DMA apis is to avoid
+platforms specific junk, it all must be generic and apply to
+everyone.
+
+   I was thinking of redefining "direction" parameter to be "hints".
+   It would continue to support Read or Write "hint" but then use
+   upper bits as flags for other things (don't want to completely
+   spoil my talk).
+
+Do not mix "must" parameters such as read/write protections with
+"it would be nice if" flag bits.
+
 
