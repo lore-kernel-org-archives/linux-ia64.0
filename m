@@ -1,361 +1,1195 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 29 Nov 2004 20:47:14 +0000
-Subject: [PATCH] add CONFIG_SERIAL_8250_ACPI to bigsur_defconfig
-Message-Id: <200411291347.14365.bjorn.helgaas@hp.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_Sr4qBT98ZyOjoI6"
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 19 Nov 2004 00:28:23 +0000
+Subject: posix timer test program / glibc patch to make glibc posix compliant
+Message-Id: <Pine.LNX.4.58.0411181627540.483@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_Sr4qBT98ZyOjoI6
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Recently patches went into the Linux kernel to correctly implement the
+posix clocks CLOCK_THREAD_CPUTIME_ID and CLOCK_PROCESS_CPUTIME_ID as well
+as the ability to determine the process and thread clocks of other
+processes. The following program is able to exercise the posix
+timer subsystem in various ways and also able to check for posix
+compliance by  detecting system libraries that violate the posix
+specification by  providing real time instead of cpu time (such as glibc).
 
-I recently removed the hard-coded assumption that if you don't have
-an HCDP, you must have legacy COM ports at 0x3f8 and 0x2f8.  So
-now CONFIG_SERIAL_8250_ACPI is *required* in order to find any
-8250 serial devices on ia64.
+Three appendixes follow:
+1. A description of the clocktest program and how to use it.
+2. the source code of the program
+3. A glibc patch to fix these issues and provide access to the Linux
+thread and process clocks.
 
---Boundary-00=_Sr4qBT98ZyOjoI6
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="diffs"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="diffs"
+Feedback appreciated.
 
-Add CONFIG_SERIAL_8250_ACPI so we can find serial devices.  In the
-absence of an HCDP, we used to assume there were legacy COM ports
-at 0x3f8 and 0x2f8, but I recently removed that assumption.
+-----------------------------------------------------------------------------
+clocktest - A test program for posix clock interfaces
 
-"console=ttyS0" still works (assuming you have CONFIG_SERIAL_8250_ACPI
-turned on so you can find the ttyS0 device), but the console doesn't
-start working until the serial driver initializes.  If you need an
-early console and you know where it lives, something like
-"console=uart,io,0x3f8" will start working very early.
+clocktest is a test program for clock access via the POSIX clock and timer
+interface as defined in the POSIX standard and the Single Unix Specification
+(on the web http://www.unix.org). clocktest allows to perform the following
+tests on a Unix system:
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+- Discovery of available clocks
+- Display of current clock values and clock precision
+- Test if process clocks are supported
+- Verification of process clock operation
+- Test if thread clocks are supported
+- Verification of thread clock operation
+- Test timed generation of periodic and single shot signals
+- Access to arbitrary nonstandard clocks (such as CLOCK_SGI_CYCLE)
+- Test may be run directly through the kernel system call interface
+  or via function calls through the system library
+- Verification of POSIX compliant behavior of system library for
+  CLOCK_PROCESS_CPUTIME_ID and CLOCK_THREAD_CPUTIME_ID (a known
+  glibc deficiency)
 
-===== arch/ia64/configs/bigsur_defconfig 1.1 vs edited =====
---- 1.1/arch/ia64/configs/bigsur_defconfig	2004-09-29 11:01:43 -06:00
-+++ edited/arch/ia64/configs/bigsur_defconfig	2004-11-29 13:30:49 -07:00
-@@ -1,7 +1,7 @@
- #
- # Automatically generated make config: don't edit
--# Linux kernel version: 2.6.9-rc2
--# Tue Sep 28 13:26:53 2004
-+# Linux kernel version: 2.6.10-rc2
-+# Mon Nov 29 13:27:48 2004
- #
- 
- #
-@@ -9,6 +9,7 @@
- #
- CONFIG_EXPERIMENTAL=y
- CONFIG_CLEAN_COMPILE=y
-+CONFIG_LOCK_KERNEL=y
- 
- #
- # General setup
-@@ -22,6 +23,7 @@
- # CONFIG_AUDIT is not set
- CONFIG_LOG_BUF_SHIFT=16
- CONFIG_HOTPLUG=y
-+CONFIG_KOBJECT_UEVENT=y
- # CONFIG_IKCONFIG is not set
- # CONFIG_EMBEDDED is not set
- CONFIG_KALLSYMS=y
-@@ -29,12 +31,12 @@
- # CONFIG_KALLSYMS_EXTRA_PASS is not set
- CONFIG_FUTEX=y
- CONFIG_EPOLL=y
--CONFIG_IOSCHED_NOOP=y
--CONFIG_IOSCHED_AS=y
--CONFIG_IOSCHED_DEADLINE=y
--CONFIG_IOSCHED_CFQ=y
- # CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
- CONFIG_SHMEM=y
-+CONFIG_CC_ALIGN_FUNCTIONS=0
-+CONFIG_CC_ALIGN_LABELS=0
-+CONFIG_CC_ALIGN_LOOPS=0
-+CONFIG_CC_ALIGN_JUMPS=0
- # CONFIG_TINY_SHMEM is not set
- 
- #
-@@ -45,6 +47,7 @@
- # CONFIG_MODULE_FORCE_UNLOAD is not set
- CONFIG_OBSOLETE_MODPARM=y
- # CONFIG_MODVERSIONS is not set
-+# CONFIG_MODULE_SRCVERSION_ALL is not set
- CONFIG_KMOD=y
- CONFIG_STOP_MACHINE=y
- 
-@@ -84,6 +87,7 @@
- CONFIG_HAVE_DEC_LOCK=y
- CONFIG_IA32_SUPPORT=y
- CONFIG_COMPAT=y
-+# CONFIG_IA64_MCA_RECOVERY is not set
- CONFIG_PERFMON=y
- CONFIG_IA64_PALINFO=y
- 
-@@ -107,9 +111,11 @@
- CONFIG_ACPI_BOOT=y
- CONFIG_ACPI_INTERPRETER=y
- CONFIG_ACPI_BUTTON=m
-+CONFIG_ACPI_VIDEO=m
- CONFIG_ACPI_FAN=m
- CONFIG_ACPI_PROCESSOR=m
- CONFIG_ACPI_THERMAL=m
-+CONFIG_ACPI_BLACKLIST_YEAR=0
- # CONFIG_ACPI_DEBUG is not set
- CONFIG_ACPI_BUS=y
- CONFIG_ACPI_POWER=y
-@@ -131,9 +137,13 @@
- # CONFIG_HOTPLUG_PCI is not set
- 
- #
--# PCMCIA/CardBus support
-+# PCCARD (PCMCIA/CardBus) support
-+#
-+# CONFIG_PCCARD is not set
+Usage
+-----
+
+clocktest <option1> <option2> ... <test>
+
+Available tests are
+
+--scan	Perform a scan for available clocks. Test availability of process
+	and thread clocks. Verify POSIX compliant behavior of CLOCK_*_CPUTIME_ID
+	clocks if glibc interface is in use.
+
+--timer	Perform a periodic timer test. By default the test is run on
+	CLOCK_REALTIME with a period of 1234567ns and a count of 5 signals
+
+--show	Show clock value and precision
+
+--clock-status Clock status summary for standard clocks (also default if no
+	test specified)
+
+--process-clocks Tests the ability to retrieve process and thread clocks of
+	other processes
+
+--single-thread	Verify thread/process clock operation in a single process
+
+--multi-thread	Verify thread/process clock operations using threads
+
+Available options are:
+
+--kernel	Use kernel interface for clock tests [default]
+--glibc		Use glibc library for clock tests
+--clock=N	Use the named or numbered clock for the test
+--interval=N	Use the specified interval for the timer test
+--count=N	Specify the number of interations for a periodic timer test.
+		Specify count=1 for single shot mode
+--busywait	Busywait instead of giving up the time slice. This increases
+		the reaction time of the process receiving the signal.
+
+
+Typical uses:
+
+clocktest	Show default clocks and their resolutions
+
+clocktest --clock=SGI_CYCLE --timer
+		Test intervals generated by SGI SHub RTC interrupts
+
+clocktest --glibc --scan
+		Detect glibc limitations
+
+clocktest --kernel --scan
+		Show kernel time capabilities
+
+
+----------------------------------------------------------------------
+
+/*********************************************************************
+    Program to exercise the posix time subsystem of Linux
+
+    Copyright (C) 2004 Silicon Graphics, Inc. All rights reserved
+
+    Christoph Lameter <christoph@lameter.com>
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+********************************************************************/
+
+#define POSIX_SOURCE 1
+#include <stdio.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <time.h>
+#include <errno.h>
+#include <asm/unistd.h>
+#include <pthread.h>
+#include <strings.h>
+#include <sys/time.h>
+#include <getopt.h>
+
+#define VERSION "0.2"
+
+/* Default program options */
+int verbose = 0;
+int clockid = CLOCK_REALTIME;
+int interval = 1234567;
+int count = 5;
+int use_glibc = 0;
+int busywait = 0;
+
+#define PID_MAX_LIMIT (sizeof(long) > 4 ? 4*1024*1024 : 0x8000)
+
+/* We need to be able to redirect these calls to bypass glibc since
+ * there are old version of glibc around that do not support all these calls.
+ */
+
+int t_clock_getres(int clk_id, struct timespec *res) {
+	if (use_glibc)
+		return clock_getres(clk_id,res);
+	else
+		return syscall(__NR_clock_getres, clk_id, res);
+}
+
+int t_clock_gettime(int clk_id, struct timespec *tp) {
+	if (use_glibc)
+		return clock_gettime(clk_id, tp);
+	else
+		return syscall(__NR_clock_gettime, clk_id, tp);
+}
+
+int t_clock_settime(int clk_id, struct timespec *tp) {
+	if (use_glibc)
+		return clock_settime(clk_id, tp);
+	else
+		return syscall(__NR_clock_settime, clk_id, tp);
+}
+
+int t_clock_getcpuclockid(int pid, int *clock) {
+	if (use_glibc)
+		return clock_getcpuclockid(pid,clock);
+
+	*clock = ((pid = 0) ? CLOCK_PROCESS_CPUTIME_ID : -pid);
+	return 0;
+}
+
+int t_timer_create(int clockid, struct sigevent *evp,
+	timer_t *t) {
+
+	if (use_glibc)
+		return timer_create(clockid, evp, t);
+	else
+		return syscall(__NR_timer_create, clockid, evp, t);
+}
+
+int t_timer_gettime(timer_t t,struct itimerspec *value) {
+	if (use_glibc)
+		return timer_gettime(t,value);
+	else
+		return syscall(__NR_clock_gettime, t, value);
+}
+
+int t_timer_settime(timer_t t,int flags,
+	const struct itimerspec *value, struct itimerspec *ovalue) {
+	if (use_glibc)
+		return timer_settime(t, flags, value, ovalue);
+	else
+		return syscall(__NR_timer_settime, t, flags, value, ovalue);
+}
+
+int t_timer_delete(timer_t t) {
+	if (use_glibc)
+		return timer_delete(t);
+	else
+		return syscall(__NR_timer_delete, t);
+}
+
+int t_timer_getoverrun(timer_t t) {
+	if (use_glibc)
+		return timer_getoverrun(t);
+	else
+		return syscall(__NR_timer_getoverrun, t);
+}
+
+char *clockstr [] = {
+	/* 0-3 Standard POSIX Clocks */
+	"REALTIME","MONOTONIC","PROCESS_CPUTIME_ID","THREAD_CPUTIME_ID",
+	/* 4-5 Unused clocks mentioned in linux 2.6.9 source code */
+	"REALTIME_HR","MONOTONIC_HR",
+	/* 6-9 spacer */
+	"6","7","8","9",
+	/* 10- Driver specific clocks */
+	"SGI_CYCLE",
+	NULL
+};
+
+int clockstr_to_id(char *s) {
+	char **p;
+
+	if (isdigit(*s)) return atoi(s);
+	if (strncmp(s,"CLOCK_",6) =0) s+=6;
+
+	for(p= clockstr;*p;*p++) if (strcasecmp(s,*p)=0) return p-clockstr;
+	return -1;
+}
+
+char *clockid_to_str(int n) {
+	static char buffer[40];
+
+	if (n<0) {
+		n = -n;
+		if (n < (8 << 20))
+			sprintf(buffer, "CLOCK_PROCESS(%d)", n);
+		else {
+			n -= (8 << 20);
+			sprintf(buffer, "CLOCK_THREAD(%d)", n);
+		}
+	} else
+	if (n < sizeof(clockstr) / sizeof(char *))
+		sprintf(buffer, "CLOCK_%s", clockstr[n]);
+	else
+		sprintf(buffer, "CLOCK(%d)", n);
+out:
+	return buffer;
+}
+
+unsigned long long time_diff(const struct timespec *t1, const struct timespec *t2) {
+	return t2->tv_nsec - t1->tv_nsec + (t2->tv_sec - t1->tv_sec) * 1000000000LL;
+}
+
+void pr(int clock)
+{
+	struct timespec tv = {1,2};
+	struct timespec res = {3,4};
+	int rc;
+
+	rc=t_clock_getres(clock,&res);
+	if (rc) {
+		printf("getres return code on %s=%d errno=%d\n",clockid_to_str(clock),rc,errno);
+	}
+	rc=t_clock_gettime(clock,&tv);
+	if (rc) {
+		printf("gettime return code on %s=%d errno=%d\n",clockid_to_str(clock),rc, errno);
+	}
+	else
+	printf("%25s=% 11ld.%09ld resolution=% 2ld.%09ld\n",clockid_to_str(clock),tv.tv_sec,tv.tv_nsec,res.tv_sec,res.tv_nsec);
+}
+
+void fourclocks(void) {
+	int i;
+
+	for(i=0; i<4; i++) pr(i);
+}
+
+
+int y;
+
+void kx(long long x) {
+	y=x;
+};
+
+void single_thread(void) {
+	int i;
+
+	/* Waste some time */
+	printf("\nSingle Thread Testing\n--------------------\n");
+	fourclocks();
+	printf("10,000,000 divisions ...\n");
+	for(i=1;i<10000000;i++) kx(1000000000000LL/i);
+	fourclocks();
+}
+
+struct timespec zero;
+
+pthread_t thread[10];
+
+struct tinfo {
+	int i;
+	struct timespec ttime,ptime;
+} tinf[10];
+
+void *thread_function(void *x) {
+	struct tinfo *t=x;
+	int i;
+
+	for(i=1;i< t->i;i++) kx(1000000000000LL/i);
+	t_clock_gettime(CLOCK_THREAD_CPUTIME_ID,&t->ttime);
+	t_clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&t->ptime);
+	return NULL;
+}
+
+void multi_thread(void) {
+	int i;
+	int initpclock;
+	int selftclock;
+
+	/* Waste some more time in threads */
+	printf("\nMulti Thread Testing\n----------------------\n");
+	fourclocks();
+	printf("Starting Thread:");
+	for(i=0;i<10;i++) {
+		tinf[i].i=i*1000000;
+		if (pthread_create(&thread[i], NULL, thread_function, tinf+i))
+			perror("thread");
+		else
+			printf(" %d",i);
+	}
+	printf("\n Joining Thread:");
+	for(i=0;i<10;i++)
+		if (pthread_join( thread[i], NULL))
+			perror("join");
+		else
+			printf(" %d",i);
+	printf("\n");
+	for(i=0;i<10;i++) {
+		printf("%d Cycles=%7d Thread=% 3ld.%09ldns Process=% 3ld.%09ldns\n",i,tinf[i].i,tinf[i].ttime.tv_sec,tinf[i].ttime.tv_nsec,tinf[i].ptime.tv_sec,tinf[i].ptime.tv_nsec);
+	}
+	if (t_clock_getcpuclockid(1,&initpclock))
+		printf("clock_getcpuclockid failed\n");
+	if (pthread_getcpuclockid(pthread_self(),&selftclock))
+		printf("pthread_getcpuclockid failed\n");
+	pr(initpclock);
+	pr(selftclock);
+	printf("process clock of init (1) = %d. My own threadclock =%d\n",initpclock,selftclock);
+	fourclocks();
+}
+
+static volatile sig_atomic_t timer_tick = 0;
+#define MAX_STEPS 1000
+
+struct timespec ev[MAX_STEPS];
+int overruns[MAX_STEPS];
+int soverruns[MAX_STEPS];
+
+int g_nsteps;
+timer_t timer_id;
+
+void sigalarm(int signo, siginfo_t *si, void *x)
+{
+	soverruns[timer_tick] = si->si_overrun;
+	overruns[timer_tick] = t_timer_getoverrun(timer_id);
+	t_clock_gettime(CLOCK_REALTIME,ev + timer_tick++ );
+
+	if (timer_tick = g_nsteps) {
+		struct itimerspec ts;
+
+		/* Disarm timer */
+		ts.it_interval = zero;
+		ts.it_value = zero;
+		t_timer_settime(timer_id, 0, &ts, NULL);
+	}
+	printf(".");
+//    fflush(stdout);
+}
+
+
+int timer_test(int clockid, int nanosec, int nsteps) {
+	struct itimerspec ts;
+	struct sigevent se;
+	struct sigaction act;
+	struct timespec time0,time1;
+	int i;
+	int signum = SIGRTMAX;
+	int status;
+
+	if (nsteps > MAX_STEPS) {
+		printf("Maximum number of steps is %d\n",MAX_STEPS);
+		exit(1);
+	}
+
+	g_nsteps = nsteps;
+
+	timer_tick = 0;
+	/* Set up signal handler: */
+	sigfillset(&act.sa_mask);
+	act.sa_flags = 0;
+	act.sa_sigaction = sigalarm;
+	sigaction(signum, &act, NULL);
+
+	/* Set up timer: */
+	memset(&se, 0, sizeof(se));
+	se.sigev_notify = SIGEV_SIGNAL;
+	se.sigev_signo = signum;
+	se.sigev_value.sival_int = 0;
+	status = t_timer_create(clockid, &se, &timer_id);
+	if (status < 0) {
+		perror("timer_create");
+		return -1;
+	}
+	/* Start timer: */
+	ts.it_interval.tv_sec = nanosec / 1000000000;
+	ts.it_interval.tv_nsec = (nanosec % 1000000000);
+	ts.it_value = ts.it_interval;
+	/* Tick */
+	t_clock_gettime(CLOCK_REALTIME,&time0);
+	printf("Receiving signals: ");
+//	fflush(stdout);
+	status = t_timer_settime(timer_id, 0, &ts, NULL);
+	if (status < 0) {
+		perror("timer_settime");
+		t_timer_delete(timer_id);
+		return -1;
+	}
+
+	/* Loop: */
+	if (busywait) {
+		while (timer_tick < nsteps)	;
+	} else {
+		while (timer_tick < nsteps)
+			sched_yield();
+	}
+	/* Tock */
+	ts.it_interval = zero;
+	ts.it_value = zero;
+	t_timer_settime(timer_id, 0, &ts, NULL);
+	t_clock_gettime(CLOCK_REALTIME, &time1);
+//	printf("\nOverruns: %d\n", t_timer_getoverrun(timer_id));
+	t_timer_delete(timer_id);
+	printf("\nTotal time=%luns\n", time1.tv_nsec - time0.tv_nsec + (time1.tv_sec - time0.tv_sec)*1000000000LL);
+
+	printf("Events (%d in an interval of %dns)\n",nsteps, nanosec);
+	for(i=0; i < nsteps; i++) {
+		long ns = ev[i].tv_nsec - time0.tv_nsec + (ev[i].tv_sec - time0.tv_sec)*1000000000LL;
+		printf("Signal #%d received in %luns. Overruns=%d/%d Target was=%ld Diff=%d\n",i+1,ns,overruns[i],soverruns[i],(i+1)*interval,ns-(i+1)*interval);
+	}
+
+	return 0;
+}
+
+void standard_timer_test(void) {
+	printf("\nTest %s signal scheduling:\n"
+		"----------------------------------------------\n",clockid_to_str(clockid));
+	timer_test(clockid,interval,count);
+}
+
+void other_processes_clocks_test(void) {
+	int i;
+
+	printf("\nTest other processes clocks:\n------------------------------\n");
+	for(i=1 ; i< 100; i+) {
+		printf("Process %d:\n",i);
+		pr(-i);
+		pr(-i - PID_MAX_LIMIT);
+	}
+	printf("\n");
+}
+
+void clock_scan(void) {
+	int i;
+	int n = 0;
+	struct timespec t;
+	int status;
+
+	printf("Scan for available clocks:\n");
+	printf("--------------------------\n");
+
+	if (use_glibc) {
+		/* Test for broken posix behavior */
+		struct timespec t;
+
+		printf("Using glibc function calls for posix time\n");
+		if (clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t)=0) {
+			struct timespec t2;
+
+			sleep(1);
+			clock_gettime(CLOCK_PROCESS_CPUTIME_ID,&t2);
+			if (time_diff(&t,&t2) >100000000LL)
+				printf("\nPOSIX violation: real time returns instead of cpu time for CLOCK_*_CPUTIME_ID!\n\n");
+		}
+	}
+
+	if ((status = t_clock_gettime(-1, &t)) = 0)
+		printf("Process clocks available.\n");
+	else if (verbose)
+		printf("Process Clock Error = %d %d\n", status, errno);
+	if ((status = t_clock_gettime(-PID_MAX_LIMIT -1, &t)) = 0)
+		printf("Thread clocks available.\n");
+	else if (verbose)
+		printf("Thread Clock Error = %d %d\n", status, errno);
+
+	printf("\n");
+	for(i=0; i < 100; i++) {
+		status = t_clock_gettime(i, &t);
+
+		if (verbose && status)
+			printf("Status for %s = %d %d\n", clockid_to_str(i), status, errno);
+
+		if (!status) {
+			printf("%s\n",clockid_to_str(i));
+			n++;
+		}
+	}
+	printf("\n%d clocks found.\n",n);
+
+}
+
+int test_single_thread, test_multi_thread, test_other_process_clocks, test_timer,
+    test_clock_status, do_scan, showclock;
+
+static struct option ct_options[] = {
+	{ "single-thread", 0, &test_single_thread, 1 },
+	{ "multi-thread", 0, &test_multi_thread, 1 },
+	{ "process-clocks", 0, &test_other_process_clocks, 1 },
+	{ "timer", 0, &test_timer, 1 },
+	{ "clock-status", 0, &test_clock_status, 1 },
+	{ "scan", 0, &do_scan, 1 },
+	{ "show", 0, NULL, 's' },
+	{ "glibc", 0, NULL, 'g' },
+	{ "kernel", 0, NULL, 'k' },
+	{ "clock", 1, NULL, 'c' },
+	{ "interval", 1, NULL, 'i' },
+	{ "count", 1, NULL, 'n' },
+	{ "verbose", 0, NULL, 'v' },
+	{ "help", 0, NULL, 'h' },
+	{ "version", 0, NULL, 'V' },
+	{ "busywait", 0, NULL, 'b' },
+	{ 0, 0, NULL, 0}
+};
+
+void usage(char *cmd) {
+	printf("clocktest comes with ABSOLUTELY NO WARRANTY. This is free software which may\n"
+	"be redistributed under the terms of the GNU General Public License. See the\n"
+	"sourcecode for details. Written by Christoph Lameter <christoph@lameter.com>\n\n"
+	);
+	printf("Copyright (C) 2004 Silicon Graphics Inc (http://www.sgi.com).\n\n");
+
+	printf("usage: %s [OPTIONS]... \n", cmd);
+
+	printf( "-h, --help\t\tdisplay this help and exit\n"
+                "-V, --version\t\toutput version information and exit\n"
+		"--single-thread\t\ttest process/thread clocks for single thread\n"
+		"--multi-thread\t\ttest process/thread clocks for multi threads\n"
+		"--process-clocks\ttest process clocks for other processes\n"
+		"--timer\t\t\tdo a posix interval timer test\n"
+		"--scan\t\t\tscan for available clocks\n"
+		"--clock-status\t\tdisplay clock status (default)\n"
+		"-s,--show\t\tShow single clock status\n"
+		"-c,--clock=N\t\tUse specified clockid instead of CLOCK_REALTIME\n"
+		"-g,--glibc\t\tUse glibc functions for testing\n"
+		"-k,--kernel\t\tUse system calls bypassing glibc (default)\n"
+		"-i,--interval=ns\tUse the specified interval instead of 1234567ns\n"
+		"-n,--count=N\t\tRepeat timer signal N times instead of 5 times\n"
+		"-b,--busywait\t\tUse a busy loop for waiting instead of suspending the process\n"
+	);
+}
+
+int main(int argc, char *argv[])
+{
+	char c;
+
+	while ((c=getopt_long(argc, argv, "bkgvsVhc:i:n:", ct_options, 0)) != -1) switch (c) {
+		case 0 : break;
+
+		case 'b' : busywait = 1;
+			  break;
+
+		case 'c' : clockid = clockstr_to_id(optarg);
+			   if (clockid <0) {
+				   fprintf(stderr,"Unknown clock:%s\n",optarg);
+				   exit(2);
+			   }
+			   break;
+
+		case 'i' : interval = atoi(optarg);
+			   break;
+
+		case 'n' : count = atoi(optarg);
+			   break;
+
+		case 'v' : verbose++;
+			break;
+
+		case 'g' : use_glibc = 1;
+			break;
+
+		case 'k' : use_glibc = 0;
+			break;
+
+		case 's' :
+			   showclock = 1;
+			break;
+		case 'V' :
+			printf("clock_test version " VERSION "Christoph Lameter\n");
+			exit(0);
+
+		case 'h' :
+			usage(argv[0]);
+			exit(0);
+
+		default:
+			fprintf(stderr, "Unknown command %c\n",c);
+			usage(argv[0]);
+			exit(1);
+	}
+
+	if (showclock) pr(clockid); else
+	if (do_scan) clock_scan(); else
+	if (test_single_thread) single_thread(); else
+	if (test_multi_thread) multi_thread(); else
+	if (test_other_process_clocks) other_processes_clocks_test(); else
+	if (test_timer) standard_timer_test(); else
+	{
+		struct timespec tv;
+
+		gettimeofday((struct timeval *)&tv, NULL);
+		tv.tv_nsec = tv.tv_nsec*1000;
+		printf("Current values of POSIX clocks:"
+		     "\n-------------------------------\n");
+		fourclocks();
+
+		printf("          Gettimeofday() =% 11ld.%09ld\n",tv.tv_sec,tv.tv_nsec);
+	}
+	return 0;
+}
+------------------------------------------------------------------------
+
+Index: libc/nptl/sysdeps/pthread/pthread_getcpuclockid.c
+=================================--- libc.orig/nptl/sysdeps/pthread/pthread_getcpuclockid.c	2004-10-26 10:34:39.130349968 -0700
++++ libc/nptl/sysdeps/pthread/pthread_getcpuclockid.c	2004-11-18 16:15:47.959666831 -0800
+@@ -20,7 +20,7 @@
+ #include <pthreadP.h>
+ #include <sys/time.h>
+ #include <tls.h>
+-
++#include <linux/threads.h>
+
+ int
+ pthread_getcpuclockid (threadid, clockid)
+@@ -35,19 +35,8 @@
+     return ESRCH;
+
+ #ifdef CLOCK_THREAD_CPUTIME_ID
+-  /* We need to store the thread ID in the CLOCKID variable together
+-     with a number identifying the clock.  We reserve the low 3 bits
+-     for the clock ID and the rest for the thread ID.  This is
+-     problematic if the thread ID is too large.  But 29 bits should be
+-     fine.
+-
+-     If some day more clock IDs are needed the ID part can be
+-     enlarged.  The IDs are entirely internal.  */
+-  if (pd->tid >= 1 << (8 * sizeof (*clockid) - CLOCK_IDFIELD_SIZE))
+-    return ERANGE;
+-
+   /* Store the number.  */
+-  *clockid = CLOCK_THREAD_CPUTIME_ID | (pd->tid << CLOCK_IDFIELD_SIZE);
++  *clockid = - (pd->tid + PID_MAX_LIMIT);
+
+   return 0;
+ #else
+Index: libc/sysdeps/unix/sysv/linux/clock_getres.c
+=================================--- libc.orig/sysdeps/unix/sysv/linux/clock_getres.c	2004-10-26 10:34:42.523834080 -0700
++++ libc/sysdeps/unix/sysv/linux/clock_getres.c	2004-11-18 16:15:47.973665948 -0800
+@@ -20,24 +20,17 @@
+
+ #include "kernel-features.h"
+
+-
+ #ifdef __ASSUME_POSIX_TIMERS
+-/* This means the REALTIME and MONOTONIC clock are definitely
+-   supported in the kernel.  */
+-# define SYSDEP_GETRES \
+-  case CLOCK_REALTIME:							      \
+-  case CLOCK_MONOTONIC:							      \
+-    retval = INLINE_SYSCALL (clock_getres, 2, clock_id, res);		      \
+-    break
++/* we have to rely on the kernel */
++#define SYSDEP_DEFAULT_GETRES retval = INLINE_SYSCALL(clock_getres, err, 2, clock_id, res)
 +
-+#
-+# PC-card bridges
- #
--# CONFIG_PCMCIA is not set
- 
- #
- # Device Drivers
-@@ -160,6 +170,7 @@
- #
- # Plug and Play support
- #
-+# CONFIG_PNP is not set
- 
- #
- # Block devices
-@@ -175,6 +186,16 @@
- # CONFIG_BLK_DEV_UB is not set
- CONFIG_BLK_DEV_RAM=m
- CONFIG_BLK_DEV_RAM_SIZE=4096
-+CONFIG_INITRAMFS_SOURCE=""
-+# CONFIG_CDROM_PKTCDVD is not set
-+
-+#
-+# IO Schedulers
-+#
-+CONFIG_IOSCHED_NOOP=y
-+CONFIG_IOSCHED_AS=y
-+CONFIG_IOSCHED_DEADLINE=y
-+CONFIG_IOSCHED_CFQ=y
- 
- #
- # ATA/ATAPI/MFM/RLL support
-@@ -193,7 +214,6 @@
- CONFIG_BLK_DEV_IDEFLOPPY=m
- # CONFIG_BLK_DEV_IDESCSI is not set
- # CONFIG_IDE_TASK_IOCTL is not set
--# CONFIG_IDE_TASKFILE_IO is not set
- 
- #
- # IDE chipset support/bugfixes
-@@ -282,12 +302,14 @@
- # CONFIG_SCSI_FUTURE_DOMAIN is not set
- # CONFIG_SCSI_GDTH is not set
- # CONFIG_SCSI_IPS is not set
-+# CONFIG_SCSI_INITIO is not set
- # CONFIG_SCSI_INIA100 is not set
- # CONFIG_SCSI_SYM53C8XX_2 is not set
- # CONFIG_SCSI_IPR is not set
- # CONFIG_SCSI_QLOGIC_ISP is not set
- # CONFIG_SCSI_QLOGIC_FC is not set
- CONFIG_SCSI_QLOGIC_1280=y
-+# CONFIG_SCSI_QLOGIC_1280_1040 is not set
- CONFIG_SCSI_QLA2XXX=y
- # CONFIG_SCSI_QLA21XX is not set
- # CONFIG_SCSI_QLA22XX is not set
-@@ -311,6 +333,7 @@
- CONFIG_MD_RAID5=m
- CONFIG_MD_RAID6=m
- CONFIG_MD_MULTIPATH=m
-+# CONFIG_MD_FAULTY is not set
- CONFIG_BLK_DEV_DM=m
- CONFIG_DM_CRYPT=m
- CONFIG_DM_SNAPSHOT=m
-@@ -357,6 +380,8 @@
- # CONFIG_INET_ESP is not set
- # CONFIG_INET_IPCOMP is not set
- # CONFIG_INET_TUNNEL is not set
-+CONFIG_IP_TCPDIAG=y
-+# CONFIG_IP_TCPDIAG_IPV6 is not set
- # CONFIG_IPV6 is not set
- # CONFIG_NETFILTER is not set
- 
-@@ -376,7 +401,6 @@
- # CONFIG_NET_DIVERT is not set
- # CONFIG_ECONET is not set
- # CONFIG_WAN_ROUTER is not set
--# CONFIG_NET_HW_FLOWCONTROL is not set
- 
- #
- # QoS and/or fair queueing
-@@ -437,7 +461,6 @@
- # CONFIG_EPIC100 is not set
- # CONFIG_SUNDANCE is not set
- # CONFIG_VIA_RHINE is not set
--# CONFIG_VIA_VELOCITY is not set
- 
- #
- # Ethernet (1000 Mbit)
-@@ -450,6 +473,7 @@
- # CONFIG_YELLOWFIN is not set
- # CONFIG_R8169 is not set
- # CONFIG_SK98LIN is not set
-+# CONFIG_VIA_VELOCITY is not set
- # CONFIG_TIGON3 is not set
- 
- #
-@@ -549,7 +573,7 @@
- #
- CONFIG_SERIAL_8250=y
- CONFIG_SERIAL_8250_CONSOLE=y
--# CONFIG_SERIAL_8250_ACPI is not set
-+CONFIG_SERIAL_8250_ACPI=y
- CONFIG_SERIAL_8250_NR_UARTS=4
- CONFIG_SERIAL_8250_EXTENDED=y
- CONFIG_SERIAL_8250_SHARE_IRQ=y
-@@ -627,6 +651,7 @@
- # CONFIG_I2C_SIS5595 is not set
- # CONFIG_I2C_SIS630 is not set
- # CONFIG_I2C_SIS96X is not set
-+# CONFIG_I2C_STUB is not set
- # CONFIG_I2C_VIA is not set
- # CONFIG_I2C_VIAPRO is not set
- # CONFIG_I2C_VOODOO3 is not set
-@@ -644,14 +669,17 @@
- # CONFIG_SENSORS_FSCHER is not set
- # CONFIG_SENSORS_GL518SM is not set
- # CONFIG_SENSORS_IT87 is not set
-+# CONFIG_SENSORS_LM63 is not set
- # CONFIG_SENSORS_LM75 is not set
- # CONFIG_SENSORS_LM77 is not set
- # CONFIG_SENSORS_LM78 is not set
- # CONFIG_SENSORS_LM80 is not set
- # CONFIG_SENSORS_LM83 is not set
- # CONFIG_SENSORS_LM85 is not set
-+# CONFIG_SENSORS_LM87 is not set
- # CONFIG_SENSORS_LM90 is not set
- # CONFIG_SENSORS_MAX1619 is not set
-+# CONFIG_SENSORS_PC87360 is not set
- # CONFIG_SENSORS_SMSC47M1 is not set
- # CONFIG_SENSORS_VIA686A is not set
- # CONFIG_SENSORS_W83781D is not set
-@@ -773,7 +801,7 @@
- # CONFIG_SND_VX222 is not set
- 
- #
--# ALSA USB devices
-+# USB devices
- #
- # CONFIG_SND_USB_AUDIO is not set
- # CONFIG_SND_USB_USX2Y is not set
-@@ -797,6 +825,8 @@
- # CONFIG_USB_DYNAMIC_MINORS is not set
- # CONFIG_USB_SUSPEND is not set
- # CONFIG_USB_OTG is not set
-+CONFIG_USB_ARCH_HAS_HCD=y
-+CONFIG_USB_ARCH_HAS_OHCI=y
- 
- #
- # USB Host Controller Drivers
-@@ -826,7 +856,7 @@
- # CONFIG_USB_STORAGE_JUMPSHOT is not set
- 
- #
--# USB Human Interface Devices (HID)
-+# USB Input Devices
- #
- CONFIG_USB_HID=m
- CONFIG_USB_HIDINPUT=y
-@@ -864,7 +894,7 @@
- #
- 
- #
--# USB Network adaptors
-+# USB Network Adapters
- #
- # CONFIG_USB_CATC is not set
- # CONFIG_USB_KAWETH is not set
-@@ -893,10 +923,15 @@
- # CONFIG_USB_LCD is not set
- # CONFIG_USB_LED is not set
- # CONFIG_USB_CYTHERM is not set
-+# CONFIG_USB_PHIDGETKIT is not set
- # CONFIG_USB_PHIDGETSERVO is not set
- # CONFIG_USB_TEST is not set
- 
- #
-+# USB ATM/DSL drivers
-+#
-+
-+#
- # USB Gadget Support
- #
- # CONFIG_USB_GADGET is not set
-@@ -925,6 +960,7 @@
- # CONFIG_ROMFS_FS is not set
- # CONFIG_QUOTA is not set
- CONFIG_QUOTACTL=y
-+CONFIG_DNOTIFY=y
- CONFIG_AUTOFS_FS=m
- CONFIG_AUTOFS4_FS=m
- 
-@@ -957,6 +993,7 @@
- CONFIG_DEVPTS_FS_XATTR=y
- CONFIG_DEVPTS_FS_SECURITY=y
- CONFIG_TMPFS=y
-+# CONFIG_TMPFS_XATTR is not set
- CONFIG_HUGETLBFS=y
- CONFIG_HUGETLB_PAGE=y
- CONFIG_RAMFS=y
-@@ -1087,9 +1124,11 @@
- #
- CONFIG_DEBUG_KERNEL=y
- CONFIG_MAGIC_SYSRQ=y
-+# CONFIG_SCHEDSTATS is not set
- # CONFIG_DEBUG_SLAB is not set
- # CONFIG_DEBUG_SPINLOCK is not set
- # CONFIG_DEBUG_SPINLOCK_SLEEP is not set
-+# CONFIG_DEBUG_KOBJECT is not set
- # CONFIG_DEBUG_INFO is not set
- # CONFIG_IA64_GRANULE_16MB is not set
- CONFIG_IA64_GRANULE_64MB=y
-@@ -1102,6 +1141,7 @@
- #
- # Security options
- #
-+# CONFIG_KEYS is not set
- # CONFIG_SECURITY is not set
- 
- #
-@@ -1115,7 +1155,7 @@
- # CONFIG_CRYPTO_SHA1 is not set
- # CONFIG_CRYPTO_SHA256 is not set
- # CONFIG_CRYPTO_SHA512 is not set
--# CONFIG_CRYPTO_WHIRLPOOL is not set
-+# CONFIG_CRYPTO_WP512 is not set
- CONFIG_CRYPTO_DES=y
- # CONFIG_CRYPTO_BLOWFISH is not set
- # CONFIG_CRYPTO_TWOFISH is not set
-@@ -1126,6 +1166,7 @@
- # CONFIG_CRYPTO_TEA is not set
- # CONFIG_CRYPTO_ARC4 is not set
- # CONFIG_CRYPTO_KHAZAD is not set
-+# CONFIG_CRYPTO_ANUBIS is not set
- # CONFIG_CRYPTO_DEFLATE is not set
- # CONFIG_CRYPTO_MICHAEL_MIC is not set
- # CONFIG_CRYPTO_CRC32C is not set
+ #elif defined __NR_clock_getres
+ /* Is the syscall known to exist?  */
+ extern int __libc_missing_posix_timers attribute_hidden;
 
---Boundary-00=_Sr4qBT98ZyOjoI6--
+ /* The REALTIME and MONOTONIC clock might be available.  Try the
+    syscall first.  */
+-# define SYSDEP_GETRES \
+-  case CLOCK_REALTIME:							      \
+-  case CLOCK_MONOTONIC:							      \
++# define SYSDEP_DEFAULT_GETRES \
+     {									      \
+       int e = EINVAL;							      \
+ 									      \
+@@ -65,7 +58,7 @@
+       else								      \
+ 	__set_errno (e);						      \
+     }									      \
+-    break
++
+ #endif
+
+ #ifdef __NR_clock_getres
+Index: libc/sysdeps/unix/clock_gettime.c
+=================================--- libc.orig/sysdeps/unix/clock_gettime.c	2004-10-26 10:34:41.423001432 -0700
++++ libc/sysdeps/unix/clock_gettime.c	2004-11-18 16:15:48.010663617 -0800
+@@ -23,21 +23,6 @@
+ #include <libc-internal.h>
+ #include <ldsodefs.h>
+
+-
+-#if HP_TIMING_AVAIL
+-/* Clock frequency of the processor.  We make it a 64-bit variable
+-   because some jokers are already playing with processors with more
+-   than 4GHz.  */
+-static hp_timing_t freq;
+-
+-
+-/* This function is defined in the thread library.  */
+-extern int __pthread_clock_gettime (clockid_t clock_id, hp_timing_t freq,
+-				    struct timespec *tp)
+-     __attribute__ ((__weak__));
+-#endif
+-
+-
+ /* Get current value of CLOCK and store it in TP.  */
+ int
+ clock_gettime (clockid_t clock_id, struct timespec *tp)
+@@ -66,58 +51,14 @@
+ #endif
+
+     default:
+-#if HP_TIMING_AVAIL
+-      if ((clock_id & ((1 << CLOCK_IDFIELD_SIZE) - 1))
+-	  != CLOCK_THREAD_CPUTIME_ID)
+-#endif
++#ifdef SYSDEP_DEFAULT_GETTIME
++      SYSDEP_DEFAULT_GETTIME;
++#else
+ 	{
+ 	  __set_errno (EINVAL);
+ 	  break;
+ 	}
+-
+-#if HP_TIMING_AVAIL
+-      /* FALLTHROUGH.  */
+-    case CLOCK_PROCESS_CPUTIME_ID:
+-      {
+-	hp_timing_t tsc;
+-
+-	if (__builtin_expect (freq = 0, 0))
+-	  {
+-	    /* This can only happen if we haven't initialized the `freq'
+-	       variable yet.  Do this now. We don't have to protect this
+-	       code against multiple execution since all of them should
+-	       lead to the same result.  */
+-	    freq = __get_clockfreq ();
+-	    if (__builtin_expect (freq = 0, 0))
+-	      /* Something went wrong.  */
+-	      break;
+-	  }
+-
+-	if (clock_id != CLOCK_PROCESS_CPUTIME_ID
+-	    && __pthread_clock_gettime != NULL)
+-	  {
+-	    retval = __pthread_clock_gettime (clock_id, freq, tp);
+-	    break;
+-	  }
+-
+-	/* Get the current counter.  */
+-	HP_TIMING_NOW (tsc);
+-
+-	/* Compute the offset since the start time of the process.  */
+-	tsc -= GL(dl_cpuclock_offset);
+-
+-	/* Compute the seconds.  */
+-	tp->tv_sec = tsc / freq;
+-
+-	/* And the nanoseconds.  This computation should be stable until
+-	   we get machines with about 16GHz frequency.  */
+-	tp->tv_nsec = ((tsc % freq) * UINT64_C (1000000000)) / freq;
+-
+-	retval = 0;
+-      }
+-    break;
+ #endif
+     }
+-
+   return retval;
+ }
+Index: libc/sysdeps/unix/sysv/linux/ia64/clock_getcpuclockid.c
+=================================--- libc.orig/sysdeps/unix/sysv/linux/ia64/clock_getcpuclockid.c	2004-10-26 10:33:48.627027640 -0700
++++ /dev/null1970-01-01 00:00:00.000000000 +0000
+@@ -1,47 +0,0 @@
+-/* Copyright (C) 2000, 2001, 2003, 2004 Free Software Foundation, Inc.
+-   This file is part of the GNU C Library.
+-
+-   The GNU C Library is free software; you can redistribute it and/or
+-   modify it under the terms of the GNU Lesser General Public
+-   License as published by the Free Software Foundation; either
+-   version 2.1 of the License, or (at your option) any later version.
+-
+-   The GNU C Library is distributed in the hope that it will be useful,
+-   but WITHOUT ANY WARRANTY; without even the implied warranty of
+-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-   Lesser General Public License for more details.
+-
+-   You should have received a copy of the GNU Lesser General Public
+-   License along with the GNU C Library; if not, write to the Free
+-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-   02111-1307 USA.  */
+-
+-#include <errno.h>
+-#include <time.h>
+-#include <unistd.h>
+-#include <sys/stat.h>
+-#include <sys/types.h>
+-#include <fcntl.h>
+-
+-
+-#include "has_cpuclock.c"
+-
+-
+-int
+-clock_getcpuclockid (pid_t pid, clockid_t *clock_id)
+-{
+-  /* We don't allow any process ID but our own.  */
+-  if (pid != 0 && pid != getpid ())
+-    return EPERM;
+-
+-  int retval = ENOENT;
+-
+-  if (has_cpuclock () > 0)
+-    {
+-      /* Store the number.  */
+-      *clock_id = CLOCK_PROCESS_CPUTIME_ID;
+-      retval = 0;
+-    }
+-
+-  return retval;
+-}
+Index: libc/sysdeps/unix/sysv/linux/clock_settime.c
+=================================--- libc.orig/sysdeps/unix/sysv/linux/clock_settime.c	2004-10-26 10:34:42.556829064 -0700
++++ libc/sysdeps/unix/sysv/linux/clock_settime.c	2004-11-18 16:15:48.067660025 -0800
+@@ -20,21 +20,15 @@
+
+ #include "kernel-features.h"
+
+-
+ #ifdef __ASSUME_POSIX_TIMERS
+-/* This means the REALTIME clock is definitely supported in the
+-   kernel.  */
+-# define SYSDEP_SETTIME \
+-  case CLOCK_REALTIME:							      \
+-    retval = INLINE_SYSCALL (clock_settime, 2, clock_id, tp);		      \
+-    break
++#define SYSDEP_DEFAULT_SETTIME retval = INLINE_SYSCALL(clock_settime, 2, clock_id, tp)
++
+ #elif defined __NR_clock_settime
+ /* Is the syscall known to exist?  */
+ extern int __libc_missing_posix_timers attribute_hidden;
+
+ /* The REALTIME clock might be available.  Try the syscall first.  */
+-# define SYSDEP_SETTIME \
+-  case CLOCK_REALTIME:							      \
++# define SYSDEP_DEFAULT_SETTIME \
+     {									      \
+       int e = EINVAL;							      \
+ 									      \
+@@ -64,8 +58,7 @@
+ 	  __set_errno (e);						      \
+ 	  retval = -1;							      \
+ 	}								      \
+-    }									      \
+-    break
++    }
+ #endif
+
+ #ifdef __NR_clock_settime
+Index: libc/sysdeps/unix/sysv/linux/clock_getcpuclockid.c
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ libc/sysdeps/unix/sysv/linux/clock_getcpuclockid.c	2004-11-18 16:15:48.069659899 -0800
+@@ -0,0 +1,46 @@
++
++/* Copyright (C) 2000, 2001 Free Software Foundation, Inc.
++   This file is part of the GNU C Library.
++
++   The GNU C Library is free software; you can redistribute it and/or
++   modify it under the terms of the GNU Lesser General Public
++   License as published by the Free Software Foundation; either
++   version 2.1 of the License, or (at your option) any later version.
++
++   The GNU C Library is distributed in the hope that it will be useful,
++   but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Lesser General Public License for more details.
++
++   You should have received a copy of the GNU Lesser General Public
++   License along with the GNU C Library; if not, write to the Free
++   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
++   02111-1307 USA.  */
++
++#include <errno.h>
++#include <time.h>
++#include <unistd.h>
++#include <kernel-features.h>
++
++int
++clock_getcpuclockid (pid_t pid, clockid_t *clock_id)
++{
++  if (pid != 0 && pid != getpid ())
++#ifdef __ASSUME_POSIX_TIMERS
++	*clock_id = -pid;
++	return 0;
++#else
++/* We don't allow any process ID but our own.  */
++    return EPERM;
++#endif
++
++#ifdef CLOCK_PROCESS_CPUTIME_ID
++  /* Store the number.  */
++  *clock_id = CLOCK_PROCESS_CPUTIME_ID;
++
++  return 0;
++#else
++  /* We don't have a timer for that.  */
++  return ENOENT;
++#endif
++}
+Index: libc/sysdeps/posix/clock_getres.c
+=================================--- libc.orig/sysdeps/posix/clock_getres.c	2004-10-26 10:34:40.703110872 -0700
++++ libc/sysdeps/posix/clock_getres.c	2004-11-18 16:15:48.088658702 -0800
+@@ -23,13 +23,6 @@
+ #include <sys/param.h>
+ #include <libc-internal.h>
+
+-
+-#if HP_TIMING_AVAIL && !defined HANDLED_CPUTIME
+-/* Clock frequency of the processor.  */
+-static long int nsec;
+-#endif
+-
+-
+ /* Get resolution of clock.  */
+ int
+ clock_getres (clockid_t clock_id, struct timespec *res)
+@@ -65,44 +58,15 @@
+ #endif	/* handled REALTIME */
+
+     default:
+-#if HP_TIMING_AVAIL
+-      if ((clock_id & ((1 << CLOCK_IDFIELD_SIZE) - 1))
+-	  != CLOCK_THREAD_CPUTIME_ID)
+-#endif
+-	{
++#ifdef SYSDEP_DEFAULT_GETRES
++      SYSDEP_DEFAULT_GETRES;
++#else
++      {
+ 	  __set_errno (EINVAL);
+ 	  break;
+ 	}
+-
+-#if HP_TIMING_AVAIL && !defined HANDLED_CPUTIME
+-      /* FALLTHROUGH.  */
+-    case CLOCK_PROCESS_CPUTIME_ID:
+-      {
+-	if (__builtin_expect (nsec = 0, 0))
+-	  {
+-	    hp_timing_t freq;
+-
+-	    /* This can only happen if we haven't initialized the `freq'
+-	       variable yet.  Do this now. We don't have to protect this
+-	       code against multiple execution since all of them should
+-	       lead to the same result.  */
+-	    freq = __get_clockfreq ();
+-	    if (__builtin_expect (freq = 0, 0))
+-	      /* Something went wrong.  */
+-	      break;
+-
+-	    nsec = MAX (UINT64_C (1000000000) / freq, 1);
+-	  }
+-
+-	/* File in the values.  The seconds are always zero (unless we
+-	   have a 1Hz machine).  */
+-	res->tv_sec = 0;
+-	res->tv_nsec = nsec;
+-
+-	retval = 0;
+-      }
+-      break;
+ #endif
++
+     }
+
+   return retval;
+Index: libc/sysdeps/unix/clock_settime.c
+=================================--- libc.orig/sysdeps/unix/clock_settime.c	2004-10-26 10:34:41.468994440 -0700
++++ libc/sysdeps/unix/clock_settime.c	2004-11-18 16:15:48.090658575 -0800
+@@ -22,20 +22,6 @@
+ #include <libc-internal.h>
+ #include <ldsodefs.h>
+
+-
+-#if HP_TIMING_AVAIL
+-/* Clock frequency of the processor.  We make it a 64-bit variable
+-   because some jokers are already playing with processors with more
+-   than 4GHz.  */
+-static hp_timing_t freq;
+-
+-
+-/* This function is defined in the thread library.  */
+-extern void __pthread_clock_settime (clockid_t clock_id, hp_timing_t offset)
+-     __attribute__ ((__weak__));
+-#endif
+-
+-
+ /* Set CLOCK to value TP.  */
+ int
+ clock_settime (clockid_t clock_id, const struct timespec *tp)
+@@ -70,56 +56,16 @@
+ #endif
+
+     default:
+-#if HP_TIMING_AVAIL
+-      if ((clock_id & ((1 << CLOCK_IDFIELD_SIZE) - 1))
+-	  != CLOCK_THREAD_CPUTIME_ID)
+-#endif
++#ifdef SYSDEP_DEFAULT_SETTIME
++      SYSDEP_DEFAULT_SETTIME;
++#else
+ 	{
+ 	  __set_errno (EINVAL);
+ 	  retval = -1;
+ 	  break;
+ 	}
+
+-#if HP_TIMING_AVAIL
+-      /* FALLTHROUGH.  */
+-    case CLOCK_PROCESS_CPUTIME_ID:
+-      {
+-	hp_timing_t tsc;
+-	hp_timing_t usertime;
+-
+-	/* First thing is to get the current time.  */
+-	HP_TIMING_NOW (tsc);
+-
+-	if (__builtin_expect (freq = 0, 0))
+-	  {
+-	    /* This can only happen if we haven't initialized the `freq'
+-	       variable yet.  Do this now. We don't have to protect this
+-	       code against multiple execution since all of them should
+-	       lead to the same result.  */
+-	    freq = __get_clockfreq ();
+-	    if (__builtin_expect (freq = 0, 0))
+-	      {
+-		/* Something went wrong.  */
+-		retval = -1;
+-		break;
+-	      }
+-	  }
+-
+-	/* Convert the user-provided time into CPU ticks.  */
+-	usertime = tp->tv_sec * freq + (tp->tv_nsec * freq) / 1000000000ull;
+-
+-	/* Determine the offset and use it as the new base value.  */
+-	if (clock_id = CLOCK_PROCESS_CPUTIME_ID
+-	    || __pthread_clock_settime = NULL)
+-	  GL(dl_cpuclock_offset) = tsc - usertime;
+-	else
+-	  __pthread_clock_settime (clock_id, tsc - usertime);
+-
+-	retval = 0;
+-      }
+-      break;
+ #endif
+     }
+-
+   return retval;
+ }
+Index: libc/sysdeps/unix/sysv/linux/kernel-features.h
+=================================--- libc.orig/sysdeps/unix/sysv/linux/kernel-features.h	2004-10-26 10:34:42.632817512 -0700
++++ libc/sysdeps/unix/sysv/linux/kernel-features.h	2004-11-18 16:15:48.105657630 -0800
+@@ -419,3 +419,11 @@
+ #if __LINUX_KERNEL_VERSION >= 0x020609 && defined __alpha__
+ #define __ASSUME_IEEE_RAISE_EXCEPTION	1
+ #endif
++
++/* Starting with version 2.6.9, CLOCK_PROCESS/THREAD_CPUTIME_ID are supported
++ * with clock_gettime and also negative clockids to access other processes clocks
++ */
++
++#if __LINUX_KERNEL_VERSION >= 0x020609
++#define __ASSUME_POSIX_IMPROVED	1
++#endif
+Index: libc/linuxthreads/sysdeps/pthread/getcpuclockid.c
+=================================--- libc.orig/linuxthreads/sysdeps/pthread/getcpuclockid.c	2004-10-26 10:34:38.569435240 -0700
++++ libc/linuxthreads/sysdeps/pthread/getcpuclockid.c	2004-11-18 16:15:48.120656685 -0800
+@@ -21,25 +21,14 @@
+ #include <sys/time.h>
+ #include <time.h>
+ #include <internals.h>
++#include <linux/threads.h>
+
+ int
+ pthread_getcpuclockid (pthread_t thread_id, clockid_t *clock_id)
+ {
+ #ifdef CLOCK_THREAD_CPUTIME_ID
+-  /* We need to store the thread ID in the CLOCKID variable together
+-     with a number identifying the clock.  We reserve the low 3 bits
+-     for the clock ID and the rest for the thread ID.  This is
+-     problematic if the thread ID is too large.  But 29 bits should be
+-     fine.
+-
+-     If some day more clock IDs are needed the ID part can be
+-     enlarged.  The IDs are entirely internal.  */
+-  if (2 * PTHREAD_THREADS_MAX
+-      >= 1 << (8 * sizeof (*clock_id) - CLOCK_IDFIELD_SIZE))
+-    return ERANGE;
+-
+   /* Store the number.  */
+-  *clock_id = CLOCK_THREAD_CPUTIME_ID | (thread_id << CLOCK_IDFIELD_SIZE);
++  *clock_id = - (thread_id + PID_MAX_LIMIT);
+
+   return 0;
+ #else
+Index: libc/sysdeps/unix/sysv/linux/clock_gettime.c
+=================================--- libc.orig/sysdeps/unix/sysv/linux/clock_gettime.c	2004-10-26 10:34:42.531832864 -0700
++++ libc/sysdeps/unix/sysv/linux/clock_gettime.c	2004-11-18 16:15:48.123656496 -0800
+@@ -20,24 +20,16 @@
+
+ #include "kernel-features.h"
+
+-
+ #ifdef __ASSUME_POSIX_TIMERS
+-/* This means the REALTIME and MONOTONIC clock are definitely
+-   supported in the kernel.  */
+-# define SYSDEP_GETTIME \
+-  case CLOCK_REALTIME:							      \
+-  case CLOCK_MONOTONIC:							      \
+-    retval = INLINE_SYSCALL (clock_gettime, 2, clock_id, tp);		      \
+-    break
++#define SYSDEP_DEFAULT_GETTIME retval = INLINE_SYSCALL(clock_gettime, 2, clock_id, tp)
++
+ #elif defined __NR_clock_gettime
+ /* Is the syscall known to exist?  */
+ int __libc_missing_posix_timers attribute_hidden;
+
+ /* The REALTIME and MONOTONIC clock might be available.  Try the
+    syscall first.  */
+-# define SYSDEP_GETTIME \
+-  case CLOCK_REALTIME:							      \
+-  case CLOCK_MONOTONIC:							      \
++# define SYSDEP_DEFAULT_GETTIME \
+     {									      \
+       int e = EINVAL;							      \
+ 									      \
+@@ -64,8 +56,7 @@
+ 	HANDLE_REALTIME;						      \
+       else								      \
+ 	__set_errno (e);						      \
+-    }									      \
+-    break
++    }
+ #endif
+
+ #ifdef __NR_clock_gettime
+@@ -74,3 +65,4 @@
+ #endif
+
+ #include <sysdeps/unix/clock_gettime.c>
++
