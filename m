@@ -1,131 +1,332 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 09 Jun 2003 23:12:55 +0000
-Subject: [Linux-ia64] cleaning up the INIT code
+From: Chad Talbott <chadt@sgi.com>
+Date: Wed, 18 Jun 2003 21:33:52 +0000
+Subject: [PATCH] remove unused l1.c from arch/ia64/sn...
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C32EDC.A9056699"
-Message-Id: <marc-linux-ia64-105590723706201@msgid-missing>
+Content-Type: multipart/mixed; boundary="=-=-="
+Message-Id: <marc-linux-ia64-105597210706008@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+--=-=-=
 
-------_=_NextPart_001_01C32EDC.A9056699
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+The new SN console driver makes l1.c redundant.  This patch removes
+the file and the associated Makefile reference.
 
-David,
+Thanks,
+Chad
 
-Here's a patch that does some major surgery to the INIT
-code (which I've been looking at a lot more closely while
-I was fixing the recent breakages in this area).  The first
-thing that I noticed while working on it was that on Tiger
-I didn't get the pretty process backtraces on which you'd been
-working so hard.  I just got:
 
-  "Entered OS INIT handler"
+--=-=-=
+Content-Type: text/x-patch
+Content-Disposition: attachment; filename=remove-l1.c.diff
 
-which was a lot less helpful :-)  The reason for this turned
-out to be that the SAL on Tiger does not generate an error
-record for an INIT ... so the code that grabbed the error
-record and dissected it to find the minstate saved registers
-did nothing for me.  SAL folks here say they don't have to
-create a record for an INIT (in fact they tell us whether
-there is a record via the "mi" bit of the processor state
-parameter ... see SDV pg. 2:276, and for INIT PSP.mi is 0
-on Tiger).
+--- a/arch/ia64/sn/io/sn2/Makefile	Wed Jun 11 10:07:50 2003
++++ b/arch/ia64/sn/io/sn2/Makefile	Wed Jun 11 10:07:50 2003
+@@ -12,7 +12,7 @@
+ EXTRA_CFLAGS := -DLITTLE_ENDIAN
+ 
+ obj-y += pcibr/ ml_SN_intr.o shub_intr.o shuberror.o shub.o bte_error.o \
+-	 pic.o geo_op.o l1.o l1_command.o klconflib.o klgraph.o ml_SN_init.o \
++	 pic.o geo_op.o l1_command.o klconflib.o klgraph.o ml_SN_init.o \
+ 	 ml_iograph.o module.o pciio.o xbow.o xtalk.o shubio.o
+ 
+ obj-$(CONFIG_KDB) += kdba_io.o 
+diff -Nru a/arch/ia64/sn/io/sn2/l1.c b/arch/ia64/sn/io/sn2/l1.c
+--- a/arch/ia64/sn/io/sn2/l1.c	Wed Jun 11 10:07:50 2003
++++ /dev/null	Wed Dec 31 16:00:00 1969
+@@ -1,293 +0,0 @@
+-/* $Id$
+- *
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Copyright (C) 1992-1997, 2000-2003 Silicon Graphics, Inc.  All rights reserved.
+- */
+-
+-/* In general, this file is organized in a hierarchy from lower-level
+- * to higher-level layers, as follows:
+- *
+- *	UART routines
+- *	Bedrock/L1 "PPP-like" protocol implementation
+- *	System controller "message" interface (allows multiplexing
+- *		of various kinds of requests and responses with
+- *		console I/O)
+- *	Console interface:
+- *	  "l1_cons", the glue that allows the L1 to act
+- *		as the system console for the stdio libraries
+- *
+- * Routines making use of the system controller "message"-style interface
+- * can be found in l1_command.c.
+- */
+-
+-
+-#include <linux/types.h>
+-#include <linux/config.h>
+-#include <linux/slab.h>
+-#include <linux/spinlock.h>
+-#include <linux/delay.h>
+-#include <linux/interrupt.h>
+-#include <asm/io.h>
+-#include <asm/sn/sgi.h>
+-#include <asm/sn/io.h>
+-#include <asm/sn/iograph.h>
+-#include <asm/sn/invent.h>
+-#include <asm/sn/hcl.h>
+-#include <asm/sn/hcl_util.h>
+-#include <asm/sn/labelcl.h>
+-#include <asm/sn/router.h>
+-#include <asm/sn/module.h>
+-#include <asm/sn/ksys/l1.h>
+-#include <asm/sn/nodepda.h>
+-#include <asm/sn/clksupport.h>
+-#include <asm/sn/sn_sal.h>
+-#include <asm/sn/sn_cpuid.h>
+-#include <asm/sn/uart16550.h>
+-#include <asm/sn/simulator.h>
+-
+-
+-#define UART_BAUD_RATE          57600
+-
+-static int L1_connected;	/* non-zero when interrupts are enabled */
+-
+-
+-int 
+-get_L1_baud(void)
+-{
+-    return UART_BAUD_RATE;
+-}
+-
+-
+-
+-/* Return the current interrupt level */
+-int
+-l1_get_intr_value( void )
+-{
+-	cpuid_t intr_cpuid;
+-	nasid_t console_nasid;
+-	int major, minor;
+-	extern nasid_t get_console_nasid(void);
+-
+-	/* if it is an old prom, run in poll mode */
+-
+-	major = sn_sal_rev_major();
+-	minor = sn_sal_rev_minor();
+-	if ( (major < 1) || ((major == 1) && (minor < 10)) ) {
+-		/* before version 1.10 doesn't work */
+-		return (0);
+-	}
+-
+-	console_nasid = get_console_nasid();
+-	intr_cpuid = NODEPDA(NASID_TO_COMPACT_NODEID(console_nasid))->node_first_cpu;
+-	return CPU_VECTOR_TO_IRQ(intr_cpuid, SGI_UART_VECTOR);
+-}
+-
+-/* Disconnect the callup functions - throw away interrupts */
+-
+-void
+-l1_unconnect_intr(void)
+-{
+-}
+-
+-/* Set up uart interrupt handling for this node's uart */
+-
+-int
+-l1_connect_intr(void *intr_func, void *arg, struct pt_regs *ep)
+-{
+-	cpuid_t intr_cpuid;
+-	nasid_t console_nasid;
+-	unsigned int console_irq;
+-	int result;
+-	extern int intr_connect_level(cpuid_t, int, ilvl_t, intr_func_t);
+-	extern nasid_t get_console_nasid(void);
+-
+-
+-	/* don't call to connect multiple times - we DON'T support changing the handler */
+-
+-	if ( !L1_connected ) {
+-		L1_connected++;
+-		console_nasid = get_console_nasid();
+-		intr_cpuid = NODEPDA(NASID_TO_COMPACT_NODEID(console_nasid))->node_first_cpu;
+-		console_irq = CPU_VECTOR_TO_IRQ(intr_cpuid, SGI_UART_VECTOR);
+-		result = intr_connect_level(intr_cpuid, SGI_UART_VECTOR,
+-                                	0 /*not used*/, 0 /*not used*/);
+-		if (result != SGI_UART_VECTOR) {
+-			if (result < 0)
+-				printk(KERN_WARNING "L1 console driver : intr_connect_level failed %d\n", result);
+-        		else
+-				printk(KERN_WARNING "L1 console driver : intr_connect_level returns wrong bit %d\n", result);
+-			return (-1);
+-		}
+-
+-		result = request_irq(console_irq, intr_func, SA_INTERRUPT,
+-					"SGI L1 console driver", (void *)arg);
+-		if (result < 0) {
+-			printk(KERN_WARNING "L1 console driver : request_irq failed %d\n", result);
+-			return (-1);
+-		}
+-
+-		/* ask SAL to turn on interrupts in the UART itself */
+-		ia64_sn_console_intr_enable(SAL_CONSOLE_INTR_RECV);
+-	}
+-	return (0);
+-}
+-
+-
+-/* These are functions to use from serial_in/out when in protocol
+- * mode to send and receive uart control regs. These are external
+- * interfaces into the protocol driver.
+- */
+-
+-void
+-l1_control_out(int offset, int value)
+-{
+-	/* quietly ignore unless simulator */
+-	if ( IS_RUNNING_ON_SIMULATOR() ) {
+-		extern u64 master_node_bedrock_address;
+-		if ( master_node_bedrock_address != (u64)0 ) {
+-			writeb(value, (unsigned long)master_node_bedrock_address +
+-				(offset<< 3));
+-		}
+-		return;
+-	}
+-}
+-
+-/* Console input exported interface. Return a register value.  */
+-
+-int
+-l1_control_in_polled(int offset)
+-{
+-	static int l1_control_in_local(int);
+-
+-	return(l1_control_in_local(offset));
+-}
+-
+-int
+-l1_control_in(int offset)
+-{
+-	static int l1_control_in_local(int);
+-
+-	return(l1_control_in_local(offset));
+-}
+-
+-static int
+-l1_control_in_local(int offset)
+-{
+-	int sal_call_status = 0, input;
+-	int ret = 0;
+-
+-	if ( IS_RUNNING_ON_SIMULATOR() ) {
+-		extern u64 master_node_bedrock_address;
+-		ret = readb((unsigned long)master_node_bedrock_address +
+-				(offset<< 3));
+-		return(ret);
+-	}		
+-	if ( offset == REG_LSR ) {
+-		ret = (LSR_XHRE | LSR_XSRE);	/* can send anytime */
+-		sal_call_status = ia64_sn_console_check(&input);
+-		if ( !sal_call_status && input ) {
+-			/* input pending */
+-			ret |= LSR_RCA;
+-		}
+-	}
+-	return(ret);
+-}
+-
+-/*
+- * Console input exported interface. Return a character (if one is available)
+- */
+-
+-int
+-l1_serial_in_polled(void)
+-{
+-	static int l1_serial_in_local(void);
+-
+-	return(l1_serial_in_local());
+-}
+-
+-int
+-l1_serial_in(void)
+-{
+-	static int l1_serial_in_local(void);
+-
+-	if ( IS_RUNNING_ON_SIMULATOR() ) {
+-		extern u64 master_node_bedrock_address;
+-		return(readb((unsigned long)master_node_bedrock_address + (REG_DAT<< 3)));
+-	}	
+-	return(l1_serial_in_local());
+-}
+-
+-static int
+-l1_serial_in_local(void)
+-{
+-	int ch;
+-
+-	if ( IS_RUNNING_ON_SIMULATOR() ) {
+-		extern u64 master_node_bedrock_address;
+-		return(readb((unsigned long)master_node_bedrock_address + (REG_DAT<< 3)));
+-	}		
+-
+-	if ( !(ia64_sn_console_getc(&ch)) )
+-		return(ch);
+-	else
+-		return(0);
+-}
+-
+-/* Console output exported interface. Write message to the console.  */
+-
+-int
+-l1_serial_out( char *str, int len )
+-{
+-	int tmp;
+-
+-	/* Ignore empty messages */
+-	if ( len == 0 )
+-		return(len);
+-
+-#if defined(CONFIG_IA64_EARLY_PRINTK)
+-	/* Need to setup SAL calls so the PROM calls will work */
+-	{
+-		static int inited;
+-		void early_sn_setup(void);
+-		if(!inited) {
+-			inited=1;
+-			early_sn_setup();
+-		}
+-	}
+-#endif
+-
+-	if ( IS_RUNNING_ON_SIMULATOR() ) {
+-		extern u64 master_node_bedrock_address;
+-		void early_sn_setup(void);
+-		int counter = len;
+-
+-		if (!master_node_bedrock_address)
+-			early_sn_setup();
+-		if ( master_node_bedrock_address != (u64)0 ) {
+-#ifdef FLAG_DIRECT_CONSOLE_WRITES
+-			/* This is an easy way to pre-pend the output to know whether the output
+-			 * was done via sal or directly */
+-			writeb('[', (unsigned long)master_node_bedrock_address + (REG_DAT<< 3));
+-			writeb('+', (unsigned long)master_node_bedrock_address + (REG_DAT<< 3));
+-			writeb(']', (unsigned long)master_node_bedrock_address + (REG_DAT<< 3));
+-			writeb(' ', (unsigned long)master_node_bedrock_address + (REG_DAT<< 3));
+-#endif	/* FLAG_DIRECT_CONSOLE_WRITES */
+-			while ( counter > 0 ) {
+-				writeb(*str, (unsigned long)master_node_bedrock_address + (REG_DAT<< 3));
+-				counter--;
+-				str++;
+-			}
+-		}
+-		return(len);
+-	}
+-
+-	/* Attempt to write things out thru the sal */
+-	if ( L1_connected )
+-		tmp = ia64_sn_console_xmit_chars(str, len);
+-	else
+-		tmp = ia64_sn_console_putb(str, len);
+-	return ((tmp < 0) ? 0 : tmp);
+-}
 
-The PAL does provide a pointer to the minstate area (see
-11.3.2 PALE_CHECK Exit state, and 11.4.2 PALE_INIT Exit State),
-which is still valid when we get to the OS entry points for
-INIT and MCA.  So it seems simpler to just use that, rather than
-go the long way round getting the error record (which doesn't
-even exist on Tiger).
-
-So this patch picks up r17 (pointer to minstate) and r18
-(processor state parameter) and squirrels them away in the
-ia64_sal_to_os_handoff_state structure ... then uses them
-in the INIT handler.
-
--Tony
-
-------_=_NextPart_001_01C32EDC.A9056699
-Content-Type: application/octet-stream;
-	name="init.patch"
-Content-Transfer-Encoding: base64
-Content-Description: init.patch
-Content-Disposition: attachment;
-	filename="init.patch"
-
-PT09PT0gYXJjaC9pYTY0L2tlcm5lbC9tY2EuYyAxLjMyIHZzIGVkaXRlZCA9PT09PQotLS0gMS4z
-Mi9hcmNoL2lhNjQva2VybmVsL21jYS5jCVdlZCBKdW4gIDQgMTk6MzU6NTMgMjAwMworKysgZWRp
-dGVkL2FyY2gvaWE2NC9rZXJuZWwvbWNhLmMJTW9uIEp1biAgOSAxNDoxNjowOSAyMDAzCkBAIC0z
-MjIsNyArMzIyLDcgQEAKIH0KIAogdm9pZAotaW5pdF9oYW5kbGVyX3BsYXRmb3JtIChzYWxfbG9n
-X3Byb2Nlc3Nvcl9pbmZvX3QgKnByb2NfcHRyLAoraW5pdF9oYW5kbGVyX3BsYXRmb3JtIChwYWxf
-bWluX3N0YXRlX2FyZWFfdCAqbXMsCiAJCSAgICAgICBzdHJ1Y3QgcHRfcmVncyAqcHQsIHN0cnVj
-dCBzd2l0Y2hfc3RhY2sgKnN3KQogewogCXN0cnVjdCB1bndfZnJhbWVfaW5mbyBpbmZvOwpAQCAt
-MzM3LDEwICszMzcsMTAgQEAKIAkgKi8KIAlwcmludGsoIkRlbGF5aW5nIGZvciA1IHNlY29uZHMu
-Li5cbiIpOwogCXVkZWxheSg1KjEwMDAwMDApOwotCXNob3dfbWluX3N0YXRlKCZTQUxfTFBJX1BT
-SV9JTkZPKHByb2NfcHRyKS0+bWluX3N0YXRlX2FyZWEpOworCXNob3dfbWluX3N0YXRlKG1zKTsK
-IAogCXByaW50aygiQmFja3RyYWNlIG9mIGN1cnJlbnQgdGFzayAocGlkICVkLCAlcylcbiIsIGN1
-cnJlbnQtPnBpZCwgY3VycmVudC0+Y29tbSk7Ci0JZmV0Y2hfbWluX3N0YXRlKCZTQUxfTFBJX1BT
-SV9JTkZPKHByb2NfcHRyKS0+bWluX3N0YXRlX2FyZWEsIHB0LCBzdyk7CisJZmV0Y2hfbWluX3N0
-YXRlKG1zLCBwdCwgc3cpOwogCXVud19pbml0X2Zyb21faW50ZXJydXB0aW9uKCZpbmZvLCBjdXJy
-ZW50LCBwdCwgc3cpOwogCWlhNjRfZG9fc2hvd19zdGFjaygmaW5mbywgTlVMTCk7CiAKQEAgLTEy
-NDAsMzIgKzEyNDAsMTkgQEAKIHZvaWQKIGlhNjRfaW5pdF9oYW5kbGVyIChzdHJ1Y3QgcHRfcmVn
-cyAqcHQsIHN0cnVjdCBzd2l0Y2hfc3RhY2sgKnN3KQogewotCXNhbF9sb2dfcHJvY2Vzc29yX2lu
-Zm9fdCAqcHJvY19wdHI7Ci0JaWE2NF9lcnJfcmVjX3QgKnBsb2dfcHRyOworCXBhbF9taW5fc3Rh
-dGVfYXJlYV90ICptczsKIAotCXByaW50ayhLRVJOX0lORk8gIkVudGVyZWQgT1MgSU5JVCBoYW5k
-bGVyXG4iKTsKLQotCS8qIEdldCB0aGUgSU5JVCBwcm9jZXNzb3IgbG9nICovCi0JaWYgKCFpYTY0
-X2xvZ19nZXQoU0FMX0lORk9fVFlQRV9JTklULCAocHJmdW5jX3QpcHJpbnRrKSkKLQkJcmV0dXJu
-OyAgICAgICAgICAgICAgICAgLy8gbm8gcmVjb3JkIHJldHJpZXZlZAotCi0jaWZkZWYgSUE2NF9E
-VU1QX0FMTF9QUk9DX0lORk8KLQlpYTY0X2xvZ19wcmludChTQUxfSU5GT19UWVBFX0lOSVQsIChw
-cmZ1bmNfdClwcmludGspOwotI2VuZGlmCisJcHJpbnRrKEtFUk5fSU5GTyAiRW50ZXJlZCBPUyBJ
-TklUIGhhbmRsZXIuIFBTUD0lbHhcbiIsCisJCWlhNjRfc2FsX3RvX29zX2hhbmRvZmZfc3RhdGUu
-cHJvY19zdGF0ZV9wYXJhbSk7CiAKIAkvKgotCSAqIGdldCBwb2ludGVyIHRvIG1pbiBzdGF0ZSBz
-YXZlIGFyZWEKLQkgKgorCSAqIEFkZHJlc3Mgb2YgbWluc3RhdGUgYXJlYSBwcm92aWRlZCBieSBQ
-QUwgaXMgcGh5c2ljYWwsCisJICogdW5jYWNoZWFibGUgKGJpdCA2MyBzZXQpLiBDb252ZXJ0IHRv
-IExpbnV4IHZpcnR1YWwKKwkgKiBhZGRyZXNzIGluIHJlZ2lvbiA2LgogCSAqLwotCXBsb2dfcHRy
-PShpYTY0X2Vycl9yZWNfdCAqKUlBNjRfTE9HX0NVUlJfQlVGRkVSKFNBTF9JTkZPX1RZUEVfSU5J
-VCk7Ci0JcHJvY19wdHIgPSAmcGxvZ19wdHItPnByb2NfZXJyOwotCi0JaWE2NF9wcm9jZXNzX21p
-bl9zdGF0ZV9zYXZlKCZTQUxfTFBJX1BTSV9JTkZPKHByb2NfcHRyKS0+bWluX3N0YXRlX2FyZWEp
-OwotCi0JLyogQ2xlYXIgdGhlIElOSVQgU0FMIGxvZ3Mgbm93IHRoYXQgdGhleSBoYXZlIGJlZW4g
-c2F2ZWQgaW4gdGhlIE9TIGJ1ZmZlciAqLwotCWlhNjRfc2FsX2NsZWFyX3N0YXRlX2luZm8oU0FM
-X0lORk9fVFlQRV9JTklUKTsKKwltcyA9IChwYWxfbWluX3N0YXRlX2FyZWFfdCAqKShpYTY0X3Nh
-bF90b19vc19oYW5kb2ZmX3N0YXRlLnBhbF9taW5fc3RhdGUgfCAoNnVsPDw2MSkpOwogCi0JaW5p
-dF9oYW5kbGVyX3BsYXRmb3JtKHByb2NfcHRyLCBwdCwgc3cpOwkvKiBjYWxsIHBsYXRmb3JtIHNw
-ZWNpZmljIHJvdXRpbmVzICovCisJaW5pdF9oYW5kbGVyX3BsYXRmb3JtKG1zLCBwdCwgc3cpOwkv
-KiBjYWxsIHBsYXRmb3JtIHNwZWNpZmljIHJvdXRpbmVzICovCiB9CiAKIC8qCj09PT09IGFyY2gv
-aWE2NC9rZXJuZWwvbWNhX2FzbS5TIDEuOCB2cyBlZGl0ZWQgPT09PT0KLS0tIDEuOC9hcmNoL2lh
-NjQva2VybmVsL21jYV9hc20uUwlUdWUgQXByIDE1IDEzOjE2OjM5IDIwMDMKKysrIGVkaXRlZC9h
-cmNoL2lhNjQva2VybmVsL21jYV9hc20uUwlNb24gSnVuICA5IDEzOjIyOjIyIDIwMDMKQEAgLTUw
-LDE0ICs1MCwxNSBAQAogICoJCTYuIEdSMTIgPSBSZXR1cm4gYWRkcmVzcyB0byBsb2NhdGlvbiB3
-aXRoaW4gU0FMX0NIRUNLCiAgKi8KICNkZWZpbmUgU0FMX1RPX09TX01DQV9IQU5ET0ZGX1NUQVRF
-X1NBVkUoX3RtcCkJCVwKLQltb3ZsCV90bXA9aWE2NF9zYWxfdG9fb3NfaGFuZG9mZl9zdGF0ZTs7
-CVwKLQlEQVRBX1ZBX1RPX1BBKF90bXApOzsJCQkJXAorCUxPQURfUEhZU0lDQUwobm9wIDAsIHAw
-LCBfdG1wLCBpYTY0X3NhbF90b19vc19oYW5kb2ZmX3N0YXRlKTs7IFwKIAlzdDgJW190bXBdPXIx
-LDB4MDg7OwkJCVwKIAlzdDgJW190bXBdPXI4LDB4MDg7OwkJCVwKIAlzdDgJW190bXBdPXI5LDB4
-MDg7OwkJCVwKIAlzdDgJW190bXBdPXIxMCwweDA4OzsJCQlcCiAJc3Q4CVtfdG1wXT1yMTEsMHgw
-ODs7CQkJXAotCXN0OAlbX3RtcF09cjEyLDB4MDgKKwlzdDgJW190bXBdPXIxMiwweDA4OzsJCQlc
-CisJc3Q4CVtfdG1wXT1yMTcsMHgwODs7CQkJXAorCXN0OAlbX3RtcF09cjE4LDB4MDgKIAogLyoK
-ICAqIE9TX01DQV9UT19TQUxfSEFORE9GRl9TVEFURSAoU0FMIDMuMCBzcGVjKQpAQCAtNzAsOSAr
-NzEsOCBAQAogICoJcmV0dXJucyBwdHIgdG8gU0FMIHJ0biBzYXZlIGxvYyBpbiBfdG1wCiAgKi8K
-ICNkZWZpbmUgT1NfTUNBX1RPX1NBTF9IQU5ET0ZGX1NUQVRFX1JFU1RPUkUoX3RtcCkJXAotKHA2
-KQltb3ZsCV90bXA9aWE2NF9zYWxfdG9fb3NfaGFuZG9mZl9zdGF0ZTs7CVwKLShwNykJbW92bAlf
-dG1wPWlhNjRfb3NfdG9fc2FsX2hhbmRvZmZfc3RhdGU7OwlcCi0JREFUQV9WQV9UT19QQShfdG1w
-KTs7CQkJCVwKKwlMT0FEX1BIWVNJQ0FMKG5vcCAwLCBwNiwgX3RtcCwgaWE2NF9zYWxfdG9fb3Nf
-aGFuZG9mZl9zdGF0ZSk7OyBcCisJTE9BRF9QSFlTSUNBTChub3AgMCwgcDcsIF90bXAsIGlhNjRf
-b3NfdG9fc2FsX2hhbmRvZmZfc3RhdGUpOzsgXAogKHA2KQltb3ZsCXI4PUlBNjRfTUNBX0NPTERf
-Qk9PVDsJCQlcCiAocDYpCW1vdmwJcjEwPUlBNjRfTUNBX1NBTUVfQ09OVEVYVDsJCVwKIChwNikJ
-YWRkICAgICBfdG1wPTB4MTgsX3RtcDs7CQkJXAo9PT09PSBpbmNsdWRlL2FzbS1pYTY0L21jYS5o
-IDEuNyB2cyBlZGl0ZWQgPT09PT0KLS0tIDEuNy9pbmNsdWRlL2FzbS1pYTY0L21jYS5oCVNhdCBN
-YXkgMTAgMDI6Mjg6NDcgMjAwMworKysgZWRpdGVkL2luY2x1ZGUvYXNtLWlhNjQvbWNhLmgJTW9u
-IEp1biAgOSAxNDoxMTozOCAyMDAzCkBAIC05Miw2ICs5Miw4IEBACiAJdTY0CQlpbXN0b19zYWxf
-Y2hlY2tfcmE7CS8qIFJldHVybiBhZGRyZXNzIGluIFNBTF9DSEVDSyB3aGlsZSBnb2luZwogCQkJ
-CQkJICogYmFjayB0byBTQUwgZnJvbSBPUyBhZnRlciBNQ0EgaGFuZGxpbmcuCiAJCQkJCQkgKi8K
-Kwl1NjQJCXBhbF9taW5fc3RhdGU7CQkvKiBmcm9tIFBBTCBpbiByMTcgKi8KKwl1NjQJCXByb2Nf
-c3RhdGVfcGFyYW07CS8qIGZyb20gUEFMIGluIHIxOC4gU2VlIFNEViAyOjI2OCAxMS4zLjIuMSAq
-LwogfSBpYTY0X21jYV9zYWxfdG9fb3Nfc3RhdGVfdDsKIAogZW51bSB7Cg==
-
-------_=_NextPart_001_01C32EDC.A9056699--
-
+--=-=-=--
