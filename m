@@ -1,76 +1,54 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Fri, 05 Nov 2004 16:44:49 +0000
+From: Erich Focht <efocht@hpce.nec.com>
+Date: Fri, 05 Nov 2004 17:13:24 +0000
 Subject: Re: Externalize SLIT table
-Message-Id: <20041105164449.GC26719@sgi.com>
+Message-Id: <200411051813.24231.efocht@hpce.nec.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041103205655.GA5084@sgi.com> <20041104.105908.18574694.t-kochi@bq.jp.nec.com> <20041104040713.GC21211@wotan.suse.de> <20041104.135721.08317994.t-kochi@bq.jp.nec.com> <20041105160808.GA26719@sgi.com> <jevfcknty5.fsf@sykes.suse.de>
-In-Reply-To: <jevfcknty5.fsf@sykes.suse.de>
+References: <20041103205655.GA5084@sgi.com> <20041104.135721.08317994.t-kochi@bq.jp.nec.com> <20041105160808.GA26719@sgi.com>
+In-Reply-To: <20041105160808.GA26719@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andreas Schwab <schwab@suse.de>
+To: Jack Steiner <steiner@sgi.com>
 Cc: Takayoshi Kochi <t-kochi@bq.jp.nec.com>, ak@suse.de, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Nov 05, 2004 at 05:26:10PM +0100, Andreas Schwab wrote:
-> Jack Steiner <steiner@sgi.com> writes:
-> 
-> > @@ -111,6 +111,21 @@ static ssize_t node_read_numastat(struct
-> >  }
-> >  static SYSDEV_ATTR(numastat, S_IRUGO, node_read_numastat, NULL);
-> >  
-> > +static ssize_t node_read_distance(struct sys_device * dev, char * buf)
-> > +{
-> > +	int nid = dev->id;
-> > +	int len = 0;
-> > +	int i;
-> > +
-> > +	for (i = 0; i < numnodes; i++)
-> > +		len += sprintf(buf + len, "%s%d", i ? " " : "", node_distance(nid, i));
-> 
-> Can this overflow the space allocated for buf?
+Hi Jack,
 
+the patch looks fine, of course.
+> 	# cat ./node/node0/distance
+> 	10 20 64 42 42 22
+Great!
 
-Good point. I think we are ok for now. AFAIK, the largest cpu count
-currently supported is 512. That gives a max string of 2k (max of 3 
-digits + space per cpu).
+But:
+> 	# cat ./cpu/cpu8/distance
+> 	42 42 64 64 22 22 42 42 10 10 20 20
+...
 
-However, I should probably add a BUILD_BUG_ON to check for overflow.
+what exactly do you mean by cpu_to_cpu distance? In analogy with the
+node distance I'd say it is the time (latency) for moving data from
+the register of one CPU into the register of another CPU:
+        cpu*/distance :   cpu -> memory -> cpu
+                         node1   node?    node2
 
-	BUILD_BUG_ON(NR_NODES*4 > PAGE_SIZE/2);
-	BUILD_BUG_ON(NR_CPUS*4 > PAGE_SIZE/2);
+On most architectures this means flushing a cacheline to memory on one
+side and reading it on another side. What you actually implement is
+the latency from memory (one node) to a particular cpu (on some
+node). 
+                       memory ->  cpu
+                       node1     node2
 
+That's only half of the story and actually misleading. I don't
+think the complexity hiding is good in this place. Questions coming to
+my mind are: Where is the memory? Is the SLIT matrix really symmetric
+(cpu_to_cpu distance only makes sense for symmetric matrices)? I
+remember talking to IBM people about hardware where the node distance
+matrix was asymmetric.
 
+Why do you want this distance anyway? libnuma offers you _node_ masks
+for allocating memory from a particular node. And when you want to
+arrange a complex MPI process structure you'll have to think about
+latency for moving data from one processes buffer to the other
+processes buffer. The buffers live on nodes, not on cpus.
 
-> 
-> > @@ -58,6 +59,31 @@ static inline void register_cpu_control(
-> >  }
-> >  #endif /* CONFIG_HOTPLUG_CPU */
-> >  
-> > +#ifdef CONFIG_NUMA
-> > +static ssize_t cpu_read_distance(struct sys_device * dev, char * buf)
-> > +{
-> > +	int nid = cpu_to_node(dev->id);
-> > +	int len = 0;
-> > +	int i;
-> > +
-> > +	for (i = 0; i < num_possible_cpus(); i++)
-> > +		len += sprintf(buf + len, "%s%d", i ? " " : "", 
-> > +			node_distance(nid, cpu_to_node(i)));
-> 
-> Or this?
-> 
-> Andreas.
-> 
-> -- 
-> Andreas Schwab, SuSE Labs, schwab@suse.de
-> SuSE Linux AG, Maxfeldstra_e 5, 90409 N|rnberg, Germany
-> Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-> "And now for something completely different."
-
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
+Regards,
+Erich
 
