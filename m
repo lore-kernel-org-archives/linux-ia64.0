@@ -1,7 +1,7 @@
 From: Pat Gefre <pfg@sgi.com>
-Date: Wed, 11 Aug 2004 23:25:29 +0000
-Subject: Re: Altix I/O code reorganization - 5 of 21
-Message-Id: <200408112325.i7BNPTbS163243@fsgi900.americas.sgi.com>
+Date: Wed, 11 Aug 2004 23:34:38 +0000
+Subject: Re: Altix I/O code reorganization - 16 of 21
+Message-Id: <200408112334.i7BNYcuE152521@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -12,1151 +12,1201 @@ To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, hch@infradead.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/08/11 15:53:30-05:00 pfg@sgi.com 
-#   Kill more unused files
+#   2004/08/11 16:54:23-05:00 pfg@sgi.com 
+#   code clean up
+#   ran thru Lindent
+#   changes needed for new I/O structure
+#   update copyright
 # 
-# BitKeeper/deleted/.del-xswitch.c~e1368a749426e7f3
-#   2004/08/11 15:07:16-05:00 pfg@sgi.com +0 -0
-#   Delete: arch/ia64/sn/io/xswitch.c
+# arch/ia64/sn/kernel/setup.c
+#   2004/08/11 16:53:27-05:00 pfg@sgi.com +174 -159
+#    
 # 
-# BitKeeper/deleted/.del-snia_if.c~9e6fdc7691423b65
-#   2004/08/11 15:07:15-05:00 pfg@sgi.com +0 -0
-#   Delete: arch/ia64/sn/io/snia_if.c
+# arch/ia64/sn/kernel/irq.c
+#   2004/08/11 16:53:26-05:00 pfg@sgi.com +210 -226
+#    
 # 
-# BitKeeper/deleted/.del-io.c~faad9eebb8727c71
-#   2004/08/11 15:07:15-05:00 pfg@sgi.com +0 -0
-#   Delete: arch/ia64/sn/io/io.c
-# 
-# BitKeeper/deleted/.del-cdl.c~5f8b4202e06b83e8
-#   2004/08/11 15:07:14-05:00 pfg@sgi.com +0 -0
-#   Delete: arch/ia64/sn/io/cdl.c
-# 
-# BitKeeper/deleted/.del-Makefile~4ecca7db6f2c426b
-#   2004/08/11 15:07:14-05:00 pfg@sgi.com +0 -0
-#   Delete: arch/ia64/sn/io/Makefile
-# 
-diff -Nru a/arch/ia64/sn/io/Makefile b/arch/ia64/sn/io/Makefile
---- a/arch/ia64/sn/io/Makefile	2004-08-11 15:54:20 -05:00
-+++ /dev/null	Wed Dec 31 16:00:00 196900
-@@ -1,13 +0,0 @@
--# arch/ia64/sn/io/Makefile
--#
--# This file is subject to the terms and conditions of the GNU General Public
--# License.  See the file "COPYING" in the main directory of this archive
--# for more details.
--#
--# Copyright (C) 2000-2002 Silicon Graphics, Inc.  All Rights Reserved.
--#
--# Makefile for the sn io routines.
--#
--
--obj-y += xswitch.o cdl.o snia_if.o \
--	 io.o machvec/ drivers/ platform_init/ sn2/ hwgfs/
-diff -Nru a/arch/ia64/sn/io/cdl.c b/arch/ia64/sn/io/cdl.c
---- a/arch/ia64/sn/io/cdl.c	2004-08-11 15:54:20 -05:00
-+++ /dev/null	Wed Dec 31 16:00:00 196900
-@@ -1,79 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
-- *
-- * Copyright (C) 1992 - 1997, 2000-2003 Silicon Graphics, Inc. All rights reserved.
-- */
--
--#include <linux/config.h>
--#include <linux/types.h>
--#include <asm/sn/sgi.h>
--#include <asm/io.h>
--#include <asm/sn/hcl.h>
--#include <asm/sn/pci/pic.h>
--#include "asm/sn/ioerror_handling.h"
--#include <asm/sn/xtalk/xbow.h>
--
--/* these get called directly in cdl_add_connpt in fops bypass hack */
--extern int xbow_attach(vertex_hdl_t);
--extern int pic_attach(vertex_hdl_t);
--
--/*
-- *    cdl: Connection and Driver List
-- *
-- *	We are not porting this to Linux.  Devices are registered via 
-- *	the normal Linux PCI layer.  This is a very simplified version 
-- *	of cdl that will allow us to register and call our very own 
-- *	IO Infrastructure Drivers e.g. pcibr.
-- */
--
--#define MAX_SGI_IO_INFRA_DRVR 5
--
--static struct cdl sgi_infrastructure_drivers[MAX_SGI_IO_INFRA_DRVR] -{
--	{ PIC_WIDGET_PART_NUM_BUS0,  PIC_WIDGET_MFGR_NUM,   pic_attach /* &pcibr_fops */},
--	{ PIC_WIDGET_PART_NUM_BUS1,  PIC_WIDGET_MFGR_NUM,   pic_attach /* &pcibr_fops */},
--	{ XXBOW_WIDGET_PART_NUM,   XXBOW_WIDGET_MFGR_NUM,   xbow_attach /* &xbow_fops */},
--	{ XBOW_WIDGET_PART_NUM,    XBOW_WIDGET_MFGR_NUM,    xbow_attach /* &xbow_fops */},
--	{ PXBOW_WIDGET_PART_NUM,   XXBOW_WIDGET_MFGR_NUM,   xbow_attach /* &xbow_fops */},
--};
--
--/*
-- * cdl_add_connpt: We found a device and it's connect point.  Call the 
-- * attach routine of that driver.
-- *
-- * May need support for pciba registration here ...
-- *
-- * This routine use to create /hw/.id/pci/.../.. that links to 
-- * /hw/module/006c06/Pbrick/xtalk/15/pci/<slotnum> .. do we still need 
-- * it?  The specified driver attach routine does not reference these 
-- * vertices.
-- */
--int
--cdl_add_connpt(int part_num, int mfg_num, 
--	       vertex_hdl_t connpt, int drv_flags)
--{
--	int i;
--	
--	/*
--	 * Find the driver entry point and call the attach routine.
--	 */
--	for (i = 0; i < MAX_SGI_IO_INFRA_DRVR; i++) {
--		if ( (part_num = sgi_infrastructure_drivers[i].part_num) &&
--		   ( mfg_num = sgi_infrastructure_drivers[i].mfg_num) ) {
--			/*
--			 * Call the device attach routines.
--			 */
--			if (sgi_infrastructure_drivers[i].attach) {
--			    return(sgi_infrastructure_drivers[i].attach(connpt));
--			}
--		} else {
--			continue;
--		}
--	}	
--
--	/* printk("WARNING: cdl_add_connpt: Driver not found for part_num 0x%x mfg_num 0x%x\n", part_num, mfg_num); */
--
--	return (0);
--}
-diff -Nru a/arch/ia64/sn/io/io.c b/arch/ia64/sn/io/io.c
---- a/arch/ia64/sn/io/io.c	2004-08-11 15:54:20 -05:00
-+++ /dev/null	Wed Dec 31 16:00:00 196900
-@@ -1,739 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
-- *
-- * Copyright (C) 1992-1997, 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
-- */
--
--#include <linux/types.h>
--#include <linux/slab.h>
+diff -Nru a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
+--- a/arch/ia64/sn/kernel/irq.c	2004-08-11 16:55:17 -05:00
++++ b/arch/ia64/sn/kernel/irq.c	2004-08-11 16:55:17 -05:00
+@@ -5,97 +5,55 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
+  */
+ 
+-#include <linux/init.h>
 -#include <linux/sched.h>
--#include <asm/sn/types.h>
+-#include <linux/vmalloc.h>
+ #include <linux/irq.h>
+-#include <linux/interrupt.h>
+-#include <linux/slab.h>
+-#include <linux/bootmem.h>
+-#include <linux/cpumask.h>
+-#include <asm/page.h>
+-#include <asm/pgtable.h>
 -#include <asm/sn/sgi.h>
--#include <asm/sn/driver.h>
--#include <asm/param.h>
--#include <asm/sn/pio.h>
--#include <asm/sn/xtalk/xwidget.h>
--#include <asm/sn/io.h>
--#include <asm/sn/sn_private.h>
--#include <asm/sn/addrs.h>
 -#include <asm/sn/hcl.h>
--#include <asm/sn/hcl_util.h>
--#include <asm/sn/intr.h>
--#include <asm/sn/xtalk/xtalkaddrs.h>
--#include <asm/sn/klconfig.h>
+-#include <asm/sn/types.h>
+-#include <asm/sn/pci/pciio.h>
+-#include <asm/sn/pci/pciio_private.h>
+-#include <asm/sn/pci/pcibr.h>
+-#include <asm/sn/pci/pcibr_private.h>
 -#include <asm/sn/sn_cpuid.h>
+-#include <asm/sn/io.h>
+ #include <asm/sn/intr.h>
+ #include <asm/sn/addrs.h>
+-#include <asm/sn/driver.h>
+ #include <asm/sn/arch.h>
+-#include <asm/sn/pda.h>
+-#include <asm/processor.h>
+-#include <asm/system.h>
+-#include <asm/bitops.h>
++#include <asm/sn/xtalk/xtalk_provider.h>
++#include <asm/sn/xtalk/xwidgetdev.h>
++#include <asm/sn/xtalk/xtalk_sal.h>
++#include <asm/sn/pci/pcibus_provider_defs.h>
++#include <asm/sn/pci/pcidev.h>
++#include <asm/sn/pci/pcibus.h>
++#include <asm/sn/pci/pcibr_provider.h>
+ #include <asm/sn/sn2/shub_mmr.h>
+ 
+ static void force_interrupt(int irq);
+-extern void pcibr_force_interrupt(pcibr_intr_t intr);
+-extern int sn_force_interrupt_flag;
+-struct irq_desc * sn_irq_desc(unsigned int irq);
+-extern cpumask_t    __cacheline_aligned pending_irq_cpumask[NR_IRQS];
 -
--extern xtalk_provider_t hub_provider;
--
--static int force_fire_and_forget = 1;
--static int ignore_conveyor_override;
--
--
--/* 
-- * Implementation of hub iobus operations.
-- *
-- * Hub provides a crosstalk "iobus" on IP27 systems.  These routines
-- * provide a platform-specific implementation of xtalk used by all xtalk 
-- * cards on IP27 systems.
-- *
-- * Called from corresponding xtalk_* routines.
-- */
+-struct sn_intr_list_t {
+-	struct sn_intr_list_t *next;
+-	pcibr_intr_t intr;
+-};
++static void register_intr_pda(struct sn_irq_info *sn_irq_info);
++static void unregister_intr_pda(struct sn_irq_info *sn_irq_info);
+ 
+-static struct sn_intr_list_t *sn_intr_list[NR_IRQS];
 -
 -
--/* PIO MANAGEMENT */
--/* For mapping system virtual address space to xtalk space on a specified widget */
--
--/*
-- * Setup pio structures needed for a particular hub.
-- */
+-static unsigned int
+-sn_startup_irq(unsigned int irq)
+-{
+-        return(0);
+-}
++extern int sn_force_interrupt_flag;
++struct sn_irq_info **sn_irq;
+ 
 -static void
--hub_pio_init(vertex_hdl_t hubv)
--{
--	xwidgetnum_t widget;
--	hubinfo_t hubinfo;
--	nasid_t nasid;
--	int bigwin;
--	hub_piomap_t hub_piomap;
+-sn_shutdown_irq(unsigned int irq)
++static unsigned int sn_startup_irq(unsigned int irq)
+ {
++	return 0;
+ }
+ 
+-static void
+-sn_disable_irq(unsigned int irq)
++static void sn_shutdown_irq(unsigned int irq)
+ {
+ }
+ 
+-static void
+-sn_enable_irq(unsigned int irq)
++static void sn_disable_irq(unsigned int irq)
+ {
+ }
+ 
+-static inline void sn_move_irq(int irq)
++static void sn_enable_irq(unsigned int irq)
+ {
+-	/* note - we hold desc->lock */
+-	cpumask_t tmp;
+-	irq_desc_t *desc = irq_descp(irq);
 -
--	hubinfo_get(hubv, &hubinfo);
--	nasid = hubinfo->h_nasid;
--
--	/* Initialize small window piomaps for this hub */
--	for (widget=0; widget <= HUB_WIDGET_ID_MAX; widget++) {
--		hub_piomap = hubinfo_swin_piomap_get(hubinfo, (int)widget);
--		hub_piomap->hpio_xtalk_info.xp_target = widget;
--		hub_piomap->hpio_xtalk_info.xp_xtalk_addr = 0;
--		hub_piomap->hpio_xtalk_info.xp_mapsz = SWIN_SIZE;
--		hub_piomap->hpio_xtalk_info.xp_kvaddr = (caddr_t)NODE_SWIN_BASE(nasid, widget);
--		hub_piomap->hpio_hub = hubv;
--		hub_piomap->hpio_flags = HUB_PIOMAP_IS_VALID;
+-	if (!cpus_empty(pending_irq_cpumask[irq])) {
+-		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
+-		if (unlikely(!cpus_empty(tmp))) {
+-			desc->handler->set_affinity(irq, pending_irq_cpumask[irq]);
+-		}
+-		cpus_clear(pending_irq_cpumask[irq]);
 -	}
+ }
+ 
+-static void
+-sn_ack_irq(unsigned int irq)
++static void sn_ack_irq(unsigned int irq)
+ {
+-	unsigned long event_occurred, mask = 0;
++	uint64_t event_occurred, mask = 0;
+ 	int nasid;
+ 
+ 	irq = irq & 0xff;
+ 	nasid = smp_physical_node_id();
+-	event_occurred = HUB_L( (unsigned long *)GLOBAL_MMR_ADDR(nasid,SH_EVENT_OCCURRED) );
++	event_occurred +	    HUB_L((uint64_t *) GLOBAL_MMR_ADDR(nasid, SH_EVENT_OCCURRED));
+ 	if (event_occurred & SH_EVENT_OCCURRED_UART_INT_MASK) {
+ 		mask |= (1 << SH_EVENT_OCCURRED_UART_INT_SHFT);
+ 	}
+@@ -108,63 +66,91 @@
+ 	if (event_occurred & SH_EVENT_OCCURRED_II_INT1_MASK) {
+ 		mask |= (1 << SH_EVENT_OCCURRED_II_INT1_SHFT);
+ 	}
+-	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_EVENT_OCCURRED_ALIAS), mask );
++	HUB_S((uint64_t *) GLOBAL_MMR_ADDR(nasid, SH_EVENT_OCCURRED_ALIAS),
++	      mask);
+ 	__set_bit(irq, (volatile void *)pda->sn_in_service_ivecs);
+-	sn_move_irq(irq);
+ }
+ 
+-static void
+-sn_end_irq(unsigned int irq)
++static void sn_end_irq(unsigned int irq)
+ {
+ 	int nasid;
+ 	int ivec;
+-	unsigned long event_occurred;
+-	irq_desc_t *desc = sn_irq_desc(irq);
+-	unsigned int status = desc->status;
++	uint64_t event_occurred;
+ 
+ 	ivec = irq & 0xff;
+ 	if (ivec = SGI_UART_VECTOR) {
+ 		nasid = smp_physical_node_id();
+-		event_occurred = HUB_L( (unsigned long *)GLOBAL_MMR_ADDR(nasid,SH_EVENT_OCCURRED) );
+-		// If the UART bit is set here, we may have received an interrupt from the
+-		// UART that the driver missed.  To make sure, we IPI ourselves to force us
+-		// to look again.
++		event_occurred = HUB_L((uint64_t *) GLOBAL_MMR_ADDR
++				       (nasid, SH_EVENT_OCCURRED));
++		/* If the UART bit is set here, we may have received an 
++		 * interrupt from the UART that the driver missed.  To
++		 * make sure, we IPI ourselves to force us to look again.
++		 */
+ 		if (event_occurred & SH_EVENT_OCCURRED_UART_INT_MASK) {
+-				platform_send_ipi(smp_processor_id(), SGI_UART_VECTOR, IA64_IPI_DM_INT, 0);
++			platform_send_ipi(smp_processor_id(), SGI_UART_VECTOR,
++					  IA64_IPI_DM_INT, 0);
+ 		}
+ 	}
+ 	__clear_bit(ivec, (volatile void *)pda->sn_in_service_ivecs);
+ 	if (sn_force_interrupt_flag)
+-		if (!(status & (IRQ_DISABLED | IRQ_INPROGRESS)))
+-			force_interrupt(irq);
++		force_interrupt(irq);
+ }
+ 
+-static void
+-sn_set_affinity_irq(unsigned int irq, cpumask_t mask)
++static void sn_set_affinity_irq(unsigned int irq, cpumask_t mask)
+ {
+-#ifdef CONFIG_SMP
+-	int redir = 0;
+-	int cpu;
+-	struct sn_intr_list_t *p = sn_intr_list[irq];
+-	pcibr_intr_t intr;
+-	extern void sn_shub_redirect_intr(pcibr_intr_t intr, unsigned long cpu);
+-	extern void sn_tio_redirect_intr(pcibr_intr_t intr, unsigned long cpu);
 -
--	/* Initialize big window piomaps for this hub */
--	for (bigwin=0; bigwin < HUB_NUM_BIG_WINDOW; bigwin++) {
--		hub_piomap = hubinfo_bwin_piomap_get(hubinfo, bigwin);
--		hub_piomap->hpio_xtalk_info.xp_mapsz = BWIN_SIZE;
--		hub_piomap->hpio_hub = hubv;
--		hub_piomap->hpio_holdcnt = 0;
--		hub_piomap->hpio_flags = HUB_PIOMAP_IS_BIGWINDOW;
--		IIO_ITTE_DISABLE(nasid, bigwin);
--	}
--	hub_set_piomode(nasid, HUB_PIO_CONVEYOR);
+-	if (p = NULL)
+-		return; 
+-        
+-	intr = p->intr;
 -
--	spin_lock_init(&hubinfo->h_bwlock);
--	init_waitqueue_head(&hubinfo->h_bwwait);
+-	if (intr = NULL)
+-		return; 
+-
+-	cpu = first_cpu(mask);
+-	sn_shub_redirect_intr(intr, cpu);
+-	irq = irq & 0xff;  /* strip off redirect bit, if someone stuck it on. */
+-	(void) set_irq_affinity_info(irq, cpu_physical_id(intr->bi_cpu), redir);
+-#endif /* CONFIG_SMP */
 -}
++	struct sn_irq_info *sn_irq_info = sn_irq[irq];
++	int cpuid, cpuphys;
++	nasid_t t_nasid;	/* nasid to target */
++	int t_slice;		/* slice to target */
++
++	cpuid = first_cpu(mask);
++	cpuphys = cpu_physical_id(cpuid);
++	t_nasid = cpu_physical_id_to_nasid(cpuphys);
++	t_slice = cpu_physical_id_to_slice(cpuphys);
++
++	while (sn_irq_info) {
++		struct xwidget_info *xwidget_info +		    sn_irq_info->irq_xwidgetinfo;
++		struct sn_irq_info *new_sn_irq_info, *next_sn_irq_info;
++
++		new_sn_irq_info = (xwidget_info->xwi_khub_provider->intr_alloc)
++		    (xwidget_info, irq, t_nasid, t_slice);
++		if (new_sn_irq_info) {
++			int bridge_type = sn_irq_info->irq_bridge_type;
++			uint64_t xtalk_addr = new_sn_irq_info->irq_xtalkaddr;
++			struct sn_irq_info *next_info +			    new_sn_irq_info->irq_next;
++
++			*new_sn_irq_info = *sn_irq_info;	/* struct copy */
++			new_sn_irq_info->irq_next = next_info;
++			new_sn_irq_info->irq_xtalkaddr = xtalk_addr;
++			new_sn_irq_info->irq_nasid = t_nasid;
++			new_sn_irq_info->irq_slice = t_slice;
++			new_sn_irq_info->irq_cpuid = cpuid;
++
++			if (IS_PCI_BRIDGE_ASIC(bridge_type) &&
++			    (new_sn_irq_info->irq_bridge != NULL)) {
++				pcibr_change_devices_irq(new_sn_irq_info);
++			}
++
++			/* unregister the old irq, register the new one */
++			unregister_intr_pda(sn_irq_info);
++			register_intr_pda(new_sn_irq_info);
++
++			next_sn_irq_info = sn_irq_info->irq_next;
+ 
++			/* Free the old sn_irq_info */
++			(xwidget_info->xwi_khub_provider->intr_free)
++			    (xwidget_info, sn_irq_info);
++
++			sn_irq_info = next_sn_irq_info;
++
++			set_irq_affinity_info((irq & 0xff), cpuphys, 0);
++		} else {
++			break;	/* snp_affiity failed the intr_alloc */
++		}
++	}
++}
+ 
+ struct hw_interrupt_type irq_type_sn = {
+ 	"SN hub",
+@@ -172,208 +158,206 @@
+ 	sn_shutdown_irq,
+ 	sn_enable_irq,
+ 	sn_disable_irq,
+-	sn_ack_irq, 
++	sn_ack_irq,
+ 	sn_end_irq,
+ 	sn_set_affinity_irq
+ };
+ 
 -
--/* 
-- * Create a caddr_t-to-xtalk_addr mapping.
-- *
-- * Use a small window if possible (that's the usual case), but
-- * manage big windows if needed.  Big window mappings can be
-- * either FIXED or UNFIXED -- we keep at least 1 big window available
-- * for UNFIXED mappings.
-- *
-- * Returns an opaque pointer-sized type which can be passed to
-- * other hub_pio_* routines on success, or NULL if the request
-- * cannot be satisfied.
-- */
--/* ARGSUSED */
--hub_piomap_t
--hub_piomap_alloc(vertex_hdl_t dev,	/* set up mapping for this device */
--		device_desc_t dev_desc,	/* device descriptor */
--		iopaddr_t xtalk_addr,	/* map for this xtalk_addr range */
--		size_t byte_count,
--		size_t byte_count_max, 	/* maximum size of a mapping */
--		unsigned flags)		/* defined in sys/pio.h */
--{
--	xwidget_info_t widget_info = xwidget_info_get(dev);
--	xwidgetnum_t widget = xwidget_info_id_get(widget_info);
--	vertex_hdl_t hubv = xwidget_info_master_get(widget_info);
--	hubinfo_t hubinfo;
--	hub_piomap_t bw_piomap;
--	int bigwin, free_bw_index;
--	nasid_t nasid;
--	volatile hubreg_t junk;
--	caddr_t kvaddr;
--#ifdef PIOMAP_UNC_ACC_SPACE
--	uint64_t addr;
--#endif
--
--	/* sanity check */
--	if (byte_count_max > byte_count)
--		return NULL;
--
--	hubinfo_get(hubv, &hubinfo);
--
--	/* If xtalk_addr range is mapped by a small window, we don't have 
--	 * to do much 
--	 */
--	if (xtalk_addr + byte_count <= SWIN_SIZE) {
--		hub_piomap_t piomap;
--
--		piomap = hubinfo_swin_piomap_get(hubinfo, (int)widget);
--#ifdef PIOMAP_UNC_ACC_SPACE
--		if (flags & PIOMAP_UNC_ACC) {
--			addr = (uint64_t)piomap->hpio_xtalk_info.xp_kvaddr;
--			addr |= PIOMAP_UNC_ACC_SPACE;
--			piomap->hpio_xtalk_info.xp_kvaddr = (caddr_t)addr;
--		}
--#endif
--		return piomap;
--	}
--
--	/* We need to use a big window mapping.  */
--
--	/*
--	 * TBD: Allow requests that would consume multiple big windows --
--	 * split the request up and use multiple mapping entries.
--	 * For now, reject requests that span big windows.
--	 */
--	if ((xtalk_addr % BWIN_SIZE) + byte_count > BWIN_SIZE)
--		return NULL;
--
--
--	/* Round xtalk address down for big window alignement */
--	xtalk_addr = xtalk_addr & ~(BWIN_SIZE-1);
--
--	/*
--	 * Check to see if an existing big window mapping will suffice.
--	 */
--tryagain:
--	free_bw_index = -1;
--	spin_lock(&hubinfo->h_bwlock);
--	for (bigwin=0; bigwin < HUB_NUM_BIG_WINDOW; bigwin++) {
--		bw_piomap = hubinfo_bwin_piomap_get(hubinfo, bigwin);
--
--		/* If mapping is not valid, skip it */
--		if (!(bw_piomap->hpio_flags & HUB_PIOMAP_IS_VALID)) {
--			free_bw_index = bigwin;
--			continue;
--		}
--
--		/* 
--		 * If mapping is UNFIXED, skip it.  We don't allow sharing
--		 * of UNFIXED mappings, because this would allow starvation.
--		 */
--		if (!(bw_piomap->hpio_flags & HUB_PIOMAP_IS_FIXED))
--			continue;
--
--		if ( xtalk_addr = bw_piomap->hpio_xtalk_info.xp_xtalk_addr &&
--		     widget = bw_piomap->hpio_xtalk_info.xp_target) {
--			bw_piomap->hpio_holdcnt++;
--			spin_unlock(&hubinfo->h_bwlock);
--			return bw_piomap;
--		}
--	}
--
--	/*
--	 * None of the existing big window mappings will work for us --
--	 * we need to establish a new mapping.
--	 */
--
--	/* Insure that we don't consume all big windows with FIXED mappings */
--	if (flags & PIOMAP_FIXED) {
--		if (hubinfo->h_num_big_window_fixed < HUB_NUM_BIG_WINDOW-1) {
--			ASSERT(free_bw_index >= 0);
--			hubinfo->h_num_big_window_fixed++;
--		} else {
--			bw_piomap = NULL;
--			goto done;
--		}
--	} else /* PIOMAP_UNFIXED */ {
--		if (free_bw_index < 0) {
--			if (flags & PIOMAP_NOSLEEP) {
--				bw_piomap = NULL;
--				goto done;
--			} else {
--				DECLARE_WAITQUEUE(wait, current);
--
--				spin_unlock(&hubinfo->h_bwlock); 
--				set_current_state(TASK_UNINTERRUPTIBLE);
--				add_wait_queue_exclusive(&hubinfo->h_bwwait, &wait);
--				schedule();
--				remove_wait_queue(&hubinfo->h_bwwait, &wait);
--				goto tryagain;
--			}
--		}
--	}
--
--
--	/* OK!  Allocate big window free_bw_index for this mapping. */
-- 	/* 
--	 * The code below does a PIO write to setup an ITTE entry.
--	 * We need to prevent other CPUs from seeing our updated memory 
--	 * shadow of the ITTE (in the piomap) until the ITTE entry is 
--	 * actually set up; otherwise, another CPU might attempt a PIO 
--	 * prematurely.  
--	 *
--	 * Also, the only way we can know that an entry has been received 
--	 * by the hub and can be used by future PIO reads/writes is by 
--	 * reading back the ITTE entry after writing it.
--	 *
--	 * For these two reasons, we PIO read back the ITTE entry after
--	 * we write it.
--	 */
--
--	nasid = hubinfo->h_nasid;
--	IIO_ITTE_PUT(nasid, free_bw_index, HUB_PIO_MAP_TO_MEM, widget, xtalk_addr);	
--	junk = HUB_L(IIO_ITTE_GET(nasid, free_bw_index));
--
--	bw_piomap = hubinfo_bwin_piomap_get(hubinfo, free_bw_index);
--	bw_piomap->hpio_xtalk_info.xp_dev = dev;
--	bw_piomap->hpio_xtalk_info.xp_target = widget;
--	bw_piomap->hpio_xtalk_info.xp_xtalk_addr = xtalk_addr;
--	kvaddr = (caddr_t)NODE_BWIN_BASE(nasid, free_bw_index);
--#ifdef PIOMAP_UNC_ACC_SPACE
--	if (flags & PIOMAP_UNC_ACC) {
--		addr = (uint64_t)kvaddr;
--		addr |= PIOMAP_UNC_ACC_SPACE;
--		kvaddr = (caddr_t)addr;
--	}
--#endif
--	bw_piomap->hpio_xtalk_info.xp_kvaddr = kvaddr;
--	bw_piomap->hpio_holdcnt++;
--	bw_piomap->hpio_bigwin_num = free_bw_index;
--
--	if (flags & PIOMAP_FIXED)
--		bw_piomap->hpio_flags |= HUB_PIOMAP_IS_VALID | HUB_PIOMAP_IS_FIXED;
--	else
--		bw_piomap->hpio_flags |= HUB_PIOMAP_IS_VALID;
--
--done:
--	spin_unlock(&hubinfo->h_bwlock);
--	return bw_piomap;
--}
--
--/*
-- * hub_piomap_free destroys a caddr_t-to-xtalk pio mapping and frees
-- * any associated mapping resources.  
-- *
-- * If this * piomap was handled with a small window, or if it was handled
-- * in a big window that's still in use by someone else, then there's 
-- * nothing to do.  On the other hand, if this mapping was handled 
-- * with a big window, AND if we were the final user of that mapping, 
-- * then destroy the mapping.
-- */
+-struct irq_desc *
+-sn_irq_desc(unsigned int irq)
++struct irq_desc *sn_irq_desc(unsigned int irq)
+ {
+ 
+ 	irq = SN_IVEC_FROM_IRQ(irq);
+ 
+-	return(_irq_desc + irq);
++	return (_irq_desc + irq);
+ }
+ 
+-u8
+-sn_irq_to_vector(unsigned int irq)
++u8 sn_irq_to_vector(u8 irq)
+ {
+-	return(irq);
++	return irq;
+ }
+ 
+-unsigned int
+-sn_local_vector_to_irq(u8 vector)
++unsigned int sn_local_vector_to_irq(u8 vector)
+ {
+ 	return (CPU_VECTOR_TO_IRQ(smp_processor_id(), vector));
+ }
+ 
 -void
--hub_piomap_free(hub_piomap_t hub_piomap)
--{
--	vertex_hdl_t hubv;
--	hubinfo_t hubinfo;
--	nasid_t nasid;
+-sn_irq_init (void)
++void sn_irq_init(void)
+ {
+ 	int i;
+ 	irq_desc_t *base_desc = _irq_desc;
+ 
+-	for (i=0; i<NR_IRQS; i++) {
++	for (i = 0; i < NR_IRQS; i++) {
+ 		if (base_desc[i].handler = &no_irq_type) {
+ 			base_desc[i].handler = &irq_type_sn;
+ 		}
+ 	}
+ }
+ 
+-void
+-register_pcibr_intr(int irq, pcibr_intr_t intr)
++static void register_intr_pda(struct sn_irq_info *sn_irq_info)
+ {
+-	struct sn_intr_list_t *p = kmalloc(sizeof(struct sn_intr_list_t), GFP_KERNEL);
+-	struct sn_intr_list_t *list;
+-	int cpu = intr->bi_cpu;
++	int irq = sn_irq_info->irq_irq;
++	int cpu = sn_irq_info->irq_cpuid;
+ 
+ 	if (pdacpu(cpu)->sn_last_irq < irq) {
+ 		pdacpu(cpu)->sn_last_irq = irq;
+ 	}
+-	if (pdacpu(cpu)->sn_first_irq = 0 || pdacpu(cpu)->sn_first_irq > irq) pdacpu(cpu)->sn_first_irq = irq;
+-	if (!p) panic("Could not allocate memory for sn_intr_list_t\n");
+-	if ((list = sn_intr_list[irq])) {
+-		while (list->next) list = list->next;
+-		list->next = p;
+-		p->next = NULL;
+-		p->intr = intr;
+-	} else {
+-		sn_intr_list[irq] = p;
+-		p->next = NULL;
+-		p->intr = intr;
++
++	if (pdacpu(cpu)->sn_first_irq = 0 || pdacpu(cpu)->sn_first_irq > irq) {
++		pdacpu(cpu)->sn_first_irq = irq;
+ 	}
+ }
+ 
+-void
+-unregister_pcibr_intr(int irq, pcibr_intr_t intr)
++static void unregister_intr_pda(struct sn_irq_info *sn_irq_info)
+ {
++	int irq = sn_irq_info->irq_irq;
++	int cpu = sn_irq_info->irq_cpuid;
++	struct sn_irq_info *tmp_irq_info;
++	int i, foundmatch;
+ 
+-	struct sn_intr_list_t **prev, *curr;
+-	int cpu = intr->bi_cpu;
+-	int i;
 -
--	/* 
--	 * Small windows are permanently mapped to corresponding widgets,
--	 * so there're no resources to free.
--	 */
--	if (!(hub_piomap->hpio_flags & HUB_PIOMAP_IS_BIGWINDOW))
+-	if (sn_intr_list[irq] = NULL)
 -		return;
 -
--	ASSERT(hub_piomap->hpio_flags & HUB_PIOMAP_IS_VALID);
--	ASSERT(hub_piomap->hpio_holdcnt > 0);
+-	prev = &sn_intr_list[irq];
+-	curr = sn_intr_list[irq];
+-	while (curr) {
+-		if (curr->intr = intr)	 {
+-			*prev = curr->next;
+-			break;
++	if (pdacpu(cpu)->sn_last_irq = irq) {
++		foundmatch = 0;
++		for (i = pdacpu(cpu)->sn_last_irq - 1; i; i--) {
++			tmp_irq_info = sn_irq[i];
++			while (tmp_irq_info) {
++				if (tmp_irq_info->irq_cpuid = cpu) {
++					foundmatch++;
++					break;
++				}
++				tmp_irq_info = tmp_irq_info->irq_next;
++			}
++			if (foundmatch) {
++				break;
++			}
+ 		}
+-		prev = &curr->next;
+-		curr = curr->next;
++		pdacpu(cpu)->sn_last_irq = i;
+ 	}
+ 
+-	if (curr)
+-		kfree(curr);
 -
--	hubv = hub_piomap->hpio_hub;
--	hubinfo_get(hubv, &hubinfo);
--	nasid = hubinfo->h_nasid;
+-	if (!sn_intr_list[irq]) {
+-		if (pdacpu(cpu)->sn_last_irq = irq) {
+-			for (i = pdacpu(cpu)->sn_last_irq - 1; i; i--)
+-				if (sn_intr_list[i])
++	if (pdacpu(cpu)->sn_first_irq = irq) {
++		foundmatch = 0;
++		for (i = pdacpu(cpu)->sn_first_irq + 1; i < NR_IRQS; i++) {
++			tmp_irq_info = sn_irq[i];
++			while (tmp_irq_info) {
++				if (tmp_irq_info->irq_cpuid = cpu) {
++					foundmatch++;
+ 					break;
+-			pdacpu(cpu)->sn_last_irq = i;
+-		}
 -
--	spin_lock(&hubinfo->h_bwlock);
+-		if (pdacpu(cpu)->sn_first_irq = irq) {
+-			pdacpu(cpu)->sn_first_irq = 0;
+-			for (i = pdacpu(cpu)->sn_first_irq + 1; i < NR_IRQS; i++)
+-				if (sn_intr_list[i])
+-					pdacpu(cpu)->sn_first_irq = i;
++				}
++				tmp_irq_info = tmp_irq_info->irq_next;
++			}
++			if (foundmatch) {
++				break;
++			}
+ 		}
++		pdacpu(cpu)->sn_first_irq = ((i = NR_IRQS) ? 0 : i);
+ 	}
 -
--	/*
--	 * If this is the last hold on this mapping, free it.
--	 */
--	if (--hub_piomap->hpio_holdcnt = 0) {
--		IIO_ITTE_DISABLE(nasid, hub_piomap->hpio_bigwin_num );
+ }
+ 
+-void
+-force_polled_int(void)
++void sn_irq_setup(void)
+ {
++	struct sn_irq_info *sn_irq_info;
+ 	int i;
+-	struct sn_intr_list_t *p;
+ 
+-	for (i=0; i<NR_IRQS;i++) {
+-		p = sn_intr_list[i];
+-		while (p) {
+-			if (p->intr){
+-				pcibr_force_interrupt(p->intr);
+-			}
+-			p = p->next;
++	for (i = 0; i < NR_IRQS; i++) {
++		/* set the cpuid in all the sn_irq_info_s structures
++		 * and update sn_first_irq & sn_last_irq in the PDA
++		 */
++		sn_irq_info = sn_irq[i];
++		while (sn_irq_info) {
++			nasid_t nasid = sn_irq_info->irq_nasid;
++			int slice = sn_irq_info->irq_slice;
++			int cpu = nasid_slice_to_cpuid(nasid, slice);
++			sn_irq_info->irq_cpuid = cpu;
++			(void)register_intr_pda(sn_irq_info);
++			sn_irq_info = sn_irq_info->irq_next;
+ 		}
+ 	}
+ }
+ 
+-static void
+-force_interrupt(int irq)
++static void force_interrupt(int irq)
+ {
+-	struct sn_intr_list_t *p = sn_intr_list[irq];
++	struct sn_irq_info *sn_irq_info = sn_irq[irq];
+ 
+-	while (p) {
+-		if (p->intr) {
+-			pcibr_force_interrupt(p->intr);
++	while (sn_irq_info) {
++		if (IS_PCI_BRIDGE_ASIC(sn_irq_info->irq_bridge_type) &&
++		    (sn_irq_info->irq_bridge != NULL)) {
++			pcibr_force_interrupt(sn_irq_info);
+ 		}
+-		p = p->next;
++		sn_irq_info = sn_irq_info->irq_next;
+ 	}
+ }
+ 
+ /*
+-Check for lost interrupts.  If the PIC int_status reg. says that
+-an interrupt has been sent, but not handled, and the interrupt
+-is not pending in either the cpu irr regs or in the soft irr regs,
+-and the interrupt is not in service, then the interrupt may have
+-been lost.  Force an interrupt on that pin.  It is possible that
+-the interrupt is in flight, so we may generate a spurious interrupt,
+-but we should never miss a real lost interrupt.
+-*/
 -
--		if (hub_piomap->hpio_flags & HUB_PIOMAP_IS_FIXED) {
--			hub_piomap->hpio_flags &= ~(HUB_PIOMAP_IS_VALID | HUB_PIOMAP_IS_FIXED);
--			hubinfo->h_num_big_window_fixed--;
--			ASSERT(hubinfo->h_num_big_window_fixed >= 0);
--		} else
--			hub_piomap->hpio_flags &= ~HUB_PIOMAP_IS_VALID;
--
--		wake_up(&hubinfo->h_bwwait);
+-static void
+-sn_check_intr(int irq, pcibr_intr_t intr)
++ * Check for lost interrupts.  If the PIC int_status reg. says that
++ * an interrupt has been sent, but not handled, and the interrupt
++ * is not pending in either the cpu irr regs or in the soft irr regs,
++ * and the interrupt is not in service, then the interrupt may have
++ * been lost.  Force an interrupt on that pin.  It is possible that
++ * the interrupt is in flight, so we may generate a spurious interrupt,
++ * but we should never miss a real lost interrupt.
++ */
++static void sn_check_intr(int irq, struct sn_irq_info *sn_irq_info)
+ {
+-	unsigned long regval;
++	uint64_t regval;
+ 	int irr_reg_num;
+ 	int irr_bit;
+-	unsigned long irr_reg;
++	uint64_t irr_reg;
++	struct pcidev_info *pcidev_info;
++	struct pcibus_info *pcibus_info;
+ 
++	pcidev_info = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
++	if (!pcidev_info)
++		return;
++
++	pcibus_info = (struct pcibus_info *) pcidev_info->pdi_pcibus_info;
++	regval = pcireg_intr_status_get(pcibus_info);
+ 
+-	regval = pcireg_intr_status_get(intr->bi_soft);
+ 	irr_reg_num = irq_to_vector(irq) / 64;
+ 	irr_bit = irq_to_vector(irq) % 64;
+ 	switch (irr_reg_num) {
+-		case 0:
+-			irr_reg = ia64_getreg(_IA64_REG_CR_IRR0);
+-			break;
+-		case 1:
+-			irr_reg = ia64_getreg(_IA64_REG_CR_IRR1);
+-			break;
+-		case 2:
+-			irr_reg = ia64_getreg(_IA64_REG_CR_IRR2);
+-			break;
+-		case 3:
+-			irr_reg = ia64_getreg(_IA64_REG_CR_IRR3);
+-			break;
 -	}
+-	if (!test_bit(irr_bit, &irr_reg) ) {
+-		if (!test_bit(irq, pda->sn_soft_irr) ) {
+-			if (!test_bit(irq, pda->sn_in_service_ivecs) ) {
++	case 0:
++		irr_reg = ia64_getreg(_IA64_REG_CR_IRR0);
++		break;
++	case 1:
++		irr_reg = ia64_getreg(_IA64_REG_CR_IRR1);
++		break;
++	case 2:
++		irr_reg = ia64_getreg(_IA64_REG_CR_IRR2);
++		break;
++	case 3:
++		irr_reg = ia64_getreg(_IA64_REG_CR_IRR3);
++		break;
++	}
++	if (!test_bit(irr_bit, &irr_reg)) {
++		if (!test_bit(irq, pda->sn_soft_irr)) {
++			if (!test_bit(irq, pda->sn_in_service_ivecs)) {
+ 				regval &= 0xff;
+-				if (intr->bi_ibits & regval & intr->bi_last_intr) {
+-					regval &= ~(intr->bi_ibits & regval);
+-					pcibr_force_interrupt(intr);
++				if (sn_irq_info->irq_int_bit & regval &
++				    sn_irq_info->irq_last_intr) {
++					regval &+					    ~(sn_irq_info->
++					      irq_int_bit & regval);
++					pcibr_force_interrupt(sn_irq_info);
+ 				}
+ 			}
+ 		}
+ 	}
+-	intr->bi_last_intr = regval;
++	sn_irq_info->irq_last_intr = regval;
+ }
+ 
+-void
+-sn_lb_int_war_check(void)
++void sn_lb_int_war_check(void)
+ {
+ 	int i;
+ 
+-	if (pda->sn_first_irq = 0) return;
+-	for (i=pda->sn_first_irq;
+-		i <= pda->sn_last_irq; i++) {
+-			struct sn_intr_list_t *p = sn_intr_list[i];
+-			if (p = NULL) {
+-				continue;
+-			}
+-			while (p) {
+-				sn_check_intr(i, p->intr);
+-				p = p->next;
++	if (pda->sn_first_irq = 0)
++		return;
++	for (i = pda->sn_first_irq; i <= pda->sn_last_irq; i++) {
++		struct sn_irq_info *sn_irq_info = sn_irq[i];
++		while (sn_irq_info) {
++			/* Only call for PCI bridges that are fully initialized. */
++			if (IS_PCI_BRIDGE_ASIC(sn_irq_info->irq_bridge_type) &&
++			    (sn_irq_info->irq_bridge != NULL)) {
++				sn_check_intr(i, sn_irq_info);
+ 			}
++			sn_irq_info = sn_irq_info->irq_next;
++		}
+ 	}
+ }
+diff -Nru a/arch/ia64/sn/kernel/setup.c b/arch/ia64/sn/kernel/setup.c
+--- a/arch/ia64/sn/kernel/setup.c	2004-08-11 16:55:17 -05:00
++++ b/arch/ia64/sn/kernel/setup.c	2004-08-11 16:55:17 -05:00
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (C) 1999,2001-2003 Silicon Graphics, Inc. All rights reserved.
++ * Copyright (C) 1999,2001-2004 Silicon Graphics, Inc. All rights reserved.
+  */
+ 
+ #include <linux/config.h>
+@@ -35,44 +35,50 @@
+ #include <asm/system.h>
+ #include <asm/processor.h>
+ #include <asm/sn/sgi.h>
+-#include <asm/sn/io.h>
+ #include <asm/sn/arch.h>
+ #include <asm/sn/addrs.h>
+ #include <asm/sn/pda.h>
+ #include <asm/sn/nodepda.h>
+ #include <asm/sn/sn_cpuid.h>
+-#include <asm/sn/sn_private.h>
+ #include <asm/sn/simulator.h>
+ #include <asm/sn/leds.h>
+ #include <asm/sn/bte.h>
+ #include <asm/sn/clksupport.h>
+ #include <asm/sn/sn_sal.h>
+ #include <asm/sn/sn2/shub.h>
++#include <asm/sn/klconfig.h>
+ 
+ DEFINE_PER_CPU(struct pda_s, pda_percpu);
+ 
+-#define MAX_PHYS_MEMORY		(1UL << 49)     /* 1 TB */
++#define MAX_PHYS_MEMORY		(1UL << 49)	/* 1 TB */
+ 
+-extern void bte_init_node (nodepda_t *, cnodeid_t);
++lboard_t *root_lboard[MAX_COMPACT_NODES];
++
++extern hubdev_init_node(nodepda_t *, cnodeid_t);
++extern void bte_init_node(nodepda_t *, cnodeid_t);
++extern void bte_init_cpu(void);
+ extern void sn_timer_init(void);
+ extern unsigned long last_time_offset;
+-extern void init_platform_hubinfo(nodepda_t **nodepdaindr);
+-extern void (*ia64_mark_idle)(int);
++extern void (*ia64_mark_idle) (int);
+ extern void snidle(int);
+ extern unsigned char acpi_kbd_controller_present;
+ 
++unsigned long sn_rtc_cycles_per_second;
+ 
+-unsigned long sn_rtc_cycles_per_second;   
++EXPORT_SYMBOL(sn_rtc_cycles_per_second);
+ 
+ partid_t sn_partid = -1;
++EXPORT_SYMBOL(sn_partid);
+ char sn_system_serial_number_string[128];
++EXPORT_SYMBOL(sn_system_serial_number_string);
+ u64 sn_partition_serial_number;
++EXPORT_SYMBOL(sn_partition_serial_number);
+ 
+ short physical_node_map[MAX_PHYSNODE_ID];
+ 
+ EXPORT_SYMBOL(physical_node_map);
+ 
+-int	numionodes;
++int numionodes;
+ /*
+  * This is the address of the RRegs in the HSpace of the global
+  * master.  It is used by a hack in serial.c (serial_[in|out],
+@@ -86,11 +92,7 @@
+ static void sn_init_pdas(char **);
+ static void scan_for_ionodes(void);
+ 
 -
--	spin_unlock(&hubinfo->h_bwlock);
+-static nodepda_t	*nodepdaindr[MAX_COMPACT_NODES];
+-
+-irqpda_t		*irqpdaindr;
+-
++static nodepda_t *nodepdaindr[MAX_COMPACT_NODES];
+ 
+ /*
+  * The format of "screen_info" is strange, and due to early i386-setup
+@@ -98,14 +100,14 @@
+  * VGA color display.
+  */
+ struct screen_info sn_screen_info = {
+-	.orig_x			= 0,
+-	.orig_y			= 0,
+-	.orig_video_mode	= 3,
+-	.orig_video_cols	= 80,
+-	.orig_video_ega_bx	= 3,
+-	.orig_video_lines	= 25,
+-	.orig_video_isVGA	= 1,
+-	.orig_video_points	= 16
++	.orig_x = 0,
++	.orig_y = 0,
++	.orig_video_mode = 3,
++	.orig_video_cols = 80,
++	.orig_video_ega_bx = 3,
++	.orig_video_lines = 25,
++	.orig_video_isVGA = 1,
++	.orig_video_points = 16
+ };
+ 
+ /*
+@@ -117,9 +119,9 @@
+  * is sufficient (the IDE driver will autodetect the drive geometry).
+  */
+ #ifdef CONFIG_IA64_GENERIC
+-extern char drive_info[4*16];
++extern char drive_info[4 * 16];
+ #else
+-char drive_info[4*16];
++char drive_info[4 * 16];
+ #endif
+ 
+ /*
+@@ -131,8 +133,7 @@
+  * may not be initialized yet.
+  */
+ 
+-static int __init
+-pxm_to_nasid(int pxm)
++static int __init pxm_to_nasid(int pxm)
+ {
+ 	int i;
+ 	int nid;
+@@ -145,6 +146,7 @@
+ 	}
+ 	return -1;
+ }
++
+ /**
+  * early_sn_setup - early setup routine for SN platforms
+  *
+@@ -152,16 +154,15 @@
+  * for bringup.  See start_kernel() in init/main.c.
+  */
+ 
+-void __init
+-early_sn_setup(void)
++void __init early_sn_setup(void)
+ {
+-	void ia64_sal_handler_init (void *entry_point, void *gpval);
+-	efi_system_table_t			*efi_systab;
+-	efi_config_table_t 			*config_tables;
+-	struct ia64_sal_systab			*sal_systab;
+-	struct ia64_sal_desc_entry_point	*ep;
+-	char					*p;
+-	int					i;
++	void ia64_sal_handler_init(void *entry_point, void *gpval);
++	efi_system_table_t *efi_systab;
++	efi_config_table_t *config_tables;
++	struct ia64_sal_systab *sal_systab;
++	struct ia64_sal_desc_entry_point *ep;
++	char *p;
++	int i;
+ 
+ 	/*
+ 	 * Parse enough of the SAL tables to locate the SAL entry point. Since, console
+@@ -170,16 +171,20 @@
+ 	 * This code duplicates some of the ACPI table parsing that is in efi.c & sal.c.
+ 	 * Any changes to those file may have to be made hereas well.
+ 	 */
+-	efi_systab = (efi_system_table_t*)__va(ia64_boot_param->efi_systab);
++	efi_systab = (efi_system_table_t *) __va(ia64_boot_param->efi_systab);
+ 	config_tables = __va(efi_systab->tables);
+ 	for (i = 0; i < efi_systab->nr_tables; i++) {
+-		if (efi_guidcmp(config_tables[i].guid, SAL_SYSTEM_TABLE_GUID) = 0) {
++		if (efi_guidcmp(config_tables[i].guid, SAL_SYSTEM_TABLE_GUID) =
++		    0) {
+ 			sal_systab = __va(config_tables[i].table);
+-			p = (char*)(sal_systab+1);
++			p = (char *)(sal_systab + 1);
+ 			for (i = 0; i < sal_systab->entry_count; i++) {
+ 				if (*p = SAL_DESC_ENTRY_POINT) {
+-					ep = (struct ia64_sal_desc_entry_point *) p;
+-					ia64_sal_handler_init(__va(ep->sal_proc), __va(ep->gp));
++					ep = (struct ia64_sal_desc_entry_point
++					      *)p;
++					ia64_sal_handler_init(__va
++							      (ep->sal_proc),
++							      __va(ep->gp));
+ 					break;
+ 				}
+ 				p += SAL_DESC_SIZE(*p);
+@@ -187,9 +192,12 @@
+ 		}
+ 	}
+ 
+-	if ( IS_RUNNING_ON_SIMULATOR() ) {
+-		master_node_bedrock_address = (u64)REMOTE_HUB(get_nasid(), SH_JUNK_BUS_UART0);
+-		printk(KERN_DEBUG "early_sn_setup: setting master_node_bedrock_address to 0x%lx\n", master_node_bedrock_address);
++	if (IS_RUNNING_ON_SIMULATOR()) {
++		master_node_bedrock_address +		    (u64) REMOTE_HUB(get_nasid(), SH_JUNK_BUS_UART0);
++		printk(KERN_DEBUG
++		       "early_sn_setup: setting master_node_bedrock_address to 0x%lx\n",
++		       master_node_bedrock_address);
+ 	}
+ }
+ 
+@@ -197,55 +205,32 @@
+ extern nasid_t master_nasid;
+ static int shub_1_1_found __initdata;
+ 
+-
+ /*
+  * sn_check_for_wars
+  *
+  * Set flag for enabling shub specific wars
+  */
+ 
+-static inline int __init
+-is_shub_1_1(int nasid)
++static inline int __init is_shub_1_1(int nasid)
+ {
+ 	unsigned long id;
+-	int	rev;
++	int rev;
+ 
+ 	id = REMOTE_HUB_L(nasid, SH_SHUB_ID);
+-	rev =  (id & SH_SHUB_ID_REVISION_MASK) >> SH_SHUB_ID_REVISION_SHFT;
++	rev = (id & SH_SHUB_ID_REVISION_MASK) >> SH_SHUB_ID_REVISION_SHFT;
+ 	return rev <= 2;
+ }
+ 
+-static void __init
+-sn_check_for_wars(void)
++static void __init sn_check_for_wars(void)
+ {
+-	int	cnode;
++	int cnode;
+ 
+-	for (cnode=0; cnode< numnodes; cnode++)
++	for (cnode = 0; cnode < numnodes; cnode++)
+ 		if (is_shub_1_1(cnodeid_to_nasid(cnode)))
+ 			shub_1_1_found = 1;
+ }
+ 
+ /**
+- * sn_set_error_handling_features - Tell the SN prom how to handle certain
+- * error types.
+- */
+-static void __init
+-sn_set_error_handling_features(void)
+-{
+-	u64 ret;
+-	u64 sn_ehf_bits[7];	/* see ia64_sn_set_error_handling_features */
+-	memset(sn_ehf_bits, 0, sizeof(sn_ehf_bits));
+-#define EHF(x) __set_bit(SN_SAL_EHF_ ## x, sn_ehf_bits)
+-	EHF(MCA_SLV_TO_OS_INIT_SLV);
+-	EHF(NO_RZ_TLBC);
+-	// Uncomment once Jesse's code goes in - EHF(NO_RZ_IO_READ); 
+-#undef	EHF
+-	ret = ia64_sn_set_error_handling_features(sn_ehf_bits);
+-	if (ret)
+-		printk(KERN_ERR "%s: failed, return code %ld\n", __FUNCTION__, ret);
 -}
 -
--/*
-- * Establish a mapping to a given xtalk address range using the resources
-- * allocated earlier.
-- */
--caddr_t
--hub_piomap_addr(hub_piomap_t hub_piomap,	/* mapping resources */
--		iopaddr_t xtalk_addr,		/* map for this xtalk address */
--		size_t byte_count)		/* map this many bytes */
--{
--	/* Verify that range can be mapped using the specified piomap */
--	if (xtalk_addr < hub_piomap->hpio_xtalk_info.xp_xtalk_addr)
--		return 0;
+-/**
+  * sn_setup - SN platform setup routine
+  * @cmdline_p: kernel command line
+  *
+@@ -253,15 +238,12 @@
+  * the RTC frequency (via a SAL call), initializing secondary CPUs, and
+  * setting up per-node data areas.  The console is also initialized here.
+  */
+-void __init
+-sn_setup(char **cmdline_p)
++void __init sn_setup(char **cmdline_p)
+ {
+ 	long status, ticks_per_sec, drift;
+ 	int pxm;
+ 	int major = sn_sal_rev_major(), minor = sn_sal_rev_minor();
+-	extern nasid_t snia_get_master_baseio_nasid(void);
+ 	extern void sn_cpu_init(void);
+-	extern nasid_t snia_get_console_nasid(void);
+ 
+ 	/*
+ 	 * If the generic code has enabled vga console support - lets
+@@ -283,10 +265,10 @@
+ 	MAX_DMA_ADDRESS = PAGE_OFFSET + MAX_PHYS_MEMORY;
+ 
+ 	memset(physical_node_map, -1, sizeof(physical_node_map));
+-	for (pxm=0; pxm<MAX_PXM_DOMAINS; pxm++)
++	for (pxm = 0; pxm < MAX_PXM_DOMAINS; pxm++)
+ 		if (pxm_to_nid_map[pxm] != -1)
+-			physical_node_map[pxm_to_nasid(pxm)] = pxm_to_nid_map[pxm];
 -
--	if (xtalk_addr + byte_count > 
--		( hub_piomap->hpio_xtalk_info.xp_xtalk_addr + 
--			hub_piomap->hpio_xtalk_info.xp_mapsz))
--		return 0;
--
--	if (hub_piomap->hpio_flags & HUB_PIOMAP_IS_VALID)
--		return hub_piomap->hpio_xtalk_info.xp_kvaddr + 
--			(xtalk_addr % hub_piomap->hpio_xtalk_info.xp_mapsz);
++			physical_node_map[pxm_to_nasid(pxm)] +			    pxm_to_nid_map[pxm];
+ 
+ 	/*
+ 	 * Old PROMs do not provide an ACPI FADT. Disable legacy keyboard
+@@ -313,31 +295,28 @@
+ 	}
+ 
+ 	master_nasid = get_nasid();
+-	(void)snia_get_console_nasid();
+-	(void)snia_get_master_baseio_nasid();
+ 
+-	status = ia64_sal_freq_base(SAL_FREQ_BASE_REALTIME_CLOCK, &ticks_per_sec, &drift);
++	status +	    ia64_sal_freq_base(SAL_FREQ_BASE_REALTIME_CLOCK, &ticks_per_sec,
++			       &drift);
+ 	if (status != 0 || ticks_per_sec < 100000) {
+-		printk(KERN_WARNING "unable to determine platform RTC clock frequency, guessing.\n");
++		printk(KERN_WARNING
++		       "unable to determine platform RTC clock frequency, guessing.\n");
+ 		/* PROM gives wrong value for clock freq. so guess */
+-		sn_rtc_cycles_per_second = 1000000000000UL/30000UL;
+-	}
 -	else
--		return 0;
--}
++		sn_rtc_cycles_per_second = 1000000000000UL / 30000UL;
++	} else
+ 		sn_rtc_cycles_per_second = ticks_per_sec;
+ 
+ 	platform_intr_list[ACPI_INTERRUPT_CPEI] = IA64_CPE_VECTOR;
+ 
 -
+-	if ( IS_RUNNING_ON_SIMULATOR() )
+-	{
+-		master_node_bedrock_address = (u64)REMOTE_HUB(get_nasid(), SH_JUNK_BUS_UART0);
+-		printk(KERN_DEBUG "sn_setup: setting master_node_bedrock_address to 0x%lx\n",
++	if (IS_RUNNING_ON_SIMULATOR()) {
++		master_node_bedrock_address +		    (u64) REMOTE_HUB(get_nasid(), SH_JUNK_BUS_UART0);
++		printk(KERN_DEBUG
++		       "sn_setup: setting master_node_bedrock_address to 0x%lx\n",
+ 		       master_node_bedrock_address);
+ 	}
+ 
+-	/* Tell the prom how to handle certain error types */
+-	sn_set_error_handling_features();
 -
--/*
-- * Driver indicates that it's done with PIO's from an earlier piomap_addr.
-- */
--/* ARGSUSED */
--void
--hub_piomap_done(hub_piomap_t hub_piomap)	/* done with these mapping resources */
--{
--	/* Nothing to do */
--}
--
--
--/*
-- * For translations that require no mapping resources, supply a kernel virtual
-- * address that maps to the specified xtalk address range.
-- */
--/* ARGSUSED */
--caddr_t
--hub_piotrans_addr(	vertex_hdl_t dev,	/* translate to this device */
--			device_desc_t dev_desc,	/* device descriptor */
--			iopaddr_t xtalk_addr,	/* Crosstalk address */
--			size_t byte_count,	/* map this many bytes */
--			unsigned flags)		/* (currently unused) */
--{
--	xwidget_info_t widget_info = xwidget_info_get(dev);
--	xwidgetnum_t widget = xwidget_info_id_get(widget_info);
--	vertex_hdl_t hubv = xwidget_info_master_get(widget_info);
--	hub_piomap_t hub_piomap;
--	hubinfo_t hubinfo;
--	caddr_t addr;
--
--	hubinfo_get(hubv, &hubinfo);
--
--	if (xtalk_addr + byte_count <= SWIN_SIZE) {
--		hub_piomap = hubinfo_swin_piomap_get(hubinfo, (int)widget);
--		addr = hub_piomap_addr(hub_piomap, xtalk_addr, byte_count);
--#ifdef PIOMAP_UNC_ACC_SPACE
--		if (flags & PIOMAP_UNC_ACC) {
--			uint64_t iaddr;
--			iaddr = (uint64_t)addr;
--			iaddr |= PIOMAP_UNC_ACC_SPACE;
--			addr = (caddr_t)iaddr;
--		}
--#endif
--		return addr;
--	} else
--		return 0;
--}
--
--
--/* DMA MANAGEMENT */
--/* Mapping from crosstalk space to system physical space */
--
--
--/*
-- * Allocate resources needed to set up DMA mappings up to a specified size
-- * on a specified adapter.
-- * 
-- * We don't actually use the adapter ID for anything.  It's just the adapter
-- * that the lower level driver plans to use for DMA.
-- */
--/* ARGSUSED */
--hub_dmamap_t
--hub_dmamap_alloc(	vertex_hdl_t dev,	/* set up mappings for this device */
--			device_desc_t dev_desc,	/* device descriptor */
--			size_t byte_count_max, 	/* max size of a mapping */
--			unsigned flags)		/* defined in dma.h */
--{
--	hub_dmamap_t dmamap;
--	xwidget_info_t widget_info = xwidget_info_get(dev);
--	xwidgetnum_t widget = xwidget_info_id_get(widget_info);
--	vertex_hdl_t hubv = xwidget_info_master_get(widget_info);
--
--	dmamap = kmalloc(sizeof(struct hub_dmamap_s), GFP_ATOMIC);
--	dmamap->hdma_xtalk_info.xd_dev = dev;
--	dmamap->hdma_xtalk_info.xd_target = widget;
--	dmamap->hdma_hub = hubv;
--	dmamap->hdma_flags = HUB_DMAMAP_IS_VALID;
-- 	if (flags & XTALK_FIXED)
--		dmamap->hdma_flags |= HUB_DMAMAP_IS_FIXED;
--
--	return dmamap;
--}
--
--/*
-- * Destroy a DMA mapping from crosstalk space to system address space.
-- * There is no actual mapping hardware to destroy, but we at least mark
-- * the dmamap INVALID and free the space that it took.
-- */
--void
--hub_dmamap_free(hub_dmamap_t hub_dmamap)
--{
--	hub_dmamap->hdma_flags &= ~HUB_DMAMAP_IS_VALID;
--	kfree(hub_dmamap);
--}
--
--/*
-- * Establish a DMA mapping using the resources allocated in a previous dmamap_alloc.
-- * Return an appropriate crosstalk address range that maps to the specified physical 
-- * address range.
-- */
--/* ARGSUSED */
--extern iopaddr_t
--hub_dmamap_addr(	hub_dmamap_t dmamap,	/* use these mapping resources */
--			paddr_t paddr,		/* map for this address */
--			size_t byte_count)	/* map this many bytes */
--{
--	vertex_hdl_t vhdl;
--
--	ASSERT(dmamap->hdma_flags & HUB_DMAMAP_IS_VALID);
--
--	if (dmamap->hdma_flags & HUB_DMAMAP_USED) {
--	    /* If the map is FIXED, re-use is OK. */
--	    if (!(dmamap->hdma_flags & HUB_DMAMAP_IS_FIXED)) {
--		char name[MAXDEVNAME];
--		vhdl = dmamap->hdma_xtalk_info.xd_dev;
--		printk(KERN_WARNING  "%s: hub_dmamap_addr re-uses dmamap.\n", vertex_to_name(vhdl, name, MAXDEVNAME));
--	    }
--	} else {
--		dmamap->hdma_flags |= HUB_DMAMAP_USED;
--	}
--
--	/* There isn't actually any DMA mapping hardware on the hub. */
--        return (PHYS_TO_DMA(paddr));
--}
--
--/*
-- * Driver indicates that it has completed whatever DMA it may have started
-- * after an earlier dmamap_addr call.
-- */
--void
--hub_dmamap_done(hub_dmamap_t hub_dmamap)	/* done with these mapping resources */
--{
--	vertex_hdl_t vhdl;
--
--	if (hub_dmamap->hdma_flags & HUB_DMAMAP_USED) {
--		hub_dmamap->hdma_flags &= ~HUB_DMAMAP_USED;
--	} else {
--	    /* If the map is FIXED, re-done is OK. */
--	    if (!(hub_dmamap->hdma_flags & HUB_DMAMAP_IS_FIXED)) {
--		char name[MAXDEVNAME];
--		vhdl = hub_dmamap->hdma_xtalk_info.xd_dev;
--		printk(KERN_WARNING  "%s: hub_dmamap_done already done with dmamap\n", vertex_to_name(vhdl, name, MAXDEVNAME));
--	    }
--	}
--}
--
--/*
-- * Translate a single system physical address into a crosstalk address.
-- */
--/* ARGSUSED */
--iopaddr_t
--hub_dmatrans_addr(	vertex_hdl_t dev,	/* translate for this device */
--			device_desc_t dev_desc,	/* device descriptor */
--			paddr_t paddr,		/* system physical address */
--			size_t byte_count,	/* length */
--			unsigned flags)		/* defined in dma.h */
--{
--	return (PHYS_TO_DMA(paddr));
--}
--
--/*ARGSUSED*/
--void
--hub_dmamap_drain(	hub_dmamap_t map)
--{
--    /* XXX- flush caches, if cache coherency WAR is needed */
--}
--
--/*ARGSUSED*/
--void
--hub_dmaaddr_drain(	vertex_hdl_t vhdl,
--			paddr_t addr,
--			size_t bytes)
--{
--    /* XXX- flush caches, if cache coherency WAR is needed */
--}
--
--
--/* CONFIGURATION MANAGEMENT */
--
--/*
-- * Perform initializations that allow this hub to start crosstalk support.
-- */
--void
--hub_provider_startup(vertex_hdl_t hubv)
--{
--	hubinfo_t       hubinfo;
--
--	hubinfo_get(hubv, &hubinfo);
--	hub_pio_init(hubv);
--	intr_init_vecblk(nasid_to_cnodeid(hubinfo->h_nasid));
--}
--
--/*
-- * Shutdown crosstalk support from a hub.
-- */
--void
--hub_provider_shutdown(vertex_hdl_t hub)
--{
--	/* TBD */
--	xtalk_provider_unregister(hub);
--}
--
--/*
-- * Check that an address is in the real small window widget 0 space
-- * or else in the big window we're using to emulate small window 0
-- * in the kernel.
-- */
--int
--hub_check_is_widget0(void *addr)
--{
--	nasid_t nasid = NASID_GET(addr);
--
--	if (((unsigned long)addr >= RAW_NODE_SWIN_BASE(nasid, 0)) &&
--	    ((unsigned long)addr < RAW_NODE_SWIN_BASE(nasid, 1)))
--		return 1;
--	return 0;
--}
--
--
--/*
-- * Check that two addresses use the same widget
-- */
--int
--hub_check_window_equiv(void *addra, void *addrb)
--{
--	if (hub_check_is_widget0(addra) && hub_check_is_widget0(addrb))
--		return 1;
--
--	/* XXX - Assume this is really a small window address */
--	if (WIDGETID_GET((unsigned long)addra) =
--	    WIDGETID_GET((unsigned long)addrb))
--		return 1;
--
--	return 0;
--}
--
--
--/*
-- * hub_setup_prb(nasid, prbnum, credits, conveyor)
-- *
-- * 	Put a PRB into fire-and-forget mode if conveyor isn't set.  Otherwise,
-- * 	put it into conveyor belt mode with the specified number of credits.
-- */
--void
--hub_setup_prb(nasid_t nasid, int prbnum, int credits, int conveyor)
--{
--	iprb_t prb;
--	int prb_offset;
--
--	if (force_fire_and_forget && !ignore_conveyor_override)
--	    if (conveyor = HUB_PIO_CONVEYOR)
--		conveyor = HUB_PIO_FIRE_N_FORGET;
--
+ 	/*
+ 	 * we set the default root device to /dev/hda
+ 	 * to make simulation easy
+@@ -357,12 +336,6 @@
+ 	 */
+ 	sn_cpu_init();
+ 
 -	/*
--	 * Get the current register value.
+-	 * Setup hubinfo stuff. Has to happen AFTER sn_cpu_init(),
+-	 * because it uses the cnode to nasid tables.
 -	 */
--	prb_offset = IIO_IOPRB(prbnum);
--	prb.iprb_regval = REMOTE_HUB_L(nasid, prb_offset);
--
--	/*
--	 * Clear out some fields.
--	 */
--	prb.iprb_ovflow = 1;
--	prb.iprb_bnakctr = 0;
--	prb.iprb_anakctr = 0;
--
--	/*
--	 * Enable or disable fire-and-forget mode.
--	 */
--	prb.iprb_ff = ((conveyor = HUB_PIO_CONVEYOR) ? 0 : 1);
--
--	/*
--	 * Set the appropriate number of PIO cresits for the widget.
--	 */
--	prb.iprb_xtalkctr = credits;
--
--	/*
--	 * Store the new value to the register.
--	 */
--	REMOTE_HUB_S(nasid, prb_offset, prb.iprb_regval);
--}
--
--/*
-- * hub_set_piomode()
-- *
-- * 	Put the hub into either "PIO conveyor belt" mode or "fire-and-forget"
-- * 	mode.  To do this, we have to make absolutely sure that no PIOs
-- *	are in progress so we turn off access to all widgets for the duration
-- *	of the function.
-- * 
-- * XXX - This code should really check what kind of widget we're talking
-- * to.  Bridges can only handle three requests, but XG will do more.
-- * How many can crossbow handle to widget 0?  We're assuming 1.
-- *
-- * XXX - There is a bug in the crossbow that link reset PIOs do not
-- * return write responses.  The easiest solution to this problem is to
-- * leave widget 0 (xbow) in fire-and-forget mode at all times.  This
-- * only affects pio's to xbow registers, which should be rare.
-- */
--void
--hub_set_piomode(nasid_t nasid, int conveyor)
--{
--	hubreg_t ii_iowa;
--	int direct_connect;
--	hubii_wcr_t ii_wcr;
--	int prbnum;
--
--	ASSERT(nasid_to_cnodeid(nasid) != INVALID_CNODEID);
--
--	ii_iowa = REMOTE_HUB_L(nasid, IIO_OUTWIDGET_ACCESS);
--	REMOTE_HUB_S(nasid, IIO_OUTWIDGET_ACCESS, 0);
--
--	ii_wcr.wcr_reg_value = REMOTE_HUB_L(nasid, IIO_WCR);
--	direct_connect = ii_wcr.iwcr_dir_con;
--
--	if (direct_connect) {
--		/* 
--		 * Assume a bridge here.
--		 */
--		hub_setup_prb(nasid, 0, 3, conveyor);
--	} else {
--		/* 
--		 * Assume a crossbow here.
--		 */
--		hub_setup_prb(nasid, 0, 1, conveyor);
--	}
--
--	for (prbnum = HUB_WIDGET_ID_MIN; prbnum <= HUB_WIDGET_ID_MAX; prbnum++) {
--		/*
--		 * XXX - Here's where we should take the widget type into
--		 * when account assigning credits.
--		 */
--		/* Always set the PRBs in fire-and-forget mode */
--		hub_setup_prb(nasid, prbnum, 3, conveyor);
--	}
--
--	REMOTE_HUB_S(nasid, IIO_OUTWIDGET_ACCESS, ii_iowa);
--}
--/* Interface to allow special drivers to set hub specific
-- * device flags.
-- * Return 0 on failure , 1 on success
-- */
--int
--hub_widget_flags_set(nasid_t		nasid,
--		     xwidgetnum_t	widget_num,
--		     hub_widget_flags_t	flags)
--{
--
--	ASSERT((flags & HUB_WIDGET_FLAGS) = flags);
--
--	if (flags & HUB_PIO_CONVEYOR) {
--		hub_setup_prb(nasid,widget_num,
--			      3,HUB_PIO_CONVEYOR); /* set the PRB in conveyor 
--						    * belt mode with 3 credits
--						    */
--	} else if (flags & HUB_PIO_FIRE_N_FORGET) {
--		hub_setup_prb(nasid,widget_num,
--			      3,HUB_PIO_FIRE_N_FORGET); /* set the PRB in fire
--							 *  and forget mode 
--							 */
--	}
--
--	return 1;
--}
--
--/*
-- * A pointer to this structure hangs off of every hub hwgraph vertex.
-- * The generic xtalk layer may indirect through it to get to this specific
-- * crosstalk bus provider.
-- */
--xtalk_provider_t hub_provider = {
--	.piomap_alloc	= (xtalk_piomap_alloc_f *) hub_piomap_alloc,
--	.piomap_free	= (xtalk_piomap_free_f *) hub_piomap_free,
--	.piomap_addr	= (xtalk_piomap_addr_f *) hub_piomap_addr,
--	.piomap_done	= (xtalk_piomap_done_f *) hub_piomap_done,
--	.piotrans_addr	= (xtalk_piotrans_addr_f *) hub_piotrans_addr,
--
--	.dmamap_alloc	= (xtalk_dmamap_alloc_f *) hub_dmamap_alloc,
--	.dmamap_free	= (xtalk_dmamap_free_f *) hub_dmamap_free,
--	.dmamap_addr	= (xtalk_dmamap_addr_f *) hub_dmamap_addr,
--	.dmamap_done	= (xtalk_dmamap_done_f *) hub_dmamap_done,
--	.dmatrans_addr	= (xtalk_dmatrans_addr_f *) hub_dmatrans_addr,
--	.dmamap_drain	= (xtalk_dmamap_drain_f *) hub_dmamap_drain,
--	.dmaaddr_drain	= (xtalk_dmaaddr_drain_f *) hub_dmaaddr_drain,
--
--	.intr_alloc	= (xtalk_intr_alloc_f *) hub_intr_alloc,
--	.intr_alloc_nothd = (xtalk_intr_alloc_f *) hub_intr_alloc_nothd,
--	.intr_free	= (xtalk_intr_free_f *)	hub_intr_free,
--	.intr_connect	= (xtalk_intr_connect_f *) hub_intr_connect,
--	.intr_disconnect = (xtalk_intr_disconnect_f *) hub_intr_disconnect,
--	.provider_startup = (xtalk_provider_startup_f *) hub_provider_startup,
--	.provider_shutdown = (xtalk_provider_shutdown_f *) hub_provider_shutdown,
--};
-diff -Nru a/arch/ia64/sn/io/snia_if.c b/arch/ia64/sn/io/snia_if.c
---- a/arch/ia64/sn/io/snia_if.c	2004-08-11 15:54:20 -05:00
-+++ /dev/null	Wed Dec 31 16:00:00 196900
-@@ -1,108 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
-- *
-- * Copyright (C) 2003 Silicon Graphics, Inc. All rights reserved.
-- */
--
--#include <asm/sn/sgi.h>
--#include <asm/sn/sn_sal.h>
--#include <asm/sn/pci/pci_bus_cvlink.h>
--#include <asm/sn/simulator.h>
--
--extern pciio_provider_t *pciio_to_provider_fns(vertex_hdl_t dev);
--
--int
--snia_badaddr_val(volatile void *addr, int len, volatile void *ptr)
--{
--	int ret = 0;
--	volatile void *new_addr;
--
--	switch (len) {
--	case 4:
--		new_addr = (void *) addr;
--		ret = ia64_sn_probe_io_slot((long) new_addr, len, (void *) ptr);
--		break;
--	default:
--		printk(KERN_WARNING
--		       "snia_badaddr_val given len %x but supports len of 4 only\n",
--		       len);
--	}
--
--	if (ret < 0)
--		panic("snia_badaddr_val: unexpected status (%d) in probing",
--		      ret);
--	return (ret);
--
--}
--
--nasid_t
--snia_get_console_nasid(void)
--{
--	extern nasid_t console_nasid;
--	extern nasid_t master_baseio_nasid;
--
--	if (console_nasid < 0) {
--		console_nasid = ia64_sn_get_console_nasid();
--		if (console_nasid < 0) {
--// ZZZ What do we do if we don't get a console nasid on the hardware????
--			if (IS_RUNNING_ON_SIMULATOR())
--				console_nasid = master_baseio_nasid;
--		}
--	}
--	return console_nasid;
--}
--
--nasid_t
--snia_get_master_baseio_nasid(void)
--{
--	extern nasid_t master_baseio_nasid;
--	extern char master_baseio_wid;
--
--	if (master_baseio_nasid < 0) {
--		master_baseio_nasid = ia64_sn_get_master_baseio_nasid();
--
--		if (master_baseio_nasid >= 0) {
--			master_baseio_wid -			    WIDGETID_GET(KL_CONFIG_CH_CONS_INFO
--					 (master_baseio_nasid)->memory_base);
--		}
--	}
--	return master_baseio_nasid;
--}
--
--/*
-- * XXX: should probably be called __sn2_pci_rrb_alloc
-- * used by qla1280
-- */
--
--int
--snia_pcibr_rrb_alloc(struct pci_dev *pci_dev,
--		     int *count_vchan0, int *count_vchan1)
--{
--	vertex_hdl_t dev = PCIDEV_VERTEX(pci_dev);
--
--	return pcibr_rrb_alloc(dev, count_vchan0, count_vchan1);
--}
--
--/* 
-- * XXX: interface should be more like
-- *
-- *     int __sn2_pci_enable_bwswap(struct pci_dev *dev);
-- *     void __sn2_pci_disable_bswap(struct pci_dev *dev);
-- */
--/* used by ioc4 ide */
--
--pciio_endian_t
--snia_pciio_endian_set(struct pci_dev * pci_dev,
--		      pciio_endian_t device_end, pciio_endian_t desired_end)
--{
--	vertex_hdl_t dev = PCIDEV_VERTEX(pci_dev);
--
--	return ((pciio_to_provider_fns(dev))->endian_set)
--		(dev, device_end, desired_end);
--}
--
--EXPORT_SYMBOL(snia_pciio_endian_set);
--EXPORT_SYMBOL(snia_pcibr_rrb_alloc);
-diff -Nru a/arch/ia64/sn/io/xswitch.c b/arch/ia64/sn/io/xswitch.c
---- a/arch/ia64/sn/io/xswitch.c	2004-08-11 15:54:20 -05:00
-+++ /dev/null	Wed Dec 31 16:00:00 196900
-@@ -1,168 +0,0 @@
--/*
-- * This file is subject to the terms and conditions of the GNU General Public
-- * License.  See the file "COPYING" in the main directory of this archive
-- * for more details.
-- *
-- * Copyright (c) 1992-1997,2000-2003 Silicon Graphics, Inc. All rights reserved.
-- */
--
--#include <linux/types.h>
--#include <linux/slab.h>
--#include <asm/errno.h>
--#include <asm/sn/sgi.h>
--#include <asm/sn/driver.h>
--#include <asm/sn/hcl.h>
--#include <asm/sn/labelcl.h>
--#include <asm/sn/xtalk/xtalk.h>
--#include <asm/sn/xtalk/xswitch.h>
--#include <asm/sn/xtalk/xwidget.h>
--#include <asm/sn/xtalk/xtalk_private.h>
--
--
--/*
-- * This file provides generic support for Crosstalk
-- * Switches, in a way that insulates crosstalk providers
-- * from specifics about the switch chips being used.
-- */
--
--#include <asm/sn/xtalk/xbow.h>
--
--#define	XSWITCH_CENSUS_BIT(port)		(1<<(port))
--#define	XSWITCH_CENSUS_PORT_MAX			(0xF)
--#define	XSWITCH_CENSUS_PORTS			(0x10)
--#define	XSWITCH_WIDGET_PRESENT(infop,port)	((infop)->census & XSWITCH_CENSUS_BIT(port))
--
--static char             xswitch_info_fingerprint[] = "xswitch_info";
--
--struct xswitch_info_s {
--    char                   *fingerprint;
--    unsigned                census;
--    vertex_hdl_t            vhdl[XSWITCH_CENSUS_PORTS];
--    vertex_hdl_t            master_vhdl[XSWITCH_CENSUS_PORTS];
--    xswitch_provider_t     *xswitch_fns;
--};
--
--xswitch_info_t
--xswitch_info_get(vertex_hdl_t xwidget)
--{
--    xswitch_info_t          xswitch_info;
--
--    xswitch_info = (xswitch_info_t)
--	hwgraph_fastinfo_get(xwidget);
--
--    return (xswitch_info);
--}
--
--void
--xswitch_info_vhdl_set(xswitch_info_t xswitch_info,
--		      xwidgetnum_t port,
--		      vertex_hdl_t xwidget)
--{
--    if (port > XSWITCH_CENSUS_PORT_MAX)
--	return;
--
--    xswitch_info->vhdl[(int)port] = xwidget;
--}
--
--vertex_hdl_t
--xswitch_info_vhdl_get(xswitch_info_t xswitch_info,
--		      xwidgetnum_t port)
--{
--    if (port > XSWITCH_CENSUS_PORT_MAX)
--	return GRAPH_VERTEX_NONE;
--
--    return xswitch_info->vhdl[(int)port];
--}
--
--/*
-- * Some systems may allow for multiple switch masters.  On such systems,
-- * we assign a master for each port on the switch.  These interfaces
-- * establish and retrieve that assignment.
-- */
--void
--xswitch_info_master_assignment_set(xswitch_info_t xswitch_info,
--				   xwidgetnum_t port,
--				   vertex_hdl_t master_vhdl)
--{
--    if (port > XSWITCH_CENSUS_PORT_MAX)
--	return;
--
--    xswitch_info->master_vhdl[(int)port] = master_vhdl;
--}
--
--vertex_hdl_t
--xswitch_info_master_assignment_get(xswitch_info_t xswitch_info,
--				   xwidgetnum_t port)
--{
--    if (port > XSWITCH_CENSUS_PORT_MAX)
--	return GRAPH_VERTEX_NONE;
--
--    return xswitch_info->master_vhdl[(int)port];
--}
--
--void
--xswitch_info_set(vertex_hdl_t xwidget, xswitch_info_t xswitch_info)
--{
--    xswitch_info->fingerprint = xswitch_info_fingerprint;
--    hwgraph_fastinfo_set(xwidget, (arbitrary_info_t) xswitch_info);
--}
--
--xswitch_info_t
--xswitch_info_new(vertex_hdl_t xwidget)
--{
--    xswitch_info_t          xswitch_info;
--
--    xswitch_info = xswitch_info_get(xwidget);
--    if (xswitch_info = NULL) {
--	int                     port;
--
--	xswitch_info = kmalloc(sizeof(*xswitch_info), GFP_KERNEL);
--	if (!xswitch_info) {
--		printk(KERN_WARNING "xswitch_info_new(): Unable to "
--			"allocate memory\n");
--		return NULL;
--	}
--	xswitch_info->census = 0;
--	for (port = 0; port <= XSWITCH_CENSUS_PORT_MAX; port++) {
--	    xswitch_info_vhdl_set(xswitch_info, port,
--				  GRAPH_VERTEX_NONE);
--
--	    xswitch_info_master_assignment_set(xswitch_info,
--					       port,
--					       GRAPH_VERTEX_NONE);
--	}
--	xswitch_info_set(xwidget, xswitch_info);
--    }
--    return xswitch_info;
--}
--
--void
--xswitch_provider_register(vertex_hdl_t busv,
--			  xswitch_provider_t * xswitch_fns)
--{
--    xswitch_info_t          xswitch_info = xswitch_info_get(busv);
--
--    ASSERT(xswitch_info);
--    xswitch_info->xswitch_fns = xswitch_fns;
--}
--
--void
--xswitch_info_link_is_ok(xswitch_info_t xswitch_info, xwidgetnum_t port)
--{
--    xswitch_info->census |= XSWITCH_CENSUS_BIT(port);
--}
--
--int
--xswitch_info_link_ok(xswitch_info_t xswitch_info, xwidgetnum_t port)
--{
--    if (port > XSWITCH_CENSUS_PORT_MAX)
--	return 0;
--
--    return (xswitch_info->census & XSWITCH_CENSUS_BIT(port));
--}
--
--int
--xswitch_reset_link(vertex_hdl_t xconn_vhdl)
--{
--    return xbow_reset_link(xconn_vhdl);
--}
+-	init_platform_hubinfo(nodepdaindr);
+-
+ #ifdef CONFIG_SMP
+ 	init_smp_config();
+ #endif
+@@ -376,32 +349,42 @@
+  *
+  * One time setup for Node Data Area.  Called by sn_setup().
+  */
+-void __init
+-sn_init_pdas(char **cmdline_p)
++void __init sn_init_pdas(char **cmdline_p)
+ {
+-	cnodeid_t	cnode;
++	cnodeid_t cnode;
+ 
+-	memset(pda->cnodeid_to_nasid_table, -1, sizeof(pda->cnodeid_to_nasid_table));
+-	for (cnode=0; cnode<numnodes; cnode++)
+-		pda->cnodeid_to_nasid_table[cnode] = pxm_to_nasid(nid_to_pxm_map[cnode]);
++	memset(pda->cnodeid_to_nasid_table, -1,
++	       sizeof(pda->cnodeid_to_nasid_table));
++	for (cnode = 0; cnode < numnodes; cnode++)
++		pda->cnodeid_to_nasid_table[cnode] +		    pxm_to_nasid(nid_to_pxm_map[cnode]);
+ 
+ 	numionodes = numnodes;
+ 	scan_for_ionodes();
+ 
+-        /*
+-         * Allocate & initalize the nodepda for each node.
+-         */
+-        for (cnode=0; cnode < numnodes; cnode++) {
+-		nodepdaindr[cnode] = alloc_bootmem_node(NODE_DATA(cnode), sizeof(nodepda_t));
++	/*
++	 * Allocate & initalize the nodepda for each node.
++	 */
++	for (cnode = 0; cnode < numnodes; cnode++) {
++		nodepdaindr[cnode] +		    alloc_bootmem_node(NODE_DATA(cnode), sizeof(nodepda_t));
+ 		memset(nodepdaindr[cnode], 0, sizeof(nodepda_t));
+-        }
++	}
+ 
+ 	/*
+-	 * Now copy the array of nodepda pointers to each nodepda.
++	 * Allocate & initialize nodepda for TIOs.  For now, put them on node 0.
+ 	 */
+-        for (cnode=0; cnode < numionodes; cnode++)
+-		memcpy(nodepdaindr[cnode]->pernode_pdaindr, nodepdaindr, sizeof(nodepdaindr));
++	for (cnode = numnodes; cnode < numionodes; cnode ++) {
++		nodepdaindr[cnode] = alloc_bootmem_node(NODE_DATA(0), sizeof(nodepda_t));
++		memset(nodepdaindr[cnode], 0, sizeof(nodepda_t));
++	}
+ 
++	/*
++	 * Now copy the array of nodepda pointers to each nodepda.
++	 */
++	for (cnode = 0; cnode < numionodes; cnode++)
++		memcpy(nodepdaindr[cnode]->pernode_pdaindr, nodepdaindr,
++		       sizeof(nodepdaindr));
+ 
+ 	/*
+ 	 * Set up IO related platform-dependent nodepda fields.
+@@ -409,8 +392,15 @@
+ 	 * in nodepda.
+ 	 */
+ 	for (cnode = 0; cnode < numnodes; cnode++) {
+-		init_platform_nodepda(nodepdaindr[cnode], cnode);
+-		bte_init_node (nodepdaindr[cnode], cnode);
++		bte_init_node(nodepdaindr[cnode], cnode);
++	}
++
++	/*
++	 * Initialize the per node hubdev.  This includes IO Nodes and 
++	 * headless/memless nodes.
++	 */
++	for (cnode = 0; cnode < numionodes; cnode++) {
++		hubdev_init_node(nodepdaindr[cnode], cnode);
+ 	}
+ }
+ 
+@@ -423,15 +413,14 @@
+  * Also sets up a few fields in the nodepda.  Also known as
+  * platform_cpu_init() by the ia64 machvec code.
+  */
+-void __init
+-sn_cpu_init(void)
++void __init sn_cpu_init(void)
+ {
+-	int	cpuid;
+-	int	cpuphyid;
+-	int	nasid;
+-	int	slice;
+-	int	cnode;
+-	static int	wars_have_been_checked;
++	int cpuid;
++	int cpuphyid;
++	int nasid;
++	int slice;
++	int cnode;
++	static int wars_have_been_checked;
+ 
+ 	/*
+ 	 * The boot cpu makes this call again after platform initialization is
+@@ -448,15 +437,17 @@
+ 
+ 	memset(pda, 0, sizeof(pda));
+ 	pda->p_nodepda = nodepdaindr[cnode];
+-	pda->led_address = (typeof(pda->led_address)) (LED0 + (slice<<LED_CPU_SHIFT));
++	pda->led_address +	    (typeof(pda->led_address)) (LED0 + (slice << LED_CPU_SHIFT));
+ 	pda->led_state = LED_ALWAYS_SET;
+-	pda->hb_count = HZ/2;
++	pda->hb_count = HZ / 2;
+ 	pda->hb_state = 0;
+ 	pda->idle_flag = 0;
+ 
+-	if (cpuid != 0){
+-		memcpy(pda->cnodeid_to_nasid_table, pdacpu(0)->cnodeid_to_nasid_table,
+-				sizeof(pda->cnodeid_to_nasid_table));
++	if (cpuid != 0) {
++		memcpy(pda->cnodeid_to_nasid_table,
++		       pdacpu(0)->cnodeid_to_nasid_table,
++		       sizeof(pda->cnodeid_to_nasid_table));
+ 	}
+ 
+ 	/*
+@@ -470,31 +461,30 @@
+ 		wars_have_been_checked = 1;
+ 	}
+ 	pda->shub_1_1_found = shub_1_1_found;
+-	
+ 
+ 	/*
+ 	 * We must use different memory allocators for first cpu (bootmem 
+ 	 * allocator) than for the other cpus (regular allocator).
+ 	 */
+-	if (cpuid = 0)
+-		irqpdaindr = alloc_bootmem_node(NODE_DATA(cpuid_to_cnodeid(cpuid)),sizeof(irqpda_t));
+-
+-	memset(irqpdaindr, 0, sizeof(irqpda_t));
+-	irqpdaindr->irq_flags[SGI_PCIBR_ERROR] = SN2_IRQ_SHARED;
+-	irqpdaindr->irq_flags[SGI_PCIBR_ERROR] |= SN2_IRQ_RESERVED;
+-	irqpdaindr->irq_flags[SGI_II_ERROR] = SN2_IRQ_SHARED;
+-	irqpdaindr->irq_flags[SGI_II_ERROR] |= SN2_IRQ_RESERVED;
+-
+ 	pda->pio_write_status_addr = (volatile unsigned long *)
+-			LOCAL_MMR_ADDR((slice < 2 ? SH_PIO_WRITE_STATUS_0 : SH_PIO_WRITE_STATUS_1 ) );
++	    LOCAL_MMR_ADDR((slice <
++			    2 ? SH_PIO_WRITE_STATUS_0 : SH_PIO_WRITE_STATUS_1));
+ 	pda->mem_write_status_addr = (volatile u64 *)
+-			LOCAL_MMR_ADDR((slice < 2 ? SH_MEMORY_WRITE_STATUS_0 : SH_MEMORY_WRITE_STATUS_1 ) );
++	    LOCAL_MMR_ADDR((slice <
++			    2 ? SH_MEMORY_WRITE_STATUS_0 :
++			    SH_MEMORY_WRITE_STATUS_1));
+ 
+ 	if (local_node_data->active_cpu_count++ = 0) {
+-		int	buddy_nasid;
+-		buddy_nasid = cnodeid_to_nasid(numa_node_id() = numnodes-1 ? 0 : numa_node_id()+ 1);
+-		pda->pio_shub_war_cam_addr = (volatile unsigned long*)GLOBAL_MMR_ADDR(nasid, SH_PI_CAM_CONTROL);
++		int buddy_nasid;
++		buddy_nasid +		    cnodeid_to_nasid(numa_node_id() =
++				     numnodes - 1 ? 0 : numa_node_id() + 1);
++		pda->pio_shub_war_cam_addr +		    (volatile unsigned long *)GLOBAL_MMR_ADDR(nasid,
++							      SH_PI_CAM_CONTROL);
+ 	}
++
++	bte_init_cpu();
+ }
+ 
+ /*
+@@ -502,48 +492,54 @@
+  * physical_node_map and the pda and increment numionodes.
+  */
+ 
+-static void __init
+-scan_for_ionodes(void)
++static void __init scan_for_ionodes(void)
+ {
+ 	int nasid = 0;
+ 	lboard_t *brd;
+ 
+ 	/* Setup ionodes with memory */
+-	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid +=2) {
++	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid += 2) {
+ 		u64 klgraph_header;
+ 		cnodeid_t cnodeid;
+ 
+-		if (physical_node_map[nasid] = -1) 
++		if (physical_node_map[nasid] = -1)
+ 			continue;
+ 
+ 		klgraph_header = cnodeid = -1;
+ 		klgraph_header = ia64_sn_get_klconfig_addr(nasid);
+ 		if (klgraph_header <= 0) {
+-			if ( IS_RUNNING_ON_SIMULATOR() )
++			if (IS_RUNNING_ON_SIMULATOR())
+ 				continue;
+-			BUG(); /* All nodes must have klconfig tables! */
++			BUG();	/* All nodes must have klconfig tables! */
+ 		}
+ 		cnodeid = nasid_to_cnodeid(nasid);
+ 		root_lboard[cnodeid] = (lboard_t *)
+-					NODE_OFFSET_TO_LBOARD( (nasid),
+-					((kl_config_hdr_t *)(klgraph_header))->
+-					ch_board_info);
++		    NODE_OFFSET_TO_LBOARD((nasid),
++					  ((kl_config_hdr_t
++					    *) (klgraph_header))->
++					  ch_board_info);
+ 	}
+ 
+ 	/* Scan headless/memless IO Nodes. */
+-	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid +=2) {
++	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid += 2) {
+ 		/* if there's no nasid, don't try to read the klconfig on the node */
+-		if (physical_node_map[nasid] = -1) continue;
+-		brd = find_lboard_any((lboard_t *)root_lboard[nasid_to_cnodeid(nasid)], KLTYPE_SNIA);
++		if (physical_node_map[nasid] = -1)
++			continue;
++		brd +		    find_lboard_any((lboard_t *)
++				    root_lboard[nasid_to_cnodeid(nasid)],
++				    KLTYPE_SNIA);
+ 		if (brd) {
+-			brd = KLCF_NEXT_ANY(brd); /* Skip this node's lboard */
++			brd = KLCF_NEXT_ANY(brd);	/* Skip this node's lboard */
+ 			if (!brd)
+ 				continue;
+ 		}
+ 
+ 		brd = find_lboard_any(brd, KLTYPE_SNIA);
++
+ 		while (brd) {
+-			pda->cnodeid_to_nasid_table[numionodes] = brd->brd_nasid;
++			pda->cnodeid_to_nasid_table[numionodes] +				brd->brd_nasid;
+ 			physical_node_map[brd->brd_nasid] = numionodes;
+ 			root_lboard[numionodes] = brd;
+ 			numionodes++;
+@@ -554,4 +550,23 @@
+ 			brd = find_lboard_any(brd, KLTYPE_SNIA);
+ 		}
+ 	}
++
++	/* Scan for TIO nodes. */
++	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid +=2) {
++		/* if there's no nasid, don't try to read the klconfig on the node */
++		if (physical_node_map[nasid] = -1) continue;
++		brd = find_lboard_any((lboard_t *)root_lboard[nasid_to_cnodeid(nasid)], KLTYPE_TIO);
++		while (brd) {
++			pda->cnodeid_to_nasid_table[numionodes] = brd->brd_nasid;
++			physical_node_map[brd->brd_nasid] = numionodes;
++			root_lboard[numionodes] = brd;
++			numionodes++;
++			brd = KLCF_NEXT_ANY(brd);
++			if (!brd)
++				break;
++
++			brd = find_lboard_any(brd, KLTYPE_TIO);
++		}
++	}
++
+ }
