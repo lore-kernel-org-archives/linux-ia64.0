@@ -1,43 +1,43 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Thu, 12 Oct 2000 20:45:19 +0000
-Subject: [Linux-ia64] gnu-efi-1.0 available
-Message-Id: <marc-linux-ia64-105590678205566@msgid-missing>
+From: Clay Cooper <clay_cooper@dell.com>
+Date: Fri, 20 Oct 2000 22:28:52 +0000
+Subject: [Linux-ia64] Aspen on Bordeaux
+Message-Id: <marc-linux-ia64-105590678205603@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi All,
+  Here are the results of the Aspen in the individual Bordeaux slots:
+I created a 4 disk Raid 5 container.
+Slot 1 -- Kernel Panic
+Slot 2 --  Attempt to insmod Megaraid module locks up machine.  At.....
+                       "Found a MegaRaid controller at 0xf0000000, IRQ: 17"
+Slot 3 --  Lock at insmod.....    0xec000000  IRQ: 18
+Slot 4 --  Lock at insmod.....    0xe8000000  IRQ: 19
+Slot 5 --  Kernel Panic
+Slot 6 --  Lock at insmod.....    0xe4000000  IRQ: 21
+Slot 7 --  Locked up at Aspen Bios before "logical drive found" after 
+cold boot. 
+                    Second cold boot went through Aspen Bios and kernel 
+panicked
+                    Then a warm boot which also kernel panicked.
+Slot 8 --  After "EFI version strings" and after "FRU buffer size8"
+                    Received a message stating:  "Didn't find Multi_record
+                                                                        
+      KCS Send Message failed.  rc=1
+                                                                        
+      Press any key"
+                   Then....  a lock at insmod
+                    0xe0000000  IRQ: 23
+Slot 9 --  Kernel Panic
+Slot 10 -- Lock at insmod
+                      0xd8000000  IRQ: 25
 
-I have uploaded a new version of the gnu-efi package on our FTP site.
-
-Highlights of version 1.0 are:
-
-	- ability to create bigger binaries (David Mosberger)
-
-	- LILO: ability to load a FPSWA driver from a file if necessary
-	- LILO: some bug fixes and cleanups of error messages.
-	- LILO: put in a workaround to avoid the LoadOptionSize problem.
-
-Note: This version of LILO still has some ACPI code. With firmware 60 and
-higher this is not required as the kernel does the processing to extract
-the information. So I expect to get rid of this support soon.
-
-
-This new version is available at:
-
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/gnu-efi-1.0.tgz
-
-
-+--------------------------------------------------------------------+
-| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
-| Hewlett-Packard Laboratories            |                          |
-| 1501, Page Mill Road MS 1U-15           |                          |
-| Palo  Alto, CA 94303-096                |                          |
-| USA                                     |                          |
-| Tel : (650) 857-7174                    |                          |
-| Fax : (650) 857-5548                    |                          |
-+--------------------------------------------------------------------+
+-- 
+Clay Cooper
+Engineering Tech/Sr. Analyst
+Clay_Cooper@Dell.com
+512.723.5951
 
 
