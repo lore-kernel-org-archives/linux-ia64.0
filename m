@@ -1,56 +1,52 @@
-From: Pat Gefre <pfg@sgi.com>
-Date: Tue, 30 Mar 2004 23:24:36 +0000
-Subject: [PATCH 2.6] small Altix interface.c patch
-Message-Id: <200403302324.i2UNObMT153350@fsgi900.americas.sgi.com>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Mon, 29 Mar 2004 18:55:48 +0000
+Subject: [PATCH] clean up pcibr_slot.c warnings
+Message-Id: <200403291055.48664.jbarnes@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_0EHaA1RLHM3Qn74"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-A small mod to:
 
-Change the calls to link_path_walk() to path_walk().  link_path_walk()
-doesn't initialze current->total_link_count and path_walk() does.
-Without the initialization, path_walks start to fail when 40 sym links
-have been followed.
+--Boundary-00=_0EHaA1RLHM3Qn74
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
--- Pat
+A few warnings crept into pcibr_slot.c that this patch takes care of.
+  - forward declare pcibr_slot_pwr so it can be used w/o warning
+  - fix argument passed to pcibr_slot_attach in pcibr_slot_enable
 
-Patrick Gefre
-Silicon Graphics, Inc.                     (E-Mail)  pfg@sgi.com
-2750 Blue Water Rd                         (Voice)   (651) 683-3127
-Eagan, MN 55121-1400                       (FAX)     (651) 683-3054
+Jesse
 
+--Boundary-00=_0EHaA1RLHM3Qn74
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="pcibr_slot-warning-fixes.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="pcibr_slot-warning-fixes.patch"
 
-
-
---- linux.base/arch/ia64/sn/io/hwgfs/interface.c	2004-03-10 20:55:51.000000000 -0600
-+++ linux/arch/ia64/sn/io/hwgfs/interface.c	2004-03-30 10:56:18.000000000 -0600
-@@ -36,7 +36,7 @@
- 		memcpy(buf, *path, len);
- 		buf[len] = '\0';
+===== arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c 1.19 vs edited =====
+--- 1.19/arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c	Thu Feb 19 09:12:31 2004
++++ edited/arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c	Mon Mar 29 10:47:03 2004
+@@ -47,6 +47,7 @@
+ cfg_p pcibr_find_capability(cfg_p, unsigned);
+ extern uint64_t  do_pcibr_config_get(cfg_p, unsigned, unsigned);
+ void do_pcibr_config_set(cfg_p, unsigned, unsigned, uint64_t); 
++int pcibr_slot_pwr(vertex_hdl_t pcibr_vhdl, pciio_slot_t slot, int up, char *err_msg);
  
--		error = link_path_walk(buf, nd); 
-+		error = path_walk(buf, nd); 
- 		if (unlikely(error))
- 			return error;
  
-@@ -83,7 +83,7 @@
- 	if (unlikely(error))
- 		return error;
+ /* 
+@@ -351,7 +352,7 @@
+         goto enable_unlock;
+     }
  
--	error = link_path_walk(name, &nd);
-+	error = path_walk(name, &nd);
- 	if (unlikely(error))
- 		return error;
+-    error = pcibr_slot_attach(pcibr_vhdl, slot, NULL,
++    error = pcibr_slot_attach(pcibr_vhdl, slot, 0,
+                               req_p->req_resp.resp_l1_msg,
+ 			      &req_p->req_resp.resp_sub_errno);
  
-@@ -274,7 +274,7 @@
- 	nd.dentry = dget(base ? base : hwgfs_vfsmount->mnt_sb->s_root);
- 	nd.flags = (traverse_symlinks ? LOOKUP_FOLLOW : 0);
- 
--	error = link_path_walk(name, &nd);
-+	error = path_walk(name, &nd);
- 	if (likely(!error)) {
- 		dentry = nd.dentry;
- 		path_release(&nd);		/* stale data from here! */
+
+--Boundary-00=_0EHaA1RLHM3Qn74--
