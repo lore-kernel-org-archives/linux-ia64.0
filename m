@@ -1,7 +1,7 @@
-From: "Chris McDermott/Beaverton/IBM" <mcdermoc@us.ibm.com>
-Date: Wed, 09 Aug 2000 21:58:11 +0000
+From: Tim Riker <TimR@CalderaSystems.com>
+Date: Thu, 10 Aug 2000 03:54:42 +0000
 Subject: Re: [Linux-ia64] Processor Rev.
-Message-Id: <marc-linux-ia64-105590678205300@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205304@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205295@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205295@msgid-missing>
@@ -10,56 +10,56 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It happened here on 2 entries: perfmon_info and power_info.
+There is some documentation on serial #s (the stickers not the
+electronic IDs) in the Intel literature. In my "Intel Workstation SDV,
+A1 Stepping Processor Replacement" manual there is a section on page 20
+entitled "Identification of Upgrade Processor Stepping" with a table
+mapping the 4 digit postfix to the A2 and A3 stepping. This also
+includes some comments about the state of software revision detection.
 
-Chris
+I do not know if this info is truly public, so I have not copied this
+info here. Perhaps someone from Intel would like to comment?
 
+These postfixes are of the format Q[letter][number][number]. I would
+assume there is a complete table available someplace that would include
+A1-A3 and B0-B1 stepping maps, but I have not seen it.
 
+The only reliable option I know of is to open a QuAD ticket on the
+system and ask Intel.
 
-Stephane Eranian <eranian@frankl.hpl.hp.com>@linuxia64.org on 08/09/2000
-02:34:06 PM
-
-Please respond to <eranian@hpl.hp.com>
-
-Sent by:  linux-ia64-admin@linuxia64.org
-
-
-To:   linux-ia64@linuxia64.org
-cc:
-Subject:  Re: [Linux-ia64] Processor Rev.
-
-
-
-Hi,
->
-> [gerrit@elm3a86 palinfo]$ cat /proc/palinfo/version_info
-> PAL_vendor     : 0xff (min=0xff)
-> PAL_A revision : 0x9 (min=0x9)
-> PAL_A model    : 0x22 (min=0x22)
-> PAL_B mode     : 0x9 (min=0x0)
-> PAL_B revision : 0x22 (min=0x0)
->
-> There is other stuff of interest in /proc/palinfo.
->
-> Chris pointed out that the minor numbers of the version aren't included
-here.
-
-In the latest kernel patch the output is slightly different. Here the minor
-number is .9. So 0x22 0x9 is read 2.2.9 for PAL version.
-
->
-> Also, reading one of the files here caused a panic with the B1 CPU
-steppings.
->
-Yes, I am aware of this problem. I noticed yesterday while trying it out
-on our B1. I don't recall exactly which entry it is. I will be checking
-for that.
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
-
+Don Dugger wrote:
+> 
+> John-
+> 
+> The only way to find the revision that I know of is to check the
+> paper work that came with your machine, that should list it.  There's
+> no instruction that will give that information at this point in
+> time.
+> 
+> On Wed, Aug 09, 2000 at 11:55:28AM -0400, John Baboval wrote:
+> > What is a good way to check the processor revision on the lion machines. I
+> > see people on the list refering to A1 or A2 stepping machines, but /proc/cpuinfo on
+> > our machines only shows this:
+> >
+> > processor  : 3
+> > vendor     : GenuineIntel
+> > family     : IA-64
+> > model      : Itanium
+> > revision   : 0
+> > archrev    : 0
+> >
+> > plus the serial numbers and MHz and such. Does this just mean we have old
+> > CPUs, or is there a different way to check?
+> >
+> > --
+> > John V. Baboval (baboval@missioncriticallinux.com)
+> --
+> Don Dugger
+> "Censeo Toto nos in Kansa esse decisse." - D. Gale
+> n0ano@valinux.com
+> Ph: 303/938-9838
+-- 
+Tim Riker - http://rikers.org/ - short SIGs! <g>
+All I need to know I could have learned in Kindergarten
+... if I'd just been paying attention.
 
