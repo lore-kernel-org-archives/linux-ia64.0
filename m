@@ -1,58 +1,15 @@
-From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
-Date: Thu, 22 Jun 2000 19:02:30 +0000
-Subject: RE: [Linux-ia64] new Red Hat Linux for IA-64 available
-Message-Id: <marc-linux-ia64-105590678205178@msgid-missing>
+From: Jonathan_Kwahk@Dell.com
+Date: Tue, 13 Jun 2000 16:17:57 +0000
+Subject: [Linux-ia64] USB Support
+Message-Id: <marc-linux-ia64-105590678205134@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205167@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205167@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It was the problem with the "red" servers. Even the web server did not work.
-I worked with our IT  support and found the same problem. Now I am
-downloading...
+Is there any USB support in the installation yet? Or any at all?
 
-Thanks.
-
--- Shameem
-
-Shameem Akhter
-
-IACG
-IA64 Tools Engineering
-Ph: (503) 264-1644
-
-
-
------Original Message-----
-From: James Wilson [mailto:wilson@wilson.cygnus.com]
-Sent: Thursday, June 22, 2000 11:30 AM
-To: Akhter, Shameem F
-Cc: 'Bill Nottingham'; linux-ia64@linuxia64.org
-Subject: Re: [Linux-ia64] new Red Hat Linux for IA-64 available 
-
-
-	I am having problem with the "redhat" ftp site, whereas "cygnus" ftp
-is
-	working fine. Any idea?
-
-You didn't say what kind of problems.  "cygnus" ftp and "redhat" ftp are
-two completely different machines 3000 miles apart, so you can't draw any
-conclusions from one about the other.
-
-Anyways, I usually get my stuff from ftp.freesoftware.com since it is faster
-than getting it directly from Red Hat, at least for me.
-     ftp://ftp.freesoftware.com/pub/linux/redhat/ia64
-
-Jim
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
+J
 
 
