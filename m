@@ -1,7 +1,7 @@
-From: Erich Focht <efocht@ess.nec.de>
-Date: Fri, 19 Jul 2002 17:11:48 +0000
+From: Linus Torvalds <torvalds@transmeta.com>
+Date: Fri, 19 Jul 2002 17:28:34 +0000
 Subject: [Linux-ia64] Re: [PATCH]: scheduler complex macros fixes
-Message-Id: <marc-linux-ia64-105590701905788@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905790@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905791@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905791@msgid-missing>
@@ -10,29 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Ingo,
 
-On Saturday 20 July 2002 18:57, Ingo Molnar wrote:
-> On Fri, 19 Jul 2002, Erich Focht wrote:
-> > The attached patch fixes problems with the "complex" macros in the
-> > scheduler, as discussed about a week ago with Ingo on this mailing list.
+On Sat, 20 Jul 2002, Ingo Molnar wrote:
 >
-> the fix has been in my tree for some time, the latest version, against
-> 2.5.26 is at:
->
->   http://people.redhat.com/mingo/O(1)-scheduler/sched-2.5.26-B7
->
-> it has a number of other fixes as well, plus the SCHED_BATCH feature.
->
-> 	Ingo
+> well, SCHED_BATCH is in fact ready, so we might as well put it in. All the
+> suggestions mentioned on lkml (or in private) are now included, there are
+> no pending (known) problems, no objections, and a number of people are
+> using it with success.
 
-Thanks. But as long as SCHED_BATCH ins't in 2.5.X, we need this separate
-fix. And if it's in the main tree, you don't need it additionally in
-your patches. The fix is O(1) specific and I thought it should not hide
-inside the SCHED_BATCH patches, some people might encounter these
-problems...
+Well, I do actually have objections, mainly because I think it modifies
+code that I'd rather have cleaned up in other ways _first_ (ie the return
+path to user mode, which has pending irq_count/bh_count/preempt issues
+that I consider to be about a million times more important than batch
+scheduling).
 
-Regards,
-Erich
+So I'd rather have the non-batch stuff done first and independently.
+
+			Linus
 
 
