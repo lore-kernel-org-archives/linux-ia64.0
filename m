@@ -1,28 +1,22 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 28 Oct 2002 17:12:20 +0000
-Subject: RE: [Linux-ia64] quick ia64 patch for 2.5.44 (UP only)
-Message-Id: <marc-linux-ia64-105590709805278@msgid-missing>
+From: "Jon R. Doyle" <marsaro@interearth.com>
+Date: Wed, 30 Oct 2002 06:07:37 +0000
+Subject: [Linux-ia64] USB Mouse on SLES8 Beta1
+Message-Id: <marc-linux-ia64-105590709805291@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805243@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805243@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Keyboard cannot be used on my Bigsur since 2.5.3? also.
-> I've heard that there was a same problem at early 2.4.
+This seems to be broke:
 
-I don't know if it was the the same problem, but the symptoms
-and the workaround are the same.  Through most of the mid-teens
-2.4 kernel would come up on BigSur with the keyboard non-functional.
-Unplugging the keyboard, and replugging it would fix it. I
-forget the release when this stopped happening, but 2.4.18 and
-2.4.19 definitely don't have this problem.
+In Preview 5 & 6 of UL my Intel 4 CPU 900mhz SDV detects the keyboar and
+mouse fine. SLES 8 beta 1 will not find the USB mouse and therefore cause
+instal pains (read it is a pain to TAB key through Yast to complete
+install). Once completed install in curses Yast pops up failing to detect
+mouse. lsmod shows usb drivers loaded......
 
-2.5.39 is doing the same thing (but now I have a Belkin KVM switch
-in between the keyboard and the machine, just selecting a different
-machine, and then selecting back to the BigSur corrects the problem).
+Yast2 is a real PAIN to use in this mode. Even with a mouse it is a real
+PAIN vs Yast1 for server configs!!!!
 
--Tony
 
