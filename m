@@ -1,33 +1,40 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 19 Nov 2004 06:42:01 +0000
-Subject: RE: [2.6 patch] IA64 irq.c: remove CONFIG_X86 code
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F026C5938@scsmsx401.amr.corp.intel.com>
+From: Khalid Aziz <khalid_aziz@hp.com>
+Date: Mon, 15 Nov 2004 20:41:09 +0000
+Subject: Re: [Fastboot] [PATCH] kexec on ia64
+Message-Id: <1100551268.26287.35.camel@lyra.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041119001915.GL4943@stusta.de>
-In-Reply-To: <20041119001915.GL4943@stusta.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Adrian Bunk <bunk@stusta.de>, davidm@hpl.hp.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
->I don't see how this code could ever be used.
->
->Am I correct or did I miss something?
->
->
->diffstat output:
-> arch/ia64/kernel/irq.c |   33 ---------------------------------
-> 1 files changed, 33 deletions(-)
+On Mon, 2004-11-15 at 13:32, Khalid Aziz wrote:
+> Here is what I am working on next:
+> 
+> 1. Save EFI memory map before it is trimmed.
+> 
+> 2. Fix up /proc/iomem on ia64 so we can enable validating memory range
+> in kexec tools.
+> 
+> 3. Add a /proc interface to enable reboots on panic and INIT (and
+> possibly MCA) to be kexec reboots.
+> 
+> 4. Add initrd support.
 
-Thanks to a helpful hint from Christoph earlier this week I put
-together a patch that throws away over 900 lines from the ia64
-irq.c
+And
 
-http://marc.theaimsgroup.com/?l=linux-ia64&m0072859114157&w=2
+5. Port the patch to 2.6.9 kernel :) Or 2.6.10 if I do not get to it
+soon enough.
 
-It's queued up in an internal tree waiting for 2.6.11 to open.
+-- 
+Khalid
 
-Some parts of your patch may still be needed.
+==================================
+Khalid Aziz                                Linux and Open Source Lab
+(970)898-9214                                        Hewlett-Packard
+khalid_aziz@hp.com                                  Fort Collins, CO
 
--Tony
+"The Linux kernel is subject to relentless development" 
+				- Alessandro Rubini
+
+
