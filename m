@@ -1,74 +1,80 @@
-From: Khalid Aziz <khalid.aziz@hp.com>
-Date: Tue, 16 Nov 2004 03:46:49 +0000
-Subject: Re: [Fastboot] [PATCH] kexec on ia64
-Message-Id: <1100576808.2371.0.camel@minuet.fc.hp.com>
+From: Ray Bryant <raybry@sgi.com>
+Date: Mon, 22 Nov 2004 15:51:15 +0000
+Subject: scalability of signal delivery for Posix Threads
+Message-Id: <41A20AF3.9030408@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1100551268.26287.35.camel@lyra.fc.hp.com>
-In-Reply-To: <1100551268.26287.35.camel@lyra.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, lse-tech <lse-tech@lists.sourceforge.net>
+Cc: holt@sgi.com, Dean Roe <roe@sgi.com>, Brian Sumner <bls@sgi.com>, John Hawkes <hawkes@tomahawk.engr.sgi.com>
 
-Another limitation I forgot to mention. I have not added support for
-compressed kernel to kexec-tools yet. It is on my list of things to do
-next.
+We've encountered a scalability problem with signal delivery.  Our application
+is attempting to use ITIMER_PROF to deliver one signal per clock tick to each
+thread of a ptrheaded (NPTL).  These threads are created with CLONE_SIGHAND,
+so that there is a single sighand->siglock for the entire application.
 
---
-Khalid
+On our Altix systems, everything works fine until we increase the number of
+threads (and processors, with one thread bound to each processor) beyond
+about 112 threads or so.  At that point lock contention can become severe
+enough to make the system unresponsive.  The reason is that each thread has
+to obtain the (global to the application, in this case) lock sighand->siglock.
 
-On Mon, 2004-11-15 at 13:32, Khalid Aziz wrote:
-> I have been able to get kexec working on ia64. I am attaching the kernel
-> patch and kexec-tools patch. For the kernel patch, start with 2.6.8
-> kernel from kernel.org, apply ia64 patch
-> <http://www.kernel.org/pub/linux/kernel/ports/ia64/v2.6/linux-2.6.8-ia64-040901.diff.bz2>, apply Eric' 2.6.8.1-kexec3 patch <http://www.xmission.com/~ebiederm/files/kexec/2.6.8.1-kexec3> and apply attached 2.6.8.1-kexec3-ia64.diff patch. For kexec-tools, apply attached kexec-tools-1.98-ia64.diff patch to Eric's kexec-tools 1.98 sources <http://www.xmission.com/~ebiederm/files/kexec/kexec-tools-1.98.tgz>.
-> 
-> At this point, I have done minimal testing. Here is what I know does not
-> work currently:
-> 
-> 1. No support for initrd for kexec'd kernel
-> 
-> 2. No support for new kernel parameters for kexec'd kernel.
-> 
-> 3. If a kernel is booted up with "mem=" or "max_addr=" to restrict the
-> amount of memory, a kernel kexec'd from this kernel will only see the
-> same amount of memory as this one. This is not only due to the new
-> kernel being kexec'd with the same parameter, but also becuase the EFI
-> memory map as passed to the kernel by ELILO gets trimmed very early on
-> by the kernel. I have tried adding code to save the memory map early on
-> and then pass this saved memory map to kexec'd kernel, but apparently I
-> still am not saving it early enough. I wait until bootmem allocator has
-> been initailized so I can allocate memory to save unmolested EFI memory
-> map in. In the process of initializing bootmem allocator, kernel calls
-> efi-Memory_map_walk() which in turn trims the memory map. I am looking
-> into allocating memory out of the EFI memory map before the first
-> efi_mem_map_walk() happens, so I can save pristine EFI memmap for use
-> later by kexec.
-> 
-> Here is what I have not tested yet:
-> 
-> 1. I am not sure if  ACPI subsystem is happy in kexec'd kernel. I have
-> not seen any problems, but I have not tested it enough either.
-> 
-> 2. Stability of kexec'd kernel over long term. It ran fine for an hour
-> not doing much :)
-> 
-> Here is what I am working on next:
-> 
-> 1. Save EFI memory map before it is trimmed.
-> 
-> 2. Fix up /proc/iomem on ia64 so we can enable validating memory range
-> in kexec tools.
-> 
-> 3. Add a /proc interface to enable reboots on panic and INIT (and
-> possibly MCA) to be kexec reboots.
-> 
-> 4. Add initrd support.
-> 
-> Any feedback on these patches is welcome. Any patch to fix problems in
-> these patches is very much appreciated :)
+(Obviously, one solution is to recode the application to send fewer signals
+per thread as the number of threads increase.  However, we are concerned by
+the fact that a user application, of any kind, can be constructed in a way
+that causes system to become responsive and would like to find a solutiuon
+that would let us correctly execute the program as described.)
+
+Perusing the kernel sources shows that this global lock is used, in many 
+cases, to protect data that is purely local to the current thread.  (For 
+example, see block_all_signals(), where current->sighand->siglock is obtained
+and then the current task's signal mask is manipulated.)
+
+This lock is also aquired in the following routines, where most of the time
+is being spent our application:
+
+ia64_do_signal
+set_signal_to_deliver
+ia64_rt_sigreturn
+
+In these cases, it appears that the global lock is being acquired to make sure
+the signal handler definition doesn't change underneath us, as well as dealing
+with the per thread signal data.
+
+Since signals are sent much more often than sigaction() is called, it would
+seem to make more sense to make sigaction() take a heavier weight lock of
+some kind (to update the signal handler decription) and to have the signal
+delivery mechanism take a lighter weight lock.  Making 
+current->sighand->siglock a rwlock_t really doesn't improve the situation
+much, since cache line contention is just a severe in that case (if not worse) 
+than it is with the current definition.
+
+It seems to me that scalability would be improved if we moved the siglock from
+the sighand structure to the task_struct.  (keep reading, please...)  Code 
+that manipulates the current task signal data only would just obtain that 
+lock.  Code that needs to change the sighand structure (e. g. sigaction())
+would obtain all of the siglock's of all tasks using the same sighand 
+structure.  A list of those task_struct's would be added to the sighand
+structure to enable finding these structurs without having to take the
+task_list_lock and search for them.
+
+Obviously, this change ricochet's throughout the entire signal handling code.
+It also means that sigaction() can become quite expensive for a many threaded
+POSIX application, but my guess is that this doesn't happen very often.
+The change could also make do_exit(), thread group shutdown, etc slower and
+perhaps somewhat more complex.
+
+Anyway, we would be interested in the community's ideas about dealing with
+this signal delivery scalability issue, and, comments on the solution above
+or suggestions for alternative solutions are welcome.
 -- 
-Khalid Aziz                                 Linux and Open Source Lab
-(970)898-9214                                         Hewlett-Packard
-khalid_aziz@hp.com                                   Fort Collins, CO
-
+Best Regards,
+Ray
+-----------------------------------------------
+                   Ray Bryant
+512-453-9679 (work)         512-507-7807 (cell)
+raybry@sgi.com             raybry@austin.rr.com
+The box said: "Requires Windows 98 or better",
+            so I installed Linux.
+-----------------------------------------------
