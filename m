@@ -1,28 +1,43 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 05 Dec 2000 00:11:31 +0000
-Subject: Re: [Linux-ia64] data sharing in MAS O/S
-Message-Id: <marc-linux-ia64-105590678205782@msgid-missing>
+From: Michael Madore <mmadore@turbolinux.com>
+Date: Fri, 22 Dec 2000 17:41:47 +0000
+Subject: [Linux-ia64] TurboLinux Beta 2 Refresh available
+Message-Id: <marc-linux-ia64-105590678205874@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On 23 Nov 00 00:33:05 EET, Bugra Unalmis <bugra.u@usa.net> said:
+A refresh of the 11/23 Beta 2 version of TurboLinux for IA-64 is now
+available for download.  This refresh fixes a number of issues that were found in the
+original release.
 
-  Bugra> hi everybody, Data sharing in Multiple address space O/S is
-  Bugra> suppoted by loading the same RID into region registers of
-  Bugra> multiple processes. If we are talking about the very same
-  Bugra> virtual page to be shared, then in TLB we have the same RID
-  Bugra> and VPN that is gonna be mapped to a particular physical
-  Bugra> address. How will 2 different processes have the different
-  Bugra> access rights with the same VPN and RID or how will the
-  Bugra> integrity be supported in this case.
+ISO images can be found at the following locations:
 
-Linux processes may share memory but they never share TLB entries.
-This may change in the future, as TLB utilitization would increase
-with TLB sharing, but it's a non-trivial change, so it's not going to
-happen in the 2.4 series.
+ftp://frontier.turbolinux.com/pub/ia64/TLF-ia64-1123-R1.iso
+ftp://frontier.turbolinux.com/pub/ia64/TLF-ia64-1123-R1-nox.iso
 
-	--david
+
+If you already have the 11/23 version installed, you can find upgraded RPMS
+here:
+
+ftp://frontier.turbolinux.com/pub/ia64/1123/updates
+
+For a list of the important changes download the following file:
+
+ftp://frontier.turbolinux.com/pub/ia64/Changelog.R1
+
+Please note the new address of the ftp server.
+
+If you are using this release, we highly recommend that you subscribe
+to our ia64-dist mailing list.  All TurboLinux ia64 related questions
+should be directed there.  For instructions on how to subscribe,
+please visit:
+  
+    http://www.turbolinux.com/mailman/listinfo/ia64-dist
+
+-- 
+Mike Madore
+Software Engineer
+TurboLinux, Inc.
 
