@@ -1,49 +1,99 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Thu, 04 Nov 2004 17:30:24 +0000
-Subject: [PATCH] prefer allocation from nodes w/o CPUs
-Message-Id: <200411040930.24930.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_wcmiBhcGQMNci4d"
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 19 Nov 2004 19:47:14 +0000
+Subject: page fault scalability patch V11 [7/7]: s390 atomic pte operations
+Message-Id: <Pine.LNX.4.58.0411191146480.24095@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
---Boundary-00=_wcmiBhcGQMNci4d
-Content-Type: text/plain;
-  charset="us-ascii"
+References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain>
+  <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com> 
+ <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com> 
+ <419D581F.2080302@yahoo.com.au>  <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>
+  <419D5E09.20805@yahoo.com.au>  <Pine.LNX.4.58.0411181921001.1674@schroedinger.engr.sgi.com>
+ <1100848068.25520.49.camel@gaston> <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: torvalds@osdl.org, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This patch increases the allocation penalty for nodes with CPUs, which has the 
-effect of making nodes w/o CPUs preferred for memory allocations.  Both Altix 
-and sx1000 will benefit from using the extra memory before touching the 
-memory 'belonging' to other CPUs, so I'm sending it in for inclusion.
+Changelog
+        * Provide atomic pte operations for s390
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Thanks,
-Jesse
+Index: linux-2.6.9/include/asm-s390/pgtable.h
+=================================--- linux-2.6.9.orig/include/asm-s390/pgtable.h	2004-10-18 14:54:55.000000000 -0700
++++ linux-2.6.9/include/asm-s390/pgtable.h	2004-11-19 11:35:08.000000000 -0800
+@@ -567,6 +567,15 @@
+ 	return pte;
+ }
 
---Boundary-00=_wcmiBhcGQMNci4d
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="prefer-headless-nodes.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="prefer-headless-nodes.patch"
-
-===== include/asm-ia64/topology.h 1.13 vs edited =====
---- 1.13/include/asm-ia64/topology.h	2004-10-20 11:20:44 -07:00
-+++ edited/include/asm-ia64/topology.h	2004-11-02 12:02:48 -08:00
-@@ -18,6 +18,10 @@
- #include <asm/smp.h>
- 
- #ifdef CONFIG_NUMA
++#define ptep_xchg_flush(__vma, __address, __ptep, __pteval)            \
++({                                                                     \
++	struct mm_struct *__mm = __vma->vm_mm;                          \
++	pte_t __pte;                                                    \
++	__pte = ptep_clear_flush(__vma, __address, __ptep);             \
++	set_pte(__ptep, __pteval);                                      \
++	__pte;                                                          \
++})
 +
-+/* Nodes w/o CPUs are preferred for memory allocations, see build_zonelists */
-+#define PENALTY_FOR_NODE_WITH_CPUS 255
+ static inline void ptep_set_wrprotect(pte_t *ptep)
+ {
+ 	pte_t old_pte = *ptep;
+@@ -778,6 +787,14 @@
+
+ #define kern_addr_valid(addr)   (1)
+
++/* Atomic PTE operations */
++#define __HAVE_ARCH_ATOMIC_TABLE_OPS
++
++static inline int ptep_cmpxchg (struct vm_area_struct *vma, unsigned long address, pte_t *ptep, pte_t oldval, pte_t newval)
++{
++	return cmpxchg(ptep, pte_val(oldval), pte_val(newval)) = pte_val(oldval);
++}
 +
  /*
-  * Returns the number of the node containing CPU 'cpu'
+  * No page table caches to initialise
+  */
+@@ -791,6 +808,7 @@
+ #define __HAVE_ARCH_PTEP_CLEAR_DIRTY_FLUSH
+ #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
+ #define __HAVE_ARCH_PTEP_CLEAR_FLUSH
++#define __HAVE_ARCH_PTEP_XCHG_FLUSH
+ #define __HAVE_ARCH_PTEP_SET_WRPROTECT
+ #define __HAVE_ARCH_PTEP_MKDIRTY
+ #define __HAVE_ARCH_PTE_SAME
+Index: linux-2.6.9/include/asm-s390/pgalloc.h
+=================================--- linux-2.6.9.orig/include/asm-s390/pgalloc.h	2004-10-18 14:54:37.000000000 -0700
++++ linux-2.6.9/include/asm-s390/pgalloc.h	2004-11-19 11:33:25.000000000 -0800
+@@ -97,6 +97,10 @@
+ 	pgd_val(*pgd) = _PGD_ENTRY | __pa(pmd);
+ }
+
++static inline int pgd_test_and_populate(struct mm_struct *mm, pdg_t *pgd, pmd_t *pmd)
++{
++	return cmpxchg(pgd, _PAGE_TABLE_INV, _PGD_ENTRY | __pa(pmd)) = _PAGE_TABLE_INV;
++}
+ #endif /* __s390x__ */
+
+ static inline void
+@@ -119,6 +123,18 @@
+ 	pmd_populate_kernel(mm, pmd, (pte_t *)((page-mem_map) << PAGE_SHIFT));
+ }
+
++static inline int
++pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *page)
++{
++	int rc;
++	spin_lock(&mm->page_table_lock);
++
++	rc=pte_same(*pmd, _PAGE_INVALID_EMPTY);
++	if (rc) pmd_populate(mm, pmd, page);
++	spin_unlock(&mm->page_table_lock);
++	return rc;
++}
++
+ /*
+  * page table entry allocation/free routines.
   */
 
---Boundary-00=_wcmiBhcGQMNci4d--
