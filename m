@@ -1,55 +1,59 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Fri, 11 Aug 2000 12:19:01 +0000
-Subject: Re: [Linux-ia64] Alignment possible hazard
-Message-Id: <marc-linux-ia64-105590678205318@msgid-missing>
+From: Michael Madore <mmadore@turbolinux.com>
+Date: Sat, 26 Aug 2000 00:35:42 +0000
+Subject: [Linux-ia64] Re: [Ia64] Netscape (32-bit) locks machine
+Message-Id: <marc-linux-ia64-105590678205388@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205317@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205317@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 11 Aug 2000 14:05:20 +0200 (MEST), 
-"G\\351raud Krawezik" <gk@scali.no> wrote:
->In the kernels >=2.3, a new function as appeared for drivers,
->
->static int ssci_read_proc(char *page, char **start, off_t off, int count,
->int *eof, void *data)
->
->What I noticed is that we' ve got the following arguments:
->64 bits, 64 b, 64b, 32b, 64b, 64b
->(in the LP64 model)
->
->Isn't this quite hazardous, especially for programs running at the kernel
->level? Wouldn't it be better to put the int at the end of the arguments in
->order to have something aligned correctly? (at least such things crash
->easiely on solaris-sparc)
+On Thu, 24 Aug 2000, Marc Aurele La France wrote:
 
-Intel's IA64 Software Conventions Runtime Architecture Guide
-(24535801.pdf) says
+> On Thu, 24 Aug 2000, Michael Madore wrote:
+> 
+> > > > > I am running into an issue where Netscape will often lock up the entire
+> > > > > machine when launched.  It isn't just the X Server crashing, the
+> > > > > entire system is frozen.  This happens on both Rage 128 and Rage XL.  On
+> > > > > the Rage XL, I virtually eliminated the lock ups by removing latin2 fonts
+> > > > > from my XF86Config file.  With the Rage 128, nothing seems to help,
+> > > > > including using option "noaccel" for the driver.  We are using XFree 4.0.1
+> > > > > with patches (essentially the same patches that were just posted.)
+> 
+> > > >    Could be a bug in one of the font renderers.  I know the FreeType
+> > > > renderer has some bugs.  
+> 
+> > > Ummm.  Looks like there are similar problems with the latest builds on
+> > > ia32.
+> 
+> > After doing some further testing, I have found that X seems to lock the
+> > machine hard on our Lion boxes pretty much all the time.  Just starting X
+> > will sometimes lock them up.  These boxes are all using the r128 driver.
+> 
+> > I am going to try the latest code from CVS tomorrow and see if there is
+> > any improvment.  If not, what can I do to help track down where the
+> > problem is coming from?
+> 
+> Well, on the assumption that it is a font renderer problem, you can try
+> whittling down your font path until the problem stops happening.  Start by
+> removing TrueType (or clone), then Type1, Speedo, etc.  If your running
+> xfs, get rid of it first.
 
-"8.5 Parameter Passing
+I went ahead and cut down my fonts to pretty much nothing.  The problem
+still occurs.  I turned off acceleration on the Lion boxes, and that
+allows our install program to run without X crashing.  With acceleration
+turned on, the machine will hang if you use a scroll bar to move through a
+large text list.
 
-Parameters are passed in a combination of general registers,
-floating-point registers, and memory, as described below, and as
-illustrated in Figure 8-3.
+It was pointed out to me that /dev/mem needs to be opened with O_SYNC, so
+that it will not be mapped write-cache.  Mapping it with write cache can
+cause lockups.  I have a patch applied in os-support/lnx_video.c that
+fixes this problem, but I still get lockups.  I was wondering if there
+are any other places in the code where this could be happening?
 
-The parameter list is formed by placing each individual parameter into
-fixed-size elements of the parameter list, referred to as parameter
-slots. Each parameter slot is 64 bits wide; parameters larger than 64
-bits are placed in as many consecutive parameter slots as are needed to
-contain the entire parameter. The rules for allocation and alignment of
-parameter slots are given later in this section.
+Mike Madore
+Software Engineer
+TurboLinux, Inc.
 
-The contents of the first eight parameter slots are always passed in
-registers, while the remaining parameters are always passed on the
-memory stack, beginning at the caller's stack pointer plus 16 bytes.
-The caller uses up to eight of the registers in the output region of
-its register stack for integer parameters, and up to eight
-floating-point registers for floating-point parameters."
-
-So parameter passing is not a problem.  Now if it was a structure with
-different sizes ...
 
 
