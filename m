@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 08 Jul 2004 05:15:51 +0000
+Date: Thu, 08 Jul 2004 05:19:15 +0000
 Subject: Re: ptrace "fix" breaks ia64
-Message-Id: <16620.55431.301555.410777@napali.hpl.hp.com>
+Message-Id: <16620.55635.184205.91365@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16620.16241.664033.493568@napali.hpl.hp.com>
 	<200407072047.i67KlXk5028719@magilla.sf.frob.com>
@@ -11,6 +11,9 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: torvalds@osdl.org, akpm@osdl.org
 Cc: Roland McGrath <roland@redhat.com>, davidm@hpl.hp.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+
+[Oops, I promptly forgot to credit Peter Chubb for tracking down this bug.
+ Mail below is unchanged except for the ChangeLog entry.]
 
 >>>>> On Wed, 7 Jul 2004 13:47:33 -0700, Roland McGrath <roland@redhat.com> said:
 
@@ -54,6 +57,8 @@ on which the gate area lives in the user's address-space, this should
 be aliased to pgd_offset() and on architectures on which the gate area
 lives in the kernel-mapped segment, this should be aliased to
 pgd_offset_k().
+
+This bug was found and tracked down by Peter Chubb.
 
 Signed-off-by: davidm@hpl.hp.com
 
