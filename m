@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 06 May 2004 23:47:03 +0000
+From: Jim Wilson <wilson@specifixinc.com>
+Date: Fri, 07 May 2004 07:48:46 +0000
 Subject: Re: [PATCH] new ".serialize" gas directive
-Message-Id: <16538.52855.525849.78499@napali.hpl.hp.com>
+Message-Id: <1083916127.1073.158.camel@leaf.tuliptree.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16537.51724.854691.934006@napali.hpl.hp.com>
 In-Reply-To: <16537.51724.854691.934006@napali.hpl.hp.com>
@@ -10,37 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On 06 May 2004 16:33:36 -0700, Jim Wilson <wilson@specifixinc.com> said:
+On Thu, 2004-05-06 at 16:47, David Mosberger wrote:
+> Isn't it true that GCC never produces a NaT on its own and never uses
+> uninitialized registers?
 
-  Jim> On Wed, 2004-05-05 at 22:15, David Mosberger wrote:
-  >> tbit.z p34, p35 = r22, 12	;;
-  >> (p34) cmp4.eq p6, p7 = 2, r15
-  >> (p35) cmp4.eq p6, p7 = 3, r15	;;
-  >> (p6) addl r14 = 1, r0
-  >> (p7) mov r14 = r0
+Currently, we never intentionally produce NaTs.  However, hopefully
+someday we will, so we should be careful about things like this.
 
-  Jim> This one has complications.  If r22 has the NaT bit set, then the result
-  Jim> of the tbit.z is to set both p34 and p35 to zero.  Thus p6, p7 are not
-  Jim> set, and it is possible that they both could be true if we have no
-  Jim> information about them, in which case there is a DV here.
+I am not sure about the uninitialized register thing.  It used to be the
+case that you could get writes to uninitialized registers if you had an
+uninitialized variable in the source.  Of course, in that case, the
+program is broken anyways.  However, I think this might have been fixed
+for other non-IPF reasons.  I couldn't get an unitialized register use
+with a trivial example.
 
-That's a good point.
+>  Perhaps GCC
+> should assert that p34 and p35 are mutually exclusive (effectively
+> asserting that r22 is not a NaT)?
 
-  Jim> At the moment, neither gcc nor gas really knows anything about
-  Jim> NaT bits.
+There is no trivial way to do this.  At the moment, gcc only emits the
+mutex directive if a predicate register is live across a basic block. 
+That is the only case that gas can't figure out on its own.
 
-Isn't it true that GCC never produces a NaT on its own and never uses
-uninitialized registers?  If so, the code should be fine.  Perhaps GCC
-should assert that p34 and p35 are mutually exclusive (effectively
-asserting that r22 is not a NaT)?
+New code would have to be written to handle this case.  We might just
+have to emit mutex directives for every compare which will clutter up
+the assembly language.  That would be unfortunate, but maybe it is
+unavoidable for now.
 
-  >> * config/tc-ia64.c (dot_serialize): Declare.
-  >> (dot_serialize): New function.
-  >> (md_pseudo_table): Add ".serialize.data" and
-  >> ".serialize.instruction" directives.
+I don't have a lot of time for IA-64 gcc work at the moment.  It might
+be useful to have a gcc bug report for this so we don't lose track of
+it.
+-- 
+Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
 
-  Jim> The patch looks fine to me.  I checked it in.
-
-Cool.  Thanks a lot!
-
-	--david
