@@ -1,93 +1,99 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 26 Mar 2004 10:39:59 +0000
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Fri, 26 Mar 2004 12:38:52 +0000
 Subject: Re: Migrate pages from a ccNUMA node to another
-Message-Id: <20040326103959.GB14360@lnx-holt>
+Message-Id: <4064245C.50B74C67@nospam.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4063F188.66DB690A@nospam.org>
-In-Reply-To: <4063F188.66DB690A@nospam.org>
+References: <4063F188.66DB690A@nospam.org> <20040326103959.GB14360@lnx-holt>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+To: Robin Holt in <holt@sgi.com>
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Mar 26, 2004 at 10:02:00AM +0100, Zoltan Menyhart wrote:
+Robin Holt wrote:
 > 
-> Migrate pages from a ccNUMA node to another.
-> ======================
+> We have found that "automatic" migration ends to result in the
+> system deciding to move the wrong pieces around.  Since applications
+> can be so varied, I would recommend we let the application decide
+> when it thinks it is beneficial to move a memory range to a nearby
+> node.
+
+I am not saying it is for every application
+(see the paragraph of the "if's").
+There are a couple of applications which run for long time, with
+relatively stable memory working sets. And I can help them.
+You launch your application with and without, and you use if you
+gain enough.
+
+> The placement policy doesn't really fit the bill entirely.  We are
+> currently tracking a problem with repeatability of a benchmark.  We
+> found that the newer libc we are using used to result in a newly
+> forked process touching a page before the parent did and therefore
+> the page, which had been marked COW, would, on the old libc end up
+> on the childs node for the child and parents node for the parent.
+> After the update, both pages ended up on the parents.
+
+I haven't modified anything in the existing page fault handler.
+Nor I've changed the placement policy.
+You need to specify explicitly where the pages go for my proposed
+syscall.
+
+> If you syscall would simply do the copy to the destination node
+> for COW pages, this would have worked terrifically in both cases.
+
+The COW pages are referenced by more than one PGDs (by that of the
+parent and its children). As I state in RESTRICTIONS, I skip these
+pages.
+
+I think this issue with the COW pages is a fork() - exec()
+placement problem, i do not address it with my stuff.
+
+
+> >
+> > 3. NUMA aware scheduler
+> > .......................
+> >
 > 
-> 1. Hardware assisted migration
-> ..............................
+> Back to my earlier comment about magic.  This is a second tier of
+> magic.  Here we are talking about infering a reason to migrate based
+> on memory access patterns, but what if that migration results in
+> some other process being hurt more than this one is helped.
 > 
-
-We have found that "automatic" migration ends to result in the
-system deciding to move the wrong pieces around.  Since applications
-can be so varied, I would recommend we let the application decide
-when it thinks it is beneficial to move a memory range to a nearby
-node.
-
+> Honestly, we have beaten on the scheduler quite a bit and the "allocate
+> memory close to my node" has helped considerably.
 > 
-> 2. Application driven migration
-> ...............................
+> One thing that would probably help considerably, in addition to the
+> syscall you seem to be proposing, would be an addition to the
+> task_struct.  The new field would specify which node to attempt
+> allocations on.  Before doing a fork, the parent would do a
+> syscall to set this field to the node the child will target.  It
+> would then call fork.  The PGDs et al and associated memory, including
+> the task struct and pages would end up being allocated based upon
+> that numa node's allocation preference.
 > 
-> An application can exploit the forthcoming NUMA APIs to specify its initial
-> memory placement policy.
-> Yet what if the application wants to change its behavior ?
+> What do you think of combining these two items into a single syscall?
 
-The placement policy doesn't really fit the bill entirely.  We are
-currently tracking a problem with repeatability of a benchmark.  We
-found that the newer libc we are using used to result in a newly
-forked process touching a page before the parent did and therefore
-the page, which had been marked COW, would, on the old libc end up
-on the childs node for the child and parents node for the parent.
-After the update, both pages ended up on the parents.
+I can agree with Robin Holt, it's NUMA API issue.
+I just give a tool, if someone somehow knows that this piece of memory
+would be better on another node, I can do it.
 
-If you syscall would simply do the copy to the destination node
-for COW pages, this would have worked terrifically in both cases.
-
+> > NAME
+> >         migrate_ph_pages        - migrate pages to another NUMA node
 > 
-> 3. NUMA aware scheduler
-> .......................
-> 
+> At first, I thought "Wow, this could result in some nice admin tools."
+> The more I scratch my head on this, the less useful I see it, but
+> would not argue against it.
 
-Back to my earlier comment about magic.  This is a second tier of
-magic.  Here we are talking about infering a reason to migrate based
-on memory access patterns, but what if that migration results in
-some other process being hurt more than this one is helped.
-
-Honestly, we have beaten on the scheduler quite a bit and the "allocate
-memory close to my node" has helped considerably.
-
-One thing that would probably help considerably, in addition to the
-syscall you seem to be proposing, would be an addition to the
-task_struct.  The new field would specify which node to attempt
-allocations on.  Before doing a fork, the parent would do a
-syscall to set this field to the node the child will target.  It
-would then call fork.  The PGDs et al and associated memory, including
-the task struct and pages would end up being allocated based upon
-that numa node's allocation preference.
+We are working on the prototype of a device driver to read out the
+"hot page" counters on n-th Scalable Node Controller
+(say: "/dev/snc/n/hotpage").
+An "artificial intelligence" can guess what to move and calls this service.
 
 
-What do you think of combining these two items into a single syscall?
+BTW Has someone a machine with a chip set other than i82870 ?
 
-> 
-> User mode interface
-> -------------------
-> 
-> This prototype of the page migration service is implemented as a system call,
-> the different forms of which are wrapped by use of some small,
-> static, inline functions.
-> 
-> NAME
->         migrate_ph_pages        - migrate pages to another NUMA node
-
-At first, I thought "Wow, this could result in some nice admin tools."
-The more I scratch my head on this, the less useful I see it, but
-would not argue against it.
-
->         migrate_virt_addr_range - migrate virtual address range to another node
-
-This one sounds good.
 
 Thanks,
-Robin Holt
+
+
+Zoltan Menyhart
