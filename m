@@ -1,7 +1,7 @@
 From: Francis Galiegue <fg@mandrakesoft.com>
-Date: Fri, 17 Nov 2000 17:29:26 +0000
+Date: Mon, 20 Nov 2000 09:56:48 +0000
 Subject: Re: [Linux-ia64] toolchain status
-Message-Id: <marc-linux-ia64-105590678205741@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205751@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205739@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205739@msgid-missing>
@@ -13,15 +13,15 @@ To: linux-ia64@vger.kernel.org
 On Fri, 17 Nov 2000, H . J . Lu wrote:
 
 > > 
-> > I don't know which version this patch is supposed to apply to, but it doesn't
-> > apply as is on the stock FSF tree. "Corrected" patch for this tree is attached,
-> > in case it is of interest for someone.
+> > I'm talking about GNU's stock glibc-2.2.tar.gz here... I didn't know there
+> > were CVS snapshots of it again. Where are they to be found?
+> > 
 > 
-> Your patch looks wrong. Please check out the glibc 2.2 from CVS again.
+> http://sources.redhat.com/glibc/
 > 
 
-I'm talking about GNU's stock glibc-2.2.tar.gz here... I didn't know there
-were CVS snapshots of it again. Where are they to be found?
+Hmmm, in snapshots/, the most recent I see is 2.1.3-pre4. This obviously is not
+the good one...
 
 -- 
 Francis Galiegue, fg@mandrakesoft.com
