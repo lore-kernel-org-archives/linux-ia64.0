@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 27 May 2004 21:29:41 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Fri, 28 May 2004 17:28:55 +0000
 Subject: Re: [PATCH] don't udelay() in sn_mmiob
-Message-Id: <16566.24005.529238.412533@napali.hpl.hp.com>
+Message-Id: <20040528172855.GF11576@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405261749.02254.jbarnes@engr.sgi.com>
 In-Reply-To: <200405261749.02254.jbarnes@engr.sgi.com>
@@ -10,26 +10,50 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 27 May 2004 17:06:31 -0400, Jesse Barnes <jbarnes@engr.sgi.com> said:
+On Thu, May 27, 2004 at 05:06:31PM -0400, Jesse Barnes wrote:
+> On Thursday, May 27, 2004 4:46 pm, David Mosberger wrote:
+> > Wouldn't you want at least a cpu_relax() in that loop?
+> 
+> That'll cause the CPU to switch to the other thread if it's SMT so it won't 
+> spin waiting for the access to complete?  If so, then yes.  Here's an updated 
+> patch.
 
-  Jesse> On Thursday, May 27, 2004 4:46 pm, David Mosberger wrote:
+I didn't think the code would actually spin.
 
-  >> Wouldn't you want at least a cpu_relax() in that loop?
+sn_mmiob() is something like:
 
-  Jesse> That'll cause the CPU to switch to the other thread if it's
-  Jesse> SMT so it won't spin waiting for the access to complete?  If
-  Jesse> so, then yes.
+    1:	ld.acq r8=...
+    	;;
+	cmp.eq p8,p0=r8,r9
+   (p8)	br 1b
 
-It is simply good practice to always use cpu_relax() in busy-loops.
-It'll make sure the compiler doesn't get too clever (thanks to the
-implied barrier()) and ensures that the CPU doesn't go nuts on the
-busy-loop (e.g., a Pentium 4 core might overheat).  In the case
-of ia64, cpu_relax() results in a "hint @pause" instruction which
-is specified as:
+The "load" is an uncached load. Won't the pipeline stall on the cmp
+waiting for data to arrive. I would not have expected that a cpu_relax()
+would have been needed here. 
 
- "Indicates to the processor that the currently executing stream is
-  waiting, spinning, or doing low priority tasks.  This hint can be
-  used by the processor to allocate more resources or time to another
-  executing stream on the same processor."
+Data takes a few hundred nsec to be loaded from the chipset.
 
-	--david
+
+If we were spinning on a CACHED memory address, I agree that cpu_relax() 
+is need.
+
+
+
+> 
+> sn_mmiob is a lightweight way to ensure PCI write ordering, intended to be 
+> used as an alternative to doing a PIO read. Unfortunately, with the udelay() 
+> in there, it ends up being slower than a PCI read on small configurations, so 
+> remove it in favor of a simple cpu_relax() so that we're HT-friendly.
+> 
+> Thanks,
+> Jesse
+
+
+
+-- 
+Thanks
+
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
+
