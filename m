@@ -1,37 +1,30 @@
-From: "Yu, Luming" <luming.yu@intel.com>
-Date: Tue, 25 May 2004 15:25:31 +0000
-Subject: RE: IA64 test report:USB mouse donesn't work : 2.4.26 /Lion 2004-5-12: 9/10  pass
-Message-Id: <3ACA40606221794F80A5670F0AF15F84047373A4@PDSMSX403.ccr.corp.intel.com>
+From: edwardsg@sgi.com (Greg Edwards)
+Date: Tue, 11 May 2004 14:59:23 +0000
+Subject: [PATCH] set EXEC_PAGESIZE to PAGE_SIZE
+Message-Id: <20040511145923.GC23495@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <6E0C289723A0564F9A8279E236E8565F0766858F@pdsmsx402.pd.intel.com>
-In-Reply-To: <6E0C289723A0564F9A8279E236E8565F0766858F@pdsmsx402.pd.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->| 
->|   After executing kudzu, and removing the PS/2 mouse 
->configuration, the
->| USB mouse works pretty well.(I'm sorry for I diden't notice 
->this point
->| beofre.)
->| So this issue is gone. 
->| 
->| The interesting thing is that  PS/2 and USB mouse can work together
->| under  2.6. But 2.4 cannot.  
->
->Interesting in what way?  or do you mean on this particular platform?
->
->In general, it's expected that PS/2 and USB mice can and do work
->together, in 2.6 and 2.4.
->
+The number of pages allocated for the gid_t * blocks[] array in the
+group_info struct is calculated from EXEC_PAGESIZE.  This is used when
+the number of groups goes above 32.  On ia64, this is currently
+hard-coded at 65536, which results in only a 1/4 of the required pages
+being allocated on a 16k page size kernel.  A setgroups() call with a
+gidsetsize of 65536 will end up tromping on memory.  Patch below sets
+EXEC_PAGESIZE to PAGE_SIZE.
 
-OH,  If so, I need to figure out why 2.4 CANNOT handle PS/2 and USB mice
 
-simultaneously.
-
-Thanks for your correction.
-
---Luming
-
+=== include/asm-ia64/param.h 1.6 vs edited ==--- 1.6/include/asm-ia64/param.h	Wed Feb 18 21:42:38 2004
++++ edited/include/asm-ia64/param.h	Tue May 11 09:04:13 2004
+@@ -10,7 +10,7 @@
+  *	David Mosberger-Tang <davidm@hpl.hp.com>, Hewlett-Packard Co
+  */
+ 
+-#define EXEC_PAGESIZE	65536
++#define EXEC_PAGESIZE	PAGE_SIZE
+ 
+ #ifndef NOGROUP
+ # define NOGROUP	(-1)
