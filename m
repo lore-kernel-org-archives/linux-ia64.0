@@ -1,7 +1,7 @@
-From: "H . J . Lu" <hjl@valinux.com>
-Date: Tue, 21 Nov 2000 16:58:03 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Tue, 21 Nov 2000 19:14:20 +0000
 Subject: Re: [Linux-ia64] gcc and glibc: big troubles
-Message-Id: <marc-linux-ia64-105590678205758@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205759@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205756@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205756@msgid-missing>
@@ -10,79 +10,77 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Nov 21, 2000 at 05:00:44PM +0100, Jes Sorensen wrote:
-> >>>>> "Francis" = Francis Galiegue <fg@mandrakesoft.com> writes:
-> 
-> Francis> I'm trying to upgrade my glibc and compiler to 001024
-> Francis> snapshot + RCS patches up to 037 (for gcc) and glibc 2.2 plus
-> Francis> patches (not CVS), but it fails on the whole... Compiler used
-> Francis> is 001024 snapshot but with backward compatibility ABI patch
-> Francis> applied.
-> 
-> Francis> First, glibc. I obtain this error:
-> 
-> Please read the warning messages from the compiler when you compile
-> glibc and get errors like this. Higher up in the compiler output it
-> had warned you that it couldn't find the definition of
-> __NR_getpagesize(). It's because David took it out as we are switching
-> to AT_PAGESZ support instead. Until glibc gets fixed you can just
-> reenable it in include/asm/unistd.h.
-> 
+>/tmp/ccalpirm.s:6579: Internal error, aborting at ../../gas/config/tc-ia64.c
+>line 5190 in errata_nop_necessary_p
+>        if (regno > 16)
+>          abort ();		<----- This one
 
-This is an untested patch. Let me know what you get.
+This is a bug in the hardware errata workaround patch.  This should be
+	if (regno >= 64)
+	  abort ();
+I found this problem in pre-release testing, so it is fixed in the 001117
+release, but I didn't release a separate patch for this bug fix.
 
-Thanks.
+>One thing I don't get is: why all this in the toolchain? Why make, why bison,
+>why tk, why tcl? Whats more there's no README at all on how to *avoid* having
+>them compiled. I tried --without-x, --disable-x but to no avail... Stock bison
+>for example works perfectly fine here, so does make. Any solution?
 
+This is the "Cygnus" way of making releases.  This is necessary for "Cygnus"
+to make sure that our customers can rebuild our toolchains.  Otherwise,
+they may not have the necessary tools (e.g. GNU make), or they may have
+incompatible versions of them (tcl/tk).
 
-H.J.
-----
-2000-11-21  H.J. Lu  <hjl@gnu.org>
+This style of release is not appropriate for GNU/Linux distributors, but
+unfortunately, we are stuck with it for now.  I'd like to get people moved
+to FSF style releases as soon as possible, but I couldn't easily do that until
+after most of the development work was done.  I expect the next release will be
+from the FSF gcc/binutils/gdb sources, so this should not be a problem with
+the next release.
 
-	* sysdeps/unix/sysv/linux/ia64/getpagesize.c (__getpagesize):
-	Don't call __syscall_getpagesize. Set to 8K by default.
+tcl/tk/tix/itcl are there for the gdb gui.  This requires the specific versions
+of tcl/tk/etc in the toolchain, otherwise you will run into versioning
+problems.  The reasons for the rest of the stuff is probably obvious, they
+all come standard with linux, but not with SunOS/Solaris/AIX/Irix/NT/etc.
 
-	* sysdeps/unix/sysv/linux/ia64/syscalls.list (s_getpagesize):
-	Removed.
+You can build specific tools, like gcc, by using
+    make all-gcc
+There are makefile dependencies which will force everything gcc requires
+(opcodes/bfd/binutils/gas/ld) to also be built.  You can build specific
+target libraries, like libstdc++, by using
+    make all-target-libstdc++
+Making all-gcc, all-gdb, and all-target-libstdc++, will probably build
+everything you want.
 
-Index: sysdeps/unix/sysv/linux/ia64/getpagesize.c
-=================================RCS file: /work/cvs/gnu/glibc/sysdeps/unix/sysv/linux/ia64/getpagesize.c,v
-retrieving revision 1.1.1.1
-diff -u -p -r1.1.1.1 getpagesize.c
---- sysdeps/unix/sysv/linux/ia64/getpagesize.c	2000/06/25 16:02:54	1.1.1.1
-+++ sysdeps/unix/sysv/linux/ia64/getpagesize.c	2000/11/21 16:48:07
-@@ -27,19 +27,13 @@
-    determine the page size to ensure proper alignment for calls such
-    as mmap and friends.  --davidm 99/11/30 */
- 
--/* If we are not a static program, this value is collected from the system
--   via the AT_PAGESZ auxiliary argument.  If we are a static program, we
--   use the getpagesize system call.  */
--
- extern size_t _dl_pagesize;
- 
--extern size_t __syscall_getpagesize (void);
--
- int
- __getpagesize ()
- {
-   if (_dl_pagesize = 0)
--    _dl_pagesize = INLINE_SYSCALL (getpagesize, 0);
-+    _dl_pagesize = 8192;	/* use a reasonable default */
-   return _dl_pagesize;
- }
- 
-Index: sysdeps/unix/sysv/linux/ia64/syscalls.list
-=================================RCS file: /work/cvs/gnu/glibc/sysdeps/unix/sysv/linux/ia64/syscalls.list,v
-retrieving revision 1.1.1.8
-diff -u -p -r1.1.1.8 syscalls.list
---- sysdeps/unix/sysv/linux/ia64/syscalls.list	2000/09/16 06:41:37	1.1.1.8
-+++ sysdeps/unix/sysv/linux/ia64/syscalls.list	2000/11/21 16:47:02
-@@ -72,7 +72,6 @@ s_getdents64	getdents64 getdents64	i:ipi
- s_mknod		xmknod	mknod		i:sii	__syscall_mknod
- s_readv		readv	readv		i:ipi	__syscall_readv
- s_writev	writev	writev		i:ipi	__syscall_writev
--s_getpagesize	getpagesize getpagesize	0	__syscall_getpagesize
- s_poll		poll	poll		i:pii	__syscall_poll
- s_reboot	reboot	reboot		i:iii	__syscall_reboot
- s_ustat		ustat	ustat		i:ip	__syscall_ustat
+You can install specific tools, like gcc, by using
+   make install-gcc
+There are no dependencies here, so you need to separately install everything
+you want, e.g. bfd, binutils, gas, ld, gdb, gcc, target-libstdc++, and maybe
+some other stuff.
+
+You can disable building the gdb gui by using --disable-gdbtk
+
+You can also disable building stuff by renaming/deleting the directories.
+This will work for all of the optional stuff like flex/bison/make/patch/etc
+that comes standard with Linux and which are unlikely to suffer versioning
+problems.
+
+All of this stuff I just described also works exactly the same way in FSF
+gcc/binutils/gdb releases.  We just bundle everything together instead of
+shipping everything separately.
+
+There is documentation explaining all of this stuff, but it is maintained
+by the documentation group not the engineers, and is usually distributed on
+paper.  A "Cygnus" customer would get it, but it is hard to distribute to
+everyone trying to use my Trillian releases.
+
+I like to point out again that my releases are primarily for the Trillian
+group, to enable kernel, glibc, and Linux distribution work.  It was never
+the intent to recommend them to everyone.  I'd rather recommend the compilers
+that come with the Linux distributions, but unfortunately, all IA-64 GNU/Linux
+distributions are still using the old February toolchain, so as a stop gap
+measure I'm making my toolchains available to everyone.  Since you are
+Linux distributor though, you'd probably have to build my toolchain anyways.
+
+Jim
 
