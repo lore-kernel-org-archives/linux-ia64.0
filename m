@@ -1,7 +1,7 @@
 From: Hubertus Franke <frankeh@watson.ibm.com>
-Date: Thu, 25 Sep 2003 13:11:00 +0000
+Date: Thu, 25 Sep 2003 13:19:05 +0000
 Subject: Re: [Lse-tech] Re: CPUSET Proposal
-Message-Id: <marc-linux-ia64-106449584031033@msgid-missing>
+Message-Id: <marc-linux-ia64-106449620531532@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106444308519469@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106444308519469@msgid-missing>
@@ -12,51 +12,34 @@ To: linux-ia64@vger.kernel.org
 
 Paul Jackson wrote:
 
->>This sounds like it has progressively more commonality with CKRM; the
->>notion is of a workclass, not of a purely cpu-oriented notion.
+>>Well, the thing is, CKRM essentially has the cross-resource bits and
+>>makes up some group that can be joined and departed from and inherited
+>>and so on with all the right knobs ...
 >>    
 >>
 >
->I _knew_ I shouldn't have thrown in that paragraph that began "There are
->also some resource management capabilities, ...".
+>The hierarchies don't correspond, or do so only accidentally.
 >
->There are two aspects to CKRM - a common classification of service levels,
->and hooks in each scheduler of resources to respect those levels.
+>That is, cpusets, as proposed, have a hierarchy such that one
+>cpuset is the child of another if one cpuset describes a subset
+>of another's CPUs.
 >
+>At first blush, I don't see a hierarchy of CKRM Classes, rather
+>just a flat space, say Gold, Silver and Bronze.
 >  
 >
-That is correct (assuming slight modification of the schedulers 
-qualifies as a hook).
+Paul, yes CKRM classes at this point are flat, we looked initially at 
+hierarchies and
+determined that for the first release might add a lot of complexity with 
+questionable
+benefits for the community at large. So we left hierarchies out.
+Based on the general community feedback we might have to revisit this issue.
 
->These cpusets, either as proposed, or possible fancier forms that also
->manage memory, do not replace, cannot be replaced by, and do not compete
->with CKRM.  Rather they cooperate with CKRM, and represent one more
->place, along side network drivers, schedulers and memory allocators,
->that eventually will want to respect CKRM service levels.
->
->  
->
-Yes, to my understanding of cpusets (and I haven't looked into it with 
-great detail) its a
-virtualization layer above physical binding. One really doesn't care to 
-which CPU a process is
-bound as long as it is bound to one. One might care that tasks are 
-constraint to a particular
-number of tasks and not beyond, thus leading to the partitioning 
-capabilities.
-So I agree here with Paul that it addresses more a physical separation 
-of processes, or say
-partitioning of machine which CKRM is targeted towards resource 
-utilization within a class.
-Just like cpu_affinity, CKRM could tolerate cpusets.
+Again, I see cpusets and CKRM as addressing two orthogonal issues wrt to 
+cpu's
 
->The point of _this_ subthread was to consider whether this could more or
->less entirely be done in user space.  The two aspects even of Simon's
->current proposal that I don't see can be done in user space are the
->migration, and the permission model.
->
->  
->
+cpusets  (partitioning in space)   with hierarchies
+CKRM  (time partitioning)         how much of  time does a class get...
 
--- Hubertus Franke     ( CKRM team )
+-- Hubertus Franke   ( CKRM team )
 
