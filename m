@@ -1,193 +1,190 @@
 From: Piet/Pete Delaney <piet@sgi.com>
-Date: Thu, 04 Apr 2002 21:16:50 +0000
-Subject: [Linux-ia64] qt-x11-free-3.0.3 - config file seems to be brooken on ia64
-Message-Id: <marc-linux-ia64-105590701905383@msgid-missing>
+Date: Fri, 05 Apr 2002 02:10:24 +0000
+Subject: Re: [Linux-ia64] qt-x11-free-3.0.3 - config file seems to be brooken on ia64; Looks like qmake is br
+Message-Id: <marc-linux-ia64-105590701905387@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905383@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905383@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-I tried to configure the new qt-x11-free-3.0.3 release from:
-
-	ftp://ftp.trolltech.com/qt/source/
-
-on a ia64 running RedHat 7.2 and I'm getting a $EXEC that isn't being 
-set up in the confiure file. Anyone know how to fix this? The configure file 
-looks the same as the ia32 version as far as $EXEC are concerned.
-
-I'm not sure I understand the logic of the config file, 
-it looks like:
-
-	EXEC = PIPE = "$outpath/bin/qmake $QMAKE_SWITCHES $QMAKE_SPEC_ARGS -o $N $a"
--piet
-
-------------------------------------------------------------------------------------
-297 piet3 11:21 ~/src/qt/qt-x11-free-3.0.3.ia64> ./configure
-
-This is the Qt/X11 Free Edition.
-
-You are licensed to use this software under the terms of either
-the Q Public License (QPL) or the GNU General Public License (GPL).
-
-Type 'Q' to view the Q Public License.
-Type 'G' to view the GNU General Public License.
-Type 'yes' to accept this license offer.
-Type 'no' to decline this license offer.
-
-Do you accept the terms of either license?
-tes^?^?^Y
-
-This is the Qt/X11 Free Edition.
-
-You are licensed to use this software under the terms of either
-the Q Public License (QPL) or the GNU General Public License (GPL).
-
-Type 'Q' to view the Q Public License.
-Type 'G' to view the GNU General Public License.
-Type 'yes' to accept this license offer.
-Type 'no' to decline this license offer.
-
-Do you accept the terms of either license?
-yes
-Creating qmake. Please wait...
-gmake: *** Warning: File `GNUmakefile' has modification time in the future (2002-04-04 11:56:18 > 2002-04-04 11:55:11)
-gmake: Nothing to be done for `all'.
-gmake: warning:  Clock skew detected.  Your build may be incomplete.
-/home/piet/src/qt/qt-x11-free-3.0.3.ia64/config.tests/unix/stl.test: line 25: 17724 Illegal instruction     (core dumped) $OUTDIR/bin/qmake -nocache -spec "$QMKSPEC" "$ABSPATH" $SRCDIR/config.tests/unix/stltest.pro -o $OUTDIR/config.tests/unix/Makefile >/dev/null 2>&1
-
-        This target is using the GNU C++ compiler (linux-g++).
-
-        Recent versions of this compiler automatically include code for
-        exceptions, which increase both the size of the Qt library and the
-        amount of memory taken by your applications.
-
-        You may elect to re-run configure with the -no-g++-exceptions
-        option to compile Qt without exceptions.  This is completely binary
-        compatible, and existing applications should continue to work.
-
-
-Build type:    linux-g++
-Platform notes:
-
-            - Also available for Linux: linux-kcc linux-icc linux-cxx
-
-Configuration .......  nocrosscompiler xftnameunparse minimal-config small-config medium-config large-config full-config release dll png no-gif zlib bigcodecs x11sm xinerama xrender xftfreetype xkb styles tools kernel widgets dialogs iconview workspace network canvas table xml sql
-Remote support ...... no
-STL support ......... no
-Thread support ...... no
-GIF support ......... no
-MNG support ......... plugin (qt)
-JPEG support ........ plugin (qt)
-PNG support ......... yes (qt)
-OpenGL support ...... no
-NAS sound support ... no
-Session management .. yes
-Xinerama support .... yes
-Tablet support ...... no
-XRender support ..... yes
-XftFreeType support . yes
-XKB Support ......... yes
-
-Finding project files. Please wait...
-  225 projects found.
-
-Creating makefiles. Please wait...
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/src/moc/moc.pro
-./configure: line 2431: 17841 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/src/qt.pro
-./configure: line 2431: 17848 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/config.tests/unix/stltest.pro
-./configure: line 2431: 17855 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/config.tests/x11/notypetest.pro
-./configure: line 2431: 17862 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/examples/aclock/aclock.pro
-./configure: line 2431: 17869 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/examples/action/actiongroup/actiongroup.pro
-./configure: line 2431: 17876 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/examples/action/action.pro
-./configure: line 2431: 17883 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/examples/action/toggleaction/toggleaction.pro
-./configure: line 2431: 17890 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/examples/addressbook/addressbook.pro
-
-Suspended
----------------------------------------------------------------------------------------------------------------------------
-   2370 echo "Creating makefiles. Please wait..."
-   2371 # these need to be processed *now*
-   2372 for a in `cat .sorted.projects`
-   2373 do
-   2374     case $a in
-   2375     *-kde.pro|*qtmain.pro) continue ;;
-   2376     */qmake/qmake.pro) continue ;;
-   2377     *-pro.pro)
-   2378         if [ "x$Edition" != "xpro" ]
-   2379         then
-   2380             continue
-   2381         fi
-   2382         ;;
-   2383     *moc*) SPEC=$QMAKESPEC ;;
-   2384     *) SPEC=$XQMAKESPEC ;;
-   2385     esac
-   2386     file=`basename $a`
-   2387     dir=`dirname $a | sed -e "s;$sepath;.;g"`
-   2388     test -d $dir || mkdir -p $dir
-   2389     N=$outpath/$dir/Makefile
-   2390     QMAKE_SPEC_ARGS   2391     [ "$SPEC" != "$XQMAKESPEC" ] && QMAKE_SPEC_ARGS="-spec $SPEC"
-   2392     PIPE="$outpath/bin/qmake $QMAKE_SWITCHES $QMAKE_SPEC_ARGS -o $N $a"					<-
-   2393     if [ "x$OPT_CONCURRENT" = "x0" ] || [ "x$OPT_CONCURRENT" = "x1" ]
-   2394     then
-   2395         EXEC=$PIPE											<-
-   2396     else
-   2397         EXEC="$EXEC ($PIPE & ) ;"									<-
-   2398         if [ "x$PROCS" != "x$OPT_CONCURRENT" ]
-   2399         then
-   2400             PROCS=`expr $PROCS + 1`
-   2401         else
-   2402             PROCS=1
-   2403             EXEC="$EXEC wait"
-   2404         fi
-   2405     fi
-   2406
-   2407     if echo '\c' | grep '\c' >/dev/null
-   2408     then
-   2409         echo -n "  for $a"
-   2410     else
-   2411         echo "  for $a\c"
-   2412     fi
-   2413     if [ "$OPT_VERBOSE" = "yes" ]
-   2414     then
-   2415         echo " (`basename $SPEC`)"
-   2416         if echo '\c' | grep '\c' >/dev/null
-   2417         then
-   2418             echo -n "$EXEC"
-   2419         else
-   2420             echo "$EXEC\c"
-   2421         fi
-   2422     fi
-   2423     echo
-   2424
-   2425     [ -f "$N" ] && chmod +w $N
-   2426     if [ "x$PROCS" = "x1" ]
-   2427     then
-   2428         /bin/sh -c "$EXEC"									<<---- $EXEC Not Defined
-   2429         EXEC=""
-   2430     fi
--->2431 done												<<---- HERE
-   2432 # this is just in case the concurrent task is not a multiple of the number of tasks
-   2433 [ '!' -z "$EXEC" ] && /bin/sh -c "$EXEC wait"
-   2434
----------------------------------------------------------------------------------------------------------------------------
-
-When I set the OPT_VERBOSE flag with -v I get:
-
----------------------------------------------------------------------------------------------------------------------------
-Creating makefiles. Please wait...
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/src/moc/moc.pro (linux-g++)
-/home/piet/src/qt/qt-x11-free-3.0.3.ia64/bin/qmake   -o /home/piet/src/qt/qt-x11-free-3.0.3.ia64/./src/moc/Makefile /home/piet/src/qt/qt-x11-free-3.0.3.ia64/src/moc/moc.pro
-configure: line 2431: 18349 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
-  for /home/piet/src/qt/qt-x11-free-3.0.3.ia64/src/qt.pro (linux-g++)
-/home/piet/src/qt/qt-x11-free-3.0.3.ia64/bin/qmake   -o /home/piet/src/qt/qt-x11-free-3.0.3.ia64/./src/Makefile /home/piet/src/qt/qt-x11-free-3.0.3.ia64/src/qt.pro
-configure: line 2431: 18359 Illegal instruction     (core dumped) /bin/sh -c "$EXEC"
----------------------------------------------------------------------------------------------------------------------------
-
+T24gVGh1LCBBcHIgMDQsIDIwMDIgYXQgMDE6MTY6NTBQTSAtMDgwMCwgUGlldC9QZXRlIERlbGFu
+ZXkgd3JvdGU6CgpMb29rcyBsaWtlIHFtYWtlIGlzIHRyeWluZyB0byBkZWxldGUgd2l0aCBhIE5V
+TEwgcG9pbnRlciB5ZXQKdGhlIGNvZGUgc2VlbXMgdG8gdGVzdCBmb3IgdGhpcyBjb25kaXRpb246
+CgojMCAgb3BlcmF0b3IgZGVsZXRlW10odm9pZCopIChwdHI9MHgwKSBhdCBkZWxfb3B2LmNjOjM1
+CiMxICAweDQwMDAwMDAwMDAyNTE3ZjAgaW4gflFTdHJpbmdEYXRhIChfX2luX2NocmeVNDU2KSBh
+dCAvaG9tZS9waWV0L3NyYy9xdC9xdC14MTEtZnJlZS0zLjAuMy5pYTY0L3NyYy90b29scy9xc3Ry
+aW5nLmg6MzQ5CiMyICAweDQwMDAwMDAwMDAxOTVkODAgaW4gUVN0cmluZzo6ZGVyZWYoKSAodGhp
+cz0weDgwMDAwZmZmZmZmZmE5MjApIGF0IC9ob21lL3BpZXQvc3JjL3F0L3F0LXgxMS1mcmVlLTMu
+MC4zLmlhNjQvc3JjL3Rvb2xzL3FzdHJpbmcuY3BwOjEyNzEwCiMzICAweDQwMDAwMDAwMDAxOTVl
+YzAgaW4gUVN0cmluZzo6b3BlcmF0b3I9KFFTdHJpbmcgY29uc3QmKSAodGhpcz0weDgwMDAwZmZm
+ZmZmZmE5MjAsIHM9QDB4ODAwMDBmZmZmZmZmYThjMCkgYXQgL2hvbWUvcGlldC9zcmMvcXQvcXQt
+eDExLWZyZWUtMy4wLjMuaWE2NC9zcmMvdG9vbHMvcXN0cmluZy5jcHA6MTI3NDEKIzQgIDB4NDAw
+MDAwMDAwMDEzMmU0MCBpbiBkZWZhdWx0X21vZGUgKHByb2duYW1lym5ub3QgYWNjZXNzIG1lbW9y
+eSBhdCBhZGRyZXNzIDB4MAopIGF0IG9wdGlvbi5jcHA6MTUxCiM1ICAweDQwMDAwMDAwMDAxMzQ2
+YTAgaW4gT3B0aW9uOjpwYXJzZUNvbW1hbmRMaW5lKGludCwgY2hhcioqKSAoYXJnYz0xLCBhcmd2
+PTB4ODAwMDBmZmZmZmZmYjUxOCkgYXQgb3B0aW9uLmNwcDoyNjgKIzYgIDB4NDAwMDAwMDAwMDAx
+ODFiMCBpbiBtYWluIChhcmdjPTEsIGFyZ3Y9MHg4MDAwMGZmZmZmZmZiNTE4KSBhdCBtYWluLmNw
+cDo3MQooZ2RiKSB1cAojMSAgMHg0MDAwMDAwMDAwMjUxN2YwIGluIH5RU3RyaW5nRGF0YSAoX19p
+bl9jaHJnlTQ1NikgYXQgL2hvbWUvcGlldC9zcmMvcXQvcXQteDExLWZyZWUtMy4wLjMuaWE2NC9z
+cmMvdG9vbHMvcXN0cmluZy5oOjM0OQooZ2RiKSAKCgooZ2RiKSBwcmludCAqZAokMTMgPSB7CiAg
+PFFTaGFyZWQ+ID0gewogICAgY291bnQgPSAwCiAgfSwgCiAgbWVtYmVycyBvZiBRU3RyaW5nRGF0
+YTogCiAgdW5pY29kZSA9IDB4NjAwMDAwMDAwMDAxNzQ2MCwgCiAgYXNjaWkgPSAweDAsIAogIGxl
+biA9IDU0LCAKICBzaW1wbGV0ZXh0ID0gMSwgCiAgbWF4bCA9IDU0LCAKICBkaXJ0eSA9IDEKfQoo
+Z2RiKSAKCkkgd29uZGVyIGlmIGdjYyB2ZXJzaW9uIDMuMC4yIGlzIGJyb29rZW4gb24gaWE2NCBm
+b3IgYysrIGNvZGUuIENvbXBpbGVycyBhcmUgdmVyeSBzZWxkb20gYnJvb2tlbiBhbmQKMy4wLjIg
+aXMgd29ya2luZyBmaW5lIG9uIHRoZSBrZXJuZWwuCgpBbnkgdGhvdWdodHMvc3VnZ2VzdGlvbnM/
+CgotcGlldAoKCgo+IEkgdHJpZWQgdG8gY29uZmlndXJlIHRoZSBuZXcgcXQteDExLWZyZWUtMy4w
+LjMgcmVsZWFzZSBmcm9tOgo+IAo+IAlmdHA6Ly9mdHAudHJvbGx0ZWNoLmNvbS9xdC9zb3VyY2Uv
+Cj4gCj4gb24gYSBpYTY0IHJ1bm5pbmcgUmVkSGF0IDcuMiBhbmQgSSdtIGdldHRpbmcgYSAkRVhF
+QyB0aGF0IGlzbid0IGJlaW5nIAo+IHNldCB1cCBpbiB0aGUgY29uZml1cmUgZmlsZS4gQW55b25l
+IGtub3cgaG93IHRvIGZpeCB0aGlzPyBUaGUgY29uZmlndXJlIGZpbGUgCj4gbG9va3MgdGhlIHNh
+bWUgYXMgdGhlIGlhMzIgdmVyc2lvbiBhcyBmYXIgYXMgJEVYRUMgYXJlIGNvbmNlcm5lZC4KPiAK
+PiBJJ20gbm90IHN1cmUgSSB1bmRlcnN0YW5kIHRoZSBsb2dpYyBvZiB0aGUgY29uZmlnIGZpbGUs
+IAo+IGl0IGxvb2tzIGxpa2U6Cj4gCj4gCUVYRUMgPSBQSVBFID0gIiRvdXRwYXRoL2Jpbi9xbWFr
+ZSAkUU1BS0VfU1dJVENIRVMgJFFNQUtFX1NQRUNfQVJHUyAtbyAkTiAkYSIKPiAtcGlldAo+IAo+
+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+IDI5NyBwaWV0MyAxMToyMSB+L3NyYy9xdC9x
+dC14MTEtZnJlZS0zLjAuMy5pYTY0PiAuL2NvbmZpZ3VyZQo+IAo+IFRoaXMgaXMgdGhlIFF0L1gx
+MSBGcmVlIEVkaXRpb24uCj4gCj4gWW91IGFyZSBsaWNlbnNlZCB0byB1c2UgdGhpcyBzb2Z0d2Fy
+ZSB1bmRlciB0aGUgdGVybXMgb2YgZWl0aGVyCj4gdGhlIFEgUHVibGljIExpY2Vuc2UgKFFQTCkg
+b3IgdGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNlbnNlIChHUEwpLgo+IAo+IFR5cGUgJ1EnIHRv
+IHZpZXcgdGhlIFEgUHVibGljIExpY2Vuc2UuCj4gVHlwZSAnRycgdG8gdmlldyB0aGUgR05VIEdl
+bmVyYWwgUHVibGljIExpY2Vuc2UuCj4gVHlwZSAneWVzJyB0byBhY2NlcHQgdGhpcyBsaWNlbnNl
+IG9mZmVyLgo+IFR5cGUgJ25vJyB0byBkZWNsaW5lIHRoaXMgbGljZW5zZSBvZmZlci4KPiAKPiBE
+byB5b3UgYWNjZXB0IHRoZSB0ZXJtcyBvZiBlaXRoZXIgbGljZW5zZT8KPiB0ZXNeP14/XlkKPiAK
+PiBUaGlzIGlzIHRoZSBRdC9YMTEgRnJlZSBFZGl0aW9uLgo+IAo+IFlvdSBhcmUgbGljZW5zZWQg
+dG8gdXNlIHRoaXMgc29mdHdhcmUgdW5kZXIgdGhlIHRlcm1zIG9mIGVpdGhlcgo+IHRoZSBRIFB1
+YmxpYyBMaWNlbnNlIChRUEwpIG9yIHRoZSBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZSAoR1BM
+KS4KPiAKPiBUeXBlICdRJyB0byB2aWV3IHRoZSBRIFB1YmxpYyBMaWNlbnNlLgo+IFR5cGUgJ0cn
+IHRvIHZpZXcgdGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNlbnNlLgo+IFR5cGUgJ3llcycgdG8g
+YWNjZXB0IHRoaXMgbGljZW5zZSBvZmZlci4KPiBUeXBlICdubycgdG8gZGVjbGluZSB0aGlzIGxp
+Y2Vuc2Ugb2ZmZXIuCj4gCj4gRG8geW91IGFjY2VwdCB0aGUgdGVybXMgb2YgZWl0aGVyIGxpY2Vu
+c2U/Cj4geWVzCj4gQ3JlYXRpbmcgcW1ha2UuIFBsZWFzZSB3YWl0Li4uCj4gZ21ha2U6ICoqKiBX
+YXJuaW5nOiBGaWxlIGBHTlVtYWtlZmlsZScgaGFzIG1vZGlmaWNhdGlvbiB0aW1lIGluIHRoZSBm
+dXR1cmUgKDIwMDItMDQtMDQgMTE6NTY6MTggPiAyMDAyLTA0LTA0IDExOjU1OjExKQo+IGdtYWtl
+OiBOb3RoaW5nIHRvIGJlIGRvbmUgZm9yIGBhbGwnLgo+IGdtYWtlOiB3YXJuaW5nOiAgQ2xvY2sg
+c2tldyBkZXRlY3RlZC4gIFlvdXIgYnVpbGQgbWF5IGJlIGluY29tcGxldGUuCj4gL2hvbWUvcGll
+dC9zcmMvcXQvcXQteDExLWZyZWUtMy4wLjMuaWE2NC9jb25maWcudGVzdHMvdW5peC9zdGwudGVz
+dDogbGluZSAyNTogMTc3MjQgSWxsZWdhbCBpbnN0cnVjdGlvbiAgICAgKGNvcmUgZHVtcGVkKSAk
+T1VURElSL2Jpbi9xbWFrZSAtbm9jYWNoZSAtc3BlYyAiJFFNS1NQRUMiICIkQUJTUEFUSCIgJFNS
+Q0RJUi9jb25maWcudGVzdHMvdW5peC9zdGx0ZXN0LnBybyAtbyAkT1VURElSL2NvbmZpZy50ZXN0
+cy91bml4L01ha2VmaWxlID4vZGV2L251bGwgMj4mMQo+IAo+ICAgICAgICAgVGhpcyB0YXJnZXQg
+aXMgdXNpbmcgdGhlIEdOVSBDKysgY29tcGlsZXIgKGxpbnV4LWcrKykuCj4gCj4gICAgICAgICBS
+ZWNlbnQgdmVyc2lvbnMgb2YgdGhpcyBjb21waWxlciBhdXRvbWF0aWNhbGx5IGluY2x1ZGUgY29k
+ZSBmb3IKPiAgICAgICAgIGV4Y2VwdGlvbnMsIHdoaWNoIGluY3JlYXNlIGJvdGggdGhlIHNpemUg
+b2YgdGhlIFF0IGxpYnJhcnkgYW5kIHRoZQo+ICAgICAgICAgYW1vdW50IG9mIG1lbW9yeSB0YWtl
+biBieSB5b3VyIGFwcGxpY2F0aW9ucy4KPiAKPiAgICAgICAgIFlvdSBtYXkgZWxlY3QgdG8gcmUt
+cnVuIGNvbmZpZ3VyZSB3aXRoIHRoZSAtbm8tZysrLWV4Y2VwdGlvbnMKPiAgICAgICAgIG9wdGlv
+biB0byBjb21waWxlIFF0IHdpdGhvdXQgZXhjZXB0aW9ucy4gIFRoaXMgaXMgY29tcGxldGVseSBi
+aW5hcnkKPiAgICAgICAgIGNvbXBhdGlibGUsIGFuZCBleGlzdGluZyBhcHBsaWNhdGlvbnMgc2hv
+dWxkIGNvbnRpbnVlIHRvIHdvcmsuCj4gCj4gCj4gQnVpbGQgdHlwZTogICAgbGludXgtZysrCj4g
+UGxhdGZvcm0gbm90ZXM6Cj4gCj4gICAgICAgICAgICAgLSBBbHNvIGF2YWlsYWJsZSBmb3IgTGlu
+dXg6IGxpbnV4LWtjYyBsaW51eC1pY2MgbGludXgtY3h4Cj4gCj4gQ29uZmlndXJhdGlvbiAuLi4u
+Li4uICBub2Nyb3NzY29tcGlsZXIgeGZ0bmFtZXVucGFyc2UgbWluaW1hbC1jb25maWcgc21hbGwt
+Y29uZmlnIG1lZGl1bS1jb25maWcgbGFyZ2UtY29uZmlnIGZ1bGwtY29uZmlnIHJlbGVhc2UgZGxs
+IHBuZyBuby1naWYgemxpYiBiaWdjb2RlY3MgeDExc20geGluZXJhbWEgeHJlbmRlciB4ZnRmcmVl
+dHlwZSB4a2Igc3R5bGVzIHRvb2xzIGtlcm5lbCB3aWRnZXRzIGRpYWxvZ3MgaWNvbnZpZXcgd29y
+a3NwYWNlIG5ldHdvcmsgY2FudmFzIHRhYmxlIHhtbCBzcWwKPiBSZW1vdGUgc3VwcG9ydCAuLi4u
+Li4gbm8KPiBTVEwgc3VwcG9ydCAuLi4uLi4uLi4gbm8KPiBUaHJlYWQgc3VwcG9ydCAuLi4uLi4g
+bm8KPiBHSUYgc3VwcG9ydCAuLi4uLi4uLi4gbm8KPiBNTkcgc3VwcG9ydCAuLi4uLi4uLi4gcGx1
+Z2luIChxdCkKPiBKUEVHIHN1cHBvcnQgLi4uLi4uLi4gcGx1Z2luIChxdCkKPiBQTkcgc3VwcG9y
+dCAuLi4uLi4uLi4geWVzIChxdCkKPiBPcGVuR0wgc3VwcG9ydCAuLi4uLi4gbm8KPiBOQVMgc291
+bmQgc3VwcG9ydCAuLi4gbm8KPiBTZXNzaW9uIG1hbmFnZW1lbnQgLi4geWVzCj4gWGluZXJhbWEg
+c3VwcG9ydCAuLi4uIHllcwo+IFRhYmxldCBzdXBwb3J0IC4uLi4uLiBubwo+IFhSZW5kZXIgc3Vw
+cG9ydCAuLi4uLiB5ZXMKPiBYZnRGcmVlVHlwZSBzdXBwb3J0IC4geWVzCj4gWEtCIFN1cHBvcnQg
+Li4uLi4uLi4uIHllcwo+IAo+IEZpbmRpbmcgcHJvamVjdCBmaWxlcy4gUGxlYXNlIHdhaXQuLi4K
+PiAgIDIyNSBwcm9qZWN0cyBmb3VuZC4KPiAKPiBDcmVhdGluZyBtYWtlZmlsZXMuIFBsZWFzZSB3
+YWl0Li4uCj4gICBmb3IgL2hvbWUvcGlldC9zcmMvcXQvcXQteDExLWZyZWUtMy4wLjMuaWE2NC9z
+cmMvbW9jL21vYy5wcm8KPiAuL2NvbmZpZ3VyZTogbGluZSAyNDMxOiAxNzg0MSBJbGxlZ2FsIGlu
+c3RydWN0aW9uICAgICAoY29yZSBkdW1wZWQpIC9iaW4vc2ggLWMgIiRFWEVDIgo+ICAgZm9yIC9o
+b21lL3BpZXQvc3JjL3F0L3F0LXgxMS1mcmVlLTMuMC4zLmlhNjQvc3JjL3F0LnBybwo+IC4vY29u
+ZmlndXJlOiBsaW5lIDI0MzE6IDE3ODQ4IElsbGVnYWwgaW5zdHJ1Y3Rpb24gICAgIChjb3JlIGR1
+bXBlZCkgL2Jpbi9zaCAtYyAiJEVYRUMiCj4gICBmb3IgL2hvbWUvcGlldC9zcmMvcXQvcXQteDEx
+LWZyZWUtMy4wLjMuaWE2NC9jb25maWcudGVzdHMvdW5peC9zdGx0ZXN0LnBybwo+IC4vY29uZmln
+dXJlOiBsaW5lIDI0MzE6IDE3ODU1IElsbGVnYWwgaW5zdHJ1Y3Rpb24gICAgIChjb3JlIGR1bXBl
+ZCkgL2Jpbi9zaCAtYyAiJEVYRUMiCj4gICBmb3IgL2hvbWUvcGlldC9zcmMvcXQvcXQteDExLWZy
+ZWUtMy4wLjMuaWE2NC9jb25maWcudGVzdHMveDExL25vdHlwZXRlc3QucHJvCj4gLi9jb25maWd1
+cmU6IGxpbmUgMjQzMTogMTc4NjIgSWxsZWdhbCBpbnN0cnVjdGlvbiAgICAgKGNvcmUgZHVtcGVk
+KSAvYmluL3NoIC1jICIkRVhFQyIKPiAgIGZvciAvaG9tZS9waWV0L3NyYy9xdC9xdC14MTEtZnJl
+ZS0zLjAuMy5pYTY0L2V4YW1wbGVzL2FjbG9jay9hY2xvY2sucHJvCj4gLi9jb25maWd1cmU6IGxp
+bmUgMjQzMTogMTc4NjkgSWxsZWdhbCBpbnN0cnVjdGlvbiAgICAgKGNvcmUgZHVtcGVkKSAvYmlu
+L3NoIC1jICIkRVhFQyIKPiAgIGZvciAvaG9tZS9waWV0L3NyYy9xdC9xdC14MTEtZnJlZS0zLjAu
+My5pYTY0L2V4YW1wbGVzL2FjdGlvbi9hY3Rpb25ncm91cC9hY3Rpb25ncm91cC5wcm8KPiAuL2Nv
+bmZpZ3VyZTogbGluZSAyNDMxOiAxNzg3NiBJbGxlZ2FsIGluc3RydWN0aW9uICAgICAoY29yZSBk
+dW1wZWQpIC9iaW4vc2ggLWMgIiRFWEVDIgo+ICAgZm9yIC9ob21lL3BpZXQvc3JjL3F0L3F0LXgx
+MS1mcmVlLTMuMC4zLmlhNjQvZXhhbXBsZXMvYWN0aW9uL2FjdGlvbi5wcm8KPiAuL2NvbmZpZ3Vy
+ZTogbGluZSAyNDMxOiAxNzg4MyBJbGxlZ2FsIGluc3RydWN0aW9uICAgICAoY29yZSBkdW1wZWQp
+IC9iaW4vc2ggLWMgIiRFWEVDIgo+ICAgZm9yIC9ob21lL3BpZXQvc3JjL3F0L3F0LXgxMS1mcmVl
+LTMuMC4zLmlhNjQvZXhhbXBsZXMvYWN0aW9uL3RvZ2dsZWFjdGlvbi90b2dnbGVhY3Rpb24ucHJv
+Cj4gLi9jb25maWd1cmU6IGxpbmUgMjQzMTogMTc4OTAgSWxsZWdhbCBpbnN0cnVjdGlvbiAgICAg
+KGNvcmUgZHVtcGVkKSAvYmluL3NoIC1jICIkRVhFQyIKPiAgIGZvciAvaG9tZS9waWV0L3NyYy9x
+dC9xdC14MTEtZnJlZS0zLjAuMy5pYTY0L2V4YW1wbGVzL2FkZHJlc3Nib29rL2FkZHJlc3Nib29r
+LnBybwo+IAo+IFN1c3BlbmRlZAo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+ICAgIDIzNzAgZWNobyAiQ3JlYXRpbmcg
+bWFrZWZpbGVzLiBQbGVhc2Ugd2FpdC4uLiIKPiAgICAyMzcxICMgdGhlc2UgbmVlZCB0byBiZSBw
+cm9jZXNzZWQgKm5vdyoKPiAgICAyMzcyIGZvciBhIGluIGBjYXQgLnNvcnRlZC5wcm9qZWN0c2AK
+PiAgICAyMzczIGRvCj4gICAgMjM3NCAgICAgY2FzZSAkYSBpbgo+ICAgIDIzNzUgICAgICota2Rl
+LnByb3wqcXRtYWluLnBybykgY29udGludWUgOzsKPiAgICAyMzc2ICAgICAqL3FtYWtlL3FtYWtl
+LnBybykgY29udGludWUgOzsKPiAgICAyMzc3ICAgICAqLXByby5wcm8pCj4gICAgMjM3OCAgICAg
+ICAgIGlmIFsgIngkRWRpdGlvbiIgIT0gInhwcm8iIF0KPiAgICAyMzc5ICAgICAgICAgdGhlbgo+
+ICAgIDIzODAgICAgICAgICAgICAgY29udGludWUKPiAgICAyMzgxICAgICAgICAgZmkKPiAgICAy
+MzgyICAgICAgICAgOzsKPiAgICAyMzgzICAgICAqbW9jKikgU1BFQz0kUU1BS0VTUEVDIDs7Cj4g
+ICAgMjM4NCAgICAgKikgU1BFQz0kWFFNQUtFU1BFQyA7Owo+ICAgIDIzODUgICAgIGVzYWMKPiAg
+ICAyMzg2ICAgICBmaWxlPWBiYXNlbmFtZSAkYWAKPiAgICAyMzg3ICAgICBkaXI9YGRpcm5hbWUg
+JGEgfCBzZWQgLWUgInM7JHNlcGF0aDsuO2ciYAo+ICAgIDIzODggICAgIHRlc3QgLWQgJGRpciB8
+fCBta2RpciAtcCAkZGlyCj4gICAgMjM4OSAgICAgTj0kb3V0cGF0aC8kZGlyL01ha2VmaWxlCj4g
+ICAgMjM5MCAgICAgUU1BS0VfU1BFQ19BUkdTPiAgICAyMzkxICAgICBbICIkU1BFQyIgIT0gIiRY
+UU1BS0VTUEVDIiBdICYmIFFNQUtFX1NQRUNfQVJHUz0iLXNwZWMgJFNQRUMiCj4gICAgMjM5MiAg
+ICAgUElQRT0iJG91dHBhdGgvYmluL3FtYWtlICRRTUFLRV9TV0lUQ0hFUyAkUU1BS0VfU1BFQ19B
+UkdTIC1vICROICRhIgkJCQkJPC0KPiAgICAyMzkzICAgICBpZiBbICJ4JE9QVF9DT05DVVJSRU5U
+IiA9ICJ4MCIgXSB8fCBbICJ4JE9QVF9DT05DVVJSRU5UIiA9ICJ4MSIgXQo+ICAgIDIzOTQgICAg
+IHRoZW4KPiAgICAyMzk1ICAgICAgICAgRVhFQz0kUElQRQkJCQkJCQkJCQkJPC0KPiAgICAyMzk2
+ICAgICBlbHNlCj4gICAgMjM5NyAgICAgICAgIEVYRUM9IiRFWEVDICgkUElQRSAmICkgOyIJCQkJ
+CQkJCQk8LQo+ICAgIDIzOTggICAgICAgICBpZiBbICJ4JFBST0NTIiAhPSAieCRPUFRfQ09OQ1VS
+UkVOVCIgXQo+ICAgIDIzOTkgICAgICAgICB0aGVuCj4gICAgMjQwMCAgICAgICAgICAgICBQUk9D
+Uz1gZXhwciAkUFJPQ1MgKyAxYAo+ICAgIDI0MDEgICAgICAgICBlbHNlCj4gICAgMjQwMiAgICAg
+ICAgICAgICBQUk9DUz0xCj4gICAgMjQwMyAgICAgICAgICAgICBFWEVDPSIkRVhFQyB3YWl0Igo+
+ICAgIDI0MDQgICAgICAgICBmaQo+ICAgIDI0MDUgICAgIGZpCj4gICAgMjQwNgo+ICAgIDI0MDcg
+ICAgIGlmIGVjaG8gJ1xjJyB8IGdyZXAgJ1xjJyA+L2Rldi9udWxsCj4gICAgMjQwOCAgICAgdGhl
+bgo+ICAgIDI0MDkgICAgICAgICBlY2hvIC1uICIgIGZvciAkYSIKPiAgICAyNDEwICAgICBlbHNl
+Cj4gICAgMjQxMSAgICAgICAgIGVjaG8gIiAgZm9yICRhXGMiCj4gICAgMjQxMiAgICAgZmkKPiAg
+ICAyNDEzICAgICBpZiBbICIkT1BUX1ZFUkJPU0UiID0gInllcyIgXQo+ICAgIDI0MTQgICAgIHRo
+ZW4KPiAgICAyNDE1ICAgICAgICAgZWNobyAiIChgYmFzZW5hbWUgJFNQRUNgKSIKPiAgICAyNDE2
+ICAgICAgICAgaWYgZWNobyAnXGMnIHwgZ3JlcCAnXGMnID4vZGV2L251bGwKPiAgICAyNDE3ICAg
+ICAgICAgdGhlbgo+ICAgIDI0MTggICAgICAgICAgICAgZWNobyAtbiAiJEVYRUMiCj4gICAgMjQx
+OSAgICAgICAgIGVsc2UKPiAgICAyNDIwICAgICAgICAgICAgIGVjaG8gIiRFWEVDXGMiCj4gICAg
+MjQyMSAgICAgICAgIGZpCj4gICAgMjQyMiAgICAgZmkKPiAgICAyNDIzICAgICBlY2hvCj4gICAg
+MjQyNAo+ICAgIDI0MjUgICAgIFsgLWYgIiROIiBdICYmIGNobW9kICt3ICROCj4gICAgMjQyNiAg
+ICAgaWYgWyAieCRQUk9DUyIgPSAieDEiIF0KPiAgICAyNDI3ICAgICB0aGVuCj4gICAgMjQyOCAg
+ICAgICAgIC9iaW4vc2ggLWMgIiRFWEVDIgkJCQkJCQkJCTw8LS0tLSAkRVhFQyBOb3QgRGVmaW5l
+ZAo+ICAgIDI0MjkgICAgICAgICBFWEVDPSIiCj4gICAgMjQzMCAgICAgZmkKPiAtLT4yNDMxIGRv
+bmUJCQkJCQkJCQkJCQk8PC0tLS0gSEVSRQo+ICAgIDI0MzIgIyB0aGlzIGlzIGp1c3QgaW4gY2Fz
+ZSB0aGUgY29uY3VycmVudCB0YXNrIGlzIG5vdCBhIG11bHRpcGxlIG9mIHRoZSBudW1iZXIgb2Yg
+dGFza3MKPiAgICAyNDMzIFsgJyEnIC16ICIkRVhFQyIgXSAmJiAvYmluL3NoIC1jICIkRVhFQyB3
+YWl0Igo+ICAgIDI0MzQKPiAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KPiAKPiBXaGVuIEkgc2V0IHRoZSBPUFRfVkVSQk9T
+RSBmbGFnIHdpdGggLXYgSSBnZXQ6Cj4gCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj4gQ3JlYXRpbmcgbWFrZWZpbGVz
+LiBQbGVhc2Ugd2FpdC4uLgo+ICAgZm9yIC9ob21lL3BpZXQvc3JjL3F0L3F0LXgxMS1mcmVlLTMu
+MC4zLmlhNjQvc3JjL21vYy9tb2MucHJvIChsaW51eC1nKyspCj4gL2hvbWUvcGlldC9zcmMvcXQv
+cXQteDExLWZyZWUtMy4wLjMuaWE2NC9iaW4vcW1ha2UgICAtbyAvaG9tZS9waWV0L3NyYy9xdC9x
+dC14MTEtZnJlZS0zLjAuMy5pYTY0Ly4vc3JjL21vYy9NYWtlZmlsZSAvaG9tZS9waWV0L3NyYy9x
+dC9xdC14MTEtZnJlZS0zLjAuMy5pYTY0L3NyYy9tb2MvbW9jLnBybwo+IGNvbmZpZ3VyZTogbGlu
+ZSAyNDMxOiAxODM0OSBJbGxlZ2FsIGluc3RydWN0aW9uICAgICAoY29yZSBkdW1wZWQpIC9iaW4v
+c2ggLWMgIiRFWEVDIgo+ICAgZm9yIC9ob21lL3BpZXQvc3JjL3F0L3F0LXgxMS1mcmVlLTMuMC4z
+LmlhNjQvc3JjL3F0LnBybyAobGludXgtZysrKQo+IC9ob21lL3BpZXQvc3JjL3F0L3F0LXgxMS1m
+cmVlLTMuMC4zLmlhNjQvYmluL3FtYWtlICAgLW8gL2hvbWUvcGlldC9zcmMvcXQvcXQteDExLWZy
+ZWUtMy4wLjMuaWE2NC8uL3NyYy9NYWtlZmlsZSAvaG9tZS9waWV0L3NyYy9xdC9xdC14MTEtZnJl
+ZS0zLjAuMy5pYTY0L3NyYy9xdC5wcm8KPiBjb25maWd1cmU6IGxpbmUgMjQzMTogMTgzNTkgSWxs
+ZWdhbCBpbnN0cnVjdGlvbiAgICAgKGNvcmUgZHVtcGVkKSAvYmluL3NoIC1jICIkRVhFQyIKPiAt
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0KPiAKPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fXwo+IExpbnV4LUlBNjQgbWFpbGluZyBsaXN0Cj4gTGludXgtSUE2NEBsaW51eGlhNjQub3Jn
+Cj4gaHR0cDovL2xpc3RzLmxpbnV4aWE2NC5vcmcvbGlzdHMvbGlzdGluZm8vbGludXgtaWE2NAoK
