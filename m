@@ -1,32 +1,54 @@
-From: Richard Hirst <rhirst@linuxcare.com>
-Date: Fri, 20 Jul 2001 17:33:34 +0000
-Subject: Re: [Linux-ia64] 010626 kernel, copy_from_user() broken?
-Message-Id: <marc-linux-ia64-105590693005856@msgid-missing>
+From: nomura@hpc.bs1.fc.nec.co.jp
+Date: Tue, 31 Jul 2001 06:36:18 +0000
+Subject: [Linux-ia64] settings AR.k0 to ia64_iobase is wrong?
+Message-Id: <marc-linux-ia64-105590693005964@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005846@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005846@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jul 19, 2001 at 12:25:35PM -0700, David Mosberger wrote:
-> >>>>> On Thu, 12 Jul 2001 12:16:58 +0100, Richard Hirst <rhirst@linuxcare.com> said:
-> 
->   Rich> Hi, Summary: I had to change PIPE_DEPTH in
->   Rich> arch/ia64/lib/copy_user.S from 21 to 4 to make
->   Rich> copy_from_user() work with non-aligned user addresses on my B3
->   Rich> cpu.  PIPE_DEPTH was 4 in the 010530 kernel.
-> 
-> Thanks for reporting this (and for tracking it down!).  It turns out
-> that the author of the copy_user() recovery code either knowingly or
-> accidentally assumed that PIPE_DEPTH=4, which is of course not good
-> as it defeats the whole purpose of making the sw-pipelined loop
-> tunable.  The patch below should fix this.  Can you try it instead and
-> let me know how it goes?
+Hello,
 
-Works fine, thanks.
+2.4.7 has problem in booting due to ar.k0 rewrite.
+Here is my proposal to fix it.
 
-Richard
+It seems that new ar.k0 initialization in 2.4.7 changes ar.k0 value
+set by SAL and results in access to illegal address by SAL.
+Since ar.k0 is already set up properly by SAL for their use, 
+shouldn't we change it in setup_arch()?
 
+To be more precise, on our platform, SAL sets ar.k0 to 0x80000ffffc000000
+for uncached access to 0xffffc000000. Linux changes it to 0xffffc000000
+not taking SAL address mapping into consideration.
+
+Attached patch changes setup_arch() to keep ar.k0 value to SAL setting.
+I confirmed the patch working both with Intel SAL and our platform's SAL.
+
+--
+NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
+HPC Operating System Group, 1st Computers Software Division,
+Computers Software Operations Unit, NEC Solutions.
+
+
+Index: arch/ia64/kernel/setup.c
+=================================RCS file: /home/cvsadm/cvsroot/linux/arch/ia64/kernel/setup.c,v
+retrieving revision 1.1.1.7.6.2
+diff -u -r1.1.1.7.6.2 setup.c
+--- arch/ia64/kernel/setup.c	2001/07/27 09:30:29	1.1.1.7.6.2
++++ arch/ia64/kernel/setup.c	2001/07/31 05:15:09
+@@ -314,10 +314,9 @@
+ 	 *  AR.KR0 if no appropriate entry is found in the memory map.
+ 	 */
+ 	ia64_iobase = efi_get_iobase();
+-	if (ia64_iobase)
+-		/* set AR.KR0 since this is all we use it for anyway */
+-		ia64_set_kr(IA64_KR_IO_BASE, ia64_iobase);
+-	else {
++	if (ia64_iobase) {
++		/* do nothing */
++	} else {
+ 		ia64_iobase = ia64_get_kr(IA64_KR_IO_BASE);
+ 		printk("No I/O port range found in EFI memory map, falling back to AR.KR0\n");
+ 		printk("I/O port base = 0x%lx\n", ia64_iobase);
 
