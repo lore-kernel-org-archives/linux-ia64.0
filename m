@@ -1,73 +1,66 @@
-From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Date: Wed, 29 Sep 2004 06:26:29 +0000
-Subject: Re: [PATCH][3/4] Add hotplug support to drivers/acpi/numa.c
-Message-Id: <20040929152629.68d17796.tokunaga.keiich@jp.fujitsu.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Thu, 23 Sep 2004 06:23:30 +0000
+Subject: Re: 2.6.9-rc2-mm2
+Message-Id: <20040922232330.2cec2a08.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com>
- <20040920094719.H14208@unix-os.sc.intel.com>
- <20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
- <20040924013255.00000337.tokunaga.keiich@jp.fujitsu.com>
- <20040927130616.B30443@unix-os.sc.intel.com>
-In-Reply-To: <20040927130616.B30443@unix-os.sc.intel.com>
+References: <16722.7004.928367.771460@wombat.chubb.wattle.id.au>
+	<200409222043.01098.jbarnes@engr.sgi.com>
+In-Reply-To: <200409222043.01098.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Cc: tokunaga.keiich@jp.fujitsu.com, len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jesse Barnes <jbarnes@engr.sgi.com>
+Cc: peterc@gelato.unsw.edu.au, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
 
-On Mon, 27 Sep 2004 13:06:16 -0700 Keshavamurthy Anil S wrote:
-> On Fri, Sep 24, 2004 at 01:32:55AM +0900, Keiichiro Tokunaga wrote:
-> > +void acpi_numa_node_init(acpi_handle handle)
-> Why is this function returning void? I expect
-> this to return int, what do you think?
-> > +
-> > +	if (acpi_bus_get_device(handle, &node_dev)) {
-> > +		printk(KERN_ERR"Unknown handle.\n");
-> > +		return_VOID;
-> > +	}
-> Why do you need to call acpi_bus_get_device?
+Jesse Barnes <jbarnes@engr.sgi.com> wrote:
+>
+> On Wednesday, September 22, 2004 8:39 pm, Peter Chubb wrote:
+> > >>>>> "Jesse" = Jesse Barnes <jbarnes@engr.sgi.com> writes:
+> >
+> > Jesse> On Wednesday, September 22, 2004 4:12 pm, Andrew Morton wrote:
+> > >> - This kernel doesn't work on ia64 (instant reboot).  But neither
+> > >> does 2.6.9-rc2, nor current Linus -bk.  Is it just me?
+> >
+> > Jesse> I certainly hope so.  Current bk works on my 2p Altix, and iirc
+> > Jesse> 2.6.9-rc2 worked as well.  I'm trying 2.6.9-rc2-mm2 right now.
+> > Jesse> I haven't tried generic_defconfig yet either, maybe that's it?
+> >
+> > It no longer works on ZX.  Don't know why.
+> 
+> Maybe this is another, more severe instance of the problem James reported last 
+> week that was worked around by enabling CONFIG_DISCONTIGMEM.
+> 
 
-I wrote it for printk()s and ACPI_DEBUG_PRINT() to log.
+It looks like Tony is wearing the BPB.  The below patch from September 8 is
+what causes my non-discontigmem virtual-mem-map ia64 box instantly reboot.
+Reverting it makes things happy.
 
-        if (! _cnt) {                                                           
-                ACPI_DEBUG_PRINT((ACPI_DB_INFO,                                 
-                                  "nid of <%s> is not detected.\n",             
-                                  acpi_device_bid(node_dev))); 
-                goto cancel;                                                    
-        }
-        ...
-        status = acpi_attach_data(handle, acpi_numa_data_handler, data);        
-        if (ACPI_FAILURE(status)) {                                             
-                printk(KERN_ERR"Failed to attach NUMA data for <%s>.\n",        
-                       acpi_device_bid(node_dev));                              
-                goto cancel;                                                    
-        }
 
-        printk(KERN_INFO"Container <%s> is NUMA node.\n",                       
-               acpi_device_bid(node_dev));
+--- b/include/asm-ia64/page.h	2004-09-08 10:23:43 -07:00
++++ b/include/asm-ia64/page.h	2004-09-08 16:12:10 -07:00
+@@ -86,13 +86,14 @@
+ #ifndef CONFIG_DISCONTIGMEM
+ # ifdef CONFIG_VIRTUAL_MEM_MAP
+ extern struct page *vmem_map;
+-#  define pfn_valid(pfn)       (((pfn) < max_mapnr) && ia64_pfn_valid(pfn))
+-#  define page_to_pfn(page)    ((unsigned long) (page - vmem_map))
+-#  define pfn_to_page(pfn)     (vmem_map + (pfn))
++#  define pfn_valid(pfn)	(((pfn) < max_mapnr) && ia64_pfn_valid(pfn))
++#  define page_to_pfn(page)	((unsigned long) (page - vmem_map))
++#  define pfn_to_page(pfn)	(vmem_map + (pfn))
++# else
++#  define pfn_valid(pfn)	(((pfn) < max_mapnr) && ia64_pfn_valid(pfn))
++#  define page_to_pfn(page)	((unsigned long) (page - mem_map))
++#  define pfn_to_page(pfn)	(mem_map + (pfn))
+ # endif
+-#define pfn_valid(pfn)		(((pfn) < max_mapnr) && ia64_pfn_valid(pfn))
+-#define page_to_pfn(page)	((unsigned long) (page - mem_map))
+-#define pfn_to_page(pfn)	(mem_map + (pfn))
+ #endif /* CONFIG_DISCONTIGMEM */
+ 
+ #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
 
-> > +	acpi_walk_namespace(ACPI_TYPE_PROCESSOR,
-> > +			    handle,
-> > +			    (u32) 1,
-> > +			    find_processor,
-> > +			    data,
-> > +			    (void **)&cnt);
-> Why are you looking for processor device here?
-> Please remove this acpi_walk_namespace function.
 
-The reason why the acpi_walk_namespace() is used here was to
-find a container object which is identical to a NUMA node.  My code
-was assuming that a container having CPU and/or memory was
-NUMA node sinece the current Linux seemed to assume so.
 
-> > +	/*
-> > diff -puN /dev/null include/acpi/numa.h
-> > +#ifndef MAX_PXM_DOMAINS
-> > +#define MAX_PXM_DOMAINS (256)
-> > +#endif
-> Why defining it again, It is already defined in asm-ia64/acpi.h file
-
-Sorry, that's a stuff that I forgot to remove.  I will remove it.
-
-Thanks,
-Keiichiro Tokunaga
+Process question: how is it possible that the ia64 tree could have been
+this dead for this long?
