@@ -1,34 +1,64 @@
-From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
-Date: Wed, 19 May 2004 14:56:50 +0000
-Subject: Re: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <200405191456.i4JEup7T002310@mtv-vpn-hw-mfl-1.corp.sgi.com>
+From: "jamaal" <tracysbdc@bali-belly.com>
+Date: Tue, 18 May 2004 11:17:21 +0000
+Subject: Looking for a promotion?
+Message-Id: <1084922304-28056@excite.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040513150842.22F5.YGOTO@us.fujitsu.com>
-In-Reply-To: <20040513150842.22F5.YGOTO@us.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: 40free.net.ph@vger.kernel.org
 
-> Seems like to do this right you would need a dependence based init 
-> script implementation, i.e. do step D when steps A, B, and C have 
-> successfully completed. This would permit more granular bringup of 
-> services when the hardware/driver initialization has completed.
+Incredible DEALS on SOFTWARE you NEED!
 
-Probably something like this, although I'm not sure if it would need
-to be hierarchically. Maybe split into device categories, disk, network
-etc. The goal to keep in mind is the minimization of customer visible
-down-time either due to a system crash (HW/SW), hotplug configuration 
-changes, power outage etc
+Save 40% on Windows XP Professional!
+Save 40% on Microsoft Office 2003 Professional!
+Save $90 on Adobe Photoshop!
+Save 60% on Norton AntiVirus!!
 
-Or let's say you need to take a system dump. Maybe we can dump the
-first 128 MB within a few seconds and then start rebooting the minimal
-configuration. System dumping continues and while memory is saved for
-post-mortem dump analysis, saved memory pages are added hot-plug 
-back into operation.  (or maybe on a DIMM level to make life easier)
+Save your company thousands of dollars when it needs software!
 
-Thanks
+That promotion just got closer...
 
-Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
-Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
+Click here!!
+http://teddychoice.biz/index.php?su55
 
+
+Software packages you can save big on:
+
+Windows XP Professional
+Norton Antivirus 2004
+Adobe Photoshop 7.0
+Microsoft Office XP Professional
+Microsoft Office 2003 Professional
+Microsoft Money 2004
+Microsoft 2000 Professional
+Adobe Photoshop CS
+Adobe Pagemaker 7.0
+Adobe Illustrator 10
+Corel Draw Graphics Suite 11
+Adobe Acrobat 6.0 Professional
+Borland Delphi 7 Professional
+Visual Studio.Net Enterprise Architecht
+MS SQL Server 2000 Enterprise
+MS Windows Server 2003 Enterprise
+MS Windows 2000 Server
+Red Hat Linux 7.3
+
+
+
+Click here!!
+http://teddychoice.biz/index.php?su55
+
+
+
+
+
+
+
+
+
+zeppelin hello1rock smiths norman dasha sundance abcdef 
+cascade energycorrado chaos angels
+buttons supra lulu 
+
+REMOV3: http://teddychoice.biz/soft/chair.php
