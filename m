@@ -1,108 +1,143 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 14 Dec 2004 23:55:04 +0000
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 15 Dec 2004 00:11:32 +0000
 Subject: Re: [PATCH] add legacy I/O and memory access routines to /proc/bus/pci API
-Message-Id: <200412141655.04416.bjorn.helgaas@hp.com>
+Message-Id: <200412141611.32417.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200412140941.56116.jbarnes@engr.sgi.com>
-In-Reply-To: <200412140941.56116.jbarnes@engr.sgi.com>
+References: <200412140941.56116.jbarnes@engr.sgi.com> <200412141655.04416.bjorn.helgaas@hp.com>
+In-Reply-To: <200412141655.04416.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@engr.sgi.com>
-Cc: linux-pci@atrey.karlin.mff.cu, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 
-> +/proc/bus/pci contains a list of PCI devices available on the system
-> +and can be used for driving PCI devices from userspace, getting a list
-> +of PCI devices, and hotplug support.  Example:
-> +
-> +  $ tree /proc/bus/pci
-> +  /proc/bus/pci/
-> +  |-- 01  directory for devices on bus 1 
-> +  |   |-- 01.0  single fn device in slot 1
+On Tuesday, December 14, 2004 3:55 pm, Bjorn Helgaas wrote:
+> > +/proc/bus/pci contains a list of PCI devices available on the system
+> > +and can be used for driving PCI devices from userspace, getting a list
+> > +of PCI devices, and hotplug support.  Example:
+> > +
+> > +  $ tree /proc/bus/pci
+> > +  /proc/bus/pci/
+> > +  |-- 01  directory for devices on bus 1
+> > +  |   |-- 01.0  single fn device in slot 1
+>
+> What about multiple PCI domains?  Should /proc/bus/pci be extended
+> somehow to deal with them?
 
-What about multiple PCI domains?  Should /proc/bus/pci be extended
-somehow to deal with them?
+This might look different on a machine with domains, I ran the tree command on 
+a machine /wo them.
 
-HP machines are currently configured to compress all PCI bus numbers
-into one domain, but we plan to turn off that compression soon, which
-means we'll have duplicate bus numbers in different domains.
+> HP machines are currently configured to compress all PCI bus numbers
+> into one domain, but we plan to turn off that compression soon, which
+> means we'll have duplicate bus numbers in different domains.
 
-> +read
-> +  reads from either PCI config space or legacy I/O space, using the
-> +  current file postion, depending on the current I/O mode setting.
+Sure, ok.  Domains seem useful in other ways too, so I'm looking forward to 
+seeing that.
 
-I think by "legacy I/O space", you mean specifically "legacy
-I/O *port* space", right?  Maybe there's no current use for it,
-but I can imagine supporting MMIO accesses this way, too.
+> > +read
+> > +  reads from either PCI config space or legacy I/O space, using the
+> > +  current file postion, depending on the current I/O mode setting.
+>
+> I think by "legacy I/O space", you mean specifically "legacy
+> I/O *port* space", right?  Maybe there's no current use for it,
+> but I can imagine supporting MMIO accesses this way, too.
 
-> +lseek
-> +  Can be used to set the current file position.  Note that the file
-> +  size is limited to 64k as that's how big legacy I/O space is.
+Yeah, I could clarify that, legacy memory space is supported via direct mmap.
 
-On i386, anyway ;-)  But on ia64, we support multiple 64k I/O port
-spaces (one of them being the 0-64K space that corresponds to the
-i386 "legacy" space).  Shouldn't we be able to access them with this
-interface, too?
+> > +lseek
+> > +  Can be used to set the current file position.  Note that the file
+> > +  size is limited to 64k as that's how big legacy I/O space is.
+>
+> On i386, anyway ;-)  But on ia64, we support multiple 64k I/O port
+> spaces (one of them being the 0-64K space that corresponds to the
+> i386 "legacy" space).  Shouldn't we be able to access them with this
+> interface, too?
 
-> +ioctl
-> +  ioctl is used to set the mode of a subsequent read, write or mmap
-> +  call.  Available ioctls (in linux/pci.h) include
-> +    PCIIOC_CONTROLLER - return PCI domain number
-> +    PCIIOC_MMAP_IS_IO - next mmap maps to I/O space
-> +    PCIIOC_MMAP_IS_MEM - next mmap maps to memory space
-> +    PCIIOC_WRITE_COMBINE - try to use write gathering for the new
-> +                           region if the ioctl argument is true,
-> +      otherwise disable write gathering
-> +    PCIIOC_LEGACY_IO - read/write legacy I/O space if ioctl argument
-> +                       is true, otherwise subsequent read/writes will
-> +         go to config space
+Yeah, we could do that, any suggestions?  If I split the ioctl commands into 
+PCIIOC_LEGACY_IO and PCIIOC_CONFIG the former could take an argument for the 
+domain, would that work?  Then again, isn't having the pci_dev enough?
 
-Wouldn't it be nicer to have PCIIOC_{IO,CONFIG_SPACE}?  Then
-PCIIOC_MMIO could be added someday.  Using PCIIOC_LEGACY_IO with a
-boolean kind of locks you into having only two choices, ever.  (Well,
-you could extend the boolean to an int, but the *name* still suggests
-an on/off switch.)
+> > +ioctl
+> > +  ioctl is used to set the mode of a subsequent read, write or mmap
+> > +  call.  Available ioctls (in linux/pci.h) include
+> > +    PCIIOC_CONTROLLER - return PCI domain number
+> > +    PCIIOC_MMAP_IS_IO - next mmap maps to I/O space
+> > +    PCIIOC_MMAP_IS_MEM - next mmap maps to memory space
+> > +    PCIIOC_WRITE_COMBINE - try to use write gathering for the new
+> > +                           region if the ioctl argument is true,
+> > +      otherwise disable write gathering
+> > +    PCIIOC_LEGACY_IO - read/write legacy I/O space if ioctl argument
+> > +                       is true, otherwise subsequent read/writes will
+> > +         go to config space
+>
+> Wouldn't it be nicer to have PCIIOC_{IO,CONFIG_SPACE}?  Then
+> PCIIOC_MMIO could be added someday.  Using PCIIOC_LEGACY_IO with a
+> boolean kind of locks you into having only two choices, ever.  (Well,
+> you could extend the boolean to an int, but the *name* still suggests
+> an on/off switch.)
 
-> +    PCIIOC_MMAP_IS_LEGACY_MEM - next mmap maps to legacy memory space
+Yeah, proc.c was a little inconsistent here.  Having two separate ioctls is ok 
+with me.
 
-I'm always confused about exactly what "legacy memory space" refers
-to.  I guess (from below) that it's MMIO space between 0 and 1M?
+> > +    PCIIOC_MMAP_IS_LEGACY_MEM - next mmap maps to legacy memory space
+>
+> I'm always confused about exactly what "legacy memory space" refers
+> to.  I guess (from below) that it's MMIO space between 0 and 1M?
 
-This seems similar to PCIIOC_MMAP_IS_MEM, except that for MMAP_IS_MEM,
-the user-supplied address is a host address that must be in one of the
-device's memory resources.  For MMAP_IS_LEGACY_MEM, it looks like you
-get a mapping to something in the first megabyte of the memory aperture
-that's routed to the device.
+Yep.
 
-So for MMAP_IS_LEGACY_MEM, you have no way of knowing whether the
-device will respond to the region you're mapping, right?
+> This seems similar to PCIIOC_MMAP_IS_MEM, except that for MMAP_IS_MEM,
+> the user-supplied address is a host address that must be in one of the
+> device's memory resources.  For MMAP_IS_LEGACY_MEM, it looks like you
+> get a mapping to something in the first megabyte of the memory aperture
+> that's routed to the device.
 
-The comment on ia64_pci_get_legacy_mem() says we want to map the
-first megabyte of bus address space for the device.  But I don't
-think we can generate a bus address between 0-1M on any arbitrary
-PCI bus.  For example, the MMIO apertures on zx1 are rather small
-(on the order of 128-256MB), and we typically map them to non-
-overlapping bus address space to make peer-to-peer transactions
-possible.
+Exactly.
 
-> + /* Do a legacy read of 1 byte (inb) from port 0x3cc */
-> + int fd = open("/proc/bus/pci/01/01.0", O_RDONLY);
-> + ioctl(fd, PCIIOC_LEGACY_IO, 1); /* enable legacy I/O */
-> + lseek(fd, 0x3cc, SEEK_SET);
+> So for MMAP_IS_LEGACY_MEM, you have no way of knowing whether the
+> device will respond to the region you're mapping, right?
 
-In this example, the particular device ("01/01.0") you open
-makes no difference, right?  The I/O port routing is determined
-by the chipset, not by which /proc/bus/pci/... file you open.
+Correct.
 
-HP chipsets allow you to change the routing of VGA-related
-MMIO and I/O port space.  X currently twiddles this by hand.
-I've always thought there should be an ioctl that says "please
-route VGA resources to this PCI device", so X could do this
-twiddling in a chipset-independent way.
+> The comment on ia64_pci_get_legacy_mem() says we want to map the
+> first megabyte of bus address space for the device.  But I don't
+> think we can generate a bus address between 0-1M on any arbitrary
+> PCI bus.  For example, the MMIO apertures on zx1 are rather small
+> (on the order of 128-256MB), and we typically map them to non-
+> overlapping bus address space to make peer-to-peer transactions
+> possible.
 
-I'd be interested in seeing the X side of your work, too.
-There's currently an ugly mess of figuring out what chipset
-we've got, fiddling with VGA routing and soft-fail settings,
-etc.  Maybe seeing your X support will help me figure out
-how to take advantage of your new kernel hooks to clean
-things up for zx1 and sx1000.
+Right, you can return -EINVAL or -ENODEV in this case.
+
+> > + /* Do a legacy read of 1 byte (inb) from port 0x3cc */
+> > + int fd = open("/proc/bus/pci/01/01.0", O_RDONLY);
+> > + ioctl(fd, PCIIOC_LEGACY_IO, 1); /* enable legacy I/O */
+> > + lseek(fd, 0x3cc, SEEK_SET);
+>
+> In this example, the particular device ("01/01.0") you open
+> makes no difference, right?  The I/O port routing is determined
+> by the chipset, not by which /proc/bus/pci/... file you open.
+
+But the chipset can be programmed to route things correctly or remap the 
+correct legacy I/O port domain in the callback routine.
+
+> HP chipsets allow you to change the routing of VGA-related
+> MMIO and I/O port space.  X currently twiddles this by hand.
+> I've always thought there should be an ioctl that says "please
+> route VGA resources to this PCI device", so X could do this
+> twiddling in a chipset-independent way.
+
+I think this routine could do that.
+
+> I'd be interested in seeing the X side of your work, too.
+> There's currently an ugly mess of figuring out what chipset
+> we've got, fiddling with VGA routing and soft-fail settings,
+> etc.  Maybe seeing your X support will help me figure out
+> how to take advantage of your new kernel hooks to clean
+> things up for zx1 and sx1000.
+
+Hopefully we'll be able to post those shortly to xorg@freedesktop.org.  We're 
+working through some driver issues atm.
+
+Thanks,
+Jesse
