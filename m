@@ -1,31 +1,35 @@
-From: Gururaj Ananthateerta <gururaj@cup.hp.com>
-Date: Tue, 13 Nov 2001 01:20:47 +0000
-Subject: Re: [Linux-ia64] adding new network device driver
-Message-Id: <marc-linux-ia64-105590698805484@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Fri, 16 Nov 2001 03:15:06 +0000
+Subject: [Linux-ia64] Re: kernel panic on root mount / EFI cant see /boot/efi partition!
+Message-Id: <marc-linux-ia64-105590698805524@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805461@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805461@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Updated Space.c and compiled the kernel. 
-The proble is called and my device is identified and configured. But there
-is some problem.
-There are 2 ethernet devices (including mine) 1 is Intel EEpro100 and
-mine (gigabit controller). When the kernel boots it recognizes my NIC and
-EEpro100 NIC and hangs. I am unable to figure out whats going on. 
-There is some confusions with  ehto and eth1 that I am unable to follow.
+Jared Egolf (jegolf@yahoo.com) said: 
+> Using Redhat 7.2 and in the past 7.1, I cannot configure
+> the /boot/efi partition with such a type definition that
+> EFI will recognize the file-system and thus use it for
+> booting purposes.
 
-> On Fri, 9 Nov 2001 16:08:06 -0800 (PST), 
-> Gururaj Ananthateerta <gururaj@cup.hp.com> wrote:
-> >When I boot with new kernel my driver probe routine is not entered. 
-> >Is there anyplace I need to inform the kernel about the existence 
-> >of the new driver.
-> 
-> linux/Documentation/DocBook/kernel-hacking.tmpl, __initcall and friends.
-> 
-> 
+Really? It should allow you to set as an EFI system partition,
+or any of the various DOS filesystem types, which all work
+in testing here.
 
+> Unfortunately, whenever I rebuild a kernel, (currently
+> attempting with 2.4.14, but also tried 2.4.10 and have only
+> tested on the BigSur), the kernel panics without being
+> capable of mounting the root partition.  This occurs even
+> with the default configuration of the kernel and I suspect
+> the two problems may be linked.
+
+This sounds like you did not make an initrd that contains
+the proper SCSI adapter module, or (alternatively) did not
+compile it in statically. Alternatively, you may not
+have the filesystem type compiled in; did you install
+to an ext3 filesystem?
+
+Bill
 
