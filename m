@@ -1,7 +1,7 @@
 From: Mario Smarduch <cms063@email.mot.com>
-Date: Mon, 11 Nov 2002 16:29:29 +0000
-Subject: Re: [Linux-ia64] reader-writer livelock problem
-Message-Id: <marc-linux-ia64-105590709805382@msgid-missing>
+Date: Mon, 11 Nov 2002 20:01:53 +0000
+Subject: RE: [Linux-ia64] reader-writer livelock proble
+Message-Id: <marc-linux-ia64-105590709805389@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805355@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805355@msgid-missing>
@@ -10,58 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Rusty Russell wrote:
+David Mosberger wrote:
 
-> In message <1036777105.13021.13.camel@ixodes.goop.org> you write:
-> > On Fri, 2002-11-08 at 09:25, Linus Torvalds wrote:
-> > > There's another reason for not doing it that way: allowing readers to keep
-> > > interrupts on even in the presense of interrupt uses of readers.
-> > >
-> > > If you do the "pending writes stop readers" approach, you get
-> > >
-> > >             cpu1                    cpu2
-> > >
-> > >             read_lock() - get
-> > >
-> > >                                     write_lock_irq() - pending
-> > >
-> > >             irq happens
-> > >              - read_lock() - deadlock
-> > >
-> > > and that means that you need to make readers protect against interrupts
-> > > even if the interrupts only read themselves.
-> >
-> > Even without interrupts that would be a bug.  It isn't ever safe to
-> > attempt to retake a read lock if you already hold it, because you may
-> > deadlock with a pending writer.  Fair multi-reader locks aren't
-> > recursive locks.
+> >>>>> On Mon, 11 Nov 2002 10:29:29 -0600, Mario Smarduch <cms063@email.mot.com> said:
 >
-> That's the point.  This is explicitly guaranteed with the current
-> locks, and you are allowed to recurse on them.  The netfilter code
-> explicitly uses this to retake the net brlock, since it gets called
-> from different paths.
+>   Mario> I know that on some commercial Unix systems there are ways to
+>   Mario> cap the CPU utilization by user/group ids are there such
+>   Mario> features/patches available on Linux?
 >
-> Implement "read_lock_yield" or "wrlock_t" but don't break existing
-> semantics until 2.7 *please*!
+> There are probably other patches floating around, but Process Resource
+> Management (PRM) for Linux is/was one approach to do just that:
 >
-> Rusty.
-> --
->   Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+>         http://resourcemanagement.unixsolutions.hp.com/WaRM/prm_linux/
 >
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> The kernel patches available from this URL are pretty old (up to
+> 2.4.6, as far as I could see), and I'm not sure what the future plans
+> for PRM on Linux are.  Perhaps someone else can provide more details.
+>
+>         --david
 
-From what I understand this is a huge security risk - any mischevious user
-can hang the system. Practically speaking its a hard sell to tell any customer
-that in 2.7 the problem will be fixed and hope that it doesnt happen before
-then.  Is there any way to prevent the user (non-root) from exploiting this
-weakness? In order for this to happen do all the CPUs have to run at
-100%? I know that on some commercial Unix systems there are ways
-to cap the CPU utilization by user/group ids are there such features/patches
-available
-on Linux?
+I took a look and it appears pretty encouraging. I guess the final question
+would be - with CPU caps imposed on non-root users would that prevent
+a user from livelocking the system? I don't recall how long
+it took for the system  to livelock (I erased the original email), there may be
+an oppertunity for livelock to develop before the PRM policies kick in.
 
 - Mario.
 
