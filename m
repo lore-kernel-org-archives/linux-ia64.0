@@ -1,31 +1,65 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Sun, 15 Aug 2004 22:38:06 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Sun, 15 Aug 2004 22:58:27 +0000
 Subject: Re: page fault fastpath: Increasing SMP scalability by introducing
-Message-Id: <1092609485.9538.27.camel@gaston>
+Message-Id: <Pine.LNX.4.58.0408151552280.3370@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
+ <20040815130919.44769735.davem@redhat.com>
+In-Reply-To: <20040815130919.44769735.davem@redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>, Anton Blanchard <anton@samba.org>
+To: "David S. Miller" <davem@redhat.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Sun, 2004-08-15 at 23:50, Christoph Lameter wrote:
-> Well this is more an idea than a real patch yet. The page_table_lock
-> becomes a bottleneck if more than 4 CPUs are rapidly allocating and using
-> memory. "pft" is a program that measures the performance of page faults on
-> SMP system. It allocates memory simultaneously in multiple threads thereby
-> causing lots of page faults for anonymous pages.
+On Sun, 15 Aug 2004, David S. Miller wrote:
 
-Just a note: on ppc64, we already have a PTE lock bit, we use it to
-guard against concurrent hash table insertion, it could be extended
-to the whole page fault path provided we can guarantee we will never
-fault in the hash table on that PTE while it is held. This shouldn't
-be a problem as long as only user pages are locked that way (which
-should be the case with do_page_fault) provided update_mmu_cache()
-is updated to not take this lock, but assume it already held.
+>
+> Is the read lock in the VMA semaphore enough to let you do
+> the pgd/pmd walking without the page_table_lock?
+> I think it is, but just checking.
 
-Ben.
+That would be great.... May I change the page_table lock to
+be a read write spinlock instead?
+
+I would then convert all spin_locks to write_locks and
+then use read locks to switch to a "pte locking mode". The read
+lock would allow simultanous threads operating on the page table
+that will only modify individual pte's via pte locks. Write locks
+still exclude the readers and thus the whole scheme should allow
+a gradual transition.
+
+Maybe such a locking policy could do some good.
+
+However, performance is only increased somewhat. Scalability
+is still bad with more than 32 CPUs despite my hack. More
+extensive work is needed <sigh>:
+
+Regular kernel 512 CPU's 16G allocation per thread:
+
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+ 16   3    1    0.748s     67.200s  67.098s 46295.921  46270.533
+ 16   3    2    0.899s    100.189s  52.021s 31118.426  60242.544
+ 16   3    4    1.517s    103.467s  31.021s 29963.479 100777.788
+ 16   3    8    1.268s    166.023s  26.035s 18803.807 119350.434
+ 16   3   16    6.296s    453.445s  33.082s  6842.371  92987.774
+ 16   3   32   22.434s   1341.205s  48.026s  2306.860  65174.913
+ 16   3   64   54.189s   4633.748s  81.089s   671.026  38411.466
+ 16   3  128  244.333s  17584.111s 152.026s   176.444  20659.132
+ 16   3  256  222.936s   8167.241s  73.018s   374.930  42983.366
+ 16   3  512  207.464s   4259.264s  39.044s   704.258  79741.366
+
+Modified kernel:
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+ 16   3    1    0.884s     64.241s  65.014s 48302.177  48287.787
+ 16   3    2    0.931s     99.156s  51.058s 31429.640  60979.126
+ 16   3    4    1.028s     88.451s  26.096s 35155.837 116669.999
+ 16   3    8    1.957s     61.395s  12.099s 49654.307 242078.305
+ 16   3   16    5.701s     81.382s   9.039s 36122.904 334774.381
+ 16   3   32   15.207s    163.893s   9.094s 17564.021 316284.690
+ 16   3   64   76.056s    440.771s  13.037s  6086.601 235120.800
+ 16   3  128  203.843s   1535.909s  19.084s  1808.145 158495.679
+ 16   3  256  274.815s    755.764s  12.058s  3052.387 250010.942
+ 16   3  512  205.505s    381.106s   7.060s  5362.531 413531.352
 
 
