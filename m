@@ -1,33 +1,48 @@
-From: j-nomura@ce.jp.nec.com
-Date: Mon, 10 Jun 2002 10:18:34 +0000
-Subject: [Linux-ia64] CD-ROM I/O error
-Message-Id: <marc-linux-ia64-105590701905659@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Mon, 10 Jun 2002 15:56:38 +0000
+Subject: RE: [Linux-ia64] CD-ROM I/O error
+Message-Id: <marc-linux-ia64-105590701905661@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905659@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905659@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+> when I do 'cat /dev/cdrom > disc.iso' on my Itanium box,
+> I/O error happens on CD-ROM.
 
-when I do 'cat /dev/cdrom > disc.iso' on my Itanium box,
-I/O error happens on CD-ROM.
+If you're trying to simply make an ISO with the right number of sectors, you
+need to use 'isoinfo' to avoid these kinds of end-of-disc problems.
+Something like (yes I use this quite often):
 
-| hda: cdrom_decode_status: status=0x51 { DriveReady SeekComplete Error }
-| hda: cdrom_decode_status: error=0x30
-| hda: ATAPI reset complete
-| end_request: I/O error, dev 03:00 (hda), sector 1322520
-| hda: irq timeout: status=0xd0 { Busy }
-| hda: ATAPI reset complete
+[mdomsch@humbolt mdomsch]$ more ~/check_cds
+#!/bin/sh
 
-With the same CD, I/O error does not happen on my Pentium machine.
+CD=0
 
-I'm trying 2.4.17 and 2.4.18. Both results in same error.
-Has anyone experienced a problem like this?
+while [ 1 ]; do
+      CD=`expr $CD + 1`
+      echo "Insert CD #$CD.  What shall I name it?"
+      read CDNAME
+      SIZE=`isoinfo -d -i /dev/cdrom | grep "Volume size is: " | awk '{print
+$4}'`
+      dd if=/dev/cdrom bs=2k count=$SIZE of=$CDNAME
+      mount /mnt/cdrom
+      ls -lR /mnt/cdrom
+      umount /mnt/cdrom
+done
 
-Best regards.
+
+Thanks,
+Matt
+
 --
-NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
-HPC Operating System Group, 1st Computers Software Division,
-Computers Software Operations Unit, NEC Solutions.
+Matt Domsch
+Sr. Software Engineer
+Dell Linux Solutions www.dell.com/linux
+Dell internal Linux lists @ http://insidelists.us.dell.com
+Dell public Linux lists @ http://lists.us.dell.com
+#1 US Linux Server provider for 2001 and Q1/2002! (IDC May 2002)
 
