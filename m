@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 11 Apr 2003 17:59:12 +0000
-Subject: RE: [Linux-ia64] Itanium gets supercomputing software
-Message-Id: <marc-linux-ia64-105590723705467@msgid-missing>
+From: Duraid Madina <duraid@octopus.com.au>
+Date: Fri, 11 Apr 2003 20:31:58 +0000
+Subject: Re: [Linux-ia64] Itanium gets supercomputing software
+Message-Id: <marc-linux-ia64-105590723705472@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705455@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705455@msgid-missing>
@@ -10,43 +10,47 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 11 Apr 2003 10:37:39 +0200, "Adriano Galano" <adriano@satec.es> said:
+David,
 
-  >> >>>>> On Fri, 11 Apr 2003 06:55:30 +1000, Duraid Madina
-  >> <duraid@octopus.com.au> said:
+	Itanium 2 isn't even competitive with other offerings from your own 
+company. Compare:
 
-  Duraid> You and I both know the only real barrier to Itanium
-  Duraid> adoption is the price. Can anyone here shed some light on
-  Duraid> this? Why is Itanium hardware still so expensive?
+David Mosberger wrote:
+> Here is one real price point for an Itanium 2 workstation:
+> 
+> 	- hp workstation zx2000 (Linux software enablement kit)
+> 	-  Intel? Itanium 2 900MHz Processor with 1.5MB on-chip L3 cache
+> 	-  512MB Total PC2100 Registered ECC DDR 266 SDRAM Memory (2x256MB)
+> 	-  40GB EIDE Hard Drive
+> 	-  NVIDIA Quadro2 EX
+> 	-  10/100/1000BT LAN integrated
+> 	-  16X Max DVD-ROM
+> 	-  Linux software enablement kit (not an operating system)
+> 	-  3-year warranty, next-day, onsite hardware response, Mon - Fri, 8am - 5pm
+> 	- $3,298
 
-  >> Remember that Intel is targeting Itanium 2 against Power4 and SPARC.
-  >> In that space, the price of Itanium 2 is very competitive.
+with:
 
-  Adriano> What's mean very competitive? How it compare with Power* for example?
+	- HP server rp2430
+	- 1xHP PA-8700 650MHz CPU with 2.25MB on-chip L1 cache
+	- 128MB Roughly-2GB/sec-God-Knows-What ECC Memory
+	- HP-UX 11i
+	- 1-year warranty, next-day onsite hardware response
+	- $1,095
 
-AFAIK, Power4 CPUs are not sold on the open market, so it's difficult
-to compare the price of the CPU alone (surely IBM has a list price,
-but with different discount schedules, that price may or may not be
-meaningful in practice).  Here is one real price point for an Itanium 2
-workstation:
+	(missing things like disk, a reasonable amount of RAM, etc can be 
+brought to the level of the Itanium system you quote for another $700 or 
+so - to see this config, go to www.e-solutions.hp.com, and try to buy an 
+rp2430 (HP part #A6889A))
 
-	- hp workstation zx2000 (Linux software enablement kit)
-	-  Intel? Itanium 2 900MHz Processor with 1.5MB on-chip L3 cache
-	-  512MB Total PC2100 Registered ECC DDR 266 SDRAM Memory (2x256MB)
-	-  40GB EIDE Hard Drive
-	-  NVIDIA Quadro2 EX
-	-  10/100/1000BT LAN integrated
-	-  16X Max DVD-ROM
-	-  Linux software enablement kit (not an operating system)
-	-  3-year warranty, next-day, onsite hardware response, Mon - Fri, 8am - 5pm
-	- $3,298
+	I bought one of these, and it is excellent (if a little loud. ;) I 
+would happily buy a bare-bones Itanium 2 system at the same price. This 
+doesn't seem to like it's going to be possible any time soon. In less 
+than two weeks, I will be able to buy an Opteron system that runs a 
+great deal faster at the same price.
 
-(To see this config, go to www.hp.com, then click on "online shopping"
--> "small and medium business store" -> "workstations" -> "hp Itanium
-2-based workstations" -> "zx2000").
+	Good luck.
 
-I don't know exactly what price/configuration Power4 machines start.
-Perhaps one of the IBMers on this list could chime in?
+	Duraid
 
-	--david
 
