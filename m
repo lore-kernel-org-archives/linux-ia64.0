@@ -1,76 +1,25 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Wed, 18 Jun 2003 16:19:06 +0000
-Subject: [PATCH] hwgfs fix for sn2
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="NklN7DEeGtkPCoo3"
-Message-Id: <marc-linux-ia64-105595346915716@msgid-missing>
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Mon, 23 Jun 2003 08:01:36 +0000
+Subject: [Linux-ia64] CONFIG_IOSAPIC (problem 3 of thread [ Re: patch for updating IA64 ACPI fixs into Andy's
+Message-Id: <marc-linux-ia64-105635537211115@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+> +#ifdef CONFIG_IOSAPIC
+> +	if (acpi_irq_model = ACPI_IRQ_MODEL_IOSAPIC)
+> +		iosapic_enable_intr(dev->irq);
+>  #endif
 
---NklN7DEeGtkPCoo3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Small fix for hwgfs on sn2.
+I don't know whether CONFIG_IOSAPIC could be a valid option to IA32. 
+If yes, I think the above code is ok.
 
 Thanks,
-Jesse
+Luming
 
---NklN7DEeGtkPCoo3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="hwgfs-fix-2.5.69-ia64-bk.patch"
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1150  -> 1.1151 
-#	arch/ia64/sn/io/hwgfs/hcl.c	1.2     -> 1.3    
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/06/17	jbarnes@tomahawk.engr.sgi.com	1.1151
-# fops update for hcl
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/sn/io/hwgfs/hcl.c b/arch/ia64/sn/io/hwgfs/hcl.c
---- a/arch/ia64/sn/io/hwgfs/hcl.c	Tue Jun 17 14:47:51 2003
-+++ b/arch/ia64/sn/io/hwgfs/hcl.c	Tue Jun 17 14:47:51 2003
-@@ -113,22 +113,10 @@
- }
- 
- struct file_operations hcl_fops = {
--	(struct module *)0,
--	NULL,		/* lseek - default */
--	NULL,		/* read - general block-dev read */
--	NULL,		/* write - general block-dev write */
--	NULL,		/* readdir - bad */
--	NULL,		/* poll */
--	hcl_ioctl,      /* ioctl */
--	NULL,		/* mmap */
--	hcl_open,	/* open */
--	NULL,		/* flush */
--	hcl_close,	/* release */
--	NULL,		/* fsync */
--	NULL,		/* fasync */
--	NULL,		/* lock */
--	NULL,		/* readv */
--	NULL,		/* writev */
-+	.owner = (struct module *)0,
-+	.ioctl = hcl_ioctl,
-+	.open = hcl_open,
-+	.release = hcl_close,
- };
- 
- 
-@@ -258,6 +246,7 @@
- 
- 	if (!de) {
- 		printk(KERN_WARNING "HCL: hwgraph_fastinfo_get handle given is NULL.\n");
-+		dump_stack();
- 		return(-1);
- 	}
- 
-
---NklN7DEeGtkPCoo3--
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
