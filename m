@@ -1,56 +1,28 @@
-From: Roman Zippel <zippel@linux-m68k.org>
-Date: Mon, 05 Jul 2004 11:01:26 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 06 Jul 2004 21:49:58 +0000
 Subject: Re: [PATCH] IA64 audit support
-Message-Id: <Pine.LNX.4.58.0407051211410.5033@scrub.home>
+Message-Id: <16619.7814.759319.469038@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200406301556.i5UFuGg8009251@redrum.boston.redhat.com>
- <20040701124644.5e301ca0.akpm@osdl.org> <40E4B20F.8010503@opersys.com>
- <20040701182954.43351d36.akpm@osdl.org> <40E4D4AD.2020302@opersys.com>
- <20040701231844.0aed5201.akpm@osdl.org>
-In-Reply-To: <20040701231844.0aed5201.akpm@osdl.org>
+In-Reply-To: <200406301556.i5UFuGg8009251@redrum.boston.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: karim@opersys.com, peterm@redhat.com, faith@redhat.com, davidm@hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, ray.lanza@hp.com, trz@us.ibm.com, richardj_moore@uk.ibm.com, bob@watson.ibm.com, michel.dagenais@polymtl.ca
+To: Peter Martuccelli <peterm@redhat.com>
+Cc: akpm@osdl.org, faith@redhat.com, davidm@hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, ray.lanza@hp.com
 
-Hi,
+The patch is mostly fine with me (it looks identical to me as the last
+version I saw from Ray; but my memory may be fuzzy).
 
-On Thu, 1 Jul 2004, Andrew Morton wrote:
+There are two minor things I'd like to see changed, though:
 
-> > This is probably one of the biggest misconception about LTT amongst kernel
-> > developers. So let me present this once more: LTT is _NOT_ for kernel
-> > developers, it has never been developed with this crowd in mind. LTT is and
-> > has _ALWAYS_ been intended for the end user.
-> 
-> Note I said "developer", not "kernel developer".  If the audience for a
-> feature is kernel developers, userspace developers and perhaps the most
-> sophisticated sysadmins then that's a small audience.  It's certainly an
-> _important_ audience, but the feature is not as important as those
-> codepaths which Uncle Tillie needs to run his applications.
+ - Use IS_IA32_PROCESS() instead of testing psr.is directly (the macro
+   gets defined by system.h and using it ensures that the
+   IA-32-specific code will go away if the ia32 subsystem is not
+   compiled into the kernel).
 
-And if one this applications misbehaves, he might want to know what is 
-actually going wrong. A tracing mechanism could tell him e.g. why xmms 
-sometimes stops and with the right visualization tools even an user with 
-basic technical knowledge could give some more precise feedback. You 
-wouldn't just get reports with "if I do X, the system feels weird".
+ - Remove trailing white-space.
 
-I'd really like to see some tracing infrastructure in the kernel, as it's 
-also a very useful tool during kernel development, when trying to find 
-some weird problems or finding perfomance bottlenecks, where printk or 
-kgdb isn't much help.
+Thanks,
 
-> > The issues about the spread of trace points across the source code are
-> > exactly the same, you still need to mark the code-paths (and maintain
-> > these markings for each version) regardless of the mechanism being used.
-> 
-> Nope, kprobes allows a kernel module to patch hooks into the running
-> binary.  That's all it does, really.   See
-> http://www-124.ibm.com/linux/projects/kprobes/
-
-kprobes are a nice option, but it would be a nightmare (especially 
-regarding portability) if any project had to rely on them.
-kprobes are already very complex conceptually, it may be a requirement to 
-debug a binary kernel, but otherwise some simple hooks are preferable.
-
-bye, Roman
+	--david
