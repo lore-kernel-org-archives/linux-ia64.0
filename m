@@ -1,7 +1,7 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Tue, 04 May 2004 23:23:24 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Tue, 04 May 2004 23:31:26 +0000
 Subject: Re: [RFC] I/O MCA recovery
-Message-Id: <1083713004.5669.24.camel@localhost>
+Message-Id: <20040504233126.GC3395@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405040954.09524.jbarnes@engr.sgi.com>
 In-Reply-To: <200405040954.09524.jbarnes@engr.sgi.com>
@@ -10,23 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2004-05-04 at 17:17, Jesse Barnes wrote:
+On Tue, May 04, 2004 at 04:17:30PM -0700, Jesse Barnes wrote:
+> That's nice (that's why I wanted a pointer to a spec--I can hand it to our hw 
+> guys who have been asking for it).
 
-> > ISTR only config space accesses are always required to softfail
-> > on master aborts. I don't recall if IO Port space is required to as
-> > well and it looks like this issue is outside the scope of PCI spec.
-> 
+Well, ask Intel. Nicely. :^)
+
 > Alex says that zx1 can soft fail on IO port accesses if configured to do so.  
-> We don't have that option.
-> 
 
-   And the default configuration for zx1 is I/O port space in soft fail,
-MMIO space in hardfail.  The current zx1 "smarts" in X can reconfigure
-the bridge w/ VGA to softfail MMIO for probing/int10 support.  It's
-ugly, but it works.
+Ok. Then IO Port and MMIO accesses will by default hardfail on ZX1.
+I believe there is only one bit that can be twiddled regarding this.
 
-	Alex
-
--- 
-Alex Williamson                             HP Linux & Open Source Lab
-
+grant
