@@ -1,7 +1,7 @@
 From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 06 Apr 2001 14:41:23 +0000
+Date: Fri, 06 Apr 2001 15:24:19 +0000
 Subject: Re: [Linux-ia64] New gnu-efi package and new boot loader available
-Message-Id: <marc-linux-ia64-105590693005376@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005378@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005375@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005375@msgid-missing>
@@ -19,19 +19,54 @@ Stephane Eranian <eranian@frankl.hpl.hp.com> writes:
 |> =09
 |> 	ftp://ftp.hpl.hp.com/pub/linux-ia64/gnu-efi-2.0.tar.gz
 
-Here is a patch to make `elilo -C' working:
+Another patch to improve the usefullness of the config file:
 
---- elilo/elilo.c
-+++ elilo/elilo.c	2001/04/06 14:10:10
-@@ -605,7 +605,7 @@
+--- elilo/config.c
++++ elilo/config.c	2001/04/06 15:02:19
+@@ -46,6 +46,7 @@
+ } boot_image_t;
 =20
- 	argc =3D argify(info->LoadOptions,info->LoadOptionsSize, argv);=20
+ boot_image_t *image_head, *default_image;
++static CHAR16 *root;
 =20
--	while ((c=3DGetopt(argc, argv, W2U(L"Cadqht:i:vVf"))) !=3D -1 ) {
-+	while ((c=3DGetopt(argc, argv, W2U(L"C:adqht:i:vVf"))) !=3D -1 ) {
- 		switch(c) {
- 			case 'a':
- 				elilo_opt.always_alt=3D1;
+ /*
+  * XXX: needs to be cleaned up seriously
+@@ -167,12 +168,12 @@
+ 		} else if (strncmpa(p1, "vga", 3) =3D 0) {
+ 			/* FIXME: I think we can actually do this */
+ 		} else if (strncmpa(p1, "timeout", 7) =3D 0) {
+-			//timeout =3D Atoi(aToU(p2));
++			elilo_opt.timeout =3D Atoi(aToU(p2));
+ 		} else if (strncmpa(p1, "root", 4) =3D 0) {
+ 			if (image)
+ 				image->root =3D StrDuplicate(aToU(p2));
+-			//else
+-				//root =3D StrDuplicate(aToU(p2));
++			else
++				root =3D StrDuplicate(aToU(p2));
+ 		} else if (strncmpa(p1, "initrd",6) =3D 0) {
+ 			if (image)
+ 				image->initrd =3D StrDuplicate(aToU(p2));
+@@ -271,16 +272,16 @@
+=20
+ 	options[0] =3D 0;
+=20
+-	if (img->root) {
++	if (img->root || root) {
+ 		StrCat(options, W2U(L"root=3D"));
+-		StrCat(options, img->root);
++		StrCat(options, img->root ? img->root : root);
+ 	}
+ 	/* XXX: check max length */
+ 	if (img->options) {
+ 		StrCat(options, W2U(L" "));
+ 		StrCat(options, img->options);
+ 	}
+-	if (img->readonly) {
++	if (img->readonly !=3D -1 ? img->readonly : elilo_opt.readonly) {
+ 		StrCat(options, W2U(L" ro"));
+ 	}
+ 	if (img->initrd) StrCpy(initrd, img->initrd);
 
 Andreas.
 
