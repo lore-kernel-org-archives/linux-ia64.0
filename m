@@ -1,34 +1,44 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Mon, 23 Jun 2003 17:20:44 +0000
-Subject: Re: [Discontig-devel] [PATCH] another discontig patch
-Message-Id: <marc-linux-ia64-105638893811288@msgid-missing>
+From: Jes Sorensen <jes@wildopensource.com>
+Date: Mon, 23 Jun 2003 14:15:03 +0000
+Subject: [Linux-ia64] 2.5.72 bss initializers
+Message-Id: <marc-linux-ia64-105637930631805@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105618641519753@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105618641519753@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-At some point in the past, someone wrote:
->># define pfn_to_page(pfn)	(vmem_map + (pfn))
->># define page_to_pfn(page)	((unsigned long) (page - vmem_map))
+Hi,
 
-On Sat, Jun 21, 2003 at 07:48:08AM -0700, Martin J. Bligh wrote:
-> I really don't see how you *can't* do that, and have it still work.
-> If the mem_map is placed in node local memory, and not a size that 
-> happens to be a complete number of pages, even if you pack it down 
-> into a vmem_map, it's still not contiguous. So adding a pfn (physical 
-> page frame number) to the base of vmem_map can NOT give you the correct 
-> address.
-> Presumably this *is* working for you ... but I'm buggered if I know how ;-)
-> Maybe I just need more coffee ;-)
+No need to explicitly zero out global pointers in efi.c and efivars.c
 
-It's a sparse array. The interstices between nodes are padded with
-empty virtualspace in order to cheapen the indexing operation. i.e. the
-nodes' local mem_map's are virtually positioned according to the range
-of pfns they span. If 32-bit weren't as pressed for virtualspace it
-could do likewise.
+Cheers,
+Jes
 
+--- arch/ia64/kernel/efi.c~	Mon Jun 16 21:19:39 2003
++++ arch/ia64/kernel/efi.c	Mon Jun 23 07:08:53 2003
+@@ -46,7 +46,7 @@
+  * prior to creating their own entries under /proc/efi.
+  */
+ #ifdef CONFIG_PROC_FS
+-struct proc_dir_entry *efi_dir = NULL;
++struct proc_dir_entry *efi_dir;
+ #endif
+ 
+ static unsigned long mem_limit = ~0UL;
+--- arch/ia64/kernel/efivars.c~	Mon Jun 16 21:20:01 2003
++++ arch/ia64/kernel/efivars.c	Mon Jun 23 07:09:40 2003
+@@ -119,7 +119,7 @@
+ */
+ static spinlock_t efivars_lock = SPIN_LOCK_UNLOCKED;
+ static LIST_HEAD(efivar_list);
+-static struct proc_dir_entry *efi_vars_dir = NULL;
++static struct proc_dir_entry *efi_vars_dir;
+ 
+ #define efivar_entry(n) list_entry(n, efivar_entry_t, list)
+ 
 
--- wli
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
