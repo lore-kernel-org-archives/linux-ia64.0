@@ -1,1078 +1,559 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 05 Jan 2005 23:25:20 +0000
-Subject: Re: Prezeroing V3 [2/4]: Extension of clear_page to take an order
-Message-Id: <Pine.LNX.4.58.0501051524020.9911@schroedinger.engr.sgi.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 07 Jan 2005 00:17:51 +0000
+Subject: [PATCH] long line & codingstyle cleanup for init.c
+Message-Id: <200501061617.51354.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_vUd3BRaMfYn8IE/"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
- <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
- <Pine.GSO.4.61.0501011123550.27452@waterleaf.sonytel.be>
- <Pine.LNX.4.58.0501041510430.1536@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0501041513330.1536@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0501041513330.1536@schroedinger.engr.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, linux-mm@kvack.org, Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-Here is an updated version that is independent of the first patch and
-contains all the necessary modifications to make clear_page take a second
-parameter.
+--Boundary-00=_vUd3BRaMfYn8IE/
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Architecture support:
----------------------
+Fix long lines and coding style in init.c.  This file could probably use some 
+#include trimming as well, but I didn't attempt that with this patch.
 
-Known to work:
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-ia64
-i386
-sparc64
-m68k
+Thanks,
+Jesse
 
-Trivial modification expected to simply work:
+--Boundary-00=_vUd3BRaMfYn8IE/
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="init-cleanup.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="init-cleanup.patch"
 
-arm
-cris
-h8300
-m68knommu
-ppc
-ppc64
-sh64
-v850
-parisc
-sparc
-um
-
-Modification made but it would be good to have some feedback from the arch =
-maintainers:
-
-x86_64
-s390
-alpha
-sh
-mips
-m32r
-
-Index: linux-2.6.10/include/asm-ia64/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-ia64/page.h	2004-=
-12-24 13:34:00.000000000 -0800
-+++ linux-2.6.10/include/asm-ia64/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -56,7 +56,7 @@
- # ifdef __KERNEL__
- #  define STRICT_MM_TYPECHECKS
-
--extern void clear_page (void *page);
-+extern void clear_page (void *page, int order);
- extern void copy_page (void *to, void *from);
-
- /*
-@@ -65,7 +65,7 @@
-  */
- #define clear_user_page(addr, vaddr, page)	\
- do {						\
--	clear_page(addr);			\
-+	clear_page(addr, 0);			\
- 	flush_dcache_page(page);		\
- } while (0)
-
-Index: linux-2.6.10/include/asm-i386/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-i386/page.h	2005-=
-01-04 14:17:01.000000000 -0800
-+++ linux-2.6.10/include/asm-i386/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -18,7 +18,7 @@
-
- #include <asm/mmx.h>
-
--#define clear_page(page)	mmx_clear_page((void *)(page))
-+#define clear_page(page, order)	mmx_clear_page((void *)(page),order)
- #define copy_page(to,from)	mmx_copy_page(to,from)
-
- #else
-@@ -28,12 +28,12 @@
-  *	Maybe the K6-III ?
-  */
-
--#define clear_page(page)	memset((void *)(page), 0, PAGE_SIZE)
-+#define clear_page(page, order)	memset((void *)(page), 0, PAGE_SIZE << (or=
-der))
- #define copy_page(to,from)	memcpy((void *)(to), (void *)(from), PAGE_SIZE)
-
- #endif
-
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+#define clear_user_page(page, vaddr, pg)	clear_page(page, 0)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
- /*
-Index: linux-2.6.10/include/asm-x86_64/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-x86_64/page.h	200=
-5-01-04 14:17:01.000000000 -0800
-+++ linux-2.6.10/include/asm-x86_64/page.h	2005-01-05 10:09:51.000000000 -0=
-800
-@@ -32,10 +32,10 @@
- #ifdef __KERNEL__
- #ifndef __ASSEMBLY__
-
--void clear_page(void *);
-+void clear_page(void *, int);
- void copy_page(void *, void *);
-
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+#define clear_user_page(page, vaddr, pg)	clear_page(page, 0)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
- /*
-Index: linux-2.6.10/include/asm-sparc/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sparc/page.h	2004=
--12-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/include/asm-sparc/page.h	2005-01-05 10:09:51.000000000 -08=
-00
-@@ -28,10 +28,10 @@
-
- #ifndef __ASSEMBLY__
-
--#define clear_page(page)	 memset((void *)(page), 0, PAGE_SIZE)
-+#define clear_page(page, order)	 memset((void *)(page), 0, PAGE_SIZE << (o=
-rder))
- #define copy_page(to,from) 	memcpy((void *)(to), (void *)(from), PAGE_SIZE)
- #define clear_user_page(addr, vaddr, page)	\
--	do { 	clear_page(addr);		\
-+	do { 	clear_page(addr, 0);		\
- 		sparc_flush_page_to_ram(page);	\
- 	} while (0)
- #define copy_user_page(to, from, vaddr, page)	\
-Index: linux-2.6.10/include/asm-s390/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-s390/page.h	2004-=
-12-24 13:34:01.000000000 -0800
-+++ linux-2.6.10/include/asm-s390/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -22,12 +22,12 @@
-
- #ifndef __s390x__
-
--static inline void clear_page(void *page)
-+static inline void clear_page(void *page, int order)
- {
- 	register_pair rp;
-
- 	rp.subreg.even =3D (unsigned long) page;
--	rp.subreg.odd =3D (unsigned long) 4096;
-+	rp.subreg.odd =3D (unsigned long) 4096 << order;
-         asm volatile ("   slr  1,1\n"
- 		      "   mvcl %0,0"
- 		      : "+&a" (rp) : : "memory", "cc", "1" );
-@@ -63,14 +63,19 @@
-
- #else /* __s390x__ */
-
--static inline void clear_page(void *page)
-+static inline void clear_page(void *page, int order)
- {
--        asm volatile ("   lgr  2,%0\n"
-+	int nr =3D 1 << order;
-+
-+	while (nr-- >0) {
-+        	asm volatile ("   lgr  2,%0\n"
-                       "   lghi 3,4096\n"
-                       "   slgr 1,1\n"
-                       "   mvcl 2,0"
-                       : : "a" ((void *) (page))
- 		      : "memory", "cc", "1", "2", "3" );
-+		page +=3D PAGE_SIZE;
-+	}
- }
-
- static inline void copy_page(void *to, void *from)
-@@ -103,7 +108,7 @@
-
- #endif /* __s390x__ */
-
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+#define clear_user_page(page, vaddr, pg)	clear_page(page, 0)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
- /* Pure 2^n version of get_order */
-Index: linux-2.6.10/arch/i386/lib/mmx.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/i386/lib/mmx.c	2004-12-2=
-4 13:34:48.000000000 -0800
-+++ linux-2.6.10/arch/i386/lib/mmx.c	2005-01-05 10:09:51.000000000 -0800
-@@ -128,7 +128,7 @@
-  *	other MMX using processors do not.
-  */
-
--static void fast_clear_page(void *page)
-+static void fast_clear_page(void *page, int order)
- {
- 	int i;
-
-@@ -138,7 +138,7 @@
- 		"  pxor %%mm0, %%mm0\n" : :
- 	);
-
--	for(i=3D0;i<4096/64;i++)
-+	for(i=3D0;i<((4096/64) << order);i++)
- 	{
- 		__asm__ __volatile__ (
- 		"  movntq %%mm0, (%0)\n"
-@@ -257,7 +257,7 @@
-  *	Generic MMX implementation without K7 specific streaming
-  */
-
--static void fast_clear_page(void *page)
-+static void fast_clear_page(void *page, int order)
- {
- 	int i;
-
-@@ -267,7 +267,7 @@
- 		"  pxor %%mm0, %%mm0\n" : :
- 	);
-
--	for(i=3D0;i<4096/128;i++)
-+	for(i=3D0;i<((4096/128) << order);i++)
- 	{
- 		__asm__ __volatile__ (
- 		"  movq %%mm0, (%0)\n"
-@@ -359,23 +359,23 @@
-  *	Favour MMX for page clear and copy.
-  */
-
--static void slow_zero_page(void * page)
-+static void slow_clear_page(void * page, int order)
- {
- 	int d0, d1;
- 	__asm__ __volatile__( \
- 		"cld\n\t" \
- 		"rep ; stosl" \
- 		: "=3D&c" (d0), "=3D&D" (d1)
--		:"a" (0),"1" (page),"0" (1024)
-+		:"a" (0),"1" (page),"0" (1024 << order)
- 		:"memory");
- }
--
--void mmx_clear_page(void * page)
-+
-+void mmx_clear_page(void * page, int order)
- {
- 	if(unlikely(in_interrupt()))
--		slow_zero_page(page);
-+		slow_clear_page(page, order);
- 	else
--		fast_clear_page(page);
-+		fast_clear_page(page, order);
- }
-
- static void slow_copy_page(void *to, void *from)
-Index: linux-2.6.10/include/asm-x86_64/mmx.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-x86_64/mmx.h	2004=
--12-24 13:34:57.000000000 -0800
-+++ linux-2.6.10/include/asm-x86_64/mmx.h	2005-01-05 10:09:51.000000000 -08=
-00
-@@ -8,7 +8,7 @@
- #include <linux/types.h>
-
- extern void *_mmx_memcpy(void *to, const void *from, size_t size);
--extern void mmx_clear_page(void *page);
-+extern void mmx_clear_page(void *page, int order);
- extern void mmx_copy_page(void *to, void *from);
-
- #endif
-Index: linux-2.6.10/arch/ia64/lib/clear_page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/ia64/lib/clear_page.S	20=
-04-12-24 13:33:50.000000000 -0800
-+++ linux-2.6.10/arch/ia64/lib/clear_page.S	2005-01-05 10:09:51.000000000 -=
-0800
-@@ -7,6 +7,7 @@
-  * 1/06/01 davidm	Tuned for Itanium.
-  * 2/12/02 kchen	Tuned for both Itanium and McKinley
-  * 3/08/02 davidm	Some more tweaking
-+ * 12/10/04 clameter	Make it work on pages of order size
-  */
+===== arch/ia64/mm/init.c 1.74 vs edited =====
+--- 1.74/arch/ia64/mm/init.c	2005-01-04 14:58:07 -08:00
++++ edited/arch/ia64/mm/init.c	2005-01-06 16:16:40 -08:00
+@@ -7,7 +7,6 @@
  #include <linux/config.h>
-
-@@ -29,27 +30,33 @@
- #define dst4		r11
-
- #define dst_last	r31
-+#define totsize		r14
-
- GLOBAL_ENTRY(clear_page)
- 	.prologue
--	.regstk 1,0,0,0
--	mov r16 =3D PAGE_SIZE/L3_LINE_SIZE-1	// main loop count, -1=3Drepeat/until
-+	.regstk 2,0,0,0
-+	mov r16 =3D PAGE_SIZE/L3_LINE_SIZE	// main loop count
-+	mov totsize =3D PAGE_SIZE
- 	.save ar.lc, saved_lc
- 	mov saved_lc =3D ar.lc
+ #include <linux/kernel.h>
+ #include <linux/init.h>
 -
-+	;;
- 	.body
-+	adds dst1 =3D 16, in0
- 	mov ar.lc =3D (PREFETCH_LINES - 1)
- 	mov dst_fetch =3D in0
--	adds dst1 =3D 16, in0
- 	adds dst2 =3D 32, in0
-+	shl r16 =3D r16, in1
-+	shl totsize =3D totsize, in1
- 	;;
- .fetch:	stf.spill.nta [dst_fetch] =3D f0, L3_LINE_SIZE
- 	adds dst3 =3D 48, in0		// executing this multiple times is harmless
- 	br.cloop.sptk.few .fetch
-+	add r16 =3D -1,r16
-+	add dst_last =3D totsize, dst_fetch
-+	adds dst4 =3D 64, in0
- 	;;
--	addl dst_last =3D (PAGE_SIZE - PREFETCH_LINES*L3_LINE_SIZE), dst_fetch
- 	mov ar.lc =3D r16			// one L3 line per iteration
--	adds dst4 =3D 64, in0
-+	adds dst_last =3D -PREFETCH_LINES*L3_LINE_SIZE, dst_last
- 	;;
- #ifdef CONFIG_ITANIUM
- 	// Optimized for Itanium
-Index: linux-2.6.10/arch/x86_64/lib/clear_page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/x86_64/lib/clear_page.S	=
-2004-12-24 13:34:33.000000000 -0800
-+++ linux-2.6.10/arch/x86_64/lib/clear_page.S	2005-01-05 10:09:51.000000000=
- -0800
-@@ -7,6 +7,7 @@
- clear_page:
- 	xorl   %eax,%eax
- 	movl   $4096/64,%ecx
-+	shl	%esi, %ecx
- 	.p2align 4
- .Lloop:
- 	decl	%ecx
-@@ -42,6 +43,7 @@
- 	.section .altinstr_replacement,"ax"
- clear_page_c:
- 	movl $4096/8,%ecx
-+	shl	%esi, %ecx
- 	xorl %eax,%eax
- 	rep
- 	stosq
-Index: linux-2.6.10/include/asm-sh/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sh/page.h	2004-12=
--24 13:35:28.000000000 -0800
-+++ linux-2.6.10/include/asm-sh/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -36,12 +36,22 @@
- #ifdef __KERNEL__
- #ifndef __ASSEMBLY__
-
--extern void (*clear_page)(void *to);
-+extern void (*_clear_page)(void *to);
- extern void (*copy_page)(void *to, void *from);
-
- extern void clear_page_slow(void *to);
- extern void copy_page_slow(void *to, void *from);
-
-+static inline void clear_page(void *page, int order)
-+{
-+	unsigned int nr =3D 1 << order;
-+
-+	while (nr-- >0) {
-+		_clear_page(page);
-+		page +=3D PAGE_SIZE;
-+	}
-+}
-+
- #if defined(CONFIG_SH7705_CACHE_32KB) && defined(CONFIG_MMU)
- struct page;
- extern void clear_user_page(void *to, unsigned long address, struct page *=
-pg);
-@@ -49,7 +59,7 @@
- extern void __clear_user_page(void *to, void *orig_to);
- extern void __copy_user_page(void *to, void *from, void *orig_to);
- #elif defined(CONFIG_CPU_SH2) || defined(CONFIG_CPU_SH3) || !defined(CONFI=
-G_MMU)
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+#define clear_user_page(page, vaddr, pg)	clear_page(page, 0)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
- #elif defined(CONFIG_CPU_SH4)
- struct page;
-Index: linux-2.6.10/include/asm-i386/mmx.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-i386/mmx.h	2004-1=
-2-24 13:34:57.000000000 -0800
-+++ linux-2.6.10/include/asm-i386/mmx.h	2005-01-05 10:09:51.000000000 -0800
-@@ -8,7 +8,7 @@
- #include <linux/types.h>
-
- extern void *_mmx_memcpy(void *to, const void *from, size_t size);
--extern void mmx_clear_page(void *page);
-+extern void mmx_clear_page(void *page, int order);
- extern void mmx_copy_page(void *to, void *from);
-
- #endif
-Index: linux-2.6.10/arch/alpha/lib/clear_page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/alpha/lib/clear_page.S	2=
-004-12-24 13:35:25.000000000 -0800
-+++ linux-2.6.10/arch/alpha/lib/clear_page.S	2005-01-05 10:09:51.000000000 =
--0800
-@@ -6,11 +6,10 @@
-
- 	.text
- 	.align 4
--	.global clear_page
--	.ent clear_page
--clear_page:
-+	.global _clear_page
-+	.ent _clear_page
-+_clear_page:
- 	.prologue 0
+ #include <linux/bootmem.h>
+ #include <linux/efi.h>
+ #include <linux/elf.h>
+@@ -20,7 +19,6 @@
+ #include <linux/swap.h>
+ #include <linux/proc_fs.h>
+ #include <linux/bitops.h>
 -
- 	lda	$0,128
- 	nop
- 	unop
-@@ -36,4 +35,4 @@
- 	unop
- 	nop
-
--	.end clear_page
-+	.end _clear_page
-Index: linux-2.6.10/include/asm-sh64/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sh64/page.h	2004-=
-12-24 13:34:33.000000000 -0800
-+++ linux-2.6.10/include/asm-sh64/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -50,12 +50,20 @@
- extern void sh64_page_clear(void *page);
- extern void sh64_page_copy(void *from, void *to);
-
--#define clear_page(page)               sh64_page_clear(page)
-+static inline void clear_page(page, order)
-+{
-+	int nr =3D 1 << order;
-+
-+	while (nr-- >0) {
-+		sh64_page_clear(page++, 0);
-+	}
-+}
-+
- #define copy_page(to,from)             sh64_page_copy(from, to)
-
- #if defined(CONFIG_DCACHE_DISABLED)
-
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+#define clear_user_page(page, vaddr, pg)	sh_clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
- #else
-Index: linux-2.6.10/include/asm-h8300/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-h8300/page.h	2004=
--12-24 13:35:25.000000000 -0800
-+++ linux-2.6.10/include/asm-h8300/page.h	2005-01-05 10:09:51.000000000 -08=
-00
-@@ -24,10 +24,10 @@
- #define get_user_page(vaddr)		__get_free_page(GFP_KERNEL)
- #define free_user_page(page, addr)	free_page(addr)
-
--#define clear_page(page)	memset((page), 0, PAGE_SIZE)
-+#define clear_page(page, order)	memset((page), 0, PAGE_SIZE << (order))
- #define copy_page(to,from)	memcpy((to), (from), PAGE_SIZE)
-
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+#define clear_user_page(page, vaddr, pg)	clear_page(page, 0)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
- /*
-Index: linux-2.6.10/include/asm-arm/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-arm/page.h	2004-1=
-2-24 13:34:01.000000000 -0800
-+++ linux-2.6.10/include/asm-arm/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -128,7 +128,7 @@
- 		preempt_enable();			\
- 	} while (0)
-
--#define clear_page(page)	memzero((void *)(page), PAGE_SIZE)
-+#define clear_page(page, order)	memzero((void *)(page), PAGE_SIZE << (orde=
-r))
- extern void copy_page(void *to, const void *from);
-
- #undef STRICT_MM_TYPECHECKS
-Index: linux-2.6.10/include/asm-ppc64/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-ppc64/page.h	2004=
--12-24 13:33:49.000000000 -0800
-+++ linux-2.6.10/include/asm-ppc64/page.h	2005-01-05 10:09:51.000000000 -08=
-00
-@@ -102,12 +102,12 @@
- #define REGION_MASK   (((1UL<<REGION_SIZE)-1UL)<<REGION_SHIFT)
- #define REGION_STRIDE (1UL << REGION_SHIFT)
-
--static __inline__ void clear_page(void *addr)
-+static __inline__ void clear_page(void *addr, int order)
+ #include <asm/a.out.h>
+ #include <asm/dma.h>
+ #include <asm/ia32.h>
+@@ -56,8 +54,7 @@
+ struct page *zero_page_memmap_ptr;		/* map entry for zero page */
+ EXPORT_SYMBOL(zero_page_memmap_ptr);
+ 
+-void
+-check_pgt_cache (void)
++void check_pgt_cache(void)
  {
- 	unsigned long lines, line_size;
-
- 	line_size =3D systemcfg->dCacheL1LineSize;
--	lines =3D naca->dCacheL1LinesPerPage;
-+	lines =3D naca->dCacheL1LinesPerPage << order;
-
- 	__asm__ __volatile__(
- 	"mtctr  	%1	# clear_page\n\
-Index: linux-2.6.10/include/asm-m32r/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-m32r/page.h	2004-=
-12-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/include/asm-m32r/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -11,10 +11,22 @@
- #ifdef __KERNEL__
- #ifndef __ASSEMBLY__
-
--extern void clear_page(void *to);
-+extern void _clear_page(void *to);
-+
-+static inline void clear_page(void *page, int order)
-+{
-+	unsigned int nr =3D 1 << order;
-+
-+	while (nr-- > 0) {
-+		_clear_page(page);
-+		page +=3D PAGE_SIZE;
-+	}
-+}
-+
-+
- extern void copy_page(void *to, void *from);
-
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+#define clear_user_page(page, vaddr, pg)	clear_page(page, 0)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
- /*
-Index: linux-2.6.10/include/asm-alpha/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-alpha/page.h	2004=
--12-24 13:35:24.000000000 -0800
-+++ linux-2.6.10/include/asm-alpha/page.h	2005-01-05 10:09:51.000000000 -08=
-00
-@@ -15,8 +15,20 @@
-
- #define STRICT_MM_TYPECHECKS
-
--extern void clear_page(void *page);
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+extern void _clear_page(void *page);
-+
-+static inline void clear_page(void *page, int order)
-+{
-+	int nr =3D 1 << order;
-+
-+	while (nr--)
-+	{
-+		_clear_page(page);
-+		page +=3D PAGE_SIZE;
-+	}
-+}
-+
-+#define clear_user_page(page, vaddr, pg)	clear_page(page, 0)
-
- extern void copy_page(void * _to, void * _from);
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-Index: linux-2.6.10/arch/mips/mm/pg-sb1.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/mips/mm/pg-sb1.c	2004-12=
--24 13:35:50.000000000 -0800
-+++ linux-2.6.10/arch/mips/mm/pg-sb1.c	2005-01-05 10:09:51.000000000 -0800
-@@ -42,7 +42,7 @@
- #ifdef CONFIG_SIBYTE_DMA_PAGEOPS
- static inline void clear_page_cpu(void *page)
- #else
--void clear_page(void *page)
-+void _clear_page(void *page)
- #endif
- {
- 	unsigned char *addr =3D (unsigned char *) page;
-@@ -172,14 +172,13 @@
- 		     IOADDR(A_DM_REGISTER(cpu, R_DM_DSCR_BASE)));
+ 	int low, high;
+ 
+@@ -76,30 +73,33 @@
+ 	preempt_enable();
  }
-
--void clear_page(void *page)
-+void _clear_page(void *page)
+ 
+-void
+-update_mmu_cache (struct vm_area_struct *vma, unsigned long vaddr, pte_t pte)
++void update_mmu_cache(struct vm_area_struct *vma, unsigned long vaddr,
++		      pte_t pte)
  {
- 	int cpu =3D smp_processor_id();
-
- 	/* if the page is above Kseg0, use old way */
- 	if (KSEGX(page) !=3D CAC_BASE)
- 		return clear_page_cpu(page);
--
- 	page_descr[cpu].dscr_a =3D PHYSADDR(page) | M_DM_DSCRA_ZERO_MEM | M_DM_DS=
-CRA_L2C_DEST | M_DM_DSCRA_INTERRUPT;
- 	page_descr[cpu].dscr_b =3D V_DM_DSCRB_SRC_LENGTH(PAGE_SIZE);
- 	__raw_writeq(1, IOADDR(A_DM_REGISTER(cpu, R_DM_DSCR_COUNT)));
-@@ -218,5 +217,5 @@
-
- #endif
-
--EXPORT_SYMBOL(clear_page);
-+EXPORT_SYMBOL(_clear_page);
- EXPORT_SYMBOL(copy_page);
-Index: linux-2.6.10/include/asm-m68k/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-m68k/page.h	2004-=
-12-24 13:35:49.000000000 -0800
-+++ linux-2.6.10/include/asm-m68k/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -50,7 +50,7 @@
- 		       );
+ 	unsigned long addr;
+ 	struct page *page;
+ 
+ 	if (!pte_exec(pte))
+-		return;				/* not an executable page... */
++		return;	/* not an executable page... */
+ 
+ 	page = pte_page(pte);
+-	/* don't use VADDR: it may not be mapped on this CPU (or may have just been flushed): */
++	/*
++	 * don't use VADDR: it may not be mapped on this CPU (or may have just
++	 * been flushed)
++	 */
+ 	addr = (unsigned long) page_address(page);
+ 
+ 	if (test_bit(PG_arch_1, &page->flags))
+-		return;				/* i-cache is already coherent with d-cache */
++		return;	/* i-cache is already coherent with d-cache */
+ 
+ 	flush_icache_range(addr, addr + PAGE_SIZE);
+-	set_bit(PG_arch_1, &page->flags);	/* mark page as clean */
++	set_bit(PG_arch_1, &page->flags); /* mark page as clean */
  }
-
--static inline void clear_page(void *page)
-+static inline void clear_page(void *page, int order)
+ 
+-inline void
+-ia64_set_rbs_bot (void)
++inline void ia64_set_rbs_bot(void)
  {
- 	unsigned long tmp;
- 	unsigned long *sp =3D page;
-@@ -69,16 +69,16 @@
- 			     "dbra   %1,1b\n\t"
- 			     : "=3Da" (sp), "=3Dd" (tmp)
- 			     : "a" (page), "0" (sp),
--			       "1" ((PAGE_SIZE - 16) / 16 - 1));
-+			       "1" (((PAGE_SIZE<<(order)) - 16) / 16 - 1));
- }
-
- #else
--#define clear_page(page)	memset((page), 0, PAGE_SIZE)
-+#define clear_page(page, order)	memset((page), 0, PAGE_SIZE << (order))
- #define copy_page(to,from)	memcpy((to), (from), PAGE_SIZE)
- #endif
-
- #define clear_user_page(addr, vaddr, page)	\
--	do {	clear_page(addr);		\
-+	do {	clear_page(addr, 0);		\
- 		flush_dcache_page(page);	\
- 	} while (0)
- #define copy_user_page(to, from, vaddr, page)	\
-Index: linux-2.6.10/include/asm-mips/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-mips/page.h	2004-=
-12-24 13:34:31.000000000 -0800
-+++ linux-2.6.10/include/asm-mips/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -39,7 +39,18 @@
- #ifdef __KERNEL__
- #ifndef __ASSEMBLY__
-
--extern void clear_page(void * page);
-+extern void _clear_page(void * page);
-+
-+static inline void clear_page(void *page, int order)
-+{
-+	unsigned int nr =3D 1 << order;
-+
-+	while (nr-- >0) {
-+		_clear_page(page);
-+		page +=3D PAGE_SIZE;
-+	}
-+}
-+
- extern void copy_page(void * to, void * from);
-
- extern unsigned long shm_align_mask;
-@@ -57,7 +68,7 @@
- {
- 	extern void (*flush_data_cache_page)(unsigned long addr);
-
--	clear_page(addr);
-+	clear_page(addr, 0);
- 	if (pages_do_alias((unsigned long) addr, vaddr))
- 		flush_data_cache_page((unsigned long)addr);
- }
-Index: linux-2.6.10/include/asm-m68knommu/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-m68knommu/page.h	=
-2004-12-24 13:34:33.000000000 -0800
-+++ linux-2.6.10/include/asm-m68knommu/page.h	2005-01-05 10:09:51.000000000=
- -0800
-@@ -24,10 +24,10 @@
- #define get_user_page(vaddr)		__get_free_page(GFP_KERNEL)
- #define free_user_page(page, addr)	free_page(addr)
-
--#define clear_page(page)	memset((page), 0, PAGE_SIZE)
-+#define clear_page(page, order)	memset((page), 0, PAGE_SIZE << (order))
- #define copy_page(to,from)	memcpy((to), (from), PAGE_SIZE)
-
--#define clear_user_page(page, vaddr, pg)	clear_page(page)
-+#define clear_user_page(page, vaddr, pg)	clear_page(page, 0)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
- /*
-Index: linux-2.6.10/include/asm-cris/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-cris/page.h	2004-=
-12-24 13:34:30.000000000 -0800
-+++ linux-2.6.10/include/asm-cris/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -15,10 +15,10 @@
-
- #ifdef __KERNEL__
-
--#define clear_page(page)        memset((void *)(page), 0, PAGE_SIZE)
-+#define clear_page(page, order) memset((void *)(page), 0, PAGE_SIZE << (or=
-der))
- #define copy_page(to,from)      memcpy((void *)(to), (void *)(from), PAGE_=
-SIZE)
-
--#define clear_user_page(page, vaddr, pg)    clear_page(page)
-+#define clear_user_page(page, vaddr, pg)    clear_page(page, 0)
- #define copy_user_page(to, from, vaddr, pg) copy_page(to, from)
-
- /*
-Index: linux-2.6.10/include/asm-v850/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-v850/page.h	2004-=
-12-24 13:35:00.000000000 -0800
-+++ linux-2.6.10/include/asm-v850/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -37,11 +37,11 @@
-
- #define STRICT_MM_TYPECHECKS
-
--#define clear_page(page)	memset ((void *)(page), 0, PAGE_SIZE)
-+#define clear_page(page, order)	memset ((void *)(page), 0, PAGE_SIZE << (o=
-rder))
- #define copy_page(to, from)	memcpy ((void *)(to), (void *)from, PAGE_SIZE)
-
- #define clear_user_page(addr, vaddr, page)	\
--	do { 	clear_page(addr);		\
-+	do { 	clear_page(addr, 0);		\
- 		flush_dcache_page(page);	\
- 	} while (0)
- #define copy_user_page(to, from, vaddr, page)	\
-Index: linux-2.6.10/include/asm-parisc/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-parisc/page.h	200=
-4-12-24 13:34:26.000000000 -0800
-+++ linux-2.6.10/include/asm-parisc/page.h	2005-01-05 10:09:51.000000000 -0=
-800
-@@ -13,7 +13,7 @@
- #include <asm/types.h>
- #include <asm/cache.h>
-
--#define clear_page(page)	memset((void *)(page), 0, PAGE_SIZE)
-+#define clear_page(page, order)	memset((void *)(page), 0, PAGE_SIZE << (or=
-der))
- #define copy_page(to,from)      copy_user_page_asm((void *)(to), (void *)(=
-from))
-
- struct page;
-Index: linux-2.6.10/arch/arm/mm/copypage-v6.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/arm/mm/copypage-v6.c	200=
-4-12-24 13:34:31.000000000 -0800
-+++ linux-2.6.10/arch/arm/mm/copypage-v6.c	2005-01-05 10:09:51.000000000 -0=
-800
-@@ -47,7 +47,7 @@
+-	unsigned long stack_size = current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
++	unsigned long stack_size =
++		current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
+ 
+ 	if (stack_size > MAX_USER_STACK_SIZE)
+ 		stack_size = MAX_USER_STACK_SIZE;
+@@ -112,17 +112,17 @@
+  * store (which grows upwards) and install the gateway page which is
+  * used for signal trampolines, etc.
   */
- void v6_clear_user_page_nonaliasing(void *kaddr, unsigned long vaddr)
+-void
+-ia64_init_addr_space (void)
++void ia64_init_addr_space(void)
  {
--	clear_page(kaddr);
-+	_clear_page(kaddr);
- }
-
- /*
-@@ -116,7 +116,7 @@
-
- 	set_pte(to_pte + offset, pfn_pte(__pa(kaddr) >> PAGE_SHIFT, to_pgprot));
- 	flush_tlb_kernel_page(to);
--	clear_page((void *)to);
-+	_clear_page((void *)to);
-
- 	spin_unlock(&v6_lock);
- }
-Index: linux-2.6.10/arch/m32r/mm/page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/m32r/mm/page.S	2004-12-2=
-4 13:34:57.000000000 -0800
-+++ linux-2.6.10/arch/m32r/mm/page.S	2005-01-05 10:09:51.000000000 -0800
-@@ -51,7 +51,7 @@
- 	jmp	r14
-
- 	.text
--	.global	clear_page
-+	.global	_clear_page
+ 	struct vm_area_struct *vma;
+ 
+ 	ia64_set_rbs_bot();
+ 
  	/*
- 	 * clear_page (to)
- 	 *
-@@ -60,7 +60,7 @@
- 	 * 16 * 256
+-	 * If we're out of memory and kmem_cache_alloc() returns NULL, we simply ignore
+-	 * the problem.  When the process attempts to write to the register backing store
+-	 * for the first time, it will get a SEGFAULT in this case.
++	 * If we're out of memory and kmem_cache_alloc() returns NULL, we
++	 * simply ignore the problem.  When the process attempts to write to
++	 * the register backing store for the first time, it will get a
++	 * SEGFAULT in this case.
  	 */
- 	.align	4
--clear_page:
-+_clear_page:
- 	ldi	r2, #255
- 	ldi	r4, #0
- 	ld	r3, @r0		/* cache line allocate */
-Index: linux-2.6.10/include/asm-ppc/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-ppc/page.h	2004-1=
-2-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/include/asm-ppc/page.h	2005-01-05 10:09:51.000000000 -0800
-@@ -85,7 +85,7 @@
-
- struct page;
- extern void clear_pages(void *page, int order);
--static inline void clear_page(void *page) { clear_pages(page, 0); }
-+#define  clear_page clear_pages
- extern void copy_page(void *to, void *from);
- extern void clear_user_page(void *page, unsigned long vaddr, struct page *=
-pg);
- extern void copy_user_page(void *to, void *from, unsigned long vaddr,
-Index: linux-2.6.10/arch/alpha/kernel/alpha_ksyms.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/alpha/kernel/alpha_ksyms=
-.c	2004-12-24 13:33:51.000000000 -0800
-+++ linux-2.6.10/arch/alpha/kernel/alpha_ksyms.c	2005-01-05 10:09:51.000000=
-000 -0800
-@@ -88,7 +88,7 @@
- EXPORT_SYMBOL(__memsetw);
- EXPORT_SYMBOL(__constant_c_memset);
- EXPORT_SYMBOL(copy_page);
--EXPORT_SYMBOL(clear_page);
-+EXPORT_SYMBOL(_clear_page);
-
- EXPORT_SYMBOL(__direct_map_base);
- EXPORT_SYMBOL(__direct_map_size);
-Index: linux-2.6.10/arch/alpha/lib/ev6-clear_page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/alpha/lib/ev6-clear_page=
-.S	2004-12-24 13:35:24.000000000 -0800
-+++ linux-2.6.10/arch/alpha/lib/ev6-clear_page.S	2005-01-05 10:09:51.000000=
-000 -0800
-@@ -6,9 +6,9 @@
-
-         .text
-         .align 4
--        .global clear_page
--        .ent clear_page
--clear_page:
-+        .global _clear_page
-+        .ent _clear_page
-+_clear_page:
-         .prologue 0
-
- 	lda	$0,128
-@@ -51,4 +51,4 @@
- 	nop
- 	nop
-
--	.end clear_page
-+	.end _clear_page
-Index: linux-2.6.10/arch/sh/mm/init.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sh/mm/init.c	2004-12-24 =
-13:35:24.000000000 -0800
-+++ linux-2.6.10/arch/sh/mm/init.c	2005-01-05 10:09:51.000000000 -0800
-@@ -57,7 +57,7 @@
- #endif
-
- void (*copy_page)(void *from, void *to);
--void (*clear_page)(void *to);
-+void (*_clear_page)(void *to);
-
- void show_mem(void)
- {
-@@ -255,7 +255,7 @@
- 	 * later in the boot process if a better method is available.
- 	 */
- 	copy_page =3D copy_page_slow;
--	clear_page =3D clear_page_slow;
-+	_clear_page =3D clear_page_slow;
-
- 	/* this will put all low memory onto the freelists */
- 	totalram_pages +=3D free_all_bootmem_node(NODE_DATA(0));
-Index: linux-2.6.10/arch/sh/mm/pg-dma.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sh/mm/pg-dma.c	2004-12-2=
-4 13:35:00.000000000 -0800
-+++ linux-2.6.10/arch/sh/mm/pg-dma.c	2005-01-05 10:09:51.000000000 -0800
-@@ -78,7 +78,7 @@
- 		return ret;
-
- 	copy_page =3D copy_page_dma;
--	clear_page =3D clear_page_dma;
-+	_clear_page =3D clear_page_dma;
-
- 	return ret;
+ 	vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+ 	if (vma) {
+@@ -130,7 +130,8 @@
+ 		vma->vm_mm = current->mm;
+ 		vma->vm_start = current->thread.rbs_bot & PAGE_MASK;
+ 		vma->vm_end = vma->vm_start + PAGE_SIZE;
+-		vma->vm_page_prot = protection_map[VM_DATA_DEFAULT_FLAGS & 0x7];
++		vma->vm_page_prot =
++			protection_map[VM_DATA_DEFAULT_FLAGS & 0x7];
+ 		vma->vm_flags = VM_DATA_DEFAULT_FLAGS | VM_GROWSUP;
+ 		down_write(&current->mm->mmap_sem);
+ 		if (insert_vm_struct(current->mm, vma)) {
+@@ -141,15 +142,21 @@
+ 		up_write(&current->mm->mmap_sem);
+ 	}
+ 
+-	/* map NaT-page at address zero to speed up speculative dereferencing of NULL: */
++	/*
++	 * map NaT-page at address zero to speed up speculative dereferencing
++	 * of NULL
++	 */
+ 	if (!(current->personality & MMAP_PAGE_ZERO)) {
+ 		vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+ 		if (vma) {
+ 			memset(vma, 0, sizeof(*vma));
+ 			vma->vm_mm = current->mm;
+ 			vma->vm_end = PAGE_SIZE;
+-			vma->vm_page_prot = __pgprot(pgprot_val(PAGE_READONLY) | _PAGE_MA_NAT);
+-			vma->vm_flags = VM_READ | VM_MAYREAD | VM_IO | VM_RESERVED;
++			vma->vm_page_prot =
++				__pgprot(pgprot_val(PAGE_READONLY) |
++					 _PAGE_MA_NAT);
++			vma->vm_flags = VM_READ | VM_MAYREAD | VM_IO |
++				VM_RESERVED;
+ 			down_write(&current->mm->mmap_sem);
+ 			if (insert_vm_struct(current->mm, vma)) {
+ 				up_write(&current->mm->mmap_sem);
+@@ -161,8 +168,7 @@
+ 	}
  }
-Index: linux-2.6.10/arch/sh/mm/pg-nommu.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sh/mm/pg-nommu.c	2004-12=
--24 13:34:32.000000000 -0800
-+++ linux-2.6.10/arch/sh/mm/pg-nommu.c	2005-01-05 10:09:51.000000000 -0800
-@@ -27,7 +27,7 @@
- static int __init pg_nommu_init(void)
+ 
+-void
+-free_initmem (void)
++void free_initmem(void)
  {
- 	copy_page =3D copy_page_nommu;
--	clear_page =3D clear_page_nommu;
-+	_clear_page =3D clear_page_nommu;
-
+ 	unsigned long addr, eaddr;
+ 
+@@ -179,8 +185,7 @@
+ 	       (__init_end - __init_begin) >> 10);
+ }
+ 
+-void
+-free_initrd_mem (unsigned long start, unsigned long end)
++void free_initrd_mem(unsigned long start, unsigned long end)
+ {
+ 	struct page *page;
+ 	/*
+@@ -218,7 +223,8 @@
+ 	end = end & PAGE_MASK;
+ 
+ 	if (start < end)
+-		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n", (end - start) >> 10);
++		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n",
++		       (end - start) >> 10);
+ 
+ 	for (; start < end; start += PAGE_SIZE) {
+ 		if (!virt_addr_valid(start))
+@@ -234,8 +240,8 @@
+ /*
+  * This installs a clean page in the kernel's page table.
+  */
+-struct page *
+-put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
++struct page *put_kernel_page(struct page *page, unsigned long address,
++			     pgprot_t pgprot)
+ {
+ 	pgd_t *pgd;
+ 	pud_t *pud;
+@@ -243,10 +249,10 @@
+ 	pte_t *pte;
+ 
+ 	if (!PageReserved(page))
+-		printk(KERN_ERR "put_kernel_page: page at 0x%p not in reserved memory\n",
+-		       page_address(page));
++		printk(KERN_ERR "put_kernel_page: page at 0x%p not in "
++		       "reserved memory\n", page_address(page));
+ 
+-	pgd = pgd_offset_k(address);		/* note: this is NOT pgd_offset()! */
++	pgd = pgd_offset_k(address); /* note: this is NOT pgd_offset()! */
+ 
+ 	spin_lock(&init_mm.page_table_lock);
+ 	{
+@@ -272,14 +278,14 @@
+ 	return page;
+ }
+ 
+-static void
+-setup_gate (void)
++static void setup_gate(void)
+ {
+ 	struct page *page;
+ 
+ 	/*
+-	 * Map the gate page twice: once read-only to export the ELF headers etc. and once
+-	 * execute-only page to enable privilege-promotion via "epc":
++	 * Map the gate page twice: once read-only to export the ELF headers
++	 * etc. and once execute-only page to enable privilege-promotion via
++	 * "epc":
+ 	 */
+ 	page = virt_to_page(ia64_imva(__start_gate_section));
+ 	put_kernel_page(page, GATE_ADDR, PAGE_READONLY);
+@@ -292,8 +298,7 @@
+ 	ia64_patch_gate();
+ }
+ 
+-void __devinit
+-ia64_mmu_init (void *my_cpu_data)
++void __devinit ia64_mmu_init(void *my_cpu_data)
+ {
+ 	unsigned long psr, pta, impl_va_bits;
+ 	extern void __devinit tlb_init (void);
+@@ -315,39 +320,43 @@
+ 	ia64_srlz_i();
+ 
+ 	/*
+-	 * Check if the virtually mapped linear page table (VMLPT) overlaps with a mapped
+-	 * address space.  The IA-64 architecture guarantees that at least 50 bits of
+-	 * virtual address space are implemented but if we pick a large enough page size
+-	 * (e.g., 64KB), the mapped address space is big enough that it will overlap with
+-	 * VMLPT.  I assume that once we run on machines big enough to warrant 64KB pages,
+-	 * IMPL_VA_MSB will be significantly bigger, so this is unlikely to become a
+-	 * problem in practice.  Alternatively, we could truncate the top of the mapped
+-	 * address space to not permit mappings that would overlap with the VMLPT.
++	 * Check if the virtually mapped linear page table (VMLPT) overlaps
++	 * with a mapped address space.  The IA-64 architecture guarantees that
++	 * at least 50 bits of virtual address space are implemented but if we
++	 * pick a large enough page size (e.g., 64KB), the mapped address space
++	 * is big enough that it will overlap with VMLPT.  I assume that once
++	 * we run on machines big enough to warrant 64KB pages, IMPL_VA_MSB
++	 * will be significantly bigger, so this is unlikely to become a
++	 * problem in practice.  Alternatively, we could truncate the top of
++	 * the mapped address space to not permit mappings that would overlap
++	 * with the VMLPT.
+ 	 * --davidm 00/12/06
+ 	 */
+-#	define pte_bits			3
+-#	define mapped_space_bits	(3*(PAGE_SHIFT - pte_bits) + PAGE_SHIFT)
++#	define pte_bits          3
++#	define mapped_space_bits (3*(PAGE_SHIFT - pte_bits) + PAGE_SHIFT)
+ 	/*
+-	 * The virtual page table has to cover the entire implemented address space within
+-	 * a region even though not all of this space may be mappable.  The reason for
+-	 * this is that the Access bit and Dirty bit fault handlers perform
+-	 * non-speculative accesses to the virtual page table, so the address range of the
+-	 * virtual page table itself needs to be covered by virtual page table.
++	 * The virtual page table has to cover the entire implemented address
++	 * space within a region even though not all of this space may be
++	 * mappable.  The reason for this is that the Access bit and Dirty bit
++	 * fault handlers perform non-speculative accesses to the virtual page
++	 * table, so the address range of the virtual page table itself needs
++	 * to be covered by virtual page table.
+ 	 */
+-#	define vmlpt_bits		(impl_va_bits - PAGE_SHIFT + pte_bits)
+-#	define POW2(n)			(1ULL << (n))
++#	define vmlpt_bits (impl_va_bits - PAGE_SHIFT + pte_bits)
++#	define POW2(n)    (1ULL << (n))
+ 
+ 	impl_va_bits = ffz(~(local_cpu_data->unimpl_va_mask | (7UL << 61)));
+ 
+ 	if (impl_va_bits < 51 || impl_va_bits > 61)
+-		panic("CPU has bogus IMPL_VA_MSB value of %lu!\n", impl_va_bits - 1);
++		panic("CPU has bogus IMPL_VA_MSB value of %lu!\n",
++		      impl_va_bits - 1);
+ 
+ 	/* place the VMLPT at the end of each page-table mapped region: */
+ 	pta = POW2(61) - POW2(vmlpt_bits);
+ 
+ 	if (POW2(mapped_space_bits) >= pta)
+-		panic("mm/init: overlap between virtually mapped linear page table and "
+-		      "mapped kernel space!");
++		panic("mm/init: overlap between virtually mapped linear page "
++		      "table and mapped kernel space!");
+ 	/*
+ 	 * Set the (virtually mapped linear) page table address.  Bit
+ 	 * 8 selects between the short and long format, bits 2-7 the
+@@ -364,14 +373,15 @@
+ #endif
+ 
+ 	/*
+-	 * The MCA info structure was allocated earlier and a physical address pointer
+-	 * saved in k3.  Move that pointer into the cpuinfo structure and save
+-	 * the physical address of the cpuinfo structure in k3.
++	 * The MCA info structure was allocated earlier and a physical address
++	 * pointer saved in k3.  Move that pointer into the cpuinfo structure
++	 * and save the physical address of the cpuinfo structure in k3.
+ 	 */
+ 	cpuinfo = (struct cpuinfo_ia64 *)my_cpu_data;
+ 	cpuinfo->ia64_pa_mca_data = (__u64 *)ia64_get_kr(IA64_KR_PA_CPU_INFO);
+ 
+-	cpuinfo->percpu_paddr = pte_val(mk_pte_phys(__pa(my_cpu_data), PAGE_KERNEL));
++	cpuinfo->percpu_paddr = pte_val(mk_pte_phys(__pa(my_cpu_data),
++						    PAGE_KERNEL));
+ 	ia64_set_kr(IA64_KR_PA_CPU_INFO, __pa(my_cpu_data));
+ 
+ 	/*
+@@ -381,9 +391,7 @@
+ }
+ 
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+-
+-int
+-create_mem_map_page_table (u64 start, u64 end, void *arg)
++int create_mem_map_page_table(u64 start, u64 end, void *arg)
+ {
+ 	unsigned long address, start_page, end_page;
+ 	struct page *map_start, *map_end;
+@@ -403,20 +411,24 @@
+ 	for (address = start_page; address < end_page; address += PAGE_SIZE) {
+ 		pgd = pgd_offset_k(address);
+ 		if (pgd_none(*pgd))
+-			pgd_populate(&init_mm, pgd, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
++			pgd_populate(&init_mm, pgd,
++				     alloc_bootmem_pages_node(NODE_DATA(node),
++							      PAGE_SIZE));
+ 		pud = pud_offset(pgd, address);
+ 
+ 		if (pud_none(*pud))
+-			pud_populate(&init_mm, pud, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
++			pud_populate(&init_mm, pud,
++				     alloc_bootmem_pages_node(NODE_DATA(node),
++							      PAGE_SIZE));
+ 		pmd = pmd_offset(pud, address);
+ 
+ 		if (pmd_none(*pmd))
+ 			pmd_populate_kernel(&init_mm, pmd, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
++
+ 		pte = pte_offset_kernel(pmd, address);
+ 
+ 		if (pte_none(*pte))
+-			set_pte(pte, pfn_pte(__pa(alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE)) >> PAGE_SHIFT,
+-					     PAGE_KERNEL));
++			set_pte(pte, pfn_pte(__pa(alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE)) >> PAGE_SHIFT, PAGE_KERNEL));
+ 	}
  	return 0;
  }
-Index: linux-2.6.10/arch/mips/mm/pg-r4k.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/mips/mm/pg-r4k.c	2004-12=
--24 13:34:49.000000000 -0800
-+++ linux-2.6.10/arch/mips/mm/pg-r4k.c	2005-01-05 10:09:51.000000000 -0800
-@@ -39,9 +39,9 @@
-
- static unsigned int clear_page_array[0x130 / 4];
-
--void clear_page(void * page) __attribute__((alias("clear_page_array")));
-+void _clear_page(void * page) __attribute__((alias("clear_page_array")));
-
--EXPORT_SYMBOL(clear_page);
-+EXPORT_SYMBOL(_clear_page);
-
- /*
-  * Maximum sizes:
-Index: linux-2.6.10/arch/m32r/kernel/m32r_ksyms.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/m32r/kernel/m32r_ksyms.c=
-	2004-12-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/arch/m32r/kernel/m32r_ksyms.c	2005-01-05 10:09:51.00000000=
-0 -0800
-@@ -102,7 +102,7 @@
- EXPORT_SYMBOL(memcmp);
- EXPORT_SYMBOL(memscan);
- EXPORT_SYMBOL(copy_page);
--EXPORT_SYMBOL(clear_page);
-+EXPORT_SYMBOL(_clear_page);
-
- EXPORT_SYMBOL(strcat);
- EXPORT_SYMBOL(strchr);
-Index: linux-2.6.10/include/asm-arm26/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-arm26/page.h	2004=
--12-24 13:35:22.000000000 -0800
-+++ linux-2.6.10/include/asm-arm26/page.h	2005-01-05 10:09:51.000000000 -08=
-00
-@@ -25,7 +25,7 @@
- 		preempt_enable();			\
- 	} while (0)
-
--#define clear_page(page)	memzero((void *)(page), PAGE_SIZE)
-+#define clear_page(page, order)	memzero((void *)(page), PAGE_SIZE << (orde=
-r))
- #define copy_page(to, from)  __copy_user_page(to, from, 0);
-
- #undef STRICT_MM_TYPECHECKS
-Index: linux-2.6.10/include/asm-sparc64/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sparc64/page.h	20=
-04-12-24 13:34:32.000000000 -0800
-+++ linux-2.6.10/include/asm-sparc64/page.h	2005-01-05 10:09:51.000000000 -=
-0800
-@@ -14,8 +14,8 @@
-
- #ifndef __ASSEMBLY__
-
--extern void _clear_page(void *page);
--#define clear_page(X)	_clear_page((void *)(X))
-+extern void _clear_page(void *page, unsigned long order);
-+#define clear_page(X,Y)	_clear_page((void *)(X),(Y))
- struct page;
- extern void clear_user_page(void *addr, unsigned long vaddr, struct page *=
-page);
- #define copy_page(X,Y)	memcpy((void *)(X), (void *)(Y), PAGE_SIZE)
-Index: linux-2.6.10/arch/sparc64/lib/clear_page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sparc64/lib/clear_page.S=
-	2004-12-24 13:35:23.000000000 -0800
-+++ linux-2.6.10/arch/sparc64/lib/clear_page.S	2005-01-05 10:09:51.00000000=
-0 -0800
-@@ -28,9 +28,12 @@
- 	.text
-
- 	.globl		_clear_page
--_clear_page:		/* %o0=DEst */
-+_clear_page:		/* %o0=DEst, %o1=3Dorder */
-+	sethi		%hi(PAGE_SIZE/64), %o2
-+	clr		%o4
-+	or		%o2, %lo(PAGE_SIZE/64), %o2
- 	ba,pt		%xcc, clear_page_common
--	 clr		%o4
-+	 sllx		%o2, %o1, %o1
-
- 	/* This thing is pretty important, it shows up
- 	 * on the profiles via do_anonymous_page().
-@@ -69,16 +72,16 @@
- 	flush		%g6
- 	wrpr		%o4, 0x0, %pstate
-
-+	sethi		%hi(PAGE_SIZE/64), %o1
- 	mov		1, %o4
-+	or		%o1, %lo(PAGE_SIZE/64), %o1
-
- clear_page_common:
- 	VISEntryHalf
- 	membar		#StoreLoad | #StoreStore | #LoadStore
- 	fzero		%f0
--	sethi		%hi(PAGE_SIZE/64), %o1
- 	mov		%o0, %g1		! remember vaddr for tlbflush
- 	fzero		%f2
--	or		%o1, %lo(PAGE_SIZE/64), %o1
- 	faddd		%f0, %f2, %f4
- 	fmuld		%f0, %f2, %f6
- 	faddd		%f0, %f2, %f8
-Index: linux-2.6.10/drivers/net/tc35815.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/drivers/net/tc35815.c	2005-01=
--05 09:43:48.000000000 -0800
-+++ linux-2.6.10/drivers/net/tc35815.c	2005-01-05 10:09:51.000000000 -0800
-@@ -657,7 +657,7 @@
- 		dma_cache_wback_inv((unsigned long)lp->fd_buf, PAGE_SIZE * FD_PAGE_NUM);
- #endif
- 	} else {
--		clear_page(lp->fd_buf);
-+		clear_page(lp->fd_buf, 0);
- #ifdef __mips__
- 		dma_cache_wback_inv((unsigned long)lp->fd_buf, PAGE_SIZE * FD_PAGE_NUM);
- #endif
-Index: linux-2.6.10/mm/page_alloc.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/mm/page_alloc.c	2005-01-05 09=
-:32:52.000000000 -0800
-+++ linux-2.6.10/mm/page_alloc.c	2005-01-05 10:09:51.000000000 -0800
-@@ -550,10 +550,14 @@
-  * or two.
-  */
- static inline void prep_zero_page(struct page *page, int order) {
--	int i;
-
--	for(i =3D 0; i < 1 << order; i++)
--		clear_highpage(page + i);
-+	if (PageHighMem(page)) {
-+		int i;
-+
-+		for(i =3D 0; i < 1 << order; i++)
-+			clear_highpage(page + i);
-+	} else
-+		clear_page(page_address(page), order);
- }
-
- static struct page *
-Index: linux-2.6.10/include/linux/highmem.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/linux/highmem.h	2005-=
-01-05 10:09:44.000000000 -0800
-+++ linux-2.6.10/include/linux/highmem.h	2005-01-05 10:10:08.000000000 -0800
-@@ -45,7 +45,7 @@
- static inline void clear_highpage(struct page *page)
+@@ -428,8 +440,7 @@
+ 	unsigned long zone;
+ };
+ 
+-static int
+-virtual_memmap_init (u64 start, u64 end, void *arg)
++static int virtual_memmap_init(u64 start, u64 end, void *arg)
  {
- 	void *kaddr =3D kmap_atomic(page, KM_USER0);
--	clear_page(kaddr);
-+	clear_page(kaddr, 0);
- 	kunmap_atomic(kaddr, KM_USER0);
+ 	struct memmap_init_callback_data *args;
+ 	struct page *map_start, *map_end;
+@@ -445,23 +456,25 @@
+ 		map_end = args->end;
+ 
+ 	/*
+-	 * We have to initialize "out of bounds" struct page elements that fit completely
+-	 * on the same pages that were allocated for the "in bounds" elements because they
+-	 * may be referenced later (and found to be "reserved").
+-	 */
+-	map_start -= ((unsigned long) map_start & (PAGE_SIZE - 1)) / sizeof(struct page);
+-	map_end += ((PAGE_ALIGN((unsigned long) map_end) - (unsigned long) map_end)
+-		    / sizeof(struct page));
++	 * We have to initialize "out of bounds" struct page elements that fit
++	 * completely on the same pages that were allocated for the "in bounds"
++	 * elements because they may be referenced later (and found to be
++	 * "reserved").
++	 */
++	map_start -= ((unsigned long) map_start & (PAGE_SIZE - 1)) /
++		sizeof(struct page);
++	map_end += (PAGE_ALIGN((unsigned long) map_end) -
++		    (unsigned long) map_end) / sizeof(struct page);
+ 
+ 	if (map_start < map_end)
+ 		memmap_init_zone((unsigned long)(map_end - map_start),
+-				 args->nid, args->zone, page_to_pfn(map_start));
++				 args->nid, args->zone,
++				 page_to_pfn(map_start));
+ 	return 0;
  }
+ 
+-void
+-memmap_init (unsigned long size, int nid, unsigned long zone,
+-	     unsigned long start_pfn)
++void memmap_init(unsigned long size, int nid, unsigned long zone,
++		 unsigned long start_pfn)
+ {
+ 	if (!vmem_map)
+ 		memmap_init_zone(size, nid, zone, start_pfn);
+@@ -479,20 +492,18 @@
+ 	}
+ }
+ 
+-int
+-ia64_pfn_valid (unsigned long pfn)
++int ia64_pfn_valid(unsigned long pfn)
+ {
+-	char byte;
+ 	struct page *pg = pfn_to_page(pfn);
++	char byte;
+ 
+-	return     (__get_user(byte, (char __user *) pg) == 0)
+-		&& ((((u64)pg & PAGE_MASK) == (((u64)(pg + 1) - 1) & PAGE_MASK))
+-			|| (__get_user(byte, (char __user *) (pg + 1) - 1) == 0));
++	return (__get_user(byte, (char __user *) pg) == 0) &&
++		((((u64)pg & PAGE_MASK) == (((u64)(pg + 1) - 1) & PAGE_MASK))
++		 || (__get_user(byte, (char __user *) (pg + 1) - 1) == 0));
+ }
+ EXPORT_SYMBOL(ia64_pfn_valid);
+ 
+-int
+-find_largest_hole (u64 start, u64 end, void *arg)
++int find_largest_hole(u64 start, u64 end, void *arg)
+ {
+ 	u64 *max_gap = arg;
+ 
+@@ -507,8 +518,7 @@
+ }
+ #endif /* CONFIG_VIRTUAL_MEM_MAP */
+ 
+-static int
+-count_reserved_pages (u64 start, u64 end, void *arg)
++static int count_reserved_pages(u64 start, u64 end, void *arg)
+ {
+ 	unsigned long num_reserved = 0;
+ 	unsigned long *count = arg;
+@@ -521,17 +531,15 @@
+ }
+ 
+ /*
+- * Boot command-line option "nolwsys" can be used to disable the use of any light-weight
+- * system call handler.  When this option is in effect, all fsyscalls will end up bubbling
+- * down into the kernel and calling the normal (heavy-weight) syscall handler.  This is
+- * useful for performance testing, but conceivably could also come in handy for debugging
+- * purposes.
++ * Boot command-line option "nolwsys" can be used to disable the use of any
++ * light-weight system call handler.  When this option is in effect, all
++ * fsyscalls will end up bubbling down into the kernel and calling the normal
++ * (heavy-weight) syscall handler.  This is useful for performance testing, but
++ * conceivably could also come in handy for debugging purposes.
+  */
+-
+ static int nolwsys;
+ 
+-static int __init
+-nolwsys_setup (char *s)
++static int __init nolwsys_setup(char *s)
+ {
+ 	nolwsys = 1;
+ 	return 1;
+@@ -539,8 +547,7 @@
+ 
+ __setup("nolwsys", nolwsys_setup);
+ 
+-void
+-mem_init (void)
++void mem_init(void)
+ {
+ 	long reserved_pages, codesize, datasize, initsize;
+ 	unsigned long num_pgt_pages;
+@@ -550,9 +557,9 @@
+ 
+ #ifdef CONFIG_PCI
+ 	/*
+-	 * This needs to be called _after_ the command line has been parsed but _before_
+-	 * any drivers that may need the PCI DMA interface are initialized or bootmem has
+-	 * been freed.
++	 * This needs to be called _after_ the command line has been parsed but
++	 * _before_ any drivers that may need the PCI DMA interface are
++	 * initialized or bootmem has been freed.
+ 	 */
+ 	platform_dma_init();
+ #endif
+@@ -566,7 +573,8 @@
+ 	high_memory = __va(max_low_pfn * PAGE_SIZE);
+ 
+ 	kclist_add(&kcore_mem, __va(0), max_low_pfn * PAGE_SIZE);
+-	kclist_add(&kcore_vmem, (void *)VMALLOC_START, VMALLOC_END-VMALLOC_START);
++	kclist_add(&kcore_vmem, (void *)VMALLOC_START,
++		   VMALLOC_END - VMALLOC_START);
+ 	kclist_add(&kcore_kernel, _stext, _end - _stext);
+ 
+ 	for_each_pgdat(pgdat)
+@@ -579,16 +587,24 @@
+ 	datasize =  (unsigned long) _edata - (unsigned long) _etext;
+ 	initsize =  (unsigned long) __init_end - (unsigned long) __init_begin;
+ 
+-	printk(KERN_INFO "Memory: %luk/%luk available (%luk code, %luk reserved, "
+-	       "%luk data, %luk init)\n", (unsigned long) nr_free_pages() << (PAGE_SHIFT - 10),
+-	       num_physpages << (PAGE_SHIFT - 10), codesize >> 10,
+-	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
+-
+-	/*
+-	 * Allow for enough (cached) page table pages so that we can map the entire memory
+-	 * at least once.  Each task also needs a couple of page tables pages, so add in a
+-	 * fudge factor for that (don't use "threads-max" here; that would be wrong!).
+-	 * Don't allow the cache to be more than 10% of total memory, though.
++	printk(KERN_INFO "Memory: %luk/%luk available "
++	       "(%luk code, "
++	       "%luk reserved, "
++	       "%luk data, "
++	       "%luk init)\n",
++	       (unsigned long) nr_free_pages() << (PAGE_SHIFT - 10),
++	       num_physpages << (PAGE_SHIFT - 10),
++	       codesize >> 10,
++	       reserved_pages << (PAGE_SHIFT - 10),
++	       datasize >> 10,
++	       initsize >> 10);
++
++	/*
++	 * Allow for enough (cached) page table pages so that we can map the
++	 * entire memory at least once.  Each task also needs a couple of page
++	 * tables pages, so add in a fudge factor for that (don't use
++	 * "threads-max" here; that would be wrong!). Don't allow the cache to
++	 * be more than 10% of total memory, though.
+ 	 */
+ #	define NUM_TASKS	500	/* typical number of tasks */
+ 	num_pgt_pages = nr_free_pages() / PTRS_PER_PGD + NUM_TASKS;
+@@ -598,8 +614,9 @@
+ 		pgt_cache_water[1] = num_pgt_pages;
+ 
+ 	/*
+-	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
+-	 * (heavy-weight) handler, but mark it by setting bit 0, so the fsyscall entry
++	 * For fsyscall entrpoints with no light-weight handler, use the
++	 * ordinary (heavy-weight) handler, but mark it by setting bit 0, so
++	 * the fsyscall entry
+ 	 * code can tell them apart.
+ 	 */
+ 	for (i = 0; i < NR_syscalls; ++i) {
 
-
+--Boundary-00=_vUd3BRaMfYn8IE/--
