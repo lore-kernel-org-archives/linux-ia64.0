@@ -1,38 +1,34 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Tue, 23 Mar 2004 16:47:48 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Tue, 23 Mar 2004 23:46:28 +0000
 Subject: Re: Symbios 53C8XX broken on ia64?
-Message-Id: <1080060468.2091.28.camel@patsy.fc.hp.com>
+Message-Id: <jeisgvxh2j.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je3c80ph2o.fsf@sykes.suse.de>
-In-Reply-To: <je3c80ph2o.fsf@sykes.suse.de>
+	<1080060468.2091.28.camel@patsy.fc.hp.com>
+In-Reply-To: <1080060468.2091.28.camel@patsy.fc.hp.com> (Alex Williamson's
+ message of "Tue, 23 Mar 2004 09:47:48 -0700")
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Andreas Schwab <schwab@suse.de>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Alex Williamson <alex.williamson@hp.com>
 Cc: linux-ia64 <linux-ia64@vger.kernel.org>, linux-scsi@vger.kernel.org
 
+Alex Williamson <alex.williamson@hp.com> writes:
 
-   Seems to work just fine on an rx2600 w/ latest bk plus this patch
-that was being tossed around yesterday:
+>    Seems to work just fine on an rx2600 w/ latest bk plus this patch
+> that was being tossed around yesterday:
+>
+> http://marc.theaimsgroup.com/?l=3Dlinux-ia64&m=107999504909154&w=3D2
+>
+> I'm building it statically in my case.
 
-http://marc.theaimsgroup.com/?l=linux-ia64&m7999504909154&w=2
+I can't confirm, still fails for me.  I see sym2_init called, but never
+sym2_probe.  This is with an Everest (rx5670).
 
-I'm building it statically in my case.
+Andreas.
 
-	Alex
-
-On Mon, 2004-03-22 at 17:01, Andreas Schwab wrote:
-> Has anyone been able to get the sym53c8xx_2 driver in 2.6.5-rc2 working on
-> HP zx1?  On the machines I tried it does not find any disks anymore.  This
-> has been working fine with 2.6.3.
-> 
-> CONFIG_SCSI_SYM53C8XX_2=m
-> CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE=1
-> CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS
-> CONFIG_SCSI_SYM53C8XX_MAX_TAGSd
-> # CONFIG_SCSI_SYM53C8XX_IOMAPPED is not set
-> 
-> Andreas.
--- 
-Alex Williamson                             HP Linux & Open Source Lab
-
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
