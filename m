@@ -1,38 +1,51 @@
 From: Brent Casavant <bcasavan@sgi.com>
-Date: Tue, 14 Dec 2004 19:30:20 +0000
+Date: Tue, 14 Dec 2004 19:48:49 +0000
 Subject: Re: [PATCH 0/3] NUMA boot hash allocation interleaving
-Message-Id: <Pine.SGI.4.61.0412141319100.22462@kzerza.americas.sgi.com>
+Message-Id: <Pine.SGI.4.61.0412141333500.22462@kzerza.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.SGI.4.61.0412141140030.22462@kzerza.americas.sgi.com>
- <9250000.1103050790@flay>
-In-Reply-To: <9250000.1103050790@flay>
+ <9250000.1103050790@flay> <20041214191348.GA27225@wotan.suse.de>
+In-Reply-To: <20041214191348.GA27225@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Martin J. Bligh" <mbligh@aracnet.com>
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, ak@suse.de
+To: Andi Kleen <ak@suse.de>
+Cc: "Martin J. Bligh" <mbligh@aracnet.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, Erik Jacobson <erikj@sgi.com>
 
-On Tue, 14 Dec 2004, Martin J. Bligh wrote:
+On Tue, 14 Dec 2004, Andi Kleen wrote:
 
-> Yup, makes a lot of sense to me to stripe these, for the caches that
-> are global (ie inodes, dentries, etc).  Only question I'd have is 
-> didn't Manfred or someone (Andi?) do this before? Or did that never
-> get accepted? I know we talked about it a while back.
+> I originally was a bit worried about the TLB usage, but it doesn't
+> seem to be a too big issue (hopefully the benchmarks weren't too
+> micro though)
 
-Are you thinking of the 2006-06-05 patch from Andi about using
-the NUMA policy API for boot time allocation?
+I had the same thought about TLB usage.  I would have liked a way
+to map larger sections of memory with each TLB.  For example,
+if we were going to allocate 128 pages on a 32 node system, it
+would be nice to do 32 4 page allocations rather than 128 1 page
+allocations.  But I didn't see any suitable infrastructure in
+vmalloc or elsewhere to make that easily possible, so I didn't
+pursue it.
 
-If so, that patch was accepted, but affects neither allocations
-performed via alloc_bootmem nor __get_free_pages, which are
-currently used to allocate these hashes.  vmalloc, however, does
-behave as desired with Andi's patch.
+As far as benchmarks -- I was happy just to find a suitable TCP
+benchmark, though I share some of the same concern.  Other than
+the netperf TCP_CC and TCP_CRR I couldn't find anything that seemed
+like it might be a good test and could be set up with the resources
+at hand (i.e. I don't have a large cluster to pound on a web server
+benchmark).  That said, if someone does find an unresolvable problem
+with the TCP portion (3/3) of the patch, I hope 1/3 and 2/3 are still
+worthy of consideration.
 
-Which is why vmalloc was chosen to solve this problem.  There were
-other more complicated possible solutions (e.g. multi-level hash tables,
-with the bottommost/largest level being allocated across all nodes),
-however those would have been so intrusive as to be unpalatable.
-So the vmalloc solution seemed reasonable, as long as it is used
-only on architectures with plentiful vmalloc space.
+> I talked about it, but never implemented it. I am not aware of any
+> other implementation of this before Brent's.
+
+To give credit where it's due, Erik Jacobson, also at SGI, proposed
+pretty much the same idea on 2003-11-12 in "available memory imbalance
+on large NUMA systems".  Andrew responded to that patch in a generally
+favorable manner, though asked whether we needed closer scrutinization
+of whether hashes were being sized appropriately on large systems
+(something that could still use further examination, BTW, particularly
+for the TCP ehash).  I used Erik's patch to identify the particular
+hashes I needed to tackle in this set.
 
 Thanks,
 Brent
