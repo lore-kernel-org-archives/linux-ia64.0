@@ -1,7 +1,7 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 15 Dec 2004 21:58:14 +0000
+Date: Wed, 15 Dec 2004 22:00:29 +0000
 Subject: Re: [very very drafty] prezeroing to increase the page fault rate
-Message-Id: <Pine.LNX.4.58.0412151353370.13325@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.58.0412151358170.13325@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0412141832350.6975@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0412141832350.6975@schroedinger.engr.sgi.com>
@@ -12,38 +12,43 @@ To: linux-ia64@vger.kernel.org
 
 On Wed, 15 Dec 2004, Robin Holt wrote:
 
-> > I have some spot results here that indicate that a single thread may
-> > do up to 500000 faults a second with this patch alone.
+> > +static inline void check_bzero_complete(void)
+> > +{
+> > +	unsigned long irq_flags;
+> > +	struct bteinfo_s *bte;
+> > +
+> > +	/* CPU 0 (per node) uses bte0 , CPU 1 uses bte1 */
+> > +	bte = bte_if_on_node(get_nasid(), cpuid_to_subnode(smp_processor_id()));
+> > +
+> > +	if (!bte->zp)
+> > +		return;
+> > +	local_irq_save(irq_flags);
+> > +	if (!spin_trylock(&bte->spinlock)) {
+> > +		local_irq_restore(irq_flags);
+> > +		return;
+> > +	}
+> > +	if (*bte->most_rcnt_na = BTE_WORD_BUSY ||
+> > +            (BTE_LNSTAT_LOAD(bte) & BTE_ACTIVE)) {
+> > +                spin_unlock_irqrestore(&bte->spinlock, irq_flags);
+> > +		return;
+> > +	}
+> > +	bte_bzero_complete(bte);
+> > +	spin_unlock_irqrestore(&bte->spinlock, irq_flags);
+> > +}
+> > +
 >
-> This sounds impressive, but from my limited understanding of the patches,
-> I think it is a misleading figure.  This would require the system to
-> sit idle for a period of time between large jobs to ensure that
-> enough pages are free so all allocations could be satisfied from the
-> pre-zeroed section.
+> Why not have a seperate notification line for zereoing operations.
+> Add a seperate bte flag in that says "use the zereoing notification
+> line" and have it return the address of the line being used.
+>
+> You start then calls bte_copy with the flags and you get back
+> the notification line you are concerned with.  Alternatively,
+> you could put the notification line into a structure owned
+> by the bte_start_zero() private structures and pass the address
+> in.  This allows the bte_copy code to operation as is.  It will
+> also simplify the bte_start_bzero significantly and make it
+> very easy to keep things consistent.  I also makes understanding
+> the bte_copy code easier since there is no back-door interaction
+> with any other functions.
 
-There is enough time for all pages to be zeroed on bootup so there is
-a large repository of zeroed pages. Of course if the system uses up that
-reservoir and the zeroing is not effectively keeping up then this
-will degenerates into the old behavior.
-
-> My understanding (very limited as I only spent 15 minutes looking)
-> is that only idle cpus are actually queueing pages for zereoing.
-> Is this correct or am I off the mark?
-
-Idle cpus will zero pages and the bte will be used if pages are coalesced
-by the buddy allocator above a certain size.
-
-> If that is so, I think we need to rethink this some.  I believe the
-> largest benefit would come if you used timers to check for a previous
-> page zero operation completing and then queueing up the next.  This
-> could be done for all nodes that are owned by a parent node.  That would
-> allow a system with many mbricks (and therefore many btes) with very
-> few cbricks to effeciently use all the btes for zeroeoing.  Is that
-> the intent at any point in this patch life?  Otherwise you end up
-> with speedups only when you have idle cpus for zereoing.
-
-Having access to more than one bte per cpu is certainly an interesting
-idea. Any suggestions on how to discover these?
-
-(will follow up in next post on your code comments).
-
+Good idea. Will do that in the next rev
