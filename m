@@ -1,7 +1,7 @@
-From: "Nakajima, Jun" <jun.nakajima@intel.com>
-Date: Wed, 02 May 2001 20:26:11 +0000
+From: "Lee, Jung-Ik" <jung-ik.lee@intel.com>
+Date: Wed, 02 May 2001 21:02:28 +0000
 Subject: RE: [Linux-ia64] translating ACPI _HID & _UID to PCI bus number
-Message-Id: <marc-linux-ia64-105590693005518@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005521@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005516@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005516@msgid-missing>
@@ -9,6 +9,37 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Even with ACPI namespace, {_HID, _UID} pair does not tell the path of a
+device in a given topology, and can not produce a PCI bus number(vice
+versa).
+_ADR of PCI device does not provide bus number either. It's just dev +func.
+ 
+So to get PCI bus number of a given PCI bus:
+1. you can use _BBN of the device, but this works only on root pci bridges.
+I personally want to see all PCI bridges have _BBN method for OSPM's
+convenience, but ACPI spec does not require it for non-roots.
+2. you can enumerate pci bus from root pci bridges, following PCI std df
+enum scheme, and access pci config space of pci bridges to get BIOS set bus
+numbers. (But note that bus numbers set by BIOS do not necessarily match to
+what OSes assign. For reasons OSes can assign bus numbers different from
+BIOS's. So, PCI numbers from pci config space at EFI boot manager time, it's
+not always the same as OSes enumerates) Afaik, linux does not alter bus
+numbers set by BIOS yet, but someday...)
+
+Thus, there seems to be no perfect solutions here... to get pci bus number
+from acpi name space alone.
+
+J.I.
+
+
+-----Original Message-----
+From: Nakajima, Jun [mailto:jun.nakajima@intel.com]
+Sent: Wednesday, May 02, 2001 1:26 PM
+To: 'Matt_Domsch@Dell.com'; acpi@phobos.fachschaften.tu-muenchen.de
+Cc: linux-ia64@linuxia64.org
+Subject: RE: [Linux-ia64] translating ACPI _HID & _UID to PCI bus number
+
 
 Not all PCI devices appear in the ACPI namespace. If a PCI device shows up
 in the ACPI namespace, it should have _ADR, which basically is its PCI bus,
@@ -41,5 +72,11 @@ Sr. Software Engineer
 Dell Linux Systems Group
 Linux OS Development
 www.dell.com/linux
+
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
 
