@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 20 Mar 2003 19:57:01 +0000
+From: Rich Altmaier <richa@engr.sgi.com>
+Date: Thu, 20 Mar 2003 23:55:02 +0000
 Subject: Re: [Linux-ia64] provide /proc/sal/itc_drift through AUX?
-Message-Id: <marc-linux-ia64-105590723705278@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705280@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705273@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705273@msgid-missing>
@@ -10,28 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On 19 Mar 2003 21:06:20 -0500, Jes Sorensen <jes@wildopensource.com> said:
+Jes, regarding your query on real life ITC drifts, I have this input.
+Typical crystals used for the CPU clock today have an accuracy
+of 250ppm.  That is 250 parts per million.  Which means for each
+million ticks, it may actually be 250 realtime units too fast or too slow.
+So in one second's worth of 1GHz ticks, it may be wrong versus
+realtime by 250 microseconds.  
+(not to belabor the point, but then a 1 millisecond error accumulates
+each 4 seconds).
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+In case you ask "how can this be, my digital watch is better than that".
+Your watch is better designed, plus it has more temperature stability
+on your arm.  Plus nobody is willing to buy expensive crystals
+for the computer...
 
-  David> Why do you need to export it if you just use a light-weight
-  David> gettimeofday()?  The light-weight syscall can readily access
-  David> the ITC-drift info via kernel memory.
+FYI, Rich
+Rich Altmaier
+SGI
 
-  Jes> Let me get sure I understand you right here, you are suggesting
-  Jes> I add a new syscall to provide the info currently found in
-  Jes> /proc/sal/itc_drift? Right now it's just returning true/false
-  Jes> (1/0) as to whether the ITC drifts or not.
 
-No, not at all.  I was simply suggesting to always use gettimeofday().
-The light-weight implementation of gettimeofday() runs in ~130 cycles,
-which isn't much slower than what you could do in user-level.
-
-  Jes> what are you referring to by HPET?
-
-HPET = High Precision Event Timer.  See:
-
-  http://www.intel.com/labs/platcomp/hpet/hpetspec.htm
-
-	--david
+Jes Sorensen wrote:
+...
+> 
+> I think this would work if it wasn't for the different clock frequency
+> problem. What real life ITC drifts are like I must admit I have no
+> idea.
+>
 
