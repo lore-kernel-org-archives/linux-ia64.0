@@ -1,7 +1,7 @@
-From: Younggyun Koh <young@cc.gatech.edu>
-Date: Wed, 26 May 2004 02:15:24 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 26 May 2004 03:23:31 +0000
 Subject: Re: Installing kernel 2.6.6 on hp zx6000 (fwd)
-Message-Id: <Pine.GSO.4.58.0405252211510.2096@tokyo.cc.gatech.edu>
+Message-Id: <20040526032331.GK7616@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.GSO.4.58.0405251608490.28567@tokyo.cc.gatech.edu>
 In-Reply-To: <Pine.GSO.4.58.0405251608490.28567@tokyo.cc.gatech.edu>
@@ -10,32 +10,34 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Sure you're not out of disc space?  This has been the cause of it before
-> when I've seen this error message.
+On Tue, May 25, 2004 at 04:09:19PM -0400, Younggyun Koh wrote:
+> i'm trying to run linux kernel 2.6.6 on hp itanium2 machine - zx6000,
+> which is running Redhat advanced server 2.1AW...
+> and i got some questions..
+> 
+> 1. has anyone succeeded with the same condition?
 
-i have 310M free space on that disk, i think it should be okay...
+HP formally only tests the original kernels delivered with the OS.
+You should just try it if you no longer need formal support from HP.
 
-			-Younggyun Koh (young@cc.gatech.edu)
+Nearly all of the folks I know doing 2.6 linux kernel developement are
+either using RHEL 3.0, a future release of SLES, or (most likely) Debian.
 
-On Tue, 25 May 2004, Matthew Wilcox wrote:
+> 2. nfs-utils currently installed is version 0.3.3. the minimum requirement
+> for 2.6.6 is 1.0.5, but i was told from the system management guy that
+> installing 1.0.5 might cause serious problems... is it true?
 
-> On Tue, May 25, 2004 at 04:09:19PM -0400, Younggyun Koh wrote:
-> >   LD      .tmp_vmlinux1
-> > /opt/gcc-3.3.3/usr/local/bin/ld: final link failed: File truncated
-> > make: *** [.tmp_vmlinux1] Error 1
->
-> Sure you're not out of disc space?  This has been the cause of it before
-> when I've seen this error message.
->
-> --
-> "Next the statesmen will invent cheap lies, putting the blame upon
-> the nation that is attacked, and every man will be glad of those
-> conscience-soothing falsities, and will diligently study them, and refuse
-> to examine any refutations of them; and thus he will by and by convince
-> himself that the war is just, and will thank God for the better sleep
-> he enjoys after this process of grotesque self-deception." -- Mark Twain
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+Can you post details?
+
+Sorry - since I run debian "testing" release, I'm not exposed to this kind
+of problems. I expect the RHEL update service would avoid them too.
+But one wouldn't get a 2.6 kernel yet with that either.
+
+> 3. i got the link error when i build the kernel
+> 
+> bash-2.05$ make CROSS_COMPILE=/opt/gcc-3.3.3/usr/local/bin/
+
+Can you add "V=1" parameter so we can see the commands?
+
+thanks,
+grant
