@@ -1,44 +1,67 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Wed, 17 Oct 2001 13:25:02 +0000
-Subject: [Linux-ia64] console_loglevel is broken on ia64
-Message-Id: <marc-linux-ia64-105590698805357@msgid-missing>
+From: Erich Focht <focht@ess.nec.de>
+Date: Mon, 01 Oct 2001 17:26:15 +0000
+Subject: [Linux-ia64] deadlock in crashed multithreaded job
+Message-Id: <marc-linux-ia64-105590698805280@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-kernel/printk.c has this abomination.
+During the testing of the FFTW library (www.fftw.org) in multithreaded
+mode I am regularly getting strange lock-ups on Itanium LION (4CPU)
+and NEC AzusA (16CPU) systems. Anyway, I don't think this is IA64
+specific...
 
-/* Keep together for sysctl support */
-int console_loglevel = DEFAULT_CONSOLE_LOGLEVEL;
-int default_message_loglevel = DEFAULT_MESSAGE_LOGLEVEL;
-int minimum_console_loglevel = MINIMUM_CONSOLE_LOGLEVEL;
-int default_console_loglevel = DEFAULT_CONSOLE_LOGLEVEL;
+The symptoms: running the tests (make check) sometimes ends up with
+hanging processes. Reading from some of the /proc/pid/* files also
+lead to hangs (top & ps just don't return). The processes cannot be
+killed either.
 
-sysctl assumes that the 4 variables occupy contiguous storage.  They
-don't on ia64, console_loglevel is separate from the other variables.
+As far as I understand, the program crashes while one of the threads
+(#1) tries to get a write lock on mm->mmap_sem. Another thread (#2)
+starts dumping core and gets a read lock in the mean time (before
+thread #1). The write lock request gets queued and a subsequent
+read lock request by thread #2 happening somewhere in the call tree of
+coredump (in access_process_vm) cannot be satisfied. The two threads
+wait forever and attempts to access their mm structure end up in the
+same deadlock.
 
-  echo 6 4 1 7 > /proc/sys/kernel/printk
-  
-on ia64 overwrites console_loglevel and the next 3 integers, whatever
-they happen to be.  On 2.4.12 it corrupts console_sem, other ia64
-kernels will corrupt different data.
+The tracebacks obtained by kdb vary from case to case a bit but I
+basically see:
 
-Does anybody fancy a small project to clean up these variables?  They
-need to become an integer array (say console_printk) containing 4
-elements, which is what sysctl assumes.  All references to these fields
-have to be changed to refer to the corresponding array element.  That
-should be as simple as
+#1 : schedule <- __down_write <- sys_mmap <- ia64_ret_from_syscall
 
-  #define console_loglevel (console_printk[0])
-  
-in kernel.h, as long as no other files declare console_loglevel or the
-other variables.  Alas at least two other files declare console_loglevel,
-they need to be fixed to use the common declaration.  I have not
-checked the other console_xxx variables for extra declarations.
+#2: schedule <- __down_read <- access_process_vm <- ia64_sync_user_rbs
+    <- do_copy_regs <- unw_init_running <- load_script <- do_coredump
+    <- ia64_do_signal <- handle_signal_delivery <- ia64_leave_kernel
 
-  arch/parisc/kernel/traps.c:   extern int console_loglevel;
-  arch/i386/mm/fault.c:extern int console_loglevel;
+others... : either already gone or somewhere in do_exit or
+    sys_rt_sigsuspend, unimportant anyway...
+
+
+I'm not really curious to debug the FFTW or pthreads libraries but
+don't think that user program should lead to such deadlocks in the
+kernel. So maybe one can fix this problem in the kernel...
+
+I guess the problem is the nesting of critical sections, in this case
+a critical section is defined in fs/exec.c:do_coredump and in
+kernel/ptrace.c:access_process_vm. Getting rid of this kind of nesting
+is quite tedious, so maybe one should deal with the nested critical
+sections. A solution would be: The read lock request (down_read)
+should be immediately granted if the current thread already owns the
+lock. So maybe each task should remember the locks it owns, maybe in a
+list accessible through the task structure.
+
+I'm curious about your oppinions. Maybe there is already a way to deal
+with this kind of problem?
+
+Best regards,
+Erich
+
+---
+Erich Focht                                    <efocht@ess.nec.de>
+NEC European Supercomputer Systems, European HPC Technology Center
+
 
 
