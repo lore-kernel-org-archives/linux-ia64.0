@@ -1,57 +1,108 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Tue, 06 Apr 2004 16:15:48 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 07 Apr 2004 02:08:43 +0000
 Subject: Re: [RFC] readX_check() - Interface for PCI-X error recovery
-Message-Id: <200404060915.48292.jbarnes@sgi.com>
+Message-Id: <20040407020843.GE10560@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com> <20040406115145.GA23258@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040406115145.GA23258@parcelfarce.linux.theplanet.co.uk>
+References: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
+In-Reply-To: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: Matthew Wilcox <willy@debian.org>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux IA64 Mailing List <linux-ia64@vger.kernel.org>, Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
+To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: Linux Kernel mailing list <linux-kernel@vger.kernel.org>, Linux IA64 Mailing List <linux-ia64@vger.kernel.org>, Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
 
-> >     readX_check(dev,vaddr)
-> > 	Read a register of the device mapped to vaddr, and check errors
-> > 	if possible(This is depending on its architecture. In the case of
-> > 	ia64, we can generate a MCA from an error by simple operation to
-> > 	test the read data.)
-> > 	If any error happen on the recoverable region, set the error flag.
+On Tue, Apr 06, 2004 at 08:04:49PM +0900, Hidetoshi Seto wrote:
+...
+> - Resources newly required:
+> 
+>     on struct device:
+> 	error flag
+> 	list of recoverable physical address regions
+
+I think willy already pointed out the struct pci_dev->resources[] should point 
+to MMIO adress ranges the PCI(-X) device "owns".
+
+> 	pointer to host bridge of the device
+
+ditto. I think willy meant walk pci_dev->bus->parent until bus->self
+is NULL normally should work.
+
+>     on per_cpu:
+> 	list of currently checking devices
+
+Why wouldn't this be per PCI host bus controller instead of per CPU?
+
+I'm thinking SMP - any CPU could access any MMIO region.
+How those MMIO addresses get routed depends on how PCI Host Bus
+controllers are programmed. Ie Bridges have to route MMIO transactions
+to children (PCI devices).
+
+> - Interfaces newly required:
+> 
+>     clear_pcix_errors(dev)
+> 	Clear the error flag of the dev, and start to check the device.
+> 	This also clears the status register of its host bridge.
+> 
+>     readX_check(dev,vaddr)
+> 	Read a register of the device mapped to vaddr, and check errors 
+> 	if possible(This is depending on its architecture. In the case of 
+> 	ia64, we can generate a MCA from an error by simple operation to 
+> 	test the read data.)
+> 	If any error happen on the recoverable region, set the error flag.
 >
-> I really don't think we want another readX variant.  Do we then also
-> add readX_check_relaxed()?  Can't we just pretend the MCA is asynchronous
-> on ia64?  I'm sure we'd get better performance.
+>     read_pcix_errors(dev)
+> 	Return whether here was an error or not referring the error flag in 
+> 	struct device and the status register of the host bridge, and stop 
+> 	checking of the device.
+> 
+>     register_pcix_region(dev,paddr,len)
+>     unregister_pcix_region(dev)
+> 	Register/Unregister a physical address region that the driver can 
+> 	recover. This function would be in the init/cleanup of the driver.
 
-Hmm.. I wonder if we could get away with not having a new readX interface by 
-registering each PCI resource either at driver init time or in arch code with 
-the MCA hander.  Then we could just make the read routines use the variable 
-that was just read to try to flush out the MCA (there may be better ways to 
-do this).  E.g.
+Could register/unregister functionality be part of the clear/read errors?
 
-arch_pci_scan()
-{
-	...
-	for_each_pci_resource(dev, res) {
-		check_region(res);
-	}
-	...
-}
+> 
+> 
+> - Flow
+> 
+>   xx_probe(dev, ...)
+>   {
+>     ..
+> 	register_pcix_region(dev,paddr,len);
+>     ..
+>   }
+> 
+>   xx_intr()
+>   {
+> 	spin_lock_irqsave();		/* disable interrupt & preemption */
+> 
+> 	clear_pcix_errors(dev);		/* clear error flag */
+> 	{
+> 	  ..
+> 	    x = readX_check(dev, vaddr);
+> 	  ..
+> 	}
+> 	error = read_pcix_errors(dev);	/* read error flag */
+> 	if (error)
+> 		recovery_or_offline(dev);
+> 
+> 	spin_lock_irqrestore();		/* enable interrupt & preemption */
+
+Holding the spinlock might not be realistic for most drivers
+during a recovery - ie re-init the HW. I understand this is a
+generic example but it's a bit too simple...
+
 
 ...
+>     on other arch:
+> 	if it is not possible on the arch, do like:
+> 	#ifndef CONFIG_PCI_RECOVERY
+> 	  #define clear_pcix_errors(dev) do { } while (0)
+> 	  #define read_pcix_errors(dev)  (0)
+> 	#endif
 
-unsigned char readb(unsigned long addr)
-{
-	unsigned char val = *(volatile unsigned char *)addr;
-#ifdef CONFIG_PCI_CHECK
-	/* try to flush out the MCA by doing something with val */
-#endif
-	return val;
-}
+And need similar for the register/unregister/readX_check() calls.
 
-...
-
-Then presumably the MCA error handler would see that an MCA occurred in a 
-region registered during PCI initialization and return an error for 
-pci_read_errors(dev);
-
-Jesse
+thanks,
+grant
