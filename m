@@ -1,58 +1,44 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 02 Mar 2005 02:28:01 +0000
+Date: Wed, 02 Mar 2005 03:13:59 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <422524B1.10405@jp.fujitsu.com>
+Message-Id: <42252F77.3050701@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <422428EC.3090905@jp.fujitsu.com> <42249A44.4020507@pobox.com> <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org> <20050301165904.GN28741@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20050301165904.GN28741@parcelfarce.linux.theplanet.co.uk>
+References: <422428EC.3090905@jp.fujitsu.com> <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org> <20050301165904.GN28741@parcelfarce.linux.theplanet.co.uk> <200503010910.29460.jbarnes@engr.sgi.com>
+In-Reply-To: <200503010910.29460.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
+To: Jesse Barnes <jbarnes@engr.sgi.com>
+Cc: linux-pci@atrey.karlin.mff.cuni.cz, Matthew Wilcox <matthew@wil.cx>, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
 
-Matthew Wilcox wrote:
-> I think what Jeff meant was "this new API handles none of this".
-> And that's true, it doesn't handle DMA errors.  But I think that's just
-> something that hasn't been written/designed yet.
+Jesse Barnes wrote:
+> This was my thought too last time we had this discussion.  A completely 
+> asynchronous call is probably needed in addition to Hidetoshi's proposed API, 
+> since as you point out, the driver may not be running when an error occurs 
+> (e.g. in the case of a DMA error or more general bus problem).  The async 
+> ->error callback could do a total reset of the card, or something along those 
+> lines as Jeff suggests, while the inline ioerr_clear/ioerr_check API could 
+> potentially deal with errors as they happen (probably in the case of PIO 
+> related errors), when the additional context may allow us to be smarter about 
+> recovery.
 
-Yes, this API just supports drivers wanting to be more RAS-aware.
-It would be happy if how implement it could be separate in two part:
-  - arch-specific part
-     Capability would depend on arch, can only generic thing but couldn't
-     be device specific. Device/bus isolation could be(with help of hotplug
-     and so on), but re-enable them would not be easily.
-  - generic part
-     Capability would depend on drivers, should be more device specific.
-How divide and connect them is now in discussion and consideration.
+Depend on the bridge implementation, special error handling of PCI-X would be
+available in the case of a DMA error.
 
-> So how should we handle it?  Obviously the driver may not be executing
-> when a PCI parity error occurs, so we probably get to find out about
-> this through some architecture-specific whole-system error, let's call
-> it an MCA.
-> 
-> The MCA handler has to go and figure out what the hell just happened
-> (was it a DIMM error, PCI bus error, etc).  OK, fine, it finds that it
-> was an error on PCI bus 73.  At this point, I think the architecture
-> error handler needs to call into the PCI subsystem and say "Hey, there
-> was an error, you deal with it".
-> 
-> If we're lucky, we get all the information that allows us to figure
-> out which device it was (eg a destination address that matches a BAR),
-> then we could have a ->error method in the pci_driver that handles it.
-> If there's no ->error method, at leat call ->remove so one device only
-> takes itself down.
-> 
-> Does this make sense?
+PCI-X Command register has Uncorrectable Data Error Recovery Enable bit to
+avoid asserting SERR on error. Some bridge generates poisoned data and pass
+it to destination instead of asserting error or passing broken data.
 
-Note that here is a difficulty: the MCA handler on some arch would run on
-special context - MCA environment. In other words, since some MCA handler
-would be called by non-maskable interrupt(e.g. NMI), so it's difficult to
-call some driver's callback using protected kernel locks from MCA context.
+The device driver would be interrupted on the completion of DMA, and check
+status register of controlling device to find a error during the DMA.
+If there was a error, driver could attempt to recover from the error.
 
-Therefore what MCA handler could do is just indicates a error was there,
-by something like status flag which drivers can refer. And after possible
-deley, we would be able to call callbacks.
+I don't know whether this is actually possible or not, and also there are
+upcoming drivers implementing such special handling.
+
+Though, when and how we should call drivers to do device specific staff is
+one of the problem. My API would provide "a chance" which could be defined by
+driver, at least.
 
 
 Thanks,
