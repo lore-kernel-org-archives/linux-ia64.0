@@ -1,32 +1,136 @@
-From: Jes Sorensen <jes@sunsite.dk>
-Date: Thu, 15 Nov 2001 21:01:12 +0000
-Subject: Re: Qlogic scsi driver (was Re: [Linux-ia64] kacpidpc process takes 100% of CPU)
-Message-Id: <marc-linux-ia64-105590698805520@msgid-missing>
+From: "Pereira, D LailaX E" <d.lailax.e.pereira@intel.com>
+Date: Wed, 14 Nov 2001 16:03:57 +0000
+Subject: [Linux-ia64] correct seg fault address on ia-64??
+Message-Id: <marc-linux-ia64-105590698805506@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805500@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805500@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Randall" = Randall G Chan <chanr@us.ibm.com> writes:
+Hi ,
 
-Randall> I've actually noticed this too on both kernels 2.4.13 &
-Randall> 2.4.14.  I have not yet been able to figure out what's wrong
-Randall> with it.  I have a kernel that works fine on a 4-way C0 Lion,
-Randall> BIOS 99, but when I stick it on a single C0 BIOS 99, the
-Randall> kernel hangs in the above spot (prints out copyright info and
-Randall> driver version, then just hangs when it's <seemingly>
-Randall> scanning the scsi bus).  Anyone else notice this or have a
-Randall> solution?
+In the following program, I was trying to obtain the address where a
+segmentation fault is caused. 
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <signal.h>
+#include <sys/mman.h>
 
-Which version of the SCSI driver are you using? I am maintaining a
-patch at http://www.wildopensource.com/~jes/linux/ which contains a
-large number of bug fixes and cleanups.
+int *x;
+int page_size;
 
-However I don't have access to a Lion so I can't reproduce this.
+void segv_handler( int sig, siginfo_t *sip,struct sigcontext *scp){
 
-Cheers
-Jes
+  void *vadr=sip->si_addr;
+  unsigned long *pc;
+  unsigned long instr;
+  int  readwrite;
+
+  if (sig=SIGSEGV){
+    printf("\nSegv handler ..\n");
+  }
+  printf("vaddr : %x \n",vadr);
+   
+  readwrite=(((*(unsigned long*)scp->sc_ip)>>21)&1);
+  printf("Read or write %d\n",readwrite);
+  exit(1);
+}
+
+
+int main(){
+  int s;
+  struct sigaction sa;
+  int temp;
+
+  page_size=getpagesize();
+  printf("Pagesize : %d ,PID=%d\n",page_size,(int)getpid());
+  fflush(stdout);
+
+  /*SEGV handler setup*/
+  sa.sa_handler=(void*)&segv_handler;
+  sigemptyset(&sa.sa_mask);
+  sigaddset(&sa.sa_mask,SIGIO);
+  sigaddset(&sa.sa_mask,SIGALRM);
+
+  sa.sa_flags=SA_SIGINFO;
+
+  if (sigaction(SIGSEGV,&sa,NULL)){
+    printf(" Error assigning signal!\n");
+  }
+
+  x=(int*)malloc(2*page_size);
+
+ /* Align to a multiple of page_size, assumed to be a power of two */
+  x = (int *)((long)(((int) (long)x + page_size-1) & ~(page_size-1)));
+  printf("Address:  %x\n",x );
+  //x[0]E6;
+
+  s=mprotect(x,page_size,PROT_NONE);  //make it none access
+  printf("Page protection : NONE : try reading the page\n ");
+  printf("segv should arise now ...\n");
+  //read the page ... segv?
+  temp=x[0];
+  return 0;
+}
+
+
+When I run the program on a ia-64 machine (linux OS) , then I get the
+following output: 
+Pagesize : 16384 ,PID(513
+Address:  4000
+Page protection : NONE : try reading the page
+ segv should arise now ...
+
+Segv handler ..
+vaddr : 4000 
+Read or write 0
+
+.............
+However , when I ran the program thru gdb, I got the following:
+Reading symbols from a.out...done.
+(gdb) run ex3.c
+......
+Pagesize : 16384 ,PID(471
+Address:  4000
+Page protection : NONE : try reading the page
+ segv should arise now ...
+
+Program received signal SIGSEGV, Segmentation fault.
+0x40000000000010e0 in main ()
+(gdb) where 
+#0  0x40000000000010e0 in main ()
+#1  0x20000000000906b0 in __libc_start_main (
+    main=0x40000000000013e8 <_fini+408>, argc=2, 
+ubp_av=0x80000fffffffb848, 
+    init=0x40000000000013b8 <_fini+360>, 
+    fini=0x200000000003db30 <_dl_debug_mask>, 
+    rtld_fini=0x20000000002581c8 <_dl_get_origin+632>, 
+    stack_end=0x80000fffffffb840) at ../sysdeps/generic/libc-start.c:129
+#2  0x40000000000010b0 in main ()
+(gdb)....
+
+
+So thru, gdb the seg fault address is "0x40000000000010e0" , is my
+interpretation right ?? 
+Why is that when I run the program on itanium , I get the address as "4000"
+and thru gdb as " 0x40000000000010e0". What is wrong?? Please let me know.
+
+d'laila
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
 
