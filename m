@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 26 Jun 2002 17:46:04 +0000
+Date: Fri, 28 Jun 2002 19:42:07 +0000
 Subject: [Linux-ia64] Re: kernel update (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905723@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905726@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205855@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205855@msgid-missing>
@@ -16,10 +16,23 @@ To: linux-ia64@vger.kernel.org
   Xavier> by wrong user code now generate a Oops, and enter kdb if
   Xavier> enabled.
 
-Good point.  The signal handler path needs to check whether the fault
-occurred inside a code range with an associated exception handler and
-report it as a user fault, if so.  We already do this for the
-unaligned handler.
+I haven't seen a fix from Ken yet, so the patch below comes live from OLS...
+Please test heavily and let me know how it goes.
+
+Thanks,
 
 	--david
+
+--- lia64-2.4/arch/ia64/kernel/traps.c~	Thu Jun 20 18:56:08 2002
++++ lia64-2.4/arch/ia64/kernel/traps.c	Fri Jun 28 12:15:58 2002
+@@ -497,7 +497,8 @@
+ 			siginfo.si_isr = isr;
+ 			force_sig_info(sig, &siginfo, current);
+ 			return;
+-		}
++		} else if (done_with_exception(regs))
++			return;
+ 		sprintf(buf, "NaT consumption");
+ 		break;
+ 
 
