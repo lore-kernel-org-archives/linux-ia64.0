@@ -1,50 +1,25 @@
-From: Bob Montgomery <bob.montgomery@hp.com>
-Date: Tue, 10 Feb 2004 00:48:57 +0000
-Subject: unwabi mismatch in 2.4.X kernels breaks oops call trace (unwind)
-Message-Id: <1076374136.10372.3.camel@peas.bobm>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 10 Feb 2004 01:28:14 +0000
+Subject: Re: unwabi mismatch in 2.4.X kernels breaks oops call trace (unwind)
+Message-Id: <16424.13230.574368.242997@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1076374136.10372.3.camel@peas.bobm>
+In-Reply-To: <1076374136.10372.3.camel@peas.bobm>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Oops stack unwinding was broken in 2.4.22 by this patch that was
-picked up from 2.5/2.6:
-                               
---- 1.5/arch/ia64/kernel/entry.h	Mon Feb  9 13:41:40 2004
-+++ 1.6/arch/ia64/kernel/entry.h	Mon Feb  9 13:41:40 2004
-@@ -14,7 +14,7 @@
- #define SW(f)		(IA64_SWITCH_STACK_##f##_OFFSET)
- 
- #define PT_REGS_SAVES(off)			\
--	.unwabi @svr4, 'i';			\
-+	.unwabi 3, 'i';				\
- 	.fframe IA64_PT_REGS_SIZE+16+(off);	\
- 	.spillsp rp, PT(CR_IIP)+16+(off);	\
- 	.spillsp ar.pfs, PT(CR_IFS)+16+(off);	\
+>>>>> On Mon, 09 Feb 2004 17:48:57 -0700, Bob Montgomery <bob.montgomery@hp.com> said:
 
+  Bob> So my question is: Is there a compelling reason to change the
+  Bob> abi number from 0 to 3 in 2.4.X kernels?
 
-If we want to keep this change in 2.4.X, we need to also change the
-test in desc_abi (unwind.c) to check for abi = 3 instead of 0.
+It must change iff the syscall-streamlining patch is applied, since
+that patch changes the format of the pt-regs structure.
 
-static inline void
-desc_abi (unsigned char abi, unsigned char context, struct unw_state_record *sr){
-        if (abi = 0 && context = 'i') {
-                sr->flags |= UNW_FLAG_INTERRUPT_FRAME;
-                UNW_DPRINT(3, "unwind.%s: interrupt frame\n", __FUNCTION__);
-        }
-        else
-                UNW_DPRINT(0, "unwind%s: ignoring unwabi(abi=0x%x,context=0x%x)\n",
-                                __FUNCTION__, abi, context);
-}
+  Bob> Is there an outside tool that cares
 
-Otherwise we can just back the entry.h patch out.  So my question
-is: Is there a compelling reason to change the abi number from 0 to
-3 in 2.4.X kernels?  Is there an outside tool that cares, or is it
-sufficient for these two snippets of kernel code to merely agree on
-some number?
+Libunwind and, for example, Ski definitely care.
 
-Thanks,
-Bob Montgomery
-
-
+	--david
