@@ -1,35 +1,29 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 24 Feb 2003 19:12:39 +0000
-Subject: [Linux-ia64] Re: strange performance behaviour with floats
-Message-Id: <marc-linux-ia64-105590709805919@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Mon, 03 Feb 2003 20:17:01 +0000
+Subject: [Linux-ia64] Preempt problems
+Message-Id: <marc-linux-ia64-105590709805801@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805910@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805910@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 24 Feb 2003 13:25:12 +1100, Keith Owens <kaos@sgi.com> said:
+Hi David,
+   Just a heads up --- there are still two major problems with the
+patch I submitted for preemption support, so I suggest you don't merge
+it yet (although I'd very much appreciate having it reviewed and
+tested by third parties).
 
-  Keith> On Sun, 23 Feb 2003 18:16:57 -0800, 
-  Keith> David Mosberger <davidm@napali.hpl.hp.com> wrote:
-  >> Let me say this again: you _don't_ want a single-cycle loop.  You want
-  >> a 2-cycle loop that gets twice the work done as a 1-cycle loop.  That
-  >> is, you'd want to decrement the loop counter by 2, compare it against
-  >> zero, and branch if it's not zero yet, all the while making sure you
-  >> get a 2-cycle loop.
+The two problems I see are:
+    -- perfmon missing interrupts *even with CONFIG_PREEMPT turned
+off!*
+   -- weird kernel page faults apparently during ia64_leave_kernel()
+(from the stack backtrace), but with an IP address in region 0, after
+some variable amount of uptime, apparently independent of anything
+happening on the machine (at least, I haven't yet been able to isolate
+anything that causes it).
 
-  Keith> Now I see what you are getting at, sorry for the confusion.
-
-No problem. ;-)
-
-  Keith> Of course, the fact that udelay() does not use bogomips at all makes
-  Keith> the whole question irrelevant.  We now return you to our regularly
-  Keith> scheduled delay loop :)
-
-True, but the code gcc generates for the BogoMIPS loops basically
-looks identical to the one for udelay(), so the comments still apply.
-
-	--david
+--
+Dr Peter Chubb				    peterc@gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories, all almost the same.
 
