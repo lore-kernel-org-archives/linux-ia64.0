@@ -1,49 +1,31 @@
 From: Jim Wilson <wilson@tuliptree.org>
-Date: Wed, 07 May 2003 15:14:17 +0000
+Date: Wed, 07 May 2003 15:20:46 +0000
 Subject: Re: [Linux-ia64] Building IA-64 toolchain
-Message-Id: <marc-linux-ia64-105590723705654@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705656@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590723705654@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723705654@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2003-05-07 at 12:03, navin wrote:
-> 	I am doing a project on compilers.I have to build gcc for ia64.I 
-> did build the binutils .In that case i didn't get any compilation errors.
-> HOSTMACHINE=i386 pentium
-> TARGETMACHINE=ia64
+On Wed, 2003-05-07 at 13:40, navin wrote:
+> 	I even tried copying the nue ia64-hp-something headers files and 
+> giving gcc the option with --header to that directory but it messed up as 
+> i previously mentioned
 
-Gcc includes libraries that require access to the standard C library in
-order to build.  You must provide the standard C library yourself
-somehow.  You have not done this.
+You never said how this failed.  Your previous message was about a build
+using the non-existent --without-header configure option.  Since I don't
+know what error you got when you used --with-headers, I can't help you.
 
-If you only want a compiler for building the kernel, then you don't need
-any libraries.  In that case, you are already done.  What you have is
-good enough to build a kernel.
+> The problem is that building an alpha target is easy .But when i apply 
+> the same rules to ia64 it breaks.GCC breaks.
 
-If you need a complete gcc build, then you will need a C library.  If
-you have access to a running ia64-linux system, the easy way to do this
-is to copy the IA-64 linux /usr/include and /usr/lib to the x86 machine,
-and then configure using --with-headers= and --with-libs= pointing at
-the IA-64 header and library directories respectively.
-
-An alternative method is to try to build gcc and glibc in parallel. 
-This is not easy.  Offhand, I don't know how to do it, as I have never
-tried to do this.
-
->  --without-headers
-
-There is no such configure option.  The headers are required, and there
-is no way to get around this.
-
-> In file included from ../../gcc-3.2/gcc/libgcc2.c:37:
-> ../../gcc-3.2/gcc/tsystem.h:63:19: stdio.h: No such file or directory
-> ../../gcc-3.2/gcc/tsystem.h:66:23: sys/types.h: No such file or directory
-> In file included from 
-
-The standard C library header files are missing.
+Why does this not work for IA-64?  A build procedure that works for
+alpha-linux should also work for ia64-linux.
 
 Jim
+
 
 
