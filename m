@@ -1,68 +1,178 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Wed, 16 Oct 2002 02:42:06 +0000
-Subject: [Linux-ia64] PCREL60B - toolchain error? (was: loading a kernel module)
-Message-Id: <marc-linux-ia64-105590709805169@msgid-missing>
+From: Erich Focht <efocht@ess.nec.de>
+Date: Sat, 05 Oct 2002 17:04:22 +0000
+Subject: [Linux-ia64] [PATCH] topology for ia64
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------Boundary-00=_A3QID3K7NES4KSP6JOL1"
+Message-Id: <marc-linux-ia64-105590701906085@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wed, 16 Oct 2002 11:16:08 +1000,=20
-Keith Owens <kaos@ocs.com.au> wrote:
->On 15 Oct 2002 14:57:07 -0400,=20
->Jim Wilson <wilson@redhat.com> wrote:
->>You can get brl instructions by changing "#undef USE_BRL" to "#define USE=
-_BRL"
->>in the BINUTILS bfd/elfxx-ia64.c file.  I believe that is the change that=
- went
->>into the RHL AS toolchain.  Then write a large enough program, so that you
->>have a call site that is far enough away from its call target to require =
-brl.
->
->You don't need a large program.  The test object from Christian Hildner
->is about as small as it gets and it still uses brl.  Christian, please
->post the source of the test object to the list.
->
->0000000000000000 <dummy>:
->   0:   1d 40 00 00 00 21       [MFB]       mov r8=3Dr0
->   6:   00 00 00 02 00 80                   nop.f 0x0
->   c:   08 00 84 00                         br.ret.sptk.many b0;;
->
->0000000000000010 <init_module>:
->  10:   01 10 11 06 80 05       [MII]       alloc r34=3Dar.pfs,4,3,0
->                        12: LTOFF22     .rodata
->  16:   10 02 00 62 00 60                   mov r33=B0
->  1c:   04 08 00 90                         addl r35=3D0,r1;;
->  20:   1d 18 01 46 18 10       [MFB]       ld8 r35=3D[r35]
->                        22: PCREL21B    printk
->  26:   00 00 00 02 00 00                   nop.f 0x0
->  2c:   08 00 00 50                         br.call.sptk.many b0  <init_mo=
-dule+0x10>;;
->  30:   05 00 00 00 01 00       [MLX]       nop.m 0x0
->                        32: PCREL60B    dummy
->        ...
->  3e:   00 c0 00 40                         brl.few 30 <init_module+0x20>;;
->  42:   00 00 00 21 00 10       [MII]       mov r8=3Dr0
->  48:   01 55 00 00 10 0a                   mov.i ar.pfs=3Dr34
->  4e:   00 07 1d 00                         mov b0=3Dr33
->  52:   00 00 01 00 00 00       [MFB]       nop.m 0x0
->  58:   00 02 00 80 08 00                   nop.f 0x0
->  5e:   84 00 01 10                         br.ret.sptk.many b0;;
+--------------Boundary-00=_A3QID3K7NES4KSP6JOL1
+Content-Type: text/plain;
+  charset="iso-8859-15"
+Content-Transfer-Encoding: quoted-printable
 
-The more I look at this code, the less sense it makes.  The toolchain
-is issuing brl with PCREL60B for dummy, even though dummy is a local
-symbol.  That would normally be br.call.sptk.many b0=3D0 <dummy>, with no
-relocation at all.
+Hi David,
 
-Not only is the brl using an entire slot, it also has to go via the
-PLT, like all the other PCREL relocations in modules.  But the PLT is
-local, so why use a 60 bit relocation?  The call to printk goes via PLT
-and that happily uses a 21 bit relocation.
+please find attached a first attempt to implement the topology.h
+macros/routines for IA64. We need this for the NUMA scheduler setup.
 
-This looks like a toolchain bug which modutils should not be
-supporting.  Unless somebody has a decent reason why this is _not_ a
-toolchain bug, I am going to bounce it back to binutils and/or RedHat,
-with no change to modutils.
+Thanks!
+Best regards,
+Erich
+
+--------------Boundary-00=_A3QID3K7NES4KSP6JOL1
+Content-Type: text/x-diff;
+  charset="iso-8859-15";
+  name="2.5.39_topology-ia64.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="2.5.39_topology-ia64.patch"
+
+diff -urNp linux-2.5.39-ia64/arch/ia64/kernel/acpi.c linux-2.5.39-ia64-top/arch/ia64/kernel/acpi.c
+--- linux-2.5.39-ia64/arch/ia64/kernel/acpi.c	Fri Sep 27 23:49:54 2002
++++ linux-2.5.39-ia64-top/arch/ia64/kernel/acpi.c	Sat Oct  5 19:02:52 2002
+@@ -631,6 +631,7 @@ acpi_boot_init (char *cmdline)
+ 	smp_boot_data.cpu_count = total_cpus;
+ 
+ 	smp_build_cpu_map();
++	build_cpu_to_node_map();
+ #endif
+ 	/* Make boot-up look pretty */
+ 	printk("%d CPUs available, %d CPUs total\n", available_cpus, total_cpus);
+diff -urNp linux-2.5.39-ia64/arch/ia64/kernel/smpboot.c linux-2.5.39-ia64-top/arch/ia64/kernel/smpboot.c
+--- linux-2.5.39-ia64/arch/ia64/kernel/smpboot.c	Fri Sep 27 23:49:16 2002
++++ linux-2.5.39-ia64-top/arch/ia64/kernel/smpboot.c	Sat Oct  5 19:02:52 2002
+@@ -16,6 +16,7 @@
+ 
+ #include <linux/config.h>
+ 
++#include <linux/acpi.h>
+ #include <linux/bootmem.h>
+ #include <linux/delay.h>
+ #include <linux/init.h>
+@@ -427,6 +428,32 @@ smp_build_cpu_map (void)
+ 	}
+ }
+ 
++char cpu_to_node_map[NR_CPUS] __cacheline_aligned;
++/*
++ * Build cpu to node mapping.
++ */
++void __init
++build_cpu_to_node_map(void)
++{
++	int cpu, i;
++
++	for(cpu=0; cpu<NR_CPUS; cpu++) {
++		if (!(phys_cpu_present_map & (1UL << cpu))) {
++			cpu_to_node_map[cpu] = -1;
++			continue;
++		}
++#ifdef CONFIG_ACPI_NUMA
++		for(i=0; i<NR_CPUS; i++)
++			if (cpu_physical_id(cpu) == node_cpuid[i].phys_id) {
++				cpu_to_node_map[cpu]=node_cpuid[i].nid;
++				break;
++			}
++#else
++		cpu_to_node_map[cpu] = 0;
++#endif
++	}
++}
++
+ /*
+  * Cycle through the APs sending Wakeup IPIs to boot each.
+  */
+diff -urNp linux-2.5.39-ia64/include/asm-ia64/smp.h linux-2.5.39-ia64-top/include/asm-ia64/smp.h
+--- linux-2.5.39-ia64/include/asm-ia64/smp.h	Fri Sep 27 23:49:54 2002
++++ linux-2.5.39-ia64-top/include/asm-ia64/smp.h	Sat Oct  5 19:02:52 2002
+@@ -13,6 +13,7 @@
+ 
+ #ifdef CONFIG_SMP
+ 
++#include <linux/cache.h>
+ #include <linux/init.h>
+ #include <linux/threads.h>
+ #include <linux/kernel.h>
+@@ -44,6 +45,7 @@ extern unsigned char smp_int_redirect;
+ 
+ extern volatile int ia64_cpu_to_sapicid[];
+ #define cpu_physical_id(i)	ia64_cpu_to_sapicid[i]
++extern char cpu_to_node_map[NR_CPUS] __cacheline_aligned;
+ 
+ extern unsigned long ap_wakeup_vector;
+ 
+diff -urNp linux-2.5.39-ia64/include/asm-ia64/topology.h linux-2.5.39-ia64-top/include/asm-ia64/topology.h
+--- linux-2.5.39-ia64/include/asm-ia64/topology.h	Thu Jan  1 01:00:00 1970
++++ linux-2.5.39-ia64-top/include/asm-ia64/topology.h	Sat Oct  5 19:22:33 2002
+@@ -0,0 +1,66 @@
++/*
++ * linux/include/asm-ia64/topology.h
++ *
++ * Copyright (C) 2002, Erich Focht, NEC
++ *
++ * All rights reserved.          
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++#ifndef _ASM_IA64_TOPOLOGY_H
++#define _ASM_IA64_TOPOLOGY_H
++
++#include <asm/acpi.h>
++#include <asm/numa.h>
++
++/* Returns the number of the node containing CPU 'cpu' */
++#define __cpu_to_node(cpu) cpu_to_node_map[cpu]
++
++/*
++ * Returns the number of the node containing MemBlk 'memblk'
++ */
++#ifdef CONFIG_ACPI_NUMA
++#define __memblk_to_node(memblk) (node_memblk[memblk].nid)
++#else
++#define __memblk_to_node(memblk) (memblk)
++#endif
++
++/* 
++ * Returns the number of the node containing Node 'nid'.
++ * Not implemented here. Multi-level hierarchies detected with
++ * the help of node_distance().
++ */
++#define __parent_node(nid) (nid)
++
++/* 
++ * Returns the number of the first CPU on Node 'node'.
++ * Temporarily implemented with the help of pool arrays, so
++ * don't use it too early.
++ * Who needs this?
++ */
++/* #define __node_to_first_cpu(node) pool_cpus[pool_ptr[node]] */
++
++/* 
++ * Returns a bitmask of CPUs on Node 'node'.
++ */
++static inline unsigned long __node_to_cpu_mask(int node)
++{
++	int cpu;
++	unsigned long mask = 0UL;
++
++	for(cpu=0; cpu<NR_CPUS; cpu++)
++		if (__cpu_to_node(cpu) == node)
++			mask |= 1UL << cpu;
++	return mask;
++}
++
++/*
++ * Returns the number of the first MemBlk on Node 'node'
++ * Should be fixed when IA64 discontigmem goes in.
++ */
++#define __node_to_memblk(node) (node)
++
++#endif /* _ASM_IA64_TOPOLOGY_H */
+
+--------------Boundary-00=_A3QID3K7NES4KSP6JOL1--
 
 
