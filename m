@@ -1,35 +1,38 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 14 Jun 2001 20:06:12 +0000
-Subject: Re: [Linux-ia64] setjmp/longjmp redux
-Message-Id: <marc-linux-ia64-105590693005734@msgid-missing>
+From: gerard <gerard@mylos.grenoble.hp.com>
+Date: Wed, 13 Jun 2001 15:04:51 +0000
+Subject: [Linux-ia64] modules external refs
+Message-Id: <marc-linux-ia64-105590693005726@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005732@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005732@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 14 Jun 2001 15:15:09 -0400, chas williams <chas@cmf.nrl.navy.mil> said:
+I have a product consisting in several loadable modules,
+among which one is the central controler.
+When I load this on I do not have any problems, as it has external
+references
+only from the kernel.
+But all the other modules call functions from this module.
+I  started only with a module calling this controler.
+I verified that in /proc/ksyms all the functions of the controler are
+described.
+I have put a printk in the second module trying to access the controler
+in which I  print the address of the function it tries to call, it
+corresponds to what
+I see in /proc/ksyms, but when I call that function, I get a
+Unimplemented Instruction Address fault .
+I have tried to declare the function with a hardcoded address, and it
+works "fine",
+Iit seems that the external function reference is not resolved properly
+when I load the module.
+I do not have the version enabled in my environment.
 
-  Chas> hi, new to the list but i did a little reading of the archives
-  Chas> and it seems that setjmp/longjmp cant do what i need -- switch
-  Chas> the stack.
+What do I need to do to make it work, it used to work fine on a IA32
+machine , but
+not on a BIGSUR.
+Thanks
+Gerard LYONNAZ
 
-  Chas> why do i want to do this?  i am working on porting openafs
-  Chas> which provides its own thread library (called lwp) that is
-  Chas> implemented with setjmp/longjmp.  what needs to be done in
-  Chas> order to make this work?  based on my reading it seems that
-  Chas> ar.rnat (???) need to be saved between the context switches?
-  Chas> i dont know much about the ia64 architecture so if someone
-  Chas> could give me some pointers i would be grateful.
 
-For synchronous context switches ("co-routines"), use
-makecontext()/setcontext() et al.  They have been added to glibc
-recently.  If you're not familiar with these routines, there is an
-example in the glibc source tree in stdlib/tst-setcontext.c.
-Additional usage notes can be found in in answer 4.10 of the glibc
-FAQ.
-
-	--david
 
