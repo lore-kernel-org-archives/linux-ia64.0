@@ -1,7 +1,7 @@
-From: Alex Williamson <alex_williamson@hp.com>
-Date: Tue, 11 Mar 2003 22:58:02 +0000
-Subject: Re: [Linux-ia64] 2.4.20 / DIG
-Message-Id: <marc-linux-ia64-105590709806039@msgid-missing>
+From: "Wichmann, Mats D" <mats.d.wichmann@intel.com>
+Date: Tue, 11 Mar 2003 23:18:15 +0000
+Subject: RE: [Linux-ia64] 2.4.20 / DIG
+Message-Id: <marc-linux-ia64-105590709806041@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709806024@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709806024@msgid-missing>
@@ -10,32 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jes Sorensen wrote:
-> 
-> >>>>> "Bjorn" = Bjorn Helgaas <bjorn_helgaas@hp.com> writes:
-> 
-> >>  Must admit I didn't - are those preserved across a power cycle?
-> 
-> Bjorn> They should be.  Of course, it will only make sense if you still
-> Bjorn> have symbols from the kernel that caused the MCA.
-> 
-> Urgh, brown paper bag time ... I was running a very old version of EFI
-> on it (103B). Upgrading to 117C made the problem go away, the proper way.
-> 
-> Doh ;-( sorry for the noise.
-> 
 
-   Ah, this is probably a good thing to point out.  I was helping
-someone debug a similar issue last week.  They were kind enough
-to trace it to the CPE polling.  They also upgraded firmware and
-the problem went away.  Apparently SAL_GET_STATE_INFO(CPE) doesn't
-work on any 103 flavors of Itanium firmware.  I don't know when it
-was fixed, but I think we're in consensus that fw 117 works.
+> I am trying to compile Bjorn's 2.4.20 kernel on my old Intel C0 based
+> box with a RH7.2 install on it (with updates), gcc-2.96.
+> 
+> The Red Hat 2.4.9 kernels work just fine on it, but my selfcompiled
+> 2.4.20 kernels explode before it gets to probing the SCSI bus. In SMP
+> mode it reboots so fast I can't see exactly where it hands, if I set
+> maxcpus=1 it gets to saying EFI Variables Facility - then hangs for a
+> bit and then reboots.
+> 
+> Is this a known problem? Any clues?
 
-	Alex
+I'd bet your firmware's out of date.  I got around 
+the same problem by upgrading.
 
---
-Alex Williamson                                  Linux Development Lab
-alex_williamson@hp.com                                 Hewlett Packard
-970-898-9173                                          Fort Collins, CO
 
