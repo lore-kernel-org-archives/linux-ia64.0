@@ -1,220 +1,150 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 24 Feb 2004 04:05:59 +0000
-Subject: Re: HUGEPAGE SIZE a boottime option
-Message-Id: <20040224040558.GA15484@sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 26 Feb 2004 01:26:25 +0000
+Subject: RE: HUGEPAGE SIZE a boottime option
+Message-Id: <B05667366EE6204181EABE9C1B1C0EB501F2AB2B@scsmsx401.sc.intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3FC07.8D27B6A9"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040220010731.GA28820@sgi.com>
 In-Reply-To: <20040220010731.GA28820@sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Feb 23, 2004 at 08:26:32AM -0800, Chen, Kenneth W wrote:
-> sorry, missed this important hunk:
->  # else
->  #  error Unsupported IA-64 HugeTLB Page Size!
->  # endif
-> +#define HPAGE_SHIFT hpage_shift
-> 
-> Here is a work-in-progress patch that includes more comments we have.
+This is a multi-part message in MIME format.
 
+------_=_NextPart_001_01C3FC07.8D27B6A9
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-Looks reasonable to me....
+We believe we have resolved all the remain issues, all critical
+speed path has been taken care of, i.e., vhpt hander and context
+switch.  There should be no performance penalty with this dynamic
+hugetlb page size feature.
 
+David, this is our final tested patch.
 
-> 
-> (1) hugepagesz parameter should have min/max checked.  Doesn't make
-> sense to config huge page size smaller than PAGE_SIZE, or config huge
-> page size larger than what page allocator allows (MAX_ORDER).
-> 
-> (2) We can avoid patching vhpt handler and still allow dynamic sizing.
-> 
-> (3) we remain unhappy with penalty hit on reload_context().  Region
-> register 4 now has a dependency on loading variable hpage_shift, which
-> could have worst case two/three hundred cycles.  This variable is next
-> to ia64_ctx (which is heavily used), but there is no guarantee that
-> they sits in the same cache line.  I've tried prefetch() with
-> gcc-3.2.3, but it generates code that everyone can laugh at it.
-> 
-> (4) If we have gone this far, it probably won't take that much more
-> to make it runtime configurable!
-> 
-> 
-> - Ken
-> 
-> 
-> -----Original Message-----
-> From: Jack Steiner [mailto:steiner@sgi.com]
-> Sent: Sunday, February 22, 2004 3:08 PM
-> To: Chen, Kenneth W
-> Cc: linux-ia64@vger.kernel.org
-> Subject: Re: HUGEPAGE SIZE a boottime option
-> 
-> 
-> On Thu, Feb 19, 2004 at 08:00:04PM -0800, Chen, Kenneth W wrote:
-> > It is not functionally complete though.  alloc_fresh_huge_page(),
-> > hugetlb_free_pgtables(), and update_and_free_page has #define
-> > constant that indirectly from HPAGE_SHIFT.
-> > 
-> > You might checked already, text replication works in this case?
-> > 
-> 
-> (I posted this earlier. However, our mail server has been messed up & I dont think
-> the mail got thru. Excuse the duplicate if the other mail ever makes it....)
-> 
-> 
-> The patch passes preliminary testing.
-> 
-> I dont see any issues with #define constants indirectly using HPAGE_SHIFT. HPAGE_SHIFT
-> is now defined as:
->         #define HPAGE_SHIFT hpage_shift
-> and
->         extern int hpage_shift;         
->         int hpage_shift=HPAGE_SHIFT_DEFAULT;
-> 
-> 
-> Indirect references should work ok.
-> 
-> 
-> > -----Original Message-----
-> > From: linux-ia64-owner@vger.kernel.org
-> > [mailto:linux-ia64-owner@vger.kernel.org]On Behalf Of Jack Steiner
-> > Sent: Thursday, February 19, 2004 5:08 PM
-> > To: linux-ia64@vger.kernel.org
-> > Subject: HUGEPAGE SIZE a boottime option
-> > 
-> > 
-> > Here is a preliminary version of a patch that makes the size of
-> > HUGEPAGES a boottime option. Only ia64-specific files are changed (except
-> > for the Documentation file).
-> > 
-> > We have a number of customers using large pages. Unfortunately, 
-> > the "optimum" size of a large page is application & configuration
-> > dependent. Rather that having each customer recompile to specify their
-> > own HUGEPAGESIZE, this patch make the size a boottime option.
-> > 
-> > 
-> > Does this patch look reasonable? If so, I will incorporate feedback,
-> > finish testing it, update it to 2.6.3 & resubmit.
+- Ken
 
+------_=_NextPart_001_01C3FC07.8D27B6A9
+Content-Type: application/octet-stream;
+	name="htlb_size.patch"
+Content-Transfer-Encoding: base64
 Content-Description: htlb_size.patch
-> [-- octet_filter file type: "'diff' output text" --]
-> 
-> [-- Statistics (lines words chars):  106 377 3429 /tmp/htlb_size.patch --]
-> 
-> diff -Nur linux-2.6.3/arch/ia64/kernel/ivt.S linux-2.6.3.htlb/arch/ia64/kernel/ivt.S
-> --- linux-2.6.3/arch/ia64/kernel/ivt.S	2004-02-17 19:57:16.000000000 -0800
-> +++ linux-2.6.3.htlb/arch/ia64/kernel/ivt.S	2004-02-22 23:13:34.000000000 -0800
-> @@ -118,10 +118,11 @@
->  #ifdef CONFIG_HUGETLB_PAGE
->  	extr.u r26=r25,2,6
->  	;;
-> -	cmp.eq p8,p0=HPAGE_SHIFT,r26
-> +	cmp.ne p8,p0=r18,r26
-> +	sub r27=r26,r18
->  	;;
->  (p8)	dep r25=r18,r25,2,6
-> -(p8)	shr r22=r22,HPAGE_SHIFT-PAGE_SHIFT
-> +(p8)	shr r22=r22,r27
->  #endif
->  	;;
->  	cmp.eq p6,p7=5,r17			// is IFA pointing into to region 5?
-> diff -Nur linux-2.6.3/arch/ia64/mm/hugetlbpage.c linux-2.6.3.htlb/arch/ia64/mm/hugetlbpage.c
-> --- linux-2.6.3/arch/ia64/mm/hugetlbpage.c	2004-02-17 19:58:01.000000000 -0800
-> +++ linux-2.6.3.htlb/arch/ia64/mm/hugetlbpage.c	2004-02-22 22:58:58.000000000 -0800
-> @@ -23,6 +23,7 @@
->  static long	htlbpagemem;
->  int		htlbpage_max;
->  static long	htlbzone_pages;
-> +unsigned int	hpage_shift=HPAGE_SHIFT_DEFAULT;
->  
->  static struct list_head hugepage_freelists[MAX_NUMNODES];
->  static spinlock_t htlbpage_lock = SPIN_LOCK_UNLOCKED;
-> @@ -520,6 +521,30 @@
->  }
->  __setup("hugepages=", hugetlb_setup);
->  
-> +static int __init hugetlb_setup_sz(char *str)
-> +{
-> +	u64 tr_pages;
-> +	unsigned long long size;
-> +
-> +	if (ia64_pal_vm_page_size(&tr_pages, NULL) != 0)
-> +		/*
-> +		 * shouldn't happen, but just in case.
-> +		 */
-> +		tr_pages = 0x15557000UL;
-> +
-> +	size = memparse(str, &str);
-> +	if (*str || (size & (size-1)) || !(tr_pages & size) ||
-> +		size <= PAGE_SIZE ||
-> +		size >= (1UL << PAGE_SHIFT << MAX_ORDER)) {
-> +		printk(KERN_WARNING "Invalid huge page size specified\n");
-> +		return 1;
-> +	}
-> +
-> +	hpage_shift = __ffs(size);
-> +	return 1;
-> +}
-> +__setup("hugepagesz=", hugetlb_setup_sz);
-> +
->  static int __init hugetlb_init(void)
->  {
->  	int i;
-> diff -Nur linux-2.6.3/include/asm-ia64/page.h linux-2.6.3.htlb/include/asm-ia64/page.h
-> --- linux-2.6.3/include/asm-ia64/page.h	2004-02-17 19:57:16.000000000 -0800
-> +++ linux-2.6.3.htlb/include/asm-ia64/page.h	2004-02-22 17:26:18.000000000 -0800
-> @@ -37,26 +37,26 @@
->  #define RGN_MAP_LIMIT	((1UL << (4*PAGE_SHIFT - 12)) - PAGE_SIZE)	/* per region addr limit */
->  
->  #ifdef CONFIG_HUGETLB_PAGE
-> -
->  # if defined(CONFIG_HUGETLB_PAGE_SIZE_4GB)
-> -#  define HPAGE_SHIFT	32
-> +#  define HPAGE_SHIFT_DEFAULT	32
->  # elif defined(CONFIG_HUGETLB_PAGE_SIZE_1GB)
-> -#  define HPAGE_SHIFT	30
-> +#  define HPAGE_SHIFT_DEFAULT	30
->  # elif defined(CONFIG_HUGETLB_PAGE_SIZE_256MB)
-> -#  define HPAGE_SHIFT	28
-> +#  define HPAGE_SHIFT_DEFAULT	28
->  # elif defined(CONFIG_HUGETLB_PAGE_SIZE_64MB)
-> -#  define HPAGE_SHIFT	26
-> +#  define HPAGE_SHIFT_DEFAULT	26
->  # elif defined(CONFIG_HUGETLB_PAGE_SIZE_16MB)
-> -#  define HPAGE_SHIFT	24
-> +#  define HPAGE_SHIFT_DEFAULT	24
->  # elif defined(CONFIG_HUGETLB_PAGE_SIZE_4MB)
-> -#  define HPAGE_SHIFT	22
-> +#  define HPAGE_SHIFT_DEFAULT	22
->  # elif defined(CONFIG_HUGETLB_PAGE_SIZE_1MB)
-> -#  define HPAGE_SHIFT	20
-> +#  define HPAGE_SHIFT_DEFAULT	20
->  # elif defined(CONFIG_HUGETLB_PAGE_SIZE_256KB)
-> -#  define HPAGE_SHIFT	18
-> +#  define HPAGE_SHIFT_DEFAULT	18
->  # else
->  #  error Unsupported IA-64 HugeTLB Page Size!
->  # endif
-> +#define HPAGE_SHIFT hpage_shift
->  
->  # define REGION_HPAGE	(4UL)	/* note: this is hardcoded in mmu_context.h:reload_context()!*/
->  # define REGION_SHIFT	61
-> @@ -140,6 +140,7 @@
->  # define is_hugepage_only_range(addr, len)		\
->  	 (REGION_NUMBER(addr) = REGION_HPAGE &&	\
->  	  REGION_NUMBER((addr)+(len)) = REGION_HPAGE)
-> +extern unsigned int hpage_shift;
->  #endif
->  
->  static __inline__ int
+Content-Disposition: attachment;
+	filename="htlb_size.patch"
 
+ZGlmZiAtTnVycCBsaW51eC0yLjYuMy9hcmNoL2lhNjQvS2NvbmZpZyBsaW51eC0yLjYuMy5odGxi
+L2FyY2gvaWE2NC9LY29uZmlnCi0tLSBsaW51eC0yLjYuMy9hcmNoL2lhNjQvS2NvbmZpZwkyMDA0
+LTAyLTI1IDE3OjE3OjU3LjAwMDAwMDAwMCAtMDgwMAorKysgbGludXgtMi42LjMuaHRsYi9hcmNo
+L2lhNjQvS2NvbmZpZwkyMDA0LTAyLTI1IDE3OjE5OjA1LjAwMDAwMDAwMCAtMDgwMApAQCAtMjgy
+LDM5ICsyODIsNiBAQCBjb25maWcgRk9SQ0VfTUFYX1pPTkVPUkRFUgogCWludAogCWRlZmF1bHQg
+IjE4IgogCi1jaG9pY2UKLQlwcm9tcHQgIkh1Z2UgVExCIHBhZ2Ugc2l6ZSIKLQlkZXBlbmRzIG9u
+IEhVR0VUTEJfUEFHRQotCWRlZmF1bHQgSFVHRVRMQl9QQUdFX1NJWkVfMTZNQgotCi1jb25maWcg
+SFVHRVRMQl9QQUdFX1NJWkVfNEdCCi0JZGVwZW5kcyBvbiBNQ0tJTkxFWQotCWJvb2wgIjRHQiIK
+LQotY29uZmlnIEhVR0VUTEJfUEFHRV9TSVpFXzFHQgotCWRlcGVuZHMgb24gTUNLSU5MRVkKLQli
+b29sICIxR0IiCi0KLWNvbmZpZyBIVUdFVExCX1BBR0VfU0laRV8yNTZNQgotCWJvb2wgIjI1Nk1C
+IgotCi1jb25maWcgSFVHRVRMQl9QQUdFX1NJWkVfNjRNQgotCWJvb2wgIjY0TUIiCi0KLWNvbmZp
+ZyBIVUdFVExCX1BBR0VfU0laRV8xNk1CCi0JYm9vbCAiMTZNQiIKLQotY29uZmlnIEhVR0VUTEJf
+UEFHRV9TSVpFXzRNQgotCWJvb2wgIjRNQiIKLQotY29uZmlnIEhVR0VUTEJfUEFHRV9TSVpFXzFN
+QgotCWJvb2wgIjFNQiIKLQotY29uZmlnIEhVR0VUTEJfUEFHRV9TSVpFXzI1NktCCi0JYm9vbCAi
+MjU2S0IiCi0KLWVuZGNob2ljZQotCiBjb25maWcgSUE2NF9QQUxfSURMRQogCWJvb2wgIlVzZSBQ
+QUxfSEFMVF9MSUdIVCBpbiBpZGxlIGxvb3AiCiAJaGVscApkaWZmIC1OdXJwIGxpbnV4LTIuNi4z
+L2FyY2gvaWE2NC9rZXJuZWwvaXZ0LlMgbGludXgtMi42LjMuaHRsYi9hcmNoL2lhNjQva2VybmVs
+L2l2dC5TCi0tLSBsaW51eC0yLjYuMy9hcmNoL2lhNjQva2VybmVsL2l2dC5TCTIwMDQtMDItMjUg
+MTc6MTc6NTcuMDAwMDAwMDAwIC0wODAwCisrKyBsaW51eC0yLjYuMy5odGxiL2FyY2gvaWE2NC9r
+ZXJuZWwvaXZ0LlMJMjAwNC0wMi0yNSAxNzoxOTowNS4wMDAwMDAwMDAgLTA4MDAKQEAgLTExOCwx
+MCArMTE4LDExIEBAIEVOVFJZKHZocHRfbWlzcykKICNpZmRlZiBDT05GSUdfSFVHRVRMQl9QQUdF
+CiAJZXh0ci51IHIyNj1yMjUsMiw2CiAJOzsKLQljbXAuZXEgcDgscDA9SFBBR0VfU0hJRlQscjI2
+CisJY21wLm5lIHA4LHAwPXIxOCxyMjYKKwlzdWIgcjI3PXIyNixyMTgKIAk7OwogKHA4KQlkZXAg
+cjI1PXIxOCxyMjUsMiw2Ci0ocDgpCXNociByMjI9cjIyLEhQQUdFX1NISUZULVBBR0VfU0hJRlQK
+KyhwOCkJc2hyIHIyMj1yMjIscjI3CiAjZW5kaWYKIAk7OwogCWNtcC5lcSBwNixwNz01LHIxNwkJ
+CS8vIGlzIElGQSBwb2ludGluZyBpbnRvIHRvIHJlZ2lvbiA1PwpkaWZmIC1OdXJwIGxpbnV4LTIu
+Ni4zL2FyY2gvaWE2NC9tbS9odWdldGxicGFnZS5jIGxpbnV4LTIuNi4zLmh0bGIvYXJjaC9pYTY0
+L21tL2h1Z2V0bGJwYWdlLmMKLS0tIGxpbnV4LTIuNi4zL2FyY2gvaWE2NC9tbS9odWdldGxicGFn
+ZS5jCTIwMDQtMDItMjUgMTc6MTc6NTcuMDAwMDAwMDAwIC0wODAwCisrKyBsaW51eC0yLjYuMy5o
+dGxiL2FyY2gvaWE2NC9tbS9odWdldGxicGFnZS5jCTIwMDQtMDItMjUgMTc6MTk6MDUuMDAwMDAw
+MDAwIC0wODAwCkBAIC0xLDcgKzEsMTEgQEAKIC8qCiAgKiBJQS02NCBIdWdlIFRMQiBQYWdlIFN1
+cHBvcnQgZm9yIEtlcm5lbC4KICAqCi0gKiBDb3B5cmlnaHQgKEMpIDIwMDIsIFJvaGl0IFNldGgg
+PHJvaGl0LnNldGhAaW50ZWwuY29tPgorICogQ29weXJpZ2h0IChDKSAyMDAyLTIwMDQgUm9oaXQg
+U2V0aCA8cm9oaXQuc2V0aEBpbnRlbC5jb20+CisgKiBDb3B5cmlnaHQgKEMpIDIwMDMtMjAwNCBL
+ZW4gQ2hlbiA8a2VubmV0aC53LmNoZW5AaW50ZWwuY29tPgorICoKKyAqIFNlcCwgMjAwMzogYWRk
+IG51bWEgc3VwcG9ydAorICogRmViLCAyMDA0OiBkeW5hbWljIGh1Z2V0bGIgcGFnZSBzaXplIHZp
+YSBjb21tYW5kIGxpbmUKICAqLwogCiAjaW5jbHVkZSA8bGludXgvY29uZmlnLmg+CkBAIC0yMyw2
+ICsyNyw3IEBACiBzdGF0aWMgbG9uZwlodGxicGFnZW1lbTsKIGludAkJaHRsYnBhZ2VfbWF4Owog
+c3RhdGljIGxvbmcJaHRsYnpvbmVfcGFnZXM7Cit1bnNpZ25lZCBpbnQJaHBhZ2Vfc2hpZnQ9SFBB
+R0VfU0hJRlRfREVGQVVMVDsKIAogc3RhdGljIHN0cnVjdCBsaXN0X2hlYWQgaHVnZXBhZ2VfZnJl
+ZWxpc3RzW01BWF9OVU1OT0RFU107CiBzdGF0aWMgc3BpbmxvY2tfdCBodGxicGFnZV9sb2NrID0g
+U1BJTl9MT0NLX1VOTE9DS0VEOwpAQCAtNTIwLDYgKzUyNSwzNSBAQCBzdGF0aWMgaW50IF9faW5p
+dCBodWdldGxiX3NldHVwKGNoYXIgKnMpCiB9CiBfX3NldHVwKCJodWdlcGFnZXM9IiwgaHVnZXRs
+Yl9zZXR1cCk7CiAKK3N0YXRpYyBpbnQgX19pbml0IGh1Z2V0bGJfc2V0dXBfc3ooY2hhciAqc3Ry
+KQoreworCXU2NCB0cl9wYWdlczsKKwl1bnNpZ25lZCBsb25nIGxvbmcgc2l6ZTsKKworCWlmIChp
+YTY0X3BhbF92bV9wYWdlX3NpemUoJnRyX3BhZ2VzLCBOVUxMKSAhPSAwKQorCQkvKgorCQkgKiBz
+aG91bGRuJ3QgaGFwcGVuLCBidXQganVzdCBpbiBjYXNlLgorCQkgKi8KKwkJdHJfcGFnZXMgPSAw
+eDE1NTU3MDAwVUw7CisKKwlzaXplID0gbWVtcGFyc2Uoc3RyLCAmc3RyKTsKKwlpZiAoKnN0ciB8
+fCAoc2l6ZSAmIChzaXplLTEpKSB8fCAhKHRyX3BhZ2VzICYgc2l6ZSkgfHwKKwkJc2l6ZSA8PSBQ
+QUdFX1NJWkUgfHwKKwkJc2l6ZSA+PSAoMVVMIDw8IFBBR0VfU0hJRlQgPDwgTUFYX09SREVSKSkg
+eworCQlwcmludGsoS0VSTl9XQVJOSU5HICJJbnZhbGlkIGh1Z2UgcGFnZSBzaXplIHNwZWNpZmll
+ZFxuIik7CisJCXJldHVybiAxOworCX0KKworCWhwYWdlX3NoaWZ0ID0gX19mZnMoc2l6ZSk7CisJ
+LyoKKwkgKiBib290IGNwdSBhbHJlYWR5IGV4ZWN1dGVkIGlhNjRfbW11X2luaXQsIGFuZCBoYXMg
+SFBBR0VfU0hJRlRfREVGQVVMVAorCSAqIG92ZXJyaWRlIGhlcmUgd2l0aCBuZXcgcGFnZSBzaGlm
+dC4KKwkgKi8KKwlpYTY0X3NldF9ycigweDgwMDAwMDAwMDAwMDAwMDAsIGhwYWdlX3NoaWZ0IDw8
+IDIpOworCXJldHVybiAxOworfQorX19zZXR1cCgiaHVnZXBhZ2Vzej0iLCBodWdldGxiX3NldHVw
+X3N6KTsKKwogc3RhdGljIGludCBfX2luaXQgaHVnZXRsYl9pbml0KHZvaWQpCiB7CiAJaW50IGk7
+CkBAIC01NDAsNyArNTc0LDcgQEAgc3RhdGljIGludCBfX2luaXQgaHVnZXRsYl9pbml0KHZvaWQp
+CiAJcHJpbnRrKCJUb3RhbCBIdWdlVExCIG1lbW9yeSBhbGxvY2F0ZWQsICVsZFxuIiwgaHRsYnBh
+Z2VtZW0pOwogCXJldHVybiAwOwogfQotbW9kdWxlX2luaXQoaHVnZXRsYl9pbml0KTsKK19faW5p
+dGNhbGwoaHVnZXRsYl9pbml0KTsKIAogaW50IGh1Z2V0bGJfcmVwb3J0X21lbWluZm8oY2hhciAq
+YnVmKQogewpkaWZmIC1OdXJwIGxpbnV4LTIuNi4zL2FyY2gvaWE2NC9tbS9pbml0LmMgbGludXgt
+Mi42LjMuaHRsYi9hcmNoL2lhNjQvbW0vaW5pdC5jCi0tLSBsaW51eC0yLjYuMy9hcmNoL2lhNjQv
+bW0vaW5pdC5jCTIwMDQtMDItMjUgMTc6MTc6NTcuMDAwMDAwMDAwIC0wODAwCisrKyBsaW51eC0y
+LjYuMy5odGxiL2FyY2gvaWE2NC9tbS9pbml0LmMJMjAwNC0wMi0yNSAxNzoxOTowNS4wMDAwMDAw
+MDAgLTA4MDAKQEAgLTM0Miw2ICszNDIsMTAgQEAgaWE2NF9tbXVfaW5pdCAodm9pZCAqbXlfY3B1
+X2RhdGEpCiAKIAlpYTY0X3RsYl9pbml0KCk7CiAKKyNpZmRlZglDT05GSUdfSFVHRVRMQl9QQUdF
+CisJaWE2NF9zZXRfcnIoMHg4MDAwMDAwMDAwMDAwMDAwLCBocGFnZV9zaGlmdCA8PCAyKTsKKyNl
+bmRpZgorCiAjaWZkZWYJQ09ORklHX0lBNjRfTUNBCiAJY3B1ID0gc21wX3Byb2Nlc3Nvcl9pZCgp
+OwogCmRpZmYgLU51cnAgbGludXgtMi42LjMvaW5jbHVkZS9hc20taWE2NC9tbXVfY29udGV4dC5o
+IGxpbnV4LTIuNi4zLmh0bGIvaW5jbHVkZS9hc20taWE2NC9tbXVfY29udGV4dC5oCi0tLSBsaW51
+eC0yLjYuMy9pbmNsdWRlL2FzbS1pYTY0L21tdV9jb250ZXh0LmgJMjAwNC0wMi0yNSAxNzoxODow
+NC4wMDAwMDAwMDAgLTA4MDAKKysrIGxpbnV4LTIuNi4zLmh0bGIvaW5jbHVkZS9hc20taWE2NC9t
+bXVfY29udGV4dC5oCTIwMDQtMDItMjUgMTc6MTk6MDUuMDAwMDAwMDAwIC0wODAwCkBAIC0xNDAs
+OCArMTQwLDkgQEAgcmVsb2FkX2NvbnRleHQgKG1tX2NvbnRleHRfdCBjb250ZXh0KQogewogCXVu
+c2lnbmVkIGxvbmcgcmlkOwogCXVuc2lnbmVkIGxvbmcgcmlkX2luY3IgPSAwOwotCXVuc2lnbmVk
+IGxvbmcgcnIwLCBycjEsIHJyMiwgcnIzLCBycjQ7CisJdW5zaWduZWQgbG9uZyBycjAsIHJyMSwg
+cnIyLCBycjMsIHJyNCwgb2xkX3JyNDsKIAorCW9sZF9ycjQgPSBpYTY0X2dldF9ycigweDgwMDAw
+MDAwMDAwMDAwMDApOwogCXJpZCA9IGNvbnRleHQgPDwgMzsJLyogbWFrZSBzcGFjZSBmb3IgZW5j
+b2RpbmcgdGhlIHJlZ2lvbiBudW1iZXIgKi8KIAlyaWRfaW5jciA9IDEgPDwgODsKIApAQCAtMTUy
+LDcgKzE1Myw3IEBAIHJlbG9hZF9jb250ZXh0IChtbV9jb250ZXh0X3QgY29udGV4dCkKIAlycjMg
+PSBycjAgKyAzKnJpZF9pbmNyOwogCXJyNCA9IHJyMCArIDQqcmlkX2luY3I7CiAjaWZkZWYgIENP
+TkZJR19IVUdFVExCX1BBR0UKLQlycjQgPSAocnI0ICYgKH4oMHhmY1VMKSkpIHwgKEhQQUdFX1NI
+SUZUIDw8IDIpOworCXJyNCA9IChycjQgJiAofigweGZjVUwpKSkgfCAob2xkX3JyNCAmIDB4ZmMp
+OwogI2VuZGlmCiAKIAlpYTY0X3NldF9ycigweDAwMDAwMDAwMDAwMDAwMDAsIHJyMCk7CmRpZmYg
+LU51cnAgbGludXgtMi42LjMvaW5jbHVkZS9hc20taWE2NC9wYWdlLmggbGludXgtMi42LjMuaHRs
+Yi9pbmNsdWRlL2FzbS1pYTY0L3BhZ2UuaAotLS0gbGludXgtMi42LjMvaW5jbHVkZS9hc20taWE2
+NC9wYWdlLmgJMjAwNC0wMi0yNSAxNzoxODowNC4wMDAwMDAwMDAgLTA4MDAKKysrIGxpbnV4LTIu
+Ni4zLmh0bGIvaW5jbHVkZS9hc20taWE2NC9wYWdlLmgJMjAwNC0wMi0yNSAxNzoxOTowNS4wMDAw
+MDAwMDAgLTA4MDAKQEAgLTM3LDI3ICszNyw4IEBACiAjZGVmaW5lIFJHTl9NQVBfTElNSVQJKCgx
+VUwgPDwgKDQqUEFHRV9TSElGVCAtIDEyKSkgLSBQQUdFX1NJWkUpCS8qIHBlciByZWdpb24gYWRk
+ciBsaW1pdCAqLwogCiAjaWZkZWYgQ09ORklHX0hVR0VUTEJfUEFHRQotCi0jIGlmIGRlZmluZWQo
+Q09ORklHX0hVR0VUTEJfUEFHRV9TSVpFXzRHQikKLSMgIGRlZmluZSBIUEFHRV9TSElGVAkzMgot
+IyBlbGlmIGRlZmluZWQoQ09ORklHX0hVR0VUTEJfUEFHRV9TSVpFXzFHQikKLSMgIGRlZmluZSBI
+UEFHRV9TSElGVAkzMAotIyBlbGlmIGRlZmluZWQoQ09ORklHX0hVR0VUTEJfUEFHRV9TSVpFXzI1
+Nk1CKQotIyAgZGVmaW5lIEhQQUdFX1NISUZUCTI4Ci0jIGVsaWYgZGVmaW5lZChDT05GSUdfSFVH
+RVRMQl9QQUdFX1NJWkVfNjRNQikKLSMgIGRlZmluZSBIUEFHRV9TSElGVAkyNgotIyBlbGlmIGRl
+ZmluZWQoQ09ORklHX0hVR0VUTEJfUEFHRV9TSVpFXzE2TUIpCi0jICBkZWZpbmUgSFBBR0VfU0hJ
+RlQJMjQKLSMgZWxpZiBkZWZpbmVkKENPTkZJR19IVUdFVExCX1BBR0VfU0laRV80TUIpCi0jICBk
+ZWZpbmUgSFBBR0VfU0hJRlQJMjIKLSMgZWxpZiBkZWZpbmVkKENPTkZJR19IVUdFVExCX1BBR0Vf
+U0laRV8xTUIpCi0jICBkZWZpbmUgSFBBR0VfU0hJRlQJMjAKLSMgZWxpZiBkZWZpbmVkKENPTkZJ
+R19IVUdFVExCX1BBR0VfU0laRV8yNTZLQikKLSMgIGRlZmluZSBIUEFHRV9TSElGVAkxOAotIyBl
+bHNlCi0jICBlcnJvciBVbnN1cHBvcnRlZCBJQS02NCBIdWdlVExCIFBhZ2UgU2l6ZSEKLSMgZW5k
+aWYKLQorIyBkZWZpbmUgSFBBR0VfU0hJRlQgaHBhZ2Vfc2hpZnQKKyMgZGVmaW5lIEhQQUdFX1NI
+SUZUX0RFRkFVTFQJMjgJLyogY2hlY2sgaWE2NCBTRE0gZm9yIGFyY2hpdGVjdHVyZSBzdXBwb3J0
+ZWQgc2l6ZSAqLwogIyBkZWZpbmUgUkVHSU9OX0hQQUdFCSg0VUwpCS8qIG5vdGU6IHRoaXMgaXMg
+aGFyZGNvZGVkIGluIG1tdV9jb250ZXh0Lmg6cmVsb2FkX2NvbnRleHQoKSEqLwogIyBkZWZpbmUg
+UkVHSU9OX1NISUZUCTYxCiAjIGRlZmluZSBIUEFHRV9TSVpFCShfX0lBNjRfVUxfQ09OU1QoMSkg
+PDwgSFBBR0VfU0hJRlQpCkBAIC0xNDAsNiArMTIxLDcgQEAgdHlwZWRlZiB1bmlvbiBpYTY0X3Zh
+IHsKICMgZGVmaW5lIGlzX2h1Z2VwYWdlX29ubHlfcmFuZ2UoYWRkciwgbGVuKQkJXAogCSAoUkVH
+SU9OX05VTUJFUihhZGRyKSA9PSBSRUdJT05fSFBBR0UgJiYJXAogCSAgUkVHSU9OX05VTUJFUigo
+YWRkcikrKGxlbikpID09IFJFR0lPTl9IUEFHRSkKK2V4dGVybiB1bnNpZ25lZCBpbnQgaHBhZ2Vf
+c2hpZnQ7CiAjZW5kaWYKIAogc3RhdGljIF9faW5saW5lX18gaW50Cg==
 
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
-
+------_=_NextPart_001_01C3FC07.8D27B6A9--
