@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 06 Jan 2005 20:11:26 +0000
-Subject: RE: [PATCH] cleanup swiotlb.c a bit
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02A67657@scsmsx401.amr.corp.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 06 Jan 2005 21:19:51 +0000
+Subject: Re: [PATCH] cleanup swiotlb.c a bit
+Message-Id: <16861.43895.318193.345787@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200501060945.12364.jbarnes@engr.sgi.com>
 In-Reply-To: <200501060945.12364.jbarnes@engr.sgi.com>
@@ -10,21 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->I find the former more readable.  It lets you know there's something
->coming on the next line.
+>>>>> On Thu, 6 Jan 2005 12:07:57 -0800, Jesse Barnes <jbarnes@engr.sgi.com> said:
+  Jesse> Really?  In my experience the core files are generally pretty
+  Jesse> good (every now and then a long line creeps in, but there
+  Jesse> aren't that many that I can see).  Any big offenders that
+  Jesse> really bug you?
 
-I too prefer to leave the binary operator trailing on the first line,
-scripts/Lindent seems to do this too for the cases that I tried, though
-it makes poor choices on which binary operator to leave dangling in a
-long expression ... it just makes the first line as long as possible
-without going over the 80 char limit ... which often isn't the best
-place to split the line.
+It certainly has improved recent, but still there enough declarations
+etc that are too wide for 80 cols.
 
->> Well, it probably should move outside of the ia64 tree anyhow.  The
->> way x86_64 includes swiotlb.c at the moment is just absolutely gross.
->
->kernel/swiotlb.c would make most sense, I guess?
+  Jesse> Well if you don't like them either (that makes none that I
+  Jesse> know of), shouldn't we at least fixup the ia64 bits,
+  Jesse> regardless of what happens with the core kernel files?
 
-That would be fine for me ... one less file for me to manage :-)
+I'm not sure that's much of an improvement, but if you think
+otherwise, go for it.
 
--Tony
+	--david
