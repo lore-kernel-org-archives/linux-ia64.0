@@ -1,45 +1,36 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 08 Oct 2003 14:42:00 +0000
-Subject: user-space unaligned accesses
-Message-Id: <marc-linux-ia64-106562414203331@msgid-missing>
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 08 Oct 2003 21:46:18 +0000
+Subject: Re: user-space unaligned accesses
+Message-Id: <marc-linux-ia64-106564957802126@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106562414203331@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106562414203331@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I got this from somebody at Red Hat.  Anybody want to comment on it?
+On Wed, Oct 08, 2003 at 08:42:00AM -0600, Bjorn Helgaas wrote:
+> ...
+> The ia64 architecture does a tty_write
+> on a userspace unaligned access. Not only is this extremenly annoying,
+> it's also very broken since the tty may well be suspended etc etc.
+> Doing a printk on such an access by default is very broken already,
+> lets not make it worse
 
+This was beat to death on linux-ia64 already where davidm and davem
+decided to disagree on the utility of printing unaligned accesses
+to the tty.
 
--------------------------------------------------------
-...
-The ia64 architecture does a tty_write
-on a userspace unaligned access. Not only is this extremenly annoying,
-it's also very broken since the tty may well be suspended etc etc.
-Doing a printk on such an access by default is very broken already,
-lets not make it worse
+davidm wrote:
+| At the moment, there are two ways to control the unaligned message printing:
+| 
+|  - use the dmesg command to lower the printing threshold below KERN_WARNING
+|     ("dmesg -n4", IIRC)
+| 
+|  - use prctl --unalign=silent to turn off unaligned printing for a
+|    particular task and its children
 
+Running prctl on relevant gettys at boot time would have the same effect.
 
-
---- linux/arch/ia64/kernel/unaligned.c~	2003-09-30 11:04:08.000000000 +0200
-+++ linux/arch/ia64/kernel/unaligned.c	2003-09-30 11:04:08.000000000 +0200
-@@ -1340,12 +1340,6 @@
- 			len = sprintf(buf, "%s(%d): unaligned access to 0x%016lx, "
- 				      "ip=0x%016lx\n\r", current->comm, current->pid,
- 				      ifa, regs->cr_iip + ipsr->ri);
--			/*
--			 * Don't call tty_write_message() if we're in the kernel; we might
--			 * be holding locks...
--			 */
--			if (user_mode(regs))
--				tty_write_message(current->tty, buf);
- 			buf[len-1] = '\0';	/* drop '\r' */
- 			printk(KERN_WARNING "%s", buf);	/* watch for command names containing %s */
- 		}
-
-
-
-
-
--------------------------------------------------------
-
+grant
