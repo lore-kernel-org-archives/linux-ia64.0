@@ -1,7 +1,7 @@
-From: Scott Hankin <shankin@rational.com>
-Date: Mon, 13 Nov 2000 22:09:35 +0000
-Subject: Re: [Linux-ia64] Recommended compiler for compiling kernels
-Message-Id: <marc-linux-ia64-105590678205705@msgid-missing>
+From: Jun Nakajima <jun@sco.com>
+Date: Mon, 13 Nov 2000 22:10:44 +0000
+Subject: Re: [Linux-ia64] Recommended compiler for compiling kernels test1 0 and
+Message-Id: <marc-linux-ia64-105590678205702@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205680@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205680@msgid-missing>
@@ -10,25 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->I am not a kernel expert.  I do not build my own kernels.  I can not tell you
->which compiler versions are best for compiling which kernel versions.
->
->However, in general, I recommend the most recent toolchain snapshot available
->at  ftp://ftp.cygnus.com/pub/ia64-linux.  These toolchains assume glibc 2.2.
->Unfortunately, sigh, there aren't any glibc 2.2 based OS releases yet, but
->this shouldn't matter if you are just building kernels.
+Yes, I'm running 2.4 kernels (test10, for example) on IA-32 machines as
+well, switching kernels on Redhat 7.0 based systems. They have been
+compiled by the gcc 2.95.
 
-I tried building glibc 2.2 (just released today on freshmeat.com) but
-when building with the original compiler (Red Hat August release) I had
-compile errors with sysdeps/ia64/fpu/s_isnanl.S - nat, qnan and snan
-weren't defined.  The latest snapshot seems to define these, but crash
-a lot.  Is there something in the middle you'd recommend?
+Jim Wilson wrote:
+> 
+> >The new one is gcc 2.95 and it is terrible for compiling kernels. ( ia32 )
+> 
+> To be more precise, it is terrible for compiling old (2.2 based) linux kernels,
+> because these old linux kernels don't have any of the bug fixes needed to work
+> with new gcc releases.  It should be fine for compiling 2.4 based kernels.
+> In fact, nearly everybody uses a gcc-2.95 based compiler for their ia64 kernel
+> compiles.
+> 
+> Jim
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
-- Scott
-
------------------------------
-Scott Hankin                  In the beginning, there was nothing, then
-Rational Software             God said, "Let there be light."  And there
-20 Maguire Road               was light.  There was still nothing, but
-Lexington, MA 02421           you could see it a lot better.
+-- 
+Jun U Nakajima
+Core OS Development
+SCO/Murray Hill, NJ
+Email: jun@sco.com, Phone: 908-790-2352 Fax: 908-790-2426
 
