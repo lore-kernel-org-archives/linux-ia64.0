@@ -1,7 +1,7 @@
-From: Steffen Persvold <sp@scali.com>
-Date: Sun, 09 Jun 2002 10:34:26 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Fri, 14 Jun 2002 03:12:53 +0000
 Subject: Re: [Linux-ia64] kernel update (relative to v2.5.18)
-Message-Id: <marc-linux-ia64-105590701905656@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905676@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,38 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 7 Jun 2002, Bjorn Helgaas wrote:
 
-> > 	-- With CONFIG_GENERIC, sba_iommu.c still doesn't compile
-> > 	because of the removal of the address field from the scatterlist.
->
-> Here's a patch to make sba_iommu work again.
->
-> I added dma_address and dma_length to struct scatterlist and
-> removed orig_address.  This brings IA64 in line with most other
-> architectures, but required a few changes to swiotlb.
->
-> Grant Grundler did the sba_iommu.c updates.
->
-> Note that this isn't *quite* enough to make the generic kernel
-> work on ZX1 boxes, because the ACPI in 2.5.18 barfs on a
-> ZX1 _CRS method.
->
-> David, I've tested both the swiotlb (on i2000 and ZX1) and
-> sba_iommu (on ZX1, with a kludge for the ACPI problem),
-> and they seem to work fine.
++/*
++ * Note: the MAP_NR_*() macro can't use __pa() because MAP_NR_*(X) MUST
++ * map to something >= max_mapnr if X is outside the identity mapped
++ * kernel space.
++ */
++
++/*
++ * The dense variant can be used as long as the size of memory holes isn't
++ * very big.
++ */
++#define MAP_NR_DENSE(addr)	(((unsigned long) (addr) - PAGE_OFFSET) >> PAGE_SHIFT)
++
 
-Hi Bjorn,
+Bjorn,
+	Given that the only current use of MAP_NR_DENSE is in
+machvec.c: map_nr_dense() why not open-code it there, instead of using
+the MACRO?  (So
+   unsigned long
+   map_nr_dense(unsigned long addr) {
+	return (addr - PAGE_OFFSET) >> PAGE_SHIFT;
+    }
+)
 
-Do you have any estimate when this kludge for the ACPI problem on ZX1 is
-available to the public ? Do the DIG version work on ZX1 now, or does
-it barf on the same ACPI problem ?
+And move the comment there too instead of in page.h.
+It might make things a little cleaner that way.
 
-Regards,
---
-  Steffen Persvold   | Scalable Linux Systems |   Try out the world's best
- mailto:sp@scali.com |  http://www.scali.com  | performing MPI implementation:
-Tel: (+47) 2262 8950 |   Olaf Helsets vei 6   |      - ScaMPI 1.13.8 -
-Fax: (+47) 2262 8951 |   N0621 Oslo, NORWAY   | >320MBytes/s and <4uS latency
-
+Peter C
 
