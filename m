@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 11 Nov 2004 01:14:31 +0000
-Subject: RE: [PATCH] make INIT# handler call panic
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F025E81D3@scsmsx401.amr.corp.intel.com>
+From: Cliff Larsen <clarsen@egenera.com>
+Date: Thu, 11 Nov 2004 17:12:08 +0000
+Subject: Re: [PATCH] make INIT# handler call panic
+Message-Id: <1100193128.16960.237.camel@clarsen>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1099662943.913.180.camel@clarsen>
 In-Reply-To: <1099662943.913.180.camel@clarsen>
@@ -10,17 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>    1) dump register state (for all CPUs, not just the INIT monarch)
->>       on the console
+On Wed, 2004-11-10 at 19:55, Takao Indoh wrote:
+> On Wed, 10 Nov 2004 10:53:38 -0500, Philip R Auld wrote:
+> >
+> >We are still mostly a working with 2.4 (rhel3 which has netdump_func hooks) 
+> >and this all worked fine. A crashdump hook, a call to panic, or a call 
+> >to BUG each worked.
+> 
+> Crashdump itself succeeds, but isn't there any problem in analyzing
+> dump? Backtrace of "current" on each cpu seem to not work because
+> switch_stack is not saved correctly.
 
->I'll see what I can do about most of these. Part 1 would be
->difficult since the hardware/firmware we've currently got 
->available makes both processors the monarch on INIT.
+We are seeing the same behavior with our 2.4 - we can backtrace all
+process but the active.
 
-You could change the call to ia64_sal_set_vectors in ia64_mca_init
-to point all cpus to just one routine (pass pointer to the same
-routine for monarch/slave) ... and then have the OS init code
-handle the serialization.  That would work on both correct and
-buggy SAL implementations.
+-- 
+Cliff Larsen <clarsen@egenera.com>
 
--Tony
+
