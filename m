@@ -1,25 +1,24 @@
-From: Andy Polyakov <appro@fy.chalmers.se>
-Date: Tue, 10 Jul 2001 17:15:43 +0000
-Subject: [Linux-ia64] OpenSSL 0.9.6b PK performance patch
-Message-Id: <marc-linux-ia64-105590693005840@msgid-missing>
+From: Chris Ahna <christopher.j.ahna@intel.com>
+Date: Tue, 14 Aug 2001 08:15:40 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to 2.4.8)
+Message-Id: <marc-linux-ia64-105590698805072@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205111@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+On Tue, Aug 14, 2001 at 01:19:43AM -0700, David Mosberger wrote:
+> Note that Linus switched to the DRM code needed for XFree86-4.1.  But since
+> we don't 460gx have AGP support for this version yet and since most
+> folks are presumably still running 4.0.x, I kept the old DRM code
+> instead.  I assume this will stay so until someone (Chris?) has had a
+> chance up update the 460gx code to 4.1.
 
-As the subject suggests I have the pleasure to announce that public-key
-op performance patch relative to just released OpenSSL 0.9.6b is
-available for download at
-http://www.openssl.org/~appro/096b.linux-ia64.diff. I want to point out
-that 0.9.6a and 0.9.6b address a number of security problems and users
-of older version are urged to upgrade.
+I have updated DRM code for 460gx working on my machines and should
+have a patch out sometime tomorrow.
 
-Please note that I'm not subscribed to this list and if you want to
-comment or have a question I would appreciate if you contact me directly
-(by putting my e-mail address to Cc: field:-).
-
-Cheers. Andy.
+Chris
 
