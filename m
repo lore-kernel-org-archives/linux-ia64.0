@@ -1,25 +1,82 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 06 Aug 2003 08:41:24 +0000
-Subject: Re: PATCH: Use rm -f instead of rm
-Message-Id: <marc-linux-ia64-106018161624870@msgid-missing>
+From: Umut Aymakoglu <umuta@us.ibm.com>
+Date: Fri, 29 Aug 2003 00:04:10 +0000
+Subject: shmat() ... is it a bug?
+Message-Id: <marc-linux-ia64-106211685507764@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106013374422175@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106013374422175@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"H. J. Lu" <hjl@lucon.org> writes:
 
-|> "rm" may be aliased to "rm -i".
 
-A non-interactive shell has no business of expanding aliases.
 
-Andreas.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Hi -
+ Below ,I have 2 small programs which shows a problem in shmat() when the
+executable linked with the curses library(libncurses). Has anybody seen
+something like this?
+
+a.c --> allocates a shared memory segment and attaches.
+b.c --> attaching the allocated shared memory segment using the address
+from a.c
+
+thanks,
+Umut
+
+
+a.c:
+-----
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/shm.h>
+
+main()
+{
+
+unsigned int segsize = 512*1024;
+int                     shmid;
+key_t               shmkey = 123456789;
+void * adr;
+
+shmid = shmget(shmkey, segsize,IPC_CREAT|0660);
+adr = shmat(shmid, 0,0);
+
+printf("shmid = %d  adr = %p\n",shmid, adr);
+}
+
+
+b.c:
+-----
+#include <stdio.h>
+#include <stdlib.h>
+#include<sys/types.h>
+#include <sys/shm.h>
+
+main(int argc, char **argv)
+{
+ void * addr1, * addr2;
+key_t  shmkey = 123456789;
+int shmid;
+
+addr1 = (void*) strtoul(argv[1],NULL,0);
+shmid = shmget(shmkey, 0, 0660);
+
+addr2 = shmat(shmid, addr1, 0);
+printf("addr2 = %p\n",addr2);
+}
+
+%gcc3 -o a a.c
+%gcc3 -o b b.c
+%gcc3 -o c b.c -lncurses
+
+% ./a
+shmid = 313556996 adr = 0x2000000000300000
+
+%./b 0x2000000000300000
+addr2 = 0x2000000000300000
+
+%./c 0x2000000000300000
+addr2 = 0xffffffffffffffff
+
+
