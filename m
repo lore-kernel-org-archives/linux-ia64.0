@@ -1,134 +1,163 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 15 Mar 2005 19:35:03 +0000
-Subject: [Patch 3/3] Shrink quicklist based upon node free memory.
-Message-Id: <20050315193503.GD25617@lnx-holt.americas.sgi.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Tue, 01 Mar 2005 08:33:48 +0000
+Subject: [PATCH/RFC] I/O-check interface for driver's error handling
+Message-Id: <422428EC.3090905@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050302184312.GD16517@lnx-holt.americas.sgi.com>
-In-Reply-To: <20050302184312.GD16517@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org
+Cc: Linus Torvalds <torvalds@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
 
-Tony,
+Hi, long time no see :-)
 
-This patch shrinks the quicklist based upon free memory on the node
-instead of the high/low water marks.  I have written it to enable
-preemption periodically and recalculate the amount to shrink every time
-we have freed enough pages that the quicklist size should have grown.
-I rescan the nodes zones each pass because other processess may be
-draining node memory at the same time as we are adding.
+Currently, I/O error is not a leading cause of system failure.
+However, since Linux nowadays is making great progress on its
+scalability, and ever larger number of PCI devices are being
+connected to a single high-performance server, the risk of the
+I/O error is increasing day by day.
 
-Signed-off-by: Robin Holt <holt@sgi.com>
+For example, PCI parity error is one of the most common errors
+in the hardware world. However, the major cause of parity error
+is not hardware's error but software's - low voltage, humidity,
+natural radiation... etc. Even though, some platforms are nervous
+to parity error enough to shutdown the system immediately on such
+error. So if device drivers can retry its transaction once results
+as an error, we can reduce the risk of I/O errors.
 
+So I'd like to suggest new interfaces that enable drivers to
+check - detect error and retry their I/O transaction easily.
 
-No noticable performance change on lmbench.  For completeness sake, here
-are the before and after numbers:
+Previously I had post two prototypes to LKML:
+1) readX_check() interface
+    Added new kin of basic readX(), which returns its result of
+    I/O. But, it would not make sense that device driver have to
+    check and react after each of I/Os.
+2) clear/read_pci_errors() interface
+    Added new pair-interface to sandwich I/Os. It makes sense that
+    device driver can adjust the number of checking I/Os and can
+    react all of them at once. However, this was not generalized,
+    so I thought that more expandable design would be required.
 
-Before:
-Process fork+exit: 182.2333 microseconds
-Process fork+execve: 692.7500 microseconds
-Process fork+/bin/sh -c: 2905.5000 microseconds
+Today's patch is 3rd one - iochk_clear/read() interface.
+- This also adds pair-interface, but not to sandwich only readX().
+   Depends on platform, starting with ioreadX(), inX(), writeX()
+   if possible... and so on could be target of error checking.
+- Additionally adds special token - abstract "iocookie" structure
+   to control/identifies/manage I/Os, by passing it to OS.
+   Actual type of "iocookie" could be arch-specific. Device drivers
+   could use the iocookie structure without knowing its detail.
 
-After:
-Process fork+exit: 181.1935 microseconds
-Process fork+execve: 690.0000 microseconds
-Process fork+/bin/sh -c: 2945.0000 microseconds
+Expected usage(sample) is:
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#include <linux/pci.h>
+#include <asm/io.h>
 
- init.c |   62 +++++++++++++++++++++++++++++++++++++++-----------------------
- 1 files changed, 39 insertions(+), 23 deletions(-)
+int sample_read_with_iochk(struct pci_dev *dev, u32 *buf, int words)
+{
+	unsigned long ofs = pci_resource_start(dev, 0) + DATA_OFFSET;
+	int i;
 
-Index: linux-2.6/arch/ia64/mm/init.c
-=================================--- linux-2.6.orig/arch/ia64/mm/init.c	2005-03-15 11:56:20.954343163 -0600
-+++ linux-2.6/arch/ia64/mm/init.c	2005-03-15 11:57:18.773089554 -0600
-@@ -53,24 +53,53 @@
- EXPORT_SYMBOL(vmem_map);
- #endif
- 
--static int pgt_cache_water[2] = { 25, 50 };
--
--struct page *zero_page_memmap_ptr;		/* map entry for zero page */
-+struct page *zero_page_memmap_ptr;	/* map entry for zero page */
- EXPORT_SYMBOL(zero_page_memmap_ptr);
- 
-+#define MIN_PGT_PAGES			25UL
-+#define MAX_PGT_FREES_PER_PASS		16
-+#define PGT_FRACTION_OF_NODE_MEM	16
+	/* Create magical cookie on the stack */
+	iocookie cookie;
+
+	/* Critical section start */
+	iochk_clear(&dev, &cookie);
+	{
+		/* Get the whole packet of data */
+		for (i = 0; i < words; i++)
+			*buf++ = ioread32(dev, ofs);
+	}
+	/* Critical section end. Did we have any trouble? */
+	if ( iochk_read(&cookie) ) return -1;
+
+	/* OK, all system go. */
+	return 0;
+}
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If arch doesn't(or cannot) have its io-checking strategy, these
+interfaces could be used as a replacement of local_irq_save/restore
+pair. Therefore, driver maintainer can write their driver code with
+these interfaces for all arch, even where checking is not implemented.
+
+Followings are "generic" part. Definition of default for all arch
+are included. I have another part - "ia64 specific" part, which
+against poisoned data read on PCI parity error. I'll post it later.
+
+First, comments about this "generic" part are welcome.
+
+Thanks,
+H.Seto
+
+-----
+
+diff -Nur linux-2.6.10-iomap-0/drivers/pci/pci.c linux-2.6.10-iomap-1/drivers/pci/pci.c
+--- linux-2.6.10-iomap-0/drivers/pci/pci.c      2005-02-15 15:27:28.000000000 +0900
++++ linux-2.6.10-iomap-1/drivers/pci/pci.c      2005-02-24 16:55:11.000000000 +0900
+@@ -747,6 +747,8 @@
+         while ((dev = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, dev)) != NULL) {
+                 pci_fixup_device(pci_fixup_final, dev);
+         }
 +
-+static inline long
-+max_pgt_pages(void)
-+{
-+	u64 node_free_pages, max_pgt_pages;
-+
-+#ifndef	CONFIG_NUMA
-+	node_free_pages = nr_free_pages();
-+#else
-+	node_free_pages = nr_free_pages_pgdat(NODE_DATA(numa_node_id()));
++       iochk_init();
+         return 0;
+  }
+
+diff -Nur linux-2.6.10-iomap-0/include/asm-generic/iomap.h linux-2.6.10-iomap-1/include/asm-generic/iomap.h
+--- linux-2.6.10-iomap-0/include/asm-generic/iomap.h    2005-02-15 15:27:27.000000000 +0900
++++ linux-2.6.10-iomap-1/include/asm-generic/iomap.h    2005-02-21 14:40:45.000000000 +0900
+@@ -60,4 +60,20 @@
+  extern void __iomem *pci_iomap(struct pci_dev *dev, int bar, unsigned long max);
+  extern void pci_iounmap(struct pci_dev *dev, void __iomem *);
+
++/*
++ * IOMAP_CHECK provides additional interfaces for drivers to detect
++ * some IO errors, supports drivers having ability to recover errors.
++ *
++ * All works around iomap-check depends on the design of "iocookie"
++ * structure. Every architecture owning its iomap-check is free to
++ * define the actual design of iocookie to fit its special style.
++ */
++#ifndef HAVE_ARCH_IOMAP_CHECK
++typedef unsigned long iocookie;
 +#endif
-+	max_pgt_pages = node_free_pages / PGT_FRACTION_OF_NODE_MEM;
-+	max_pgt_pages = max(max_pgt_pages, MIN_PGT_PAGES);
-+	return max_pgt_pages;
-+}
 +
-+static inline long
-+min_pages_to_free(void)
++extern void    iochk_init(void);
++extern void    iochk_clear(iocookie *cookie, struct pci_dev *dev);
++extern int     iochk_read(iocookie *cookie);
++
+  #endif
+diff -Nur linux-2.6.10-iomap-0/lib/iomap.c linux-2.6.10-iomap-1/lib/iomap.c
+--- linux-2.6.10-iomap-0/lib/iomap.c    2005-02-15 15:27:27.000000000 +0900
++++ linux-2.6.10-iomap-1/lib/iomap.c    2005-02-21 14:38:17.000000000 +0900
+@@ -210,3 +210,28 @@
+  }
+  EXPORT_SYMBOL(pci_iomap);
+  EXPORT_SYMBOL(pci_iounmap);
++
++/*
++ * Note that default iochk_clear-read pair interfaces could be used
++ * just as a replacement of traditional local_irq_save-restore pair.
++ * Originally they don't have any effective error check, but some
++ * high-reliable platforms would provide useful information to you.
++ */
++#ifndef HAVE_ARCH_IOMAP_CHECK
++#include <asm/system.h>
++void iochk_init(void) { ; }
++
++void iochk_clear(iocookie *cookie, struct pci_dev *dev)
 +{
-+	long pages_to_free;
-+
-+	pages_to_free = pgtable_quicklist_size - max_pgt_pages();
-+	pages_to_free = min(pages_to_free, MAX_PGT_FREES_PER_PASS);
-+	return pages_to_free;
++       local_irq_save(*cookie);
 +}
 +
- void
--check_pgt_cache (void)
-+check_pgt_cache(void)
- {
--	int low, high;
-+	long pages_to_free;
- 
--	low = pgt_cache_water[0];
--	high = pgt_cache_water[1];
-+	if (unlikely(pgtable_quicklist_size <= MIN_PGT_PAGES))
-+		return;
- 
- 	preempt_disable();
--	if (pgtable_quicklist_size > (u64) high) {
--		do {
-+	while (unlikely((pages_to_free = min_pages_to_free()) > 0)) {
-+		while (pages_to_free--) {
- 			free_page((unsigned long)pgtable_quicklist_alloc());
--		} while (pgtable_quicklist_size > (u64) low);
-+		}
-+		preempt_enable();
-+		preempt_disable();
- 	}
- 	preempt_enable();
- }
-@@ -524,7 +553,6 @@
- mem_init (void)
- {
- 	long reserved_pages, codesize, datasize, initsize;
--	unsigned long num_pgt_pages;
- 	pg_data_t *pgdat;
- 	int i;
- 	static struct kcore_list kcore_mem, kcore_vmem, kcore_kernel;
-@@ -569,18 +597,6 @@
- 	       num_physpages << (PAGE_SHIFT - 10), codesize >> 10,
- 	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
- 
--	/*
--	 * Allow for enough (cached) page table pages so that we can map the entire memory
--	 * at least once.  Each task also needs a couple of page tables pages, so add in a
--	 * fudge factor for that (don't use "threads-max" here; that would be wrong!).
--	 * Don't allow the cache to be more than 10% of total memory, though.
--	 */
--#	define NUM_TASKS	500	/* typical number of tasks */
--	num_pgt_pages = nr_free_pages() / PTRS_PER_PGD + NUM_TASKS;
--	if (num_pgt_pages > nr_free_pages() / 10)
--		num_pgt_pages = nr_free_pages() / 10;
--	if (num_pgt_pages > (u64) pgt_cache_water[1])
--		pgt_cache_water[1] = num_pgt_pages;
- 
- 	/*
- 	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
++int iochk_read(iocookie *cookie)
++{
++       local_irq_restore(*cookie);
++       return 0;
++}
++EXPORT_SYMBOL(iochk_init);
++EXPORT_SYMBOL(iochk_clear);
++EXPORT_SYMBOL(iochk_read);
++#endif /* HAVE_ARCH_IOMAP_CHECK */
+
