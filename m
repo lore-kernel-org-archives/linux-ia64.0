@@ -1,41 +1,18 @@
-From: "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp>
-Date: Mon, 10 Mar 2003 13:50:40 +0000
-Subject: Re: [Linux-ia64] Intel's fortan compiler
-Message-Id: <marc-linux-ia64-105590709806016@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Thu, 06 Mar 2003 21:59:40 +0000
+Subject: [Linux-ia64] Re: fix for siginfo.si_addr on NaT page triggered SIGSEGV
+Message-Id: <marc-linux-ia64-105590709805991@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709806015@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709806015@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-IEhpLAoKW2hpZGVraUB2YWxzZSB0bXBdJCBjYXQgbnVzbGlzdAp5b3VyX2Z1bmN0aW9uCltoaWRl
-a2lAdmFsc2UgdG1wXSQgY2F0IGEuZgogICAgICAgICAgcHJvZ3JhbSBtYWluCiAgICAgICAgICBj
-YWxsIHlvdXJfZnVuY3Rpb24KICAgICAgICAgIGVuZAoKW2hpZGVraUB2YWxzZSB0bXBdJCBlZmMg
-LWMgYS5mIC1udXMsbnVzbGlzdAogICBwcm9ncmFtIE1BSU4KCjQgTGluZXMgQ29tcGlsZWQKW2hp
-ZGVraUB2YWxzZSB0bXBdJCBubSBhLm8KMDAwMDAwMDAwMDAwMDAwMCB0IC5sX21haW4KMDAwMDAw
-MDAwMDAwMDAwMCBkIEVQQyRSWkVSTyQwCjAwMDAwMDAwMDAwMDAwMDAgPyBfX2Z0ZV9tYWluCjAw
-MDAwMDAwMDAwMDAwMDAgPyBfX3VkdF9tYWluCiAgICAgICAgICAgICAgICAgVSBmOTBfaW5pdAog
-ICAgICAgICAgICAgICAgIFUgZl9zdG9wCjAwMDAwMDAwMDAwMDAwMDAgVCBtYWluCiAgICAgICAg
-ICAgICAgICAgVSB5b3VyX2Z1bmN0aW9uCltoaWRla2lAdmFsc2UgdG1wXSQgCiAKIFJpZ2h0PwoK
-RW5kIG9mIG15IGVtYWlsCi0tCllvdXJzIGZhaXRoZnVsbHksCkhpZGVraSBZYW1hbW90byAgIChW
-KS52LihWKSAjIEVtcG93ZXJlZCBieSBJbm5vdmF0aW9uCgpBdCBNb24sIDEwIE1hciAyMDAzIDIx
-OjI4OjAyICswODAwLApkYWkgeWl5YW5nIHdyb3RlOgo+IAo+IAo+IEhpIGFsbDogCj4gCj4gICAg
-IElzIHRoZXJlIGFueWJvZHkga25vdyBob3cgdG8gdXNlIHRoZSAtbnVzIG9wdGlvbiBvZiBJbnRl
-bCdzIGZvcnRhbiAKPiBjb21waWxlciBvbiBJQTY0ID8/IAo+IAo+ICAgICBiYXNpY2x5ICwgZm9y
-dGFuIGNvbXBpbGVyIHdpbGwgYWRkIGEgdW5kZXJzY29yZSB0byBhbnkgdW5zb2x2ZWQgc3ltYm9s
-IAo+IGluIHRoZSBzb3VyY2UgLHRoYXQgbWVhbnMgaWYgdGhlIGNhbGwgaXMgInN5c3RlbSIgLCB0
-aGVuIHRoZSBleHBvcnRlZCAKPiBzeW1ib2wgd2lsbCBiZSAic3lzdGVtXyIKPiAKPiB0aGUgIi1u
-dXMiIGlzIHRvIGdldCByaWQgb2YgdGhlIHVuZGVyc2NvcmUgb2YgdGhlIGV4cG9ydGVkIHN5bWJv
-bCBzbyB0aGF0IAo+IGl0IGNhbiBiZSBsaW5rZWQgd2l0aCBDIGxpYiAsLCwsIAo+IAo+ICAgICBN
-eSBwcm9ibGVtIGlzIDogSSBqdXN0IHdhbnQgdG8gZ2V0IHJpZCBvZiB0aGUgdW5kZXJzY29yZSBm
-b3Igc2VsZWN0ZWQgCj4gc3ltYm9sICwgSW50ZWwncyBjb21waWxlciBtYW51YWwgc2FpZCBJIGNh
-biBkbyB0aGF0IHdpdGggdGhlIG9wdGlvbiAKPiAiLW51c1tmaWxlXSIgICwgYnV0IGl0IGRvbnQg
-d29yayAuCj4gCj4gICAgIEFueW9uZSBjYW4gaGVscCBtZSA/PyAKPiAKPiBSZWdhcmRzLCAKPiBZ
-aXlhbmcgCj4gIAo+IAo+IAo+IAo+IAo+IAo+IF9fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCj4g0+vBqrv6tcTF89PRvfjQ0L27
-wfejrMfryrnTwyBNU04gTWVzc2VuZ2VyOiAgaHR0cDovL21lc3Nlbmdlci5tc24uY29tL2NuICAK
-PiAKPiAKPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwo+
-IExpbnV4LUlBNjQgbWFpbGluZyBsaXN0Cj4gTGludXgtSUE2NEBsaW51eGlhNjQub3JnCj4gaHR0
-cDovL2xpc3RzLmxpbnV4aWE2NC5vcmcvbGlzdHMvbGlzdGluZm8vbGludXgtaWE2NAo+IAoK
+On Thursday 06 March 2003 2:26 pm, David Mosberger wrote:
+> The patch below fixes a bug which caused si_addr to be set to the
+> faulting IP instead of the faulting data address when a SIGSEGV got
+> triggered by the NaT page.  The patch is relative to 2.5, but I
+> believe it applies on 2.4 as well.
+
+I applied this to 2.4.
+
