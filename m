@@ -1,45 +1,60 @@
-From: Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
-Date: Thu, 08 Aug 2002 04:19:20 +0000
-Subject: Re: [Linux-ia64] Re: CPU hotplug boot change for IA64
-Message-Id: <marc-linux-ia64-105590701905923@msgid-missing>
+From: Kingsley Cheung <kingsley@aurema.com>
+Date: Fri, 30 Aug 2002 01:33:17 +0000
+Subject: [Linux-ia64] [PATCH] pfm_smpl_buffer_alloc needs to free vma on error
+Message-Id: <marc-linux-ia64-105590701905999@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905894@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905894@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Hi David,
 
-On Tue, 6 Aug 2002 20:33:09 +0200
-Erich Focht <efocht@ess.nec.de> wrote:
+In 2.4.19, arch/ia64/kernel/perfmon.c, I noticed that 
+pfm_smpl_buffer_alloc doesn't seem to be freeing the vma structure it 
+allocates if there's an error.  Here's a trivial patch to fix it:
 
-> The patch looks fine. Before applying it to 2.5.29 my BigSur ended up
-> with no tasks beeing scheduled to cpu#1 and no migration_task and
-> ksoftirqd for the same cpu.
->
-> But the system came up. After applying it 
-> the system hangs in the boot sequence right after "Freeing unused
-> kernel memory". But CPU#1 was woken up correctly. Sorry, have no kdb
-> to be able to tell you more...
-> 
-> Does anybody else have these problems?
+--- arch/ia64/kernel/perfmon.c  5 Jul 2002 06:17:29 -0000       1.1.7.1
++++ arch/ia64/kernel/perfmon.c  29 Aug 2002 23:29:06 -0000
+@@ -647,15 +647,14 @@
+        psb = kmalloc(sizeof(*psb), GFP_KERNEL);
+        if (psb = NULL) {
+                DBprintk(("Can't allocate sampling buffer descriptor\n"));
+-               pfm_rvfree(smpl_buf, size);
+-               return -ENOMEM;
++               goto kmalloc_fail;
+        }
+ 
+        /* allocate vma */
+        vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+        if (!vma) {
+                DBprintk(("Cannot allocate vma\n"));
+-               goto error;
++               goto kmem_cache_alloc_fail;
+        }
+        /*
+         * partially initialize the vma for the sampling buffer
+@@ -750,9 +749,12 @@
+ 
+        return 0;
+ 
+-error:
+-       pfm_rvfree(smpl_buf, size);
++ error:
++       kmem_cache_free(vm_area_cachep, vma);
++ kmem_cache_alloc_fail:
+        kfree(psb);
++ kmalloc_fail:
++       pfm_rvfree(smpl_buf, size);
+        return -ENOMEM;
+ }
 
-ksoftirqd and migration_thread are spawned in cpu_up() in kernel/cpu.c.
-But, cpu_up() wasn't called because the cpu had already been running
-at that time (see arch/ia64/kernel/smpboot.c and init/main.c.)
-I tried to change init/main.c to call cpu_up() for APs, and I made sure
-that the kernel caused the system hangs as you reported.
-This means that 2.5.29 kernel is not stable on SMP regardless of
-CPU Hot Plug patch applying.
-I found that kudzu(1) and shutdown of ethernet may cause system hangs
-but I'm not sure why.
 
-Regards,
-Kimi
+The patch compiles but it hasn't been tested.
 
--- 
-Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
+Cheers,
+	Kingsley
+
+
 
 
