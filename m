@@ -1,38 +1,33 @@
-From: =?ISO-8859-1?Q?Bj=F6rn?= Torkelsson <torkel@pdc.kth.se>
-Date: Thu, 03 Apr 2003 14:35:25 +0000
-Subject: Re: [Linux-ia64] rx2600 console output with management card
-Message-Id: <marc-linux-ia64-105590723705391@msgid-missing>
+From: "dai yiyang" <daiyiyang@hotmail.com>
+Date: Sun, 20 Apr 2003 09:40:27 +0000
+Subject: [Linux-ia64] IA64 software pipelining
+Message-Id: <marc-linux-ia64-105590723705574@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705386@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705386@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-On Thu, 2003-04-03 at 14:30, Matthew Wilcox wrote:
-
-> There's three methods for finding serial ports that apply to rx2600
-> w/ECI card.  First, we parse the HCDP table.  Second, we search the ACPI
-> namespace for serial ports.  Third, we walk the PCI busses looking for
-> serial ports.
-> 
-> The two built-in serial ports are in the ACPI namespace, the ECI card
-> actually contains a PCI bus where we find the serial ports.  Firmware
-> determines which port is listed in the HCDP table according to which
-> Console Input & Console Output devices were listed first.  Unfortunately,
-> you can't tell which one was selected first, so the safe thing to do is
-> make sure only one is listed.
-
-Yup, when only:
-
-Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100+)
-
-is listed as output then everything works as it should. Pity I can't
-have both the serial port and the on on the ECI card listed :-(
-
-Thanks for your help!
-
-/torkel
-
-
+SGkgYWxsLAoKICAgSSBhbSB0cnlpbmcgdG8gdGVzdCB0aGUgc29mdHdhcmUgcGlwZWxpbmluZyB3
+aXRoIHRoZSBmb2xsb3dpbmcgY29kZSAsCi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0KaW50IHN3cChpbnQgbSxpbnQgKmEsaW50ICpiKXsKICAgICAgICBpbnQgaTsKI3ByYWdtYSBz
+d3AKICAgICAgICBmb3IgKGk9MDsgaTxtIDsgaSsrKQogICAgICAgIHsKICAgICAgICAgICAgICAg
+ICAgICBiW2ldPWFbaV0rMTsKCiAgICAgICAgIH0KICAgICAgICByZXR1cm4gaTsKfQotLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KSSBleHBlY3QgLCBmb3IgYmV0dGVyIHBlcmZv
+cm1lbmNlICwgdGhlIGNvZGUgc2hvdWxkIGJlIGNvbXBpbGVkIHNvbWV3aGF0IApsaWtlIHRoaXM6
+Ci0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQogICAgICBtb3YgYXIubGM9cjMyCiAgICAgIG1vdiBh
+ci5lYz00CiAgICAgIG1vdiBwci5yb3Q9MHgxMDAwCmxvb3A6CihwMTYpIGxkOCByMzU9W3I5XSw4
+CihwMTgpIGFkZCByMzc9cjM2LHIwLDEKKHAxOSkgc3Q4IFtyNl09cjM4LDgKICAgICAgYnIuY3Rv
+cCBsb29wOzsKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpidXQgaXQgc2VlbXMgdGhlIEludGVs
+IGNvbXBpbGVyNy4xIGNhbiBub3QgcHJvZHVjZSBzb2Z0d2FyZSBwaXBlbGluaW5nIGZvciAKdGhp
+cyBjb2RlIGxpa2Ugd2hhdCBJIGV4cGVjdGVkIC4Kd2l0aCAtb3B0X3JlcG9ydF9maWxlIG9wdGlv
+biAsIEkgZ290IHN1Y2ggdGlwOgotLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQoKU3dwIHJl
+cG9ydCBmb3IgbG9vcCBhdCBsaW5lIDYgaW4gc3dwIGluIGZpbGUgc3dwLmMKCiAgICAgICAgIE1v
+ZHVsbyBzY2hlZHVsaW5nIGZhaWxlZC4gTW9zdCBsaWtlbHksIHRoaXMgd2FzCiAgICAgICAgIGNh
+dXNlZCBieSBsb29wLWNhcnJpZWQgbWVtb3J5IGRlcGVuZGVuY2VzLgoKICAgICAgICAgRm9sbG93
+aW5nIGFyZSB0aGUgbG9vcC1jYXJyaWVkIG1lbW9yeSBkZXBlbmRlbmNlIGVkZ2VzOgogICAgICAg
+ICBTdG9yZSAgYXQgbGluZSAgICAgNiAtLT4gTG9hZCAgIGF0IGxpbmUgICAgIDYKCi0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tCmFueSBhZHZpY2UgPwoKUmVnYXJkcywKWWl5YW5nCgoKCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fCtPrwaq7+rXExfPT0b340NC9u8H3o6zH68q508MgTVNOIE1lc3NlbmdlcjogIGh0dHA6
+Ly9tZXNzZW5nZXIubXNuLmNvbS9jbiAgCgoK
