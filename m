@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 28 Sep 2002 21:48:37 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Mon, 30 Sep 2002 23:28:12 +0000
 Subject: [Linux-ia64] kernel update (relative to 2.5.39)
-Message-Id: <marc-linux-ia64-105590701906074@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701906075@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,28 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-A new ia64 patch is now availabe at
-ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/ in file:
+With the new patch, I see lots of warnings compiling the various
+filesystems (particularly ext3 and reiserfs), as ino_t is defined as
+an int on IA64, but is printed in error messages as a long (it's a
+long on most other platforms).
 
-	linux-2.5.39-ia64-020928.gz
+There are two ways I can think of to fix this:
 
-For a detailed changelog etc., see
-http://lia64.bkbits.net:8080/to-linus-2.5 as usual.
+      1.  Change the definition of ino_t to be a long, not an int, as
+      was done in the sparc64 and ppc64 code.  The comments in
+      asm/posix_types.h say these types are used for communication to
+      userspace, so maybe that's not an option any more?
 
-The major change in this patch is that I switched the IOSAPIC code
-over to use the ACPI subsystem.  This brings us more in sync with the
-x86 tree and avoids code duplication.  I tested this both on Big Sur
-and zx1 and it seems to work fine.  The integration is not perfect
-yet, because on ia64 linux the irq number is still different from the
-ACPI GSI (for no good reason, IMHO).  Hopefully, someone can take a
-look into changing this.
+      2.  Add casts to long everywhere an ino_t is printed out.  This
+      approach is ugly, and requires quite a few changes; and would
+      have to be repeated every time other architecture-maintainers
+      add new printks.
 
-I'd like to encourage all developers to try out this kernel.  We don't
-want to end up in a situation where dozens of new bugs are discovered
-a day before v2.6 is released (not that this is going to happen very
-soon, but we are approaching feature freeze very quickly...).
+Is there a better, third, way?  
 
-Enjoy,
-
-	--david
+--
+Dr Peter Chubb				    peterc@gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories, all almost the same.
 
