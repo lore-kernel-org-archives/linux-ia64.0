@@ -1,7 +1,7 @@
 From: Francis Galiegue <fg@mandrakesoft.com>
-Date: Wed, 28 Feb 2001 11:54:22 +0000
+Date: Wed, 28 Feb 2001 16:29:07 +0000
 Subject: Re: [Linux-ia64] Solid hangs with 2.4.1 + 010131 patch + timer bug
-Message-Id: <marc-linux-ia64-105590693005221@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005222@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005220@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005220@msgid-missing>
@@ -13,12 +13,13 @@ To: linux-ia64@vger.kernel.org
 On Wed, 28 Feb 2001, Francis Galiegue wrote:
 
 >=20
-> The "sleep 1 sec/sync" script, which I run continuously, only reports the
-> problem to later...
+> Before I go on and try to track down the bug, I'd like to know whether BI=
+OS rev
+> and firmware revisions can be in cause... If not I'll go with kdb...
+>=20
 
-Err, sorry, bad "Frenglish"...
-
-s/reports/postpones/g
+First result at kdb: with no breakpoint, when the hangs occur, I cannot even
+enter kdb anymore...
 
 --=20
 Francis Galiegue, fg@mandrakesoft.com - Normand et fier de l'=EAtre
