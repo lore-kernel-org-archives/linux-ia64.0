@@ -1,31 +1,25 @@
-From: Steve Tynor <tynor@atlanta.twr.com>
-Date: Tue, 03 Oct 2000 00:46:18 +0000
-Subject: re: [Linux-ia64] Re: gcc bug (2.9-ia64-000216-final)
-Message-Id: <marc-linux-ia64-105590678205539@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Wed, 18 Oct 2000 22:11:50 +0000
+Subject: [Linux-ia64] iosapic.c NULL pointer deref
+Message-Id: <marc-linux-ia64-105590678205597@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205538@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205538@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bill Nottingham wrote:
+In the 2.4.0-test8 and -test9 IA-64 patch, the file arch/ia64/dig/iosapic.c,
+function pci_for_each_dev(), the bridge pointer can be NULL, but gets
+dereferenced anyhow, causing a nice tombstone.  I see this with an AMI
+MegaRAID 471 card that happens to have two bridges on it.  Putting in tests
+against NULL, that routine doesn't blow up any longer, but interrupts are
+not properly assigned to that card then, and eventually all SCSI
+reads/writes time out.
 
-| Steve Tynor (tynor@atlanta.twr.com) said: 
-| > Can someone verify that this bug is fixed in the latest toolchain?
-| 
-| Works for me. A quick glance at the code makes me think that building
-| with -fno-optimize-sibling-calls will work around it for now.
+I'm happy to work with whomever is responsible for this code to have it
+properly assign interrupts to these cards.
 
-FWIW: in 2.9-ia64-000216-final, that flag apparently does not yet exist: 
-
-      impromptu:~/tmp/ia64bug> gcc -O2 -fno-optimize-sibling-calls ia64bug.c
-      cc1: Unrecognised option `-fno-optimize-sibling-calls'
-      impromptu:~/tmp/ia64bug> ./a.out 
-      in main 9fffffffffffe960: 11 12
-      Segmentation fault (core dumped)
-      impromptu:~/tmp/ia64bug> 
-
-Steve
+Thanks,
+Matt
+ 
 
