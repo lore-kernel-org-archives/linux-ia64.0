@@ -1,219 +1,169 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Thu, 20 Feb 2003 18:03:03 +0000
-Subject: [Linux-ia64] [PATCH] 4/5 iosapic: self-documenting polarity/trigger arguments
-Message-Id: <marc-linux-ia64-105590709805890@msgid-missing>
+From: Louis Yu-Kiu Kwan <louisk@cse.unsw.EDU.AU>
+Date: Tue, 18 Feb 2003 03:09:41 +0000
+Subject: [Linux-ia64] gettimeofday patch
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="1585517554-1376400907-1045537781=:7005"
+Message-Id: <marc-linux-ia64-105590709805879@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Make interrupt registration functions take named constants for
-polarity and trigger mode.  Old -> new magic decoder ring:
-	polarity 0 -> IOSAPIC_POL_LOW	(#defined to 1)
-	polarity 1 -> IOSAPIC_POL_HIGH	(#defined to 0)
-	trigger 0  -> IOSAPIC_LEVEL	(#defined to 1)
-	trigger 1  -> IOSAPIC_EDGE	(#defined to 0)
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-diff -u -ur iosapic-4/arch/ia64/kernel/acpi.c iosapic-5/arch/ia64/kernel/acpi.c
---- iosapic-4/arch/ia64/kernel/acpi.c	2003-02-18 15:33:08.000000000 -0700
-+++ iosapic-5/arch/ia64/kernel/acpi.c	2003-02-19 16:50:25.000000000 -0700
-@@ -335,8 +335,8 @@
- 						plintsrc->iosapic_vector,
- 						plintsrc->eid,
- 						plintsrc->id,
--						(plintsrc->flags.polarity = 1) ? 1 : 0,
--						(plintsrc->flags.trigger = 1) ? 1 : 0);
-+						(plintsrc->flags.polarity = 1) ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
-+						(plintsrc->flags.trigger = 1) ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
- 
- 	platform_intr_list[plintsrc->type] = vector;
- 	return 0;
-@@ -359,8 +359,8 @@
- 		return 0;
- 
- 	iosapic_override_isa_irq(p->bus_irq, p->global_irq,
--				 (p->flags.polarity = 1) ? 1 : 0,
--				 (p->flags.trigger = 1) ? 1 : 0);
-+				 (p->flags.polarity = 1) ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
-+				 (p->flags.trigger = 1) ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
- 	return 0;
- }
- 
-@@ -618,7 +618,7 @@
- 	if (has_8259 && sci_irq < 16)
- 		return 0;	/* legacy, no setup required */
- 
--	iosapic_register_intr(sci_irq, 0, 0);
-+	iosapic_register_intr(sci_irq, IOSAPIC_POL_LOW, IOSAPIC_LEVEL);
- 	return 0;
- }
- 
-@@ -681,7 +681,7 @@
- 			 (spcr->global_int[1] << 8)  |
- 			 (spcr->global_int[0])  );
- 
--		vector = iosapic_register_intr(gsi, 1, 1);
-+		vector = iosapic_register_intr(gsi, IOSAPIC_POL_HIGH, IOSAPIC_EDGE);
- 	}
- 	return 0;
- }
-@@ -849,7 +849,8 @@
- 		return 0;
- 
- 	/* Turn it on */
--	vector = iosapic_register_intr (gsi, polarity, trigger);
-+	vector = iosapic_register_intr (gsi, polarity ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
-+			trigger ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
- 	return vector;
- }
- 
-diff -u -ur iosapic-4/arch/ia64/kernel/iosapic.c iosapic-5/arch/ia64/kernel/iosapic.c
---- iosapic-4/arch/ia64/kernel/iosapic.c	2003-02-18 15:26:54.000000000 -0700
-+++ iosapic-5/arch/ia64/kernel/iosapic.c	2003-02-18 15:30:34.000000000 -0700
-@@ -444,7 +444,7 @@
- 
- static void
- register_intr (unsigned int gsi, int vector, unsigned char delivery,
--	       unsigned long polarity, unsigned long edge_triggered)
-+	       unsigned long polarity, unsigned long trigger)
- {
- 	irq_desc_t *idesc;
- 	struct hw_interrupt_type *irq_type;
-@@ -464,18 +464,16 @@
- 
- 	rte_index = gsi - gsi_base;
- 	iosapic_intr_info[vector].rte_index = rte_index;
--	iosapic_intr_info[vector].polarity = polarity ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW;
-+	iosapic_intr_info[vector].polarity = polarity;
- 	iosapic_intr_info[vector].dmode    = delivery;
- 	iosapic_intr_info[vector].addr     = iosapic_address;
- 	iosapic_intr_info[vector].gsi_base = gsi_base;
-+	iosapic_intr_info[vector].trigger  = trigger;
- 
--	if (edge_triggered) {
--		iosapic_intr_info[vector].trigger = IOSAPIC_EDGE;
-+	if (trigger = IOSAPIC_EDGE)
- 		irq_type = &irq_type_iosapic_edge;
--	} else {
--		iosapic_intr_info[vector].trigger = IOSAPIC_LEVEL;
-+	else
- 		irq_type = &irq_type_iosapic_level;
--	}
- 
- 	idesc = irq_desc(vector);
- 	if (idesc->handler != irq_type) {
-@@ -493,7 +491,7 @@
-  */
- int
- iosapic_register_intr (unsigned int gsi,
--		       unsigned long polarity, unsigned long edge_triggered)
-+		       unsigned long polarity, unsigned long trigger)
- {
- 	int vector;
- 	unsigned int dest = (ia64_get_lid() >> 16) & 0xffff;
-@@ -503,11 +501,11 @@
- 		vector = ia64_alloc_vector();
- 
- 	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
--		      polarity, edge_triggered);
-+		      polarity, trigger);
- 
- 	printk(KERN_INFO "GSI 0x%x(%s,%s) -> CPU 0x%04x vector %d\n",
--	       gsi, (polarity ? "high" : "low"),
--	       (edge_triggered ? "edge" : "level"), dest, vector);
-+	       gsi, (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
-+	       (trigger = IOSAPIC_EDGE ? "edge" : "level"), dest, vector);
- 
- 	/* program the IOSAPIC routing table */
- 	set_rte(vector, dest);
-@@ -521,7 +519,7 @@
- int
- iosapic_register_platform_intr (u32 int_type, unsigned int gsi,
- 				int iosapic_vector, u16 eid, u16 id,
--				unsigned long polarity, unsigned long edge_triggered)
-+				unsigned long polarity, unsigned long trigger)
- {
- 	unsigned char delivery;
- 	int vector;
-@@ -551,11 +549,11 @@
- 	}
- 
- 	register_intr(gsi, vector, delivery, polarity,
--		      edge_triggered);
-+		      trigger);
- 
- 	printk(KERN_INFO "PLATFORM int 0x%x: GSI 0x%x(%s,%s) -> CPU 0x%04x vector %d\n",
--	       int_type, gsi, (polarity ? "high" : "low"),
--	       (edge_triggered ? "edge" : "level"), dest, vector);
-+	       int_type, gsi, (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
-+	       (trigger = IOSAPIC_EDGE ? "edge" : "level"), dest, vector);
- 
- 	/* program the IOSAPIC routing table */
- 	set_rte(vector, dest);
-@@ -570,18 +568,18 @@
- void
- iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
- 			  unsigned long polarity,
--			  unsigned long edge_triggered)
-+			  unsigned long trigger)
- {
- 	int vector;
- 	unsigned int dest = (ia64_get_lid() >> 16) & 0xffff;
- 
- 	vector = isa_irq_to_vector(isa_irq);
- 
--	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, polarity, edge_triggered);
-+	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, polarity, trigger);
- 
- 	DBG("ISA: IRQ %u -> GSI 0x%x (%s,%s) -> CPU 0x%04x vector %d\n",
- 	    isa_irq, gsi,
--	    polarity ? "high" : "low", edge_triggered ? "edge" : "level",
-+	    polarity = IOSAPIC_POL_HIGH ? "high" : "low", trigger = IOSAPIC_EDGE ? "edge" : "level",
- 	    dest, vector);
- 
- 	/* program the IOSAPIC routing table */
-@@ -641,8 +639,7 @@
- 		 * Override table.
- 		 */
- 		for (isa_irq = 0; isa_irq < 16; ++isa_irq)
--			/* IOSAPIC_POL_HIGH, IOSAPIC_EDGE */
--			iosapic_override_isa_irq(isa_irq, isa_irq, 1, 1);
-+			iosapic_override_isa_irq(isa_irq, isa_irq, IOSAPIC_POL_HIGH, IOSAPIC_EDGE);
- 	}
- }
- 
-@@ -718,7 +715,7 @@
- 				/* new GSI; allocate a vector for it */
- 				vector = ia64_alloc_vector();
- 
--			register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, 0, 0);
-+			register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, IOSAPIC_POL_LOW, IOSAPIC_LEVEL);
- 		}
- 		snprintf(pci_id, sizeof(pci_id), "%02x:%02x:%02x[%c]",
- 			 entry->id.segment, entry->id.bus, entry->id.device, 'A' + entry->pin);
-diff -u -ur iosapic-4/include/asm-ia64/iosapic.h iosapic-5/include/asm-ia64/iosapic.h
---- iosapic-4/include/asm-ia64/iosapic.h	2003-02-18 15:11:00.000000000 -0700
-+++ iosapic-5/include/asm-ia64/iosapic.h	2003-02-18 15:27:45.000000000 -0700
-@@ -58,16 +58,16 @@
- extern int gsi_to_irq (unsigned int gsi);
- extern void iosapic_parse_prt (void);
- extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
--				  unsigned long edge_triggered);
-+				  unsigned long trigger);
- extern void iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
- 				      unsigned long polarity,
--				      unsigned long edge_triggered);
-+				      unsigned long trigger);
- extern int iosapic_register_platform_intr (u32 int_type,
- 					   unsigned int gsi,
- 					   int pmi_vector,
- 					   u16 eid, u16 id,
- 					   unsigned long polarity,
--					   unsigned long edge_triggered);
-+					   unsigned long trigger);
- extern unsigned int iosapic_version (char *addr);
- 
- extern void iosapic_pci_fixup (int);
+--1585517554-1376400907-1045537781=:7005
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
+Hi David,
+   Louis has been working with me to produce a fast version of
+gettimeofday.
+
+This version executes in around 300 cycles on Itanium I (down from 900
+or so for the original version), and so can be said to have
+microsecond precision.  
+
+Peter C
+
+--1585517554-1376400907-1045537781=:7005
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="gettimeofday.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0302181409410.7005@wagner.orchestra.cse.unsw.EDU.AU>
+Content-Description: 
+Content-Disposition: attachment; filename="gettimeofday.patch"
+
+PT09PT0gYXJjaC9pYTY0L2tlcm5lbC9mc3lzLlMgMS41IHZzID8gKHdyaXRh
+YmxlIHdpdGhvdXQgbG9jayEpICA9PT09PQ0KLS0tIDEuNS9hcmNoL2lhNjQv
+a2VybmVsL2ZzeXMuUwlUaHUgSmFuIDMwIDE3OjE2OjUxIDIwMDMNCisrKyA/
+L2FyY2gvaWE2NC9rZXJuZWwvZnN5cy5TCVR1ZSBGZWIgMTggMTE6MjQ6NTAg
+MjAwMw0KQEAgLTEyMyw2ICsxMjMsMTg5IEBADQogCWJyLnJldC5zcHRrLm1h
+bnkgYjYNCiBFTkQoZnN5c19zZXRfdGlkX2FkZHJlc3MpDQogDQorRU5UUlko
+ZnN5c19nZXR0aW1lb2ZkYXkpDQorDQorCWFkZCByOT1USV9GTEFHUytJQTY0
+X1RBU0tfU0laRSxyMTYNCisJOzsNCisJbGQ0IHI5PVtyOV0NCisJOzsJDQor
+CWFuZCByOT1USUZfQUxMV09SS19NQVNLLHI5DQorCTs7DQorCS8vIHIzMiwg
+cjMzIHNob3VsZCBjb250YWluIHRoZSAyIGFyZ3Mgb2YgZ2V0dGltZW9mZGF5
+DQorCQ0KKwl0bmF0Lm56IHA2LHA3PXIzMgkJLy8gaW4gY2FzZSB0aGUgYXJn
+cyBhcmUgTmFUDQorCWNtcC5uZSBwOCwgcDA9MCwgcjkNCisJOzsNCisJDQor
+KHA3KQl0bmF0Lm56IHA2LHAwPXIzMwkJDQorKHA4KQlici5zcG50Lm1hbnkg
+ZnN5c19mYWxsYmFja19zeXNjYWxsDQorCTs7DQorKHA2KQlhZGRzIHI4PUVJ
+TlZBTCwgcjAJCS8vIHI4ID0gRUlOVkFMDQorKHA2KQlhZGRzIHIxMD0tMSwg
+cjAJCQkvLyByMTAgPSAtMQkNCisocDYpCWJyLnJldC5zcG50Lm1hbnkgYjYJ
+CS8vIHJldHVybiB3aXRoIHI4IHNldCB0byBFSU5WQUwNCisNCisJbW92bCBy
+MTc9eHRpbWVfbG9jaw0KKwltb3ZsIHIxOT14dGltZQkJCS8vIHh0aW1lIGlz
+IGEgdGltZXNwZWMgc3RydWN0DQorCW1vdmwgcjIwPWNwdV9pbmZvX19wZXJf
+Y3B1DQorCW1vdmwgcjI2PWppZmZpZXMNCisJbW92bCByMjc9d2FsbF9qaWZm
+aWVzDQorCW1vdmwgcjMxPWxhc3RfbnNlY19vZmZzZXQNCisJbW92bCByMjQ9
+MjM2MTE4MzI0MTQzNDgyMjYwNwkvLyBmb3IgZGl2aXNpb24gaGFjayAob25s
+eSBmb3IgLyAxMDAwKQ0KKwk7OwkNCisJc2V0Zi5zaWcgZjk9cjI0CQkJLy8g
+ZjkgaXMgdXNlZCBmb3IgZGl2aXNpb24gaGFjaw0KKwlhZGRzIHIyMT1JQTY0
+X0NQVUlORk9fSVRNX05FWFRfT0ZGU0VULCByMjANCisJYWRkcyByMjI9SUE2
+NF9DUFVJTkZPX0lUTV9ERUxUQV9PRkZTRVQsIHIyMA0KKwlhZGRzIHIzMD1J
+QTY0X0NQVUlORk9fTlNFQ19QRVJfQ1lDX09GRlNFVCwgcjIwDQorCWFkZHMg
+cjM9SUE2NF9USU1FU1BFQ19UVl9OU0VDX09GRlNFVCwgcjE5CQ0KKwkJCQkJ
+Ly8gcjMgPSAmeHRpbWUtPnR2X25zZWMNCisJDQorCQ0KK3doaWxlX2xvb3Bf
+MToNCisNCisJLy8gKioqIHNlcSA9IHJlYWRfc2VxYmVnaW4oJnh0aW1lX2xv
+Y2spOyAqKioNCisJDQorCWxkNCByMjM9W3IxN10JCQkvLyBzaW5jZSAmeHRp
+bWVfbG9jayA9PSAmeHRpbWVfbG9jay0+c2VxdWVuY2UNCisjaWZkZWYgQ09O
+RklHX1NNUA0KKwltZg0KKyNlbmRpZg0KKwk7OwkJCQkvLyBiYXJyaWVyKCkN
+CisJLy8gbm93IHIyMyA9IHNlcQ0KKwkNCisJbGQ4IHIxND1bcjMxXQkJCS8v
+IHIxNCA9IG9sZCA9IGxhc3RfbnNlY19vZmZzZXQJCQ0KKwkNCisJbGQ4IHIy
+OD1bcjI2XQkJCS8vIHIyOCA9IGppZmZpZXMNCisJbGQ4IHIyOT1bcjI3XQkJ
+CS8vIHIyOSA9IHdhbGxfamlmZmllcw0KKwk7Ow0KKwkNCisJbGQ4IHIyND1b
+cjIxXQkJCS8vIHIyNCBub3cgY29udGFpbnMgaXRtX25leHQNCisJbGQ4IHIy
+NT1bcjIyXQkJCS8vIHIyNSBub3cgY29udGFpbnMgaXRtX2RlbHRhDQorDQor
+CXN1YiByMjg9cjI4LCByMjkJCS8vIHIyOCBub3cgY29udGFpbnMgImxvc3Qi
+DQorCTs7DQorCWFkZHMgcjI4PTEsIHIyOAkJCS8vIHIyOCBub3cgY29udGFp
+bnMgImxvc3QgKyAxIg0KKwk7Ow0KKwlzZXRmLnNpZyBmNj1yMjgNCisJc2V0
+Zi5zaWcgZjc9cjI1DQorCQ0KKwlsZDggcjI9W3IxOV0JCQkvLyByMiA9IHNl
+YyA9IHh0aW1lLnR2X3NlYw0KKwk7Ow0KKwkNCisJbGQ4IHIyOD1bcjNdCQkJ
+Ly8gcjI4ID0gbnNlYyA9IHh0aW1lLnR2X25zZWMNCisJeG1hLmwgZjg9ZjYs
+IGY3LCBmMAkJLy8gcHV0IGxvd2VyIDY0LWJpdHMgcmVzdWx0IG9mIGY2ICog
+ZjcgaW4gZjgNCisJOzsNCisJZ2V0Zi5zaWcgcjE4PWY4CQkJLy8gcjE4IG5v
+dyBjb250YWlucyB0aGUgKGxvc3QgKyAxKSAqIGl0bV9kZWx0YQ0KKwk7Ow0K
+KwlzdWIgcjE4PXIyNCwgcjE4CQkvLyByMTggaXMgbGFzdF90aWNrIA0KKwlt
+b3YgcjI1PWFyLml0YwkJCS8vIHB1dCB0aW1lIHN0YW1wIGludG8gcjI1IChJ
+VEMpID09IG5vdw0KKwk7Ow0KKwljbXAubGV1IHA3LCBwOCA9IHIxOCwgcjI1
+CS8vIGlmIGxhc3RfdGljayA8PSBub3csIHA3ID0gMQ0KKwk7Ow0KKyhwNykJ
+bGQ4IHIyND1bcjMwXQkJCS8vIHIyNCBjb250YWlucyBsb2NhbF9jcHVfZGF0
+YS0+bnNlY19wZXJfY3ljIHZhbHVlDQorKHA3KQlzdWIgcjI1PXIyNSwgcjE4
+CQkvLyBlbGFzcGVkX2N5Y2xlcyBpbiByMjUNCisJOzsNCisocDcpCXNldGYu
+c2lnIGY2PXIyNA0KKyhwNykJc2V0Zi5zaWcgZjc9cjI1DQorCTs7DQorKHA3
+KQl4bWEubCBmOD1mNiwgZjcsIGYwDQorDQorCTs7DQorKHA3KQlnZXRmLnNp
+ZyByMTg9ZjgJCQkvLyByMTggPSBjbGFzcGVkX2N5Y2xlcyAqIGxvY2FsX2Nw
+dV9kYXRhLT5uc2VjX3Blcl9jeWMNCisJOzsJDQorKHA3KQlzaHIudSByMTg9
+cjE4LCBJQTY0X05TRUNfUEVSX0NZQ19TSElGVA0KKwkNCisocDgpIAlsZDgg
+cjE4PVtyMzFdCQkJLy8gcjE4ID0gbGFzdF90aW1lX29mZnNldCAoaXMgdW5z
+aWduZWQgbG9uZykNCisNCisJLy8gbm93IGVuZCBvZiBnZXR0aW1lb2Zmc2V0
+LCByMTggc2hvdWxkIGNvbnRhaW4gdGhlIGRlc2lyZSByZXN1bHQgKG9mZnNl
+dCkNCisNCisJLy8gKioqIGlmICh1bmxpa2VseShyZWFkX3NlcXJldHJ5KCZ4
+dGltZV9sb2NrLCBzZXEpKSkgY29udGludWU7ICoqKg0KKw0KKwk7OyAJCQkJ
+Ly8gYmFycmllcigpDQorCQ0KKyNpZmRlZiBDT05GSUdfU01QDQorCW1mDQor
+I2VuZGlmDQorCWFkZHMgcjI0PTEsIHIwCQkJLy8gcjI0ID0gMQ0KKwlsZDQg
+cjI1PVtyMTddCQkJLy8gcjI1ID0geHRpbWVfbG9jay0+c2VxdWVuY2UgKGxv
+YWQgYWdhaW4pDQorCTs7DQorCWFuZCByMjQ9cjI0LCByMjMJCS8vIHIyNCA9
+IHNlcSAmIDENCisJeG9yIHIyNT1yMjUsIHIyMwkJLy8gcjI1ID0geHRpbWVf
+bG9jay0+c2VxdWVuY2UgXiBzZXENCisJOzsNCisJb3IgcjI0PXIyNCwgcjI1
+CQkJLy8gbm93IHIyNCA9IHJlYWRfc2VxcmV0cnkoJnh0aW1lX2xvY2ssIHNl
+cSkNCisJOzsNCisJY21wLm5lIHA3LCBwMD1yMjQsIHIwDQorCTs7DQorKHA3
+KQlici5zcG50Lm1hbnkgd2hpbGVfbG9vcF8xCS8vIGNvbnRpbnVlDQorCQ0K
+KwljbXAubGV1IHA3LCBwOCA9IHIxOCwgcjE0CS8vIGlmIChvZmZzZXQgPD0g
+b2xkKQ0KKwk7Ow0KKyhwNykJbW92IHIxOD1yMTQJCQkvLyBvZmZzZXQgPSBv
+bGQNCisocDcpCWJyLnNwbnQuZmV3IGxvb3BfZXhpdF8xCQkvLyBicmVhaw0K
+KwkNCisJbW92IGFyLmNjdj1yMTgJCQkvLyBhci5jY3YgPSBvZmZzZXQNCisJ
+OzsNCisJY21weGNoZzguYWNxIHIyNT1bcjMxXSwgcjE0LCBhci5jY3YJDQor
+CQkJCQkvLyBjb21wYXJlLWFuZC1leGNoYW5nZSAoYXRvbWljISkNCisJOzsN
+CisJY21wLmVxIHA4LHAwID0gcjI1LCByMTQJDQorCTs7DQorKHA4KQlici5z
+cHRrLm1hbnkgbG9vcF9leGl0XzENCisJYnIuc3B0ay5tYW55IHdoaWxlX2xv
+b3BfMQ0KKw0KK2xvb3BfZXhpdF8xOg0KKw0KKwkvLyBhdCB0aGlzIHBvaW50
+LCByMjggaXMgbnNlYyBhbmQgcjE4IGlzIG9mZnNldA0KKw0KKwlhZGQgcjM9
+cjI4LCByMTgJCQkvLyByMyA9IChuc2VjICsgb2Zmc2V0KQ0KKwk7Ow0KKwkv
+LyBub3cgd2UgdHJ5IHRvIGRpdmlkZSByMyBieSAxMDAwIHRvIGdldCB0aGUg
+dmFsdWUgaW4gdXNlYyBpbnN0ZWFkIG9mIG5zZWMNCisJDQorCXNoci51IHIy
+NCA9IHIzLCAzDQorCTs7DQorCXNldGYuc2lnIGY3ID0gcjI0DQorCTs7DQor
+CXhtcHkuaHUgZjYgPSBmNywgZjkNCisJOzsNCisJZ2V0Zi5zaWcgcjMgPSBm
+Ng0KKwk7Ow0KKwlzaHIudSByMyA9IHIzLCA0DQorCS8vIGVuZCBvZiBkaXZp
+c2lvbiwgcjMgaXMgZGl2aWRlZCBieSAxMDAwICg9dXNlYykNCisJDQorCWFk
+ZGwgcjI0PTEwMDAwMDAsIHIwCQkvLyByMjQgPSAxMDAwMDAwDQorCTs7DQor
+CQ0KK3doaWxlX2xvb3BfMjoNCisJDQorCWNtcC5nZXUgcDcsIHA4PXIzLCBy
+MjQJCS8vIHdoaWxlICh1c2VjID49IDEwMDAwMDApDQorCTs7DQorKHA4KQli
+ci5zcHRrLm1hbnkgbG9vcF9leGl0XzINCisNCisJc3ViIHIzPXIzLCByMjQJ
+CQkvLyB1c2VjIC09IDEwMDAwMDANCisJYWRkcyByMj0xLCByMgkJCS8vICsr
+c2VjDQorCQ0KKwlici5tYW55IHdoaWxlX2xvb3BfMg0KKwkNCitsb29wX2V4
+aXRfMjoJIA0KKwkNCisJLy8gZmluYWxseSwgCXIyID0gc2VjDQorCS8vIAkJ
+cjMgPSB1c2VjDQorCQ0KKwltb3YgcjI0PXIzMgkJCS8vIHdlIG5lZWQgdG8g
+cHJlc2VydmUgdGhpcy4uLg0KKwk7Ow0KKwlzdDggW3IzMl09cjIsIDgNCisJ
+OzsNCisJc3Q4IFtyMzJdPXIzCQkJLy8gc3RvcmUgdGhlbSBpbiB0aGUgdGlt
+ZXZhbCBzdHJ1Y3QNCisJOzsNCisJbW92IHIzMj1yMjQNCisJDQorCW1vdiBy
+OD1yMAkJCS8vIHN1Y2Nlc3MNCisJDQorCU1DS0lOTEVZX0U5X1dPUktBUk9V
+TkQNCisJDQorCWJyLnJldC5zcHRrLm1hbnkgYjYNCisJLy8gcmV0dXJuIHRv
+IGNhbGxlcg0KKw0KK0VORChmc3lzX2dldHRpbWVvZmRheSkNCisNCiAJLnJv
+ZGF0YQ0KIAkuYWxpZ24gOA0KIAkuZ2xvYmwgZnN5c2NhbGxfdGFibGUNCkBA
+IC0xOTAsNyArMzczLDcgQEANCiAJZGF0YTggZnN5c19mYWxsYmFja19zeXNj
+YWxsCS8vIHNldHJsaW1pdA0KIAlkYXRhOCBmc3lzX2ZhbGxiYWNrX3N5c2Nh
+bGwJLy8gZ2V0cmxpbWl0CQkvLyAxMDg1DQogCWRhdGE4IGZzeXNfZmFsbGJh
+Y2tfc3lzY2FsbAkvLyBnZXRydXNhZ2UNCi0JZGF0YTggZnN5c19mYWxsYmFj
+a19zeXNjYWxsCS8vIGdldHRpbWVvZmRheQ0KKwlkYXRhOCBmc3lzX2dldHRp
+bWVvZmRheQkJLy8gZ2V0dGltZW9mZGF5DQogCWRhdGE4IGZzeXNfZmFsbGJh
+Y2tfc3lzY2FsbAkvLyBzZXR0aW1lb2ZkYXkNCiAJZGF0YTggZnN5c19mYWxs
+YmFja19zeXNjYWxsCS8vIHNlbGVjdA0KIAlkYXRhOCBmc3lzX2ZhbGxiYWNr
+X3N5c2NhbGwJLy8gcG9sbAkJCS8vIDEwOTANCj09PT09IGFyY2gvaWE2NC90
+b29scy9wcmludF9vZmZzZXRzLmMgMS4xNCB2cyA/ICh3cml0YWJsZSB3aXRo
+b3V0IGxvY2shKSAgPT09PT0NCi0tLSAxLjE0L2FyY2gvaWE2NC90b29scy9w
+cmludF9vZmZzZXRzLmMJVHVlIEZlYiAxMSAxMzoyMjoyNCAyMDAzDQorKysg
+Py9hcmNoL2lhNjQvdG9vbHMvcHJpbnRfb2Zmc2V0cy5jCVR1ZSBGZWIgMTgg
+MTE6MDM6MzkgMjAwMw0KQEAgLTE3MCw2ICsxNzAsMTIgQEANCiAgICAgLyog
+Zm9yIGFzc2VtYmx5IGZpbGVzIHdoaWNoIGNhbid0IGluY2x1ZGUgc2NoZWQu
+aDogKi8NCiAgICAgeyAiSUE2NF9DTE9ORV9WRk9SSyIsCQlDTE9ORV9WRk9S
+SyB9LA0KICAgICB7ICJJQTY0X0NMT05FX1ZNIiwJCQlDTE9ORV9WTSB9LA0K
+KwkvKiB1c2VkIGJ5IGZzeXNfZ2V0dGltZW9mZGF5IGluIGFyY2gvaWE2NC9r
+ZXJuZWwvZnN5cy5TICovDQorICAgIHsgIklBNjRfQ1BVSU5GT19JVE1fREVM
+VEFfT0ZGU0VUIiwgCQlvZmZzZXRvZiAoc3RydWN0IGNwdWluZm9faWE2NCwg
+aXRtX2RlbHRhKSB9LA0KKyAgICB7ICJJQTY0X0NQVUlORk9fSVRNX05FWFRf
+T0ZGU0VUIiwgCQlvZmZzZXRvZiAoc3RydWN0IGNwdWluZm9faWE2NCwgaXRt
+X25leHQpIH0sDQorICAgIHsgIklBNjRfQ1BVSU5GT19OU0VDX1BFUl9DWUNf
+T0ZGU0VUIiwJb2Zmc2V0b2YgKHN0cnVjdCBjcHVpbmZvX2lhNjQsIG5zZWNf
+cGVyX2N5YykgfSwNCisgICAgeyAiSUE2NF9USU1FU1BFQ19UVl9OU0VDX09G
+RlNFVCIsIAkJb2Zmc2V0b2YgKHN0cnVjdCB0aW1lc3BlYywgdHZfbnNlYykg
+fSwNCisNCiB9Ow0KIA0KIHN0YXRpYyBjb25zdCBjaGFyICp0YWJzID0gIlx0
+XHRcdFx0XHRcdFx0XHRcdFx0IjsNCg==
+--1585517554-1376400907-1045537781=:7005--
 
