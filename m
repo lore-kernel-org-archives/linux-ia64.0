@@ -1,44 +1,75 @@
-From: n0ano@indstorage.com
-Date: Wed, 05 Dec 2001 21:37:58 +0000
-Subject: Re: [Linux-ia64] mprotect??
-Message-Id: <marc-linux-ia64-105590698805628@msgid-missing>
+From: "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com>
+Date: Thu, 06 Dec 2001 23:56:20 +0000
+Subject: [Linux-ia64] mprotect problem
+Message-Id: <marc-linux-ia64-105590698805634@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805626@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805626@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-D'Laila-
+We are seeing an apparent problem with mprotect on Itanium.  We have seen
+the problem
+on two different machines, one running RedHat 7.1 (Seawolf)  [2.4.3-12smp]
+and one
+running Turbolinux [2.4.1-010131-8smp].
 
-We need a lot more detail than this.  In general, yes, mprotect works.
-This system call is used extensively by the shared library loader.
+The mprotect is called from user space, as part of the implementation of a 
+distributed virtual shared memory system that uses the virtual
+memory mechanism to implement a shared address space between two or more
+nodes.
 
-Are you running an IA32 or IA64 program?  The output of an `strace'
-from one of your failing runs would be helpful.
+The code works correctly under RedHat 7.1 for IA32 (and a variety of other
+OS'es and platforms, so
+we feel that there aren't coding errors, although maybe there is some
+slightly different
+way to use mprotect on Itanium (additional parameters, or flags?)?.
 
-On Wed, Dec 05, 2001 at 03:09:40PM -0600, D'laila Pereira wrote:
-> Hi
-> I am running a program on Linux (tried on both TurboLinux, and Redhat
-> linux) ,itanium machine , that needs to "mprotect" (PROT_READ or
-> PROT_RD/WR, depending on the certain parameters) a sequence of pages. What
-> i noticed is that "mprotect" works at times, but does not take affect at
-> other times. What is the cause of such random behaviur of mprotect.?
-> Does mprotect work for Linux Itanium, or there is some problem with it ?
-> 
-> thanks
-> d'laila
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+The problem we see is this:
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@indstorage.com
-Ph: 303/652-0870x117
+During the course of running the user's program on top of our DVSM, the
+program touches 
+a "shared" page that has been mprotect'ed against reading and writing
+previously because it is not
+up-to-date with respect to the same page on other nodes in the system.  The
+access faults,
+our SEGV handler is called, we do the appropriate message passing operations
+to 
+make the data on the page consistent and up-to-date, then do an mprotect
+allowing 
+READ and WRITE this time, and return from the SEGV handler.  At this point,
+the original instruction
+(a READ) is restarted and immediately faults, causing control to go to the
+SEGV handler 
+again.  This time, since we know the page is up-to-date, we do nothing and
+return, the 
+instruction is again re-started, again faults, again jumps to the SEGV
+handler . . . an infinite
+loop.
+
+The interesting thing is that this particular user code fails at random
+points, sometimes working
+correctly at points where it failed before.  We have never seen the code
+work correctly all the way
+through, though.  It always fails very soon after it begins, just at
+different points on different runs.
+We theorized that this was a timing problem, such that it just took some
+time for mprotect to 
+take effect, so we put in 10-millisecond delays after each mprotect, but
+this really changed nothing.
+
+One potential clue would be that the code is a pthreads program, and
+multiple threads are 
+running while one thread is doing the mprotect, and these machines are both
+dual-processor machines.
+
+We would appreciate any help that anyone can give.
+
+Jay
+
+Jay Hoeflinger, jay.p.hoeflinger@intel.com
+KAI Software, A Division of Intel Americas, Inc., http://www.kai.com
+Phone 217/356-2288, Direct 217/356-5052 x 140, Fax 217/356-5199
+
+
 
