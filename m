@@ -1,37 +1,50 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Tue, 16 Mar 2004 14:54:02 +0000
-Subject: Re: [patch] 2.6.4 remove intermittent warnings from spinlock code
-Message-Id: <20040316145402.GR25059@parcelfarce.linux.theplanet.co.uk>
+From: Manfred Koizar <mkoi-pg@aon.at>
+Date: Sat, 27 Mar 2004 22:03:09 +0000
+Subject: Re: [HACKERS] PostgreSQL block size vs. LVM2 stripe width
+Message-Id: <06sb60hni6h5cok941gqnuo4ld1b0v1rgi@email.aon.at>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <2465.1079310276@kao2.melbourne.sgi.com>
-In-Reply-To: <2465.1079310276@kao2.melbourne.sgi.com>
+References: <200403262200.i2QM04223972@mail.osdl.org>
+In-Reply-To: <200403262200.i2QM04223972@mail.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: markw@osdl.org
+Cc: linux-lvm@redhat.com, linux-ia64@vger.kernel.org, pgsql-hackers@postgresql.org
 
-On Mon, Mar 15, 2004 at 11:34:43PM -0800, David Mosberger wrote:
-> Hmmh, in my opinion GCC should put a stop-bit when using a register
-> after an "asm" that marks that register as "clobbered".  For now, I
-> put an explicit stop-bit after the McKinley spinlock versions (the
-> Merced ones should be OK because they already have a stop-bit after
-> writing p14).  We should still sort out why GCC doesn't get this
-> right.
+Mark,
 
-I'm not a compiler person, but ...
+how often did you run your tests?  Are the results reproduceable?
 
-Seems to me that doing exactly what you're asking for is hard.  Editing
-the inline asm to use a stop-bit if the compiler needs to reuse that
-register would be a really awful layering violation.  But it shouldn't
-be too hard for p14 to be considered unavailable until the next stop
-bit has been issued.
+On Fri, 26 Mar 2004 14:00:01 -0800 (PST), markw@osdl.org wrote:
+>                        Linux-2.6.3, LVM2 Stripe Width
+>                        (going across)
+>PostgreSQL
+>BLCKSZ
+>(going down)    16 KB   32 KB   64 KB   128 KB  256 KB  512 KB
+>2 KB            2617    2656    2652    2664    2667    2642
+>4 KB            4393    4486    4577    4557    4511    4448
+>8 KB            4337    4423    4471    4576    4111    3642
+>16 KB           4412    4495    4532    4536    2985    2312
+>32 KB           3705    3784    3886    3925    2936    2362
 
-Al, want to raise this on the gcc mailing list?
+Unless someone can present at least an idea of a theory why a BLCKSZ of
+8 KB is at a local minimum (1 or 2% below the neighbouring values) for
+stripe widths up to 64 KB I'm not sure whether we can trust these
+numbers.
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Before I hit the send button, I did a quick check of the link you
+provided.  The links in the table contain the following test numbers:
+
+        16 KB   32 KB   64 KB   128 KB  256 KB  512 KB
+2 KB     72      71      70       69      66      65
+4 KB     64      63      62       61      60      58
+8 KB     54      53      52       51      50      49
+16 KB    79      78      77       76      75      74
+32 KB    86      85      84       83      82      80
+
+Does this mean that you first ran all test with 8 KB, then with 4, 2, 16
+and 32 KB BLCKSZ?  If so, I suspect that you are measuring the effects
+of something different.
+
+Servus
+ Manfred
