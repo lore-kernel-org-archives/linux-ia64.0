@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 26 Dec 2001 21:15:38 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.4.16)
-Message-Id: <marc-linux-ia64-105590698805715@msgid-missing>
+Date: Thu, 27 Dec 2001 06:38:22 +0000
+Subject: [Linux-ia64] kernel update (relative to v2.4.17)
+Message-Id: <marc-linux-ia64-105590698805717@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,21 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 15 Dec 2001 19:12:23 +1100, Keith Owens <kaos@ocs.com.au> said:
+The ia64 patch for v2.4.17 is now at
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/ in file:
 
-  Keith> On Fri, 14 Dec 2001 21:13:46 -0800, David Mosberger
-  Keith> <davidm@hpl.hp.com> wrote:
-  >> An updated ia64 patch for 2.4.16 is now available at
-  >> ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/ in file:
-  >> 
-  >> linux-2.4.16-ia64-011214.diff*
+	linux-2.4.17-ia64-011226.diff*
 
-  Keith> David, any reason you did not put that diff under /v2.4?
+This is mostly a sync up with 2.4.17 and has few other changes (as far
+as I recall, anyhow...).  The patch has been tested only on Big Sur,
+but I don't expect any major problems with Lion (or HP simulator).
+(Yeah, famous last words...).
 
-Old habits + lack of sleep. ;-}
-It's fixed now.
-
-Thanks,
+Happy New Year,
 
 	--david
 
