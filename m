@@ -1,48 +1,28 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 16 Jun 2004 19:36:22 +0000
-Subject: Re: [PATCH 1/4] SGI Altix cross partition functionality
-Message-Id: <20040616193622.GC17425@lnx-holt.americas.sgi.com>
+From: "ARADHYA, CHINMAYA TM (OpenView)" <chinmaya@hp.com>
+Date: Tue, 01 Jun 2004 06:50:43 +0000
+Subject: pthread_create() failing on ia64
+Message-Id: <8BF7471D09AA9B4190A9C96778BC2A170143B265@qcaexc02.asiapacific.cpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040616163339.GA27891@sgi.com>
-In-Reply-To: <20040616163339.GA27891@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jun 16, 2004 at 06:43:47PM +0100, Christoph Hellwig wrote:
-> On Wed, Jun 16, 2004 at 12:40:53PM -0500, Robin Holt wrote:
-> > > > Index: linux/kernel/exit.c
-> > > > =================================> > > > --- linux.orig/kernel/exit.c	Thu Jun 10 15:04:09 2004
-> > > > +++ linux/kernel/exit.c	Thu Jun 10 16:31:55 2004
-> > > > @@ -1184,6 +1184,7 @@ end_wait4:
-> > > >  	remove_wait_queue(&current->wait_chldexit,&wait);
-> > > >  	return retval;
-> > > >  }
-> > > > +EXPORT_SYMBOL(sys_wait4);
-> > > 
-> > > No way.  Calling syscalls from kernelspace is always a bad idea.  (And this
-> > > is not linux-ia64 material anyway)
-> > 
-> > How should a parent thread be reaping children?
-> > 
-> > > 
-> > > > Index: linux/kernel/sched.c
-> > > > =================================> > > > --- linux.orig/kernel/sched.c	Thu Jun 10 16:30:39 2004
-> > > > +++ linux/kernel/sched.c	Thu Jun 10 16:31:55 2004
-> > > > @@ -2814,6 +2814,7 @@ asmlinkage long sys_sched_setscheduler(p
-> > > >  {
-> > > >  	return setscheduler(pid, policy, param);
-> > > >  }
-> > > > +EXPORT_SYMBOL(sys_sched_setscheduler);
-> > > 
-> > > Again, don't mess with scheduler paramters from your modules.
-> > 
-> > How should a kernel thread raise itself to real-time priority?
-> 
-> Answer to both:  it shouldn't
+Hi,
+ 
+A simple 32bit program with a pthread_create() call  when run on a ia64 system fails with an exception: pthread_create failed: errno
+ 
+strace output shows clone(2) call failing:
+ 
+...
+clone(child_stack=0x40dd8b08, flags=CLONE_VM|CLONE_FS|CLONE_FILES|CLONE_SIGHAND|CLONE_THREAD|CLONE_SYSVSEM|CLONE_SETTLS|CLONE_PARENT_SETTID|CLONE_CHILD_CLEARTID|CLONE_DETACHED, parent_tidptr=0x40dd8bf8, tls=0x40dd8bf8, child_tidptr=0xbffff684) = -1 EFAULT (Bad address)
+...
 
-To the second, we found that contention would result in very high
-latency without raising the priority to real-time levels.  What is
-the proper way to handle having a user thread at the same priority
-as a kernel thread causing this holdoff?
+The same program when built in 64bit mode runs fine. 
+Can anybody let me know whether there is any patch which addresses this issue.
+Ker Ver: 2.4.21-4.EL
+Rels: RHAS 3.0
+
+ 
+Many Thanks.
+Chinmaya
