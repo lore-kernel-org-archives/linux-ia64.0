@@ -1,21 +1,35 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Tue, 30 Jul 2002 01:43:51 +0000
-Subject: Re: [Linux-ia64] insmod bug causes kernel unwind failures for module text
-Message-Id: <marc-linux-ia64-105590701905850@msgid-missing>
+From: Erich Focht <efocht@ess.nec.de>
+Date: Wed, 10 Jul 2002 09:05:29 +0000
+Subject: [Linux-ia64] Re: O(1) scheduler "complex" macros
+Message-Id: <marc-linux-ia64-105590701905752@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905831@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905831@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 29 Jul 2002 17:03:32 -0700, 
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
->Has this been resolved?
->
->I don't recall seeing any followups.
+Hi Ingo,
 
-I am working on it right now.
+thanks for the quick response!
 
+> the best solution might be to just lock the 'next' task - this needs a new
+> per-task irq-safe spinlock, to avoid deadlocks. This way whenever a task
+> is in the middle of a context-switch it cannot be scheduled on another
+> CPU.
+
+We tested this and it looked good. But inserting a udelay(100) like:
+	...
+	prepare_arch_switch(rq, next);
+	udelay(100);
+	prev = context_switch(prev, next);
+	...
+leads to a crash after 10 minutes. Again this looks like accessing an
+empty page.
+
+Does anything speak against such a test? It is there just to show up
+quickly problems which we might normally get only after hours of running.
+
+Regards,
+Erich
+ 
 
