@@ -1,29 +1,33 @@
-From: Jes Sorensen <jes@sunsite.dk>
-Date: Wed, 25 Jul 2001 15:45:46 +0000
-Subject: Re: [Linux-ia64] XFS / IA64 system call conflict
-Message-Id: <marc-linux-ia64-105590693005915@msgid-missing>
+From: "Hoodye, Morris" <Morris.Hoodye@compaq.com>
+Date: Tue, 10 Jul 2001 16:47:43 +0000
+Subject: [Linux-ia64] linux on ia64
+Message-Id: <marc-linux-ia64-105590693005839@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005867@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005867@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Keith" = Keith Owens <kaos@melbourne.sgi.com> writes:
+Is linux on ia64 big-endian or little endian?
+ 
 
-Keith> On Mon, 23 Jul 2001 17:19:36 -0700, David Mosberger
-Keith> <davidm@hpl.hp.com> wrote:
->>  Yes, there is: you send me mail, I add the respective numbers to
->> unistd.h, and that's it.  Anyone who messes with that protocol is
->> on his/her own.
+Morris Hoodye
 
-Keith> Do you take care of glibc as well?  That is where the problem
-Keith> tends to occur.
+Tandem Division
 
-There isn't really a thing as special syscall handling in glibc in
-this regard. However if you want wrappers added to glibc, just mail me
-and I will do it (for glibc/ia64).
+Yosemite Project
 
-Jes
+NonStop Software & Group
+
+ Compaq Computer Corporation
+
+ Phone: (408)285-5163
+
+Fax: (408)285-1637
+
+E-mail:  <mailto:Morris.Hoodye@Compaq.com> Morris.Hoodye@Compaq.com
+
+ 
+
+ 
 
