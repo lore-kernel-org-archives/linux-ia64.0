@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 18 Mar 2005 04:45:56 +0000
+From: Matt Chapman <matthewc@cse.unsw.edu.au>
+Date: Fri, 18 Mar 2005 04:51:01 +0000
 Subject: Re: Automatically optimizing hand coded assembler
-Message-Id: <16954.23812.563464.146911@napali.hpl.hp.com>
+Message-Id: <20050318045101.GA10022@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <7848.1111113418@kao2.melbourne.sgi.com>
 In-Reply-To: <7848.1111113418@kao2.melbourne.sgi.com>
@@ -10,26 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 18 Mar 2005 13:36:58 +1100, Keith Owens <kaos@sgi.com> said:
+On Thu, Mar 17, 2005 at 08:45:56PM -0800, David Mosberger wrote:
+> 
+> I suggested a project along these lines to a few students a while ago
+> but unfortunately nothing came out of it.  IIRC, Intel at one point
+> had a "visual assembler" which was doing something similar, but it was
+> Windows only and I don't know what became of it.
 
-  Keith> The code in ia64_syscall_setup has several independent steps
-  Keith> to execute.  Interleaving the instructions from each step by
-  Keith> hand to avoid empty slots is painful, not to mention error
-  Keith> prone.  Are there any tools available for this task?
+I've suggested this as a student thesis topic as well, but no-one has
+taken it up :(
 
-  Keith> I envisage a tool where the user defines the instructions
-  Keith> required for each step separately, including the stop bits
-  Keith> needed for ordering within the individual step.  The
-  Keith> resources used by each step must be disjoint.  The user also
-  Keith> defines sync points, where steps must start, end or join with
-  Keith> other steps.  The tool draws the DAG from the sync points
-  Keith> then runs down the DAG, picking instructions from each step
-  Keith> to best fill the slots.  The output is all the instructions,
-  Keith> nicely interleaved to give the minimum number of bundles.
+http://www.cse.unsw.edu.au/db/thesis/topicinfo/GH115.html
 
-I suggested a project along these lines to a few students a while ago
-but unfortunately nothing came out of it.  IIRC, Intel at one point
-had a "visual assembler" which was doing something similar, but it was
-Windows only and I don't know what became of it.
+One of these days I'll probably get frustrated enough with hand-optimising
+assembly code to give it a go.
 
-	--david
+Matt
+
