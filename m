@@ -1,26 +1,29 @@
-From: Matt_Domsch@Dell.com
-Date: Tue, 22 May 2001 13:50:55 +0000
-Subject: RE: [Linux-ia64] Announcing efibootmgr-0.3.1
-Message-Id: <marc-linux-ia64-105590693005641@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Thu, 17 May 2001 16:41:46 +0000
+Subject: [Linux-ia64] SuSE 7.2 IA64 beta release available for download
+Message-Id: <marc-linux-ia64-105590693005605@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005626@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005626@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-> Here is a patch to fix remove_from_boot_order:
+The SuSE Linux 7.2 IA64 beta release is now available.  The ISO images can
+be downloaded from
 
-Indeed, good catch!  I've applied it to my tree.
+ftp://ftp.suse.com/pub/suse/ia64/beta-7.2/
 
-Thanks,
-Matt
+This release features Kernel 2.4.4, our graphical installer YaST2, KDE2
+and a lot more things.
 
---
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions
-www.dell.com/linux
+For questions and bug reports please write to suse-ia64@suse.com.
 
+Andreas.
+
+--=20
+Andreas Schwab                                  "And now for something
+SuSE Labs                                        completely different."
+Andreas.Schwab@suse.de
+SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
 
