@@ -1,142 +1,168 @@
-From: "=?iso-8859-1?Q?Laura_Wood?=" <laura.wood@researchandmarkets.com>
-Date: Mon, 23 Jun 2003 19:19:42 +0000
-Subject: [Linux-ia64] =?iso-8859-1?Q?Global_Wi-Fi_Hotspot_Operators_-_Wallchart_(and_Database)?=
-Message-Id: <marc-linux-ia64-105639608619283@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 24 Jun 2003 03:03:45 +0000
+Subject: bk pull
+Message-Id: <marc-linux-ia64-105642385109708@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I enclose details of our latest Global Wi-Fi Hotspot Operators Wallchart an=
-d Database.
+Hi Linus,
 
-Few would argue that wireless local area networking (WLAN) is the most disr=
-uptive technology confronting the communications industry today.=20
+please do a
 
-First spawned as a wireless extension of corporate networks, now, providing=
- users with Wi-Fi access at public locations is an exploding business =96 t=
-he dawn of the wireless LAN hotspot has arrived.=20
+	bk pull http://lia64.bkbits.net/to-linus-2.5
 
-Now, companies from a vast array of backgrounds, ranging from start-ups, co=
-ffee shop owners and airlines to ISPs and cellular operators are hopping on=
- the hotspot bandwagon.=20
+This will update the files shown below.
 
-The new Global Hotspot Operator Wallchart is an indispensable tool for comp=
-anies and professionals who need to keep abreast of this dynamic market.=20
+This update brings the ia64 tree ever closer to building
+out-of-the-box from your tree.  The way to make this work was to avoid
+conflicting declarations for irq_desc and init_thread_union.  For
+irq_desc, I just renamed the macro to irq_descp().  I expect this will
+be renamed back to irq_desc() if and when the big irq.c merge happens.
+Similarly, for init_thread_union, I simply renamed the variable in
+arch/ia64/kernel/init_task.c to init_thread_mem and thereby I bypassed
+the conflicting declaration in linux/sched.h.  Perhaps this could be
+done better in the future, but this approach will get us going without
+adding more #ifdef's to platform-independent files.
 
-Geographically structured, the chart presents a visual snapshot of the lead=
-ing 130 hotspot operators around the world, clearly illustrating regional p=
-atterns of deployment, along with a wealth of company specific and market d=
-ata.=20
+The only outstanding patches are Sam's Makefile update to use .incbin
+(instead of LD_BLOB) and a small bug fix to a SCSI driver.  Once those
+are in, we should be able to get good ia64 kernels out of your tree.
 
-The hotspot business model is a direct threat to 3G and the precious wirele=
-ss data revenues of telecommunications providers.=20
-Consequently, the Hotspot Wallchart pays particular attention to the hotspo=
-t operations of all the major fixed and cellular operators which are aggres=
-sively becoming involved in the space.
+Thanks!
 
-Operator specific data:=20
+	--david
 
-- No. of hotspot networks=20
-- Estimated no. of hotspot by year end (2003)=20
-- No. of subscribers=20
-- Service launch date=20
-- Locations (e.g. Cafes, airports, hotels etc.)=20
-- Ownership=20
-- Aggregator agreements (e.g. Boingo, GRIC and iPass)=20
+ arch/ia64/sn/io/drivers/ifconfig_net.c |  298 ----------------
+ arch/ia64/Kconfig                      |    8 
+ arch/ia64/Makefile                     |    5 
+ arch/ia64/defconfig                    |  614 +++++++++++++++++++--------------
+ arch/ia64/kernel/acpi.c                |   63 ---
+ arch/ia64/kernel/efi.c                 |    2 
+ arch/ia64/kernel/efivars.c             |    2 
+ arch/ia64/kernel/gate.S                |   18 
+ arch/ia64/kernel/head.S                |    4 
+ arch/ia64/kernel/init_task.c           |   12 
+ arch/ia64/kernel/iosapic.c             |    6 
+ arch/ia64/kernel/irq.c                 |   38 +-
+ arch/ia64/kernel/irq_ia64.c            |    2 
+ arch/ia64/kernel/mca.c                 |    2 
+ arch/ia64/kernel/perfmon.c             |  308 ++++------------
+ arch/ia64/kernel/smpboot.c             |    2 
+ arch/ia64/lib/Makefile                 |    7 
+ arch/ia64/pci/pci.c                    |    2 
+ arch/ia64/scripts/toolchain-flags      |    8 
+ arch/ia64/sn/io/drivers/Makefile       |    2 
+ arch/ia64/sn/io/hwgfs/hcl.c            |   25 -
+ arch/ia64/sn/io/machvec/pci.c          |    4 
+ arch/ia64/sn/io/machvec/pci_dma.c      |   28 -
+ arch/ia64/sn/kernel/Makefile           |    3 
+ arch/ia64/sn/kernel/idle.c             |    6 
+ arch/ia64/sn/kernel/machvec.c          |    1 
+ arch/ia64/sn/kernel/setup.c            |   27 -
+ include/asm-ia64/agp.h                 |    5 
+ include/asm-ia64/hw_irq.h              |   10 
+ include/asm-ia64/thread_info.h         |    1 
+ include/asm-ia64/timex.h               |   11 
+ include/asm-ia64/tlb.h                 |    1 
+ include/asm-ia64/topology.h            |    9 
+ 33 files changed, 558 insertions(+), 976 deletions(-)
 
-Market data:=20
-- Regional percentage marketshare=20
-- Top operators=20
-- Top countries=20
+through these ChangeSets:
 
-Note on Electronic Version: The data is also available electronically (in M=
-S Excel) ready to port into models, pitches and presentations.  The electro=
-nic version includes five (5) Hotspot Wallcharts.
+<davidm@tiger.hpl.hp.com> (03/06/23 1.1327.4.24)
+   ia64: Update defconfig.  Add missing include to <asm-ia64/tlb.h>.  Fix
+   	compiler warning in perfmon.c.
 
-=93The wallcharts give a strong visual image at once of the complexity and =
-patterns of relationships among companies in the IT and Telcom sectors. Com=
-bined with the equity database services, they offer unique insight into the=
- industry!=94 - Stephen Forgeron, Business Dvelopment Director, Nortel Netw=
-orks
+<davidm@tiger.hpl.hp.com> (03/06/23 1.1327.4.23)
+   ia64: Rename irq_desc() to irq_descp() to avoid conflict with variable
+   	of same name declared in linux/irq.h.  The expectation is that
+   	this variable will be removed eventually and then irq_descp()
+   	can be renamed to irq_desc() again.  But for now, this makes it
+   	easier to compile against Linus' source tree.
 
-=93Indispensable when thinking about strategic relationships in the converg=
-ed world.=94 - Robin Saphra, Director of Strategic Development, T-Mobile
+<davidm@tiger.hpl.hp.com> (03/06/23 1.1327.4.22)
+   Drop pcibios_update_resource() #warning.
 
-For details click on http://www.researchandmarkets.com/reports/29055
+<davidm@tiger.hpl.hp.com> (03/06/23 1.1327.4.21)
+   ia64: Rename init_thread_union to init_task_mem to avoid conflicting
+   	declration in <linux/sched.h>.
 
-Wallchart Pricing:
-Hard Copy   EUR 106
+<jes@wildopensource.com> (03/06/23 1.1327.4.20)
+   [PATCH] ia64: fix static initializers
+   
+   No need to explicitly zero out global variables.
 
-Database Pricing:
-Electronic   EUR 534
+<davidm@wailua.hpl.hp.com> (03/06/20 1.1327.4.19)
+   ia64: More perfmon fixes:
+            - removes 2.4 specific macros/inline functions
+            - fix rum vs. rsm bug for psr.up
+            - introduce cleaner PMC_IS_CONTROL() macro
+            - only save the value of psr.up on ctxsw (not whole psr)"
 
-ORDERING - FOUR EASY WAYS TO PLACE YOUR ORDER:
+<davidm@tiger.hpl.hp.com> (03/06/20 1.1327.4.18)
+   ia64: Fix a alternate-signal-stack bug which could corrupt RNaT bits
+   	when bspstore happened to point to an RNaT-slot.
+   	Bug reported by Matt Chapman.
 
-Order online: To order this report please click on http://www.researchandma=
-rkets.com/reports/29055
-Order via email: mailto:orders@researchandmarkets.com
-Order via fax-back form: Click on http://www.researchandmarkets.com/reports=
-/29055 Fax to +353 14957318
-Order via post: Click on http://www.researchandmarkets.com/reports/29055
-Mail to Research and Markets Ltd., Guinness Centre, Taylors Lane, Dublin 8,=
- Ireland
+<alext@fc.hp.com> (03/06/20 1.1327.4.17)
+   [PATCH] ia64: cleanup xor build rule to take advantage of lib-m
+   
 
+<jbarnes@sgi.com> (03/06/20 1.1327.4.16)
+   [PATCH] ia64: sn2 updates for 2.5.72
+   
+   Here's a patch against your bk tree that keeps things building for sn2
+   (and working with the discontig patch applied).
 
-Related Reports Available from Research & Markets Ltd:
+<davidm@tiger.hpl.hp.com> (03/06/19 1.1327.4.15)
+   Kconfig:
+     Add back IDE configuration.
 
-Americas Wireless Landscape Wallchart - http://www.researchandmarkets.com/r=
-eports/89
-Asian 2G-3G Wireless Landscape Wallchart - http://www.researchandmarkets.co=
-m/reports/88
-European 2G-3G Wireless Landscape Wallchart - http://www.researchandmarkets=
-.com/reports/87
-Global Telecommunications Wallchart - http://www.researchandmarkets.com/rep=
-orts/92
-Global Mobile Communications Wallchart - http://www.researchandmarkets.com/=
-reports/91
-Global Convergence Wallchart - http://www.researchandmarkets.com/reports/90
-BluePrint Wi-Fi -  The only weekly publication focused purely on the 802.11=
- and wireless LAN industry - http://www.researchandmarkets.com/reports/16342
-Mobile Messaging:  Who Is Driving It and What Should Operators Do to Ensure=
- Success? - http://www.researchandmarkets.com/reports/5504
-Five Steps to the Perfect Mobile Application: Next Generation Lessons from =
-Japan - http://www.researchandmarkets.com/reports/4683
-Software Defined Radio: Opportunities and Challenges of the Next Generation=
- Platform for Mobile Communications - http://www.researchandmarkets.com/rep=
-orts/6754
+<davidm@tiger.hpl.hp.com> (03/06/18 1.1327.4.14)
+   ia64: Simplify the script to use only $CC and $OBJDUMP.  Besides being simpler,
+   	this also ensure we really do test the linker which will be
+   	used when building the gate DSO.
 
+<davidm@tiger.hpl.hp.com> (03/06/18 1.1327.4.13)
+   ia64: Minor cleanups; fix non-SMP build.
 
-Click on http://www.researchandmarkets.com for details.
+<chadt@sgi.com> (03/06/18 1.1327.4.12)
+   [PATCH] ia64: early_printk for SGI SN2
+   
 
-Thank you for your consideration.
+<davidm@tiger.hpl.hp.com> (03/06/18 1.1327.4.11)
+   ia64: Two more minor cleanups for 2.5.72.
 
-Kind Regards,
+<davidm@tiger.hpl.hp.com> (03/06/18 1.1327.4.10)
+   ia64: Drop obsolete ACPI SPCR support.
 
+<jbarnes@sgi.com> (03/06/18 1.1327.4.9)
+   [PATCH] ia64: generic kernel support for sn2
+   
+   I _think_ I got this one right (at least, it booted on hw).  It should
+   allow generic kernels to include the sn2 code.
 
-Laura Wood
-Senior Manager
-Research and Markets Ltd
-laura.wood@researchandmarkets.com
+<jbarnes@sgi.com> (03/06/18 1.1327.4.8)
+   [PATCH] ia64: PCI fixes for sn2
+   
+   Updates the PCI routines for sn2.
 
-REPORT DATA SUMMARY:
-Global Wi-Fi Hotspot Operators - Wallchart (and Database)
-Publisher Name: ARCchart
-Category: Wireless
-URL: www.researchandmarkets.com/reports/29055
+<jbarnes@sgi.com> (03/06/18 1.1327.4.7)
+   [PATCH] ia64: hwgfs fix for sn2
+   
+   Small fix for hwgfs on sn2.
 
-Subscribe: Click on http://www.researchandmarkets.com/register.asp You can =
-subscribe free for regular details on new research in your sector.
+<jbarnes@sgi.com> (03/06/18 1.1327.4.6)
+   [PATCH] ia64: mark_idle() fixes for sn2
+   
+   Small patch to fixup the new mark_idle() stuff for sn2.
 
-If you no longer wish to receive our market research updates, please reply =
-to this message with "Suppression Request" as the subject line, or email a =
-blank email to suppressed@researchandmarkets.com or access our unsubscribe =
-page at: http://www.researchandmarkets.com/unsubscribe.asp
+<jbarnes@sgi.com> (03/06/18 1.1327.4.5)
+   [PATCH] ia64: bitshift fix
+   
+   I think there are other 64p issues in other places, but we found this
+   one while doing 2.5 bringup on hardware.
 
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
