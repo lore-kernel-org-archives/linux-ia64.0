@@ -1,35 +1,32 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 11 Mar 2004 08:14:51 +0000
-Subject: Re: 2.6 unwind problem in kernel/sched.c
-Message-Id: <16464.8187.46194.970020@napali.hpl.hp.com>
+From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Date: Wed, 10 Mar 2004 04:40:00 +0000
+Subject: IA32 programs make kernel stall on IPF machine when CONFIG_PREEMPT is enabled
+Message-Id: <3AA03342E913FA4BA6D8BD0732BFC74B05154D94@pdsmsx402.pd.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3398.1078793456@kao2.melbourne.sgi.com>
-In-Reply-To: <3398.1078793456@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 09 Mar 2004 11:50:56 +1100, Keith Owens <kaos@sgi.com> said:
+There is a bug in base kernel 2.6.3. When CONFIG_PREEMPT is enabled, all
+IA32 programs will make kernel stall on IPF machines.
 
-  Keith> 2.6.4-rc2, gcc 3.2.3, binutils 2.14.90.0.4.  kernel/sched.c
-  Keith> does schedule() -> context_switch() -> switch_to() followed
-  Keith> by finish_task_switch().  finish_task_switch() calls
-  Keith> finish_arch_switch() which enables interrupts.  If there is
-  Keith> an interrupt pending, that interrupt runs at schedule+0x1090
-  Keith> (ssm).
+Here is the patch to fix it.
 
-  Keith> At this point we are running on the new stack but cr_iip
-  Keith> points into schedule() so the unwinder uses schedule's unwind
-  Keith> data (b0, ar.pfs in r60, r61).  r60 and r61 are loaded from
-  Keith> bsp on the new stack, they are completely wrong and the
-  Keith> unwind is useless.
+diff -Narup a/arch/ia64/ia32/ia32_support.c
+b/arch/ia64/ia32/ia32_support.c
+--- a/arch/ia64/ia32/ia32_support.c	2004-03-09 23:13:53.000000000
+-0800
++++ b/arch/ia64/ia32/ia32_support.c	2004-03-09 23:28:14.052063896
+-0800
+@@ -134,8 +134,6 @@ ia32_load_state (struct task_struct *t)
+ 	regs->r17 = (_TSS << 48) | (_LDT << 32) | (__u32) regs->r17;
+ 	regs->r30 = load_desc(_LDT);				/* LDTD
+*/
+ 	load_TLS(&t->thread, smp_processor_id());
+-
+-	put_cpu();
+ }
+ 
+ /*
 
-I must be missing something. After switch_to() you're fully switched
-to the new task so I don't see why an interrupt during
-finish_arch_switch() would mess up the backtrace.  Since CR.IIP points
-to schedule() and since the interrupt handler will return to that
-instruction after its done, the state at that instruction better be
-valid.
-
-	--david
