@@ -1,28 +1,18 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Mon, 19 May 2003 21:34:59 +0000
-Subject: Re: [Linux-ia64] MSIX Support.
-Message-Id: <marc-linux-ia64-105590723705954@msgid-missing>
+From: "David S. Miller" <davem@redhat.com>
+Date: Sun, 18 May 2003 05:46:14 +0000
+Subject: [Linux-ia64] Re: [patch] support 64 bit pci_alloc_consistent
+Message-Id: <marc-linux-ia64-105590723705928@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705951@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705951@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, May 19, 2003 at 01:16:52PM -0700, Nakajima, Jun wrote:
-> We posted a patch for MSI/MSI-X support to the kernel mailing list recently.
+On Sat, 2003-05-17 at 21:09, Jes Sorensen wrote:
+> This is patch which provides support for 64 bit address allocations from
+> pci_alloc_consistent(), based on the address mask set through
+> pci_set_consistent_dma_mask().
 
-Cool!
-Can you provide the patch or a URL?
-Google couldn't find "msi_alloc" when explicitly searching lkml archives.
+I fully support these changes.
 
-> Although it was for x86 (as far as the patch is concerned), I believe
-> we should have the same interfaces to drivers.
-
-yes. I think ia32, ia64, parisc, and alpha can all support MSI.
-Maybe others too.
-
-thanks,
-grant
 
