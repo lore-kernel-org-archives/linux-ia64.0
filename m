@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sat, 28 Aug 2004 01:39:40 +0000
+From: Paul Mackerras <paulus@samba.org>
+Date: Sat, 28 Aug 2004 02:08:23 +0000
 Subject: Re: page fault scalability patch final : i386 tested, x86_64
-Message-Id: <20040827183940.33b38bc2.akpm@osdl.org>
+Message-Id: <16687.59671.869708.795999@cargo.ozlabs.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
 	<20040816143903.GY11200@holomorphy.com>
@@ -14,45 +14,32 @@ References: <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
 	<20040827172337.638275c3.davem@davemloft.net>
 	<20040827173641.5cfb79f6.akpm@osdl.org>
 	<20040828010253.GA50329@muc.de>
-In-Reply-To: <20040828010253.GA50329@muc.de>
+	<20040827183940.33b38bc2.akpm@osdl.org>
+In-Reply-To: <20040827183940.33b38bc2.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@muc.de>
-Cc: davem@davemloft.net, clameter@sgi.com, ak@suse.de, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
+To: Andrew Morton <akpm@osdl.org>
+Cc: Andi Kleen <ak@muc.de>, davem@davemloft.net, clameter@sgi.com, ak@suse.de, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
 
-Andi Kleen <ak@muc.de> wrote:
->
-> > When can we reasonably expect someone to blow this out of the water? 
->  > Within the next couple of years, I suspect?
-> 
->  With 4 level page tables x86-64 will support 47 bits virtual theoretical.
->  They cannot be used right now because the current x86-64 CPUs have
->  40 bits physical max and it is currently even hardcoded to 40bits,
->  but I planned to drop that in the 4 level patch (in fact I already did) 
->  so that the kernel will in theory support CPUs will more physical memory.
-> 
+Andrew Morton writes:
 
-hm.  What's the maximum virtual size on power5?
+> hm.  What's the maximum virtual size on power5?
 
->  > It does look like we need a new type which is atomic64 on 64-bit and
->  > atomic32 on 32-bit.  That could be used to fix the
->  > mmaping-the-same-page-4G-times-kills-the-kernel bug too.
-> 
->  Yep.  Good plan. atomic_long_t ? 
+The hardware MMU maps a full 64-bit effective address to a physical
+address (one of the (few) advantages of using a hash table :).  That's
+true on all the ppc64 processors.  I'm not sure how many bits of
+physical address the power5 chip uses, but it is around 50.
 
-Sounds good.  Converting page->_count should be fairly straightforward now
-too, as it's all done via wrappers.
+Under Linux we are currently limited to a 41-bit virtual address space
+(2TB) for user processes, because of the three-level page tables and
+the 4kB page size (the pgd and pmd entries are 32 bits).  Due to
+various things the linear mapping (and thus the amount of RAM we
+can use) is currently also limited to 2TB.  We can increase that
+without too much pain, and we'll have to do that at some stage (no one
+has yet offered us a 2TB box to play with, but the time will come, for
+sure :).
 
->  > 
->  > > and this limit actually
->  > > mostly comes from the 3-level page table limits.
->  > 
->  > This reminds me - where's that 4-level pagetable patch got to?
-> 
->  It exists on my HD, but is not really finished yet.
-> 
->  I was on vacation and travelling and had some other things to do, so it got 
->  delayed a bit, but I hope to work on it soon again.
+Regards,
+Paul.
 
-OK, thanks.  There's no rush on this one.
