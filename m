@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 15 Oct 2003 16:32:24 +0000
+Date: Wed, 15 Oct 2003 16:59:54 +0000
 Subject: Re: IA64 ino_t incorrectly sized?
-Message-Id: <marc-linux-ia64-106623593125943@msgid-missing>
+Message-Id: <marc-linux-ia64-106623784528803@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106378281914262@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106378281914262@msgid-missing>
@@ -10,42 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 15 Oct 2003 16:34:09 +1000, Nathan Scott <nathans@sgi.com> said:
+>>>>> On Tue, 14 Oct 2003 22:18:10 -0700, Andrew Morton <akpm@osdl.org> said:
 
-  Nathan> On Tue, Oct 14, 2003 at 11:21:09PM -0700, David Mosberger
-  Nathan> wrote:
-  >> >>>>> On Wed, 15 Oct 2003 16:06:02 +1000, Nathan Scott
-  >> <nathans@sgi.com> said:
+  Andrew> David Mosberger <davidm@napali.hpl.hp.com> wrote:
 
-  Nathan> It turns out that neither is a problem for us in practice.
-  >>  Sounds find to me, then.  Except, I'd replace #ifdef __ia64__
-  >> with #ifdef CONFIG_IA64, so you're relying (less) on compiler
-  >> magic.
+  >>  NFS is nastier (ugly multiplexed syscalls...).
 
+  Andrew> Well I think that whole interface is deprecated anyway and
+  Andrew> the new nfsutils doesn't use it - it uses exportfs instead.
 
-  Nathan> Oh.  I had avoided that because it requires any sources
-  Nathan> including these headers to have already included
-  Nathan> linux/config.h, which they may not be doing.  linux/types.h
-  Nathan> is included by userspace code too, I believe, so may be an
-  Nathan> issue there too.
+  Andrew> You'd need to check with Neil, but if I'm right you could
+  Andrew> just say "use current nfsutils on ia64".
 
-OK.
+Ugh, looks like there may be some problems with exportfs itself?
+I see:
 
-Upon further investigation, I found that glibc defines its own "struct
-ustat" and, guess what, it already declare __ino_t as unsigned long:
+static struct dentry *get_object(struct super_block *sb, void *vobjp)
+{
+	__u32 *objp = vobjp;
+	unsigned long ino = objp[0];
+	__u32 generation = objp[1];
 
- (gdb) ptype struct ustat
- type = struct ustat {
-     __daddr_t f_tfree;
-     __ino_t f_tinode;
-     char f_fname[6];
-     char f_fpack[6];
- }
- (gdb) ptype __ino_t
- type = long unsigned int
+	return export_iget(sb, ino, generation);
+}
 
-So there is no need to have that ugly #ifdef for struct ustat.
+So it looks to me like exportfs supports only 32-bit ino_t?
 
-I'm not 100% sure yet what to do about NFS.
+(Neil, to give you some background: we'd like to change ino_t on ia64
+from 32 to 64 bits and found that the only potential ABI issue is due
+to NFS; "struct nfsctl_export" is definitely an issue, but perhaps we
+can live with that.  I'm less certain about any issues exportfs might
+have.)
 
 	--david
