@@ -1,48 +1,89 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Wed, 30 Jan 2002 23:13:04 +0000
-Subject: Re: [Linux-ia64] Updating to the latest binutils - any tips on how to do it easily?
-Message-Id: <marc-linux-ia64-105590698805970@msgid-missing>
+From: Andrea Arcangeli <andrea@suse.de>
+Date: Sat, 19 Jan 2002 17:27:48 +0000
+Subject: [Linux-ia64] Re: [RFC] NUMA functions for accessing replicated areas
+Message-Id: <marc-linux-ia64-105590698805887@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805968@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805968@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Any suggestions on installing a newer binutils? I tried installing=20
->a recient version (binutils-2.11.2 or binutils-2.10.1) to /usr/local
->and had problems with commands compiled with the current compiler,
->(egcs-2.91.66/(egcs-1.1.2 release)), getting a SEGV when they started;=20
->so I backed out the changed binutils installation for now.
+Hello Keith,
 
-There is no IA-64 support in those egcs releases, so you must be talking ab=
-out
-something else, like x86.  Anyways, regardless of the target, it is never a
-good idea for the system compiler to use an assembler from /usr/local.
-If you run the command "gcc --print-file-name=CC1", then cd to the directory
-containing cc1, and then create a link called "as" that points to the corre=
-ct
-assembler, then that gcc will always use that assembler.  You may also need=
- to
-create a link called "real-ld" that points to the correct linker.
+On Sat, Jan 19, 2002 at 11:25:17AM +1100, Keith Owens wrote:
+> The linux kernel debugger (kdb) has hit a problem with setting software
+> breakpoints on NUMA boxes with replicated kernel text.  Instead of
+> changing one kernel virtual address and affecting the only copy of the
+> kernel, kdb has to loop over each replicated area and change each copy
+> of the kernel individually, using some mapping that gives access to the
+> data on other nodes.
+> 
+> I don't want code in kdb that knows about every NUMA platform, that is
+> a maintenance nightmare.  I want the NUMA platforms to provide the
 
-If you install gcc and binutils using the same configure prefix, then that
-gcc will find that binutils.  Putting everything in /usr/local is not
-necessarily a good idea, since lots of people have /usr/local in their path,
-and will then run things in /usr/local accidentally.  If you use a different
-prefix for every gcc release you install, you can avoid problems like this.
-This may be too much trouble for someone who isn't a gcc hacker though.
+Obviously a good idea.
 
->Perhaps the compiler and binutils have to be changed together?
+> following interfaces.  Any objections or changes?  I will do the the
+> SGI version, other manufacturers will have to provide the equivalent
+> functions if they want to use kdb.
+> 
+> BTW, is there a single NUMA mailing list?  cc: me please, I am not on
+> all lists.
+> 
+> CONFIG_NUMA_REPLICATE
+> 
+>   Set to y if the platform supports the replication functions.
+> 
+> int numa_replicated(unsigned long address, size)
+> 
+>   Return 0 if the area (address to address+size-1) is not replicated.
+>   Return 1 if it is replicated.
+>   Return -EINVAL if the area is a mixture of replicated and
+>   non-replicated data.
+> 
+> int numa_replicate_loop(unsigned long address, (int *func)(void *numadata, void *funcdata), void *funcdata)
+> 
+>   Call the function for each replication of the address.  numadata
+>   identifies this instance of the replicated data, it is an opaque
+>   cookie to the function.  funcdata is supplied by the caller of
+>   numa_replicate_loop(), it is an opaque cookie to the numa code.
+> 
+>   Return 0 if the function returns 0 for all calls, otherwise 1.  If
+>   any call to func() returns non-zero, numa_replicate_loop() continues
+>   with the other replicated areas.  If func() wants to ignore
+>   subsequent areas it can set a flag in funcdata.
+> 
+> int numa_replicate_getarea_size(void *to, unsigned long from_xxx, size_t size, void *numadata)
+> 
+>   Read size bytes from from_xxx (which must be a replicated address) to
+>   the user's data area.
+> 
+>   Return 0 on success, -EFAULT for invalid from_xxx address or size.
+> 
+> int numa_replicate_putarea_size(unsigned long to_xxx, void *from, size_t size, void *numadata)
+> 
+>   Write size bytes from the user's data area to to_xxx (which must be a
+>   replicated address).
+> 
+>   Return 0 on success, -EFAULT for invalid to_xxx address or size.
+> 
+> Is that satisfactory?  Once those routines exist, kdb can use them to
+> set software breakpoints.
 
-It is common that a new compiler release requires a new binutils release.
-Also, it is common that a new gcc requires a new gdb.  It is less common,
-but happens sometimes, that a new gcc requires a new glibc or new kernel
-because of ABI changes.  This is an issue for IA-64 because it is still
-so new, and compiler work was really finished until last year when 3.0.2
-came out.  There should be no more major ABI changes after gcc 3.0.2 though.
+The opaque void * spread across all the API looks rather scary.
+Furthmore I'm not convinced we need to pass any cookie to the api, all
+the calls knows the numadata info by the static status after boot.
 
-Jim
+So I think something like this should be enough:
 
+	int numa_replicated(unsigned long address, int size);
+	int numa_getarea(void *to, unsigned long from, int size);
+	int numa_putarea(unsigned long to, void *from, int size);
+
+Futhmore it may be even better to drop numa_replicated completly and to
+default using numa_getarea/numa_putarea always, this should make kdb
+even cleaner. Implementation of getarea/putarea for non numa case will
+be a simple memcpy.
+
+Andrea
 
