@@ -1,83 +1,150 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 07 Jan 2005 00:19:08 +0000
-Subject: [PATCH] long line, codingstyle, & include cleanups for numa.c
-Message-Id: <200501061619.08795.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_8Vd3Bj1UoiVKYOm"
+From: gowda_avinash@emc.com
+Date: Mon, 24 Jan 2005 15:21:08 +0000
+Subject: RE: Announce: kdb v4.4 is available for kernel 2.6.10
+Message-Id: <50C05B7AA7D6924FB5E384EF14BC647BC451EE@inba1mx2.corp.emc.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200501061609.20040.jbarnes@engr.sgi.com>
-In-Reply-To: <200501061609.20040.jbarnes@engr.sgi.com>
-To: linux-ia64@vger.kernel.org
-
---Boundary-00=_8Vd3Bj1UoiVKYOm
-Content-Type: text/plain;
-  charset="us-ascii"
+References: <12956.1085377697@kao2.melbourne.sgi.com>
+In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: kaos@sgi.com, kdb@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Remove a bunch of unused #includes, fix long lines, and fixup codingstyle in 
-numa.c.
+All:
+I tried to get Kdb working on SuSe 9 ia64 box (kernel version
+2.6.5-7.111.19). Turns out that the keyboard/machine goes into a hang state.
+I have a usb keyboard!
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+Googling around I found that Keith had disabled the USB keyboard support
+some time back due to changes in some APIs (kernel version
+linux-2.6.5-SLES9_SP1_BRANCH).
+
+Is this something that could be a cause for my problem? Should I think about
+upgrading my kernel to 2.6.10 (hoping that the issue's been fixed in this
+version)?
 
 Thanks,
-Jesse
+avinash
 
---Boundary-00=_8Vd3Bj1UoiVKYOm
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="numa-cleanup.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="numa-cleanup.patch"
+-----Original Message-----
+From: linux-ia64-owner@vger.kernel.org
+[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Keith Owens
+Sent: Saturday, December 25, 2004 5:48 PM
+To: kdb@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org; linux-ia64@vger.kernel.org
+Subject: Announce: kdb v4.4 is available for kernel 2.6.10 
 
-===== arch/ia64/mm/numa.c 1.9 vs edited =====
---- 1.9/arch/ia64/mm/numa.c	2004-10-28 00:36:29 -07:00
-+++ edited/arch/ia64/mm/numa.c	2005-01-06 16:00:32 -08:00
-@@ -6,21 +6,14 @@
-  * This file contains NUMA specific variables and functions which can
-  * be split away from DISCONTIGMEM and are used on NUMA machines with
-  * contiguous memory.
-- * 
-+ *
-  *                         2002/08/07 Erich Focht <efocht@ess.nec.de>
-  */
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+KDB (Linux Kernel Debugger) has been updated.
+
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
+ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
+
+Current versions are :-
+
+  kdb-v4.4-2.6.10-common-1.bz2
+  kdb-v4.4-2.6.10-i386-1.bz2
+  kdb-v4.4-2.6.10-ia64-1.bz2
+  kdb-v4.4-2.6.9-rc2-x86-64-1.bz2 (may or may not work with 2.6.10).
+
+
+Changelog extract since kdb-v4.4-2.6.9-common-1.
+
+2004-12-25 Keith Owens  <kaos@sgi.com>
+
+	* Add kobject command.
+	* Ignore low addresses and large offsets in kdbnearsym().
+	* Console updates for sn2 simulator.
+	* kdb v4.4-2.6.10-common-1.
+
+2004-12-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.10-rc3-common-1.
+
+2004-11-23 Keith Owens  <kaos@sgi.com>
+
+	* Remove warning message from kdb_get_one_user_page(), it was too
+noisy.
+	* kdb v4.4-2.6.10-rc2-common-1.
+
+2004-11-02 Keith Owens  <kaos@sgi.com>
+
+	* Build with kdb patch applied but CONFIG_KDB=n.
+	* kdb v4.4-2.6.10-rc1-common-2.
+
+2004-10-29 Keith Owens  <kaos@sgi.com>
+
+	* Handle new compression scheme for kallsyms.
+	* Handle move of DEAD and ZOMBIE for task->state to
+task->exit_state.
+	* Tweak the concept of a valid kernel address to get all symbols,
+	  including the symbols in the ia64 gate page.
+	* kdb v4.4-2.6.10-rc1-common-1.
+
+2004-10-21 Keith Owens  <kaos@sgi.com>
+
+	* Handle variable size for the kernel log buffer.
+	* kdb v4.4-2.6.9-common-2.
+
+
+Changelog extract since kdb-v4.4-2.6.9-i386-1.
+
+2004-12-25 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.10-i386-1.
+
+2004-12-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.10-rc3-i386-1.
+
+2004-11-23 Keith Owens  <kaos@sgi.com>
+
+	* Coexist with asmlinkage/fastcall changes.
+	* kdb v4.4-2.6.10-rc2-i386-1.
+
+2004-10-29 Keith Owens  <kaos@sgi.com>
+
+	* Handle change defintions for hard and soft irq context.
+	* Make stack switch in kdb backtrace look more like the oops output.
+	* kdb v4.4-2.6.10-rc1-i386-1.
+
+
+
+Changelog extract since kdb v4.4-2.6.9-ia64-1.
+
+2004-12-25 Keith Owens  <kaos@sgi.com>
+
+	* Add cpuinfo command.
+	* kdb-v4.4-2.6.10-ia64-1.
+
+2004-12-07 Keith Owens  <kaos@sgi.com>
+
+	* Clean up error path in kdba_mca_init.
+	* kdb-v4.4-2.6.10-rc3-ia64-1.
+
+2004-11-15 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.10-rc2-ia64-1.
+
+2004-10-29 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.10-rc1-ia64-1.
+
+
+ps.  Bah, Hum{de}bug!
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFBzVpji4UHNye0ZOoRAmy+AJ4iSaztTqGLjr+Ck0X8+TMdXB41IQCghc/P
+p7GtfCEOmVPDj/SVHdecFyw=oO+Z
+-----END PGP SIGNATURE-----
+
 -
--#include <linux/config.h>
--#include <linux/cpu.h>
--#include <linux/kernel.h>
--#include <linux/mm.h>
--#include <linux/node.h>
--#include <linux/init.h>
--#include <linux/bootmem.h>
-+#include <linux/numa.h>
-+#include <linux/threads.h>
- #include <asm/mmzone.h>
- #include <asm/numa.h>
- 
--
- /*
-  * The following structures are usually initialized by ACPI or
-  * similar mechanisms and describe the NUMA characteristics of the machine.
-@@ -35,15 +28,15 @@
- u8 numa_slit[MAX_NUMNODES * MAX_NUMNODES];
- 
- /* Identify which cnode a physical address resides on */
--int
--paddr_to_nid(unsigned long paddr)
-+int paddr_to_nid(unsigned long paddr)
- {
--	int	i;
-+	int i;
- 
- 	for (i = 0; i < num_node_memblks; i++)
- 		if (paddr >= node_memblk[i].start_paddr &&
- 		    paddr < node_memblk[i].start_paddr + node_memblk[i].size)
- 			break;
- 
--	return (i < num_node_memblks) ? node_memblk[i].nid : (num_node_memblks ? -1 : 0);
-+	return (i < num_node_memblks) ?	node_memblk[i].nid :
-+		(num_node_memblks ? -1 : 0);
- }
-
---Boundary-00=_8Vd3Bj1UoiVKYOm--
+To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
