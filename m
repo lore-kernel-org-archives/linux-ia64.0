@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 23 Oct 2002 20:43:51 +0000
-Subject: RE: [Linux-ia64] ia64 compressed makefile target
-Message-Id: <marc-linux-ia64-105590709805217@msgid-missing>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Wed, 23 Oct 2002 20:49:35 +0000
+Subject: Re: [Linux-ia64] ia64 compressed makefile target
+Message-Id: <marc-linux-ia64-105590709805218@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805211@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805211@msgid-missing>
@@ -10,16 +10,7 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 23 Oct 2002 10:46:32 -0700, "Luck, Tony" <tony.luck@intel.com>
-said:
-
-  Tony> Or perhaps David will take the CONFIG_IA64_VMAP_KERNEL patch
-  Tony> that I posted a week ago which also allows the kernel to run
-  Tony> on systems without memory at the default link address.
-  Tony> Admittedly it's more than one line, but it contains much of
-  Tony> the same infrastructure that is needed to support kernel text
-  Tony> replication.
-
+On Wed, Oct 23, 2002 at 12:01:29PM -0700, David Mosberger wrote:
 > I don't have a strong preference either way, but I do have some
 > concerns about the VMAP_KERNEL.  I really dislike the fact that it
 > requires different versions of virtual-to-physical translations for
@@ -28,16 +19,14 @@ said:
 > more?  I assume you link the kernel with "ld -r" and have an elilo
 > that applies the relocations?
 
-I'm not sure that the mapping the kernel is quite as scary as it
-appears to be:
-1) All of the places where we need to take special care are in
-   initialization code.
-2) Code that can be loaded as a module (which is a whole lot of
-   code) cannot make any assumptions about __pa() working on
-   addresses in .text/.data/.bss
+Elilo 3.1 supports relocation, but now that I look, we're not passing -r
+to ld when the kernel is linked, which makes me wonder why it works at
+all.  But I've confirmed that a kernel stripped with --strip-all doesn't
+boot, while the same binary stripped with --strip-debug does (haven't
+tried --strip-unneeded, but that should work too).  I can look into it
+more if you're not comfortable with the change, and maybe Tony has
+something to add?
 
-A relocating elilo sounds interesting too (it passes the "don't
-do things in the kernel unless you really have to" test).
-
--Tony
+Thanks,
+Jesse
 
