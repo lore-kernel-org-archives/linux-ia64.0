@@ -1,7 +1,7 @@
-From: Alex Williamson <awilliam@fc.hp.com>
-Date: Tue, 04 Sep 2001 14:09:45 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 04 Sep 2001 17:09:03 +0000
 Subject: Re: [Linux-ia64] Proc num on an MP plateform
-Message-Id: <marc-linux-ia64-105590698805117@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805118@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805116@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805116@msgid-missing>
@@ -10,26 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Gerard,
+>>>>> On Tue, 04 Sep 2001 15:01:28 +0200, gerard <gerard@mylos.grenoble.hp.com> said:
 
-   ia64_get_lid() returns the processor interrupt id and eid.  That
-should be enough to uniquely identify which CPU you're one.
+  Gerard> Hi I am working on a MP system and I need to know on which
+  Gerard> proc num I am running, is there a macro/function call to do
+  Gerard> this?(kernel mode).
 
-	Alex
+Depends on what number you want.  If you want the SAPIC id,
+ia64_get_lid() is the way to go.  If you just want a unique number,
+you can use smp_processor_id().  If you want a number in the range
+from 0..smp_num_cpus-1, you can use cpu_number_map(smp_processor_id()).
 
-gerard wrote:
-> 
-> Hi
-> I am working on a MP system and I need to know on which
-> proc num I am running, is there a macro/function call to do this?(kernel
-> mode).
-> 
-> Thanks in advance.
-> Gerard LYONNAZ
-> 
-
---
-Alex Williamson                                  Linux Development Lab
-awilliam@fc.hp.com                                     Hewlett Packard
-970-898-9173                                          Fort Collins, CO
+	--david
 
