@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 06 Apr 2004 21:27:47 +0000
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Date: Tue, 06 Apr 2004 22:52:12 +0000
 Subject: Re: hardware random number generator?
-Message-Id: <200404061527.47578.bjorn.helgaas@hp.com>
+Message-Id: <20040406155212.2ae9fdb5.rddunlap@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <405F9A2E.8040509@pobox.com>
 In-Reply-To: <405F9A2E.8040509@pobox.com>
@@ -10,53 +10,55 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jeff, can you apply this patch to hw_random.c?  Thanks.
+On Tue, 23 Mar 2004 23:23:29 -0800 Mallick, Asit K wrote:
 
-The following patch allows hw_random.c to build on ia64.  (The problem
-was just that the VIA stuff has i386 assembly in it.  The current code
-only probes for VIA on i386 anyway, so this patch just adds more ifdefs
-so the VIA code is only built for i386.)
+| E8870 based McKinley/Madison platforms does have ICH4. It is used to
+| provide USB, IDE, On board LAN, LPC, SMBus, etc. funtionality. However,
+| the RNG does not work on current E8870 based platforms. Future platforms
+| may enable RNG.
 
-=== drivers/char/hw_random.c 1.13 vs edited ==--- 1.13/drivers/char/hw_random.c	Fri Jan 30 21:25:15 2004
-+++ edited/drivers/char/hw_random.c	Wed Mar 24 16:16:21 2004
-@@ -92,10 +92,12 @@
- static unsigned int amd_data_present (void);
- static u32 amd_data_read (void);
- 
-+#ifdef __i386__
- static int __init via_init(struct pci_dev *dev);
- static void via_cleanup(void);
- static unsigned int via_data_present (void);
- static u32 via_data_read (void);
-+#endif
- 
- struct rng_operations {
- 	int (*init) (struct pci_dev *dev);
-@@ -137,8 +139,10 @@
- 	/* rng_hw_amd */
- 	{ amd_init, amd_cleanup, amd_data_present, amd_data_read, 4 },
- 
-+#ifdef __i386__
- 	/* rng_hw_via */
- 	{ via_init, via_cleanup, via_data_present, via_data_read, 1 },
-+#endif
- };
- 
- /*
-@@ -341,6 +345,7 @@
- 	/* FIXME: twiddle pmio, also? */
- }
- 
-+#ifdef __i386__
- /***********************************************************************
-  *
-  * VIA RNG operations
-@@ -456,6 +461,7 @@
- {
- 	/* do nothing */
- }
-+#endif
- 
- 
- /***********************************************************************
+Does this agree with or allow for this end-of-support announcement?
+http://www.intel.com/design/security/rng/rng.htm
 
+
+| Thanks,
+| Asit
+| 
+| >-----Original Message-----
+| >From: linux-ia64-owner@vger.kernel.org 
+| >[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Matthew Wilcox
+| >Sent: Monday, March 22, 2004 7:05 PM
+| >To: Jeff Garzik
+| >Cc: Matthew Wilcox; linux-ia64@vger.kernel.org
+| >Subject: Re: hardware random number generator?
+| >
+| >On Mon, Mar 22, 2004 at 09:00:14PM -0500, Jeff Garzik wrote:
+| >> Matthew Wilcox wrote:
+| >> >config HW_RANDOM
+| >> >        tristate "Intel/AMD/VIA HW Random Number Generator support"
+| >> >        depends on (X86 || IA64) && PCI
+| >> >        ---help---
+| >> >          This driver provides kernel-side support for the 
+| >Random Number
+| >> >          Generator hardware found on Intel i8xx-based motherboards,
+| >> >          AMD 76x-based motherboards, and Via Nehemiah CPUs.
+| >> >
+| >> >Why IA64 too?  This file contains the code:
+| >> 
+| >> No idea.  <guessing>  There are some Intel ICH-based motherboards w/ 
+| >> IA64 chips on them, maybe?  I certainly don't recall adding 
+| >that IA64 
+| >> marker... :)
+| >
+| >Heh.  ICH is x86-only, as far as I know.  Intel did the 460GX chipset
+| >for Merced and now have the E8870 chipset for McKinley/Madison.  Anyone
+| >familiar with the Intel chipsets want to comment about the presence or
+| >absence of a RNG?
+| >
+| >-- 
+
+
+--
+~Randy
+"We have met the enemy and he is us."  -- Pogo (by Walt Kelly)
+(Again.  Sometimes I think ln -s /usr/src/linux/.config .signature)
