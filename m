@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 21 Mar 2001 07:54:44 +0000
+From: Keith Owens <kaos@ocs.com.au>
+Date: Wed, 21 Mar 2001 08:54:20 +0000
 Subject: Re: [Linux-ia64] Unwind problem for __attribute__ noreturn
-Message-Id: <marc-linux-ia64-105590693005313@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005314@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005303@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005303@msgid-missing>
@@ -10,38 +10,61 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 20 Mar 2001 23:12:49 -0800, Jim Wilson <wilson@cygnus.com> said:
+On Tue, 20 Mar 2001 23:54:44 -0800, 
+David Mosberger <davidm@hpl.hp.com> wrote:
+>I also doubt that adding "nop"s in the compiler is the right solution.
 
-  Jim> But if the kernel is setting b0 differently than a call
-  Jim> instruction does, then the kernel must be broken.  If the
-  Jim> kernel is setting b0 to point someplace else to optimize away a
-  Jim> branch, then I don't understand how unwinding could work
-  Jim> anyways, because the unwind info will likely be different at
-  Jim> the target than where we are coming from.  I would need a
-  Jim> really good description of what the kernel is doing here before
-  Jim> I could accept this as a valid reason to de-optimize code.
+After more thought, the problem of attribute ((noreturn)) affects all
+architectures, all debuggers and all programs.  It is not just ia64 +
+kdb + kernel that has this problem.  An unconditional call to function
+F which is declared noreturn is converted by gcc into this
 
-The code path needed to leave the kernel is shared for all types of
-interruptions.  Before calling an interruption handler, the kernel
-arranges things so that the handler will return directly to the shared
-exit path, instead of returning to the call site first.  This works
-fine because the unwind state at the call site and return site are
-always the same.
+A:
+  ...
+  call F
+X:
+  ...
 
-  Jim> If what the kernel is doing is valid, then why not suggest that
-  Jim> the kernel be modified to insert nops before the places where
-  Jim> the funny b0 stuff is done, so that b0-1 is still valid.
+which will cause problems for all debuggers on all architectures.  The
+return address is pointing at the start of X but F was really called by
+A.
 
-I also doubt that adding "nop"s in the compiler is the right solution.
-There is only one place in the kernel that the short-circuit return is
-done, so that should be easily fixable.
+It is not valid to always subtract 1 from the return address because
+programmers are allowed to do this in assembler.
 
-  Jim> We use the unwind info for C++ exceptions, but there would be
-  Jim> no problem there I think, because we already subtract one from
-  Jim> the return address before using it.
+A:
+  ret = B
+  goto F
+X:
+  ...
+B:
+  ...
 
-Perhaps that is the right solution.  But I need to think about this
-some more.
+F cannot assume that it was entered via call, it can be entered by any
+hand coded construct that gives the same environment as a call, even if
+the return is not to the code that branched to F.  Subtracting 1 from
+ret in this case would give B-1 which appears to be in X and is wrong.
 
-	--david
+Given these two methods of entering a function there is no way for a
+debugger to adjust the return address correctly in all cases.  Because
+the problem case only occurs in C when function F is declared noreturn,
+a change to gcc to emit
+
+A:
+  ...
+  call F
+  nop
+X:
+  ...
+
+if and only if
+
+  (1) F is declared noreturn and
+  (2) gcc is discarding the rest of the function that calls F
+
+will fix the problem.  The extra nop is only required to avoid a call
+as the very last instruction of a function so it has very little impact
+on the size of most programs.  It has zero impact on the speed of the
+programs because the nop is never executed, it is just a padding code.
+
 
