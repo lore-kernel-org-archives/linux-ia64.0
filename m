@@ -1,38 +1,102 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Wed, 17 Sep 2003 22:13:56 +0000
-Subject: [PATCH] fix early printk for sn2
-Message-Id: <marc-linux-ia64-106383685618920@msgid-missing>
+From: Christoph Hellwig <hch@lst.de>
+Date: Thu, 25 Sep 2003 19:53:06 +0000
+Subject: [PATCH] kill kdba_io.c
+Message-Id: <marc-linux-ia64-106451999732542@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Quick fix for the early printk function name for sn2.  Goes along with a
-patch I'm about to send to Andrew.
-
-Thanks,
-Jesse
+Keith shared my opionion that it's completly useless.  Also everyone
+seems to favour keeping kdb stuff out of mainline.
 
 
-diff -Nru a/kernel/printk.c b/kernel/printk.c
---- a/kernel/printk.c	Wed Sep 17 15:10:58 2003
-+++ b/kernel/printk.c	Wed Sep 17 15:10:58 2003
-@@ -790,7 +790,7 @@
- # endif /* CONFIG_IA64_EARLY_PRINTK_UART */
- 
- #ifdef CONFIG_IA64_EARLY_PRINTK_SGI_SN
--extern int sn_sal_console_out(const char *str, int len);
-+extern int early_printk_sn_sal(const char *str, int len);
- #endif
- 
- void early_printk(const char *str, size_t len)
-@@ -802,7 +802,7 @@
- 	early_printk_vga(str, len);
- #endif
- #ifdef CONFIG_IA64_EARLY_PRINTK_SGI_SN
-- 	sn_sal_console_out(str, len);
-+ 	early_printk_sn_sal(str, len);
- #endif
- }
- 
+--- 1.4/arch/ia64/sn/io/sn2/Makefile	Thu Jul  3 21:55:24 2003
++++ edited/arch/ia64/sn/io/sn2/Makefile	Sun Aug 10 02:02:16 2003
+@@ -14,6 +14,3 @@
+ obj-y += pcibr/ ml_SN_intr.o shub_intr.o shuberror.o shub.o bte_error.o \
+ 	 pic.o geo_op.o l1_command.o klconflib.o klgraph.o ml_SN_init.o \
+ 	 ml_iograph.o module.o pciio.o xbow.o xtalk.o shubio.o
+-
+-obj-$(CONFIG_KDB) += kdba_io.o 
+-obj-$(CONFIG_SHUB_1_0_SPECIFIC) += efi-rtc.o
+--- 1.1/arch/ia64/sn/io/sn2/kdba_io.c	Fri May 16 20:50:50 2003
++++ edited/arch/ia64/sn/io/sn2/kdba_io.c	Sun Aug 10 01:48:57 2003
+@@ -1,76 +0,0 @@
+-/*
+- * Kernel Debugger Architecture Dependent POD functions.
+- *
+- * Copyright (C) 1999-2003 Silicon Graphics, Inc.  All Rights Reserved
+- *
+- * This program is free software; you can redistribute it and/or modify it
+- * under the terms of version 2 of the GNU General Public License
+- * as published by the Free Software Foundation.
+- *
+- * This program is distributed in the hope that it would be useful, but
+- * WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+- *
+- * Further, this software is distributed without any warranty that it is
+- * free of the rightful claim of any third person regarding infringement
+- * or the like.  Any license provided herein, whether implied or
+- * otherwise, applies only to this software file.  Patent licenses, if
+- * any, provided herein do not apply to combinations of this program with
+- * other software, or any other product whatsoever.
+- *
+- * You should have received a copy of the GNU General Public
+- * License along with this program; if not, write the Free Software
+- * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+- *
+- * Contact information:  Silicon Graphics, Inc., 1600 Amphitheatre Pkwy,
+- * Mountain View, CA  94043, or:
+- *
+- * http://www.sgi.com
+- *
+- * For further information regarding this notice, see:
+- *
+- * http://oss.sgi.com/projects/GenInfo/NoticeExplan
+- */
+-
+-#include <linux/types.h>
+-#include <linux/kdb.h>
+-//#include <linux/kdbprivate.h>
+-
+-/**
+- * kdba_io - enter POD mode from kdb
+- * @argc: arg count
+- * @argv: arg values
+- * @envp: kdb env. vars
+- * @regs: current register state
+- *
+- * Enter POD mode from kdb using SGI SN specific SAL function call.
+- */
+-static int
+-kdba_io(int argc, const char **argv, const char **envp, struct pt_regs *regs)
+-{
+-	kdb_printf("kdba_io entered with addr 0x%p\n", (void *) regs);
+-
+-        return(0);
+-}
+-
+-/**
+- * kdba_io_init - register 'io' command with kdb
+- *
+- * Register the 'io' command with kdb at load time.
+- */
+-void
+-kdba_io_init(void)
+-{
+-        kdb_register("io", kdba_io, "<vaddr>", "Display IO Contents", 0);
+-}
+-
+-/**
+- * kdba_io_exit - unregister the 'io' command
+- *
+- * Tell kdb that the 'io' command is no longer available.
+- */
+-static void __exit
+-kdba_exit(void)
+-{
+-        kdb_unregister("io");
+-}
