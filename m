@@ -1,53 +1,54 @@
-From: yiding_wang@agilent.com
-Date: Tue, 11 Jul 2000 23:48:51 +0000
-Subject: [Linux-ia64] issues of Linux 2.3.99 installed on BigSur EFI 1.00 [12.15]
-Message-Id: <marc-linux-ia64-105590678205194@msgid-missing>
+From: Uros Prestor <uros@turbolinux.com>
+Date: Wed, 12 Jul 2000 02:38:31 +0000
+Subject: Re: [Linux-ia64] issues of Linux 2.3.99 installed on BigSur EFI 1.00
+Message-Id: <marc-linux-ia64-105590678205195@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205194@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205194@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-We have two BigSur system experiencing hard time on Linux 2.3.99 scsi
-interface:
--------------------------
-System #1:
-Configuration  - EFI 1.00 [12.15], upgrade by Intel from A-1 stepping to A-3
-stepping
-                        Qlogic BIOS 1.15
-                        Qla1280 Firmware 8.13.08
-                        1GB RAM, 9GB scsi hard drive
-Problem - System booted fine and most IO test OK before the upgrade.  After
-upgrade,
-               BIOS can see the scsi device
-               EFI also see the files on the drive
-               "eli vmlinux root=/dev/sda3" will fail due to cannot found
-/dev/sda3
-               Tried other possible device node but none of them works.
-               Re-install Linux 2.3.99 (TurboLinux) also failed on the same
-problem.
+yiding_wang@agilent.com wrote:
 
-Note: for system #1, windows2000 64 installation and running OK!
-----------------------------------
-System #2:
-Configuration  - EFI 0.99 [12.25], A-2 stepping
-                        Qlogic BIOS 1.15
-                        Qla1280 Firmware 8.13.08
-                        1GB RAM, 9GB scsi hard drive
-Problem - System failed during the boot.  All scsi command timed out and
-aborted after
-               BIOS, EFI and eli sees the device.
------------------------------------
+> Problem - System booted fine and most IO test OK before the upgrade.  After
+> upgrade,
+>                BIOS can see the scsi device
+>                EFI also see the files on the drive
+>                "eli vmlinux root=/dev/sda3" will fail due to cannot found
+> /dev/sda3
+>                Tried other possible device node but none of them works.
 
-Is anyone can help on these issues?
+Could you send the dmesg output?  This will tell us the kernel version and the
+devices kernel recognizes.
 
-Also could someone explain a little bit about the EFI and eil loading
-process, what are they stand for and basic function among BIOS, EFI and eli?
+To get the dmesg output boot from CD and set root to your
+CD-ROM (root=/dev/hda, /dev/hdb, ...).  Once you are in the installer press
+Alt-F2 and you should see a bash prompt.  Now mount a LS-120 floppy on
+/mnt/floppy (your LS-120 might be something other than /dev/hdb):
 
-Many thanks!
+     # mount /dev/hdb /mnt/floppy
+     # dmesg >/mnt/floppy/dmesg.out
+     # umount /mnt/floppy
 
--eddie
+> Problem - System failed during the boot.  All scsi command timed out and
+> aborted after
+>                BIOS, EFI and eli sees the device.
 
- 
+SCSI timeouts usually happen when eli passes incorrect interrupt vectors to the
+kernel.  I suggest that you update the eli on your system.  The latest eli RPM
+is available at:
+
+     ftp://ftp.turbolinux.com/pub/ia64/0505/updates/RPMS/ia64/eli-0.4.0-2.ia64.rpm
+
+Uros
+
+--
+Uros Prestor
+uros@turbolinux.com
+
+
+
 
 
