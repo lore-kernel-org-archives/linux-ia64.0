@@ -1,48 +1,51 @@
-From: Eric Piel <Eric.Piel@Bull.Net>
-Date: Fri, 18 Apr 2003 12:00:19 +0000
-Subject: Re: [perfmon] Re: [Linux-ia64] [BUG] perfmon doesn't send SIGPROF in
-Message-Id: <marc-linux-ia64-105590723705561@msgid-missing>
+From: Bruno Cornec <Bruno.Cornec@hp.com>
+Date: Tue, 22 Apr 2003 15:25:19 +0000
+Subject: [Linux-ia64] [Summary] floating-point error
+Message-Id: <marc-linux-ia64-105590723705584@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Stephane Eranian wrote:
+David Mosberger (davidm@napali.hpl.hp.com) said:
+
+> >>>>> On Thu, 17 Apr 2003 21:21:48 +0200, Bruno Cornec <Bruno.Cornec@hp.c=
+om> said:
 >=20
-> The attached patch against 2.5.67 corrects the problem. Note that this
-> patch also includes other updates.
+>   Bruno> Sometimes the Oracle process dies with the following error messa=
+ge:
+>   Bruno> Apr 17 20:24:48 rx1 kernel: oracle(7148): floating-point assist =
+fault at ip 40000000048b4562
 >=20
-> Let me know how it goes.
-Very good, it worked!:
-# ./realfeel4=20
-897.528 MHz
-secondsPerTick=3D1.11417e-09
-ticksPerSecond=897528470.872679
-sample_period =3D 6282699
-smallest =3D 4511, largest =3D 8271, nsamples =3D 1426, sigma =3D 6869234,
-sigmasqr =3D 33252330632
-Mean 4817.13, stddev 337.37
+> The message is informational.  There is probably nothing wrong with
+> the application, at least if the message occurs only rarely (at an
+> interval less than 4 messages every 10 seconds or so).  If the message
+> occurs all the time, then there could be a performance problem with
+> the application.
 
-Thank you!
+This explanation was confirmed later on by the fact that we saw exactly the
+same messages by just launching mozilla on one of the systems.
+So definitively unrelated.
 
-Also, after a quick glance at the patch I noticed this update:
--/* pmc8  */ { PFM_REG_CONFIG  , 0, 0xffffffff3fffffffUL,
-0xffffffff9fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
-{0UL,0UL, 0UL, 0UL}},
--/* pmc9  */ { PFM_REG_CONFIG  , 0, 0xffffffff3ffffffcUL,
-0xffffffff9fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
-{0UL,0UL, 0UL, 0UL}},
-+/* pmc8  */ { PFM_REG_CONFIG  , 0, 0xffffffff3fffffffUL,
-0xffffffff3fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
-{0UL,0UL, 0UL, 0UL}},
-+/* pmc9  */ { PFM_REG_CONFIG  , 0, 0xffffffff3ffffffcUL,
-0xffffffff3fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
-{0UL,0UL, 0UL, 0UL}},
+The Oracle process were dying probably dur to a lack of bandwidth at=20
+our load-balancing system level. We are reconfiguring the network to
+avoid that bottle neck, and will let you know what perf we're getting from
+the configuration (4 RDBM systems Oracle/Linux/ia64 and 6 applications
+servers PHP/Apahce/Linux/ia32)
 
-Could you describe shortly what this is suppose to fix? Recently I had
-some troubles with some PMU counters on Itanium2 (hard to trigger) and I
-wonder if this could be solved by that patch...
+Thanks a lot for all the replies given which enlightened a lot our=20
+knowledge.
 
-Eric
+Best regards,
+Bruno.
+--=20
+Linux Solution Consultant         T=E9l: +33 476 143 278 - Fax: +33 476 146=
+ 105
+HP/Intel Solution Center http://hpintelco.net Hewlett-Packard Grenoble/Fran=
+ce
+Des infos sur Linux?  http://www.HyPer-Linux.org      http://www.hp.com/lin=
+ux
+La musique ancienne?  http://www.musique-ancienne.org http://www.medieval.o=
+rg
 
