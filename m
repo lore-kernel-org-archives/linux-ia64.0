@@ -1,78 +1,62 @@
-From: Takao Indoh <indou.takao@soft.fujitsu.com>
-Date: Fri, 23 Jul 2004 09:55:21 +0000
-Subject: [PATCH 3/5][Diskdump] IPF(IA64) support
-Message-Id: <17C4709B2AEF41indou.takao@soft.fujitsu.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Thu, 22 Jul 2004 18:26:08 +0000
+Subject: [PATCH] kill CONFIG_IA64_EARLY_PRINTK_SN
+Message-Id: <200407221426.08636.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_AbAABVyUvh9yu1y"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <14C4709A99D341indou.takao@soft.fujitsu.com>
-In-Reply-To: <14C4709A99D341indou.takao@soft.fujitsu.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+
+--Boundary-00=_AbAABVyUvh9yu1y
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Disposition: inline
 
-This is a patch for aic7xxx driver.
+This patch removes the obsolete sn specific early printk call.  Now that our 
+driver supports early output, it's no longer necessary (and in fact no longer 
+exists).  I'm too chicken to kill the other code, but maybe Bjorn will do 
+that once the HP machines have a good early console driver.
 
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-diff -Nur linux-2.6.7.org/drivers/scsi/aic7xxx/aic7xxx_osm.c linux-2.6.7/drivers/scsi/aic7xxx/aic7xxx_osm.c
---- linux-2.6.7.org/drivers/scsi/aic7xxx/aic7xxx_osm.c	2004-06-22 10:27:49.000000000 +0900
-+++ linux-2.6.7/drivers/scsi/aic7xxx/aic7xxx_osm.c	2004-07-23 15:10:53.132006928 +0900
-@@ -774,6 +774,8 @@
- static int	   ahc_linux_bus_reset(Scsi_Cmnd *);
- static int	   ahc_linux_dev_reset(Scsi_Cmnd *);
- static int	   ahc_linux_abort(Scsi_Cmnd *);
-+static int	   ahc_linux_sanity_check(struct scsi_device *);
-+static void	   ahc_linux_poll(struct scsi_device *);
- 
- /*
-  * Calculate a safe value for AHC_NSEG (as expressed through ahc_linux_nseg).
-@@ -1315,6 +1317,8 @@
- 	.slave_alloc		= ahc_linux_slave_alloc,
- 	.slave_configure	= ahc_linux_slave_configure,
- 	.slave_destroy		= ahc_linux_slave_destroy,
-+	.dump_sanity_check	= ahc_linux_sanity_check,
-+	.dump_poll		= ahc_linux_poll,
- };
- 
- /**************************** Tasklet Handler *********************************/
-@@ -3868,6 +3872,41 @@
- 	return IRQ_RETVAL(ours);
+Jesse
+
+--Boundary-00=_AbAABVyUvh9yu1y
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="kill-sn-early-printk.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="kill-sn-early-printk.patch"
+
+===== kernel/printk.c 1.39 vs edited =====
+--- 1.39/kernel/printk.c	2004-07-07 01:19:26 -04:00
++++ edited/kernel/printk.c	2004-07-22 14:21:41 -04:00
+@@ -1013,9 +1013,6 @@
+ #ifdef CONFIG_IA64_EARLY_PRINTK_VGA
+ 	early_printk_vga(str, len);
+ #endif
+-#ifdef CONFIG_IA64_EARLY_PRINTK_SGI_SN
+- 	early_printk_sn_sal(str, len);
+-#endif
  }
  
-+static int
-+ahc_linux_sanity_check(struct scsi_device *device)
-+{
-+	struct ahc_softc *ahc;
-+	struct ahc_linux_device *dev;
-+
-+	ahc = *(struct ahc_softc **)device->host->hostdata;
-+	dev = ahc_linux_get_device(ahc, device->channel,
-+				   device->id, device->lun,
-+					   /*alloc*/FALSE);
-+	if (dev = NULL)
-+		return -ENXIO;
-+	if (ahc->platform_data->qfrozen || dev->qfrozen)
-+		return -EBUSY;
-+	if (spin_is_locked(&ahc->platform_data->spin_lock))
-+		return -EBUSY;
-+	return 0;
-+}
-+
-+static void
-+ahc_linux_poll(struct scsi_device *device)
-+{
-+	struct ahc_softc *ahc;
-+	struct ahc_linux_device *dev;
-+
-+	ahc = *(struct ahc_softc **)device->host->hostdata;
-+	ahc_intr(ahc);
-+	while ((dev = ahc_linux_next_device_to_run(ahc)) != NULL) {
-+		TAILQ_REMOVE(&ahc->platform_data->device_runq, dev, links);
-+		dev->flags &= ~AHC_DEV_ON_RUN_LIST;
-+		ahc_linux_check_device_queue(ahc, dev);
-+	}
-+	ahc_linux_run_complete_queue(ahc);
-+}
-+
- void
- ahc_platform_flushwork(struct ahc_softc *ahc)
- {
+ #endif /* CONFIG_IA64_EARLY_PRINTK */
+===== arch/ia64/Kconfig 1.64 vs edited =====
+--- 1.64/arch/ia64/Kconfig	2004-06-29 17:54:52 -04:00
++++ edited/arch/ia64/Kconfig	2004-07-22 14:23:34 -04:00
+@@ -454,10 +454,6 @@
+ 	bool "Early printk on VGA"
+ 	depends on IA64_EARLY_PRINTK
+ 
+-config IA64_EARLY_PRINTK_SGI_SN
+-	bool "Early printk on SGI SN serial console"
+-	depends on IA64_EARLY_PRINTK && (IA64_GENERIC || IA64_SGI_SN2)
+-
+ config DEBUG_SLAB
+ 	bool "Debug memory allocations"
+ 	depends on DEBUG_KERNEL
+
+--Boundary-00=_AbAABVyUvh9yu1y--
