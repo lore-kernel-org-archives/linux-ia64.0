@@ -1,7 +1,7 @@
-From: Matt_Domsch@Dell.com
-Date: Mon, 03 Jun 2002 14:48:31 +0000
-Subject: RE: [Linux-ia64] Integer to Pointer Cast Warnings when Building 2
-Message-Id: <marc-linux-ia64-105590701905630@msgid-missing>
+From: n0ano@indstorage.com
+Date: Mon, 03 Jun 2002 15:00:01 +0000
+Subject: Re: [Linux-ia64] Integer to Pointer Cast Warnings when Building 2.4.17
+Message-Id: <marc-linux-ia64-105590701905631@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905629@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905629@msgid-missing>
@@ -10,29 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> make[3]: Entering directory `/kernel/linux/drivers/scsi'
-> megaraid.c: In function `megaraid_queue':
-> megaraid.c:3805: warning: cast to pointer from integer of 
-> different size
+Arun-
 
-This one is OK, albeit not obvious.  That's inside an ioctl that can only be
-called by a 32-bit user space application (no equivalent 64-bit app exists).
-The code is:
+Looks like the prototype for `__do_clear_user' changed, I can fix this
+when I get home this evening.
 
-  char *user_area = NULL;    
-  user_area = (char *)*((u32*)&pScb->SCpnt->cmnd[4]);
-  copy_to_user(user_area,...)
+On Mon, Jun 03, 2002 at 05:57:47PM +0530, LAKSHMIPATHY,ARUN (HP-India,ex2) wrote:
+> Hi,
+> 
+> I Get an integer to pointer typecast warning from some of the sources when
+> building the 2.4.17 kernel, I am using the base 2.4.17 kernel and the ia64
+> patch with no other patches, the kernel builds fine and comes up fine.
+> Wanted to be sure that this is not a cause for concern. Enclosed below is
+> the excerpt of the build o/p.
+> 
+> make[1]: Entering directory `/kernel/linux/arch/ia64/ia32'
+> sys_ia32.c: In function `sys32_brk':
+> sys_ia32.c:3824: warning: passing arg 1 of `__do_clear_user' makes pointer
+> from integer without a cast
+> 
 
-a 32-bit value which is a pointer inside a 32-bit application gets promoted
-to a 64-bit pointer inside the ioctl so that copy_to_user can be used.
-
-Thanks,
-Matt 
-
---
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
-#1 US Linux Server provider for 2001!
+-- 
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@indstorage.com
+Ph: 303/652-0870x117
 
