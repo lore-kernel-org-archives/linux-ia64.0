@@ -1,55 +1,30 @@
-From: "Laurent Morichetti" <laurentm@cup.hp.com>
-Date: Sun, 23 Apr 2000 06:45:23 +0000
-Subject: [Linux-ia64] ld-linux.so
-Message-Id: <marc-linux-ia64-105590678205024@msgid-missing>
+From: Jes Sorensen <Jes.Sorensen@cern.ch>
+Date: Sun, 23 Apr 2000 09:02:02 +0000
+Subject: Re: [Linux-ia64] ld-linux.so
+Message-Id: <marc-linux-ia64-105590678205025@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205024@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205024@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-In glibc/sysdeps/ia64/dl-machine.h the macro TRAMPOLINE_TEMPLATE saves the
-input registers but not r8 (pointer to value returned in memory). r8 should
-be preserved across the runtime fixup.
+>>>>> "Laurent" = Laurent Morichetti <laurentm@cup.hp.com> writes:
 
-The following example fails on linux-ia64:
+Laurent> In glibc/sysdeps/ia64/dl-machine.h the macro
+Laurent> TRAMPOLINE_TEMPLATE saves the input registers but not r8
+Laurent> (pointer to value returned in memory). r8 should be preserved
+Laurent> across the runtime fixup.
 
-foo.hpp:
-===
-class foo {
-public:
-  long _a;
-  long _b;
-  foo(long a, long b) : _a(a), _b(b) {}
-};
-extern foo bar(long a, long b);
+I know very little about the C++ ABI so this may be C++ specific.  I
+thought r8 was meant to be a return register and not an input
+register and that it's valid to clobber it in any function call,
+whether the function returns a value or void?
 
-bar.cpp:
-===
-#include "foo.hpp"
+I am sitting at home right now and all my documents are in the office
+so I can't look it up.
 
-foo bar(long a, long b) { return foo(a, b); }
-
-foo.cpp:
-===
-#include <stdlib.h>
-#include <stdio.h>
-#include "foo.hpp"
-
-int main() {
-  foo f = bar(1, 2);
-  fprintf(stdout, "a=%ld, b=%ld\n", f._a, f._b);
-  return EXIT_SUCCESS;
-}
-
-
-$ g++ -fPIC -shared -o libbar.so bar.cpp
-$ g++ -o foo foo.cpp -L. -lbar
-
--Laurent
-
-
-
-
+Jes
 
 
