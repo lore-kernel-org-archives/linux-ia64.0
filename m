@@ -1,101 +1,79 @@
-From: Ray Bryant <raybry@sgi.com>
-Date: Wed, 18 Aug 2004 20:13:39 +0000
-Subject: Re: page fault fastpath patch v2: fix race conditions, stats for
-Message-Id: <4123B873.4010403@sgi.com>
+From: William Lee Irwin III <wli@holomorphy.com>
+Date: Wed, 18 Aug 2004 20:20:18 +0000
+Subject: Re: page fault fastpath patch v2: fix race conditions, stats for 8,32 and    512 cpu SMP
+Message-Id: <20040818202018.GC11200@holomorphy.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <fa.ofiojek.hkeujs@ifi.uio.no> <fa.o1kt2ua.1bm6n0c@ifi.uio.no>
-In-Reply-To: <fa.o1kt2ua.1bm6n0c@ifi.uio.no>
+References: <Pine.LNX.4.58.0408170804430.8365@schroedinger.engr.sgi.com> <Pine.LNX.4.44.0408181807500.15027-100000@localhost.localdomain>
+In-Reply-To: <Pine.LNX.4.44.0408181807500.15027-100000@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Hugh Dickins <hugh@veritas.com>
-Cc: Christoph Lameter <clameter@sgi.com>, William Lee Irwin III <wli@holomorphy.com>, "David S. Miller" <davem@redhat.com>, ak@muc.de, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: Christoph Lameter <clameter@sgi.com>, "David S. Miller" <davem@redhat.com>, raybry@sgi.com, ak@muc.de, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hi Hugh,
-
-Hugh Dickins wrote:
-> On Tue, 17 Aug 2004, Christoph Lameter wrote:
-> 
-> 
-
-<snip>
-
-> 
+On Wed, Aug 18, 2004 at 06:55:07PM +0100, Hugh Dickins wrote:
+> It is interesting.  I don't like it at all in its current state,
+> #ifdef'ed special casing for one particular path through the code,
+> but it does seem worth taking further.
 > Just handling that one anonymous case is not worth it, when we know
 > that the next day someone else from SGI will post a similar test
 > which shows the same on file pages ;)
-> 
+> Your ptep lock bit avoids collision with pte bits, but does it not
+> also need to avoid collision with pte swap entry bits?  And the
+> pte_file bit too, at least once it's extended to nopage areas.
+> I'm very suspicious of the way you just return VM_FAULT_MINOR when
+> you find the lock bit already set.  Yes, you can do that, but the
+> lock bit is held right across the alloc_page_vma, so other threads
+> trying to fault the same pte will be spinning back out to user and
+> refaulting back into kernel while they wait: we'd usually use a
+> waitqueue and wakeup with that kind of lock; or not hold it across,
+> and make it a bitspin lock.
+> It's a realistic case, which I guess your test program won't be trying.
+> Feels livelocky to me, but I may be overreacting against: it's not as
+> if you're changing the page_table_lock to be treated that way.
 
-Hugh -- this is called full employment for kernel scalability analysts.
-:-) :-)
+Both points are valid; it should retry in-kernel for the pte lock bit
+and arrange to use a bit not used for swap (there are at least
+PAGE_SHIFT of these on all 64-bit arches).
 
-Actually, disks are so slow that I wouldn't expect that scalability problem to 
-show up in the page fault code, but rather in the block I/O or page cache 
-management portions of the code instead.
 
-<snip>
+On Tue, 17 Aug 2004, Christoph Lameter wrote:
+>> Introducing the page_table_lock even for a short time makes performance
+>> drop to the level before the patch.
 
-> 
->>Introducing the page_table_lock even for a short time makes performance
->>drop to the level before the patch.
-> 
-> 
+On Wed, Aug 18, 2004 at 06:55:07PM +0100, Hugh Dickins wrote:
 > That's interesting, and disappointing.
-> 
-
-I think that the major impact here is actually grabbing the lock when
-30 or more processors are trying to obtain it -- the amount of time that the 
-lock is actually held is insignificant in comparison.
-
 > The main lesson I took from your patch (I think wli was hinting at
 > the same) is that we ought now to question page_table_lock usage,
 > should be possible to cut it a lot.
-> 
-
-That would be a useful avenue to explore.  Unfortunately, we are on kind of a 
-tight fuse here trying to get the next kernel release ready.   At the moment 
-we are in the mode of moving fixes from 2.4.21 to 2.6, and this is one such 
-fix.   I'd be willing to pursue both in parallel so that in a future release
-we have gotten to page_table_lock reduction as well.  Does that make sense at 
-all?
-
-(I just don't want to get bogged down in a 6-month effort here unless we can't 
-avoid it.)
-
 > I recall from exchanges with Dave McCracken 18 months ago that the
 > page_table_lock is _almost_ unnecessary in rmap.c, should be possible
 > to get avoid it there and in some other places.
-> 
 > We take page_table_lock when making absent present and when making
 > present absent: I like your observation that those are exclusive cases.
-> 
 > But you've found that narrowing the width of the page_table_lock
 > in a particular path does not help.  You sound surprised, me too.
 > Did you find out why that was?
->  
 
-See above comment.
+It also protects against vma tree modifications in mainline, but rmap.c
+shouldn't need it for vmas anymore, as the vma is rooted to the spot by
+mapping->i_shared_lock for file pages and anon_vma->lock for anonymous.
 
-> 
->>- One could avoid pte locking by introducing a pte_cmpxchg. cmpxchg
->>seems to be supported by all ia64 and i386 cpus except the original 80386.
-> 
-> 
+
+On Tue, 17 Aug 2004, Christoph Lameter wrote:
+>> - One could avoid pte locking by introducing a pte_cmpxchg. cmpxchg
+>> seems to be supported by all ia64 and i386 cpus except the original 80386.
+
+On Wed, Aug 18, 2004 at 06:55:07PM +0100, Hugh Dickins wrote:
 > I do think this will be a more fruitful direction than pte locking:
 > just looking through the arches for spare bits puts me off pte locking.
->
 
-The original patch that we had for 2.4.21 did exactly that, we shied away from 
-that due to concerns as to which processors allow you to update a running pte 
-using a cmpxchg (= the set of processors for which set_pte() is a simple 
-store.)  AFAIK, the only such processor is i386, but if Christoph is correct, 
-then more recent Intel x86 processors don't even have that restriction.  I'll 
-admit that I encouraged Christoph not to follow that path due to concerns of 
-arch dependent code creeping into the do_anonymous_page() path.
+Fortunately, spare bits aren't strictly necessary, and neither is
+cmpxchg. A single invalid value can serve in place of a bitflag. When
+using such an invalid value, just xchg()'ing it and looping when the
+invalid value is seen should suffice. This holds more generally for all
+radix trees, not just pagetables, and happily xchg() or emulation
+thereof is required by core code for all arches.
 
-Best Regards,
 
-Ray
-
-raybry@sgi.com
-
+-- wli
