@@ -1,21 +1,24 @@
-From: Dan Pop <Dan.Pop@cern.ch>
-Date: Tue, 10 Jul 2001 17:57:04 +0000
-Subject: Re: [Linux-ia64] linux on ia64
-Message-Id: <marc-linux-ia64-105590693005842@msgid-missing>
+From: "Broadfoot, Ken P" <ken.p.broadfoot@intel.com>
+Date: Thu, 26 Jul 2001 22:49:09 +0000
+Subject: [Linux-ia64] gcc 3.0 help
+Message-Id: <marc-linux-ia64-105590693005940@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005839@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005839@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 10 Jul 2001, Hoodye, Morris wrote:
+Hello,
 
-> Is linux on ia64 big-endian or little endian?
+Besides gcc 3.0 and libraries and updated binutils, is there anything I need
+to update on the Redhat 7.1 ia64 seawolf release?
 
-Little endian.
+Do I need an updated glibc for example?
 
-Dan
+If someone could list the needed packages I would much appreciate it.
+
+Thanks in advance..
+
+--ken
 
 
