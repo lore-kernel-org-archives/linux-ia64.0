@@ -1,60 +1,71 @@
-From: Darren Williams <dsw@gelato.unsw.edu.au>
-Date: Thu, 08 Apr 2004 02:18:09 +0000
-Subject: [patch] trivial acpi/Kconfig
-Message-Id: <20040408021809.GB8140@cse.unsw.EDU.AU>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Mon, 05 Apr 2004 17:22:42 +0000
+Subject: [PATCH] setup max dma addr earlier on hp boxes
+Message-Id: <1081185762.2277.10.camel@patsy.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ia64 Linux <linux-ia64@vger.kernel.org>
-Cc: LKML <linux-kernel@vger.kernel.org>
-
-On ia64 when NUMA and SMP are selected, smpboot.c
-expects ACPI_NUMA to be configured also or the
-build fails due to:
-http://linux.bkbits.net:8080/linux-2.5/diffs/arch/ia64/kernel/smpboot.c@1.20?nav=index.html|src/|src/arch|src/arch/ia64|src/arch/ia64/kernel|hist/arch/ia64/kernel/smpboot.c
-
-I am not sure why our autobuild has suddenly started
-to fail
-(http://www.gelato.unsw.edu.au/kerncomp/)
-though it is due to ACPI_NUMA not being set.
-The attached patch should help when
-configuring NUMA and SMP ia64 machines and
-was generated against 2.6.5-bk 
+To: linux-ia64@vger.kernel.org
 
 
-Darren
+   sba_iommu was setting up MAX_DMA_ADDRESS way too late to do any
+good.  This patch makes it get setup via platform_setup, so it's ready
+for paging_init().  All pages should show up in zone DMA now.  Against
+latest 2.6.  Thanks,
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1783  -> 1.1784 
-#	drivers/acpi/Kconfig	1.31    -> 1.32   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/04/08	dsw@quasar.(none)	1.1784
-# Update Kconfig to default ACPI_NUMA to y
-# if NUMA and SMP are selected 
-# --------------------------------------------
-#
-diff -Nru a/drivers/acpi/Kconfig b/drivers/acpi/Kconfig
---- a/drivers/acpi/Kconfig	Thu Apr  8 11:03:14 2004
-+++ b/drivers/acpi/Kconfig	Thu Apr  8 11:03:14 2004
-@@ -144,7 +144,7 @@
- 	depends on ACPI_INTERPRETER
- 	depends on NUMA
- 	depends on IA64
--	default y if IA64_GENERIC || IA64_SGI_SN2
-+	default y if IA64_GENERIC || IA64_SGI_SN2 || SMP
+	Alex
+
+-- 
+Alex Williamson                             HP Linux & Open Source Lab
+
+=== arch/ia64/hp/common/sba_iommu.c 1.41 vs edited ==--- 1.41/arch/ia64/hp/common/sba_iommu.c	Mon Mar 22 03:52:38 2004
++++ edited/arch/ia64/hp/common/sba_iommu.c	Mon Apr  5 11:14:20 2004
+@@ -1732,7 +1732,6 @@
  
- config ACPI_ASUS
-         tristate "ASUS/Medion Laptop Extras"
+ 	if ((long) ~iovp_mask > (long) ia64_max_iommu_merge_mask)
+ 		ia64_max_iommu_merge_mask = ~iovp_mask;
+-	MAX_DMA_ADDRESS = ~0UL;
+ 
+ 	printk(KERN_INFO PFX
+ 		"%s %d.%d HPA 0x%lx IOVA space %dMb at 0x%lx\n",
+@@ -1965,6 +1964,18 @@
+ }
+ 
+ subsys_initcall(sba_init); /* must be initialized after ACPI etc., but before any drivers... */
++
++extern void dig_setup(char**);
++/*
++ * MAX_DMA_ADDRESS needs to be setup prior to paging_init to do any good,
++ * so we use the platform_setup hook to fix it up.
++ */
++void __init
++sba_setup(char **cmdline_p)
++{
++	MAX_DMA_ADDRESS = ~0UL;
++	dig_setup(cmdline_p);
++}
+ 
+ static int __init
+ nosbagart(char *str)
+=== include/asm-ia64/machvec_hpzx1.h 1.10 vs edited ==--- 1.10/include/asm-ia64/machvec_hpzx1.h	Tue Mar 23 17:28:49 2004
++++ edited/include/asm-ia64/machvec_hpzx1.h	Mon Apr  5 11:07:18 2004
+@@ -2,6 +2,7 @@
+ #define _ASM_IA64_MACHVEC_HPZX1_h
+ 
+ extern ia64_mv_setup_t dig_setup;
++extern ia64_mv_setup_t			sba_setup;
+ extern ia64_mv_dma_alloc_coherent	sba_alloc_coherent;
+ extern ia64_mv_dma_free_coherent	sba_free_coherent;
+ extern ia64_mv_dma_map_single		sba_map_single;
+@@ -19,7 +20,7 @@
+  * the macros are used directly.
+  */
+ #define platform_name			"hpzx1"
+-#define platform_setup			dig_setup
++#define platform_setup			sba_setup
+ #define platform_dma_init		machvec_noop
+ #define platform_dma_alloc_coherent	sba_alloc_coherent
+ #define platform_dma_free_coherent	sba_free_coherent
 
 
-
---------------------------------------------------
-Darren Williams <dsw AT gelato.unsw.edu.au>
-Gelato@UNSW <www.gelato.unsw.edu.au>
---------------------------------------------------
