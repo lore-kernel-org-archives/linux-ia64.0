@@ -1,68 +1,62 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 25 Mar 2005 20:27:04 +0000
-Subject: Re: [patch 2.6.11] __copy_user breaks on unaligned src
-Message-Id: <16964.29720.937091.330552@napali.hpl.hp.com>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Thu, 03 Mar 2005 20:53:18 +0000
+Subject: Re: [PATCH] Errenous use of memset and memcpy
+Message-Id: <4227793E.3020403@intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------020106000504070006040800"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12404.1111129477@kao2.melbourne.sgi.com>
-In-Reply-To: <12404.1111129477@kao2.melbourne.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <1108848352.682.2.camel@boxen>
+In-Reply-To: <1108848352.682.2.camel@boxen>
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 24 Mar 2005 23:59:41 -0800, David Mosberger <davidm@linux.hpl.hp.com> said:
+This is a multi-part message in MIME format.
+--------------020106000504070006040800
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-  David> After some more digging, it appears that we do get a
-  David> vhpt-miss fault first and for some reason, that handler
-  David> triggers a (nested) general exception fault with
-  David> ISR.code7:4}=3 (IA-64 Reserved Register/Field fault,
-  David> Unimplemented Data Address fault".  Not sure yet what
-  David> triggers the nested fault.
+On 2/22/2005 9:37 AM, Bjorn Helgaas wrote:
+> On Sun, 2005-02-20 at 11:38 +0100, Alexander Nyberg wrote:
+>> ===== arch/ia64/ia32/ia32_signal.c 1.35 vs edited =====
+>> --- 1.35/arch/ia64/ia32/ia32_signal.c	2005-01-25 21:23:45 +01:00
+>> +++ edited/arch/ia64/ia32/ia32_signal.c	2005-02-20 11:32:55 +01:00
+>> @@ -460,9 +460,9 @@ __ia32_rt_sigsuspend (compat_sigset_t *s
+>>  	sigset_t oldset, set;
+>>  
+>>  	scr->scratch_unat = 0;	/* avoid leaking kernel bits to user level */
+>> -	memset(&set, 0, sizeof(&set));
+>> +	memset(&set, 0, sizeof(sigset_t));
+> 
+> To check that the above is correct, you have to go look up
+> the declaration of "set".  Why not do this:
+> 
+> +	memset(&set, 0, sizeof(set));
+> 
+> which is clearly correct, regardless of the declaration?
+>
 
-Well, this turned out to be a bit of a red herring: it was faulting
-because the lfetch.fault happened before the Linux page-table-base
-register (ar.k7) was initialized.  On the real hardware, ar.k7 was
-zero and since the lfetch-triggered fault was to address 0, this
-caused the vhpt_miss handler to go down in flames.
+Agree and I think memcpy is just fine. Tony, please apply the attached patch.
 
-The attached patch fixes this problem and the machine now boots fine
-using lfetch.fault for prefetch()/prefetchw().
+	-Arun
 
-Keith: unfortunately, I doubt this will be of any help in tracking
-down your problem.
 
-Tony: this patch is perfectly safe and helps make the kernel more
-robust, so I'd recommend to apply it soonish.
+--------------020106000504070006040800
+Content-Type: text/plain;
+ name="sigsuspend-memcpy.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="sigsuspend-memcpy.patch"
 
-Thanks,
-	--david
-
-ia64: Initialize ar.k7 to empty_zero_page early on
-
-Without this initialization, early TLB misses to any user-regions will
-cause the TLB miss handlers to go down in flames.  Normally, no such
-early TLB misses occur, but aggressive use of lfetch.fault can trigger
-it easily (e.g., when using lfetch.fault for the
-prefetch()/prefetchw() macros we get an early miss for address 0 due
-to a prefetch in find_pid()).
-
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
-
-=== arch/ia64/kernel/setup.c 1.90 vs edited ==--- 1.90/arch/ia64/kernel/setup.c	2005-03-23 11:08:32 -08:00
-+++ edited/arch/ia64/kernel/setup.c	2005-03-25 12:10:44 -08:00
-@@ -711,6 +711,15 @@
- 	ia64_set_kr(IA64_KR_FPU_OWNER, 0);
- 
- 	/*
-+	 * Initialize the page-table base register to a global
-+	 * directory with all zeroes.  This ensure that we can handle
-+	 * TLB-misses to user address-space even before we created the
-+	 * first user address-space.  This may happen, e.g., due to
-+	 * aggressive use of lfetch.fault.
-+	 */
-+	ia64_set_kr(IA64_KR_PT_BASE, __pa(ia64_imva(empty_zero_page)));
-+
-+	/*
- 	 * Initialize default control register to defer all speculative faults.  The
- 	 * kernel MUST NOT depend on a particular setting of these bits (in other words,
- 	 * the kernel must have recovery code for all speculative accesses).  Turn on
+LSBGaXggdGhlIGluY29ycmVjdCBhcmd1bWVudCB0byBzaXplb2YoKQotIG1lbWNweSBzaG91
+bGQgYWx3YXlzIHN1Y2NlZWQgYmVjYXVzZSBpdCdzIGEga2VybmVsIHNwYWNlIHRvIGtlcm5l
+bCBzcGFjZSBjb3B5LgoKU2lnbmVkLW9mZi1ieTogQXJ1biBTaGFybWEgPGFydW4uc2hhcm1h
+QGludGVsLmNvbT4KCi0tLSBsaW51eC0yLjYtY3ZzL2FyY2gvaWE2NC9pYTMyL2lhMzJfc2ln
+bmFsLmMJMyBGZWIgMjAwNSAxODoyOTo0NSAtMDAwMAkxLjI1CisrKyBsaW51eC0yLjYtY3Zz
+L2FyY2gvaWE2NC9pYTMyL2lhMzJfc2lnbmFsLmMJMiBNYXIgMjAwNSAyMzo0MzowOSAtMDAw
+MApAQCAtNDYwLDEwICs0NjAsOSBAQAogCXNpZ3NldF90IG9sZHNldCwgc2V0OwogCiAJc2Ny
+LT5zY3JhdGNoX3VuYXQgPSAwOwkvKiBhdm9pZCBsZWFraW5nIGtlcm5lbCBiaXRzIHRvIHVz
+ZXIgbGV2ZWwgKi8KLQltZW1zZXQoJnNldCwgMCwgc2l6ZW9mKCZzZXQpKTsKKwltZW1zZXQo
+JnNldCwgMCwgc2l6ZW9mKHNldCkpOwogCi0JaWYgKG1lbWNweSgmc2V0LnNpZywgJnNzZXQt
+PnNpZywgc2lnc2V0c2l6ZSkpCi0JCXJldHVybiAtRUZBVUxUOworCW1lbWNweSgmc2V0LnNp
+ZywgJnNzZXQtPnNpZywgc2lnc2V0c2l6ZSk7CiAKIAlzaWdkZWxzZXRtYXNrKCZzZXQsIH5f
+QkxPQ0tBQkxFKTsKIAo=
+--------------020106000504070006040800--
