@@ -1,63 +1,24 @@
-From: Chad Talbott <chadt@sgi.com>
-Date: Wed, 18 Jun 2003 21:29:09 +0000
-Subject: [PATCH] early_printk for SGI SN2
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-=-="
-Message-Id: <marc-linux-ia64-105597176305635@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 18 Jun 2003 21:56:40 +0000
+Subject: Re: [PATCH] early_printk for SGI SN2
+Message-Id: <marc-linux-ia64-105597344307208@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105597176305635@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105597176305635@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---=-=-=
+>>>>> On 18 Jun 2003 14:29:09 -0700, Chad Talbott <chadt@sgi.com> said:
 
-This patch requires the console driver that's pending inclusion in
-Linus' tree, but will not get in the way as long as
-IA64_EARLY_PRINTK_SGI_SN is config'd off.
+  Chad> This patch requires the console driver that's pending
+  Chad> inclusion in Linus' tree, but will not get in the way as long
+  Chad> as IA64_EARLY_PRINTK_SGI_SN is config'd off.
 
-Thanks,
-Chad
+The patch is basically fine with me, except why is it called
+sal_cons_console_out().  Does it really have anything to do with SAL?
+If not, it would be better to use rename it to something SN-specific
+to avoid confusion (and reduce the risk of namespace collision).
 
-
---=-=-=
-Content-Type: text/x-patch
-Content-Disposition: attachment; filename=early_printk.diff
-
-diff -Nru a/kernel/printk.c b/kernel/printk.c
---- a/kernel/printk.c	Tue Jun 17 14:47:33 2003
-+++ b/kernel/printk.c	Tue Jun 17 14:47:33 2003
-@@ -784,6 +784,10 @@
- 
- # endif /* CONFIG_IA64_EARLY_PRINTK_UART */
- 
-+#ifdef CONFIG_IA64_EARLY_PRINTK_SGI_SN
-+extern int sal_cons_console_out(const char *str, int len);
-+#endif
-+
- void early_printk(const char *str, size_t len)
- {
- #ifdef CONFIG_IA64_EARLY_PRINTK_UART
-@@ -791,6 +795,9 @@
- #endif
- #ifdef CONFIG_IA64_EARLY_PRINTK_VGA
- 	early_printk_vga(str, len);
-+#endif
-+#ifdef CONFIG_IA64_EARLY_PRINTK_SGI_SN
-+ 	sal_cons_console_out(str, len);
- #endif
- }
- 
-diff -Nru a/arch/ia64/Kconfig b/arch/ia64/Kconfig
---- a/arch/ia64/Kconfig	Tue Jun 17 14:45:16 2003
-+++ b/arch/ia64/Kconfig	Tue Jun 17 14:45:16 2003
-@@ -863,6 +831,10 @@
- 
- config IA64_EARLY_PRINTK_VGA
- 	bool "Early printk on VGA"
-+	depends on IA64_EARLY_PRINTK
-+
-+config IA64_EARLY_PRINTK_SGI_SN
-+	bool "Early printk on SGI SN serial console"
- 	depends on IA64_EARLY_PRINTK
- 
- config DEBUG_SLAB
-
---=-=-=--
+	--david
