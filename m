@@ -1,25 +1,26 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Sat, 28 Feb 2004 14:55:37 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 28 Feb 2004 18:26:18 +0000
 Subject: Re: Oops in pdflush
-Message-Id: <je4qtbqmmu.fsf@sykes.suse.de>
+Message-Id: <16448.56650.382428.636301@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je4qtl7u44.fsf@sykes.suse.de>
 In-Reply-To: <je4qtl7u44.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@napali.hpl.hp.com> writes:
+>>>>> On Sat, 28 Feb 2004 15:55:37 +0100, Andreas Schwab <schwab@suse.de> said:
 
-> Say, Andreas, did you by chance have 3 disk drives in your Tiger?
+  Andreas> David Mosberger <davidm@napali.hpl.hp.com> writes:
 
-No, only one.
+  >> Say, Andreas, did you by chance have 3 disk drives in your Tiger?
 
-Andreas.
+  Andreas> No, only one.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Hmmh, kind of throws that theory out of the water...
+
+I still don't understand why the problem triggered only on certain
+machine.
+
+	--david
