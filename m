@@ -1,36 +1,41 @@
-From: Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
-Date: Fri, 13 Jul 2001 18:59:11 +0000
-Subject: [Linux-ia64] [PATCH] fix IRQ affinity
-Message-Id: <marc-linux-ia64-105590693005851@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Tue, 24 Jul 2001 00:25:02 +0000
+Subject: [Linux-ia64] elilo-3.0 minor fix
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="GRPZ8SYKNexpdSJ7"
+Message-Id: <marc-linux-ia64-105590693005883@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi all,
+--GRPZ8SYKNexpdSJ7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-IRQ affinity doesn't work due to missing of cpu_physical_id().
-This patch fixes it.
+Hi,
 
---- arch/ia64/kernel/iosapic.c~ Fri Jul 13 12:29:18 2001
-+++ arch/ia64/kernel/iosapic.c  Fri Jul 13 11:56:20 2001
-@@ -215,7 +215,7 @@
-        if (!mask || irq >= IA64_NUM_VECTORS)
-                return;
-
--       dest = ffz(~mask);
-+       dest = cpu_physical_id(ffz(~mask));
-
-        pin = iosapic_irq[irq].pin;
-        addr = iosapic_irq[irq].addr;
+The attached patch fixes the problem reported by Richard Hirst with regards
+to typing return with no text at the elilo boot prompt. This patch only
+applies to elilo-3.0
 
 
-Regards,
+-- 
+-Stephane
 
----
-Kimio Suganuma
-NEC Systems, Inc.
-k-suganuma@mvj.biglobe.ne.jp
+--GRPZ8SYKNexpdSJ7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="elilo-010723.diff"
 
+--- elilo-3.0/util.c	Mon Jul  2 00:57:29 2001
++++ elilo-3.1/util.c	Mon Jul 23 16:01:34 2001
+@@ -135,7 +135,7 @@
+ 
+ 	BS->CloseEvent(timer);
+ 
+-	return idx ? -1 : 0;
++	return idx ? 1 : 0;
+ }
+ 
+ INTN
+
+--GRPZ8SYKNexpdSJ7--
 
