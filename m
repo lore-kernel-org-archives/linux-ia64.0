@@ -1,45 +1,55 @@
-From: Hans Boehm <Hans.Boehm@hp.com>
-Date: Mon, 21 Apr 2003 03:42:33 +0000
-Subject: Re: [Linux-ia64] IA64 software pipelining
-Message-Id: <marc-linux-ia64-105590723705576@msgid-missing>
+From: Ken Burrell <ken.burrell@mscsoftware.com>
+Date: Fri, 04 Apr 2003 07:08:52 +0000
+Subject: Re: [Linux-ia64] IA64 Distributions
+Message-Id: <marc-linux-ia64-105590723705416@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705574@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705574@msgid-missing>
+References: <marc-linux-ia64-105590723705322@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723705322@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-VGhlIGNvbXBpbGVyIGhhcyBubyB3YXkgdG8gdGVsbCB3aGV0aGVyIGEgYSBhbmQgYiBwb2ludCBp
-bnRvIHRoZSBzYW1lCmFycmF5LCBpbiB3aGljaCBjYXNlIGl0IG1pZ2h0IG5vdCBiZSBjb3JyZWN0
-IHRvIHBpcGVsaW5lIHRoZSBsb29wLgoKVHJ5IHVzaW5nCgppbnQgc3dwKGludCBtLGludCAqIHJl
-c3RyaWN0IGEsaW50ICogcmVzdHJpY3QgYikKCmluc3RlYWQuCgpIYW5zCgpPbiBTdW4sIDIwIEFw
-ciAyMDAzLCBkYWkgeWl5YW5nIHdyb3RlOgoKPiAKPiBIaSBhbGwsCj4gCj4gICAgSSBhbSB0cnlp
-bmcgdG8gdGVzdCB0aGUgc29mdHdhcmUgcGlwZWxpbmluZyB3aXRoIHRoZSBmb2xsb3dpbmcgY29k
-ZSAsCj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+IGludCBzd3AoaW50IG0s
-aW50ICphLGludCAqYil7Cj4gICAgICAgICBpbnQgaTsKPiAjcHJhZ21hIHN3cAo+ICAgICAgICAg
-Zm9yIChpPTA7IGk8bSA7IGkrKykKPiAgICAgICAgIHsKPiAgICAgICAgICAgICAgICAgICAgIGJb
-aV09YVtpXSsxOwo+IAo+ICAgICAgICAgIH0KPiAgICAgICAgIHJldHVybiBpOwo+IH0KPiAtLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KPiBJIGV4cGVjdCAsIGZvciBiZXR0ZXIg
-cGVyZm9ybWVuY2UgLCB0aGUgY29kZSBzaG91bGQgYmUgY29tcGlsZWQgc29tZXdoYXQgCj4gbGlr
-ZSB0aGlzOgo+IC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQo+ICAgICAgIG1vdiBhci5sYz1yMzIK
-PiAgICAgICBtb3YgYXIuZWM9NAo+ICAgICAgIG1vdiBwci5yb3Q9MHgxMDAwCj4gbG9vcDoKPiAo
-cDE2KSBsZDggcjM1PVtyOV0sOAo+IChwMTgpIGFkZCByMzc9cjM2LHIwLDEKPiAocDE5KSBzdDgg
-W3I2XT1yMzgsOAo+ICAgICAgIGJyLmN0b3AgbG9vcDs7Cj4gLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLQo+IGJ1dCBpdCBzZWVtcyB0aGUgSW50ZWwgY29tcGlsZXI3LjEgY2FuIG5vdCBwcm9kdWNl
-IHNvZnR3YXJlIHBpcGVsaW5pbmcgZm9yIAo+IHRoaXMgY29kZSBsaWtlIHdoYXQgSSBleHBlY3Rl
-ZCAuCj4gd2l0aCAtb3B0X3JlcG9ydF9maWxlIG9wdGlvbiAsIEkgZ290IHN1Y2ggdGlwOgo+IC0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCj4gCj4gU3dwIHJlcG9ydCBmb3IgbG9vcCBhdCBs
-aW5lIDYgaW4gc3dwIGluIGZpbGUgc3dwLmMKPiAKPiAgICAgICAgICBNb2R1bG8gc2NoZWR1bGlu
-ZyBmYWlsZWQuIE1vc3QgbGlrZWx5LCB0aGlzIHdhcwo+ICAgICAgICAgIGNhdXNlZCBieSBsb29w
-LWNhcnJpZWQgbWVtb3J5IGRlcGVuZGVuY2VzLgo+IAo+ICAgICAgICAgIEZvbGxvd2luZyBhcmUg
-dGhlIGxvb3AtY2FycmllZCBtZW1vcnkgZGVwZW5kZW5jZSBlZGdlczoKPiAgICAgICAgICBTdG9y
-ZSAgYXQgbGluZSAgICAgNiAtLT4gTG9hZCAgIGF0IGxpbmUgICAgIDYKPiAKPiAtLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLQo+IGFueSBhZHZpY2UgPwo+IAo+IFJlZ2FyZHMsCj4gWWl5YW5n
-Cj4gCj4gCj4gCj4gX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KPiDT68Gqu/q1xMXz09G9+NDQvbvB96Osx+vKudPDIE1TTiBN
-ZXNzZW5nZXI6ICBodHRwOi8vbWVzc2VuZ2VyLm1zbi5jb20vY24gIAo+IAo+IAo+IF9fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCj4gTGludXgtSUE2NCBtYWls
-aW5nIGxpc3QKPiBMaW51eC1JQTY0QGxpbnV4aWE2NC5vcmcKPiBodHRwOi8vbGlzdHMubGludXhp
-YTY0Lm9yZy9saXN0cy9saXN0aW5mby9saW51eC1pYTY0Cj4gCgotLSAKSGFucyBCb2VobQooaGJv
-ZWhtQGhwbC5ocC5jb20pCgoK
+Brent Clements (bclem@rice.edu) said:
+
+> 
+> Does anyone know of a list of Freely available ia64 based distributions
+> besides debian?
+
+
+Yes, MSC.Software provides a free linux for ia64:
+
+ftp://ftp.msclinux.com/mscbeta/ia64/March2003/install_dig.iso
+
+Some of the features are:
+
+kernel 2.4.19
+glibc 2.2.5
+gcc 3.2
+KDE 3.1
+XFree86 4.2.1
+LSB compliance (certifcation in process of completion at this time)
+Webmin system administration
+NVidia cards supported with OpenGL and accelerated kernel driver
+FireGL4 cards supported in graphical mode with non-accelerated X windows
+devfs or traditional devices
+XFS, ext3 and ext2 supported (and reiserfs after installation)
+LVM available at installation time
+rpm based with full database information on all files *and* directories
+a set of cgi tools for creating clusters
+
+No graphics card is required as long as you have a serial console and
+CD-ROM drive.  You can also perform a graphical installation on such a
+machine if you have a DHCP server on your network and a machine running
+X windows to recieve the exported display.  This graphical machine does
+not have to be an Itanium, or even running Linux.
+
+Once you have a working installation on one machine, you may install to
+another machine, even if it does not have a CD-ROM drive by using the
+Netboot facility of EFI, and the provided cluster tools.  
+
+The ability to easily perform a network boot is a wonderful feature of
+EFI and the elilo.efi utility provided by Stephane Eranian of HP.
+
+Ken Burrell
+
