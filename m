@@ -1,50 +1,64 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Wed, 18 Jun 2003 03:33:23 +0000
-Subject: [Linux-ia64] Re: gettimeofday patch
-Message-Id: <marc-linux-ia64-105590709805947@msgid-missing>
+From: Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
+Date: Thu, 31 Jul 2003 04:53:00 +0000
+Subject: [PATCH] 2.4.21 Interrupt polarity fix
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="--Next_Part(Thu_Jul_31_13:53:00_2003_219)--"
+Message-Id: <marc-linux-ia64-105962723421294@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+----Next_Part(Thu_Jul_31_13:53:00_2003_219)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
+Hi Bjorn,
 
-David> So, the moral of the story (which we already knew): it's _hard_
-David> to write correct light-weight syscall handlers.  Clearly,
-David> anytime a new handler is written, some careful testing is
-David> advised (in particular with respect to passing NaT arguments,
-David> invalid pointers, etc.).  It would be great to have a
-David> Stanford-checker that can statically analyze the validity of a
-David> light-weight system call handler.  It should be very difficult
-David> to do and it would clearly be easier to code-up the dozen or so
-David> rules once than to have to remember them every time.  Perhaps
-David> somebody's summer project some day?
+It seems that acpi_register_intr (in arch/ia64/kernel/acpi.c)
+takes an interrupt polarity/trigger in opposite way.
+Attached patch fixes this.  Please apply.
 
-Yes, the rules are such that:
-     -- it's easy to violate them without noticing, especially if one's
-        not that good at assembly programming in the first place
-     -- you can't use C
+drivers/acpi/resource/rsirq.c decodes ACPI extended irq
+resource and stores in edge_level and active_high_low members
+of a structure (BTW, I think the names of these members
+are source of confusion ;).
 
-and writing optimised assembly language for IA64 is hard anyway.
+And this logic in acpi.c inverts both polarity and trigger.
 
-Louis started with no knowledge of IA64 architecture, and almost no
-internals knowledge of the Linux kernel.  In four weeks he got to the
-point where he could write the optimised gettimeofday(), and determine
-that an optimised epoll() was more trouble than it was worth.
+vector = iosapic_register_intr(gsi,
+	polarity ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
+	mode ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
 
-It'd be nice if the rules could be relaxed a bit, to allow (a
-restricted subset of) ordinary kernel C code to be invoked from a
-lightweight syscall handler.  The main issue is IMO the RSE, and info
-leakage into its backing store.  Page and translation faults can be
-dealt with, with a bit of care and some extra code.
+       ACPI -> rsirq.c -> serial.c -> acpi.c            -> iosapic.c
+High      0         0           0      IOSAPIC_POL_LOW
+Low       1         1           1      IOSAPIC_POL_HIGH
+Edge      1         0           0      IOSAPIC_LEVEL
+Level     0         1           1      IOSAPIC_EDGE
 
-In the meantime, I worry a bit about the assembler code, and the
-possibility of it getting out-of-sync with the rest of the kernel,
-given that it is so hard to code it correctly.  It's probably only
-worth writing fast syscall routines for stuff where the system call
-duration really matters (e.g., gettimeofday()).
+As ACPI_ACTIVE_{HIGH,LOW} and ACPI_{LEVEL,EDGE}_SENSITIVE are
+defined in acpi subsystem, it should be safer to use these symbols.
 
-Peter C
+---
+1st Computer Software Division, NEC Corporation
+Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp/t-kochi@bq.jp.nec.com>
 
+----Next_Part(Thu_Jul_31_13:53:00_2003_219)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="acpi-int-pol.patch"
+
+--- linux-2.4.21.orig/arch/ia64/kernel/acpi.c	Thu Jul 31 13:14:21 2003
++++ linux-2.4.21/arch/ia64/kernel/acpi.c	Thu Jul 31 13:42:36 2003
+@@ -643,8 +643,9 @@
+ 		return 0;
+ 
+ 	/* Turn it on */
+-	vector = iosapic_register_intr(gsi, polarity ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
+-			mode ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
++	vector = iosapic_register_intr(gsi,
++		       	(polarity == ACPI_ACTIVE_HIGH) ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
++			(mode == ACPI_EDGE_SENSITIVE) ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
+ 	return vector;
+ }
+ 
+
+----Next_Part(Thu_Jul_31_13:53:00_2003_219)----
