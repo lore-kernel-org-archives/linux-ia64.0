@@ -1,69 +1,33 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Tue, 05 Sep 2000 22:45:20 +0000
-Subject: [Linux-ia64] Megaraid Patch
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="279734797-946923593-968193920=:19506"
-Message-Id: <marc-linux-ia64-105590678205440@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Sat, 23 Sep 2000 03:37:31 +0000
+Subject: [Linux-ia64] Announce: modutils 2.3.17 is available
+Message-Id: <marc-linux-ia64-105590678205516@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+Fastest download from kernel.org.
+Mirror at ftp://ftp.<country>.kernel.org/pub/linux/utils/kernel/modutils/v2.3
+Master at ftp://ftp.ocs.com.au/pub/modutils/v2.3.  (slow)
 
---279734797-946923593-968193920=:19506
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+patch-modutils-2.3.17.bz2       Patch from modutils 2.3.16 to 2.3.17
+modutils-2.3.17.tar.bz2         Source tarball, includes RPM spec file
+modutils-2.3.17-1.src.rpm       As above, in SRPM format
+modutils-2.3.17-1.i386.rpm      Compiled with egcs-2.91.66, glibc 2.1.2
 
-Hi,
+Changelog extract
 
-Attached is a patch to the megaraid driver which fixes an improper cast
-from integer to pointer which was causing a segfault.
+	* config.{guess,sub}, configure.in updates by Pavel Roskin.
+	* Fix a NULL base_dir in modinfo.  Reported by John Summerfield.
+	* obj_ia64 patch for module unwind.  Mike Stephens.
+	* Add vmlinux, vmlinuz, bzImage, zImage to prune list.
+	* depmod -F System.map only looks at exported symbols.
+	* Convert to bzip2.
 
-Mike Madore
-Software Engineer
-TurboLinux, Inc.
+IA64 users with patch 2.4.0-test8-000908 or later need this version of
+modutils for correct unwind support in modules.  Otherwise IA64 modules
+may not load.
 
---279734797-946923593-968193920=:19506
-Content-Type: APPLICATION/x-patch; name="linux-2.4.0test7-ia64-megaraid.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.20.0009051545200.19506@drevil.dev.us.tlan>
-Content-Description: 
-Content-Disposition: attachment; filename="linux-2.4.0test7-ia64-megaraid.patch"
-
-ZGlmZiAtTnVyIGxpbnV4LTIuNC4wdGVzdDcvZHJpdmVycy9zY3NpL21lZ2Fy
-YWlkLmMgbGludXgtMi40LjB0ZXN0Ny5tZWdhcmFpZC9kcml2ZXJzL3Njc2kv
-bWVnYXJhaWQuYwotLS0gbGludXgtMi40LjB0ZXN0Ny9kcml2ZXJzL3Njc2kv
-bWVnYXJhaWQuYwlNb24gSnVuIDE5IDEzOjQyOjQwIDIwMDAKKysrIGxpbnV4
-LTIuNC4wdGVzdDcubWVnYXJhaWQvZHJpdmVycy9zY3NpL21lZ2FyYWlkLmMJ
-VGh1IEF1ZyAzMSAxNjoxNDowOSAyMDAwCkBAIC0xMjksNiArMTI5LDExIEBA
-CiAgKiAgICBvY2Nhc2lvbmFsbHkgaGFuZy4gV2UgY2hlY2sgc3VjaCBjYXJk
-cyBhbmQgcmVwb3J0IHRoZW0uIFlvdSBjYW4KICAqICAgIGdldCBmaXJtd2Fy
-ZSB1cGdyYWRlcyB0byBmbGFzaCB0aGUgYm9hcmQgdG8gMy4xMCBmb3IgZnJl
-ZS4KICAqCisgKiBWZXJzaW9uIDEuMDgKKyAqICAgIEZpeGVkIGJ1ZyB3aGVy
-ZSBwb2ludGVyIG9mIG1ib3ggd2FzIGNhc3QgdG8gaW50ZWdlciBpbgorICog
-ICAgbWVnYV9yZWdpc3Rlcl9tYWlsYm94IGNhdXNpbmcgc2VnZmF1bHQuIAor
-ICogICAgQXVnIDMxIDIwMDAgQW5kcmV3IElwIDxhaXBAdHVyYm9saW51eC5j
-b20+ICAgCisgKgogICogQlVHUzoKICAqICAgICBTb21lIG9sZGVyIDIuMSBr
-ZXJuZWxzIChlZy4gMi4xLjkwKSBoYXZlIGEgYnVnIGluIHBjaS5jIHRoYXQK
-ICAqICAgICBmYWlscyB0byBkZXRlY3QgdGhlIGNvbnRyb2xsZXIgYXMgYSBw
-Y2kgZGV2aWNlIG9uIHRoZSBzeXN0ZW0uCkBAIC0xMjgyLDEzICsxMjg3LDEz
-IEBACiAgKiAgIDEwIDAxIG51bXN0YXR1cyBieXRlCiAgKiAgIDExIDAxIHN0
-YXR1cyBieXRlCiAgKi0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tKi8KLXN0YXRp
-YyBpbnQgbWVnYV9yZWdpc3Rlcl9tYWlsYm94IChtZWdhX2hvc3RfY29uZmln
-ICogbWVnYUNmZywgdTMyIHBhZGRyKQorc3RhdGljIGludCBtZWdhX3JlZ2lz
-dGVyX21haWxib3ggKG1lZ2FfaG9zdF9jb25maWcgKiBtZWdhQ2ZnLCB1NjQg
-cGFkZHIpCiB7CiAgIC8qIGFsaWduIG9uIDE2LWJ5dGUgYm91bmRyeSAqLwog
-ICBtZWdhQ2ZnLT5tYm94ID0gJm1lZ2FDZmctPm1haWxib3g2NC5tYWlsYm94
-OwotICBtZWdhQ2ZnLT5tYm94ID0gKG1lZ2FfbWFpbGJveCAqKSAoKCgodTMy
-KSBtZWdhQ2ZnLT5tYm94KSArIDE2KSAmIDB4ZmZmZmZmZjApOworICBtZWdh
-Q2ZnLT5tYm94ID0gKG1lZ2FfbWFpbGJveCAqKSAoKCgodTY0KSBtZWdhQ2Zn
-LT5tYm94KSArIDE2KSAmIDB4ZmZmZmZmZmZmZmZmZmZmMCk7CiAgIG1lZ2FD
-ZmctPm1ib3g2NCA9IChtZWdhX21haWxib3g2NCAqKSAobWVnYUNmZy0+bWJv
-eCAtIDQpOwotICBwYWRkciA9IChwYWRkciArIDQgKyAxNikgJiAweGZmZmZm
-ZmYwOworICBwYWRkciA9IChwYWRkciArIDQgKyAxNikgJiAweGZmZmZmZmZm
-ZmZmZmZmZjA7CiAKICAgLyogUmVnaXN0ZXIgbWFpbGJveCBhcmVhIHdpdGgg
-dGhlIGZpcm13YXJlICovCiAgIGlmICghKG1lZ2FDZmctPmZsYWcgJiBCT0FS
-RF9RVUFSVFopKSB7Cg==
---279734797-946923593-968193920=:19506--
 
