@@ -1,65 +1,103 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 15 May 2001 15:11:54 +0000
-Subject: RE: [Linux-ia64] Replacements for local_irq_xxx()
-Message-Id: <marc-linux-ia64-105590693005579@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Wed, 09 May 2001 17:04:05 +0000
+Subject: [Linux-ia64] Re: kernel update (relative to 2.4.4)
+Message-Id: <marc-linux-ia64-105590693005560@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005562@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005562@msgid-missing>
+References: <marc-linux-ia64-105590678205855@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205855@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  Keith> I have measured the slowdown and I believe that it is
-  Keith> acceptable, expecially when the benefit is far better
-  Keith> debugging and the ability to use an NMI watchdog.  The module
-  Keith> below measures the cost of the existing method (rsm psr.i)
-  Keith> and my replacement method using cr.tpr.mmi.  Using psr.i
-  Keith> takes 8 cycles while using cr.tpr.mmi takes 109 cycles to
-  Keith> disable then reenable interrupts.  Typical values on a BigSur
-  Keith> dual B3 @ 700MHz, build 99.
+David Mosberger (davidm@hpl.hp.com) said: 
+> The latest IA-64 patch is (finally) available at:
+> 
+>  ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
+> 
+> in file linux-2.4.4-ia64-010508.diff*.  Thanks to Johannes Erdfelt,
+> USB is working again and I hope this kernel will be quite stable for
+> everybody (famous last words...).
 
-Slowing down local_irq_xxx() by more than 13 times is certainly not
-acceptable.  Definitely not for kdb.  Let me make this clear: ia64
-linux is designed and optimized for the case of running ia64
-applications on native hardware.  It's NOT optimized for running IA-32
-binaries (though we do want to do that well, too), it's NOT optimized
-for running in a virtual machine environment, it's NOT optimized for
-running KDB, etc., etc.  I hope you get the idea: writing a lean and
-mean kernel is the goal here.
+Any chance that more of this stuff that hasn't been merged into
+the main tree in the past will get merged (460GX agpgart, EFI GUID
+partition tables, etc)?
 
-Note that your performance assement pretty much ignored that a TPR
-based interrupt masking scheme would result in significant code bloat.
-This could easily make the difference between a tight loop fitting or
-exceeding the i-cache size.  Also, I really don't like the argument
-that just because kernel compiles slow down by "only" X seconds, it's
-somehow OK to make a performance critical operation so much slower.  I
-am not sure which macro-level benchmark would show the most impact,
-but I do know that if interrupt masking takes >100 cycles, people WILL
-come up with software-optimizations which will make the kernel more
-complicated and will introduce more variability (many papers have been
-written on this subject, btw).  I'm glad that IA-64 is one of the few
-architectures that can efficiently (few instructions & at CPU speeds)
-mask interrupts.  I'm certainly not going to give that up without a
-VERY good reason.
+Bill
 
-  Keith> Using an INIT interrupt goes through PAL and SAL before it
-  Keith> gets to the OS, any side effects of INIT are going to be
-  Keith> platform dependent.It is bad enough maintaining kdb for
-  Keith> multiple architectures, I do not want to handle multiple
-  Keith> platforms as well.
 
-Have you tried this?  PAL and SAL are quite explicit about the events
-that happen in response to an INIT.  I didn't think there is much room
-for platform dependent side effects.  Note that we already have an OS
-INIT handler in arch/ia64/kernel/mca.c.
-
-  Keith> Also INIT is far too expensive to use as a watchdog.
-
-  Keith> 3. Use INIT interrupt.  Platform dependent side effects, too
-  Keith> expensive for a watchdog.
-
-This sounds like it's at least worth trying.
-
-	--david
+> 
+> What's changed:
+> 
+> 	- clean up boot parameter passing between elilo and kernel
+> 	  (Stephane Eranian)
+> 	- optimized do_csum() some more (Jun Nakajima)
+> 	- AGP GART update (Chris Ahna)
+> 	- fix pci-pool routines to work on 64-bit platforms (Johannes
+>           Erdfelt)
+> 	- more IA-32 updates (Don Dugger, me)
+> 	- make machine_halt() do nothing instead of rebooting the
+> 	  machine; this has the desirable effect that "shutdown -h"
+> 	  will really halt instead of rebooting the machine; the
+> 	  machine does *not* power off, however (I don't think the
+> 	  current firmware/hw supports this)
+> 	- use KERNEL_PG_* constants instead of hardcoding the page
+> 	  size used in the kernel's identity mapped regions (Tony Luck)
+> 	- added getunwind() system call as a means to get unwind info
+> 	  for the gate page (signal handler trampoline for now;
+> 	  light-weight syscall stubs in the future) and add unwind info
+> 	  to signal trampoline
+> 	- move EFI vars from /proc/efi to /proc/efi/vars/ (Matt Domsch)
+> 	- for MP machines, sync cycle counter register (ar.itc) of
+> 	  each CPU with the time keeper CPU on boot up & exploit this
+> 	  to provide fine-grained time in gettimeofday()
+> 	- clean up & fix coredump creation
+> 	- clean up debug messages in cs4281 drivers to avoid compiler
+> 	  warnings
+> 	- make the register backing store of a newly execve()'d
+> 	  process start at a nicely aligned address again
+> 	- fix spin_unlock() to do barrier() in correct place (Jack Steiner)
+> 	- add a couple of spare longs to sigcontext structure to
+> 	  provide room for future extensibility
+> 
+> Some notes: I didn't apply Jes's qla1280 clean up patch yet.  I'd very
+> much like to do that, but since qlogic is maintaing this driver, I'm
+> waiting until they've had a chance to review it.
+> 
+> If you look at the cycle counter sync'ing code, you'll see that it's
+> very different from what has been proposed in the past.  There is a
+> good reason for this: the new code allows arbitrary pairs of CPUs to
+> sync at any point in time.  At this point, the only time the syncing
+> is actually done is at boot time, but in the future we'll want to
+> support online replacement of CPUs and with a pair-wise syncing
+> approach, this is trivial to support.  Also, the new code uses a close
+> loop to sync the counters.  This ensures that there are no
+> unaccounted-for error sources.  The syncing tends to work quite well
+> in pratice: usually, we seem to get a pair of CPUs to within <10
+> cycles of each other (assuming that the interconnect between the two
+> CPUs has symmetric latencies).  However, I'm also quite sure that
+> someone with a better memory of control theory could optimize the
+> current code for faster convergence (and perhaps more stable behavior
+> in the presence of large amounts of noise).  Please feel free to take
+> this as a challenge! ;-)
+> 
+> BIG CAVEAT: even though the kernel currently is syncing the cycle
+> counters, application code MUST NOT rely on this.  Instead, if an
+> application needs fine-grained and light-weight timestamps, it should
+> use the POSIX *clock* routines that Uli added recently to libc.  I can
+> almost guarantee you that future machines will NOT have synchronized
+> clocks (and we'll also want to support systems where different CPUs
+> have different clock speeds) and because of this, the *clock* routines
+> and gettimeofday() are the recommended and RELIABLE way for obtaining
+> fine-grained timestamps.
+> 
+> Enjoy,
+> 
+> 	--david
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> 
 
