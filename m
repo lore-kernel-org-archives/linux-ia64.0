@@ -1,89 +1,33 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Sat, 28 Aug 2004 01:23:07 +0000
-Subject: Re: [RFC&PATCH 1/2] PCI Error Recovery (readX_check)
-Message-Id: <412FDE7B.3070609@jp.fujitsu.com>
+From: "John Lee" <jlee@platsolns.com>
+Date: Tue, 03 Aug 2004 04:14:10 +0000
+Subject: Multiple Processors on OS_MCA
+Message-Id: <AEBB9AF2F7713A4FAB1397435451162E7B150F@spock.invent.psi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <412AD123.8050605@jp.fujitsu.com>
-In-Reply-To: <412AD123.8050605@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Linus Torvalds <torvalds@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-(I couldn't see my last mail posted few days ago in list (kicked?),
-  so I send it again...
-  Grant, Linus and Benjamin, I'd appreciate it if you could read this mail
-  and let me know when you receive it. Of course, new comments are welcome.)
+MCA experts,
 
--------- Original Message --------
+2.6.7 kernel/mca_asm.S serializes processors at the entry and exit of
+the OS_MCA with a spinloop, hence makes sure only one processor performs
+the OS_MCA at a time.
+A processor toggles the spinloop var before exiting OS_MCA so that
+another processor spinning on the entry can proceed to OS_MCA.
 
-Grant Grundler wrote:
-> Do we only need to determine there was an error in the IO hierarchy
-> or do we also need to know which device/driver caused the error?
-> 
-> If the latter I agree with linus. If the former, then the error recovery
-> can support asyncronous errors (like the bad DMA address case) and tell
-> all affected (thanks willy) drivers.
+My question is about the SAL behavior (or OS_MCA behavior) on multiple
+processors returnings to SAL after OS_MCA. 
+Here's a typical OS_MCA snapshot after global events; the first
+processor just returns to SAL w/ IA64_MCA_COLD_BOOT, a second processor
+proceeds to OS_MCA, and other processors are still spinning at the
+entry.
 
-What I supposed here is the former.
+In this scenario, does SAL just cold boot the system on the first
+processor's return, or wait for all processors that were sent to OS_MCA
+to return after they all completed OS_MCA? 
+If SAL doesn't do the wait, does OS_MCA need to synchronize the
+processors on exit so that they all complete OS_MCA in sequence before
+returning to SAL?
 
-As Linus said, I also assume that most high-end hardware has enough bridges
-and that the number of devices sharing same bridge would be minimized.
-(And additionally, I assume that there is no "mixed" bridge - having both of
-  device which owned by RAS-aware driver supporting recovery infrastructure
-  and one which owned by not-aware driver.  Generally all should be RAS-aware.)
-
-However, my implementation was not designed on the assumption that
-"1 bridge = 1 device" like on ppc64, but on "1 bridge = 1 device group."
-Of course, there could be some group of only 1 device.
-It will depend on the structure of the system which you could configure it.
-
-Devices in same group can run at same time keeping with a certain level of
-performance, and not mind being affected(or even killed!) by (PCI bus)error
-caused by someone in the group.  They either swim together or sink together.
-
-Fortunately, such error is rare occurrence, and even if it had occurred,
-it would be either "recoverable by a retry since it was a usual soft-error"
-or "unrecoverable since it was a seldom hard-error."
-
-Without this new recovery infrastructure, system cannot have proper drivers
-to retry the transaction to determine whether the error was a soft or a hard,
-and also cannot have these drivers not to return the broken data to user.
-So now, system will down, last resort comes first.
-
-
-> Does anyone expect to recover from devices attempting unmapped DMA?
-> Ie an IOMMU which services multiple PCI busses getting a bad DMA address
-> will cause the next MMIO read by any of the (grandchildren) PCI devices to 
-> see an error (MCA on IA64). I'm asking only to determine if this is
-> outside the scope of what the PCI error recovery is trying to support.
-
-At present, unmapped DMA is outside of the scope... but alongside I also
-trying to possible IA64 specific recovery(with MCA & CPE) using prototypes.
-
-
->>> +	bool "PCI device error recovery"
->>> +	depends on PCI
-> 
-> 	depends on PCI && EXPERIMENTAL
-> 
->>> +	---help---
->>> +	By default, the device driver hardly recovers from PCI errors. When
->>> +	this feature is available, the special io interface are provided
->>> +	from the kernel.
-> 
-> May I suggest an alternate text?
-> 	Saying Y provides PCI infrastructure to recover from some PCI errors.
-> 	Currently, very few PCI drivers actually implement this.
-> 	See Documentation/pci-errors.txt for a description of the
-> 	infrastructure provided.
-
-Thank you for good substitution :-D
-
-I understand the needs of Documentation/pci-errors.txt for driver developers,
-so I'll write the document and post it asap.
-
-
-Thanks,
-H.Seto
+John
