@@ -1,39 +1,40 @@
-From: "Martin J. Bligh" <mbligh@aracnet.com>
-Date: Fri, 26 Mar 2004 00:18:52 +0000
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 26 Mar 2004 00:22:32 +0000
 Subject: Re: [PATCH] [0/6] HUGETLB memory commitment
-Message-Id: <33780000.1080260332@flay>
+Message-Id: <20040325162232.3da62aea.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk><20040325130433.0a61d7ef.akpm@osdl.org><41997489.1080257240@42.150.104.212.access.eclipse.net.uk> <20040325155117.60dbc0e1.akpm@osdl.org>
-In-Reply-To: <20040325155117.60dbc0e1.akpm@osdl.org>
+References: <1739144.1080259161@[192.168.0.89]>
+	<2668.1080259844@kao2.melbourne.sgi.com>
+In-Reply-To: <2668.1080259844@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>, Andy Whitcroft <apw@shadowen.org>
-Cc: anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Keith Owens <kaos@sgi.com>
+Cc: apw@shadowen.org, anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, mbligh@aracnet.com
 
-> I think it's simply:
+Keith Owens <kaos@sgi.com> wrote:
+>
+> FWIW, lkcd (crash dump) treats hugetlb pages as normal kernel pages and
+> dumps them, which is pointless and wastes a lot of time.  To avoid
+> dumping these pages in lkcd, I had to add a PG_hugetlb flag.  lkcd runs
+> at the page level, not mm or vma, so VM_hugetlb was not available.  In
+> set_hugetlb_mem_size()
 > 
-> - Make normal overcommit logic skip hugepages completely
+> 	for (j = 0; j < (HPAGE_SIZE / PAGE_SIZE); j++) {
+> 		SetPageReserved(map);
+> 		SetPageHugetlb(map);
+> 		map++;
+> 	}
 > 
-> - Teach the overcommit_memory=2 logic that hugepages are basically
->   "pinned", so subtract them from the arithmetic.
-> 
-> And that's it.  The hugepages are semantically quite different from normal
-> memory (prefaulted, preallocated, unswappable) and we've deliberately
-> avoided pretending otherwise.
+> In dump_base.c, I changed kernel_page(), referenced_page() and
+> unreferenced_page() to test for PageHugetlb() before PageReserved().
 
-It would be nice (to fix some of the posted problems) if hugepages didn't
-have to be prefaulted ... if they had their own overcommit pool (that we
-used whether normal overcommit was on or not), that'd be unnecessary.
+That makes sense.
 
-Specifically:
+> Since you are looking at identifying hugetlb pages, could any other
+> code benefit from a PG_hugetlb flag?
 
-1) SGI found that requesting oodles of large pages took forever.
-2) NUMA allocation API wants to be able to specify policies, which
-means not prefaulting them.
-
-I'd agree that fixing stopping hugepages from using the main overcommit
-pool is the first priority, but it'd be nice to go one stage further.
-
-M.
+In the overcommit code we don't actually have the page yet.  We're asking
+"do we have enough memory available to honour this mmap() invokation when
+it later faults in real pages".
 
