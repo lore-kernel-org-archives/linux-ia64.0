@@ -1,161 +1,41 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Wed, 13 Oct 2004 22:27:05 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 14 Oct 2004 07:32:26 +0000
 Subject: Re: [PATCH] Support ia32 exec domains without CONFIG_IA32_SUPPORT
-Message-Id: <416DABB9.8050804@intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------010208020908090004010102"
+Message-Id: <16750.11146.297875.521746@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41643EC0.1010505@intel.com>	 <20041007142710.A12688@infradead.org> <4165D4C9.2040804@intel.com>	 <mailman.1097223239.25078@unix-os.sc.intel.com>	 <41671696.1060706@intel.com>	 <mailman.1097403036.11924@unix-os.sc.intel.com>	 <416AF599.2060801@intel.com> <1097617824.5178.20.camel@localhost.localdomain> <416C5ECF.6060402@intel.com>
-In-Reply-To: <416C5ECF.6060402@intel.com>
-To: David Woodhouse <dwmw2@infradead.org>
-Cc: Christoph Hellwig <hch@infradead.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------010208020908090004010102
-Content-Type: text/plain; charset=us-ascii; format=flowed
+References: <41643EC0.1010505@intel.com>
+	<20041007142710.A12688@infradead.org>
+	<4165D4C9.2040804@intel.com>
+	<mailman.1097223239.25078@unix-os.sc.intel.com>
+	<41671696.1060706@intel.com>
+	<mailman.1097403036.11924@unix-os.sc.intel.com>
+	<416AF599.2060801@intel.com>
+	<1097617824.5178.20.camel@localhost.localdomain>
+	<416C5ECF.6060402@intel.com>
+	<416DABB9.8050804@intel.com>
+In-Reply-To: <416DABB9.8050804@intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Arun Sharma <arun.sharma@intel.com>
+Cc: David Woodhouse <dwmw2@infradead.org>, Christoph Hellwig <hch@infradead.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Arun Sharma wrote:
+>>>>> On Wed, 13 Oct 2004 15:27:05 -0700, Arun Sharma <arun.sharma@intel.com> said:
 
-> Christoph doesn't like the idea of adding exec-domains just for this 
-> purpose and has suggested adding a new system call to set the altroot. A 
-> prototype patch to do this already exists. I will be cleaning it up and 
->  posting it to LKML later this week. The main purpose of moving the 
-> discussion to LKML was to see how receptive people were to the proposed 
-> new system call.
-> 
+  Arun> Arun Sharma wrote:
+  >> Christoph doesn't like the idea of adding exec-domains just for
+  >> this purpose and has suggested adding a new system call to set
+  >> the altroot. A prototype patch to do this already exists. I will
+  >> be cleaning it up and posting it to LKML later this week. The
+  >> main purpose of moving the discussion to LKML was to see how
+  >> receptive people were to the proposed new system call.
 
-Attached is the promised patch. It addresses Christoph's comments and 
-fixes the bug Tony found as well.
+  Arun> Attached is the promised patch. It addresses Christoph's
+  Arun> comments and fixes the bug Tony found as well.
 
-	-Arun
+I like it.  Once it's in (surely it will go in, no? ;-),
+we can change asm-ia64/namei.h to define a non-NULL __emul_prefix()
+only if CONFIG_IA32_SUPPORT is defined.  One less hardcoded path
+to worry about!
 
-
-
---------------010208020908090004010102
-Content-Type: text/plain;
- name="sys_altroot.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="sys_altroot.txt"
-
-Add a new system call sys_altroot. This allows using the 
-altroot feature on systems where there is only one exec domain.
-
-Signed-off-by: Zou Nanhai <nanhai.zou@intel.com>
-Signed-off-by: Gordon Jin <gordon.jin@intel.com>
-Signed-off-by: Arun Sharma <arun.sharma@intel.com>
-
-diff -Nraup a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
---- a/arch/ia64/kernel/entry.S	2004-10-12 09:56:51.408496174 -0700
-+++ b/arch/ia64/kernel/entry.S	2004-10-12 09:58:17.362596684 -0700
-@@ -1527,7 +1527,7 @@ sys_call_table:
- 	data8 sys_mq_getsetattr
- 	data8 sys_ni_syscall			// reserved for kexec_load
- 	data8 sys_ni_syscall
--	data8 sys_ni_syscall			// 1270
-+	data8 sys_setaltroot			// 1270
- 	data8 sys_ni_syscall
- 	data8 sys_ni_syscall
- 	data8 sys_ni_syscall
-diff -Nraup a/fs/namei.c b/fs/namei.c
---- a/fs/namei.c	2004-10-12 09:56:56.895800795 -0700
-+++ b/fs/namei.c	2004-10-12 09:58:33.524705861 -0700
-@@ -897,20 +897,20 @@ static int __emul_lookup_dentry(const ch
- 	return 1;
- }
- 
--void set_fs_altroot(void)
-+int __set_fs_altroot(const char *altroot)
- {
--	char *emul = __emul_prefix();
- 	struct nameidata nd;
- 	struct vfsmount *mnt = NULL, *oldmnt;
- 	struct dentry *dentry = NULL, *olddentry;
- 	int err;
--
--	if (!emul)
-+	if (!altroot)
- 		goto set_it;
--	err = path_lookup(emul, LOOKUP_FOLLOW|LOOKUP_DIRECTORY|LOOKUP_NOALT, &nd);
-+	err = path_lookup(altroot, LOOKUP_FOLLOW|LOOKUP_DIRECTORY|LOOKUP_NOALT, &nd);
- 	if (!err) {
- 		mnt = nd.mnt;
- 		dentry = nd.dentry;
-+	} else {
-+		return err;
- 	}
- set_it:
- 	write_lock(&current->fs->lock);
-@@ -923,6 +923,58 @@ set_it:
- 		dput(olddentry);
- 		mntput(oldmnt);
- 	}
-+	return 0;
-+}
-+
-+void set_fs_altroot()
-+{
-+	char *emul = __emul_prefix();
-+
-+	__set_fs_altroot(emul);
-+}
-+
-+asmlinkage long sys_setaltroot(const char __user * altroot)
-+{
-+	char *emul = NULL;
-+	int ret;
-+
-+	if (altroot) {
-+		emul = getname(altroot);
-+		if (IS_ERR(emul)) {
-+			ret = PTR_ERR(emul);
-+			goto out;
-+		}
-+	}
-+
-+	if (atomic_read(&current->fs->count) != 1) {
-+		struct fs_struct *fsp, *ofsp;
-+
-+		fsp = copy_fs_struct(current->fs);
-+		if (fsp == NULL) {
-+			ret = -ENOMEM;
-+			goto out_putname;
-+		}
-+
-+		task_lock(current);
-+		ofsp = current->fs;
-+		current->fs = fsp;
-+		task_unlock(current);
-+
-+		put_fs_struct(ofsp);
-+	}
-+
-+	/*
-+	 * At that point we are guaranteed to be the sole owner of
-+	 * current->fs.
-+	 */
-+
-+	ret = __set_fs_altroot(emul);
-+
-+out_putname:
-+	if (emul)
-+		putname(emul);
-+out:
-+	return ret;
- }
- 
- int fastcall path_lookup(const char *name, unsigned int flags, struct nameidata *nd)
-diff -Nraup a/include/linux/syscalls.h b/include/linux/syscalls.h
---- a/include/linux/syscalls.h	2004-10-12 09:56:58.124316405 -0700
-+++ b/include/linux/syscalls.h	2004-10-12 09:58:17.362596684 -0700
-@@ -489,6 +489,7 @@ asmlinkage long sys_nfsservctl(int cmd,
- 				void __user *res);
- asmlinkage long sys_syslog(int type, char __user *buf, int len);
- asmlinkage long sys_uselib(const char __user *library);
-+asmlinkage long sys_setaltroot(const char __user *altroot);
- asmlinkage long sys_ni_syscall(void);
- 
- #endif
-
---------------010208020908090004010102--
+	--david
