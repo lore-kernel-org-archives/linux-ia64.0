@@ -1,64 +1,68 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Mon, 24 Jan 2005 13:44:22 +0000
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 24 Jan 2005 15:32:08 +0000
 Subject: Re: optimize __gp location
-Message-Id: <41F4FBB6.2040406@hob.de>
+Message-Id: <13890.1106580728@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <B05667366EE6204181EABE9C1B1C0EB50589FCE9@scsmsx401.amr.corp.intel.com>
 In-Reply-To: <B05667366EE6204181EABE9C1B1C0EB50589FCE9@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Keith Owens schrieb:
-
->On Mon, 24 Jan 2005 08:51:17 +0100, 
->Christian Hildner <christian.hildner@hob.de> wrote:
->  
->
->>Chen, Kenneth W schrieb:
->>    
+On Mon, 24 Jan 2005 14:44:22 +0100,=20
+Christian Hildner <christian.hildner@hob.de> wrote:
+>Keith Owens schrieb:
+>>When jiffies is within 22 bit range of __gp, the linker writes the
+>>sequence as
 >>
->>>Can we position the __gp somewhat more optimally, to cover more of these
->>>symbols? Something like the following patch would make all of them fall
->>>into the 22-bit immediate offset relative to gp.
->>>
->>>      
->>>
->>Did you have benchmarks? Or at least a comparison of the resulting code 
->>size. The code size should shrink when more items can be addressed 
->>directly. Furthermore the code size should be a good indicator for the 
->>performance gain you could achive.
->>    
+>>    addl r20=3Doffset_of(jiffies,__gp),r1;;
+>>    mov r16=3Dr20;;
+>>    ld8.acq r23=3D[r16]	// value of jiffies
 >>
+>Is there a restriction to not rewrite to
 >
->The IA64 ABI supports link time rewriting of instructions if the linker
->can determine that the field being loaded can be access via __gp
->instead of via the linkage offset table.  One of the restrictions of
->link time rewriting is that the code offsets cannot change, which means
->that the code size cannot change either.  This code snippet will result
->in two different run time sequences, depending on whether jiffies can
->be referenced via __gp or not.
+>    addl r16=3Doffset_of(jiffies,__gp),r1;;
+>    ld8.acq r23=3D[r16]	// value of jiffies
+>    nop.i 0
 >
->    addl r20=0,r1;;	// LTOFF22X  jiffies
->    ld8 r16=[r20];;	// LDXMOV    jiffies
->    ld8.acq r23=[r16]	// value of jiffies
->
->When jiffies is within 22 bit range of __gp, the linker writes the
->sequence as
->
->    addl r20=offset_of(jiffies,__gp),r1;;
->    mov r16=r20;;
->    ld8.acq r23=[r16]	// value of jiffies
->
-Is there a restriction to not rewrite to
+>because that would save at least one cycle and would make bundling easier =
+(dependend of additional instructions, of course).
 
-    addl r16=offset_of(jiffies,__gp),r1;;
-    ld8.acq r23=[r16]	// value of jiffies
-    nop.i 0
+The code snippet was a simplification of what gcc actually does.  If
+you look at some object code, you will find that the 3 instructions are
+already spread over multiple bundles.  Moving the final ld8 upwards
+cannot save any cycles, you still have to execute the same number of
+bundles.  A real example from kernel/sched.o
 
-because that would save at least one cycle and would make bundling easier (dependend of additional instructions, of course).
+    4830:       09 50 20 42 00 21       [MMI]       adds r10=3D8,r33
+                        4832: LTOFF22X  jiffies
+    4836:       20 81 84 00 42 c0                   adds r18=16,r33
+    483c:       01 08 00 90                         addl r14=3D0,r1;;
+    4840:       08 00 08 1e d8 19       [MMI]       stf.spill [r15]=F2
+                        4841: LDXMOV    jiffies
+                        4842: LTOFF22X  __per_cpu_offset
+    4846:       b0 00 38 30 20 40                   ld8 r11=3D[r14]
+    484c:       03 08 00 90                         addl r26=3D0,r1
+    4850:       08 a0 00 02 00 24       [MMI]       addl r20=3D0,r1
+                        4850: LTOFF22X  .data.percpu+0x440
+    4856:       90 00 01 20 40 e0                   shladd r9=3Dr32,1,r0
+    485c:       02 00 59 00                         sxt4 r23=3Dr32
+    4860:       08 40 00 14 18 10       [MMI]       ld8 r8=3D[r10]
+    4866:       10 01 48 30 20 e0                   ld8 r17=3D[r18]
+    486c:       04 00 c4 00                         mov r39=B0
+    4870:       05 00 00 00 01 40       [MLX]       nop.m 0x0
+    4876:       10 00 00 00 00 60                   movl r27=3D0x10624dd3;;
+    487c:       33 55 6c 62=20
+    4880:       10 00 00 00 01 00       [MIB]       nop.m 0x0
+    4886:       f0 40 e0 f0 29 00                   shl r15=3Dr8,7
+    488c:       00 00 00 20                         nop.b 0x0
+    4890:       09 c0 00 34 18 10       [MMI]       ld8 r24=3D[r26]
+                        4890: LDXMOV    __per_cpu_offset
+    4896:       30 00 2c 70 21 40                   ld8.acq r3=3D[r11]
 
-Christian
-
+The LDXMOV relocation is designed to make it simple to convert the
+instruction from ld8 r11=3D[r14] to mov r11=3Dr14, it is easy to do in
+place.  Moving an entire slot around is a lot messier, for no
+performance gain.
 
