@@ -1,23 +1,27 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 06 Aug 2003 06:33:10 +0000
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Date: Wed, 06 Aug 2003 19:35:11 +0000
 Subject: Re: [patch] turn off CONFIG_FD on ia64?
-Message-Id: <marc-linux-ia64-106015160201075@msgid-missing>
+Message-Id: <marc-linux-ia64-106019889118968@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106015002132453@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106015002132453@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 6 Aug 2003 16:19:19 +1000, Martin Pool <mbp@samba.org> said:
+> Are there any ia64 machines which come with floppy drives?=A0 If there
+> aren't, I'd like to be able to tell the maintainer so.
 
-  Martin> Are there any ia64 machines which come with floppy drives?
+Of the 3 IPF system models Dell has sold or are currently selling, none=20
+came with a floppy, all came with LS-120 drives.
 
-Nope.  The Merced machines came with SuperDrives (or whatever they
-were called), but those attached to the IDE controller, not the floppy
-controller.  The classic (AT-style) floppy controller is an ISA device
-and since ia64 doesn't support ISA, such controllers never were
-supported.
+Thanks,
+Matt
 
-	--david
+--=20
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+
