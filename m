@@ -1,24 +1,28 @@
-From: Bdale Garbee <bdale@gag.com>
-Date: Sat, 07 Jul 2001 11:22:31 +0000
-Subject: Re: [Linux-ia64] SSL on Itanium Linux
-Message-Id: <marc-linux-ia64-105590693005823@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Tue, 31 Jul 2001 19:41:22 +0000
+Subject: [Linux-ia64] Re: ia32 compatibility problem
+Message-Id: <marc-linux-ia64-105590693005973@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005821@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005821@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-shameem.f.akhter@intel.com (Akhter, Shameem F) writes:
+David Mosberger (davidm@hpl.hp.com) said: 
+> I thought I should give abiword-0.9 a try.  With the x86 binary, I get
+> the following kind of error messages on startup:
+> 
+> Gtk-WARNING **: /usr/lib/gtk/themes/engines/libpixmap.so: cannot open shared object file: No such file or directory
+> 
+> This is of course because libpixmap.so is an IA-64 shared library.
+> Seems like gtk needs to be enhanced to take the architecture into
+> account.
 
-> I am looking for information about SSL on Linux. Could you please let me
-> know, which flavor of SSL (it could be mod_SSL, OpenSSL, SSLeay) is
-> available on Itanium Linux.
+Tha, and many many many other things.
 
-I am happily using OpenSSL on our Debian systems right now.  It required a
-fairly trivial patch to the Configure file to define the compilation options
-desired, which I am pretty sure has been merged in upstream by now.
+Hint: don't try to install anything important linked against PAM. :)
 
-Bdale
+Did abiword at least work with the warning?
+
+Bill
 
