@@ -1,25 +1,28 @@
-From: Harish Babu <babu.harish@usa.net>
-Date: Sun, 03 Feb 2002 20:37:59 +0000
-Subject: [Linux-ia64] IA64 Link Relocation operators
-Message-Id: <marc-linux-ia64-105590698805983@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Tue, 05 Feb 2002 21:21:50 +0000
+Subject: Re: [Linux-ia64] IA64 Link Relocation operators
+Message-Id: <marc-linux-ia64-105590698805993@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805983@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805983@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+> Could somebody tell me where i could find documentation on IA64 Link
+>relocation operators.
 
- Could somebody tell me where i could find documentation on IA64 Link
-relocation operators.  Where could i find more data about the 
-Relocation entries in the object file.  I have gone through the ELF format
-and i have some idea about these.  I also wanted to know the different
-type of IA64 relocations.  
+The only formal documention I know about is in the Assembly Language
+Reference Guide available from the Intel web site.  It has a chapter on
+Link-relocation Operators.  The explanations are very short, and probably
+not understandable unless you have a good understanding of how IA-64
+compilers work.
 
-Thanks
-Harish
+There is also documentation of sorts in the GNU sources.  Gcc has code to
+emit assembly using link-relocation operators, GNU as has code to create
+relocation entries in object files, and GNU ld has code to evaluate the
+relocation operators at link time.
 
-
-____________________________________________________________________
-Get free e-mail and a permanent address at http://www.amexmail.com/?A=1
+Jim
 
