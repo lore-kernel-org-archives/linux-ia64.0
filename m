@@ -1,25 +1,29 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 17 Aug 2000 21:27:05 +0000
-Subject: Re: [Linux-ia64] [PATCH] fix for modules_install
-Message-Id: <marc-linux-ia64-105590678205349@msgid-missing>
+From: Daniel Schepler <schepler@math.berkeley.edu>
+Date: Tue, 08 Aug 2000 21:42:14 +0000
+Subject: [Linux-ia64] Where are sources?
+Message-Id: <marc-linux-ia64-105590678205286@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205329@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205329@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 16 Aug 2000 09:06:39 -0700, Keith Owens <kaos@ocs.com.au> said:
+I'm trying to build a Debian ia64 port, but so far I haven't been able
+to find many source tarballs that seem to be up to date.  Here's what
+I've found so far:
 
-  Keith> arch/ia64/tools/Makefile should include Rules.make instead of
-  Keith> adding its own target and .PHONY rules.  see
-  Keith> arch/mips/tools/Makefile.  AFAICT there is no reason not to
-  Keith> include Rules.make.
+The gnu-efi announced here yesterday
+eli-0.4.0 from sourceforge.net
+The Cygnus toolchain 2.9-ia64-000216-final from
+ftp.cygnus.com/private/intel.  It has a gcc/version.c dated May 1, and
+seems to be out of date since it won't accept -mconstant-gp.
+No glibc-2.1.3 distribution (except embedded in SRPM's).
 
-I'd be happy to make the change _if_ it's really safe to do so.  We're
-doing some weird build tricks in a cross-build environment and I want
-to make sure we don't break that code.
-
-	--david
+Please let me know where to find the most recent versions of the last
+two, as well as any other essential ia64-specific tools I might have
+missed.
+-- 
+Daniel Schepler              "Please don't disillusion me.  I
+schepler@math.berkeley.edu    haven't had breakfast yet."
+                                 -- Orson Scott Card
 
