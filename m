@@ -1,58 +1,31 @@
-From: "Mallick, Asit K" <asit.k.mallick@intel.com>
-Date: Thu, 15 Jun 2000 21:36:56 +0000
-Subject: RE: [Linux-ia64] Disable VGA on motherboard ?
-Message-Id: <marc-linux-ia64-105590678205152@msgid-missing>
+From: SCHAN@uk.ibm.com
+Date: Wed, 14 Jun 2000 16:04:41 +0000
+Subject: [Linux-ia64] signal interface: SIGINFO and sa_sigaction
+Message-Id: <marc-linux-ia64-105590678205139@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205147@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205147@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Yes, you need to put the video card in the PCI bus 0 and they are marked
-(lowest slot #).
 
-Thanks,
-Asit
+Hello,
 
+I am porting some applications over from Linux x86 to IA64, and run into
+problem with the signals - It seems to me that the IA64 kernel hasn't
+implement the sa_sigaction interface for singal handlers - which, according
+to the man page, should be implemented for Kernel 2.1.86. Just wonder
+whether the IA64 kernel will be done up to support it?
 
------Original Message-----
-From: Hiram Clawson, 831-427-7519 [mailto:hiramc@sco.COM]
-Sent: Thursday, June 15, 2000 1:34 PM
-To: jerdfelt@valinux.com
-Cc: linux-ia64@linuxia64.org
-Subject: Re: [Linux-ia64] Disable VGA on motherboard ?
+-x-
+Sunny Chan
+Java Technology Center,
+Mail Point 146, IBM UK, Hursley Park, Winchester, England SO21 2JN
 
+Notes ID: Sunny Chan/UK/IBM
+Email: schan@uk.ibm.com
+Telephones: Internal: 246762 External: 01962 816762 Mobile: 07887-704088
 
-
-Thanks for the idea JE.  This was the problem, the video card
-has to be in slot one nearest the existing video connectors.
-It just works when placed there, no BIOS adjustment needed.
-
---Hiram - hiramc@sco.com
-
- Date: Thu, 15 Jun 2000 11:48:42 -0700
- From: Johannes Erdfelt <jerdfelt@valinux.com>
- To: "Hiram Clawson, 831-427-7519" <hiramc@sco.com>
- Cc: linux-ia64@linuxia64.org
- Subject: Re: [Linux-ia64] Disable VGA on motherboard ?
- 
- We've done this with the Lion without any problems. We didn't need to
- configure anything in the BIOS either.
- 
- I do think you need to place the video card in a specific set of slots.
- I'll check on that.
- 
- JE
- 
- 
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
 
 
