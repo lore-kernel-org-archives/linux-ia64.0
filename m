@@ -1,48 +1,100 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 13 Aug 2004 16:16:14 +0000
-Subject: Re: r996 - in trunk/kernel/ia64/kernel-patch-2.6.7-ia64-2.6.7: . debian
-Message-Id: <200408130916.14198.jbarnes@engr.sgi.com>
+From: Pat Gefre <pfg@sgi.com>
+Date: Wed, 04 Aug 2004 20:14:08 +0000
+Subject: Altix I/O code reorganization
+Message-Id: <200408042014.i74KE8fD141211@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040810071417.GA5080@lst.de>
-In-Reply-To: <20040810071417.GA5080@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-On Friday, August 13, 2004 9:02 am, Alex Williamson wrote:
-> On Fri, 2004-08-13 at 08:29 -0700, Jesse Barnes wrote:
-> > On Friday, August 13, 2004 2:32 am, Christoph Hellwig wrote:
-> > > --- /dev/null	Wed Dec 31 16:00:00 196900
-> > > +++ b/arch/ia64/kernel/numa.c	2004-08-12 18:28:06 -07:00
-> > > @@ -0,0 +1,46 @@
-> > > +#include <linux/config.h>
-> > > +#include <linux/topology.h>
-> > > +#include <linux/module.h>
-> > > +#include <asm/processor.h>
-> > > +#include <asm/smp.h>
-> > > +
-> > > +#ifdef CONFIG_NUMA
-> > >
-> > > You build this file conditional on CONFIG_
-> > > UMA, no need for this ifdef.
-> >
-> > Yep, you're right.
->
->    Ok, so you _can_ build NUMA in on a non-SMP kernel and you could even
-> imagine a single cpu box w/ multiple memory nodes.  I think our code
-> base should be able to support such a system.  However, for a distro
-> kernel, the purpose of a UP kernel is to ditch some of the high-end
-> overhead and tune it for a little box.  What's the performance hit on a
-> box that doesn't need NUMA/DISCONTIG to turn these on for a UP kernel?
-> Maybe it's small enough I shouldn't be worried.  Is there any way an
-> Altix could survive using the virtual memmap code on a UP build?
 
-I benchmarked CONFIG_DISCONTIGMEM awhile back, and it doesn't have a 
-measurable impact.  CONFIG_NUMA is probably a little more expensive though, 
-but I have no way of testing it since there's no real way to turn it off atm.  
-Theoretically Altix could get away with just a virtual memmap (which probably 
-has the most impact on performance of the three), but I've never tried 
-that...
+We have reorganized the I/O layer in the Altix code.
 
-Jesse
+We are posting this code for review before submitting for inclusion in
+the 2.5 tree.
+
+The patch set is at: ftp://oss.sgi.com/projects/sn2/sn2-update/
+
+It is based off the http://lia64.bkbits.net/to-linus-2.5 tree
+
+
+The general changes are:
+o added new hardware support
+o code cleanup (typedefs, include files, etc.)
+o simplified the directory structure (all files were arch/ia64/sn/io/
+   are now under arch/ia64/sn/ioif/)
+o code size reduced by >50%
+o major reorg of the code itself
+o copyright updates
+
+
+The patches and a short comment for each:
+
+001-deleted-files
+#    contains all the files that are no longer needed
+
+002-pci-fixup
+#   The io_init.c file replaces the pci_bus_cvlink.c. A diff of the files
+#   would not make much sense as the functionalities provided in pci_bus_cvlink.c
+#   are no longer needed. The new functions needed are:
+#
+#        1. Getting Platform Specific Information for PCI Buses/Devices.
+#        2. Getting Hardware Workaround Information.
+#        3. Getting I/O Hub Information.
+#
+#   The io_init.c file basically contains all the routines that are needed to
+#   allow a PCI Device Driver to perform Interrupts, PIOs and DMAs.
+
+003-pci-support
+#   There are some minor changes in these files. The biggest change is that we have
+#   broken up the SN Platform Specific DMA mapping interfaces into 3 different
+#   routines:
+#
+#        1.  32Bit Direct Mapping.
+#        2.  32Bit PMU Mapping.
+#        3.  64Bit Direct Mapping.
+#
+#   The SN Platform has 3 different PCI/PCIX Bridges. They are not all exactly the
+#   same, however they do provide the same functionality. We have abstracted
+#   the DMA mapping calls so that the caller will not have to be aware of the
+#   hardware differences. Example:
+#
+#        *dma_handle = (*provider->dmatrans_direct64)(pcidev_info, phys_addr,
+#                                  PCIIO_DMA_CMD | PCIIO_DMA_A64);
+#
+#   The Bus Driver for this card, determines the appropriate method.
+#
+
+004-pci-bridge-drivers
+#   This set of new files supports 2 of our 3 PCI Bridges, PIC and TIOCP.
+#   pcibr_dma.c is new and provides the PCI DMA Mapping routines.
+#   pcibr_sal_interfaces.c is new and provides the SAL Interfaces.
+#   pcibr_provider.c is new and defines the Chipset specific Provider Tables.
+#
+#   The rest of the file changes are mostly cleanup.
+
+005-klconfig
+#   Moved a file, but mostly cleanup
+
+006-bte
+#   Changes needed to remove hwgraph
+
+007-io-hub-provider
+#   Files needed to provide services for our I/O Hub devices
+
+008-kdb-support-functions
+#   KDB support functions
+
+009-misc-sources
+#   code cleanup
+#   ran thru Lindent
+#   changes needed for new I/O structure
+
+010-new-includes
+#   New includes with definitions for PCI devices, buses, and I/O hubs
+
+011-misc-include-changes
+#   code cleanup
+#   misc changes needed for new I/O structure
