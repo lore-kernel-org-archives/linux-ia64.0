@@ -1,7 +1,7 @@
-From: "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp>
-Date: Wed, 14 Nov 2001 07:00:06 +0000
+From: n0ano@indstorage.com
+Date: Thu, 15 Nov 2001 15:33:29 +0000
 Subject: Re: [Linux-ia64] Pagesize is different between IA32 and IA64
-Message-Id: <marc-linux-ia64-105590698805504@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805519@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805465@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805465@msgid-missing>
@@ -10,12 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
- Hi Don.
- Thank you very much! I greatly appreciate your kindness.
+David-
 
-At Tue, 13 Nov 2001 23:43:55 -0700,
-Dugger's wrote:
-> 
+OK, here's the patch to fix this.  I guess the only issue is that we
+have to have Yet Another IA32 System call shim but other than that
+the change is pretty minor.
+
+PS:  Hideki, please note that this is a different, slightly better
+patch than the one I sent you last night.  You should use this one.
+
+On Tue, Nov 13, 2001 at 11:43:55PM -0700, Dugger's wrote:
 > Never mind, I found the `calloc' code and I'm very depressed because it
 > does indeed assume that `brk' zeros out newly allocated memory which is
 > obviously going to create problems if `calloc' thinks the kernel has 4K
@@ -109,5 +113,62 @@ Dugger's wrote:
 > Linux-IA64 mailing list
 > Linux-IA64@linuxia64.org
 > http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
+
+-- 
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@indstorage.com
+Ph: 303/652-0870x117
+
+diff -aur kernel-bigsur-ref/arch/ia64/ia32/ia32_entry.S kernel-bigsur/arch/ia64/ia32/ia32_entry.S
+--- kernel-bigsur-ref/arch/ia64/ia32/ia32_entry.S	Tue Sep 25 19:40:29 2001
++++ kernel-bigsur/arch/ia64/ia32/ia32_entry.S	Wed Nov 14 21:07:28 2001
+@@ -209,7 +209,7 @@
+ 	data8 sys32_pipe
+ 	data8 sys32_times
+ 	data8 sys32_ni_syscall	  /* old prof syscall holder */
+-	data8 sys_brk		  /* 45 */
++	data8 sys32_brk		  /* 45 */
+ 	data8 sys_setgid	/* 16-bit version */
+ 	data8 sys_getgid	/* 16-bit version */
+ 	data8 sys32_signal
+diff -aur kernel-bigsur-ref/arch/ia64/ia32/sys_ia32.c kernel-bigsur/arch/ia64/ia32/sys_ia32.c
+--- kernel-bigsur-ref/arch/ia64/ia32/sys_ia32.c	Tue Sep 25 19:40:29 2001
++++ kernel-bigsur/arch/ia64/ia32/sys_ia32.c	Thu Nov 15 07:29:24 2001
+@@ -68,6 +68,7 @@
+ 
+ /* forward declaration: */
+ asmlinkage long sys32_mprotect (unsigned int, unsigned int, int);
++asmlinkage unsigned long sys_brk(unsigned long);
+ 
+ static int
+ nargs (unsigned int arg, char **ap)
+@@ -2123,6 +2124,7 @@
+ 	      default:
+ 		return -EINVAL;
+ 	}
++	return -EINVAL;
+ }
+ 
+ /*
+@@ -3376,6 +3378,19 @@
+ 		ret = PER_LINUX;
+ 	return ret;
+ }
++
++asmlinkage unsigned long
++sys32_brk(unsigned int brk)
++{
++	unsigned long ret, obrk;
++	struct mm_struct *mm = current->mm;
++
++	obrk = mm->brk;
++	ret = sys_brk(brk);
++	if (ret < obrk)
++		clear_user(ret, PAGE_ALIGN(ret) - ret);
++	return(ret);
++} 
+ 
+ #ifdef	NOTYET  /* UNTESTED FOR IA64 FROM HERE DOWN */
+ 
 
