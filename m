@@ -1,47 +1,54 @@
-From: Matthew Dobson <colpatch@us.ibm.com>
-Date: Wed, 30 Oct 2002 00:01:02 +0000
-Subject: Re: [Linux-ia64] Re: [PATCH] topology for ia64
-Message-Id: <marc-linux-ia64-105590709805290@msgid-missing>
+From: "Scott Murray" <scottm@somanetworks.com>
+Date: Thu, 24 Oct 2002 17:44:06 +0000
+Subject: [Linux-ia64] Re: [Pcihpd-discuss] Re: PCI Hotplug Drivers for 2.5
+Message-Id: <marc-linux-ia64-105590709805235@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805203@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805203@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-William Lee Irwin III wrote:
-> On Tue, Oct 29, 2002 at 02:19:25PM -0800, Matthew Dobson wrote:
-> +/*
-> + * Returns the number of the first CPU on Node 'node'.
-> + * Slow in the current implementation.
-> + * Who needs this?
-> + */
-> +/* #define __node_to_first_cpu(node) pool_cpus[pool_ptr[node]] */
-> +static inline int __node_to_first_cpu(int node)
-> 
-> So far so safe... though no obvious use of it.
+On Thu, 24 Oct 2002, Greg KH wrote:
 
-Yep...
+> On Thu, Oct 24, 2002 at 10:52:09AM -0400, Jeff Garzik wrote:
+> > Greg KH wrote:
+> > >I think we now all agree that resource management should move into a
+> > >place where it can be shared by all pci hotplug drivers, right?
+> > >
+> > >If so, anyone want to propose some common code?
+> >
+> >
+> > drivers/pci/setup* is not enough?
+> >
+> > I am surprised that anything needed to be added here...
+>
+> There was some reason that code would not work out when I looked at it
+> over a year ago.  But I don't remember why, so I'll go look at it again,
+> thanks for pointing it out.
+
+I don't know if you looked at my cPCI driver patch in detail, but it uses
+the setup-*.c code for all of its resource management.  The only things
+that were really missing in 2.4.x were:
+
+- exports of a few things, most notably pci_scan_bridge
+- code to update the resource windows of a newly added bridge (recursively)
+- a pci_write_bridge_bases
+- PCI resource reservation to allow hot insertion on dumb cPCI hardware
+- on x86, the smarts to work back to the root PCI bus to figure out the
+  IRQ pin to use when looking in the pirq table
+
+Since I've been swamped with other stuff, I just started finally porting
+my cPCI stuff to 2.5 yesterday. :(  I think I can get it up and running
+relatively quickly, but figuring out Ivan's newer hotplug helper code
+and how to take advantage of it might take me a couple of days.
+
+Scott
 
 
-> On Tue, Oct 29, 2002 at 02:19:25PM -0800, Matthew Dobson wrote:
-> 
->>No one is using it now.  I think that I will probably deprecate this 
->>function in the near future as it is pretty useless.  Anyone looking for 
->>that functionality can just do an __ffs(__node_to_cpu_mask(node)) 
->>instead, and hope that there is a reasonably quick implementation of 
->>__node_to_cpu_mask.
-> 
-> 
-> This assumes the value returned by __node_to_cpu_mask() is a single word.
-
-Which is the case right now.  When (not if) that changes, we'll come up 
-with more flexible ffs macros, or a better way to count variable length 
-bitmasks...  especially as there will be a TON of them.
-
-Cheers!
-
--Matt
+-- 
+Scott Murray
+SOMA Networks, Inc.
+Toronto, Ontario
+e-mail: scottm@somanetworks.com
 
 
