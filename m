@@ -1,93 +1,115 @@
 From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Tue, 21 Jan 2003 18:58:02 +0000
-Subject: [Linux-ia64] elilo-3.3a netbooting patch
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="wzJLGUyc3ArbnUjN"
-Message-Id: <marc-linux-ia64-105590709805737@msgid-missing>
+Date: Mon, 06 Jan 2003 19:22:23 +0000
+Subject: [Linux-ia64] pfmon-2.0/libpfm-2.0 final packages are now available
+Message-Id: <marc-linux-ia64-105590709805637@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---wzJLGUyc3ArbnUjN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hello everyone,
 
-Hi,
+Let's start the new year with some new software!
 
-The following patch fixes a problem when netbooting with elilo. Some IP addresses were 
-not correctly converted to strings. This problem affects people who are netbooting
-AND passing the DHCP-obtained IP address to the kernel using elilo's %I, %M, %N 
-substitution variables. Other netbooting configurations should not be affected
-by this bug. The patch also includes 2 other minor bug fixes.
+I have now released the *FINAL* bits of version 2.0 of the pfmon 
+PMU-based monitoring tool for Linux/ia64.
 
-The patch is to be applied to elilo-3.3a.
+There is no major overhaul compared with version 1.1 of the tool despite 
+the new major version number. This change is dictated by the fact that the 
+library (libpfm) on which pfmon is based is now a separate package called 
+libpfm. 
+
+The licence of the library was changed from GPL to MIT-style licence to allow
+more diverse use (see http://www.opensource.org for details).
+
+IMPORTANT: If you have downloaded the beta version of pfmon 2.0 or libpfm 2.0, 
+           please UPGRADE to the official final version as some changes/bug 
+           fixes were made.
+
+Highlights of the changes:
+--------------------------
+
+  1/ pfmon
+
+	- support for sampling period randomization. The mechanisms
+	  uses a bitmask and a seed per counters. The random sequence
+	  is fully determined by the seed, allowing identical reruns
+	  (--smpl-periods-randomize).
+
+	- support for monitoring at privilege level 1 & 2 (-1, -2).
+
+	- a new option to activate monitoring after a certain number 
+	  of seconds (--trigger-start-delay).
+
+	- a lot of bug fixes related to Itanium2 (BTB) and sampling.
+
+	- a lot of code cleanup and simplifications.
+
+	- more checking on event combinations.
+
+	- updated documentation (see in docs).
+
+	- a new --exclude-idle option to exclude idle task execution
+	  from system wide sessions. This REQUIRES kernel perfmon-1.3, 
+          which has NOT YET been released.
+		
+  2/ libpfm
+
+	- changed interface to pfm_dispatch_events().
+
+	- changed pfmlib_param_t structure to include the pfarg_reg_t 
+          table.
+
+	- man pages for all possible calls, generic and model specific.
+
+	- simplified pfm_find_*() interface
+
+	- support for shared version of the library.
+
+	- a lot of bug fixes and code cleanups.
+
+Thanks to the UIUC Impact Compiler Team, David Mosberger, Elias Mizan, 
+Peter Chubb and Dan Magenheimer for submitting bug reports and patches.
+
+
+NOTES:
+------
+
+  - Randomization requires kernel support. You need 2.4.20 or 2.5.39 (or higher)
+    for this to work.
+
+  - Due to the interface change in the library, existing applications need to be 
+    updated. Follow the documentation and look at the code examples in the 
+    library package.
+
+  - Idle task exclusion requires kernel support. The required support will be
+    added to the upcoming kernel perfmon-1.3 version and will show up the in
+    next release of the 2.4 and 2.5 kernel series.
+
+DOWNLOADS:
+----------
+The packages are available in full source tarball and RPM formats from:
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-2.0.tar.gz
+	MD5SUM: 9ad0abe5abc3101b5f380ef6d5722c99
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-2.0-1.ia64.rpm
+	MD5SUM: 890ddacf12de80d496ad27b42d06040d
+	
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/libpfm-2.0.tar.gz
+	MD5SUM: 04698ba3a71f3a641db05269596b5913
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/libpfm-2.0-1.ia64.rpm
+	MD5SUM: 7432050a5c2855bb74989942f2dae782
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/libpfm-devel-2.0-1.ia64.rpm
+	MD5SUM: a433a9b4df3fed1f815f99a016917264
+
+Enjoy,
+
+Happy new Year.
 
 -- 
 -Stephane
-
---wzJLGUyc3ArbnUjN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="elilo-030121.diff"
-
-diff -urN elilo-3.3a/ChangeLog elilo-3.3b/ChangeLog
---- elilo-3.3a/ChangeLog	2002-10-15 10:55:30.000000000 -0700
-+++ elilo-3.3b/ChangeLog	2003-01-21 10:52:18.000000000 -0800
-@@ -1,3 +1,8 @@
-+2003-01-21 Stephane Eranian <eranian@hpl.hp.com>
-+	* fix bug in glue_netfs.c convert_ip2decstr() which caused some IP
-+	  addresses to be incorrectly converted to strings.
-+2002-11-01 Stephane Eranian <eranian@hpl.hp.com>
-+	* fix bug in -r option for IA64. There is no argument to this option.
- 2002-10-15 Stephane Eranian <eranian@hpl.hp.com>
- 	* fixed a double free bug for the kernel memory in case of abort.
- 	  (bug spotted by Levent Akyl from Intel)
-diff -urN elilo-3.3a/glue_netfs.c elilo-3.3b/glue_netfs.c
---- elilo-3.3a/glue_netfs.c	2002-06-11 09:42:36.000000000 -0700
-+++ elilo-3.3b/glue_netfs.c	2003-01-21 10:45:30.000000000 -0800
-@@ -82,9 +82,10 @@
- 		}
- 		val = val % 100;
- 		v = val / 10;
--		if (v) {
-+		if (v || ip[i] >= 100) {
- 			str[j++] = '0'+v;
- 		}
-+
- 		v = val % 10;
- 		str[j++] = '0'+v;
- 		if (i < l-1) str[j++] = '.';
-diff -urN elilo-3.3a/ia32/system.c elilo-3.3b/ia32/system.c
---- elilo-3.3a/ia32/system.c	2002-02-21 17:26:43.000000000 -0800
-+++ elilo-3.3b/ia32/system.c	2002-11-06 10:16:45.000000000 -0800
-@@ -843,6 +843,17 @@
- 		return -1;
- 	}
- 
-+	/* 
-+	 * Let's not forget efi info for EFI aware
-+	 * IA32 kernels...
-+	 */
-+	bp->s.efi_sys_tbl = (UINTN)systab;
-+	bp->s.efi_mem_map 	= (UINTN)mdesc.md;
-+	bp->s.efi_mem_map_size	= mdesc.map_size;
-+	bp->s.efi_mem_desc_size = mdesc.desc_size;
-+	bp->s.efi_mem_desc_ver 	= mdesc.desc_version;
-+	
-+
- 	*cookie = mdesc.cookie;
- 
- 	return 0;
-diff -urN elilo-3.3a/ia64/config.c elilo-3.3b/ia64/config.c
---- elilo-3.3a/ia64/config.c	2002-08-15 19:08:38.000000000 -0700
-+++ elilo-3.3b/ia64/config.c	2002-11-01 09:39:57.000000000 -0800
-@@ -96,7 +96,7 @@
- 	    || (elilo_opt.sys_img_opts && elilo_opt.sys_img_opts->allow_relocation ==TRUE) ? 1 : 0;
- }
- 
--#define IA64_CMDLINE_OPTIONS	L"r:F:"
-+#define IA64_CMDLINE_OPTIONS	L"rF:"
- 
- CHAR16 *
- sysdeps_get_cmdline_opts(VOID)
-
---wzJLGUyc3ArbnUjN--
 
