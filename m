@@ -1,33 +1,21 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 28 Feb 2002 19:19:01 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905202@msgid-missing>
+From: Michael Madore <mmadore@turbolinux.com>
+Date: Tue, 05 Feb 2002 20:43:17 +0000
+Subject: [Linux-ia64] Proper fix for sym53c8xx_2 driver and dma64_addr_t
+Message-Id: <marc-linux-ia64-105590698805991@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205111@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 28 Feb 2002 15:40:53 +1100, Peter Chubb <peter@chubb.wattle.id.au> said:
+Hi,
 
->>>>> "David" = David Mosberger <davidm@hpl.hp.com> writes:
-  David> The latest ia64 patch is now availabe at ftp.CC.kernel.org in
-  David> /pub/linux/kernel/ports/ia64/v2.4/:
+Back in early december, it was brought up that eh sym53c8xx_2 driver
+makes use of dma64_addr_t, which is not defined on IA64.  I got the
+impression that it was the driver that needed to be modified to correct
+the problem, but I don't recall seeing a specific solution.  I was going
+to simply replace dma64_addr_t with u64 in sym_glue.c for now.  Is there
+a better way?
 
-  Peter> With this patched kernel, one cannot configure the loop device when
-  Peter> using the HP simulator.
-
-  Peter> I moved the line that sourced the block-device config script outside
-  Peter> the HP_SIM guards, as in the appended patch.
-
-Hmmh, I'm a bit reluctant to do this, as it will pull in all the other
-drivers, 99% of which won't build.  How about just including the
-loopback prompt directly in the ia64 config?  If this works, send me a
-patch and I'll include it.  (Yes, I realize that's kludgy, but
-presumably this will all get cleaned up if and when the new kernel
-configuration makes it into 2.5).
-
-	--david
+Mike
 
