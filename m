@@ -1,25 +1,23 @@
-From: Christian Hinkelbein <hinkelbein@ti.uni-mannheim.de>
-Date: Wed, 03 Apr 2002 15:40:36 +0000
-Subject: [Linux-ia64] problems with scsi
-Message-Id: <marc-linux-ia64-105590701905368@msgid-missing>
+From: Richard Henderson <rth@redhat.com>
+Date: Mon, 08 Apr 2002 05:52:19 +0000
+Subject: [Linux-ia64] Re: epilogue count exceeds number of nested prologues
+Message-Id: <marc-linux-ia64-105590701905404@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-hi all,
-sorry, this may be out of topic:
-i have a dual-ia64 with a qlogic qla12160 scsi controller.
-this talks to an ibm ddys-t18350 harddisk.
-i cant get it running since after "modprobe qla1280"
-kernel says: "sda: unsupported sector size 8704."
-no other complains before or after.
-the disk works fine on a ia32 with a symbios u160 controller.
-do you know any hints how i could track down the problem?
-or could you forward me to someone that maybe knows?
-i use suse 7.2 ia64, currently on a 5 jear old ide disk.
-now i got double the size ram compared with hardisk size.
-thanks
- christian
+On Sun, Apr 07, 2002 at 05:17:14PM -0700, Randolph Chung wrote:
+> The offending assembly code is attached. it's the ".restore sp" near
+> the end that is triggering the error.
+
+Yes, this assembly is completely scrogged.  It's all inside inline
+assembly too, so it's no one's fault but the programmer.
+
+That said, you must be using an old libffi, since the one in gcc
+cvs works just fine.
+
+
+r~
 
