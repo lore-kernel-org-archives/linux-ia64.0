@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 12 May 2004 21:24:42 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 12 May 2004 21:35:03 +0000
 Subject: Re: [RFC] I/O MCA recovery
-Message-Id: <200405121424.42415.jbarnes@engr.sgi.com>
+Message-Id: <16546.39047.87546.787693@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405040954.09524.jbarnes@engr.sgi.com>
 In-Reply-To: <200405040954.09524.jbarnes@engr.sgi.com>
@@ -10,22 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday, May 12, 2004 2:11 pm, David Mosberger wrote:
-> So if multiple processes map the same I/O range then _all_ of them
-> will be terminated?
+>>>>> On Wed, 12 May 2004 14:24:42 -0700, Jesse Barnes <jbarnes@engr.sgi.com> said:
 
-As it stands, only the first PID that has a matching range will get a SIGBUS, 
-but that could be changed.
+  >> This all just seems incredibly fragile to me.
 
-> What if stuff gets remapped etc?
+  Jesse> I think it's useful for at least a subset of the I/O MCAs
+  Jesse> that people see, and with the addition of the read_check
+  Jesse> stuff, may be more generally useful.  Obviously though, this
+  Jesse> doesn't recover from 100% of I/O errors, something that's
+  Jesse> probably not practical anyway...
 
-Then the machine takes an unrecoverable MCA, just like it does now.
+It definitely falls in the experimental category.  That isn't bad but
+I don't think it's mainline material.  Certainly not for 2.6.
 
-> This all just seems incredibly fragile to me.
-
-I think it's useful for at least a subset of the I/O MCAs that people see, and 
-with the addition of the read_check stuff, may be more generally useful.  
-Obviously though, this doesn't recover from 100% of I/O errors, something 
-that's probably not practical anyway...
-
-Jesse
+	--david
