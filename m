@@ -1,7 +1,7 @@
 From: Andrew Morton <akpm@osdl.org>
-Date: Tue, 23 Mar 2004 18:16:44 +0000
+Date: Tue, 23 Mar 2004 18:17:56 +0000
 Subject: Re: 2.6.5-rc2 lots of warnings for dma_error
-Message-Id: <20040323101644.472c47ae.akpm@osdl.org>
+Message-Id: <20040323101756.13f8442e.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <5631.1079924674@kao2.melbourne.sgi.com>
 In-Reply-To: <5631.1079924674@kao2.melbourne.sgi.com>
@@ -12,136 +12,205 @@ To: linux-ia64@vger.kernel.org
 
 Andrew Morton <akpm@osdl.org> wrote:
 >
-> > But let's put the blame where it belongs: the name space was
->  > "polluted" by introducing dma_error().  It certainly must be
->  > legal to implement basic APIs using macros.
+> Andrew Morton <akpm@osdl.org> wrote:
+>  >
+>  > > But let's put the blame where it belongs: the name space was
+>  >  > "polluted" by introducing dma_error().  It certainly must be
+>  >  > legal to implement basic APIs using macros.
+>  > 
+>  >  yes, perhaps it's not too late to change it.  Anton, what will this break?
 > 
->  yes, perhaps it's not too late to change it.  Anton, what will this break?
+>  Here's a completer patch.  I'll submit this I think.
+> 
+> 
+> 
+>  We're getting namespace collisions from the new dma_error().  Rename it to
+>  dma_mapping_error().
+> 
 
-Here's a completer patch.  I'll submit this I think.
+Updated ia64 patch:
 
 
+ 25-akpm/arch/ia64/hp/common/sba_iommu.c   |    7 +++++++
+ 25-akpm/arch/ia64/lib/swiotlb.c           |    7 +++++++
+ 25-akpm/arch/ia64/sn/io/machvec/pci_dma.c |    7 +++++++
+ 25-akpm/include/asm-ia64/dma-mapping.h    |    6 ++++++
+ 25-akpm/include/asm-ia64/machvec.h        |    8 ++++++++
+ 25-akpm/include/asm-ia64/machvec_hpzx1.h  |    2 ++
+ 25-akpm/include/asm-ia64/machvec_sn2.h    |    2 ++
+ 7 files changed, 39 insertions(+)
 
-We're getting namespace collisions from the new dma_error().  Rename it to
-dma_mapping_error().
-
-
----
-
- 25-akpm/Documentation/DMA-API.txt            |    6 +++---
- 25-akpm/Documentation/DMA-mapping.txt        |    4 ++--
- 25-akpm/include/asm-generic/dma-mapping.h    |    4 ++--
- 25-akpm/include/asm-generic/pci-dma-compat.h |    4 ++--
- 25-akpm/include/asm-i386/dma-mapping.h       |    2 +-
- 25-akpm/include/asm-ppc64/pci.h              |    2 +-
- 25-akpm/include/asm-sparc64/pci.h            |    2 +-
- 7 files changed, 12 insertions(+), 12 deletions(-)
-
-diff -puN Documentation/DMA-API.txt~rename-dma_error Documentation/DMA-API.txt
---- 25/Documentation/DMA-API.txt~rename-dma_error	2004-03-23 10:12:37.798413704 -0800
-+++ 25-akpm/Documentation/DMA-API.txt	2004-03-23 10:12:37.808412184 -0800
-@@ -279,14 +279,14 @@ recommended that you never use these unl
- cache width is.
- 
- int
--dma_error(dma_addr_t dma_addr)
-+dma_mapping_error(dma_addr_t dma_addr)
- 
- int
--pci_dma_error(dma_addr_t dma_addr)
-+pci_dma_mapping_error(dma_addr_t dma_addr)
- 
- In some circumstances dma_map_single and dma_map_page will fail to create
- a mapping. A driver can check for these errors by testing the returned
--dma address with dma_error(). A non zero return value means the mapping
-+dma address with dma_mapping_error(). A non zero return value means the mapping
- could not be created and the driver should take appropriate action (eg
- reduce current DMA mapping usage or delay and try again later).
- 
-diff -puN Documentation/DMA-mapping.txt~rename-dma_error Documentation/DMA-mapping.txt
---- 25/Documentation/DMA-mapping.txt~rename-dma_error	2004-03-23 10:12:37.799413552 -0800
-+++ 25-akpm/Documentation/DMA-mapping.txt	2004-03-23 10:12:37.808412184 -0800
-@@ -850,12 +850,12 @@ failure can be determined by:
- - checking if pci_alloc_consistent returns NULL or pci_map_sg returns 0
- 
- - checking the returned dma_addr_t of pci_map_single and pci_map_page
--  by using pci_dma_error():
-+  by using pci_dma_mapping_error():
- 
- 	dma_addr_t dma_handle;
- 
- 	dma_handle = pci_map_single(dev, addr, size, direction);
--	if (pci_dma_error(dma_handle)) {
-+	if (pci_dma_mapping_error(dma_handle)) {
- 		/*
- 		 * reduce current DMA mapping usage,
- 		 * delay and try again later or
-diff -puN include/asm-generic/dma-mapping.h~rename-dma_error include/asm-generic/dma-mapping.h
---- 25/include/asm-generic/dma-mapping.h~rename-dma_error	2004-03-23 10:12:37.801413248 -0800
-+++ 25-akpm/include/asm-generic/dma-mapping.h	2004-03-23 10:12:37.809412032 -0800
-@@ -141,9 +141,9 @@ dma_sync_sg_for_device(struct device *de
+diff -puN arch/ia64/hp/common/sba_iommu.c~ia64-dma_mapping_error-fix arch/ia64/hp/common/sba_iommu.c
+--- 25/arch/ia64/hp/common/sba_iommu.c~ia64-dma_mapping_error-fix	Mon Mar 22 14:34:46 2004
++++ 25-akpm/arch/ia64/hp/common/sba_iommu.c	Mon Mar 22 14:34:46 2004
+@@ -1979,6 +1979,12 @@ sba_dma_supported (struct device *dev, u
+ 	return ((mask & 0xFFFFFFFFUL) = 0xFFFFFFFFUL);
  }
  
- static inline int
--dma_error(dma_addr_t dma_addr)
-+dma_mapping_error(dma_addr_t dma_addr)
- {
--	return pci_dma_error(dma_addr);
-+	return pci_dma_mapping_error(dma_addr);
++int
++sba_dma_mapping_error (dma_addr_t dma_addr)
++{
++	return 0;
++}
++
+ __setup("nosbagart", nosbagart);
+ 
+ static int __init
+@@ -2004,6 +2010,7 @@ sba_page_override(char *str)
+ 
+ __setup("sbapagesize=",sba_page_override);
+ 
++EXPORT_SYMBOL(sba_dma_mapping_error);
+ EXPORT_SYMBOL(sba_map_single);
+ EXPORT_SYMBOL(sba_unmap_single);
+ EXPORT_SYMBOL(sba_map_sg);
+diff -puN arch/ia64/lib/swiotlb.c~ia64-dma_mapping_error-fix arch/ia64/lib/swiotlb.c
+--- 25/arch/ia64/lib/swiotlb.c~ia64-dma_mapping_error-fix	Mon Mar 22 14:34:46 2004
++++ 25-akpm/arch/ia64/lib/swiotlb.c	Mon Mar 22 14:34:46 2004
+@@ -498,6 +498,12 @@ swiotlb_sync_sg_for_device (struct devic
+ 			sync_single(hwdev, (void *) sg->dma_address, sg->dma_length, dir);
  }
  
- /* Now for the API extensions over the pci_ one */
-diff -puN include/asm-generic/pci-dma-compat.h~rename-dma_error include/asm-generic/pci-dma-compat.h
---- 25/include/asm-generic/pci-dma-compat.h~rename-dma_error	2004-03-23 10:12:37.803412944 -0800
-+++ 25-akpm/include/asm-generic/pci-dma-compat.h	2004-03-23 10:12:37.809412032 -0800
-@@ -99,9 +99,9 @@ pci_dma_sync_sg_for_device(struct pci_de
++int
++swiotlb_dma_mapping_error(dma_addr_t dma_addr)
++{
++	return 0;
++}
++
+ /*
+  * Return whether the given PCI device DMA address mask can be supported properly.  For
+  * example, if your device can only drive the low 24-bits during PCI bus mastering, then
+@@ -518,6 +524,7 @@ EXPORT_SYMBOL(swiotlb_sync_single_for_cp
+ EXPORT_SYMBOL(swiotlb_sync_single_for_device);
+ EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
+ EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
++EXPORT_SYMBOL(swiotlb_dma_mapping_error);
+ EXPORT_SYMBOL(swiotlb_alloc_coherent);
+ EXPORT_SYMBOL(swiotlb_free_coherent);
+ EXPORT_SYMBOL(swiotlb_dma_supported);
+diff -puN arch/ia64/sn/io/machvec/pci_dma.c~ia64-dma_mapping_error-fix arch/ia64/sn/io/machvec/pci_dma.c
+--- 25/arch/ia64/sn/io/machvec/pci_dma.c~ia64-dma_mapping_error-fix	Mon Mar 22 14:34:46 2004
++++ 25-akpm/arch/ia64/sn/io/machvec/pci_dma.c	Mon Mar 22 14:34:46 2004
+@@ -652,6 +652,13 @@ sn_dma_sync_sg_for_device(struct device 
  }
+ EXPORT_SYMBOL(sn_dma_sync_sg_for_device);
  
- static inline int
--pci_dma_error(dma_addr_t dma_addr)
-+pci_dma_mapping_error(dma_addr_t dma_addr)
- {
--	return dma_error(dma_addr);
-+	return dma_mapping_error(dma_addr);
- }
++int
++sn_dma_mapping_error(dma_addr_t dma_addr)
++{
++	return 0;
++}
++
++EXPORT_SYMBOL(sn_dma_mapping_error);
+ EXPORT_SYMBOL(sn_pci_unmap_single);
+ EXPORT_SYMBOL(sn_pci_map_single);
+ EXPORT_SYMBOL(sn_pci_dma_sync_single_for_cpu);
+diff -puN include/asm-ia64/dma-mapping.h~ia64-dma_mapping_error-fix include/asm-ia64/dma-mapping.h
+--- 25/include/asm-ia64/dma-mapping.h~ia64-dma_mapping_error-fix	Mon Mar 22 14:34:46 2004
++++ 25-akpm/include/asm-ia64/dma-mapping.h	Mon Mar 22 14:35:03 2004
+@@ -19,6 +19,12 @@
+ #define dma_sync_single_for_device platform_dma_sync_single_for_device
+ #define dma_sync_sg_for_device	platform_dma_sync_sg_for_device
  
++/* inline function to avoid namespace pollution */
++static inline int dma_mapping_error (dma_addr_t dma_addr)
++{
++	return platform_dma_mapping_error(dma_addr);
++}
++
+ #define dma_map_page(dev, pg, off, size, dir)				\
+ 	dma_map_single(dev, page_address(pg) + (off), (size), (dir))
+ #define dma_unmap_page(dev, dma_addr, size, dir)			\
+diff -puN include/asm-ia64/machvec.h~ia64-dma_mapping_error-fix include/asm-ia64/machvec.h
+--- 25/include/asm-ia64/machvec.h~ia64-dma_mapping_error-fix	Mon Mar 22 14:34:46 2004
++++ 25-akpm/include/asm-ia64/machvec.h	Mon Mar 22 14:34:46 2004
+@@ -46,6 +46,7 @@ typedef void ia64_mv_dma_sync_single_for
+ typedef void ia64_mv_dma_sync_sg_for_cpu (struct device *, struct scatterlist *, int, int);
+ typedef void ia64_mv_dma_sync_single_for_device (struct device *, dma_addr_t, size_t, int);
+ typedef void ia64_mv_dma_sync_sg_for_device (struct device *, struct scatterlist *, int, int);
++typedef int ia64_mv_dma_mapping_error (dma_addr_t dma_addr);
+ typedef int ia64_mv_dma_supported (struct device *, u64);
+ 
+ /*
+@@ -110,6 +111,7 @@ extern void machvec_memory_fence (void);
+ #  define platform_dma_sync_sg_for_cpu	ia64_mv.dma_sync_sg_for_cpu
+ #  define platform_dma_sync_single_for_device ia64_mv.dma_sync_single_for_device
+ #  define platform_dma_sync_sg_for_device ia64_mv.dma_sync_sg_for_device
++#  define platform_dma_mapping_error		ia64_mv.dma_mapping_error
+ #  define platform_dma_supported	ia64_mv.dma_supported
+ #  define platform_irq_desc		ia64_mv.irq_desc
+ #  define platform_irq_to_vector	ia64_mv.irq_to_vector
+@@ -158,6 +160,7 @@ struct ia64_machine_vector {
+ 	ia64_mv_dma_sync_sg_for_cpu *dma_sync_sg_for_cpu;
+ 	ia64_mv_dma_sync_single_for_device *dma_sync_single_for_device;
+ 	ia64_mv_dma_sync_sg_for_device *dma_sync_sg_for_device;
++	ia64_mv_dma_mapping_error *dma_mapping_error;
+ 	ia64_mv_dma_supported *dma_supported;
+ 	ia64_mv_irq_desc *irq_desc;
+ 	ia64_mv_irq_to_vector *irq_to_vector;
+@@ -202,6 +205,7 @@ struct ia64_machine_vector {
+ 	platform_dma_sync_sg_for_cpu,		\
+ 	platform_dma_sync_single_for_device,	\
+ 	platform_dma_sync_sg_for_device,	\
++	platform_dma_mapping_error,			\
+ 	platform_dma_supported,			\
+ 	platform_irq_desc,			\
+ 	platform_irq_to_vector,			\
+@@ -243,6 +247,7 @@ extern ia64_mv_dma_sync_single_for_cpu	s
+ extern ia64_mv_dma_sync_sg_for_cpu	swiotlb_sync_sg_for_cpu;
+ extern ia64_mv_dma_sync_single_for_device swiotlb_sync_single_for_device;
+ extern ia64_mv_dma_sync_sg_for_device	swiotlb_sync_sg_for_device;
++extern ia64_mv_dma_mapping_error		swiotlb_dma_mapping_error;
+ extern ia64_mv_dma_supported		swiotlb_dma_supported;
+ 
+ /*
+@@ -312,6 +317,9 @@ extern ia64_mv_dma_supported		swiotlb_dm
+ #ifndef platform_dma_sync_sg_for_device
+ # define platform_dma_sync_sg_for_device	swiotlb_sync_sg_for_device
  #endif
-diff -puN include/asm-i386/dma-mapping.h~rename-dma_error include/asm-i386/dma-mapping.h
---- 25/include/asm-i386/dma-mapping.h~rename-dma_error	2004-03-23 10:12:37.804412792 -0800
-+++ 25-akpm/include/asm-i386/dma-mapping.h	2004-03-23 10:12:37.810411880 -0800
-@@ -111,7 +111,7 @@ dma_sync_sg_for_device(struct device *de
- }
++#ifndef platform_dma_mapping_error
++# define platform_dma_mapping_error		swiotlb_dma_mapping_error
++#endif
+ #ifndef platform_dma_supported
+ # define  platform_dma_supported	swiotlb_dma_supported
+ #endif
+diff -puN include/asm-ia64/machvec_hpzx1.h~ia64-dma_mapping_error-fix include/asm-ia64/machvec_hpzx1.h
+--- 25/include/asm-ia64/machvec_hpzx1.h~ia64-dma_mapping_error-fix	Mon Mar 22 14:34:46 2004
++++ 25-akpm/include/asm-ia64/machvec_hpzx1.h	Mon Mar 22 14:34:46 2004
+@@ -9,6 +9,7 @@ extern ia64_mv_dma_unmap_single		sba_unm
+ extern ia64_mv_dma_map_sg		sba_map_sg;
+ extern ia64_mv_dma_unmap_sg		sba_unmap_sg;
+ extern ia64_mv_dma_supported		sba_dma_supported;
++extern ia64_mv_dma_mapping_error		sba_dma_mapping_error;
  
- static inline int
--dma_error(dma_addr_t dma_addr)
-+dma_mapping_error(dma_addr_t dma_addr)
- {
- 	return 0;
- }
-diff -puN include/asm-ppc64/pci.h~rename-dma_error include/asm-ppc64/pci.h
---- 25/include/asm-ppc64/pci.h~rename-dma_error	2004-03-23 10:12:37.806412488 -0800
-+++ 25-akpm/include/asm-ppc64/pci.h	2004-03-23 10:12:37.810411880 -0800
-@@ -170,7 +170,7 @@ static inline int pci_dac_dma_supported(
- }
+ /*
+  * This stuff has dual use!
+@@ -31,5 +32,6 @@ extern ia64_mv_dma_supported		sba_dma_su
+ #define platform_dma_sync_single_for_device ((ia64_mv_dma_sync_single_for_device *) machvec_memory_fence)
+ #define platform_dma_sync_sg_for_device	((ia64_mv_dma_sync_sg_for_device *) machvec_memory_fence)
+ #define platform_dma_supported		sba_dma_supported
++#define platform_dma_mapping_error		sba_dma_mapping_error
  
- #define PCI_DMA_ERROR_CODE      (~(dma_addr_t)0x0)
--static inline int pci_dma_error(dma_addr_t dma_addr)
-+static inline int pci_dma_mapping_error(dma_addr_t dma_addr)
- {
- 	return (dma_addr = PCI_DMA_ERROR_CODE);
- }
-diff -puN include/asm-sparc64/pci.h~rename-dma_error include/asm-sparc64/pci.h
---- 25/include/asm-sparc64/pci.h~rename-dma_error	2004-03-23 10:15:28.991388416 -0800
-+++ 25-akpm/include/asm-sparc64/pci.h	2004-03-23 10:15:42.161386272 -0800
-@@ -215,7 +215,7 @@ pci_dac_dma_sync_single_for_device(struc
+ #endif /* _ASM_IA64_MACHVEC_HPZX1_h */
+diff -puN include/asm-ia64/machvec_sn2.h~ia64-dma_mapping_error-fix include/asm-ia64/machvec_sn2.h
+--- 25/include/asm-ia64/machvec_sn2.h~ia64-dma_mapping_error-fix	Mon Mar 22 14:34:46 2004
++++ 25-akpm/include/asm-ia64/machvec_sn2.h	Mon Mar 22 14:34:46 2004
+@@ -66,6 +66,7 @@ extern ia64_mv_dma_sync_single_for_cpu	s
+ extern ia64_mv_dma_sync_sg_for_cpu	sn_dma_sync_sg_for_cpu;
+ extern ia64_mv_dma_sync_single_for_device sn_dma_sync_single_for_device;
+ extern ia64_mv_dma_sync_sg_for_device	sn_dma_sync_sg_for_device;
++extern ia64_mv_dma_mapping_error	sn_dma_mapping_error;
+ extern ia64_mv_dma_supported		sn_dma_supported;
  
- #define PCI_DMA_ERROR_CODE	(~(dma_addr_t)0x0)
+ /*
+@@ -111,6 +112,7 @@ extern ia64_mv_dma_supported		sn_dma_sup
+ #define platform_dma_sync_sg_for_cpu	sn_dma_sync_sg_for_cpu
+ #define platform_dma_sync_single_for_device sn_dma_sync_single_for_device
+ #define platform_dma_sync_sg_for_device	sn_dma_sync_sg_for_device
++#define platform_dma_mapping_error		sn_dma_mapping_error
+ #define platform_dma_supported		sn_dma_supported
  
--static inline int pci_dma_error(dma_addr_t dma_addr)
-+static inline int pci_dma_mapping_error(dma_addr_t dma_addr)
- {
- 	return (dma_addr = PCI_DMA_ERROR_CODE);
- }
+ #include <asm/sn/sn2/io.h>
 
 _
 
