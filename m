@@ -1,49 +1,45 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 09 Dec 2004 23:49:53 +0000
-Subject: Re: page fault scalability patch V12: rss tasklist vs sloppy rss
-Message-Id: <Pine.LNX.4.58.0412091543100.1369@schroedinger.engr.sgi.com>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Date: Thu, 16 Dec 2004 16:39:20 +0000
+Subject: Re: [PATCH] add legacy I/O port & memory APIs to /proc/bus/pci
+Message-Id: <41C1BA38.60304@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0412091830580.17648-300000@localhost.localdomain>
- <Pine.LNX.4.58.0412091348130.7478@schroedinger.engr.sgi.com>
- <20041209225259.GG2714@holomorphy.com> <Pine.LNX.4.58.0412091500360.1102@schroedinger.engr.sgi.com>
- <20041209232945.GH2714@holomorphy.com>
-In-Reply-To: <20041209232945.GH2714@holomorphy.com>
+References: <200412160850.20223.jbarnes@engr.sgi.com>
+In-Reply-To: <200412160850.20223.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: William Lee Irwin III <wli@holomorphy.com>
-Cc: Hugh Dickins <hugh@veritas.com>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jesse Barnes <jbarnes@engr.sgi.com>
+Cc: linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, willy@debian.org
 
-On Thu, 9 Dec 2004, William Lee Irwin III wrote:
+Jesse Barnes wrote:
+> This patch documents the /proc/bus/pci interface and adds some optional 
+> architecture specific APIs for accessing legacy I/O port and memory space.  
+> This is necessary on platforms where legacy I/O port space doesn't 'soft 
+> fail' like it does on PCs, and is useful for systems that can route legacy 
+> space to different PCI busses.
+> 
+> I've incorporated all the feedback I've received so far, so I think it's ready 
+> to send on to Andrew for inclusion, if someone could give the proc-pci.txt 
+> documentation a last read (and/or comment on other stuff I may have missed).
 
-> On Thu, Dec 09, 2004 at 03:07:13PM -0800, Christoph Lameter wrote:
-> > Sloppy rss left the rss in the section of mm that contained the counters.
-> > So that has a separate cacheline. The idea of putting the atomic ops in a
-> > group was to only have one exclusive cacheline for mmap_sem and the rss.
-> > Which could lead to more bouncing of a single cache line rather than
-> > bouncing multiple cache lines less. But it seems to me that the problem
-> > essentially remains the same if the rss counter is not split.
->
-> The prior results Robin Holt cited were that the counter needed to be
-> in a different cacheline from the ->mmap_sem and ->page_table_lock.
-> We shouldn't need to evaluate splitting for the atomic RSS algorithm.
+meta-comment:
+Would you (and not just you :) include a diffstat summary so we
+can see which files are being changed?  something like this:
 
-Ok. Then we would need rss and rss_anon on two additional cache lines?
-Both rss and anon_rss on one line? mmap_sem and the page_table_lock also
-each on different cache lines?
 
-> A faithful implementation would just move the atomic counters away from
-> the ->mmap_sem and ->page_table_lock (just shuffle some mm fields).
-> Obviously a complete set of results won't be needed unless it's very
-> surprisingly competitive with the stronger algorithms. Things should be
-> fine just making sure that behaves similarly to the one with the shared
-> cacheline with ->mmap_sem in the sense of having a curve of similar shape
-> on smaller systems. The absolute difference probably doesn't matter,
-> but there is something to prove, and the largest risk of not doing so
-> is exaggerating the low-end performance benefits of stronger algorithms.
+  Documentation/filesystems/proc-pci.txt |  126 
++++++++++++++++++++++++++++++++++
+  arch/ia64/pci/pci.c                    |  105 
++++++++++++++++++++++++++++
+  arch/ia64/sn/pci/pci_dma.c             |   74 +++++++++++++++++++
+  drivers/pci/proc.c                     |  100 +++++++++++++++++++++++---
+  include/asm-ia64/machvec.h             |   24 ++++++
+  include/asm-ia64/machvec_init.h        |    3
+  include/asm-ia64/machvec_sn2.h         |    6 +
+  include/asm-ia64/pci.h                 |    4 +
+  include/asm-ia64/sn/sn_sal.h           |   47 ++++++++++++
+  include/linux/pci.h                    |   12 ++-
+  10 files changed, 488 insertions(+), 13 deletions(-)
 
-The advantage in the split rss solution is that it can be placed on the
-same cacheline as other stuff from task that is already needed. So there
-is minimal overhead involved. But I can certainly give it a spin and see
-what the results are.
-
+-- 
+~Randy
