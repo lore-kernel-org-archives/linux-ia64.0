@@ -1,7 +1,7 @@
-From: Colin Ngam <cngam@sgi.com>
-Date: Mon, 20 Oct 2003 18:50:32 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 20 Oct 2003 20:43:59 +0000
 Subject: Re: [patch] xbow.c kmalloc fixes
-Message-Id: <marc-linux-ia64-106667619324544@msgid-missing>
+Message-Id: <marc-linux-ia64-106668311300758@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106641220628729@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106641220628729@msgid-missing>
@@ -10,27 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
+>>>>> On Mon, 20 Oct 2003 13:50:32 -0500, Colin Ngam <cngam@sgi.com> said:
 
->
->
-> The issue may be moot already.  Now that test8 is out, I'm not sure
-> Andrew/Linus would still accept large at all patches anymore.
->
->         --david
+  Colin> When is the next opportunity we can update the code base at sn
+  Colin> directory?
 
-Hi David,
+Good question.  I sounds like the rules may be relaxed some, once
+2.6.0 is out.  I'd recommend to discuss this with Andrew to see what
+he thinks.
 
-When is the next opportunity we can update the code base at sn
-directory?
-
-Thanks.
-
-colin
-
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+	--david
