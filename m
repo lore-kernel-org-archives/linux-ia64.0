@@ -1,21 +1,26 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Thu, 11 Mar 2004 22:11:49 +0000
-Subject: [PATCH] fix misc. sn2 warnings
-Message-Id: <20040311221149.GA17986@sgi.com>
+Date: Fri, 12 Mar 2004 00:32:36 +0000
+Subject: Re: [PATCH] fix misc. sn2 warnings
+Message-Id: <20040312003236.GB18851@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040311221149.GA17986@sgi.com>
+In-Reply-To: <20040311221149.GA17986@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Please ignore that last one, it won't apply to your BK tree.  This one
+will though.
+
 This patch fixes a few warnings that have cropped up in the sn2 code:
   - hwgfs function prototype mismatch
   - pconn uninitialized in pciio.c
   - printk formatting fixes in pcibr_dvr.c
-  - interrupt fixes (extra volatile qualifier and prototype/use
-    mismatch)
+  - kill volatile qualifier in pcibr_intr.c
 
 Jesse
+
 
 === arch/ia64/sn/io/hwgfs/ramfs.c 1.4 vs edited ==--- 1.4/arch/ia64/sn/io/hwgfs/ramfs.c	Sun Jan 18 22:36:01 2004
 +++ edited/arch/ia64/sn/io/hwgfs/ramfs.c	Thu Mar 11 13:08:55 2004
@@ -78,26 +83,3 @@ Jesse
  	int i,j;
  	int bwin;
  	unsigned long flags;
-=== arch/ia64/sn/kernel/irq.c 1.20 vs edited ==--- 1.20/arch/ia64/sn/kernel/irq.c	Thu Feb 26 09:51:09 2004
-+++ edited/arch/ia64/sn/kernel/irq.c	Thu Mar 11 13:24:19 2004
-@@ -118,9 +118,10 @@
- }
- 
- static void
--sn_set_affinity_irq(unsigned int irq, unsigned long cpu)
-+sn_set_affinity_irq(unsigned int irq, cpumask_t dest)
- {
- #ifdef CONFIG_SMP
-+	unsigned long cpu = first_cpu(dest);
- 	int redir = 0;
- 	struct sn_intr_list_t *p = sn_intr_list[irq];
- 	pcibr_intr_t intr;
-@@ -147,7 +148,7 @@
- 	sn_shutdown_irq,
- 	sn_enable_irq,
- 	sn_disable_irq,
--	sn_ack_irq, 
-+	sn_ack_irq,
- 	sn_end_irq,
- 	sn_set_affinity_irq
- };
