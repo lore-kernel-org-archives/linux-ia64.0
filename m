@@ -1,64 +1,84 @@
-From: Weihaw CHUANG <wchuang@cs.ucsd.edu>
-Date: Fri, 04 May 2001 06:51:26 +0000
-Subject: [Linux-ia64] Re: location of statcked registers after exception (superceeds previous email)
-Message-Id: <marc-linux-ia64-105590693005534@msgid-missing>
+From: Don Dugger <n0ano@valinux.com>
+Date: Fri, 04 May 2001 14:02:21 +0000
+Subject: Re: [Linux-ia64] Re: location of statcked registers after exception (superceeds previous email)
+Message-Id: <marc-linux-ia64-105590693005535@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005534@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005534@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I think I've figured out my own question.  However I still would like to
-understand some of this kernel code in 
-<linux src>/arch/ia64/kernel/entry.S
+Wei-
 
-If my application takes an exception, what is the entry point in entry.S?
-I'd also like to verify that application stacked registers  will be
-stored on kernel stack during a context switch.  My understanding is that
-only the last procedure frame will be stored there.  (Is this notion
-correct?)
+The file `arch/ia64/kernel/ivt.S' contains the interrupt vector table.
+This is where all exceptions go.
 
-I'm still very unsure if my intuition is correct, hence the
-questions.  I only figured out the below through trial and error
-hacking.
-
-Anyways the solution appears to be (again correct me if anything is brain 
-damaged):
-
-On Thu, 3 May 2001, Weihaw CHUANG wrote:
-
+On Thu, May 03, 2001 at 11:51:26PM -0700, Weihaw CHUANG wrote:
 > 
->   int offset = cfm.sof - (regid-32)
->   unsigned long long = ptrace(PTRACED_PEEKUSER, pid, PT_AR_BSP, 0);
->   regvalue = ptrace(PTRACE_PEEKDATA, pid, 
->                     (long ) ia64_rse_skip_regs((long*) bsp, offset), 0);
+> I think I've figured out my own question.  However I still would like to
+> understand some of this kernel code in 
+> <linux src>/arch/ia64/kernel/entry.S
 > 
-
-int offset = regid - 32;
-unsigned long long bspstore = ptrace(PTRACED_PEEKUSER, pid,
-                                    PT_AR_BSPSTORE, 0);
-unsigned long long regvalue = ptrace(PTRACE_PEEKDATA, pid,
-                     (long) ia64_rse_skip_regs((long*) bspstore, offset),
-                     0);
-
-
-I'd like to be pendantic, and make sure the following intuition is
-correct.  Ptrace dumps seems to agree so far.
-
+> If my application takes an exception, what is the entry point in entry.S?
+> I'd also like to verify that application stacked registers  will be
+> stored on kernel stack during a context switch.  My understanding is that
+> only the last procedure frame will be stored there.  (Is this notion
+> correct?)
+> 
+> I'm still very unsure if my intuition is correct, hence the
+> questions.  I only figured out the below through trial and error
+> hacking.
+> 
+> Anyways the solution appears to be (again correct me if anything is brain 
+> damaged):
+> 
+> On Thu, 3 May 2001, Weihaw CHUANG wrote:
+> 
+> > 
+> >   int offset = cfm.sof - (regid-32)
+> >   unsigned long long = ptrace(PTRACED_PEEKUSER, pid, PT_AR_BSP, 0);
+> >   regvalue = ptrace(PTRACE_PEEKDATA, pid, 
+> >                     (long ) ia64_rse_skip_regs((long*) bsp, offset), 0);
+> > 
+> 
+> int offset = regid - 32;
+> unsigned long long bspstore = ptrace(PTRACED_PEEKUSER, pid,
+>                                     PT_AR_BSPSTORE, 0);
+> unsigned long long regvalue = ptrace(PTRACE_PEEKDATA, pid,
+>                      (long) ia64_rse_skip_regs((long*) bspstore, offset),
+>                      0);
 > 
 > 
-> That is, does this diagram make sense? 
+> I'd like to be pendantic, and make sure the following intuition is
+> correct.  Ptrace dumps seems to agree so far.
 > 
-> alloc r35 = ar.pfs, 0, 3, 0, 0
-> reg stack
->    | r32    | r34      | r35    |   (r35 is top of reg stack)
-> negative offset from bsp is:
->      3        2          1        bsp
-offset from 
-     ^bspstore
-       0        1          2
+> > 
+> > 
+> > That is, does this diagram make sense? 
+> > 
+> > alloc r35 = ar.pfs, 0, 3, 0, 0
+> > reg stack
+> >    | r32    | r34      | r35    |   (r35 is top of reg stack)
+> > negative offset from bsp is:
+> >      3        2          1        bsp
+> offset from 
+>      ^bspstore
+>        0        1          2
+> 
+> Thanks!!
+> -Wei
+> 
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
-Thanks!!
--Wei
-
+-- 
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@valinux.com
+Ph: 303/938-9838
 
