@@ -1,7 +1,7 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Fri, 19 Sep 2003 18:20:10 +0000
+From: "Martin K. Petersen" <mkp@mkp.net>
+Date: Fri, 19 Sep 2003 18:21:53 +0000
 Subject: Re: QLogic drivers in 2.4
-Message-Id: <marc-linux-ia64-106399585719304@msgid-missing>
+Message-Id: <marc-linux-ia64-106399585719307@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106399415917430@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106399415917430@msgid-missing>
@@ -10,20 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bill Nottingham (notting@redhat.com) said: 
-> > $ l redhat/rhel3-b2/usr/src/linux-2.4.21-1.1931.2.399.ent/drivers/scsi/qla*
-> > redhat/rhel3-b2/usr/src/linux-2.4.21-1.1931.2.399.ent/drivers/scsi/qla1280.c
-> > redhat/rhel3-b2/usr/src/linux-2.4.21-1.1931.2.399.ent/drivers/scsi/qla1280.h
-> > $ l redhat/2.4.18-e.37/src/drivers/scsi/qla*
-> > redhat/2.4.18-e.37/src/drivers/scsi/qla1280.c
-> > redhat/2.4.18-e.37/src/drivers/scsi/qla1280.h
-> > 
-> > I see they have qla1280, but I don't see qla2xxx.  Am I looking in the
-> > wrong place?
-> 
-> drivers/addon
+>>>>> "Bjorn" = Bjorn Helgaas <bjorn.helgaas@hp.com> writes:
 
-Note that for RHEL3 (and probably RHEL2.1, I'll need to check) we aren't
-using the qla2xxx out of the ia64 patch, but a separate driver from qlogic.
+Jes actively maintains the qla1280 driver.  If he hasn't pushed the
+latest bits to Marcelo yet, he should (hint!).
 
-Bill
+
+Bjorn> It looks like at least the ql2xxx stuff is (a) not in the 2.5
+Bjorn> tree, and (b) not in Red Hat kernels.
+
+The qla2xxx driver hasn't been submitted to Marcelo.  For this reason
+Red Hat puts it in drivers/addon and not drivers/scsi.
+
+
+I think the qla1280 is important enough (core SCSI on several boxes)
+that you should keep it around until it's synced with Marcelo.
+
+But in general I agree with the principle of not having generic
+drivers in the IA-64 patch.
+
+-- 
+Martin K. Petersen	Wild Open Source, Inc.
+mkp@wildopensource.com	http://www.wildopensource.com/
+
