@@ -1,65 +1,53 @@
-From: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
-Date: Mon, 19 Jan 2004 09:31:42 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Mon, 19 Jan 2004 18:18:08 +0000
 Subject: Re: [PATCH] readX_relaxed interface
-Message-Id: <023b01c3de6f$10276820$2987110a@lsd.css.fujitsu.com>
+Message-Id: <20040119181808.GA4225@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040115204913.GA8172@sgi.com> <20040116003224.GF23253@kroah.com>
- <20040116050059.GA13222@cup.hp.com>
+References: <20040115204913.GA8172@sgi.com> <20040116003224.GF23253@kroah.com> <20040116050059.GA13222@cup.hp.com> <023b01c3de6f$10276820$2987110a@lsd.css.fujitsu.com>
+In-Reply-To: <023b01c3de6f$10276820$2987110a@lsd.css.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>, Greg KH <greg@kroah.com>
-Cc: Jesse Barnes <jbarnes@sgi.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, jeremy@sgi.com
+To: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
+Cc: Greg KH <greg@kroah.com>, Jesse Barnes <jbarnes@sgi.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, jeremy@sgi.com
 
+On Mon, Jan 19, 2004 at 06:31:42PM +0900, Hironobu Ishii wrote:
+> But, when the read thread continues without noticing the error
+> (before the error is asynchronously notified),
 
------ Original Message ----- 
-From: "Grant Grundler" <iod00d@hp.com>
+I wasn't suggesting asynchonous notification.
 
+> the thread runs based on wrong data and may panic.
 
-> On Thu, Jan 15, 2004 at 04:32:25PM -0800, Greg KH wrote:
-> > It looks ok, but it would really be good if we could indicate if the
-> > read actually was successful.  Right now some platforms can detect
-> > faults and do not have a way to get that error back to the driver in a
-> > sane manner.  If we were to change the read* functions to look something
-> > like:
-> > int readb(void *addr, u8 *data);
-> > it would be a world easier.
-> 
-> I've worked on systems with that kind of an interface and it
-> really makes a mess of the code. And many of the drivers just
-> ignored the read return value.
+So far I've been assuming resources/IO requests can be cleaned up
+more easily in a shared code path. I was assuming the readb() would 
+call the "cleanup" and then return a "harmless" value (eg. 0 or -1)
+that was provided by the driver before hand. I'm more worried
+about the code that evaluates the readb() return value than
+synchronous notification or cleaning up resources.
 
-I've also worked on such system.
-I understand it's difficult all drivers use that kind of an interface.
-But if some common drivers like scsi, FC and LAN drivers use such interface,
-it's usefull for most users.
+Having unique error recovery code after each PIO read did work
+but it was not an elegant solution. It was a problem of too much
+"unused" code interferring with the regular code path. And it
+didn't distinguish sufficiently between code to handle "platform"
+errors (failure to talk to a card) vs card errors (card
+failed an IO).
 
-> 
-> > Now I'm not saying I want to change the existing interfaces to support
-> > this, that's too much code to change for even me (and is a 2.7 thing.)
-> 
-> I think you'll find it's extremely invasive if it's going to be useful.
-> The drivers have to be rewritten to check each PIO return value
-> and then do something intelligent at that point. HPUX had drivers
-> that did this for "Host Power Fail" support 10 years ago but
-> it's *very* difficult to get all the error handling right in
-> each of the code pathes.
-> 
-> My preference is the driver register a "clean up all pending IO and
-> free related data structures" so it's back to a state as if it hadn't
-> been started. Then when a PIO read (or write) fails, the mechanism for
-> detecting the read failure doesn't depend on synchronous errors being
-> reported/checked by software on each read. ie the mechanism for
-> detecting the failure *can* be in the PIO read code path but
-> doesn't have to be if HW has facilities to detect failures.
-> (I'm thinking of parisc HPMC and ia64 MCA handling).
+I guess I'd need to modify one driver using my proposal
+instead of assuming it doesn't matter wether the recovery code
+lives immediately after the PIO read or in some common routine.
+Problem is I have other issues to deal with right now
+even though I've made clear to my management "HW error recovery"
+is required for higher levels of availability with linux.
 
-But, when the read thread continues without noticing the error
-(before the error is asynchronously notified),
-the thread runs based on wrong data and may panic.
-So I think PIO read error must be notified synchronously.
+> So I think PIO read error must be notified synchronously.
 
-On the other hand, PIO write error can be notified asynchronously,
-because software does not use it.
+I agree.
 
-Hironobu Ishii
+> On the other hand, PIO write error can be notified asynchronously,
+> because software does not use it.
+
+yes.
+
+thanks,
+grant
