@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 28 Jan 2004 21:50:57 +0000
+From: Ben Woodard <woodard@redhat.com>
+Date: Wed, 28 Jan 2004 23:32:24 +0000
 Subject: Re: salinfo-0.4 patch
-Message-Id: <10165.1075326657@ocs3.ocs.com.au>
+Message-Id: <1075332744.25461.349.camel@xenophanes>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1075324928.25461.273.camel@xenophanes>
 In-Reply-To: <1075324928.25461.273.camel@xenophanes>
@@ -10,25 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 28 Jan 2004 13:22:08 -0800, 
-Ben Woodard <woodard@redhat.com> wrote:
->Here is a tiny patch for salinfo-0.4. There is a problem with when it
->deals with multiple errors. The decoded error messages fill up with
->progressively more white space. 
+On Wed, 2004-01-28 at 13:50, Keith Owens wrote:
+> On 28 Jan 2004 13:22:08 -0800, 
+> Ben Woodard <woodard@redhat.com> wrote:
+> >Here is a tiny patch for salinfo-0.4. There is a problem with when it
+> >deals with multiple errors. The decoded error messages fill up with
+> >progressively more white space. 
+> 
+> That should not occur, the ++indent/--indent lines should be matched.
+> Instead of forcing indent back to 0, please find the missing line and
+> fix it.  Correct code is better than an arbitrary reset.
+> 
+> If you have a sample of nested indent that will help track down the
+> bug, send it to kaos@sgi.com.
+> 
+> >While poking around in the iprint function, I also found an error
+> >message that looks like it is better suited for stderr rather than
+> >stdout so I retargetted it.
+> 
+> No.  I deliberately used stdout so the error message would appear at
+> the end of the truncated file on disk, to tell the viewer that this
+> particular file was incomplete.  stderr is useless when salinfo_decode
+> is run from init.d.
 
-That should not occur, the ++indent/--indent lines should be matched.
-Instead of forcing indent back to 0, please find the missing line and
-fix it.  Correct code is better than an arbitrary reset.
+OK how about this patch. I think I found the missing --indent.
 
-If you have a sample of nested indent that will help track down the
-bug, send it to kaos@sgi.com.
+diff -u -r1.1 mca.c
+--- mca.c       2004/01/28 23:28:03     1.1
++++ mca.c       2004/01/28 23:28:27
+@@ -857,6 +857,7 @@
+        }
+        if (pcei->valid.oem_data)
+                platform_pci_comp_err_print(&pcei->header, p_oem_data);
++       --indent;
+ }
+  
+ /* Format and log the platform specifie error record section data */
 
->While poking around in the iprint function, I also found an error
->message that looks like it is better suited for stderr rather than
->stdout so I retargetted it.
-
-No.  I deliberately used stdout so the error message would appear at
-the end of the truncated file on disk, to tell the viewer that this
-particular file was incomplete.  stderr is useless when salinfo_decode
-is run from init.d.
 
