@@ -1,32 +1,49 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Fri, 17 Oct 2003 01:32:35 +0000
-Subject: Re: type 95 for .text?
-Message-Id: <marc-linux-ia64-106635439710932@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Fri, 17 Oct 2003 11:12:07 +0000
+Subject: [2.6 PATCH] Missing exported symbol
+Message-Id: <marc-linux-ia64-106638921002098@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106634361902844@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106634361902844@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Thu, 16 Oct 2003 18:12:12 -0700, 
-Grant Grundler <iod00d@hp.com> wrote:
->On Fri, Oct 17, 2003 at 11:04:52AM +1000, Keith Owens wrote:
->> for i in $(find /lib/modules/2.4.23-pre6 -type f); do readelf -h $i 2>/dev/null | (grep 'constant gp' > /dev/null && echo $i has constant gp); done
->
->hey! don't make it too easy for me! :^)
->
->/lib/modules/2.4.23-pre6/kernel/arch/ia64/lib/xor.o has constant gp
->
->I just added that...sounds like bjorn should ignore my patch
->since the module isn't getting built correctly. *sigh*.
+This fixes some missing symbol exports.
 
-Aha!  Kernel build 2.4 expects all modules to be .c files, not .S.  All
-the .S -> .o rules are hard coded to add $(AFLAGS_KERNEL) which
-includes -mconstant-gp.  Fixing that will affect all architectures and
-requires more kbuild surgery than I feel like doing right now.
+Andreas.
 
-Live with the restriction that 2.4 modules have to be .c files and
-retain the inline asm format.
+--- linux-2.6.0-test7.orig/arch/ia64/kernel/ia64_ksyms.c	2003-10-08 21:24:0=
+4.000000000 +0200
++++ linux-2.6.0-test7/arch/ia64/kernel/ia64_ksyms.c	2003-10-17 13:10:43.000=
+000000 +0200
+@@ -41,6 +41,7 @@
+ EXPORT_SYMBOL(csum_tcpudp_magic);
+ EXPORT_SYMBOL(ip_compute_csum);
+ EXPORT_SYMBOL(ip_fast_csum);
++EXPORT_SYMBOL(csum_partial);
+=20
+ #include <asm/io.h>
+ EXPORT_SYMBOL(__ia64_memcpy_fromio);
+@@ -61,6 +62,8 @@
+ #include <asm/pgtable.h>
+ EXPORT_SYMBOL(vmalloc_end);
+ EXPORT_SYMBOL(ia64_pfn_valid);
++EXPORT_SYMBOL(max_low_pfn);
++EXPORT_SYMBOL(vmem_map);
+ #endif
+=20
+ #include <asm/processor.h>
+@@ -213,3 +216,7 @@
+=20
+ #include <linux/pm.h>
+ EXPORT_SYMBOL(pm_idle);
++
++#include <linux/reboot.h>
++EXPORT_SYMBOL(machine_power_off);
++EXPORT_SYMBOL(machine_restart);
 
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
