@@ -1,7 +1,7 @@
 From: Ashok Raj <ashok.raj@intel.com>
-Date: Tue, 04 May 2004 14:43:53 +0000
-Subject: take3: Updated CPU Hotplug patches for IA64 (pj blessed) Patch [3/7]
-Message-Id: <20040504074353.C1909@unix-os.sc.intel.com>
+Date: Tue, 04 May 2004 14:45:35 +0000
+Subject: take3: Updated CPU Hotplug patches for IA64 (pj blessed) Patch [4/7]
+Message-Id: <20040504074535.D1909@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040429092107.A29687@unix-os.sc.intel.com>
 In-Reply-To: <20040429092107.A29687@unix-os.sc.intel.com>
@@ -13,102 +13,113 @@ Cc: akpm@osdl.org, davidm@hpl.hp.com, pj@sgi.com, linux-ia64@vger.kernel.org, ru
 
 
 
-Name: sysfs_ia64.patch
+Name: ia64_irq_affinity_fix.patch
 Author: Ashok Raj (Intel Corporation)
-D: Creation of sysfs via topology_init() creates sysfs entries. The creation of
-D: the online control file is created separately when the cpu_up is invoked
-D: in arch independent code.
+Status: Tested with Hotplug CPU Code
+
+D: irq affinity setting via /proc was forcing iosapic rte programming
+D: by force. The correct way to do this is to perform this when a interrupt
+D: is pending.
+
+
 ---
 
+ linux-2.6.5-lhcs-root/arch/ia64/kernel/iosapic.c |   19 +++++++++++++++++++
+ linux-2.6.5-lhcs-root/arch/ia64/kernel/irq.c     |   12 +++++++++---
+ 2 files changed, 28 insertions(+), 3 deletions(-)
 
-
----
-
- linux-2.6.5-lhcs-root/arch/ia64/dig/Makefile   |    5 ++
- linux-2.6.5-lhcs-root/arch/ia64/dig/topology.c |   43 +++++++++++++++++++++++++
- linux-2.6.5-lhcs-root/include/asm-ia64/cpu.h   |   17 +++++++++
- 3 files changed, 65 insertions(+)
-
-diff -puN arch/ia64/dig/Makefile~sysfs_ia64 arch/ia64/dig/Makefile
---- linux-2.6.5-lhcs/arch/ia64/dig/Makefile~sysfs_ia64	2004-05-03 16:30:06.886772352 -0700
-+++ linux-2.6.5-lhcs-root/arch/ia64/dig/Makefile	2004-05-03 16:30:06.888725478 -0700
-@@ -6,4 +6,9 @@
- #
+diff -puN arch/ia64/kernel/irq.c~ia64_irq_affinity_fix arch/ia64/kernel/irq.c
+--- linux-2.6.5-lhcs/arch/ia64/kernel/irq.c~ia64_irq_affinity_fix	2004-05-03 16:30:29.805729399 -0700
++++ linux-2.6.5-lhcs-root/arch/ia64/kernel/irq.c	2004-05-03 16:30:29.809635651 -0700
+@@ -46,7 +46,7 @@
+ #include <asm/delay.h>
+ #include <asm/irq.h>
  
- obj-y := setup.o
+-
++extern cpumask_t    __cacheline_aligned pending_irq_cpumask[NR_IRQS];
+ 
+ /*
+  * Linux has a controller-independent x86 interrupt architecture.
+@@ -938,7 +938,9 @@ void set_irq_affinity_info (unsigned int
+ static int irq_affinity_read_proc (char *page, char **start, off_t off,
+ 			int count, int *eof, void *data)
+ {
+-	int len = cpumask_scnprintf(page, count, irq_affinity[(long)data]);
++	int len = sprintf(page, "%s", irq_redir[(long)data] ? "r " : "");
 +
-+ifndef CONFIG_NUMA
-+obj-$(CONFIG_IA64_DIG) += topology.o
-+endif
++	len += cpumask_scnprintf(page+len, count, irq_affinity[(long)data]);
+ 	if (count - len < 2)
+ 		return -EINVAL;
+ 	len += sprintf(page + len, "\n");
+@@ -956,6 +958,7 @@ static int irq_affinity_write_proc (stru
+ 	int rlen;
+ 	int prelen;
+ 	irq_desc_t *desc = irq_descp(irq);
++	unsigned long flags;
+ 
+ 	if (!desc->handler->set_affinity)
+ 		return -EIO;
+@@ -994,7 +997,10 @@ static int irq_affinity_write_proc (stru
+ 	if (cpus_empty(tmp))
+ 		return -EINVAL;
+ 
+-	desc->handler->set_affinity(irq, new_value);
++	spin_lock_irqsave(&desc->lock, flags);
++	pending_irq_cpumask[irq] = new_value;
++	spin_unlock_irqrestore(&desc->lock, flags);
 +
- obj-$(CONFIG_IA64_GENERIC) += machvec.o
-diff -puN /dev/null arch/ia64/dig/topology.c
---- /dev/null	2003-09-15 06:02:17.000000000 -0700
-+++ linux-2.6.5-lhcs-root/arch/ia64/dig/topology.c	2004-05-03 16:30:06.888725478 -0700
-@@ -0,0 +1,43 @@
-+/*
-+ * arch/ia64/dig/topology.c
-+ *	Popuate driverfs with topology information.
-+ *	Derived entirely from i386/mach-default.c
-+ *  Intel Corporation - Ashok Raj
-+ */
-+#include <linux/init.h>
-+#include <linux/smp.h>
-+#include <linux/cpumask.h>
-+#include <linux/percpu.h>
-+#include <linux/notifier.h>
-+#include <linux/cpu.h>
-+#include <asm/cpu.h>
-+
-+static DEFINE_PER_CPU(struct ia64_cpu, cpu_devices);
-+
-+/*
-+ * First Pass: simply borrowed code for now. Later should hook into
-+ * hotplug notification for node/cpu/memory as applicable
-+ */
-+
-+static int arch_register_cpu(int num)
+ 	return full_count;
+ }
+ 
+diff -puN arch/ia64/kernel/iosapic.c~ia64_irq_affinity_fix arch/ia64/kernel/iosapic.c
+--- linux-2.6.5-lhcs/arch/ia64/kernel/iosapic.c~ia64_irq_affinity_fix	2004-05-03 16:30:29.807682525 -0700
++++ linux-2.6.5-lhcs-root/arch/ia64/kernel/iosapic.c	2004-05-03 16:30:29.810612214 -0700
+@@ -98,6 +98,7 @@
+ #endif
+ 
+ static spinlock_t iosapic_lock = SPIN_LOCK_UNLOCKED;
++cpumask_t	__cacheline_aligned pending_irq_cpumask[NR_IRQS];
+ 
+ /* These tables map IA-64 vectors to the IOSAPIC pin that generates this vector. */
+ 
+@@ -327,6 +328,21 @@ iosapic_set_affinity (unsigned int irq, 
+ #endif
+ }
+ 
++static inline void move_irq(int irq)
 +{
-+	struct node *parent = NULL;
++	/* note - we hold desc->lock */
++	cpumask_t tmp;
++	irq_desc_t *desc = irq_descp(irq);
 +
-+#ifdef CONFIG_NUMA
-+	//parent = &node_devices[cpu_to_node(num)].node;
-+#endif
-+
-+	return register_cpu(&per_cpu(cpu_devices,num).cpu, num, parent);
-+}
-+
-+static int __init topology_init(void)
-+{
-+    int i;
-+
-+    for_each_cpu(i) {
-+        arch_register_cpu(i);
++	if (!cpus_empty(pending_irq_cpumask[irq])) {
++		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
++		if (unlikely(!cpus_empty(tmp))) {
++			desc->handler->set_affinity(irq, pending_irq_cpumask[irq]);
++		}
++		cpus_clear(pending_irq_cpumask[irq]);
 +	}
-+    return 0;
 +}
 +
-+subsys_initcall(topology_init);
-diff -puN /dev/null include/asm-ia64/cpu.h
---- /dev/null	2003-09-15 06:02:17.000000000 -0700
-+++ linux-2.6.5-lhcs-root/include/asm-ia64/cpu.h	2004-05-03 16:30:06.888725478 -0700
-@@ -0,0 +1,17 @@
-+#ifndef _ASM_IA64_CPU_H_
-+#define _ASM_IA64_CPU_H_
+ /*
+  * Handlers for level-triggered interrupts.
+  */
+@@ -343,6 +359,7 @@ iosapic_end_level_irq (unsigned int irq)
+ {
+ 	ia64_vector vec = irq_to_vector(irq);
+ 
++	move_irq(irq);
+ 	writel(vec, iosapic_intr_info[vec].addr + IOSAPIC_EOI);
+ }
+ 
+@@ -382,6 +399,8 @@ static void
+ iosapic_ack_edge_irq (unsigned int irq)
+ {
+ 	irq_desc_t *idesc = irq_descp(irq);
 +
-+#include <linux/device.h>
-+#include <linux/cpu.h>
-+#include <linux/topology.h>
-+#include <linux/percpu.h>
-+
-+struct ia64_cpu {
-+	struct cpu cpu;
-+};
-+
-+DECLARE_PER_CPU(struct ia64_cpu, cpu_devices);
-+
-+DECLARE_PER_CPU(int, cpu_state);
-+
-+#endif /* _ASM_IA64_CPU_H_ */
++	move_irq(irq);
+ 	/*
+ 	 * Once we have recorded IRQ_PENDING already, we can mask the
+ 	 * interrupt for real. This prevents IRQ storms from unhandled
 
 _
