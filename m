@@ -1,70 +1,95 @@
-From: Chris Ahna <christopher.j.ahna@intel.com>
-Date: Tue, 14 Aug 2001 05:58:31 +0000
-Subject: Re: [Linux-ia64] AGP
-Message-Id: <marc-linux-ia64-105590698805070@msgid-missing>
+From: richard offer <offer@sgi.com>
+Date: Thu, 02 Aug 2001 22:23:40 +0000
+Subject: [Linux-ia64] minor tidy up of some warnings.
+Message-Id: <marc-linux-ia64-105590693005995@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693006009@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693006009@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Martin Wilck wrote:
-> The following patch gets rid of the agpgart.o undefined symbol errors.
-> However, loading the module fails on Lion with -ENODEV (no surprise, since
-> there's no AGP slot). That means that the DRM modules for ATI cards
-> also cannot be loaded => no DRI on Lion except with Matrox (I think the
-> Matrox DRM driver does not require AGP to be loaded).
+Here's a list of some of the issues I found while compiling with the
+following warnings enabled
 
-The patch is absolutely correct, thanks.  I haven't used any ia64 kernel
-past 2.4.4 so this one slipped by me.
+    -Wimplicit-int \
+	-Wimplicit-function-declaration \
+	-Wimplicit -Wmain -Wreturn-type \
+	-Wunused-function -Wunused-label \
+	-Wunused-value -Wswitch \
+	-Wcomment \
+	-Wchar-subscripts -Wparentheses \
+	-Werror
 
-Martin Wilck wrote (a little earlier):
-> I am wondering to which extent AGP and DRI are supported by Linux-IA64.
-> So far I have always configured agpgart and DRI into my kernels, but I
-> keep getting depmod error messages:
-...
-> On Lion at least, there is no AGP bus anyway. I don't know about Big
-> Sur, but the option "Enable full AGP RQ (requires Big Sur BIOS 99 or newer)
-> seems to suggest that Big Sur supports AGP.
-> 
-> My questions:
-> - Is it correct that AGP/DRI support makes no sense on Lion?
-> - What about BigSur?
+Using -Wall -Werror will fail due to a number of unitialized variables
+(dummy variables in the _syscall defns in asm/unistd.h)
 
-AGP support doesn't exist on Lion, however DRI doesn't strictly require
-AGP.  I've been meaning to look into running PCI DRI on Lion for some
-time.  BigSur has an AGP port on the baseboard and supports AGP fully.
 
-As far as the general state of AGP/DRI on ia64 goes, the situation is a
-little complicated.
+I always try to build with -Werror set to make the build fail at compile
+time rather than execution.
 
-All the code needed to support AGP and DRI on ia64 has been generated,
-however the right patches haven't ended up in all the right places just
-yet.  The working combination that most people have used is:
 
-i)  agpgart and drm modules from the 2.4.[234] ia64 kernel tree
-ii) a patched version of XFree86 4.0.[23]
+unw_access_pr
+=======
 
-With XFree86 4.1.0, drm was pretty heavily redesigned, making the drm
-modules from the ia64 kernel incompatible with newer Xservers.  The new
-drm was finally integrated into the mainline kernel (it had been
-maintained as a kernel module existing in the XFree86 source tree) with
-the release of 2.4.8.
+in arch/ia64/kernel/unwind.c:509 is declared inline, in
+include/asm-ia64/unwind.h it has no inline modifier.
 
-The best thing to do would be to add ia64 AGP/DRI support to both the
-mainline kernel and the XFree86/DRI CVS repositories.  I'm discussing
-this with the appropriate maintainers this week.  If this can be done,
-then AGP/DRI will finally work out of the box on ia64 after stock kernel
-and XFree86 builds.  Otherwise I suppose I'll post updated patches to
-this list to support both
 
-i)  old drm + XFree86 4.0.[23]
-ii) new drm + XFree86 4.1.x
+acpi_ds_exec_end_op
+=========
+dswexec.c: In function `acpi_ds_exec_end_op':
+dswexec.c:619: warning: cast from pointer to integer of different size
 
-Sorry this has slid so badly over the past few months, I should have
-more information in a few days.
+--- drivers/acpi/dispatcher/dswexec.c.pre-rmo   Tue Jul 31 11:31:17 2001
++++ drivers/acpi/dispatcher/dswexec.c   Thu Aug  2 14:14:07 2001
+@@ -616,7 +616,7 @@
+                (walk_state->control_state->common.state =
+                        CONTROL_PREDICATE_EXECUTING) &&
+                (walk_state->control_state->control.predicate_op = op)) {
+-               status = acpi_ds_get_predicate_value (walk_state, op, (u32)
+result_obj);
++               status = acpi_ds_get_predicate_value (walk_state, op, (u32)
+(result_obj != NULL));
+                result_obj = NULL;
+        }
+ 
 
-Chris
+acpi_init
+====
+driver.c: In function `acpi_init':
+driver.c:90: warning: assignment makes integer from pointer without a cast
+
+--- drivers/acpi/driver.c.pre-rmo       Tue Jul 31 11:41:19 2001
++++ drivers/acpi/driver.c       Thu Aug  2 14:38:03 2001
+@@ -87,7 +87,7 @@
+                return -ENODEV;
+        }
+ #else
+-       rsdp_phys = efi.acpi;
++       rsdp_phys = (ACPI_PHYSICAL_ADDRESS) efi.acpi;
+ #endif
+ 
+        /* from this point on, on error we must call acpi_terminate() */
+
+acpi_ev_asynch_execute_gpe_method
+================
+
+evevent.c: In function `acpi_ev_gpe_dispatch':
+evevent.c:749: warning: cast to pointer from integer of different size
+
+These are all over the place, basically they are storing something that is
+an int into a void * and then getting it back out again (typecasting it as
+it comes back out).
+
+Not sure how to handle this. Comments ?
+
+
+richard.
+
+
+-----------------------------------------------------------------------
+Richard Offer                     Technical Lead, Trust Technology, SGI
+"Specialization is for insects"
+_______________________________________________________________________
+
 
