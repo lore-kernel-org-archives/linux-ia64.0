@@ -1,24 +1,46 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Tue, 18 Jul 2000 18:13:28 +0000
-Subject: Re: [Linux-ia64] gcc/as problem: integer operand out of range
-Message-Id: <marc-linux-ia64-105590678205206@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 14 Jul 2000 21:37:34 +0000
+Subject: [Linux-ia64] kernel update (relative to 2.4.0-test4)
+Message-Id: <marc-linux-ia64-105590678205199@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205202@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205202@msgid-missing>
+References: <marc-linux-ia64-105590678205111@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-	iaxxsldc.S: Assembler messages:
+Here is a long overdue kernel update.  There relative diff I usually
+provide would have been too big (and hard to read) to include in this
+mail, so I'm just providing a summary of changes and the full diff,
+relative to the official 2.4.0-test4 kernel can be found at:
 
-If the compiler generated this instruction, then the compiler is at fault.
+	ftp://ftp.kernel.org/pub/linux/kernel/linux/ports/ia64/
 
-However, it looks like you are compiling a hand-written assembly file, because
-the filename in the error message ends in .S.  The only way that can happen
-is if you feed an assembly file to the compiler.  In this case, the error would
-be in the hand-written assembly language code.
+as usual.  The filename for the current patch is:
 
-Jim
+	linux-2.4.0-test4-ia64-000714.diff.gz
+
+Summary of changes:
+
+	- latest IA-32 fixes by Don Dugger (Don, can you check sys_ia32.c?  I
+	  changed the way utime() is implemented.  Also, I still think it would
+	  be a good idea to try to make the mmap emulation good enough so that
+	  it can be used for loading IA-32 ELF binaries.  Some code for doing
+	  that is there now, though it's probably not complete.)
+
+	- clone2 system call is there now (works like clone, except that it
+	  specifies the stack memory area explicitly via a starting address
+	  and size)
+
+	- simplified kernel configuration for HP Simulator (Ski) by removing
+	  options that don't make sense
+
+	- probably a couple of other things I already forgot about---check patch
+	  for a complete reference... ;-)
+
+Enjoy,
+
+	--david
 
 
