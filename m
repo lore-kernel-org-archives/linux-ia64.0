@@ -1,33 +1,75 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 25 Aug 2003 20:56:46 +0000
-Subject: Re: Why sim/boot in -test4?
-Message-Id: <marc-linux-ia64-106184533520478@msgid-missing>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Tue, 26 Aug 2003 16:24:43 +0000
+Subject: Re: serial legacy ports and ACPI
+Message-Id: <marc-linux-ia64-106191580620525@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106164660606242@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106164660606242@msgid-missing>
+References: <marc-linux-ia64-105761215001812@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105761215001812@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 23 Aug 2003 18:40:55 +0100, Matthew Wilcox <willy@debian.org> said:
+Jes Sorensen wrote:
+> 
+> I had a chat with Grant and Matthew about is a little while ago (and
+> possibly a few other people whom I can't remember right now) and we
+> basically came to a similar conclusion. Once I find a bit more time,
+> I'd like to introduce an interface along the lines of
+> 
+>         legacy_device_present(LEGACY_{IDE,SERIAL,PARALLEL})
+> 
+> This could be quite useful for other architectures as well I believe.
 
-  Matthew> By the way, -test3 used to take a really really long time
-  Matthew> to link each step, and -test4 doesn't.  I don't know
-  Matthew> whether this was an intentional fix, but I'm certainly
-  Matthew> happy to see it.
+Jes,
 
-I don't think it's a fix per se, but rather a new config option: it
-used to be that I turned on compilation with "-g" unconditionally
-(sorry, but I hate not having debug info around when you need it...).
-Now Sam (finally! ;-) added a CONFIG_DEBUG_KERNEL option, so if you
-didn't turn this on, the kernel will be compiled without debug option
-and the resulting object files will be a lot smaller.
+   Digging up an old topic.  I started looking at this from a serial
+port numbering perspective and came up with a fairly simple way for
+the architecure code to handle it on it's own.  Here's my idea vs
+2.6:
 
-BTW: someone really ought to look into why the debug info is so big
-and what could be done to handle it more sanely.  For example, we get
-tons of debug-info replication due to header-files etc.  It's rather
-embarrassing how low the state of the art is w.r.t. debug info
-management...
+--- linux/arch/ia64/kernel/acpi.c
++++ linux/arch/ia64/kernel/acpi.c
+@@ -41,6 +41,9 @@
+ #include <linux/irq.h>
+ #include <linux/acpi.h>
+ #include <linux/efi.h>
++#include <linux/tty.h>
++#include <linux/serial.h>
++#include <linux/serial_core.h>
+ #include <asm/io.h>
+ #include <asm/iosapic.h>
+ #include <asm/machvec.h>
+@@ -530,6 +533,20 @@
+        if (!(fadt->iapc_boot_arch & BAF_8042_KEYBOARD_CONTROLLER))
+                acpi_kbd_controller_present = 0;
+ 
++#ifdef CONFIG_SERIAL_8250
++       if (!(fadt->iapc_boot_arch & BAF_LEGACY_DEVICES)) {
++               int i;
++               struct uart_port port;
++
++               memset(&port, 0, sizeof(port));
++
++               for (i = 0 ; i < 4 ; i++) {
++                       port.line = i;
++                       early_serial_setup(&port);
++               }
++       }
++#endif
++
+        acpi_register_irq(fadt->sci_int, ACPI_ACTIVE_LOW, ACPI_LEVEL_SENSITIVE);
+        return 0;
+ }
 
-	--david
+   This example only hits the first 4 ports, but we could clear the whole
+table if we decide that's the right thing to do.  Does anybody really
+use EXTRA_SERIAL_PORT_DEFNS and HUB6_SERIAL_PORT_DFNS or should those
+be considered "legacy" as well?  The serial port part of this problem
+kind of feels like an architecture problem since we start out passing
+in a table of serial ports to probe.  Thoughts?
+
+	Alex
+
+-- 
+Alex Williamson                             HP Linux & Open Source Lab
