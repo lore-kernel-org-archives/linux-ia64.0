@@ -1,27 +1,20 @@
-From: Dragan Stancevic <visitor@valinux.com>
-Date: Sat, 17 Feb 2001 19:44:24 +0000
-Subject: Re: [Linux-ia64] TODO list
-Message-Id: <marc-linux-ia64-105590693005169@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Mon, 26 Feb 2001 16:17:26 +0000
+Subject: [Linux-ia64] Re: 2.4.1 + 010131 patch: sys_nanosleep sleeps... infinitely!
+Message-Id: <marc-linux-ia64-105590693005205@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005124@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005124@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Feb 16, 2001, Don Dugger <n0ano@valinux.com> wrote:
+Jack Steiner (steiner@sgi.com) said: 
+> We have also been seeing hangs running with the latest BIOS. The problem
+> was isolated to a tiny window in arch/ia64/kernel/time.c where
+> itm could get loaded with a value that is in the past.
 
-Oh, I see, Dan :^)
+I've certainly seen references to time going in the past recently;
+the error messages are usually from ping.
 
-; Dragain-
-; 
-; The purpose of the test was to see if we had two problems on Lion,
-; a size issue and a pattern issue.  Mike's test indicates that the Lion
-; only has a pattern problem, the size of the transfer is not an issue.
-
--- 
-No Kernel Hackers were harmed during writing of this email.
-
-                                                -Dragan
+Bill
 
