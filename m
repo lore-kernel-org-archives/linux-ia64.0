@@ -1,7 +1,7 @@
-From: Shailabh Nagar <nagar@watson.ibm.com>
-Date: Thu, 25 Sep 2003 18:07:45 +0000
+From: William Lee Irwin III <wli@holomorphy.com>
+Date: Thu, 25 Sep 2003 18:08:04 +0000
 Subject: Re: [Lse-tech] CPUSET Proposal
-Message-Id: <marc-linux-ia64-106451388724141@msgid-missing>
+Message-Id: <marc-linux-ia64-106451388924160@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106442121824485@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106442121824485@msgid-missing>
@@ -10,79 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Gerrit Huizenga wrote:
+On Wed, 2003-09-24 at 23:57, David Mosberger wrote:
+>> I wasn't suggesting that x86 is limited to 8-way, I was wondering how
+>> many > 8-way x86 Linux machines are actually out there.  I wasn't even
+>> being facetious---just curious.
 
->This might be worth comparing notes on with the CKRM folks (cc:'d above).
->  
->
-I went through the cpusets proposal trying to see the commonalities and differences
-with what CKRM is trying to achieve.
+On Thu, Sep 25, 2003 at 02:04:07AM -0700, Dave Hansen wrote:
+> Well, besides the NUMA-Q, which went up to 60x and is dead now, there
+> are at least the IBM Summit chipset machines.  They're sold as 32-ways
+> today on the x445 (that's physical, without hyperthreading).  I've
+> personally booted Linux on a 16-way, but I'm know others have booted on
+> the 32-way configuration.  Patches for this were posted in the last week
+> by James Cleverdon.  
+> There's also the bigsmp code in the kernel for other P4-based systems
+> that are >8x.  I haven't seen any of them yet, but I wouldn't imagine
+> that people would put support in the kernel for hardware that wasn't at
+> least *close* to production. 
 
-Speaking of CPUs alone:
+I figured the ES7000 and x440/x445 were recent enough they'd be fresh
+in people's mind. Small correction to the NUMA-Q: it was 64x.
 
-The way I see it (corrections welcome), CPUSETS has two objectives
-- performance isolation for arbitrary groups of processes by constraining them to run on 
-arbitrary sets of CPUs 
-- gaining performance benefits for a CPUSET by specifying *which* CPUs it can use. This could
-be helpful in NUMA and Hyperthreaded CPU cases as well as for regular CPUs simply by increasing 
-the chance of cache warmth etc. i.e. the same benefits as seen in sched_affinity, but generalized for
-groups of processes.
+http://www-3.ibm.com/software/data/db2/benchmarks/050300.html
 
-CKRM shares some aspects of the first objective i.e. it also seeks performance isolation for 
-arbitrary groups of processes (classes) too but differs in that it
-- uses scheduler modifications to achieve isolation
-- has a quantitative measures for how much resource is used
-CKRM does not share the second objective i.e. it does not try to control which CPUs
-are allocated by the kernel schedulers. If such constraints are placed on allocation, whether by 
-sched_affinity, NUMA sched changes or CPUSETs, CKRM will cooperate and operate within that constraint.
-
-For this second objective, CKRM is orthogonal to CPUSETs. For the first one, it is another way of
-achieving isolation, one that broadly sacrifices stricter guarantees (which are possible by physically
-isolating CPUs as in CPUSETS) for better load balancing and utilization.
-
-Coming to memory, it wasn't very clear what CPUSETs future plans/objectives are. Does it intend to 
-control which address ranges a CPUSET can allocate from (for NUMA reasons) AND limit how much memory it
-can consume ? The latter intersects with CKRM objectives, the former doesn't.
-
-Finally, CKRM is dealing with I/O and planning to incorporate inbound and possibly outbound networking
-into its framework which would appear to be outside the scope of something like CPUSETs. 
-
-
-The user interfaces used by CPUSETs like pexec are quite good. We'd been wanting to develop something
-similar for CKRM usage as well - allow a user to use a single commandline to specify a job/program and 
-the constraints under which it should operate. The command will then create a class with the specified
-cpu/mem/io/net constraints, run the job/program within that class and autoclean it when done.
-
-
--- Shailabh
-
-
-
-
-
-On Wed, 24 Sep 2003 17:59:01 +0200, Simon Derr wrote:
-
->>Hi,
->>
->>We have developped a new feature in the Linux kernel, controlling CPU
->>placements, which are useful on large SMP machines, especially NUMA ones.
->>We call it CPUSETS, and we would highly appreciate to know about anyone
->>who would be interested in such a feature. This has been somewhat inspired
->>by the pset or cpumemset patches existing for Linux 2.4.........
->>    
->>
-<snip>
-
->>You can find the associated manpages and a slightly more detailed
->>explanation here: http://www.bullopensource.org/cpuset/
->>
->>Any feedback, comment or opinion is welcome:
->>	Simon.Derr@Bull.net,
->>	Sylvain.Jaugey@bull.net
->>
->>Thanks,
->>
->>	Simon and Sylvain.
->>    
->>
-
+-- wli
