@@ -1,45 +1,46 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 29 Oct 2002 16:29:13 +0000
-Subject: RE: [Linux-ia64] RAW dependency in ivt.S
-Message-Id: <marc-linux-ia64-105590709805284@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Wed, 16 Oct 2002 00:15:30 +0000
+Subject: [Linux-ia64] Fix RAW dependency introduced by HUGETLB patch
+Message-Id: <marc-linux-ia64-105590709805166@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805283@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805283@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Check section 5.3 in document "The Intel Itanium Architecture Software Developer's Manual" volume 3.  There is no semantics of dependency required for this type of instance.  If you would add the stop bit, the code will expand into 2 bundles instead of possibly one in the original form.
-
-- Ken
-
-
------Original Message-----
-From: Christian Hildner [mailto:christian.hildner@hob.de]
-Sent: Tuesday, October 29, 2002 5:43 AM
-To: linux ia64 kernel list
-Subject: [Linux-ia64] RAW dependency in ivt.S
+Hi, 
+If CONFIG_HUGETLB is not defined, you get a RAW dependency clash in
+ivt.S. (2.5.39)
 
 
-Hi,
+I believe this patch should fix it (but I'm not an IA64 assmebler
+language expert!)
 
-testing the kernel 2.4.18 I found a RAW dependency (for P8) in ivt.S in
-entry alt_dtlb_miss. The lines are
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.851   -> 1.852  
+#	arch/ia64/kernel/ivt.S	1.10    -> 1.11   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 02/10/16	peterc@gelato.unsw.edu.au	1.852
+# Fix RAW dependency when CONFIG_HUGETLB_PAGE is not defined.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/kernel/ivt.S b/arch/ia64/kernel/ivt.S
+--- a/arch/ia64/kernel/ivt.S	Wed Oct 16 10:14:27 2002
++++ b/arch/ia64/kernel/ivt.S	Wed Oct 16 10:14:27 2002
+@@ -116,8 +116,8 @@
+ 	;;
+ (p8)	dep r25=r18,r25,2,6
+ (p8)	shr r22=r22,HPAGE_SHIFT-PAGE_SHIFT
+-	;;
+ #endif
++	;;
+ 	cmp.eq p6,p7=5,r17			// is IFA pointing into to region 5?
+ 	shr.u r18=r22,PGDIR_SHIFT		// get bits 33-63 of the faulting address
+ 	;;
 
-    cmp.ne p8,p0=r0,r23
-(p8)    br.cond.spnt page_fault
-
-Why I'am not providing a (simple) patch: I' am wondering about taking
-the privilege level for the decision about taking a page fault or
-inserting the identity mapped TLB entry. For my understanding there
-should be checked for region 7.
-
-Christian
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
