@@ -1,8 +1,10 @@
-From: humbert kashtan <alison@phayze.com>
-Date: Sun, 07 Apr 2002 08:49:17 +0000
+From: christoph hugh <989gilles@moebelheinrich.de>
+Date: Sun, 07 Apr 2002 18:33:19 +0000
 Subject: I fonud the rihgt prorgam for you
-Message-Id: <0cea01c1de11$93ddd0b5$63a10730@phayze.com>
+Message-Id: <86c501c1de62$7469fdc5$7530f544@moebelheinrich.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <0cea01c1de11$93ddd0b5$63a10730@phayze.com>
+In-Reply-To: <0cea01c1de11$93ddd0b5$63a10730@phayze.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -17,8 +19,8 @@ Just use my referral link http://incotrust.com?ref%13451
 Best,
 stay in touch
 
-Tom
+Steve
 
 
 
-djej
+rpwe
