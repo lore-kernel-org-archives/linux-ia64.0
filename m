@@ -1,138 +1,215 @@
 From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Thu, 17 Apr 2003 18:51:16 +0000
-Subject: [Linux-ia64] Re: [patch] consolidate cpu_is_online definition
-Message-Id: <marc-linux-ia64-105590723705536@msgid-missing>
+Date: Thu, 24 Apr 2003 22:25:41 +0000
+Subject: [Linux-ia64] [PATCH] 2/4 multi-ioport space support for 2.5
+Message-Id: <marc-linux-ia64-105590723705600@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tuesday 01 April 2003 12:07 pm, Martin Hicks wrote:
-> Here is a patch against 2.4.21-pre5-ia64-030312 that consolidates the
-> definitions of cpu_is_online().  This is basically the same patch that
-> was recently applied to 2.5
-
-I applied this for 2.4 with a couple changes:
-  - both defs in asm-ia64/smp.h to keep it arch-specific
-  - used cpu_online as in 2.5, since these are local uses anyway
-
-Here's the actual patch I applied.  Thanks!
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1070  -> 1.1071 
-#	arch/ia64/kernel/palinfo.c	1.7     -> 1.8    
-#	arch/ia64/kernel/perfmon.c	1.18    -> 1.19   
-#	include/asm-ia64/smp.h	1.5     -> 1.6    
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/04/17	bjorn_helgaas@hp.com	1.1071
-# ia64: remove cpu_is_online local defs, in favor of a 2.5-style cpu_online.
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
---- a/arch/ia64/kernel/palinfo.c	Thu Apr 17 12:27:39 2003
-+++ b/arch/ia64/kernel/palinfo.c	Thu Apr 17 12:27:39 2003
-@@ -27,9 +27,7 @@
- #include <asm/sal.h>
- #include <asm/page.h>
- #include <asm/processor.h>
--#ifdef CONFIG_SMP
- #include <linux/smp.h>
--#endif
+diff -u -ur linux-2.5.67-ia64-030416-io1/arch/ia64/pci/pci.c linux-2.5.67-ia64-030416-io2/arch/ia64/pci/pci.c
+--- linux-2.5.67-ia64-030416-io1/arch/ia64/pci/pci.c	2003-04-24 10:10:58.000000000 -0600
++++ linux-2.5.67-ia64-030416-io2/arch/ia64/pci/pci.c	2003-04-24 12:36:53.000000000 -0600
+@@ -116,24 +116,31 @@
  
- MODULE_AUTHOR("Stephane Eranian <eranian@hpl.hp.com>");
- MODULE_DESCRIPTION("/proc interface to IA-64 PAL");
-@@ -37,12 +35,6 @@
+ subsys_initcall(pci_acpi_init);
  
- #define PALINFO_VERSION "0.5"
- 
--#ifdef CONFIG_SMP
--#define cpu_is_online(i) (cpu_online_map & (1UL << i))
--#else
--#define cpu_is_online(i)	1
--#endif
+-static void __init
+-pcibios_fixup_resource(struct resource *res, u64 offset)
+-{
+-	res->start += offset;
+-	res->end += offset;
+-}
 -
- typedef int (*palinfo_func_t)(char*);
+ void __init
+-pcibios_fixup_device_resources(struct pci_dev *dev, struct pci_bus *bus)
++pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
+ {
+-	int i;
++	struct pci_controller *controller = PCI_CONTROLLER(dev);
++	struct pci_window *window;
++	int i, j;
  
- typedef struct {
-@@ -936,7 +928,7 @@
- 	 */
- 	for (i=0; i < NR_CPUS; i++) {
+ 	for (i = 0; i < PCI_NUM_RESOURCES; i++) {
+ 		if (!dev->resource[i].start)
+ 			continue;
+-		if (dev->resource[i].flags & IORESOURCE_MEM)
+-			pcibios_fixup_resource(&dev->resource[i],
+-			                       PCI_CONTROLLER(dev)->mem_offset);
++
++#define contains(win, res)	((res)->start >= (win)->start && \
++				 (res)->end   <= (win)->end)
++
++		for (j = 0; j < controller->windows; j++) {
++			window = &controller->window[j];
++			if (((dev->resource[i].flags & IORESOURCE_MEM &&
++			      window->resource.flags & IORESOURCE_MEM) ||
++			     (dev->resource[i].flags & IORESOURCE_IO &&
++			      window->resource.flags & IORESOURCE_IO)) &&
++			    contains(&window->resource, &dev->resource[i])) {
++				dev->resource[i].start += window->offset;
++				dev->resource[i].end   += window->offset;
++			}
++		}
+ 	}
+ }
  
--		if (!cpu_is_online(i)) continue;
-+		if (!cpu_online(i)) continue;
+@@ -184,23 +191,127 @@
+ 	return b;
+ }
  
- 		sprintf(cpustr,CPUSTR, i);
++static u64
++add_io_space (struct acpi_resource_address64 *addr)
++{
++	u64 offset;
++	int sparse = 0;
++	int i;
++
++	if (addr->address_translation_offset = 0)
++		return IO_SPACE_BASE(0);	/* part of legacy IO space */
++
++	if (addr->attribute.io.translation_attribute = ACPI_SPARSE_TRANSLATION)
++		sparse = 1;
++
++	offset = (u64) ioremap(addr->address_translation_offset, 0);
++	for (i = 0; i < num_io_spaces; i++)
++		if (io_space[i].mmio_base = offset &&
++		    io_space[i].sparse = sparse)
++			return IO_SPACE_BASE(i);
++
++	if (num_io_spaces = MAX_IO_SPACES) {
++		printk("Too many IO port spaces\n");
++		return ~0;
++	}
++
++	i = num_io_spaces++;
++	io_space[i].mmio_base = offset;
++	io_space[i].sparse = sparse;
++
++	return IO_SPACE_BASE(i);
++}
++
++static acpi_status
++count_window (struct acpi_resource *resource, void *data)
++{
++	unsigned int *windows = (unsigned int *) data;
++	struct acpi_resource_address64 addr;
++	acpi_status status;
++
++	status = acpi_resource_to_address64(resource, &addr);
++	if (ACPI_SUCCESS(status))
++		if (addr.resource_type = ACPI_MEMORY_RANGE ||
++		    addr.resource_type = ACPI_IO_RANGE)
++			(*windows)++;
++
++	return AE_OK;
++}
++
++struct pci_root_info {
++	struct pci_controller *controller;
++	char *name;
++};
++
++static acpi_status
++add_window (struct acpi_resource *res, void *data)
++{
++	struct pci_root_info *info = (struct pci_root_info *) data;
++	struct pci_window *window;
++	struct acpi_resource_address64 addr;
++	acpi_status status;
++	unsigned long flags, offset = 0;
++
++	status = acpi_resource_to_address64(res, &addr);
++	if (ACPI_SUCCESS(status)) {
++		if (addr.resource_type = ACPI_MEMORY_RANGE) {
++			flags = IORESOURCE_MEM;
++			offset = addr.address_translation_offset;
++		} else if (addr.resource_type = ACPI_IO_RANGE) {
++			flags = IORESOURCE_IO;
++			offset = add_io_space(&addr);
++			if (offset = ~0)
++				return AE_OK;
++		} else
++			return AE_OK;
++
++		window = &info->controller->window[info->controller->windows++];
++		window->resource.flags |= flags;
++		window->resource.start  = addr.min_address_range;
++		window->resource.end    = addr.max_address_range;
++		window->offset		= offset;
++	}
++
++	return AE_OK;
++}
++
+ struct pci_bus *
+-pcibios_scan_root(void *handle, int seg, int bus)
++pcibios_scan_root (void *handle, int seg, int bus)
+ {
++	struct pci_root_info info;
+ 	struct pci_controller *controller;
+-	u64 base, size, offset;
++	unsigned int windows = 0;
++	char *name;
  
-diff -Nru a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
---- a/arch/ia64/kernel/perfmon.c	Thu Apr 17 12:27:39 2003
-+++ b/arch/ia64/kernel/perfmon.c	Thu Apr 17 12:27:39 2003
-@@ -24,6 +24,7 @@
- #include <linux/wrapper.h>
- #include <linux/mm.h>
- #include <linux/sysctl.h>
-+#include <linux/smp.h>
+ 	printk("PCI: Probing PCI hardware on bus (%02x:%02x)\n", seg, bus);
+ 	controller = alloc_pci_controller(seg);
+ 	if (!controller)
+-		return NULL;
++		goto out1;
  
- #include <asm/bitops.h>
- #include <asm/errno.h>
-@@ -131,12 +132,6 @@
+ 	controller->acpi_handle = handle;
  
- #define PFM_REG_RETFLAG_SET(flags, val)	do { flags &= ~PFM_REG_RETFL_MASK; flags |= (val); } while(0)
+-	acpi_get_addr_space(handle, ACPI_MEMORY_RANGE, &base, &size, &offset);
+-	controller->mem_offset = offset;
++	acpi_walk_resources(handle, METHOD_NAME__CRS, count_window, &windows);
++	controller->window = kmalloc(sizeof(*controller->window) * windows, GFP_KERNEL);
++	if (!controller->window)
++		goto out2;
++
++	name = kmalloc(16, GFP_KERNEL);
++	if (!name)
++		goto out3;
++
++	sprintf(name, "PCI Bus %02x:%02x", seg, bus);
++	info.controller = controller;
++	info.name = name;
++	acpi_walk_resources(handle, METHOD_NAME__CRS, add_window, &info);
  
--#ifdef CONFIG_SMP
--#define cpu_is_online(i) (cpu_online_map & (1UL << i))
--#else
--#define cpu_is_online(i)        (i=0)
--#endif
--
+ 	return scan_root_bus(bus, pci_root_ops, controller);
++
++out3:
++	kfree(controller->window);
++out2:
++	kfree(controller);
++out1:
++	return NULL;
+ }
+ 
  /*
-  * debugging
-  */
-@@ -1080,7 +1075,7 @@
- 		 * and it must be a valid CPU
- 		 */
- 		cpu = ffz(~pfx->ctx_cpu_mask);
--		if (cpu_is_online(cpu) = 0) {
-+		if (cpu_online(cpu) = 0) {
- 			DBprintk(("CPU%d is not online\n", cpu));
- 			return -EINVAL;
- 		}
-@@ -3169,7 +3164,7 @@
- 	p += sprintf(p, "ovfl_mask              : 0x%lx\n", pmu_conf.ovfl_val);
+diff -u -ur linux-2.5.67-ia64-030416-io1/include/asm-ia64/pci.h linux-2.5.67-ia64-030416-io2/include/asm-ia64/pci.h
+--- linux-2.5.67-ia64-030416-io1/include/asm-ia64/pci.h	2003-04-24 10:10:58.000000000 -0600
++++ linux-2.5.67-ia64-030416-io2/include/asm-ia64/pci.h	2003-04-24 11:17:10.000000000 -0600
+@@ -97,12 +97,18 @@
+ extern int pci_mmap_page_range (struct pci_dev *dev, struct vm_area_struct *vma,
+ 				enum pci_mmap_state mmap_state, int write_combine);
  
- 	for(i=0; i < NR_CPUS; i++) {
--		if (cpu_is_online(i) = 0) continue;
-+		if (cpu_online(i) = 0) continue;
- 		p += sprintf(p, "CPU%-2d overflow intrs   : %lu\n", i, pfm_stats[i].pfm_ovfl_intr_count);
- 		p += sprintf(p, "CPU%-2d spurious intrs   : %lu\n", i, pfm_stats[i].pfm_spurious_ovfl_intr_count);
- 		p += sprintf(p, "CPU%-2d recorded samples : %lu\n", i, pfm_stats[i].pfm_recorded_samples_count);
-diff -Nru a/include/asm-ia64/smp.h b/include/asm-ia64/smp.h
---- a/include/asm-ia64/smp.h	Thu Apr 17 12:27:39 2003
-+++ b/include/asm-ia64/smp.h	Thu Apr 17 12:27:39 2003
-@@ -48,6 +48,8 @@
- 
- extern unsigned long ap_wakeup_vector;
- 
-+#define cpu_online(cpu)		(cpu_online_map & (1UL << (cpu)))
++struct pci_window {
++	struct resource resource;
++	u64 offset;
++};
 +
- /*
-  * Function to map hard smp processor id to logical id.  Slow, so
-  * don't use this in performance-critical code.
-@@ -122,6 +124,10 @@
- extern int smp_call_function_single (int cpuid, void (*func) (void *info), void *info,
- 				     int retry, int wait);
+ struct pci_controller {
+ 	void *acpi_handle;
+ 	void *iommu;
+ 	int segment;
  
-+
-+#else
-+
-+#define cpu_online(cpu)		(cpu = 0)
+-	u64 mem_offset;
++	unsigned int windows;
++	struct pci_window *window;
+ };
  
- #endif /* CONFIG_SMP */
- #endif /* _ASM_IA64_SMP_H */
+ #define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
 
 
