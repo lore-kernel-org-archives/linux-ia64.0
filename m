@@ -1,26 +1,30 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Wed, 16 Apr 2003 16:09:36 +0000
-Subject: Re: [Linux-ia64] show_trace_task portability
-Message-Id: <marc-linux-ia64-105590723705511@msgid-missing>
+From: David =?iso-8859-1?q?K=E5gedal?= <david@virtutech.se>
+Date: Fri, 11 Apr 2003 07:51:36 +0000
+Subject: [Linux-ia64] Re: Itanium gets supercomputing software
+Message-Id: <marc-linux-ia64-105590723705464@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705283@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705283@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Friday 21 March 2003 2:36 am, Vladimir Simonov wrote:
-> Hi!
-> Trying to port some patches from i386 to ia64 I've found that
-> show_trace_task is the only portable way to show tasks' call
-> traces(perhaps because it is called from ./kernel/sched.c:)).
-> But its ia64 implementation can't work with running task.
-> 
-> Attached patch fixes this issue.
+Matt Chapman <matthewc@cse.unsw.edu.au> writes:
 
-I applied this for 2.4.
+> On Fri, Apr 11, 2003 at 09:58:08AM +1000, Duraid Madina wrote:
+>>=20
+>> I put it to you that software is easier to develop on hardware. Nothing =
 
-Bjorn
+>> unique to IA64, indeed.
+>
+> We still use simulators despite the availability of hardware.  Operating
+> system software is often easier to debug on a simulator.
 
+Exactly.  There are a lot of things that you can do with a simulator
+that you can't do with hardware.  Developing software before hardware
+is available is just one of them.  (plug mode on) That's why we sell
+simulators for most major current CPU architectures.  Including IA64.
+
+--=20
+David K=E5gedal, Virtutech
+http://www.simics.com/
 
