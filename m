@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 30 Aug 2002 05:42:23 +0000
-Subject: [Linux-ia64] kernel update (relative to v2.5.32)
-Message-Id: <marc-linux-ia64-105590701906002@msgid-missing>
+From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
+Date: Fri, 30 Aug 2002 17:26:10 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to v2.5.32)
+Message-Id: <marc-linux-ia64-105590701906003@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,29 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-OK, the latest ia64 patch should show up shortly at:
+Hi David,
 
-	ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5
+On Thu, 29 Aug 2002 22:42:23 -0700
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
 
-in file: linux-2.5.32-ia64-020829.diff.gz
+> OK, the latest ia64 patch should show up shortly at:
+> 
+> 	ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5
+> 
+> in file: linux-2.5.32-ia64-020829.diff.gz
 
-Please see http://lia64.bkbits.net:8080/to-linus-2.5
-for change log entries.
+Compie fails at arch/ia64/kernel/init_task.c when I use
+RedHat's gcc 2.96.
+Is this time to consider gcc3.x as a default compiler for ia64?
 
-Note: I cobbled together a version of 8250_hcdp.c which ought to work,
-but I don't have firmware to test it with, so it's quite possible it
-doesn't work quite right.  At the moment, this should affect only hp
-zx1-based machines.
+Thanks,
+-- 
+KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
 
-Note 2: You may have heard that Linus took out the big stick once
-again and replaced the new & sort-of-improved IDE subsystem with the
-old (and reliable?) one.  I haven't done much testing, but this kernel
-at least can read from an IDE CD-ROM again.
-
-Oh, PS/2 keyboards & mice don't seem to work too well at the moment.
-USB seems to work fine, though.
-
-Enjoy,
-
-	--david
 
