@@ -1,72 +1,83 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Mon, 06 Sep 2004 02:11:30 +0000
-Subject: Re: [PATCH] fix CONFIG_DISCONTIGMEM and CONFIG_VIRTUAL_MEMMAP
-Message-Id: <20040906021129.GA17625@cse.unsw.EDU.AU>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="IJpNTDwzlM2Ie8A6"
+From: Darren Williams <dsw@gelato.unsw.edu.au>
+Date: Fri, 10 Sep 2004 04:12:00 +0000
+Subject: [PATCH] 2.6.9-rc1 Ia64 build broken due to HPET
+Message-Id: <20040910041200.GN5668@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200409050833.46503.jbarnes@engr.sgi.com>
-In-Reply-To: <200409050833.46503.jbarnes@engr.sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+The ia64 build broke overnight due to this patch
+http://marc.theaimsgroup.com/?l=linux-ia64&m9211170801213&w=2
+any ia64 arch that includes CONFIG_HPET will fail
+on the build, this effect generic_defconfig also.
 
---IJpNTDwzlM2Ie8A6
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Sun, Sep 05, 2004 at 08:33:46AM -0700, Jesse Barnes wrote:
-> Looks like the patch that fixed Ian's problem introduced an ugly warning.=
- =20
-> Maybe we could just switch to requiring CONFIG_DISCONTIGMEM and=20
-> CONFIG_VIRTUAL_MEMMAP for ia64 in general?  That would let us kill a lot =
-of=20
-> code and only have one code path, etc.  Benchmarks have shown that the=20
-> overhead of CONFIG_DISCONTIGMEM is very difficult to measure (if you look=
- at=20
-> the code, the only added overhead in any fast path is an additional point=
-er=20
-> dereference in alloc_pages).  CONFIG_VIRTUAL_MEMMAP is a little more=20
-> expensive iirc, but still difficult to measure.
+  CC      drivers/char/hpet.o
+drivers/char/hpet.c:669: error: `MC' undeclared here (not in a function)
+drivers/char/hpet.c:669: error: initializer element is not constant
+drivers/char/hpet.c:669: error: (near initialization for `hpet_interpolator.addr')
+drivers/char/hpet.c: In function `hpet_init':
+drivers/char/hpet.c:956: error: `hpet_cycles_per_sec' undeclared (first use in this function)
+drivers/char/hpet.c:956: error: (Each undeclared identifier is reported only once
+drivers/char/hpet.c:956: error: for each function it appears in.)
+drivers/char/hpet.c:960: error: `hpet_nsecs_per_cycle' undeclared (first use in this function)
+make[2]: *** [drivers/char/hpet.o] Error 1
 
-Guilty as charged, I only checked it on my machine.
+The included patch will need to be scrutinised due
+to the fact I had no idea what to assign to:
+hpet_interpolator.addr
+signed-off-by Darren Williams <dswATgelato.unsw.edu.au>
 
-If performance isn't an issue [*], for mine, combining the the two
-seems like the most logical thing to do to me, as it is only causing
-confusion with the two being apart.  Setting myself the simple goal of
-running with discontig and virtual mem map without NUMA, the diffstat
-of the patch looks like
+# ChangeSet
+#   2004/09/10 13:11:25+10:00 dsw@vanilla.gelato 
+#   Define hpet_cycles_per_sec for hpet clock calculation and assign
+#   nsec_per_cyc directly to hpet_interpolator.nsec_per_cyc
+#   
+#   The assignment of .addr = hpet_control is more than likely bogus
+#   time_interpolator.addr requires an address of a counter or function
+# 
+# drivers/char/hpet.c
+#   2004/09/10 13:11:18+10:00 dsw@vanilla.gelato +4 -3
+#   Define hpet_cycles_per_sec for hpet clock calculation and assign
+#   nsec_per_cyc directly to hpet_interpolator.nsec_per_cyc
+#   
+#   The assignment of .addr = hpet_control is more than likely bogus
+#   time_interpolator.addr requires an address of a counter or function
+#   
+diff -Nru a/drivers/char/hpet.c b/drivers/char/hpet.c
+--- a/drivers/char/hpet.c	2004-09-10 13:36:48 +10:00
++++ b/drivers/char/hpet.c	2004-09-10 13:36:48 +10:00
+@@ -665,7 +665,7 @@
+ static struct time_interpolator hpet_interpolator = {
+ 	.source = TIME_SOURCE_MMIO64,
+ 	.shift = 10,
+-	.addr = MC
++	.addr = hpet_control
+ };
+ 
+ #endif
+@@ -951,13 +951,14 @@
+ #ifdef	CONFIG_TIME_INTERPOLATION
+ 		{
+ 			struct hpet *hpet;
+-
++			long hpet_cycles_per_sec;
++
+ 			hpet = hpets->hp_hpet;
+ 			hpet_cycles_per_sec = hpet_time_div(hpets->hp_period);
+ 			hpet_interpolator.frequency = hpet_cycles_per_sec;
+ 			hpet_interpolator.drift = hpet_cycles_per_sec *
+ 			    HPET_DRIFT / 1000000;
+-			hpet_nsecs_per_cycle = 1000000000 / hpet_cycles_per_sec;
++			hpet_interpolator.nsec_per_cyc = 1000000000 / hpet_cycles_per_sec;
+ 			register_time_interpolator(&hpet_interpolator);
+ 		}
+ #endif
 
- Makefile                     |    2
- arch/ia64/Kconfig            |    4
- arch/ia64/mm/discontig.c     |  180 ++------------------------------------=
------
- arch/ia64/mm/numa.c          |  171 ++++++++++++++++++++++++++++++++++++++=
-++
- include/asm-ia64/meminit.h   |    2
- include/asm-ia64/processor.h |    4
- 6 files changed, 189 insertions(+), 174 deletions(-)
 
-Most of that is copy-paste moving of a few things from discontig.c to
-in numa.c.  My point is that it probably isn't too hard (but I guess
-that's probably not news).
-
--i
-
-[*] I'm always happy to run any benchmarks you want on the machines we
-have.
-
---IJpNTDwzlM2Ie8A6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFBO8dRWDlSU/gp6ecRAsPVAJ4664q7uF4H0BunmnblTrT9pEu29ACgqBpG
-taYD8mBPawRPfNBAT2A6enY=
-=L6JQ
------END PGP SIGNATURE-----
-
---IJpNTDwzlM2Ie8A6--
+--------------------------------------------------
+Darren Williams <dsw AT gelato.unsw.edu.au>
+Gelato@UNSW <www.gelato.unsw.edu.au>
+--------------------------------------------------
