@@ -1,46 +1,37 @@
-From: Darren Williams <dsw@gelato.unsw.edu.au>
-Date: Thu, 05 Feb 2004 06:11:36 +0000
-Subject: [patch] 2.6.2-rc2 Remove compile warnings from timer.o
-Message-Id: <20040205061136.GD25002@cse.unsw.EDU.AU>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="VS++wcV0S1rZb1Fb"
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 10 Feb 2004 22:29:10 +0000
+Subject: Re: [patch] 2.6.2-rc2 Remove compile warnings from timer.o
+Message-Id: <16425.23350.962126.469241@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040205061136.GD25002@cse.unsw.EDU.AU>
+In-Reply-To: <20040205061136.GD25002@cse.unsw.EDU.AU>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>>>>> On Thu, 5 Feb 2004 17:11:36 +1100, Darren Williams <dsw@gelato.unsw.edu.au> said:
 
---VS++wcV0S1rZb1Fb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+  Darren> This ia a relatively simple patch to remove compile
+  Darren> warnings: kernel/timer.c: In function `second_overflow':
+  Darren> kernel/timer.c:589: warning: right shift count is negative
+  Darren> kernel/timer.c:592: warning: right shift count is negative
 
-This ia a relatively simple patch to remove compile warnings:
+  Darren> when CONFIG_IA64_HP_SIM=y.
 
-kernel/timer.c: In function `second_overflow':
-kernel/timer.c:589: warning: right shift count is negative
-kernel/timer.c:592: warning: right shift count is negative
+  Darren> Tested with SIM boots and compile.
 
-when CONFIG_IA64_HP_SIM=y. 
+  Darren> -#  define HZ	  32
+  Darren> +#  define HZ	  96
 
-Tested with SIM boots and compile.
+Doesn't strike me as the correct fix: looking at timex.h, clearly HZ
+values as low as 12Hz are supposed to be supported.  Perhaps a better
+fix would be to change timer.c to verify that
+SHIFT_SCALE<=SHIFT_USEC+SHIFT_HZ before attempting to do the shifting
+(via a CPP #if, of course).
 
---------------------------------------------------
-Darren Williams <dsw AT gelato.unsw.edu.au>
-Gelato@UNSW <www.gelato.unsw.edu.au>
---------------------------------------------------
+Also, I'm a bit reluctant to increase the HZ value for the simulator,
+because too large a value will cause the simulated kernel to fail to
+make forward progress on slow host machines.
 
---VS++wcV0S1rZb1Fb
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="param.h.patch"
-
---- ../tmp/linux-2.6.2-rc2/include/asm-ia64/param.h	2004-02-05 14:09:33.000000000 +1100
-+++ linux-2.6.2-rc2/include/asm-ia64/param.h	2004-02-05 13:23:21.000000000 +1100
-@@ -27,7 +27,7 @@
-    * Yeah, simulating stuff is slow, so let us catch some breath between
-    * timer interrupts...
-    */
--#  define HZ	  32
-+#  define HZ	  96
- # else
- #  define HZ	1024
- # endif
-
---VS++wcV0S1rZb1Fb--
+	--david
