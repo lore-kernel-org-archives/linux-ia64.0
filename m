@@ -1,205 +1,70 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Tue, 14 Sep 2004 18:58:37 +0000
-Subject: Re: [PATCH 1/4] SGI Altix cross partition functionality (1st revision)
-Message-Id: <20040914185837.GA12088@sgi.com>
+From: Xavier Bru <xavier.bru@bull.net>
+Date: Wed, 01 Sep 2004 10:25:43 +0000
+Subject: HCDP concerns
+Message-Id: <4135A3A7.9000706@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040616163339.GA27891@sgi.com>
-In-Reply-To: <20040616163339.GA27891@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Tue, Aug 24, 2004 at 08:13:43PM +0100, Christoph Hellwig wrote:
-> > +++ bk-linux-2.6/kernel/sched.c	2004-08-24 07:29:11.000000000 -0500
-> > @@ -2814,6 +2814,7 @@
-> >  {
-> >  	return setscheduler(pid, policy, param);
-> >  }
-> > +EXPORT_SYMBOL(sys_sched_setscheduler);
-> 
-> As said previously you're not supposed to mess with this one.
+Hello Bjorn and all,
 
-Yeah, I know, but how is one suppose to deal with the following
-issue raised by Robin? (Never did get a response from you.)
+I have some concerns with using kernel 2.6.8.1 (and 2.6.7) with our=20
+platform that has a new BIOS that provides HCDP.
 
-On Wed, Jun 16, 2004 at 02:36:22PM -0500, Robin Holt wrote:
-> On Wed, Jun 16, 2004 at 06:43:47PM +0100, Christoph Hellwig wrote:
-> > On Wed, Jun 16, 2004 at 12:40:53PM -0500, Robin Holt wrote:
-> > > > > +EXPORT_SYMBOL(sys_sched_setscheduler);
-> > > >
-> > > > Again, don't mess with scheduler paramters from your modules.
-> > >
-> > > How should a kernel thread raise itself to real-time priority?
-> >
-> > Answer to both:  it shouldn't
->
-> To the second, we found that contention would result in very high
-> latency without raising the priority to real-time levels.  What is
-> the proper way to handle having a user thread at the same priority
-> as a kernel thread causing this holdoff?
+1) When kernel is configured without h/pcdp support ( CONFIG_EFI_PCDP is=20
+not set),
+the serial console are not initialized (efi.hcdp is not NULL).
 
-The problem arises when enough user processes, which have the same
-priority as XPC's kthreads, are spinning doing a bit of work mixed
-with sleeping. Because of the sleep, these processes get a bonus
-which gives them a higher effective priority than the XPC kthreads.
-As a result, when cross partition interrupts come in, the XPC kthreads
-do not get scheduled immediately, but are held off until the end of
-the user processes' time slice.
+A simple fix could be:
+--- linux-2.6.8.1-ori/arch/ia64/kernel/setup.c    2004-08-14=20
+12:54:50.000000000 +0200
++++ linux-2.6.8.1/arch/ia64/kernel/setup.c    2004-08-31=20
+11:54:02.000000000 +0200
+@@ -351,9 +351,9 @@
+ #endif
+ #ifdef CONFIG_EFI_PCDP
+     efi_setup_pcdp_console(*cmdline_p);
++    if (!efi.hcdp)
+ #endif
+ #ifdef CONFIG_SERIAL_8250_CONSOLE
+-    if (!efi.hcdp)
+         setup_serial_legacy();
+ #endif
 
-This problem was encountered running a legitimate user land work load.
-I concocted the following program to reproduce the behavior we were
-seeing. I did this to see if the problem still exists on the 2.6
-kernel (we originally saw the problem running on 2.4).
+2) Our platform has 2 serial ports (let say port 0 at address 3f8, port=20
+1 at address 2f8). Usually port 0 is seen as ttyS0 & port 1 as ttyS1.=20
+EFI console redirection is done on port S1 (2f8) & is described through=20
+HCDP(port 0 is not described).
+Using the h/pcdp support ( CONFIG_EFI_PCDP=3D1), we get some strange=20
+behaviours:
+. "console=3DttyS0" boot parameter, as explained in menuconfig takes the=20
+HCDP table entry as console, but changes the ttyS* order:
+ttyS1 for port 0 (3f8) and ttyS0 for port 1 (2f8). Console is OK,  but=20
+the ttyS0 on port 1 is confusing compared to kernels without hcdp support.
+. due to this behaviour, there is no more possibility to have the linux=20
+console redirection on the port 0 at boot time.
+. My understanding was that h/pcdp support should provide some new=20
+console=EFi (or serial)  option to have the console defined by efi used=20
+by linux as console, but that this should not change the ttyS order, and=20
+that we should still be able to use console=3D"ttySx" at boot time to have =
 
-I ran the program on one of two partitions that were connected via XPC
-and XPNET. A ping on each partition was pinging the other partition. With
-XPC's priority left to default, the ping times shot way up (300 times the
-latency). But with XPC's priority set to realtime, there was no change.
+the console on port "x".
+. specifying no "console=3D" provides no console as the Conout variable is =
 
-So I would ask again, how are we to deal with this issue if we're
-not allowed to change the priority of XPC's kthreads to realtime?
+not exported by EFI at runtime. Should it be ?
 
-Should we be exporting setscheduler() instead?
+Thanks in advance for your clarifications.
+Xavier
+--=20
 
-Thanks,
-Dean
-
-
- \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
-
-#include <stdio.h>
-#include <unistd.h>
-#include <errno.h>
-#include <time.h>
-#include <linux/types.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-// #include <asm/ia64regs.h>
-
-/*
- *	choke [ -n <nchildren> ]
- *
- *	-n  number of children to fork (defaults to '#of CPUs * 4')
- */
-
-#define STR_BUF_SIZE	80
-
-#define _IA64_REG_AR_KR0	3072
-#define _IA64_REG_AR_ITC	3116
-                                                                                
-__u64 current_itc;
-// long long current_itc;
-                                                                                
-__u64
-get_itc()
-{
-	asm volatile ("mov %0=ar%1" : "=r" (current_itc) :
-			"i"(_IA64_REG_AR_ITC - _IA64_REG_AR_KR0));
-	return current_itc;
-}
-
-int
-get_nCPUs(void)
-{
-	char str_buf[STR_BUF_SIZE];
-	FILE *str_fd;
-
-
-	/* figure out the number of CPUs on this system */
-	str_fd = popen("cat /proc/cpuinfo | grep processor | wc -l", "r");
-	if (str_fd = NULL || fgets(str_buf, STR_BUF_SIZE, str_fd) = NULL) {
-		fprintf(stderr, "couldn't determine number of CPUs\n");
-		return 0;
-	}
-	(void) pclose(str_fd);
-	return atoi(str_buf);
-}
-
-void
-child_work_and_sleep(void)
-{
-	int i;
-	__u64 t1, t2;
-	struct timespec req_time;
-
-	
-	req_time.tv_sec = 0;
-	req_time.tv_nsec = 4000000;	/* 4msec */
-
-	while (1) {
-		/* work for a bit (just less than 1msec) */
-		t2 = get_itc();
-		do {
-			t1 = t2;
-			for (i = 1123000; i > 0; i--) {
-				i--;
-			}
-			t2 = get_itc();
-		} while (t2 - t1 < 99999);	/* < 1msec */
-
-		/* sleep for a bit (about 4msec) */
-		if (nanosleep(&req_time, NULL) = -1) {
-			fprintf(stderr, "nanosleep() failed, errno=%d\n",
-									errno);
-			exit(1);
-		}
-	}
-}
-
-int
-main(int argc, char *argv[])
-{
-	pid_t pid;
-	int c, i;
-	int nChildren = -1;
-
-
-	while ((c = getopt(argc, argv, "n:")) != EOF) {
-		switch (c) {
-		case 'n':
-			nChildren = atoi(optarg);
-			break;
-		case '?':
-			fprintf(stderr, "choke [-n nchildren]\n");
-			exit(1);
-		}
-	}
-
-	if (optind != argc) {
-		fprintf(stderr, "choke [-n nchildren]\n");
-		exit(1);
-	}
-
-	if (nChildren = -1) {
-		nChildren = get_nCPUs() * 4;
-	}
-
-
-	/* fork nChildren worth of children who work a msec and sleep 4msec */
-	printf("forking %d children\n", nChildren);
-
-
-	for (i = 0; i < nChildren; i++) {
-
-		if ((pid = fork()) = -1) {
-			fprintf(stderr, "fork() failed, errno=%d\n", errno);
-			exit(1);
-		}
-		if (pid != 0) {
-			printf("child %d: %d\n", i+1, pid);
-			continue;
-		}
-
-		child_work_and_sleep();
-		exit(1);	/* should never get here */
-	}
-
-	while ((pid = wait(NULL)) != -1) { /* spin */ }
-	if (errno != ECHILD) {
-		fprintf(stderr, "wait() failed, errno=%d\n", errno);
-		exit(1);
-	}
-	exit(0);
-}
+ Sinc=E8res salutations.
+_____________________________________________________________________
+=20
+Xavier BRU                 BULL ISD/R&D/INTEL office:     FREC B1-422
+tel : +33 (0)4 76 29 77 45                    http://www-frec.bull.fr
+fax : +33 (0)4 76 29 77 70                 mailto:Xavier.Bru@bull.net
+addr: BULL, 1 rue de Provence, BP 208, 38432 Echirolles Cedex, FRANCE
+_____________________________________________________________________
 
