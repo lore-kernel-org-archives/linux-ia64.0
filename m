@@ -1,90 +1,22 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Sun, 28 Sep 2003 23:44:02 +0000
-Subject: RE: [PATCH] long format VHPT
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3861A.65AFD761"
-Message-Id: <marc-linux-ia64-106479289832205@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Mon, 29 Sep 2003 17:43:28 +0000
+Subject: Re: [PATCH] long format VHPT
+Message-Id: <marc-linux-ia64-106485841224706@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106453902218848@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106453902218848@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+Chen, Kenneth W wrote:
+> I did some hacking over the weekend. VHPT allocation can be done
+> from boot processor in function do_boot_cpu() before waking up
+> secondary CPUs.  Allocation can be easily made numa friendly by
+> calling alloc_pages_node (didn't bother to do that for now).
 
-------_=_NextPart_001_01C3861A.65AFD761
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+I was thinking of the hot-plug CPU case, where the allocation has to be done on the newly added CPU anyway.
 
+	-Arun
 
-Arun Sharma wrote:
-> - Can we avoid allocating VHPTs for non-existent CPUs ?
-> - How about calling alloc_bootmem on cpu0 and __get_free_pages
->   on secondary cpus ?
-
-> I noticed that when we hit ia64_mmu_init() on a secondary
-> processor, cpu0 has already made successful calls to=20
-> __get_free_pages(). But calls from the secondary cpus fail.
-> Does anyone know why ?
-
-I did some hacking over the weekend. VHPT allocation can be done
-from boot processor in function do_boot_cpu() before waking up
-secondary CPUs.  Allocation can be easily made numa friendly by
-calling alloc_pages_node (didn't bother to do that for now).
-
-- Ken
-
-------_=_NextPart_001_01C3861A.65AFD761
-Content-Type: application/octet-stream;
-	name="lvhpt_init.patch"
-Content-Transfer-Encoding: base64
-Content-Description: lvhpt_init.patch
-Content-Disposition: attachment;
-	filename="lvhpt_init.patch"
-
-ZGlmZiAtTnVycCAyLjYuMC10ZXN0NS52L2FyY2gvaWE2NC9rZXJuZWwvc21wYm9vdC5jIDIuNi4w
-LXRlc3Q1Lmtlbi9hcmNoL2lhNjQva2VybmVsL3NtcGJvb3QuYwotLS0gMi42LjAtdGVzdDUudi9h
-cmNoL2lhNjQva2VybmVsL3NtcGJvb3QuYwlTdW4gU2VwIDI4IDE2OjI4OjE2IDIwMDMKKysrIDIu
-Ni4wLXRlc3Q1Lmtlbi9hcmNoL2lhNjQva2VybmVsL3NtcGJvb3QuYwlTdW4gU2VwIDI4IDE2OjMy
-OjI0IDIwMDMKQEAgLTM1OCwxMSArMzU4LDE2IEBAIGZvcmtfYnlfaGFuZCAodm9pZCkKIAlyZXR1
-cm4gY29weV9wcm9jZXNzKENMT05FX1ZNfENMT05FX0lETEVUQVNLLCAwLCAwLCAwLCBOVUxMLCBO
-VUxMKTsKIH0KIAorI2lmZGVmIENPTkZJR19JQTY0X0xPTkdfRk9STUFUX1ZIUFQKK2V4dGVybiB1
-bnNpZ25lZCBsb25nIHZocHRfYmFzZVtOUl9DUFVTXTsKKyNlbmRpZgorCiBzdGF0aWMgaW50IF9f
-aW5pdAogZG9fYm9vdF9jcHUgKGludCBzYXBpY2lkLCBpbnQgY3B1KQogewogCXN0cnVjdCB0YXNr
-X3N0cnVjdCAqaWRsZTsKIAlpbnQgdGltZW91dDsKKwlzdHJ1Y3QgcGFnZSAqIHZocHRfcGFnZTsK
-IAogCS8qCiAJICogV2UgY2FuJ3QgdXNlIGtlcm5lbF90aHJlYWQgc2luY2Ugd2UgbXVzdCBhdm9p
-ZCB0byByZXNjaGVkdWxlIHRoZSBjaGlsZC4KQEAgLTM4Miw2ICszODcsMTYgQEAgZG9fYm9vdF9j
-cHUgKGludCBzYXBpY2lkLCBpbnQgY3B1KQogCiAJdGFza19mb3JfYm9vdGluZ19jcHUgPSBpZGxl
-OwogCisjaWZkZWYgQ09ORklHX0lBNjRfTE9OR19GT1JNQVRfVkhQVAorCXZocHRfcGFnZSA9IGFs
-bG9jX3BhZ2VzKF9fR0ZQX0hJR0hNRU0sIExPTkdfVkhQVF9CSVRTIC0gUEFHRV9TSElGVCk7CisJ
-aWYgKHZocHRfcGFnZSkKKwkJdmhwdF9iYXNlW2NwdV0gPSAodW5zaWduZWQgbG9uZykgcGFnZV9h
-ZGRyZXNzKHZocHRfcGFnZSk7CisJZWxzZQorCQlyZXR1cm4gLUVJTlZBTDsKKwlwcmludGsoS0VS
-Tl9JTkZPICJDUFUgJWQ6IExvbmcgZm9ybWF0IFZIUFQgaW5pdGlhbGlzZWQgYXQgYmFzZSBhZGRy
-ZXNzOiIKKwkJCSAiIDB4JWx4XG4iLCBjcHUsIHZocHRfYmFzZVtjcHVdKTsKKyNlbmRpZgorCiAJ
-RHByaW50aygiU2VuZGluZyB3YWtldXAgdmVjdG9yICVsdSB0byBBUCAweCV4LzB4JXguXG4iLCBh
-cF93YWtldXBfdmVjdG9yLCBjcHUsIHNhcGljaWQpOwogCiAJcGxhdGZvcm1fc2VuZF9pcGkoY3B1
-LCBhcF93YWtldXBfdmVjdG9yLCBJQTY0X0lQSV9ETV9JTlQsIDApOwpAQCAtNDA0LDYgKzQxOSw3
-IEBAIGRvX2Jvb3RfY3B1IChpbnQgc2FwaWNpZCwgaW50IGNwdSkKIAkJcHJpbnRrKEtFUk5fRVJS
-ICJQcm9jZXNzb3IgMHgleC8weCV4IGlzIHN0dWNrLlxuIiwgY3B1LCBzYXBpY2lkKTsKIAkJaWE2
-NF9jcHVfdG9fc2FwaWNpZFtjcHVdID0gLTE7CiAJCWNwdV9jbGVhcihjcHUsIGNwdV9vbmxpbmVf
-bWFwKTsgIC8qIHdhcyBzZXQgaW4gc21wX2NhbGxpbigpICovCisJCV9fZnJlZV9wYWdlcyh2aHB0
-X3BhZ2UsIExPTkdfVkhQVF9CSVRTIC0gUEFHRV9TSElGVCk7CiAJCXJldHVybiAtRUlOVkFMOwog
-CX0KIAlyZXR1cm4gMDsKZGlmZiAtTnVycCAyLjYuMC10ZXN0NS52L2FyY2gvaWE2NC9tbS9pbml0
-LmMgMi42LjAtdGVzdDUua2VuL2FyY2gvaWE2NC9tbS9pbml0LmMKLS0tIDIuNi4wLXRlc3Q1LnYv
-YXJjaC9pYTY0L21tL2luaXQuYwlTdW4gU2VwIDI4IDE2OjI4OjIyIDIwMDMKKysrIDIuNi4wLXRl
-c3Q1Lmtlbi9hcmNoL2lhNjQvbW0vaW5pdC5jCVN1biBTZXAgMjggMTY6MzI6MjUgMjAwMwpAQCAt
-MzQ0LDExICszNDQsOCBAQCBpYTY0X21tdV9pbml0ICh2b2lkICpteV9jcHVfZGF0YSkKIAlpZiAo
-Y3B1ID09IDApCiAJewogCQkvKiBXZSBhbGxvY2F0ZSBhbGwgVkhQVHMgaGVyZSBhcyB3ZSBtYXkg
-bm90IGhhdmUgZW5vdWdoIGNvbnRpZ3VvdXMgbWVtb3J5IGxhdGVyICovCi0JCS8qIEFsc28sIHdl
-IGNhbm5vdCB1c2UgX19nZXRfZnJlZV9wYWdlcyBvbiB0aGUgdGFyZ2V0IHByb2Nlc3NvciAodW50
-aWwgYWZ0ZXIgaW5pdF9jcHUpICovCi0JCWZvciAoaSA9IDA7IGkgPCBOUl9DUFVTOyBpKyspewot
-CQkJdmhwdF9iYXNlW2ldID0gKHVuc2lnbmVkIGxvbmcpX19hbGxvY19ib290bWVtKExPTkdfVkhQ
-VF9TSVpFLCBMT05HX1ZIUFRfU0laRSwgX19wYShNQVhfRE1BX0FERFJFU1MpKTsKLQkJCXByaW50
-ayhLRVJOX0lORk8gIkNQVSAlZDogTG9uZyBmb3JtYXQgVkhQVCBpbml0aWFsaXNlZCBhdCBiYXNl
-IGFkZHJlc3M6IDB4JWx4XG4iLCBpLCB2aHB0X2Jhc2VbaV0pOwotCQl9CisJCXZocHRfYmFzZVsw
-XSA9ICh1bnNpZ25lZCBsb25nKV9fYWxsb2NfYm9vdG1lbShMT05HX1ZIUFRfU0laRSwgTE9OR19W
-SFBUX1NJWkUsIF9fcGEoTUFYX0RNQV9BRERSRVNTKSk7CisJCXByaW50ayhLRVJOX0lORk8gIkNQ
-VSAwOiBMb25nIGZvcm1hdCBWSFBUIGluaXRpYWxpc2VkIGF0IGJhc2UgYWRkcmVzczogMHglbHhc
-biIsIHZocHRfYmFzZVswXSk7CiAJfQogI2VuZGlmCiAK
-
-------_=_NextPart_001_01C3861A.65AFD761--
