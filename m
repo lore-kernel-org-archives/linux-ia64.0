@@ -1,42 +1,85 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 29 Jan 2002 09:36:44 +0000
-Subject: Re: [Linux-ia64] Offsets from C struct into assembler
-Message-Id: <marc-linux-ia64-105590698805949@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 08 Jan 2002 00:25:10 +0000
+Subject: [Linux-ia64] can we make anonymous memory non-EXECUTABLE?
+Message-Id: <marc-linux-ia64-105590698805770@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805940@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805940@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@hpl.hp.com> writes:
+The traditional intended behavior of Linux is that anonymous memory
+has the EXECUTE permission turned on.  The reason I say "intended"
+behavior is that there appears to be an old bug in the kernel in this
+respect.  Specifically, the ELF data section is normally mapped with
+READ+WRITE permission (no EXECUTE permission).  The initial break
+value starts at the end of the bss segment and if that value does not
+fall on a page boundary (usually it doesn't), it means that the first
+few bytes allocated with sbrk() will NOT be EXECUTABLE.  Now, on x86
+this doesn't matter, because READ permission implies RIGHT permission,
+but on ia64 and any other architecture that has a separate EXECUTE
+permission, this means that programs cannot rely on memory returned by
+malloc() being executable.  There is obviously several ways to fix
+this problem, but I'm wondering whether it's not time to just say NO
+to turning on execute permission by default on anonymous memory.
 
-|> >>>>> On Tue, 29 Jan 2002 08:06:46 +0100, Christian Hildner <christian.h=
-ildner@hob.de> said:
-|>=20
-|>   Christian> Although it would be a nice feature of the gcc if it
-|>   Christian> could include C headers combined with an assembler
-|>   Christian> directive for using the offsets the simple solution with
-|>   Christian> print_offsets does it's job fine. The good thing here is
-|>   Christian> that awk isn't needed.
-|>=20
-|> It's not difficult to fix print_offsets.c to avoid awk.  We could use
-|> directives of the form:
-|>=20
-|>   asm volatile ("uc_rnat =3D %0"::"i"(offsetof (struct _Unwind_Context, =
-rnat)));
-|>=20
-|> for this purpose (this is a cut & paste from gcc's unwind-ia64.c).
+I discussed this briefly with Linus and his comments are reproduced
+below.  While I see Linus' points, I do think that turning off EXECUTE
+permission on anonymous would improve the security in practice, if not
+in theory.  But I'd be interested in other people's opinion.  Also, as
+a practical matter, we currently have special hacks in the ia64 page
+fault handler that are needed to work around performance problems that
+arise from the fact that we map anonymous memory with EXECUTE rights
+by default.  Those hacks avoid having to flush the cache for memory
+that's mapped executable but never really executed.  So clearly there
+are technical advantages to not turning on EXECUTE permission, even if
+we ignore the security argument.
 
-You still have to post-process the output to make it usefull for the
-assembler.
+What I'm wondering: how do others feel about this issue?  Since x86
+wont be affected by this, I'm especially interested in the opinion of
+the maintainers of non-x86 platforms.
 
-Andreas.
+It seems to me that for portability reasons, dynamic code generators
+should always do an mmap() call to ensure that the generated code is
+executable.  If we can agree on this as the recommended practice, then
+I don't see much of a problem with not turning on the EXECUTE right by
+default.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE GmbH, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Opinions?
+
+	--david
+
+--------------
+Comments by Linus:
+
+I would say that the BSS has to be mapped the same way brk() maps things.
+They _are_ the same thing, after all - I consider "brk()" to be a system
+call that just dynamically changes the BSS limits.
+
+So I would say that we have a few options:
+
+ - just explicitly make bss/brk() be non-executable, and tell Compaq that
+   if they want to do dynamic code generation they should use an anonymous
+   mapping with MAP_EXEC.
+
+ - make both of them always be executable, and say "this is how x86 does
+   it, security issues don't help", x86 is the Borg, and you _have_ been
+   assimilated.
+
+ - add a per-process flag (that gets copied at fork() and stays alive over
+   exec()) that allows the system to decide between the two above
+   dynamically on a process-per-process basis. We could default to the
+   stricter thing, and people who aren't happy would just make a wrapper
+   executable (no setuid needed) that sets the flag and executes whatever
+   process it wants to run that needs to execute BSS.
+
+Quite frankly, my personal preference is "We are the borg of x86" choice,
+especially on ia64. The security issue with stack smashing etc is a
+complete non-issue: if the program allows a buffer overrun it is insecure
+whether EXEC is set or not.
+
+But I suspect you should talk this over on ia64 lists and possibly people
+like Alan &co. Feel free to quote this email.
+
+			Linus
 
