@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Mon, 14 May 2001 12:52:40 +0000
-Subject: Re: [Linux-ia64] Replacements for local_irq_xxx()
-Message-Id: <marc-linux-ia64-105590693005571@msgid-missing>
+From: "DE-DINECHIN,CHRISTOPHE (HP-Cupertino,ex1)" <christophe_de-dinechin@hp.com>
+Date: Mon, 14 May 2001 17:22:38 +0000
+Subject: RE: [Linux-ia64] Replacements for local_irq_xxx()
+Message-Id: <marc-linux-ia64-105590693005572@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005562@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005562@msgid-missing>
@@ -10,9 +10,37 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Keith,
+
+
+Dave and I discussed another method: use a per-CPU global that represents
+TPR, and then check the global for the external interrupts vector. If an
+interrupt is received, then the interrupt handler syncs the cached TPR and
+the actual TPR value. Re-enabling the interrupts still requires TPR to be
+accessed directly, however.
+
+It is unclear in practice if this represents a real improvement. In some
+benchmarks where the interrupt paths are critical, this will be bad. Your
+kernel compilation example is obviously not such a case. You'd want some I/O
+intensive benchmark to really see the bad effect of TPR accesses. Kernel
+compile is probably still too much of a CPU-intensive task.
+
+
+Regards,
+Christophe
+
+-----Original Message-----
+From: linux-ia64-admin@linuxia64.org
+[mailto:linux-ia64-admin@linuxia64.org]On Behalf Of Keith Owens
+Sent: Monday, May 14, 2001 5:53 AM
+To: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] Replacements for local_irq_xxx() 
+
+
 On Thu, 10 May 2001 07:26:38 -0700, 
 David Mosberger <davidm@hpl.hp.com> wrote:
->>>>>> On Thu, 10 May 2001 18:55:13 +1000, Keith Owens <kaos@ocs.com.au> said:
+>>>>>> On Thu, 10 May 2001 18:55:13 +1000, Keith Owens <kaos@ocs.com.au>
+said:
 >
 >  Keith> Existing local_irq_xxx() routines clear psr.i which masks all
 >  Keith> interrupts, including NMI.  Then the only way to get the
@@ -147,11 +175,16 @@ int init_module(void)
 	 */
 
 	calc_cost(0, end0-start0);			/* empty loop */
-	calc_cost(1, end1-start1-cost0);		/* extra cost for psr.i */
-	calc_cost(2, end2-start2-(end1-start1));	/* extra cost for tpr.mmi */
-	calc_cost(3, end3-start3-cost0);		/* extra cost for mov r16=cr.tpr */
-	calc_cost(4, end4-start4-(end3-start3));	/* extra cost for mov cr.tpr=r16 */
-	calc_cost(5, end5-start5-(end4-start4));	/* extra cost for srlz.d */
+	calc_cost(1, end1-start1-cost0);		/* extra cost for
+psr.i */
+	calc_cost(2, end2-start2-(end1-start1));	/* extra cost for
+tpr.mmi */
+	calc_cost(3, end3-start3-cost0);		/* extra cost for
+mov r16=cr.tpr */
+	calc_cost(4, end4-start4-(end3-start3));	/* extra cost for
+mov cr.tpr=r16 */
+	calc_cost(5, end5-start5-(end4-start4));	/* extra cost for
+srlz.d */
 
 	print_cost(1, "psr.i");
 	print_cost(2, "tpr.mmi");
@@ -162,4 +195,9 @@ int init_module(void)
 	return 0;
 }
 
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
