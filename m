@@ -1,26 +1,43 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Wed, 13 Nov 2002 00:25:27 +0000
-Subject: [Linux-ia64] =?gb2312?B?tPC4tDogW0xpbnV4LWlhNjRdIG5ld2JpZSBxdWVzdGlvbg==?=
-Message-Id: <marc-linux-ia64-105590709805408@msgid-missing>
+From: "Gavin Scott" <gavin@allegro.com>
+Date: Fri, 15 Nov 2002 00:52:13 +0000
+Subject: [Linux-ia64] One little, two little, three little endian...
+Message-Id: <marc-linux-ia64-105590709805439@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805400@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805400@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Yiyang" = Yiyang Dai <Dai> writes:
+Hello list,
 
-Yiyang> Hi : you will need to build a cross-compiler on ia32 first ,
-Yiyang> and then edit the Makefiile of the kernel source to use the
-Yiyang> cross-compiler to build the kernel on your ia32 .
+I want a big endian version of Linux for IPF.  Just how crazy am I?
 
-Easiest way actually is to grab the nue and ski packages from hp,
-which gives you a more-or-less complete (but a little old)
-development environment for IA64 that runs on IA32.
+I'm working with a group of customers and software developers who are
+migrating away from HP's proprietary MPE/iX operating system on the HPe3000
+systems that HP announced the discontinuance of one year ago today.  Many of
+these people are already using HP-UX to some degree, and most are interested
+in the possibility of using Linux in the future.
 
-URL is/was http://www.software.hp.com/products/LIA64
+Of course both MPE/iX and HP-UX are big-endian environments, and many of the
+people I talk to would be very interested in having an endian-compatible
+Linux that would run on big (i.e. IA-64) HP servers.  For this group, x86
+compatibility is probably a non-issue.
 
-PeterC
+I'm interested in any comments that come to mind.  I'm most interested in
+just how complex the task would be from a technical point of view, either to
+make the system buildable either way, or possibly supporting a per-process
+endian bit (which would be cool, but probably a lot more work).
+
+I'm reasonably familiar with the IA-64 architecture and know most of what
+there is to know about PA-RISC.
+
+Thanks,
+
+Gavin
+--
+Gavin Scott
+Vice President
+Allegro Consultants, Inc.
+gavin@allegro.com
+
 
