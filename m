@@ -1,7 +1,7 @@
-From: Micah Parrish <micah.parrish@hp.com>
-Date: Sat, 11 Oct 2003 23:22:48 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 13 Oct 2003 23:56:33 +0000
 Subject: Re: user-space unaligned accesses
-Message-Id: <marc-linux-ia64-106608687732639@msgid-missing>
+Message-Id: <marc-linux-ia64-106608941002404@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106562414203331@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106562414203331@msgid-missing>
@@ -10,18 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->The ia64 architecture does a tty_write
->on a userspace unaligned access. Not only is this extremenly annoying,
->it's also very broken since the tty may well be suspended etc etc.
->Doing a printk on such an access by default is very broken already,
->lets not make it worse
+>>>>> On Sat, 11 Oct 2003 17:22:48 -0600, Micah Parrish <micah.parrish@hp.com> said:
 
+  Micah> Smells like old debug code,
 
-I too see no reason to do a tty_write here.  Most other error messages
-of the same level (KERN_WARNING) do not do a tty_write, and syslogd can
-be configured to write KERN_WARNING messages to the console or anywhere
-else if you care.  Smells like old debug code, and looks messy to the
-end user.
+Not at all.
 
--micah.parrish@hp.com
+  Micah> and looks messy to the end user.
 
+Distributors have the choice to turn it off with prctl.
+
+	--david
