@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 25 Feb 2005 06:11:57 +0000
+From: "Seth, Rohit" <rohit.seth@intel.com>
+Date: Fri, 25 Feb 2005 20:12:34 +0000
 Subject: RE: [patch]:MC/MT enabling/identification for IA-64
-Message-Id: <16926.49581.146535.541299@napali.hpl.hp.com>
+Message-Id: <01EF044AAEE12F4BAAD955CB7506494303134201@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <01EF044AAEE12F4BAAD955CB7506494303077707@scsmsx401.amr.corp.intel.com>
 In-Reply-To: <01EF044AAEE12F4BAAD955CB7506494303077707@scsmsx401.amr.corp.intel.com>
@@ -10,27 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 24 Feb 2005 18:22:44 -0800, "Seth, Rohit" <rohit.seth@intel.com> said:
+David Mosberger <mailto:davidm@napali.hpl.hp.com> wrote on Thursday,
+February 24, 2005 10:12 PM:
 
-  >> Changing the formatting of /proc/cpuinfo only runs the risk of
-  >> existing tools, without benefit to properly written applications.
+>>>>>> On Thu, 24 Feb 2005 18:22:44 -0800, "Seth, Rohit"
+>>>>>> <rohit.seth@intel.com> said: 
 
-  Rohit> I hope there are not that many apps that have this
-  Rohit> behavior...particularly if they are (/want to be) portable.
+>   Rohit> I think we should have some consistency (wherever possible)
+>   Rohit> in /proc/cpuinfo fields across architectures.  This will help
+>   Rohit> applications writers.  Currently siblings and cpu core fields
+>   Rohit> are already added for i386 and x86_64.
+> 
+> Hmmh, I don't see a "cpu core id" field in the x86 code.  Am I missing
+> something?
+> 
 
-I _hope_ the same, but what's the point to even run the risk of
-breaking existing apps when there is no real benefit?
+"Cpu Cores" identifying the number of cores in a physical package is
+present in x86_64 and not there in i386 tree.  
 
-  Rohit> I think we should have some consistency (wherever possible)
-  Rohit> in /proc/cpuinfo fields across architectures.  This will help
-  Rohit> applications writers.  Currently siblings and cpu core fields
-  Rohit> are already added for i386 and x86_64.
+Will following work:
 
-Hmmh, I don't see a "cpu core id" field in the x86 code.  Am I missing
-something?
+Physical id: Identifying the unique physical package id for LEU
+Core id: Identifying the unique core id on that specific physical
+package
+Siblings: Identifying the total number LEUs on that physical package.
 
-Printing the same number (# siblings/cores) for each CPU over and over
-just seems stupid, especially when instead you can print a useful
-value (core id/thread id).
+Siblings is the one that apps have already started using on i386.
 
-	--david
+-rohit
