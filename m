@@ -1,32 +1,28 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Date: Thu, 14 Oct 2004 19:08:49 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Thu, 14 Oct 2004 19:47:47 +0000
 Subject: Re: [PATCH] General purpose zeroed page slab
-Message-Id: <200410142208.49831.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-Id: <20041014194747.GV16153@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq1oej5s0po.fsf@wilson.mkp.net> <20041014173637.GQ16153@parcelfarce.linux.theplanet.co.uk> <20041014184915.GE18321@redhat.com>
-In-Reply-To: <20041014184915.GE18321@redhat.com>
+References: <yq1oej5s0po.fsf@wilson.mkp.net> <20041014173637.GQ16153@parcelfarce.linux.theplanet.co.uk> <20041014184915.GE18321@redhat.com> <200410142208.49831.vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200410142208.49831.vda@port.imtp.ilyichevsk.odessa.ua>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Jones <davej@redhat.com>, Matthew Wilcox <matthew@wil.cx>
-Cc: Brian Gerst <bgerst@didntduck.org>, "Martin K. Petersen" <mkp@wildopensource.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@osdl.org, tony.luck@intel.com
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Cc: Dave Jones <davej@redhat.com>, Matthew Wilcox <matthew@wil.cx>, Brian Gerst <bgerst@didntduck.org>, "Martin K. Petersen" <mkp@wildopensource.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@osdl.org, tony.luck@intel.com
 
-On Thursday 14 October 2004 21:49, Dave Jones wrote:
-> On Thu, Oct 14, 2004 at 06:36:37PM +0100, Matthew Wilcox wrote:
->  > On Thu, Oct 14, 2004 at 01:30:21PM -0400, Brian Gerst wrote:
->  > > This doesn't work as you expect it does.  The constructor is only called 
->  > > when a new slab is created, for each new object on the slab.  It is 
->  > > _not_ run again when an object is freed.  So if a page is freed then 
->  > > immediately reallocated it will contain garbage.
->  > 
->  > The user is responsible for zeroing the page before handing it back to
->  > the slab allocator.
+On Thu, Oct 14, 2004 at 10:08:49PM +0300, Denis Vlasenko wrote:
+> BTW, zeroing with non-temporal stores may be a huge win here.
+> It is 300% faster on Athlon.
 
-BTW, zeroing with non-temporal stores may be a huge win here.
-It is 300% faster on Athlon.
+That assumes the page isn't going to be reused quickly.  The point of
+slab is that the page does get reused quickly.  So you *want* the data
+to be hot in cache.
 
-> That sounds like an accident waiting to happen.
-> How about a CONFIG_DEBUG option to check its zeroed on free ?
---
-vda
-
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
