@@ -1,32 +1,50 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 18 Jun 2003 18:50:28 +0000
-Subject: Re: [patch] input: Fix CLOCK_TICK_RATE usage ...  [8/13]
-Message-Id: <marc-linux-ia64-105596232527176@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Wed, 18 Jun 2003 03:33:23 +0000
+Subject: [Linux-ia64] Re: gettimeofday patch
+Message-Id: <marc-linux-ia64-105590709805947@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 18 Jun 2003 09:47:44 -0500, Hollis Blanchard <hollisb@us.ibm.com> said:
+>>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
 
-  Hollis> On Tuesday, Jun 17, 2003, at 18:24 US/Central, David Mosberger wrote:
-  >> #ifdef CONFIG_LEGACY_HW
-  >> # define PIT_FREQ	1193182
-  >> # define LATCH		((CLOCK_TICK_RATE + HZ/2) / HZ)
-  >> #endif
 
-  >> This way, machines that support legacy hardware can define
-  >> CONFIG_LEGACY_HW and on others, the macro can be left undefined, so
-  >> that any attempt to compile drivers requiring legacy hw would fail to
-  >> compile upfront (much better than accessing random ports!).
+David> So, the moral of the story (which we already knew): it's _hard_
+David> to write correct light-weight syscall handlers.  Clearly,
+David> anytime a new handler is written, some careful testing is
+David> advised (in particular with respect to passing NaT arguments,
+David> invalid pointers, etc.).  It would be great to have a
+David> Stanford-checker that can statically analyze the validity of a
+David> light-weight system call handler.  It should be very difficult
+David> to do and it would clearly be easier to code-up the dozen or so
+David> rules once than to have to remember them every time.  Perhaps
+David> somebody's summer project some day?
 
-  Hollis> Is "having legacy hardware" an all-or-nothing condition for you? If
-  Hollis> not, a CONFIG_LEGACY_PIT might be more appropriate...
+Yes, the rules are such that:
+     -- it's easy to violate them without noticing, especially if one's
+        not that good at assembly programming in the first place
+     -- you can't use C
 
-I believe it is, though I'm not entirely certain about Intel's Tiger
-platform.  If more fine-grained distinction really is needed, I
-suspect we'd rather want something called CONFIG_8259_PIT.  Might be a
-good idea to do this for all legacy devices.
+and writing optimised assembly language for IA64 is hard anyway.
 
-	--david
+Louis started with no knowledge of IA64 architecture, and almost no
+internals knowledge of the Linux kernel.  In four weeks he got to the
+point where he could write the optimised gettimeofday(), and determine
+that an optimised epoll() was more trouble than it was worth.
+
+It'd be nice if the rules could be relaxed a bit, to allow (a
+restricted subset of) ordinary kernel C code to be invoked from a
+lightweight syscall handler.  The main issue is IMO the RSE, and info
+leakage into its backing store.  Page and translation faults can be
+dealt with, with a bit of care and some extra code.
+
+In the meantime, I worry a bit about the assembler code, and the
+possibility of it getting out-of-sync with the rest of the kernel,
+given that it is so hard to code it correctly.  It's probably only
+worth writing fast syscall routines for stuff where the system call
+duration really matters (e.g., gettimeofday()).
+
+Peter C
+
