@@ -1,35 +1,65 @@
-From: "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
-Date: Thu, 06 May 2004 20:54:36 +0000
+From: "Sourav Sen" <souravs@india.hp.com>
+Date: Fri, 07 May 2004 09:57:30 +0000
 Subject: RE: [2.6.6 PATCH] Exposing EFI memory map
-Message-Id: <D36CE1FCEFD3524B81CA12C6FE5BCAB002FFEB1F@fmsmsx406.fm.intel.com>
+Message-Id: <006901c43418$095436f0$39624c0f@india.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+In-Reply-To: <20040506164040.GA15371@kroah.com>
 References: <003801c43347$812a1590$39624c0f@india.hp.com>
 In-Reply-To: <003801c43347$812a1590$39624c0f@india.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <haveblue@us.ibm.com>
-Cc: Sourav Sen <souravs@india.hp.com>, "HELGAAS,BJORN (HP-Ft. Collins)" <bjorn_helgaas@am.exch.hp.com>, Matt Domsch <Matt_Domsch@dell.com>, linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, lhms <lhms-devel@lists.sourceforge.net>
+To: 'Greg KH' <greg@kroah.com>, 'Sourav Sen' <souravs@india.hp.com>
+Cc: Matt_Domsch@dell.com, matthew.e.tolentino@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-> > Interesting. What does ppc64 do with the memmap after that?  
-> 
-> This doesn't even concern mem_map yet.  The userspace ppc64 hotplug
-> tools actually write into the "OpenFirmware" tree from 
-> userspace, after
-> a hotplug happens.  This is partly because all of the ppc64 hotplug
-> operations happen in userspace as it stands now.  
+Hi Greg,
 
-Umm..  my mistake, I meant the memory map passed up by the firmware,
-not THE mem_map.  ;-)
++ -----Original Message-----
++ From: Greg KH [mailto:greg@kroah.com]
++ Sent: Thursday, May 06, 2004 10:11 PM
++ To: Sourav Sen
++ Cc: Matt_Domsch@dell.com; matthew.e.tolentino@intel.com;
++ linux-ia64@vger.kernel.org; linux-kernel@vger.kernel.org
++ Subject: Re: [2.6.6 PATCH] Exposing EFI memory map
++
++
++ On Thu, May 06, 2004 at 02:22:46PM +0530, Sourav Sen wrote:
++ >
++ > The following simple patch creates a read-only file
++ > "memmap" under <mount point>/firmware/efi/ in sysfs
++ > and exposes the efi memory map thru it.
++
++ No, data in this kind of format does not belong in sysfs.
 
-> Actually, I was thinking that we'd just allocate the 
-> kobjects, and note
-> the presence of the memory in the nonlinear phys_section table.  Then,
-> when we online it, we can decide where it's mapped, what zone 
-> to put it
-> in, and where to get the mem_map space from.  I think that approach
-> gives the best flexibility. 
+	Please tell me more. In Documentation/filesystems/sysfs.txt
+I get:
 
-Yes, indeed. 
+"Attributes should be ASCII text files, preferably with only one value
+per file. It is noted that it may not be efficient to contain only
+value per file, so it is socially acceptable to express an array of
+values of the same type."
 
-matt
+Here we have "Array of values of same types". And it does not do much
+nifty formatting either. Is that not acceptable?
+
+If that is not, how about the following.
+
+	1. Create a directory "memmap" under firmware/efi/
+	2. Create files "map_start", "map_size" and "mapdesc_size" under
+         that exposing ia64_boot_param->efi_memmap,
+ia64_boot_param->efi_memmap_size
+	   and ia64_boot_param->efi_memdesc_size respectively.
+
+Userland can make meaning out of them by knowing the values and knowing
+about
+"efi_memory_desc_t" which is already there in /usr/include/asm/efi.h
+
+
+Thanks
+Sourav
+
+PS: BTW, Your slides on "Dealing with the Linux Kernel Community" at:
+http://www.kroah.com/linux/talks/cgl_talk_2002_10_16/mgp00001.html
+is kind of useful to me. This is my first time :-)
+
+
