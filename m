@@ -1,48 +1,68 @@
-From: Andi Kleen <ak@suse.de>
-Date: Wed, 28 Jan 2004 20:01:32 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 28 Jan 2004 21:14:05 +0000
 Subject: Re: [RFC/PATCH, 1/4] readX_check() performance evaluation
-Message-Id: <20040128210132.2b0e5a96.ak@suse.de>
+Message-Id: <20040128211405.GG5722@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <00a201c3e541$c0e7d680$2987110a@lsd.css.fujitsu.com>
-	<20040128172004.GB5494@cup.hp.com>
-	<20040128184137.616b6425.ak@suse.de>
-	<16408.30.896895.980121@napali.hpl.hp.com>
-	<20040128195246.47a84498.ak@suse.de>
-	<16408.3157.336306.812481@napali.hpl.hp.com>
-	<20040128203915.22d84e8d.ak@suse.de>
-	<16408.4597.123125.788631@napali.hpl.hp.com>
-In-Reply-To: <16408.4597.123125.788631@napali.hpl.hp.com>
+References: <00a201c3e541$c0e7d680$2987110a@lsd.css.fujitsu.com> <20040128172004.GB5494@cup.hp.com> <20040128184137.616b6425.ak@suse.de> <20040128190923.GA6333@cup.hp.com> <20040128201701.045670db.ak@suse.de>
+In-Reply-To: <20040128201701.045670db.ak@suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davidm@hpl.hp.com
-Cc: davidm@napali.hpl.hp.com, iod00d@hp.com, ishii.hironobu@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
+Cc: ishii.hironobu@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Wed, 28 Jan 2004 11:48:05 -0800
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
+On Wed, Jan 28, 2004 at 08:17:01PM +0100, Andi Kleen wrote:
+> This would likely 
+> improve the quality of linux drivers long term and make your
+> job as maintainer of an "anal IO error" platform easier.
 
-> >>>>> On Wed, 28 Jan 2004 20:39:15 +0100, Andi Kleen <ak@suse.de> said:
-> 
->   >> Yet they are a good indicator that something is wrong (not performing
->   >> properly) or may be failing soon.  I don't think putting on blinders
->   >> for such problems is a good idea.  Though I agree that the question of
-> 
->   Andi> Most server class hardware should log it somewhere and allow
->   Andi> to read the event log in the firmware. This even works for
->   Andi> unhandleable errors unlike what the OS could do.
-> 
-> And you'd want to reboot your server just so you can check on the soft
-> failure rate? ;-)
+yup. The key drivers we deal with reached that point last year.
+Drivers could always be better. But those issues have been discussed
+and presented:
+o LinuxTag 2002 keynote by Alan Cox, "Submitting new Kernel drivers"
+	(http://gsyprf11.external.hp.com/porting_zx1/mgp/Code.mgp)
+o OLS 2002 talk by Arjan van de Ven, "How not to write kernel drivers"
+o OLS 2002 talk by Greg K-H, "Documentation/CodingStyle and Beyond"
+o OLS 2002 talk by myself, "Porting Drivers to HP ZX1"
 
-Yep, I reboot my machines all the time ;-) 
+It helps to "enforce" driver quality through "anal IO Error containment"
+but it's too late when it happens on a customer box.
 
-Seriously you can count it somewhere and present it in sysfs or /proc.
-Or log it somewhere else and supply a special utility to show them
-that makes it clear that the events are hardware and not software related.
-I suppose if your server vendor is serious they will supply a tool
-to read the firmware log from a running system.
+> Just it should not be enabled by default in production kernels.
+> And finding out where it works reliably will be some work.
 
-But printks enabled by default are a bad idea (and a bug too BTW - printk called from 
-MCE handlers can randomly deadlock) 
+agreed.
 
--Andi
+> There is no reason pci_map_single() has to panic on overflow. On x86-64
+> it returns an unmapped address that is guaranteed to cause an bus abort
+> for 128KB.
+
+parisc and ia64 will also bus abort. And then HPMC/MCA respectively.
+We could reserve a "safe page" and then hand that back I guess.
+But that sounds like a very broken error containment strategy to me.
+(ie outbound data will be garbage).
+
+This really isn't an issue for HP ZX1/IA64 since most drivers (64-bit)
+can bypass the IOMMU and directly address memory. parisc-linux still
+isn't commercially interesting.
+
+> And you have an macro to test for it (pci_dma_error()). 
+
+I didn't know about pci_dma_error.
+Google found two references: One is:
+	http://www.x86-64.org/lists/discuss/msg03841.html
+
+> I believe ppc64 has adopted it too. Of course most drivers don't 
+> use it yet.
+
+<search 2.6.2-rc2 source tree>
+grundler <502>find -name '*.[chS]' | xargs fgrep pci_dma_error
+./include/asm-x86_64/pci.h:#define pci_dma_error(x) ((x) =
+bad_dma_address)
+grundler <503>
+
+That explains why most drivers don't use it yet.
+It's only supported on one arch.
+Maybe propose this to linux-pci mailing list?
+
+grant
