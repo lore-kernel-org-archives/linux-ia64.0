@@ -1,12 +1,48 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 10 Nov 2004 11:30:51 +0000
-Subject: counting FPSWA faults with pfmon
-Message-Id: <1100086251.22456.20.camel@uluru.grenoble.hp.com>
+From: "Croxon, Nigel" <nigel.croxon@hp.com>
+Date: Wed, 10 Nov 2004 11:40:22 +0000
+Subject: RE: counting FPSWA faults with pfmon
+Message-Id: <14013A008AB26E42B1FC18DECDCE212406E73304@tayexc14.americas.cpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1100086251.22456.20.camel@uluru.grenoble.hp.com>
+In-Reply-To: <1100086251.22456.20.camel@uluru.grenoble.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Stephane,
+
+We have been running AIM7 benchmarks on RH RHEL3 for weeks now.
+All of a sudden we are getting these errors.
+
+Our hardware configuration has not changed, nor has our RHEL3 bits.
+
+multitask(4031): floating-point assist fault at ip 4000000000018921
+multitask(4031): floating-point assist fault at ip 4000000000018921
+multitask(4031): floating-point assist fault at ip 4000000000018921
+multitask(4039): floating-point assist fault at ip 40000000000189e2
+multitask(4039): floating-point assist fault at ip 40000000000189e2
+multitask(4039): floating-point assist fault at ip 40000000000189e2
+multitask(4039): floating-point assist fault at ip 40000000000189a2
+multitask(4039): floating-point assist fault at ip 4000000000011662
+multitask(4039): floating-point assist fault at ip 4000000000011672
+multitask(4034): floating-point assist fault at ip 4000000000018921
+multitask(4034): floating-point assist fault at ip 4000000000018921
+
+I am about to kill the job and try some of your commands you have
+provided.
+If you want to know more about our setup, let me know.
+
+-Nigel
+
+
+-----Original Message-----
+From: linux-ia64-owner@vger.kernel.org
+[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Eranian, Stephane
+Sent: Wednesday, November 10, 2004 6:31 AM
+To: perfmon@napali.hpl.hp.com
+Cc: linux-ia64@vger.kernel.org
+Subject: counting FPSWA faults with pfmon
 
 Hello,
 
@@ -67,3 +103,7 @@ $ pfmon --no-qual-check -ku --drange=fpswa_interface \
 Hope this is useful.
 
 
+-
+To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
