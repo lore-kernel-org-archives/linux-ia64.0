@@ -1,37 +1,39 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 26 Jul 2002 16:42:23 +0000
-Subject: RE: [Linux-ia64] new problem with memcpy_mck routines
-Message-Id: <marc-linux-ia64-105590701905838@msgid-missing>
+From: Sebastien Lelarge <Sebastien.Lelarge@bull.net>
+Date: Thu, 04 Jul 2002 06:45:58 +0000
+Subject: [Linux-ia64] [patch] kdb-v2.1-2.4.18-ia64-usb-keyboard
+Message-Id: <marc-linux-ia64-105590701905735@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905782@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905782@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 24 Jul 2002 16:59:37 -0700, "Chen, Kenneth W" <kenneth.w.chen@intel.com> said:
+Hello list,
 
-  Ken> It turns out that the screen corruption that Jesse and Alex saw
-  Ken> was due to a bug in generic console vga code.  The scrup()
-  Ken> functions uses memcpy to copy overlapping memory area.  By
-  Ken> definition, memcpy() must not be used for overlapping memory
-  Ken> areas.  This patch changed that to memmove() which handles
-  Ken> overlapping areas gracefully.  This also fixes the same screen
-  Ken> corruption when switching from X server to text mode.
+I'm student in France and I'm working on IA64 machines by BULL 
+in France. We had a problem using KDB on Tiger machine because of the
+lack of PS/2 port on this machine. In order to bring a solution, I
+have written some code to bring USB support in KDB. I'm using a RedHat 
+7.2. You must apply this patch after the 2 KDB patches. It provides an 
+option called "Support for USB Keyboard in KDB" in Kernel Hacking
+section. 
 
-  Ken> There is nothing wrong with new memcpy function.
+For now, it supports the usb-uhci driver for the USB controller. 
+and supports the two USB keyboard drivers (hid and usbkbd) used by
+RedHat.
 
-Ah, that's good!  Thanks for confirming this.
+Notice that you won't be able to use your USB Keyboard before USB
+subsystem is started. But it's a solution to debug a system running.
 
+You can download it at
+ftp://oss.sgi.com/www/projects/kdb/download/v2.1/kdb-v2.1-2.4.18-ia64-usb-keyboard-2.bz2
 
-  Ken> One other question, who is the maintainer for the console code?
-  Ken> This should go into the base as it is not ia64 specific and
-  Ken> could potentially trigger on other architectures.
+For now, it works on kernel 2.4.18 with all recent patches. If you
+have remarks, please reply adding kdb@oss.sgi.com in copy of your mail.
 
-Have you tried Martin Mares?  He is listed as SVGA maintainer and has
-at least on occasion hacked on that file.  In any case, I'd definitely
-cc lkml so that others can see this report, too.
-
-	--david
+Thanks
+-- 
+LELARGE Sebastien			            
+BULL S.A - Linux IA64 Team    mailto:sebastien.lelarge@bull.net
+38000 Echirolles
 
