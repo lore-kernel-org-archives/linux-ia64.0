@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 12 Jul 2004 20:21:31 +0000
+Date: Mon, 12 Jul 2004 20:24:14 +0000
 Subject: Re: serious performance regression due to NX patch
-Message-Id: <16626.62155.711114.734967@napali.hpl.hp.com>
+Message-Id: <16626.62318.880165.774044@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200407100528.i6A5SF8h020094@napali.hpl.hp.com>
 	<Pine.LNX.4.58.0407110437310.26065@devserv.devel.redhat.com>
@@ -19,9 +19,6 @@ Cc: Ingo Molnar <mingo@redhat.com>, Jakub Jelinek <jakub@redhat.com>, davidm@hpl
 
 >>>>> On Mon, 12 Jul 2004 13:17:20 -0700 (PDT), Linus Torvalds <torvalds@osdl.org> said:
 
-  Linus> On Mon, 12 Jul 2004, Ingo Molnar wrote:
-  >>  so ... this should be #ifndef ia64?
-
   Linus> No. Make it a CONFIG_DEFAULT_NOEXEC and make the relevant
   Linus> architectures do a
 
@@ -29,8 +26,19 @@ Cc: Ingo Molnar <mingo@redhat.com>, Jakub Jelinek <jakub@redhat.com>, davidm@hpl
 
   Linus> in their Kconfig files.
 
-Would it be better to reverse the sense (i.e., make it DEFAULT_EXEC),
-since the latter new platforms by default almost certainly do NOT want
-DEFAULT_EXEC?
+  Linus> In general, we should _never_ use an
+  Linus> architecture-define. They just always end up becoming more
+  Linus> and more hairy, and less and less obvious what they are all
+  Linus> about.
+
+  Linus> So instead, make a readable and explicit config define, and
+  Linus> let each architecture just set it (or not) as they wish.
+
+Oops, I responded too fast here.  This is still wrong: on ia64 (and
+x86-64, I believe), you'll want DEFAULT_NOEXEC for native binaries,
+but DEFAULT_EXEC for x86 binaries.
+
+So I think it would be better to have a VM_STACK_EXEC_FLAGS macro in
+an asm header file (with suitable default in asm-generic).
 
 	--david
