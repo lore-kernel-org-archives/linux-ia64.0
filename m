@@ -1,16 +1,55 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Wed, 25 Apr 2001 21:16:07 +0000
-Subject: Re: [Linux-ia64] kernel update (second patch relative to 2.4.3)
-Message-Id: <marc-linux-ia64-105590693005470@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Fri, 27 Apr 2001 22:09:45 +0000
+Subject: [Linux-ia64] New Red Hat Linux Beta release for ia64 available
+Message-Id: <marc-linux-ia64-105590693005483@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005334@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005334@msgid-missing>
+References: <marc-linux-ia64-105590678205864@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205864@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-See <http://sources.redhat.com/glibc>.
+A new Red Hat Linux beta release for ia64 is available - Wolverine.
 
-Jim
+You can get it from:
+
+ftp://ftp.redhat.com/pub/redhat/linux/beta/wolverine/en/os/ia64/
+
+ISOs are available at:
+
+ftp://ftp.redhat.com/pub/redhat/linux/beta/wolverine/en/iso/ia64/
+
+This release includes the 2.4.3 kernel + 010405 ia64 patch, the
+ELILO loader, XFree86 4.0.3 (including DRI support), and other enhancements.
+
+Recommended steppings/firmware:
+
+   B3 or C0 processors
+   Build 99 firmware (workstation)
+   Build 76 firmware (server)
+   
+Known bugs/caveats:
+    o The following software is known to be broken in this beta release:
+        - KDE
+        - aspell
+    o Support for the following hardware is known to be broken on machines
+      with more than 2 GB of memory in the Red Hat Linux Itanium beta:
+        - USB
+        - Compaq Smart Array 5xxx
+        - Compaq Smart/2 RAID Controller
+    o Upgrades are not supported.
+    
+For more notes, see the RELEASE-NOTES file included in the distribution.
+Please report bugs/problems via bugzilla, at
+   http://bugzilla.redhat.com/bugzilla/
+
+There is a mailing list you can join for discussion of this Red Hat Linux
+release on ia64; to subscribe, send mail to ia64-list-request@redhat.com with
+
+	       subscribe
+
+in the subject line.  You can leave the body empty.
+
+Bill
 
