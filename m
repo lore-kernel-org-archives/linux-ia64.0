@@ -1,100 +1,125 @@
-From: Adrian King <adrian@xidak.com>
-Date: Fri, 09 Mar 2001 21:48:24 +0000
-Subject: [Linux-ia64] .auto directive appears broken for IA-64 assembler
-Message-Id: <marc-linux-ia64-105590693005270@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Sat, 17 Mar 2001 05:00:26 +0000
+Subject: Re: [Linux-ia64] .auto directive appears broken for IA-64 assembler
+Message-Id: <marc-linux-ia64-105590693005295@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005270@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005270@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I originally sent this bug report to ia64-list@redhat.com; David wrote:
+Technically, the .auto directive is working fine.  It is the dependency
+violation support that is broken here.
 
-> Hmmh, you are right.  I thought this had been fixed a long time ago,
-> but I can reproduce the problem with the latest assembler.  Can you
-> please send your bug report to linux-ia64@linuxia64.org so the right
-> people can see it?
+Both bugs are problems with parsing the resource and dependency tables
+from Appendix 2 of Volume II of the PRM.
 
-==
+The problem with post-inc stores is that we didn't support the M5 format
+check used in the st-postinc instruction class.  The result is that when
+you had a pair of instructions, with the post-inc store as the second one, then
+we did detect the DV.  But if you had a pair of instruction, with the post-inc
+store as the first one, then we did not detect the DV.
 
-The GNU assembler version 2.9-ia64-000717 (ia64-redhat-linux) using BFD
-version 2.9-ia64-000717 doesn't seem to obey the ".auto" directive
-correctly.
+The problem with dep is that we were a little sloppy with string searches,
+and ended up treating "dep\dep[Format in {I3}]" as if it was
+"dep[Format in {I3}]\dep[Format in {I3}]".  So this is supposed to be all
+dep instructions except Format I3 deps (zero_form,imm_form), but we
+accidentally handled it as only Format I3 deps.  The result is that we never
+did DV checks for input registers of the other dep instructions.
 
-For example, consider the following files "foo.s" and "bar.c" (these
-files don't do anything useful; they just illustrate where stops should
-go):
+By the way, there are known to be a number of other problems with the DV
+code, mostly with handling complicated predicated relations.  I've got a
+bunch of patches and testcases from Intel that I'm going through, but that
+work has been stalled for a while now as I've been so busy responding to
+new bug reports, new patches for review, questions, etc.
 
-====================================
-foo.s:
-====================================
-        .auto
+Here is the opcodes patch for these two bugs.  This also requires
+regenerating ia64-asmtab.c, but I did not include that as it is almost 60K.
 
-        .global     xxx
+Oops, I just noticed I have a duplicate comment.  I will fix that before I
+check it in.  If I am feeling up to it, I'll write some new testcases
+for the gas testsuite also.
 
-        .text
+2001-03-16  Jim Wilson  <wilson@redhat.com>
 
-        .global     foo
-        .proc       foo
-foo:    alloc       loc0 = ar.pfs,8,8,0,0
+	* ia64-gen.c (fetch_insn_class): If xsect, then ignore comment and
+	notestr if larger than xsect.
+	(in_class): Handle format M5.
+	* ia64-asmtab.c: Regnerate.
 
-        // There should be stops between the st8 instructions, which
-        // modify r14.
-        add         r14 = @gprel(xxx),gp
-        st8         [r14] = r0,40
-        st8         [r14] = r0,-32
-        st8         [r14] = r0,16
-        st8         [r14] = r0,48
-
-        // There should be a stop between the mov instruction that sets
-        // r15 and the dep instruction that uses r15.
-        alloc       r14 = ar.pfs,0,0,0,0
-        mov         r15 = ar.rsc
-        dep         r16 = 0,r15,0,2
-        mov         ar.rsc = r16
-        invala
-
-        br.ret.sptk b0
-        .endp   sPro
-====================================
-
-====================================
-bar.c:
-====================================
-long xxx;
-
-main () {
-    foo();
-}
-====================================
-
-The following gdb session illustrates that the stops aren't present
-where the comments above say stops are needed:
-
-  $ cc -g -o bar.c foo.s
-  $ gdb bar
-  GNU gdb 5.0...
-  (gdb) disas foo
-  Dump of assembler code for function foo:
-  0x4000000000000640 <foo>:       [MII]       alloc r40=ar.pfs,16,16,0
-  0x4000000000000641 <foo+1>:                 addl r14I6,r1;;
-  0x4000000000000642 <foo+2>:                 nop.i 0x0
-  0x4000000000000650 <foo+16>:    [MMI]       st8 [r14]=r0,40
-  0x4000000000000651 <foo+17>:                st8 [r14]=r0,-32
-  0x4000000000000652 <foo+18>:                nop.i 0x0
-  0x4000000000000660 <foo+32>:    [MMI]       st8 [r14]=r0,16
-  0x4000000000000661 <foo+33>:                st8 [r14]=r0,48
-  0x4000000000000662 <foo+34>:                nop.i 0x0;;
-  0x4000000000000670 <foo+48>:    [MMI]       alloc r14=ar.pfs,0,0,0
-  0x4000000000000671 <foo+49>:                mov.m r15=ar.rsc
-  0x4000000000000672 <foo+50>:                dep r16=0,r15,0,2;;
-  0x4000000000000680 <foo+64>:    [MMB]       mov.m ar.rsc=r16
-  0x4000000000000681 <foo+65>:                invala
-  0x4000000000000682 <foo+66>:                br.ret.sptk.few b0;;
-  End of assembler dump.
-
-Is there something I should be doing differently, or is this a genuine
-assembler bug?
-
-Adrian
+Index: ia64-gen.c
+=================================RCS file: /cvs/src/src/opcodes/ia64-gen.c,v
+retrieving revision 1.7
+diff -p -r1.7 ia64-gen.c
+*** ia64-gen.c	2001/03/13 22:58:35	1.7
+--- ia64-gen.c	2001/03/17 04:05:00
+*************** fetch_insn_class(const char *full_name, 
+*** 399,407 ****
+    if ((comment = strchr(name, '[')) != NULL)
+      is_class = 1;
+    if ((notestr = strchr(name, '+')) != NULL)
+      {
+        char *nextnotestr;
+-       is_class = 1;
+        note = atoi (notestr + 1);
+        if ((nextnotestr = strchr (notestr + 1, '+')) != NULL)
+          {
+--- 399,421 ----
+    if ((comment = strchr(name, '[')) != NULL)
+      is_class = 1;
+    if ((notestr = strchr(name, '+')) != NULL)
++     is_class = 1;
++ 
++   /* If it is a composite class, then ignore comments and notes that come after
++      the '\\', since they don't apply to the part we are decoding now.  */
++   if (xsect)
++     {
++       /* Ignore comments and notes that come after the \, since they don't
++ 	 apply to the part we are decoding now.  */
++       if (comment > xsect)
++ 	comment = 0;
++       if (notestr > xsect)
++ 	notestr = 0;
++     }
++ 
++   if (notestr)
+      {
+        char *nextnotestr;
+        note = atoi (notestr + 1);
+        if ((nextnotestr = strchr (notestr + 1, '+')) != NULL)
+          {
+*************** fetch_insn_class(const char *full_name, 
+*** 413,420 ****
+          }
+      }
+  
+!   /* if it's a composite class, leave the notes and comments in place so that
+!      we have a unique name for the composite class */
+    if (!xsect)
+      {
+        if (notestr)
+--- 427,435 ----
+          }
+      }
+  
+!   /* If it's a composite class, leave the notes and comments in place so that
+!      we have a unique name for the composite class.  Otherwise, we remove
+!      them.  */
+    if (!xsect)
+      {
+        if (notestr)
+*************** in_iclass(struct ia64_opcode *idesc, str
+*** 1055,1060 ****
+--- 1070,1078 ----
+              resolved = idesc->operands[0] = IA64_OPND_B2;
+            else if (strcmp (ic->name, "invala") = 0)
+              resolved = strcmp (idesc->name, ic->name) = 0;
++ 	  else if (strncmp (idesc->name, "st", 2) = 0
++ 		   && strstr (format, "M5") != NULL)
++ 	    resolved = idesc->flags & IA64_OPCODE_POSTINC;
+            else
+              resolved = 0;
+          }
 
