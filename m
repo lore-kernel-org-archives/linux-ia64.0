@@ -1,52 +1,29 @@
-From: Steve Woodruff <sjwoodr@yahoo.com>
-Date: Wed, 23 Apr 2003 14:54:04 +0000
-Subject: [Linux-ia64] RT Timers problem
-Message-Id: <marc-linux-ia64-105590723705588@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 23 Apr 2003 15:01:07 +0000
+Subject: Re: [Linux-ia64] RT Timers problem
+Message-Id: <marc-linux-ia64-105590723705589@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590723705588@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723705588@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-SGkgLSBpJ3ZlIGVuY291bnRlcmVkIGEgY291cGxlIG9mIGRpZmZlcmVudCwgYnV0Cm1heWJlIHJl
-bGF0ZWQgcHJvYmxlbXMgaW4gRGViaWFuIGxpbnV4IG9uIGFuIFJYMjYwMAooaWE2NCkuICBNYXli
-ZSBzb21lb25lIGNhbiBjb21tZW50IGlmIHRoZXkndmUgc2Vlbgp0aGlzIGJlZm9yZT8KCjEuIFJU
-IHNpZ25hbHMgUlRNSU4sIFJUTUlOKzEsIFJUTUlOKzIgYXJlIG5vdCBiZWluZwogICBkZWxpdmVy
-ZWQuICBJIGNyZWF0ZWQgYSBzaW1wbGUgdGVzdCBjYXNlIHRoYXQgc2V0cwogICBhbiBpbnRlcnZh
-bCB0aW1lciBzZXQgdG8gZmlyZSBvbmNlIHBlciBzZWNvbmQsIAogICBidXQgdGhlIHNpZ25hbCBu
-ZXZlciBhcnJpdmVzISAgV2hlbiBpIHVzZSBSVE1JTiszCiAgIG9yIGdyZWF0ZXIsIHRoZW4gdGhl
-IGNvZGUgd29ya3MgZmluZS4gIEkgY2FuIAogICBwcm92aWRlIHRoZSB0ZXN0IGNvZGUgdG8gYW55
-b25lIHdobyBpcyBpbnRlcmVzdGVkCiAgIGluIHRyeWluZyBpdCBvdXQgb24gdGhlaXIgc3lzdGVt
-LgoKMi4gSW4gc29tZSBjYXNlcywgYSBjYWxsIHRvIHRpbWVyX2NyZWF0ZSgpIHdpbGwgYmxvY2su
-CiAgIFRoaXMgb25lIGlzIGhhcmRlciB0byByZXByb2R1Y2UsIGJ1dCBpJ3ZlIGRvbmUgaXQKICAg
-bXVsdGlwbGUgdGltZXMgYW5kIGhhdmUgc29tZXRoaW5nIGxpa2UgdGhpcyBpbiAKICAgbXkgY29k
-ZToKCmZwcmludGYoc3RkZXJyLCAKICAiSE1NOiBDcmVhdGluZyB0aW1lciB3aXRoIHNpZ25vPSVk
-XG4iLCAKICBzaWduYWxfbm8pOwpzdGF0dXMgPSAgdGltZXJfY3JlYXRlKENMT0NLX1JFQUxUSU1F
-LAogICZoX2V2ZW50X3N0cnVjdCwgJmhfdGltZXJfaWQpOwpmcHJpbnRmKHN0ZGVyciwgCiAgIkhN
-TTogVGltZXIgY3JlYXRlZCwgc3RhdHVzID0gJWRcbiIsIHN0YXR1cyk7CgpBbmQgaW4gdGhlIG91
-dHB1dCwgb25seSB0aGUgZmlyc3QgbGluZSBpcwpwcmludGVkLiAgVGhlIHRpbWVyX2NyZWF0ZSgp
-IG5ldmVyIHJldHVybnMhICBJIGFsc28KZGlkIGEgc3RyYWNlIGFuZCB0aGUgdGFpbCBvZiB0aGF0
-IGlzOgoKd3JpdGUoMiwgIkhNTTogQ3JlYXRpbmcgdGltZXIgd2l0aCBzaWdubz0iLi4uLCAzNUhN
-TToKQ3JlYXRpbmcgdGltZXIgd2l0aCBzaWdubzUKKSA9IDM1CmdldHBpZCgpICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICA9IDU5MQpnZXRybGltaXQoUkxJTUlUX1NUQUNLLCB7cmxpbV9j
-dXKBOTIqMTAyNCwKcmxpbV9tYXg9UkxJTV9JTkZJTklUWX0pID0gMApicmsoMCkgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgMHg2MDAwMDAwMDAwMDljMDAwCmJyaygweDYwMDAwMDAw
-MDAwYTQwMDApICAgICAgICAgICAgICAgICAweDYwMDAwMDAwMDAwYTQwMDAKcGlwZShbMjk3Mzg3
-MiwgNTM2ODcwOTEyXSkgICAgICAgICAgICAgID0gNApTWVNfMTIxMygweDIwMDAwMDAwMDAwMzkz
-YTgsIDB4NjAwMDAwMDAwMDA5ODhjMCwKMHg3ZmUwLCAweGYwMCwgMHgyMDAwMDAwMDAwMmZjNjQw
-LCAweDIwMDAwMDAwMDAwMzkzYTgsCjB4MjAwMDAwMDAwMDJmYzY0MCwgMHhmMDApID0gNjAwCndy
-aXRlKDUsICJcMVwwXDBcMFwwXDBcMFwwXDVcMFwwXDBcMFwwXDBcMHBqLVwwXDBcMFwwClwzMFww
-XDNcMFwwIi4uLiwgMTY4KSA9IDE2OApydF9zaWdwcm9jbWFzayhTSUdfU0VUTUFTSywgTlVMTCwg
-W1JUMF0sIDgpID0gMAp3cml0ZSg1LCAiXDIwMFwzMDAvXDBcMFwwXDAKXDBcMFwwXDBcMFwwXDBc
-MFwxMHtcN1wwXDBcMFwwIFwxMFwyNTciLi4uLCAxNjgpID0gMTY4CnJ0X3NpZ3Byb2NtYXNrKFNJ
-R19TRVRNQVNLLCBOVUxMLCBbUlQwXSwgOCkgPSAwCnJ0X3NpZ3N1c3BlbmQoW10KCmFuZCB0aGVy
-ZSBpdCBzaXRzLgoKSGFzIGFueW9uZSBzZWVuIGVpdGhlciBvZiB0aGVzZSBwcm9ibGVtcyBjb21l
-IHVwCm9uIGRlYmlhbiBsaW51eC9pYTY0PyBGb3Igd2hhdCBpdHMgd29ydGgsIGkgd2FzCnVzaW5n
-IHJlZGhhdCBBUyBiYWNrIGluIEphbnVhcnkgYW5kIHRoZSBwcm9ibGVtcwpuZXZlciBwb3BwZWQg
-dXAgYmFjayB0aGVuLCBzbyBpIGRvIHRoaW5rIG1heSBiZQpzcGVjaWZpYyB0byB0aGUgbGlicnQg
-cHJvdmlkZWQgaW4gZGViaWFuOgpsaWJjNi4xLWRldjogL3Vzci9saWIvbGlicnQuc28KClRoYW5r
-cywKCi9zdGV2ZQoKCj09LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLQogU3RldmUgV29vZHJ1ZmYsIE45T0ggQCA0Mi4xOE4gODguMzRXLCBz
-andvb2RyQHlhaG9vLmNvbQoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX18KRG8geW91IFlhaG9vIT8KVGhlIE5ldyBZYWhvbyEgU2VhcmNoIC0gRmFzdGVy
-LiBFYXNpZXIuIEJpbmdvCmh0dHA6Ly9zZWFyY2gueWFob28uY29tCgo=
+On Wed, Apr 23, 2003 at 07:54:04AM -0700, Steve Woodruff wrote:
+> 1. RT signals RTMIN, RTMIN+1, RTMIN+2 are not being
+>    delivered.  I created a simple test case that sets
+>    an interval timer set to fire once per second, 
+>    but the signal never arrives!  When i use RTMIN+3
+>    or greater, then the code works fine.  I can 
+>    provide the test code to anyone who is interested
+>    in trying it out on their system.
+
+Aren't these used by libc for thread management purposes?  RH uses NPTL
+so it ses different methods.
+
+-- 
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+
