@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 01 Sep 2004 10:19:15 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Sat, 04 Sep 2004 11:12:57 +0000
 Subject: Re: [PATCH 2/4] SGI Altix cross partition functionality (1st revision)
-Message-Id: <20040901101914.GB12074@lnx-holt.americas.sgi.com>
+Message-Id: <20040904121257.D14123@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040616163514.GB27891@sgi.com>
 In-Reply-To: <20040616163514.GB27891@sgi.com>
@@ -10,29 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+> > Why do you have three different option when the only way they're usefull
+> > is to have all three enabled at the same time.
+> 
+> By this I asssume you mean that rather than having both IA64_SGI_SN_XPC
+> and IA64_SGI_SN_XPNET, we should have just one, like IA64_SGI_SN_XP, that
+> causes all the parts to get built. Correct?
+
+Yes.
+
 > > > +	case xpcMsgReceived:		return "xpcMsgReceived";
 > > > +	case xpcMsgDelivered:		return "xpcMsgDelivered";
 > > 
 > > Please don't add strerror-lookalikes to the kernel.
 > 
-...
-> 
-> If you meant the former: XPC makes dev_info() calls to indicate that a
-> channel to a partition has connected and disconnected (and why). The why
-> is a reason code mapped to an ASCII string. Would you prefer that we put
-> out a numeric value as opposed to a more meaningful ASCII string?
+> I'm not clear on this. Do you mean ditch xpc_get_ascii_reason_code()
+> altogether and have no mapping of a numeric reason code to an ASCII
+> string?
 
-Please no magic numbers in logs.  This always leads to customers calling
-support with the "what does 13 mean and should I be concerned"?  If the
-community objects to the case statement above, then find a different
-way that implements the textual name.
+Yes.  strerror() is entirely userspace policy.
 
-> 
-> 
-> > > +	for (ch_number = 0; ch_number < XPC_NCHANNELS; ch_number++) {
-> > > +		sema_init(&xpc_registrations[ch_number].sema, 1);  /* mutex */
-> > > +	}
-> > 
 > > A single mutex wouldn't do it?  It doesn't exactly look like it's used in
 > > fast-paths
 > 
@@ -44,11 +41,7 @@ way that implements the textual name.
 > about very much memory lost because of this. (The way it is we only end
 > up with a total of two semaphores, instead of just one.)
 
-I like keeping the lock protecting as little as possible.  This has been
-drilled into peoples heads here at SGI since the early Cray days.  We have
-always been told to keep locks protecting a single cohesive group of data.
+Well, Linux is difficult.  First rule of thumb is keep it simple, and
+if you ever need a fastpath semaphore you're better of making it a separate
+entinity from the registration sempahore.
 
-Just my 2 cents.
-
-Thanks,
-Robin
