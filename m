@@ -1,45 +1,74 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 10 Apr 2001 09:55:00 +0000
+From: Gustavo Niemeyer <niemeyer@conectiva.com>
+Date: Tue, 10 Apr 2001 11:50:33 +0000
 Subject: Re: [Linux-ia64] strace / ptrace_offsets.h
-Message-Id: <marc-linux-ia64-105590693005386@msgid-missing>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="y0ulUmNC+osPPQO6"
+Message-Id: <marc-linux-ia64-105590693005387@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005384@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005384@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Gustavo Niemeyer <niemeyer@conectiva.com> writes:
+--y0ulUmNC+osPPQO6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-|> I've just found this message from Uros in the mailing list
-|> archive:
-|>=20
-|> > I am trying to compile strace under 2.4.0-test6 and I missing symbols
-|> > for PT_K_B0, PT_K_AR_PFS, PT_K_AR_UNAT, PT_K_AR_RNAT, PT_K_AR_BSPSTORE,
-|> > PT_K_PR and PT_CR_IFS.  I have
-|> > sucessfully compiled the same source under 2.3.99-pre6 kernel headers.
-|> >=20
-|> > Symbol PT_CR_IFS was replaced with PT_CFM; this is a problem with stra=
-ce
-|> > source.  However, the other symbols disappeared from ptrace_offsets.h.
-|> > I don't recall any patches against ptrace interface lately.  Is this a
-|> > lossage in kernel headers?
-|>=20
-|> Unfortunately, I haven't found any answeres to this post.
-|>=20
-|> This problem seems to be back with strace 4.3 and kernel 2.4.3. In this
-|> case, which one should be fixed??
+Hi Andreas!
 
-Use the strace source from the ia64_0 branch on
-cvs.strace.sourceforge.net.
+[...]
+> |> This problem seems to be back with strace 4.3 and kernel 2.4.3. In this
+> |> case, which one should be fixed??
+> 
+> Use the strace source from the ia64_0 branch on
+> cvs.strace.sourceforge.net.
 
-Andreas.
+I've been using it for some time, but it is not up to date with the
+latest strace release (4.3). Anyway, your answer means that the problem
+is probably with strace itself. Attached is a patch I've used to build
+it.
 
---=20
-Andreas Schwab                                  "And now for something
-SuSE Labs                                        completely different."
-Andreas.Schwab@suse.de
-SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+Thanks!!
+
+-- 
+Gustavo Niemeyer
+
+[ 2AAC 7928 0FBF 0299 5EB5  60E2 2253 B29A 6664 3A0C ]
+
+--y0ulUmNC+osPPQO6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="strace-4.3-ia64.patch"
+
+--- strace-4.3/process.c.ia64	Wed Mar 28 17:29:17 2001
++++ strace-4.3/process.c	Tue Apr 10 08:32:30 2001
+@@ -1989,16 +1989,10 @@
+ 	{ PT_F27, "f27" }, { PT_F28, "f28" }, { PT_F29, "f29" },
+ 	{ PT_F30, "f30" }, { PT_F31, "f31" }, { PT_R4, "r4" },
+ 	{ PT_R5, "r5" }, { PT_R6, "r6" }, { PT_R7, "r7" },
+-	{ PT_K_B0, "kb0" },
+ 	{ PT_B1, "b1" }, { PT_B2, "b2" }, { PT_B3, "b3" },
+ 	{ PT_B4, "b4" }, { PT_B5, "b5" },
+-	{ PT_K_AR_PFS, "kar.pfs" },
+-	{ PT_AR_LC, "ar.lc" }, { PT_K_AR_UNAT, "kar.unat" },
+-	{ PT_K_AR_RNAT, "kar.rnat" }, { PT_K_AR_BSPSTORE, "kar.bspstore" },
+-	{ PT_K_PR, "k.pr" },
+ 	/* pt_regs */
+ 	{ PT_CR_IPSR, "cr.ipsr" }, { PT_CR_IIP, "cr.iip" },
+-	{ PT_CR_IFS, "cr.ifs" }, { PT_AR_UNAT, "ar.unat" },
+ 	{ PT_AR_PFS, "ar.pfs" }, { PT_AR_RSC, "ar.rsc" },
+ 	{ PT_AR_RNAT, "ar.rnat" }, { PT_AR_BSPSTORE, "ar.bspstore" },
+ 	{ PT_PR, "pr" }, { PT_B6, "b6" }, { PT_AR_BSP, "ar.bsp" },
+--- strace-4.3/signal.c.ia64	Wed Mar 28 17:29:17 2001
++++ strace-4.3/signal.c	Tue Apr 10 08:38:07 2001
+@@ -84,7 +84,9 @@
+ 	int			si_mask;
+ } m_siginfo_t;
+ #else
++#ifndef IA64
+ #include <asm/sigcontext.h>
++#endif
+ #endif /* SPARC */
+ #else /* !HAVE_ASM_SIGCONTEXT_H */
+ #ifdef I386
+
+--y0ulUmNC+osPPQO6--
 
