@@ -1,69 +1,39 @@
-From: root <davidm@hpl.hp.com>
-Date: Tue, 12 Jun 2001 06:37:53 +0000
-Subject: Re: [Linux-ia64] 2.4.5 hangs in smp_call_function.
-Message-Id: <marc-linux-ia64-105590693005715@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Tue, 05 Jun 2001 18:24:11 +0000
+Subject: [Linux-ia64] [PATCH] fix elilo invocations from the boot manager
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="pf9I7BMVVzbSWLtt"
+Message-Id: <marc-linux-ia64-105590693005695@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005699@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005699@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 7 Jun 2001 17:00:11 -0500 (CDT), Jack Steiner <steiner@sgi.com> said:
+--pf9I7BMVVzbSWLtt
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-  Jack> Since upgrading to 2.4.5, we have seen several system hangs
-  Jack> where multiple cpus were spinning in smp_call_function.
+In some odd cases, when the boot manager invokes elilo, argc is 0,
+while Optind is initialized to 1. If we continue with prompting
+disabled, strange things can happen. (usually, attempts to boot
+a non-existant kernel.)
 
-  Jack> The problem appears to be caused by the code in
-  Jack> smp_call_function() that resends an IPI if a timeout expires.
+Bill
 
-It turns out that the real problem here was that the IPI timeout
-mechanism was enabled even for B3 step CPUs.  The patch below fixes
-this.  Thanks to Jack for tracking this down.
+--pf9I7BMVVzbSWLtt
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="elilo-2.5-prompt.patch"
 
-	--david
-
---- arch/ia64/kernel/smp.c~	Tue Jun  5 10:18:34 2001
-+++ arch/ia64/kernel/smp.c	Mon Jun 11 15:29:40 2001
-@@ -285,7 +285,8 @@
- {
- 	struct call_data_struct data;
- 	int cpus = 1;
--#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_BSTEP_SPECIFIC))
-+#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_B0_SPECIFIC) \
-+     || defined(CONFIG_ITANIUM_B1_SPECIFIC) || defined(CONFIG_ITANIUM_B2_SPECIFIC))
- 	unsigned long timeout;
- #endif
+diff -ru gnu-efi-2.5/elilo/elilo.c ook/elilo/elilo.c
+--- elilo/elilo.c	Mon May 21 17:58:56 2001
++++ elilo/elilo.c	Tue Jun  5 14:02:04 2001
+@@ -373,7 +381,7 @@
+ 	 * if user specified a kernel name or label, then ignore
+ 	 * forced interactive mode
+ 	 */
+-	if (argv[Optind]) elilo_opt.prompt = 0;
++	if (argv[Optind] && Optind <= argc) elilo_opt.prompt = 0;
  
-@@ -307,7 +308,8 @@
-   resend:
-   	send_IPI_single(cpuid, IPI_CALL_FUNC);
- 
--#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_BSTEP_SPECIFIC))
-+#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_B0_SPECIFIC) \
-+     || defined(CONFIG_ITANIUM_B1_SPECIFIC) || defined(CONFIG_ITANIUM_B2_SPECIFIC))
- 	/*  Wait for response */
- 	timeout = jiffies + HZ;
- 	while ((atomic_read(&data.started) != cpus) && time_before(jiffies, timeout))
-@@ -352,7 +354,8 @@
- {
- 	struct call_data_struct data;
- 	int cpus = smp_num_cpus-1;
--#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_BSTEP_SPECIFIC))
-+#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_B0_SPECIFIC) \
-+     || defined(CONFIG_ITANIUM_B1_SPECIFIC) || defined(CONFIG_ITANIUM_B2_SPECIFIC))
- 	unsigned long timeout;
- #endif
- 
-@@ -373,7 +376,8 @@
- 	/*  Send a message to all other CPUs and wait for them to respond */
- 	send_IPI_allbutself(IPI_CALL_FUNC);
- 
--#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_BSTEP_SPECIFIC))
-+#if (defined(CONFIG_ITANIUM_ASTEP_SPECIFIC) || defined(CONFIG_ITANIUM_B0_SPECIFIC) \
-+     || defined(CONFIG_ITANIUM_B1_SPECIFIC) || defined(CONFIG_ITANIUM_B2_SPECIFIC))
- 	/* Wait for response */
- 	timeout = jiffies + HZ;
- 	while ((atomic_read(&data.started) != cpus) && time_before(jiffies, timeout))
+ 	/*
+ 	 * which chooser we will use 
+
+--pf9I7BMVVzbSWLtt--
 
