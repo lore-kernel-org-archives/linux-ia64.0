@@ -1,86 +1,60 @@
 From: Keith Owens <kaos@ocs.com.au>
-Date: Sun, 23 Mar 2003 03:16:01 +0000
-Subject: [Linux-ia64] Announce: modutils 2.4.24 is available
-Message-Id: <marc-linux-ia64-105590723705293@msgid-missing>
+Date: Thu, 13 Mar 2003 05:53:34 +0000
+Subject: [Linux-ia64] Patch modutils-2.4.22 for brl in modules
+Message-Id: <marc-linux-ia64-105590709806075@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+While testing spin_lock() using brl, I realised that modutils does not
+support R_IA64_PCREL60B, so brl from a module to ia64_spinlock_contention
+does not work.  This patch against modutils 2.4.22 will appear in
+2.4.23, I am making it available now for people who want to test the
+new spinlock code in modules.
 
-Content-Type: text/plain; charset=us-ascii
+Do not panic if kdb shows the wrong target address for brl.  ia64-dis.c
+in kdb v3.0 incorrectly decodes brl, kdb v4.0 decodes it correctly.
 
-ftp://ftp.<country>.kernel.org/pub/linux/utils/kernel/modutils/v2.4
-
-modutils-2.4.24.tar.gz          Source tarball, includes RPM spec file
-modutils-2.4.24-1.src.rpm       As above, in SRPM format
-modutils-2.4.24-1.i386.rpm      Compiled with gcc 2.96 20000731,
-                                glibc 2.2.2.
-modutils-2.4.24-1.ia64.rpm	Compiled with gcc 2.96-ia64-20000731,
-				glibc-2.2.3.
-patch-modutils-2.4.24.gz        Patch from modutils 2.4.23 to 2.4.24.
-
-Changelog extract
-
-	* Remove the default of exporting all symbols, but only on
-	  architectures that have function descriptors (ia64, ppc64).
-	* Add libmodutils.a to make clean list.
-
-
-This version of modutils is functionally identical to 2.4.23 except for
-those architectures that have function descriptors, i.e. ia64 and
-ppc64.
-
-For historical reasons, insmod and depmod treat modules with neither
-EXPORT_SYMBOL() nor EXPORT_NO_SYMBOLS() as exporting everything.  This
-provides backwards compatibility with 2.0 kernels and some 2.2 modules.
-No new code should be relying on this behaviour and the feature has
-been removed in 2.5 kernels.  Unfortunately some developers are still
-relying on this default behaviour, even for new code.
-
-When an architecture has function descriptors and uses EXPORT_SYMBOL()
-on a function, gcc generates a function descriptor and ksymtab contains
-the address of that descriptor.  Without an explicit EXPORT_SYMBOL(),
-gcc does not generate a function descriptor and the exported symbol
-points to the start of the function body.  Any attempt to call to that
-function tries to use the start of the function code as a descriptor
-and breaks spectacularly.
-
-To prevent this kernel breakage, I am making an incompatible change to
-modutils.  It only affects ia64 and ppc64 users, and only if they are
-relying on the deprecated feature of all symbols being exported.
-
-Users on ia64 and ppc64 must ensure that their modules still resolve
-and add EXPORT_SYMBOL() where necessary before doing a permanent
-upgrade to modutils 2.4.24.  The simplest way to check is to build (but
-not install) modutils-2.4.24 then ./depmod/depmod -nae > /dev/null.
-Any unresolved references that did not occur with modutils 2.4.23 need
-an explicit EXPORT_SYMBOL().  If this is too much bother, stay on
-modutils 2.4.23 and risk the kernel breakage.
-
-Other architectures can safely upgrade to 2.4.24 with no change, or
-they can stay on 2.4.23.
-
-If anybody fancies a janatorial task, configure modutils 2.4.24 with
-CFLAGS="-O2 -Wall -DHAS_FUNCTION_DESCRIPTORS" ./configure, build it
-then run ./depmod/depmod -nae > /dev/null.  You can do that on any
-architecture to find kernel modules that still rely on exporting all
-symbols.
-
-No, I am not going to fudge modutils 2.4 to allow the continued default
-export of data symbols but not text symbols on ia64 and ppc64.  It is
-too much extra work just to allow the continued use of a deprecated
-feature that has already been removed in 2.5 kernels.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQE+fSbti4UHNye0ZOoRAl2/AJ9Oi6nPAcimNXk61bMS0awByxFt/ACgzkxz
-Rk0dK41PNPEKlShX/9Utd6w=tdBH
------END PGP SIGNATURE-----
+Index: 23.9/obj/obj_ia64.c
+--- 23.9/obj/obj_ia64.c Wed, 31 Jul 2002 10:41:48 +1000 kaos (modutils-2.4/c/0_obj_ia64.c 1.8 644)
++++ 23.10/obj/obj_ia64.c Thu, 13 Mar 2003 14:39:45 +1100 kaos (modutils-2.4/c/0_obj_ia64.c 1.9 644)
+@@ -266,6 +266,24 @@ obj_ia64_ins_imm64(Elf64_Xword v, Elf64_
+ }
+ 
+ /*
++ * add a immediate 60 value to the instruction at slot in bundle
++ */
++enum obj_reloc
++obj_ia64_ins_pcrel60b(Elf64_Xword v, Elf64_Addr *bundle, Elf64_Xword slot)
++{
++    Elf64_Xword ins;
++
++    assert(slot = 2);
++
++    ins = obj_ia64_ins_extract_from_bundle(bundle, slot);
++    ins &= 0xffffffee00001fff;
++    ins |= ((v & 0x8000000000000000) >> 27) | ((v & 0x0000000000fffff0) << 9);
++    obj_ia64_ins_insert_in_bundle(bundle, slot, ins);
++    obj_ia64_ins_insert_in_bundle(bundle, --slot, ((v & 0x7fffffffff000000) >> 22));
++    return obj_reloc_ok;
++}
++
++/*
+  * create a plt entry
+  */
+ enum obj_reloc
+@@ -852,6 +870,10 @@ arch_apply_relocation(struct obj_file *f
+ 	}
+ 	break;
+ 
++    case R_IA64_PCREL60B :    /* @pcrel(sym + add), brl */
++	ret = obj_ia64_ins_pcrel60b(v - dot, bundle, slot);
++	break;
++
+     case R_IA64_PCREL32LSB :    /* @pcrel(sym + add), data4 LSB */
+ 	COPY_32LSB(loc, v-dot);
+ 	break;
 
 
