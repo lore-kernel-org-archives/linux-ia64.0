@@ -1,25 +1,18 @@
 From: Bill Nottingham <notting@redhat.com>
-Date: Wed, 23 May 2001 20:18:44 +0000
-Subject: Re: [Linux-ia64] problems with ppp/pppd: put_user/copy_to_user
-Message-Id: <marc-linux-ia64-105590693005661@msgid-missing>
+Date: Wed, 09 May 2001 00:34:01 +0000
+Subject: [Linux-ia64] Re: GNU Assembler
+Message-Id: <marc-linux-ia64-105590693005552@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005655@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005655@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger (davidm@hpl.hp.com) said: 
->   Bill> However, if we replace the calls to put_user for PPPIOCGCHAN &
->   Bill> PPPIOCGFLAGS ioctls with copy_to_user, it works
->   Bill> fine. Shouldn't this not make any difference?
-> 
-> It should not make a difference.  Is there an easy test case that
-> reproduces the problem?
+Li, Shuo (shuo.li@intel.com) said: 
+> I cannot seem to find gnu assembler on the latest Wolverine release of
+> Linux64. Can some tell me if gnu assemble is part of GNUPro release or not? 
 
-Hm, not sure if there's something simpler than having two machines talk
-ppp over a serial cable. I'll poke around.
+It's in the binutils package.
 
 Bill
 
