@@ -1,35 +1,45 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 17 Feb 2004 20:18:07 +0000
-Subject: Re: megaraid warnings
-Message-Id: <16434.30463.969436.102136@napali.hpl.hp.com>
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 11 Feb 2004 18:17:30 +0000
+Subject: u64 vs %llu format
+Message-Id: <20040211181730.GC10901@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16434.28509.327706.76307@napali.hpl.hp.com>
-In-Reply-To: <16434.28509.327706.76307@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 17 Feb 2004 20:09:18 +0000, Matthew Wilcox <willy@debian.org> said:
+Hi David, et al,
 
-  Matthew> On Tue, Feb 17, 2004 at 12:08:22PM -0800, David Mosberger
-  Matthew> wrote:
-  >> >>>>> On Tue, 17 Feb 2004 19:58:47 +0000, Matthew Wilcox
-  >> <willy@debian.org> said:
+Why is __u64 defined as "unsigned long" and not "unsigned long long"?
 
-  Matthew> This keeps coming up on linux-scsi; basically these are
-  Matthew> ioctls that are called by some binary-only (and
-  Matthew> x86-binary-only at that) management program.  so if they
-  Matthew> want to ship an ia64 version of their management program,
-  Matthew> they'll have to fix this; otherwise the addresses are
-  Matthew> guaranteed to be in the lower 32 bits of the address space.
+I ask because:
+	u64 i;
+	...
+	printk("i %llu\n, i);
 
-  >>  Then why not disable the offending code for 64-bit platforms for
-  >> the time being?
+will generate this warning:
+<file>:<line>: warning: long long unsigned int format, __u64 arg (arg 2)
 
-  Matthew> Because it works when the x86 app is run in emulation.
+The code is correct, but the warning is "wrong".
+(It might be technically correct, but doesn't flag a problem).
+ia64 compiler could equate "long long" and "long" types or
+the kernel could define __u64 as "unsigned long long".
 
-Ah, your mail wasn't clear on this.  In that case, I'd suggest to fix
-the code as I suggested in the earlier mail.
+The code above could cast "(unsigned long long) i" but it seems
+silly this would be necessary. Maybe that's the right (but ugly) way.
+Or is there a different printk format the code should be using?
 
-	--david
+Survey of other arches shows several use "unsigned long" for __u64
+and I'm wondering if someone knows how this issue was resolved
+in those arches:
+asm-alpha/types.h:typedef unsigned long __u64;
+asm-ia64/types.h:typedef unsigned long __u64;
+asm-mips/types.h:typedef unsigned long __u64;
+asm-ppc64/types.h:typedef unsigned long __u64;
+asm-s390/types.h:typedef unsigned long __u64;
+asm-sparc64/types.h:typedef unsigned long __u64;
+
+Note that parisc uses "unsigned long long" for both 32 and 64-bit kernels.
+
+thanks,
+grant
