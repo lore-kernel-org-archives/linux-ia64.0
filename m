@@ -1,31 +1,41 @@
-From: Khalid Aziz <khalid@fc.hp.com>
-Date: Thu, 16 Nov 2000 19:12:39 +0000
-Subject: [Linux-ia64] Non-legacy serial port console support using SPCR table in ACPI 2.0
-Message-Id: <marc-linux-ia64-105590678205734@msgid-missing>
+From: Hirofumi Fujita <h-fujita@ebina.hitachi.co.jp>
+Date: Mon, 20 Nov 2000 11:07:25 +0000
+Subject: [Linux-ia64] kernel test10 CMCV definition
+Message-Id: <marc-linux-ia64-105590678205752@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I am bringing Linux up on a McKinley platform simulator. For the
-bringup, I am looking into adding support for non-legacy serial port
-console. ACPI 2.0 includes a Serial Port Console Redirection Table which
-defines the serial port console (SPCR table definition can be found at
-<http://www.microsoft.com/hwdev/headless/download/SerialPortRedir.zip>).
-I am looking into adding support for the serial port defined by this
-table. I would also like to add support for the Debug Port as defined by
-the Debug Port Table (DBGP table definition can be found at
-<http://www.microsoft.com/hwdev/newPC/debugspec.htm>.
+Hi,
 
-Is anyone else looking into doing this? If so, please let me know so we
-can collaborate and not have duplication of effort.
+In test10 kernel, the definition of CMC vector register looks
+different from Intel's documnet (The Itanium Architecture Software
+Developer's Manual Vol. 2 rev. 1.1: System Architecture).
 
--- 
-Khalid
+The order of bit fields are wrong ?
 
-==================================
-Khalid Aziz                             Linux Development Laboratory
-(970)898-9214                                        Hewlett-Packard
-khalid@fc.hp.com                                    Fort Collins, CO
+Hirofumi Fujita
+Hitachi, Ltd.
+
+--- linux-2.4.0-test10-ia64-001115/include/asm-ia64/mca.h.org	Thu Nov 16 17:46:36 2000
++++ linux-2.4.0-test10-ia64-001115/include/asm-ia64/mca.h	Mon Nov 20 17:23:24 2000
+@@ -46,11 +46,11 @@
+ 	u64	cmcv_regval;
+ 	struct	{
+ 		u64  	cmcr_vector		: 8;
+-		u64	cmcr_ignored1		: 47;
+-		u64	cmcr_mask		: 1;
+-		u64	cmcr_reserved1		: 3;
+-		u64	cmcr_ignored2		: 1;
+-		u64	cmcr_reserved2		: 4;
++		u64	cmcr_reserved1		: 4;
++		u64	cmcr_ignored1		: 1;
++		u64	cmcr_reserved2		: 3;
++		u64	cmcr_mask		: 1;
++		u64	cmcr_ignored2		: 47;
+ 	} cmcv_reg_s;
+ 
+ } cmcv_reg_t;
 
