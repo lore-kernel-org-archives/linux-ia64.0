@@ -1,56 +1,79 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Date: Sat, 01 Jan 2005 10:24:43 +0000
-Subject: Re: Prezeroing V2 [2/4]: add second parameter to clear_page() for
-Message-Id: <Pine.GSO.4.61.0501011123550.27452@waterleaf.sonytel.be>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Sat, 08 Jan 2005 01:00:57 +0000
+Subject: [PATCH] fix bogus address dereference in sn/setup.c
+Message-Id: <200501071700.57816.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_JDz3BC8zZnaWjys"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
- <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+--Boundary-00=_JDz3BC8zZnaWjys
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, linux-mm@kvack.org, Linux Kernel Development <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 
-On Thu, 23 Dec 2004, Christoph Lameter wrote:
-> o Extend clear_page to take an order parameter for all architectures.
+Some code in sn/setup.c was trying to dereference a physical address, which 
+usually doesn't work (esp. not with the region register init patch I posted).  
+This patch converts the function used to find the klconfig to return virtual 
+char * instead of a physical address and updates the caller to deal with it.
 
-> Index: linux-2.6.9/include/asm-m68k/page.h
-> =================================> --- linux-2.6.9.orig/include/asm-m68k/page.h	2004-10-18 14:55:36.000000000 -0700
-> +++ linux-2.6.9/include/asm-m68k/page.h	2004-12-23 07:44:14.000000000 -0800
-> @@ -50,7 +50,7 @@
->  		       );
->  }
-> 
-> -static inline void clear_page(void *page)
-> +static inline void clear_page(void *page, int order)
->  {
->  	unsigned long tmp;
->  	unsigned long *sp = page;
-> @@ -69,16 +69,16 @@
->  			     "dbra   %1,1b\n\t"
->  			     : "=a" (sp), "=d" (tmp)
->  			     : "a" (page), "0" (sp),
-> -			       "1" ((PAGE_SIZE - 16) / 16 - 1));
-> +			       "1" (((PAGE_SIZE<<(order)) - 16) / 16 - 1));
->  }
-> 
->  #else
-> -#define clear_page(page)	memset((page), 0, PAGE_SIZE)
-> +#define clear_page(page, 0)	memset((page), 0, PAGE_SIZE << (order))
-                            ^
-			    order
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-Gr{oetje,eeting}s,
+Thanks,
+Jesse
 
-						Geert
+--Boundary-00=_JDz3BC8zZnaWjys
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="klconfig-virtual-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="klconfig-virtual-fix.patch"
 
---
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
+===== arch/ia64/sn/kernel/setup.c 1.43 vs edited =====
+--- 1.43/arch/ia64/sn/kernel/setup.c	2004-11-02 12:32:14 -08:00
++++ edited/arch/ia64/sn/kernel/setup.c	2005-01-07 16:05:51 -08:00
+@@ -503,15 +503,15 @@
+ 
+ 	/* Setup ionodes with memory */
+ 	for (nasid = 0; nasid < MAX_PHYSNODE_ID; nasid += 2) {
+-		u64 klgraph_header;
++		char *klgraph_header;
+ 		cnodeid_t cnodeid;
+ 
+ 		if (physical_node_map[nasid] == -1)
+ 			continue;
+ 
+-		klgraph_header = cnodeid = -1;
+-		klgraph_header = ia64_sn_get_klconfig_addr(nasid);
+-		if (klgraph_header <= 0) {
++		cnodeid = -1;
++		klgraph_header = __va(ia64_sn_get_klconfig_addr(nasid));
++		if (!klgraph_header) {
+ 			if (IS_RUNNING_ON_SIMULATOR())
+ 				continue;
+ 			BUG();	/* All nodes must have klconfig tables! */
+===== include/asm-ia64/sn/sn_sal.h 1.17 vs edited =====
+--- 1.17/include/asm-ia64/sn/sn_sal.h	2004-11-03 13:41:17 -08:00
++++ edited/include/asm-ia64/sn/sn_sal.h	2005-01-07 16:05:17 -08:00
+@@ -203,7 +203,7 @@
+ 	return ret_stuff.v0;
+ }
+ 
+-static inline u64
++static inline char *
+ ia64_sn_get_klconfig_addr(nasid_t nasid)
+ {
+ 	struct ia64_sal_retval ret_stuff;
+@@ -223,7 +223,7 @@
+ 	if (ret_stuff.status != 0) {
+ 		panic("ia64_sn_get_klconfig_addr: Returned error %lx\n", ret_stuff.status);
+ 	}
+-	return(ret_stuff.v0);
++	return ret_stuff.v0 ? __va(ret_stuff.v0) : NULL;
+ }
+ 
+ /*
 
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+--Boundary-00=_JDz3BC8zZnaWjys--
