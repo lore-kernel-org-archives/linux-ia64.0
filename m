@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Jun 2003 22:52:17 +0000
+Date: Mon, 23 Jun 2003 23:09:50 +0000
 Subject: Re: 2.5 bk tree broken?
-Message-Id: <marc-linux-ia64-105640875132527@msgid-missing>
+Message-Id: <marc-linux-ia64-105641006001147@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105640820432133@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105640820432133@msgid-missing>
@@ -10,14 +10,7 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Yes, what's there on bkbits.net is totally obsolete (5 weeks old!).
-
-I know bkbits.net had a machine failure on Friday/Saturday.
-
-BK folks: could you restore a recent version of the linux-ia64-2.5
-repository?
-
-Thanks,
+Try again.  It looks like the tree should be back to normal.
 
 	--david
 
