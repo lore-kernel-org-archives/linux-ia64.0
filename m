@@ -1,36 +1,30 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 18 Feb 2004 19:27:19 +0000
+Date: Wed, 18 Feb 2004 19:57:16 +0000
 Subject: Re: [2.6 PATCH] Altix update
-Message-Id: <16435.48279.217876.842831@napali.hpl.hp.com>
+Message-Id: <16435.50076.400669.872965@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200402181441.i1IEfIWX024531@fsgi900.americas.sgi.com>
-	<20040218170601.A10490@infradead.org>
-	<16435.45326.877129.189633@napali.hpl.hp.com>
-	<20040218184411.A11714@infradead.org>
-	<16435.46665.488393.913044@napali.hpl.hp.com>
-	<20040218191559.B11957@infradead.org>
-In-Reply-To: <20040218191559.B11957@infradead.org>
+In-Reply-To: <200402181441.i1IEfIWX024531@fsgi900.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>
-Cc: davidm@hpl.hp.com, Pat Gefre <pfg@sgi.com>, akpm@osdl.org, davidm@napali.hpl.hp.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Pat Gefre <pfg@sgi.com>
+Cc: akpm@osdl.org, davidm@napali.hpl.hp.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>>> On Wed, 18 Feb 2004 19:15:59 +0000, Christoph Hellwig <hch@infradead.org> said:
+>>>>> On Wed, 18 Feb 2004 08:41:18 -0600 (CST), Pat Gefre <pfg@sgi.com> said:
 
-  Christoph> On Wed, Feb 18, 2004 at 11:00:25AM -0800, David Mosberger wrote:
-  >> Where?  On linux-ia64 or on lkml?  I don't recall these discussions
-  >> (but then again, I'm admittedly very good at forgetting stuff...).
+  Pat> Here's a small mod for Altix. It breaks up our 'pci fixup' function and
+  Pat> has some other smallish clean ups.
 
-  Christoph> Linux-IA64.  I sent a bunch of patches to you and Jesse
-  Christoph> that you applied but large parts of SGI didn't for
-  Christoph> certain reasons (NIH comes to mind).
+  Pat> For the ia64 crowd I've added 'platform_data' back into
+  Pat> include/asm-ia64/pci.h
 
-Thankfully, I have no control over SGI's tree but if you have any
-pending improvements for the generic ia64 portions, I'd certainly be
-happy to take (another) look.  I really didn't (and still don't)
-remember of there being anything pending in this area.  Not entirely
-surprising though: I'm quite easy to satisfy as far as the PCI
-subsystem goes (if it works, I'm happy ;-).
+I added this patch in my tree now with some trailing white-space
+fixes, but no other changes.
+
+As far as I can tell, platform_data never was in the the struct
+pci_controller of the 2.5/2.6 tree, so it's really a new thing, not a
+matter of "adding it back" (yeah it's in 2.4, but that's a separate
+tree...).
 
 	--david
