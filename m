@@ -1,25 +1,27 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Thu, 23 Nov 2000 19:47:28 +0000
-Subject: Re: [Linux-ia64] -ma-step and -mconstant-gp options for gcc?
-Message-Id: <marc-linux-ia64-105590678205772@msgid-missing>
+From: Francis Galiegue <fg@mandrakesoft.com>
+Date: Fri, 10 Nov 2000 11:14:12 +0000
+Subject: [Linux-ia64] Recommended compiler for compiling kernels test10 and upper?
+Message-Id: <marc-linux-ia64-105590678205680@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205770@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205770@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The -ma-step option enables compiler workarounds for A-step and B0-step
-errata.  So far it didn't seem worth the trouble to add a -mb0-step option.
-This option will likely be removed before the next toolchain release.
+Right now I'm using the ia64-final version of gcc, and from test10 on a check
+is done on whether __GNUC_MINOR__ is greater than 91. ia64-final returns 9
+which is obviously not what the kernel expects...
 
-There is also a -mb-step option that enables compiler workarounds for B-step
-errata.  This should be used if compiling code for B-step machines.  -ma-step
-implies -mb-step, so you don't need both.
+After commenting this out and fixing by hand quite a lot of places, I got it to
+compile and boot though. But more recent snapshots of gcc are available. Are
+they worth upgrading?
 
-For -mconstant-gp, see the discussion of the elf header flag EF_IA_64_CONS_GP
-in the psABI.
+Also, will the current glibc-2.2 compile as is on ia64 and work?
 
-Jim
+-- 
+Francis Galiegue, fg@mandrakesoft.com
+"Programming is a race between programmers, who try and make more and more
+idiot-proof software, and universe, which produces more and more remarkable
+idiots. Until now, universe leads the race"  -- R. Cook
+
 
