@@ -1,7 +1,7 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Fri, 20 Jun 2003 18:53:03 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 20 Jun 2003 19:02:03 +0000
 Subject: Re: 2.5.72 for ia64 released
-Message-Id: <marc-linux-ia64-105613529920818@msgid-missing>
+Message-Id: <marc-linux-ia64-105613713523245@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105605890319553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105605890319553@msgid-missing>
@@ -10,37 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Jun 20, 2003 at 11:49:33AM -0700, David Mosberger wrote:
-> >>>>> On Fri, 20 Jun 2003 11:45:19 -0700, jbarnes@sgi.com (Jesse Barnes) said:
-> 
->   >> I thought the DISCONTIGMEM support is making assumptions about the
->   >> physical memory layout.  If this is still true, DISCONTIGMEM and
->   >> GENERIC cannot go together.
-> 
->   Jesse> No, the discontig patch I posted earlier should allow this.  We've
->   Jesse> tested it quite a bit in 2.4.
-> 
-> I'm not questioning whether it works on SGI, what I'm asking is
-> whether it will work on _all_ possible NUMA architectures, or just on
-> SN2.
+>>>>> On Fri, 20 Jun 2003 11:53:03 -0700, jbarnes@sgi.com (Jesse Barnes) said:
 
-Yeah, that's what I meant.  Jack's patch to 2.4 has been tested on sn2,
-DIG, zx1, NEC, and Bull machines, as a generic kernel for the first
-three at least (don't know what NEC and Bull did for their testing).
+  Jesse> Yeah, that's what I meant.  Jack's patch to 2.4 has been
+  Jesse> tested on sn2, DIG, zx1, NEC, and Bull machines, as a generic
+  Jesse> kernel for the first three at least (don't know what NEC and
+  Jesse> Bull did for their testing).
 
->   >> I suspect it would be more preferable if you could make it possible
->   >> for a non-NUMA kernel to boot on your machine.
-> 
->   Jesse> That might be nice, but I'd rather have CONFIG_GENERIC turn on
->   Jesse> CONFIG_NUMA.  It shouldn't get in the way of non-NUMA machines...
-> 
-> What I worry about is that some distributions may end up shipping
-> GENERIC kernels, with no easy way to build an optimized kernel.  It's
-> reasonable to expect highend customers to build their own kernels, but
-> I don't think that's quite as reasonable to expect the same from
-> someone who buys a workstation.
+But which ones are NUMA with node-scattered physical memory?  sn2 for
+sure.  DIG, zx1 are not, for sure.  I'm not certain about NEC or Bull.
+So I'm not convinced that it works for all possible physical memory
+layouts.
 
-So you're worried about the performance penalty of turning on NUMA for
-generic kernels?
+  Jesse> So you're worried about the performance penalty of turning on NUMA for
+  Jesse> generic kernels?
 
-Jesse
+Yes.  Actually, I'm concerned about size, too.  It would be good to
+have an init-mem-like approach so that we can free all the code/data
+for unused machvec code.
+
+	--david
