@@ -1,24 +1,33 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 25 Jan 2002 06:38:54 +0000
-Subject: Re: [Linux-ia64] patch for vmlinux.lds.S
-Message-Id: <marc-linux-ia64-105590698805928@msgid-missing>
+From: Christian Hildner <christian.hildner@hob.de>
+Date: Mon, 28 Jan 2002 08:56:27 +0000
+Subject: [Linux-ia64] Offsets from C struct into assembler
+Message-Id: <marc-linux-ia64-105590698805940@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805920@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805920@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 23 Jan 2002 21:23:32 -0500, Bill Nottingham <notting@redhat.com> said:
+Hi!
 
-  Bill> This fixes building the kernel for me; possibly a recent
-  Bill> binutils thing? (Otherwise, I'm getting dangling references to
-  Bill> the text.exit code in .IA_64.unwind.text.exit sections.)
+Does anyone know how to bring offsets from a C structure into pure
+assembly code (not inline-asm)?
+I want to do something like:
 
-Yes, I added a similar fix.  It will be in the next patch (hopefully
-next week, but with LinuxWorld happening, it may end up being the week
-after).
+struct abc {
+    ...
+    long varx;
+    ...
+    }
 
-	--david
+add rx=offset(varx),ry    // get address of variable
+ld8 rx=[rx]                    // get variable varx
+
+with ry being the base address of the structure abc and offset_varx
+beeing compiled from struct abc.
+
+Any ideas are welcome.
+
+Christian
+
 
