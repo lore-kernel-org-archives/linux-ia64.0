@@ -1,7 +1,7 @@
 From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Fri, 24 Sep 2004 05:45:35 +0000
-Subject: [PATCH] Updated patches for PCI IRQ resource deallocation support [1/3]
-Message-Id: <4153B47F.8090105@jp.fujitsu.com>
+Date: Fri, 24 Sep 2004 05:45:53 +0000
+Subject: [PATCH] Updated patches for PCI IRQ resource deallocation support [2/3]
+Message-Id: <4153B491.7050605@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4153B472.5020109@jp.fujitsu.com>
 In-Reply-To: <4153B472.5020109@jp.fujitsu.com>
@@ -11,305 +11,157 @@ Content-Transfer-Encoding: 7bit
 To: greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
 Cc: akpm-3NddpPZAyC0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-This is a patch for PCI code that has no dependencies.
-Greg, please apply.
+This is a patch for ACPI code that has no dependencies.
+Len, please apply.
 
 ----
-Name:		add_pcibios_disable_device_hook.patch
+Change Log:
+
+    - Fixed some typos in comments.
+
+    - Changed 'unsigned char irq_disabled' to 'unsigned int
+      irq_disabled' because pci_dev.irq is unsigned int.
+
+----
+Name:		IRQ_deallocation_acpi.patch
 Kernel Version:	2.6.9-rc2-mm1
-Depends:	none.
+Depends:	none
 Description:
 
-This patch adds a hook 'pcibios_disable_device()' into
-pci_disable_device() to call architecture specific PCI resource
-deallocation code. It's a opposite part of pcibios_enable_device().
-We need this hook to deallocate architecture specific PCI resource
-such as IRQ resource, etc.. This patch is just for adding the hook, so
-'pcibios_disable_device()' is defined as a null function on all
-architecture so far.
+This patch is ACPI portion of IRQ deallocation. This patch defines the
+following new interface. The implementation of this interface depends
+on each platform.
 
-I tested this patch on i386, x86_64 and ia64. But it has not been
-tested on other architectures because I don't have these machines.
+    o void acpi_unregister_gsi(int irq)
+
+        This is a opposite portion of acpi_register_gsi(). This has a
+        responsibility for deallocating IRQ resources associated with
+        the specified linux IRQ number.
+
+        We need to consider the case of shared interrupt. In the case
+        of shared interrupt, acpi_register_gsi() is called multiple
+        times for one gsi. That is, registrations and unregistrations
+        can be nested.
+
+        This function undoes the effect of one call to
+        acpi_register_gsi(). If this matches the last registration,
+        IRQ resources associated with the specified linux IRQ number
+        are freed.
+
+This patch also adds the following new function.
+
+    o void acpi_pci_irq_disable (struct pci_dev *dev)
+
+        This function is a opposite portion of
+        acpi_pci_enable_irq(). It clears the device's linux IRQ number
+        and calls acpi_unregister_gsi() to deallocate IRQ resources.
 
 Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
 
 ---
 
- linux-2.6.9-rc2-mm1-kanesige/arch/alpha/kernel/pci.c            |    5 +++++
- linux-2.6.9-rc2-mm1-kanesige/arch/arm/kernel/bios32.c           |    4 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/i386/pci/common.c             |    4 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/ia64/pci/pci.c                |    5 +++++
- linux-2.6.9-rc2-mm1-kanesige/arch/m68knommu/kernel/comempci.c   |    4 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/mips/pci/pci.c                |    4 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/mips/pmc-sierra/yosemite/ht.c |    5 +++++
- linux-2.6.9-rc2-mm1-kanesige/arch/parisc/kernel/pci.c           |    6 ++++++
- linux-2.6.9-rc2-mm1-kanesige/arch/ppc/kernel/pci.c              |    5 +++++
- linux-2.6.9-rc2-mm1-kanesige/arch/ppc64/kernel/pci.c            |    5 +++++
- linux-2.6.9-rc2-mm1-kanesige/arch/sh/boards/overdrive/galileo.c |    4 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/sh/drivers/pci/pci.c          |    4 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/sh64/kernel/pcibios.c         |    5 +++++
- linux-2.6.9-rc2-mm1-kanesige/arch/sparc/kernel/pcic.c           |    4 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/sparc64/kernel/pci.c          |    4 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/v850/kernel/rte_mb_a_pci.c    |    6 ++++++
- linux-2.6.9-rc2-mm1-kanesige/drivers/pci/pci.c                  |    2 ++
- linux-2.6.9-rc2-mm1-kanesige/include/linux/pci.h                |    1 +
- 18 files changed, 77 insertions(+)
+ linux-2.6.9-rc2-mm1-kanesige/arch/i386/kernel/acpi/boot.c |   11 +++++
+ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c      |   11 +++++
+ linux-2.6.9-rc2-mm1-kanesige/drivers/acpi/pci_irq.c       |   27 ++++++++++++++
+ linux-2.6.9-rc2-mm1-kanesige/include/linux/acpi.h         |    2 +
+ 4 files changed, 51 insertions(+)
 
-diff -puN arch/alpha/kernel/pci.c~IRQ_deallocation_pci arch/alpha/kernel/pci.c
---- linux-2.6.9-rc2-mm1/arch/alpha/kernel/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.539784455 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/alpha/kernel/pci.c	2004-09-22 20:29:17.715566370 +0900
-@@ -381,6 +381,11 @@ pcibios_enable_device(struct pci_dev *de
- 	return 0;
+diff -puN arch/i386/kernel/acpi/boot.c~IRQ_deallocation_acpi arch/i386/kernel/acpi/boot.c
+--- linux-2.6.9-rc2-mm1/arch/i386/kernel/acpi/boot.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/i386/kernel/acpi/boot.c	2004-09-22 20:30:41.000000000 +0900
+@@ -480,6 +480,17 @@ unsigned int acpi_register_gsi(u32 gsi, 
  }
+ EXPORT_SYMBOL(acpi_register_gsi);
  
++/*
++ * This function undoes the effect of one call to acpi_register_gsi().
++ * If this matches the last registration, any IRQ resources for gsi
++ * associated with the irq are freed.
++ */
 +void
-+pcibios_disable_device(struct pci_dev *dev)
++acpi_unregister_gsi (unsigned int irq)
 +{
 +}
++EXPORT_SYMBOL(acpi_unregister_gsi);
 +
- /*
-  *  If we set up a device for bus mastering, we need to check the latency
-  *  timer as certain firmware forgets to set it properly, as seen
-diff -puN arch/arm/kernel/bios32.c~IRQ_deallocation_pci arch/arm/kernel/bios32.c
---- linux-2.6.9-rc2-mm1/arch/arm/kernel/bios32.c~IRQ_deallocation_pci	2004-09-22 20:29:17.556386080 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/arm/kernel/bios32.c	2004-09-22 20:29:17.716542936 +0900
-@@ -672,6 +672,10 @@ int pcibios_enable_device(struct pci_dev
- 	return 0;
+ static unsigned long __init
+ acpi_scan_rsdp (
+ 	unsigned long		start,
+diff -puN arch/ia64/kernel/acpi.c~IRQ_deallocation_acpi arch/ia64/kernel/acpi.c
+--- linux-2.6.9-rc2-mm1/arch/ia64/kernel/acpi.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c	2004-09-24 13:57:16.780496484 +0900
+@@ -516,6 +516,17 @@ acpi_register_gsi (u32 gsi, int edge_lev
  }
+ EXPORT_SYMBOL(acpi_register_gsi);
  
-+void pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
- int pci_mmap_page_range(struct pci_dev *dev, struct vm_area_struct *vma,
- 			enum pci_mmap_state mmap_state, int write_combine)
- {
-diff -puN arch/i386/pci/common.c~IRQ_deallocation_pci arch/i386/pci/common.c
---- linux-2.6.9-rc2-mm1/arch/i386/pci/common.c~IRQ_deallocation_pci	2004-09-22 20:29:17.561268911 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/i386/pci/common.c	2004-09-22 20:29:17.717519502 +0900
-@@ -249,3 +249,7 @@ int pcibios_enable_device(struct pci_dev
- 
- 	return pcibios_enable_irq(dev);
- }
-+
-+void pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-diff -puN arch/ia64/pci/pci.c~IRQ_deallocation_pci arch/ia64/pci/pci.c
---- linux-2.6.9-rc2-mm1/arch/ia64/pci/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.569081441 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/pci/pci.c	2004-09-22 20:29:17.717519502 +0900
-@@ -449,6 +449,11 @@ pcibios_enable_device (struct pci_dev *d
- }
- 
- void
-+pcibios_disable_device (struct pci_dev *dev)
-+{
-+}
-+
++/*
++ * This function undoes the effect of one call to acpi_register_gsi().
++ * If this matches the last registration, any IRQ resources for gsi
++ * associated with the irq are freed.
++ */
 +void
- pcibios_align_resource (void *data, struct resource *res,
- 		        unsigned long size, unsigned long align)
++acpi_unregister_gsi (unsigned int irq)
++{
++}
++EXPORT_SYMBOL(acpi_unregister_gsi);
++
+ static int __init
+ acpi_parse_fadt (unsigned long phys_addr, unsigned long size)
  {
-diff -puN arch/m68knommu/kernel/comempci.c~IRQ_deallocation_pci arch/m68knommu/kernel/comempci.c
---- linux-2.6.9-rc2-mm1/arch/m68knommu/kernel/comempci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.591542463 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/m68knommu/kernel/comempci.c	2004-09-22 20:29:17.718496068 +0900
-@@ -373,6 +373,10 @@ int pcibios_enable_device(struct pci_dev
- 	return(0);
+diff -puN drivers/acpi/pci_irq.c~IRQ_deallocation_acpi drivers/acpi/pci_irq.c
+--- linux-2.6.9-rc2-mm1/drivers/acpi/pci_irq.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/drivers/acpi/pci_irq.c	2004-09-22 20:29:23.000000000 +0900
+@@ -390,3 +390,30 @@ acpi_pci_irq_enable (
+ 
+ 	return_VALUE(dev->irq);
  }
- 
-+void pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
- /*****************************************************************************/
- 
- void pcibios_update_resource(struct pci_dev *dev, struct resource *root, struct resource *r, int resource)
-diff -puN arch/mips/pci/pci.c~IRQ_deallocation_pci arch/mips/pci/pci.c
---- linux-2.6.9-rc2-mm1/arch/mips/pci/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.601308125 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/mips/pci/pci.c	2004-09-22 20:29:17.719472634 +0900
-@@ -226,6 +226,10 @@ int pcibios_enable_device(struct pci_dev
- 	return 0;
- }
- 
-+void pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
- static void __init pcibios_fixup_device_resources(struct pci_dev *dev,
- 	struct pci_bus *bus)
- {
-diff -puN arch/mips/pmc-sierra/yosemite/ht.c~IRQ_deallocation_pci arch/mips/pmc-sierra/yosemite/ht.c
---- linux-2.6.9-rc2-mm1/arch/mips/pmc-sierra/yosemite/ht.c~IRQ_deallocation_pci	2004-09-22 20:29:17.610097221 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/mips/pmc-sierra/yosemite/ht.c	2004-09-22 20:29:17.719472634 +0900
-@@ -348,6 +348,11 @@ int pcibios_enable_device(struct pci_dev
- }
- 
- 
-+void pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
-+
- 
- void pcibios_update_resource(struct pci_dev *dev, struct resource *root,
-                              struct resource *res, int resource)
-diff -puN arch/parisc/kernel/pci.c~IRQ_deallocation_pci arch/parisc/kernel/pci.c
---- linux-2.6.9-rc2-mm1/arch/parisc/kernel/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.613026919 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/parisc/kernel/pci.c	2004-09-22 20:29:17.720449201 +0900
-@@ -331,6 +331,12 @@ int pcibios_enable_device(struct pci_dev
- }
- 
- 
-+void
-+pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
-+
- /* PA-RISC specific */
- void pcibios_register_hba(struct pci_hba_data *hba)
- {
-diff -puN arch/ppc64/kernel/pci.c~IRQ_deallocation_pci arch/ppc64/kernel/pci.c
---- linux-2.6.9-rc2-mm1/arch/ppc64/kernel/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.614980052 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ppc64/kernel/pci.c	2004-09-22 20:29:17.720449201 +0900
-@@ -345,6 +345,11 @@ int pcibios_enable_device(struct pci_dev
- 	return 0;
- }
- 
-+void
-+pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
- /*
-  * Return the domain number for this bus.
-  */
-diff -puN arch/ppc/kernel/pci.c~IRQ_deallocation_pci arch/ppc/kernel/pci.c
---- linux-2.6.9-rc2-mm1/arch/ppc/kernel/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.638417640 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ppc/kernel/pci.c	2004-09-22 20:29:17.722402333 +0900
-@@ -1420,6 +1420,11 @@ int pcibios_enable_device(struct pci_dev
- 	return 0;
- }
- 
-+void
-+pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
- struct pci_controller*
- pci_bus_to_hose(int bus)
- {
-diff -puN arch/sh64/kernel/pcibios.c~IRQ_deallocation_pci arch/sh64/kernel/pcibios.c
---- linux-2.6.9-rc2-mm1/arch/sh64/kernel/pcibios.c~IRQ_deallocation_pci	2004-09-22 20:29:17.641347339 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/sh64/kernel/pcibios.c	2004-09-22 20:29:17.722402333 +0900
-@@ -142,6 +142,11 @@ int pcibios_enable_device(struct pci_dev
- 	return 0;
- }
- 
-+void
-+pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
- /*
-  *  If we set up a device for bus mastering, we need to check and set
-  *  the latency timer as it may not be properly set.
-diff -puN arch/sh/boards/overdrive/galileo.c~IRQ_deallocation_pci arch/sh/boards/overdrive/galileo.c
---- linux-2.6.9-rc2-mm1/arch/sh/boards/overdrive/galileo.c~IRQ_deallocation_pci	2004-09-22 20:29:17.643300471 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/sh/boards/overdrive/galileo.c	2004-09-22 20:29:17.723378899 +0900
-@@ -529,6 +529,10 @@ int pcibios_enable_device(struct pci_dev
- 
- }
- 
-+void pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
- /* We should do some optimisation work here I think. Ok for now though */
- void __init pcibios_fixup_bus(struct pci_bus *bus)
- {
-diff -puN arch/sh/drivers/pci/pci.c~IRQ_deallocation_pci arch/sh/drivers/pci/pci.c
---- linux-2.6.9-rc2-mm1/arch/sh/drivers/pci/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.655995832 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/sh/drivers/pci/pci.c	2004-09-22 20:29:17.723378899 +0900
-@@ -127,6 +127,10 @@ int pcibios_enable_device(struct pci_dev
- 	return 0;
- }
- 
-+void pcibios_disable_device(struct pci_dev *dev)
-+{
-+}
-+
- /*
-  *  If we set up a device for bus mastering, we need to check and set
-  *  the latency timer as it may not be properly set.
-diff -puN arch/sparc64/kernel/pci.c~IRQ_deallocation_pci arch/sparc64/kernel/pci.c
---- linux-2.6.9-rc2-mm1/arch/sparc64/kernel/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.675527156 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/sparc64/kernel/pci.c	2004-09-22 20:29:17.724355465 +0900
-@@ -502,6 +502,10 @@ int pcibios_enable_device(struct pci_dev
- 	return 0;
- }
- 
-+void pcibios_disable_device(struct pci_dev *pdev)
-+{
-+}
-+
- void pcibios_resource_to_bus(struct pci_dev *pdev, struct pci_bus_region *region,
- 			     struct resource *res)
- {
-diff -puN arch/sparc/kernel/pcic.c~IRQ_deallocation_pci arch/sparc/kernel/pcic.c
---- linux-2.6.9-rc2-mm1/arch/sparc/kernel/pcic.c~IRQ_deallocation_pci	2004-09-22 20:29:17.687245950 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/sparc/kernel/pcic.c	2004-09-22 20:29:17.725332032 +0900
-@@ -869,6 +869,10 @@ int pcibios_enable_device(struct pci_dev
- 	return 0;
- }
- 
-+void pcibios_disable_device(struct pci_dev *pdev)
-+{
-+}
-+
- /*
-  * NMI
-  */
-diff -puN arch/v850/kernel/rte_mb_a_pci.c~IRQ_deallocation_pci arch/v850/kernel/rte_mb_a_pci.c
---- linux-2.6.9-rc2-mm1/arch/v850/kernel/rte_mb_a_pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.689199082 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/v850/kernel/rte_mb_a_pci.c	2004-09-22 20:29:17.726308598 +0900
-@@ -247,6 +247,12 @@ int __nomods_init pcibios_enable_device 
- 	return 0;
- }
- 
 +
 +void
-+pcibios_disable_device(struct pci_dev *dev)
++acpi_pci_irq_disable (
++	struct pci_dev		*dev)
 +{
++	unsigned int		irq_disabled;
++	unsigned char		irq;
++
++	ACPI_FUNCTION_TRACE("acpi_pci_irq_disable");
++
++	irq_disabled = dev->irq;
++
++	/*
++	 * dev->irq is cleared by BIOS-assigned IRQ set during boot.
++	 */
++	pci_read_config_byte(dev, PCI_INTERRUPT_PIN, &irq);
++	if (irq)
++		pci_read_config_byte(dev, PCI_INTERRUPT_LINE, &irq);
++	dev->irq = irq;
++
++	printk(KERN_INFO PREFIX "PCI interrupt for device %s disabled\n",
++	       pci_name(dev));
++
++	acpi_unregister_gsi(irq_disabled);
++
++	return_VOID;
 +}
-+
- 
- /* Resource allocation.  */
- static void __devinit pcibios_assign_resources (void)
-diff -puN drivers/pci/pci.c~IRQ_deallocation_pci drivers/pci/pci.c
---- linux-2.6.9-rc2-mm1/drivers/pci/pci.c~IRQ_deallocation_pci	2004-09-22 20:29:17.700917877 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/drivers/pci/pci.c	2004-09-22 20:29:17.726308598 +0900
-@@ -411,6 +411,8 @@ pci_disable_device(struct pci_dev *dev)
- 		pci_command &= ~PCI_COMMAND_MASTER;
- 		pci_write_config_word(dev, PCI_COMMAND, pci_command);
- 	}
-+
-+	pcibios_disable_device(dev);
- }
+diff -puN include/linux/acpi.h~IRQ_deallocation_acpi include/linux/acpi.h
+--- linux-2.6.9-rc2-mm1/include/linux/acpi.h~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/include/linux/acpi.h	2004-09-22 20:29:23.000000000 +0900
+@@ -414,6 +414,7 @@ static inline int acpi_boot_init(void)
+ #endif 	/*!CONFIG_ACPI_BOOT*/
  
- /**
-diff -puN include/linux/pci.h~IRQ_deallocation_pci include/linux/pci.h
---- linux-2.6.9-rc2-mm1/include/linux/pci.h~IRQ_deallocation_pci	2004-09-22 20:29:17.712636671 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/include/linux/pci.h	2004-09-22 20:29:17.727285164 +0900
-@@ -687,6 +687,7 @@ extern struct list_head pci_devices;	/* 
+ unsigned int acpi_register_gsi (u32 gsi, int edge_level, int active_high_low);
++void acpi_unregister_gsi (unsigned int);
+ int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
  
- void pcibios_fixup_bus(struct pci_bus *);
- int pcibios_enable_device(struct pci_dev *, int mask);
-+void pcibios_disable_device(struct pci_dev *);
- char *pcibios_setup (char *str);
+ #ifdef CONFIG_ACPI_PCI
+@@ -439,6 +440,7 @@ extern struct acpi_prt_list	acpi_prt;
+ struct pci_dev;
  
- /* Used only when drivers/pci/setup.c is used */
+ int acpi_pci_irq_enable (struct pci_dev *dev);
++void acpi_pci_irq_disable (struct pci_dev *dev);
+ 
+ struct acpi_pci_driver {
+ 	struct acpi_pci_driver *next;
 
 _
 
