@@ -1,43 +1,69 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 17 Jul 2004 00:06:10 +0000
+Date: Sat, 17 Jul 2004 00:35:01 +0000
 Subject: Re: serious performance regression due to NX patch
-Message-Id: <16632.28018.130890.290832@napali.hpl.hp.com>
+Message-Id: <16632.29749.550202.245115@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200407100528.i6A5SF8h020094@napali.hpl.hp.com>
 	<Pine.LNX.4.58.0407110437310.26065@devserv.devel.redhat.com>
 	<Pine.LNX.4.58.0407110536130.2248@devserv.devel.redhat.com>
-	<Pine.LNX.4.58.0407110550340.4229@devserv.devel.redhat.com>
-	<20040711123803.GD21264@devserv.devel.redhat.com>
-	<Pine.LNX.4.58.0407121402160.2451@devserv.devel.redhat.com>
-	<Pine.LNX.4.58.0407121315170.1764@ppc970.osdl.org>
-	<16626.62318.880165.774044@napali.hpl.hp.com>
-	<Pine.LNX.4.58.0407122358570.13111@devserv.devel.redhat.com>
-	<1089734729.1356.79.camel@markh1.pdx.osdl.net>
-In-Reply-To: <1089734729.1356.79.camel@markh1.pdx.osdl.net>
+In-Reply-To: <Pine.LNX.4.58.0407110536130.2248@devserv.devel.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mark Haverkamp <markh@osdl.org>
-Cc: Ingo Molnar <mingo@redhat.com>, davidm@hpl.hp.com, Linus Torvalds <torvalds@osdl.org>, Jakub Jelinek <jakub@redhat.com>, suresh.b.siddha@intel.com, jun.nakajima@intel.com, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel <linux-kernel@vger.kernel.org>
+To: Ingo Molnar <mingo@redhat.com>
+Cc: davidm@hpl.hp.com, suresh.b.siddha@intel.com, jun.nakajima@intel.com, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
->>>>> On Tue, 13 Jul 2004 09:05:29 -0700, Mark Haverkamp <markh@osdl.org> said:
+>>>>> On Sun, 11 Jul 2004 05:39:23 -0400 (EDT), Ingo Molnar <mingo@redhat.com> said:
 
-  Mark> I think that there is  a problem with this piece of code in
-  Mark> binfmt_elf.c:
+  Ingo> On Sun, 11 Jul 2004, Ingo Molnar wrote:
 
-  Mark> if (i = elf_ex.e_phnum)
-  Mark>    def_flags |= VM_EXEC | VM_MAYEXEC;
+  >> ok, agreed. I'll check that it still does the right thing on x86.
 
-I think there are other problems, too:
+  Ingo> it doesnt seem to do the right thing for !PT_GNU_STACK applications on 
+  Ingo> x86:
 
- - any fork() will reset mm->def_flags to zero so if you exec
-   an old binary and it does a fork, future mmaps() won't
-   have the execute-bit turned on any more; perhaps a rare problem,
-   but it certainly seems an illogical behavior
-
- - likewise for do_mlockall(): it stomps on def_flags without preserving
-   the old bits
-
-Am I missing something?
+How about the patch below (on top of Linus' current bk tree)?  Only
+platforms which had VM_DATA_DEFAULT_FLAGS changed (as a result of the
+NX patch) will need to define LEGACY_VM_DATA_DEFAULT_FLAGS to the old
+value.  AFAIK, that's x86 only, so the impact is very minimal and
+should retain the existing behavior on all other platforms.
 
 	--david
+
+=== fs/binfmt_elf.c 1.80 vs edited ==--- 1.80/fs/binfmt_elf.c	2004-07-16 16:46:22 -07:00
++++ edited/fs/binfmt_elf.c	2004-07-16 17:25:26 -07:00
+@@ -662,9 +662,9 @@
+ 		SET_PERSONALITY(elf_ex, ibcs2_interpreter);
+ 	}
+ 
+-	/* Now that personality is set, we can use VM_DATA_DEFAULT_FLAGS.  */
++	/* Now that personality is set, we can use LEGACY_VM_DATA_DEFAULT_FLAGS.  */
+ 	if (no_gnu_stack)
+-		def_flags |= VM_DATA_DEFAULT_FLAGS & (VM_EXEC | VM_MAYEXEC);
++		def_flags |= LEGACY_VM_DATA_DEFAULT_FLAGS & (VM_EXEC | VM_MAYEXEC);
+ 
+ 	/* OK, we are done with that, now set up the arg stuff,
+ 	   and then start this sucker up */
+=== include/asm-i386/page.h 1.26 vs edited ==--- 1.26/include/asm-i386/page.h	2004-07-01 17:00:00 -07:00
++++ edited/include/asm-i386/page.h	2004-07-16 17:24:26 -07:00
+@@ -142,6 +142,7 @@
+ 
+ #define VM_DATA_DEFAULT_FLAGS	(VM_READ | VM_WRITE | \
+ 				 VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC)
++#define LEGACY_VM_DATA_DEFAULT_FLAGS	(VM_DATA_DEFAULT_FLAGS | VM_EXEC)
+ 
+ #endif /* __KERNEL__ */
+ 
+=== include/linux/mm.h 1.138 vs edited ==--- 1.138/include/linux/mm.h	2004-07-06 22:19:25 -07:00
++++ edited/include/linux/mm.h	2004-07-16 17:23:41 -07:00
+@@ -136,6 +136,10 @@
+ #define VM_HUGETLB	0x00400000	/* Huge TLB Page VM */
+ #define VM_NONLINEAR	0x00800000	/* Is non-linear (remap_file_pages) */
+ 
++#ifndef LEGACY_VM_DATA_DEFAULT_FLAGS
++#define LEGACY_VM_DATA_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
++#endif
++
+ #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
+ #define VM_STACK_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
+ #endif
