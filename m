@@ -1,7 +1,7 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Mon, 17 May 2004 23:28:56 +0000
-Subject: RE: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <1084836535.23542.831.camel@nighthawk>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Mon, 17 May 2004 23:36:48 +0000
+Subject: Re: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
+Message-Id: <200405171636.48530.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040513150842.22F5.YGOTO@us.fujitsu.com>
 In-Reply-To: <20040513150842.22F5.YGOTO@us.fujitsu.com>
@@ -10,26 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 2004-05-17 at 16:18, Luck, Tony wrote:
-> >I'd look at SGI's IA64 code for examples of how to create NUMA nodes
-> >with only I/O on them.
-> 
-> The 'M' in NUMA stands for 'Memory' ... so the pedant in me says
-> that these I/O only nodes aren't NUMA nodes, perhaps NUIOA?
+On Monday, May 17, 2004 4:28 pm, Dave Hansen wrote:
+> > Is anyone doing anything to optimize access to such beasts?  Binding
+> > processes that are accessing such I/O devices to nearby nodes ...
+> > sounds possible for NIC, and ugly for disks.
+>
+> Well, binding isn't the best thing to do, but simple preference and
+> error recovery would be great.  The NUMAQ (and I'm sure others) used to
+> have a few fiber channel cards in each node that allowed multiple paths
+> to I/O devices.  You could be fast, and recover from errors since
+> everything was multiply connected.  We do this on some drivers today,
+> but not everything.
 
-And the 'A' is Access (or architecture I guess).  Those I/O nodes'
-access to memory is non-uniform :)
+We do a few more things on Altix.  IRQs are already routed to close CPUs, and 
+I have patches to allocate DMA memory from the node closest to a given 
+devices.  Drivers can use pci_to_nodemask (currently pcibus_to_cpumask) to 
+get a list of nodes close to their device, and there are patches floating 
+about to link PCI busses to nodes in /sys, which would allow user level 
+applications to intelligently place themselves.
 
-> Is anyone doing anything to optimize access to such beasts?  Binding
-> processes that are accessing such I/O devices to nearby nodes ...
-> sounds possible for NIC, and ugly for disks.
-
-Well, binding isn't the best thing to do, but simple preference and
-error recovery would be great.  The NUMAQ (and I'm sure others) used to
-have a few fiber channel cards in each node that allowed multiple paths
-to I/O devices.  You could be fast, and recover from errors since
-everything was multiply connected.  We do this on some drivers today,
-but not everything.  
-
--- Dave
-
+Jesse
