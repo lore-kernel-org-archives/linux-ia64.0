@@ -1,7 +1,7 @@
 From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 05 Aug 2004 13:39:59 +0000
+Date: Thu, 05 Aug 2004 13:42:15 +0000
 Subject: RE: Hugetlb demanding paging for -mm tree
-Message-Id: <200408051340.i75De0Y26517@unix-os.sc.intel.com>
+Message-Id: <200408051342.i75DgGY26555@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 In-Reply-To: <20040805133637.GG14358@holomorphy.com>
 References: <200408051329.i75DT3Y26431@unix-os.sc.intel.com>
@@ -28,751 +28,378 @@ William Lee Irwin III wrote on Thursday, August 05, 2004 6:37 AM
 >
 > Could you resend as plaintext?
 
+and ...
+
 ---------------------
-00.demandpaging.patch
+01.overcommit.patch
 ---------------------
 
-diff -Nurp linux-2.6.7/arch/i386/mm/hugetlbpage.c linux-2.6.7.hugetlb/arch/i386/mm/hugetlbpage.c
---- linux-2.6.7/arch/i386/mm/hugetlbpage.c	2004-08-04 16:50:31.000000000 -0700
-+++ linux-2.6.7.hugetlb/arch/i386/mm/hugetlbpage.c	2004-08-04 17:10:14.000000000 -0700
-@@ -18,13 +18,26 @@
- #include <asm/tlb.h>
- #include <asm/tlbflush.h>
+diff -Nurp linux-2.6.7/fs/hugetlbfs/inode.c linux-2.6.7.hugetlb/fs/hugetlbfs/inode.c
+--- linux-2.6.7/fs/hugetlbfs/inode.c	2004-08-05 06:12:51.000000000 -0700
++++ linux-2.6.7.hugetlb/fs/hugetlbfs/inode.c	2004-08-05 06:16:08.000000000 -0700
+@@ -32,6 +32,203 @@
+ /* some random number */
+ #define HUGETLBFS_MAGIC	0x958458f6
 
--static pte_t *huge_pte_alloc(struct mm_struct *mm, unsigned long addr)
-+static void scrub_one_pmd(pmd_t * pmd)
-+{
-+	struct page *page;
++/* Convert loff_t and PAGE_SIZE counts to hugetlb page counts. */
++#define VMACCT(x) ((x) >> (HPAGE_SHIFT))
++#define VMACCTPG(x) ((x) >> (HPAGE_SHIFT - PAGE_SHIFT))
 +
-+	if (pmd && !pmd_none(*pmd) && !pmd_huge(*pmd)) {
-+		page = pmd_page(*pmd);
-+		pmd_clear(pmd);
-+		dec_page_state(nr_page_table_pages);
-+		page_cache_release(page);
++atomic_t hugetlbzone_resv = ATOMIC_INIT(0);
++
++int hugetlb_acct_memory(long delta)
++{
++	atomic_add(delta, &hugetlbzone_resv);
++	if (delta > 0 && atomic_read(&hugetlbzone_resv) >
++			VMACCTPG(hugetlb_total_pages())) {
++		atomic_add(-delta, &hugetlbzone_resv);
++		return -ENOMEM;
 +	}
++	return 0;
 +}
 +
-+pte_t *huge_pte_alloc(struct mm_struct *mm, unsigned long addr)
- {
- 	pgd_t *pgd;
- 	pmd_t *pmd = NULL;
-
- 	pgd = pgd_offset(mm, addr);
- 	pmd = pmd_alloc(mm, pgd, addr);
-+	scrub_one_pmd(pmd);
- 	return (pte_t *) pmd;
- }
-
-@@ -34,11 +47,14 @@ static pte_t *huge_pte_offset(struct mm_
- 	pmd_t *pmd = NULL;
-
- 	pgd = pgd_offset(mm, addr);
--	pmd = pmd_offset(pgd, addr);
-+	if (pgd_present(*pgd)) {
-+		pmd = pmd_offset(pgd, addr);
-+		scrub_one_pmd(pmd);
-+	}
- 	return (pte_t *) pmd;
- }
-
--static void set_huge_pte(struct mm_struct *mm, struct vm_area_struct *vma, struct page *page, pte_t * page_table, int write_access)
-+void set_huge_pte(struct mm_struct *mm, struct vm_area_struct *vma, struct page *page, pte_t * page_table, int write_access)
- {
- 	pte_t entry;
-
-@@ -73,17 +89,18 @@ int copy_hugetlb_page_range(struct mm_st
- 	unsigned long addr = vma->vm_start;
- 	unsigned long end = vma->vm_end;
-
--	while (addr < end) {
-+	for (; addr < end; addr+= HPAGE_SIZE) {
-+		src_pte = huge_pte_offset(src, addr);
-+		if (!src_pte || pte_none(*src_pte))
-+			continue;
- 		dst_pte = huge_pte_alloc(dst, addr);
- 		if (!dst_pte)
- 			goto nomem;
--		src_pte = huge_pte_offset(src, addr);
- 		entry = *src_pte;
- 		ptepage = pte_page(entry);
- 		get_page(ptepage);
- 		set_pte(dst_pte, entry);
- 		dst->rss += (HPAGE_SIZE / PAGE_SIZE);
--		addr += HPAGE_SIZE;
- 	}
- 	return 0;
-
-@@ -221,63 +238,3 @@ void unmap_hugepage_range(struct vm_area
- 	mm->rss -= (end - start) >> PAGE_SHIFT;
- 	flush_tlb_range(vma, start, end);
- }
--
--int hugetlb_prefault(struct address_space *mapping, struct vm_area_struct *vma)
--{
--	struct mm_struct *mm = current->mm;
--	unsigned long addr;
--	int ret = 0;
--
--	BUG_ON(vma->vm_start & ~HPAGE_MASK);
--	BUG_ON(vma->vm_end & ~HPAGE_MASK);
--
--	spin_lock(&mm->page_table_lock);
--	for (addr = vma->vm_start; addr < vma->vm_end; addr += HPAGE_SIZE) {
--		unsigned long idx;
--		pte_t *pte = huge_pte_alloc(mm, addr);
--		struct page *page;
--
--		if (!pte) {
--			ret = -ENOMEM;
--			goto out;
--		}
--
--		if (!pte_none(*pte)) {
--			pmd_t *pmd = (pmd_t *) pte;
--
--			page = pmd_page(*pmd);
--			pmd_clear(pmd);
--			dec_page_state(nr_page_table_pages);
--			page_cache_release(page);
--		}
--
--		idx = ((addr - vma->vm_start) >> HPAGE_SHIFT)
--			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
--		page = find_get_page(mapping, idx);
--		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
--			page = alloc_huge_page();
--			if (!page) {
--				hugetlb_put_quota(mapping);
--				ret = -ENOMEM;
--				goto out;
--			}
--			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
--			if (! ret) {
--				unlock_page(page);
--			} else {
--				hugetlb_put_quota(mapping);
--				free_huge_page(page);
--				goto out;
--			}
--		}
--		set_huge_pte(mm, vma, page, pte, vma->vm_flags & VM_WRITE);
--	}
--out:
--	spin_unlock(&mm->page_table_lock);
--	return ret;
--}
-diff -Nurp linux-2.6.7/arch/ia64/mm/hugetlbpage.c linux-2.6.7.hugetlb/arch/ia64/mm/hugetlbpage.c
---- linux-2.6.7/arch/ia64/mm/hugetlbpage.c	2004-08-04 16:50:31.000000000 -0700
-+++ linux-2.6.7.hugetlb/arch/ia64/mm/hugetlbpage.c	2004-08-04 16:51:54.000000000 -0700
-@@ -24,7 +24,7 @@
-
- unsigned int hpage_shift=HPAGE_SHIFT_DEFAULT;
-
--static pte_t *
-+pte_t *
- huge_pte_alloc (struct mm_struct *mm, unsigned long addr)
- {
- 	unsigned long taddr = htlbpage_to_page(addr);
-@@ -59,7 +59,7 @@ huge_pte_offset (struct mm_struct *mm, u
-
- #define mk_pte_huge(entry) { pte_val(entry) |= _PAGE_P; }
-
--static void
-+void
- set_huge_pte (struct mm_struct *mm, struct vm_area_struct *vma,
- 	      struct page *page, pte_t * page_table, int write_access)
- {
-@@ -99,17 +99,18 @@ int copy_hugetlb_page_range(struct mm_st
- 	unsigned long addr = vma->vm_start;
- 	unsigned long end = vma->vm_end;
-
--	while (addr < end) {
-+	for (; addr < end; addr += HPAGE_SIZE) {
-+		src_pte = huge_pte_offset(src, addr);
-+		if (!src_pte || pte_none(*src_pte))
-+			continue;
- 		dst_pte = huge_pte_alloc(dst, addr);
- 		if (!dst_pte)
- 			goto nomem;
--		src_pte = huge_pte_offset(src, addr);
- 		entry = *src_pte;
- 		ptepage = pte_page(entry);
- 		get_page(ptepage);
- 		set_pte(dst_pte, entry);
- 		dst->rss += (HPAGE_SIZE / PAGE_SIZE);
--		addr += HPAGE_SIZE;
- 	}
- 	return 0;
- nomem:
-@@ -243,7 +244,7 @@ void unmap_hugepage_range(struct vm_area
-
- 	for (address = start; address < end; address += HPAGE_SIZE) {
- 		pte = huge_pte_offset(mm, address);
--		if (pte_none(*pte))
-+		if (!pte || pte_none(*pte))
- 			continue;
- 		page = pte_page(*pte);
- 		put_page(page);
-@@ -253,59 +254,6 @@ void unmap_hugepage_range(struct vm_area
- 	flush_tlb_range(vma, start, end);
- }
-
--int hugetlb_prefault(struct address_space *mapping, struct vm_area_struct *vma)
--{
--	struct mm_struct *mm = current->mm;
--	unsigned long addr;
--	int ret = 0;
--
--	BUG_ON(vma->vm_start & ~HPAGE_MASK);
--	BUG_ON(vma->vm_end & ~HPAGE_MASK);
--
--	spin_lock(&mm->page_table_lock);
--	for (addr = vma->vm_start; addr < vma->vm_end; addr += HPAGE_SIZE) {
--		unsigned long idx;
--		pte_t *pte = huge_pte_alloc(mm, addr);
--		struct page *page;
--
--		if (!pte) {
--			ret = -ENOMEM;
--			goto out;
--		}
--		if (!pte_none(*pte))
--			continue;
--
--		idx = ((addr - vma->vm_start) >> HPAGE_SHIFT)
--			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
--		page = find_get_page(mapping, idx);
--		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
--			page = alloc_huge_page();
--			if (!page) {
--				hugetlb_put_quota(mapping);
--				ret = -ENOMEM;
--				goto out;
--			}
--			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
--			if (! ret) {
--				unlock_page(page);
--			} else {
--				hugetlb_put_quota(mapping);
--				page_cache_release(page);
--				goto out;
--			}
--		}
--		set_huge_pte(mm, vma, page, pte, vma->vm_flags & VM_WRITE);
--	}
--out:
--	spin_unlock(&mm->page_table_lock);
--	return ret;
--}
--
- unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr, unsigned long len,
- 		unsigned long pgoff, unsigned long flags)
- {
-diff -Nurp linux-2.6.7/arch/ppc64/mm/hugetlbpage.c linux-2.6.7.hugetlb/arch/ppc64/mm/hugetlbpage.c
---- linux-2.6.7/arch/ppc64/mm/hugetlbpage.c	2004-08-04 16:50:31.000000000 -0700
-+++ linux-2.6.7.hugetlb/arch/ppc64/mm/hugetlbpage.c	2004-08-05 04:04:36.000000000 -0700
-@@ -413,62 +413,6 @@ void unmap_hugepage_range(struct vm_area
- 	mm->rss -= (end - start) >> PAGE_SHIFT;
- }
-
--int hugetlb_prefault(struct address_space *mapping, struct vm_area_struct *vma)
--{
--	struct mm_struct *mm = current->mm;
--	unsigned long addr;
--	int ret = 0;
--
--	WARN_ON(!is_vm_hugetlb_page(vma));
--	BUG_ON((vma->vm_start % HPAGE_SIZE) != 0);
--	BUG_ON((vma->vm_end % HPAGE_SIZE) != 0);
--
--	spin_lock(&mm->page_table_lock);
--	for (addr = vma->vm_start; addr < vma->vm_end; addr += HPAGE_SIZE) {
--		unsigned long idx;
--		hugepte_t *pte = hugepte_alloc(mm, addr);
--		struct page *page;
--
--		BUG_ON(!in_hugepage_area(mm->context, addr));
--
--		if (!pte) {
--			ret = -ENOMEM;
--			goto out;
--		}
--		if (!hugepte_none(*pte))
--			continue;
--
--		idx = ((addr - vma->vm_start) >> HPAGE_SHIFT)
--			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
--		page = find_get_page(mapping, idx);
--		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
--			page = alloc_huge_page();
--			if (!page) {
--				hugetlb_put_quota(mapping);
--				ret = -ENOMEM;
--				goto out;
--			}
--			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
--			if (! ret) {
--				unlock_page(page);
--			} else {
--				hugetlb_put_quota(mapping);
--				free_huge_page(page);
--				goto out;
--			}
--		}
--		setup_huge_pte(mm, page, pte, vma->vm_flags & VM_WRITE);
--	}
--out:
--	spin_unlock(&mm->page_table_lock);
--	return ret;
--}
--
- /* Because we have an exclusive hugepage region which lies within the
-  * normal user address space, we have to take special measures to make
-  * non-huge mmap()s evade the hugepage reserved regions. */
-@@ -760,3 +704,59 @@ static void flush_hash_hugepage(mm_conte
-
- 	ppc_md.hpte_invalidate(slot, va, 1, local);
- }
++struct file_region {
++	struct list_head link;
++	int from;
++	int to;
++};
 +
-+int
-+handle_hugetlb_mm_fault(struct mm_struct *mm, struct vm_area_struct * vma,
-+	unsigned long addr, int write_access)
++static int region_add(struct list_head *head, int f, int t)
 +{
-+	hugepte_t *pte;
-+	struct page *page;
-+	struct address_space *mapping;
-+	int idx, ret;
++	struct file_region *rg;
++	struct file_region *nrg;
++	struct file_region *trg;
 +
-+	spin_lock(&mm->page_table_lock);
-+	pte = hugepte_alloc(mm, addr & HPAGE_MASK);
-+	if (!pte)
-+		goto oom;
-+	if (!hugepte_none(*pte))
-+		goto out;
-+	spin_unlock(&mm->page_table_lock);
++	/* Locate the region we are either in or before. */
++	list_for_each_entry(rg, head, link)
++		if (f <= rg->to)
++			break;
 +
-+	mapping = vma->vm_file->f_dentry->d_inode->i_mapping;
-+	idx = ((addr - vma->vm_start) >> HPAGE_SHIFT)
-+		+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
-+retry:
-+	page = find_get_page(mapping, idx);
-+	if (!page) {
-+		page = alloc_huge_page();
-+		if (!page)
-+			/*
-+			 * with strict overcommit accounting, we should never
-+			 * run out of hugetlb page, so must be a fault race
-+			 * and let's retry.
-+			 */
-+			goto retry;
-+		ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
-+		if (!ret) {
-+			unlock_page(page);
-+		} else {
-+			put_page(page);
-+			if (ret = -EEXIST)
-+				goto retry;
-+			else
-+				return VM_FAULT_OOM;
++	/* Add a new region if the existing region starts above our end.
++	 * We should already have a space to record. */
++	if (&rg->link = head || t < rg->from)
++		BUG();
++
++	/* Round our left edge to the current segment if it encloses us. */
++	if (f > rg->from)
++		f = rg->from;
++
++	/* Check for and consume any regions we now overlap with. */
++	nrg = rg;
++	list_for_each_entry_safe(rg, trg, rg->link.prev, link) {
++		if (&rg->link = head)
++			break;
++		if (rg->from > t)
++			break;
++
++		/* If this area reaches higher then extend our area to
++		 * include it completely.  If this is not the first area
++		 * which we intend to reuse, free it. */
++		if (rg->to > t)
++			t = rg->to;
++		if (rg != nrg) {
++			list_del(&rg->link);
++			kfree(rg);
 +		}
 +	}
-+
-+	spin_lock(&mm->page_table_lock);
-+	if (hugepte_none(*pte))
-+		setup_huge_pte(mm, page, pte, vma->vm_flags & VM_WRITE);
-+	else
-+		put_page(page);
-+out:
-+	spin_unlock(&mm->page_table_lock);
-+	return VM_FAULT_MINOR;
-+oom:
-+	spin_unlock(&mm->page_table_lock);
-+	return VM_FAULT_OOM;
++	nrg->from = f;
++	nrg->to = t;
++	return 0;
 +}
-diff -Nurp linux-2.6.7/arch/sh/mm/hugetlbpage.c linux-2.6.7.hugetlb/arch/sh/mm/hugetlbpage.c
---- linux-2.6.7/arch/sh/mm/hugetlbpage.c	2004-06-15 22:19:36.000000000 -0700
-+++ linux-2.6.7.hugetlb/arch/sh/mm/hugetlbpage.c	2004-08-04 17:19:25.000000000 -0700
-@@ -24,7 +24,7 @@
- #include <asm/tlbflush.h>
- #include <asm/cacheflush.h>
-
--static pte_t *huge_pte_alloc(struct mm_struct *mm, unsigned long addr)
-+pte_t *huge_pte_alloc(struct mm_struct *mm, unsigned long addr)
++
++static int region_chg(struct list_head *head, int f, int t)
++{
++	struct file_region *rg;
++	struct file_region *nrg;
++	loff_t chg = 0;
++
++	/* Locate the region we are before or in. */
++	list_for_each_entry(rg, head, link)
++		if (f <= rg->to)
++			break;
++
++	/* If we are below the current region then a new region is required.
++	 * Subtle, allocate a new region at the position but make it zero
++	 * size such that we can guarentee to record the reservation. */
++	if (&rg->link = head || t < rg->from) {
++		nrg = kmalloc(sizeof(*nrg), GFP_KERNEL);
++		if (nrg = 0)
++			return -ENOMEM;
++		nrg->from = f;
++		nrg->to   = f;
++		INIT_LIST_HEAD(&nrg->link);
++		list_add(&nrg->link, rg->link.prev);
++
++		return t - f;
++	}
++
++	/* Round our left edge to the current segment if it encloses us. */
++	if (f > rg->from)
++		f = rg->from;
++	chg = t - f;
++
++	/* Check for and consume any regions we now overlap with. */
++	list_for_each_entry(rg, rg->link.prev, link) {
++		if (&rg->link = head)
++			break;
++		if (rg->from > t)
++			return chg;
++
++		/* We overlap with this area, if it extends futher than
++		 * us then we must extend ourselves.  Account for its
++		 * existing reservation. */
++		if (rg->to > t) {
++			chg += rg->to - t;
++			t = rg->to;
++		}
++		chg -= rg->to - rg->from;
++	}
++	return chg;
++}
++
++static int region_truncate(struct list_head *head, int end)
++{
++	struct file_region *rg;
++	struct file_region *trg;
++	int chg = 0;
++
++	/* Locate the region we are either in or before. */
++	list_for_each_entry(rg, head, link)
++		if (end <= rg->to)
++			break;
++	if (&rg->link = head)
++		return 0;
++
++	/* If we are in the middle of a region then adjust it. */
++	if (end > rg->from) {
++		chg = rg->to - end;
++		rg->to = end;
++		rg = list_entry(rg->link.next, typeof(*rg), link);
++	}
++
++	/* Drop any remaining regions. */
++	list_for_each_entry_safe(rg, trg, rg->link.prev, link) {
++		if (&rg->link = head)
++			break;
++		chg += rg->to - rg->from;
++		list_del(&rg->link);
++		kfree(rg);
++	}
++	return chg;
++}
++
++#if 0
++static int region_dump(struct list_head *head)
++{
++	struct file_region *rg;
++
++	list_for_each_entry(rg, head, link)
++		printk(KERN_WARNING "rg<%p> f<%lld> t<%lld>\n",
++				rg, rg->from, rg->to);
++	return 0;
++}
++#endif
++
++/* Calculate the commitment change that this mapping implies
++ * and check it against both the commitment and quota limits. */
++static int hugetlb_acct_commit(struct inode *inode, int from, int to)
++{
++	int chg;
++	int ret;
++
++	chg = region_chg(&inode->i_mapping->private_list, from, to);
++	if (chg < 0)
++		return chg;
++	ret = hugetlb_acct_memory(chg);
++	if (ret < 0)
++		return ret;
++	ret = hugetlb_get_quota(inode->i_mapping, chg);
++	if (ret < 0)
++		goto undo_commit;
++	ret = region_add(&inode->i_mapping->private_list, from, to);
++	return ret;
++
++undo_commit:
++	hugetlb_acct_memory(-chg);
++	return ret;
++}
++static void hugetlb_acct_release(struct inode *inode, int to)
++{
++	int chg;
++
++	chg = region_truncate(&inode->i_mapping->private_list, to);
++	hugetlb_acct_memory(-chg);
++	hugetlb_put_quota(inode->i_mapping, chg);
++}
++
++int hugetlbfs_report_meminfo(char *buf)
++{
++	long htlb = atomic_read(&hugetlbzone_resv);
++	return sprintf(buf, "HugePages_Reserved: %5lu\n", htlb);
++}
++
+ static struct super_operations hugetlbfs_ops;
+ static struct address_space_operations hugetlbfs_aops;
+ struct file_operations hugetlbfs_file_operations;
+@@ -48,7 +245,6 @@ int sysctl_hugetlb_shm_group;
+ static int hugetlbfs_file_mmap(struct file *file, struct vm_area_struct *vma)
  {
- 	pgd_t *pgd;
- 	pmd_t *pmd;
-@@ -56,7 +56,7 @@ static pte_t *huge_pte_offset(struct mm_
+ 	struct inode *inode = file->f_dentry->d_inode;
+-	struct address_space *mapping = inode->i_mapping;
+ 	loff_t len, vma_len;
+ 	int ret;
 
- #define mk_pte_huge(entry) do { pte_val(entry) |= _PAGE_SZHUGE; } while (0)
-
--static void set_huge_pte(struct mm_struct *mm, struct vm_area_struct *vma,
-+void set_huge_pte(struct mm_struct *mm, struct vm_area_struct *vma,
- 			 struct page *page, pte_t * page_table, int write_access)
- {
- 	unsigned long i;
-@@ -101,12 +101,13 @@ int copy_hugetlb_page_range(struct mm_st
- 	unsigned long end = vma->vm_end;
- 	int i;
-
--	while (addr < end) {
-+	for (; addr < end; addr += HPAGE_SIZE) {
-+		src_pte = huge_pte_offset(src, addr);
-+		if (!src_pte || pte_none(*src_pte))
-+			continue;
- 		dst_pte = huge_pte_alloc(dst, addr);
- 		if (!dst_pte)
- 			goto nomem;
--		src_pte = huge_pte_offset(src, addr);
--		BUG_ON(!src_pte || pte_none(*src_pte));
- 		entry = *src_pte;
- 		ptepage = pte_page(entry);
- 		get_page(ptepage);
-@@ -116,7 +117,6 @@ int copy_hugetlb_page_range(struct mm_st
- 			dst_pte++;
- 		}
- 		dst->rss += (HPAGE_SIZE / PAGE_SIZE);
--		addr += HPAGE_SIZE;
- 	}
- 	return 0;
-
-@@ -196,8 +196,7 @@ void unmap_hugepage_range(struct vm_area
-
- 	for (address = start; address < end; address += HPAGE_SIZE) {
- 		pte = huge_pte_offset(mm, address);
--		BUG_ON(!pte);
--		if (pte_none(*pte))
-+		if (!pte || pte_none(*pte))
- 			continue;
- 		page = pte_page(*pte);
- 		put_page(page);
-@@ -209,56 +208,3 @@ void unmap_hugepage_range(struct vm_area
- 	mm->rss -= (end - start) >> PAGE_SHIFT;
- 	flush_tlb_range(vma, start, end);
- }
--
--int hugetlb_prefault(struct address_space *mapping, struct vm_area_struct *vma)
--{
--	struct mm_struct *mm = current->mm;
--	unsigned long addr;
--	int ret = 0;
--
--	BUG_ON(vma->vm_start & ~HPAGE_MASK);
--	BUG_ON(vma->vm_end & ~HPAGE_MASK);
--
--	spin_lock(&mm->page_table_lock);
--	for (addr = vma->vm_start; addr < vma->vm_end; addr += HPAGE_SIZE) {
--		unsigned long idx;
--		pte_t *pte = huge_pte_alloc(mm, addr);
--		struct page *page;
--
--		if (!pte) {
--			ret = -ENOMEM;
--			goto out;
--		}
--		if (!pte_none(*pte))
--			continue;
--
--		idx = ((addr - vma->vm_start) >> HPAGE_SHIFT)
--			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
--		page = find_get_page(mapping, idx);
--		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
--			page = alloc_huge_page();
--			if (!page) {
--				hugetlb_put_quota(mapping);
--				ret = -ENOMEM;
--				goto out;
--			}
--			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
--			if (! ret) {
--				unlock_page(page);
--			} else {
--				hugetlb_put_quota(mapping);
--				free_huge_page(page);
--				goto out;
--			}
--		}
--		set_huge_pte(mm, vma, page, pte, vma->vm_flags & VM_WRITE);
--	}
--out:
--	spin_unlock(&mm->page_table_lock);
--	return ret;
--}
-diff -Nurp linux-2.6.7/arch/sparc64/mm/hugetlbpage.c linux-2.6.7.hugetlb/arch/sparc64/mm/hugetlbpage.c
---- linux-2.6.7/arch/sparc64/mm/hugetlbpage.c	2004-06-15 22:19:42.000000000 -0700
-+++ linux-2.6.7.hugetlb/arch/sparc64/mm/hugetlbpage.c	2004-08-05 03:31:58.000000000 -0700
-@@ -21,7 +21,7 @@
- #include <asm/tlbflush.h>
- #include <asm/cacheflush.h>
-
--static pte_t *huge_pte_alloc(struct mm_struct *mm, unsigned long addr)
-+pte_t *huge_pte_alloc(struct mm_struct *mm, unsigned long addr)
- {
- 	pgd_t *pgd;
- 	pmd_t *pmd;
-@@ -53,7 +53,7 @@ static pte_t *huge_pte_offset(struct mm_
-
- #define mk_pte_huge(entry) do { pte_val(entry) |= _PAGE_SZHUGE; } while (0)
-
--static void set_huge_pte(struct mm_struct *mm, struct vm_area_struct *vma,
-+void set_huge_pte(struct mm_struct *mm, struct vm_area_struct *vma,
- 			 struct page *page, pte_t * page_table, int write_access)
- {
- 	unsigned long i;
-@@ -98,12 +98,13 @@ int copy_hugetlb_page_range(struct mm_st
- 	unsigned long end = vma->vm_end;
- 	int i;
-
--	while (addr < end) {
-+	for (; addr < end; addr += HPAGE_SIZE) {
-+		src_pte = huge_pte_offset(src, addr);
-+		if (!src_pte || pte_none(*src_pte))
-+			continue;
- 		dst_pte = huge_pte_alloc(dst, addr);
- 		if (!dst_pte)
- 			goto nomem;
--		src_pte = huge_pte_offset(src, addr);
--		BUG_ON(!src_pte || pte_none(*src_pte));
- 		entry = *src_pte;
- 		ptepage = pte_page(entry);
- 		get_page(ptepage);
-@@ -113,7 +114,6 @@ int copy_hugetlb_page_range(struct mm_st
- 			dst_pte++;
- 		}
- 		dst->rss += (HPAGE_SIZE / PAGE_SIZE);
--		addr += HPAGE_SIZE;
- 	}
- 	return 0;
-
-@@ -193,8 +193,7 @@ void unmap_hugepage_range(struct vm_area
-
- 	for (address = start; address < end; address += HPAGE_SIZE) {
- 		pte = huge_pte_offset(mm, address);
--		BUG_ON(!pte);
--		if (pte_none(*pte))
-+		if (!pte || pte_none(*pte))
- 			continue;
- 		page = pte_page(*pte);
- 		put_page(page);
-@@ -206,56 +205,3 @@ void unmap_hugepage_range(struct vm_area
- 	mm->rss -= (end - start) >> PAGE_SHIFT;
- 	flush_tlb_range(vma, start, end);
- }
--
--int hugetlb_prefault(struct address_space *mapping, struct vm_area_struct *vma)
--{
--	struct mm_struct *mm = current->mm;
--	unsigned long addr;
--	int ret = 0;
--
--	BUG_ON(vma->vm_start & ~HPAGE_MASK);
--	BUG_ON(vma->vm_end & ~HPAGE_MASK);
--
--	spin_lock(&mm->page_table_lock);
--	for (addr = vma->vm_start; addr < vma->vm_end; addr += HPAGE_SIZE) {
--		unsigned long idx;
--		pte_t *pte = huge_pte_alloc(mm, addr);
--		struct page *page;
--
--		if (!pte) {
--			ret = -ENOMEM;
--			goto out;
--		}
--		if (!pte_none(*pte))
--			continue;
--
--		idx = ((addr - vma->vm_start) >> HPAGE_SHIFT)
--			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
--		page = find_get_page(mapping, idx);
--		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
--			page = alloc_huge_page();
--			if (!page) {
--				hugetlb_put_quota(mapping);
--				ret = -ENOMEM;
--				goto out;
--			}
--			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
--			if (! ret) {
--				unlock_page(page);
--			} else {
--				hugetlb_put_quota(mapping);
--				free_huge_page(page);
--				goto out;
--			}
--		}
--		set_huge_pte(mm, vma, page, pte, vma->vm_flags & VM_WRITE);
--	}
--out:
--	spin_unlock(&mm->page_table_lock);
--	return ret;
--}
-diff -Nurp linux-2.6.7/fs/hugetlbfs/inode.c linux-2.6.7.hugetlb/fs/hugetlbfs/inode.c
---- linux-2.6.7/fs/hugetlbfs/inode.c	2004-08-04 16:50:42.000000000 -0700
-+++ linux-2.6.7.hugetlb/fs/hugetlbfs/inode.c	2004-08-04 16:51:54.000000000 -0700
-@@ -79,10 +79,6 @@ static int hugetlbfs_file_mmap(struct fi
+@@ -79,7 +275,10 @@ static int hugetlbfs_file_mmap(struct fi
  	if (!(vma->vm_flags & VM_WRITE) && len > inode->i_size)
  		goto out;
 
--	ret = hugetlb_prefault(mapping, vma);
--	if (ret)
--		goto out;
--
- 	if (inode->i_size < len)
+-	if (inode->i_size < len)
++	ret = hugetlb_acct_commit(inode, VMACCTPG(vma->vm_pgoff),
++		VMACCTPG(vma->vm_pgoff + (vma_len >> PAGE_SHIFT)));
++
++	if (ret >= 0 && inode->i_size < len)
  		inode->i_size = len;
  out:
-diff -Nurp linux-2.6.7/include/linux/hugetlb.h linux-2.6.7.hugetlb/include/linux/hugetlb.h
---- linux-2.6.7/include/linux/hugetlb.h	2004-08-04 16:50:35.000000000 -0700
-+++ linux-2.6.7.hugetlb/include/linux/hugetlb.h	2004-08-05 04:09:51.000000000 -0700
-@@ -17,7 +17,10 @@ int copy_hugetlb_page_range(struct mm_st
- int follow_hugetlb_page(struct mm_struct *, struct vm_area_struct *, struct page **, struct vm_area_struct **, unsigned long *, int
-*, int);
- void zap_hugepage_range(struct vm_area_struct *, unsigned long, unsigned long);
- void unmap_hugepage_range(struct vm_area_struct *, unsigned long, unsigned long);
--int hugetlb_prefault(struct address_space *, struct vm_area_struct *);
-+pte_t *huge_pte_alloc(struct mm_struct *, unsigned long);
-+void set_huge_pte(struct mm_struct *, struct vm_area_struct *, struct page *, pte_t *, int);
-+int handle_hugetlb_mm_fault(struct mm_struct *, struct vm_area_struct *, unsigned long, int);
-+
- int hugetlb_report_meminfo(char *);
- int hugetlb_report_node_meminfo(int, char *);
- int is_hugepage_mem_enough(size_t);
-@@ -61,7 +64,7 @@ static inline unsigned long hugetlb_tota
- #define follow_hugetlb_page(m,v,p,vs,a,b,i)	({ BUG(); 0; })
- #define follow_huge_addr(mm, addr, write)	ERR_PTR(-EINVAL)
- #define copy_hugetlb_page_range(src, dst, vma)	({ BUG(); 0; })
--#define hugetlb_prefault(mapping, vma)		({ BUG(); 0; })
-+#define handle_hugetlb_mm_fault(mm, vma, addr, write) VM_FAULT_SIGBUS
- #define zap_hugepage_range(vma, start, len)	BUG()
- #define unmap_hugepage_range(vma, start, end)	BUG()
- #define is_hugepage_mem_enough(size)		0
-diff -Nurp linux-2.6.7/mm/hugetlb.c linux-2.6.7.hugetlb/mm/hugetlb.c
---- linux-2.6.7/mm/hugetlb.c	2004-08-04 16:50:36.000000000 -0700
-+++ linux-2.6.7.hugetlb/mm/hugetlb.c	2004-08-05 03:49:10.000000000 -0700
-@@ -8,6 +8,7 @@
- #include <linux/module.h>
- #include <linux/mm.h>
- #include <linux/hugetlb.h>
-+#include <linux/pagemap.h>
- #include <linux/sysctl.h>
- #include <linux/highmem.h>
+ 	up(&inode->i_sem);
+@@ -194,7 +393,6 @@ void truncate_hugepages(struct address_s
+ 			++next;
+ 			truncate_huge_page(page);
+ 			unlock_page(page);
+-			hugetlb_put_quota(mapping);
+ 		}
+ 		huge_pagevec_release(&pvec);
+ 	}
+@@ -214,6 +412,7 @@ static void hugetlbfs_delete_inode(struc
 
-@@ -231,11 +232,65 @@ unsigned long hugetlb_total_pages(void)
+ 	if (inode->i_data.nrpages)
+ 		truncate_hugepages(&inode->i_data, 0);
++	hugetlb_acct_release(inode, 0);
+
+ 	security_inode_delete(inode);
+
+@@ -256,6 +455,7 @@ out_truncate:
+ 	spin_unlock(&inode_lock);
+ 	if (inode->i_data.nrpages)
+ 		truncate_hugepages(&inode->i_data, 0);
++	hugetlb_acct_release(inode, 0);
+
+ 	if (sbinfo->free_inodes >= 0) {
+ 		spin_lock(&sbinfo->stat_lock);
+@@ -326,6 +526,7 @@ static int hugetlb_vmtruncate(struct ino
+ 		hugetlb_vmtruncate_list(&mapping->i_mmap, pgoff);
+ 	spin_unlock(&mapping->i_mmap_lock);
+ 	truncate_hugepages(mapping, offset);
++	hugetlb_acct_release(inode, VMACCT(offset));
+ 	return 0;
  }
- EXPORT_SYMBOL(hugetlb_total_pages);
 
-+int __attribute__ ((weak))
-+handle_hugetlb_mm_fault(struct mm_struct *mm, struct vm_area_struct * vma,
-+	unsigned long addr, int write_access)
-+{
-+	pte_t *pte;
-+	struct page *page;
-+	struct address_space *mapping;
-+	int idx, ret;
-+
-+	spin_lock(&mm->page_table_lock);
-+	pte = huge_pte_alloc(mm, addr & HPAGE_MASK);
-+	if (!pte)
-+		goto oom;
-+	if (!pte_none(*pte))
-+		goto out;
-+	spin_unlock(&mm->page_table_lock);
-+
-+	mapping = vma->vm_file->f_dentry->d_inode->i_mapping;
-+	idx = ((addr - vma->vm_start) >> HPAGE_SHIFT)
-+		+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
-+retry:
-+	page = find_get_page(mapping, idx);
-+	if (!page) {
-+		page = alloc_huge_page();
-+		if (!page)
-+			/*
-+			 * with strict overcommit accounting, we should never
-+			 * run out of hugetlb page, so must be a fault race
-+			 * and let's retry.
-+			 */
-+			goto retry;
-+		ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
-+		if (!ret) {
-+			unlock_page(page);
-+		} else {
-+			put_page(page);
-+			if (ret = -EEXIST)
-+				goto retry;
-+			else
-+				return VM_FAULT_OOM;
-+		}
-+	}
-+
-+	spin_lock(&mm->page_table_lock);
-+	if (pte_none(*pte))
-+		set_huge_pte(mm, vma, page, pte, vma->vm_flags & VM_WRITE);
-+	else
-+		put_page(page);
-+out:
-+	spin_unlock(&mm->page_table_lock);
-+	return VM_FAULT_MINOR;
-+oom:
-+	spin_unlock(&mm->page_table_lock);
-+	return VM_FAULT_OOM;
-+}
-+
- /*
-- * We cannot handle pagefaults against hugetlb pages at all.  They cause
-- * handle_mm_fault() to try to instantiate regular-sized pages in the
-- * hugegpage VMA.  do_page_fault() is supposed to trap this, so BUG is we get
-- * this far.
-+ * We should not get here because handle_mm_fault() is supposed to trap
-+ * hugetlb page fault.  BUG if we get here.
-  */
- static struct page *hugetlb_nopage(struct vm_area_struct *vma,
- 				unsigned long address, int *unused)
-diff -Nurp linux-2.6.7/mm/memory.c linux-2.6.7.hugetlb/mm/memory.c
---- linux-2.6.7/mm/memory.c	2004-08-04 16:50:43.000000000 -0700
-+++ linux-2.6.7.hugetlb/mm/memory.c	2004-08-04 16:51:54.000000000 -0700
-@@ -764,11 +764,6 @@ int get_user_pages(struct task_struct *t
- 		if ((pages && vm_io) || !(flags & vma->vm_flags))
- 			return i ? i : -EFAULT;
+@@ -380,6 +581,7 @@ static struct inode *hugetlbfs_get_inode
+ 		inode->i_blocks = 0;
+ 		inode->i_mapping->a_ops = &hugetlbfs_aops;
+ 		inode->i_mapping->backing_dev_info =&hugetlbfs_backing_dev_info;
++		INIT_LIST_HEAD(&inode->i_mapping->private_list);
+ 		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
+ 		info = HUGETLBFS_I(inode);
+ 		mpol_shared_policy_init(&info->policy);
+@@ -670,15 +872,15 @@ out_free:
+ 	return -ENOMEM;
+ }
 
--		if (is_vm_hugetlb_page(vma)) {
--			i = follow_hugetlb_page(mm, vma, pages, vmas,
--						&start, &len, i);
--			continue;
--		}
- 		spin_lock(&mm->page_table_lock);
- 		do {
- 			struct page *map = NULL;
-@@ -1709,7 +1704,7 @@ int handle_mm_fault(struct mm_struct *mm
- 	inc_page_state(pgfault);
+-int hugetlb_get_quota(struct address_space *mapping)
++int hugetlb_get_quota(struct address_space *mapping, int blocks)
+ {
+ 	int ret = 0;
+ 	struct hugetlbfs_sb_info *sbinfo = HUGETLBFS_SB(mapping->host->i_sb);
 
- 	if (is_vm_hugetlb_page(vma))
--		return VM_FAULT_SIGBUS;	/* mapping truncation does this. */
-+		return handle_hugetlb_mm_fault(mm, vma, address, write_access);
+ 	if (sbinfo->free_blocks > -1) {
+ 		spin_lock(&sbinfo->stat_lock);
+-		if (sbinfo->free_blocks > 0)
+-			sbinfo->free_blocks--;
++		if (sbinfo->free_blocks >= blocks)
++			sbinfo->free_blocks -= blocks;
+ 		else
+ 			ret = -ENOMEM;
+ 		spin_unlock(&sbinfo->stat_lock);
+@@ -687,13 +889,13 @@ int hugetlb_get_quota(struct address_spa
+ 	return ret;
+ }
 
- 	/*
- 	 * We need the page table lock to synchronize with kswapd
+-void hugetlb_put_quota(struct address_space *mapping)
++void hugetlb_put_quota(struct address_space *mapping, int blocks)
+ {
+ 	struct hugetlbfs_sb_info *sbinfo = HUGETLBFS_SB(mapping->host->i_sb);
+
+ 	if (sbinfo->free_blocks > -1) {
+ 		spin_lock(&sbinfo->stat_lock);
+-		sbinfo->free_blocks++;
++		sbinfo->free_blocks += blocks;
+ 		spin_unlock(&sbinfo->stat_lock);
+ 	}
+ }
+@@ -746,9 +948,6 @@ struct file *hugetlb_zero_setup(size_t s
+ 	if (!can_do_hugetlb_shm())
+ 		return ERR_PTR(-EPERM);
+
+-	if (!is_hugepage_mem_enough(size))
+-		return ERR_PTR(-ENOMEM);
+-
+ 	if (!user_shm_lock(size, current->user))
+ 		return ERR_PTR(-ENOMEM);
+
+@@ -780,6 +979,14 @@ struct file *hugetlb_zero_setup(size_t s
+ 	file->f_mapping = inode->i_mapping;
+ 	file->f_op = &hugetlbfs_file_operations;
+ 	file->f_mode = FMODE_WRITE | FMODE_READ;
++
++	/* Account for the memory usage for this segment at create time.
++	 * This maintains the commit on shmget() semantics of normal
++	 * shared memory segments. */
++	error = hugetlb_acct_commit(inode, 0, VMACCT(size));
++	if (error < 0)
++		goto out_file;
++
+ 	return file;
+
+ out_file:
+diff -Nurp linux-2.6.7/fs/proc/proc_misc.c linux-2.6.7.hugetlb/fs/proc/proc_misc.c
+--- linux-2.6.7/fs/proc/proc_misc.c	2004-08-05 06:12:33.000000000 -0700
++++ linux-2.6.7.hugetlb/fs/proc/proc_misc.c	2004-08-05 06:13:42.000000000 -0700
+@@ -227,6 +227,7 @@ static int meminfo_read_proc(char *page,
+ 		vmi.largest_chunk
+ 		);
+
++		len += hugetlbfs_report_meminfo(page + len);
+ 		len += hugetlb_report_meminfo(page + len);
+
+ 	return proc_calc_metrics(page, start, off, count, eof, len);
+diff -Nurp linux-2.6.7/include/linux/hugetlb.h linux-2.6.7.hugetlb/include/linux/hugetlb.h
+--- linux-2.6.7/include/linux/hugetlb.h	2004-08-05 06:12:53.000000000 -0700
++++ linux-2.6.7.hugetlb/include/linux/hugetlb.h	2004-08-05 06:13:42.000000000 -0700
+@@ -122,8 +122,8 @@ static inline struct hugetlbfs_sb_info *
+ extern struct file_operations hugetlbfs_file_operations;
+ extern struct vm_operations_struct hugetlb_vm_ops;
+ struct file *hugetlb_zero_setup(size_t);
+-int hugetlb_get_quota(struct address_space *mapping);
+-void hugetlb_put_quota(struct address_space *mapping);
++int hugetlb_get_quota(struct address_space *mapping, int blocks);
++void hugetlb_put_quota(struct address_space *mapping, int blocks);
+
+ static inline int is_file_hugepages(struct file *file)
+ {
+@@ -134,11 +134,14 @@ static inline void set_file_hugepages(st
+ {
+ 	file->f_op = &hugetlbfs_file_operations;
+ }
++int hugetlbfs_report_meminfo(char *);
++
+ #else /* !CONFIG_HUGETLBFS */
+
+ #define is_file_hugepages(file)		0
+ #define set_file_hugepages(file)	BUG()
+ #define hugetlb_zero_setup(size)	ERR_PTR(-ENOSYS)
++#define hugetlbfs_report_meminfo(buf)	0
+
+ #endif /* !CONFIG_HUGETLBFS */
+
 
 
