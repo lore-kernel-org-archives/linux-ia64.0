@@ -1,47 +1,34 @@
-From: Tim Riker <TimR@CalderaSystems.com>
-Date: Sun, 20 Feb 2000 19:32:11 +0000
-Subject: [Linux-ia64] building the toolchain
-Message-Id: <marc-linux-ia64-105590678204943@msgid-missing>
+From: Uros Prestor <uros@turbolinux.com>
+Date: Sun, 20 Feb 2000 20:18:22 +0000
+Subject: Re: [Linux-ia64] building the toolchain
+Message-Id: <marc-linux-ia64-105590678204944@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678204943@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678204943@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-ftp://ftp.cygnus.com/private/intel/
+Tim Riker <TimR@CalderaSystems.com> said: 
 
-Contains the sources for the ia64 toolchain (gcc, gas, etc) Note that
-www.cygnus.com has been swallowed up by redhat.com. Will the ftp site
-disappear in the near future?
+> I've been trying to build and use these tools. I believe I am missing
+> some step along the way. I'm starting with the cross compiler and
+> attempting to build a new kernel. Here's what I've done:
 
-I've been trying to build and use these tools. I believe I am missing
-some step along the way. I'm starting with the cross compiler and
-attempting to build a new kernel. Here's what I've done:
+I have tried building the native cpmpiler with a cross compiler
+but I pretty much gave up.  There might be some magic options
+for configure but I haven't figured them out.
 
-rm -rf patches src local build
-tar xzf patches.tgz
-tar xzf src.tgz
-patch -d src/gas/config/ < patches/patch.001
-patch -d src/gcc/config/ia64/ < patches/patch.002
-patch -d src/gcc/config/ia64/ < patches/patch.003
-patch -d src/gcc/config/ia64/ < patches/patch.004
-patch -d src/libgloss/ia64/ < patches/patch.005
-patch -d src/gcc/config/ia64/ < patches/patch.006
-patch -d src/ < patches/patch.007
-patch -d src/gcc/config/ia64/ < patches/patch.008
-patch -d src/opcodes/ < patches/patch.009
-mkdir install
-prefix=`pwd`/install
-mkdir build
-cd build
-../src/configure --prefix=$prefix --target=ia64-cygnus-linux
-make
+I have build a native compiler with the September release of the compiler.
+You can grab the native compiler on bunyip in ~jes/usr_local-110100.tar.gz.
 
-PS: I'll be hanging on #ia64@irc.openprojects.net if anyone wants to
-chat there.
--- 
-Tim Riker - http://rikers.org/ - short SIGs! <g>
-All I need to know I could have learned in Kindergarten
-... if I'd just been paying attention.
+Uros
+
+--
+Uros Prestor
+uros@turbolinux.com
+
+
 
 
