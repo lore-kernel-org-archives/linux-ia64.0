@@ -1,26 +1,46 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 08 Apr 2002 20:13:29 +0000
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Mon, 08 Apr 2002 20:23:50 +0000
 Subject: Re: [Linux-ia64] C++ doesn't like asm/atomic.h
-Message-Id: <marc-linux-ia64-105590701905413@msgid-missing>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-/zrP5oDO1vClD7rgASeZ"
+Message-Id: <marc-linux-ia64-105590701905414@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905396@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905396@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On 08 Apr 2002 12:23:14 -0700, Ulrich Drepper <drepper@redhat.com> said:
+--=-/zrP5oDO1vClD7rgASeZ
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-  Uli> On Mon, 2002-04-08 at 12:00, David Mosberger wrote:
-  >> So you're OK with glibc providing the syscall stubs for
-  >> module*(), but not the header files required to use them?
+On Mon, 2002-04-08 at 13:13, David Mosberger wrote:
 
-  Uli> Yes.  There is no fundamental problems with this.
+> I guess I don't really see the harm in having glibc provide a header
+> for these system call, but as long as the syscall stubs are there,
+> it's probably not a huge issue in practice.
 
-I guess I don't really see the harm in having glibc provide a header
-for these system call, but as long as the syscall stubs are there,
-it's probably not a huge issue in practice.
+David, you are around long enough to see the dangers.  I don't want to
+have any dependencies on the kernel.  Any change in the kernel interface
+would force me to make a new release which isn't going to happen.
 
-	--david
+--=20
+---------------.                          ,-.   1325 Chesapeake Terrace
+Ulrich Drepper  \    ,-------------------'   \  Sunnyvale, CA 94089 USA
+Red Hat          `--' drepper at redhat.com   `------------------------
+
+--=-/zrP5oDO1vClD7rgASeZ
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
+
+iD8DBQA8sfxW2ijCOnn/RHQRAv+eAJ4gs89icT9ahw8AtZOXm8qeip5jAACgo31j
+ecNTqm8OUDsqESGefkZBMSg=
+=S40G
+-----END PGP SIGNATURE-----
+
+--=-/zrP5oDO1vClD7rgASeZ--
+
 
