@@ -1,7 +1,7 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Tue, 01 May 2001 17:02:24 +0000
-Subject: Re: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related or phans from Configure.help
-Message-Id: <marc-linux-ia64-105590693005499@msgid-missing>
+From: Steven Cole <scole@lanl.gov>
+Date: Tue, 01 May 2001 17:23:14 +0000
+Subject: Re: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related orphans from Configure.help
+Message-Id: <marc-linux-ia64-105590693005500@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005460@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005460@msgid-missing>
@@ -10,125 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There is a stepping.efi command.  We include it in the TurboLinux Beta.  If
-you need a copy let me know.
-
-On Tue, May 01, 2001 at 11:41:43AM -0500, McCaffity, Ray wrote:
-> Is there an easy way to tell what stepping your CPU supports?
-> 
-> Ray
-> 
-> -----Original Message-----
-> From: Chris McDermott [mailto:mcdermoc@us.ibm.com]
-> Sent: Tuesday, May 01, 2001 10:49 AM
-> To: scole@lanl.gov
-> Cc: alan@lxorguk.ukuu.org.uk; elenstev@mesatop.com; esr@thyrsus.com;
-> kaos@ocs.com.au; linux-ia64@linuxia64.org;
-> linux-ia64-admin@linuxia64.org
-> Subject: Re: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related
-> orphans from Configure.help
-> 
-> 
-> 
+On Tuesday 01 May 2001 09:49, Chris McDermott wrote:
 > Actually, CONFIG_ITANIUM_PTCG is still required if you have systems with
 > Itanium
 > processor steppings less than B3. I still have some of these and I'm sure
 > there are
 > quite a few others out there who still do as well.
-> 
-> Chris McDermott
-> IBM Linux Technology Center (LTC)
-> IA-64 Enablement
-> 
-> 
-> 
-> 
->  
-> 
->                     Steven Cole
-> 
->                     <scole@lanl.gov>           To:
-> alan@lxorguk.ukuu.org.uk                                         
->                     Sent by:                   cc:
-> linux-ia64@linuxia64.org, kaos@ocs.com.au, esr@thyrsus.com,      
->                     linux-ia64-admin@lin        elenstev@mesatop.com
-> 
->                     uxia64.org                 Subject:     [Linux-ia64]
-> [PATCH] 2.4.3-ac14 remove three IA-64 related  
->                                                 orphans from Configure.help
-> 
->  
-> 
->                     04/25/01 07:54 AM
-> 
->                     Please respond to
-> 
->                     scole
-> 
->  
-> 
->  
-> 
-> 
-> 
-> 
-> 
-> Alan,
-> 
-> The following three Configure.help entries have been confirmed dead, or
-> not needing help by Keith Owens.
-> 
-> The last of these, CONFIG_IA64_AZUSA_HACKS,  is listed by Keith as
-> removed by a 2.4.2-ia64-010228 patch, but it still appears in 2.4.3-ac14.
-> 
-> Steven
-> 
-> --- linux/Documentation/Configure.help.ac14     Wed Apr 25 08:14:33 2001
-> +++ linux/Documentation/Configure.help  Wed Apr 25 08:40:50 2001
-> @@ -18611,22 +18611,6 @@
->    redirect interrupts to different CPUs.  Select N here if you're
->    unsure.
-> 
+
+As far as I can tell, in both 2.4.4-ac2 and 2.4.4, CONFIG_ITANIUM_PTCG
+is defined in arch/ia64/config.in, but not offered as a setable choice.  Here
+is an example from that file:
+
+if [ "$CONFIG_MCKINLEY" = "y" ]; then
+        define_bool CONFIG_ITANIUM_PTCG y
+        define_int CONFIG_IA64_L1_CACHE_SHIFT 7
+        bool '  Enable McKinley A-step specific code' CONFIG_MCKINLEY_ASTEP_SPECIFIC
+        if [ "$CONFIG_MCKINLEY_ASTEP_SPECIFIC" = "y" ]; then
+          bool '   Enable McKinley A0/A1-step specific code' CONFIG_MCKINLEY_A0_SPECIFIC
+        fi
+fi
+
+Here is the recently deleted entry from Configure.help:
+
 > -Enable use of global TLB purge instruction (ptc.g)
 > -CONFIG_ITANIUM_PTCG
 > -  Say Y here if you want the kernel to use the IA-64 "ptc.g"
 > -  instruction to flush the TLB on all CPUs.  Select N here if
 > -  you're unsure.
-> -
-> -Enable SoftSDV hacks
-> -CONFIG_IA64_SOFTSDV_HACKS
-> -  Say Y here to enable hacks to make the kernel work on the Intel
-> -  SoftSDV simulator.  Select N here if you're unsure.
-> -
-> -Enable AzusA hacks
-> -CONFIG_IA64_AZUSA_HACKS
-> -  Say Y here to enable hacks to make the kernel work on the NEC
-> -  AzusA platform.  Select N here if you're unsure.
-> -
->  Enable IA-64 Machine Check Abort
->  CONFIG_IA64_MCA
->    Say Y here to enable machine check support for IA-64.  If you're
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
-> 
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
--- 
-Mike Madore
-Software Engineer
-TurboLinux, Inc.
+If you need that entry restored to Configure.help, we can put it back in, with
+a "retained orphan" note.
+
+We have been trying to prune out uneeded material from Configure.help, and
+this entry seemed to fit in that category.
+
+Please let us know what you need.
+
+Steven
 
