@@ -1,50 +1,60 @@
-From: "MEYER,ALAN C. (HP-FtCollins,ex1)" <alan.meyer@hp.com>
-Date: Fri, 28 Mar 2003 16:27:42 +0000
-Subject: RE: [Linux-ia64] Problems installing Red Hat AS 2.1 on Itanium
-Message-Id: <marc-linux-ia64-105590723705358@msgid-missing>
+From: Finn Arne Gangstad <Finn.Gangstad@fast.no>
+Date: Mon, 24 Mar 2003 12:06:04 +0000
+Subject: [Linux-ia64] Re: [PATCH] fix nanosleep() granularity bumps
+Message-Id: <marc-linux-ia64-105590723705296@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705357@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705357@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Is this is an Itanium 1 (Merced) system?  I know that RH 7.2 for IPF works
-on many Merced systems, but it does not work on many Itanium II (McKinley)
-systems, such as HP's.
+On Tue, Mar 18, 2003 at 10:05:56AM +0100, Tim Schmielau wrote:
+> On Mon, 17 Mar 2003, Tim Schmielau wrote:
+> 
+> > I've re-checked that the problem does not occur with the original "initial
+> > jiffies" patch for 2.4.
+> 
+> Stupid me - 2.4 with the patch has the same problem, it just takes 10x as
+> long to show up, a range that was not covered by the testcase.
+> 
+> 
+> The actual problem is that I didn't fully understand the, well,
+> 'elaborated' way of counting jiffies in the timer cascade:
+> 
+> When starting out with timer_jiffies=0, the timer cascade is
+> (unneccessarily) triggered on the first timer interrupt, incrementing all
+> the higher indices.
+> When starting with any other initial jiffies value, we miss that and end
+> up with all higher indices being off by one.
 
-Likewise, AS 2.1 for IPF was not tested (or supported) on Itanium 1 systems,
-only Itanium II.
+Suggest the attached patch as a fix instead - easier to understand I
+think and works for every possible start value. This is what I made for
+Andrea Arcangeli many years ago...
 
-I know this doesn't address your specific question, but mainly fyi that you
-are in caveat emptor territory.
+diff -ur linux-2.5.65/kernel/timer.c linux-2.5.65-new/kernel/timer.c
+--- linux-2.5.65/kernel/timer.c	2003-03-17 22:44:41.000000000 +0100
++++ linux-2.5.65-new/kernel/timer.c	2003-03-24 12:57:31.000000000 +0100
+@@ -1182,11 +1182,14 @@
+ 		INIT_LIST_HEAD(base->tv1.vec + j);
+ 
+ 	base->timer_jiffies = INITIAL_JIFFIES;
+-	base->tv1.index = INITIAL_JIFFIES & TVR_MASK;
+-	base->tv2.index = (INITIAL_JIFFIES >> TVR_BITS) & TVN_MASK;
+-	base->tv3.index = (INITIAL_JIFFIES >> (TVR_BITS+TVN_BITS)) & TVN_MASK;
+-	base->tv4.index = (INITIAL_JIFFIES >> (TVR_BITS+2*TVN_BITS)) & TVN_MASK;
+-	base->tv5.index = (INITIAL_JIFFIES >> (TVR_BITS+3*TVN_BITS)) & TVN_MASK;
++	base->tv1.index = (1 + (INITIAL_JIFFIES - 1)) & TVR_MASK;
++	base->tv2.index = (1 + ((INITIAL_JIFFIES - 1) >> TVR_BITS)) & TVN_MASK;
++	base->tv3.index = (1 + ((INITIAL_JIFFIES - 1)
++				>> (TVR_BITS + TVN_BITS))) & TVN_MASK;
++	base->tv4.index = (1 + ((INITIAL_JIFFIES - 1)
++				>> (TVR_BITS + 2 * TVN_BITS))) & TVN_MASK;
++	base->tv5.index = (1 + ((INITIAL_JIFFIES - 1)
++				>> (TVR_BITS + 3 * TVN_BITS))) & TVN_MASK;
+ }
+ 	
+ static int __devinit timer_cpu_notify(struct notifier_block *self, 
 
-Alan
 
-> -----Original Message-----
-> From: Sane_Purushottam@emc.com [mailto:Sane_Purushottam@emc.com]
-> Sent: Friday, March 28, 2003 8:40 AM
-> To: linux-ia64@linuxia64.org
-> Subject: [Linux-ia64] Problems installing Red Hat AS 2.1 on Itanium
-> 
-> 
-> I tried to install above mentioned version on itanium system (it's
-> successfully running RH 7.2)
-> After the kernel started booting from the CD-ROM, it hung 
-> with messages
-> indicating PCI probe failed.
-> 
-> How do I get around this problem ??
-> 
-> Nitin Sane
-> sane_purushottam@emc.com
-> (508) 382-7319
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
+- Finn Arne
 
