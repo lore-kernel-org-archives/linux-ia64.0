@@ -1,7 +1,7 @@
-From: Richard Hirst <rhirst@linuxcare.com>
-Date: Wed, 13 Mar 2002 11:57:00 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 13 Mar 2002 18:34:53 +0000
 Subject: Re: [Linux-ia64] gcc/binutils bug building parted?
-Message-Id: <marc-linux-ia64-105590701905256@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905259@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905246@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905246@msgid-missing>
@@ -10,93 +10,35 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Mar 12, 2002 at 09:01:01PM -0800, David Mosberger wrote:
-> That is pretty weird.  Does the problem occur with gcc3 as well?  It might
-> also help to look at the assembly code.
+>>>>> On Wed, 13 Mar 2002 11:57:00 +0000, Richard Hirst <rhirst@linuxcare.com> said:
 
-Yes, it does happen with gcc 3.0.4 as well, if I mess with a string
-length in the .c source, to provoke it.  The problem seems to be related
-to the packed attribute on the struct definition:
+  Richard> Note there is no .align before that .LC26 label.  The last
+  Richard> byte used in .rodata happens to be 0xe6, so r40 gets loaded
+  Richard> with .rodata+0xe7, as can be seen if I disassemble the .o
+  Richard> file:
 
-typedef struct {
-        uint32_t time_low;
-        uint16_t time_mid;
-        uint16_t time_hi_and_version;
-        uint8_t  clock_seq_hi_and_reserved;
-        uint8_t  clock_seq_low;
-        uint8_t  node[6];
-} __attribute__ ((packed)) efi_guid_t;
+  Richard>     1360: 09 40 01 02 00 24 [MMI] addl r40=0,r1 1360:
+  Richard> LTOFF22 .rodata+0xe7
 
+  Richard> That is all correct, I guess, but when I come to dump the
+  Richard> .rodata section I see
 
-When that is used thus:
+  Richard>   d0: 30 39 3a 33 36 3a 34 31 20 62 75 79 74 65 6e 68
+  Richard> 09:36:41 buytenh e0: 20 45 78 70 20 24 00 00 a2 a0 d0 eb e5
+  Richard> b9 33 44 Exp $........3D f0: 87 c0 68 b6 b7 26 99 c7
+  Richard> ..h..&..
 
-#define PARTITION_BASIC_DATA_GUID \
-    ((efi_guid_t) { 0xEBD0A0A2, 0xB9E5, 0x4433, 0x87, 0xC0, { 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 }})
+  Richard> where you can see that the LC26 data is actually stored at
+  Richard> .rodata+0xe8, not +0xe7.
 
-                gpt_part_data->pte->PartitionTypeGuid                                 PARTITION_BASIC_DATA_GUID;
+Oh, I see now what's wrong: data4 implicitly aligns the data to a 4-byte
+boundary.  To get an unaligned entry, you'd have to use data4.ua or gcc
+would have to emit the data byte by byte (data1).
 
+This needs to be fixed in the compiler.  Would you mind filing a bug
+report with the gcc folks?
 
-it generates assembler like this:
-
-                .section        .rodata
-.LC26:
-        data4   3956318370
-        data2   47589
-        data2   17459
-        data1   135
-        data1   192
-        data1   104
-        data1   182
-        data1   183
-        data1   38
-        data1   153
-        data1   199
-...
-...
-        addl r40 = @ltoff(.LC26), gp
-...
-
-
-Note there is no .align before that .LC26 label.  The last byte used in
-.rodata happens to be 0xe6, so r40 gets loaded with .rodata+0xe7, as can
-be seen if I disassemble the .o file:
-
-    1360:       09 40 01 02 00 24       [MMI]       addl r40=0,r1
-                        1360: LTOFF22   .rodata+0xe7
-
-That is all correct, I guess, but when I come to dump the .rodata section
-I see
-
-  d0:   30 39 3a 33 36 3a 34 31 20 62 75 79 74 65 6e 68     09:36:41 buytenh
-  e0:   20 45 78 70 20 24 00 00 a2 a0 d0 eb e5 b9 33 44      Exp $........3D
-  f0:   87 c0 68 b6 b7 26 99 c7                             ..h..&..
-
-
-where you can see that the LC26 data is actually stored at .rodata+0xe8,
-not +0xe7.
-
-If I remove the __attribute__ ((packed)), then the assembler has a .align 4
-before .LC26, and things are ok.  It seems odd that strings in .rodata are
-all .align 8, while this struct, even when not packed, is only .align 4.
-
-It looks like the code generation assumes no .align to mean .align 1,
-while the .rodata generation assumes no .align to mean .align 4.  Is
-that possible?
-
-Given that that struct is arranged with largest types first (as dictated
-by the guid definition, of course), is there any reason to have a packed
-attribute on it anyway?
-
-The attached program will generate the problem for you; "ding" is 5 bytes
-long so the generated code thinks the guid is at .rodata+5, while .rodata
-is actually generated with the guid at .rodata+8.
-
-Richard
-
----------------------------------- cut -------------------------------
-typedef unsigned int uint32_t;
-typedef unsigned short uint16_t;
-typedef unsigned char uint8_t;
+However, I also feel strongly the defining the efi_guid_t like this:
 
 typedef struct {
         uint32_t time_low;
@@ -107,32 +49,22 @@ typedef struct {
         uint8_t  node[6];
 } __attribute__ ((packed)) efi_guid_t;
 
-#define PARTITION_BASIC_DATA_GUID \
-    ((efi_guid_t) { 0xEBD0A0A2, 0xB9E5, 0x4433, 0x87, 0xC0, { 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 }})
+is fundamentally broken, because it introduces byte-order dependency.
+I'd recommend doing something along the following lines instead:
 
-void
-bar (char **p)
-{
-        *p = "ding";
-}
+typedef unsigned char guid_t[16];
+#define EFI_GUID(a,b,c,b0,b1,b2,b3,b4,b5,b6,b7)				 \
+{ (a) & 0xff, ((a) >> 8) & 0xff, ((a) >> 16) & 0xff, ((a) >> 24) & 0xff, \
+  (b) & 0xff, ((b) >> 8) & 0xff,					 \
+  (c) & 0xff, ((c) >> 8) & 0xff,					 \
+  (b0), (b1), (b2), (b3), (b4), (b5), (b6), (b7) }
 
-void
-foo (efi_guid_t *g)
-{
-        *g = PARTITION_BASIC_DATA_GUID;
-}
+This is untested, but I think you'll get the idea.  This should be
+much better because it works independent of the host's byte-order and
+doesn't require using gcc-only extensions to C.  It will also work
+around the compiler bug until that gets fixed.
 
-int
-main (int argc, char **argv)
-{
-        efi_guid_t g;
-        char *p;
+Now if only we could convince the EFI folks to do the same...
 
-        bar(&p);
-        foo(&g);
-
-        return 0;
-}
----------------------------------- cut -------------------------------
-
+	--david
 
