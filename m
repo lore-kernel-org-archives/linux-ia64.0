@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 29 Jun 2004 18:19:34 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 29 Jun 2004 21:19:15 +0000
 Subject: RE: BUG 2.6.7 hangs on boot (rx2600)
-Message-Id: <200406291817.i5TIHlY14044@unix-os.sc.intel.com>
+Message-Id: <16609.56531.992119.634369@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040622061505.GA23075@cup.hp.com>
 In-Reply-To: <20040622061505.GA23075@cup.hp.com>
@@ -10,28 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jesse Barnes wrote on Tuesday, June 29, 2004 11:14 AM
-> > > > > I tried both of these on a machine that doesn't have memory at the
-> > > > > stock kernel load address, and it failed very early on.  However, it
-> > > > > works with the attached patch.
-> > > >
-> > > > Let me confirm what I understand:
-> > > > David's bk tree doesn't boot.
-> > > > David's bk tree + 2 patches I posted this morning doesn't boot.
-> > > >
-> > > > Is that correct?
-> > >
-> > > Correct.  David's tree hangs at a later point though, after printing
-> > > "Console: ... 80x25".
-> >
-> > I presume David's bk tree plus this patch also hung on your machine?
-> > http://www.gelato.unsw.edu.au/linux-ia64/0406/10162.html
->
-> Yep.  It gets as far as David's tree plus your patches from this morning.
+>>>>> On Tue, 29 Jun 2004 08:09:00 -0700, "Chen, Kenneth W" <kenneth.w.chen@intel.com> said:
 
-Looks like there are more places where kernel does "virt -> phys -> virt".
-And conversion from phys to virt is setting 3 msb to 1.
-
-- Ken
+  >> True, but I think there are only 3 call-sites.  If it turns out to be
+  >> _really_ ugly we can reonsider, but I think it might be a better
+  >> choice in the long run.
 
 
+  Ken> How does this patch look?  It is a bit big. But what it does is really
+  Ken> simple: change 3 call sites to save/restore virtual address of sp and
+  Ken> ar.bsp/ar.bspstore.
+
+Looks fine to me.
+
+Thanks,
+
+	--david
