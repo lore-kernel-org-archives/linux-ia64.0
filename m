@@ -1,7 +1,7 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Wed, 21 Mar 2001 19:40:55 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Wed, 21 Mar 2001 19:58:54 +0000
 Subject: Re: [Linux-ia64] Unwind problem for __attribute__ noreturn
-Message-Id: <marc-linux-ia64-105590693005323@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005325@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005303@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005303@msgid-missing>
@@ -10,22 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Consider this case
-	 mutex p6, p7
-{ .mib 
-	 (p6) instruction that changes the unwind state
-	 (p7) call that does not return
+>>>>> On Wed, 21 Mar 2001 11:40:55 -0800, Jim Wilson <wilson@cygnus.com> said:
+
+  Jim> Consider this case
+
+  Jim>      mutex p6, p7
+  Jim>   { .mib 
+  Jim>      (p6) instruction that changes the unwind state
+  Jim>      (p7) call that does not return
+  Jim>   }
+  Jim>      unwind directives to declare new unwind state
+
+This wouldn't be correct: the unwind directives would have to go in
+front of the instruction predicated by (p6).  Otherwise, you might get
+interrupted (e.g., by a signal), after executing that instruction, and
+then the unwind info would be wrong.
+
+Now, to fix this, you'd have to use the general unwind directives and
+that would imply that instead of p6/p7, you'd have to use a "preserved"
+predicate.  Given those restrictions, I think you could just as easily
+do:
+
+	mutex p8, p9
+{ .mib
+	unwind directive describing effect of next insn
+	(p8) instruction that changes the unwind state
+	(p9) call that does not return
 }
-	 unwind directives to declare new unwind state
+	(p9) break 0
 
-If p7 is true, and we try to unwind inside the call, then the return address
-will point to the modified unwind state which is incorrect, because we did
-not execute the p6 instruction.  To make this work, we have to subtract one
-from the return address to get an address before the new unwind state is
-established.
+This is slightly worse than the optimal code, but not by much.  The
+biggest potential impact comes from the fact that now you need to
+preserve the contents of "pr".
 
-I posit that this example is more realistic and more useful than the example
-which modifies b0 to optimize away a branch.
-
-Jim
+	--david
 
