@@ -1,32 +1,39 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Tue, 05 Oct 2004 19:15:32 +0000
-Subject: Re: [PATCH] 2.6 SGI Altix I/O code reorganization
-Message-Id: <20041005191532.GB16153@parcelfarce.linux.theplanet.co.uk>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 05 Oct 2004 19:16:42 +0000
+Subject: RE: [PATCH] 2.6 SGI Altix I/O code reorganization
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0221C900@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C647@scsmsx401.amr.corp.intel.com> <200410050843.44265.jbarnes@engr.sgi.com> <20041005162201.GC18567@cup.hp.com> <20041005174558.GZ16153@parcelfarce.linux.theplanet.co.uk> <20041005191008.GG18567@cup.hp.com>
-In-Reply-To: <20041005191008.GG18567@cup.hp.com>
+References: <200410042157.i94Lv7UC104750@fsgi900.americas.sgi.com>
+In-Reply-To: <200410042157.i94Lv7UC104750@fsgi900.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Matthew Wilcox <matthew@wil.cx>, Jesse Barnes <jbarnes@engr.sgi.com>, "Luck, Tony" <tony.luck@intel.com>, Pat Gefre <pfg@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: cngam@sgi.com, Matthew Wilcox <matthew@wil.cx>, Grant Grundler <iod00d@hp.com>
+Cc: Jesse Barnes <jbarnes@engr.sgi.com>, Pat Gefre <pfg@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Tue, Oct 05, 2004 at 12:10:08PM -0700, Grant Grundler wrote:
-> > > Maybe rename pci_root_ops to "acpi_pci_ops" would make that clearer.
-> > 
-> > No.  Don't rename it to anything ACPI specific.  It isn't.
-> 
-> I understand raw_pci_ops is not ACPI specific.
-> But pci_root_ops is only used by pci_acpi_scan_root().
+>Yes, after looking at Grant's review/suggestion, we found that we can 
+>actually just use raw_pci_ops.  This will work well for us.  We have 
+>incoorporated this change.  No changes in pci/pci.c needed.
 
-Yes, but if we had other ways of discovering PCI root bridges on ia64,
-we would use it there too.  It's exactly the same as the i386 code which
-has 7 different ways to discover PCI root bridges.
+Good.  Let's try to make some forward progress here.  I'd like
+to see the patches broken into a sequence something like this:
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+1) Add new interfaces to header files to support any new API
+   needed by new files
+2) Create all the new files (plain copies of old files where
+   a move is involved).
+3) Functional changes to copied files.
+4) Whitespace cleanup of copied files.
+5) Point Makefiles to new files
+6) Delete all the old/unused files.
+7) Delete any API in headers that were only used by old files.
+
+We'll need to coordinate with some other maintainrs for
+drivers/pci/hotplug/Kconfig and drivers/scsi/qla1280.c,
+but I'm ok with running all the other parts through the
+ia64 tree.
+
+This follows the usual guidelines of a sequence of steps where
+the system is buildable+usable at each stage.
+
+-Tony
