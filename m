@@ -1,34 +1,52 @@
-From: Jes Sorensen <jes@trained-monkey.org>
-Date: Wed, 03 Sep 2003 16:46:19 +0000
-Subject: Re: qla1280 bandaid
-Message-Id: <marc-linux-ia64-106260861013144@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Tue, 30 Sep 2003 20:16:47 +0000
+Subject: [PATCH] disable legacy floppy related ioctl32s
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------040908080002060908040807"
+Message-Id: <marc-linux-ia64-106495318021597@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106247866314538@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106247866314538@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Christoph" = Christoph Hellwig <hch@infradead.org> writes:
+This is a multi-part message in MIME format.
+--------------040908080002060908040807
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Christoph> On Tue, Sep 02, 2003 at 02:57:15PM +1000, Peter Chubb
-Christoph> wrote:
->>  Hi Jes, The problem is that bus_reset drops the HOST_LOCK when it
->> calls schedule_timeout, but when it's called from the
->> initialisation code, HOST_LOCK isn't actually held.
->> 
->> The appended patch fixes this; however, I'm not sure that it's
->> correct, because I couldn't work out easily whether the HOST_LOCK
->> is held or not on all paths to qla1280_bus_reset().
 
-Christoph> Right fix would probably be to take the lock always before
-Christoph> calling..
+Since we don't support legacy floppy devices on ia64, this patch disables the corresponding ioctl32.
 
-Peter and Christoph,
+	-Arun
 
-Thanks for the info, I'll take a look at integrating this into the
-next version.
 
-Cheers,
-Jes
+--------------040908080002060908040807
+Content-Type: text/plain;
+ name="ioctl32.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="ioctl32.txt"
+
+LS0tIGlhNjQtbGludXgyLjYuMC9pbmNsdWRlL2xpbnV4L2NvbXBhdF9pb2N0bC5oCVR1ZSBT
+ZXAgMjMgMTg6NTM6MjkgMjAwMworKysgaWE2NC1saW51eDIuNi4wLXBhdGNoL2luY2x1ZGUv
+bGludXgvY29tcGF0X2lvY3RsLmgJVHVlIFNlcCAyMyAxODo1Mzo1NSAyMDAzCkBAIC02OCw3
+ICs2OCw3IEBACiBDT01QQVRJQkxFX0lPQ1RMKEhESU9fRFJJVkVfQ01EKQogQ09NUEFUSUJM
+RV9JT0NUTChIRElPX1NFVF9QSU9fTU9ERSkKIENPTVBBVElCTEVfSU9DVEwoSERJT19TRVRf
+TklDRSkKLSNpZm5kZWYgQ09ORklHX0FSQ0hfUzM5MAorI2lmICFkZWZpbmVkKENPTkZJR19B
+UkNIX1MzOTApICYmICFkZWZpbmVkKENPTkZJR19JQTY0KQogLyogMHgwMiAtLSBGbG9wcHkg
+aW9jdGxzICovCiBDT01QQVRJQkxFX0lPQ1RMKEZETVNHT04pCiBDT01QQVRJQkxFX0lPQ1RM
+KEZETVNHT0ZGKQotLS0gaWE2NC1saW51eDIuNi4wL2ZzL2NvbXBhdF9pb2N0bC5jCVR1ZSBT
+ZXAgMjMgMTg6NTI6MjIgMjAwMworKysgaWE2NC1saW51eDIuNi4wLXBhdGNoL2ZzL2NvbXBh
+dF9pb2N0bC5jCVR1ZSBTZXAgMjMgMTg6NTI6NDYgMjAwMwpAQCAtMjkzNiw2ICsyOTM2LDcg
+QEAKIEhBTkRMRV9JT0NUTChIRElPX0dFVF9NVUxUQ09VTlQsIGhkaW9faW9jdGxfdHJhbnMp
+CiBIQU5ETEVfSU9DVEwoSERJT19HRVRfTk9XRVJSLCBoZGlvX2lvY3RsX3RyYW5zKQogSEFO
+RExFX0lPQ1RMKEhESU9fR0VUX05JQ0UsIGhkaW9faW9jdGxfdHJhbnMpCisjaWYgIWRlZmlu
+ZWQoQ09ORklHX0FSQ0hfUzM5MCkgJiYgIWRlZmluZWQoQ09ORklHX0lBNjQpCiBIQU5ETEVf
+SU9DVEwoRkRTRVRQUk0zMiwgZmRfaW9jdGxfdHJhbnMpCiBIQU5ETEVfSU9DVEwoRkRERUZQ
+Uk0zMiwgZmRfaW9jdGxfdHJhbnMpCiBIQU5ETEVfSU9DVEwoRkRHRVRQUk0zMiwgZmRfaW9j
+dGxfdHJhbnMpCkBAIC0yOTQ1LDYgKzI5NDYsNyBAQAogSEFORExFX0lPQ1RMKEZEUE9MTERS
+VlNUQVQzMiwgZmRfaW9jdGxfdHJhbnMpCiBIQU5ETEVfSU9DVEwoRkRHRVRGRENTVEFUMzIs
+IGZkX2lvY3RsX3RyYW5zKQogSEFORExFX0lPQ1RMKEZEV0VSUk9SR0VUMzIsIGZkX2lvY3Rs
+X3RyYW5zKQorI2VuZGlmCiBIQU5ETEVfSU9DVEwoU0dfSU8sc2dfaW9jdGxfdHJhbnMpCiBI
+QU5ETEVfSU9DVEwoUFBQSU9DR0lETEUzMiwgcHBwX2lvY3RsX3RyYW5zKQogSEFORExFX0lP
+Q1RMKFBQUElPQ1NDT01QUkVTUzMyLCBwcHBfaW9jdGxfdHJhbnMpCg==
+--------------040908080002060908040807--
+
