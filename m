@@ -1,37 +1,47 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Wed, 10 Nov 2004 04:52:53 +0000
+From: Magnus Damm <damm@opensource.se>
+Date: Wed, 10 Nov 2004 11:57:51 +0000
 Subject: Re: removing mm->rss and mm->anon_rss from kernel?
-Message-Id: <41919EA5.7030200@yahoo.com.au>
+Message-Id: <1100087871.8656.59.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200411081547.iA8FlH90124208@ben.americas.sgi.com>
-In-Reply-To: <200411081547.iA8FlH90124208@ben.americas.sgi.com>
+References: <4189EC67.40601@yahoo.com.au>
+	 <Pine.LNX.4.58.0411040820250.8211@schroedinger.engr.sgi.com>
+	 <418AD329.3000609@yahoo.com.au>
+	 <Pine.LNX.4.58.0411041733270.11583@schroedinger.engr.sgi.com>
+	 <418AE0F0.5050908@yahoo.com.au> <418AE9BB.1000602@yahoo.com.au>
+	 <1099622957.29587.101.camel@gaston><418C55A7.9030100@yahoo.com.au>
+	 <Pine.LNX.4.58.0411060120190.22874@schroedinger.engr.sgi.com>
+	 <204290000.1099754257@[10.10.2.4]>
+	 <Pine.LNX.4.58.0411060812390.25369@schroedinger.engr.sgi.com>
+	 <226170000.1099843883@[10.10.2.4]>
+	 <Pine.LNX.4.58.0411080800020.7996@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0411080800020.7996@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russ Anderson <rja@sgi.com>
-Cc: Matthew Wilcox <matthew@wil.cx>, "Martin J. Bligh" <mbligh@aracnet.com>, Christoph Lameter <clameter@sgi.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: "Martin J. Bligh" <mbligh@aracnet.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-Russ Anderson wrote:
-> Matthew Wilcox wrote:
+On Mon, 2004-11-08 at 17:04, Christoph Lameter wrote:
+> On Sun, 7 Nov 2004, Martin J. Bligh wrote:
 > 
->>On Sun, Nov 07, 2004 at 08:11:24AM -0800, Martin J. Bligh wrote:
->>
->>>Ummm 10K cpus? I hope that's a typo for processes, or this discussion is
->>>getting rather silly ....
->>
->>NASA bought a 10k CPU system, but that's a cluster.  I think the largest
->>single system within that cluster is 256 CPUs.
+> > Doing ps or top is not unusual at all, and the sysadmins should be able
+> > to monitor their system in a reasonable way without crippling it, or even
+> > effecting it significantly.
 > 
-> 
-> Each "node" is a single linux kernel with 512 processors..
-> There are 20 nodes in the cluster.  20 x 512p = 10,240 processors.
-> 
+> Hmm.. What would you think about a pointer to a stats structure in mm,
+> which would only be allocated if stats are requested by /proc actions? The
+> struct would contain a timestamp which would insure that the stats are
+> only generated in certain intervals and not over and over again. This
+> would also make it possible to force a regeneration of the numbers.
 
-Sorry for wandering off topic here... did I imagine it or did I read
-that you'd tried to get 2048 CPUs going in a single system at NASA?
+I assume you mean that the mm->rss and mm->rss_anon counters have been
+replaced with stat calculation on demand. Maybe it is possible to keep a
+needs_update-flag with each vma instead. Then only the vma:s with that
+flag set needs to be recalculated. 
 
-I guess the lack of triumphant press release means it didn't go well,
-or that I was imagining things.
+A nice feature would be to be able to assign each process/mm a stat
+gathering mode - choose between no statistics, statistics updated every
+N jiffy and real time statistics. Yeah, dream on.
 
-Also, are you using 2.6 kernels on these 512 CPU systems? or are your
-2.4 kernels still holding together at that many CPUs?
+/ magnus
+
