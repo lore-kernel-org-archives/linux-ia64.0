@@ -1,60 +1,50 @@
-From: "Saxena, Sunil" <sunil.saxena@intel.com>
-Date: Sat, 12 Jan 2002 00:43:01 +0000
-Subject: [Linux-ia64] Lion SDV needing FW upgrade
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C19B02.16880F60"
-Message-Id: <marc-linux-ia64-105590698805814@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 22 Jan 2002 18:45:50 +0000
+Subject: [Linux-ia64] heads-up: don't treat __FUNCTION__ as a constant
+Message-Id: <marc-linux-ia64-105590698805912@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+A heads-up about a change that's forthcoming in gcc3.1: the
+__FUNCTION__ macro should no longer be treated as returning a constant
+string literal.  gcc3.1 will still allow it, but issue an ugly warning
+message.  In later releases, the feature will go away completely.
 
-------_=_NextPart_000_01C19B02.16880F60
-Content-Type: multipart/alternative;
-	boundary="----_=_NextPart_001_01C19B02.16880F60"
+The reason for deprecating this feature is that ANSI C pretty much
+disallows it: string literal concatenation is required to be done in a
+phase *before* the name of the current function is known.  The
+solution is to change something of the form:
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+	printk(__FUNCTION__": you lose\n");
 
-------_=_NextPart_001_01C19B02.16880F60
-Content-Type: text/plain
+into something like this:
 
-I would like to poll the folks that are running into issues with Lion SDVs
-with newer kernels and need FW upgrades.  Please provide me the following:
+	printk("%s: you lose\n", __FUNCTION__);
 
-1. You machine configuration. 
-2. Serial #. 
-3. When last upgraded. 
+I did a quick grep over the ia64 code and found the following files
+are using __FUNCTION__:
 
-I am trying to collect data to help resolve SDV FW issues. 
+arch/ia64/kernel/efi.c
+arch/ia64/kernel/palinfo.c
+arch/ia64/kernel/perfmon.c
+arch/ia64/kernel/smp.c
+arch/ia64/kernel/unaligned.c
+arch/ia64/sn/io/pci.c
+arch/ia64/sn/io/pci_bus_cvlink.c
+arch/ia64/sn/io/pciba.c
+arch/ia64/sn/io/pciio.c
+arch/ia64/sn/io/sn1/pcibr.c
+arch/ia64/sn/io/sn2/ml_SN_intr.c
+arch/ia64/sn/io/sn2/pcibr/pcibr_dvr.c
 
-Thanks
-Sunil 
+It might be a good idea to clean these up as you're working on it.
+It's not urgent, of course, but I wanted to make you aware of this
+issue so we can at least avoid writing new code using this construct.
 
+Thanks,
 
-------_=_NextPart_001_01C19B02.16880F60
-Content-Type: text/html
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=us-ascii">
-<TITLE>Message</TITLE>
-
-<META content="MSHTML 5.50.4522.1800" name=GENERATOR></HEAD>
-<BODY>
-<P><FONT face=Arial size=2>I would like to poll the folks that are running into 
-issues with Lion SDVs with newer kernels and need FW upgrades.&nbsp; Please 
-provide me the following:</FONT></P>
-<P><FONT face=Arial size=2>1. You machine configuration.</FONT> <BR><FONT 
-face=Arial size=2>2. Serial #.</FONT> <BR><FONT face=Arial size=2>3. When last 
-upgraded.</FONT> </P>
-<P><FONT face=Arial size=2>I am trying to collect data to help 
-resolve&nbsp;<SPAN class=872194200-12012002>SDV </SPAN>FW issues.</FONT> </P>
-<P><I><FONT face=Arial color=#000080 size=2>Thanks<BR>Sunil</FONT></I> 
-</P></BODY></HTML>
-
-------_=_NextPart_001_01C19B02.16880F60--
-
-------_=_NextPart_000_01C19B02.16880F60--
+	--david
 
