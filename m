@@ -1,21 +1,36 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 14 Oct 2004 11:10:58 +0000
-Subject: Re: [RFC] Convert pgtable cache to slab
-Message-Id: <16750.24258.146955.227856@napali.hpl.hp.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Fri, 15 Oct 2004 01:35:22 +0000
+Subject: Re: [PATCH 1/5][Diskdump] IPF(IA64) support
+Message-Id: <1097804121.22673.43.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq1zn2qtpyo.fsf@wilson.mkp.net>
-In-Reply-To: <yq1zn2qtpyo.fsf@wilson.mkp.net>
+References: <14C4709A99D341indou.takao@soft.fujitsu.com>
+	 <15C4709AD81CB1indou.takao@soft.fujitsu.com>
+In-Reply-To: <15C4709AD81CB1indou.takao@soft.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Takao Indoh <indou.takao@soft.fujitsu.com>
+Cc: lkml - Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
 
->>>>> On Thu, 14 Oct 2004 06:07:43 -0500, Robin Holt <holt@sgi.com> said:
+On Fri, 2004-07-23 at 19:53, Takao Indoh wrote:
+> +static unsigned int fallback_on_err = 1;
+> +static unsigned int allow_risky_dumps = 1;
+> +static unsigned int block_order = 2;
+> +static int sample_rate = 8;
+> +module_param(fallback_on_err, uint, 0);
+> +module_param(allow_risky_dumps, uint, 0);
+> +module_param(block_order, uint, 0);
+> +module_param(sample_rate, int, 0);
 
-  Robin> Essentially, we were allocating and clearing pages for both
-  Robin> pmd and pte entries every time.
+Hi Takao!
 
-Yes, you discovered that several months ago, didn't you?  Glad the fix
-came through, in the end.
+	Are you sure you want "uint" for fallback_on_err and allow_risky_dumps
+and not "bool"?  Also, I suggest "0400" as permissions so you can read
+them out of sysfs; maybe even 0600 if these parameters can be changed
+after loading.
 
-	--david
+Thanks!
+Rusty.
+-- 
+Anyone who quotes me in their signature is an idiot -- Rusty Russell
+
