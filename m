@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@linuxcare.com>
-Date: Mon, 09 Oct 2000 16:44:29 +0000
+From: Dan Pop <Dan.Pop@cern.ch>
+Date: Mon, 09 Oct 2000 17:21:01 +0000
 Subject: Re: [Linux-ia64] avoiding float underflow software assist
-Message-Id: <marc-linux-ia64-105590678205561@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205562@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205556@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205556@msgid-missing>
@@ -10,29 +10,45 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Pete" = Pete Wyckoff <pw@osc.edu> writes:
 
-Pete> Dan.Pop@cern.ch said:
->> On Mon, 9 Oct 2000, Pete Wyckoff wrote: > This little code snippet
->> causes floating-point underflow during the > multiplication.  Try
->> this code and see if it helps.  You don't have to explicitly call
->> the function, it will be automatically executed before main().
+On Mon, 9 Oct 2000, David Mosberger wrote:
 
-Pete> Excellent.  I can manage to get this linked in with the fortran
-Pete> application from whence the problem sprung, which is what I
-Pete> really wanted.
+> >>>>> On Mon, 9 Oct 2000 17:37:35 +0200 (MET DST), Dan Pop <Dan.Pop@cern.ch> said:
+> 
+>   Dan> #include <asm/fpu.h>
+> 
+> Please don't do this.  Applications must not include Linux kernel
+> header files.
 
-Pete> Gcc and glibc seem only to care about st0.  The "minimal" fix,
-Pete> which relies on glibc and exercises its fe*env functions, is:
+I know.  I wrote it as a quick and dirty hack for Sverre, because no
+other option was available at the time.
 
-We discussed this recently and David strongly opted for glibc setting
-s2/s3 the same way we set s0. I need to look closer at this in order
-to figure out how to deal with the get-then-set case but I think it's
-coming.
+> The correct way of doing this is to do:
+> 
+> 	#include <fenv.h>
+> 
+> 	fesetenv (FE_NONIEEE_ENV);
 
-Some of this may be broken in glibc-2.1 which I believe is in the
-Turbo distrib you are using, however glibc-2.1 is most likely not
-going to get fixed.
+I know that, too, but, between the above hack that worked and the
+correct solution that was not (yet) implemented, the choice was
+obvious :-)
 
-Jes
+> or to compile with -ffast-math.  For the former to work, you need
+> glibc-2.2.  For the latter, you need both glibc-2.2 and some mods to
+> the compiler (which probably don't exist yet).
+
+In other words, neither of the correct solutions is available with the
+current distributions :-)
+
+> If you want to avoid the those complications, you can turn off
+> flush-to-zero mode with the following hack:
+> 
+>         asm volatile ("mov ar.fpsr=%0" :: "r"(0x9804c0270037f));
+> 
+> It's only a hack, but it should do for now.
+
+As a hack, it's even worse than mine :-)
+
+Dan
+
 
