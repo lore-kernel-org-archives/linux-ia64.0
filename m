@@ -1,7 +1,7 @@
 From: Steve Woodruff <sjwoodr@yahoo.com>
-Date: Wed, 23 Apr 2003 15:05:49 +0000
+Date: Wed, 23 Apr 2003 16:30:25 +0000
 Subject: Re: [Linux-ia64] RT Timers problem
-Message-Id: <marc-linux-ia64-105590723705590@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705592@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705588@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705588@msgid-missing>
@@ -10,19 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---- Matthew Wilcox <willy@debian.org> wrote:
-> Aren't these used by libc for thread management
-> purposes?  RH uses NPTL
-> so it ses different methods.
+> 2. In some cases, a call to timer_create() will
+> block.
+>    This one is harder to reproduce, but i've done it
+>    multiple times and have something like this in 
+>    my code:
 
-Might be - i checked the libc6.1 docs and it
-mentions that USR1 and USR2 were used for that
-purpose, but then goes on to say that after 
-kernel 2.1.60 that was no longer the case.  It
-didn't mention, but perhaps its switched to
-those first three RT sigs?
+Ok - i found the solution my self after some 
+further research.  It appears that -lrt requires
+-lpthread --even for non-threaded programs.  After
+adding -pthread and explicitly listing -lpthread
+before -lc in my link flags, all seems to be 
+working as expected now.
+
+tnx
 
 /steve
+
 
 
 
