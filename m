@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 12 Mar 2004 05:54:55 +0000
-Subject: RE: 2.6.3 compilation problem
-Message-Id: <B05667366EE6204181EABE9C1B1C0EB501F2AB98@scsmsx401.sc.intel.com>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Fri, 12 Mar 2004 06:01:07 +0000
+Subject: Re: 2.6.3 compilation problem
+Message-Id: <5784.1079071267@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <002f01c40735$8d2cc880$39624c0f@india.hp.com>
 In-Reply-To: <002f01c40735$8d2cc880$39624c0f@india.hp.com>
@@ -10,13 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> Liu, Benjamin on Thu, March 11, 2004 7:53 PM
-> Could you please send out your configure file in
-> attachment? I can not reproduce your issue even
-> when I configured CONFIG_SERIO.
-> 
-> Ken, it's too early to make any judgement.
+On Thu, 11 Mar 2004 21:42:04 -0800, 
+"H. J. Lu" <hjl@lucon.org> wrote:
+>which means it will be discarded if the driver is builtin. If
+>xxx_remove may be discarded, please make sure there is
+>
+>#ifdef MODULE
+>	remove:	       xxx_remove,
+>#endif
+>
+>so that xxx_remove won't be included when the driver is builtin.
 
-Seen this before, and I just don't have the time to
-track down exactly which module was the culprit. And
-no, it's not from serio.
+	remove:		__devexit_p(xxx_remove),
+
+is the correct method.  The pointer is required for CONFIG_MODULE
+_or_ CONFIG_HOTPLUG, otherwise it must be set to NULL.  __devexit_p()
+does all that.
+
