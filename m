@@ -1,62 +1,43 @@
-From: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
-Date: Tue, 02 Nov 2004 07:36:36 +0000
+From: Gerald Pfeifer <gp@suse.de>
+Date: Tue, 02 Nov 2004 08:48:29 +0000
 Subject: Re: [PATCH] top level scheduler domain for ia64
-Message-Id: <20041102.163636.39153052.t-kochi@bq.jp.nec.com>
+Message-Id: <Pine.LNX.4.61.0411020937510.24640@lifschitz.suse.de>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="168476160-968527680-1099380432=:24640"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200410191427.27336.jbarnes@engr.sgi.com>
 In-Reply-To: <200410191427.27336.jbarnes@engr.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-From: "Luck, Tony" <tony.luck@intel.com>
-Subject: RE: [PATCH] top level scheduler domain for ia64
-Date: Mon, 1 Nov 2004 11:45:44 -0800
+--168476160-968527680-1099380432=:24640
+Content-Type: TEXT/PLAIN; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-> >Maybe, but that will get complex very quickly I think.  Right now we have 
-> >three domains on ia64, the cpu domain, the node domain, which contains 
-> >several nodes worth of CPUs, and the top level domain, which spans the whole 
-> >machine.
-> >
-> >So there are two questions, how big should the node domain be and should it 
-> >span the whole machine (avoiding the need for a top level domain)?  Obviously 
-> >the answer is pretty machine specific, and I'm not sure the SLIT helps us 
-> >much since its values are arbitrary distance values, not anything concrete.
+On Mon, 1 Nov 2004, Matthew Wilcox wrote:
+> Doesn't sound like a great idea.  HP's already shipping 128-way Superdome
+> IA-64 systems, and they'll want to be set up rather differently from the
+> Altix systems.  I think this code needs to be autotuning so it doesn't
+> need to be touched whenever a vendor releases a new configuration (I
+> think I heard that NASA's Altixes had a custom CPU brick with twice the
+> CPUs in it?)
 
-Right, but if SLIT is implemented in real firmware (not a fake),
-the numbers should have some meanings to describe how the machine
-is configured.
+Yup.  Though that new brick is not specific to NASA's new Columbia system.
 
-For machines which have tree-like hierarchy NUMA, the SLIT table
-can help enough to construct scheduling domains (like NEC's, and
-I suppose Superdome is similar) and fits well for the sched-domain
-scheduler.
+http://www.sgi.com/company_info/newsroom/press_releases/2004/october/altix_=
+bx2.html
 
-The problem is that there can be other forms of topology.
-It may be hard to derive its actual connection only with SLIT.
-Quoting a SLIT example from the ACPI spec 3.0...
+| SGI Doubles Density of High-End Altix Server
+|
+| New Altix 3700 Bx2 Ratchets Up Performance and Cost-Efficiency with=20
+| Twice the Bandwidth, Half the Footprint of Flagship System=20
+|
+| MOUNTAIN VIEW, Calif., (October 28, 2004) [...] Silicon Graphics today=20
+| unveiled a new version of its SGI=AE Altix=AE 3700 system that delivers=20
+| twice the bandwidth and processor density of its flagship high-end=20
+| model.
 
-domain [0] [1] [2] [3]
-   [0]  10  15  20  18
-   [1]  15  10  16  24
-   [2]  20  16  10  12
-   [3]  18  24  12  10
-
-This is an example which is not real, but it's possible
-from the viewpoint of the ACPI spec;)
-For this case, it's very hard to say it's worth making other 3
-levels of scheduling domains above the cpu domain.
-
-The userspace adjustment which Nanhai proposed does not work
-for booting the 512-way Altix anyway (if we remove the node
-domain from the generic kernel).
-
-I think the short-term solution is to make the boot-time parameter
-like Jesse said to control the creation and span size of the
-node domain and see what is necessary next.
-
----
-Takayoshi Kochi
+Gerald (not working for SGI ;-)
+--168476160-968527680-1099380432=:24640--
