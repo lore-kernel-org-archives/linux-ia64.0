@@ -1,64 +1,42 @@
 From: Jim Wilson <wilson@cygnus.com>
-Date: Thu, 18 Jan 2001 00:56:32 +0000
-Subject: Re: [Linux-ia64] two ICEs with current compiler
-Message-Id: <marc-linux-ia64-105590693005072@msgid-missing>
+Date: Wed, 10 Jan 2001 00:43:20 +0000
+Subject: Re: [Linux-ia64] ld --relax, yet still: "relocation truncated to fit: PCREL21B" or "can't relax sect
+Message-Id: <marc-linux-ia64-105590678205905@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005066@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005066@msgid-missing>
+References: <marc-linux-ia64-105590678205873@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205873@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->gcc -O2 -c lexer.c 
->...
->lexer.c: In function `yylook':
->lexer.c:2138: warning: cast from pointer to integer of different size
->lexer.c:2148: warning: cast from pointer to integer of different size
->lexer.c:2239: Internal compiler error in `find_auto_inc', at flow.c:5032
+>| ./Tjdb-interp2/O.ia64-linux_n/plo_0.o: In function `func1':
+>| ./Tjdb-interp2/O.ia64-linux_n/plo_0.o(.text+0x1046862): relocation truncated to fit: PCREL21B func2
+>| ...
+>| collect2: ld returned 1 exit status
 
-For the second problem, there was a little bit of code looking for a register
-when we actually had a slightly more complicated expression.  The code needed
-to fail instead of aborting if it didn't find the register it was looking for.
+Do you have a testcase I can look at?  As far as I know, --relax still works.
 
-Thu Aug  3 01:05:32 2000  Jeffrey A Law  (law@cygnus.com)
+This problem happens when you are calling a function that is too far away
+for the offset in a br.call instruction.  Or jumping to a branch that is too
+far away.  This could be a toolchain bug, or it could be a problem with the
+program.
 
-	* flow.c (find_auto_inc): Verify that we've got a REG before
-	peeking at its regno.  Fail, don't abort if we can't find
-	the increment of the desired register.
+>| /usr/bin/ld: can't relax section: No such file or directory
+>| collect2: ld returned 1 exit status
 
-Index: flow.c
-=================================RCS file: /cvs/cvsfiles/devo/gcc/flow.c,v
-retrieving revision 1.234.2.7
-diff -p -r1.234.2.7 flow.c
-*** flow.c	2000/11/16 20:24:38	1.234.2.7
---- flow.c	2001/01/18 00:47:56
-*************** find_auto_inc (pbi, x, insn)
-*** 5024,5035 ****
-    if (GET_CODE (y) != PLUS)
-      return;
-  
-!   if (REGNO (XEXP (y, 0)) = REGNO (addr))
-      inc_val = XEXP (y, 1);
-!   else if (REGNO (XEXP (y, 1)) = REGNO (addr))
-      inc_val = XEXP (y, 0);
-    else
-!     abort ();
-  
-    if (GET_CODE (inc_val) = CONST_INT)
-      {
---- 5024,5035 ----
-    if (GET_CODE (y) != PLUS)
-      return;
-  
-!   if (REG_P (XEXP (y, 0)) && REGNO (XEXP (y, 0)) = REGNO (addr))
-      inc_val = XEXP (y, 1);
-!   else if (REG_P (XEXP (y, 1)) && REGNO (XEXP (y, 1)) = REGNO (addr))
-      inc_val = XEXP (y, 0);
-    else
-!     return;
-  
-    if (GET_CODE (inc_val) = CONST_INT)
-      {
+This was a temporary problem.  It occurs if you have a toolchain with Richard
+Henderson's 2000-10-09 bfd patch for sorting unwind sections, but don't have
+his 2000-10-24 bfd patch which makes it work.  I never released a toolchain
+with the first patch but not the second.  Perhaps you got a toolchain from
+someone else?  Or maybe you applied random patches from some mailing list
+to your toolchain?
 
+>        gcc version 2.96-ia64-000717 snap 000925
+>	GNU ld version 2.9-ia64-000717 (with BFD 2.9-ia64-000717))
+
+This is 2 months obsolete.  The 001117 snapshot should be used instead of this
+one.
+
+Jim
 
