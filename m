@@ -1,90 +1,71 @@
-From: Bdale Garbee <bdale@gag.com>
-Date: Fri, 10 Aug 2001 17:43:05 +0000
-Subject: [Linux-ia64] Debian GNU/Linux for IA-64
-Message-Id: <marc-linux-ia64-105590698805058@msgid-missing>
+From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
+Date: Fri, 10 Aug 2001 13:36:07 +0000
+Subject: [Linux-ia64] Mylex RAID & IA64 - processes sleeping in wait_on_buffer()/down()
+Message-Id: <marc-linux-ia64-105590698805053@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It is my pleasure to announce that Debian has accepted IA-64 as a supported 
-architecture for the upcoming Debian GNU/Linux 3.0 (woody) stable release.
+Hi Leonard, all,
 
-Information about Debian is available on the web at www.debian.org.
+I have run some more tests and have better debugging tools available
+now (among other things, a Mylex debugging cable). I made two tests
+yesterday and today with similar outcomes.
 
-In celebration of this milestone, and to make it easier for others in the 
-IA-64 community to use and help us improve Debian before woody releases, we 
-have created an installer CD image that is now available for download.  This 
-CD image contains the Debian installation toolset and all of the essential
-packages required to install Debian on Itanium systems.  Additional 
-packages may then be installed over the network from Debian's mirrors 
-quite easily.
+Yesterday for the first time ever I saw no driver error message before
+the problems (hanging I/O) occured. Today a "NO SENSE ON WRITE" message
+was issued approx. 15 minutes before the test came to a halt.
 
-The IA-64 installer CD image is now available by either HTTP or FTP from 
-these locations:
+The serial console (debugging cable) showed the message
+"UnimplCmd 0pc0H IqpC1H".
 
-	http://gluck.debian.org/ia64/cd-20010810.iso.gz
-	ftp://gluck.debian.org/ia64/cd-20010810.iso.gz
+Here is the list of uninterruptibly sleeeping processes after the test
+stopped (today's test):
 
-This image has been tested on production HP i2000 and prototype BigSur
-systems.  It should work on Lion systems and Itanium systems from other 
-vendors as well, and we welcome reports of any problems experienced on other
-Itanium systems.  Please read the README.txt file in the root of the CD for
-a few platform-specific installation instructions... a copy of which is 
-appended to this message.
+$ ps -eo fname,pid,ppid,stat,state,nwchan,wchan | grep '\<D\>'
+rm        3023  1136 D    D 4fa710 wait_on_buffer
+rm        3036  1140 D    D 4fa710 wait_on_buffer
+cp        3055  3054 D    D 45fc90 down
+cp        3070  3069 D    D 45fc90 down
+rm        3075  1139 D    D 45fc90 down
+cp        3096  3095 D    D 45fc90 down
 
-Questions or feedback should be directed to the debian-ia64 mailing list.
-Archives and subscription information for this list may be found via the
-link on the Debian ia64 port page at:
+The stack trace for both processes 3023 and 3036 is
+__wait_on_buffer - [lock_buffer] - unmap_buffer - block_flushpage -
+truncate_list_pages - truncate_inode_pages - iput - d_delete - vfs_unlink
+- sys_unlink.
 
-	http://www.debian.org/ports/ia64/
+Obviously these processes wait forever for a buffer head to get unlocked.
 
-The release of this installer CD image and the acceptance of IA-64 for 
-release with Debian 3.0 would not have happened without significant
-contributions from Randolph Chung, HP's Linux Systems Operation, Richard
-Hirst at Linuxcare, Progeny Linux Systems, and the many Debian package
-maintainers whose packages are now available for IA-64.  My thanks to all
-of them!
+The other processes sleep on a the semaphore of the indode of an dentry
+(dentry->d_inode->i_sem). These semaphores are most likely blocked by
+either PID 3023 or 3036.
 
-Bdale
+Upon further inquiry into the DAC960 code, I found that the driver uses
+virt_to_bus() to get DMA addresses, which is deprecated on 64 bit
+architectures (comments in asm-ia64/io.h recommend to use
+pci_map_single()/pci_unmap_single() instead).
 
-     - - - - - - - - - -     README.txt     - - - - - - - - - -
+I suspect that this may have
+something to do with the problems we are encountering, although
+pci_map_single() basically calls virt_to_phys() if a controller is
+capable of 64 bit addressing. A difference can be seen in
+pci_unmap_single(), where the buffer pages are marked clean after the DMA
+is processed. Although it makes not much sense that this should cause
+problems as those described above, it is at least a starting point.
+It would be interesting to know in this regard if it is planned to use the
+pci map interface for the DAC960 driver in the not-so-far future.
 
-                 Debian GNU/Linux ia64 base install CD
+Regards,
+Martin
 
-        DEVELOPMENT SOFTWARE, UNTESTED, YOU HAVE BEEN WARNED!!!!!!
+-- 
+Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
+FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
 
-Instructions:
 
-Get to an EFI shell prompt, which might mean renaming your
-/boot/efi/startup.nsh file.
 
-Figure out which of fs0, fs1, fs2, etc is your CDROM; fs3 in this example.
 
-Enter  "fs3:<cr>", should have an fs3: prompt.
-
-Enter  "install<cr>", and away you go!
-
-This CD is based on unstable packages, as not everything needed was included
-in testing when the ISO was created.
-
-The install follows the standard Debian proceedure, with the following
-exceptions:
-
-1. When given the choice, install 'sid' and not 'woody'.
-
-2. Do not try to create a boot floppy, as that step does not work.  You
-   can boot from this CD later, if you need to recover your system; just
-   boot it as described above and then use Alt-F2 to get to a shell
-   prompt.
-
-3. In the second stage install, when configuring APT, select some suitable
-   http or ftp mirror.  Do not select the CD as a source, as this CD
-   contains only the base system packages.
-
-When the install is complete, you should find a new EFI Boot Manager menu
-entry "Debian GNU/Linux", which the system should now boot as default.
-
-Richard Hirst  <rhirst@linuxcare.com>
 
