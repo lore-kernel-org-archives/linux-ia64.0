@@ -1,7 +1,7 @@
-From: "Broadfoot, Ken P" <ken.p.broadfoot@intel.com>
-Date: Wed, 21 Feb 2001 21:30:22 +0000
-Subject: RE: Re: [Linux-ia64] Re: Lockups on 2.4.1
-Message-Id: <marc-linux-ia64-105590693005185@msgid-missing>
+From: "H . J . Lu" <hjl@valinux.com>
+Date: Wed, 21 Feb 2001 21:45:10 +0000
+Subject: Re: Re: [Linux-ia64] Re: Lockups on 2.4.1
+Message-Id: <marc-linux-ia64-105590693005186@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005183@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005183@msgid-missing>
@@ -10,59 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Just my observation:
+On Wed, Feb 21, 2001 at 01:30:22PM -0800, Broadfoot, Ken P wrote:
+> 
+> Just my observation:
+> 
+> The improvement I have seen using the 2.4.1-010131 kernel from any 2.4.0
+> ia64 kernel is major enough to upgrade.
+> 
+> I have not seen any lockups of the sort I have seen on this thread. 
+> 
+> I am running a 4 proc Lion with 4 Gigs memory, Bios 71.
+> 
 
-The improvement I have seen using the 2.4.1-010131 kernel from any 2.4.0
-ia64 kernel is major enough to upgrade.
-
-I have not seen any lockups of the sort I have seen on this thread. 
-
-I am running a 4 proc Lion with 4 Gigs memory, Bios 71.
-
-If you are seeing this issue on 2.4.0 I would upgrade.
-
---ken
-
-
------Original Message-----
-From: Jack Steiner [mailto:steiner@sgi.com]
-Sent: Wednesday, February 21, 2001 11:48 AM
-To: linux-ia64@linuxia64.org
-Subject: Re: Re: [Linux-ia64] Re: Lockups on 2.4.1
+Same here. UP BigSur. 1G RAM and Bios 71.
 
 
-> Anyway, I have ITPs connected to the IBM hardware and have noticed that
-> when the lockup occurs, and we lose video, at least one of the CPUs is
-> executing in flush_tlb_no_ptcg() or handle_IPI(), in the 'do' loop where
-> TLB
-> entries are being purged. What I have observed is that the end address and
-> the start address are in completely different regions. Usually, the start
-> address
-> is in region register 1 (address of 0x2000XXXXXXXXXXXX) and the end
-address
-> is in region register 3 (address of 0x6000XXXXXXXXXXXX). I don't know if
-> this
-> is the same problem I am seeing on the Lion, but I plan to connect and ITP
-> and
-> a serial console (although we haven't been able to get one to work yet on
-> the
-> Lion with BIOS 71) to see if the symptoms are the same.
-
-FWIW, we have seen EXACTLY the same hang running here on our system.
-The start/end addresses for the purge cross region boundaries.
-
-
-We are running a 2.4.0 kernel.
-
-
--- 
-Thanks
-
-Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+H.J.
 
