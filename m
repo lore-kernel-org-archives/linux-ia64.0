@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 22 Sep 2003 21:25:36 +0000
+From: Richard Henderson <rth@twiddle.net>
+Date: Mon, 22 Sep 2003 23:21:23 +0000
 Subject: Re: Inefficient ia64 system call implementation in glibc
-Message-Id: <marc-linux-ia64-106426598631350@msgid-missing>
+Message-Id: <marc-linux-ia64-106427289405560@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106398916511816@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106398916511816@msgid-missing>
@@ -10,20 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 20 Sep 2003 15:01:26 +0200, Andreas Schwab <schwab@suse.de> said:
+On Mon, Sep 22, 2003 at 12:39:18PM -0700, H. J. Lu wrote:
+> Can I get char * from char [300]?
 
-  Andreas> "Jim Hull" <jim.hull@hp.com> writes:
-  >> But my real issue with the performance of this code is not with
-  >> sign-extend or the scheduling these instructions, it's with the
-  >> break instruction.  I may be mistaken, but hasn't it been many
-  >> months since David Mosberger implemented all the kernel
-  >> infrastructure needed to support syscalls using the epc
-  >> instruction?
+x+0 would work in this case; I'd guess it'd work for most of the
+cases that syscalls need to handle.
 
-  Andreas> It's only implemented in 2.6 so far.
 
-No, the glibc support is completely orthogonal to the kernel support.
-If glibc uses the new stubs on a kernel which doesn't support
-kernel-entry via EPC, it will transparently fall back to using BREAK.
-
-	--david
+r~
