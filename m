@@ -1,24 +1,28 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Mon, 10 Apr 2000 19:10:45 +0000
-Subject: Re: [Linux-ia64] Tool chain ld program -Previous message incomplete
-Message-Id: <marc-linux-ia64-105590678205013@msgid-missing>
+From: roneng@ca.ibm.com
+Date: Tue, 18 Apr 2000 22:47:38 +0000
+Subject: [Linux-ia64] Kernel long branch support
+Message-Id: <marc-linux-ia64-105590678205018@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205003@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205003@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I talked to our linker expert late last week.  He mentioned that if a branch
-target is out of range of a branch, the linker is supposed to create a
-trampoline to make the branch reach the target, but that our linker does not
-support this yet.  This is the error that you are seeing.  We have gotten two
-reports of this problem now, so we are starting to work on a solution.
 
-Since branches have 21 bits of displacement, and bundles are 16 bytes, you
-need a branch spanning more than +/- 16MB before you can see this problem.
+Hi,
+I am getting an illegal instruction fault from the kernel after using the
+latest linker
+which supports long branches (i.e. branches greater then 16M) to compile
+large shared libraries.
+I was wondering if anyone knows if the latest kernels 2.3.51/or 2.3.50
+support
+long branches, or if anyone is working on long branch support for the
+kernel.
 
-Jim
+Thank you,
+Ronen Grosman
+- e-mail roneng@ca.ibm.com
+
+
 
 
