@@ -1,59 +1,43 @@
 From: Brent Casavant <bcasavan@sgi.com>
-Date: Wed, 15 Dec 2004 18:24:10 +0000
+Date: Wed, 15 Dec 2004 23:37:10 +0000
 Subject: Re: [PATCH 0/3] NUMA boot hash allocation interleaving
-Message-Id: <Pine.SGI.4.61.0412151051270.24052@kzerza.americas.sgi.com>
+Message-Id: <Pine.SGI.4.61.0412151725040.24052@kzerza.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.SGI.4.61.0412141140030.22462@kzerza.americas.sgi.com>
- <9250000.1103050790@flay> <20041214191348.GA27225@wotan.suse.de>
- <19030000.1103054924@flay> <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com>
- <20041215040854.GC27225@wotan.suse.de> <686170000.1103094885@[10.10.2.4]>
- <20041215071734.GO27225@wotan.suse.de>
-In-Reply-To: <20041215071734.GO27225@wotan.suse.de>
+References: <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com>
+ <50260000.1103061628@flay> <20041215045855.GH27225@wotan.suse.de>
+ <20041215144730.GC24000@krispykreme.ozlabs.ibm.com>
+In-Reply-To: <20041215144730.GC24000@krispykreme.ozlabs.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: "Martin J. Bligh" <mbligh@aracnet.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>
+Cc: Andi Kleen <ak@suse.de>, "Martin J. Bligh" <Martin.Bligh@us.ibm.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, jrsantos@austin.ibm.com
 
-On Wed, 15 Dec 2004, Andi Kleen wrote:
+On Thu, 16 Dec 2004, Anton Blanchard wrote:
 
-> On Tue, Dec 14, 2004 at 11:14:46PM -0800, Martin J. Bligh wrote:
-> > Well hold on a sec. We don't need to use the hugepages pool for this,
-> > do we? This is the same as using huge page mappings for the whole of
-> > kernel space on ia32. As long as it's a kernel mapping, and 16MB aligned
-> > and contig, we get it for free, surely?
-> 
-> The whole point of the patch is to not use the direct mapping, but
-> use a different interleaved mapping on NUMA machines to spread
-> the memory out over multiple nodes.
+> Id like to see a benchmark that has a large footprint in the hash. A few
+> connection netperf run isnt going to stress the hash is it?
 
-There is a middle ground, in theory.  At least on a NUMA machine you
-can divide up the allocation roughly as requested_size/number_nodes.
-Round the result up to the next available page size, and allocate
-interleaved on the nodes until you've satisfied the requested size.
-This minimizes the number of TLB entries required to interleave the
-allocation.
+Not as well as I'd like, I'll admit.  I really couldn't find any
+standard benchmark that would push the TCP hashes hard.
 
-However, as noted, the kernel barely handles two page sizes, much
-less multiple page sizes.  If more flexible page-size handling
-comes along someday this and many other sections of code could
-stand to benefit from some rewriting.
+> Also what page size were the runs done with? On x86-64 and ppc64 the 4kB page
+> size may make a difference to Brents runs.
 
-> > > Using other page sizes would be probably tricky because the 
-> > > linux VM can currently barely deal with two page sizes.
-> > > I suspect handling more would need some VM infrastructure effort
-> > > at least in the changed port. 
-> > 
-> > For the general case I'd agree. But this is a setup-time only tweak
-> > of the static kernel mapping, isn't it?
-> 
-> It's probably not impossible, just lots of ugly special cases.
-> e.g. how about supporting it for /proc/kcore etc? 
+16K pages on IA64.  As the patch currently stands x86-64 and ppc64
+would not be a concern, as we still use the old behavior by default
+for those architectures.  Only IA64 NUMA kernel configurations will
+have this on by default.  Additionally, this only affects NUMA machines,
+and I'm not aware of any x86-64 architectures of that nature (please
+educate me if I'm mistaken).
 
-Just to bring a bit of closure regarding the patches I posted yesterday,
-I'm reading the overall discussion as "The patches look good enough for
-current kernels, and this would benefit from multiple page size support,
-if we ever get it."  Fair read?
+> specSFS (an NFS server benchmarmk) has been very sensitive to TLB issues
+> for us, it uses all the memory as pagecache and you end up with 10
+> million+ dentries. Something similar that pounds on the dcache would be
+> interesting.
+
+I'll look into running that, but have my doubts as to whether I
+can scare up appropriate quantities/types of hardware.
 
 Brent
 
