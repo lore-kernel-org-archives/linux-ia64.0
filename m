@@ -1,39 +1,33 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 12 Mar 2003 06:55:12 +0000
-Subject: Re: [Linux-ia64] Memory leak in 2.5.64
-Message-Id: <marc-linux-ia64-105590709806052@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 14 Mar 2003 04:39:12 +0000
+Subject: [Linux-ia64] [patch] 2.4.20-ia64-021210 unwind.c - allow unw_access_gr(r0)
+Message-Id: <marc-linux-ia64-105590709806092@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709806020@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709806020@msgid-missing>
+References: <marc-linux-ia64-105590709805543@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805543@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 10 Mar 2003 19:59:39 -0800, William Lee Irwin III <wli@holomorphy.com> said:
+Patch is against 2.4.20-ia64-021210.
+The patch allows unw_access_gr() to read from r0, to support unwind
+directives such as .save ar.pfs,r0 and .save rp,r0.
 
-  William> On Tue, Mar 11, 2003 at 02:44:14PM +1100, Peter Chubb
-  William> wrote:
-  >> The way that tasks need to be freed has changed since 2.5.61 ---
-  >> I think we need to do something like the attached patch (keep
-  >> __put_task_struct() in kernel/fork.c; have ia64-specific
-  >> free_task_struct() in arch/ia64/kernel/process.c) otherwise the
-  >> user_struct will never have its reference count deleted and so
-  >> will not be freed.
+Index: 20.5/arch/ia64/kernel/unwind.c
+--- 20.5/arch/ia64/kernel/unwind.c Sat, 14 Sep 2002 01:17:57 +1000 kaos (linux-2.4/r/c/42_unwind.c 1.1.2.1.1.2.3.1.1.1.1.2 644)
++++ 20.5(w)/arch/ia64/kernel/unwind.c Fri, 14 Mar 2003 11:58:55 +1100 kaos (linux-2.4/r/c/42_unwind.c 1.1.2.1.1.2.3.1.1.1.1.2 644)
+@@ -235,6 +235,11 @@ unw_access_gr (struct unw_frame_info *in
+ 	struct pt_regs *pt;
+ 
+ 	if ((unsigned) regnum - 1 >= 127) {
++		if (regnum = 0 && !write) {
++			*val = 0;	/* read r0 always returns 0 */
++			*nat = 0;
++			return 0;
++		}
+ 		dprintk("unwind: trying to access non-existent r%u\n", regnum);
+ 		return -1;
+ 	}
 
-  William> I think you might be in trouble. From entry.S:
-
-  William>         /* * Invoke schedule_tail(task) while preserving
-  William> in0-in7, which may be nee ded * in case a system call gets
-  William> restarted.  */ GLOBAL_ENTRY(ia64_invoke_schedule_tail)
-
-  William> Well, you're going to need to pass a parameter to
-  William> schedule_tail() namely, the previous task, and find some
-  William> other way to save in0-in7.  schedule_tail() now relies on
-  William> the task getting passed to it to free it.
-
-That's why ia64_invoke_schedule_tail() exists in the first place: the
-previously running task is passed in r8.  In other words: no problem.
-
-	--david
 
