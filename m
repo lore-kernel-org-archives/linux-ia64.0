@@ -1,26 +1,55 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Wed, 08 Jan 2003 17:42:16 +0000
-Subject: Re: [Linux-ia64] IA-32 emulation issues
-Message-Id: <marc-linux-ia64-105590709805642@msgid-missing>
+From: "MAGENHEIMER,DAN (HP-FtCollins,ex1)" <dan_magenheimer@hp.com>
+Date: Thu, 16 Jan 2003 22:48:33 +0000
+Subject: [Linux-ia64] ia64_fls patch (asm-ia64/bitops.h)
+Message-Id: <marc-linux-ia64-105590709805705@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805630@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805630@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I think this has been fixed in 2.5 already: the problem was that the
-> x86 version of sys_open() ended up turning on the O_LARGEFILE flag,
-> which was wrong (I think Andi Kleen pointed this out, originally).
-> The fix was to add the sys32_open() wrapper.  I don't recall if this
-> has been added to 2.4.xx already.  If not, it probably ought to be
-> added.
+Here's a patch for a mistake in ia64_fls in bitops.h.  The result
+was incorrect (64) for inputs starting at 0xfffffffffffffc00.
+I've also fixed the comment and the return value (which was -65535!)
+for a zero input value.  According to davidm, existing calls don't use
+any of the "bad" input values so classify it as a bug waiting to happen.
 
-I copied this change from 2.5 into 2.4:
+This is on 2.4.20... I haven't looked at 2.5.x but I'd imagine
+the patch needs to be put there too.
 
-# 02/12/03      davidm@tiger.hpl.hp.com 1.786.149.17
-# ia64: For ia32 emulation, do not turn on O_LARGEFILE automatically
-#       on open().  Reported by Andi Kleen.
+This is my first post and my first patch... apologies in advance (and
+correct protocol pointers welcome) if anything goes wrong!
 
+Dan Magenheimer
+HP Laboratories Fort Collins
+
+==
+
+diff -Nur include/asm-ia64/bitops.h include-fix-ia64_ffs/asm-ia64/bitops.h
+--- include/asm-ia64/bitops.h	2003-01-02 11:38:26.000000000 -0700
++++ include-fix-ia64_ffs/asm-ia64/bitops.h	2003-01-16
+15:36:12.000000000 -0700
+@@ -283,17 +283,19 @@
+ #ifdef __KERNEL__
+ 
+ /*
+- * find_last_zero_bit - find the last zero bit in a 64 bit quantity
++ * find_last_set_bit - find the last set bit in a non-zero 64 bit quantity
+  * @x: The value to search
++ * returns -1 if the input is all zeroes, else the bit number of the most
++ * significant one-bit
+  */
+ static inline unsigned long
+ ia64_fls (unsigned long x)
+ {
+-	double d = x;
++	long double d = x;
+ 	long exp;
+ 
+ 	__asm__ ("getf.exp %0=%1" : "=r"(exp) : "f"(d));
+-	return exp - 0xffff;
++	return x ? (exp - 0xffff) : -1L;
+ }
+ 
+ /*
 
