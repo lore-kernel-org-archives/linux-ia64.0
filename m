@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 19 Jan 2005 18:52:42 +0000
+Date: Sun, 23 Jan 2005 03:05:12 +0000
 Subject: bk pull on ia64 linux tree
-Message-Id: <200501191852.j0JIqgP08897@unix-os.sc.intel.com>
+Message-Id: <200501230305.j0N35CT12199@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
 In-Reply-To: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
@@ -16,70 +16,366 @@ please do a
 
 	bk pull http://lia64.bkbits.net/linux-ia64-release-2.6.11
 
-This will update the files shown below.  Almost all of this has been
-in my "test" tree for a while (and thus in "-mm").
-
-I have one tiny generic change in here ... define a function "idle_task"
-in kernel/sched.c (and declare it in sched.h) that is part of Keith Owens'
-TIF_SIGDELAYED patch that ia64 uses in machine check processing to defer
-the sending of a signal from the exception code (where we cannot safely
-touch kernel structures) to the next return to userland.
+This will update the files shown below.
 
 Thanks!
 
 -Tony
 
- include/asm-ia64/sn/router.h              |  618 ------------------
- arch/ia64/Kconfig                         |   11 
- arch/ia64/kernel/asm-offsets.c            |   11 
- arch/ia64/kernel/efi.c                    |  180 +++--
- arch/ia64/kernel/entry.S                  |   15 
- arch/ia64/kernel/irq.c                    |  986 ------------------------------
- arch/ia64/kernel/irq_ia64.c               |    2 
- arch/ia64/kernel/mca.c                    |   18 
- arch/ia64/kernel/mca_asm.S                |   65 -
- arch/ia64/kernel/minstate.h               |    7 
- arch/ia64/kernel/salinfo.c                |   20 
- arch/ia64/kernel/setup.c                  |    3 
- arch/ia64/kernel/signal.c                 |  101 +++
- arch/ia64/kernel/time.c                   |    2 
- arch/ia64/lib/swiotlb.c                   |    4 
- arch/ia64/mm/contig.c                     |   12 
- arch/ia64/mm/discontig.c                  |   75 +-
- arch/ia64/mm/init.c                       |   65 +
- arch/ia64/sn/kernel/iomv.c                |   21 
- arch/ia64/sn/kernel/irq.c                 |    4 
- arch/ia64/sn/kernel/setup.c               |   55 +
- arch/ia64/sn/kernel/sn2/ptc_deadlock.S    |   24 
- arch/ia64/sn/kernel/sn2/sn2_smp.c         |   98 +-
- arch/ia64/sn/kernel/sn2/timer.c           |    5 
- arch/ia64/sn/kernel/sn2/timer_interrupt.c |    1 
- include/asm-ia64/hardirq.h                |    2 
- include/asm-ia64/hw_irq.h                 |    4 
- include/asm-ia64/kregs.h                  |    1 
- include/asm-ia64/mca.h                    |   36 -
- include/asm-ia64/mca_asm.h                |   35 +
- include/asm-ia64/msi.h                    |    1 
- include/asm-ia64/percpu.h                 |    2 
- include/asm-ia64/processor.h              |    4 
- include/asm-ia64/sal.h                    |    4 
- include/asm-ia64/signal.h                 |    2 
- include/asm-ia64/sn/addrs.h               |  387 ++++-------
- include/asm-ia64/sn/arch.h                |    3 
- include/asm-ia64/sn/klconfig.h            |    2 
- include/asm-ia64/sn/leds.h                |    1 
- include/asm-ia64/sn/nodepda.h             |    2 
- include/asm-ia64/sn/pda.h                 |   13 
- include/asm-ia64/sn/rw_mmr.h              |    9 
- include/asm-ia64/sn/shub_mmr.h            |  221 +++---
- include/asm-ia64/sn/sn_cpuid.h            |    5 
- include/asm-ia64/sn/sn_sal.h              |   53 +
- include/asm-ia64/thread_info.h            |   18 
- include/linux/sched.h                     |    1 
- kernel/sched.c                            |    9 
- 48 files changed, 1007 insertions(+), 2211 deletions(-)
+ arch/ia64/sn/include/shub.h         |   39 --
+ arch/ia64/configs/tiger_defconfig   |   59 +++-
+ arch/ia64/ia32/binfmt_elf32.c       |    6 
+ arch/ia64/ia32/sys_ia32.c           |    2 
+ arch/ia64/kernel/domain.c           |    5 
+ arch/ia64/kernel/efi.c              |    1 
+ arch/ia64/kernel/entry.S            |  188 ++++++++------
+ arch/ia64/kernel/entry.h            |   25 +
+ arch/ia64/kernel/fsys.S             |    5 
+ arch/ia64/kernel/gate.S             |    4 
+ arch/ia64/kernel/irq.c              |   50 ---
+ arch/ia64/kernel/irq_ia64.c         |    6 
+ arch/ia64/kernel/ivt.S              |   25 +
+ arch/ia64/kernel/mca.c              |    2 
+ arch/ia64/kernel/mca_drv.c          |    2 
+ arch/ia64/kernel/process.c          |    6 
+ arch/ia64/kernel/ptrace.c           |    7 
+ arch/ia64/kernel/smpboot.c          |    3 
+ arch/ia64/kernel/unwind.c           |    9 
+ arch/ia64/lib/bitop.c               |    2 
+ arch/ia64/mm/contig.c               |    2 
+ arch/ia64/pci/pci.c                 |    3 
+ arch/ia64/sn/kernel/bte_error.c     |    1 
+ arch/ia64/sn/kernel/irq.c           |   12 
+ arch/ia64/sn/kernel/setup.c         |    9 
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c |   46 +++
+ arch/ia64/sn/pci/pci_dma.c          |  480 +++++++++++-------------------------
+ drivers/char/drm/drm_vm.c           |   12 
+ drivers/video/fbmem.c               |    9 
+ include/asm-ia64/bitops.h           |    2 
+ include/asm-ia64/hw_irq.h           |   16 -
+ include/asm-ia64/machvec.h          |   15 -
+ include/asm-ia64/machvec_init.h     |    2 
+ include/asm-ia64/machvec_sn2.h      |    4 
+ include/asm-ia64/pal.h              |   20 +
+ include/asm-ia64/sal.h              |    2 
+ include/asm-ia64/sn/sn_cpuid.h      |    1 
+ include/asm-ia64/uaccess.h          |    2 
+ include/asm-ia64/unistd.h           |    2 
+ include/linux/efi.h                 |   21 +
+ 40 files changed, 500 insertions(+), 607 deletions(-)
 
 through these ChangeSets:
+
+<tony.luck@intel.com> (05/01/22 1.2017)
+   [IA64] clean up loose ends from addition of efi_range_is_wc()
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<tony.luck@intel.com> (05/01/22 1.2016)
+   [IA64] irq handling cleanup
+   
+   Patch from Christoph Hellwig to:
+   - irq_desc and irq_to_vector machvecs.  SN2 has it's own versions,
+     but they're the same as the generic ones
+   - kill do do_IRQ and use __do_IRQ directly everywhere
+   - kill dead X86 ifdefs
+   - move some variable declarations around in irq.c to recuce # of ifdefs
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<jbarnes@sgi.com> (05/01/22 1.2015)
+   [IA64] remove superfluous layer from sn2 DMA API
+   
+   When I converted the sn2 code over to the new DMA API, I left the old routines
+   in place and added wrappers to call them from the generic DMA API functions.
+   This added an unnecessary level of obfuscation since the generic ia64 code
+   calls those functions when any of the old style PCI DMA API functions are
+   called.  This patch rectifies the problem making the code much easier to
+   understand and hopefully a little more efficient (though I'm sure gcc was
+   already inlining things pretty well, there were a bunch of unnecessary checks
+   that I took this opportunity to remove).  It also shrinks the size of the sn2
+   pci_dma.c quite a bit.
+    
+     pci_dma.c |  480 +++++++++++++++++++-----------------------------------------
+     1 files changed, 151 insertions(+), 329 deletions(-)
+       
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<jbarnes@sgi.com> (05/01/22 1.2014)
+   [IA64] fix early SAL init for sn2
+   
+   sn2 does early initialization of the SAL so it can use it for early console
+   support.  Unfortunately, the loop to find the SAL entry point was buggy so
+   when we tried out new EFI and SAL system table layouts, the loop didn't
+   terminate.  Here's the fix (doh!, use two different loop counters instead of
+   one and just return if we find the SAL entry point).
+    
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<jbarnes@sgi.com> (05/01/22 1.2013)
+   [IA64] new api efi_range_is_wc()
+   
+   Ok, here you go Tony.  This one fixes the loop and also fixes drm_vm.c.  All
+   of the bits aside from the efi.h bit are ia64 specific (either under
+   arch/ia64 or __ia64__), so your tree is probably the right place for all of
+   it.
+    
+   This patch adds efi_range_is_wc() to efi.h.  It's used to determine whether an
+   address range can be mapped with the write coalescing attribute.  It also
+   fixes up some ia64 specific callers to use the new routine instead of
+   unconditionally calling pgprot_writecombined, which can be dangerous if used
+   on ranges that don't support it.
+   
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<jes@trained-monkey.org> (05/01/22 1.2012)
+   [IA64] fix PAL_PREFETCH_VISIBILITY call
+   
+   The following patch fixes the ia64_pal_prefetch_visibility function to
+   take a transaction type argument for either virtual or physical memory
+   as specified in the System Architechture Manual page 2:358.
+    
+   Signed-Off-By: Jes Sorensen <jes@trained-monkey.org>
+   Signed-Off-By: Tony Luck <tony.luck@intel.com>
+
+<eranian@hpl.hp.com> (05/01/22 1.2011)
+   [IA64] entry.S: perfmon psr.pp fix
+   
+   Problem:
+   	There exists a case where we stop monitoring, i.e. clear
+   	psr.pp/dcr.pp, via IPI. This is when the stop is triggered
+   	by a close(), either explicit in the application or implicit
+   	via exit_files(). The IPI is necessary because at the time the
+   	thread (controlling the context) issues a close() it may not run
+   	on the CPU the context is bound to. Yet the call must succeed,
+   	hence we need to propagate the call to the right CPU.
+   	But what is the problem then?
+   	Under IPI, we invoke a perfmon routine which clear the kernel
+   	(live) kernel psr.pp bit and also dcr.pp. Then we return from
+   	the function and execute the kernel exit path which restores
+   	the interrupted state. Unfortunately, this restores the kernel
+   	psr from ipsr which now contains a stale value. Therefore
+   	monitoring in the kernel will be active even though we stopped it.
+   	You cannot modify the "global" psr in an interrupt routine because
+   	it will be systematically restored on the way back.
+   	
+   Solution:
+   	We need to patch ipsr.pp in the kernel exit path to reflect the
+   	kernel value of the kernel psr.pp bit. This must be done only when
+   	returning to kernel. 
+   
+   	The proposed patch does patch ipsr.pp such that it is identical
+   	to psr.pp. The patch is subtle because the exit path does not have
+   	a lot of free registers and also because we need to schedule for
+   	a psr read. I had to shuffle  things around a little bit.
+   
+   	The patch is important because there will be another situation where
+   	this problem can occur once we incorporate the support for event set
+   	and multiplexing. In this configuration, you may be in the middle of
+   	the idle loop and on a timer interrupt, you may stop monitoring.
+   	Slightly different condition, yet same problem with ipsr.pp vs. psr.pp.
+   
+   
+   Changelog:
+   	- update kernel exit path when returning to kernel to copy
+   	psr.pp to ipsr.pp. This is necesary to ensure that if psr.pp
+   	was modified during the kernel entry, the change is propagated
+   	the the psr.pp of the of the interrupted thread. Psr.pp can
+   	be modified as a consequence of an IPI under certain conditions,
+   	such as when a system-wide context is closed from a remote CPU.
+   
+   Special thanks to David for reworking the patch to fit
+   into the enhanced exit path.
+   
+   signed-off-by: stephane eranian <eranian@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<tony.luck@intel.com> (05/01/22 1.2010)
+   [IA64] clean up ptrace corner cases
+   
+   Patch from yanmin.zhang@intel.com to fix up some corner cases
+   in ptrace.  Many thanks to davidm for reviewing and improving.
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<tony.luck@intel.com> (05/01/22 1.2009)
+   [IA64] mca.c: delete unused "return_to_sal" label
+   
+   Label is unused, and so the compiler generates a warning.
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.2008)
+   [IA64] entry.S update the copyright year & fix a comment
+   
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.2007)
+   [IA64] Use srlz.d instead of srlz.i in ia64_leave_syscall
+   
+   Use srlz.d instead of srlz.i.  Safe because we don't care whether
+   the VHPT walker sees the clearing of PSR.ic (if it does, that's fine
+   if it doesn't, it's OK too since the kernel-text is pinned anyhow).
+   Good for another 11+ cycles in (normal) getpid().
+   
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.2006)
+   [IA64] Improve ia64_leave_syscall() for McKinley-type cores.
+   
+   Optimize ia64_leave_syscall() a bit better for McKinley-type cores.
+   The patch looks big, but that's mostly due to renaming r16/r17 to r2/r3.
+   Good for a 13 cycle improvement.
+    
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.2005)
+   [IA64] Resched skip_rbs_switch to run 4 cycles faster on McKinley-type cores
+   
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.2004)
+   [IA64] entry.S: Align rse_clear_invalid to double-bundle boundary.
+   
+   Trivial patch: align rse_clear_invalid to 32-byte boundary.  Good for
+   a 9 cycle speed up.
+   
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.2003)
+   [IA64] Don't forget to initialize PKStk for kernel-threads
+   
+   Kernel-threads had both pUStk and pKStk set to FALSE, which was
+   unintentional.  I don't think the bug has shown any ill effects, but
+   it's clearly wrong and could come around to bite us later, so let's
+   fix it now.  Depends on the previous patch to clean up C usage of the
+   global/root-function predicates.
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.2002)
+   [IA64] cleanup C uage of global/root-function predicates
+    
+   The patch below is purely a cleanup but it's a prerequisite for the
+   next bug fix patch.
+      
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<nacc@us.ibm.com> (05/01/22 1.2001)
+   [IA64] smpboot.c: use msleep(100) instead of inlined equivalent
+   
+   Use msleep() instead of schedule_timeout() to guarantee the task
+   delays as expected.
+   
+   Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<rja@sgi.com> (05/01/22 1.2000)
+   [IA64] increase limit on #pages to isolate for MCA errors
+   
+   The fixed sized array of pages that are isolated because of 2xECC
+   memory errors can run out.  Increasing the size of the array is a
+   band-aid measure, the real fix will require changes to generic code
+   to add some bits to page_flags so that pages with errors can be
+   marked so as to prevent them ever being examined.
+   
+   Signed-off-by: Russ Anderson <rja@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.1999)
+   [IA64] sys_ia32.c: add missing __user annotation for sparse
+   
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<kaos@sgi.com> (05/01/22 1.1998)
+   [IA64] Sanity check unw_unwind_to_user
+   
+   Signed-off-by: Keith Owens <kaos@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.1997)
+   [IA64] domain.c: eliminate warning when compiling CONFIG_NUMA=n
+   
+   When compiling for non-NUMA variable "node" ended up not being used,
+   which solicits a warning from GCC.  Fix is to evluate cpu_to_node(i)
+   in place.  This has the effect of doing cpu_to_node(i) twice on NUMA,
+   but this is init code, so performance is not an issue (and even if
+   it were, you can just declare cpu_to_node() as being a pure function,
+   so the compiler can eliminate the second call).
+   
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<davidm@hpl.hp.com> (05/01/22 1.1996)
+   [IA64] uaccess.h: add missing __user annotation for sparse
+   
+   I was getting a lot of spurious warnings with "make C=1", due to a
+   missing "__user" attribute.  I'm not sure whether this got lost or
+   whether earlier versions of sparse failed to warn about it, but it's
+   clearly needed (and the i386 version of uaccess.h does the same).
+   	    
+   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<tony.luck@intel.com> (05/01/22 1.1995)
+   [IA64] binfmt_elf32.c: BUG if insert_vm_struct fails
+   
+   It seems that in ia64_elf32_init, instead of calling return, if we insert
+   an overlapping vma, we should instead BUG(). We should never get into this
+   code path, because the vma's are set above PAGE_OFFSET, and thus a
+   Xmalicious user can not trigger this code path. This change is being
+   suggested mainly for clarity. Thanks to Stephen Tweedie for pointing out
+   that returning early in ia64_elf32_init could have unpredictable results.
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<markgw@sgi.com> (05/01/22 1.1994)
+   [IA64] fix SN2 hwperf error handling
+   
+   Fix the error handling for the SN2 hardware perf ioctl interface.
+    
+   Signed-off-by: Mark Goodwin <markgw@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<steiner@sgi.com> (05/01/22 1.1993)
+   [IA64] Delete: arch/ia64/sn/include/shub.h
+   
+   Signed-off-by: Jack Steiner <steiner@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<steiner@sgi.com> (05/01/22 1.1992)
+   [IA64] Delete duplicate SN2 definition of cpu_logical_id for UP build
+   
+   Signed-off-by: Jack Steiner <steiner@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<bob.picco@hp.com> (05/01/22 1.1991)
+   [IA64] fix declaration of __find_next_zero_bit, first arg is "const"
+   
+   Signed-off-by: Bob Picco <bob.picco@hp.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<tony.luck@intel.com> (05/01/22 1.1990)
+   [IA64] tiger_defconfig: updated for 2.6.11-rc2
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<tony.luck@intel.com> (05/01/19 1.1986)
+   [IA64] two trivial build fixes for generic uniprocessor
+   
+   Patches supplied by Dann Frazier.
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
 
 <rja@sgi.com> (05/01/18 1.1984)
    [IA64] contig.c save physical address of MCA save area
@@ -90,267 +386,5 @@ through these ChangeSets:
    MCA save area.  This patch fixes that problem.
     
    Signed-off-by: Russ Anderson <rja@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<rddunlap@osdl.org> (05/01/14 1.1975.48.1)
-   [IA64/X86_64] swiotlb.c: fix gcc printk warning
-   
-   swiotlb: Fix gcc printk format warning on x86_64, OK for ia64:
-   arch/ia64/lib/swiotlb.c:351: warning: long unsigned int format, long
-   long unsigned int arg (arg 2)
-   
-   Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<steiner@sgi.com> (05/01/11 1.1982)
-   [IA64-SGI] Delete unneeded SN2 header file router.h
-   
-   Delete unused header file. The file became obsolete after the
-   IO reorg code was completed.
-    
-   Signed-off-by: Jack Steiner <steiner@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<steiner@sgi.com> (05/01/11 1.1981)
-   [IA64-SGI] Update SN2 code for running on simulator
-      
-   Update the hack in sn_io_addr() that is used when running on the
-   system simulator. The change is needed for running on systems with
-   the new shub2 chipset.
-   
-   Note that this change affects simulator runs only.
-   
-   Signed-off-by: Jack Steiner <steiner@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<rja@sgi.com> (05/01/07 1.1980)
-   [IA64] correct PERCPU_MCA_SIZE and ia64_init_stack size
-   
-     * PERCPU_MCA_SIZE was the size of the wrong structure.
-     * ia64_init_stack was larger than necessary.
-   
-   Signed-off-by: Russ Anderson <rja@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<tony.luck@intel.com> (05/01/07 1.1979)
-   [IA64] Use alloc_bootmem() to get the space for mca_data.
-   
-   PERCPU_MCA_SIZE is not a power of two, so is unsuited to be used as the 'align'
-   argument to __alloc_bootmem().  In fact we don't need any special alignment for
-   this structure, so we can use the simpler alloc_bootmem() macro interface to the
-   allocator.
-   
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<rja@sgi.com> (05/01/06 1.1978)
-   [IA64] Fix problems in per cpu MCA code.
-   
-   * K.3 was not getting set on all cpus.
-   
-   * The pointer to each cpu's mca save area was getting incremented
-     before being set, with the result that the last cpu's pointer
-     was wrong.
-   
-   * Made contig.c changes corresponding to earlier discontig.c changes.
-   
-   * An offset into cpuinfo_ia64 structure was wrong in mca_asm.S.
-   
-   Special thanks to Keith Owens for helping test and identify problems.
-   
-   Signed-off-by: Russ Anderson <rja@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<steiner@sgi.com> (05/01/06 1.1977)
-   [IA64] Stagger the addresses of the pernode data structures to minimize cache aliasing.
-   
-   Allocation of pernode structures in find_pernode_space() does not
-   properly stagger the alignment of the pgdats. This causes
-   aliasing of the structures in the L3 caches, ie. the same fields
-   in pgdat structures for multiple nodes will index to same cache
-   index in the L3. 
-   
-   If a process is allocating a huge amount of space & many nodes must 
-   be scanned before finding a node with available space, allocation 
-   of a pages is significantly slowed by excessive cache misses.
-   
-   By properly staggering the locations of the pgdat structures, allocation
-   times on insanely large systems is dramatically improved. On a 256 node
-   512GB system, allocation of 450 GB by a single process was reduced 
-   from 1510 sec to 220 sec - a 7X improvement.
-   
-   Aside from wasting a trivial amount of space, I don't see any 
-   downside to staggering the allocation by 1 cacheline per node.
-   
-   	wasted space
-   		bytes = N * (N-1) * 64
-   
-   	For 64 node system
-   		wasted bytes = ~256K
-   
-   Signed-off-by: Jack Steiner <steiner@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<kaos@sgi.com> (04/12/13 1.1938.435.11)
-   [IA64] Drop SALINFO_TIMER_DELAY from 5 minutes to 1 minute
-   
-   Experience with recoverable MCA events shows that a poll interval of 5
-   minutes for new MCA/INIT records is a bit too long.  Drop the poll
-   interval to one minute.
-   
-   Signed-off-by: Keith Owens <kaos@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<kaos@sgi.com> (04/12/13 1.1938.435.10)
-   [IA64] Clear all corrected records as they occur
-   
-   Because MCA events are not irq safe, they cannot be logged via
-   salinfo_decode at the time that they occur.  Instead kernel salinfo.c
-   runs a timer every few minutes to check for and to clear corrected MCA
-   records.  If a second recoverable MCA occurs on the same cpu before
-   salinfo_decode has cleared the first record then OS_MCA reads the
-   record for the first MCA from SAL, which passes invalid data to the MCA
-   recovery routines.
-   
-   This patch treats all corrected records the same way, by clearing the
-   records from SAL as soon as they occur.  CMC and CPE records are
-   cleared as they are read.  Recoverable MCA records are cleared at the
-   time that we decide they can be corrected.  If salinfo_decode is not
-   running or is backlogged then we lose some logging, but that has always
-   been the case for corrected errors.
-   
-   Signed-off-by: Keith Owens <kaos@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<kaos@sgi.com> (04/12/13 1.1938.435.9)
-   [IA64] Add TIF_SIGDELAYED, delay a signal until it is safe
-   
-   Some of the work on recoverable MCA events has a requirement to send a
-   signal to a user process.  But it is not safe to send signals from
-   MCA/INIT/NMI/PMI, because the rest of the kernel is an unknown state.
-   This patch adds set_sigdelayed() which is called from the problem
-   contexts to set the delayed signal.  The delayed signal will be
-   delivered from the right context on the next transition from kernel to
-   user space.
-   
-   If TIF_SIGDELAYED is set when we run ia64_leave_kernel or
-   ia64_leave_syscall then the delayed signal is delivered and cleared.
-   All code for sigdelayed processing is on the slow paths.
-   
-   A recoverable MCA handler that wants to kill a user task just does
-   
-     set_sigdelayed(pid, signo, code, addr);
-   
-   Signed-off-by: Keith Owens <kaos@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<tony.luck@intel.com> (04/12/10 1.1938.435.8)
-   [IA64] hardirq.h: Add declaration for ack_bad_irq().
-   
-   Cleanup a warning from my irq merge.
-   
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<rja@sgi.com> (04/12/10 1.1938.435.7)
-   [IA64] per cpu MCA/INIT save areas
-   
-     Linux currently has one MCA & INIT save area for saving
-     stack and other data.  This patch creates per cpu MCA 
-     save areas, so that each cpu can save its own MCA stack 
-     data.  CPU register ar.k3 is used to hold a physical 
-     address pointer to the cpuinfo structure.  The cpuinfo
-     structure has a physical address pointer to the MCA save 
-     area.  The MCA handler runs in physical mode and the 
-     physical address pointer avoids the problems associated
-     with doing the virtual to physical translation.
-   
-     The per MCA save areas replace the global areas defined
-     in arch/ia64/kernel/mca.c for MCA processor state dump, 
-     MCA stack, MCA stack frame, and MCA bspstore.
-   
-     The code to access those save areas is updated to use the
-     per cpu save areas.
-   
-     No changes are made to the MCA flow, ie all the old locks
-     are still in place.  The point of this patch is to establish
-     the per cpu save areas.  Additional usage of the save areas,
-     such as enabling concurrent INIT or MCA handling, will be
-     the subject of other patches.
-   
-   Signed-off-by: Russ Anderson <rja@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<steiner@sgi.com> (04/12/10 1.1938.435.6)
-   [IA64] Cachealign jiffies_64 to prevent unexpected aliasing in the caches.
-   
-   On large systems, system overhead on cpu 0 is higher than on other
-   cpus. On a completely idle 512p system, the average amount of system time 
-   on cpu 0 is 2.4%  and .15% on cpu 1-511.
-   
-   A second interesting data point is that if I run a busy-loop
-   program on cpus 1-511, the system overhead on cpu 0 drops 
-   significantly.
-   
-   I moved the timekeeper to cpu 1. The excessive system time moved
-   to cpu 1 and the system time on cpu 0 dropped to .2%.
-   
-   Further investigation showed that the problem was caused by false
-   sharing of the cacheline containing jiffies_64. On the kernel that
-   I was running, both jiffies_64 & pal_halt share the same cacheline.
-   Idle cpus are frequently accessing pal_halt. Minor kernel
-   changes (including some of the debugging code that I used to find the 
-   problem :-(  ) can cause variables to move & change the false sharing - the
-   symptoms of the problem can change or disappear.
-   
-   Signed-off-by: Jack Steiner <steiner@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<steiner@sgi.com> (04/12/10 1.1938.435.4)
-   [IA64-SGI] Add support for a future SGI chipset (shub2) 4of4
-   
-   Change the code that manages the LEDs so that it
-   works on both shub1 & shub2.
-   
-   Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-<steiner@sgi.com> (04/12/10 1.1938.435.3)
-   [IA64-SGI] Add support for a future SGI chipset (shub2) 3of4
-   
-   Change the IPI & TLB flushing code so that it works on
-   both shub1 & shub2.
-   
-   Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-<steiner@sgi.com> (04/12/10 1.1938.435.2)
-   [IA64-SGI] Add support for a future SGI chipset (shub2) 2of4
-   
-   This patch adds the addresses of shub2 MMRS to the shub_mmr
-   header file. During boot, a SAL call is made to determine the
-   type of the shub. Platform initialization sets the appropriate
-   MMR addresses for the platform.
-   
-   A new macro (is_shub1() & is_shub2()) can be used at runtime to
-   determine the type of the shub.
-   
-   Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-<steiner@sgi.com> (04/12/10 1.1938.435.1)
-   [IA64-SGI] Add support for a future SGI chipset (shub2) 1of4
-   
-   This patch changes the SN macros for calulating the addresses
-   of shub MMRs. Functionally, shub1 (current chipset) and shub2
-   are very similar. The primary differences are in the addresses
-   of MMRs and in the location of the NASID (node number) in
-   a physical address. This patch adds the basic infrastructure
-   for running a single binary kernel image on either shub1 or shub2.
-   
-   Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-<tony.luck@intel.com> (04/11/23 1.1938.391.1)
-   [IA64] convert to use CONFIG_GENERIC_HARDIRQS
-   
-   Convert ia64 to use generic irq handling code.
-   
-   sn2 fixes and testing by Jesse Barnes
-   
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
