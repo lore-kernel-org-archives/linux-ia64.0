@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 11 Dec 2001 00:01:29 +0000
+From: Chris McDermott <lcm@us.ibm.com>
+Date: Tue, 11 Dec 2001 19:15:11 +0000
 Subject: Re: [Linux-ia64] Hard "hangs" with 2.4.16
-Message-Id: <marc-linux-ia64-105590698805674@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805683@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805665@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805665@msgid-missing>
@@ -10,15 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 10 Dec 2001 14:49:45 -0800, Chris McDermott <lcm@us.ibm.com> said:
+David,
 
-  Chris> Jack,
-  Chris> Looks like my problem is something else. This patch didn't
-  Chris> correct the problem.
+Thanks for the suggestion. The latest F/W I have is 97B. I upgraded to 
+this revision and it fixed the problem. It appears that anyone wishing 
+to run Linux kernels > 2.4.10 on Intel Lion SDVs must use an unsupported
+BIOS.  Intel, through their Merced SDV program, will apparently not 
+support a BIOS greater than 83B. The later BIOS builds are reserved for 
+use on OEM platforms only. So, I would assume that if you do install
+the unsupported BIOS and your SDV dies, you would not be able to get
+support from Intel. Would anyone from Intel care to confirm this?
 
-My guess is you need newer firmware.  Try 99 or whatever else is the
-latest.  (This firmware may still be hard to get; I didn't check
-recently.)
+Thanks,
 
-	--david
+Chris
+
+On Mon, Dec 10, 2001 at 16:01 -0800, David Mosberger wrote: 
+> >>>>> On Mon, 10 Dec 2001 14:49:45 -0800, Chris McDermott <lcm@us.ibm.com> said:
+> 
+>   Chris> Jack,
+>   Chris> Looks like my problem is something else. This patch didn't
+>   Chris> correct the problem.
+> 
+> My guess is you need newer firmware.  Try 99 or whatever else is the
+> latest.  (This firmware may still be hard to get; I didn't check
+> recently.)
+> 
+> 	--david
 
