@@ -1,39 +1,43 @@
-From: Nathan Straz <nstraz@sgi.com>
-Date: Fri, 15 Dec 2000 22:43:41 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.4.0-test12)
-Message-Id: <marc-linux-ia64-105590678205858@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 05 Dec 2000 21:17:14 +0000
+Subject: Re: [Linux-ia64] Information about EFI.
+Message-Id: <marc-linux-ia64-105590678205786@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205111@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
+References: <marc-linux-ia64-105590678205775@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205775@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Dec 14, 2000 at 09:00:58PM -0800, David Mosberger wrote:
-> in files linux-2.4.0-test12-ia64-001214.diff*
-> 
-> supposed to.  Thus, I'd like to see everyone giving this kernel a good
-> workout and to report any new problems.
+>>>>> On Tue, 28 Nov 2000 14:42:42 +0530, "Sapariya Manish.j" <S.Manish@zensar.com> said:
 
-The kernel boots on my B1 BigSur, but it locks up as soon as I touch the
-root file system after remounting it rw.  Sometimes I have SysRq access
-for a few seconds, sometimes not.  No messages, no oops, just a good
-solid hang.  Anyone else having trouble?
+  Sapariya> Hi all, I dont know whethere this is the correct place to
+  Sapariya> ask this question or not but i couldnt get it anywhere
+  Sapariya> else.
 
-I booted up with init=/bin/bash and followed along with
-/etc/rc.d/rc.sysinit. 
+  Sapariya> The question is about EFI bios32/ia64 emulator for 32 bit
+  Sapariya> systems.
 
-mount -n -o remount,rw /	// Works fine
->/etc/mtab			// locks the system. 
+  Sapariya> I want to write a exception handler for my application
+  Sapariya> written in EFI.  Right now i dont have access to 64 bit
+  Sapariya> machine thats why i am trying it on 32 bit machine.
 
-I tried "rm /etc/mtab" for the fun of it (after remounting) and it
-locked, but after the system came back up and fscked it found the
-unlinked inode and placed it in /lost+found is all data intact.  
+  Sapariya> But i could nt get any information about how could i do
+  Sapariya> it.
 
-Anyone else running into problems?
--- 
-Nate Straz                                              nstraz@sgi.com
-sgi, inc                                           http://www.sgi.com/
-Linux Test Project                    http://oss.sgi.com/projects/ltp/
+  Sapariya> Any suggestions will be of great help.
+
+Intel has (had?) an EFI implementation for IA-32 machines.  You put
+that on a floppy disk, boot the system with it, and you get an EFI
+prompt (nshell prompt, to be exact).  From there you can launch your
+own EFI programs.  The GNU EFI support has support for building IA-32
+EFI applications, but it hasn't been tested in a while (not since I
+got IA-64 hw to play with, to be exact).  However, provided you have a
+toolchain that builds valid IA-64 EFI applications, I think it's very
+likely that the IA-32 side will also work, so it may be worth a try.
+
+Hope this helps,
+
+	--david
 
