@@ -1,7 +1,7 @@
-From: Tim Cutts <tjrc@sanger.ac.uk>
-Date: Fri, 21 Jan 2005 11:34:26 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 24 Jan 2005 19:19:35 +0000
 Subject: Re: glibc-2.3.2 NPTL caveat
-Message-Id: <67FE6B74-6BA0-11D9-A318-000A95B2B140@sanger.ac.uk>
+Message-Id: <16885.19015.970909.435210@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16879.19106.549352.469688@napali.hpl.hp.com>
 In-Reply-To: <16879.19106.549352.469688@napali.hpl.hp.com>
@@ -10,31 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>>>>> On Fri, 21 Jan 2005 11:34:26 +0000, Tim Cutts <tjrc@sanger.ac.uk> said:
 
-On 20 Jan 2005, at 6:07 am, David Mosberger wrote:
+  Tim> That explains a lot of problems we had with MySQL crashing
+  Tim> almost instantly on startup on IA64 machines too.  So what
+  Tim> needs to be done?  Is it as simple a fix as always compiling
+  Tim> ld-linux with the larger of the two thread struct sizes? (he
+  Tim> says, extremely naively, since this is the sort of thing in
+  Tim> Linux that he has no clue about whatsoever - it comes under the
+  Tim> heading of "scary stuff you leave to Really Clever People to
+  Tim> think about" :-)
 
-> We just discovered a nasty bug in glibc-2.3.2 which can lead to
-> "random" memory corruption in multi-threaded applications using NPTL.
-> This definitely affects Debian/{testing,unstable}, but it may affect
-> other distros as well.  I also believe that the CVS glibc still has
-> this bug, so I suspect it's not just glibc-2.3.2 that's affected.
->
-> For details, see:
->
->   http://sources.redhat.com/bugzilla/show_bug.cgi?idh5
+I _think_ the correct fix is to ask the thread-library what the
+correct offset/size is, but I'm unsure if the infrastructure needed to
+do so is already there.
 
-That explains a lot of problems we had with MySQL crashing almost 
-instantly on startup on IA64 machines too.  So what needs to be done?  
-Is it as simple a fix as always compiling ld-linux with the larger of 
-the two thread struct sizes? (he says, extremely naively, since this is 
-the sort of thing in Linux that he has no clue about whatsoever - it 
-comes under the heading of "scary stuff you leave to Really Clever 
-People to think about"  :-)
-
-Tim
-
--- 
-Dr Tim Cutts
-Informatics Systems Group, Wellcome Trust Sanger Institute
-GPG: 1024D/E3134233 FE3D 6C73 BBD6 726A A3F5  860B 3CDD 3F56 E313 4233
-
+	--david
