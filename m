@@ -1,63 +1,36 @@
-From: Matt Tolentino <metolent@unix-os.sc.intel.com>
-Date: Sat, 12 Jul 2003 02:00:02 +0000
-Subject: [PATCH] remove pa->va->pa conversion for efi.acpi
-Message-Id: <marc-linux-ia64-105797540229907@msgid-missing>
+From: "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
+Date: Thu, 17 Jul 2003 17:43:19 +0000
+Subject: RE: [PATCH] remove pa->va->pa conversion for efi.acpi
+Message-Id: <marc-linux-ia64-105846382809995@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105797540229907@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105797540229907@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David, Andy,
+David,
 
-During ia64 kernel initialization, the physical address of the ACPI tables is passed via the EFI Configuration Table.  In efi_init() the address is stored as a virtual address in the kernel's efi structure.  Later when ACPI is initialized, these are converted back to physical addresses in acpi_find_rsdp() and acpi_os_get_root_pointer().   
+> I'm OK with the change in principle, but the patch as sent is
+> unacceptable because it leaves "acpi" and "acpi20" declared 
+> as "void *"
+> (in struct efi").  If you want them to by physical addresses, this
+> should be changed to "unsigned long" (or perhaps u32 for acpi and u64
+> for acpi20?).  It would be good to rename the members as well (e.g.,
+> acpi_phys_addr/acpi20_phys_addr) to make sure that old code will
+> break at compile-time, not at run-time.
 
-This patch (against 2.5.75) removes the macro to store the address as virtual and removes the macros doing the reverse conversion back to physical.  As I'm currently working on a patch to add support for booting and initializing  IA-32 kernels from EFI, this simplifies the changes to drivers/acpi/osl.c to also get the physical address.  Fwiw, I was able to boot a slightly older 2.5.69 kernel on an Itanium II system w/o issue with this patch...
+Sounds good.  I've changed these to unsigned long and added the phys_addr to the names...
+
+> Does ACPI really guarantee that the table is never stored at physical
+> address 0?  If not, then leaving it as a virtual address might be
+> safer.  (Yes, I know it's very unlikely for today's system, but at
+> least on ia64, pfn 0 is normal RAM so it seems at least in principle
+> possible to store the ACPI table there).
+> 
+
+No guarantee that I could find...I suppose this is technically possible. :)  However, considering the ACPI routines expect a physical address and thus immediately map it to get the descriptor (either directly with virt_to_phys or via ioremap), this seems redundant.  Given the mapping scheme employed, is this still risky?  I'd like to reuse the same code path for ia32, but don't want to break ia64.     
 
 thanks,
-matt
-
-
-diff -urN linux-2.5.75/arch/ia64/kernel/acpi.c linux-2.5.75-acpi/arch/ia64/kernel/acpi.c
---- linux-2.5.75/arch/ia64/kernel/acpi.c	2003-07-10 13:09:03.000000000 -0700
-+++ linux-2.5.75-acpi/arch/ia64/kernel/acpi.c	2003-07-11 15:20:42.000000000 -0700
-@@ -568,7 +568,7 @@
- 	unsigned long rsdp_phys = 0;
- 
- 	if (efi.acpi20)
--		rsdp_phys = __pa(efi.acpi20);
-+		rsdp_phys = efi.acpi20;
- 	else if (efi.acpi)
- 		printk(KERN_WARNING PREFIX "v1.0/r0.71 tables no longer supported\n");
- 	return rsdp_phys;
-diff -urN linux-2.5.75/arch/ia64/kernel/efi.c linux-2.5.75-acpi/arch/ia64/kernel/efi.c
---- linux-2.5.75/arch/ia64/kernel/efi.c	2003-07-10 13:04:43.000000000 -0700
-+++ linux-2.5.75-acpi/arch/ia64/kernel/efi.c	2003-07-11 15:20:27.000000000 -0700
-@@ -525,10 +525,10 @@
- 			efi.mps = __va(config_tables[i].table);
- 			printk(" MPS=0x%lx", config_tables[i].table);
- 		} else if (efi_guidcmp(config_tables[i].guid, ACPI_20_TABLE_GUID) = 0) {
--			efi.acpi20 = __va(config_tables[i].table);
-+			efi.acpi20 = config_tables[i].table;
- 			printk(" ACPI 2.0=0x%lx", config_tables[i].table);
- 		} else if (efi_guidcmp(config_tables[i].guid, ACPI_TABLE_GUID) = 0) {
--			efi.acpi = __va(config_tables[i].table);
-+			efi.acpi = config_tables[i].table;
- 			printk(" ACPI=0x%lx", config_tables[i].table);
- 		} else if (efi_guidcmp(config_tables[i].guid, SMBIOS_TABLE_GUID) = 0) {
- 			efi.smbios = __va(config_tables[i].table);
-diff -urN linux-2.5.75/drivers/acpi/osl.c linux-2.5.75-acpi/drivers/acpi/osl.c
---- linux-2.5.75/drivers/acpi/osl.c	2003-07-10 13:13:05.000000000 -0700
-+++ linux-2.5.75-acpi/drivers/acpi/osl.c	2003-07-11 15:21:18.000000000 -0700
-@@ -142,9 +142,9 @@
- #ifdef CONFIG_ACPI_EFI
- 	addr->pointer_type = ACPI_PHYSICAL_POINTER;
- 	if (efi.acpi20)
--		addr->pointer.physical = (acpi_physical_address) virt_to_phys(efi.acpi20);
-+		addr->pointer.physical = (acpi_physical_address) efi.acpi20;
- 	else if (efi.acpi)
--		addr->pointer.physical = (acpi_physical_address) virt_to_phys(efi.acpi);
-+		addr->pointer.physical = (acpi_physical_address) efi.acpi;
- 	else {
- 		printk(KERN_ERR PREFIX "System description tables not found\n");
- 		return AE_NOT_FOUND;
+matt   
