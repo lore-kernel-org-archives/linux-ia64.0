@@ -1,48 +1,79 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 28 Jul 2003 20:39:32 +0000
-Subject: bk pull on ia64 linux tree
-Message-Id: <marc-linux-ia64-105942507026161@msgid-missing>
+From: Christopher Wedgwood <cw@sgi.com>
+Date: Tue, 22 Jul 2003 00:43:54 +0000
+Subject: [PATCH] (2.4.x bk) efi_memmap_walk_uc
+Message-Id: <marc-linux-ia64-105883467032028@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+Hi,
 
-please do a
+On SN2 we have a 'fetchop' driver which does various magical things
+with uncached memory (atomic operations within or across partitions).
 
-	bk pull http://lia64.bkbits.net/to-linus-2.5
+To support this we have efi_memmap_walk_uc defined in a very similar
+way to efi_memmap_walk.
 
-This fixes a stupid typo and works around a problem caused by a recent
-ACPI change by moving the bootmem initialization before ACPI
-initialization.  Together with a three-liner change to the ACPI
-subsystem (attached below for the benefit of the linux-ia64 list),
-this makes 2.6.0-test2 work on ia64.
+How do people feel about merging this in the generic code (rather than
+hiding it away in the driver or something more complex like
+abstraction and changes to the current efi code)?
 
-Thanks!
+I'd also like to see a version of this in 2.5.x.
 
-	--david
 
- arch/ia64/kernel/setup.c |    3 +--
- include/asm-ia64/io.h    |    2 +-
- 2 files changed, 2 insertions(+), 3 deletions(-)
+ arch/ia64/kernel/efi.c |   27 +++++++++++++++++++++++++++
+ include/linux/efi.h    |    1 +
+ 2 files changed, 28 insertions(+)
 
-through these ChangeSets:
 
-<davidm@tiger.hpl.hp.com> (03/07/26 1.1486)
-   ia64: Two small fixes to make ia64 build & work again.
 
-=== drivers/acpi/pci_irq.c 1.18 vs edited ==--- 1.18/drivers/acpi/pci_irq.c	Wed Jun 11 09:54:02 2003
-+++ edited/drivers/acpi/pci_irq.c	Sat Jul 26 00:05:17 2003
-@@ -370,6 +370,10 @@
- 		eisa_set_level_irq(dev->irq);
- 	}
+Flame away,
+
+  --cw
+
+
+=== arch/ia64/kernel/efi.c 1.12 vs edited ==--- 1.12/arch/ia64/kernel/efi.c	Fri Mar 14 16:08:01 2003
++++ edited/arch/ia64/kernel/efi.c	Mon Jul 21 17:34:27 2003
+@@ -723,3 +723,30 @@
+  	remove_proc_entry(efi_dir->name, NULL);
  #endif
-+#ifdef CONFIG_IOSAPIC
-+	if (acpi_irq_model = ACPI_IRQ_MODEL_IOSAPIC)
-+		iosapic_enable_intr(dev->irq);
-+#endif
- 
- 	return_VALUE(dev->irq);
  }
++
++/*
++ * Walks the EFI memory map and calls CALLBACK once for each EFI memory descriptor that
++ * has memory that marked as only EFI_MEMORY_UC.
++ */
++void
++efi_memmap_walk_uc (efi_freemem_callback_t callback, void *arg)
++{
++	void *efi_map_start, *efi_map_end, *p;
++	efi_memory_desc_t *md;
++	u64 efi_desc_size, start, end;
++
++	efi_map_start = __va(ia64_boot_param->efi_memmap);
++	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
++	efi_desc_size = ia64_boot_param->efi_memdesc_size;
++
++	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
++		md = p;
++
++		if (md->attribute = EFI_MEMORY_UC) {
++			start = PAGE_ALIGN(md->phys_addr);
++			end = PAGE_ALIGN((md->phys_addr+(md->num_pages << EFI_PAGE_SHIFT)) & PAGE_MASK);
++			if ((*callback)(start, end, arg) < 0)
++				return;
++		}
++	}
++}
+=== include/linux/efi.h 1.3 vs edited ==--- 1.3/include/linux/efi.h	Thu Sep 12 11:57:59 2002
++++ edited/include/linux/efi.h	Mon Jul 21 17:35:43 2003
+@@ -260,6 +260,7 @@
+ extern void efi_init (void);
+ extern void efi_map_pal_code (void);
+ extern void efi_memmap_walk (efi_freemem_callback_t callback, void *arg);
++extern void efi_memmap_walk_uc (efi_freemem_callback_t callback, void *arg);
+ extern void efi_gettimeofday (struct timeval *tv);
+ extern void efi_enter_virtual_mode (void);	/* switch EFI to virtual mode, if possible */
+ extern u64 efi_get_iobase (void);
