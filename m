@@ -1,16 +1,16 @@
 From: A S Arun <asarun@csa.iisc.ernet.in>
-Date: Wed, 09 Aug 2000 20:23:04 +0000
+Date: Fri, 11 Aug 2000 14:30:42 +0000
 Subject: [Linux-ia64] (no subject)
-Message-Id: <marc-linux-ia64-105590678205296@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205319@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205296@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205296@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-there is no definition of "ip_rt_new"
-
-it is used at 2 places in drivers/net/sdla_chdlc.c
+Is there any linux equivalet of the book TCP/IP Vol 2 by Stevens
 
 *******************************************************************************
 				A.S.ARUN		
