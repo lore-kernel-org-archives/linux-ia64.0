@@ -1,42 +1,27 @@
-From: Rajesh Shah <rajesh.shah@intel.com>
-Date: Thu, 03 Feb 2005 19:31:58 +0000
-Subject: Re: [Pcihpd-discuss] [PATCH] Convert acpiphp to use generic resource code
-Message-Id: <20050203113158.A22968@unix-os.sc.intel.com>
+From: "Menyhart, Zoltan" <Zoltan.Menyhart@free.fr>
+Date: Thu, 03 Feb 2005 01:03:01 +0000
+Subject: Abusing region 0
+Message-Id: <42017845.9080507@free.fr>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050119183853.C12618@unix-os.sc.intel.com>
-In-Reply-To: <20050119183853.C12618@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jan 19, 2005 at 06:51:20PM +0000, Matthew Wilcox wrote:
-> 
-> This patch converts acpiphp to use the generic PCI resource assignment
-> code.  It's quite large, but most of it is deleting the acpiphp_pci and
-> acpiphp_res files.  It's tested on an hp Integrity rx8620 (which won't
-> work without this patch).  Testers with other hardware welcomed.
-> 
-I needed the additional patch below to make it work on Tiger4
-ia64 systems. I noticed that a similar patch was submitted before
-(http://marc.theaimsgroup.com/?l=linux-ia64&m7962911317596&w=2)
-but don't know why it was not picked up.
+I am going to do some experiments: I am going to map some of the
+virtual address ranges of a process into the address space of another
+one. They are real 64 bit processes, i.e. the region 0 is not used.
+Can I abuse this region 0 for mapping the addresses of the neighbor
+process into this region ? E.g. if process A has got an address at
+0x6000000000001000, then I am going to map it for B at address
+0x0000000000001000 ? Wont anything break ?
 
-Signed-off-by: Rajesh Shah <rajesh.shah@intel.com>
----
+(I need this trick because the source address can correspond to
+anything, like initialized data, BSS, anonymous allocation, etc, i.e.
+some SHM just wont work.)
 
- linux-2.6.11-rc1-mm2-t2-rshah1/arch/ia64/pci/pci.c |    1 +
- 1 files changed, 1 insertion(+)
+Any advice will be appreciated.
 
-diff -puN arch/ia64/pci/pci.c~track_bridge_resources arch/ia64/pci/pci.c
---- linux-2.6.11-rc1-mm2-t2/arch/ia64/pci/pci.c~track_bridge_resources	2005-02-03 11:02:45.397329199 -0800
-+++ linux-2.6.11-rc1-mm2-t2-rshah1/arch/ia64/pci/pci.c	2005-02-03 11:03:57.699086126 -0800
-@@ -437,6 +437,7 @@ pcibios_fixup_bus (struct pci_bus *b)
- 
- 	list_for_each_entry(dev, &b->devices, bus_list)
- 		pcibios_fixup_device_resources(dev);
-+	pci_read_bridge_bases(b);
- 
- 	return;
- }
-_
+Zoltan Menyhart
+
+
