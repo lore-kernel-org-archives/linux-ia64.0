@@ -1,7 +1,7 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Mon, 12 Feb 2001 15:45:08 +0000
+From: Einar Saltnes <eisa@scali.no>
+Date: Mon, 12 Feb 2001 16:40:47 +0000
 Subject: Re: [Linux-ia64] Serial console during linux boot
-Message-Id: <marc-linux-ia64-105590693005135@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005136@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005123@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005123@msgid-missing>
@@ -10,43 +10,37 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Stephane Eranian wrote:
 > 
-> : eisa@scali9-13:eisa; cat /boot/efi/startup.nsh
+> You are missing the quotes around the console= command here also.
+> Here is the valid command:
+> 
 > lilo -a -i initrd-2.4.0-0.43smp.img vmlinux-2.4.0-0.43smp root=/dev/sda2
-> console=ttyS0,115200n8
+> console=tty0 console="ttyS0,115200n8"
 > 
-You are missing the quotes around the console= command.
-
+> Hope this fixes it this time !
 > 
-> : eisa@scali9-13:eisa; cat /boot/efi/startup.nsh
-> lilo -a -i initrd-2.4.0-0.43smp.img vmlinux-2.4.0-0.43smp root=/dev/sda2
-> console=tty console=ttyS0,115200n8
-> 
-You are missing the quotes around the console= command here also.
-Here is the valid command:
+Thanks!
+The quotes made the trick!
+Now I get the kernel messages on both the local monitor and on the
+serial console at the same time! Great!
 
-lilo -a -i initrd-2.4.0-0.43smp.img vmlinux-2.4.0-0.43smp root=/dev/sda2
-console=tty0 console="ttyS0,115200n8"
+Mike Sklar wrote:
+>
+> last I checked with a 2.4.0-test10 kernel on ia64 I was using only
+> ttyS0,115200 and getting kernel startup messages. No 'n8' included, but
+> perhaps that doesn't matter at all. You might want to try checkout redhats
+> 1/31/01 release, I've found it to be of much higher quality than the
+> december beta which I quickly stopped using.
+>
+Thanks for the advice! I will download the newer "Fisher" distro and
+check it out soon.
 
-> root=/dev/sda2 console=tty console=ttyS0 115200n8 
-> LILO for EFI/IA-64 1.1
-> lilo: ignoring trailing 108 characters on command line
-> kernel     is  'vmlinux-2.4.0-0.43smp'
-> arguments  are 'root=/dev/sda2 console=tty console=ttyS0 115200n8'
-                                                     ^^^^^^^^^^^^^^
-You see here that without quotes, the comma is dropped and the kernel simply
-ignores the option. That's why you don't see anything.
-
-> 
-> I use the "out of box" RedHat 7.0 smp kernel from the Dec 13 2000 beta
-> distro.
-> 
-> I have tried to grep for the "_PRT is missing package" but it didn't
-Because this is a composite message coming from the ACPI code.
-
-Hope this fixes it this time !
-
+-
+Einar
 -- 
--Stephane
+| Einar Saltnes          |         Scali AS         |
+| mailto:eisa@scali.no   |   http://www.scali.com   |
+| Phone:+47 22 62 89 50  |  Scalable Linux Systems  |
+| Fax  :+47 22 62 89 51  |      and Technology      |
 
