@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 09 Oct 2000 17:31:48 +0000
+From: Pete Wyckoff <pw@osc.edu>
+Date: Wed, 11 Oct 2000 23:10:38 +0000
 Subject: Re: [Linux-ia64] avoiding float underflow software assist
-Message-Id: <marc-linux-ia64-105590678205563@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205564@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205556@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205556@msgid-missing>
@@ -10,27 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 9 Oct 2000 19:21:01 +0200 (MET DST), Dan Pop <Dan.Pop@cern.ch> said:
+jes@linuxcare.com said:
+> >>>>> "Pete" = Pete Wyckoff <pw@osc.edu> writes:
+> Pete> Gcc and glibc seem only to care about st0.  The "minimal" fix,
+> Pete> which relies on glibc and exercises its fe*env functions, is:
+> 
+> We discussed this recently and David strongly opted for glibc setting
+> s2/s3 the same way we set s0. I need to look closer at this in order
+> to figure out how to deal with the get-then-set case but I think it's
+> coming.
 
-  Dan> On Mon, 9 Oct 2000, David Mosberger wrote:
+There's this method of masking just the control bits of sf0 into sf* if
+you'd rather not provide direct library access to the fpsr.  E.g., to
+set ftz in s0:
 
-  >> >>>>> On Mon, 9 Oct 2000 17:37:35 +0200 (MET DST), Dan Pop
-  >> <Dan.Pop@cern.ch> said:
-  >> 
-  Dan> #include <asm/fpu.h>
+    asm volatile("fsetc.s0 0x7f, 0x01");
 
-  >>  Please don't do this.  Applications must not include Linux
-  >> kernel header files.
+Or dup s0 into s2:
 
-  Dan> I know.  I wrote it as a quick and dirty hack for Sverre,
-  Dan> because no other option was available at the time.
+    asm volatile("fsetc.s2 0x7f, 0x00");
 
-It doesn't matter whether you and I happen to know this.  What matters
-is that in the mail you sent out, you gave no indication that it's a
-hack and relies on unspecified behavior.  Never recommend to include
-kernel header files in applications.
+Not sure if/why intel gave us this instruction.  Perhaps switching speed
+is important to some apps.
 
-Thanks,
-
-	--david
+		-- Pete
 
