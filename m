@@ -1,7 +1,7 @@
-From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
-Date: Fri, 19 Oct 2001 18:39:03 +0000
+From: Jes Sorensen <jes@sunsite.dk>
+Date: Wed, 31 Oct 2001 23:10:42 +0000
 Subject: Re: [Linux-ia64] Driver development document
-Message-Id: <marc-linux-ia64-105590698805375@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805429@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805372@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805372@msgid-missing>
@@ -10,16 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>>>>> "Doug" = Doug Beattie <dbb@caldera.com> writes:
 
-> I would recommend starting with the book `Linux Device Drivers'
-> by Rubini.  It's kind of out of date (written for the 2.0 kernel)
-> but it gives you a good idea about the basics.
+Doug> FWIW - It may be good, for someone in the real know, to document
+Doug> how to modify or write a driver source so it would detect
+Doug> whether it was running on ia32 or ia64 or even other type system
+Doug> and thereby be able to take advantage of larger memory models.
 
-There is a refreshed version (for 2.4 kernel) published this year.
+Doug> From what I understand, many of the current drivers go through
+Doug> copydown when used in the ia64 architecture and could be
+Doug> improved upon.
 
-Regards,
--- 
-KOCHI Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+There really isn't any need to do so, if you follow the documented
+APIs this will work automatically.
 
+Jes
 
