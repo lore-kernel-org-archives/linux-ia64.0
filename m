@@ -1,21 +1,23 @@
-From: n0ano@indstorage.com
-Date: Wed, 20 Feb 2002 17:21:21 +0000
+From: Don Dugger <n0ano@n0ano.com>
+Date: Thu, 21 Feb 2002 06:59:54 +0000
 Subject: Re: [Linux-ia64] x86 compatability problem: ioctl() SIOCGIFCONF
-Message-Id: <marc-linux-ia64-105590701905149@msgid-missing>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Q68bSM7Ycu6FN28Q"
+Message-Id: <marc-linux-ia64-105590701905157@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905147@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905147@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+--Q68bSM7Ycu6FN28Q
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
 Frank-
 
-Support for IA32 `ioctl's is a hard problem, most have to be dealt
-with on a case by case basis.  This is just one that got missed.
-This one shouldn't be to difficult, give me a day or two and I
-should be able to send out a patch to fix it.
+OK, here's a patch that should solve your problem.  It's a little
+uglier than I'd like but there's not much I can do about that, at
+least it works.
 
 On Wed, Feb 20, 2002 at 11:03:51AM -0600, Tseng-hui Lin wrote:
 >     I need to keep some x86 code alive in IA64 land. It looks like ioctl()
@@ -77,6 +79,54 @@ On Wed, Feb 20, 2002 at 11:03:51AM -0600, Tseng-hui Lin wrote:
 -- 
 Don Dugger
 "Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@indstorage.com
-Ph: 303/652-0870x117
+n0ano@n0ano.com
+Ph: 303/449-0877
+
+--Q68bSM7Ycu6FN28Q
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="patch_0221.l"
+
+--- kernel-bigsur-ref/arch/ia64/ia32/ia32_ioctl.c	Fri Nov  9 15:26:17 2001
++++ kernel-bigsur/arch/ia64/ia32/ia32_ioctl.c	Thu Feb 21 00:06:57 2002
+@@ -79,6 +79,38 @@
+ 
+ 		      return ret;
+ 	      }
++		case IOCTL_NR(SIOCGIFCONF):
++		{
++			struct ifconf32 {
++				int		ifc_len;
++				unsigned int	ifc_ptr;
++			} ifconf32;
++			struct ifconf ifconf;
++			int i, n;
++			char *p32, *p64;
++			char buf[32];	/* sizeof IA32 ifreq structure */
++
++			if (copy_from_user(&ifconf32, P(arg), sizeof(ifconf32)))
++				return -EFAULT;
++			ifconf.ifc_len = ifconf32.ifc_len;
++			ifconf.ifc_req = P(ifconf32.ifc_ptr);
++			ret = DO_IOCTL(fd, SIOCGIFCONF, &ifconf);
++			ifconf32.ifc_len = ifconf.ifc_len;
++			if (copy_to_user(P(arg), &ifconf32, sizeof(ifconf32)))
++				return -EFAULT;
++			n = ifconf.ifc_len / sizeof(struct ifreq);
++			p32 = P(ifconf32.ifc_ptr);
++			p64 = P(ifconf32.ifc_ptr);
++			for (i = 0; i < n; i++) {
++				if (copy_from_user(buf, p64, sizeof(struct ifreq)))
++					return -EFAULT;
++				if (copy_to_user(p32, buf, sizeof(buf)))
++					return -EFAULT;
++				p32 += sizeof(buf);
++				p64 += sizeof(struct ifreq);
++			}
++			return ret;
++		}
+ 
+ 	      case IOCTL_NR(DRM_IOCTL_VERSION):
+ 	      {
+
+--Q68bSM7Ycu6FN28Q--
 
