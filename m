@@ -1,20 +1,29 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Fri, 22 Oct 2004 15:26:58 +0000
-Subject: Re: [PATCH] I/O space write barrier
-Message-Id: <20041022152658.GB21472@cup.hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 13 Oct 2004 16:03:42 +0000
+Subject: Re: Periodic posix timer support broke between 2.6.9-rc1 and
+Message-Id: <Pine.LNX.4.58.0410130902490.9272@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200410211613.19601.jbarnes@engr.sgi.com> <20041022010150.GH3878@cup.hp.com> <200410212205.51672.jbarnes@sgi.com>
-In-Reply-To: <200410212205.51672.jbarnes@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@sgi.com>
-Cc: Jesse Barnes <jbarnes@engr.sgi.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Thu, Oct 21, 2004 at 10:05:50PM -0500, Jesse Barnes wrote:
-> Ok, that makes sense.  I'd like to update the documentation with a separate 
-> patch though, if that's ok with you. 
+On Tue, 12 Oct 2004, George Anzinger wrote:
 
-Sure, if that's easier for you.
+> Christoph Lameter wrote:
+> > I ran some test programs and discovered that the periodic timer support
+> > is broken. The timer is triggered once and then never again. Single shot
+> > timers work fine. 2.6.9-rc1 is fine. The first kernel that I tested where
+> > I noticed the breakage was 2.6.9-rc1-bk17. 2.6.9-rc2 and following all
+> > cannot do periodic timer signals.
+> >
+> > I looked through the changelog but I cannot see anything that would cause
+> > the problem. Roland's patch surely could not have done this.
+> >
+> > Will try to track this down further, time permitting...
+>
+> The most likely thing would be failure to do the call back from the signal
+> delivery code.
 
-grant
+The problem is IA64 arch specific. Works fine on i386.
+
