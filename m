@@ -1,45 +1,46 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 05 Feb 2004 23:15:56 +0000
-Subject: Re: [PATCH] memblks compile fixes
-Message-Id: <20040205151556.157c88cb.akpm@osdl.org>
+From: Darren Williams <dsw@gelato.unsw.edu.au>
+Date: Thu, 05 Feb 2004 06:11:36 +0000
+Subject: [patch] 2.6.2-rc2 Remove compile warnings from timer.o
+Message-Id: <20040205061136.GD25002@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="VS++wcV0S1rZb1Fb"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040205202503.GB6551@sgi.com>
-In-Reply-To: <20040205202503.GB6551@sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@sgi.com>
-Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, "Brown, Len" <len.brown@intel.com>
+To: linux-ia64@vger.kernel.org
 
-jbarnes@sgi.com (Jesse Barnes) wrote:
->
-> Looks like Jes forgot missed some conversions in his NR_MEMBLKS removal
-> patch.  Here's are the fixes to get ia64 going again.
 
-It seems that Len has fixed one of these in the ACPI tree.
+--VS++wcV0S1rZb1Fb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Len, were you planning on a merge soon?   (You should...)
+This ia a relatively simple patch to remove compile warnings:
 
-> 
-> === arch/ia64/kernel/acpi.c 1.60 vs edited ==> --- 1.60/arch/ia64/kernel/acpi.c	Tue Feb  3 21:35:17 2004
-> +++ edited/arch/ia64/kernel/acpi.c	Thu Feb  5 11:46:50 2004
-> @@ -395,7 +395,7 @@
->  	size = ma->length_hi;
->  	size = (size << 32) | ma->length_lo;
->  
-> -	if (num_memblks >= NR_MEMBLKS) {
-> +	if (num_node_memblks >= NR_NODE_MEMBLKS) {
->  		printk(KERN_ERR "Too many mem chunks in SRAT. Ignoring %ld MBytes at %lx\n",
->  		       size/(1024*1024), paddr);
->  		return;
-> === arch/ia64/sn/kernel/setup.c 1.30 vs edited ==> --- 1.30/arch/ia64/sn/kernel/setup.c	Tue Feb  3 21:39:58 2004
-> +++ edited/arch/ia64/sn/kernel/setup.c	Thu Feb  5 11:46:31 2004
-> @@ -136,7 +136,7 @@
->  	int nid;
->  
->  	nid = pxm_to_nid_map[pxm];
-> -	for (i = 0; i < num_memblks; i++) {
-> +	for (i = 0; i < num_node_memblks; i++) {
->  		if (node_memblk[i].nid = nid) {
->  			return NASID_GET(node_memblk[i].start_paddr);
->  		}
+kernel/timer.c: In function `second_overflow':
+kernel/timer.c:589: warning: right shift count is negative
+kernel/timer.c:592: warning: right shift count is negative
+
+when CONFIG_IA64_HP_SIM=y. 
+
+Tested with SIM boots and compile.
+
+--------------------------------------------------
+Darren Williams <dsw AT gelato.unsw.edu.au>
+Gelato@UNSW <www.gelato.unsw.edu.au>
+--------------------------------------------------
+
+--VS++wcV0S1rZb1Fb
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="param.h.patch"
+
+--- ../tmp/linux-2.6.2-rc2/include/asm-ia64/param.h	2004-02-05 14:09:33.000000000 +1100
++++ linux-2.6.2-rc2/include/asm-ia64/param.h	2004-02-05 13:23:21.000000000 +1100
+@@ -27,7 +27,7 @@
+    * Yeah, simulating stuff is slow, so let us catch some breath between
+    * timer interrupts...
+    */
+-#  define HZ	  32
++#  define HZ	  96
+ # else
+ #  define HZ	1024
+ # endif
+
+--VS++wcV0S1rZb1Fb--
