@@ -1,7 +1,7 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Mon, 24 Nov 2003 21:13:05 +0000
+Date: Mon, 24 Nov 2003 21:25:15 +0000
 Subject: Re: udelay() & preemption & drifty ITCs
-Message-Id: <marc-linux-ia64-106970893431586@msgid-missing>
+Message-Id: <marc-linux-ia64-106970915331863@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106955914311295@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106955914311295@msgid-missing>
@@ -19,7 +19,36 @@ On Mon, Nov 24, 2003 at 01:00:43PM -0800, Jesse Barnes wrote:
 > Here's the patch.  Compiles and boots, but I haven't made a test module
 > that illustrates this bug, so I haven't tested it.
 
-Ugg, where did I keep my brown paper bags?  Ignore this patch, I'll post
-another in a minute.
+Here's one that actually patches the affected routine.  Same caveat
+applies.
 
 Jesse
+
+diff -Nru a/include/asm-ia64/delay.h b/include/asm-ia64/delay.h
+--- a/include/asm-ia64/delay.h	Mon Nov 24 14:19:19 2003
++++ b/include/asm-ia64/delay.h	Mon Nov 24 14:19:19 2003
+@@ -15,6 +15,7 @@
+ #include <linux/config.h>
+ #include <linux/kernel.h>
+ #include <linux/sched.h>
++#include <linux/preempt.h>
+ #include <linux/compiler.h>
+ 
+ #include <asm/intrinsics.h>
+@@ -81,11 +82,14 @@
+ static __inline__ void
+ udelay (unsigned long usecs)
+ {
+-	unsigned long start = ia64_get_itc();
+-	unsigned long cycles = usecs*local_cpu_data->cyc_per_usec;
++	unsigned long start, cycles;
+ 
++	preempt_disable();
++	start = ia64_get_itc();
++	cycles = usecs*local_cpu_data->cyc_per_usec;
+ 	while (ia64_get_itc() - start < cycles)
+ 		/* skip */;
++	preempt_enable();
+ }
+ 
+ #endif /* _ASM_IA64_DELAY_H */
