@@ -1,21 +1,25 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 03 Mar 2004 22:28:14 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Thu, 04 Mar 2004 11:02:28 +0000
 Subject: Re: Fix staircase effect on Altix serial console.
-Message-Id: <16454.23550.664981.270394@napali.hpl.hp.com>
+Message-Id: <je1xo850zf.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je1xoa7qtb.fsf@sykes.suse.de>
 In-Reply-To: <je1xoa7qtb.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 3 Mar 2004 14:21:16 -0800, jbarnes@sgi.com (Jesse Barnes) said:
+jbarnes@sgi.com (Jesse Barnes) writes:
 
-  Jesse> Sorry, I should have been clearer:  our L2 system controller will be
-  Jesse> fixed to *not* add CRs, as will our PROM, so we'll need your fix.
-  Jesse> David, can you please apply it?  Sorry for the runaround.
+> Andreas, does that sound right?
 
-If Andreas resends it, sure.
+Yes, thanks.
 
-	--david
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
