@@ -1,63 +1,47 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Thu, 10 Mar 2005 13:49:22 +0000
-Subject: Re: [patch -mm series] ia64 specific /dev/mem handlers
-Message-Id: <yq0y8cvzk4d.fsf@jaguar.mkp.net>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 01 Mar 2005 19:35:11 +0000
+Subject: Re: take7: vector sharing (Large I/O system support)
+Message-Id: <16932.50159.17567.345467@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16923.193.128608.607599@jaguar.mkp.net>
-	<20050222020309.4289504c.akpm@osdl.org>
-	<yq0ekf8lksf.fsf@jaguar.mkp.net>
-	<20050222175225.GK28741@parcelfarce.linux.theplanet.co.uk>
-	<20050222112513.4162860d.akpm@osdl.org>
-	<yq0zmxwgqxr.fsf@jaguar.mkp.net>
-	<20050222153456.502c3907.akpm@osdl.org>
-	<yq0sm3negtb.fsf@jaguar.mkp.net>
-	<20050223223404.GA21383@infradead.org>
-	<yq0k6oydjjv.fsf@jaguar.mkp.net>
-	<20050309225516.55195ddc.akpm@osdl.org>
-In-Reply-To: <20050309225516.55195ddc.akpm@osdl.org>
+References: <42226CCE.6070706@jp.fujitsu.com>
+In-Reply-To: <42226CCE.6070706@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: hch@infradead.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
->>>>> "Andrew" = Andrew Morton <akpm@osdl.org> writes:
+>>>>> On Mon, 28 Feb 2005 14:10:53 +0900, Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com> said:
 
-Andrew> Jes Sorensen <jes@wildopensource.com> wrote:
->>  Convert /dev/mem read/write calls to use arch_translate_mem_ptr if
->> available. Needed on ia64 for pages converted fo uncached mappings
->> to avoid it being accessed in cached mode after the conversion
->> which can lead to memory corruption. Introduces PG_uncached page
->> flag for marking pages uncached.
+  Kenji> Hi Cristoph,
+  >>> +config NR_RTE_CACHES
+  >>> +	int "Number of RTE cache entries"
+  >>> +	depends on IOSAPIC
+  >>> +	default "256"
+  >>> +	help
+  >>> +	  If your system panic with the message "out of rte cache
+  >>> +	  entries!(shortage: XX)", please set this to a larger value.
+  >> 
+  >> 
+  >> This screams for dynamic allocation of the underlying structures, no?
 
-Andrew> For some reason this patch still gives me the creeps.  Maybe
-Andrew> it's because we lose a page flag for something so obscure.
+  Kenji> Some number (NR_RTE_CACHES) of iosapic_rte_info structures are
+  Kenji> statically allocated because this structure might be needed before
+  Kenji> kmalloc is initialized. The panic message mentioned above means we
+  Kenji> run out of these statically allocated structures.
 
-Andrew> Nothing ever clears PG_uncached.  We'll end up with every page
-Andrew> in the machine marked as being uncached.
+The problem is naming, I think.  Those aren't "cache entries", they
+are statically preallocated entries.  How about changing the config
+option name to:
 
-Actually there's restrictions to how many pages are getting converted
-as converting pages over from cached to uncached isn't trivial on ia64.
+	config NR_PREALLOCATED_RTE_ENTRIES
 
-Andrew> But then, nothing ever sets PG_uncached, either.  Is there
-Andrew> some patch which you're hiding from me?
+and the help message to something along the lines of:
 
-Actually I posted that earlier, but it must have gotten lost in the
-noise. It's part of the genalloc/mspec patchset. I'll send it to you
-directly.
+	The I/O SAPIC code needs a small number of statically
+	preallocated RTE entries so that it can work even before
+	kmalloc has been initialized.  The default value for this
+	option should normally be sufficient, but if you get a panic
+	of the form "out of preallocated RTE entries!", that's a
+	sign that this value needs to be increased.
 
-Andrew> If a page is marked uncached then it'll remain marked as
-Andrew> uncached even after it's unmapped.  Or will it?  Would like to
-Andrew> see the other patch, please.
-
-Coming your way in a jiffy.
-
-Andrew> We should add PG_uncached checks to the page allocator.  Is
-Andrew> this OK?
-
-I don't see any problems with that. The way it's meant to be used is
-that once pages are converted over, they don't go back into the
-allocator.
-
-Cheers,
-Jes
+  --david
