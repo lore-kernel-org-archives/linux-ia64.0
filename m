@@ -1,41 +1,40 @@
-From: Chris Wedgwood <cw@f00f.org>
-Date: Mon, 02 Jun 2003 23:16:20 +0000
-Subject: Re: [Linux-ia64] Re: trailing white space...
-Message-Id: <marc-linux-ia64-105590723706119@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 18 Jun 2003 19:12:21 +0000
+Subject: common name for the kernel DSO
+Message-Id: <marc-linux-ia64-105596373129064@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723706105@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723706105@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Jun 02, 2003 at 11:23:51AM -0700, Wichmann, Mats D wrote:
+Both x86 and ia64 now provide a dynamically shared object (DSO) for
+system call purposes (e.g., to speed up system calls and for signal
+trampoline/sigreturn purposes).  At the moment, the names of these
+DSOs are different:
 
-> but in either case this just shows you
-> the stuff, it doesn't remove it.
+	x86:	linux-vsyscall.so.1
+	ia64:	linux-gate.so.1
 
-I think that's how it should be... removing it on existing files w/o
-care is bad.
+I think there is some value in using the same name on all platforms
+that support such a DSO.  vsyscall makes no sense for ia64, since
+there are no virtual syscalls (instead, ia64 linux provides a fast
+system call convention which, when coupled with light-weight system
+call handlers, provide full syscall semantics at more or less the
+speed of virtual system calls).
 
-> If it's a persistent problem, a simple
-> filter is easier to use.
+Not surprisingly, I like the name "linux-gate", since that is really
+what this DSO is all about: it's a gateway between user and kernel
+space.  However, if this name isn't appropriate for x86, perhaps we
+can find another name which will be acceptable to everybody.
 
-For new files sure, for existing files I would rather people ensure
-hunsk they edit and linees they edit contain no/few whitespace
-changes.
+I already checked with Roland McGrath (cc'd), and he agrees that a
+common name would be good and said that he doesn't care about the
+particular name that will be used.
 
+Does anyone have any strong feelings about this?  If not, I plan to
+submit a patch to rename the x86 DSO to linux-gate.so.1.
 
-> I find Python's rstrip string method useful for this, i.e. if you
-> have a line of text in 'line',
-> 
->     line = line.rstrip()
-> 
-> saves a new copy of the line with the
-> trailing whitespace removed.
+Thanks,
 
-What's wrong with sed?
-
-
-  --cw
-
+	--david
