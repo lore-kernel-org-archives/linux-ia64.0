@@ -1,37 +1,41 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 25 Jul 2001 13:21:41 +0000
+From: Alex Williamson <awilliam@fc.hp.com>
+Date: Wed, 25 Jul 2001 14:32:28 +0000
 Subject: Re: [Linux-ia64] Big problems with 2.4.7
-Message-Id: <marc-linux-ia64-105590693005909@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005910@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005908@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005908@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Martin Wilck <Martin.Wilck@fujitsu-siemens.com> writes:
+Martin,
 
-|> The suspicious messages at boot are:
-|> - "keyboard timeout - AT keyboard not present ?" (drivers/char/pc_keyb.c)
-|> - "hda: IRQ probe failed (0xfffffffffffffdfe)" (drivers/ide/ide-probe.c)
-|> The latter message repeats twice for IDE devices hda ... hdd.
+   I'm suspicious that perhaps your I/O Port space base address is not
+getting set.  We're trying to get it from the EFI memory map in this
+kernel rather than from what firmware leaves in AR.K0.  This is the
+way that Intel recommends doing it, so I'm rather surprised it's not
+working.  Are you running the latest firmware on the Lion?  You could
+either try to revert the change in arch/ia64/kernel/setup.c line ~308
+that gets it from EFI and sets AR.K0 to just get the value from AR.K0.
+Or, you could put a printk in there to see if EFI returning a something
+valid (should be top of addressable space minus 64MB).  Thanks,
 
-Just for the record, I have the same problems, but only on Lions.  Booting
-the SMP kernel on a BigSur works.
+	Alex
 
-|> Since my keyboard isn't detected, I can do very little to
-|> analyze the boot messages in more detail.
 
-All other things, like network and serial console, are doing well (haven't
-tried the devices on the IDE bus, though).
+Martin Wilck wrote:
+> 
+> The suspicious messages at boot are:
+> - "keyboard timeout - AT keyboard not present ?" (drivers/char/pc_keyb.c)
+> - "hda: IRQ probe failed (0xfffffffffffffdfe)" (drivers/ide/ide-probe.c)
+> The latter message repeats twice for IDE devices hda ... hdd.
+> 
 
-Andreas.
 
---=20
-Andreas Schwab                                  "And now for something
-SuSE Labs                                        completely different."
-Andreas.Schwab@suse.de
-SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+--
+Alex Williamson                                  Linux Development Lab
+awilliam@fc.hp.com                                     Hewlett Packard
+970-898-9173                                          Fort Collins, CO
 
