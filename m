@@ -1,84 +1,63 @@
-From: "Kenneth Chen" <kenneth.w.chen@intel.com>
-Date: Thu, 18 Mar 2004 00:31:26 +0000
-Subject: add lowpower_idle sysctl
-Message-Id: <200403180031.i2I0VQF02038@unix-os.sc.intel.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Thu, 18 Mar 2004 01:04:36 +0000
+Subject: Re: add lowpower_idle sysctl
+Message-Id: <20040317170436.430acfbe.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200403180031.i2I0VQF02038@unix-os.sc.intel.com>
+In-Reply-To: <200403180031.i2I0VQF02038@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org
+To: Kenneth Chen <kenneth.w.chen@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On ia64, we need runtime control to manage CPU power state in the idle
-loop.  Logically it means a sysctl entry in /proc/sys/kernel.  Even
-though this sysctl entry doesn't exist today, lots of arch already has
-some sort of API to dynamically enable/disable low power idle state.
-Looking at linux-2.6.4, arm, arm26, cris, i386, parisc, sh, um, x86-64
-all has very much the same code in each arch.  So instead of replicate
-another set under arch/ia64, we are proposing these API to be abstracted
-out in the generic code.  And also add a sysctl entry under /proc/sys/kernel.
+"Kenneth Chen" <kenneth.w.chen@intel.com> wrote:
+>
+> On ia64, we need runtime control to manage CPU power state in the idle
+> loop. 
 
-Would this be useful to all architecture who wants this features?  It
-would be a lot less code duplication.
+Can you expand on this?  Does this mean that the admin can select different
+idle-loop algorithms?  If so, what alternative algorithms exist?
 
-- Ken
+On x86 I'd like to be able to turn idle=poll on when performing oprofile
+run, so the numbers come out right.  Will this let me do that?
 
 
-diff -Nur linux-2.6.4/include/linux/sysctl.h linux-2.6.4.halt/include/linux/sysctl.h
---- linux-2.6.4/include/linux/sysctl.h	2004-03-10 18:55:28.000000000 -0800
-+++ linux-2.6.4.halt/include/linux/sysctl.h	2004-03-17 15:33:30.000000000 -0800
-@@ -131,6 +131,7 @@
- 	KERN_PRINTK_RATELIMIT_BURSTa,	/* int: tune printk ratelimiting */
- 	KERN_PTYb,		/* dir: pty driver */
- 	KERN_NGROUPS_MAXc,	/* int: NGROUPS_MAX */
-+	KERN_LOWPOWER_IDLEd,	/* int: low power idle */
- };
+> Logically it means a sysctl entry in /proc/sys/kernel.
 
+Yes, but the *meanings* of the different values of that sysctl need to be
+defined, and documented.  If lowpower_idleB has a totally different
+meaning on different architectures then that's unfortunate but
+understandable.  But we should at least enumerate the different values and
+try to get different architectures to honour `42' in the same way.
 
-diff -Nur linux-2.6.4/kernel/cpu.c linux-2.6.4.halt/kernel/cpu.c
---- linux-2.6.4/kernel/cpu.c	2004-03-10 18:55:44.000000000 -0800
-+++ linux-2.6.4.halt/kernel/cpu.c	2004-03-17 15:36:32.000000000 -0800
-@@ -64,3 +64,15 @@
- 	up(&cpucontrol);
- 	return ret;
- }
-+
-+atomic_t halt_counter;
-+void enable_halt(void)
-+{
-+	atomic_dec(&halt_counter);
-+}
-+void disable_halt(void)
-+{
-+	atomic_inc(&halt_counter);
-+}
-+EXPORT_SYMBOL(enable_halt);
-+EXPORT_SYMBOL(disable_halt);
-diff -Nur linux-2.6.4/kernel/sysctl.c linux-2.6.4.halt/kernel/sysctl.c
---- linux-2.6.4/kernel/sysctl.c	2004-03-10 18:55:22.000000000 -0800
-+++ linux-2.6.4.halt/kernel/sysctl.c	2004-03-17 15:34:52.000000000 -0800
-@@ -64,6 +64,7 @@
- extern int min_free_kbytes;
- extern int printk_ratelimit_jiffies;
- extern int printk_ratelimit_burst;
-+extern atomic_t halt_counter;
+> +atomic_t halt_counter;
 
- /* this is needed for the proc_dointvec_minmax for [fs_]overflow UID and GID */
- static int maxolduid = 65535;
-@@ -615,6 +616,14 @@
- 		.mode		= 0444,
- 		.proc_handler	= &proc_dointvec,
- 	},
-+	{
-+		.ctl_name	= KERN_LOWPOWER_IDLE,
-+		.procname	= "lowpower_idle",
-+		.data		= &halt_counter,
-+		.maxlen		= sizeof (int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+	},
- 	{ .ctl_name = 0 }
- };
+Needs to be initialised - atomic_t's may have spinlocks inside them or
+anything else.
 
+> +extern atomic_t halt_counter;
 
+Needs to be in a header, not in .c
 
+>  /* this is needed for the proc_dointvec_minmax for [fs_]overflow UID and GID */
+>  static int maxolduid = 65535;
+> @@ -615,6 +616,14 @@
+>  		.mode		= 0444,
+>  		.proc_handler	= &proc_dointvec,
+>  	},
+> +	{
+> +		.ctl_name	= KERN_LOWPOWER_IDLE,
+> +		.procname	= "lowpower_idle",
+> +		.data		= &halt_counter,
+> +		.maxlen		= sizeof (int),
+> +		.mode		= 0644,
+> +		.proc_handler	= &proc_dointvec,
+> +	},
+>  	{ .ctl_name = 0 }
+>  };
+
+You cannot treat an int* as an atomic_t*!
+
+Why do we want to inc and dec a user-specified tunable anyway?  I think I
+don't understand what you're trying to do with this patch. 
