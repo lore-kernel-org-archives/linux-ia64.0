@@ -1,20 +1,40 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 18 Oct 2001 01:22:56 +0000
-Subject: Re: [Linux-ia64] SGI XFS 1.0.1-IA64 Preview Release 2 available for testing
-Message-Id: <marc-linux-ia64-105590698805367@msgid-missing>
+From: "Robert K Gjertsen" <gjertsen@us.ibm.com>
+Date: Tue, 30 Oct 2001 14:30:22 +0000
+Subject: [Linux-ia64] Re: Lion problems with 2.4.13...
+Message-Id: <marc-linux-ia64-105590698805415@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805339@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805339@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 17 Oct 2001 17:13:23 -0500, Nathan Straz <nstraz@sgi.com> said:
+I haven't tried this out yet, but I plan to in a day or two. No guarantees
+for non-ibm machines, but
+I figure we just grabbed this from Intel (and I'll be applying this to my
+beta level Lion / boat anchor).
 
-  Nathan> Trillian 2.4.9-010820
+You can get the BIOS-99 and BMC-24 (Bios/Firmware 1.1) on the web at:
+www.pc.ibm.com\support    by
+searching on xSeries 380 86831rx
 
-Please stop using this name.  There is no such thing anymore.
+or (much easier)
 
-	--david
+ftp.pc.ibm.com /pub/pccbbs/pc_servers/33p2588.iso
+          /pub/pccbbs/pc_servers/33p2588.zip  (for LS120)
+                           33p2588.txt
+
+
+
+On an entirely different note, I see that flush_tlb_all is exported by the
+Linux kernel. I've rolled my own
+functions for flush_tlb_page and flush_tlb_range for our filesystem, but it
+would be nice if these were
+also exported by the kernel (I see there is a ptcg lock being used in this
+code although I think I'm OK
+not using this on pages that we are fiddling with).
+How do I go about seeing if flush_tlb_range could also be exported in the
+ia64 Linux code stream?
+
+--Rob
+
 
