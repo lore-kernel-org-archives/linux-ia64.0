@@ -1,73 +1,35 @@
-From: Pat Gefre <pfg@sgi.com>
-Date: Tue, 19 Oct 2004 19:45:38 +0000
-Subject: RE: Double spin_unlock in bte.c
-Message-Id: <Pine.SGI.3.96.1041019144452.144128A-100000@fsgi900.americas.sgi.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Fri, 01 Oct 2004 07:49:27 +0000
+Subject: Re: [ACPI] [PATCH] Updated patches for PCI IRQ resource deallocation
+Message-Id: <415D0C07.2070806@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041014114003.GF19122@lnx-holt.americas.sgi.com>
-In-Reply-To: <20041014114003.GF19122@lnx-holt.americas.sgi.com>
+References: <Pine.LNX.4.53.0409251356110.2914@musoma.fsmlabs.com>
+ <Pine.LNX.4.53.0409251401560.2914@musoma.fsmlabs.com>
+ <Pine.LNX.4.53.0409251416570.2908@musoma.fsmlabs.com>
+ <4157A9D7.4090605@jp.fujitsu.com>
+ <Pine.LNX.4.61.0409281702580.3052@musoma.fsmlabs.com>
+ <415A28B9.6080504@jp.fujitsu.com>
+ <Pine.LNX.4.61.0409291809270.3056@musoma.fsmlabs.com>
+ <415B8A16.9070101@jp.fujitsu.com>
+ <Pine.LNX.4.61.0409301601240.3069@musoma.fsmlabs.com>
+In-Reply-To: <Pine.LNX.4.61.0409301601240.3069@musoma.fsmlabs.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Zwane Mwaikambo <zwane@linuxpower.ca>
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, long <tlnguyen@snoqualmie.dp.intel.com>, Andrew Morton <akpm@osdl.org>, Greg Kroah-Hartmann <greg@kroah.com>, Len Brown <len.brown@intel.com>, tony.luck@intel.com, acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
 
-On Mon, 18 Oct 2004, Pat Gefre wrote:
+Zwane Mwaikambo wrote:
 
-+ On Thu, 14 Oct 2004, Luck, Tony wrote:
-+ 
-+ + >Tony, I don't think there's any hurry on this one, so you can 
-+ + >just send it along post-2.6.9 if you want.  Hopefully it won't conflict 
-+ + >with Pat's big sn2 patches.
-+ + 
-+ + It looks like it applies corectly on top of Pat's re-org patch. So
-+ + I'll send it along after that goes in.
-+ + 
-+ + -Tony
-+ + -
-+ + To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-+ + the body of a message to majordomo@vger.kernel.org
-+ + More majordomo info at  http://vger.kernel.org/majordomo-info.html
-+ + 
-+ 
-+ Tony,
-+ 
-+ I have another bte mod too - I've added it to the list - it's
-+ 008-bugon-fix on the oss site.
-+ 
+> 
+> Can't you declare "extern void acpi_unregister_gsi(int gsi)" in 
+> include/asm/acpi.h? That way it stays arch specific and you don't have the 
+> conflicting declarations. You can also move acpi_unregister_gsi into arch 
+> specific headers too.
+> 
 
+OK. I'll update my patch based on your feedback.
 
-Sorry .... forgot again...
-
-Signed-off-by: Patrick Gefre <pfg@sgi.com>
-
-
-+ 
-+ 
-+ # This is a BitKeeper generated diff -Nru style patch.
-+ #
-+ # ChangeSet
-+ #   2004/10/14 10:43:41-05:00 pfg@sgi.com 
-+ #   arch/ia64/sn/kernel/bte.c
-+ #       BUG_ON test was backwards
-+ # 
-+ # arch/ia64/sn/kernel/bte.c
-+ #   2004/10/14 10:43:32-05:00 pfg@sgi.com +3 -3
-+ #   BUG_ON test was backwards
-+ # 
-+ diff -Nru a/arch/ia64/sn/kernel/bte.c b/arch/ia64/sn/kernel/bte.c
-+ --- a/arch/ia64/sn/kernel/bte.c	2004-10-14 10:44:34 -05:00
-+ +++ b/arch/ia64/sn/kernel/bte.c	2004-10-14 10:44:34 -05:00
-+ @@ -79,9 +79,9 @@
-+  		return BTE_SUCCESS;
-+  	}
-+  
-+ -	BUG_ON(!((len & L1_CACHE_MASK) ||
-+ -		 (src & L1_CACHE_MASK) || (dest & L1_CACHE_MASK)));
-+ -	BUG_ON(len < ((BTE_LEN_MASK + 1) << L1_CACHE_SHIFT));
-+ +	BUG_ON((len & L1_CACHE_MASK) ||
-+ +		 (src & L1_CACHE_MASK) || (dest & L1_CACHE_MASK));
-+ +	BUG_ON(!(len < ((BTE_LEN_MASK + 1) << L1_CACHE_SHIFT)));
-+  
-+  	if (mode & BTE_USE_DEST) {
-+  		/* try remote then local */
-+ 
+Thanks,
+Kenji Kaneshige
 
