@@ -1,40 +1,29 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 13 Jan 2004 23:45:09 +0000
-Subject: [PATCH] move HCDP under serial console #ifdef
-Message-Id: <200401131645.09430.bjorn.helgaas@hp.com>
+Date: Mon, 05 Jan 2004 17:46:34 +0000
+Subject: [PATCH] Ignore zero-length _CRS descriptors
+Message-Id: <200401051046.34916.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Currently you can select HCDP independent of serial console.  This
-doesn't seem very useful, and makes the setup_serial_hcdp() reference
-unresolved if the serial driver is built as a module.
+ia64: Skip zero-length resources in PCI root bridge _CRS
 
-CONFIG_SERIAL_8250_CONSOLE is only selectable if the serial core is
-built in (SERIAL_8250=y), so this patch makes sure we don't try to
-call setup_serial_hcdp() unless it is actually built in to the kernel.
+(add_window): Skip zero-length resources.  It seems to be common
+	practice to leave extra descriptors in the _CRS and set
+	the _LEN field of unused ones to zero.
 
-(I think we should also make HCDP selection dependent on
-SERIAL_8250_CONSOLE=y in Kconfig; I'll send a separate patch
-for that since it's not ia64-specific.)
-
-=== arch/ia64/kernel/setup.c 1.64 vs edited ==--- 1.64/arch/ia64/kernel/setup.c	Mon Dec 29 14:37:24 2003
-+++ edited/arch/ia64/kernel/setup.c	Mon Jan 12 15:46:23 2004
-@@ -317,13 +317,13 @@
- #ifdef CONFIG_ACPI_BOOT
- 	acpi_boot_init();
- #endif
-+#ifdef CONFIG_SERIAL_8250_CONSOLE
- #ifdef CONFIG_SERIAL_8250_HCDP
- 	if (efi.hcdp) {
- 		void setup_serial_hcdp(void *);
- 		setup_serial_hcdp(efi.hcdp);
- 	}
- #endif
--#ifdef CONFIG_SERIAL_8250_CONSOLE
- 	/*
- 	 * Without HCDP, we won't discover any serial ports until the serial driver looks
- 	 * in the ACPI namespace.  If ACPI claims there are some legacy devices, register
+=== arch/ia64/pci/pci.c 1.39 vs edited ==--- 1.39/arch/ia64/pci/pci.c	Tue Nov 25 06:23:17 2003
++++ edited/arch/ia64/pci/pci.c	Mon Jan  5 10:33:32 2004
+@@ -223,6 +223,9 @@
+ 
+ 	status = acpi_resource_to_address64(res, &addr);
+ 	if (ACPI_SUCCESS(status)) {
++		if (!addr.address_length)
++			return AE_OK;
++
+ 		if (addr.resource_type = ACPI_MEMORY_RANGE) {
+ 			flags = IORESOURCE_MEM;
+ 			root = &iomem_resource;
 
