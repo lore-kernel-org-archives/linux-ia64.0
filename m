@@ -1,7 +1,7 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Date: Fri, 16 Jan 2004 05:00:10 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Fri, 16 Jan 2004 05:00:59 +0000
 Subject: Re: [PATCH] readX_relaxed interface
-Message-Id: <Pine.LNX.4.58.0401152057380.2631@evo.osdl.org>
+Message-Id: <20040116050059.GA13222@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040115204913.GA8172@sgi.com> <20040116003224.GF23253@kroah.com>
 In-Reply-To: <20040116003224.GF23253@kroah.com>
@@ -11,10 +11,7 @@ Content-Transfer-Encoding: 7bit
 To: Greg KH <greg@kroah.com>
 Cc: Jesse Barnes <jbarnes@sgi.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, jeremy@sgi.com
 
-
-
-On Thu, 15 Jan 2004, Greg KH wrote:
-> 
+On Thu, Jan 15, 2004 at 04:32:25PM -0800, Greg KH wrote:
 > It looks ok, but it would really be good if we could indicate if the
 > read actually was successful.  Right now some platforms can detect
 > faults and do not have a way to get that error back to the driver in a
@@ -23,17 +20,35 @@ On Thu, 15 Jan 2004, Greg KH wrote:
 > 	int readb(void *addr, u8 *data);
 > it would be a world easier.
 
-NOOOO!
+I've worked on systems with that kind of an interface and it
+really makes a mess of the code. And many of the drivers just
+ignored the read return value.
 
-Please don't. 99.99% of all uses don't care one whit, and an interface 
-like the above ends up being total cr*p to use.
+> Now I'm not saying I want to change the existing interfaces to support
+> this, that's too much code to change for even me (and is a 2.7 thing.)
 
-If you care about machine check errors, use a special interface for that. 
-A _really_ special one. Especially as on many systems you'll likely have 
-to read status registers etc (and clear them before doing the IO) to see 
-the errors.
+I think you'll find it's extremely invasive if it's going to be useful.
+The drivers have to be rewritten to check each PIO return value
+and then do something intelligent at that point. HPUX had drivers
+that did this for "Host Power Fail" support 10 years ago but
+it's *very* difficult to get all the error handling right in
+each of the code pathes.
 
-So that way you can get errors working, AND it won't actually make normal 
-code any uglier.
+My preference is the driver register a "clean up all pending IO and
+free related data structures" so it's back to a state as if it hadn't
+been started. Then when a PIO read (or write) fails, the mechanism for
+detecting the read failure doesn't depend on synchronous errors being
+reported/checked by software on each read. ie the mechanism for
+detecting the failure *can* be in the PIO read code path but
+doesn't have to be if HW has facilities to detect failures.
+(I'm thinking of parisc HPMC and ia64 MCA handling).
 
-		Linus
+> Just wanted to put this idea in people's heads that we need to start
+> planning for something like it.
+
+yeah - getting to the next level of availability on higher end systems
+is hard. I'm not totally convinced it's the right thing for linux
+to do, but if someone wants to fund the work, it'll be interesting
+to work on.
+
+grant
