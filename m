@@ -1,68 +1,63 @@
 From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Tue, 21 Sep 2004 01:25:39 +0000
+Date: Tue, 21 Sep 2004 01:38:46 +0000
 Subject: Re: [ACPI] PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject interface support
-Message-Id: <20040920182539.B17763@unix-os.sc.intel.com>
+Message-Id: <20040920183845.C17763@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com> <200409201812.45933.dtor_core@ameritech.net> <1095727925.8780.58.camel@mythbox> <200409202020.05776.dtor_core@ameritech.net>
-In-Reply-To: <200409202020.05776.dtor_core@ameritech.net>; from dtor_core@ameritech.net on Mon, Sep 20, 2004 at 08:20:05PM -0500
+References: <20040920092520.A14208@unix-os.sc.intel.com> <200409201333.42857.dtor_core@ameritech.net> <20040920122404.B15677@unix-os.sc.intel.com> <200409201812.45933.dtor_core@ameritech.net>
+In-Reply-To: <200409201812.45933.dtor_core@ameritech.net>; from dtor_core@ameritech.net on Mon, Sep 20, 2004 at 06:12:45PM -0500
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Dmitry Torokhov <dtor_core@ameritech.net>
-Cc: Alex Williamson <alex.williamson@hp.com>, acpi-devel@lists.sourceforge.net, Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>, "Brown, Len" <len.brown@intel.com>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
+Cc: acpi-devel@lists.sourceforge.net, Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>, "Brown, Len" <len.brown@intel.com>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
 
-On Mon, Sep 20, 2004 at 08:20:05PM -0500, Dmitry Torokhov wrote:
-> On Monday 20 September 2004 07:52 pm, Alex Williamson wrote:
-> > On Mon, 2004-09-20 at 18:12 -0500, Dmitry Torokhov wrote: 
+On Mon, Sep 20, 2004 at 06:12:45PM -0500, Dmitry Torokhov wrote:
+> On Monday 20 September 2004 02:24 pm, Keshavamurthy Anil S wrote:
+> > On Mon, Sep 20, 2004 at 01:33:42PM -0500, Dmitry Torokhov wrote:
+> > > On Monday 20 September 2004 11:35 am, Keshavamurthy Anil S wrote:
+> > > > This patch support /sys/firmware/acpi/eject interface where in 
+> > > > the ACPI device say "LSB0" can be ejected by echoing "\_SB.LSB0" > 
+> > > > /sys/firmware/acpi/eject
+> > > > 
 > > > 
-> > > Hi Anil,
-> > > 
-> > > I obviously failed to deliver my idea :) I meant that I would like add eject
-> > > attribute (along with maybe status, hid and some others) to kobjects in
-> > > /sys/firmware/acpi tree.
-> > > 
+> > > I wonder if eject should be an attribute of an individual device and visible
+> > > only when device can be ejected. Reading from it could show eject level
+> > > (_EJ0/_EJ3 etc).
+> > Hi Dmitry,
+> > 	Today there is really no sysfs representation of acpi devices apart from
+> > the acpi namespace representation. Evaluating acpi namespaces's _EJ0 method won't help,
+> > as we need acpi device and all its child devices to be removed as part of the eject.
 > > 
-> > Dmitry,
+> > Also for there is no 1:1 maping of acpi devices to pci devices to consider eject to be
+> > part of the pci devices.
 > > 
-> >    See the patch I just posted to acpi-devel and lkml (Subject:
-> > [PATCH/RFC] exposing ACPI objects in sysfs).  It exposes acpi objects as
-> > you describe.   Something simple like:
-> > 
-> >  # cat /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/_EJ0
-> > 
-> > Will call the _EJ0 method on the ACPI device.  You can evaluate eject
-> > dependencies using the _EJD method.
-> > 
-> > 	Alex
+> > Hence the best solution for now is to echo ACPI full path name of the device to be
+> > ejected onto the eject file and the code will make sure that the device supports _EJx method before actuall removing the device.
 > > 
 > 
-> Alex,
+> Hi Anil,
 > 
-> While I think that your patch is very important and should be included (maybe
-> if not as is if somebody has some objections but in some other form) I see it
-> more like developer's tool. I imagined status, HID, eject etc. attributes to
-> be sanitized interface to kernel's data, not necessarily causing re-evaluation.
+> I obviously failed to deliver my idea :) I meant that I would like add eject
+> attribute (along with maybe status, hid and some others) to kobjects in
+> /sys/firmware/acpi tree.
+I got this one and as I have said I will come up with the path soon:)
 > 
-> So it could be like this:
-> 
-> /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/status
-> /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/removable
-> /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/lockable
-> ..
-> /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/eject
+> I also wonder if userspace should traverse tree and emit eject requests for
+> children. While it is OK for user[space]-initiated removal what about surprise
+> removal. My concern that scripts will not be ready for all devices to be
+> suddently gone... Would not it be beter if generic handler for BUS_CHECK was
+> implemented in acpi/bus.c that would add/remove acpi devices and notify
+> userspace via hotplug?
 
-Ha..Now I got it and what you are saying sounds right
-thing to do. I will invistigate more and will get back to
-the mailing list hopefully with the patch:)
+Can you please clarify my concern here.
 
-> 
-> And your raw access to the ACPI methods could reside under raw:
-> 
-> /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/raw/_STA
-> /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/raw/_RNV
-> /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/raw/_LCK
-> ..
-> /sys/firmware/acpi/namespace/ACPI/_SB/LSB0/raw/_EJ0
-> 
-> -- 
-> Dmitry
+Currently I am handling both the surprise removal and the eject request in the same
+way, i,e send the notification to the userland and the usermode agent scripts
+is responsible for offlining of all the devices and then echoing onto eject file.
+
+My worry is if we implement a generic handler for BUS_CHECK, then what would you 
+do if the device fails to remove, i.e what action to take if the device remove fails?
+
+Thanks,
+Anil
+
