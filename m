@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Mon, 22 Sep 2003 19:39:18 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 22 Sep 2003 21:25:36 +0000
 Subject: Re: Inefficient ia64 system call implementation in glibc
-Message-Id: <marc-linux-ia64-106425957923121@msgid-missing>
+Message-Id: <marc-linux-ia64-106426598631350@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106398916511816@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106398916511816@msgid-missing>
@@ -10,23 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, Sep 21, 2003 at 02:04:34PM -0700, Richard Henderson wrote:
-> On Fri, Sep 19, 2003 at 09:32:18AM -0700, H. J. Lu wrote:
-> > The basically problem is glibc doesn't store information about what
-> > the kernel interface is so that it can't efficiently set up parameters
-> > for system calls. Is there a way to improve the situation?
-> 
-> Use __typeof instead of hard-coding long in the LOAD_ARGS macros.
-> That's where the extension comes from.
+>>>>> On Sat, 20 Sep 2003 15:01:26 +0200, Andreas Schwab <schwab@suse.de> said:
 
-How can I make __typeof to work with
+  Andreas> "Jim Hull" <jim.hull@hp.com> writes:
+  >> But my real issue with the performance of this code is not with
+  >> sign-extend or the scheduling these instructions, it's with the
+  >> break instruction.  I may be mistaken, but hasn't it been many
+  >> months since David Mosberger implemented all the kernel
+  >> infrastructure needed to support syscalls using the epc
+  >> instruction?
 
-	char buf [300];
+  Andreas> It's only implemented in 2.6 so far.
 
-	INLINE_SYSCALL (read, 3, fd, buf, sizeof buf);
+No, the glibc support is completely orthogonal to the kernel support.
+If glibc uses the new stubs on a kernel which doesn't support
+kernel-entry via EPC, it will transparently fall back to using BREAK.
 
-Can I get char * from char [300]?
-
-
-H.J.
-
+	--david
