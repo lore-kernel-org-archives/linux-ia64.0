@@ -1,31 +1,38 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 24 Mar 2003 21:52:53 +0000
-Subject: Re: [Linux-ia64] [patch] 2.4.20-ia64 mca rendezvous
-Message-Id: <marc-linux-ia64-105590723705304@msgid-missing>
+From: Martin Hicks <mort@wildopensource.com>
+Date: Thu, 20 Mar 2003 19:03:57 +0000
+Subject: [Linux-ia64] [patch] logical CPU numbering
+Message-Id: <marc-linux-ia64-105590723705277@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705288@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705288@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 22 Mar 2003 14:57:58 +1100, Keith Owens <kaos@sgi.com> said:
+Hello,
 
-  Keith> We are not setting the 'always rendezvous for mca' flag.  kdb
-  Keith> needs it set to get decent mca debugging on all cpus but I do
-  Keith> not want kdb to change sal behaviour.  Since we do not
-  Keith> recover from mca without a debugger, I see no reason why this
-  Keith> flag should not be on for all kernels.
+If a CPU fails to start during smp_boot_cpus(), then the logical CPU
+numbering gets will have a "hole".  Using the number of booted CPU's
+instead of the loop index will correct this.
 
-  Keith> The rendezvous timeout was set to 100 * HZ, but SAL expects
-  Keith> the timeout to be in milliseconds, HZ may not be 1
-  Keith> millisecond.  The patch makes the timeout an explicit 20
-  Keith> seconds, semi-arbitrary value.
+This patch is against 2.4.21-pre5.
 
-Applied for 2.5.
+thanks,
+mh
 
-Thanks,
+-- 
+Wild Open Source Inc.                  mort@wildopensource.com
 
-	--david
+
+
+--- linux-2.4.21-pre5-ia64-030312.pristine/arch/ia64/kernel/smpboot.c	Sun Mar 16 10:18:53 2003
++++ linux-2.4.21-pre5-ia64-030312/arch/ia64/kernel/smpboot.c	Thu Mar 20 10:47:07 2003
+@@ -522,7 +522,7 @@
+ 			/*
+ 			 * Make sure we unmap all failed CPUs
+ 			 */
+-			if (ia64_cpu_to_sapicid[cpu] = -1)
++			if (ia64_cpu_to_sapicid[cpucount] = -1)
+ 				printk("phys CPU#%d not responding - cannot use it.\n", cpu);
+ 		}
+ 
 
