@@ -1,77 +1,81 @@
-From: "Staelin, Carl" <carl.staelin@hp.com>
-Date: Wed, 19 Jan 2005 09:23:22 +0000
-Subject: RE: [Lmbench-users] Re: pipe performance regression on ia64
-Message-Id: <C34DDF504647EB44AF3AF509B2E5270236A380@raaexc01.emea.cpqcorp.net>
+From: Larry McVoy <lm@bitmover.com>
+Date: Wed, 19 Jan 2005 16:40:35 +0000
+Subject: Re: [Lmbench-users] Re: pipe performance regression on ia64
+Message-Id: <20050119164035.GB20656@work.bitmover.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050119030506.GA19700@work.bitmover.com>
-In-Reply-To: <20050119030506.GA19700@work.bitmover.com>
+References: <200501181741.j0IHfGf30058@unix-os.sc.intel.com> <Pine.LNX.4.58.0501180951050.8178@ppc970.osdl.org> <16877.21998.984277.551515@napali.hpl.hp.com> <Pine.LNX.4.58.0501181200460.8178@ppc970.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0501181200460.8178@ppc970.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>, "Zou, Nanhai" <nanhai.zou@intel.com>, Larry McVoy <lm@bitmover.com>, Linus Torvalds <torvalds@osdl.org>
-Cc: "Mosberger, David" <david.mosberger@hp.com>, lmbench-users@bitmover.com, linux-ia64@vger.kernel.org, Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: davidm@hpl.hp.com, carl.staelin@hp.com, "Luck, Tony" <tony.luck@intel.com>, lmbench-users@bitmover.com, linux-ia64@vger.kernel.org, Kernel Mailing List <linux-kernel@vger.kernel.org>
 
-One problem is that on SMPs "average" doesn't really
-make sense.  Statistically, "average" (mean()) only
-really makes sense when you have a Gaussian distribution
-of results.  The benchmark results for SMPs tend to
-be stongly modal, i.e. very tight clusters around
-a few values.  In this environment "average" is
-generally meaningless.
+On Tue, Jan 18, 2005 at 12:17:11PM -0800, Linus Torvalds wrote:
+> 
+> 
+> On Tue, 18 Jan 2005, David Mosberger wrote:
+> >
+> > >>>>> On Tue, 18 Jan 2005 10:11:26 -0800 (PST), Linus Torvalds <torvalds@osdl.org> said:
+> > 
+> >   Linus> I don't know how to make the benchmark look repeatable and
+> >   Linus> good, though.  The CPU affinity thing may be the right thing.
+> > 
+> > Perhaps it should be split up into three cases:
+> > 
+> > 	- producer/consumer pinned to the same CPU
+> > 	- producer/consumer pinned to different CPUs
+> > 	- producer/consumer lefter under control of the scheduler
+> > 
+> > The first two would let us observe any changes in the actual pipe
+> > code, whereas the 3rd case would tell us which case the scheduler is
+> > leaning towards (or if it starts doing something real crazy, like
+> > reschedule the tasks on different CPUs each time, we'd see a bandwith
+> > lower than case 2 and that should ring alarm bells).
+> 
+> Yes, that would be good.
 
-That being said, the '-P' flag exists on most lmbench
-version 3 benchmarks and allows one to have a given
-number of jobs running in parallel.  It is intended
-to measure performance under load.  However, even
-in this case one may see modal results.  Please see
-the recent lmbench paper [2] for an example.
+You're revisiting a pile of work I did back at SGI, I'm pretty sure all
+of this has been thought through before but it's worth going over again.
+I have some pretty strong opinions about this that schedulers tend not
+to like.
 
+It's certainly true that you can increase the performance of this sort
+of problem by pinning the processes to a CPU and/or different CPUs.
+For specific applications that is a fine thing to do, I did that for
+the bulk data server that was moving NFS traffic over a TCP socket
+over HIPPI (if you look at images from space that came from the 
+military it is pretty likely that they passed through that code).
+Pinning the processes to a particular _cache_ (not CPU, CPU has
+nothing to do with it) gave me around 20% better throughput.
 
-Cheers,
+The problem is that schedulers tend be too smart, they try and figure
+out where to put the process each time the schedule.  In general that
+is the wrong answer for two reasons:
 
-Carl
+    a) It's more work on each context switch
+    b) It only works for processes that use up a substantial fraction of
+    their time slice (because the calculation is typically based in part
+    on the idea if you ran on this cache for a long time then you want 
+    to stay here).
 
-References
-[1] Larry McVoy and Carl Staelin.  lmbench: Portable
-    tools for performance analysis.  Proceedings 1996
-    USENIX Annual Technical Conference (San Diego, CA),
-    pages 279--284.  January 1996.
- 
-http://www.usenix.org/publications/library/proceedings/sd96/mcvoy.html
-[2] Carl Staelin.  lmbench --- an extensible micro-
-    benchmark suite.  HPL-2004-213.  December 2004.
-    Also to appear in Software Practice and Experience.
-    http://www.hpl.hp.com/techreports/2004/HPL-2004-213.pdf
+The problem with the "thinking scheduler" is that it doesn't work for I/O
+loads.  That sort of approach will believe that it is fine to move a process
+which hasn't run for a long time.  That's false, you are invalidating its
+cache and that hurts.  That's the 20% gain I got.
 
+You are far better off, in my opinion, havig a scheduler that thinks at
+process creation time and then only when the load gets unbalanced.  Other
+than that, it always puts the process back on the CPU where it last ran.
+If the scheduler guesses wrong and puts two processes on the same CPU
+and they fight one will get moved.  But it shouldn't right away, leave
+it there and let things settle a bit.
 
-
-_________________________________________________
-[(hp)]	Carl Staelin
-	Senior Research Scientist
-	Hewlett-Packard Laboratories
-	Technion City
-	Haifa, 32000
-	ISRAEL
-	+972(4)823-1237x305	+972(4)822-0407 fax
-	carl.staelin@hp.com
-______ http://www.hpl.hp.com/personal/Carl_Staelin ______
-
------Original Message-----
-From: Luck, Tony [mailto:tony.luck@intel.com] 
-Sent: Wednesday, January 19, 2005 8:35 AM
-To: Zou, Nanhai; Larry McVoy; Linus Torvalds
-Cc: Mosberger, David; Staelin, Carl; lmbench-users@bitmover.com;
-linux-ia64@vger.kernel.org; Kernel Mailing List
-Subject: RE: [Lmbench-users] Re: pipe performance regression on ia64
-
->Maybe lmbench could add a feature that bw_pipe will fork CPU number of 
->children to measure the average throughput.
->
->This will give a much reasonable result when running bw_pipe on a SMP 
->Box, at least for Linux.
-
-bw_pipe (along with most/all of the lmbench tools already has a "-P"
-argument to specify the degree of parallelism).
-
--Tony
-
+If someone coded up this policy and tried it I think that it would go a
+long way towards making the LMbench timings more stable.  I could be
+wrong but it would be interesting to compare this approach with a manual
+placement approach.  Manual placement will always do better but it should
+be in the 5% range, not in the 20% range.
+-- 
+---
+Larry McVoy                lm at bitmover.com           http://www.bitkeeper.com
