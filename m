@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 21 Mar 2001 19:58:54 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 21 Mar 2001 20:00:24 +0000
 Subject: Re: [Linux-ia64] Unwind problem for __attribute__ noreturn
-Message-Id: <marc-linux-ia64-105590693005325@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005324@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005303@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005303@msgid-missing>
@@ -10,38 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 21 Mar 2001 11:40:55 -0800, Jim Wilson <wilson@cygnus.com> said:
+>In the case of a call to a "noreturn" procedure, I'll offer the opinion 
+>that having the unwinder decrement the rp is not correct.
 
-  Jim> Consider this case
+Why?  It isn't good enough to say that this is wrong.  You should justify
+why you think it is wrong.
 
-  Jim>      mutex p6, p7
-  Jim>   { .mib 
-  Jim>      (p6) instruction that changes the unwind state
-  Jim>      (p7) call that does not return
-  Jim>   }
-  Jim>      unwind directives to declare new unwind state
+I suggest people look at other existing unwinders before discarding the
+subtact one idea.
 
-This wouldn't be correct: the unwind directives would have to go in
-front of the instruction predicated by (p6).  Otherwise, you might get
-interrupted (e.g., by a signal), after executing that instruction, and
-then the unwind info would be wrong.
+GCC for instance has a DWARF2 based unwinder for exception handling.
+It subtracts one from the return address before using it.  It has been
+doing this for several years, and this works for all architectures.
+The relatively recent IA-64 unwinder does the same thing.  This ensures that
+we get the right frame state, the one that exists at the point of the call,
+not the one that exists after the point of the call.
 
-Now, to fix this, you'd have to use the general unwind directives and
-that would imply that instead of p6/p7, you'd have to use a "preserved"
-predicate.  Given those restrictions, I think you could just as easily
-do:
-
-	mutex p8, p9
-{ .mib
-	unwind directive describing effect of next insn
-	(p8) instruction that changes the unwind state
-	(p9) call that does not return
-}
-	(p9) break 0
-
-This is slightly worse than the optimal code, but not by much.  The
-biggest potential impact comes from the fact that now you need to
-preserve the contents of "pr".
-
-	--david
+Jim
 
