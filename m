@@ -1,34 +1,63 @@
-From: "Martin J. Bligh" <mbligh@aracnet.com>
-Date: Wed, 14 Apr 2004 15:23:45 +0000
-Subject: Re: [Lse-tech] Re: hugetlb demand paging patch part [0/3]
-Message-Id: <17980000.1081956225@[10.10.2.4]>
+From: Ray Bryant <raybry@sgi.com>
+Date: Sun, 18 Apr 2004 17:36:05 +0000
+Subject: Re: [Lse-tech] Re: hugetlb demand paging patch part [2/3]
+Message-Id: <4082BC85.9010800@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200404132317.i3DNH4F21162@unix-os.sc.intel.com> <1081933442.4688.6.camel@laptop.fenrus.com> <17200000.1081956095@[10.10.2.4]>
-In-Reply-To: <17200000.1081956095@[10.10.2.4]>
+References: <20040416032725.GG12735@zax> <200404160413.i3G4DcF13729@unix-os.sc.intel.com> <20040416044917.GB26707@zax> <40802E69.7040506@sgi.com> <20040417120540.GC32444@zax>
+In-Reply-To: <20040417120540.GC32444@zax>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: arjanv@redhat.com, "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>
+To: 'David Gibson' <david@gibson.dropbear.id.au>
+Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, 'Andy Whitcroft' <apw@shadowen.org>, 'Andrew Morton' <akpm@osdl.org>
 
->>> In addition to the hugetlb commit handling that we've been working on
->>> off the list, Ray Bryant of SGI and I are also working on demand paging
->>> for hugetlb page.  Here are our final version that has been heavily
->>> tested on ia64 and x86.  I've broken the patch into 3 pieces so it's
->>> easier to read/review, etc.
->> 
->> Ok I think it's time to say "HO STOP" here.
->> 
->> If you're going to make the kernel deal with different, concurrent page
->> sizes then please do it for real. Or alternatively leave hugetlb to be
->> the kludge/hack it is right now. Anything inbetween is the road to
->> madness...
+
+
+'David Gibson' wrote:
+
 > 
-> I'd prefer to see it walk step by step to "doing it for real" than have
-> a huge cataclysmic patch that breaks everything ....
+> 
+> My main interest in it is as a prerequisite for various methods of
+> "automatically" using hugepages for programs where it is difficult to
+> manually code them to use hugetlbfs.  In particular, think HPC
+> monsters written in FORTRAN.  e.g. automatically putting suitable
+> aligned anonymous mmap()s in hugepages under some circumstances (I
+> can't say I like that idea much), using an LD_PRELOAD to put
+> malloc()ated memory into hugepages, or using a hacked ELF loader to
+> put the BSS section (again, think FORTRAN) into hugepages (actually
+> easier and less ugly than it sounds).
+> 
 
-Hmm - maybe that could be misinterpreted ;-) I meant that this the patches
-discussed here are the steps (ie good ;-)), not the cataclysmic event.
+Well, that certainly is a laudable goal.  At the moment, one usually has to 
+resort to such things as POINTER variables and the like to get access to 
+hugetlbpage segments.  Unfortunately, some of our experiments with the Intel 
+compiler for ia64 have indicated  that the generated code can be significantly 
+slower when arrays are referenced off of POINTER variables than when the same 
+arrays are referenced out of COMMON, thus eliminating the performance gain of 
+HUGETLB pages.
 
-M.
+My question was really intended to address applying development effort to 
+things that the users of hugetlbpages will likely actually use.  For example, 
+it seems pointless to worry too much about demand paging of hugetlbpages out 
+to disk.  Anyone who uses hugetlbpages for the performance boost they give 
+will also likely have rightsized their problem or machine configuration to 
+eliminate any swapping.
+
+> In any of these cases having the memory have different semantics
+> (MAP_SHARED) to normal anonymous memory would clearly be a Bad Thing.
+> 
+> 
+> 
+> 
+
+-- 
+Best Regards,
+Ray
+-----------------------------------------------
+                   Ray Bryant
+512-453-9679 (work)         512-507-7807 (cell)
+raybry@sgi.com             raybry@austin.rr.com
+The box said: "Requires Windows 98 or better",
+            so I installed Linux.
+-----------------------------------------------
 
