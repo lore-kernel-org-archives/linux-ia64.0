@@ -1,291 +1,130 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 01 Dec 2004 23:43:20 +0000
-Subject: page fault scalability patch V12 [3/7]: universal cmpxchg for i386
-Message-Id: <Pine.LNX.4.58.0412011542550.5721@schroedinger.engr.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Sun, 05 Dec 2004 04:19:11 +0000
+Subject: [RFC] Clear all corrected records as they are read from SAL
+Message-Id: <22981.1102220351@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
- <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
- <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
- <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@osdl.org>
-Cc: Hugh Dickins <hugh@veritas.com>, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Changelog
-        * Make cmpxchg and cmpxchg8b generally available on the i386
-	  platform.
-        * Provide emulation of cmpxchg suitable for uniprocessor if
-	  build and run on 386.
-        * Provide emulation of cmpxchg8b suitable for uniprocessor
-	  systems if build and run on 386 or 486.
-	* Provide an inline function to atomically get a 64 bit value
-	  via cmpxchg8b in an SMP system (courtesy of Nick Piggin)
-	  (important for i386 PAE mode and other places where atomic
-	  64 bit operations are useful)
+This patch compiles but has not been tested.  I am throwing it open for
+comments while I test the code.  Against 2.6.10-rc2 or -rc3, with or
+without Russ Anderson's per cpu MCA/INIT area patch.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Russ hit a problem while testing recoverable MCA errors.  Because MCA
+events are not irq safe, they cannot be logged via salinfo_decode at
+the time that they occur.  Instead kernel salinfo.c runs a timer every
+few minutes to check for and to clear corrected MCA records.  If a
+second recoverable MCA occurs on the same cpu before salinfo_decode has
+cleared the first record then OS_MCA reads the record for the first MCA
+from SAL, which passes invalid data to the MCA recovery routines.
 
-Index: linux-2.6.9/arch/i386/Kconfig
-=================================--- linux-2.6.9.orig/arch/i386/Kconfig	2004-11-15 11:13:34.000000000 -0800
-+++ linux-2.6.9/arch/i386/Kconfig	2004-11-19 10:02:54.000000000 -0800
-@@ -351,6 +351,11 @@
- 	depends on !M386
- 	default y
+This patch treats all corrected records the same way, by clearing the
+records from SAL as soon as they occur.  CMC and CPE records are
+cleared as they are read.  Recoverable MCA records are cleared at the
+time that we decide they can be corrected.  If salinfo_decode is not
+running or is backlogged then we lose some logging, but that has always
+been the case for corrected errors.
 
-+config X86_CMPXCHG8B
-+	bool
-+	depends on !M386 && !M486
-+	default y
-+
- config X86_XADD
- 	bool
- 	depends on !M386
-Index: linux-2.6.9/arch/i386/kernel/cpu/intel.c
-=================================--- linux-2.6.9.orig/arch/i386/kernel/cpu/intel.c	2004-11-15 11:13:34.000000000 -0800
-+++ linux-2.6.9/arch/i386/kernel/cpu/intel.c	2004-11-19 10:38:26.000000000 -0800
-@@ -6,6 +6,7 @@
- #include <linux/bitops.h>
- #include <linux/smp.h>
- #include <linux/thread_info.h>
-+#include <linux/module.h>
-
- #include <asm/processor.h>
- #include <asm/msr.h>
-@@ -287,5 +288,103 @@
- 	return 0;
- }
-
-+#ifndef CONFIG_X86_CMPXCHG
-+unsigned long cmpxchg_386_u8(volatile void *ptr, u8 old, u8 new)
-+{
-+	u8 prev;
-+	unsigned long flags;
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but the
-+	 * currently running cpu can do cmpxchg after all
-+	 * All CPUs except 386 support CMPXCHG
-+	 */
-+	if (cpu_data->x86 > 3)
-+		return __cmpxchg(ptr, old, new, sizeof(u8));
-+
-+	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
-+	local_irq_save(flags);
-+	prev = *(u8 *)ptr;
-+	if (prev = old)
-+		*(u8 *)ptr = new;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg_386_u8);
-+
-+unsigned long cmpxchg_386_u16(volatile void *ptr, u16 old, u16 new)
-+{
-+	u16 prev;
-+	unsigned long flags;
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but the
-+	 * currently running cpu can do cmpxchg after all
-+	 * All CPUs except 386 support CMPXCHG
-+	 */
-+	if (cpu_data->x86 > 3)
-+		return __cmpxchg(ptr, old, new, sizeof(u16));
-+
-+	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
-+	local_irq_save(flags);
-+	prev = *(u16 *)ptr;
-+	if (prev = old)
-+		*(u16 *)ptr = new;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg_386_u16);
-+
-+unsigned long cmpxchg_386_u32(volatile void *ptr, u32 old, u32 new)
-+{
-+	u32 prev;
-+	unsigned long flags;
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but the
-+	 * currently running cpu can do cmpxchg after all
-+	 * All CPUs except 386 support CMPXCHG
-+	 */
-+	if (cpu_data->x86 > 3)
-+		return __cmpxchg(ptr, old, new, sizeof(u32));
-+
-+	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
-+	local_irq_save(flags);
-+	prev = *(u32 *)ptr;
-+	if (prev = old)
-+		*(u32 *)ptr = new;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg_386_u32);
-+#endif
-+
-+#ifndef CONFIG_X86_CMPXCHG8B
-+unsigned long long cmpxchg8b_486(volatile unsigned long long *ptr,
-+	       unsigned long long old, unsigned long long newv)
-+{
-+	unsigned long long prev;
-+	unsigned long flags;
-+
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but
-+	 * we are running really on a cpu capable of cmpxchg8b
-+	 */
-+
-+	if (cpu_has(cpu_data, X86_FEATURE_CX8))
-+		return __cmpxchg8b(ptr, old, newv);
-+
-+	/* Poor mans cmpxchg8b for 386 and 486. Not suitable for SMP */
-+	local_irq_save(flags);
-+	prev = *ptr;
-+	if (prev = old)
-+		*ptr = newv;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg8b_486);
-+#endif
-+
- // arch_initcall(intel_cpu_init);
-
-Index: linux-2.6.9/include/asm-i386/system.h
-=================================--- linux-2.6.9.orig/include/asm-i386/system.h	2004-11-15 11:13:38.000000000 -0800
-+++ linux-2.6.9/include/asm-i386/system.h	2004-11-19 10:49:46.000000000 -0800
-@@ -149,6 +149,9 @@
- #define __xg(x) ((struct __xchg_dummy *)(x))
+I am assuming that all ia64 proms mark CMC and CPE as severity code 2
+(corrected error).  Do any vendors have proms that do not mark CMC/CPE
+as code 2?
 
 
-+#define ll_low(x)	*(((unsigned int*)&(x))+0)
-+#define ll_high(x)	*(((unsigned int*)&(x))+1)
+Index: linux/include/asm-ia64/sal.h
+=================================--- linux.orig/include/asm-ia64/sal.h	Tue Oct 19 07:55:28 2004
++++ linux/include/asm-ia64/sal.h	Sun Dec  5 14:36:32 2004
+@@ -325,6 +325,10 @@ typedef struct sal_log_record_header {
+ 	efi_guid_t platform_guid;	/* Unique OEM Platform ID */
+ } sal_log_record_header_t;
+ 
++#define sal_log_severity_recoverable	0
++#define sal_log_severity_fatal		1
++#define sal_log_severity_corrected	2
 +
- /*
-  * The semantics of XCHGCMP8B are a bit strange, this is why
-  * there is a loop and the loading of %%eax and %%edx has to
-@@ -184,8 +187,6 @@
+ /* Definition of log section header structures */
+ typedef struct sal_log_sec_header {
+     efi_guid_t guid;			/* Unique Section ID */
+Index: linux/arch/ia64/kernel/mca.c
+=================================--- linux.orig/arch/ia64/kernel/mca.c	Sun Dec  5 14:12:00 2004
++++ linux/arch/ia64/kernel/mca.c	Sun Dec  5 14:51:11 2004
+@@ -234,6 +234,7 @@ static void
+ ia64_mca_log_sal_error_record(int sal_info_type)
  {
- 	__set_64bit(ptr,(unsigned int)(value), (unsigned int)((value)>>32ULL));
+ 	u8 *buffer;
++	sal_log_record_header_t *rh;
+ 	u64 size;
+ 	int irq_safe = sal_info_type != SAL_INFO_TYPE_MCA && sal_info_type != SAL_INFO_TYPE_INIT;
+ #ifdef IA64_MCA_DEBUG_INFO
+@@ -252,7 +253,8 @@ ia64_mca_log_sal_error_record(int sal_in
+ 			sal_info_type < ARRAY_SIZE(rec_name) ? rec_name[sal_info_type] : "UNKNOWN");
+ 
+ 	/* Clear logs from corrected errors in case there's no user-level logger */
+-	if (sal_info_type = SAL_INFO_TYPE_CPE || sal_info_type = SAL_INFO_TYPE_CMC)
++	rh = (sal_log_record_header_t *)buffer;
++	if (rh->severity = sal_log_severity_corrected)
+ 		ia64_sal_clear_state_info(sal_info_type);
  }
--#define ll_low(x)	*(((unsigned int*)&(x))+0)
--#define ll_high(x)	*(((unsigned int*)&(x))+1)
-
- static inline void __set_64bit_var (unsigned long long *ptr,
- 			 unsigned long long value)
-@@ -203,6 +204,26 @@
-  __set_64bit(ptr, (unsigned int)(value), (unsigned int)((value)>>32ULL) ) : \
-  __set_64bit(ptr, ll_low(value), ll_high(value)) )
-
-+static inline unsigned long long __get_64bit(unsigned long long * ptr)
-+{
-+	unsigned long long ret;
-+	__asm__ __volatile__ (
-+		"\n1:\t"
-+		"movl (%1), %%eax\n\t"
-+		"movl 4(%1), %%edx\n\t"
-+		"movl %%eax, %%ebx\n\t"
-+		"movl %%edx, %%ecx\n\t"
-+		LOCK_PREFIX "cmpxchg8b (%1)\n\t"
-+		"jnz 1b"
-+		:	"=A"(ret)
-+		:	"D"(ptr)
-+		:	"ebx", "ecx", "memory");
-+	return ret;
-+}
-+
-+#define get_64bit(ptr) __get_64bit(ptr)
-+
-+
- /*
-  * Note: no "lock" prefix even on SMP: xchg always implies lock anyway
-  * Note 2: xchg has side effect, so that attribute volatile is necessary,
-@@ -240,7 +261,41 @@
-  */
-
- #ifdef CONFIG_X86_CMPXCHG
-+
- #define __HAVE_ARCH_CMPXCHG 1
-+#define cmpxchg(ptr,o,n)\
-+	((__typeof__(*(ptr)))__cmpxchg((ptr), (unsigned long)(o), \
-+					(unsigned long)(n), sizeof(*(ptr))))
-+
-+#else
-+
-+/*
-+ * Building a kernel capable running on 80386. It may be necessary to
-+ * simulate the cmpxchg on the 80386 CPU. For that purpose we define
-+ * a function for each of the sizes we support.
-+ */
-+
-+extern unsigned long cmpxchg_386_u8(volatile void *, u8, u8);
-+extern unsigned long cmpxchg_386_u16(volatile void *, u16, u16);
-+extern unsigned long cmpxchg_386_u32(volatile void *, u32, u32);
-+
-+static inline unsigned long cmpxchg_386(volatile void *ptr, unsigned long old,
-+				      unsigned long new, int size)
-+{
-+	switch (size) {
-+	case 1:
-+		return cmpxchg_386_u8(ptr, old, new);
-+	case 2:
-+		return cmpxchg_386_u16(ptr, old, new);
-+	case 4:
-+		return cmpxchg_386_u32(ptr, old, new);
+ 
+@@ -880,6 +882,11 @@ ia64_mca_ucmc_handler(void)
+ 			&ia64_sal_to_os_handoff_state,
+ 			&ia64_os_to_sal_handoff_state)); 
+ 
++	if (recover) {
++		sal_log_record_header_t *rh = IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA);
++		rh->severity = sal_log_severity_corrected;
++		ia64_sal_clear_state_info(SAL_INFO_TYPE_MCA);
 +	}
-+	return old;
-+}
-+
-+#define cmpxchg(ptr,o,n)\
-+	((__typeof__(*(ptr)))cmpxchg_386((ptr), (unsigned long)(o), \
-+					(unsigned long)(n), sizeof(*(ptr))))
- #endif
-
- static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
-@@ -270,10 +325,32 @@
- 	return old;
+ 	/*
+ 	 *  Wakeup all the processors which are spinning in the rendezvous
+ 	 *  loop.
+Index: linux/arch/ia64/kernel/salinfo.c
+=================================--- linux.orig/arch/ia64/kernel/salinfo.c	Sat Dec  4 12:55:38 2004
++++ linux/arch/ia64/kernel/salinfo.c	Sun Dec  5 14:59:01 2004
+@@ -19,6 +19,9 @@
+  *
+  * Jan 28 2004	kaos@sgi.com
+  *   Periodically check for outstanding MCA or INIT records.
++ *
++ * Dec  5 2004	kaos@sgi.com
++ *   Standardize which records are cleared automatically.
+  */
+ 
+ #include <linux/types.h>
+@@ -382,8 +385,11 @@ static void
+ salinfo_log_read_cpu(void *context)
+ {
+ 	struct salinfo_data *data = context;
++	sal_log_record_header_t *rh;
+ 	data->log_size = ia64_sal_get_state_info(data->type, (u64 *) data->log_buffer);
+-	if (data->type = SAL_INFO_TYPE_CPE || data->type = SAL_INFO_TYPE_CMC)
++	rh = (sal_log_record_header_t *)(data->log_buffer);
++	/* Clear corrected errors as they are read from SAL */
++	if (rh->severity = sal_log_severity_corrected)
+ 		ia64_sal_clear_state_info(data->type);
  }
-
--#define cmpxchg(ptr,o,n)\
--	((__typeof__(*(ptr)))__cmpxchg((ptr),(unsigned long)(o),\
--					(unsigned long)(n),sizeof(*(ptr))))
--
-+static inline unsigned long long __cmpxchg8b(volatile unsigned long long *ptr,
-+		unsigned long long old, unsigned long long newv)
-+{
-+	unsigned long long prev;
-+	__asm__ __volatile__(
-+	LOCK_PREFIX "cmpxchg8b (%4)"
-+		: "=A" (prev)
-+		: "0" (old), "c" ((unsigned long)(newv >> 32)),
-+		  "b" ((unsigned long)(newv & 0xffffffffULL)), "D" (ptr)
-+		: "memory");
-+	return prev;
-+}
-+
-+#ifdef CONFIG_X86_CMPXCHG8B
-+#define cmpxchg8b __cmpxchg8b
-+#else
-+/*
-+ * Building a kernel capable of running on 80486 and 80386. Both
-+ * do not support cmpxchg8b. Call a function that emulates the
-+ * instruction if necessary.
-+ */
-+extern unsigned long long cmpxchg8b_486(volatile unsigned long long *,
-+		unsigned long long, unsigned long long);
-+#define cmpxchg8b cmpxchg8b_486
-+#endif
-+
- #ifdef __KERNEL__
- struct alt_instr {
- 	__u8 *instr; 		/* original instruction */
+ 
+@@ -457,6 +463,7 @@ salinfo_log_clear_cpu(void *context)
+ static int
+ salinfo_log_clear(struct salinfo_data *data, int cpu)
+ {
++	sal_log_record_header_t *rh;
+ 	data->state = STATE_NO_DATA;
+ 	if (!test_bit(cpu, &data->cpu_event))
+ 		return 0;
+@@ -469,10 +476,9 @@ salinfo_log_clear(struct salinfo_data *d
+ 		data->saved_num = 0;
+ 		spin_unlock_irqrestore(&data_saved_lock, flags);
+ 	}
+-	/* ia64_mca_log_sal_error_record or salinfo_log_read_cpu already cleared
+-	 * CPE and CMC errors
+-	 */
+-	if (data->type != SAL_INFO_TYPE_CPE && data->type != SAL_INFO_TYPE_CMC)
++	rh = (sal_log_record_header_t *)(data->log_buffer);
++	/* Corrected errors have already been cleared from SAL */
++	if (rh->severity != sal_log_severity_corrected)
+ 		call_on_cpu(cpu, salinfo_log_clear_cpu, data);
+ 	/* clearing a record may make a new record visible */
+ 	salinfo_log_new_read(cpu, data);
 
