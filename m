@@ -1,7 +1,7 @@
-From: Mike Weiss <weiss@roguewave.com>
-Date: Thu, 22 Jun 2000 19:01:46 +0000
+From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
+Date: Thu, 22 Jun 2000 19:02:30 +0000
 Subject: RE: [Linux-ia64] new Red Hat Linux for IA-64 available
-Message-Id: <marc-linux-ia64-105590678205177@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205178@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205167@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205167@msgid-missing>
@@ -10,30 +10,49 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-worked like a champ thanks!
+It was the problem with the "red" servers. Even the web server did not work.
+I worked with our IT  support and found the same problem. Now I am
+downloading...
 
-Mike
+Thanks.
+
+-- Shameem
+
+Shameem Akhter
+
+IACG
+IA64 Tools Engineering
+Ph: (503) 264-1644
+
+
 
 -----Original Message-----
-From: Bill Nottingham [mailto:notting@redhat.com]
-Sent: Thursday, June 22, 2000 11:59 AM
-To: linux-ia64@linuxia64.org
-Subject: Re: [Linux-ia64] new Red Hat Linux for IA-64 available
+From: James Wilson [mailto:wilson@wilson.cygnus.com]
+Sent: Thursday, June 22, 2000 11:30 AM
+To: Akhter, Shameem F
+Cc: 'Bill Nottingham'; linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] new Red Hat Linux for IA-64 available 
 
 
-Mike Weiss (weiss@roguewave.com) said: 
-> With a flat ATA disk, I run 'eli vmlinux' from the CD efi filesystem, just
-> like with TL.
+	I am having problem with the "redhat" ftp site, whereas "cygnus" ftp
+is
+	working fine. Any idea?
 
-Don't do that. Just run 'eli', and choose the default image (you
-can just hit Enter.)
+You didn't say what kind of problems.  "cygnus" ftp and "redhat" ftp are
+two completely different machines 3000 miles apart, so you can't draw any
+conclusions from one about the other.
 
-Bill
+Anyways, I usually get my stuff from ftp.freesoftware.com since it is faster
+than getting it directly from Red Hat, at least for me.
+     ftp://ftp.freesoftware.com/pub/linux/redhat/ia64
+
+Jim
 
 
 _______________________________________________
 Linux-IA64 mailing list
 Linux-IA64@linuxia64.org
 http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
 
