@@ -1,7 +1,7 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
-Date: Sat, 17 May 2003 18:36:01 +0000
-Subject: Re: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent
-Message-Id: <marc-linux-ia64-105590723705924@msgid-missing>
+From: Russell King <rmk@arm.linux.org.uk>
+Date: Sat, 17 May 2003 21:09:27 +0000
+Subject: Re: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
+Message-Id: <marc-linux-ia64-105590723705925@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,54 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 2003-05-16 at 13:18, Russell King wrote:
-> Isn't the common use (eg, net devices):
-> 
-> 	buffer passed from lower levels
-> 
-> 	map buffer
-> 
-> 	(device owns buffer)
-> 
-> 	device uses buffer
-> 
-> 	unmap buffer
-> 
-> 	(cpu owns buffer)
-> 
-> 	free buffer
-> 
-> So, to use your example:
-> 
-> 	(cpu owns region)
-> 
-> 	map
-> 
-> 	(device owns region)
-> 
-> 	dma_sync...cpu
-> 
-> 	(cpu owns region)
-> 
-> 	dma_sync...device
-> 
-> 	(device owns region)
-> 
-> 	unmap
-> 
-> 	(cpu owns region)
+On Sat, May 17, 2003 at 01:36:01PM -0500, James Bottomley wrote:
+> How would you feel about making this API change?
 
-A grep through the tree implies that you (for arm) and me (for parisc)
-are the only current implementors of the dma_ API.
+No problem.
 
-The only consumers seem to be:  lasi_82596, 53c700 and sym53c8xx_comm.h
-(all of which I did anyway), and usb/core/usb.c
+> I take it you have a preference for using _to_cpu and _to_device
+> call variants?
 
-How would you feel about making this API change?  I take it you have a
-preference for using _to_cpu and _to_device call variants?
+Thinking about it some, these could be confused with the direction of
+DMA.
 
-James
+Would "dma_sync_for_device" and "dma_sync_for_cpu" fit better?
 
-
+-- 
+Russell King (rmk@arm.linux.org.uk)                The developer of ARM Linux
+             http://www.arm.linux.org.uk/personal/aboutme.html
 
 
