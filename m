@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 07 Dec 2004 02:38:03 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 07 Dec 2004 16:30:58 +0000
 Subject: RE: q-tools v0.2 released
-Message-Id: <200412070235.iB72ZNg07055@unix-os.sc.intel.com>
+Message-Id: <16821.56002.933081.228126@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200410111552.i9BFqiHj020907@napali.hpl.hp.com>
 In-Reply-To: <200410111552.i9BFqiHj020907@napali.hpl.hp.com>
@@ -10,22 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote on Monday, October 11, 2004 8:53 AM
-> I'm happy to announce that q-tools v0.2 has been released.  q-tools is
-> a collection of Linux performance analysis tools.  In particular, they
-> include q-syscollect and q-view, which can be thought of as being more
-> powerful than gprof, without its pain (no recompilation needed;
-> multi-threaded apps and shared libraries are supported;
-> kernel-execution can be profiled; any Itanium 2 PMU event can be
-> profiled, etc.).
->
+>>>>> On Mon, 6 Dec 2004 18:38:03 -0800, "Chen, Kenneth W" <kenneth.w.chen@intel.com> said:
 
-I'm craving for more, is there a q-merge kind of utility out there? i.e.,
-merge all the cpu .hist files into one to get an overall system profile.  I
-can do that right now by hand (cat cpu*.hist into one file and then generate
-corresponding .info file).  I hope someone already had such tool so I don't
-have to reinvent the wheel.
+  Ken> I'm craving for more, is there a q-merge kind of utility out
+  Ken> there?
 
-- Ken
+Not yet.  I definitely want that, too, but I'm currently busy trying
+to finish libunwind (putting it in the kernel and making it cover more
+architectures).
 
-
+	--david
