@@ -1,25 +1,29 @@
 From: Bill Nottingham <notting@redhat.com>
-Date: Thu, 11 Jan 2001 22:03:46 +0000
-Subject: [Linux-ia64] Re: Kernel panic in dtlb_fault
-Message-Id: <marc-linux-ia64-105590693005031@msgid-missing>
+Date: Thu, 25 Jan 2001 16:34:48 +0000
+Subject: [Linux-ia64] Re: That getpagesize() problem again!
+Message-Id: <marc-linux-ia64-105590693005102@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger (davidm@hpl.hp.com) said: 
-> >>>>> On Thu, 11 Jan 2001 11:09:22 -0800, Uros Prestor <uros@turbolinux.com> said:
+Francis Galiegue (fg@mandrakesoft.com) said: 
+> When trying to install only two packages via RPM in a chroot, this is what I
+> get:
 > 
->   Uros> I still get a kernel panic in dtlb_fault() when setting
->   Uros> CONFIG_DISABLE_VHPT=y.
+> rpm: ../sysdeps/unix/sysv/linux/ia64/getpagesize.c:36: __getpagesize: Assertion
+> `_dl_pagesize != 0'
+> failed.
 > 
-> Are you sure you picked up the new kernel?  Try "objdump -d" on
-> vmlinux and verify that itlb_fault ends with "b0" being restored.
+> Then, abort and core dump.
 
-Yup; a kernel with Asit's patch fails if CONFIG_DISABLE_VHPT is on,
-succeeds if it's off. Oddly enough, I got an 'illegal instruction',
-IIRC; the oops address was inside page_fault.
+The page size stuff was broken in glibc for a few days (right around 2.2.1)
+in where it didn't work for static binaries (they'd explode as soon as
+they tried to use NSS.)
+
+Once you get a version of glibc that fixes this, you need to rebuild all
+static binaries that use NSS (e.g., rpm); then it should work.
 
 Bill
 
