@@ -1,36 +1,41 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 19 Dec 2003 23:10:11 +0000
-Subject: Re: [PATCH] - linux/arch/ia64/kernel/acpi.c
-Message-Id: <marc-linux-ia64-107187556022118@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 10 Dec 2003 20:50:30 +0000
+Subject: hardware random number generator?
+Message-Id: <marc-linux-ia64-107108953504700@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107177513519511@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107177513519511@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 18 Dec 2003 13:14:42 -0600, Jack Steiner <steiner@sgi.com> said:
 
-  Jack> The code in acpi_numa_memory_affinity_init that sorts the
-  Jack> node_memblk can overrun the array & clobber the memory that
-  Jack> follows the end of the array. The error will be seen only on
-  Jack> systems that fill the node_memblk array and only if SAL doesnt
-  Jack> sort the entries in the SRAT.
+config HW_RANDOM
+        tristate "Intel/AMD/VIA HW Random Number Generator support"
+        depends on (X86 || IA64) && PCI
+        ---help---
+          This driver provides kernel-side support for the Random Number
+          Generator hardware found on Intel i8xx-based motherboards,
+          AMD 76x-based motherboards, and Via Nehemiah CPUs.
 
+Why IA64 too?  This file contains the code:
 
-> --- linux.base/arch/ia64/kernel/acpi.c	Wed Nov 26 14:44:07 2003
-> +++ linux/arch/ia64/kernel/acpi.c	Thu Dec 18 13:10:03 2003
-> @@ -413,7 +413,7 @@
->  			break;
->  	}
->  	if (p < pend) {
-> -		for (q = pend; q >= p; q--)
-> +		for (q = pend - 1; q >= p; q--)
->  			*(q + 1) = *q;
->  	}
->  	p->start_paddr = paddr;
+static inline u32 xstore(u32 *addr, u32 edx_in)
+{
+        u32 eax_out;
 
-Looks correct to me.  Applied.
+        asm(".byte 0x0F,0xA7,0xC0 /* xstore %%edi (addr=%0) */"
+                :"=m"(*addr), "=a"(eax_out)
+                :"D"(addr), "d"(edx_in));
 
-	--david
+        return eax_out;
+}
+
+which doesn't compile on ia64.  I think it should be unselectable.
+
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
