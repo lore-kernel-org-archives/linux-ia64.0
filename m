@@ -1,123 +1,25 @@
-From: Xavier Bru  <Xavier.Bru@bull.net>
-Date: Wed, 26 Jun 2002 17:30:48 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 26 Jun 2002 17:46:04 +0000
 Subject: [Linux-ia64] Re: kernel update (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905722@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905723@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205855@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205855@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->	- Install NaT-page at address zero to speed up speculation
->	  across NULL pointers (Ken Chen).
+>>>>> On Wed, 26 Jun 2002 19:30:48 +0200 (DFT), Xavier Bru  <Xavier.Bru@bull.net> said:
 
-Hi Dave,
+  Xavier> It seems that null pointers passed as argument to syscalls
+  Xavier> by wrong user code now generate a Oops, and enter kdb if
+  Xavier> enabled.
 
+Good point.  The signal handler path needs to check whether the fault
+occurred inside a code range with an associated exception handler and
+report it as a user fault, if so.  We already do this for the
+unaligned handler.
 
-It seems that null pointers passed as argument to syscalls by wrong
-user code now generate a Oops, and enter kdb if enabled.=20
-
-This is not a big problem, as typing "go"  the wrong process=20
-exits and everyting goes well.=20
-
-for example:=20
-
-quotaon[163]: NaT consumption 17179869216
-
-Pid: 163, comm:              quotaon
-psr : 0000101008026018 ifs : 8000000000000183 ip  : [<e000000004767e00>]   =
- Not tainted
-unat: 0000000000000000 pfs : 0000000000000288 rsc : 0000000000000003
-rnat: 0000101008026018 bsps: e000000004402f00 pr  : 0000000056609617
-ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c0270033f
-b0  : e0000000044d8e50 b6  : e000000004402f60 b7  : e0000000045f6300
-f6  : 1003e0000000000000001 f7  : 1003e0000000000000001
-f8  : 1003e0000000000000170 f9  : 10005c200000000000000
-r1  : e000000004cbe970 r2  : 0000000000000288 r3  : e000000004abfb88
-r8  : 0000000000000000 r9  : 0000000000000000 r10 : 0000000000001000
-r11 : 00000fffffffbfff r12 : e00000003f21fe30 r13 : e00000003f218000
-r14 : 9fffffffffffffff r15 : 0000000000000000 r16 : 0000000000000000
-r17 : e00000003fc13418 r18 : e00000003fc13368 r19 : 0000000000000001
-r20 : 0000000000000001 r21 : 0000000000004000 r22 : e00000003fcd08d8
-r23 : e00000003fcd08d0 r24 : 0000000000000010 r25 : 0000000000000002
-r26 : e00000003f2184c8 r27 : 60000fffffffba60 r28 : 0000000000000100
-r29 : 0000000000000000 r30 : 0000000000000100 r31 : e00000003f218008
-
-Call Trace: [<e00000000440fea0>] sp=3D0xe00000003f21f9d0 bsp=3D0xe00000003f=
-219178
-[<e000000004427c40>] sp=3D0xe00000003f21fb90 bsp=3D0xe00000003f219150
-[<e000000004428c10>] sp=3D0xe00000003f21fb90 bsp=3D0xe00000003f219118
-[<e000000004409fa0>] sp=3D0xe00000003f21fc90 bsp=3D0xe00000003f219118
-[<e000000004767e00>] sp=3D0xe00000003f21fe30 bsp=3D0xe00000003f219100
-[<e0000000044d8e50>] sp=3D0xe00000003f21fe30 bsp=3D0xe00000003f2190d8
-[<e0000000044dc400>] sp=3D0xe00000003f21fe30 bsp=3D0xe00000003f2190b0
-[<e000000004506cc0>] sp=3D0xe00000003f21fe30 bsp=3D0xe00000003f219018
-[<e000000004409f80>] sp=3D0xe00000003f21fe60 bsp=3D0xe00000003f219018
-=20
-Entering kdb (current=3D0xe00000003f218000, pid 163) on processor 1 Oops: <=
-NULL>
-due to oops @ 0xe000000004767e00
- psr: 0x0000101008026018   ifs: 0x8000000000000183    ip: 0xe000000004767e0=
-0 =20
-unat: 0x0000000000000000   pfs: 0x0000000000000288   rsc: 0x000000000000000=
-3 =20
-rnat: 0x0000101008026018  bsps: 0xe000000004402f00    pr: 0x000000005660961=
-7 =20
-ldrs: 0x0000000000000000   ccv: 0x0000000000000000  fpsr: 0x0009804c0270033=
-f =20
-  b0: 0xe0000000044d8e50    b6: 0xe000000004402f60    b7: 0xe0000000045f630=
-0 =20
-  r1: 0xe000000004cbe970    r2: 0x0000000000000288    r3: 0xe000000004abfb8=
-8 =20
-  r8: 0x0000000000000000    r9: 0x0000000000000000   r10: 0x000000000000100=
-0 =20
- r11: 0x00000fffffffbfff   r12: 0xe00000003f21fe30   r13: 0xe00000003f21800=
-0 =20
- r14: 0x9fffffffffffffff   r15: 0x0000000000000000   r16: 0x000000000000000=
-0 =20
- r17: 0xe00000003fc13418   r18: 0xe00000003fc13368   r19: 0x000000000000000=
-1 =20
- r20: 0x0000000000000001   r21: 0x0000000000004000   r22: 0xe00000003fcd08d=
-8 =20
- r23: 0xe00000003fcd08d0   r24: 0x0000000000000010   r25: 0x000000000000000=
-2 =20
- r26: 0xe00000003f2184c8   r27: 0x60000fffffffba60   r28: 0x000000000000010=
-0 =20
- r29: 0x0000000000000000   r30: 0x0000000000000100   r31: 0xe00000003f21800=
-8 =20
-&regs =3D e00000003f21fca0
-[1]kdb> bt
-0xe000000004767e00 __strncpy_from_user+0x20
-        args (0xe00000003fb41000, 0x0, 0x1000)
-        kernel .text 0xe000000004400000 0xe000000004767de0 0xe000000004767e=
-40
-0xe0000000044d8e50 getname+0x170
-        args (0x0, 0x1000, 0xe00000003fb41000, 0xe0000000044dc400, 0x288)
-        kernel .text 0xe000000004400000 0xe0000000044d8ce0 0xe0000000044d8e=
-c0
-0xe0000000044dc400 __user_walk+0x20
-        args (0x0, 0x9, 0xe00000003f21fe40, 0xe000000004506cc0, 0x998)
-        kernel .text 0xe000000004400000 0xe0000000044dc3e0 0xe0000000044dc4=
-e0
-0xe000000004506cc0 sys_quotactl+0x1c0
-        args (0x110000, 0x0, 0x0, 0x60000fffffffbc30, 0x40000000000084d0)
-        kernel .text 0xe000000004400000 0xe000000004506b00 0xe0000000045071=
-a0
-0xe000000004409f80 ia64_ret_from_syscall
-        args (0x110000, 0x0, 0x0, 0x60000fffffffbc30, 0x40000000000084d0)
-        kernel .text 0xe000000004400000 0xe000000004409f80 0xe000000004409f=
-a0
-
---=20
-
- Sinc=E8res salutations.
-_____________________________________________________________________
-=20
-Xavier BRU                 BULL ISD/R&D/INTEL office:     FREC B1-422
-tel : +33 (0)4 76 29 77 45                    http://www-frec.bull.fr
-fax : +33 (0)4 76 29 77 70                 mailto:Xavier.Bru@bull.net
-addr: BULL, 1 rue de Provence, BP 208, 38432 Echirolles Cedex, FRANCE
-_____________________________________________________________________
+	--david
 
