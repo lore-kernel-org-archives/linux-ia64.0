@@ -1,7 +1,7 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Fri, 04 Jun 2004 19:23:19 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 04 Jun 2004 20:14:30 +0000
 Subject: Re: lib64 in fedora glibc
-Message-Id: <20040604192319.GF3454@nostromo.devel.redhat.com>
+Message-Id: <16576.55334.917601.818029@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040528214105.GK9115@mustard.zk3.dec.com>
 In-Reply-To: <20040528214105.GK9115@mustard.zk3.dec.com>
@@ -10,29 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger (davidm@napali.hpl.hp.com) said: 
->   Andreas> I don't know what Red Hat is doing with x86 and with lib64 - and you
->   Andreas> really should ask them for clarification.
-> 
-> Certainly.  I only wished Red Hat would be more
-> willing/interested/active in discussing such things on public mailing
-> lists.
+>>>>> On Fri, 4 Jun 2004 15:23:19 -0400, Bill Nottingham <notting@redhat.com> said:
 
-Where this came out of was requests from various partners and ISVs
-who noticed that their 32-bit apps didn't run right on ia64 with
-the /emul/ia32-linux prefix. This is due to some of the fundamental
-issues with that arrangement:
+  Bill> Where this came out of was requests from various partners and
+  Bill> We can always just live with crappy ia32 (and by extension,
+  Bill> x86-64) support on ia64. :)
 
-- 64-bit processes don't see into that tree because of their personality
-  (think: shell scripts)
-- the results of readdir() on a directory in /emul/ia32-linux will not
-  necessarily match the files you can actually access with open()
+I don't think "crappy" is acceptable but it doesn't have to be perfect
+on ia64, because you 99% of the apps on a typically Linux box will be
+ia64-native binaries (I'd imagine the reverse may often be true for
+x86-64).
 
-The simplest way to solve this, while maintaining compatiblity with
-ia32 packages, is to get them on the same filesystem. This is where
-the proposal stemmed from, originally.
+Again, I don't think multi-arch support is ia64-specific, so whatever
+can be done to improve this support will help other platforms, too.
+I'm guessing that some of the ISV problems have come from the fact
+that they tried to install _everything_ into /emul/ia32-linux?  That
+is probably not the best approach.  For self-contained applications,
+just installing in /opt or some place like that should work just fine
+(and in my experience it does).  /emul/ia32-linux should probably be
+reserved for use for files that are known or very likely to collide
+with ia64 files of the same name (such as the gtk engine shared
+libraries).
 
-We can always just live with crappy ia32 (and by extension,
-x86-64) support on ia64. :)
+As for running shell scripts: isn't there a linux32 command that takes
+care of that?
 
-Bill
+	--david
