@@ -1,7 +1,7 @@
-From: "Jim Hull" <jim.hull@hp.com>
-Date: Mon, 26 Apr 2004 21:24:58 +0000
-Subject: RE: cacheble to uncachble change
-Message-Id: <012401c42bd4$ed047550$f463f40f@jh733133>
+From: Robin Holt <holt@sgi.com>
+Date: Mon, 26 Apr 2004 21:35:55 +0000
+Subject: Re: cacheble to uncachble change
+Message-Id: <20040426213555.GA15227@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <408D5C58.E07A5FBE@email.mot.com>
 In-Reply-To: <408D5C58.E07A5FBE@email.mot.com>
@@ -10,27 +10,8 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-In addition to what David wrote, which I completely agree with, you also need to
-be aware that it is platform dependent whether any particular address range
-supports cacheable, uncacheable, or both attributes.  System firmware
-communicates to the OS which attributes are allowed for which address ranges.
-I'm not familiar with how ia64-linux exposes this info within the kernel (maybe
-David could fill you in).
-
- -- Jim
-    HP Itanium Processor Architect
-
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org 
-> [mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of David Mosberger
-> Sent: Monday, April 26, 2004 12:25 PM
-> To: Mario Smarduch
-> Cc: IA-64 Mailing List (New)
-> Subject: Re: cacheble to uncachble change
-> 
-> 
-> >>>>> On Mon, 26 Apr 2004 14:00:40 -0500, Mario Smarduch 
-> <cms063@email.mot.com> said:
+On Mon, Apr 26, 2004 at 12:25:03PM -0700, David Mosberger wrote:
+> >>>>> On Mon, 26 Apr 2004 14:00:40 -0500, Mario Smarduch <cms063@email.mot.com> said:
 > 
 >   Mario> Is there support in IA64 kernel to change a memory mapping
 >   Mario> from cacheble to uncacheble attribute. By support I mean one
@@ -50,12 +31,14 @@ David could fill you in).
 > aliases.  You need to be especially careful since the kernel accesses
 > memory with granule-sized mappings (normally 64MB page size, but on
 > some machines its 16MB).
-> 
-> 	--david
-> -
-> To unsubscribe from this list: send the line "unsubscribe 
-> linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
 
+Be very careful when using uncached memory.  On the SGI systems, we
+always allocate memory for uncached out of a seperate granule.  We were
+experiencing memory corruption due to kernel speculative load which
+fetched the cache line dirty.  This would result in cache lines that were
+occasionally out of date.  The problem was resolved on our kernels by
+drivers/char/fetchop.c which provides a seperate device for mapping
+when you want uncached or write coalesced memory.
+
+Good Luck,
+Robin Holt
