@@ -1,38 +1,56 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Sun, 07 Nov 2004 14:43:15 +0000
-Subject: Re: [ACPI] A GPE block driver
-Message-Id: <20041107144315.GC23303@parcelfarce.linux.theplanet.co.uk>
+From: Christoph Hellwig <hch@lst.de>
+Date: Tue, 16 Nov 2004 09:14:08 +0000
+Subject: [PATCH] remove dead wood from asm-ia64/hardirq.h
+Message-Id: <20041116091408.GA3050@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041106064442.GA21423@parcelfarce.linux.theplanet.co.uk> <20041106074900.GA29632@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20041106074900.GA29632@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Sat, Nov 06, 2004 at 07:49:00AM +0000, Matthew Wilcox wrote:
-> Here's the driver.  I can't actually test it until someone goes into
-> the server room to push a button on the machine.
-> 
-> I do suspect there to be a problem though.  I get the message:
-> GSI 120 (level, low) -> CPU 3 (0x0c02) vector 63
-> but there is no entry in /proc/interrupts for vector 63.  I think the
-> right thing to do would be to add a request_irq() somewhere in the
-> acpi_install_gpe_block() call path.  FADT GPE blocks don't need this --
-> they use the sci_irq.  But other blocks can use their own IRQ.
+syscall_count, ksoftirqd_task, local_syscall_count, local_ksoftirqd_task
+and local_nmi_count are totally unused (and gone from other
+architectures aswell)
 
-OK, the problem was more detailed and subtle than that.  osl.c assumes
-there will be only one interrupt, which is not true in the presence of
-GPE blocks.  So I rewrote the interrupt handler.  I'll send two follow-up
-mails to this; the first will be the changes I propose for the ACPI core
-and the second will be the new GPE block driver which has several bugs fixed
-over the one I posted yesterday.
+nmi_count() is a stub only used once in arch/ia64/kernel/irq.c, so we
+can use 0 directly there.  I suspect it was added to keep irq.c in sync
+with i386, but even the CONFIG_GENERIC_HARDIRQS code (<hint>which IA64
+needs to be converted to</hint>) leaves /proc/interrupts output to the
+architecture because it's so different over the architectures.
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+
+Signed-off-by: Christoph Hellwig <hch@lst.de>
+
+
+--- 1.51/arch/ia64/kernel/irq.c	2004-10-20 10:37:14 +02:00
++++ edited/arch/ia64/kernel/irq.c	2004-11-14 12:17:09 +01:00
+@@ -215,10 +215,11 @@ int show_interrupts(struct seq_file *p, 
+ skip:
+ 		spin_unlock_irqrestore(&idesc->lock, flags);
+ 	} else if (i = NR_IRQS) {
++		/* XXX: why do we even print the NMI count if it's always 0? */
+ 		seq_puts(p, "NMI: ");
+ 		for (j = 0; j < NR_CPUS; j++)
+ 			if (cpu_online(j))
+-				seq_printf(p, "%10u ", nmi_count(j));
++				seq_printf(p, "%10u ", 0);
+ 		seq_putc(p, '\n');
+ #ifdef CONFIG_X86_LOCAL_APIC
+ 		seq_puts(p, "LOC: ");
+--- 1.18/include/asm-ia64/hardirq.h	2004-11-08 03:08:14 +01:00
++++ edited/include/asm-ia64/hardirq.h	2004-11-14 12:19:42 +01:00
+@@ -20,14 +20,7 @@
+ #define __ARCH_IRQ_STAT	1
+ 
+ #define softirq_pending(cpu)		(cpu_data(cpu)->softirq_pending)
+-#define syscall_count(cpu)		/* unused on IA-64 */
+-#define ksoftirqd_task(cpu)		(cpu_data(cpu)->ksoftirqd)
+-#define nmi_count(cpu)			0
+-
+ #define local_softirq_pending()		(local_cpu_data->softirq_pending)
+-#define local_syscall_count()		/* unused on IA-64 */
+-#define local_ksoftirqd_task()		(local_cpu_data->ksoftirqd)
+-#define local_nmi_count()		0
+ 
+ #define HARDIRQ_BITS	14
+ 
