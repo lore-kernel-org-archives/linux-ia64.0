@@ -1,54 +1,56 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 06 Aug 2003 21:54:49 +0000
-Subject: Re: 2.4 PATCH: Fix acpi for bigsur
-Message-Id: <marc-linux-ia64-106020690128452@msgid-missing>
+Date: Tue, 26 Aug 2003 20:43:51 +0000
+Subject: Re: ia32 execve memory leak
+Message-Id: <marc-linux-ia64-106193081007731@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106018473231291@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106018473231291@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I need this patch to get the current 2.4 kernel to boot on bigsur.
+On Friday 22 August 2003 12:17 pm, Arun Sharma wrote:
+> The attached patch by Tony Luck fixes a memory leak in the ia32 execve 
+> code path. Please apply to both 2.4 and 2.5.
 
-I reproduced that problem, and applied the following patch for 2.4
-(this is what we had in 2.4.21, prior to the big ACPI update in 2.4).
+I applied this for 2.4 as follows:
 
-Andy, can you apply this to ACPI?  It's needed for both 2.4 and 2.5
-ia64 kernels.  The problem is that on machines with an 8259, the
-SCI interrupt might be a legacy ISA IRQ, not a GSI.
+#### AUTHOR arun.sharma@intel.com
+#### COMMENT START
+### Comments for ChangeSet
+ia64: fix memory leak in sys32_execve path
 
-I'm not thrilled about the name "acpi_irq_to_vector".  Something
-like "acpi_interrupt_to_irq" seems like it would fit the usage better.
-Suggestions?
+The attached patch by Tony Luck fixes a memory leak in the ia32 execve 
+code path. Please apply to both 2.4 and 2.5.
+### Comments for arch/ia64/ia32/sys_ia32.c
+(sys32_execve): Fix memory leak.
+#### COMMENT END
 
-Bjorn
-
-
-=== drivers/acpi/osl.c 1.27 vs edited ==--- 1.27/drivers/acpi/osl.c	Thu Jul 10 04:20:31 2003
-+++ edited/drivers/acpi/osl.c	Wed Aug  6 16:16:38 2003
-@@ -251,7 +251,12 @@
- 	irq = acpi_fadt.sci_int;
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1094  -> 1.1095 
+#	arch/ia64/ia32/sys_ia32.c	1.36    -> 1.37   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/08/26	bjorn.helgaas@hp.com	1.1095
+# fix mem leak
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/ia32/sys_ia32.c b/arch/ia64/ia32/sys_ia32.c
+--- a/arch/ia64/ia32/sys_ia32.c	Tue Aug 26 16:10:58 2003
++++ b/arch/ia64/ia32/sys_ia32.c	Tue Aug 26 16:10:58 2003
+@@ -166,9 +166,9 @@
+ 		current->thread.map_base  = old_map_base;
+ 		current->thread.task_size = old_task_size;
+ 		set_fs(USER_DS);	/* establish new task-size as the address-limit */
+-	  out:
+-		kfree(av);
+ 	}
++  out:
++	kfree(av);
+ 	return r;
+ }
  
- #ifdef CONFIG_IA64
--	irq = gsi_to_vector(irq);
-+	irq = acpi_irq_to_vector(irq);
-+	if (irq < 0) {
-+		printk(KERN_ERR PREFIX "SCI (ACPI interrupt %d) not registerd\n",
-+		       acpi_fadt.sci_int);
-+		return AE_OK;
-+	}
- #endif
- 	acpi_irq_irq = irq;
- 	acpi_irq_handler = handler;
-@@ -269,7 +274,7 @@
- {
- 	if (acpi_irq_handler) {
- #ifdef CONFIG_IA64
--		irq = gsi_to_vector(irq);
-+		irq = acpi_irq_to_vector(irq);
- #endif
- 		free_irq(irq, acpi_irq);
- 		acpi_irq_handler = NULL;
 
