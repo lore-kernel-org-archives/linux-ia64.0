@@ -1,27 +1,29 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Tue, 25 Nov 2003 18:24:30 +0000
-Subject: Re: pal/power_info for real?
-Message-Id: <marc-linux-ia64-106978478405715@msgid-missing>
+From: Christian Hinkelbein <hinkelbein@ti.uni-mannheim.de>
+Date: Fri, 14 Nov 2003 10:22:23 +0000
+Subject: pages already locked on ia64
+Message-Id: <marc-linux-ia64-106881037208683@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106975147501700@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106975147501700@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2003-11-25 at 02:09, Duraid Madina wrote:
-> 	Is this correct? Two power levels, with different entry latencies, but 
-> the same power consumption?
+Hi,
+i have the need to lock malloc'ed user mem between
+kernel calls.
 
-  Yep, power level 0 is light_halt and 2 is halt2.  I can't really
-comment on the power consumption, but presumably they're shutting down
-different portions of the chip.  I see the same thing on my boxes.  Note
-that these are all halt state power consumptions, not full running power
-consumption.
+On ia32 i succesfully do a lock_page() on every
+page returned by get_user_pages(), lateron i do
+unlock_page().
+On ia64 sometimes (on ia32 seemingly never) the first
+page is already locked, just after malloc().
+For a quick hack i check all pages before trying to
+lock them, so that i am later just unlocking the
+not previously locked ones.
 
-	Alex
+I am quite shure that my approach is totally ill.
+Could someone point me to some piece of information that
+helps me get cured?
 
--- 
-Alex Williamson                             HP Linux & Open Source Lab
+  christian
 
