@@ -1,7 +1,7 @@
-From: Christoph Lameter <christoph@lameter.com>
-Date: Tue, 08 Jun 2004 07:11:25 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 08 Jun 2004 18:02:37 +0000
 Subject: Re: Scalability enhancements for gettimeofday
-Message-Id: <Pine.LNX.4.58.0406080008210.5817@server.home>
+Message-Id: <16581.65341.778634.930936@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405201205.57930.clameter@sgi.com>
 In-Reply-To: <200405201205.57930.clameter@sgi.com>
@@ -10,19 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 7 Jun 2004, David Mosberger wrote:
+>>>>> On Tue, 8 Jun 2004 00:11:25 -0700 (PDT), Christoph Lameter <christoph@lameter.com> said:
 
->   Christoph> In this implementation get_offset can update "last_itc"
->   Christoph> however many times wanted without any problem. last_itc
->   Christoph> just insures that ITC becomes a monotonic clock like the
->   Christoph> other clock sources. last_nsec_offset is not used and
->   Christoph> could be removed.
->
-> It doesn't matter what you're calling the variable.  If you update a
-> global variable with a bogus value, you lose.  Sure, it will be
-> monotonic, but if you get unlucky and the (bad) interpolated value
-> jumped forward by a huge amount, you'll get horrible resolution for a
-> long time to come.
+  Christoph> How could this implementation put a bogus value into
+  Christoph> last_itc?
 
-How could this implementation put a bogus value into last_itc?
+The itc_get_offset() calculation depends on TIME_KEEPER->itm_next,
+"jiffies" and "wall_jiffies", all of which are updated asynchronously
+in response to a timer-interrupt.  If a timer-interrupt hits while
+itc_get_offset() is running, the resulting value may have used
+inconsistent values for those variables and hence could be bogus.
 
+	--david
