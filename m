@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 20 Oct 2004 00:15:20 +0000
+Date: Thu, 21 Oct 2004 00:17:49 +0000
 Subject: bk pull on ia64 linux tree
-Message-Id: <200410200015.i9K0FKw29051@unix-os.sc.intel.com>
+Message-Id: <200410210017.i9L0Hn210088@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
 In-Reply-To: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
@@ -16,293 +16,200 @@ please do a
 
 	bk pull http://lia64.bkbits.net/linux-ia64-release-2.6.10
 
-This will update the files shown below.  This is a big re-organization
-of the SGI I/O code.
+This will update the files shown below.
 
 Thanks!
 
 -Tony
 
- arch/ia64/sn/io/Makefile                        |   13 
- arch/ia64/sn/io/cdl.c                           |   79 
- arch/ia64/sn/io/drivers/Makefile                |   10 
- arch/ia64/sn/io/drivers/ioconfig_bus.c          |  382 
- arch/ia64/sn/io/hwgfs/Makefile                  |   10 
- arch/ia64/sn/io/hwgfs/hcl.c                     |  702 
- arch/ia64/sn/io/hwgfs/hcl_util.c                |  175 
- arch/ia64/sn/io/hwgfs/interface.c               |  325 
- arch/ia64/sn/io/hwgfs/labelcl.c                 |  656 
- arch/ia64/sn/io/hwgfs/ramfs.c                   |  208 
- arch/ia64/sn/io/io.c                            |  739 
- arch/ia64/sn/io/machvec/Makefile                |   10 
- arch/ia64/sn/io/machvec/iomv.c                  |   76 
- arch/ia64/sn/io/machvec/pci.c                   |   52 
- arch/ia64/sn/io/machvec/pci_bus_cvlink.c        |  922 
- arch/ia64/sn/io/machvec/pci_dma.c               |  677 
- arch/ia64/sn/io/platform_init/Makefile          |   10 
- arch/ia64/sn/io/platform_init/sgi_io_init.c     |  174 
- arch/ia64/sn/io/sn2/Makefile                    |   14 
- arch/ia64/sn/io/sn2/bte_error.c                 |  217 
- arch/ia64/sn/io/sn2/geo_op.c                    |  311 
- arch/ia64/sn/io/sn2/klconflib.c                 |  572 
- arch/ia64/sn/io/sn2/klgraph.c                   |  577 
- arch/ia64/sn/io/sn2/l1_command.c                |  131 
- arch/ia64/sn/io/sn2/ml_SN_init.c                |  109 
- arch/ia64/sn/io/sn2/ml_SN_intr.c                |  320 
- arch/ia64/sn/io/sn2/ml_iograph.c                |  770 
- arch/ia64/sn/io/sn2/module.c                    |  236 
- arch/ia64/sn/io/sn2/pcibr/Makefile              |   16 
- arch/ia64/sn/io/sn2/pcibr/pcibr_ate.c           |  178 
- arch/ia64/sn/io/sn2/pcibr/pcibr_config.c        |  195 
- arch/ia64/sn/io/sn2/pcibr/pcibr_dvr.c           | 2662 --
- arch/ia64/sn/io/sn2/pcibr/pcibr_error.c         | 1873 -
- arch/ia64/sn/io/sn2/pcibr/pcibr_hints.c         |  175 
- arch/ia64/sn/io/sn2/pcibr/pcibr_intr.c          |  700 
- arch/ia64/sn/io/sn2/pcibr/pcibr_reg.c           |  879 
- arch/ia64/sn/io/sn2/pcibr/pcibr_rrb.c           |  887 
- arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c          | 1842 -
- arch/ia64/sn/io/sn2/pciio.c                     | 1004 
- arch/ia64/sn/io/sn2/pic.c                       |  835 
- arch/ia64/sn/io/sn2/shub.c                      |  246 
- arch/ia64/sn/io/sn2/shub_intr.c                 |  259 
- arch/ia64/sn/io/sn2/shuberror.c                 |  822 
- arch/ia64/sn/io/sn2/shubio.c                    |  490 
- arch/ia64/sn/io/sn2/xbow.c                      | 1020 
- arch/ia64/sn/io/sn2/xtalk.c                     |  927 
- arch/ia64/sn/io/snia_if.c                       |  108 
- arch/ia64/sn/io/xswitch.c                       |  168 
- arch/ia64/sn/kernel/probe.c                     |   58 
- include/asm-ia64/sn/cdl.h                       |   42 
- include/asm-ia64/sn/dmamap.h                    |   50 
- include/asm-ia64/sn/driver.h                    |   91 
- include/asm-ia64/sn/hcl.h                       |  107 
- include/asm-ia64/sn/hcl_util.h                  |   21 
- include/asm-ia64/sn/hwgfs.h                     |   36 
- include/asm-ia64/sn/ifconfig_net.h              |   32 
- include/asm-ia64/sn/io.h                        |   65 
- include/asm-ia64/sn/ioc4.h                      |   20 
- include/asm-ia64/sn/ioconfig_bus.h              |   27 
- include/asm-ia64/sn/ioerror.h                   |  193 
- include/asm-ia64/sn/ioerror_handling.h          |  159 
- include/asm-ia64/sn/iograph.h                   |  137 
- include/asm-ia64/sn/klconfig.h                  |  702 
- include/asm-ia64/sn/kldir.h                     |  363 
- include/asm-ia64/sn/ksys/elsc.h                 |   39 
- include/asm-ia64/sn/ksys/l1.h                   |  141 
- include/asm-ia64/sn/labelcl.h                   |   76 
- include/asm-ia64/sn/module.h                    |  194 
- include/asm-ia64/sn/pci/bridge.h                | 1895 -
- include/asm-ia64/sn/pci/pci_bus_cvlink.h        |   70 
- include/asm-ia64/sn/pci/pci_defs.h              |  414 
- include/asm-ia64/sn/pci/pcibr.h                 |  535 
- include/asm-ia64/sn/pci/pcibr_private.h         |  811 
- include/asm-ia64/sn/pci/pciio.h                 |  746 
- include/asm-ia64/sn/pci/pciio_private.h         |  145 
- include/asm-ia64/sn/pci/pic.h                   |  451 
- include/asm-ia64/sn/pio.h                       |   99 
- include/asm-ia64/sn/prio.h                      |   38 
- include/asm-ia64/sn/sgi.h                       |   83 
- include/asm-ia64/sn/slotnum.h                   |   16 
- include/asm-ia64/sn/sn2/addrs.h                 |  169 
- include/asm-ia64/sn/sn2/arch.h                  |   61 
- include/asm-ia64/sn/sn2/geo.h                   |  108 
- include/asm-ia64/sn/sn2/intr.h                  |   31 
- include/asm-ia64/sn/sn2/io.h                    |  239 
- include/asm-ia64/sn/sn2/shub.h                  |   36 
- include/asm-ia64/sn/sn2/shub_md.h               |  275 
- include/asm-ia64/sn/sn2/shub_mmr.h              |31597 ------------------------
- include/asm-ia64/sn/sn2/shub_mmr_t.h            |14829 -----------
- include/asm-ia64/sn/sn2/shubio.h                | 3609 --
- include/asm-ia64/sn/sn2/slotnum.h               |   41 
- include/asm-ia64/sn/sn2/sn_private.h            |  245 
- include/asm-ia64/sn/sn_private.h                |   13 
- include/asm-ia64/sn/vector.h                    |   75 
- include/asm-ia64/sn/xtalk/xbow.h                |  675 
- include/asm-ia64/sn/xtalk/xbow_info.h           |   21 
- include/asm-ia64/sn/xtalk/xswitch.h             |   56 
- include/asm-ia64/sn/xtalk/xtalk.h               |  360 
- include/asm-ia64/sn/xtalk/xtalk_private.h       |   79 
- include/asm-ia64/sn/xtalk/xtalkaddrs.h          |  106 
- include/asm-ia64/sn/xtalk/xwidget.h             |  240 
- arch/ia64/pci/pci.c                             |    2 
- arch/ia64/sn/Makefile                           |    8 
- arch/ia64/sn/include/ioerror.h                  |   81 
- arch/ia64/sn/include/pci/pcibr_provider.h       |  149 
- arch/ia64/sn/include/pci/pcibus_provider_defs.h |   43 
- arch/ia64/sn/include/pci/pcidev.h               |   51 
- arch/ia64/sn/include/pci/pic.h                  |  261 
- arch/ia64/sn/include/pci/tiocp.h                |  256 
- arch/ia64/sn/include/shub.h                     |   39 
- arch/ia64/sn/include/shubio.h                   | 3476 ++
- arch/ia64/sn/include/tio.h                      |   37 
- arch/ia64/sn/include/xtalk/hubdev.h             |   67 
- arch/ia64/sn/include/xtalk/xbow.h               |  291 
- arch/ia64/sn/include/xtalk/xwidgetdev.h         |   70 
- arch/ia64/sn/kernel/Makefile                    |    3 
- arch/ia64/sn/kernel/bte.c                       |  128 
- arch/ia64/sn/kernel/bte_error.c                 |  188 
- arch/ia64/sn/kernel/huberror.c                  |  205 
- arch/ia64/sn/kernel/io_init.c                   |  470 
- arch/ia64/sn/kernel/iomv.c                      |   79 
- arch/ia64/sn/kernel/irq.c                       |  538 
- arch/ia64/sn/kernel/klconflib.c                 |  108 
- arch/ia64/sn/kernel/mca.c                       |   35 
- arch/ia64/sn/kernel/setup.c                     |  346 
- arch/ia64/sn/kernel/sn2/io.c                    |   60 
- arch/ia64/sn/kernel/sn2/prominfo_proc.c         |   70 
- arch/ia64/sn/kernel/sn2/ptc_deadlock.S          |    4 
- arch/ia64/sn/kernel/sn2/sn2_smp.c               |  116 
- arch/ia64/sn/kernel/sn2/sn_hwperf.c             |   92 
- arch/ia64/sn/kernel/sn2/sn_proc_fs.c            |    1 
- arch/ia64/sn/kernel/sn2/timer.c                 |    6 
- arch/ia64/sn/kernel/sn2/timer_interrupt.c       |   15 
- arch/ia64/sn/pci/Makefile                       |   10 
- arch/ia64/sn/pci/pci_dma.c                      |  476 
- arch/ia64/sn/pci/pcibr/Makefile                 |   11 
- arch/ia64/sn/pci/pcibr/pcibr_ate.c              |  188 
- arch/ia64/sn/pci/pcibr/pcibr_dma.c              |  375 
- arch/ia64/sn/pci/pcibr/pcibr_provider.c         |  170 
- arch/ia64/sn/pci/pcibr/pcibr_reg.c              |  282 
- drivers/char/mmtimer.c                          |    1 
- drivers/char/snsc.c                             |   25 
- drivers/ide/pci/sgiioc4.c                       |   23 
- drivers/scsi/qla1280.c                          |   32 
- drivers/serial/sn_console.c                     |  214 
- include/asm-ia64/machvec_sn2.h                  |    2 
- include/asm-ia64/pci.h                          |    2 
- include/asm-ia64/sn/addrs.h                     |  313 
- include/asm-ia64/sn/arch.h                      |   20 
- include/asm-ia64/sn/bte.h                       |    4 
- include/asm-ia64/sn/clksupport.h                |   30 
- include/asm-ia64/sn/fetchop.h                   |    2 
- include/asm-ia64/sn/geo.h                       |  139 
- include/asm-ia64/sn/intr.h                      |   41 
- include/asm-ia64/sn/io.h                        |  265 
- include/asm-ia64/sn/klconfig.h                  |  272 
- include/asm-ia64/sn/l1.h                        |   36 
- include/asm-ia64/sn/leds.h                      |    8 
- include/asm-ia64/sn/module.h                    |  127 
- include/asm-ia64/sn/nodepda.h                   |   61 
- include/asm-ia64/sn/pda.h                       |    5 
- include/asm-ia64/sn/router.h                    |   51 
- include/asm-ia64/sn/rw_mmr.h                    |    2 
- include/asm-ia64/sn/shub_mmr.h                  |31596 +++++++++++++++++++++++
- include/asm-ia64/sn/simulator.h                 |    8 
- include/asm-ia64/sn/sn_cpuid.h                  |    7 
- include/asm-ia64/sn/sn_fru.h                    |    2 
- include/asm-ia64/sn/sn_sal.h                    |   74 
- include/asm-ia64/sn/sndrv.h                     |   14 
- 169 files changed, 40920 insertions(+), 85747 deletions(-)
+ arch/ia64/Makefile                      |    3 
+ arch/ia64/hp/common/sba_iommu.c         |    1 
+ arch/ia64/ia32/ia32priv.h               |    4 
+ arch/ia64/kernel/domain.c               |   32 
+ arch/ia64/kernel/mca.c                  |    4 
+ arch/ia64/kernel/unwind.c               |   81 
+ arch/ia64/lib/swiotlb.c                 |   18 
+ arch/ia64/mm/discontig.c                |    2 
+ arch/ia64/mm/numa.c                     |    2 
+ arch/ia64/pci/pci.c                     |    2 
+ arch/ia64/sn/include/pci/pcidev.h       |    5 
+ arch/ia64/sn/include/pci/pic.h          |    2 
+ arch/ia64/sn/include/pci/tiocp.h        |    2 
+ arch/ia64/sn/include/shub.h             |   24 
+ arch/ia64/sn/kernel/io_init.c           |    2 
+ arch/ia64/sn/kernel/iomv.c              |   12 
+ arch/ia64/sn/kernel/setup.c             |   18 
+ arch/ia64/sn/kernel/sn2/io.c            |   16 
+ arch/ia64/sn/kernel/sn2/prominfo_proc.c |  113 
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c     |   14 
+ arch/ia64/sn/kernel/sn2/sn_proc_fs.c    |   11 
+ arch/ia64/sn/pci/pci_dma.c              |    1 
+ arch/ia64/sn/pci/pcibr/pcibr_dma.c      |    4 
+ drivers/char/snsc.c                     |    1 
+ drivers/serial/sn_console.c             |    2 
+ include/asm-ia64/machvec.h              |   32 
+ include/asm-ia64/sn/addrs.h             |   32 
+ include/asm-ia64/sn/io.h                |   40 
+ include/asm-ia64/sn/shub_mmr.h          |31523 --------------------------------
+ include/asm-ia64/topology.h             |   21 
+ 30 files changed, 294 insertions(+), 31730 deletions(-)
 
 through these ChangeSets:
 
-<pfg@sgi.com> (04/10/19 1.2176)
-   [IA64-SGI] Fixes calling arg1 for bte_crb_error_handler()
+<jbarnes@sgi.com> (04/10/20 1.2010.1.10)
+   [IA64-SGI] more sparse I/O accessor fixes
    
-   Signed-off-by: Patrick Gefre <pfg@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<holt@sgi.com> (04/10/19 1.2175)
-   [IA64-SGI] Distribute useage of BTE interfaces.
-   
-   During peak utilization periods, the first interface on a node has
-   an inordinately large amount of contention.  This is due to all
-   cpus starting their scan for an interface at 0.  This patch distributes
-   that based upon the slice the requesting cpu is attached to.
+   I forgot to add 'const volatile' to the I/O read/write functions in the last
+   patch, and also forgot to update the _relaxed variants.  This patch fixes
+   that by adding 'const volatile' to the sn2 specific read/write routines as
+   well as the ia64 machine vector wrappers.
     
-   Signed-off-by: Robin Holt
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<holt@sgi.com> (04/10/19 1.2174)
-   [IA64-SGI] Correct BTE notification timeouts on SN2.
+<jbarnes@sgi.com> (04/10/20 1.2010.1.9)
+   [IA64-SGI] sparse cleanups & misc fixes for sn2
    
-   The SN2 Block Transfer Engine occassionally fails to send a notification
-   that it has completed a transfer to the kernel.  This patch adds a
-   timeout mechanism which will detect the failure, reset the interface,
-   and then retry the transfer.
+   This is a big patch mostly because I trimmed shub_mmr.h down from 17M to 11k
+   or so.  It fixes a number of things sparse discovered and removes some dead
+   code, fixes up some prototypes, etc.  Of note:
     
-   Signed-off-by: Robin Holt
+   o sn_proc_fs.c was directly dereferencing user pointers, fixed
+   o sn_hwperf.c was missing an include and was using asm-ia64 directly
+   o the I/O routines were all missing proper sparse annotations
+   o dead code in prominfo_proc.c has been removed
+   o fix generic build by putting numionodes into asm/sn/io.h
+   
+   With this patch applied, the check build is pretty clean.  The sn_console bit
+   depends on some of the other changes, so it's included here.
+   
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<pfg@sgi.com> (04/10/19 1.2173)
-   [IA64-SGI] BUG_ON test was backwards
+<jbarnes@sgi.com> (04/10/20 1.2010.1.8)
+   [IA64] fix sba_iommu build
    
-   Signed-off-by: Patrick Gefre <pfg@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<holt@sgi.com> (04/10/19 1.2172)
-   [IA64-SGI] Double spin_unlock in bte.c
-   
-   If all bte interfaces are in use, the current code will leave the
-   bte pointer set when exiting from the loop trying to locate an
-   interface to use.  This results in two processes using the same
-   interface and both trying to free the same one.  With a
-   premptible kernel, this results in the preempt count getting
-   off.
+   sba_iommu.c needs to include linux/nodemask.h for node_online now.  Here's a
+   patch to add it.
     
-   Signed-off-by: Robin Holt <holt@sgi.com>
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<pfg@sgi.com> (04/10/11 1.2171)
-   [IA64-SGI] make pci_root_ops non static
-   
-   add extern for pci_root_ops
-   delete our version of the pci_root_ops code
-   make pci_root_ops non static
-   
-   Ack-by: Matthew Wilcox
-   Ack-by: Jesse Barnes
-   Ack-by: Grant Grundler
+<pfg@sgi.com> (04/10/20 1.2010.1.7)
+   [IA64-SGI] Mod to allow functions other than zero to use virtual channel 1.
    
    Signed-off-by: Patrick Gefre <pfg@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<pfg@sgi.com> (04/10/11 1.2170)
-   [IA64-SGI] Fix a possible memory leak.
+<jbarnes@sgi.com> (04/10/20 1.2010.1.6)
+   [IA64-SGI] snsc.c: snsc needs asm/sn/io.h
    
-   Fix a possible memory leak.  Change the name of the 'new_sn_irq_info'
-   variable to 'tmp_sn_irq_info' since we're not really allocating a new
-   kernel sn_irq_info, we just getting new target information from the
-   PROM and replacing it in the kernel's sn_irq_info for the given irq
+   The sn system controller driver needs asm/sn/io.h in order to build correctly
+   (it was missing the numionodes declaration).
+    
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<pfg@sgi.com> (04/10/20 1.2010.1.5)
+   [IA64] export sn_dma_mapping_error for libata
    
    Signed-off-by: Patrick Gefre <pfg@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<pfg@sgi.com> (04/10/11 1.2169)
-   [IA64-SGI] Redundant BUG check
+<jbarnes@sgi.com> (04/10/20 1.2010.1.4)
+   [IA64] numa.c, discontig.c: sparse: use NULL, not 0
    
-   Signed-off-by: Patrick Gefre <pfg@sgi.com>
+   Clean up a couple of places that were using 0 instead of NULL, which is the
+   more proper value.
+    
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<pfg@sgi.com> (04/10/11 1.2168)
-   [IA64-SGI] Fix issue with gemini TIO systems
+<jbarnes@sgi.com> (04/10/20 1.2010.1.3)
+   [IA64] mca.c: sparse cleanup
    
-   Signed-off-by: Patrick Gefre <pfg@sgi.com>
+   Looks like we were casting a value into a union and sparse doesn't like that.
+   Why not just assign it directly to the appropriate field?
+    
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<pfg@sgi.com> (04/10/11 1.2167)
-   [IA64] qla1280.c Mod for Altix I/O add code.
+<hawkes@sgi.com> (04/10/20 1.2010.1.2)
+   [IA64] top level scheduler domain for ia64
    
-   Changes inside CONFIG_IA64_GENERIC CONFIG_IA64_SGI_SN2
-   Need to include sn/io.h for generic builds (sn_+pci_set_vchan def)
-   Remove rrb alloc - now done in PROM
-   Remove endian setting - now done in PROM
-   Change arg 2 for sn_pci_set_vchan()
-   
-   Acked-by: Jes Sorenson
-   
-   Signed-off-by: Patrick Gefre <pfg@sgi.com>
+   Some have noticed that the overlapping sched domains code doesn't quite work
+   as intended (it results in disjoint domains on some machines), and that a top
+   level, machine spanning domain is needed.  This patch from John Hawkes adds
+   it to the ia64 code.  This allows processes to run on all CPUs in large
+   systems, though balancing is limited.  It should go to Linus soon now
+   otherwise large systems will only have ~16p (depending on topology) usable by
+   the scheduler.  I sanity checked it on a small system after rediffing John's
+   original, and he's done some testing on very large systems.
+    
+    Nick, can you buy off on the sched.c change?  Alternatively, do you want to
+    send that fix separately John? Nick did indeed ACK this change, but it isn't
+    dependent on this ia64 specific part ... so it's going to be submitted
+    separately.
+     
+   Signed-off-by: John Hawkes <hawkes@sgi.com>
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<pfg@sgi.com> (04/10/11 1.2166)
-   [IA64-SGI] Add in Altix I/O code
+<suresh.b.siddha@intel.com> (04/10/20 1.1988.80.20)
+   [IA64] fallback to swiotlb for consistent DMA mappings
    
-   Signed-off-by: Patrick Gefre <pfg@sgi.com>
+   Patch supplied by Suresh Siddha
+   
+   This is mainly needed for EM64T platforms and makes sense for ia64 too.
+   Need of this was broughtup sometime(long time?) back on lkml.
+   http://www.ussg.iu.edu/hypermail/linux/kernel/0406.3/0112.html
+   
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<pfg@sgi.com> (04/10/11 1.2165)
-   [IA64-SGI] Remove Altix I/O code (ready for re-org).
+<kaos@sgi.com> (04/10/20 1.1988.80.19)
+   [IA64] Avoid a rare deadlock during unwind
    
-   Signed-off-by: Patrick Gefre <pfg@sgi.com>
+   There is a rare deadlock condition during unwind script creation.  If
+   build_script() is interrupted in the middle of creating the script, it
+   holds the script write lock.  If the interrupt handler needs to call
+   unwind for some failure condition, unwind will try to read the
+   incomplete script and will deadlock on the script lock.
+   
+   The fix is to disable interrupts while building the script, so
+   interrupt handlers never see partial scripts.
+   
+   Promoting spin_lock_irqsave() from script_new() to find_save_locs()
+   changes the indentation, so the patch looks bigger than it really is.
+   
+   Signed-off-by: Keith Owens <kaos@sgi.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<tony.luck@intel.com> (04/10/20 1.1988.80.18)
+   [IA64] uninitialised flags element could cause crashes
+   
+   window is not zeroed, so the flags should be assigned, not modified.
+   This can lead to crashes at boot if the IO and Memory resources overlap.
+   
+   Patch supplied by Matthew Wilcox
+   
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<arun.sharma@intel.com> (04/10/20 1.1988.80.17)
+   [IA64] Add missing prototypes to kill warnings in sys_ia32.c
+   
+   Signed-off-by: Arun Sharma <arun.sharma@intel.com>
+   Signed-off-by: Tony Luck <tony.luck@intel.com>
+
+<tony.luck@intel.com> (04/10/20 1.1988.80.16)
+   [IA64] Allow -mtune=merced for gcc 3.4
+   
+   Patch submitted by H. J. Lu
+   
+     Gcc 3.4.2 fixed ia64 -mtune=merced regressions on Linux 2.6 kernel:
+   
+     http://gcc.gnu.org/bugzilla/show_bug.cgi?id278
+   
+     I have been using this patch for several months now.
+   
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
