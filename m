@@ -1,21 +1,36 @@
-From: James Wilson <wilson@wilson.cygnus.com>
-Date: Mon, 19 Jun 2000 18:21:05 +0000
-Subject: Re: [Linux-ia64] ia-64 backend dependency on c front end
-Message-Id: <marc-linux-ia64-105590678205164@msgid-missing>
+From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
+Date: Fri, 16 Jun 2000 03:02:50 +0000
+Subject: [Linux-ia64] Red Hat Linux Release
+Message-Id: <marc-linux-ia64-105590678205156@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205160@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205160@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-	I discovered this evening that the IA-64 backend (specifically the
-	def_builtin() macro) depends on builtin_function() which is located in
-	c-decl.c
+Hi,
 
-All front ends must have a function called builtin_function.
+Could you please let me know the difference in-between the following two Red
+Hat Linux version:
 
-Jim
+Version 1 - Red Hat Linux release 6.1 (Cartman)
+            Kernel 2.3.51 on an IA64
+
+Version 2 - Red Hat Linux release 6.92 (Zoot)
+            Kernel 2.3.99-3 on an IA64
+
+If possible, please specify the changes has been made in these two versions.
+
+Thanks.
+
+-- Shameem
+
+Shameem Akhter
+
+IACG
+IA64 Tools Engineering
+Ph: (503) 264-1644
+
+
 
 
