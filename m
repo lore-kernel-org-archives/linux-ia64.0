@@ -1,34 +1,50 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Tue, 07 Oct 2003 08:17:41 +0000
-Subject: Re: current bk goes BUG on ia64 when dumping core; FIXED, PATCH
-Message-Id: <marc-linux-ia64-106551480229104@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 09 Oct 2003 19:15:37 +0000
+Subject: [PATCH] IO{R,W,RW}_BAD
+Message-Id: <marc-linux-ia64-106572723213144@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106533868423168@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106533868423168@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Roland" = Roland McGrath <roland@redhat.com> writes:
 
->> The new version doesn't BUG.  I couldn't find the message you were
->> referring to, Roland ... However, gdb understands the core dump;
->> and objdump shows a .auxv section that looks the right size etc.
+We need this patch to compile some drivers.  It's a mirror of the patch
+applied to i386 and other architectures.
 
-Roland> Thanks for testing this!  This change is not related to the
-Roland> NT_AUXV note in fact (both just happened the same week).  What
-Roland> you should be looking for is the readelf -l (objdump -p)
-Roland> output from the core file, for the segment with vaddr
-Roland> 0xa000000000010000 (GATE_ADDR).  Check that its size is
-Roland> PAGE_SIZE.  You can also verify it in gdb while looking at the
-Roland> core file by checking that e.g. "p (char *)
-Roland> 0xa000000000010000" shows "ELF\177" and that "x/w
-Roland> 0xa000000000010000+PAGE_SIZE-8" (substituting the right
-Roland> PAGE_SIZE value) works (and shows you zeros).
+Index: include/asm-ia64/ioctl.h
+=================================RCS file: /var/cvs/linux-2.6/include/asm-ia64/ioctl.h,v
+retrieving revision 1.1
+diff -u -p -r1.1 ioctl.h
+--- include/asm-ia64/ioctl.h	29 Jul 2003 17:01:57 -0000	1.1
++++ include/asm-ia64/ioctl.h	30 Sep 2003 22:23:28 -0000
+@@ -54,11 +54,21 @@
+ 	 ((nr)   << _IOC_NRSHIFT) | \
+ 	 ((size) << _IOC_SIZESHIFT))
+ 
++/* provoke compile error for invalid uses of size argument */
++extern int __invalid_size_argument_for_IOC;
++#define _IOC_TYPECHECK(t) \
++	((sizeof(t) = sizeof(t[1]) && \
++	  sizeof(t) < (1 << _IOC_SIZEBITS)) ? \
++	  sizeof(t) : __invalid_size_argument_for_IOC)
++
+ /* used to create numbers */
+ #define _IO(type,nr)		_IOC(_IOC_NONE,(type),(nr),0)
+-#define _IOR(type,nr,size)	_IOC(_IOC_READ,(type),(nr),sizeof(size))
+-#define _IOW(type,nr,size)	_IOC(_IOC_WRITE,(type),(nr),sizeof(size))
+-#define _IOWR(type,nr,size)	_IOC(_IOC_READ|_IOC_WRITE,(type),(nr),sizeof(size))
++#define _IOR(type,nr,size)	_IOC(_IOC_READ,(type),(nr),(_IOC_TYPECHECK(size)))
++#define _IOW(type,nr,size)	_IOC(_IOC_WRITE,(type),(nr),(_IOC_TYPECHECK(size)))
++#define _IOWR(type,nr,size)	_IOC(_IOC_READ|_IOC_WRITE,(type),(nr),(_IOC_TYPECHECK(size)))
++#define _IOR_BAD(type,nr,size)	_IOC(_IOC_READ,(type),(nr),sizeof(size))
++#define _IOW_BAD(type,nr,size)	_IOC(_IOC_WRITE,(type),(nr),sizeof(size))
++#define _IOWR_BAD(type,nr,size)	_IOC(_IOC_READ|_IOC_WRITE,(type),(nr),sizeof(size))
+ 
+ /* used to decode ioctl numbers.. */
+ #define _IOC_DIR(nr)		(((nr) >> _IOC_DIRSHIFT) & _IOC_DIRMASK)
 
-All those tests pass.
-
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-You are lost in a maze of BitKeeper repositories,   all slightly different.
+-- 
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
