@@ -1,25 +1,27 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 31 May 2003 00:34:31 +0000
-Subject: Re: [Linux-ia64] offsets.h generation
-Message-Id: <marc-linux-ia64-105590723706095@msgid-missing>
+Date: Mon, 05 May 2003 18:25:33 +0000
+Subject: [Linux-ia64] Re: [PATCH] Increase size of user stack
+Message-Id: <marc-linux-ia64-105590723705638@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705941@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705941@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  Peter> OK, here's a patch against this morning's BK tree.
+>>>>> On Mon, 5 May 2003 14:18:52 -0400, Martin Hicks <mort@wildopensource.com> said:
 
-Applied, thanks.
+  Martin> The current user stack size limit of 2GB is not big enough
+  Martin> for large SMP or SSI clusters.  The following patch
+  Martin> increases this size from 2GB to 512GB.  The new size is
+  Martin> negotiable, but right now SGI has programs that require over
+  Martin> 100GB of stack size on a 64 processor machine.  Setting the
+  Martin> user stack size to 512GB seems like a reasonable thing to do
+  Martin> for future growth.
 
-  Peter> or would you prefer I stuck a BK tree in a publicly
-  Peter> accessible place, that you could pull from?)
+  Martin> Comments?
 
-Nah, that's OK.  With patches it's much easier to make trivial
-changes, such as deleting the trailing whitespace that everybody seems
-to love so much... ;-)
+Why not make it configurable via setrlimit() and be done with it once
+and for all?
 
 	--david
 
