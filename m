@@ -1,94 +1,26 @@
-From: "MEHTA,HIREN (A-SanJose,ex1)" <hiren_mehta@agilent.com>
-Date: Mon, 25 Jun 2001 19:32:30 +0000
-Subject: [Linux-ia64] panic on ia64 ; need help
-Message-Id: <marc-linux-ia64-105590693005759@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Mon, 25 Jun 2001 20:26:26 +0000
+Subject: Re: [Linux-ia64] panic on ia64 ; need help
+Message-Id: <marc-linux-ia64-105590693005760@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005759@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005759@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi list,
+>>>>> On Mon, 25 Jun 2001 13:32:30 -0600, "MEHTA,HIREN (A-SanJose,ex1)" <hiren_mehta@agilent.com> said:
 
-Today I got a panic on a ia64 machine and the kernel jumped into
-the kdb (with serial port attached). The following was the output
-from panic.
+  Hiren> But I was just wondering how I got the same return addresses
+  Hiren> 4 times.
 
-I looked at the call trace and it shows the same return address
-4 times. I did run id command on each of the function pointer on
-the stack and I looked at the sources as well. It is for sure that
-we are not calling the same function from itself. Can somebody
-help in trying to understand on what it really means when you 
-see something like this (4 same return addresses) ? 
+That could easily happen if the unwind info for the module is wrong.
+Can you send me the .o file of the module in question?  I'd also need
+to know what address the module was loaded at.
 
-This panic is coming from a driver loaded as a module. Does anyone
-know how to link the panic output with the symbols in module ?
+In general, if you're reporting backtraces, it would be more useful if
+you included the corresponding System.map file.
 
-As I understand the code at a0000000000a70e0 tried to access address 0,
-because of which, the kernel tried to bring the page at address 0 and then
-generated the panic. So, I know from where the panic is coming. But I
-was just wondering how I got the same return addresses 4 times.
-
-Regards,
--hiren
-----------------------------------------------------------------------------
--
-Unable to handle kernel paging request at virtual address 0000000000000000
-swapper[0]: Oops 8813272891392
-
-psr : 0000101008022018 ifs : 800000000000030e ip  : [<a0000000000a70e0>]
-unat: 0000000000000000 pfs : 0000000000001a3c rsc : 0000000000000003
-rnat: 0031204400000001 bsps: 0000000000000000 pr  : 000000000015caa7
-ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c8a70033f
-b0  : a0000000000fa620 b6  : e00000000090bcc0 b7  : e0000000005212b0
-f6  : 0fffafffffffff0000000 f7  : 0ffdea000000000000000
-f8  : 10002a000000000000000 f9  : 100038000000000000000
-r1  : a000000000158610 r2  : 0000000000000000 r3  : 000000000000000f
-r8  : 000000000000003f r9  : 0000000000000000 r10 : 0000000000000000
-r11 : 80000ffffffffec0 r12 : e000000000affb90 r13 : e000000000af8000
-r14 : e000000000b4d238 r15 : 0000000000000006 r16 : 000000000000060d
-r17 : 000000000000000a r18 : e000000000b4e498 r19 : 00000000000124c0
-r20 : e000000000b4dbb0 r21 : 0000000000000000 r22 : 0000000000000000
-r23 : 0000000000000000 r24 : 0000000000000000 r25 : 0000000000000000
-r26 : a00000000017fa78 r27 : e000000000af9158 r28 : 000000000000c583
-r29 : 0000000000000001 r30 : 0000000000000000 r31 : 0000000000000d1d
-r32 : 0000000000000000 r33 : 0000000000000000 r34 : 0000000000000000
-r35 : 0000000000000000 r36 : 0000000000000000 r37 : 0000000000000000
-r38 : 0000000000000000 r39 : 0000000000000000 r40 : 0000000000000000
-r41 : 0000000000000000 r42 : 0000000000000000 r43 : 0000000000000000
-r44 : 0000000000000000 r45 : 0000000000000000
-
-Call Trace: [<e000000000527140>] sp=0xe000000000aff780
-bsp=0xe000000000af97b8
-[<e0000000005278d0>] sp=0xe000000000aff940 bsp=0xe000000000af9768
-[<e000000000539290>] sp=0xe000000000aff960 bsp=0xe000000000af9740
-[<e0000000005545a0>] sp=0xe000000000aff960 bsp=0xe000000000af96f8
-[<e000000000521840>] sp=0xe000000000aff9f0 bsp=0xe000000000af96f8
-[<a0000000000a70e0>] sp=0xe000000000affb90 bsp=0xe000000000af9688
-[<a0000000000fa620>] sp=0xe000000000affb90 bsp=0xe000000000af94e0
-[<a0000000000fa620>] sp=0xe000000000affb90 bsp=0xe000000000af9338
-[<a0000000000fa620>] sp=0xe000000000affb90 bsp=0xe000000000af9190
-[<a0000000000fa620>] sp=0xe000000000affb90 bsp=0xe000000000af8fe8
-
-Entering kdb (current=0xe000000000af8000, pid 0) on processor 0 Panic:
-<NULL>
-due to panic @ 0xa0000000000a70e0
- psr: 0x0000101008022018   ifs: 0x800000000000030e    ip: 0xa0000000000a70e0
-unat: 0x0000000000000000   pfs: 0x0000000000001a3c   rsc: 0x0000000000000003
-rnat: 0x0031204400000001  bsps: 0x0000000000000000    pr: 0x000000000015caa7
-ldrs: 0x0000000000000000   ccv: 0x0000000000000000  fpsr: 0x0009804c8a70033f
-  b0: 0xa0000000000fa620    b6: 0xe00000000090bcc0    b7: 0xe0000000005212b0
-  r1: 0xa000000000158610    r2: 0x0000000000000000    r3: 0x000000000000000f
-  r8: 0x000000000000003f    r9: 0x0000000000000000   r10: 0x0000000000000000
- r11: 0x80000ffffffffec0   r12: 0xe000000000affb90   r13: 0xe000000000af8000
- r14: 0xe000000000b4d238   r15: 0x0000000000000006   r16: 0x000000000000060d
- r17: 0x000000000000000a   r18: 0xe000000000b4e498   r19: 0x00000000000124c0
- r20: 0xe000000000b4dbb0   r21: 0x0000000000000000   r22: 0x0000000000000000
- r23: 0x0000000000000000   r24: 0x0000000000000000   r25: 0x0000000000000000
- r26: 0xa00000000017fa78   r27: 0xe000000000af9158   r28: 0x000000000000c583
- r29: 0x0000000000000001   r30: 0x0000000000000000   r31: 0x0000000000000d1d
-&regs = e000000000affa00
-[0]kdb>
-----------------------------------------------------------------------------
--
+	--david
 
