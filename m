@@ -1,22 +1,24 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 22 Oct 2004 04:25:55 +0000
-Subject: Converting ia64 kernel unwinder to lock free code
-Message-Id: <5907.1098419155@kao2.melbourne.sgi.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 22 Oct 2004 07:30:39 +0000
+Subject: Re: Converting ia64 kernel unwinder to lock free code
+Message-Id: <16760.46879.296371.725336@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <5907.1098419155@kao2.melbourne.sgi.com>
+In-Reply-To: <5907.1098419155@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-MCA and INIT events are not irq safe, they can interrupt the kernel at
-any point, including with spin_lock_irqsave() set.  We currently call
-the ia64 kernel unwinder from MCA and INIT handlers, which has the
-potential to deadlock or to return invalid results.  I want to convert
-the kernel unwinder to be lock free, so it can be called from any
-state.  That means no locks, and no calls to kernel sevices that might
-deadlock, including printk and kmalloc.
+>>>>> On Fri, 22 Oct 2004 14:25:55 +1000, Keith Owens <kaos@sgi.com> said:
 
-Before I start on this task, are there any other plans for the kernel
-unwinder code?  In the past davidm has hinted at replacing it with
-libunwind.
+  Keith> Before I start on this task, are there any other plans for
+  Keith> the kernel unwinder code?  In the past davidm has hinted at
+  Keith> replacing it with libunwind.
 
+I definitely want to do that.  I'm not sure you can make it entirely
+lock-free with caching enabled, but libunwind already works such that
+if the lock is already taken, it bypasses the cache and hence doesn't
+need to acquire the lock.
+
+	--david
