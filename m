@@ -1,31 +1,34 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 24 Mar 2004 09:12:23 +0000
-Subject: Re: Symbios 53C8XX broken on ia64?
-Message-Id: <je8yhq622w.fsf@sykes.suse.de>
+From: Ray Bryant <raybry@sgi.com>
+Date: Sat, 13 Mar 2004 03:44:03 +0000
+Subject: Hugetlbpages in very large memory machines.......
+Message-Id: <40528383.10305@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <je3c80ph2o.fsf@sykes.suse.de>
-	<1080060468.2091.28.camel@patsy.fc.hp.com>
-	<jeisgvxh2j.fsf@sykes.suse.de>
-	<20040324015043.GE25059@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040324015043.GE25059@parcelfarce.linux.theplanet.co.uk> (Matthew
- Wilcox's message of "Wed, 24 Mar 2004 01:50:43 +0000")
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Matthew Wilcox <willy@debian.org>
-Cc: Alex Williamson <alex.williamson@hp.com>, linux-ia64 <linux-ia64@vger.kernel.org>, linux-scsi@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: lse-tech@lists.sourceforge.net, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-Matthew Wilcox <willy@debian.org> writes:
+We've run into a scaling problem using hugetlbpages in very large memory machines, e. g. machines 
+with 1TB or more of main memory.  The problem is that hugetlbpage pages are not faulted in, rather 
+they are zeroed and mapped in in by hugetlb_prefault() (at least on ia64), which is called in 
+response to the user's mmap() request.  The net is that all of the hugetlb pages end up being 
+allocated and zeroed by a single thread, and if most of the machine's memory is allocated to hugetlb 
+pages, and there is 1 TB or more of main memory, zeroing and allocating all of those pages can take 
+a long time (500 s or more).
 
-> However, I think I may have an idea ... what do you get in the line
-> that reports the SAL version?
+We've looked at allocating and zeroing hugetlbpages at fault time, which would at least allow 
+multiple processors to be thrown at the problem.  Question is, has anyone else been working on
+this problem and might they have prototype code they could share with us?
 
-SAL 0.20: HP version 3.20
+Thanks,
+-- 
+Best Regards,
+Ray
+-----------------------------------------------
+                   Ray Bryant
+512-453-9679 (work)         512-507-7807 (cell)
+raybry@sgi.com             raybry@austin.rr.com
+The box said: "Requires Windows 98 or better",
+            so I installed Linux.
+-----------------------------------------------
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
