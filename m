@@ -1,36 +1,32 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 08 Feb 2000 20:06:53 +0000
-Subject: Re: [Linux-ia64] booting? or is this list dead? ;-)
-Message-Id: <marc-linux-ia64-105590678204922@msgid-missing>
+From: Manfred Spraul <manfreds@colorfullife.com>
+Date: Sat, 05 Feb 2000 23:38:21 +0000
+Subject: [Linux-ia64] Q: TLB flush under SMP
+Message-Id: <marc-linux-ia64-105590678204914@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678204916@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678204916@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 08 Feb 2000 12:31:50 -0700, Tim Riker <TimR@CalderaSystems.com> said:
+Is the first snapshot supposed to run on SMP hardware/simulator? There
+were subtle race on i386 if the tlb flush IPI arrived between
+switch_mm() [changes %cr3] and switch_to() [change current], and now I'm
+verifying the other SMP capable ports.
 
-  Tim> I was just making suggestions.
+On ia64, flush_tlb_range() does nothing if the target mm is not the
+active mm on the current processor, but what if that mm is active on
+another cpu?
 
-As far as CD-RW and DVD read capability goes: I have no idea if it
-does.  Not something I can test easily.
+And it seems that the ia64 supports inter processor tlb flushes with
+special instructions [ptc.g], is the documentation publicly available? 
 
-  Tim> An the other hand, feel free to rant if helps. ;-)
+And where does the context id come from for "ptc.g"?
 
-Yep, it did! ;-)
+TIA,
+	Manfred
 
-On a related note: I actually had to hack mkisofs to make it possible to
-install an El-Torito image bigger than 2.88MB.  I'm sure I didn't do it
-entirely correctly, so this is something that should be looked into.
+Btw, please add version numbers to the name of the diff file - at least
+the target kernel.
 
-Also, if you use a recent mkisofs, no hacking will be necessary.
-Instead, there is now an option that let's you write "harddisk"-typed
-boot images (sorry, I forgot the option name, but you'll find it by
-searching for El Torito in the cdrecord man page).  This will take
-some fiddling and experimenting to get right, I assume.
-
-	--david
 
 
