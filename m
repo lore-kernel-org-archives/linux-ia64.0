@@ -1,44 +1,40 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Mon, 11 Aug 2003 02:13:46 +0000
-Subject: Kill warning in minix filesystem on 64-bit archs (2.6.0-test3)
-Message-Id: <marc-linux-ia64-106056819132623@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Mon, 11 Aug 2003 20:38:30 +0000
+Subject: efibootmgr 0.4.2-test2
+Message-Id: <marc-linux-ia64-106063434227835@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Announcing efibootmgr 0.4.2-test2.  If you have systems you can test
+this on, please do so.  It appears to work fine on my BigSur.  The big
+change here is I think I fixed the unaligned access errors.  If you're
+still getting them with this, please look at the ip=... address reported
+by the kernel, and tell me what function the code is in at that time
+(objdump -D is very helpful here).
 
-On 64-bit architectures, ino_t is int, not long, so the attached patch
-is needed to prevent a warning.
-
-Andrew, I can't find a maintainer for the MINIX filesystem --- can you
-please push this one along?
-
-
-=== fs/minix/bitmap.c 1.10 vs edited ==--- 1.10/fs/minix/bitmap.c	Thu May 23 23:18:51 2002
-+++ edited/fs/minix/bitmap.c	Thu Aug  7 11:56:55 2003
-@@ -116,7 +116,7 @@
- 
- 	if (!ino || ino > sbi->s_ninodes) {
- 		printk("Bad inode number on dev %s: %ld is out of range\n",
--		       sb->s_id, ino);
-+		       sb->s_id, (long)ino);
- 		return NULL;
- 	}
- 	ino--;
-@@ -141,7 +141,7 @@
- 	*bh = NULL;
- 	if (!ino || ino > sbi->s_ninodes) {
- 		printk("Bad inode number on dev %s: %ld is out of range\n",
--		       sb->s_id, ino);
-+		       sb->s_id, (long)ino);
- 		return NULL;
- 	}
- 	ino--;
+* Mon Aug 11 2003 Matt Domsch <Matt_Domsch@dell.com>
+- fixed unaligned access errors
+- removed extraneous printing of mac addr when creating netboot entries
+- sync docbook to README
+- whitespace cleanups
 
 
---
-Dr Peter Chubb     http://www.gelato.unsw.edu.au  peterc@gelato.unsw.edu.au
-You are lost in a maze of BitKeeper repositories,   all slightly different.
+Tarballs at:
+http://domsch.com/linux/ia64/efibootmgr/efibootmgr-0.4.2-test2.tar.gz
+http://domsch.com/linux/ia64/efibootmgr/efibootmgr-0.4.2-test2.tar.gz.asc
+
+
+Feedback welcome!
+
+Thanks,
+Matt
+
+-- 
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
 
