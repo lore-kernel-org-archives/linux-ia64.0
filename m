@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Tue, 27 Jan 2004 08:11:03 +0000
-Subject: Re: [patch] 2.6.1-mm5 compile do not use shared extable code for ia64
-Message-Id: <yq0y8rtreug.fsf@wildopensource.com>
+From: Paul Mackerras <paulus@samba.org>
+Date: Tue, 27 Jan 2004 08:56:26 +0000
+Subject: Re: [patch] 2.6.1-mm5 compile do not use shared extable code for
+Message-Id: <16406.10170.911012.262682@cargo.ozlabs.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <E1Aiuv7-0001cS-00@jaguar.mkp.net>
 	<20040120090004.48995f2a.akpm@osdl.org>
@@ -13,30 +13,24 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: davidm@hpl.hp.com
-Cc: Paul Mackerras <paulus@samba.org>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, Jes Sorensen <jes@trained-monkey.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+David Mosberger writes:
 
-David,
+> How about the attached one?  It will touch memory more when moving an
+> element down, but we're talking about exception tables here, and I
+> don't think module loading time would be affected in any noticable
+> fashion.
 
-I am just nitpicking here, but wouldn't it be better to stick to the
-convention of all upper case defines for the #ifdef check?
+Hmmm...  Stylistically I much prefer to pick up the new element,
+move the others up and just drop the new element in where it should
+go, rather than doing swap, swap, swap down the list.
 
-Maybe use something like?
-#define ARCH_EXTABLE_COMPARE_ENTRIES ia64_extable_compare_entries
+Also, I don't think there is enough code there to be worth the bother
+of trying to abstract the generic routine so you can plug in different
+compare and move-element routines.  The whole sort routine is only 16
+lines of code, after all.  Why not just have an ia64-specific version
+of sort_extable?  That's what I thought you would do.
 
-Cheers,
-Jes
-
-
-@@ -18,7 +18,25 @@
- extern struct exception_table_entry __start___ex_table[];
- extern struct exception_table_entry __stop___ex_table[];
- 
--#ifndef ARCH_HAS_SORT_EXTABLE
-+#ifndef extable_compare_entries
-+
-+/*
-+ * Compare exception-table entries L and R and return <0 if L is smaller, 0 if L and R are
-+ * equal and >0 if L is bigger.
-+ */
+Regards,
+Paul.
