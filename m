@@ -1,13 +1,16 @@
 From: Pat Gefre <pfg@sgi.com>
-Date: Fri, 20 Feb 2004 21:11:50 +0000
+Date: Mon, 23 Feb 2004 14:55:14 +0000
 Subject: [2.6 PATCH] Altix hotplug
-Message-Id: <200402202111.i1KLBp1p027660@fsgi900.americas.sgi.com>
+Message-Id: <200402231455.i1NEtEqJ041950@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200402202111.i1KLBp1p027660@fsgi900.americas.sgi.com>
+In-Reply-To: <200402202111.i1KLBp1p027660@fsgi900.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: davidm@napali.hpl.hp.com
 Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+
 
 2.6 Altix patch for kernel hotplug support
 
@@ -17,6 +20,7 @@ Patrick Gefre
 Silicon Graphics, Inc.                     (E-Mail)  pfg@sgi.com
 2750 Blue Water Rd                         (Voice)   (651) 683-3127
 Eagan, MN 55121-1400                       (FAX)     (651) 683-3054
+
 
 
 
