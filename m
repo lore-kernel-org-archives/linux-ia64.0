@@ -1,7 +1,7 @@
 From: Keith Owens <kaos@melbourne.sgi.com>
-Date: Tue, 06 Mar 2001 23:06:29 +0000
+Date: Wed, 07 Mar 2001 07:11:47 +0000
 Subject: Re: [Linux-ia64] ACPI problems in 2.4.2-ia64-010228
-Message-Id: <marc-linux-ia64-105590693005249@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005252@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005246@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005246@msgid-missing>
@@ -10,13 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 6 Mar 2001 10:49:42 -0800, 
-"Mallick, Asit K" <asit.k.mallick@intel.com> wrote:
->Looks like the FW is build 70 and was built on 8/15. Do you see this problem
->with newer version of the FW also? We will look into this problem.
+On Tue, 06 Mar 2001 12:30:55 +1100, 
+Keith Owens <kaos@melbourne.sgi.com> wrote:
+>BugSur 2 B1 cpus.  PAL 2213, BIOS W460GXBS2.86E.0070.B.200008150911.
+>Kernel 2.4.2 + ia64-010228.  I am getting semi-random data in the acpi
+>tables which more often than not will hang the machine during boot.
 
-The strange thing is that 2.4.1-ia64-010131 with the same config and
-compiler works fine on this machine.  I will look into upgrading the
-firmware.
+Upgraded to PAL 2215, W460GXBS2.86E.0084.P02.200010271750.  Still
+getting the ACPI problems.  Currently EFI 0.99, is there a more recent
+version version of EFI for BigSur?
 
 
