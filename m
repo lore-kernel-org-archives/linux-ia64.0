@@ -1,43 +1,39 @@
-From: dann frazier <dannf@hp.com>
-Date: Wed, 23 Feb 2005 01:41:59 +0000
-Subject: Re: discontinued zx1 based machine: hp zx6000. problems
-Message-Id: <1109122919.1302.84.camel@krebs.dannf>
+From: JinShan Xiong <jinshan.xiong@gmail.com>
+Date: Tue, 01 Feb 2005 02:53:42 +0000
+Subject: Re: How to intercept system calls on ia64 linux kernel
+Message-Id: <b3b26beb05013118532a9e96ca@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200502230129.j1N1T5Ap007480@csd.cs.technion.ac.il>
-In-Reply-To: <200502230129.j1N1T5Ap007480@csd.cs.technion.ac.il>
+References: <b3b26beb050130195674d2930c@mail.gmail.com>
+In-Reply-To: <b3b26beb050130195674d2930c@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2005-02-23 at 03:29 +0200, Max Kovgan wrote:
-> Hello, list!
-> 
-> Either my hands are skewed or something is wrong with this ia64 port, or even worse.
-> 
-> i am a debian user.
-> hardware: zx6000, no ps/2, only usb keyboard ( this one has also 2 usb sockets, so it should also be a USB hub )
-> 
-> my woes:
-> tried installing sarge: linux 2.4.21 (mckinley-smp).
+OK.
 
-Sounds like ancient boot media - current RC releases use 2.6.8 & 2.4.27.
-Shouldn't matter though, you got it installed...
+Thanks a lot.
 
-> during the installer keyboard worked.
-> after the installation's 1st boot - everything worked.
-> ok.. trying to upgrade....
-> 
-> tried 2.6.9-2 ( mckinley-smp ) - installer worked ok.
-> after a reboot - cannot use neither keyboard nor mouse.
-
-Try Debian's 2.6.10, 2.6.9 is no longer actively maintained and will be
-dropped from the archive.
-
-Make sure you have hotplug installed.
-
-debian-ia64@lists.debian.org is a better venue for this discussion -
-lets move this thread there.
+JinShan
 
 
-
+On Mon, 31 Jan 2005 09:34:32 -0800, David Mosberger
+<davidm@napali.hpl.hp.com> wrote:
+> Note that it is very dangerous to compile kernel modules like so:
+>=20
+> >>>>> On Mon, 31 Jan 2005 11:56:43 +0800, JinShan Xiong <jinshan.xiong@gm=
+ail.com> said:
+>=20
+>   JinShan> gcc -c -D__KERNEL__ -DMODULE -I/lib/modules/`uname
+>=20
+> This is missing the -mfixed-range=F12-f15,f32-f127 option, which means
+> that more complicated modules will end up trashing floating-point
+> registers which means that your module will cause random crashes in
+> user-level codes.  I'd recommend to compile modules the same way as normal
+> kernel code, except that you need to remove the -mconstant-gp flag.
+>=20
+> In 2.6, this has gotten a lot easier, since modules are built using
+> the normal kbuild infrastructure.
+>=20
+>         --david
+>
