@@ -1,89 +1,56 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Fri, 27 Jul 2001 21:40:17 +0000
-Subject: [Linux-ia64] elilo-3.0 fix for NVRAM options
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="rwEMma7ioTxnRzrJ"
-Message-Id: <marc-linux-ia64-105590693005946@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 31 Jul 2001 00:49:59 +0000
+Subject: [Linux-ia64] strace fix
+Message-Id: <marc-linux-ia64-105590693005962@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---rwEMma7ioTxnRzrJ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Recently I noticed that strace reports bogus syscall return values
+after any execve() system call.  This was quite annoying and it turns
+out to be due to the fact that strace was falling out of sync with the
+kernel due to an extra SIGTRAP that is being sent from the kernel's
+ELF loader.  The patch below fixes this problem.
 
-Hi,
+	--david
 
-I recently uncover a bug in elilo-3.0 where the argument string
-(LoadOptions) is modified by the loader. Usually this is fine, as
-when elilo is invoked from the EFI shell. But when elilo is invoked
-directly from the EFI boot manager the command line options are
-coming from NVRAM and are provided as is (no copy) to the loader. 
-Because elilo split the string apart, the next invocation will see
-shorten options and could potential cause problems. The fix is to 
-have elilo only work on a copy of the arguments.
-
-This patch below fixes this and is relative to elilo-3.0.
-
-
--- 
-
--Stephane
-
---rwEMma7ioTxnRzrJ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=elilo-010727
-
---- elilo-3.0/elilo.c	Mon Jul  2 01:11:01 2001
-+++ elilo-3.1/elilo.c	Fri Jul 27 14:37:10 2001
-@@ -300,8 +300,7 @@
- 	EFI_LOADED_IMAGE *info;
- 	EFI_STATUS status, ret = EFI_LOAD_ERROR;
- 	INTN argc = 0, c;
--	CHAR16 *ptr;
--	UINT8 force_prompt = 0;
-+	CHAR16 *ptr, *arglist = NULL;
- 	BOOLEAN devices_initialized = FALSE;
- 
- 	/* initialize global variable */
-@@ -354,7 +353,19 @@
- 	 */
- 	fixupargs(info);
- 
--	argc = argify(info->LoadOptions,info->LoadOptionsSize, argv); 
-+	/*
-+	 * we must copy argument because argify modifies the string.
-+	 * This caused problems when arguments are coming from NVRAM
-+	 * as passed by the EFI boot manager
-+	 */
-+	arglist = alloc(info->LoadOptionsSize, EfiLoaderData);
-+	if (arglist == NULL) {
-+		PRINT_ERR((L"cannot copy argument list"));
-+		return EFI_OUT_OF_RESOURCES;
-+	}
-+	Memcpy(arglist, info->LoadOptions, info->LoadOptionsSize);
-+
-+	argc = argify(arglist,info->LoadOptionsSize, argv); 
- 
- 	while ((c=Getopt(argc, argv, L"pPMC:aDhd:i:vV")) != -1 ) {
- 		switch(c) {
-@@ -422,8 +433,6 @@
+--- defs.h.~1.17.~	Sun Sep  3 16:57:48 2000
++++ defs.h	Mon Jul 30 17:44:56 2001
+@@ -274,7 +274,9 @@
+ #define TCB_FOLLOWFORK	00400	/* Process should have forks followed */
+ #define TCB_REPRINT	01000	/* We should reprint this syscall on exit */
+ #ifdef LINUX
+-#if defined(ALPHA) || defined(SPARC) || defined(POWERPC)
++#if defined(ALPHA) || defined(SPARC) || defined(POWERPC) || defined(IA64)
++  /* When execve'ing an ELF binary, the kernel sends an extra SIGTRAP
++     which we need to ignore.  */
+ #define TCB_WAITEXECVE	02000	/* ignore SIGTRAP after exceve */
+ #endif /* ALPHA */
+ #endif /* LINUX */
+--- process.c.~1.26.2.2.~	Thu May 17 01:39:53 2001
++++ process.c	Mon Jul 30 17:40:37 2001
+@@ -1162,7 +1162,7 @@
+ 		}
  	}
- 	DBG_PRINT((L"Optind=%d optarg=%x argc=%d", Optind, Optarg, argc));
- 
--	if (force_prompt) elilo_opt.prompt = 1;
--
- 	/*
- 	 * we can't defer this phase any longer...
- 	 * Must be done after the elilo_opt are initialized (at least partially)
-@@ -490,6 +499,8 @@
- 	main_loop(info->DeviceHandle, argv, argc, Optind, image);
- 	/* should not return */
- do_exit:
-+	if (arglist) free(arglist);
-+
- 	/* free all resources assiocated with file accesses */
- 	if (devices_initialized) close_devices();
- 
-
---rwEMma7ioTxnRzrJ--
+ #ifdef LINUX
+-#if defined(ALPHA) || defined(SPARC) || defined(POWERPC)
++#if defined(ALPHA) || defined(SPARC) || defined(POWERPC) || defined(IA64)
+ 	tcp->flags |= TCB_WAITEXECVE;
+ #endif /* ALPHA || SPARC || POWERPC */
+ #endif /* LINUX */
+--- syscall.c.~1.25.2.3.~	Tue Mar  6 17:13:25 2001
++++ syscall.c	Mon Jul 30 17:42:21 2001
+@@ -691,6 +691,10 @@
+ 			if (upeek(pid, PT_R8, &scno) < 0)
+ 				return -1;
+ 		} else {
++			if ((tcp->flags & TCB_WAITEXECVE)) {
++				tcp->flags &= ~TCB_WAITEXECVE;
++				return 0;
++			}
+ 			if (upeek (pid, PT_R15, &scno) < 0)
+ 				return -1;
+ 		}
 
