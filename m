@@ -1,7 +1,7 @@
-From: Davide Libenzi <davidel@xmailserver.org>
-Date: Sat, 24 May 2003 00:20:13 +0000
+From: "Boehm, Hans" <hans_boehm@hp.com>
+Date: Sat, 24 May 2003 00:53:16 +0000
 Subject: RE: [Linux-ia64] Re: web page on O(1) scheduler
-Message-Id: <marc-linux-ia64-105590723706025@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723706026@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705966@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705966@msgid-missing>
@@ -10,50 +10,107 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 23 May 2003, Boehm, Hans wrote:
+Thanks for the pointer.  In the statically linked case, I get 200/568/345
+for custom/pthread_mutex/pthread_spin.
 
-> Pthread_spin_lock() under the NPTL version in RH9 does basically what my
-> custom locks do in the uncontested case, aside from the function call.
-> But remember that this began with a discussion about whether it was
-> reasonable for user locking code to explicitly yield rather than relying
-> on pthreads to suspend the thread.  I don't think pthread_spin_lock is
-> relevant in this context, for two reasons:
->
-> 1) At least the RH9 version of pthread_spin_lock in NPTL literally spins
-> and makes no attempt to yield or block.  This only makes sense at user
-> level if you are 100% certain that the processors won't be
-> overcommitted. Otherwise there is little to be lost by blocking once you
-> have spun for sufficiently long.  You could use pthread_spin_trylock and
-> block explicitly, but that gets us back to custom blocking code.
+I agree that this is not a fair comparison.  That was my point.  An implementation
+with custom yield/sleep
+code can do things that you can't do with blocking pthreads primitives at the
+same performance.  (Of course pthreads_mutex_lock will win in other cases.)
 
-Yes, that would be a spinlock. Your code was basically a spinlock that
-instead of spinning was doing abort() in contention case. Again, you
-measured two different things. Even if the pthread mutex does something
-very simple like :
+Please forget about the abort() in the contention case.  I put that there for
+brevity since it is not exercised by the test.  The intent was to time the
+noncontention performance of a custom lock that first spins, then yields,
+and then sleeps, as was stated in the comment.
 
-	spinlock(mtx->lock);
-	while (mtx->busy) {
-		spinunlock(mtx->lock);
-		waitforunlocks();
-		spinlock(mtx->lock);
-	}
-	mtx->busy++;
-	spinunlock(mtx->lock);
+You are forgetting two issues in your analysis of what pthreads is/should be doing
+relative to the spin-lock-like code:
 
-Only the fact that this code likely reside inside a deeper call lever will
-make you pay in a tight loop like your.
+1) The unlock code is different.  If you potentially do a waitforunlocks()
+in the locking code, you need to at least check whether the corresponding
+notification is necessary when you unlock().  For NPTL that requires another
+atomic operation, and hence another dozen to a couple of hundred cycles,
+depending on the processor.  You need to look at both the lock and unlock
+code.
 
+2) (I hadn't mentioned this before.) The (standard interpretation of)
+the memory barrier semantics of the pthreads primitives is too strong.
+Arguably they need to be full memory barriers in both directions.
+The pthread_spin_lock code inserts an extra full
+memory barrier on IA64 as a result, instead of just
+using the acquire barrier associated with the cmpxchg.acq instruction. 
+(I think the spin unlock code doesn't do this.  One could argue that that's a bug,
+though I would argue that the bug is really  in the pthreads spec.)
 
-> 2) AFAICT, pthread_spin_lock is currently a little too bleeding edge to
-> be widely used.  I tried to time it, but failed.  Pthread.h doesn't
-> include the declaration for pthread_spin_lock_t by default, at least not
-> yet.  It doesn't seem to have a Linux man page, yet.  I tried to define
-> the magic macro to get it declared, but that broke something else.
+Hans
 
-$ gcc -D_GNU_SOURCE ...
-
-
-
-- Davide
-
+> -----Original Message-----
+> From: Davide Libenzi [mailto:davidel@xmailserver.org]
+> Sent: Friday, May 23, 2003 5:20 PM
+> To: Boehm, Hans
+> Cc: 'Arjan van de Ven'; Hans Boehm; MOSBERGER, DAVID
+> (HP-PaloAlto,unix3); Linux Kernel Mailing List; 
+> linux-ia64@linuxia64.org
+> Subject: RE: [Linux-ia64] Re: web page on O(1) scheduler
+> 
+> 
+> On Fri, 23 May 2003, Boehm, Hans wrote:
+> 
+> > Pthread_spin_lock() under the NPTL version in RH9 does 
+> basically what my
+> > custom locks do in the uncontested case, aside from the 
+> function call.
+> > But remember that this began with a discussion about whether it was
+> > reasonable for user locking code to explicitly yield rather 
+> than relying
+> > on pthreads to suspend the thread.  I don't think 
+> pthread_spin_lock is
+> > relevant in this context, for two reasons:
+> >
+> > 1) At least the RH9 version of pthread_spin_lock in NPTL 
+> literally spins
+> > and makes no attempt to yield or block.  This only makes 
+> sense at user
+> > level if you are 100% certain that the processors won't be
+> > overcommitted. Otherwise there is little to be lost by 
+> blocking once you
+> > have spun for sufficiently long.  You could use 
+> pthread_spin_trylock and
+> > block explicitly, but that gets us back to custom blocking code.
+> 
+> Yes, that would be a spinlock. Your code was basically a spinlock that
+> instead of spinning was doing abort() in contention case. Again, you
+> measured two different things. Even if the pthread mutex does 
+> something
+> very simple like :
+> 
+> 	spinlock(mtx->lock);
+> 	while (mtx->busy) {
+> 		spinunlock(mtx->lock);
+> 		waitforunlocks();
+> 		spinlock(mtx->lock);
+> 	}
+> 	mtx->busy++;
+> 	spinunlock(mtx->lock);
+> 
+> Only the fact that this code likely reside inside a deeper 
+> call lever will
+> make you pay in a tight loop like your.
+> 
+> 
+> > 2) AFAICT, pthread_spin_lock is currently a little too 
+> bleeding edge to
+> > be widely used.  I tried to time it, but failed.  Pthread.h doesn't
+> > include the declaration for pthread_spin_lock_t by default, 
+> at least not
+> > yet.  It doesn't seem to have a Linux man page, yet.  I 
+> tried to define
+> > the magic macro to get it declared, but that broke something else.
+> 
+> $ gcc -D_GNU_SOURCE ...
+> 
+> 
+> 
+> - Davide
+> 
 
