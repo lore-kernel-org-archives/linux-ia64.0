@@ -1,71 +1,42 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Mon, 14 Mar 2005 23:59:23 +0000
+From: Ashok Raj <ashok.raj@intel.com>
+Date: Tue, 15 Mar 2005 00:23:31 +0000
 Subject: Re: Fix irq_affinity write from /proc for IPF
-Message-Id: <20050314155923.4847aea3.akpm@osdl.org>
+Message-Id: <20050314162330.A22861@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050314155004.A22573@unix-os.sc.intel.com>
-In-Reply-To: <20050314155004.A22573@unix-os.sc.intel.com>
+References: <20050314155004.A22573@unix-os.sc.intel.com> <20050314155923.4847aea3.akpm@osdl.org>
+In-Reply-To: <20050314155923.4847aea3.akpm@osdl.org>; from akpm@osdl.org on Mon, Mar 14, 2005 at 03:59:23PM -0800
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ashok Raj <ashok.raj@intel.com>
-Cc: linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, davidm@hpl.hp.com, hch@lst.de
+To: Andrew Morton <akpm@osdl.org>
+Cc: Ashok Raj <ashok.raj@intel.com>, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, davidm@hpl.hp.com, hch@lst.de
 
-Ashok Raj <ashok.raj@intel.com> wrote:
->
-> Hi Andrew/Tony
+On Mon, Mar 14, 2005 at 03:59:23PM -0800, Andrew Morton wrote:
+> Ashok Raj <ashok.raj@intel.com> wrote:
+> >
 > 
-> This patch is required for IPF to perform deferred write to rte's when
-> affinity is programmed via /proc. These entries can only be programmed when 
-> interrupt is pending.
+> "ia64" is preferred, please.  Nobody knows what an IPF is.
 
-"ia64" is preferred, please.  Nobody knows what an IPF is.
-
+Right!. Sorry about that.
 > 
->  release_dir-araj/arch/ia64/kernel/irq.c |   12 ++++++++++--
->  release_dir-araj/kernel/irq/proc.c      |   10 ++++++++--
->  2 files changed, 18 insertions(+), 4 deletions(-)
 > 
-> diff -puN arch/ia64/kernel/irq.c~fix_ia64_smp_affinity arch/ia64/kernel/irq.c
-> --- release_dir/arch/ia64/kernel/irq.c~fix_ia64_smp_affinity	2005-03-14 14:35:44.589293491 -0800
-> +++ release_dir-araj/arch/ia64/kernel/irq.c	2005-03-14 15:27:54.262106715 -0800
-> @@ -94,12 +94,20 @@ skip:
->  /*
->   * This is updated when the user sets irq affinity via /proc
->   */
-> -cpumask_t __cacheline_aligned pending_irq_cpumask[NR_IRQS];
-> +static cpumask_t __cacheline_aligned pending_irq_cpumask[NR_IRQS];
->  static unsigned long pending_irq_redir[BITS_TO_LONGS(NR_IRQS)];
->  
-> -static cpumask_t irq_affinity [NR_IRQS] = { [0 ... NR_IRQS-1] = CPU_MASK_ALL };
->  static char irq_redir [NR_IRQS]; // = { [0 ... NR_IRQS-1] = 1 };
->  
-> +/*
-> + * Arch specific routine for deferred write to iosapic rte to reprogram
-> + * intr destination.
-> + */
-> +void proc_set_irq_affinity(unsigned int irq, cpumask_t mask_val)
-> +{
-> +	pending_irq_cpumask[irq] = mask_val;
-> +}
-> +
->  void set_irq_affinity_info (unsigned int irq, int hwid, int redir)
->  {
->  	cpumask_t mask = CPU_MASK_NONE;
-> diff -puN kernel/irq/proc.c~fix_ia64_smp_affinity kernel/irq/proc.c
-> --- release_dir/kernel/irq/proc.c~fix_ia64_smp_affinity	2005-03-14 14:41:05.475031747 -0800
-> +++ release_dir-araj/kernel/irq/proc.c	2005-03-14 15:27:59.436911339 -0800
-> @@ -19,6 +19,13 @@ static struct proc_dir_entry *root_irq_d
->   */
->  static struct proc_dir_entry *smp_affinity_entry[NR_IRQS];
->  
-> +void __attribute__((weak))
-> +proc_set_irq_affinity(unsigned int irq, cpumask_t mask_val)
-> +{
-> +	irq_affinity[irq] = mask_val;
-> +	irq_desc[irq].handler->set_affinity(irq, mask_val);
-> +}
-> +
+> Is it not possible for ia64's ->set_affinity() handler to do this deferring?
+> 
 
-Is it not possible for ia64's ->set_affinity() handler to do this deferring?
+There are other places where we re-program, and its fine to call the 
+current version of set_affinity directly, like when we are doing cpu offline
+and trying to force migrate irqs for ia64.
 
+Changing the default set_affinity() for ia64 would result in many changes, 
+this still keeps the same purpose of those access functions, and 
+differentiates the proc write cases alone without changing the meaning 
+of those handler functions. (and a smaller patch)
+
+this would further complicate the force migrate irq's when we consider 
+MSI interrupts as well. Since it would have its own set_affinity, and we need
+to hack into MSI's set affinity handler as well which would complicate things.
+
+-- 
+Cheers,
+Ashok Raj
+- Open Source Technology Center
