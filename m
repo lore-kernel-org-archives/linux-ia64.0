@@ -1,22 +1,38 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 31 May 2003 03:13:47 +0000
-Subject: Re: [Linux-ia64] [PATCH] IA-32 emulation patch: ptrace get_FPREGS bug fix
-Message-Id: <marc-linux-ia64-105590723706102@msgid-missing>
+From: Stephen Mulcahy <stephen.mulcahy@hp.com>
+Date: Wed, 14 May 2003 16:25:18 +0000
+Subject: [Linux-ia64] keyboard problems with post 2.4.17 kernels on proliant dl590 (itanium)
+Message-Id: <marc-linux-ia64-105590723705796@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723706099@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723706099@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 30 May 2003 18:19:02 -0700, "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com> said:
+Hi,
 
-  Venkatesh> A bug-fix in IA-32 emulation ptrace code. The bug
-  Venkatesh> originally got introduced with the addition of FPXREGS
-  Venkatesh> support in ptrace.
+I've been having difficulty compiling a kernel that provides a working
+keyboard from sources newer than 2.4.17 - is this a known problem
+(google sheds no light on things)? I can't see anything in dmesg to
+suggest an error but as soon as elilo hands loads the kernel, I lose
+the ability to input anything through the keyboard.
 
-Applied, thanks.
+This is with vanilla kernel sources (2.4.18, 2.4.19 and 2.4.20) +
+official ia64 patches and with debian kernel sources.
 
-	--david
+thanks,
+
+-stephen
+
+-- 
+   Stephen Mulcahy, Software Engineer, Mission Critical & Proactive Services,
+     HP Customer Support R&D, HP, Ballybrit Business Park, Galway, Ireland.
+             tel: +353-91-754584 / mailto:stephen.mulcahy@hp.com
+
+The contents of this message and any attachments to it are confidential and may
+be legally privileged. If you have received this message in error you should
+delete it from your system immediately and advise the sender.
+
+To any recipient of this message within HP, unless otherwise stated, you should
+consider this message and attachments as "HP CONFIDENTIAL".
+
 
