@@ -1,7 +1,7 @@
-From: Randolph Chung <randolph@tausq.org>
-Date: Fri, 21 Feb 2003 07:13:35 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 21 Feb 2003 07:23:22 +0000
 Subject: Re: [Linux-ia64] ski and gcc-3.x
-Message-Id: <marc-linux-ia64-105590709805896@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805897@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805894@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805894@msgid-missing>
@@ -10,28 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> That's only a warning though, right?  It should be harmless.
+>>>>> On Thu, 20 Feb 2003 23:13:35 -0800, Randolph Chung <randolph@tausq.org> said:
 
-no, ski segfaults right after that.
+  >> That's only a warning though, right?  It should be harmless.
 
-I recompiled 2.5.60 without -g and it loads, but when i run it, it says:
-* run
-Unable to create console window
-21 insts (0 faults), 0.01 sec, 4086 i/s
+  Randolph> no, ski segfaults right after that.
 
-(i'm running this remotely, so no X ...)
+Hmmh, that's odd.  In any case, the new version should fix that.
 
-> In any case: I currently have v0.9.81l1 of Ski in alpha testing and
-> beta testing should start next week.  If you can wait till then, that
-> would be easiest.  Otherwise, let me know and I'll see about sending
-> you the current test-binary.
+  Randolph> * run Unable to create console window
 
-ok, this can wait :)
+  Randolph> (i'm running this remotely, so no X ...)
 
-thanks,
-randolph
--- 
-Randolph Chung
-Debian GNU/Linux Developer, hppa/ia64 ports
-http://www.tausq.org/
+I'm afraid you'll be out of luck without X: you _can_ run in
+batch-mode without X, but then you don't get the debugger.  If you
+want the debugger, there must be a way to create a simulated console
+and that's done by starting a slave xterm.  Without X, that's hard to
+do.  If I work remotely, I use ssh X forwarding to prevent this
+problem.
+
+	--david
 
