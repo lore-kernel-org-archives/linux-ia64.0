@@ -1,28 +1,33 @@
-From: <peterc@gelato.unsw.edu.au>
-Date: Fri, 14 Jun 2002 00:49:39 +0000
-Subject: [Linux-ia64] Minor patch: remove warning in simserial.c
-Message-Id: <marc-linux-ia64-105590701905675@msgid-missing>
+From: Barry Wu <wuqb@nudt.edu.cn>
+Date: Mon, 24 Jun 2002 13:13:43 +0000
+Subject: [Linux-ia64] =?gb2312?B?d2hhdCBhYm91dCBTR0kgSUE2NCBpbyBhZGRyZXNzIG1hcA==?=
+Message-Id: <marc-linux-ia64-105590701905718@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-simserial.c needs hw_irq.h to get the declaration for ia64_alloc_irq()
+Hi, all, I am new to Intel Itanium. I do not know
+if io address is special linux. For example, in mips
+io virtual  address can be converted directly to
+physics address by K1seg. I read Itanium system 
+architecture and find that all virtual address have
+to pass TLB transation. Am I right?
 
+I read include/asm-ia64/sn/sn2/addrs.h and find
+that SGI IA64 address is composed of
+node-id  +  node offset
+If all virtual address have to convert by TLB, then
+I think SGI Itanium virtual address have to use
+TR register. But Itanium only has 48 DTR and if
+we use node-id as part of physics address, then 
+each node we have to use a DTR, then SGI IA64 system
+have no too DTR to convert this address. The efficiency
+must be slow for IO address. I do not know if it is
+correct. If someone knows, please give me a reply.
 
---- /tmp/geta9559	Fri Jun 14 10:45:35 2002
-+++ linux-2.5.18-patched/arch/ia64/hp/sim/simserial.c	Fri Jun 14 10:42:40 2002
-@@ -31,6 +31,7 @@
- #include <linux/serialP.h>
- 
- #include <asm/irq.h>
-+#include <asm/hw_irq.h>
- #include <asm/uaccess.h>
- 
- #ifdef CONFIG_KDB
+Thanks in advance!
 
---
-Peter C					    peterc@gelato.unsw.edu.au
-You are lost in a maze of BitKeeper repositories, all almost the same.
+Barry 
 
