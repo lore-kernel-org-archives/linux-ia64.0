@@ -1,7 +1,7 @@
-From: Cary Coutant <cary@cup.hp.com>
-Date: Tue, 21 Oct 2003 21:57:50 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 21 Oct 2003 22:24:27 +0000
 Subject: Re: [RFC] Endianness and signals
-Message-Id: <marc-linux-ia64-106677371825584@msgid-missing>
+Message-Id: <marc-linux-ia64-106677568627771@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106669369711349@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106669369711349@msgid-missing>
@@ -10,36 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> The fourth case is that the application has signal handlers that
-> expect to get called in the "opposite" byte-order and those are the
-> ones that would break if we changed the current behavior.
+>>>>> On Tue, 21 Oct 2003 14:57:50 -0700, Cary Coutant <cary@cup.hp.com> said:
 
-Do you know of any such applications?
+  >> The fourth case is that the application has signal handlers that
+  >> expect to get called in the "opposite" byte-order and those are
+  >> the ones that would break if we changed the current behavior.
 
-How likely is it that someone would code an application in such a way 
-that they guarantee that a certain signal will occur only when 
-executing in big-endian mode? (And, conversely, that other signals will 
-occur only when executing in little-endian mode?)
+  Cary> Do you know of any such applications?
 
-If I were writing such an application, and I wanted to figure out what 
-to expect when a signal handler is called, my first thought* would be 
-to expect it to get called in a standard (i.e., little-endian) mode, no 
-matter what. I might then test it and discover that I was wrong. At 
-that point, I'd hardly consider that a definitive feature of Linux on 
-IA-64; I'd be much more likely to consider it a bug, and bring it to 
-someone's attention.
+I don't know of _any_ mixed-endian-mode applications for ia64 linux.
+It has come up now and then, but I have never seen a strong demand for
+it.  That's sort of my point: if you want to do mixed-endian-mode, you
+(probably) can do it, but you're pretty much on your own.  It's not
+just the kernel, but gdb, libunwind, etc. etc. all of which may or may
+not react the "right" way when encountering big-endian data.
 
-Of course, I realize that most people don't go through that thought 
-process -- they assume that the way it works today is the way it will 
-always work. I just have a hard time working up any sympathy for those 
-people.
+  Cary> How likely is it that someone would code an application in
+  Cary> such a way that they guarantee that a certain signal will
+  Cary> occur only when executing in big-endian mode? (And,
+  Cary> conversely, that other signals will occur only when executing
+  Cary> in little-endian mode?)
 
-By the way, when you arm the signal handler, do you copy the function 
-pointer or the function descriptor? Will the user-space code that makes 
-the call to the signal handler work if you're in big-endian mode?
+I can certainly imagine an application that switches into big-endian
+mode completely before installing any signal handlers.
 
--cary
+  Cary> By the way, when you arm the signal handler, do you copy the
+  Cary> function pointer or the function descriptor? Will the
+  Cary> user-space code that makes the call to the signal handler work
+  Cary> if you're in big-endian mode?
 
-* Actually, my first thought would be to see if it's documented 
-somewhere. But this is Linux. :-)
+We copy the pointer and then dereference it in user-mode (in the trampoline).
 
+Perhaps you misunderstand what I'm saying: I'm not religiously opposed
+to making a change in this area, but I'm not going to change it on a
+whim.  If someone is serious about supporting mixed-endian-mode
+applications, they'll have to put some time into it and at least
+answer what happens, e.g., to gdb, etc.
+
+	--david
