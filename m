@@ -1,32 +1,32 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 24 Jul 2003 12:52:19 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 24 Jul 2003 12:55:50 +0000
 Subject: Re: a nice way to reboot :-)
-Message-Id: <marc-linux-ia64-105905152832116@msgid-missing>
+Message-Id: <marc-linux-ia64-105905135631924@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105887789030732@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105887789030732@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bruno Cornec <Bruno.Cornec@hp.com> writes:
+On Thu, Jul 24, 2003 at 02:30:51PM +0200, Bruno Cornec wrote:
+> Well in general yes, but at least on i386 (I can't test on something else)
+> doing cat /proc/kcore doesn't crash the system. And BTW why should it ?
+> There is nothing wrong with it (for ex. I used it a lot of times to try
+> to find a BIOS revision on i386).
 
-|> I just wonder if this could be used as a DOS from outside the system. In
-|> which case, it would be a Bad Thing (tm :-)
-|>=20
-|> > root can crash
-|> > the system any way they want. =20
-|>=20
-|> Yes, that's true. But it just more surprising when you think you just
-|> pass a normal command ;-)
+you should be using gdb on /proc/kcore; nothing else.
 
-If you are already root then shutdown -h is just as effective.
+> I just wonder if this could be used as a DOS from outside the system. In
+> which case, it would be a Bad Thing (tm :-)
 
-Andreas.
+$ ls -l /proc/kcore 
+-r--------    1 root     root     167776256 2003-07-24 08:46 /proc/kcore
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+and if they're root, you're already fucked.
+
+-- 
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
