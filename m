@@ -1,107 +1,106 @@
-From: akpm@osdl.org
-Date: Wed, 30 Mar 2005 21:39:59 +0000
-Subject: [patch 3/3] ia64: reduce cacheline bouncing in cpu_idle_wait
-Message-Id: <200503302139.j2ULdmpH029252@shell0.pdx.osdl.net>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 09 Mar 2005 18:39:54 +0000
+Subject: Fixes to mmtimer
+Message-Id: <Pine.LNX.4.58.0503091036300.29003@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Fix the issue that the timer sometimes will not fire if the scheduled
+time has already expired. Plus some simplifications and style changes.
 
-From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Dimitri Sivanich <sivanich@sgi.com>
 
-Andi noted that during normal runtime cpu_idle_map is bounced around a lot,
-and occassionally at a higher frequency than the timer interrupt wakeup
-which we normally exit pm_idle from.  So switch to a percpu variable.
+Index: linux-2.6.11/drivers/char/mmtimer.c
+=================================--- linux-2.6.11.orig/drivers/char/mmtimer.c	2005-03-01 23:38:13.000000000 -0800
++++ linux-2.6.11/drivers/char/mmtimer.c	2005-03-09 09:48:40.000000000 -0800
+@@ -71,11 +71,6 @@ static struct file_operations mmtimer_fo
+ };
 
-I didn't move things to the slow path because it would involve adding
-scheduler code to wakeup the idle thread on the cpus we're waiting for.
-
-Signed-off-by: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
-
- 25-akpm/arch/ia64/kernel/process.c |   41 +++++++++++++++++++++++--------------
- 1 files changed, 26 insertions(+), 15 deletions(-)
-
-diff -puN arch/ia64/kernel/process.c~ia64-reduce-cacheline-bouncing-in-cpu_idle_wait arch/ia64/kernel/process.c
---- 25/arch/ia64/kernel/process.c~ia64-reduce-cacheline-bouncing-in-cpu_idle_wait	Wed Mar 30 13:38:32 2005
-+++ 25-akpm/arch/ia64/kernel/process.c	Wed Mar 30 13:38:35 2005
-@@ -50,7 +50,7 @@
- #include "sigframe.h"
- 
- void (*ia64_mark_idle)(int);
--static cpumask_t cpu_idle_map;
-+static DEFINE_PER_CPU(unsigned int, cpu_idle_state);
- 
- unsigned long boot_option_idle_override = 0;
- EXPORT_SYMBOL(boot_option_idle_override);
-@@ -223,20 +223,31 @@ static inline void play_dead(void)
- }
- #endif /* CONFIG_HOTPLUG_CPU */
- 
+ /*
+- * Comparators and their associated info.  Shub has
+- * three comparison registers.
+- */
 -
- void cpu_idle_wait(void)
+-/*
+  * We only have comparison registers RTC1-4 currently available per
+  * node.  RTC0 is used by SAL.
+  */
+@@ -174,14 +169,10 @@ static void inline mmtimer_setup_int_2(u
+  * This function must be called with interrupts disabled and preemption off
+  * in order to insure that the setup succeeds in a deterministic time frame.
+  * It will check if the interrupt setup succeeded.
+- * mmtimer_setup will return the cycles that we were too late if the
+- * initialization failed.
+  */
+ static int inline mmtimer_setup(int comparator, unsigned long expires)
  {
--        int cpu;
--        cpumask_t map;
-+	unsigned int cpu, this_cpu = get_cpu();
-+	cpumask_t map;
-+
-+	set_cpus_allowed(current, cpumask_of_cpu(this_cpu));
-+	put_cpu();
- 
--        for_each_online_cpu(cpu)
--                cpu_set(cpu, cpu_idle_map);
-+	cpus_clear(map);
-+	for_each_online_cpu(cpu) {
-+		per_cpu(cpu_idle_state, cpu) = 1;
-+		cpu_set(cpu, map);
-+	}
- 
--        wmb();
--        do {
--                ssleep(1);
--                cpus_and(map, cpu_idle_map, cpu_online_map);
--        } while (!cpus_empty(map));
-+	__get_cpu_var(cpu_idle_state) = 0;
-+
-+	wmb();
-+	do {
-+		ssleep(1);
-+		for_each_online_cpu(cpu) {
-+			if (cpu_isset(cpu, map) && !per_cpu(cpu_idle_state, cpu))
-+				cpu_clear(cpu, map);
-+		}
-+		cpus_and(map, map, cpu_online_map);
-+	} while (!cpus_empty(map));
+
+-	long diff;
+-
+ 	switch (comparator) {
+ 	case 0:
+ 		mmtimer_setup_int_0(expires);
+@@ -194,17 +185,14 @@ static int inline mmtimer_setup(int comp
+ 		break;
+ 	}
+ 	/* We might've missed our expiration time */
+-        diff = rtc_time() - expires;
+-	if (diff > 0) {
+-		if (mmtimer_int_pending(comparator)) {
+-			/* We'll get an interrupt for this once we're done */
+-                        return 0;
+-		}
+-		/* Looks like we missed it */
+-		return diff;
+-        }
++	if (rtc_time() < expires)
++		return 1;
+
+-	return 0;
++	/*
++	 * If an interrupt is already pending then its okay
++	 * if not then we failed
++	 */
++	return mmtimer_int_pending(comparator);
  }
- EXPORT_SYMBOL_GPL(cpu_idle_wait);
- 
-@@ -244,7 +255,6 @@ void __attribute__((noreturn))
- cpu_idle (void)
- {
- 	void (*mark_idle)(int) = ia64_mark_idle;
--	int cpu = smp_processor_id();
- 
- 	/* endless idle loop with no priority at all */
- 	while (1) {
-@@ -255,12 +265,13 @@ cpu_idle (void)
- 		while (!need_resched()) {
- 			void (*idle)(void);
- 
-+			if (__get_cpu_var(cpu_idle_state))
-+				__get_cpu_var(cpu_idle_state) = 0;
-+
-+			rmb();
- 			if (mark_idle)
- 				(*mark_idle)(1);
- 
--			if (cpu_isset(cpu, cpu_idle_map))
--				cpu_clear(cpu, cpu_idle_map);
--			rmb();
- 			idle = pm_idle;
- 			if (!idle)
- 				idle = default_idle;
-_
+
+ static int inline mmtimer_disable_int(long nasid, int comparator)
+@@ -430,7 +418,7 @@ static int inline reschedule_periodic_ti
+ 		if (n > 20)
+ 			return 1;
+
+-	} while (mmtimer_setup(x->i, t->it_timer.expires));
++	} while (!mmtimer_setup(x->i, t->it_timer.expires));
+
+ 	return 0;
+ }
+@@ -594,9 +582,15 @@ static int sgi_timer_set(struct k_itimer
+
+ 	if (flags & TIMER_ABSTIME) {
+ 		struct timespec n;
++		unsigned long now;
+
+ 		getnstimeofday(&n);
+-		when -= timespec_to_ns(n);
++		now = timespec_to_ns(n);
++		if (when > now)
++			when -= now;
++		else
++			/* Fire the timer immediately */
++			when = 0;
+ 	}
+
+ 	/*
+@@ -644,7 +638,7 @@ retry:
+ 	timr->it_timer.expires = when;
+
+ 	if (period = 0) {
+-		if (mmtimer_setup(i, when)) {
++		if (!mmtimer_setup(i, when)) {
+ 			mmtimer_disable_int(-1, i);
+ 			posix_timer_event(timr, 0);
+ 			timr->it_timer.expires = 0;
