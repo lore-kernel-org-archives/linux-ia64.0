@@ -1,23 +1,51 @@
-From: Daniel Phillips <phillips@istop.com>
-Date: Sat, 28 Aug 2004 21:41:36 +0000
+From: Herbert Poetzl <herbert@13thfloor.at>
+Date: Mon, 30 Aug 2004 17:02:11 +0000
 Subject: Re: page fault scalability patch final : i386 tested, x86_64 support added
-Message-Id: <200408281741.36211.phillips@istop.com>
+Message-Id: <20040830170211.GB7718@MAIL.13thfloor.at>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com> <20040827173641.5cfb79f6.akpm@osdl.org> <20040828010253.GA50329@muc.de>
-In-Reply-To: <20040828010253.GA50329@muc.de>
+References: <20040827173641.5cfb79f6.akpm@osdl.org> <20040828010253.GA50329@muc.de> <20040827183940.33b38bc2.akpm@osdl.org> <16687.59671.869708.795999@cargo.ozlabs.ibm.com> <Pine.LNX.4.58.0408272021070.16607@schroedinger.engr.sgi.com> <20040827204241.25da512b.akpm@osdl.org> <Pine.LNX.4.58.0408272121300.16949@schroedinger.engr.sgi.com> <20040827223954.7d021aac.akpm@osdl.org> <Pine.LNX.4.58.0408272256030.17485@schroedinger.engr.sgi.com> <20040827230637.6b3eb2ac.akpm@osdl.org>
+In-Reply-To: <20040827230637.6b3eb2ac.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@muc.de>
-Cc: Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@davemloft.net>, clameter@sgi.com, ak@suse.de, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
+To: Andrew Morton <akpm@osdl.org>
+Cc: Christoph Lameter <clameter@sgi.com>, paulus@samba.org, ak@muc.de, davem@davemloft.net, ak@suse.de, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
 
-Hi Andi,
+On Fri, Aug 27, 2004 at 11:06:37PM -0700, Andrew Morton wrote:
+> Christoph Lameter <clameter@sgi.com> wrote:
+> >
+> > > As I said - for both these applications we need a new type which is
+> >  > atomic64_t on 64-bit and atomic_t on 32-bit.
+> > 
+> >  That is simply a new definition in include/asm-*/atomic.h
+> > 
+> >  so
+> > 
+> >  #define atomic_long atomic64_t
+> > 
+> >  on 64 bit
+> > 
+> >  and
+> > 
+> >  #define atomic_long atomic_t
+> > 
+> >  on 32bit?
+> 
+> No, a whole host of wrappers are needed - atomic_long_inc/dec/set/read,
+> etc.  For page->_count we'll also need the fancier functions such as
+> atomic_long_add_return().
 
-On Friday 27 August 2004 21:02, Andi Kleen wrote:
-> Yep.  Good plan. atomic_long_t ?
+hmm, please correct me, but last time I checked
+atomic_add_return() wasn't even available for i386
+for example ...
 
-Would it not be more C-ish as long_atomic_t?
+best,
+Herbert
 
-Regards,
-
-Daniel
+> As I said: let's address this later on.  It's probably not an issue for RSS
+> until 4-level pagetables come along.
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
