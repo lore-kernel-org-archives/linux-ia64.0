@@ -1,7 +1,7 @@
 From: Khalid Aziz <khalid@fc.hp.com>
-Date: Tue, 09 Oct 2001 17:42:10 +0000
+Date: Wed, 10 Oct 2001 19:48:33 +0000
 Subject: Re: [Linux-ia64] prctl tool
-Message-Id: <marc-linux-ia64-105590698805311@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805318@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805308@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805308@msgid-missing>
@@ -10,30 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jesse,
+Khalid Aziz wrote:
+> 
+> Jesse,
+> 
+> You are right. I am the maintainer. You can find the sources at
+> <ftp://ftp.hp.com/pub/linux/prctl> or
+> <ftp://puffin.external.hp.com/pub/ia64>. 1.2 is the current version.
+> 
 
-You are right. I am the maintainer. You can find the sources at
-<ftp://ftp.hp.com/pub/linux/prctl> or
-<ftp://puffin.external.hp.com/pub/ia64>. 1.2 is the current version.
+I also have a project page on SourceForge at
+<http://prctl.sourceforge.net>.
 
 --
-Khalid
-
-Jesse Barnes wrote:
-> 
-> I assume the maintainer is Khalid Aziz, I guess I'm really looking for a
-> codebase to diff against...
-> 
-> Thanks,
-> Jesse
-> 
-> On Mon, 8 Oct 2001, Jesse Barnes wrote:
-> 
-> > Could someone please point me to the maintainer of the prctl command?  I'd
-> > like to add a few things...
-> >
-> > Thanks,
-> > Jesse 
+Khalid 
 
 ==================================
 Khalid Aziz                              Linux Systems Operation R&D
