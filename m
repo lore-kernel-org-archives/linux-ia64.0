@@ -1,76 +1,31 @@
-From: Harish Babu <babu.harish@usa.net>
-Date: Thu, 07 Feb 2002 15:47:26 +0000
-Subject: Re: [RE: [Re: [Linux-ia64] IA64 Link Relocation operators ]]
-Message-Id: <marc-linux-ia64-105590698806013@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 08 Feb 2002 06:11:28 +0000
+Subject: [Linux-ia64] Re: O(1) MQ scheduler J9 patch for IA64
+Message-Id: <marc-linux-ia64-105590698806025@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698806014@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698806014@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
-Thanks for the site but unfortunately, the site seems to have been removed.  I
-wasn't able to find the site.  I have checked out the
-Intel website.  And the only details i could i find are the Assembler
-users guide and the Assembly language reference.  But they are not
-adequate for my purpose.
+  Erich> I had to add a function smp_call_function_nowait which sends
+  Erich> an IPI and returns immediately in order to get rid of a
+  Erich> IA64-specific race condition when the mmu_context wraps
+  Erich> around. Now it makes a very stable and fast impression,
+  Erich> interactive work is even possible while doing a "hackbench
+  Erich> 55" and ping flooding the machine... Tested on 2 CPU BigSur,
+  Erich> 4 CPU LION, 16 CPU AzusA.
 
-Thanks
-Harish
+Hmmh, I'm a bit worried that this is a fragile solution.  It would
+break if there ever was a scenario where a task migrated from one CPU
+to another while the target CPU has interrupts disabled.  I do not
+think this can happen with Ingo's current scheduler but I'd prefer a
+more robust solution.
 
-"Saxena, Sunil" <sunil.saxena@intel.com> wrote:
-Were you able to find sources to Intel assembler at the Intel web site?
-Here is a url for your reference.  Hope that helps you out in the
-implementation details.
+A somewhat cheesy solution might be to have a per-CPU flag that
+indicates whether a CPU should flush its TLB before switching to the
+next task.  We could check for this in activate_mm().  Do you want to
+try this?
 
-http://developer.intel.com/software/products/opensource/tools1/ia64_download
-.htm
-
-Thanks
-Sunil
-
-
------Original Message-----
-From: Harish Babu [mailto:babu.harish@usa.net] 
-Sent: Wednesday, February 06, 2002 7:08 AM
-To: Cary Coutant; Cary Coutant
-Cc: linux-ia64@linuxia64.org
-Subject: Re: [Re: [Linux-ia64] IA64 Link Relocation operators ]
-
-
-Hi,
- Yes that is about the only documentation that i have been able to find
-about
-link relocations.  I needed some more details like how they are 
-implemented etc.
-Harish
-
-Cary Coutant <cary@cup.hp.com> wrote:
->The only formal documention I know about is in the Assembly Language
->Reference Guide available from the Intel web site.  It has a chapter on
->Link-relocation Operators.  The explanations are very short, and probably
->not understandable unless you have a good understanding of how IA-64
->compilers work.
-
-The Itanium psABI document also has a discussion of this; see the end of 
-Chapter 4.
-
-   http://www.intel.com/design/Itanium/Downloads/245370.htm
-
--cary
-
-
-____________________________________________________________________
-Get free e-mail and a permanent address at http://www.amexmail.com/?A=1
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
-
-____________________________________________________________________
-Get free e-mail and a permanent address at http://www.amexmail.com/?A=1
+	--david
 
