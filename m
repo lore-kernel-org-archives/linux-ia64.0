@@ -1,7 +1,7 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Tue, 27 Apr 2004 13:19:26 +0000
-Subject: RE: [PATCH] bug w/ shared interrupts
-Message-Id: <MDEEKOKJPMPMKGHIFAMAMEPMDNAA.kaneshige.kenji@jp.fujitsu.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 27 Apr 2004 14:38:35 +0000
+Subject: Re: [PATCH] bug w/ shared interrupts
+Message-Id: <200404270838.36226.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1082989740.15656.20.camel@localhost>
 In-Reply-To: <1082989740.15656.20.camel@localhost>
@@ -10,61 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+On Monday 26 April 2004 3:12 pm, David Mosberger wrote:
+> I do think that iosapic_enable_intr() is
+> misnamed now that it actually leaves the interrupt _masked_.  What
+> it's really doing now is that it asserts that the I/O SAPIC routine is
+> programmed to a correct/working value.  It would be good to fix that
+> when changing the corresponding code in drivers/acpi/pci_irq.c.  IIRC,
+> Bjorn already has patches which touch on that file.  If so, could you
+> do a rename at the same time, Bjorn?
 
-I misunderstood what you were saying.
-Please ignore my previous mail.
+Sure, I'll take a look at that.  I think the only interface between
+acpi/pci_irq.c and the architecture code will be acpi_register_gsi(),
+though, so renaming iosapic_enable_intr() should be independent
+of those changes.
 
-Thanks,
-Kenji Kaneshige
-
-
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org]On Behalf Of Kenji Kaneshige
-> Sent: Tuesday, April 27, 2004 8:57 PM
-> To: Alex Williamson; linux-ia64
-> Subject: RE: [PATCH] bug w/ shared interrupts
-> 
-> 
-> Hi,
-> 
-> I don't know whether you are referring to my patch. But if so,
-> please try a following patch. The patch for sharing vector I sent
-> before contains a bug and I think this might cause a similar problem.
-> 
-> Thanks,
-> Kenji Kaneshige
-> 
-> 
-> This is a patch to fix the following bug:
-> 
-> Register_intr() changes pin->low32 even when it overrides the
-> interrupt info. This destroys the value of pin->low32 which is already
-> set by set_rte() or other staffs.
-> 
-> This patch is against linux-2.6.6-rc2 with share_vector.patch applied.
-> 
-> 
-> ---
-> 
->  linux-2.6.6-rc2-kanesige/arch/ia64/kernel/iosapic.c |    1 -
->  1 files changed, 1 deletion(-)
-> 
-> diff -puN arch/ia64/kernel/iosapic.c~share_vector_bugfix
-> arch/ia64/kernel/iosapic.c
-> --- linux-2.6.6-rc2/arch/ia64/kernel/iosapic.c~share_vector_bugfix
-> 2004-04-27 18:12:56.000000000 +0900
-> +++ linux-2.6.6-rc2-kanesige/arch/ia64/kernel/iosapic.c	2004-04-27
-> 18:12:56.000000000 +0900
-> @@ -605,7 +605,6 @@ register_intr (unsigned int gsi, int vec
->  		pin->polarity = polarity;
->  		pin->addr     = iosapic_address;
->  		pin->gsi_base = gsi_base;
-> -		pin->low32    = IOSAPIC_MASK;
->  		iosapic_intr_info[vector].dmode   = delivery;
->  		iosapic_intr_info[vector].trigger = trigger;
->  		iosapic_intr_info[vector].type    = type;
-> 
-> _
-> 
+Bjorn
