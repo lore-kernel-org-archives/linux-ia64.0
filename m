@@ -1,117 +1,32 @@
-From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
-Date: Wed, 12 May 2004 09:56:14 +0000
-Subject: Who owns those locks ?
-Message-Id: <40A1F4BE.4A298352@nospam.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------F7628325D18A2B7959674E09"
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 12 May 2004 10:25:19 +0000
+Subject: RE: Who owns those locks ?
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F013CCAED@scsmsx401.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------F7628325D18A2B7959674E09
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-Got a dead lock ?
-No idea how you got there ?
-
-Why don't you put the ID of the owner of the lock in the lock word ?
-Here is your patch for IA-64.
-Doesn't cost any additional instruction, you can have it in your
-"production" kernel, too.
-
-The current task pointers are identity mapped memory addresses.
-I shift them to the right by 12 bits (these bits are always 0-s).
-In that way, addresses up to 16 Tbytes can fit into the lock word.
-
-Interrupt handlers use the current task pointers as IDs, too.
-An interrupt handler has to free all the locks it has taken,
-therefore using the same ID as the task pre-empted uses, is not
-confusing. Locks which are taken with / without interrupt disabling
-form two distinct sets.
-If you are back into the pre-empted task and should there is a
-"left over" lock with the ID of the task =3D> you've got a hint ;-)
-
-In debug mode, you can check if the lock is yours before setting it free:
-
-#define spin_is_mine(x)	((x)->lock =3D=3D (__u32)((__u64) current >> 12))
-
-Good luck.
-
-
-Zolt=E1n Menyh=E1rt
---------------F7628325D18A2B7959674E09
-Content-Type: text/plain; charset=us-ascii;
- name="n475"
-Content-Disposition: inline;
- filename="n475"
+References: <40A1F4BE.4A298352@nospam.org>
+In-Reply-To: <40A1F4BE.4A298352@nospam.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Zoltan.Menyhart@bull.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
---- 2.6.5.ref/include/asm-ia64/spinlock.h	Sun Apr  4 05:36:17 2004
-+++ 2.6.5.new/include/asm-ia64/spinlock.h	Wed May 12 10:29:38 2004
-@@ -45,7 +45,8 @@
- 	asm volatile ("{\n\t"
- 		      "  mov ar.ccv = r0\n\t"
- 		      "  mov r28 = ip\n\t"
--		      "  mov r30 = 1;;\n\t"
-+		      /* "  mov r30 = 1;;\n\t" */
-+		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
- 		      "}\n\t"
- 		      "cmpxchg4.acq r30 = [%1], r30, ar.ccv\n\t"
- 		      "movl r29 = ia64_spinlock_contention_pre3_4;;\n\t"
-@@ -57,7 +58,8 @@
- 	asm volatile ("{\n\t"
- 		      "  mov ar.ccv = r0\n\t"
- 		      "  mov r28 = ip\n\t"
--		      "  mov r30 = 1;;\n\t"
-+		      /* "  mov r30 = 1;;\n\t" */
-+		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
- 		      "}\n\t"
- 		      "cmpxchg4.acq r30 = [%1], r30, ar.ccv;;\n\t"
- 		      "cmp4.ne p14, p0 = r30, r0\n"
-@@ -68,7 +70,8 @@
- # ifdef CONFIG_ITANIUM
- 	/* don't use brl on Itanium... */
- 	/* mis-declare, so we get the entry-point, not it's function descriptor: */
--	asm volatile ("mov r30 = 1\n\t"
-+	asm volatile (/* "  mov r30 = 1;;\n\t" */
-+		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
- 		      "mov ar.ccv = r0;;\n\t"
- 		      "cmpxchg4.acq r30 = [%0], r30, ar.ccv\n\t"
- 		      "movl r29 = ia64_spinlock_contention;;\n\t"
-@@ -77,7 +80,8 @@
- 		      "(p14) br.call.spnt.many b6 = b6"
- 		      : "=r"(ptr) : "r"(ptr) : IA64_SPINLOCK_CLOBBERS);
- # else
--	asm volatile ("mov r30 = 1\n\t"
-+	asm volatile (/* "  mov r30 = 1;;\n\t" */
-+		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
- 		      "mov ar.ccv = r0;;\n\t"
- 		      "cmpxchg4.acq r30 = [%0], r30, ar.ccv;;\n\t"
- 		      "cmp4.ne p14, p0 = r30, r0\n\t"
-@@ -89,14 +93,17 @@
- #else /* !ASM_SUPPORTED */
- # define _raw_spin_lock(x)								\
- do {											\
--	__u32 *ia64_spinlock_ptr = (__u32 *) (x);					\
--	__u64 ia64_spinlock_val;							\
--	ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, 1, 0);			\
-+	__u32	*ia64_spinlock_ptr = (__u32 *) (x);					\
-+	__u64	ia64_spinlock_val;							\
-+	__u32	new_spinlock_val = (__u32)((__u64) current >> 12);			\
-+											\
-+	ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, new_spinlock_val, 0);	\
- 	if (unlikely(ia64_spinlock_val)) {						\
- 		do {									\
- 			while (*ia64_spinlock_ptr)					\
- 				ia64_barrier();						\
--			ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, 1, 0);	\
-+			ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr,	\
-+								new_spinlock_val, 0);	\
- 		} while (ia64_spinlock_val);						\
- 	}										\
- } while (0)
+>The current task pointers are identity mapped memory addresses.
+>I shift them to the right by 12 bits (these bits are always 0-s).
+>In that way, addresses up to 16 Tbytes can fit into the lock word.
 
+Neat trick.  Will work for most people ... but watch out if you
+have an architecture that has sparse physical address space and
+can thus potentially allocate a task structure on a 16TB boundary.
 
---------------F7628325D18A2B7959674E09--
+At first I thought SGI Altix could be hurt by this, but they are
+saved by the fact that bits [37:36] are always set to one.
 
+I know of at least one 1TB machine now, so 16TB machines are only
+a few years away.  You could stretch the life of this patch by
+using PAGE_SHIFT, rather than 12 (as practically nobody builds
+kernels with a 4k pagesize, especially not on monster machines).
+
+Or perhaps just fix the allocation of task structures to skip
+around the 16TB aligned ones?
+
+-Tony
