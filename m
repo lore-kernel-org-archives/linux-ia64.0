@@ -1,67 +1,79 @@
-From: Matthew Wilcox <willy@fc.hp.com>
-Date: Wed, 12 Jun 2002 16:53:24 +0000
-Subject: [Linux-ia64] Re: [PATCH] random ia64 acpi fixes
-Message-Id: <marc-linux-ia64-105590701905667@msgid-missing>
+From: Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
+Date: Mon, 08 Jul 2002 22:08:17 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to 2.4.18)
+Message-Id: <marc-linux-ia64-105590701905740@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205111@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Alex pointed out I hadn't actually included the GSI infrastructure in my
-last patch, so here it is.  It's all his work, I'm just posting it.
+Hi David,
 
-diff -urNX ../dontdiff linux-ia64/arch/ia64/kernel/ia64_ksyms.c linux-generic/arch/ia64/kernel/ia64_ksyms.c
---- linux-ia64/arch/ia64/kernel/ia64_ksyms.c	Sat May 18 11:58:43 2002
-+++ linux-generic/arch/ia64/kernel/ia64_ksyms.c	Wed Jun 12 10:43:10 2002
-@@ -28,6 +28,7 @@
- 
- #include <linux/irq.h>
- EXPORT_SYMBOL(isa_irq_to_vector_map);
-+EXPORT_SYMBOL(gsi_to_vector_map);
- EXPORT_SYMBOL(enable_irq);
- EXPORT_SYMBOL(disable_irq);
- EXPORT_SYMBOL(disable_irq_nosync);
-diff -urNX ../dontdiff linux-ia64/arch/ia64/kernel/iosapic.c linux-generic/arch/ia64/kernel/iosapic.c
---- linux-ia64/arch/ia64/kernel/iosapic.c	Sat May 18 11:58:43 2002
-+++ linux-generic/arch/ia64/kernel/iosapic.c	Wed Jun 12 10:43:11 2002
-@@ -421,6 +421,7 @@
- 	irq_desc_t *idesc;
- 	struct hw_interrupt_type *irq_type;
- 
-+	gsi_to_vector(global_vector) = vector;
- 	iosapic_irq[vector].pin	= pin;
- 	iosapic_irq[vector].polarity = polarity ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW;
- 	iosapic_irq[vector].dmode    = delivery;
-diff -urNX ../dontdiff linux-ia64/arch/ia64/kernel/irq_ia64.c linux-generic/arch/ia64/kernel/irq_ia64.c
---- linux-ia64/arch/ia64/kernel/irq_ia64.c	Fri Jan 25 13:11:06 2002
-+++ linux-generic/arch/ia64/kernel/irq_ia64.c	Wed Jun 12 10:43:11 2002
-@@ -50,6 +50,11 @@
- 	0x28, 0x27, 0x26, 0x25, 0x24, 0x23, 0x22, 0x21
- };
- 
-+/*
-+ * GSI to IA-64 vector translation table.
-+ */
-+__u8 gsi_to_vector_map[255] = { [0 ... 254] = {0x0}};
+> ChangeLog
+
+> 	- Fix bootmem so machine boots much faster if there are large holes in
+> 	  the physical memory map.
+
+This change seemed to cause a problem on my machine.
+When a system has physical memory >4G, IO TLB is allocated above 4G
+like this;
+
+   Placing software IO TLB between 0xe00000010222c000 - 0xe00000010242c000
+
+and then swiotlb_map_single() caused PANIC.
+
+IO TLB is allocated by alloc_bootmem_low_pages(), and this is just a
+macro calling __alloc_bootmem().
+
+    #define alloc_bootmem_low_pages(x) \
+            __alloc_bootmem((x), PAGE_SIZE, 0)
+
+Once alloc_bootmem() is called, "last_success" is set to > 4G.
+And then alloc_bootmem_low_pages() becomes to allocates memory > 4G. :-(
+alloc_bootmem_low_page() doesn't ensure to allocate memory < 4G,
+but swiotlb expects to it allocates very low address memory.
+
+Here is a patch for mm/bootmem.c to fix the problem.
+Any comment?
+
+*** bootmem.c.bk        Mon Jul  8 13:59:29 2002
+--- bootmem.c   Mon Jul  8 14:00:37 2002
+***************
+*** 168,179 ****
+        if (goal && (goal >= bdata->node_boot_start) &&
+                        ((goal >> PAGE_SHIFT) < bdata->node_low_pfn)) {
+                preferred = goal - bdata->node_boot_start;
+        } else
+                preferred = 0;
+
+-       if (last_success >= preferred)
+-               preferred = last_success;
+-
+        preferred = ((preferred + align - 1) & ~(align - 1)) >> PAGE_SHIFT;
+        preferred += offset;
+        areasize = (size+PAGE_SIZE-1)/PAGE_SIZE;
+--- 168,179 ----
+        if (goal && (goal >= bdata->node_boot_start) &&
+                        ((goal >> PAGE_SHIFT) < bdata->node_low_pfn)) {
+                preferred = goal - bdata->node_boot_start;
 +
- int
- ia64_alloc_irq (void)
- {
-diff -urNX ../dontdiff linux-ia64/include/asm-ia64/hw_irq.h linux-generic/include/asm-ia64/hw_irq.h
---- linux-ia64/include/asm-ia64/hw_irq.h	Sat May 18 11:59:02 2002
-+++ linux-generic/include/asm-ia64/hw_irq.h	Wed Jun 12 10:43:14 2002
-@@ -67,6 +67,8 @@
- 
- extern __u8 isa_irq_to_vector_map[16];
- #define isa_irq_to_vector(x)	isa_irq_to_vector_map[(x)]
-+extern __u8 gsi_to_vector_map[255];
-+#define gsi_to_vector(x)	gsi_to_vector_map[(x)]
- 
- extern unsigned long ipi_base_addr;
- 
++               if (last_success >= preferred)
++                       preferred = last_success;
+        } else
+                preferred = 0;
+
+        preferred = ((preferred + align - 1) & ~(align - 1)) >> PAGE_SHIFT;
+        preferred += offset;
+        areasize = (size+PAGE_SIZE-1)/PAGE_SIZE;
+
+
+Regards,
+Kimi
 
 -- 
-It's always legal to use Linux (TM) systems
-http://www.gnu.org/philosophy/why-free.html
+Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
+
 
