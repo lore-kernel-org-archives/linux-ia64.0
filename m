@@ -1,7 +1,7 @@
 From: Andy Whitcroft <apw@shadowen.org>
-Date: Thu, 25 Mar 2004 17:00:03 +0000
-Subject: [PATCH] [3/6] HUGETLB memory commitment
-Message-Id: <18759855.1080234003@42.150.104.212.access.eclipse.net.uk>
+Date: Thu, 25 Mar 2004 16:58:05 +0000
+Subject: [PATCH] [1/6] HUGETLB memory commitment
+Message-Id: <18641835.1080233885@42.150.104.212.access.eclipse.net.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
 In-Reply-To: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
@@ -11,575 +11,379 @@ Content-Transfer-Encoding: 7bit
 To: Anton Blanchard <anton@samba.org>, Andrew Morton <akpm@osdl.org>, Stephen Smalley <sds@epoch.ncsc.mil>
 Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Martin J. Bligh" <mbligh@aracnet.com>
 
-[060-mem_acctdom_commitments]
+[050-mem_acctdom_core]
 
-Split vm_commited_space per domain
+Memory accounting domains (core)
 
-Currently only normal page commitments are tracked.  This patch
-provides a framework for tracking page commitments in multiple
-independent domains.  With this patch vm_commited_space becomes a
+When hugetlb memory is in user we effectivly split memory into to
+two independent and non-overlapping 'page' pools from which we can
+allocate pages and against which we wish to handle commitments.
+Currently all allocations are accounted against the normal page pool
+which can lead to false allocation failures.
+
+This patch provides the framework to allow these pools to be treated
+separatly, preventing allocation in the hugetlb pool from being accounted
+against the small page pool.  The hugetlb page pool is not accounted at all
+and effectibly is treated as in overcommit mode.
+
+The patch creates the concept of an accounting domain, against which
+pages are to be accounted.  In this implementation there are two
+domains VM_AD_DEFAULT which is used to account normal small pages
+in the normal way and VM_AD_HUGETLB which is used to select and
+identify VM_HUGETLB pages.  I have not attempted to add any actual
+accounting for VM_HUGETLB pages, as currently they are prefaulted and
+thus there is always 0 outstanding commitment to track.  Obviously,
+if hugetlb was also changed to support demand paging that would
 
 ---
- fs/proc/proc_misc.c      |    2 +-
- include/linux/mm.h       |   13 +++++++++++--
- include/linux/mman.h     |   12 ++++++------
- kernel/fork.c            |    8 +++-----
- mm/memory.c              |   12 +++++++++---
- mm/mmap.c                |   23 ++++++++++++-----------
- mm/mprotect.c            |    5 ++---
- mm/mremap.c              |   12 ++++++------
- mm/nommu.c               |    3 ++-
- mm/shmem.c               |   13 +++++++------
- mm/swap.c                |   17 +++++++++++++----
- mm/swapfile.c            |    4 +++-
- security/commoncap.c     |   10 +++++-----
- security/dummy.c         |   10 +++++-----
- security/selinux/hooks.c |   10 +++++-----
- 15 files changed, 90 insertions(+), 64 deletions(-)
+ fs/exec.c                |    2 +-
+ include/linux/mm.h       |    6 ++++++
+ include/linux/security.h |   15 ++++++++-------
+ kernel/fork.c            |    8 +++++---
+ mm/memory.c              |    1 +
+ mm/mmap.c                |   18 +++++++++++-------
+ mm/mprotect.c            |    5 +++--
+ mm/mremap.c              |    4 ++--
+ mm/shmem.c               |   10 ++++++----
+ mm/swapfile.c            |    2 +-
+ security/commoncap.c     |    8 +++++++-
+ security/dummy.c         |    8 +++++++-
+ security/selinux/hooks.c |    8 +++++++-
+ 13 files changed, 65 insertions(+), 30 deletions(-)
 
-diff -upN reference/fs/proc/proc_misc.c current/fs/proc/proc_misc.c
---- reference/fs/proc/proc_misc.c	2004-03-25 15:03:28.000000000 +0000
-+++ current/fs/proc/proc_misc.c	2004-03-25 15:03:32.000000000 +0000
-@@ -174,7 +174,7 @@ static int meminfo_read_proc(char *page,
- #define K(x) ((x) << (PAGE_SHIFT - 10))
- 	si_meminfo(&i);
- 	si_swapinfo(&i);
--	committed = atomic_read(&vm_committed_space);
-+	committed = atomic_read(&vm_committed_space[VM_AD_DEFAULT]);
+diff -upN reference/fs/exec.c current/fs/exec.c
+--- reference/fs/exec.c	2004-03-11 20:47:24.000000000 +0000
++++ current/fs/exec.c	2004-03-25 15:03:32.000000000 +0000
+@@ -409,7 +409,7 @@ int setup_arg_pages(struct linux_binprm 
+ 	if (!mpnt)
+ 		return -ENOMEM;
  
- 	vmtot = (VMALLOC_END-VMALLOC_START)>>10;
- 	vmi = get_vmalloc_info();
-diff -upN reference/include/linux/mman.h current/include/linux/mman.h
---- reference/include/linux/mman.h	2004-01-09 06:59:09.000000000 +0000
-+++ current/include/linux/mman.h	2004-03-25 15:03:32.000000000 +0000
-@@ -12,20 +12,20 @@
- 
- extern int sysctl_overcommit_memory;
- extern int sysctl_overcommit_ratio;
--extern atomic_t vm_committed_space;
-+extern atomic_t vm_committed_space[];
- 
- #ifdef CONFIG_SMP
--extern void vm_acct_memory(long pages);
-+extern void vm_acct_memory(int domain, long pages);
- #else
--static inline void vm_acct_memory(long pages)
-+static inline void vm_acct_memory(int domain, long pages)
- {
--	atomic_add(pages, &vm_committed_space);
-+	atomic_add(pages, &vm_committed_space[domain]);
- }
- #endif
- 
--static inline void vm_unacct_memory(long pages)
-+static inline void vm_unacct_memory(int domain, long pages)
- {
--	vm_acct_memory(-pages);
-+	vm_acct_memory(domain, -pages);
- }
- 
- /*
+-	if (security_vm_enough_memory(arg_size >> PAGE_SHIFT)) {
++	if (security_vm_enough_memory(VM_AD_DEFAULT, arg_size >> PAGE_SHIFT)) {
+ 		kmem_cache_free(vm_area_cachep, mpnt);
+ 		return -ENOMEM;
+ 	}
 diff -upN reference/include/linux/mm.h current/include/linux/mm.h
---- reference/include/linux/mm.h	2004-03-25 15:03:32.000000000 +0000
+--- reference/include/linux/mm.h	2004-03-25 02:43:39.000000000 +0000
 +++ current/include/linux/mm.h	2004-03-25 15:03:32.000000000 +0000
-@@ -117,7 +117,16 @@ struct vm_area_struct {
- #define VM_ACCTDOM(vma) (!!((vma)->vm_flags & VM_HUGETLB))
- #define VM_AD_DEFAULT	0
- #define VM_AD_HUGETLB	1
--
-+typedef struct {
-+	long vec[VM_ACCTDOM_NR];
-+} madv_t;
-+#define MADV_NONE { {[0 ... VM_ACCTDOM_NR-1] =  0UL} }
-+static inline void madv_add(madv_t *madv, int domain, long size)
-+{
-+	madv->vec[domain] += size;
-+}
-+void vm_unacct_memory_domains(madv_t *madv);
-+  
+@@ -112,6 +112,12 @@ struct vm_area_struct {
+ #define VM_HUGETLB	0x00400000	/* Huge TLB Page VM */
+ #define VM_NONLINEAR	0x00800000	/* Is non-linear (remap_file_pages) */
+ 
++/* Memory accounting domains. */
++#define VM_ACCTDOM_NR	2
++#define VM_ACCTDOM(vma) (!!((vma)->vm_flags & VM_HUGETLB))
++#define VM_AD_DEFAULT	0
++#define VM_AD_HUGETLB	1
++
  #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
  #define VM_STACK_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
  #endif
-@@ -446,7 +455,7 @@ void zap_page_range(struct vm_area_struc
- 			unsigned long size);
- int unmap_vmas(struct mmu_gather **tlbp, struct mm_struct *mm,
- 		struct vm_area_struct *start_vma, unsigned long start_addr,
--		unsigned long end_addr, unsigned long *nr_accounted);
-+		unsigned long end_addr, madv_t *nr_accounted);
- void unmap_page_range(struct mmu_gather *tlb, struct vm_area_struct *vma,
- 			unsigned long address, unsigned long size);
- void clear_page_tables(struct mmu_gather *tlb, unsigned long first, int nr);
-diff -upN reference/kernel/fork.c current/kernel/fork.c
---- reference/kernel/fork.c	2004-03-25 15:03:32.000000000 +0000
-+++ current/kernel/fork.c	2004-03-25 15:03:32.000000000 +0000
-@@ -267,7 +267,7 @@ static inline int dup_mmap(struct mm_str
- 	struct vm_area_struct * mpnt, *tmp, **pprev;
- 	struct rb_node **rb_link, *rb_parent;
- 	int retval;
--	unsigned long charge = 0;
-+	madv_t charge = MADV_NONE;
+diff -upN reference/include/linux/security.h current/include/linux/security.h
+--- reference/include/linux/security.h	2004-03-25 02:43:39.000000000 +0000
++++ current/include/linux/security.h	2004-03-25 15:03:32.000000000 +0000
+@@ -51,7 +51,7 @@ extern int cap_inode_removexattr(struct 
+ extern int cap_task_post_setuid (uid_t old_ruid, uid_t old_euid, uid_t old_suid, int flags);
+ extern void cap_task_reparent_to_init (struct task_struct *p);
+ extern int cap_syslog (int type);
+-extern int cap_vm_enough_memory (long pages);
++extern int cap_vm_enough_memory (int domain, long pages);
  
- 	down_write(&oldmm->mmap_sem);
- 	flush_cache_mm(current->mm);
-@@ -303,8 +303,7 @@ static inline int dup_mmap(struct mm_str
+ static inline int cap_netlink_send (struct sk_buff *skb)
+ {
+@@ -988,7 +988,8 @@ struct swap_info_struct;
+  *	@type contains the type of action.
+  *	Return 0 if permission is granted.
+  * @vm_enough_memory:
+- *	Check permissions for allocating a new virtual mapping.
++ *      Check permissions for allocating a new virtual mapping.
++ *      @domain contains the accounting domain.
+  *      @pages contains the number of pages.
+  *	Return 0 if permission is granted.
+  *
+@@ -1022,7 +1023,7 @@ struct security_operations {
+ 	int (*quotactl) (int cmds, int type, int id, struct super_block * sb);
+ 	int (*quota_on) (struct file * f);
+ 	int (*syslog) (int type);
+-	int (*vm_enough_memory) (long pages);
++	int (*vm_enough_memory) (int domain, long pages);
+ 
+ 	int (*bprm_alloc_security) (struct linux_binprm * bprm);
+ 	void (*bprm_free_security) (struct linux_binprm * bprm);
+@@ -1277,9 +1278,9 @@ static inline int security_syslog(int ty
+ 	return security_ops->syslog(type);
+ }
+ 
+-static inline int security_vm_enough_memory(long pages)
++static inline int security_vm_enough_memory(int domain, long pages)
+ {
+-	return security_ops->vm_enough_memory(pages);
++	return security_ops->vm_enough_memory(domain, pages);
+ }
+ 
+ static inline int security_bprm_alloc (struct linux_binprm *bprm)
+@@ -1949,9 +1950,9 @@ static inline int security_syslog(int ty
+ 	return cap_syslog(type);
+ }
+ 
+-static inline int security_vm_enough_memory(long pages)
++static inline int security_vm_enough_memory(int domain, long pages)
+ {
+-	return cap_vm_enough_memory(pages);
++	return cap_vm_enough_memory(domain, pages);
+ }
+ 
+ static inline int security_bprm_alloc (struct linux_binprm *bprm)
+diff -upN reference/kernel/fork.c current/kernel/fork.c
+--- reference/kernel/fork.c	2004-03-11 20:47:29.000000000 +0000
++++ current/kernel/fork.c	2004-03-25 15:03:32.000000000 +0000
+@@ -301,9 +301,10 @@ static inline int dup_mmap(struct mm_str
+ 			continue;
+ 		if (mpnt->vm_flags & VM_ACCOUNT) {
  			unsigned int len = (mpnt->vm_end - mpnt->vm_start) >> PAGE_SHIFT;
- 			if (security_vm_enough_memory(VM_ACCTDOM(mpnt), len))
+-			if (security_vm_enough_memory(len))
++			if (security_vm_enough_memory(VM_ACCTDOM(mpnt), len))
  				goto fail_nomem;
--			if (VM_ACCTDOM(mpnt) = VM_AD_DEFAULT)
--				charge += len;
-+ 			madv_add(&charge, VM_ACCTDOM(mpnt), len);
+-			charge += len;
++			if (VM_ACCTDOM(mpnt) = VM_AD_DEFAULT)
++				charge += len;
  		}
  		tmp = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
  		if (!tmp)
-@@ -359,8 +358,7 @@ out:
+@@ -358,7 +359,8 @@ out:
  fail_nomem:
  	retval = -ENOMEM;
  fail:
--	if (charge)
--		vm_unacct_memory(charge);
-+	vm_unacct_memory_domains(&charge);
+-	vm_unacct_memory(charge);
++	if (charge)
++		vm_unacct_memory(charge);
  	goto out;
  }
  static inline int mm_alloc_pgd(struct mm_struct * mm)
 diff -upN reference/mm/memory.c current/mm/memory.c
---- reference/mm/memory.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/mm/memory.c	2004-03-25 02:43:43.000000000 +0000
 +++ current/mm/memory.c	2004-03-25 15:03:32.000000000 +0000
-@@ -524,7 +524,7 @@ void unmap_page_range(struct mmu_gather 
-  */
- int unmap_vmas(struct mmu_gather **tlbp, struct mm_struct *mm,
- 		struct vm_area_struct *vma, unsigned long start_addr,
--		unsigned long end_addr, unsigned long *nr_accounted)
-+		unsigned long end_addr, madv_t *nr_accounted)
- {
- 	unsigned long zap_bytes = ZAP_BLOCK_SIZE;
- 	unsigned long tlb_start = 0;	/* For tlb_finish_mmu */
-@@ -553,7 +553,8 @@ int unmap_vmas(struct mmu_gather **tlbp,
+@@ -551,6 +551,7 @@ int unmap_vmas(struct mmu_gather **tlbp,
+ 		if (end <= vma->vm_start)
+ 			continue;
  
- 		/* We assume that only accountable VMAs are VM_ACCOUNT. */
++		/* We assume that only accountable VMAs are VM_ACCOUNT. */
  		if (vma->vm_flags & VM_ACCOUNT)
--			*nr_accounted += (end - start) >> PAGE_SHIFT;
-+			madv_add(nr_accounted,
-+				VM_ACCTDOM(vma), (end - start) >> PAGE_SHIFT);
- 
- 		ret++;
- 		while (start != end) {
-@@ -602,7 +603,12 @@ void zap_page_range(struct vm_area_struc
- 	struct mm_struct *mm = vma->vm_mm;
- 	struct mmu_gather *tlb;
- 	unsigned long end = address + size;
--	unsigned long nr_accounted = 0;
-+	madv_t nr_accounted = MADV_NONE;
-+
-+	/* XXX: we seem to avoid thinking about the memory accounting
-+	 * for both the hugepages where don't bother even tracking it and
-+	 * in the normal path where we figure it out and do nothing with it??
-+	 */
- 
- 	might_sleep();
+ 			*nr_accounted += (end - start) >> PAGE_SHIFT;
  
 diff -upN reference/mm/mmap.c current/mm/mmap.c
---- reference/mm/mmap.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/mm/mmap.c	2004-03-25 02:43:43.000000000 +0000
 +++ current/mm/mmap.c	2004-03-25 15:03:32.000000000 +0000
-@@ -54,7 +54,8 @@ pgprot_t protection_map[16] = {
+@@ -490,8 +490,11 @@ unsigned long do_mmap_pgoff(struct file 
+ 	int error;
+ 	struct rb_node ** rb_link, * rb_parent;
+ 	unsigned long charged = 0;
++	long acctdom = VM_AD_DEFAULT;
  
- int sysctl_overcommit_memory = 0;	/* default is heuristic overcommit */
- int sysctl_overcommit_ratio = 50;	/* default is 50% */
--atomic_t vm_committed_space = ATOMIC_INIT(0);
-+atomic_t vm_committed_space[VM_ACCTDOM_NR] = 
-+     { [ 0 ... VM_ACCTDOM_NR-1 ] = ATOMIC_INIT(0) };
+ 	if (file) {
++		if (is_file_hugepages(file))
++			acctdom = VM_AD_HUGETLB;
+ 		if (!file->f_op || !file->f_op->mmap)
+ 			return -ENODEV;
  
- EXPORT_SYMBOL(sysctl_overcommit_memory);
- EXPORT_SYMBOL(sysctl_overcommit_ratio);
-@@ -611,8 +612,8 @@ munmap_back:
+@@ -608,7 +611,8 @@ munmap_back:
  	    > current->rlim[RLIMIT_AS].rlim_cur)
  		return -ENOMEM;
  
--	if (acctdom = VM_AD_DEFAULT && (!(flags & MAP_NORESERVE) || 
--	    sysctl_overcommit_memory > 1)) {
-+	if (!(flags & MAP_NORESERVE) || 
-+	    (acctdom = VM_AD_DEFAULT && sysctl_overcommit_memory > 1)) {
+-	if (!(flags & MAP_NORESERVE) || sysctl_overcommit_memory > 1) {
++	if (acctdom = VM_AD_DEFAULT && (!(flags & MAP_NORESERVE) || 
++	    sysctl_overcommit_memory > 1)) {
  		if (vm_flags & VM_SHARED) {
  			/* Check memory availability in shmem_file_setup? */
  			vm_flags |= VM_ACCOUNT;
-@@ -730,7 +731,7 @@ free_vma:
- 	kmem_cache_free(vm_area_cachep, vma);
- unacct_error:
- 	if (charged)
--		vm_unacct_memory(charged);
-+		vm_unacct_memory(acctdom, charged);
- 	return error;
- }
+@@ -617,7 +621,7 @@ munmap_back:
+ 			 * Private writable mapping: check memory availability
+ 			 */
+ 			charged = len >> PAGE_SHIFT;
+-			if (security_vm_enough_memory(charged))
++			if (security_vm_enough_memory(acctdom, charged))
+ 				return -ENOMEM;
+ 			vm_flags |= VM_ACCOUNT;
+ 		}
+@@ -926,8 +930,8 @@ int expand_stack(struct vm_area_struct *
+  	spin_lock(&vma->vm_mm->page_table_lock);
+ 	grow = (address - vma->vm_end) >> PAGE_SHIFT;
  
-@@ -940,7 +941,7 @@ int expand_stack(struct vm_area_struct *
- 			((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) >
- 			current->rlim[RLIMIT_AS].rlim_cur) {
+-	/* Overcommit.. */
+-	if (security_vm_enough_memory(grow)) {
++	/* Overcommit ... assume stack is in normal memory */
++	if (security_vm_enough_memory(VM_AD_DEFAULT, grow)) {
  		spin_unlock(&vma->vm_mm->page_table_lock);
--		vm_unacct_memory(grow);
-+		vm_unacct_memory(VM_AD_DEFAULT, grow);
  		return -ENOMEM;
  	}
- 	vma->vm_end = address;
-@@ -994,7 +995,7 @@ int expand_stack(struct vm_area_struct *
- 			((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) >
- 			current->rlim[RLIMIT_AS].rlim_cur) {
+@@ -980,8 +984,8 @@ int expand_stack(struct vm_area_struct *
+  	spin_lock(&vma->vm_mm->page_table_lock);
+ 	grow = (vma->vm_start - address) >> PAGE_SHIFT;
+ 
+-	/* Overcommit.. */
+-	if (security_vm_enough_memory(grow)) {
++	/* Overcommit ... assume stack is in normal memory */
++	if (security_vm_enough_memory(VM_AD_DEFAULT, grow)) {
  		spin_unlock(&vma->vm_mm->page_table_lock);
--		vm_unacct_memory(grow);
-+		vm_unacct_memory(VM_AD_DEFAULT, grow);
  		return -ENOMEM;
  	}
- 	vma->vm_start = address;
-@@ -1152,12 +1153,12 @@ static void unmap_region(struct mm_struc
- 	unsigned long end)
- {
- 	struct mmu_gather *tlb;
--	unsigned long nr_accounted = 0;
-+	madv_t nr_accounted = MADV_NONE;
- 
- 	lru_add_drain();
- 	tlb = tlb_gather_mmu(mm, 0);
- 	unmap_vmas(&tlb, mm, vma, start, end, &nr_accounted);
--	vm_unacct_memory(nr_accounted);
-+	vm_unacct_memory_domains(&nr_accounted);
- 
- 	if (is_hugepage_only_range(start, end - start))
- 		hugetlb_free_pgtables(tlb, prev, start, end);
-@@ -1397,7 +1398,7 @@ unsigned long do_brk(unsigned long addr,
- 	 */
- 	vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
- 	if (!vma) {
--		vm_unacct_memory(len >> PAGE_SHIFT);
-+		vm_unacct_memory(VM_AD_DEFAULT, len >> PAGE_SHIFT);
+@@ -1378,7 +1382,7 @@ unsigned long do_brk(unsigned long addr,
+ 	if (mm->map_count > MAX_MAP_COUNT)
  		return -ENOMEM;
- 	}
  
-@@ -1430,7 +1431,7 @@ void exit_mmap(struct mm_struct *mm)
- {
- 	struct mmu_gather *tlb;
- 	struct vm_area_struct *vma;
--	unsigned long nr_accounted = 0;
-+	madv_t nr_accounted = MADV_NONE;
+-	if (security_vm_enough_memory(len >> PAGE_SHIFT))
++	if (security_vm_enough_memory(VM_AD_DEFAULT, len >> PAGE_SHIFT))
+ 		return -ENOMEM;
  
- 	profile_exit_mmap(mm);
-  
-@@ -1443,7 +1444,7 @@ void exit_mmap(struct mm_struct *mm)
- 	/* Use ~0UL here to ensure all VMAs in the mm are unmapped */
- 	mm->map_count -= unmap_vmas(&tlb, mm, mm->mmap, 0,
- 					~0UL, &nr_accounted);
--	vm_unacct_memory(nr_accounted);
-+	vm_unacct_memory_domains(&nr_accounted);
- 	BUG_ON(mm->map_count);	/* This is just debugging */
- 	clear_page_tables(tlb, FIRST_USER_PGD_NR, USER_PTRS_PER_PGD);
- 	tlb_finish_mmu(tlb, 0, MM_VM_SIZE(mm));
+ 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
 diff -upN reference/mm/mprotect.c current/mm/mprotect.c
---- reference/mm/mprotect.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/mm/mprotect.c	2004-03-25 15:03:28.000000000 +0000
 +++ current/mm/mprotect.c	2004-03-25 15:03:32.000000000 +0000
-@@ -173,8 +173,7 @@ mprotect_fixup(struct vm_area_struct *vm
+@@ -173,9 +173,10 @@ mprotect_fixup(struct vm_area_struct *vm
  	 * a MAP_NORESERVE private mapping to writable will now reserve.
  	 */
  	if (newflags & VM_WRITE) {
--		if (!(vma->vm_flags & (VM_ACCOUNT|VM_WRITE|VM_SHARED)) &&
--				VM_ACCTDOM(vma) = VM_AD_DEFAULT) {
-+		if (!(vma->vm_flags & (VM_ACCOUNT|VM_WRITE|VM_SHARED))) {
+-		if (!(vma->vm_flags & (VM_ACCOUNT|VM_WRITE|VM_SHARED))) {
++		if (!(vma->vm_flags & (VM_ACCOUNT|VM_WRITE|VM_SHARED)) &&
++				VM_ACCTDOM(vma) = VM_AD_DEFAULT) {
  			charged = (end - start) >> PAGE_SHIFT;
- 			if (security_vm_enough_memory(VM_ACCTDOM(vma), charged))
+-			if (security_vm_enough_memory(charged))
++			if (security_vm_enough_memory(VM_ACCTDOM(vma), charged))
  				return -ENOMEM;
-@@ -218,7 +217,7 @@ success:
- 	return 0;
- 
- fail:
--	vm_unacct_memory(charged);
-+	vm_unacct_memory(VM_ACCTDOM(vma), charged);
- 	return error;
- }
- 
+ 			newflags |= VM_ACCOUNT;
+ 		}
 diff -upN reference/mm/mremap.c current/mm/mremap.c
---- reference/mm/mremap.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/mm/mremap.c	2004-02-23 18:15:13.000000000 +0000
 +++ current/mm/mremap.c	2004-03-25 15:03:32.000000000 +0000
-@@ -401,7 +401,7 @@ unsigned long do_mremap(unsigned long ad
+@@ -400,10 +400,10 @@ unsigned long do_mremap(unsigned long ad
+ 
  	if (vma->vm_flags & VM_ACCOUNT) {
  		charged = (new_len - old_len) >> PAGE_SHIFT;
- 		if (security_vm_enough_memory(VM_ACCTDOM(vma), charged))
--			goto out_nc;
-+			goto out;
+-		if (security_vm_enough_memory(charged))
++		if (security_vm_enough_memory(VM_ACCTDOM(vma), charged))
+ 			goto out_nc;
  	}
-   
+-
++  
  	/* old_len exactly to the end of the area..
-@@ -426,7 +426,7 @@ unsigned long do_mremap(unsigned long ad
- 						   addr + new_len);
- 			}
- 			ret = addr;
--			goto out;
-+			goto out_commited;
- 		}
- 	}
- 
-@@ -445,14 +445,14 @@ unsigned long do_mremap(unsigned long ad
- 						vma->vm_pgoff, map_flags);
- 			ret = new_addr;
- 			if (new_addr & ~PAGE_MASK)
--				goto out;
-+				goto out_commited;
- 		}
- 		ret = move_vma(vma, addr, old_len, new_len, new_addr);
- 	}
--out:
-+out_commited:
- 	if (ret & ~PAGE_MASK)
--		vm_unacct_memory(charged);
--out_nc:
-+		vm_unacct_memory(VM_ACCTDOM(vma), charged);
-+out:
- 	return ret;
- }
- 
-diff -upN reference/mm/nommu.c current/mm/nommu.c
---- reference/mm/nommu.c	2004-02-04 15:09:16.000000000 +0000
-+++ current/mm/nommu.c	2004-03-25 15:03:32.000000000 +0000
-@@ -29,7 +29,8 @@ struct page *mem_map;
- unsigned long max_mapnr;
- unsigned long num_physpages;
- unsigned long askedalloc, realalloc;
--atomic_t vm_committed_space = ATOMIC_INIT(0);
-+atomic_t vm_committed_space[VM_ACCTDOM_NR] = 
-+     { [ 0 ... VM_ACCTDOM_NR-1 ] = ATOMIC_INIT(0) };
- int sysctl_overcommit_memory; /* default is heuristic overcommit */
- int sysctl_overcommit_ratio = 50; /* default is 50% */
- 
+ 	 * And we're not relocating the area.
+ 	 */
 diff -upN reference/mm/shmem.c current/mm/shmem.c
---- reference/mm/shmem.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/mm/shmem.c	2004-03-25 02:43:43.000000000 +0000
 +++ current/mm/shmem.c	2004-03-25 15:03:32.000000000 +0000
-@@ -529,7 +529,7 @@ static int shmem_notify_change(struct de
- 			if (security_vm_enough_memory(VM_AD_DEFAULT, change))
+@@ -526,7 +526,7 @@ static int shmem_notify_change(struct de
+ 	 	 */
+ 		change = VM_ACCT(attr->ia_size) - VM_ACCT(inode->i_size);
+ 		if (change > 0) {
+-			if (security_vm_enough_memory(change))
++			if (security_vm_enough_memory(VM_AD_DEFAULT, change))
  				return -ENOMEM;
  		} else if (attr->ia_size < inode->i_size) {
--			vm_unacct_memory(-change);
-+			vm_unacct_memory(VM_AD_DEFAULT, -change);
- 			/*
- 			 * If truncating down to a partial page, then
- 			 * if that page is already allocated, hold it
-@@ -564,7 +564,7 @@ static int shmem_notify_change(struct de
- 	if (page)
- 		page_cache_release(page);
- 	if (error)
--		vm_unacct_memory(change);
-+		vm_unacct_memory(VM_AD_DEFAULT, change);
- 	return error;
- }
- 
-@@ -578,7 +578,7 @@ static void shmem_delete_inode(struct in
- 		list_del(&info->list);
- 		spin_unlock(&shmem_ilock);
- 		if (info->flags & VM_ACCOUNT)
--			vm_unacct_memory(VM_ACCT(inode->i_size));
-+			vm_unacct_memory(VM_AD_DEFAULT, VM_ACCT(inode->i_size));
- 		inode->i_size = 0;
- 		shmem_truncate(inode);
- 	}
-@@ -1271,7 +1271,8 @@ shmem_file_write(struct file *file, cons
- 
- 	/* Short writes give back address space */
- 	if (inode->i_size != maxpos)
--		vm_unacct_memory(VM_ACCT(maxpos) - VM_ACCT(inode->i_size));
-+		vm_unacct_memory(VM_AD_DEFAULT, VM_ACCT(maxpos) -
-+			VM_ACCT(inode->i_size));
- out:
- 	up(&inode->i_sem);
- 	return err;
-@@ -1558,7 +1559,7 @@ static int shmem_symlink(struct inode *d
+ 			vm_unacct_memory(-change);
+@@ -1187,7 +1187,8 @@ shmem_file_write(struct file *file, cons
+ 	maxpos = inode->i_size;
+ 	if (maxpos < pos + count) {
+ 		maxpos = pos + count;
+-		if (security_vm_enough_memory(VM_ACCT(maxpos) - VM_ACCT(inode->i_size))) {
++		if (security_vm_enough_memory(VM_AD_DEFAULT,
++				VM_ACCT(maxpos) - VM_ACCT(inode->i_size))) {
+ 			err = -ENOMEM;
+ 			goto out;
  		}
- 		error = shmem_getpage(inode, 0, &page, SGP_WRITE, NULL);
- 		if (error) {
--			vm_unacct_memory(VM_ACCT(1));
-+			vm_unacct_memory(VM_AD_DEFAULT, VM_ACCT(1));
+@@ -1551,7 +1552,7 @@ static int shmem_symlink(struct inode *d
+ 		memcpy(info, symname, len);
+ 		inode->i_op = &shmem_symlink_inline_operations;
+ 	} else {
+-		if (security_vm_enough_memory(VM_ACCT(1))) {
++		if (security_vm_enough_memory(VM_AD_DEFAULT, VM_ACCT(1))) {
  			iput(inode);
- 			return error;
+ 			return -ENOMEM;
  		}
-@@ -1988,7 +1989,7 @@ put_dentry:
- 	dput(dentry);
- put_memory:
- 	if (flags & VM_ACCOUNT)
--		vm_unacct_memory(VM_ACCT(size));
-+		vm_unacct_memory(VM_AD_DEFAULT, VM_ACCT(size));
- 	return ERR_PTR(error);
- }
+@@ -1947,7 +1948,8 @@ struct file *shmem_file_setup(char *name
+ 	if (size > SHMEM_MAX_BYTES)
+ 		return ERR_PTR(-EINVAL);
  
-diff -upN reference/mm/swap.c current/mm/swap.c
---- reference/mm/swap.c	2004-03-25 02:43:43.000000000 +0000
-+++ current/mm/swap.c	2004-03-25 15:03:32.000000000 +0000
-@@ -368,17 +368,18 @@ unsigned int pagevec_lookup(struct pagev
-  */
- #define ACCT_THRESHOLD	max(16, NR_CPUS * 2)
+-	if ((flags & VM_ACCOUNT) && security_vm_enough_memory(VM_ACCT(size)))
++	if ((flags & VM_ACCOUNT) && security_vm_enough_memory(VM_AD_DEFAULT,
++			VM_ACCT(size)))
+ 		return ERR_PTR(-ENOMEM);
  
--static DEFINE_PER_CPU(long, committed_space) = 0;
-+/* XXX: zero this????? */
-+static DEFINE_PER_CPU(long, committed_space[VM_ACCTDOM_NR]);
- 
--void vm_acct_memory(long pages)
-+void vm_acct_memory(int domain, long pages)
- {
- 	long *local;
- 
- 	preempt_disable();
--	local = &__get_cpu_var(committed_space);
-+	local = &__get_cpu_var(committed_space[domain]);
- 	*local += pages;
- 	if (*local > ACCT_THRESHOLD || *local < -ACCT_THRESHOLD) {
--		atomic_add(*local, &vm_committed_space);
-+		atomic_add(*local, &vm_committed_space[domain]);
- 		*local = 0;
- 	}
- 	preempt_enable();
-@@ -416,6 +417,14 @@ static int cpu_swap_callback(struct noti
- #endif /* CONFIG_HOTPLUG_CPU */
- #endif /* CONFIG_SMP */
- 
-+void vm_unacct_memory_domains(madv_t *adv)
-+{
-+	if (adv->vec[0])
-+		vm_unacct_memory(VM_AD_DEFAULT, adv->vec[0]);
-+	if (adv->vec[1])
-+		vm_unacct_memory(VM_AD_DEFAULT, adv->vec[1]);
-+}
-+
- #ifdef CONFIG_SMP
- void percpu_counter_mod(struct percpu_counter *fbc, long amount)
- {
+ 	error = -ENOMEM;
 diff -upN reference/mm/swapfile.c current/mm/swapfile.c
---- reference/mm/swapfile.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/mm/swapfile.c	2004-03-25 02:43:43.000000000 +0000
 +++ current/mm/swapfile.c	2004-03-25 15:03:32.000000000 +0000
-@@ -1048,8 +1048,10 @@ asmlinkage long sys_swapoff(const char _
+@@ -1048,7 +1048,7 @@ asmlinkage long sys_swapoff(const char _
  		swap_list_unlock();
  		goto out_dput;
  	}
-+	/* There is an assumption here that we only may have swapped things
-+	 * from the default memory accounting domain to this device. */
- 	if (!security_vm_enough_memory(VM_AD_DEFAULT, p->pages))
--		vm_unacct_memory(p->pages);
-+		vm_unacct_memory(VM_AD_DEFAULT, p->pages);
+-	if (!security_vm_enough_memory(p->pages))
++	if (!security_vm_enough_memory(VM_AD_DEFAULT, p->pages))
+ 		vm_unacct_memory(p->pages);
  	else {
  		err = -ENOMEM;
- 		swap_list_unlock();
 diff -upN reference/security/commoncap.c current/security/commoncap.c
---- reference/security/commoncap.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/security/commoncap.c	2004-03-25 02:43:44.000000000 +0000
 +++ current/security/commoncap.c	2004-03-25 15:03:32.000000000 +0000
-@@ -312,14 +312,14 @@ int cap_vm_enough_memory(int domain, lon
+@@ -308,10 +308,16 @@ int cap_syslog (int type)
+  * Strict overcommit modes added 2002 Feb 26 by Alan Cox.
+  * Additional code 2002 Jul 20 by Robert Love.
+  */
+-int cap_vm_enough_memory(long pages)
++int cap_vm_enough_memory(int domain, long pages)
  {
  	unsigned long free, allowed;
  
-+	vm_acct_memory(domain, pages);
++	/* We only account for the default memory domain, assume overcommit
++	 * for all others.
++	 */
++	if (domain != VM_AD_DEFAULT)
++		return 0;
 +
- 	/* We only account for the default memory domain, assume overcommit
- 	 * for all others.
- 	 */
- 	if (domain != VM_AD_DEFAULT)
- 		return 0;
+ 	vm_acct_memory(pages);
  
--	vm_acct_memory(pages);
--
          /*
- 	 * Sometimes we want to use more memory than we have
- 	 */
-@@ -360,17 +360,17 @@ int cap_vm_enough_memory(int domain, lon
- 
- 		if (free > pages)
- 			return 0;
--		vm_unacct_memory(pages);
-+		vm_unacct_memory(domain, pages);
- 		return -ENOMEM;
- 	}
- 
- 	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
- 	allowed += total_swap_pages;
- 
--	if (atomic_read(&vm_committed_space) < allowed)
-+	if (atomic_read(&vm_committed_space[domain]) < allowed)
- 		return 0;
- 
--	vm_unacct_memory(pages);
-+	vm_unacct_memory(domain, pages);
- 
- 	return -ENOMEM;
- }
 diff -upN reference/security/dummy.c current/security/dummy.c
---- reference/security/dummy.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/security/dummy.c	2004-03-25 02:43:44.000000000 +0000
 +++ current/security/dummy.c	2004-03-25 15:03:32.000000000 +0000
-@@ -113,14 +113,14 @@ static int dummy_vm_enough_memory(int do
+@@ -109,10 +109,16 @@ static int dummy_syslog (int type)
+  * We currently support three overcommit policies, which are set via the
+  * vm.overcommit_memory sysctl.  See Documentation/vm/overcommit-accounting
+  */
+-static int dummy_vm_enough_memory(long pages)
++static int dummy_vm_enough_memory(int domain, long pages)
  {
  	unsigned long free, allowed;
  
-+	vm_acct_memory(domain, pages);
++	/* We only account for the default memory domain, assume overcommit
++	 * for all others.
++	 */
++	if (domain != VM_AD_DEFAULT)
++		return 0;
 +
- 	/* We only account for the default memory domain, assume overcommit
- 	 * for all others.
- 	 */
- 	if (domain != VM_AD_DEFAULT)
- 		return 0;
+ 	vm_acct_memory(pages);
  
--	vm_acct_memory(pages);
--
          /*
- 	 * Sometimes we want to use more memory than we have
- 	 */
-@@ -148,17 +148,17 @@ static int dummy_vm_enough_memory(int do
- 
- 		if (free > pages)
- 			return 0;
--		vm_unacct_memory(pages);
-+		vm_unacct_memory(domain, pages);
- 		return -ENOMEM;
- 	}
- 
- 	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
- 	allowed += total_swap_pages;
- 
--	if (atomic_read(&vm_committed_space) < allowed)
-+	if (atomic_read(&vm_committed_space[domain]) < allowed)
- 		return 0;
- 
--	vm_unacct_memory(pages);
-+	vm_unacct_memory(domain, pages);
- 
- 	return -ENOMEM;
- }
 diff -upN reference/security/selinux/hooks.c current/security/selinux/hooks.c
---- reference/security/selinux/hooks.c	2004-03-25 15:03:32.000000000 +0000
+--- reference/security/selinux/hooks.c	2004-03-25 02:43:44.000000000 +0000
 +++ current/security/selinux/hooks.c	2004-03-25 15:03:32.000000000 +0000
-@@ -1502,14 +1502,14 @@ static int selinux_vm_enough_memory(int 
+@@ -1496,12 +1496,18 @@ static int selinux_syslog(int type)
+  * Strict overcommit modes added 2002 Feb 26 by Alan Cox.
+  * Additional code 2002 Jul 20 by Robert Love.
+  */
+-static int selinux_vm_enough_memory(long pages)
++static int selinux_vm_enough_memory(int domain, long pages)
+ {
+ 	unsigned long free, allowed;
  	int rc;
  	struct task_security_struct *tsec = current->security;
  
-+	vm_acct_memory(domain, pages);
++	/* We only account for the default memory domain, assume overcommit
++	 * for all others.
++	 */
++	if (domain != VM_AD_DEFAULT)
++		return 0;
 +
- 	/* We only account for the default memory domain, assume overcommit
- 	 * for all others.
- 	 */
- 	if (domain != VM_AD_DEFAULT)
- 		return 0;
+ 	vm_acct_memory(pages);
  
--	vm_acct_memory(pages);
--
          /*
- 	 * Sometimes we want to use more memory than we have
- 	 */
-@@ -1546,17 +1546,17 @@ static int selinux_vm_enough_memory(int 
- 
- 		if (free > pages)
- 			return 0;
--		vm_unacct_memory(pages);
-+		vm_unacct_memory(domain, pages);
- 		return -ENOMEM;
- 	}
- 
- 	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
- 	allowed += total_swap_pages;
- 
--	if (atomic_read(&vm_committed_space) < allowed)
-+	if (atomic_read(&vm_committed_space[domain]) < allowed)
- 		return 0;
- 
--	vm_unacct_memory(pages);
-+	vm_unacct_memory(domain, pages);
- 
- 	return -ENOMEM;
- }
 
