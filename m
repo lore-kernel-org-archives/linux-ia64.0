@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 07 Apr 2003 21:14:05 +0000
+From: Jes Sorensen <jes@wildopensource.com>
+Date: Mon, 07 Apr 2003 22:09:44 +0000
 Subject: Re: [Linux-ia64] spin_unlock() problem
-Message-Id: <marc-linux-ia64-105590723705427@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705429@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705414@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705414@msgid-missing>
@@ -10,33 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On 04 Apr 2003 10:13:25 -0500, Jes Sorensen <jes@wildopensource.com> said:
-  Jes> The first example I sent out was clearly bogus, please ignore
-  Jes> it. I am still pondering the second one. Jack pointed out in
-  Jes> private email that the release semantics of setting a volatible
-  Jes> variable should take care of it, but I am still trying to grasp
-  Jes> it.
+>>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
 
-In your example:
+David> *a is guaranteed to have the value "foo" when *b observes bar.
+David> spin_unlock() has release semantics and that ensures that all
+David> subsequent (in program order) memory operations are observed
+David> after the store with release semantics.
 
-cpu1()
-{
-   spin_lock(&bleh);
-   *a = foo;
-   spin_unlock(&bleh);
-   *b = bar;
-}
+Hi David,
 
-cpu2()
-{
-   if (*b = bar)
-      boink(*a);
-}
+Back to getting a sore head from this one ;-(
 
-*a is guaranteed to have the value "foo" when *b observes bar.
-spin_unlock() has release semantics and that ensures that all
-subsequent (in program order) memory operations are observed after the
-store with release semantics.
+Thanks for the book reference, I went and read it and then went on to
+the Intel IA-64 Architecture Software Developer's Manual, vol #1. I
+only have an old version 1.1 dated July 2000, so it's possible that
+there is an updated version out with further clarifications.
 
-	--david
+Quoting section 4.4.7 "Memory Access Ordering", 2nd paragraph, it says
+" .... Release data accesses guarantee that all previous data accesses
+are made visible prior to being made visible themselves." The way I
+understand that, it is possible that a store performed after an st.rel
+may become visible prior to the st.rel, like in this example:
+
+  st [r2] = r32
+  st.rel [r3] = r33
+  st [r4] = r34
+
+In other words we are only guarantied that [r2] is valid when [r3]
+appears but have no guarantie that [r4] doesn't show up on the bus
+prior to [r3]?
+
+Sorry for continuing to pester you about this one, it's the only
+explanation I can find for the problems some people have been seeing
+for tty->count getting messed up in some cases (it is always modified
+while holding a spin lock).
+
+Cheers,
+Jes
 
