@@ -1,29 +1,24 @@
-From: Jonathan Thackray <jthackray@zeus.com>
-Date: Tue, 24 Oct 2000 13:20:12 +0000
-Subject: [Linux-ia64] Signal 11 when compiling kernel
-Message-Id: <marc-linux-ia64-105590678205615@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Fri, 03 Nov 2000 02:19:22 +0000
+Subject: [Linux-ia64] Re: gdb null ptr
+Message-Id: <marc-linux-ia64-105590678205647@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+I don't see how this can happen from looking at the source.  We only cache
+a type in dwarf2_cached_types if it has a DW_AT_name attribute, and if it
+does have such an attribute, then the type should have a name or tag name.
 
-We've recently got a 2 CPU Lion, but when compiling, it randomly gets
-Signal 11. I assume this is the same as IA32 (faulty hardware) -- I've
-pressed F1 before the EFI boot prompt. Can anyone guide me around the
-maze of options?
+Can you provide me with a testcase?  A binary that I can run under gdb should
+be sufficient.  You could put it in ftp.cygnus.com/incoming and then mail
+the file name to me.
 
-Are there any options in there I could tweak to prevent these signals,
-like adjusting RAM timings? This is under 2.4.0test7-000823, btw.
+Since this doesn't appear to be an ia64 specific problem, if I don't have a
+testcase then I will just punt to the gdb developers
+	 http://sources.redhat.com/gdb/#bugs
 
-Many thanks,
-Jon.
-
--- 
-Jonathan Thackray         Zeus House, Cowley Road, Cambridge CB4 OZT, UK
-Software Engineer                   +44 1223 525000, fax +44 1223 525100
-Zeus Technology                                     http://www.zeus.com/
-
+Jim
 
