@@ -1,54 +1,330 @@
-From: Michael Ellerman <michael@ellerman.id.au>
-Date: Wed, 09 Feb 2005 09:58:07 +0000
-Subject: [Patch] Fix oops in alloc_zeroed_user_highpage() when page is NULL
-Message-Id: <20050209205807.221d4591.michael@ellerman.id.au>
+From: jes@trained-monkey.org (Jes Sorensen)
+Date: Tue, 22 Feb 2005 10:00:14 +0000
+Subject: [patch] genalloc
+Message-Id: <16923.686.950037.333072@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0501041512450.1536@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.44.0501082103120.5207-100000@localhost.localdomain>
-	<20050108135636.6796419a.davem@davemloft.net>
-	<Pine.LNX.4.58.0501211206380.25925@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0501211206380.25925@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: davem@davemloft.net, hugh@veritas.com, akpm@osdl.org, linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Hi All,
+Tony,
 
-The generic and IA-64 versions of alloc_zeroed_user_highpage() don't check the return value from alloc_page_vma(). This can lead to an oops if we're OOM.
+This is the generic allocator portion needed for the new mspec
+driver. It should be standalone and usable for others who are needing an
+allocator for whatever reason.
 
-This fixes my oops on PPC64, but I haven't got an IA-64 machine/compiler handy.
+I'll post the mspec driver as well, but I guess that can't be integrated
+until the /dev/mem changes propagate which requires ARCH_HAS_DEV_MEM
+from the -mm tree.
 
-Signed-off-by: Michael Ellerman <michael@ellerman.id.au>
+Cheers,
+Jes
 
-diff -rN -p -u oombreakage-old/include/asm-ia64/page.h oombreakage-new/include/asm-ia64/page.h
---- oombreakage-old/include/asm-ia64/page.h	2005-02-04 04:10:37.000000000 +1100
-+++ oombreakage-new/include/asm-ia64/page.h	2005-02-09 20:53:37.000000000 +1100
-@@ -79,7 +79,8 @@ do {						\
- #define alloc_zeroed_user_highpage(vma, vaddr) \
- ({						\
- 	struct page *page = alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr); \
--	flush_dcache_page(page);		\
-+	if (page)				\
-+ 		flush_dcache_page(page);	\
- 	page;					\
- })
- 
-diff -rN -p -u oombreakage-old/include/linux/highmem.h oombreakage-new/include/linux/highmem.h
---- oombreakage-old/include/linux/highmem.h	2005-02-09 20:22:41.000000000 +1100
-+++ oombreakage-new/include/linux/highmem.h	2005-02-09 20:47:01.000000000 +1100
-@@ -48,7 +48,9 @@ alloc_zeroed_user_highpage(struct vm_are
- {
- 	struct page *page = alloc_page_vma(GFP_HIGHUSER, vma, vaddr);
- 
--	clear_user_highpage(page, vaddr);
-+	if (page)
-+		clear_user_highpage(page, vaddr);
+Signed-off-by: Jes Sorensen <jes@wildopensource.com>
+
+diff -urN -X /usr/people/jes/exclude-linux linux-2.6.11-rc3-mm2-vanilla/include/linux/genalloc.h linux-2.6.11-rc3-mm2/include/linux/genalloc.h
+--- linux-2.6.11-rc3-mm2-vanilla/include/linux/genalloc.h	1969-12-31 16:00:00 -08:00
++++ linux-2.6.11-rc3-mm2/include/linux/genalloc.h	2005-02-16 11:58:35 -08:00
+@@ -0,0 +1,46 @@
++/*
++ * Basic general purpose allocator for managing special purpose memory
++ * not managed by the regular kmalloc/kfree interface.
++ * Uses for this includes on-device special memory, uncached memory
++ * etc.
++ *
++ * This code is based on the buddy allocator found in the sym53c8xx_2
++ * driver, adapted for general purpose use.
++ *
++ * This source code is licensed under the GNU General Public License,
++ * Version 2.  See the file COPYING for more details.
++ */
 +
- 	return page;
- }
++#include <linux/spinlock.h>
++
++#define ALLOC_MIN_SHIFT		5 /* 32 bytes minimum */
++/*
++ *  Link between free memory chunks of a given size.
++ */
++struct gen_pool_link {
++	struct gen_pool_link *next;
++};
++
++/*
++ *  Memory pool of a given kind.
++ *  Ideally, we want to use:
++ *  1) 1 pool for memory we donnot need to involve in DMA.
++ *  2) The same pool for controllers that require same DMA 
++ *     constraints and features.
++ *     The OS specific m_pool_id_t thing and the gen_pool_match() 
++ *     method are expected to tell the driver about.
++ */
++struct gen_pool {
++	spinlock_t lock;
++	unsigned long (*get_new_chunk)(struct gen_pool *);
++	struct gen_pool *next;
++	struct gen_pool_link *h;
++	unsigned long private;
++	int max_chunk_shift;
++};
++
++unsigned long gen_pool_alloc(struct gen_pool *poolp, int size);
++void gen_pool_free(struct gen_pool *mp, unsigned long ptr, int size);
++struct gen_pool *alloc_gen_pool(int nr_chunks, int max_chunk_shift,
++				unsigned long (*fp)(struct gen_pool *),
++				unsigned long data);
+diff -urN -X /usr/people/jes/exclude-linux linux-2.6.11-rc3-mm2-vanilla/init/main.c linux-2.6.11-rc3-mm2/init/main.c
+--- linux-2.6.11-rc3-mm2-vanilla/init/main.c	2005-02-16 11:20:57 -08:00
++++ linux-2.6.11-rc3-mm2/init/main.c	2005-02-16 11:58:35 -08:00
+@@ -78,6 +78,7 @@
+ 
+ static int init(void *);
+ 
++extern void gen_pool_init(void);
+ extern void init_IRQ(void);
+ extern void sock_init(void);
+ extern void fork_init(unsigned long);
+@@ -481,6 +482,7 @@
  #endif
-
-
-
+ 	vfs_caches_init_early();
+ 	mem_init();
++	gen_pool_init();
+ 	kmem_cache_init();
+ 	numa_policy_init();
+ 	if (late_time_init)
+diff -urN -X /usr/people/jes/exclude-linux linux-2.6.11-rc3-mm2-vanilla/lib/Makefile linux-2.6.11-rc3-mm2/lib/Makefile
+--- linux-2.6.11-rc3-mm2-vanilla/lib/Makefile	2005-02-16 11:20:57 -08:00
++++ linux-2.6.11-rc3-mm2/lib/Makefile	2005-02-16 11:59:03 -08:00
+@@ -6,7 +6,7 @@
+ 	 bust_spinlocks.o rbtree.o radix-tree.o dump_stack.o \
+ 	 kobject.o kref.o idr.o div64.o parser.o int_sqrt.o \
+ 	 bitmap.o extable.o kobject_uevent.o prio_tree.o sort.o \
+-	 sha1.o halfmd4.o
++	 sha1.o halfmd4.o genalloc.o
+ 
+ ifeq ($(CONFIG_DEBUG_KOBJECT),y)
+ CFLAGS_kobject.o += -DDEBUG
+diff -urN -X /usr/people/jes/exclude-linux linux-2.6.11-rc3-mm2-vanilla/lib/genalloc.c linux-2.6.11-rc3-mm2/lib/genalloc.c
+--- linux-2.6.11-rc3-mm2-vanilla/lib/genalloc.c	1969-12-31 16:00:00 -08:00
++++ linux-2.6.11-rc3-mm2/lib/genalloc.c	2005-02-16 11:58:35 -08:00
+@@ -0,0 +1,220 @@
++/*
++ * Basic general purpose allocator for managing special purpose memory
++ * not managed by the regular kmalloc/kfree interface.
++ * Uses for this includes on-device special memory, uncached memory
++ * etc.
++ *
++ * This code is based on the buddy allocator found in the sym53c8xx_2
++ * driver Copyright (C) 1999-2001  Gerard Roudier <groudier@free.fr>,
++ * and adapted for general purpose use.
++ *
++ * Copyright 2005 (C) Jes Sorensen <jes@trained-monkey.org>
++ *
++ * This source code is licensed under the GNU General Public License,
++ * Version 2.  See the file COPYING for more details.
++ */
++
++#include <linux/config.h>
++#include <linux/module.h>
++#include <linux/stddef.h>
++#include <linux/kernel.h>
++#include <linux/string.h>
++#include <linux/slab.h>
++#include <linux/init.h>
++#include <linux/mm.h>
++#include <linux/spinlock.h>
++#include <linux/genalloc.h>
++
++#include <asm/page.h>
++#include <asm/pal.h>
++
++
++#define DEBUG	0
++
++struct gen_pool *alloc_gen_pool(int nr_chunks, int max_chunk_shift,
++				unsigned long (*fp)(struct gen_pool *),
++				unsigned long data)
++{
++	struct gen_pool *poolp;
++	unsigned long tmp;
++	int i;
++
++	/*
++	 * This is really an arbitrary limit, +10 is enough for
++	 * IA64_GRANULE_SHIFT.
++	 */
++	if ((max_chunk_shift > (PAGE_SHIFT + 10)) || 
++	    ((max_chunk_shift < ALLOC_MIN_SHIFT) && max_chunk_shift))
++		return NULL;
++
++	if (!max_chunk_shift)
++		max_chunk_shift = PAGE_SHIFT;
++
++	poolp = kmalloc(sizeof(struct gen_pool), GFP_KERNEL);
++	if (!poolp)
++		return NULL;
++	memset(poolp, 0, sizeof(struct gen_pool));
++	poolp->h = kmalloc(sizeof(struct gen_pool_link) *
++			   (max_chunk_shift - ALLOC_MIN_SHIFT + 1),
++			   GFP_KERNEL);
++	if (!poolp->h) {
++		printk(KERN_WARNING "gen_pool_alloc() failed to allocate\n");
++		kfree(poolp);
++		return NULL;
++	}
++	memset(poolp->h, 0, sizeof(struct gen_pool_link) *
++	       (max_chunk_shift - ALLOC_MIN_SHIFT + 1));
++
++	spin_lock_init(&poolp->lock);
++	poolp->get_new_chunk = fp;
++	poolp->max_chunk_shift = max_chunk_shift;
++	poolp->private = data;
++
++	for (i = 0; i < nr_chunks; i++) {
++		tmp = poolp->get_new_chunk(poolp);
++		printk(KERN_INFO "allocated %lx\n", tmp);
++		if (!tmp)
++			break;
++		gen_pool_free(poolp, tmp, (1 << poolp->max_chunk_shift));
++	}
++
++	return poolp;
++}
++
++
++/*
++ *  Simple power of two buddy-like generic allocator.
++ *  Provides naturally aligned memory chunks.
++ */
++unsigned long gen_pool_alloc(struct gen_pool *poolp, int size)
++{
++	int j, i, s, max_chunk_size;
++	unsigned long a, flags;
++	struct gen_pool_link *h = poolp->h;
++
++	max_chunk_size = 1 << poolp->max_chunk_shift;
++
++	if (size > max_chunk_size)
++		return 0;
++
++	i = 0;
++	s = (1 << ALLOC_MIN_SHIFT);
++	while (size > s) {
++		s <<= 1;
++		i++;
++	}
++
++#if DEBUG
++	printk(KERN_DEBUG "gen_pool_alloc: s %02x, i %i, h %p\n", s, i, h);
++#endif
++
++	j = i;
++
++	spin_lock_irqsave(&poolp->lock, flags);
++	while (!h[j].next) {
++		if (s = max_chunk_size) {
++			struct gen_pool_link *ptr;
++			spin_unlock_irqrestore(&poolp->lock, flags);
++			ptr = (struct gen_pool_link *)poolp->get_new_chunk(poolp);
++			spin_lock_irqsave(&poolp->lock, flags);
++			h[j].next = ptr;
++			if (h[j].next)
++				h[j].next->next = NULL;
++#if DEBUG
++			printk(KERN_DEBUG "gen_pool_alloc() max chunk j %i\n", j);
++#endif
++			break;
++		}
++		j++;
++		s <<= 1;
++	}
++	a = (unsigned long) h[j].next;
++	if (a) {
++		h[j].next = h[j].next->next;
++		/*
++		 * This should be split into a seperate function doing
++		 * the chunk split in order to support custom
++		 * handling memory not physically accessible by host
++		 */
++		while (j > i) {
++#if DEBUG
++			printk(KERN_DEBUG "gen_pool_alloc() splitting i %i j %i %x a %02lx\n", i, j, s, a);
++#endif
++			j -= 1;
++			s >>= 1;
++			h[j].next = (struct gen_pool_link *) (a + s);
++			h[j].next->next = NULL;
++		}
++	}
++	spin_unlock_irqrestore(&poolp->lock, flags);
++#if DEBUG
++	printk(KERN_DEBUG "gen_pool_alloc(%d) = %p\n", size, (void *) a);
++#endif
++	return a;
++}
++
++/*
++ *  Counter-part of the generic allocator.
++ */
++void gen_pool_free(struct gen_pool *poolp, unsigned long ptr, int size)
++{
++	struct gen_pool_link *q;
++	struct gen_pool_link *h = poolp->h;
++	unsigned long a, b, flags;
++	int i, max_chunk_size;
++	int s = (1 << ALLOC_MIN_SHIFT);
++
++#if DEBUG
++	printk(KERN_DEBUG "gen_pool_free(%lx, %d)\n", ptr, size);
++#endif
++
++	max_chunk_size = 1 << poolp->max_chunk_shift;
++
++	if (size > max_chunk_size)
++		return;
++
++	i = 0;
++	while (size > s) {
++		s <<= 1;
++		i++;
++	}
++
++	a = ptr;
++
++	spin_lock_irqsave(&poolp->lock, flags);
++	while (1) {
++		if (s = max_chunk_size) {
++			((struct gen_pool_link *)a)->next = h[i].next;
++			h[i].next = (struct gen_pool_link *)a;
++			break;
++		}
++		b = a ^ s;
++		q = &h[i];
++
++		while (q->next && q->next != (struct gen_pool_link *)b) {
++			q = q->next;
++		}
++
++		if (!q->next) {
++			((struct gen_pool_link *)a)->next = h[i].next;
++			h[i].next = (struct gen_pool_link *)a;
++			break;
++		}
++		q->next = q->next->next;
++		a = a & b;
++		s <<= 1;
++		i++;
++	}
++	spin_unlock_irqrestore(&poolp->lock, flags);
++}
++
++
++int __init gen_pool_init(void)
++{
++	printk(KERN_INFO "Generic memory pool allocator v1.0\n");
++	return 0;
++}
++
++EXPORT_SYMBOL(alloc_gen_pool);
++EXPORT_SYMBOL(gen_pool_alloc);
++EXPORT_SYMBOL(gen_pool_free);
