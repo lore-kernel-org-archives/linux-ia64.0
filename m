@@ -1,52 +1,78 @@
-From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
-Date: Tue, 12 Jun 2001 19:39:03 +0000
-Subject: [Linux-ia64] IO-TLB buffers & aic7xxx - new results
-Message-Id: <marc-linux-ia64-105590693005721@msgid-missing>
+From: "Jose Luu" <jluu@mainsoft.com>
+Date: Fri, 29 Jun 2001 16:37:49 +0000
+Subject: [Linux-ia64] Threads don't wake up in ia32 mode
+Message-Id: <marc-linux-ia64-105590693005805@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi,
+My actual case is much more complex than the test sample that I have
+attached, but have the same symptoms: the awakened thread is looping in
+pthread_handle_sigrestart.
 
-I have made a small kernel patch that allows me to follow
-the allocation and deallocation of IO-TLB buffers in the kernel.
+This is with 2.4.5 using the 2.4.5-ia64-010626.diff on a single proc Big
+Sur. It happens with both the ia32 glibc 2.1.3 and ia32 glibc 2.2.1. No
+problems with this program in native mode (ia32 on Pentium or ia64 on
+itanium).
 
-First of all, by using a kernel command line parameter "swiotlb24",
-I have not been able to crash my machine anymore (however, this is for
-1 controller and using only 1 disk).
+I'll appreciate any hints.
 
-On average, the amount of used IO-TLB buffers on my system is between
-60 and 70, each only 1 slot wide (i.e. #buffers = #occupied slots).
+Thanks
+Jose
 
-If I do my usual "make install" test for parted, I see the a few allocations,
-but not many. Then after a few seconds when the dirty buffers are flashed
-(I can make this happen immediately by doing "make install; sync"),
-the IO-TLB usage peaks at 450 buffers occupying 1470 slots, i.e.
-the driver allocates ~400 buffers without intermediate deallocation,
-and most of them are 4 slots wide. It is interesting that more than
-253 buffers seem to be requested at the same time.
+----------------------- test case ------------------------------------
+#include <pthread.h>
+#include <stdio.h>
 
-What I'll do next is to try a heavier load on more than a single disk,
-and perhaps several controllers at once.
+#if !defined(FALSE)
+#define FALSE 0
+#endif
+#if !defined(TRUE)
+#define TRUE 1
+#endif
 
-At least this way I can at least give recommendations for how large to set the
-swiotlb parameter with a given number of controllers.
+pthread_mutex_t Mutex;
+pthread_cond_t Condition;
 
-If there's interest, I'll happily send my patch tomorrow.
+int var=FALSE;
 
-I cannot see how the heuristic for allocating IO-TLB space could be
-improved, given that at the moment when the memory is allocated the kernel
-has no way to know how many 32-bit controllers populate its PCI slots.
+void* waker(void* pvparam)
+{
+    int dowake;
 
-Cheers,
-Martin
+    while(TRUE) {
+ dowake=FALSE;
 
--- Martin Wilck <Martin.Wilck@fujitsu-siemens.com> FSC EP PS DS1,
-Paderborn Tel. +49 5251 8 15113
+ pthread_mutex_lock(&Mutex);
 
+ if (var =3D FALSE) {
+     var=3DTRUE;
+     pthread_cond_signal(&Condition);
+ }
+ pthread_mutex_unlock(&Mutex);
+    }
+}
 
+main()
+{
+    pthread_t t_Wakeup;
+    int i;
+
+    pthread_mutex_init(&Mutex,NULL);
+    pthread_cond_init(&Condition,NULL);
+
+    pthread_create(&t_Wakeup,NULL,waker,NULL);
+    for (i=3D0;i<10000;i++) {
+ pthread_mutex_lock(&Mutex);
+ var=FALSE;
+ while (var !=3D TRUE) {
+     pthread_cond_wait(&Condition,&Mutex);
+ }
+ pthread_mutex_unlock(&Mutex);
+    }
+}
 
 
 
