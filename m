@@ -1,7 +1,7 @@
-From: Stephane Eranian <eranian@cello.hpl.hp.com>
-Date: Tue, 25 Apr 2000 13:42:21 +0000
+From: Jes Sorensen <Jes.Sorensen@cern.ch>
+Date: Tue, 25 Apr 2000 14:37:30 +0000
 Subject: Re: [Linux-ia64] serial efishell anybody?
-Message-Id: <marc-linux-ia64-105590678205039@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205040@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205037@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205037@msgid-missing>
@@ -10,22 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> >>>>> "Christoph" = Christoph Rohland <cr@sap.com> writes:
-> 
-> Christoph> Hi, I have everything working over serial line. Apparently
-> Christoph> the efishell does also use the serial line. But I do not
-> Christoph> know the port settings and how to adjust them.
-> 
-> 115k2 8n1 afaik
-> 
-Well, that's the speed of the serial connection by default. That's
-good enough to connect a Linux serial console.
+>>>>> "Stephane" = Stephane Eranian <eranian@cello.hpl.hp.com> writes:
 
-I think Roland was talking about COMPLETELY booting via serial, i.e. 
-getting EFI on serial line. Yes, that's possible but I haven't
-certainely tried that yet. I think you have to set some EFI variable
-in NVRAM and reboot. Check out the EFI spec near the end.
+>> >>>>> "Christoph" = Christoph Rohland <cr@sap.com> writes:
+>>  115k2 8n1 afaik
+>> 
+Stephane> Well, that's the speed of the serial connection by
+Stephane> default. That's good enough to connect a Linux serial
+Stephane> console.
 
--Stephane
+Stephane> I think Roland was talking about COMPLETELY booting via
+Stephane> serial, i.e.  getting EFI on serial line. Yes, that's
+Stephane> possible but I haven't certainely tried that yet. I think
+Stephane> you have to set some EFI variable in NVRAM and reboot. Check
+Stephane> out the EFI spec near the end.
+
+Ahhh, I would be quite interested in that bit in fact ;-)
+
+Jes
 
 
