@@ -1,27 +1,88 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Thu, 13 May 2004 15:32:51 +0000
-Subject: RE: [2.6.6 PATCH] Exposing EFI memory map
-Message-Id: <1084462371.1417.20.camel@nighthawk>
+From: Matthew Wilcox <willy@debian.org>
+Date: Mon, 03 May 2004 12:29:48 +0000
+Subject: Re: Fw: 2.6.6-rc3 ia64 smp_call_function() called with interrupts disabled
+Message-Id: <20040503122948.GI2281@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <012201c438f4$0cbb6580$39624c0f@india.hp.com>
-In-Reply-To: <012201c438f4$0cbb6580$39624c0f@india.hp.com>
+References: <20040502214525.5ad05bed.akpm@osdl.org>
+In-Reply-To: <20040502214525.5ad05bed.akpm@osdl.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Sourav Sen <souravs@india.hp.com>
-Cc: 'Greg KH' <greg@kroah.com>, Matt_Domsch@dell.com, 'Matthew E Tolentino' <matthew.e.tolentino@intel.com>, linux-ia64@vger.kernel.org, 'Linux Kernel Mailing List' <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Andrew Morton <akpm@osdl.org>
+Cc: linux-scsi@vger.kernel.org, kaos@sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, 2004-05-13 at 07:10, Sourav Sen wrote:
-> + We're planning on doing this anyway for memory hotplug, so some of the
-> + work and ideas are already there.  I'd be happy to point you to some
-> + past discussions and code on the subject.  
+On Sun, May 02, 2004 at 09:45:25PM -0700, Andrew Morton wrote:
+> Begin forwarded message:
+>=20
+> Date: Mon, 03 May 2004 12:39:44 +1000
+> From: Keith Owens <kaos@sgi.com>
+> To: linux-kernel@vger.kernel.org
+> Subject: 2.6.6-rc3 ia64 smp_call_function() called with interrupts disabl=
+ed
+>=20
+>=20
+> 2.6.6-rc3, modprobe sg calls vfree() with interrupts disabled.  On
+> ia64, vfree calls smp_flush_tlb_all() which calls smp_call_function().
+> Calling smp_call_function() with interrupts disabled can deadlock.
+>=20
+> Badness in smp_call_function at arch/ia64/kernel/smp.c:312
+>=20
+> Call Trace:
+>  [<a000000100142fb0>] __vunmap+0x50/0x1e0
+>                                 sp=E00001307811fe30 bsp=E0000130781190a0
+>  [<a0000002002ae4d0>] sg_add+0x2d0/0xbe0 [sg]
+>                                 sp=E00001307811fe30 bsp=E000013078119038
 
-Here was my sample implementation of how to export memory areas:
+How about the following patch?  Noet that vfree() handles a NULL argument,
+so it's not necessary to check the pointer.
 
-http://sourceforge.net/mailarchive/forum.php?thread_idA20609&forum_id"3
+Index: drivers/scsi/sg.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /var/cvs/linux-2.6/drivers/scsi/sg.c,v
+retrieving revision 1.13
+diff -u -p -r1.13 sg.c
+--- a/drivers/scsi/sg.c	15 Apr 2004 18:04:45 -0000	1.13
++++ b/drivers/scsi/sg.c	3 May 2004 12:28:12 -0000
+@@ -1341,6 +1341,7 @@ sg_add(struct class_device *cl_dev)
+ 	Sg_device *sdp =3D NULL;
+ 	unsigned long iflags;
+ 	struct cdev * cdev =3D NULL;
++	void *old_sg_dev_arr =3D NULL;
+ 	int k, error;
+=20
+ 	disk =3D alloc_disk(1);
+@@ -1368,7 +1369,7 @@ sg_add(struct class_device *cl_dev)
+ 		memset(tmp_da, 0, tmp_dev_max * sizeof (Sg_device *));
+ 		memcpy(tmp_da, sg_dev_arr,
+ 		       sg_dev_max * sizeof (Sg_device *));
+-		vfree((char *) sg_dev_arr);
++		old_sg_dev_arr =3D sg_dev_arr;
+ 		sg_dev_arr =3D tmp_da;
+ 		sg_dev_max =3D tmp_dev_max;
+ 	}
+@@ -1384,8 +1385,7 @@ find_empty_slot:
+ 		       " type=3D%d, minor number exceeds %d\n",
+ 		       scsidp->host->host_no, scsidp->channel, scsidp->id,
+ 		       scsidp->lun, scsidp->type, SG_MAX_DEVS - 1);
+-		if (NULL !=3D sdp)
+-			vfree((char *) sdp);
++		vfree(sdp);
+ 		error =3D -ENODEV;
+ 		goto out;
+ 	}
+@@ -1459,6 +1459,7 @@ find_empty_slot:
+ 	return 0;
+=20
+ out:
++	vfree(old_sg_dev_arr);
+ 	put_disk(disk);
+ 	if (cdev)
+ 		cdev_del(cdev);
 
-There was at least one other way to do the same thing on the lhms-devel
-list.  I believe it was some time last month.
-
--- Dave
-
+--=20
+"Next the statesmen will invent cheap lies, putting the blame upon=20
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince=20
+himself that the war is just, and will thank God for the better sleep=20
+he enjoys after this process of grotesque self-deception." -- Mark Twain
