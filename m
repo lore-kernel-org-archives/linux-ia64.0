@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 20 Oct 2003 18:48:27 +0000
+From: Martin Pool <mbp@samba.org>
+Date: Thu, 23 Oct 2003 08:33:16 +0000
 Subject: Re: [RFC] prevent "dd if=/dev/mem" crash
-Message-Id: <marc-linux-ia64-106667573723954@msgid-missing>
+Message-Id: <marc-linux-ia64-106689829008741@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106642876514553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106642876514553@msgid-missing>
@@ -10,28 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 20 Oct 2003 09:17:10 -0600, Bjorn Helgaas <bjorn.helgaas@hp.com> said:
+On 19 Oct 2003, Pavel Machek <pavel@ucw.cz> wrote:
+> Hi!
+> 
+> > > Old behavior:
+> > > 
+> > >     # dd if=/dev/mem of=/dev/null
+> > >     <unrecoverable machine check>
+> > 
+> > I recently fixed this for ia32 by changing copy_to_user() to not oops if
+> > the source address generated a fault.  Similarly copy_from_user() returns
+> > an error if the destination generates a fault.
+> 
+> Are you sure this is not hiding real errors? If you pass wrong
+> kernel ptr to copy_*_user, it should oops, not mask error with
+> -EFAULT.
+> Maybe another copy_user_unsafe should be created?
 
-  Bjorn> On Friday 17 October 2003 6:21 pm, David Mosberger wrote:
-  >> What about memory-mapped device registers?  Isn't all memory
-  >> physically contiguous on x86 and that's why the "p >  >> __pa(high_memory)" test saves you from that?
+I think the problem is that reading memory that is mapped but doesn't
+physically exist causes a Machine Check Assertion (like an NMI) rather
+than a regular fault.
 
-  Bjorn> As others have mentioned, using read/write on /dev/mem to get
-  Bjorn> at memory-mapped registers is unlikely to work on ia64
-  Bjorn> anyway, because read/write use cacheable mappings.  Using
-  Bjorn> mmap does work (using uncacheable mappings), and my patch
-  Bjorn> doesn't change that path.
-
-True, I just find this whole thing rather disgusting: different
-behavior for read/write vs. mmap; but you're right, it's nothing
-new and probably the most pragmatic "solution".
-
-  Bjorn> I bet that ia32 does have page tables for this case, and that
-  Bjorn> an attempt to read non-existent physical memory will cause a
-  Bjorn> TLB miss from which copy_*_user() can easily recover.
-
-True, but even this doesn't help for MMIO space, where a device may
-decode less than a full page.  So you'd still end up accessing address
-holes.  Just that x86 returns garbage in that case (I think).
-
-	--david
+--
+Martin
