@@ -1,32 +1,35 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Tue, 22 Feb 2005 21:38:42 +0000
+From: Arjan van de Ven <arjan@infradead.org>
+Date: Tue, 22 Feb 2005 22:03:53 +0000
 Subject: Re: [patch -mm series] ia64 specific /dev/mem handlers
-Message-Id: <yq0650kl1gd.fsf@jaguar.mkp.net>
+Message-Id: <1109109833.6024.109.camel@laptopd505.fenrus.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16923.193.128608.607599@jaguar.mkp.net>
-	<20050222020309.4289504c.akpm@osdl.org>
-	<yq0ekf8lksf.fsf@jaguar.mkp.net>
-	<20050222175225.GK28741@parcelfarce.linux.theplanet.co.uk>
-	<20050222112513.4162860d.akpm@osdl.org>
-	<1109100938.25666.44.camel@localhost>
-In-Reply-To: <1109100938.25666.44.camel@localhost>
+In-Reply-To: <16923.193.128608.607599@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dave Hansen <haveblue@us.ibm.com>
-Cc: Andrew Morton <akpm@osdl.org>, Matthew Wilcox <matthew@wil.cx>, linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: Jes Sorensen <jes@trained-monkey.org>
+Cc: Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
->>>>> "Dave" = Dave Hansen <haveblue@us.ibm.com> writes:
+On Tue, 2005-02-22 at 04:52 -0500, Jes Sorensen wrote:
+> Hi,
+> 
+> This patch introduces ia64 specific read/write handlers for /dev/mem
+> access which is needed to avoid uncached pages to be accessed through
+> the cached kernel window which can lead to random corruption. It also
+> introduces a new page-flag PG_uncached which will be used to mark the
+> uncached pages. I assume this may be useful to other architectures as
+> well where the CPU may use speculative reads which conflict with
+> uncached access. In addition I moved do_write_mem to be under
+> ARCH_HAS_DEV_MEM as it's only ever used if that is defined.
+> 
+> The patch is needed for the new ia64 special memory driver (mspec -
+> former fetchop).
 
-Dave> I was talking with Nigel Cunningham about doing something a
-Dave> little different from the classic page flag bits when the number
-Dave> of users is restricted and performance isn't ultra-critical.
-Dave> Would something like this work for you, instead of using a real
-Dave> page->flags bit for PG_cached?
 
-Just took a quick look at this and it looks a bit heavy for our
-use. We are only looking at a small number of pages. However I could
-imagine future cases where performance may be more critical.
+is there ANY valid reason to allow access to cached uses at all?
+(eg kernel ram)
 
-Cheers,
-Jes
+why not just disable any such ram access entirely...
+
+
