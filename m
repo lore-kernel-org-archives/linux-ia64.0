@@ -1,61 +1,51 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Tue, 01 Apr 2003 18:06:44 +0000
-Subject: [Linux-ia64] [PATCH] sal calls w/o taking sal_lock
-Message-Id: <marc-linux-ia64-105590723705376@msgid-missing>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 18 Apr 2003 14:38:16 +0000
+Subject: [Linux-ia64] Re: [BUG] perfmon doesn't send SIGPROF in kernel 2.5.64
+Message-Id: <marc-linux-ia64-105590723705562@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch adds SAL_CALL_NOLOCK so that platforms may call the SAL
-without taking a lock, if appropriate.  The ia64_sal_mc_rendez() has
-been changed to use it, since it won't return until all CPUs have been
-rendevoused by the SAL, if I understand correctly.  It's also used by
-various SN specific SAL routines that access the system controllers
-and might be useful to other plaforms.
+Eric,
 
-Thanks,
-Jesse
+On Fri, Apr 18, 2003 at 02:00:19PM +0200, Eric Piel wrote:
+> Stephane Eranian wrote:
+> > 
+> > The attached patch against 2.5.67 corrects the problem. Note that this
+> > patch also includes other updates.
+> > 
+> > Let me know how it goes.
+> Very good, it worked!:
 
+I glad to see that it worked for you as well this time.
 
-diff -Naur -X /usr/people/jbarnes/dontdiff linux-2.5.64-ia64/include/asm-ia64/sal.h linux-2.5.64-salcallnolock/include/asm-ia64/sal.h
---- linux-2.5.64-ia64/include/asm-ia64/sal.h	Fri Mar  7 16:02:45 2003
-+++ linux-2.5.64-salcallnolock/include/asm-ia64/sal.h	Tue Apr  1 09:56:02 2003
-@@ -46,6 +46,16 @@
- 	ia64_load_scratch_fpregs(fr);                   \
- } while (0)
- 
-+# define SAL_CALL_NOLOCK(result,args...) do {		\
-+	unsigned long flags;				\
-+	struct ia64_fpreg fr[6];			\
-+	ia64_save_scratch_fpregs(fr);                   \
-+	local_irq_save(flags);				\
-+	__SAL_CALL(result,args);			\
-+	local_irq_restore(flags);			\
-+	ia64_load_scratch_fpregs(fr);                   \
-+} while (0)
-+
- #define SAL_SET_VECTORS			0x01000000
- #define SAL_GET_STATE_INFO		0x01000001
- #define SAL_GET_STATE_INFO_SIZE		0x01000002
-@@ -685,14 +695,15 @@
- }
- 
- /*
-- * Causes the processor to go into a spin loop within SAL where SAL awaits a wakeup from
-- * the monarch processor.
-+ * Causes the processor to go into a spin loop within SAL where SAL awaits a wakeup
-+ * from the monarch processor.  Must not lock, this will not return on any cpu until
-+ * the monarch processor sends a wake up.
-  */
- static inline s64
- ia64_sal_mc_rendez (void)
- {
- 	struct ia64_sal_retval isrv;
--	SAL_CALL(isrv, SAL_MC_RENDEZ, 0, 0, 0, 0, 0, 0, 0);
-+	SAL_CALL_NOLOCK(isrv, SAL_MC_RENDEZ, 0, 0, 0, 0, 0, 0, 0);
- 	return isrv.status;
- }
- 
+> 
+> Also, after a quick glance at the patch I noticed this update:
+> -/* pmc8  */ { PFM_REG_CONFIG  , 0, 0xffffffff3fffffffUL,
+> 0xffffffff9fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
+> {0UL,0UL, 0UL, 0UL}},
+> -/* pmc9  */ { PFM_REG_CONFIG  , 0, 0xffffffff3ffffffcUL,
+> 0xffffffff9fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
+> {0UL,0UL, 0UL, 0UL}},
+> +/* pmc8  */ { PFM_REG_CONFIG  , 0, 0xffffffff3fffffffUL,
+> 0xffffffff3fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
+> {0UL,0UL, 0UL, 0UL}},
+> +/* pmc9  */ { PFM_REG_CONFIG  , 0, 0xffffffff3ffffffcUL,
+> 0xffffffff3fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
+> {0UL,0UL, 0UL, 0UL}},
+> 
+> Could you describe shortly what this is suppose to fix? Recently I had
+> some troubles with some PMU counters on Itanium2 (hard to trigger) and I
+> wonder if this could be solved by that patch...
+> 
+
+This only affects measurements made with the opcode matchers. The UIUC
+folks reported a problem with certain opcode pattern not being counted
+properly. I was off by one bit in the mask. This has no  affect on
+measurements NOT using the opcode matchers.
+
+-- 
+-Stephane
 
