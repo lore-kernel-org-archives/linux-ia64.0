@@ -1,130 +1,95 @@
-From: Pat Gefre <pfg@sgi.com>
-Date: Tue, 22 Jun 2004 17:58:56 +0000
-Subject: Re: [PATCH] fix interrupt rerouting for Altix
-Message-Id: <Pine.SGI.3.96.1040622125800.17971N-100000@fsgi900.americas.sgi.com>
+From: Xavier Bru <xavier.bru@bull.net>
+Date: Mon, 21 Jun 2004 16:19:56 +0000
+Subject: 2.6.7: kallsyms --all-symbols shows a shift in the symbol addreses
+Message-Id: <40D70AAC.2010006@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200406171546.i5HFk3wF407364@fsgi900.americas.sgi.com>
-In-Reply-To: <200406171546.i5HFk3wF407364@fsgi900.americas.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Sure.  I'll apply your change, test it and then send it out.
+Hi all!
 
--- Pat
+There is a problem with the all kallsyms support in 2.6.7=20
+scripts/kallsyms.c.
+Building the table reserves the adresses for all the kernel symbols in=20
+first step, then generates the effective addresses of the symbols in step 2.
+The problem is that the symbols used to build the symbol table are not=20
+taken in account for the size calculation, but are included in the table=20
+in step 2.
+This makes the table "bigger" than was allocated, and the symbols that=20
+come behind are shifted.
+This makes kallsyms (and KDB) give wrong addresses for these symbols.
 
+One solution is to exclude from the symbol table the symbols used for=20
+building it (As was provided in KDB patch :-)
 
+--- linux-2.6.7.ori/scripts/kallsyms.c    Wed Jun 16 07:20:26 2004
++++ linux-2.6.7/scripts/kallsyms.c    Mon Jun 21 15:26:57 2004
+@@ -74,6 +74,12 @@ symbol_valid(struct sym_entry *s)
+=20
+     if (strstr(s->sym, "_compiled."))
+         return 0;
++    if (!strcmp(s->sym, "kallsyms_addresses"))
++        return 0;
++    if (!strcmp(s->sym, "kallsyms_num_syms"))
++        return 0;
++    if (!strcmp(s->sym, "kallsyms_names"))
++        return 0;
+=20
+     return 1;
+ }
 
-On Fri, 18 Jun 2004, Ashok Raj wrote:
+herafter the traces of the problem:
+----------------------------------
+$ grep numnode System.map
+a000000100930740 G numnodes
+# grep kallsyms_addresses /proc/kallsyms
+a000000100894470 d kallsyms_addresses
+# grep numnodes  /proc/kallsyms
+a000000100930700 d numnodes
 
-+ On Fri, Jun 18, 2004 at 01:17:37PM -0400, Jesse Barnes wrote:
-+ > This looks like a duplicate of what's in iosapic.c.  Maybe we should just have 
-+ > one version of it in irq.c?  Ashok?
-+ 
-+ Yep.. i think it will be nice to integrate them into irq.c. I have
-+ the patch to do that attached below.
-+ 
-+ Pat, could you go ahead and submit the patch to work with this attached
-+ patch? i was not able to apply yours clean, patch reported
-+ garbled patch, and i didnt take time to fix it manually...
-+ 
-+ -
-+ Cheers,
-+ Ashok Raj
-+ - Linux OS Technologies Team
-+ 
-+ 
-+ Signed-off-by: Ashok Raj <ashok.raj@intel.com>
-+ 
-+ D: This patch makes move_irq() function from iospic.c to irq.c to make this common for
-+ D: ia64 archs. Both that use iosapic, and the SN2 versions. 
-+ 
-+ 
-+ ---
-+ 
-+  linux-2.6.7-root/arch/ia64/kernel/iosapic.c |   16 ----------------
-+  linux-2.6.7-root/arch/ia64/kernel/irq.c     |   16 ++++++++++++++++
-+  linux-2.6.7-root/include/asm-ia64/irq.h     |    6 ++++++
-+  3 files changed, 22 insertions(+), 16 deletions(-)
-+ 
-+ diff -puN arch/ia64/kernel/irq.c~make_moveirq_common arch/ia64/kernel/irq.c
-+ --- linux-2.6.7/arch/ia64/kernel/irq.c~make_moveirq_common	2004-06-18 15:22:57.297836562 -0700
-+ +++ linux-2.6.7-root/arch/ia64/kernel/irq.c	2004-06-18 15:22:57.303695940 -0700
-+ @@ -1018,6 +1018,22 @@ static int irq_affinity_write_proc (stru
-+  	return full_count;
-+  }
-+  
-+ +void move_irq(int irq)
-+ +{
-+ +	/* note - we hold desc->lock */
-+ +	cpumask_t tmp;
-+ +	irq_desc_t *desc = irq_descp(irq);
-+ +
-+ +	if (!cpus_empty(pending_irq_cpumask[irq])) {
-+ +		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
-+ +		if (unlikely(!cpus_empty(tmp))) {
-+ +			desc->handler->set_affinity(irq, pending_irq_cpumask[irq]);
-+ +		}
-+ +		cpus_clear(pending_irq_cpumask[irq]);
-+ +	}
-+ +}
-+ +
-+ +
-+  #endif /* CONFIG_SMP */
-+  
-+  #ifdef CONFIG_HOTPLUG_CPU
-+ diff -puN arch/ia64/kernel/iosapic.c~make_moveirq_common arch/ia64/kernel/iosapic.c
-+ --- linux-2.6.7/arch/ia64/kernel/iosapic.c~make_moveirq_common	2004-06-18 15:22:57.298813125 -0700
-+ +++ linux-2.6.7-root/arch/ia64/kernel/iosapic.c	2004-06-18 15:22:57.303695940 -0700
-+ @@ -100,7 +100,6 @@
-+  #endif
-+  
-+  static spinlock_t iosapic_lock = SPIN_LOCK_UNLOCKED;
-+ -extern cpumask_t	__cacheline_aligned pending_irq_cpumask[NR_IRQS];
-+  
-+  /* These tables map IA-64 vectors to the IOSAPIC pin that generates this vector. */
-+  
-+ @@ -335,21 +334,6 @@ iosapic_set_affinity (unsigned int irq, 
-+  #endif
-+  }
-+  
-+ -static inline void move_irq(int irq)
-+ -{
-+ -	/* note - we hold desc->lock */
-+ -	cpumask_t tmp;
-+ -	irq_desc_t *desc = irq_descp(irq);
-+ -
-+ -	if (!cpus_empty(pending_irq_cpumask[irq])) {
-+ -		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
-+ -		if (unlikely(!cpus_empty(tmp))) {
-+ -			desc->handler->set_affinity(irq, pending_irq_cpumask[irq]);
-+ -		}
-+ -		cpus_clear(pending_irq_cpumask[irq]);
-+ -	}
-+ -}
-+ -
-+  /*
-+   * Handlers for level-triggered interrupts.
-+   */
-+ diff -puN include/asm-ia64/irq.h~make_moveirq_common include/asm-ia64/irq.h
-+ --- linux-2.6.7/include/asm-ia64/irq.h~make_moveirq_common	2004-06-18 15:22:57.300766251 -0700
-+ +++ linux-2.6.7-root/include/asm-ia64/irq.h	2004-06-18 15:22:57.303695940 -0700
-+ @@ -30,6 +30,12 @@ extern void disable_irq_nosync (unsigned
-+  extern void enable_irq (unsigned int);
-+  extern void set_irq_affinity_info (unsigned int irq, int dest, int redir);
-+  
-+ +#ifdef CONFIG_SMP
-+ +extern void move_irq(int irq);
-+ +#else
-+ +#define move_irq(irq)
-+ +#endif
-+ +
-+  struct irqaction;
-+  struct pt_regs;
-+  int handle_IRQ_event(unsigned int, struct pt_regs *, struct irqaction *);
-+ 
-+ _
-+ 
+Entering kdb (current=3D0xa000000100724000, pid 0) on processor 0 due to=20
+Keyboard Entry
+[0]kdb> md numnodes
+0xa000000100930700 00000000 00000000 00008000 00000000   ................
+0xa000000100930710 00799470 a0000001 5f757063 00007075   p.y.... cpu_up..
+0xa000000100930720 00799628 a0000001 00000000 00000000   (.y.... ........
+0xa000000100930730 00000003 0000000a 000015de 00000000   ........=DE.......
+0xa000000100930740 00000004 00000000 00001feb 00001860   ........=EB...`...
+                   XXXXXXXX here it is !!!!
+0xa000000100930750 00000100 00000000 0000000a 00000028   ............(...
+0xa000000100930760 000001f4 00000bb8 00000002 0000003c   =F4...=B8.......<.=
+..
+0xa000000100930770 00000000 00000032 00010000 00000eb8   ....2.......=B8...
+[0]kdb>
 
+With the fix:
+------------
+$ grep numnodes System.map
+a000000100930700 G numnodes
+
+# grep kallsyms_addresses /proc/kallsyms
+# grep numnodes  /proc/kallsyms
+a000000100930700 d numnodes
+
+Entering kdb (current=3D0xa000000100724000, pid 0) on processor 0 due to=20
+Keyboard Entry
+[0]kdb> md numnodes
+0xa000000100930700 00000004 00000000 00001feb 0000181f   ........=EB.......
+                   XXXXXXXX OK
+0xa000000100930710 00000100 00000000 0000000a 00000028   ............(...
+0xa000000100930720 000001f4 00000bb8 00000002 0000003c   =F4...=B8.......<.=
+..
+
+--=20
+
+ Sinc=E8res salutations.
+_____________________________________________________________________
+=20
+Xavier BRU                 BULL ISD/R&D/INTEL office:     FREC B1-422
+tel : +33 (0)4 76 29 77 45                    http://www-frec.bull.fr
+fax : +33 (0)4 76 29 77 70                 mailto:Xavier.Bru@bull.net
+addr: BULL, 1 rue de Provence, BP 208, 38432 Echirolles Cedex, FRANCE
+_____________________________________________________________________
 
