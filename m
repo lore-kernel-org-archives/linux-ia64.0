@@ -1,39 +1,79 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 15 Mar 2004 21:55:56 +0000
-Subject: Re: [PATCH] move consistent_dma_mask to the generic device
-Message-Id: <200403151455.56228.bjorn.helgaas@hp.com>
+From: Pat Gefre <pfg@sgi.com>
+Date: Mon, 08 Mar 2004 20:32:56 +0000
+Subject: [2.6 PATCH] Altix - console driver calls console_initcall
+Message-Id: <200403082032.i28KWvuw082582@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403151439.20917.bjorn.helgaas@hp.com>
-In-Reply-To: <200403151439.20917.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: davidm@napali.hpl.hp.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Monday 15 March 2004 2:48 pm, James Bottomley wrote:
-> erm, the patch is a bit redundant isn't it?
-> 
-> &to_pci_dev(dev)->dev = dev
+Small mod to have the console driver call console_initcall() to
+register.
 
-Ah, ok, how about this:
 
-=== arch/ia64/hp/common/sba_iommu.c 1.38 vs edited ==--- 1.38/arch/ia64/hp/common/sba_iommu.c	Fri Feb 27 03:16:24 2004
-+++ edited/arch/ia64/hp/common/sba_iommu.c	Mon Mar 15 14:51:33 2004
-@@ -1055,13 +1055,13 @@
- 	*dma_handle = virt_to_phys(addr);
+
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1692  -> 1.1693 
+#	drivers/char/sn_serial.c	1.5     -> 1.6    
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/03/08	pfg@sgi.com	1.1693
+# drivers/char/sn_serial.c
+#     Make console_initcall() for proper registration.
+# --------------------------------------------
+#
+diff -Nru a/drivers/char/sn_serial.c b/drivers/char/sn_serial.c
+--- a/drivers/char/sn_serial.c	Mon Mar  8 14:28:53 2004
++++ b/drivers/char/sn_serial.c	Mon Mar  8 14:28:53 2004
+@@ -82,7 +82,6 @@
+ static unsigned long sn_interrupt_timeout;
  
- #ifdef ALLOW_IOV_BYPASS
--	ASSERT(to_pci_dev(dev)->consistent_dma_mask);
-+	ASSERT(dev->coherent_dma_mask);
- 	/*
-  	** Check if the PCI device can DMA to ptr... if so, just return ptr
-  	*/
--	if (likely((*dma_handle & ~to_pci_dev(dev)->consistent_dma_mask) = 0)) {
-+	if (likely((*dma_handle & ~dev->coherent_dma_mask) = 0)) {
- 		DBG_BYPASS("sba_alloc_coherent() bypass mask/addr: 0x%lx/0x%lx\n",
--		           to_pci_dev(dev)->consistent_dma_mask, *dma_handle);
-+		           dev->coherent_dma_mask, *dma_handle);
+ extern u64 master_node_bedrock_address;
+-
+ static int sn_debug_printf(const char *fmt, ...);
  
- 		return addr;
+ #undef DEBUG
+@@ -105,7 +104,7 @@
+ static struct sn_sal_ops *sn_func;
+ 
+ /* Prototypes */
+-static void __init sn_sal_serial_console_init(void);
++int __init sn_sal_serial_console_init(void);
+ static int snt_hw_puts(const char *, int);
+ static int snt_poll_getc(void);
+ static int snt_poll_input_pending(void);
+@@ -921,9 +920,6 @@
+ 		printk(KERN_ERR "sn_serial: Unable to register tty driver\n");
+ 		return retval;
  	}
-
+-#ifdef CONFIG_SGI_L1_SERIAL_CONSOLE
+-	sn_sal_serial_console_init();
+-#endif	/* CONFIG_SGI_L1_SERIAL_CONSOLE */
+ 	return 0;
+ }
+ 
+@@ -993,7 +989,7 @@
+ 	.index = -1
+ };
+ 
+-static void __init
++int __init
+ sn_sal_serial_console_init(void)
+ {
+ 	if (ia64_platform_is("sn2")) {
+@@ -1001,6 +997,8 @@
+ 		sn_debug_printf("sn_sal_serial_console_init : register console\n");
+ 		register_console(&sal_console);
+ 	}
++	return 0;
+ }
++console_initcall(sn_sal_serial_console_init);
+ 
+ #endif /* CONFIG_SGI_L1_SERIAL_CONSOLE */
