@@ -1,35 +1,30 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Sun, 22 Feb 2004 16:52:58 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Tue, 24 Feb 2004 01:54:52 +0000
 Subject: Re: Oops in pdflush
-Message-Id: <je1xonhx91.fsf@sykes.suse.de>
+Message-Id: <20040224015452.GL26488@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je4qtl7u44.fsf@sykes.suse.de>
 In-Reply-To: <je4qtl7u44.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith Owens <kaos@sgi.com> writes:
+On Fri, Feb 20, 2004 at 02:34:03PM +0100, Andreas Schwab wrote:
+> This happens regularily on all our Intel Tiger SMP systems, haven't seen
+> it on UP systems, and neither on any HP system we have.  Theses oopses are
+> all from different systems running kernels 2.6.2 and 2.6.3 in various
+> incarnations.  They are all using e1000 and mptscsih, unlike the HP
+> systems, so it might be a bug in either of those drivers.
 
-> +#define UNW_DEBUG 6
->  #ifdef UNW_DEBUG
->    static unsigned int unw_debug_level =3D UNW_DEBUG;
->  #  ifdef CONFIG_KDB
->  #    include <linux/kdb.h>
-> -#    define UNW_DEBUG_ON(n)	(unw_debug_level >=3D n && !KDB_IS_RUNNING())
-> +#    define UNW_DEBUG_ON(n)	(unw_debug_level >=3D n && KDB_IS_RUNNING())
->  #    define UNW_DPRINT(n, ...)	if (UNW_DEBUG_ON(n)) kdb_printf(__VA_ARGS=
-__)
->  #  else	/* !CONFIG_KDB */
->  #    define UNW_DEBUG_ON(n)	unw_debug_level >=3D n
+I have been running e1000 (and tg3) drivers locally quite a bit
+the past couple of monthes.
+rx2000 uses e1000 for built-in GigE NIC.
 
-This does not fit to the current sources even with the kdb patch applied.
+rx2600, zx6000, and a few other machines use LSI 53c1030 chip
+(MPT/Fusion driver) on the motherboard. My rx2600 seems to be
+happy with 2.6.3-rc2 though I've not run any disk IO stress
+tests on it lately.
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+hth,
+grant
