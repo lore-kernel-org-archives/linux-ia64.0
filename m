@@ -1,35 +1,26 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Mon, 10 Nov 2003 10:33:31 +0000
-Subject: Re: [RFC] Better MCA recovery on IPF
-Message-Id: <marc-linux-ia64-106846055028941@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 21 Nov 2003 08:19:59 +0000
+Subject: speeding up thread-creation
+Message-Id: <marc-linux-ia64-106940282522654@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106724227826901@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106724227826901@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi.
+It occurred to me that at present, we're copying lots of state on a
+clone2() for absolutely no reason.  Not only that, but the large size
+of the "thread_struct" probably also causes poor cache-locality since
+the task-structure is effectively split in two, with a large unused
+gap in between.  I think it might make sense to move all the large
+thread_struct-state (IA-32 registers, pmcs[], pmds[], dbr[], ibr[],
+and fph[]) into a separate "thread_lazy" structure and then put that
+structure at a place where it doesn't hurt (perhaps above the
+thread_info structure).  If I counted right, this state accounts for
+2KB so not copying it in copy_process() ought to speed up
+thread-creation significantly and avoid stomping needlessly on the L1
+d-cache.
 
-> Are you meaning 
-> 
-> synchronous MCA is caused within an execution context, for example
->     a process is doing a load and hits an exception
-> 
-> whereas a asynchronous MCA could happen when a line is written back
-> to main memory and this could happen outside of the process's context ?
+Anyone interested in playing with this idea?
 
-That's right.
-
-Thus, the platform should use data poisoning to get capacity of sending
-synchronous MCA instead of asynchronous MCA, even though the poisoning
-is not the best way.
-
-
-Thanks.
-
-------
-
-H.Seto <seto.hidetoshi@jp.fujitsu.com>
-
+	--david
