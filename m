@@ -1,7 +1,7 @@
-From: Markus Schaber <markus.schaber@student.uni-ulm.de>
-Date: Wed, 26 Mar 2003 12:32:39 +0000
+From: n0ano@n0ano.com
+Date: Wed, 26 Mar 2003 16:25:35 +0000
 Subject: Re: [parisc-linux] Re: [Linux-ia64] Linux, Itanium and PA/RISC
-Message-Id: <marc-linux-ia64-105590723705317@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705319@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705314@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705314@msgid-missing>
@@ -10,30 +10,40 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Well, Itanium's can sort of run any X86 software.
 
-m.delahaye@esiee.fr (Matthieu Delahaye) wrote:
+As David was alluding to there are two ways you can boot an Itanium
+box, either with an IA32 kernel (a current Pentium based OS) or an
+IA64 kernel.
 
-> > [...] 
-> > As far as I know, the PA-Risc instruction mapping is done with lots
-> > of software help. The concept is a bit like JIT-Compilers in Java.
-> > (It is easier to do this when having a RISC code with equal
-> > instruction length compared to ugly X86 code.) As long as my
-> > knowledge is correct, you therefore cannot run any PA-RISC OS
-> > directly on the Hardware, but you can run PA-RISC Software in any OS
-> > that supports the instruction mapping, maybe one can even run a
-> > PA-RISC OS inside a virtual PA-RISC Machine on Itaniums. (However I
-> > don't know any such VM.)
+If you boot an IA32 kernel the CPU will behave as an exact Pentium
+processor and execute all Pentium code.  The system will be slower
+than comparable Pentium processors but it should work exactly the
+same.  (Notice that I say `should', I've never done this, there could
+be chipset issues, I don't know of anyone who has done this but it
+should work.)
+
+If you boot an IA64 kernel then the CPU can execute IA32 user mode
+programs.  This means you can't run IA32 device drivers and it also
+means you need a fair amount of kernel support in order to run an
+IA32 application so the statement `without further software support'
+is a little inaccurate.
+
+On Wed, Mar 26, 2003 at 12:51:40PM +0100, Markus Schaber wrote:
+>
+>...
 > 
-> AFAIK, your knowledge correspond to what I know.
-[...]
-> But perhaps I didn't understand and you told me you already try it
-> following David's explanation ?
+> However, Itanium chips support X86 Emulation in Hardware, so they can
+> run any X86 Software without further software support (however, the
+> software is limited to the X86 capabilities regarding Memory Capacity
+> etc., and it is _really slow_, every P3/P4/Athlon at the same MHz is
+> uncomparable.)
+> 
+>...
 
-I didn't want to argue against you, because I think you're right. :-)
-
-I just wanted to clarify the difference between both "legacy"
-Architectures that the Itanium claims to support.
-
-Markus
+-- 
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@n0ano.com
+Ph: 303/447-2201
 
