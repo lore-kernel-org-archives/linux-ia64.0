@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Tue, 21 Jan 2003 17:39:25 +0000
-Subject: Re: [Linux-ia64] Error compiling 2.4.20 for i386
-Message-Id: <marc-linux-ia64-105590709805735@msgid-missing>
+From: "Bahnsen, Bruce" <bruce.bahnsen@intel.com>
+Date: Tue, 21 Jan 2003 18:52:01 +0000
+Subject: RE: [Linux-ia64] Error compiling 2.4.20 for i386
+Message-Id: <marc-linux-ia64-105590709805736@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805709@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805709@msgid-missing>
@@ -10,12 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday 16 January 2003 5:42 pm, Bahnsen, Bruce wrote:
-> I applied the ia64 patch to the 2.4.20 kernel (all from kernel.org). If I
-> try to compile i386 using the default config, I get the following compile
-> error:
-> 
-> setup.c:792: `enable_acpi_smp_table' undeclared (first use in this function)
+I applied the patch, and it booted just fine on i386. Maybe we are not too
+far from common source after all?
+
+Thanks,
+Bruce
 
 I seem to have mistakenly removed the declaration.  With the attached
 patch on top of 2.4.20-ia64-021210, I was able to build an i386 image
@@ -52,5 +51,4 @@ diff -Nru a/arch/i386/kernel/setup.c b/arch/i386/kernel/setup.c
  /*
   * This is set up by the setup-routine at boot-time
   */
-
 
