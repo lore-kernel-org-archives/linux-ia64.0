@@ -1,15 +1,20 @@
-From: Andries.Brouwer@cwi.nl
-Date: Thu, 04 Apr 2002 10:25:10 +0000
-Subject: Re: [util-linux] [Linux-ia64] mkswap.c ia64 fix  [patch]
-Message-Id: <marc-linux-ia64-105590701905374@msgid-missing>
+From: "Grover, Andrew" <andrew.grover@intel.com>
+Date: Mon, 29 Apr 2002 19:01:40 +0000
+Subject: RE: [ACPI] Re: [Linux-ia64] ACPI without PCI
+Message-Id: <marc-linux-ia64-105590701905538@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> mkswap fails to make large swap areas on IA64.  The patch is appended.
+> From: David Mosberger [mailto:davidm@napali.hpl.hp.com] 
+>   Keith> Either ia64 config.in must force PCI=y or acpi_osl must cope
+>   Keith> with PCI=n.
+> 
+> It seems to me the latter would be the cleaner solution.
 
-Thanks! Applied.
-Andries
+Agreed, we'll get on it.
+
+-- Andy
 
