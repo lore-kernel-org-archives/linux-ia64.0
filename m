@@ -1,27 +1,31 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 13 May 2003 00:29:30 +0000
-Subject: Re: [Linux-ia64] Re: new ia64 kernel patch (relative to 2.5.69)
-Message-Id: <marc-linux-ia64-105590723705743@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Fri, 23 May 2003 01:56:16 +0000
+Subject: [Linux-ia64] IA-32 emulation patch: ipc_perm32.patch
+Message-Id: <marc-linux-ia64-105590723706000@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705722@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705722@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 13 May 2003 09:38:15 +1000, Keith Owens <kaos@sgi.com> said:
+In the absence of the patch, this system call fails:
 
-  Keith> Not just exponential backoff.  Also kdb, checking for hung
-  Keith> spinlocks, calculating spinlock hold time plus any other
-  Keith> debugging or performance monitoring code that we can add now
-  Keith> that there is only one copy of the spinlock contention code.
-  Keith> They all need additional and separate sets of registers.
+shmctl(shmid, IPC_STAT, &shmid_ds) 
 
-Why do they need separate sets of registers?
+The patch corrects the definition of the ipc_perm32 structure.
 
-Please show some real code that justifies the number of registers you
-want to add.  The cost may be small, but it's certainly not zero.
+	-Arun
 
-	--david
+=== linux-ia64-2.4/arch/ia64/ia32/sys_ia32.c 1.16 vs edited ==--- 1.16/arch/ia64/ia32/sys_ia32.c	Fri Apr 18 10:55:20 2003
++++ edited/linux-ia64-2.4/arch/ia64/ia32/sys_ia32.c	Thu May 22 17:59:55 2003
+@@ -2085,7 +2085,7 @@
+ };
+ 
+ struct shmid64_ds32 {
+-	struct ipc64_perm shm_perm;
++	struct ipc64_perm32 shm_perm;
+ 	__kernel_size_t32 shm_segsz;
+ 	__kernel_time_t32 shm_atime;
+ 	unsigned int __unused1;
+
 
