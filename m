@@ -1,34 +1,42 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Tue, 05 Oct 2004 15:43:44 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Tue, 05 Oct 2004 15:48:42 +0000
 Subject: Re: [PATCH] 2.6 SGI Altix I/O code reorganization
-Message-Id: <200410050843.44265.jbarnes@engr.sgi.com>
+Message-Id: <20041005164842.A19754@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C647@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F0221C647@scsmsx401.amr.corp.intel.com>
+References: <200410042157.i94Lv7UC104750@fsgi900.americas.sgi.com>
+In-Reply-To: <200410042157.i94Lv7UC104750@fsgi900.americas.sgi.com>; from pfg@sgi.com on Mon, Oct 04, 2004 at 04:57:06PM -0500
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: Pat Gefre <pfg@sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Pat Gefre <pfg@sgi.com>
+Cc: tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Monday, October 4, 2004 10:13 pm, Luck, Tony wrote:
-> I'm ok with the delete/add of most of the SGI
-> specific files (maybe it still isn't perfect yet,
-> but it may be close enough to take it, and then
-> clean up with some small patches).
->
-> But you seem to be touching some files outside of pure SGI
-> stuff.  These two are a bit of a concern:
->
->   include/asm-ia64/io.h
+On Mon, Oct 04, 2004 at 04:57:06PM -0500, Pat Gefre wrote:
+> 
+> We have redone the I/O layer in the Altix code.
+> 
+> We've broken the patch set down to 2 patches. One to remove the files,
+> the other to add in the new code. Most of the changes from the last
+> posting are in response to review comments.
 
-Not sure about these changes...
+This looks pretty nice already, but a few small but important issues
+need sorting out.
 
->   arch/ia64/pci/pci.c
+ - The interface between pci_dma.c and the lowlevel code is still wrong -
+   and because of the additional 32bit direct translation in this code drop
+   it got even worse because you might be calling into a function just to
+   error out again.
+   Please implement my suggestions from month ago, it's not a lot of work.
+ - various sall baclls take bus_number and devfs but no pci domain, while
+   the normal SAL calls do, I think you should make the kernel code aware
+   of pci domains so the prom can introduce them seamlessly
+ - is doing SAL calls from irq context really safe?  Also why do you need
+   different SAL calls for shub vs ice error?  The prom should be easily
+   able to find out what hub a given nasid corresponds to.
+ - the patch reformats various unrelated or only slightly related files.
+   Please don't do that - in general the new style is better than the old
+   one, but it doesn't belong in this patchA
+ - there's a SNDRV_SHUB_GET_IOCTL_VERSION ioctl define added but never
+   used.  In fact it looks like all SNDRV_SHUB_ values are unused now?
 
-It looks like the only non-codingstyle change here is to make pci_root_ops 
-non-static (and btw, some of the CodingStyle fixups look wrong).  If it needs 
-to be non-static, it should be declared in a header file so we don't have to 
-extern it in sn_pci_fixup_bus.
 
-Jesse
