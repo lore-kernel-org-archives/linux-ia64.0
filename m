@@ -1,7 +1,7 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Date: Fri, 27 Feb 2004 07:11:36 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Fri, 27 Feb 2004 07:44:38 +0000
 Subject: RE: [Patch] speed up interrupt handling
-Message-Id: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDEBC@orsmsx402.jf.intel.com>
+Message-Id: <16446.62822.825187.768252@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16446.43280.853544.583305@wombat.disy.cse.unsw.edu.au>
 In-Reply-To: <16446.43280.853544.583305@wombat.disy.cse.unsw.edu.au>
@@ -10,20 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Is this related to NAPI?
-> 
-> I'll assume "the gigabit" card is e1000:
-> static void e1000_netpoll (struct net_device *dev) {
-> 	struct e1000_adapter *adapter = dev->priv;
-> 	disable_irq(adapter->pdev->irq);
-> 	e1000_intr (adapter->pdev->irq, dev, NULL);
-> 	enable_irq(adapter->pdev->irq);
-> }
+>>>>> "Scott" = Scott Feldman <Feldman> writes:
 
-e1000_netpoll() is for netdump (netconsole) support, not NAPI.
+>> Is this related to NAPI?
+>> 
+>> I'll assume "the gigabit" card is e1000: 
 
-NAPI uses dev->poll = e1000_clean.
+Nope, DP83820.  I'm benchmarking a driver that runs in userspace
+against the in-kernel driver; both benefit from the interrupt speedup.
 
-Unfortunate similar naming for unrelated things. :-(
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
 
--scott
