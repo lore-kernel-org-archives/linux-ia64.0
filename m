@@ -1,71 +1,26 @@
-From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
-Date: Fri, 10 Aug 2001 13:36:07 +0000
-Subject: [Linux-ia64] Mylex RAID & IA64 - processes sleeping in wait_on_buffer()/down()
-Message-Id: <marc-linux-ia64-105590698805053@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Mon, 27 Aug 2001 16:40:00 +0000
+Subject: [Linux-ia64] linux world expo
+Message-Id: <marc-linux-ia64-105590698805105@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Leonard, all,
+If you happen to attend Linux World Expo this week: at the HP booth,
+we'll be handing out a demo chapter of the IA-64 Linux book I have
+been working on for the past couple of months (with help from
+Stephane).  The handout includes 95% of the virtual memory chapter (we
+had to cut the last couple of pages for space reasons).  It's only a
+rough draft, but as the saying goes: it's the best description of the
+ia64 linux memory system currently available (at least that I'm aware
+of... ;-) So, if you're in the area, drop by, say hi, and pick up a
+copy.  I'll also be there Tue 2-3pm and Wed 12pm-1pm to give a brief
+ia64 linux update and to answer questions (but you can pick up a copy
+of the chapter any time).
 
-I have run some more tests and have better debugging tools available
-now (among other things, a Mylex debugging cable). I made two tests
-yesterday and today with similar outcomes.
+Cheers,
 
-Yesterday for the first time ever I saw no driver error message before
-the problems (hanging I/O) occured. Today a "NO SENSE ON WRITE" message
-was issued approx. 15 minutes before the test came to a halt.
-
-The serial console (debugging cable) showed the message
-"UnimplCmd 0pc0H IqpC1H".
-
-Here is the list of uninterruptibly sleeeping processes after the test
-stopped (today's test):
-
-$ ps -eo fname,pid,ppid,stat,state,nwchan,wchan | grep '\<D\>'
-rm        3023  1136 D    D 4fa710 wait_on_buffer
-rm        3036  1140 D    D 4fa710 wait_on_buffer
-cp        3055  3054 D    D 45fc90 down
-cp        3070  3069 D    D 45fc90 down
-rm        3075  1139 D    D 45fc90 down
-cp        3096  3095 D    D 45fc90 down
-
-The stack trace for both processes 3023 and 3036 is
-__wait_on_buffer - [lock_buffer] - unmap_buffer - block_flushpage -
-truncate_list_pages - truncate_inode_pages - iput - d_delete - vfs_unlink
-- sys_unlink.
-
-Obviously these processes wait forever for a buffer head to get unlocked.
-
-The other processes sleep on a the semaphore of the indode of an dentry
-(dentry->d_inode->i_sem). These semaphores are most likely blocked by
-either PID 3023 or 3036.
-
-Upon further inquiry into the DAC960 code, I found that the driver uses
-virt_to_bus() to get DMA addresses, which is deprecated on 64 bit
-architectures (comments in asm-ia64/io.h recommend to use
-pci_map_single()/pci_unmap_single() instead).
-
-I suspect that this may have
-something to do with the problems we are encountering, although
-pci_map_single() basically calls virt_to_phys() if a controller is
-capable of 64 bit addressing. A difference can be seen in
-pci_unmap_single(), where the buffer pages are marked clean after the DMA
-is processed. Although it makes not much sense that this should cause
-problems as those described above, it is at least a starting point.
-It would be interesting to know in this regard if it is planned to use the
-pci map interface for the DAC960 driver in the not-so-far future.
-
-Regards,
-Martin
-
--- 
-Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
-FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
-
-
-
-
+	--david
 
