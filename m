@@ -1,75 +1,68 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Tue, 26 Aug 2003 16:24:43 +0000
-Subject: Re: serial legacy ports and ACPI
-Message-Id: <marc-linux-ia64-106191580620525@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 16 Aug 2003 01:20:18 +0000
+Subject: bk pull on ia64 linux tree
+Message-Id: <marc-linux-ia64-106099683723888@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105761215001812@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105761215001812@msgid-missing>
+References: <marc-linux-ia64-105942507026161@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105942507026161@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jes Sorensen wrote:
-> 
-> I had a chat with Grant and Matthew about is a little while ago (and
-> possibly a few other people whom I can't remember right now) and we
-> basically came to a similar conclusion. Once I find a bit more time,
-> I'd like to introduce an interface along the lines of
-> 
->         legacy_device_present(LEGACY_{IDE,SERIAL,PARALLEL})
-> 
-> This could be quite useful for other architectures as well I believe.
+Hi Linus,
 
-Jes,
+Just a few small fixes/cleanups:
 
-   Digging up an old topic.  I started looking at this from a serial
-port numbering perspective and came up with a fairly simple way for
-the architecure code to handle it on it's own.  Here's my idea vs
-2.6:
+	bk pull http://lia64.bkbits.net/to-linus-2.5
 
---- linux/arch/ia64/kernel/acpi.c
-+++ linux/arch/ia64/kernel/acpi.c
-@@ -41,6 +41,9 @@
- #include <linux/irq.h>
- #include <linux/acpi.h>
- #include <linux/efi.h>
-+#include <linux/tty.h>
-+#include <linux/serial.h>
-+#include <linux/serial_core.h>
- #include <asm/io.h>
- #include <asm/iosapic.h>
- #include <asm/machvec.h>
-@@ -530,6 +533,20 @@
-        if (!(fadt->iapc_boot_arch & BAF_8042_KEYBOARD_CONTROLLER))
-                acpi_kbd_controller_present = 0;
- 
-+#ifdef CONFIG_SERIAL_8250
-+       if (!(fadt->iapc_boot_arch & BAF_LEGACY_DEVICES)) {
-+               int i;
-+               struct uart_port port;
-+
-+               memset(&port, 0, sizeof(port));
-+
-+               for (i = 0 ; i < 4 ; i++) {
-+                       port.line = i;
-+                       early_serial_setup(&port);
-+               }
-+       }
-+#endif
-+
-        acpi_register_irq(fadt->sci_int, ACPI_ACTIVE_LOW, ACPI_LEVEL_SENSITIVE);
-        return 0;
- }
+This will update the files shown below.
 
-   This example only hits the first 4 ports, but we could clear the whole
-table if we decide that's the right thing to do.  Does anybody really
-use EXTRA_SERIAL_PORT_DEFNS and HUB6_SERIAL_PORT_DFNS or should those
-be considered "legacy" as well?  The serial port part of this problem
-kind of feels like an architecture problem since we start out passing
-in a table of serial ports to probe.  Thoughts?
+Thanks!
 
-	Alex
+	--david
 
--- 
-Alex Williamson                             HP Linux & Open Source Lab
+ arch/ia64/ia32/sys_ia32.c     |   12 +-
+ arch/ia64/kernel/efivars.c    |   98 ++++++++++++++++---
+ arch/ia64/kernel/entry.S      |    4 
+ arch/ia64/kernel/mca.c        |   11 ++
+ include/asm-ia64/sn/nodepda.h |    3 
+ include/asm-ia64/unistd.h     |  212 +++++++++++++++++++++++++-----------------
+ 6 files changed, 232 insertions(+), 108 deletions(-)
+
+through these ChangeSets:
+
+<davidm@tiger.hpl.hp.com> (03/08/15 1.1138)
+   ia64: Make things compile with gcc-pre3.4 and work on the simulator.
+
+<davidm@tiger.hpl.hp.com> (03/08/15 1.1137)
+   entry.S:
+     ia64: Fix prologue directives for sys_clone() and sys_clone2()
+
+<bjorn.helgaas@hp.com> (03/08/13 1.1046.562.24)
+   [PATCH] ia64: export EFI systab
+   
+   I know this probably needs to get exported somewhere other than
+   /proc, but the rest of efivars is still in /proc and if somebody does
+   convert efivars, they might as well do this systab bit at the same
+   time.
+
+<bjorn.helgaas@hp.com> (03/08/13 1.1046.562.23)
+   [PATCH] ia64: Trivial 2.5 efivars.c whitespace cleanup
+   
+   Convert leading spaces to tabs.
+
+<peterc@gelato.unsw.edu.au> (03/08/13 1.1046.562.22)
+   [PATCH] ia64: Kill warnings in sys_ia32.c
+   
+   This patch kills compilation warnings in sys_ia32.c.
+
+<davidm@tiger.hpl.hp.com> (03/08/13 1.1046.562.21)
+   ia64: Patch by Peter Chubb: Kill _syscallX macros that generate lots of
+   warnings, in favour of inline syscalls for clone() and execve(), and direct
+   calling of kernel functions for other system calls.
+
+<jbarnes@sgi.com> (03/08/13 1.1046.562.20)
+   [PATCH] ia64: is_headless_node fix
+   
+   Fix is_headless_node() macro to use node_to_cpumask().
