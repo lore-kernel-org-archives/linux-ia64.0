@@ -1,39 +1,45 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Thu, 31 Jul 2003 20:28:57 +0000
-Subject: Re: [PATCH] more discontig fun
-Message-Id: <marc-linux-ia64-105968336018313@msgid-missing>
+From: Martin Pool <mbp@samba.org>
+Date: Tue, 29 Jul 2003 08:28:04 +0000
+Subject: MCA OS INIT from TOC button on rx6000?
+Message-Id: <marc-linux-ia64-105946742524614@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105942849830042@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105942849830042@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jul 31, 2003 at 09:10:06AM -0700, jbarnes wrote:
-> On Wed, Jul 30, 2003 at 05:32:50PM -0700, David Mosberger wrote:
-> > 
-> >   Jesse> On Wed, Jul 30, 2003 at 10:17:13AM -0700, Jesse Barnes wrote:
-> >   >> Ok, I'll fix this too.  Thanks for looking at it.
-> > 
-> >   Jesse> Does this look better?
-> > 
-> > Not really.
-> > 
-> >   Jesse> -efi_memmap_walk (efi_freemem_callback_t callback, void *arg)
-> >   Jesse> +efi_memmap_walk (efi_freemem_callback_t callback, void *arg, void *arg2)
-> > 
-> > Why is this necessary?  Why not just pack that extra argument into a
-> > structure and pass the whole thing to "arg"?
-> 
-> Duh.  But now that I've gone through the exercise, it seems like the
-> whole callback mechanism is a bit heavyweight (not to mention quite
-> obtuse).  But I guess that's another patch...
+I just ran up 2.5.72 on an hp rx6000 in the hope of testing MCA
+handling.  Some of the documentation lead me to believe that pressing
+the TOC button on the back of the machine ought to cause an MCA that
+would print out the machine state.  But when I do that, the machine
+just stops dead.
 
-Now that I look at this, I'm not quite sure what you'd like.  Would you
-like all efi_memmap_walk calls to take a struct args with a function
-pointer and argument or just filter_rsvd_memory?  Or would you like to
-see it cleaned up in some other way?
+We built the kernel with 
 
-Thanks,
-Jesse
+CONFIG_IA64_MCA=y
+
+and I defined IA64_MCA_DEBUG_INFO in asm-ia64/mca.h.  The machine is
+using the VGA console.
+
+At bootup it does seem to be successfully talking to PAL to set this
+up
+
+Jul 30 03:13:44 caosc-zx6000 kernel: ia64_mca_init: begin
+Jul 30 03:13:44 caosc-zx6000 kernel: ia64_mca_init: registered mca rendezvous spinloop and wakeup mech.
+Jul 30 03:13:44 caosc-zx6000 kernel: ia64_mca_init: registered os mca handler with SAL at 0x404d620, gp = 0x488a930
+Jul 30 03:13:44 caosc-zx6000 kernel: ia64_mca_init: os init handler at 404e700
+Jul 30 03:13:44 caosc-zx6000 kernel: ia64_mca_init: registered os init handler with SAL
+Jul 30 03:13:44 caosc-zx6000 kernel: ia64_mca_platform_init: CPU 0 corrected machine check vector 0x1f setup and enabled.
+Jul 30 03:13:44 caosc-zx6000 kernel: ia64_mca_platform_init: CPU 0 CMCV = 0x0000000000001f
+...
+Jul 30 03:13:46 caosc-zx6000 kernel: ia64_mca_cpe_int_handler: received interrupt. CPU:0 vector = 0x0
+
+There are no messages when I press TOC; the machine just stops.  The
+behaviour is the same under RH 7.1AS.
+
+Could it be that this needs a serial console?
+
+I'd appreciate any suggestions.
+
+-- 
+Martin 
