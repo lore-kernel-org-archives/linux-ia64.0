@@ -1,7 +1,7 @@
-From: "Grover, Andrew" <andrew.grover@intel.com>
-Date: Tue, 04 Jun 2002 17:13:43 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 04 Jun 2002 18:36:04 +0000
 Subject: RE: [Linux-ia64] Question about wbinvd
-Message-Id: <marc-linux-ia64-105590701905637@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905638@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905635@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905635@msgid-missing>
@@ -10,21 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> From: Matthew Wilcox [mailto:willy@debian.org] 
-> If you look at the latest ACPI patch (20020517), you will see:
-> 
-> -       wbinvd();
-> +       ACPI_FLUSH_CPU_CACHE ();
-> 
-> On i386, ACPI_FLUSH_CPU_CACHE is defined to be wbinvd, but on 
-> ia64 it is
-> defined to be a no-op.  So the wbinvd in the ACPI code is no 
-> longer used.
-> I presume it was decided it is not necessary.
+>>>>> On Tue, 4 Jun 2002 10:13:43 -0700, "Grover, Andrew" <andrew.grover@intel.com> said:
 
-I don't know if it is not necessary or not. We changed it because "wbinvd"
-is a IA32-ism. IA64 may need to define ACPI_FLUSH_CPU_CACHE to something
-appropriate.
+  Andy> I don't know if it is not necessary or not. We changed it
+  Andy> because "wbinvd" is a IA32-ism. IA64 may need to define
+  Andy> ACPI_FLUSH_CPU_CACHE to something appropriate.
 
-Regards -- Andy
+The current implementation is most likely broken.  I'm not exactly
+sure what the requirements of ACPI_FLUSH_CPU_CACHE are, that's why I'm
+saying "most likely".  I suspect it ought to be using the SAL rather
+than the PAL flush cache routines (so that off-chip caches get
+flushed, too).  Also, IIRC, the latest interpretation of the SAL
+cache-flush routines is that they flush the caches only on the CPU
+that is making the call.  So, if the intent is to flush all the caches
+on all CPUs, an IPI would be needed.
+
+	--david
 
