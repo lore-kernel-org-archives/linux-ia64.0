@@ -1,52 +1,40 @@
-From: "Zhu, Yi" <yi.zhu@intel.com>
-Date: Wed, 02 Jul 2003 00:45:49 +0000
-Subject: RE: [Linux-ia64] RTC support on ia64
-Message-Id: <marc-linux-ia64-105710698522482@msgid-missing>
+From: Bruno Cornec <Bruno.Cornec@hp.com>
+Date: Tue, 22 Jul 2003 12:32:54 +0000
+Subject: a nice way to reboot :-)
+Message-Id: <marc-linux-ia64-105887789030732@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805600@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805600@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+Hello,
 
-Thanks both! I got realfeel4 work!
+Intrigued by a problem reported by a customer (tar cf /dev/st0 /) and remem=
+bering
+another issue I had, I tried to investigate a bit and found the following.
 
--yi
+On Linux/ia64 when you do cat /proc/kcore, the system just reboots in a cou=
+ple
+of seconds (with RHAS 2.1 std kernel, updated kernel - 2.4.18-e.31) or even=
+ with a=20
+vanilla 2.4.21 + david's patches.
+On Linux/i386, no such problem. As I have seen it on zx2000, rx4670, I thin=
+k it's
+not an isolated case.=20
 
-> -----Original Message-----
-> From: Eric Piel [mailto:Eric.Piel@Bull.Net]
-> Sent: Tuesday, July 01, 2003 8:15 PM
-> To: Zhu, Yi
-> Cc: Joel GUILLET; linux-ia64@vger.kernel.org
-> Subject: Re: [Linux-ia64] RTC support on ia64
-> 
-> 
-> "Zhu, Yi" wrote:
-> > 
-> > Hi Joel,
-> > 
-> > Do you have the ia64 rtc patch for 2.4 kernel? I need the rtc
-> > driver to test the latency with realfeel.
-> 
-> Hello Yi,
-> Joel was a trainee, so he's not here anymore and I'm the new one.
-> 
-> We do not have any 2.4 version but the backport shouldn't be 
-> hard. When
-> Joel did this patch it was also in order to get realfeel working.
-> The point is that it seems on ia64 measuring latencies using 
-> the perfmon
-> capabilities of the processor is a much better idea.
-> 
-> Peter Chubb even developed a small realfeel equivalent that 
-> does exactly
-> that! It should work both on 2.4 and 2.5 kernels. You can 
-> find it on the
-> perfmon homepage and at this address:
-> http://www.gelato.unsw.edu.au/patches/realfeel4.c
-> 
-> Cheers
-> Eric
-> 
+Could you confirm on other type of machines ? And more smarter people could=
+ even=20
+probably provide a patch.
+
+Thanks in advance,
+Bruno.
+--=20
+Linux Solution Consultant         T=E9l: +33 476 143 278 - Fax: +33 476 146=
+ 105
+HP/Intel Solution Center http://hpintelco.net Hewlett-Packard Grenoble/Fran=
+ce
+Des infos sur Linux?  http://www.HyPer-Linux.org      http://www.hp.com/lin=
+ux
+La musique ancienne?  http://www.musique-ancienne.org http://www.medieval.o=
+rg
