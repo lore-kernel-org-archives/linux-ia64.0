@@ -1,47 +1,85 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 18 Mar 2005 06:38:10 +0000
-Subject: [patch] fix syscall-optimization goof
-Message-Id: <200503180638.j2I6cAhP000415@napali.hpl.hp.com>
+From: Rajesh Shah <rajesh.shah@intel.com>
+Date: Fri, 18 Mar 2005 22:20:17 +0000
+Subject: [patch 11/12] Export the interface to get PCI id for an ACPI handle
+Message-Id: <20050318142017.K1145@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050318133856.A878@unix-os.sc.intel.com>
+In-Reply-To: <20050318133856.A878-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from rajesh.shah-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Fri, Mar 18, 2005 at 01:38:57PM -0800
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: gregkh-l3A5Bk7waGM@public.gmane.org, tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Cc: linux-pci-jyMamyUUXNJG4ohzP4jBZS1Fcj925eT/@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pcihpd-discuss-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 
-[Resend with list-addres corrected...]
+Export an acpi interface to get PCI domain/bus/devfn information
+from the corresponding namespace handle. Used by acpiphp code
+to transpate the device handle of the hot-plugged root bridge to
+the corresponding pci location information.
 
-Sadly, I goofed in this syscall-tuning patch:
+Signed-off-by: Rajesh Shah <rajesh.shah@intel.com>
+---
 
-ChangeSet 1.1966.1.40 2005/01/22 13:31:05 davidm@hpl.hp.com
-  [IA64] Improve ia64_leave_syscall() for McKinley-type cores.
+ linux-2.6.11-mm4-iohp-rshah1/drivers/acpi/pci_bind.c     |   11 +++++------
+ linux-2.6.11-mm4-iohp-rshah1/include/acpi/acpi_drivers.h |    1 +
+ 2 files changed, 6 insertions(+), 6 deletions(-)
 
-  Optimize ia64_leave_syscall() a bit better for McKinley-type cores.
-  The patch looks big, but that's mostly due to renaming r16/r17 to r2/r3.
-  Good for a 13 cycle improvement.
-
-The problem is that the size of the physical stacked registers was
-loaded into the wrong register (r3 instead of r17).  Since r17 by
-coincidence always had the value 1, this had the effect of turning
-rse_clear_invalid into a no-op.  That poses the risk of leaking kernel
-state back to user-land and is hence not acceptable.
-
-The fix below is simple, but unfortunately it costs us about 28 cycles
-in syscall overhead. ;-(
-
-Unfortunately, there isn't much we can do about that since those
-registers have to be cleared one way or another.
-
-	--david
-
-=== arch/ia64/kernel/entry.S 1.80 vs edited ==--- 1.80/arch/ia64/kernel/entry.S	2005-01-28 16:37:04 -08:00
-+++ edited/arch/ia64/kernel/entry.S	2005-03-17 22:30:15 -08:00
-@@ -759,8 +759,8 @@
- 	ld8.fill r15=[r3]	// restore r15
- 	addl r3=THIS_CPU(ia64_phys_stacked_size_p8),r0
- 	;;
--(pUStk)	ld4 r3=[r3]		// r3 = cpu_data->phys_stacked_size_p8
- (pUStk) st1 [r14]=r17
-+(pUStk)	ld4 r17=[r3]		// r17 = cpu_data->phys_stacked_size_p8
- 	mov b6=r18		// I0  restore b6
- 	;;
- 	mov r14=r0		// clear r14
+diff -puN drivers/acpi/pci_bind.c~acpi-get-pci-id drivers/acpi/pci_bind.c
+--- linux-2.6.11-mm4-iohp/drivers/acpi/pci_bind.c~acpi-get-pci-id	2005-03-16 13:07:39.028647689 -0800
++++ linux-2.6.11-mm4-iohp-rshah1/drivers/acpi/pci_bind.c	2005-03-16 13:07:39.141928937 -0800
+@@ -61,15 +61,14 @@ acpi_pci_data_handler (
+ 
+ 
+ /**
+- * acpi_os_get_pci_id
++ * acpi_get_pci_id
+  * ------------------
+  * This function is used by the ACPI Interpreter (a.k.a. Core Subsystem)
+  * to resolve PCI information for ACPI-PCI devices defined in the namespace.
+  * This typically occurs when resolving PCI operation region information.
+  */
+-#ifdef ACPI_FUTURE_USAGE
+ acpi_status
+-acpi_os_get_pci_id (
++acpi_get_pci_id (
+ 	acpi_handle		handle,
+ 	struct acpi_pci_id	*id)
+ {
+@@ -78,7 +77,7 @@ acpi_os_get_pci_id (
+ 	struct acpi_device	*device = NULL;
+ 	struct acpi_pci_data	*data = NULL;
+ 
+-	ACPI_FUNCTION_TRACE("acpi_os_get_pci_id");
++	ACPI_FUNCTION_TRACE("acpi_get_pci_id");
+ 
+ 	if (!id)
+ 		return_ACPI_STATUS(AE_BAD_PARAMETER);
+@@ -92,7 +91,7 @@ acpi_os_get_pci_id (
+ 	}
+ 
+ 	status = acpi_get_data(handle, acpi_pci_data_handler, (void**) &data);
+-	if (ACPI_FAILURE(status) || !data || !data->dev) {
++	if (ACPI_FAILURE(status) || !data) {
+ 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR, 
+ 			"Invalid ACPI-PCI context for device %s\n",
+ 			acpi_device_bid(device)));
+@@ -115,7 +114,7 @@ acpi_os_get_pci_id (
+ 
+ 	return_ACPI_STATUS(AE_OK);
+ }
+-#endif  /*  ACPI_FUTURE_USAGE  */
++EXPORT_SYMBOL(acpi_get_pci_id);
+ 
+ 	
+ int
+diff -puN include/acpi/acpi_drivers.h~acpi-get-pci-id include/acpi/acpi_drivers.h
+--- linux-2.6.11-mm4-iohp/include/acpi/acpi_drivers.h~acpi-get-pci-id	2005-03-16 13:07:39.033530501 -0800
++++ linux-2.6.11-mm4-iohp-rshah1/include/acpi/acpi_drivers.h	2005-03-16 13:07:39.142905500 -0800
+@@ -68,6 +68,7 @@ void acpi_pci_irq_del_prt (int segment, 
+ 
+ struct pci_bus;
+ 
++acpi_status acpi_get_pci_id (acpi_handle handle, struct acpi_pci_id *id);
+ int acpi_pci_bind (struct acpi_device *device);
+ int acpi_pci_unbind (struct acpi_device *device);
+ int acpi_pci_bind_root (struct acpi_device *device, struct acpi_pci_id *id, struct pci_bus *bus);
+_
