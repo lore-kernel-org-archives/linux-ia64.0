@@ -1,31 +1,56 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 05 Jan 2001 19:17:52 +0000
-Subject: Re: [Linux-ia64] CR[TPR] initialization in test12 kernel
-Message-Id: <marc-linux-ia64-105590678205884@msgid-missing>
+Date: Fri, 05 Jan 2001 19:09:46 +0000
+Subject: Re: [Linux-ia64] applying patch
+Message-Id: <marc-linux-ia64-105590678205881@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Hirofumi,
+Hi Hiren,
 
->>>>> On Thu, 21 Dec 2000 17:20:12 +0900, Hirofumi Fujita <h-fujita@ebina.hitachi.co.jp> said:
+The patches go on top of the corresponding tree from Linus.  For
+example, linux-2.4.0-test12-ia64-001214.diff.bz2 goes on top of
+Linus's linux-2.4.0-test12 tree.
 
-  Hirofumi> Hi, In test12 kernel, CR[TPR] is not initialized for APs
-  Hirofumi> (application processors).
+On a related note: for those using the test12 tree, be sure to make
+the following change after applying the IA-64 patch.  Without this
+change, bad crashes can occur on systems with <2GB of RAM (it can
+happen on systems with >=2GB of RAM too, but it's much less likely to
+occur):
 
-  Hirofumi> SAL spec says nothing about it's value at SAL to OS
-  Hirofumi> handoff, but we cannot expect it has been set to 0.  So it
-  Hirofumi> should be set to 0 when interrupts are enabled in
-  Hirofumi> smp_callin().
+	Change line 330 in arch/ia64/lib/swiotlb.c from:
 
-  Hirofumi> BSP's CR[TPR] is correctly initialized in init_IRQ().
+		set_bit(PG_arch_1, &virt_to_page(pg_addr));
+	to
+		struct page *page = virt_to_page(pg_addr);
+		set_bit(PG_arch_1, &page->flags);
 
-Good point.  I moved the initialization of the CPU-local irq sources
-into init_cpu(), where it should have been in the first place.
-
-Thanks!
+Hope this helps,
 
 	--david
+
+>>>>> On Thu, 28 Dec 2000 17:30:28 -0700, hiren_mehta@agilent.com said:
+
+  Hiren> Hi All, I looked at the
+  Hiren> http://www.kernel.org/pub/linux/kernel/ports/ia64/
+  Hiren> directory. The directory has only one big .tar.gz file with
+  Hiren> kernel sources and the rest of the files are patches. After I
+  Hiren> looked at the directory, I got totally confused as there are
+  Hiren> readme files which can tell me how to use the patches and
+  Hiren> what should be the base kernel to apply the patch. Is it
+  Hiren> that, the big tar.gz file should be the base kernel and then
+  Hiren> I need to apply all the patches appearing in the directory or
+  Hiren> that I need to apply only a specific patch ?
+
+  Hiren> If there is any readmes or any other information regarding
+  Hiren> the patches please send me the URL so that I can go through
+  Hiren> that.
+
+  Hiren> Thanks and regards, -hiren
+
+  Hiren> _______________________________________________ Linux-IA64
+  Hiren> mailing list Linux-IA64@linuxia64.org
+  Hiren> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
