@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 09 Feb 2005 00:59:49 +0000
-Subject: Re: [patch 2.6.11-rc3-bk4] Correctly dereference ia64_mca_data
-Message-Id: <20050209005949.GD22678@esmail.cup.hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 10 Feb 2005 00:18:16 +0000
+Subject: RE: [patch 2.6.11-rc3-bk4] Correctly dereference ia64_mca_data
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02E2BD9D@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <23464.1107851114@kao2.melbourne.sgi.com>
 In-Reply-To: <23464.1107851114@kao2.melbourne.sgi.com>
@@ -10,16 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Feb 08, 2005 at 03:45:25PM -0800, Luck, Tony wrote:
-> 2) I saw one user process failure ... while stressing the system with a
-> "make -j16" kernel build, one of the complilations error'd out with a
-> bizarre internal gcc error.  So possibly a register was corrupted???
+>Likely yes.
+>That's one of two errors I see on parisc-linux when a register
+>is corrupted (segfaults are the symptom). And unfortunately
+>the context switching has a corner case the tickles that bug
+>on a regular basis. :^(
 
-Likely yes.
-That's one of two errors I see on parisc-linux when a register
-is corrupted (segfaults are the symptom). And unfortunately
-the context switching has a corner case the tickles that bug
-on a regular basis. :^(
+I wrote a test program that loads up random values into registers
+(just r1-r31, a bunch of stacked registers, and f2-f127 for now)
+and then checks that all the registers haven't changed value a
+few thousand times, before reloading with a new set of random
+values.
 
-hth,
-grant
+I'm running that along with an MCA every 15 seconds.
+
+It just went bang, saying that "f6" was corrupted ... but I'm
+not doing the right things to tickle the corner case on a regular
+basis ... so I only have the one data point so far.
+
+-Tony
