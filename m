@@ -1,32 +1,30 @@
-From: Juan Quintela <quintela@mandrakesoft.com>
-Date: Wed, 05 Feb 2003 19:51:00 +0000
-Subject: [Linux-ia64] Re: MAINTAINERS update for 2.4 SN support
-Message-Id: <marc-linux-ia64-105590709805819@msgid-missing>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Thu, 20 Feb 2003 03:28:24 +0000
+Subject: [Linux-ia64] Re: GPT_HEADER_REVISION_V1_02
+Message-Id: <marc-linux-ia64-105590709805884@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805813@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805813@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "jesse" = Jesse Barnes <jbarnes@sgi.com> writes:
+> We'll issue a clarification on this topic. For now, can we have parted
+> revert to GPT_HEADER_REVISION_V1_00 ?
 
-jesse> Just a quick add of John Hesterberg as official maintainer of SN
-jesse> support in the 2.4 tree.
+No objections.  Will you be submitting a patch, or should I?
 
-Hi
-        it is just me, or there exist a new toplevel domain that I
-        didn't know about?
+With this change, any time the partition table is updated, the old
+version will get wiped out and replaced with the new version, which I
+believe is the desired behavior.
 
-To: marcelo@freak.distro.conectiva
-
-I think that your mail are not going to reach marcelo :p
-
-Later, Juan.
-
+Thanks,
+Matt
 
 -- 
-In theory, practice and theory are the same, but in practice they 
-are different -- Larry McVoy
+Matt Domsch
+Sr. Software Engineer, Lead Engineer, Architect
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+
+
 
