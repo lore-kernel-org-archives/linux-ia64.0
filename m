@@ -1,33 +1,40 @@
-From: Roman Zippel <zippel@linux-m68k.org>
-Date: Fri, 14 Jan 2005 12:02:28 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 14 Jan 2005 16:52:46 +0000
 Subject: Re: page table lock patch V15 [0/7]: overview
-Message-Id: <Pine.LNX.4.61.0501141255130.30794@scrub.home>
+Message-Id: <Pine.LNX.4.58.0501140838240.27382@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0501041129030.805@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0501041137410.805@schroedinger.engr.sgi.com> <m1652ddljp.fsf@muc.de>
- <Pine.LNX.4.58.0501110937450.32744@schroedinger.engr.sgi.com>
- <41E4BCBE.2010001@yahoo.com.au> <20050112014235.7095dcf4.akpm@osdl.org>
- <Pine.LNX.4.58.0501120833060.10380@schroedinger.engr.sgi.com>
- <20050112104326.69b99298.akpm@osdl.org> <Pine.LNX.4.58.0501121055490.11169@schroedinger.engr.sgi.com>
- <41E73EE4.50200@linux-m68k.org> <20050114041421.GA41559@muc.de>
-In-Reply-To: <20050114041421.GA41559@muc.de>
+References: <41E5AFE6.6000509@yahoo.com.au> <20050112153033.6e2e4c6e.akpm@osdl.org>
+ <41E5B7AD.40304@yahoo.com.au> <Pine.LNX.4.58.0501121552170.12669@schroedinger.engr.sgi.com>
+ <41E5BC60.3090309@yahoo.com.au> <Pine.LNX.4.58.0501121611590.12872@schroedinger.engr.sgi.com>
+ <20050113031807.GA97340@muc.de> <Pine.LNX.4.58.0501130907050.18742@schroedinger.engr.sgi.com>
+ <20050113180205.GA17600@muc.de> <Pine.LNX.4.58.0501131701150.21743@schroedinger.engr.sgi.com>
+ <20050114043944.GB41559@muc.de>
+In-Reply-To: <20050114043944.GB41559@muc.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andi Kleen <ak@muc.de>
-Cc: Christoph Lameter <clameter@sgi.com>, Andrew Morton <akpm@osdl.org>, nickpiggin@yahoo.com.au, torvalds@osdl.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, torvalds@osdl.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 
-Hi,
+On Thu, 14 Jan 2005, Andi Kleen wrote:
 
-On Fri, 14 Jan 2005, Andi Kleen wrote:
+> > I think this is not necessary. Most IA32 processors do 64
+> > bit operations in an atomic way in the same way as IA64. We can cut out
+> > all the stuff we put in to simulate 64 bit atomicity for i386 PAE mode if
+> > we just use convince the compiler to use 64 bit fetches and stores. 486
+>
+> That would mean either cmpxchg8 (slow) or using MMX/SSE (even slower
+> because you would need to save FPU stable and disable
+> exceptions).
 
-> > But there might be a loss in the UP case. Spinlocks are optimized away, 
-> > but your cmpxchg emulation enables/disables interrupts with every access.
-> 
-> Only for 386s and STI/CLI is quite cheap there.
+It strange that the instruction set does not contain some simple 64bit
+store or load and the FPU state seems to be complex to manage...sigh.
 
-But it's still not free and what about other archs? Why not just check 
-__HAVE_ARCH_CMPXCHG and provide a replacement, which is guaranteed cheaper 
-if no interrupt synchronisation is needed. 
+Looked at  arch/i386/lib/mmx.c. It avoids the mmx ops in an interrupt
+context but the rest of the prep for mmx only saves the fpu state if its
+in use. So that code would only be used rarely. The mmx 64 bit
+instructions seem to be quite fast according to the manual. Double the
+cycles than the 32 bit instructions on Pentium M (somewhat higher on Pentium 4).
 
-bye, Roman
+One could simply do a movq.
+
