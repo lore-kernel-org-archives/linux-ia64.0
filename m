@@ -1,41 +1,39 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 05 Jun 2002 17:34:42 +0000
+From: Jim Wilson <wilson@redhat.com>
+Date: Thu, 13 Jun 2002 23:40:48 +0000
 Subject: Re: [Linux-ia64] Back to the future: which gcc for kernel 2.4.18 ?
-Message-Id: <marc-linux-ia64-105590701905643@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905673@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905641@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905641@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 5 Jun 2002 17:28:54 +0200 (DFT), Xavier Bru  <Xavier.Bru@bull=
-.net> said:
+>Building kernel 2.4.18 for ia64 with gcc version 2.96 20000731 , it
+>seems that there is some problem with code generation in the 
+>ia64_log_rec_header_print() routine that prints MCA informations:
+>year appears to be 18002 :-)
+>Looking at the code with gdb, it seems that the generated code uses
+>the f6 register without ininitializing:
 
-  Xavier> Building kernel 2.4.18 for ia64 with gcc version 2.96
-  Xavier> 20000731 , it seems that there is some problem with code
-  Xavier> generation in the ia64_log_rec_header_print() routine that
-  Xavier> prints MCA informations: year appears to be 18002 :-)
+I've tracked this down to a reload (register allocator) problem.  It looks
+to be very rare, and it looks like it is still present in current gcc sources.
+However, I'm not sure about that at the moment, as there are many possible
+solutions, and it is possible someone implemented a non-obvious one.  I'm
+continuing to look at this.  I want to try to reproduce it with current gcc
+sources before I try to fix it.
 
-  Xavier> Looking at the code with gdb, it seems that the generated
-  Xavier> code uses the f6 register without ininitializing: ...
-  Xavier> 0xe0000000044351f1 <ia64_log_rec_header_print+337>: xmpy.l
-  Xavier> f6=F6,f7 ...
+>I tried using gcc3 (gcc version 3.0.2 20010905), but I get an internal 
+>compiler error when I build the kernel.
 
-Yes, I just tried with gcc 2.96 and I see this too: f6 is used twice
-without being initialized anywhere in the routine.
+I don't know what compiler you are refering to.  That doesn't look like an FSF
+version number, and I don't know of any Red Hat compiler release with that
+version number.
 
-  Xavier> I tried using gcc3 (gcc version 3.0.2 20010905), but I get
-  Xavier> an internal compiler error when I build the kernel.
+In any case, gcc 3.0 for IA-64 is not very interesting.  It wasn't adopted by
+anybody that I know of for various reasons, so it never got stress tested and
+is unlikely to be reliable.  Use gcc 3.1 instead.
 
-Haven't tried 3.0.2, but gcc3.1 compiles the code fine and without the
-"f6-bug" (but this may be just luck, because gcc3.1 doesn't use xma at
-all for this routine).
-
-Can you narrow down the bug and report it to the gcc folks?  It would
-be good to know that gcc3.1 really gets it right (and doesn't just get
-lucky).
-
-	--david
+Jim
 
