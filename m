@@ -1,33 +1,46 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Fri, 16 Jul 2004 22:43:29 +0000
-Subject: Re: problem with ski & NUE
-Message-Id: <16632.23057.187943.381226@wombat.chubb.wattle.id.au>
+From: Paul Jackson <pj@sgi.com>
+Date: Sun, 04 Jul 2004 02:19:06 +0000
+Subject: [patch] Fix ia64 UPF_RESOURCES pcdp.c 2.6.7-mm5 build
+Message-Id: <20040704021907.32029.98969.47514@sam.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040715133007.46413.qmail@web14205.mail.yahoo.com>
-In-Reply-To: <20040715133007.46413.qmail@web14205.mail.yahoo.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org, David Mosberger <davidm@hpl.hp.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, bjorn.helgaas@hp.com
+Cc: Matt Tolentino <matthew.e.tolentino@intel.com>, Russell King <rmk@arm.linux.org.uk>, Paul Jackson <pj@sgi.com>
 
->>>>> "Daniele" = Daniele Velardi <leoaprilia@yahoo.com> writes:
+It looks like someone removed UPF_RESOURCES in remove-upf_resources.patch
+in parallel with someone adding drivers/firmware/pcdp.c that references
+UPF_RESOURCES.
 
-Daniele> on my OS is already installed glibc 2.3.2 (suse 9.0)!  don't
-Daniele> seem a problem!  For install the ski version 0.981 form the
-Daniele> tar-ball, i have overwrite the file of directory NUE created
-Daniele> form the last rpm's: ski 0.943 nue 1.1.1 nue fs 1.2 My
-Daniele> installation procedure is correct?  Then for the system mode,
+In any event, trying to build a defconfig ia64 2.6.7-mm5 (which includes
+CONFIG_SERIAL_8250=y in the .config) fails with:
 
-Please don't use nue --- it's very very old.  Ski from the current
-download site should work fine, but you'll need to build yourself (or
-get hold of somehow) a recent gcc and binutils built as cross
-compilers.   The ones in the nue-fs are too old to build today's
-kernels.   See http://gelato.unsw.edu.au/IA64wiki/CrossDevelopment for
-more information,including how to build cross compilers etc -- use the
-AlternateCrossCompilation link as you're using Suse not Debian.  Or
-Dan Kegel's cross compilation building method at
-http://kegel.com/crosstool/
+================  CC      drivers/firmware/pcdp.o
+drivers/firmware/pcdp.c: In function `setup_serial_console':
+drivers/firmware/pcdp.c:100: error: `UPF_RESOURCES' undeclared (first use in this function)
+================
+The following patch fixes this build error.
 
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+Someone with a certified clue needs to sign off on this.
+I'm just typing blindly.
+
+Signed-off-by: Paul Jackson <pj@sgi.com>
+
+Index: 267mm5cpusetv4ia64/drivers/firmware/pcdp.c
+=================================--- 267mm5cpusetv4ia64.orig/drivers/firmware/pcdp.c	2004-07-03 16:52:20.000000000 -0700
++++ 267mm5cpusetv4ia64/drivers/firmware/pcdp.c	2004-07-03 16:52:34.000000000 -0700
+@@ -97,7 +97,7 @@ setup_serial_console(int rev, struct pcd
+ 		default:  port.type = PORT_UNKNOWN; break;
+ 	}
+ 
+-	port.flags = UPF_SKIP_TEST | UPF_BOOT_AUTOCONF | UPF_RESOURCES;
++	port.flags = UPF_SKIP_TEST | UPF_BOOT_AUTOCONF;
+ 
+ 	if (uart_irq_supported(rev, uart)) {
+ 		port.irq = acpi_register_gsi(uart->gsi,
+
+-- 
+                          I won't rest till it's the best ...
+                          Programmer, Linux Scalability
+                          Paul Jackson <pj@sgi.com> 1.650.933.1373
