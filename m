@@ -1,57 +1,31 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Wed, 27 Oct 2004 16:49:45 +0000
-Subject: [PATCH] - Update asm-ia64/sn/sn_cpuid.h macros (add missing file)
-Message-Id: <20041027164945.GA13655@sgi.com>
+From: "Raj Patil" <rpatil0299@hotmail.com>
+Date: Mon, 25 Oct 2004 14:57:25 +0000
+Subject: newbie question about 2.6 ia64 linux-gate etc
+Message-Id: <BAY14-F23L9BGTuAyHs000156b6@hotmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041026114649.GA12741@sgi.com>
-In-Reply-To: <20041026114649.GA12741@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hello,
 
-Tony - please apply
+I am looking for some basic info on how the linux-gate.so is used and how it
+gets mapped to the process address space in 2.6 ia64 and how all the system 
+call
+function names gets included here? (I have access to SuSE 9.0, based on 
+2.6.5-7.97)
 
-(I missed a file in the cleanup code that I sent yesterday.)
+Can some please point/direct  me to some doc/notes, if it exists or write 
+few lines to
+give some basic information information about these?
 
+Thank you very much and really appreciate info.
 
-SGI SN code currently makes assumptions about the bits in the LID
-register. These assumptions do not conform to the bit specifications
-from Intel. For example, SN currently assumes that bits [28:16] of
-the LID contain the physical node ID of a node.
+Regards,
+Raj
 
-This patch eliminates these assumptions. A SAL call is now used to translate
-LID values to the NASID/subnode/slice values that are needed for SN
-platforms. The results of the SAL call are saved in the SN nodepda.
-
-----
-
-Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-
-----
-
-
-
-
-
-
-diff -Naurp linux_base/arch/ia64/sn/kernel/iomv.c linux/arch/ia64/sn/kernel/iomv.c
---- linux_base/arch/ia64/sn/kernel/iomv.c	2004-10-22 11:36:31 -05:00
-+++ linux/arch/ia64/sn/kernel/iomv.c	2004-10-23 21:32:01 -05:00
-@@ -9,6 +9,7 @@
- #include <linux/module.h>
- #include <asm/io.h>
- #include <asm/delay.h>
-+#include <asm/sn/nodepda.h>
- #include <asm/sn/simulator.h>
- #include <asm/sn/pda.h>
- #include <asm/sn/sn_cpuid.h>
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
+_________________________________________________________________
+Express yourself instantly with MSN Messenger! Download today - it's FREE! 
+http://messenger.msn.click-url.com/go/onm00200471ave/direct/01/
 
