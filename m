@@ -1,75 +1,67 @@
-From: Jean-Philippe BATTU <jean-philippe.battu@bull.net>
-Date: Tue, 08 Oct 2002 07:57:52 +0000
-Subject: [Linux-ia64] Again : Pb to write a tape ...
-Message-Id: <marc-linux-ia64-105590701906088@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Sun, 13 Oct 2002 12:10:42 +0000
+Subject: [Linux-ia64] Announce: ksymoops 2.4.7 is available
+Message-Id: <marc-linux-ia64-105590709805155@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi all
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-Sorry to disturb you again, but I continued to try to write on
-my exabyte 8505 XL on ia64 , redhat 7.2
-I found that large tar and large dump hang, but a direct
-operation seems to work fine (cat /largefile >/dev/st0), and
-tar and dump work fine if the destination is a file rather the
-device tape file.
-I examine mt and stinit, I was in 0.6 and I installed the 0.7
-version after downloading it and compiling it. The problem
-is still the same. When I use stinit to validate the drive, it seems
-ok, but the next mt command will delete the previous initialisation.
+Content-Type: text/plain; charset=3Dus-ascii
 
-Here is a sample copy of my command :
+ftp://ftp.<country>.kernel.org/pub/linux/utils/kernel/ksymoops/v2.4
 
-[root@ root]# date ; stinit
-Tue Oct  8 08:49:09 CEST 2002
-Initialized 1 tape devices.
+ksymoops-2.4.7.tar.gz		Source tarball, includes RPM spec file
+ksymoops-2.4.7-1.src.rpm	As above, in SRPM format
+ksymoops-2.4.7-1.i386.rpm	Compiled with 2.96 20000731, glibc 2.2.2
+ksymoops-2.4.7-1.ia64.rpm	Compiled with gcc 2.96-ia64-20000731, glibc-2.2.3
+ksymoops-2.4.7-1.sparc.rpm	Compiled as 32 bit user space, it supports 64 bi=
+t kernels.
+patch-ksymoops-2.4.7.gz		Patch from ksymoops 2.4.6 to 2.4.7.
 
+Changelog extract
 
-[root@ root]# date ; mt -f /dev/st0 status
-Tue Oct  8 08:49:21 CEST 2002
-SCSI 2 tape drive:
-File number=0, block number=0, partition=0.
-Tape block size 512 bytes. Density code 0x8c (EXB-8505 compressed).
-Soft error count since last status=0
-General status bits on (41010000):
- BOT ONLINE IM_REP_EN
+	* Add BFD_PREFIX, DEF_TARGET, DEF_ARCH, CROSS options to Makefile to
+	  support building ksymoops for cross compilation and debugging.
+	  Greg Banks, modified by Keith Owens.
+	* Add cross compile documentation to INSTALL and man page.  Keith Owens.
+	* Add DEF_TARGET, DEF_ARCH to ksymoops.c to build ksymoops for cross
+	  compile.  Attempt to set the default value for the -e flag if build
+	  and cross environments have different endianess.  Greg Banks.
+	* Extends Oops_truncate_address() to deal with the ckseg0/ kseg0/xkphys
+	  physical address alias confusion on mips64 (addresses appear in the
+	  oops text as 0xffffffff8xxxxxxx, 0x8xxxxxxx, or 0xa80000000xxxxxxx,
+	  but are all the same physical address).  Greg Banks.
+	* Calls Oops_truncate_address() from Oops_trace_line() so that the call
+	  trace is subject to the address fix.  Greg Banks.
+	* Handle exported symbols in sbss sections.  Keith Owens.
+	* White space cleanup.
+	* Add IA64 MCA support.
 
-ok !
+The sbss support works best with modutils 2.4.21, but should work with
+older modutils.
 
-[root@ root]# date ; mt -f /dev/st0 status
-Tue Oct  8 08:49:26 CEST 2002
-SCSI 2 tape drive:
-File number=0, block number=0, partition=0.
-Tape block size 512 bytes. Density code 0x0 (default).
-Soft error count since last status=0
-General status bits on (41010000):
- BOT ONLINE IM_REP_EN
+The ia64 MCA support was written for an SGI NUMA machine, that is the
+only MCA sample output I have.  If other ia64 platforms have different
+MCA formats, send me a sample output so I can add it to ksymoops.
 
-why the density code has been deleted ?
+Some people have reported problems building ksymoops, with unresolved
+references in libbfd (htab_create, htab_find_slot_with_hash).  Try
+http://www.cs.helsinki.fi/linux/linux-kernel/2002-13/0196.html first,
+if that does not work, contact the binutils maintainers.  This is not a
+ksymoops problem, ksymoops only uses libbfd.  Any unresolved references
+from libbfd are a binutils problem.
 
-[root@ root]# mt -v
-mt-st v. 0.7
-[root@ root]#
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
 
-Perhaps you will have an advice !
-Any suggestions would be greatly appreciated
-
-Cheers !
-
---
-
----------------------------------------------------------------------
-Jean-Philippe BATTU            Phone   : (33) 04 76 29 73 43
-Localisation: B1/403              Fax     : (33) 04 76 29 75 18
-Mail : jean-philippe.battu@bull.net
-
-Bull, 01 Rue de Provence
-B.P. 208
-38432 Echirolles FRANCE
----------------------------------------------------------------------
-
+iD8DBQE9qWLAi4UHNye0ZOoRAtQCAKDwtQZpsRrl/dsyogu0lST++I7qFwCeMS6r
+1ShTKZZ31tdo/CVwq4+vWeo=ECQM
+-----END PGP SIGNATURE-----
 
 
