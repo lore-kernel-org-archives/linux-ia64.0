@@ -1,169 +1,241 @@
-From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Date: Thu, 15 Apr 2004 08:09:39 +0000
-Subject: [RFC] New sysfs tree for hotplug
-Message-Id: <20040415170939.0ff62618.tokunaga.keiich@jp.fujitsu.com>
+From: "Ashok Raj" <ashok.raj@intel.com>
+Date: Sun, 25 Apr 2004 06:46:41 +0000
+Subject: [RFC IA64 Hotplug] [Patch 5/7] ia64_palinfo.patch
+Message-Id: <ORSMSX4048k69RKLpgT00000173@orsmsx404.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: lhcs-devel@lists.sourceforge.net, lhms-devel@lists.sourceforge.net, linux-hotplug-devel@lists.sourceforge.net, pcihpd-discuss@lists.sourceforge.net, lhns-devel@lists.sourceforge.net
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, acpi-largesys-devel@lists.sourceforge.net
+To: linux-ia64@vger.kernel.org
 
-Hi hotplug folks,
+Patch 5/7
 
-I'm interested in hotplug features, especially physical insertion/removal.  I'd
-like to propose here a new sysfs tree for hotplug.  Please comment on my
-proposal, because this is a request for comments:-)
-
-1. Current sysfs for hotplug
-----------------------------
- In 2.6, there are some sysfs files for hotplug.  For instance, PCI has that
-kind of files to control hotplug features.  PCI related sysfs entries for hotplug
-are created under /sys/bus/pci/slots/:
-
-    /sys/bus/pci/slots/<slot#>/<files>
-
-There are some files under <slot#> directory.  Some of them are supposed
-to expose kenrel information, the others are supposed to control hotplug.
-Recently, CPU and memory hotplug are being worked actively.  According 
-to their patch, they seem to be trying to create sysfs files under the following
-directory.
-
-    /sys/devices/system/
+Cheers,
+ashok raj
+- Linux Core Software Group
+   
 
 
-2. Problem
-----------
- Recent large machines have many PCI devices and some boards that
-contain devices (e.g. CPU, memory, and/or I/O devices).  A certain PCI
-device (PCI1) might be connected with other one (PCI2), which means that
-there is a dependency between PCI1 and PCI2.  Similarly, there is a 
-dependency between the board and devices attached on the board.
-In this situation, we need to know the dependency first when we want to
-hot-remove such devices or board.  However, I don't think that the flat sysfs
-layout represents a dependency between each device quite well.
+Name: ia64_palinfo.patch
+Author: Ashok Raj (Intel Corporation)
+Status: Tested with Hotplug CPU Code
+
+D: Changes proc entries for cpu hotplug to be created via the cpu 
+D: hotplug notifier callbacks. Also fixed a bug in the removal code
+D: that did not remove proc entries as expected.
 
 
-3. Suggestion
--------------
- To solve the problem, I'd like to propose the following idea.
+---
 
-["hotplug" directory]
-   This directory is to represent a hierarchy of hotpluggable devices.
-  "hotpluggable device" means a device that can be powered off and
-  removed physically from the system running.  The hierarchy describes a 
-  dependency between each device.  This directory would be placed, like:
+ linux-2.6.5-lhcs-root/arch/ia64/kernel/palinfo.c |  134
++++++++++++++++++------
+ 1 files changed, 104 insertions(+), 30 deletions(-)
 
-      /sys/devices/hotplug
+diff -puN arch/ia64/kernel/palinfo.c~ia64_palinfo arch/ia64/kernel/palinfo.c
+--- linux-2.6.5-lhcs/arch/ia64/kernel/palinfo.c~ia64_palinfo	2004-04-23
+23:11:17.476197110 -0700
++++ linux-2.6.5-lhcs-root/arch/ia64/kernel/palinfo.c	2004-04-23
+23:11:17.478150236 -0700
+@@ -8,11 +8,14 @@
+  *
+  * Copyright (C) 2000-2001, 2003 Hewlett-Packard Co
+  *	Stephane Eranian <eranian@hpl.hp.com>
++ * Copyright (C) 2004 Intel Corporation
++ *  Ashok Raj <ashok.raj@intel.com>
+  *
+  * 05/26/2000	S.Eranian	initial release
+  * 08/21/2000	S.Eranian	updated to July 2000 PAL specs
+  * 02/05/2001   S.Eranian	fixed module support
+  * 10/23/2001	S.Eranian	updated pal_perf_mon_info bug fixes
++ * 03/24/2004	Ashok Raj	updated to work with CPU Hotplug
+  */
+ #include <linux/config.h>
+ #include <linux/types.h>
+@@ -22,6 +25,9 @@
+ #include <linux/mm.h>
+ #include <linux/module.h>
+ #include <linux/efi.h>
++#include <linux/notifier.h>
++#include <linux/cpu.h>
++#include <linux/cpumask.h>
+ 
+ #include <asm/pal.h>
+ #include <asm/sal.h>
+@@ -768,13 +774,12 @@ static palinfo_entry_t palinfo_entries[]
+  * does not do recursion of deletion
+  *
+  * Notes:
+- *	- first +1 accounts for the cpuN entry
+- *	- second +1 account for toplevel palinfo
+- *
++ *	- +1 accounts for the cpuN directory entry in /proc/pal
+  */
+-#define NR_PALINFO_PROC_ENTRIES	(NR_CPUS*(NR_PALINFO_ENTRIES+1)+1)
++#define NR_PALINFO_PROC_ENTRIES	(NR_CPUS*(NR_PALINFO_ENTRIES+1))
+ 
+ static struct proc_dir_entry
+*palinfo_proc_entries[NR_PALINFO_PROC_ENTRIES];
++static struct proc_dir_entry *palinfo_dir;
+ 
+ /*
+  * This data structure is used to pass which cpu,function is being
+requested
+@@ -888,47 +893,107 @@ palinfo_read_entry(char *page, char **st
+ 	return len;
+ }
+ 
+-static int __init
+-palinfo_init(void)
++static void
++create_palinfo_proc_entries(unsigned int cpu)
+ {
+ #	define CPUSTR	"cpu%d"
+ 
+ 	pal_func_cpu_u_t f;
+-	struct proc_dir_entry **pdir = palinfo_proc_entries;
+-	struct proc_dir_entry *palinfo_dir, *cpu_dir;
+-	int i, j;
++	struct proc_dir_entry **pdir;
++	struct proc_dir_entry *cpu_dir;
++	int j;
+ 	char cpustr[sizeof(CPUSTR)];
+ 
+-	printk(KERN_INFO "PAL Information Facility v%s\n", PALINFO_VERSION);
+-
+-	palinfo_dir = proc_mkdir("pal", NULL);
+ 
+ 	/*
+ 	 * we keep track of created entries in a depth-first order for
+ 	 * cleanup purposes. Each entry is stored into palinfo_proc_entries
+ 	 */
+-	for (i=0; i < NR_CPUS; i++) {
++	sprintf(cpustr,CPUSTR, cpu);
+ 
+-		if (!cpu_online(i)) continue;
++	cpu_dir = proc_mkdir(cpustr, palinfo_dir);
+ 
+-		sprintf(cpustr,CPUSTR, i);
++	f.req_cpu = cpu;
+ 
+-		cpu_dir = proc_mkdir(cpustr, palinfo_dir);
++	/*
++	 * Compute the location to store per cpu entries
++	 * We dont store the top level entry in this list, but
++	 * remove it finally after removing all cpu entries.
++	 */
++	pdir = &palinfo_proc_entries[cpu*(NR_PALINFO_ENTRIES+1)];
++	*pdir++ = cpu_dir;
++	for (j=0; j < NR_PALINFO_ENTRIES; j++) {
++		f.func_id = j;
++		*pdir = create_proc_read_entry(
++				palinfo_entries[j].name, 0, cpu_dir,
++				palinfo_read_entry, (void *)f.value);
++		if (*pdir)
++			(*pdir)->owner = THIS_MODULE;
++		pdir++;
++	}
++}
+ 
+-		f.req_cpu = i;
++static void
++remove_palinfo_proc_entries(unsigned int hcpu)
++{
++	int j;
++	struct proc_dir_entry *cpu_dir, **pdir;
+ 
+-		for (j=0; j < NR_PALINFO_ENTRIES; j++) {
+-			f.func_id = j;
+-			*pdir = create_proc_read_entry(
+-					palinfo_entries[j].name, 0, cpu_dir,
+-					palinfo_read_entry, (void
+*)f.value);
+-			if (*pdir)
+-				(*pdir)->owner = THIS_MODULE;
+-			pdir++;
++	pdir = &palinfo_proc_entries[hcpu*(NR_PALINFO_ENTRIES+1)];
++	cpu_dir = *pdir;
++	*pdir++=NULL;
++	for (j=0; j < (NR_PALINFO_ENTRIES); j++) {
++		if ((*pdir)) {
++			remove_proc_entry ((*pdir)->name, cpu_dir);
++			*pdir ++= NULL;
+ 		}
+-		*pdir++ = cpu_dir;
+ 	}
+-	*pdir = palinfo_dir;
++
++	if (cpu_dir) {
++		remove_proc_entry(cpu_dir->name, palinfo_dir);
++	}
++}
++
++static int __devinit palinfo_cpu_callback(struct notifier_block *nfb,
++								unsigned
+long action,
++								void *hcpu)
++{
++	unsigned int hotcpu = (unsigned long)hcpu;
++
++	switch (action) {
++	case CPU_ONLINE:
++		create_palinfo_proc_entries(hotcpu);
++		break;
++#ifdef CONFIG_HOTPLUG_CPU
++	case CPU_DEAD:
++		remove_palinfo_proc_entries(hotcpu);
++		break;
++#endif
++	}
++	return NOTIFY_OK;
++}
++
++static struct notifier_block palinfo_cpu_notifier +{
++	.notifier_call = palinfo_cpu_callback,
++	.priority = 0,
++};
++
++static int __init
++palinfo_init(void)
++{
++	int i = 0;
++
++	printk(KERN_INFO "PAL Information Facility v%s\n", PALINFO_VERSION);
++	palinfo_dir = proc_mkdir("pal", NULL);
++
++	/* Create palinfo dirs in /proc for all online cpus */
++	for_each_online_cpu(i) {
++		create_palinfo_proc_entries(i);
++	}
++
++	/* Register for future delivery via notify registration */
++	register_cpu_notifier(&palinfo_cpu_notifier);
+ 
+ 	return 0;
+ }
+@@ -939,10 +1004,19 @@ palinfo_exit(void)
+ 	int i = 0;
+ 
+ 	/* remove all nodes: depth first pass. Could optimize this  */
+-	for (i=0; i< NR_PALINFO_PROC_ENTRIES ; i++) {
+-		if (palinfo_proc_entries[i])
+-			remove_proc_entry (palinfo_proc_entries[i]->name,
+NULL);
++	for_each_online_cpu(i) {
++		remove_palinfo_proc_entries(i);
+ 	}
++
++	/*
++	 * Remove the top level entry finally
++	 */
++	remove_proc_entry(palinfo_dir->name, NULL);
++
++	/*
++	 * Unregister from cpu notifier callbacks
++	 */
++	unregister_cpu_notifier(&palinfo_cpu_notifier);
+ }
+ 
+ module_init(palinfo_init);
 
-  Any systems that enable hotplug (e.g. ACPI, DLPAR) can create their
-  own directory right under the "hotplug" directory, like:
+_
 
-      /sys/devices/hotplug/acpi
-      /sys/devices/hotplug/dlpar
-
-  Each of systems can create directories and files under the own directory,
-  and these directories should be easy for user to use.
-
-
-[ACPI based Hotplug Case]
-   I think that ACPI is one of the systems tha know dependencies of devices.
-  So, I'd like to show an example here how ACPI based hotplug can work
-  under the "hotplug" directory.  (I still have a lot of things to think, though.)
-
-  In ACPI based hotplug, "hotpluggable device" could be defined as follows:
-
-      A device that its device object in ACPI namespace has _EJ0 and _STA
-      method, and the _STA returns 0x0F (present).
-
-      [Hotpluggable device (simplified ASL)]
-        Scope (\_SB_) {
-            Device (DEV1) {
-                Method (_EJ0) {...}
-                Method (_STA) {... return 0x0F}
-            }
-        ...
-
-
-  The above hotpluggable device is represented under the "hotplug" directory,
-  like:
-
-      /sys/devices/hotplug/acpi/DEV1
-
-  Plus, a control file, "eject", which is used for invoking a corresponding
-  device hot-removal handler, is created under each hotpluggable devices'
-  directory, like:
-
-      /sys/devices/hotplug/acpi/DEV1/eject
-
-  The directory "DEV1" and the file "eject" are deleted when the device is
-  removed.  A point here is:
-
-        While a device is attached to the system, a corresponding directory
-        appears on sysfs.  When the device is removed from the system, the 
-        directory is also deleted.
-
-  As mentioned above, basically a directory is created only for hotpluggable
-  devices.  However, there is a special case that a directory is created for
-  devices that include a hotpluggable device.
-
-      /sys/devices/hotplug/acpi/DEV2/DEV1/eject
-      (where, DEV2 is not a hotpluggable device)
-
-  In addition, the special directory is deleted when the child hotpluggable
-  device is removed.
-
-
-Let's take a look at a sample here.
-Assume that you have a large machine containing many devices, and the
-devices are defined in ACPI namespace like below.
-
-    [Simplified ASL]
-      Scope (\_SB_) {
-          Device (DEV1) {
-              Method (_EJ0) {...}
-              Method (_STA, 0) { Return (0x0F) }
-
-              Device (DEV2) {
-                  Method (_STA, 0) { Return (0x0F) }
-              }
-
-              Device (DEV3) {
-                  Method (_EJ0) {...}
-                  Method (_STA, 0) { Return (0x0F) }
-               }
-
-              Device (DEV4) {
-                  Method (_STA, 0) { Return (0x0F) }
-                  Device (DEV5) {
-                      Method (_EJ0) {...}
-                      Method (_STA, 0) { Return (0x00) }
-                  }
-                  Device (DEV6) {
-                      Method (_EJ0) {...}
-                      Method (_STA, 0) { Return (0x0F) }
-                  }
-              }
-          }
-      }
-
-
-In this case, "hotplug" tree looks like:
-
-    sys/devices/hotplug/acpi/
-        `-DEV1/
-            |-eject
-            |
-            |-DEV3/
-            |   `-eject
-            |
-            `-DEV4/
-                `-DEV6/
-                    `-eject
-
-
-Any comments or questions are welcomed.
-
-
-Thanks,
-Kei
