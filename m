@@ -1,7 +1,7 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Wed, 06 Mar 2002 22:33:15 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905235@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 08 Mar 2002 06:38:20 +0000
+Subject: [Linux-ia64] kernel update (relative to 2.5.5)
+Message-Id: <marc-linux-ia64-105590701905237@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,47 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@hpl.hp.com> writes:
+OK, I finally got around to take another stab at 2.5.5.  The result
+can be found at ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/
+in file:
 
-David> The latest ia64 patch is now availabe at ftp.CC.kernel.org in
-David> /pub/linux/kernel/ports/ia64/v2.4/:
+	linux-2.5.5-ia64-020307.diff.gz
 
-Peter> With this patched kernel, one cannot configure the loop device
-Peter> when using the HP simulator.
+This is mostly a sync up with 2.5.5, though all the changes that made
+it into 2.4.18 should be there as well.  With this patch, the task
+memory has the following layout:
 
-Peter> I moved the line that sourced the block-device config script
-Peter> outside the HP_SIM guards, as in the appended patch.
+	- "current" points to "struct task_struct"
+	- "struct thread_info" follows directly above "struct task_struct"
+	- rest of the memory is used for the kernel stack
 
-David> Hmmh, I'm a bit reluctant to do this, as it will pull in all
-David> the other drivers, 99% of which won't build.  How about just
-David> including the loopback prompt directly in the ia64 config?  If
-David> this works, send me a patch and I'll include it.  (Yes, I
-David> realize that's kludgy, but presumably this will all get cleaned
-David> up if and when the new kernel configuration makes it into 2.5).
+I tested this on a dual Big Sur and the HP Ski simulator (SMP only).
 
-
-OK, Here it is.  We probably need to do something similar for the scsi
-config.  This patch is against a 2.4.18 kernel with the IA64 patch.
-
---- linux/arch/ia64/config.in	Thu Mar  7 09:21:50 2002
-+++ linux-local/arch/ia64/config.in	Thu Mar  7 09:28:08 2002
-@@ -152,6 +152,17 @@
- fi
- endmenu
- 
-+else # ! HP_SIM
-+mainmenu_option next_comment
-+comment 'Block devices'
-+tristate 'Loopback device support' CONFIG_BLK_DEV_LOOP
-+dep_tristate 'Network block device support' CONFIG_BLK_DEV_NBD $CONFIG_NET
-+
-+tristate 'RAM disk support' CONFIG_BLK_DEV_RAM
-+if [ "$CONFIG_BLK_DEV_RAM" = "y" -o "$CONFIG_BLK_DEV_RAM" = "m" ]; then
-+   int '  Default RAM disk size' CONFIG_BLK_DEV_RAM_SIZE 4096
-+fi
-+endmenu
- fi # !HP_SIM
- 
- mainmenu_option next_comment
-
+	--david
 
