@@ -1,84 +1,26 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 16 May 2003 22:54:27 +0000
-Subject: [Linux-ia64] RE: [PATCH] head.S fix for unusual load addrs
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C31BFE.1A545731"
-Message-Id: <marc-linux-ia64-105590723705916@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 16 May 2003 22:58:31 +0000
+Subject: Re: [Linux-ia64] RE: [PATCH] head.S fix for unusual load addrs
+Message-Id: <marc-linux-ia64-105590723705917@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705550@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705550@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+>>>>> On Fri, 16 May 2003 15:54:27 -0700, "Luck, Tony" <tony.luck@intel.com> said:
 
-------_=_NextPart_001_01C31BFE.1A545731
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+  Tony> It's the wrong file ... that's from last November ... it just
+  Tony> happened to be in the folder on my PC where I dump things to
+  Tony> attach to e-mail. I meant to pick up the kcore.diff (now
+  Tony> attached).
 
-> Well, the patch looks fine to me, so I'm probably the wrong person to
-> ask.  Might be good to bring this up on linux-kernel.
->=20
-> Was there a particular reason to send the full file instead of just a
-> diff?  Also, your file seems to revert the ANSI 99 initializer changes
-> for no good reason.
+Ah, I see.
 
-It's the wrong file ... that's from last November ... it just happened
-to be in the folder on my PC where I dump things to attach to e-mail. I
-meant to pick up the kcore.diff (now attached).
+Definitely something to be discussed on the lkml.  I suspect it would
+be better to avoid creating the PT_NULL header when it's not needed.
 
--Tony
-
-------_=_NextPart_001_01C31BFE.1A545731
-Content-Type: application/octet-stream;
-	name="kcore.diff"
-Content-Transfer-Encoding: base64
-Content-Description: kcore.diff
-Content-Disposition: attachment;
-	filename="kcore.diff"
-
-ZGlmZiAtcnUgbDI1NjktbW9zYmVyZ2VyL2ZzL3Byb2Mva2NvcmUuYyBsMjU2OS1hZWdsL2ZzL3By
-b2Mva2NvcmUuYwotLS0gbDI1NjktbW9zYmVyZ2VyL2ZzL3Byb2Mva2NvcmUuYwlUaHUgTWF5IDE1
-IDEwOjEyOjU2IDIwMDMKKysrIGwyNTY5LWFlZ2wvZnMvcHJvYy9rY29yZS5jCUZyaSBNYXkgMTYg
-MTU6MDA6MTcgMjAwMwpAQCAtOTksNyArOTksMTMgQEAKIH0KICNlbHNlIC8qIENPTkZJR19LQ09S
-RV9BT1VUICovCiAKKyNpZmRlZglDT05GSUdfSUE2NAorI2RlZmluZQlLQ09SRV9CQVNFCTB4QTAw
-MDAwMDAwMDAwMDAwMFVMCisjZWxzZQogI2RlZmluZQlLQ09SRV9CQVNFCVBBR0VfT0ZGU0VUCisj
-ZW5kaWYKKworZXh0ZXJuIGNoYXIgX3N0ZXh0W10sIF9lbmRbXTsKIAogI2RlZmluZSByb3VuZHVw
-KHgsIHkpICAoKCgoeCkrKCh5KS0xKSkvKHkpKSooeSkpCiAKQEAgLTEzMyw3ICsxMzksNyBAQAog
-CQkqbnVtX3ZtYSA9ICpudW1fdm1hICsgMTsKIAl9CiAJKmVsZl9idWZsZW4gPQlzaXplb2Yoc3Ry
-dWN0IGVsZmhkcikgKyAKLQkJCSgqbnVtX3ZtYSArIDIpKnNpemVvZihzdHJ1Y3QgZWxmX3BoZHIp
-ICsgCisJCQkoKm51bV92bWEgKyAzKSpzaXplb2Yoc3RydWN0IGVsZl9waGRyKSArIAogCQkJMyAq
-IHNpemVvZihzdHJ1Y3QgbWVtZWxmbm90ZSk7CiAJKmVsZl9idWZsZW4gPSBQQUdFX0FMSUdOKCpl
-bGZfYnVmbGVuKTsKIAlyZXR1cm4gc2l6ZSArICplbGZfYnVmbGVuOwpAQCAtMjE0LDcgKzIyMCw3
-IEBACiAJZWxmLT5lX2ZsYWdzCT0gMDsKIAllbGYtPmVfZWhzaXplCT0gc2l6ZW9mKHN0cnVjdCBl
-bGZoZHIpOwogCWVsZi0+ZV9waGVudHNpemU9IHNpemVvZihzdHJ1Y3QgZWxmX3BoZHIpOwotCWVs
-Zi0+ZV9waG51bQk9IDIgKyBudW1fdm1hOworCWVsZi0+ZV9waG51bQk9IDMgKyBudW1fdm1hOwog
-CWVsZi0+ZV9zaGVudHNpemU9IDA7CiAJZWxmLT5lX3NobnVtCT0gMDsKIAllbGYtPmVfc2hzdHJu
-ZHgJPSAwOwpAQCAtMjQ1LDYgKzI1MSwyNyBAQAogCXBoZHItPnBfZmlsZXN6CT0gcGhkci0+cF9t
-ZW1zeiA9ICgodW5zaWduZWQgbG9uZyloaWdoX21lbW9yeSAtIFBBR0VfT0ZGU0VUKTsKIAlwaGRy
-LT5wX2FsaWduCT0gUEFHRV9TSVpFOwogCisJcGhkciA9IChzdHJ1Y3QgZWxmX3BoZHIgKikgYnVm
-cDsKKwlidWZwICs9IHNpemVvZihzdHJ1Y3QgZWxmX3BoZHIpOworCW9mZnNldCArPSBzaXplb2Yo
-c3RydWN0IGVsZl9waGRyKTsKKwlpZiAoKHVuc2lnbmVkIGxvbmcpX2VuZCA8IFBBR0VfT0ZGU0VU
-KSB7CisJCXBoZHItPnBfdHlwZQk9IFBUX0xPQUQ7CisJCXBoZHItPnBfZmxhZ3MJPSBQRl9SfFBG
-X1d8UEZfWDsKKwkJcGhkci0+cF9vZmZzZXQJPSAodW5zaWduZWQgbG9uZylfc3RleHQgLSBLQ09S
-RV9CQVNFICsgZGF0YW9mZjsKKwkJcGhkci0+cF92YWRkcgk9ICh1bnNpZ25lZCBsb25nKV9zdGV4
-dDsKKwkJcGhkci0+cF9wYWRkcgk9IGlhNjRfdHBhKCh1bnNpZ25lZCBsb25nKV9zdGV4dCk7CisJ
-CXBoZHItPnBfZmlsZXN6CT0gcGhkci0+cF9tZW1zeiA9IF9lbmQgLSBfc3RleHQ7CisJCXBoZHIt
-PnBfYWxpZ24JPSBQQUdFX1NJWkU7CisJfSBlbHNlIHsKKwkJcGhkci0+cF90eXBlCT0gUFRfTlVM
-TDsKKwkJcGhkci0+cF9mbGFncwk9IDA7CisJCXBoZHItPnBfb2Zmc2V0CT0gMDsKKwkJcGhkci0+
-cF92YWRkcgk9IDA7CisJCXBoZHItPnBfcGFkZHIJPSAwOworCQlwaGRyLT5wX2ZpbGVzegk9IDA7
-CisJCXBoZHItPnBfYWxpZ24JPSAwOworCX0KKwogCS8qIHNldHVwIEVMRiBQVF9MT0FEIHByb2dy
-YW0gaGVhZGVyIGZvciBldmVyeSB2bWFsbG9jJ2QgYXJlYSAqLwogCWZvciAobT12bWxpc3Q7IG07
-IG09bS0+bmV4dCkgewogCQlpZiAobS0+ZmxhZ3MgJiBWTV9JT1JFTUFQKSAvKiBkb24ndCBkdW1w
-IGlvcmVtYXAnZCBzdHVmZiEgKFRBKSAqLwpAQCAtNDQ0LDYgKzQ3MSwxNSBAQAogCQkJaWYgKGtl
-cm5fYWRkcl92YWxpZChzdGFydCkpIHsKIAkJCQlpZiAoY29weV90b191c2VyKGJ1ZmZlciwgKGNo
-YXIgKilzdGFydCwgdHN6KSkKIAkJCQkJcmV0dXJuIC1FRkFVTFQ7CisJCQl9IGVsc2UgeworCQkJ
-CWlmIChjbGVhcl91c2VyKGJ1ZmZlciwgdHN6KSkKKwkJCQkJcmV0dXJuIC1FRkFVTFQ7CisJCQl9
-CisJCX0gZWxzZSBpZiAoKHN0YXJ0ID4gKHVuc2lnbmVkIGxvbmcpX3N0ZXh0KSAmJiAoc3RhcnQg
-PAorCQkJCQkJKHVuc2lnbmVkIGxvbmcpX2VuZCkpIHsKKwkJCWlmIChrZXJuX2FkZHJfdmFsaWQo
-c3RhcnQpKSB7CisJCQkJaWYgKGNvcHlfdG9fdXNlcihidWZmZXIsIChjaGFyICopc3RhcnQsIHRz
-eikpCisJCQkJCXJldHVybiAtRUZBVUxUOwogCQkJfSBlbHNlIHsKIAkJCQlpZiAoY2xlYXJfdXNl
-cihidWZmZXIsIHRzeikpCiAJCQkJCXJldHVybiAtRUZBVUxUOwo=
-
-------_=_NextPart_001_01C31BFE.1A545731--
+	--david
 
