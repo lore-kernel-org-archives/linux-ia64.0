@@ -1,39 +1,39 @@
-From: "Martin J. Bligh" <mbligh@aracnet.com>
-Date: Tue, 14 Dec 2004 20:10:57 +0000
+From: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
+Date: Tue, 14 Dec 2004 22:00:28 +0000
 Subject: Re: [PATCH 0/3] NUMA boot hash allocation interleaving
-Message-Id: <19950000.1103055057@flay>
+Message-Id: <50260000.1103061628@flay>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.SGI.4.61.0412141140030.22462@kzerza.americas.sgi.com><9250000.1103050790@flay> <Pine.SGI.4.61.0412141319100.22462@kzerza.americas.sgi.com>
-In-Reply-To: <Pine.SGI.4.61.0412141319100.22462@kzerza.americas.sgi.com>
+References: <Pine.SGI.4.61.0412141140030.22462@kzerza.americas.sgi.com><9250000.1103050790@flay> <20041214191348.GA27225@wotan.suse.de><19030000.1103054924@flay> <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com>
+In-Reply-To: <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Brent Casavant <bcasavan@sgi.com>
-Cc: linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, ak@suse.de
+Cc: Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
->> Yup, makes a lot of sense to me to stripe these, for the caches that
->> are global (ie inodes, dentries, etc).  Only question I'd have is 
->> didn't Manfred or someone (Andi?) do this before? Or did that never
->> get accepted? I know we talked about it a while back.
+>> > I originally was a bit worried about the TLB usage, but it doesn't
+>> > seem to be a too big issue (hopefully the benchmarks weren't too
+>> > micro though)
+>> 
+>> Well, as long as we stripe on large page boundaries, it should be fine,
+>> I'd think. On PPC64, it'll screw the SLB, but ... tough ;-) We can either
+>> turn it off, or only do it on things larger than the segment size, and
+>> just round-robin the rest, or allocate from node with most free.
 > 
-> Are you thinking of the 2006-06-05 patch from Andi about using
-> the NUMA policy API for boot time allocation?
-> 
-> If so, that patch was accepted, but affects neither allocations
-> performed via alloc_bootmem nor __get_free_pages, which are
-> currently used to allocate these hashes.  vmalloc, however, does
-> behave as desired with Andi's patch.
+> Is there a reasonably easy-to-use existing infrastructure to do this?
+> I didn't find anything in my examination of vmalloc itself, so I gave
+> up on the idea.
 
-Nope, was for the hashes, but I think maybe it was all vapourware.
- 
-> Which is why vmalloc was chosen to solve this problem.  There were
-> other more complicated possible solutions (e.g. multi-level hash tables,
-> with the bottommost/largest level being allocated across all nodes),
-> however those would have been so intrusive as to be unpalatable.
-> So the vmalloc solution seemed reasonable, as long as it is used
-> only on architectures with plentiful vmalloc space.
+Not that I know of. But (without looking at it), it wouldn't seem 
+desperately hard to implement (some argument or flag to vmalloc, or vmalloc_largepage) or something.
 
-Yup, seems like a reasonable approach.
+> And just to clarify, are you saying you want to see this before inclusion
+> in mainline kernels, or that it would be nice to have but not necessary?
+
+I'd say it's a nice to have, rather than necessary, as long as it's not
+forced upon people. Maybe a config option that's on by default on ia64
+or something. Causing yourself TLB problems is much more acceptable than
+causing it for others ;-)
 
 M.
 
