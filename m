@@ -1,38 +1,46 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Fri, 14 Jun 2002 00:01:02 +0000
-Subject: [Linux-ia64] Minor patch to ppp_generic.c
-Message-Id: <marc-linux-ia64-105590701905674@msgid-missing>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Mon, 24 Jun 2002 21:29:25 +0000
+Subject: Re: [Linux-ia64] what about SGI IA64 io address map
+Message-Id: <marc-linux-ia64-105590701905719@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-To compile ppp_generic.c, you need to attached patch, because the IA64
-headers #define outl to be something that doesn't look like a label.
+On Mon, Jun 24, 2002 at 09:13:43PM +0800, Barry Wu wrote:
+> Hi, all, I am new to Intel Itanium. I do not know
+> if io address is special linux. For example, in mips
+> io virtual  address can be converted directly to
+> physics address by K1seg. I read Itanium system 
+> architecture and find that all virtual address have
+> to pass TLB transation. Am I right?
 
-The `real' fix is probably to fix the outl definitions to avoid using
-up namespace.
+Right.  Though region 7 for linux/ia64 is kind of like k1seg in mips,
+and like mips, there's a dedicated translation register setup for it.
 
+> I read include/asm-ia64/sn/sn2/addrs.h and find
+> that SGI IA64 address is composed of
+> node-id  +  node offset
 
---- /tmp/geta376	Fri Jun 14 09:57:19 2002
-+++ linux-2.5.18-patched/drivers/net/ppp_generic.c	Fri Jun 14 09:54:49 2002
-@@ -2437,7 +2437,7 @@
- 	write_lock_bh(&pch->upl);
- 	ret = -EINVAL;
- 	if (pch->ppp != 0)
--		goto outl;
-+		goto out1;
- 
- 	ppp_lock(ppp);
- 	if (pch->file.hdrlen > ppp->file.hdrlen)
-@@ -2452,7 +2452,7 @@
- 	ppp_unlock(ppp);
- 	ret = 0;
- 
-- outl:
-+ out1:
- 	write_unlock_bh(&pch->upl);
-  out:
- 	up(&all_ppp_sem);
+Yes.
+
+> If all virtual address have to convert by TLB, then
+> I think SGI Itanium virtual address have to use
+> TR register. But Itanium only has 48 DTR and if
+> we use node-id as part of physics address, then 
+> each node we have to use a DTR, then SGI IA64 system
+> have no too DTR to convert this address. The efficiency
+> must be slow for IO address. I do not know if it is
+> correct. If someone knows, please give me a reply.
+
+Only one TR is used for mapping I/O space--the one for region 6, which
+is uncached direct mapped memory.  Additionaly, I/O space accesses
+should only be done through the readX/writeX functions, which can do
+things like make sure I/O is coherent and ordered properly.
+
+Was there any particular code snippet that you were confused about?
+It might be easier to explain things in that context.
+
+Jesse
 
