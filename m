@@ -1,27 +1,18 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 29 Apr 2004 16:11:14 +0000
-Subject: Re: [PATCH] minor processor.h cleanup
-Message-Id: <16529.10530.209591.912411@napali.hpl.hp.com>
+From: "Raj, Ashok" <ashok.raj@intel.com>
+Date: Sun, 25 Apr 2004 06:30:33 +0000
+Subject: [RFC IA64 Hotplug] [Patch 2/7] init_removal_ia64.patch
+Message-Id: <A28EFEDC5416054BA1026D892753E9AF0531F307@orsmsx404.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200404281011.38501.bjorn.helgaas@hp.com>
-In-Reply-To: <200404281011.38501.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 29 Apr 2004 08:38:36 -0600, Bjorn Helgaas <bjorn.helgaas@hp.com> said:
+Removes __init sections from ia64 arch directories
 
-  Bjorn> I don't feel strongly either way.  The comment "Cannot write
-  Bjorn> to CRx with PSR.ic=1" preceding the ia64_itr() call just
-  Bjorn> wasn't obvious to me and it seemed like a good opportunity
-  Bjorn> for someone to screw up when calling ia64_itr().
+Cheers,
+ashok raj
+- Linux Core Software Group
+   
 
-That's true, but they'll notice _very_ quickly if they miss that
-(instant fault...).
-
-Perhaps we should have a higher-level convenience-routine which does
-all the psr.ic magic.  That would be fine with me.
-
-	--david
 
