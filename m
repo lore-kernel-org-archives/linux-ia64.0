@@ -1,32 +1,29 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Tue, 11 Nov 2003 03:20:06 +0000
-Subject: Re: [PATCH] fix 256 node machines by increasing NODES_SHIFT value
-Message-Id: <marc-linux-ia64-106852087001745@msgid-missing>
+From: Dan Am <sendmail@lonx.net>
+Date: Mon, 17 Nov 2003 15:19:14 +0000
+Subject: Newbie: General Complile Issues
+Message-Id: <marc-linux-ia64-106908237920741@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106797223026432@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106797223026432@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Nov 10, 2003 at 06:01:53PM -0800, David Mosberger wrote:
-> >>>>> On Tue, 4 Nov 2003 10:56:19 -0800, jbarnes@sgi.com (Jesse Barnes) said:
-> 
->   Jesse> We need 8 bits for the NODE_SHIFT otherwise 256 node systems
->   Jesse> fail in weird ways.
-> 
-> I think I'm going to push back on this one since Linus wants to limit
-> patches to stuff that affects (relatively) large number of folks, and
-> I don't think there are more than a handful of >256 node systems out
-> there (in fact, I've heard only of one).  Otherwise, I'm OK with the
-> patch, so we should include it in 2.6.1.  Please retransmit after
-> 2.6.1 is out.
-> 
-> Ditto for Jack's patch.
-> 
-> OK?
+Hi,
+sorry to to bother the gurus with mere admin view questions. I got hold of a 
+zx6000 with RHAS 2.1, got the book and I am taking her out for a spin, so to 
+speak.  
+Here goes: 
 
-Yep, no problem.  Just posting it for comments more than anything else.
+1. Which is the "correct" source ? Kernel Org or bkbits ? 
+2. Will the 2.6-test1 that I am using (compiling now with gcc3.1 from hpl) not 
+run ? 
+3. There is talk of "Mosberger Patches" : Are those required ?  Where can they
+    be found ? 
 
-Jesse
+Thanks a million for bothering. Of course, if there is a FAQ on those q's, or 
+a better list, I'd be reading that. Grateful for a pointer in that case. 
+
+Best regards 
+Dan
+
+
