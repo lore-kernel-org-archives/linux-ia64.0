@@ -1,54 +1,99 @@
-From: Andi Kleen <ak@suse.de>
-Date: Thu, 04 Nov 2004 06:37:16 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 04 Nov 2004 14:13:37 +0000
 Subject: Re: Externalize SLIT table
-Message-Id: <20041104063716.GA28895@wotan.suse.de>
+Message-Id: <20041104141337.GA18445@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041103205655.GA5084@sgi.com> <20041104.105908.18574694.t-kochi@bq.jp.nec.com> <20041104040713.GC21211@wotan.suse.de> <20041104.135721.08317994.t-kochi@bq.jp.nec.com>
-In-Reply-To: <20041104.135721.08317994.t-kochi@bq.jp.nec.com>
+References: <20041103205655.GA5084@sgi.com> <20041104.105908.18574694.t-kochi@bq.jp.nec.com>
+In-Reply-To: <20041104.105908.18574694.t-kochi@bq.jp.nec.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
-Cc: ak@suse.de, steiner@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Thu, Nov 04, 2004 at 01:57:21PM +0900, Takayoshi Kochi wrote:
+On Thu, Nov 04, 2004 at 10:59:08AM +0900, Takayoshi Kochi wrote:
 > Hi,
 > 
-> From: Andi Kleen <ak@suse.de>
-> Subject: Re: Externalize SLIT table
-> Date: Thu, 4 Nov 2004 05:07:13 +0100
+> For wider audience, added LKML.
 > 
-> > > Why not export node_distance() under sysfs?
-> > > I like (1).
-> > > 
-> > > (1) obey one-value-per-file sysfs principle
-> > > 
-> > > % cat /sys/devices/system/node/node0/distance0
-> > > 10
+> From: Jack Steiner <steiner@sgi.com>
+> Subject: Externalize SLIT table
+> Date: Wed, 3 Nov 2004 14:56:56 -0600
+> 
+> > The SLIT table provides useful information on internode
+> > distances. Has anyone considered externalizing this
+> > table via /proc or some equivalent mechanism.
 > > 
-> > Surely distance from 0 to 0 is 0?
+> > For example, something like the following would be useful:
+> > 
+> > 	# cat /proc/acpi/slit
+> > 	010 066 046 066
+> > 	066 010 066 046
+> > 	046 066 010 020
+> > 	066 046 020 010
+> > 
+> > If this looks ok (or something equivalent), I'll generate a patch....
 > 
-> According to the ACPI spec, 10 means local and other values
-> mean ratio to 10.  But what the distance number should mean
-
-Ah, missed that. ok I guess it makes sense to use the same
-encoding as ACPI, no need to be intentionally different.
-
-> mean is ambiguous from the spec (e.g. some veondors interpret as
-> memory access latency, others interpret as memory throughput
-> etc.)
-> However relative distance just works for most of uses, I believe.
+> For user space to manipulate scheduling domains, pinning processes
+> to some cpu groups etc, that kind of information is very useful!
+> Without this, users have no notion about how far between two nodes.
 > 
-> Anyway, we should clarify how the numbers should be interpreted
-> to avoid confusion.
+> But ACPI SLIT table is too arch specific (ia64 and x86 only) and
+> user-visible logical number and ACPI proximity domain number is
+> not always identical.
+> 
+> Why not export node_distance() under sysfs?
+> I like (1).
+> 
+> (1) obey one-value-per-file sysfs principle
+> 
+> % cat /sys/devices/system/node/node0/distance0
+> 10
+> % cat /sys/devices/system/node/node0/distance1
+> 66
 
-Defining it as "as defined in the ACPI spec" should be ok. 
-I guess even non ACPI architectures will be able to live with that.
+I'm not familar with the internals of sysfs. For example, on a 256 node
+system, there will be 65536 instances of
+	 /sys/devices/system/node/node<M>/distance<N>
 
-Anyways, since we seem to agree and so far nobody has complained
-it's just that somebody needs to do a patch?  If possible make
-it generic code in drivers/acpi/numa.c, there won't be anything architecture 
-specific in this and it should work for x86-64 too.
+Does this require any significant amount of kernel resources to
+maintain this amount of information.
 
 
--Andi
+
+
+> 
+> (2) one distance for each line
+> 
+> % cat /sys/devices/system/node/node0/distance
+> 0:10
+> 1:66
+> 2:46
+> 3:66
+> 
+> (3) all distances in one line like /proc/<PID>/stat
+> 
+> % cat /sys/devices/system/node/node0/distance
+> 10 66 46 66
+> 
+
+
+I like (3) the best.
+
+I think it would also be useful to have a similar cpu-to-cpu distance
+metric:
+	% cat /sys/devices/system/cpu/cpu0/distance
+	10 20 40 60 
+
+This gives the same information but is cpu-centric rather than
+node centric.
+
+
+
+-- 
+Thanks
+
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
+
