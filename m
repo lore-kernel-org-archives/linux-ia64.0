@@ -1,77 +1,75 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Date: Thu, 25 Mar 2004 16:59:07 +0000
-Subject: [PATCH] [2/6] HUGETLB memory commitment
-Message-Id: <18703834.1080233947@42.150.104.212.access.eclipse.net.uk>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 09 Mar 2004 23:27:12 +0000
+Subject: Re: [ACPI] [PATCH] 6 of 6 rename some ACPI IRQ variables
+Message-Id: <200403091627.12824.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
-In-Reply-To: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
+References: <200403091619.04333.bjorn.helgaas@hp.com>
+In-Reply-To: <200403091619.04333.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anton Blanchard <anton@samba.org>, Andrew Morton <akpm@osdl.org>, Stephen Smalley <sds@epoch.ncsc.mil>
-Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Martin J. Bligh" <mbligh@aracnet.com>
+To: acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
+Cc: Andi Kleen <ak@suse.de>, "Nakajima, Jun" <jun.nakajima@intel.com>, "Brown, Len" <len.brown@intel.com>
 
-[055-mem_acctdom_arch]
+ACPI: Rename ACPI IRQ variables for clarity
 
-Memory accounting domains (arch)
+	acpi_irq_irq -> acpi_irq_global_irq
+	acpi_irq -> acpi_irq_trampoline
 
----
- ia64/ia32/binfmt_elf32.c  |    3 ++-
- mips/kernel/sysirix.c     |    3 ++-
- s390/kernel/compat_exec.c |    3 ++-
- x86_64/ia32/ia32_binfmt.c |    3 ++-
- 4 files changed, 8 insertions(+), 4 deletions(-)
-
-diff -upN reference/arch/ia64/ia32/binfmt_elf32.c current/arch/ia64/ia32/binfmt_elf32.c
---- reference/arch/ia64/ia32/binfmt_elf32.c	2004-03-11 20:47:12.000000000 +0000
-+++ current/arch/ia64/ia32/binfmt_elf32.c	2004-03-25 15:03:32.000000000 +0000
-@@ -168,7 +168,8 @@ ia32_setup_arg_pages (struct linux_binpr
- 	if (!mpnt)
- 		return -ENOMEM;
+diff -Nru a/drivers/acpi/osl.c b/drivers/acpi/osl.c
+--- a/drivers/acpi/osl.c	Tue Mar  9 14:44:25 2004
++++ b/drivers/acpi/osl.c	Tue Mar  9 14:44:25 2004
+@@ -63,7 +63,7 @@
+ extern char line_buf[80];
+ #endif /*ENABLE_DEBUGGER*/
  
--	if (security_vm_enough_memory((IA32_STACK_TOP - (PAGE_MASK & (unsigned long) bprm->p))>>PAGE_SHIFT)) {
-+	if (security_vm_enough_memory(VM_AD_DEFAULT, (IA32_STACK_TOP -
-+			(PAGE_MASK & (unsigned long) bprm->p))>>PAGE_SHIFT)) {
- 		kmem_cache_free(vm_area_cachep, mpnt);
- 		return -ENOMEM;
+-static int acpi_irq_irq;
++static int acpi_irq_global_irq;
+ static OSD_HANDLER acpi_irq_handler;
+ static void *acpi_irq_context;
+ 
+@@ -88,7 +88,7 @@
+ acpi_os_terminate(void)
+ {
+ 	if (acpi_irq_handler) {
+-		acpi_os_remove_interrupt_handler(acpi_irq_irq,
++		acpi_os_remove_interrupt_handler(acpi_irq_global_irq,
+ 						 acpi_irq_handler);
  	}
-diff -upN reference/arch/mips/kernel/sysirix.c current/arch/mips/kernel/sysirix.c
---- reference/arch/mips/kernel/sysirix.c	2004-03-11 20:47:13.000000000 +0000
-+++ current/arch/mips/kernel/sysirix.c	2004-03-25 15:03:32.000000000 +0000
-@@ -578,7 +578,8 @@ asmlinkage int irix_brk(unsigned long br
- 	/*
- 	 * Check if we have enough memory..
- 	 */
--	if (security_vm_enough_memory((newbrk-oldbrk) >> PAGE_SHIFT)) {
-+	if (security_vm_enough_memory(VM_AD_DEFAULT,
-+			(newbrk-oldbrk) >> PAGE_SHIFT)) {
- 		ret = -ENOMEM;
- 		goto out;
+ 
+@@ -234,7 +234,7 @@
+ }
+ 
+ static irqreturn_t
+-acpi_irq(int irq, void *dev_id, struct pt_regs *regs)
++acpi_irq_trampoline(int irq, void *dev_id, struct pt_regs *regs)
+ {
+ 	return (*acpi_irq_handler)(acpi_irq_context) ? IRQ_HANDLED : IRQ_NONE;
+ }
+@@ -258,11 +258,11 @@
  	}
-diff -upN reference/arch/s390/kernel/compat_exec.c current/arch/s390/kernel/compat_exec.c
---- reference/arch/s390/kernel/compat_exec.c	2004-01-09 06:59:57.000000000 +0000
-+++ current/arch/s390/kernel/compat_exec.c	2004-03-25 15:03:32.000000000 +0000
-@@ -56,7 +56,8 @@ int setup_arg_pages32(struct linux_binpr
- 	if (!mpnt) 
- 		return -ENOMEM; 
- 	
--	if (security_vm_enough_memory((STACK_TOP - (PAGE_MASK & (unsigned long) bprm->p))>>PAGE_SHIFT)) {
-+	if (security_vm_enough_memory(VM_AD_DEFAULT, (STACK_TOP -
-+			(PAGE_MASK & (unsigned long) bprm->p))>>PAGE_SHIFT)) {
- 		kmem_cache_free(vm_area_cachep, mpnt);
- 		return -ENOMEM;
+ 	acpi_irq_handler = handler;
+ 	acpi_irq_context = context;
+-	if (request_irq(irq, acpi_irq, SA_SHIRQ, "acpi", acpi_irq)) {
++	if (request_irq(irq, acpi_irq_trampoline, SA_SHIRQ, "acpi", acpi_irq_trampoline)) {
+ 		printk(KERN_ERR PREFIX "SCI (IRQ%d) allocation failed\n", irq);
+ 		return AE_NOT_ACQUIRED;
  	}
-diff -upN reference/arch/x86_64/ia32/ia32_binfmt.c current/arch/x86_64/ia32/ia32_binfmt.c
---- reference/arch/x86_64/ia32/ia32_binfmt.c	2004-03-25 02:42:14.000000000 +0000
-+++ current/arch/x86_64/ia32/ia32_binfmt.c	2004-03-25 15:03:32.000000000 +0000
-@@ -344,7 +344,8 @@ int setup_arg_pages(struct linux_binprm 
- 	if (!mpnt) 
- 		return -ENOMEM; 
- 	
--	if (security_vm_enough_memory((IA32_STACK_TOP - (PAGE_MASK & (unsigned long) bprm->p))>>PAGE_SHIFT)) {
-+	if (security_vm_enough_memory(VM_AD_DEFAULT, (IA32_STACK_TOP -
-+			(PAGE_MASK & (unsigned long) bprm->p))>>PAGE_SHIFT)) {
- 		kmem_cache_free(vm_area_cachep, mpnt);
- 		return -ENOMEM;
+-	acpi_irq_irq = global_irq;
++	acpi_irq_global_irq = global_irq;
+ 
+ 	return AE_OK;
+ }
+@@ -277,9 +277,9 @@
+ 			printk(KERN_ERR PREFIX "Can't remove ACPI interrupt handler\n");
+ 			return AE_ERROR;
+ 		}
+-		free_irq(irq, acpi_irq);
++		free_irq(irq, acpi_irq_trampoline);
+ 		acpi_irq_handler = NULL;
+-		acpi_irq_irq = 0;
++		acpi_irq_global_irq = 0;
  	}
+ 
+ 	return AE_OK;
 
