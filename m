@@ -1,7 +1,7 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Thu, 20 Jan 2005 16:42:31 +0000
+Date: Thu, 20 Jan 2005 16:45:42 +0000
 Subject: Re: pgprot_writecombine & shub 1.x
-Message-Id: <200501200842.32771.jbarnes@engr.sgi.com>
+Message-Id: <200501200845.42587.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200501111200.02504.jbarnes@sgi.com>
 In-Reply-To: <200501111200.02504.jbarnes@sgi.com>
@@ -10,31 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday, January 20, 2005 5:43 am, Hugo Kohmann wrote:
-> X86 and X86_64 kernels rely on MTRR to enable writecombining. X86 and
-> X86_64 systems supports WriteCombining using the PAT bit in the PTE, but
-> this is not yet supported by Linux kernels. ( There are no PAGE_PAT bit
-> defiend and the PAT MSR power on value does not include support for the WC
-> attribute.) After changing the PAT MSR to enable WC, I can do:
->
-> #define _PAGE_PAT  0x80 /* for AMD64 and X86 */
->   pgprot_val(vma->vm_page_prot) = pgprot_val(vma->vm_page_prot) |= 
-> _PAGE_PAT;
->
-> to set up a user space write combine map ( using mmmap())
->
-> and
->
-> __ioremap(ioaddr, size, _PAGE_PAT);
->
-> To set up a kernel space write combine map.
->
-> I can send the code to change the PAT MSR if anybody needs it - but I
-> guess this is the wrong interest group (As this only works for
-> x86/x86_64)
+On Thursday, January 20, 2005 1:03 am, Jes Sorensen wrote:
+> What about real memory and mapping it uncached? Do we need to play the
+> same trick before allowing it to be mapped uncached? and for IO memory
+> mapped uncached?
 
-Yeah, I think this is the wrong list for that, but it definitely sounds 
-useful.  You should send the code to Andi Kleen and see if he's interested in 
-adding support for WC in the x86-64 codebase.
+Real memory that we map uncached or WC should be in it's own granule.  Since 
+we don't have an allocator for that yet, it's generally an unsafe thing to do 
+(there are exceptions though, like the mspec driver).  And yes, we should 
+probably be consulting the EFI memory map before setting any attributes on a 
+page (i.e. at memory init time and whenever we change the pgprot bits), but 
+since almost all conventional memory can be mapped uncached or cached, and I 
+think all I/O memory can be mapped uncached, I didn't worry about those cases 
+(well, that and I doubt that many EFI memory maps are up to the task--it 
+would be ashame to break a bunch of otherwise working machines by forcing 
+them to move to a more complete EFI memory map).
+
+> Trying to map real memory uncached was what made me stumble upon the
+> PREFETCH_VISIBILITY limitation in the PAL code.
+
+Ah, I wondered about that :)
 
 Jesse
