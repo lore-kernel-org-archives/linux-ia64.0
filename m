@@ -1,29 +1,45 @@
-From: Colin Ngam <cngam@sgi.com>
-Date: Fri, 04 Mar 2005 17:02:37 +0000
-Subject: [PATCH 2.6.11-rc3 0/0] Altix: Fix TIO DMA Macro to support both Shub1 and Shub2
-Message-Id: <20050304170237.25191.39562.36431@attica.americas.sgi.com>
+From: Mike Habeck <habeck@sgi.com>
+Date: Fri, 25 Mar 2005 19:34:24 +0000
+Subject: [PATCH 2.6.12 0/0] Altix only: Fix for sn_dma_flush
+Message-Id: <424467C0.5B60B7A0@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------E1D6981551A892136DEA14A3"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------E1D6981551A892136DEA14A3
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-This patch enables our TIO IO chipset to support variable length nasids in 
-Shub2 chipset.
+Tony,
 
-Signed-off-by: Colin Ngam <cngam@sgi.com>
+The following patch fixes a bug in the SGI Altix sn_dma_flush code.  
+sn_dma_flush is broken in 2.6.  The code isn't waiting for the DMA 
+data to be flushed out of the PIC ASIC. This patch is based off the 
+linux-ia64-test-2.6.12 tree
 
-=== include/asm-ia64/sn/addrs.h 1.11 vs edited ==--- 1.11/include/asm-ia64/sn/addrs.h	2004-12-10 14:10:33 -06:00
-+++ edited/include/asm-ia64/sn/addrs.h	2005-03-03 15:20:37 -06:00
-@@ -153,8 +153,9 @@
-  *           the chiplet id is zero.  If we implement TIO-TIO dma, we might need
-  *           to insert a chiplet id into this macro.  However, it is our belief
-  *           right now that this chiplet id will be ICE, which is also zero.
-+ *           Nasid starts on bit 40.
-  */
--#define PHYS_TO_TIODMA(x)	( (((u64)(x) & NASID_MASK) << 2) | NODE_OFFSET(x))
-+#define PHYS_TO_TIODMA(x)	( (((u64)(NASID_GET(x))) << 40) | NODE_OFFSET(x))
- #define PHYS_TO_DMA(x)          ( (((u64)(x) & NASID_MASK) >> 2) | NODE_OFFSET(x))
+Signed-off-by: Mike Habeck <habeck@sgi.com>
+--------------E1D6981551A892136DEA14A3
+Content-Type: text/plain; charset=us-ascii;
+ name="sn_dma_flush.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sn_dma_flush.patch"
+
+Index: test-2.6.12/arch/ia64/sn/pci/pcibr/pcibr_dma.c
+===================================================================
+--- test-2.6.12.orig/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2005-03-24 14:34:42.591117130 -0600
++++ test-2.6.12/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2005-03-24 15:56:33.535718144 -0600
+@@ -301,7 +301,7 @@
+ 		spin_lock_irqsave(&((struct sn_flush_device_list *)p)->
+ 				  sfdl_flush_lock, flags);
  
+-		p->sfdl_flush_value = 0;
++		*p->sfdl_flush_addr = 0;
  
+ 		/* force an interrupt. */
+ 		*(volatile uint32_t *)(p->sfdl_force_int_addr) = 1;
+
+--------------E1D6981551A892136DEA14A3--
+
