@@ -1,7 +1,7 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 19 Aug 2004 18:48:00 +0000
+From: Robin Holt <holt@sgi.com>
+Date: Thu, 19 Aug 2004 19:48:34 +0000
 Subject: Re: calling oem sal functions
-Message-Id: <20040819184800.GB6710@sgi.com>
+Message-Id: <20040819194834.GE1313@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4124E222.2080105@intel.com>
 In-Reply-To: <4124E222.2080105@intel.com>
@@ -10,36 +10,43 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Aug 19, 2004 at 06:29:04PM +0100, Christoph Hellwig wrote:
-> On Thu, Aug 19, 2004 at 05:23:46PM +0000, Tony Luck wrote:
-> > Dean,
-> > 
-> > I've been thinking about this, and it does seem unresonable that there
-> > is no way for an OEM written module to make a call to an OEM SAL function.
-> > 
-> > Would something like the (compiles, but untested) attached patch work
-> > for you?  The return value of 0/-1 just indicates whether the SAL call
-> > was attempted.  Callers should look at the status field of the isrvp
-> > structure to determine the actual success of the call.
-> > 
-> > Would you also need "_nolock" and "_reentrant" versions?
+On Thu, Aug 19, 2004 at 07:21:02PM +0100, Christoph Hellwig wrote:
+> On Thu, Aug 19, 2004 at 01:18:03PM -0500, Robin Holt wrote:
+> > If you make them GPL, it makes the call useless to SGI.  Some of our
+> > tests suites have the problem description we are testing for and the
+> > resolution.  This may include vendor specific or customer specific
+> > data which is not disclosable.  Some of the vendor specific tests are
+> > likewise covered by NDA.  I understand you would love to have
+> > everything _GPL, but that is unreasonable.
 > 
-> Please make the exports _GPL so we have the callers under rcontrol.
+> Huh?  As long as you use your testsuite only internally the GPL doesn't
+> matter.  It only kicks in as soon as you distribute something.
 
-SGI uses OEM_SAL calls in some of it's online diagnostics. These diagnostics
-are run on production systems, both in the factory and at customer sites.
-If the SAL call interface is marked _GPL, then these diagnostics cant
-be run on standard kernels. 
+The test suites are part of our online diagnostics.  We normally have the
+field support or customer run the diagnostics to identify the source
+of the problem.
 
-Since the OEM_SAL call interface restricts SAL calls to the OEM range
-of function codes, I dont understand why these calls should be GPL'ed.
+> 
+> > Tony, please carefully consider the _GPL.
+> 
+> This is talking directly to the SAL layer, something that should
+> be reserved to OS internals.
 
+IIRC, the SAL calls that diags make do stuff like change hardware error
+timeout settings, hardware request queue sizes, voltage thresholds,
+and retry limits so that even slightly marginal hardware becomes extermely
+likely to fail.
 
+Userland then uses normal kernel mechanism to excercise the portion
+under test (eg: ping-pong a cacheline between two nodes) to attempt to
+force an error.
 
--- 
-Thanks
+All the error indications we are looking for use the normal kernel
+paths.  We are just setting the hardware up for the maximum probability
+for failure.
 
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
+Again Tony, please consider carefully the effect of putting _GPL on
+these exports.
 
-
+Thanks,
+Robin
