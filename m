@@ -1,28 +1,41 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 11 Jan 2002 16:38:52 +0000
-Subject: Re: [Linux-ia64] kmalloc() and page sizes
-Message-Id: <marc-linux-ia64-105590698805810@msgid-missing>
+From: Takanori Kawano <t-kawano@ebina.hitachi.co.jp>
+Date: Wed, 09 Jan 2002 08:39:38 +0000
+Subject: [Linux-ia64] Modifing memory attributes needs cache flush
+Message-Id: <marc-linux-ia64-105590698805781@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805788@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805788@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 11 Jan 2002 13:09:11 +0100, Christian Hildner <christian.hildner@hob.de> said:
+It noticed current ia64 code doesn't flush any processor 
+cache before modifing memory attributes, though the following 
+description in SDM vol2 Section4.4.2 says it should be done.
 
-  Christian> David, the storage I need for my driver has to be mapped
-  Christian> by the 64MB kernel page. The alloc_pages() gives me pages
-  Christian> with virtual addresses outside the kernel mapped
-  Christian> page. Since kmalloc() gives storage at natural alignment
-  Christian> this call is perfect to overlay the storage with an
-  Christian> additional mapping with 256KB page size.
+ If software modifies the memory attributes for a page, software must flush
+ any processor cache copies with the Flush Cache(fc) instruction for the 
+ following memory attribute changes:
+ speculative/non-speculative, cacheable/uncacheable(for transitions from 
+ cacheable to uncacheable), and coherency. Software must flush any coalescing 
+ buffers if a page is changes from coalescing to any other attribute.
+ 
 
-The page allocator returns memory in the identity mapped kernel
-segment, just like kmalloc().  In fact, kmalloc() is implemented on
-top of the page allocator.  Also, the page allocator uses the buddy
-system, so the memory is aligned according to the allocation order.
+Does anybody know why the current code doesn't flush cache?
 
-	--david
+I have some problem that seems to be caused by the ansence 
+of cache flush and I am writing a patch fixes it, so I'll
+appreciate any information about it.
+
+---
+Takanori Kawano
+Hitachi Ltd,
+Internet Systems Platform Division
+t-kawano@ebina.hitachi.co.jp
+
+
+
+
+
+
+
 
