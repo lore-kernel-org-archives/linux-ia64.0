@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
 Date: Tue, 23 Sep 2003 20:00:03 +0000
 Subject: Re: NS83820 2.6.0-test5 driver seems unstable on IA64
-Message-Id: <marc-linux-ia64-106437357607579@msgid-missing>
+Message-Id: <marc-linux-ia64-106439024820366@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106394503001622@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106394503001622@msgid-missing>
