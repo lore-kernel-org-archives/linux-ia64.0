@@ -1,21 +1,26 @@
-From: John Kohl <jtk@rational.com>
-Date: Wed, 13 Dec 2000 19:38:57 +0000
-Subject: [Linux-ia64] binary kernel module build flags
-Message-Id: <marc-linux-ia64-105590678205824@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 13 Dec 2000 21:09:18 +0000
+Subject: Re: [Linux-ia64] binary kernel module build flags
+Message-Id: <marc-linux-ia64-105590678205827@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205824@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205824@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-We're working to port our file system module to Linux-IA64.  Is there
-some set of compiler flags which we can use to build object files that
-can be linked into modules to work on all IA64 processors?  Do we need
-to worry about -ma-step, etc.?
+You shouldn't worry about A-step or B0-step processors unless you personally
+are still using them because you haven't gotten upgrades yet.  I'd like to
+eliminate the compiler -ma-step option before gcc3 comes out, which means it
+won't be in the next compiler release.  Meanwhile, if you must use A-step or
+B0-step processors, then you must use the -ma-step compiler option.  Otherwise,
+I recommend using -mb-step for now, which will support B1 and higher processor
+steppings.
 
--- 
-=John Kohl <jtk@rational.com>, Software Engineer
-Rational Software, Configuration Management Business Unit
-Mark your calendars!  Rational User Conference 2001, July 22-26, 2001
-in beautiful Denver, Colorado
+The current round of OS releases are coming out with B step kernel support only
+by default, and A step support is provided with an optional kernel (TurboLinux)
+or not at all (Red Hat).
+
+Jim
 
