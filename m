@@ -1,43 +1,26 @@
-From: "David N. Lombard" <david.lombard@mscsoftware.com>
-Date: Tue, 23 Jul 2002 23:51:11 +0000
-Subject: [Linux-ia64] [PATCH] arch/ia64/boot/Makefile
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------080701010408000000000208"
-Message-Id: <marc-linux-ia64-105590701905825@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 23 Jul 2002 23:59:48 +0000
+Subject: Re: [Linux-ia64] [PATCH] arch/ia64/boot/Makefile
+Message-Id: <marc-linux-ia64-105590701905827@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905825@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905825@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080701010408000000000208
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+>>>>> On Tue, 23 Jul 2002 16:51:11 -0700, "David N. Lombard" <david.lombard@mscsoftware.com> said:
 
-arch/ia64/boot/Makefile uses the macro TARGET without defining it.
+  David.L> arch/ia64/boot/Makefile uses the macro TARGET without defining it.
+  David.L> The attached patch corrects that.
 
-The attached patch corrects that.
+  David.L> clean:
+  David.L> -	rm -f $(TARGETS)
+  David.L> +	rm -f bootloader $(OBJECTS)
 
--- 
-David N. Lombard
-MSC.Software
+This probably broke when TARGETS got replaced by targets-y.
+Thanks for the patch.
 
---------------080701010408000000000208
-Content-Type: text/plain;
- name="ia64-boot.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ia64-boot.diff"
-
---- arch/ia64/boot/Makefile.orig	Thu Jan  4 12:50:17 2001
-+++ arch/ia64/boot/Makefile	Tue Jul 23 14:30:07 2002
-@@ -27,6 +27,6 @@
- 	-o bootloader
- 
- clean:
--	rm -f $(TARGETS)
-+	rm -f bootloader $(OBJECTS)
- 
- dep:
-
---------------080701010408000000000208--
-
+	--david
 
