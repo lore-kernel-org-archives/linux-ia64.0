@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Jun 2003 22:14:44 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Tue, 24 Jun 2003 21:07:17 +0000
 Subject: Re: SCSI ERRORS triggered by BIO_VMERGE_BOUNDARY
-Message-Id: <marc-linux-ia64-105640705631100@msgid-missing>
+Message-Id: <marc-linux-ia64-105648893606349@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105604433402604@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105604433402604@msgid-missing>
@@ -10,22 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 23 Jun 2003 15:05:49 -0700, Grant Grundler <iod00d@hp.com> said:
+On Mon, Jun 23, 2003 at 03:05:49PM -0700, Grant Grundler wrote:
+> It looks like blk_recount_segments() is only used to gather
+> stastics about how many segments are in the transaction.
+> I tracked back to fs/bio.c to find the consumer of this
+> information (# of segments) but didn't find it.
+> Anyone know off hand?
 
-  >> The decision has to be split across BIO and I/O MMU: only the
-  >> BIO-level knows what to do if merging _cannot_ take place and
-  >> only the I/O MMU code knows how to map physically discontiguous
-  >> pages linearly into I/O MMU space.
+James Bottomley explained it to me:
 
-  Grant> I understand the latter. Not the former.
+| The second is this nr_phys_segments in the elevator queuing code.  This   
+| counts the number of SG entries that will be required to describe the
+| request.  A lot of devices have fixed size SG tables, so the SG table is
+| the only thing that limits the size of the transfer.  Thus the block
+| layer has code that tries to merge physically contiguous segments of a
+| bio so it can squeeze extra blocks into the transfer.
 
-  Grant> It looks like blk_recount_segments() is only used to gather
-  Grant> stastics about how many segments are in the transaction.  I
-  Grant> tracked back to fs/bio.c to find the consumer of this
-  Grant> information (# of segments) but didn't find it.  Anyone know
-  Grant> off hand?
+I don't know if LSI SCSI controllers/drivers have limits in this space
+and what they might be. Will try to figure that out.
 
-I think you're talking to the wrong people.  If you want to change the
-BIO layer, talk to Jens Axboe et al.
-
-	--david
+thanks,
+grant
