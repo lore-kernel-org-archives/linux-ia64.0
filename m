@@ -1,37 +1,58 @@
-From: stefan <stefan@lkcc.org>
-Date: Sat, 29 Sep 2001 16:53:56 +0000
-Subject: Re: [Linux-ia64] use of setcontext()/getcontext()
-Message-Id: <marc-linux-ia64-105590698805277@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Mon, 17 Sep 2001 23:51:11 +0000
+Subject: [Linux-ia64] __emul_prefix() problem
+Message-Id: <marc-linux-ia64-105590698805196@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805251@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805251@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 27 Sep 2001, David Mosberger wrote:
+I have been toying with __emul_prefix() on ia64 linux as a means to
+deal with x86 programs that use absolute paths when loading shared
+objects (such as PAM or the GTK themes).  This works quite well, but
+it breaks the traditional UNIX way of translating a relative path
+into an absolute path.  The OpenOffice installer does this, for
+example.  What happens precisely is that the installer attempts to
+create an absolute path by stat()ing "/." and then walking the parent
+directory chain until it finds the directory entry with a matching
+i-node number.  This doesn't work because if an x86 binary stat()s
+this path, it will get the i-node number of /emul/ia32-linux/ (in the
+ia64 linux case) and things quickly go downhill from there.
 
-> struct rv
->   {
->     long retval;
->     long first_return;
->   };
-> 
-> int
-> swapcontext (ucontext_t *oucp, const ucontext_t *ucp)
-> {
->   struct rv rv = getcontext (oucp);
->   if (rv.first_return)
->     setcontext (ucp);
->   return 0;
-> }
+I'm not sure there is a clean fix to this, but one proposal is
+attached below: it causes __emul_lookup_dentry() to ignore the
+alternate root for paths that resolve to a directory.  This obviously
+could create other problems, but I suspect there is no solution that
+works 100% in all cases (the fundamental being that we now have two
+different root nodes...).
 
-By including <sys/ucontext.h> and declaring getcontext() and setcontext()
-by hand it was possible to port the upcoming GNU Guile release 1.6 to
-ia64-linux. Thank you very much for your help !
+Comments?
 
-Thanks,
-	stefan@lkcc.org
+	--david
+
+PS: I cc'd all the platform maintainers that use a non-NULL
+    emul_prefix, except for Dave Miller who in private mail indicated
+    that he doesn't care about this problem
+
+--- fs/namei.c~	Sat Jul 21 20:20:40 2001
++++ fs/namei.c	Mon Sep 17 15:10:20 2001
+@@ -604,10 +604,14 @@
+ static int __emul_lookup_dentry(const char *name, struct nameidata *nd)
+ {
+ 	if (path_walk(name, nd))
+-		return 0;
++		return 0;		/* something went wrong... */
+ 
+-	if (!nd->dentry->d_inode) {
++	if (!nd->dentry->d_inode || S_ISDIR(nd->dentry->d_inode->i_mode)) {
+ 		struct nameidata nd_root;
++		/*
++		 * NAME was not found in alternate root or it's a directory.  Try to find
++		 * it in the normal root:
++		 */
+ 		nd_root.last_type = LAST_ROOT;
+ 		nd_root.flags = nd->flags;
+ 		read_lock(&current->fs->lock);
 
 
