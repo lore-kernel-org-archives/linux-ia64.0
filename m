@@ -1,28 +1,28 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 29 Jul 2003 23:06:36 +0000
-Subject: Re: [PATCH] improve scalability of 2.4.21 fpassist
-Message-Id: <marc-linux-ia64-105952002320917@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Wed, 16 Jul 2003 04:05:16 +0000
+Subject: Can't build current snapshot
+Message-Id: <marc-linux-ia64-105832832401236@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105726499515305@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105726499515305@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday 03 July 2003 2:36 pm, John Hawkes wrote:
-> This change has already made its way into linux-2.5.72-ia64-031619.diff.
-> Here is the diff relative to 2.4.21 + linux-2.4.21-ia64-030702.diff.
-> 
-> This patch *significantly* improves the scalability of handle_fpu_swa()
-> when multiple CPUs are generating concurrent fp-assist traps.
-> The original algorithm produces cacheline ping-ponging for the cacheline
-> that contains fpu_swa_count.  This new algorithm only dirties
-> fpu_sw_count when the printk() is about to occur, rather than on every
-> fpassist trap, which throttles the ping-ponging to no more than five per
-> second.
 
-I applied this for 2.4.  Thanks!
 
-Bjorn
+From David's BK tree as of this morning, when building for the simulator:
+     ...
+  LD      .tmp_vmlinux1
+arch/ia64/kernel/built-in.o(.text+0x962): In function `efi_init':
+arch/ia64/kernel/efi.c:468: relocation truncated to fit: IMM22 per_cpu__ia64_phys_stacked_size_p8
+arch/ia64/kernel/built-in.o(.text+0xbe2):arch/ia64/kernel/efi.c:482: relocation truncated to fit: IMM22 per_cpu__ia64_phys_stacked_size_p8
+arch/ia64/kernel/built-in.o(.text+0x3302): In function fsys_gettimeofday': : relocation truncated to fit: IMM22 per_cpu__cpu_info
 
+This is with the current cvs snapshot binutils, 
+gcc 3.2.3 20030221 (Debian prerelease)
+
+CONFIG_SMP is *not* set, CONFIG_VIRTUAL_MEM_MAP is *not* set.
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories,   all slightly different.
