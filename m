@@ -1,73 +1,57 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Mon, 04 Oct 2004 06:25:22 +0000
-Subject: [patch 1/5 salinfo-0.6] cleanup
-Message-Id: <11341.1096871122@kao2.melbourne.sgi.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 20 Oct 2004 17:17:22 +0000
+Subject: [PATCH] use NULL instead of 0
+Message-Id: <200410201017.22174.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_i2pdBT2vcKaBXjD"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-cleanup         Remove some dead code from salinfo 0.5, mainly from SuSE
+--Boundary-00=_i2pdBT2vcKaBXjD
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Index: salinfo-0.5/Makefile
-=================================--- salinfo-0.5.orig/Makefile	Mon Nov 24 16:27:34 2003
-+++ salinfo-0.5/Makefile	Wed Sep 15 16:21:10 2004
-@@ -14,10 +14,10 @@ clean:
- 	rm -f salinfo_decode salinfo_decode_oem *.o
- 
- install: salinfo_decode
--	mkdir -p $(mandir)/man8
-+	mkdir -p $(prefix)$(mandir)/man8
- 	mkdir -p $(prefix)$(crondir) $(prefix)$(sbindir) $(prefix)$(initdir)
- 	mkdir -p $(prefix)$(logdir) $(prefix)$(logdir)/raw $(prefix)$(logdir)/decoded
--	cp -a salinfo_decode.8 $(mandir)/man8
-+	cp -a salinfo_decode.8 $(prefix)$(mandir)/man8
- 	cp -a salinfo_decode salinfo_decode_all $(prefix)$(sbindir)
- 	cp -a salinfo-cron-daily.d-salinfo_decode $(prefix)$(crondir)/salinfo_decode
- 	cp -a salinfo-etc-init.d-salinfo_decode $(prefix)$(initdir)/salinfo_decode
-Index: salinfo-0.5/fpu.h
-=================================--- salinfo-0.5.orig/fpu.h	Sun Nov 16 18:34:25 2003
-+++ salinfo-0.5/fpu.h	Thu Jan  1 10:00:00 1970
-@@ -1,18 +0,0 @@
--#ifndef _ASM_IA64_FPU_H
--#define _ASM_IA64_FPU_H
--
--/*
-- * Copyright (C) 1998, 1999, 2002, 2003 Hewlett-Packard Co
-- *	David Mosberger-Tang <davidm@hpl.hp.com>
-- * 2003-11-16 Strip down to the bare minimum required to decode SAL records.
-- *	      Keith Owens <kaos@sgi.com>
-- */
--
--struct ia64_fpreg {
--	union {
--		unsigned long bits[2];
--		long double __dummy;	/* force 16-byte alignment */
--	} u;
--};
--
--#endif /* _ASM_IA64_FPU_H */
-Index: salinfo-0.5/sal.h
-=================================--- salinfo-0.5.orig/sal.h	Sun Nov 16 18:33:28 2003
-+++ salinfo-0.5/sal.h	Wed Sep 15 16:21:10 2004
-@@ -25,7 +25,6 @@
-  *	      Keith Owens <kaos@sgi.com>
-  */
- 
--#include "fpu.h"
- #include "efi.h"
- #include "pal.h"
- 
-Index: salinfo-0.5/salinfo_decode.c
-=================================--- salinfo-0.5.orig/salinfo_decode.c	Fri Mar  5 06:36:23 2004
-+++ salinfo-0.5/salinfo_decode.c	Wed Sep 15 16:21:10 2004
-@@ -155,7 +155,6 @@ fork_oemdata(void)
- 		close(pc[1]);
- 		oemdata_fd[0] = pc[0];	/* mca.c read from pgm */
- 		oemdata_fd[1] = pp[1];	/* mca.c write to pgm */
--		printf("oemdata_fd[0](%d) oemdata_fd[1](%d)\n", oemdata_fd[0], oemdata_fd[1]);
- 		__asm__ __volatile__ ("" ::: "memory");	/* lock free barrier */
- 		if (child_died)
- 			oemdata_fd[1] = -1;
+Clean up a couple of places that were using 0 instead of NULL, which is the 
+more proper value.
 
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+
+Thanks,
+Jesse
+
+--Boundary-00=_i2pdBT2vcKaBXjD
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sparse-null-cleanups.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sparse-null-cleanups.patch"
+
+===== arch/ia64/mm/discontig.c 1.22 vs edited =====
+--- 1.22/arch/ia64/mm/discontig.c	2004-10-19 02:40:14 -07:00
++++ edited/arch/ia64/mm/discontig.c	2004-10-20 09:24:04 -07:00
+@@ -681,7 +681,7 @@
+ 				PAGE_ALIGN(max_low_pfn * sizeof(struct page));
+ 			vmem_map = (struct page *) vmalloc_end;
+ 
+-			efi_memmap_walk(create_mem_map_page_table, 0);
++			efi_memmap_walk(create_mem_map_page_table, NULL);
+ 			printk("Virtual mem_map starts at 0x%p\n", vmem_map);
+ 		}
+ 
+===== arch/ia64/mm/numa.c 1.7 vs edited =====
+--- 1.7/arch/ia64/mm/numa.c	2004-02-03 21:35:17 -08:00
++++ edited/arch/ia64/mm/numa.c	2004-10-20 09:23:43 -07:00
+@@ -70,7 +70,7 @@
+ 	memset(sysfs_cpus, 0, sizeof(struct cpu) * NR_CPUS);
+ 
+ 	for (i = 0; i < numnodes; i++)
+-		if ((err = register_node(&sysfs_nodes[i], i, 0)))
++		if ((err = register_node(&sysfs_nodes[i], i, NULL)))
+ 			goto out;
+ 
+ 	for (i = 0; i < NR_CPUS; i++)
+
+--Boundary-00=_i2pdBT2vcKaBXjD--
