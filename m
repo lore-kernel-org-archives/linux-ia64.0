@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Mon, 03 May 2004 15:07:48 +0000
+From: Keith Owens <kaos@ocs.com.au>
+Date: Tue, 04 May 2004 02:04:11 +0000
 Subject: Re: shared memory between 32bit & 64bit applications
-Message-Id: <20040503150748.GA26104@cup.hp.com>
+Message-Id: <6869.1083636251@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040503132511.GJ2281@parcelfarce.linux.theplanet.co.uk>
 In-Reply-To: <20040503132511.GJ2281@parcelfarce.linux.theplanet.co.uk>
@@ -10,16 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, May 03, 2004 at 06:46:09PM +0530, ARADHYA, CHINMAYA TM (STSD) wrote:
-> The 64 bit application fills in {1,5,5} in the shared
-> memory and when I access these values from a 32 bit application
-> I get it as {1,21474836480,0}.
+On Mon, 3 May 2004 14:25:11 +0100, 
+Matthew Wilcox <willy@debian.org> wrote:
+>Nope.  You're being bitten by different struct padding rules.
+>
+>#include <stdio.h>
+>
+>struct foo {
+>        int req;
+>        long long id;
+>        int abc;
+>};
+>
+>int main(void) { return printf("%d\n", sizeof(struct foo)); }
+>
+>On ia64, this prints 24; on i386 it prints 16.
+>
+>You could declare it __attribute__((packed)) or you could reorder the
+>elements in the struct to put the largest elements first.
 
-Besides the different padding rules mentioned by willy, I'd
-advise debugging with with hex output instead of decimal.
-It makes it very obvious which bits are going where.
+Or compile i386 code with -malign-double which will align i386 long
+long values on 8 byte boundaries, the same as ia64.
 
-And do some experiments with filling in the fields with
-known values and then dumping the entire struct as a byte array.
-
-grant
