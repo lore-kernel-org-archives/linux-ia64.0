@@ -1,90 +1,35 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 11 Jun 2004 14:19:24 +0000
-Subject: [patch 2.6.7-rc3] Remove warnings when unwind debug is turned on
-Message-Id: <18662.1086963564@ocs3.ocs.com.au>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 10 Jun 2004 05:03:27 +0000
+Subject: top stack users
+Message-Id: <200406100503.i5A53RHD026410@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Turning on UNW_DEBUG generates warnings for incorrect number of
-parameters for formats and several cases of "suggest explicit braces to
-avoid ambiguous `else'", because UNW_DPRINT contains an if statement.
+Thought I'd run "make checkstack" to see who the worst offenders are
+in stack consumption (this is for 2.6.7-rc3):
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+0xa00000010002d986 pfm_overflow_handler:                2128
+0xa00000010024c166 nfs_direct_write_seg:                1520
+0xa000000100009f46 huft_build:                          1456
+0xa00000010000dac6 huft_build:                          1456
+0xa00000010024ba46 nfs_direct_read_seg:                 1440
+0xa000000100193b26 elf_kcore_store_hdr:                 1376
+0xa00000010000b9c6 inflate_dynamic:                     1296
+0xa00000010000f686 inflate_dynamic:                     1296
+0xa00000010000b686 inflate_fixed:                       1184
+0xa00000010000f346 inflate_fixed:                       1184
+0xa000000100413830 tg3_get_estats:                      1184
+0xa0000001007ffba6 efi_uart_console_only:               1152
 
-Index: linux/arch/ia64/kernel/unwind.c
-=================================--- linux.orig/arch/ia64/kernel/unwind.c	Sat Jun 12 00:08:24 2004
-+++ linux/arch/ia64/kernel/unwind.c	Sat Jun 12 00:13:56 2004
-@@ -395,9 +395,10 @@ unw_access_gr (struct unw_frame_info *in
- 	}
- 
- 	if (write) {
--		if (read_only(addr))
--			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n");
--		else {
-+		if (read_only(addr)) {
-+			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n",
-+				__FUNCTION__);
-+		} else {
- 			*addr = *val;
- 			if (*nat)
- 				*nat_addr |= nat_mask;
-@@ -442,9 +443,10 @@ unw_access_br (struct unw_frame_info *in
- 		return -1;
- 	}
- 	if (write)
--		if (read_only(addr))
--			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n");
--		else
-+		if (read_only(addr)) {
-+			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n",
-+				__FUNCTION__);
-+		} else
- 			*addr = *val;
- 	else
- 		*val = *addr;
-@@ -490,9 +492,10 @@ unw_access_fr (struct unw_frame_info *in
- 	}
- 
- 	if (write)
--		if (read_only(addr))
--			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n");
--		else
-+		if (read_only(addr)) {
-+			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n",
-+				__FUNCTION__);
-+		} else
- 			*addr = *val;
- 	else
- 		*val = *addr;
-@@ -586,9 +589,10 @@ unw_access_ar (struct unw_frame_info *in
- 	}
- 
- 	if (write) {
--		if (read_only(addr))
--			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n");
--		else
-+		if (read_only(addr)) {
-+			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n",
-+				__FUNCTION__);
-+		} else
- 			*addr = *val;
- 	} else
- 		*val = *addr;
-@@ -606,9 +610,10 @@ unw_access_pr (struct unw_frame_info *in
- 		addr = &info->sw->pr;
- 
- 	if (write) {
--		if (read_only(addr))
--			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n");
--		else
-+		if (read_only(addr)) {
-+			UNW_DPRINT(0, "unwind.%s: ignoring attempt to write read-only location\n",
-+				__FUNCTION__);
-+		} else
- 			*addr = *val;
- 	} else
- 		*val = *addr;
+Stephane, I think pfm_overflow_handler() is a real problem and could
+lead to stack-overflows.  The culprit appears to be the variable of
+type "pfm_ovfl_arg_t".  It would be good if we could avoid such big
+stack consumption.
 
+efi_uart_console_only() also seems to be a bit on the high side, but
+it's probably OK since it's used only once at boottime.
+
+	--david
