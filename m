@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 08 May 2003 00:13:17 +0000
-Subject: RE: [Linux-ia64] SAL error record logging/decoding
-Message-Id: <marc-linux-ia64-105590723705667@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Thu, 08 May 2003 19:32:52 +0000
+Subject: Re: [Linux-ia64] SAL error record logging/decoding
+Message-Id: <marc-linux-ia64-105590723705693@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705660@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705660@msgid-missing>
@@ -10,83 +10,57 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> From: Bjorn Helgaas [mailto:bjorn_helgaas@hp.com] 
+On Wednesday 07 May 2003 6:13 pm, Luck, Tony wrote:
+> When to clear record from the SAL error log is a thorny question.
+> There are two conflicting goals:
+> 1) Making sure that we minimize the chance that we lose error
+> information ... i.e. we would like to be sure that the error
+> record was saved to some permanent storage before we clear it
 > 
-> The MCA/INIT/CMC/CPE log decoding currently in arch/ia64/kernel/mca.c
-> has some problems:
+> 2) We need to clear records from the SAL log as soon as we can to
+> make space for subsequent records to be logged (and to reveal other
+> records that are already in the log).
 > 
-> 	- It doesn't know much about OEM-specific sections.
-> 	- At boot-time, it sometimes takes so long to print
-> 	  the log to the console that the BSP erroneously
-> 	  assumes an AP is stuck.  This sometimes causes
-> 	  *another* MCA.
-> 	- The log goes ONLY to the console, where the output
-> 	  may be lost.
-> 
-> So here's some fodder for discussion.  I don't claim that 
-> this is ready
-> for prime time; I just want to get some feedback on whether this
-> is a reasonable approach.
-> 
-> The attached patch (against 2.4.21-rc1) makes the raw, binary
-> error records straight from SAL available via files in /proc:
-> 
-> 	/proc/sal/cpu<n>/{mca,init,cmc,cpe}
-> 
-> If you read the file, you get the raw data.  If you write "clear" to
-> it, you invalidate the current error record (which as I read the spec,
-> may potentially make another, pending record available to be read).
-> 
-> The idea is that
-> 
-> 	- An rc script run at boot-time can save all the logs in
-> 	  files, clearing each afterwards.
-> 	- A user-level analysis tool can decode them as needed
-> 	  (perhaps also run from the same rc script above).
-> 	- The user-level analyzer need not be open-source, if
-> 	  people are worried about IP in the OEM-specific sections.
-> 	- A baseline open-source analyzer can provide at least the
-> 	  functionality available today in the kernel decoder.
-> 
-> So, attached are the kernel patch against 2.4.21-rc1 and a simple
-> user program ("salinfo") to decode the logs.  Note that the kernel
-> patch removes the SAL clear_state_info calls from mca.c, so the error
-> records will be preserved until the user program can read them.
-> This feels like the right thing to me (only a user program
-> can know that the logs have been saved somewhere safe), but
-> no doubt there are issues here.
-> 
-> The user-space analyzer is derived from the current kernel code
-> in mca.c and should produce identical output.  For now, I left
-> all the code in the kernel as well, but ultimately it could be
-> removed.
+> I think that fact that we need to clear a record to see the next one
+> might force into taking a few risks of losing a message ... which
+> makes me believe that we need a mechanism to read and delete an error
+> record from the log and buffer it someplace until it can be picked up
+> from /proc (rather than using the "clear" command to the /proc
+> interface that you suggest).
 
-Definitely a step in the right direction.  SAL error records are
-much too big, ugly and verbose to have them run through "printk"
-to the console. Parsing in userland is great too.
+I actually implemented such a read/buffer/clear mechanism, but
+the buffer management makes it much more complicated and I couldn't
+see any benefit, based on the following reasoning:
 
-I've also hit some issues with MCA recovery where printing the
-error information from within the MCA handler tripped into other
-problems (perhaps because of the time taken as you suggest).  So
-I've been pondering some such mechanism too.
+There's always a window between SAL_CHECK (where the error records
+are created, consuming buffer space) and SAL_CLEAR_STATE_INFO (where
+the buffer space is freed).  Information about events that occur in
+that window may be lost, regardless of whether the error records are
+cleared by the kernel or by a user application.
 
-When to clear record from the SAL error log is a thorny question.
-There are two conflicting goals:
-1) Making sure that we minimize the chance that we lose error
-information ... i.e. we would like to be sure that the error
-record was saved to some permanent storage before we clear it
+I'm unconvinced by the argument that the kernel should call
+SAL_CLEAR_STATE_INFO in order to reduce (but not eliminate)
+the window.
 
-2) We need to clear records from the SAL log as soon as we can to
-make space for subsequent records to be logged (and to reveal other
-records that are already in the log).
+Here's a likely scenario that shows why I think we have to make
+sure the log gets to stable storage before we clear it:
 
-I think that fact that we need to clear a record to see the next one
-might force into taking a few risks of losing a message ... which
-makes me believe that we need a mechanism to read and delete an error
-record from the log and buffer it someplace until it can be picked up
-from /proc (rather than using the "clear" command to the /proc
-interface that you suggest).
+	- MCA occurs
+	- Linux reboots
+	- Kernel calls SAL_GET_STATE_INFO, copies records to buffer
+	- Kernel calls SAL_CLEAR_STATE_INFO
+	- Kernel panics because MCA corrupted root filesystem
 
--Tony
+Now the MCA error records are lost, and it's not even because SAL
+ran out of buffer space!  We might argue that for this reason, the
+kernel ought to decode the records to the console, but even then
+the console output might not be logged, and vital OEM data might
+not be decoded at all.
+
+With my proposal, we at least have the possibility of dumping the
+error records from the EFI user interface, even if we can no longer
+boot the kernel.
+
+Bjorn
 
 
