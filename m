@@ -1,23 +1,24 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Fri, 13 Aug 2004 18:45:34 +0000
-Subject: Re: [PATCH] add coherence id for SGI Altix systems
-Message-Id: <20040813194534.A14135@infradead.org>
+From: Pat Gefre <pfg@sgi.com>
+Date: Wed, 11 Aug 2004 23:34:17 +0000
+Subject: Re: Altix I/O code reorganization - 15 of 21
+Message-Id: <200408112334.i7BNYIVR149696@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200408131756.i7DHuWNi036140@shaft.americas.sgi.com>
-In-Reply-To: <200408131756.i7DHuWNi036140@shaft.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, hch@infradead.org
 
-On Fri, Aug 13, 2004 at 01:41:13PM -0500, Russ Anderson wrote:
-> Christoph Hellwig wrote:
-> > 
-> > also while you're at it convert the whole file to seq_file and proper
-> > coding style.
-> 
-> Shouldn't coding style changes be a separate patch?  Otherwise
-> it's hard to tell the real changes from the code style changes.
 
-"while you're at it" wasn't meant as in the same patch, but as a reminder
-that additional patches to clean up that area would be very welcome ;-)
+Large mod - new kdb support funcs.
+
+I think we've decided to keep these ???
+
+ftp://oss.sgi.com/projects/sn2/sn2-update/008-kdb-support-functions
+
+
+-- 
+
+Patrick Gefre
+Silicon Graphics, Inc.                     (E-Mail)  pfg@sgi.com
+2750 Blue Water Rd                         (Voice)   (651) 683-3127
+Eagan, MN 55121-1400                       (FAX)     (651) 683-3054
