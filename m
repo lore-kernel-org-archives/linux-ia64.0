@@ -1,34 +1,30 @@
-From: John Kohl <jtk@rational.com>
-Date: Mon, 18 Dec 2000 20:20:48 +0000
-Subject: [Linux-ia64] more missing symbols (test12 patch)?
-Message-Id: <marc-linux-ia64-105590678205860@msgid-missing>
+From: Dambacher <ulf.dambacher@mach.uni-karlsruhe.de>
+Date: Wed, 20 Dec 2000 07:10:28 +0000
+Subject: [Linux-ia64] anybody from S.U.S.E. on this list?
+Message-Id: <marc-linux-ia64-105590678205867@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-These look like more missing symbol exports from the test12-based patch
-kit.  I'm presuming they should be exported without versions, similarly
-to what i386 does with its locking-related exports?
+Hi at linux-ia64.
 
-#include <asm/semaphore.h>
-EXPORT_SYMBOL_NOVERS(__down);
-EXPORT_SYMBOL_NOVERS(__down_interruptible);
-EXPORT_SYMBOL_NOVERS(__down_trylock);
-EXPORT_SYMBOL_NOVERS(__up);
-EXPORT_SYMBOL_NOVERS(__down_read_failed);
-EXPORT_SYMBOL_NOVERS(__down_write_failed);
-EXPORT_SYMBOL_NOVERS(__rwsem_wake);
+Is there an employee from S.U.S.E. on this list? 
+Wo is in charge of the suse linux ia64 distribution and how up to date is it?
 
-p.s. we got test12 kernels running on our Big Sur system, after
-upgrading to BIOS 60.  (It took a while to determine that our processors
-are A2 stepping, and we're arranging to get upgrades soon.)
-Thanks for all the suggestions!
+Thanks and bye
+	Ulf
 
--- 
-=John Kohl <jtk@rational.com>, Software Engineer
-Rational Software, Configuration Management Business Unit
-Mark your calendars!  Rational User Conference 2001, July 22-26, 2001
-in beautiful Denver, Colorado
+-----
+
+Dipl.-Ing Ulf Dambacher
+Institut fur Werkzeugmaschinen und Betriebstechnik - Universitat Karlsruhe
+Tel.: +49 721 608 6022
+Fax: +49 721 69 91 53
+ulf.dambacher@mach.uni-karlsruhe.de
+
+
+
+
 
