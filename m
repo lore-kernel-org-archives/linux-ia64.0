@@ -1,39 +1,31 @@
-From: Greg KH <greg@kroah.com>
-Date: Tue, 24 Feb 2004 21:38:07 +0000
-Subject: Re: [2.6 PATCH] Altix hotplug
-Message-Id: <20040224213807.GA2045@kroah.com>
+From: Jason Uhlenkott <jasonuhl@sgi.com>
+Date: Wed, 18 Feb 2004 22:13:03 +0000
+Subject: [PATCH] 2.4.25: BUG(): Use guard page instead of page 0
+Message-Id: <20040218221302.GA87364@dragonfly.csd.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040223210448.GA22598@kroah.com> <Pine.SGI.3.96.1040224131328.43293F-100000@fsgi900.americas.sgi.com>
-In-Reply-To: <Pine.SGI.3.96.1040224131328.43293F-100000@fsgi900.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Pat Gefre <pfg@sgi.com>
-Cc: davidm@napali.hpl.hp.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Tue, Feb 24, 2004 at 01:16:14PM -0600, Pat Gefre wrote:
-> On Mon, 23 Feb 2004, Greg KH wrote:
-> 
-> + On Mon, Feb 23, 2004 at 08:55:14AM -0600, Pat Gefre wrote:
-> + > +#define SYSCTL_PCI_UNINITIALIZED	(SYSCTL_PCI_ERROR_BASE - 0)
-> + > +    { SYSCTL_PCI_UNINITIALIZED, "module not initialized" },
-> + 
-> + What are you going to do with this large table of strings?  I see where
-> + you copy them to somewhere, but don't see anything beyond that.
-> + 
-> + Are we missing a huge piece of the puzzle?
-> 
-> Greg,
-> 
-> They are used in sysctl_pci_error_lookup(), which is called
-> pcibr_slot_pwr(), which is the code to put a device on-line. It all
-> traces back to the slot_enable call that is made from the hot plug
-> driver (which is not included in this mod).
+The ia64 BUG macro deliberately writes to address 0 in order to
+trigger a page fault and an Oops.  This won't work if the process has
+mapped something into page zero:  We'll just print the "kernel BUG"
+message and continue (after having stomped on whatever user memory was
+at address 0).
 
-Ok, as stated before, please post both pieces so we can see if it even
-makes sense for you to be splitting things up in this way (you realize
-that no other pci hotplug driver needs to do it in this manner, right?)
+A solution is to write to the guard page in region 5, which is
+guaranteed to trigger a page fault.
 
-thanks,
 
-greg k-h
+--- linux-2.4.25.orig/include/asm-ia64/page.h	Wed Feb 18 05:36:32 2004
++++ linux-2.4.25/include/asm-ia64/page.h	Wed Feb 18 13:59:10 2004
+@@ -120,7 +120,7 @@
+ #define is_invalid_hugepage_range(addr, len) 0
+ #endif
+ 
+-#define BUG() do { printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); *(int *)0=0; } while (0)
++#define BUG() do { printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); *(int *)0xa000000000000000=0; } while (0)
+ #define PAGE_BUG(page) do { BUG(); } while (0)
+ 
+ static __inline__ int
