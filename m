@@ -1,32 +1,77 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 26 Feb 2003 18:34:43 +0000
-Subject: Re: [Linux-ia64] [HELP] Implementing TCP request on EFI
-Message-Id: <marc-linux-ia64-105590709805931@msgid-missing>
+From: Manoj Kumar Krishnan <manoj1@ERC.MsState.Edu>
+Date: Thu, 27 Feb 2003 19:09:50 +0000
+Subject: [Linux-ia64] IA64/ecc - Problems with system.h
+Message-Id: <marc-linux-ia64-105590709805939@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805930@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805930@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Naim,
+I'm having trouble in getting my code compiled using Intel Compilers (6.0
+or 7.0) in Linux-IA64. Anyhelp would be appreaciated. Thanks!
 
-On Wed, Feb 26, 2003 at 09:50:08AM +0100, Na=EFm Jonathan wrote:
-> What is the best method to implement socket on EFI? With only Gnu-Efi
-> and not intel toolkit... Because in protocol single network there is
-> only UDP request with IP and the function transmit anly take MAC
-> adresses as parameter....
->=20
-The gnu-efi toolkit provides a minimal library which implements
-only the core EFI interface (as defined by the EFI specification).
+--------------------------------------------------------------------
 
-The TCPIP support is part of the toolkit which is a set of libraries
-and commands built on top of the basic EFI functionalities.
+ecc -O -w1 -c -o shmem.o shmem.c
 
-At this point we do not have a port of the toolkit to Linux/ia64
-and the GNU tools.
+/usr/include/asm/system.h(74): error: asm statements not supported in this
+environment
+        __asm__ __volatile__ (";;" ::: "memory");
+        ^
 
---=20
--Stephane
+/usr/include/asm/system.h(74): error: expected a ")"
+        __asm__ __volatile__ (";;" ::: "memory");
+                                   ^
+
+/usr/include/asm/system.h(260): error: asm statements not supported in
+this environment
+                __asm__ __volatile (IA64_SEMFIX"xchg1 %0=[%1],%2" : "=r"
+(result)
+                ^
+
+/usr/include/asm/system.h(260): error: expected a ")"
+                __asm__ __volatile (IA64_SEMFIX"xchg1 %0=[%1],%2" : "=r"
+(result)
+                                                                  ^
+
+/usr/include/asm/system.h(265): error: asm statements not supported in
+this environment
+                __asm__ __volatile (IA64_SEMFIX"xchg2 %0=[%1],%2" : "=r"
+(result)
+                ^
+
+/usr/include/asm/system.h(265): error: expected a ")"
+                __asm__ __volatile (IA64_SEMFIX"xchg2 %0=[%1],%2" : "=r"
+(result)
+                                                                  ^
+
+/usr/include/asm/system.h(270): error: asm statements not supported in
+this environment
+                __asm__ __volatile (IA64_SEMFIX"xchg4 %0=[%1],%2" : "=r"
+(result)
+                ^
+
+/usr/include/asm/system.h(270): error: expected a ")"
+                __asm__ __volatile (IA64_SEMFIX"xchg4 %0=[%1],%2" : "=r"
+(result)
+                                                                  ^
+
+/usr/include/asm/system.h(275): error: asm statements not supported in
+this environment
+                __asm__ __volatile (IA64_SEMFIX"xchg8 %0=[%1],%2" : "=r"
+(result)
+                ^
+
+/usr/include/asm/system.h(275): error: expected a ")"
+                __asm__ __volatile (IA64_SEMFIX"xchg8 %0=[%1],%2" : "=r"
+(result)
+                                                                  ^
+
+compilation aborted for shmem.c (code 2)
+
+----------------------------------------------------------------------
+
+-Manoj:)
+
 
