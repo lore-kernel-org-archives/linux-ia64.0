@@ -1,26 +1,19 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 02 Jun 2003 18:39:24 +0000
-Subject: RE: [Linux-ia64] [PATCH] MCA recovery for TLB faults for 2.4
-Message-Id: <marc-linux-ia64-105590723706113@msgid-missing>
+Date: Wed, 18 Jun 2003 03:03:11 +0000
+Subject: linux-ia64 archvie
+Message-Id: <marc-linux-ia64-105590540103918@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723706058@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723706058@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 2 Jun 2003 11:34:02 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+Thanks to Hank Leininger, the vger list will be archived at:
 
-  Tony> TLB recovery was chosen as the first piece as it appears to be
-  Tony> the simplest to implement,
+  http://marc.theaimsgroup.com/?l=linux-ia64&r=1&w=2
 
-Ah, I see.
-
-  Tony> though its probably one of the lowest value adds (frequency of
-  Tony> TLB errors should be *far* lower than memory errors
-
-Yes, I guess that's what surprised me.
+Hank will also look into adding the old linux-ia64 mails to the
+archive, so there is some contiuity.
 
 	--david
 
