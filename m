@@ -1,48 +1,25 @@
-From: n0ano@n0ano.com
-Date: Thu, 19 Jun 2003 00:09:54 +0000
-Subject: Re: [Linux-ia64] New mailing list server
-Message-Id: <marc-linux-ia64-105598154713952@msgid-missing>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Wed, 18 Jun 2003 18:02:25 +0000
+Subject: Re: time interpolation for sn2
+Message-Id: <marc-linux-ia64-105595957823718@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105597554109169@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105597554109169@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-OK, as it turns out I've obtained a list of all subscribers to the
-old list (thanks Dan).
+On Wed, Jun 18, 2003 at 10:54:45AM -0700, David Mosberger wrote:
+> I applied your patches.  Speaking of SN2: could someone please give a
+> thorough testing for the time-interpolator code on the SN2?  I asked
+> in the past whether the current code is working properly and never got
+> an answer.
 
-I'm going to send a request to subscribe everyone to the new
-mailing list.  You should all get a confirmation message, just
-follow the instructions in the confirmation and we should all
-be good to go.  I've attempted to remove everyone who has already
-subscribed to the new list but some of you (I'm not naming names)
-are using different email addresses.  If you get a subscription
-confirmation from `vger' and you're already on the new list just
-ignore the new subscription request.  If you don't get a
-confirmation by tomorrow I missed you somehow and you'll have to
-subscribe yourself.
+Yeah, sorry, I've been busy trying to get 2.5 to work at all!  We have a
+version of the code in a 2.4 based tree that works ok though, if that
+helps.  Maybe Jes knows more since I think he was the last one to work
+with that code in our tree...
 
-On Wed, Jun 18, 2003 at 04:29:22PM -0600, n0ano@n0ano.com wrote:
->
->...
-> 
-> One downside to this move is that everyone will have to individually
-> subscribe to the new list.  (I would try to at least send out
-> the initial subscription message for everyone but I can't do that.
-> The only access to the current list membership is through a web
-> interface that requires a click on each name.  I've tried to get
-> an ASCII membership list in the past and it's effectively impossible
-> to get that from our current host, yet another reason to switch.)
+If not, I'll let you know when I have 2.5 fully booting.
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@n0ano.com
-Ph: 303/447-2201
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Thanks,
+Jesse
