@@ -1,7 +1,7 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 08 Mar 2004 19:12:04 +0000
+Date: Mon, 08 Mar 2004 19:13:22 +0000
 Subject: Re: [PATCH] fix PCI interrupt setting for ia64
-Message-Id: <200403081212.04213.bjorn.helgaas@hp.com>
+Message-Id: <200403081213.22095.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <3ACA40606221794F80A5670F0AF15F8401B1A017@PDSMSX403.ccr.corp.intel.com> <20040308.182552.55855095.t-kochi@bq.jp.nec.com>
 In-Reply-To: <20040308.182552.55855095.t-kochi@bq.jp.nec.com>
