@@ -1,49 +1,48 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Jun 2003 18:27:56 +0000
-Subject: Re: [Linux-ia64] entry->irq = entry->link.index (problem 2 of thread [ Re: patch for updating IA64 A
-Message-Id: <marc-linux-ia64-105639307615971@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 19 Jun 2003 20:34:55 +0000
+Subject: local symbols in discarded section
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C336A2.3E0F342A"
+Message-Id: <marc-linux-ia64-105605499315077@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105635248609013@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105635248609013@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 23 Jun 2003 15:13:18 +0800, "Yu, Luming" <luming.yu@intel.com> said:
+This is a multi-part message in MIME format.
 
-  >> @@ -248,6 +253,8 @@
-  >> return_VALUE(0);
-  >> }
+------_=_NextPart_001_01C336A2.3E0F342A
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-  >> +	entry->irq = entry->link.index;
-  >> +
-  >> if (!entry->irq && entry->link.handle) {
-  entry-> irq = acpi_pci_link_get_irq(entry->link.handle, entry->link.index);
-  >> if (!entry->irq) {
 
-  >> I don't quite understand what this is for.  Anyone know?
+>   Tony> undefined reference to `local symbols in discarded=20
+> section .exit.text'
+>=20
+>   Tony> message.  Is this related to the warning about using=20
+> an old linker?
+>=20
+> Not likely.  It sounds like a driver is failing to use __exit_p() (see
+> linux/init.h).
 
-  Luming> To understand the meaning of entry->link.index, please
-  Luming> reference acpi_get_prt which is in arch/ia64/kernel/acpi.c.
-  Luming> There is vector[i].irq = entry->link.index , entry is
-  Luming> acpi_prt_entry. And you can look into mp_parse_prt which is
-  Luming> in arch/i386/kernel/mpparse.c. There is irq   Luming> entry->link.index.
+The offending driver is i460-agp.c.  Patch attached.
 
-Ah, that's where x86 is doing the transformation.  Thanks for finding
-that.  I didn't understand how the old code worked on x86.
+-Tony
 
-Can we do the transformation at the same time on both platforms?
-Obviously there is no mpparse.c but perhaps arch/ia64/kernel/acpi.c
-could do it.  I wonder though if this scheme would work with hotplug
-devices.
+------_=_NextPart_001_01C336A2.3E0F342A
+Content-Type: application/octet-stream;
+	name="i460-agp.patch"
+Content-Transfer-Encoding: base64
+Content-Description: i460-agp.patch
+Content-Disposition: attachment;
+	filename="i460-agp.patch"
 
-In any case, whatever the solution, we clearly should use the same
-approach on both platforms.
+PT09PT0gZHJpdmVycy9jaGFyL2FncC9pNDYwLWFncC5jIDEuMjYgdnMgZWRpdGVkID09PT09Ci0t
+LSAxLjI2L2RyaXZlcnMvY2hhci9hZ3AvaTQ2MC1hZ3AuYwlNb24gSnVuIDE2IDE4OjU1OjM0IDIw
+MDMKKysrIGVkaXRlZC9kcml2ZXJzL2NoYXIvYWdwL2k0NjAtYWdwLmMJVGh1IEp1biAxOSAxMzoy
+ODoyOCAyMDAzCkBAIC02MDgsNyArNjA4LDcgQEAKIAkubmFtZQkJPSAiYWdwZ2FydC1pbnRlbC1p
+NDYwIiwKIAkuaWRfdGFibGUJPSBhZ3BfaW50ZWxfaTQ2MF9wY2lfdGFibGUsCiAJLnByb2JlCQk9
+IGFncF9pbnRlbF9pNDYwX3Byb2JlLAotCS5yZW1vdmUJCT0gYWdwX2ludGVsX2k0NjBfcmVtb3Zl
+LAorCS5yZW1vdmUJCT0gX19leGl0X3AoYWdwX2ludGVsX2k0NjBfcmVtb3ZlKSwKIH07CiAKIHN0
+YXRpYyBpbnQgX19pbml0IGFncF9pbnRlbF9pNDYwX2luaXQodm9pZCkK
 
-	--david
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+------_=_NextPart_001_01C336A2.3E0F342A--
