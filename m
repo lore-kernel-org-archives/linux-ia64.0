@@ -1,88 +1,127 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 06 Aug 2002 20:40:36 +0000
-Subject: Re: [Linux-ia64] utime emulation
-Message-Id: <marc-linux-ia64-105590701905920@msgid-missing>
+From: Jason Baron <almostivan@yahoo.com>
+Date: Wed, 28 Aug 2002 16:02:16 +0000
+Subject: [Linux-ia64] make xconfig
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="0-17865078-1030550536=:65272"
+Message-Id: <marc-linux-ia64-105590701905993@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905917@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905917@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-"Wichmann, Mats D" <mats.d.wichmann@intel.com> writes:
+--0-17865078-1030550536=:65272
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-|> I'm finding that utime(filename, NULL) doesn't
-|> follow specs - this comes up in plodding through
-|> the LSB certification test suite.
-|>=20
-|> For example, if the process does not own the
-|> file but has write permission, the above
-|> referenced call should succeed but fails with EPERM.
-|>=20
-|> utime() is emulated on Itanium: in the kernel,
-|> fs/open.c doesn't have a sys_utime routine=20
-|> if __ia64__ or alpha; the emulation comes from
-|> glibc's sysdeps/unix/utime.c but appears to
-|> be bogus.  The problem is that if the second
-|> argument to utime is NULL the emulation code
-|> does some work to build up a "struct timeval"
-|> array as expected by utimes(), and passes that
-|> off, instead of passing NULL... and so the
-|> proper checks in the NULL case don't get done
-|> by the kernel.
-|>=20
-|> I guess this is a query to see if anyone
-|> on this list knows anything about this code.
-|> Is this just a glibc problem,
+If I enable xconfig, I get these errors from the 
+linux-2.4.19-ia64-020821.diff:
 
-Yes.  Here is a patch:
+ERROR - Attempting to write value for unconfigured
+variable (CONFIG_BLK_DEV_LOOP).
+ERROR - Attempting to write value for unconfigured
+variable (CONFIG_BLK_DEV_NBD).
+ERROR - Attempting to write value for unconfigured
+variable (CONFIG_BLK_DEV_RAM).
 
-2002-08-06  Andreas Schwab  <schwab@suse.de>
+The consequence is that these parameters do not get
+written to the appropriate files.  Also, there are two
+top level "Block devices" menues.
 
-	* sysdeps/unix/utime.c: If TIMES is NULL pass it through to
-	utimes.
+This issue has been discussed a bit and I agree that
+the right solution is probably to fix the way that
+xconfig works.  Short of this, we could choose not to
+source drivers/block/Config.in, and instead include
+the drivers/block/Config.in parameters in
+arch/ia64/config.in, as in the attached patch.  This
+bloats the file a bit, but solves the issue in an arch
+independent way.
 
---- sysdeps/unix/utime.c.~1.3.~	2001-07-16 10:45:00.000000000 +0200
-+++ sysdeps/unix/utime.c	2002-08-06 22:29:53.000000000 +0200
-@@ -1,4 +1,4 @@
--/* Copyright (C) 1991, 1994, 1997 Free Software Foundation, Inc.
-+/* Copyright (C) 1991, 1994, 1997, 2002 Free Software Foundation, Inc.
-    This file is part of the GNU C Library.
-=20
-    The GNU C Library is free software; you can redistribute it and/or
-@@ -31,7 +31,7 @@ utime (file, times)
-      const char *file;
-      const struct utimbuf *times;
- {
--  struct timeval timevals[2];
-+  struct timeval timevals[2], *tvp;
-=20
-   if (times !=3D NULL)
-     {
-@@ -39,13 +39,10 @@ utime (file, times)
-       timevals[0].tv_usec =3D 0L;
-       timevals[1].tv_sec =3D (long int) times->modtime;
-       timevals[1].tv_usec =3D 0L;
-+      tvp =3D timevals;
-     }
-   else
--    {
--      if (__gettimeofday (&timevals[0], NULL) < 0)
--	return -1;
--      timevals[1] =3D timevals[0];
--    }
-+    tvp =3D NULL;
-=20
--  return __utimes (file, timevals);
-+  return __utimes (file, tvp);
- }
+-Jason Baron
 
-Andreas.
+__________________________________________________
+Do You Yahoo!?
+Yahoo! Finance - Get real-time stock quotes
+http://finance.yahoo.com
+--0-17865078-1030550536=:65272
+Content-Type: application/octet-stream; name="config.in.patch"
+Content-Transfer-Encoding: base64
+Content-Description: config.in.patch
+Content-Disposition: attachment; filename="config.in.patch"
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+LS0tIGFyY2gvaWE2NC9jb25maWcuaW4uYmFrCVdlZCBBdWcgMjggMTA6MjU6
+MDcgMjAwMgorKysgYXJjaC9pYTY0L2NvbmZpZy5pbglXZWQgQXVnIDI4IDEw
+OjIwOjI5IDIwMDIKQEAgLTEzNiw3ICsxMzYsNjQgQEAKIGlmIFsgIiRDT05G
+SUdfSUE2NF9IUF9TSU0iID0gIm4iIF07IHRoZW4KICAgc291cmNlIGRyaXZl
+cnMvbXRkL0NvbmZpZy5pbgogICBzb3VyY2UgZHJpdmVycy9wbnAvQ29uZmln
+LmluCi0gIHNvdXJjZSBkcml2ZXJzL2Jsb2NrL0NvbmZpZy5pbgorZmkKKwor
+IworIyBCbG9jayBkZXZpY2UgZHJpdmVyIGNvbmZpZ3VyYXRpb24KKyMKK21h
+aW5tZW51X29wdGlvbiBuZXh0X2NvbW1lbnQKK2NvbW1lbnQgJ0Jsb2NrIGRl
+dmljZXMnCisKK2lmIFsgIiRDT05GSUdfSUE2NF9IUF9TSU0iID0gIm4iIF07
+IHRoZW4KKyAgdHJpc3RhdGUgJ05vcm1hbCBQQyBmbG9wcHkgZGlzayBzdXBw
+b3J0JyBDT05GSUdfQkxLX0RFVl9GRAorICBpZiBbICIkQ09ORklHX0FNSUdB
+IiA9ICJ5IiBdOyB0aGVuCisgICAgdHJpc3RhdGUgJ0FtaWdhIGZsb3BweSBz
+dXBwb3J0JyBDT05GSUdfQU1JR0FfRkxPUFBZCisgIGZpCisgIGlmIFsgIiRD
+T05GSUdfQVRBUkkiID0gInkiIF07IHRoZW4KKyAgICAgdHJpc3RhdGUgJ0F0
+YXJpIGZsb3BweSBzdXBwb3J0JyBDT05GSUdfQVRBUklfRkxPUFBZCisgIGZp
+CisgIGlmIFsgIiRDT05GSUdfTUFDIiA9ICJ5IiBdOyB0aGVuCisgICAgIGRl
+cF9ib29sICdNYWNpbnRvc2ggSUlmeC9RdWFkcmEgOTAwL1F1YWRyYSA5NTAg
+ZmxvcHB5IHN1cHBvcnQgKEVYUEVSSU1FTlRBTCknIENPTkZJR19CTEtfREVW
+X1NXSU1fSU9QICRDT05GSUdfRVhQRVJJTUVOVEFMCisgIGZpCisgIGlmIFsg
+IiRDT05GSUdfTUNBIiA9ICJ5IiBdOyB0aGVuCisgICAgIHRyaXN0YXRlICdQ
+Uy8yIEVTREkgaGFyZCBkaXNrIHN1cHBvcnQnIENPTkZJR19CTEtfREVWX1BT
+MgorICBmaQorICBpZiBbICIkQ09ORklHX1pPUlJPIiA9ICJ5IiBdOyB0aGVu
+CisgICAgIHRyaXN0YXRlICdBbWlnYSBab3JybyBJSSByYW1kaXNrIHN1cHBv
+cnQnIENPTkZJR19BTUlHQV9aMlJBTQorICBmaQorICBpZiBbICIkQ09ORklH
+X0FUQVJJIiA9ICJ5IiBdOyB0aGVuCisgICAgIHRyaXN0YXRlICdBdGFyaSBB
+Q1NJIHN1cHBvcnQnIENPTkZJR19BVEFSSV9BQ1NJCisgICAgIGlmIFsgIiRD
+T05GSUdfQVRBUklfQUNTSSIgIT0gIm4iIF07IHRoZW4KKyAgICAgICAgY29t
+bWVudCAnU29tZSBkZXZpY2VzIChlLmcuIENEIGp1a2Vib3gpIHN1cHBvcnQg
+bXVsdGlwbGUgTFVOcycKKyAgICAgICAgYm9vbCAnICBQcm9iZSBhbGwgTFVO
+cyBvbiBlYWNoIEFDU0kgZGV2aWNlJyBDT05GSUdfQUNTSV9NVUxUSV9MVU4K
+KyAgICAgICAgdHJpc3RhdGUgJyAgQXRhcmkgU0xNIGxhc2VyIHByaW50ZXIg
+c3VwcG9ydCcgQ09ORklHX0FUQVJJX1NMTQorICAgICBmaQorICBmaQorICBk
+ZXBfdHJpc3RhdGUgJ1hUIGhhcmQgZGlzayBzdXBwb3J0JyBDT05GSUdfQkxL
+X0RFVl9YRCAkQ09ORklHX0lTQQorICBkZXBfdHJpc3RhdGUgJ1BhcmFsbGVs
+IHBvcnQgSURFIGRldmljZSBzdXBwb3J0JyBDT05GSUdfUEFSSURFICRDT05G
+SUdfUEFSUE9SVAorICBpZiBbICIkQ09ORklHX1BBUklERSIgPSAieSIgLW8g
+IiRDT05GSUdfUEFSSURFIiA9ICJtIiBdOyB0aGVuCisgICAgIHNvdXJjZSBk
+cml2ZXJzL2Jsb2NrL3BhcmlkZS9Db25maWcuaW4KKyAgZmkKKyAgZGVwX3Ry
+aXN0YXRlICdDb21wYXEgU01BUlQyIHN1cHBvcnQnIENPTkZJR19CTEtfQ1BR
+X0RBICRDT05GSUdfUENJCisgIGRlcF90cmlzdGF0ZSAnQ29tcGFxIFNtYXJ0
+IEFycmF5IDV4eHggc3VwcG9ydCcgQ09ORklHX0JMS19DUFFfQ0lTU19EQSAk
+Q09ORklHX1BDSSAKKyAgZGVwX21ib29sICcgICAgICAgU0NTSSB0YXBlIGRy
+aXZlIHN1cHBvcnQgZm9yIFNtYXJ0IEFycmF5IDV4eHgnIENPTkZJR19DSVNT
+X1NDU0lfVEFQRSAkQ09ORklHX0JMS19DUFFfQ0lTU19EQSAkQ09ORklHX1ND
+U0kKKyAgZGVwX3RyaXN0YXRlICdNeWxleCBEQUM5NjAvREFDMTEwMCBQQ0kg
+UkFJRCBDb250cm9sbGVyIHN1cHBvcnQnIENPTkZJR19CTEtfREVWX0RBQzk2
+MCAkQ09ORklHX1BDSQorICBkZXBfdHJpc3RhdGUgJ01pY3JvIE1lbW9yeSBN
+TTU0MTUgQmF0dGVyeSBCYWNrZWQgUkFNIHN1cHBvcnQnIENPTkZJR19CTEtf
+REVWX1VNRU0gJENPTkZJR19QQ0kgJENPTkZJR19FWFBFUklNRU5UQUwKK2Zp
+ICMgIUhQX1NJTQorCisgIHRyaXN0YXRlICdMb29wYmFjayBkZXZpY2Ugc3Vw
+cG9ydCcgQ09ORklHX0JMS19ERVZfTE9PUAorICBkZXBfdHJpc3RhdGUgJ05l
+dHdvcmsgYmxvY2sgZGV2aWNlIHN1cHBvcnQnIENPTkZJR19CTEtfREVWX05C
+RCAkQ09ORklHX05FVAorCisgIHRyaXN0YXRlICdSQU0gZGlzayBzdXBwb3J0
+JyBDT05GSUdfQkxLX0RFVl9SQU0KKyAgaWYgWyAiJENPTkZJR19CTEtfREVW
+X1JBTSIgPSAieSIgLW8gIiRDT05GSUdfQkxLX0RFVl9SQU0iID0gIm0iIF07
+IHRoZW4KKyAgICAgaW50ICcgIERlZmF1bHQgUkFNIGRpc2sgc2l6ZScgQ09O
+RklHX0JMS19ERVZfUkFNX1NJWkUgNDA5NgorICBmaQorICBkZXBfYm9vbCAn
+ICBJbml0aWFsIFJBTSBkaXNrIChpbml0cmQpIHN1cHBvcnQnIENPTkZJR19C
+TEtfREVWX0lOSVRSRCAkQ09ORklHX0JMS19ERVZfUkFNCisKK2VuZG1lbnUK
+KworCitpZiBbICIkQ09ORklHX0lBNjRfSFBfU0lNIiA9ICJuIiBdOyB0aGVu
+CiAgIHNvdXJjZSBkcml2ZXJzL2llZWUxMzk0L0NvbmZpZy5pbgogICBzb3Vy
+Y2UgZHJpdmVycy9tZXNzYWdlL2kyby9Db25maWcuaW4KICAgc291cmNlIGRy
+aXZlcnMvbWQvQ29uZmlnLmluCkBAIC0xNTQsMTggKzIxMSw3IEBACiAgICAg
+ZGVmaW5lX2Jvb2wgQ09ORklHX0JMS19ERVZfSEQgbgogICBmaQogICBlbmRt
+ZW51Ci1lbHNlICMgSFBfU0lNCi0gIG1haW5tZW51X29wdGlvbiBuZXh0X2Nv
+bW1lbnQKLSAgY29tbWVudCAnQmxvY2sgZGV2aWNlcycKLSAgdHJpc3RhdGUg
+J0xvb3BiYWNrIGRldmljZSBzdXBwb3J0JyBDT05GSUdfQkxLX0RFVl9MT09Q
+Ci0gIGRlcF90cmlzdGF0ZSAnTmV0d29yayBibG9jayBkZXZpY2Ugc3VwcG9y
+dCcgQ09ORklHX0JMS19ERVZfTkJEICRDT05GSUdfTkVUCi0KLSAgdHJpc3Rh
+dGUgJ1JBTSBkaXNrIHN1cHBvcnQnIENPTkZJR19CTEtfREVWX1JBTQotICBp
+ZiBbICIkQ09ORklHX0JMS19ERVZfUkFNIiA9ICJ5IiAtbyAiJENPTkZJR19C
+TEtfREVWX1JBTSIgPSAibSIgXTsgdGhlbgotICAgIGludCAnICBEZWZhdWx0
+IFJBTSBkaXNrIHNpemUnIENPTkZJR19CTEtfREVWX1JBTV9TSVpFIDQwOTYK
+LSAgZmkKLSAgZW5kbWVudQotZmkgIyBIUF9TSU0KK2ZpICMgIUhQX1NJTQog
+CiBtYWlubWVudV9vcHRpb24gbmV4dF9jb21tZW50CiBjb21tZW50ICdTQ1NJ
+IHN1cHBvcnQnCg==
+
+--0-17865078-1030550536=:65272--
 
