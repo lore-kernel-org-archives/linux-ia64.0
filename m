@@ -1,51 +1,44 @@
-From: Doug Beattie <dbb@caldera.com>
-Date: Tue, 30 Oct 2001 15:32:39 +0000
-Subject: Re: [Linux-ia64] where did gABI go?
-Message-Id: <marc-linux-ia64-105590698805416@msgid-missing>
+From: Jesper Juhl <juhl@eisenstein.dk>
+Date: Wed, 17 Oct 2001 13:39:06 +0000
+Subject: [Linux-ia64] Re: console_loglevel is broken on ia64
+Message-Id: <marc-linux-ia64-105590698805358@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805412@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805412@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David:
+Keith Owens wrote:
 
-The materials you are looking for are currently available at the link
-Christoph has noted below. They will be changing soon however. When
-they do I will make sure the link to this and other ones from SCO are
-updated on the LSB specification references page so they can be
-followed/found.
+> kernel/printk.c has this abomination.
+> 
+> /* Keep together for sysctl support */
+> int console_loglevel = DEFAULT_CONSOLE_LOGLEVEL;
+> int default_message_loglevel = DEFAULT_MESSAGE_LOGLEVEL;
+> int minimum_console_loglevel = MINIMUM_CONSOLE_LOGLEVEL;
+> int default_console_loglevel = DEFAULT_CONSOLE_LOGLEVEL;
+> 
+> sysctl assumes that the 4 variables occupy contiguous storage.  They
+> don't on ia64, console_loglevel is separate from the other variables.
+> 
+>   echo 6 4 1 7 > /proc/sys/kernel/printk
+>   
+> on ia64 overwrites console_loglevel and the next 3 integers, whatever
+> they happen to be.  On 2.4.12 it corrupts console_sem, other ia64
+> kernels will corrupt different data.
+> 
+> Does anybody fancy a small project to clean up these variables?
 
-In the future bookmark "http://www.linuxbase.org/spec/" to start
-drilling down to find the references.
+I would like to give it a try. Seems like a good little project for one 
+who is trying to learn his way around the kernel :)  It will probably 
+take me a lot longer than one of the experienced kernel hackers and 
+would probably not be perfect on the first try, but I'm willing to 
+invest some time in it.
 
-Doug
 
-Christoph Hellwig wrote:
-> 
-> On Mon, Oct 29, 2001 at 05:30:50PM -0800, David Mosberger wrote:
-> > The page at http://www.sco.com/developer/gabi/2000-07-17/ no longer
-> > exists.  Can someone tell me where the System V ABI pages moved to?  I
-> > did a quick search on caldera.com, but the search engine on that site
-> > didn't produce anything meaningful.
-> 
-> http://stage.caldera.com/developer/gabi/
-> 
->         Christoph
-> 
-> --
-> Of course it doesn't work. We've performed a software upgrade.
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Best regards,
+Jesper Juhl
 
--- 
-Douglas B. Beattie
-------------------
-Linux Test Architect - Caldera, Inc.
-dbb@caldera.com
+
+
 
