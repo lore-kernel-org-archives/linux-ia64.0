@@ -1,31 +1,34 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 22 Nov 2004 23:19:36 +0000
-Subject: Re: deferred rss update instead of sloppy rss
-Message-Id: <Pine.LNX.4.58.0411221517090.24333@schroedinger.engr.sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Mon, 22 Nov 2004 12:14:15 +0000
+Subject: Re: smp_call_function/flush_tlb_all hang on large memory system
+Message-Id: <20041122121415.GA13845@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
- <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
- <20041122141148.1e6ef125.akpm@osdl.org> <Pine.LNX.4.58.0411221408540.22895@schroedinger.engr.sgi.com>
- <20041122144507.484a7627.akpm@osdl.org> <Pine.LNX.4.58.0411221444410.22895@schroedinger.engr.sgi.com>
- <20041122151628.77ab87ca.akpm@osdl.org>
-In-Reply-To: <20041122151628.77ab87ca.akpm@osdl.org>
+References: <267988DEACEC5A4D86D5FCD780313FBB2BFBB4@exch-03.noida.hcltech.com>
+In-Reply-To: <267988DEACEC5A4D86D5FCD780313FBB2BFBB4@exch-03.noida.hcltech.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: hugh@veritas.com, torvalds@osdl.org, benh@kernel.crashing.org, nickpiggin@yahoo.com.au, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "Deepak Kumar Gupta, Noida" <dkumar@hcltech.com>
+Cc: "'lilbilchow@yahoo.com'" <lilbilchow@yahoo.com>, "'ananth@sgi.com'" <ananth@sgi.com>, "'linux-kernel@vger.kernel.org'" <linux-kernel@vger.kernel.org>, "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>
 
-On Mon, 22 Nov 2004, Andrew Morton wrote:
+On Mon, Nov 22, 2004 at 03:15:00PM +0530, Deepak Kumar Gupta, Noida wrote:
+> Hi William/Rajagopal
+> 
+> I saw your posting related to problem on internet. Just curious to ask you
+> have you got any solution for that or not.. as i am facing same problem on
+> SGI Propack 3 (based on kernel 2.4.18)on 2 CPU IA64 machine..
+> 
+> If you got any solution for this then pls let me know..
+> 
+> Any help in this regard is appreciated.
+> 
+> posting: http://www.cs.helsinki.fi/linux/linux-kernel/2003-11/1153.html
+> 
 
-> > The timer tick occurs every 1 ms.
->
-> That only works if the task happens to have the CPU when the timer tick
-> occurs.  There remains no theoretical upper bound to the error in mm->rss,
-> and that's very easy to fix.
+Can you provide the output from an L2 "leds" command?  This will tell us
+what the cpus are doing and whether they have interrupts enabled.  Have you
+contacted your support people yet?  I did not see an open case for this,
+but have no idea how your support person exactly filed it.
 
-Page fault intensive programs typically hog the cpu. But you are in
-principle right.
-
-The "easy fix" that you propose is to add additional logic to some very
-hot code paths. Then we are probably better off with another approach.
-
+Thanks,
+Robin Holt
