@@ -1,23 +1,22 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 07 Dec 2001 20:27:09 +0000
-Subject: RE: [Linux-ia64] mprotect problem
-Message-Id: <marc-linux-ia64-105590698805650@msgid-missing>
+From: Robert Love <rml@tech9.net>
+Date: Fri, 07 Dec 2001 23:27:11 +0000
+Subject: [Linux-ia64] Re: Linux 2.4.17-pre6 drm-4.0
+Message-Id: <marc-linux-ia64-105590698805654@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805634@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805634@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 7 Dec 2001 12:13:26 -0800, "Boehm, Hans" <hans_boehm@hp.com> said:
+On Fri, 2001-12-07 at 18:20, Keith Owens wrote:
 
-  Hans> What's the instruction that's faulting and what are the
-  Hans> contents of the register used for addressing?  You should
-  Hans> easily be able to get that out of gdb.
+> How long do people plan to keep drm 4.0 code in their versions of the
+> kernel?
 
-Also, what's the address of the faulting instruction.  I assume it's
-in normal (not shared) memory, right?
+For 2.5, there probably is no intention of keeping that around.  But can
+we honestly ditch it in the middle of a stable kernel?  Personally I
+don't use it, but its not polite ...
 
-	--david
+	Robert Love
+
 
