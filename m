@@ -1,45 +1,46 @@
-From: Matt_Domsch@Dell.com
-Date: Wed, 17 Apr 2002 22:54:23 +0000
-Subject: RE: [Linux-ia64] Kickstart help?
-Message-Id: <marc-linux-ia64-105590701905480@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Mon, 01 Apr 2002 23:54:20 +0000
+Subject: [Linux-ia64] [PATCH] set ar.k0 on APs
+Message-Id: <marc-linux-ia64-105590701905355@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905479@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905479@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Also, any tips for making Kickstart do EFI partitions?  I've tried
-> "part --size 100 --ondisk sda /boot/efi --type ef" but KS 
-> doesn't appear to format it correctly.
+We currently set ar.k0 on the BP, but not on the APs.  The following
+patch does it for APs as well.
 
-If the partition already exists (was created by other tools):
-part /boot/efi --ondisk=sda --onpart=sda1 --size0 --fstype=vfat
---noformat
-
-
-Otherwise to create it:
-part /boot/efi --size 100  --ondisk sda --type#9 --onprimary 1
-
---type takes a base-10 integer (so 0xEF would be --type#9).
-
-The partitioning code underlying Anaconda changed significantly between RHL
-7.1 and 7.2 (note addition of --fstype in 7.2).  I don't recall all the
-changes so you'll have to play with it some.
-
-Also, note that a disk with no partition table already will be made with
-GPT.  If it has a DOS partition table, it will stay DOS, and if it has a
-GPT, it stays GPT.
-
-
-Thanks,
-Matt
-
+Apparently Intel firmware sets ar.k0, but HP firmware doesn't.
+If the kernel doesn't set ar.k0, X won't start up on APs because
+it uses ar.k0 to access I/O port space.
 -- 
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
-#1 US Linux Server provider for 2001! (IDC Mar 2002)
+Bjorn Helgaas - bjorn_helgaas@hp.com
+Linux Systems Operation R&D
+Hewlett-Packard
+
+
+diff -u -r linux-2.4.18-ia64-020226-orig/arch/ia64/kernel/smpboot.c linux-2.4.18-ia64-020226/arch/ia64/kernel/smpboot.c
+--- linux-2.4.18-ia64-020226-orig/arch/ia64/kernel/smpboot.c	Mon Apr  1 16:43:58 2002
++++ linux-2.4.18-ia64-020226/arch/ia64/kernel/smpboot.c	Mon Apr  1 16:44:51 2002
+@@ -68,6 +68,7 @@
+ 
+ extern void __init calibrate_delay(void);
+ extern void start_ap(void);
++extern unsigned long ia64_iobase;
+ 
+ int cpucount;
+ 
+@@ -343,6 +344,11 @@
+ 	 * Get our bogomips.
+ 	 */
+ 	ia64_init_itm();
++
++	/*
++	 * Set I/O port base per CPU
++	 */
++	ia64_set_kr(IA64_KR_IO_BASE, ia64_iobase & ~PAGE_OFFSET);
+ 
+ #ifdef CONFIG_IA64_MCA
+ 	ia64_mca_cmc_vector_setup();	/* Setup vector on AP & enable */
 
