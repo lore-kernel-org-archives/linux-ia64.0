@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 09 Apr 2002 05:00:02 +0000
+From: Randolph Chung <tausq@debian.org>
+Date: Tue, 09 Apr 2002 05:09:53 +0000
 Subject: Re: [Linux-ia64] epilogue count exceeds number of nested prologues
-Message-Id: <marc-linux-ia64-105590701905423@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905422@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905403@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905403@msgid-missing>
@@ -10,41 +10,45 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 8 Apr 2002 22:09:53 -0700, Randolph Chung <tausq@debian.org> said:
+> I'm unable to reproduce this.  If I'm understanding you right, the
+> problem occurred during the configure phase of mozilla (not libffi).
 
-  Randolph> indeed, mozilla's configure.in says:
+that's right
 
-  Randolph> if test "$LIBFFI_FOUND" = "yes"; then
-  Randolph> AC_MSG_CHECKING("for FFI_STATIC_CLOSURE in libffi")
-  Randolph> AC_TRY_COMPILE([#include "ffi.h"],
-  Randolph> [ FFI_STATIC_CLOSURE(foo, bar, baz, quux); ],
-  Randolph> [ LIBFFI_HAS_STATIC_CLOSURE=yes ])
-  Randolph> AC_MSG_RESULT("$result")
-  Randolph> fi
+> I just rebuilt Mozilla from the current CVS tree with gcc3.1
+> pre-release and the current CVS binutils.  It built just fine and the
+> resulting binary seems to work flawlessly.
 
-  Randolph> which generates (from config.log):
+I'm building from Debian sources. It's possible that it's simply out of
+date (I'm building version 0.9.9).
 
-  Randolph> configure:13494: checking for FFI_STATIC_CLOSURE in libffi
-  Randolph> configure:13503: gcc-3.0 -c -I/home/randolph/debian/mozilla-0.9.9/build-tree/libffi-install/include  -fshort-wchar -pthread -pipe   -I/usr/X11R6/include conftest.c 1>&5
-  Randolph> {standard input}: Assembler messages:
-  Randolph> {standard input}:40: Error: Epilogue count of 4294967296 exceeds number of nested prologues (0)
-  Randolph> configure: failed program was:
-  Randolph> #line 13496 "configure"
-  Randolph> #include "confdefs.h"
-  Randolph> #include "ffi.h"
-  Randolph> int main() {
-  Randolph> FFI_STATIC_CLOSURE(foo, bar, baz, quux);
-  Randolph> ; return 0; }
+> >From the assembly code you provided, it looks as if conftest.c tried
+> to call FFI_STATIC_CLOSURE() from within a function, which can't
+> possibly work.
 
-For some reason, I don't see this in my configure.in.  Was this added
-by the Debian patch?  In principle, it's a good idea to check for this
-macro, but I the check needs to be different.  To get it to compile,
-FFI_STATIC_CLOSURE() would have to be declared at the outermost level.
-Alternatively, perhaps you can just grep for this macro in ffi.h (I
-think autoconf has support for doing this).
+indeed, mozilla's configure.in says:
 
-	--david
+    if test "$LIBFFI_FOUND" = "yes"; then
+        AC_MSG_CHECKING("for FFI_STATIC_CLOSURE in libffi")
+        AC_TRY_COMPILE([#include "ffi.h"],
+                        [ FFI_STATIC_CLOSURE(foo, bar, baz, quux); ],
+                        [ LIBFFI_HAS_STATIC_CLOSURE=yes ])
+        AC_MSG_RESULT("$result")
+    fi
 
-PS: I dropped binutils from the cc list, as it's clearly not a binutils
-    issue.
+which generates (from config.log):
+
+configure:13494: checking for FFI_STATIC_CLOSURE in libffi
+configure:13503: gcc-3.0 -c -I/home/randolph/debian/mozilla-0.9.9/build-tree/libffi-install/include  -fshort-wchar -pthread -pipe   -I/usr/X11R6/include conftest.c 1>&5
+{standard input}: Assembler messages:
+{standard input}:40: Error: Epilogue count of 4294967296 exceeds number of nested prologues (0)
+configure: failed program was:
+#line 13496 "configure"
+#include "confdefs.h"
+#include "ffi.h"
+int main() {
+ FFI_STATIC_CLOSURE(foo, bar, baz, quux);
+; return 0; }
+
+randolph
 
