@@ -1,7 +1,7 @@
-From: "Hall, Jenna S" <jenna.s.hall@intel.com>
-Date: Fri, 15 Dec 2000 17:52:14 +0000
+From: "Cook, Steven C" <steven.c.cook@intel.com>
+Date: Fri, 15 Dec 2000 17:57:34 +0000
 Subject: RE: [Linux-ia64] test11, test12 kernel vs. big sur: Unexpected ir
-Message-Id: <marc-linux-ia64-105590678205854@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205856@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205850@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205850@msgid-missing>
@@ -9,6 +9,25 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
+
+John, Jenna,
+
+If this is a Big Sur, you can enter Configuration Manager (CM) setup at boot
+time, and one of the tabs has the complete BIOS build string.  One of the
+subsections (I don't remember which offhand, but I believe it is the third
+from the end) contains the build number (e.g., .0089. is build 89).
+
+Hope this helps,
+--steve cook--
+
+-----Original Message-----
+From: Hall, Jenna S [mailto:jenna.s.hall@intel.com]
+Sent: Friday, December 15, 2000 09:52
+To: 'Don Dugger'; John Kohl
+Cc: linux-ia64@linuxia64.org
+Subject: RE: [Linux-ia64] test11, test12 kernel vs. big sur: Unexpected
+ir q vector
+
 
 John,
 
@@ -550,6 +569,12 @@ Don Dugger
 "Censeo Toto nos in Kansa esse decisse." - D. Gale
 n0ano@valinux.com
 Ph: 303/938-9838
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
 _______________________________________________
 Linux-IA64 mailing list
