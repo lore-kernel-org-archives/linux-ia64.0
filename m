@@ -1,7 +1,7 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 20 Oct 2003 15:17:10 +0000
+Date: Mon, 20 Oct 2003 17:42:26 +0000
 Subject: Re: [RFC] prevent "dd if=/dev/mem" crash
-Message-Id: <marc-linux-ia64-106666338406789@msgid-missing>
+Message-Id: <marc-linux-ia64-106667188118697@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106642876514553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106642876514553@msgid-missing>
@@ -10,38 +10,78 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Friday 17 October 2003 6:21 pm, David Mosberger wrote:
-> What about memory-mapped device registers?  Isn't all memory
-> physically contiguous on x86 and that's why the "p >> __pa(high_memory)" test saves you from that?
+On Friday 17 October 2003 5:55 pm, Andrew Morton wrote:
+> Still, the code you have is quite reasonable.  But please structure it
+> thusly:
+> ...
 
-As others have mentioned, using read/write on /dev/mem to get at
-memory-mapped registers is unlikely to work on ia64 anyway, because
-read/write use cacheable mappings.  Using mmap does work (using
-uncacheable mappings), and my patch doesn't change that path.
+Here's a patch structured that way.
 
->   >> On ia64, a read to non-existent physical memory causes the processor
->   >> to time out and take a machine check.  I'm not sure it's even possible
->   >> to recover from that.
-> 
->   Andrew> ick.  That would be very poor form.
-> 
-> Reasonable people can disagree on that.  One philosophy states that if
-> your kernel touches random addresses, it's better to signal a visible
-> error (machine-check) than to risk silent data corruption.
+> As for return values: if the requested read or write starts at a
+> not-present address it should probably return -EFAULT.  This is what ia32
+> will do.  Arguably this is indistinguishable from a bad address on the
+> userspace side and we should return -EINVAL but whatever.
 
-It occurred to me over the weekend that part of this confusion is
-related to the fact that ia64 doesn't have page tables for the
-kernel identity-mapped segments.  (We're talking about reading
-physical memory, but read/write_mem() actually convert the address
-using __va() before doing the copy.)
+I made it return -EFAULT.  I worry a little bit because ia32
+returned 0 (short read) when (addr >= high_memory) before,
+but I don't have a strong opinion one way or the other.
 
-I bet that ia32 does have page tables for this case, and that
-an attempt to read non-existent physical memory will cause a TLB
-miss from which copy_*_user() can easily recover.
-
-On ia64, the same TLB miss would occur, but since there are no page
-tables, the miss handler assumes the kernel knows what it is doing
-and happily synthesizes a mapping that points nowhere.
-
-Bjorn
+=== drivers/char/mem.c 1.44 vs edited ==--- 1.44/drivers/char/mem.c	Sun Sep 21 15:50:34 2003
++++ edited/drivers/char/mem.c	Mon Oct 20 10:43:08 2003
+@@ -79,6 +79,22 @@
+ #endif
+ }
+ 
++#ifndef ARCH_HAS_VALID_PHYS_ADDR_RANGE
++static inline int valid_phys_addr_range(unsigned long addr, size_t *count)
++{
++	unsigned long end_mem;
++
++	end_mem = __pa(high_memory);
++	if (addr >= end_mem)
++		return 0;
++
++	if (*count > end_mem - addr)
++		*count = end_mem - addr;
++
++	return 1;
++}
++#endif
++
+ static ssize_t do_write_mem(struct file * file, void *p, unsigned long realp,
+ 			    const char * buf, size_t count, loff_t *ppos)
+ {
+@@ -113,14 +129,10 @@
+ 			size_t count, loff_t *ppos)
+ {
+ 	unsigned long p = *ppos;
+-	unsigned long end_mem;
+ 	ssize_t read;
+ 
+-	end_mem = __pa(high_memory);
+-	if (p >= end_mem)
+-		return 0;
+-	if (count > end_mem - p)
+-		count = end_mem - p;
++	if (!valid_phys_addr_range(p, &count))
++		return -EFAULT;
+ 	read = 0;
+ #if defined(__sparc__) || (defined(__mc68000__) && defined(CONFIG_MMU))
+ 	/* we don't have page 0 mapped on sparc and m68k.. */
+@@ -149,13 +161,9 @@
+ 			 size_t count, loff_t *ppos)
+ {
+ 	unsigned long p = *ppos;
+-	unsigned long end_mem;
+ 
+-	end_mem = __pa(high_memory);
+-	if (p >= end_mem)
+-		return 0;
+-	if (count > end_mem - p)
+-		count = end_mem - p;
++	if (!valid_phys_addr_range(p, &count))
++		return -EFAULT;
+ 	return do_write_mem(file, __va(p), p, buf, count, ppos);
+ }
+ 
 
