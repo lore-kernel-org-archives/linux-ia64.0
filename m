@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 14 Mar 2002 19:00:15 +0000
+Date: Thu, 14 Mar 2002 19:01:40 +0000
 Subject: Re: [Linux-ia64] Does IDE DMA work?
-Message-Id: <marc-linux-ia64-105590701905283@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905284@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905278@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905278@msgid-missing>
@@ -10,18 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 14 Mar 2002 15:04:08 +0100, Andreas Schwab <schwab@suse.de> said:
+>>>>> On Thu, 14 Mar 2002 15:19:46 +0100, Roman Hodek <roman@caldera.de> said:
 
-  Andreas> Has anyone got IDE DMA working?  When I try it with 2.4.18
-  Andreas> the machine is hanging during partition table reading, with
-  Andreas> the disk light constantly on.  It seems like the kernel is
-  Andreas> not receiving any answer from the disk.
+  Roman> I noticed similar problems some time ago (2.4.13 AFAICR). Our
+  Roman> test plan said "test with an IDE disk > 64GB", so we plugged
+  Roman> one in and the kernel said nothing more than "DMA
+  Roman> timeout". But it's not necessarily the kernel, it also could
+  Roman> be that the IDE interface on the legacy I/O board isn't able
+  Roman> to do all IDE features properly. Has anybody used it for
+  Roman> devices other than CD-ROM and LS120?
 
-Yes, we have an ia64 system here with a IDE drive on which IDE DMA
-seems to work fine.  However, it's not an Itanium machine and doesn't
-use the PIIX (or whatever its called) controller.  I don't think I
-have ever succeeded in getting IDE DMA going on a Big Sur machine.  I
-never tried to track it down to see whether its a hw or sw problem.
+Yes, we have one Big Sur that has only IDE drives (4GB, if you can
+believe it... ;-).
 
 	--david
 
