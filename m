@@ -1,7 +1,7 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Thu, 25 Sep 2003 22:54:50 +0000
+Date: Fri, 26 Sep 2003 01:45:57 +0000
 Subject: Re: [PATCH] discontig patch (work in progress)
-Message-Id: <marc-linux-ia64-106453078511772@msgid-missing>
+Message-Id: <marc-linux-ia64-106454093120360@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106436165231302@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106436165231302@msgid-missing>
@@ -10,41 +10,46 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Sep 24, 2003 at 05:54:00PM +0100, Christoph Hellwig wrote:
-> On Wed, Sep 24, 2003 at 07:51:39AM -0700, Jesse Barnes wrote:
-> > > The #if defined(VIRTUAL_MEM_MAP) || !defined(DISCONTIGMEM) in generic
-> > > code have to go away.  All this mem_map/contig_page_data/etc crap
-> > > has should probably go away some day, but for now let's not make it
-> > > even messier.
+On Thu, Sep 25, 2003 at 03:54:50PM -0700, Jesse Barnes wrote:
+> On Wed, Sep 24, 2003 at 05:54:00PM +0100, Christoph Hellwig wrote:
+> > On Wed, Sep 24, 2003 at 07:51:39AM -0700, Jesse Barnes wrote:
+> > > > The #if defined(VIRTUAL_MEM_MAP) || !defined(DISCONTIGMEM) in generic
+> > > > code have to go away.  All this mem_map/contig_page_data/etc crap
+> > > > has should probably go away some day, but for now let's not make it
+> > > > even messier.
+> > > 
+> > > Sure, I'm all for them going away, any suggestions on how to get there?
 > > 
-> > Sure, I'm all for them going away, any suggestions on how to get there?
+> > Always use the node-local mem_map, in the !DISCONTIG case we just
+> > have only one of them.  But as said above this is in scope for this
+> > work (or 2.6 at all).
 > 
-> Always use the node-local mem_map, in the !DISCONTIG case we just
-> have only one of them.  But as said above this is in scope for this
-> work (or 2.6 at all).
-
-Yeah, I agree, but ia64 discontig doesn't have pfn_to_nid for example,
-so all of that needs to be written.  I'll try to tackle that next.
-
-> Slightly less ugly hack than the ifdefs in generic code is a
+> Yeah, I agree, but ia64 discontig doesn't have pfn_to_nid for example,
+> so all of that needs to be written.  I'll try to tackle that next.
 > 
-> #define mem_map vmem_map somewhere in a ia64 header.  The right fix
-> is to just always use the per-node mem_map.  For SN2 you probably want
-> a per-node virtual mem_map then.
+> > Slightly less ugly hack than the ifdefs in generic code is a
+> > 
+> > #define mem_map vmem_map somewhere in a ia64 header.  The right fix
+> > is to just always use the per-node mem_map.  For SN2 you probably want
+> > a per-node virtual mem_map then.
+> 
+> I'd rather avoid that if possible and do it correctly.  Here's a new
+> patch that incorporates almost all of your comments, as well as fixing
+> (well, sort of) one of David's complaints about the callback data
+> structure.  I've re-seperated the discontig version of paging_init and
+> put it in discontig.c, but I had to export a few things from init.c to
+> do it.  Please let me know what you think.
 
-I'd rather avoid that if possible and do it correctly.  Here's a new
-patch that incorporates almost all of your comments, as well as fixing
-(well, sort of) one of David's complaints about the callback data
-structure.  I've re-seperated the discontig version of paging_init and
-put it in discontig.c, but I had to export a few things from init.c to
-do it.  Please let me know what you think.
+This patch fixes the last one by not changing around the callback args.
+All are physical addr, length pairs now.
 
 Thanks,
 Jesse
 
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/arch/ia64/Kconfig linux-ia64-2.5-discontig/arch/ia64/Kconfig
---- linux-ia64-2.5-bootmem/arch/ia64/Kconfig	Wed Sep 24 09:38:14 2003
-+++ linux-ia64-2.5-discontig/arch/ia64/Kconfig	Wed Sep 24 17:46:52 2003
+
+diff -Nru a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+--- a/arch/ia64/Kconfig	Thu Sep 25 18:44:02 2003
++++ b/arch/ia64/Kconfig	Thu Sep 25 18:44:02 2003
 @@ -220,24 +220,8 @@
  	  Access).  This option is for configuring high-end multiprocessor
  	  server systems.  If in doubt, say N.
@@ -90,9 +95,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
  config IA64_MCA
  	bool "Enable IA-64 Machine Check Abort"
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/arch/ia64/Makefile linux-ia64-2.5-discontig/arch/ia64/Makefile
---- linux-ia64-2.5-bootmem/arch/ia64/Makefile	Wed Sep 24 09:38:14 2003
-+++ linux-ia64-2.5-discontig/arch/ia64/Makefile	Wed Sep 24 17:46:53 2003
+diff -Nru a/arch/ia64/Makefile b/arch/ia64/Makefile
+--- a/arch/ia64/Makefile	Thu Sep 25 18:44:02 2003
++++ b/arch/ia64/Makefile	Thu Sep 25 18:44:02 2003
 @@ -64,7 +64,7 @@
  drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
  drivers-$(CONFIG_IA64_HP_SIM)	+= arch/ia64/hp/sim/
@@ -102,9 +107,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  drivers-$(CONFIG_OPROFILE)	+= arch/ia64/oprofile/
  
  boot := arch/ia64/hp/sim/boot
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/arch/ia64/kernel/setup.c linux-ia64-2.5-discontig/arch/ia64/kernel/setup.c
---- linux-ia64-2.5-bootmem/arch/ia64/kernel/setup.c	Wed Sep 24 09:38:14 2003
-+++ linux-ia64-2.5-discontig/arch/ia64/kernel/setup.c	Thu Sep 25 11:55:15 2003
+diff -Nru a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+--- a/arch/ia64/kernel/setup.c	Thu Sep 25 18:44:02 2003
++++ b/arch/ia64/kernel/setup.c	Thu Sep 25 18:44:02 2003
 @@ -101,7 +101,7 @@
  filter_rsvd_memory (unsigned long start, unsigned long end, void *arg)
  {
@@ -114,7 +119,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  	int i;
  
  #if IGNORE_PFN0
-@@ -122,11 +122,7 @@
+@@ -122,11 +122,8 @@
  		range_end   = min(end, rsvd_region[i].start);
  
  		if (range_start < range_end)
@@ -123,11 +128,12 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 -#else
 -			(*func)(__pa(range_start), range_end - range_start);
 -#endif
-+			call_pernode_memory(range_start, range_end, arg);
++			call_pernode_memory(__pa(range_start),
++					    range_end - range_start, func);
  
  		/* nothing more available in this segment */
  		if (range_end = end) return 0;
-@@ -239,7 +235,6 @@
+@@ -239,7 +236,6 @@
  	strlcpy(saved_command_line, *cmdline_p, sizeof(saved_command_line));
  
  	efi_init();
@@ -135,7 +141,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
  #ifdef CONFIG_ACPI_BOOT
  	/* Initialize the ACPI boot-time table parser */
-@@ -253,6 +248,8 @@
+@@ -253,6 +249,8 @@
  # endif
  #endif /* CONFIG_APCI_BOOT */
  
@@ -144,7 +150,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  	/* process SAL system table: */
  	ia64_sal_init(efi.sal_systab);
  
-@@ -544,28 +541,7 @@
+@@ -544,28 +542,7 @@
  	struct cpuinfo_ia64 *cpu_info;
  	void *cpu_data;
  
@@ -174,7 +180,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
  	get_max_cacheline_size();
  
-@@ -577,7 +553,7 @@
+@@ -577,7 +554,7 @@
  	 */
  	cpu_info = cpu_data + ((char *) &__ia64_per_cpu_var(cpu_info) - __per_cpu_start);
  #ifdef CONFIG_NUMA
@@ -183,9 +189,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  #endif
  	identify_cpu(cpu_info);
  
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/arch/ia64/mm/contig.c linux-ia64-2.5-discontig/arch/ia64/mm/contig.c
---- linux-ia64-2.5-bootmem/arch/ia64/mm/contig.c	Wed Sep 24 09:38:14 2003
-+++ linux-ia64-2.5-discontig/arch/ia64/mm/contig.c	Thu Sep 25 11:43:50 2003
+diff -Nru a/arch/ia64/mm/contig.c b/arch/ia64/mm/contig.c
+--- a/arch/ia64/mm/contig.c	Thu Sep 25 18:44:02 2003
++++ b/arch/ia64/mm/contig.c	Thu Sep 25 18:44:02 2003
 @@ -161,3 +161,34 @@
  
  	find_initrd();
@@ -221,10 +227,10 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +	}
 +	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
 +}
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/arch/ia64/mm/discontig.c linux-ia64-2.5-discontig/arch/ia64/mm/discontig.c
---- linux-ia64-2.5-bootmem/arch/ia64/mm/discontig.c	Wed Sep 24 09:38:14 2003
-+++ linux-ia64-2.5-discontig/arch/ia64/mm/discontig.c	Thu Sep 25 15:42:53 2003
-@@ -18,115 +18,220 @@
+diff -Nru a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+--- a/arch/ia64/mm/discontig.c	Thu Sep 25 18:44:02 2003
++++ b/arch/ia64/mm/discontig.c	Thu Sep 25 18:44:02 2003
+@@ -18,115 +18,217 @@
  #include <linux/acpi.h>
  #include <linux/efi.h>
  #include <asm/pgalloc.h>
@@ -308,10 +314,24 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 - * We allocate one of the bootmem_data_t structs for each piece of memory
 - * that we wish to treat as a contiguous block.  Each such block must start
 - * on a BANKSIZE boundary.  Multiple banks per node is not supported.
+- */
+-static int __init
+-build_maps(unsigned long pstart, unsigned long length, int node)
+-{
+-	bootmem_data_t	*bdp;
+-	unsigned long cstart, epfn;
+-
+-	bdp = pg_data_ptr[node]->bdata;
+-	epfn = GRANULEROUNDUP(pstart + length) >> PAGE_SHIFT;
+-	cstart = pstart & ~(BANKSIZE - 1);
+-
+-	if (!bdp->node_low_pfn) {
+-		bdp->node_boot_start = cstart;
+-		bdp->node_low_pfn = epfn;
 +/**
 + * build_maps - callback to setup bootmem structs for each node
-+ * @start: start of range
-+ * @end: end of range
++ * @start: physical start of range
++ * @len: length of range
 + * @node: node where this range resides
 + *
 + * We allocate a struct bootmem_data for each piece of memory
@@ -320,23 +340,13 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 + * the address down if necessary.  Any non-existent pages will simply be part
 + * of the virtual memmap.  We also update min_low_pfn and max_low_pfn here
 + * as we receive memory ranges from the caller.
-  */
--static int __init
--build_maps(unsigned long pstart, unsigned long length, int node)
-+static int __init build_maps(unsigned long start, unsigned long end, int node)
- {
--	bootmem_data_t	*bdp;
- 	unsigned long cstart, epfn;
- 
--	bdp = pg_data_ptr[node]->bdata;
--	epfn = GRANULEROUNDUP(pstart + length) >> PAGE_SHIFT;
--	cstart = pstart & ~(BANKSIZE - 1);
--
--	if (!bdp->node_low_pfn) {
--		bdp->node_boot_start = cstart;
--		bdp->node_low_pfn = epfn;
-+	epfn = GRANULEROUNDUP(__pa(end)) >> PAGE_SHIFT;
-+	cstart = GRANULEROUNDDOWN(__pa(start));
++ */
++static int __init build_maps(unsigned long start, unsigned long len, int node)
++{
++	unsigned long cstart, epfn, end = start + len;
++
++	epfn = GRANULEROUNDUP(end) >> PAGE_SHIFT;
++	cstart = GRANULEROUNDDOWN(start);
 +
 +	if (!bdata[node].node_low_pfn) {
 +		bdata[node].node_boot_start = cstart;
@@ -383,11 +393,11 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +			n++;
 +	return n;
 +}
- 
++
 +/**
 + * find_pernode_space - allocate memory for memory map and per-node structures
-+ * @start: start of range
-+ * @end: end of range
++ * @start: physical start of range
++ * @len: length of range
 + * @node: node where this range resides
 + *
 + * This routine reserves space for the per-cpu data struct, the list of
@@ -412,25 +422,23 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 + * outside of this function and use alloc_bootmem_node(), but doing it here
 + * is straightforward and we get the alignments we want so...
 + */
-+static int __init find_pernode_space(unsigned long start, unsigned long end,
++static int __init find_pernode_space(unsigned long start, unsigned long len,
 +				     int node)
 +{
 +	unsigned long epfn, cpu, cpus;
-+	unsigned long pernodesize=0, pernode;
-+	unsigned long pstart, length;
++	unsigned long pernodesize = 0, pernode;
 +       	void *cpu_data;
-+
-+	pstart = __pa(start);
-+	length = end - start;
- 	epfn = (pstart + length) >> PAGE_SHIFT;
+ 
+-	epfn = (pstart + length) >> PAGE_SHIFT;
 -	bdp = &pg_data_ptr[node]->bdata[0];
++	epfn = (start + len) >> PAGE_SHIFT;
  
 -	if (pstart < bdp->node_boot_start || epfn > bdp->node_low_pfn)
 +	/*
 +	 * Make sure this memory falls within this node's usable memory
 +	 * since we may have thrown some away in build_maps().
 +	 */
-+	if (pstart < bdata[node].node_boot_start ||
++	if (start < bdata[node].node_boot_start ||
 +	    epfn > bdata[node].node_low_pfn)
  		return 0;
  
@@ -447,10 +455,10 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +		pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
 +		pernodesize += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
 +		pernodesize = PAGE_ALIGN(pernodesize);
-+		pernode = NODEDATA_ALIGN(pstart, node);
++		pernode = NODEDATA_ALIGN(start, node);
 +	
 +		/* Is this range big enough for what we want to store here? */
-+		if (pstart + length > (pernode + pernodesize)) {
++		if (start + len > (pernode + pernodesize)) {
 +			boot_pernode[node] = pernode;
 +			boot_pernodesize[node] = pernodesize;
 +			memset(__va(pernode), 0, pernodesize);
@@ -472,7 +480,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +			 * just set aside and then setup __per_cpu_offset
 +			 * for each CPU on this node.
 +			 */
-+			for (cpu=0; cpu < NR_CPUS; cpu++) {
++			for (cpu = 0; cpu < NR_CPUS; cpu++) {
 +				if (node = node_cpuid[cpu].nid) {
 +					memcpy(cpu_data, __phys_per_cpu_start,
 +					       __per_cpu_end-__per_cpu_start);
@@ -509,9 +517,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +		 * The map will either contain the pernode area or begin
 +		 * after it.
 +		 */
-+		if (pernode - pstart > mapsize)
-+			map = pstart;
-+		else if (pstart + length - pernode - pernodesize > mapsize)
++		if (pernode - start > mapsize)
++			map = start;
++		else if (start + len - pernode - pernodesize > mapsize)
 +			map = pernode + pernodesize;
 +
 +		if (map) {
@@ -521,7 +529,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  		}
  
  	}
-@@ -134,85 +239,85 @@
+@@ -134,85 +236,85 @@
  	return 0;
  }
  
@@ -533,8 +541,8 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 - * filtered by free_available_memory).
 +/**
 + * discontig_free_bootmem_node - free bootmem allocator memory for use
-+ * @start: start of range
-+ * @end: end of range
++ * @start: physical start of range
++ * @len: length of range
 + * @node: node where this range resides
   *
 + * Simply calls the bootmem allocator to free the specified ranged from
@@ -543,10 +551,10 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 -static int __init
 -discontig_free_bootmem_node(unsigned long pstart, unsigned long length, int node)
 +static int __init discontig_free_bootmem_node(unsigned long start,
-+					      unsigned long end, int node)
++					      unsigned long len, int node)
  {
 -	free_bootmem_node(BOOT_NODE_DATA(node), pstart, length);
-+	free_bootmem_node(pg_data_ptr[node], __pa(start), end - start);
++	free_bootmem_node(pg_data_ptr[node], start, len);
  
  	return 0;
  }
@@ -631,15 +639,15 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 -	memcpy(node_data[mynode]->node_data_ptrs, node_data, sizeof(node_data));
 +	memcpy(boot_node_data[0]->pg_data_ptrs, pg_data_ptr,
 +	       sizeof(pg_data_ptr));
- 
--	pgdat_list = new_pgdat_list;
++
 +	/* Copy the pg_data_t list to each node and init the node field */
 +	for (node=1; node < numnodes; node++) {
 +		memcpy(boot_node_data[node], boot_node_data[0],
 +		       sizeof(struct ia64_node_data));
 +		boot_node_data[node]->node = node;
 +	}
-+
+ 
+-	pgdat_list = new_pgdat_list;
 +	/* Set the node_data pointer for each per-cpu struct */
 +	for (cpu=0; cpu < NR_CPUS; cpu++) {
 +		node = node_cpuid[cpu].nid;
@@ -663,7 +671,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  	reserve_memory();
  
  	if (numnodes = 0) {
-@@ -220,94 +325,45 @@
+@@ -220,94 +322,45 @@
  		numnodes = 1;
  	}
  
@@ -783,7 +791,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  void show_mem(void)
  {
  	int i, reserved = 0;
-@@ -316,6 +372,7 @@
+@@ -316,6 +369,7 @@
  
  	printk("Mem-info:\n");
  	show_free_areas();
@@ -791,7 +799,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  	printk("Free swap:       %6dkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
  	for_each_pgdat(pgdat) {
  		printk("Node ID: %d\n", pgdat->node_id);
-@@ -324,8 +381,8 @@
+@@ -324,8 +378,8 @@
  				reserved++;
  			else if (PageSwapCache(pgdat->node_mem_map+i))
  				cached++;
@@ -802,30 +810,35 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  		}
  		printk("\t%ld pages of RAM\n", pgdat->node_present_pages);
  		printk("\t%d reserved pages\n", reserved);
-@@ -336,7 +393,12 @@
+@@ -336,7 +390,12 @@
  	printk("%d free buffer pages\n", nr_free_buffer_pages());
  }
  
 -/*
 +/**
 + * call_pernode_memory - use SRAT to call callback functions with node info
-+ * @start: start of range
-+ * @end: end of range
++ * @start: physical start of range
++ * @len: length of range
 + * @arg: function to call for each range
 + *
   * efi_memmap_walk() knows nothing about layout of memory across nodes. Find
   * out to which node a block of memory belongs.  Ignore memory that we cannot
   * identify, and split blocks that run across multiple nodes.
-@@ -347,7 +409,7 @@
- void call_pernode_memory(unsigned long start, unsigned long end, void *arg)
+@@ -344,10 +403,10 @@
+  * Take this opportunity to round the start address up and the end address
+  * down to page boundaries.
+  */
+-void call_pernode_memory(unsigned long start, unsigned long end, void *arg)
++void call_pernode_memory(unsigned long start, unsigned long len, void *arg)
  {
- 	unsigned long rs, re;
+-	unsigned long rs, re;
 -	void (*func)(unsigned long, unsigned long, int, int);
++	unsigned long rs, re, end = start + len;
 +	void (*func)(unsigned long, unsigned long, int);
  	int i;
  
  	start = PAGE_ALIGN(start);
-@@ -358,21 +420,129 @@
+@@ -358,21 +417,126 @@
  	func = arg;
  
  	if (!num_memblks) {
@@ -836,33 +849,30 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +		/* No SRAT table, to assume one node (node 0) */
  		if (start < end)
 -			(*func)(start, end - start, 0, 0);
-+			(*func)(start, end, 0);
++			(*func)(start, len, 0);
  		return;
  	}
  
  	for (i = 0; i < num_memblks; i++) {
--		rs = max(start, node_memblk[i].start_paddr);
+ 		rs = max(start, node_memblk[i].start_paddr);
 -		re = min(end, node_memblk[i].start_paddr+node_memblk[i].size);
-+		rs = max(__pa(start), node_memblk[i].start_paddr);
-+		re = min(__pa(end), node_memblk[i].start_paddr +
++		re = min(end, node_memblk[i].start_paddr +
 +			 node_memblk[i].size);
  
  		if (rs < re)
 -			(*func)(rs, re-rs, node_memblk[i].nid,
 -				node_memblk[i].bank);
-+			(*func)((unsigned long)__va(rs),
-+				(unsigned long)__va(re),
-+				node_memblk[i].nid);
++			(*func)(rs, re - rs, node_memblk[i].nid);
 +
-+		if ((unsigned long)__va(re) = end)
++		if (re = end)
 +			break;
-+	}
+ 	}
 +}
 +
 +/**
 + * count_pages - callback to build per-node memory info structures
-+ * @start: start of range
-+ * @end: end of range
++ * @start: physical start of range
++ * @len: length of range
 + * @node: node where this range resides
 + *
 + * Each node has it's own number of physical pages, DMAable pages, start, and
@@ -870,17 +880,16 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 + * for each piece of usable memory and will setup these values for each node.
 + * Very similar to build_maps().
 + */
-+static int count_pages(unsigned long start, unsigned long end, int node)
++static int count_pages(unsigned long start, unsigned long len, int node)
 +{
-+	start = __pa(start);
-+	end = __pa(end);
++	unsigned long end = start + len;
 +
 +	mem_data[node].num_physpages += (end - start) >> PAGE_SHIFT;
 +	if (start <= __pa(MAX_DMA_ADDRESS))
 +		mem_data[node].num_dma_physpages ++			(min(end, __pa(MAX_DMA_ADDRESS)) - start) >>PAGE_SHIFT;
-+	start = GRANULEROUNDDOWN(__pa(start));
++	start = GRANULEROUNDDOWN(start);
 +	start = ORDERROUNDDOWN(start);
-+	end = GRANULEROUNDUP(__pa(end));
++	end = GRANULEROUNDUP(end);
 +	mem_data[node].max_pfn = max(mem_data[node].max_pfn,
 +				     end >> PAGE_SHIFT);
 +	mem_data[node].min_pfn = min(mem_data[node].min_pfn,
@@ -958,23 +967,22 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +		free_area_init_node(node, NODE_DATA(node),
 +				    mem_map + pfn_offset, zones_size,
 +				    pfn_offset, zholes_size);
- 	}
++	}
 +
 +	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
  }
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/arch/ia64/mm/init.c linux-ia64-2.5-discontig/arch/ia64/mm/init.c
---- linux-ia64-2.5-bootmem/arch/ia64/mm/init.c	Wed Sep 24 10:16:44 2003
-+++ linux-ia64-2.5-discontig/arch/ia64/mm/init.c	Thu Sep 25 13:02:19 2003
-@@ -24,7 +24,7 @@
+diff -Nru a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
+--- a/arch/ia64/mm/init.c	Thu Sep 25 18:44:02 2003
++++ b/arch/ia64/mm/init.c	Thu Sep 25 18:44:02 2003
+@@ -24,6 +24,7 @@
  #include <asm/ia32.h>
  #include <asm/io.h>
  #include <asm/machvec.h>
--#include <asm/numa.h>
 +#include <asm/meminit.h>
  #include <asm/patch.h>
  #include <asm/pgalloc.h>
  #include <asm/sal.h>
-@@ -43,8 +43,8 @@
+@@ -42,8 +43,8 @@
  #ifdef CONFIG_VIRTUAL_MEM_MAP
  # define LARGE_GAP	0x40000000	/* Use virtual mem map if hole is > than this */
    unsigned long vmalloc_end = VMALLOC_END_INIT;
@@ -985,7 +993,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  #endif
  
  static int pgt_cache_water[2] = { 25, 50 };
-@@ -338,7 +338,7 @@
+@@ -337,11 +338,12 @@
  
  #ifdef CONFIG_VIRTUAL_MEM_MAP
  
@@ -994,7 +1002,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  create_mem_map_page_table (u64 start, u64 end, void *arg)
  {
  	unsigned long address, start_page, end_page;
-@@ -446,7 +446,7 @@
+@@ -443,7 +446,7 @@
  	return 0;
  }
  
@@ -1003,7 +1011,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  find_largest_hole (u64 start, u64 end, void *arg)
  {
  	u64 *max_gap = arg;
-@@ -462,6 +462,7 @@
+@@ -459,6 +462,7 @@
  }
  #endif /* CONFIG_VIRTUAL_MEM_MAP */
  
@@ -1011,7 +1019,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  static int
  count_pages (u64 start, u64 end, void *arg)
  {
-@@ -475,17 +476,6 @@
+@@ -472,17 +476,6 @@
   * Set up the page tables.
   */
  
@@ -1029,7 +1037,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  void
  paging_init (void)
  {
-@@ -609,11 +599,11 @@
+@@ -606,11 +599,11 @@
  	platform_dma_init();
  #endif
  
@@ -1043,10 +1051,10 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
  	high_memory = __va(max_low_pfn * PAGE_SIZE);
  
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/include/asm-ia64/meminit.h linux-ia64-2.5-discontig/include/asm-ia64/meminit.h
---- linux-ia64-2.5-bootmem/include/asm-ia64/meminit.h	Wed Sep 24 09:39:14 2003
-+++ linux-ia64-2.5-discontig/include/asm-ia64/meminit.h	Thu Sep 25 13:01:29 2003
-@@ -31,11 +31,31 @@
+diff -Nru a/include/asm-ia64/meminit.h b/include/asm-ia64/meminit.h
+--- a/include/asm-ia64/meminit.h	Thu Sep 25 18:44:02 2003
++++ b/include/asm-ia64/meminit.h	Thu Sep 25 18:44:02 2003
+@@ -31,10 +31,31 @@
  extern void reserve_memory (void);
  extern void find_initrd (void);
  extern int filter_rsvd_memory (unsigned long start, unsigned long end, void *arg);
@@ -1060,11 +1068,13 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +#define ORDERROUNDDOWN(n) ((n) & ~((PAGE_SIZE<<MAX_ORDER)-1))
  
  #ifdef CONFIG_DISCONTIGMEM
- extern void call_pernode_memory (unsigned long start, unsigned long end, void *arg);
+-extern void call_pernode_memory (unsigned long start, unsigned long end, void *arg);
++extern void call_pernode_memory(unsigned long start, unsigned long len,
++				void *func);
 +#else
-+#define call_pernode_memory(start, end, func)	(*func)(start, end, 0)
++#define call_pernode_memory(start, len, func)	(*func)(start, len, 0)
  #endif
- 
++
 +#ifdef CONFIG_VIRTUAL_MEM_MAP
 +#define LARGE_GAP 0x40000000 /* Use virtual mem map if hole is > than this */
 +extern unsigned long vmalloc_end;
@@ -1074,13 +1084,12 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +extern int create_mem_map_page_table(u64 start, u64 end, void *arg);
 +#endif
 +
-+
+ 
  #define IGNORE_PFN0	1	/* XXX fix me: ignore pfn 0 until TLB miss handler is updated... */
  
- #endif /* meminit_h */
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/include/asm-ia64/mmzone.h linux-ia64-2.5-discontig/include/asm-ia64/mmzone.h
---- linux-ia64-2.5-bootmem/include/asm-ia64/mmzone.h	Wed Sep 24 09:39:14 2003
-+++ linux-ia64-2.5-discontig/include/asm-ia64/mmzone.h	Thu Sep 25 09:56:10 2003
+diff -Nru a/include/asm-ia64/mmzone.h b/include/asm-ia64/mmzone.h
+--- a/include/asm-ia64/mmzone.h	Thu Sep 25 18:44:02 2003
++++ b/include/asm-ia64/mmzone.h	Thu Sep 25 18:44:02 2003
 @@ -3,7 +3,7 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -1211,7 +1220,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 -#define BANKSIZE		(1UL << BANKSHIFT)
 -#define BANK_OFFSET(addr)	((unsigned long)(addr) & (BANKSIZE-1))
 -#define NR_BANKS		(NR_BANKS_PER_NODE * NR_NODES)
--
+ 
 -/*
 - * VALID_MEM_KADDR returns a boolean to indicate if a kaddr is
 - * potentially a valid cacheable identity mapped RAM memory address.
@@ -1225,7 +1234,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 - */
 -#define BANK_MEM_MAP_INDEX(kaddr) \
 -	(((unsigned long)(kaddr) & (MAX_PHYS_MEMORY-1)) >> BANKSHIFT)
- 
+-
 -#elif defined(CONFIG_IA64_SGI_SN2)
 -/*
 - * SGI SN2 discontig definitions
@@ -1252,19 +1261,24 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
 -#endif /* CONFIG_IA64_DIG */
  #endif /* _ASM_IA64_MMZONE_H */
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/include/asm-ia64/nodedata.h linux-ia64-2.5-discontig/include/asm-ia64/nodedata.h
---- linux-ia64-2.5-bootmem/include/asm-ia64/nodedata.h	Wed Sep 24 09:39:14 2003
-+++ linux-ia64-2.5-discontig/include/asm-ia64/nodedata.h	Wed Sep 24 17:47:00 2003
-@@ -13,7 +13,7 @@
+diff -Nru a/include/asm-ia64/nodedata.h b/include/asm-ia64/nodedata.h
+--- a/include/asm-ia64/nodedata.h	Thu Sep 25 18:44:02 2003
++++ b/include/asm-ia64/nodedata.h	Thu Sep 25 18:44:02 2003
+@@ -13,9 +13,12 @@
  #ifndef _ASM_IA64_NODEDATA_H
  #define _ASM_IA64_NODEDATA_H
  
 -
++#include <linux/config.h>
 +#include <asm/percpu.h>
  #include <asm/mmzone.h>
  
++#ifdef CONFIG_DISCONTIGMEM
++
  /*
-@@ -24,10 +24,7 @@
+  * Node Data. One of these structures is located on each node of a NUMA system.
+  */
+@@ -24,10 +27,7 @@
  struct ia64_node_data {
  	short			active_cpu_count;
  	short			node;
@@ -1276,7 +1290,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  };
  
  
-@@ -36,41 +33,21 @@
+@@ -36,41 +36,23 @@
   */
  #define local_node_data		(local_cpu_data->node_data)
  
@@ -1314,14 +1328,15 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
   */
  #define NODE_DATA(nid)		(local_node_data->pg_data_ptrs[nid])
 -#define BOOT_NODE_DATA(nid)	boot_get_pg_data_ptr((long)(nid))
--
+ 
 -struct pglist_data;
 -extern struct pglist_data * __init boot_get_pg_data_ptr(long);
++#endif /* CONFIG_DISCONTIGMEM */
  
  #endif /* _ASM_IA64_NODEDATA_H */
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/include/asm-ia64/numa.h linux-ia64-2.5-discontig/include/asm-ia64/numa.h
---- linux-ia64-2.5-bootmem/include/asm-ia64/numa.h	Wed Sep 24 10:16:46 2003
-+++ linux-ia64-2.5-discontig/include/asm-ia64/numa.h	Wed Sep 24 17:47:00 2003
+diff -Nru a/include/asm-ia64/numa.h b/include/asm-ia64/numa.h
+--- a/include/asm-ia64/numa.h	Thu Sep 25 18:44:02 2003
++++ b/include/asm-ia64/numa.h	Thu Sep 25 18:44:02 2003
 @@ -13,18 +13,13 @@
  
  #include <linux/config.h>
@@ -1345,25 +1360,21 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  extern volatile char cpu_to_node_map[NR_CPUS] __cacheline_aligned;
  extern volatile cpumask_t node_to_cpu_mask[NR_NODES] __cacheline_aligned;
  
-@@ -65,13 +60,10 @@
+@@ -65,7 +60,10 @@
  
  extern int paddr_to_nid(unsigned long paddr);
  
 -#define local_nodeid (cpu_to_node_map[smp_processor_id()])
--
- #else /* !CONFIG_NUMA */
- 
--#define node_distance(from,to)	10
--#define paddr_to_nid(addr)	0
--#define local_nodeid		0
++#else /* !CONFIG_NUMA */
++
 +#define node_distance(from,to) 10
 +#define paddr_to_nid(x) 0
  
  #endif /* CONFIG_NUMA */
  
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/include/asm-ia64/page.h linux-ia64-2.5-discontig/include/asm-ia64/page.h
---- linux-ia64-2.5-bootmem/include/asm-ia64/page.h	Wed Sep 24 09:39:14 2003
-+++ linux-ia64-2.5-discontig/include/asm-ia64/page.h	Thu Sep 25 09:25:51 2003
+diff -Nru a/include/asm-ia64/page.h b/include/asm-ia64/page.h
+--- a/include/asm-ia64/page.h	Thu Sep 25 18:44:02 2003
++++ b/include/asm-ia64/page.h	Thu Sep 25 18:44:02 2003
 @@ -94,18 +94,17 @@
  
  #define virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
@@ -1389,9 +1400,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
  typedef union ia64_va {
  	struct {
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/include/asm-ia64/percpu.h linux-ia64-2.5-discontig/include/asm-ia64/percpu.h
---- linux-ia64-2.5-bootmem/include/asm-ia64/percpu.h	Wed Sep 24 09:39:14 2003
-+++ linux-ia64-2.5-discontig/include/asm-ia64/percpu.h	Wed Sep 24 18:02:49 2003
+diff -Nru a/include/asm-ia64/percpu.h b/include/asm-ia64/percpu.h
+--- a/include/asm-ia64/percpu.h	Thu Sep 25 18:44:02 2003
++++ b/include/asm-ia64/percpu.h	Thu Sep 25 18:44:02 2003
 @@ -46,11 +46,13 @@
  
  extern void percpu_modcopy(void *pcpudst, const void *src, unsigned long size);
@@ -1406,9 +1417,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
  #endif	/* SMP */
  
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/include/asm-ia64/pgtable.h linux-ia64-2.5-discontig/include/asm-ia64/pgtable.h
---- linux-ia64-2.5-bootmem/include/asm-ia64/pgtable.h	Wed Sep 24 09:39:14 2003
-+++ linux-ia64-2.5-discontig/include/asm-ia64/pgtable.h	Wed Sep 24 18:45:30 2003
+diff -Nru a/include/asm-ia64/pgtable.h b/include/asm-ia64/pgtable.h
+--- a/include/asm-ia64/pgtable.h	Thu Sep 25 18:44:02 2003
++++ b/include/asm-ia64/pgtable.h	Thu Sep 25 18:44:02 2003
 @@ -174,7 +174,6 @@
  	return (addr & (local_cpu_data->unimpl_pa_mask)) = 0;
  }
@@ -1435,9 +1446,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
  #define pmd_none(pmd)			(!pmd_val(pmd))
  #define pmd_bad(pmd)			(!ia64_phys_addr_valid(pmd_val(pmd)))
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/include/linux/mm.h linux-ia64-2.5-discontig/include/linux/mm.h
---- linux-ia64-2.5-bootmem/include/linux/mm.h	Wed Sep 24 09:39:19 2003
-+++ linux-ia64-2.5-discontig/include/linux/mm.h	Thu Sep 25 09:25:14 2003
+diff -Nru a/include/linux/mm.h b/include/linux/mm.h
+--- a/include/linux/mm.h	Thu Sep 25 18:44:02 2003
++++ b/include/linux/mm.h	Thu Sep 25 18:44:02 2003
 @@ -13,7 +13,8 @@
  #include <linux/rbtree.h>
  #include <linux/fs.h>
@@ -1457,9 +1468,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  /* The array of struct pages - for discontigmem use pgdat->lmem_map */
  extern struct page *mem_map;
  #endif
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/kernel/ksyms.c linux-ia64-2.5-discontig/kernel/ksyms.c
---- linux-ia64-2.5-bootmem/kernel/ksyms.c	Wed Sep 24 09:39:21 2003
-+++ linux-ia64-2.5-discontig/kernel/ksyms.c	Thu Sep 25 09:25:14 2003
+diff -Nru a/kernel/ksyms.c b/kernel/ksyms.c
+--- a/kernel/ksyms.c	Thu Sep 25 18:44:02 2003
++++ b/kernel/ksyms.c	Thu Sep 25 18:44:02 2003
 @@ -114,7 +114,7 @@
  EXPORT_SYMBOL(vunmap);
  EXPORT_SYMBOL(vmalloc_to_page);
@@ -1469,9 +1480,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  EXPORT_SYMBOL(contig_page_data);
  EXPORT_SYMBOL(mem_map);
  EXPORT_SYMBOL(max_mapnr);
-diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-bootmem/mm/memory.c linux-ia64-2.5-discontig/mm/memory.c
---- linux-ia64-2.5-bootmem/mm/memory.c	Wed Sep 24 09:39:21 2003
-+++ linux-ia64-2.5-discontig/mm/memory.c	Thu Sep 25 09:25:14 2003
+diff -Nru a/mm/memory.c b/mm/memory.c
+--- a/mm/memory.c	Thu Sep 25 18:44:02 2003
++++ b/mm/memory.c	Thu Sep 25 18:44:02 2003
 @@ -55,7 +55,7 @@
  
  #include <linux/swapops.h>
