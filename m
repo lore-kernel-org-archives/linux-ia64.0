@@ -1,8 +1,10 @@
 From: "bertos, deborah" <bertos_deborah@emc.com>
-Date: Tue, 16 Jan 2001 23:03:19 +0000
-Subject: [Linux-ia64] Errors when compiling kernel
-Message-Id: <marc-linux-ia64-105590693005054@msgid-missing>
+Date: Tue, 16 Jan 2001 23:11:14 +0000
+Subject: [Linux-ia64] Errors when compiling kernel (2.4.0test10)
+Message-Id: <marc-linux-ia64-105590693005056@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005054@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005054@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -35,9 +37,18 @@ through the compilation process, starting from make mrproper.  Some examples
 of the errors are:
 
 pm.c: In function 'pm_send':
-pm.c:132: warning cast from pointer to integer of defferent size.
+pm.c:132: warning cast from pointer to integer of different size.
 
-module.c: Infunction
+module.c: In function 'sys_init_module':
+module.c:365: warning passing arg 1 of 'kdbaddmodsym' discards qualifiers
+from pointer target type.
+
+ivt.S:253: warning: Only the first path encountering the conflict is
+reported
+ivt.S:249: warning: This is the location of the conflicting usage.
+
+Thanks for the help.
+
 
 EMC=B2  			Deborah Bertos
 The Enterprise Storage Company        		Systems Engineer
