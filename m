@@ -1,38 +1,55 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Mon, 19 Nov 2001 22:13:09 +0000
-Subject: Re: [Linux-ia64] gcc 3.0.2 questions
-Message-Id: <marc-linux-ia64-105590698805536@msgid-missing>
+From: nomura@hpc.bs1.fc.nec.co.jp
+Date: Thu, 22 Nov 2001 11:36:47 +0000
+Subject: [Linux-ia64] where to set rr for uncached region
+Message-Id: <marc-linux-ia64-105590698805542@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805477@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805477@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Configure in /usr/src/gnu/build-gcc/fastjar failed, exiting.
->Is there anyway if disabling this?
+Hello,
 
-If you rename the fastjar directory in your source tree, then configure
-won't find it.  fastjar should configure OK for a simple cross compiler
-though.
+Current code sets rr for region 6 (kernel uncached region) in ia64_mmu_init().
+However, thinking about application processors, there are some printk()s
+before ia64_mmu_init() to be called.
+Since printk() ends up in vt_console_print() and store to uncached region
+will happen, I think this cause a problem.
 
->./gengenrtl -h >tmp-genrtl.h
->make[1]: *** [s-genrtl] Error 4
+In reality, MCAs always happen on our machine after AP prints
+"CPU 1: mapping PAL code ..." to serial console. The processor log
+shows that MCA happend in vt_console_print() on CPU1.
 
->Is this related to the fastjar failure.
+I can work around the problem by applying this patch.
 
-This isn't caused by the fastjar problem.  However, it may be failing for
-the same reason.
+I've noticed the problem when EARLY_PRINTK was deleted from config option.
+So I'm curious about whether anyone has not experienced same kind of problem.
 
-gengenrtl is the first program run on the build machine when doing a gcc build.
-If gengenrtl fails, then that may indicate that your configure build, host,
-and/or target options are wrong.  That same problem could have caused the
-fastjar configure error.
 
-How did you configure the cross compiler?  Check the config.status and
-gcc/config.status files to make sure that the build/host/target options are
-what you expected.
+diff -u -r1.1.1.8.6.1 head.S
+--- arch/ia64/kernel/head.S	2001/10/04 10:31:46	1.1.1.8.6.1
++++ arch/ia64/kernel/head.S	2001/10/05 02:18:17
+@@ -111,7 +111,6 @@
+ 	mov ar.fpsr=r2
+ 	;;
+ 
+-#ifdef CONFIG_IA64_EARLY_PRINTK
+ 	mov r3=(6<<8) | (KERNEL_PG_SHIFT<<2)
+ 	movl r2=6<<61
+ 	;;
+@@ -119,7 +118,6 @@
+ 	;;
+ 	srlz.i
+ 	;;
+-#endif
+ 
+ #define isAP	p2	// are we an Application Processor?
+ #define isBP	p3	// are we the Bootstrap Processor?
 
-Jim
+
+Best regards.
+--
+NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
+HPC Operating System Group, 1st Computers Software Division,
+Computers Software Operations Unit, NEC Solutions.
 
