@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 25 May 2002 02:33:11 +0000
-Subject: Re: [Linux-ia64] NTP broken?
-Message-Id: <marc-linux-ia64-105590701905600@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 28 May 2002 22:48:49 +0000
+Subject: RE: [Linux-ia64] NTP broken?
+Message-Id: <marc-linux-ia64-105590701905603@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905591@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905591@msgid-missing>
@@ -10,7 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 22 May 2002 13:08:08 +1000, Peter Chubb <peter@chubb.wattle.id.au> said:
+I compared a HZ0 kernel with a HZ24 kernel on a BigSur ... it
+made no obvious difference, both kernels lost time at about 38.5
+milliseconds/minute relative to a machine running NTP.
+
+-Tony
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
+Sent: Friday, May 24, 2002 7:33 PM
+To: Peter Chubb
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] NTP broken?
+
+
+>>>>> On Wed, 22 May 2002 13:08:08 +1000, Peter Chubb
+<peter@chubb.wattle.id.au> said:
 
   Peter> NTP on Linux 2.4.17/IA64 appears broken.  ntpd never seems to
   Peter> be able to pull the PLL into sync, even after using ntpdate
@@ -30,4 +45,9 @@ easier and since it also happens to be the freq used by x86, makes it
 almost certain that there are no other subtle issues.
 
 	--david
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
