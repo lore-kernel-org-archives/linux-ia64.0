@@ -1,29 +1,25 @@
-From: Piet/Pete Delaney <piet@sgi.com>
-Date: Tue, 16 Apr 2002 22:36:47 +0000
-Subject: [piet@sgi.com: [Linux-ia64] unw_init_frame_info() and activation records]
-Message-Id: <marc-linux-ia64-105590701905464@msgid-missing>
+From: Christian Hinkelbein <hinkelbein@ti.uni-mannheim.de>
+Date: Wed, 03 Apr 2002 15:40:36 +0000
+Subject: [Linux-ia64] problems with scsi
+Message-Id: <marc-linux-ia64-105590701905368@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Keith:
-
-Our linux lcrash code support for stack frames needs improvement, I'm
-looking around for code to pinch and was wondering about the kdb code.
-
-The kdb code at least seems to support the NEW_UNWIND code by using 
-unw_init_frame_info().  You code mentions that it should be using activation 
-records and I was wondering what that's all about.
-
-I've been reading David Mosberger chapter on Stack Unwinding and I'll check the
-kernel code for perspectives on the code. I suspect that the gdb unwind code
-and the HP-IPF-unwind library (available on request) are likely an overkill and only
-needed for C++.
-
-Perhaps you could take a few minutes and provide a few pointers on how
-to save time in adding unwind support. 
-
--piet
+hi all,
+sorry, this may be out of topic:
+i have a dual-ia64 with a qlogic qla12160 scsi controller.
+this talks to an ibm ddys-t18350 harddisk.
+i cant get it running since after "modprobe qla1280"
+kernel says: "sda: unsupported sector size 8704."
+no other complains before or after.
+the disk works fine on a ia32 with a symbios u160 controller.
+do you know any hints how i could track down the problem?
+or could you forward me to someone that maybe knows?
+i use suse 7.2 ia64, currently on a 5 jear old ide disk.
+now i got double the size ram compared with hardisk size.
+thanks
+ christian
 
