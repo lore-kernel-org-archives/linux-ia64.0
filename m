@@ -1,56 +1,35 @@
-From: Vladimir Simonov <sv@sw.com.sg>
-Date: Fri, 21 Mar 2003 09:36:23 +0000
-Subject: [Linux-ia64] show_trace_task portability
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------070404030001040607040703"
-Message-Id: <marc-linux-ia64-105590723705283@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 21 Mar 2003 19:45:22 +0000
+Subject: Re: [Linux-ia64] show_trace_task portability
+Message-Id: <marc-linux-ia64-105590723705285@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590723705283@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723705283@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------070404030001040607040703
-Content-Type: text/plain; charset=KOI8-R; format=flowed
-Content-Transfer-Encoding: 7bit
+Hi Vladimir,
 
-Hi!
-Trying to port some patches from i386 to ia64 I've found that
-show_trace_task is the only portable way to show tasks' call
-traces(perhaps because it is called from ./kernel/sched.c:)).
-But its ia64 implementation can't work with running task.
+>>>>> On Fri, 21 Mar 2003 12:36:23 +0300, Vladimir Simonov <sv@sw.com.sg> said:
 
-Attached patch fixes this issue.
+  Vladimir> Hi!  Trying to port some patches from i386 to ia64 I've
+  Vladimir> found that show_trace_task is the only portable way to
+  Vladimir> show tasks' call traces(perhaps because it is called from
+  Vladimir> ./kernel/sched.c:)).  But its ia64 implementation can't
+  Vladimir> work with running task.
 
-As I understand show_trace and show_stack are platform
-dependent or have different sense/args.
+  Vladimir> Attached patch fixes this issue.
 
-Any opinion?
+  Vladimir> As I understand show_trace and show_stack are platform
+  Vladimir> dependent or have different sense/args.
 
-Best regards
-Vladimir Simonov
+  Vladimir> Any opinion?
 
+The patch looks fine to me.  I applied it in the 2.5 tree.
 
---------------070404030001040607040703
-Content-Type: text/plain;
- name="diff-show_trace_task.ia64"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="diff-show_trace_task.ia64"
+Thanks,
 
---- linux.orig/arch/ia64/kernel/process.c	Fri Mar 21 08:32:37 2003
-+++ linux/arch/ia64/kernel/process.c		Fri Mar 21 08:53:06 2003
-@@ -53,10 +53,7 @@
- void
- show_trace_task (struct task_struct *task)
- {
--	struct unw_frame_info info;
--
--	unw_init_from_blocked_task(&info, task);
--	do_show_stack(&info, 0);
-+	show_stack(task);
- }
- 
- void
-
---------------070404030001040607040703--
-
+	--david
 
