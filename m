@@ -1,7 +1,7 @@
-From: "dirk" <ledzepabcd@ahhbisto.com>
-Date: Mon, 17 May 2004 11:09:59 +0000
+From: "lyman" <zenithmimi@aufurlaub.com>
+Date: Thu, 20 May 2004 06:08:30 +0000
 Subject: Save a ton on Microsoft Office!
-Message-Id: <1084792199-10891@excite.com>
+Message-Id: <1085033310-3790@excite.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1084633338-21367@excite.com>
 In-Reply-To: <1084633338-21367@excite.com>
@@ -59,6 +59,8 @@ http://teddychoice.biz/index.php?su55
 
 
 
-utopia vermontabcd josh sundance gibson joel t-bone 
-parrot gambitphoenix1 hornet scuba1
-jamaica warriors pirate 
+softball sunbirdliverpoo sweety bigmac button tootsie mars 
+dougie hansonbigman clipper valentin
+charity money1 young 
+
+REMOV3: http://teddychoice.biz/soft/chair.php
