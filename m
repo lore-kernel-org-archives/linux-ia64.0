@@ -1,238 +1,206 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Thu, 06 Jan 2005 19:16:03 +0000
-Subject: [PATCH] defconfig update
-Message-Id: <200501061116.03327.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_z5Y3B7Fv1iHOZoM"
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 20 Jan 2005 16:11:16 +0000
+Subject: [patch 2/3] spinlock fix #2: generalize [spin|rw]lock yielding
+Message-Id: <20050120161116.GA13812@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
---Boundary-00=_z5Y3B7Fv1iHOZoM
-Content-Type: text/plain;
-  charset="us-ascii"
+References: <20050119080403.GB29037@elte.hu> <16878.9678.73202.771962@wombat.chubb.wattle.id.au> <20050119092013.GA2045@elte.hu> <16878.54402.344079.528038@cargo.ozlabs.ibm.com> <20050120023445.GA3475@taniwha.stupidest.org> <20050119190104.71f0a76f.akpm@osdl.org> <20050120031854.GA8538@taniwha.stupidest.org> <16879.29449.734172.893834@wombat.chubb.wattle.id.au> <Pine.LNX.4.58.0501200747230.8178@ppc970.osdl.org> <20050120160839.GA13067@elte.hu>
+In-Reply-To: <20050120160839.GA13067@elte.hu>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, Chris Wedgwood <cw@f00f.org>, Andrew Morton <akpm@osdl.org>, paulus@samba.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, dsw@gelato.unsw.edu.au, benh@kernel.crashing.org, linux-ia64@vger.kernel.org, hch@infradead.org, wli@holomorphy.com, jbarnes@sgi.com
 
-This adds support for a few new modules (e.g. Infiniband, new ACPI stuff, 
-etc.) and also enables initrd support (required for Fedora for example--it's 
-really not that painful, I use the same initrd for most of my kernels).
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+[patch respun with s/trylock_test/can_lock/]
 
-Thanks,
-Jesse
+--
+this patch generalizes the facility of targeted lock-yielding originally
+implemented for ppc64. This facility enables a virtual CPU to indicate
+towards the hypervisor which other virtual CPU this CPU is 'blocked on',
+and hence which CPU the hypervisor should yield the current timeslice
+to, in order to make progress on releasing the lock.
 
---Boundary-00=_z5Y3B7Fv1iHOZoM
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="generic-defconfig-update-5.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="generic-defconfig-update-5.patch"
+On physical platforms these functions default to cpu_relax(). Since
+physical platforms are in the overwhelming majority i've added the two
+new functions to the new asm-generic/spinlock.h include file - here i
+hope we can later on move more generic spinlock bits as well.
 
-===== arch/ia64/defconfig 1.35 vs edited =====
---- 1.35/arch/ia64/defconfig	2004-11-02 13:17:17 -08:00
-+++ edited/arch/ia64/defconfig	2005-01-06 11:13:15 -08:00
-@@ -1,7 +1,7 @@
- #
- # Automatically generated make config: don't edit
--# Linux kernel version: 2.6.10-rc1
--# Tue Nov  2 11:47:56 2004
-+# Linux kernel version: 2.6.10
-+# Thu Jan  6 11:13:13 2005
- #
+this patch solves the ppc64/PREEMPT functionality-regression reported by
+Paul Mackerras. I only tested it on x86, Paul, would you mind to test it
+on ppc64?
+
+	Ingo
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+
+--- linux/kernel/spinlock.c.orig
++++ linux/kernel/spinlock.c
+@@ -184,7 +184,7 @@ void __lockfunc _##op##_lock(locktype##_
+ 		if (!(lock)->break_lock)				\
+ 			(lock)->break_lock = 1;				\
+ 		while (!op##_can_lock(lock) && (lock)->break_lock)	\
+-			cpu_relax();					\
++			locktype##_yield(lock);				\
+ 		preempt_disable();					\
+ 	}								\
+ }									\
+@@ -206,7 +206,7 @@ unsigned long __lockfunc _##op##_lock_ir
+ 		if (!(lock)->break_lock)				\
+ 			(lock)->break_lock = 1;				\
+ 		while (!op##_can_lock(lock) && (lock)->break_lock)	\
+-			cpu_relax();					\
++			locktype##_yield(lock);				\
+ 		preempt_disable();					\
+ 	}								\
+ 	return flags;							\
+--- linux/arch/ppc64/lib/locks.c.orig
++++ linux/arch/ppc64/lib/locks.c
+@@ -23,7 +23,7 @@
+ /* waiting for a spinlock... */
+ #if defined(CONFIG_PPC_SPLPAR) || defined(CONFIG_PPC_ISERIES)
  
- #
-@@ -59,6 +59,7 @@
- CONFIG_64BIT=y
- CONFIG_MMU=y
- CONFIG_RWSEM_XCHGADD_ALGORITHM=y
-+CONFIG_GENERIC_CALIBRATE_DELAY=y
- CONFIG_TIME_INTERPOLATION=y
- CONFIG_EFI=y
- CONFIG_GENERIC_IOMAP=y
-@@ -90,6 +91,7 @@
- CONFIG_IA64_MCA_RECOVERY=y
- CONFIG_PERFMON=y
- CONFIG_IA64_PALINFO=y
-+CONFIG_ACPI_DEALLOCATE_IRQ=y
+-void __spin_yield(spinlock_t *lock)
++void spinlock_yield(spinlock_t *lock)
+ {
+ 	unsigned int lock_value, holder_cpu, yield_count;
+ 	struct paca_struct *holder_paca;
+@@ -54,7 +54,7 @@ void __spin_yield(spinlock_t *lock)
+  * This turns out to be the same for read and write locks, since
+  * we only know the holder if it is write-locked.
+  */
+-void __rw_yield(rwlock_t *rw)
++void rwlock_yield(rwlock_t *rw)
+ {
+ 	int lock_value;
+ 	unsigned int holder_cpu, yield_count;
+@@ -87,7 +87,7 @@ void spin_unlock_wait(spinlock_t *lock)
+ 	while (lock->lock) {
+ 		HMT_low();
+ 		if (SHARED_PROCESSOR)
+-			__spin_yield(lock);
++			spinlock_yield(lock);
+ 	}
+ 	HMT_medium();
+ }
+--- linux/include/asm-ia64/spinlock.h.orig
++++ linux/include/asm-ia64/spinlock.h
+@@ -17,6 +17,8 @@
+ #include <asm/intrinsics.h>
+ #include <asm/system.h>
  
- #
- # Firmware Drivers
-@@ -111,8 +113,10 @@
- CONFIG_ACPI_BOOT=y
- CONFIG_ACPI_INTERPRETER=y
- CONFIG_ACPI_BUTTON=m
-+CONFIG_ACPI_VIDEO=m
- CONFIG_ACPI_FAN=m
- CONFIG_ACPI_PROCESSOR=m
-+CONFIG_ACPI_HOTPLUG_CPU=y
- CONFIG_ACPI_THERMAL=m
- CONFIG_ACPI_NUMA=y
- CONFIG_ACPI_BLACKLIST_YEAR=0
-@@ -121,6 +125,7 @@
- CONFIG_ACPI_POWER=y
- CONFIG_ACPI_PCI=y
- CONFIG_ACPI_SYSTEM=y
-+CONFIG_ACPI_CONTAINER=m
- 
- #
- # Bus options (PCI, PCMCIA)
-@@ -176,6 +181,7 @@
- #
- # Plug and Play support
- #
-+# CONFIG_PNP is not set
- 
- #
- # Block devices
-@@ -189,8 +195,10 @@
- CONFIG_BLK_DEV_NBD=m
- # CONFIG_BLK_DEV_SX8 is not set
- # CONFIG_BLK_DEV_UB is not set
--CONFIG_BLK_DEV_RAM=m
-+CONFIG_BLK_DEV_RAM=y
-+CONFIG_BLK_DEV_RAM_COUNT=16
- CONFIG_BLK_DEV_RAM_SIZE=4096
-+CONFIG_BLK_DEV_INITRD=y
- CONFIG_INITRAMFS_SOURCE=""
- # CONFIG_CDROM_PKTCDVD is not set
- 
-@@ -288,6 +296,7 @@
- #
- CONFIG_SCSI_SPI_ATTRS=y
- CONFIG_SCSI_FC_ATTRS=y
-+# CONFIG_SCSI_ISCSI_ATTRS is not set
- 
- #
- # SCSI low-level drivers
-@@ -328,7 +337,6 @@
- CONFIG_SCSI_QLA2300=m
- CONFIG_SCSI_QLA2322=m
- # CONFIG_SCSI_QLA6312 is not set
--# CONFIG_SCSI_QLA6322 is not set
- # CONFIG_SCSI_DC395x is not set
- # CONFIG_SCSI_DC390T is not set
- # CONFIG_SCSI_DEBUG is not set
-@@ -345,6 +353,7 @@
- CONFIG_MD_RAID5=m
- CONFIG_MD_RAID6=m
- CONFIG_MD_MULTIPATH=m
-+# CONFIG_MD_FAULTY is not set
- CONFIG_BLK_DEV_DM=m
- CONFIG_DM_CRYPT=m
- CONFIG_DM_SNAPSHOT=m
-@@ -395,6 +404,7 @@
- # CONFIG_INET_IPCOMP is not set
- # CONFIG_INET_TUNNEL is not set
- CONFIG_IP_TCPDIAG=y
-+# CONFIG_IP_TCPDIAG_IPV6 is not set
- # CONFIG_IPV6 is not set
- # CONFIG_NETFILTER is not set
- 
-@@ -573,6 +583,7 @@
- # CONFIG_SERIO_SERPORT is not set
- # CONFIG_SERIO_CT82C710 is not set
- # CONFIG_SERIO_PCIPS2 is not set
-+CONFIG_SERIO_LIBPS2=y
- # CONFIG_SERIO_RAW is not set
- 
- #
-@@ -601,6 +612,7 @@
- CONFIG_SERIAL_NONSTANDARD=y
- # CONFIG_ROCKETPORT is not set
- # CONFIG_CYCLADES is not set
-+# CONFIG_MOXA_SMARTIO is not set
- # CONFIG_SYNCLINK is not set
- # CONFIG_SYNCLINKMP is not set
- # CONFIG_N_HDLC is not set
-@@ -651,7 +663,7 @@
- CONFIG_AGP=m
- CONFIG_AGP_I460=m
- CONFIG_AGP_HP_ZX1=m
--CONFIG_DRM=y
-+CONFIG_DRM=m
- CONFIG_DRM_TDFX=m
- CONFIG_DRM_R128=m
- CONFIG_DRM_RADEON=m
-@@ -810,6 +822,7 @@
- # CONFIG_USB_EHCI_ROOT_HUB_TT is not set
- CONFIG_USB_OHCI_HCD=m
- CONFIG_USB_UHCI_HCD=m
-+# CONFIG_USB_SL811_HCD is not set
- 
- #
- # USB Device Class drivers
-@@ -819,6 +832,10 @@
- # CONFIG_USB_MIDI is not set
- # CONFIG_USB_ACM is not set
- # CONFIG_USB_PRINTER is not set
++#include <asm-generic/spinlock.h>
 +
-+#
-+# NOTE: USB_STORAGE enables SCSI, and 'SCSI disk support' may also be needed; see USB_STORAGE Help for more information
-+#
- CONFIG_USB_STORAGE=m
- # CONFIG_USB_STORAGE_DEBUG is not set
- # CONFIG_USB_STORAGE_RW_DETECT is not set
-@@ -858,7 +875,6 @@
- #
- # CONFIG_USB_MDC800 is not set
- # CONFIG_USB_MICROTEK is not set
--# CONFIG_USB_HPUSBSCSI is not set
- 
- #
- # USB Multimedia devices
-@@ -870,7 +886,7 @@
- #
- 
- #
--# USB Network adaptors
-+# USB Network Adapters
- #
- # CONFIG_USB_CATC is not set
- # CONFIG_USB_KAWETH is not set
-@@ -913,6 +929,20 @@
- # CONFIG_USB_GADGET is not set
- 
- #
-+# MMC/SD Card support
-+#
-+# CONFIG_MMC is not set
+ typedef struct {
+ 	volatile unsigned int lock;
+ #ifdef CONFIG_PREEMPT
+--- linux/include/asm-generic/spinlock.h.orig
++++ linux/include/asm-generic/spinlock.h
+@@ -0,0 +1,11 @@
++#ifndef _ASM_GENERIC_SPINLOCK_H
++#define _ASM_GENERIC_SPINLOCK_H
 +
-+#
-+# InfiniBand support
-+#
-+CONFIG_INFINIBAND=m
-+CONFIG_INFINIBAND_MTHCA=m
-+# CONFIG_INFINIBAND_MTHCA_DEBUG is not set
-+CONFIG_INFINIBAND_IPOIB=m
-+# CONFIG_INFINIBAND_IPOIB_DEBUG is not set
++/*
++ * Virtual platforms might use these to
++ * yield to specific virtual CPUs:
++ */
++#define spinlock_yield(lock)	cpu_relax()
++#define rwlock_yield(lock)	cpu_relax()
 +
-+#
- # File systems
- #
- CONFIG_EXT2_FS=y
-@@ -1023,7 +1053,7 @@
- CONFIG_CIFS=m
- # CONFIG_CIFS_STATS is not set
- # CONFIG_CIFS_XATTR is not set
--# CONFIG_CIFS_POSIX is not set
-+# CONFIG_CIFS_EXPERIMENTAL is not set
- # CONFIG_NCP_FS is not set
- # CONFIG_CODA_FS is not set
- # CONFIG_AFS_FS is not set
-@@ -1158,7 +1188,12 @@
- # CONFIG_CRYPTO_TEA is not set
- # CONFIG_CRYPTO_ARC4 is not set
- # CONFIG_CRYPTO_KHAZAD is not set
-+# CONFIG_CRYPTO_ANUBIS is not set
- # CONFIG_CRYPTO_DEFLATE is not set
- # CONFIG_CRYPTO_MICHAEL_MIC is not set
- # CONFIG_CRYPTO_CRC32C is not set
- # CONFIG_CRYPTO_TEST is not set
++#endif /* _ASM_GENERIC_SPINLOCK_H */
+--- linux/include/linux/spinlock.h.orig
++++ linux/include/linux/spinlock.h
+@@ -206,6 +206,8 @@ typedef struct {
+ #define _raw_spin_unlock(lock) do { (void)(lock); } while(0)
+ #endif /* CONFIG_DEBUG_SPINLOCK */
+ 
++#define spinlock_yield(lock)	(void)(lock)
 +
-+#
-+# Hardware crypto devices
-+#
-
---Boundary-00=_z5Y3B7Fv1iHOZoM--
+ /* RW spinlocks: No debug version */
+ 
+ #if (__GNUC__ > 2)
+@@ -224,6 +226,8 @@ typedef struct {
+ #define _raw_read_trylock(lock) ({ (void)(lock); (1); })
+ #define _raw_write_trylock(lock) ({ (void)(lock); (1); })
+ 
++#define rwlock_yield(lock)	(void)(lock)
++
+ #define _spin_trylock(lock)	({preempt_disable(); _raw_spin_trylock(lock) ? \
+ 				1 : ({preempt_enable(); 0;});})
+ 
+--- linux/include/asm-i386/spinlock.h.orig
++++ linux/include/asm-i386/spinlock.h
+@@ -7,6 +7,8 @@
+ #include <linux/config.h>
+ #include <linux/compiler.h>
+ 
++#include <asm-generic/spinlock.h>
++
+ asmlinkage int printk(const char * fmt, ...)
+ 	__attribute__ ((format (printf, 1, 2)));
+ 
+--- linux/include/asm-ppc64/spinlock.h.orig
++++ linux/include/asm-ppc64/spinlock.h
+@@ -64,11 +64,11 @@ static __inline__ void _raw_spin_unlock(
+ #if defined(CONFIG_PPC_SPLPAR) || defined(CONFIG_PPC_ISERIES)
+ /* We only yield to the hypervisor if we are in shared processor mode */
+ #define SHARED_PROCESSOR (get_paca()->lppaca.shared_proc)
+-extern void __spin_yield(spinlock_t *lock);
+-extern void __rw_yield(rwlock_t *lock);
++extern void spinlock_yield(spinlock_t *lock);
++extern void rwlock_yield(rwlock_t *lock);
+ #else /* SPLPAR || ISERIES */
+-#define __spin_yield(x)	barrier()
+-#define __rw_yield(x)	barrier()
++#define spinlock_yield(x)	barrier()
++#define rwlock_yield(x)	barrier()
+ #define SHARED_PROCESSOR	0
+ #endif
+ extern void spin_unlock_wait(spinlock_t *lock);
+@@ -109,7 +109,7 @@ static void __inline__ _raw_spin_lock(sp
+ 		do {
+ 			HMT_low();
+ 			if (SHARED_PROCESSOR)
+-				__spin_yield(lock);
++				spinlock_yield(lock);
+ 		} while (likely(lock->lock != 0));
+ 		HMT_medium();
+ 	}
+@@ -127,7 +127,7 @@ static void __inline__ _raw_spin_lock_fl
+ 		do {
+ 			HMT_low();
+ 			if (SHARED_PROCESSOR)
+-				__spin_yield(lock);
++				spinlock_yield(lock);
+ 		} while (likely(lock->lock != 0));
+ 		HMT_medium();
+ 		local_irq_restore(flags_dis);
+@@ -201,7 +201,7 @@ static void __inline__ _raw_read_lock(rw
+ 		do {
+ 			HMT_low();
+ 			if (SHARED_PROCESSOR)
+-				__rw_yield(rw);
++				rwlock_yield(rw);
+ 		} while (likely(rw->lock < 0));
+ 		HMT_medium();
+ 	}
+@@ -258,7 +258,7 @@ static void __inline__ _raw_write_lock(r
+ 		do {
+ 			HMT_low();
+ 			if (SHARED_PROCESSOR)
+-				__rw_yield(rw);
++				rwlock_yield(rw);
+ 		} while (likely(rw->lock != 0));
+ 		HMT_medium();
+ 	}
+--- linux/include/asm-x86_64/spinlock.h.orig
++++ linux/include/asm-x86_64/spinlock.h
+@@ -6,6 +6,8 @@
+ #include <asm/page.h>
+ #include <linux/config.h>
+ 
++#include <asm-generic/spinlock.h>
++
+ extern int printk(const char * fmt, ...)
+ 	__attribute__ ((format (printf, 1, 2)));
+ 
