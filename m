@@ -1,28 +1,51 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Tue, 22 Aug 2000 01:48:51 +0000
-Subject: Re: [Linux-ia64] parport for ia64
-Message-Id: <marc-linux-ia64-105590678205371@msgid-missing>
+From: Gerrit.Huizenga@us.ibm.com
+Date: Wed, 09 Aug 2000 10:53:49 +0000
+Subject: Re: [Linux-ia64] Processor Rev.
+Message-Id: <marc-linux-ia64-105590678205295@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205356@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205356@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-	parport_pc.c:2719: Internal compiler error in
-	`add_abstract_origin_attribute', at dwarf2out.c:7532
+In addition to /proc/cpuinfo, there's a bunch of interesting stuff
+in /proc/palinfo/*, for instance:
 
-This testcase works OK with the current compiler development sources.
+[gerrit@elm3a86 palinfo]$ cat /proc/palinfo/version_info
+PAL_vendor     : 0xff (min=0xff)
+PAL_A revision : 0x9 (min=0x9)
+PAL_A model    : 0x22 (min=0x22)
+PAL_B mode     : 0x9 (min=0x0)
+PAL_B revision : 0x22 (min=0x0)
 
-This was fixed by a gcc/dwarf2out.c patch on 2000-04-25.  However, I know
-that patch only works if a few other following patches are also used, and
-I don't know what the complete set of necessary patches is, so this doesn't
-seem worthwhile to try to fix in the February compiler.
+There is other stuff of interest in /proc/palinfo.
 
-I'd suggest using a workaround until a newer compiler is ready.  Compiling
-without -g will make the problem go away.  Also, getting rid of the inline
-version of the parport_pc_read_status function will solve the problem.
+Chris pointed out that the minor numbers of the version aren't included here.
 
-Jim
+Also, reading one of the files here caused a panic with the B1 CPU steppings.
+
+gerrit
+
+> What is a good way to check the processor revision on the lion machines. I
+> see people on the list refering to A1 or A2 stepping machines, but /proc/cpuinfo on
+> our machines only shows this:
+> 
+> processor  : 3
+> vendor     : GenuineIntel
+> family     : IA-64
+> model      : Itanium
+> revision   : 0
+> archrev    : 0
+> 
+> plus the serial numbers and MHz and such. Does this just mean we have old
+> CPUs, or is there a different way to check?
+> 
+> -- 
+> John V. Baboval (baboval@missioncriticallinux.com)
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> 
 
