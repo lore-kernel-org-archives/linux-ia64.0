@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Wed, 13 Oct 2004 19:28:21 +0000
+From: "Martin K. Petersen" <mkp@mkp.net>
+Date: Wed, 13 Oct 2004 19:32:43 +0000
 Subject: Re: [RFC] Convert pgtable cache to slab
-Message-Id: <200410131428.21615.jbarnes@sgi.com>
+Message-Id: <yq1r7o2tnvo.fsf@wilson.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <yq1zn2qtpyo.fsf@wilson.mkp.net>
 In-Reply-To: <yq1zn2qtpyo.fsf@wilson.mkp.net>
@@ -10,30 +10,42 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday, October 13, 2004 2:07 pm, Luck, Tony wrote:
-> >With this patch I got a significant improvement in page fault time.
-> >Standard 2.4.x was about 700ns on average.  Generic 2.6.9rc4 is 3-4
-> >usec, whereas the slabified pgtcache drops us back down to 600-700 ns.
->
-> What was the benchmark you were running when you measured these?
->
-> >Tested on zx1 and sn2.
->
-> How does this scale on big sn2 systems? I assume that the answers are
-> going to be just fine as the slab allocator per-cpu lists should be
-> just as nice as local quicklists, but it would be nice to see some
-> data.
+>>>>> "Tony" = Luck, Tony <tony.luck@intel.com> writes:
 
-Yeah, it would be interesting, though page faults in general don't scale very 
-well due to the way page_table_lock is used.  Christoph had some patches for 
-that, but I don't think he's had time to work on them lately.
+Tony,
 
-> Overall looks nice ... less code, and goes faster too, what more
-> could we ask for!
->
-> Perhaps "zero_cache" isn't as descriptive a name as it might be (not
-> that I have any better suggestions :-(
+Tony> What was the benchmark you were running when you measured these?
 
-Maybe pgtable_zero_cache or something?
+I'm going to let Robin send you his test case.
 
-Jesse
+
+Tony> How does this scale on big sn2 systems? I assume that the
+Tony> answers are going to be just fine as the slab allocator per-cpu
+Tony> lists should be just as nice as local quicklists, but it would
+Tony> be nice to see some data.
+
+The tests above are from a 64-way Altix.
+
+I'm still looking into the issue of freed data ending up in other
+nodes' slabs.  Don't know if anybody else have been working on this?
+
+
+>> The biggest caveat is that I've had to postpone setting up the gate
+>> page until the pgt slab has been initialized.  That wasn't an issue
+>> with the existing page-based allocation scheme.  David - how do you
+>> prefer I handle this?
+
+Tony> I don't see the code for this postponement in this patch.
+
+It's there.  End of the mm/init.c hunk.
+
+
+Tony> Perhaps "zero_cache" isn't as descriptive a name as it might be
+Tony> (not that I have any better suggestions :-(
+
+Yeah, this is what Bill called it on ppc64.  pgtable_cache perhaps?
+
+-- 
+Martin K. Petersen	Wild Open Source, Inc.
+mkp@wildopensource.com	http://www.wildopensource.com/
+
