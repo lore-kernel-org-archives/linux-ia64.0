@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 23 Oct 2003 04:56:57 +0000
+From: Nick Clifton <nickc@redhat.com>
+Date: Fri, 24 Oct 2003 10:07:22 +0000
 Subject: Re: [PATCH] Re: Gate DSO not building properly?
-Message-Id: <marc-linux-ia64-106688503531385@msgid-missing>
+Message-Id: <marc-linux-ia64-106699054401555@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106679437709356@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106679437709356@msgid-missing>
@@ -10,31 +10,63 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ian,
+Hi H.J.
 
-Thanks for tracking this down & the patch.  I applied it now.
+>> I figured out why (sorry if it's obvious); gas matches anything with
+>> prefix '.data.' as a data special section and flags it as 'SHF_ALLOC +
+>> SHF_WRITE' as per ELF [*].  Issuing 
+>> 
+>> .section .data.gate, "ax"
+>> 
+>> thus conflicts as it's assumed to be an extension of a .data section.
 
-	--david
+> 2003-10-21  H.J. Lu  <hongjiu.lu@intel.com>
+>
+> 	* config/obj-elf.c (obj_elf_change_section): Use specified
+> 	section attributes.
 
->>>>> On Thu, 23 Oct 2003 11:52:30 +1000, Ian Wienand <ianw@gelato.unsw.edu.au> said:
+Approved - with a few minor changes, see below - please apply.
 
-  Ian> Maybe just change it and add something like 
+Cheers
+        Nick
 
-  Ian> Even though this is put with __special_page_section which is given
-  Ian> attributes "ax" (head.S), gas will match anything with a prefix
-  Ian> '.data.' as a data special section.  Thus to stop unnecessary warning
-  Ian> about changing attributes, we use the .data section standard
-  Ian> attributes "aw" when creating gate-data.o
+        
+> +  bfd_boolean override = FALSE;
 
-  Ian> to the changelog?
+[optional]: This variable could be moved inside the if statement
+starting at line 672, localizing it, if the statement was changed to:
 
-  Ian> -i
-  Ian> ianw@gelato.unsw.edu.au
-  Ian> http://www.gelato.unsw.edu.au
-  Ian> === gate-data.S 1.1 vs edited ==  Ian> --- 1.1/arch/ia64/kernel/gate-data.S	Thu Jun 12 18:09:19 2003
-  Ian> +++ edited/gate-data.S	Thu Oct 23 11:51:03 2003
-  Ian> @@ -1,3 +1,3 @@
-  Ian> -	.section .data.gate, "ax"
-  Ian> +	.section .data.gate, "aw"
- 
-  Ian> .incbin "arch/ia64/kernel/gate.so"
+  if (old_sec = NULL)
+    {
+      bfd_boolean override = FALSE;
+
+      if (attr & ~ ssect->attr)
+        {
+        ...
+        }
+
+      if (!override)
+	attr |= ssect->attr;
+  }      
+
+I feel that the code looks neater this way.
+
+     
+>  		   && (attr &~ ssect->attr &~ SHF_MERGE &~ SHF_STRINGS) = 0)
+
+I would appreciate it if you could add a space between the '&' and the
+'~'.  These are separate operators and should not be juxtaposed like
+that.  I know that this is not part of your original patch, but since
+we are modifying this area of code, I think that it would be a good
+idea to clean this up.
+
+
+> +	      as_warn (_("setting incorrect section attributes for %s"),
+> +		       name);
+> +	      override = TRUE;
+
+Since the new attributes are going to be ignored, we should change the
+warning message appropriately.  Something like:
+
+	      as_warn (_("ignoring setting of incorrect section attributes for %s"),
+
