@@ -1,46 +1,19 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Wed, 03 Mar 2004 19:22:12 +0000
-Subject: [PATCH] don't assume iosapic interrupt controllers take 2
-Message-Id: <20040303192212.GA3571@sgi.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 25 Mar 2004 19:41:53 +0000
+Subject: should ia64_spinlock_contention do backoff?
+Message-Id: <200403251941.i2PJfrTH026392@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040301224526.GA22182@sgi.com>
-In-Reply-To: <20040301224526.GA22182@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Some ia64 machines don't use an iosapic interrupt controller (a flagrant
-violation of the DIG64 spec, gasp!), so don't assume it's there in
-mca.c.  Platforms that provide a ACPI_INTERRUPT_CPEI vector are
-responsible for registering its interrupt controller type in platform
-specific code, iosapic.c:iosapic_register_platform_intr() does this for
-platforms with an iosapic where the CPEI vector is listed in the ACPI
-namespace, and on sn2, all external interrupts are assigned the
-irq_type_sn type, so this change of assumption should be safe.
+Has anyone studied the impact of doing exponential backoff in
+ia64_spinlock_contention.  My theory is that it wouldn't buy much _if_
+spinlocks always were in their own cachelines, but since they're not,
+not using backoff could cause extra cache-line bouncing.  To be
+honest, I'd rather not spend time on this myself, since I don't have
+convenient access to large machines, but me thinks this is a question
+that's long overdue to have a proper answer.
 
-Thanks,
-Jesse
-
-
-=== arch/ia64/kernel/mca.c 1.59 vs edited ==--- 1.59/arch/ia64/kernel/mca.c	Thu Feb 12 16:14:34 2004
-+++ edited/arch/ia64/kernel/mca.c	Mon Mar  1 14:43:35 2004
-@@ -103,8 +103,6 @@
- 
- static ia64_mc_info_t		ia64_mc_info;
- 
--extern struct hw_interrupt_type	irq_type_iosapic_level;
--
- struct ia64_mca_tlb_info ia64_mca_tlb_list[NR_CPUS];
- 
- #define MAX_CPE_POLL_INTERVAL (15*60*HZ) /* 15 minutes */
-@@ -1253,7 +1251,6 @@
- 				if (irq_to_vector(irq) = cpev) {
- 					desc = irq_descp(irq);
- 					desc->status |= IRQ_PER_CPU;
--					desc->handler = &irq_type_iosapic_level;
- 					setup_irq(irq, &mca_cpe_irqaction);
- 				}
- 			ia64_mca_register_cpev(cpev);
-
------ End forwarded message -----
+	--david
