@@ -1,7 +1,7 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Thu, 25 Sep 2003 16:50:53 +0000
-Subject: Re: [Lse-tech] Re: CPUSET Proposal
-Message-Id: <marc-linux-ia64-106450912817595@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 25 Sep 2003 18:49:52 +0000
+Subject: RE: [Lse-tech] Re: CPUSET Proposal
+Message-Id: <marc-linux-ia64-106451631727404@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106444308519469@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106444308519469@msgid-missing>
@@ -10,25 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 2003-09-25 at 06:26, Simon Derr wrote:
-> On Wed, 24 Sep 2003, David Mosberger wrote:
-> 
-> > BTW: What do cpusets provide that couldn't be done with user-level
-> > tools on top of the existing sched_setaffinity() system call?
-> This is a question we had a long in-house debate about.
-> 
-> The main reason of the inclusion of cpusets *inside* the kernel, is that
-> we have to deal with applications that may call sched_setaffinity() to
-> bind their processes to CPUs. Therefore we have to intercept these calls.
-> We could try to do some LD_PRELOAD userland trick or modify the libc, but
-> that would not work for statically linked programs.
+> You could also do a big chunk of this by allowing normal 
+> privledge users
+> to sched_setaffinity() a *subset* of their current allowed 
+> CPU set, but
+> not expand it.  sched_setaffinity() isn't *that* old of an 
+> interface, so
+> I'm not sure why you can't just change the application at 
+> this point.  
 
-You could also do a big chunk of this by allowing normal privledge users
-to sched_setaffinity() a *subset* of their current allowed CPU set, but
-not expand it.  sched_setaffinity() isn't *that* old of an interface, so
-I'm not sure why you can't just change the application at this point.  
+Because you need virtual cpu numbers.  Suppose I have a 16-way
+system, and *two* applications that know nothing about each other,
+but each happens to want 5 cpus to run.
 
--- 
-Dave Hansen
-haveblue@us.ibm.com
+With cpusets each application can ask the kernel for 5 cpus
+(or a wrapper that invokes the application can do so), and then
+the application can happily divide its work between virtual cpus
+0, 1, 2, 3, 4 (using sched_setaffinity()).  The kernel can be smart
+and provide different physical cpus for each of the cpusets.
 
+-Tony
