@@ -1,7 +1,7 @@
 From: Michael Raymond <mraymond@sgi.com>
-Date: Wed, 23 Mar 2005 23:59:36 +0000
+Date: Thu, 24 Mar 2005 14:50:50 +0000
 Subject: Re: [PATCH] User Level Interrupts
-Message-Id: <20050323175935.A272763@xanatos.americas.sgi.com>
+Message-Id: <20050324085047.F110444@goliath.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050323103832.A108873@goliath.americas.sgi.com> <20050323145738.A29828@unix-os.sc.intel.com>
 In-Reply-To: <20050323145738.A29828@unix-os.sc.intel.com>; from ashok.raj@intel.com on Wed, Mar 23, 2005 at 02:57:39PM -0800
@@ -11,16 +11,12 @@ Content-Transfer-Encoding: 7bit
 To: Ashok Raj <ashok.raj@intel.com>
 Cc: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-    Once the ULI code has taken over a CPU, it should not be rescheduable
-until the ULI completes.  The goal is a very fast jump in and out of user
-space.  Primitives are provided for the waking of another thread / process
-if the applications needs to do a lot of work.
-    If I've left open the possibility of a reschedule, then it was a design
-error.  As I think about it though everything should still work fine, but
-it's purely by accident. :)
-    If you have test code for hotplug I'd be happy to test it for you.
-       	   	     	      	      	     Thanks,
-					     	    Michael
+    I did the test you suggested.  The turning-on and turning-off appeared
+to work but our SN Hub ASIC still sent interrupts to the specific CPU.
+    I looked at my code again and from your description of Hotplug I do not
+see any conflicts.
+    		  				Thanks,
+    		  					Michael
 
 On Wed, Mar 23, 2005 at 02:57:39PM -0800, Ashok Raj wrote:
 > Hi Michael
