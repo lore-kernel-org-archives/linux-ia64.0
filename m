@@ -1,40 +1,50 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Wed, 17 Apr 2002 16:58:51 +0000
-Subject: Re: [Linux-ia64] Command line options to elilo from bootmanager
-Message-Id: <marc-linux-ia64-105590701905471@msgid-missing>
+From: Gary Hade <garyhade@us.ibm.com>
+Date: Tue, 02 Apr 2002 01:36:12 +0000
+Subject: [Linux-ia64] arch/ia64/Makefile tweak
+Message-Id: <marc-linux-ia64-105590701905357@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905469@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905469@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Richard Hirst wrote:
-> 
-> On Wed, Apr 17, 2002 at 09:20:50AM -0700, Michael Madore wrote:
-> > Hi,
-> >
-> > Is it possible to pass command line options to elilo from the boot
-> > manager menu?  For example, I would like to invoke elilo from the boot
-> > manager with an alternate configuration file.  I tried using efibootmgr
-> > like so:
-> >
-> > efibootmgr -L linux-ram -l "elilo.efi -C elilo-ram.conf" -c -d /dev/sda
-> > -p 2"
-> >
-> > but apparently, EFI treats the "-C elilo-ram.conf" as part of the
-> > bootloader command.
-> 
-> efibootmgr -c -d $BOOTDISK -p $BOOTPART -w -L "Debian GNU/Linux" \
->         -l \\EFI\\debian\\elilo.efi -u -- elilo -C \\EFI\\debian\\elilo.conf
-> 
-> is what I use.  The trick is to supply a dummy 'elilo' for argv[0],
-> and all args after '--' are passed as arguments to elilo.efi
-> 
-> Richard
+If the gcc in your PATH is version 2.X and you are not 
+using cross tools (the CROSS_COMPILE make macro is null) 
+`make CC=<path to a 3.X gcc>` fails due to the lack of
+--param max-inline-insns 00 on the compile lines.
 
-Thanks Richard, that works for me.
+This happens because GCC_VERSION in arch/ia64/Makefile is 
+determined using $(CROSS_COMPILE)$(HOSTCC) which expands 
+"gcc" picking up gcc 2.X.  With GCC_VERSION defined as 2 the 
+additional CFLAGS options within the ifneq ($(GCC_VERSION),2) 
+are not being added.
 
-Mike
+You can work around the problem by also setting HOSTCC on the
+make command line
+  e.g. `make CC=<path to a 3.X gcc> HOSTCC=<path to a 3.X gcc>`
+but I believe the correct solution is to use $(CC) instead of
+$(CROSS_COMPILE)$(HOSTCC) to determine GCC_VERSION.
+
+Gary
+
+-- 
+Gary Hade
+IBM Linux Technology Center
+503-578-4503  IBM T/L: 775-4503
+garyhade@us.ibm.com
+http://www.ibm.com/linux/ltc
+
+
+--- arch/ia64/Makefile.orig	Wed Mar 27 13:11:59 2002
++++ arch/ia64/Makefile	Mon Apr  1 15:26:14 2002
+@@ -22,7 +22,7 @@
+ # -ffunction-sections
+ CFLAGS_KERNEL := -mconstant-gp
+ 
+-GCC_VERSION=$(shell $(CROSS_COMPILE)$(HOSTCC) -v 2>&1 | fgrep 'gcc version' | cut -f3 -d' ' | cut -f1 -d'.')
++GCC_VERSION=$(shell $(CC) -v 2>&1 | fgrep 'gcc version' | cut -f3 -d' ' | cut -f1 -d'.')
+ 
+ ifneq ($(GCC_VERSION),2)
+ 	CFLAGS += -frename-registers --param max-inline-insns 00
+
 
