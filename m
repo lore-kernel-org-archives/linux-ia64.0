@@ -1,21 +1,41 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 08 Dec 2004 17:44:09 +0000
-Subject: RE: Anticipatory prefaulting in the page fault handler V1
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02844270@scsmsx401.amr.corp.intel.com>
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Wed, 08 Dec 2004 17:55:26 +0000
+Subject: Re: Anticipatory prefaulting in the page fault handler V1
+Message-Id: <1102528526.25546.974.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0412080920240.27156@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
+	 <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
+	 <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
+	 <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
+	 <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
+	 <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+	 <Pine.LNX.4.58.0412011608500.22796@ppc970.osdl.org>
+	 <41AEB44D.2040805@pobox.com> <20041201223441.3820fbc0.akpm@osdl.org>
+	 <41AEBAB9.3050705@pobox.com> <20041201230217.1d2071a8.akpm@osdl.org>
+	 <179540000.1101972418@[10.10.2.4]> <41AEC4D7.4060507@pobox.com>
+	 <20041202101029.7fe8b303.cliffw@osdl.org>
+	 <Pine.LNX.4.58.0412080920240.27156@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0412080920240.27156@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>, nickpiggin@yahoo.com.au
-Cc: Jeff Garzik <jgarzik@pobox.com>, torvalds@osdl.org, hugh@veritas.com, benh@kernel.crashing.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Jeff Garzik <jgarzik@pobox.com>, Linus Torvalds <torvalds@osdl.org>, hugh@veritas.com, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm <linux-mm@kvack.org>, linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
->If a fault occurred for page x and is then followed by page 
->x+1 then it may be reasonable to expect another page fault
->at x+2 in the future.
+On Wed, 2004-12-08 at 09:24, Christoph Lameter wrote:
+> The page fault handler for anonymous pages can generate significant overhead
+> apart from its essential function which is to clear and setup a new page
+> table entry for a never accessed memory location. This overhead increases
+> significantly in an SMP environment.
 
-What if the application had used "madvise(start, len, MADV_RANDOM)"
-to tell the kernel that this isn't "reasonable"?
+do_anonymous_page() is a relatively compact function at this point. 
+This would probably be a lot more readable if it was broken out into at
+least another function or two that do_anonymous_page() calls into.  That
+way, you also get a much cleaner separation if anyone needs to turn it
+off in the future.  
 
--Tony
+Speaking of that, have you seen this impair performance on any other
+workloads?  
+
+-- Dave
+
