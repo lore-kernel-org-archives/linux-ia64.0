@@ -1,65 +1,45 @@
-From: Tim Riker <TimR@CalderaSystems.com>
-Date: Thu, 10 Aug 2000 03:54:42 +0000
-Subject: Re: [Linux-ia64] Processor Rev.
-Message-Id: <marc-linux-ia64-105590678205304@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Tue, 08 Aug 2000 01:59:43 +0000
+Subject: [Linux-ia64] gnu-efi-0.9 released
+Message-Id: <marc-linux-ia64-105590678205270@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205295@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205295@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There is some documentation on serial #s (the stickers not the
-electronic IDs) in the Intel literature. In my "Intel Workstation SDV,
-A1 Stepping Processor Replacement" manual there is a section on page 20
-entitled "Identification of Upgrade Processor Stepping" with a table
-mapping the 4 digit postfix to the A2 and A3 stepping. This also
-includes some comments about the state of software revision detection.
+Hi,
 
-I do not know if this info is truly public, so I have not copied this
-info here. Perhaps someone from Intel would like to comment?
+I have just released the new 0.9 version of the gnu-efi package. 
 
-These postfixes are of the format Q[letter][number][number]. I would
-assume there is a complete table available someplace that would include
-A1-A3 and B0-B1 stepping maps, but I have not seen it.
+This version includes:
+	-  a fix to the loader script to get binaries
+	   to work correctly (command not found problem).
 
-The only reliable option I know of is to open a QuAD ticket on the
-system and ask Intel.
+	- a new version of LILO (the bootoader) with:
+		- initial ramdisk support (original ELI code from Red Hat)
+		- updated ACPI patches from NEC
+		- lots of code cleanups
+		- possibility to exit right before jumping into kernel code
 
-Don Dugger wrote:
-> 
-> John-
-> 
-> The only way to find the revision that I know of is to check the
-> paper work that came with your machine, that should list it.  There's
-> no instruction that will give that information at this point in
-> time.
-> 
-> On Wed, Aug 09, 2000 at 11:55:28AM -0400, John Baboval wrote:
-> > What is a good way to check the processor revision on the lion machines. I
-> > see people on the list refering to A1 or A2 stepping machines, but /proc/cpuinfo on
-> > our machines only shows this:
-> >
-> > processor  : 3
-> > vendor     : GenuineIntel
-> > family     : IA-64
-> > model      : Itanium
-> > revision   : 0
-> > archrev    : 0
-> >
-> > plus the serial numbers and MHz and such. Does this just mean we have old
-> > CPUs, or is there a different way to check?
-> >
-> > --
-> > John V. Baboval (baboval@missioncriticallinux.com)
-> --
-> Don Dugger
-> "Censeo Toto nos in Kansa esse decisse." - D. Gale
-> n0ano@valinux.com
-> Ph: 303/938-9838
--- 
-Tim Riker - http://rikers.org/ - short SIGs! <g>
-All I need to know I could have learned in Kindergarten
-... if I'd just been paying attention.
+Please try it out and let me know if you have problems. To get the initrd
+support to work you will need to wait until David releases a new kernel patch
+which fixes some alignment issues.
+
+The new package is available from HPLabs ftp site at:
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/gnu-efi-0.9.tar.gz
+
+(PS: if you are having trouble getting to this site, let me know and
+I'll send it to you directly).
+
++--------------------------------------------------------------------+
+| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
+| Hewlett-Packard Laboratories            |                          |
+| 1501, Page Mill Road MS 1U-15           |                          |
+| Palo  Alto, CA 94303-096                |                          |
+| USA                                     |                          |
+| Tel : (650) 857-7174                    |                          |
+| Fax : (650) 857-5548                    |                          |
++--------------------------------------------------------------------+
 
