@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 15 Feb 2005 20:25:35 +0000
-Subject: RE: [PATCH] Convert pgtable cache to slab
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02EA12E9@scsmsx401.amr.corp.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 15 Feb 2005 20:26:23 +0000
+Subject: Re: [PATCH] Convert pgtable cache to slab
+Message-Id: <16914.23279.945036.75893@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <yq1wtxnprkq.fsf@wilson.mkp.net>
 In-Reply-To: <yq1wtxnprkq.fsf@wilson.mkp.net>
@@ -10,24 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->I agree.  What I am asking is if we turn on the 4th level of 
->page tables, does anybody have an objection to 4/16k levels as opposed to 
->3/PAGE_SIZE plus a 4th cleanup to cover the entire address space?
+>>>>> On Tue, 15 Feb 2005 12:15:19 -0800, William Lee Irwin III <wli@holomorphy.com> said:
 
-Are there any other big system users now (or coming real soon) for
-whom 2**60 (with PAGE_SIZEdk, 2**58 with PAGE_SIZEk) would
-be a major pain?
+  >> I certainly don't want to switch my machines to 4-levels.  There
+  >> is zero need for that on the machines I use, so why pay the
+  >> overhead of an extra level?  BTW: why do you want 4-level/16KB
+  >> over 3-level/64KB?
 
-You'd have to do some fancy footwork documenting and enforcing
-the PAGE_SIZE vs. PAGE_TABLE_LEVELS interactions (it would be
-bad to configure a 4K or 8K pagesize with a 4-level option that
-expected to allocate 16K for page tables).
+  William> It may be worth noticing that things like fault latency and
+  William> small writes degrade with increased pagesize, though I seem
+  William> to recall hearing that this effect was less pronounced or
+  William> did not set in at 64KB on ia64.
 
-The PAGE_SIZEdk 4/16k case requires you to deal with partial pages
-on the quicklists (or in the slab if you go that route).  The slab
-code knows how to coalesce and free such sub-pages under memory
-pressure (though fragmentation may make it sometimes ineffective).
-The quicklist approach doesn't have any easy way to return partial
-pages to general use.
+Certainly, but fault-latency also increase with the number of levels.
+And there are real customers who care about page-fault latency a lot
+which run apps where the probability of the page-table entries being
+in the cache is close to zero...
 
--Tony
+I'm not advocating one over the other --- I'm pro choice... ;-)
+
+	--david
