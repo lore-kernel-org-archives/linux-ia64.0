@@ -1,7 +1,7 @@
-From: Harish Babu <babu.harish@usa.net>
-Date: Wed, 06 Feb 2002 15:07:39 +0000
-Subject: Re: [Re: [Linux-ia64] IA64 Link Relocation operators ]
-Message-Id: <marc-linux-ia64-105590698806003@msgid-missing>
+From: "Saxena, Sunil" <sunil.saxena@intel.com>
+Date: Wed, 06 Feb 2002 15:49:44 +0000
+Subject: RE: [Re: [Linux-ia64] IA64 Link Relocation operators ]
+Message-Id: <marc-linux-ia64-105590698806004@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698806002@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698806002@msgid-missing>
@@ -10,8 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Were you able to find sources to Intel assembler at the Intel web site?
+Here is a url for your reference.  Hope that helps you out in the
+implementation details.
+
+http://developer.intel.com/software/products/opensource/tools1/ia64_download
+.htm
+
+Thanks
+Sunil
+
+
+-----Original Message-----
+From: Harish Babu [mailto:babu.harish@usa.net] 
+Sent: Wednesday, February 06, 2002 7:08 AM
+To: Cary Coutant; Cary Coutant
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Re: [Linux-ia64] IA64 Link Relocation operators ]
+
+
 Hi,
- Yes that is about the only documentation that i have been able to find about
+ Yes that is about the only documentation that i have been able to find
+about
 link relocations.  I needed some more details like how they are 
 implemented etc.
 Harish
@@ -33,4 +53,9 @@ Chapter 4.
 
 ____________________________________________________________________
 Get free e-mail and a permanent address at http://www.amexmail.com/?A=1
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
