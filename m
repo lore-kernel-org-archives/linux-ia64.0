@@ -1,116 +1,61 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 20 Oct 2004 17:48:41 +0000
-Subject: RE: [PATCH] top level scheduler domain for ia64
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F023B5C5B@scsmsx401.amr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C4B6CD.09ADF392"
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Wed, 20 Oct 2004 18:02:54 +0000
+Subject: Re: [PATCH] top level scheduler domain for ia64
+Message-Id: <4176A84E.3030501@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200410191427.27336.jbarnes@engr.sgi.com>
 In-Reply-To: <200410191427.27336.jbarnes@engr.sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+Luck, Tony wrote:
+>>Some have noticed that the overlapping sched domains code 
+>>doesn't quite work as intended (it results in disjoint domains
+>>on some machines), and that a top level, machine spanning domain
+>>is needed.
+> 
+> 
+> Why is the solution to jam this into the ia64 specific code?  From
+> this description it sounds like a generic scheduler problem, so
+> the solution ought to be up in some generic code.
+> 
 
-------_=_NextPart_001_01C4B6CD.09ADF392
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+So far, ia64 is the only one that uses these overlapping domains.
+The code to build them is complex enough that we didn't want to
+put it into the generic code at the moment (but it is fairly well
+contained, all just in arch/ia64/kernel/domain.c and asm/topology.h).
 
->Some have noticed that the overlapping sched domains code=20
->doesn't quite work as intended (it results in disjoint domains
->on some machines), and that a top level, machine spanning domain
->is needed.
+> +	.min_interval		= 80,			\
+> +	.max_interval		= 320,			\
+> +	.busy_factor		= 320,			\
+> +	.imbalance_pct		= 125,			\
+> +	.cache_hot_time		= (10*1000000),		\
+> +	.balance_interval	= 100*(63+num_online_cpus())/64,   \
+> 
+> That's a lot of magic numbers and formulae ... are they right?
+> How would a user know if they are right.
+> 
 
-Why is the solution to jam this into the ia64 specific code?  From
-this description it sounds like a generic scheduler problem, so
-the solution ought to be up in some generic code.
+To be honest you really wouldn't. It would take a lot of careful
+testing on numerous workloads and systems. I believe SGI is
+starting to do a bit of testing... I don't have the resources to
+do many "real world" tests.
 
-+	.min_interval		=3D 80,			\
-+	.max_interval		=3D 320,			\
-+	.busy_factor		=3D 320,			\
-+	.imbalance_pct		=3D 125,			\
-+	.cache_hot_time		=3D (10*1000000),		\
-+	.balance_interval	=3D 100*(63+num_online_cpus())/64,   \
+At this stage I wouldn't let them worry you too much :P
+Hopefully they'll gradually improve.
 
-That's a lot of magic numbers and formulae ... are they right?
-How would a user know if they are right.
+> 
+>>Nick, can you buy off on the sched.c change?  Alternatively, 
+>>do you want to send that fix separately John?
+> 
+> 
+> I saw the ACK from Nick ... but kernel/sched.c changes will have
+> to go through Andrew, not me.  Are the ia64 and generic parts
+> separable?  If the sched.c change goes in, do other architectures
+> need to have some equivalent change?
+> 
 
->Nick, can you buy off on the sched.c change?  Alternatively,=20
->do you want to send that fix separately John?
-
-I saw the ACK from Nick ... but kernel/sched.c changes will have
-to go through Andrew, not me.  Are the ia64 and generic parts
-separable?  If the sched.c change goes in, do other architectures
-need to have some equivalent change?
-
--Tony
-
-------_=_NextPart_001_01C4B6CD.09ADF392
-Content-Type: application/octet-stream;
-	name="sched-domains-top-level-3.patch"
-Content-Transfer-Encoding: base64
-Content-Description: sched-domains-top-level-3.patch
-Content-Disposition: attachment;
-	filename="sched-domains-top-level-3.patch"
-
-PT09PT0gYXJjaC9pYTY0L2tlcm5lbC9kb21haW4uYyAxLjMgdnMgZWRpdGVkID09PT09DQotLS0g
-MS4zL2FyY2gvaWE2NC9rZXJuZWwvZG9tYWluLmMJMjAwNC0xMC0xOCAyMjoyNjo1MSAtMDc6MDAN
-CisrKyBlZGl0ZWQvYXJjaC9pYTY0L2tlcm5lbC9kb21haW4uYwkyMDA0LTEwLTE5IDE0OjE4OjA3
-IC0wNzowMA0KQEAgLTExOSw2ICsxMTksMTQgQEANCiAgKi8NCiBzdGF0aWMgREVGSU5FX1BFUl9D
-UFUoc3RydWN0IHNjaGVkX2RvbWFpbiwgbm9kZV9kb21haW5zKTsNCiBzdGF0aWMgc3RydWN0IHNj
-aGVkX2dyb3VwICpzY2hlZF9ncm91cF9ub2Rlc1tNQVhfTlVNTk9ERVNdOw0KKw0KK3N0YXRpYyBE
-RUZJTkVfUEVSX0NQVShzdHJ1Y3Qgc2NoZWRfZG9tYWluLCBhbGxub2Rlc19kb21haW5zKTsNCitz
-dGF0aWMgc3RydWN0IHNjaGVkX2dyb3VwIHNjaGVkX2dyb3VwX2FsbG5vZGVzW01BWF9OVU1OT0RF
-U107DQorDQorc3RhdGljIGludCBfX2RldmluaXQgY3B1X3RvX2FsbG5vZGVzX2dyb3VwKGludCBj
-cHUpDQorew0KKwlyZXR1cm4gY3B1X3RvX25vZGUoY3B1KTsNCit9DQogI2VuZGlmDQogDQogLyoN
-CkBAIC0xNDksOSArMTU3LDIxIEBADQogCQljcHVzX2FuZChub2RlbWFzaywgbm9kZW1hc2ssIGNw
-dV9kZWZhdWx0X21hcCk7DQogDQogI2lmZGVmIENPTkZJR19OVU1BDQorCQlpZiAobnVtX29ubGlu
-ZV9jcHVzKCkNCisJCQkJPiBTRF9OT0RFU19QRVJfRE9NQUlOKmNwdXNfd2VpZ2h0KG5vZGVtYXNr
-KSkgew0KKwkJCXNkID0gJnBlcl9jcHUoYWxsbm9kZXNfZG9tYWlucywgaSk7DQorCQkJKnNkID0g
-U0RfQUxMTk9ERVNfSU5JVDsNCisJCQlzZC0+c3BhbiA9IGNwdV9kZWZhdWx0X21hcDsNCisJCQln
-cm91cCA9IGNwdV90b19hbGxub2Rlc19ncm91cChpKTsNCisJCQlzZC0+Z3JvdXBzID0gJnNjaGVk
-X2dyb3VwX2FsbG5vZGVzW2dyb3VwXTsNCisJCQlwID0gc2Q7DQorCQl9IGVsc2UNCisJCQlwID0g
-TlVMTDsNCisNCiAJCXNkID0gJnBlcl9jcHUobm9kZV9kb21haW5zLCBpKTsNCiAJCSpzZCA9IFNE
-X05PREVfSU5JVDsNCiAJCXNkLT5zcGFuID0gc2NoZWRfZG9tYWluX25vZGVfc3Bhbihub2RlKTsN
-CisJCXNkLT5wYXJlbnQgPSBwOw0KIAkJY3B1c19hbmQoc2QtPnNwYW4sIHNkLT5zcGFuLCBjcHVf
-ZGVmYXVsdF9tYXApOw0KICNlbmRpZg0KIA0KQEAgLTIwMSw2ICsyMjEsOSBAQA0KIAl9DQogDQog
-I2lmZGVmIENPTkZJR19OVU1BDQorCWluaXRfc2NoZWRfYnVpbGRfZ3JvdXBzKHNjaGVkX2dyb3Vw
-X2FsbG5vZGVzLCBjcHVfZGVmYXVsdF9tYXAsDQorCQkJCSZjcHVfdG9fYWxsbm9kZXNfZ3JvdXAp
-Ow0KKw0KIAlmb3IgKGkgPSAwOyBpIDwgTUFYX05VTU5PREVTOyBpKyspIHsNCiAJCS8qIFNldCB1
-cCBub2RlIGdyb3VwcyAqLw0KIAkJc3RydWN0IHNjaGVkX2dyb3VwICpzZywgKnByZXY7DQpAQCAt
-MjgyLDYgKzMwNSwxNSBAQA0KIAkJcG93ZXIgPSBTQ0hFRF9MT0FEX1NDQUxFICsgU0NIRURfTE9B
-RF9TQ0FMRSAqDQogCQkJCShjcHVzX3dlaWdodChzZC0+Z3JvdXBzLT5jcHVtYXNrKS0xKSAvIDEw
-Ow0KIAkJc2QtPmdyb3Vwcy0+Y3B1X3Bvd2VyID0gcG93ZXI7DQorDQorI2lmZGVmIENPTkZJR19O
-VU1BDQorCQlzZCA9ICZwZXJfY3B1KGFsbG5vZGVzX2RvbWFpbnMsIGkpOw0KKwkJaWYgKHNkLT5n
-cm91cHMpIHsNCisJCQlwb3dlciA9IFNDSEVEX0xPQURfU0NBTEUgKyBTQ0hFRF9MT0FEX1NDQUxF
-ICoNCisJCQkJKGNwdXNfd2VpZ2h0KHNkLT5ncm91cHMtPmNwdW1hc2spLTEpIC8gMTA7DQorCQkJ
-c2QtPmdyb3Vwcy0+Y3B1X3Bvd2VyID0gcG93ZXI7DQorCQl9DQorI2VuZGlmDQogCX0NCiANCiAj
-aWZkZWYgQ09ORklHX05VTUENCj09PT09IGluY2x1ZGUvYXNtLWlhNjQvdG9wb2xvZ3kuaCAxLjEy
-IHZzIGVkaXRlZCA9PT09PQ0KLS0tIDEuMTIvaW5jbHVkZS9hc20taWE2NC90b3BvbG9neS5oCTIw
-MDQtMTAtMTggMjI6MjY6NTIgLTA3OjAwDQorKysgZWRpdGVkL2luY2x1ZGUvYXNtLWlhNjQvdG9w
-b2xvZ3kuaAkyMDA0LTEwLTE5IDE0OjE4OjA2IC0wNzowMA0KQEAgLTU4LDcgKzU4LDI2IEBADQog
-CQkJCXwgU0RfQkFMQU5DRV9FWEVDCVwNCiAJCQkJfCBTRF9XQUtFX0JBTEFOQ0UsCVwNCiAJLmxh
-c3RfYmFsYW5jZQkJPSBqaWZmaWVzLAkJXA0KLQkuYmFsYW5jZV9pbnRlcnZhbAk9IDEwLAkJCVwN
-CisJLmJhbGFuY2VfaW50ZXJ2YWwJPSAxLAkJCVwNCisJLm5yX2JhbGFuY2VfZmFpbGVkCT0gMCwJ
-CQlcDQorfQ0KKw0KKy8qIHNjaGVkX2RvbWFpbnMgU0RfQUxMTk9ERVNfSU5JVCBmb3IgSUE2NCBO
-VU1BIG1hY2hpbmVzICovDQorI2RlZmluZSBTRF9BTExOT0RFU19JTklUIChzdHJ1Y3Qgc2NoZWRf
-ZG9tYWluKSB7CVwNCisJLnNwYW4JCQk9IENQVV9NQVNLX05PTkUsCVwNCisJLnBhcmVudAkJCT0g
-TlVMTCwJCQlcDQorCS5ncm91cHMJCQk9IE5VTEwsCQkJXA0KKwkubWluX2ludGVydmFsCQk9IDgw
-LAkJCVwNCisJLm1heF9pbnRlcnZhbAkJPSAzMjAsCQkJXA0KKwkuYnVzeV9mYWN0b3IJCT0gMzIw
-LAkJCVwNCisJLmltYmFsYW5jZV9wY3QJCT0gMTI1LAkJCVwNCisJLmNhY2hlX2hvdF90aW1lCQk9
-ICgxMCoxMDAwMDAwKSwJCVwNCisJLmNhY2hlX25pY2VfdHJpZXMJPSAxLAkJCVwNCisJLnBlcl9j
-cHVfZ2FpbgkJPSAxMDAsCQkJXA0KKwkuZmxhZ3MJCQk9IFNEX0xPQURfQkFMQU5DRQlcDQorCQkJ
-CXwgU0RfQkFMQU5DRV9FWEVDLAlcDQorCS5sYXN0X2JhbGFuY2UJCT0gamlmZmllcywJCVwNCisJ
-LmJhbGFuY2VfaW50ZXJ2YWwJPSAxMDAqKDYzK251bV9vbmxpbmVfY3B1cygpKS82NCwgICBcDQog
-CS5ucl9iYWxhbmNlX2ZhaWxlZAk9IDAsCQkJXA0KIH0NCiANCj09PT09IGtlcm5lbC9zY2hlZC5j
-IDEuMzY3IHZzIGVkaXRlZCA9PT09PQ0KLS0tIDEuMzY3L2tlcm5lbC9zY2hlZC5jCTIwMDQtMTAt
-MTggMjI6MjY6NTIgLTA3OjAwDQorKysgZWRpdGVkL2tlcm5lbC9zY2hlZC5jCTIwMDQtMTAtMTkg
-MTQ6MTg6MDYgLTA3OjAwDQpAQCAtNDM3OCwxMSArNDM3OCwxMCBAQA0KIAkJCXByaW50aygiZG9t
-YWluICVkOiAiLCBsZXZlbCk7DQogDQogCQkJaWYgKCEoc2QtPmZsYWdzICYgU0RfTE9BRF9CQUxB
-TkNFKSkgew0KLQkJCQlwcmludGsoImRvZXMgbm90IGJhbGFuY2UiKTsNCisJCQkJcHJpbnRrKCJk
-b2VzIG5vdCBsb2FkLWJhbGFuY2UiKTsNCiAJCQkJaWYgKHNkLT5wYXJlbnQpDQogCQkJCQlwcmlu
-dGsoIiBFUlJPUiAhU0RfTE9BRF9CQUxBTkNFIGRvbWFpbiBoYXMgcGFyZW50Iik7DQogCQkJCXBy
-aW50aygiXG4iKTsNCi0JCQkJYnJlYWs7DQogCQkJfQ0KIA0KIAkJCXByaW50aygic3BhbiAlc1xu
-Iiwgc3RyKTsNCg==
-
-------_=_NextPart_001_01C4B6CD.09ADF392--
+No, it should be ok as is. The parts should be ok to seperate if
+you would prefer it that way.
