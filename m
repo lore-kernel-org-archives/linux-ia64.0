@@ -1,47 +1,20 @@
-From: John Baboval <baboval@mclinux.com>
-Date: Fri, 04 Aug 2000 14:23:35 +0000
-Subject: Re: [Linux-ia64] serial console on a lion?
-Message-Id: <marc-linux-ia64-105590678205268@msgid-missing>
+From: "White, Charles" <Charles.White@COMPAQ.com>
+Date: Wed, 30 Aug 2000 21:37:07 +0000
+Subject: [Linux-ia64] iosapic_vector struct in Linux IA64?
+Message-Id: <marc-linux-ia64-105590678205420@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205265@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205265@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-There's documentation on how to do this in the EFI spec on page 320. You
-need to use the "SetVariable" function. Output does go to the serial port,
-but according to page 149, the output is in 16bit unicode. I've seen output
-to the serial port from setting these variables, but minicom doesn't support
-'Unicode ISO Latin I' so I can't verify that it's the shell prompt. Does
-anyone out there know of terminal emulation software for linux that supports
-Unicode?
+I am looking at an issue with Linux IA64, and the problem appears to be that
+the ioapic_vector struct (iosapic.h) has only room for one
+PCI/Bus/Dev/Func/Pin per PID entry... 
 
-On Thu, Aug 03, 2000 at 10:36:17PM -0400, Pat O'Rourke wrote:
-> 
-> I've been going through the EFI documentation and it seems possible that
-> you can redirect the shell's input / output to a serial port.  However the
-> steps for doing so are not clear to me.
-> 
-> Any suggestions would be greatly appreciated.
-> 
-> Thanks,
-> 
-> Pat
-> 
-> -- 
-> Patrick O'Rourke
-> orourke@missioncriticallinux.com
-> 
-> 
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Being PCI devices can share interrupts, How do you handle that with only one
+Entry?  Being even the PIN is part of the entry, you could not even Tie INTA
+& INTC together.   
 
--- 
-
+Is anyone looking into this issue? 
 
