@@ -1,25 +1,47 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Wed, 18 Jun 2003 23:00:21 +0000
-Subject: Re: ACPI vs PCI: configuration space
-Message-Id: <marc-linux-ia64-105597765010846@msgid-missing>
+From: Martin Hicks <mort@wildopensource.com>
+Date: Mon, 09 Jun 2003 17:29:23 +0000
+Subject: [Linux-ia64] [PATCH] Compile fix for perfmon 2
+Message-Id: <marc-linux-ia64-105590723706197@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105597468808360@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105597468808360@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jun 18, 2003 at 03:30:03PM -0700, Greg KH wrote:
-> So for i386, what would domain be?
+Stephane and David,
 
-The `seg' argument currently in place to all these macros ;-)
+Here is a little patch to fix compilation of perfmon 2 when it
+is turned off.
 
-> Anyway, yeah, I agree with try 5, that seems the most sane.
-
-Yay.  you'll have a patch tomorrow.
+thanks
+mh
 
 -- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+Wild Open Source Inc.                  mort@wildopensource.com
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1125  -> 1.1126 
+#	arch/ia64/kernel/perfmon.c	1.47    -> 1.48   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/06/09	mort@green.i.bork.org	1.1126
+# Fix for the new perfmon in the case where it is turned off.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/kernel/perfmon.c b/arch/ia64/kernel/perfmon.c
+--- a/arch/ia64/kernel/perfmon.c	Mon Jun  9 13:27:15 2003
++++ b/arch/ia64/kernel/perfmon.c	Mon Jun  9 13:27:15 2003
+@@ -6503,7 +6503,7 @@
+ 
+ #else /* !CONFIG_PERFMON */
+ asmlinkage long
+-sys_perfmonctl (pfm_ctxid_t ctxid, int cmd, void *req, int count, long arg5, long arg6,
++sys_perfmonctl (int fd, int cmd, void *req, int count, long arg5, long arg6,
+ 		long arg7, long arg8, long stack)
+ {
+ 	return -ENOSYS;
+
