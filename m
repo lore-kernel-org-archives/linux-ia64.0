@@ -1,53 +1,60 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Mon, 19 Jan 2004 18:18:08 +0000
-Subject: Re: [PATCH] readX_relaxed interface
-Message-Id: <20040119181808.GA4225@cup.hp.com>
+From: Jes Sorensen <jes@trained-monkey.org>
+Date: Tue, 20 Jan 2004 12:23:49 +0000
+Subject: [patch] 2.6.1-mm5 compile do not use shared extable code for ia64
+Message-Id: <E1Aiuv7-0001cS-00@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040115204913.GA8172@sgi.com> <20040116003224.GF23253@kroah.com> <20040116050059.GA13222@cup.hp.com> <023b01c3de6f$10276820$2987110a@lsd.css.fujitsu.com>
-In-Reply-To: <023b01c3de6f$10276820$2987110a@lsd.css.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
-Cc: Greg KH <greg@kroah.com>, Jesse Barnes <jbarnes@sgi.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, jeremy@sgi.com
+To: akpm@osdl.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Paul Mackerras <paulus@samba.org>
 
-On Mon, Jan 19, 2004 at 06:31:42PM +0900, Hironobu Ishii wrote:
-> But, when the read thread continues without noticing the error
-> (before the error is asynchronously notified),
+Hi,
 
-I wasn't suggesting asynchonous notification.
+The new sort_extable and shares search_extable code doesn't work on
+ia64. I have introduced two new #defines that archs can define to avoid
+the common code being built. ARCH_HAS_SEARCH_EXTABLE and
+ARCH_HAS_SORT_EXTABLE.
 
-> the thread runs based on wrong data and may panic.
+With this patch, 2.6.1-mm5 builds again on ia64.
 
-So far I've been assuming resources/IO requests can be cleaned up
-more easily in a shared code path. I was assuming the readb() would 
-call the "cleanup" and then return a "harmless" value (eg. 0 or -1)
-that was provided by the driver before hand. I'm more worried
-about the code that evaluates the readb() return value than
-synchronous notification or cleaning up resources.
+Cheers,
+Jes
 
-Having unique error recovery code after each PIO read did work
-but it was not an elegant solution. It was a problem of too much
-"unused" code interferring with the regular code path. And it
-didn't distinguish sufficiently between code to handle "platform"
-errors (failure to talk to a card) vs card errors (card
-failed an IO).
-
-I guess I'd need to modify one driver using my proposal
-instead of assuming it doesn't matter wether the recovery code
-lives immediately after the PIO read or in some common routine.
-Problem is I have other issues to deal with right now
-even though I've made clear to my management "HW error recovery"
-is required for higher levels of availability with linux.
-
-> So I think PIO read error must be notified synchronously.
-
-I agree.
-
-> On the other hand, PIO write error can be notified asynchronously,
-> because software does not use it.
-
-yes.
-
-thanks,
-grant
+--- orig/linux-2.6.1-mm5/lib/extable.c	Tue Jan 20 02:53:26 2004
++++ linux-2.6.1-mm5/lib/extable.c	Tue Jan 20 04:08:37 2004
+@@ -18,6 +18,7 @@
+ extern struct exception_table_entry __start___ex_table[];
+ extern struct exception_table_entry __stop___ex_table[];
+ 
++#ifndef ARCH_HAS_SORT_EXTABLE
+ /*
+  * The exception table needs to be sorted so that the binary
+  * search that we use to find entries in it works properly.
+@@ -45,7 +46,9 @@
+ 		}
+ 	}
+ }
++#endif
+ 
++#ifndef ARCH_HAS_SEARCH_EXTABLE
+ /*
+  * Search one exception table for an entry corresponding to the
+  * given instruction address, and return the address of the entry,
+@@ -75,3 +78,4 @@
+         }
+         return NULL;
+ }
++#endif
+--- orig/linux-2.6.1-mm5/include/asm-ia64/uaccess.h	Sun Jan 11 07:00:36 2004
++++ linux-2.6.1-mm5/include/asm-ia64/uaccess.h	Tue Jan 20 04:09:13 2004
+@@ -281,6 +281,9 @@
+ 	__su_ret;						\
+ })
+ 
++#define ARCH_HAS_SORT_EXTABLE
++#define ARCH_HAS_SEARCH_EXTABLE
++
+ struct exception_table_entry {
+ 	int addr;	/* gp-relative address of insn this fixup is for */
+ 	int cont;	/* gp-relative continuation address; if bit 2 is set, r9 is set to 0 */
