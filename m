@@ -1,473 +1,877 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 04 Feb 2003 01:33:17 +0000
-Subject: Re: [Linux-ia64] glibc patch for fsyscall support
-Message-Id: <marc-linux-ia64-105590709805808@msgid-missing>
+From: "Harris, Fred" <Fred.Harris@hp.com>
+Date: Thu, 13 Feb 2003 21:49:40 +0000
+Subject: RE: [Cpqfc-discuss] Re: [Linux-ia64] kernel update (relative to 2.5.60)
+Message-Id: <marc-linux-ia64-105590709805845@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Ian,
+Grant,
 
->>>>> On Tue, 4 Feb 2003 12:18:11 +1100, Ian Wienand <ianw@gelato.unsw.edu.=
-au> said:
+We have someone looking into the cpqfc build problem, we should have
+this fixed shortly.
 
-  Ian> Hi i'm having a few problems with this patch
+Thanks,
 
-  >> +#ifdef NEED_DL_SYSINFO
+fred harris
 
-  Ian> isn't defined anywhere.  after putting a def in tls.h (though i don't
-  Ian> think it belongs there) i continued on.
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com] 
+Sent: Thursday, February 13, 2003 2:00 PM
+To: Grant Grundler
+Cc: Mosberger, David; linux-ia64@linuxia64.org;
+cpqfc-discuss@lists.sourceforge.net
+Subject: [Cpqfc-discuss] Re: [Linux-ia64] kernel update (relative to
+2.5.60)
 
-  Ian> then I get
+>>>>> On Thu, 13 Feb 2003 11:17:42 -0800, grundler@cup.hp.com (Grant
+Grundler) said:
 
-  Ian> dl-support.c:129: `DL_SYSINFO_DEFAULT' undeclared here (not in a fun=
-ction)
+  Grant> On Wed, Feb 12, 2003 at 03:26:10PM -0800, David Mosberger
+  Grant> wrote:
+  >> An updated ia64 patch is now at:
 
-  Ian> since this isn't defined anywhere but i386 dl-sysdep.h.  I'm not
-  Ian> so sure about this one, so I thought I'd ask you.  I did grab libc c=
-vs
-  Ian> from the date you posted your message, but grepping shows I'll have
-  Ian> the same problems.
+  >>
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/linux-2.5.60-ia64-
+030212.diff.gz
 
-It looks like I forgot to specify the -N flag when running "cvs diff",
-which had the effect of completely omitting the file:
+  Grant> *sigh*. Next problem is cpqfc driver doesn't build.
 
-	linuxthreads/sysdeps/unix/sysv/linux/ia64/dl-sysdep.h
+What you're noticing is that not enough people are testing 2.5.xx.  I
+don't think that's good either, because 2.6 will be upon sooner or
+later and it'd be ugly if everybody waited until then to do some
+testing.
 
-(why is it that source-code control systems always seem to default to
-the least useful combination of flag settings...?)
+My role as a maintainer is not to test each and every possible
+configuration option and guarantee that things work.  Even if I wanted
+to (which I don't) I couldn't do that for lack of time.  My role is to
+make sure that if someone sends me a fix or an enhancement that it
+gets incorporated into the source tree within a reasonable amount of
+time (or to give feedback, in case something is wrong with the
+fix/enhancement).  I'm sure everybody on this list understands this,
+but it makes me feel better to mention it from time to time... ;-)
 
-An updated patch is below.  I think if you just grab the dl-sysdep.h
-portion, you should be fine though.
+So, to all who haven't tried 2.5 recently but wants things to work in
+2.6: now is a good time to do some testing.  Apart from he lack of
+module-support and driver-issues, the kernel proper is actually in
+very good shape.  Which reminds me: nobody has expressed interest so
+far in working on the kernel module loader.  Somebody will have to
+fight that battle and it's not gonna be me.
+
+  Grant> I'd really like to take a whack at the IDE problem you
+  Grant> reported 2 weeks ago instead of chasing misc build failures.
+  Grant> Do you have a .config available that builds/works on HP ZX1
+  Grant> platforms?
+
+Sure, I attached the .config I'm using for 2.5.60 on zx1-based
+machines (it should work without changes for 2.5.59).
 
 	--david
 
-Index: elf/dl-support.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/elf/dl-support.c,v
-retrieving revision 1.67
-diff -u -r1.67 dl-support.c
---- elf/dl-support.c	7 Jan 2003 18:50:59 -0000	1.67
-+++ elf/dl-support.c	4 Feb 2003 01:27:00 -0000
-@@ -161,6 +161,11 @@
-       case AT_PHNUM:
- 	GL(dl_phnum) =3D av->a_un.a_val;
- 	break;
-+#ifdef NEED_DL_SYSINFO
-+      case AT_SYSINFO:
-+	GL(dl_sysinfo) =3D av->a_un.a_val;
-+	break;
-+#endif
-       }
- }
- #endif
-Index: linuxthreads/descr.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/linuxthreads/descr.h,v
-retrieving revision 1.8
-diff -u -r1.8 descr.h
---- linuxthreads/descr.h	28 Dec 2002 10:14:16 -0000	1.8
-+++ linuxthreads/descr.h	4 Feb 2003 01:27:00 -0000
-@@ -109,6 +109,7 @@
-=20
- struct _pthread_descr_struct {
-   /* XXX Remove this union for IA-64 style TLS module */
-+#if TLS_TCB_AT_TP
-   union {
-     struct {
-       void *tcb;		/* Pointer to the TCB.  This is not always
-@@ -122,6 +123,9 @@
-     } data;
-     void *__padding[16];
-   } p_header;
-+#else
-+  /* New elements must be added at the beginning.  */
-+#endif
-   pthread_descr p_nextlive, p_prevlive;
-                                 /* Double chaining of active threads */
-   pthread_descr p_nextwaiting;  /* Next element in the queue holding the t=
-hr */
-@@ -180,7 +184,23 @@
- #endif
-   size_t p_alloca_cutoff;	/* Maximum size which should be allocated
- 				   using alloca() instead of malloc().  */
-+#if TLS_TCB_AT_TP
-   /* New elements must be added at the end.  */
-+#else
-+  union {
-+    struct {
-+      void *reserved[11];	/* reserve for future use */
-+      void *tcb;		/* XXX do we really need this? */
-+      union dtv *dtvp;		/* XXX do we really need this? */
-+      pthread_descr self;	/* XXX do we really need this? */
-+      int multiple_threads;
-+#ifdef NEED_DL_SYSINFO
-+      uintptr_t sysinfo;
-+#endif
-+    } data;
-+    void *__padding[16];
-+  } p_header __attribute__ ((aligned(32)));
-+#endif
- } __attribute__ ((aligned(32))); /* We need to align the structure so that
- 				    doubles are aligned properly.  This is 8
- 				    bytes on MIPS and 16 bytes on MIPS64.
-Index: linuxthreads/manager.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/linuxthreads/manager.c,v
-retrieving revision 1.90
-diff -u -r1.90 manager.c
---- linuxthreads/manager.c	12 Jan 2003 08:42:38 -0000	1.90
-+++ linuxthreads/manager.c	4 Feb 2003 01:27:00 -0000
-@@ -645,6 +666,8 @@
- #endif
-   new_thread->p_header.data.self =3D new_thread;
-   new_thread->p_header.data.multiple_threads =3D 1;
-+  /* XXX why isn't this done already??? */
-+  new_thread->p_header.data.sysinfo =3D GL(dl_sysinfo);
-   new_thread->p_tid =3D new_thread_id;
-   new_thread->p_lock =3D &(__pthread_handles[sseg].h_lock);
-   new_thread->p_cancelstate =3D PTHREAD_CANCEL_ENABLE;
-Index: linuxthreads/pthread.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/linuxthreads/pthread.c,v
-retrieving revision 1.119
-diff -u -r1.119 pthread.c
---- linuxthreads/pthread.c	16 Jan 2003 18:16:32 -0000	1.119
-+++ linuxthreads/pthread.c	4 Feb 2003 01:27:00 -0000
-@@ -353,6 +353,9 @@
-=20
-   self =3D THREAD_SELF;
-=20
-+  /* XXX why isn't this done already??? */
-+  self->p_header.data.sysinfo =3D GL(dl_sysinfo);
-+
-   /* The memory for the thread descriptor was allocated elsewhere as
-      part of the TLS allocation.  We have to initialize the data
-      structure by hand.  This initialization must mirror the struct
-@@ -614,6 +617,8 @@
-   mgr->p_header.data.tcb =3D tcbp;
-   mgr->p_header.data.self =3D mgr;
-   mgr->p_header.data.multiple_threads =3D 1;
-+  /* XXX why isn't this done already??? */
-+  mgr->p_header.data.sysinfo =3D GL(dl_sysinfo);
-   mgr->p_lock =3D &__pthread_handles[1].h_lock;
- # ifndef HAVE___THREAD
-   mgr->p_errnop =3D &mgr->p_errno;
-Index: linuxthreads/sysdeps/ia64/tcb-offsets.sym
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/linuxthreads/sysdeps/ia64=
-/tcb-offsets.sym,v
-retrieving revision 1.3
-diff -u -r1.3 tcb-offsets.sym
---- linuxthreads/sysdeps/ia64/tcb-offsets.sym	16 Jan 2003 18:21:40 -0000	1.3
-+++ linuxthreads/sysdeps/ia64/tcb-offsets.sym	4 Feb 2003 01:27:01 -0000
-@@ -4,6 +4,7 @@
- --
- #ifdef USE_TLS
- MULTIPLE_THREADS_OFFSET offsetof (struct _pthread_descr_struct, p_header.d=
-ata.multiple_threads) - sizeof (struct _pthread_descr_struct)
-+SYSINFO_OFFSET		offsetof (struct _pthread_descr_struct, p_header.data.sysi=
-nfo) - sizeof (struct _pthread_descr_struct)
- #else
- MULTIPLE_THREADS_OFFSET offsetof (tcbhead_t, multiple_threads)
- #endif
-Index: linuxthreads/sysdeps/ia64/tls.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/linuxthreads/sysdeps/ia64=
-/tls.h,v
-retrieving revision 1.4
-diff -u -r1.4 tls.h
---- linuxthreads/sysdeps/ia64/tls.h	16 Jan 2003 18:20:44 -0000	1.4
-+++ linuxthreads/sysdeps/ia64/tls.h	4 Feb 2003 01:27:01 -0000
-@@ -20,10 +20,13 @@
- #ifndef _TLS_H
- #define _TLS_H
-=20
-+#include <dl-sysdep.h>
-+
- #ifndef __ASSEMBLER__
-=20
- # include <pt-machine.h>
- # include <stddef.h>
-+# include <stdint.h>
-=20
- /* Type for the dtv.  */
- typedef union dtv
-@@ -83,8 +86,10 @@
- /* Code to initially initialize the thread pointer.  This might need
-    special attention since 'errno' is not yet available and if the
-    operation can cause a failure 'errno' must not be touched.  */
--#  define TLS_INIT_TP(tcbp, secondcall) \
--  (__thread_self =3D (tcbp), NULL)
-+#  define TLS_INIT_TP(tcbp, secondcall)			\
-+  (__thread_self =3D (tcbp),				\
-+   THREAD_SELF->p_header.data.sysinfo =3D GL(dl_sysinfo),	\
-+   NULL)
-=20
- /* Return the address of the dtv for the current thread.  */
- #  define THREAD_DTV() \
-Index: linuxthreads/sysdeps/unix/sysv/linux/ia64/dl-sysdep.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: linuxthreads/sysdeps/unix/sysv/linux/ia64=
-/dl-sysdep.h
-diff -N linuxthreads/sysdeps/unix/sysv/linux/ia64/dl-sysdep.h
---- /dev/null	1 Jan 1970 00:00:00 -0000
-+++ linuxthreads/sysdeps/unix/sysv/linux/ia64/dl-sysdep.h	4 Feb 2003 01:27:=
-01 -0000
-@@ -0,0 +1,43 @@
-+/* System-specific settings for dynamic linker code.  IA-64 version.
-+   Copyright (C) 2003 Free Software Foundation, Inc.
-+   This file is part of the GNU C Library.
-+
-+   The GNU C Library is free software; you can redistribute it and/or
-+   modify it under the terms of the GNU Lesser General Public
-+   License as published by the Free Software Foundation; either
-+   version 2.1 of the License, or (at your option) any later version.
-+
-+   The GNU C Library is distributed in the hope that it will be useful,
-+   but WITHOUT ANY WARRANTY; without even the implied warranty of
-+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+   Lesser General Public License for more details.
-+
-+   You should have received a copy of the GNU Lesser General Public
-+   License along with the GNU C Library; if not, write to the Free
-+   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-+   02111-1307 USA.  */
-+
-+#ifndef _DL_SYSDEP_H
-+#define _DL_SYSDEP_H	1
-+
-+#define NEED_DL_SYSINFO
-+
-+#ifndef __ASSEMBLER__
-+/* Don't declare this as a function---we want it's entry-point, not
-+   it's function descriptor... */
-+extern int _dl_sysinfo_break attribute_hidden;
-+# define DL_SYSINFO_DEFAULT ((uintptr_t) &_dl_sysinfo_break)
-+# define DL_SYSINFO_IMPLEMENTATION			\
-+  asm (".text\n\t"					\
-+       ".hidden _dl_sysinfo_break\n\t"			\
-+       ".proc _dl_sysinfo_break\n\t"			\
-+       "_dl_sysinfo_break:\n\t"				\
-+       ".prologue\n\t"					\
-+       ".altrp b6\n\t"					\
-+       ".body\n\t"					\
-+       "break 0x100000;\n\t"				\
-+       "br.ret.sptk.many b6;\n\t"			\
-+       ".endp _dl_sysinfo_break");
-+#endif
-+
-+#endif	/* dl-sysdep.h */
-Index: linuxthreads/sysdeps/unix/sysv/linux/ia64/vfork.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/linuxthreads/sysdeps/unix=
-/sysv/linux/ia64/vfork.S,v
-retrieving revision 1.2
-diff -u -r1.2 vfork.S
---- linuxthreads/sysdeps/unix/sysv/linux/ia64/vfork.S	14 Jan 2003 01:23:24 =
--0000	1.2
-+++ linuxthreads/sysdeps/unix/sysv/linux/ia64/vfork.S	4 Feb 2003 01:27:01 -=
-0000
-@@ -36,9 +36,13 @@
- 	mov out0=3DCLONE_VM+CLONE_VFORK+SIGCHLD
- 	mov out1=3D0		/* Standard sp value.			*/
- 	;;
-+#if 0
- 	DO_CALL (SYS_ify (clone))
-+#else
-+	mov r15=3DSYS_ify(clone)
-+	break __BREAK_SYSCALL
-+#endif
- 	cmp.eq p6,p0=3D-1,r10
--	;;
- (p6)	br.cond.spnt.few __syscall_error
- 	ret
- PSEUDO_END(__vfork)
-Index: sysdeps/generic/libc-start.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/sysdeps/generic/libc-star=
-t.c,v
-retrieving revision 1.35
-diff -u -r1.35 libc-start.c
---- sysdeps/generic/libc-start.c	28 Dec 2002 09:14:52 -0000	1.35
-+++ sysdeps/generic/libc-start.c	4 Feb 2003 01:27:01 -0000
-@@ -83,14 +83,6 @@
-   ++auxvec;
-   _dl_aux_init ((ElfW(auxv_t) *) auxvec);
- # endif
--# ifdef DL_SYSDEP_OSCHECK
--  if (!__libc_multiple_libcs)
--    {
--      /* This needs to run to initiliaze _dl_osversion before TLS
--	 setup might check it.  */
--      DL_SYSDEP_OSCHECK (__libc_fatal);
--    }
--# endif
-=20
-   /* Initialize the thread library at least a bit since the libgcc
-      functions are using thread functions if these are available and
-@@ -101,6 +93,15 @@
-   if (__pthread_initialize_minimal)
- # endif
-     __pthread_initialize_minimal ();
-+
-+# ifdef DL_SYSDEP_OSCHECK
-+  if (!__libc_multiple_libcs)
-+    {
-+      /* This needs to run to initiliaze _dl_osversion before TLS
-+	 setup might check it.  */
-+      DL_SYSDEP_OSCHECK (__libc_fatal);
-+    }
-+# endif
-=20
-   /* Some security at this point.  Prevent starting a SUID binary where
-      the standard file descriptors are not opened.  We have to do this
-Index: sysdeps/unix/sysv/linux/ia64/clone2.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/sysdeps/unix/sysv/linux/i=
-a64/clone2.S,v
-retrieving revision 1.3
-diff -u -r1.3 clone2.S
---- sysdeps/unix/sysv/linux/ia64/clone2.S	6 Jul 2001 04:56:17 -0000	1.3
-+++ sysdeps/unix/sysv/linux/ia64/clone2.S	4 Feb 2003 01:27:03 -0000
-@@ -24,31 +24,45 @@
- /* int  __clone2(int (*fn) (void *arg), void *child_stack_base, 	*/
- /* 	         size_t child_stack_size, int flags, void *arg) */
-=20
-+#define CHILD	p8
-+#define PARENT	p9
-+
- ENTRY(__clone2)
--	alloc r2=3Dar.pfs,5,2,3,0
-+	.prologue
-+	alloc r2=3Dar.pfs,5,3,3,0
- 	cmp.eq p6,p0=3D0,in0
- 	mov r8=3DEINVAL
- (p6)	br.cond.spnt.few __syscall_error
- 	;;
--	flushrs			/* This is necessary, since the child	*/
--				/* will be running with the same 	*/
--				/* register backing store for a few 	*/
--				/* instructions.  We need to ensure	*/
--				/* that it will not read or write the	*/
--				/* backing store.			*/
- 	mov loc0=3Din0		/* save fn	*/
- 	mov loc1=3Din4		/* save arg	*/
- 	mov out0=3Din3		/* Flags are first syscall argument.	*/
- 	mov out1=3Din1		/* Stack address.			*/
- 	mov out2=3Din2		/* Stack size.				*/
--        DO_CALL (SYS_ify (clone2))
--        cmp.eq p6,p0=3D-1,r10
-+	/*
-+	 * clone2() is special: the child cannot execute br.ret right after
-+	 * the system call returns, because it starts out executing on an
-+	 * empty stack.  Because of this, we can't use the new (lightweight)
-+	 * syscall convention here.  Instead, we just fall back on always
-+	 * using "break".
-+	 */
-+	mov r15=3DSYS_ify (clone2)
-+	/*
-+	 * The child will start with an empty stack.  To avoid unwinding
-+	 * past invalid memory, we'll pretend now that __clone2() is
-+	 * the end of the call-chain.  This is wrong for the parent, but
-+	 * only until it returns from clone2() but it's better than the
-+	 * alternative.
-+	 */
-+	mov b7=3Dr0
-+	.prologue
-+	.altrp b7
-+	.body
-+	break __BREAK_SYSCALL
- 	;;
--(p6)	br.cond.spnt.few __syscall_error
--
--#	define CHILD p6
--#	define PARENT p7
- 	cmp.eq CHILD,PARENT=3D0,r8 /* Are we the child?	*/
-+        cmp.eq p6,p0=3D-1,r10
-+(p6)	br.cond.spnt.few __syscall_error
- 	;;
- (CHILD)	ld8 out1=3D[loc0],8	/* Retrieve code pointer.	*/
- (CHILD)	mov out0=3Dloc1		/* Pass proper argument	to fn */
-@@ -56,7 +70,6 @@
- 	;;
- 	ld8 gp=3D[loc0]		/* Load function gp.		*/
- 	mov b6=3Dout1
--	;;
- 	br.call.dptk.few rp=B6	/* Call fn(arg) in the child 	*/
- 	;;
- 	mov out0=3Dr8		/* Argument to _exit		*/
-Index: sysdeps/unix/sysv/linux/ia64/sysdep.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/sysdeps/unix/sysv/linux/i=
-a64/sysdep.h,v
-retrieving revision 1.10
-diff -u -r1.10 sysdep.h
---- sysdeps/unix/sysv/linux/ia64/sysdep.h	9 Jan 2003 04:09:25 -0000	1.10
-+++ sysdeps/unix/sysv/linux/ia64/sysdep.h	4 Feb 2003 01:27:03 -0000
-@@ -23,6 +23,7 @@
-=20
- #include <sysdeps/unix/sysdep.h>
- #include <sysdeps/ia64/sysdep.h>
-+#include <tls.h>
-=20
- /* For Linux we can use the system call table in the header file
- 	/usr/include/asm/unistd.h
-@@ -89,9 +90,30 @@
- 	cmp.eq p6,p0=3D-1,r10;			\
- (p6)	br.cond.spnt.few __syscall_error;
-=20
-+#if defined HAVE_TLS_SUPPORT && (!defined NOT_IN_libc || defined IS_IN_lib=
-pthread)
-+
-+/* Use the lightweight stub only if (a) we have a suitably modern
-+   thread-control block (HAVE_TLS_SUPPORT) and (b) we're not compiling
-+   the runtime loader (which might do syscalls before being fully
-+   relocated). */
-+
-+#define DO_CALL(num)				\
-+	.prologue;				\
-+        adds r2 =3D SYSINFO_OFFSET, r13;;		\
-+        ld8 r2 =3D [r2];				\
-+	.save ar.pfs, r11;			\
-+        mov r11 =3D ar.pfs;;			\
-+	.body;					\
-+	mov r15 =3D num;				\
-+        mov b7 =3D r2;				\
-+        br.call.sptk.many b6 =3D b7;;		\
-+	.restore sp;				\
-+        mov ar.pfs =3D r11
-+#else
- #define DO_CALL(num)				\
- 	mov r15=3Dnum;				\
- 	break __BREAK_SYSCALL;
-+#endif
-=20
- #undef PSEUDO_END
- #define PSEUDO_END(name)	.endp C_SYMBOL_NAME(name);
-Index: sysdeps/unix/sysv/linux/ia64/vfork.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvs/glibc/libc/sysdeps/unix/sysv/linux/i=
-a64/vfork.S,v
-retrieving revision 1.4
-diff -u -r1.4 vfork.S
---- sysdeps/unix/sysv/linux/ia64/vfork.S	31 Dec 2002 20:37:30 -0000	1.4
-+++ sysdeps/unix/sysv/linux/ia64/vfork.S	4 Feb 2003 01:27:03 -0000
-@@ -34,9 +34,13 @@
- 	mov out0=3DCLONE_VM+CLONE_VFORK+SIGCHLD
- 	mov out1=3D0		/* Standard sp value.			*/
- 	;;
-+#if 0
- 	DO_CALL (SYS_ify (clone))
-+#else
-+	mov r15=3DSYS_ify(clone)
-+	break __BREAK_SYSCALL
-+#endif
- 	cmp.eq p6,p0=3D-1,r10
--	;;
- (p6)	br.cond.spnt.few __syscall_error
- 	ret
- PSEUDO_END(__vfork)
+--
+#
+# Automatically generated make config: don't edit
+#
+
+#
+# Code maturity level options
+#
+CONFIG_EXPERIMENTAL=y
+
+#
+# General setup
+#
+CONFIG_SYSVIPC=y
+CONFIG_BSD_PROCESS_ACCT=y
+CONFIG_SYSCTL=y
+CONFIG_LOG_BUF_SHIFT=16
+
+#
+# Loadable module support
+#
+# CONFIG_MODULES is not set
+
+#
+# Processor type and features
+#
+CONFIG_IA64=y
+CONFIG_MMU=y
+CONFIG_SWAP=y
+CONFIG_RWSEM_GENERIC_SPINLOCK=y
+# CONFIG_ITANIUM is not set
+CONFIG_MCKINLEY=y
+# CONFIG_IA64_GENERIC is not set
+# CONFIG_IA64_DIG is not set
+# CONFIG_IA64_HP_SIM is not set
+CONFIG_IA64_HP_ZX1=y
+# CONFIG_IA64_SGI_SN1 is not set
+# CONFIG_IA64_SGI_SN2 is not set
+# CONFIG_IA64_PAGE_SIZE_4KB is not set
+# CONFIG_IA64_PAGE_SIZE_8KB is not set
+CONFIG_IA64_PAGE_SIZE_16KB=y
+# CONFIG_IA64_PAGE_SIZE_64KB is not set
+CONFIG_ACPI=y
+CONFIG_ACPI_EFI=y
+CONFIG_ACPI_INTERPRETER=y
+CONFIG_ACPI_KERNEL_CONFIG=y
+CONFIG_IA64_L1_CACHE_SHIFT=7
+# CONFIG_MCKINLEY_ASTEP_SPECIFIC is not set
+# CONFIG_NUMA is not set
+CONFIG_VIRTUAL_MEM_MAP=y
+CONFIG_IA64_MCA=y
+CONFIG_PM=y
+CONFIG_IOSAPIC=y
+CONFIG_KCORE_ELF=y
+CONFIG_FORCE_MAX_ZONEORDER=18
+# CONFIG_HUGETLB_PAGE is not set
+CONFIG_SMP=y
+CONFIG_IA32_SUPPORT=y
+CONFIG_COMPAT=y
+CONFIG_PERFMON=y
+CONFIG_IA64_PALINFO=y
+CONFIG_EFI_VARS=y
+CONFIG_NR_CPUS=64
+CONFIG_BINFMT_ELF=y
+CONFIG_BINFMT_MISC=y
+
+#
+# ACPI Support
+#
+CONFIG_ACPI_BOOT=y
+CONFIG_ACPI_BUTTON=y
+CONFIG_ACPI_FAN=y
+CONFIG_ACPI_PROCESSOR=y
+CONFIG_ACPI_THERMAL=y
+# CONFIG_ACPI_DEBUG is not set
+CONFIG_ACPI_BUS=y
+CONFIG_ACPI_POWER=y
+CONFIG_ACPI_PCI=y
+CONFIG_ACPI_SYSTEM=y
+CONFIG_PCI=y
+CONFIG_PCI_LEGACY_PROC=y
+CONFIG_PCI_NAMES=y
+CONFIG_HOTPLUG=y
+
+#
+# PCI Hotplug Support
+#
+# CONFIG_HOTPLUG_PCI is not set
+
+#
+# PCMCIA/CardBus support
+#
+# CONFIG_PCMCIA is not set
+
+#
+# Parallel port support
+#
+# CONFIG_PARPORT is not set
+
+#
+# Memory Technology Devices (MTD)
+#
+# CONFIG_MTD is not set
+
+#
+# Plug and Play support
+#
+# CONFIG_PNP is not set
+
+#
+# Block devices
+#
+# CONFIG_BLK_DEV_FD is not set
+# CONFIG_BLK_CPQ_DA is not set
+# CONFIG_BLK_CPQ_CISS_DA is not set
+# CONFIG_BLK_DEV_DAC960 is not set
+# CONFIG_BLK_DEV_UMEM is not set
+CONFIG_BLK_DEV_LOOP=y
+# CONFIG_BLK_DEV_NBD is not set
+CONFIG_BLK_DEV_RAM=y
+CONFIG_BLK_DEV_RAM_SIZE=4096
+CONFIG_BLK_DEV_INITRD=y
+
+#
+# IEEE 1394 (FireWire) support (EXPERIMENTAL)
+#
+# CONFIG_IEEE1394 is not set
+
+#
+# I2O device support
+#
+# CONFIG_I2O is not set
+
+#
+# Multi-device support (RAID and LVM)
+#
+# CONFIG_MD is not set
+
+#
+# Fusion MPT device support
+#
+CONFIG_FUSION=y
+CONFIG_FUSION_BOOT=y
+CONFIG_FUSION_MAX_SGE=40
+
+#
+# ATA/ATAPI/MFM/RLL support
+#
+CONFIG_IDE=y
+
+#
+# IDE, ATA and ATAPI Block devices
+#
+CONFIG_BLK_DEV_IDE=y
+
+#
+# Please see Documentation/ide.txt for help/info on IDE drives
+#
+# CONFIG_BLK_DEV_HD is not set
+CONFIG_BLK_DEV_IDEDISK=y
+CONFIG_IDEDISK_MULTI_MODE=y
+# CONFIG_IDEDISK_STROKE is not set
+CONFIG_BLK_DEV_IDECD=y
+CONFIG_BLK_DEV_IDEFLOPPY=y
+# CONFIG_BLK_DEV_IDESCSI is not set
+CONFIG_IDE_TASK_IOCTL=y
+
+#
+# IDE chipset support/bugfixes
+#
+CONFIG_BLK_DEV_IDEPCI=y
+# CONFIG_BLK_DEV_GENERIC is not set
+CONFIG_IDEPCI_SHARE_IRQ=y
+CONFIG_BLK_DEV_IDEDMA_PCI=y
+# CONFIG_BLK_DEV_IDE_TCQ is not set
+# CONFIG_BLK_DEV_OFFBOARD is not set
+# CONFIG_BLK_DEV_IDEDMA_FORCED is not set
+# CONFIG_IDEDMA_PCI_AUTO is not set
+CONFIG_BLK_DEV_IDEDMA=y
+# CONFIG_IDEDMA_PCI_WIP is not set
+CONFIG_BLK_DEV_ADMA=y
+# CONFIG_BLK_DEV_AEC62XX is not set
+# CONFIG_BLK_DEV_ALI15X3 is not set
+# CONFIG_BLK_DEV_AMD74XX is not set
+CONFIG_BLK_DEV_CMD64X=y
+# CONFIG_BLK_DEV_TRIFLEX is not set
+# CONFIG_BLK_DEV_CY82C693 is not set
+# CONFIG_BLK_DEV_CS5520 is not set
+# CONFIG_BLK_DEV_HPT34X is not set
+# CONFIG_BLK_DEV_HPT366 is not set
+# CONFIG_BLK_DEV_SC1200 is not set
+# CONFIG_BLK_DEV_PIIX is not set
+# CONFIG_BLK_DEV_NS87415 is not set
+# CONFIG_BLK_DEV_OPTI621 is not set
+# CONFIG_BLK_DEV_PDC202XX_OLD is not set
+# CONFIG_BLK_DEV_PDC202XX_NEW is not set
+# CONFIG_BLK_DEV_SVWKS is not set
+# CONFIG_BLK_DEV_SIIMAGE is not set
+# CONFIG_BLK_DEV_SLC90E66 is not set
+# CONFIG_BLK_DEV_TRM290 is not set
+# CONFIG_BLK_DEV_VIA82CXXX is not set
+# CONFIG_IDEDMA_IVB is not set
+CONFIG_BLK_DEV_IDE_MODES=y
+
+#
+# SCSI support
+#
+CONFIG_SCSI=y
+
+#
+# SCSI support type (disk, tape, CD-ROM)
+#
+CONFIG_BLK_DEV_SD=y
+CONFIG_CHR_DEV_ST=y
+CONFIG_CHR_DEV_OSST=y
+CONFIG_BLK_DEV_SR=y
+CONFIG_BLK_DEV_SR_VENDOR=y
+CONFIG_CHR_DEV_SG=y
+
+#
+# Some SCSI devices (e.g. CD jukebox) support multiple LUNs
+#
+CONFIG_SCSI_MULTI_LUN=y
+CONFIG_SCSI_REPORT_LUNS=y
+CONFIG_SCSI_CONSTANTS=y
+CONFIG_SCSI_LOGGING=y
+
+#
+# SCSI low-level drivers
+#
+# CONFIG_BLK_DEV_3W_XXXX_RAID is not set
+# CONFIG_SCSI_ACARD is not set
+# CONFIG_SCSI_AACRAID is not set
+# CONFIG_SCSI_AIC7XXX is not set
+CONFIG_SCSI_AIC7XXX_OLD=y
+# CONFIG_SCSI_AIC79XX is not set
+# CONFIG_SCSI_DPT_I2O is not set
+# CONFIG_SCSI_ADVANSYS is not set
+# CONFIG_SCSI_IN2000 is not set
+# CONFIG_SCSI_AM53C974 is not set
+CONFIG_SCSI_MEGARAID=y
+# CONFIG_SCSI_BUSLOGIC is not set
+# CONFIG_SCSI_CPQFCTS is not set
+# CONFIG_SCSI_DMX3191D is not set
+# CONFIG_SCSI_EATA is not set
+# CONFIG_SCSI_EATA_DMA is not set
+# CONFIG_SCSI_EATA_PIO is not set
+# CONFIG_SCSI_FUTURE_DOMAIN is not set
+# CONFIG_SCSI_GDTH is not set
+# CONFIG_SCSI_GENERIC_NCR5380 is not set
+# CONFIG_SCSI_GENERIC_NCR5380_MMIO is not set
+# CONFIG_SCSI_INITIO is not set
+# CONFIG_SCSI_INIA100 is not set
+# CONFIG_SCSI_NCR53C7xx is not set
+# CONFIG_SCSI_SYM53C8XX_2 is not set
+# CONFIG_SCSI_NCR53C8XX is not set
+CONFIG_SCSI_SYM53C8XX=y
+CONFIG_SCSI_NCR53C8XX_DEFAULT_TAGS=8
+CONFIG_SCSI_NCR53C8XX_MAX_TAGS=32
+CONFIG_SCSI_NCR53C8XX_SYNC=20
+# CONFIG_SCSI_NCR53C8XX_PROFILE is not set
+# CONFIG_SCSI_NCR53C8XX_IOMAPPED is not set
+# CONFIG_SCSI_NCR53C8XX_PQS_PDS is not set
+# CONFIG_SCSI_NCR53C8XX_SYMBIOS_COMPAT is not set
+# CONFIG_SCSI_PCI2000 is not set
+# CONFIG_SCSI_PCI2220I is not set
+# CONFIG_SCSI_QLOGIC_ISP is not set
+# CONFIG_SCSI_QLOGIC_FC is not set
+CONFIG_SCSI_QLOGIC_1280=y
+# CONFIG_SCSI_DC390T is not set
+# CONFIG_SCSI_U14_34F is not set
+# CONFIG_SCSI_NSP32 is not set
+# CONFIG_SCSI_DEBUG is not set
+
+#
+# Networking support
+#
+CONFIG_NET=y
+
+#
+# Networking options
+#
+CONFIG_PACKET=y
+# CONFIG_PACKET_MMAP is not set
+# CONFIG_NETLINK_DEV is not set
+CONFIG_NETFILTER=y
+# CONFIG_NETFILTER_DEBUG is not set
+CONFIG_FILTER=y
+CONFIG_UNIX=y
+# CONFIG_NET_KEY is not set
+CONFIG_INET=y
+CONFIG_IP_MULTICAST=y
+# CONFIG_IP_ADVANCED_ROUTER is not set
+# CONFIG_IP_PNP is not set
+# CONFIG_NET_IPIP is not set
+# CONFIG_NET_IPGRE is not set
+# CONFIG_IP_MROUTE is not set
+# CONFIG_ARPD is not set
+# CONFIG_INET_ECN is not set
+# CONFIG_SYN_COOKIES is not set
+# CONFIG_INET_AH is not set
+# CONFIG_INET_ESP is not set
+# CONFIG_XFRM_USER is not set
+
+#
+# IP: Netfilter Configuration
+#
+# CONFIG_IP_NF_CONNTRACK is not set
+# CONFIG_IP_NF_QUEUE is not set
+# CONFIG_IP_NF_IPTABLES is not set
+CONFIG_IP_NF_ARPTABLES=y
+# CONFIG_IP_NF_ARPFILTER is not set
+# CONFIG_IP_NF_COMPAT_IPCHAINS is not set
+# CONFIG_IP_NF_COMPAT_IPFWADM is not set
+# CONFIG_IPV6 is not set
+
+#
+# SCTP Configuration (EXPERIMENTAL)
+#
+CONFIG_IPV6_SCTP__=y
+# CONFIG_IP_SCTP is not set
+# CONFIG_ATM is not set
+# CONFIG_VLAN_8021Q is not set
+# CONFIG_LLC is not set
+# CONFIG_DECNET is not set
+# CONFIG_BRIDGE is not set
+# CONFIG_X25 is not set
+# CONFIG_LAPB is not set
+# CONFIG_NET_DIVERT is not set
+# CONFIG_ECONET is not set
+# CONFIG_WAN_ROUTER is not set
+# CONFIG_NET_FASTROUTE is not set
+# CONFIG_NET_HW_FLOWCONTROL is not set
+
+#
+# QoS and/or fair queueing
+#
+# CONFIG_NET_SCHED is not set
+
+#
+# Network testing
+#
+# CONFIG_NET_PKTGEN is not set
+CONFIG_NETDEVICES=y
+
+#
+# ARCnet devices
+#
+# CONFIG_ARCNET is not set
+CONFIG_DUMMY=y
+CONFIG_BONDING=y
+# CONFIG_EQUALIZER is not set
+# CONFIG_TUN is not set
+# CONFIG_ETHERTAP is not set
+
+#
+# Ethernet (10 or 100Mbit)
+#
+CONFIG_NET_ETHERNET=y
+CONFIG_MII=y
+# CONFIG_HAPPYMEAL is not set
+# CONFIG_SUNGEM is not set
+# CONFIG_NET_VENDOR_3COM is not set
+
+#
+# Tulip family network device support
+#
+# CONFIG_NET_TULIP is not set
+# CONFIG_HP100 is not set
+CONFIG_NET_PCI=y
+# CONFIG_PCNET32 is not set
+# CONFIG_AMD8111_ETH is not set
+# CONFIG_ADAPTEC_STARFIRE is not set
+# CONFIG_B44 is not set
+# CONFIG_DGRS is not set
+CONFIG_EEPRO100=y
+# CONFIG_E100 is not set
+# CONFIG_FEALNX is not set
+# CONFIG_NATSEMI is not set
+# CONFIG_NE2K_PCI is not set
+# CONFIG_8139CP is not set
+# CONFIG_8139TOO is not set
+# CONFIG_SIS900 is not set
+# CONFIG_EPIC100 is not set
+# CONFIG_SUNDANCE is not set
+# CONFIG_TLAN is not set
+# CONFIG_VIA_RHINE is not set
+
+#
+# Ethernet (1000 Mbit)
+#
+# CONFIG_ACENIC is not set
+# CONFIG_DL2K is not set
+# CONFIG_E1000 is not set
+# CONFIG_NS83820 is not set
+# CONFIG_HAMACHI is not set
+# CONFIG_YELLOWFIN is not set
+# CONFIG_R8169 is not set
+# CONFIG_SK98LIN is not set
+CONFIG_TIGON3=y
+# CONFIG_FDDI is not set
+# CONFIG_HIPPI is not set
+# CONFIG_PPP is not set
+# CONFIG_SLIP is not set
+
+#
+# Wireless LAN (non-hamradio)
+#
+# CONFIG_NET_RADIO is not set
+
+#
+# Token Ring devices (depends on LLC=y)
+#
+# CONFIG_NET_FC is not set
+# CONFIG_RCPCI is not set
+# CONFIG_SHAPER is not set
+
+#
+# Wan interfaces
+#
+# CONFIG_WAN is not set
+
+#
+# Amateur Radio support
+#
+# CONFIG_HAMRADIO is not set
+
+#
+# ISDN subsystem
+#
+# CONFIG_ISDN_BOOL is not set
+
+#
+# CD-ROM drivers (not for SCSI or IDE/ATAPI drives)
+#
+# CONFIG_CD_NO_IDESCSI is not set
+
+#
+# Input device support
+#
+CONFIG_INPUT=y
+
+#
+# Userland interfaces
+#
+CONFIG_INPUT_MOUSEDEV=y
+# CONFIG_INPUT_MOUSEDEV_PSAUX is not set
+CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
+CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
+CONFIG_INPUT_JOYDEV=y
+# CONFIG_INPUT_TSDEV is not set
+CONFIG_INPUT_EVDEV=y
+# CONFIG_INPUT_EVBUG is not set
+
+#
+# Input I/O drivers
+#
+# CONFIG_GAMEPORT is not set
+CONFIG_SOUND_GAMEPORT=y
+CONFIG_SERIO=y
+# CONFIG_SERIO_I8042 is not set
+# CONFIG_SERIO_SERPORT is not set
+# CONFIG_SERIO_CT82C710 is not set
+
+#
+# Input Device Drivers
+#
+CONFIG_INPUT_KEYBOARD=y
+# CONFIG_KEYBOARD_ATKBD is not set
+# CONFIG_KEYBOARD_SUNKBD is not set
+# CONFIG_KEYBOARD_XTKBD is not set
+# CONFIG_KEYBOARD_NEWTON is not set
+# CONFIG_INPUT_MOUSE is not set
+# CONFIG_INPUT_JOYSTICK is not set
+# CONFIG_INPUT_TOUCHSCREEN is not set
+# CONFIG_INPUT_MISC is not set
+
+#
+# Character devices
+#
+CONFIG_VT=y
+CONFIG_VT_CONSOLE=y
+CONFIG_HW_CONSOLE=y
+# CONFIG_SERIAL_NONSTANDARD is not set
+
+#
+# Serial drivers
+#
+CONFIG_SERIAL_8250=y
+CONFIG_SERIAL_8250_ACPI=y
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_8250_HCDP=y
+CONFIG_SERIAL_8250_EXTENDED=y
+# CONFIG_SERIAL_8250_MANY_PORTS is not set
+CONFIG_SERIAL_8250_SHARE_IRQ=y
+# CONFIG_SERIAL_8250_DETECT_IRQ is not set
+# CONFIG_SERIAL_8250_MULTIPORT is not set
+# CONFIG_SERIAL_8250_RSA is not set
+
+#
+# Non-8250 serial port support
+#
+CONFIG_SERIAL_CORE=y
+CONFIG_SERIAL_CORE_CONSOLE=y
+CONFIG_UNIX98_PTYS=y
+CONFIG_UNIX98_PTY_COUNT=256
+
+#
+# I2C support
+#
+# CONFIG_I2C is not set
+
+#
+# I2C Hardware Sensors Mainboard support
+#
+
+#
+# I2C Hardware Sensors Chip support
+#
+
+#
+# Mice
+#
+# CONFIG_BUSMOUSE is not set
+# CONFIG_QIC02_TAPE is not set
+
+#
+# IPMI
+#
+# CONFIG_IPMI_HANDLER is not set
+
+#
+# Watchdog Cards
+#
+# CONFIG_WATCHDOG is not set
+# CONFIG_INTEL_RNG is not set
+# CONFIG_NVRAM is not set
+# CONFIG_GEN_RTC is not set
+CONFIG_EFI_RTC=y
+# CONFIG_DTLK is not set
+# CONFIG_R3964 is not set
+# CONFIG_APPLICOM is not set
+
+#
+# Ftape, the floppy tape device driver
+#
+# CONFIG_FTAPE is not set
+CONFIG_AGP=y
+# CONFIG_AGP3 is not set
+# CONFIG_AGP_INTEL is not set
+# CONFIG_AGP_VIA is not set
+# CONFIG_AGP_AMD is not set
+# CONFIG_AGP_SIS is not set
+# CONFIG_AGP_ALI is not set
+# CONFIG_AGP_SWORKS is not set
+# CONFIG_AGP_AMD_8151 is not set
+# CONFIG_AGP_I460 is not set
+CONFIG_AGP_HP_ZX1=y
+CONFIG_DRM=y
+CONFIG_DRM_TDFX=y
+# CONFIG_DRM_R128 is not set
+CONFIG_DRM_RADEON=y
+# CONFIG_DRM_I810 is not set
+# CONFIG_DRM_I830 is not set
+# CONFIG_DRM_MGA is not set
+# CONFIG_RAW_DRIVER is not set
+# CONFIG_HANGCHECK_TIMER is not set
+
+#
+# Multimedia devices
+#
+# CONFIG_VIDEO_DEV is not set
+
+#
+# File systems
+#
+# CONFIG_QUOTA is not set
+CONFIG_AUTOFS_FS=y
+# CONFIG_AUTOFS4_FS is not set
+# CONFIG_REISERFS_FS is not set
+# CONFIG_ADFS_FS is not set
+# CONFIG_AFFS_FS is not set
+# CONFIG_HFS_FS is not set
+# CONFIG_BEFS_FS is not set
+# CONFIG_BFS_FS is not set
+CONFIG_EXT3_FS=y
+CONFIG_EXT3_FS_XATTR=y
+# CONFIG_EXT3_FS_POSIX_ACL is not set
+CONFIG_JBD=y
+# CONFIG_JBD_DEBUG is not set
+CONFIG_FAT_FS=y
+CONFIG_MSDOS_FS=y
+CONFIG_VFAT_FS=y
+# CONFIG_EFS_FS is not set
+# CONFIG_CRAMFS is not set
+# CONFIG_TMPFS is not set
+CONFIG_RAMFS=y
+CONFIG_ISO9660_FS=y
+CONFIG_JOLIET=y
+# CONFIG_ZISOFS is not set
+# CONFIG_JFS_FS is not set
+# CONFIG_MINIX_FS is not set
+# CONFIG_VXFS_FS is not set
+# CONFIG_NTFS_FS is not set
+# CONFIG_HPFS_FS is not set
+CONFIG_PROC_FS=y
+# CONFIG_DEVFS_FS is not set
+CONFIG_DEVPTS_FS=y
+# CONFIG_QNX4FS_FS is not set
+# CONFIG_ROMFS_FS is not set
+CONFIG_EXT2_FS=y
+CONFIG_EXT2_FS_XATTR=y
+CONFIG_EXT2_FS_POSIX_ACL=y
+# CONFIG_SYSV_FS is not set
+CONFIG_UDF_FS=y
+# CONFIG_UFS_FS is not set
+# CONFIG_XFS_FS is not set
+
+#
+# Network File Systems
+#
+# CONFIG_CODA_FS is not set
+# CONFIG_INTERMEZZO_FS is not set
+CONFIG_NFS_FS=y
+CONFIG_NFS_V3=y
+CONFIG_NFS_V4=y
+CONFIG_NFSD=y
+CONFIG_NFSD_V3=y
+# CONFIG_NFSD_V4 is not set
+# CONFIG_NFSD_TCP is not set
+CONFIG_SUNRPC=y
+CONFIG_SUNRPC_GSS=y
+CONFIG_LOCKD=y
+CONFIG_LOCKD_V4=y
+CONFIG_EXPORTFS=y
+# CONFIG_CIFS is not set
+# CONFIG_SMB_FS is not set
+# CONFIG_NCP_FS is not set
+# CONFIG_AFS_FS is not set
+CONFIG_FS_MBCACHE=y
+CONFIG_FS_POSIX_ACL=y
+
+#
+# Partition Types
+#
+CONFIG_PARTITION_ADVANCED=y
+# CONFIG_ACORN_PARTITION is not set
+# CONFIG_OSF_PARTITION is not set
+# CONFIG_AMIGA_PARTITION is not set
+# CONFIG_ATARI_PARTITION is not set
+# CONFIG_MAC_PARTITION is not set
+CONFIG_MSDOS_PARTITION=y
+# CONFIG_BSD_DISKLABEL is not set
+# CONFIG_MINIX_SUBPARTITION is not set
+# CONFIG_SOLARIS_X86_PARTITION is not set
+# CONFIG_UNIXWARE_DISKLABEL is not set
+# CONFIG_LDM_PARTITION is not set
+# CONFIG_SGI_PARTITION is not set
+# CONFIG_ULTRIX_PARTITION is not set
+# CONFIG_SUN_PARTITION is not set
+CONFIG_EFI_PARTITION=y
+CONFIG_NLS=y
+
+#
+# Native Language Support
+#
+CONFIG_NLS_DEFAULT="iso8859-1"
+CONFIG_NLS_CODEPAGE_437=y
+CONFIG_NLS_CODEPAGE_737=y
+CONFIG_NLS_CODEPAGE_775=y
+CONFIG_NLS_CODEPAGE_850=y
+CONFIG_NLS_CODEPAGE_852=y
+CONFIG_NLS_CODEPAGE_855=y
+CONFIG_NLS_CODEPAGE_857=y
+CONFIG_NLS_CODEPAGE_860=y
+CONFIG_NLS_CODEPAGE_861=y
+CONFIG_NLS_CODEPAGE_862=y
+CONFIG_NLS_CODEPAGE_863=y
+CONFIG_NLS_CODEPAGE_864=y
+CONFIG_NLS_CODEPAGE_865=y
+CONFIG_NLS_CODEPAGE_866=y
+CONFIG_NLS_CODEPAGE_869=y
+CONFIG_NLS_CODEPAGE_936=y
+CONFIG_NLS_CODEPAGE_950=y
+CONFIG_NLS_CODEPAGE_932=y
+CONFIG_NLS_CODEPAGE_949=y
+CONFIG_NLS_CODEPAGE_874=y
+CONFIG_NLS_ISO8859_8=y
+# CONFIG_NLS_CODEPAGE_1250 is not set
+CONFIG_NLS_CODEPAGE_1251=y
+CONFIG_NLS_ISO8859_1=y
+CONFIG_NLS_ISO8859_2=y
+CONFIG_NLS_ISO8859_3=y
+CONFIG_NLS_ISO8859_4=y
+CONFIG_NLS_ISO8859_5=y
+CONFIG_NLS_ISO8859_6=y
+CONFIG_NLS_ISO8859_7=y
+CONFIG_NLS_ISO8859_9=y
+CONFIG_NLS_ISO8859_13=y
+CONFIG_NLS_ISO8859_14=y
+CONFIG_NLS_ISO8859_15=y
+CONFIG_NLS_KOI8_R=y
+CONFIG_NLS_KOI8_U=y
+CONFIG_NLS_UTF8=y
+
+#
+# Graphics support
+#
+CONFIG_FB=y
+# CONFIG_FB_CLGEN is not set
+# CONFIG_FB_PM2 is not set
+# CONFIG_FB_CYBER2000 is not set
+# CONFIG_FB_IMSTT is not set
+# CONFIG_FB_RIVA is not set
+# CONFIG_FB_MATROX is not set
+# CONFIG_FB_RADEON is not set
+# CONFIG_FB_ATY128 is not set
+# CONFIG_FB_ATY is not set
+# CONFIG_FB_SIS is not set
+# CONFIG_FB_NEOMAGIC is not set
+# CONFIG_FB_3DFX is not set
+# CONFIG_FB_VOODOO1 is not set
+# CONFIG_FB_TRIDENT is not set
+# CONFIG_FB_PM3 is not set
+# CONFIG_FB_VIRTUAL is not set
+
+#
+# Console display driver support
+#
+CONFIG_VGA_CONSOLE=y
+# CONFIG_MDA_CONSOLE is not set
+CONFIG_DUMMY_CONSOLE=y
+# CONFIG_FRAMEBUFFER_CONSOLE is not set
+
+#
+# Sound
+#
+CONFIG_SOUND=y
+
+#
+# Advanced Linux Sound Architecture
+#
+# CONFIG_SND is not set
+
+#
+# Open Sound System
+#
+# CONFIG_SOUND_PRIME is not set
+
+#
+# USB support
+#
+# CONFIG_USB is not set
+
+#
+# Library routines
+#
+CONFIG_CRC32=y
+
+#
+# Bluetooth support
+#
+# CONFIG_BT is not set
+
+#
+# Kernel hacking
+#
+CONFIG_FSYS=y
+# CONFIG_IA64_GRANULE_16MB is not set
+CONFIG_IA64_GRANULE_64MB=y
+CONFIG_DEBUG_KERNEL=y
+CONFIG_KALLSYMS=y
+CONFIG_IA64_PRINT_HAZARDS=y
+# CONFIG_DISABLE_VHPT is not set
+CONFIG_MAGIC_SYSRQ=y
+CONFIG_IA64_EARLY_PRINTK=y
+CONFIG_IA64_EARLY_PRINTK_UART=y
+CONFIG_IA64_EARLY_PRINTK_UART_BASE=0xff5e0000
+CONFIG_IA64_EARLY_PRINTK_VGA=y
+# CONFIG_DEBUG_SLAB is not set
+# CONFIG_DEBUG_SPINLOCK is not set
+# CONFIG_IA64_DEBUG_CMPXCHG is not set
+# CONFIG_IA64_DEBUG_IRQ is not set
+
+#
+# Security options
+#
+# CONFIG_SECURITY is not set
+
+#
+# Cryptographic options
+#
+# CONFIG_CRYPTO is not set
+
+
+-------------------------------------------------------
+This SF.NET email is sponsored by: FREE  SSL Guide from Thawte
+are you planning your Web Server Security? Click here to get a FREE
+Thawte SSL guide and find the answers to all your  SSL security issues.
+http://ads.sourceforge.net/cgi-bin/redirect.pl?thaw0026en
+_______________________________________________
+Cpqfc-discuss mailing list
+Cpqfc-discuss@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/cpqfc-discuss
 
