@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Thu, 15 May 2003 21:29:18 +0000
-Subject: Re: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705848@msgid-missing>
+From: Colin Ngam <cngam@sgi.com>
+Date: Thu, 15 May 2003 22:14:11 +0000
+Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
+Message-Id: <marc-linux-ia64-105590723705851@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,24 +10,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, May 15, 2003 at 01:24:12PM -0700, Jesse Barnes wrote:
-> > All devices I am aware of do not support 64-bit addresses for their
-> > descriptors, only 32-bit.
-> 
-> PCI-X devices are required to support 64 bit addrs.  They'll only
-> generate SAC if the top 32 bits are 0, but our platform is incapable
-> of handling this, since the IOMMU can't be used in PCI-X mode (i.e. we
-> need high order bits for PCI-X devices).
+"David S. Miller" wrote:
 
-I think you're missing Dave's point.  While the card is required to
-support DAC that doesn't mean the device on the card is necessarily
-capable of being handed a full 64-bit address to DMA into.
+>    From: Colin Ngam <cngam@sgi.com>
+>    Date: Thu, 15 May 2003 08:17:58 -0500
+>
+>    Anyway, to make a long story short, we like to "extend" these
+>    interfaces to return DMA addresses of 64 bits if and when the
+>    driver has the full capabality to support DAC - via it's
+>    DMA mask capability setting.
+>
+> All devices I am aware of do not support 64-bit addresses for their
+> descriptors, only 32-bit.
+>
+> There is a huge difference between using a "64-bit address" and
+> requiring to generate a DAC cycle, the latter of which is
+> probably what you need and that is independant of what kind of
+> address pci_alloc_consistent() is giving you.
 
-From the way he's talking, I'd surmise tg3 is a good example -- I suspect
-the ring buffers only support 32-bit addresses.
+David,
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+I am quite confuse with what you are saying.
+
+pci_alloc_consistent(), as documented must return a 32bits DMA in the
+dma mapped address in "dma_addr_t".
+
+Right now, on our platform, the Upper 32 Bits of this address is always 0s
+and the Lower 32 Bits has the IOMMU mapped DMA address.  When this
+address is given to the card, SAC is generated because the Upper 32 Bits
+are 0s - if the whole 64bits are given to the card.
+
+Now, for PCI-X devices, we need to generate an IOMMU mapped DMA
+address that  has the Upper 32 bits non 0s.  When the driver gives this
+address to the card, it will generate a DAC for the DMA.
+
+From what I understand from the pci_alloc_consistant() interface, we cannot
+return a "dma_addr_t" that has the Upper 32bits NON 0s.  Is that TRUE?  If
+it is, our platform cannot deal with this restriction .. therefore we are
+requesting
+for this extension.
+
+Thanks.
+
+colin
+
 
