@@ -1,7 +1,7 @@
-From: Gwenole Beauchesne <gbeauchesne@mandrakesoft.com>
-Date: Tue, 02 Apr 2002 08:29:28 +0000
-Subject: Re: [Linux-ia64] Basic Advice Needed
-Message-Id: <marc-linux-ia64-105590701905361@msgid-missing>
+From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
+Date: Tue, 02 Apr 2002 15:14:10 +0000
+Subject: RE: [Linux-ia64] Basic Advice Needed
+Message-Id: <marc-linux-ia64-105590701905362@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905348@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905348@msgid-missing>
@@ -10,20 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+> As someone pointed out, the network and SCSI adapters may be causing
+> problems. It has an Adaptec Ultra160 dual channel SCSI card for
+> example, which definitely seems nonstandard.
 
->  Thanks for the link. RedHat ia64 seems to be open source as long as
->  you are willling to open your wallet for $495. Seriously you can
->  download the individual files but not isos and the seller wasn't able
->  to make bootable CDs properly.
+Yes, that card works well -- if you have the right driver.
 
-You mean that you could not boot off the CD from the EFI shell? Anyhow, if 
-you have an ls120, you still have the option to make a boot disk and make a 
-net install from one their FTP mirrors.
+Use the latest Adaptec driver from Justin Gibbs.  There was a bug in the
+early 39-bit DMA support that caused the kernel to crash periodically
+[if the address just happened to overlab the swiotlb in the low 32 bits].
 
-Besides, there are also ISOs available for Mandrake Linux 8.1, OpenLinux 3.0 
-(Caldera?) and SuSE Linux 7.2.
+He incorporated my fix in Change 420:
+http://people.freebsd.org/~gibbs/linux/
 
-Bye,
-Gwenole
+If you want to see if that affects you, look at the call to
+pci_unmap_single();
+if the second parameter is:
+   ahc_le32toh(scb->sg_list[0].addr),
+you have the broken version.  Note that the 2.4.9 kernel has the broken
+version,
+and IA64 kernels before that didn't support 39-bit DMA (which leads to
+problems
+under load, unless you greatly increase swiotlb size).  Not sure what
+version
+is in the newer IA64 kernels.
+
+Kevin
 
