@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 04 Aug 2003 21:53:17 +0000
-Subject: RE: [PATCH] New CMC/CPE polling
-Message-Id: <marc-linux-ia64-106003582921053@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 04 Aug 2003 23:09:41 +0000
+Subject: Re: [PATCH] New CMC/CPE polling
+Message-Id: <marc-linux-ia64-106003880423600@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105969308328993@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105969308328993@msgid-missing>
@@ -10,10 +10,12 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->    With the modifications above, there is a tiny window where the
-> other CPUs could take a CMCI while the cmc_polling_enabled flag is in
-> the wrong state.  IMHO, this doesn't really seem like a problem.
+>>>>> On Fri, 01 Aug 2003 08:20:17 -0600, Alex Williamson <alex_williamson@hp.com> said:
 
-Yup, you are right.
+  Alex> Perhaps SAL_CALL_DANGEROUS() ;^)  Yes, I agree, the name is misleading
+  Alex> from the caller perspective.  SAL_CALL_REENTRANT() is a much better
+  Alex> choice.  Let me know if you want an updated patch.  Thanks,
 
--Tony
+Nah, that's OK, I just edited the patch.
+
+	--david
