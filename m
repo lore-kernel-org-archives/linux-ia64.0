@@ -1,39 +1,97 @@
-From: JinShan Xiong <jinshan.xiong@gmail.com>
-Date: Tue, 01 Feb 2005 02:53:42 +0000
-Subject: Re: How to intercept system calls on ia64 linux kernel
-Message-Id: <b3b26beb05013118532a9e96ca@mail.gmail.com>
+From: baswaraj kasture <kbaswaraj@yahoo.com>
+Date: Mon, 07 Feb 2005 06:14:23 +0000
+Subject: Kernel 2.4.21 gives kernel panic at boot time
+Message-Id: <20050207061424.58043.qmail@web51110.mail.yahoo.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <b3b26beb050130195674d2930c@mail.gmail.com>
-In-Reply-To: <b3b26beb050130195674d2930c@mail.gmail.com>
+In-Reply-To: <41FF45EA.5010908@hob.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Christian Hildner <christian.hildner@hob.de>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Christoph Lameter <clameter@sgi.com>, Andi Kleen <ak@muc.de>, Andrew Morton <akpm@osdl.org>, torvalds@osdl.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 
-OK.
+Hi,
 
-Thanks a lot.
+I have compiled the kerne 2.4.21. Compilation went
+well. but i got follwing message at boot time.
+======================.
+.
+/lib/mptscsih.o : unresolved symbol
+mpt_deregister_Rsmp_6fb5ab71
+/lib/mptscsih.o : Unresolved symbol
+mpt_event_register_Rsmp_34ace96b
 
-JinShan
+ERROR : /bin/insmod exited abnormally
+Mounting /proc filesystem
+Creating block devices 
+VFS : cannot open root device "LABEL=/ or 00:00
+Please append corrrect "root=" boot option
+Kernel panic : VFS : Unable to mount root fs on 00:00
 
 
-On Mon, 31 Jan 2005 09:34:32 -0800, David Mosberger
-<davidm@napali.hpl.hp.com> wrote:
-> Note that it is very dangerous to compile kernel modules like so:
->=20
-> >>>>> On Mon, 31 Jan 2005 11:56:43 +0800, JinShan Xiong <jinshan.xiong@gm=
-ail.com> said:
->=20
->   JinShan> gcc -c -D__KERNEL__ -DMODULE -I/lib/modules/`uname
->=20
-> This is missing the -mfixed-range=F12-f15,f32-f127 option, which means
-> that more complicated modules will end up trashing floating-point
-> registers which means that your module will cause random crashes in
-> user-level codes.  I'd recommend to compile modules the same way as normal
-> kernel code, except that you need to remove the -mconstant-gp flag.
->=20
-> In 2.6, this has gotten a lot easier, since modules are built using
-> the normal kbuild infrastructure.
->=20
->         --david
->
+=====================
+
+I have following lines in my elilo.conf ,
+------------------------------
+#original kernel
+image=vmlinuz-2.4.21-9.EL
+label=linux
+initrd=initrd-2.4.21-9.EL.img
+read-only
+append="root=LABEL=/"
+
+#icc-O2
+image=iccvmlinux
+label=icc_O2
+initrd=iccinitrd-preBasicc.img
+read-only
+append="root=LABEL=/"
+---------------------------
+ First one works fine.
+
+Any clues why  i am getting this error.
+
+Is it related to SCSI Driver ?
+
+Further "/sbin/mkinitrd -f -v  "  gave follwing
+messge,
+===================
+.
+.
+.
+Looking for deps of module scsi_mod     
+Looking for deps of module sd_mod       
+Looking for deps of module unknown   
+Looking for deps of module mptbase      
+Looking for deps of module mptscsih     mptbase
+Looking for deps of module mptbase      
+Looking for deps of module ide-disk   
+Looking for deps of module ext3 
+Using modules: 
+./kernel/drivers/message/fusion/mptbase.o
+./kernel/drivers/message/fusion/mptscsih.o
+Using loopback device /dev/loop0
+/sbin/nash -> /tmp/initrd.EsIvQ9/bin/nash
+/sbin/insmod.static -> /tmp/initrd.EsIvQ9/bin/insmod
+`/lib/modules/2.4.21preBasicc/./kernel/drivers/message/fusion/mptbase.o'
+-> `/tmp/initrd.EsIvQ9/lib/mptbase.o'
+`/lib/modules/2.4.21preBasicc/./kernel/drivers/message/fusion/mptscsih.o'
+-> `/tmp/initrd.EsIvQ9/lib/mptscsih.o'
+Loading module mptbase
+Loading module mptscsih
+
+===================
+
+
+Any clues will be great help ?
+
+
+Thanx,
+Baswaraj
+
+
+		
+__________________________________ 
+Do you Yahoo!? 
+Yahoo! Mail - 250MB free storage. Do more. Manage less. 
+http://info.mail.yahoo.com/mail_250
