@@ -1,34 +1,41 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 31 Dec 2003 09:34:15 +0000
-Subject: ptrace() fix to make strace work better again
-Message-Id: <16370.38935.531317.715179@napali.hpl.hp.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 18 Dec 2003 20:27:23 +0000
+Subject: [PATCH] Remove extraneous printks
+Message-Id: <marc-linux-ia64-107177939524650@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Some of you have noticed that strace -f was often causing the target
-process to crash.  The problem seems to be due to NPTL-enabled glibc
-stressing ptrace() in different ways than LinuxThreads and as a
-result, linking against NPTL triggered the strace problems.  The root
-cause of the problem has been there for a long time (both in 2.4 and
-2.6 kernels) it's just that we didn't see it before.
+ia64: Remove extraneous printks (we already get the same information from ACPI).
 
-I have now a patch which fixes the strace -f problems without causing
-any regressions in the gdb test-suite.  See this change-set:
+(iosapic_init): Remove extraneous printk.
+(pci_acpi_scan_root): Remove extraneous printk.
 
-  http://lia64.bkbits.net:8080/to-linus-2.5/cset@1.1530
+(To be complete, ACPI doesn't tell us the IOSAPIC version, so if you think
+that's important, skip that patch.)
 
-The changes are rather big, so I'd welcome thorough testing of it.  In
-particular, it would be good to stress-test it more on largish
-SMP-machines.  Also, if you have any apps that do strange things with
-ptrace, or are using debuggers or strace a lot, please give it a good
-whirl and let me know if you see any problems.
+=== arch/ia64/kernel/iosapic.c 1.32 vs edited ==--- 1.32/arch/ia64/kernel/iosapic.c	Thu Aug 21 13:24:35 2003
++++ edited/arch/ia64/kernel/iosapic.c	Tue Nov 25 13:23:48 2003
+@@ -628,9 +628,6 @@
+ 	iosapic_lists[num_iosapic].num_rte = num_rte;
+ 	num_iosapic++;
+ 
+-	printk(KERN_INFO "  IOSAPIC v%x.%x, address 0x%lx, GSIs 0x%x-0x%x\n",
+-	       (ver & 0xf0) >> 4, (ver & 0x0f), phys_addr, gsi_base, gsi_base + num_rte - 1);
+-
+ 	if ((gsi_base = 0) && pcat_compat) {
+ 		/*
+ 		 * Map the legacy ISA devices into the IOSAPIC data.  Some of these may
+=== arch/ia64/pci/pci.c 1.37 vs edited ==--- 1.37/arch/ia64/pci/pci.c	Thu Jul 31 17:47:19 2003
++++ edited/arch/ia64/pci/pci.c	Tue Nov 25 13:23:17 2003
+@@ -260,7 +260,6 @@
+ 	unsigned int windows = 0;
+ 	char *name;
+ 
+-	printk("PCI: Probing PCI hardware on bus (%04x:%02x)\n", domain, bus);
+ 	controller = alloc_pci_controller(domain);
+ 	if (!controller)
+ 		goto out1;
 
-As for strace, with the patch I can now run "strace -f mozilla" without
-any apparent problem.
-
-Regards,
-
-	--david
