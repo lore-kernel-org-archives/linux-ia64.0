@@ -1,39 +1,50 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 09 Oct 2003 13:21:54 +0000
-Subject: genksyms bug: Warning: "per_cpu__local_per_cpu_offset" [...] has no
-Message-Id: <marc-linux-ia64-106570613015660@msgid-missing>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Mon, 06 Oct 2003 21:50:07 +0000
+Subject: [PATCH] deal with lack of SRAT in generic kernels
+Message-Id: <marc-linux-ia64-106547702702916@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I'm getting this warning when building 2.6.0-test[567] for ia64 with
-MODVERSIONS enabled.  This is a bug in genksyms, it can't cope with some
-arguments of __typeof__.  The following patch will fix that.  Actually the
-argument of __typeof__ is an abstract declarator, but the genksyms parser
-has no production for that; decl_specifier_seq also matches some invalid
-constructs, but I don't think this is a problem in practice, since the
-compiler will reject them.
+On platforms without an SRAT (e.g. zx1), the cpu_to_node_map will get
+built incorrectly without this fix, making generic kernels fail when
+they try to alloc_pages_node() from a nodeid of -1.  This is a simple
+port forward of the 2.4 code, please let me know if you'd like this
+stuff cleaned up before it goes in or if it's ok the way it is.
 
-Andreas.
+ acpi.c |   12 ++++++++++++
 
---- linux-2.6.0-test7/scripts/genksyms/parse.y.~1~	2003-10-08 21:24:04.0000=
-00000 +0200
-+++ linux-2.6.0-test7/scripts/genksyms/parse.y	2003-10-09 15:03:38.00000000=
-0 +0200
-@@ -197,7 +197,7 @@ storage_class_specifier:
- type_specifier:
- 	simple_type_specifier
- 	| cvar_qualifier
--	| TYPEOF_KEYW '(' type_specifier ')'
-+	| TYPEOF_KEYW '(' decl_specifier_seq ')'
-=20
- 	/* References to s/u/e's defined elsewhere.  Rearrange things
- 	   so that it is easier to expand the definition fully later.  */
+Thanks,
+Jesse
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+diff -Nru a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+--- a/arch/ia64/kernel/acpi.c	Mon Oct  6 14:47:47 2003
++++ b/arch/ia64/kernel/acpi.c	Mon Oct  6 14:47:47 2003
+@@ -453,6 +453,12 @@
+ {
+ 	int i, j, node_from, node_to;
+ 
++	/* If there's no SRAT, fix the phys_id */
++	if (srat_num_cpus = 0) {
++		node_cpuid[0].phys_id = hard_smp_processor_id();
++		return;
++	}
++
+ 	/* calculate total number of nodes in system from PXM bitmap */
+ 	numnodes = 0;		/* init total nodes in system */
+ 
+@@ -613,6 +619,12 @@
+ 
+ 	smp_build_cpu_map();
+ # ifdef CONFIG_NUMA
++	if (srat_num_cpus = 0) {
++		int cpu, i = 1;
++		for (cpu = 0; cpu < smp_boot_data.cpu_count; cpu++)
++			if (smp_boot_data.cpu_phys_id[cpu] != hard_smp_processor_id())
++				node_cpuid[i++].phys_id = smp_boot_data.cpu_phys_id[cpu];
++	}
+ 	build_cpu_to_node_map();
+ # endif
+ #endif
