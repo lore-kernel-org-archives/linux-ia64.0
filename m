@@ -1,103 +1,212 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 07 Jan 2004 04:48:32 +0000
-Subject: Re: script to check for guaranteed-to-crash-your-app warnings
-Message-Id: <16379.36768.630653.2051@napali.hpl.hp.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 21 Jan 2004 16:39:08 +0000
+Subject: Re: [ACPI] [PATCH] add acpi_interrupt_to_irq
+Message-Id: <200401210939.08782.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16379.11171.475075.708058@napali.hpl.hp.com>
-In-Reply-To: <16379.11171.475075.708058@napali.hpl.hp.com>
+References: <200401201607.32214.bjorn.helgaas@hp.com>
+In-Reply-To: <200401201607.32214.bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Nakajima, Jun" <jun.nakajima-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
->>>>> On Tue, 6 Jan 2004 17:56:31 -0800, David Mosberger <davidm@linux.hpl.hp.com> said:
+On Tuesday 20 January 2004 10:04 pm, Brown, Len wrote:
+> FYI, jun says this will conflict with recent vector interrupt updates in
+> -mm, so we'll have to sort that out.
 
-  David> Argh, the situation must be worse than what I reported, since
-  David> "evolution" didn't show up at all!  evolution was missed
-  David> because lynx by default wraps lines after 80 columns.  I
-  David> fixed the fetch-log script and am rerunning it now.  I'm sure
-  David> this would be a lot easier to do for someone who has direct
-  David> access to the log files...
+Yes, indeed.  Thanks for pointing this out.  Those updates make the
+call look like this:
 
-OK, here is a more credible list of offenders.  Several critical
-packages are affected.  I already filed patches for gnumeric and
-evolution, so those you don't need to worry about (I listed them for
-completeness below).  List of all other affected packages:
+        irq = acpi_fadt.sci_int;
+ 
+#if defined(CONFIG_IA64) || defined(CONFIG_PCI_USE_VECTOR)
+        irq = acpi_irq_to_vector(irq);
+        if (irq < 0) {
+                printk(KERN_ERR PREFIX "SCI (ACPI interrupt %d) not registered\n",
+	...
+	acpi_irq_irq = irq;
 
-	dia
-	gnome-iconedit
-	gnome-media
-	gnumeric
-	libgda2
-	libgnomedb
-	libgsm
-	libtk-perl
-	metacity-setup
-	rep-gtk
-	vlc
+It should be simple to resolve the conflict, but we have to decide
 
-libgtk-perl looks to be in particularly bad shape.  Perhaps nobody
-cares about that one.  libgda2, libgnomedb, metacity-setup, rep-gtk
-seem fairly fundamental, on the other hand.
+	(a) whether to keep the #ifdefs around the use.  I vote
+	    for keeping them out of acpi.  In fact, the #ifdef can
+	    be simply removed from the code in 2.6.1-mm5 if we
+	    merely add the trivial acpi_irq_to_vector() to x86_64.
+	    The ia64 and i386 versions already do the right thing.
 
-	--david
+	(b) whether "acpi_irq_to_vector" is the correct name.
+	    I think it is misleading because it suggests that it
+	    takes a Linux IRQ and returns a "vector", whatever
+	    that is.  In fact, this function takes an ACPI
+	    interrupt (which I think is either an ISA IRQ or
+	    a GSI), and returns a Linux IRQ.  Hence my suggestion
+	    to name it "acpi_interrupt_to_irq".
 
----
-Here is the detailed output:
+There's also something fishy in this area that neither the -mm5
+code nor my patch addresses.  In the acpi_os_install_interrupt_handler()
+fragment above, we do the "acpi interrupt->irq" conversion and save
+the resulting irq in acpi_irq_irq.  The only place acpi_irq_irq is
+used is in acpi_os_terminate(), where it is passed to acpi_os_remove_
+interupt_handler(), where we apply the "acpi interrupt->irq" conversion
+AGAIN.  This seems wrong.
 
-checking dia.log...
-Function `pango_ft2_get_context' implicitly converted to pointer at app_procs.c:396
-Function `pango_ft2_get_context' implicitly converted to pointer at app_procs.c:396
 
-checking evolution.log...
-Function `strdup' implicitly converted to pointer at e-pilot-util.c:42
-Function `e_path_to_physical' implicitly converted to pointer at mail-importer.c:98
+On Tuesday 20 January 2004 4:07 pm, Bjorn Helgaas wrote:
+> This patch against 2.6.1 tightens up some language and removes
+> a couple IA64 #ifdefs:
+> 
+>  drivers/acpi/osl.c        |   26 ++++++++++++++------------
+>  include/asm-i386/acpi.h   |    6 ++++++
+>  include/asm-x86_64/acpi.h |    6 ++++++
+>  include/asm-ia64/acpi.h   |    2 +-
+>  arch/ia64/kernel/acpi.c   |   16 ++++++++++++----
+>  5 files changed, 39 insertions(+), 17 deletions(-)
+> 
+> ACPI: Add acpi_interrupt_to_irq() interface.
+> 
+> ACPI interrupts and Linux IRQs need not be identical (though they are
+> on i386 and x86_64), so introduce acpi_interrupt_to_irq(), clean up
+> usage of "interrupt" and "irq", and remove IA64 #ifdefs.
+> 
+> === drivers/acpi/osl.c 1.43 vs edited ==> --- 1.43/drivers/acpi/osl.c	Mon Dec 29 14:37:24 2003
+> +++ edited/drivers/acpi/osl.c	Tue Jan 20 15:36:23 2004
+> @@ -240,23 +240,22 @@
+>  }
+>  
+>  acpi_status
+> -acpi_os_install_interrupt_handler(u32 irq, OSD_HANDLER handler, void *context)
+> +acpi_os_install_interrupt_handler(u32 interrupt, OSD_HANDLER handler, void *context)
+>  {
+> +	unsigned int irq;
+> +
+>  	/*
+> -	 * Ignore the irq from the core, and use the value in our copy of the
+> +	 * Ignore the interrupt from the core, and use the value in our copy of the
+>  	 * FADT. It may not be the same if an interrupt source override exists
+>  	 * for the SCI.
+>  	 */
+> -	irq = acpi_fadt.sci_int;
+> +	interrupt = acpi_fadt.sci_int;
+>  
+> -#ifdef CONFIG_IA64
+> -	irq = acpi_irq_to_vector(irq);
+> -	if (irq < 0) {
+> +	if (acpi_interrupt_to_irq(interrupt, &irq)) {
+>  		printk(KERN_ERR PREFIX "SCI (ACPI interrupt %d) not registered\n",
+> -		       acpi_fadt.sci_int);
+> +		       interrupt);
+>  		return AE_OK;
+>  	}
+> -#endif
+>  	acpi_irq_irq = irq;
+>  	acpi_irq_handler = handler;
+>  	acpi_irq_context = context;
+> @@ -269,12 +268,15 @@
+>  }
+>  
+>  acpi_status
+> -acpi_os_remove_interrupt_handler(u32 irq, OSD_HANDLER handler)
+> +acpi_os_remove_interrupt_handler(u32 interrupt, OSD_HANDLER handler)
+>  {
+> +	unsigned int irq;
+> +
+>  	if (acpi_irq_handler) {
+> -#ifdef CONFIG_IA64
+> -		irq = acpi_irq_to_vector(irq);
+> -#endif
+> +		if (acpi_interrupt_to_irq(interrupt, &irq)) {
+> +			printk(KERN_ERR PREFIX "Can't remove ACPI interrupt handler\n");
+> +			return AE_ERROR;
+> +		}
+>  		free_irq(irq, acpi_irq);
+>  		acpi_irq_handler = NULL;
+>  	}
+> === include/asm-i386/acpi.h 1.9 vs edited ==> --- 1.9/include/asm-i386/acpi.h	Tue Sep 16 11:21:55 2003
+> +++ edited/include/asm-i386/acpi.h	Tue Jan 20 15:33:24 2004
+> @@ -139,6 +139,12 @@
+>  
+>  #endif
+>  
+> +static inline int acpi_interrupt_to_irq(u32 interrupt, unsigned int *irq)
+> +{
+> +	*irq = interrupt;
+> +	return 0;
+> +}
+> +
+>  #ifdef CONFIG_ACPI_SLEEP
+>  
+>  /* routines for saving/restoring kernel state */
+> === include/asm-x86_64/acpi.h 1.3 vs edited ==> --- 1.3/include/asm-x86_64/acpi.h	Wed Dec 31 22:32:36 2003
+> +++ edited/include/asm-x86_64/acpi.h	Tue Jan 20 15:33:54 2004
+> @@ -120,6 +120,12 @@
+>  
+>  #endif /*CONFIG_ACPI_BOOT*/
+>  
+> +static inline int acpi_interrupt_to_irq(u32 interrupt, unsigned int *irq)
+> +{
+> +	*irq = interrupt;
+> +	return 0;
+> +}
+> +
+>  #ifdef CONFIG_ACPI_SLEEP
+>  
+>  /* routines for saving/restoring kernel state */
+> === include/asm-ia64/acpi.h 1.13 vs edited ==> --- 1.13/include/asm-ia64/acpi.h	Mon Jan 12 00:20:13 2004
+> +++ edited/include/asm-ia64/acpi.h	Tue Jan 20 15:35:01 2004
+> @@ -91,7 +91,7 @@
+>  const char *acpi_get_sysname (void);
+>  int acpi_request_vector (u32 int_type);
+>  int acpi_register_irq (u32 gsi, u32 polarity, u32 trigger);
+> -int acpi_irq_to_vector (u32 irq);
+> +int acpi_interrupt_to_irq (u32 interrupt, unsigned int *irq);
+>  
+>  #ifdef CONFIG_ACPI_NUMA
+>  /* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
+> === arch/ia64/kernel/acpi.c 1.59 vs edited ==> --- 1.59/arch/ia64/kernel/acpi.c	Wed Jan 14 12:09:40 2004
+> +++ edited/arch/ia64/kernel/acpi.c	Tue Jan 20 15:32:41 2004
+> @@ -613,12 +613,20 @@
+>  }
+>  
+>  int
+> -acpi_irq_to_vector (u32 gsi)
+> +acpi_interrupt_to_irq (u32 interrupt, unsigned int *irq)
+>  {
+> -	if (has_8259 && gsi < 16)
+> -		return isa_irq_to_vector(gsi);
+> +	int vector;
+>  
+> -	return gsi_to_vector(gsi);
+> +	if (has_8259 && interrupt < 16)
+> +		vector = isa_irq_to_vector(interrupt);
+> +	else
+> +		vector = gsi_to_vector(interrupt);
+> +
+> +	if (vector < 0)
+> +		return -EINVAL;
+> +
+> +	*irq = vector;
+> +	return 0;
+>  }
+>  
+>  int
+> 
+> 
+> 
+> -------------------------------------------------------
+> The SF.Net email is sponsored by EclipseCon 2004
+> Premiere Conference on Open Tools Development and Integration
+> See the breadth of Eclipse activity. February 3-5 in Anaheim, CA.
+> http://www.eclipsecon.org/osdn
+> _______________________________________________
+> Acpi-devel mailing list
+> Acpi-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/acpi-devel
+> 
+> 
 
-checking gnome-iconedit.log...
-Function `ie_model_get_pixel' implicitly converted to pointer at grid.c:417
-Function `ie_model_get_pixel' implicitly converted to pointer at mode.c:54
+-- 
+Bjorn Helgaas - bjorn.helgaas at hp.com
+Linux and Open Source Lab
+Hewlett-Packard Company
 
-checking gnome-media.log...
-Function `device_from_name' implicitly converted to pointer at prefs.c:119
-
-checking gnumeric.log...
-Function `gtk_menu_item_new_with_label' implicitly converted to pointer at ../../../src/dialogs/dialog-printer-setup.c:846
-
-checking libgda2.log...
-Function `gda_type_to_string' implicitly converted to pointer at gda-sqlite-provider.c:675
-
-checking libgnomedb.log...
-Function `BONOBO_WINDOW' implicitly converted to pointer at glade-gnomedb.c:53
-
-checking libgsm.log...
-Function `fdopen' implicitly converted to pointer at src/toast.c:510
-
-checking libgtk-perl.log...
-Function `newSVGtkObjectRef' implicitly converted to pointer at GdkPixbufLoader.c:39
-Function `SvGtkObjectRef' implicitly converted to pointer at GdkPixbufLoader.c:58
-Function `SvGtkXmHTMLCallbackStruct' implicitly converted to pointer at GtkXmHTML.c:1024
-Function `SvGdkImlibImage' implicitly converted to pointer at GnomeCanvasItem.xs:32
-Function `newSVGdkImlibImage' implicitly converted to pointer at GnomeCanvasItem.xs:63
-Function `newSVGtkObjectRef' implicitly converted to pointer at GnomePrinter.c:40
-Function `SvGtkObjectRef' implicitly converted to pointer at GnomePrinter.c:57
-Function `newSVDefEnumHash' implicitly converted to pointer at GnomePrinter.c:69
-Function `SvGtkObjectRef' implicitly converted to pointer at GnomePrintMasterPreview.c:36
-Function `newSVGtkObjectRef' implicitly converted to pointer at GnomePrintMasterPreview.c:49
-Function `newSVGtkObjectRef' implicitly converted to pointer at GnomePrinterWidget.c:39
-Function `SvGtkObjectRef' implicitly converted to pointer at GnomePrinterWidget.c:57
-Function `newSVGtkObjectRef' implicitly converted to pointer at GnomePrinterDialog.c:39
-Function `SvGtkObjectRef' implicitly converted to pointer at GnomePrinterDialog.c:57
-Function `SvGtkObjectRef' implicitly converted to pointer at GnomePrintDialog.c:34
-Function `newSVDefEnumHash' implicitly converted to pointer at GnomePrintDialog.c:46
-Function `newSVGtkObjectRef' implicitly converted to pointer at GnomePrintDialog.c:131
-Function `newSVGtkObjectRef' implicitly converted to pointer at GnomePrintMaster.c:39
-Function `SvGtkObjectRef' implicitly converted to pointer at GnomePrintMaster.c:57
-
-checking metacity-setup.log...
-Function `gnome_vfs_get_file_mime_type' implicitly converted to pointer at callbacks.c:68
-
-checking rep-gtk.log...
-Function `gnome_geometry_string' implicitly converted to pointer at gnomeui-glue.c:1275
-
-checking vlc.log...
-Function `NPP_GetJavaClass' implicitly converted to pointer at support/npunix.c:341
