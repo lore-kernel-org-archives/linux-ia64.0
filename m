@@ -1,318 +1,237 @@
-From: "Yu, Luming" <luming.yu@intel.com>
-Date: Wed, 10 Dec 2003 10:06:36 +0000
-Subject: Latest 2.6 IA64 Baseline (Mosberger) testing report (Tiger)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3BF05.4BC2A5C3"
-Message-Id: <marc-linux-ia64-107105094421354@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sun, 21 Dec 2003 08:05:52 +0000
+Subject: bk pull on ia64 linux tree
+Message-Id: <marc-linux-ia64-107199397320597@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106863716316469@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106863716316469@msgid-missing>
+References: <marc-linux-ia64-105942507026161@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105942507026161@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+Hi Andrew,
 
-------_=_NextPart_001_01C3BF05.4BC2A5C3
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: quoted-printable
+please do a
 
-ACPI Test Report  for 2.6 ia64 kernel=20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+	bk pull http://lia64.bkbits.net/to-linus-2.5
 
-Hardware Configuration:
------------------------
-System Name: ACPI-Tiger
-System Type: 4 way 900 Itanium2, tiger
-M/B revision: N/A
-Processor version: N/A
-Firmware Versions: N/A
-I/O configuration summary:
-	MPT scsi host driver
-	Seagate ST318406LC boot drive
-	IDE floppy and CDROM
-	Serial console
-	USB mouse=20
-	USB keyboard
-	Ethernet Pro 1000
+This will update the files shown below.
 
-Software Configuration:
-	1.Bk pull form http://lia64.bkbits.net/linux-ia64-2.5 on 12/10(Shanghai =
-time)
-		Nothing to pull
-	2.bk pull from http://linux-acpi.bkbits.net/linux-acpi-test-2.6.0 on =
-12/10 (Shanghai time)
-		Nothing to pull
-	3. patch from http://bugzilla.kernel.org/show_bug.cgi?id=3D1634 to fix =
-compile-time bug.
-		Auto-merged without any manual work.
+Thanks!
 
-ACPI Features Tested: (prioritized).
---------------------
-1. Boot 				tested ok
-2. serial console			tested ok
-3. ATI (run X window system)		tested ok
-4. usb keyboard				tested ok
-5. USB mouse				tested ok
-6. NIC (eg. Ping or ftp)		tested ok
-7. IDE (eg. r/w floppy or CDROM)	tested ok
-8. SCI (eg. Press power button)		tested ok
-9. Soft Power off 				tested ok
+	--david
 
-=80=80=80=80=80=80=80=80=80=80=80=80=80=80=80=80=80           CPU0       =
-CPU1       CPU2       CPU3
- 34:          1          0          0         63   IO-SAPIC-edge  ide0
- 39:          0          0          0          9  IO-SAPIC-level  acpi
- 45:          0          4          0          3   IO-SAPIC-edge  serial
- 48:          0          0          0          0  IO-SAPIC-level  =
-ehci_hcd
- 49:          1          7          0       1096  IO-SAPIC-level  =
-uhci_hcd
- 50:          0          0          0          0  IO-SAPIC-level  =
-uhci_hcd
- 51:          0         29          0        824  IO-SAPIC-level  eth0
- 56:          4         56          0       4056  IO-SAPIC-level  ioc0
- 57:          0          0          0         42  IO-SAPIC-level  ioc1
-238:          0          0          0          0          LSAPIC  =
-perfmon
-239:     234862     229739     229290     228792          LSAPIC  timer
-254:         37         89         92         94          LSAPIC  IPI
-NMI:          0          0          0          0
-ERR:          0
+ MAINTAINERS                     |    5 
+ arch/ia64/Kconfig               |   16 
+ arch/ia64/Makefile              |   11 
+ arch/ia64/configs/sn2_defconfig |  693 ++++++++++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/Makefile       |    3 
+ arch/ia64/kernel/acpi.c         |   62 ---
+ arch/ia64/kernel/asm-offsets.c  |    4 
+ arch/ia64/kernel/efi.c          |   12 
+ arch/ia64/kernel/gate.S         |   10 
+ arch/ia64/kernel/head.S         |    2 
+ arch/ia64/kernel/ia64_ksyms.c   |    2 
+ arch/ia64/kernel/iosapic.c      |    3 
+ arch/ia64/kernel/irq.c          |   37 +-
+ arch/ia64/kernel/ivt.S          |   54 +--
+ arch/ia64/kernel/mca.c          |  211 +++++++-----
+ arch/ia64/kernel/mca_asm.S      |  356 +++++++++++++-------
+ arch/ia64/kernel/perfmon.c      |    2 
+ arch/ia64/kernel/salinfo.c      |  525 +++++++++++++++++++++++++++++-
+ arch/ia64/kernel/smpboot.c      |    2 
+ arch/ia64/kernel/vmlinux.lds.S  |    2 
+ arch/ia64/lib/Makefile          |    1 
+ arch/ia64/lib/dec_and_lock.c    |   42 ++
+ arch/ia64/mm/discontig.c        |  146 ++++----
+ arch/ia64/mm/init.c             |   21 +
+ arch/ia64/pci/pci.c             |    3 
+ include/asm-ia64/acpi.h         |    3 
+ include/asm-ia64/intrinsics.h   |    2 
+ include/asm-ia64/mca.h          |   13 
+ include/asm-ia64/numa.h         |    2 
+ include/asm-ia64/numnodes.h     |    4 
+ include/asm-ia64/pal.h          |  160 +++++++--
+ include/asm-ia64/pgtable.h      |    4 
+ include/asm-ia64/sal.h          |   12 
+ include/asm-ia64/spinlock.h     |    2 
+ include/asm-ia64/system.h       |    7 
+ include/asm-ia64/uaccess.h      |  349 ++++++--------------
+ 36 files changed, 2082 insertions(+), 701 deletions(-)
 
-[Dmesg, /proc/interrupts, lspci -v , .config are attached in 2.4.log =
-below]
- <<2.6.ZIP>>=20
+through these ChangeSets:
 
-------_=_NextPart_001_01C3BF05.4BC2A5C3
-Content-Type: application/x-zip-compressed;
-	name="2.6.ZIP"
-Content-Transfer-Encoding: base64
-Content-Description: 2.6.ZIP
-Content-Disposition: attachment;
-	filename="2.6.ZIP"
+<kaos@sgi.com> (03/12/20 1.1524)
+   [PATCH] ia64: Convert cmc deadlock avoidance patch from 2.4 to 2.6
+   
 
-UEsDBBQAAAAIACWKii91ZO2JJTEAANjIAAAHAAAAMl82LmxvZ8w7a3PiSJLfieA/5MbNBxzLo/RE
-cOG7xWC3uTY2Y+ieuejpIIRUgBYhafTAdl/cb7/LrJIwYLCxtzfuiG4HkrLyXflSceMF2SOseZx4
-YQBq3ayzWsqTVFGgEodh+jfbibxa6s15fAaVueNsYLW6WtdAZUxjBlOhcs9duLZTuBEYxdOays7O
-4F9MGA2G8Bt3tXLp8qoPa6WuMJg+Qf92fHnThlHnJnlKUnt6zh61Gdcdy2HQ6Q774npm6YzJa+SP
-5fc0ujcYjvJLlS5Hg4v+Hd2Z4RUrl2hJG+5HvSFU1gx5FPTglM8Z/A3YI8s/BcEC5e+j3ligVAqU
-o3uryS5udVqksKZK1Aajq7FEouA/7RDK1gblVSdHqf1jKBXNKlAOOj+HS1XbcNl7Fhz6Qcr9HZT5
-Z4NSEZfuLsriUy79ZseBF8zbQC42QfP7fBLZccIrRGwyuu+MzyDmaRYH6FrsL2+vuOnvr+Azr57G
-3mqShlEbvHkQxogA9M8XEM5gxVdh/ATotMgfuBmHNIR5bAeZz2ER4h/56Cge9QAikvojuKyXqJof
-RKU3zZfIWh9F9hKV3G4fwKUoBxiTe/kkbNMwTcPVFkJTNxT1sA3ewIlBB9ZanSltCPnqvDO4vO93
-O7cwuPzUGd9f3vZGuGu6Vah0zzqDfrUKURy6mZOem3rtoj8GwLs1ijcSAJSWZWC8Y4pA3QYepPFT
-GyLbn+BKR4Y2ZuGmqEKyc1O3mMryVUPfTmdhvIIZt9GNeQIXWXITOkvo3/86wRDrxdxJMfzm8J0h
-PNhLnkWQJaQP/pjyOLB98HB3xnEWpRivnTSMgaJiuTTFkE5wcx7w2HNgidC4izGcRwVl15uXS93h
-F2BtMBVYe3GaIUI7cMFgEC2eEs+ha9dF9hKYemlSLnlhYkeeM6E4zlcTL/BSjBZegluUyA27tc4Y
-nHAV2amHuxYs1Wg985gU8QUlRdSdYb+7wc8enTxizDjPI0cOPBKAFREMPPcbxZjv4EtGxLWjb665
-uKFY39EwFDfcs1xIqBCcYp0VD6ByMRqevUJE2SOivklEEUTULSKvoFf30JtvolcFevM09NoeevYm
-ek2gZwfQo/dL/BL1d5j74RR924v/nEzthMubuSW/FZF/xqVFvyN+2OBYY26vblm9gKrCp1GfbrAa
-Mtc8TFo5RJokOUBbOYm2skNbsZC4OjtMXD1EXDssuHoScXWHuEaS60ck1w4R1w9Lrp1EXNshrpPk
-xhHJ9UPEzcOS6ycR13eImyR584jkxiHizcOSGycRN3aIN0ly64jk5iHircOSmycRN3eIt0hyeyP5
-8KYznmARh0URchCFvh176ZM0PybGOVbn+cVTxOW3PCBSCHze2EWYljmBbvJtQb6XS0Tp6u5+QMGZ
-fK9NHNEOMCt++FD1+Zr7Z1D7NxDBU0TOIsM8l4k5p5O7r/dQmWaoDSQd/0kq2iYnr7ekUXalQZXF
-fO5hRokxo6RxG5yFHcwpoRQkWzCLwxXqtSYUW+PuXKT8zQ3BcLmkE78J2Gvb8ymEVSG/k4apjc/v
-czqE2+dz23mC7t0AeYvTBDAtQoLPMDU5YZBgFVEufc3TIlYdk5UdAbYvBCqqCxst2ZzRZyp8oFy6
-CyAIXY7ZRtCL7DlPMLsyTWfkFr1BB36EAc9vgXhehZv+1R1M7dRZtHUCu8X0jCQl5CEohaCuvfli
-wFevg11knu+SsATlo+hCSMEjrimXPsu6ADP2ihI/JnHEdXF3h1446Hy6PE+cxGPtP7Cb+yPm7sJO
-/1ivECirqyYA9Y3nDZevG4lrq4XOztP0aaRUW+jogbV9k4Xl0ixKHmxZEMxsR1Rp2HuoKpZL2Ify
-NWDLqKI/DPs9WNjJAkTxL4osj1Sps5YJlTB2eQyKino0DM3EFhNb2bNNNUPbFP2F/3mutFp1XTMG
-1z+q0B93IcayJDxvNVR5KWCsVrOuGy2E+WujVlOiaIWIJNfoiKEfZjF8/dT5K1iYAgxkzbcd0mgS
-ztIHO+bogzC+uYApTx84D9AveBEUDMUQPW1t56YmbpZLA1HItqFlmJapLxst09B1tnx2Xqg0Nctc
-IhMuOjIWnvQUIwmP19ytgqZaxhJcO7WroDbVJVA1hlq44faaGBw4n73A509wGaPcNrTgIYyXdhxm
-aOlNhu/avjclveAKl/v2E/hhGNXrdVA0Xa2jl16E83DQH47KpZ4odsGxnQU/aB5pDmmfNhhVMFRd
-tayNgfrkebWPrx8g7+kr6xWm6pvlGGUVU7P0zerh3aj/O3kk1b92gO5HExASfPoEX277V/3fcceg
-U1MP4GDExq3iuVSSNGQELJdSO1nCypsLRwpyTbjcQbWl3oqHWUpMwCrhTlLH2p2iBRF4XpIuYm67
-Yhs6UUZ78IKiEQFhdY9bdrihrbdMy2oo4CWQRF4QSBg0TV5tvqNuz+F/ws54h7vkRJOnwFnEYeD9
-wKKbkD946QLyoty3MSa53myG1a3z5PgUwlb2I/YLoCut/Jbc2oiKFqHdgdob7ta3laWIB0mUBTs6
-gv4Ibu9+gy/Dv5xiDmXXHOo2BYM1FbWhHjOH+k5zqP8X5lB/njnUV82hHjSH+k5zqLvm0HZ3h9I0
-G9oxc2jvNIf2zzaHZtVVa88c2s8zh/aqObSD5tDeaQ5NLBuBi8UExtZyaUxVDg1l9OeQicWRk3pr
-O6UWG8M5aulZ7DOkfHs5bkNRiCEQrkxDTLQws1ee/yQQy/pylE3loAGz3tqTk2vGNOzZ0DEgnT5S
-DVFjitKEb9TwivbXD21XzgwTOeNty5nyWN5KMof4nGU+krKdPzMvpjQ4tGMxWLF9HzD7pzHyM+Dp
-InSTdv2nf1BzInF9o0Hrd2w14IoxHett9BPLgLvp37HuTaQrKJhPeig+co2qUQuusBQSSsRKRaoL
-bu0VTyKqqnZkJH2glrHSonoNbFmFoA6nrDWlwTRfY1+yxrzKmKWiIvVckbJE2BqWo0GkNXDL2T55
-xhPWHFK7K0zshGoe8am/rLEmGv0bw/aJrycOgqZ8go8mU59mXITq0/ASGNXJoCnwbYKX39GLsA+Q
-xfX2p4v7Bk1PnUqLarNV5HPhqFL+xpXHfbdxkc1mPG4MbWeJlbAohrCS934IT/6wDalmyRGhEnXW
-eFY7KJibBW0yTEMxQbKAV0ZDMSDnJIGKorU0UXTTXr185E6WFr4mLQuT0bhDQQqbP9TlT/S7cgkt
-vfGfmaj9sAJKbU9O2OkpEcdyEraJb1o8KtWjmOPf/anQF7FhilaXYsTzMBKLTBJx09d2+3BP3ofR
-nDq3b3gDe8UKY23GqDLrElAcTuUQsY/RKnZFcY12x8aSIAtY1Fro5HMiA3sv2RnSIizEiQv6eoFr
-8iUYVjzBtSDSLybKF517VtModvV7l0IluOV9lDJf1lZmdeU1/pWcf/Ud/Ktb/M/yT43eSWxkwD7z
-gBDqRojj/Kg5P9Y7+LE+yI+14ef/y+rdlQc9wTpBiVquxNY7lNj6oBJbJ/Cj5/zM3sHP7IP8zN7i
-pzu6upL8zN7Bj4AddUd9TEtFOveeY2q55MYevWtuZMm04YQxpy91pw3xc4kQ8AeQYLDIphiTZdBp
-F/MhLO12RlXV51i1D6q3Tge1joJC5Hg02qoxjalbxUd+e4INKHIrEt0XmUYx0eU3+/e/Cu27MvRL
-5e/Gm9tQQC2D8CHYi6wRZVwKWweXv1CMcrK0ZvNkUMM8HfQdWI+rex/UOt3eTeNk0NbpWK3jWMW2
-kLlRVEZkPjLmJiVGPJ6tsCTZOo3BBIRK7/Q3T/upHXjZCiv/4eALWjtFyjT2wTpjOOhiI6BY+KWX
-0IjTobkIVR4VvSl6mjN5AuOrHXuy7L2yHc/30idYszozqYxWaz3u1BQsAIedG8zzYigiqv5tWGOL
-I2yacC8mNtZfJJ1cgJzN7MxPJ/JyAz4p7icI3t6DEoPxrQ1edBLX2ZzTLK14x0tRzBZSMyrEEoQR
-pJfBLMHuwgmjp9ibL1J6ewvYtJkQLr34b0jeduvJw7Tucuo4Mnf2HE4E6xjnZCjaBLvwAYPLRZam
-qIDK1dUZht/f7q++b55vWqlvaHWqXZIskmPjrnJ2GEo5CUo9CUp7ARWlT21QcSt+CbzHlgV4nYjh
-ljfPhErJAcbeisOIx7L868kQimbVMSSLSXebXtEyLF4NjKF5iP3lPu+2sDys46b4hdo7IlwVbppg
-nBcNrnjtKxIxhT45OZ8QYBt+8Dis+TyYYwODyZhuYhMdzPm/l0s0H2ZU5Pcbd/TqYWZBBWMmnIOO
-LRD1FiDY6bwX8f+IyfMzZnULs7GH+b4z6PVHnwuRtxJSm3YYPib5loloblnL/AwJPpQDRtHE0GW5
-RO19u2ixKtiag5UHZjnuTLlfuT+D4f1dQ5wXueUpDWELS9Q2McCoq3WV1ZYKNTgbr3aEV7fovIGW
-H8TphjEKLTZqPQ82V6KqJ9NguH+RWRTMDnX2rtSALQCTpf9h7rFBDorjCdMwoBcMmLBxT+t1BSoj
-HuHGmtKE3qiKhv1sAyZODFTO2sCxtUWIlefhZgVkx46jichy63xcI25E2MnHc55Sf0lHOyI7xi5X
-hLpVlqQwxWY34o438yhIhITzwaPJK9HbjjCil8YIDIN+n15zLBEjsiJ6gSp1sWRDmNq+HYjpfkWM
-yWuiujkT3e1rSDv3wy185RJuSXHGYoAhz6ttDntc1qjXyF3ueZM164zZfrSw1XLJc3kbOkmSrYgL
-TRtc/4C8aKKSCoXlch4zRO8ntpJ/hRDRYYnG5bwAvyDk+eNjubRwbToeNh5d98ed3tde7f5uAKP7
-mqU0zSp0xugP0O01iieCMVo1pRMFNUVlDRXbXTT8l+seXPlhFD0Vy65u7obD/yyWyHRnB6nneJGd
-Uuz2QkicBSerxUIslh/ZmYkX/LNmlba+KRp73KKanrMr0av677DDVpVC3fICujRxf1ZwdwtkW6Va
-XZHKrM0E2wUEq7dadawmPbcQFEst2ujkAtvyq5reNNTlBdI11YamNjDQdq9HeNlqGbC8iDAYGooK
-idxMFA0wIxuoq5gGgSs+R0/1MJhQpmN1jc5N+pwGjD1MaG06JQlXfIrbG5jVNpS2xuByNC62S4Kh
-7mtRHtDRS0tRqpi2HnHZNJuJWKSpTRN3bdKYIxfzhBRULoUJ7oo2BoWxHfFCauEXd8Eojbm9gjyN
-bEKP0AnbWvpLH/mmq7pTpTdypiXqhQZNvzWMjm1Na2smxLjnOFw+RvBLuXSVCVyD4ViOUXPKKLxB
-8jPtWFxT0dX6cBPOPWc7tr0MbebL0GZiZ3wwtB2vT1dRSvxRdKOIL+YwXugwmNLOzSI64uRg8DO0
-roJqb6PDRfaUyiGPJ+f/la8K4/9+yWDzCIOHyvLjVfERBpUdBpWTGNygUoVdbNeOROQUUyD0ZPR5
-UVGJWfGWAUWzdh3S6PmlFcUbYWxrpJrQdjkjVbh6wP13zhSmaA5jiyrWVFgznKPfDuzHX89VwxD1
-wzm5KaB3B24Yt2F02fnUGV9iqzTAaIb1yGisKZbOzJtuMXdEtFimdIg6wPgpQokAeuKEXK0jJp1w
-8NO5RTmEMPEmMBAScSu3U0IxRzMM09SbFu3oGr0thIX7EOd7m+Z3lqowGFycHVgrVCRfBLbhIfZw
-cbrA5DFfILcCAv8oIN6Q4x8k30lTgsZKGlUpgw8+oOgodFsVpx/orTx+9VxA/flZQAXw7sLiaF8y
-Z2+urYI4MQJsW/OXo0+10fXXLc13O3A9uhjCQGluaZ4suq3558L06Oeg5tXjEihHJTD3JMg9UJEe
-qHzQA5svdi/2+od6crfefNdcgC8cb7Jw3B0MqOrrbr6juptB41FgSoc6Io0cT0xqNuciW7P8wPuR
-hTQl+TK6EIXCc5FSBTtJvHkgMkcCQSZLs1wDiR+mO2jEiyIvcMKY9peY68i33HQ2RBbBWBIz+VId
-rSXhKEqlISiqdZQ74oy6vlxXVakUpU6noYo4g5mu9h9ZUFPQzFkyBfyviE6ITuQeU+Mz4MAOspnt
-0IFa9G/5A4WdnzoUrG0vkn3QrVBLe8/yiwwzdA2v6kwKQDdE+Nx7ZuZHiIo2fXeqtUCWGxnSriFt
-Gm0RKixhCIC63l2J5MxdHI/J9bIWSWQ/37AjHnsoIR6fbGQHrEXCHlb1YWDyWIP2ayiTP9v66DOL
-HV34Ho9V39BpoXrMa8IWGxurWx50RKwN4JselO17kPqKBzHpJeorHrR5pr7woP0I1Tpi7wP1xStD
-zkOWUN5jbyWPUK1j9uZH7K28z97aR+2tnWpv7SP21l6xtyJtqr1ib+24vd85B/dcdIUPrNpd4gVR
-ljbwdo0W00JqWNrE+XW/R+G9iEJYT6LjoW5HDRU7z4yKfOmLdHowlHNqeqVJYOWSnS6nwk5L/jQN
-7dgVJ9fS/B2DaPsSmzGTNWi+E+6rrvCUnAT9cIF6FnXLV4ozHKq0jVbb2egkAL0qkFjVgwYRlNGd
-Laar0Pnyu6Qh2lSTYX9q6rI3NffQNF/Y7p3Ssj3any96x2irbx+YQJD+sF0MmF8ez8N8nR+Ey5wl
-pzEetoqfRQIvl8ZdXHq9Ad4eIUKF06/1fC+hkk3R6KdkMPUwHolzevSaKY7yoxZtMYIV/VzPXmPh
-NqrDwJPb7S3+lT31HrG9csD22sb2dWXP+nROIEyoHv+c22QHdnfnj+5u+r3x5WfsrmhD5P6DG0D+
-hrHAAN8KwCMkvhO3SKW2HRVqIn2/vuucNPYhi6d0wDjFIFjTVHQhh+OaN3fsP2+tgK/KUNMy97WS
-n134B3Ryitm1A2bXn025He0HnhOHdC4XjFo+yh+IQCUGIP9L3tM2J44z+QvuP/hqP1ymbrLB5iUw
-dbkqYxvQxm9jG0Jma8tFwCQ8m4RcQu6ZuU/3069bsrFkJAOTndmdvdS+YHWr1VK3Wt16pfOZ9yvn
-S3aSeO8ECqIybMkotIHR/LUs7ZhyVa3RPKCfgEf6+z/Wr3jwa8F2ouPMq4Zt/rDaaNvp0zaGrutH
-3MXhTJPm6RK65wNdIlpwSx+MO7pZFtJxH3ExzzkZxB80L89Adw2dZJ83TS4vHr+cLdaP919w6uA5
-y9DwvD5CnRfFWbOHfHszbk3u45a5bHGYwFsSgbdLcbU4gQ/zCPJy4umN1tgSsEShJrPH2836SSbS
-Bt/Bc7wd0iq5gSr+Wuztbs5ns1arhUetcIb5hH4bLeOdlt1nD9njhiXhQUjQP83JE//1QhusnsFH
-SWyMs6FlBIpdPRMo0uxa1oTQV3PpSsjFOQa48Bt+2ElDcx4X4eaCdtALCHlDYl8Yi5PYScbhOzyo
-sbwAOr2Wgds/NNyiK5bXbFTK67Dy4tDGMmM2Z6T1Zzc4uuQsGAULMAAkuoyFTu+ElmfslNfZlpcn
-60X9SGBpJm4n3JbT2FZ1uVSVlOknwTiBqkJ5RxvA8zZnACuibewVrTE7SrSGqCw0+7cULdAXRTs/
-QLR6wYJ+vGjnP4po/3/22reI9q/ba6UmPh+1v8K+/2/1j5vpxM0A5U+9/GmUP3Heutn6UGbSy5+N
-7S/uZ6epaZWzbrish7O3zR5HR5qZ/9njyNATchrdpgR0Wm05nZY0VcIPW5VHSt1jOGrsclROymmt
-nryVzgUCDIonwXZoleG61m68kS+eli6lZfQkqWDTJXXc3KH02h2OTtnU7c4unVajLakfrrognfMj
-6gbxpYwOuN9G81jZFX/5gXMt3+yDpHLRGc1Wt8OU3zB6581e8dPoNfKf3fNe0Ts4Unh+CoJFo831
-lGYp+G7Z1lzuHqevBSESEvClPXJU1cBTjqIPQkI+h5dHNcXs0QduH8bPIOxuQ7f7FOdkBM7tT2AE
-6UFGtIYn4MHfnq6WGpifX3Eqip0OZn/bww0CRdwvyLb95V5xs0UPO+R/g/vZLTjzOE32MMMw4T34
-2QvcJgboL9n9e+1+tske519wxYTNEpeZcVcMm7iYgZe97AJTOJ9/0TR+Q4ub27wj62v8terb6inr
-m0nre35ofQ1JPQ0g6ajrWalaa9FZfmjMu6231K9bZvbKm1Dyv2KJCFwA4/RmtXmvPa4fT5+es2W2
-md/hRM27vA30y99KQvwSMgzzbRjY2X44CKFmt8zdKXYLGOps3d+0nxoz7Vej0W1sWziDHoSLSDd0
-E7GkdfvmmWWe2f0zp882JLPdxrSxu1Wlyo9GLzI8E8u3uqQhl/TwVLUZyyz9V8jw9Lx6mD1/ucBV
-KBY00y/9Pe5Whth49QgZ2Xc2P82pXHRaopbdZHc4LVbUEUWAlwxQXwLPKOzIrJJhmZ/KOV3esP3a
-RestcWtobKpbD3TTDS1uyYhbRyr09avUreRApycktme2FR3kfvM8w8074Giun/EAjoSRUpZdUBOP
-cqDF2TyEiH71HU2FwkT8x+tjMfHwn382Ct1vl3fVDtdVyz7PE6nt78U+zd/4rg/CZRsDNQc3zT1m
-G+4MTFXE7VbD8bTh6ha6+6bMsCNh4xvIsNPx7v5HKcpOKx/m9FqzeLPMDjSLRpc3jIJI2stWIZJO
-S209F/Ovsp5Z6zc0f6dTyhvr73kj/azMtARL7WUvL9jfYlAFFuKR7X1LH6CBoL7/rn18zV7BjJ1h
-lIn1PS00AEIjvN2Av7OJ1wMzIVqSze8e1/frWygTaM+1CIubukzoxnnFRAO1bzHsw3+fnuhmTaUq
-1KpAbmEPUIGOp9SA+bZTGm15r+RUbnFYeS1e4ZzPT7NHqim4rVGkR2sg6c6iylYH5T3aCFpgfNDn
-OEjj+nHFtJ83QkMLO62RgQ3xmfrXrKs3K14QCU6m704RYc+onPfnfYOzpEX1Q32b1j7fRtnNWGss
-6l0WrlHQA676LELTHOuz1LUOr+Ci72IIvkuz4ru0j/Zd8I4i6rucH+K7GEw+p8t24bsUGUJOOMWZ
-Dklx+Jc1l4zKNuGGJbxJktmPodcHDk5v1evlj63XnYpenx+t191CwXqH6HWHyed02X2LXue797Z6
-vWy8Va+bpSRH683p0/3rbY3vJoh1vdFCRN/x3JrHj9iN5k3jEJnXx7Od87q+AVYht/mdFusbsn4h
-jsWV5uzU+lXQnGwTOdut+pLHLnxzltvTz7T4y8PNav2Sf7ebc9x3mpNnG6hPcQO1jVeO0IioaeSU
-WTMf38p7/aID/eOOwqXpdg93abqFS1MIQ2WoOoKlklKafw0ltXfUpZzJvCNvj8083lPHeY6vdboV
-JDvdQ5RU/7srKWcLRCU9wu/uVi3GYaolpZR9DaUaJc3+7kr6NxqY2vUTrY1vPzD1foy4bHHzXeKy
-3g8Yl/UE/3VW8V9vjvZfcQaAOpKzA/zXReF5LhZv8F/nN5W4bL58q//a+zHissXBk4Zv1esfLi4T
-9Xpe0evsaL2+KRRsfohe57tQTjPjDXq9yP+/1evF7K16PfurDH/LP2D469b2jfnNtx/+5n+V5vwj
-vInzdq2pmX375lz+GN7EvP1dvInlD+hNLHmrS58X4ayufvwKNZpAav4WB1jdeTEbNj9/g9W9qXoT
-N2/2JpY/hjcBev09vInlD+hNiHptVPS6ebReZ4WCZYfodZfJ53Q+e4NeF0e0Sy+59Ua91ht/leHv
-j/AmerV94+bbexO68Xdqzm6tNwG6962bcwl2pgvNSU/WSgzNbr3xZhy2X+Ar5he7jW5np9U4K1Oy
-pB/Fkv49WDKOYsn4Hiw1j2Kp+e1Zmh+nS9vHQv4olg7ZNlhwepSK6fqfyOlRmqcbfyKnRymk3vwT
-OW0dxWnrT+S0fRSn7T+YU2kn7xzFUufbsvQT/KOZr5s13no6n+FV+fRCohkeen2Y/Z7lJ+E/4HMH
-/7bRYETe0Fx5VgsfUXrA1xvxqlR2rmL9tGEX8gOGFfgDMkydaehExHP8xHQvvmyTLdcx/dQKvJC4
-DpceJ6Zvm27g08S8KHpWCZzwl2yDF4CVxOMrM+QzX8cTElpcSj+20zAKLCeOU9OyEhHZSniW3ADw
-x4M0HpFBcqH3aCUZiFyyH3iH5iP4Q8AIB3W8vmPbji1Ac9il6brxtRdz5QzGiTPlvp0wcHk+SBBb
-I8dO/SAIJclmLEm0HdN2idBo7nq2YK47uzoyv/aObz4vsMeuw9NjKenYdwPT3k0fBJElgQb9OHCd
-xEG00Iw8MePEiWIS+Hwxl5DMsVreqEXvuMLbL4t3QXl2idlpcUQ6rT7hBep5Y+4ruoodL51ao6Fp
-Q6O5wyAiyYhnLQGtxMfmnAgEYCbAIgJLmYMmkrEnE6pnXRLfda55QQBv6dDx8XVVkQwCbJXqUOgo
-TGPi1SN8muo1CPGQpLFv1GCE5tCBUj45Kb5zewhet4Inx8KHbnfrW8I71eJyNLzjl2s+/EydwU4S
-E08EuhVVQZdO5DtuypKqknD11DKhZ+Sd+ZxjsBAedKTEgZYPHYsMiCVj0h97JkfZJjH8SsjQc3g9
-mpAoGZtuCqmpx+yR2BqeZcqohzyR/AYj3kzQvuaZ0/QTWMMgsqEJ8AmuLe3ReOgkbp8X7VAh2l1U
-/XBUiJQ8qQx3UTstT9QGScFVYnX1ORxVPxwVL3+pU203JbY4JnmiUEEfHdxBIiXRNNJ4HIZBxJsm
-HOdMPgHGxIHHDE6lcOIPgl0VihlAViT0mnRiRrx59aMU3ym6wJeE8qQ+ZPeS1HEHHF6e6IFec9aY
-3tp+Yi7+G5+IW2DYT+/DYXejo21m2zHQ/6AHYt6BV7IztNAuig8pVrttf5wkQsVp6sDcScqH7WCn
-4ycjJ/IEZ4ImVzorTbOd/ni4y0G8U1ZwtWtgQmvHHIHPkLC+vxUPTY8c15zi2Oy50p4uUIKv1A48
-kwhDIqa6ztC0rmnNKxDf9IRxehQkocuqVoyhbGaHTuzw8ig7AsuC5AQet/k9i5hn1ux50X99EbyF
-UvEpjjT37Bl32NyzG0zkmc0Ie4Usd3EW3WaXdAWcF7nNPrhK0etwIhmBfBJoe1Ljy/bFnxMvsd+J
-lCBFWgVsOare+G6ZvAp+KMvZp486Mde7wnXfvQQlnKQDsUgBboUfU9ush1sEHNg6JCzENq1ep1GP
-M4ZRSqaiBdzNnc6djFZ0HSYBgusL8PtSP7gARyY/6nGp1DZf4FXzO1DikyTi/UUzMc/oPdln3sA7
-i1xX5twS25GUlKduZU6vpH7JMs1ez19xbxk1c2erRfbz5jN7LfYuu386Wz0u13hDwvYCc8Ez5ajj
-rfq8WWcpqTd2E4LesCMBxkkUXCq4tWx5OlRfkYNdTS6H4TZHkYE0MYEDEoixUAEYQHQGQK7J6GtR
-d6snEG7R6mc3r7d4NbeqSUTzxxLAMTMjIB19lDAaDAb9wIxkNedc7GqmMCEdQ5fX2/bMwgrvaGwO
-pv6WopuWFFJznAR7ka5IWNcJTJsNVTusmI7VMabT+h4GroDenjb3IHn2eWsfJcuzO609OElEBq6z
-j9B117A6vT08WXG7beyxT4jT3IMzCpPmPrYRp9Opx4kt3WjsKSskZE9Jftw9b+ntPWRsy2iAZNPA
-rRkJBEzfudrD/uTqMt6DQugz1nuQXKvXcPY1VhJ5eINFLc6EmKAH04raSbuboP55zyETVWTK4Oqu
-h1A/8Kuuza5WSEd+4jiOpjd7Le1ksHrOruDfd9tXAk74CayKJ4EZaT4ZUSMoZuOkvgTCJdnYixli
-Ru0kMolNfRN34lW9GWmVuNvsJUzkWQfjmAiuOEuouu15Kkai8RCHaK70HEZix48VapajwPgiY1S4
-T36Xxcp4hZ/UPU4HMTcm5a+rscaiU0gneK38e20ze8re549kvOPpbnWfH2OsUcQSE0liEAvJWwKR
-NDGdOL4thC5b4rzTHq/xeaKyCcBfzX6+/Rk41v7x+nt2s/5cKuIDasYTXl019l+qbZT7FwCqtlbk
-oNeNkLgKgt843ZrsANxgOCS+wCjyeL/+Z35/Tn45laiJRe2bVymYgGlKlVaqErQQ04IRvg5uWvso
-EOtcYWx4ONpcwdxsgT3VAMkw7InpQ8SnpO9BuIYs7hKP8SIINWWIQKGJiVWDAk7/wEoU5p1i2N60
-qff0ugZy6tlAMAxwCptKUQbjZAxuGgtXa/CGdjKqAZOwribg35t6ZSAWWvPaazetLkjSqGpqCaID
-hG1HThyD6jJPW1ciOwMTOgy4uENhlqSChiaPouCum4qEt0gE2iYMVZ4jRf5IpQ1WUhE78UgD6Uwk
-j6Eb3cauytlWs9f+XEPfj8OmYoaYEcC5EpmJzl+9whtOJRbadxLOTnC4krWg0LQuGfq2aJaUetCG
-ct6Avkt8allkDTP2yVQgCPjppXMtwyU5r8VnyKymZcYiTwCgfR/CgTQKxkllzoHHq84ICGyQkNRC
-h5FiyETOaMFysBmFqjgFCTuWqqde44pbcEkcRW+k2U1FR2a0VSpMWJVwolOmQ3g/9yR/ix6f48ue
-xXnFfxF9ozCdqFgMJwpHFUJl4EEO60fErrjBpSQgxs2XF3j5sFR1r8AagbYvV/ebvZXxBzjW+kkE
-yq6UOCB9HDtjtUoAAgkTs+860iGJYYBuMJSqRjMYq1VdEYAEds8furWMsAltFPgI5zEPQh1cQdwr
-a8rYSsLKNLPE6+YUIMUcaVqtIqUj7zGJYnlt4pp+2m0Y+kc53HUt1apaqPAdYFB1FVKeGoow0TVD
-ReiD3comEydSaLYD/1dp/RXUrc5+Ie2BiZNPSlODKKOrdOAGV5ACmFIn/uM6xujkbP2MF/4/a/+F
-ZyrpQ4A/VWjR1WoZieJpRXx2QpozvEyGjmjYSigMDsRy+JDAjCy8okk6KQuwapvlEHvsecLMWeDb
-uSNctvjHsemST6pGTca+rH7bS6NO9IYG7QT+jnez2giqTQ0srm6I45RHxHmrEbgb155junIG4rE/
-dBTqjiWwyCRtQr+UMZq83q+eihvXH3Op1AWySDMZu6qhbhQqXDsq1MqUXIiCUXkppmd3dV3HJlIg
-2GaYOBbuIYkGRDW49lstOcAeRlLD6jgQcUIlRC3IE9X+s1Ot9xYyANn5Cuvhm0nseIppDN8xLnfW
-b7bQrt7sWQopICwJVJ4+iXsqXp2QWMqKgKrZ6CbJoRNiptEIHIN9/QHIl32hlKbl+EQRItmuIZpY
-rs0rcsIUaNVQ1aRxt9lVTUqOTM+0Roqc144LVnGgCouirt7pKdtbV02lxZe9rkukdi4hw8BvXjwo
-2lDaiGSqWucf2LaiYiMSqlorDFURTLX/52zgXNo9PmAA46x2gpup72YPz7PFal1hFK1BZNpEOimW
-rH/PHrWIProsM+hJ3QCnirLBjMoXE69mj+Vtj5WSYEiVZTEfZpvs9VmLsGZyMwm6pKwfebZN7WT1
-uHyePWeLd3ICJKqs/+Xg/v1rtlmvN3fybH3piiuJbR/PmRSPgAsFAQznAKVDPcGrxWsm7IgfjvmA
-cPySPd/jzGWlRXl0CNbHsQNjOB+cCYA0jM3xVA2Orchx/HR6ge9T70G6vjjvdCs4vwTXefFlK1BA
-EiviTgZ2JvJszkQVNdDmw4M70im0oek5O4vkhcIGYG23GPxECDjKQfU7Jfiw0k5q7ESy3KmVdA3r
-XG/sAGC0CWODEyirAVtezxfsJRKFCLy6glckgYN82RfnzLYgGFAuK+vHu0jTZD+O71wlgdSKckrB
-+1j4neY13ZLbpmLoDL4FsRSRDkPEFlN5ZVs9i4GKKghkKheMrRHT1To03LQj0zDrbvY8m2NMypvK
-POuEl/wkoTPAgbDXCZx9LrG0lrRquMbCNuhGUieePQwnqLaYv2u0qyqWp0pY4aGV7YI8aGTZoQLk
-R+nYjJL4orVbFYrgTBPwhhURCQxWiKSxm/53d7aI9KwgkjCPqZKq4axVr5uGyXUsTYUsYz+5oC9a
-F/3OsFQLSVI9wGTz/nb9vNrcPTBZcJDR7HnxTxhstOpeHxlOnD2+4DvA1h1EBioeUlwCCuS7c1b4
-IJ4wKI1j2mXkCv6RWA0jxQ0O0oqFHqmUDikwvvq2qxrQN/O7xfpWw81NFYt7ZSbWyA4U23OhN0RA
-N1CFU5PIVIAgVk2jRDqXixv2ACT0LztRzRlEzV5HEbBAHOgSRRg3YEtf4CFq+QvwG/ogOrPbxYuG
-pRabwxA9y/IrJa1Oo5LE9iFziXYkboaD7zSxB4rYBqEwfnmKNQkER7rRlbUZhZm2E/hYupDFG9bQ
-A1db0azmFSDgxIpUY3GtDc8gzuQO54QAKztT0jmOvbpdbcBgTFaLbK31n9ezxXxGZzWKXWkiMbuy
-7F1IcIWb9ql/JphSsFlGvvwppqRTM0nEecwCEgYxmYIRVQxOBVrsWOOIJNLJc3xIbafYprLY5mHF
-NvcV+0vFVYBvyZxsDgRaXp/u+xbyRA4BcwzAgUIZfqmBTWtgHgGLrYRGgVeT9+M4qCzOFR1tnAQ0
-n1AHltqqkis0ia5wn9kTm6qNRGtIHPQ6nYYowV8Cl1TWYz4BYqWMHDK2B+Kqux3EZwMzOfMTVaEA
-FQv0YsgkJk1KpNKuJrsNlxcavmSvizX3Ep9QILc1gE+5LAbnss85k90iSliY7Ahgm8r0XZYx8UKh
-7HzruSyNbkfnkmEcEdrWW73Ms3sInLI1DNDV2pZaYddomDmoAY5qYH2nDlgDq8tn0SrKYZO6TjYK
-63qRP23VgPFAmBI4VipZMRlNTXC8q2b+tn9yCZNmNaElKjUk2SRyrKQyCVDCbZGCndPkSUCawhug
-wKQyAZjD3MC65InT75zBQnZTDAyFWkE0Fgmn6VhCOozFrhF7fbXYiQriW6E6V2CbSiA9E+Q5nz4F
-NaqvtB/4aChdYkq+PInBUQihAsFjYP/X2LU0N4oD4V+w/yE196kKxsb4sAeBwaYCyMvDSeZCsUkm
-cU1ip+y4aubfb7cEjlDUYi+pivqT1Kj1avXDF+vvcAeGTST/BJk75mU8BmFZsmKjoIoVyRgoYyEB
-6QFiu71ABp+DkZHofJyyICLOZ3m8lXUwwgcoN8AtbIy+N8Yyqji3DD1K7F2ny2ysqTwKUVkaYW01
-Oop1WhXwmWMN1ZTs+/UTJ8OR7tlM1X09b+WvArb757NITWpwqEjL3j/l72+708H3Z4vvzrcBHdZH
-JAKapu582NcnaW4hzWcUyR8o6BppQpMsDZJs+B7dl+fQJJoNz6VJU5pEM+95NGlBkRYuWWtBD+/C
-Jb9rMSX78uf6d8EFDqdM4w+PDrWSg88apiNIA+ky6JumyvUP6Mt1qfTlFOu6PPpyfVj7cn2G9eX6
-qF34pxhyKI4cnaUbnvhNYSqstcK6ioUouh1gdWzfX3YPJ9NTUjwMnoyDJrwPogJ/YMK8KwEiycrK
-+F4MNNBv2UBfhrKMVQU3+kxiBalia0yw6l5XyzUySSP1b6DlEc8Y6QUJAJd8SQDilvMl50RQNNBh
-U19GOeEZgfVl1K7pjhAe9qcD3Pwed6d3jAWTryUmgW3hJA8Nz6XZ8lJuGmnhZmB4Fozhjgy6bRxH
-hYGKgSWmzmKea46iCqHxf/tqD7LI8ZQZmR6eD12uB9WBqauR8tUwHhULmjTJ67sm4zlhUlZAMEaO
-Z2JPwYRpXU0mU4Wp8nDeP6p8CPOHArjEp6a7/fm3xF+x48PL7uNJ/Ob5oDJUfVP/a8ronzqCO14x
-WB8dRQqIuAgAhJdllNWU/wUAtlERcDQdFHBZJR72EEd6l/URkcbXJ1HTziHM7iyhDLwIyKoN29Lk
-7vm6drzZjLJUYyubenrtmD4AvRRI5lmazKYzYu0KwI/KdaktBwFhOfVI521Jn/iWDkB8zvWNBXDD
-i5UzcSiHWUDk2WRGuCIiGTQU0t1Wkhf22gtvZqm/XpLOxEC1bn4IuM9i0o9ESqickqeOGOAssTYQ
-5aXjzi0NSIBNRKWzcC1TAOmehZ6xCF3bXNPWg/Q486+dL6s/CSNnbhO7AEwIHVwAQD1N/TvLp5c8
-T8JtElBuuHIBM5+MBBSAu8lkyGa3zkB0TPymK7n8gNiwmvBF4O9P+243LQ3OAdIKvUHXTFNt7Ndw
-TkKxcghh/5fI/L9MD17YzMEUBS6rorMf8UgJ9IDly9tkWa0Hx5aoeZ+D9h2iYssL4/OA+Ml0zNGk
-JDs0GLmxMfzdWzQ+ah/GzcW1Uqz01dnRw9f2dDK7BJiFNSAHaR1VnFfrpqKuYgijDwTRR0hYspAo
-zjHK4xEBZcULPdBQHdLzW7v/zBjxGZ2/TrrofKWtdaIPHpRc/Eou3UJhE8fUJACq7pohvjLZVBFx
-ICP9lun2tAH5JqgY4U8lhgnTSMAFm7BrIuRuw4zWZhyl5K19Jn2chASXoU9tykIKIctzm5hg8hfc
-OgDrDfwV0V4Ek2OmMbHOWIBQQwvCJjaVV7Y+sA1hT0+PcJXDaHtjHyYTNQL7h9r2sX3/OJiWTsgq
-QsEQ8mS3pDepEGi0YmVNvR8DoKhS36FuSGLdl4Hua6zwL75fXfYKrXOmgI0IqB+a/jEU+1e/E1Vg
-g52V3GOqZEVcaMW6qaOivGVU8LIYioTPbJMzKNLtyjY509DS+ootV+ZxTHf/Htvjn6vj4fyx2w+f
-dMMidFXnpfXmqty9nV9bmCzmoZC5uMhJIck2R58OQaygzfHwc/eqh1JdKm8KHiegEhl1ght09ny9
-emkffn3xkJfpxwqWY5a2LymWTKA+VVNHE+dxl1NLKZZZiXD3b9bsByuWmlEsKTHYpNmuzemQhH6P
-VhiZ5uGznuitTKnNtKNvkhwtFf8HA41FERWbJFKwCXiYbTAl3CgOswxbev2Si6mTRvn0INMhGi8v
-Rjt3Dzn+gR3sWT4OmavLDCxa5f8AUEsBAhQLFAAAAAgAJYqKL3Vk7YklMQAA2MgAAAcAAAAAAAAA
-AQAgAAAAAAAAADJfNi5sb2dQSwUGAAAAAAEAAQA1AAAASjEAAAAA
+<tony.luck@intel.com> (03/12/19 1.1523)
+   [PATCH] ia64: enable recovery from TLB errors
+   
+   Here's the updated version of the MCA TLB recovery patch.
 
-------_=_NextPart_001_01C3BF05.4BC2A5C3--
+<kaos@sgi.com> (03/12/19 1.1522)
+   [PATCH] ia64: fix deadlock in ia64_mca_cmc_int_caller()
+   
+   smp_call_function() must not be called from interrupt context (can
+   deadlock on tasklist_lock).  Use keventd to call smp_call_function().
+
+<kaos@sgi.com> (03/12/19 1.1521)
+   [PATCH] ia64: sync pal/sal/salinfo/mca with 2.4 code
+   
+   Forward port the recent changes to pal.h, sal.h, mca.h, salinfo.c and
+   mca.c from 2.4.23-rc2 to 2.6.0-test9.
+   
+   This converts 2.6 to use salinfo instead of printing CMC/CPE/MCA/INIT
+   records in the kernel.  It makes the two kernel versions as close
+   together as possible.
+
+<jbarnes@sgi.com> (03/12/19 1.1520)
+   [PATCH] ia64: sn2 defconfig file
+   
+   As promised, here's a patch to add an sn2 defconfig file to get people
+   started with 2.6 kernels.  I even turned on CONFIG_IA64_SGI_SIM support
+   to make Jack happy :)
+
+<jbarnes@sgi.com> (03/12/19 1.1519)
+   [PATCH] ia64: initialize bootmem maps in reverse order
+   
+   The arch-independent bootmem code now requires that arches initialize
+   their bootmem maps in reverse order (in particular, from high to low
+   addesses), otherwise alloc_bootmem_pages_low() won't work.  This change
+   makes the ia64 code do just that, so that machines without an IOMMU can
+   allocate their bounce buffers in low memory at early boot.  It also adds
+   a sanity check to the early init code to make sure that each node has a
+   local data area, because if they don't, many things will break later on
+   and may be hard to track down.
+
+<bjorn.helgaas@hp.com> (03/12/19 1.1518)
+   [PATCH] ia64: Prevent SAL calls from being preempted
+   
+   (SAL_CALL_REENTRANT): Disable preemption around the SAL call to
+   make sure we don't get rescheduled on a different CPU.
+
+<bjorn.helgaas@hp.com> (03/12/19 1.1517)
+   [PATCH] ia64: Force generic and hp kernels to use 16MB granules
+   
+   This forces the granule size to 16MB for HP zx1 and generic
+   kernels.  HP sx1000 machines require this.
+
+<bjorn.helgaas@hp.com> (03/12/19 1.1516)
+   [PATCH] ia64: Remove unused ACPI functions.
+   
+   Remove unused functions:
+       acpi_get_prt()
+       acpi_get_interrupt_model()
+       acpi_get_addr_space()
+
+<bjorn.helgaas@hp.com> (03/12/19 1.1515)
+   [PATCH] ia64: Remove extraneous printks (we get the same information from ACPI).
+   
+   (iosapic_init): Remove extraneous printk.
+   (pci_acpi_scan_root): Remove extraneous printk.
+
+<bjorn.helgaas@hp.com> (03/12/19 1.1514)
+   [PATCH] ia64: Fix PCI root bridge resources to handle prior allocations.
+   
+   (alloc_resources):  Use insert_resource(), not request_resource(), to
+   allocate PCI root bridge windows.  This fixes the problem
+   where root bridge window allocation fails because an early
+   driver (like VGA) has already allocated things.
+
+<jbarnes@sgi.com> (03/12/19 1.1513)
+   [PATCH] ia64: make NODES_SHIFT a little biggger
+   
+   Make NODES_SHIFT larger to accomodate 256 node machines.
+
+<jbarnes@sgi.com> (03/12/19 1.1512)
+   [PATCH] ia64: update sn2 MAINTAINERS file entry
+   
+
+<jbarnes@sgi.com> (03/12/19 1.1511)
+   [PATCH] ia64: make cpu_to_node_map unsigned
+   
+   This small fix is needed for machines with more than 128 nodes.
+
+<steiner@sgi.com> (03/12/19 1.1510)
+   [PATCH] ia64: prevent buffer-overrun in acpi_numa_memory_affinity_init()
+   
+   The code in acpi_numa_memory_affinity_init that sorts the node_memblk
+   can overrun the array & clobber the memory that follows the end of the
+   array. The error will be seen only on systems that fill the
+   node_memblk array and only if SAL doesnt sort the entries in the SRAT.
+
+<peterc@gelato.unsw.edu.au> (03/12/19 1.1509)
+   [PATCH] ia64: enable out-of-tree compilation for IA64
+   
+
+<davidm@tiger.hpl.hp.com> (03/12/16 1.1507)
+   ia64: Bring export of spin-lock contention-routines in sync with
+   	this change:  Jim Wilson says that gcc v3.3 also supports
+   	marking ar.pfs as clobbered, so use ia64_spinlock_contention()
+   	for any GCC with v3.3 or newer.
+
+<davidm@tiger.hpl.hp.com> (03/12/13 1.1506)
+   ia64: Fix compiler warning in intrinsics.h.
+
+<davidm@tiger.hpl.hp.com> (03/12/13 1.1505)
+   ia64: Fix ivt overflow that occurred when turning on
+   	CONFIG_DISABLE_VHPT.
+
+<davidm@tiger.hpl.hp.com> (03/12/13 1.1504)
+   ia64: Fix bug discovered by Bill Nottingham & Jakub Jelinek where
+   	put_user() arguments with function-calls would cause the
+   	macro to return unexpected values.  Fixed by avoiding macro
+   	argument evaluation while r8/r9 are in use for exception-handling
+   	purposes.  Also, consolidated access-macros so that GCC and
+   	Intel compiler use 90% the same code.
+
+<davidm@tiger.hpl.hp.com> (03/12/11 1.1503)
+   ia64: Based on patch by Jerome Marchand: Add ia64-optimized
+   	atomic_dec_and_lock().  Actually, this could be the generic
+   	version for any platform that has cmpxchg().
+
+<davidm@tiger.hpl.hp.com> (03/12/10 1.1502)
+   ia64: Switch places for the gate pages and the guard page.  This improves
+   	backwards-compatibility with older (broken) versions of GCC which
+   	recognize a signal-handler only if it is in the address range
+   	from 0xa000000000000100. to 0xa000000000020000.
+
+<davidm@tiger.hpl.hp.com> (03/12/10 1.1501)
+   ia64: Jim Wilson says that gcc v3.3 also supports marking ar.pfs as
+   	clobbered, so use ia64_spinlock_contention() for any GCC with
+   	v3.3 or newer.
+
+<peter@chubb.wattle.id.au> (03/12/08 1.1500)
+   [PATCH] ia64: make perfmon CONFIG_PREEMPT-safe again
+   
+   Here's a  fix for non-preemption safety in perfmon.c.
+   
+   I haven't tried it while running a preemption stress test, but this
+   allows q-syscollect to work.
+
+<jakub@redhat.com> (03/12/04 1.1499)
+   [PATCH] ia64: fix typo in vmlinux.lds.S
+   
+   The security init section was incorrectly using PAGE_OFFSET instead of
+   LOAD_OFFSET.
+
+<pj@sgi.com> (03/12/01 1.1498)
+   [PATCH] ia64: fix smp_affinity user-space accesses
+   
+   Here is a new improved patch for verifying user access to string
+   passed in to kernel on write to /proc/irq/<pid>/smp_affinity.
+   
+   The access_ok() but missing __get_user() on each byte earlier patch
+   has been replaced with a copy_from_user().
+   
+   I have built it and verified that it handles write requests
+   as before, on an ia64 system (well - you can no longer pass
+   more than 14 spaces after the 'R' - tough).
+
+<davidm@tiger.hpl.hp.com> (03/11/26 1.1497)
+   ia64: Fix a bug in sigtramp() which corrupted ar.rnat when unwinding
+   	across a signal trampoline (in user space).  Reported by
+   	Laurent Morichetti.
+
