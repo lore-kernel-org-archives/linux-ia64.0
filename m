@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 02 Aug 2004 09:36:17 +0000
+From: christoph@lameter.com
+Date: Tue, 03 Aug 2004 02:33:56 +0000
 Subject: Re: Timer updates revision 7 (asm sets predicates/various fixes)
-Message-Id: <16654.2833.511956.400488@napali.hpl.hp.com>
+Message-Id: <Pine.LNX.4.58.0408021930550.5375@server.home>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0407292044500.3633@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0407292044500.3633@schroedinger.engr.sgi.com>
@@ -10,19 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 30 Jul 2004 08:34:56 -0700 (PDT), Christoph Lameter <clameter@sgi.com> said:
+On Mon, 2 Aug 2004, David Mosberger wrote:
 
-  >> The numbers above indicate a substantial slowdown going from 1 to
-  >> 2 cpus. What happens at higher cpu counts.
+> >>>>> On Fri, 30 Jul 2004 08:30:19 -0700 (PDT), Christoph Lameter <clameter@sgi.com> said:
+>
+>   Christoph> On Thu, 29 Jul 2004, David Mosberger wrote:
+>   >> It occurred to me now why your numbers are higher: I linked my
+>   >> program statically, whereas yours is probably linked dynamically?
+>
+>   Christoph> Correct. But why would this have an influence?
+>
+> I'm just trying to determine why our numbers were different.  I dont like
+> unexplained differences.
 
-  Christoph> The code that uses cmpxchg will always be a scalability
-  Christoph> issue.
+The different numbers may be due to the different kinds of scaling
+applied to the clock frequency to produce the ITC frequency.
 
-Also, you need to keep things in perspective: the test programs
-_continually_ bangs on gettimeofday().  If the cmpxchg were a
-scalability issue for, say, 16-32-way machines with _real_ workloads,
-I'd really be surprised.  Now if you have 128 or more CPUs, I do agree
-that the picture would be very different and scalability is a much
-bigger concern.
-
-	--david
