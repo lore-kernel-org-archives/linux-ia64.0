@@ -1,58 +1,88 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 23 Apr 2004 20:30:42 +0000
-Subject: Re: [PATCH] module relocation code
-Message-Id: <16521.31986.396574.223788@napali.hpl.hp.com>
+From: Greg KH <greg@kroah.com>
+Date: Fri, 16 Apr 2004 22:34:36 +0000
+Subject: Re: [Pcihpd-discuss] [RFC] New sysfs tree for hotplug
+Message-Id: <20040416223436.GB21701@kroah.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0404211718200.1782-100000@daphne.frec.bull.fr>
-In-Reply-To: <Pine.LNX.4.44.0404211718200.1782-100000@daphne.frec.bull.fr>
+References: <20040415170939.0ff62618.tokunaga.keiich@jp.fujitsu.com>
+In-Reply-To: <20040415170939.0ff62618.tokunaga.keiich@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Cc: lhcs-devel@lists.sourceforge.net, lhms-devel@lists.sourceforge.net, linux-hotplug-devel@lists.sourceforge.net, pcihpd-discuss@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, acpi-largesys-devel@lists.sourceforge.net
 
->>>>> On Fri, 23 Apr 2004 14:43:33 +0200 (CEST), Jean-Marc Saffroy <jean-marc.saffroy@ext.bull.net> said:
+On Thu, Apr 15, 2004 at 05:09:39PM +0900, Keiichiro Tokunaga wrote:
+> 
+> 1. Current sysfs for hotplug
+> ----------------------------
+>  In 2.6, there are some sysfs files for hotplug.  For instance, PCI has that
+> kind of files to control hotplug features.  PCI related sysfs entries for hotplug
+> are created under /sys/bus/pci/slots/:
+> 
+>     /sys/bus/pci/slots/<slot#>/<files>
+> 
+> There are some files under <slot#> directory.  Some of them are supposed
+> to expose kenrel information, the others are supposed to control hotplug.
+> Recently, CPU and memory hotplug are being worked actively.  According 
+> to their patch, they seem to be trying to create sysfs files under the following
+> directory.
+> 
+>     /sys/devices/system/
 
-  Jean-Marc> Hello David, On Wed, 21 Apr 2004, David Mosberger wrote:
+That's correct, as cpus and memory are system devices, while pci slots
+belong in the pci bus directory in sysfs.
 
-  >> Yes, the code is probably fine, but I think it could be
-  >> structured better for better.
+> 2. Problem
 
-  Jean-Marc> Do you mean there should be more generic code to handle
-  Jean-Marc> the same problem for other relocation types? BTW, do you
-  Jean-Marc> have any hints as to which types need to be fixed besides
-  Jean-Marc> PCREL21B?
+There is no problem :)
 
-  Jean-Marc> Also, you mentioned formatting problems in the patch, but
-  Jean-Marc> I can't see any.
+>  Recent large machines have many PCI devices and some boards that
+> contain devices (e.g. CPU, memory, and/or I/O devices).  A certain PCI
+> device (PCI1) might be connected with other one (PCI2), which means that
+> there is a dependency between PCI1 and PCI2.
 
-Sorry, my typos don't help: what I meant to say is "structured for
-better readability".  I really do think the code should distinguish
-between internal vs. external references, with internal further
-breaking down into intra- vs. inter-segment (with init vs. core being
-viewed as two different segments).
+You have this today?  On what platform?  This is the first I have heard
+of this.  If needed, we can merely change the pci hotplug core to allow
+a hierarchy of pci slots.  Will that solve your problem?
 
-  >> BTW: a PLT is also a bit of overkill.  What you're doing is
-  >> similar to what the GNU linker calls "relaxation" (extending the
-  >> reach of a branch), since the gp value is the same for the caller
-  >> and the callee.
+> 3. Suggestion
+> -------------
+>  To solve the problem, I'd like to propose the following idea.
+> 
+> ["hotplug" directory]
+>    This directory is to represent a hierarchy of hotpluggable devices.
 
-  Jean-Marc> Indeed, but the only benefit I can see is that we could
-  Jean-Marc> use a smaller plt entry that does not update gp and
-  Jean-Marc> simply branches to the target. Only module .init code is
-  Jean-Marc> impacted, so I'm not sure it is worth handling it
-  Jean-Marc> differently.
+Hm, no.  What about usb, firewire, scsi and any other future bus that
+can be "hotpluggable".  The kernel doesn't treat them differently, and
+we shouldn't either.
 
-I'm not sure either but I think it should be explored.  If the code
-comes out nicer and cleaner, I'd certainly prefer that approach.  I'm
-not so much worried about the savings, but about introducing different
-kinds of bugs or maintenance head-ache.  It's generally a bad idea to
-treat two different things the same just because they happen to be
-able to share _some_ code.  In my experience, that often leads to
-troubles further down the road.  I'm pretty sure we need to
-distinguish inter-module-calls and inter-segment branches at least
-logically, even if it turns out that at the lowest level, they're both
-implemented with the same kind of stubs.  For example, for
-inter-module calls you know you only have to handle br.call/brl.call,
-whereas there is no such guarantee for inter-segment calls.
+>   "hotpluggable device" means a device that can be powered off and
+>   removed physically from the system running.  The hierarchy describes a 
+>   dependency between each device.  This directory would be placed, like:
+> 
+>       /sys/devices/hotplug
+> 
+>   Any systems that enable hotplug (e.g. ACPI, DLPAR) can create their
+>   own directory right under the "hotplug" directory, like:
+> 
+>       /sys/devices/hotplug/acpi
+>       /sys/devices/hotplug/dlpar
+> 
+>   Each of systems can create directories and files under the own directory,
+>   and these directories should be easy for user to use.
+> 
+> 
+> [ACPI based Hotplug Case]
+>    I think that ACPI is one of the systems tha know dependencies of devices.
 
-	--david
+But it doesn't know about all devices in the system (like USB, firewire
+and others), so this would quickly break down.  I also don't like
+creating a solution that is so hard-wired for one firmware type like
+ACPI.  What about Open Firmware based machines?  Pure BIOS machines?  No
+firmware at all machines?  The current sysfs trees work just fine for
+all of them, without users having to figure out what the access type the
+kernel uses to get to the devices.
+
+thanks,
+
+greg k-h
