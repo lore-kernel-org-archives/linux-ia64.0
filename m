@@ -1,37 +1,30 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Tue, 01 Mar 2005 23:57:26 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Wed, 02 Mar 2005 00:01:13 +0000
 Subject: Re: efibootmgr fixes for EFI 1.10
-Message-Id: <1109721446.12409.109.camel@tdi>
+Message-Id: <jey8d6ud9y.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1109719371.12409.81.camel@tdi>
 In-Reply-To: <1109719371.12409.81.camel@tdi>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2005-03-02 at 00:51 +0100, Andreas Schwab wrote:
-> Alex Williamson <alex.williamson@hp.com> writes:
-> 
-> > @@ -215,8 +217,9 @@
-> >  			boot->var_data.Data;
-> >  		if (!efichar_char_strcmp(opts.label,
-> >  					 load_option->description)) {
-> > -			fprintf(stderr, "** Warning ** : Boot%04x has same label %s\n",
-> > -			       boot->num,
-> > +			snprintf(name, 9, "%s", boot->name->d_name);
-> > +			fprintf(stderr, "** Warning ** : %s has same label %s\n",
-> > +			       name,
-> 
-> What's wrong with using boot->name->d_name directly?
+Alex Williamson <alex.williamson@hp.com> writes:
 
-   Then you get something like this printed:
+>    Then you get something like this printed:
+>
+> ** Warning ** : BootFFFF-8be4df61-93ca-11d2-aa0d-00e098032b8c has same la=
+bel Linux
+>
+> Seemed like too much information.  Thanks,
 
-** Warning ** : BootFFFF-8be4df61-93ca-11d2-aa0d-00e098032b8c has same label Linux
+Then use %.8s.  Likewise for all other occurences of the same theme.
 
-Seemed like too much information.  Thanks,
+Andreas.
 
-	Alex
--- 
-Alex Williamson                             HP Linux & Open Source Lab
-
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
