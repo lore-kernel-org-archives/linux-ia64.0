@@ -1,27 +1,28 @@
-From: Andi Kleen <ak@suse.de>
-Date: Thu, 16 Dec 2004 05:02:48 +0000
+From: "Jose R. Santos" <jrsantos@austin.ibm.com>
+Date: Thu, 16 Dec 2004 14:18:14 +0000
 Subject: Re: [PATCH 0/3] NUMA boot hash allocation interleaving
-Message-Id: <20041216050248.GG32718@wotan.suse.de>
+Message-Id: <20041216141814.GA10292@rx8.austin.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com> <50260000.1103061628@flay> <20041215045855.GH27225@wotan.suse.de> <20041215144730.GC24000@krispykreme.ozlabs.ibm.com>
-In-Reply-To: <20041215144730.GC24000@krispykreme.ozlabs.ibm.com>
+References: <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com> <50260000.1103061628@flay> <20041215045855.GH27225@wotan.suse.de> <20041215144730.GC24000@krispykreme.ozlabs.ibm.com> <20041216050248.GG32718@wotan.suse.de> <20041216051323.GI24000@krispykreme.ozlabs.ibm.com>
+In-Reply-To: <20041216051323.GI24000@krispykreme.ozlabs.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Anton Blanchard <anton@samba.org>
 Cc: Andi Kleen <ak@suse.de>, "Martin J. Bligh" <Martin.Bligh@us.ibm.com>, Brent Casavant <bcasavan@sgi.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, jrsantos@austin.ibm.com
 
-> specSFS (an NFS server benchmarmk) has been very sensitive to TLB issues
-> for us, it uses all the memory as pagecache and you end up with 10
-> million+ dentries. Something similar that pounds on the dcache would be
-> interesting.
+Anton Blanchard <anton@samba.org> [041215]:
+>  
+> > I asked Brent to run some benchmarks originally and I believe he has 
+> > already run all that he could easily set up. If you want more testing
+> > you'll need to test yourself I think. 
+> 
+> We will be testing it.
 
-I asked Brent to run some benchmarks originally and I believe he has 
-already run all that he could easily set up. If you want more testing
-you'll need to test yourself I think. 
+By "We" you mean "Me" right? :)
 
-At least I don't think this patch should be further stalled unless
-someone actually comes up with a proof that it actually affects
-performance.
+I can do the SpecSFS runs but each runs takes several hours to complete
+and I would need to do two runs (baseline and patched).  I may have it 
+ready by today or tommorow.
 
--Andi
+-JRS
