@@ -1,35 +1,69 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 24 Mar 2005 05:53:58 +0000
-Subject: [patch] use srlz.d instead of srlz.i in ia64_leave_kernel()
-Message-Id: <16962.22006.926610.243102@napali.hpl.hp.com>
+From: dcn@sgi.com (Dean Nelson)
+Date: Wed, 23 Mar 2005 19:29:21 +0000
+Subject: [PATCH 0/3] SGI Altix cross partition functionality (2nd
+Message-Id: <4241C391.mailxHNA15A8V0@aqua.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com
+Cc: linux-ia64@vger.kernel.org, netdev@oss.sgi.com
 
-This patch switches the srlz.i in ia64_leave_kernel() to srlz.d.  As
-per architecture manual, the former is needed only to ensure that the
-clearing of PSR.IC is seen by the VHPT for subsequent instruction
-fetches.  However, since the remainder of the code (up to and
-including the RFI instruction) is mapped by a pinned TLB entry, there
-is no chance of an iTLB miss and we don't care whether or not the VHPT
-sees PSR.IC cleared.  Since srlz.d is substantially cheaper than
-srlz.i, this should shave off a few cycles off the interrupt path
-(unverified though; I'm not setup to measure this at the moment).
 
-	--david
+    Terminology
 
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+The term 'partition', adopted by the SGI hardware designers and which
+perculated up into the software, is used in reference to a single SSI
+when multiple SSIs are running on a single Altix. An Altix running
+multiple SSIs is said to be 'partitioned', whereas one that is running
+only a single SSI is said to be 'unpartitioned'.
 
-=== arch/ia64/kernel/entry.S 1.88 vs edited ==--- 1.88/arch/ia64/kernel/entry.S	2005-03-23 14:30:21 -08:00
-+++ edited/arch/ia64/kernel/entry.S	2005-03-23 21:47:38 -08:00
-@@ -880,7 +880,7 @@
- 	ldf.fill f7=[r2],PT(F11)-PT(F7)
- 	ldf.fill f8=[r3],32
- 	;;
--	srlz.i			// ensure interruption collection is off
-+	srlz.d	// ensure that inter. collection is off (VHPT is don't care, since text is pinned)
- 	mov ar.ccv=r15
- 	;;
- 	ldf.fill f11=[r2]
+The term '[a]cross partition' refers to a functionality that spans between
+two SSIs on a multi-SSI Altix. ('XP' is its abbreviation.)
+
+
+    Introduction
+
+This feature provides cross partition functionality when running multiple
+partitions on a single SGI Altix.
+
+This functionality includes such things as a pseudo-ethernet driver and
+memory sharing, which are provided by functional support modules that sit
+on top of a low-level communication module.
+
+The communication module provides channels for point-to-point communication
+between the partitions. There is support for eight channels between any
+two partitions (currently only two channels are in use, the remainder are
+available for possible future expansion). A functional support module uses
+the same channel number for all of its cross partition communication across
+the entire Altix.
+
+There is a shim module that acts as an interface between the functional
+support modules and the communication module. Its sole purpose is to allow
+for the communication module to be rmmod'd/insmod'd without 'disturbing'
+the functional support modules and the user processes utilizing them. The
+shim module has also proven itself to be invaluable for debugging.
+
+This feature is being submitted as three separate quilt patches:
+
+    XP       - shim module
+    XPC      - cross partition (low-level) communication module
+    XPNET    - cross partition pseudo-ethernet driver functional support module
+
+(When time permits a patch will be submitted to add XPMEM, which is the
+functional support module that provides cross partition memory sharing.)
+
+This patch set is dependent upon the following patches:
+
+	[patch - 2.6.11-rc5-mm1] genalloc - general purpose allocator
+	[patch - 2.6.11-rc5-mm1] mspec ia64 memory special driver
+	[patch 1/2] Altix: Shub2 BTE support
+	[patch 2/2] Altix: Shub2 BTE support - BTE recovery code
+	[PATCH] move cnodeid_to_nasid_table out of pda
+	[PATCH] move nodepda pointer out of pda
+	[PATCH] Export node_online_map and node_possible_map
+	[PATCH] convert some sn SAL_CALLs to ia64_sal_oemcall calls
+	[PATCH] Define some additional SHub1 and Shub2 register symbols
+	[PATCH] Add some needed externs currently not defined
+
+( The netdev folks only need to review the XPNET patch. )
