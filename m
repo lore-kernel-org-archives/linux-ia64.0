@@ -1,24 +1,53 @@
-From: Christoph Rohland <cr@sap.com>
-Date: Wed, 19 Jul 2000 17:37:51 +0000
-Subject: [Linux-ia64] Re: Support for more than 2GB RAM
-Message-Id: <marc-linux-ia64-105590678205217@msgid-missing>
+From: yiding_wang@agilent.com
+Date: Tue, 11 Jul 2000 23:48:51 +0000
+Subject: [Linux-ia64] issues of Linux 2.3.99 installed on BigSur EFI 1.00 [12.15]
+Message-Id: <marc-linux-ia64-105590678205194@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205208@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205208@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"Mallick, Asit K" <asit.k.mallick@intel.com> writes:
+We have two BigSur system experiencing hard time on Linux 2.3.99 scsi
+interface:
+-------------------------
+System #1:
+Configuration  - EFI 1.00 [12.15], upgrade by Intel from A-1 stepping to A-3
+stepping
+                        Qlogic BIOS 1.15
+                        Qla1280 Firmware 8.13.08
+                        1GB RAM, 9GB scsi hard drive
+Problem - System booted fine and most IO test OK before the upgrade.  After
+upgrade,
+               BIOS can see the scsi device
+               EFI also see the files on the drive
+               "eli vmlinux root=/dev/sda3" will fail due to cannot found
+/dev/sda3
+               Tried other possible device node but none of them works.
+               Re-install Linux 2.3.99 (TurboLinux) also failed on the same
+problem.
 
-> We are making good progress with the PCI DMA implementation and we should
-> have a patch by end of this week. This will remove the 2GB RAM check adn
-> will use all the memory in the system.
+Note: for system #1, windows2000 64 installation and running OK!
+----------------------------------
+System #2:
+Configuration  - EFI 0.99 [12.25], A-2 stepping
+                        Qlogic BIOS 1.15
+                        Qla1280 Firmware 8.13.08
+                        1GB RAM, 9GB scsi hard drive
+Problem - System failed during the boot.  All scsi command timed out and
+aborted after
+               BIOS, EFI and eli sees the device.
+-----------------------------------
 
-Great! Waiting for that (and collecting memory ;-))
+Is anyone can help on these issues?
 
-Greetings
-		Christoph
+Also could someone explain a little bit about the EFI and eil loading
+process, what are they stand for and basic function among BIOS, EFI and eli?
+
+Many thanks!
+
+-eddie
+
+ 
 
 
