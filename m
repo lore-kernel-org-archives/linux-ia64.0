@@ -1,7 +1,7 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 13 Nov 2003 03:18:01 +0000
+From: Andrew Morton <akpm@osdl.org>
+Date: Thu, 13 Nov 2003 03:31:24 +0000
 Subject: Re: Inefficient TLB flushing
-Message-Id: <marc-linux-ia64-106869353720690@msgid-missing>
+Message-Id: <marc-linux-ia64-106869408221123@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106866775025427@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106866775025427@msgid-missing>
@@ -10,62 +10,37 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Nov 12, 2003 at 01:22:53PM -0800, Andrew Morton wrote:
-> David Mosberger <davidm@napali.hpl.hp.com> wrote:
-> >
-> >   Jack> Here is the patch that I am currently testing:
-> > 
-> >   Jack> --- /usr/tmp/TmpDir.19957-0/linux/mm/memory.c_1.79	Wed Nov 12 13:56:25 2003
-> >   Jack> +++ linux/mm/memory.c	Wed Nov 12 12:57:25 2003
-> >   Jack> @@ -574,9 +574,10 @@
-> >   Jack>  			if ((long)zap_bytes > 0)
-> >   Jack>  				continue;
-> >   Jack>  			if (need_resched()) {
-> >   Jack> +				int fullmm = (*tlbp)->fullmm;
-> >   Jack>  				tlb_finish_mmu(*tlbp, tlb_start, start);
-> >   Jack>  				cond_resched_lock(&mm->page_table_lock);
-> >   Jack> -				*tlbp = tlb_gather_mmu(mm, 0);
-> >   Jack> +				*tlbp = tlb_gather_mmu(mm, fullmm);
-> >   Jack>  				tlb_start_valid = 0;
-> >   Jack>  			}
-> >   Jack>  			zap_bytes = ZAP_BLOCK_SIZE;
-> > 
-> > I think the patch will work fine, but it's not very clean, because it
-> > bypasses the TLB-flush API and directly accesses
-> > implementation-specific internals.  Perhaps it would be better to pass
-> > a "fullmm" flag to unmap_vmas().  Andrew?
+Jack Steiner <steiner@sgi.com> wrote:
+>
+> > Either that, or add a new interface function
+>  > 
+>  > 	int mmu_gather_is_full_mm(mmu_gather *tlb);
+>  > 
+>  > and use it...
+>  > 
 > 
-> Either that, or add a new interface function
+>  How implementation independent should it be? Currently, there is only one
+>  field in the mmu_gather structure that must be preserved. However, if we
+>  want to make the interface truly implementation independent, it seems
+>  like we should define something like:
 > 
-> 	int mmu_gather_is_full_mm(mmu_gather *tlb);
+>  	if (need_resched()) {
+>  		struct mmu_gather_state state;
+>  		tlb_mmu_gather_save_state(*tlbp, &state);
+>  		tlb_finish_mmu(*tlbp, tlb_start, start);
+>  		...
+>  		*tlbp = tlb_mmu_gather_restore_state(&state);
+>  	}
 > 
-> and use it...
+>  Is this overkill?
+
+Think so ;) The `full_mm_flush' boolean is the only state thing we can pass
+into tlb_gather_mmu anyway.
+
 > 
+>  Should we use the patch given above for 2.6.0 & replace it with an implementation 
+>  independent interface for 2.6.1?
 
-How implementation independent should it be? Currently, there is only one
-field in the mmu_gather structure that must be preserved. However, if we
-want to make the interface truly implementation independent, it seems
-like we should define something like:
-
-	if (need_resched()) {
-		struct mmu_gather_state state;
-		tlb_mmu_gather_save_state(*tlbp, &state);
-		tlb_finish_mmu(*tlbp, tlb_start, start);
-		...
-		*tlbp = tlb_mmu_gather_restore_state(&state);
-	}
-
-Is this overkill?
-
-Should we use the patch given above for 2.6.0 & replace it with an implementation 
-independent interface for 2.6.1?
-
-
-
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
+Just the little wrapper which doesn't assume the presence of
+mmu_gather.full_mm should suffice.
 
