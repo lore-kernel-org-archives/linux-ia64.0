@@ -1,7 +1,7 @@
-From: Jeremy Higdon <jeremy@sgi.com>
-Date: Fri, 16 May 2003 08:00:45 +0000
-Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705897@msgid-missing>
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Fri, 16 May 2003 17:36:15 +0000
+Subject: Re: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent
+Message-Id: <marc-linux-ia64-105590723705900@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,40 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, May 15, 2003 at 07:31:20PM -0500, James Bottomley wrote:
-> On Thu, 2003-05-15 at 19:17, David S. Miller wrote:
-> > Having to support DAC cycles does not mean that it must support full
-> > 64-bit DMA addresses in it's descriptors.
-> > 
-> > A cost sensitive PCI-X device may wish to use 32-bit addressing in
-> > it's descriptors in order to keep pin counts down etc.
-> 
-> This is certainly a property of the aic79xx driver (only using 32 bit
-> descriptor tables).  It has this nice code in the driver for doing it:
+On Thu, 2003-05-15 at 21:32, David S. Miller wrote:
+> The "issue" is that we need a pci_dma_sync_*_to_device() call added.
+> We should also remane pci_dma_sync_*() to pci_dma_sync_*_to_cpu()
+> to make all of the naming consistent and update all the drivers.
 
-This is a driver choice, rather than an adapter limitation, right?
-Or is the adapter limited to 32 bit addresses for map->bus_addr (the
-PCI-X flavor)?
+OK, I get it now (I was thinking really in terms of the old
+writeback/invalidate interface where you had to know how to place them).
 
-> aic79xx.c:
-> 
-> 	/*
-> 	 * Although we can dma data above 4GB, our
-> 	 * "consistent" memory is below 4GB for
-> 	 * space efficiency reasons (only need a 4byte
-> 	 * address).  For this reason, we have to reset
-> 	 * our dma mask when doing allocations.
-> 	 */
-> 	if (ahd->dev_softc != NULL)
-> 		ahd_pci_set_dma_mask(ahd->dev_softc, 0xFFFFFFFF);
-> 	*vaddr = pci_alloc_consistent(ahd->dev_softc,
-> 				      dmat->maxsize, &map->bus_addr);
-> 	if (ahd->dev_softc != NULL)
-> 		ahd_pci_set_dma_mask(ahd->dev_softc,
-> 				     ahd->platform_data->hw_dma_mask);
-> 
-> And it comes in PCI-X flavours.
-> 
-> James
-> 
+You mean we need an interface that is called when the CPU hands off the
+region to the device and again when the CPU reclaims it (so we always
+get the writeback or invalidate in the correct place).
+
+How about just adding an ownership attribute to dma_sync..?  It would
+either be DMA_OWNER_CPU or DMA_OWNER_DEVICE?
+
+Of course, retrofitting something like this is going to be fun.
+
+James
+
+
 
