@@ -1,20 +1,41 @@
-From: "Robboy, David G" <david.g.robboy@intel.com>
-Date: Thu, 17 May 2001 19:32:35 +0000
-Subject: [Linux-ia64] Linux 2.4.3 screen hangs on output
-Message-Id: <marc-linux-ia64-105590693005608@msgid-missing>
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Date: Fri, 18 May 2001 22:28:53 +0000
+Subject: [Linux-ia64] Announcing efibootmgr-0.3.0
+Message-Id: <marc-linux-ia64-105590693005625@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-With Redhat  Linux2.4.3 for ia64, when you rlogin or telnet and  then do
-cat, ls, or other programs that print more than one line, the screen hangs.
-The system is not dead, but you can't kill that program from the keyboard
-and you can't get back to your login session.  Is this a familiar problem?
-Is there a configuration file that's wrong, a kernel bug, or what?
+Announcing efibootmgr-0.3.0, a Linux user-space application which
+interacts with the EFI Boot Manager.  It may be downloaded from
+http://domsch.com/linux/ia64/efibootmgr-0.3.0.tar.gz.
 
-Thanks,
-David Robboy
+This requires the efivars module be loaded, and expects them
+to be at /proc/efi/vars/* which is consistent with the kernel
+2.4.4 IA-64 patch.  You must be root to run this (as /proc/efi/vars/*
+are only read/write root).
+
+Changes since v0.2.0:
+
+* Fri May 18 2001 Matt Domsch <Matt_Domsch@dell.com>
+- Padded HARDDRIVE_DEVICE_PATH out to please EFI Boot Manager.
+- Incorporated patches from Andreas Schwab
+  - replace __u{8,16,32,64} with uint{8,16,32,64}_t
+  - use _FILE_OFFSET_BITS
+  - fix a segfault
+- release v0.3.0
+
+I believe this is functional, would be happy for the various
+distributions to include this.  As always, comments and patches (such as
+sent by Andreas!) are appreciated.
+
+-- 
+Matt Domsch
+Sr. Software Engineer
+Dell Linux Solutions
+www.dell.com/linux
+
 
 
