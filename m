@@ -1,27 +1,43 @@
-From: Linas Vepstas <linas@austin.ibm.com>
-Date: Fri, 04 Mar 2005 16:46:25 +0000
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 04 Mar 2005 17:50:03 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <20050304164625.GU1220@austin.ibm.com>
+Message-Id: <200503040950.03866.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <422428EC.3090905@jp.fujitsu.com> <20050301144211.GI28741@parcelfarce.linux.theplanet.co.uk> <20050301192711.GE1220@austin.ibm.com> <42255971.4070608@jp.fujitsu.com> <20050302192043.GJ1220@austin.ibm.com> <4227C1F1.6040508@jp.fujitsu.com>
-In-Reply-To: <4227C1F1.6040508@jp.fujitsu.com>
+References: <422428EC.3090905@jp.fujitsu.com> <200503010910.29460.jbarnes@engr.sgi.com> <20050304135429.GC3485@openzaurus.ucw.cz>
+In-Reply-To: <20050304135429.GC3485@openzaurus.ucw.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Cc: Matthew Wilcox <matthew@wil.cx>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "Luck, Tony" <tony.luck@intel.com>
+To: Pavel Machek <pavel@ucw.cz>
+Cc: linux-pci@atrey.karlin.mff.cuni.cz, Matthew Wilcox <matthew@wil.cx>, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
 
-On Fri, Mar 04, 2005 at 11:03:29AM +0900, Hidetoshi Seto was heard to remark:
-> >p.s. I would like to have iochk_read() take struct pci_dev * as an
-> >argument.  (I could store a pointer to pci_dev in the "cookie" but
-> >that seems odd).
-> 
-> I'd like to store the pointer and handle all only with the cookie...
+On Friday, March 4, 2005 5:54 am, Pavel Machek wrote:
+> Hi!
+>
+> > > If there's no ->error method, at leat call ->remove so one device only
+> > > takes itself down.
+> > >
+> > > Does this make sense?
+> >
+> > This was my thought too last time we had this discussion.  A completely
+> > asynchronous call is probably needed in addition to Hidetoshi's proposed
+> > API, since as you point out, the driver may not be running when an error
+> > occurs (e.g. in the case of a DMA error or more general bus problem). 
+> > The async
+>
+> Hmm, before we go async way (nasty locking, no?) could driver simply
+> ask "did something bad happen while I was sleeping?" at begining of each
+> function?
 
-OK then.
+This is what Seto is proposing, aiui.  I.e. calls around I/O so you can 
+gracefully handle errors during that I/O.
 
-> Or is it needed to pass different device to iochk_clear() and iochk_read()?
+> For DMA problems, driver probably has its own, timer-based,
+> "something is wrong" timer, anyway, no?
 
-No.
+The idea is to allow them to do something like that, or consolidate such 
+threads in a platform specific error handling thread or interrupt handler 
+that can call a driver's ->dma_error(dev) routine (or ->error(dev, ERROR_DMA) 
+or whatever) routine.
 
---linas
+Jesse
