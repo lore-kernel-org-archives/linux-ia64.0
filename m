@@ -1,49 +1,55 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 05 Dec 2000 22:18:21 +0000
-Subject: Re: [Linux-ia64] missing exports of __strlen_user(), __strncpy_from_user()?
-Message-Id: <marc-linux-ia64-105590678205791@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Thu, 07 Dec 2000 00:55:30 +0000
+Subject: [Linux-ia64] Re: TurboLinux IA-64 Beta 2 (2000-11-23) Available for download
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="YiEDa0DAkWCtVeE4"
+Message-Id: <marc-linux-ia64-105590678205802@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205789@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205789@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-__copy_user and __do_clear_user were already in the current kernel
-sources but I added the other three now.
+--YiEDa0DAkWCtVeE4
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Thanks,
+Don Dugger (n0ano@tlaloc.n0ano.com) said: 
+> I tried to re-compile X on this release and came across a problem.
+> The include file `/usr/include/asm/io.h' defines the in/out functions
+> in terms of new `platform_*' functions, which are not defined for
+> user programs.  Do you know where these `platform_*' functions are
+> supposed to be defined?
 
-	--david
+Try this. Must not include kernel headers in userland, blah, blah, blah.
 
->>>>> On Tue, 5 Dec 2000 17:04:06 -0500 (EST), John Kohl <jtk@rational.com> said:
+Bill
 
-  John> i386 kernels export strnlen_user() and strncpy_from_user();
-  John> the former is referenced by the macro for strlen_user().
+--YiEDa0DAkWCtVeE4
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="XFree86-4.0.1-ia64-dainbramage.patch"
 
-  John> ia64 does not export either __strlen_user() or
-  John> __strncpy_from_user() (referenced by strlen_user() and
-  John> strncpy_from_user() macros functions).  We need these symbols
-  John> to implement some code in our kernel module (ClearCase MVFS).
+--- XFree86-4.0.1/xc/programs/Xserver/hw/xfree86/SuperProbe/Probe.h.dainbramage	Mon Nov 20 01:17:10 2000
++++ XFree86-4.0.1/xc/programs/Xserver/hw/xfree86/SuperProbe/Probe.h	Mon Nov 20 01:17:20 2000
+@@ -47,7 +47,6 @@
+ #if defined(SYSV) || defined(SVR4) || defined(linux) || defined(__QNX__) || defined(__QNXNTO__)
+ #if defined(__ia64__)
+ #include <sys/io.h>
+-#include <asm/io.h>
+ #endif
+ # include <string.h>
+ #if !(defined(__QNX__) && !defined(__QNXNTO__))
+--- XFree86-4.0.1/xc/programs/Xserver/hw/xfree86/SuperProbe/AsmMacros.h.dainbramage	Mon Nov 20 01:19:10 2000
++++ XFree86-4.0.1/xc/programs/Xserver/hw/xfree86/SuperProbe/AsmMacros.h	Mon Nov 20 01:18:31 2000
+@@ -69,9 +69,8 @@
+ #define outl(p,v) _outl((v),(p))
+ #elif defined(linux) && defined(__ia64__)
+ #include <stdlib.h>
+-#include <asm/types.h>
+-#include <asm/system.h>
+-#include <asm/io.h>
++#include <sys/types.h>
++#include <sys/io.h>
+ #else
+ #if defined(__sparc__)
+ #ifndef ASI_PL
 
-  John> I presume this is just an oversight, and they should be added
-  John> to arch/ia64/kernel/ia64_ksyms.c?  I'd suggest adding these,
-  John> as similar to exported symbols in i386, to make
-  John> copy_{from,to}_user(), strncpy_from_user(), and clear_user()
-  John> usable by modules.
-
-  John> EXPORT_SYMBOL(__strncpy_from_user);
-  John> EXPORT_SYMBOL(__do_clear_user); EXPORT_SYMBOL(__strlen_user);
-  John> EXPORT_SYMBOL(__strnlen_user); EXPORT_SYMBOL(__copy_user);
-
-
-  John> -- =John Kohl <jtk@rational.com>, Software Engineer Rational
-  John> Software, Configuration Management Business Unit Mark your
-  John> calendars!  Rational User Conference 2001, July 22-26, 2001 in
-  John> beautiful Denver, Colorado
-
-  John> _______________________________________________ Linux-IA64
-  John> mailing list Linux-IA64@linuxia64.org
-  John> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+--YiEDa0DAkWCtVeE4--
 
