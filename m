@@ -1,63 +1,37 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 03 Feb 2005 22:45:38 +0000
+From: Tim Schmielau <tim@physik3.uni-rostock.de>
+Date: Fri, 04 Feb 2005 00:41:39 +0000
 Subject: Re: move-accounting-function-calls-out-of-critical-vm-code-paths.patch
-Message-Id: <Pine.LNX.4.58.0502031436460.26183@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.53.0502040130230.5666@gockel.physik3.uni-rostock.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050110184617.3ca8d414.akpm@osdl.org>
  <Pine.LNX.4.58.0502031319440.25268@schroedinger.engr.sgi.com>
- <20050203140904.7c67a144.akpm@osdl.org>
-In-Reply-To: <20050203140904.7c67a144.akpm@osdl.org>
+ <20050203140904.7c67a144.akpm@osdl.org> <Pine.LNX.4.58.0502031436460.26183@schroedinger.engr.sgi.com>
+ <20050203150551.4d88f210.akpm@osdl.org>
+In-Reply-To: <20050203150551.4d88f210.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andrew Morton <akpm@osdl.org>
-Cc: torvalds@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, jlan@sgi.com
+Cc: Christoph Lameter <clameter@sgi.com>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, lkml <linux-kernel@vger.kernel.org>, jlan@sgi.com, Guillaume Thouvenin <guillaume.thouvenin@bull.net>
 
 On Thu, 3 Feb 2005, Andrew Morton wrote:
 
-> Has any performance testing been done?
+> Well your patch certainly cleans things up in there and would be a good
+> thing to have as long as we can be sure that it doesn't break the
+> accounting in some subtle way.
 
-Jay did some performance testing and found minor performance increases
-without my page fault patches. But then the performance without the page
-fault patches is already so bad due to the page_table_lock
-contention that this is not so important.
+I think it also fits well with the other accounting data which is only 
+statistically probed at clock ticks.
 
-> > acct_update_integrals is only useful to call if stime changes otherwise
-> > it will simply return. It is therefore best to relocate the function call
-> > to acct_update_integral into the function that updates stime which is
-> > account_system_time and remove it from the vm code paths.
->
-> But that changes (breaks) the semantics significantly.  A task will now
-> only have its BSD accounting fields updated when it happens to be
-> interrupted by the timer.  Some tasks:
->
-> 	for ( ; ; ) {
-> 		nanosleep(2 milliseconds);
-> 		do_stuff_for(0.5 milliseconds);
-> 	}
->
-> will see their BSD accounting fields remaining stuck firmly at zero.
->
-> I think?
+> Which implies that we need to see some additional accounting code, so we
+> can verify that the base accumulation infrastructure is doing the expected
+> thing.  As well as an ack from the interested parties.  Does anyone know
+> what's happening with all the new accounting initiatives?  I'm seeing no
+> activity at all.
 
-Accounting is only effective is stime changes even with the current
-code. If the process never gets its stime increased then also the
-accounting does nothing. There is no change in that behavior.
+Well, I'm here :), but I'm concentrating on making a GNU acct release 
+happen.
+Anyways, as I'm not involved with memory accounting yet, I guess I should 
+leave it to CSA and ELSA people to comment.
 
-> > update_mem_hiwater finds the rss hiwater mark. RSS limits are checked in
-> > account_system_time().
->
-> Linux doesn't check rss limits anywhere.  We check CPU usage in
-> account_system_time().
-
-Yuck. I was mistaken in what check_rlimit does.
-
-> Most of this could be fixed up by updating these counters at schedule()
-> time as well, although that would become somewhat inaccurate if we later
-> decide to implement rss enforcement at pagefault time.
-
-Right. I hope that Roland's changes for higher resolution of cputime would
-make that possible. But this is Jay's thing not mine. I just want to make
-sure that the CSA patches does not get in the way of our attempts to
-improve the performance of the page fault handler. In the discussions on
-linux-mm there was also some concern about adding these calls.
+Tim
