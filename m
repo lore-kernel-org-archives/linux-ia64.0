@@ -1,37 +1,52 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 15 Mar 2002 19:51:05 +0000
-Subject: Re: [Linux-ia64] readv() return and errno
-Message-Id: <marc-linux-ia64-105590701905297@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 06 Mar 2002 19:45:38 +0000
+Subject: [Linux-ia64] psr.dt state when DO_SAVE_MIN is invoked
+Message-Id: <marc-linux-ia64-105590701905232@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905285@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905285@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 14 Mar 2002 13:17:26 -0800, "Jim Hollenback" <jholly@cup.hp.com> said:
+Some systems running an old kernel (2.4.7) have been seen to
+hang looping in an apparent recursive TLB fault.  The same tests
+that locked up these machines seem to run fine on new kernels,
+but while looking into the issue the following oddity was
+noted in the code, that still exists in 2.4.18
 
-  Jim> In doing some testing on the project I'm working on I came
-  Jim> across something that is causing a bit of confusion on my part.
+in arch/ia64/kernel/ivt.S we have:
+ENTRY(page_fault)
+        ssm psr.dt
+        ;;
+        srlz.i
+        ;;
+        SAVE_MIN_WITH_COVER
 
-  Jim> According to readv(2) EINVAL is returned for an invalid
-  Jim> argument.  The examples given were count might be greater than
-  Jim> MAX_IOVEC or zero. The test case I am working with has count   Jim> 0 and I get return of 0 and errno 0 instead of the expected -1
-  Jim> and erron EINVAL.
+and minstate.h defines:
 
-  Jim> Am I missing something?
+#define SAVE_MIN_WITH_COVER     DO_SAVE_MIN(cover, mov rCRIFS=cr.ifs,)
 
-It seems like the man page is describing the behavior defined in
-Single UNIX spec:
+which in turn says:
 
- [EINVAL] The iovcnt argument was less than or equal to 0, or greater
-	  than {IOV_MAX
+/*
+ * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
+ * the minimum state necessary that allows us to turn psr.ic back
+ * on.
+ *
+ * Assumed state upon entry:
+ *      psr.ic: off
+ *      psr.dt: off
+ *      r31:    contains saved predicates (pr)
+ *
+	...
 
-However, the kernel code clearly doesn't match this description (it
-returns no error for a zero-length iovec).  You might want to bring
-this up on the linux-kernel list, as this is not ia64-specific
-behavior.
+See how page_fault explicitly sets psr.dt, and then invokes a macro
+that says that the assumed entry state is psr.dt should be off. Is
+the comment just plain wrong, or is there a potential issue here?
 
-	--david
+The 2.4.7 failure hits at around the 67 hour mark in the tests, the
+newer (RedHat 7.2 a.k.a. 2.4.9-18) kernel survives 72 hours ... but
+that's as long as we scheduled the test to run.
+
+-Tony
 
