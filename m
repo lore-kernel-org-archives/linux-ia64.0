@@ -1,29 +1,62 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 18 Jun 2003 19:00:58 +0000
-Subject: Re: gcc bug
-Message-Id: <marc-linux-ia64-105596286528010@msgid-missing>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Wed, 18 Jun 2003 16:22:35 +0000
+Subject: [PATCH] generic kernel support for sn2
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="AH+kv8CCoFf6qPuz"
+Message-Id: <marc-linux-ia64-105595335915515@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 17 Jun 2003 18:30:48 -0700, Umut Aymakoglu <umuta@us.ibm.com> said:
 
-  Umut> Hi -
-  Umut> Below is a small repro which shows the bug and the output that I get. Is
-  Umut> this a known bug? Any help will be appreciated.
+--AH+kv8CCoFf6qPuz
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-  Umut> The version of glibc :  glibc-2/2/4-32.3
+I _think_ I got this one right (at least, it booted on hw).  It should
+allow generic kernels to include the sn2 code.
 
-The linux-ia64 list is not really the right place for reporting GCC
-bugs.  Please see:
+Thanks,
+Jesse
 
-	http://gcc.gnu.org/bugs.html
+--AH+kv8CCoFf6qPuz
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sn2-generic-2.5.69-ia64-bk.patch"
 
-for how to report GCC bugs.
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1142  -> 1.1143 
+#	  arch/ia64/Makefile	1.53    -> 1.54   
+#	arch/ia64/sn/kernel/machvec.c	1.6     -> 1.7    
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/06/17	jbarnes@tomahawk.engr.sgi.com	1.1143
+# CONFIG_IA64_GENERIC fixes
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/Makefile b/arch/ia64/Makefile
+--- a/arch/ia64/Makefile	Tue Jun 17 14:44:53 2003
++++ b/arch/ia64/Makefile	Tue Jun 17 14:44:53 2003
+@@ -66,7 +66,8 @@
+ drivers-$(CONFIG_PCI)		+= arch/ia64/pci/
+ drivers-$(CONFIG_IA64_HP_SIM)	+= arch/ia64/hp/sim/
+ drivers-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/hp/common/ arch/ia64/hp/zx1/
+-drivers-$(CONFIG_IA64_GENERIC)	+= arch/ia64/hp/common/ arch/ia64/hp/zx1/ arch/ia64/hp/sim/
++drivers-$(CONFIG_IA64_GENERIC)	+= arch/ia64/hp/common/ arch/ia64/hp/zx1/ arch/ia64/hp/sim/ \
++				   arch/ia64/sn/
+ 
+ boot := arch/ia64/boot
+ 
+diff -Nru a/arch/ia64/sn/kernel/machvec.c b/arch/ia64/sn/kernel/machvec.c
+--- a/arch/ia64/sn/kernel/machvec.c	Tue Jun 17 14:44:53 2003
++++ b/arch/ia64/sn/kernel/machvec.c	Tue Jun 17 14:44:53 2003
+@@ -31,4 +31,5 @@
+  */
+ 
+ #define MACHVEC_PLATFORM_NAME	sn2
++#define MACHVEC_PLATFORM_HEADER	<asm/machvec_sn2.h>
+ #include <asm/machvec_init.h>
 
-You didn't mention what compiler you were using.  I tried your test
-program quickly with gcc 3.2.3 and it worked fine for me.
-
-	--david
+--AH+kv8CCoFf6qPuz--
