@@ -1,34 +1,81 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 16 Nov 2004 17:57:55 +0000
-Subject: Re: [PATCH] fix phys. address conversion in ia64_pal_tr_read
-Message-Id: <16794.16291.3350.872336@napali.hpl.hp.com>
+From: Adrian Bunk <bunk@stusta.de>
+Date: Fri, 19 Nov 2004 00:19:15 +0000
+Subject: [2.6 patch] IA64 irq.c: remove CONFIG_X86 code
+Message-Id: <20041119001915.GL4943@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200411151722.41157.jbarnes@engr.sgi.com>
-In-Reply-To: <200411151722.41157.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: davidm@hpl.hp.com
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
->>>>> On Tue, 16 Nov 2004 09:01:49 -0800, Jesse Barnes <jbarnes@engr.sgi.com> said:
+I don't see hos this code could ever be used.
 
-  Jesse> On Monday, November 15, 2004 6:03 pm, David Mosberger wrote:
-  >> >>>>> On Mon, 15 Nov 2004 17:22:41 -0800, Jesse Barnes >>>>>
-  >> <jbarnes@engr.sgi.com> said:
+Am I correct or did I miss something?
 
-  Jesse> The palinfo module may call ia64_pal_tr_read using an IPI.
-  Jesse> If the processor receiving the IPI is idle, the call will
-  Jesse> fail since the idle process stack is in region 5 and
-  Jesse> ia64_pal_tr_read uses __pa rather than ia64_tpa.  This small
-  Jesse> patch fixes the problem by making it use ia64_tpa instead.
-  >>  Perhaps its worthwhile to do any audit for this kind of
-  >> problems?  It may not be very difficult to hack sparse to add a
-  >> check for __pa() calls on (stack-)local variables.
 
-  Jesse> I didn't see anything obvious in a quick check of all the
-  Jesse> ia64 users of __pa (they were mostly referring to stuff in
-  Jesse> the static data section), but I may have missed something.
+diffstat output:
+ arch/ia64/kernel/irq.c |   33 ---------------------------------
+ 1 files changed, 33 deletions(-)
 
-OK, thanks for looking!
 
-	--david
+Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
+
+--- linux-2.6.10-rc2-mm2-full/arch/ia64/kernel/irq.c.old	2004-11-19 01:14:22.000000000 +0100
++++ linux-2.6.10-rc2-mm2-full/arch/ia64/kernel/irq.c	2004-11-19 01:16:31.000000000 +0100
+@@ -132,23 +132,7 @@
+  * each architecture has to answer this themselves, it doesn't deserve
+  * a generic callback i think.
+  */
+-#ifdef CONFIG_X86
+-	printk(KERN_ERR "unexpected IRQ trap at vector %02x\n", irq);
+-#ifdef CONFIG_X86_LOCAL_APIC
+-	/*
+-	 * Currently unexpected vectors happen only on SMP and APIC.
+-	 * We _must_ ack these because every local APIC has only N
+-	 * irq slots per priority level, and a 'hanging, unacked' IRQ
+-	 * holds up an irq slot - in excessive cases (when multiple
+-	 * unexpected vectors occur) that might lock up the APIC
+-	 * completely.
+-	 */
+-	ack_APIC_irq();
+-#endif
+-#endif
+-#ifdef CONFIG_IA64
+ 	printk(KERN_ERR "Unexpected irq vector 0x%x on CPU %u!\n", irq, smp_processor_id());
+-#endif
+ }
+ 
+ /* startup is the same as "enable", shutdown is same as "disable" */
+@@ -166,11 +150,6 @@
+ };
+ 
+ atomic_t irq_err_count;
+-#ifdef CONFIG_X86_IO_APIC
+-#ifdef APIC_MISMATCH_DEBUG
+-atomic_t irq_mis_count;
+-#endif
+-#endif
+ 
+ /*
+  * Generic, controller-independent functions:
+@@ -220,19 +199,7 @@
+ 			if (cpu_online(j))
+ 				seq_printf(p, "%10u ", nmi_count(j));
+ 		seq_putc(p, '\n');
+-#ifdef CONFIG_X86_LOCAL_APIC
+-		seq_puts(p, "LOC: ");
+-		for (j = 0; j < NR_CPUS; j++)
+-			if (cpu_online(j))
+-				seq_printf(p, "%10u ", irq_stat[j].apic_timer_irqs);
+-		seq_putc(p, '\n');
+-#endif
+ 		seq_printf(p, "ERR: %10u\n", atomic_read(&irq_err_count));
+-#ifdef CONFIG_X86_IO_APIC
+-#ifdef APIC_MISMATCH_DEBUG
+-		seq_printf(p, "MIS: %10u\n", atomic_read(&irq_mis_count));
+-#endif
+-#endif
+ 	}
+ 	return 0;
+ }
