@@ -1,7 +1,7 @@
 From: "David S. Miller" <davem@redhat.com>
-Date: Fri, 16 May 2003 00:03:58 +0000
+Date: Fri, 16 May 2003 00:06:03 +0000
 Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705866@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705867@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -11,22 +11,20 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
    From: Colin Ngam <cngam@sgi.com>
-   Date: Thu, 15 May 2003 18:40:22 -0500
+   Date: Thu, 15 May 2003 18:45:42 -0500
+
+   Something else I do not understand .. in the PCI world, what does
+   Physical Memory Address got to do with 32Bit Mapped DMA
+   Bus Address?
    
-   What I did say is that, on our platform, in PCI-X mode, our PCI-X
-   Bridge Chipset do NOT support 32-Bit DMA Bus Space.
+Many platforms direct map, that is what I assumed was happening
+here and causing the problems.
 
-Sounds like you can't use a whole swath of devices then.
-What an entirely unfortunate design decision.
-
-Anyways, now that I understand the problem, merely adding
-the consistent_dma_mask attribute to the device struct will
-allow drivers to indicate this capability just fine.
-The driver goes:
-
-	if (pci_set_consistent_dma_mask(pdev, ~(u64)0))
-		goto probe_error;
-
-and then the platform pci_alloc_consistent() can do whatever is
-appropriate.
+   I have not seen any of the drivers broken yet - e.g. qlXXX, acenic,
+   tg3 etc.
+   
+It only works because these devices happen to allow >32-bit DMA
+addresses for descriptors.  You will find eventually that many
+comodity pieces of PCI-X hardware will opt to only support 32-bit
+DMA addressing for descriptor tables and whatnot.
 
