@@ -1,19 +1,24 @@
 From: Francis Galiegue <fg@mandrakesoft.com>
-Date: Fri, 16 Mar 2001 09:53:31 +0000
-Subject: [Linux-ia64] Fortran compiler for ia64?
-Message-Id: <marc-linux-ia64-105590693005278@msgid-missing>
+Date: Fri, 16 Mar 2001 10:21:31 +0000
+Subject: Re: [Linux-ia64] Fortran compiler for ia64?
+Message-Id: <marc-linux-ia64-105590693005279@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005278@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005278@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-All is in $subject... The existing toolchain doesn't seem to have any suppo=
-rt
-for Fortran right now.
+On Fri, 16 Mar 2001, Francis Galiegue wrote:
 
-Oh, and the linux-ia64 website and cygnus FTP site are still down... Is this
-normal?
+>=20
+> All is in $subject... The existing toolchain doesn't seem to have any sup=
+port
+> for Fortran right now.
+>=20
+
+I forgot... An open source one.
 
 --=20
 Francis Galiegue, fg@mandrakesoft.com - Normand et fier de l'=EAtre
