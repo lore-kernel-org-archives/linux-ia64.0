@@ -1,7 +1,7 @@
-From: "Qiu HongBing" <qiuhb@necas.nec.co.jp>
-Date: Tue, 13 Nov 2001 01:59:07 +0000
-Subject: Re: [Linux-ia64] do me a favor
-Message-Id: <marc-linux-ia64-105590698805485@msgid-missing>
+From: Tom King <Tom.King@bullant.com>
+Date: Tue, 13 Nov 2001 02:11:41 +0000
+Subject: RE: [Linux-ia64] do me a favor
+Message-Id: <marc-linux-ia64-105590698805486@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805482@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805482@msgid-missing>
@@ -9,6 +9,20 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+temp will be aligned when storage is allocated for it
+d[16] just happens to work because it is aligned
+any address that is not divisible by 8 can be considered unaligned
+
+Tom
+
+-----Original Message-----
+From: Qiu HongBing [mailto:qiuhb@necas.nec.co.jp]
+Sent: Tuesday, November 13, 2001 12:59 PM
+To: Dan Pop
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] do me a favor
+
 
 But next example happened same.
 
@@ -115,4 +129,9 @@ I
 >
 
 
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
