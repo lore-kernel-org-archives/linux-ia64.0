@@ -1,59 +1,31 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 24 Sep 2003 23:53:14 +0000
-Subject: [PATCH] always print note when trimming EFI memory map
-Message-Id: <marc-linux-ia64-106444761123807@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 26 Sep 2003 20:32:45 +0000
+Subject: Re: [PATCH] always print note when trimming EFI memory map
+Message-Id: <marc-linux-ia64-106460850320409@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106444761123807@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106444761123807@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I think it would be a good idea to always print a note when trimming
-the EFI memory map, even if it's not "available" memory.
+>>>>> On Wed, 24 Sep 2003 17:53:14 -0600, Bjorn Helgaas <bjorn.helgaas@hp.com> said:
 
-I just debugged a problem where we trimmed out some memory that
-contained ACPI tables.  When we went to look at a table later,
-we used the wrong attribute because we couldn't find its address
-in the EFI memory map.  This caused an MCA (uncached access to
-memory).  Straightforward to debug, but the note would have
-made it quicker.
+  Bjorn> I think it would be a good idea to always print a note when
+  Bjorn> trimming the EFI memory map, even if it's not "available"
+  Bjorn> memory.
 
-This patch is against 2.5.
+  Bjorn> I just debugged a problem where we trimmed out some memory
+  Bjorn> that contained ACPI tables.  When we went to look at a table
+  Bjorn> later, we used the wrong attribute because we couldn't find
+  Bjorn> its address in the EFI memory map.  This caused an MCA
+  Bjorn> (uncached access to memory).  Straightforward to debug, but
+  Bjorn> the note would have made it quicker.
 
-Bjorn
+The intention was to give the user an idea how much real & available
+memory is lost due to the trimming.  When reporting unavailable
+memory, you'll lose that info.  However, maybe we should be more
+verbose if EFI_DEBUG is enabled?
 
-=== arch/ia64/kernel/efi.c 1.23 vs edited ==--- 1.23/arch/ia64/kernel/efi.c	Wed Aug 27 10:47:27 2003
-+++ edited/arch/ia64/kernel/efi.c	Wed Sep 24 20:14:01 2003
-@@ -249,11 +249,10 @@
- 	if (num_skipped_pages > md->num_pages)
- 		num_skipped_pages = md->num_pages;
- 
--	if (is_available_memory(md))
--		printk(KERN_NOTICE "efi.%s: ignoring %luKB of memory at 0x%lx due to granule hole "
--		       "at 0x%lx\n", __FUNCTION__,
--		       (num_skipped_pages << EFI_PAGE_SHIFT) >> 10,
--		       md->phys_addr, start_addr - IA64_GRANULE_SIZE);
-+	printk(KERN_NOTICE "efi.%s: ignoring %luKB of memory at 0x%lx due to granule hole "
-+	       "at 0x%lx\n", __FUNCTION__,
-+	       (num_skipped_pages << EFI_PAGE_SHIFT) >> 10,
-+	       md->phys_addr, start_addr - IA64_GRANULE_SIZE);
- 	/*
- 	 * NOTE: Don't set md->phys_addr to START_ADDR because that could cause the memory
- 	 * descriptor list to become unsorted.  In such a case, md->num_pages will be
-@@ -277,11 +276,10 @@
- 	if (num_dropped_pages > md->num_pages)
- 		num_dropped_pages = md->num_pages;
- 
--	if (is_available_memory(md))
--		printk(KERN_NOTICE "efi.%s: ignoring %luKB of memory at 0x%lx due to granule hole "
--		       "at 0x%lx\n", __FUNCTION__,
--		       (num_dropped_pages << EFI_PAGE_SHIFT) >> 10,
--		       md->phys_addr, end_addr);
-+	printk(KERN_NOTICE "efi.%s: ignoring %luKB of memory at 0x%lx due to granule hole "
-+	       "at 0x%lx\n", __FUNCTION__,
-+	       (num_dropped_pages << EFI_PAGE_SHIFT) >> 10,
-+	       md->phys_addr, end_addr);
- 	md->num_pages -= num_dropped_pages;
- }
- 
-
+	--david
