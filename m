@@ -1,45 +1,137 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Thu, 08 Feb 2001 00:20:54 +0000
-Subject: Re: [Linux-ia64] The 1117 snapshot cpp problem
-Message-Id: <marc-linux-ia64-105590693005121@msgid-missing>
+From: Josue Emmanuel Amaro <Josue.Amaro@oracle.com>
+Date: Tue, 27 Feb 2001 00:47:28 +0000
+Subject: [Linux-ia64] Compiling 2.4.2
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------DAEE60B4320645FB0DB88E20"
+Message-Id: <marc-linux-ia64-105590693005211@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205880@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205880@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->It is ok if you use "make bootstrap" since $(includedir) passed down
->is ignored during "make bootstrap" in gcc. But the toolchain may not
->be built with "make bootstrap". I believe
->"includedir=$(includedir)" \
->should not be passed to gcc during any build.
+This is a multi-part message in MIME format.
+--------------DAEE60B4320645FB0DB88E20
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-I don't like that idea.  It defeats the purpose of having the top level
-Makefile, which is to ensure that all tools are compatible with each other.
-Binutils for instance uses includedir.  It will install bfd.h there.  So
-if binutils uses includedir and gcc does not, then they are no longer
-compatible with each other.  binutils will install a header file someplace
-where gcc can't find it.
+All,
 
-I think this also explains part of the reason why the "Cygnus" tree sets
-includedir to $prefix/include.  If you configure a tree setting $prefix, and
-then install it, it is wrong to install files into /usr/local/include.
-Everything has to be installed underneath $prefix.  This required creating
-a new include directory underneath prefix, and making gcc look in it.
-Unfortunately, our mistake here was that we replaced /usr/local/include
-which other people are using.
+I am trying to build an IA-64 kernel on a Lion B3 system running SuSE 7.1 beta.
 
-This mistake has already been institutionalized by the gcc-2.95 release.
-gcc-2.9 supports /usr/local/include.  gcc-2.95 supports $prefix/include.
-There are people that want both, so I think we need to support both now.
+Attached is the error log.  Any ideas on what is going on??
 
-This requires a bigger change though.  We have to document the new directory,
-add support for the new directory to cpp and anyplace else that cares
-(protoize?), and fix up the Makefile to pass both directory names on the
-compile line for cpp.  This is a big enough change that I was not able to
-have it done by yesterday.
+Regards,
 
-Jim
+--
+"When you see the correct course, act; do not wait for orders."
+The Art of War
+
+=======================================================================
+  Josue Emmanuel Amaro                         Josue.Amaro@oracle.com
+  Linux Products Manager                       Phone:   650.506.1239
+  Intel and Linux Technologies Group           Fax:     650.413.0167
+=======================================================================
+
+
+--------------DAEE60B4320645FB0DB88E20
+Content-Type: application/x-unknown-content-type-txtfile;
+ name="vmlinux.mk.log"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="vmlinux.mk.log"
+
+c2NyaXB0cy9zcGxpdC1pbmNsdWRlIGluY2x1ZGUvbGludXgvYXV0b2NvbmYuaCBpbmNsdWRl
+L2NvbmZpZwpnY2MgLURfX0tFUk5FTF9fIC1JL3Vzci9zcmMvbGludXgvaW5jbHVkZSAtV2Fs
+bCAtV3N0cmljdC1wcm90b3R5cGVzIC1PMiAtZm9taXQtZnJhbWUtcG9pbnRlciAtZm5vLXN0
+cmljdC1hbGlhc2luZyAtcGlwZSAgLVdhLC14IC1mZml4ZWQtcjEzIC1tZml4ZWQtcmFuZ2U9
+ZjEwLWYxNSxmMzItZjEyNyAtZnVud2luZC10YWJsZXMgLWZhbGlnbi1mdW5jdGlvbnM9MzIg
+LW1jb25zdGFudC1ncCAgLWMgLW8gaW5pdC9tYWluLm8gaW5pdC9tYWluLmMKSW4gZmlsZSBp
+bmNsdWRlZCBmcm9tIC91c3Ivc3JjL2xpbnV4L2luY2x1ZGUvbGludXgvcGFnZW1hcC5oOjE3
+LAogICAgICAgICAgICAgICAgIGZyb20gL3Vzci9zcmMvbGludXgvaW5jbHVkZS9saW51eC9s
+b2Nrcy5oOjksCiAgICAgICAgICAgICAgICAgZnJvbSAvdXNyL3NyYy9saW51eC9pbmNsdWRl
+L2xpbnV4L3JhaWQvbWQuaDozNywKICAgICAgICAgICAgICAgICBmcm9tIGluaXQvbWFpbi5j
+OjI1OgovdXNyL3NyYy9saW51eC9pbmNsdWRlL2xpbnV4L2hpZ2htZW0uaDogSW4gZnVuY3Rp
+b24gYGNsZWFyX3VzZXJfaGlnaHBhZ2UnOgovdXNyL3NyYy9saW51eC9pbmNsdWRlL2xpbnV4
+L2hpZ2htZW0uaDo0ODogdG9vIGZldyBhcmd1bWVudHMgdG8gZnVuY3Rpb24gYGNsZWFyX3Vz
+ZXJfcGFnZScKL3Vzci9zcmMvbGludXgvaW5jbHVkZS9saW51eC9oaWdobWVtLmg6IEluIGZ1
+bmN0aW9uIGBjb3B5X3VzZXJfaGlnaHBhZ2UnOgovdXNyL3NyYy9saW51eC9pbmNsdWRlL2xp
+bnV4L2hpZ2htZW0uaDo5MDogdG9vIGZldyBhcmd1bWVudHMgdG8gZnVuY3Rpb24gYGNvcHlf
+dXNlcl9wYWdlJwppbml0L21haW4uYzogSW4gZnVuY3Rpb24gYGRvX2xpbnV4cmMnOgovdXNy
+L3NyYy9saW51eC9pbmNsdWRlL2FzbS91bmlzdGQuaDoyOTA6IHdhcm5pbmc6IGBkdW1teTIn
+IG1pZ2h0IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uCi91c3Ivc3Jj
+L2xpbnV4L2luY2x1ZGUvYXNtL3VuaXN0ZC5oOjI5MDogd2FybmluZzogYGR1bW15MycgbWln
+aHQgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24KL3Vzci9zcmMvbGlu
+dXgvaW5jbHVkZS9hc20vdW5pc3RkLmg6MjkwOiB3YXJuaW5nOiBgZHVtbXk0JyBtaWdodCBi
+ZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbgovdXNyL3NyYy9saW51eC9p
+bmNsdWRlL2FzbS91bmlzdGQuaDoyOTA6IHdhcm5pbmc6IGBkdW1teTUnIG1pZ2h0IGJlIHVz
+ZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uCi91c3Ivc3JjL2xpbnV4L2luY2x1
+ZGUvYXNtL3VuaXN0ZC5oOjI5MDogd2FybmluZzogYGR1bW15MicgbWlnaHQgYmUgdXNlZCB1
+bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24KL3Vzci9zcmMvbGludXgvaW5jbHVkZS9h
+c20vdW5pc3RkLmg6MjkwOiB3YXJuaW5nOiBgZHVtbXkzJyBtaWdodCBiZSB1c2VkIHVuaW5p
+dGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbgovdXNyL3NyYy9saW51eC9pbmNsdWRlL2FzbS91
+bmlzdGQuaDoyOTA6IHdhcm5pbmc6IGBkdW1teTQnIG1pZ2h0IGJlIHVzZWQgdW5pbml0aWFs
+aXplZCBpbiB0aGlzIGZ1bmN0aW9uCi91c3Ivc3JjL2xpbnV4L2luY2x1ZGUvYXNtL3VuaXN0
+ZC5oOjI5MDogd2FybmluZzogYGR1bW15NScgbWlnaHQgYmUgdXNlZCB1bmluaXRpYWxpemVk
+IGluIHRoaXMgZnVuY3Rpb24KL3Vzci9zcmMvbGludXgvaW5jbHVkZS9hc20vdW5pc3RkLmg6
+MjkwOiB3YXJuaW5nOiBgZHVtbXkyJyBtaWdodCBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4g
+dGhpcyBmdW5jdGlvbgovdXNyL3NyYy9saW51eC9pbmNsdWRlL2FzbS91bmlzdGQuaDoyOTA6
+IHdhcm5pbmc6IGBkdW1teTMnIG1pZ2h0IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlz
+IGZ1bmN0aW9uCi91c3Ivc3JjL2xpbnV4L2luY2x1ZGUvYXNtL3VuaXN0ZC5oOjI5MDogd2Fy
+bmluZzogYGR1bW15NCcgbWlnaHQgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVu
+Y3Rpb24KL3Vzci9zcmMvbGludXgvaW5jbHVkZS9hc20vdW5pc3RkLmg6MjkwOiB3YXJuaW5n
+OiBgZHVtbXk1JyBtaWdodCBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlv
+bgovdXNyL3NyYy9saW51eC9pbmNsdWRlL2FzbS91bmlzdGQuaDoyODM6IHdhcm5pbmc6IGBk
+dW1teTInIG1pZ2h0IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uCi91
+c3Ivc3JjL2xpbnV4L2luY2x1ZGUvYXNtL3VuaXN0ZC5oOjI4Mzogd2FybmluZzogYGR1bW15
+MycgbWlnaHQgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24KL3Vzci9z
+cmMvbGludXgvaW5jbHVkZS9hc20vdW5pc3RkLmg6MjgzOiB3YXJuaW5nOiBgZHVtbXk0JyBt
+aWdodCBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbgovdXNyL3NyYy9s
+aW51eC9pbmNsdWRlL2FzbS91bmlzdGQuaDoyODM6IHdhcm5pbmc6IGBkdW1teTUnIG1pZ2h0
+IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uCi91c3Ivc3JjL2xpbnV4
+L2luY2x1ZGUvYXNtL3VuaXN0ZC5oOjI4OTogd2FybmluZzogYGR1bW15NCcgbWlnaHQgYmUg
+dXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24KL3Vzci9zcmMvbGludXgvaW5j
+bHVkZS9hc20vdW5pc3RkLmg6Mjg5OiB3YXJuaW5nOiBgZHVtbXk1JyBtaWdodCBiZSB1c2Vk
+IHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbgovdXNyL3NyYy9saW51eC9pbmNsdWRl
+L2FzbS91bmlzdGQuaDoyODc6IHdhcm5pbmc6IGBkdW1teTInIG1pZ2h0IGJlIHVzZWQgdW5p
+bml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uCi91c3Ivc3JjL2xpbnV4L2luY2x1ZGUvYXNt
+L3VuaXN0ZC5oOjI4Nzogd2FybmluZzogYGR1bW15MycgbWlnaHQgYmUgdXNlZCB1bmluaXRp
+YWxpemVkIGluIHRoaXMgZnVuY3Rpb24KL3Vzci9zcmMvbGludXgvaW5jbHVkZS9hc20vdW5p
+c3RkLmg6Mjg3OiB3YXJuaW5nOiBgZHVtbXk0JyBtaWdodCBiZSB1c2VkIHVuaW5pdGlhbGl6
+ZWQgaW4gdGhpcyBmdW5jdGlvbgovdXNyL3NyYy9saW51eC9pbmNsdWRlL2FzbS91bmlzdGQu
+aDoyODc6IHdhcm5pbmc6IGBkdW1teTUnIG1pZ2h0IGJlIHVzZWQgdW5pbml0aWFsaXplZCBp
+biB0aGlzIGZ1bmN0aW9uCi91c3Ivc3JjL2xpbnV4L2luY2x1ZGUvYXNtL3VuaXN0ZC5oOjI4
+Nzogd2FybmluZzogYGR1bW15MicgbWlnaHQgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRo
+aXMgZnVuY3Rpb24KL3Vzci9zcmMvbGludXgvaW5jbHVkZS9hc20vdW5pc3RkLmg6Mjg3OiB3
+YXJuaW5nOiBgZHVtbXkzJyBtaWdodCBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBm
+dW5jdGlvbgovdXNyL3NyYy9saW51eC9pbmNsdWRlL2FzbS91bmlzdGQuaDoyODc6IHdhcm5p
+bmc6IGBkdW1teTQnIG1pZ2h0IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0
+aW9uCi91c3Ivc3JjL2xpbnV4L2luY2x1ZGUvYXNtL3VuaXN0ZC5oOjI4Nzogd2FybmluZzog
+YGR1bW15NScgbWlnaHQgYmUgdXNlZCB1bmluaXRpYWxpemVkIGluIHRoaXMgZnVuY3Rpb24K
+L3Vzci9zcmMvbGludXgvaW5jbHVkZS9hc20vdW5pc3RkLmg6Mjg4OiB3YXJuaW5nOiBgZHVt
+bXk0JyBtaWdodCBiZSB1c2VkIHVuaW5pdGlhbGl6ZWQgaW4gdGhpcyBmdW5jdGlvbgovdXNy
+L3NyYy9saW51eC9pbmNsdWRlL2FzbS91bmlzdGQuaDoyODg6IHdhcm5pbmc6IGBkdW1teTUn
+IG1pZ2h0IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uCm1ha2U6ICoq
+KiBbaW5pdC9tYWluLm9dIEVycm9yIDEK
+--------------DAEE60B4320645FB0DB88E20
+Content-Type: text/x-vcard; charset=us-ascii;
+ name="Josue.Amaro.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Description: Card for Josue Emmanuel Amaro
+Content-Disposition: attachment;
+ filename="Josue.Amaro.vcf"
+
+begin:vcard 
+n:Amaro;Josue Emmanuel
+tel;fax:650-413-0167
+tel;work:650-506-1239
+x-mozilla-html:FALSE
+url:http://www.oracle.com
+org:Intel and Linux Technologies
+version:2.1
+email;internet:Josue.Amaro@oracle.com
+title:Sr.Product Manager - Linux
+adr;quoted-printable:;;500 Oracle Parkway=0D=0AMS1ip4;Redwood Shores;CA;94065;United States
+fn:Josue Emmanuel Amaro
+end:vcard
+
+--------------DAEE60B4320645FB0DB88E20--
+
 
