@@ -1,35 +1,38 @@
-From: Mario Smarduch <cms063@email.mot.com>
-Date: Fri, 26 Sep 2003 16:57:41 +0000
-Subject: Re: vhpt_miss handler question?
-Message-Id: <marc-linux-ia64-106459543305063@msgid-missing>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Fri, 19 Sep 2003 04:16:29 +0000
+Subject: NS83820 2.6.0-test5 driver seems unstable on IA64
+Message-Id: <marc-linux-ia64-106394503001622@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106458752027199@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106458752027199@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
 
-> >>>>> On Fri, 26 Sep 2003 09:43:55 -0500, Mario Smarduch <cms063@email.mot.com> said:
->
->   Mario> Some work I'm doing has taken me to the vhpt_miss
->   Mario> handler. I've been looking at the following snippet just
->   Mario> wondering what happens in the case where the present bit is 0
->   Mario> and p10,p11 predicates are not set anotherwords they retain
->   Mario> their application values. Would this not cause an errant
->   Mario> insertion if either p10 or p11 were true in the application
->   Mario> prior to the VHPT handler?
->
->   Mario> (p7) tbit.nz.unc p10,p11=r19,32
->
-> Did you miss the .unc qualifier on that instruction?  It causes p10 and
-> p11 to be set to FALSE when p7 is FALSE.
->
->         --david
+Hi,
+	I'm having some problems with the NS83820 driver on Itanium-1.
 
-I see! I guess I didn't fully understand what Keith wrote.
+1.  I see many many `unaligned accesses' when the IP header is
+accessed (ip_input.c:410 and 423)
+It looks as if the IP header is two byte aligned, when it ought to be
+4-byte aligned.
 
-- Mario.
+The error message is, e.g., 
+ kernel unaligned access to 0xe000000128d8881e, ip=0xe0000000047ba2d1
+
+0xe0000000047ba2d1 is             
+ip_input:410
+		   if (iph->ihl < 5 || iph->version != 4)
+		                goto inhdr_error; 
+
+0xe000000128d8881e is what's calculated as &iph->ihl
+
+The obvious approach of realigning the SKB by 2 bytes seems not to
+work.
+
+Any ideas?
+
+--
+Dr Peter Chubb     http://www.gelato.unsw.edu.au  peterc@gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories,   all slightly different.
 
