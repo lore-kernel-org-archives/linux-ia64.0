@@ -1,33 +1,31 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 20 Jun 2003 23:08:28 +0000
-Subject: Re: atomic.h vs spinlock.h
-Message-Id: <marc-linux-ia64-105615055203234@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 02 Jun 2003 17:00:28 +0000
+Subject: RE: [Linux-ia64] [PATCH] MCA recovery for TLB faults for 2.4
+Message-Id: <marc-linux-ia64-105590723706109@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105615005202860@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105615005202860@msgid-missing>
+References: <marc-linux-ia64-105590723706058@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723706058@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 20 Jun 2003 16:00:45 -0700, Umut Aymakoglu <umuta@us.ibm.com> said:
+> Are you just blindly trusting that memory is still correct after
+> getting a TLB error report?  Wouldn't you want to have a checksum to
+> validate that the list of saved translations is probably correct.
+> Otherwise, it seems to me the TLB purge could make a bad situation
+> worse.
 
-  Umut> 1) what is the difference between the macros defined in
-  Umut> asm/atomic.h and asm/spinlock.h. (usage and purpose wise)?
+At the moment the trust level is extremely high.  Linux doesn't
+even provide a checksum for the ia64_os_mca_dispatch entry code
+when it registers it with the SAL.
 
-The first provides atomic operations, such as increment and decrement;
-the second provides spinlocks.  I'm afraid I'm just stating the
-obvious here.
+A checksum in the list of saved translations would only be part
+of reducing the level of trust ... we'd also need to validate
+that the entire code path has the correct code (not just the entry
+point).  There are several other data items on which the code
+also relies which a truly paranoid MCA handler would also need to
+validate.
 
-In case you have a copy of my book (ia64 linux kernel), atomic ops and
-spinlocks are described in sections 3.3.2 and 3.3.5, respectively.
-(Of course, I wouldn't recommend to get the book _just_ because of
-this.)
+-Tony
 
-  Umut> 2) If I need to use asm/atomic.h, which macro can I use to
-  Umut> test-and-set?
-
-cmpxchg() is the closest thing to test-and-set.  Not all platforms support it.
-Platforms that do support it (such as ia64), define macro __HAVE_ARCH_CMPXCHG.
-
-	--david
