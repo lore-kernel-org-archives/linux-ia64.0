@@ -1,40 +1,114 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 17 Aug 2001 17:22:10 +0000
-Subject: [Linux-ia64] fix for typo
-Message-Id: <marc-linux-ia64-105590698805087@msgid-missing>
+From: "Zach, Yoav" <yoav.zach@intel.com>
+Date: Sun, 12 Aug 2001 07:46:24 +0000
+Subject: [Linux-ia64] FW: incorrect misalignment handling
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C12302.E2D15180"
+Message-Id: <marc-linux-ia64-105590698805061@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Here is a fix for a small typo.  The kernel is not affected by it and
-I'm not aware of any applications that are affected either.  In fact,
-if you have any application that's using those flags directly, we need
-to talk: there should be an API through which sigcontext is accessed
-(no app should ever access sigcontext directly on IA-64).  But still,
-the typo is a bug that needs to be fixed.  Thanks to Tony Luck for
-noticing this.
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
 
-	--david
+------_=_NextPart_000_01C12302.E2D15180
+Content-Type: text/plain;
+	charset="windows-1252"
 
---- include/asm-ia64/sigcontext.h~	Mon Aug 13 11:39:03 2001
-+++ include/asm-ia64/sigcontext.h	Thu Aug 16 11:04:37 2001
-@@ -2,13 +2,13 @@
- #define _ASM_IA64_SIGCONTEXT_H
- 
- /*
-- * Copyright (C) 1998, 1999 Hewlett-Packard Co
-- * Copyright (C) 1998, 1999 David Mosberger-Tang <davidm@hpl.hp.com>
-+ * Copyright (C) 1998, 1999, 2001 Hewlett-Packard Co
-+ * Copyright (C) 1998, 1999, 2001 David Mosberger-Tang <davidm@hpl.hp.com>
-  */
- 
- #include <asm/fpu.h>
- 
--#define IA64_SC_FLAG_ONSTACK_BIT		1	/* is handler running on signal stack? */
-+#define IA64_SC_FLAG_ONSTACK_BIT		0	/* is handler running on signal stack? */
- #define IA64_SC_FLAG_IN_SYSCALL_BIT		1	/* did signal interrupt a syscall? */
- #define IA64_SC_FLAG_FPH_VALID_BIT		2	/* is state in f[32]-f[127] valid? */
- 
+the attachment did not get by. here it is:
+
+-------------------------------------- start code
+--------------------------------------
+#include <stdio.h>
+
+char buff[20]
+/* uncomment the next line to see how it is done in hw */
+// __attribute__ ((aligned (16)))
+;
+int main()
+{
+    int i;
+
+    for (i = 0; i< 10; i++)
+        buff[i] = 'a';
+    for (i = 10; i < 20; i++)
+        buff[i] = 'A';
+    __asm__ ("
+        movl r2 = buff;;
+        fmerge.s f10 = f0, f1;;
+        stfe [r2] = f10;;
+    ");
+    printf("buff[10] = %c\n", buff[10]);
+    return 0;
+} 
+-------------------------------------- end code
+----------------------------------------
+
+>  -----Original Message-----
+> From: 	Zach, Yoav  
+> Sent:	Sunday, August 12, 2001 9:59 AM
+> To:	'linux-ia64@linuxia64.org'
+> Cc:	Luck, Tony
+> Subject:	incorrect misalignment handling
+> 
+> We encountered a problem with the handling of misaligned operations. When
+> handling a misaligned 'stfX' instruction, the kernel uses the function
+> emulate_store_float( ), which practically copies the source to destination
+> byte by byte. The length of the operation is determined according to the
+> instruction's fsz completer, using the float_fsz table:
+> 
+> static const unsigned char float_fsz[4]={
+> 	16, /* extended precision (e) */
+> 	8,  /* integer (8)            */
+> 	4,  /* single precision (s)   */
+> 	8   /* double precision (d)   */
+> }
+> 
+> The problem is that fsz==e means the operation length is 10 bytes, and not
+> 16 bytes as in the implementation. Attached is a small test case that
+> demonstrates this problem.
+> 
+> My questions are:
+> *	Is there a rationale behind this implementation, or is it just a
+> mistake ?
+> *	If it is a mistake, was it corrected in kernel versions later than
+> 2.4.3 ? 
+> 
+>  <<mis64.c>> 
+> TIA,
+> Yoav.
+> 
+> Yoav Zach
+> Mail:        yoav.zach@intel.com
+> 
+
+------_=_NextPart_000_01C12302.E2D15180
+Content-Type: application/octet-stream;
+	name="mis64.c"
+Content-Disposition: attachment;
+	filename="mis64.c"
+
+#include <stdio.h>
+
+char buff[20]
+/* uncomment the next line to see how it is done in hw */
+// __attribute__ ((aligned (16)))
+;
+int main()
+{
+    int i;
+
+    for (i = 0; i< 10; i++)
+        buff[i] = 'a';
+    for (i = 10; i < 20; i++)
+        buff[i] = 'A';
+    __asm__ ("
+        movl r2 = buff;;
+        fmerge.s f10 = f0, f1;;
+        stfe [r2] = f10;;
+    ");
+    printf("buff[10] = %c\n", buff[10]);
+    return 0;
+} 
+
+------_=_NextPart_000_01C12302.E2D15180--
 
