@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 24 Feb 2004 00:02:14 +0000
+Date: Tue, 24 Feb 2004 00:03:04 +0000
 Subject: Re: [patch] 2.6.3 sync unwind code with 2.4.25
-Message-Id: <16442.38022.826068.94224@napali.hpl.hp.com>
+Message-Id: <16442.38072.25672.884760@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4545.1077507994@kao2.melbourne.sgi.com>
 In-Reply-To: <4545.1077507994@kao2.melbourne.sgi.com>
@@ -12,15 +12,10 @@ To: linux-ia64@vger.kernel.org
 
 >>>>> On Tue, 24 Feb 2004 10:53:33 +1100, Keith Owens <kaos@sgi.com> said:
 
-  Keith> On Mon, 23 Feb 2004 15:34:40 -0800, 
-  Keith> David Mosberger <davidm@napali.hpl.hp.com> wrote:
+  Keith> One line fix for 2.6.3.  include/linux/compiler-gcc3.h defines inline
+  Keith> which gives warnings for unwind.c when UNW_DEBUG is defined.
 
-  >> Note that I added an unwind.c fix recently.
-
-  Keith> Before or after 2.6.3 was released?
-
-After.  I was referring to this one:
-
-  http://lia64.bkbits.net:8080/to-linus-2.5/cset@1.1659
+Yeah, that's a feature, actually.  It reminds me to turn off UNW_DEBUG
+before shipping a kernel...
 
 	--david
