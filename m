@@ -1,41 +1,50 @@
-From: Nish Aravamudan <nish.aravamudan@gmail.com>
-Date: Fri, 18 Mar 2005 05:43:17 +0000
-Subject: Re: [PATCH] Prezeroing V8 + free_hot_zeroed_page + free_cold_zeroed page
-Message-Id: <29495f1d050317214315f6da3d@mail.gmail.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Mon, 14 Mar 2005 19:28:01 +0000
+Subject: [PATCH] remove redundant irq_affinity definition
+Message-Id: <200503141128.01855.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_BXeNC3ZdRjXFjPP"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0503171340480.9678@schroedinger.engr.sgi.com>
-	 <20050317140831.414b73bb.akpm@osdl.org>
-	 <Pine.LNX.4.58.0503171459310.10205@schroedinger.engr.sgi.com>
-	 <20050318020645.GC156968@dragonfly.engr.sgi.com>
-	 <Pine.LNX.4.58.0503171808540.11258@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0503171808540.11258@schroedinger.engr.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+--Boundary-00=_BXeNC3ZdRjXFjPP
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: Jason Uhlenkott <jasonuhl@sgi.com>, Andrew Morton <akpm@osdl.org>, holt@sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Disposition: inline
 
-On Thu, 17 Mar 2005 18:09:11 -0800 (PST), Christoph Lameter
-<clameter@sgi.com> wrote:
-> On Thu, 17 Mar 2005, Jason Uhlenkott wrote:
-> 
-> > On Thu, Mar 17, 2005 at 05:36:50PM -0800, Christoph Lameter wrote:
-> > > +        while (avenrun[0] >= ((unsigned long)sysctl_scrub_load << FSHIFT)) {
-> > > +           set_current_state(TASK_UNINTERRUPTIBLE);
-> > > +           schedule_timeout(30*HZ);
-> > > +   }
-> >
-> > This should probably be TASK_INTERRUPTIBLE.  It'll never actually get
-> > interrupted either way since kernel threads block all signals, but
-> > sleeping uninterruptibly contributes to the load average.
-> 
-> Correct. .... I just do not seem to be able to get this right.
+gcc4 complains about multiple definitions of irq_affinity--I think the one in 
+arch/ia64/kernel/irq.c is the redundant one since the array is also defined 
+in kernel/irq/manage.c.
 
-I think msleep_interruptible(30000) would be your best choice, then. 
-Maybe with a comment that you don't actually expect signals, but are
-using TASK_INTERRUPTIBLE to avoid contributing to load average (that
-way, if the loadavg calculation changes someday, somebody will be able
-to change your sleep over appropriately).
+Building with gcc4 generates a bunch of warnings too, saying that qualifiers 
+on function return types are being ignored (in particular the ones from 
+__ia64_get_io_port_base and the ones having to do with mmu_context_t being 
+volatile).  Should we use attribute(const) for get_io_port_base?  What about 
+for the mmu_context_t functions?
 
-Thanks,
-Nish
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+
+Jesse
+
+--Boundary-00=_BXeNC3ZdRjXFjPP
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="generic-irqs-ia64-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="generic-irqs-ia64-fix.patch"
+
+===== arch/ia64/kernel/irq.c 1.55 vs edited =====
+--- 1.55/arch/ia64/kernel/irq.c	2005-01-22 15:54:25 -08:00
++++ edited/arch/ia64/kernel/irq.c	2005-03-14 11:24:20 -08:00
+@@ -97,7 +97,6 @@
+ cpumask_t __cacheline_aligned pending_irq_cpumask[NR_IRQS];
+ static unsigned long pending_irq_redir[BITS_TO_LONGS(NR_IRQS)];
+ 
+-static cpumask_t irq_affinity [NR_IRQS] = { [0 ... NR_IRQS-1] = CPU_MASK_ALL };
+ static char irq_redir [NR_IRQS]; // = { [0 ... NR_IRQS-1] = 1 };
+ 
+ void set_irq_affinity_info (unsigned int irq, int hwid, int redir)
+
+--Boundary-00=_BXeNC3ZdRjXFjPP--
