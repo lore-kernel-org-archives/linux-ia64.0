@@ -1,68 +1,62 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 22 Jun 2002 09:25:23 +0000
-Subject: [Linux-ia64] kernel update (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905707@msgid-missing>
+From: Steffen Persvold <sp@scali.com>
+Date: Sat, 22 Jun 2002 10:05:50 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to 2.4.18)
+Message-Id: <marc-linux-ia64-105590701905706@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-The latest patch is available at
-ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4 in file:
+On Sat, 22 Jun 2002, David Mosberger wrote:
 
-	linux-2.4.18-ia64-020622.diff.gz
+> The latest ia64 kernel patch for 2.4.18 is at
+> ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/ in file:
+>=20
+> 	linux-2.4.18-ia64-020622.diff.gz
+>=20
+> There are some important bug fixes in this patch:
+>=20
+> 	- munmap near end of per-region mappable address space no
+> 	  longer causes virtual memory corruption
+> 	- the kernel used to inherit all PSR bits across fork/exec,
+> 	  which is a Bad Thing; this has been fixed
+>=20
 
-This kernel should work well both on Itanium 1 and Itanium 2,
-including hp zx1-based machines.  64KB page size should also work well
-as does the virtual mem_map, which is needed for zx1-based machines
-with >1GB of memory.  This patch also fixes the
-munmap-near-end-of-mappable-space bug.
+Hi David,
 
-IMPORTANT: To avoid memory attribute aliasing issues and the risk of
-triggering prefetches on memory holes, the kernel now ignores all
-memory inside granules ("large kernel pages") that contain holes or
-something other than normal memory (e.g., memory-mapped I/O regions).
-On today's systems, this means that the kernel tends to throw away
-~64MB of memory (or about 6% on a 1GB machine).  If you want to
-minimize the amount of memory being thrown away, you can choose a
-granule size of 16MB instead (this will increase alternate TLB miss
-handling overhead, however).
+Have you tried CONFIG_IA64_GENERIC=3Dy ? This is what I get :
 
-Enjoy,
+gcc -D__KERNEL__ -I/usr/src/linux-2.4.18-020622/include -Wall=20
+-Wstrict-prototypes -Wno-trigraphs -g -O2 -fomit-frame-pointer=20
+-fno-strict-aliasing -fno-common -pipe  -ffixed-r13=20
+-mfixed-range=F10-f15,f32-f127 -falign-functions2 -mconstant-gp=20
+-D__KERNEL__ -I/usr/src/linux-2.4.18-020622/include  -c -o bootloader.o=20
+bootloader.c
+In file included from bootloader.c:54:
+../kernel/fw-emu.c:246:9: #error Not implemented yet...
+../kernel/fw-emu.c:257:9: #error Not implemented yet...
+bootloader.c: In function `cons_write':
+bootloader.c:62: warning: implicit declaration of function `ssc'
+make[1]: *** [bootloader.o] Error 1
+make[1]: Leaving directory `/usr/src/linux-2.4.18-020622/arch/ia64/boot'
+make: *** [boot] Error 2
 
-	--david
 
-PS: I'll be at the kernel workshop/OLS next week, so don't expect quick
-    responses.
+Seems to be related to efi_get_time() and efi_reset_system() for all other =
 
-ChangeLog
+platforms than CONFIG_IA64_HP_SIM. Is this intended ?
 
-	- Install NaT-page at address zero to speed up speculation
-	  across NULL pointers (Ken Chen).
-	- Update hp zx1 specific code (Bjorn Helgaas, Alex Williamson,
-	  Matthew Willcox)
-	- ACPI sync up (Matthew Willcox, Bjorn Helgaas)
-	- Ignore memory that's on a granule (large kernel page) that contains
-	  holes or non-memory regions (e.g., uncached/writecombine regions).
-	- Widen I/O SAPIC base irq numbers to 32 bits (KOCHI Takayoshi)
-	- Sync with latest perfmon (Stephane Eranian)
-	- Stop inheriting certain PSR bits (e.g., PSR.DB) across clone2() and
-	  fork() (Stephane Eranian & yours truly)
-	- Don't clear siginfo.si_addr for SIGTRAP caused by debug breakpoint
-	- McKinley-tuned copy_user(), merged with McKinley-tuned memcpy()
-	  (Ken Chen)
-	- Fix linker script so GOT gets properly aligned (not just __gp).
-	  This avoids spurios "gp out-of-range" errors.
-	- Clean up fusion driver (based on suggestion by Keith Owens &
-	  Grant Grundler)
-	- Add bcm5700 gig ethernet driver
-	- Add preliminary driver for ForteMedia FM801 sound chip (Martin
-	  Petersen).
-	- Fix bootmem so machine boots much faster if there are large holes in
-	  the physical memory map.
-	- Fix vm-corruption due to munmap() near end of mappable address space
-	- Finish virtual mem_map integration.
+=20
+Regards,=20
+--=20
+  Steffen Persvold   | Scalable Linux Systems |   Try out the world's best
+ mailto:sp@scali.com |  http://www.scali.com  | performing MPI implementati=
+on:
+Tel: (+47) 2262 8950 |   Olaf Helsets vei 6   |      - ScaMPI 1.13.8 -
+Fax: (+47) 2262 8951 |   N0621 Oslo, NORWAY   | >320MBytes/s and <4uS laten=
+cy
+
 
