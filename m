@@ -1,29 +1,28 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 22 Feb 2005 17:37:10 +0000
-Subject: Re: [PATCH] Errenous use of memset and memcpy
-Message-Id: <1109093830.30562.14.camel@eeyore>
+From: Mark Maule <maule@sgi.com>
+Date: Fri, 04 Feb 2005 21:31:58 +0000
+Subject: [PATCH 2.6.11-rc2 0/3] altix: AGP bridge support for tioca chip
+Message-Id: <20050204213158.16671.87679.94380@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1108848352.682.2.camel@boxen>
-In-Reply-To: <1108848352.682.2.camel@boxen>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, 2005-02-20 at 11:38 +0100, Alexander Nyberg wrote:
-> === arch/ia64/ia32/ia32_signal.c 1.35 vs edited ==> --- 1.35/arch/ia64/ia32/ia32_signal.c	2005-01-25 21:23:45 +01:00
-> +++ edited/arch/ia64/ia32/ia32_signal.c	2005-02-20 11:32:55 +01:00
-> @@ -460,9 +460,9 @@ __ia32_rt_sigsuspend (compat_sigset_t *s
->  	sigset_t oldset, set;
->  
->  	scr->scratch_unat = 0;	/* avoid leaking kernel bits to user level */
-> -	memset(&set, 0, sizeof(&set));
-> +	memset(&set, 0, sizeof(sigset_t));
+This patchset provides new hardware support for the SGI TIOCA agp chip.
 
-To check that the above is correct, you have to go look up
-the declaration of "set".  Why not do this:
+In order to stitch this into the SGI sn2 pci dma layer, it is necessary
+to add an abstraction which is implmented by PATCH 1/3 
+(sn2-pci-dma-abstraction.patch).
 
-+	memset(&set, 0, sizeof(set));
+Additionally, a couple of header files were moved out of arch/ia64/sn
+and into include/asm-ia64/sn.  I also took the opportunity to kill some
+unused macros.  This is done by PATCH 2/3 (sn2-move-pci-headers.patch).
 
-which is clearly correct, regardless of the declaration?
+The TIOCA driver is implemented as an sn2 pci provider with hooks 
+externalized for an upcoming agpgart backend.  The TIOCA kernel driver is
+provided with PATCH 3/3 (sn2-tioca-driver.patch).
 
+Signed-off-by: Mark Maule <maule@sgi.com>
+
+thanks
+Mark
