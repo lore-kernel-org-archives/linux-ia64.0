@@ -1,47 +1,37 @@
-From: Erich Focht <focht@ess.nec.de>
-Date: Wed, 16 May 2001 16:55:20 +0000
-Subject: [Linux-ia64] hanging process cannot be killed
-Message-Id: <marc-linux-ia64-105590693005594@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Wed, 16 May 2001 18:49:36 +0000
+Subject: Re: [Linux-ia64] hanging process cannot be killed
+Message-Id: <marc-linux-ia64-105590693005596@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005594@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005594@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+>>>>> On Wed, 16 May 2001 18:55:20 +0200 (MEST), Erich Focht <focht@ess.nec.de> said:
 
-how can it happen that a process isn't killable with kill -9 any more? I
-have encountered this a few times and from within kdb two processes seem
-to be in "run" state on the same CPU! The one marked as "current" shows
-the following traceback:
-   __ia64_save_fpu+0x20
-   schedule+0xa40
-   invoke_schedule+0x20
-   ia64_leave_kernel+0x30
+  Erich> Hello, how can it happen that a process isn't killable with
+  Erich> kill -9 any more?
 
-This process sits on the CPU, eats up cycles and the scheduler doesn't
-seem to touch it any more. I only can get rid of it by rebooting.
+Can happen easily if it's doing a non-interruptible sleep.
 
-Another traceback of a similar situation (with the same executable) was:
-   __ia64_save_fpu+0x280
-   schedule+0xa40
-   ia64_do_signal+0x670
-   handle_signal_delivery+0x30
-   ia64_leave_kernel+0x30
+  Erich> I have encountered this a few times and from within kdb two
+  Erich> processes seem to be in "run" state on the same CPU! The one
+  Erich> marked as "current" shows the following traceback:
+  Erich> __ia64_save_fpu+0x20 schedule+0xa40 invoke_schedule+0x20
+  Erich> ia64_leave_kernel+0x30
 
-I've seen this with 2.4.0 and 2.4.4 kernels, with B1 stepping CPUs. With
-2.4.4 in single dispersal mode the problem doesn't seem to occur...
+  Erich> [snip...]
 
-Thanks in advance for any help, ideas, comments...
+  Erich> I've seen this with 2.4.0 and 2.4.4 kernels, with B1 stepping
+  Erich> CPUs. With 2.4.4 in single dispersal mode the problem doesn't
+  Erich> seem to occur...
 
-Best regards,
-Erich
+I'd recommend to upgrade to B3 or C0.  Earlier steppings had some
+issues.  Most of them can be worked around, but it's not very pretty
+and I'd not recommend spending a lot of time on it.
 
----
-Erich Focht                                    <efocht@ess.nec.de>
-NEC European Supercomputer Systems, European HPC Technology Center
-Hessbruehlstr. 21B, 70565 Stuttgart, Germany
-phone: +49-711-78055-15                    fax  : +49-711-78055-25
-
-
+	--david
 
