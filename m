@@ -1,7 +1,7 @@
 From: Alex Williamson <alex.williamson@hp.com>
-Date: Mon, 07 Mar 2005 21:08:21 +0000
+Date: Tue, 08 Mar 2005 00:24:17 +0000
 Subject: Re: efibootmgr fixes for EFI 1.10
-Message-Id: <1110229701.7735.50.camel@tdi>
+Message-Id: <1110241458.353.7.camel@tdi>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1109719371.12409.81.camel@tdi>
 In-Reply-To: <1109719371.12409.81.camel@tdi>
@@ -9,6 +9,8 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+[I sent this earlier, but it seems to have gotten lost, sorry for dups]
 
 On Mon, 2005-03-07 at 20:29 +0100, Thibaut VARENE wrote:
 
@@ -20,8 +22,7 @@ On Mon, 2005-03-07 at 20:29 +0100, Thibaut VARENE wrote:
 patch with fixes per Andreas' comments.  I think it's good to go.
 Thanks,
 
-	Alex
-
+        Alex
 -- 
 Alex Williamson                             HP Linux & Open Source Lab
 
