@@ -1,43 +1,53 @@
-From: Einar Saltnes <eisa@scali.no>
-Date: Wed, 18 Oct 2000 09:53:12 +0000
-Subject: Re: [Linux-ia64] clock stops on test9
-Message-Id: <marc-linux-ia64-105590678205590@msgid-missing>
+From: Hiro Fujita <fujita@kanagawa.hitachi.co.jp>
+Date: Tue, 17 Oct 2000 06:13:46 +0000
+Subject: [Linux-ia64] register initialization error on test9 ?
+Message-Id: <marc-linux-ia64-105590678205572@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205567@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205567@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi again,
+Hi,
 
-Takayoshi Kouchi wrote:
-> 
-> Hi all,
-> 
-> 
-> We have seen the same problem as yours.  We have upgraded our BigSur
-> with an upgrade kit from Intel.  It had originally only one processor,
-> but we replaced it with two B0 processors.
-> While running 2.4.0-test9 kernel, we noticed that timer interrupt of CPU0
-> would stop at some time after boot.
+there seems to be a register initialization error on test9 kernel.
 
-I can see that cpu0 is the one stopping after some time looking at
-/proc/stat. Very interesting!
+--- linux-2.4.0-test9-ia64-001004/arch/ia64/kernel/head.S.org	Fri Oct  6 09:20:34 2000
++++ linux-2.4.0-test9-ia64-001004/arch/ia64/kernel/head.S	Mon Oct 16 20:50:07 2000
+@@ -73,15 +73,13 @@
+ 	mov ar.fpsr=r2
+ 	;;
+ 
+-#ifdef CONFIG_IA64_EARLY_PRINTK
+-	mov r2=6
+-	mov r3=(8<<8) | (28<<2)
++	movl r2=6<<61
++	mov r3=(6<<8) | (28<<2)
+ 	;;
+ 	mov rr[r2]=r3
+ 	;;
+ 	srlz.i
+ 	;;
+-#endif
+ 
+ #define isAP	p2	// are we booting an Application Processor (not the BSP)?
+ 
+----------------
+In the original code, RR[0] is initialized instead of RR[6].
+I don't know whether the RID value should be 8 or 6,
+but it is later re-initialized to 6 in ia64_rid_init().
 
-And to David M.:
-I am positive that I have remembered to do "make clean" and "make dep"
-before making new kernel. I have observed the same behaviour on three
-different kernels, built using only minor differences in the
-configuration.
+And, this initialization should be done for all application 
+processors (APs) even if CONFIG_IA64_EARLY_PRINTK is not defined, 
+because RR[6] is used for translation when printk() is called by AP.
 
-Thank you!
+When AP calls printk(), writes to VGA region (0xc0000000000bxxxx) is
+occured because console_drivers is already initialized by BSP.
 
-Einar Saltnes
--- 
-| Einar Saltnes          |         Scali AS         |
-| mailto:eisa@scali.no   |   http://www.scali.com   |
-| Phone:+47 22 62 89 50  |  Scalable Linux Systems  |
-| Fax  :+47 22 62 89 51  |      and Technology      |
+Is this right ?
+I don't know the detail of address translation.
+
+--
+Hiro Fujita
+Hitachi, Ltd.
 
