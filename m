@@ -1,25 +1,32 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Tue, 06 Jan 2004 01:25:37 +0000
-Subject: [PATCH] first stab at generic_defconfig
-Message-Id: <20040106012537.GA21877@sgi.com>
+Date: Tue, 06 Jan 2004 01:29:52 +0000
+Subject: Re: [PATCH] first stab at generic_defconfig
+Message-Id: <20040106012952.GA21923@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040106012537.GA21877@sgi.com>
+In-Reply-To: <20040106012537.GA21877@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Here's a first take at a generic config file.  With it, you can just
-type 'make generic_defconfig' and get a usable kernel (well, at least
-that's the theory, I've only tested it on sn2, but it works there).  Is
-there anything else that needs to be added?  Anything obvious I'm
-missing?
+On Mon, Jan 05, 2004 at 05:25:37PM -0800, Jesse Barnes wrote:
+> Here's a first take at a generic config file.  With it, you can just
+> type 'make generic_defconfig' and get a usable kernel (well, at least
+> that's the theory, I've only tested it on sn2, but it works there).  Is
+> there anything else that needs to be added?  Anything obvious I'm
+> missing?
 
-Thanks,
+Well, here's one that disables some of the block devices I had turned
+on.  I've noticed that some of the other arches try to enable everything
+as a module even if it's not particularly relevant, but maybe we should
+do the same?
+
 Jesse
 
 --- /dev/null	Wed Dec 31 16:00:00 1969
-+++ arch/ia64/configs/generic_defconfig	Mon Jan  5 17:21:05 2004
-@@ -0,0 +1,1021 @@
++++ arch/ia64/configs/generic_defconfig	Mon Jan  5 17:28:40 2004
+@@ -0,0 +1,1020 @@
 +#
 +# Automatically generated make config: don't edit
 +#
@@ -169,12 +176,11 @@ Jesse
 +#
 +# Block devices
 +#
-+CONFIG_BLK_DEV_FD=m
-+CONFIG_BLK_CPQ_DA=m
-+CONFIG_BLK_CPQ_CISS_DA=m
-+# CONFIG_CISS_SCSI_TAPE is not set
-+CONFIG_BLK_DEV_DAC960=m
-+CONFIG_BLK_DEV_UMEM=m
++# CONFIG_BLK_DEV_FD is not set
++# CONFIG_BLK_CPQ_DA is not set
++# CONFIG_BLK_CPQ_CISS_DA is not set
++# CONFIG_BLK_DEV_DAC960 is not set
++# CONFIG_BLK_DEV_UMEM is not set
 +CONFIG_BLK_DEV_LOOP=m
 +CONFIG_BLK_DEV_CRYPTOLOOP=m
 +CONFIG_BLK_DEV_NBD=m
