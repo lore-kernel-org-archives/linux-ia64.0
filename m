@@ -1,457 +1,274 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 07 Feb 2005 19:31:21 +0000
-Subject: prezeroing V6 [1/3]: clear_pages
-Message-Id: <Pine.LNX.4.58.0502071130520.27951@schroedinger.engr.sgi.com>
+Date: Tue, 22 Feb 2005 23:31:20 +0000
+Subject: NUMA aware spinlocks
+Message-Id: <Pine.LNX.4.58.0502221518270.29685@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0501211228430.26068@schroedinger.engr.sgi.com>
- <1106828124.19262.45.camel@hades.cambridge.redhat.com> <20050202153256.GA19615@logos.cnet>
- <Pine.LNX.4.58.0502071127470.27951@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0502071127470.27951@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: akpm@osdl.org
-Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-The zeroing of a page of a arbitrary order in page_alloc.c and in hugetlb.c
-is currently done one page at a time. It may be beneficial to
-zero large areas of memory in one go. The following patch introduces
-clear_pages that takes an additional order parameter. clear_pages is only u=
-sed
-when __HAVE_ARCH_CLEAR_PAGES has been defined by an architecture.
+I found an article on HBO locks at
+http://www.it.uu.se/research/group/uart/publications/radovic_2003_feb
 
-clear_pages functions have been provided for ia64, i386, sparc64 and x86_64.
-This version was tested by me on ia64, i386 and x86_64.
+For these locks the numa id is stored in the lock instead of a 1. This
+allows the task acquiring the lock to see which node holds the lock.
+Then it is possible to do a numa aware backoff: If we are on the same
+node we have  small retry cycles if we are on a remote node we wait
+longer. This should reduce the contention via the NUMAlink.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+HBO locks also try to avoid multiple tasks attempting to acquire off
+node locks by storing the lock address locally and then spining if another
+task attempts to acquire the same off node lock.
 
-Index: linux-2.6.10/mm/page_alloc.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/mm/page_alloc.c	2005-02-03 22=
-:51:57.000000000 -0800
-+++ linux-2.6.10/mm/page_alloc.c	2005-02-07 11:04:32.000000000 -0800
-@@ -599,11 +599,19 @@ void fastcall free_cold_page(struct page
- 	free_hot_cold_page(page, 1);
+The tests that I have done show 40-50% improvement for 32 CPUs and
+somewhat less improvement for 16 threads.
+However, the patch is not yet sufficiently optimized. Thus the
+performance in general is reduced. I am not sure that this is worth
+pursuing. It certainly would improve the high contention cases but
+these may be rare.
+
+2.6.10-rc2-bk12:
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  1  10    1    0.107s      6.444s   6.055s100028.084 100006.622
+  1  10    2    0.121s      9.048s   4.082s 71468.414 135904.412
+  1  10    4    0.129s     10.185s   3.011s 63531.985 210146.600
+  1  10    8    0.232s     26.476s   4.018s 24537.050 156718.301
+  1  10   16    1.402s     71.620s   5.088s  8974.768 111436.635
+  1  10   32    6.312s    274.848s  10.053s  2330.904  62183.378
+  1  10   58   12.961s    653.238s  13.042s   983.728  48812.035
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  4  10    1    0.519s     40.553s  41.007s 63823.516  63813.514
+  4  10    2    0.454s     33.343s  17.096s 77562.289 145917.159
+  4  10    4    0.465s     41.730s  12.058s 62124.864 208372.119
+  4  10    8    0.632s    108.604s  16.088s 23997.651 155297.118
+  4  10   16    0.962s    326.489s  23.074s  8005.563 110416.502
+  4  10   32    8.197s   1133.558s  40.036s  2295.973  64946.127
+  4  10   58   26.833s   3001.826s  57.084s   865.545  45316.260
+
+2.6.11-rc4-bk5 with hbo spinlock patch:
+ Gb Rep Thr CLine  User      System   Wall  flt/cpu/s fault/wsec
+  1  3    1   1    0.04s      1.96s   2.00s 98160.195  98126.347
+  1  3    2   1    0.03s      2.51s   1.03s 76930.301 144277.192
+  1  3    4   1    0.04s      3.77s   1.01s 51582.503 174739.420
+  1  3    8   1    0.04s      7.48s   1.01s 26142.904 167696.120
+  1  3   16   1    0.10s     16.03s   1.04s 12180.198 138266.715
+  1  3   32   1    1.26s     50.50s   2.01s  3797.180  89925.762
+  1  3   60   1    3.70s    133.81s   3.01s  1429.602  61935.525
+ Gb Rep Thr CLine  User      System   Wall  flt/cpu/s fault/wsec
+  4  3    1   1    0.16s      7.88s   8.00s 97660.212  97631.616
+  4  3    2   1    0.17s     10.60s   5.07s 72924.572 135828.507
+  4  3    4   1    0.15s     15.46s   4.04s 50325.335 175242.666
+  4  3    8   1    0.26s     31.49s   4.07s 24762.645 167098.092
+  4  3   16   1    0.23s     76.05s   5.07s 10309.368 137585.847
+  4  3   32   1    1.35s    227.34s   8.04s  3438.672  93218.225
+  4  3   60   1    3.72s    708.38s  13.06s  1104.377  57502.822
+
+Patch against 2.6.11-rc4-bk5:
+
+Index: linux-2.6.10/include/asm-ia64/spinlock.h
+=================================--- linux-2.6.10.orig/include/asm-ia64/spinlock.h	2005-02-17 18:47:00.000000000 -0800
++++ linux-2.6.10/include/asm-ia64/spinlock.h	2005-02-22 10:31:22.000000000 -0800
+@@ -11,7 +11,7 @@
+
+ #include <linux/compiler.h>
+ #include <linux/kernel.h>
+-
++#include <linux/config.h>
+ #include <asm/atomic.h>
+ #include <asm/bitops.h>
+ #include <asm/intrinsics.h>
+@@ -24,10 +24,13 @@ typedef struct {
+ #endif
+ } spinlock_t;
+
++/* These definitions do not mean much. Lots of code for IA64 depends on
++ * zeroed memory containing unlocked spinlocks
++ */
+ #define SPIN_LOCK_UNLOCKED			(spinlock_t) { 0 }
+ #define spin_lock_init(x)			((x)->lock = 0)
+
+-#ifdef ASM_SUPPORTED
++#if defined(ASM_SUPPORTED) & !defined(CONFIG_HBO_LOCKS)
+ /*
+  * Try to get the lock.  If we fail to get the lock, make a non-standard call to
+  * ia64_spinlock_contention().  We do not use a normal call because that would force all
+@@ -94,7 +97,31 @@ _raw_spin_lock_flags (spinlock_t *lock,
+ #endif
  }
-
--static inline void prep_zero_page(struct page *page, int order, int gfp_fl=
-ags)
-+void prep_zero_page(struct page *page, unsigned int order, unsigned int gf=
-p_flags)
- {
- 	int i;
-
- 	BUG_ON((gfp_flags & (__GFP_WAIT | __GFP_HIGHMEM)) =3D __GFP_HIGHMEM);
+ #define _raw_spin_lock(lock) _raw_spin_lock_flags(lock, 0)
++#error CRAP CRAP
+ #else /* !ASM_SUPPORTED */
 +
-+#ifdef __HAVE_ARCH_CLEAR_PAGES
-+	if (!PageHighMem(page)) {
-+		clear_pages(page_address(page), order);
-+		return;
-+	}
++#ifdef CONFIG_HBO_LOCKS
++
++void hbo_spinlock_contention(__u32 *, unsigned long, unsigned long);
++void hbo_spinlock_wait_remote(__u32 *, unsigned long);
++
++#define _raw_spin_lock_flags(__x, __flags)						\
++do {											\
++	__u32 *ia64_spinlock_ptr = (__u32 *) (__x);					\
++	__u64 ia64_spinlock_val;							\
++							\
++	if (unlikely(system_state = SYSTEM_RUNNING && local_node_data->remote_lock_addr = ia64_spinlock_ptr))		\
++		hbo_spinlock_wait_remote(ia64_spinlock_ptr, __flags);			\
++							\
++	ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, numa_node_id()+ 1, 0);	\
++							\
++	if (unlikely(ia64_spinlock_val))						\
++		hbo_spinlock_contention(ia64_spinlock_ptr, ia64_spinlock_val, __flags);	\
++} while (0)
++
++#define _raw_spin_lock(lock) _raw_spin_lock_flags(lock, 0)
++
++#else
+ #define _raw_spin_lock_flags(lock, flags) _raw_spin_lock(lock)
+ # define _raw_spin_lock(x)								\
+ do {											\
+@@ -109,11 +136,16 @@ do {											\
+ 		} while (ia64_spinlock_val);						\
+ 	}										\
+ } while (0)
 +#endif
+ #endif /* !ASM_SUPPORTED */
+
+ #define spin_is_locked(x)	((x)->lock != 0)
+ #define _raw_spin_unlock(x)	do { barrier(); ((spinlock_t *) x)->lock = 0; } while (0)
++#ifdef CONFIG_HBO_LOCKS
++#define _raw_spin_trylock(x)	(cmpxchg_acq(&(x)->lock, 0, numa_node_id() + 1) = 0)
++#else
+ #define _raw_spin_trylock(x)	(cmpxchg_acq(&(x)->lock, 0, 1) = 0)
++#endif
+ #define spin_unlock_wait(x)	do { barrier(); } while ((x)->lock)
+
+ typedef struct {
+Index: linux-2.6.10/arch/ia64/Kconfig
+=================================--- linux-2.6.10.orig/arch/ia64/Kconfig	2005-02-17 18:46:27.000000000 -0800
++++ linux-2.6.10/arch/ia64/Kconfig	2005-02-18 18:38:59.000000000 -0800
+@@ -272,6 +272,18 @@ config PREEMPT
+           Say Y here if you are building a kernel for a desktop, embedded
+           or real-time system.  Say N if you are unsure.
+
++config HBO_LOCKS
++	bool "HBO Locks"
++	help
++	depends on (SMP && NUMA)
++	default y
++	help
++	  HBO locks reduces contention for spinlocks by saving the node id when the
++	  lock is taken. The cpu waiting on the spinlock can then select an appropriate
++	  backoff algorithm depending on the distance to the node. This also insures that
++	  it is highly likely that another cpu on the same node gets to a spinlock before
++	  remote nodes to avoid too much cacheline bouncing.
 +
- 	for(i =3D 0; i < (1 << order); i++)
- 		clear_highpage(page + i);
+ config HAVE_DEC_LOCK
+ 	bool
+ 	depends on (SMP || PREEMPT)
+Index: linux-2.6.10/arch/ia64/mm/numa.c
+=================================--- linux-2.6.10.orig/arch/ia64/mm/numa.c	2005-02-17 18:46:28.000000000 -0800
++++ linux-2.6.10/arch/ia64/mm/numa.c	2005-02-22 10:33:10.000000000 -0800
+@@ -47,3 +47,81 @@ paddr_to_nid(unsigned long paddr)
+
+ 	return (i < num_node_memblks) ? node_memblk[i].nid : (num_node_memblks ? -1 : 0);
  }
-Index: linux-2.6.10/mm/hugetlb.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/mm/hugetlb.c	2005-02-03 22:51=
-:56.000000000 -0800
-+++ linux-2.6.10/mm/hugetlb.c	2005-02-07 11:04:32.000000000 -0800
-@@ -78,7 +78,6 @@ void free_huge_page(struct page *page)
- struct page *alloc_huge_page(void)
- {
- 	struct page *page;
--	int i;
-
- 	spin_lock(&hugetlb_lock);
- 	page =3D dequeue_huge_page();
-@@ -89,8 +88,7 @@ struct page *alloc_huge_page(void)
- 	spin_unlock(&hugetlb_lock);
- 	set_page_count(page, 1);
- 	page[1].mapping =3D (void *)free_huge_page;
--	for (i =3D 0; i < (HPAGE_SIZE/PAGE_SIZE); ++i)
--		clear_highpage(&page[i]);
-+	prep_zero_page(page, HUGETLB_PAGE_ORDER, GFP_HIGHUSER);
- 	return page;
- }
-
-Index: linux-2.6.10/include/asm-ia64/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-ia64/page.h	2005-=
-02-03 22:51:35.000000000 -0800
-+++ linux-2.6.10/include/asm-ia64/page.h	2005-02-07 11:04:32.000000000 -0800
-@@ -56,8 +56,10 @@
- # ifdef __KERNEL__
- #  define STRICT_MM_TYPECHECKS
-
--extern void clear_page (void *page);
-+extern void clear_pages (void *page, int order);
- extern void copy_page (void *to, void *from);
-+#define clear_page(__page) clear_pages(__page, 0)
-+#define __HAVE_ARCH_CLEAR_PAGES
-
- /*
-  * clear_user_page() and copy_user_page() can't be inline functions because
-Index: linux-2.6.10/arch/ia64/kernel/ia64_ksyms.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/ia64/kernel/ia64_ksyms.c=
-	2005-02-03 22:49:31.000000000 -0800
-+++ linux-2.6.10/arch/ia64/kernel/ia64_ksyms.c	2005-02-07 11:04:32.00000000=
-0 -0800
-@@ -38,7 +38,7 @@ EXPORT_SYMBOL(__down_trylock);
- EXPORT_SYMBOL(__up);
-
- #include <asm/page.h>
--EXPORT_SYMBOL(clear_page);
-+EXPORT_SYMBOL(clear_pages);
-
- #ifdef CONFIG_VIRTUAL_MEM_MAP
- #include <linux/bootmem.h>
-Index: linux-2.6.10/arch/ia64/lib/clear_page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/ia64/lib/clear_page.S	20=
-04-12-24 13:33:50.000000000 -0800
-+++ linux-2.6.10/arch/ia64/lib/clear_page.S	2005-02-07 11:04:32.000000000 -=
-0800
-@@ -7,6 +7,7 @@
-  * 1/06/01 davidm	Tuned for Itanium.
-  * 2/12/02 kchen	Tuned for both Itanium and McKinley
-  * 3/08/02 davidm	Some more tweaking
-+ * 12/10/04 clameter	Make it work on pages of order size
-  */
- #include <linux/config.h>
-
-@@ -29,27 +30,33 @@
- #define dst4		r11
-
- #define dst_last	r31
-+#define totsize		r14
-
--GLOBAL_ENTRY(clear_page)
-+GLOBAL_ENTRY(clear_pages)
- 	.prologue
--	.regstk 1,0,0,0
--	mov r16 =3D PAGE_SIZE/L3_LINE_SIZE-1	// main loop count, -1=3Drepeat/until
-+	.regstk 2,0,0,0
-+	mov r16 =3D PAGE_SIZE/L3_LINE_SIZE	// main loop count
-+	mov totsize =3D PAGE_SIZE
- 	.save ar.lc, saved_lc
- 	mov saved_lc =3D ar.lc
--
-+	;;
- 	.body
-+	adds dst1 =3D 16, in0
- 	mov ar.lc =3D (PREFETCH_LINES - 1)
- 	mov dst_fetch =3D in0
--	adds dst1 =3D 16, in0
- 	adds dst2 =3D 32, in0
-+	shl r16 =3D r16, in1
-+	shl totsize =3D totsize, in1
- 	;;
- .fetch:	stf.spill.nta [dst_fetch] =3D f0, L3_LINE_SIZE
- 	adds dst3 =3D 48, in0		// executing this multiple times is harmless
- 	br.cloop.sptk.few .fetch
-+	add r16 =3D -1,r16
-+	add dst_last =3D totsize, dst_fetch
-+	adds dst4 =3D 64, in0
- 	;;
--	addl dst_last =3D (PAGE_SIZE - PREFETCH_LINES*L3_LINE_SIZE), dst_fetch
- 	mov ar.lc =3D r16			// one L3 line per iteration
--	adds dst4 =3D 64, in0
-+	adds dst_last =3D -PREFETCH_LINES*L3_LINE_SIZE, dst_last
- 	;;
- #ifdef CONFIG_ITANIUM
- 	// Optimized for Itanium
-@@ -74,4 +81,4 @@ GLOBAL_ENTRY(clear_page)
- 	;;
- 	mov ar.lc =3D saved_lc		// restore lc
- 	br.ret.sptk.many rp
--END(clear_page)
-+END(clear_pages)
-Index: linux-2.6.10/include/asm-i386/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-i386/page.h	2005-=
-02-03 22:51:34.000000000 -0800
-+++ linux-2.6.10/include/asm-i386/page.h	2005-02-07 11:04:32.000000000 -0800
-@@ -18,7 +18,7 @@
-
- #include <asm/mmx.h>
-
--#define clear_page(page)	mmx_clear_page((void *)(page))
-+#define clear_pages(page, order)	mmx_clear_page((void *)(page),order)
- #define copy_page(to,from)	mmx_copy_page(to,from)
-
- #else
-@@ -28,11 +28,13 @@
-  *	Maybe the K6-III ?
-  */
-
--#define clear_page(page)	memset((void *)(page), 0, PAGE_SIZE)
-+#define clear_pages(page, order)	memset((void *)(page), 0, PAGE_SIZE << (o=
-rder))
- #define copy_page(to,from)	memcpy((void *)(to), (void *)(from), PAGE_SIZE)
-
- #endif
-
-+#define __HAVE_ARCH_CLEAR_PAGES
-+#define clear_page(page) clear_pages(page, 0)
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
-Index: linux-2.6.10/include/asm-i386/mmx.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-i386/mmx.h	2004-1=
-2-24 13:34:57.000000000 -0800
-+++ linux-2.6.10/include/asm-i386/mmx.h	2005-02-07 11:04:32.000000000 -0800
-@@ -8,7 +8,7 @@
- #include <linux/types.h>
-
- extern void *_mmx_memcpy(void *to, const void *from, size_t size);
--extern void mmx_clear_page(void *page);
-+extern void mmx_clear_page(void *page, int order);
- extern void mmx_copy_page(void *to, void *from);
-
- #endif
-Index: linux-2.6.10/arch/i386/lib/mmx.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/i386/lib/mmx.c	2004-12-2=
-4 13:34:48.000000000 -0800
-+++ linux-2.6.10/arch/i386/lib/mmx.c	2005-02-07 11:04:32.000000000 -0800
-@@ -128,7 +128,7 @@ void *_mmx_memcpy(void *to, const void *
-  *	other MMX using processors do not.
-  */
-
--static void fast_clear_page(void *page)
-+static void fast_clear_page(void *page, int order)
- {
- 	int i;
-
-@@ -138,7 +138,7 @@ static void fast_clear_page(void *page)
- 		"  pxor %%mm0, %%mm0\n" : :
- 	);
-
--	for(i=3D0;i<4096/64;i++)
-+	for(i=3D0;i<((4096/64) << order);i++)
- 	{
- 		__asm__ __volatile__ (
- 		"  movntq %%mm0, (%0)\n"
-@@ -257,7 +257,7 @@ static void fast_copy_page(void *to, voi
-  *	Generic MMX implementation without K7 specific streaming
-  */
-
--static void fast_clear_page(void *page)
-+static void fast_clear_page(void *page, int order)
- {
- 	int i;
-
-@@ -267,7 +267,7 @@ static void fast_clear_page(void *page)
- 		"  pxor %%mm0, %%mm0\n" : :
- 	);
-
--	for(i=3D0;i<4096/128;i++)
-+	for(i=3D0;i<((4096/128) << order);i++)
- 	{
- 		__asm__ __volatile__ (
- 		"  movq %%mm0, (%0)\n"
-@@ -359,23 +359,23 @@ static void fast_copy_page(void *to, voi
-  *	Favour MMX for page clear and copy.
-  */
-
--static void slow_zero_page(void * page)
-+static void slow_clear_page(void * page, int order)
- {
- 	int d0, d1;
- 	__asm__ __volatile__( \
- 		"cld\n\t" \
- 		"rep ; stosl" \
- 		: "=3D&c" (d0), "=3D&D" (d1)
--		:"a" (0),"1" (page),"0" (1024)
-+		:"a" (0),"1" (page),"0" (1024 << order)
- 		:"memory");
- }
--
--void mmx_clear_page(void * page)
 +
-+void mmx_clear_page(void * page, int order)
- {
- 	if(unlikely(in_interrupt()))
--		slow_zero_page(page);
-+		slow_clear_page(page, order);
- 	else
--		fast_clear_page(page);
-+		fast_clear_page(page, order);
- }
-
- static void slow_copy_page(void *to, void *from)
-Index: linux-2.6.10/include/asm-x86_64/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-x86_64/page.h	200=
-5-02-03 22:51:46.000000000 -0800
-+++ linux-2.6.10/include/asm-x86_64/page.h	2005-02-07 11:04:32.000000000 -0=
-800
-@@ -32,8 +32,10 @@
- #ifdef __KERNEL__
- #ifndef __ASSEMBLY__
-
--void clear_page(void *);
-+void clear_pages(void *, int);
- void copy_page(void *, void *);
-+#define __HAVE_ARCH_CLEAR_PAGES
-+#define clear_page(__page) clear_pages(__page, 0)
-
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-Index: linux-2.6.10/arch/x86_64/kernel/x8664_ksyms.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/x86_64/kernel/x8664_ksym=
-s.c	2005-02-03 22:50:03.000000000 -0800
-+++ linux-2.6.10/arch/x86_64/kernel/x8664_ksyms.c	2005-02-07 11:04:32.00000=
-0000 -0800
-@@ -108,7 +108,7 @@ EXPORT_SYMBOL(pci_mem_start);
- #endif
-
- EXPORT_SYMBOL(copy_page);
--EXPORT_SYMBOL(clear_page);
-+EXPORT_SYMBOL(clear_pages);
-
- EXPORT_SYMBOL(cpu_pda);
- #ifdef CONFIG_SMP
-Index: linux-2.6.10/arch/x86_64/lib/clear_page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/x86_64/lib/clear_page.S	=
-2004-12-24 13:34:33.000000000 -0800
-+++ linux-2.6.10/arch/x86_64/lib/clear_page.S	2005-02-07 11:04:32.000000000=
- -0800
-@@ -1,12 +1,16 @@
- /*
-  * Zero a page.
-  * rdi	page
-+ * rsi	order
-  */
--	.globl clear_page
-+	.globl clear_pages
- 	.p2align 4
--clear_page:
-+clear_pages:
-+	movl   $4096/64,%eax
-+	movl	%esi, %ecx
-+	shll	%cl, %eax
-+	movl	%eax, %ecx
- 	xorl   %eax,%eax
--	movl   $4096/64,%ecx
- 	.p2align 4
- .Lloop:
- 	decl	%ecx
-@@ -23,7 +27,7 @@ clear_page:
- 	jnz	.Lloop
- 	nop
- 	ret
--clear_page_end:
-+clear_pages_end:
-
- 	/* C stepping K8 run faster using the string instructions.
- 	   It is also a lot simpler. Use this when possible */
-@@ -32,19 +36,22 @@ clear_page_end:
-
- 	.section .altinstructions,"a"
- 	.align 8
--	.quad  clear_page
--	.quad  clear_page_c
-+	.quad  clear_pages
-+	.quad  clear_pages_c
- 	.byte  X86_FEATURE_K8_C
--	.byte  clear_page_end-clear_page
--	.byte  clear_page_c_end-clear_page_c
-+	.byte  clear_pages_end-clear_pages
-+	.byte  clear_pages_c_end-clear_pages_c
- 	.previous
-
- 	.section .altinstr_replacement,"ax"
--clear_page_c:
--	movl $4096/8,%ecx
-+clear_pages_c:
-+	movl $4096/8,%eax
-+	movl %esi, %ecx
-+	shll %cl, %eax
-+	movl %eax, %ecx
- 	xorl %eax,%eax
- 	rep
- 	stosq
- 	ret
--clear_page_c_end:
-+clear_pages_c_end:
- 	.previous
-Index: linux-2.6.10/arch/sparc64/lib/clear_page.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sparc64/lib/clear_page.S=
-	2004-12-24 13:35:23.000000000 -0800
-+++ linux-2.6.10/arch/sparc64/lib/clear_page.S	2005-02-07 11:04:32.00000000=
-0 -0800
-@@ -28,9 +28,12 @@
- 	.text
-
- 	.globl		_clear_page
--_clear_page:		/* %o0=DEst */
-+_clear_page:		/* %o0=DEst, %o1=3Dorder */
-+	sethi		%hi(PAGE_SIZE/64), %o2
-+	clr		%o4
-+	or		%o2, %lo(PAGE_SIZE/64), %o2
- 	ba,pt		%xcc, clear_page_common
--	 clr		%o4
-+	 sllx		%o2, %o1, %o1
-
- 	/* This thing is pretty important, it shows up
- 	 * on the profiles via do_anonymous_page().
-@@ -69,16 +72,16 @@ clear_user_page:	/* %o0=DEst, %o1=3Dvaddr
- 	flush		%g6
- 	wrpr		%o4, 0x0, %pstate
-
-+	sethi		%hi(PAGE_SIZE/64), %o1
- 	mov		1, %o4
-+	or		%o1, %lo(PAGE_SIZE/64), %o1
-
- clear_page_common:
- 	VISEntryHalf
- 	membar		#StoreLoad | #StoreStore | #LoadStore
- 	fzero		%f0
--	sethi		%hi(PAGE_SIZE/64), %o1
- 	mov		%o0, %g1		! remember vaddr for tlbflush
- 	fzero		%f2
--	or		%o1, %lo(PAGE_SIZE/64), %o1
- 	faddd		%f0, %f2, %f4
- 	fmuld		%f0, %f2, %f6
- 	faddd		%f0, %f2, %f8
-Index: linux-2.6.10/include/asm-sparc64/page.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sparc64/page.h	20=
-05-02-03 22:51:43.000000000 -0800
-+++ linux-2.6.10/include/asm-sparc64/page.h	2005-02-07 11:04:32.000000000 -=
-0800
-@@ -14,8 +14,10 @@
-
- #ifndef __ASSEMBLY__
-
--extern void _clear_page(void *page);
--#define clear_page(X)	_clear_page((void *)(X))
-+extern void _clear_page(void *page, int order);
-+#define clear_page(X)	_clear_page((void *)(X), 0)
-+#define clear_pages _clear_page
++#ifdef CONFIG_HBO_LOCKS
 +
- struct page;
- extern void clear_user_page(void *addr, unsigned long vaddr, struct page *=
-page);
- #define copy_page(X,Y)	memcpy((void *)(X), (void *)(Y), PAGE_SIZE)
-Index: linux-2.6.10/include/linux/gfp.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/linux/gfp.h	2005-02-0=
-3 22:51:46.000000000 -0800
-+++ linux-2.6.10/include/linux/gfp.h	2005-02-07 11:06:13.000000000 -0800
-@@ -131,4 +131,5 @@ extern void FASTCALL(free_cold_page(stru
++static inline void maybe_enable_irq(unsigned long flags)
++{
++	if (flags & IA64_PSR_I_BIT)
++	 	local_irq_enable();
++}
++
++static inline void maybe_disable_irq(unsigned long flags)
++{
++	if (flags & IA64_PSR_I_BIT)
++		local_irq_disable();
++}
++
++void hbo_spinlock_contention(__u32 *lock, unsigned long lockval, unsigned long flags)
++{
++	int node = numa_node_id()+ 1;
++
++	do {
++		int backoff = 100;
++		int cap = 2500;
++		int remote = 0;
++
++		maybe_enable_irq(flags);
++
++		if (lockval != node) {
++			/* remote backoff */
++			backoff = 200;
++			cap = 20000;
++			/*
++			 * Make sure that no other cpu of this node tries
++			 * to acquire the same remote lock.
++			 */
++			if (system_state = SYSTEM_RUNNING) {
++				local_node_data->remote_lock_addr = lock;
++				remote = 1;
++			}
++		}
++
++		do {
++			int i;
++
++			for(i = 0; i < backoff; i++)
++				cpu_relax();
++
++			/* Increase backoff for next cycle */
++			backoff = min(backoff << 1, cap);
++
++			ia64_barrier();
++
++			/* No cmpxchg so that we will not get an exclusive cache line */
++			lockval = *lock;
++
++		} while (lockval);
++
++		maybe_disable_irq(flags);
++
++		/* Lock was unlocked. Now use cmpxchg acquiring an exclusive cache line */
++		lockval = ia64_cmpxchg4_acq(lock, node, 0);
++
++		/* Release eventually spinning other cpus on this node since either the lock has been
++		 * acquired by this cpu or the node holding the lock may have changed.
++		 */
++		if (remote)
++			local_node_data->remote_lock_addr = NULL;
++
++        } while (lockval);
++}
++
++void hbo_spinlock_wait_remote(__u32 *lock, unsigned long flags)
++{
++	maybe_enable_irq(flags);
++	while (local_node_data->remote_lock_addr = lock)
++		cpu_relax();
++	maybe_disable_irq(flags);
++}
++#endif
+Index: linux-2.6.10/include/asm-ia64/nodedata.h
+=================================--- linux-2.6.10.orig/include/asm-ia64/nodedata.h	2005-02-17 18:47:00.000000000 -0800
++++ linux-2.6.10/include/asm-ia64/nodedata.h	2005-02-18 18:49:48.000000000 -0800
+@@ -27,6 +27,7 @@ struct pglist_data;
+ struct ia64_node_data {
+ 	short			active_cpu_count;
+ 	short			node;
++	__u32 			*remote_lock_addr;	/* active off node spinlock */
+ 	struct pglist_data	*pg_data_ptrs[MAX_NUMNODES];
+ };
 
- void page_alloc_init(void);
+Index: linux-2.6.10/Makefile
+=================================--- linux-2.6.10.orig/Makefile	2005-02-17 18:47:21.000000000 -0800
++++ linux-2.6.10/Makefile	2005-02-22 11:24:51.000000000 -0800
+@@ -1,7 +1,7 @@
+ VERSION = 2
+ PATCHLEVEL = 6
+ SUBLEVEL = 11
+-EXTRAVERSION = -rc4-bk5
++EXTRAVERSION = -rc4-bk5-hbo
+ NAME=Woozy Numbat
 
-+void prep_zero_page(struct page *, unsigned int order, unsigned int gfp_fl=
-ags);
- #endif /* __LINUX_GFP_H */
-
+ # *DOCUMENTATION*
