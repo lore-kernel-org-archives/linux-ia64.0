@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 08 Feb 2002 07:02:31 +0000
-Subject: [Linux-ia64] kernel update (relative to 2.5.3)
-Message-Id: <marc-linux-ia64-105590698806028@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Wed, 27 Feb 2002 01:47:27 +0000
+Subject: [Linux-ia64] kernel update (relative to 2.4.18)
+Message-Id: <marc-linux-ia64-105590701905193@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,36 +10,76 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-A quick patch relative to v2.5.3 is now at ftp.CC.kernel.org
-in /pub/linux/kernel/ports/ia64/v2.5/:
+The latest ia64 patch is now availabe at ftp.CC.kernel.org
+in /pub/linux/kernel/ports/ia64/v2.4/:
 
- linux-2.5.3-ia64-020207.gz
+ linux-2.4.18-ia64-020226.gz
 
-It's mostly a sync up with the many v2.5.3 changes plus assorted other
-patches folks have sent me over the last couple of days and weeks
-(including a large perfmon update from Stephane).
+IMPORTANT:
 
-Caveats: this should give you a working kernel for the HP simulator
-and Big Sur, but I have tried SMP only and haven't done a lot of
-testing.  I think NFS may be broken at the moment.  Also, this kernel
-by default turns off execute permission on the stack and data
-segments.  For applications that (incorrectly) assume that data is
-executable by default, a workaround can be enabled by turning on a bit
-in the ELF executable header.  The attached program can be used to
-manipulate the bit in question.
+Starting with this patch, the stack and and pages are no longer
+executable by default!  This will hopefully increase resilience
+against buffer-overflow attacks (though it's no guarantee) and also
+has the benefit that it lets us drop the lazy-execute bit support.
+The latter has two implications: we can use the standard page-fault
+handler again and applications that generate code on the fly are no
+longer penalized with extra page faults.  On the downside, there is
+currently a known bug in the XFree86 server where it incorrectly
+assumes that data pages are executable by default.  For this reason,
+you'll need to use the chatr utility which I posted earlier to mark
+the XFree86 server as having executable data.  A command of the form:
 
-IMPORTANT: The current XFree86 server suffers from the problem of assuming
-data is executable.  To fix this, run the command:
+	$ chatr --executable-stack /usr/X11R6/bin/XFree86
 
-	# chatr -E /usr/X11R6/bin/XFree86
+should do the trick (source code for chatr is appended).  You must do
+this as otherwise XFree86 will die while trying to load some of its
+modules (it normally dies in the scanpci module).
 
-and you should be all set.
+Other than that, here is a summary of changes (my apologies if I
+missed anything or misattributed a patch):
+
+	- better ia64 IRQ affinity support (Erich Focht)
+	- include Firewire configuration for ia64 (Bdale Garbee/Grant Grundler)
+	- fix ia32 GDT initialization (Don Dugger)
+	- implement ia32 emulation for SIOCGIFCONF (Don Dugger)
+	- make page fault handler pass reason for a SIGSEGV/SIGILL in
+	  siginfo.si_isr (see include/asm-ia64/siginfo.h for details)
+	- /proc/efivars update (Matt Domsch)
+	- fix I/O SAPIC irq routing (makes ACPI power button events work)
+	  (J.I. Lee)
+	- fix exception handler to not assume that archdata_start is
+	  non-NULL for all modules (Bjorn Helgaas)
+	- don't define _HAVE_ARCH_IPV6_CSUM as we don't really have it
+	  (Bdale Garbee/Grant Grunderl)
+	- drop .bias from ld4.bias instruction in spinlock code to avoid
+	  CPU errata (Asit Mallick)
+	- MCA update (Jenna Hall)
+	- update perfmon to v1.0 (Stephane Eranian)
+	- add PTRACE_GETREGS/PTRACE_SETREGS (Yoav Zach)
+	- fix handling of .label_state/.copy_state in kernel unwinder
+	- move initial kernel stack from region 4 down to region 3
+	- bump gcc3.x inlining threshold to 2000 to get things to
+	  compile with gcc3.1
+	- don't make ia64 stack and data executable by default and
+	  drop lazy-execute bit support; restore original interface
+	  for page-fault handler
+	- fix clone2() stack initialization bug found by Asit Mallick
+	- fix siginfo kernel data leaking
+	- fix alternate TLB miss handlers to not lose Exception Deferral bit
+
+This patch has been tested on Big Sur and HP Ski simulator in SMP and
+UP and with gcc3.0 and gcc2.96.  YMMV.
+
+Oh, I also included in the ia64 patch the personality fix which was
+accidentally got dropped from 2.4.18 (it was in -rc4).  Also, I synced
+the drm-4.0 code with Marcelo's tree, but I haven't done any testing
+on it.
 
 Enjoy,
 
 	--david
 
-<-- chatr.c --><-- chatr.c --><-- chatr.c --><-- chatr.c -->
+<-- chatr.c -->
 #include <elf.h>
 #include <fcntl.h>
 #include <getopt.h>
