@@ -1,51 +1,45 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 17 Nov 2004 01:08:23 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 17 Nov 2004 21:46:57 +0000
 Subject: Re: [PATCH] remove dead wood from asm-ia64/hardirq.h
-Message-Id: <200411161708.23470.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_HSqmBuVCbaDFk7E"
+Message-Id: <200411172146.iAHLkvl18768@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20041116091408.GA3050@lst.de>
 In-Reply-To: <20041116091408.GA3050@lst.de>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_HSqmBuVCbaDFk7E
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+New version of switch to CONFIG_GENERIC_HARDIRQS.  Lots more
+testing on this version:
 
-On Tuesday, November 16, 2004 4:42 pm, Luck, Tony wrote:
-> Well the 'diffstat' makes fun reading.  This builds and boots on
-> a Tiger, but very probably breaks gen, sn2, hpsim and hotplug cpu.
->
-> Patch is against my linux-ia64-release-2.6.10 BK tree.
->
-> Caution: Author is taking cold medication that advises against operating
-> heavy machinery ... perhaps I shouldn't be writing patches either.
+	tiger_defconfig	built & booted
+	sn2_defconfig	built & booted (by Jesse, but I changed more stuff after)
+	zx1_defconfig	built and booted (uni-processor)
+	sim_defconfig	built
+	defconfig	built & booted (on Tiger)
 
-Not bad for being heavily medicated :).  I only had to make a few small 
-changes to get it going on sn2.  Looks like the generic build will fail 
-though until _irq_desc is changed to irq_desc in __ia64_irq_desc().
+CONFIG_HOTPLUG_CPU=3Dy for many of those builds, but I didn't test that
+the code kicking around at the end of arch/ia64/kernel/irq.c still
+works.
 
-Jesse
+ arch/ia64/Kconfig           |   11=20
+ arch/ia64/kernel/irq.c      |  986 +--------------------------------------=
+-----
+ arch/ia64/kernel/irq_ia64.c |    2=20
+ arch/ia64/sn/kernel/irq.c   |    4=20
+ include/asm-ia64/hw_irq.h   |    4=20
+ include/asm-ia64/msi.h      |    1=20
+ 6 files changed, 46 insertions(+), 962 deletions(-)
 
 
---Boundary-00=_HSqmBuVCbaDFk7E
-Content-Type: text/plain;
-  charset="iso-8859-1";
-  name="ia64-generic-irqs-2.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="ia64-generic-irqs-2.patch"
-
-===== arch/ia64/Kconfig 1.82 vs edited =====
---- 1.82/arch/ia64/Kconfig	2004-09-30 11:49:13 -07:00
-+++ edited/arch/ia64/Kconfig	2004-11-16 16:55:36 -08:00
+=3D=3D=3D arch/ia64/Kconfig 1.82 vs edited =3D=3D--- 1.82/arch/ia64/Kconfig=
+	2004-09-30 11:49:13 -07:00
++++ edited/arch/ia64/Kconfig	2004-11-16 11:44:44 -08:00
 @@ -381,6 +381,17 @@
- 
+=20
  source "lib/Kconfig"
- 
+=20
 +#
 +# Use the generic interrupt handling code in kernel/irq/:
 +#
@@ -58,37 +52,122 @@ Content-Disposition: attachment;
 +	default y
 +
  source "arch/ia64/hp/sim/Kconfig"
- 
+=20
  source "arch/ia64/oprofile/Kconfig"
-===== arch/ia64/kernel/irq.c 1.51 vs edited =====
---- 1.51/arch/ia64/kernel/irq.c	2004-10-20 01:37:14 -07:00
-+++ edited/arch/ia64/kernel/irq.c	2004-11-16 17:02:39 -08:00
-@@ -73,6 +73,7 @@
-  * interrupt controllers, without having to do assembly magic.
+=3D=3D=3D arch/ia64/kernel/irq.c 1.52 vs edited =3D=3D--- 1.52/arch/ia64/ke=
+rnel/irq.c	2004-11-16 11:09:53 -08:00
++++ edited/arch/ia64/kernel/irq.c	2004-11-17 11:27:51 -08:00
+@@ -16,73 +16,31 @@
+  *			architecture.
   */
- 
-+#if 0
- /*
-  * Controller mappings for all interrupt sources:
-  */
-@@ -83,6 +84,7 @@
- 		.lock = SPIN_LOCK_UNLOCKED
- 	}
- };
-+#endif
- 
- #ifdef CONFIG_SMP
- /*
-@@ -109,82 +111,34 @@
- }
- #endif
- 
--static void register_irq_proc (unsigned int irq);
--
+=20
 -/*
-- * Special irq handlers.
+- * (mostly architecture independent, will move to kernel/irq.c in 2.5.)
+- *
+- * IRQs are in fact implemented a bit like signal handlers for the kernel.
+- * Naturally it's not a 1:1 relation, but there are similarities.
 - */
 -
+-#include <linux/config.h>
+-#include <linux/errno.h>
++#include <asm/delay.h>
++#include <asm/uaccess.h>
+ #include <linux/module.h>
+-#include <linux/signal.h>
+-#include <linux/sched.h>
+-#include <linux/ioport.h>
++#include <linux/seq_file.h>
+ #include <linux/interrupt.h>
+-#include <linux/timex.h>
+-#include <linux/slab.h>
+-#include <linux/random.h>
+-#include <linux/cpu.h>
+-#include <linux/ctype.h>
+-#include <linux/smp_lock.h>
+-#include <linux/init.h>
+ #include <linux/kernel_stat.h>
+-#include <linux/irq.h>
+-#include <linux/proc_fs.h>
+-#include <linux/seq_file.h>
+-#include <linux/kallsyms.h>
+-#include <linux/notifier.h>
+-#include <linux/bitops.h>
+-
+-#include <asm/atomic.h>
+-#include <asm/cpu.h>
+-#include <asm/io.h>
+-#include <asm/smp.h>
+-#include <asm/system.h>
+-#include <asm/uaccess.h>
+-#include <asm/pgalloc.h>
+-#include <asm/tlbflush.h>
+-#include <asm/delay.h>
+-#include <asm/irq.h>
+-
+=20
+ /*
+- * Linux has a controller-independent x86 interrupt architecture.
+- * every controller has a 'controller-template', that is used
+- * by the main code to do the right thing. Each driver-visible
+- * interrupt source is transparently wired to the appropriate
+- * controller. Thus drivers need not be aware of the
+- * interrupt-controller.
+- *
+- * Various interrupt controllers we handle: 8259 PIC, SMP IO-APIC,
+- * PIIX4's internal 8259 PIC and SGI's Visual Workstation Cobalt (IO-)APIC.
+- * (IO-APICs assumed to be messaging to Pentium local-APICs)
+- *
+- * the code is designed to be easily extended with new/different
+- * interrupt controllers, without having to do assembly magic.
++ * 'what should we do if we get a hw irq event on an illegal vector'.
++ * each architecture has to answer this themselves.
+  */
++void ack_bad_irq(unsigned int irq)
++{
++	printk(KERN_ERR "Unexpected irq vector 0x%x on CPU %u!\n", irq, smp_proce=
+ssor_id());
++}
+=20
+ /*
+- * Controller mappings for all interrupt sources:
++ * do_IRQ handles all normal device IRQ's (the special
++ * SMP cross-CPU interrupts have their own specific
++ * handlers).
+  */
+-irq_desc_t _irq_desc[NR_IRQS] __cacheline_aligned =3D {
+-	[0 ... NR_IRQS-1] =3D {
+-		.status =3D IRQ_DISABLED,
+-		.handler =3D &no_irq_type,
+-		.lock =3D SPIN_LOCK_UNLOCKED
+-	}
+-};
++unsigned int do_IRQ(unsigned long irq, struct pt_regs *regs)
++{
++	return __do_IRQ(irq, regs);
++}
+=20
+ #ifdef CONFIG_SMP
+ /*
+@@ -95,7 +53,7 @@
+ #ifdef CONFIG_IA64_GENERIC
+ irq_desc_t * __ia64_irq_desc (unsigned int irq)
+ {
+-	return _irq_desc + irq;
++	return irq_desc + irq;
+ }
+=20
+ ia64_vector __ia64_irq_to_vector (unsigned int irq)
+@@ -109,82 +67,24 @@
+ }
+ #endif
+=20
+-static void register_irq_proc (unsigned int irq);
+-
+ /*
+- * Special irq handlers.
++ * Interrupt statistics:
+  */
+=20
 -irqreturn_t no_action(int cpl, void *dev_id, struct pt_regs *regs)
 -{ return IRQ_NONE; }
 -
@@ -100,13 +179,12 @@ Content-Disposition: attachment;
 -static unsigned int startup_none(unsigned int irq) { return 0; }
 -static void disable_none(unsigned int irq) { }
 -static void ack_none(unsigned int irq)
-+void ack_bad_irq(unsigned int irq)
- {
- /*
-  * 'what should we do if we get a hw irq event on an illegal vector'.
-  * each architecture has to answer this themselves, it doesn't deserve
-  * a generic callback i think.
-  */
+-{
+-/*
+- * 'what should we do if we get a hw irq event on an illegal vector'.
+- * each architecture has to answer this themselves, it doesn't deserve
+- * a generic callback i think.
+- */
 -#ifdef CONFIG_X86
 -	printk(KERN_ERR "unexpected IRQ trap at vector %02x\n", irq);
 -#ifdef CONFIG_X86_LOCAL_APIC
@@ -122,15 +200,16 @@ Content-Disposition: attachment;
 -#endif
 -#endif
 -#ifdef CONFIG_IA64
- 	printk(KERN_ERR "Unexpected irq vector 0x%x on CPU %u!\n", irq, smp_processor_id());
+-	printk(KERN_ERR "Unexpected irq vector 0x%x on CPU %u!\n", irq, smp_proce=
+ssor_id());
 -#endif
- }
- 
+-}
+-
 -/* startup is the same as "enable", shutdown is same as "disable" */
 -#define shutdown_none	disable_none
 -#define end_none	enable_none
 -
--struct hw_interrupt_type no_irq_type = {
+-struct hw_interrupt_type no_irq_type =3D {
 -	"none",
 -	startup_none,
 -	shutdown_none,
@@ -139,73 +218,65 @@ Content-Disposition: attachment;
 -	ack_none,
 -	end_none
 -};
-+/*
-+ * Interrupt statistics:
-+ */
- 
+-
  atomic_t irq_err_count;
 -#ifdef CONFIG_X86_IO_APIC
 -#ifdef APIC_MISMATCH_DEBUG
 -atomic_t irq_mis_count;
 -#endif
 -#endif
- 
+=20
  /*
 - * Generic, controller-independent functions:
 + * /proc/interrupts printing:
   */
- 
+=20
  int show_interrupts(struct seq_file *p, void *v)
  {
--	int j, i = *(loff_t *) v;
-+	int i = *(loff_t *) v, j;
+-	int j, i =3D *(loff_t *) v;
++	int i =3D *(loff_t *) v, j;
  	struct irqaction * action;
 -	irq_desc_t *idesc;
  	unsigned long flags;
- 
- 	if (i == 0) {
+=20
+ 	if (i =3D 0) {
 -		seq_puts(p, "           ");
 +		seq_printf(p, "           ");
- 		for (j=0; j<NR_CPUS; j++)
+ 		for (j=3D0; j<NR_CPUS; j++)
  			if (cpu_online(j))
  				seq_printf(p, "CPU%d       ",j);
-@@ -192,9 +146,8 @@
+@@ -192,9 +92,8 @@
  	}
- 
+=20
  	if (i < NR_IRQS) {
--		idesc = irq_descp(i);
+-		idesc =3D irq_descp(i);
 -		spin_lock_irqsave(&idesc->lock, flags);
--		action = idesc->action;
+-		action =3D idesc->action;
 +		spin_lock_irqsave(&irq_desc[i].lock, flags);
-+		action = irq_desc[i].action;
++		action =3D irq_desc[i].action;
  		if (!action)
  			goto skip;
  		seq_printf(p, "%3d: ",i);
-@@ -205,7 +158,7 @@
+@@ -205,7 +104,7 @@
  			if (cpu_online(j))
  				seq_printf(p, "%10u ", kstat_cpu(j).irqs[i]);
  #endif
 -		seq_printf(p, " %14s", idesc->handler->typename);
 +		seq_printf(p, " %14s", irq_desc[i].handler->typename);
  		seq_printf(p, "  %s", action->name);
- 
- 		for (action=action->next; action; action = action->next)
-@@ -213,244 +166,24 @@
- 
+=20
+ 		for (action=ACtion->next; action; action =3D action->next)
+@@ -213,725 +112,25 @@
+=20
  		seq_putc(p, '\n');
  skip:
 -		spin_unlock_irqrestore(&idesc->lock, flags);
 +		spin_unlock_irqrestore(&irq_desc[i].lock, flags);
- 	} else if (i == NR_IRQS) {
--		seq_puts(p, "NMI: ");
--		for (j = 0; j < NR_CPUS; j++)
--			if (cpu_online(j))
--				seq_printf(p, "%10u ", nmi_count(j));
--		seq_putc(p, '\n');
+ 	} else if (i =3D NR_IRQS) {
 -#ifdef CONFIG_X86_LOCAL_APIC
 +#if defined(CONFIG_X86_LOCAL_APIC)
  		seq_puts(p, "LOC: ");
- 		for (j = 0; j < NR_CPUS; j++)
+ 		for (j =3D 0; j < NR_CPUS; j++)
  			if (cpu_online(j))
 -				seq_printf(p, "%10u ", irq_stat[j].apic_timer_irqs);
 +				seq_printf(p, "%10u ",
@@ -222,8 +293,8 @@ Content-Disposition: attachment;
  	}
  	return 0;
  }
- 
--#ifdef CONFIG_SMP
+=20
+ #ifdef CONFIG_SMP
 -inline void synchronize_irq(unsigned int irq)
 -{
 -	while (irq_descp(irq)->status & IRQ_INPROGRESS)
@@ -242,18 +313,18 @@ Content-Disposition: attachment;
 -int handle_IRQ_event(unsigned int irq,
 -		struct pt_regs *regs, struct irqaction *action)
 -{
--	int status = 1;	/* Force the "do bottom halves" bit */
--	int ret, retval = 0;
+-	int status =3D 1;	/* Force the "do bottom halves" bit */
+-	int ret, retval =3D 0;
 -
 -	if (!(action->flags & SA_INTERRUPT))
 -		local_irq_enable();
 -
 -	do {
--		ret = action->handler(irq, action->dev_id, regs);
--		if (ret == IRQ_HANDLED)
--			status |= action->flags;
--		retval |= ret;
--		action = action->next;
+-		ret =3D action->handler(irq, action->dev_id, regs);
+-		if (ret =3D IRQ_HANDLED)
+-			status |=3D action->flags;
+-		retval |=3D ret;
+-		action =3D action->next;
 -	} while (action);
 -	if (status & SA_SAMPLE_RANDOM)
 -		add_interrupt_randomness(irq);
@@ -261,11 +332,12 @@ Content-Disposition: attachment;
 -	return retval;
 -}
 -
--static void __report_bad_irq(int irq, irq_desc_t *desc, irqreturn_t action_ret)
+-static void __report_bad_irq(int irq, irq_desc_t *desc, irqreturn_t action=
+_ret)
 -{
 -	struct irqaction *action;
 -
--	if (action_ret != IRQ_HANDLED && action_ret != IRQ_NONE) {
+-	if (action_ret !=3D IRQ_HANDLED && action_ret !=3D IRQ_NONE) {
 -		printk(KERN_ERR "irq event %d: bogus return value %x\n",
 -				irq, action_ret);
 -	} else {
@@ -273,19 +345,20 @@ Content-Disposition: attachment;
 -	}
 -	dump_stack();
 -	printk(KERN_ERR "handlers:\n");
--	action = desc->action;
+-	action =3D desc->action;
 -	do {
 -		printk(KERN_ERR "[<%p>]", action->handler);
 -		print_symbol(" (%s)",
 -			(unsigned long)action->handler);
 -		printk("\n");
--		action = action->next;
+-		action =3D action->next;
 -	} while (action);
 -}
 -
--static void report_bad_irq(int irq, irq_desc_t *desc, irqreturn_t action_ret)
+-static void report_bad_irq(int irq, irq_desc_t *desc, irqreturn_t action_r=
+et)
 -{
--	static int count = 100;
+-	static int count =3D 100;
 -
 -	if (count) {
 -		count--;
@@ -297,7 +370,7 @@ Content-Disposition: attachment;
 -
 -static int __init noirqdebug_setup(char *str)
 -{
--	noirqdebug = 1;
+-	noirqdebug =3D 1;
 -	printk("IRQ lockup detection disabled\n");
 -	return 1;
 -}
@@ -306,19 +379,22 @@ Content-Disposition: attachment;
 -
 -/*
 - * If 99,900 of the previous 100,000 interrupts have not been handled then
-- * assume that the IRQ is stuck in some manner.  Drop a diagnostic and try to
+- * assume that the IRQ is stuck in some manner.  Drop a diagnostic and try=
+ to
 - * turn the IRQ off.
 - *
-- * (The other 100-of-100,000 interrupts may have been a correctly-functioning
+- * (The other 100-of-100,000 interrupts may have been a correctly-function=
+ing
 - *  device sharing an IRQ with the failing one)
 - *
 - * Called under desc->lock
 - */
--static void note_interrupt(int irq, irq_desc_t *desc, irqreturn_t action_ret)
+-static void note_interrupt(int irq, irq_desc_t *desc, irqreturn_t action_r=
+et)
 -{
--	if (action_ret != IRQ_HANDLED) {
+-	if (action_ret !=3D IRQ_HANDLED) {
 -		desc->irqs_unhandled++;
--		if (action_ret != IRQ_NONE)
+-		if (action_ret !=3D IRQ_NONE)
 -			report_bad_irq(irq, desc, action_ret);
 -	}
 -
@@ -326,7 +402,7 @@ Content-Disposition: attachment;
 -	if (desc->irq_count < 100000)
 -		return;
 -
--	desc->irq_count = 0;
+-	desc->irq_count =3D 0;
 -	if (desc->irqs_unhandled > 99900) {
 -		/*
 -		 * The interrupt is stuck
@@ -336,10 +412,10 @@ Content-Disposition: attachment;
 -		 * Now kill the IRQ
 -		 */
 -		printk(KERN_EMERG "Disabling IRQ #%d\n", irq);
--		desc->status |= IRQ_DISABLED;
+-		desc->status |=3D IRQ_DISABLED;
 -		desc->handler->disable(irq);
 -	}
--	desc->irqs_unhandled = 0;
+-	desc->irqs_unhandled =3D 0;
 -}
 -
 -/*
@@ -363,12 +439,12 @@ Content-Disposition: attachment;
 -
 -inline void disable_irq_nosync(unsigned int irq)
 -{
--	irq_desc_t *desc = irq_descp(irq);
+-	irq_desc_t *desc =3D irq_descp(irq);
 -	unsigned long flags;
 -
 -	spin_lock_irqsave(&desc->lock, flags);
 -	if (!desc->depth++) {
--		desc->status |= IRQ_DISABLED;
+-		desc->status |=3D IRQ_DISABLED;
 -		desc->handler->disable(irq);
 -	}
 -	spin_unlock_irqrestore(&desc->lock, flags);
@@ -390,7 +466,7 @@ Content-Disposition: attachment;
 -
 -void disable_irq(unsigned int irq)
 -{
--	irq_desc_t *desc = irq_descp(irq);
+-	irq_desc_t *desc =3D irq_descp(irq);
 -
 -	disable_irq_nosync(irq);
 -	if (desc->action)
@@ -411,16 +487,16 @@ Content-Disposition: attachment;
 -
 -void enable_irq(unsigned int irq)
 -{
--	irq_desc_t *desc = irq_descp(irq);
+-	irq_desc_t *desc =3D irq_descp(irq);
 -	unsigned long flags;
 -
 -	spin_lock_irqsave(&desc->lock, flags);
 -	switch (desc->depth) {
 -	case 1: {
--		unsigned int status = desc->status & ~IRQ_DISABLED;
--		desc->status = status;
--		if ((status & (IRQ_PENDING | IRQ_REPLAY)) == IRQ_PENDING) {
--			desc->status = status | IRQ_REPLAY;
+-		unsigned int status =3D desc->status & ~IRQ_DISABLED;
+-		desc->status =3D status;
+-		if ((status & (IRQ_PENDING | IRQ_REPLAY)) =3D IRQ_PENDING) {
+-			desc->status =3D status | IRQ_REPLAY;
 -			hw_resend_irq(desc->handler,irq);
 -		}
 -		desc->handler->enable(irq);
@@ -437,13 +513,13 @@ Content-Disposition: attachment;
 -}
 -EXPORT_SYMBOL(enable_irq);
 -
- /*
-  * do_IRQ handles all normal device IRQ's (the special
-  * SMP cross-CPU interrupts have their own specific
-@@ -458,486 +191,11 @@
-  */
- unsigned int do_IRQ(unsigned long irq, struct pt_regs *regs)
- {
+-/*
+- * do_IRQ handles all normal device IRQ's (the special
+- * SMP cross-CPU interrupts have their own specific
+- * handlers).
+- */
+-unsigned int do_IRQ(unsigned long irq, struct pt_regs *regs)
+-{
 -	/*
 -	 * We ack quickly, we don't want the irq controller
 -	 * thinking we're snobs just because some other CPU has
@@ -454,20 +530,21 @@ Content-Disposition: attachment;
 -	 * 0 return value means that this irq is already being
 -	 * handled by some other CPU. (or is disabled)
 -	 */
--	irq_desc_t *desc = irq_descp(irq);
+-	irq_desc_t *desc =3D irq_descp(irq);
 -	struct irqaction * action;
 -	irqreturn_t action_ret;
 -	unsigned int status;
 -	int cpu;
 -
--	cpu = smp_processor_id(); /* for CONFIG_PREEMPT, this must come after irq_enter()! */
+-	cpu =3D smp_processor_id(); /* for CONFIG_PREEMPT, this must come after i=
+rq_enter()! */
 -
 -	kstat_cpu(cpu).irqs[irq]++;
 -
 -	if (desc->status & IRQ_PER_CPU) {
 -		/* no locking required for CPU-local interrupts: */
 -		desc->handler->ack(irq);
--		action_ret = handle_IRQ_event(irq, regs, desc->action);
+-		action_ret =3D handle_IRQ_event(irq, regs, desc->action);
 -		desc->handler->end(irq);
 -	} else {
 -		spin_lock(&desc->lock);
@@ -476,20 +553,20 @@ Content-Disposition: attachment;
 -		 * REPLAY is when Linux resends an IRQ that was dropped earlier
 -		 * WAITING is used by probe to mark irqs that are being tested
 -		 */
--		status = desc->status & ~(IRQ_REPLAY | IRQ_WAITING);
--		status |= IRQ_PENDING; /* we _want_ to handle it */
+-		status =3D desc->status & ~(IRQ_REPLAY | IRQ_WAITING);
+-		status |=3D IRQ_PENDING; /* we _want_ to handle it */
 -
 -		/*
 -		 * If the IRQ is disabled for whatever reason, we cannot
 -		 * use the action we have.
 -		 */
--		action = NULL;
+-		action =3D NULL;
 -		if (likely(!(status & (IRQ_DISABLED | IRQ_INPROGRESS)))) {
--			action = desc->action;
--			status &= ~IRQ_PENDING; /* we commit to handling */
--			status |= IRQ_INPROGRESS; /* we are handling it */
+-			action =3D desc->action;
+-			status &=3D ~IRQ_PENDING; /* we commit to handling */
+-			status |=3D IRQ_INPROGRESS; /* we are handling it */
 -		}
--		desc->status = status;
+-		desc->status =3D status;
 -
 -		/*
 -		 * If there is no IRQ handler or it was disabled, exit early.
@@ -512,15 +589,15 @@ Content-Disposition: attachment;
 -		 */
 -		for (;;) {
 -			spin_unlock(&desc->lock);
--			action_ret = handle_IRQ_event(irq, regs, action);
+-			action_ret =3D handle_IRQ_event(irq, regs, action);
 -			spin_lock(&desc->lock);
 -			if (!noirqdebug)
 -				note_interrupt(irq, desc, action_ret);
 -			if (!(desc->status & IRQ_PENDING))
 -				break;
--			desc->status &= ~IRQ_PENDING;
+-			desc->status &=3D ~IRQ_PENDING;
 -		}
--		desc->status &= ~IRQ_INPROGRESS;
+-		desc->status &=3D ~IRQ_INPROGRESS;
 -	  out:
 -		/*
 -		 * The ->end() handler has to deal with interrupts which got
@@ -543,7 +620,7 @@ Content-Disposition: attachment;
 - *	This call allocates interrupt resources and enables the
 - *	interrupt line and IRQ handling. From the point this
 - *	call is made your handler function may be invoked. Since
-- *	your handler function must clear any interrupt the board 
+- *	your handler function must clear any interrupt the board=20
 - *	raises, you must take care both to initialise your hardware
 - *	and to set up the interrupt handler in the right order.
 - *
@@ -586,30 +663,29 @@ Content-Disposition: attachment;
 -	}
 -#endif
 -
--	if (irq >= NR_IRQS)
+-	if (irq >=3D NR_IRQS)
 -		return -EINVAL;
 -	if (!handler)
 -		return -EINVAL;
 -
--	action = (struct irqaction *)
+-	action =3D (struct irqaction *)
 -			kmalloc(sizeof(struct irqaction), GFP_ATOMIC);
 -	if (!action)
 -		return -ENOMEM;
 -
--	action->handler = handler;
--	action->flags = irqflags;
+-	action->handler =3D handler;
+-	action->flags =3D irqflags;
 -	cpus_clear(action->mask);
--	action->name = devname;
--	action->next = NULL;
--	action->dev_id = dev_id;
+-	action->name =3D devname;
+-	action->next =3D NULL;
+-	action->dev_id =3D dev_id;
 -
--	retval = setup_irq(irq, action);
+-	retval =3D setup_irq(irq, action);
 -	if (retval)
 -		kfree(action);
 -	return retval;
-+	return __do_IRQ(irq, regs);
- }
- 
+-}
+-
 -EXPORT_SYMBOL(request_irq);
 -
 -/**
@@ -633,24 +709,24 @@ Content-Disposition: attachment;
 -	struct irqaction **p;
 -	unsigned long flags;
 -
--	if (irq >= NR_IRQS)
+-	if (irq >=3D NR_IRQS)
 -		return;
 -
--	desc = irq_descp(irq);
+-	desc =3D irq_descp(irq);
 -	spin_lock_irqsave(&desc->lock,flags);
--	p = &desc->action;
+-	p =3D &desc->action;
 -	for (;;) {
--		struct irqaction * action = *p;
+-		struct irqaction * action =3D *p;
 -		if (action) {
--			struct irqaction **pp = p;
--			p = &action->next;
--			if (action->dev_id != dev_id)
+-			struct irqaction **pp =3D p;
+-			p =3D &action->next;
+-			if (action->dev_id !=3D dev_id)
 -				continue;
 -
 -			/* Found it - now remove it from the list of entries */
--			*pp = action->next;
+-			*pp =3D action->next;
 -			if (!desc->action) {
--				desc->status |= IRQ_DISABLED;
+-				desc->status |=3D IRQ_DISABLED;
 -				desc->handler->shutdown(irq);
 -			}
 -			spin_unlock_irqrestore(&desc->lock,flags);
@@ -699,8 +775,8 @@ Content-Disposition: attachment;
 -	 * something may have generated an irq long ago and we want to
 -	 * flush such a longstanding irq before considering it as spurious.
 -	 */
--	for (i = NR_IRQS-1; i > 0; i--)  {
--		desc = irq_descp(i);
+-	for (i =3D NR_IRQS-1; i > 0; i--)  {
+-		desc =3D irq_descp(i);
 -
 -		spin_lock_irq(&desc->lock);
 -		if (!desc->action)
@@ -709,7 +785,7 @@ Content-Disposition: attachment;
 -	}
 -
 -	/* Wait for longstanding interrupts to trigger. */
--	for (delay = jiffies + HZ/50; time_after(delay, jiffies); )
+-	for (delay =3D jiffies + HZ/50; time_after(delay, jiffies); )
 -		/* about 20ms delay */ barrier();
 -
 -	/*
@@ -717,14 +793,14 @@ Content-Disposition: attachment;
 -	 * (we must startup again here because if a longstanding irq
 -	 * happened in the previous stage, it may have masked itself)
 -	 */
--	for (i = NR_IRQS-1; i > 0; i--) {
--		desc = irq_descp(i);
+-	for (i =3D NR_IRQS-1; i > 0; i--) {
+-		desc =3D irq_descp(i);
 -
 -		spin_lock_irq(&desc->lock);
 -		if (!desc->action) {
--			desc->status |= IRQ_AUTODETECT | IRQ_WAITING;
+-			desc->status |=3D IRQ_AUTODETECT | IRQ_WAITING;
 -			if (desc->handler->startup(i))
--				desc->status |= IRQ_PENDING;
+-				desc->status |=3D IRQ_PENDING;
 -		}
 -		spin_unlock_irq(&desc->lock);
 -	}
@@ -732,28 +808,28 @@ Content-Disposition: attachment;
 -	/*
 -	 * Wait for spurious interrupts to trigger
 -	 */
--	for (delay = jiffies + HZ/10; time_after(delay, jiffies); )
+-	for (delay =3D jiffies + HZ/10; time_after(delay, jiffies); )
 -		/* about 100ms delay */ barrier();
 -
 -	/*
 -	 * Now filter out any obviously spurious interrupts
 -	 */
--	val = 0;
--	for (i = 0; i < NR_IRQS; i++) {
--		irq_desc_t *desc = irq_descp(i);
+-	val =3D 0;
+-	for (i =3D 0; i < NR_IRQS; i++) {
+-		irq_desc_t *desc =3D irq_descp(i);
 -		unsigned int status;
 -
 -		spin_lock_irq(&desc->lock);
--		status = desc->status;
+-		status =3D desc->status;
 -
 -		if (status & IRQ_AUTODETECT) {
 -			/* It triggered already - consider it spurious. */
 -			if (!(status & IRQ_WAITING)) {
--				desc->status = status & ~IRQ_AUTODETECT;
+-				desc->status =3D status & ~IRQ_AUTODETECT;
 -				desc->handler->shutdown(i);
 -			} else
 -				if (i < 32)
--					val |= 1 << i;
+-					val |=3D 1 << i;
 -		}
 -		spin_unlock_irq(&desc->lock);
 -	}
@@ -780,19 +856,19 @@ Content-Disposition: attachment;
 -	int i;
 -	unsigned int mask;
 -
--	mask = 0;
--	for (i = 0; i < 16; i++) {
--		irq_desc_t *desc = irq_descp(i);
+-	mask =3D 0;
+-	for (i =3D 0; i < 16; i++) {
+-		irq_desc_t *desc =3D irq_descp(i);
 -		unsigned int status;
 -
 -		spin_lock_irq(&desc->lock);
--		status = desc->status;
+-		status =3D desc->status;
 -
 -		if (status & IRQ_AUTODETECT) {
 -			if (!(status & IRQ_WAITING))
--				mask |= 1 << i;
+-				mask |=3D 1 << i;
 -
--			desc->status = status & ~IRQ_AUTODETECT;
+-			desc->status =3D status & ~IRQ_AUTODETECT;
 -			desc->handler->shutdown(i);
 -		}
 -		spin_unlock_irq(&desc->lock);
@@ -825,22 +901,22 @@ Content-Disposition: attachment;
 -{
 -	int i, irq_found, nr_irqs;
 -
--	nr_irqs = 0;
--	irq_found = 0;
--	for (i = 0; i < NR_IRQS; i++) {
--		irq_desc_t *desc = irq_descp(i);
+-	nr_irqs =3D 0;
+-	irq_found =3D 0;
+-	for (i =3D 0; i < NR_IRQS; i++) {
+-		irq_desc_t *desc =3D irq_descp(i);
 -		unsigned int status;
 -
 -		spin_lock_irq(&desc->lock);
--		status = desc->status;
+-		status =3D desc->status;
 -
 -		if (status & IRQ_AUTODETECT) {
 -			if (!(status & IRQ_WAITING)) {
 -				if (!nr_irqs)
--					irq_found = i;
+-					irq_found =3D i;
 -				nr_irqs++;
 -			}
--			desc->status = status & ~IRQ_AUTODETECT;
+-			desc->status =3D status & ~IRQ_AUTODETECT;
 -			desc->handler->shutdown(i);
 -		}
 -		spin_unlock_irq(&desc->lock);
@@ -848,7 +924,7 @@ Content-Disposition: attachment;
 -	up(&probe_sem);
 -
 -	if (nr_irqs > 1)
--		irq_found = -irq_found;
+-		irq_found =3D -irq_found;
 -	return irq_found;
 -}
 -
@@ -856,12 +932,12 @@ Content-Disposition: attachment;
 -
 -int setup_irq(unsigned int irq, struct irqaction * new)
 -{
--	int shared = 0;
+-	int shared =3D 0;
 -	unsigned long flags;
 -	struct irqaction *old, **p;
--	irq_desc_t *desc = irq_descp(irq);
+-	irq_desc_t *desc =3D irq_descp(irq);
 -
--	if (desc->handler == &no_irq_type)
+-	if (desc->handler =3D &no_irq_type)
 -		return -ENOSYS;
 -	/*
 -	 * Some drivers like serial.c use request_irq() heavily,
@@ -881,16 +957,16 @@ Content-Disposition: attachment;
 -	}
 -
 -	if (new->flags & SA_PERCPU_IRQ) {
--		desc->status |= IRQ_PER_CPU;
--		desc->handler = &irq_type_ia64_lsapic;
+-		desc->status |=3D IRQ_PER_CPU;
+-		desc->handler =3D &irq_type_ia64_lsapic;
 -	}
 -
 -	/*
 -	 * The following block of code has to be executed atomically
 -	 */
 -	spin_lock_irqsave(&desc->lock,flags);
--	p = &desc->action;
--	if ((old = *p) != NULL) {
+-	p =3D &desc->action;
+-	if ((old =3D *p) !=3D NULL) {
 -		/* Can't share interrupts unless both agree to */
 -		if (!(old->flags & new->flags & SA_SHIRQ)) {
 -			spin_unlock_irqrestore(&desc->lock,flags);
@@ -899,17 +975,18 @@ Content-Disposition: attachment;
 -
 -		/* add new interrupt at end of irq queue */
 -		do {
--			p = &old->next;
--			old = *p;
+-			p =3D &old->next;
+-			old =3D *p;
 -		} while (old);
--		shared = 1;
+-		shared =3D 1;
 -	}
 -
--	*p = new;
+-	*p =3D new;
 -
 -	if (!shared) {
--		desc->depth = 0;
--		desc->status &= ~(IRQ_DISABLED | IRQ_AUTODETECT | IRQ_WAITING | IRQ_INPROGRESS);
+-		desc->depth =3D 0;
+-		desc->status &=3D ~(IRQ_DISABLED | IRQ_AUTODETECT | IRQ_WAITING | IRQ_IN=
+PROGRESS);
 -		desc->handler->startup(irq);
 -	}
 -	spin_unlock_irqrestore(&desc->lock,flags);
@@ -921,42 +998,43 @@ Content-Disposition: attachment;
 -static struct proc_dir_entry * root_irq_dir;
 -static struct proc_dir_entry * irq_dir [NR_IRQS];
 -
- #ifdef CONFIG_SMP
- 
--static struct proc_dir_entry * smp_affinity_entry [NR_IRQS];
+-#ifdef CONFIG_SMP
 -
- static cpumask_t irq_affinity [NR_IRQS] = { [0 ... NR_IRQS-1] = CPU_MASK_ALL };
- 
- static char irq_redir [NR_IRQS]; // = { [0 ... NR_IRQS-1] = 1 };
-@@ -954,79 +212,6 @@
+-static struct proc_dir_entry * smp_affinity_entry [NR_IRQS];
+=20
+ static cpumask_t irq_affinity [NR_IRQS] =3D { [0 ... NR_IRQS-1] =3D CPU_MA=
+SK_ALL };
+=20
+@@ -949,79 +148,6 @@
  	}
  }
- 
+=20
 -static int irq_affinity_read_proc (char *page, char **start, off_t off,
 -			int count, int *eof, void *data)
 -{
--	int len = sprintf(page, "%s", irq_redir[(long)data] ? "r " : "");
+-	int len =3D sprintf(page, "%s", irq_redir[(long)data] ? "r " : "");
 -
--	len += cpumask_scnprintf(page+len, count, irq_affinity[(long)data]);
+-	len +=3D cpumask_scnprintf(page+len, count, irq_affinity[(long)data]);
 -	if (count - len < 2)
 -		return -EINVAL;
--	len += sprintf(page + len, "\n");
+-	len +=3D sprintf(page + len, "\n");
 -	return len;
 -}
 -
--static int irq_affinity_write_proc (struct file *file, const char __user *buffer,
+-static int irq_affinity_write_proc (struct file *file, const char __user *=
+buffer,
 -				    unsigned long count, void *data)
 -{
--	unsigned int irq = (unsigned long) data;
--	int full_count = count, err;
+-	unsigned int irq =3D (unsigned long) data;
+-	int full_count =3D count, err;
 -	cpumask_t new_value, tmp;
 -#	define R_PREFIX_LEN 16
 -	char rbuf[R_PREFIX_LEN];
 -	int rlen;
 -	int prelen;
--	irq_desc_t *desc = irq_descp(irq);
+-	irq_desc_t *desc =3D irq_descp(irq);
 -	unsigned long flags;
--	int redir = 0;
+-	int redir =3D 0;
 -
 -	if (!desc->handler->set_affinity)
 -		return -EIO;
@@ -972,17 +1050,17 @@ Content-Disposition: attachment;
 -
 -	if (!count)
 -		return -EINVAL;
--	rlen = min(sizeof(rbuf)-1, count);
+-	rlen =3D min(sizeof(rbuf)-1, count);
 -	if (copy_from_user(rbuf, buffer, rlen))
 -		return -EFAULT;
--	rbuf[rlen] = 0;
--	prelen = 0;
--	if (tolower(*rbuf) == 'r') {
--		prelen = strspn(rbuf, "Rr ");
+-	rbuf[rlen] =3D 0;
+-	prelen =3D 0;
+-	if (tolower(*rbuf) =3D 'r') {
+-		prelen =3D strspn(rbuf, "Rr ");
 -		redir++;
 -	}
 -
--	err = cpumask_parse(buffer+prelen, count-prelen, new_value);
+-	err =3D cpumask_parse(buffer+prelen, count-prelen, new_value);
 -	if (err)
 -		return err;
 -
@@ -996,7 +1074,7 @@ Content-Disposition: attachment;
 -		return -EINVAL;
 -
 -	spin_lock_irqsave(&desc->lock, flags);
--	pending_irq_cpumask[irq] = new_value;
+-	pending_irq_cpumask[irq] =3D new_value;
 -	if (redir)
 -		set_bit(irq, pending_irq_redir);
 -	else
@@ -1005,10 +1083,10 @@ Content-Disposition: attachment;
 -
 -	return full_count;
 -}
- 
+=20
  void move_irq(int irq)
  {
-@@ -1140,57 +325,3 @@
+@@ -1135,57 +261,3 @@
  	local_irq_disable();
  }
  #endif
@@ -1019,30 +1097,31 @@ Content-Disposition: attachment;
 -{
 -	char name [MAX_NAMELEN];
 -
--	if (!root_irq_dir || (irq_descp(irq)->handler == &no_irq_type) || irq_dir[irq])
+-	if (!root_irq_dir || (irq_descp(irq)->handler =3D &no_irq_type) || irq_di=
+r[irq])
 -		return;
 -
 -	memset(name, 0, MAX_NAMELEN);
 -	sprintf(name, "%d", irq);
 -
 -	/* create /proc/irq/1234 */
--	irq_dir[irq] = proc_mkdir(name, root_irq_dir);
+-	irq_dir[irq] =3D proc_mkdir(name, root_irq_dir);
 -
 -#ifdef CONFIG_SMP
 -	{
 -		struct proc_dir_entry *entry;
 -
 -		/* create /proc/irq/1234/smp_affinity */
--		entry = create_proc_entry("smp_affinity", 0600, irq_dir[irq]);
+-		entry =3D create_proc_entry("smp_affinity", 0600, irq_dir[irq]);
 -
 -		if (entry) {
--			entry->nlink = 1;
--			entry->data = (void *)(long)irq;
--			entry->read_proc = irq_affinity_read_proc;
--			entry->write_proc = irq_affinity_write_proc;
+-			entry->nlink =3D 1;
+-			entry->data =3D (void *)(long)irq;
+-			entry->read_proc =3D irq_affinity_read_proc;
+-			entry->write_proc =3D irq_affinity_write_proc;
 -		}
 -
--		smp_affinity_entry[irq] = entry;
+-		smp_affinity_entry[irq] =3D entry;
 -	}
 -#endif
 -}
@@ -1052,7 +1131,7 @@ Content-Disposition: attachment;
 -	int i;
 -
 -	/* create /proc/irq */
--	root_irq_dir = proc_mkdir("irq", NULL);
+-	root_irq_dir =3D proc_mkdir("irq", NULL);
 -
 -	/* create /proc/irq/prof_cpu_mask */
 -	create_prof_cpu_mask(root_irq_dir);
@@ -1060,19 +1139,19 @@ Content-Disposition: attachment;
 -	/*
 -	 * Create entries for all existing IRQs.
 -	 */
--	for (i = 0; i < NR_IRQS; i++) {
--		if (irq_descp(i)->handler == &no_irq_type)
+-	for (i =3D 0; i < NR_IRQS; i++) {
+-		if (irq_descp(i)->handler =3D &no_irq_type)
 -			continue;
 -		register_irq_proc(i);
 -	}
 -}
-===== arch/ia64/kernel/irq_ia64.c 1.22 vs edited =====
---- 1.22/arch/ia64/kernel/irq_ia64.c	2004-10-20 01:37:14 -07:00
-+++ edited/arch/ia64/kernel/irq_ia64.c	2004-11-16 16:55:40 -08:00
+=3D=3D=3D arch/ia64/kernel/irq_ia64.c 1.22 vs edited =3D=3D--- 1.22/arch/ia=
+64/kernel/irq_ia64.c	2004-10-20 01:37:14 -07:00
++++ edited/arch/ia64/kernel/irq_ia64.c	2004-11-16 14:11:53 -08:00
 @@ -60,6 +60,7 @@
  };
  EXPORT_SYMBOL(isa_irq_to_vector_map);
- 
+=20
 +#ifndef CONFIG_GENERIC_HARDIRQS
  static inline void
  irq_enter (void)
@@ -1082,40 +1161,40 @@ Content-Disposition: attachment;
  	preempt_enable_no_resched();
  }
 +#endif
- 
+=20
  int
  assign_irq_vector (int irq)
-===== arch/ia64/sn/kernel/irq.c 1.28 vs edited =====
---- 1.28/arch/ia64/sn/kernel/irq.c	2004-10-26 16:42:36 -07:00
-+++ edited/arch/ia64/sn/kernel/irq.c	2004-11-16 17:01:33 -08:00
+=3D=3D=3D arch/ia64/sn/kernel/irq.c 1.28 vs edited =3D=3D--- 1.28/arch/ia64=
+/sn/kernel/irq.c	2004-10-26 16:42:36 -07:00
++++ edited/arch/ia64/sn/kernel/irq.c	2004-11-17 10:21:51 -08:00
 @@ -204,7 +204,7 @@
- 
+=20
  struct irq_desc *sn_irq_desc(unsigned int irq)
  {
 -	return (_irq_desc + irq);
 +	return (irq_desc + irq);
  }
- 
+=20
  u8 sn_irq_to_vector(unsigned int irq)
 @@ -220,7 +220,7 @@
  void sn_irq_init(void)
  {
  	int i;
--	irq_desc_t *base_desc = _irq_desc;
-+	irq_desc_t *base_desc = irq_desc;
- 
- 	for (i = 0; i < NR_IRQS; i++) {
- 		if (base_desc[i].handler == &no_irq_type) {
-===== include/asm-ia64/hw_irq.h 1.12 vs edited =====
---- 1.12/include/asm-ia64/hw_irq.h	2004-10-05 11:30:39 -07:00
-+++ edited/include/asm-ia64/hw_irq.h	2004-11-16 16:55:41 -08:00
+-	irq_desc_t *base_desc =3D _irq_desc;
++	irq_desc_t *base_desc =3D irq_desc;
+=20
+ 	for (i =3D 0; i < NR_IRQS; i++) {
+ 		if (base_desc[i].handler =3D &no_irq_type) {
+=3D=3D=3D include/asm-ia64/hw_irq.h 1.12 vs edited =3D=3D--- 1.12/include/a=
+sm-ia64/hw_irq.h	2004-10-05 11:30:39 -07:00
++++ edited/include/asm-ia64/hw_irq.h	2004-11-16 15:36:05 -08:00
 @@ -94,13 +94,13 @@
   * Default implementations for the irq-descriptor API:
   */
- 
+=20
 -extern irq_desc_t _irq_desc[NR_IRQS];
 +extern irq_desc_t irq_desc[NR_IRQS];
- 
+=20
  #ifndef CONFIG_IA64_GENERIC
  static inline irq_desc_t *
  __ia64_irq_desc (unsigned int irq)
@@ -1123,11 +1202,11 @@ Content-Disposition: attachment;
 -	return _irq_desc + irq;
 +	return irq_desc + irq;
  }
- 
+=20
  static inline ia64_vector
-===== include/asm-ia64/msi.h 1.2 vs edited =====
---- 1.2/include/asm-ia64/msi.h	2004-04-13 16:59:44 -07:00
-+++ edited/include/asm-ia64/msi.h	2004-11-16 16:55:42 -08:00
+=3D=3D=3D include/asm-ia64/msi.h 1.2 vs edited =3D=3D--- 1.2/include/asm-ia=
+64/msi.h	2004-04-13 16:59:44 -07:00
++++ edited/include/asm-ia64/msi.h	2004-11-16 15:36:42 -08:00
 @@ -12,7 +12,6 @@
  static inline void set_intr_gate (int nr, void *func) {}
  #define IO_APIC_VECTOR(irq)	(irq)
@@ -1136,5 +1215,3 @@ Content-Disposition: attachment;
  #define cpu_mask_to_apicid(mask) cpu_physical_id(first_cpu(mask))
  #define MSI_DEST_MODE		MSI_PHYSICAL_MODE
  #define MSI_TARGET_CPU	((ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff)
-
---Boundary-00=_HSqmBuVCbaDFk7E--
