@@ -1,146 +1,104 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Mon, 08 Mar 2004 08:31:01 +0000
+From: "Liu, Benjamin" <benjamin.liu@intel.com>
+Date: Mon, 08 Mar 2004 09:14:58 +0000
 Subject: RE: [PATCH] fix PCI interrupt setting for ia64
-Message-Id: <MDEEKOKJPMPMKGHIFAMAMECODGAA.kaneshige.kenji@jp.fujitsu.com>
+Message-Id: <3ACA40606221794F80A5670F0AF15F8401B1A019@PDSMSX403.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <3ACA40606221794F80A5670F0AF15F8401B1A016@PDSMSX403.ccr.corp.intel.com>
 References: <MDEEKOKJPMPMKGHIFAMAKECGDGAA.kaneshige.kenji@jp.fujitsu.com>
 In-Reply-To: <MDEEKOKJPMPMKGHIFAMAKECGDGAA.kaneshige.kenji@jp.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: "Liu, Benjamin" <benjamin.liu@intel.com>, Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
+To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>, linux-ia64@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 
-Hi Liu,
-
-I think it is not converse.
-What I wanted to do was to mask (disable) IRQ in iosapic_enable_intr().
-I think PCI IRQ should be unmasked (enabled) by device driver, not by
-iosapic_enable_intr() at the boot time.
-
-Regards,
-Kenji Kaneshige
-
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org]On Behalf Of Liu, Benjamin
-> Sent: Monday, March 08, 2004 4:34 PM
-> To: Kenji Kaneshige; linux-ia64@vger.kernel.org
-> Cc: linux-kernel@vger.kernel.org
-> Subject: RE: [PATCH] fix PCI interrupt setting for ia64
->
->
-> Hi, Kenji,
->
-> I am a little bit confused with the patch:
-> Mask bit of RDL's low word indicates the interrupt is enabled
-> when it is zero, disabled when it is 1. But from the patch below,
-> it seems that Kenji enable interrupts in iosapic_register_intr(),
-> iosapic_register_platform_intr(), iosapic_override_isa_irq(), and
-> disable the interrupt in iosapic_enable_intr(). Is it converse?
->
-> Thanks,
-> Pingping (Benjamin) Liu
-> Intel China Software Center
->
->
-> >-----Original Message-----
-> >From: linux-ia64-owner@vger.kernel.org
-> >[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Kenji Kaneshige
-> >Sent: 2004=C4=EA3=D4=C28=C8=D5 10:49
-> >To: linux-ia64@vger.kernel.org
-> >Cc: linux-kernel@vger.kernel.org
-> >Subject: [PATCH] fix PCI interrupt setting for ia64
-> >
-> >
-> >Hi,
-> >
-> >In ia64 kernel, IOSAPIC's RTEs for PCI interrupts are unmasked at the
-> >boot time before installing device drivers. I think it is very
-> >dangerous.
-> >If some PCI devices without device driver generate interrupts,
-> >interrupts
-> >are generated repeatedly because these interrupt requests are never
-> >cleared. I think RTEs for PCI interrupts should be unmasked by device
-> >driver.
-> >
-> >A following patch fixes this issue.
-> >
-> >Regards,
-> >Kenji Kaneshige
-> >
-> >
-> >diff -Naur linux-2.6.4-rc2/arch/ia64/kernel/iosapic.c
-> >linux-2.6.4-rc2-changed/arch/ia64/kernel/iosapic.c
-> >--- linux-2.6.4-rc2/arch/ia64/kernel/iosapic.c  2004-03-05
-> >15:13:53.155237277 +0900
-> >+++ linux-2.6.4-rc2-changed/arch/ia64/kernel/iosapic.c  2004-03-05
-> >16:48:31.856142526 +0900
-> >@@ -170,7 +170,7 @@
-> > }
-> >
-> > static void
-> >-set_rte (unsigned int vector, unsigned int dest)
-> >+set_rte (unsigned int vector, unsigned int dest, int mask)
-> > {
-> >        unsigned long pol, trigger, dmode;
-> >        u32 low32, high32;
-> >@@ -205,6 +205,7 @@
-> >        low32 =3D ((pol << IOSAPIC_POLARITY_SHIFT) |
-> >                 (trigger << IOSAPIC_TRIGGER_SHIFT) |
-> >                 (dmode << IOSAPIC_DELIVERY_SHIFT) |
-> >+                ((mask ? 1 : 0) << IOSAPIC_MASK_SHIFT) |
-> >                 vector);
-> >
-> >        /* dest contains both id and eid */
-> >@@ -509,7 +510,7 @@
-> >               (trigger =3D IOSAPIC_EDGE ? "edge" : "level"),
-> >dest, vector);
-> >
-> >        /* program the IOSAPIC routing table */
-> >-       set_rte(vector, dest);
-> >+       set_rte(vector, dest, 0);
-> >        return vector;
-> > }
-> >
-> >@@ -557,7 +558,7 @@
-> >               (trigger =3D IOSAPIC_EDGE ? "edge" : "level"),
-> >dest, vector);
-> >
-> >        /* program the IOSAPIC routing table */
-> >-       set_rte(vector, dest);
-> >+       set_rte(vector, dest, 0);
-> >        return vector;
-> > }
-> >
-> >@@ -583,7 +584,7 @@
-> >            trigger =3D IOSAPIC_EDGE ? "edge" : "level", dest, vector);
-> >
-> >        /* program the IOSAPIC routing table */
-> >-       set_rte(vector, dest);
-> >+       set_rte(vector, dest, 0);
-> > }
-> >
-> > void __init
-> >@@ -669,7 +670,7 @@
-> >        /* direct the interrupt vector to the running cpu id */
-> >        dest =3D (ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff;
-> > #endif
-> >-       set_rte(vector, dest);
-> >+       set_rte(vector, dest, 1);
-> >
-> >        printk(KERN_INFO "IOSAPIC: vector %d -> CPU 0x%04x, enabled\n",
-> >               vector, dest);
-> >
-> >-
-> >To unsubscribe from this list: send the line "unsubscribe
-> >linux-ia64" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+VGhhbmsgeW91IGZvciB0aGUgaW5mb3JtYXRpb24sIEtlbmppLiBCdXQgaXMgdGhlcmUgYW55IHJl
+YXNvbiB0byBsZWF2ZSBpdCB1bm1hc2tlZCBpbiBpb3NhcGljX3JlZ2lzdGVyX2ludHIoKSwgaW9z
+YXBpY19yZWdpc3Rlcl9wbGF0Zm9ybV9pbnRyKCksIGlvc2FwaWNfb3ZlcnJpZGVfaXNhX2lycSgp
+LCBnaXZlbiB0aGUgZmFjdCB0aGF0IHRoZXkgd291bGQgYmUgdW5tYXNrZWQgZmluYWxseSBpbiBp
+bmRpdmlkdWFsIGRldmljZSBkcml2ZXJzPwoKVGhhbmtzLApQaW5ncGluZyAoQmVuamFtaW4pIExp
+dQpJbnRlbCBDaGluYSBTb2Z0d2FyZSBDZW50ZXIKCgo+LS0tLS1PcmlnaW5hbCBNZXNzYWdlLS0t
+LS0KPkZyb206IEtlbmppIEthbmVzaGlnZSBbbWFpbHRvOmthbmVzaGlnZS5rZW5qaUBqcC5mdWpp
+dHN1LmNvbV0gCj5TZW50OiAyMDA0xOoz1MI4yNUgMTY6MzEKPlRvOiBMaXUsIEJlbmphbWluOyBL
+ZW5qaSBLYW5lc2hpZ2U7IGxpbnV4LWlhNjRAdmdlci5rZXJuZWwub3JnCj5DYzogbGludXgta2Vy
+bmVsQHZnZXIua2VybmVsLm9yZwo+U3ViamVjdDogUkU6IFtQQVRDSF0gZml4IFBDSSBpbnRlcnJ1
+cHQgc2V0dGluZyBmb3IgaWE2NAo+Cj4KPkhpIExpdSwKPgo+SSB0aGluayBpdCBpcyBub3QgY29u
+dmVyc2UuCj5XaGF0IEkgd2FudGVkIHRvIGRvIHdhcyB0byBtYXNrIChkaXNhYmxlKSBJUlEgaW4g
+aW9zYXBpY19lbmFibGVfaW50cigpLgo+SSB0aGluayBQQ0kgSVJRIHNob3VsZCBiZSB1bm1hc2tl
+ZCAoZW5hYmxlZCkgYnkgZGV2aWNlIGRyaXZlciwgbm90IGJ5Cj5pb3NhcGljX2VuYWJsZV9pbnRy
+KCkgYXQgdGhlIGJvb3QgdGltZS4KPgo+UmVnYXJkcywKPktlbmppIEthbmVzaGlnZQo+Cj4+IC0t
+LS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tCj4+IEZyb206IGxpbnV4LWlhNjQtb3duZXJAdmdlci5r
+ZXJuZWwub3JnCj4+IFttYWlsdG86bGludXgtaWE2NC1vd25lckB2Z2VyLmtlcm5lbC5vcmddT24g
+QmVoYWxmIE9mIExpdSwgQmVuamFtaW4KPj4gU2VudDogTW9uZGF5LCBNYXJjaCAwOCwgMjAwNCA0
+OjM0IFBNCj4+IFRvOiBLZW5qaSBLYW5lc2hpZ2U7IGxpbnV4LWlhNjRAdmdlci5rZXJuZWwub3Jn
+Cj4+IENjOiBsaW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnCj4+IFN1YmplY3Q6IFJFOiBbUEFU
+Q0hdIGZpeCBQQ0kgaW50ZXJydXB0IHNldHRpbmcgZm9yIGlhNjQKPj4KPj4KPj4gSGksIEtlbmpp
+LAo+Pgo+PiBJIGFtIGEgbGl0dGxlIGJpdCBjb25mdXNlZCB3aXRoIHRoZSBwYXRjaDoKPj4gTWFz
+ayBiaXQgb2YgUkRMJ3MgbG93IHdvcmQgaW5kaWNhdGVzIHRoZSBpbnRlcnJ1cHQgaXMgZW5hYmxl
+ZAo+PiB3aGVuIGl0IGlzIHplcm8sIGRpc2FibGVkIHdoZW4gaXQgaXMgMS4gQnV0IGZyb20gdGhl
+IHBhdGNoIGJlbG93LAo+PiBpdCBzZWVtcyB0aGF0IEtlbmppIGVuYWJsZSBpbnRlcnJ1cHRzIGlu
+IGlvc2FwaWNfcmVnaXN0ZXJfaW50cigpLAo+PiBpb3NhcGljX3JlZ2lzdGVyX3BsYXRmb3JtX2lu
+dHIoKSwgaW9zYXBpY19vdmVycmlkZV9pc2FfaXJxKCksIGFuZAo+PiBkaXNhYmxlIHRoZSBpbnRl
+cnJ1cHQgaW4gaW9zYXBpY19lbmFibGVfaW50cigpLiBJcyBpdCBjb252ZXJzZT8KPj4KPj4gVGhh
+bmtzLAo+PiBQaW5ncGluZyAoQmVuamFtaW4pIExpdQo+PiBJbnRlbCBDaGluYSBTb2Z0d2FyZSBD
+ZW50ZXIKPj4KPj4KPj4gPi0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tCj4+ID5Gcm9tOiBsaW51
+eC1pYTY0LW93bmVyQHZnZXIua2VybmVsLm9yZwo+PiA+W21haWx0bzpsaW51eC1pYTY0LW93bmVy
+QHZnZXIua2VybmVsLm9yZ10gT24gQmVoYWxmIE9mIAo+S2VuamkgS2FuZXNoaWdlCj4+ID5TZW50
+OiAyMDA0xOoz1MI4yNUgMTA6NDkKPj4gPlRvOiBsaW51eC1pYTY0QHZnZXIua2VybmVsLm9yZwo+
+PiA+Q2M6IGxpbnV4LWtlcm5lbEB2Z2VyLmtlcm5lbC5vcmcKPj4gPlN1YmplY3Q6IFtQQVRDSF0g
+Zml4IFBDSSBpbnRlcnJ1cHQgc2V0dGluZyBmb3IgaWE2NAo+PiA+Cj4+ID4KPj4gPkhpLAo+PiA+
+Cj4+ID5JbiBpYTY0IGtlcm5lbCwgSU9TQVBJQydzIFJURXMgZm9yIFBDSSBpbnRlcnJ1cHRzIGFy
+ZSAKPnVubWFza2VkIGF0IHRoZQo+PiA+Ym9vdCB0aW1lIGJlZm9yZSBpbnN0YWxsaW5nIGRldmlj
+ZSBkcml2ZXJzLiBJIHRoaW5rIGl0IGlzIHZlcnkKPj4gPmRhbmdlcm91cy4KPj4gPklmIHNvbWUg
+UENJIGRldmljZXMgd2l0aG91dCBkZXZpY2UgZHJpdmVyIGdlbmVyYXRlIGludGVycnVwdHMsCj4+
+ID5pbnRlcnJ1cHRzCj4+ID5hcmUgZ2VuZXJhdGVkIHJlcGVhdGVkbHkgYmVjYXVzZSB0aGVzZSBp
+bnRlcnJ1cHQgcmVxdWVzdHMgYXJlIG5ldmVyCj4+ID5jbGVhcmVkLiBJIHRoaW5rIFJURXMgZm9y
+IFBDSSBpbnRlcnJ1cHRzIHNob3VsZCBiZSB1bm1hc2tlZCAKPmJ5IGRldmljZQo+PiA+ZHJpdmVy
+Lgo+PiA+Cj4+ID5BIGZvbGxvd2luZyBwYXRjaCBmaXhlcyB0aGlzIGlzc3VlLgo+PiA+Cj4+ID5S
+ZWdhcmRzLAo+PiA+S2VuamkgS2FuZXNoaWdlCj4+ID4KPj4gPgo+PiA+ZGlmZiAtTmF1ciBsaW51
+eC0yLjYuNC1yYzIvYXJjaC9pYTY0L2tlcm5lbC9pb3NhcGljLmMKPj4gPmxpbnV4LTIuNi40LXJj
+Mi1jaGFuZ2VkL2FyY2gvaWE2NC9rZXJuZWwvaW9zYXBpYy5jCj4+ID4tLS0gbGludXgtMi42LjQt
+cmMyL2FyY2gvaWE2NC9rZXJuZWwvaW9zYXBpYy5jICAyMDA0LTAzLTA1Cj4+ID4xNToxMzo1My4x
+NTUyMzcyNzcgKzA5MDAKPj4gPisrKyBsaW51eC0yLjYuNC1yYzItY2hhbmdlZC9hcmNoL2lhNjQv
+a2VybmVsL2lvc2FwaWMuYyAgMjAwNC0wMy0wNQo+PiA+MTY6NDg6MzEuODU2MTQyNTI2ICswOTAw
+Cj4+ID5AQCAtMTcwLDcgKzE3MCw3IEBACj4+ID4gfQo+PiA+Cj4+ID4gc3RhdGljIHZvaWQKPj4g
+Pi1zZXRfcnRlICh1bnNpZ25lZCBpbnQgdmVjdG9yLCB1bnNpZ25lZCBpbnQgZGVzdCkKPj4gPitz
+ZXRfcnRlICh1bnNpZ25lZCBpbnQgdmVjdG9yLCB1bnNpZ25lZCBpbnQgZGVzdCwgaW50IG1hc2sp
+Cj4+ID4gewo+PiA+ICAgICAgICB1bnNpZ25lZCBsb25nIHBvbCwgdHJpZ2dlciwgZG1vZGU7Cj4+
+ID4gICAgICAgIHUzMiBsb3czMiwgaGlnaDMyOwo+PiA+QEAgLTIwNSw2ICsyMDUsNyBAQAo+PiA+
+ICAgICAgICBsb3czMiA9ICgocG9sIDw8IElPU0FQSUNfUE9MQVJJVFlfU0hJRlQpIHwKPj4gPiAg
+ICAgICAgICAgICAgICAgKHRyaWdnZXIgPDwgSU9TQVBJQ19UUklHR0VSX1NISUZUKSB8Cj4+ID4g
+ICAgICAgICAgICAgICAgIChkbW9kZSA8PCBJT1NBUElDX0RFTElWRVJZX1NISUZUKSB8Cj4+ID4r
+ICAgICAgICAgICAgICAgICgobWFzayA/IDEgOiAwKSA8PCBJT1NBUElDX01BU0tfU0hJRlQpIHwK
+Pj4gPiAgICAgICAgICAgICAgICAgdmVjdG9yKTsKPj4gPgo+PiA+ICAgICAgICAvKiBkZXN0IGNv
+bnRhaW5zIGJvdGggaWQgYW5kIGVpZCAqLwo+PiA+QEAgLTUwOSw3ICs1MTAsNyBAQAo+PiA+ICAg
+ICAgICAgICAgICAgKHRyaWdnZXIgPSBJT1NBUElDX0VER0UgPyAiZWRnZSIgOiAibGV2ZWwiKSwK
+Pj4gPmRlc3QsIHZlY3Rvcik7Cj4+ID4KPj4gPiAgICAgICAgLyogcHJvZ3JhbSB0aGUgSU9TQVBJ
+QyByb3V0aW5nIHRhYmxlICovCj4+ID4tICAgICAgIHNldF9ydGUodmVjdG9yLCBkZXN0KTsKPj4g
+PisgICAgICAgc2V0X3J0ZSh2ZWN0b3IsIGRlc3QsIDApOwo+PiA+ICAgICAgICByZXR1cm4gdmVj
+dG9yOwo+PiA+IH0KPj4gPgo+PiA+QEAgLTU1Nyw3ICs1NTgsNyBAQAo+PiA+ICAgICAgICAgICAg
+ICAgKHRyaWdnZXIgPSBJT1NBUElDX0VER0UgPyAiZWRnZSIgOiAibGV2ZWwiKSwKPj4gPmRlc3Qs
+IHZlY3Rvcik7Cj4+ID4KPj4gPiAgICAgICAgLyogcHJvZ3JhbSB0aGUgSU9TQVBJQyByb3V0aW5n
+IHRhYmxlICovCj4+ID4tICAgICAgIHNldF9ydGUodmVjdG9yLCBkZXN0KTsKPj4gPisgICAgICAg
+c2V0X3J0ZSh2ZWN0b3IsIGRlc3QsIDApOwo+PiA+ICAgICAgICByZXR1cm4gdmVjdG9yOwo+PiA+
+IH0KPj4gPgo+PiA+QEAgLTU4Myw3ICs1ODQsNyBAQAo+PiA+ICAgICAgICAgICAgdHJpZ2dlciA9
+IElPU0FQSUNfRURHRSA/ICJlZGdlIiA6ICJsZXZlbCIsIAo+ZGVzdCwgdmVjdG9yKTsKPj4gPgo+
+PiA+ICAgICAgICAvKiBwcm9ncmFtIHRoZSBJT1NBUElDIHJvdXRpbmcgdGFibGUgKi8KPj4gPi0g
+ICAgICAgc2V0X3J0ZSh2ZWN0b3IsIGRlc3QpOwo+PiA+KyAgICAgICBzZXRfcnRlKHZlY3Rvciwg
+ZGVzdCwgMCk7Cj4+ID4gfQo+PiA+Cj4+ID4gdm9pZCBfX2luaXQKPj4gPkBAIC02NjksNyArNjcw
+LDcgQEAKPj4gPiAgICAgICAgLyogZGlyZWN0IHRoZSBpbnRlcnJ1cHQgdmVjdG9yIHRvIHRoZSBy
+dW5uaW5nIGNwdSBpZCAqLwo+PiA+ICAgICAgICBkZXN0ID0gKGlhNjRfZ2V0cmVnKF9JQTY0X1JF
+R19DUl9MSUQpID4+IDE2KSAmIDB4ZmZmZjsKPj4gPiAjZW5kaWYKPj4gPi0gICAgICAgc2V0X3J0
+ZSh2ZWN0b3IsIGRlc3QpOwo+PiA+KyAgICAgICBzZXRfcnRlKHZlY3RvciwgZGVzdCwgMSk7Cj4+
+ID4KPj4gPiAgICAgICAgcHJpbnRrKEtFUk5fSU5GTyAiSU9TQVBJQzogdmVjdG9yICVkIC0+IENQ
+VSAweCUwNHgsIAo+ZW5hYmxlZFxuIiwKPj4gPiAgICAgICAgICAgICAgIHZlY3RvciwgZGVzdCk7
+Cj4+ID4KPj4gPi0KPj4gPlRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBs
+aW5lICJ1bnN1YnNjcmliZQo+PiA+bGludXgtaWE2NCIgaW4KPj4gPnRoZSBib2R5IG9mIGEgbWVz
+c2FnZSB0byBtYWpvcmRvbW9Admdlci5rZXJuZWwub3JnCj4+ID5Nb3JlIG1ham9yZG9tbyBpbmZv
+IGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZvLmh0bWwKPj4gPgo+PiAt
+Cj4+IFRvIHVuc3Vic2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNj
+cmliZSAKPmxpbnV4LWlhNjQiIGluCj4+IHRoZSBib2R5IG9mIGEgbWVzc2FnZSB0byBtYWpvcmRv
+bW9Admdlci5rZXJuZWwub3JnCj4+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIGh0dHA6Ly92Z2Vy
+Lmtlcm5lbC5vcmcvbWFqb3Jkb21vLWluZm8uaHRtbAo+Cj4KLQpUbyB1bnN1YnNjcmliZSBmcm9t
+IHRoaXMgbGlzdDogc2VuZCB0aGUgbGluZSAidW5zdWJzY3JpYmUgbGludXgtaWE2NCIgaW4KdGhl
+IGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKTW9yZSBtYWpv
+cmRvbW8gaW5mbyBhdCAgaHR0cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1s
