@@ -1,128 +1,111 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Mon, 28 Aug 2000 22:10:04 +0000
-Subject: [Linux-ia64] New Red Hat Linux Development Release available
-Message-Id: <marc-linux-ia64-105590678205395@msgid-missing>
+From: Marc Aurele La France <tsi@gpu.srv.ualberta.ca>
+Date: Mon, 21 Aug 2000 16:12:33 +0000
+Subject: [Linux-ia64] IA-64 XFree86 (was: XFree 4.0.1 module loading)
+Message-Id: <marc-linux-ia64-105590678205361@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The third development release of Red Hat Linux for IA-64 is
-now available. The main new feature of this release is
-kickstart support in the installer.
+On Thu, 17 Aug 2000, Stuart Anderson wrote:
 
-You can get it at:
-	ftp://ftp.rehdat.com/pub/redhat/ia64/
-	
-ISO images are available.
+> On Wed, 16 Aug 2000, Marc Aurele La France wrote:
 
-The README is attached below.
+> > On Fri, 11 Aug 2000, Keith Owens wrote:
 
-Bill
+> > > >> I guess my question now is:  Should the dlopen() loader be able to
+> > > >> resolve inter-module dependencies?  If not, what is left to be done with
+> > > >> the elf loader make it functional on IA64?
 
---
+> > > >Support for the ELF64 relocation types. Just like a block of code was added
+> > > >for Alpha support, the same type of thing will have to be added for IA64.
 
-Red Hat Linux Development Release for IA-64
--------------------------------------------
+> > > modutils 2.3.13 has IA64 relocation support, courtesy of Mike Stephens
+> > > at Intel.  obj/obj_ia64.c should be a reasonable starting point.
 
-Table of Contents:
-	1. Notes
-	2. How to install
-	3. Changes from the previous release
-	4. Compatibility Notes
-	5. Known Bugs
+> > Is anyone going ahead with this?  If not, I can probably come pretty close
+> > to getting it working even though I'd be going in blind (no hardware).
 
-1. Notes
+> > Let me know.
 
-Welcome to the third Red Hat Linux Development Release for IA-64.
+> I've received some code, and should have hardware soon, so I was planning
+> on working on it.
 
-This is an early snapshot of Red Hat Linux for the IA-64. Not
-everything may be working fully yet; remember, if it breaks,
-you get to keep both pieces.
+ATI is funding me to go to their labs near Toronto from 2000.09.13 to
+2000.09.22 and work on IA-64 support.  This despite that they are aware
+Michael Madore has both the ATI and R128 drivers working reasonably well.
+I see this as a measure of how important they feel IA-64 support this.  I
+agree with them.  And so, my goal with this "outing" will be to bring
+XFree86's IA-64 server up to as close to an "out-of-the-box" condition as
+I can, using what we currently provide on IA-32 as a benchmark.
 
-There is a mailing list to discuss the IA-64 release. To
-subscribe, send mail to ia64-list-request@redhat.com with
+So that I don't end up duplicating effort and/or working in the dark, I'd
+like us to coordinate our efforts.
 
-subscribe
+First, I ask David Dawes or Keith Packard to set up an XFree86-internal
+mailing list, say ia64@xfree86.org.  At this point, I don't think this
+list should be public.  Its initial membership would be
 
-in the subject line. You can leave the body empty.
+	Stuart Anderson <anderson@metrolink.com>
+	David Dawes <dawes@xfree86.org>
+	Dirk Hohndel <hondel@suse.de>
+	Marc Aurele La France <tsi@ualberta.ca>
+	Michael Madore <mmadore@turbolinux.com>
+	Bill Nottingham <notting@redhat.com>
+	Keith Owens <kaos@ocs.com.au>
+	Michael Smith <msmith@ati.com>
+	Mark Vojkovich <mvojkovich@valinux.com>
 
-2. How to install
+... and anyone else willing to participate.
 
-Upgrades from previous Red Hat Linux IA-64 Development Releases
-are *not* supported.
+Second, I propose we use XFree86's CVS repository as a common code base.
+I'd like to check in all the work that has been done so far, warts
+included.
 
-To do a CD-ROM install, simply insert the CD-ROM; at the EFI
-prompt, switch to the CD-ROM filesystem, and run 'eli'. (If
-you have filesystems with eli installed on them, you may need
-to unmap the aliases (by running 'map -d fs0', for example)
-for it to run ELI off the CD.
+Third, I ask everyone here with IA-64 hardware and compilation environment
+to give the server a reasonably thorough shakedown, and report on and/or
+fix what falls out.  In terms of a status report, I am currently aware of
+the following:
 
-To do an NFS install, take the boot image (images/boot.img on theCD),
-and dd/cat it onto an LS-120 disk. Boot the resulting disk in
-EFI; you should not need to pass parameters. If you do, to start the
-install you need to pass:
-  <kernel image> root=/dev/hda2 ro text
+        - ATI and R128 drivers work OK (Michael Madore)
+        - MGA and R128 drivers work OK (Mark Vojkovich)
+        - The loader needs to be changed to understand the IA64 flavour of
+          ELF64.  From the above, it appears that Stuart has volunteered
+          for this one ;-)
+        - SIGILL's in VBE, probably related to int10 (Michael Madore)
+	- SIGSEGV's when loading/unloading pcidata and scanpci modules
+          (Michael Madore).
 
-Use the install like a normal Red Hat Linux install. Choose
-'Custom Install', and then partition your disks. Be sure to make
-a small DOS primary partition (i.e., a partition between 1-4), to 
-be used for eli. This partition needs to be mounted on /boot/efi.
+This is surely incomplete and needs to be kept up to date.
 
-For reboot, remove the CD-ROM (and LS-120, if you used it.)
+These's a non-zero probability that most issues will be resolved by the
+time I get to ATI's labs, but I'm willing to accept that risk.  There are
+lots of other things I can talk to ATI about anyway.
 
-You should then be able to boot from your boot partition by
-simply running 'eli'. 
+I might be way off base on this one, but I believe the development of an
+out-of-the-box XFree86 IA-64 server to be important, crucial even.  It is
+my understanding that IA-64 systems have yet to hit the streets.  If so,
+then we have an opportunity to preempt, or at least match, MS's entry into
+this market.  Also, it's just a matter of time before the *BSD's join the
+IA-64 bandwagon, and XFree86 should be ready for them.
 
-3. General caveats/changes from previous releases:
+So, please, let's get our act together and have something to show for our
+efforts by 2000.09.22.
 
-If you have a Lion (and possibly BigSurs, too), you need to
-go into the Qlogic BIOS setup and make sure that 
- ' Enable > 4GB support ' is enabled, even if you don't have
-4GB of memory. Otherwise, the kernel won't be able to talk
-to anything on the Qlogic controller (the failure method
-will be it complaining about being unable to read the
-partitions on the SCSI drives.)
+Thanks.
 
-Kickstart should work OK; please let us know if it doesn't.
+Marc.
 
-Anything in anaconda that tries to access the floppy will be
-looking on the first partition of a partitioned LS-120.
-(i.e., /dev/hda1, /dev/hdb1, etc.).In other words, putting
-ks.cfg on the boot disk should work fine, and you should be
-able to write tracebacks to the boot disk.
-
-You should be able to specify a hostname now on CD-ROM installs
-without crashing the installer.
-
-ELI now supports adding of command line arguments to images, for
-example:
-
- eli linux ks=floppy
- 
-will simply append 'ks=floppy' to whatever arguments you have
-for the image labeled 'linux'. Basically, just like LILO.
-However, you still cannot pass the 'initrd' parameter on
-the command line in ELI; it needs to be in the config file.
-
-You can now install in foreign languages if you so desire.
-
-Testing X configuration in the install still does not
-work. Also, there are still occasional reports
-of 'everything' installs dying with a sig11 after the last
-package, but it's not 100% reproducible.
-
-4. Compatibility Notes
-
-Programs from the previous (May or June) Red Hat Linux IA-64
-Development Releases should run on this release; compatibility
-is not guaranteed, though.
-
-However, programs built on both this and previous release
-will not run on future releases. Similarly, programs built
-on future releases will not run on this release.
-
-
++----------------------------------+-----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310           |
+|  Computing and Network Services  |  fax:    1-780-492-1729           |
+|  352 General Services Building   |  email:  tsi@ualberta.ca          |
+|  University of Alberta           +-----------------------------------+
+|  Edmonton, Alberta               |                                   |
+|  T6G 2H1                         |     Standard disclaimers apply    |
+|  CANADA                          |                                   |
++----------------------------------+-----------------------------------+
+XFree86 Core Team member.  ATI driver and X server internals.
 
 
