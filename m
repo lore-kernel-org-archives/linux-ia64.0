@@ -1,37 +1,27 @@
-From: n0ano@indstorage.com
-Date: Fri, 22 Feb 2002 16:57:05 +0000
-Subject: [Linux-ia64] Linux IA64 ToDo List
-Message-Id: <marc-linux-ia64-105590701905170@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 22 Feb 2002 18:49:10 +0000
+Subject: Re: [Linux-ia64] Linux IA64 ToDo List
+Message-Id: <marc-linux-ia64-105590701905177@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905170@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905170@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It's been brought to my attention that the Linux IA64 ToDo list
-has gotten rather out of date.  I'm willing to fix this and    
-keep the list up to date but I need help from everyone else.
+>>>>> On Fri, 22 Feb 2002 09:57:05 -0700, n0ano@indstorage.com said:
 
-I need to know what people are doing.  (I also need to know what
-you're not doing :-)                                            
+  Don> Anyone else?
 
-What I'm looking for is both what you are actively working on
-and also what you would like to see done.  If you could send 
-me a simple email about this I'll collate everything and put
-it up on the ToDo list at `www.linuxia64.org/todo.html'.    
+I'm continuing to working on the unwind library (and its API).  Local
+stacktraces, (gcc) exception handling, and remote stack traces are
+working now.  Next is getting gdb to use the unwind library.
 
-I'll start it off.  I have two tasks I'm working on right now.
+The next thing I plan to do is to streamline the system call path.
+The goal primarily is to avoid saving/restoring the scratch registers,
+but it's likely that I'll also toy around with lightweight system
+calls.
 
-1.  Remove race from IA32 `mmap' system call.
-
-2.  Fix coredump when OpenOffice/ia32 saves a spreadsheet as
-a StarCalc 6.0 file.                                        
-
-Anyone else?
-
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@indstorage.com
-Ph: 303/652-0870x117
+	--david
 
