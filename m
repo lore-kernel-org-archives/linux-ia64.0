@@ -1,22 +1,21 @@
-From: Umut Aymakoglu <umuta@us.ibm.com>
-Date: Wed, 20 Aug 2003 22:13:13 +0000
-Subject: libunwind
-Message-Id: <marc-linux-ia64-106141788020789@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 20 Aug 2003 23:52:39 +0000
+Subject: Re: libunwind
+Message-Id: <marc-linux-ia64-106142360125867@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106141788020789@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106141788020789@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>>>>> On Wed, 20 Aug 2003 15:13:13 -0700, Umut Aymakoglu <umuta@us.ibm.com> said:
 
+  Umut> Are there any other alternatives for unwinding the stack on Linux-ia64
+  Umut> other than the libunwind API ?
 
+Exactly what are you looking for?  Or put differently, what's wrong with
+libunwind?
 
-
-
-Hi -
-  Are there any other alternatives for unwinding the stack on Linux-ia64
-other than the libunwind API ?
-
-thanks,
-Umut
-
+	--david
