@@ -1,75 +1,48 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 11 Oct 2004 15:52:44 +0000
-Subject: q-tools v0.2 released
-Message-Id: <200410111552.i9BFqiHj020907@napali.hpl.hp.com>
+From: Pat Gefre <pfg@sgi.com>
+Date: Tue, 19 Oct 2004 20:23:19 +0000
+Subject: [Patch] Altix patch 012-huberror for 2.6.10
+Message-Id: <Pine.SGI.3.96.1041019151446.144128E-100000@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I'm happy to announce that q-tools v0.2 has been released.  q-tools is
-a collection of Linux performance analysis tools.  In particular, they
-include q-syscollect and q-view, which can be thought of as being more
-powerful than gprof, without its pain (no recompilation needed;
-multi-threaded apps and shared libraries are supported;
-kernel-execution can be profiled; any Itanium 2 PMU event can be
-profiled, etc.).
+Tony,
 
-As usual, you can get q-tools via the web page at:
+It looks like 2.6.10 is beginning. Do you still want us to spool our
+mods to the oss site or just send them as we normally would ?
 
-	http://www.hpl.hp.com/research/linux/q-tools/
 
-It may take a couple of hours before the web pages migrate across the
-firewall but in the meantime you may also get the q-tools-0.2 tar-ball
-directly from the ftp site:
+This is 012-huberror on the oss site.
 
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/
 
-There are two major enhancements in this release:
+Signed-off-by: Patrick Gefre <pfg@sgi.com>
 
- - SuSE Enterprise Linux 9 (SLES9) is now supported out-of-the-box
-   (in addition to the existing Debian support)
+#
+# Fixes calling arg1 for bte_crb_error_handler()
+#
+#
+Index: linux/arch/ia64/sn/kernel/huberror.c
+=================================--- linux.orig/arch/ia64/sn/kernel/huberror.c	2004-10-15 13:24:59.000000000 -0500
++++ linux/arch/ia64/sn/kernel/huberror.c	2004-10-19 14:40:47.000000000 -0500
+@@ -20,7 +20,7 @@
+ #include <asm/sn/bte.h>
+ 
+ void hubiio_crb_error_handler(struct hubdev_info *hubdev_info);
+-extern void bte_crb_error_handler(struct hubdev_info *, int, int, ioerror_t *,
++extern void bte_crb_error_handler(cnodeid_t, int, int, ioerror_t *,
+ 				  int);
+ static irqreturn_t hub_eint_handler(int irq, void *arg, struct pt_regs *ep)
+ {
+@@ -156,7 +156,7 @@
+ 
+ 			hubiio_crb_free(hubdev_info, i);
+ 
+-			bte_crb_error_handler(hubdev_info, bte_num,
++			bte_crb_error_handler(nasid_to_cnodeid(nasid), bte_num,
+ 					      i, &ioerror, icrbd.d_bteop);
+ 			num_errors++;
+ 			continue;
 
- - q-syscollect now has the ability to profile the time spent in
-   code which has interrupts disabled (see section
-   "Blind-spot-free profiling" in the README for details).
 
-In addition, there are many bug-fixes, in particular some nasty bugs
-in q-syscollect got fixed which reared their ugly face primarily on
-large SMP machines.
-
-For additional details, I attached the relevant section from the NEWS
-file.
-
-Enjoy,
-
-	--david
-
-----
-* News for v0.2:
-
-** New features
-
-*** q-syscollect: Add support for interruption-level code-sampling (-i option).
-*** q-tools now builds and works out-of-the-box for SuSE (SLES 9).
-
-** Bug fixes
-
-*** q-syscollect: Make it robust against small RLIMIT_MEMLOCK values.
-*** q-syscollect: Fix bug which could cause killing of "random" processes.
-*** q-syscollect: Fix bug which could cause live-lock when the
-                  sampling-buffer filled up.
-*** q-syscollect: Fix a memory leak.
-*** q-syscollect: Fix handling of backslashes in argument vectors.
-*** q-view: Ignore non-function symbols to avoid confusion when a function
-            contains a local lable.
-*** q-view: Fix topological sort of the call-graph for good.
-*** q-view: Ensure weird symbols such as "operator|=" get parsed properly.
-*** q-view: Display fully-qualified kernel symbols as SYMNAME<kernel> for
-            consistency.
-*** q-view: Build symbol table more carefully, e.g., suppressing duplicates
-            and use unwind-info to detect procedure-boundaries in stripped
-            binaries.
-*** q-view: Allow for multiple kallsyms-formated symbol-files to enable,
-            e.g., firmware symbol-tables.
