@@ -1,59 +1,28 @@
-From: Ray Bryant <raybry@sgi.com>
-Date: Mon, 22 Nov 2004 19:49:21 +0000
+From: Andi Kleen <ak@suse.de>
+Date: Mon, 22 Nov 2004 19:53:49 +0000
 Subject: Re: [Lse-tech] Re: scalability of signal delivery for Posix Threads
-Message-Id: <41A242C1.10600@sgi.com>
+Message-Id: <20041122195348.GB11097@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41A20AF3.9030408@sgi.com> <20041122160705.GG25636@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20041122160705.GG25636@parcelfarce.linux.theplanet.co.uk>
+References: <41A20AF3.9030408@sgi.com> <20041122160705.GG25636@parcelfarce.linux.theplanet.co.uk> <41A242C1.10600@sgi.com>
+In-Reply-To: <41A242C1.10600@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, lse-tech <lse-tech@lists.sourceforge.net>, holt@sgi.com, Dean Roe <roe@sgi.com>, Brian Sumner <bls@sgi.com>, John Hawkes <hawkes@tomahawk.engr.sgi.com>
+To: Ray Bryant <raybry@sgi.com>
+Cc: Matthew Wilcox <matthew@wil.cx>, Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, lse-tech <lse-tech@lists.sourceforge.net>, holt@sgi.com, Dean Roe <roe@sgi.com>, Brian Sumner <bls@sgi.com>, John Hawkes <hawkes@tomahawk.engr.sgi.com>
 
-Matthew Wilcox wrote:
-> On Mon, Nov 22, 2004 at 09:51:15AM -0600, Ray Bryant wrote:
+> Well, the sighand->siglock is taken so many places in the kernel (>200 
+> times)
+> that RCUing its usage looks like a daunting change to make.
+
+Agreed.  And having to wait for all CPUs in sigaction would also not
+be nice.
+
 > 
->>Since signals are sent much more often than sigaction() is called, it would
->>seem to make more sense to make sigaction() take a heavier weight lock of
->>some kind (to update the signal handler decription) and to have the signal
->>delivery mechanism take a lighter weight lock.  Making 
->>current->sighand->siglock a rwlock_t really doesn't improve the situation
->>much, since cache line contention is just a severe in that case (if not 
->>worse) than it is with the current definition.
-> 
-> 
-> What about RCU or seqlock?
-> 
+> In principle, I guess a seqlock could be made to work.  The idea would be 
 
-Well, the sighand->siglock is taken so many places in the kernel (>200 times)
-that RCUing its usage looks like a daunting change to make.
+seqlocks are reader only, but for signal delivery you need a writer to 
+update state like the thread load balancing. We got all that gunk
+from POSIX, before NPTL it would have been probably possible ;-)
 
-In principle, I guess a seqlock could be made to work.  The idea would be that
-we'd want to get a consistent copy of the sighand structure in the presence
-of very rare updates.  Once again, I'd have to modify all of those code
-paths mentioned above.
-
-Since a seqlock was created AFAIK as an alternate to a brlock, and the
-global/local locking structure I described before is more or less equivalent
-to a brlock, I think we are thinking along similar lines.
-
-For me, converting spinlock_irqsave(&p->sighand->siglock) to
-spinlock_irqsave(&p->siglock) and then checking to make sure that
-only task local data is updated in the critical section is an easier
-way to go than modifying each of the code paths to deal with the
-"failure" case for a seqlock.  But I could be proven wrong.
-
-Anyway, Andi makes a good point -- if I can fast patch SIGPROF handling,
-then I may have a more localized change, and that is a good thing [tm].
-
--- 
-Best Regards,
-Ray
------------------------------------------------
-                   Ray Bryant
-512-453-9679 (work)         512-507-7807 (cell)
-raybry@sgi.com             raybry@austin.rr.com
-The box said: "Requires Windows 98 or better",
-            so I installed Linux.
------------------------------------------------
+-Andi
