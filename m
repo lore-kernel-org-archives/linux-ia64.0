@@ -1,76 +1,32 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Mon, 11 Feb 2002 23:52:55 +0000
-Subject: [Linux-ia64] pfmon-1.0 released!
-Message-Id: <marc-linux-ia64-105590698806035@msgid-missing>
+From: David Mosberger-Tang <David.Mosberger@acm.org>
+Date: Mon, 04 Feb 2002 23:56:26 +0000
+Subject: [Linux-ia64] ia-64 linux kernel book available
+Message-Id: <marc-linux-ia64-105590698805987@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I have now released version 1.0 of the pfmon package. This package
-provides access to the kernel support (perfmon) for the IA-64 
-Performance Monitoring Unit (PMU).  The package includes a generic
-library (libpfm) and a tool to monitor standalone programs or the
-entire system. This version has full support for the Itanium PMU
-but also includes support for the default architected PMU. I will
-release the McKinley code once the specifications have been made
-public.
+We are happy to announce that our book is now in stock at various book
+stores.  The title of the book is:
 
-This major update incorporates many changes and new features:
+	 ia-64 linux kernel: design and implementation
 
-	1/ For the pfmon tool:
+As the title suggests, the book focuses on describing how the Linux
+kernel works on the IA-64 architecture (aka, "Itanium Processor
+Family" or "IPF").  The book also describes the hardware abstraction
+interface of Linux and as such could be of interest to kernel
+developers using other platforms.
 
-	  * Common to all CPU models:
-          (new)	- completely restructured code: ready for new CPU models
-          (new)	- support for system wide monitoring for BOTH UP and SMP systems
-          (new)	- delayed monitoring start 
-          (new)	- sampling on all events (not just Itanium EAR/BTB)
-          (new)	- new sampling output formats: raw, compact, normal
-          (new)	- result aggregation (for SMP system wide monitoring)
-          (new)	- support for generic IA-64 PMU (architected PMU): pfmon_gen
-          (new)	- a thousand-line user's guide
+For more information, please visit:
 
-	  * Itanium specific features:	
-		- event thresholds support
-	  (new)	- support for the renamed Itanium events
-		- Event Address Registers (EARS) support
-		- Branch Trace Buffer (BTB)
-		- opcode matchers
-  	  (new)	- code and data range restrictions
-	  (new) - IA-32 code monitoring
-	
- 	2/ For the library (libpfm):
+    http://www.lia64.org/book/
 
-	  (new)	- completely restructured code: ready for new CPU models
-	  (new)	- added support for Itanium range restriction feature
+Thanks,
 
-	3/ Examples
+	--davidm
 
-	   (new) - A new set of examples showing how the library and kernel interfaces
-	   	   can be used. This includes, how to sample, monitor undmodifed programs,
-		   create a system wide session, and so on.
-
-IMPORTANT: You must have at least
-		- kernel >= v2.5.3
-		- kernel >= v.2.4.18 (not yet released)
-
-	   This version of pfmon DOES NOT WORK on ANY older kernel. Similarly, 
-	   pfmon-0.06 or 0.06a DO NOT WORK on 2.5.3 or 2.4.18.
-
-
-The package is available in TAR format and also in binary RPM. You can get the package at:
-
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-1.0.tar.gz
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-1.0-1.ia64.rpm
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-devel-1.0-1.ia64.rpm
-
-The pfmon-devel package contains what you need to develop your own programs. It also
-includes the set of examples. The pfmon package is all you need if you just want to
-use the tool.
-
-Enjoy,
-
--- 
--Stephane
+PS: This will be the only mail of this nature sent to these mailing
+    lists.  Thanks for your understanding.
 
