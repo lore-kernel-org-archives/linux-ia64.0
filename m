@@ -1,77 +1,115 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 23 Dec 2003 21:40:30 +0000
-Subject: [patch] 2.6.0 MCA TLB error recovery (cleanup)
-Message-Id: <marc-linux-ia64-107221614015823@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 31 Dec 2003 20:19:20 +0000
+Subject: make inferior calls work on ia64 even when syscall is pending
+Message-Id: <16371.12104.503371.251351@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-While backporting to 2.4 I noticed a few bits
-of fluff that I'd introduced into 2.6.  Clean
-up the mess.
+Problem:
 
--Tony
+ $ cat t.c
+ int main () {
+   char ch;
+   return read(0, &ch, 1);
+ }
+ $ gcc -g t.c
+ $ gdb a.out
+ GNU gdb 6.0-debian
+ Copyright 2003 Free Software Foundation, Inc.
+ GDB is free software, covered by the GNU General Public License, and you are
+ welcome to change it and/or distribute copies of it under certain conditions.
+ Type "show copying" to see the conditions.
+ There is absolutely no warranty for GDB.  Type "show warranty" for details.
+ This GDB was configured as "ia64-linux"...
+ (gdb) r
+ Starting program: /home/davidm/tmp/a.out
 
-diff -ru linux-2.6.0/arch/ia64/kernel/mca_asm.S cleanup/arch/ia64/kernel/mca_asm.S
---- linux-2.6.0/arch/ia64/kernel/mca_asm.S	2003-12-23 08:47:50.766048240 -0800
-+++ cleanup/arch/ia64/kernel/mca_asm.S	2003-12-23 08:52:44.442802455 -0800
-@@ -114,9 +114,7 @@
- ia64_os_mca_dispatch:
+ [user hits Ctrl-C]
+
+ Program received signal SIGINT, Interrupt.
+ 0x20000000001cc401 in read () from /lib/tls/libc.so.6.1
+ (gdb) call write(1, "hello\n", 6)
+
+ Program received signal SIGSEGV, Segmentation fault.
+ 0x2000000000020650 in __libc_memalign () from /lib/ld-linux-ia64.so.2
+ The program being debugged was signaled while in a function called from GDB.
+ GDB remains in the frame where the signal was received.
+ To change this behavior use "set unwindonsignal on"
+ Evaluation of the expression containing the function (malloc) will be abandoned.
+ (gdb)
+
+The attached patch below fixes this problem.  It took me a while to
+understand what's going on, but in retrospect, the situation is
+completely analogous to x86 linux: when interrupting execution in a
+restartable syscall, gdb needs to cancel restarting of the syscall
+before it can run an inferior call.  Otherwise, instead of executing
+at the desired IP, we'll end up calling IP-1 (in my test-case, this
+ended up calling into the tail of memalign, when the intended target
+was malloc() to allocate memory for the string "hello\n"...).
+
+The fix is for gdb to clear r10 when changing the IP.  This will
+ensure that the kernel won't treat the value in r8 as an error-code
+and effectively cancels the system-call restart.
+
+It turns out that the kernel also needs a small patch, because it
+currently checks r10 _before_ waking up the debugger, so that there
+was no way for the debugger to cancel system-call restart.  See this
+patch:
+
+	http://lia64.bkbits.net:8080/to-linus-2.5/patch@1.1513
+
+(Bjorn, this is also needed for Linux v2.4.)
+
+With both the kernel and gdb fixed, I see four new passes in the
+GDB test-suite:
+
++PASS: gdb.base/interrupt.exp: call function when asleep
++PASS: gdb.base/interrupt.exp: call function a second time
++PASS: gdb.base/interrupt.exp: continue
++PASS: gdb.base/interrupt.exp: send end of file
+                == gdb Summary =
+-# of expected passes           9928
++# of expected passes           9932
+ # of unexpected failures       119
+ # of unexpected successes      4
+ # of expected failures         58
+
+If the gdb patch looks OK, please check it in.
+
+Thanks!
+
+	--david
+
+2003-12-31  David Mosberger  <davidm@hpl.hp.com>
+
+	* ia64-tdep.c (ia64_write_pc): Clear r10 after writing the
+	instruction-pointer (PC) to prevent the kernel from attempting to
+	restart an interrupt system call.
+
+Index: ia64-tdep.c
+=================================RCS file: /cvs/src/src/gdb/ia64-tdep.c,v
+retrieving revision 1.106
+diff -u -r1.106 ia64-tdep.c
+--- ia64-tdep.c	13 Dec 2003 03:51:56 -0000	1.106
++++ ia64-tdep.c	31 Dec 2003 19:49:49 -0000
+@@ -683,6 +683,17 @@
  
- 	// Serialize all MCA processing
--//	movl	r2=ia64_mca_serialize
- 	mov	r3=1;;
--//	DATA_VA_TO_PA(r2);;
- 	LOAD_PHYSICAL(p0,r2,ia64_mca_serialize);;
- ia64_os_mca_spin:
- 	xchg8	r4=[r2],r3;;
-@@ -138,7 +136,6 @@
- 
- ia64_os_mca_done_dump:
- 
--//	movl r16=__pa(ia64_sal_to_os_handoff_state)+56
- 	LOAD_PHYSICAL(p0,r16,ia64_sal_to_os_handoff_state+56)
- 	;;
- 	ld8 r18=[r16]		// Get processor state parameter on existing PALE_CHECK.
-@@ -150,7 +147,6 @@
- 	// Purge percpu data TC entries.
- begin_tlb_purge_and_reload:
- 	mov r16=cr.lid
--//	movl r17=__pa(ia64_mca_tlb_list) // Physical address of ia64_mca_tlb_list
- 	LOAD_PHYSICAL(p0,r17,ia64_mca_tlb_list) // Physical address of ia64_mca_tlb_list
- 	mov r19=0
- 	mov r20=NR_CPUS
-@@ -168,8 +164,6 @@
- 	mov r23=r17		// save current ia64_mca_percpu_info addr pointer.
- 	adds r17,r17
- 	;;
--	.global aegl
--aegl:
- 	ld8 r18=[r17],8		// r18=ptce_base
-   	;;
- 	ld4 r19=[r17],4		// r19=ptce_count[0]
-@@ -393,8 +387,6 @@
- ia64_os_mca_proc_state_dump:
- // Save bank 1 GRs 16-31 which will be used by c-language code when we switch
- //  to virtual addressing mode.
--//	movl		r2=ia64_mca_proc_state_dump;;           // Os state dump area
--//        DATA_VA_TO_PA(r2)                   // convert to to physical address
- 	LOAD_PHYSICAL(p0,r2,ia64_mca_proc_state_dump)// convert OS state dump area to physical address
- 
- // save ar.NaT
-diff -ru linux-2.6.0/arch/ia64/kernel/mca.c cleanup/arch/ia64/kernel/mca.c
---- linux-2.6.0/arch/ia64/kernel/mca.c	2003-12-23 08:47:50.764095115 -0800
-+++ cleanup/arch/ia64/kernel/mca.c	2003-12-23 08:49:10.408625389 -0800
-@@ -1363,8 +1363,8 @@
- void
- ia64_log_prt_guid (efi_guid_t *p_guid, prfunc_t prfunc)
- {
--	//char out[40];
--	//printk(KERN_DEBUG "GUID = %s\n", efi_guid_unparse(p_guid, out));
-+	char out[40];
-+	printk(KERN_DEBUG "GUID = %s\n", efi_guid_unparse(p_guid, out));
+   write_register_pid (IA64_PSR_REGNUM, psr_value, ptid);
+   write_register_pid (IA64_IP_REGNUM, new_pc, ptid);
++
++  /* We must be careful with modifying the instruction-pointer: if we
++     just interrupt a system call, the kernel would ordinarily try to
++     restart it when we resume the inferior, which typically results
++     in SIGSEGV or SIGILL.  We prevent this by clearing r10, which
++     will tell the kernel that r8 does NOT contain a valid error code
++     and hence it will skip system-call restart.
++
++     The clearing of r10 is safe as long as ia64_write_pc() is only
++     called as part of setting up an inferior call.  */
++  write_register (IA64_GR10_REGNUM, 0);
  }
  
- static void
+ #define IS_NaT_COLLECTION_ADDR(addr) ((((addr) >> 3) & 0x3f) = 0x3f)
