@@ -1,62 +1,57 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Tue, 06 Apr 2004 11:51:45 +0000
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Tue, 06 Apr 2004 16:15:48 +0000
 Subject: Re: [RFC] readX_check() - Interface for PCI-X error recovery
-Message-Id: <20040406115145.GA23258@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <200404060915.48292.jbarnes@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
-In-Reply-To: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
+References: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com> <20040406115145.GA23258@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040406115145.GA23258@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Cc: Linux Kernel mailing list <linux-kernel@vger.kernel.org>, Linux IA64 Mailing List <linux-ia64@vger.kernel.org>, Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
+To: linux-kernel@vger.kernel.org
+Cc: Matthew Wilcox <willy@debian.org>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux IA64 Mailing List <linux-ia64@vger.kernel.org>, Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
 
-On Tue, Apr 06, 2004 at 08:04:49PM +0900, Hidetoshi Seto wrote:
-> - Resources newly required:
-> 
->     on struct device:
-> 	error flag
-> 	list of recoverable physical address regions
+> >     readX_check(dev,vaddr)
+> > 	Read a register of the device mapped to vaddr, and check errors
+> > 	if possible(This is depending on its architecture. In the case of
+> > 	ia64, we can generate a MCA from an error by simple operation to
+> > 	test the read data.)
+> > 	If any error happen on the recoverable region, set the error flag.
+>
+> I really don't think we want another readX variant.  Do we then also
+> add readX_check_relaxed()?  Can't we just pretend the MCA is asynchronous
+> on ia64?  I'm sure we'd get better performance.
 
-Can't you just use the pci_dev->resource regions for this?
+Hmm.. I wonder if we could get away with not having a new readX interface by 
+registering each PCI resource either at driver init time or in arch code with 
+the MCA hander.  Then we could just make the read routines use the variable 
+that was just read to try to flush out the MCA (there may be better ways to 
+do this).  E.g.
 
-> 	pointer to host bridge of the device
+arch_pci_scan()
+{
+	...
+	for_each_pci_resource(dev, res) {
+		check_region(res);
+	}
+	...
+}
 
-Again, there's already ways of getting to this from the pci_dev.
-Simply wander up through pdev->bus->self until you get to a self that
-is NULL and you've found a root bus.  Alternatively, you might just look
-at PCI_CONTROLLER() on ia64.
+...
 
->     on per_cpu:
-> 	list of currently checking devices
-> 
-> 
-> - Interfaces newly required:
-> 
->     clear_pcix_errors(dev)
-> 	Clear the error flag of the dev, and start to check the device.
-> 	This also clears the status register of its host bridge.
+unsigned char readb(unsigned long addr)
+{
+	unsigned char val = *(volatile unsigned char *)addr;
+#ifdef CONFIG_PCI_CHECK
+	/* try to flush out the MCA by doing something with val */
+#endif
+	return val;
+}
 
-For consistency, how about naming these functions pci_clear_errors()
-and pci_check_errors()?  PCI-Express has similar error-checking abilities
-and I'd hate to see two extremely similar capabilities at war with each
-other over unacceoptable names ;-)
+...
 
->     readX_check(dev,vaddr)
-> 	Read a register of the device mapped to vaddr, and check errors 
-> 	if possible(This is depending on its architecture. In the case of 
-> 	ia64, we can generate a MCA from an error by simple operation to 
-> 	test the read data.)
-> 	If any error happen on the recoverable region, set the error flag.
+Then presumably the MCA error handler would see that an MCA occurred in a 
+region registered during PCI initialization and return an error for 
+pci_read_errors(dev);
 
-I really don't think we want another readX variant.  Do we then also
-add readX_check_relaxed()?  Can't we just pretend the MCA is asynchronous
-on ia64?  I'm sure we'd get better performance.
-
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Jesse
