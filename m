@@ -1,22 +1,31 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 13 Feb 2004 00:51:58 +0000
-Subject: Re: [patch] 2.6.3-rc2 Delete redundant ia64_mca_check_errors
-Message-Id: <16428.8110.190031.658893@napali.hpl.hp.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 06 Feb 2004 08:00:58 +0000
+Subject: gcc problems
+Message-Id: <20040206000058.7e928d80.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <2568.1076632427@kao2.melbourne.sgi.com>
-In-Reply-To: <2568.1076632427@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 13 Feb 2004 11:33:47 +1100, Keith Owens <kaos@sgi.com> said:
 
-  Keith> salinfo automatically processes all record types on all cpus
-  Keith> at boot time, ia64_mca_check_errors is now redundant.  This
-  Keith> also removes the need for a called_from_init flag on
-  Keith> ia64_mca_log_sal_error_record.
+gcc-3.3.2/ia64 is falling over here with my current tree so I'm trying to
+build gcc-3.4 from current gcc CVS.
 
-OK, this one was better... ;-)
+But gcc is failing to compile:
 
-	--david
+../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c: In function `uw_frame_state_for':
+../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c:1779: error: structure has no member named `sc_rbs_base'
+../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c:1779: error: structure has no member named `sc_loadrs'
+../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c: In function `uw_update_context':
+../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c:2013: error: structure has no member named `sc_rbs_base'
+../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c:2013: error: structure has no member named `sc_loadrs'
+
+I configured gcc with
+
+../gcc-3.4-cvs/configure --disable-checking --enable-languages=c --prefix=/usr/local/gcc-3.4-cvs
+
+Is there some trick to this?  And what is the preferred gcc version for
+ia64 kernels?
+
+Thanks.
