@@ -1,73 +1,73 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Tue, 01 Mar 2005 22:15:40 +0000
+Date: Tue, 01 Mar 2005 22:20:22 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <1109715340.5680.34.camel@gaston>
+Message-Id: <1109715623.5679.40.camel@gaston>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <422428EC.3090905@jp.fujitsu.com>  <42249A44.4020507@pobox.com>
-In-Reply-To: <42249A44.4020507@pobox.com>
+References: <422428EC.3090905@jp.fujitsu.com> <42249A44.4020507@pobox.com>
+	 <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jgarzik@pobox.com>
-Cc: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
 
-
-> I have been thinking about PCI system and parity errors, and how to 
-> handle them.  I do not think this is the correct approach.
+On Tue, 2005-03-01 at 08:49 -0800, Linus Torvalds wrote:
 > 
-> A simple retry is... too simple.  If you are having a massive problem on 
-> your PCI bus, more action should be taken than a retry.
-
-It goes beyond that, see below.
-
-> In my opinion each driver needs to be aware of PCI sys/parity errs, and 
-> handle them.  For network drivers, this is rather simple -- check the 
-> hardware, then restart the DMA engine.  Possibly turning off 
-> TSO/checksum to guarantee that bad packets are not accepted.  For SATA 
-> and SCSI drivers, this is more complex, as one must retry a number of 
-> queued disk commands, after resetting the hardware.
+> On Tue, 1 Mar 2005, Jeff Garzik wrote:
+> > 
+> > A new API handles none of this.
 > 
-> A new API handles none of this.
+> Ehh? 
+> 
+> The new API is what _allows_ a driver to care. It doesn't handle DMA, but
+> I think that's because nobody knows how to handle it (ie it's probably
+> hw-dependent and all existign implementations would thus be
+> driver-specific anyway).
 
-On IBM pSeries machine (and I'm trying to figure out an API to deal with
-that generically for drivers), upon a PCI error (either MMIO error or
-DMA error), the slot is put in isolation automatically.
+We do on pSeries. Additionally, another device on the same physical
+segment can trigger an error and cause a slot isolation on us even when
+we do no IOs, so we also need asynchronous notification.
 
-From this point, we can instruct the firmware to 1) re-enable MMIO, 2)
-re-enable DMA, 3) proceed to a slot reset and re-enable MMIO & DMA.
+> And in the sense of "any general new api handles none of it", your 
+> argument doesn't make sense. The _old_ IO API's clearly don't handle it. 
+> So if you seem to say that "A new API" can't handle it either, then that 
+> translates to "no API can ever handle it". Fair enough, if you think it's 
+> impossible, but clearly you can handle some things.
+> 
+> And yes, CLEARLY drivers will have to do all the heavy lifting. 
 
-That allows all sort of recovery strategies. However, obviously, not all
-architectures provide those facilities.
+I think Seto has a good start tho. But it's not enough. See my other
+mail to Jeff for my other thought on the issue, I'm still trying to get
+some API I'm happy myself with however, since it's not a simple issue.
 
-So I'm looking into a way to expose a generic API to drivers that would
-allow them to use those facilities when present, and/or fallback to
-whatever they can do when not (or just retry or even no recovery).
+> I don't expect most drivers to care. In fact, I expect about five to ten
+> drivers to be converted to really care, and then for some forseeable time
+> you'll have to be very picky about your hardware if you care about PCI 
+> parity errors etc. Most people don't, and most drivers won't be written in 
+> environments where they can be reasonably tested.
 
-I have some ideas, but am not fully happy with them yet. But part of the
-problem is the notification of the driver.
+On pSeries, we'll default, for drivers that don't care, to triggering a
+PCI unplug, slot reset, PCI re-plug. This is perfect for ethernet
+drivers for example. But it's a real pain for block devices since they
+won't be able to recover (and we can't even force unmount the dangling
+filesystem afaik).
 
-Checking IOs is one thing, what to do once a failure is detected is
-another. Also, we need asynchronous notification, since a driver may
-well be idle, not doing any IO, while the bus segment on which it's
-sitting is getting isolated because another card on the same segment (or
-another function on the same card) triggered an error.
+For drivers like IPR SCSI, we want to expose a richer API so they can
+make use of the features provided by the platform, like resetting the
+slot.
 
-Then, we need at least several back-and-forth callbacks. I'm thinking
-about an additional callback in pci_driver() with a message and a state
-indicating what happened, and returning wether to proceed or not, I'll
-try to write down the details in a later email.
+But the above also need to be able to differenciate a driver that cares
+from a driver that doesn't. I think an additional callback in pci_driver
+for notifying of async events (error happened, slot has been reset, IOs
+are re-enabled, whatever we define ...) is a good idea, since the
+presence of a callback is a good enough indication to the core of wether
+the driver has it's own recovery strategy or not.
 
-Another issue finally is the type of error informations. Various systems
-may provide various details, like some systems, upon a DMA error, can
-provide you with the actual address that faulted. Those infos can be
-very useful for diagnosing the issue (since some errors are actual bugs,
-for example, we spent a lot of time chasing issues with e1000 vs.
-barriers). An "error cookie" is I think a good idea, with eventually
-various accessors to extract data from it, and maybe a function to dump
-the content in ascii form in some buffer...
-
-Ben.
-
-
-
+> That's just a fact. Anybody who expects all drivers to suddenly start 
+> doing IO checks is just living in a dream world.
+> 
+> 		Linus
+-- 
+Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
