@@ -1,15 +1,68 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 03 Dec 2002 20:00:46 +0000
-Subject: [Linux-ia64] Re: set the precision of Intel's FPU.
-Message-Id: <marc-linux-ia64-105590709805497@msgid-missing>
+From: John Kern <jkern@numeritech.com>
+Date: Tue, 03 Dec 2002 23:23:22 +0000
+Subject: [Linux-ia64] RE: set the precision of Intel's FPU.
+Message-Id: <marc-linux-ia64-105590709805498@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590709805497@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805497@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 3 Dec 2002 11:10:07 -0800, John Kern <jkern@numeritech.com> s=
-aid:
+Hola,
+
+Thanks. That's exactly what I needed to know.  My mistake was I
+assumed IA-64 had the same problems as the x86 processor.
+
+Just thought I'd leave a few sentences of background info which may be
+helpful to others with a similar concern.
+
+From a language prespective, I'd like to the data type to map to the
+appropriate ieee precision.=20
+
+data type 		ieee precision	=09
+float 		single(32-bit)
+double		double (64-bit)=09
+long double		extended
+
+Many platforms(Solaris, HP-UX, and Linux/IA-64) use float and double this
+way. Since I don't use extended, I can't comment on the portability of it.
+
+Unfortunately(for those who want consistent cross platform results),
+x86 implements float with extended (80-bit) precision registers.  So,
+the mapping effectively looks like:
+
+data type 		ieee precision
+float 		extended
+double		extended
+long double		extended
+
+>This interface is x86-specific.  AFAIK, the proper interface to use
+>here is the one defined by <fenv.h>.  Specifically, the fesetenv()
+>routine can manipulate any bit in ar.fpsr.
+
+fenv.h implements the C99 standard for both rounding and exceptions,
+but it doesn't control precision.  So, the x86 code can't be replace
+with this (although I'd love to replace it with a standard call) and I
+now understand it isn't needed on IA-64.
+
+Thanks again.
+
+Sincerely,
+
+John
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
+Sent: Tuesday, December 03, 2002 12:01 PM
+To: ia64-list@redhat.com
+Cc: linux-ia64@linuxia64.org
+Subject: Re: set the precision of Intel's FPU.
+
+
+>>>>> On Tue, 3 Dec 2002 11:10:07 -0800, John Kern <jkern@numeritech.com>
+said:
 
   John> The Intel processors (i.e., x86 and ia64) have 80-bit
   John> (extended) floating point registers.  By default, floating
@@ -60,4 +113,11 @@ here is the one defined by <fenv.h>.  Specifically, the fesetenv()
 routine can manipulate any bit in ar.fpsr.
 
 	--david
+
+
+
+_______________________________________________
+ia64-list mailing list
+ia64-list@redhat.com
+https://listman.redhat.com/mailman/listinfo/ia64-list
 
