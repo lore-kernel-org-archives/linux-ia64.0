@@ -1,7 +1,7 @@
-From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
-Date: Wed, 25 Sep 2002 19:28:23 +0000
+From: Sane_Purushottam@emc.com
+Date: Wed, 25 Sep 2002 19:33:12 +0000
 Subject: RE: [Linux-ia64] platform detection at run-time
-Message-Id: <marc-linux-ia64-105590701906060@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701906061@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701906051@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701906051@msgid-missing>
@@ -9,6 +9,26 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+The reason, I have to detect the architecture at run time has to do with the
+interface with (sg) driver. Since the driver is natively compiled for
+64-bit, it expects the data structure handed over to it, to be 64-bit wide.
+Thus my 32-bit application cannot issue ioctl calls successfully.
+
+So, in my application, based on the platform, I fill the appropriate
+structure before ioctl call.
+
+Nitin Sane
+sane_purushottam@emc.com
+(508) 382-7319
+
+
+-----Original Message-----
+From: Van Maren, Kevin [mailto:kevin.vanmaren@unisys.com]
+Sent: Wednesday, September 25, 2002 3:28 PM
+To: 'Sane_Purushottam@emc.com '; 'linux-ia64@linuxia64.org '
+Subject: RE: [Linux-ia64] platform detection at run-time
+
 
 Nitin,
 
