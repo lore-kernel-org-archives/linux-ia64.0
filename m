@@ -1,25 +1,30 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Mon, 28 Oct 2002 01:13:34 +0000
-Subject: Re: [Linux-ia64] Cross compile help!
-Message-Id: <marc-linux-ia64-105590709805268@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Tue, 01 Oct 2002 04:26:25 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to 2.5.39)
+Message-Id: <marc-linux-ia64-105590701906077@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805267@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805267@msgid-missing>
+References: <marc-linux-ia64-105590678205111@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 28 Oct 2002 08:54:18 +0800, 
-"dai yiyang" <daiyiyang@hotmail.com> wrote:
->   I have successed build ia64 linux kernel under ia32 platform , but I can 
->not add the debug information into the kernel , It seems the /sibn/kallsyms 
->only support local architecture,
->   How to make a ia64 kernel with debug infomation under cross compile 
->enviroment ?
+To get  the new patched version to compile without a VGA card, (using
+serial console) I needed this patch:
 
-http://www.google.com/linux?hl=en&lr=&ie=ISO-8859-1&q=kallsyms+i386+ia64
-
-The first entry contains the instructions for cross kallsyms i386 -> ia64.
-
+--- /tmp/geta5135 2002-10-01 14:02:36.000000000 +1000
++++ linux-2.5-ia64-merge/kernel/printk.c	  2002-10-01 14:01:47.000000000 +1000
+@@ -718,9 +718,10 @@
+ 
+ #ifdef CONFIG_IA64_EARLY_PRINTK
+ 
++#include <asm/io.h>
++
+ # ifdef CONFIG_IA64_EARLY_PRINTK_VGA
+ 
+-#include <asm/io.h>
+ 
+ #define VGABASE		((char *)0xc0000000000b8000)
+ #define VGALINES		24
 
