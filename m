@@ -1,256 +1,172 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Mon, 10 Jan 2005 21:59:38 +0000
-Subject: [PATCH] update sn2_defconfig (fix initrd, add IB support)
-Message-Id: <200501101359.38681.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_Krv4BUvyPX0T1qH"
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 04 Jan 2005 23:12:36 +0000
+Subject: Prezeroing V3 [0/4]: Discussion and i386 performance tests
+Message-Id: <Pine.LNX.4.58.0501041510430.1536@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
---Boundary-00=_Krv4BUvyPX0T1qH
-Content-Type: text/plain;
-  charset="us-ascii"
+References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
+ <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
+ <Pine.GSO.4.61.0501011123550.27452@waterleaf.sonytel.be>
+In-Reply-To: <Pine.GSO.4.61.0501011123550.27452@waterleaf.sonytel.be>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: 
+Cc: Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, linux-mm@kvack.org, Linux Kernel Development <linux-kernel@vger.kernel.org>
 
-Don't know what happened to initrd support, but 'make sn2_defconfig' no longer 
-enables it.  This patch should fix that, along with enabling modular IB 
-support.
+Change from V2 to V3:
+o Updates for clear_page on various platforms
+o Performance measurements on i386 (2x PIII-450 384M RAM)
+o Port patches to 2.6.10-bk7
+o Add scrub_load so that a high load prevents scrubd from running
+  (So that people may feel better about this approach. Set by
+  default to 999 so its off. The typical result of not running kscrubd
+  under high loads is to slow the system down even further since zeroing
+  large consecutive areas of memory is more efficient than zeroing page
+  size chunks. Memory subsystems are typically optimized for linear accesses
+  and reach their peak performance if large areas of memory are written to)
+o Various fixes
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+The patches increasing the page fault rate (introduction of atomic pte
+operations and anticipatory prefaulting) do so by reducing the locking
+overhead and are therefore mainly of interest for applications running in
+SMP systems with a high number of cpus. The single thread performance does
+just show minor increases. Only the performance of multi-threaded
+applications increases significantly.
 
-Thanks,
-Jesse
+The most expensive operation in the page fault handler is (apart of SMP
+locking overhead) the zeroing of the page that is also done in the page fault
+handler. This zeroing means that all cachelines of the faulted page (on Altix
+that means all 128 cachelines of 128 byte each) must be loaded and later
+written back. This patch allows to avoid having to load all cachelines
+if only a part of the cachelines of that page is needed immediately after
+the fault. Doing so will only be effective for sparsely accessed memory
+which is typical for anonymous memory and pte maps. Prezeroed pages will
+only be used for those purposes. Unzeroed pages will be used as usual for
+file mapping, page caching etc etc.
 
---Boundary-00=_Krv4BUvyPX0T1qH
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="sn2-defconfig-update-8.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="sn2-defconfig-update-8.patch"
+Others have also thought that prezeroing could be a benefit and have tried
+provide a way to provide zeroed pages to the page fault handler:
 
-===== arch/ia64/configs/sn2_defconfig 1.15 vs edited =====
---- 1.15/arch/ia64/configs/sn2_defconfig	2004-11-02 12:42:19 -08:00
-+++ edited/arch/ia64/configs/sn2_defconfig	2005-01-10 13:57:46 -08:00
-@@ -1,7 +1,7 @@
- #
- # Automatically generated make config: don't edit
--# Linux kernel version: 2.6.10-rc1
--# Mon Nov  1 14:35:44 2004
-+# Linux kernel version: 2.6.10
-+# Mon Jan 10 13:57:35 2005
- #
- 
- #
-@@ -58,6 +58,7 @@
- CONFIG_64BIT=y
- CONFIG_MMU=y
- CONFIG_RWSEM_XCHGADD_ALGORITHM=y
-+CONFIG_GENERIC_CALIBRATE_DELAY=y
- CONFIG_TIME_INTERPOLATION=y
- CONFIG_EFI=y
- CONFIG_GENERIC_IOMAP=y
-@@ -75,6 +76,7 @@
- CONFIG_IA64_L1_CACHE_SHIFT=7
- CONFIG_NUMA=y
- CONFIG_VIRTUAL_MEM_MAP=y
-+CONFIG_HOLES_IN_ZONE=y
- CONFIG_DISCONTIGMEM=y
- # CONFIG_IA64_CYCLONE is not set
- CONFIG_IOSAPIC=y
-@@ -90,6 +92,7 @@
- CONFIG_IA64_MCA_RECOVERY=y
- CONFIG_PERFMON=y
- CONFIG_IA64_PALINFO=y
-+CONFIG_ACPI_DEALLOCATE_IRQ=y
- 
- #
- # Firmware Drivers
-@@ -110,6 +113,7 @@
- CONFIG_ACPI_BOOT=y
- CONFIG_ACPI_INTERPRETER=y
- # CONFIG_ACPI_BUTTON is not set
-+CONFIG_ACPI_VIDEO=m
- # CONFIG_ACPI_FAN is not set
- # CONFIG_ACPI_PROCESSOR is not set
- CONFIG_ACPI_NUMA=y
-@@ -119,6 +123,7 @@
- CONFIG_ACPI_POWER=y
- CONFIG_ACPI_PCI=y
- CONFIG_ACPI_SYSTEM=y
-+# CONFIG_ACPI_CONTAINER is not set
- 
- #
- # Bus options (PCI, PCMCIA)
-@@ -174,6 +179,7 @@
- #
- # Plug and Play support
- #
-+# CONFIG_PNP is not set
- 
- #
- # Block devices
-@@ -188,6 +194,7 @@
- # CONFIG_BLK_DEV_SX8 is not set
- # CONFIG_BLK_DEV_UB is not set
- CONFIG_BLK_DEV_RAM=y
-+CONFIG_BLK_DEV_RAM_COUNT=16
- CONFIG_BLK_DEV_RAM_SIZE=4096
- CONFIG_BLK_DEV_INITRD=y
- CONFIG_INITRAMFS_SOURCE=""
-@@ -200,6 +207,7 @@
- CONFIG_IOSCHED_AS=y
- CONFIG_IOSCHED_DEADLINE=y
- CONFIG_IOSCHED_CFQ=y
-+CONFIG_ATA_OVER_ETH=m
- 
- #
- # ATA/ATAPI/MFM/RLL support
-@@ -287,6 +295,7 @@
- #
- CONFIG_SCSI_SPI_ATTRS=y
- CONFIG_SCSI_FC_ATTRS=y
-+# CONFIG_SCSI_ISCSI_ATTRS is not set
- 
- #
- # SCSI low-level drivers
-@@ -333,7 +342,6 @@
- CONFIG_SCSI_QLA2300=y
- CONFIG_SCSI_QLA2322=y
- # CONFIG_SCSI_QLA6312 is not set
--# CONFIG_SCSI_QLA6322 is not set
- # CONFIG_SCSI_DC395x is not set
- # CONFIG_SCSI_DC390T is not set
- # CONFIG_SCSI_DEBUG is not set
-@@ -350,6 +358,7 @@
- CONFIG_MD_RAID5=y
- # CONFIG_MD_RAID6 is not set
- CONFIG_MD_MULTIPATH=y
-+# CONFIG_MD_FAULTY is not set
- CONFIG_BLK_DEV_DM=y
- CONFIG_DM_CRYPT=m
- CONFIG_DM_SNAPSHOT=m
-@@ -399,6 +408,8 @@
- # CONFIG_INET_ESP is not set
- # CONFIG_INET_IPCOMP is not set
- # CONFIG_INET_TUNNEL is not set
-+CONFIG_IP_TCPDIAG=y
-+# CONFIG_IP_TCPDIAG_IPV6 is not set
- CONFIG_IPV6=m
- # CONFIG_IPV6_PRIVACY is not set
- # CONFIG_INET6_AH is not set
-@@ -478,6 +489,7 @@
- # CONFIG_IXGB is not set
- CONFIG_S2IO=m
- # CONFIG_S2IO_NAPI is not set
-+# CONFIG_2BUFF_MODE is not set
- 
- #
- # Token Ring devices
-@@ -554,6 +566,8 @@
- CONFIG_SERIAL_NONSTANDARD=y
- # CONFIG_ROCKETPORT is not set
- # CONFIG_CYCLADES is not set
-+# CONFIG_MOXA_SMARTIO is not set
-+# CONFIG_ISI is not set
- # CONFIG_SYNCLINK is not set
- # CONFIG_SYNCLINKMP is not set
- # CONFIG_N_HDLC is not set
-@@ -664,6 +678,7 @@
- # CONFIG_USB_EHCI_ROOT_HUB_TT is not set
- CONFIG_USB_OHCI_HCD=m
- CONFIG_USB_UHCI_HCD=m
-+# CONFIG_USB_SL811_HCD is not set
- 
- #
- # USB Device Class drivers
-@@ -671,6 +686,10 @@
- # CONFIG_USB_BLUETOOTH_TTY is not set
- # CONFIG_USB_ACM is not set
- # CONFIG_USB_PRINTER is not set
-+
-+#
-+# NOTE: USB_STORAGE enables SCSI, and 'SCSI disk support' may also be needed; see USB_STORAGE Help for more information
-+#
- # CONFIG_USB_STORAGE is not set
- 
- #
-@@ -700,7 +719,6 @@
- #
- # CONFIG_USB_MDC800 is not set
- # CONFIG_USB_MICROTEK is not set
--# CONFIG_USB_HPUSBSCSI is not set
- 
- #
- # USB Multimedia devices
-@@ -712,7 +730,7 @@
- #
- 
- #
--# USB Network adaptors
-+# USB Network Adapters
- #
- # CONFIG_USB_CATC is not set
- # CONFIG_USB_KAWETH is not set
-@@ -734,7 +752,6 @@
- #
- # CONFIG_USB_EMI62 is not set
- # CONFIG_USB_EMI26 is not set
--# CONFIG_USB_TIGL is not set
- # CONFIG_USB_AUERSWALD is not set
- # CONFIG_USB_RIO500 is not set
- # CONFIG_USB_LEGOTOWER is not set
-@@ -754,6 +771,20 @@
- # CONFIG_USB_GADGET is not set
- 
- #
-+# MMC/SD Card support
-+#
-+# CONFIG_MMC is not set
-+
-+#
-+# InfiniBand support
-+#
-+CONFIG_INFINIBAND=m
-+CONFIG_INFINIBAND_MTHCA=m
-+# CONFIG_INFINIBAND_MTHCA_DEBUG is not set
-+CONFIG_INFINIBAND_IPOIB=m
-+# CONFIG_INFINIBAND_IPOIB_DEBUG is not set
-+
-+#
- # File systems
- #
- CONFIG_EXT2_FS=y
-@@ -864,7 +895,7 @@
- CONFIG_CIFS=m
- # CONFIG_CIFS_STATS is not set
- # CONFIG_CIFS_XATTR is not set
--# CONFIG_CIFS_POSIX is not set
-+# CONFIG_CIFS_EXPERIMENTAL is not set
- # CONFIG_NCP_FS is not set
- # CONFIG_CODA_FS is not set
- # CONFIG_AFS_FS is not set
-@@ -958,6 +989,7 @@
- # CONFIG_DEBUG_SPINLOCK_SLEEP is not set
- # CONFIG_DEBUG_KOBJECT is not set
- CONFIG_DEBUG_INFO=y
-+# CONFIG_DEBUG_FS is not set
- CONFIG_IA64_GRANULE_16MB=y
- # CONFIG_IA64_GRANULE_64MB is not set
- # CONFIG_IA64_PRINT_HAZARDS is not set
-@@ -994,7 +1026,12 @@
- # CONFIG_CRYPTO_TEA is not set
- # CONFIG_CRYPTO_ARC4 is not set
- # CONFIG_CRYPTO_KHAZAD is not set
-+# CONFIG_CRYPTO_ANUBIS is not set
- CONFIG_CRYPTO_DEFLATE=m
- # CONFIG_CRYPTO_MICHAEL_MIC is not set
- # CONFIG_CRYPTO_CRC32C is not set
- # CONFIG_CRYPTO_TEST is not set
-+
-+#
-+# Hardware crypto devices
-+#
+http://marc.theaimsgroup.com/?t9914559100004&r=1&w=2
+http://marc.theaimsgroup.com/?t9777267500005&r=1&w=2
+http://marc.theaimsgroup.com/?l=linux-kernel&m4931944213955&w=2
 
---Boundary-00=_Krv4BUvyPX0T1qH--
+However, these attempt have tried to zero pages that are like to be used
+soon (and that may have recently been accessed). Elements of these pages
+are thus already in the cpu caches. Approaches like that will only shift
+processing to somewhere else and not bring any performance benefits.
+Prezeroing only makes sense for pages that are not currently needed and that
+are not in the cpu caches. Pages that have recently been touched and that
+soon will be touched again are better hot zeroed since the zeroing will
+largely be done to cachelines already in the cpu caches.
+
+The patch makes prezeroing very effective by:
+
+1. Aggregating zeroing operations to only apply to pages of higher order,
+which results in many pages that will later become zero 0 to be zeroed in one
+step.
+For that purpose the existing clear_page function is extended and made to
+take an additional argument specifying the order of the page to be cleared.
+
+2. Hardware support for offloading zeroing from the cpu. This avoids
+the invalidation of the cpu caches by extensive zeroing operations.
+
+The scrub daemon is invoked when a unzeroed page of a certain order has
+been generated so that its worth running it. If no higher order pages are
+present then the logic will favor hot zeroing rather than simply shifting
+processing around. kscrubd typically runs only for a fraction of a second
+and sleeps for long periods of time even under memory benchmarking. kscrubd
+performs short bursts of zeroing when needed and tries to stay out off the
+processor as much as possible.
+
+The result is a significant increase of the page fault performance even for
+single threaded applications (i386 2x PIII-450 384M RAM allocating 256M in
+each run):
+
+w/o patch:
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  0   1    1    0.006s      0.389s   0.039s157455.320 157070.694
+  0   1    2    0.007s      0.607s   0.032s101476.689 190350.885
+
+w/patch
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  0   1    1    0.008s      0.083s   0.009s672151.422 664045.899
+  0   1    2    0.005s      0.129s   0.008s459629.796 741857.373
+
+The performance can only be upheld if enough zeroed pages are available.
+In a heavy memory intensive benchmark the system may run out of these very
+fast but the efficient algorithm for page zeroing still makes this a winner
+(2 way system with 384MB RAM, no hardware zeroing support). In the following
+measurement the test is repeated 10 times allocating 256M each in rapid
+succession which would deplete the pool of zeroed pages quickly):
+
+w/o patch:
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  0  10    1    0.058s      3.913s   3.097s157335.774 157076.932
+  0  10    2    0.063s      6.139s   3.027s100756.788 190572.486
+
+w/patch
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  0  10    1    0.059s      1.828s   1.089s330913.517 330225.515
+  0  10    2    0.082s      1.951s   1.094s307172.100 320680.232
+
+Note that zeroing of pages makes no sense if the application
+touches all cache lines of a page allocated (there is no influence of
+prezeroing on benchmarks like lmbench for that reason) since the extensive
+caching of modern cpus means that the zeroes written to a hot zeroed page
+will then be overwritten by the application in the cpu cache and thus
+the zeros will never make it to memory! The test program used above only
+touches one 128 byte cache line of a 16k page (ia64). Sparsely
+populated and accessed areas are typical for lots of applications.
+
+Here is another test in order to gauge the influence of the number of cache
+lines touched on the performance of the prezero enhancements:
+
+ Gb Rep Thr CLine  User      System   Wall  flt/cpu/s fault/wsec
+  1  1    1   1    0.01s      0.12s   0.01s500813.853 497925.891
+  1  1    1   2    0.01s      0.11s   0.01s493453.103 472877.725
+  1  1    1   4    0.02s      0.10s   0.01s479351.658 471507.415
+  1  1    1   8    0.01s      0.13s   0.01s424742.054 416725.013
+  1  1    1  16    0.05s      0.12s   0.01s347715.359 336983.834
+  1  1    1  32    0.12s      0.13s   0.02s258112.286 256246.731
+  1  1    1  64    0.24s      0.14s   0.03s169896.381 168189.283
+  1  1    1 128    0.49s      0.14s   0.06s102300.257 101674.435
+
+The benefits of prezeroing are reduced to minimal quantities if all
+cachelines of a page are touched. Prezeroing can only be effective
+if the whole page is not immediately used after the page fault.
+
+The patch is composed of 4 parts:
+
+[1/4] Introduce __GFP_ZERO
+	Modifies the page allocator to be able to take the __GFP_ZERO flag
+	and returns zeroed memory on request. Modifies locations throughout
+	the linux sources that retrieve a page and then zero it to request
+	a zeroed page.
+
+[2/4] Architecture specific clear_page updates
+	Adds second order argument to clear_page and updates all arches.
+
+Note: The two first pages may be used alone if no zeroing engine is wanted.
+
+[3/4] Page Zeroing
+	Adds management of ZEROED and NOT_ZEROED pages and a background daemon
+	called scrubd. scrubd is disabled by default but can be enabled
+	by writing an order number to /proc/sys/vm/scrub_start. If a page
+	is coalesced of that order or higher then the scrub daemon will
+	start zeroing until all pages of order /proc/sys/vm/scrub_stop and
+	higher are zeroed and then go back to sleep.
+
+	In an SMP environment the scrub daemon is typically
+	running on the most idle cpu. Thus a single threaded application running
+	on one cpu may have the other cpu zeroing pages for it etc. The scrub
+	daemon is hardly noticable and usually finished zeroing quickly since
+	most processors are optimized for linear memory filling.
+
+[4/4]	SGI Altix Block Transfer Engine Support
+	Implements a driver to shift the zeroing off the cpu into hardware.
+	With hardware support there will be minimal impact of zeroing
+	on the performance of the system.
