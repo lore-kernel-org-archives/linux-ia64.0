@@ -1,7 +1,7 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Wed, 25 Aug 2004 22:46:44 +0000
+From: Christoph Lameter <christoph@lameter.com>
+Date: Thu, 26 Aug 2004 20:19:49 +0000
 Subject: Re: Long Format VHPT patches
-Message-Id: <16685.5844.673016.685073@wombat.chubb.wattle.id.au>
+Message-Id: <Pine.LNX.4.58.0408261311490.1674@server.home>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040825023439.GA15782@cse.unsw.EDU.AU>
 In-Reply-To: <20040825023439.GA15782@cse.unsw.EDU.AU>
@@ -10,28 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Arun" = Arun Sharma <arun.sharma@intel.com> writes:
+One issue that bothers me is that it is no longer possible to swap pte,
+pmd and pgd entries via cmpxchg. My page fault scalability patches are based
+on that ability. The Itanium can only do a cmpxchg with a 64 bit value.
+The long VHPT entries are 32 bytes long.
 
-Arun> On 8/25/2004 10:01 AM, Jesse Barnes wrote:
->> On Tuesday, August 24, 2004 7:34 pm, Ian Wienand wrote:
->>> 11-lf-VHPT-kconfig.patch
->>  Given your conclusions in the paper, would it make sense to
->> unconditionally switch to long format VHPT?  It would simplify
->> things a little and maybe avoid some trouble in the future.
->> 
+IMHO the cmpxchg is unavoidable if we want to increase the scalability of
+page fault handling because it offers the shortest and most efficient way
+to do synchronize updates to the page tables.
 
-Arun> When the super page optimizations are implemented, long format
-Arun> might be a more attractive option. Without it, the increased
-Arun> cache footprint of the long format pte is not compensated by the
-Arun> benefits on the workloads we tried.
-
-
-I suggest that we do like we did for the large block device patch ---
-enable it unconditionally in the -mm and other test series, then flip
-back to a config option in mainline.  That way, anyone using 2.6 for a
-production kernel gets a choice, and while we're in test phase, the
-patch gets a good workout.
-
--- 
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+The Intel developers manual documents a way to invalidate a long VHPT
+entry while updating it. A special pte_cmpxchg would be needed that
+invalidates a VHPT via an atomic operation to set the ti bit, then
+does the cmpxchg stuff and then validates the VHPT again. The
+page fault handler would have to be modified to redo the fault if the ti
+bit is set. However, this is may be significantly than a single cmpxchg.
