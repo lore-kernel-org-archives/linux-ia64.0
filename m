@@ -1,29 +1,36 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 16 Sep 2003 19:04:00 +0000
-Subject: Re: NFS server problems in 2.6.0-test[4,5]
-Message-Id: <marc-linux-ia64-106373916805349@msgid-missing>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Tue, 02 Sep 2003 04:57:15 +0000
+Subject: qla1280 bandaid
+Message-Id: <marc-linux-ia64-106247866314538@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106366548926386@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106366548926386@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---text follows this line--
-  Matthew> On Mon, Sep 15, 2003 at 03:36:16PM -0700, David Mosberger wrote:
-  >> Has there been any progress in getting the NFS server debugged?
 
-  Matthew> Yep, on the NFS mailing list ... here's the latest patch courtesy
-  Matthew> of Neil Brown & Trond.  I still get a 5:30 minute hang when mounting
-  Matthew> my ia64 NFS server, but that's probably something else.
+Hi Jes,
+   The problem is that bus_reset drops the HOST_LOCK when it calls
+schedule_timeout, but when it's called from the initialisation code,
+HOST_LOCK isn't actually held.
 
-  Matthew> Wouldn't surprise me if this affects other 64 bit arches too.
+The appended patch fixes this; however, I'm not sure that it's
+correct, because I couldn't work out easily whether the HOST_LOCK is
+held or not on all paths to qla1280_bus_reset().
 
-I'm glad I asked...
+With the patch in place, I can once again boot SMP I2000 and rx4610.
 
-The patch works fine for me.  I don't see any hangs either.
-
-Thanks,
-
-	--david
+=== drivers/scsi/qla1280.c 1.44 vs edited ==--- 1.44/drivers/scsi/qla1280.c	Fri Aug 15 09:08:54 2003
++++ edited/drivers/scsi/qla1280.c	Tue Sep  2 14:53:32 2003
+@@ -3346,9 +3346,9 @@
+ 			ha->bus_settings[bus].scsi_bus_dead = 1;
+ 		ha->bus_settings[bus].failed_reset_count++;
+ 	} else {
+-		spin_unlock_irq(HOST_LOCK);
++/*		spin_unlock_irq(HOST_LOCK);*/
+ 		schedule_timeout(reset_delay * HZ);
+-		spin_lock_irq(HOST_LOCK);
++/*		spin_lock_irq(HOST_LOCK);*/
+ 
+ 		ha->bus_settings[bus].scsi_bus_dead = 0;
+ 		ha->bus_settings[bus].failed_reset_count = 0;
