@@ -1,34 +1,40 @@
-From: Steven Cole <scole@lanl.gov>
-Date: Tue, 01 May 2001 19:08:09 +0000
-Subject: [Linux-ia64] Request for Configure.help texts for IA64 options.
-Message-Id: <marc-linux-ia64-105590693005502@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Tue, 01 May 2001 19:24:44 +0000
+Subject: RE: [Linux-ia64] Request for Configure.help texts for IA64 option
+Message-Id: <marc-linux-ia64-105590693005503@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005502@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005502@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Greetings all,
+> CONFIG_IA64_EFIVARS
 
-Eric S. Raymond and I have recently become the maintainers of
-the Configure.help file.  Here is a list of five IA64 config options which
-are setable, but do not have Configure.help entries.
+CONFIG_IA64_EFIVARS has been replaced with CONFIG_EFI_VARS in what will be
+DavidM's next patch against 2.4.4, and his tree includes help text for this.
+I'm including it here just for reference.
 
-CONFIG_IA64_DEBUG_CMPXCHG
-CONFIG_IA64_DEBUG_IRQ
-CONFIG_IA64_EARLY_PRINTK
-CONFIG_IA64_EFIVARS
-CONFIG_IA64_PRINT_HAZARDS
+/proc/efi/vars support
+CONFIG_EFI_VARS
+  If you say Y here, you are able to get EFI (Extensible Firmware
+  Interface) variable information in /proc/efi/vars.  You may read,
+  write, create, and destroy EFI variables through this interface.
 
-Would someone please generate the help texts for these items, and send
-the texts to Eric Raymond <esr@thyrsus.com> and cc to
-Steven Cole <elenstev@mesatop.com>.
+  To use this option, you have to check that the "/proc file system
+  support" (CONFIG_PROC_FS) is enabled, too.
 
-We are trying to produce a superset Configure.help file for Linus' and Alan's
-tree's, so sending these texts directly to Alan or Linus right now might just 
-confuse things.
 
-Thanks in advance,
+Thanks,
+Matt
 
-Steven
+--
+Matt Domsch
+Sr. Software Engineer
+Dell Linux Systems Group
+Linux OS Development
+www.dell.com/linux
+
+
 
