@@ -1,37 +1,245 @@
-From: Jim Wilson <wilson@redhat.com>
-Date: Thu, 05 Dec 2002 03:11:26 +0000
-Subject: [Linux-ia64] Re: [patch] binutils support for new IA-64 instructions (as per SDM2.1)
-Message-Id: <marc-linux-ia64-105590709805502@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 20 Jan 2003 10:10:28 +0000
+Subject: [Linux-ia64] Re: realtime signals not held
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="==_Exmh_1086091520"
+Message-Id: <marc-linux-ia64-105590709805730@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[This also went to the binutils list, but my first attempt at replying to
-David's message had a broken linux-ia64 address, apparently because of a buggy
-Red Hat MTA, so I am resending this separately.]
+This is a multipart MIME message.
 
-I looked through the patch, comparing it against the new manuals, and didn't
-see any problems.
+--==_Exmh_1086091520
+Content-Type: text/plain; charset=us-ascii
 
-I rebuilt ia64-asmtab.c, and checked in your patch along with a ChangeLog
-entry for the ia64-asmtab.c change.
+Greg Edwards wrote
+>A part of one of our test suites that checks signal holding/releasing
+>between a parent and forked child appears to have problems with realtime
+>signals.  The test forks a child, has the child mask two signals, the
+>parent then sends the signals to the child, and the child should release
+>and handle one of the signals.  None of the realtime signals are ever
+>held, they are caught right away.
 
-While testing this, I got a gas testsuite failure in opc-x.d.  This is an
-objdump problem.  Objdump sees 8 consecutive zeros, prints "...", and then
-starts printing bundles at the wrong address.  When we get to the end of the
-file, we accidentally print two bytes past the end.  This data is garbage,
-and I happened to get a non-zero value for one of the bytes.  There is already
-a solution for this problem for the c4x which we should be able to adapt for
-the IA-64.  That involves setting SKIP_ZEROES to 16 in binutils/configure.in.
-I will try writing a patch for that tomorrow.
+It is a glibc bug on ia64, which exists on at least glibc-2.2.4-30 and
+glibc-2.2.4-31 (RH AS 2.1).  pause() incorrectly maps sigset from long
+to words and corrupts the high order word of the mask (contains the
+blocked realtime signals), letting signals through that should be
+blocked.  Minimal test case attached based on Greg's code.  Works fine
+on ia32, fails on ia64.
 
-There are dependency tables in Intel's DVLoc library.
-        http://www.intel.com/software/products/opensource/tools1/dvloc.htm
-However, that hasn't been updated since August 2000.  We would need an updated
-copy of that, plus permission to take files from there and use them in
-binutils.
+# gcc kao2.c -o kao2
+# ./kao2
+c start 3063
+c after defining testsig
+c after defining alrm
+c setup complete
+p sending signal 45
+c caught signal 45
+Child caught signal 45 before it was unblocked
+p Child exited with status 1
 
-Jim
+# gcc -DMAGIC_INCANTATION kao2.c -o kao2
+# ./kao2
+c start 3071
+c after defining testsig
+c after defining alrm
+c setup complete
+p sending signal 45
+c caught signal 14 - ignored
+c releasing signal 45
+c caught signal 45
+p Child exited with status 0
+
+The pause() code in glibc extracts the current blocked mask then
+incorrectly propagates signal 32 into signals 33-64 before passing the
+mask back to the kernel.  So if signal 32 is blocked, _all_ rt signals
+are blocked.  If 32 is not blocked, pause() unblocks all rt signals.
+Not good.
+
+
+--==_Exmh_1086091520
+Content-Type: text/plain ; name="kao2.c"; charset=us-ascii
+Content-Description: kao2.c
+
+#define _GNU_SOURCE
+#include <errno.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/wait.h>
+
+static int child_pid;           /* process id of child */
+static int pipe_fd[2];          /* file descriptors for pipe */
+static int caught[NSIG];
+
+static void def_handler(int sig)
+{
+	fprintf(stderr, "Unexpected signal %d received.\n", sig);
+	exit(1);
+}
+
+static void read_pipe(void)
+{
+	static char buf[1];
+	if (read(pipe_fd[0], buf, sizeof(buf)) < 0) {
+		fprintf(stderr, "read() pipe failed. error:%d %s.\n",
+			errno, strerror(errno));
+		exit(1);
+	}
+}
+
+static void write_pipe(void)
+{
+	if (write(pipe_fd[1], "", 1) < 0) {
+		fprintf(stderr, "write() pipe failed. error:%d %s.\n",
+			errno, strerror(errno));
+		exit(1);
+	}
+}
+
+static void parent(int testsig)
+{
+	int term_stat;
+	int sig;
+
+	for (sig = 1; sig < NSIG; sig++) {
+		switch(sig) {
+		    case SIGKILL:
+		    case SIGSTOP:
+		    case SIGCONT:
+			break;
+		    case SIGCLD:
+			continue;
+		    default:
+			if (signal(sig, def_handler) == SIG_ERR) {
+				fprintf(stderr, "signal() failed for signal %d. error:%d %s.\n",
+					sig, errno, strerror(errno));
+				exit(1);
+			}
+		}
+	}
+	read_pipe();
+	printf("p sending signal %d\n", testsig);
+	if (kill(child_pid, testsig) < 0) {
+		fprintf(stderr, "kill() failed. sig:%d error:%d %s.\n",
+			testsig, errno, strerror(errno));
+		exit(1);
+	}
+	if (wait(&term_stat) < 0) {
+		fprintf(stderr, "wait() failed. error:%d %s.\n",
+			errno, strerror(errno));
+		exit(1);
+	}
+	if (WIFSIGNALED(term_stat)) {
+		sig = WTERMSIG(term_stat);
+		fprintf(stderr, "Unexpected signal killed child. sig:%d.\n", sig);
+		exit(1);
+	}
+	if (!WIFEXITED(term_stat)) {
+		fprintf(stderr, "Unexpected return killed child.\n");
+		exit(1);
+	}
+	printf("p Child exited with status %d\n", WEXITSTATUS(term_stat));
+	return;
+}
+
+static void handler(int sig)
+{
+	printf("c caught signal %d", sig);
+	if (sig == SIGALRM)
+		printf(" - ignored");
+	else
+		++caught[sig];
+	printf("\n");
+}
+
+static void child(int testsig)
+{
+	int rv;
+	int sig;
+	printf("c start %d\n", getpid());
+	if (signal(testsig, handler) == SIG_ERR) {
+		fprintf(stderr,
+			"signal() failed for signal %d. error:%d %s.\n",
+			testsig, errno, strerror(errno));
+		exit(1);
+	}
+	printf("c after defining testsig\n");
+	if (signal(SIGALRM, handler) == SIG_ERR) {
+		fprintf(stderr,
+			"signal() failed for signal %d. error:%d %s.\n",
+			SIGALRM, errno, strerror(errno));
+		exit(1);
+	}
+	printf("c after defining alrm\n");
+
+	if ((rv = sighold(testsig)) != 0) {
+		fprintf(stderr,
+			"sighold did not return 0. rv:%d sig:%d.\n", rv, testsig);
+
+	}
+#ifdef MAGIC_INCANTATION
+	/* holding sig32 makes the hold of other rt signals work */
+	if ((rv = sighold(32)) != 0) {
+		fprintf(stderr,
+			"sighold did not return 0. rv:%d sig:%d.\n", rv, 32);
+
+	}
+#endif
+	printf("c setup complete\n");
+	write_pipe();
+	alarm(2);
+	pause();
+	for (sig = 1; sig < NSIG; ++sig) {
+		if (caught[sig]) {
+			fprintf(stderr, "Child caught signal %d before it was unblocked\n", sig);
+			exit(1);
+		}
+	}
+	printf("c releasing signal %d\n", testsig);
+	if ((rv = sigrelse(testsig)) != 0) {
+		fprintf(stderr, "sigrelse did not return 0. rv:%d\n", rv);
+
+	}
+	for (sig = 1; sig < NSIG; ++sig) {
+		if (caught[sig] && sig != testsig) {
+			fprintf(stderr, "Child caught unexpected signal %d\n", sig);
+			exit(1);
+		}
+	}
+	if (caught[testsig] != 1) {
+		fprintf(stderr, "Child did not receive signal %d after it was released\n", testsig);
+		exit(1);
+	}
+	exit(0);
+}
+
+#define TESTSIG 45
+
+int main(void)
+{
+	setvbuf(stdout, NULL, _IONBF, 0);
+	if (pipe(pipe_fd) < 0) {
+		fprintf(stderr, "pipe() failed. error:%d %s.\n",
+			errno, strerror(errno));
+		return 1;
+	}
+	if ((child_pid = fork()) < 0) {
+		fprintf(stderr, "fork() failed. error:%d %s.\n",
+			errno, strerror(errno));
+		return 1;
+	}
+	if (child_pid > 0) {
+		parent(TESTSIG);
+	} else {
+		child(TESTSIG);
+	}
+	return 0;
+}
+
+--==_Exmh_1086091520--
+
+
 
