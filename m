@@ -1,42 +1,119 @@
 From: Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
-Date: Sat, 26 Oct 2002 01:09:28 +0000
+Date: Sun, 27 Oct 2002 16:42:47 +0000
 Subject: Re: [Linux-ia64] quick ia64 patch for 2.5.44 (UP only)
-Message-Id: <marc-linux-ia64-105590709805256@msgid-missing>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------_3DBC16351042036BF00C_MULTIPART_MIXED_"
+Message-Id: <marc-linux-ia64-105590709805263@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805243@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805243@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+--------_3DBC16351042036BF00C_MULTIPART_MIXED_
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
 
-I succeeded to boot the kernel on 8way ia64 box by
-porting the generic percpu (i.e. i386's percpu) to ia64.
-I think this should not right way to fix the problem.
-I can show the patch if there is a requirement.
+Hi Erich,
 
-Thanks,
+Here is the patch.
+I changed cpu_init() in setup.c so that BSP prepares
+per_cpu data for all CPUS.
+
+Regards,
 Kimi
 
-On Fri, 25 Oct 2002 16:23:43 -0700
-Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp> wrote:
+On Sun, 27 Oct 2002 18:13:31 +0100
+Erich Focht <efocht@ess.nec.de> wrote:
 
-> I found that functions in timer.c and rcupdate.c are calling
-> tasklet_init() for all CPUs before APs start running.
-> I think per_cpu() cannot be used for not running CPU for ia64,
-> and this assumption was broken by them.
+> Hi Kimi,
 > 
-> I attached args for tasklet_init() at booting and you can see
-> tasklet structures for CPU#0 are only valid.
-> Caller might be init_timers() and rcu_init().
+> On Saturday 26 October 2002 03:09, Kimio Suganuma wrote:
+> > I succeeded to boot the kernel on 8way ia64 box by
+> > porting the generic percpu (i.e. i386's percpu) to ia64.
+> > I think this should not right way to fix the problem.
+> > I can show the patch if there is a requirement.
 > 
-> I cannot come up with good solution for it but I think
-> we have to change current per_cpu implementation.
-> Any idea?
+> yes, please send the patch. I'd like to test something on 2.5.44
+> on Azusa on Monday.
 
 -- 
 Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
+
+--------_3DBC16351042036BF00C_MULTIPART_MIXED_
+Content-Type: application/octet-stream; name="smp_fix-2.5.44.patch"
+Content-Disposition: attachment;
+ filename="smp_fix-2.5.44.patch"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtTnVyIGxpbnV4LTIuNS40NC9hcmNoL2lhNjQva2VybmVsL3NldHVwLmMgbGludXgtMi41
+LjQ0LW5ldy9hcmNoL2lhNjQva2VybmVsL3NldHVwLmMKLS0tIGxpbnV4LTIuNS40NC9hcmNoL2lh
+NjQva2VybmVsL3NldHVwLmMJRnJpIE9jdCAyNSAxODoyMjo1MSAyMDAyCisrKyBsaW51eC0yLjUu
+NDQtbmV3L2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYwlGcmkgT2N0IDI1IDE5OjE3OjQ5IDIwMDIK
+QEAgLTYxOCw1MyArNjE4LDQwIEBACiAJdW5zaWduZWQgbG9uZyBudW1fcGh5c19zdGFja2VkOwog
+CXBhbF92bV9pbmZvXzJfdV90IHZtaTsKIAl1bnNpZ25lZCBpbnQgbWF4X2N0eDsKLQlzdHJ1Y3Qg
+Y3B1aW5mb19pYTY0ICpteV9jcHVfaW5mbzsKLQl2b2lkICpteV9jcHVfZGF0YTsKKwlzdHJ1Y3Qg
+Y3B1aW5mb19pYTY0ICpjcHVfaW5mbzsKKwl2b2lkICpjcHVfZGF0YTsKIAogI2lmZGVmIENPTkZJ
+R19TTVAKIAlleHRlcm4gY2hhciBfX3Blcl9jcHVfZW5kW107Ci0JaW50IGNwdSA9IHNtcF9wcm9j
+ZXNzb3JfaWQoKTsKKwlpbnQgY3B1OwogCiAJaWYgKF9fcGVyX2NwdV9lbmQgLSBfX3Blcl9jcHVf
+c3RhcnQgPiBQQUdFX1NJWkUpCiAJCXBhbmljKCJQZXItY3B1IGRhdGEgYXJlYSB0b28gYmlnISAo
+JVp1ID4gJVp1KSIsCiAJCSAgICAgIF9fcGVyX2NwdV9lbmQgLSBfX3Blcl9jcHVfc3RhcnQsIFBB
+R0VfU0laRSk7CiAKLSMgaWZkZWYgQ09ORklHX05VTUEKLQl7Ci0JCXN0YXRpYyB1bnNpZ25lZCBs
+b25nIGJvb3RfY3B1X2RhdGE7Ci0KLQkJLyoKLQkJICogZ2V0X2ZyZWVfcGFnZXMoKSBjYW5ub3Qg
+YmUgdXNlZCBiZWZvcmUgY3B1X2luaXQoKSBkb25lLiAgQlNQIGFsbG9jYXRlcwotCQkgKiAiTlJf
+Q1BVUyIgcGFnZXMgZm9yIGFsbCBDUFVzIHRvIGF2b2lkIHRoYXQgQVAgY2FsbHMgZ2V0X3plcm9l
+ZF9wYWdlKCkuCi0JCSAqLwotCQlpZiAoY3B1ID09IDApCi0JCQlib290X2NwdV9kYXRhID0gKHVu
+c2lnbmVkIGxvbmcpYWxsb2NfYm9vdG1lbV9wYWdlcyhQQUdFX1NJWkUgKiBOUl9DUFVTKTsKLQkJ
+bXlfY3B1X2RhdGEgPSAodm9pZCAqKShib290X2NwdV9kYXRhICsgKGNwdSAqIFBBR0VfU0laRSkp
+OwotCi0JCW1lbWNweShteV9jcHVfZGF0YSwgX19waHlzX3Blcl9jcHVfc3RhcnQsIF9fcGVyX2Nw
+dV9lbmQgLSBfX3Blcl9jcHVfc3RhcnQpOwotCQlfX3Blcl9jcHVfb2Zmc2V0W2NwdV0gPSAoY2hh
+ciAqKSBteV9jcHVfZGF0YSAtIF9fcGVyX2NwdV9zdGFydDsKLQkJbXlfY3B1X2luZm8gPSBteV9j
+cHVfZGF0YSArICgoY2hhciAqKSAmX19nZXRfY3B1X3ZhcihjcHVfaW5mbykgLSBfX3Blcl9jcHVf
+c3RhcnQpOwogCi0JCW15X2NwdV9pbmZvLT5ub2RlX2RhdGEgPSBnZXRfbm9kZV9kYXRhX3B0cigp
+OwotCQlteV9jcHVfaW5mby0+bm9kZWlkID0gYm9vdF9nZXRfbG9jYWxfbm9kZWlkKCk7Ci0JfQot
+IyBlbHNlIC8qICFDT05GSUdfTlVNQSAqLwogCS8qCi0JICogT24gdGhlIEJTUCwgdGhlIHBhZ2Ug
+YWxsb2NhdG9yIGlzbid0IGluaXRpYWxpemVkIGJ5IHRoZSB0aW1lIHdlIGdldCBoZXJlLiAgT24K
+LQkgKiB0aGUgQVBzLCB0aGUgYm9vdG1lbSBhbGxvY2F0b3IgaXMgbm8gbG9uZ2VyIGF2YWlsYWJs
+ZS4uLgorCSAqIGdldF9mcmVlX3BhZ2VzKCkgY2Fubm90IGJlIHVzZWQgYmVmb3JlIGNwdV9pbml0
+KCkgZG9uZS4gIEJTUCBhbGxvY2F0ZXMKKwkgKiAiTlJfQ1BVUyIgcGFnZXMgZm9yIGFsbCBDUFVz
+IHRvIGF2b2lkIHRoYXQgQVAgY2FsbHMgZ2V0X3plcm9lZF9wYWdlKCkuCiAJICovCi0JaWYgKGNw
+dSA9PSAwKQotCQlteV9jcHVfZGF0YSA9IGFsbG9jX2Jvb3RtZW1fcGFnZXMoX19wZXJfY3B1X2Vu
+ZCAtIF9fcGVyX2NwdV9zdGFydCk7Ci0JZWxzZQotCQlteV9jcHVfZGF0YSA9ICh2b2lkICopIGdl
+dF96ZXJvZWRfcGFnZShHRlBfS0VSTkVMKTsKLQltZW1jcHkobXlfY3B1X2RhdGEsIF9fcGh5c19w
+ZXJfY3B1X3N0YXJ0LCBfX3Blcl9jcHVfZW5kIC0gX19wZXJfY3B1X3N0YXJ0KTsKLQlfX3Blcl9j
+cHVfb2Zmc2V0W2NwdV0gPSAoY2hhciAqKSBteV9jcHVfZGF0YSAtIF9fcGVyX2NwdV9zdGFydDsK
+LQlteV9jcHVfaW5mbyA9IG15X2NwdV9kYXRhICsgKChjaGFyICopICZfX2dldF9jcHVfdmFyKGNw
+dV9pbmZvKSAtIF9fcGVyX2NwdV9zdGFydCk7Ci0jIGVuZGlmIC8qICFDT05GSUdfTlVNQSAqLwor
+CWlmIChzbXBfcHJvY2Vzc29yX2lkKCkgPT0gMCkgeworCQljcHVfZGF0YSA9ICh1bnNpZ25lZCBs
+b25nKWFsbG9jX2Jvb3RtZW1fcGFnZXMoUEFHRV9TSVpFICogTlJfQ1BVUyk7CisJCWZvciAoY3B1
+ID0gMDsgY3B1IDwgTlJfQ1BVUzsgY3B1KyspIHsKKwkJCW1lbWNweShjcHVfZGF0YSwgX19waHlz
+X3Blcl9jcHVfc3RhcnQsIF9fcGVyX2NwdV9lbmQgLSBfX3Blcl9jcHVfc3RhcnQpOworCQkJX19w
+ZXJfY3B1X29mZnNldFtjcHVdID0gKGNoYXIgKikgY3B1X2RhdGEgLSBfX3Blcl9jcHVfc3RhcnQ7
+CisJCQljcHVfZGF0YSArPSBQQUdFX1NJWkU7CisJCX0KKwl9CisJY3B1X2RhdGEgPSBfX3Blcl9j
+cHVfc3RhcnQgKyBfX3Blcl9jcHVfb2Zmc2V0W3NtcF9wcm9jZXNzb3JfaWQoKV07CiAjZWxzZSAv
+KiAhQ09ORklHX1NNUCAqLwotCW15X2NwdV9kYXRhID0gX19waHlzX3Blcl9jcHVfc3RhcnQ7CisJ
+Y3B1X2RhdGEgPSBfX3BoeXNfcGVyX2NwdV9zdGFydDsKICNlbmRpZiAvKiAhQ09ORklHX1NNUCAq
+LwotCW15X2NwdV9pbmZvID0gbXlfY3B1X2RhdGEgKyAoKGNoYXIgKikgJl9fZ2V0X2NwdV92YXIo
+Y3B1X2luZm8pIC0gX19wZXJfY3B1X3N0YXJ0KTsKKworCWNwdV9pbmZvID0gY3B1X2RhdGEgKyAo
+KGNoYXIgKikgJl9fZ2V0X2NwdV92YXIoY3B1X2luZm8pIC0gX19wZXJfY3B1X3N0YXJ0KTsKKyNp
+ZmRlZiBDT05GSUdfTlVNQQorCWNwdV9pbmZvLT5ub2RlX2RhdGEgPSBnZXRfbm9kZV9kYXRhX3B0
+cigpOworCWNwdV9pbmZvLT5ub2RlaWQgPSBib290X2dldF9sb2NhbF9ub2RlaWQoKTsKKyNlbmRp
+ZgogCiAJLyoKIAkgKiBXZSBjYW4ndCBwYXNzICJsb2NhbF9jcHVfZGF0YSIgdG8gaWRlbnRpZnlf
+Y3B1KCkgYmVjYXVzZSB3ZSBoYXZlbid0IGNhbGxlZApAQCAtNjcyLDE0ICs2NTksMTQgQEAKIAkg
+KiBkZXBlbmRzIG9uIHRoZSBkYXRhIHJldHVybmVkIGJ5IGlkZW50aWZ5X2NwdSgpLiAgV2UgYnJl
+YWsgdGhlIGRlcGVuZGVuY3kgYnkKIAkgKiBhY2Nlc3NpbmcgY3B1X2RhdGEoKSB0aGUgb2xkIHdh
+eSwgdGhyb3VnaCBpZGVudGl0eSBtYXBwZWQgc3BhY2UuCiAJICovCi0JaWRlbnRpZnlfY3B1KG15
+X2NwdV9pbmZvKTsKKwlpZGVudGlmeV9jcHUoY3B1X2luZm8pOwogCiAjaWZkZWYgQ09ORklHX01D
+S0lOTEVZCiAJewogIwkJZGVmaW5lIEZFQVRVUkVfU0VUIDE2CiAJCXN0cnVjdCBpYTY0X3BhbF9y
+ZXR2YWwgaXBydjsKIAotCQlpZiAobXlfY3B1X2luZm8tPmZhbWlseSA9PSAweDFmKSB7CisJCWlm
+IChjcHVfaW5mby0+ZmFtaWx5ID09IDB4MWYpIHsKIAkJCVBBTF9DQUxMX1BIWVMoaXBydiwgUEFM
+X1BST0NfR0VUX0ZFQVRVUkVTLCAwLCBGRUFUVVJFX1NFVCwgMCk7CiAJCQlpZiAoKGlwcnYuc3Rh
+dHVzID09IDApICYmIChpcHJ2LnYwICYgMHg4MCkgJiYgKGlwcnYudjIgJiAweDgwKSkKIAkJCQlQ
+QUxfQ0FMTF9QSFlTKGlwcnYsIFBBTF9QUk9DX1NFVF9GRUFUVVJFUywKQEAgLTcxMCw3ICs2OTcs
+NyBAQAogCWlmIChjdXJyZW50LT5tbSkKIAkJQlVHKCk7CiAKLQlpYTY0X21tdV9pbml0KG15X2Nw
+dV9kYXRhKTsKKwlpYTY0X21tdV9pbml0KGNwdV9kYXRhKTsKIAogI2lmZGVmIENPTkZJR19JQTMy
+X1NVUFBPUlQKIAkvKiBpbml0aWFsaXplIGdsb2JhbCBpYTMyIHN0YXRlIC0gQ1IwIGFuZCBDUjQg
+Ki8K
+
+--------_3DBC16351042036BF00C_MULTIPART_MIXED_--
 
 
