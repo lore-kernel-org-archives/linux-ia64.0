@@ -1,33 +1,25 @@
-From: Zwane Mwaikambo <zwane@linuxpower.ca>
-Date: Fri, 19 Mar 2004 00:43:05 +0000
+From: Pavel Machek <pavel@suse.cz>
+Date: Tue, 23 Mar 2004 09:56:01 +0000
 Subject: Re: add lowpower_idle sysctl
-Message-Id: <Pine.LNX.4.58.0403181942420.28447@montezuma.fsmlabs.com>
+Message-Id: <20040323095600.GE1505@openzaurus.ucw.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040317170436.430acfbe.akpm@osdl.org>
- <200403180318.i2I3IDF03166@unix-os.sc.intel.com> <20040317192821.1fe90f24.akpm@osdl.org>
- <Pine.LNX.4.58.0403172237470.28447@montezuma.fsmlabs.com> <405A29EA.6000400@mvista.com>
-In-Reply-To: <405A29EA.6000400@mvista.com>
+References: <200403180031.i2I0VQF02038@unix-os.sc.intel.com>
+In-Reply-To: <200403180031.i2I0VQF02038@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Todd Poynor <tpoynor@mvista.com>
-Cc: Andrew Morton <akpm@osdl.org>, Kenneth Chen <kenneth.w.chen@intel.com>, linux-ia64@vger.kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>, CPU Freq ML <cpufreq@www.linux.org.uk>
+To: Kenneth Chen <kenneth.w.chen@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, 18 Mar 2004, Todd Poynor wrote:
+Hi!
 
-> Zwane Mwaikambo wrote:
->
-> >>Set some system-wide integer via a sysctl and let the particular
-> >>architecture decide how best to implement the currently-selected idle mode?
-> >
-> > I'm wondering whether the setting of these magic numbers can't be done
-> > using cpufreq infrastructure.
->
-> I'd vote for using Patrick Mochel's PM subsystem and use a standard set
-> of identifiers that are mapped to a platform-specific idle behavior, in
-> much the same way as platform suspend modes are handled today.  For
-> example, strings echoed to /sys/power/idle could be an interface.  If
-> folks are amenable to this I'd be happy to supply a (generic) patch for it.
+> On ia64, we need runtime control to manage CPU power state in the idle
+> loop.  Logically it means a sysctl entry in /proc/sys/kernel.  Even
+> though this sysctl entry doesn't exist today, lots of arch already has
+> some sort of API to dynamically enable/disable low power idle state.
 
-Ta, sounds good, give us a look.
+If you make it "max Cx state to allow", it will be usefull for ACPI people, too...
+				Pavel
+-- 
+64 bytes from 195.113.31.123: icmp_seq( ttlQ timeD8769.1 ms         
 
