@@ -1,86 +1,36 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Sat, 27 Mar 2004 00:03:37 +0000
-Subject: [PATCH] only scan PCI busses that exist
-Message-Id: <200403261603.37747.jbarnes@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_ZTMZAYWioL7EM7o"
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 12 Mar 2004 05:58:51 +0000
+Subject: kernel update (relative to v2.6.4)
+Message-Id: <200403120558.i2C5wp4a010686@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+The latest ia64 kernel patch is now available at
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.6 in file:
 
---Boundary-00=_ZTMZAYWioL7EM7o
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+  linux-2.6.4-ia64-040311.diff.gz
 
-sn_pci_init was unconditionally scanning 255 PCI busses, even though only a 
-few are actually present on most systems.  This patch adds a check to make 
-sure a given bus exists before doing the scan, which saves a little memory 
-and also makes /sys/devices reflect reality a bit more closely.
+Apart from syncing with 2.6.4, this contains various small bug fixes.
+If you use ia64 linux on a workstation, I'd definitely recommend using
+this patch because it fixes some nasty races in the OHCI USB driver
+(used on most HP machines, for example) and a bug in the HID input
+driver which could cause a CPU to get stuck when connecting certain
+USB devices.  Also, I think Ken's fix for the softirq handling
+unexpectedly fixed some sound play-back issues (it's always nice when
+a fix shows up before the problem is even tracked down... ;-).
 
-Thanks,
-Jesse
+Oh, due to Matthew's patch to switch over to drivers/Kconfig, you'll
+have to type "n" a lot when doing "make oldconfig" for the Ski
+simulator.  But that should be a one-time event and it's all for the
+better.  If you're lazy, you could try:
 
---Boundary-00=_ZTMZAYWioL7EM7o
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="pci-not-all-busses.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="pci-not-all-busses.patch"
+	$ yes n | make oldconfig
 
-===== arch/ia64/sn/io/machvec/pci_bus_cvlink.c 1.36 vs edited =====
---- 1.36/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Thu Feb 19 09:12:31 2004
-+++ edited/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Fri Mar 26 15:50:30 2004
-@@ -811,7 +811,6 @@
- 	/*
- 	 * set pci_raw_ops, etc.
- 	 */
--
- 	sgi_master_io_infr_init();
- 
- 	for (cnode = 0; cnode < numnodes; cnode++) {
-@@ -826,16 +825,16 @@
- #endif
- 
- 	controller = kmalloc(sizeof(struct pci_controller), GFP_KERNEL);
--	if (controller) {
--		memset(controller, 0, sizeof(struct pci_controller));
--		/* just allocate some devices and fill in the pci_dev structs */
--		for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
--			pci_scan_bus(i, &sn_pci_ops, controller);
-+	if (!controller) {
-+		printk(KERN_WARNING "cannot allocate PCI controller\n");
-+		return 0;
- 	}
- 
--	/*
--	 * actually find devices and fill in hwgraph structs
--	 */
-+	memset(controller, 0, sizeof(struct pci_controller));
-+
-+	for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
-+		if (pci_bus_to_vertex(i))
-+			pci_scan_bus(i, &sn_pci_ops, controller);
- 
- 	done_probing = 1;
- 
-@@ -857,13 +856,8 @@
- 	 * set the root start and end so that drivers calling check_region()
- 	 * won't see a conflict
- 	 */
--
--#ifdef CONFIG_IA64_SGI_SN_SIM
--	if (! IS_RUNNING_ON_SIMULATOR()) {
--		ioport_resource.start  = 0xc000000000000000;
--		ioport_resource.end =    0xcfffffffffffffff;
--	}
--#endif
-+	ioport_resource.start = 0xc000000000000000;
-+	ioport_resource.end = 0xcfffffffffffffff;
- 
- 	/*
- 	 * Set the root start and end for Mem Resource.
+Just don't sue me if this yields a non-working kernel!
 
---Boundary-00=_ZTMZAYWioL7EM7o--
+Enjoy,
+
+	--david
