@@ -1,55 +1,107 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Mon, 13 Sep 2004 18:27:48 +0000
-Subject: [PATCH] restore _OS object to "Linux" for ia64
-Message-Id: <1095100068.20631.30.camel@tdi>
+From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Date: Thu, 23 Sep 2004 16:32:13 +0000
+Subject: [PATCH][2/4] Add arch_register_node() for ia64
+Message-Id: <20040924013213.00004a83.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040920092520.A14208@unix-os.sc.intel.com>
+	<20040920094719.H14208@unix-os.sc.intel.com>
+	<20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
+In-Reply-To: <20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, acpi-devel <acpi-devel@lists.sourceforge.net>
+To: anil.s.keshavamurthy@intel.com
+Cc: len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
 
 
-   A recent change to ACPI made the _OS object falsely report the OS as
-"Microsoft Windows NT".  This seems like a slippery slope, and I'd
-rather not go down it for ia64.  I think all of the ia64 OEMs are
-involved enough with Linux that this isn't necessary and the change
-limits the options should ACPI firmware need to make an OS specific work
-around.  The patch below will make all ia64 boxes report a default _OS
-of "Linux".  Thanks,
+Name: numa_hp_ia64.patch
+Status: Tested on 2.6.9-rc2
+Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Description:
+Add arch_register_node() to arch/ia64/kernel/topology.c.  The
+topology.c has been introduced by Anil (Intel).
 
-	Alex
+Thanks,
+Keiichiro Tokunaga
+---
 
--- 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+ linux-2.6.9-rc2-fix-kei/arch/ia64/kernel/acpi.c     |    1 +
+ linux-2.6.9-rc2-fix-kei/arch/ia64/kernel/topology.c |   18 +++++++++++++++---
+ linux-2.6.9-rc2-fix-kei/include/asm-ia64/numa.h     |    3 ++-
+ 3 files changed, 18 insertions(+), 4 deletions(-)
 
-=== arch/ia64/kernel/acpi.c 1.74 vs edited ==--- 1.74/arch/ia64/kernel/acpi.c	Thu Aug  5 22:40:29 2004
-+++ edited/arch/ia64/kernel/acpi.c	Mon Sep 13 09:32:46 2004
-@@ -629,6 +629,13 @@
- #endif
- 	/* Make boot-up look pretty */
- 	printk(KERN_INFO "%d CPUs available, %d CPUs total\n", available_cpus, total_cpus);
-+
-+	/*
-+	 * Make the _OS object report the right name, ia64 Linux has
-+	 * enough OEM support that we shouldn't need to fake another OS.
-+	 */
-+	acpi_os_name_setup("Linux");
-+
- 	return 0;
- }
+diff -puN arch/ia64/kernel/acpi.c~numa_hp_ia64 arch/ia64/kernel/acpi.c
+--- linux-2.6.9-rc2-fix/arch/ia64/kernel/acpi.c~numa_hp_ia64	2004-09-24 00:14:56.062297005 +0900
++++ linux-2.6.9-rc2-fix-kei/arch/ia64/kernel/acpi.c	2004-09-24 00:14:56.069132982 +0900
+@@ -362,6 +362,7 @@ int __devinitdata pxm_to_nid_map[MAX_PXM
+ int __initdata nid_to_pxm_map[MAX_NUMNODES];
+ static struct acpi_table_slit __initdata *slit_table;
  
-=== include/acpi/acpiosxf.h 1.34 vs edited ==--- 1.34/include/acpi/acpiosxf.h	Fri Jul 16 23:37:53 2004
-+++ edited/include/acpi/acpiosxf.h	Mon Sep 13 09:38:55 2004
-@@ -313,6 +313,10 @@
- 	u32                             function,
- 	void                            *info);
- 
-+int __init
-+acpi_os_name_setup (
-+	char				*str);
-+
++EXPORT_SYMBOL(pxm_to_nid_map);
  /*
-  * Debug print routines
-  */
+  * ACPI 2.0 SLIT (System Locality Information Table)
+  * http://devresource.hp.com/devresource/Docs/TechPapers/IA64/slit.pdf
+diff -puN arch/ia64/kernel/topology.c~numa_hp_ia64 arch/ia64/kernel/topology.c
+--- linux-2.6.9-rc2-fix/arch/ia64/kernel/topology.c~numa_hp_ia64	2004-09-24 00:14:56.064250141 +0900
++++ linux-2.6.9-rc2-fix-kei/arch/ia64/kernel/topology.c	2004-09-24 00:14:56.070109550 +0900
+@@ -21,8 +21,9 @@
+ #include <asm/mmzone.h>
+ #include <asm/numa.h>
+ #include <asm/cpu.h>
+-
+ #ifdef CONFIG_NUMA
++#include <asm/numa.h>
++
+ static struct node *sysfs_nodes;
+ #endif
+ static struct ia64_cpu *sysfs_cpus;
+@@ -37,6 +38,18 @@ int arch_register_cpu(int num)
+ 
+ 	return register_cpu(&sysfs_cpus[num].cpu, num, parent);
+ }
++#ifdef CONFIG_NUMA
++int arch_register_node(int num) {
++	return register_node(&sysfs_nodes[num],num,0);
++}
++int arch_unregister_node(int num) {
++	unregister_node(&sysfs_nodes[num],0);
++	return 0;
++}
++
++EXPORT_SYMBOL(arch_register_node);
++EXPORT_SYMBOL(arch_unregister_node);
++#endif /*CONFIG_NUMA*/
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+ 
+@@ -69,7 +82,7 @@ static int __init topology_init(void)
+ 	memset(sysfs_nodes, 0, sizeof(struct node) * MAX_NUMNODES);
+ 
+ 	for (i = 0; i < numnodes; i++)
+-		if ((err = register_node(&sysfs_nodes[i], i, 0)))
++ 		if ((err = arch_register_node(i)))
+ 			goto out;
+ #endif
+ 
+@@ -86,5 +99,4 @@ static int __init topology_init(void)
+ out:
+ 	return err;
+ }
+-
+ __initcall(topology_init);
+diff -puN include/asm-ia64/numa.h~numa_hp_ia64 include/asm-ia64/numa.h
+--- linux-2.6.9-rc2-fix/include/asm-ia64/numa.h~numa_hp_ia64	2004-09-24 00:14:56.066203277 +0900
++++ linux-2.6.9-rc2-fix-kei/include/asm-ia64/numa.h	2004-09-24 00:14:56.070109550 +0900
+@@ -65,8 +65,9 @@ extern int paddr_to_nid(unsigned long pa
+ 
+ #define local_nodeid (cpu_to_node_map[smp_processor_id()])
+ 
++extern int arch_register_node(int num);
++extern int arch_unregister_node(int num);
+ #else /* !CONFIG_NUMA */
+-
+ #define paddr_to_nid(addr)	0
+ 
+ #endif /* CONFIG_NUMA */
 
-
+_
