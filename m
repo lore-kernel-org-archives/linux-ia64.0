@@ -1,27 +1,21 @@
-From: "H . J . Lu" <hjl@valinux.com>
-Date: Wed, 27 Sep 2000 22:39:47 +0000
-Subject: [Linux-ia64] test8+0913 patch on B1 BigSur UP
-Message-Id: <marc-linux-ia64-105590678205525@msgid-missing>
+From: "Woller, Thomas" <twoller@crystal.cirrus.com>
+Date: Wed, 06 Sep 2000 16:17:05 +0000
+Subject: [Linux-ia64] KGDB patch for ia64 for 2.4.0-testN
+Message-Id: <marc-linux-ia64-105590678205456@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Sep 13, 2000 at 06:50:33PM -0700, David Mosberger wrote:
-> Since the last diff had a few serious problems, including the infamous
-> ACPI bug and an fph problem that caused xmms not to work on UP
-> machine, there is now a new diff available at:
-> 
->  ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
-> 
-> in file linux-2.4.0-test8-ia64-000913.diff.
-> 
+anyone have a KGDB patch for ia64 SMP 2.4.0-testN?  UP is also ok. 
+or another recommendation for a kernel level debugger for Linux ia64.
 
-I couldn't get this kernel to work on my B1 BigSur UP. It hangs at the
-random places when going to run level 1 to 3. BTW, test8+0908+acpi
-works fine.
+thanks
 
+Tom Woller
+twoller@crystal.cirrus.com
+Cirrus Logic/Crystal Semiconductor
+(512) 912-3920
 
-H.J.
 
