@@ -1,7 +1,7 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Thu, 16 Dec 2004 00:50:49 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Thu, 16 Dec 2004 00:54:56 +0000
 Subject: Re: [very very drafty] prezeroing to increase the page fault rate
-Message-Id: <1103158249.5054.29.camel@npiggin-nld.site>
+Message-Id: <Pine.LNX.4.58.0412151651290.14157@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0412141832350.6975@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0412141832350.6975@schroedinger.engr.sgi.com>
@@ -10,43 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2004-12-15 at 16:41 -0800, Linus Torvalds wrote:
-> 
-> On Thu, 16 Dec 2004, Nick Piggin wrote:
-> > 
-> > I think if there were *no* downsides to this patch, it would
-> > obviously make sense - because in that case it doesn't really matter
-> > whether the cache is heated by the fault handler or by the app
-> > itself... but it does have some downsides (complexity, memory
-> > bandwidth, cache degradation in the case of idle zeroing, less
-> > predictable performance).
-> 
-> The big downside I personally fear is that the added activity disturbs
-> other processes.
-> 
-> For example, even outside the obvious bus activity issues on SMP systems, 
-> things like idle loop exit latency and even just CPU power usage are 
-> things that makes me go "Hmmm.."
-> 
-> I don't dislike pre-zeroing per se, but I'm pretty strongly of the opinion
-> that it should be done not by the idle loop or any other very low-level
-> system process. I'd personally much prefer it donne at a somewhat higher
-> level, so that users can control it as part of system management, and so 
-> that it does not impact the _real_ idle loop.
-> 
-> So I'd much prefer a background "scrubd" or similar. 
-> 
+On Thu, 16 Dec 2004, Nick Piggin wrote:
 
-I agree.
+> Christoph, just another thing now that I glance at the patch - the
+> page locking and deferred coalescing seems to be fairly ugly...
 
-Christoph, just another thing now that I glance at the patch - the
-page locking and deferred coalescing seems to be fairly ugly...
+Right. I tried various other things that were even uglier before that
+finally worked.
 
-Would it be possible to just *allocate* the page, zero it, then
-free it, and have it get put onto the zero page list from there?
-If you conceptually think of a page being zeroed as being in use,
-then it would be natural to allocate it...?
+> Would it be possible to just *allocate* the page, zero it, then
+> free it, and have it get put onto the zero page list from there?
+> If you conceptually think of a page being zeroed as being in use,
+> then it would be natural to allocate it...?
 
+I tried that. This increases the overhead significantly. Also if you put
+back a zeroed page and its going to be merged with its neighbor (likely
+not zeroed) then the zero bit has to be dropped. Its then getting a bit
+difficult to get zeroed pages into the buddy allocator.
 
-
-
+One could set the zero bit on each individual page but then that increases
+again overhead of managing them and checking them.
