@@ -1,79 +1,90 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 04 Feb 2004 21:32:12 +0000
-Subject: RE: [PATCH] turn off irqdebug by default on Altix
-Message-Id: <B05667366EE6204181EABE9C1B1C0EB58024BA@scsmsx401.sc.intel.com>
+From: Martin Hicks <mort@sgi.com>
+Date: Thu, 05 Feb 2004 18:37:28 +0000
+Subject: Re: [PATCH] turn off irqdebug by default on Altix
+Message-Id: <20040205183728.GC19025@localhost>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="OgqxwSJOaUobr8KG"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040204152841.GB3387@localhost>
 In-Reply-To: <20040204152841.GB3387@localhost>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Don't take me wrong, I do want these irqdebug off too on one of our
-large performance setup here as well :-)  Even reading from variable
-noirqdebug is costing us some cache misses.  Can this be made compile
-time option?  So when it is off, it is really off unless someone need to
-turn this debug option on and off dynamically.
 
-- Ken
-
------Original Message-----
-From: linux-ia64-owner@vger.kernel.org
-[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Jack Steiner
-Sent: Wednesday, February 04, 2004 11:41 AM
-To: Martin Hicks
-Cc: Chen, Kenneth W; linux-ia64@vger.kernel.org; akpm@osdl.org;
-jbarnes@sgi.com
-Subject: Re: [PATCH] turn off irqdebug by default on Altix
+--OgqxwSJOaUobr8KG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
 
-On Wed, Feb 04, 2004 at 02:08:05PM -0500, Martin Hicks wrote:
-> 
-> 
-> On Wed, Feb 04, 2004 at 11:04:43AM -0800, Chen, Kenneth W wrote:
-> > This is really confusing with two parameters that do the same thing.
-> > What will happen if someone pass noirqdebug and irqdebug at the same
-> > time?
+
+On Wed, Feb 04, 2004 at 01:40:47PM -0600, Jack Steiner wrote:
+> On Wed, Feb 04, 2004 at 02:08:05PM -0500, Martin Hicks wrote:
 > > 
-> > What's wrong with boot time parameter of noirqdebug?
+> > 
+> > On Wed, Feb 04, 2004 at 11:04:43AM -0800, Chen, Kenneth W wrote:
+> > > This is really confusing with two parameters that do the same thing.
+> > > What will happen if someone pass noirqdebug and irqdebug at the same
+> > > time?
+> > > 
+> > > What's wrong with boot time parameter of noirqdebug?
+> > 
+> > It just means that if you forget to pass this option then your machine
+> > never boots.  Well, it will boot.  Eventually.  Jack is a patient man,
+> > and he said he never waited long enough for it to boot.
 > 
-> It just means that if you forget to pass this option then your machine
-> never boots.  Well, it will boot.  Eventually.  Jack is a patient man,
-> and he said he never waited long enough for it to boot.
-
-Actually, I determined that a big system would never boot. Each cpu
-would have to
-do about 1500usec of work every 1000usec.  (highly dependent on the
-system interconnect).
-
-Each clock tick, the desc->irq_count is incremented by each cpu. On a
-big
-system, this creates an incredibly hot cache line. On a big system, it
-takes
-more than a millisecond to do the update. At that point, another clock
-interrupt is already pending. Forward progress stops.
-
-Another possible approach might be to special case note_interrupt() to
-skip the update for the timer tick. (I havent actually looked at the
-code, but
-this should be possible). 
-
-
+> Actually, I determined that a big system would never boot. Each cpu would have to
+> do about 1500usec of work every 1000usec.  (highly dependent on the
+> system interconnect).
 > 
-> mh
+> Each clock tick, the desc->irq_count is incremented by each cpu. On a big
+> system, this creates an incredibly hot cache line. On a big system, it takes
+> more than a millisecond to do the update. At that point, another clock
+> interrupt is already pending. Forward progress stops.
 > 
-> -- 
-> Martin Hicks || mort@bork.org || PGP/GnuPG: 0x4C7F2BEE
+> Another possible approach might be to special case note_interrupt() to
+> skip the update for the timer tick. (I havent actually looked at the code, but
+> this should be possible). 
+
+Okay.  This is certainly less messy, and is IA64 specific.
+
+How about this patch?  I just tested it on a 512p machine and it booted.
+
+mh
 
 -- 
-Thanks
+Martin Hicks   ||   Silicon Graphics Inc.   ||   mort@sgi.com
 
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
+--OgqxwSJOaUobr8KG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="no-timer-interrupt-in-note-interrupt.diff"
 
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1543  -> 1.1544 
+#	arch/ia64/kernel/irq.c	1.34    -> 1.35   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/02/04	mort@green.i.bork.org	1.1544
+# Don't debug the timer interrupt in note_interrupt().  This
+# should allow forward progress on large machine with irqdebug
+# enabled.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/kernel/irq.c b/arch/ia64/kernel/irq.c
+--- a/arch/ia64/kernel/irq.c	Wed Feb  4 15:43:12 2004
++++ b/arch/ia64/kernel/irq.c	Wed Feb  4 15:43:12 2004
+@@ -311,6 +311,10 @@
+  */
+ static void note_interrupt(int irq, irq_desc_t *desc, irqreturn_t action_ret)
+ {
++	/* Don't debug the timer interrupt */
++	if (irq == IA64_TIMER_VECTOR)
++		return;
++
+ 	if (action_ret != IRQ_HANDLED) {
+ 		desc->irqs_unhandled++;
+ 		if (action_ret != IRQ_NONE)
 
--
-To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--OgqxwSJOaUobr8KG--
