@@ -1,65 +1,50 @@
-From: "Jeff V. Merkey" <jmerkey@timpanogas.com>
-Date: Mon, 19 Jun 2000 20:50:07 +0000
-Subject: [Linux-ia64] [Fwd: IA64 version of 2.4.0-test1 has compile errors/config errors]
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------238C1E9C638E85965A40B4E8"
-Message-Id: <marc-linux-ia64-105590678205166@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Wed, 21 Jun 2000 17:44:53 +0000
+Subject: [Linux-ia64] new Red Hat Linux for IA-64 available
+Message-Id: <marc-linux-ia64-105590678205167@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205165@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205165@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------238C1E9C638E85965A40B4E8
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+A new Red Hat Linux Development Release for IA-64 is available.
+You can download this release from:
 
- 
---------------238C1E9C638E85965A40B4E8
-Content-Type: message/rfc822
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+	ftp://ftp.redhat.com/pub/redhat/ia64/
+	
+ISO images for both the source and binary CD are available.
+See the README in that directory for specific installation instructions.
 
-X-Mozilla-Status2: 00000000
-Message-ID: <394E69D0.E867BCBF@timpanogas.com>
-Date: Mon, 19 Jun 2000 12:43:28 -0600
-From: "Jeff V. Merkey" <jmerkey@timpanogas.com>
-Organization: TRG, Inc.
-X-Mailer: Mozilla 4.7 [en] (WinNT; I)
-X-Accept-Language: en
-MIME-Version: 1.0
-To: linux-kernel@vger.rutgers.edu
-Subject: IA64 version of 2.4.0-test1 has compile errors/config errors
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+There is a mailing list to discuss the Red Hat Linux IA-64 release,
+and Linux on the IA-64 in general. To subscribe, send mail to
+ia64-list-request@redhat.com with
 
+subscribe
 
-The IA64 build of 2.4.0-test1 reports type mismatch errors for strlen()
-and memset() with the latest build of linux-2.4.0-test1 at
-www.kernel.org when you build the kernel under the NUE environment with
-the GCC IA64 compiler/linker.  The compile error indicates a conflict
-with built in functions with the same name.   
+in the subject line. You can leave the body empty.
 
-The .config file is also has sone issues.  When you follow the
-instructions that come with SKI and NUE for IA64, they instruct you to
-copy the kernel.config file that comes with the IA64 SKI simulator file
-system over the default .config in the /linux main build directory. 
-After running "make config" or "make oldconfig", several config options
-get deleted from .config such as CONFIG_SIMETH=y, CONFIG_SIM_SERIAL=y,
-and CONFIG_SIM_SCSI=y and have to be "hacked in" manually or the target
-vmlinux file does not get built properly and will not load correctly
-with SKI.  
+Changes from the previous release:
 
-Also, IA32 emulation support is listed in .config as "experimental", but
-seems to work ok when enabled.  The lack of loadable module support also
-seems troublesome.  I am assuming modutils have not been modified to
-support IA64?
+- X server support is now included. Only the Rage128 driver is
+  tested; other drivers may work. Run 'Xconfigurator' after the
+  install to set up X, and do *not* choose to test the setup.
+  If all else fails, edit /etc/X11/XF86Config-4.
+- The kernel has been updated to 2.4.0-test1; this kernel includes
+  some preliminary module support.
+- ia32 binary emulation support is included. Binaries from Red Hat
+  Linux 6.2 should run OK (netscape is included.)
+- GNOME 1.2 is included
 
-:-)
+Compatibility Notes:
 
-Jeff
+Programs from the previous (May) Red Hat Linux IA-64 Development Release
+should run on this release; compatibility is not guaranteed, though.
 
---------------238C1E9C638E85965A40B4E8--
+However, programs built on both this and the May release
+will not run on future releases. Similarly, programs built
+on future releases will not run on this release.
 
+Bill
 
 
