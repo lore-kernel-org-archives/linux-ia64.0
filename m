@@ -1,110 +1,88 @@
 From: Bukie Mabayoje <bukiemab@gte.net>
-Date: Sun, 20 Feb 2005 17:29:06 +0000
+Date: Thu, 24 Feb 2005 18:40:58 +0000
 Subject: Re: IA64 memory
-Message-Id: <4218C8E2.E648C8A9@gte.net>
+Message-Id: <421E1FBA.7FA3BC5E@gte.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <851caabb05020220513945437@mail.gmail.com>
 In-Reply-To: <851caabb05020220513945437@mail.gmail.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Below is a sample memory map from EFI. You will see gaps between the memory types.
+The GRANULE is a chunk of available memory. e.g  the second line is a GRANULE  0x1000-0x6FFF
 
+For trim_bottom refer to func trim_bottom():efi.c
+For trip_top refer to func trim_top():efi.c
+
+Type       Start            End               # Pages          Attributes
+BS_data    0000000000000000-0000000000000FFF  0000000000000001 0000000000000009
+available  0000000000001000-0000000000006FFF  0000000000000006 0000000000000009
+BS_data    0000000000007000-0000000000008FFF  0000000000000002 0000000000000009
+available  0000000000009000-0000000000081FFF  0000000000000079 0000000000000009
+RT_data    0000000000082000-0000000000083FFF  0000000000000002 8000000000000009
+available  0000000000084000-0000000000084FFF  0000000000000001 0000000000000009
+BS_data    0000000000085000-000000000009FFFF  000000000000001B 0000000000000009
+RT_code    00000000000C0000-00000000000FFFFF  0000000000000040 8000000000000009
+available  0000000000100000-000000000FFBFFFF  000000000000FEC0 000000000000000B
+BS_data    000000000FFC0000-000000000FFFFFFF  0000000000000040 000000000000000B
+available  0000000010000000-000000007C92DFFF  000000000006C92E 000000000000000B
+LoaderData 000000007C92E000-000000007C937FFF  000000000000000A 000000000000000B
+LoaderCode 000000007C938000-000000007C97DFFF  0000000000000046 000000000000000B
+available  000000007C97E000-000000007CE29FFF  00000000000004AC 000000000000000B
+BS_data    000000007CE2A000-000000007D000FFF  00000000000001D7 000000000000000B
+available  000000007D001000-000000007D01DFFF  000000000000001D 000000000000000B
+BS_data    000000007D01E000-000000007D09BFFF  000000000000007E 000000000000000B
+available  000000007D09C000-000000007D09CFFF  0000000000000001 000000000000000B
+BS_data    000000007D09D000-000000007D37DFFF  00000000000002E1 000000000000000B
+available  000000007D37E000-000000007D6FFFFF  0000000000000382 000000000000000B
+BS_code    000000007D700000-000000007D77DFFF  000000000000007E 000000000000000B
+available  000000007D77E000-000000007D8B5FFF  0000000000000138 000000000000000B
+RT_data    000000007D8B6000-000000007D8FFFFF  000000000000004A 8000000000000009
+BS_code    000000007D900000-000000007F97FFFF  0000000000002080 000000000000000B
+available  000000007F980000-000000007F9FFFFF  0000000000000080 000000000000000B
+RT_code    000000007FA00000-000000007FDFFFFF  0000000000000400 8000000000000009
+PAL_code   000000007FE00000-000000007FE3FFFF  0000000000000040 8000000000000009
+RT_code    000000007FE40000-000000007FE97FFF  0000000000000058 8000000000000009
+available  000000007FE98000-000000007FED9FFF  0000000000000042 000000000000000B
+RT_code    000000007FEDA000-000000007FF45FFF  000000000000006C 8000000000000009
+RT_data    000000007FF46000-000000007FFFFFFF  00000000000000BA 8000000000000009
+MemMapIO   00000000FE000000-00000000FEFFFFFF  0000000000001000 0000000000000001
+RT_data    00000000FF000000-00000000FFFFFFFF  0000000000001000 8000000000000001
+MemMapIO   00000FFFF8000000-00000FFFFBFFFFFF  0000000000004000 8000000000000001
+MemPortIO  00000FFFFC000000-00000FFFFFFFFFFF  0000000000004000 8000000000000001
 
 Vaibhav Sharma wrote:
 
 > hi,
-> Thanks for all the help..
+> Thanks for the details regarding the elilo and the memory map..
 >
-> I am actually very new to EFI.
+> Actually my task involves investigating the IA64 memory code and I had
+> some more queries regarding the "efi_memmap_walk" function in efi.c.
+> It would be great if I could get some help regarding this.
 >
-> I had studied the EFI provided memory map...(Efiloader data,
-> Eficonventional memory etc)..
-> But I had one doubt...
-> The memory map from efi is also defined for locations more than that
-> which is available (I had 6GB of RAM on the machine, but the memory
-> map covered addresses more than 6GB). I could not understand why it
-> does so...
-
-Post the memmap output.    ----> Don't forget to convert it from unicode to ascii
-
+> Here is the flow of the fuction(i may be wrong in my interpretation):
 >
-> These addresses contained efi memory types as in the "actual"
-> available memory (< 6GB) like "efiConventionaMemory"and type
-> "MemoryIOPortSpace" in the end.
+> 1. scan all the efi memory descriptors in a "for" loop.
+> 2. exclude the non-WB memory.
+> 3. find the granule address (the comments in the file say that
+> [granule address - non-WB memory address] gives the contigous WB
+> memory). Then calculate the non-WB address.
+> 4. in function "trim_bottom", it reduces the number of pages for the
+> decriptor according to the granule.
+> 5. recalculate the non-wb address (shift it forward??).
+> 6. calls trim_top according to the " last granule address".
+> 7. calculate "start" and "end" addresses for the zone, check   for merging.
+> 8. after moving across all the descriptors, calls "callback"
 >
-> It would be great if I could get some documentation on how this memory
-> map is created
-
-Read the Memory Allocation Service. The chapter # is different  between the spec versions.
-
-> and why the memory map is supplied to the kernel for
-> address ranges more than that existing in physical memory. Also the
-> kernel will be using the "WB" type of memory only, and in the dump of
-> efi memory map, i found that the these zones had "WB" type. Are these
-> zones also used by the kernel and if not, for what purpose these zones
-> are.
-
-There are various reason why an OS maps a memory region with a given attribute and that is beyond the scope of this mail. It is easier to talk about specific attributes.
-Also read ExitBootServices(), it will explain the hand over of EFI memory map to the OS. On exit of ExitBootServices the OS owns all available (EfiConventionalMemory)  memory and a few others it can reclaim.. At this point it can do as it see fit with ONLY the memory its owns.
-
+> Actually I am not able to understand what is a GRANULE in IA64 and how
+> is it calculated, which uses the IA64_GRANULE_SIZE define.Is it
+> because of the  un-implemented bits in ia64..?. Also, why is that the
+> granule size ("last granule size") is recalculated (trim_bottom
+> earlier and trim_top now).
 >
-> TIA
+> TIA..
 > ---
 > vaibhav
-> On Sun, 6 Feb 2005 11:39:02 +0530, Vaibhav Sharma <vaibhav.sh@gmail.com> wrote:
-> > hi,
-> >
-> > Thanks for the reply again.
-> >
-> > Actually, my task requires me to modify the available physical memory.
-> > I was trying to locate the place where the kernel stores the amount of
-> > memory. Is this value stored in ia64_boot_param structure..?..If I am
-> > wrong, please so tell, and whether that there is some other place
-> > where this value is stored?
-> >
-> > I have not tried the elilo sources to locate the structure.
-> > I tried to locate the structure in the kernel sources, but i couldn't
-> > find the place where this structure is initialized, or where the
-> > particular elements of the data structure are asigned values. As you
-> > told, the  boot param structure is set up by elilo. I wanted to know
-> > that when the EFI comes into play..
-> > Is it that elilo reads the values from EFI?
-> > Also, i wanted to ask that whether EFI is stored in memory, so that it
-> > is accessible to the kernel sources?
-> >
-> > Please do reply...
-> > ---
-> > Vaibhav
-> >
-> > On Thu, 3 Feb 2005 18:31:36 -0800, David Mosberger
-> > <davidm@napali.hpl.hp.com> wrote:
-> > > >>>>> On Thu, 3 Feb 2005 12:33:40 +0530, Vaibhav Sharma <vaibhav.sh@gmail.com> said:
-> > >
-> > >  Vaibhav> Hi, Thanks a lot for a quick response, I appreciate.  If
-> > >  Vaibhav> you could only help me out a little more $,1s&(B.
-> > >
-> > >  Vaibhav> See, I need to change some of the boot parameters as
-> > >  Vaibhav> read/seen by the kernel. Once these parameters have been
-> > >  Vaibhav> setup by elilo, the Kernel must read it from these
-> > >  Vaibhav> predefined areas in memory, into some of its variables. I
-> > >  Vaibhav> need to understand where this reading part happens in the
-> > >  Vaibhav> kernel. This is where I want to modify the resources, for
-> > >  Vaibhav> future use by the kernel !! I don't want to touch the elilo
-> > >  Vaibhav> source, only the kernel.
-> > >
-> > > Why not grep the sources for ia64_boot_param?
-> > >
-> > >        --david
-> > >
-> > > -
-> > > To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> > > the body of a message to majordomo@vger.kernel.org
-> > > More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> > >
-> >
-> > --
-> > Vaibhav Sharma.
-> >
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
