@@ -1,7 +1,7 @@
-From: "McCaffity, Ray" <ray.mccaffity@wcg.com>
-Date: Tue, 01 May 2001 16:41:43 +0000
+From: "Hall, Jenna S" <jenna.s.hall@intel.com>
+Date: Tue, 01 May 2001 16:56:26 +0000
 Subject: RE: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related or
-Message-Id: <marc-linux-ia64-105590693005497@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005498@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005460@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005460@msgid-missing>
@@ -9,6 +9,32 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Either run the command "stepping" at the EFI prompt (you can download
+stepping.efi from QuAD), or check /proc/cpuinfo within the OS.  The revision
+entry tells which stepping:
+
+Revision 0 = Ax stepping
+Revision 1 = B0 stepping
+Revision 2 = B1 stepping
+Revision 3 = B2 stepping
+Revision 4 = B3 stepping
+Revision 5 = C0 stepping
+
+
+Jenna
+
+
+-----Original Message-----
+From: McCaffity, Ray [mailto:ray.mccaffity@wcg.com]
+Sent: Tuesday, May 01, 2001 9:42 AM
+To: 'Chris McDermott'; scole@lanl.gov
+Cc: alan@lxorguk.ukuu.org.uk; elenstev@mesatop.com; esr@thyrsus.com;
+kaos@ocs.com.au; linux-ia64@linuxia64.org;
+linux-ia64-admin@linuxia64.org
+Subject: RE: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related
+or phans from Configure.help
+
 
 Is there an easy way to tell what stepping your CPU supports?
 
@@ -117,4 +143,10 @@ _______________________________________________
 Linux-IA64 mailing list
 Linux-IA64@linuxia64.org
 http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
