@@ -1,7 +1,7 @@
-From: David Howells <dhowells@cambridge.redhat.com>
-Date: Fri, 08 Nov 2002 17:43:35 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 08 Nov 2002 17:52:19 +0000
 Subject: Re: [Linux-ia64] reader-writer livelock problem
-Message-Id: <marc-linux-ia64-105590709805364@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805365@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805355@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805355@msgid-missing>
@@ -10,12 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Do you mean have a separate lock type, or have two different read_lock
-> operations on the current type?
+On Fri, Nov 08, 2002 at 11:41:57AM -0600, Van Maren, Kevin wrote:
+> processor to acquire/release the lock once.  So with 32 processors
+> contending for the lock, at 1us per cache-cache transfer (picked
 
-You'd probably be better off with separate types... that way you can avoid
-problems with conditionals and also with different tracking fields being
-required by each grade of lock.
+if you have 32 processors contending for the same spinlock, you have
+bigger problems.
 
-David
+-- 
+Revolutions do not require corporate support.
 
