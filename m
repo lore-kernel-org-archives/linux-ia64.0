@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 29 Jul 2003 20:41:51 +0000
+From: Christopher Wedgwood <cw@sgi.com>
+Date: Tue, 29 Jul 2003 21:15:20 +0000
 Subject: Re: [PATCH] (2.4.x bk) efi_memmap_walk_uc
-Message-Id: <marc-linux-ia64-105951148111016@msgid-missing>
+Message-Id: <marc-linux-ia64-105951389114203@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105883467032028@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105883467032028@msgid-missing>
@@ -10,56 +10,46 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 29 Jul 2003 11:34:07 -0700, Christopher Wedgwood <cw@sgi.com> said:
+On Tue, Jul 29, 2003 at 01:41:51PM -0700, David Mosberger wrote:
 
-  Christopher> On Thu, Jul 24, 2003 at 06:15:42PM -0700, David Mosberger wrote:
+> There are many bits in attribute, such as MEMORY_RUNTIME etc.  The
+> real problem is that the code you sent me makes little sense to me.
 
-  >> I really would like to see the code that's using
-  >> efi_memmap_walk_uc() first.
+I can send the entire driver if that helps?  I think strictly speaking
+the issue is orthogonal to any specific driver if it's to be included
+outside the driver or platform code which why I brought this up.
 
-  Christopher> I think Jack sent this to you already
+> It creates a "node_fetchops" structure for _every_ uncached block of
+> address space?  Will there be problems if that address space/memory
+> is used for other purposes?
 
-If he did, I don't remember (and I don't have it in my inbox).
+No --- because there are no other users...  the code was almost
+certainly written a long time ago to solve an SN specific purpose and
+has been carried around in the form I presented.
 
-  >> Also, a check like this:
+I fully admit that in a general sense this code isn't workable but I
+think perhaps the concept of some kind of UC allocator might be.  If
+such a thing existed I'm quite sure we would have the fetchop driver
+ported to use it.
 
-  Chris> if (md->attribute = EFI_MEMORY_UC)
+> I think what we really want here is two bitmasks: one telling us
+> which bits we care about and one telling us what values those bits
+> should be set to.
 
-  >> is almost certainly wrong (md->attribute is a bitmap).
+Yes.  But does that really make the code more suitable for merging or
+is that merely a small step towards the larger picture?
 
-  Christopher> I think the logic here seems to have been uncached ONLY
-  Christopher> (ie. all other bits zero).
+> Can you work with Tony on this?  Since he's Mr. MCA (you OK with
+> this title, Tony? ;-) and since we'll have to map the MINSTATE area
+> UC, I think we want to make sure that the interface can handle all
+> of this.
 
-There are many bits in attribute, such as MEMORY_RUNTIME etc.  The
-real problem is that the code you sent me makes little sense to me.
-It creates a "node_fetchops" structure for _every_ uncached block of
-address space?  Will there be problems if that address space/memory is
-used for other purposes?
+Sure, I'm happy with that.  I had considered as for UC we could try to
+encourage everyone to have the MINSTATE containing granule to be all
+UC and perhaps for generic kernels compromise on 16MB granules?
+That's a different issue entirely though.
 
-  Christopher> I guess this falls down if new attributes are added so
-  Christopher> something like:
 
-  Christopher> if ((md->attribute & SOME_MASK) = EFI_MEMORY_UC)
-  Christopher> [...]
 
-  Christopher> would then be required.  Since this is the only
-  Christopher> consumer of this interface thus far I'm not sure it's
-  Christopher> obvious how the function should best work.
-
-I think what we really want here is two bitmasks: one telling us which
-bits we care about and one telling us what values those bits should be
-set to.  As it stands, efi_memmap_walk_uc() doesn't do what it
-advertises to do and instead does something very specific to SN2.
-
-  Christopher> The issue right now seems to be whether or not this or
-  Christopher> some variation of this is useful and/or desirable in
-  Christopher> the mainline kernel or whether for now it's best to
-  Christopher> hide this in the driver until a later stage when the
-  Christopher> EFI interfaces are abstracted out a little more to make
-  Christopher> this easier?
-
-Can you work with Tony on this?  Since he's Mr. MCA (you OK with this
-title, Tony? ;-) and since we'll have to map the MINSTATE area UC, I
-think we want to make sure that the interface can handle all of this.
-
-	--david
+Thanks,
+  --cw
