@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 16 Jun 2004 21:13:40 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 16 Jun 2004 21:29:06 +0000
 Subject: Re: [draft] gettimeofday scalability: Moving cmpxchg into itc_get_offset
-Message-Id: <Pine.LNX.4.58.0406161400050.1197@schroedinger.engr.sgi.com>
+Message-Id: <16592.48034.936025.906433@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0406161200460.6118@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0406161200460.6118@schroedinger.engr.sgi.com>
@@ -10,69 +10,52 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 16 Jun 2004, David Mosberger wrote:
+>>>>> On Wed, 16 Jun 2004 14:13:40 -0700 (PDT), Christoph Lameter <clameter@sgi.com> said:
 
-> It sounds good to me, except that removing the fast-path
-> gettimeofday() is a serious regression, especially now that there a
-> distros that actually support the fast path.
+  Christoph> Can I change that API?
 
-Right.
+Yes, I think so.  ia64 is the only user of the API and when I created
+the original API, I had to make some assumptions, some of which have
+turned out to be wrong.
 
-> My suggestion: focus on implementing a fast-path clock_gettime() (for
-> CLOCK_REALTIME, I think).  Once that's working, we can direct gettimeofday()
-> to clock_gettime() with an additional nsec -> usec conversion.
+However, note that you cannot make normal function-calls from an
+light-weight syscall handler (well, you _could_ but setting things up
+to that point would cost extra time), so I think we'll have to
+special-case the fast system-call path anyhow.  It would be nice
+if we could limit it to two cases:
 
-The problem is that clock_gettime must call clock specific functions to
-obtain the timer. F.e. in the sn2 case a routine must fetch the current
-RTC. I would need to define a new function in the interpolators:
+ - ITC-based interpolation.
+ - global clock based interpolation.
 
-struct time_interpolator {
-        /* cache-hot stuff first: */
-        unsigned long (*get_offset) (void);
-        void (*update) (long);
-        void (*reset) (void);
-+	unsigned long (*get_counter) (void);
+I think it _may_ work, seeing that HPET, SN2 timer, and Cyclone all
+seem to be reading the global clock with a single 8-byte MMIO load.
 
-        /* cache-cold stuff follows here: */
-        struct time_interpolator *next;
-        unsigned long frequency;        /* frequency in counts/second */
-        long drift;                     /* drift in parts-per-million (or -1) */
-};
+  Christoph> The particular problem is that one has a 64 bit number of
+  Christoph> nsecs since some initial timeframe (possibly
+  Christoph> get_counter()*freq+offset) that needs to be separated
+  Christoph> into secs and nsecs. The divisor is 32bits (1000000000).
 
-get_counter() would be a pointer to an asm routine (also called from asm)
-returning a 64 bit counter in a register. In the ITC case this would be
-the max of last_itc and current ITC. In the sn2 or cyclone case this
-would be the value of the global clock.
+  Christoph> Typically this is
 
-If we add the ability to retrieve a counter then also get_offset(),
-update() and the reset() function may become obsolete because it is easy
-to generate a framework that simply needs to know how to get a counter
-and its frequency to generate all these functions. Can I change that API?
+  Christoph> n / 1000000000 -> secs n % 1000000000 -> nsecs
 
-My plan so far has been to avoid the API changes and instead patch the
-system call table on the fly if a global clock is detected. But your
-suggestion would result in a much more general solution and I would like
-to go with that.
+  Christoph> I saw that you were able to simulate division by 1000
+  Christoph> through multiplying by a constant. Is that code generated
+  Christoph> by the compiler that you kept or did you develop that
+  Christoph> yourself?
 
-> In regards to fast division: the answer depends.  If you're dividing
-> by a constant, you can can use a multiply (let GCC take care of
-> generating the assembly code, to be sure you get all the bits
-> correct).  If you're not dividing by a constant, the best algorithm
-> depends on the range of the arguments.
+I think that code may have been written by Ian originally but yes, I
+definitely always use the compiler to help me with
+division-by-constants.  You have to be a little bit careful about that
+to avoid losing significant bits and the compiler already has all the
+logic to do that.  Thanks to the xmpy.hu instruction, it is always
+possible to reduce integer-division-by constant to a multiply & shift
+on ia64.
 
-The particular problem is that one has a 64 bit number of nsecs since some
-initial timeframe (possibly get_counter()*freq+offset) that needs to be
-separated into secs and nsecs. The divisor is 32bits (1000000000).
+  Christoph> I could simply get to the .S file generated from timer.c
+  Christoph> and start out with the code there.
 
-Typically this is
+I'd just write a dummy function which does the division only, so that
+you don't get all the extra code aroun dit.
 
-n / 1000000000 -> secs
-n % 1000000000 -> nsecs
-
-I saw that you were able to simulate division by 1000 through multiplying
-by a constant. Is that code generated by the compiler that you kept or did
-you develop that yourself?
-
-I could simply get to the .S file generated from timer.c and start out
-with the code there.
-
+	--david
