@@ -1,39 +1,27 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Wed, 24 Mar 2004 01:58:11 +0000
-Subject: [PATCH] Fix SAL 3.2 detection
-Message-Id: <20040324015811.GF25059@parcelfarce.linux.theplanet.co.uk>
+From: Andreas Schwab <schwab@suse.de>
+Date: Wed, 24 Mar 2004 09:34:35 +0000
+Subject: Re: [PATCH] Fix SAL 3.2 detection
+Message-Id: <je4qse611w.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040324015811.GF25059@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040324015811.GF25059@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+Matthew Wilcox <willy@debian.org> writes:
 
-Hi David.  This important fix checks the SAl *revision* rather than
-the *version*.  I carefully documented which was which, then used the
-wrong one.
+> Hi David.  This important fix checks the SAl *revision* rather than
+> the *version*.  I carefully documented which was which, then used the
+> wrong one.
 
-Index: arch/ia64/pci/pci.c
-=================================RCS file: /var/cvs/linux-2.6/arch/ia64/pci/pci.c,v
-retrieving revision 1.8
-diff -u -p -r1.8 pci.c
---- a/arch/ia64/pci/pci.c	20 Mar 2004 20:29:23 -0000	1.8
-+++ b/arch/ia64/pci/pci.c	24 Mar 2004 01:55:32 -0000
-@@ -128,7 +128,8 @@ struct pci_raw_ops *raw_pci_ops = &pci_s
- static int __init
- pci_set_sal_ops (void)
- {
--	if (sal_version >= SAL_VERSION_CODE(3, 2)) {
-+	if (sal_revision >= SAL_VERSION_CODE(3, 2)) {
-+		printk("Using SAL 3.2 to access PCI config space\n");
- 		raw_pci_ops = &pci_sal_ext_ops;
- 	}
- 	return 0;
+Thanks a lot, this has fixed all my issues!
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
