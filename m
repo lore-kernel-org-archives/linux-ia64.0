@@ -1,18 +1,17 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Thu, 15 Apr 2004 18:42:55 +0000
-Subject: RE: hugetlb demand paging patch part [0/3]
-Message-Id: <200404151842.i3FIguF09326@unix-os.sc.intel.com>
+From: "'David Gibson'" <david@gibson.dropbear.id.au>
+Date: Fri, 16 Apr 2004 01:30:33 +0000
+Subject: Re: hugetlb demand paging patch part [0/3]
+Message-Id: <20040416013033.GC12735@zax>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <7A4826DE8867D411BAB8009027AE9EB91DB42C83@scsmsx401.sc.intel.com>
-References: <200404132317.i3DNH4F21162@unix-os.sc.intel.com>
-In-Reply-To: <200404132317.i3DNH4F21162@unix-os.sc.intel.com>
+References: <20040415064259.GD25560@zax> <200404151708.i3FH8MF08394@unix-os.sc.intel.com>
+In-Reply-To: <200404151708.i3FH8MF08394@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, 'David Gibson' <david@gibson.dropbear.id.au>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, 'Andrew Morton' <akpm@osdl.org>
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>
 
->>>> Chen, Kenneth W wrote on Thursday, April 15, 2004 10:08 AM
+On Thu, Apr 15, 2004 at 10:08:22AM -0700, Chen, Kenneth W wrote:
 > >>>> David Gibson wrote on Wednesday, April 14, 2004 11:43 PM
 > > >
 > > > Some caveats:  I don't have sh and sparc64 hardware to test.  But hugetlb
@@ -29,24 +28,20 @@ Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sou
 > > your code will need to use a hugepte_t instead of pte_t - it can be
 > > typedeffed to pte_t on archs other than ppc64.  Likewise there will
 > > need to be hugepte_none() and so forth macros.
->
+> 
 > I think it would be cleaner if ppc64 change its format instead of changing
 > 4 other arch to accommodate ppc64.  By the way, why do you need to special
 > typedef hugepte_t? pte for huge page aren't anything special on all other
 > arches.
 
-Again, I'm not an expert on ppc64, but this look suspicious to me:
+The hugepte entries go in the same slots as pmd entries, which means
+they must be compatible with the layout of pmd entries.  That's not
+compatible with making them identical to normal PTE entries.  For one
+thing, normal PTE entries are 64 bits wide, whereas PMD entries are
+only 32 bits wide.
 
-arch/ppc64/mm/hugetlbpage.c
-/* HugePTE layout:
- *
- * 31 30 ... 15 14 13 12 10 9  8  7   6    5    4    3    2    1    0
- * PFN>>12..... -  -  -  -  -  -  HASH_IX....   2ND  HASH RW   -    HG=1
- */
-
-#define HUGEPTE_SHIFT   15
-
-17 bits for pfn?  It looks to me that huge page on ppc64 will break on
-system with more than 2 Terabyte of physical memory.
-
-
+-- 
+David Gibson			| For every complex problem there is a
+david AT gibson.dropbear.id.au	| solution which is simple, neat and
+				| wrong.
+http://www.ozlabs.org/people/dgibson
