@@ -1,7 +1,7 @@
-From: "shiva chetan" <chetan@uiuc.edu>
-Date: Wed, 13 Nov 2002 18:42:20 +0000
-Subject: [Linux-ia64] sigcontext structure
-Message-Id: <marc-linux-ia64-105590709805410@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 14 Nov 2002 00:55:13 +0000
+Subject: Re: [Linux-ia64] sigcontext structure
+Message-Id: <marc-linux-ia64-105590709805417@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701906086@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701906086@msgid-missing>
@@ -10,24 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>>>>> On Wed, 13 Nov 2002 12:42:20 -0600, "shiva chetan" <chetan@uiuc.edu> said:
 
-The sigcontext structure of linux/i386 has the following fields
+  Chetan> Hi, The sigcontext structure of linux/i386 has the following
+  Chetan> fields
 
-trapno (stores trap number)
-err   (stores faulting address)
-cr2  (contains type of fault)
+  Chetan> trapno (stores trap number) err (stores faulting address)
+  Chetan> cr2 (contains type of fault)
 
-what are the equivalent fields in the sigcontext structure of linux/ia64 ?
-its not very apparent from the definition of the structure.
+  Chetan> what are the equivalent fields in the sigcontext structure
+  Chetan> of linux/ia64 ?  its not very apparent from the definition
+  Chetan> of the structure.
 
-thanks
+There is no 1-to-1 correspondence, but such info is stored in siginfo
+on ia64.  See siginfo.h.
 
-chetan
-Dept of Computer Science
-Univ of Illinois at Urbana-Champaign
-
-Ph: (217) 333-9051, (217) 244-5110 (O)
-      (217) 384-2173 (R)
+	--david
 
 
