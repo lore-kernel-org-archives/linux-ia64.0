@@ -1,77 +1,50 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Wed, 15 Sep 2004 18:01:23 +0000
-Subject: [PATCH] build acpiphp modular and on i386/x86_64 [6/5]
-Message-Id: <20040915180123.GG642@parcelfarce.linux.theplanet.co.uk>
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 21 Sep 2004 22:23:30 +0000
+Subject: Re: [Lhns-devel] Re: [ACPI] PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject interface support
+Message-Id: <200409212223.i8LMNUFV041295@ben.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040903193027.GO642@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040903193027.GO642@parcelfarce.linux.theplanet.co.uk>
+References: <20040921145150.A27211@unix-os.sc.intel.com>
+In-Reply-To: <20040921145150.A27211@unix-os.sc.intel.com> from "Keshavamurthy Anil S" at Sep 21, 2004 02:51:50 PM
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@debian.org>
-Cc: Greg KH <greg@kroah.com>, pcihpd-discuss@lists.sourceforge.net, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: anil.s.keshavamurthy@intel.com
+Cc: Dmitry Torokhov <dtor_core@ameritech.net>, acpi-devel@lists.sourceforge.net, Brown Len <len.brown@intel.com>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
 
+Keshavamurthy Anil S wrote:
+> On Tue, Sep 21, 2004 at 12:51:36AM -0500, Dmitry Torokhov wrote:
+> > On Monday 20 September 2004 08:38 pm, Keshavamurthy Anil S wrote:
+> > 
+> > I actually think that on the highest level we should treat controlled and
+> > surprise ejects differently. With controlled ejects the system (kernel +
+> > userspace) can abort the sequence if something goes wrong while with surprise
+> > eject the device is physically gone. Even if driver refuses to detach or we
+> > have partition still mounted or something else if physical device is gone we
+> > don't have any choice except for trimming the tree and doing whatever we need
+> > to do.
+> 
+> I agree, but when dealing with devices like CPU and Memory, not sure how the
+> rest of the Operating System handles surprise removal.
 
-After the first five patches I sent, in order to build acpiphp on
-i386/x86_64 or as a module on ia64, we need these exports and defines
-currently.  I have a much better scheme in mind but it's not ready yet.
-I promise I'll replace this with something much more portable.
+If by "surprise removal" you mean an Itanium CPU or Memory no longer are 
+accessable by the rest of the hardware, the result will be fatal MCA.  For 
+example,  if an Itanum CPU tried to load from Memory that no longer exists, 
+the load will time out and the CPU will generate a fatal MCA.  It may (or may
+not) be possible to enhance the MCA/linux error handling code to handle this 
+situation, but the current code does not.
 
-diff -urpNX build-tools/dontdiff hotplug-2.6/arch/ia64/pci/pci.c modular-2.6/arch/ia64/pci/pci.c
---- hotplug-2.6/arch/ia64/pci/pci.c	2004-09-13 09:30:28.000000000 -0600
-+++ modular-2.6/arch/ia64/pci/pci.c	2004-09-15 11:54:17.886305856 -0600
-@@ -354,6 +354,7 @@ pcibios_fixup_device_resources (struct p
- 		pci_claim_resource(dev, i);
- 	}
- }
-+EXPORT_SYMBOL(pcibios_fixup_device_resources);
- 
- /*
-  *  Called after each bus is probed, but before its children are examined.
-diff -urpNX build-tools/dontdiff hotplug-2.6/include/asm-i386/pci.h modular-2.6/include/asm-i386/pci.h
---- hotplug-2.6/include/asm-i386/pci.h	2004-03-16 08:40:36.000000000 -0700
-+++ modular-2.6/include/asm-i386/pci.h	2004-09-15 10:50:02.126390608 -0600
-@@ -99,6 +99,9 @@ static inline void pcibios_add_platform_
- {
- }
- 
-+/* XXX: temporary hack for acpiphp */
-+#define pcibios_fixup_device_resources()	do { } while (0)
-+
- #endif /* __KERNEL__ */
- 
- /* implement the pci_ DMA API in terms of the generic device dma_ one */
-diff -urpNX build-tools/dontdiff hotplug-2.6/include/asm-ia64/pci.h modular-2.6/include/asm-ia64/pci.h
---- hotplug-2.6/include/asm-ia64/pci.h	2004-09-02 13:56:21.000000000 -0600
-+++ modular-2.6/include/asm-ia64/pci.h	2004-09-15 10:52:39.422526206 -0600
-@@ -125,6 +125,9 @@ extern unsigned long pcibios_bus_address
- #define pci_bus_address(busdev, addr, flags) \
- 		pcibios_bus_address(PCI_CONTROLLER(busdev), (addr), (flags))
- 
-+/* XXX: temporary hack for acpiphp */
-+extern void pcibios_fixup_device_resources(struct pci_dev *, struct pci_bus *);
-+
- /* generic pci stuff */
- #include <asm-generic/pci.h>
- 
-diff -urpNX build-tools/dontdiff hotplug-2.6/include/asm-x86_64/pci.h modular-2.6/include/asm-x86_64/pci.h
---- hotplug-2.6/include/asm-x86_64/pci.h	2004-09-13 09:31:17.000000000 -0600
-+++ modular-2.6/include/asm-x86_64/pci.h	2004-09-15 10:50:16.191929342 -0600
-@@ -132,6 +132,9 @@ static inline void pcibios_add_platform_
- {
- }
- 
-+/* XXX: temporary hack for acpiphp */
-+#define pcibios_fixup_device_resources()	do { } while (0)
-+
- #endif /* __KERNEL__ */
- 
- /* generic pci stuff */
+>                                                        For now I will go ahead and
+> add a PRINTK saying that BUS_CHECK(surprise removal request) was received in the 
+> ACPI Processor and in the container driver, and when we hit that printk on a 
+> real hardware, I believe it would be the right time then to see how the OS behaves 
+> and do the right code then. For Now I will just go ahead and add a PRINTK.
+> 
+> Let me know if this step by step approach is okay to you.
+> 
+> thanks,
+> Anil
+
 
 -- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
