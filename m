@@ -1,39 +1,63 @@
-From: Richard Hirst <rhirst@linuxcare.com>
-Date: Tue, 26 Mar 2002 16:06:00 +0000
-Subject: Re: [Linux-ia64] kernel make install - why don't we make it easy like on ia32?
-Message-Id: <marc-linux-ia64-105590701905339@msgid-missing>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Thu, 21 Mar 2002 02:30:47 +0000
+Subject: [Linux-ia64] Trouble building cross compilers
+Message-Id: <marc-linux-ia64-105590701905309@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905306@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905306@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Mar 19, 2002 at 10:38:02PM -0800, Piet/Pete Delaney wrote:
-> I was wondering why the ia32 style of installing boot stuff like 
-> /boot/vmlinuz that done in:
-> 
-> 	arch/i386/boot/Makefile
-> and
-> 	arch/i386/boot/install.sh
-> 
-> isn't being done for ia64. 
-> 
-> I'm thinking of makeing a few tweaks to the ia32 version to copy 
-> kernel stuff to /boot and /boot/efi. I've been using a hack on the 
-> top level kernel Makefile but it's a hack to do it there. The ia32 
-> paradigm seems fine; so why isn't it done for ia64. Even after 
-> applying the ia64 patch to linux-2.4.18, a 'make install' in the 
-> top level kernel Makefile still breaks.
-> 
-> What gives?
+I have a couple of questions about cross compiling with gcc 3.0:
 
-Note that on Debian ia64 the efi partition is not normally mounted.  The
-approach we took was that kernels+initrds are dropped in /boot, and then
-we have a script /usr/sbin/elilo, which makes sure the efi partition
-contents are up to date.
+1) is it possible to build an x86 hosted gcc 3.0 ia64 cross compiler
+   without nue?  Or, which packages do I need to build a gcc cross
+   compiler?
+2) does an x86 hosted gcc 3.0 ia64 cross compiler generate different
+   code than a native ia64 compiler?  If so, how different is the
+   generated code?
 
-Richard
+I'd like to have a gcc 3.0 cross compiler for the purpose of building
+kernels unless the cross compiler generated code differs enough from a
+natively built that I'm likely to run into bugs that I wouldn't
+otherwise.
 
+In trying to do (1) to answer (2) for myself, I did the following on a
+Red Hat 6.2 x86 machine w/gcc-2.96 from 7.0 installed
+a) built and installed binutils 2.12 (configured with
+   --target=ia64-gnu-linux --prefix=/tmp/ia64-cross-3.0)
+b) tried to build and install gcc 3.0 (configured with the same options
+   as above), but with 'make LANGUAGES=c' instead of just 'make'
+
+Unfortunately, I got hung up in the middle of step (b) with the errors
+shown below.  IIRC, the Cygnus snapshot tarballs were 'cross-compile
+ready' in that they had all the necessary header files and utilities
+needed for a full cross development environment.  Any notes on how
+those trees were built would be appreciated.
+
+Thanks,
+Jesse
+
+/home/jbarnes/working/cross/gcc-build/gcc/xgcc -B/home/jbarnes/working/cross/gcc-build/gcc/ -B/tmp/ia64-cross-3.0/ia64-gnu-linux/bin/ -B/tmp/ia64-cross-3.0/ia64-gnu-linux/lib/ -isystem /tmp/ia64-cross-3.0/ia64-gnu-linux/include -O2  -DCROSS_COMPILE -DIN_GCC    -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -isystem ./include  -fPIC -g1  -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED -Dinhibit_libc -I. -I. -I../../gcc-3.0/gcc -I../../gcc-3.0/gcc/. -I../../gcc-3.0/gcc/config -I../../gcc-3.0/gcc/../include -fexceptions -c ../../gcc-3.0/gcc/config/ia64/unwind-ia64.c -o libgcc/./unwind-ia64.o
+In file included from ../../gcc-3.0/gcc/config/ia64/unwind-ia64.c:35:
+../../gcc-3.0/gcc/unwind.h:169:20: stdlib.h: No such file or directory
+In file included from ../../gcc-3.0/gcc/config/ia64/unwind-ia64.c:35:
+../../gcc-3.0/gcc/unwind.h: In function `_Unwind_GetTextRelBase':
+../../gcc-3.0/gcc/unwind.h:181: warning: implicit declaration of function `abort'
+../../gcc-3.0/gcc/unwind.h:179: warning: unused parameter `_C'
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c: In function `push':
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c:234: warning: implicit declaration of function `memcpy'
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c: In function `uw_frame_state_for':
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c:1462: warning: implicit declaration of function `memset'
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c: In function `uw_install_context':
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c:1777: warning: passing arg 1 of `ia64_rse_skip_regs' makes pointer from integer without a cast
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c:1777: warning: assignment makes integer from pointer without a cast
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c: At top level:
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c:1264: warning: `ia64_rse_is_rnat_slot' defined but not used
+../../gcc-3.0/gcc/config/ia64/unwind-ia64.c:1281: warning: `ia64_rse_num_regs' defined but not used
+make[2]: *** [libgcc/./unwind-ia64.o] Error 1
+make[2]: Leaving directory `/home/jbarnes/working/cross/gcc-build/gcc'
+make[1]: *** [libgcc.a] Error 2
+make[1]: Leaving directory `/home/jbarnes/working/cross/gcc-build/gcc'
+make: *** [all-gcc] Error 2
 
