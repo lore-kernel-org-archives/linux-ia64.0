@@ -1,117 +1,104 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 01 Dec 2004 23:49:21 +0000
-Subject: [archive] sloppy rss
-Message-Id: <Pine.LNX.4.58.0412011546090.5721@schroedinger.engr.sgi.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Thu, 16 Dec 2004 22:42:23 +0000
+Subject: [PATCH] collect page_states only from online cpus
+Message-Id: <1103236943.8653.26.camel@tdi>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel <linux-kernel@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org
 
-This is the sloppy rss patch that used to be part of the page fault
-scalability patches. It simply ignores races for rss updates since
-the typically introduced error was less than 1%. The patch was judged to
-be unsatisfactory since situations (such as extensive) swapping may
-cause the rss counter to become wildly inaccurate. The inaccuracy caused
-uneasy feelings all around.
 
-Index: linux-2.6.9/include/linux/sched.h
-=================================--- linux-2.6.9.orig/include/linux/sched.h	2004-11-29 12:18:11.000000000 -0800
-+++ linux-2.6.9/include/linux/sched.h	2004-11-30 09:59:23.000000000 -0800
-@@ -216,7 +216,7 @@
- 	atomic_t mm_count;			/* How many references to "struct mm_struct" (users count as 1) */
- 	int map_count;				/* number of VMAs */
- 	struct rw_semaphore mmap_sem;
--	spinlock_t page_table_lock;		/* Protects page tables, mm->rss, mm->anon_rss */
-+	spinlock_t page_table_lock;		/* Protects page tables */
+   I noticed the function __read_page_state() curiously high in a
+q-tools profile of a write to a software raid0 device.  Seems this is
+because we're checking page_states for all possible cpus and we have
+NR_CPUS possible when CONFIG_HOTPLUG_CPU=y.  The default config for ia64
+is now NR_CPUSQ2, so on a little 8-way box, this is a significant
+waste of time.  The patch below updates __read_page_state() and
+__get_page_state() to only count page_state info for online cpus.  To
+keep the stats consistent, the page_alloc notifier is updated to move
+page_states off of the cpu going offline.  On my profile, this dropped
+__read_page_state() back into the noise and boosted block write
+performance by 5% (as measured by spew - http://spew.berlios.de).
+Thanks,
 
- 	struct list_head mmlist;		/* List of maybe swapped mm's.  These are globally strung
- 						 * together off init_mm.mmlist, and are protected
-@@ -252,6 +252,21 @@
- 	struct kioctx		default_kioctx;
- };
+	Alex
 
-+/*
-+ * rss and anon_rss are incremented and decremented in some locations without
-+ * proper locking. This function insures that these values do not become negative.
-+ */
-+static long inline get_rss(struct mm_struct *mm)
-+{
-+	long rss = mm->rss;
+-- 
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+
+=== mm/page_alloc.c 1.241 vs edited ==--- 1.241/mm/page_alloc.c	2004-11-15 20:29:07 -07:00
++++ edited/mm/page_alloc.c	2004-12-16 14:10:59 -07:00
+@@ -914,18 +914,18 @@
+ 	int cpu = 0;
+ 
+ 	memset(ret, 0, sizeof(*ret));
 +
-+	if (rss < 0)
-+		 mm->rss = rss = 0;
-+	if ((long)mm->anon_rss < 0)
-+		mm->anon_rss = 0;
-+	return rss;
-+}
++	cpu = first_cpu(cpu_online_map);
+ 	while (cpu < NR_CPUS) {
+ 		unsigned long *in, *out, off;
+ 
+-		if (!cpu_possible(cpu)) {
+-			cpu++;
+-			continue;
+-		}
+-
+ 		in = (unsigned long *)&per_cpu(page_states, cpu);
+-		cpu++;
+-		if (cpu < NR_CPUS && cpu_possible(cpu))
++		
++		cpu = next_cpu(cpu, cpu_online_map);
 +
- struct sighand_struct {
- 	atomic_t		count;
- 	struct k_sigaction	action[_NSIG];
-Index: linux-2.6.9/fs/proc/task_mmu.c
-=================================--- linux-2.6.9.orig/fs/proc/task_mmu.c	2004-11-29 12:18:10.000000000 -0800
-+++ linux-2.6.9/fs/proc/task_mmu.c	2004-11-30 09:59:23.000000000 -0800
-@@ -22,7 +22,7 @@
- 		"VmPTE:\t%8lu kB\n",
- 		(mm->total_vm - mm->reserved_vm) << (PAGE_SHIFT-10),
- 		mm->locked_vm << (PAGE_SHIFT-10),
--		mm->rss << (PAGE_SHIFT-10),
-+		get_rss(mm) << (PAGE_SHIFT-10),
- 		data << (PAGE_SHIFT-10),
- 		mm->stack_vm << (PAGE_SHIFT-10), text, lib,
- 		(PTRS_PER_PTE*sizeof(pte_t)*mm->nr_ptes) >> 10);
-@@ -37,7 +37,9 @@
- int task_statm(struct mm_struct *mm, int *shared, int *text,
- 	       int *data, int *resident)
++		if (cpu < NR_CPUS)
+ 			prefetch(&per_cpu(page_states, cpu));
++
+ 		out = (unsigned long *)ret;
+ 		for (off = 0; off < nr; off++)
+ 			*out++ += *in++;
+@@ -952,12 +952,9 @@
+ 	unsigned long ret = 0;
+ 	int cpu;
+ 
+-	for (cpu = 0; cpu < NR_CPUS; cpu++) {
++	for_each_online_cpu(cpu) {
+ 		unsigned long in;
+ 
+-		if (!cpu_possible(cpu))
+-			continue;
+-
+ 		in = (unsigned long)&per_cpu(page_states, cpu) + offset;
+ 		ret += *((unsigned long *)in);
+ 	}
+@@ -1795,8 +1792,9 @@
+ static int page_alloc_cpu_notify(struct notifier_block *self,
+ 				 unsigned long action, void *hcpu)
  {
--	*shared = mm->rss - mm->anon_rss;
-+	*shared = get_rss(mm) - mm->anon_rss;
-+	if (*shared <0)
-+		*shared = 0;
- 	*text = (PAGE_ALIGN(mm->end_code) - (mm->start_code & PAGE_MASK))
- 								>> PAGE_SHIFT;
- 	*data = mm->total_vm - mm->shared_vm;
-Index: linux-2.6.9/fs/proc/array.c
-=================================--- linux-2.6.9.orig/fs/proc/array.c	2004-11-29 12:18:10.000000000 -0800
-+++ linux-2.6.9/fs/proc/array.c	2004-11-30 09:59:23.000000000 -0800
-@@ -420,7 +420,7 @@
- 		jiffies_to_clock_t(task->it_real_value),
- 		start_time,
- 		vsize,
--		mm ? mm->rss : 0, /* you might want to shift this left 3 */
-+		mm ? get_rss(mm) : 0, /* you might want to shift this left 3 */
- 	        rsslim,
- 		mm ? mm->start_code : 0,
- 		mm ? mm->end_code : 0,
-Index: linux-2.6.9/mm/rmap.c
-=================================--- linux-2.6.9.orig/mm/rmap.c	2004-11-29 20:46:14.000000000 -0800
-+++ linux-2.6.9/mm/rmap.c	2004-11-30 09:59:23.000000000 -0800
-@@ -263,8 +263,6 @@
- 	pte_t *pte;
- 	int referenced = 0;
+-	int cpu = (unsigned long)hcpu;
++	int i, cpu = (unsigned long)hcpu;
+ 	long *count;
++	unsigned long *src, *dest;
+ 
+ 	if (action = CPU_DEAD) {
+ 		/* Drain local pagecache count. */
+@@ -1805,6 +1803,18 @@
+ 		*count = 0;
+ 		local_irq_disable();
+ 		__drain_pages(cpu);
++
++		/* Add dead cpu's page_states to our own. */
++		dest = (unsigned long *)&__get_cpu_var(page_states);
++		src = (unsigned long *)&per_cpu(page_states, cpu);
++
++		i = sizeof(struct page_state) / sizeof(unsigned long);
++		do {
++			i--;
++			dest[i] += src[i];
++			src[i] = 0;
++		} while (i > 0);
++
+ 		local_irq_enable();
+ 	}
+ 	return NOTIFY_OK;
 
--	if (!mm->rss)
--		goto out;
- 	address = vma_address(page, vma);
- 	if (address = -EFAULT)
- 		goto out;
-@@ -510,8 +508,6 @@
- 	pte_t pteval;
- 	int ret = SWAP_AGAIN;
 
--	if (!mm->rss)
--		goto out;
- 	address = vma_address(page, vma);
- 	if (address = -EFAULT)
- 		goto out;
-@@ -799,8 +795,7 @@
- 			if (vma->vm_flags & (VM_LOCKED|VM_RESERVED))
- 				continue;
- 			cursor = (unsigned long) vma->vm_private_data;
--			while (vma->vm_mm->rss &&
--				cursor < max_nl_cursor &&
-+			while (cursor < max_nl_cursor &&
- 				cursor < vma->vm_end - vma->vm_start) {
- 				try_to_unmap_cluster(cursor, &mapcount, vma);
- 				cursor += CLUSTER_SIZE;
