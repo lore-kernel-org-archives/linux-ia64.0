@@ -1,32 +1,35 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 30 Jan 2003 23:40:38 +0000
-Subject: Re: [Linux-ia64] CMD649 driver in 2.5.5x
-Message-Id: <marc-linux-ia64-105590709805782@msgid-missing>
+From: "Carron, Thierry" <thierry.carron@hp.com>
+Date: Thu, 23 Jan 2003 13:10:14 +0000
+Subject: [Linux-ia64] VM strict overcommit on RedHat AS 2.1 kernel 2.4.18-e12 ?
+Message-Id: <marc-linux-ia64-105590709805741@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805780@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805780@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 30 Jan 2003 13:58:13 -0800, grundler@cup.hp.com (Grant Grundler) said:
+Hello,
 
-  Grant> I'm pretty sure RH AS and 2.4.20 isn't seeing those kinds of problems.
+A customer requires for his internal application a more strict implementati=
+on of the VM :
+   -> When malloc returns a non-NULL pointer the memory is really available=
+ !
 
-Yes, 2.4.xx is definitely fine.
+How can I obtain this behavior using RedHat  AS 2.1 kernel 2.4.18-e12 ?
 
-  Grant> It's been passing stress testing and such. I suspect the problem
-  Grant> is someone is rewriting the IDE subsystem and maybe some changes
-  Grant> are needed to adopt cmd649 for that.
+I know that Alan Cox has a patch and that a lot of job is currently done in=
+ kernel 2.5 .
+This patch is partially integrated in the kernel 2.4.18-e12 delivered with =
+the RedHat Advanced Server 2.1.=20
+But there is a difference between the documentation  about overcommit_memor=
+y  in sysctl/vm.txt and the code really implemented in mm/mmap.c
+Is there any reason for that ?
 
-No, the IDE subsystem is actually back to basically 2.4.xx with "some"
-changes.  So it shouldn't be too bad.
+Thanks for your help
 
-  Grant> I'll take a whack at it if we can get 2.5.59 to boot/run from our
-  Grant> CVS linux-2.5 (which is merged to 2.5.59).
+Thierry CARRON=20
+> HP Centre de Comp=E9tence France
+* +33 (0).450.094.031
 
-OK, that would be great.  Thanks!
 
-	--david
 
