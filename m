@@ -1,7 +1,7 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Sat, 23 Nov 2002 07:50:19 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 25 Nov 2002 17:58:47 +0000
 Subject: Re: [Linux-ia64] Horrible mouse performance
-Message-Id: <marc-linux-ia64-105590709805480@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805481@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805469@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805469@msgid-missing>
@@ -10,22 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+>>>>> On Sat, 23 Nov 2002 18:50:19 +1100, Peter Chubb <peter@chubb.wattle.id.au> said:
 
->>>>> On Fri, 22 Nov 2002 12:25:38 +1100, Peter Chubb <peter@chubb.wattle.id.au> said:
-Peter> Hi, When using the linux 2.5.45+IA64patch kernel on an I2000,
-Peter> the mouse pointer lags actual mouse movements by a long time,
-Peter> making X almost unusable.  I haven't configured in the frame
-Peter> buffer, if that makes a difference.
+  Peter> Yes, this is on an I2000.  I'm trying to see if preemption
+  Peter> support makes any difference.  But the interactive-via-X
+  Peter> performance is so awful anyway, that I can see no difference.
 
-David> There certainly are problems with the input layer in 2.5.  So
-David> the keyboard is actually working for you?  That's better than
-David> it used to be! ;-) Both mouse and keyboard are connected via
-David> PS/2, not via USB, I assume?
+Have you tried using a USB mouse/keyboard?  That seemed to work much better
+for me last time I tried.
 
-Yes, this is on an I2000.  I'm trying to see if preemption support
-makes any difference.  But the interactive-via-X performance is so
-awful anyway, that I can see no difference.
+	--david
 
-Peter C
 
