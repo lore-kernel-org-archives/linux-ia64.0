@@ -1,52 +1,31 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Tue, 30 Sep 2003 20:16:47 +0000
-Subject: [PATCH] disable legacy floppy related ioctl32s
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------040908080002060908040807"
-Message-Id: <marc-linux-ia64-106495318021597@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 30 Sep 2003 20:55:00 +0000
+Subject: Re: [PATCH] disable legacy floppy related ioctl32s
+Message-Id: <marc-linux-ia64-106495539424409@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106495318021597@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106495318021597@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040908080002060908040807
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tuesday 30 September 2003 2:16 pm, Arun Sharma wrote:
+> Since we don't support legacy floppy devices on ia64, this patch disables the corresponding ioctl32.
 
+	-#ifndef CONFIG_ARCH_S390
+	+#if !defined(CONFIG_ARCH_S390) && !defined(CONFIG_IA64)
+	 /* 0x02 -- Floppy ioctls */
+	 COMPATIBLE_IOCTL(FDMSGON)
+	 COMPATIBLE_IOCTL(FDMSGOFF)
 
-Since we don't support legacy floppy devices on ia64, this patch disables the corresponding ioctl32.
+Could this be done with config symbols somehow, i.e., CONFIG_BLK_DEV_FD?
+It seems sort of ugly to encode the knowledge about which platforms
+support legacy floppy both in Kconfig and in the actual source.
 
-	-Arun
+BTW, it looks like one can still select legacy floppy support on ia64:
 
-
---------------040908080002060908040807
-Content-Type: text/plain;
- name="ioctl32.txt"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="ioctl32.txt"
-
-LS0tIGlhNjQtbGludXgyLjYuMC9pbmNsdWRlL2xpbnV4L2NvbXBhdF9pb2N0bC5oCVR1ZSBT
-ZXAgMjMgMTg6NTM6MjkgMjAwMworKysgaWE2NC1saW51eDIuNi4wLXBhdGNoL2luY2x1ZGUv
-bGludXgvY29tcGF0X2lvY3RsLmgJVHVlIFNlcCAyMyAxODo1Mzo1NSAyMDAzCkBAIC02OCw3
-ICs2OCw3IEBACiBDT01QQVRJQkxFX0lPQ1RMKEhESU9fRFJJVkVfQ01EKQogQ09NUEFUSUJM
-RV9JT0NUTChIRElPX1NFVF9QSU9fTU9ERSkKIENPTVBBVElCTEVfSU9DVEwoSERJT19TRVRf
-TklDRSkKLSNpZm5kZWYgQ09ORklHX0FSQ0hfUzM5MAorI2lmICFkZWZpbmVkKENPTkZJR19B
-UkNIX1MzOTApICYmICFkZWZpbmVkKENPTkZJR19JQTY0KQogLyogMHgwMiAtLSBGbG9wcHkg
-aW9jdGxzICovCiBDT01QQVRJQkxFX0lPQ1RMKEZETVNHT04pCiBDT01QQVRJQkxFX0lPQ1RM
-KEZETVNHT0ZGKQotLS0gaWE2NC1saW51eDIuNi4wL2ZzL2NvbXBhdF9pb2N0bC5jCVR1ZSBT
-ZXAgMjMgMTg6NTI6MjIgMjAwMworKysgaWE2NC1saW51eDIuNi4wLXBhdGNoL2ZzL2NvbXBh
-dF9pb2N0bC5jCVR1ZSBTZXAgMjMgMTg6NTI6NDYgMjAwMwpAQCAtMjkzNiw2ICsyOTM2LDcg
-QEAKIEhBTkRMRV9JT0NUTChIRElPX0dFVF9NVUxUQ09VTlQsIGhkaW9faW9jdGxfdHJhbnMp
-CiBIQU5ETEVfSU9DVEwoSERJT19HRVRfTk9XRVJSLCBoZGlvX2lvY3RsX3RyYW5zKQogSEFO
-RExFX0lPQ1RMKEhESU9fR0VUX05JQ0UsIGhkaW9faW9jdGxfdHJhbnMpCisjaWYgIWRlZmlu
-ZWQoQ09ORklHX0FSQ0hfUzM5MCkgJiYgIWRlZmluZWQoQ09ORklHX0lBNjQpCiBIQU5ETEVf
-SU9DVEwoRkRTRVRQUk0zMiwgZmRfaW9jdGxfdHJhbnMpCiBIQU5ETEVfSU9DVEwoRkRERUZQ
-Uk0zMiwgZmRfaW9jdGxfdHJhbnMpCiBIQU5ETEVfSU9DVEwoRkRHRVRQUk0zMiwgZmRfaW9j
-dGxfdHJhbnMpCkBAIC0yOTQ1LDYgKzI5NDYsNyBAQAogSEFORExFX0lPQ1RMKEZEUE9MTERS
-VlNUQVQzMiwgZmRfaW9jdGxfdHJhbnMpCiBIQU5ETEVfSU9DVEwoRkRHRVRGRENTVEFUMzIs
-IGZkX2lvY3RsX3RyYW5zKQogSEFORExFX0lPQ1RMKEZEV0VSUk9SR0VUMzIsIGZkX2lvY3Rs
-X3RyYW5zKQorI2VuZGlmCiBIQU5ETEVfSU9DVEwoU0dfSU8sc2dfaW9jdGxfdHJhbnMpCiBI
-QU5ETEVfSU9DVEwoUFBQSU9DR0lETEUzMiwgcHBwX2lvY3RsX3RyYW5zKQogSEFORExFX0lP
-Q1RMKFBQUElPQ1NDT01QUkVTUzMyLCBwcHBfaW9jdGxfdHJhbnMpCg==
---------------040908080002060908040807--
+config BLK_DEV_FD
+        tristate "Normal floppy disk support"
+        depends on !X86_PC9800 && !ARCH_S390
 
