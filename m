@@ -1,29 +1,46 @@
-From: dcn@sgi.com (Dean Nelson)
-Date: Wed, 23 Mar 2005 19:00:21 +0000
-Subject: [PATCH] Export node_online_map and node_possible_map
-Message-Id: <4241BCC5.mailxH3J11SP5W@aqua.americas.sgi.com>
+From: akpm@osdl.org
+Date: Wed, 30 Mar 2005 21:39:57 +0000
+Subject: [patch 1/3] ia64 msi warning fixes
+Message-Id: <200503302139.j2ULdlrc029245@shell0.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Export node_online_map and node_possible_map so that kernel modules can use
-the nodemask macros, like, for_each_node() and for_each_online_node().
-
-Signed-off-by: Dean Nelson <dcn@sgi.com>
 
 
-Index: linux-2.6/mm/page_alloc.c
-=================================--- linux-2.6.orig/mm/page_alloc.c	2005-03-17 08:55:23.253781240 -0600
-+++ linux-2.6/mm/page_alloc.c	2005-03-17 09:23:51.648987691 -0600
-@@ -43,7 +43,9 @@
-  * initializer cleaner
-  */
- nodemask_t node_online_map = { { [0] = 1UL } };
-+EXPORT_SYMBOL(node_online_map);
- nodemask_t node_possible_map = NODE_MASK_ALL;
-+EXPORT_SYMBOL(node_possible_map);
- struct pglist_data *pgdat_list;
- unsigned long totalram_pages;
- unsigned long totalhigh_pages;
+drivers/pci/msi.c: In function `msi_set_mask_bit':
+drivers/pci/msi.c:70: warning: cast from pointer to integer of different size
+drivers/pci/msi.c: In function `msi_capability_init':
+drivers/pci/msi.c:558: warning: cast to pointer from integer of different size
+
+
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ 25-akpm/drivers/pci/msi.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
+
+diff -puN drivers/pci/msi.c~ia64-msi-warning-fixes drivers/pci/msi.c
+--- 25/drivers/pci/msi.c~ia64-msi-warning-fixes	Sat Mar 12 18:17:29 2005
++++ 25-akpm/drivers/pci/msi.c	Sat Mar 12 18:17:53 2005
+@@ -67,7 +67,7 @@ static void msi_set_mask_bit(unsigned in
+ 		int		pos;
+ 		u32		mask_bits;
+ 
+-		pos = (int)entry->mask_base;
++		pos = (long)entry->mask_base;
+ 		pci_read_config_dword(entry->dev, pos, &mask_bits);
+ 		mask_bits &= ~(1);
+ 		mask_bits |= flag;
+@@ -555,7 +555,7 @@ static int msi_capability_init(struct pc
+ 	dev->irq = vector;
+ 	entry->dev = dev;
+ 	if (is_mask_bit_support(control)) {
+-		entry->mask_base = (void __iomem *)msi_mask_bits_reg(pos,
++		entry->mask_base = (void __iomem *)(long)msi_mask_bits_reg(pos,
+ 				is_64bit_address(control));
+ 	}
+ 	/* Replace with MSI handler */
+_
