@@ -1,97 +1,120 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Tue, 02 Dec 2003 20:32:27 +0000
-Subject: pfmon-3.0 is now available
-Message-Id: <marc-linux-ia64-107039780814359@msgid-missing>
+From: "Zhu, Yi" <yi.zhu@intel.com>
+Date: Thu, 18 Dec 2003 03:40:01 +0000
+Subject: [BUG] Red Hat Enterprise Linux AS 3 GM + kernel 2.6.0-test11 halt
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3C518.9D9A0C6F"
+Message-Id: <marc-linux-ia64-107171885627499@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+This is a multi-part message in MIME format.
+
+------_=_NextPart_001_01C3C518.9D9A0C6F
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
 
 Hi,
 
-I am happy to report that I have finally released version 3.0 of the pfmon,
-a tool to monitor performance on Linux/ia64.
+I installed Red Hat Enterprise Linux AS 3 GM on tiger4. Everything is
+OK. Then I download the prestine 2.6.0-test11 kernel + ia64 patch=20
+http://www.kernel.org/pub/linux/kernel/ports/ia64/v2.6/linux-2.6.0-test1
+1-ia64-031126.diff.gz
 
-This version represents a major milestone for pfmon. They are many many 
-new features to explore, most of them unprecedented on Linux.
+Compiled successfully. But when the new kernel is booted, it halted at=20
+"ACPI: Subsystem revision 20031002". The kernel is completely halted
+without react any keyboard interupt. See my hand copy screen log in the
+attachment. You can find my kernel .config in the attachment.
 
-Short summary of the new features and changes:
-----------------------------------------------
-  - full support for Itanium, Itanium2 (all processors in the family)
-  - updated to use the kernel perfmon-2 interface
-  - complete rewrite of the per-task monitoring support
-  - you can now selectively monitor (counting and sampling) across fork(), 
-    vfork(), pthread_create() (--follow-fork, --follow-vfork, --follow-pthread, --follow-all)
-  - you can follow across several levels of exec() (--follow-exec-*)
-  - you can use regular expression to include/exclude certain exec() (--follow-exec, --follow-exec-excl)
-  - task execution before and after an exec() can be differentiated (--exec-split)
-  - support for code triggers allow you to start and stop monitoring when 
-    execution reaches certain locations (--trigger-code-start, --trigger-code-stop)
-  - support for data triggers allow you to start and stop monitoring when certain data memory locations
-    are accessed (--tigger-data-start, --trigger-data-stop)
-  - support for data triggers on read/write/read-write accesses (--trigger-data-ro, --trigger-data-wo)
-  - code/data triggers can be repeated (--trigger-code-repeat, --trigger-data-repeat)
-  - code/data triggers can follow fork/vfork/pthread_create (--trigger-code-follow, --trigger-data-follow)
-  - code stop triggers can be dynamically determined (monitoring limited to execution within a function)
-  - you can attach to an already running task (--attach-task)
-  - correlation of sample addresses to symbols for the kernel in system-wide mode via /proc/kallsyms (--resolve-addresses)
-  - correlation of sample addresses to symbols for task/kernel in per-task mode.
-  - you can force a reset of counters not used as sampling periods for each sample (--smpl-reset-non-smpl-periods)
-  - you can turn off output of commands that are monitored (--no-cmd-output)
-  - support for up to 1024 processors, list specification instead of bitmask (--cpu-list)
-  - for experts, possibility to bypass certain event qualifier checks on Itanium and Itanium2 (--no-qual-check)
-  - saturation mode when sampling, i.e., only captures the first n samples  (--saturate-smpl-buffer)
+The same kernel (binary) can boot successfully on previous redhat AS
+images and all the UL/SuSE images. I found there is a difference between
+the new=20
+redhat AS 3 GM and previous ones is there is an additional
+/boot/efi/Intel Fireware/fpswa.efi file!
 
-REQUIREMENTS:
--------------
-	- because pfmon-3.0 is a pure perfmon-2 tool, it CAN ONLY RUN on 2.6.0-test5 kernels or higher. 
-	  As several important bugs were fixed recently, I STRONGLY recommend that you download the latest 2.6 
-	  kernels from Linus's or David's BK repository.
+My FPSWA version is also 1.18 from the boot screen.=20
 
-	- you must have libpfm-3.0 (NOT 3.0-beta) installed (runtime/dev)
+I read the Release Note and found below words
+"Red Hat Enterprise Linux 3 for the Itanium 2 Architecture contains the
+       fpswa.efi binary, which is an EFI (Extensible Firmware Interface)
+       driver invoked by the operating system's kernel whenever the
+processor
+       issues FPSWA (Floating-Point Software Assistance) requests for
+       floating-point operations that are not fully implemented in
+hardware.
+       The handler provides the result of the operation in these cases.
+       Presently, Itanium processors issue FPSWA requests mainly when
+very
+       small numbers (denormalized, or tiny numbers) are consumed or
+produced
+       by floating-point instructions. To avoid the performance penalty
+       caused by calls to the handler when tiny numbers are produced,
+the
+       flush-to-zero mode can be turned on, but at the cost of a
+slightly
+       less accurate computation.
 
-	- you must have the libelf or elfutil development package installed
+       FPSWA is licensed, patented and copyrighted protected material by
+       Intel or its supplier under the laws of the United states and
+other
+       countries and international treaty provisions. FPSWA is subject
+to the
+       applicable end user license agreement which can be accessed at
+       http://www.redhat.com/licenses/."
 
-	- given that there is not 2.6-based Linux/ia64 distribution at this point
-	  you need to host this on your current distribution and reboot with a 2.6
-	  kernel. Pfmon compiles with both LinuxThreads and NPTL thread libraries
-	  without Makefile changes.
 
-DOCUMENTATION:
---------------
-	The package includes a completely updated documentation which describes
-	ALL the features available in pfmon. For each implementation specific
-	features (Itanium and Itanium2) there is an additional file.
+The walk around way is as follow:
 
-	The entire documentation is also available online at the perfmon 
-	web site at:
+1. after the machine is booted, enter efi shell
+2. remove fs0:\efi\"Intel Firmware"
+3. save to NVRAM (*very important*)
+4. exit efi shell and load your 2.6 kernel
 
-		http://www.hpl.hp.com/research/linux/perfmon/
+Then you'll get the 2.6 kernel booted.
 
-BUG REPORTS:
-------------
-	Due to limited resources, not all features combinations have necessarily 
-	been tested. I have not tested pfmon-3.0 on Itanium (Merced) machines.
+Everytime the machine is rebooted, I must redo step 3 above. Or the same
+error will happen. :(
 
-	Feel free to test pfmon on your systems and report bugs to me 
-	personally or preferrably on the perfmon mailing-list at 
-	perfmon@linux.hpl.hp.com (must be a member to post).
+The default rh el kernel(Taroon 2.4.21-4.EL) boot ok without any
+walkaround.
 
-DOWNLOADING:
-------------
-	 pfmon-3.0 source tar file: 
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-3.0.tar.gz
-		MD5SUM: 3f4ea872488ebda2987716d8686981cc
+I believe this is a bug, either by EFI or by the 2.6 kernel.
 
-	 pfmon-3.0 binary RPM (RHEL-3.0): 
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-3.0-1.ia64.rpm
-		MD5SUM: 811aafc7280aa6e3be1567ecb6ffa28d
+Thanks,
+-----------------------------------------------------------------
+Opinions expressed are those of the author and do not represent Intel
+Corp.
 
-The control files to build the Debian package are included in the source
-tar file.
+- Zhu Yi (Chuyee)
 
-Enjoy,
+GnuPG v1.0.6 (GNU/Linux) http://cn.geocities.com/chewie_chuyee/gpg.txt
+or $ gpg --keyserver wwwkeys.pgp.net --recv-keys 71C34820 1024D/71C34820
+C939 2B0B FBCE 1D51 109A  55E5 8650 DB90 71C3 4820=20
 
--- 
--Stephane
+------_=_NextPart_001_01C3C518.9D9A0C6F
+Content-Type: text/plain;
+	name="tiger4.txt"
+Content-Transfer-Encoding: base64
+Content-Description: tiger4.txt
+Content-Disposition: attachment;
+	filename="tiger4.txt"
+
+TWVtb3J5OiA5NTUzOTJrLzk2NTEzNmsgYXZhaWxhYmxlICg4MzUxayBjb2RlLCAyMTAwOGsgcmVz
+ZXJ2ZWQsIDI3MzlrIGRhdGEsIDI4ODEgaW5pdCkKTGVhdmluZyBNY0tpbmxleSBFcnJhdGEgOSB3
+b3JrYXJvdW5kIGVuYWJsZWQKQ2FsaWJyYXRpbmcgZGVsYXkgbG9vcC4uLiAxMzQyLjQwIEJvZ29N
+SVBTCkRlbnRyeSBjYWNoZSBoYXNoIHRhYmxlIGVudHJpZXM6IDY1NTM2IChvcmRlcjogNSwgNTI0
+Mjg4IGJ5dGVzKQpJbm9kZS1jYWNoZSBoYXNoIHRhYmxlIGVudHJpZXM6IDY1NTM2IChvcmRlcjog
+NSwgNTI0Mjg4IGJ5dGVzKQpNb3VudC1jYWNoZSBoYXNoIHRhYmxlIGVudHJpZXM6IDEwMjQgKG9y
+ZGVyOiAwLCAxNjM4NCBieXRlcykKUE9TSVggY29uZm9ybWFuY2UgdGVzdGluZyBieSBVTklGSVgK
+Qm9vdCBwcm9jZXNzb3IgaWQgMHgwLzB4YzYxOAp0YXNrIG1pZ3JhdGlvbiBjYWNoZSBkZWNheSB0
+aW1lb3V0OiAxMCBtc2Vjcy4KU3RhcnRpbmcgbWlncmF0aW9uIHRocmVhZCBmb3IgY3B1IDAKQnJp
+bmdpbmcgdXAgMQpQcm9jZXNzb3IgNDk2ODgvMSBpcyBzcGlubmluZyB1cC4uLgpQcm9jZXNzb3Ig
+MHgxLzB4YzIxOCBpcyBzdHVjay4KQnJpbmdpbmcgdXAgMgpQcm9jZXNzb3IgNTAyMDAvMiBpcyBz
+cGlubmluZyB1cC4uLgpQcm9jZXNzb3IgMHgyLzB4YzQxOCBpcyBzdHVjay4KQnJpbmdpbmcgdXAg
+MwpQcm9jZXNzb3IgNDkxNzYvMyBpcyBzcGlubmluZyB1cC4uLgpQcm9jZXNzb3IgMHgzLzB4YzAx
+OCBpcyBzdHVjay4KQ1BVUyBkb25lIDMyClRvdGFsIG9mIDEgcHJvY2Vzc29ycyBhY3RpdmF0ZWQg
+KDEzNDIuNDAgQm9nb01JUFMpLgpORVQ6IFJlZ2lzdGVyZWQgcHJvdG9jb2wgZmFtaWx5IDE2CkFD
+UEk6IFN1YnN5c3RlbSByZXZpc2lvbiAyMDAzMTAwMgo=
+
+------_=_NextPart_001_01C3C518.9D9A0C6F--
