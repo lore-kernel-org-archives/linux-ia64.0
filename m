@@ -1,7 +1,7 @@
-From: stefan <stefan@lkcc.org>
-Date: Tue, 09 Oct 2001 06:01:16 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Wed, 10 Oct 2001 22:17:01 +0000
 Subject: Re: [Linux-ia64] use of setcontext()/getcontext()
-Message-Id: <marc-linux-ia64-105590698805310@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805322@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805251@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805251@msgid-missing>
@@ -10,28 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sat, 29 Sep 2001, David Mosberger wrote:
+>>>>> On Tue, 9 Oct 2001 08:01:16 +0200 (CEST), stefan <stefan@lkcc.org> said:
 
-> >>>>> On Sat, 29 Sep 2001 18:53:56 +0200 (CEST), stefan <stefan@lkcc.org> said:
-> 
->   stefan> By including <sys/ucontext.h> and declaring getcontext() and
->   stefan> setcontext() by hand it was possible to port the upcoming
->   stefan> GNU Guile release 1.6 to ia64-linux. Thank you very much for
->   stefan> your help !
-> 
-> Excellent!  Thanks for the good work!
+  Stefan> One more question about this: The `ucontext_t' structure
+  Stefan> seemed to changed a bit over the weeks. Since when is it
+  Stefan> known to have the sc_ar_bsp member (glibc version) ?
 
-One more question about this: The `ucontext_t' structure seemed to changed
-a bit over the weeks. Since when is it known to have the sc_ar_bsp member
-(glibc version) ? Also I would like to know if
+I thought that member was there pretty much "forever".  However, I did
+add sc_rbs_base and sc_loadrs recently.  This is really for
+sigcontext, but since ucontext_t is effectively an alias, it would be
+affected, too.
 
-extern unsigned long __libc_ia64_register_backing_store_base;
-or
-extern void * __libc_ia64_register_backing_store_base;
+  Stefan> Also I would like to know if
 
-is meant to be correct.
+  Stefan> extern unsigned long
+  Stefan> __libc_ia64_register_backing_store_base; or extern void *
+  Stefan> __libc_ia64_register_backing_store_base;
 
-Thanks in advance,
-	stefan@lkcc.org
+  Stefan> is meant to be correct.
 
+Either one should work.
+
+	--david
 
