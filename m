@@ -1,50 +1,97 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 09 Sep 2004 16:31:10 +0000
-Subject: Re: Timer patch V8
-Message-Id: <Pine.LNX.4.58.0409090921150.386@schroedinger.engr.sgi.com>
+From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Date: Thu, 23 Sep 2004 16:36:42 +0000
+Subject: [PATCH][4/4] Add NUMA node handling to the container driver
+Message-Id: <20040924013642.00003b08.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408092115500.22817@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0408092115500.22817@schroedinger.engr.sgi.com>
+References: <20040920092520.A14208@unix-os.sc.intel.com>
+	<20040920094719.H14208@unix-os.sc.intel.com>
+	<20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
+In-Reply-To: <20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: anil.s.keshavamurthy@intel.com
+Cc: len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
 
-On Thu, 9 Sep 2004, Alex Williamson wrote:
 
-> On Thu, 2004-09-09 at 08:28 -0700, Christoph Lameter wrote:
-> > On Thu, 9 Sep 2004, Alex Williamson wrote:
-> >
-> > > On Wed, 2004-09-08 at 16:23 -0700, Christoph Lameter wrote:
-> > > > Sorry. I was too superficial when looking at this issue. The following
-> > > > patch makes the hpet driver build again but I do not have a machine here
-> > > > that would allow me to test this. Could you verify that this works and get
-> > > > back to me?
-> > > >
-> > >
-> > >    It builds and boots, so a definite improvement.  I'm not sure how to
-> > > check if the hpet is being used though.  Thanks,
-> >
-> > Could you run the following program and sent me the output? The precision
-> > of the REALTIME clock should be the same as the HPET device.
-> >
->
-> The program reports:
->
->           Gettimeofday() = 1094745228.671790000
->            CLOCK_REALTIME=     -17032.000003664 resolution= 3648.000238936
->           CLOCK_MONOTONIC=     -17032.000003664 resolution= 3648.000238936
->  CLOCK_PROCESS_CPUTIME_ID=          0.000714263 resolution= 0.000000001
->   CLOCK_THREAD_CPUTIME_ID=          0.000723913 resolution= 0.000000001
->
->
-> The HPET driver reported a 4ns tick on the timer.  Thanks,
+Name: container_for_numa.patch
+Status: Tested on 2.6.9-rc2
+Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Description:
+Add NUMA node handling to the container driver.
 
-Sorry but the data is useless. You might be running a glibc build with
-2.4.X headers. The values for CLOCK_REALTIME and CLOCK_MONOTONIC are wrong and
-the same. CLOCK_REALTIME should be >1000000000 (same as gettimeofday) at
-this point whereas CLOCK_MONOTONIC should reflect uptime. If glibc is
-build with 2.4.X headers then it will improvise these clocks. That maybe
-happening.
+Thanks,
+Keiichiro Tokunaga
+---
 
-If you have a 4ns tick then the resolution should be 0.000000004.
+ linux-2.6.9-rc2-fix-kei/drivers/acpi/container.c |   11 +++++++++++
+ linux-2.6.9-rc2-fix-kei/include/acpi/container.h |   15 ++++++++++++++-
+ 2 files changed, 25 insertions(+), 1 deletion(-)
+
+diff -puN drivers/acpi/container.c~container_for_numa drivers/acpi/container.c
+--- linux-2.6.9-rc2-fix/drivers/acpi/container.c~container_for_numa	2004-09-24 00:45:56.781826629 +0900
++++ linux-2.6.9-rc2-fix-kei/drivers/acpi/container.c	2004-09-24 01:38:09.774323452 +0900
+@@ -104,6 +104,8 @@ acpi_container_add(struct acpi_device *d
+ 	container = kmalloc(sizeof(struct acpi_container), GFP_KERNEL);
+ 	if(!container)
+ 		return_VALUE(-ENOMEM);
++
++	container_numa_init(device->handle);
+ 	
+ 	memset(container, 0, sizeof(struct acpi_container));
+ 	container->handle = device->handle;
+@@ -123,6 +125,14 @@ acpi_container_remove(struct acpi_device
+ {
+ 	acpi_status		status = AE_OK;
+ 	struct acpi_container	*pc = NULL;
++	if (type = ACPI_BUS_REMOVAL_EJECT) {
++		if (!device->flags.ejectable)
++			return(-EINVAL);
++
++		container_numa_remove(device->handle);
++	}
++
++	container_numa_detach_data(device->handle);
+ 	pc = (struct acpi_container*) acpi_driver_data(device);
+ 
+ 	if (pc)
+@@ -198,6 +208,7 @@ container_device_add(struct acpi_device 
+ 	if (acpi_bus_add(device, pdev, handle, ACPI_BUS_TYPE_DEVICE)) {
+ 		return_VALUE(-ENODEV);
+ 	}
++	container_numa_add((*device)->handle);
+ 
+ 	result = acpi_bus_scan(*device);
+ 
+diff -puN include/acpi/container.h~container_for_numa include/acpi/container.h
+--- linux-2.6.9-rc2-fix/include/acpi/container.h~container_for_numa	2004-09-24 00:45:56.783779765 +0900
++++ linux-2.6.9-rc2-fix-kei/include/acpi/container.h	2004-09-24 00:45:56.786709469 +0900
+@@ -2,12 +2,25 @@
+ #define __ACPI_CONTAINER_H
+ 
+ #include <linux/kernel.h>
+-
+ struct acpi_container {
+ 	acpi_handle handle;
+ 	unsigned long sun;
+ 	int state;
+ };
+ 
++#ifdef CONFIG_ACPI_NUMA
++#include <acpi/numa.h>
++#define container_numa_init(handle)	acpi_numa_node_init(handle)
++#define container_numa_add(handle)	acpi_numa_node_add(handle)
++#define container_numa_remove(handle)	acpi_numa_node_remove(handle)
++#define container_numa_detach_data(handle) acpi_numa_node_data_detach(handle)
++#define is_numa_node(handle) is_numa_node_device(acpi_handle handle)
++#else
++#define container_numa_init(handle)
++#define container_numa_add(handle)
++#define container_numa_remove(handle)
++#define container_numa_detach_data(handle)
++#define is_numa_node(handle) (0)
++#endif
+ #endif /* __ACPI_CONTAINER_H */
+ 
+
+_
