@@ -1,677 +1,395 @@
-From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 26 Sep 2003 09:46:47 +0000
-Subject: [hch: Re: [PATCH] sn_ML_intr.c is a freakin mess]
-Message-Id: <marc-linux-ia64-106456973409058@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 10 Sep 2003 19:07:06 +0000
+Subject: [PATCH] 2.4 IA64 ZX1 gart support
+Message-Id: <marc-linux-ia64-106322242900336@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
------ Forwarded message from Christoph Hellwig <hch> -----
+This updates the GART support for the IA64 HP ZX1 chipset.
+As with the 460GX, there's more infrastructure that this
+depends on that will remain in the ia64 patch.
 
-Date: Fri, 26 Sep 2003 11:46:29 +0200
-From: Christoph Hellwig <hch>
-Subject: Re: [PATCH] sn_ML_intr.c is a freakin mess
-To: jbarnes@sgi.com, davidm@napali.hpl.hp.com
-
-On Fri, Sep 26, 2003 at 11:36:25AM +0200, Christoph Hellwig wrote:
-> fed through Lindent and dead codepathes eliminated.
-
-Sorry, wrong patch attached.  Here's the right one:
-
---- 1.10/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Mon Sep  8 14:12:36 2003
-+++ edited/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Fri Sep 26 11:34:46 2003
-@@ -438,14 +438,18 @@
- 		extern void register_sn_procfs(void);
- #endif
- 		extern void irix_io_init(void);
-+		extern void sn_init_cpei_timer(void);
- 		
- 		init_hcl();
- 		irix_io_init();
- 		
- 		for (cnode = 0; cnode < numnodes; cnode++) {
--			extern void intr_init_vecblk(nodepda_t *npda, cnodeid_t, int);
--			intr_init_vecblk(NODEPDA(cnode), cnode, 0);
-+			extern void intr_init_vecblk(cnodeid_t);
-+			intr_init_vecblk(cnode);
- 		} 
+--- 1.23/drivers/char/agp/agp.h	Wed Sep 10 14:49:49 2003
++++ edited/drivers/char/agp/agp.h	Wed Sep 10 14:59:32 2003
+@@ -511,14 +511,16 @@
+ #define NVIDIA_3_APBASE     0x50
+ #define NVIDIA_3_APLIMIT    0x54
+ 
+-/* HP ZX1 SBA registers */
+-#define HP_ZX1_CTRL		0x200
++/* HP ZX1 IOC registers */
+ #define HP_ZX1_IBASE		0x300
+ #define HP_ZX1_IMASK		0x308
+ #define HP_ZX1_PCOM		0x310
+ #define HP_ZX1_TCNFG		0x318
+ #define HP_ZX1_PDIR_BASE	0x320
+-#define HP_ZX1_CACHE_FLUSH	0x428
 +
-+		sn_init_cpei_timer();
-+
- #ifdef CONFIG_PROC_FS
- 		register_sn_procfs();
++/* HP ZX1 LBA registers */
++#define HP_ZX1_AGP_STATUS	0x64
++#define HP_ZX1_AGP_COMMAND	0x68
+ 
+ /* ATI register */
+ #define ATI_APBASE                  0x10
+=== drivers/char/agp/agpgart_be.c 1.47 vs edited ==--- 1.47/drivers/char/agp/agpgart_be.c	Wed Sep 10 14:49:49 2003
++++ edited/drivers/char/agp/agpgart_be.c	Wed Sep 10 15:01:55 2003
+@@ -5038,6 +5038,8 @@
+ #define log2(x)		ffz(~(x))
  #endif
---- 1.5/arch/ia64/sn/io/sn2/ml_SN_intr.c	Tue Sep 16 20:40:54 2003
-+++ edited/arch/ia64/sn/io/sn2/ml_SN_intr.c	Fri Sep 26 11:38:25 2003
-@@ -1,5 +1,4 @@
--/* $Id: ml_SN_intr.c,v 1.1 2002/02/28 17:31:25 marcelo Exp $
-- *
-+/*
-  * This file is subject to the terms and conditions of the GNU General Public
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-@@ -7,14 +6,6 @@
-  * Copyright (C) 1992-1997, 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
-  */
  
--/*
-- * intr.c-
-- *	This file contains all of the routines necessary to set up and
-- *	handle interrupts on an IPXX board.
-- */
++#define HP_ZX1_IOC_OFFSET	0x1000  /* ACPI reports SBA, we want IOC */
++
+ #define HP_ZX1_IOVA_BASE	GB(1UL)
+ #define HP_ZX1_IOVA_SIZE	GB(1UL)
+ #define HP_ZX1_GART_SIZE	(HP_ZX1_IOVA_SIZE / 2)
+@@ -5047,19 +5049,16 @@
+ #define HP_ZX1_IOVA_TO_PDIR(va)	((va - hp_private.iova_base) >> \
+ 					hp_private.io_tlb_shift)
+ 
++static int hp_zx1_gart_found;
++
+ static aper_size_info_fixed hp_zx1_sizes[]  {
+ 	{0, 0, 0},		/* filled in by hp_zx1_fetch_size() */
+ };
+ 
+-static gatt_mask hp_zx1_masks[] -{
+-	{HP_ZX1_PDIR_VALID_BIT, 0}
+-};
 -
--#ident  "$Revision: 1.1 $"
--
- #include <linux/types.h>
- #include <linux/slab.h>
- #include <linux/interrupt.h>
-@@ -45,75 +36,63 @@
- extern cnodeid_t master_node_get(vertex_hdl_t vhdl);
- extern nasid_t master_nasid;
+ static struct _hp_private {
+-	struct pci_dev *ioc;
+-	volatile u8 *registers;
++	volatile u8 *ioc_regs;
++	volatile u8 *lba_regs;
+ 	u64 *io_pdir;		// PDIR for entire IOVA
+ 	u64 *gatt;		// PDIR just for GART (subset of above)
+ 	u64 gatt_entries;
+@@ -5086,7 +5085,7 @@
+ 	 * 	- IOVA space is 1Gb in size
+ 	 * 	- first 512Mb is IOMMU, second 512Mb is GART
+ 	 */
+-	hp->io_tlb_ps = INREG64(hp->registers, HP_ZX1_TCNFG);
++	hp->io_tlb_ps = INREG64(hp->ioc_regs, HP_ZX1_TCNFG);
+ 	switch (hp->io_tlb_ps) {
+ 		case 0: hp->io_tlb_shift = 12; break;
+ 		case 1: hp->io_tlb_shift = 13; break;
+@@ -5102,13 +5101,13 @@
+ 	hp->io_page_size = 1 << hp->io_tlb_shift;
+ 	hp->io_pages_per_kpage = PAGE_SIZE / hp->io_page_size;
  
--//  Initialize some shub registers for interrupts, both IO and error.
--//  
--
--
--
--void
--intr_init_vecblk( nodepda_t *npda,
--		cnodeid_t node,
--		int sn)
-+/*  Initialize some shub registers for interrupts, both IO and error. */
-+void intr_init_vecblk(cnodeid_t node)
- {
--	int 			nasid = cnodeid_to_nasid(node);
--	sh_ii_int0_config_u_t	ii_int_config;
--	cpuid_t			cpu;
--	cpuid_t			cpu0, cpu1;
--	nodepda_t		*lnodepda;
--	sh_ii_int0_enable_u_t	ii_int_enable;
-+	int 				nasid = cnodeid_to_nasid(node);
-+	sh_ii_int0_config_u_t		ii_int_config;
-+	cpuid_t				cpu;
-+	cpuid_t				cpu0, cpu1;
-+	nodepda_t			*lnodepda;
-+	sh_ii_int0_enable_u_t		ii_int_enable;
- 	sh_int_node_id_config_u_t	node_id_config;
- 	sh_local_int5_config_u_t	local5_config;
- 	sh_local_int5_enable_u_t	local5_enable;
--	extern void sn_init_cpei_timer(void);
--	static int timer_added = 0;
--
+-	hp->iova_base = INREG64(hp->registers, HP_ZX1_IBASE) & ~0x1;
++	hp->iova_base = INREG64(hp->ioc_regs, HP_ZX1_IBASE) & ~0x1;
+ 	hp->gart_base = hp->iova_base + HP_ZX1_IOVA_SIZE - HP_ZX1_GART_SIZE;
  
- 	if (is_headless_node(node) ) {
--		int cnode;
- 		struct ia64_sal_retval ret_stuff;
-+		int cnode;
+ 	hp->gart_size = HP_ZX1_GART_SIZE;
+ 	hp->gatt_entries = hp->gart_size / hp->io_page_size;
  
--		// retarget all interrupts on this node to the master node.
-+		/* retarget all interrupts on this node to the master node. */
- 		node_id_config.sh_int_node_id_config_regval = 0;
- 		node_id_config.sh_int_node_id_config_s.node_id = master_nasid;
- 		node_id_config.sh_int_node_id_config_s.id_sel = 1;
--		HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_INT_NODE_ID_CONFIG),
-+		HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_INT_NODE_ID_CONFIG),
- 			node_id_config.sh_int_node_id_config_regval);
- 		cnode = nasid_to_cnodeid(master_nasid);
- 		lnodepda = NODEPDA(cnode);
- 		cpu = lnodepda->node_first_cpu;
- 		cpu = cpu_physical_id(cpu);
- 		SAL_CALL(ret_stuff, SN_SAL_REGISTER_CE, nasid, cpu, master_nasid,0,0,0,0);
--		if (ret_stuff.status < 0) {
-+		if (ret_stuff.status < 0)
- 			printk("%s: SN_SAL_REGISTER_CE SAL_CALL failed\n",__FUNCTION__);
--		}
- 	} else {
- 		lnodepda = NODEPDA(node);
- 		cpu = lnodepda->node_first_cpu;
- 		cpu = cpu_physical_id(cpu);
- 	}
+-	hp->io_pdir = phys_to_virt(INREG64(hp->registers, HP_ZX1_PDIR_BASE));
++	hp->io_pdir = phys_to_virt(INREG64(hp->ioc_regs, HP_ZX1_PDIR_BASE));
+ 	hp->gatt = &hp->io_pdir[HP_ZX1_IOVA_TO_PDIR(hp->gart_base)];
  
--	// Get the physical id's of the cpu's on this node.
-+	/* Get the physical id's of the cpu's on this node. */
- 	cpu0 = nasid_slice_to_cpu_physical_id(nasid, 0);
- 	cpu1 = nasid_slice_to_cpu_physical_id(nasid, 2);
- 
- 	HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_PI_ERROR_MASK), 0);
- 	HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_PI_CRBP_ERROR_MASK), 0);
- 
--	// Config and enable UART interrupt, all nodes.
--
-+	/* Config and enable UART interrupt, all nodes. */
- 	local5_config.sh_local_int5_config_regval = 0;
- 	local5_config.sh_local_int5_config_s.idx = SGI_UART_VECTOR;
- 	local5_config.sh_local_int5_config_s.pid = cpu0;
--	HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT5_CONFIG),
-+	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT5_CONFIG),
- 		local5_config.sh_local_int5_config_regval);
- 
- 	local5_enable.sh_local_int5_enable_regval = 0;
- 	local5_enable.sh_local_int5_enable_s.uart_int = 1;
--	HUB_S( (unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT5_ENABLE),
-+	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_LOCAL_INT5_ENABLE),
- 		local5_enable.sh_local_int5_enable_regval);
- 
- 
--	// The II_INT_CONFIG register for cpu 0.
-+	/* The II_INT_CONFIG register for cpu 0. */
- 	ii_int_config.sh_ii_int0_config_regval = 0;
- 	ii_int_config.sh_ii_int0_config_s.type = 0;
- 	ii_int_config.sh_ii_int0_config_s.agt = 0;
-@@ -124,7 +103,7 @@
- 		ii_int_config.sh_ii_int0_config_regval);
- 
- 
--	// The II_INT_CONFIG register for cpu 1.
-+	/* The II_INT_CONFIG register for cpu 1. */
- 	ii_int_config.sh_ii_int0_config_regval = 0;
- 	ii_int_config.sh_ii_int0_config_s.type = 0;
- 	ii_int_config.sh_ii_int0_config_s.agt = 0;
-@@ -135,7 +114,7 @@
- 		ii_int_config.sh_ii_int0_config_regval);
- 
- 
--	// Enable interrupts for II_INT0 and 1.
-+	/* Enable interrupts for II_INT0 and 1. */
- 	ii_int_enable.sh_ii_int0_enable_regval = 0;
- 	ii_int_enable.sh_ii_int0_enable_s.ii_enable = 1;
- 
-@@ -143,148 +122,99 @@
- 		ii_int_enable.sh_ii_int0_enable_regval);
- 	HUB_S((unsigned long *)GLOBAL_MMR_ADDR(nasid, SH_II_INT1_ENABLE),
- 		ii_int_enable.sh_ii_int0_enable_regval);
--
--
--	if (!timer_added) { // can only init the timer once.
--		timer_added = 1;
--		sn_init_cpei_timer();
--	}
+ 	if (hp->gatt[0] != HP_ZX1_SBA_IOMMU_COOKIE) {
+@@ -5122,7 +5121,7 @@
+ 	return 0;
  }
  
--// (Un)Reserve an irq on this cpu.
--
--static int
--do_intr_reserve_level(cpuid_t cpu,
--			int bit,
--			int reserve)
-+static int intr_reserve_level(cpuid_t cpu, int bit)
+-static int __init hp_zx1_ioc_owner(u8 ioc_rev)
++static int __init hp_zx1_ioc_owner(void)
  {
--	int i;
- 	irqpda_t	*irqs = irqpdaindr;
- 	int		min_shared;
-+	int		i;
+ 	struct _hp_private *hp = &hp_private;
  
--	if (reserve) {
--		if (bit < 0) {
--			for (i = IA64_SN2_FIRST_DEVICE_VECTOR; i <= IA64_SN2_LAST_DEVICE_VECTOR; i++) {
--				if (irqs->irq_flags[i] = 0) {
-+	if (bit < 0) {
-+		for (i = IA64_SN2_FIRST_DEVICE_VECTOR; i <= IA64_SN2_LAST_DEVICE_VECTOR; i++) {
-+			if (irqs->irq_flags[i] = 0) {
-+				bit = i;
-+				break;
+@@ -5157,44 +5156,21 @@
+ 	return 0;
+ }
+ 
+-static int __init hp_zx1_ioc_init(void)
++static int __init hp_zx1_ioc_init(u64 ioc_hpa, u64 lba_hpa)
+ {
+ 	struct _hp_private *hp = &hp_private;
+-	struct pci_dev *ioc;
+-	int i;
+-	u8 ioc_rev;
+-
+-	ioc = pci_find_device(PCI_VENDOR_ID_HP, PCI_DEVICE_ID_HP_ZX1_IOC, NULL);
+-	if (!ioc) {
+-		printk(KERN_ERR PFX "Detected HP ZX1 AGP bridge but no IOC\n");
+-		return -ENODEV;
+-	}
+-	hp->ioc = ioc;
+-
+-	pci_read_config_byte(ioc, PCI_REVISION_ID, &ioc_rev);
+-
+-	for (i = 0; i < PCI_NUM_RESOURCES; i++) {
+-		if (pci_resource_flags(ioc, i) = IORESOURCE_MEM) {
+-			hp->registers = (u8 *) ioremap(pci_resource_start(ioc,
+-									    i),
+-						    pci_resource_len(ioc, i));
+-			break;
+-		}
+-	}
+-	if (!hp->registers) {
+-		printk(KERN_ERR PFX "Detected HP ZX1 AGP bridge but no CSRs\n");
+ 
+-		return -ENODEV;
+-	}
++	hp->ioc_regs = ioremap(ioc_hpa, 1024);
++	hp->lba_regs = ioremap(lba_hpa, 256);
+ 
+ 	/*
+ 	 * If the IOTLB is currently disabled, we can take it over.
+ 	 * Otherwise, we have to share with sba_iommu.
+ 	 */
+-	hp->io_pdir_owner = (INREG64(hp->registers, HP_ZX1_IBASE) & 0x1) = 0;
++	hp->io_pdir_owner = (INREG64(hp->ioc_regs, HP_ZX1_IBASE) & 0x1) = 0;
+ 
+ 	if (hp->io_pdir_owner)
+-		return hp_zx1_ioc_owner(ioc_rev);
++		return hp_zx1_ioc_owner();
+ 
+ 	return hp_zx1_ioc_shared();
+ }
+@@ -5214,19 +5190,17 @@
+ 	struct _hp_private *hp = &hp_private;
+ 
+ 	agp_bridge.gart_bus_addr = hp->gart_base;
+-	agp_bridge.capndx = pci_find_capability(agp_bridge.dev, PCI_CAP_ID_AGP);
+-	pci_read_config_dword(agp_bridge.dev,
+-		agp_bridge.capndx + PCI_AGP_STATUS, &agp_bridge.mode);
++	agp_bridge.mode = INREG32(hp->lba_regs, HP_ZX1_AGP_STATUS);
+ 
+ 	if (hp->io_pdir_owner) {
+-		OUTREG64(hp->registers, HP_ZX1_PDIR_BASE,
++		OUTREG64(hp->ioc_regs, HP_ZX1_PDIR_BASE,
+ 			virt_to_phys(hp->io_pdir));
+-		OUTREG64(hp->registers, HP_ZX1_TCNFG, hp->io_tlb_ps);
+-		OUTREG64(hp->registers, HP_ZX1_IMASK, ~(HP_ZX1_IOVA_SIZE - 1));
+-		OUTREG64(hp->registers, HP_ZX1_IBASE, hp->iova_base | 0x1);
+-		OUTREG64(hp->registers, HP_ZX1_PCOM,
++		OUTREG64(hp->ioc_regs, HP_ZX1_TCNFG, hp->io_tlb_ps);
++		OUTREG64(hp->ioc_regs, HP_ZX1_IMASK, ~(HP_ZX1_IOVA_SIZE - 1));
++		OUTREG64(hp->ioc_regs, HP_ZX1_IBASE, hp->iova_base | 0x1);
++		OUTREG64(hp->ioc_regs, HP_ZX1_PCOM,
+ 			hp->iova_base | log2(HP_ZX1_IOVA_SIZE));
+-		INREG64(hp->registers, HP_ZX1_PCOM);
++		INREG64(hp->ioc_regs, HP_ZX1_PCOM);
+ 	}
+ 
+ 	return 0;
+@@ -5237,17 +5211,18 @@
+ 	struct _hp_private *hp = &hp_private;
+ 
+ 	if (hp->io_pdir_owner)
+-		OUTREG64(hp->registers, HP_ZX1_IBASE, 0);
+-	iounmap((void *) hp->registers);
++		OUTREG64(hp->ioc_regs, HP_ZX1_IBASE, 0);
++	iounmap((void *) hp->ioc_regs);
++	iounmap((void *) hp->lba_regs);
+ }
+ 
+ static void hp_zx1_tlbflush(agp_memory * mem)
+ {
+ 	struct _hp_private *hp = &hp_private;
+ 
+-	OUTREG64(hp->registers, HP_ZX1_PCOM, 
++	OUTREG64(hp->ioc_regs, HP_ZX1_PCOM, 
+ 		hp->gart_base | log2(hp->gart_size));
+-	INREG64(hp->registers, HP_ZX1_PCOM);
++	INREG64(hp->ioc_regs, HP_ZX1_PCOM);
+ }
+ 
+ static int hp_zx1_create_gatt_table(void)
+@@ -5314,11 +5289,6 @@
+ 		j++;
+ 	}
+ 
+-	if (mem->is_flushed = FALSE) {
+-		CACHE_FLUSH();
+-		mem->is_flushed = TRUE;
+-	}
+-
+ 	for (i = 0, j = io_pg_start; i < mem->page_count; i++) {
+ 		unsigned long paddr;
+ 
+@@ -5358,14 +5328,23 @@
+ 	return HP_ZX1_PDIR_VALID_BIT | addr;
+ }
+ 
+-static unsigned long hp_zx1_unmask_memory(unsigned long addr)
++static void hp_zx1_agp_enable(u32 mode)
+ {
+-	return addr & ~(HP_ZX1_PDIR_VALID_BIT);
++	struct _hp_private *hp = &hp_private;
++	u32 command;
++
++	command = INREG32(hp->lba_regs, HP_ZX1_AGP_STATUS);
++
++	command = agp_collect_device_status(mode, command);
++	command |= 0x00000100;
++
++	OUTREG32(hp->lba_regs, HP_ZX1_AGP_COMMAND, command);
++
++	agp_device_command(command, 0);
+ }
+ 
+-static int __init hp_zx1_setup (struct pci_dev *pdev)
++static int __init hp_zx1_setup(u64 ioc_hpa, u64 lba_hpa)
+ {
+-	agp_bridge.masks = hp_zx1_masks;
+ 	agp_bridge.dev_private_data = NULL;
+ 	agp_bridge.size_type = FIXED_APER_SIZE;
+ 	agp_bridge.needs_scratch_page = FALSE;
+@@ -5374,8 +5353,7 @@
+ 	agp_bridge.cleanup = hp_zx1_cleanup;
+ 	agp_bridge.tlb_flush = hp_zx1_tlbflush;
+ 	agp_bridge.mask_memory = hp_zx1_mask_memory;
+-	agp_bridge.unmask_memory = hp_zx1_unmask_memory;
+-	agp_bridge.agp_enable = agp_generic_agp_enable;
++	agp_bridge.agp_enable = hp_zx1_agp_enable;
+ 	agp_bridge.cache_flush = global_cache_flush;
+ 	agp_bridge.create_gatt_table = hp_zx1_create_gatt_table;
+ 	agp_bridge.free_gatt_table = hp_zx1_free_gatt_table;
+@@ -5386,10 +5364,76 @@
+ 	agp_bridge.agp_alloc_page = agp_generic_alloc_page;
+ 	agp_bridge.agp_destroy_page = agp_generic_destroy_page;
+ 	agp_bridge.cant_use_aperture = 1;
++	agp_bridge.type = HP_ZX1;
+ 
+-	return hp_zx1_ioc_init();
++	fake_bridge_dev.vendor = PCI_VENDOR_ID_HP;
++	fake_bridge_dev.device = PCI_DEVICE_ID_HP_PCIX_LBA;
+ 
+-	(void) pdev; /* unused */
++	return hp_zx1_ioc_init(ioc_hpa, lba_hpa);
++}
++
++static acpi_status __init hp_zx1_gart_probe(acpi_handle obj, u32 depth, void *context, void **ret)
++{
++	acpi_handle handle, parent;
++	acpi_status status;
++	struct acpi_buffer buffer;
++	struct acpi_device_info *info;
++	u64 lba_hpa, sba_hpa, length;
++	int match;
++
++	status = acpi_hp_csr_space(obj, &lba_hpa, &length);
++	if (ACPI_FAILURE(status))
++		return AE_OK;
++
++	/* Look for an enclosing IOC scope and find its CSR space */
++	handle = obj;
++	do {
++		buffer.length = ACPI_ALLOCATE_LOCAL_BUFFER;
++		status = acpi_get_object_info(handle, &buffer);
++		if (ACPI_SUCCESS(status)) {
++			/* TBD check _CID also */
++			info = buffer.pointer;
++			info->hardware_id.value[sizeof(info->hardware_id)-1] = '\0';
++			match = (strcmp(info->hardware_id.value, "HWP0001") = 0);
++			ACPI_MEM_FREE(info);
++			if (match) {
++				status = acpi_hp_csr_space(handle, &sba_hpa, &length);
++				if (ACPI_SUCCESS(status))
++					break;
++				else {
++					printk(KERN_ERR PFX "Detected HP ZX1 "
++					       "AGP LBA but no IOC.\n");
++					return AE_OK;
++				}
 +			}
 +		}
-+	}
 +
-+	if (bit < 0) {  /* ran out of irqs.  Have to share.  This will be rare. */
-+		min_shared = 256;
-+		for (i=IA64_SN2_FIRST_DEVICE_VECTOR; i < IA64_SN2_LAST_DEVICE_VECTOR; i++) {
-+			/* Share with the same device class */
-+			/* XXX: gross layering violation.. */
-+			if (irqpdaindr->curr->vendor = irqpdaindr->device_dev[i]->vendor &&
-+				irqpdaindr->curr->device = irqpdaindr->device_dev[i]->device &&
-+				irqpdaindr->share_count[i] < min_shared) {
-+					min_shared = irqpdaindr->share_count[i];
- 					bit = i;
--					break;
--				}
- 			}
- 		}
--		if (bit < 0) {  /* ran out of irqs.  Have to share.  This will be rare. */
--			min_shared = 256;
-+	
-+		min_shared = 256;
-+		if (bit < 0) {  /* didn't find a matching device, just pick one. This will be */
-+				/* exceptionally rare. */
- 			for (i=IA64_SN2_FIRST_DEVICE_VECTOR; i < IA64_SN2_LAST_DEVICE_VECTOR; i++) {
--				/* Share with the same device class */
--				if (irqpdaindr->curr->vendor = irqpdaindr->device_dev[i]->vendor &&
--					irqpdaindr->curr->device = irqpdaindr->device_dev[i]->device &&
--					irqpdaindr->share_count[i] < min_shared) {
--						min_shared = irqpdaindr->share_count[i];
--						bit = i;
--				}
--			}
--			min_shared = 256;
--			if (bit < 0) {  /* didn't find a matching device, just pick one. This will be */
--					/* exceptionally rare. */
--				for (i=IA64_SN2_FIRST_DEVICE_VECTOR; i < IA64_SN2_LAST_DEVICE_VECTOR; i++) {
--					if (irqpdaindr->share_count[i] < min_shared) {
--						min_shared = irqpdaindr->share_count[i];
--						bit = i;
--					}
-+				if (irqpdaindr->share_count[i] < min_shared) {
-+					min_shared = irqpdaindr->share_count[i];
-+					bit = i;
- 				}
- 			}
--			irqpdaindr->share_count[bit]++;
--		}
--		if (irqs->irq_flags[bit] & SN2_IRQ_SHARED) {
--			irqs->irq_flags[bit] |= SN2_IRQ_RESERVED;
--			return bit;
- 		}
--		if (irqs->irq_flags[bit] & SN2_IRQ_RESERVED) {
--			return -1;
--		} else {
--			irqs->num_irq_used++;
--			irqs->irq_flags[bit] |= SN2_IRQ_RESERVED;
--			return bit;
--		}
--	} else {
--		if (irqs->irq_flags[bit] & SN2_IRQ_RESERVED) {
--			irqs->num_irq_used--;
--			irqs->irq_flags[bit] &= ~SN2_IRQ_RESERVED;
--			return bit;
--		} else {
-+		irqpdaindr->share_count[bit]++;
-+	}
++		status = acpi_get_parent(handle, &parent);
++		handle = parent;
++	} while (ACPI_SUCCESS(status));
 +
-+	if (!(irqs->irq_flags[bit] & SN2_IRQ_SHARED)) {
-+		if (irqs->irq_flags[bit] & SN2_IRQ_RESERVED)
- 			return -1;
--		}
-+		irqs->num_irq_used++;
- 	}
--}
- 
--int
--intr_reserve_level(cpuid_t cpu,
--		int bit,
--		int resflags,
--		vertex_hdl_t owner_dev,
--		char *name)
--{
--	return(do_intr_reserve_level(cpu, bit, 1));
-+	irqs->irq_flags[bit] |= SN2_IRQ_RESERVED;
-+	return bit;
- }
- 
--void
--intr_unreserve_level(cpuid_t cpu,
-+void intr_unreserve_level(cpuid_t cpu,
- 		int bit)
- {
--	(void)do_intr_reserve_level(cpu, bit, 0);
--}
--
--// Mark an irq on this cpu as (dis)connected.
--
--static int
--do_intr_connect_level(cpuid_t cpu,
--			int bit,
--			int connect)
--{
- 	irqpda_t	*irqs = irqpdaindr;
- 
--	if (connect) {
--		if (irqs->irq_flags[bit] & SN2_IRQ_SHARED) {
--			irqs->irq_flags[bit] |= SN2_IRQ_CONNECTED;
--			return bit;
--		}
--		if (irqs->irq_flags[bit] & SN2_IRQ_CONNECTED) {
--			return -1;
--		} else {
--			irqs->irq_flags[bit] |= SN2_IRQ_CONNECTED;
--			return bit;
--		}
--	} else {
--		if (irqs->irq_flags[bit] & SN2_IRQ_CONNECTED) {
--			irqs->irq_flags[bit] &= ~SN2_IRQ_CONNECTED;
--			return bit;
--		} else {
--			return -1;
--		}
-+	if (irqs->irq_flags[bit] & SN2_IRQ_RESERVED) {
-+		irqs->num_irq_used--;
-+		irqs->irq_flags[bit] &= ~SN2_IRQ_RESERVED;
- 	}
--	return(bit);
- }
- 
--int
--intr_connect_level(cpuid_t cpu,
--		int bit,
--		ilvl_t is,
--		intr_func_t intr_prefunc)
-+int intr_connect_level(cpuid_t cpu, int bit)
- {
--	return(do_intr_connect_level(cpu, bit, 1));
-+	irqpda_t	*irqs = irqpdaindr;
++	if (hp_zx1_setup(sba_hpa + HP_ZX1_IOC_OFFSET, lba_hpa))
++		return AE_OK;
 +
-+	if (!(irqs->irq_flags[bit] & SN2_IRQ_SHARED) &&
-+	     (irqs->irq_flags[bit] & SN2_IRQ_CONNECTED))
-+		return -1;
-+ 
-+	irqs->irq_flags[bit] |= SN2_IRQ_CONNECTED;
-+	return bit;
- }
- 
--int
--intr_disconnect_level(cpuid_t cpu,
--		int bit)
-+int intr_disconnect_level(cpuid_t cpu, int bit)
- {
--	return(do_intr_connect_level(cpu, bit, 0));
--}
-+	irqpda_t	*irqs = irqpdaindr;
- 
--// Choose a cpu on this node.
--// We choose the one with the least number of int's assigned to it.
-+	if (!(irqs->irq_flags[bit] & SN2_IRQ_CONNECTED))
-+		return -1;
-+	irqs->irq_flags[bit] &= ~SN2_IRQ_CONNECTED;
-+	return bit;
++	printk(KERN_INFO PFX "Detected HP ZX1 %s AGP chipset (ioc=%lx, lba=%lx)\n",
++		(char *) context, sba_hpa + HP_ZX1_IOC_OFFSET, lba_hpa);
++
++	hp_zx1_gart_found = 1;
++	return AE_CTRL_TERMINATE;
 +}
- 
--static cpuid_t
--do_intr_cpu_choose(cnodeid_t cnode) {
-+/*
-+ * Choose a cpu on this node.
-+ *
-+ * We choose the one with the least number of int's assigned to it.
-+ */
-+static cpuid_t intr_cpu_choose_from_node(cnodeid_t cnode)
++
++static int __init
++hp_zx1_gart_init(void)
 +{
- 	cpuid_t		cpu, best_cpu = CPU_NONE;
- 	int		slice, min_count = 1000;
- 	irqpda_t	*irqs;
-@@ -293,13 +223,10 @@
- 		int intrs;
- 
- 		cpu = cnode_slice_to_cpuid(cnode, slice);
--		if (cpu = num_online_cpus()) {
-+		if (cpu = num_online_cpus())
- 			continue;
--		}
--
--		if (!cpu_online(cpu)) {
-+		if (!cpu_online(cpu))
- 			continue;
--		}
- 
- 		irqs = irqpdaindr;
- 		intrs = irqs->num_irq_used;
-@@ -307,9 +234,12 @@
- 		if (min_count > intrs) {
- 			min_count = intrs;
- 			best_cpu = cpu;
--			if ( enable_shub_wars_1_1() ) {
--				/* Rather than finding the best cpu, always return the first cpu*/
--				/* This forces all interrupts to the same cpu */
-+			if (enable_shub_wars_1_1()) {
-+				/*
-+				 * Rather than finding the best cpu, always
-+				 * return the first cpu.  This forces all
-+				 * interrupts to the same cpu
-+				 */
- 				break;
- 			}
- 		}
-@@ -317,130 +247,76 @@
- 	return best_cpu;
- }
- 
--static cpuid_t
--intr_cpu_choose_from_node(cnodeid_t cnode)
--{
--	return(do_intr_cpu_choose(cnode));
--}
--
--// See if we can use this cpu/vect.
--
--static cpuid_t
--intr_bit_reserve_test(cpuid_t cpu,
--			int favor_subnode,
--			cnodeid_t cnode,
--			int req_bit,
--			int resflags,
--			vertex_hdl_t owner_dev,
--			char *name,
--			int *resp_bit)
-+/*
-+ * We couldn't put it on the closest node.  Try to find another one.
-+ * Do a stupid round-robin assignment of the node.
-+ */
-+static cpuid_t intr_cpu_choose_node(void)
- {
--	ASSERT( (cpu = CPU_NONE) || (cnode = CNODEID_NONE) );
--
--	if (cnode != CNODEID_NONE) {
--		cpu = intr_cpu_choose_from_node(cnode);
-+	static cnodeid_t last_node = -1;	/* XXX: racy */
-+	cnodeid_t candidate_node;
-+	cpuid_t cpuid;
++	acpi_get_devices("HWP0003", hp_zx1_gart_probe, "HWP0003", NULL);
++	if (hp_zx1_gart_found)
++		return 0;
 +
-+	if (last_node >= numnodes)
-+		last_node = 0;
++	acpi_get_devices("HWP0007", hp_zx1_gart_probe, "HWP0007", NULL);
++	if (hp_zx1_gart_found)
++		return 0;
 +
-+	for (candidate_node = last_node + 1; candidate_node != last_node;
-+			candidate_node++) {
-+		if (candidate_node = numnodes)
-+			candidate_node = 0;
-+		cpuid = intr_cpu_choose_from_node(candidate_node);
-+		if (cpuid != CPU_NONE)
-+			return cpuid;
- 	}
- 
--	if (cpu != CPU_NONE) {
--		*resp_bit = do_intr_reserve_level(cpu, req_bit, 1);
--		if (*resp_bit >= 0) {
--			return(cpu);
--		}
--	}
- 	return CPU_NONE;
++	return -ENODEV;
  }
  
--// Find the node to assign for this interrupt.
--
--cpuid_t
--intr_heuristic(vertex_hdl_t dev,
--		device_desc_t dev_desc,
--		int	req_bit,
--		int resflags,
--		vertex_hdl_t owner_dev,
--		char *name,
--		int *resp_bit)
-+/*
-+ * Find the node to assign for this interrupt.
-+ *
-+ * SN2 + pcibr addressing limitation:
-+ *   Due to this limitation, all interrupts from a given bridge must
-+ *   go to the name node.  The interrupt must also be targetted for
-+ *   the same processor.  This limitation does not exist on PIC.
-+ *   But, the processor limitation will stay.  The limitation will be
-+ *   similar to the bedrock/xbridge limit regarding PI's
-+ */
-+cpuid_t intr_heuristic(vertex_hdl_t dev, int req_bit, int *resp_bit)
- {
- 	cpuid_t		cpuid;
- 	cpuid_t		candidate = CPU_NONE;
--	cnodeid_t	candidate_node;
- 	vertex_hdl_t	pconn_vhdl;
- 	pcibr_soft_t	pcibr_soft;
- 	int 		bit;
+ #endif /* CONFIG_AGP_HP_ZX1 */
+@@ -6250,15 +6294,6 @@
+ 		nvidia_generic_setup },
+ #endif /* CONFIG_AGP_NVIDIA */
  
--/* SN2 + pcibr addressing limitation */
--/* Due to this limitation, all interrupts from a given bridge must go to the name node.*/
--/* The interrupt must also be targetted for the same processor. */
--/* This limitation does not exist on PIC. */
--/* But, the processor limitation will stay.  The limitation will be similar to */
--/* the bedrock/xbridge limit regarding PI's */
+-#ifdef CONFIG_AGP_HP_ZX1
+-	{ PCI_DEVICE_ID_HP_ZX1_LBA,
+-		PCI_VENDOR_ID_HP,
+-		HP_ZX1,
+-		"HP",
+-		"ZX1",
+-		hp_zx1_setup },
+-#endif
 -
--	if ( (hwgraph_edge_get(dev, EDGE_LBL_PCI, &pconn_vhdl) = GRAPH_SUCCESS) &&
--		( (pcibr_soft = pcibr_soft_get(pconn_vhdl) ) != NULL) ) {
--			if (pcibr_soft->bsi_err_intr) {
--				candidate =  ((hub_intr_t)pcibr_soft->bsi_err_intr)->i_cpuid;
--			}
-+	/* XXX: gross layering violation.. */
-+	if (hwgraph_edge_get(dev, EDGE_LBL_PCI, &pconn_vhdl) = GRAPH_SUCCESS) {
-+		pcibr_soft = pcibr_soft_get(pconn_vhdl);
-+		if (pcibr_soft && pcibr_soft->bsi_err_intr)
-+			candidate = ((hub_intr_t)pcibr_soft->bsi_err_intr)->i_cpuid;
+ #ifdef CONFIG_AGP_ATI
+ 	{ PCI_DEVICE_ID_ATI_RS100,
+ 	  PCI_VENDOR_ID_ATI,
+@@ -6390,6 +6425,11 @@
+ 	struct pci_dev *dev = NULL;
+ 	u8 cap_ptr = 0x00;
+ 
++#ifdef CONFIG_AGP_HP_ZX1
++	if (hp_zx1_gart_init() = 0)
++		return 0;
++#endif
++
+ 	if ((dev = pci_find_class(PCI_CLASS_BRIDGE_HOST << 8, NULL)) = NULL)
+ 		return -ENODEV;
+ 
+@@ -6662,23 +6702,6 @@
  	}
  
+ #endif	/* CONFIG_AGP_SWORKS */
 -
- 	if (candidate != CPU_NONE) {
--		// The cpu was chosen already when we assigned the error interrupt.
--		bit = intr_reserve_level(candidate, 
--					req_bit, 
--					resflags, 
--					owner_dev, 
--					name);
--		if (bit < 0) {
--			cpuid = CPU_NONE;
--		} else {
--			cpuid = candidate;
-+		/*
-+		 * The cpu was chosen already when we assigned
-+		 * the error interrupt.
-+		 */
-+		bit = intr_reserve_level(candidate, req_bit);
-+		if (bit >= 0) {
- 			*resp_bit = bit;
-+			return candidate;
+-#ifdef CONFIG_AGP_HP_ZX1
+-	if (dev->vendor = PCI_VENDOR_ID_HP) {
+-		do {
+-			/* ZX1 LBAs can be either PCI or AGP bridges */
+-			if (pci_find_capability(dev, PCI_CAP_ID_AGP)) {
+-				printk(KERN_INFO PFX "Detected HP ZX1 AGP "
+-				       "chipset at %s\n", dev->slot_name);
+-				agp_bridge.type = HP_ZX1;
+-				agp_bridge.dev = dev;
+-				return hp_zx1_setup(dev);
+-			}
+-			dev = pci_find_class(PCI_CLASS_BRIDGE_HOST << 8, dev);
+-		} while (dev);
+-		return -ENODEV;
+-	}
+-#endif	/* CONFIG_AGP_HP_ZX1 */
+ 
+ 	/* find capndx */
+ 	cap_ptr = pci_find_capability(dev, PCI_CAP_ID_AGP);
+=== drivers/char/drm-4.0/agpsupport.c 1.6 vs edited ==--- 1.6/drivers/char/drm-4.0/agpsupport.c	Wed Sep 10 14:49:49 2003
++++ edited/drivers/char/drm-4.0/agpsupport.c	Wed Sep 10 15:01:15 2003
+@@ -301,6 +301,7 @@
+ 			break;
+ 		case SVWRKS_HE: 	head->chipset = "Serverworks HE"; break;
+ 		case SVWRKS_LE: 	head->chipset = "Serverworks LE"; break;
++		case HP_ZX1:		head->chipset = "HP ZX1";	break;
+ 
+ 		default:		head->chipset = "Unknown";       break;
  		}
--	} else {
--		// Need to choose one.  Try the controlling c-brick first.
--		cpuid = intr_bit_reserve_test(CPU_NONE,
--						0,
--						master_node_get(dev),
--						req_bit,
--						0,
--						owner_dev,
--						name,
--						resp_bit);
--	}
- 
--	if (cpuid != CPU_NONE) {
--		return cpuid;
--	}
--
--	if (candidate  != CPU_NONE) {
- 		printk("Cannot target interrupt to target node (%ld).\n",candidate);
--		return CPU_NONE; } else {
--		/* printk("Cannot target interrupt to closest node (%d) 0x%p\n",
--			master_node_get(dev), (void *)owner_dev); */
--	}
--
--	// We couldn't put it on the closest node.  Try to find another one.
--	// Do a stupid round-robin assignment of the node.
--
--	{
--		static cnodeid_t last_node = -1;
--		if (last_node >= numnodes) last_node = 0;
--		for (candidate_node = last_node + 1; candidate_node != last_node; candidate_node++) {
--			if (candidate_node = numnodes) candidate_node = 0;
--			cpuid = intr_bit_reserve_test(CPU_NONE,
--							0,
--							candidate_node,
--							req_bit,
--							0,
--							owner_dev,
--							name,
--							resp_bit);
--			if (cpuid != CPU_NONE) {
--				return cpuid;
--			}
--		}
-+		return CPU_NONE;
- 	}
- 
--	printk("cannot target interrupt: 0x%p\n",(void *)owner_dev);
--	return CPU_NONE;
-+	/*
-+	 * Need to choose one.  Try the controlling c-brick first.
-+	 */
-+	cpuid = intr_cpu_choose_from_node(master_node_get(dev));
-+	if (cpuid != CPU_NONE)
-+		return cpuid;
-+	return intr_cpu_choose_node();
- }
---- 1.3/arch/ia64/sn/io/sn2/shub_intr.c	Fri May 16 13:18:18 2003
-+++ edited/arch/ia64/sn/io/sn2/shub_intr.c	Fri Sep 26 11:34:47 2003
-@@ -1,5 +1,4 @@
--/* $Id: shub_intr.c,v 1.1 2002/02/28 17:31:25 marcelo Exp $
-- *
-+/*
-  * This file is subject to the terms and conditions of the GNU General Public
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-@@ -61,8 +60,7 @@
- 	xwidget_info_t	xwidget_info;
- 	ilvl_t		intr_swlevel = 0;
- 
--	cpu = intr_heuristic(dev, dev_desc, -1, 0, owner_dev, NULL, &vector);
--
-+	cpu = intr_heuristic(dev, -1, &vector);
- 	if (cpu = CPU_NONE) {
- 		printk("Unable to allocate interrupt for 0x%p\n", (void *)owner_dev);
- 		return(0);
-@@ -150,10 +148,9 @@
- 
- 	ASSERT(intr_hdl->i_flags & HUB_INTR_IS_ALLOCED);
- 
--	rv = intr_connect_level(cpu, vector, intr_hdl->i_swlevel, NULL);
--	if (rv < 0) {
-+	rv = intr_connect_level(cpu, vector);
-+	if (rv < 0)
- 		return rv;
--	}
- 
- 	intr_hdl->i_xtalk_info.xi_setfunc = setfunc;
- 	intr_hdl->i_xtalk_info.xi_sfarg = setfunc_arg;
---- 1.6/arch/ia64/sn/io/sn2/shuberror.c	Mon Aug  4 19:02:37 2003
-+++ edited/arch/ia64/sn/io/sn2/shuberror.c	Fri Sep 26 11:34:47 2003
-@@ -145,14 +145,13 @@
-     /* Select a possible interrupt target where there is a free interrupt
-      * bit and also reserve the interrupt bit for this IO error interrupt
-      */
--    intr_cpu = intr_heuristic(hub_v,0,SGI_II_ERROR,0,hub_v,
--			      "HUB IO error interrupt",&bit);
-+    intr_cpu = intr_heuristic(hub_v, SGI_II_ERROR, &bit);
-     if (intr_cpu = CPU_NONE) {
--	printk("hubii_eint_init: intr_reserve_level failed, cnode %d", cnode);
-+	printk("hubii_eint_init: intr_heuristic failed, cnode %d", cnode);
- 	return;
-     }
- 	
--    rv = intr_connect_level(intr_cpu, SGI_II_ERROR, 0, NULL);
-+    rv = intr_connect_level(intr_cpu, SGI_II_ERROR);
-     request_irq(SGI_II_ERROR, hubii_eint_handler, SA_SHIRQ, "SN_hub_error", (void *)hub_v);
-     irq_descp(bit)->status |= SN2_IRQ_PER_HUB;
-     ASSERT_ALWAYS(rv >= 0);
---- 1.4/include/asm-ia64/sn/sn2/sn_private.h	Wed Jul 30 13:40:14 2003
-+++ edited/include/asm-ia64/sn/sn2/sn_private.h	Fri Sep 26 11:34:47 2003
-@@ -49,14 +49,10 @@
- #endif
- 
- /* intr.c */
--extern int intr_reserve_level(cpuid_t cpu, int level, int err, vertex_hdl_t owner_dev, char *name);
- extern void intr_unreserve_level(cpuid_t cpu, int level);
--extern int intr_connect_level(cpuid_t cpu, int bit, ilvl_t mask_no, 
--			intr_func_t intr_prefunc);
-+extern int intr_connect_level(cpuid_t cpu, int bit);
- extern int intr_disconnect_level(cpuid_t cpu, int bit);
--extern cpuid_t intr_heuristic(vertex_hdl_t dev, device_desc_t dev_desc,
--			      int req_bit,int intr_resflags,vertex_hdl_t owner_dev,
--			      char *intr_name,int *resp_bit);
-+extern cpuid_t intr_heuristic(vertex_hdl_t dev, int req_bit, int *resp_bit);
- extern void intr_block_bit(cpuid_t cpu, int bit);
- extern void intr_unblock_bit(cpuid_t cpu, int bit);
- extern void setrtvector(intr_func_t);
 
------ End forwarded message -----
