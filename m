@@ -1,158 +1,89 @@
-From: Chris Ahna <christopher.j.ahna@intel.com>
-Date: Wed, 15 Aug 2001 05:08:40 +0000
-Subject: [Linux-ia64] agpgart/drm Update
-Message-Id: <marc-linux-ia64-105590698805081@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Thu, 02 Aug 2001 03:38:40 +0000
+Subject: [Linux-ia64] [RFC] /proc/ksyms change for IA64 (fwd)
+Message-Id: <marc-linux-ia64-105590693005990@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I was able to cook up some patches to get agpgart/drm/dri working within
-the framework introduced with the release of 2.4.8.  These patches use
-the drm + drm-4.0 idea that Kieth mentioned on this list.  I sent these
-patches along to David offlist since they're rather large.
+FYI.  Followups to linux-kernel@vger.kernel.org please, the initial
+problem is IA64 specific but the fix is a generic one for all
+architectures that require special processing, it needs to be discussed
+on l-k.  I would have used Bcc: to ia64 but this list rejects Bcc mail.
 
-Anyway, I thought I'd give a general update on what's known to work.
-I've tested the following combinations:
+------- Forwarded Message
 
-      Video Card           DRM              XFree86
-      ----------           ---              -------
+The IA64 use of descriptors for function pointers has bitten ksymoops.
+For those not familiar with IA64, &func points to a descriptor
+containing { &code, &data_context }.  System.map contains the address
+of the code, /proc/ksyms contains the address of the descriptor.
+insmod needs the descriptor address, ksymoops and debuggers need the
+code address, /proc/ksyms needs to contain both addresses, with one of
+them prefixed by a special character.
 
-      ATI Radeon           New              4.1.0+
-      ATI Rage128          New              4.1.0+
-      ATI Rage128          Old              4.0.2+
-      Matrox G450          New              4.1.0+
+EXPORT_SYMBOL() cannot distinguish between &function and &data.
+Telling everybody that they must type EXPORT_SYMBOL_FUNCTION or
+EXPORT_SYMBOL_DATA is not an option, the second symbol has to be
+automatically added after linking vmlinux and modules.  I want to fix
+this problem in user space, with no changes to to kernel code.  My
+proposal for kernel 2.5 is :-
 
-Matrox G400 should work with the old DRM and XFree86 4.0.2+ and the ATI
-Radeon should work with the old DRM and XFree86 4.0.3+, however I didn't
-get a chance to test these combos.
+* In System.map and /proc/ksyms, label foo addresses the code, not the
+  descriptor.  Label &foo addresses the function descriptor.
 
-The + after XFree86 version denotes the fact that small patches need to
-be applied to X itself for the whole package to work.  These are needed
-to combat 'a page is 4KB' assumptions.  A patch for older XFree86
-sources (actually against a 010321 snapshot) can be found at
+* foo has symbol versions, &foo does not.
 
-   https://external-lists.valinux.com/archives/linux-ia64/2001-March/001326.html
+* In kernel build, all objects that export symbols are post processed
+  immediately after they are compiled.  On most architectures the post
+  process is a no-op.  On IA64 it runs a program from modutils that
+  identifies exported function pointers and modifies the ksymtab and
+  kstrtab, see below.
 
-A patch against the current DRI CVS, which should apply pretty well to any
-recent copy of XFree86, is appended.
+* At run time, insmod does its normal address fixup processing first,
+  including checking for symbol versions.  If the existing code
+  succeeds without unresolved symbols, insmod modifies the address
+  fixup so a reference to foo is resolved to &foo, iff both foo and
+  &foo are in /proc/ksyms.
 
-If anyone's real anxious to run 4.1.0 style drm on ia64, let me know and
-I'll send along the patches directly.  Once the patches get integrated into
-David's tree, I'd love to hear bug reports or success stories from
-anyone who tries it out.  It works here, but that's just not completely
-satisfying :-)
+This has the benefit that all the changes are in modutils plus a small
+change to the kernel build, no other user space tools are affected.
+Most user space programs expect foo to address the code, not the
+descriptor, AFAIK it is only insmod that needs the descriptor.  This
+change will also affect any code that tries to front end functions from
+modules but IMNSHO code should not be doing that.  If this breaks
+binary only modules - tough.
 
-Chris
+One problem that always has to be addressed with modutils is version
+skew between user space and the kernel.  With this approach, if you
+build a new kernel with old modutils then the post processing program
+will not be available so ksyms has the old format and the old insmod
+behaviour applies, ksymoops will get errors but the kernel will still
+run.  With a new modutils but an old kernel you get the old behaviour.
+The only way you can get problems with version skew is to compile a
+kernel on one machine with new modutils and install on another machine
+with old modutils, modules will oops.  I don't see this as a problem,
+the IA64 population is fairly small, in any case gcc cross compile for
+IA64 has problems right now.
+
+The new modutils supplied program (/usr/bin/modules_post) will look
+through the __ksymtab section for an object.  For each exported symbol,
+look at the data it references.  If that data contains two relocatable
+addresses, one pointing to a text symbol, the other to a data symbol
+and the text symbol has the same name as the exported symbol then this
+is a descriptor.  Change the exported symbol name to &foo and add an
+exported symbol foo that points to the code.
+
+Note: This is modutils 2.5 stuff.  modules_post needs to use BFD which
+      current modutils does not use, this adds a new requirement when
+      compiling modutils.  Using BFD is the only way I can handle all
+      the relocation types, especially in cross compile mode.  It may
+      or may not get backported to modutils 2.4, probably not.
+      ksymoops on IA64 2.4 will just have to live with lots of
+      warnings.
 
 
---- xc.old/programs/Xserver/hw/xfree86/drivers/ati/radeon_dri.c	Thu Jun 14 15:23:41 2001
-+++ xc/programs/Xserver/hw/xfree86/drivers/ati/radeon_dri.c	Tue Aug 14 19:06:03 2001
-@@ -58,13 +58,7 @@
- # undef PCIGART_ENABLED
- #endif
- 
--/* ?? HACK - for now, put this here... */
--/* ?? Alpha - this may need to be a variable to handle UP1x00 vs TITAN */
--#if defined(__alpha__)
--# define DRM_PAGE_SIZE 8192
--#else
--# define DRM_PAGE_SIZE 4096
--#endif
-+static size_t radeon_drm_page_size;
- 
- /* Initialize the visual configs that are supported by the hardware.
-    These are combined with the visual configs that the indirect
-@@ -769,11 +763,11 @@
- 
- 				/* Initialize the CP ring buffer data */
-     info->ringStart       = info->agpOffset;
--    info->ringMapSize     = info->ringSize*1024*1024 + DRM_PAGE_SIZE;
-+    info->ringMapSize     = info->ringSize*1024*1024 + radeon_drm_page_size;
-     info->ringSizeLog2QW  = RADEONMinBits(info->ringSize*1024*1024/8)-1;
- 
-     info->ringReadOffset  = info->ringStart + info->ringMapSize;
--    info->ringReadMapSize = DRM_PAGE_SIZE;
-+    info->ringReadMapSize = radeon_drm_page_size;
- 
- 				/* Reserve space for vertex/indirect buffers */
-     info->bufStart        = info->ringReadOffset + info->ringReadMapSize;
-@@ -898,11 +892,11 @@
- 
- 				/* Initialize the CCE ring buffer data */
-     info->ringStart       = info->agpOffset;
--    info->ringMapSize     = info->ringSize*1024*1024 + DRM_PAGE_SIZE;
-+    info->ringMapSize     = info->ringSize*1024*1024 + radeon_drm_page_size;
-     info->ringSizeLog2QW  = RADEONMinBits(info->ringSize*1024*1024/8)-1;
- 
-     info->ringReadOffset  = info->ringStart + info->ringMapSize;
--    info->ringReadMapSize = DRM_PAGE_SIZE;
-+    info->ringReadMapSize = radeon_drm_page_size;
- 
- 				/* Reserve space for vertex/indirect buffers */
-     info->bufStart        = info->ringReadOffset + info->ringReadMapSize;
-@@ -1331,6 +1325,8 @@
-     case 32:
- 	break;
-     }
-+
-+    radeon_drm_page_size = getpagesize();
- 
-     /* Create the DRI data structure, and fill it in before calling the
-        DRIScreenInit(). */
---- xc.old/programs/Xserver/hw/xfree86/drivers/ati/r128_dri.c	Tue Aug  7 11:15:08 2001
-+++ xc/programs/Xserver/hw/xfree86/drivers/ati/r128_dri.c	Tue Aug 14 19:02:35 2001
-@@ -54,13 +54,7 @@
- #include "GL/glxtokens.h"
- #include "sarea.h"
- 
--/* ?? HACK - for now, put this here... */
--/* ?? Alpha - this may need to be a variable to handle UP1x00 vs TITAN */
--#if defined(__alpha__)
--# define DRM_PAGE_SIZE 8192
--#else
--# define DRM_PAGE_SIZE 4096
--#endif
-+static size_t r128_drm_page_size;
- 
- /* Initialize the visual configs that are supported by the hardware.
-    These are combined with the visual configs that the indirect
-@@ -468,11 +462,11 @@
- 
- 				/* Initialize the CCE ring buffer data */
-     info->ringStart       = info->agpOffset;
--    info->ringMapSize     = info->ringSize*1024*1024 + DRM_PAGE_SIZE;
-+    info->ringMapSize     = info->ringSize*1024*1024 + r128_drm_page_size;
-     info->ringSizeLog2QW  = R128MinBits(info->ringSize*1024*1024/8) - 1;
- 
-     info->ringReadOffset  = info->ringStart + info->ringMapSize;
--    info->ringReadMapSize = DRM_PAGE_SIZE;
-+    info->ringReadMapSize = r128_drm_page_size;
- 
- 				/* Reserve space for vertex/indirect buffers */
-     info->bufStart        = info->ringReadOffset + info->ringReadMapSize;
-@@ -622,11 +616,11 @@
- 
- 				/* Initialize the CCE ring buffer data */
-     info->ringStart       = info->agpOffset;
--    info->ringMapSize     = info->ringSize*1024*1024 + DRM_PAGE_SIZE;
-+    info->ringMapSize     = info->ringSize*1024*1024 + r128_drm_page_size;
-     info->ringSizeLog2QW  = R128MinBits(info->ringSize*1024*1024/8) - 1;
- 
-     info->ringReadOffset  = info->ringStart + info->ringMapSize;
--    info->ringReadMapSize = DRM_PAGE_SIZE;
-+    info->ringReadMapSize = r128_drm_page_size;
- 
- 				/* Reserve space for vertex/indirect buffers */
-     info->bufStart        = info->ringReadOffset + info->ringReadMapSize;
-@@ -907,6 +901,8 @@
-     case 32:
- 	break;
-     }
-+
-+    r128_drm_page_size = getpagesize();
- 
-     /* Create the DRI data structure, and fill it in before calling the
-        DRIScreenInit(). */
+------- End of Forwarded Message
+
 
