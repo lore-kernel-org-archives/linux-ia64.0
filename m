@@ -1,30 +1,39 @@
-From: Francis Galiegue <fg@mandrakesoft.com>
-Date: Wed, 06 Dec 2000 12:18:23 +0000
-Subject: [Linux-ia64] static gcc from toolchain: howto?
-Message-Id: <marc-linux-ia64-105590678205796@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 06 Dec 2000 20:16:06 +0000
+Subject: Re: [Linux-ia64] static gcc from toolchain: howto?
+Message-Id: <marc-linux-ia64-105590678205799@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205796@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205796@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi all,
+> When I try and set LDFLAGS or LDFLAGS_FOR_TARGET to
+>-static, I get lots of multiple to _nl_* stuff, hence only i18n stuff...
 
-I've been trying for two days now to compile a static gcc (and possibly other
-tools too) but failed. When I try and set LDFLAGS or LDFLAGS_FOR_TARGET to
--static, I get lots of multiple to _nl_* stuff, hence only i18n stuff... And I
-cannot seem to get out of it, no matter how I try. There's no static-* target
-either.
+What I used to do was just replace the intl/libintl.a files with empty
+archives.
 
-What is the solution? Or is there a static toolchain binary tree to be d/led
-somewhere?
+cd intl
+rm libintl.a
+ar rc libintl.a
+cd ..
 
-(BTW I've succeeded at the very last to get glibc 2.2 to compile - phew)
+There are two of these directories, intl, and gcc/intl.  I think this is the
+easiest solution.
 
--- 
-Francis Galiegue, fg@mandrakesoft.com
-"Programming is a race between programmers, who try and make more and more
-idiot-proof software, and universe, which produces more and more remarkable
-idiots. Until now, universe leads the race"  -- R. Cook
+The real solution is to build and install gettext before running configure.
+autoconf checks to see if the host has i18n support by trying to run xgettext.
+If the program isn't there, then it assumes that we need to build our own
+i18n library.  If you link against a shared glibc, this isn't a problem.
+If you link against a static glibc, then you get the multiple definitions
+link error.  I suppose if you don't have gcc yet, then building gettext might
+be a problem.  So you will need to use a workaround once to bootstrap.
 
+Bill Nottingham's suggestion of using --disable-nls should work too, but you
+have to remember to use it before running configure.
+
+Jim
 
