@@ -1,1167 +1,653 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 29 Sep 2004 15:24:38 +0000
-Subject: [PATCH] bigsur defconfig
-Message-Id: <200409290824.38558.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_2OtWB8I+sCheiBg"
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 03 Sep 2004 19:32:43 +0000
+Subject: [PATCH] acpiphp domain support [3/5]
+Message-Id: <20040903193243.GR642@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
---Boundary-00=_2OtWB8I+sCheiBg
-Content-Type: text/plain;
-  charset="us-ascii"
+References: <20040903193027.GO642@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040903193027.GO642@parcelfarce.linux.theplanet.co.uk>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: Matthew Wilcox <willy@debian.org>
+Cc: Greg KH <greg@kroah.com>, pcihpd-discuss@lists.sourceforge.net, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Here's a defconfig that comes up on my box and has a reasonable set of modules 
-enabled.
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+acpiphp doesn't work very well on a machine with multiple PCI domains.
+This patch improves the situation by using pci_get_slot() instead of
+pci_find_slot().  The new reference couting rules are documented at the
+top of acpiphp_glue.c.  This necessitated some cleanup of error handling
+paths and change of calling conventions.
 
-Jesse
+The seg/bus/sub entries are removed from struct acpiphp_bridge and
+retrieved from the pci_bus when necessary.  The per-bridge removal code
+is moved from acpiphp_glue_exit() to the remove_bridge() method where
+it should have been all along.
 
---Boundary-00=_2OtWB8I+sCheiBg
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="bigsur-defconfig.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="bigsur-defconfig.patch"
+I've added my copyright and bumped the version number.
 
---- /dev/null	2004-08-23 14:04:43.602968924 -0700
-+++ arch/ia64/configs/bigsur_defconfig	2004-09-28 13:26:59.523502649 -0700
-@@ -0,0 +1,1132 @@
-+#
-+# Automatically generated make config: don't edit
-+# Linux kernel version: 2.6.9-rc2
-+# Tue Sep 28 13:26:53 2004
-+#
-+
-+#
-+# Code maturity level options
-+#
-+CONFIG_EXPERIMENTAL=y
-+CONFIG_CLEAN_COMPILE=y
-+
-+#
-+# General setup
-+#
-+CONFIG_LOCALVERSION=""
-+CONFIG_SWAP=y
-+CONFIG_SYSVIPC=y
-+CONFIG_POSIX_MQUEUE=y
-+# CONFIG_BSD_PROCESS_ACCT is not set
-+CONFIG_SYSCTL=y
-+# CONFIG_AUDIT is not set
-+CONFIG_LOG_BUF_SHIFT=16
-+CONFIG_HOTPLUG=y
-+# CONFIG_IKCONFIG is not set
-+# CONFIG_EMBEDDED is not set
-+CONFIG_KALLSYMS=y
-+# CONFIG_KALLSYMS_ALL is not set
-+# CONFIG_KALLSYMS_EXTRA_PASS is not set
-+CONFIG_FUTEX=y
-+CONFIG_EPOLL=y
-+CONFIG_IOSCHED_NOOP=y
-+CONFIG_IOSCHED_AS=y
-+CONFIG_IOSCHED_DEADLINE=y
-+CONFIG_IOSCHED_CFQ=y
-+# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
-+CONFIG_SHMEM=y
-+# CONFIG_TINY_SHMEM is not set
-+
-+#
-+# Loadable module support
-+#
-+CONFIG_MODULES=y
-+CONFIG_MODULE_UNLOAD=y
-+# CONFIG_MODULE_FORCE_UNLOAD is not set
-+CONFIG_OBSOLETE_MODPARM=y
-+# CONFIG_MODVERSIONS is not set
-+CONFIG_KMOD=y
-+CONFIG_STOP_MACHINE=y
-+
-+#
-+# Processor type and features
-+#
-+CONFIG_IA64=y
-+CONFIG_64BIT=y
-+CONFIG_MMU=y
-+CONFIG_RWSEM_XCHGADD_ALGORITHM=y
-+CONFIG_TIME_INTERPOLATION=y
-+CONFIG_EFI=y
-+CONFIG_GENERIC_IOMAP=y
-+# CONFIG_IA64_GENERIC is not set
-+CONFIG_IA64_DIG=y
-+# CONFIG_IA64_HP_ZX1 is not set
-+# CONFIG_IA64_SGI_SN2 is not set
-+# CONFIG_IA64_HP_SIM is not set
-+CONFIG_ITANIUM=y
-+# CONFIG_MCKINLEY is not set
-+# CONFIG_IA64_PAGE_SIZE_4KB is not set
-+# CONFIG_IA64_PAGE_SIZE_8KB is not set
-+CONFIG_IA64_PAGE_SIZE_16KB=y
-+# CONFIG_IA64_PAGE_SIZE_64KB is not set
-+CONFIG_IA64_BRL_EMU=y
-+# CONFIG_ITANIUM_BSTEP_SPECIFIC is not set
-+CONFIG_IA64_L1_CACHE_SHIFT=6
-+# CONFIG_NUMA is not set
-+# CONFIG_VIRTUAL_MEM_MAP is not set
-+# CONFIG_IA64_CYCLONE is not set
-+CONFIG_IOSAPIC=y
-+CONFIG_FORCE_MAX_ZONEORDER=18
-+CONFIG_SMP=y
-+CONFIG_NR_CPUS=2
-+# CONFIG_HOTPLUG_CPU is not set
-+CONFIG_PREEMPT=y
-+CONFIG_HAVE_DEC_LOCK=y
-+CONFIG_IA32_SUPPORT=y
-+CONFIG_COMPAT=y
-+CONFIG_PERFMON=y
-+CONFIG_IA64_PALINFO=y
-+
-+#
-+# Firmware Drivers
-+#
-+CONFIG_EFI_VARS=y
-+CONFIG_EFI_PCDP=y
-+CONFIG_BINFMT_ELF=y
-+CONFIG_BINFMT_MISC=m
-+
-+#
-+# Power management and ACPI
-+#
-+CONFIG_PM=y
-+CONFIG_ACPI=y
-+
-+#
-+# ACPI (Advanced Configuration and Power Interface) Support
-+#
-+CONFIG_ACPI_BOOT=y
-+CONFIG_ACPI_INTERPRETER=y
-+CONFIG_ACPI_BUTTON=m
-+CONFIG_ACPI_FAN=m
-+CONFIG_ACPI_PROCESSOR=m
-+CONFIG_ACPI_THERMAL=m
-+# CONFIG_ACPI_DEBUG is not set
-+CONFIG_ACPI_BUS=y
-+CONFIG_ACPI_POWER=y
-+CONFIG_ACPI_PCI=y
-+CONFIG_ACPI_SYSTEM=y
-+
-+#
-+# Bus options (PCI, PCMCIA)
-+#
-+CONFIG_PCI=y
-+CONFIG_PCI_DOMAINS=y
-+# CONFIG_PCI_MSI is not set
-+CONFIG_PCI_LEGACY_PROC=y
-+CONFIG_PCI_NAMES=y
-+
-+#
-+# PCI Hotplug Support
-+#
-+# CONFIG_HOTPLUG_PCI is not set
-+
-+#
-+# PCMCIA/CardBus support
-+#
-+# CONFIG_PCMCIA is not set
-+
-+#
-+# Device Drivers
-+#
-+
-+#
-+# Generic Driver Options
-+#
-+CONFIG_STANDALONE=y
-+CONFIG_PREVENT_FIRMWARE_BUILD=y
-+# CONFIG_FW_LOADER is not set
-+# CONFIG_DEBUG_DRIVER is not set
-+
-+#
-+# Memory Technology Devices (MTD)
-+#
-+# CONFIG_MTD is not set
-+
-+#
-+# Parallel port support
-+#
-+# CONFIG_PARPORT is not set
-+
-+#
-+# Plug and Play support
-+#
-+
-+#
-+# Block devices
-+#
-+# CONFIG_BLK_CPQ_DA is not set
-+# CONFIG_BLK_CPQ_CISS_DA is not set
-+# CONFIG_BLK_DEV_DAC960 is not set
-+# CONFIG_BLK_DEV_UMEM is not set
-+CONFIG_BLK_DEV_LOOP=m
-+CONFIG_BLK_DEV_CRYPTOLOOP=m
-+CONFIG_BLK_DEV_NBD=m
-+# CONFIG_BLK_DEV_SX8 is not set
-+# CONFIG_BLK_DEV_UB is not set
-+CONFIG_BLK_DEV_RAM=m
-+CONFIG_BLK_DEV_RAM_SIZE=4096
-+
-+#
-+# ATA/ATAPI/MFM/RLL support
-+#
-+CONFIG_IDE=m
-+CONFIG_BLK_DEV_IDE=m
-+
-+#
-+# Please see Documentation/ide.txt for help/info on IDE drives
-+#
-+# CONFIG_BLK_DEV_IDE_SATA is not set
-+CONFIG_BLK_DEV_IDEDISK=m
-+# CONFIG_IDEDISK_MULTI_MODE is not set
-+CONFIG_BLK_DEV_IDECD=m
-+# CONFIG_BLK_DEV_IDETAPE is not set
-+CONFIG_BLK_DEV_IDEFLOPPY=m
-+# CONFIG_BLK_DEV_IDESCSI is not set
-+# CONFIG_IDE_TASK_IOCTL is not set
-+# CONFIG_IDE_TASKFILE_IO is not set
-+
-+#
-+# IDE chipset support/bugfixes
-+#
-+CONFIG_IDE_GENERIC=m
-+CONFIG_BLK_DEV_IDEPCI=y
-+CONFIG_IDEPCI_SHARE_IRQ=y
-+# CONFIG_BLK_DEV_OFFBOARD is not set
-+CONFIG_BLK_DEV_GENERIC=m
-+# CONFIG_BLK_DEV_OPTI621 is not set
-+CONFIG_BLK_DEV_IDEDMA_PCI=y
-+# CONFIG_BLK_DEV_IDEDMA_FORCED is not set
-+CONFIG_IDEDMA_PCI_AUTO=y
-+# CONFIG_IDEDMA_ONLYDISK is not set
-+# CONFIG_BLK_DEV_AEC62XX is not set
-+# CONFIG_BLK_DEV_ALI15X3 is not set
-+# CONFIG_BLK_DEV_AMD74XX is not set
-+# CONFIG_BLK_DEV_CMD64X is not set
-+# CONFIG_BLK_DEV_TRIFLEX is not set
-+# CONFIG_BLK_DEV_CY82C693 is not set
-+# CONFIG_BLK_DEV_CS5520 is not set
-+# CONFIG_BLK_DEV_CS5530 is not set
-+# CONFIG_BLK_DEV_HPT34X is not set
-+# CONFIG_BLK_DEV_HPT366 is not set
-+# CONFIG_BLK_DEV_SC1200 is not set
-+CONFIG_BLK_DEV_PIIX=m
-+# CONFIG_BLK_DEV_NS87415 is not set
-+# CONFIG_BLK_DEV_PDC202XX_OLD is not set
-+# CONFIG_BLK_DEV_PDC202XX_NEW is not set
-+# CONFIG_BLK_DEV_SVWKS is not set
-+# CONFIG_BLK_DEV_SIIMAGE is not set
-+# CONFIG_BLK_DEV_SLC90E66 is not set
-+# CONFIG_BLK_DEV_TRM290 is not set
-+# CONFIG_BLK_DEV_VIA82CXXX is not set
-+# CONFIG_IDE_ARM is not set
-+CONFIG_BLK_DEV_IDEDMA=y
-+# CONFIG_IDEDMA_IVB is not set
-+CONFIG_IDEDMA_AUTO=y
-+# CONFIG_BLK_DEV_HD is not set
-+
-+#
-+# SCSI device support
-+#
-+CONFIG_SCSI=y
-+CONFIG_SCSI_PROC_FS=y
-+
-+#
-+# SCSI support type (disk, tape, CD-ROM)
-+#
-+CONFIG_BLK_DEV_SD=y
-+# CONFIG_CHR_DEV_ST is not set
-+# CONFIG_CHR_DEV_OSST is not set
-+# CONFIG_BLK_DEV_SR is not set
-+# CONFIG_CHR_DEV_SG is not set
-+
-+#
-+# Some SCSI devices (e.g. CD jukebox) support multiple LUNs
-+#
-+# CONFIG_SCSI_MULTI_LUN is not set
-+CONFIG_SCSI_CONSTANTS=y
-+CONFIG_SCSI_LOGGING=y
-+
-+#
-+# SCSI Transport Attributes
-+#
-+CONFIG_SCSI_SPI_ATTRS=m
-+# CONFIG_SCSI_FC_ATTRS is not set
-+
-+#
-+# SCSI low-level drivers
-+#
-+# CONFIG_BLK_DEV_3W_XXXX_RAID is not set
-+# CONFIG_SCSI_3W_9XXX is not set
-+# CONFIG_SCSI_ACARD is not set
-+# CONFIG_SCSI_AACRAID is not set
-+# CONFIG_SCSI_AIC7XXX is not set
-+# CONFIG_SCSI_AIC7XXX_OLD is not set
-+# CONFIG_SCSI_AIC79XX is not set
-+# CONFIG_MEGARAID_NEWGEN is not set
-+# CONFIG_MEGARAID_LEGACY is not set
-+# CONFIG_SCSI_SATA is not set
-+# CONFIG_SCSI_BUSLOGIC is not set
-+# CONFIG_SCSI_DMX3191D is not set
-+# CONFIG_SCSI_EATA is not set
-+# CONFIG_SCSI_EATA_PIO is not set
-+# CONFIG_SCSI_FUTURE_DOMAIN is not set
-+# CONFIG_SCSI_GDTH is not set
-+# CONFIG_SCSI_IPS is not set
-+# CONFIG_SCSI_INIA100 is not set
-+# CONFIG_SCSI_SYM53C8XX_2 is not set
-+# CONFIG_SCSI_IPR is not set
-+# CONFIG_SCSI_QLOGIC_ISP is not set
-+# CONFIG_SCSI_QLOGIC_FC is not set
-+CONFIG_SCSI_QLOGIC_1280=y
-+CONFIG_SCSI_QLA2XXX=y
-+# CONFIG_SCSI_QLA21XX is not set
-+# CONFIG_SCSI_QLA22XX is not set
-+# CONFIG_SCSI_QLA2300 is not set
-+# CONFIG_SCSI_QLA2322 is not set
-+# CONFIG_SCSI_QLA6312 is not set
-+# CONFIG_SCSI_QLA6322 is not set
-+# CONFIG_SCSI_DC395x is not set
-+# CONFIG_SCSI_DC390T is not set
-+# CONFIG_SCSI_DEBUG is not set
-+
-+#
-+# Multi-device support (RAID and LVM)
-+#
-+CONFIG_MD=y
-+CONFIG_BLK_DEV_MD=m
-+CONFIG_MD_LINEAR=m
-+CONFIG_MD_RAID0=m
-+CONFIG_MD_RAID1=m
-+CONFIG_MD_RAID10=m
-+CONFIG_MD_RAID5=m
-+CONFIG_MD_RAID6=m
-+CONFIG_MD_MULTIPATH=m
-+CONFIG_BLK_DEV_DM=m
-+CONFIG_DM_CRYPT=m
-+CONFIG_DM_SNAPSHOT=m
-+CONFIG_DM_MIRROR=m
-+CONFIG_DM_ZERO=m
-+
-+#
-+# Fusion MPT device support
-+#
-+# CONFIG_FUSION is not set
-+
-+#
-+# IEEE 1394 (FireWire) support
-+#
-+# CONFIG_IEEE1394 is not set
-+
-+#
-+# I2O device support
-+#
-+# CONFIG_I2O is not set
-+
-+#
-+# Networking support
-+#
-+CONFIG_NET=y
-+
-+#
-+# Networking options
-+#
-+CONFIG_PACKET=y
-+CONFIG_PACKET_MMAP=y
-+# CONFIG_NETLINK_DEV is not set
-+CONFIG_UNIX=y
-+# CONFIG_NET_KEY is not set
-+CONFIG_INET=y
-+# CONFIG_IP_MULTICAST is not set
-+# CONFIG_IP_ADVANCED_ROUTER is not set
-+# CONFIG_IP_PNP is not set
-+# CONFIG_NET_IPIP is not set
-+# CONFIG_NET_IPGRE is not set
-+# CONFIG_ARPD is not set
-+# CONFIG_SYN_COOKIES is not set
-+# CONFIG_INET_AH is not set
-+# CONFIG_INET_ESP is not set
-+# CONFIG_INET_IPCOMP is not set
-+# CONFIG_INET_TUNNEL is not set
-+# CONFIG_IPV6 is not set
-+# CONFIG_NETFILTER is not set
-+
-+#
-+# SCTP Configuration (EXPERIMENTAL)
-+#
-+# CONFIG_IP_SCTP is not set
-+# CONFIG_ATM is not set
-+# CONFIG_BRIDGE is not set
-+# CONFIG_VLAN_8021Q is not set
-+# CONFIG_DECNET is not set
-+# CONFIG_LLC2 is not set
-+# CONFIG_IPX is not set
-+# CONFIG_ATALK is not set
-+# CONFIG_X25 is not set
-+# CONFIG_LAPB is not set
-+# CONFIG_NET_DIVERT is not set
-+# CONFIG_ECONET is not set
-+# CONFIG_WAN_ROUTER is not set
-+# CONFIG_NET_HW_FLOWCONTROL is not set
-+
-+#
-+# QoS and/or fair queueing
-+#
-+# CONFIG_NET_SCHED is not set
-+# CONFIG_NET_CLS_ROUTE is not set
-+
-+#
-+# Network testing
-+#
-+# CONFIG_NET_PKTGEN is not set
-+# CONFIG_NETPOLL is not set
-+# CONFIG_NET_POLL_CONTROLLER is not set
-+# CONFIG_HAMRADIO is not set
-+# CONFIG_IRDA is not set
-+# CONFIG_BT is not set
-+CONFIG_NETDEVICES=y
-+CONFIG_DUMMY=y
-+# CONFIG_BONDING is not set
-+# CONFIG_EQUALIZER is not set
-+# CONFIG_TUN is not set
-+
-+#
-+# ARCnet devices
-+#
-+# CONFIG_ARCNET is not set
-+
-+#
-+# Ethernet (10 or 100Mbit)
-+#
-+CONFIG_NET_ETHERNET=y
-+CONFIG_MII=y
-+# CONFIG_HAPPYMEAL is not set
-+# CONFIG_SUNGEM is not set
-+# CONFIG_NET_VENDOR_3COM is not set
-+
-+#
-+# Tulip family network device support
-+#
-+# CONFIG_NET_TULIP is not set
-+# CONFIG_HP100 is not set
-+CONFIG_NET_PCI=y
-+# CONFIG_PCNET32 is not set
-+# CONFIG_AMD8111_ETH is not set
-+# CONFIG_ADAPTEC_STARFIRE is not set
-+# CONFIG_B44 is not set
-+# CONFIG_FORCEDETH is not set
-+# CONFIG_DGRS is not set
-+CONFIG_EEPRO100=y
-+# CONFIG_EEPRO100_PIO is not set
-+# CONFIG_E100 is not set
-+# CONFIG_FEALNX is not set
-+# CONFIG_NATSEMI is not set
-+# CONFIG_NE2K_PCI is not set
-+# CONFIG_8139CP is not set
-+# CONFIG_8139TOO is not set
-+# CONFIG_SIS900 is not set
-+# CONFIG_EPIC100 is not set
-+# CONFIG_SUNDANCE is not set
-+# CONFIG_VIA_RHINE is not set
-+# CONFIG_VIA_VELOCITY is not set
-+
-+#
-+# Ethernet (1000 Mbit)
-+#
-+# CONFIG_ACENIC is not set
-+# CONFIG_DL2K is not set
-+# CONFIG_E1000 is not set
-+# CONFIG_NS83820 is not set
-+# CONFIG_HAMACHI is not set
-+# CONFIG_YELLOWFIN is not set
-+# CONFIG_R8169 is not set
-+# CONFIG_SK98LIN is not set
-+# CONFIG_TIGON3 is not set
-+
-+#
-+# Ethernet (10000 Mbit)
-+#
-+# CONFIG_IXGB is not set
-+# CONFIG_S2IO is not set
-+
-+#
-+# Token Ring devices
-+#
-+# CONFIG_TR is not set
-+
-+#
-+# Wireless LAN (non-hamradio)
-+#
-+# CONFIG_NET_RADIO is not set
-+
-+#
-+# Wan interfaces
-+#
-+# CONFIG_WAN is not set
-+# CONFIG_FDDI is not set
-+# CONFIG_HIPPI is not set
-+# CONFIG_PPP is not set
-+# CONFIG_SLIP is not set
-+# CONFIG_NET_FC is not set
-+# CONFIG_SHAPER is not set
-+# CONFIG_NETCONSOLE is not set
-+
-+#
-+# ISDN subsystem
-+#
-+# CONFIG_ISDN is not set
-+
-+#
-+# Telephony Support
-+#
-+# CONFIG_PHONE is not set
-+
-+#
-+# Input device support
-+#
-+CONFIG_INPUT=y
-+
-+#
-+# Userland interfaces
-+#
-+CONFIG_INPUT_MOUSEDEV=y
-+CONFIG_INPUT_MOUSEDEV_PSAUX=y
-+CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
-+CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
-+# CONFIG_INPUT_JOYDEV is not set
-+# CONFIG_INPUT_TSDEV is not set
-+CONFIG_INPUT_EVDEV=y
-+# CONFIG_INPUT_EVBUG is not set
-+
-+#
-+# Input I/O drivers
-+#
-+# CONFIG_GAMEPORT is not set
-+CONFIG_SOUND_GAMEPORT=y
-+CONFIG_SERIO=y
-+CONFIG_SERIO_I8042=y
-+CONFIG_SERIO_SERPORT=y
-+# CONFIG_SERIO_CT82C710 is not set
-+# CONFIG_SERIO_PCIPS2 is not set
-+# CONFIG_SERIO_RAW is not set
-+
-+#
-+# Input Device Drivers
-+#
-+CONFIG_INPUT_KEYBOARD=y
-+CONFIG_KEYBOARD_ATKBD=y
-+# CONFIG_KEYBOARD_SUNKBD is not set
-+# CONFIG_KEYBOARD_LKKBD is not set
-+# CONFIG_KEYBOARD_XTKBD is not set
-+# CONFIG_KEYBOARD_NEWTON is not set
-+CONFIG_INPUT_MOUSE=y
-+CONFIG_MOUSE_PS2=y
-+# CONFIG_MOUSE_SERIAL is not set
-+# CONFIG_MOUSE_VSXXXAA is not set
-+# CONFIG_INPUT_JOYSTICK is not set
-+# CONFIG_INPUT_TOUCHSCREEN is not set
-+# CONFIG_INPUT_MISC is not set
-+
-+#
-+# Character devices
-+#
-+CONFIG_VT=y
-+CONFIG_VT_CONSOLE=y
-+CONFIG_HW_CONSOLE=y
-+# CONFIG_SERIAL_NONSTANDARD is not set
-+
-+#
-+# Serial drivers
-+#
-+CONFIG_SERIAL_8250=y
-+CONFIG_SERIAL_8250_CONSOLE=y
-+# CONFIG_SERIAL_8250_ACPI is not set
-+CONFIG_SERIAL_8250_NR_UARTS=4
-+CONFIG_SERIAL_8250_EXTENDED=y
-+CONFIG_SERIAL_8250_SHARE_IRQ=y
-+# CONFIG_SERIAL_8250_DETECT_IRQ is not set
-+# CONFIG_SERIAL_8250_MULTIPORT is not set
-+# CONFIG_SERIAL_8250_RSA is not set
-+
-+#
-+# Non-8250 serial port support
-+#
-+CONFIG_SERIAL_CORE=y
-+CONFIG_SERIAL_CORE_CONSOLE=y
-+CONFIG_UNIX98_PTYS=y
-+CONFIG_LEGACY_PTYS=y
-+CONFIG_LEGACY_PTY_COUNT=256
-+
-+#
-+# IPMI
-+#
-+# CONFIG_IPMI_HANDLER is not set
-+
-+#
-+# Watchdog Cards
-+#
-+# CONFIG_WATCHDOG is not set
-+# CONFIG_HW_RANDOM is not set
-+CONFIG_EFI_RTC=y
-+# CONFIG_DTLK is not set
-+# CONFIG_R3964 is not set
-+# CONFIG_APPLICOM is not set
-+
-+#
-+# Ftape, the floppy tape device driver
-+#
-+CONFIG_AGP=m
-+CONFIG_AGP_I460=m
-+CONFIG_DRM=y
-+# CONFIG_DRM_TDFX is not set
-+CONFIG_DRM_R128=m
-+# CONFIG_DRM_RADEON is not set
-+# CONFIG_DRM_MGA is not set
-+# CONFIG_DRM_SIS is not set
-+# CONFIG_RAW_DRIVER is not set
-+# CONFIG_HPET is not set
-+
-+#
-+# I2C support
-+#
-+CONFIG_I2C=y
-+CONFIG_I2C_CHARDEV=y
-+
-+#
-+# I2C Algorithms
-+#
-+CONFIG_I2C_ALGOBIT=y
-+# CONFIG_I2C_ALGOPCF is not set
-+# CONFIG_I2C_ALGOPCA is not set
-+
-+#
-+# I2C Hardware Bus support
-+#
-+# CONFIG_I2C_ALI1535 is not set
-+# CONFIG_I2C_ALI1563 is not set
-+# CONFIG_I2C_ALI15X3 is not set
-+# CONFIG_I2C_AMD756 is not set
-+# CONFIG_I2C_AMD8111 is not set
-+# CONFIG_I2C_I801 is not set
-+# CONFIG_I2C_I810 is not set
-+# CONFIG_I2C_ISA is not set
-+# CONFIG_I2C_NFORCE2 is not set
-+# CONFIG_I2C_PARPORT_LIGHT is not set
-+# CONFIG_I2C_PROSAVAGE is not set
-+# CONFIG_I2C_SAVAGE4 is not set
-+# CONFIG_SCx200_ACB is not set
-+# CONFIG_I2C_SIS5595 is not set
-+# CONFIG_I2C_SIS630 is not set
-+# CONFIG_I2C_SIS96X is not set
-+# CONFIG_I2C_VIA is not set
-+# CONFIG_I2C_VIAPRO is not set
-+# CONFIG_I2C_VOODOO3 is not set
-+# CONFIG_I2C_PCA_ISA is not set
-+
-+#
-+# Hardware Sensors Chip support
-+#
-+# CONFIG_I2C_SENSOR is not set
-+# CONFIG_SENSORS_ADM1021 is not set
-+# CONFIG_SENSORS_ADM1025 is not set
-+# CONFIG_SENSORS_ADM1031 is not set
-+# CONFIG_SENSORS_ASB100 is not set
-+# CONFIG_SENSORS_DS1621 is not set
-+# CONFIG_SENSORS_FSCHER is not set
-+# CONFIG_SENSORS_GL518SM is not set
-+# CONFIG_SENSORS_IT87 is not set
-+# CONFIG_SENSORS_LM75 is not set
-+# CONFIG_SENSORS_LM77 is not set
-+# CONFIG_SENSORS_LM78 is not set
-+# CONFIG_SENSORS_LM80 is not set
-+# CONFIG_SENSORS_LM83 is not set
-+# CONFIG_SENSORS_LM85 is not set
-+# CONFIG_SENSORS_LM90 is not set
-+# CONFIG_SENSORS_MAX1619 is not set
-+# CONFIG_SENSORS_SMSC47M1 is not set
-+# CONFIG_SENSORS_VIA686A is not set
-+# CONFIG_SENSORS_W83781D is not set
-+# CONFIG_SENSORS_W83L785TS is not set
-+# CONFIG_SENSORS_W83627HF is not set
-+
-+#
-+# Other I2C Chip support
-+#
-+# CONFIG_SENSORS_EEPROM is not set
-+# CONFIG_SENSORS_PCF8574 is not set
-+# CONFIG_SENSORS_PCF8591 is not set
-+# CONFIG_SENSORS_RTC8564 is not set
-+# CONFIG_I2C_DEBUG_CORE is not set
-+# CONFIG_I2C_DEBUG_ALGO is not set
-+# CONFIG_I2C_DEBUG_BUS is not set
-+# CONFIG_I2C_DEBUG_CHIP is not set
-+
-+#
-+# Dallas's 1-wire bus
-+#
-+# CONFIG_W1 is not set
-+
-+#
-+# Misc devices
-+#
-+
-+#
-+# Multimedia devices
-+#
-+# CONFIG_VIDEO_DEV is not set
-+
-+#
-+# Digital Video Broadcasting Devices
-+#
-+# CONFIG_DVB is not set
-+
-+#
-+# Graphics support
-+#
-+# CONFIG_FB is not set
-+
-+#
-+# Console display driver support
-+#
-+CONFIG_VGA_CONSOLE=y
-+CONFIG_DUMMY_CONSOLE=y
-+
-+#
-+# Sound
-+#
-+CONFIG_SOUND=m
-+
-+#
-+# Advanced Linux Sound Architecture
-+#
-+CONFIG_SND=m
-+CONFIG_SND_TIMER=m
-+CONFIG_SND_PCM=m
-+CONFIG_SND_HWDEP=m
-+CONFIG_SND_RAWMIDI=m
-+CONFIG_SND_SEQUENCER=m
-+# CONFIG_SND_SEQ_DUMMY is not set
-+CONFIG_SND_OSSEMUL=y
-+CONFIG_SND_MIXER_OSS=m
-+CONFIG_SND_PCM_OSS=m
-+# CONFIG_SND_SEQUENCER_OSS is not set
-+# CONFIG_SND_VERBOSE_PRINTK is not set
-+# CONFIG_SND_DEBUG is not set
-+
-+#
-+# Generic devices
-+#
-+CONFIG_SND_OPL3_LIB=m
-+# CONFIG_SND_DUMMY is not set
-+# CONFIG_SND_VIRMIDI is not set
-+# CONFIG_SND_MTPAV is not set
-+# CONFIG_SND_SERIAL_U16550 is not set
-+# CONFIG_SND_MPU401 is not set
-+
-+#
-+# PCI devices
-+#
-+CONFIG_SND_AC97_CODEC=m
-+# CONFIG_SND_ALI5451 is not set
-+# CONFIG_SND_ATIIXP is not set
-+# CONFIG_SND_ATIIXP_MODEM is not set
-+# CONFIG_SND_AU8810 is not set
-+# CONFIG_SND_AU8820 is not set
-+# CONFIG_SND_AU8830 is not set
-+# CONFIG_SND_AZT3328 is not set
-+# CONFIG_SND_BT87X is not set
-+# CONFIG_SND_CS46XX is not set
-+CONFIG_SND_CS4281=m
-+# CONFIG_SND_EMU10K1 is not set
-+# CONFIG_SND_KORG1212 is not set
-+# CONFIG_SND_MIXART is not set
-+# CONFIG_SND_NM256 is not set
-+# CONFIG_SND_RME32 is not set
-+# CONFIG_SND_RME96 is not set
-+# CONFIG_SND_RME9652 is not set
-+# CONFIG_SND_HDSP is not set
-+# CONFIG_SND_TRIDENT is not set
-+# CONFIG_SND_YMFPCI is not set
-+# CONFIG_SND_ALS4000 is not set
-+# CONFIG_SND_CMIPCI is not set
-+# CONFIG_SND_ENS1370 is not set
-+# CONFIG_SND_ENS1371 is not set
-+# CONFIG_SND_ES1938 is not set
-+# CONFIG_SND_ES1968 is not set
-+# CONFIG_SND_MAESTRO3 is not set
-+# CONFIG_SND_FM801 is not set
-+# CONFIG_SND_ICE1712 is not set
-+# CONFIG_SND_ICE1724 is not set
-+# CONFIG_SND_INTEL8X0 is not set
-+# CONFIG_SND_INTEL8X0M is not set
-+# CONFIG_SND_SONICVIBES is not set
-+# CONFIG_SND_VIA82XX is not set
-+# CONFIG_SND_VX222 is not set
-+
-+#
-+# ALSA USB devices
-+#
-+# CONFIG_SND_USB_AUDIO is not set
-+# CONFIG_SND_USB_USX2Y is not set
-+
-+#
-+# Open Sound System
-+#
-+# CONFIG_SOUND_PRIME is not set
-+
-+#
-+# USB support
-+#
-+CONFIG_USB=m
-+# CONFIG_USB_DEBUG is not set
-+
-+#
-+# Miscellaneous USB options
-+#
-+CONFIG_USB_DEVICEFS=y
-+# CONFIG_USB_BANDWIDTH is not set
-+# CONFIG_USB_DYNAMIC_MINORS is not set
-+# CONFIG_USB_SUSPEND is not set
-+# CONFIG_USB_OTG is not set
-+
-+#
-+# USB Host Controller Drivers
-+#
-+# CONFIG_USB_EHCI_HCD is not set
-+# CONFIG_USB_OHCI_HCD is not set
-+CONFIG_USB_UHCI_HCD=m
-+
-+#
-+# USB Device Class drivers
-+#
-+CONFIG_USB_AUDIO=m
-+CONFIG_USB_BLUETOOTH_TTY=m
-+CONFIG_USB_MIDI=m
-+CONFIG_USB_ACM=m
-+CONFIG_USB_PRINTER=m
-+CONFIG_USB_STORAGE=m
-+# CONFIG_USB_STORAGE_DEBUG is not set
-+# CONFIG_USB_STORAGE_RW_DETECT is not set
-+# CONFIG_USB_STORAGE_DATAFAB is not set
-+# CONFIG_USB_STORAGE_FREECOM is not set
-+# CONFIG_USB_STORAGE_ISD200 is not set
-+# CONFIG_USB_STORAGE_DPCM is not set
-+# CONFIG_USB_STORAGE_HP8200e is not set
-+# CONFIG_USB_STORAGE_SDDR09 is not set
-+# CONFIG_USB_STORAGE_SDDR55 is not set
-+# CONFIG_USB_STORAGE_JUMPSHOT is not set
-+
-+#
-+# USB Human Interface Devices (HID)
-+#
-+CONFIG_USB_HID=m
-+CONFIG_USB_HIDINPUT=y
-+# CONFIG_HID_FF is not set
-+CONFIG_USB_HIDDEV=y
-+
-+#
-+# USB HID Boot Protocol drivers
-+#
-+# CONFIG_USB_KBD is not set
-+# CONFIG_USB_MOUSE is not set
-+# CONFIG_USB_AIPTEK is not set
-+# CONFIG_USB_WACOM is not set
-+# CONFIG_USB_KBTAB is not set
-+# CONFIG_USB_POWERMATE is not set
-+# CONFIG_USB_MTOUCH is not set
-+# CONFIG_USB_EGALAX is not set
-+# CONFIG_USB_XPAD is not set
-+# CONFIG_USB_ATI_REMOTE is not set
-+
-+#
-+# USB Imaging devices
-+#
-+# CONFIG_USB_MDC800 is not set
-+# CONFIG_USB_MICROTEK is not set
-+# CONFIG_USB_HPUSBSCSI is not set
-+
-+#
-+# USB Multimedia devices
-+#
-+# CONFIG_USB_DABUSB is not set
-+
-+#
-+# Video4Linux support is needed for USB Multimedia device support
-+#
-+
-+#
-+# USB Network adaptors
-+#
-+# CONFIG_USB_CATC is not set
-+# CONFIG_USB_KAWETH is not set
-+# CONFIG_USB_PEGASUS is not set
-+# CONFIG_USB_RTL8150 is not set
-+# CONFIG_USB_USBNET is not set
-+
-+#
-+# USB port drivers
-+#
-+
-+#
-+# USB Serial Converter support
-+#
-+# CONFIG_USB_SERIAL is not set
-+
-+#
-+# USB Miscellaneous drivers
-+#
-+# CONFIG_USB_EMI62 is not set
-+# CONFIG_USB_EMI26 is not set
-+# CONFIG_USB_TIGL is not set
-+# CONFIG_USB_AUERSWALD is not set
-+# CONFIG_USB_RIO500 is not set
-+# CONFIG_USB_LEGOTOWER is not set
-+# CONFIG_USB_LCD is not set
-+# CONFIG_USB_LED is not set
-+# CONFIG_USB_CYTHERM is not set
-+# CONFIG_USB_PHIDGETSERVO is not set
-+# CONFIG_USB_TEST is not set
-+
-+#
-+# USB Gadget Support
-+#
-+# CONFIG_USB_GADGET is not set
-+
-+#
-+# File systems
-+#
-+CONFIG_EXT2_FS=y
-+# CONFIG_EXT2_FS_XATTR is not set
-+CONFIG_EXT3_FS=y
-+CONFIG_EXT3_FS_XATTR=y
-+# CONFIG_EXT3_FS_POSIX_ACL is not set
-+# CONFIG_EXT3_FS_SECURITY is not set
-+CONFIG_JBD=y
-+# CONFIG_JBD_DEBUG is not set
-+CONFIG_FS_MBCACHE=y
-+# CONFIG_REISERFS_FS is not set
-+# CONFIG_JFS_FS is not set
-+CONFIG_FS_POSIX_ACL=y
-+CONFIG_XFS_FS=y
-+# CONFIG_XFS_RT is not set
-+CONFIG_XFS_QUOTA=y
-+CONFIG_XFS_SECURITY=y
-+CONFIG_XFS_POSIX_ACL=y
-+# CONFIG_MINIX_FS is not set
-+# CONFIG_ROMFS_FS is not set
-+# CONFIG_QUOTA is not set
-+CONFIG_QUOTACTL=y
-+CONFIG_AUTOFS_FS=m
-+CONFIG_AUTOFS4_FS=m
-+
-+#
-+# CD-ROM/DVD Filesystems
-+#
-+CONFIG_ISO9660_FS=m
-+CONFIG_JOLIET=y
-+# CONFIG_ZISOFS is not set
-+CONFIG_UDF_FS=m
-+CONFIG_UDF_NLS=y
-+
-+#
-+# DOS/FAT/NT Filesystems
-+#
-+CONFIG_FAT_FS=y
-+# CONFIG_MSDOS_FS is not set
-+CONFIG_VFAT_FS=y
-+CONFIG_FAT_DEFAULT_CODEPAGE=437
-+CONFIG_FAT_DEFAULT_IOCHARSET="iso8859-1"
-+# CONFIG_NTFS_FS is not set
-+
-+#
-+# Pseudo filesystems
-+#
-+CONFIG_PROC_FS=y
-+CONFIG_PROC_KCORE=y
-+CONFIG_SYSFS=y
-+# CONFIG_DEVFS_FS is not set
-+CONFIG_DEVPTS_FS_XATTR=y
-+CONFIG_DEVPTS_FS_SECURITY=y
-+CONFIG_TMPFS=y
-+CONFIG_HUGETLBFS=y
-+CONFIG_HUGETLB_PAGE=y
-+CONFIG_RAMFS=y
-+
-+#
-+# Miscellaneous filesystems
-+#
-+# CONFIG_ADFS_FS is not set
-+# CONFIG_AFFS_FS is not set
-+# CONFIG_HFS_FS is not set
-+# CONFIG_HFSPLUS_FS is not set
-+# CONFIG_BEFS_FS is not set
-+# CONFIG_BFS_FS is not set
-+# CONFIG_EFS_FS is not set
-+# CONFIG_CRAMFS is not set
-+# CONFIG_VXFS_FS is not set
-+# CONFIG_HPFS_FS is not set
-+# CONFIG_QNX4FS_FS is not set
-+# CONFIG_SYSV_FS is not set
-+# CONFIG_UFS_FS is not set
-+
-+#
-+# Network File Systems
-+#
-+CONFIG_NFS_FS=m
-+CONFIG_NFS_V3=y
-+CONFIG_NFS_V4=y
-+# CONFIG_NFS_DIRECTIO is not set
-+CONFIG_NFSD=m
-+CONFIG_NFSD_V3=y
-+CONFIG_NFSD_V4=y
-+CONFIG_NFSD_TCP=y
-+CONFIG_LOCKD=m
-+CONFIG_LOCKD_V4=y
-+CONFIG_EXPORTFS=m
-+CONFIG_SUNRPC=m
-+CONFIG_SUNRPC_GSS=m
-+CONFIG_RPCSEC_GSS_KRB5=m
-+# CONFIG_RPCSEC_GSS_SPKM3 is not set
-+# CONFIG_SMB_FS is not set
-+CONFIG_CIFS=m
-+CONFIG_CIFS_STATS=y
-+CONFIG_CIFS_XATTR=y
-+CONFIG_CIFS_POSIX=y
-+# CONFIG_NCP_FS is not set
-+# CONFIG_CODA_FS is not set
-+# CONFIG_AFS_FS is not set
-+
-+#
-+# Partition Types
-+#
-+CONFIG_PARTITION_ADVANCED=y
-+# CONFIG_ACORN_PARTITION is not set
-+# CONFIG_OSF_PARTITION is not set
-+# CONFIG_AMIGA_PARTITION is not set
-+# CONFIG_ATARI_PARTITION is not set
-+# CONFIG_MAC_PARTITION is not set
-+CONFIG_MSDOS_PARTITION=y
-+# CONFIG_BSD_DISKLABEL is not set
-+# CONFIG_MINIX_SUBPARTITION is not set
-+# CONFIG_SOLARIS_X86_PARTITION is not set
-+# CONFIG_UNIXWARE_DISKLABEL is not set
-+# CONFIG_LDM_PARTITION is not set
-+CONFIG_SGI_PARTITION=y
-+# CONFIG_ULTRIX_PARTITION is not set
-+# CONFIG_SUN_PARTITION is not set
-+CONFIG_EFI_PARTITION=y
-+
-+#
-+# Native Language Support
-+#
-+CONFIG_NLS=y
-+CONFIG_NLS_DEFAULT="iso8859-1"
-+CONFIG_NLS_CODEPAGE_437=y
-+# CONFIG_NLS_CODEPAGE_737 is not set
-+# CONFIG_NLS_CODEPAGE_775 is not set
-+# CONFIG_NLS_CODEPAGE_850 is not set
-+# CONFIG_NLS_CODEPAGE_852 is not set
-+# CONFIG_NLS_CODEPAGE_855 is not set
-+# CONFIG_NLS_CODEPAGE_857 is not set
-+# CONFIG_NLS_CODEPAGE_860 is not set
-+# CONFIG_NLS_CODEPAGE_861 is not set
-+# CONFIG_NLS_CODEPAGE_862 is not set
-+# CONFIG_NLS_CODEPAGE_863 is not set
-+# CONFIG_NLS_CODEPAGE_864 is not set
-+# CONFIG_NLS_CODEPAGE_865 is not set
-+# CONFIG_NLS_CODEPAGE_866 is not set
-+# CONFIG_NLS_CODEPAGE_869 is not set
-+# CONFIG_NLS_CODEPAGE_936 is not set
-+# CONFIG_NLS_CODEPAGE_950 is not set
-+# CONFIG_NLS_CODEPAGE_932 is not set
-+# CONFIG_NLS_CODEPAGE_949 is not set
-+# CONFIG_NLS_CODEPAGE_874 is not set
-+# CONFIG_NLS_ISO8859_8 is not set
-+# CONFIG_NLS_CODEPAGE_1250 is not set
-+# CONFIG_NLS_CODEPAGE_1251 is not set
-+# CONFIG_NLS_ASCII is not set
-+CONFIG_NLS_ISO8859_1=y
-+# CONFIG_NLS_ISO8859_2 is not set
-+# CONFIG_NLS_ISO8859_3 is not set
-+# CONFIG_NLS_ISO8859_4 is not set
-+# CONFIG_NLS_ISO8859_5 is not set
-+# CONFIG_NLS_ISO8859_6 is not set
-+# CONFIG_NLS_ISO8859_7 is not set
-+# CONFIG_NLS_ISO8859_9 is not set
-+# CONFIG_NLS_ISO8859_13 is not set
-+# CONFIG_NLS_ISO8859_14 is not set
-+# CONFIG_NLS_ISO8859_15 is not set
-+# CONFIG_NLS_KOI8_R is not set
-+# CONFIG_NLS_KOI8_U is not set
-+CONFIG_NLS_UTF8=m
-+
-+#
-+# Library routines
-+#
-+# CONFIG_CRC_CCITT is not set
-+CONFIG_CRC32=y
-+# CONFIG_LIBCRC32C is not set
-+
-+#
-+# Profiling support
-+#
-+CONFIG_PROFILING=y
-+CONFIG_OPROFILE=y
-+
-+#
-+# Kernel hacking
-+#
-+CONFIG_DEBUG_KERNEL=y
-+CONFIG_MAGIC_SYSRQ=y
-+# CONFIG_DEBUG_SLAB is not set
-+# CONFIG_DEBUG_SPINLOCK is not set
-+# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
-+# CONFIG_DEBUG_INFO is not set
-+# CONFIG_IA64_GRANULE_16MB is not set
-+CONFIG_IA64_GRANULE_64MB=y
-+# CONFIG_IA64_PRINT_HAZARDS is not set
-+# CONFIG_DISABLE_VHPT is not set
-+# CONFIG_IA64_DEBUG_CMPXCHG is not set
-+# CONFIG_IA64_DEBUG_IRQ is not set
-+CONFIG_SYSVIPC_COMPAT=y
-+
-+#
-+# Security options
-+#
-+# CONFIG_SECURITY is not set
-+
-+#
-+# Cryptographic options
-+#
-+CONFIG_CRYPTO=y
-+# CONFIG_CRYPTO_HMAC is not set
-+# CONFIG_CRYPTO_NULL is not set
-+# CONFIG_CRYPTO_MD4 is not set
-+CONFIG_CRYPTO_MD5=y
-+# CONFIG_CRYPTO_SHA1 is not set
-+# CONFIG_CRYPTO_SHA256 is not set
-+# CONFIG_CRYPTO_SHA512 is not set
-+# CONFIG_CRYPTO_WHIRLPOOL is not set
-+CONFIG_CRYPTO_DES=y
-+# CONFIG_CRYPTO_BLOWFISH is not set
-+# CONFIG_CRYPTO_TWOFISH is not set
-+# CONFIG_CRYPTO_SERPENT is not set
-+# CONFIG_CRYPTO_AES is not set
-+# CONFIG_CRYPTO_CAST5 is not set
-+# CONFIG_CRYPTO_CAST6 is not set
-+# CONFIG_CRYPTO_TEA is not set
-+# CONFIG_CRYPTO_ARC4 is not set
-+# CONFIG_CRYPTO_KHAZAD is not set
-+# CONFIG_CRYPTO_DEFLATE is not set
-+# CONFIG_CRYPTO_MICHAEL_MIC is not set
-+# CONFIG_CRYPTO_CRC32C is not set
-+# CONFIG_CRYPTO_TEST is not set
+diff -urpNX build-tools/dontdiff linux-2.6/drivers/pci/hotplug/acpiphp.h hotplug-2.6/drivers/pci/hotplug/acpiphp.h
+--- linux-2.6/drivers/pci/hotplug/acpiphp.h	2004-05-23 17:52:23.000000000 -0600
++++ hotplug-2.6/drivers/pci/hotplug/acpiphp.h	2004-09-02 13:35:46.000000000 -0600
+@@ -101,10 +101,6 @@ struct acpiphp_bridge {
+ 	int type;
+ 	int nr_slots;
+ 
+-	u8 seg;
+-	u8 bus;
+-	u8 sub;
+-
+ 	u32 flags;
+ 
+ 	/* This bus (host bridge) or Secondary bus (PCI-to-PCI bridge) */
+diff -urpNX build-tools/dontdiff linux-2.6/drivers/pci/hotplug/acpiphp_core.c hotplug-2.6/drivers/pci/hotplug/acpiphp_core.c
+--- linux-2.6/drivers/pci/hotplug/acpiphp_core.c	2004-05-23 17:52:23.000000000 -0600
++++ hotplug-2.6/drivers/pci/hotplug/acpiphp_core.c	2004-09-03 08:09:15.181670908 -0600
+@@ -7,6 +7,8 @@
+  * Copyright (C) 2002 Hiroshi Aono (h-aono@ap.jp.nec.com)
+  * Copyright (C) 2002,2003 Takayoshi Kochi (t-kochi@bq.jp.nec.com)
+  * Copyright (C) 2002,2003 NEC Corporation
++ * Copyright (C) 2003,2004 Matthew Wilcox (matthew.wilcox@hp.com)
++ * Copyright (C) 2003,2004 Hewlett Packard
+  *
+  * All rights reserved.
+  *
+@@ -52,8 +54,8 @@ static LIST_HEAD(slot_list);
+ /* local variables */
+ static int num_slots;
+ 
+-#define DRIVER_VERSION	"0.4"
+-#define DRIVER_AUTHOR	"Greg Kroah-Hartman <gregkh@us.ibm.com>, Takayoshi Kochi <t-kochi@bq.jp.nec.com>"
++#define DRIVER_VERSION	"0.5"
++#define DRIVER_AUTHOR	"Greg Kroah-Hartman <gregkh@us.ibm.com>, Takayoshi Kochi <t-kochi@bq.jp.nec.com>, Matthew Wilcox <willy@hp.com>"
+ #define DRIVER_DESC	"ACPI Hot Plug PCI Controller Driver"
+ 
+ MODULE_AUTHOR(DRIVER_AUTHOR);
+diff -urpNX build-tools/dontdiff linux-2.6/drivers/pci/hotplug/acpiphp_glue.c hotplug-2.6/drivers/pci/hotplug/acpiphp_glue.c
+--- linux-2.6/drivers/pci/hotplug/acpiphp_glue.c	2004-07-20 16:06:36.000000000 -0600
++++ hotplug-2.6/drivers/pci/hotplug/acpiphp_glue.c	2004-09-03 09:27:41.741039272 -0600
+@@ -26,6 +26,16 @@
+  *
+  */
+ 
++/*
++ * Lifetime rules for pci_dev:
++ *  - The one in acpiphp_func has its refcount elevated by pci_get_slot()
++ *    when the driver is loaded or when an insertion event occurs.  It loses
++ *    a refcount when its ejected or the driver unloads.
++ *  - The one in acpiphp_bridge has its refcount elevated by pci_get_slot()
++ *    when the bridge is scanned and it loses a refcount when the bridge
++ *    is removed.
++ */
++
+ #include <linux/init.h>
+ #include <linux/module.h>
+ 
+@@ -178,18 +188,20 @@ register_slot(acpi_handle handle, u32 lv
+ 
+ 		bridge->nr_slots++;
+ 
+-		dbg("found ACPI PCI Hotplug slot at PCI %02x:%02x Slot:%d\n",
+-		    slot->bridge->bus, slot->device, slot->sun);
++		dbg("found ACPI PCI Hotplug slot %d at PCI %04x:%02x:%02x\n",
++				slot->sun, pci_domain_nr(bridge->pci_bus),
++				bridge->pci_bus->number, slot->device);
+ 	}
+ 
+ 	newfunc->slot = slot;
+ 	list_add_tail(&newfunc->sibling, &slot->funcs);
+ 
+ 	/* associate corresponding pci_dev */
+-	newfunc->pci_dev = pci_find_slot(bridge->bus,
++	newfunc->pci_dev = pci_get_slot(bridge->pci_bus,
+ 					 PCI_DEVFN(device, function));
+ 	if (newfunc->pci_dev) {
+ 		if (acpiphp_init_func_resource(newfunc) < 0) {
++			pci_dev_put(newfunc->pci_dev);
+ 			kfree(newfunc);
+ 			return AE_ERROR;
+ 		}
+@@ -371,7 +383,7 @@ static void init_bridge_misc(struct acpi
+ 
+ 
+ /* allocate and initialize host bridge data structure */
+-static void add_host_bridge(acpi_handle *handle, int seg, int bus)
++static void add_host_bridge(acpi_handle *handle, struct pci_bus *pci_bus)
+ {
+ 	acpi_status status;
+ 	struct acpiphp_bridge *bridge;
+@@ -384,16 +396,11 @@ static void add_host_bridge(acpi_handle 
+ 
+ 	bridge->type = BRIDGE_TYPE_HOST;
+ 	bridge->handle = handle;
+-	bridge->seg = seg;
+-	bridge->bus = bus;
+ 
+-	bridge->pci_bus = pci_find_bus(seg, bus);
++	bridge->pci_bus = pci_bus;
+ 
+ 	bridge->res_lock = SPIN_LOCK_UNLOCKED;
+ 
+-	/* to be overridden when we decode _CRS	*/
+-	bridge->sub = bridge->bus;
+-
+ 	/* decode resources */
+ 
+ 	status = acpi_walk_resources(handle, METHOD_NAME__CRS,
+@@ -414,8 +421,18 @@ static void add_host_bridge(acpi_handle 
+ 	acpiphp_dump_resource(bridge);
+ 
+ 	if (bridge->bus_head) {
+-		bridge->bus = bridge->bus_head->base;
+-		bridge->sub = bridge->bus_head->base + bridge->bus_head->length - 1;
++		int base = bridge->bus_head->base;
++		int max = base + bridge->bus_head->length - 1;
++		if (bridge->bus_head->base != bridge->pci_bus->number) {
++			warn("ACPI says we have bus %d but Linux found "
++					"bus %d\n", base,
++					bridge->pci_bus->number);
++		}
++		if (max < bridge->pci_bus->subordinate) {
++			warn("ACPI says busses available up to %d, but "
++					"we found %d\n", max,
++					bridge->pci_bus->subordinate);
++		}
+ 	}
+ 
+ 	init_bridge_misc(bridge);
+@@ -423,7 +440,7 @@ static void add_host_bridge(acpi_handle 
+ 
+ 
+ /* allocate and initialize PCI-to-PCI bridge data structure */
+-static void add_p2p_bridge(acpi_handle *handle, int seg, int bus, int dev, int fn)
++static void add_p2p_bridge(acpi_handle *handle, struct pci_dev *pci_dev)
+ {
+ 	struct acpiphp_bridge *bridge;
+ 	u8 tmp8;
+@@ -441,35 +458,24 @@ static void add_p2p_bridge(acpi_handle *
+ 
+ 	bridge->type = BRIDGE_TYPE_P2P;
+ 	bridge->handle = handle;
+-	bridge->seg = seg;
+-
+-	bridge->pci_dev = pci_find_slot(bus, PCI_DEVFN(dev, fn));
+-	if (!bridge->pci_dev) {
+-		err("Can't get pci_dev\n");
+-		kfree(bridge);
+-		return;
+-	}
+ 
+-	bridge->pci_bus = bridge->pci_dev->subordinate;
++	bridge->pci_dev = pci_dev_get(pci_dev);
++	bridge->pci_bus = pci_dev->subordinate;
+ 	if (!bridge->pci_bus) {
+ 		err("This is not a PCI-to-PCI bridge!\n");
+-		kfree(bridge);
+-		return;
++		goto err;
+ 	}
+ 
+ 	bridge->res_lock = SPIN_LOCK_UNLOCKED;
+ 
+-	bridge->bus = bridge->pci_bus->number;
+-	bridge->sub = bridge->pci_bus->subordinate;
+-
+ 	/*
+ 	 * decode resources under this P2P bridge
+ 	 */
+ 
+ 	/* I/O resources */
+-	pci_read_config_byte(bridge->pci_dev, PCI_IO_BASE, &tmp8);
++	pci_read_config_byte(pci_dev, PCI_IO_BASE, &tmp8);
+ 	base = tmp8;
+-	pci_read_config_byte(bridge->pci_dev, PCI_IO_LIMIT, &tmp8);
++	pci_read_config_byte(pci_dev, PCI_IO_LIMIT, &tmp8);
+ 	limit = tmp8;
+ 
+ 	switch (base & PCI_IO_RANGE_TYPE_MASK) {
+@@ -477,26 +483,22 @@ static void add_p2p_bridge(acpi_handle *
+ 		base = (base << 8) & 0xf000;
+ 		limit = ((limit << 8) & 0xf000) + 0xfff;
+ 		bridge->io_head = acpiphp_make_resource((u64)base, limit - base + 1);
+-		if (!bridge->io_head) {
+-			err("out of memory\n");
+-			kfree(bridge);
+-			return;
+-		}
++		if (!bridge->io_head)
++			goto oom;
++
+ 		dbg("16bit I/O range: %04x-%04x\n",
+ 		    (u32)bridge->io_head->base,
+ 		    (u32)(bridge->io_head->base + bridge->io_head->length - 1));
+ 		break;
+ 	case PCI_IO_RANGE_TYPE_32:
+-		pci_read_config_word(bridge->pci_dev, PCI_IO_BASE_UPPER16, &tmp16);
++		pci_read_config_word(pci_dev, PCI_IO_BASE_UPPER16, &tmp16);
+ 		base = ((u32)tmp16 << 16) | ((base << 8) & 0xf000);
+-		pci_read_config_word(bridge->pci_dev, PCI_IO_LIMIT_UPPER16, &tmp16);
++		pci_read_config_word(pci_dev, PCI_IO_LIMIT_UPPER16, &tmp16);
+ 		limit = (((u32)tmp16 << 16) | ((limit << 8) & 0xf000)) + 0xfff;
+ 		bridge->io_head = acpiphp_make_resource((u64)base, limit - base + 1);
+-		if (!bridge->io_head) {
+-			err("out of memory\n");
+-			kfree(bridge);
+-			return;
+-		}
++		if (!bridge->io_head)
++			goto oom;
++
+ 		dbg("32bit I/O range: %08x-%08x\n",
+ 		    (u32)bridge->io_head->base,
+ 		    (u32)(bridge->io_head->base + bridge->io_head->length - 1));
+@@ -509,24 +511,22 @@ static void add_p2p_bridge(acpi_handle *
+ 	}
+ 
+ 	/* Memory resources (mandatory for P2P bridge) */
+-	pci_read_config_word(bridge->pci_dev, PCI_MEMORY_BASE, &tmp16);
++	pci_read_config_word(pci_dev, PCI_MEMORY_BASE, &tmp16);
+ 	base = (tmp16 & 0xfff0) << 16;
+-	pci_read_config_word(bridge->pci_dev, PCI_MEMORY_LIMIT, &tmp16);
++	pci_read_config_word(pci_dev, PCI_MEMORY_LIMIT, &tmp16);
+ 	limit = ((tmp16 & 0xfff0) << 16) | 0xfffff;
+ 	bridge->mem_head = acpiphp_make_resource((u64)base, limit - base + 1);
+-	if (!bridge->mem_head) {
+-		err("out of memory\n");
+-		kfree(bridge);
+-		return;
+-	}
++	if (!bridge->mem_head)
++		goto oom;
++
+ 	dbg("32bit Memory range: %08x-%08x\n",
+ 	    (u32)bridge->mem_head->base,
+ 	    (u32)(bridge->mem_head->base + bridge->mem_head->length-1));
+ 
+ 	/* Prefetchable Memory resources (optional) */
+-	pci_read_config_word(bridge->pci_dev, PCI_PREF_MEMORY_BASE, &tmp16);
++	pci_read_config_word(pci_dev, PCI_PREF_MEMORY_BASE, &tmp16);
+ 	base = tmp16;
+-	pci_read_config_word(bridge->pci_dev, PCI_PREF_MEMORY_LIMIT, &tmp16);
++	pci_read_config_word(pci_dev, PCI_PREF_MEMORY_LIMIT, &tmp16);
+ 	limit = tmp16;
+ 
+ 	switch (base & PCI_MEMORY_RANGE_TYPE_MASK) {
+@@ -534,27 +534,21 @@ static void add_p2p_bridge(acpi_handle *
+ 		base = (base & 0xfff0) << 16;
+ 		limit = ((limit & 0xfff0) << 16) | 0xfffff;
+ 		bridge->p_mem_head = acpiphp_make_resource((u64)base, limit - base + 1);
+-		if (!bridge->p_mem_head) {
+-			err("out of memory\n");
+-			kfree(bridge);
+-			return;
+-		}
++		if (!bridge->p_mem_head)
++			goto oom;
+ 		dbg("32bit Prefetchable memory range: %08x-%08x\n",
+ 		    (u32)bridge->p_mem_head->base,
+ 		    (u32)(bridge->p_mem_head->base + bridge->p_mem_head->length - 1));
+ 		break;
+ 	case PCI_PREF_RANGE_TYPE_64:
+-		pci_read_config_dword(bridge->pci_dev, PCI_PREF_BASE_UPPER32, &base32u);
+-		pci_read_config_dword(bridge->pci_dev, PCI_PREF_LIMIT_UPPER32, &limit32u);
++		pci_read_config_dword(pci_dev, PCI_PREF_BASE_UPPER32, &base32u);
++		pci_read_config_dword(pci_dev, PCI_PREF_LIMIT_UPPER32, &limit32u);
+ 		base64 = ((u64)base32u << 32) | ((base & 0xfff0) << 16);
+ 		limit64 = (((u64)limit32u << 32) | ((limit & 0xfff0) << 16)) + 0xfffff;
+ 
+ 		bridge->p_mem_head = acpiphp_make_resource(base64, limit64 - base64 + 1);
+-		if (!bridge->p_mem_head) {
+-			err("out of memory\n");
+-			kfree(bridge);
+-			return;
+-		}
++		if (!bridge->p_mem_head)
++			goto oom;
+ 		dbg("64bit Prefetchable memory range: %08x%08x-%08x%08x\n",
+ 		    (u32)(bridge->p_mem_head->base >> 32),
+ 		    (u32)(bridge->p_mem_head->base & 0xffffffff),
+@@ -568,6 +562,13 @@ static void add_p2p_bridge(acpi_handle *
+ 	}
+ 
+ 	init_bridge_misc(bridge);
++	return;
++ oom:
++	err("out of memory\n");
++ err:
++	pci_dev_put(pci_dev);
++	kfree(bridge);
++	return;
+ }
+ 
+ 
+@@ -577,14 +578,10 @@ find_p2p_bridge(acpi_handle handle, u32 
+ {
+ 	acpi_status status;
+ 	acpi_handle dummy_handle;
+-	unsigned long *segbus = context;
+ 	unsigned long tmp;
+-	int seg, bus, device, function;
++	int device, function;
+ 	struct pci_dev *dev;
+-
+-	/* get PCI address */
+-	seg = (*segbus >> 8) & 0xff;
+-	bus = *segbus & 0xff;
++	struct pci_bus *pci_bus = context;
+ 
+ 	status = acpi_get_handle(handle, "_ADR", &dummy_handle);
+ 	if (ACPI_FAILURE(status))
+@@ -599,20 +596,19 @@ find_p2p_bridge(acpi_handle handle, u32 
+ 	device = (tmp >> 16) & 0xffff;
+ 	function = tmp & 0xffff;
+ 
+-	dev = pci_find_slot(bus, PCI_DEVFN(device, function));
++	dev = pci_get_slot(pci_bus, PCI_DEVFN(device, function));
+ 
+-	if (!dev)
+-		return AE_OK;
+-
+-	if (!dev->subordinate)
+-		return AE_OK;
++	if (!dev || !dev->subordinate)
++		goto out;
+ 
+ 	/* check if this bridge has ejectable slots */
+ 	if (detect_ejectable_slots(handle) > 0) {
+ 		dbg("found PCI-to-PCI bridge at PCI %s\n", pci_name(dev));
+-		add_p2p_bridge(handle, seg, bus, device, function);
++		add_p2p_bridge(handle, dev);
+ 	}
+ 
++ out:
++	pci_dev_put(dev);
+ 	return AE_OK;
+ }
+ 
+@@ -624,6 +620,7 @@ static int add_bridge(acpi_handle handle
+ 	unsigned long tmp;
+ 	int seg, bus;
+ 	acpi_handle dummy_handle;
++	struct pci_bus *pci_bus;
+ 
+ 	/* if the bridge doesn't have _STA, we assume it is always there */
+ 	status = acpi_get_handle(handle, "_STA", &dummy_handle);
+@@ -653,18 +650,22 @@ static int add_bridge(acpi_handle handle
+ 		bus = 0;
+ 	}
+ 
++	pci_bus = pci_find_bus(seg, bus);
++	if (!pci_bus) {
++		err("Can't find bus %04x:%02x\n", seg, bus);
++		return 0;
++	}
++
+ 	/* check if this bridge has ejectable slots */
+ 	if (detect_ejectable_slots(handle) > 0) {
+ 		dbg("found PCI host-bus bridge with hot-pluggable slots\n");
+-		add_host_bridge(handle, seg, bus);
++		add_host_bridge(handle, pci_bus);
+ 		return 0;
+ 	}
+ 
+-	tmp = seg << 8 | bus;
+-
+ 	/* search P2P bridges under this host bridge */
+ 	status = acpi_walk_namespace(ACPI_TYPE_DEVICE, handle, (u32)1,
+-				     find_p2p_bridge, &tmp, NULL);
++				     find_p2p_bridge, pci_bus, NULL);
+ 
+ 	if (ACPI_FAILURE(status))
+ 		warn("find_p2p_bridge faied (error code = 0x%x)\n",status);
+@@ -672,10 +673,68 @@ static int add_bridge(acpi_handle handle
+ 	return 0;
+ }
+ 
++static struct acpiphp_bridge *acpiphp_handle_to_bridge(acpi_handle handle)
++{
++	struct list_head *head;
++	list_for_each(head, &bridge_list) {
++		struct acpiphp_bridge *bridge = list_entry(head,
++						struct acpiphp_bridge, list);
++		if (bridge->handle = handle)
++			return bridge;
++	}
++
++	return NULL;
++}
+ 
+ static void remove_bridge(acpi_handle handle)
+ {
+-	/* No-op for now .. */
++	struct list_head *list, *tmp;
++	struct acpiphp_bridge *bridge;
++	struct acpiphp_slot *slot;
++	acpi_status status;
++
++	bridge = acpiphp_handle_to_bridge(handle);
++	if (!bridge) {
++		err("Could not find bridge for handle %p\n", handle);
++		return;
++	}
++
++	status = acpi_remove_notify_handler(handle, ACPI_SYSTEM_NOTIFY,
++					    handle_hotplug_event_bridge);
++	if (ACPI_FAILURE(status))
++		err("failed to remove notify handler\n");
++
++	slot = bridge->slots;
++	while (slot) {
++		struct acpiphp_slot *next = slot->next;
++		list_for_each_safe (list, tmp, &slot->funcs) {
++			struct acpiphp_func *func;
++			func = list_entry(list, struct acpiphp_func, sibling);
++			acpiphp_free_resource(&func->io_head);
++			acpiphp_free_resource(&func->mem_head);
++			acpiphp_free_resource(&func->p_mem_head);
++			acpiphp_free_resource(&func->bus_head);
++			status = acpi_remove_notify_handler(func->handle,
++						ACPI_SYSTEM_NOTIFY,
++						handle_hotplug_event_func);
++			if (ACPI_FAILURE(status))
++				err("failed to remove notify handler\n");
++			pci_dev_put(func->pci_dev);
++			list_del(list);
++			kfree(func);
++		}
++		kfree(slot);
++		slot = next;
++	}
++
++	acpiphp_free_resource(&bridge->io_head);
++	acpiphp_free_resource(&bridge->mem_head);
++	acpiphp_free_resource(&bridge->p_mem_head);
++	acpiphp_free_resource(&bridge->bus_head);
++
++	pci_dev_put(bridge->pci_dev);
++	list_del(&bridge->list);
++	kfree(bridge);
+ }
+ 
+ 
+@@ -782,9 +841,9 @@ static int power_off_slot(struct acpiphp
+  */
+ static int enable_device(struct acpiphp_slot *slot)
+ {
+-	u8 bus;
+ 	struct pci_dev *dev;
+ 	struct pci_bus *child;
++	struct pci_bus *bus = slot->bridge->pci_bus;
+ 	struct list_head *l;
+ 	struct acpiphp_func *func;
+ 	int retval = 0;
+@@ -794,10 +853,11 @@ static int enable_device(struct acpiphp_
+ 		goto err_exit;
+ 
+ 	/* sanity check: dev should be NULL when hot-plugged in */
+-	dev = pci_find_slot(slot->bridge->bus, PCI_DEVFN(slot->device, 0));
++	dev = pci_get_slot(bus, PCI_DEVFN(slot->device, 0));
+ 	if (dev) {
+ 		/* This case shouldn't happen */
+ 		err("pci_dev structure already exists.\n");
++		pci_dev_put(dev);
+ 		retval = -1;
+ 		goto err_exit;
+ 	}
+@@ -807,21 +867,28 @@ static int enable_device(struct acpiphp_
+ 	if (retval)
+ 		goto err_exit;
+ 
+-	/* returned `dev' is the *first function* only! */
+-	num = pci_scan_slot(slot->bridge->pci_bus, PCI_DEVFN(slot->device, 0));
+-	if (num)
+-		pci_bus_add_devices(slot->bridge->pci_bus);
+-	dev = pci_find_slot(slot->bridge->bus, PCI_DEVFN(slot->device, 0));
+-
+-	if (!dev) {
++	num = pci_scan_slot(bus, PCI_DEVFN(slot->device, 0));
++	if (num = 0) {
+ 		err("No new device found\n");
+ 		retval = -1;
+ 		goto err_exit;
+ 	}
+ 
++	list_for_each_entry(dev, &bus->devices, bus_list) {
++		/* Skip the devices we didn't just add */
++		if (!list_empty(&dev->global_list))
++			continue;
++		pcibios_fixup_device_resources(dev, bus);
++	}
++
++	pci_bus_add_devices(bus);
++	/* returned `dev' is the *first function* only! */
++	dev = pci_get_slot(bus, PCI_DEVFN(slot->device, 0));
++
+ 	if (dev->hdr_type = PCI_HEADER_TYPE_BRIDGE) {
+-		pci_read_config_byte(dev, PCI_SECONDARY_BUS, &bus);
+-		child = (struct pci_bus*) pci_add_new_bus(dev->bus, dev, bus);
++		u8 bus_nr;
++		pci_read_config_byte(dev, PCI_SECONDARY_BUS, &bus_nr);
++		child = pci_add_new_bus(dev->bus, dev, bus_nr);
+ 		pci_do_scan_bus(child);
+ 	}
+ 
+@@ -829,16 +896,17 @@ static int enable_device(struct acpiphp_
+ 	list_for_each (l, &slot->funcs) {
+ 		func = list_entry(l, struct acpiphp_func, sibling);
+ 
+-		func->pci_dev = pci_find_slot(slot->bridge->bus,
+-					      PCI_DEVFN(slot->device,
++		func->pci_dev = pci_get_slot(bus, PCI_DEVFN(slot->device,
+ 							func->function));
+ 		if (!func->pci_dev)
+ 			continue;
+ 
+ 		/* configure device */
+ 		retval = acpiphp_configure_function(func);
+-		if (retval)
++		if (retval) {
++			pci_dev_put(func->pci_dev);
+ 			goto err_exit;
++		}
+ 	}
+ 
+ 	slot->flags |= SLOT_ENABLED;
+@@ -866,9 +934,12 @@ static int disable_device(struct acpiphp
+ 
+ 	list_for_each (l, &slot->funcs) {
+ 		func = list_entry(l, struct acpiphp_func, sibling);
++		if (!func->pci_dev)
++			continue;
+ 
+-		if (func->pci_dev)
+-			acpiphp_unconfigure_function(func);
++		acpiphp_unconfigure_function(func);
++		pci_dev_put(func->pci_dev);
++		func->pci_dev = NULL;
+ 	}
+ 
+ 	slot->flags &= (~SLOT_ENABLED);
+@@ -1116,46 +1187,6 @@ int __init acpiphp_glue_init(void)
+  */
+ void __exit acpiphp_glue_exit(void)
+ {
+-	struct list_head *l1, *l2, *n1, *n2;
+-	struct acpiphp_bridge *bridge;
+-	struct acpiphp_slot *slot, *next;
+-	struct acpiphp_func *func;
+-	acpi_status status;
+-
+-	list_for_each_safe (l1, n1, &bridge_list) {
+-		bridge = (struct acpiphp_bridge *)l1;
+-		slot = bridge->slots;
+-		while (slot) {
+-			next = slot->next;
+-			list_for_each_safe (l2, n2, &slot->funcs) {
+-				func = list_entry(l2, struct acpiphp_func, sibling);
+-				acpiphp_free_resource(&func->io_head);
+-				acpiphp_free_resource(&func->mem_head);
+-				acpiphp_free_resource(&func->p_mem_head);
+-				acpiphp_free_resource(&func->bus_head);
+-				status = acpi_remove_notify_handler(func->handle,
+-								    ACPI_SYSTEM_NOTIFY,
+-								    handle_hotplug_event_func);
+-				if (ACPI_FAILURE(status))
+-					err("failed to remove notify handler\n");
+-				kfree(func);
+-			}
+-			kfree(slot);
+-			slot = next;
+-		}
+-		status = acpi_remove_notify_handler(bridge->handle, ACPI_SYSTEM_NOTIFY,
+-						    handle_hotplug_event_bridge);
+-		if (ACPI_FAILURE(status))
+-			err("failed to remove notify handler\n");
+-
+-		acpiphp_free_resource(&bridge->io_head);
+-		acpiphp_free_resource(&bridge->mem_head);
+-		acpiphp_free_resource(&bridge->p_mem_head);
+-		acpiphp_free_resource(&bridge->bus_head);
+-
+-		kfree(bridge);
+-	}
+-
+ 	acpi_pci_unregister_driver(&acpi_pci_hp_driver);
+ }
+ 
+@@ -1173,11 +1204,14 @@ int __init acpiphp_get_num_slots(void)
+ 
+ 	list_for_each (node, &bridge_list) {
+ 		bridge = (struct acpiphp_bridge *)node;
+-		dbg("Bus%d %dslot(s)\n", bridge->bus, bridge->nr_slots);
++		dbg("Bus %04x:%02x has %d slot%s\n",
++				pci_domain_nr(bridge->pci_bus),
++				bridge->pci_bus->number, bridge->nr_slots,
++				bridge->nr_slots = 1 ? "" : "s");
+ 		num_slots += bridge->nr_slots;
+ 	}
+ 
+-	dbg("Total %dslots\n", num_slots);
++	dbg("Total %d slots\n", num_slots);
+ 	return num_slots;
+ }
+ 
+@@ -1349,9 +1383,10 @@ u8 acpiphp_get_adapter_status(struct acp
+ u32 acpiphp_get_address(struct acpiphp_slot *slot)
+ {
+ 	u32 address;
++	struct pci_bus *pci_bus = slot->bridge->pci_bus;
+ 
+-	address = ((slot->bridge->seg) << 16) |
+-		  ((slot->bridge->bus) << 8) |
++	address = (pci_domain_nr(pci_bus) << 16) |
++		  (pci_bus->number << 8) |
+ 		  slot->device;
+ 
+ 	return address;
 
---Boundary-00=_2OtWB8I+sCheiBg--
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
