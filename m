@@ -1,56 +1,59 @@
-From: "Yu, Luming" <luming.yu@intel.com>
-Date: Mon, 08 Mar 2004 02:08:05 +0000
-Subject: RE: IA64 test report: .6.4-rc1-mm2/Lion 2004-3-3: 10/10 pass
-Message-Id: <3ACA40606221794F80A5670F0AF15F8401CBB72E@PDSMSX403.ccr.corp.intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 25 Mar 2004 16:08:25 +0000
+Subject: [PATCH] Fix uninitialized data in EFI RTC /proc interface
+Message-Id: <200403250908.25718.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3ACA40606221794F80A5670F0AF15F8401720DBF@PDSMSX403.ccr.corp.intel.com>
-In-Reply-To: <3ACA40606221794F80A5670F0AF15F8401720DBF@PDSMSX403.ccr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->=20
-> Is this the same box as the 2.6.4-rc1 test?  I guess not -- the
-> "Lion 2.6.4-rc1" test claims this:
->=20
-> > ACPI: XSDT (v001 INTEL  SR870BN4 0x01072002 MSFT=20
-> 0x00010013) @ 0x000000003ff83090
->=20
-> Which looks like an 870-based box (Tiger, maybe)?
+=== drivers/char/efirtc.c 1.8 vs edited ==--- 1.8/drivers/char/efirtc.c	Mon Jan 19 16:38:04 2004
+Please apply the following patch (based on 2.6.5-rc2).
 
-I'm sorry for the typo of title. This is for tiger.
+The problem is that we don't clear out the efi_time_t buffer
+before asking EFI to fill it in.  EFI doesn't always write the
+entire buffer (in particular, the alarm time only supports one
+second resolution, so the nanosecond field is often untouched).
 
->=20
-> > ACPI: LSAPIC (acpi_id[0x01] lsapic_id[0x01]=20
-> lsapic_eid[0x00] enabled)
-> > CPU 1 (0x0100) enabled
-> > CPU 1: base freq=133.333MHz, ITC ratio=12/2, ITC=20
-> freq=800.003MHz+/--1ppm
-> > Calibrating delay loop... 797.80 BogoMIPS
-> > CPU 1: synchronized ITC with CPU 0 (last diff 0 cycles,=20
-> maxerr 551 cycles)
->=20
-> Hmm...  We still print 5 lines per CPU (tons better than it used to
-> be), but we have no indication of what processor model it is.  That
-> seems more useful than some of this stuff.
+The effect is that 'cat /proc/driver/efirtc' shows garbage in
+the nanoseconds part of the alarm time, and sometimes artifacts
+like bogus alarm date and junk after the actual end of the text.
 
-Yes.
-
->=20
-> >  pci_irq-0302 [03] acpi_pci_irq_derive   : Unable to derive=20
-> IRQ for device 0000:00:03.3
-> > ACPI: No IRQ known for interrupt pin B of device 0000:00:03.3
->=20
-> Ah, here's our friend the SMBus device.
->=20
-> No USB funnies in this boot.  I guess that's probably due to
-> the fact that this really isn't the same box as the 2.6.4-rc1
-> boot.
->=20
->=20
-
-Yes, this is for tiger.
-
-Thanks,
-Luming
++++ edited/drivers/char/efirtc.c	Thu Mar 25 08:48:45 2004
+@@ -6,13 +6,13 @@
+  *
+  * Based on skeleton from the drivers/char/rtc.c driver by P. Gortmaker
+  *
+- * This code provides a architected & portable interface to the real time 
++ * This code provides an architected & portable interface to the real time 
+  * clock by using EFI instead of direct bit fiddling. The functionalities are 
+  * quite different from the rtc.c driver. The only way to talk to the device 
+  * is by using ioctl(). There is a /proc interface which provides the raw 
+  * information.
+  *
+- * Please note that we have kept the API as close as possible from the 
++ * Please note that we have kept the API as close as possible to the 
+  * legacy RTC. The standard /sbin/hwclock program should work normally 
+  * when used to get/set the time.
+  *
+@@ -297,7 +297,7 @@
+ };
+ 
+ /*
+- *	We export RAW EFI information to /proc/efirtc
++ *	We export RAW EFI information to /proc/driver/efirtc
+  */
+ static int
+ efi_rtc_get_status(char *buf)
+@@ -307,6 +307,10 @@
+ 	char		*p = buf;
+ 	efi_bool_t	enabled, pending;	
+ 	unsigned long	flags;
++
++	memset(&eft, 0, sizeof(eft));
++	memset(&alm, 0, sizeof(alm));
++	memset(&cap, 0, sizeof(cap));
+ 
+ 	spin_lock_irqsave(&efi_rtc_lock, flags);
+ 
