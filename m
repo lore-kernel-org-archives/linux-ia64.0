@@ -1,43 +1,66 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Sun, 18 Jul 2004 02:37:23 +0000
-Subject: Re: can't install redhat linux upgrade v3 on rx5670
-Message-Id: <20040718023723.GA29764@cup.hp.com>
+From: Darren Williams <dsw@gelato.unsw.edu.au>
+Date: Wed, 14 Jul 2004 01:07:06 +0000
+Subject: [PATCH] 2.6.8-rc1 including AFS in ia64 and other ARCHS builds breaks the compilation
+Message-Id: <20040714010706.GA31683@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <071620042133.15591.40F849C10008D72500003CE72200750330040104040E05@comcast.net>
-In-Reply-To: <071620042133.15591.40F849C10008D72500003CE72200750330040104040E05@comcast.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Ia64 Linux <linux-ia64@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>
+Cc: dhowells@redhat.com
 
-On Sat, Jul 17, 2004 at 01:14:21AM +0000, kallol@comcast.net wrote:
-> Hello Grant,
->                       I could install debian linux from the hp enablement
-> kit cd,
+Including Andrew File System on any arch other
+than i386 and x86_64 will break the compilation
+due to the use of 'struct_cpy()', which is only
+define in the two archs above and both archs
+define it differently:
+i386:
+#define struct_cpy(x,y) 			\
+({						\
+	if (sizeof(*(x)) != sizeof(*(y))) 	\
+		__struct_cpy_bug();		\
+	memcpy(x, y, sizeof(*(x)));		\
+})
 
-So what's the problem? :^)
+x86_64:
+#define struct_cpy(x,y) (*(x)=*(y))
 
-> but RedHat Itanium cd V3.1 panics as it does not find the root filesystem.
+both in include/asm/string.h
 
-Can you tell me *exactly* what the CD has printed on it?
-I'm not familiar with any "V3.1" release for itanium.
-I know about a RHAS 2.1 and RHEL 3.0 and there are a few more variants
-that I don't recall.
+A quick discussion here suggests that we are not
+doing a deep copy of the struct though others
+may by able to enlighten us on what happens to
+pointers within a struct?
 
-> I guess the scsi driver is not present in the cd set. There should be
-> a way to specify  the location of the scsi drivers.
-> 
-> The rx5670 system has symbios cards (lsi's script based cards).
+I have applied the i386 definition to ia64 and
+compiles OK, though I cannot test it since I
+do not have direct access to AFS. 
 
-Yes. the initrd has to contain the drivers and I expect the install
-CD to have those. If the initrd does NOT, this can be fixed up
-by hand by regenerating the initrd. Boot the install CD and
-specific "root=/dev/sdXX" where "XX" is the right disk name.
-I personally don't use either RH or initrd's so I'm not the
-right person to help you with that.
+diff -Nru a/include/asm-ia64/string.h b/include/asm-ia64/string.h
+--- a/include/asm-ia64/string.h 2004-07-14 10:54:17 +10:00
++++ b/include/asm-ia64/string.h 2004-07-14 10:54:17 +10:00
+@@ -20,4 +20,19 @@
+ extern void *memcpy (void *, const void *, __kernel_size_t);
+ extern void *memset (void *, int, __kernel_size_t);
+  
++
++/*
++ * struct_cpy(x,y), copy structure *x into (matching structure) *y.
++ *
++ * We get link-time errors if the structure sizes do not match.
++ * There is no runtime overhead, it's all optimized away at
++ * compile time.
++ */
++#define struct_cpy(x,y)                        \
++({                                             \
++       if (sizeof(*(x)) != sizeof(*(y)))       \
++               __struct_cpy_bug();             \
++       memcpy(x, y, sizeof(*(x)));             \
++})
++
+ #endif /* _ASM_IA64_STRING_H */
 
-> The dmesg is attached with the mail
-
-I'll look at it and yell if anything is obvious.
-
-grant
+--------------------------------------------------
+Darren Williams <dsw AT gelato.unsw.edu.au>
+Gelato@UNSW <www.gelato.unsw.edu.au>
+--------------------------------------------------
