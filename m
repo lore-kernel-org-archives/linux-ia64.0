@@ -1,44 +1,49 @@
 From: Matthew Wilcox <willy@debian.org>
-Date: Mon, 22 Mar 2004 12:15:44 +0000
-Subject: Re: testing a new syscall
-Message-Id: <20040322121544.GB25059@parcelfarce.linux.theplanet.co.uk>
+Date: Thu, 18 Mar 2004 23:52:17 +0000
+Subject: [2/3] Use insert_resource in pci_claim_resource
+Message-Id: <20040318235217.GJ25059@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040322021555.7b6f9317.akpm@osdl.org>
-In-Reply-To: <20040322021555.7b6f9317.akpm@osdl.org>
+References: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Matthew Wilcox <willy@debian.org>
+Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@zip.com.au>, Greg KH <greg@kroah.com>, David Mosberger <davidm@hpl.hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Mon, Mar 22, 2004 at 02:15:55AM -0800, Andrew Morton wrote:
-> I'm trying to work out how to test the new remap_file_pages() syscall on
-> ia64 and have conceded defeat.
-> 
-> I got this far, but it segfaults:
-> 
-> #elif __ia64__
-> #define __NR_sys_remap_file_pages 1259
-> ...
-> _syscall5(long, sys_remap_file_pages, unsigned long, start, unsigned long, len,
->         unsigned long, prot, unsigned long, pgoff, int, flags);
-> 
-> ....
-> 
-> #if defined(__ia64__)
-> 
-> asm(
-> "	.text\n"
 
-Argh!  Assembler!  Run away ;-)
+On ia64, the parent resources are not necessarily PCI resources and
+so won't get found by pci_find_parent_resource.  Use the shiny new
+insert_resource() function instead, which I think we would have used
+here had it been available at the time.
 
-Here's the better way to do it (cribbed from manfred's mqueue work):
-
-static inline long remap_file_pages(unsigned long start, unsigned long len,
-		unsigned long prot, unsigned long pgoff, int flags)
-{
-	return syscall(__NR_sys_remap_file_pages, start, len, prot, pgoff,
-			flags);
-}
+Index: drivers/pci/setup-res.c
+=================================RCS file: /var/cvs/linux-2.6/drivers/pci/setup-res.c,v
+retrieving revision 1.7
+diff -u -p -r1.7 setup-res.c
+--- a/drivers/pci/setup-res.c	10 Mar 2004 02:27:48 -0000	1.7
++++ b/drivers/pci/setup-res.c	18 Mar 2004 23:40:56 -0000
+@@ -94,13 +94,18 @@ int __init
+ pci_claim_resource(struct pci_dev *dev, int resource)
+ {
+ 	struct resource *res = &dev->resource[resource];
+-	struct resource *root = pci_find_parent_resource(dev, res);
++	struct resource *root = NULL;
+ 	char *dtype = resource < PCI_BRIDGE_RESOURCES ? "device" : "bridge";
+ 	int err;
+ 
++	if (res->flags & IORESOURCE_IO)
++		root = &ioport_resource;
++	if (res->flags & IORESOURCE_MEM)
++		root = &iomem_resource;
++
+ 	err = -EINVAL;
+ 	if (root != NULL)
+-		err = request_resource(root, res);
++		err = insert_resource(root, res);
+ 
+ 	if (err) {
+ 		printk(KERN_ERR "PCI: %s region %d of %s %s [%lx:%lx]\n",
 
 -- 
 "Next the statesmen will invent cheap lies, putting the blame upon 
