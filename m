@@ -1,151 +1,54 @@
-From: "Yu, Luming" <luming.yu@intel.com>
-Date: Wed, 12 Nov 2003 11:37:22 +0000
-Subject: Latest 2.6 IA64 Baseline (Mosberger) testing report (Boot hang)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3A911.56A285E9"
-Message-Id: <marc-linux-ia64-106863716316469@msgid-missing>
+From: Matt Chapman <matthewc@cse.unsw.edu.au>
+Date: Thu, 13 Nov 2003 03:14:14 +0000
+Subject: Re: Latest 2.6 IA64 Baseline (Mosberger) testing report (Boot hang)
+Message-Id: <marc-linux-ia64-106869327020510@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106863716316469@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106863716316469@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+It boots fine on Lion here, it looks like you might be using the wrong config?
+The config you attached is for ZX1/McKinley.
 
-------_=_NextPart_001_01C3A911.56A285E9
-Content-Type: text/plain;
-	charset="gb2312"
-Content-Transfer-Encoding: quoted-printable
-
-ACPI Test Report  for 2.6 ia64 kernel=20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-
-Hardware Configuration:
------------------------
-System Name: ACPI-LION
-System Type: 4 way 800M Itanium, Lion
-M/B revision: N/A
-Processor version: N/A
-Firmware Versions: N/A
-I/O configuration summary:
-	QLogic QLA12160, Seagate ST39205LC boot drive
-	IDE floppy and CDROM
-	Serial console
-	PS/2 keyboard and mouse
-	USB mouse
-	Ethernet Pro 100
-
-Software Configuration:
------------------------
-	1.Bk pull form http://lia64.bkbits.net/linux-ia64-2.5 on 11/11 =
-(Shanghai time)
-
-	Successfully automerged by bk without out any manually work.
-
-ACPI Features Tested: (prioritized).
---------------------
-1. Boot 			hang
-
-Kernel hang after message:
- <<2.6.config.ZIP>>=20
-"ELILO boot : Loading vmlinux... Done"
-
-Thanks,
-Luming
+Matt
 
 
-------_=_NextPart_001_01C3A911.56A285E9
-Content-Type: application/x-zip-compressed;
-	name="2.6.config.ZIP"
-Content-Transfer-Encoding: base64
-Content-Description: 2.6.config.ZIP
-Content-Disposition: attachment;
-	filename="2.6.config.ZIP"
+On Wed, Nov 12, 2003 at 07:37:22PM +0800, Yu, Luming wrote:
+> ACPI Test Report  for 2.6 ia64 kernel 
+> ============> Hardware Configuration:
+> -----------------------
+> System Name: ACPI-LION
+> System Type: 4 way 800M Itanium, Lion
+> M/B revision: N/A
+> Processor version: N/A
+> Firmware Versions: N/A
+> I/O configuration summary:
+> 	QLogic QLA12160, Seagate ST39205LC boot drive
+> 	IDE floppy and CDROM
+> 	Serial console
+> 	PS/2 keyboard and mouse
+> 	USB mouse
+> 	Ethernet Pro 100
+> 
+> Software Configuration:
+> -----------------------
+> 	1.Bk pull form http://lia64.bkbits.net/linux-ia64-2.5 on 11/11 (Shanghai time)
+> 
+> 	Successfully automerged by bk without out any manually work.
+> 
+> ACPI Features Tested: (prioritized).
+> --------------------
+> 1. Boot 			hang
+> 
+> Kernel hang after message:
+>  <<2.6.config.ZIP>> 
+> "ELILO boot : Loading vmlinux... Done"
+> 
+> Thanks,
+> Luming
+> 
 
-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
 
-------_=_NextPart_001_01C3A911.56A285E9--
