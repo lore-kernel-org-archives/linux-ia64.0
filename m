@@ -1,23 +1,47 @@
-From: Dmitry Torokhov <dtor_core@ameritech.net>
-Date: Mon, 27 Sep 2004 18:09:17 +0000
-Subject: Re: [ACPI] PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject interface support
-Message-Id: <200409271309.17756.dtor_core@ameritech.net>
+From: Robin Holt <holt@sgi.com>
+Date: Thu, 09 Sep 2004 16:36:38 +0000
+Subject: [RFC 0/4] Add SN2 Special Memory driver.
+Message-Id: <20040909163638.GA23178@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com> <200409270112.29422.dtor_core@ameritech.net> <20040927095348.A29594@unix-os.sc.intel.com>
-In-Reply-To: <20040927095348.A29594@unix-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Cc: Len Brown <len.brown@intel.com>, acpi-devel@lists.sourceforge.net, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-On Monday 27 September 2004 11:53 am, Keshavamurthy Anil S wrote:
-> =A0=A0=A0=A0=A0=A0=A0=A0I just wanted to have a single function i.e setup=
-_sys_fs_device_files() for both
-> creating and removing sysfs files.
 
-Ah, I see... Makes sense, especially when there is additional logic involved
-in creating some of the attributes, which is the case with ACPI.
+This driver provides three different devices for mmap'ing pages which
+are not visible to the kernel.
 
---=20
-Dmitry
+sgi_fetchops) atomic operations performed by the SN2 memory controller.
+	These operations are performed using uncached memory
+	references with an offset of the address specifying the
+	operation (add, sub) to perform.
+
+sgi_uncached) Provides a device which supports mapping pages which
+	will only be referenced uncached.  These use the Intel ia64
+	write combining feature.  These need to be in a separate
+	granule from regular memory to prevent the FSB from having
+	both a cached and an uncached reference to a memory location.
+
+sgi_cached) Provides a device which support cached operations from the
+	processor and uncached from processors outside the coherence
+	domain.  This provides rapid read access to the 16 words in the
+	cache line to data that was written uncached by remote processors.
+
+
+All of these devices require addresses that have no kernel tlb entry.
+The fetchop and uncached driver because the CPU does not allow both cached
+and uncached references to the same cache line on the FSB at the same
+time and kernel speculation is possible whenever there is a tlb entry.
+
+The cached driver suffers from the other part of that problem.  The kernel
+will occasionally have an lfetch.excl with the operation on that address
+being predicated.  The processor will prefetch the cache line, never
+actually put any data in it, but still consider it dirty and then write
+the line back.  This would result in clobbering the data.
+
+All of this is avoided by this driver by handling the pages with physical
+addresses only.
+
+Thank you,
+Robin Holt
