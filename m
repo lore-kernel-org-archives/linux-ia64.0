@@ -1,38 +1,26 @@
-From: Matt_Domsch@Dell.com
-Date: Tue, 03 Feb 2004 19:36:41 +0000
-Subject: removing efibootmgr -t --test option
-Message-Id: <1075837008.12773.6.camel@localhost.localdomain>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 18 Feb 2004 07:06:09 +0000
+Subject: kernel update (relative to 2.6.3)
+Message-Id: <16435.3809.866678.776335@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I received a request a few weeks ago to implement the EFI Boot Manager
-Timeout value in efibootmgr.  This value controls the duration between
-when the EFI Boot Manager displays the boot menu, and when it
-automatically chooses the BootNext option.  I simply hadn't seen Timeout
-in the spec, though it's been there since v0.99 at least.
+I updated the ia64 patch for 2.6.3.  It's in the usual place:
 
-The most logical efibootmgr option to use would be -t val  to specify a
-timeout of val seconds, and -T  to delete it, following the other uses
-of short-form options.  However, -t is currently short for --test, which
-writes values to a file instead of NVRAM.
+ ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.6/
 
-I expect I'm the only person who's ever used the -t option, it's really
-for debugging purposes.  But, if it's regularly used elsewhere, such
-that changing the meaning of -t would adversely impact someone, I won't
-do it.  I'm looking for feedback.  If you use -t to mean --test, and it
-would adversely affect you to use --test instead of -t, let me know
-soon.
+in file:
 
-Thanks,
-Matt
+ linux-2.6.3-ia64-040217.diff.gz
 
+Thanks to Linus' very recent syncing the patch is currently down to
+basically the EARLY_PRINTK support.  In other words, Linus' 2.6.3
+should work quite well for ia64 as is.  Perhaps that's a sign that
+it's time for 2.7 to open up? ;-)
 
--- 
-Matt Domsch
-Sr. Software Engineer, Lead Engineer
-Dell Linux Solutions www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+Enjoy,
 
+	--david
