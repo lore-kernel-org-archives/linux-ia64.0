@@ -1,7 +1,7 @@
-From: Patrick Gefre <pfg@sgi.com>
-Date: Wed, 04 Feb 2004 19:10:46 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 04 Feb 2004 19:50:44 +0000
 Subject: Re: PCI question
-Message-Id: <402143B6.1040205@sgi.com>
+Message-Id: <200402041250.44802.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200402032235.i13MZQXl018906@fsgi900.americas.sgi.com>
 In-Reply-To: <200402032235.i13MZQXl018906@fsgi900.americas.sgi.com>
@@ -10,40 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Grant Grundler wrote:
+On Wednesday 04 February 2004 12:10 pm, Patrick Gefre wrote:
+> We keep track of several things that are specific to our system:
+> 
+> struct sn_device_sysdata {
+>         vertex_hdl_t            vhdl;
+>         pciio_provider_t        *pci_provider;
+>         pciio_intr_t            intr_handle;
+>         struct sn_flush_device_list *dma_flush_list;
+>         pciio_piomap_t          pio_map[PCI_ROM_RESOURCE];
+> };
+> 
+> The platform_data element is what we use in 2.4 and seems like the way 
+> to go for 2.6.
 
->On Wed, Feb 04, 2004 at 11:04:42AM -0600, Patrick Gefre wrote:
->  
->
->>I think the 2.4 definition will be fine - at least for now. Was there a 
->>reason it was changed in 2.6 ?
->>    
->>
->
->Because no one was using it?
->
->Pat,
->two (three?) people have asked you to state what you want to add.
->Can you state the basic problem additional data fields would solve?
->
->It might be easier to just add those fields directly to pci_controller
->instead of messing with platform_data.
->
->grant
->  
->
-We keep track of several things that are specific to our system:
-
-struct sn_device_sysdata {
-        vertex_hdl_t            vhdl;
-        pciio_provider_t        *pci_provider;
-        pciio_intr_t            intr_handle;
-        struct sn_flush_device_list *dma_flush_list;
-        pciio_piomap_t          pio_map[PCI_ROM_RESOURCE];
-};
-
-The platform_data element is what we use in 2.4 and seems like the way 
-to go for 2.6.
-
--- Pat
+If you make yourself a macro to go from a pci_dev to sn_device_sysdata,
+you can make your code independent of where the SGI-specific stuff
+actually lives.  Probably you already do that.
 
