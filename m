@@ -1,20 +1,21 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Thu, 21 Sep 2000 21:15:55 +0000
-Subject: [Linux-ia64] Re: unregister_rebbot_notifier()
-Message-Id: <marc-linux-ia64-105590678205512@msgid-missing>
+From: "Satterthwaite, Chris" <chris.satterthwaite@intel.com>
+Date: Tue, 12 Sep 2000 18:24:38 +0000
+Subject: [Linux-ia64] Linux64 performance
+Message-Id: <marc-linux-ia64-105590678205490@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Randall G Chan/Fremont/IBM (chanr@us.ibm.com) said: 
-> Also, I can't seem to get this module to load on 2.4.0-test8.  This system
-> just seems to hang after trying to insert the module.  I've seen this
-> happen on the same two machines listed above.  Are there any known problems
-> in test8 in relation to module loading?
+I'm just now looking at performance for Linux64, and so I need to know how
+to work around the det-stalls, and any other performance issues.  I also
+need to find out how to increase the frequency of my processors.  All other
+pertinent information, such as most optimal firmware (59/60/70), would also
+certainly be appreciated.  I currently have B0/B1 machines to work from,
+with varying frequencies.
 
-I'm seeing any module hanging when init_module is called. 
+Thanks in advance for any and all input,
+Chris Satterthwaite
 
-Bill
 
