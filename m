@@ -1,30 +1,26 @@
-From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
-Date: Fri, 25 Oct 2002 21:40:06 +0000
-Subject: RE: [Linux-ia64] automount point hanging
-Message-Id: <marc-linux-ia64-105590709805251@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Tue, 22 Oct 2002 22:20:52 +0000
+Subject: Re: [Linux-ia64] PCI_BUSES_TO_SCAN off by 1?
+Message-Id: <marc-linux-ia64-105590709805207@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805250@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805250@msgid-missing>
+References: <marc-linux-ia64-105590701906005@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701906005@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> We have itanium I  loaded with redhat 7.1. Kernel version 
-> 2.4.9-40smp. The
-> server runs fine until users start to run CAD applications. The NFS
-> automount point hang. /var/log/messages show :
-> 
->  eepro100: wait_for_cmd_done timeout
-> 
-> Please advise what is the problem and whether or not there is 
-> a patch for
-> it.
+On Friday 30 August 2002 3:11 pm, Bjorn Helgaas wrote:
+> Along this line, I had been hoping that if we find any PCI root
+> bridges via ACPI, we could skip the blind scanning of buses 0-255.
 
-There is a problem with the eepro100 driver.  You will also
-see this if the card isn't getting interrupts for some reason.
+To complete this thread, it looks like we can't do this.  My
+i2000 reports PCI root bridges for buses 0, 1, 2, and 3 via
+ACPI.  The 460GX chipset, including the CSRs for the AGP
+bridge, appears in config space on PCI bus 4.  ACPI doesn't
+tell us about bus 4, so we have to do the blind scan to find
+that stuff.
 
-You may have more luck with the e100 driver from intel.com
+Bjorn
 
-Kevin
 
