@@ -1,7 +1,7 @@
-From: Matt_Domsch@Dell.com
-Date: Mon, 21 Feb 2000 04:00:21 +0000
-Subject: RE: [Linux-ia64] building the toolchain
-Message-Id: <marc-linux-ia64-105590678204945@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Mon, 21 Feb 2000 21:35:15 +0000
+Subject: Re: [Linux-ia64] building the toolchain
+Message-Id: <marc-linux-ia64-105590678204951@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678204943@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678204943@msgid-missing>
@@ -10,108 +10,39 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I managed to get the IA-64 2-16-2000 toolchain built using egcs-2.91.66 from
-Red Hat 6.1 on an IA32 platform.
-The only trouble I had was with 'make install prefix=/usr/local/ia64/'
-command, where the Makefile in build/itcl/iwidgets3.0.0/unix needed to be
-fixed a bit, to point to the TCL and TK directories within the top-level src
-directory.  Here's my patch (of course, it'll have to be fixed to show your
-own src directory).  Without the patch, 'make install' failed trying to
-execute mkinstalldirs under the itcl directory.
+	Will the ftp site disappear in the near future?
 
-What I haven't yet seen is a glibc release (with include files) that lets
-you build even simple IA64 apps.  With no stdio.h anywhere on the Trillian
-2-2-2000 CD, one can't compile the simplest hello world app, even though the
-compiler looks like it would do it if glibc were present.
+No.
 
-Thanks,
-Matt Domsch
-Dell Enterprise Systems Group
-Linux Development Team
+	I've been trying to build and use these tools. I believe I am missing
+	some step along the way. I'm starting with the cross compiler and
+	attempting to build a new kernel. Here's what I've done:
 
+It looks like a good start.  Unfortunately, since you did not report any 
+actual error, all I can do is guess at what might be the problem.  Bug reports
+are much more useful if they actually contain info about the bug.
 
-diff -burN build/itcl/iwidgets3.0.0/unix/Makefile~
-build/itcl/iwidgets3.0.0/unix/Makefile
---- build/itcl/iwidgets3.0.0/unix/Makefile~     Sun Feb 20 18:05:16 2000
-+++ build/itcl/iwidgets3.0.0/unix/Makefile      Sun Feb 20 21:16:12 2000
-@@ -77,25 +77,29 @@
- TCL_LIB_DIR = /usr/lib
- 
- # Directory containing Tcl source code (for library used during test):
--TCL_SRC_DIR = /usr/src/bs/BUILD/tcltk-8.0.5/tcl8.0.5
-+#TCL_SRC_DIR = /usr/src/bs/BUILD/tcltk-8.0.5/tcl8.0.5
-+TCL_SRC_DIR = /home/mdomsch/gnupro/src/tcl
- 
- # Tk libraries can be found here:
- TK_LIB_DIR = /usr/lib
- 
- # Directory containing Tk source code (for library used during test):
--TK_SRC_DIR = /usr/src/bs/BUILD/tcltk-8.0.5/tk8.0.5
-+#TK_SRC_DIR = /usr/src/bs/BUILD/tcltk-8.0.5/tk8.0.5
-+TK_SRC_DIR = /home/mdomsch/gnupro/src/tk
- 
- # Itcl libraries can be found here:
- ITCL_LIB_DIR = /usr/lib
- 
- # Directory containing Itcl source code (for library used during test):
--ITCL_SRC_DIR = /usr/src/bs/BUILD/tcltk-8.0.5/itcl3.0.1/itcl
-+#ITCL_SRC_DIR = /usr/src/bs/BUILD/tcltk-8.0.5/itcl3.0.1/itcl
-+ITCL_SRC_DIR = /home/mdomsch/gnupro/src/itcl
- 
- # Itk libraries can be found here:
- ITK_LIB_DIR = /usr/lib
- 
- # Directory containing Itk source code (for library used during test):
--ITK_SRC_DIR = /usr/src/bs/BUILD/tcltk-8.0.5/itcl3.0.1/itk
-+#ITK_SRC_DIR = /usr/src/bs/BUILD/tcltk-8.0.5/itcl3.0.1/itk
-+ITK_SRC_DIR = /home/mdomsch/gnupro/src/itk
- 
- # [incr Tk] build directory containing the itkwish binary for 'make test'
- ITK_BIN_DIR = ../../itk/unix
-@@ -113,7 +117,7 @@
- INSTALL =              /usr/bin/install -c
- INSTALL_PROGRAM =      $(INSTALL)
- INSTALL_DATA =         $(INSTALL) -m 644
--MKINSTALLDIRS =                $(ITCL_SRC_DIR)/../config/mkinstalldirs
-+MKINSTALLDIRS =                $(ITCL_SRC_DIR)/config/mkinstalldirs
- RANLIB =               ranlib
- TOP_DIR =              /home/mdomsch/gnupro/src/itcl/iwidgets3.0.0
- GENERIC_DIR =          $(TOP_DIR)/generic
+My guess is that the build failed while trying to compile gcc's libgcc.a
+library because stdio.h was missing.
 
+To fix this problem, you want to use the additional configure options
+	--with-headers=<path> --with-libs=<path>
+where <path> is a directory name containing ia64-linux header files and
+libraries respectively.  If you have an ia64-linux machine, you can just
+copy the /usr/include and /lib directories to someplace on the machine where
+you are building the cross compiler, and then point the options at the
+copied directories.
 
------Original Message-----
-From: Uros Prestor [mailto:uros@turbolinux.com]
-Sent: Sunday, February 20, 2000 2:18 PM
-To: Tim Riker
-Cc: linux-ia64@linuxia64.org
-Subject: Re: [Linux-ia64] building the toolchain
+Unfortunately, I just took a look at the OS CD-rom from LinuxWorld, and
+discovered that /usr/include and /lib are empty.  This means there is no easy
+way to build a working toolchain.  I don't know why these weren't included
+in the public release.
 
+The OS CD-rom does contain a copy of the glibc sources in /usr/src.  So you
+can still do a build, but you essentially have to build gcc and glibc at
+the same time.  I've never done that.  I'm a novice when it comes to glibc
+builds, so I can't guarantee that I can figure out how to do this.
 
-Tim Riker <TimR@CalderaSystems.com> said: 
-
-> I've been trying to build and use these tools. I believe I am missing
-> some step along the way. I'm starting with the cross compiler and
-> attempting to build a new kernel. Here's what I've done:
-
-I have tried building the native cpmpiler with a cross compiler
-but I pretty much gave up.  There might be some magic options
-for configure but I haven't figured them out.
-
-I have build a native compiler with the September release of the compiler.
-You can grab the native compiler on bunyip in ~jes/usr_local-110100.tar.gz.
-
-Uros
-
---
-Uros Prestor
-uros@turbolinux.com
-
-
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Jim
 
 
