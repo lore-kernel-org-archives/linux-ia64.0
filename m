@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 01 Mar 2002 02:32:07 +0000
+From: Christian Hildner <christian.hildner@hob.de>
+Date: Fri, 08 Mar 2002 07:50:15 +0000
 Subject: Re: [Linux-ia64] VHPT performance
-Message-Id: <marc-linux-ia64-105590701905205@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905238@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905139@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905139@msgid-missing>
@@ -10,94 +10,137 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 28 Feb 2002 09:06:54 +0100, Christian Hildner <christian.hildner@hob.de> said:
 
-  Christian> David Could you please send me your test program to
-  Christian> verify this. Since I haven't fixed the storage in my test
-  Christian> prog maybe there are additional page faults.
+David Mosberger schrieb:
 
-Well, the copyright is almost longer than the program itself, but here
-you go.  It was just a quick hack, so treat with care...  If you do
-make enhancements, I'd be interested, though.
+> >>>>> On Thu, 28 Feb 2002 09:06:54 +0100, Christian Hildner <christian.hildner@hob.de> said:
+>
+>   Christian> David Could you please send me your test program to
+>   Christian> verify this. Since I haven't fixed the storage in my test
+>   Christian> prog maybe there are additional page faults.
+>
+> Well, the copyright is almost longer than the program itself, but here
+> you go.  It was just a quick hack, so treat with care...  If you do
+> make enhancements, I'd be interested, though.
+>
+>         --david
+>
 
-	--david
+David,
 
-/*
-    Copyright (c) 1999-2002 Hewlett-Packard Co.
-	Written by David Mosberger-Tang <davidm@hpl.hp.com>
+I tried with my different program and it's just as before. Without TLB miss ~10 cycles, TLB miss
+and VHPT ~750 cycles and TLB miss with VHPT disabled ~900 cycles. I don't know what wrong. Is it
+the test prog or the processor. In the IVT there are only some few instructions to do. The intel
+manual says that there is a variable latency for the instruction itc.
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2, or (at your option)
-any later version.
+Could you please try with my test program to verify what I found (compile with -O). The pointer
+increment is half the page size, so TLB hit and TLB miss are changing.
 
-The program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.  */
+Christian
+
+#define KB 1024
+#define INCREMENT 4096
+#define MEMSIZE (128*KB)
 
 #include <stdio.h>
-#include <string.h>
+#include <stdlib.h>
+#include <sys/mman.h>
+#include <sys/resource.h>
 
-#include <sys/time.h>
-
-#define MAX_DTLB_SIZE	  4096
-#define PAGE_SIZE	65536
-#define LINE_SIZE	   64
-#define LONGS_PER_LINE	(LINE_SIZE/sizeof(long))
-
-#define LOOKUPS_PER_TEST	30000000
-
-static long page[2*MAX_DTLB_SIZE][PAGE_SIZE/sizeof(long)];
-
-long
-walk (long count)
+inline long get_ticks(void)
 {
-  long index = 0, i, sum = 0;
+    long ticks;
 
-  for (i = 0; i < LOOKUPS_PER_TEST; ++i)
-    {
-      sum += page[index][(index*LONGS_PER_LINE) % (PAGE_SIZE/sizeof(long))];
-      ++index;
-      if (index >= count)
-	index = 0;
-    }
-  return sum;
+    asm volatile ("
+        ;;
+        mov %0=ar.itc
+        ;;
+        \n"
+        :"=r"(ticks)
+        :);
+    return(ticks);
 }
 
 
-void
-run (const char *label, long (*func)(long), long count)
+int main(void)
 {
-  struct timeval tv_start, tv_stop;
-  double delta;
-  long result;
-  int n;
 
-  for (n = 0; n < 1; ++n)
-    {
-      gettimeofday(&tv_start, 0);
-      result = (*func)(count);
-      gettimeofday(&tv_stop, 0);
-      delta = ((tv_stop.tv_sec + tv_stop.tv_usec / 1000000.0)
-	       - (tv_start.tv_sec + tv_start.tv_usec / 1000000.0));
-      if (delta > 0.0)
-	printf("%s: %10.5g seconds: %10.5g ns/access (checksum=%lu)\n",
-	       label, delta, 1e9 * delta / LOOKUPS_PER_TEST, result);
+    char *stg;
+    char *current;
+    char *end;
+    char val;
+    long t1,t2,tdiff;
+    struct rlimit rlim;
+
+    printf("tlbtest starting ...\n");
+    rlim.rlim_cur = MEMSIZE;
+    rlim.rlim_max = MEMSIZE;
+    if (setrlimit(RLIMIT_MEMLOCK, &rlim) != 0) {
+        printf("setrlimit() failed\n");
+        return(-1);
     }
+    stg = (char *)malloc(MEMSIZE);
+    if (stg = NULL) {
+        printf("memory not available\n");
+        return(-1);
+    }
+    printf("stg = %p\n", (void *)stg);
+    if (!mlock((void *)stg, MEMSIZE)) {
+        printf("mlock() failed\n");
+        free(stg);
+        return(-1);
+    }
+    end = stg + MEMSIZE;
+    current = (char *)stg;
+    while (current < end) {
+        t1 = get_ticks();
+        val = *current;
+        t2 = get_ticks();
+        printf("ticks1 %ld\n", t2-t1);
+        current += INCREMENT;
+    };
+    printf("ignore this value val = %d\n", (int)val);
+    free(stg);
+    return(0);
 }
 
-int
-main (int argc, char ** argv)
-{
-  char buf[256];
-  int i;
+typical output:
+VPHT disabled                VHPT enabled
 
-  for (i = 0; i < MAX_DTLB_SIZE; i += 1 + i/100)
-    {
-      sprintf (buf, "%3u", i);
-      run(buf, walk, i);
-    }
-  return 0;
-}
+tlbtest starting ...         tlbtest starting ...
+stg = 0x20000000002a6010     stg = 0x20000000002a6010
+ticks1 11                    ticks1 13
+ticks1 36                    ticks1 16
+ticks1 1349                  ticks1 1135
+ticks1 187                   ticks1 191
+ticks1 928                   ticks1 751
+ticks1 10                    ticks1 10
+ticks1 933                   ticks1 778
+ticks1 10                    ticks1 10
+ticks1 946                   ticks1 725
+ticks1 21                    ticks1 10
+ticks1 1101                  ticks1 912
+ticks1 10                    ticks1 10
+ticks1 941                   ticks1 755
+ticks1 10                    ticks1 10
+ticks1 939                   ticks1 740
+ticks1 10                    ticks1 10
+ticks1 966                   ticks1 749
+ticks1 10                    ticks1 10
+ticks1 954                   ticks1 748
+ticks1 21                    ticks1 10
+ticks1 920                   ticks1 734
+ticks1 10                    ticks1 21
+ticks1 936                   ticks1 765
+ticks1 21                    ticks1 21
+ticks1 945                   ticks1 733
+ticks1 10                    ticks1 10
+ticks1 1113                  ticks1 921
+ticks1 21                    ticks1 10
+ticks1 921                   ticks1 754
+ticks1 10                    ticks1 10
+ticks1 903                   ticks1 719
+ticks1 10                    ticks1 10
+ignore this value val = 0    ignore this value val = 0
+
 
