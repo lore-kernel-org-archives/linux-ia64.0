@@ -1,119 +1,26 @@
-From: "Daniel Blueman" <daniel.blueman@gmx.net>
-Date: Fri, 06 Aug 2004 14:44:18 +0000
-Subject: [2.6.7, ia64] continual memory leak at ~102kB/s...
-Message-Id: <20029.1091803458@www55.gmx.net>
+From: William Lee Irwin III <wli@holomorphy.com>
+Date: Fri, 06 Aug 2004 14:54:51 +0000
+Subject: Re: [2.6.7, ia64] continual memory leak at ~102kB/s...
+Message-Id: <20040806145451.GI17188@holomorphy.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20029.1091803458@www55.gmx.net>
+In-Reply-To: <20029.1091803458@www55.gmx.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org, davidm@napali.hpl.hp.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Daniel Blueman <daniel.blueman@gmx.net>
+Cc: linux-ia64@vger.kernel.org, davidm@napali.hpl.hp.com, linux-kernel@vger.kernel.org
 
-When running 2.6.7 on a generic ia64 system, I see memory being leaked in
-the kernel. Most of the fancy (preempt, hot-plug procs, ...) features are
-disabled, and the system in a quiescent state [1].
+On Fri, Aug 06, 2004 at 04:44:18PM +0200, Daniel Blueman wrote:
+> When running 2.6.7 on a generic ia64 system, I see memory being leaked in
+> the kernel. Most of the fancy (preempt, hot-plug procs, ...) features are
+> disabled, and the system in a quiescent state [1].
+> /proc/meminfo shows the memory as unaccounted for [2], so it seems likely it
+> has been kmalloc()d somehere. A small script shows memory disappearing at
+> 102kB/s [3].
+> Anyone else seen this on ia64?
 
-/proc/meminfo shows the memory as unaccounted for [2], so it seems likely it
-has been kmalloc()d somehere. A small script shows memory disappearing at
-102kB/s [3].
+Could you dump /proc/slabinfo?
 
-Anyone else seen this on ia64?
 
---- [1]
-
-# ps -ef
-UID        PID  PPID  C STIME TTY          TIME CMD
-root         1     0  1 10:29 ?        00:00:04 init [S]             =20
-root         2     1  0 10:29 ?        00:00:00 [migration/0]
-root         3     1  0 10:29 ?        00:00:00 [ksoftirqd/0]
-root         4     1  0 10:29 ?        00:00:00 [migration/1]
-root         5     1  0 10:29 ?        00:00:00 [ksoftirqd/1]
-root         6     1  0 10:29 ?        00:00:00 [migration/2]
-root         7     1  0 10:29 ?        00:00:00 [ksoftirqd/2]
-root         8     1  0 10:29 ?        00:00:00 [migration/3]
-root         9     1  0 10:29 ?        00:00:00 [ksoftirqd/3]
-root        10     1  0 10:29 ?        00:00:00 [events/0]
-root        11     1  0 10:29 ?        00:00:00 [events/1]
-root        12     1  0 10:29 ?        00:00:00 [events/2]
-root        13     1  0 10:29 ?        00:00:00 [events/3]
-root        14    10  0 10:29 ?        00:00:00 [khelper]
-root        15    10  0 10:29 ?        00:00:00 [kacpid]
-root        70    10  0 10:29 ?        00:00:00 [kblockd/0]
-root        71    10  0 10:29 ?        00:00:00 [kblockd/1]
-root        72    10  0 10:29 ?        00:00:00 [kblockd/2]
-root        73    10  0 10:29 ?        00:00:00 [kblockd/3]
-root        83    10  0 10:29 ?        00:00:00 [pdflush]
-root        84    10  0 10:29 ?        00:00:00 [pdflush]
-root        85     1  0 10:29 ?        00:00:00 [kswapd0]
-root        86    10  0 10:29 ?        00:00:00 [aio/0]
-root        87    10  0 10:29 ?        00:00:00 [aio/1]
-root        88    10  0 10:29 ?        00:00:00 [aio/2]
-root        89    10  0 10:29 ?        00:00:00 [aio/3]
-root       194     1  0 10:29 ?        00:00:00 [scsi_eh_0]
-root       206     1  0 10:29 ?        00:00:00 [scsi_eh_1]
-root       210     1  0 10:29 ?        00:00:00 [kjournald]
-root       836     1  0 10:29 ttyS1    00:00:00 init [S]             =20
-root       837   836  0 10:29 ttyS1    00:00:00 /bin/sh
-root       846   837  0 10:33 ttyS1    00:00:00 ps -ef
-
---- [2]
-
-# cat /proc/meminfo; sleep 10; cat /proc/meminfo
-MemTotal:      1006272 kB
-MemFree:        671104 kB
-Buffers:         14720 kB
-Cached:          18304 kB
-SwapCached:          0 kB
-Active:          35584 kB
-Inactive:         9216 kB
-HighTotal:           0 kB
-HighFree:            0 kB
-LowTotal:      1006272 kB
-LowFree:        671104 kB
-SwapTotal:           0 kB
-SwapFree:            0 kB
-Dirty:               0 kB
-Writeback:           0 kB
-Mapped:           6592 kB
-Slab:           212160 kB
-Committed_AS:     8576 kB
-PageTables:       1344 kB
-VmallocTotal: 35184363699328 kB
-VmallocUsed:       384 kB
-VmallocChunk: 35184363698944 kB
-
-MemTotal:      1006272 kB
-MemFree:        670016 kB
-Buffers:         14720 kB
-Cached:          18304 kB
-SwapCached:          0 kB
-Active:          35648 kB
-Inactive:         9152 kB
-HighTotal:           0 kB
-HighFree:            0 kB
-LowTotal:      1006272 kB
-LowFree:        670016 kB
-SwapTotal:           0 kB
-SwapFree:            0 kB
-Dirty:             256 kB
-Writeback:           0 kB
-Mapped:           6592 kB
-Slab:           212224 kB
-Committed_AS:     8576 kB
-PageTables:       1344 kB
-VmallocTotal: 35184363699328 kB
-VmallocUsed:       384 kB
-VmallocChunk: 35184363698944 kB
-
---- [3]
-
-# ./vm.pl; sleep 10; ./vm.pl=20
-leaked=104640KB
-leaked=105664KB
-# 102.4kB/s leak rate here
-
---=20
-Daniel J Blueman
-
-NEU: WLAN-Router f=FCr 0,- EUR* - auch f=FCr DSL-Wechsler!
-GMX DSL =3D superg=FCnstig & kabellos http://www.gmx.net/de/go/dsl
-
+-- wli
