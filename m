@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 09 Oct 2000 16:02:53 +0000
+From: Pete Wyckoff <pw@osc.edu>
+Date: Mon, 09 Oct 2000 16:03:58 +0000
 Subject: Re: [Linux-ia64] avoiding float underflow software assist
-Message-Id: <marc-linux-ia64-105590678205559@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205560@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205556@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205556@msgid-missing>
@@ -10,29 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 9 Oct 2000 17:37:35 +0200 (MET DST), Dan Pop <Dan.Pop@cern.ch> said:
+Dan.Pop@cern.ch said:
+> On Mon, 9 Oct 2000, Pete Wyckoff wrote:
+> > This little code snippet causes floating-point underflow during the
+> > multiplication.
+> Try this code and see if it helps.  You don't have to explicitly call
+> the function, it will be automatically executed before main().
 
-  Dan> #include <asm/fpu.h>
+Excellent.  I can manage to get this linked in with the fortran
+application from whence the problem sprung, which is what I really
+wanted.
 
-Please don't do this.  Applications must not include Linux kernel
-header files.
+Gcc and glibc seem only to care about st0.  The "minimal" fix,
+which relies on glibc and exercises its fe*env functions, is:
 
-The correct way of doing this is to do:
+    #include <fenv.h>
+    #include <asm/fpu.h>
 
-	#include <fenv.h>
+    fenv_t envp;
+    fegetenv(&envp);
+    envp |= FPSR_S0(FPSF_FTZ);
+    fesetenv(&envp);
 
-	fesetenv (FE_NONIEEE_ENV);
+Helped me to understand what's going on.
 
-or to compile with -ffast-math.  For the former to work, you need
-glibc-2.2.  For the latter, you need both glibc-2.2 and some mods to
-the compiler (which probably don't exist yet).
-
-If you want to avoid the those complications, you can turn off
-flush-to-zero mode with the following hack:
-
-        asm volatile ("mov ar.fpsr=%0" :: "r"(0x9804c0270037f));
-
-It's only a hack, but it should do for now.
-
-	--david
+Thanks,
+		-- Pete
 
