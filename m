@@ -1,41 +1,24 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Tue, 24 Jul 2001 00:25:02 +0000
-Subject: [Linux-ia64] elilo-3.0 minor fix
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="GRPZ8SYKNexpdSJ7"
-Message-Id: <marc-linux-ia64-105590693005883@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 26 Jul 2001 08:14:00 +0000
+Subject: [Linux-ia64] kernel update (2nd patch relative to 2.4.7)
+Message-Id: <marc-linux-ia64-105590693005922@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---GRPZ8SYKNexpdSJ7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The latest IA-64 patch is available at:
 
-Hi,
+ ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
 
-The attached patch fixes the problem reported by Richard Hirst with regards
-to typing return with no text at the elilo boot prompt. This patch only
-applies to elilo-3.0
+in file linux-2.4.7-ia64-010726.diff*.
 
+This patch is just a small update compared to the 010723 patch.  It
+fixes the UP hang problem and has Alex' workaround for the Lion MADT
+table bug.  Other assorted (small) patches are included too, though
+you'll still need gcc3.0 for a successful compilation (or use Bills or
+Keith's workaround for the Nov 17 compiler).
 
--- 
--Stephane
-
---GRPZ8SYKNexpdSJ7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="elilo-010723.diff"
-
---- elilo-3.0/util.c	Mon Jul  2 00:57:29 2001
-+++ elilo-3.1/util.c	Mon Jul 23 16:01:34 2001
-@@ -135,7 +135,7 @@
- 
- 	BS->CloseEvent(timer);
- 
--	return idx ? -1 : 0;
-+	return idx ? 1 : 0;
- }
- 
- INTN
-
---GRPZ8SYKNexpdSJ7--
+	--david
 
