@@ -1,34 +1,50 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Tue, 03 Aug 2004 16:48:36 +0000
-Subject: Re: apparent sn_console deadlock
-Message-Id: <20040803164836.GA2334@holomorphy.com>
+From: Daniel J Blueman <daniel.blueman@quadrics.com>
+Date: Thu, 05 Aug 2004 11:13:51 +0000
+Subject: pte_modify fix backport...
+Message-Id: <1091704431.1829.235.camel@pc107.quadrics.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040803105949.GX2334@holomorphy.com>
-In-Reply-To: <20040803105949.GX2334@holomorphy.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, marcelo.tosatti@cyclades.com
 
-On Tuesday, August 3, 2004 3:59 am, William Lee Irwin III wrote:
->> Bootlog (altix.log.7.gz) and .config attached. Also attached is a
->> bootlog from a small attempt not to switch out of sal_console_early
->> (altix.log.9.gz) i.e. bailing out of sn_sal_serial_console_init()
->> immediately without registering or unregistering consoles or doing
->> anything.
+This patch [1] corrects the behaviour of pte_modify() on ia64 to not
+clear page protection flags it shouldn't touch.
 
-On Tue, Aug 03, 2004 at 08:55:16AM -0700, Jesse Barnes wrote:
-> Your first log indicates that you're passing 'console=ttyS0' to the kernel at 
-> boot time.  As of 2.6.8-rc2 (IIRC) you need to pass 'console=ttySG0' instead.  
-> You'll also want to create a new character device, /dev/ttySG0 with major 
-> 204, minor 40.
-> I wasn't able to see the config file you attached, but I think you've 
-> correctly turned on the SGI L1 console support (in the serial drivers section 
-> of the character devices menu of Kconfig).
+Without this patch, it clears the uncacheable flag on UC memory regions,
+which can cause MCAs with device I/O.
 
-After console=ttySG0, making the device node, and removing the debug
-hack of keeping the early SAL console, everything works now.
+It was taken into 2.6.0 a while ago, but is yet to be included in 2.4 -
+the patch here is rediffed against 2.4.26-rc5.
 
-Thanks.
+Is there chance of it being taken in?
 
--- wli
+--- [1]
+
+diff -durN linux-2.4.26-rc5-orig/include/asm-ia64/pgtable.h linux-2.4.26-rc5-patched/include/asm-ia64/pgtable.h
+--- linux-2.4.26-rc5-orig/include/asm-ia64/pgtable.h	2004-02-18 13:36:32.000000000 +0000
++++ linux-2.4.26-rc5-patched/include/asm-ia64/pgtable.h	2004-08-05 11:46:03.000000000 +0100
+@@ -60,7 +60,8 @@
+ #define _PAGE_PROTNONE		(__IA64_UL(1) << 63)
+ 
+ #define _PFN_MASK		_PAGE_PPN_MASK
+-#define _PAGE_CHG_MASK		(_PFN_MASK | _PAGE_A | _PAGE_D)
++/* Mask of bits which may be changed by pte_modify(); the odd bits are there for _PAGE_PROTNONE */
++#define _PAGE_CHG_MASK		(_PAGE_P | _PAGE_PROTNONE | _PAGE_PL_MASK | _PAGE_AR_MASK | _PAGE_ED)
+ 
+ #define _PAGE_SIZE_4K	12
+ #define _PAGE_SIZE_8K	13
+@@ -216,7 +217,7 @@
+ ({ pte_t __pte; pte_val(__pte) = physpage + pgprot_val(pgprot); __pte; })
+ 
+ #define pte_modify(_pte, newprot) \
+-	(__pte((pte_val(_pte) & _PAGE_CHG_MASK) | pgprot_val(newprot)))
++	(__pte((pte_val(_pte) & ~_PAGE_CHG_MASK) | (pgprot_val(newprot) & _PAGE_CHG_MASK)))
+ 
+ #define page_pte_prot(page,prot)	mk_pte(page, prot)
+ #define page_pte(page)			page_pte_prot(page, __pgprot(0))
+
+-- 
+Daniel J Blueman
+Software Engineer, Quadrics Ltd
+
