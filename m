@@ -1,65 +1,34 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 21 Aug 2001 15:44:13 +0000
-Subject: [Linux-ia64] Re: problem compiling 2.4.9
-Message-Id: <marc-linux-ia64-105590698805094@msgid-missing>
+From: cfk@pacbell.net
+Date: Fri, 31 Aug 2001 17:51:15 +0000
+Subject: [Linux-ia64] ia64
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary_(ID_A6J/yeXTVzYEXi4lSkuCqQ)"
+Message-Id: <marc-linux-ia64-105590698805110@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The attached patch accidentally was dropped from the 2.4.9 patch I put
-out yesterday.  I have updated the patch at linux.kernel.org but if
-you already got it, just apply the patch below and you should be fine.
-Sorry about the inconvenience.
+This is a multi-part message in MIME format.
 
-	--david
+--Boundary_(ID_A6J/yeXTVzYEXi4lSkuCqQ)
+Content-type: text/plain; charset=iso-8859-1
+Content-transfer-encoding: 7BIT
 
-diff -urN linux-2.4.9/include/asm-ia64/keyboard.h linux-2.4.9-lia/include/asm-ia64/keyboard.h
---- linux-2.4.9/include/asm-ia64/keyboard.h	Fri Apr 21 16:38:40 2000
-+++ linux-2.4.9-lia/include/asm-ia64/keyboard.h	Tue Aug 21 08:31:41 2001
-@@ -2,16 +2,16 @@
- #define _ASM_IA64_KEYBOARD_H
- 
- /*
-- * This file contains the ia-64 architecture specific keyboard
-- * definitions.
-+ * This file contains the ia64 architecture specific keyboard definitions.
-  *
-- * Copyright (C) 1998, 1999 Hewlett-Packard Co
-- * Copyright (C) 1998, 1999 David Mosberger-Tang <davidm@hpl.hp.com>
-+ * Copyright (C) 1998, 1999, 2001 Hewlett-Packard Co
-+ * Copyright (C) 1998, 1999, 2001 David Mosberger-Tang <davidm@hpl.hp.com>
-  */
- 
- # ifdef __KERNEL__
- 
- #include <linux/irq.h>
-+#include <linux/kd.h>
- 
- #define KEYBOARD_IRQ			isa_irq_to_vector(1)
- #define DISABLE_KBD_DURING_INTERRUPTS	0
-@@ -23,6 +23,7 @@
- 			   char raw_mode);
- extern char pckbd_unexpected_up(unsigned char keycode);
- extern void pckbd_leds(unsigned char leds);
-+extern int pckbd_rate(struct kbd_repeat *rep);
- extern void pckbd_init_hw(void);
- extern unsigned char pckbd_sysrq_xlate[128];
- 
-@@ -32,12 +33,14 @@
- #define kbd_translate		pckbd_translate
- #define kbd_unexpected_up	pckbd_unexpected_up
- #define kbd_leds		pckbd_leds
-+#define kbd_rate		pckbd_rate
- #define kbd_init_hw		pckbd_init_hw
- #define kbd_sysrq_xlate		pckbd_sysrq_xlate
- 
- #define INIT_KBD
- 
- #define SYSRQ_KEY		0x54
-+#define E1_PAUSE   119		/* PAUSE key */
- 
- /* resource allocation */
- #define kbd_request_region()
+Other then obtaining a high end server for nearly $10K and gutting it, is there any way to obtain any hardware to actually test ia64 code on in a modest one-man shop? 
+
+--Boundary_(ID_A6J/yeXTVzYEXi4lSkuCqQ)
+Content-type: text/html; charset=iso-8859-1
+Content-transfer-encoding: 7BIT
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META http-equiv=Content-Type content="text/html; charset=iso-8859-1">
+<META content="MSHTML 5.50.4522.1800" name=GENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=#ffffff>
+<DIV><FONT face=Arial>Other then obtaining a high end server for nearly $10K and 
+gutting it, is there any way to obtain any hardware to actually test ia64 code 
+on in a modest one-man shop? </FONT></DIV></BODY></HTML>
+
+--Boundary_(ID_A6J/yeXTVzYEXi4lSkuCqQ)--
 
