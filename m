@@ -1,40 +1,51 @@
-From: Tom Rini <trini@kernel.crashing.org>
-Date: Mon, 11 Feb 2002 19:54:58 +0000
+From: Pete Zaitcev <zaitcev@redhat.com>
+Date: Mon, 11 Feb 2002 20:57:49 +0000
 Subject: [Linux-ia64] Re: driver location for platform-specific drivers
-Message-Id: <marc-linux-ia64-105590698806032@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698806033@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698806032@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698806032@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Feb 11, 2002 at 01:17:44PM -0600, John Hesterberg wrote:
+> For SGI's upcoming Linux platform (nicknamed Scalable Node, or SN),
+> we have some platform specific device drivers.  Where should these go?
+
+>     1) Integrate in drivers/*.
+
+I'd do this, unless you have dozens of them.
+E.g. drivers/net/sunhme.c.
+
+>     2) Company (sgi) directory.
+
+That's nonsense, IMHO.
 
 >     3) New platform directory.
 >        Create a platform directory for SN, probably drivers/sn.
 >        There is precedence for this with the drivers/macintosh
+>        and drivers/s390.
 
+I think this is only done if API is different. Often these
+directories cannot be processed by a build process on other
+architectures, so they are kept outside to have Makefiles smaller.
+See also drivers/sbus, which could be called "drivers/sun" just
+as well. But really, it's separate because of sparc_alloc_io().
 
-Being a PPC person, I sometimes wonder if this wsn't a horrible idea
-sometimes.  Much of whats in thereshould be in a 'drivers/adb' or so,
-ince it's all specific to the ADB bus, with the exception of things like
-'rtc.c' (which works on all PPC except APUS).  Keep in mind other
-'macintosh' specific drivers, like network ones, are in drivers/net/.
+I appreciate a lot that drivers/acpi is so easy to exclude
+from builds - it breaks on anything but Intel stuff.
 
-Wer also have an arch/ppc/{8xx,8260}_io/ directories for other
-platform-specific drivers, which I want to kill in 2.5.x timeframe.
+>     4) New architecture directory.
+>        Another suggestion is to create an architecture directory,
+>        in this case drivers/ia64/{char,net,etc.}/.
 
-> I'm happy with whatever you'll accept.  To give you something to
-> either agree with or shoot down, I'll suggest #3.  SGI's Scalable
-> Node product will be different enough, with enough platform specific
-> drivers, that it justifies it's own subdirectory, and that this
-> should be called drivers/sn.
+See #3. The ia64 uses standard APIs.
 
-What excelty are the specific to tho?  Are these all for a new bus?
-If these are just variopus network, io, whatnot drivers, just put them
-in drivers/whatever.
+> I'm happy with whatever you'll accept.
 
---
-Tom Rini (TR1265)
-http://gate.crashing.org/~trini/
+Yeah, lessee what penguins say, and also I think DaveM may
+lend some good expirience here.
+
+-- Pete
 
