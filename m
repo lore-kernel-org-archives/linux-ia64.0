@@ -1,37 +1,39 @@
-From: Steffen Persvold <sp@scali.no>
-Date: Thu, 30 Aug 2001 06:39:06 +0000
-Subject: [Linux-ia64] Re: Write Combining (Write Coalescing) on memory mapped I/O on IA64.
-Message-Id: <marc-linux-ia64-105590698805107@msgid-missing>
+From: Noah Romer <nromer@lsil.com>
+Date: Mon, 13 Aug 2001 13:55:04 +0000
+Subject: [Linux-ia64] rwlock and atomic_sub on ia64
+Message-Id: <marc-linux-ia64-105590698805063@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805106@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805106@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
-> 
-> >>>>> On Sat, 25 Aug 2001 16:40:24 +0200, Steffen Persvold <sp@scali.no> said:
-> 
->   Steffen> Just a repost since I didn't get any feedback. I've also
->   Steffen> copied some auhtors I found in asm/io.h. I appologize for
->   Steffen> any inconvenience, but this issue is quite important to us.
-> 
-> I didn't see anything fundamentally wrong with what you're trying to
-> do, but I haven't looked at the code.  Some debugging may be called
-> for.
-> 
+I'm in the process of adding support for the ia64 architecture to the 
+message/fusion/mptlan.c driver (it's previously only been tested with 
+i386 and sparc64 systems) and have come across a couple of issues:
 
-Do you think it's easier to set up a region which is mapped all the time, so
-that ioremap_nocache() uses the already defined region 6 for uncached accesses
-and ioremap() uses this new region with "Write Coalescing" enabled ? How should
-I proceed to introduce such a region ?
+1) there doesn't appear to be support for rwlocks under ia64. At least, 
+I can't find any way to make the above driver link when it's got code 
+that uses rwlocks.
 
-Regards,
+and
+
+2) atomic_sub looks to require that I cast a u8 to (int) when I pass it 
+in as a parameter. Not a major issue, I just found it odd.
+
+I'm most likely missing something (didn't see anything about either of 
+the above when I looked through the list archive), but I was wondering 
+if I could get a pointer or two from those with more knowledge of 
+ia64/linux issues.
+
+Thanks.
+
+I'm not currently subscribed to linux-ia64, so please cc: me on replies.
+
 -- 
-  Steffen Persvold   |  Scali Computer AS   |   Try out the world's best   
- mailto:sp@scali.no  | http://www.scali.com | performing MPI implementation:
-Tel: (+47) 2262 8950 |  Olaf Helsets vei 6  |      - ScaMPI 1.12.2 -         
-Fax: (+47) 2262 8951 |  N0621 Oslo, NORWAY  | >310MBytes/s and <4uS latency
+Noah Romer
+Driver Developer, CM gopher and Linux Whipping Boy
+Storage Components Firmware
+LSI Logic Corp.
+
 
