@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 05 Dec 2002 17:08:22 +0000
+From: Matt Domsch <Matt_Domsch@Dell.com>
+Date: Thu, 05 Dec 2002 22:50:46 +0000
 Subject: RE: [Linux-ia64] 2.5.50+ patch for the impatient...
-Message-Id: <marc-linux-ia64-105590709805505@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805508@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805503@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805503@msgid-missing>
@@ -10,28 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 5 Dec 2002 10:19:02 -0600, Matt_Domsch@Dell.com said:
+> Something must have gone wrong with applying the ia64 patch.
 
-  Matt> I'm still unable to create include/asm-ia64/offsets.h
-  Matt> properly.
+Yep.  Fixed here, thanks.
 
-  Matt> include/linux/sched.h has: union thread_union { struct
-  Matt> thread_info thread_info; unsigned long
-  Matt> stack[INIT_THREAD_SIZE/sizeof(long)]; };
+Without CONFIG_SMP, cpu_possible() isn't defined.  I think it needs this:
 
-  Matt> (INIT_THREAD_SIZE needs to be number)
+=== include/asm-ia64/smp.h 1.8 vs edited ==--- 1.8/include/asm-ia64/smp.h	Mon Aug 12 06:06:34 2002
++++ edited/include/asm-ia64/smp.h	Thu Dec  5 16:49:20 2002
+@@ -138,6 +138,8 @@
+ extern void smp_send_reschedule (int cpu);
+ extern void smp_send_reschedule_all (void);
+ 
++#else /* !CONFIG_SMP */
++#define cpu_possible(cpu)	(!cpu)
+ 
+ #endif /* CONFIG_SMP */
+ #endif /* _ASM_IA64_SMP_H */
 
-  Matt> include/asm-ia64/thread_info.h has: #define INIT_THREAD_SIZE
-  Matt> /* tell sched.h not to declare the thread_union */
 
-  Matt> (INIT_THREAD_SIZE isn't a number)
+Thanks,
+Matt
 
-Something must have gone wrong with applying the ia64 patch.  In sched.h,
-it should say:
+-- 
+Matt Domsch
+Sr. Software Engineer, Lead Engineer, Architect
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
 
- #ifndef INIT_THREAD_SIZE
 
-right before the thread_union declaration.
-
-	--david
 
