@@ -1,74 +1,92 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 28 Jan 2005 06:17:04 +0000
-Subject: Re: anyone using Itanium B-step support?
-Message-Id: <16889.55520.934628.71280@napali.hpl.hp.com>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Sat, 01 Jan 2005 02:22:04 +0000
+Subject: Re: Increase page fault rate by prezeroing V1 [2/3]: zeroing and
+Message-Id: <41D6094C.3040908@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1106862995.18514.108.camel@aretha.corp.specifixinc.com>
-In-Reply-To: <1106862995.18514.108.camel@aretha.corp.specifixinc.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com> <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0412211156090.1313@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0412211156090.1313@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Robin Holt <holt@sgi.com>, Adam Litke <agl@us.ibm.com>, linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-mm@vger.kernel.org, linux-kernel@vger.kernel.org
 
->>>>> On Thu, 27 Jan 2005 18:32:49 -0800, James E Wilson <wilson@tuliptree.org> said:
+Christoph Lameter wrote:
+> o Add page zeroing
+> o Add scrub daemon
+> o Add ability to view amount of zeroed information in /proc/meminfo
+> 
 
-  >> I would have done it myself but there was no "Signed-off-by"
-  >> trailer in your patch so I think you may need to resend the patch
-  >> anyhow
+I quite like how you're handling the page zeroing now. It seems
+less intrusive and cleaner in its interface to the page allocator
+now.
 
-  James> I know nothing about submitting linux kernel patches.  My
-  James> patch is completely untested, by the way, as I doubt that I
-  James> can build a working kernel without help.  It was more a
-  James> suggestion than an actual patch.
+I think this is pretty close to what I'd be happy with if we decide
+to go with zeroing.
 
-Ah, OK, in that case, here is a (compile-)tested patch.
+Just one small comment - there is a patch in the -mm tree that may
+be of use to you; mm-keep-count-of-free-areas.patch is used later
+by kswapd to handle and account higher order free areas properly.
+You may be able to use it to better implement triggers/watermarks
+for the scrub daemon.
 
-Tony, please apply.
+Also...
 
-	--david
+> +
+> +/*
+> + * zero_highest_order_page takes a page off the freelist
+> + * and then hands it off to block zeroing agents.
+> + * The cleared pages are added to the back of
+> + * the freelist where the page allocator may pick them up.
+> + */
+> +int zero_highest_order_page(struct zone *z)
+> +{
+> +	int order;
+> +
+> +	for(order = MAX_ORDER-1; order >= sysctl_scrub_stop; order--) {
+> +		struct free_area *area = z->free_area[NOT_ZEROED] + order;
+> +		if (!list_empty(&area->free_list)) {
+> +			struct page *page = scrubd_rmpage(z, area, order);
+> +			struct list_head *l;
+> +
+> +			if (!page)
+> +				continue;
+> +
+> +			page->index = order;
+> +
+> +			list_for_each(l, &zero_drivers) {
+> +				struct zero_driver *driver = list_entry(l, struct zero_driver, list);
+> +				unsigned long size = PAGE_SIZE << order;
+> +
+> +				if (driver->start(page_address(page), size) = 0) {
+> +
+> +					unsigned ticks = (size*HZ)/driver->rate;
+> +					if (ticks) {
+> +						/* Wait the minimum time of the transfer */
+> +						current->state = TASK_INTERRUPTIBLE;
+> +						schedule_timeout(ticks);
+> +					}
+> +					/* Then keep on checking until transfer is complete */
+> +					while (!driver->check())
+> +						schedule();
+> +					goto out;
+> +				}
 
-ia64: Remove Merced B-step support
+Would you be better off to just have a driver->zero_me(...) call, with this
+logic pushed into those like your BTE which need it? I'm thinking this would
+help flexibility if you had say a BTE-thingy that did an interrupt on
+completion, or if it was done synchronously by the CPU with cache bypassing
+stores.
 
-Remove left-over support for Merced B-step CPUs as suggested by Jim
-Wilson.
+Also, would there be any use in passing a batch of pages to the zeroing driver?
+That may improve performance on some implementations, but could also cut down
+the inefficiency in your timeout mechanism due to timer quantization (I guess
+probably not much if you are only zeroing quite large areas).
 
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+BTW, that while loop is basically a busy-wait. Not a critical problem, but you
+may want to renice scrubd to the lowest scheduling priority to be a bit nicer?
+(I think you'd want to do that anyway). And put a cpu_relax() call in there?
 
-=== arch/ia64/Kconfig 1.85 vs edited ==--- 1.85/arch/ia64/Kconfig	2005-01-24 13:41:13 -08:00
-+++ edited/arch/ia64/Kconfig	2005-01-27 22:05:34 -08:00
-@@ -158,14 +158,6 @@
- 	depends on ITANIUM
- 	default y
- 
--config ITANIUM_BSTEP_SPECIFIC
--	bool "Itanium B-step specific code"
--	depends on ITANIUM
--	help
--	  Select this option to build a kernel for an Itanium prototype system
--	  with a B-step CPU.  You have a B-step CPU if the "revision" field in
--	  /proc/cpuinfo has a value in the range from 1 to 4.
--
- # align cache-sensitive data to 128 bytes
- config IA64_L1_CACHE_SHIFT
- 	int
-=== arch/ia64/Makefile 1.74 vs edited ==--- 1.74/arch/ia64/Makefile	2005-01-14 15:52:52 -08:00
-+++ edited/arch/ia64/Makefile	2005-01-27 22:05:43 -08:00
-@@ -46,8 +46,6 @@
- 	cflags-$(CONFIG_MCKINLEY)	+= -mtune=mckinley
- endif
- 
--cflags-$(CONFIG_ITANIUM_BSTEP_SPECIFIC)	+= -mb-step
--
- CFLAGS += $(cflags-y)
- head-y := arch/ia64/kernel/head.o arch/ia64/kernel/init_task.o
- 
-=== arch/ia64/configs/bigsur_defconfig 1.2 vs edited ==--- 1.2/arch/ia64/configs/bigsur_defconfig	2004-11-30 08:48:16 -08:00
-+++ edited/arch/ia64/configs/bigsur_defconfig	2005-01-27 22:05:20 -08:00
-@@ -73,7 +73,6 @@
- CONFIG_IA64_PAGE_SIZE_16KB=y
- # CONFIG_IA64_PAGE_SIZE_64KB is not set
- CONFIG_IA64_BRL_EMU=y
--# CONFIG_ITANIUM_BSTEP_SPECIFIC is not set
- CONFIG_IA64_L1_CACHE_SHIFT=6
- # CONFIG_NUMA is not set
- # CONFIG_VIRTUAL_MEM_MAP is not set
+Just some suggestions.
+
+Nick
