@@ -1,53 +1,75 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Fri, 16 Jan 2004 06:52:03 +0000
-Subject: Re: Mapping addresses 0xe000... and 0xc000...
-Message-Id: <40078A13.4060507@hob.de>
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Wed, 14 Jan 2004 10:42:35 +0000
+Subject: Yet another MCA handler
+Message-Id: <40051D1B.7912DB91@nospam.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <400714D6.2080609@m6net.fr>
-In-Reply-To: <400714D6.2080609@m6net.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zoltan MENYHART schrieb:
+This is the season of the MCA handlers :-)
+Let me show you the one that Christian Cotte-Barrot and I wrote...
 
-> I guess most of my problems with "IA64_LOG_NEXT_BUFFER()", 
-> "salinfo_log_wakeup()", the KDB, unwinding the interrupted CPU's 
-> stack, etc. are related to the mapping of the addresses 0xe000... and 
-> 0xc000...
->
-> As far as I can see, when I touch such an address that is not mapped
-> by any TR or TC entry (the walker is off for these address ranges), then
-> the low level translation fault handler automatically inserts a new TC
-> entry that maps the address in the usual way.
->
-> Yet an alternate translation fault vector is used if the PSR.ic is off
-> (interrupts are disabled), and this handler does not map automatically
-> the addresses 0xe000... and 0xc000... 
+I'd like to take this opportunity to express our special thanks to Jenna
+Hall, she gave us the initial version of the ".S" code and much help,
+and also to Mani Ayyar, David Song and Tony Luck for the technical
+consultations.
 
-It is the "data nested TLB vector" that comes into play if PSR.ic is off 
-and a TLB miss occurs. This fault is intentionally introduced to enable 
-software (OSes) to handle nested faults if they ran into a TLB miss 
-while doing low level fault handling. However when receiving that fault 
-you do not get any information about it like the faulting address,  the 
-instruction address, ... . So software has to meet some conventions to 
-be able to handle that kind of nested faults.
+Our handler currently deals with the translation register errors only.
+I was to write the code for the recovery for poisoned memory, too,
+but I've got no way to provoke this kind of error
+( I do not really know what it like is :-) )
 
-> We are obliged to take locks and to disable interrupts, see e.g.
-> "IA64_LOG_NEXT_BUFFER()", the KDB.
+The key features of our MCA handler are:
 
-A solution might be the usage of some (free) TRs together with 
-superpages up to 256MB that will be installed before accessing that 
-memory locations. But be very carefully when doing that.
+* Everything is CPU local ( an MCA data area is allocated and hooked
+  to each "cpuinfo" structure )
 
->
-> Is it a VMM design issue not to allow automatic address mapping
-> if the PSR.ic is off ? Should not we revise it :-) ? 
+* No locks
 
-I think it is just a strict RISC design.
+* No rendezvous
+ - Does not seem to work if not all the CPUs are started up,
+   i.e. you specify a "maxcpus=<NUM>"...
+ - A failed rendezvous is a bad omen to start with
+ - The correctable / recoverable MCAs are CPU local businesses
+ - All the CPUs can handle MCAs simultaneously
 
-> Zoltan Menyhart 
+* The translation registers are purged / reloaded unconditionally:
+  cheaper than calling SAL_GET_STATE_INFO(MCA)
 
-Christian
+* Table driven TR purging / reload (except for the kernel stack mapping)
 
+* TRs are all purged before the reloading starts ( an erroneous TR can still
+  be in conflict with a freshly purged / reloaded one )
+
+* SAL_CLEAR_STATE_INFO(MCA) is called only for MCAs which have been
+  corrected (TR errors). For the others, the recovery will be tempted by
+  a fake page fault handler, by the device drivers and by the MCA daemon,
+  therefore the SAL MCA log is not cleared here -- future extension :-)
+
+* "Silent" MCA handler: no prints by default ( unless debugging )
+  - Output uses locks...
+
+* A bit more serious error / status checking
+
+This patch is against the version 2.6.1 + kdb-v4.3-2.6.1-common-b0.bz2 +
+kdb-v4.3-2.6.1-ia64-b0.bz2.
+
+Testing:
+- Obviously by use of an ITP
+- In my next mail I'll include a patch that can insert an illegal
+  translation in a TR provoking an MCA
+
+Problems:
+Neither "IA64_LOG_NEXT_BUFFER()" nor "salinfo_log_wakeup()" works :-(
+I think some addresses are messed up. The system says it cannot
+translate virtual address...
+
+I'll send the patch in the next letter.
+Should the list refuse it due to its length, please pick it up at our
+anonymous FTP server: ftp://visibull.frec.bull.fr/pub/linux/mca/ 
+
+Your remarks will be appreciated.
+
+Zoltan Menyhart
