@@ -1,118 +1,136 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 04 Aug 2004 21:27:32 +0000
-Subject: What are the chances I can re-introduce quicklists for PTEs?
-Message-Id: <20040804212732.GA17362@attica.americas.sgi.com>
+From: "Brian J. Johnson" <bjohnson@sgi.com>
+Date: Tue, 17 Aug 2004 21:32:20 +0000
+Subject: [PATCH] Add PROM version banner to /proc/sgi_prominfo
+Message-Id: <Pine.SGI.4.58.0408171609460.2107@bjjsgi.americas.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="-2136807392-440758363-1092778340=:2107"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-I have a micro-benchmark that shows a 9x slowdown from the 2.4 kernel to
-the 2.6 kernel.  This appears to be because of a change for x86 resulting
-in the removal of PTE quicklists.  I will attach the benchmark.
+---2136807392-440758363-1092778340=:2107
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-I am wondering what the chances are of reintroducing some sort of
-quicklist for the PTEs?
+Tony,
 
-I see three issues with respect to quicklists:
+Here's a simple change for 2.6 (latest BK) which adds the full PROM
+version banner to /proc/sgi_prominfo/nodeXX/version.  I'd appreciate
+if you could add it to your code, and forward it towards Linus.
 
-1)  There are no quicklists for PTEs.
-2)  Quicklist addition is not NUMA aware and can result in trapping one
-    nodes memory on another node.  With a fork migrate test, approx 40
-    pages are allocated from the source nodes memory.  After the thread
-    has migrated, the PGD and PMD entries are added to the quicklist of
-    the destination node.
-3)  The high and low water marks are calculated based on all the memory
-    of the system while quicklists are maintained on a percpu basis.
+BTW, I'm the Altix PROM lead developer.  I'm intimately familiar with
+the Altix platform and its firmware, although I haven't submitted a
+Linux patch before.  Jesse Barnes looked it over, and said it looks
+fine.
 
-I can not see any particular reason that there are two (or if
-I reintroduce PTE quicklists three) seperate quicklists.  They each
-contain pages that are pre-zeroed.  What about collapsing them into one.
+Thanks much,
 
-One suggestion I got from Jack Steiner was to modify the free pages
-code so it is aware of pages that have already been zeroed.  This would
-eliminate the need for quicklists and could also improve faulting of
-anonymous pages when there are page is going to be immediately zeroed.
-I don't think I would attempt to tackle this until after quicklists had
-been reintroduced.
+						Brian J. Johnson
 
-Thanks,
-Robin Holt
+--------------------------------------------------------------------
 
+  "The highest reward for a person's toil is not what they get for it,
+   but what they become by it."
+                                           -- John Ruskin
 
-#include <sys/ioctl.h>
-#include <sys/mman.h>
-#include <sys/prctl.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+Signed-off-by: Brian J. Johnson <bjohnson@sgi.com>
+---2136807392-440758363-1092778340=:2107
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name=diffs2
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.SGI.4.58.0408171632200.2107@bjjsgi.americas.sgi.com>
+Content-Description: 
+Content-Disposition: attachment; filename=diffs2
 
-#include <errno.h>
-#include <fcntl.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+SW5kZXg6IGxpbnV4L2FyY2gvaWE2NC9zbi9rZXJuZWwvc24yL3Byb21pbmZv
+X3Byb2MuYw0KPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQ0KLS0tIGxpbnV4Lm9y
+aWcvYXJjaC9pYTY0L3NuL2tlcm5lbC9zbjIvcHJvbWluZm9fcHJvYy5jCTIw
+MDQtMDYtMTYgMDA6MTk6MDEuMDAwMDAwMDAwIC0wNTAwDQorKysgbGludXgv
+YXJjaC9pYTY0L3NuL2tlcm5lbC9zbjIvcHJvbWluZm9fcHJvYy5jCTIwMDQt
+MDgtMTcgMTA6MDI6NDIuMDAwMDAwMDAwIC0wNTAwDQpAQCAtMywxMCArMywx
+MCBAQA0KICAqIExpY2Vuc2UuICBTZWUgdGhlIGZpbGUgIkNPUFlJTkciIGlu
+IHRoZSBtYWluIGRpcmVjdG9yeSBvZiB0aGlzIGFyY2hpdmUNCiAgKiBmb3Ig
+bW9yZSBkZXRhaWxzLg0KICAqDQotICogQ29weXJpZ2h0IChDKSAxOTk5LDIw
+MDEtMjAwMyBTaWxpY29uIEdyYXBoaWNzLCBJbmMuICBBbGwgUmlnaHRzIFJl
+c2VydmVkLg0KKyAqIENvcHlyaWdodCAoQykgMTk5OSwyMDAxLTIwMDQgU2ls
+aWNvbiBHcmFwaGljcywgSW5jLiAgQWxsIFJpZ2h0cyBSZXNlcnZlZC4NCiAg
+Kg0KICAqIE1vZHVsZSB0byBleHBvcnQgdGhlIHN5c3RlbSdzIEZpcm13YXJl
+IEludGVyZmFjZSBUYWJsZXMsIGluY2x1ZGluZw0KLSAqIFBST00gcmV2aXNp
+b24gbnVtYmVycywgaW4gL3Byb2MNCisgKiBQUk9NIHJldmlzaW9uIG51bWJl
+cnMgYW5kIGJhbm5lcnMsIGluIC9wcm9jDQogICovDQogI2luY2x1ZGUgPGxp
+bnV4L2NvbmZpZy5oPg0KICNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4NCkBA
+IC00NSw5ICs0NSwxOCBAQA0KICMgIGRlZmluZSBUUkFDRSgpDQogI2VuZGlm
+DQogDQorLyogQXJjaGl0ZWN0ZWQgSUE2NCBmaXJtd2FyZSBzcGFjZSAqLw0K
+KyNkZWZpbmUgRldfQkFTRQkJCTB4MDAwMDAwMDBGRjAwMDAwMA0KKyNkZWZp
+bmUgRldfVE9QCQkJMHgwMDAwMDAwMTAwMDAwMDAwDQorDQogLyogU3ViLXJl
+Z2lvbnMgZGV0ZXJtaW5lZCBieSBiaXRzIGluIE5vZGUgT2Zmc2V0ICovDQog
+I2RlZmluZQlMQl9QUk9NX1NQQUNFCQkweDAwMDAwMDA3MDAwMDAwMDB1bCAv
+KiBMb2NhbCBMQiBQUk9NICovDQogDQorLyogT2Zmc2V0IG9mIFBST00gYmFu
+bmVyIHBvaW50ZXJzIGluIFNBTCBBIGFuZCBTQUwgQiAqLw0KKyNkZWZpbmUg
+U0FMX0FfQkFOTkVSX09GRlNFVAkoMSAqIDE2KQ0KKyNkZWZpbmUgU0FMX0Jf
+QkFOTkVSX09GRlNFVAkoMyAqIDE2KQ0KKw0KKw0KICNkZWZpbmUgRklUX1NJ
+R05BVFVSRQkJMHgyMDIwMjA1ZjU0NDk0NjVmdWwNCiAvKiBTdGFuZGFyZCBJ
+bnRlbCBGSVQgZW50cnkgdHlwZXMgKi8NCiAjZGVmaW5lIEZJVF9FTlRSWV9G
+SVRfSEVBREVSCTB4MDAJLyogRklUIGhlYWRlciBlbnRyeSAqLw0KQEAgLTEy
+NSw2ICsxMzQsMjYgQEANCiAJcmV0dXJuICJVbmtub3duIHR5cGUiOw0KIH0N
+CiANCitzdGF0aWMgdW5zaWduZWQgbG9uZw0KK2NvbnZlcnRfZndfYWRkcihu
+YXNpZF90IG5hc2lkLCB1bnNpZ25lZCBsb25nIGFkZHIpDQorew0KKwkvKiBz
+bmFnIGp1c3QgdGhlIG5vZGUtcmVsYXRpdmUgb2Zmc2V0ICovDQorCWFkZHIg
+Jj0gfjB1bCA+PiAoNjMtMzUpOw0KKwkvKiB0aGUgcG9pbnRlciB0byBTQUwg
+QSBpcyByZWxhdGl2ZSB0byBJQS02NCBjb21wYXRpYmlsaXR5DQorCSAqIHNw
+YWNlLiAgSG93ZXZlciwgdGhlIFBST00gaXMgbWFwcGVkIGF0IGEgZGlmZmVy
+ZW50IG9mZnNldA0KKwkgKiBpbiBNTVIgc3BhY2UgKGJvdGggbG9jYWwgYW5k
+IGdsb2JhbCkNCisJICovDQorCWFkZHIgKz0gMHg3MDAwMDAwMDA7DQorCXJl
+dHVybiBHTE9CQUxfTU1SX0FERFIobmFzaWQsIGFkZHIpOw0KK30NCisNCitz
+dGF0aWMgaW50DQordmFsaWRfZndfYWRkcih1bnNpZ25lZCBsb25nIGFkZHIp
+DQorew0KKwlhZGRyICY9IH4oMXVsIDw8IDYzKTsgLyogQ2xlYXIgY2FjaGVk
+L3VuY2FjaGVkIGJpdCAqLw0KKwlyZXR1cm4gKGFkZHIgPj0gRldfQkFTRSAm
+JiBhZGRyIDwgRldfVE9QKTsNCit9DQorDQogLyogVGhlc2UgdHdvIHJvdXRp
+bmVzIHJlYWQgdGhlIEZJVCB0YWJsZSBkaXJlY3RseSBmcm9tIHRoZSBGTEFT
+SCBQUk9NDQogICogb24gYSBzcGVjaWZpYyBub2RlLiAgVGhlIFBST00gY2Fu
+IG9ubHkgYmUgYWNjZXNzZWQgdXNpbmcgYWxpZ25lZCA2NA0KICAqIGJpdCBy
+ZWFkcywgc28gd2UgZG8gdGhhdCBhbmQgdGhlbiBzaGlmdCBhbmQgbWFzayB0
+aGUgcmVzdWx0IHRvIGdldA0KQEAgLTE5NCw2ICsyMjMsOCBAQA0KIAlpbnQg
+bmVudHJpZXM7DQogCWludCBmZW50cnk7DQogCXVuc2lnbmVkIGxvbmcgcXc7
+DQorCWludCBsZW47DQorCW5hc2lkX3QgbmFzaWQgPSBOQVNJRF9HRVQoZml0
+KTsNCiANCiAJVFJBQ0UoKTsNCiANCkBAIC0yMDMsMTAgKzIzNCwzMSBAQA0K
+IAlmb3IgKGZlbnRyeSA9IDA7IGZlbnRyeSA8IG5lbnRyaWVzOyBmZW50cnkr
+Kykgew0KIAkJcXcgPSByZWFkcShmaXQgKyAyICogZmVudHJ5ICsgMSk7DQog
+CQlpZiAoRklUX1RZUEUocXcpID09IEZJVF9FTlRSWV9TQUxfQSkNCi0JCQly
+ZXR1cm4gc3ByaW50ZihwYWdlLCAiJXguJTAyeFxuIiwNCi0JCQkJICAgICAg
+IEZJVF9NQUpPUihxdyksIEZJVF9NSU5PUihxdykpOw0KKwkJCWJyZWFrOw0K
+IAl9DQotCXJldHVybiAwOw0KKwlpZiAoZmVudHJ5ID49IG5lbnRyaWVzKQ0K
+KwkJcmV0dXJuIDA7DQorDQorCWxlbiA9IHNwcmludGYocGFnZSwgIiV4LiUw
+MnhcbiIsIEZJVF9NQUpPUihxdyksIEZJVF9NSU5PUihxdykpOw0KKwlwYWdl
+ICs9IGxlbjsNCisNCisJcXcgPSByZWFkcShmaXQgKyAyICogZmVudHJ5KTsJ
+LyogQWRkcmVzcyBvZiBTQUwgQSAqLw0KKwlEUFJJTlRLKCJTQUwgQSBhdCAl
+cFxuIiwgKHZvaWQgKilxdyk7DQorCWlmICghdmFsaWRfZndfYWRkcihxdykp
+DQorCQlyZXR1cm4gbGVuOw0KKw0KKwlxdyArPSBTQUxfQV9CQU5ORVJfT0ZG
+U0VUOw0KKwlxdyA9IGNvbnZlcnRfZndfYWRkcihuYXNpZCwgcXcpOw0KKwlE
+UFJJTlRLKCJCYW5uZXIgcHRyIGF0ICVwXG4iLCAodm9pZCAqKXF3KTsNCisN
+CisJcXcgPSByZWFkcShxdyk7CQkJLyogQWRkcmVzcyBvZiBiYW5uZXIgKi8N
+CisJaWYgKCF2YWxpZF9md19hZGRyKHF3KSkNCisJCXJldHVybiBsZW47DQor
+CXF3ID0gY29udmVydF9md19hZGRyKG5hc2lkLCBxdyk7DQorCURQUklOVEso
+IkJhbm5lciBhdCAlcFxuIiwgKHZvaWQgKilxdyk7DQorDQorCWxlbiArPSBz
+bnByaW50ZihwYWdlLCBQQUdFX1NJWkUtbGVuLCAiJXNcbiIsIChjaGFyICop
+cXcpOw0KKwlyZXR1cm4gbGVuOw0KIH0NCiANCiAvKiBzYW1lIGFzIGluIHBy
+b2NfbWlzYy5jICovDQpAQCAtMjc4LDE0ICszMzAsMTAgQEANCiAJRFBSSU5U
+SygicG9pbnRlciB0byBmaXQgYXQgJXBcbiIsICh2b2lkICopZml0cCk7DQog
+CWZpdF9wYWRkciA9IHJlYWRxKGZpdHApOw0KIAlEUFJJTlRLKCJmaXQgcG9p
+bnRlciBjb250YWlucyAlbHhcbiIsIGZpdF9wYWRkcik7DQotCS8qIHNuYWcg
+anVzdCB0aGUgbm9kZS1yZWxhdGl2ZSBvZmZzZXQgKi8NCi0JZml0X3BhZGRy
+ICY9IH4wdWwgPj4gKDYzLTM1KTsNCi0JLyogdGhlIHBvaW50ZXIgdG8gdGhl
+IEZJVCBpcyByZWxhdGl2ZSB0byBJQS02NCBjb21wYXRpYmlsaXR5DQotCSAq
+IHNwYWNlLiAgSG93ZXZlciwgdGhlIFBST00gaXMgbWFwcGVkIGF0IGEgZGlm
+ZmVyZW50IG9mZnNldA0KLQkgKiBpbiBNTVIgc3BhY2UgKGJvdGggbG9jYWwg
+YW5kIGdsb2JhbCkNCi0JICovDQotCWZpdF9wYWRkciArPSAweDcwMDAwMDAw
+MDsNCi0JZml0X3ZhZGRyID0gKHZvaWQgKilHTE9CQUxfTU1SX0FERFIobmFz
+aWQsIGZpdF9wYWRkcik7DQorDQorCUJVR19PTighdmFsaWRfZndfYWRkcihm
+aXRfcGFkZHIpKTsNCisJZml0X3ZhZGRyID0gKHZvaWQgKiljb252ZXJ0X2Z3
+X2FkZHIobmFzaWQsIGZpdF9wYWRkcik7DQorDQogCURQUklOVEsoImZpdCBh
+dCAlcFxuIiwgKHZvaWQgKilmaXRfdmFkZHIpOw0KIAlyZXR1cm4gZml0X3Zh
+ZGRyOw0KIH0NCg==
 
-
-#define	PAGE_SIZE		getpagesize()
-#define PTES_PER_PMD		(PAGE_SIZE / 8)
-#define STRIDE			PTES_PER_PMD * PAGE_SIZE
-#define	FAULTS_TO_CAUSE		32
-#define MAPPING_SIZE		FAULTS_TO_CAUSE * STRIDE
-
-#define LOOPS_TO_TIME		128
-
-
-int main(int argc, char **argv)
-{
-	long offset, i, j;
-	char * mapping;
-	volatile char z;
-	struct timeval tv;
-	unsigned long start_ts, end_ts;
-	unsigned long total_uSec;
-	struct timezone tz;
-	pid_t child;
-	int child_status;
-
-	tz.tz_minuteswest = 0;
-
-	total_uSec = 0;
-
-	mapping = mmap(NULL, (size_t) MAPPING_SIZE, PROT_READ,
-		       MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-
-	if ((unsigned long) mapping = -1UL) {
-		perror("Mapping failed.");
-		exit(0);
-	}
-
-	for (j=0; j < LOOPS_TO_TIME; j++) {
-		child = fork();
-		if (child > 0) {
-			wait(&child_status);
-		} else if (child = 0) {
-			gettimeofday(&tv, &tz);
-			start_ts = tv.tv_sec * 1000000 + tv.tv_usec;
-
-			for (i = 0; i < FAULTS_TO_CAUSE; i++) {
-				offset = i * STRIDE;
-				z = mapping[offset];
-			}
-
-			gettimeofday(&tv, &tz);
-			end_ts = tv.tv_sec * 1000000 + tv.tv_usec;
-			total_uSec += (end_ts - start_ts);
-			printf("Took %ld uSeconds per fault\n",
-			       total_uSec / FAULTS_TO_CAUSE);
-			exit(0);
-		} else {
-			printf ("Fork failed\n");
-		}
-	}
-	munmap(mapping, (size_t) MAPPING_SIZE);
-	return 0;
-}
+---2136807392-440758363-1092778340=:2107--
