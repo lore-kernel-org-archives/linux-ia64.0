@@ -1,31 +1,25 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 17 Jan 2002 07:57:47 +0000
-Subject: [Linux-ia64] raw 2.5.2 patch
-Message-Id: <marc-linux-ia64-105590698805868@msgid-missing>
+From: Harish Babu <babu.harish@usa.net>
+Date: Sun, 03 Feb 2002 20:37:59 +0000
+Subject: [Linux-ia64] IA64 Link Relocation operators
+Message-Id: <marc-linux-ia64-105590698805983@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-A raw ia64 patch for sync-up with v2.5.2 is now at the usual place
-(ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64) in file:
+Hello,
 
- v2.5/linux-2.5.2-ia64-020116-dontuse.gz
+ Could somebody tell me where i could find documentation on IA64 Link
+relocation operators.  Where could i find more data about the 
+Relocation entries in the object file.  I have gone through the ELF format
+and i have some idea about these.  I also wanted to know the different
+type of IA64 relocations.  
 
-As the name suggests, I don't recommend using it: 2.5.2 seems
-sufficiently unstable that I don't think its worth spending a lot of
-time on it.  With this patch, the kernel should work on the HP
-simulator (both UP and MP).  Also, it worked reasonably well with an
-IDE-based Big Sur.  I suspect SCSI won't work (unless you use a
-controller other than the qla1280).
+Thanks
+Harish
 
-Since I don't expect this patch to be very useful for most folks,
-I left the kdb stuff in there.
 
-Is someone from Qlogic planning on updating the qla1280 and qla2100
-drivers?  I hacked the qla1280 a bit, but I doubt it's all correct and
-I didn't touch the qla2100 at all.
-
-	--david
+____________________________________________________________________
+Get free e-mail and a permanent address at http://www.amexmail.com/?A=1
 
