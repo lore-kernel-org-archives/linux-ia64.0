@@ -1,39 +1,38 @@
-From: Don Dugger <n0ano@n0ano.com>
-Date: Tue, 12 Nov 2002 20:19:04 +0000
-Subject: Re: [Linux-ia64] gdb'ing 32-bit executable on IA64
-Message-Id: <marc-linux-ia64-105590709805407@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 08 Nov 2002 19:01:10 +0000
+Subject: Re: [Linux-ia64] Newbie questions
+Message-Id: <marc-linux-ia64-105590709805370@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805292@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805292@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David-
+On Sat, Nov 09, 2002 at 12:21:40AM +0530, CH Gowri Kumar wrote:
+> I wrote the above program and compiled it and found the appropriate codes
+> for the instructions using objdump -d and wrote the following program
+> 
+> char sc[] ="\x0a"
+>            "\x10"
+>            "\x00"
+>            "\x18\x00\x21\x00\x92\x00\x00\x42\xe0\x11\x00\x20\x84\x0a";
+>        main()
+>        {
+>          void (*fp)(void);
+>          fp = (void*)sc;
+>          fp();
+>       }
+> 
+> But this program on execution gives me the error:
+> "Illegal instruction (core dumped)"
+> (A similar program for IA-32 worked well.)
 
-Duh, cockpit error on my part.  Turns out I run with SHELL set to
-`/bin/bash'.  I copied the IA32 version of `bash' to the `emul'
-directory and everything works just fine.
-
-On Tue, Nov 12, 2002 at 10:23:21AM -0800, David Mosberger wrote:
-> >>>>> On Tue, 12 Nov 2002 10:34:46 -0700, Don Dugger <n0ano@n0ano.com> said:
-> 
->   Don> David- Nope, that didn't work.  I'm running a 2.4.18 kernel,
->   Don> the EMUL_PREFIX_LINUX_IA32 is set to `emul/ia32-linux/', I put
->   Don> the IA32 version of `sh' into `/emul/ia32-linux/bin/sh' and the
->   Don> IA32 `gdb' didn't work.  Do you think this is something we need
->   Don> to worry about or is it just a quirk of `gdb'?
-> 
-> Hmmh, to be honest, I always have used gdb.x86 without doing anything
-> special about the shell and it always worked for me.  Perhaps we're
-> using different gdb versions or we're doing something differently?  I
-> seem to be using "gdb 5.0rh-5" from x86 Red Hat 7.1.
-> 
-> 	--david
+function pointers on ia64 are "fat" -- that is, they are not the address
+of the function, they are the address of a function descriptor which
+contains (iirc) the GP and the address of the function.  i believe glibc
+pokes around with this kind of thing, so you may wish to look at the
+ia64 assembly code in there to see how it does it.
 
 -- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@n0ano.com
+Revolutions do not require corporate support.
 
