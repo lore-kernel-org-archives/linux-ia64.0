@@ -1,26 +1,83 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Wed, 30 Mar 2005 13:40:49 +0000
+From: Christoph Lameter <christoph@lameter.com>
+Date: Thu, 31 Mar 2005 03:50:22 +0000
 Subject: Re: [PATCH] Pageset Localization V2
-Message-Id: <20050330134049.GA21986@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <Pine.LNX.4.58.0503301947450.26235@server.graphe.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0503292147200.32571@server.graphe.net>
-In-Reply-To: <Pine.LNX.4.58.0503292147200.32571@server.graphe.net>
+ <20050330134049.GA21986@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20050330134049.GA21986@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <christoph@lameter.com>
-Cc: Manfred Spraul <manfred@colorfullife.com>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mm@kvack.org, shai@scalex86.org
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: Manfred Spraul <manfred@colorfullife.com>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mm@kvack.org, shai@scalex86.org, Christoph Hellwig <hch@infradead.org>
 
-On Tue, Mar 29, 2005 at 09:51:08PM -0800, Christoph Lameter wrote:
-> +	BUG_ON(process_zones(smp_processor_id()));
+Patch to fix the issues mentioned so far. The MAKE_LIST macro would also
+not be good to some things that I have planned so lets drop it.
 
-No.  Who told you this was a good idea?  This is the *worst* kind of
-assert, calling a function with side-effects.
+Index: linux-2.6.11/mm/page_alloc.c
+=================================--- linux-2.6.11.orig/mm/page_alloc.c	2005-03-30 19:45:23.000000000 -0800
++++ linux-2.6.11/mm/page_alloc.c	2005-03-30 19:46:23.000000000 -0800
+@@ -1613,15 +1613,6 @@ void zone_init_free_lists(struct pglist_
+ 	memmap_init_zone((size), (nid), (zone), (start_pfn))
+ #endif
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+-#define MAKE_LIST(list, nlist)  \
+-	do {    \
+-		if(list_empty(&list))      \
+-			INIT_LIST_HEAD(nlist);          \
+-		else {  nlist->next->prev = nlist;      \
+-			nlist->prev->next = nlist;      \
+-		}                                       \
+-	}while(0)
+-
+ /*
+  * Dynamicaly allocate memory for the
+  * per cpu pageset array in struct zone.
+@@ -1629,6 +1620,7 @@ void zone_init_free_lists(struct pglist_
+ static inline int __devinit process_zones(int cpu)
+ {
+ 	struct zone *zone, *dzone;
++	int i;
+
+ 	for_each_zone(zone) {
+ 		struct per_cpu_pageset *npageset = NULL;
+@@ -1642,9 +1634,17 @@ static inline int __devinit process_zone
+
+ 		if(zone->pageset[cpu]) {
+ 			memcpy(npageset, zone->pageset[cpu], sizeof(struct per_cpu_pageset));
+-			MAKE_LIST(zone->pageset[cpu]->pcp[0].list, (&npageset->pcp[0].list));
+-			MAKE_LIST(zone->pageset[cpu]->pcp[1].list, (&npageset->pcp[1].list));
+-		}
++
++			/* Fix up the list pointers */
++			for(i = 0; i<2; i++) {
++				if (list_empty(&zone->pageset[cpu]->pcp[i].list))
++					INIT_LIST_HEAD(&npageset->pcp[i].list);
++				else {
++					npageset->pcp[i].list.next->prev = &npageset->pcp[i].list;
++					npageset->pcp[i].list.prev->next = &npageset->pcp[i].list;
++				}
++			}
++ 		}
+ 		else {
+ 			struct per_cpu_pages *pcp;
+ 			unsigned long batch;
+@@ -1721,11 +1721,14 @@ struct notifier_block pageset_notifier 
+ void __init setup_per_cpu_pageset()
+ {
+-	/*Iintialize per_cpu_pageset for cpu 0.
+-	  A cpuup callback will do this for every cpu
+-	  as it comes online
++	int err;
++
++	/* Initialize per_cpu_pageset for cpu 0.
++	 * A cpuup callback will do this for every cpu
++	 * as it comes online
+ 	 */
+-	BUG_ON(process_zones(smp_processor_id()));
++	err = process_zones(smp_processor_id());
++	BUG_ON(err);
+ 	register_cpu_notifier(&pageset_notifier);
+ }
+
