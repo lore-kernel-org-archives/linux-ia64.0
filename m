@@ -1,56 +1,49 @@
-From: Matt_Domsch@Dell.com
-Date: Thu, 03 Jan 2002 18:20:33 +0000
-Subject: [Linux-ia64] efibootmgr 0.4.0-test4
-Message-Id: <marc-linux-ia64-105590698805738@msgid-missing>
+From: Piet/Pete Delaney <piet@sgi.com>
+Date: Thu, 03 Jan 2002 01:39:00 +0000
+Subject: [Linux-ia64] Re: [lkcd-general] stack overflows and lkcd (Dynamicly mapping the Red Zone and Switchi
+Message-Id: <marc-linux-ia64-105590698805730@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I've made a newer efibootmgr. ChangeLog below.  Most important change is
-that write_variable() no longer has a hard-coded "victim" file in
-/proc/efi/vars to open, it now searches the list of files to find one it's
-not actively writing.  This is necessary because the EFI 1.1 sample
-implementation changed the name of the file we had been using as the
-"victim". :-)
+On Wed, Jan 02, 2002 at 04:22:58PM -0800, Castor Fu wrote:
+> I noticed that LKCD uses a fair amount of stack space in dump_kernel_write().
+> 
+> The array of longs for the block sizes, b[], is about 4K which is enough that
+> it's not too hard to blow the stack, resulting in a lost dump.
+> 
+> Also, in general, the crash dumper isn't going to work if the stack has
+> already been overrun.  We might want to have an alternate stack for that.
 
-Posted to
-http://domsch.com/linux/ia64/efibootmgr/efibootmgr-0.4.0-test4.tar.gz.
-Feedback welcome.
+This was what I was discussing with  Richard Moore:
 
-* Thu Jan 3 2002 Matt Domsch <Matt_Domsch@dell.com>
-- added back in read last sector IOCTL hack, but only after read() fails.
-- released v0.4.0-test4
+	Date: Tue, 11 Dec 2001 10:31:00 -0800
+	Date: Tue, 11 Dec 2001 17:12:03 -0800
 
-* Thu Jan 3 2002 Matt Domsch <Matt_Domsch@dell.com>
-- more cleanups
-- released v0.4.0-test3
+We not only have to have an alternate stack but need to save all of the
+registers for the CPU(s) that get a kernel stack overflow or other MMU problems.
+With MMU problems it's possible for many CPU to fail at the same time.
 
-* Wed Jan 2 2002 Matt Domsch <Matt_Domsch@dell.com>
-- Changed PROC_DIR_EFI to PROC_DIR_EFI_VARS
-- write_variable() now searches /proc/efi/vars for a variable that's not
-  the one being written.  The EFI 1.1 sample implementation changed the
-  name of the "victim" being written to (was Efi-xxxxx, now EFI-xxxxx), so
-  previous versions of efibootmgr don't work with the new firmware.  This
-  should fix that up.
-- released v0.4.0-test2
+In Solaris 2.9 I allocated an extra stack for each CPU as well as an extra
+page to hot map to the red zone so that the stack could be flushed and
+looked at with the crash analyzer (lkcd for example). The kernel couldn't 
+run with the extra page but the panic code could produce a nice stack trace. 
+It made stack analysis a lot easier. 
 
-* Fri Dec 7 2001 Matt Domsch <Matt_Domsch@dell.com>
-- Removed read last sector ioctl hack, it's not needed anymore.  The
-  kernel takes care of it for us with a new patch.
-- Added test for valid PMBR, similar to parted and the kernel.
-- Added test for returning size of block device as a u64.
-- Added test for returning sector size as int, and use that.
-- Changed GPT struct and member names to be more Linux-like.
-- added -g option to force disk with invalid PMBR to be treated as GPT
-anyhow.
-- released v0.4.0-test1
+I also saved the CPU registers using only physical addresses since the MMU 
+could be messed up. In the infrequent case of a MMU failure you can't save 
+the core dump but you can print the stack traces, registers for the CPU's,
+look at the memory with the kernel debugger and possibly do a few MMU 
+experiments.
 
---
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions www.dell.com/linux
-#1 US Linux Server provider with 24.5% (IDC Dec 2001)
-#2 Worldwide Linux Server provider with 18.2% (IDC Dec 2001)
+Most likely the lcrash/lkcd dump_header_asm_t registers should be extracted 
+from the the regster save area for each processor.
+
+-piet
+
+
+
+
 
