@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sat, 18 Oct 2003 00:49:55 +0000
+From: Matt Chapman <matthewc@cse.unsw.edu.au>
+Date: Sat, 18 Oct 2003 01:31:37 +0000
 Subject: Re: [RFC] prevent "dd if=/dev/mem" crash
-Message-Id: <marc-linux-ia64-106643841722114@msgid-missing>
+Message-Id: <marc-linux-ia64-106644074523554@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106642876514553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106642876514553@msgid-missing>
@@ -10,46 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
->
-> >>>>> On Fri, 17 Oct 2003 16:55:43 -0700, Andrew Morton <akpm@osdl.org> said:
+On Fri, Oct 17, 2003 at 05:49:55PM -0700, Andrew Morton wrote:
+> David Mosberger <davidm@napali.hpl.hp.com> wrote:
+> >
+> > One philosophy states that if
+> > your kernel touches random addresses, it's better to signal a visible
+> > error (machine-check) than to risk silent data corruption.
 > 
->   >> If we really believe copy_*_user() must correctly handle *all* faults,
->   >> isn't the "p >= __pa(high_memory)" test superfluous?
-> 
->   Andrew> This code was conceived before my time and I don't recall seeing much
->   Andrew> discussion, so this is all guesswork..
-> 
->   Andrew> I'd say that the high_memory test _is_ superfluous and that
->   Andrew> if anyone cared, we would remove it and establish a
->   Andrew> temporary pte against the address if it was outside the
->   Andrew> direct-mapped area.  But nobody cares enough to have done
->   Andrew> anything about it.
-> 
-> What about memory-mapped device registers?  Isn't all memory
-> physically contiguous on x86 and that's why the "p >> __pa(high_memory)" test saves you from that?
+> An access to an illegal address should generate a fault, period.  This puts
+> the processing into the hands of software.  If software chooses to silently
+> ignore the fault (ie: "silent data corruption") then it is poorly designed.
 
-We _want_ to be able to read mmio ranges via /dev/mem, don't we?  I guess
-it has never come up because everyone uses kmem.
+It *does* signal a fault, in the form of a machine check.  On other
+architectures I'm familiar with this is usually implemented as an
+interrupt, but the idea is similar - when the system bus controller
+detects a bad address on the bus, it returns all 1s (for a read) and
+signals an interrupt.  Usually you can turn this interrupt off (and
+most likely you can on Itanium chipsets too) but that is not a good
+idea.
 
->   >> On ia64, a read to non-existent physical memory causes the processor
->   >> to time out and take a machine check.  I'm not sure it's even possible
->   >> to recover from that.
-> 
->   Andrew> ick.  That would be very poor form.
-> 
-> Reasonable people can disagree on that.
+The problem is that this interrupt is not synchronous with respect to
+the instruction stream, and this makes it difficult for software to
+recover from, particularly in a monolithic system like Linux where you
+can't just terminate the faulting driver.  The best you can usually do
+is to print the details and hope that it's a once-off.  It is not
+something that you can sensibly use to abort copy_*_user.
 
-nah ;)
+In any case touching random addresses is just plain bad.  What if
+there's a device mapped there which happens to have read side effects
+like clearing the interrupt cause, so e.g. every time you read /dev/mem
+you cause a timeout on your SCSI bus :)
 
-> One philosophy states that if
-> your kernel touches random addresses, it's better to signal a visible
-> error (machine-check) than to risk silent data corruption.
-
-An access to an illegal address should generate a fault, period.  This puts
-the processing into the hands of software.  If software chooses to silently
-ignore the fault (ie: "silent data corruption") then it is poorly designed.
-
-If the hardware doesn't give the system programmer a choice then the
-hardware is poorly designed, surely?
+Matt
 
