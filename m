@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 08 May 2003 16:58:07 +0000
-Subject: RE: [Linux-ia64] High fpu register corruption
-Message-Id: <marc-linux-ia64-105590723705685@msgid-missing>
+Date: Thu, 08 May 2003 17:03:01 +0000
+Subject: Re: [Linux-ia64] High fpu register corruption
+Message-Id: <marc-linux-ia64-105590723705686@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705679@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705679@msgid-missing>
@@ -10,32 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 8 May 2003 09:33:55 -0700, "Mallick, Asit K" <asit.k.mallick@intel.com> said:
+>>>>> On Thu, 08 May 2003 16:16:13 +0200, Andreas Schwab <schwab@suse.de> said:
 
-  Asit> Andreas, The high FP save and restore in the context switch
-  Asit> makes the assumption that user will not be modifying the
-  Asit> psr.mfh and it will be only updated by the hardware.
+  Andreas> When a process clears the psr.mfh bit after using the high
+  Andreas> fpu registers and then starts using them again it can
+  Andreas> corrupt the fpu state of another process.  In order for
+  Andreas> this to happen there must be some context switches
+  Andreas> inbetween (thanks to Chris Mason for tracking this down):
 
-Not a chance.  We can't rely on the application doing the Right Thing.
-In fact, having an application clear psr.mfh makes tons of sense,
-when it knows it's done using mfh.
+Ah, _now_ it makes sense.  I got a similar bug report yesterday, but
+it claimed the _old_ (2.4.19) context switch was breaking and the
+new one (2.4.20) was fine.  When I looked at the old code, I couldn't
+find anythign wrong with it.
 
-  Asit> Without this assumption we can not optimize the FP
-  Asit> save/restore for SMP systems (this patch will not cover all
-  Asit> cases). If application wants the current high fpu state to be
-  Asit> preserved then it should will not be able to modify the
-  Asit> psr.mfh.
+  Andreas> +	} else if (ia64_get_fpu_owner() != next)			\
+  Andreas> +		ia64_psr(ia64_task_regs(next))->dfh = 1;		\
 
-  Asit> What kind of applications are trying to modify the mfh?
+I suspect what we really want to do here is something along the lines
+of:
 
-OpenSSL does (really: some underlying crypto code).
+  Andreas> +	ia64_psr(ia64_task_regs(next))->dfh = (ia64_get_fpu_owner() != next);		\
 
-I think you're misunderstanding the problem though: the problem is
-that application A clears psr.mfh and application B gets its fph state
-corrupted.
-
-So, really, this is just a bug that needs fixing.  It won't affect the
-rest of the lazy fph save/restore logic.
+This expresses the invariant we're after: the next thread has DFH set
+unless it owns the FPH partition.  IIRC, this is what the UP code does
+already.
 
 	--david
 
