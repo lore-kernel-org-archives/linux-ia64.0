@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Fri, 06 Feb 2004 08:43:46 +0000
+From: Jim Wilson <wilson@specifixinc.com>
+Date: Fri, 06 Feb 2004 09:49:57 +0000
 Subject: Re: gcc problems
-Message-Id: <20040206004346.225040c0.akpm@osdl.org>
+Message-Id: <1076060998.13511.110.camel@leaf.tuliptree.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040206000058.7e928d80.akpm@osdl.org>
 In-Reply-To: <20040206000058.7e928d80.akpm@osdl.org>
@@ -10,25 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ian Wienand <ianw@gelato.unsw.edu.au> wrote:
->
-> On Fri, Feb 06, 2004 at 12:00:58AM -0800, Andrew Morton wrote:
-> > gcc-3.3.2/ia64 is falling over here with my current tree so I'm trying to
-> > build gcc-3.4 from current gcc CVS.
-> 
-> That probably shouldn't be happening... It's what we use all the time.
-> I assume gcc is segfaulting?
+On Fri, 2004-02-06 at 00:00, Andrew Morton wrote:
+> ../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c: In function `uw_frame_state_for':
+> ../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c:1779: error: structure has no member named `sc_rbs_base'
+> ../../gcc-3.4-cvs/gcc/config/ia64/unwind-ia64.c:1779: error: structure has no member named `sc_loadrs'
 
-I rebuilt and it went away.  It could have been a 2.6 kernel bug ;)
+This is from the MD_FALLBACK_FRAME_STATE_FOR macro in
+gcc/config/ia64/linux.h, which handles machine and OS dependent
+unwinding from signal handers.  It uses signal.h and sys/context.h. 
+These are things that could have perhaps changed with a new kernel or
+glibc.  If the signal context structure has changed, then we need a new
+version of this code, and will somehow have to choose the right one.
 
-> > Is there some trick to this?  And what is the preferred gcc version for
-> > ia64 kernels?
-> 
-> Well I don't know exactly about that CVS gcc problem, but something
-> that may be useful if you use Debian is that there is a little known
-> 'gcc-snapshot' package that is usually quite up to date and saves you
-> having to build yourself.  See the README.Debian for a sample wrapper.
-> 
-
-I would prefer to build gcc direct from the gcc team, really, thanks.
+The easiest workaround is probably to install libunwind on your system
+before trying to build gcc.  Then none of this ugly code is needed,
+because libunwind gracefully handles it all for us.  Assuming libunwind
+builds on the new kernels, but I would be surprised if it didn't.  If
+libunwind is installed, then gcc uses it automatically, so you don't
+have to configure gcc differently.
+-- 
+Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
 
