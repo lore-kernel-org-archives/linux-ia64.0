@@ -1,32 +1,73 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 18 Dec 2003 19:28:58 +0000
-Subject: Re: IA64 test report: 2.4.24-pre1/tiger 2003-12-18: 9/9 pass
-Message-Id: <marc-linux-ia64-107177617220781@msgid-missing>
+From: Xavier Bru <xavier.bru@bull.net>
+Date: Thu, 04 Dec 2003 12:37:21 +0000
+Subject: Problem booting Adaptec Ultra 320 driver with discontigmem support.
+Message-Id: <marc-linux-ia64-107054139923799@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107174041010580@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107174041010580@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Thursday 18 December 2003 2:37 am, Yu, Luming wrote:
-> 3.Unable to handle kernel NULL pointer dereferencehwclock[43]: Oops 8804682956800
-> Pid: 43, CPU 2, comm:              hwclock
+Hello, all
 
-This was caused by a screwed up EFI RTC patch.  I sent Marcelo
-a fix yesterday, and he applied it.  Here's the patch, in case
-you're interested:
+Running  2.6.0-test11 with Adaptec Ultra 320 driver that provides full=20
+64-bit support
+we hit a BUG in blk_queue_bounce_limit() due to physical address greater=20
+than allowed by the dma mask.
+Having a look into the code, it appears that the computation to allow=20
+full 64-bit support takes in account the size of the installed memory=20
+instead of the max physical address of the platform.
+For example on  a platform with 32GB of memory distributed in 1 TB=20
+physical address space, only 39-bits physical addresses are supported=20
+instead of the 40 bits needed.
 
-=== drivers/char/efirtc.c 1.6 vs edited ==--- 1.6/drivers/char/efirtc.c	Fri Oct 24 04:35:10 2003
-+++ edited/drivers/char/efirtc.c	Wed Dec 17 14:33:08 2003
-@@ -118,7 +118,7 @@
- static void
- convert_from_efi_time(efi_time_t *eft, struct rtc_time *wtime)
+IOSAPIC: vector 54 -> CPU 0x04e0, enabled
+scsi0 : Adaptec AIC79XX PCI-X SCSI HBA DRIVER, Rev 1.3.9
+        <Adaptec 39320D Ultra320 SCSI adapter>
+        aic7902: Ultra320 Wide Channel A, SCSI Id=3D7, PCI-X 101-133Mhz, 51=
+2 SCBs
+
+kernel BUG at drivers/block/ll_rw_blk.c:271!
+swapper[1]: bugcheck! 0 [1]
+
+Herafter a patch that fixes the problem:
+
+--- linux-2.6.0-test11/drivers/scsi/aic7xxx/aic79xx_osm.c    2003-11-24=20
+02:32:03.000000000 +0100
++++ linux-2.6.0-test11.new/drivers/scsi/aic7xxx/aic79xx_osm.c   =20
+2003-12-03 14:39:51.000000000 +0100
+@@ -62,6 +62,7 @@
+=20
+ #include <linux/mm.h>        /* For fetching system memory size */
+=20
++extern unsigned long blk_max_pfn;
+ /*
+  * Lock protecting manipulation of the ahd softc list.
+  */
+@@ -2158,10 +2159,9 @@
+ uint64_t
+ ahd_linux_get_memsize(void)
  {
--	memset(&wtime, 0, sizeof(struct rtc_time));
-+	memset(wtime, 0, sizeof(struct rtc_time));
- 	wtime->tm_sec  = eft->second;
- 	wtime->tm_min  = eft->minute;
- 	wtime->tm_hour = eft->hour;
+-    struct sysinfo si;
+-
+-    si_meminfo(&si);
+-    return ((uint64_t)si.totalram << PAGE_SHIFT);
++    /* Need to take in account the max physical address in case
++     * of discontiguous memory. */
++    return ((uint64_t)blk_max_low_pfn << PAGE_SHIFT);
+ }
+=20
+ /*
+
+--=20
+
+ Sinc=E8res salutations.
+_____________________________________________________________________
+=20
+Xavier BRU                 BULL ISD/R&D/INTEL office:     FREC B1-422
+tel : +33 (0)4 76 29 77 45                    http://www-frec.bull.fr
+fax : +33 (0)4 76 29 77 70                 mailto:Xavier.Bru@bull.net
+addr: BULL, 1 rue de Provence, BP 208, 38432 Echirolles Cedex, FRANCE
+_____________________________________________________________________
+
 
