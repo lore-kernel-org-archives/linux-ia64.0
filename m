@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Tue, 04 May 2004 23:18:43 +0000
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Tue, 04 May 2004 23:23:24 +0000
 Subject: Re: [RFC] I/O MCA recovery
-Message-Id: <20040504231843.GB3395@cup.hp.com>
+Message-Id: <1083713004.5669.24.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405040954.09524.jbarnes@engr.sgi.com>
 In-Reply-To: <200405040954.09524.jbarnes@engr.sgi.com>
@@ -10,21 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, May 04, 2004 at 04:15:15PM -0700, David Mosberger wrote:
-> >>>>> On Tue, 4 May 2004 16:11:35 -0700, Grant Grundler <iod00d@hp.com> said:
+On Tue, 2004-05-04 at 17:17, Jesse Barnes wrote:
+
+> > ISTR only config space accesses are always required to softfail
+> > on master aborts. I don't recall if IO Port space is required to as
+> > well and it looks like this issue is outside the scope of PCI spec.
 > 
->   Grant> HP chipsets (ZX1/SX1000) will hardfail - it's one of the
->   Grant> differences I point out in the "Porting drivers to ZX1"
->   Grant> OLS2002 paper I wrote.  Sounds like SGI chipsets behave the
->   Grant> same way.
+> Alex says that zx1 can soft fail on IO port accesses if configured to do so.  
+> We don't have that option.
 > 
-> Hmmh, I thought zx1 soft-fails on inX/outX?
 
-I'll have to try it...none of the drivers I care use IO port
-space or randomly attempt to poke around.
+   And the default configuration for zx1 is I/O port space in soft fail,
+MMIO space in hardfail.  The current zx1 "smarts" in X can reconfigure
+the bridge w/ VGA to softfail MMIO for probing/int10 support.  It's
+ugly, but it works.
 
-ISTR the graphics folks agonizing over this issue when bringing
-up the radeon cards as console - the BIOS emulation in firmware was 
-has issues with this same problem. Alex, remember more details?
+	Alex
 
-grant
+-- 
+Alex Williamson                             HP Linux & Open Source Lab
+
