@@ -1,31 +1,36 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Sun, 14 Mar 2004 00:05:06 +0000
+From: Anton Blanchard <anton@samba.org>
+Date: Sun, 14 Mar 2004 04:06:34 +0000
 Subject: Re: [Lse-tech] Re: Hugetlbpages in very large memory machines.......
-Message-Id: <20040314000506.GE655@holomorphy.com>
+Message-Id: <20040314040634.GC19737@krispykreme>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40528383.10305@sgi.com> <20040313034840.GF4638@wotan.suse.de> <20040313054910.GA655@holomorphy.com> <20040313161010.GB15118@wotan.suse.de>
-In-Reply-To: <20040313161010.GB15118@wotan.suse.de>
+References: <40528383.10305@sgi.com> <20040313034840.GF4638@wotan.suse.de> <20040313184547.6e127b51.akpm@osdl.org>
+In-Reply-To: <20040313184547.6e127b51.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: Ray Bryant <raybry@sgi.com>, lse-tech@lists.sourceforge.net, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-kernel@vger.kernel.org
-
-At some point in the past, I wrote:
->> That's not entirely true. Whether it's feasible depends on how the
->> MMU is used. The HPW (Hardware Pagetable Walker) and short mode of the
->> VHPT insist upon pagesize being a per-region attribute, where regions
->> are something like 60-bit areas of virtualspace, which is likely what
->> they're referring to. The VHPT in long mode should be capable of
->> arbitrary virtual placement (modulo alignment of course).
-
-On Sat, Mar 13, 2004 at 05:10:10PM +0100, Andi Kleen wrote:
-> Redesigning the low level TLB fault handling for this would not count as
-> "easily" in my book.
-
-I make no estimate of ease of implementation of long mode VHPT support.
-The point of the above is that the virtual placement constraint is an
-artifact of the implementation and not inherent in hardware.
+To: Andrew Morton <akpm@osdl.org>
+Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
 
--- wli
+> Demand-paging the hugepages is a decent feature to have, and ISTR resisting
+> it before for this reason.
+> 
+> Even though it's early in the 2.6 series I'd be a bit worried about
+> breaking existing hugetlb users in this way.  Yes, the pages are
+> preallocated so it is unlikely that a working setup is suddenly going to
+> break.  Unless someone is using the return value from mmap to find out how
+> many pages they can get.
+
+Hmm what a coincidence, I was chasing a problem where large page
+allocations would fail even though I clearly had enough large page memory
+free.
+
+It turns out we were tripping the overcommit logic in do_mmap. I had
+30GB of large page and 2GB of small pages and of course cap_vm_enough_memory
+was looking at the small page pool. Setting overcommit to 1 fixed it.
+
+It seems we can solve both problems by having a separate hugetlb overcommit
+policy. Make it strict and you wont have OOM problems on large pages
+and I wont hit my 30GB / 2GB problem.
+
+Anton
