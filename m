@@ -1,7 +1,7 @@
-From: Mark Vojkovich <mvojkovich@valinux.com>
-Date: Mon, 21 Aug 2000 19:34:11 +0000
-Subject: [Linux-ia64] Re: IA-64 XFree86 (was: XFree 4.0.1 module loading)
-Message-Id: <marc-linux-ia64-105590678205366@msgid-missing>
+From: Marc Aurele La France <tsi@gpu.srv.ualberta.ca>
+Date: Mon, 21 Aug 2000 21:02:38 +0000
+Subject: Re: [Linux-ia64] Re: IA-64 XFree86 (was: XFree 4.0.1 module loading)
+Message-Id: <marc-linux-ia64-105590678205367@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205362@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205362@msgid-missing>
@@ -10,41 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On 21 Aug 2000, Jes Sorensen wrote:
 
-On Mon, 21 Aug 2000, Marc Aurele La France wrote:
+> >> If no proprietary information will be discussed, I'd be happier
+> >> with a public list, they're easier to administer.
 
-> ATI is funding me to go to their labs near Toronto from 2000.09.13 to
-> 2000.09.22 and work on IA-64 support.  This despite that they are aware
-> Michael Madore has both the ATI and R128 drivers working reasonably well.
-> I see this as a measure of how important they feel IA-64 support this.  I
-> agree with them.  And so, my goal with this "outing" will be to bring
-> XFree86's IA-64 server up to as close to an "out-of-the-box" condition as
-> I can, using what we currently provide on IA-32 as a benchmark.
-> 
-> So that I don't end up duplicating effort and/or working in the dark, I'd
-> like us to coordinate our efforts.
+> Marc> I'm suggesting it be non-public to keep the S/N ratio up.
 
-   I don't have anything on my worklist for IA-64.  The biggest
-problems I have with IA-64 are things that I cannot address. 
-Mainly:
+> Please don't it makes it a royal pain in the butt for people who post
+> from random email addresses and it isn't that likely that there will
+> be a pile of noise makers on a list like this.
 
-1) Firmware issues that prevent the X-server from working reliably
-   with SMP (even lspci locks up in the SAL code).
+I disagree.  This is to be a working group, and, given the timelines
+involved, not one bogged down by answering FAQ's or dealing with 
+dichotomous net presences.
 
-2) No mechanism for the X-server to write combine memory and no
-   discussions on adding this to Linux as far as I can tell.
-   There needs to be a new flag to open() or mmap().  There
-   aren't any MTRRs.
+Marc.
 
-3) The bios not assigning interrupts to cards that need them.
-   My A3 machine will not boot with an NVIDIA card in it for
-   this reason.
-
-  Other than those, and the fact that we don't have loader
-support, the server is pretty much offering what we offer under
-IA-32 currently.
-
-
-					Mark.
++----------------------------------+-----------------------------------+
+|  Marc Aurele La France           |  work:   1-780-492-9310           |
+|  Computing and Network Services  |  fax:    1-780-492-1729           |
+|  352 General Services Building   |  email:  tsi@ualberta.ca          |
+|  University of Alberta           +-----------------------------------+
+|  Edmonton, Alberta               |                                   |
+|  T6G 2H1                         |     Standard disclaimers apply    |
+|  CANADA                          |                                   |
++----------------------------------+-----------------------------------+
+XFree86 Core Team member.  ATI driver and X server internals.
 
 
