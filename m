@@ -1,33 +1,42 @@
-From: Christoph Lameter <christoph@lameter.com>
-Date: Wed, 30 Mar 2005 18:13:49 +0000
-Subject: Re: API changes to the slab allocator for NUMA memory allocation
-Message-Id: <Pine.LNX.4.58.0503301013060.15596@server.graphe.net>
+From: Andrew Morton <akpm@osdl.org>
+Date: Thu, 03 Mar 2005 11:37:04 +0000
+Subject: Re: [patch -mm series] ia64 specific /dev/mem handlers
+Message-Id: <20050303033704.6fb77a34.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050315204110.6664771d.akpm@osdl.org> <42387C2E.4040106@colorfullife.com>
- <273220000.1110999247@[10.10.2.4]> <4238845E.5060304@colorfullife.com>
- <Pine.LNX.4.58.0503292126050.32140@server.graphe.net> <424A3FA0.9030403@colorfullife.com>
- <Pine.LNX.4.58.0503300748320.12816@server.graphe.net> <424AE7F7.3080508@colorfullife.com>
-In-Reply-To: <424AE7F7.3080508@colorfullife.com>
+References: <16923.193.128608.607599@jaguar.mkp.net>
+In-Reply-To: <16923.193.128608.607599@jaguar.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Manfred Spraul <manfred@colorfullife.com>
-Cc: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>, Andrew Morton <akpm@osdl.org>, linux-mm@kvack.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, shai@scalex86.org
+To: Jes Sorensen <jes@trained-monkey.org>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Wed, 30 Mar 2005, Manfred Spraul wrote:
-
-> Correct, I was thinking about the NUMA case.
-> You've decided to add one register load to every call of kmalloc. On
-> i386, kmalloc_node() is a 24-byte function. I'd bet that adding the node
-> parameter to every call of kmalloc causes a .text increase larger than
-> 240 bytes. And I have not yet considered that you have increased the
-> number of conditional branches in every kmalloc(32,GFP_KERNEL) call by
-> 33%, i.e. from 3 to 4 conditional branch instructions.
-> I'd add an explicit kmalloc_node function. Attached is a prototype
-> patch. You'd have to reintroduce the flags field to
-> kmem_cache_alloc_node() and update kmalloc_node.
-> The patch was manually edited, I hope it applies to a recent tree ;-)
+jes@trained-monkey.org (Jes Sorensen) wrote:
 >
-> What do you think?
+> This patch introduces ia64 specific read/write handlers for /dev/mem
+>  access which is needed to avoid uncached pages to be accessed through
+>  the cached kernel window which can lead to random corruption.
 
-Looks fine to me.
+This patch causes hiccups on my ia32e box.
+
+linux:/home/akpm#  /usr/sbin/hwscan --isapnp                       
+zsh: 7528 segmentation fault  /usr/sbin/hwscan --isapnp
+linux:/home/akpm#  /usr/sbin/hwscan --pci   
+zsh: 7529 segmentation fault  /usr/sbin/hwscan --pci
+linux:/home/akpm#  /usr/sbin/hwscan --block
+zsh: 7530 segmentation fault  /usr/sbin/hwscan --block
+linux:/home/akpm#  /usr/sbin/hwscan --floppy
+zsh: 7533 segmentation fault  /usr/sbin/hwscan --floppy
+
+strace ends with:
+
+open("/proc/apm", O_RDONLY)             = -1 ENOENT (No such file or directory)
+open("/dev/mem", O_RDONLY)              = 3
+lseek(3, 1024, SEEK_SET)                = 1024
+read(3, 0x50a080, 256)                  = -1 EFAULT (Bad address)
+close(3)                                = 0
+--- SIGSEGV (Segmentation fault) @ 0 (0) ---
++++ killed by SIGSEGV +++
+
+
+
