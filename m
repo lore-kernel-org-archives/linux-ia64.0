@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 12 Nov 2001 23:58:06 +0000
+From: =?ISO-2022-JP?B?IhskQiVdJTslJCVJJXMkThsoQi4uLiI=?=
+Date: Tue, 13 Nov 2001 04:58:27 +0000
 Subject: Re: [Linux-ia64] Pagesize is different between IA32 and IA64
-Message-Id: <marc-linux-ia64-105590698805479@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805488@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805465@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805465@msgid-missing>
@@ -10,19 +10,95 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-But I think the page size problem with brk() is real and can be fixed
-quite easily.  If I understood correctly, the problem is that doing
-something along the lines of:
+ Hi Don.
+ Thank you for responding sooner.
 
-	x = ALIGN_TO_4K(sbrk(8192));
-	memset(x, 0xff, 4096);
-	brk(x);
-	brk(x+4096);	
+ It is a real application. And I think that it may
+ occur all IA32 executable applications on IA64 because
+ the problem is that calloc always expected clean memories
+ sbrk returned. and calloc believes that the returned
+ memories(4K) to sbrk is unmaped by sbrk.
 
-might preserve the contents of the page at X on under the ia32
-subsystem of ia64 when in fact it should be cleared to zero.
+ Do not you think so?
 
-Would you be able/interested into looking into this?
+ The following code is a part of calloc functions in
+ glibc 2.2.4.
 
-	--david
+  /* Check if expand_top called, in which case there may be
+     no need to clear. */
+#if MORECORE_CLEARS
+  oldtop = top(ar_ptr);
+  oldtopsize = chunksize(top(ar_ptr));
+#if MORECORE_CLEARS < 2
+  /* Only newly allocated memory is guaranteed to be cleared.  */
+  if (ar_ptr = &main_arena &&
+      oldtopsize < sbrk_base + max_sbrked_mem - (char *)oldtop)
+    oldtopsize = (sbrk_base + max_sbrked_mem - (char *)oldtop);
+#endif
+#endif
+  p = chunk_alloc (ar_ptr, sz);
+
+At Mon, 12 Nov 2001 08:28:52 -0700,
+n0ano@indstorage.com wrote:
+> 
+> Hideki-
+> 
+> A couple of points:
+> 
+> 1)  It turns out that IA32 programs have all sorts of hidden
+> assumptions that a page size is 4K.  Changing `__getpagsize'
+> to return the true page size might fix your problem but I
+> predict that such a change would break many other programs.
+> I'll look at your test case and see if there is anything we
+> can do.
+> 
+> 2)  If all else fails you can run your IA64 machine with a
+> 4K page size.  We've always said that, for true complete IA32
+> support, you may have to run with 4K pages.  I've put a lot of
+> effort into allowing larger page sizes for `normal' prgrams,
+> yours might be one that requires a 4K kernel.
+> 
+> 3)  I'm just curious, is this a real application or is this
+> just a test case?
+> 
+> On Mon, Nov 12, 2001 at 05:15:53PM +0900, Hideki Yamamoto wrote:
+> > 
+> >  Hello all.
+> > 
+> >  If this problem has already known, I am sorry.
+> > 
+> >  I am investigating the problem that calloc returns no
+> >  cleared area.
+> >  It was made on IA32 system and executes on IA64.
+> >  I think calloc expects to clear the memories sbrk
+> >  returned. But When the program made on IA32 is
+> >  executing on IA64 system, sbrk sometimes returns no
+> >  cleared area. 
+> >  Because the Kernel on IA64 alignes the memories 16K
+> >  bytes. However, when the progmam made on IA32 is
+> >  executing on IA64, the function __getpagesize returns
+> >  4Kbytes. At this case, if the memories that calloc
+> >  requests to return sbrk(-xxx) is smaller than
+> >  16Kbytes, the kernel do not unmap this memory.
+> >  (I think that the time that the memories clears 0 by
+> >  the kernel is when the kernel maps memories by the signal) 
+> > 
+> >  How do you think?
+> > 
+> > --
+> > Regards, 
+> > Hideki Yamamoto   (V).v.(V) # Empowered by Innovation
+> > 
+> > 
+> > _______________________________________________
+> > Linux-IA64 mailing list
+> > Linux-IA64@linuxia64.org
+> > http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> 
+> -- 
+> Don Dugger
+> "Censeo Toto nos in Kansa esse decisse." - D. Gale
+> n0ano@indstorage.com
+> Ph: 303/652-0870x117
+> 
 
