@@ -1,54 +1,38 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 09 Dec 2004 17:05:25 +0000
+Date: Thu, 09 Dec 2004 19:32:07 +0000
 Subject: Re: Anticipatory prefaulting in the page fault handler V1
-Message-Id: <Pine.LNX.4.58.0412090904100.10400@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.58.0412091130160.796@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412011608500.22796@ppc970.osdl.org> <41AEB44D.2040805@pobox.com>
- <20041201223441.3820fbc0.akpm@osdl.org> <41AEBAB9.3050705@pobox.com>
- <20041201230217.1d2071a8.akpm@osdl.org> <179540000.1101972418@[10.10.2.4]>
- <41AEC4D7.4060507@pobox.com> <20041202101029.7fe8b303.cliffw@osdl.org>
- <Pine.LNX.4.58.0412080920240.27156@schroedinger.engr.sgi.com>
- <20041209105753.GB1131@elf.ucw.cz>
-In-Reply-To: <20041209105753.GB1131@elf.ucw.cz>
+References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain><Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com><Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org><Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com><Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org><Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com><Pine.LNX.4.58.0412011608500.22796@ppc970.osdl.org>
+ <41AEB44D.2040805@pobox.com><20041201223441.3820fbc0.akpm@osdl.org>
+ <41AEBAB9.3050705@pobox.com><20041201230217.1d2071a8.akpm@osdl.org>
+ <179540000.1101972418@[10.10.2.4]><41AEC4D7.4060507@pobox.com>
+ <20041202101029.7fe8b303.cliffw@osdl.org> <Pine.LNX.4.58.0412080920240.27156@schroedinger.engr.sgi.com>
+ <156610000.1102546207@flay>
+In-Reply-To: <156610000.1102546207@flay>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Pavel Machek <pavel@ucw.cz>
+To: "Martin J. Bligh" <mbligh@aracnet.com>
 Cc: nickpiggin@yahoo.com.au, Jeff Garzik <jgarzik@pobox.com>, torvalds@osdl.org, hugh@veritas.com, benh@kernel.crashing.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Thu, 9 Dec 2004, Pavel Machek wrote:
+On Wed, 8 Dec 2004, Martin J. Bligh wrote:
 
-> Hi!
->
-> > Standard Kernel on a 512 Cpu machine allocating 32GB with an increasing
-> > number of threads (and thus increasing parallellism of page faults):
-> >
-> >  Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
-> >  32   3    1    1.416s    138.165s 139.050s 45073.831  45097.498
-> ...
-> > Patched kernel:
-> >
-> > Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
-> >  32   3    1    1.098s    138.544s 139.063s 45053.657  45057.920
-> ...
-> > These number are roughly equal to what can be accomplished with the
-> > page fault scalability patches.
-> >
-> > Kernel patches with both the page fault scalability patches and
-> > prefaulting:
-> >
-> >  Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
-> >  32  10    1    4.103s    456.384s 460.046s 45541.992  45544.369
-> ...
-> >
-> > The fault rate doubles when both patches are applied.
-> ...
-> > We are getting into an almost linear scalability in the high end with
-> > both patches and end up with a fault rate > 3 mio faults per second.
->
-> Well, with both patches you also slow single-threaded case more than
-> twice. What are the effects of this patch on UP system?
+> I tried benchmarking it ... but processes just segfault all the time.
+> Any chance you could try it out on SMP ia32 system?
 
-The faults per second are slightly increased, so its faster. The last
-numbers are 10  repetitions and not 3. Do not look at the wall time.
+I tried it on my i386 system and it works fine. Sorry about the puny
+memory sizes (the system is a PIII-450 with 384k memory)
+
+clameter@schroedinger:~/pfault/code$ ./pft -t -b256000 -r3 -f1
+ Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
+  0   3    1    0.000s      0.004s   0.000s 37407.481  29200.500
+  0   3    2    0.002s      0.002s   0.000s 31177.059  27227.723
+
+clameter@schroedinger:~/pfault/code$ uname -a
+Linux schroedinger 2.6.10-rc3-bk3-prezero #8 SMP Wed Dec 8 15:22:28 PST
+2004 i686 GNU/Linux
+
+Could you send me your .config?
+
+
