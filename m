@@ -1,7 +1,7 @@
-From: Roman Hodek <roman@caldera.de>
-Date: Thu, 14 Mar 2002 14:19:46 +0000
+From: Bdale Garbee <bdale@gag.com>
+Date: Thu, 14 Mar 2002 17:09:35 +0000
 Subject: Re: [Linux-ia64] Does IDE DMA work?
-Message-Id: <marc-linux-ia64-105590701905280@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905282@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905278@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905278@msgid-missing>
@@ -10,17 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Has anyone got IDE DMA working? When I try it with 2.4.18 the
-> machine is hanging during partition table reading, with the disk
-> light constantly on. It seems like the kernel is not receiving any
-> answer from the disk.
+roman@caldera.de (Roman Hodek) writes:
 
-I noticed similar problems some time ago (2.4.13 AFAICR). Our test
-plan said "test with an IDE disk > 64GB", so we plugged one in and the
-kernel said nothing more than "DMA timeout". But it's not necessarily
-the kernel, it also could be that the IDE interface on the legacy I/O
-board isn't able to do all IDE features properly. Has anybody used it
-for devices other than CD-ROM and LS120?
+> But it's not necessarily
+> the kernel, it also could be that the IDE interface on the legacy I/O
+> board isn't able to do all IDE features properly. Has anybody used it
+> for devices other than CD-ROM and LS120?
 
-Roman
+I have an 80G Maxtor disk as hdc in my HP i2000 (BigSur) running Debian with 
+our current 2.4.17 kernel and it works fine.  I've also replaced the provided
+DVD-ROM with an HP dvd100i DVD+RW drive, which is also working ok.
+
+Bdale
 
