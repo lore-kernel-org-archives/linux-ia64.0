@@ -1,128 +1,68 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Thu, 18 Nov 2004 06:42:36 +0000
-Subject: HP Caliper available for Linux/ia64
-Message-Id: <20041118064235.GA22420@frankl.hpl.hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 19 Nov 2004 19:46:45 +0000
+Subject: page fault scalability patch V11 [6/7]: x86_64 atomic pte operations
+Message-Id: <Pine.LNX.4.58.0411191146110.24095@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain>
+  <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com> 
+ <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com> 
+ <419D581F.2080302@yahoo.com.au>  <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>
+  <419D5E09.20805@yahoo.com.au>  <Pine.LNX.4.58.0411181921001.1674@schroedinger.engr.sgi.com>
+ <1100848068.25520.49.camel@gaston> <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: torvalds@osdl.org, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-To Everyone,
+Changelog
+        * Provide atomic pte operations for x86_64
 
-I am happy to report that Caliper for Linux/ia64 is now available as
-a free download Beta. Read the following annoucement. It works only
-with 2.6.x (x > 5 but preferrably 2.6.9)  kernels. Caliper exploits
-the perfmon2 interface, therefore your kernel must have CONFIG_PERFMON
-turned on (which is the default).
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Caliper is a very powerful yet fairly easy to use monitoring tool which
-can be used to collect profiles or simple counts. When sampling it shows
-fully correlated assembly-level profiles. To collect a simple flat profile
-in a text file (here fp.out):
+Index: linux-2.6.9/include/asm-x86_64/pgalloc.h
+=================================--- linux-2.6.9.orig/include/asm-x86_64/pgalloc.h	2004-10-18 14:54:30.000000000 -0700
++++ linux-2.6.9/include/asm-x86_64/pgalloc.h	2004-11-19 08:17:55.000000000 -0800
+@@ -7,16 +7,26 @@
+ #include <linux/threads.h>
+ #include <linux/mm.h>
 
-	caliper fprof -o fp.out my_test_program
++#define PMD_NONE 0
++#define PGD_NONE 0
++
+ #define pmd_populate_kernel(mm, pmd, pte) \
+ 		set_pmd(pmd, __pmd(_PAGE_TABLE | __pa(pte)))
+ #define pgd_populate(mm, pgd, pmd) \
+ 		set_pgd(pgd, __pgd(_PAGE_TABLE | __pa(pmd)))
++#define pgd_test_and_populate(mm, pgd, pmd) \
++		(cmpxchg((int *)pgd, PGD_NONE, _PAGE_TABLE | __pa(pmd)) = PGD_NONE)
 
-Enjoy,
+ static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
+ {
+ 	set_pmd(pmd, __pmd(_PAGE_TABLE | (page_to_pfn(pte) << PAGE_SHIFT)));
+ }
 
-------------------------------------------------------------------------------
-From: Caliper Team
++static inline int pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
++{
++	return cmpxchg((int *)pmd, PMD_NONE, _PAGE_TABLE | (page_to_pfn(pte) << PAGE_SHIFT)) = PMD_NONE;
++}
++
+ extern __inline__ pmd_t *get_pmd(void)
+ {
+ 	return (pmd_t *)get_zeroed_page(GFP_KERNEL);
+Index: linux-2.6.9/include/asm-x86_64/pgtable.h
+=================================--- linux-2.6.9.orig/include/asm-x86_64/pgtable.h	2004-11-15 11:13:39.000000000 -0800
++++ linux-2.6.9/include/asm-x86_64/pgtable.h	2004-11-19 08:18:52.000000000 -0800
+@@ -437,6 +437,10 @@
+ #define	kc_offset_to_vaddr(o) \
+    (((o) & (1UL << (__VIRTUAL_MASK_SHIFT-1))) ? ((o) | (~__VIRTUAL_MASK)) : (o))
 
-Apologies if you receive notice of this multiple times.
++
++#define ptep_cmpxchg(__vma,__addr,__xp,__oldval,__newval) (cmpxchg(&(__xp)->pte, pte_val(__oldval), pte_val(__newval)) = pte_val(__oldval))
++#define __HAVE_ARCH_ATOMIC_TABLE_OPS
++
+ #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
+ #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_DIRTY
+ #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
 
-We would like to announce the start of an external beta program for the HP
-Caliper performance tool on Linux for Itanium.
-
-HP Caliper is a general purpose performance tool for applications on
-Itanium-based systems (see www.hp.com/go/caliper for an overview).  HP
-Caliper has been available on HP-UX for several years, and is now being made
-available as a beta release on Linux/Itanium systems.
-
-We are looking for interested users to help validate the effectiveness and
-quality of HP Caliper for Linux.
-
-If you are interested in trying this new HP Caliper for Linux, thanks very
-much!  But first, here are some known limitations and restrictions that you
-need to read:
-
-   1. HP Caliper for Linux will only run on a Linux kernel with version
-      2.6.5 or higher.  Note that the current release of RedHat Linux (RH3)
-      is based on a 2.4 Linux kernel, on which Caliper _will not_ run.
-
-      (HP Caliper has been successfully, though not thoroughly, tested on
-      beta releases of RedHat4, though there are some minor limitations on
-      such systems.)
-
-      The latest SUSE server Linux release (SLES9) _is_ based on a 2.6.x
-      Linux kernel, and so Caliper will run on such systems just fine.
-
-   2. HP Caliper requires the following minimum library versions:
-   
-         * glibc:     2.3.3
-         * libstdc++: 3.3.3
-         * libgcc:    3.3.3
-
-   3. The functionality of HP Caliper for Linux is a subset of Caliper on
-      HP-UX.  If you're familiar with Caliper on HP-UX, here is a list of
-      HP-UX Caliper features that are NOT currently available on Linux:
-
-      * The following configuration files are not shipped with HP Caliper
-        for Linux/Itanium:
-
-          * pbo
-          * func_count
-          * func_cover
-          * arc_count
-          * cgprof
-          * cpu_metrics
-
-      * The following options are not supported on Linux:
-
-          * --call-types 
-          * --pbo-data-type
-          * --flow-data
-          * --flow-log
-          * --scope=kernel
-          * --memory-usage
-          * --user-regions
-
-      * Auto-invocation of HP Caliper by running a binary is not supported
-        (requires HP-UX loader functionality).  This includes the following
-        unsupported --process arguments:
-
-          * autoinvoke
-          * autoinvoke-forks
-
-
-What we would like from you:
-
-   - Register for and download HP Caliper for Linux/Itanium
-   - Provide feedback to us, as early and as often as you can, on
-
-         + install problems
-         + incorrect output
-         + confusing documentation
-         + abnormal operation
-
-   - Provide final feedback to us by the end date of the beta program (TBD).
-
-What we'll do for you:
-
-   - Provide the initial version of HP Caliper for Linux, for you to use and
-     abuse
-   - Provide fast responses to problems, crashes, etc.
-   - Update the current beta version regularly, with all fixes incorporated
-
-If you are interested in helping us by becoming a beta tester for Caliper on
-Linux, simply point your browser to
-
-        http://www.hp.com/go/caliper
-
-and follow the directions to register for, and download, HP Caliper for
-Linux.
-
-Thanks very much!
-
--- 
-
--Stephane
