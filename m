@@ -1,35 +1,59 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 03 Jan 2005 20:30:29 +0000
-Subject: Re: Prezeroing V2 [3/4]: Add support for ZEROED and NOT_ZEROED free
-Message-Id: <Pine.LNX.4.58.0501031225130.22688@schroedinger.engr.sgi.com>
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 20 Jan 2005 16:12:59 +0000
+Subject: [patch 3/3] spinlock fix #3: type-checking spinlock primitives, x86
+Message-Id: <20050120161259.GB13812@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <fa.n0l29ap.1nqg39@ifi.uio.no> <fa.n04s9ar.17sg3f@ifi.uio.no>
- <E1ChwhG-00011c-00@be1.7eggert.dyndns.org> <87wtv464ty.fsf@deneb.enyo.de>
- <Pine.LNX.4.58.0412261511030.2353@ppc970.osdl.org>
-In-Reply-To: <Pine.LNX.4.58.0412261511030.2353@ppc970.osdl.org>
+References: <16878.9678.73202.771962@wombat.chubb.wattle.id.au> <20050119092013.GA2045@elte.hu> <16878.54402.344079.528038@cargo.ozlabs.ibm.com> <20050120023445.GA3475@taniwha.stupidest.org> <20050119190104.71f0a76f.akpm@osdl.org> <20050120031854.GA8538@taniwha.stupidest.org> <16879.29449.734172.893834@wombat.chubb.wattle.id.au> <Pine.LNX.4.58.0501200747230.8178@ppc970.osdl.org> <20050120160839.GA13067@elte.hu> <20050120161116.GA13812@elte.hu>
+In-Reply-To: <20050120161116.GA13812@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Linus Torvalds <torvalds@osdl.org>
-Cc: Florian Weimer <fw@deneb.enyo.de>, 7eggert@gmx.de, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, Chris Wedgwood <cw@f00f.org>, Andrew Morton <akpm@osdl.org>, paulus@samba.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, dsw@gelato.unsw.edu.au, benh@kernel.crashing.org, linux-ia64@vger.kernel.org, hch@infradead.org, wli@holomorphy.com, jbarnes@sgi.com
 
-On Sun, 26 Dec 2004, Linus Torvalds wrote:
 
-> Anyway, at this point I think the most interesting question is whether it
-> actually improves any macro-benchmark behaviour, rather than just a page
-> fault latency tester microbenchmark..
+[this patch didnt change due to can_lock but i've resent it so that the
+patch stream is complete.]
 
-Any suggestion as to what macro-benchmark would allow that kind of
-testing? I tried lmbench but it immediately writes to the complete page
-that was allocated. I tried to vary the number of cache cells touched
-after an allocation of an prezeroed page. Unsurprisingly it degenerates to
-regular behavior if all cache lines are touched. So we would need a
-benchmar that allows sparse memory use testing and preferably is able to
-also allow SMP tests. I will test with some of the typical apps running
-on  Altix machines but those are extremely heavy in terms of memory use
-and  will likely be as positive as my microbenches.
+--
+this patch would have caught the bug in -BK-curr (that patch #1 fixes),
+via a compiler warning. Test-built/booted on x86.
 
-BTW my bench does simulate the typical behavior of such an app using a
-sparse array and allows the configuration of the number of cache lines
-per page to touch.
+	Ingo
 
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+
+--- linux/include/asm-i386/spinlock.h.orig
++++ linux/include/asm-i386/spinlock.h
+@@ -36,7 +36,10 @@ typedef struct {
+ 
+ #define SPIN_LOCK_UNLOCKED (spinlock_t) { 1 SPINLOCK_MAGIC_INIT }
+ 
+-#define spin_lock_init(x)	do { *(x) = SPIN_LOCK_UNLOCKED; } while(0)
++static inline void spin_lock_init(spinlock_t *lock)
++{
++	*lock = SPIN_LOCK_UNLOCKED;
++}
+ 
+ /*
+  * Simple spin lock operations.  There are two variants, one clears IRQ's
+@@ -45,8 +48,17 @@ typedef struct {
+  * We make no fairness assumptions. They have a cost.
+  */
+ 
+-#define spin_is_locked(x)	(*(volatile signed char *)(&(x)->lock) <= 0)
+-#define spin_unlock_wait(x)	do { barrier(); } while(spin_is_locked(x))
++static inline int spin_is_locked(spinlock_t *lock)
++{
++	return *(volatile signed char *)(&lock->lock) <= 0;
++}
++
++static inline void spin_unlock_wait(spinlock_t *lock)
++{
++	do {
++		barrier();
++	} while (spin_is_locked(lock));
++}
+ 
+ #define spin_lock_string \
+ 	"\n1:\t" \
