@@ -1,61 +1,88 @@
-From: Matt_Domsch@Dell.com
-Date: Thu, 02 May 2002 16:31:46 +0000
-Subject: [Linux-ia64] efibootmgr 0.4.0 released
-Message-Id: <marc-linux-ia64-105590701905545@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Thu, 16 May 2002 07:58:47 +0000
+Subject: [Linux-ia64] [Patch] add pfn_pte() etc for 2.5.15
+Message-Id: <marc-linux-ia64-105590701905581@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I've released efibootmgr 0.4.0 final.
-It can be downloaded from http://domsch.com/linux/ia64/efibootmgr/
-   efibootmgr-0.4.0.tar.gz
-   efibootmgr-0.4.0.tar.gz.sign
+Hi,
+	To compile 2.5.15 the functions pfn_pte(), pte_pfn() etc., are
+needed.
 
-Changes since version 0.3.4:
-- Added some printfs to compare_gpts().
-- Make sure partition number arg is in the GPT disk.
-- Added a few more _FILE_OFFSET_BITS defines where needed
-- Added syncs to make tarball target so NFS is current and CVS dirs get
-deleted before the tarball is made.
-- Added a few __leXX_to_cpu() calls in code currently commented out in gpt.c
-- conversion to GPT code in post-2.4.18 and post-2.5.7 kernels.
-- added manpage contributed by dannf@fc.hp.com - needs a run through
-docbook2man yet...
-- BLKGETSIZE64 is fixed in 2.4.18-pre8 and 2.5.4-pre3.  Wait a bit longer
-before using though.
-- added list_for_each_safe() routine.  It's needed in the boot
-var deletion routine, though it was already breaking out once found.
-- changed struct list_head to list_t
-- Changed PROC_DIR_EFI to PROC_DIR_EFI_VARS
-- write_variable() now searches /proc/efi/vars for a variable that's not
-  the one being written.  The EFI 1.1 sample implementation changed the
-  name of the "victim" being written to (was Efi-xxxxx, now EFI-xxxxx), so
-  previous versions of efibootmgr don't work with the new firmware.  This
-  should fix that up.
-- Added test for valid PMBR, similar to parted and the kernel.
-- Added test for returning size of block device as a u64.
-- Added test for returning sector size as int, and use that.
-- Changed GPT struct and member names to be more Linux-like.
-- added -g option to force disk with invalid PMBR to be treated as GPT
-anyhow.
+Appended is my attempt at defining these.  It seems to work on the
+simulator.
 
-
-This release is known to work on newer firmwares which do not have an
-"Efi-(guid)" EFI Variable, which previous versions relied upon, and is the
-primary reason for this release.  I recommend this release for all
-distributions.
-
-Feedback and patches appreciated.
-
-Thanks,
-Matt
-
---
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
-#1 US Linux Server provider for 2001!
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.538   -> 1.539  
+#	include/asm-ia64/page.h	1.6     -> 1.7    
+#	include/asm-ia64/pgtable.h	1.12    -> 1.13   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 02/05/16	peterc@wombat.chubb.wattle.id.au	1.539
+# Use pfn_xxx and pte_pfn functions for page table entry manipulations.
+# --------------------------------------------
+#
+diff -Nru a/include/asm-ia64/page.h b/include/asm-ia64/page.h
+--- a/include/asm-ia64/page.h	Thu May 16 17:58:23 2002
++++ b/include/asm-ia64/page.h	Thu May 16 17:58:23 2002
+@@ -81,7 +81,7 @@
+ # define virt_to_page(kaddr)	(mem_map + MAP_NR_DENSE(kaddr))
+ # define page_to_phys(page)	((page - mem_map) << PAGE_SHIFT)
+ #endif
+-#define VALID_PAGE(page)	((page - mem_map) < max_mapnr)
++
+ 
+ typedef union ia64_va {
+ 	struct {
+@@ -122,6 +122,13 @@
+ 		order = 0;
+ 	return order;
+ }
++
++#define pfn_to_page(pfn)	(mem_map + (pfn))
++#define page_to_pfn(page)	((unsigned long)((page) - mem_map))
++
++#define pfn_valid(pfn)		((pfn) < max_mapnr)
++#define virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
++
+ 
+ # endif /* __KERNEL__ */
+ #endif /* !__ASSEMBLY__ */
+diff -Nru a/include/asm-ia64/pgtable.h b/include/asm-ia64/pgtable.h
+--- a/include/asm-ia64/pgtable.h	Thu May 16 17:58:23 2002
++++ b/include/asm-ia64/pgtable.h	Thu May 16 17:58:23 2002
+@@ -209,18 +209,16 @@
+ /*
+  * Conversion functions: convert a page and protection to a page entry,
+  * and a page entry and page directory to the page they refer to.
++ * also a page-frame-number and protection to a page table entry, 
++ * and vice versa.
+  */
+-#define mk_pte(page,pgprot)						\
+-({									\
+-	pte_t __pte;							\
+-									\
+-	pte_val(__pte) = (page_to_phys(page)) | pgprot_val(pgprot);	\
+-	__pte;								\
+-})
+ 
+-/* This takes a physical page address that is used by the remapping functions */
+-#define mk_pte_phys(physpage, pgprot) \
+-({ pte_t __pte; pte_val(__pte) = physpage + pgprot_val(pgprot); __pte; })
++#define pfn_pte(pfn,prot)  ({ pte_t __pte; pte_val(__pte) = ((pfn)<<PAGE_SHIFT) + pgprot_val(prot); __pte; })
++
++#define mk_pte(page, pgprot) pfn_pte(page_to_pfn(page), (pgprot))
++
++/* pte_pfn -- extract page frame number from pte */
++#define pte_pfn(pte) ((pte_val(pte) & _PFN_MASK) >>PAGE_SHIFT)
+ 
+ #define pte_modify(_pte, newprot) \
+ 	(__pte((pte_val(_pte) & _PAGE_CHG_MASK) | pgprot_val(newprot)))
 
