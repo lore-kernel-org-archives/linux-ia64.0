@@ -1,71 +1,50 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 30 Mar 2002 00:11:23 +0000
-Subject: Re: [Linux-ia64] reading ski trace files
-Message-Id: <marc-linux-ia64-105590701905346@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Tue, 05 Mar 2002 00:36:19 +0000
+Subject: [Linux-ia64] simeth problem...
+Message-Id: <marc-linux-ia64-105590701905218@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905274@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905274@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 14 Mar 2002 17:48:16 +1100, Matt Chapman <matthewc@cse.unsw.edu.au> said:
+Hi,
+	I'm having problems with the simulated ethernet interface.
 
-  Matt> Just wondering what tool one is meant to use to read the
-  Matt> traces produced by ski?  A hexdump is vaguely helpful, but the
-  Matt> file format suggests that it's intended to be read by some
-  Matt> automated tool :)
+From within the simulator, I can ping any machine on the local network
+except the machine the simulator is being hosted on.
 
-OK, you can now get the following file:
+I can ping the simulated ethernet from any machine on the network
+except the one the simulator is hosted on.
 
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/trcread-x86-020329.tar.gz
+I'm using kernel 2.4.18 in each case.
 
-If you extract it, you'll get an x86 binary called "trcread".  This
-program will let you print the trace files collected by ski.  The
-trace file contains tons of information and the output of "trcread" is
-not really easy to interpret (partly due to lack of documentation).
-However, if you just want to generate a memory trace, I'd recommend to
-use the -d option.  Interspersed with the normal output, this will
-output lines of the form:
+Does anyone have any ideas?
 
-	mem:FOO
+The simulator is running on the machine with address 192.168.77.9
 
-There is one such line for each memory access in the trace.  FOO is a
-line describing the memory access in a format compatible with the
-Dinero IV cache simulator.  Briefly, this format is as follows:
+sh-2.05a# ifconfig
+Warning: cannot open /proc/net/dev (No such file or directory). Limited output.
+eth0      Link encap:Ethernet  HWaddr 00:A0:CC:60:B4:87  
+          inet addr:192.168.77.13  Bcast:192.168.77.255  Mask:255.255.255.0
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          Interrupt:49 
 
- mem:i 00000000001014e0 10
-	=> read 16 bytes of instruction from address 00000000001014e0
- mem:r 00000000001035b0 8
-	=> read 8 bytes of data from address 00000000001035b0
- mem:w 0000000000103688 4
-	=> write 4 bytes of data to address 0000000000103688
- mem:m e0000000004dfc20 1
-	=> prefetch cache line from address e0000000004dfc20 (the 1 byte
-	   "size" is meaningless)
+sh-2.05a# ping 192.168.77.9
+PING 192.168.77.9 (192.168.77.9): 56 data bytes
 
-Semaphore instructions (fetchadd etc.) are output like regular stores
-(i.e., there is no separate record for the implied atomic read).
+--- 192.168.77.9 ping statistics ---
+8 packets transmitted, 0 packets received, 100% packet loss
+sh-2.05a# ping 192.168.77.10
+PING 192.168.77.10 (192.168.77.10): 56 data bytes
+64 bytes from 192.168.77.10: icmp_seq=0 ttl%5 time.7 ms
+64 bytes from 192.168.77.10: icmp_seq=1 ttl%5 time=7.6 ms
+64 bytes from 192.168.77.10: icmp_seq=2 ttl%5 time=7.6 ms
+64 bytes from 192.168.77.10: icmp_seq=3 ttl%5 time=7.6 ms
+64 bytes from 192.168.77.10: icmp_seq=4 ttl%5 time=7.6 ms
 
-As an example, to get a memory trace with ski, you could something
-along the lines of:
-
-	$ ski arch/ia64/boot/bootloader vmlinux single
-	* trfile /tmp/foo.trace		# set trace file
-	* trace 1			# turn on tracing
-	* run				# run time program for a while
-	* trace 0			# turn tracing off
-
-Then you could get the Dinero records with:
-
-	$ trcread -d -i /tmp/foo.trace | grep '^mem:'
-
-Needless to say, this program is provided as is, with no warranty,
-etc, etc.  But if you find a bug or have a question, please do send
-mail to lia64-sim@linux.hpl.hp.com.
-
-Thanks,
-
-	--david
+--- 192.168.77.10 ping statistics ---
+5 packets transmitted, 5 packets received, 0% packet loss
+round-trip min/avg/max = 7.6/9.0/14.7 ms
+sh-2.05a# 
 
