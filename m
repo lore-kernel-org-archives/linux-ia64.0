@@ -1,24 +1,21 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Fri, 06 Apr 2001 20:09:43 +0000
-Subject: Re: [Linux-ia64] New gnu-efi package and new boot loader availabl e
-Message-Id: <marc-linux-ia64-105590693005380@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Thu, 26 Apr 2001 15:03:13 +0000
+Subject: [Linux-ia64] Re: malloc problems
+Message-Id: <marc-linux-ia64-105590693005474@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005375@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005375@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Apr 06, 2001 at 12:55:03PM -0500, Dupuis, Don wrote:
-> Where do I get the recent binutils.  My new kernel has trouble booting on
-> RedHat Fisher.
+Donny Cooper (dcooper@hstc.necsyl.com) said: 
+> dynamic_area = (unsigned char *) malloc ( membytes );
+> printf(" dyn_area = %x %lx, mem= %x \n",dynamic_area,dynamic_area,membytes);
 > 
-Looks like the new binutils are available at the Redhat FTP site:
-	ftp://sources.redhat.com/pub/binutils/releases/binutils-2.11.tar.bz2
+> Result from Tom: (1-way BigSur)
+> dyn_area = 40000010 40000010, mem= 2000018
 
-Note that the new ELILO will NOT boot the kernel that comes with Redhat fisher.
+It looks like you forgot a prototype for malloc.
 
---
--Stephane
+Bill
 
