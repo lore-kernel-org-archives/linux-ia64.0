@@ -1,92 +1,74 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Thu, 08 Aug 2002 05:08:30 +0000
-Subject: [Linux-ia64] Re: A comment on the 2.5.29 patch
-Message-Id: <marc-linux-ia64-105590701905925@msgid-missing>
+From: shiva shankar chetan <chetan@uiuc.edu>
+Date: Mon, 26 Aug 2002 23:54:34 +0000
+Subject: [Linux-ia64] error during kernel compile
+Message-Id: <marc-linux-ia64-105590701905980@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905924@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905924@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+Hi,
 
->>>>> On Thu, 8 Aug 2002 13:38:03 +1000, Peter Chubb <peter@chubb.wattle.id.au> said:
-Peter> Hi David,
+I have been trying to compile the kernel but then it throws out the
+below error. I am compiling kernel 2.4.17 and have gcc 2.96. I am
+doing a
+make mrproper
+make menuconfig
+make dep
+make
 
-Peter> I can't see the point of moving the declaration of extern
-Peter> irq_desc_t irq_desc [NR_IRQS]; from include/linux/irq.h into
-Peter> asm-i386/hw_irq.,
+Please let me know whats going wrong.
 
-David> The idea is simple: remove irq_desc[] and replace it with an
-David> irq_desc() macro, so that platforms have the option to
-David> implement the table any way they see fit (e.g., distributed
-David> across NUMA nodes).
+bash-2.05$ make
+scripts/split-include include/linux/autoconf.h include/config
+gcc -D__KERNEL__ -I/mnt/ironman/Projects/Chetan/linux-2.4.17/include -Wall
+-Wstrict-prototypes -Wno-trigraphs -O2 -fomit-frame-pointer
+-fno-strict-aliasing -fno-common -pipe  -ffixed-r13
+-mfixed-range=F10-f15,f32-f127 -falign-functions2 -mconstant-gp  -c -o
+init/main.o init/main.c
+In file included from
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/pagemap.h:16,
+                 from
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/locks.h:8,
+                 from
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/devfs_fs_kernel.h:6,
+                 from init/main.c:16:
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/highmem.h: In
+function `clear_user_highpage':
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/highmem.h:49: too
+few arguments to function `clear_user_page'
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/highmem.h: In
+function `copy_user_highpage':
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/highmem.h:91: too
+few arguments to function `copy_user_page'
+In file included from
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/irq.h:69,
+                 from
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/asm/hardirq.h:12,
+                 from
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/interrupt.h:45,
+                 from
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/asm/smplock.h:6,
+                 from
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/smp_lock.h:16,
+                 from init/main.c:24:
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/asm/hw_irq.h: In
+function `__ia64_irq_desc':
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/asm/hw_irq.h:94:
+arithmetic on pointer to an incomplete type
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/asm/hw_irq.h: At top
+level:
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/asm/hw_irq.h:122:
+`irq_desc' redeclared as different kind of symbol
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/linux/irq.h:67: previous
+declaration of `irq_desc'
+/mnt/ironman/Projects/Chetan/linux-2.4.17/include/asm/hw_irq.h:122:
+warning: `irq_desc' was declared `extern' and later `static'
+make: *** [init/main.o] Error 1
 
-I see...  but then the change is more pervasive than here
+Thanks
+Chetan
 
-Peter> And my remaining comment is that I'm not sure why the changes
-Peter> to the softirq() names were made.  A rose by any name would
-Peter> smell as sweet...
-
-David> Specifics please?  There are no just-for-fun renames, but
-David> again, it could be a bad merge or something along those lines.
-
-sorry, I meant changes in softirq.c to yhe
-softirq_pending(cpu)->local_softirq_pending(). 
-
-diff -Nru a/include/linux/irq_cpustat.h b/include/linux/irq_cpustat.h
---- a/include/linux/irq_cpustat.h	Thu Aug  1 01:08:13 2002
-+++ b/include/linux/irq_cpustat.h	Thu Aug  1 01:08:13 2002
-@@ -33,5 +33,12 @@
- #define ksoftirqd_task(cpu)	__IRQ_STAT((cpu), __ksoftirqd_task)
-   /* arch dependent irq_stat fields */
- #define nmi_count(cpu)		__IRQ_STAT((cpu), __nmi_count)		/* i386, ia64 */
-+
-+#define local_hardirq_trylock()	hardirq_trylock(smp_processor_id())
-+#define local_hardirq_endlock()	hardirq_trylock(smp_processor_id())
-+#define local_irq_enter(irq)	irq_enter(smp_processor_id(), (irq))
-+#define local_irq_exit(irq)	irq_exit(smp_processor_id(), (irq))
-+#define local_softirq_pending()	softirq_pending(smp_processor_id())
-+#define local_ksoftirqd_task()	ksoftirqd_task(smp_processor_id())
-
-----
-
-
-* local_hardirq_{end,try}lock() are not used anywhere (yet) although
-they used to be.
-* local_irq_{enter,exit}() is not used anywhere I could find.
-* In kernel/softirq.c smp_processor_id() is already assigned to a
-local variable
-
-@@ -69,7 +72,7 @@
- 	local_irq_save(flags);
- 	cpu = smp_processor_id();
- 
--	pending = softirq_pending(cpu);
-+	pending = local_softirq_pending();
- 
- 	if (pending) {
- 		struct softirq_action *h;
-
-etc.
-
-There's another definition of local_softirq_pending() at
-./include/asm-ia64/hardirq.h:24:#define local_softirq_pending() \
-         (local_cpu_data->softirq_pending)
-
-likewise for local_ksoftirqd_task().
-
-There's a chance that the vesion in hardirq.h could be more efficient,
-but it won't necessarily work on other architectures.
-
-Anyway, I *know* that the patch is WIP -- that's why I thought it was
-worth giving some feedback early (before the kernel has moved on
-another 10 versions, and the patch is no longer relevant)
-
---
-Dr Peter Chubb				    peterc@gelato.unsw.edu.au
-You are lost in a maze of BitKeeper repositories, all almost the same.
 
 
