@@ -1,197 +1,65 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 13 Mar 2003 18:05:22 +0000
+From: Mario Smarduch <cms063@email.mot.com>
+Date: Thu, 13 Mar 2003 20:44:27 +0000
 Subject: Re: [Linux-ia64] page size > 16KB
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="pg9qUZ12Z9"
-Message-Id: <marc-linux-ia64-105590709806079@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709806083@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709806057@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709806057@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---pg9qUZ12Z9
-Content-Type: text/plain; charset=us-ascii
-Content-Description: message body text
-Content-Transfer-Encoding: 7bit
+David Mosberger wrote:
 
->>>>> On Wed, 12 Mar 2003 13:51:16 -0600, Mario Smarduch <cms063@email.mot.com> said:
+> >>>>> On Wed, 12 Mar 2003 13:51:16 -0600, Mario Smarduch <cms063@email.mot.com> said:
+>
+>   Mario> Hi David, I'm very curious about your statement regarding
+>   Mario> reproducible results - a desirable attribute for many
+>   Mario> applications in our case soft real-time predictability. With
+>   Mario> the caches on Itanium2 being highly associative, did you
+>   Mario> notice a dramatic change in reproducibility as you did in TLB
+>   Mario> efficiency? This is assuming a locked memory intensive
+>   Mario> application or this was too long ago for you to remember :)
+>
+> Heh, I barely remember what I ate for dinner last night, so I
+> certainly don't remember what that application was about... ;-)
+>
+> Apps with large arrays certainly can see significant variation due to
+> lack of page coloring in the kernel, even with high associativity.  I
+> ran a Monte Carlo simulation on this a while ago and attached the
+> results below.
+>
+> As you can see, high associativity keeps page-coloring effects away up
+> until you occupy about 1.5-2MB (out of a 3MB cache).  So if you have,
+> say, a 3MB array, you'd clearly expect to see page-coloring effects.
 
-  Mario> Hi David, I'm very curious about your statement regarding
-  Mario> reproducible results - a desirable attribute for many
-  Mario> applications in our case soft real-time predictability. With
-  Mario> the caches on Itanium2 being highly associative, did you
-  Mario> notice a dramatic change in reproducibility as you did in TLB
-  Mario> efficiency? This is assuming a locked memory intensive
-  Mario> application or this was too long ago for you to remember :)
+David,
+    thanks for pulling this up -  its very interesting. For 12-way associtivity
+64KB pg size does stand out quite a bit from 4,8,16KB, although the effect
+appears to be more visual because 32KB is not supported.
 
-Heh, I barely remember what I ate for dinner last night, so I
-certainly don't remember what that application was about... ;-)
+>
+>
+> The graph also shows that larger page sizes somewhat reduce the
+> negative effets of lack of page-coloring (not entirely intuitive, but
+> it's pretty complex as to what's going on, so it's not surprising that
+> intuition doesn't get us very far).
 
-Apps with large arrays certainly can see significant variation due to
-lack of page coloring in the kernel, even with high associativity.  I
-ran a Monte Carlo simulation on this a while ago and attached the
-results below.
+yes its a very painful graph to look at :)
 
-As you can see, high associativity keeps page-coloring effects away up
-until you occupy about 1.5-2MB (out of a 3MB cache).  So if you have,
-say, a 3MB array, you'd clearly expect to see page-coloring effects.
+- Mario.
 
-The graph also shows that larger page sizes somewhat reduce the
-negative effets of lack of page-coloring (not entirely intuitive, but
-it's pretty complex as to what's going on, so it's not surprising that
-intuition doesn't get us very far).
+>
+>
+> I should update the graph for Madison some day.
+>
+>         --david
+>
+>   ------------------------------------------------------------------------
+>                   Name: coll.pdf
+>    coll.pdf       Type: Portable Document Format (application/pdf)
+>               Encoding: base64
+>            Description: coll.pdf
 
-I should update the graph for Madison some day.
-
-	--david
-
-
---pg9qUZ12Z9
-Content-Type: application/pdf
-Content-Description: coll.pdf
-Content-Disposition: attachment;
-	filename="coll.pdf"
-Content-Transfer-Encoding: base64
-
-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
-5dCsLI2Oaplo2vqVmI7k1TLh3zgQLFysXTLapKi5ha5lrV1RLRNuodC4RKxC5jGQWfFyvQuXyKqW
-YduVxewlU2fzaplYi6TrYEK+GdUySaYEeAzw2ItqmZCLhT4mXOKolgm5UqgFws+0olqWrSrpulme
-VBS8WpaZeoaGlmfdrZ9WHQk9LU/T1iwG8rSW0KiUzF0ty9YK6TpbtvZHr5YZLQzNLVv7o1fLMlOQ
-0N+MXka1zFq7QtXI3Voqxf8yDPuguERr11zVMixtWRod6G5b1bLMbtPQ63KzNkqLgWzVTVdKciu7
-FTJbC7LreLlZRc1iILOLNjQ9pDljVctybbr0PbzStqpluR71JZMmRbUsl7nbE5Ei5VUtyzgnlwaY
-edZEtQwZiy49EAy0r2pZLtb2ZzGQTT/0allm/hk6YWb8R7UsM/5DM8zW2ujVssz4D/0wM9xXtQzg
-slUiuVr9mEMuXVHkVMuE/oTGyFxxVctIj5femO1vDPAY4E+9tMfXt+X1l9+jL+3x19ry1GbcJbO8
-m/P69X16f/l9+hIgTRo63yxvWYaSy5JQsOxb7ihypAlSvyUjkDIvyo83tOi50e1FpUvZtNdpbFBU
-LPuik2w02dSPZbVF0/C6F6VitrfpD5vhFlUhBVu0ou5vuguhaaXr9h3xSq2Zhq00OOeTsuZ60kv7
-ajRSQdorbbOvCiPFEj3pEI/Flbrw2F1pBht9NKT4uZtdcAS3fdR2+5LHj0U72uIII+qt46bYlxh+
-NFg3fMA4P5hbkEv6EPCYyVg2lFmh3WGnER4DItjcsLYz519bj+GytkluekL692/+Dx5sABplbmRz
-dHJlYW0KZW5kb2JqCjcgMCBvYmoKNjkzOQplbmRvYmoKMTAgMCBvYmoKPDwvUjQKNCAwIFI+Pgpl
-bmRvYmoKMTEgMCBvYmoKPDwvUjkKOSAwIFI+PgplbmRvYmoKNSAwIG9iago8PC9UeXBlL1BhZ2Uv
-TWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovUm90YXRlIDkwL1BhcmVudCAzIDAgUgovUmVzb3VyY2Vz
-PDwvUHJvY1NldFsvUERGIC9UZXh0XQovRXh0R1N0YXRlIDEwIDAgUgovRm9udCAxMSAwIFIKPj4K
-L0NvbnRlbnRzIDYgMCBSCj4+CmVuZG9iagozIDAgb2JqCjw8IC9UeXBlIC9QYWdlcyAvS2lkcyBb
-CjUgMCBSCl0gL0NvdW50IDEKPj4KZW5kb2JqCjEgMCBvYmoKPDwvVHlwZSAvQ2F0YWxvZyAvUGFn
-ZXMgMyAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwvVHlwZS9FeHRHU3RhdGUvTmFtZS9SNC9UUi9J
-ZGVudGl0eT4+CmVuZG9iago5IDAgb2JqCjw8L1N1YnR5cGUvVHlwZTEvQmFzZUZvbnQvSGVsdmV0
-aWNhL1R5cGUvRm9udC9OYW1lL1I5Pj4KZW5kb2JqCjggMCBvYmoKPDwvVHlwZS9Gb250RGVzY3Jp
-cHRvci9Gb250TmFtZS9IZWx2ZXRpY2E+PgplbmRvYmoKMiAwIG9iago8PC9Qcm9kdWNlciAoR05V
-IEdob3N0c2NyaXB0IDYuNTMpCj4+ZW5kb2JqCnhyZWYKMCAxMgowMDAwMDAwMDAwIDY1NTM1IGYg
-CjAwMDAwMDczMjQgMDAwMDAgbiAKMDAwMDAwNzU1NyAwMDAwMCBuIAowMDAwMDA3MjY1IDAwMDAw
-IG4gCjAwMDAwMDczNzIgMDAwMDAgbiAKMDAwMDAwNzEwNCAwMDAwMCBuIAowMDAwMDAwMDE1IDAw
-MDAwIG4gCjAwMDAwMDcwMjQgMDAwMDAgbiAKMDAwMDAwNzQ5OCAwMDAwMCBuIAowMDAwMDA3NDI3
-IDAwMDAwIG4gCjAwMDAwMDcwNDQgMDAwMDAgbiAKMDAwMDAwNzA3NCAwMDAwMCBuIAp0cmFpbGVy
-Cjw8IC9TaXplIDEyIC9Sb290IDEgMCBSIC9JbmZvIDIgMCBSCj4+CnN0YXJ0eHJlZgo3NjA5CiUl
-RU9GCg==
---pg9qUZ12Z9--
 
