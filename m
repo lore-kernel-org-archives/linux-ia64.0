@@ -1,31 +1,62 @@
-From: Jim Wilson <wilson@redhat.com>
-Date: Mon, 03 Feb 2003 20:55:18 +0000
-Subject: Re: [Linux-ia64] Question about .opd section
-Message-Id: <marc-linux-ia64-105590709805802@msgid-missing>
+From: Andrew Morton <akpm@digeo.com>
+Date: Tue, 18 Feb 2003 10:43:35 +0000
+Subject: Re: [Discontig-devel] Re: [Linux-ia64] Re: 2.5.59 & mmap_sem
+Message-Id: <marc-linux-ia64-105590709805868@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805798@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805798@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-binutils@sources.redhat.com is a better place to ask questions like this.
-This is where the binutils experts hang out.
+William Lee Irwin III <wli@holomorphy.com> wrote:
+>
+> On Tue, Feb 18, 2003 at 09:46:31AM +0100, Xavier Bru wrote:
+> > Thanks for your answers.
+> > You are right, we do not need a page structure for mapping /dev/mem in 
+> > IO space (I am not a mm expert :-).
+> > Here after a possible patch that allows the Xserver running on the NUMA
+> > platform. (We had the same problem on Azusa).
+> 
+> Looks perfectly reasonable to me. Other discontig/NUMA implementations
+> are likely to run into the same issue.
+> 
+> You might want to send this on to lkml and cc: akpm, he's pretty much
+> the final destination wrt. VM patches and 2.5.
+> 
 
-I found a comment in the IA-64 bfd support that says .opd contains "official
-procedure descriptors".  I don't know where the terminology came from though.
+I'd prefer to do this at the vma level if poss.  Given that mmap_mem()
+has set VM_RESERVED against the VMA, it should be sufficient to do
 
-The function descriptors are required for executing IA-64 code, so this is
-definitely a normal section when using the GNU tools.  The section is
-required if present.  The section is created by the linker, if one of the
-object files being linked uses a relocation type that requires that a
-function descriptor be created, e.g. LTOFF_FPTR22.  The 2-word function
-descriptor goes in the .opd section, the address of the descriptor goes in
-the GOT, and the gcc generated code loads the address from the GOT.
+diff -puN mm/memory.c~a mm/memory.c
+--- 25/mm/memory.c~a	2003-02-18 02:40:01.000000000 -0800
++++ 25-akpm/mm/memory.c	2003-02-18 02:40:18.000000000 -0800
+@@ -211,6 +211,9 @@ int copy_page_range(struct mm_struct *ds
+ 	unsigned long cow;
+ 	struct pte_chain *pte_chain = NULL;
+ 
++	if (vma->vm_flags & (VM_RESERVED|VM_IO))
++		return 0;
++
+ 	if (is_vm_hugetlb_page(vma))
+ 		return copy_hugetlb_page_range(dst, src, vma);
+ 
+diff -puN fs/hugetlbfs/inode.c~a fs/hugetlbfs/inode.c
+--- 25/fs/hugetlbfs/inode.c~a	2003-02-18 02:42:47.000000000 -0800
++++ 25-akpm/fs/hugetlbfs/inode.c	2003-02-18 02:42:55.000000000 -0800
+@@ -63,7 +63,7 @@ static int hugetlbfs_file_mmap(struct fi
+ 	down(&inode->i_sem);
+ 
+ 	UPDATE_ATIME(inode);
+-	vma->vm_flags |= VM_HUGETLB | VM_RESERVED;
++	vma->vm_flags |= VM_HUGETLB;
+ 	vma->vm_ops = &hugetlb_vm_ops;
+ 	ret = hugetlb_prefault(mapping, vma);
+ 	len = (loff_t)(vma->vm_end - vma->vm_start) +
 
-I don't have easy access to any other IA-64 compiler, so I can't comment on
-how other compilers handle this.
+_
+ 
 
-Jim
+The semantics (and usage!) of the VM_foo flags are rather vague.  It needs
+definiton, and an audit.
+
 
