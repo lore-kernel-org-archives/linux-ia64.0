@@ -1,7 +1,7 @@
-From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
-Date: Wed, 19 May 2004 09:30:39 +0000
+From: Paul Jackson <pj@sgi.com>
+Date: Wed, 19 May 2004 10:22:59 +0000
 Subject: Re: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <200405190930.i4J9UfuV001865@mtv-vpn-hw-mfl-1.corp.sgi.com>
+Message-Id: <20040519032259.20bb47da.pj@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040513150842.22F5.YGOTO@us.fujitsu.com>
 In-Reply-To: <20040513150842.22F5.YGOTO@us.fujitsu.com>
@@ -10,21 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Also, I suspect that certain critical system resources (kernel arrays)
-> are sized according to how many cpus or how much memory or such is
-> available.
-> 
-> Such placement and sizing can adapt to a few cpus and nodes coming and
-> going later on in the life of that system boot, but having what looks
-> like a one-lung system turn into a 512 cpu monster sometime after init
-> has gone multi-user could result in considerable misconfiguraiton.
+Matthias wrote:
+> But doesn't a true hotplug implementation ... require ... "on-the-fly scaling" ?
 
-I also wondered about this. But doesn't a true hotplug implementation
-used for partitions (or cell) reconfiguration require this flexibility
-for "on-the-fly scaling" ?
+You'd have to ask the hotplug folks that.  I'd imagine that they will
+have some work to do before they can go from one to 512 cpus in a single
+partition boot and still keep a sensible configuration.
 
-Thanks
-
-Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
-Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
-
+-- 
+                          I won't rest till it's the best ...
+                          Programmer, Linux Scalability
+                          Paul Jackson <pj@sgi.com> 1.650.933.1373
