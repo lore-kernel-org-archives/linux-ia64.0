@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 06 Jul 2004 23:43:30 +0000
+Date: Tue, 06 Jul 2004 23:45:07 +0000
 Subject: Re: BUG 2.6.7 hangs on boot (rx2600)
-Message-Id: <16619.14626.608748.32977@napali.hpl.hp.com>
+Message-Id: <16619.14724.1660.14476@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040622061505.GA23075@cup.hp.com>
 In-Reply-To: <20040622061505.GA23075@cup.hp.com>
@@ -10,27 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 30 Jun 2004 09:17:18 -0700, Jesse Barnes <jbarnes@engr.sgi.com> said:
+>>>>> On Wed, 30 Jun 2004 11:11:04 -0700, Jesse Barnes <jbarnes@engr.sgi.com> said:
 
-  Jesse> On Tuesday, June 29, 2004 4:18 pm, David Mosberger wrote:
-  >> >>>>> On Tue, 29 Jun 2004 11:19:34 -0700, "Chen, Kenneth W"
-  >> >>>>> <kenneth.w.chen@intel.com> said:
+  >> Looks like there are more places where kernel does "virt -> phys -> virt".
+  >> And conversion from phys to virt is setting 3 msb to 1.
 
-  Ken> Looks like there are more places where kernel does "virt ->
-  Ken> phys -> virt".  And conversion from phys to virt is setting 3
-  Ken> msb to 1.
+  Jesse> Yep, that looks like a problem.  The kernel hangs right after
+  Jesse> the local_flush_tlb_all in ia64_tlb_init, and if I comment it
+  Jesse> out I get a "Unable to handle kernel paging request at
+  Jesse> virtual address a000003004289f70" which, on sn2, looks like a
+  Jesse> virt -> phys -> virt conversion (i.e. 0x3004289f70 is a valid
+  Jesse> physical address).
 
-  >> Your fixes work fine on the machines I have tried so far (variety of
-  >> Itanium 2 boxen and a Big Sur Merced box).
-
-  >> Jesse, do you know if unapplying the "move current to region 5" patch
-  >> fixes your boot-problem?  For convenience, I attached the (original)
-  >> patch below.
-
-  Jesse> Yes, reverting that patch does fix the hang I'm seeing.
-
-A quick grep shows that MINSTATE_END_SAVE_MIN_PHYS would also convert
-the region 5 "current" into a region 7 address.  An MCA at the right
-time might cause problems, I think.
+I'm not sure this is related.  local_flush_tlb_all() simply flushes
+the entire tlb it doesn't touch the "current" pointer in any shape or
+fashion.  Not doing that flush will leave the kernel with stale TLB
+entries, so all bets are off.
 
 	--david
