@@ -1,33 +1,51 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 19 Nov 2004 02:38:47 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Fri, 19 Nov 2004 02:44:25 +0000
 Subject: Re: fast path for anonymous memory allocation
-Message-Id: <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>
+Message-Id: <419D5E09.20805@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain>
- <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com>
- <419D581F.2080302@yahoo.com.au>
-In-Reply-To: <419D581F.2080302@yahoo.com.au>
+References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain> <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com> <419D581F.2080302@yahoo.com.au> <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <nickpiggin@yahoo.com.au>
+To: Christoph Lameter <clameter@sgi.com>
 Cc: Hugh Dickins <hugh@veritas.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-On Fri, 19 Nov 2004, Nick Piggin wrote:
+Christoph Lameter wrote:
+> On Fri, 19 Nov 2004, Nick Piggin wrote:
+> 
+> 
+>>Ahh, you're doing clear_user_highpage after the pte is already set up?
+> 
+> 
+> The huge page code also has that optimization. Clearing of pages
+> may take some time which is one reason the kernel drops the page table
+> lock for anonymous page allocation and then reacquires it. The patch does
+> not relinquish the lock on the fast path thus the move outside of the
+> lock.
+> 
 
-> Ahh, you're doing clear_user_highpage after the pte is already set up?
+But you're doing it after you've set up a pte for that page you are
+clearing... I think? What's to stop another thread trying to read or
+write to it concurrently?
 
-The huge page code also has that optimization. Clearing of pages
-may take some time which is one reason the kernel drops the page table
-lock for anonymous page allocation and then reacquires it. The patch does
-not relinquish the lock on the fast path thus the move outside of the
-lock.
+> 
+>>Won't that be racy? I guess that would be an advantage of my approach,
+>>the clear_user_highpage can be done first (although that is more likely
+>>to be wasteful of cache).
+> 
+> 
+> If you do the clearing with the page table lock held then performance will
+> suffer.
+> 
 
-> Won't that be racy? I guess that would be an advantage of my approach,
-> the clear_user_highpage can be done first (although that is more likely
-> to be wasteful of cache).
+Yeah very much, but if you allocate and clear a "just in case" page
+_before_ taking any locks for the fault then you'd be able to go
+straight through do_anonymous_page.
 
-If you do the clearing with the page table lock held then performance will
-suffer.
+But yeah that has other issues like having a spare page per CPU (maybe
+not so great a loss), and having anonymous faults much more likely to
+get pages which are cache cold.
 
+Anyway, glad to see your patches didn't improve things: now we don't
+have to think about making *more* tradeoffs :)
