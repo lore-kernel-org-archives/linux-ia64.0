@@ -1,87 +1,39 @@
-From: Judith Lebzelter <judith@osdl.org>
-Date: Wed, 12 Jan 2005 00:47:04 +0000
-Subject: Re: [patch 1/3] Replace pci_find_device with pci_get_device
-Message-Id: <Pine.LNX.4.33.0501111627050.23999-100000@osdlab.pdx.osdl.net>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 19 Jan 2005 04:58:23 +0000
+Subject: [patch] ia64: Align rse_clear_invalid to double-bundle boundary.
+Message-Id: <16877.59631.914927.689418@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050110194632.475A61F203@trashy.coderock.org>
-In-Reply-To: <20050110194632.475A61F203@trashy.coderock.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 10 Jan 2005 domen@coderock.org wrote:
+Trivial patch: align rse_clear_invalid to 32-byte boundary.  Good for
+a 9 cycle speed up.
 
->
->
->
-> As pci_find_device is going away soon I have replaced the call with pci_get_device.
-> Judith, could you run these 3 ia64 ones through PLM, please? This should complete the
-> arch/ia64 conversion.
->
-> Thanks a lot.
+	--david
 
-Sorry this took a while to get to, I was out yesterday.  I ran the
-submitted the 3 patches on linux-2.6.10 and the results are here:
-   http://www.osdl.org/plm-cgi/plm?module=patch_info&patch_id@63
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-   Summary:
-   Making vmlinux (defconfig): 9 warnings, 0 errors
-   Making modules (defconfig): 62 warnings, 0 errors
-   Making vmlinux (allnoconfig): 6 warnings, 5 errors
-   Making vmlinux (allyesconfig): 854 warnings, 25 errors
-   Making modules (allyesconfig): 8 warnings, 0 errors
-   Making vmlinux (allmodconfig): 8 warnings, 0 errors
-   Making modules (allmodconfig): 854 warnings, 11 errors
-
-linux-2.6.10 is at:
-   http://www.osdl.org/plm-cgi/plm?module=patch_info&patch_id@24
-
-   Summary:
-   Making vmlinux (defconfig): 14 warnings, 0 errors
-   Making modules (defconfig): 65 warnings, 0 errors
-   Making vmlinux (allnoconfig): 6 warnings, 5 errors
-   Making vmlinux (allyesconfig): 854 warnings, 25 errors
-   Making modules (allyesconfig): 8 warnings, 0 errors
-   Making vmlinux (allmodconfig): 8 warnings, 0 errors
-   Making modules (allmodconfig): 854 warnings, 11 errors
-
-This 'compregress' filter runs quite few compiles; the summary is above.
-Your patch got the same number of errors, but 8 _fewer_ warnings.  Five
-of those warnings in 2.6.10 were due unfortunately to my 'clock skew',
-which I just recently fixed.
-
-Judith
-
->
-> Hanna Linder
-> IBM Linux Technology Center
->
-> Signed-off-by: Hanna Linder <hannal@us.ibm.com>
-> Acked-by: Judith Lebzelter <judith@osdl.org>
-> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
->
-> ---
->
-> Signed-off-by: Domen Puncer <domen@coderock.org>
-> ---
->
->
->  kj-domen/arch/ia64/hp/common/sba_iommu.c |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
->
-> diff -puN arch/ia64/hp/common/sba_iommu.c~pci_dev_present-arch_ia64_hp_common_sba_iommu arch/ia64/hp/common/sba_iommu.c
-> --- kj/arch/ia64/hp/common/sba_iommu.c~pci_dev_present-arch_ia64_hp_common_sba_iommu	2005-01-10 18:00:14.000000000 +0100
-> +++ kj-domen/arch/ia64/hp/common/sba_iommu.c	2005-01-10 18:00:14.000000000 +0100
-> @@ -1557,7 +1557,7 @@ ioc_iova_init(struct ioc *ioc)
->  	** We program the next pdir index after we stop w/ a key for
->  	** the GART code to handshake on.
->  	*/
-> -	while ((device = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, device)) != NULL)
-> +	while ((device = pci_get_device(PCI_ANY_ID, PCI_ANY_ID, device)) != NULL)
->  		agp_found |= pci_find_capability(device, PCI_CAP_ID_AGP);
->
->  	if (agp_found && reserve_sba_gart) {
-> _
->
-
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/01/18 17:38:56-08:00 davidm@tiger.hpl.hp.com 
+#   ia64: Align rse_clear_invalid to double-bundle boundary.  Improves (normal)
+#   	getpid() from 284 to 275 cycles.
+# 
+# arch/ia64/kernel/entry.S
+#   2005/01/18 17:38:40-08:00 davidm@tiger.hpl.hp.com +1 -0
+#   (rse_clear_invalid): Align it to 32 bytes.
+# 
+diff -Nru a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+--- a/arch/ia64/kernel/entry.S	2005-01-18 20:57:18 -08:00
++++ b/arch/ia64/kernel/entry.S	2005-01-18 20:57:18 -08:00
+@@ -971,6 +971,7 @@
+ 	shladd in0=loc1,3,r17
+ 	mov in1=0
+ 	;;
++	.align 32
+ rse_clear_invalid:
+ #ifdef CONFIG_ITANIUM
+ 	// cycle 0
