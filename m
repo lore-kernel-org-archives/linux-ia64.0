@@ -1,86 +1,56 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Wed, 18 Aug 2004 20:48:38 +0000
+From: Rajesh Venkatasubramanian <vrajesh@umich.edu>
+Date: Wed, 18 Aug 2004 23:50:21 +0000
 Subject: Re: page fault fastpath patch v2: fix race conditions, stats for 8,32     and    512 cpu SMP
-Message-Id: <20040818204838.GE11200@holomorphy.com>
+Message-Id: <pan.2004.08.18.23.50.13.562750@umich.edu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <fa.ofiojek.hkeujs@ifi.uio.no> <fa.o1kt2ua.1bm6n0c@ifi.uio.no> <4123B873.4010403@sgi.com>
-In-Reply-To: <4123B873.4010403@sgi.com>
+References: <2uexw-1Nn-1@gated-at.bofh.it> <2uCTq-2wa-55@gated-at.bofh.it>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ray Bryant <raybry@sgi.com>
-Cc: Hugh Dickins <hugh@veritas.com>, Christoph Lameter <clameter@sgi.com>, "David S. Miller" <davem@redhat.com>, ak@muc.de, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Hugh Dickins <hugh@veritas.com>, William Lee Irwin III <wli@holomorphy.com>, "David S. Miller" <davem@redhat.com>, raybry@sgi.com, ak@muc.de, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hugh Dickins wrote:
->> Just handling that one anonymous case is not worth it, when we know
->> that the next day someone else from SGI will post a similar test
->> which shows the same on file pages ;)
-
-On Wed, Aug 18, 2004 at 03:13:39PM -0500, Ray Bryant wrote:
-> Hugh -- this is called full employment for kernel scalability analysts.
-> :-) :-)
-> Actually, disks are so slow that I wouldn't expect that scalability problem 
-> to show up in the page fault code, but rather in the block I/O or page 
-> cache management portions of the code instead.
-
-mapping->tree_lock is a near-certain culprit-to-be.
-
-
-On Wed, Aug 18, 2004 at 03:13:39PM -0500, Ray Bryant wrote:
-> I think that the major impact here is actually grabbing the lock when
-> 30 or more processors are trying to obtain it -- the amount of time that 
-> the lock is actually held is insignificant in comparison.
-
-The spinlocking algorithms in general use are rather weak. Queued locks
-with O(contenders) cacheline transfers instead of unbounded may be
-useful in such arrangements so that occasional contention is not so
-catastrophic, and it appears you certainly have the space for them.
-In general, everyone's favored rearranging algorithms for less
-contention instead of fiddling with locking algorithms, but I suspect
-in the case of such large systems the number of nontrivial algorithms
-to devise is daunting enough locking algorithms may mitigate the issues.
-
-
-Hugh Dickins wrote:
+William Lee Irwin III wrote:
+> On Wed, Aug 18, 2004 at 06:55:07PM +0100, Hugh Dickins wrote:
+>> That's interesting, and disappointing.
 >> The main lesson I took from your patch (I think wli was hinting at
 >> the same) is that we ought now to question page_table_lock usage,
 >> should be possible to cut it a lot.
+>> I recall from exchanges with Dave McCracken 18 months ago that the
+>> page_table_lock is _almost_ unnecessary in rmap.c, should be possible
+>> to get avoid it there and in some other places.
+>> We take page_table_lock when making absent present and when making
+>> present absent: I like your observation that those are exclusive cases.
+>> But you've found that narrowing the width of the page_table_lock
+>> in a particular path does not help.  You sound surprised, me too.
+>> Did you find out why that was?
+>
+> It also protects against vma tree modifications in mainline, but rmap.c
+> shouldn't need it for vmas anymore, as the vma is rooted to the spot by
+> mapping->i_shared_lock for file pages and anon_vma->lock for anonymous.
 
-On Wed, Aug 18, 2004 at 03:13:39PM -0500, Ray Bryant wrote:
-> That would be a useful avenue to explore.  Unfortunately, we are on kind of 
-> a tight fuse here trying to get the next kernel release ready.   At the 
-> moment we are in the mode of moving fixes from 2.4.21 to 2.6, and this is 
-> one such fix.   I'd be willing to pursue both in parallel so that in a 
-> future release
-> we have gotten to page_table_lock reduction as well.  Does that make sense 
-> at all?
-> (I just don't want to get bogged down in a 6-month effort here unless we 
-> can't avoid it.)
+If I am reading the code correctly, then without page_table_lock
+in page_referenced_one(), we can race with exit_mmap() and page 
+table pages can be freed under us.
 
-Scalability issues with fault handling have trivial enough hardware
-requirements that it's likely feasible for others to work on it also.
-Also fortunate for you is that others also have issues here, and those
-on much smaller systems.
-
-
-Hugh Dickins wrote:
+William Lee Irwin III wrote:
+> On Wed, Aug 18, 2004 at 06:55:07PM +0100, Hugh Dickins wrote:
 >> I do think this will be a more fruitful direction than pte locking:
 >> just looking through the arches for spare bits puts me off pte locking.
+>
+> Fortunately, spare bits aren't strictly necessary, and neither is
+> cmpxchg. A single invalid value can serve in place of a bitflag. When
+> using such an invalid value, just xchg()'ing it and looping when the
+> invalid value is seen should suffice. This holds more generally for all
+> radix trees, not just pagetables, and happily xchg() or emulation
+> thereof is required by core code for all arches.
 
-On Wed, Aug 18, 2004 at 03:13:39PM -0500, Ray Bryant wrote:
-> The original patch that we had for 2.4.21 did exactly that, we shied away 
-> from that due to concerns as to which processors allow you to update a 
-> running pte using a cmpxchg (= the set of processors for which set_pte() 
-> is a simple store.)  AFAIK, the only such processor is i386, but if 
-> Christoph is correct, then more recent Intel x86 processors don't even have 
-> that restriction.  I'll admit that I encouraged Christoph not to follow 
-> that path due to concerns of arch dependent code creeping into the 
-> do_anonymous_page() path.
+Good point. 
 
-I'm in general more concerned about how one synchronizes with TLB miss
-handlers, particularly for machines where this would involve the TLB
-miss handler looping until a valid value is fetched in what is now a
-very highly optimized performance-critical codepath.
+Another solution may be to use the unused bytes (->lru or
+->private) in page table "struct page" as bit_spin_locks. We can 
+use a single bit to protect a small set of ptes (8, 16, or 32).
+
+Rajesh
+  
 
 
--- wli
