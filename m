@@ -1,7 +1,7 @@
-From: James Bottomley <James.Bottomley@steeleye.com>
-Date: Sun, 18 May 2003 14:28:45 +0000
-Subject: [Linux-ia64] Re: [patch] support 64 bit pci_alloc_consistent
-Message-Id: <marc-linux-ia64-105590723705935@msgid-missing>
+From: Grant Grundler <iod00d@hp.com>
+Date: Sun, 18 May 2003 17:22:03 +0000
+Subject: Re: [Linux-ia64] Re: [patch] support 64 bit pci_alloc_consistent
+Message-Id: <marc-linux-ia64-105590723705937@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705928@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705928@msgid-missing>
@@ -10,23 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, 2003-05-18 at 09:21, Arjan van de Ven wrote:
-> On Sun, May 18, 2003 at 09:17:48AM -0500, James Bottomley wrote:
-> > (it uses 32 bit addr and 32 bit len descriptors, but reduces len to 24
-> > bits to steal the extra byte for 7 bits extra addressing).  However, it
-> > is forced to request the full 64 bit address mask---I've never worked
-> > out what will happen to it on a machine with more than 512GB memory.
-> 
-> Uh??? right now even in 2.4 arbitrary bitmasks are supported for
-> non-coherent memory.
+On Sun, May 18, 2003 at 09:43:41AM +0000, Arjan van de Ven wrote:
+> Most drivers will just say "look I
+> can do THIS much. I don't give a flying fish about how much of
+> that you actually use". At least in the probing code. 
 
-Ah, my mistake.  I keep forgetting there are two of these drivers in the
-aic7xxx directory.  The 79xx does have a 64 bit descriptor and sets the
-full width.  The 7xxx doesn't and sets a partial width.
+The platform code needs a way to indicate the given mask will not work.
+Rejecting proposals by the driver seems reasonable if the driver
+only supports two different masks anyway (eg 64 and 32-bit).
 
-Sorry,
+In the case of a platform requiring 64-bit masks for consistent mappings,
+the platform DMA code must reject proposals for non-64-bit DMA masks.
+(eg PCI-X device implementing less than 64-bits)
 
-James
+In both cases the driver will care because it will crash the box otherwise.
 
-
+grant
 
