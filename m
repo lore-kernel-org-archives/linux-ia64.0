@@ -1,30 +1,21 @@
 From: Mark Anderson <manderso@lsil.com>
-Date: Wed, 31 Oct 2001 21:36:59 +0000
+Date: Wed, 31 Oct 2001 21:54:30 +0000
 Subject: [Linux-ia64] Re: Red Hat 7.1 on Lion
-Message-Id: <marc-linux-ia64-105590698805422@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805423@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805422@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805422@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-I'm not sure as to documentation, you might want to try the mother
-site linux-ia64.org, however the info below should help out:
+Sorry,
 
-	1. boot into the EFI shell.
-	2. if the mapping does not display (does by default w/EFI
-	   v.99 &<) type 'map -r' (-r forces EFI to rescan for
-	   devices).
-	3. change to the device, or use absolute path for the CDROM
-	   (i.e. 'cd fs0:')
-	4. a listing should reveal the file elilo.efi (EFI LILO, I
-	   believe all versions behave similar, at least this will=20
-	   work on ia64 versions from TurboLinux, Mandrake, and=20
-	   RedHat)
-	5. type 'elilo' or 'elilo.efi' hit enter, and you will see
-	   the warm fuzzy 'boot: " prompt.
+Step 3 should read this way:
 
-Mark.
+        3. change to the device, or use absolute path for the CDROM
+           (i.e. 'fs0:' NOT 'cd fs0:')
 
 
 linux-ia64-request@linuxia64.org wrote:
