@@ -1,54 +1,47 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 11 Jul 2003 00:44:00 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Fri, 11 Jul 2003 09:57:30 +0000
 Subject: Re: clone testcases in LTP
-Message-Id: <marc-linux-ia64-105788431717061@msgid-missing>
+Message-Id: <marc-linux-ia64-105791745708175@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105778639326638@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105778639326638@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 11 Jul 2003 10:35:12 +1000, Ian Wienand <ianw@gelato.unsw.edu.au> said:
+Peter Chubb <peter@chubb.wattle.id.au> writes:
 
-  Ian> And that you pass the bottom of the stack, not the top?
+|> >>>>> "David" =3D David Mosberger <davidm@napali.hpl.hp.com> writes:
+|>=20
+|> >>>>> On Thu, 10 Jul 2003 11:18:38 -0500, Nathan Straz <nstraz@sgi.com> =
+said:
+|> >>> /* int __clone2(int (*fn) (void *arg), void *child_stack_base, */
+|> >>> /* size_t child_stack_size, int flags, void *arg, */ /* pid_t
+|> >>> *parent_tid, void *tls, pid_t *child_tid) */
+|>=20
+|> I'm not finding that clone2() works -- We get a segfault in the cloned
+|> process when it returns.
+|>=20
+|> This is the program:
+|>=20
+|> #include <stdio.h>
+|> #include <sys/wait.h>
+|> #include <unistd.h>
+|> #include <sys/types.h>
+|> #include <stdlib.h>
+|>=20
+|> int func(void *arg) {=20
+|>     fprintf(stderr, "In child\n");=20
+|>     return 0;
+|> }=20
 
-Yes.
+You can't return from the function, only exit() or _exit() works.
 
-  Ian> Also, are there explicit alignment requirements?
+Andreas.
 
-Not from the kernel per se.
-
-  Ian> I thought it needed to be aligned to page size (or maybe it was
-  Ian> 16 bytes).
-
-It the memory stack pointer has to be 16-byte aligned and the
-register-backing store pointer has to be 8-byte aligned, as per
-architecture/software conventions.
-
-  Ian> And should the stack size be at a minimum ~8K, to allow enough
-  Ian> room for register stack?
-
-The kernel doesn't care about the stack size.  If you can live with 4KB,
-fine.
-
-  Ian> I have noticed a problem from the LTP tests.  Either I'm doing
-  Ian> something wrong (likely related to my assumptions above) or there is
-  Ian> something wrong.
-
-It's entirely possible something is wrong (that's almost always
-true).
-
-  Ian> See clone2.c below.
-
-Time to clarify my role (once again): I'm currently playing maintainer
-of the ia64 linux tree.  That doesn't mean I fix or investigate all
-bugs that come along.  If something is broken or not working as
-expected then someone who cares should investigate.
-
-It should be trivial for anyone who cares to reproduce this with the
-Ski simulator.  This is exactly the type of questions that can be
-solved very easily with a simulator.
-
-	--david
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
