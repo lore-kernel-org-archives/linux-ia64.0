@@ -1,62 +1,47 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Tue, 11 Jan 2005 18:38:21 +0000
-Subject: Re: [patch] Altix BTE error handling fix
-Message-Id: <200501111838.j0BIcL4H084659@efs.americas.sgi.com>
+From: Ashok Raj <ashok.raj@intel.com>
+Date: Fri, 28 Jan 2005 20:53:01 +0000
+Subject: patch to fix recent percpu mca changes which broke CPU hotplug
+Message-Id: <20050128125301.A16685@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200501102333.j0ANXJ4p068948@efs.americas.sgi.com>
-In-Reply-To: <200501102333.j0ANXJ4p068948@efs.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Robin Holt wrote:
-> 
-> I have not had a chance to talk with Russ.  I think his patch was
-> actually correct and I over reacted.  I just want to verify one
-> thing with him first.
+Hi Tony
 
-Talked with Robin.  This is the right patch.  Life is good.
+Recent mca percpu changes broke a cpu being brought up after initial boot
+which is required for cpu hotplug.
 
-Signed-off-by: Russ Anderson <rja@sgi.com>
-
---------------------------------------------------------------
-Index: 2.6.11/arch/ia64/sn/kernel/bte_error.c
-=================================--- 2.6.11.orig/arch/ia64/sn/kernel/bte_error.c	2005-01-10 15:39:36.813394456 -0600
-+++ 2.6.11/arch/ia64/sn/kernel/bte_error.c	2005-01-10 16:06:53.244516756 -0600
-@@ -47,6 +47,7 @@
- 	ii_icrb0_d_u_t icrbd;	/* II CRB Register D */
- 	ii_ibcr_u_t ibcr;
- 	ii_icmr_u_t icmr;
-+	ii_ieclr_u_t ieclr;
- 
- 	BTE_PRINTK(("bte_error_handler(%p) - %d\n", err_nodepda,
- 		    smp_processor_id()));
-@@ -131,6 +132,14 @@
- 	imem.ii_imem_fld_s.i_b0_esd = imem.ii_imem_fld_s.i_b1_esd = 1;
- 	REMOTE_HUB_S(nasid, IIO_IMEM, imem.ii_imem_regval);
- 
-+	/* Clear BTE0/1 error bits */
-+	ieclr.ii_ieclr_regval = 0;
-+	if (err_nodepda->bte_if[0].bh_error != BTE_SUCCESS)
-+		ieclr.ii_ieclr_fld_s.i_e_bte_0 = 1;
-+	if (err_nodepda->bte_if[1].bh_error != BTE_SUCCESS)
-+		ieclr.ii_ieclr_fld_s.i_e_bte_1 = 1;
-+	REMOTE_HUB_S(nasid, IIO_IECLR, ieclr.ii_ieclr_regval);
-+
- 	/* Reinitialize both BTE state machines. */
- 	ibcr.ii_ibcr_regval = REMOTE_HUB_L(nasid, IIO_IBCR);
- 	ibcr.ii_ibcr_fld_s.i_soft_reset = 1;
-@@ -152,7 +161,7 @@
- 		err_nodepda->bte_if[i].cleanup_active = 0;
- 		BTE_PRINTK(("eh:%p:%d Unlocked %d\n", err_nodepda,
- 			    smp_processor_id(), i));
--		spin_unlock(&pda->cpu_bte_if[i]->spinlock);
-+		spin_unlock(&err_nodepda->bte_if[i].spinlock);
- 	}
- 
- 	del_timer(recovery_timer);
+trivial patch 
 
 -- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+Cheers,
+Ashok Raj
+
+
+
+---
+
+Signed-off-by: Ashok Raj <ashok.raj@intel.com>
+
+Tried booting with maxcpus=1 and then try to bring the other cpu's up
+by echoing to online file.
+---
+
+ linux-ia64-release-2.6.11-araj/arch/ia64/kernel/mca.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN arch/ia64/kernel/mca.c~fix_mca_init arch/ia64/kernel/mca.c
+--- linux-ia64-release-2.6.11/arch/ia64/kernel/mca.c~fix_mca_init	2005-01-28 12:11:24.627261951 -0800
++++ linux-ia64-release-2.6.11-araj/arch/ia64/kernel/mca.c	2005-01-28 12:24:52.657525490 -0800
+@@ -1204,7 +1204,7 @@ static struct irqaction mca_cpep_irqacti
+ 
+ /* Do per-CPU MCA-related initialization.  */
+ 
+-void __init
++void __devinit
+ ia64_mca_cpu_init(void *cpu_data)
+ {
+ 	void *pal_vaddr;
+_
