@@ -1,40 +1,110 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 16 Jun 2004 20:40:20 +0000
-Subject: Re: [PATCH] early console registration
-Message-Id: <200406161640.20838.jbarnes@engr.sgi.com>
+Date: Tue, 22 Jun 2004 17:54:27 +0000
+Subject: [PATCH] early console registration
+Message-Id: <200406221354.27322.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_TJH2ACZ2fhvt9rc"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405141425.59867.jbarnes@engr.sgi.com>
 In-Reply-To: <200405141425.59867.jbarnes@engr.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday, June 16, 2004 4:22 pm, Bjorn Helgaas wrote:
-> On Tuesday 15 June 2004 7:12 am, Jesse Barnes wrote:
-> > Yeah, that's fine.  In fact, I've tested something similar and sent it to
-> > Andrew, but he came back and asked why not just set CPU 0 online early? 
-> > And given that CPU 0 is 'online' as soon as the kernel starts executing
-> > head.S, it seems like it *should* keep working, and we should probably
-> > keep it that way.
+
+--Boundary-00=_TJH2ACZ2fhvt9rc
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+> > But AFAIK, there is no such code now, and I don't have any better ideas,
+> > so maybe we should just go with your ia64-specific patch for now.
 >
-> It's *not* online as soon as it starts head.S, though -- that's what I
-> meant about preserving the original cpu_online semantics.  It currently
-> means that at least cpu_init() has been called, so memory allocation,
-> per-cpu data, and interrupts should work.
+> Sounds good to me.
 
-Well, online in the sense that it can execute instructions, but yes, other 
-limitations apply, I tried to spell them out in the comments for the 
-function.
+Bjorn is ok with it, so here it is again.  Pat, can you fix up the #ifdef 
+check for your new driver when it gets in?  You should be able to reuse the 
+function name...
 
-> If we mark CPU 0 as 'online' earlier, some hypothetical new code could
-> test cpu_online(0) and incorrectly assume per-cpu data works.
+Allow consoles to register early if they're capable of early output.  If one 
+of them registers successfully, set CPU 0 online so that printk() will 
+actually call the console drivers.
 
-Yeah, that's possible, but the window is pretty small.
+Drivers that are capable of early output can add themselves to the 
+early_console_setup routine in the following form:
 
-> But AFAIK, there is no such code now, and I don't have any better ideas,
-> so maybe we should just go with your ia64-specific patch for now.
+...
+#ifdef CONFIG_SGI_L1_SERIAL_CONSOLE
+        {
+                extern int sn_serial_console_early_setup(void);
+                if (!sn_serial_console_early_setup())
+                        return 0;
+        }
+#endif
+...
+#ifdef CONFIG_FOO_CONSOLE
+        {
+                extern int foo_early_setup(void);
+                if (!foo_early_setup())
+                        return 0;
+        }
+#endif
+...
 
-Sounds good to me.
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
+Thanks,
 Jesse
+
+--Boundary-00=_TJH2ACZ2fhvt9rc
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="early-console-setup.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="early-console-setup.patch"
+
+===== arch/ia64/kernel/setup.c 1.74 vs edited =====
+--- 1.74/arch/ia64/kernel/setup.c	2004-06-05 01:15:10 -04:00
++++ edited/arch/ia64/kernel/setup.c	2004-06-22 13:51:27 -04:00
+@@ -280,6 +280,28 @@
+ }
+ #endif
+ 
++/**
++ * early_console_setup - setup debugging console
++ *
++ * Consoles started here require little enough setup that we can start using
++ * them very early in the boot process, either right after the machine
++ * vector initialization, or even before if the drivers can detect their hw.
++ *
++ * Returns non-zero if a console couldn't be setup.
++ */
++static int __init early_console_setup(void)
++{
++#ifdef CONFIG_SGI_L1_SERIAL_CONSOLE
++	{
++		extern int sn_serial_console_early_setup(void);
++		if(!sn_serial_console_early_setup())
++			return 0;
++	}
++#endif
++
++	return -1;
++}
++
+ void __init
+ setup_arch (char **cmdline_p)
+ {
+@@ -296,6 +318,10 @@
+ #ifdef CONFIG_IA64_GENERIC
+ 	machvec_init(acpi_get_sysname());
+ #endif
++
++	/* If we register an early console, allow CPU 0 to printk */
++	if (!early_console_setup())
++		cpu_set(smp_processor_id(), cpu_online_map);
+ 
+ #ifdef CONFIG_ACPI_BOOT
+ 	/* Initialize the ACPI boot-time table parser */
+
+--Boundary-00=_TJH2ACZ2fhvt9rc--
