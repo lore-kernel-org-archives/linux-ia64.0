@@ -1,45 +1,64 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Fri, 19 Mar 2004 17:09:09 +0000
-Subject: Re: [2/3] Use insert_resource in pci_claim_resource
-Message-Id: <20040319170909.GR25059@parcelfarce.linux.theplanet.co.uk>
+From: Andreas Schwab <schwab@suse.de>
+Date: Thu, 04 Mar 2004 17:28:31 +0000
+Subject: Fix PCIE and SHPC hotplug drivers for ia64
+Message-Id: <jek720wmgw.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk> <20040318235217.GJ25059@parcelfarce.linux.theplanet.co.uk> <20040319095600.A9678@flint.arm.linux.org.uk> <20040319145212.GN25059@parcelfarce.linux.theplanet.co.uk> <20040319153639.E14431@flint.arm.linux.org.uk>
-In-Reply-To: <20040319153639.E14431@flint.arm.linux.org.uk>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@debian.org>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@zip.com.au>, Greg KH <greg@kroah.com>, David Mosberger <davidm@hpl.hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-On Fri, Mar 19, 2004 at 03:36:39PM +0000, Russell King wrote:
-> On Fri, Mar 19, 2004 at 02:52:12PM +0000, Matthew Wilcox wrote:
-> > But I do think insert_resource is the right call to make.  If the device has
-> > the wrong resources, that means something's gone awfully wrong earlier in
-> > the pci code.
-> 
-> Sure, but due to the request_resource semantics, it provides a good way
-> to catch this should it occur.
+This patch fixes the PCIE and SHPC hotplug driver for ia64.  The function
+pcibios_set_irq_routing only exists on x86, and acpi_bridges_head may be
+NULL, so don't crash.
 
-Now that I try it, we lose.  ACPI allows us an unlimited number of resources
-that can be routed to each bus, and pci_bus only has space for 4.  On my
-rx2600 box, we have 5 resources pointing to bus 0x20:
+Andreas.
 
-# cat /proc/iomem /proc/ioports |grep :20
-90000000-97ffffff : PCI Bus 0000:20
-ff5e0000-ff5e0007 : PCI Bus 0000:20
-ff5e2000-ff5e2007 : PCI Bus 0000:20
-90004000000-90103fffffe : PCI Bus 0000:20
-00002000-00002fff : PCI Bus 0000:20
+--- linux-2.6.3/drivers/pci/hotplug/pciehp_pci.c.~1~	2004-02-24 16:22:18.37=
+5705230 +0100
++++ linux-2.6.3/drivers/pci/hotplug/pciehp_pci.c	2004-02-24 16:27:00.829344=
+589 +0100
+@@ -103,7 +103,7 @@ int pciehp_unconfigure_device(struct pci
+  */
+ int pciehp_set_irq (u8 bus_num, u8 dev_num, u8 int_pin, u8 irq_num)
+ {
+-#if !defined(CONFIG_X86_IO_APIC) && !defined(CONFIG_X86_64)
++#if defined(CONFIG_X86) && !defined(CONFIG_X86_IO_APIC) && !defined(CONFIG=
+_X86_64)
+ 	int rc;
+ 	u16 temp_word;
+ 	struct pci_dev fakedev;
+--- linux-2.6.3/drivers/pci/hotplug/pciehprm_acpi.c.~1~	2004-02-27 16:33:20=
+.000000000 +0100
++++ linux-2.6.3/drivers/pci/hotplug/pciehprm_acpi.c	2004-02-29 16:22:58.086=
+155839 +0100
+@@ -1265,7 +1265,8 @@ static int print_acpi_resources (struct=20
+ int pciehprm_print_pirt(void)
+ {
+ 	dbg("PCIEHPRM ACPI Slots\n");
+-	print_acpi_resources (acpi_bridges_head);
++	if (acpi_bridges_head)
++		print_acpi_resources (acpi_bridges_head);
+=20
+ 	return 0;
+ }
+--- linux-2.6.3/drivers/pci/hotplug/shpchp_pci.c.~1~	2004-02-24 16:21:45.53=
+2011299 +0100
++++ linux-2.6.3/drivers/pci/hotplug/shpchp_pci.c	2004-02-24 16:27:22.883998=
+276 +0100
+@@ -101,7 +101,7 @@ int shpchp_unconfigure_device(struct pci
+  */
+ int shpchp_set_irq (u8 bus_num, u8 dev_num, u8 int_pin, u8 irq_num)
+ {
+-#if !defined(CONFIG_X86_IO_APIC) && !defined(CONFIG_X86_64)
++#if defined(CONFIG_X86) && !defined(CONFIG_X86_IO_APIC) && !defined(CONFIG=
+_X86_64)
+ 	int rc;
+ 	u16 temp_word;
+ 	struct pci_dev fakedev;
 
-Sure, you can argue that some of these should be coalesced and others
-aren't used, but I'm not comfortable diddling with that in the kernel,
-or asking firmware to change that.  And nobody knows what tomorrow will
-bring in terms of PCI bus topologies.  So I'd like the insert_resource
-patch to go in.
-
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
