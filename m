@@ -1,7 +1,7 @@
 From: Martin Pool <mbp@samba.org>
-Date: Mon, 28 Apr 2003 06:39:40 +0000
+Date: Mon, 28 Apr 2003 07:10:49 +0000
 Subject: Re: [Linux-ia64] building an ia64 cross toolchain on debian?
-Message-Id: <marc-linux-ia64-105590723705613@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705614@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705612@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705612@msgid-missing>
@@ -10,23 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 28 Apr 2003, Martin Pool <mbp@samba.org> wrote:
-> ../../src/ld/ldlex.l: In function `yy_input':
-> ../../src/ld/ldlex.l:615: `yy_current_buffer' undeclared (first use in this function)
-> ../../src/ld/ldlex.l:615: (Each undeclared identifier is reported only once
-> ../../src/ld/ldlex.l:615: for each function it appears in.)
-> /usr/include/sys/stat.h: At top level:
-> lex.yy.c:2973: warning: `yyunput' defined but not used
-> make[4]: *** [ldlex.o] Error 1
+I got a binutils package built and installed, 
 
-I tried rolling flex back to the version from Stable, 2.5.4a-24, and
-this allowed the build to complete.  It looks like ld's lexer was
-using an undocumented interface to flex, so it's not really flex's
-fault that it broke.  
+/home/mbp/work/toolchain-ia64-debian/gcc-ia64-unknown-linux-3.2.3.cvs20030221/build/gcc/xgcc -B/home/mbp/work/toolchain-ia64-debian/gcc-ia64-unknown-linux-3.2.3.cvs20030221/build/gcc/ -B/usr/ia64-unknown-linux/bin/ -B/usr/ia64-unknown-linux/lib/ -isystem /usr/ia64-unknown-linux/include -O2  -DIN_GCC -DCROSS_COMPILE   -W -Wall -Wwrite-strings -Wstrict-prototypes -Wmissing-prototypes -isystem ./include  -fPIC -g -DHAVE_GTHR_DEFAULT -DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED -Dinhibit_libc -I. -I. -I../../src/gcc -I../../src/gcc/. -I../../src/gcc/config -I../../src/gcc/../include  -DL_muldi3 -c ../../src/gcc/libgcc2.c -o libgcc/./_muldi3.o
+In file included from tconfig.h:21,
+                 from ../../src/gcc/libgcc2.c:36:
+../../src/gcc/config/ia64/linux.h:57:20: signal.h: No such file or directory
+../../src/gcc/config/ia64/linux.h:58:26: sys/ucontext.h: No such file or directory
+make[3]: *** [libgcc/./_muldi3.o] Error 1
+make[3]: Leaving directory `/home/mbp/work/toolchain-ia64-debian/gcc-ia64-unknown-linux-3.2.3.cvs20030221/build/gcc'
 
-Should I report this as a bug against toolchain-source or flex?  I
-suppose flex just got too far ahead of gcc as packaged in
-toolchain-source?
+There seems to be a problem that the cross libc produced by
+"tpkg-install-libc ia64-unknown-linx" wants to install into
+/usr/ia64-linux (sic) whereas the binutils install into
+/usr/ia64-unknown-linux.  I think this was causing gcc to be unable to
+find the header files.
+
+I kludged this up by just symlinking the two together but it seems
+like there ought to be a better way.
+
+Anyhow, now I seem to have a working cross toolchain, which is great.
 
 -- 
 Martin 
