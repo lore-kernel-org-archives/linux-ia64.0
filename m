@@ -1,69 +1,51 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 14 Jul 2004 21:27:42 +0000
+Date: Thu, 15 Jul 2004 00:08:19 +0000
 Subject: Re: gettimeofday nanoseconds patch (makes it possible for the
-Message-Id: <Pine.LNX.4.58.0407141425200.16274@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.58.0407141703360.17055@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0407140940260.14704@schroedinger.engr.sgi.com>
- <20040714210903.GA32326@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040714210903.GA32326@parcelfarce.linux.theplanet.co.uk>
+References: <Pine.LNX.4.58.0407140940260.14704@schroedinger.engr.sgi.com> 
+ <1089835776.1388.216.camel@cog.beaverton.ibm.com> 
+ <Pine.LNX.4.58.0407141323530.15874@schroedinger.engr.sgi.com>
+ <1089839740.1388.230.camel@cog.beaverton.ibm.com>
+In-Reply-To: <1089839740.1388.230.camel@cog.beaverton.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@debian.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: john stultz <johnstul@us.ibm.com>
+Cc: lkml <linux-kernel@vger.kernel.org>, ia64 <linux-ia64@vger.kernel.org>
 
-On Wed, 14 Jul 2004, Matthew Wilcox wrote:
-> You seem to have included two patches here that are very similar ...
-> could you send the patch you intended please?
+On Wed, 14 Jul 2004, john stultz wrote:
 
-Right. Somehow my patch management system did something strange.
-Here is the patch:
+> On Wed, 2004-07-14 at 13:28, Christoph Lameter wrote:
+> > > None the less, I do understand the desire for the change (and am working
+> > > to address it in 2.7), so could you at least use a better name then
+> > > gettimeofday()? Maybe get_ns_time() or something? Its just too similar
+> > > to do_gettimeofday and the syscall gettimeofday().
+> >
+> > Right. I had it named getnstimeofday before but the feeling was that the
+> > patch should not introduce a new name. Any approach that would allow
+> > progress on the issue would be fine with me.
+>
+> Fair enough. getnstimeofday() sounds good enough for me.
 
-Index: linux-2.6.7/kernel/time.c
-=================================--- linux-2.6.7.orig/kernel/time.c
-+++ linux-2.6.7/kernel/time.c
-@@ -421,6 +421,41 @@
+Ok. A modified patch is following.
 
- EXPORT_SYMBOL(current_kernel_time);
+>
+> > > Really, I feel the cleaner method is to fix do_gettimeofday() so it
+> > > returns a timespec and then convert it to a timeval in
+> > > sys_gettimeofday(). However this would add overhead to the syscall, so I
+> > > doubt folks would go for it.
+> >
+> > do_gettimeofday is used all over the linux kernel for a variety of
+> > purposes and lots of code depends on the presence of a timeval struct.
+>
+> Indeed, it would be a decent amount of work to clean that up as well.
 
-+#ifdef CONFIG_TIME_INTERPOLATION
-+void gettimeofday (struct timespec *tv)
-+{
-+        unsigned long seq,sec,nsec;
-+
-+        do {
-+                seq = read_seqbegin(&xtime_lock);
-+                sec = xtime.tv_sec;
-+                nsec = xtime.tv_nsec+time_interpolator_get_offset();
-+        } while (unlikely(read_seqretry(&xtime_lock, seq)));
-+
-+        while (unlikely(nsec >= NSEC_PER_SEC)) {
-+                nsec -= NSEC_PER_SEC;
-+                ++sec;
-+        }
-+	tv->tv_sec = sec;
-+	tv->tv_nsec = nsec;
-+}
-+#else
-+/*
-+ * Simulate gettimeofday using do_gettimeofday which only allows a timeval
-+ * and therefore only yields usec accuracy
-+ */
-+void gettimeofday(struct timespec *tv)
-+{
-+	struct timeval x;
-+
-+	do_gettimeofday(&x);
-+	tv->tv_sec = x.tv_sec;
-+	tv->tv_nsec = x.tv_usec*NSEC_PER_USEC;
-+}
-+#endif
-+
-+EXPORT_SYMBOL(gettimeofday);
-+
- #if (BITS_PER_LONG < 64)
- u64 get_jiffies_64(void)
- {
+The cleanup can be done gradually after this patch is in. I volunteer
+to work on this (hoping that my employer may support that  ;-) ).
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
 Index: linux-2.6.7/kernel/timer.c
 =================================--- linux-2.6.7.orig/kernel/timer.c
 +++ linux-2.6.7/kernel/timer.c
@@ -73,7 +55,7 @@ Index: linux-2.6.7/kernel/timer.c
 
 -		do_gettimeofday((struct timeval *)&tp);
 -		tp.tv_nsec *= NSEC_PER_USEC;
-+		gettimeofday(&tp);
++		getnstimeofday(&tp);
  		tp.tv_sec += wall_to_monotonic.tv_sec;
  		tp.tv_nsec += wall_to_monotonic.tv_nsec;
  		if (tp.tv_nsec - NSEC_PER_SEC >= 0) {
@@ -93,7 +75,7 @@ Index: linux-2.6.7/kernel/posix-timers.c
 -	tp->tv_sec = tv.tv_sec;
 -	tp->tv_nsec = tv.tv_usec * NSEC_PER_USEC;
 -
-+	gettimeofday(tp);
++	getnstimeofday(tp);
  	return 0;
  }
 
@@ -107,7 +89,7 @@ Index: linux-2.6.7/kernel/posix-timers.c
  	do {
  		seq = read_seqbegin(&xtime_lock);
 -		do_gettimeofday(&tpv);
-+		gettimeofday(tp);
++		getnstimeofday(tp);
  		*mo = wall_to_monotonic;
  		jiff = jiffies_64;
 
@@ -130,7 +112,62 @@ Index: linux-2.6.7/include/linux/time.h
  struct itimerval;
  extern int do_setitimer(int which, struct itimerval *value, struct itimerval *ovalue);
  extern int do_getitimer(int which, struct itimerval *value);
-+extern void gettimeofday (struct timespec *tv);
++extern void getnstimeofday (struct timespec *tv);
 
  static inline void
  set_normalized_timespec (struct timespec *ts, time_t sec, long nsec)
+Index: linux-2.6.7/kernel/time.c
+=================================--- linux-2.6.7.orig/kernel/time.c
++++ linux-2.6.7/kernel/time.c
+@@ -22,6 +22,9 @@
+  *	"A Kernel Model for Precision Timekeeping" by Dave Mills
+  *	Allow time_constant larger than MAXTC(6) for NTP v4 (MAXTC = 10)
+  *	(Even though the technical memorandum forbids it)
++ * 2004-07-14	 Christoph Lameter
++ *	Added getnstimeofday to allow the posix timer functions to return
++ *	with nanosecond accuracy
+  */
+
+ #include <linux/module.h>
+@@ -421,6 +424,41 @@
+
+ EXPORT_SYMBOL(current_kernel_time);
+
++#ifdef CONFIG_TIME_INTERPOLATION
++void getnstimeofday (struct timespec *tv)
++{
++	unsigned long seq,sec,nsec;
++
++	do {
++		seq = read_seqbegin(&xtime_lock);
++		sec = xtime.tv_sec;
++		nsec = xtime.tv_nsec+time_interpolator_get_offset();
++	} while (unlikely(read_seqretry(&xtime_lock, seq)));
++
++	while (unlikely(nsec >= NSEC_PER_SEC)) {
++		nsec -= NSEC_PER_SEC;
++		++sec;
++	}
++	tv->tv_sec = sec;
++	tv->tv_nsec = nsec;
++}
++#else
++/*
++ * Simulate gettimeofday using do_gettimeofday which only allows a timeval
++ * and therefore only yields usec accuracy
++ */
++void getnstimeofday(struct timespec *tv)
++{
++	struct timeval x;
++
++	do_gettimeofday(&x);
++	tv->tv_sec = x.tv_sec;
++	tv->tv_nsec = x.tv_usec * NSEC_PER_USEC;
++}
++#endif
++
++EXPORT_SYMBOL(getnstimeofday);
++
+ #if (BITS_PER_LONG < 64)
+ u64 get_jiffies_64(void)
+ {
