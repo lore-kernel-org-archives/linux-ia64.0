@@ -1,37 +1,40 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Fri, 23 Jan 2004 16:17:21 +0000
-Subject: [PATCH] Timer interrupt extras for sn2
-Message-Id: <20040123161721.GJ15871@localhost>
+From: Martin Hicks <mort@bork.org>
+Date: Mon, 26 Jan 2004 16:16:21 +0000
+Subject: Re: [PATCH] Timer interrupt extras for sn2
+Message-Id: <20040126161621.GJ17306@localhost>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Il7n/DHsA0sMLmDu"
+Content-Type: multipart/mixed; boundary="jI8keyz6grp/JLjh"
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040123161721.GJ15871@localhost>
+In-Reply-To: <20040123161721.GJ15871@localhost>
 To: linux-ia64@vger.kernel.org
 
 
---Il7n/DHsA0sMLmDu
+--jI8keyz6grp/JLjh
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 
-Hi David,
 
-Here is a patch that has been floating around for a while for adding a
-a new hook inside timer_interrupt() so that platforms can execute a bit
-of their own code during the timer interrupt.
+On Fri, Jan 23, 2004 at 11:17:21AM -0500, Martin Hicks wrote:
+> 
+> Hi David,
+> 
+> Here is a patch that has been floating around for a while for adding a
+> a new hook inside timer_interrupt() so that platforms can execute a bit
+> of their own code during the timer interrupt.
 
-This makes the hook a machvec, as you last requested.  The patch is
-against Linus bk tree from this morning.
+Oops.  I still had a debug printk in the last on in the sn2
+timer_interrupt().
 
-SN2 has its own code and the machvec is a noop  for all other platforms.
+Here's a better one.
 
-Thanks,
 mh
 
 -- 
-Martin Hicks                Wild Open Source Inc.
-mort@wildopensource.com     613-266-2296
+Martin Hicks || mort@bork.org || PGP/GnuPG: 0x4C7F2BEE
 
---Il7n/DHsA0sMLmDu
+--jI8keyz6grp/JLjh
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename="sn2-timer-interrupt.diff"
 
@@ -85,7 +88,7 @@ diff -Nru a/arch/ia64/sn/kernel/sn2/Makefile b/arch/ia64/sn/kernel/sn2/Makefile
 diff -Nru a/arch/ia64/sn/kernel/sn2/timer_interrupt.c b/arch/ia64/sn/kernel/sn2/timer_interrupt.c
 --- /dev/null	Wed Dec 31 16:00:00 1969
 +++ b/arch/ia64/sn/kernel/sn2/timer_interrupt.c	Fri Jan 23 10:20:12 2004
-@@ -0,0 +1,64 @@
+@@ -0,0 +1,63 @@
 +/*
 + *
 + *
@@ -136,7 +139,6 @@ diff -Nru a/arch/ia64/sn/kernel/sn2/timer_interrupt.c b/arch/ia64/sn/kernel/sn2/
 +	if (!pda->hb_count--) {
 +		pda->hb_count = HZ/2;
 +		set_led_bits(pda->hb_state ^= LED_CPU_HEARTBEAT, LED_CPU_HEARTBEAT);
-+		printk("Blink\n");
 +	}
 +
 +	if (enable_shub_wars_1_1()) {
@@ -215,4 +217,4 @@ diff -Nru a/include/asm-ia64/machvec_sn2.h b/include/asm-ia64/machvec_sn2.h
  #define platform_pci_fixup		sn_pci_fixup
  #define platform_inb			__sn_inb
 
---Il7n/DHsA0sMLmDu--
+--jI8keyz6grp/JLjh--
