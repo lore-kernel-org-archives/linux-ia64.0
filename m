@@ -1,76 +1,102 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Sun, 28 Sep 2003 11:09:30 +0000
-Subject: [PATCH] fix intr_heuristic()
-Message-Id: <marc-linux-ia64-106474754102037@msgid-missing>
+Date: Sat, 27 Sep 2003 14:12:09 +0000
+Subject: [PATCH] kill machvec_sn1.h
+Message-Id: <marc-linux-ia64-106467195826288@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-One of the earlier patches missed to call intr_reserve_level()
-for certain cases.  
+SN1 support was removed from the tree a long time ago..
 
 
---- 1.6/arch/ia64/sn/io/sn2/ml_SN_intr.c	Fri Sep 26 13:38:25 2003
-+++ edited/arch/ia64/sn/io/sn2/ml_SN_intr.c	Sun Sep 28 10:26:47 2003
-@@ -285,7 +273,6 @@
- cpuid_t intr_heuristic(vertex_hdl_t dev, int req_bit, int *resp_bit)
- {
- 	cpuid_t		cpuid;
--	cpuid_t		candidate = CPU_NONE;
- 	vertex_hdl_t	pconn_vhdl;
- 	pcibr_soft_t	pcibr_soft;
- 	int 		bit;
-@@ -293,30 +280,32 @@
- 	/* XXX: gross layering violation.. */
- 	if (hwgraph_edge_get(dev, EDGE_LBL_PCI, &pconn_vhdl) = GRAPH_SUCCESS) {
- 		pcibr_soft = pcibr_soft_get(pconn_vhdl);
--		if (pcibr_soft && pcibr_soft->bsi_err_intr)
--			candidate = ((hub_intr_t)pcibr_soft->bsi_err_intr)->i_cpuid;
--	}
+diff -Nru a/include/asm-ia64/machvec_sn1.h b/include/asm-ia64/machvec_sn1.h
+--- a/include/asm-ia64/machvec_sn1.h	Sat Sep 27 16:09:54 2003
++++ b/include/asm-ia64/machvec_sn1.h	Sat Sep 27 16:09:54 2003
+@@ -1,85 +0,0 @@
+-/*
+- * Copyright (c) 2002 Silicon Graphics, Inc.  All Rights Reserved.
+- * 
+- * This program is free software; you can redistribute it and/or modify it 
+- * under the terms of version 2 of the GNU General Public License 
+- * as published by the Free Software Foundation.
+- * 
+- * This program is distributed in the hope that it would be useful, but 
+- * WITHOUT ANY WARRANTY; without even the implied warranty of 
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+- * 
+- * Further, this software is distributed without any warranty that it is 
+- * free of the rightful claim of any third person regarding infringement 
+- * or the like.  Any license provided herein, whether implied or 
+- * otherwise, applies only to this software file.  Patent licenses, if 
+- * any, provided herein do not apply to combinations of this program with 
+- * other software, or any other product whatsoever.
+- * 
+- * You should have received a copy of the GNU General Public 
+- * License along with this program; if not, write the Free Software 
+- * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
+- * 
+- * Contact information:  Silicon Graphics, Inc., 1600 Amphitheatre Pkwy, 
+- * Mountain View, CA  94043, or:
+- * 
+- * http://www.sgi.com 
+- * 
+- * For further information regarding this notice, see: 
+- * 
+- * http://oss.sgi.com/projects/GenInfo/NoticeExplan
+- */
 -
--	if (candidate != CPU_NONE) {
--		/*
--		 * The cpu was chosen already when we assigned
--		 * the error interrupt.
--		 */
--		bit = intr_reserve_level(candidate, req_bit);
--		if (bit >= 0) {
--			*resp_bit = bit;
--			return candidate;
-+		if (pcibr_soft && pcibr_soft->bsi_err_intr) {
-+			/*
-+			 * The cpu was chosen already when we assigned
-+			 * the error interrupt.
-+			 */
-+			cpuid = ((hub_intr_t)pcibr_soft->bsi_err_intr)->i_cpuid;
-+			goto done;
- 		}
+-#ifndef _ASM_IA64_MACHVEC_SN1_h
+-#define _ASM_IA64_MACHVEC_SN1_h
 -
--		printk("Cannot target interrupt to target node (%ld).\n",candidate);
--		return CPU_NONE;
- 	}
- 
- 	/*
- 	 * Need to choose one.  Try the controlling c-brick first.
- 	 */
- 	cpuid = intr_cpu_choose_from_node(master_node_get(dev));
--	if (cpuid != CPU_NONE)
--		return cpuid;
--	return intr_cpu_choose_node();
-+	if (cpuid = CPU_NONE)
-+		cpuid = intr_cpu_choose_node();
-+
-+ done:
-+	if (cpuid != CPU_NONE) {
-+		bit = intr_reserve_level(req_bit);
-+		if (bit >= 0) {
-+			*resp_bit = bit;
-+			return cpuid;
-+		}
-+	}
-+
-+	printk("Cannot target interrupt to target cpu (%ld).\n", cpuid);
-+	return CPU_NONE;
- }
+-extern ia64_mv_setup_t sn1_setup;
+-extern ia64_mv_cpu_init_t sn_cpu_init;
+-extern ia64_mv_irq_init_t sn1_irq_init;
+-extern ia64_mv_send_ipi_t sn1_send_IPI;
+-extern ia64_mv_global_tlb_purge_t sn1_global_tlb_purge;
+-extern ia64_mv_inb_t sn1_inb;
+-extern ia64_mv_inw_t sn1_inw;
+-extern ia64_mv_inl_t sn1_inl;
+-extern ia64_mv_outb_t sn1_outb;
+-extern ia64_mv_outw_t sn1_outw;
+-extern ia64_mv_outl_t sn1_outl;
+-extern ia64_mv_dma_alloc_coherent	sn1_dma_alloc_coherent;
+-extern ia64_mv_dma_free_coherent	sn1_dma_free_coherent;
+-extern ia64_mv_dma_map_single		sn1_dma_map_single;
+-extern ia64_mv_dma_unmap_single		sn1_dma_unmap_single;
+-extern ia64_mv_dma_map_sg		sn1_dma_map_sg;
+-extern ia64_mv_dma_unmap_sg		sn1_dma_unmap_sg;
+-extern ia64_mv_dma_sync_single		sn1_dma_sync_single;
+-extern ia64_mv_dma_sync_sg		sn1_dma_sync_sg;
+-
+-/*
+- * This stuff has dual use!
+- *
+- * For a generic kernel, the macros are used to initialize the
+- * platform's machvec structure.  When compiling a non-generic kernel,
+- * the macros are used directly.
+- */
+-#define platform_name		"sn1"
+-#define platform_setup		sn1_setup
+-#define platform_cpu_init	sn_cpu_init
+-#define platform_irq_init	sn1_irq_init
+-#define platform_send_ipi	sn1_send_IPI
+-#define platform_global_tlb_purge       sn1_global_tlb_purge
+-#define platform_inb		sn1_inb
+-#define platform_inw		sn1_inw
+-#define platform_inl		sn1_inl
+-#define platform_outb		sn1_outb
+-#define platform_outw		sn1_outw
+-#define platform_outl		sn1_outl
+-#define platform_dma_init	machvec_noop
+-#define platform_dma_alloc_coherent	sn1_dma_alloc_coherent
+-#define platform_dma_free_coherent	sn1_dma_free_coherent
+-#define platform_dma_map_single		sn1_dma_map_single
+-#define platform_dma_unmap_single	sn1_dma_unmap_single
+-#define platform_dma_map_sg		sn1_dma_map_sg
+-#define platform_dma_unmap_sg		sn1_dma_unmap_sg
+-#define platform_dma_sync_single	sn1_dma_sync_single
+-#define platform_dma_sync_sg		sn1_dma_sync_sg
+-
+-#endif /* _ASM_IA64_MACHVEC_SN1_h */
