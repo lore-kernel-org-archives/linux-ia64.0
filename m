@@ -1,8 +1,10 @@
 From: Rich Altmaier <richa@engr.sgi.com>
-Date: Mon, 18 Dec 2000 17:08:44 +0000
+Date: Fri, 22 Dec 2000 18:19:57 +0000
 Subject: [Linux-ia64] PRO64 compiler store ordering for drivers
-Message-Id: <marc-linux-ia64-105590678205862@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205875@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205862@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205862@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -79,6 +81,9 @@ variables.  p1 has an address of some non-local to foo variable.  Thus
 the order is not preserved.
 Changing p1, p2, or both p1 and p2 to volatile does not affect the ordering
 in this case.
+
+
+
 
 
 
