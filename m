@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 08 Mar 2004 19:10:01 +0000
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Wed, 10 Mar 2004 11:13:00 +0000
 Subject: RE: cat /proc/acpi/events bad for your system's health!
-Message-Id: <16460.50441.461359.630173@napali.hpl.hp.com>
+Message-Id: <3ACA40606221794F80A5670F0AF15F8401CBB73E@PDSMSX403.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16455.50905.681007.50048@napali.hpl.hp.com>
 In-Reply-To: <16455.50905.681007.50048@napali.hpl.hp.com>
@@ -10,17 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 8 Mar 2004 13:21:34 +0800, "Yu, Luming" <luming.yu@intel.com> said:
+I confirm this issue here on tiger with 2.6.4-rc3 kernel , but 2.4 is
+ok.
+Not sure this is a regression. 
 
-  Luming> Regarding unalignment access issue, Bob have the following
-  Luming> patch integrated into 20040220.  Would it help this cases?
+PS . please forget my previous reply against this thread. :(
 
-The primary problem is not the unaligned access, it's an access to
-a bogus address:
+Thanks,
+Luming
 
-  >> kernel unaligned access to 0xffffffffffffffff,
-
-Are you saying that /proc/acpi/events works for you as expected with
-the updated ACPI?
-
-	--david
+> -----Original Message-----
+> From: David Mosberger [mailto:davidm@napali.hpl.hp.com] 
+> Sent: Tuesday, March 09, 2004 3:10 AM
+> To: Yu, Luming
+> Cc: davidm@hpl.hp.com; Brown, Len; linux-ia64@vger.kernel.org
+> Subject: RE: cat /proc/acpi/events bad for your system's health!
+> 
+> 
+> >>>>> On Mon, 8 Mar 2004 13:21:34 +0800, "Yu, Luming" 
+> <luming.yu@intel.com> said:
+> 
+>   Luming> Regarding unalignment access issue, Bob have the following
+>   Luming> patch integrated into 20040220.  Would it help this cases?
+> 
+> The primary problem is not the unaligned access, it's an access to
+> a bogus address:
+> 
+>   >> kernel unaligned access to 0xffffffffffffffff,
+> 
+> Are you saying that /proc/acpi/events works for you as expected with
+> the updated ACPI?
+> 
+> 	--david
+> 
