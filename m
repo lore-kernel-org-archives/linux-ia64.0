@@ -1,23 +1,44 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 07 May 2001 18:08:09 +0000
-Subject: Re: [Linux-ia64] Cleanup include/asm-ia64/offsets.h - take 2
-Message-Id: <marc-linux-ia64-105590693005541@msgid-missing>
+From: Gustavo Niemeyer <niemeyer@conectiva.com>
+Date: Thu, 03 May 2001 17:37:53 +0000
+Subject: [Linux-ia64] HP Simulator & Kernel 2.4.3
+Message-Id: <marc-linux-ia64-105590693005529@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005486@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005486@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 1 May 2001 09:36:25 +0100 (BST), Doug Rabson <dfr@nlsystems.com> said:
+Hello!
 
-  Doug> We have similar issues in FreeBSD (and all the other BSDs
-  Doug> too). Our current solution is to compile a file which uses
-  Doug> offsetof() to determine the symbol values and then use a
-  Doug> script to extract those values.
+I'm trying to make the hp simulator work with kernel 2.4.3. Is
+that possible, or the simulator has been left out for a long time?
 
-We do the same when cross-compiling a kernel.
+After successfully compiling the kernel (one little patch was needed),
+I've got these messages while trying to boot the kernel with ski:
 
-	--david
+[...]
+kernel BUG at bootmem.c:144!
+swapper[0]: General Exception: IA-64 Reserved Register/Field fault (data
+access) 549755813936
+[...]
+
+The second message repeats until the kernel panics with:
+
+[...]
+Call Trace: [<e00000000441db80>] sp=0xe0000000046dd080
+bsp=0xe0000000046dedd0
+Kernel panic: Attempted to kill the idle task!
+In idle task - not syncing
+
+Maybe I'm using some option I shouldn't...
+
+If there's no way of working out those problems, anybody knows what's
+the latest kernel that works with the simulator?
+
+Thanks!!
+
+-- 
+Gustavo Niemeyer
+
+[ 2AAC 7928 0FBF 0299 5EB5  60E2 2253 B29A 6664 3A0C ]
 
