@@ -1,7 +1,7 @@
 From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Sat, 08 Dec 2001 11:35:10 +0000
+Date: Sat, 08 Dec 2001 11:35:43 +0000
 Subject: [Linux-ia64] Re: Linux 2.4.17-pre6 drm-4.0
-Message-Id: <marc-linux-ia64-105590698805660@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805661@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805654@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805654@msgid-missing>
@@ -10,12 +10,8 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> > How long do people plan to keep drm 4.0 code in their versions of the
-> > kernel?
-> 
-> For 2.5, there probably is no intention of keeping that around.  But can
-> we honestly ditch it in the middle of a stable kernel?  Personally I
-> don't use it, but its not polite ...
+> to get rid of them asap.  The SiS direct render is only for drm 4.1 so
+> now is a good time to question if 4.0 is still required.
 
-I said it shouldn't have been ditched, Linus overruled. 
+That argument doesnt fly. The 4.0 DRM is the only working GMX renderer..
 
