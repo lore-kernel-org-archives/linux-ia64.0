@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 13 Mar 2003 19:16:26 +0000
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 13 Mar 2003 21:59:54 +0000
 Subject: [Linux-ia64] Re: ia64_spinlock_contention and NEW_LOCK
-Message-Id: <marc-linux-ia64-105590709806081@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709806085@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709806055@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709806055@msgid-missing>
@@ -10,44 +10,71 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 13 Mar 2003 08:18:49 +1100, Keith Owens <kaos@sgi.com> said:
+On Thu, 13 Mar 2003 11:16:26 -0800, 
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
+>It should be easy to fix: save ar.pfs in a scratch register, then use
+>br.call/brl.call to invoke the ia64_spinlock_contention.  Then
+>everything will work out properly.
 
-  Keith> On Wed, 12 Mar 2003 09:27:14 -0800, 
-  Keith> David Mosberger <davidm@napali.hpl.hp.com> wrote:
-  >> This is wrong:
+To avoid disturbing leaf functions, spin_lock() would have to both save
+and restore ar.pfs, increasing the number of bundles.  To make unwind
+work through spin_lock() that modifies ar.pfs, spin_lock() would need
+unwind directives, including prologue, body and epilogue records.  That
+would significantly increase the amount of unwind data for anything
+that uses spin locks.  I originally used br.call but the side effects
+of trying to hide the changes to ar.pfs from gcc to avoid converting
+leaf functions to interior were too high.
 
-  >> +	.prologue
-  >> +	.altrp b7
-  >> +	.save ar.pfs, r29
-  >> +	mov b7=r28		// my "return" address
-  >> +	mov r29=0		// dummy ar.pfs, pretend zero frame size
+All is not lost, there is one spare slot in spin_lock which can clear
+r29 (dummy ar.pfs) before entering ia64_spinlock_contention.  If I have
+my unwind directives right, this should close the 1 instruction unwind
+window.  David, can you confirm?  McKinley version, not Itanium.
 
-  >> You have a 1-instruction window where the unwind info is wrong.
-  >> Single-stepping with the latest Ski beta and using the "cstack"
-  >> command, you should be able to see the problem.
+include/asm-ia64/spinlock.h
 
-  Keith> I know, but do not see any way around it.
+#define spin_lock(x) 									\
+({											\
+	register char *addr __asm__ ("r31") = (char *) &(x)->lock;			\
+											\
+	__asm__ __volatile__ (								\
+		"1:\n"		/* force a new bundle, r28 points here */		\
+		"mov ar.ccv=r0\n"							\
+		"mov r28=ip\n"								\
+		"mov r30=1\n"								\
+		";;\n"									\
+		"cmpxchg4.acq r30=[%0],r30,ar.ccv\n"					\
+		";;\n"									\
+		"cmp.ne p15,p0=r30,r0\n"						\
+		";;\n"									\
+		"mov r29=0\n"								\
+		"(p15) brl.cond.spnt.few ia64_spinlock_contention\n"			\
+		";;\n"									\
+		"2:\n"		/* force a new bundle */				\
+		:: "r"(addr)								\
+		: "ar.ccv", "r28", "r29", "r30", "b7", "p15", "memory");		\
+})
 
-It should be easy to fix: save ar.pfs in a scratch register, then use
-br.call/brl.call to invoke the ia64_spinlock_contention.  Then
-everything will work out properly.
+arch/ia64/kernel/head.S
 
-  >> In general, I'm quite nervous about doing such trickery underneath the
-  >> compiler.  Would you be interested in trying out the alternative of
-  >> simply using __sync_val_compare_and_swap(), likely()/unlikely() and
-  >> making ia64_spinlock_contention() a normal procedure?  I'd rather
-  >> pester the compiler folks than live with code that's bound to bite us
-  >> in the future. ;-)
+GLOBAL_ENTRY(ia64_spinlock_contention)
+	// To get decent unwind data, lie about our state
+	.prologue
+	.save ar.pfs, r29	// r29 = 0 from spin_lock()
+	.save rp, r28		// r28 = my "return" address
+	mov b7=r28
+	.altrp b7
+	;;
+	.body
+.retry:
+	// exponential backoff, kdb, lockmeter etc. go in here
+	//
+	;;
+	ld4 r28=[r31]
+	;;
+	cmp4.eq p15,p0=r28,r0
+(p15)	br.cond.spnt.few b7	// lock is now free, try to acquire
+	br.cond.sptk.few .retry
 
-  Keith> My biggest concern with calling any C code from spinlock contention is
-  Keith> the potential for unbounded recursion.  If the C code does anything
-  Keith> that uses a spinlock (including printk) then we could end up back in
-  Keith> the contention code and blow the stack.  The asm code is tricky but
-  Keith> safe.
+END(ia64_spinlock_contention)
 
-I see your point, but I don't think it's a very strong argument.  In
-any case, as long as GCC doesn't do shrink-wrapping, a pure C solution
-may not be practical anyhow.
-
-	--david
 
