@@ -1,31 +1,26 @@
 From: Christoph Hellwig <hch@infradead.org>
-Date: Tue, 24 Aug 2004 19:13:43 +0000
-Subject: Re: [PATCH 1/4] SGI Altix cross partition functionality (1st revision)
-Message-Id: <20040824201343.A32110@infradead.org>
+Date: Mon, 09 Aug 2004 20:21:47 +0000
+Subject: Re: [PATCH] QLogic ISP2x00: remove needless busyloop
+Message-Id: <20040809212147.A9919@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <412B823E.mailxAMX1HROPJ@aqua.americas.sgi.com> <20040824182222.GA13961@sgi.com>
-In-Reply-To: <20040824182222.GA13961@sgi.com>; from dcn@sgi.com on Tue, Aug 24, 2004 at 01:22:22PM -0500
+References: <200408091252.58547.bjorn.helgaas@hp.com> <20040809210335.A9711@infradead.org> <200408091419.20029.bjorn.helgaas@hp.com>
+In-Reply-To: <200408091419.20029.bjorn.helgaas@hp.com>; from bjorn.helgaas@hp.com on Mon, Aug 09, 2004 at 02:19:20PM -0600
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dean Nelson <dcn@sgi.com>
-Cc: linux-ia64@vger.kernel.org, netdev@oss.sgi.com
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>, linux-ia64@vger.kernel.org
+Cc: Christoph Hellwig <hch@infradead.org>, Andrew Morton <akpm@osdl.org>, grif@cs.ucr.edu, linux-kernel@vger.kernel.org
 
-> --- bk-linux-2.6.orig/kernel/sched.c	2004-08-23 14:39:35.000000000 -0500
-> +++ bk-linux-2.6/kernel/sched.c	2004-08-24 07:29:11.000000000 -0500
-> @@ -2814,6 +2814,7 @@
->  {
->  	return setscheduler(pid, policy, param);
->  }
-> +EXPORT_SYMBOL(sys_sched_setscheduler);
+On Mon, Aug 09, 2004 at 02:19:20PM -0600, Bjorn Helgaas wrote:
+> I don't use it (note the "there's no isp2x00" bit above).  But it's
+> still part of ia64 defconfig (which I don't maintain), and it's easier
+> to tell people "use generic_defconfig" than to tell them to remove
+> CONFIG_SCSI_QLOGIC_FC by hand.
 
-As said previously you're not supposed to mess with this one.
+So tell David to fix up the defconfig..
 
->  long nr_swap_pages;
->  int numnodes = 1;
-> +EXPORT_SYMBOL(numnodes);
+> In general, I think if a driver is in the tree, it should be fair
+> game for bugfixes.  In fact, I see you did the most recent one to
+> qlogicfc :-)
 
-Looing at the two routines that use this I think those two should always
-go into the core kernel code.  That way you also get rid of the
-pda_percpu export.
-
+That wasn't a bugfix, look harder.
