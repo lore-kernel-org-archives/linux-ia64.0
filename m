@@ -1,205 +1,55 @@
-From: "DE-DINECHIN,CHRISTOPHE (HP-Cupertino,ex1)" <christophe_de-dinechin@hp.com>
-Date: Fri, 11 May 2001 02:24:17 +0000
-Subject: RE: [Linux-ia64] Kernel Bug
-Message-Id: <marc-linux-ia64-105590693005568@msgid-missing>
+From: "Minnow" <yucy@necas.nec.co.jp>
+Date: Fri, 18 May 2001 01:43:52 +0000
+Subject: [Linux-ia64] make cross-gcc error use GNUPro ToolKit
+Message-Id: <marc-linux-ia64-105590693005611@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005565@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005565@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Apparently, I cannot reproduce the original BUG situation, sorry.
+DQpJIHdhbnQgdG8gcG9ydCBzb21lIGFwcGxpY2F0aW9ucyBmcm9tIElBMzIgdG8gSUE2NC4gU28g
+SSB3YW50IHRvIGhhdmUgYSBjcm9zcy1nY2MgYW5kIGdldCBHTlVQcm8gVG9vbEtpdCBzb3VyY2Ug
+YW5kIG1ha2UsYnV0IHNvbWUgZXJyb3JzIGhhcHBlbmVkLklmIHdobyBrbm93cyAsUGxlYXNlIGhl
+bHAgbWUuDQoNCk15IFBDIGlzIFBJSSAzNTAgYW5kIE9TIGlzIFJlZGhhdCA3LjEuDQp0aGUgZ2Nj
+IGlzIDIuOTYNCnRoZSBnbGliYyBpcyBnbGliYy1kZXZlbC0yLjIuMi0xDQogDQpUaGFua3MuDQog
+DQpzdGVwIDE6DQogY2QgL3dvcms7dGFyIHh6dmYgc3JjLnRhci5aDQogDQpzdGVwIDI6DQogbWtk
+aXIgaW5zdGFsbC1kaXI7Y2QgaW5zdGFsbC1kaXINCiAuLi9zcmMvY29uZmlndXJlIC0tdGFyZ2V0
+PWlhNjQtcGMtbGludXgNCiBtYWtlIGFsbCBMQU5HVUFHRVM9ImMgYysrIg0KDQpzdGVwIDM6DQog
+dGhlIGVycm9yIGxvb2tzIGxpa2UgdGhpczoNCmRvIFwNCiAgZWNobyAke25hbWV9OyBcDQogIC93
+b3JrL2ItaWE2NC1wYy1saW51eC9nY2MveGdjYyAtQi93b3JrL2ItaWE2NC1wYy1saW51eC9nY2Mv
+IC1CL3Vzci9sb2NhbC9pYTY0LXBjLWxpbnV4L2Jpbi8gLUkvdXNyL2xvY2FsL2lhNjQtcGMtbGlu
+dXgvaW5jbHVkZSAtTzIgIC1EQ1JPU1NfQ09NUElMRSAtRElOX0dDQyAgICAtZyAtTzIgIC1JLi9p
+bmNsdWRlICAtZlBJQyAtZzEgIC1ESU5fTElCR0NDMiAtRF9fR0NDX0ZMT0FUX05PVF9ORUVERUQg
+IC1JLiAtSS4uLy4uL3NyYy9nY2MgLUkuLi8uLi9zcmMvZ2NjL2NvbmZpZyAtSS4uLy4uL3NyYy9n
+Y2MvLi4vaW5jbHVkZSAtYyAtREwke25hbWV9IFwNCiAgICAgICAuLi8uLi9zcmMvZ2NjL2xpYmdj
+YzIuYyAtbyAke25hbWV9Lm87IFwNCiAgaWYgWyAkPyAtZXEgMCBdIDsgdGhlbiB0cnVlOyBlbHNl
+IGV4aXQgMTsgZmk7IFwNCiAgL3dvcmsvYi1pYTY0LXBjLWxpbnV4L2JpbnV0aWxzL2FyIHJjIHRt
+cGxpYmdjYzIuYSAke25hbWV9Lm87IFwNCiAgcm0gLWYgJHtuYW1lfS5vOyBcDQpkb25lDQpfbXVs
+ZGkzDQouLi8uLi9zcmMvZ2NjL2xpYmdjYzIuYzo0NDogc3RkbGliLmg6IE5vIHN1Y2ggZmlsZSBv
+ciBkaXJlY3RvcnkNCi4uLy4uL3NyYy9nY2MvbGliZ2NjMi5jOjQ1OiB1bmlzdGQuaDogTm8gc3Vj
+aCBmaWxlIG9yIGRpcmVjdG9yeQ0KbWFrZVsxXTogKioqIFtsaWJnY2MyLmFdIEVycm9yIDENCiAN
+CkluIHRoaXMgc3RlcCxJIGNoYW5nZSB0aGUgY29uZmlndXJlIGFzIGZvbGxvd3M6DQogY2QgL2lu
+c3RhbGwtZGlyL2djYztybSAqIC1yZjsuLi8uLi9zcmMvZ2NjL2NvbmZpZ3VyZSAtLXRhcmdldD1p
+YTY0LXBjLWxpbnV4IC0tZGlzYWJsZS10aHJlYWRzDQogbWFrZSBhbGwgTEFOR1VBR0VTPSJjIGMr
+KyIgVEFSR0VUX0xJQkdDQzJfQ0ZMQUdTPSItZm9taXQtZnJhbWUtcG9pbnRlciAtZlBJQyAtRGlu
+aGliaXRfbGliYyAtRF9fZ3Rocl9wb3NpeF9oIg0KIA0KIHRoZSBnY2MgaXMgb2sgYW5kIEkgY29u
+dGludWUgdG8gbWFrZSBhcyBmb2xsb3dzOg0KIA0Kc3RlcCA0Og0KIGNkIC93b3JrL2luc3RhbGwt
+ZGlyDQogbWFrZSBhbGwgTEFOR1VBR0VTPSJjIGMrKyIgVEFSR0VUX0xJQkdDQzJfQ0ZMQUdTPSIt
+Zm9taXQtZnJhbWUtcG9pbnRlciAtZlBJQw0KLURpbmhpYml0X2xpYmMgLURfX2d0aHJfcG9zaXhf
+aCINCiANCiB0aGUgZXJyb3IgbG9va3MgbGlrZSB0aGlzOg0KL3Vzci9sb2NhbC9pYTY0LXBjLWxp
+bnV4L2Jpbi8gLWMgLWZvbWl0LWZyYW1lLXBvaW50ZXIgLURpbmhpYml0X2xpYmMgLURfX2d0aHJf
+cG9zaXhfaCAtZyAtTzIgIC1JLiAtSS4uLy4uLy4uL3NyYy9saWJpbyAgLi4vLi4vLi4vc3JjL2xp
+YmlvL2lvZ2V0bGluZS5jDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gLi4vLi4vLi4vc3JjL2xpYmlv
+L2lvZ2V0bGluZS5jOjI2Og0KLi4vLi4vLi4vc3JjL2xpYmlvL2xpYmlvUC5oOjMwOiBlcnJuby5o
+OiBObyBzdWNoIGZpbGUgb3IgZGlyZWN0b3J5DQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gLi4vLi4v
+Li4vc3JjL2xpYmlvL2lvbGliaW8uaDoxLA0KICAgICAgICAgICAgICAgICBmcm9tIC4uLy4uLy4u
+L3NyYy9saWJpby9saWJpb1AuaDo0NywNCiAgICAgICAgICAgICAgICAgZnJvbSAuLi8uLi8uLi9z
+cmMvbGliaW8vaW9nZXRsaW5lLmM6MjY6DQouLi8uLi8uLi9zcmMvbGliaW8vbGliaW8uaDozMDog
+X0dfY29uZmlnLmg6IE5vIHN1Y2ggZmlsZSBvciBkaXJlY3RvcnkNCi4uLy4uLy4uL3NyYy9saWJp
+by9pb2dldGxpbmUuYzoyNzogc3RyaW5nLmg6IE5vIHN1Y2ggZmlsZSBvciBkaXJlY3RvcnkNCm1h
+a2U6ICoqKiBbaW9nZXRsaW5lLm9dIEVycm9yIDENCiANCnN0ZXAgNToNCiBJIHRoaW5rIGl0IG1h
+eSBiZSB0aGUgY29uZmlndXJlIHBhcmFtZXRlciBub3QtY29ycmV0LiBJIHdhbnQgdG8ga25vdyB3
+aHkgYW5kIGhvdyB0byBzb2x2ZSBpdC4NCg=
 
-On my current kernel, a test case rebuilt from memory causes "Unable to
-handle kernel paging request at VA ...". I believe that the code that
-triggered it was an infinite loop on __get_free_page with the GFP_DMA flag,
-until I would get NULL, followed by a matching loop to free the allocated
-memory.
-
-Unfortunately, since the code was simply to test what kind of physical
-addresses I would get, I never checked it in my CVS tree, so I can't
-guarantee that I'm exactly reproducing the original test case... And since
-the case was seriously broken code anyways, I did not bother reporting the
-issue either...
-
-
-Christophe
-
------Original Message-----
-From: Maribasavaiah, Prasad [mailto:prasad.maribasavaiah@intel.com]
-Sent: Thursday, May 10, 2001 5:05 PM
-To: 'DE-DINECHIN,CHRISTOPHE (HP-Cupertino,ex1)';
-'linux-ia64@linuxia64.org'
-Subject: RE: [Linux-ia64] Kernel Bug
-
-
-Chritophe,
-
-Can tell me more about this?
-
-Prasad
------Original Message-----
-From: DE-DINECHIN,CHRISTOPHE (HP-Cupertino,ex1)
-[mailto:christophe_de-dinechin@hp.com]
-Sent: Thursday, May 10, 2001 4:25 PM
-To: 'Maribasavaiah, Prasad'; 'linux-ia64@linuxia64.org'
-Subject: RE: [Linux-ia64] Kernel Bug
-
-
-I don't know if this is the same thing, but I observed that on some older
-kernels when trying to allocate all memory from a driver. I did not re-test
-recently.
-
-Christophe
-
------Original Message-----
-From: linux-ia64-admin@linuxia64.org
-[mailto:linux-ia64-admin@linuxia64.org]On Behalf Of Maribasavaiah,
-Prasad
-Sent: Thursday, May 10, 2001 2:12 PM
-To: linux-ia64@linuxia64.org
-Subject: [Linux-ia64] Kernel Bug
-
-
-
-We are getting kernel BUG message when running a stress test on Redhat Linux
-Beta 1,  the message says bug at line 82 in page_alloc.c. The line 82 calls
-function BUG().
-When I looked at the function it is in __free_pages_ok().
-
-The line 81 & 82 in the below function corresponds to 
-if (page->buffers)
-	BUG();
-
-I would like to know is this a know issue or it is already fixed in the next
-kernel?
-
-static void __free_pages_ok (struct page *page, unsigned long order)
-{
-	unsigned long index, page_idx, mask, flags;
-	free_area_t *area;
-	struct page *base;
-	zone_t *zone;
-
-	/*
-	 * Subtle. We do not want to test this in the inlined part of
-	 * __free_page() - it's a rare condition and just increases
-	 * cache footprint unnecesserily. So we do an 'incorrect'
-	 * decrement on page->count for reserved pages, but this part
-	 * makes it safe.
-	 */
-	if (PageReserved(page))
-		return;
-
-	if (page->buffers)
-		BUG();
-	if (page->mapping)
-		BUG();
-	if (!VALID_PAGE(page))
-		BUG();
-	if (PageSwapCache(page))
-		BUG();
-	if (PageLocked(page))
-		BUG();
-	if (PageDecrAfter(page))
-		BUG();
-	if (PageDirty(page))
-		BUG();
-	if (PageActive(page))
-		BUG();
-	if (PageInactiveDirty(page))
-		BUG();
-	if (PageInactiveClean(page))
-		BUG();
-
-	page->flags &= ~(1<<PG_referenced);
-	page->age = PAGE_AGE_START;
-	
-	zone = page->zone;
-
-	mask = (~0UL) << order;
-	base = mem_map + zone->offset;
-	page_idx = page - base;
-	if (page_idx & ~mask)
-		BUG();
-	index = page_idx >> (1 + order);
-
-	area = zone->free_area + order;
-
-	spin_lock_irqsave(&zone->lock, flags);
-
-	zone->free_pages -= mask;
-
-	while (mask + (1 << (MAX_ORDER-1))) {
-		struct page *buddy1, *buddy2;
-
-		if (area >= zone->free_area + MAX_ORDER)
-			BUG();
-		if (!test_and_change_bit(index, area->map))
-			/*
-			 * the buddy page is still allocated.
-			 */
-			break;
-		/*
-		 * Move the buddy up one level.
-		 */
-		buddy1 = base + (page_idx ^ -mask);
-		buddy2 = base + page_idx;
-		if (BAD_RANGE(zone,buddy1))
-			BUG();
-		if (BAD_RANGE(zone,buddy2))
-			BUG();
-
-		memlist_del(&buddy1->list);
-		mask <<= 1;
-		area++;
-		index >>= 1;
-		page_idx &= mask;
-	}
-	memlist_add_head(&(base + page_idx)->list, &area->free_list);
-
-	spin_unlock_irqrestore(&zone->lock, flags);
-
-	/*
-	 * We don't want to protect this variable from race conditions
-	 * since it's nothing important, but we do want to make sure
-	 * it never gets negative.
-	 */
-	if (memory_pressure > NR_CPUS)
-		memory_pressure--;
-}
-
-void __free_pages(struct page *page, unsigned long order)
-{
-	if (put_page_testzero(page))
-		__free_pages_ok(page, order);
-}
-
-void free_pages(unsigned long addr, unsigned long order)
-{
-	struct page *fpage;
-
-#ifdef CONFIG_DISCONTIGMEM
-	if (addr = 0) return;
-#endif
-	fpage = virt_to_page(addr);
-	if (VALID_PAGE(fpage))
-		__free_pages(fpage, order);
-}
-
-
-Prasad Maribasavaiah
-DP CV Debug
-Intel Corporation
-Phone : (253) 371 4803
-
-
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
