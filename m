@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 19 Jul 2001 19:25:35 +0000
-Subject: Re: [Linux-ia64] 010626 kernel, copy_from_user() broken?
-Message-Id: <marc-linux-ia64-105590693005854@msgid-missing>
+From: "Nakajima, Jun" <jun.nakajima@intel.com>
+Date: Thu, 19 Jul 2001 22:14:51 +0000
+Subject: RE: [Linux-ia64] 010626 kernel, copy_from_user() broken?
+Message-Id: <marc-linux-ia64-105590693005855@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005846@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005846@msgid-missing>
@@ -10,7 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 12 Jul 2001 12:16:58 +0100, Richard Hirst <rhirst@linuxcare.com> said:
+I think using '21' (latency of the L3 cache on Itanium) would make more
+sense than '4' (something in between the one of L1 and L2) for copy_user,
+because we might want to optimize the worst cases. If the data are available
+in L1 or L2, the size to copy should be small and it's done quickly anyway.
+
+See "Itanium(tm) Processor Microarchitecture Reference"
+(http://developer.intel.com/design/ia-64/downloads/245474.htm) for such
+details.
+
+For some reason I know the author accidentally assumed that PIPE_DEPTH=4
+when he saw #define ...
+
+Jun
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@hpl.hp.com]
+Sent: Thursday, July 19, 2001 12:26 PM
+To: Richard Hirst
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] 010626 kernel, copy_from_user() broken?
+
+
+>>>>> On Thu, 12 Jul 2001 12:16:58 +0100, Richard Hirst
+<rhirst@linuxcare.com> said:
 
   Rich> Hi, Summary: I had to change PIPE_DEPTH in
   Rich> arch/ia64/lib/copy_user.S from 21 to 4 to make
@@ -43,9 +66,12 @@ Thanks,
  	//
  
  	//
--	// Optimization. If dst1 is 8-byte aligned (not rarely), we don't need
--	// to copy the head to dst1, to start 8-byte copy software pipleline.
-+	// Optimization. If dst1 is 8-byte aligned (quite common), we don't need
+-	// Optimization. If dst1 is 8-byte aligned (not rarely), we don't
+need
+-	// to copy the head to dst1, to start 8-byte copy software
+pipleline.
++	// Optimization. If dst1 is 8-byte aligned (quite common), we don't
+need
 +	// to copy the head to dst1, to start 8-byte copy software pipeline.
  	// We know src1 is not 8-byte aligned in this case.
  	//
@@ -98,4 +124,10 @@ Thanks,
  	cmp.ne p6,p0=dst1,enddst	// Do we need to finish the tail ?
  	sub len=enddst,dst1,1		// precompute len
  (p6)	br.cond.dptk.few failure_in1bis
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
