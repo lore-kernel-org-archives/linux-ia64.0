@@ -1,72 +1,53 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Tue, 09 Jul 2002 21:03:13 +0000
-Subject: [Linux-ia64] Security issue with Linux/IA-64
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------050906010000020001080202"
-Message-Id: <marc-linux-ia64-105590701905749@msgid-missing>
+From: Erich Focht <efocht@ess.nec.de>
+Date: Mon, 22 Jul 2002 13:59:41 +0000
+Subject: [Linux-ia64] node affine NUMA scheduler
+Message-Id: <marc-linux-ia64-105590701905801@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050906010000020001080202
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+There's a new version of the node affine NUMA scheduler extension based
+on the O(1) scheduler at
+    http://home.arcor.de/efocht/sched/Nod18_2.4.18-ia64-O1ef7.patch
 
-I found that running the following program as an unprivileged user on
-Linux/IA-64 could hang the system.
+The patch is for 2.4.18 kernels and it has been tested on IA64 systems.
+It requires the O(1) scheduler patch with the corrected complex macros
+which I posted to the LSE and linux-ia64 mailing lists last week. For
+IA64 you should use:
+    http://home.arcor.de/efocht/sched/O1_ia64-ef7-2.4.18.patch.bz2
+which should be applied to   2.4.18  +  ia64-020622 patch.
+For IA32 (NUMA-Q) try instead:
+    http://home.arcor.de/efocht/sched/O1_i386-ef7-2.4.18.patch.bz2
 
-#include <unistd.h>
-#include <sys/mman.h>
+What is it good for?
 
-int main(int argc, char **argv)
-{
-        munmap( (void *) 0x2000000000000000L, 0x2000000000000000L - 1); 
-}
+ - Extends the scheduler to NUMA.
+ - Each task gets a homenode assigned at start (initial load balancing).
+ - A memory affinity patch (like discontigmem, or similar) should take
+   care that the memory of the task is allocated mainly from its
+   homenode.
+ - The scheduler attracts the tasks to their homenodes while trying to
+   keep the nodes equally balanced.
+ - Target: keep processes and their memory on the same node to reduce
+   memory access latencies without having to fiddle with the
+   cpus_allowed masks (hard affinities).
+ - Within one node, behaves like the normal O(1) scheduler.
 
-The attached patch fixes the problem. We recommend that distributions 
-pick this up as soon as possible, because of the nature of the problem.
+For an overview over the features have a look at:
+    http://home.arcor.de/efocht/sched
 
-    -Arun
+There are several changes compared to the previous version, the most
+important ones are:
+ - Extension to multilevel NUMA hierarchy by implementing delays when
+   stealing tasks from remote nodes.
+ - Better selection of task to be stolen from busiest runqueue. Take
+   into account cache coolness, node and supernode of task and runqueue.
 
+Comments and feedback are very wellcome.
 
---------------050906010000020001080202
-Content-Type: text/plain;
- name="flush7.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="flush7.txt"
-
-===== include/asm-ia64/pgalloc.h 1.6 vs edited =====
---- 1.6/include/asm-ia64/pgalloc.h	Fri Jun 21 16:18:11 2002
-+++ edited/include/asm-ia64/pgalloc.h	Tue Jul  9 13:55:27 2002
-@@ -17,6 +17,7 @@
- 
- #include <linux/mm.h>
- #include <linux/threads.h>
-+#include <linux/compiler.h>
- 
- #include <asm/mmu_context.h>
- #include <asm/processor.h>
-@@ -204,9 +205,15 @@
- static inline void
- flush_tlb_pgtables (struct mm_struct *mm, unsigned long start, unsigned long end)
- {
--	if (rgn_index(start) != rgn_index(end))
--		printk("flush_tlb_pgtables: can't flush across regions!!\n");
--	flush_tlb_range(mm, ia64_thash(start), ia64_thash(end));
-+	if (unlikely(end - start >= 1024*1024*1024*1024UL
-+		     || rgn_index(start) != rgn_index(end - 1)))
-+		/*
-+		 * This condition is very rare and normal applications shouldn't get
-+		 * here. No attempt has been made to optimize for this case.
-+		 */
-+		flush_tlb_all();
-+	else
-+		flush_tlb_range(mm, ia64_thash(start), ia64_thash(end));
- }
- 
- /*
-
---------------050906010000020001080202--
+Regards,
+Erich
 
 
