@@ -1,45 +1,29 @@
-From: qiuhb <qiuhb@necas.nec.co.jp>
-Date: Mon, 21 May 2001 10:13:24 +0000
-Subject: [Linux-ia64] make cross-gcc error about GNUPro ToolKit
-Message-Id: <marc-linux-ia64-105590693005631@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Mon, 21 May 2001 20:02:41 +0000
+Subject: Re: [Linux-ia64] make cross-gcc error about GNUPro ToolKit
+Message-Id: <marc-linux-ia64-105590693005635@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005631@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005631@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi
+It looks like there is some compatibility problem with the headers, libraries,
+and gcc sources.  Building a cross this way will work only if the libraries
+were compiled by this gcc version.
 
-I want to get a cross-compile envionment using GNUPro ToolKit.
-After I enter into /work/ia64 diretory and configure with
-"../src/configure --target=ia64-pc-linux
---with-headers=/work/ia64/usr/include --with-libs=/work/ia64/usr/lib"
-and type "make all install" and have a gcc tool,I make a file and some
-errors happen as follows:
+If you want to do a build from scratch using a new gcc version, then you
+need to build glibc and gcc at the same time.  This is so complicated that
+it is best left to the experts.
 
-[root@qiuhb libiberty]# /usr/local/ia64-pc-linux/bin/gcc
-/work/qhb/read.c
-/usr/local/lib/gcc-lib/ia64-pc-linux/2.9-ia64-000216-final/../../../../ia64-pc-linux/bin/ld:
-warning: ld-linux-ia64.so.2, needed by /lib/libc.so.0, not found (try
-using --rpath)
-/lib/libc.so.0: undefined reference to `_dl_debug_impcalls@@GLIBC_2.2'
-/lib/libc.so.0: undefined reference to
-`_dl_lookup_versioned_symbol@@GLIBC_2.2' /lib/libc.so.0: undefined
-reference to `_dl_relocate_object@@GLIBC_2.2'
-..
-..
-/lib/libc.so.0: undefined reference to `_dl_lookup_address@@GLIBC_2.2'
-collect2: ld returned 1 exit status
+>/usr/local/lib/gcc-lib/ia64-pc-linux/2.9-ia64-000216-final/../../../../ia64-pc-linux/bin/ld:
 
-I get a ld-linux-ia64.so.2 file from glibc-2.2-001117p1.ia64.rpm and
-make again,but the error have no difference.
-This error message exist in /work/ia64/ia64-pc-linux/libiberty as same
-and dont create a Makefile.So many file have not make.
+The 000216 release is long obsolete.  It is pointless to even try to use it.
 
-If who knows ,Please help me.
+You will have much better luck if you try the gcc sources that came with the
+OS release that you have.
 
-Thanks a lot.
-
-Qiu HongBing.
-
+Jim
 
