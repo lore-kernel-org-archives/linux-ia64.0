@@ -1,47 +1,136 @@
-From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Date: Tue, 28 Sep 2004 02:46:04 +0000
-Subject: [PATCH] Check enabled field of processor affinity
-Message-Id: <20040928114604.5a2a89e4.tokunaga.keiich@jp.fujitsu.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Sat, 18 Sep 2004 23:29:47 +0000
+Subject: page fault scalability patch V8: [5/7] atomic pte operations for
+Message-Id: <Pine.LNX.4.58.0409181628560.24054@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
+ <20040816143903.GY11200@holomorphy.com>
+ <B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com>
+ <B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com>
+ <B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com>
+ <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
+ <1094012689.6538.330.camel@gaston> <Pine.LNX.4.58.0409010938200.9907@schroedinger.engr.sgi.com>
+ <1094080164.4025.17.camel@gaston> <Pine.LNX.4.58.0409012140440.23186@schroedinger.engr.sgi.com>
+ <20040901215741.3538bbf4.davem@davemloft.net>
+ <Pine.LNX.4.58.0409020920570.26893@schroedinger.engr.sgi.com>
+ <20040902131057.0341e337.davem@davemloft.net>
+ <Pine.LNX.4.58.0409021358540.28182@schroedinger.engr.sgi.com>
+ <20040902140759.5f1003d5.davem@davemloft.net>
+ <B6E8046E1E28D34EB815A11AC8CA312902CD3243@mtv-atc-605e--n.corp.sgi.com>
+In-Reply-To: <B6E8046E1E28D34EB815A11AC8CA312902CD3243@mtv-atc-605e--n.corp.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, acpi-devel@lists.sourceforge.net
-Cc: tokunaga.keiich@jp.fujitsu.com
+To: akpm@osdl.org
+Cc: "David S. Miller" <davem@davemloft.net>, benh@kernel.crashing.org, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, ak@muc.de, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
 
-Hi there,
+Changelog
+	* Atomic pte operations for i386
+	* Needs the general cmpxchg patch for i386
 
-I think that acpi_numa_processor_affinity_init() should check the
-enabled field of processor affinity because ACPI spec says "If clear,
-the OSPM ignores the contents of the Processor Local APIC/SAPIC
-Affinity Structure".
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Thanks,
-Keiichiro Tokunaga
+Index: linus/include/asm-i386/pgtable.h
+=================================--- linus.orig/include/asm-i386/pgtable.h	2004-09-18 14:25:23.000000000 -0700
++++ linus/include/asm-i386/pgtable.h	2004-09-18 15:41:52.000000000 -0700
+@@ -412,6 +412,7 @@
+ #define __HAVE_ARCH_PTEP_SET_WRPROTECT
+ #define __HAVE_ARCH_PTEP_MKDIRTY
+ #define __HAVE_ARCH_PTE_SAME
++#define __HAVE_ARCH_ATOMIC_TABLE_OPS
+ #include <asm-generic/pgtable.h>
 
+ #endif /* _I386_PGTABLE_H */
+Index: linus/include/asm-i386/pgtable-3level.h
+=================================--- linus.orig/include/asm-i386/pgtable-3level.h	2004-09-18 14:25:23.000000000 -0700
++++ linus/include/asm-i386/pgtable-3level.h	2004-09-18 15:41:52.000000000 -0700
+@@ -6,7 +6,8 @@
+  * tables on PPro+ CPUs.
+  *
+  * Copyright (C) 1999 Ingo Molnar <mingo@redhat.com>
+- */
++ * August 26, 2004 added ptep_cmpxchg and ptep_xchg <christoph@lameter.com>
++*/
 
-Name: Check enabled field of processor affinity
-Status: Compiled on 2.6.9-rc2
-Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+ #define pte_ERROR(e) \
+ 	printk("%s:%d: bad pte %p(%08lx%08lx).\n", __FILE__, __LINE__, &(e), (e).pte_high, (e).pte_low)
+@@ -141,4 +142,26 @@
+ #define __pte_to_swp_entry(pte)		((swp_entry_t){ (pte).pte_high })
+ #define __swp_entry_to_pte(x)		((pte_t){ 0, (x).val })
 
----
-
- linux-2.6.9-rc2-enabled-bit-kei/arch/ia64/kernel/acpi.c |    4 ++++
- 1 files changed, 4 insertions(+)
-
-diff -puN arch/ia64/kernel/acpi.c~enabled_fix arch/ia64/kernel/acpi.c
---- linux-2.6.9-rc2-enabled-bit/arch/ia64/kernel/acpi.c~enabled_fix	2004-09-28 10:24:18.620152358 +0900
-+++ linux-2.6.9-rc2-enabled-bit-kei/arch/ia64/kernel/acpi.c	2004-09-28 10:24:18.623082067 +0900
-@@ -385,6 +385,10 @@ acpi_numa_slit_init (struct acpi_table_s
- void __init
- acpi_numa_processor_affinity_init (struct acpi_table_processor_affinity *pa)
- {
-+	/* Ignore disabled entries */
-+	if (!pa->flags.enabled)
-+		return;
++/* Atomic PTE operations */
++static inline pte_t ptep_xchg(struct mm_struct *mm, pte_t *ptep, pte_t newval)
++{
++	pte_t res;
 +
- 	/* record this node in proximity bitmap */
- 	pxm_bit_set(pa->proximity_domain);
- 
++	/* xchg acts as a barrier before the setting of the high bits.
++	 * (But we also have a cmpxchg8b. Why not use that? (cl))
++	  */
++	res.pte_low = xchg(&ptep->pte_low, newval.pte_low);
++	res.pte_high = ptep->pte_high;
++	ptep->pte_high = newval.pte_high;
++
++	return res;
++}
++
++
++static inline int ptep_cmpxchg(struct mm_struct *mm, unsigned long address, pte_t *ptep, pte_t oldval, pte_t newval)
++{
++	return cmpxchg(ptep, pte_val(oldval), pte_val(newval)) = pte_val(oldval);
++}
++
++
+ #endif /* _I386_PGTABLE_3LEVEL_H */
+Index: linus/include/asm-i386/pgtable-2level.h
+=================================--- linus.orig/include/asm-i386/pgtable-2level.h	2004-09-18 14:25:23.000000000 -0700
++++ linus/include/asm-i386/pgtable-2level.h	2004-09-18 15:41:52.000000000 -0700
+@@ -82,4 +82,8 @@
+ #define __pte_to_swp_entry(pte)		((swp_entry_t) { (pte).pte_low })
+ #define __swp_entry_to_pte(x)		((pte_t) { (x).val })
 
-_
++/* Atomic PTE operations */
++#define ptep_xchg(mm,xp,a)       __pte(xchg(&(xp)->pte_low, (a).pte_low))
++#define ptep_cmpxchg(mm,a,xp,oldpte,newpte) (cmpxchg(&(xp)->pte_low, (oldpte).pte_low, (newpte).pte_low)=(oldpte).pte_low)
++
+ #endif /* _I386_PGTABLE_2LEVEL_H */
+Index: linus/include/asm-i386/pgalloc.h
+=================================--- linus.orig/include/asm-i386/pgalloc.h	2004-09-18 14:25:23.000000000 -0700
++++ linus/include/asm-i386/pgalloc.h	2004-09-18 15:41:52.000000000 -0700
+@@ -7,6 +7,8 @@
+ #include <linux/threads.h>
+ #include <linux/mm.h>		/* for struct page */
+
++#define PMD_NONE 0L
++
+ #define pmd_populate_kernel(mm, pmd, pte) \
+ 		set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(pte)))
+
+@@ -16,6 +18,19 @@
+ 		((unsigned long long)page_to_pfn(pte) <<
+ 			(unsigned long long) PAGE_SHIFT)));
+ }
++
++/* Atomic version */
++static inline int pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
++{
++#ifdef CONFIG_X86_PAE
++	return cmpxchg8b( ((unsigned long long *)pmd), PMD_NONE, _PAGE_TABLE +
++		((unsigned long long)page_to_pfn(pte) <<
++			(unsigned long long) PAGE_SHIFT) ) = PMD_NONE;
++#else
++	return cmpxchg( (unsigned long *)pmd, PMD_NONE, _PAGE_TABLE + (page_to_pfn(pte) << PAGE_SHIFT)) = PMD_NONE;
++#endif
++}
++
+ /*
+  * Allocate and free page tables.
+  */
+@@ -49,6 +64,7 @@
+ #define pmd_free(x)			do { } while (0)
+ #define __pmd_free_tlb(tlb,x)		do { } while (0)
+ #define pgd_populate(mm, pmd, pte)	BUG()
++#define pgd_test_and_populate(mm, pmd, pte)	({ BUG(); 1; })
+
+ #define check_pgt_cache()	do { } while (0)
+
