@@ -1,114 +1,70 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Mon, 22 Mar 2004 18:34:33 +0000
-Subject: [PATCH] quiet sn_serial driver
-Message-Id: <200403221034.33133.jbarnes@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_5GzXAYi5hCwRatp"
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 12 Mar 2004 22:57:21 +0000
+Subject: [PATCH] clean up ACPI GSI/IRQ conversions (ia64 part)
+Message-Id: <200403121557.21889.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-
---Boundary-00=_5GzXAYi5hCwRatp
-Content-Type: text/plain;
-  charset="us-ascii"
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: David Mosberger <davidm-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>
+Cc: acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-Bjorn pointed out that the sn console driver will spew printks if compiled in 
-even if no hardware is present.  In addition to fixing that, I took the 
-opportunity to cleanup/correct a few other printks in that driver.
+Hi David,
 
-Thanks,
-Jesse
+Here's the ia64 part, again based on 2.6.4.  This should be safe to
+apply by itself.  I've compiled and booted this, both with and without
+the upcoming ACPI patch.
 
---Boundary-00=_5GzXAYi5hCwRatp
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="sn_serial-quiet.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="sn_serial-quiet.patch"
+Changelog:
 
-===== drivers/char/sn_serial.c 1.9 vs edited =====
---- 1.9/drivers/char/sn_serial.c	Mon Mar 15 06:28:24 2004
-+++ edited/drivers/char/sn_serial.c	Mon Mar 22 10:29:18 2004
-@@ -352,7 +352,7 @@
- 		if (xmit_count > 0) {
- 			result = sn_func->sal_puts((char *)start, xmit_count);
- 			if (!result)
--				sn_debug_printf("\n*** synch_flush_xmit failed to flush\n");
-+				DPRINTF("\n*** synch_flush_xmit failed to flush\n");
- 			if (result > 0) {
- 				xmit_count -= result;
- 				sn_total_tx_count += result;
-@@ -389,12 +389,12 @@
- 	xmit_count = (head < tail) ?  (SN_SAL_BUFFER_SIZE - tail) : (head - tail);
- 
- 	if (xmit_count == 0)
--		sn_debug_printf("\n*** empty xmit_count\n");
-+		DPRINTF("\n*** empty xmit_count\n");
- 
- 	/* use the ops, as we could be on the simulator */
- 	result = sn_func->sal_puts((char *)start, xmit_count);
- 	if (!result)
--		sn_debug_printf("\n*** error in synchronous sal_puts\n");
-+		DPRINTF("\n*** error in synchronous sal_puts\n");
- 	/* XXX chadt clean this up */
- 	if (result > 0) {
- 		xmit_count -= result;
-@@ -447,7 +447,7 @@
- 			result = ia64_sn_console_xmit_chars((char *)start, xmit_count);
- #ifdef DEBUG
- 			if (!result)
--				sn_debug_printf("`");
-+				DPRINTF("`");
- #endif
- 			if (result > 0) {
- 				xmit_count -= result;
-@@ -511,7 +511,7 @@
- 	if (result >= 0)
- 		return console_irq;
- 
--	printk(KERN_INFO "sn_serial: console proceeding in polled mode\n");
-+	printk(KERN_WARNING "sn_serial: console proceeding in polled mode\n");
+Add "acpi_gsi_to_irq()" as a generic replacement for "acpi_irq_to_vector()".
+This converts from an ACPI global system interrupt number to a Linux IRQ.
+Also, convert ia64-specific terminology to use GSI when appropriate.
+
+=== arch/ia64/kernel/acpi.c 1.63 vs edited ==--- 1.63/arch/ia64/kernel/acpi.c	Wed Feb 18 08:10:58 2004
++++ edited/arch/ia64/kernel/acpi.c	Fri Mar 12 12:32:11 2004
+@@ -626,6 +626,7 @@
  	return 0;
  }
  
-@@ -823,7 +823,7 @@
- 		return;
- 	}
- 
--	sn_debug_printf("sn_serial: switch to asynchronous console\n");
-+	DPRINTF("sn_serial: switch to asynchronous console\n");
- 
- 	/* early_printk invocation may have done this for us */
- 	if (!sn_func) {
-@@ -859,7 +859,7 @@
++/* deprecated in favor of acpi_gsi_to_irq */
+ int
+ acpi_irq_to_vector (u32 gsi)
  {
- 	int irq;
+@@ -633,6 +634,23 @@
+ 		return isa_irq_to_vector(gsi);
  
--	sn_debug_printf("sn_serial: switching to interrupt driven console\n");
-+	DPRINTF("sn_serial: switching to interrupt driven console\n");
+ 	return gsi_to_vector(gsi);
++}
++
++int
++acpi_gsi_to_irq (u32 gsi, unsigned int *irq)
++{
++	int vector;
++
++	if (has_8259 && gsi < 16)
++		*irq = isa_irq_to_vector(gsi);
++	else {
++		vector = gsi_to_vector(gsi);
++		if (vector = -1)
++			return -1;
++
++		*irq = vector;
++	}
++	return 0;
+ }
  
- 	irq = sn_sal_connect_interrupt();
- 	if (irq) {
-@@ -883,7 +883,7 @@
- {
- 	int retval;
+ int
+=== include/asm-ia64/acpi.h 1.14 vs edited ==--- 1.14/include/asm-ia64/acpi.h	Thu Feb 26 23:49:53 2004
++++ edited/include/asm-ia64/acpi.h	Fri Mar 12 12:32:41 2004
+@@ -93,7 +93,8 @@
+ const char *acpi_get_sysname (void);
+ int acpi_request_vector (u32 int_type);
+ int acpi_register_irq (u32 gsi, u32 polarity, u32 trigger);
+-int acpi_irq_to_vector (u32 irq);
++int acpi_irq_to_vector (u32 irq); /* deprecated in favor of acpi_gsi_to_irq */
++int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
  
--	printk("sn_serial: sn_sal_module_init\n");
-+	DPRINTF("sn_serial: sn_sal_module_init\n");
- 
- 	if (!ia64_platform_is("sn2"))
- 		return -ENODEV;
-@@ -1016,7 +1016,7 @@
- {
- 	if (ia64_platform_is("sn2")) {
- 		sn_sal_switch_to_asynch();
--		sn_debug_printf("sn_sal_serial_console_init : register console\n");
-+		DPRINTF("sn_sal_serial_console_init : register console\n");
- 		register_console(&sal_console);
- 	}
- 	return 0;
+ #ifdef CONFIG_ACPI_NUMA
+ /* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
 
---Boundary-00=_5GzXAYi5hCwRatp--
