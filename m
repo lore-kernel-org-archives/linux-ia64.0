@@ -1,7 +1,7 @@
-From: "Stephen Gaudet" <sgaudet@wildopensource.com>
-Date: Wed, 26 Mar 2003 18:13:11 +0000
-Subject: RE: [Linux-ia64] IA64 Distributions
-Message-Id: <marc-linux-ia64-105590723705327@msgid-missing>
+From: Bruno Cornec <Bruno.Cornec@hp.com>
+Date: Mon, 31 Mar 2003 17:43:59 +0000
+Subject: Re: [Linux-ia64] IA64 Distributions
+Message-Id: <marc-linux-ia64-105590723705413@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705322@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705322@msgid-missing>
@@ -10,24 +10,23 @@ Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hello Brent,
-
+Brent Clements (bclem@rice.edu) said:
+>=20
 > Does anyone know of a list of Freely available ia64 based distributions
 > besides debian?
 
-I'm sure it not free but it is new.  SuSe just announced they're shipping.
+MandrakeSoft is finalizing his port (based on 9.0) and should announce it
+RSN.
 
-http://msnbc-cnet.com.com/2100-1016-994165.html?type=3Dpt&part=3Dmsnbc&tag=
-=3Dalert
-&form=FEed&subj=3Dcnetnews
-
-Stephen Gaudet
- .....
-<(=A9=BF=A9)>
-----------------------
-Wild Open Source
-Bedford, NH 03110
-pH: 603-488-1599
-http://www.wildopensource.com
-
+Best regards,
+Bruno.
+--=20
+Linux Solution Consultant         T=E9l: +33 476 143 278 - Fax: +33 476 146=
+ 105
+HP/Intel Solution Center http://hpintelco.net Hewlett-Packard Grenoble/Fran=
+ce
+Des infos sur Linux?  http://www.HyPer-Linux.org      http://www.hp.com/lin=
+ux
+La musique ancienne?  http://www.musique-ancienne.org http://www.medieval.o=
+rg
 
