@@ -1,97 +1,116 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 31 Oct 2002 18:01:13 +0000
-Subject: Re: [Linux-ia64] USB Mouse on SLES8 Beta1
-Message-Id: <marc-linux-ia64-105590709805318@msgid-missing>
+From: miyoshi@hpc.bs1.fc.nec.co.jp
+Date: Fri, 18 Oct 2002 01:06:33 +0000
+Subject: Re: [Linux-ia64] Kernel Shared Memory Max (shmmax)
+Message-Id: <marc-linux-ia64-105590709805193@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805291@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805291@msgid-missing>
+References: <marc-linux-ia64-105590701905286@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905286@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"Jon R. Doyle" <marsaro@interearth.com> writes:
+Hi,
 
-|> ----- Original Message -----
-|> From: "Andreas Schwab" <schwab@suse.de>
-|> To: "Jon R. Doyle" <jrd@sendmail.com>
-|> Cc: <linux-ia64@linuxia64.org>
-|> Sent: Thursday, October 31, 2002 4:31 AM
-|> Subject: Re: [Linux-ia64] USB Mouse on SLES8 Beta1
-|>=20
-|>=20
-|> > "Jon R. Doyle" <marsaro@interearth.com> writes:
-|> >
-|> > |> This seems to be broke:
-|> > |>
-|> > |> In Preview 5 & 6 of UL my Intel 4 CPU 900mhz SDV detects the keyboar
-|> and
-|> > |> mouse fine. SLES 8 beta 1 will not find the USB mouse
-|>=20
-|> root@ia64-2.dev-lab.sendmail.com's password:
-|> Last login: Wed Oct 30 13:42:42 2002 from shell.sendmail.com
-|> ia64-2:~ # w
-|>   9:23am  up 1 day, 20:48,  1 user,  load average: 0.00, 0.00, 0.00
-|> USER     TTY      FROM              LOGIN@   IDLE   JCPU   PCPU  WHAT
-|> root     pts/0    shell.sendmail.c  9:23am  0.00s  0.04s  0.00s  w
-|> ia64-2:~ # hwinfo --usb
-|> 03: USB 101.0: 10a00 Hub
-|>   [Created at usb.100]
-|>   Unique ID: B3Fu.Jt1hg9mdkyE
-|>   Hardware Class: hub
-|>   Model: "Hub"
-|>   Hotplug: USB
-|>   USB GUID: 000000000000000000000000
-|>   USB Device status: driver active ("hub")
-|>   Speed: 1.5 Mbps
-|>   Config Status: cfg=3Dnew, avail=3Dyes, need=3Dno
-|>=20
-|> 04: USB 102.0: 10800 Keyboard
-|>   [Created at usb.100]
-|>   Unique ID: B3Fu.PWDW3qm03V3
-|>   Hardware Class: keyboard
-|>   Model: "SOLIDTEK USB Composite Keyboard"
-|>   Hotplug: USB
-|>   Vendor: usb 0x060b "Solid Year (?)"
-|>   Device: usb 0x2001
-|>   SubVendor:  "SOLIDTEK"
-|>   SubDevice:  "USB Composite Keyboard"
-|>   Revision: "1.00"
-|>   USB GUID: 060b20010000000000000000
-|>   USB Device status: driver active ("hid")
-|>   Speed: 12 Mbps
-|>   Driver Info #0:
-|>     XkbRules: xfree86
-|>   Config Status: cfg=3Dyes, avail=3Dyes, need=3Dyes
-|>   Attached to: #3 (Hub)
-|>=20
-|> 05: USB 201.0: 10a00 Hub
-|>   [Created at usb.100]
-|>   Unique ID: 3Okj.Jt1hg9mdkyE
-|>   Hardware Class: hub
-|>   Model: "Hub"
-|>   Hotplug: USB
-|>   USB GUID: 000000000000000000000000
-|>   USB Device status: driver active ("hub")
-|>   Speed: 1.5 Mbps
-|>   Config Status: cfg=3Dnew, avail=3Dyes, need=3Dno
-|> ia64-2:~ #
+I suppose '8G' described below means default shmall, that is 524288 * 16K.
+And I think there is no restrictions around 8G on IA-64.
 
-Seems like your mouse is broken somehow, as nothing of this kind is
-conntected to USB.  What does lsusb give you?
+Regards,
 
-|> I will look at that, better would be "why not have Yast1 like interface =
-for
-|> SLES, since it is a server OS. Clearly Yast2 is designed for the desktop
-|> users, where you will use KDE.
+> > And based on that the total amount of shared memory segment
+> > that can be created in IA-64 platform (with 16K page size) is 8G.
+> 
+> Does this still hold true in newer kernel releases (since 03/2002)?  Is 8G the 
+> max for IA64 kernel?
+> 
+> Thanks,
+> Donny
+> 
+> On Thu March 14 2002 5:13 pm, Seth, Rohit wrote:
+> > shmmax is the size of largest shared memory (in bytes) segment that the
+> > kernel allows.  System wide value of total shared memory value is given by
+> > shmall parameter.  Currently the default value for shmmax is  (extrememly
+> > low) 32MB.  And based on that the total amount of shared memory segment
+> > that can be created in IA-64 platform (with 16K page size) is 8G. There is
+> > no direct relationship between shmmax value and the amount of physical
+> > memory available in the system.  Though you will never be able to create a
+> > shared memory segment bigger then the total memory (Free RAM+Free SWAP)
+> > available on the machine (unless you change the sysctl_overcommit_memory).
+> > Besides that, this low default value of 32MB just adds overhead for big
+> > memory systems.  It will be nice to change this default value to 2G at
+> > least for IA-64 machines.
+> >
+> > You can also change this value of shm* (shmmax etc.) by writing proper
+> > values in /proc/sys/kernel/shm*
+> >
+> > rohit
+> >
+> > -----Original Message-----
+> > From: Donny Cooper [mailto:dcooper@atcc.necsys.com]
+> > Sent: Thursday, March 14, 2002 2:40 PM
+> > To: ia64-list@redhat.com; linux-ia64@linuxia64.org
+> > Subject: [Linux-ia64] Kernel Shared Memory Max (shmmax)
+> >
+> >
+> >
+> > Does the maximum possible shared memory (shmmax) increase with the
+> > Enterprise kernel?
+> >
+> > Below is from doc/sysctl/kernel.txt document.
+> > Is this document valid for IA-64 kernel?
+> >
+> > It seems you can set this value to pretty much anything (even larger than
+> > the available memory), so I'm assuming the
+> > value gets intelligently truncated to the max supported.  How can I check
+> > how much shared mem is available, `free` or
+> > `top` just shows what's used, right?
+> >
+> > ...doc/sysctl/kernel.txt
+> > ===============================
+> >
+> > shmmax:
+> >
+> > This value can be used to query and set the run time limit
+> > on the maximum shared memory segment size that can be created.
+> > Shared memory segments up to 1Gb are now supported in the
+> > kernel.  This value defaults to SHMMAX.
+> >
+> > ===============================
+> >
+> >
+> > Thanks,
+> > -----------------------------------
+> > Donny Cooper
+> > NEC Systems, Inc.
+> > Advanced Technical Computing Center
+> > dcooper@atcc.necsys.com
+> > -----------------------------------
+> >
+> >
+> > _______________________________________________
+> > Linux-IA64 mailing list
+> > Linux-IA64@linuxia64.org
+> > http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> >
+> >
+> >
+> > _______________________________________________
+> > ia64-list mailing list
+> > ia64-list@redhat.com
+> 
+> -- 
+> ================> 	     Donny Cooper
+>       NEC Solutions (America), Inc.
+> Advanced Technical Computing Center
+> 	 ph: +1-281-465-1506
+>      Donny.Cooper@NECsam.com
+> ================> 
+> 
+> 
+> _______________________________________________
+> ia64-list mailing list
+> ia64-list@redhat.com
+> https://listman.redhat.com/mailman/listinfo/ia64-list
+> 
 
-If you want the textmode interface, you can call it as yast.
-
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
 
