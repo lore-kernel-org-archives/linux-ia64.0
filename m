@@ -1,7 +1,7 @@
-From: Scott Murray <scottm@somanetworks.com>
-Date: Thu, 31 Oct 2002 08:41:04 +0000
-Subject: [Linux-ia64] Re: [Pcihpd-discuss] PCI hotplug broken on IA64
-Message-Id: <marc-linux-ia64-105590709805311@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 31 Oct 2002 12:27:51 +0000
+Subject: Re: [Linux-ia64] Re: [Pcihpd-discuss] PCI hotplug broken on IA64
+Message-Id: <marc-linux-ia64-105590709805312@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805303@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805303@msgid-missing>
@@ -10,40 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 31 Oct 2002, Greg KH wrote:
+On Wed, Oct 30, 2002 at 11:40:21PM -0800, Greg KH wrote:
+> Right now they are, but I have seen drivers for other architectures, and
+> can not change the pci hotplug core to rely on a ia64 and i386 only
+> solution, sorry.  Hopefully those other drivers will be in the main tree
+> soon.
 
-> On Thu, Oct 31, 2002 at 03:03:09AM -0500, Scott Murray wrote:
-> >
-> > I'm hopeful we'll see a bunch of drivers for various non-x86 CompactPCI
-> > CPU boards appear if my CompactPCI driver goes in.  If I get the time,
-> > I'll probably take the required bits for the Motorola PowerPC boards from
-> > the code MontaVista released a while back and build something for them
-> > myself.
->
-> Sounds good, further reinforcement of the "no i386 and ia64 only"
-> restrictions on the pci hotplug core :)
-
-Considering the wide variety of cPCI CPU boards that are floating around,
-and the non-zero chance that someone here at SOMA will decide out of the
-blue they want us to use a non-x86 one, I'm keen to hedge my bets. :)
-
-> > By the way, Greg, are you interested in patches against 2.5.45, even with
-> > the device unregistration stuff still up in the air?  Barring that and
-> > waiting to see what Russell and Alan are cooking up for PCI resource
-> > reservation, I'm kind of doneish my port to 2.5.
->
-> Yes I am, please send them on.
-
-There are a couple of things I want to test at the office tomorrow, I'll
-send something on after I'm sure they work.
-
-Scott
-
+yep, at some point i hope to find docs on Elroy's hotplug controller for
+PA-RISC.
 
 -- 
-Scott Murray
-SOMA Networks, Inc.
-Toronto, Ontario
-e-mail: scottm@somanetworks.com
-
+Revolutions do not require corporate support.
 
