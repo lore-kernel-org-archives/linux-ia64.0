@@ -1,41 +1,49 @@
-From: "David S. Miller" <davem@davemloft.net>
-Date: Sun, 27 Mar 2005 18:23:13 +0000
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Tue, 29 Mar 2005 01:58:30 +0000
 Subject: Re: [PATCH] add a clear_pages function to clear pages of higher
-Message-Id: <20050327102313.04498cdc.davem@davemloft.net>
+Message-Id: <Pine.LNX.4.58.0503281752280.7580@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0503101229420.13911@schroedinger.engr.sgi.com>
-	<200503111008.12134.vda@port.imtp.ilyichevsk.odessa.ua>
-	<Pine.LNX.4.58.0503161720570.1787@schroedinger.engr.sgi.com>
-	<200503181154.37414.vda@port.imtp.ilyichevsk.odessa.ua>
-	<Pine.LNX.4.58.0503180652350.15022@schroedinger.engr.sgi.com>
-	<20050318192808.GB38053@muc.de>
-	<16963.2075.713737.485070@napali.hpl.hp.com>
-	<20050327171220.GA18506@muc.de>
+ <200503111008.12134.vda@port.imtp.ilyichevsk.odessa.ua>
+ <Pine.LNX.4.58.0503161720570.1787@schroedinger.engr.sgi.com>
+ <200503181154.37414.vda@port.imtp.ilyichevsk.odessa.ua>
+ <Pine.LNX.4.58.0503180652350.15022@schroedinger.engr.sgi.com>
+ <20050318192808.GB38053@muc.de> <16963.2075.713737.485070@napali.hpl.hp.com>
+ <20050327171220.GA18506@muc.de>
 In-Reply-To: <20050327171220.GA18506@muc.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andi Kleen <ak@muc.de>
-Cc: davidm@hpl.hp.com, clameter@sgi.com, vda@port.imtp.ilyichevsk.odessa.ua, haveblue@us.ibm.com, akpm@osdl.org, linux-kernel@vger.kernel.org, mel@csn.ul.ie, linux-ia64@vger.kernel.org, Jens.Maurer@gmx.net
+Cc: davidm@hpl.hp.com, Christoph Lameter <clameter@sgi.com>, Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>, Dave Hansen <haveblue@us.ibm.com>, Andrew Morton <akpm@osdl.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Mel Gorman <mel@csn.ul.ie>, linux-ia64@vger.kernel.org, Jens.Maurer@gmx.net
 
-On 27 Mar 2005 19:12:20 +0200
-Andi Kleen <ak@muc.de> wrote:
+On Sun, 27 Mar 2005, Andi Kleen wrote:
 
-> With non temporal stores
+> > Clearly, if the CPU that's clearing the page is likely to use that
+> > same page soon after, it'd be useful to use temporal stores.
+>
+> That is always the case in the current code (without Christophers
+> pre cleaning daemon). The page fault handler clears and user space
+> is guaranteed to need at least one cacheline from the fresh page
+> because it just did a page fault on it. With non temporal stores
 > you guarantee at least one hard cache miss directly after
 > the return to user space.
 
-This is true if the cacheline were not present already at
-the time of the non-temporal store.
+It is not the case that *all* the cachelines of a page are going to be
+used right after zeroing. For the page fault case it is only guaranteed that
+*one* cacheline will be used. In the PTE/PMD/PUD page allocation cases it
+is likely that only a single cacheline is used.
 
-I know what you're trying to say, I'm just clarifying.
+There are some cases in the code (apart from the fault handler)
+where zeroed pages are allocated with no guarantee of use (f.e. the
+allocations for buffers for shared memory or pipes).
 
-The real question is if a large enough ratio of those
-cachelines in the page get similarly accessed.  I happen
-to think the answer to that for any real example is yes.
-Yet, I have no way to prove this.
+> I suspect even with precleaning the average time from cleaning to use will be
+> quite short.
 
-It would be cool to do some hacks under Xen or user-mode
-Linux to get some real statistics about this.  Actually,
-this could be done also with hacks to valgrind or other
-similar tools.  QEMU could also be used.
+If the time is short then hot cleaning is the right way to go and then
+prezeroing is of no benefit. Prezeroing can only be of benefit if there is
+sufficient time between the zeroing and the use of the data. It must be
+sufficiently long to cause the the cachelines to no longer be in
+in the caches. Then the loading of these cachelines may be avoided which
+yields the performance benefit.
