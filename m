@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 16 Jan 2004 03:16:51 +0000
-Subject: Re: a question about memory access on IA64
-Message-Id: <16391.22435.819115.866878@napali.hpl.hp.com>
+From: liuduo <liuduo@sinosoft.com.cn>
+Date: Fri, 16 Jan 2004 03:56:24 +0000
+Subject: a question about memory access on IA64
+Message-Id: <4007623A.50101@sinosoft.com.cn>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40075464.6010202@sinosoft.com.cn>
 In-Reply-To: <40075464.6010202@sinosoft.com.cn>
@@ -10,27 +10,61 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 16 Jan 2004 11:03:00 +0800, liuduo <liuduo@sinosoft.com.cn> said:
+David:
+Sorry, i only describe the process about the error occurs .
 
-  liuduo> Dear Sir: nice to see you !  here is a problem about
-  liuduo> accessing memory on IA64 as follows, we define a structrue
-  liuduo> is : typedef struct b{ unsigned short b1; unsigned short b2;
-  liuduo> unsigned char b3; unsigned char b4; unsigned char b5;
-  liuduo> unsigned char b6; }B;
+    typedef struct b{
+      char*  pDescriptName;
+      char*           pVendorName;
+      unsigned int	RevisionID;
+     }B;
 
-  liuduo> typedef struct a{ struct b bb[512]; int c;}A;
+    typedef struct pci{
+     int c;
+     struct b bb[512];
+     }PCI;
 
-  liuduo> when we use the struct A on IA64, the segmentation fault
-  liuduo> occurs , and then we modify the struct A as follows :
-  liuduo> typedef struct a{ int c; struct b bb[512]; }A; we can use it
-  liuduo> normally .  can you explain why ?  thanks a lot , and expect
-  liuduo> your reply urgently
+int main()
+{
 
-The example you posted is not a complete, self-contained program, so
-it's impossible to say whats wrong.  Perhaps it's a compiler bug,
-perhaps it's a kernel bug, perhaps it's a bug in the program.  Please
-post a _minimal_ test program that reproduces the problem you're
-trying to solve and state what compiler version, etc. you're using.
-Then somebody may be able to help.
 
-	--david
+     struct pci a;
+
+     //function for operation a
+     func(&a);
+     return 0;
+}
+the func is in an lib, it's an lib export function, and the func is as 
+follows;
+
+func(struct pci* a)
+{
+      char tmp[256];
+     for(num=0;num<512;num++)
+     {
+      a->bb[num].pDescriptName = (char*)malloc(100);
+      strcpy(a->bb[num].pDescriptName , "dddd");
+      a->bb[num].pVendorName = (char*)malloc(100);
+      strcpy(a->bb[num].pVendorName , "fffff");
+      a->bb[num].RevisionID = 22;
+     }
+     a->c = 512;
+}
+when call the func , the segmentation fault occurs,
+and then we modified the struct A as follows
+     typedef struct pci{
+     struct b bb[512];
+     int c;
+     }PCI;
+it's normal.
+please tell me why?
+thanks a lot.
+-- 
+===================Liu duo
+tel:(010)62570007-509
+email:liuduo@sinosoft.com.cn
+Sinosoft Software.Co.Ltd.
+Esmpro Group.Secic Department
+===================
+
+
