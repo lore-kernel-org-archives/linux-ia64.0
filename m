@@ -1,28 +1,41 @@
-From: Dan Pop <Dan.Pop@cern.ch>
-Date: Mon, 21 May 2001 14:14:49 +0000
-Subject: Re: [Linux-ia64] How to use shared library on HP IA-64 Simulator
-Message-Id: <marc-linux-ia64-105590693005632@msgid-missing>
+From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
+Date: Thu, 17 May 2001 11:44:50 +0000
+Subject: [Linux-ia64] Software IO-TLB Kernel panic
+Message-Id: <marc-linux-ia64-105590693005601@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005630@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005630@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi,
 
-On Mon, 21 May 2001, qiuhb wrote:
+I am reproduceably getting kernel panics when accessing discs on an
+Adaptec 39160 adapter (SCSI host 1 after the built-in QLA1280).
+I am using the "new" aic7xxx driver on a 2.4.4 IA64 kernel.
+I configured the kernel for DIG-compliant C0-stepping hardware.
 
-> When I used HP IA-64 Linux Developer's Kit, I entered into nue and typed
-> 
-> "gcc -o libtest.so  test.o  -lsnmp " and some errors happened such as
-> "cant ld snmp,no such library".
-> So I want to use snmp and newt,but I dont know how to put it to my
-> program on nue environment.
+The kernel panic occurs in map_single (arch/ia64/lib/swiotlb.c:171).
 
-Get into NUE, build and install these libraries and everyhting should
-be fine.
+I have a 2-CPU Lion with C0-stepping CPUs. The requested
+IO TLB size is 8192 when the panic occurs.
 
-Dan
+After the crash, I always have severe corruption on the filesystem that
+was being accessed during the crash. e2fsck reports ~10 illegal blocks in
+one inode, and many follow-up errors.
+
+The only TLB related boot message I see is
+kernel: Placing software IO TLB between 0xe000000000100000 - 0xe000000000300000
+
+I am looking into this myself right now, but I would be grateful for hints
+where to start. Any help appreciated,
+
+Martin
+
+-- 
+Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
+FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
+
+
 
 
