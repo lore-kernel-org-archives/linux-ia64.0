@@ -1,177 +1,293 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 01 Dec 2004 23:42:51 +0000
-Subject: page fault scalability patch V12 [2/7]: atomic pte operations for
-Message-Id: <Pine.LNX.4.58.0412011542101.5721@schroedinger.engr.sgi.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Wed, 01 Dec 2004 20:40:00 +0000
+Subject: SN support for new chipset - [3 of 4]
+Message-Id: <20041201204000.GA26313@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
- <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
- <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
- <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@osdl.org>
-Cc: Hugh Dickins <hugh@veritas.com>, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Changelog
-        * Provide atomic pte operations for ia64
-        * Enhanced parallelism in page fault handler if applied together
-          with the generic patch
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Add support for a future SGI chipset (shub2).
+(All code is SN-specific)
 
-Index: linux-2.6.9/include/asm-ia64/pgalloc.h
-=================================--- linux-2.6.9.orig/include/asm-ia64/pgalloc.h	2004-10-18 14:53:06.000000000 -0700
-+++ linux-2.6.9/include/asm-ia64/pgalloc.h	2004-11-19 07:54:19.000000000 -0800
-@@ -34,6 +34,10 @@
- #define pmd_quicklist		(local_cpu_data->pmd_quick)
- #define pgtable_cache_size	(local_cpu_data->pgtable_cache_sz)
+Change the IPI & TLB flushing code so that it works on
+both shub1 & shub2.
 
-+/* Empty entries of PMD and PGD */
-+#define PMD_NONE       0
-+#define PGD_NONE       0
-+
- static inline pgd_t*
- pgd_alloc_one_fast (struct mm_struct *mm)
+
+
+
+
+
+Index: linux/include/asm-ia64/sn/rw_mmr.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/include/asm-ia64/sn/rw_mmr.h	2004-12=
+-01 14:15:15.714071672 -0600
++++ linux/include/asm-ia64/sn/rw_mmr.h	2004-12-01 14:29:25.604960698 -0600
+@@ -14,8 +14,8 @@
+  * uncached physical addresses.
+  * 	pio_phys_read_mmr  - read an MMR
+  * 	pio_phys_write_mmr - write an MMR
+- * 	pio_atomic_phys_write_mmrs - atomically write 2 MMRs with psr.ic=3D0
+- * 		(interrupt collection)
++ * 	pio_atomic_phys_write_mmrs - atomically write 1 or 2 MMRs with psr.ic=
+=3D0
++ *		Second MMR will be skipped if address is NULL
+  *
+  * Addresses passed to these routines should be uncached physical addresses
+  * ie., 0x80000....
+@@ -61,13 +61,14 @@ pio_atomic_phys_write_mmrs(volatile long
+         asm volatile
+             ("mov r2=3Dpsr;;"
+              "rsm psr.i | psr.dt | psr.ic;;"
++	     "cmp.ne p9,p0=3D%2,r0;"
+              "srlz.i;;"
+              "st8.rel [%0]=3D%1;"
+-             "st8.rel [%2]=3D%3;;"
++             "(p9) st8.rel [%2]=3D%3;;"
+              "mov psr.l=3Dr2;;"
+              "srlz.i;;"
+ 	     :: "r"(mmr1), "r"(val1), "r"(mmr2), "r"(val2)
+-             : "r2", "memory");
++             : "p9", "r2", "memory");
+ }           =20
+=20
+ #endif /* _ASM_IA64_SN_RW_MMR_H */
+Index: linux/arch/ia64/sn/kernel/sn2/sn2_smp.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/sn/kernel/sn2/sn2_smp.c	20=
+04-12-01 14:29:11.722651870 -0600
++++ linux/arch/ia64/sn/kernel/sn2/sn2_smp.c	2004-12-01 14:30:09.133525029 -=
+0600
+@@ -38,7 +38,8 @@
+ #include <asm/sn/nodepda.h>
+ #include <asm/sn/rw_mmr.h>
+=20
+-void sn2_ptc_deadlock_recovery(unsigned long data0, unsigned long data1);
++void sn2_ptc_deadlock_recovery(volatile unsigned long *, unsigned long dat=
+a0,=20
++	volatile unsigned long *, unsigned long data1);
+=20
+ static spinlock_t sn2_global_ptc_lock __cacheline_aligned =3D SPIN_LOCK_UN=
+LOCKED;
+=20
+@@ -46,14 +47,14 @@ static unsigned long sn2_ptc_deadlock_co
+=20
+ static inline unsigned long wait_piowc(void)
  {
-@@ -78,12 +82,19 @@
- 	preempt_enable();
+-	volatile unsigned long *piows, piows_val;
++	volatile unsigned long *piows, zeroval;
+ 	unsigned long ws;
+=20
+ 	piows =3D pda->pio_write_status_addr;
+-	piows_val =3D pda->pio_write_status_val;
++	zeroval =3D pda->pio_write_status_val;
+ 	do {
+ 		cpu_relax();
+-	} while (((ws =3D *piows) & SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_MASK)=
+ !=3D piows_val);
++	} while (((ws =3D *piows) & SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_MASK)=
+ !=3D zeroval);
+ 	return ws;
  }
-
-+
- static inline void
- pgd_populate (struct mm_struct *mm, pgd_t *pgd_entry, pmd_t *pmd)
+=20
+@@ -87,9 +88,9 @@ void
+ sn2_global_tlb_purge(unsigned long start, unsigned long end,
+ 		     unsigned long nbits)
  {
- 	pgd_val(*pgd_entry) = __pa(pmd);
- }
-
-+/* Atomic populate */
-+static inline int
-+pgd_test_and_populate (struct mm_struct *mm, pgd_t *pgd_entry, pmd_t *pmd)
-+{
-+	return ia64_cmpxchg8_acq(pgd_entry,__pa(pmd), PGD_NONE) = PGD_NONE;
-+}
-
- static inline pmd_t*
- pmd_alloc_one_fast (struct mm_struct *mm, unsigned long addr)
-@@ -132,6 +143,13 @@
- 	pmd_val(*pmd_entry) = page_to_phys(pte);
- }
-
-+/* Atomic populate */
-+static inline int
-+pmd_test_and_populate (struct mm_struct *mm, pmd_t *pmd_entry, struct page *pte)
-+{
-+	return ia64_cmpxchg8_acq(pmd_entry, page_to_phys(pte), PMD_NONE) = PMD_NONE;
-+}
-+
- static inline void
- pmd_populate_kernel (struct mm_struct *mm, pmd_t *pmd_entry, pte_t *pte)
- {
-Index: linux-2.6.9/include/asm-ia64/pgtable.h
-=================================--- linux-2.6.9.orig/include/asm-ia64/pgtable.h	2004-11-15 11:13:38.000000000 -0800
-+++ linux-2.6.9/include/asm-ia64/pgtable.h	2004-11-19 07:55:35.000000000 -0800
-@@ -30,6 +30,8 @@
- #define _PAGE_P_BIT		0
- #define _PAGE_A_BIT		5
- #define _PAGE_D_BIT		6
-+#define _PAGE_IG_BITS          53
-+#define _PAGE_LOCK_BIT         (_PAGE_IG_BITS+3)       /* bit 56. Aligned to 8 bits */
-
- #define _PAGE_P			(1 << _PAGE_P_BIT)	/* page present bit */
- #define _PAGE_MA_WB		(0x0 <<  2)	/* write back memory attribute */
-@@ -58,6 +60,7 @@
- #define _PAGE_PPN_MASK		(((__IA64_UL(1) << IA64_MAX_PHYS_BITS) - 1) & ~0xfffUL)
- #define _PAGE_ED		(__IA64_UL(1) << 52)	/* exception deferral */
- #define _PAGE_PROTNONE		(__IA64_UL(1) << 63)
-+#define _PAGE_LOCK		(__IA64_UL(1) << _PAGE_LOCK_BIT)
-
- /* Valid only for a PTE with the present bit cleared: */
- #define _PAGE_FILE		(1 << 1)		/* see swap & file pte remarks below */
-@@ -270,6 +273,8 @@
- #define pte_dirty(pte)		((pte_val(pte) & _PAGE_D) != 0)
- #define pte_young(pte)		((pte_val(pte) & _PAGE_A) != 0)
- #define pte_file(pte)		((pte_val(pte) & _PAGE_FILE) != 0)
-+#define pte_locked(pte)		((pte_val(pte) & _PAGE_LOCK)!=0)
-+
- /*
-  * Note: we convert AR_RWX to AR_RX and AR_RW to AR_R by clearing the 2nd bit in the
-  * access rights:
-@@ -281,8 +286,15 @@
- #define pte_mkyoung(pte)	(__pte(pte_val(pte) | _PAGE_A))
- #define pte_mkclean(pte)	(__pte(pte_val(pte) & ~_PAGE_D))
- #define pte_mkdirty(pte)	(__pte(pte_val(pte) | _PAGE_D))
-+#define pte_mkunlocked(pte)	(__pte(pte_val(pte) & ~_PAGE_LOCK))
-
- /*
-+ * Lock functions for pte's
-+ */
-+#define ptep_lock(ptep)		test_and_set_bit(_PAGE_LOCK_BIT, ptep)
-+#define ptep_unlock(ptep)	{ clear_bit(_PAGE_LOCK_BIT,ptep); smp_mb__after_clear_bit(); }
-+#define ptep_unlock_set(ptep, val) set_pte(ptep, pte_mkunlocked(val))
-+/*
-  * Macro to a page protection value as "uncacheable".  Note that "protection" is really a
-  * misnomer here as the protection value contains the memory attribute bits, dirty bits,
-  * and various other bits as well.
-@@ -342,7 +354,6 @@
- #define pte_unmap_nested(pte)		do { } while (0)
-
- /* atomic versions of the some PTE manipulations: */
+-	int i, cnode, mynasid, cpu, lcpu =3D 0, nasid, flushed =3D 0;
++	int i, shub1, cnode, mynasid, cpu, lcpu =3D 0, nasid, flushed =3D 0;
+ 	volatile unsigned long *ptc0, *ptc1;
+-	unsigned long flags =3D 0, data0, data1;
++	unsigned long flags =3D 0, data0 =3D 0, data1 =3D 0;
+ 	struct mm_struct *mm =3D current->active_mm;
+ 	short nasids[NR_NODES], nix;
+ 	DECLARE_BITMAP(nodes_flushed, NR_NODES);
+@@ -128,28 +129,42 @@ sn2_global_tlb_purge(unsigned long start
+ 	     cnode =3D find_next_bit(&nodes_flushed, NR_NODES, ++cnode))
+ 		nasids[nix++] =3D cnodeid_to_nasid(cnode);
+=20
+-	data0 =3D (1UL << SH1_PTC_0_A_SHFT) |
+-	    (nbits << SH1_PTC_0_PS_SHFT) |
+-	    ((ia64_get_rr(start) >> 8) << SH1_PTC_0_RID_SHFT) |
+-	    (1UL << SH1_PTC_0_START_SHFT);
 -
- static inline int
- ptep_test_and_clear_young (pte_t *ptep)
+-	ptc0 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_0);
+-	ptc1 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_1);
++	shub1 =3D is_shub1();
++	if (shub1) {
++		data0 =3D (1UL << SH1_PTC_0_A_SHFT) |
++		    	(nbits << SH1_PTC_0_PS_SHFT) |
++		    	((ia64_get_rr(start) >> 8) << SH1_PTC_0_RID_SHFT) |
++		    	(1UL << SH1_PTC_0_START_SHFT);
++		ptc0 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_0);
++		ptc1 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_1);
++	} else {
++		data0 =3D (1UL << SH2_PTC_A_SHFT) |
++			(nbits << SH2_PTC_PS_SHFT) |
++		    	(1UL << SH2_PTC_START_SHFT);
++		ptc0 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH2_PTC +=20
++			((ia64_get_rr(start) >> 8) << SH2_PTC_RID_SHFT) );
++		ptc1 =3D NULL;
++	}
++=09
+=20
+ 	mynasid =3D get_nasid();
+=20
+ 	spin_lock_irqsave(&sn2_global_ptc_lock, flags);
+=20
+ 	do {
+-		data1 =3D start | (1UL << SH1_PTC_1_START_SHFT);
++		if (shub1)
++			data1 =3D start | (1UL << SH1_PTC_1_START_SHFT);
++		else
++			data0 =3D (data0 & ~SH2_PTC_ADDR_MASK) | (start & SH2_PTC_ADDR_MASK);
+ 		for (i =3D 0; i < nix; i++) {
+ 			nasid =3D nasids[i];
+-			if (likely(nasid =3D mynasid)) {
++			if (unlikely(nasid =3D mynasid)) {
+ 				ia64_ptcga(start, nbits << 2);
+ 				ia64_srlz_i();
+ 			} else {
+ 				ptc0 =3D CHANGE_NASID(nasid, ptc0);
+-				ptc1 =3D CHANGE_NASID(nasid, ptc1);
++				if (ptc1)
++					ptc1 =3D CHANGE_NASID(nasid, ptc1);
+ 				pio_atomic_phys_write_mmrs(ptc0, data0, ptc1,
+ 							   data1);
+ 				flushed =3D 1;
+@@ -159,7 +174,7 @@ sn2_global_tlb_purge(unsigned long start
+ 		if (flushed
+ 		    && (wait_piowc() &
+ 			SH_PIO_WRITE_STATUS_WRITE_DEADLOCK_MASK)) {
+-			sn2_ptc_deadlock_recovery(data0, data1);
++			sn2_ptc_deadlock_recovery(ptc0, data0, ptc1, data1);
+ 		}
+=20
+ 		start +=3D (1UL << nbits);
+@@ -178,18 +193,19 @@ sn2_global_tlb_purge(unsigned long start
+  * TLB flush transaction.  The recovery sequence is somewhat tricky & is
+  * coded in assembly language.
+  */
+-void sn2_ptc_deadlock_recovery(unsigned long data0, unsigned long data1)
++void sn2_ptc_deadlock_recovery(volatile unsigned long *ptc0, unsigned long=
+ data0,
++	volatile unsigned long *ptc1, unsigned long data1)
  {
-@@ -414,6 +425,26 @@
- #endif
+-	extern void sn2_ptc_deadlock_recovery_core(long *, long, long *, long,
+-						   long *);
++	extern void sn2_ptc_deadlock_recovery_core(volatile unsigned long *, unsi=
+gned long,
++	        volatile unsigned long *, unsigned long, volatile unsigned long *=
+, unsigned long);
+ 	int cnode, mycnode, nasid;
+-	long *ptc0, *ptc1, *piows;
++	volatile unsigned long *piows;
++	volatile unsigned long zeroval;
+=20
+ 	sn2_ptc_deadlock_count++;
+=20
+-	ptc0 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_0);
+-	ptc1 =3D (long *)GLOBAL_MMR_PHYS_ADDR(0, SH1_PTC_1);
+-	piows =3D (long *)pda->pio_write_status_addr;
++	piows =3D pda->pio_write_status_addr;
++	zeroval =3D pda->pio_write_status_val;
+=20
+ 	mycnode =3D numa_node_id();
+=20
+@@ -198,8 +214,9 @@ void sn2_ptc_deadlock_recovery(unsigned=20
+ 			continue;
+ 		nasid =3D cnodeid_to_nasid(cnode);
+ 		ptc0 =3D CHANGE_NASID(nasid, ptc0);
+-		ptc1 =3D CHANGE_NASID(nasid, ptc1);
+-		sn2_ptc_deadlock_recovery_core(ptc0, data0, ptc1, data1, piows);
++		if (ptc1)
++			ptc1 =3D CHANGE_NASID(nasid, ptc1);
++		sn2_ptc_deadlock_recovery_core(ptc0, data0, ptc1, data1, piows, zeroval);
+ 	}
  }
-
-+/*
-+ * IA-64 doesn't have any external MMU info: the page tables contain all the necessary
-+ * information.  However, we use this routine to take care of any (delayed) i-cache
-+ * flushing that may be necessary.
-+ */
-+extern void update_mmu_cache (struct vm_area_struct *vma, unsigned long vaddr, pte_t pte);
-+
-+static inline int
-+ptep_cmpxchg (struct vm_area_struct *vma, unsigned long addr, pte_t *ptep, pte_t oldval, pte_t newval)
-+{
-+	/*
-+	 * IA64 defers icache flushes. If the new pte is executable we may
-+	 * have to flush the icache to insure cache coherency immediately
-+	 * after the cmpxchg.
-+	 */
-+	if (pte_exec(newval))
-+		update_mmu_cache(vma, addr, newval);
-+	return ia64_cmpxchg8_acq(&ptep->pte, newval.pte, oldval.pte) = oldval.pte;
-+}
-+
- static inline int
- pte_same (pte_t a, pte_t b)
- {
-@@ -476,13 +507,6 @@
- 	struct vm_area_struct * prev, unsigned long start, unsigned long end);
- #endif
-
--/*
-- * IA-64 doesn't have any external MMU info: the page tables contain all the necessary
-- * information.  However, we use this routine to take care of any (delayed) i-cache
-- * flushing that may be necessary.
-- */
--extern void update_mmu_cache (struct vm_area_struct *vma, unsigned long vaddr, pte_t pte);
+=20
+Index: linux/arch/ia64/sn/kernel/sn2/ptc_deadlock.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/sn/kernel/sn2/ptc_deadlock=
+.S	2004-12-01 14:29:11.725581245 -0600
++++ linux/arch/ia64/sn/kernel/sn2/ptc_deadlock.S	2004-12-01 14:29:25.626442=
+783 -0600
+@@ -8,9 +8,8 @@
+=20
+ #include <asm/sn/shub_mmr.h>
+=20
+-#define ZEROVAL		0x3f		// "zero" value for outstanding PIO requests
+ #define DEADLOCKBIT	SH_PIO_WRITE_STATUS_WRITE_DEADLOCK_SHFT
+-#define WRITECOUNT	SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_SHFT
++#define WRITECOUNTMASK	SH_PIO_WRITE_STATUS_PENDING_WRITE_COUNT_MASK
+ #define ALIAS_OFFSET	(SH1_PIO_WRITE_STATUS_0_ALIAS-SH1_PIO_WRITE_STATUS_0)
+=20
+=20
+@@ -18,24 +17,24 @@
+ 	.proc  	sn2_ptc_deadlock_recovery_core
+=20
+ sn2_ptc_deadlock_recovery_core:
+-	.regstk 5,0,0,0
++	.regstk 6,0,0,0
+=20
+ 	ptc0  	 =3D in0
+ 	data0 	 =3D in1
+ 	ptc1  	 =3D in2
+ 	data1 	 =3D in3
+ 	piowc 	 =3D in4
++	zeroval  =3D in5
+ 	piowcphy =3D r30
+ 	psrsave  =3D r2
+-	zeroval  =3D r3
+ 	scr1	 =3D r16
+ 	scr2	 =3D r17
++	mask	 =3D r18
+=20
+=20
+ 	extr.u	piowcphy=3Dpiowc,0,61;;	// Convert piowc to uncached physical addr=
+ess
+ 	dep	piowcphy=3D-1,piowcphy,63,1
 -
- #define __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
- /*
-  * Update PTEP with ENTRY, which is guaranteed to be a less
-@@ -560,6 +584,8 @@
- #define __HAVE_ARCH_PTEP_MKDIRTY
- #define __HAVE_ARCH_PTE_SAME
- #define __HAVE_ARCH_PGD_OFFSET_GATE
-+#define __HAVE_ARCH_ATOMIC_TABLE_OPS
-+#define __HAVE_ARCH_LOCK_TABLE_OPS
- #include <asm-generic/pgtable.h>
+-	mov	zeroval=3DZEROVAL		// "zero" value for PIO write count
++	movl	mask=3DWRITECOUNTMASK
+=20
+ 1:
+ 	add	scr2=3DALIAS_OFFSET,piowc	// Address of WRITE_STATUS alias register=20
+@@ -43,7 +42,7 @@ sn2_ptc_deadlock_recovery_core:
+ 	st8.rel	[scr2]=3Dscr1;;
+=20
+ 5:	ld8.acq	scr1=3D[piowc];;		// Wait for PIOs to complete.
+-	extr.u	scr2=3Dscr1,WRITECOUNT,7;;// PIO count
++	and	scr2=3Dscr1,mask;;	// mask of writecount bits
+ 	cmp.ne	p6,p0=3Dzeroval,scr2
+ (p6)	br.cond.sptk 5b
+ =09
+@@ -57,16 +56,17 @@ sn2_ptc_deadlock_recovery_core:
+ 	st8.rel [ptc0]=DAta0		// Write PTC0 & wait for completion.
+=20
+ 5:	ld8.acq	scr1=3D[piowcphy];;	// Wait for PIOs to complete.
+-	extr.u	scr2=3Dscr1,WRITECOUNT,7;;// PIO count
++	and	scr2=3Dscr1,mask;;	// mask of writecount bits
+ 	cmp.ne	p6,p0=3Dzeroval,scr2
+ (p6)	br.cond.sptk 5b;;
+=20
+ 	tbit.nz	p8,p7=3Dscr1,DEADLOCKBIT;;// Test for DEADLOCK
++(p7)	cmp.ne p7,p0=3Dr0,ptc1;;		// Test for non-null ptc1
+ =09
+ (p7)	st8.rel [ptc1]=DAta1;;		// Now write PTC1.
+=20
+ 5:	ld8.acq	scr1=3D[piowcphy];;	// Wait for PIOs to complete.
+-	extr.u	scr2=3Dscr1,WRITECOUNT,7;;// PIO count
++	and	scr2=3Dscr1,mask;;	// mask of writecount bits
+ 	cmp.ne	p6,p0=3Dzeroval,scr2
+ (p6)	br.cond.sptk 5b
+ =09
+--=20
+Thanks
 
- #endif /* _ASM_IA64_PGTABLE_H */
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
 
