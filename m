@@ -1,38 +1,52 @@
-From: Matt_Domsch@Dell.com
-Date: Fri, 10 Aug 2001 18:47:27 +0000
-Subject: [Linux-ia64] efibootmgr-0.3.4 release
-Message-Id: <marc-linux-ia64-105590698805059@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Fri, 17 Aug 2001 23:11:17 +0000
+Subject: [Linux-ia64] elilo-3.1 is now available
+Message-Id: <marc-linux-ia64-105590698805088@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-New release efibootmgr 0.3.4 is now available at 
-http://domsch.com/linux/ia64/efibootmgr-0.3.4.tar.gz.
+Hi,
 
-Changes since 0.3.3:
-- Applied patch from Richard Hirst to correct my bad maths.  Good catch
-Richard!
-- Added more uniqueness to the MBR signature if -w flag is used.  Now, the
-field consists of:
-    mbr->UniqueMBRSignature =  tv.tv_usec << 16;
-    mbr->UniqueMBRSignature |= stat.st_rdev & 0xFFFF;
-using fstat() and gettimeofday() to provide a fixed component and a
-highly-likely-to-be-unique component.  This avoids the problem of moving a
-disk from sda to sdb and installing on a new disk sda which would again
-yield identical signatures.
+A new version of elilo is now available for downloads from:
 
-As always, I really appreciate feedback (and patches!) from people.
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/elilo-3.1.tar.gz
 
-Thanks,
-Matt
 
---
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions
-www.dell.com/linux
-#2 Linux Server provider with 17% in the US and 14% Worldwide (IDC)!
-#3 Unix provider with 18% in the US (Dataquest)!
+This new version uses the gnu-efi-3.0.tar.gz package. This version
+will only load kernel >= 2.4.3.
+
+New in this version:
+--------------------
+	- possibility to abort (via keypress) on loads of compressed
+	  files (like kernel or initrd)
+
+	- possibility to use forward slashes (/) when accessing files
+	  on EFI system partitions (FAT32).
+
+	- added support for architecture specific config file options
+
+	- added support for architecture specific command line options
+	
+	- added support for kernel relocation when the load address is 
+	  not available (on memory errors or misconfiguration). This patch
+	  was contributed by Brent Casavant from SGI. 
+
+	  The default Linux/ia64 does not support relocation, so you need 
+	  a special version. Relocation is only available for IA-64.
+
+	- update to documentation (elilo.txt)
+
+Bug fixes:
+----------
+	- see changelog
+
+
+This new version has been tested on bigsur with FW B99b and also B114b.
+No testing has been done for EFI/ia32-based systems.
+
+-- 
+-Stephane
 
