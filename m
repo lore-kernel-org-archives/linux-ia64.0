@@ -1,59 +1,38 @@
-From: Christian Cotte-Barrot <Christian.Cotte-Barrot@bull.net>
-Date: Mon, 23 Aug 2004 08:29:20 +0000
-Subject: Re: [PATCH&RFC 2/2] OS_MCA Recovery from poisoned memory read
-Message-Id: <4129AAE0.4726DAC8@bull.net>
+From: Pat Gefre <pfg@sgi.com>
+Date: Wed, 11 Aug 2004 23:29:25 +0000
+Subject: Re: Altix I/O code reorganization - 7 of 21
+Message-Id: <200408112329.i7BNTP6F163641@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41121484.40804@jp.fujitsu.com>
-In-Reply-To: <41121484.40804@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, hch@infradead.org
 
-Hidetoshi Seto wrote:
-> 
-> Keith Owens wrote:
-> > mca_handler_bh() is running as an extension of the MCA event which
-> > means that it is not irq safe.  It is not safe to get any external lock
-> > in mca_page_isolate() or mca_handler_bh().
-> 
-> Therefore the MCA handler couldn't recover the system if the process is
-> running in kernel-mode since it possibly has such important kernel locks.
-> 
-> > AFAICT, my concerns about the MCA event and mca_handler_bh() not being
-> > irq safe are only a problem for the case when the MCA was triggered by
-> > user space code but was delivered when the cpu was in kernel code.
-> > Maybe we do not support the problem case.
-> >
-> > *    offending process  affected process  OS MCA do
-> > *     kernel mode        kernel mode       down system
-> > *     kernel mode        user   mode       kill the process
-> > *     user   mode        kernel mode       kill the process <== problem
-> > *     user   mode        user   mode       kill the process
-> 
-> So we have to guarantee that the process is running in user-mode,
-> which all processes can't have any locks of kernel, right?
-> 
-> It would be happy if this fixed patch satisfy your requirement.
+> 003-pci-support:
+>    The PCI DMA implementation is still ubercomplicated.  See the PCI DMA code
+>    I sent you long ago.
+>    Of the code in pci_extensions.c only two are actually used in the kernel
+>    (snia_pcibr_rrb_alloc and snia_pcidev_endian_set), please remove the unused
+>    other ones.
 > 
 
-Surprising it looks like a discovery (locking problem within the
-mca handler) ?
+Yes, the PCI DMA mapping code is very robust and tries to export 
+the many hardware features that are available on our system.  However, not 
+all of these features are "reachable" via the standard Linux PCI mapping 
+interfaces.  We have removed all unreacheable features.  However, we can 
+still support future requirements with these new interfaces when needed.
 
-Here is Zoltan's document including a design that exposes a solution 
-how to avoid race (paragraphs 3.5, 3.5.1, 3.5.2 ...) and many other
-stuff :
-  http://mca-recovery.sourceforge.net
-    Linux Itanium MCA Recovery Design Document, third draft
-      http://mca-recovery.sourceforge.net/mca3.html
+Yes, we did look at your patch dated: December 4th 2003.  It was very good, but 
+did not go far enough.  We felt that we can trim more of the code.  The current 
+result, we believe is much cleaner and easier to support.  The dma path now is 
+much leaner.
 
--- 
-+======+============+=================+
-|  |\/\/\/| |                       |                                  |
-|  |      | |Christian Cotte-Barrot |org.  :BULL/                      |
-|  | (~)(o) |Bull S.A.              |office:FREC/B1-401                |
-| C      _) |1, rue de Provence     |mailto:                           |
-|  | ,___|  |B.P. 208               |   Christian.Cotte-Barrot@bull.net|
-|  |   /    |38432 ECHIROLLES CEDEX |phone :+33 (0)476297725 (229 7725)|
-| /----\    |FRANCE                 |fax   :+33 (0)476297518 (229 7518)|
-+======+============+=================+
+We have removed unused calls in pci_extensions.c.  We have also removed the
+call snia_pcidev_endian_set.  IOC4 endianess is already correctly set by
+Prom during configuration and initialization.
+
+
+
+For the new code see:
+ftp://oss.sgi.com/projects/sn2/sn2-update/003-pci-support
+
