@@ -1,42 +1,130 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Wed, 27 Aug 2003 16:54:18 +0000
-Subject: Re: kernel update (relative to 2.6.0-test4)
-Message-Id: <marc-linux-ia64-106200379415994@msgid-missing>
+From: Nagendra Singh Tomar <nagendra_tomar@adaptec.com>
+Date: Tue, 26 Aug 2003 21:32:15 +0000
+Subject: Problems compiling kernel 2.4.18 patched with the latest patch
+Message-Id: <marc-linux-ia64-106197620015702@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106192276030286@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106192276030286@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wed, Aug 27, 2003 at 09:01:54AM -0700, Luck, Tony wrote:
-> Last few lines of the build output (building for Tiger):
-> 
->   KSYM    .tmp_kallsyms2.S
->   AS      .tmp_kallsyms2.o
->   LD      vmlinux
->   OBJCOPY arch/ia64/hp/sim/boot/vmlinux.bin
-> BFD: arch/ia64/hp/sim/boot/vmlinux.bin: warning: allocated section `.data.nosave' not in segment
->   GZIP    arch/ia64/hp/sim/boot/vmlinux.gz
->   LN      vmlinux.gz
->   Kernel: vmlinux.gz is ready
-> 
-> Is that .../hp/sim/boot/... path right?  I don't have CONFIG_IA64_HP_SIM
-> set in my .config.
+The kernel is 2.4.18 taken from kernel.org
+Patch applied is linux-2.4.18-ia64-020722.diff taken from
+http://www.kernel.org/pub/linux/kernel/ports/ia64/v2.4/
+I get the following error=20
 
-Yes, that's right.  David and I had a little discussion about that a
-couple of days ago.  It's a harmless change.
+/tmp/newhd/usr/src/linux-2.4.18-ia64/include/asm/machvec.h:82:12: pasting=20
+"machvec_hpsim" and "." does not give a valid preprocessing token
 
-> Any clues on what the warning from OBJCOPY really means?
-> 
-> -Tony
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The detailed compilation log can be found at the end of this mail. I have=20
+made a cross compiler tool-chain on a IA32 system, running RedHat-8.0.
+I searched in the archives. Looks like people have faced this problem, but =
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+it was fixed. Is it fixed for 2.4.18 or do I need a later kernel.
+
+Thanx
+tomar
+
+Full compiler log:
+----------------
+
+. scripts/mkversion > .tmpversion
+/usr/local/ia64-linux/bin/gcc -D__KERNEL__ -I/tmp/newhd/usr/src/linux-2.4.1=
+8-ia64/include -Wall -Wstrict-prototypes -Wno-trigraphs -g -O2 -fomit-frame=
+-pointer -fno-strict-aliasing -fno-common -pipe  -ffixed-r13 -mfixed-range=
+=F10-f15,f32-f127 -falign-functions2 -frename-registers --param max-inline-=
+insnsP00 -mconstant-gp -DUTS_MACHINE=3D'"ia64"' -DKBUILD_BASENAME=3Dversion=
+ -c -o init/version.o init/version.c
+make CFLAGS=3D"-D__KERNEL__ -I/tmp/newhd/usr/src/linux-2.4.18-ia64/include =
+-Wall -Wstrict-prototypes -Wno-trigraphs -g -O2 -fomit-frame-pointer -fno-s=
+trict-aliasing -fno-common -pipe  -ffixed-r13 -mfixed-range=F10-f15,f32-f12=
+7 -falign-functions2 -frename-registers --param max-inline-insnsP00 -mconst=
+ant-gp" -C  arch/ia64/tools
+make[1]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/tools'
+make[1]: Nothing to be done for `all'.
+make[1]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+tools'
+make CFLAGS=3D"-D__KERNEL__ -I/tmp/newhd/usr/src/linux-2.4.18-ia64/include =
+-Wall -Wstrict-prototypes -Wno-trigraphs -g -O2 -fomit-frame-pointer -fno-s=
+trict-aliasing -fno-common -pipe  -ffixed-r13 -mfixed-range=F10-f15,f32-f12=
+7 -falign-functions2 -frename-registers --param max-inline-insnsP00 -mconst=
+ant-gp" -C  arch/ia64/kernel
+make[1]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/kernel'
+make[1]: Nothing to be done for `all'.
+make[1]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+kernel'
+make CFLAGS=3D"-D__KERNEL__ -I/tmp/newhd/usr/src/linux-2.4.18-ia64/include =
+-Wall -Wstrict-prototypes -Wno-trigraphs -g -O2 -fomit-frame-pointer -fno-s=
+trict-aliasing -fno-common -pipe  -ffixed-r13 -mfixed-range=F10-f15,f32-f12=
+7 -falign-functions2 -frename-registers --param max-inline-insnsP00 -mconst=
+ant-gp" -C  arch/ia64/mm
+make[1]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/mm'
+make all_targets
+make[2]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/mm'
+make[2]: Nothing to be done for `all_targets'.
+make[2]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+mm'
+make[1]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+mm'
+make CFLAGS=3D"-D__KERNEL__ -I/tmp/newhd/usr/src/linux-2.4.18-ia64/include =
+-Wall -Wstrict-prototypes -Wno-trigraphs -g -O2 -fomit-frame-pointer -fno-s=
+trict-aliasing -fno-common -pipe  -ffixed-r13 -mfixed-range=F10-f15,f32-f12=
+7 -falign-functions2 -frename-registers --param max-inline-insnsP00 -mconst=
+ant-gp" -C  arch/ia64/lib
+make[1]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/lib'
+make[1]: `lib.a' is up to date.
+make[1]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+lib'
+make CFLAGS=3D"-D__KERNEL__ -I/tmp/newhd/usr/src/linux-2.4.18-ia64/include =
+-Wall -Wstrict-prototypes -Wno-trigraphs -g -O2 -fomit-frame-pointer -fno-s=
+trict-aliasing -fno-common -pipe  -ffixed-r13 -mfixed-range=F10-f15,f32-f12=
+7 -falign-functions2 -frename-registers --param max-inline-insnsP00 -mconst=
+ant-gp" -C  arch/ia64/hp
+make[1]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/hp'
+make -C common
+make[2]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/hp/common'
+make all_targets
+make[3]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/hp/common'
+make[3]: Nothing to be done for `all_targets'.
+make[3]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+hp/common'
+make[2]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+hp/common'
+make -C sim
+make[2]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/hp/sim'
+make all_targets
+make[3]: Entering directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64=
+/hp/sim'
+/usr/local/ia64-linux/bin/gcc -D__KERNEL__ -I/tmp/newhd/usr/src/linux-2.4.1=
+8-ia64/include -Wall -Wstrict-prototypes -Wno-trigraphs -g -O2 -fomit-frame=
+-pointer -fno-strict-aliasing -fno-common -pipe  -ffixed-r13 -mfixed-range=
+=F10-f15,f32-f127 -falign-functions2 -frename-registers --param max-inline-=
+insnsP00 -mconstant-gp  -DKBUILD_BASENAME=3Dhpsim_machvec  -c -o hpsim_mach=
+vec.o hpsim_machvec.c
+In file included from /tmp/newhd/usr/src/linux-2.4.18-ia64/include/asm/mach=
+vec_init.h:5,
+                 from hpsim_machvec.c:2:
+/tmp/newhd/usr/src/linux-2.4.18-ia64/include/asm/machvec.h:82:12: pasting "=
+machvec_hpsim" and "." does not give a valid preprocessing token
+make[3]: *** [hpsim_machvec.o] Error 1
+make[3]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+hp/sim'
+make[2]: *** [first_rule] Error 2
+make[2]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+hp/sim'
+make[1]: *** [_subdir_sim] Error 2
+make[1]: Leaving directory `/tmp/newhd/usr/src/linux-2.4.18-ia64/arch/ia64/=
+hp'
+make: *** [_dir_arch/ia64/hp] Error 2
+
+
+
