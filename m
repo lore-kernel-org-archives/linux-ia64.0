@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sat, 12 Mar 2005 10:26:18 +0000
-Subject: ia64 msi warnings
-Message-Id: <20050312022618.505ec72b.akpm@osdl.org>
+From: Bruce Losure <blosure@sgi.com>
+Date: Thu, 24 Mar 2005 12:28:24 +0000
+Subject: [PATCH 2.6.12 0/0] Altix only: Remove hubdev SAL call
+Message-Id: <Pine.LNX.4.44.0503240618380.4759-100000@fsgi025.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -9,43 +9,57 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
-The patch plugs a couple of warnings, but I'm wondering if it's simply
-hiding 64-bit bugs?
+Hi Tony,
 
+This patch against ia64-test-2.6.12 fixes a bug where the tiocx code
+was inadvertently un-doing some address modifications done in earlier
+fixup code.    This patch just removes the offending code.
 
+Please accept.
 
-drivers/pci/msi.c: In function `msi_set_mask_bit':
-drivers/pci/msi.c:70: warning: cast from pointer to integer of different size
-drivers/pci/msi.c: In function `msi_capability_init':
-drivers/pci/msi.c:558: warning: cast to pointer from integer of different size
+Signed-off-by: Bruce Losure <blosure@sgi.com>
 
+Thanks,
+-Bruce
 
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
-
- 25-akpm/drivers/pci/msi.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff -puN drivers/pci/msi.c~ia64-msi-warning-fixes drivers/pci/msi.c
---- 25/drivers/pci/msi.c~ia64-msi-warning-fixes	Sat Mar 12 18:17:29 2005
-+++ 25-akpm/drivers/pci/msi.c	Sat Mar 12 18:17:53 2005
-@@ -67,7 +67,7 @@ static void msi_set_mask_bit(unsigned in
- 		int		pos;
- 		u32		mask_bits;
+Index: tiocx-test-2.6.12/arch/ia64/sn/kernel/tiocx.c
+=================================--- tiocx-test-2.6.12.orig/arch/ia64/sn/kernel/tiocx.c	2005-03-23 18:49:50.585780038 -0600
++++ tiocx-test-2.6.12/arch/ia64/sn/kernel/tiocx.c	2005-03-23 18:56:06.670621925 -0600
+@@ -330,19 +330,6 @@
+ EXPORT_SYMBOL(tiocx_dma_addr);
+ EXPORT_SYMBOL(tiocx_swin_base);
  
--		pos = (int)entry->mask_base;
-+		pos = (long)entry->mask_base;
- 		pci_read_config_dword(entry->dev, pos, &mask_bits);
- 		mask_bits &= ~(1);
- 		mask_bits |= flag;
-@@ -555,7 +555,7 @@ static int msi_capability_init(struct pc
- 	dev->irq = vector;
- 	entry->dev = dev;
- 	if (is_mask_bit_support(control)) {
--		entry->mask_base = (void __iomem *)msi_mask_bits_reg(pos,
-+		entry->mask_base = (void __iomem *)(long)msi_mask_bits_reg(pos,
- 				is_64bit_address(control));
- 	}
- 	/* Replace with MSI handler */
-_
+-static uint64_t tiocx_get_hubdev_info(u64 handle, u64 address)
+-{
+-
+-	struct ia64_sal_retval ret_stuff;
+-	ret_stuff.status = 0;
+-	ret_stuff.v0 = 0;
+-
+-	ia64_sal_oemcall_nolock(&ret_stuff,
+-				SN_SAL_IOIF_GET_HUBDEV_INFO,
+-				handle, address, 0, 0, 0, 0, 0);
+-	return ret_stuff.v0;
+-}
+-
+ static void tio_conveyor_set(nasid_t nasid, int enable_flag)
+ {
+ 	uint64_t ice_frz;
+@@ -477,18 +464,12 @@
+ 
+ 		if (nasid & 0x1) {	/* TIO's are always odd */
+ 			struct hubdev_info *hubdev;
+-			uint64_t status;
+ 			struct xwidget_info *widgetp;
+ 
+ 			DBG("Found TIO at nasid 0x%x\n", nasid);
+ 
+ 			hubdev  			    (struct hubdev_info *)(NODEPDA(cnodeid)->pdinfo);
+-			status -			    tiocx_get_hubdev_info(nasid,
+-						  (uint64_t) __pa(hubdev));
+-			if (status)
+-				continue;
+ 
+ 			widgetp = &hubdev->hdi_xwidget_info[TIOCX_CORELET];
+ 
 
