@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 10 Jun 2004 05:23:03 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 10 Jun 2004 05:28:31 +0000
 Subject: RE: [PATCH] Kernel panic on IA-64 Linux with SELinux
-Message-Id: <16583.61495.638457.369405@napali.hpl.hp.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F016C4808@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <013f01c44ddb$636d4aa0$f97d220a@linux.bs1.fc.nec.co.jp>
 In-Reply-To: <013f01c44ddb$636d4aa0$f97d220a@linux.bs1.fc.nec.co.jp>
@@ -10,21 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 9 Jun 2004 22:19:28 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+>"current" already contains the region 7 address.  Perhaps I'm 
+>misunderstanding what you're saying, though.
 
-  >> void initialize_init_task (void) { *current = (task_t)
-  >> INIT_TASK((*current)); }
+No, you aren't misunderstanding ... I'd just forgotten that
+head.S converted from region 5 to region 7 before initializing
+r13 (a.k.a. current).
 
-  >> and then call this function from setup_arch().
+I'll think about it more when I'm awake.
 
-  >> The code does compile but doesn't seem to work.  I suspect there
-  >> are other lists that are inconsistent now.  Anybody want to track
-  >> this down?
-
-  Tony> Don't you need a "ia64_tpa()" call in there someplace to
-  Tony> convert the region 5 address to region 7?
-
-"current" already contains the region 7 address.  Perhaps I'm misunderstanding
-what you're saying, though.
-
-	--david
+-Tony
