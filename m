@@ -1,7 +1,7 @@
-From: "David S. Miller" <davem@redhat.com>
-Date: Fri, 16 May 2003 02:32:26 +0000
-Subject: Re: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent
-Message-Id: <marc-linux-ia64-105590723705888@msgid-missing>
+From: Jeremy Higdon <jeremy@sgi.com>
+Date: Fri, 16 May 2003 06:47:55 +0000
+Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
+Message-Id: <marc-linux-ia64-105590723705891@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,23 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-   From: James Bottomley <James.Bottomley@HansenPartnership.com>
-   Date: 15 May 2003 21:26:14 -0500
-   
-   It was my impression that a CPU cache invalidate cycle relinquishes the
-   cache line (and thus leaves the line free to be owned by the device). 
-   The DMA_TO_DEVICE of dma_sync.. does this, why isn't that sufficient?  I
-   grant that CPU does auto ownership, so if the CPU ever touches the data
-   again the cache line is pulled back in again.
-   
-What flushes the cpu cache after the cpu writes to 'buf'
-so that the device sees what the CPU wrote there?  Consider
-copy-back L2 caches like MIPS has.
+On Thu, May 15, 2003 at 01:07:39PM -0700, David S. Miller wrote:
+>    From: Colin Ngam <cngam@sgi.com>
+>    Date: Thu, 15 May 2003 08:17:58 -0500
+>    
+>    Anyway, to make a long story short, we like to "extend" these
+>    interfaces to return DMA addresses of 64 bits if and when the
+>    driver has the full capabality to support DAC - via it's
+>    DMA mask capability setting.
+> 
+> All devices I am aware of do not support 64-bit addresses for their
+> descriptors, only 32-bit.
 
-   Is the issue that we have no way of preventing the CPU from pulling in
-   the cache line if it is referenced?
-   
-The "issue" is that we need a pci_dma_sync_*_to_device() call added.
-We should also remane pci_dma_sync_*() to pci_dma_sync_*_to_cpu()
-to make all of the naming consistent and update all the drivers.
+The Qlogic and LSI Logic SCSI and FC devices support 64 bit addresses
+for their descriptors.  Also the old Adaptec (now JNI) 1160.  I do
+not believe this is unusual.  Certainly all PCI-X devices should support
+64 bit addresses for descriptors.
+
+The Tigon3 supports 64 bit addresses for descriptors.
+
+> There is a huge difference between using a "64-bit address" and
+> requiring to generate a DAC cycle, the latter of which is
+> probably what you need and that is independant of what kind of
+> address pci_alloc_consistent() is giving you.
+
+Not independent.  Because if pci_alloc_consistent gives an address
+in which any of bits 32-63 are set, then the adapter will use a DAC
+to access the descriptor.  I guess you're saying that some adapters
+may support more than 32 bits but fewer than 64.  Such devices
+would not work on our platform.  Which PCI-X devices do not support
+the full 64 bit address space? I don't know of any.
+
+jeremy
 
