@@ -1,33 +1,30 @@
-From: dann frazier <dannf@hp.com>
-Date: Mon, 31 May 2004 15:15:29 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Mon, 31 May 2004 15:42:38 +0000
 Subject: Re: IA64_GENERIC vs. NUMA/DISCONTIG/VIRTUAL_MEM_MAP
-Message-Id: <20040531151529.GA5436@ldl.fc.hp.com>
+Message-Id: <jellj8d2mp.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040531044843.GA25705@dannf.org>
 In-Reply-To: <20040531044843.GA25705@dannf.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Mon, May 31, 2004 at 03:32:04PM +0100, Matthew Wilcox wrote:
-> No, select forces these options on.  It's like Enhances: versus Suggests:
-> (if Enhances actually worked, which it doesn't).  The reason you can't
-> turn DISCONTIGMEM on with a generic kernel is because it's forced on.  I
-> suspect the bug submitter was smoking something good.
+dann frazier <dannf@hp.com> writes:
 
-I suspected that initially, but this is what confused me:
-$ make oldconfig > /dev/null && grep IA64_GENERIC .config && grep CONFIG_NUMA .config
-CONFIG_IA64_GENERIC=y
-# CONFIG_NUMA is not set
+> I suspected that initially, but this is what confused me:
+> $ make oldconfig > /dev/null && grep IA64_GENERIC .config && grep CONFIG_=
+NUMA .config
+> CONFIG_IA64_GENERIC=3Dy
+> # CONFIG_NUMA is not set
 
-However, I can set it by editing .config by hand, and oldconfig doesn't drop
-it, so I'm good to go.
+Can't reproduce here.  Whenever I select IA64_GENERIC I also get NUMA=3Dy,
+even if I start with a .config that has NUMA=3Dn.
 
--- 
----------------------------
-dann frazier
-Hewlett-Packard
-Linux and Open Source Lab
-dannf@hp.com
+Andreas.
 
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
