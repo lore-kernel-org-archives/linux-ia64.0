@@ -1,103 +1,202 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 11 Jan 2005 17:43:30 +0000
-Subject: page table lock patch V15 [6/7]: s390 atomic pte operations
-Message-Id: <Pine.LNX.4.58.0501110943040.32744@schroedinger.engr.sgi.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 19 Jan 2005 05:02:07 +0000
+Subject: [patch] Improve ia64_leave_syscall() for McKinley-type cores.
+Message-Id: <16877.59855.421280.449700@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
- <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
- <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
- <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412011545060.5721@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0501041129030.805@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0501041137410.805@schroedinger.engr.sgi.com> <m1652ddljp.fsf@muc.de>
- <Pine.LNX.4.58.0501110937450.32744@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0501110937450.32744@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: torvalds@osdl.org, Andi Kleen <ak@muc.de>
-Cc: Hugh Dickins <hugh@veritas.com>, akpm@osdl.org, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-Changelog
-        * Provide atomic pte operations for s390
+Optimize ia64_leave_syscall() a bit better for McKinley-type cores.
+The patch looks big, but that's mostly due to renaming r16/r17 to r2/r3.
+Good for a 13 cycle improvement.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+	--david
 
-Index: linux-2.6.10/include/asm-s390/pgtable.h
-=================================--- linux-2.6.10.orig/include/asm-s390/pgtable.h	2005-01-10 16:31:56.000000000 -0800
-+++ linux-2.6.10/include/asm-s390/pgtable.h	2005-01-10 16:41:07.000000000 -0800
-@@ -577,6 +577,15 @@
- 	return pte;
- }
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-+#define ptep_xchg_flush(__vma, __address, __ptep, __pteval)            \
-+({                                                                     \
-+	struct mm_struct *__mm = __vma->vm_mm;                          \
-+	pte_t __pte;                                                    \
-+	__pte = ptep_clear_flush(__vma, __address, __ptep);             \
-+	set_pte(__ptep, __pteval);                                      \
-+	__pte;                                                          \
-+})
-+
- static inline void ptep_set_wrprotect(pte_t *ptep)
- {
- 	pte_t old_pte = *ptep;
-@@ -788,6 +797,14 @@
-
- #define kern_addr_valid(addr)   (1)
-
-+/* Atomic PTE operations */
-+#define __HAVE_ARCH_ATOMIC_TABLE_OPS
-+
-+static inline int ptep_cmpxchg (struct vm_area_struct *vma, unsigned long address, pte_t *ptep, pte_t oldval, pte_t newval)
-+{
-+	return cmpxchg(ptep, pte_val(oldval), pte_val(newval)) = pte_val(oldval);
-+}
-+
- /*
-  * No page table caches to initialise
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/01/18 18:12:07-08:00 davidm@tiger.hpl.hp.com=20
+#   ia64: Improve ia64_leave_syscall() for McKinley-type cores.  Improves
+#   	(normal) getpid() from 271 to 258 cycles.
+#=20
+# arch/ia64/kernel/entry.S
+#   2005/01/18 18:11:50-08:00 davidm@tiger.hpl.hp.com +51 -48
+#   (ia64_leave_syscall): Make it a local function (it's not used anywhere
+#   	else anymore).
+#   	Use r2/r3 as base-pointers instead of r16/r17.
+#   	Load b6 into r18 instead of r22 (frees up a register).
+#   	Read ar.bsp early (_big_ savings!).
+#   	Reschedule for McKinley-type cores.
+#   	Do srlz.i _before_ restoring the stack-pointer or updating
+#   	current->thread.on_ustack.
+#   (skip_rbs_switch): Clear r2 if pLvSys is TRUE.
+#=20
+diff -Nru a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
+--- a/arch/ia64/kernel/entry.S	2005-01-18 21:00:24 -08:00
++++ b/arch/ia64/kernel/entry.S	2005-01-18 21:00:24 -08:00
+@@ -633,10 +633,12 @@
+  *		 r13: restored (user-level thread pointer)
+  *		 r14: cleared
+  *		 r15: restored (syscall #)
+- *	     r16-r19: cleared
++ *	     r16-r17: cleared
++ *		 r18: user-level b6
++ *		 r19: cleared
+  *		 r20: user-level ar.fpsr
+  *		 r21: user-level b0
+- *		 r22: user-level b6
++ *		 r22: cleared
+  *		 r23: user-level ar.bspstore
+  *		 r24: user-level ar.rnat
+  *		 r25: user-level ar.unat
+@@ -661,7 +663,7 @@
+  *	      ar.csd: cleared
+  *	      ar.ssd: cleared
   */
-@@ -801,6 +818,7 @@
- #define __HAVE_ARCH_PTEP_CLEAR_DIRTY_FLUSH
- #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
- #define __HAVE_ARCH_PTEP_CLEAR_FLUSH
-+#define __HAVE_ARCH_PTEP_XCHG_FLUSH
- #define __HAVE_ARCH_PTEP_SET_WRPROTECT
- #define __HAVE_ARCH_PTEP_MKDIRTY
- #define __HAVE_ARCH_PTE_SAME
-Index: linux-2.6.10/include/asm-s390/pgalloc.h
-=================================--- linux-2.6.10.orig/include/asm-s390/pgalloc.h	2004-12-24 13:35:00.000000000 -0800
-+++ linux-2.6.10/include/asm-s390/pgalloc.h	2005-01-10 16:41:07.000000000 -0800
-@@ -97,6 +97,10 @@
- 	pgd_val(*pgd) = _PGD_ENTRY | __pa(pmd);
- }
-
-+static inline int pgd_test_and_populate(struct mm_struct *mm, pdg_t *pgd, pmd_t *pmd)
-+{
-+	return cmpxchg(pgd, _PAGE_TABLE_INV, _PGD_ENTRY | __pa(pmd)) = _PAGE_TABLE_INV;
-+}
- #endif /* __s390x__ */
-
- static inline void
-@@ -119,6 +123,18 @@
- 	pmd_populate_kernel(mm, pmd, (pte_t *)((page-mem_map) << PAGE_SHIFT));
- }
-
-+static inline int
-+pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *page)
-+{
-+	int rc;
-+	spin_lock(&mm->page_table_lock);
+-GLOBAL_ENTRY(ia64_leave_syscall)
++ENTRY(ia64_leave_syscall)
+ 	PT_REGS_UNWIND_INFO(0)
+ 	/*
+ 	 * work.need_resched etc. mustn't get changed by this CPU before it retur=
+ns to
+@@ -690,79 +692,80 @@
+ (pUStk)	cmp.eq.unc p6,p0=3Dr0,r0		// p6 <- pUStk
+ #endif
+ .work_processed_syscall:
+-	adds r16=3DPT(LOADRS)+16,r12
+-	adds r17=3DPT(AR_BSPSTORE)+16,r12
++	adds r2=3DPT(LOADRS)+16,r12
++	adds r3=3DPT(AR_BSPSTORE)+16,r12
+ 	adds r18=3DTI_FLAGS+IA64_TASK_SIZE,r13
+ 	;;
+ (p6)	ld4 r31=3D[r18]				// load current_thread_info()->flags
+-	ld8 r19=3D[r16],PT(B6)-PT(LOADRS)		// load ar.rsc value for "loadrs"
+-	nop.i 0
++	ld8 r19=3D[r2],PT(B6)-PT(LOADRS)		// load ar.rsc value for "loadrs"
++	mov b7=3Dr0		// clear b7
+ 	;;
+-	ld8 r23=3D[r17],PT(R9)-PT(AR_BSPSTORE)	// load ar.bspstore (may be garbag=
+e)
+-	ld8 r22=3D[r16],PT(R8)-PT(B6)		// load b6
++	ld8 r23=3D[r3],PT(R9)-PT(AR_BSPSTORE)	// load ar.bspstore (may be garbage)
++	ld8 r18=3D[r2],PT(R8)-PT(B6)		// load b6
+ (p6)	and r15=3DTIF_WORK_MASK,r31		// any work other than TIF_SYSCALL_TRACE?
+ 	;;
+-
+-	mov.m ar.ccv=3Dr0		// clear ar.ccv
++	mov r16=3Dar.bsp				// M2  get existing backing store pointer
+ (p6)	cmp4.ne.unc p6,p0=3Dr15, r0		// any special work pending?
+ (p6)	br.cond.spnt .work_pending
+ 	;;
+ 	// start restoring the state saved on the kernel stack (struct pt_regs):
+-	ld8.fill r8=3D[r16],16
+-	ld8.fill r9=3D[r17],16
++	ld8.fill r8=3D[r2],16
++	ld8.fill r9=3D[r3],16
+ 	mov f6=F0		// clear f6
+ 	;;
+-	ld8.fill r10=3D[r16],16
+-	ld8.fill r11=3D[r17],16
++	invala			// M0|1 invalidate ALAT
++	rsm psr.i | psr.ic	// M2 initiate turning off of interrupt and interrupti=
+on collection
++	mov f9=F0		// clear f9
 +
-+	rc=pte_same(*pmd, _PAGE_INVALID_EMPTY);
-+	if (rc) pmd_populate(mm, pmd, page);
-+	spin_unlock(&mm->page_table_lock);
-+	return rc;
-+}
++	ld8.fill r10=3D[r2],16
++	ld8.fill r11=3D[r3],16
+ 	mov f7=F0		// clear f7
+ 	;;
+-	ld8 r29=3D[r16],16	// load cr.ipsr
+-	ld8 r28=3D[r17],16	// load cr.iip
++	ld8 r29=3D[r2],16		// load cr.ipsr
++	ld8 r28=3D[r3],16			// load cr.iip
+ 	mov f8=F0		// clear f8
+ 	;;
+-	ld8 r30=3D[r16],16	// load cr.ifs
+-	ld8 r25=3D[r17],16	// load ar.unat
++	ld8 r30=3D[r2],16		// M0|1 load cr.ifs
++	mov.m ar.ssd=3Dr0		// M2 clear ar.ssd
+ 	cmp.eq p9,p0=3Dr0,r0	// set p9 to indicate that we should restore cr.ifs
+ 	;;
+-	rsm psr.i | psr.ic	// initiate turning off of interrupt and interruption =
+collection
+-	invala			// invalidate ALAT
+-	mov f9=F0		// clear f9
+-
+-	mov.m ar.ssd=3Dr0		// clear ar.ssd
+-	mov.m ar.csd=3Dr0		// clear ar.csd
++	ld8 r25=3D[r3],16		// M0|1 load ar.unat
++	mov.m ar.csd=3Dr0		// M2 clear ar.csd
++	mov r22=3Dr0		// clear r22
++	;;
++	ld8 r26=3D[r2],PT(B0)-PT(AR_PFS)	// M0|1 load ar.pfs
++	nop.m 0
+ 	mov f10=F0		// clear f10
+ 	;;
+-	ld8 r26=3D[r16],16	// load ar.pfs
+-	ld8 r27=3D[r17],PT(PR)-PT(AR_RSC)	// load ar.rsc
++	ld8 r21=3D[r2],PT(AR_RNAT)-PT(B0) // load b0
++	ld8 r27=3D[r3],PT(PR)-PT(AR_RSC)	// load ar.rsc
+ 	mov f11=F0		// clear f11
+ 	;;
+-	ld8 r24=3D[r16],PT(B0)-PT(AR_RNAT)	// load ar.rnat (may be garbage)
+-	ld8 r31=3D[r17],PT(R1)-PT(PR)		// load predicates
++	ld8 r24=3D[r2],PT(AR_FPSR)-PT(AR_RNAT)	// load ar.rnat (may be garbage)
++	ld8 r31=3D[r3],PT(R1)-PT(PR)		// load predicates
+ (pUStk) add r14=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r13
+ 	;;
+-	ld8 r21=3D[r16],PT(R12)-PT(B0) // load b0
+-	ld8.fill r1=3D[r17],16	// load r1
+-(pUStk) mov r3=3D1
+-	;;
+-	ld8.fill r12=3D[r16],16
+-	ld8.fill r13=3D[r17],16
+-	mov r2=3Dr0		// clear r2
++	ld8 r20=3D[r2],PT(R12)-PT(AR_FPSR)	// load ar.fpsr
++	ld8.fill r1=3D[r3],16	// load r1
++(pUStk) mov r17=3D1
+ 	;;
+-	ld8 r20=3D[r16]		// load ar.fpsr
+-	ld8.fill r15=3D[r17]	// load r15
+-	mov b7=3Dr0		// clear b7
++	srlz.i			// M0  ensure interruption collection is off
++	ld8.fill r13=3D[r3],16
++	nop.i 0
+ 	;;
+-(pUStk) st1 [r14]=3Dr3
+-	addl r17=3DTHIS_CPU(ia64_phys_stacked_size_p8),r0
++	ld8.fill r12=3D[r2]	// restore r12 (sp)
++	ld8.fill r15=3D[r3]	// restore r15
++	addl r3=3DTHIS_CPU(ia64_phys_stacked_size_p8),r0
++	;;
++(pUStk)	ld4 r3=3D[r3]		// r3 =3D cpu_data->phys_stacked_size_p8
++(pUStk) st1 [r14]=3Dr17
++	mov b6=3Dr18		// I0  restore b6
+ 	;;
+-	mov r16=3Dar.bsp		// get existing backing store pointer
+-	srlz.i			// ensure interruption collection is off
++	shr.u r18=3Dr19,16	// I0|1 get byte size of existing "dirty" partition
+ 	mov r14=3Dr0		// clear r14
+-	;;
+-	ld4 r17=3D[r17]		// r17 =3D cpu_data->phys_stacked_size_p8
+-	mov b6=3Dr22				// restore b6
+-	shr.u r18=3Dr19,16	// get byte size of existing "dirty" partition
+ (pKStk) br.cond.dpnt.many skip_rbs_switch
 +
- /*
-  * page table entry allocation/free routines.
-  */
-
++	mov.m ar.ccv=3Dr0		// clear ar.ccv
+ (pNonSys) br.cond.dpnt.many dont_preserve_current_frame
+ 	br.cond.sptk.many rbs_switch
+ END(ia64_leave_syscall)
+@@ -1054,7 +1057,7 @@
+ 	;;
+ (pUStk)	mov ar.rnat=3Dr24		// M2 must happen with RSE in lazy mode
+ 	nop 0
+-	nop 0
++(pLvSys)mov r2=3Dr0
+=20
+ 	mov ar.rsc=3Dr27		// M2
+ 	mov pr=3Dr31,-1		// I0
