@@ -1,7 +1,7 @@
-From: Francois-Xavier Kowalski <francois-xavier_kowalski@hp.com>
-Date: Thu, 04 Apr 2002 08:36:20 +0000
+From: "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp>
+Date: Thu, 04 Apr 2002 10:29:46 +0000
 Subject: Re: [Linux-ia64] SIGILL errors in strncpu (NAT consumption)
-Message-Id: <marc-linux-ia64-105590701905373@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905375@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905358@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905358@msgid-missing>
@@ -10,32 +10,91 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
+ Hi there,
 
->>>>>>On Wed, 3 Apr 2002 23:29:58 +0200 (MEST), Erich Focht <efocht@ess.nec.de> said:
->>>>>>
->
->  Erich> I've seen NaT consumption faults with an ISV application in a
->  Erich> loop involving speculative loads, too. It was very hard to
->  Erich> trace back (occured at different simulation times in a huge
->  Erich> case) and disappeared after we rewrote the loop and used the
->  Erich> latest Intel Fortran compiler. It occured with both B3 and C0
->  Erich> CPUs under 2.4.7 and 2.4.17. I don't have a testcase for
->  Erich> this, sorry.
->
->It's due to a glibc bug that was introduced last August when strncpy()
->was rewritten.  I sent a bug report (and preliminary patch) to the
->author and am waiting to hear back.
->
+ I have a favor to ask David.
+ If possible, plase give me the patch you had resolved
+ this problem. I have been looking for the patch in all
+ email(linux-ia64) but I could not find this patch.
 
-Do you have the bug-report ID on GNATS? I am not  able to find it in the 
-database to known if it is being worked-out by the maintainer.
+ Thanks.
 
-FiX
-
--- 
-Francois-Xavier "FiX" KOWALSKI
-
-
-
+> David Mosberger took a look at the strncpy code & spotted
+> the error:
+> 
+> From David:
+> >> I took a closer look and there seem to be several bugs in the routine:
+> >> 
+> >>  (1) I don't think it's save to do:
+> >> 
+> >>                 chk.s r[MEMLAT], .recovery3
+> >>                 mov value = r[MEMLAT]
+> >> 
+> >>      in the same cycle.  In the patch below, I fixed this by adding a
+> >>      stop bit, but obviously it would be better to avoid that (either
+> >>      by re-ordering the code or by adding a pipeline stage).
+> >> 
+> >>  (2) stop bit was missing after br.cloop.dptk
+> >> 
+> >>  (3) off-by-one error in .recovery4 code: the destination should be
+> >>      r[MEMLAT-1], not r[MEMLAT]
+> >> 
+> >>  (4) I believe the address calcuation in .recovery3 and .recovery4 may
+> >>      also be off by 8; this is just based on eye-balling the code though,
+> >>      so I may be wrong
+> >> 
+> >> Hope this helps,
+> >> 
+> >>         --david
+> >> 
+> 
+> 
+> ---- 
+> Test case - run ~12 copies of this in parallel.
+> 
+> #include <stdio.h>
+> #include <signal.h>
+> #include <string.h>
+> #include <time.h>
+> 
+> char *dest, *src;
+> 
+> void
+> sigill_handler(int sig)
+> {
+>         fprintf(stderr,"SIGILL: pid %d, dest 0x%lx, src 0x%lx\n",
+>                 getpid(), (long)dest, (long)src);
+>         exit(1);
+> }
+> 
+> int
+> main() {
+>   time_t temp1;
+>   char *p, buffer[1024];
+> 
+>   signal(SIGILL, sigill_handler);
+>   
+>   time(&temp1);
+>   src = ctime(&temp1);
+> 
+>   dest = buffer;
+> 
+>   printf("%d\n", strlen(src));
+> 
+>   while(1)
+>       strncpy(buffer,src,strlen(src));
+> }
+> 
+> 
+> -- 
+> Thanks
+> 
+> Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
+> 
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> 
 
