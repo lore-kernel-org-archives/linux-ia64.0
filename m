@@ -1,27 +1,36 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Thu, 14 Dec 2000 21:16:32 +0000
-Subject: Re: [Linux-ia64] gdb on ia64
-Message-Id: <marc-linux-ia64-105590678205847@msgid-missing>
+From: John Kohl <jtk@rational.com>
+Date: Tue, 05 Dec 2000 22:04:06 +0000
+Subject: [Linux-ia64] missing exports of __strlen_user(), __strncpy_from_user()?
+Message-Id: <marc-linux-ia64-105590678205789@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205835@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205835@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Can any one explain why gdb on ia64 tries to attach (and gets an error) to
->a process that died with a sigsegv
->even when I start it with the --core option, giving it a core dump.
+i386 kernels export strnlen_user() and strncpy_from_user(); the former
+is referenced by the macro for strlen_user().
 
-You can't "attach" to a process that has died.  I assume you are just trying
-to look at the code dump.  This works on all of the systems I have.
+ia64 does not export either __strlen_user() or __strncpy_from_user()
+(referenced by strlen_user() and strncpy_from_user() macros functions).
+We need these symbols to implement some code in our kernel module
+(ClearCase MVFS).
 
->I am using TurboLinux IA-64 Beta 2, with  egcs-core-20001002  and
->egcs-g++-20001002.
+I presume this is just an oversight, and they should be added to
+arch/ia64/kernel/ia64_ksyms.c?  I'd suggest adding these, as similar to
+exported symbols in i386, to make copy_{from,to}_user(),
+strncpy_from_user(), and clear_user() usable by modules.
 
-You might try asking on the TurboLinux mailing list.  I am not very familiar
-with TurboLinux releases, and don't have any machines running it right now.
+EXPORT_SYMBOL(__strncpy_from_user);
+EXPORT_SYMBOL(__do_clear_user);
+EXPORT_SYMBOL(__strlen_user);
+EXPORT_SYMBOL(__strnlen_user);
+EXPORT_SYMBOL(__copy_user);
 
-Jim
+
+-- 
+=John Kohl <jtk@rational.com>, Software Engineer
+Rational Software, Configuration Management Business Unit
+Mark your calendars!  Rational User Conference 2001, July 22-26, 2001
+in beautiful Denver, Colorado
 
