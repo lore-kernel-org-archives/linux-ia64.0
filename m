@@ -1,7 +1,7 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Fri, 17 Oct 2003 18:27:07 +0000
+From: "Martin K. Petersen" <mkp@mkp.net>
+Date: Fri, 17 Oct 2003 18:34:23 +0000
 Subject: Re: [PATCH] fix topology initialization
-Message-Id: <marc-linux-ia64-106641573732743@msgid-missing>
+Message-Id: <marc-linux-ia64-106641573732755@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106641334730082@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106641334730082@msgid-missing>
@@ -10,17 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Oct 17, 2003 at 07:05:11PM +0100, Christoph Hellwig wrote:
-> On Fri, Oct 17, 2003 at 10:48:34AM -0700, Jesse Barnes wrote:
-> > Now that NUMA kernels are working we can properly initialze the topology
-> > information so that /sys/devices/system/node* & friends aren't empty.
-> 
-> So with a proper topology API we can start to kill off the topology-related
-> hwgfs mess?
+>>>>> "Christoph" = Christoph Hellwig <hch@infradead.org> writes:
 
-I think this will provide some of the info that hwgfs provides, but not
-all.  We still need a way to map PCI busses to nodes (or cpumasks,
-whatever makes sense) and a way to map nodes & busses to physical, rack
-mounted bricks.
+Christoph> On Fri, Oct 17, 2003 at 10:48:34AM -0700, Jesse Barnes wrote:
+>> Now that NUMA kernels are working we can properly initialze the
+>> topology information so that /sys/devices/system/node* & friends
+>> aren't empty.
 
-Jesse
+Christoph> So with a proper topology API we can start to kill off the
+Christoph> topology-related hwgfs mess?
+
+We're working on it...
+
+-- 
+Martin K. Petersen	Silicon Graphics, Inc.
+mkp@sgi.com		http://www.sgi.com/
+
+
