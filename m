@@ -1,60 +1,75 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Tue, 26 Oct 2004 18:37:16 +0000
-Subject: Re: ia64 implementation of lib/iomap.c
-Message-Id: <20041026183716.GK2728@cup.hp.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 11 Oct 2004 15:52:44 +0000
+Subject: q-tools v0.2 released
+Message-Id: <200410111552.i9BFqiHj020907@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16759.51459.598187.91726@napali.hpl.hp.com>
-In-Reply-To: <16759.51459.598187.91726@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Oct 26, 2004 at 11:19:20AM -0700, Jesse Barnes wrote:
-> Yep.  And it has to sync both consistent and non-consistent memory (flush 
-> might be a better term since coherence isn't really the issue).
+I'm happy to announce that q-tools v0.2 has been released.  q-tools is
+a collection of Linux performance analysis tools.  In particular, they
+include q-syscollect and q-view, which can be thought of as being more
+powerful than gprof, without its pain (no recompilation needed;
+multi-threaded apps and shared libraries are supported;
+kernel-execution can be profiled; any Itanium 2 PMU event can be
+profiled, etc.).
 
-coherence is the issue. data is coherent until it reaches
-whatever domain the chipset defines to be coherent.
-Normally that means the data has to reach some path common to
-CPU (cache) and memory controller.
+As usual, you can get q-tools via the web page at:
 
-> > Jesse, you keep mixing up PCI-X Relaxed Ordering with readX() interface
-> > and the two are NOT (directly) related.
-> > The device driver can enable PCI-X Relaxed Ordering hints in general.
-> > But the IO device controls "RO" hint use on individual bus transactions 
-> > it masters.
-> 
-> I don't believe you.  The spec makes it look like the I/O address *coming
-> from the CPU* has to contain a bit to indicate relaxed ordering.
+	http://www.hpl.hp.com/research/linux/q-tools/
 
-I agree that's true for outbound DMA but not inbound DMA.
-Whoever masters the transaction gets to set the attribute.
-For outbound (to device), CPU/Chipset get to decide.
+It may take a couple of hours before the web pages migrate across the
+firewall but in the meantime you may also get the q-tools-0.2 tar-ball
+directly from the ftp site:
 
-I quote from section 11.1 "Relaxed Write Ordering" of
-"PCI-X Addendum to the PCI Local Bus Specification, Revision 1.0a,
-July 24, 2000":
-    ...Thus, individual write transactions to that buffer area can be
-    allowed to complete out of order as long as the status write pushes all
-    previous writes ahead of it. An I/O device can easily accomplish this by
-    setting the Relaxed Ordering attribute for all payload write transactions
-    but always generating a separate transaction for the status write(s) with
-    the Relaxed Ordering attribute not set.
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/
 
-The above description makes it pretty clear the device is setting the
-attribute.
+There are two major enhancements in this release:
 
-I'm not worried about ordering on outbound (aka DMA reads vs MMIO
-writes) since I know parisc violates that rule and it works fine
-for the IO devices that are common used there. Some HP IA64 platforms
-also violate the outbound order (DMA reads can bypass MMIO writes).
+ - SuSE Enterprise Linux 9 (SLES9) is now supported out-of-the-box
+   (in addition to the existing Debian support)
 
-> But as I've said 
-> before, we won't know until we see chipsets that support all aspects of this 
-> feature.
+ - q-syscollect now has the ability to profile the time spent in
+   code which has interrupts disabled (see section
+   "Blind-spot-free profiling" in the README for details).
 
-Agreed. We might never enable it. But in any case,  I'll assert again
-PCI-X RO is orthogonal to the read_relaxed() discussion.
+In addition, there are many bug-fixes, in particular some nasty bugs
+in q-syscollect got fixed which reared their ugly face primarily on
+large SMP machines.
 
-grant
+For additional details, I attached the relevant section from the NEWS
+file.
+
+Enjoy,
+
+	--david
+
+----
+* News for v0.2:
+
+** New features
+
+*** q-syscollect: Add support for interruption-level code-sampling (-i option).
+*** q-tools now builds and works out-of-the-box for SuSE (SLES 9).
+
+** Bug fixes
+
+*** q-syscollect: Make it robust against small RLIMIT_MEMLOCK values.
+*** q-syscollect: Fix bug which could cause killing of "random" processes.
+*** q-syscollect: Fix bug which could cause live-lock when the
+                  sampling-buffer filled up.
+*** q-syscollect: Fix a memory leak.
+*** q-syscollect: Fix handling of backslashes in argument vectors.
+*** q-view: Ignore non-function symbols to avoid confusion when a function
+            contains a local lable.
+*** q-view: Fix topological sort of the call-graph for good.
+*** q-view: Ensure weird symbols such as "operator|=" get parsed properly.
+*** q-view: Display fully-qualified kernel symbols as SYMNAME<kernel> for
+            consistency.
+*** q-view: Build symbol table more carefully, e.g., suppressing duplicates
+            and use unwind-info to detect procedure-boundaries in stripped
+            binaries.
+*** q-view: Allow for multiple kallsyms-formated symbol-files to enable,
+            e.g., firmware symbol-tables.
