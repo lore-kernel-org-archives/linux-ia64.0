@@ -1,111 +1,172 @@
-From: "Moore, Robert" <robert.moore@intel.com>
-Date: Fri, 17 Sep 2004 17:18:40 +0000
-Subject: RE: [ACPI] [PATCH] restore _OS object to "Linux" for ia64
-Message-Id: <37F890616C995246BE76B3E6B2DBE05502070E56@orsmsx403.amr.corp.intel.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Fri, 24 Sep 2004 08:18:28 +0000
+Subject: Re: [ACPI] [PATCH] Updated patches for PCI IRQ resource deallocation
+Message-Id: <4153D854.5050504@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1095103349.2512.16.camel@d845pe>
-In-Reply-To: <1095103349.2512.16.camel@d845pe>
+References: <4153B491.7050605@jp.fujitsu.com>
+In-Reply-To: <4153B491.7050605@jp.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: "Moore, Robert" <robert.moore@intel.com>, Alex Williamson <alex.williamson@hp.com>
-Cc: Gerald Pfeifer <gp@suse.de>, "Brown, Len" <len.brown@intel.com>, linux-ia64@vger.kernel.org, ACPI Developers <acpi-devel@lists.sourceforge.net>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: len.brown@intel.com
+Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>, greg@kroah.com, tony.luck@intel.com, akpm@osdl.org, linux-kernel@vger.kernel.org, acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, Takayoshi Kochi <t-kochi@bq.jp.nec.com>, Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-A new example:
+Len,
 
-> -----Original Message-----
-> From: Moore, Robert
-> Sent: Friday, September 17, 2004 10:10 AM
-> To: 'Andreas Leppert'; acpi-devel@lists.sourceforge.net
-> Subject: RE: [ACPI] ACPI_OS_NAME: no battery or no ac_adapter
->=20
-> In newer versions of ACPI CA, we have changed ACPI_OS_NAME to "Microsoft
-> Windows NT" for exactly this reason.
->=20
-> Bob
->=20
->=20
-> > -----Original Message-----
-> > From: acpi-devel-admin@lists.sourceforge.net [mailto:acpi-devel-
-> > admin@lists.sourceforge.net] On Behalf Of Andreas Leppert
-> > Sent: Friday, September 17, 2004 6:04 AM
-> > To: acpi-devel@lists.sourceforge.net
-> > Subject: [ACPI] ACPI_OS_NAME: no battery or no ac_adapter
-> >
-> > hi,
-> >
-> > i've a strange problem on my fujitsu laptop.  If i compile my kernel
-> using
-> > acpi, everything works fine, but acpi -V doesn't change the value of
-> > ac_adapter info. it's always set to "on-line". it doesnt matter if the
-> > ac_adapter is plugged in or not. always "on-line".
-> >
-> > then i found this:
-> > http://sourceforge.net/mailarchive/message.php?msg_id=8560832
-> >
-> > so i changed the value of ACPI_OS_NAME in my
-> > /usr/src/linux/include/acpi/platform/aclinux.h from "Linux" to
-> "Microsoft
-> > Windows NT". Now, ac_adapter changes its value from "on-line" to "off-
-> > line" if i unplug the ac_adapter.
-> >
-> > But now, acpi -V doesnt show me any battery information. the line is
-> just
-> > omitted! so what to do?
-> >
-> > under http://andileppert.de/dsdtl.dsl you can find my dsdt. you will see
-> > that there are a few _OS commands...  what can i do? this is a strange
-> > thing...
-> >
-> > thanks in advance
-> > Andi Leppert
-> > _________________________________________________________
-> > Mit WEB.DE FreePhone=AE mit h=F6chster Qualit=E4t ab 0 Ct./Min.
-> > weltweit telefonieren! http://freephone.web.de/?mc=021201
-> >
-> >
-> >
-> > -------------------------------------------------------
-> > This SF.Net email is sponsored by: YOU BE THE JUDGE. Be one of 170
-> > Project Admins to receive an Apple iPod Mini FREE for your judgement on
-> > who ports your project to Linux PPC the best. Sponsored by IBM.
-> > Deadline: Sept. 24. Go here: http://sf.net/ppc_contest.php
-> > _______________________________________________
-> > Acpi-devel mailing list
-> > Acpi-devel@lists.sourceforge.net
-> > https://lists.sourceforge.net/lists/listinfo/acpi-devel
+I've updated ACPI portion of PCI IRQ resource deallocation patch
+again based on the feedback from Takayoshi Kochi. Please apply
+the following patch instead of the patch I sent before.
 
-> -----Original Message-----
-> From: Moore, Robert
-> Sent: Tuesday, September 14, 2004 8:00 AM
-> To: 'Alex Williamson'
-> Cc: Gerald Pfeifer; Brown, Len; linux-ia64@vger.kernel.org; ACPI
-> Developers
-> Subject: RE: [ACPI] [PATCH] restore _OS object to "Linux" for ia64
->=20
->=20
-> >
-> >    But how can we be sure we're bug for bug and feature for feature
-> > compatible with an arbitrary version of Windows?  I got curious and
-> > looked at the DSDT on my home PC, generic VIA KM266 chipset.  Sure
-> > enough:
->=20
-> We aren't ever "sure".
->=20
-> All I can say is that MS is the "defacto" implementation and that we
-> attempt to both adhere to the ACPI spec and make some accommodations to
-> the MS implementation (such as supporting the control method "implicit
-> return")
->=20
-> The NT/XP MS implementation is their best version with the fewest bugs, so
-> this is the version that we are compatible with.
->=20
-> Given this, and the fact that most iA32 platform BIOSs are developed and
-> tested with XP, using the "Microsoft Windows NT" identification string
-> seems to be the best way to go.  By doing this, we have fixed at least
-> several machines (maybe more) that were not working properly under Linux,
-> and there haven't been any problems reported that I know of.
->=20
-> Bob
->=20
+Thanks,
+Kenji Kaneshige
+
+----
+Change Log:
+
+    - Changed acpi_pci_irq_disable() to leave 'dev->irq' as it
+      is. Clearing 'dev->irq' by some magic constant
+      (e.g. PCI_UNDEFINED_IRQ) is TBD.
+
+Change Log:
+
+    - Fixed some typos in comments.
+
+    - Changed 'unsigned char irq_disabled' to 'unsigned int
+      irq_disabled' because pci_dev.irq is unsigned int.
+
+----
+Name:		IRQ_deallocation_acpi.patch
+Kernel Version:	2.6.9-rc2-mm1
+Depends:	none
+Description:
+
+This patch is ACPI portion of IRQ deallocation. This patch defines the
+following new interface. The implementation of this interface depends
+on each platform.
+
+    o void acpi_unregister_gsi(int irq)
+
+        This is a opposite portion of acpi_register_gsi(). This has a
+        responsibility for deallocating IRQ resources associated with
+        the specified linux IRQ number.
+
+        We need to consider the case of shared interrupt. In the case
+        of shared interrupt, acpi_register_gsi() is called multiple
+        times for one gsi. That is, registrations and unregistrations
+        can be nested.
+
+        This function undoes the effect of one call to
+        acpi_register_gsi(). If this matches the last registration,
+        IRQ resources associated with the specified linux IRQ number
+        are freed.
+
+This patch also adds the following new function.
+
+    o void acpi_pci_irq_disable (struct pci_dev *dev)
+
+        This function is a opposite portion of
+        acpi_pci_enable_irq(). It clears the device's linux IRQ number
+        and calls acpi_unregister_gsi() to deallocate IRQ resources.
+
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+
+---
+
+ linux-2.6.9-rc2-mm1-kanesige/arch/i386/kernel/acpi/boot.c |   11 ++++++++
+ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c      |   11 ++++++++
+ linux-2.6.9-rc2-mm1-kanesige/drivers/acpi/pci_irq.c       |   19 ++++++++++++++
+ linux-2.6.9-rc2-mm1-kanesige/include/linux/acpi.h         |    2 +
+ 4 files changed, 43 insertions(+)
+
+diff -puN arch/i386/kernel/acpi/boot.c~IRQ_deallocation_acpi arch/i386/kernel/acpi/boot.c
+--- linux-2.6.9-rc2-mm1/arch/i386/kernel/acpi/boot.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/i386/kernel/acpi/boot.c	2004-09-22 20:30:41.000000000 +0900
+@@ -480,6 +480,17 @@ unsigned int acpi_register_gsi(u32 gsi, 
+ }
+ EXPORT_SYMBOL(acpi_register_gsi);
+ 
++/*
++ * This function undoes the effect of one call to acpi_register_gsi().
++ * If this matches the last registration, any IRQ resources for gsi
++ * associated with the irq are freed.
++ */
++void
++acpi_unregister_gsi (unsigned int irq)
++{
++}
++EXPORT_SYMBOL(acpi_unregister_gsi);
++
+ static unsigned long __init
+ acpi_scan_rsdp (
+ 	unsigned long		start,
+diff -puN arch/ia64/kernel/acpi.c~IRQ_deallocation_acpi arch/ia64/kernel/acpi.c
+--- linux-2.6.9-rc2-mm1/arch/ia64/kernel/acpi.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c	2004-09-24 15:33:01.254399900 +0900
+@@ -516,6 +516,17 @@ acpi_register_gsi (u32 gsi, int edge_lev
+ }
+ EXPORT_SYMBOL(acpi_register_gsi);
+ 
++/*
++ * This function undoes the effect of one call to acpi_register_gsi().
++ * If this matches the last registration, any IRQ resources for gsi
++ * associated with the irq are freed.
++ */
++void
++acpi_unregister_gsi (unsigned int irq)
++{
++}
++EXPORT_SYMBOL(acpi_unregister_gsi);
++
+ static int __init
+ acpi_parse_fadt (unsigned long phys_addr, unsigned long size)
+ {
+diff -puN drivers/acpi/pci_irq.c~IRQ_deallocation_acpi drivers/acpi/pci_irq.c
+--- linux-2.6.9-rc2-mm1/drivers/acpi/pci_irq.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/drivers/acpi/pci_irq.c	2004-09-24 15:46:01.666952803 +0900
+@@ -390,3 +390,22 @@ acpi_pci_irq_enable (
+ 
+ 	return_VALUE(dev->irq);
+ }
++
++void
++acpi_pci_irq_disable (
++	struct pci_dev		*dev)
++{
++	ACPI_FUNCTION_TRACE("acpi_pci_irq_disable");
++
++	/*
++	 * TBD: It might be worth clearing dev->irq by magic constant
++	 * (e.g. PCI_UNDEFINED_IRQ).
++	 */
++
++	printk(KERN_INFO PREFIX "PCI interrupt for device %s disabled\n",
++	       pci_name(dev));
++
++	acpi_unregister_gsi(dev->irq);
++
++	return_VOID;
++}
+diff -puN include/linux/acpi.h~IRQ_deallocation_acpi include/linux/acpi.h
+--- linux-2.6.9-rc2-mm1/include/linux/acpi.h~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/include/linux/acpi.h	2004-09-22 20:29:23.000000000 +0900
+@@ -414,6 +414,7 @@ static inline int acpi_boot_init(void)
+ #endif 	/*!CONFIG_ACPI_BOOT*/
+ 
+ unsigned int acpi_register_gsi (u32 gsi, int edge_level, int active_high_low);
++void acpi_unregister_gsi (unsigned int);
+ int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
+ 
+ #ifdef CONFIG_ACPI_PCI
+@@ -439,6 +440,7 @@ extern struct acpi_prt_list	acpi_prt;
+ struct pci_dev;
+ 
+ int acpi_pci_irq_enable (struct pci_dev *dev);
++void acpi_pci_irq_disable (struct pci_dev *dev);
+ 
+ struct acpi_pci_driver {
+ 	struct acpi_pci_driver *next;
+
+_
+
 
