@@ -1,87 +1,80 @@
-From: Andi Kleen <ak@suse.de>
-Date: Thu, 04 Nov 2004 04:07:13 +0000
+From: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+Date: Thu, 04 Nov 2004 04:57:21 +0000
 Subject: Re: Externalize SLIT table
-Message-Id: <20041104040713.GC21211@wotan.suse.de>
+Message-Id: <20041104.135721.08317994.t-kochi@bq.jp.nec.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041103205655.GA5084@sgi.com> <20041104.105908.18574694.t-kochi@bq.jp.nec.com>
-In-Reply-To: <20041104.105908.18574694.t-kochi@bq.jp.nec.com>
+References: <20041103205655.GA5084@sgi.com>
+	<20041104.105908.18574694.t-kochi@bq.jp.nec.com>
+	<20041104040713.GC21211@wotan.suse.de>
+In-Reply-To: <20041104040713.GC21211@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+To: ak@suse.de
 Cc: steiner@sgi.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Thu, Nov 04, 2004 at 10:59:08AM +0900, Takayoshi Kochi wrote:
-> Hi,
-> 
-> For wider audience, added LKML.
-> 
-> From: Jack Steiner <steiner@sgi.com>
-> Subject: Externalize SLIT table
-> Date: Wed, 3 Nov 2004 14:56:56 -0600
-> 
-> > The SLIT table provides useful information on internode
-> > distances. Has anyone considered externalizing this
-> > table via /proc or some equivalent mechanism.
+Hi,
+
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Externalize SLIT table
+Date: Thu, 4 Nov 2004 05:07:13 +0100
+
+> > Why not export node_distance() under sysfs?
+> > I like (1).
 > > 
-> > For example, something like the following would be useful:
+> > (1) obey one-value-per-file sysfs principle
 > > 
-> > 	# cat /proc/acpi/slit
-> > 	010 066 046 066
-> > 	066 010 066 046
-> > 	046 066 010 020
-> > 	066 046 020 010
+> > % cat /sys/devices/system/node/node0/distance0
+> > 10
+> 
+> Surely distance from 0 to 0 is 0?
+
+According to the ACPI spec, 10 means local and other values
+mean ratio to 10.  But what the distance number should mean
+mean is ambiguous from the spec (e.g. some veondors interpret as
+memory access latency, others interpret as memory throughput
+etc.)
+However relative distance just works for most of uses, I believe.
+
+Anyway, we should clarify how the numbers should be interpreted
+to avoid confusion.
+
+How about this?
+"The distance to itself means the base value.  Distance to
+other nodes are relative to the base value.
+0 means unreachable (hot-removed or disabled) to that node."
+
+(Just FYI, numbers 0-9 are reserved and 255 (unsigned char -1) means
+unreachable, according to the ACPI spec.)
+
+> > % cat /sys/devices/system/node/node0/distance1
+> > 66
+> 
 > > 
-> > If this looks ok (or something equivalent), I'll generate a patch....
-
-This isn't very useful without information about proximity domains.
-e.g. on x86-64 the proximity domain number is not necessarily 
-the same as the node number. 
-
-
-> For user space to manipulate scheduling domains, pinning processes
-> to some cpu groups etc, that kind of information is very useful!
-> Without this, users have no notion about how far between two nodes.
-
-Also some reporting of _PXM for PCI devices is needed. I had a 
-experimental patch for this on x86-64 (not ACPI based), that
-reported nearby nodes for PCI busses. 
-
+> > (2) one distance for each line
+> > 
+> > % cat /sys/devices/system/node/node0/distance
+> > 0:10
+> > 1:66
+> > 2:46
+> > 3:66
+> > 
+> > (3) all distances in one line like /proc/<PID>/stat
+> > 
+> > % cat /sys/devices/system/node/node0/distance
+> > 10 66 46 66
 > 
-> But ACPI SLIT table is too arch specific (ia64 and x86 only) and
-> user-visible logical number and ACPI proximity domain number is
-> not always identical.
+> I would prefer that. 
 
-Exactly.
+Ah, I missed the following last sentence in
+Documentation/filesystems/sysfs.txt:
 
-> 
-> Why not export node_distance() under sysfs?
-> I like (1).
-> 
-> (1) obey one-value-per-file sysfs principle
-> 
-> % cat /sys/devices/system/node/node0/distance0
-> 10
+|Attributes should be ASCII text files, preferably with only one value
+|per file. It is noted that it may not be efficient to contain only
+|value per file, so it is socially acceptable to express an array of
+|values of the same type. 
 
-Surely distance from 0 to 0 is 0?
+If an array is acceptable, I would prefer (3), too.
 
-> % cat /sys/devices/system/node/node0/distance1
-> 66
-
-> 
-> (2) one distance for each line
-> 
-> % cat /sys/devices/system/node/node0/distance
-> 0:10
-> 1:66
-> 2:46
-> 3:66
-> 
-> (3) all distances in one line like /proc/<PID>/stat
-> 
-> % cat /sys/devices/system/node/node0/distance
-> 10 66 46 66
-
-I would prefer that. 
-
--Andi
+---
+Takayoshi Kochi
