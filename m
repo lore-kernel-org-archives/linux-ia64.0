@@ -1,116 +1,134 @@
-From: "Moore, Robert" <robert.moore@intel.com>
-Date: Mon, 13 Sep 2004 22:59:05 +0000
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Tue, 14 Sep 2004 04:27:40 +0000
 Subject: RE: [ACPI] [PATCH] restore _OS object to "Linux" for ia64
-Message-Id: <37F890616C995246BE76B3E6B2DBE05501FB4ABB@orsmsx403.amr.corp.intel.com>
+Message-Id: <1095136060.8780.23.camel@mythbox>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1095103349.2512.16.camel@d845pe>
-In-Reply-To: <1095103349.2512.16.camel@d845pe>
+References: <37F890616C995246BE76B3E6B2DBE05501FB4ABB@orsmsx403.amr.corp.intel.com>
+In-Reply-To: <37F890616C995246BE76B3E6B2DBE05501FB4ABB@orsmsx403.amr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
-To: "Moore, Robert" <robert.moore-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Gerald Pfeifer <gp-l3A5Bk7waGM@public.gmane.org>
-Cc: "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Alex Williamson <alex.williamson-VXdhtT5mjnY@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ACPI Developers <acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Moore, Robert" <robert.moore@intel.com>
+Cc: Gerald Pfeifer <gp@suse.de>, "Brown, Len" <len.brown@intel.com>, linux-ia64@vger.kernel.org, ACPI Developers <acpi-devel@lists.sourceforge.net>
 
-Here's an example:
+On Mon, 2004-09-13 at 15:59 -0700, Moore, Robert wrote:
+> Here's an example:
+> 
 
-> -----Original Message-----
-> From: acpi-devel-admin@lists.sourceforge.net [mailto:acpi-devel-=20
-> admin@lists.sourceforge.net] On Behalf Of Martin Ginkel
-> Sent: Wednesday, May 26, 2004 3:09 PM
-> To: acpi-devel@lists.sourceforge.net
-> Cc: oysteigi@stud.ntnu.no
-> Subject: Re: [ACPI] Wrong AC state
->=20
-> Martin Ginkel wrote:
-> > On my laptop (Fujitsu-Siemens Amilo D 8830) this seems to be=20
-> > partially broken. The /proc/ac_adapter/AC0/state has a value on-line
+   But how can we be sure we're bug for bug and feature for feature
+compatible with an arbitrary version of Windows?  I got curious and
+looked at the DSDT on my home PC, generic VIA KM266 chipset.  Sure
+enough:
 
-> > or off-line from boot-time and doesn't change later on.
->=20
-> OK found a solution while reading the disassembled DSDT:
-> The Code ist checking the OS-Version:
->=20
->      Method (_PSR, 0, NotSerialized)
->      {
->        If (LNot (LEqual (FAKE, 0x00)))
->        {
->          Return (0x00)
->        }
->        Else
->        {
->          If (LOr (LEqual (OSFL (), 0x00), LEqual (OSFL (), 0x04)))
->            {
->               Store (\_SB.PCI0.SBRG.EC0.XCIN, Local0)
->                                      }
->           Else
->            {
->               Store (ACIN, Local0)
->            }
->=20
->               Return (Local0)
->            }
->       }
->=20
->=20
-> OSFL is returning 0x00 for win2000 and 0x04 for windows nt.
-> I defined as a dirty fix:
-> ./include/acpi/platform/aclinux.h:50:
-> #define ACPI_OS_NAME               "Microsoft Windows NT"
->=20
-> Now the Power Monitor reacts instantly.
->=20
-> Well: the Bios seems to be designed for Microsoft Windows ;-P
->=20
->=20
-> 	CU
-> 	Martin
->=20
->=20
-> -------------------------------------------------------
-> This SF.Net email is sponsored by: Oracle 10g
-> Get certified on the hottest thing ever to hit the market... Oracle=20
-> 10g. Take an Oracle 10g class now, and we'll give you the exam FREE.=20
-> http://ads.osdn.com/?ad_id149&alloc_id=8166&op=3Dclick
-> _______________________________________________
-> Acpi-devel mailing list
-> Acpi-devel@lists.sourceforge.net=20
-> https://lists.sourceforge.net/lists/listinfo/acpi-devel
+    Name (OSFL, 0x00)
+    Method (_INI, 0, NotSerialized)
+    {
+        \_SB.PCI0.IODT ()
+        If (MCTH (\_OS, "Microsoft Windows NT"))
+        {
+            Store (0x00, OSFL)
+        }
+        Else
+        {
+            If (MCTH (\_OS, "Microsoft Windows"))
+            {
+                Store (0x01, OSFL)
+            }
+            Else
+            {
+                If (MCTH (\_OS, "Microsoft WindowsME: Millennium Edition"))
+                {
+                    Store (0x02, OSFL)
+                }
+                Else
+                {
+                    Store (0x03, OSFL)
+                }
+            }
+        }
+    }
 
-> -----Original Message-----
-> From: Moore, Robert
-> Sent: Monday, September 13, 2004 3:11 PM
-> To: 'Gerald Pfeifer'
-> Cc: Brown, Len; Alex Williamson; linux-ia64@vger.kernel.org; ACPI
-> Developers
-> Subject: RE: [ACPI] [PATCH] restore _OS object to "Linux" for ia64
->=20
-> I don't know what the specific machines were.  There was lots of
-> discussion on the Linux/ACPI list before we did this.  I think they
-were
-> all 32-bit machines, however.
->=20
->=20
-> > -----Original Message-----
-> > From: Gerald Pfeifer [mailto:gp@suse.de]
-> > Sent: Monday, September 13, 2004 2:30 PM
-> > To: Moore, Robert
-> > Cc: Brown, Len; Alex Williamson; linux-ia64@vger.kernel.org; ACPI
-> > Developers
-> > Subject: RE: [ACPI] [PATCH] restore _OS object to "Linux" for ia64
-> >
-> > On Mon, 13 Sep 2004, Moore, Robert wrote:
-> > > Not only is the !Windows code path apparently untested for the
-most
-> > > part, we have discovered many machines that simply do not work
-> properly
-> > > unless we report "Microsoft Windows NT" for the _OS string.
-> >
-> > Can you name some of these (broken) systems?
-> >
-> > Given that we apparently did not encounter this with our 2.6.5-based
-> SLES9
-> > kernel so far, I'm a bit sceptical that many (if any) ia64 machines
-are
-> > affected.
-> >
-> > Gerald
+Looking for consumers of OSFL...
+
+        Device (PCI0)
+        {
+            Name (_HID, EisaId ("PNP0A03"))
+            Name (_ADR, 0x00)
+            Name (_BBN, 0x00)
+            Method (_S3D, 0, NotSerialized)
+            {
+                If (OSFL)
+                {
+                    Return (0x02)
+                }
+                Else
+                {
+                    Return (0x03)
+                }
+            }
+
+OK, maybe that's a good thing...  several more like that on USB devices.
+
+        Device (SYSR)
+        {
+            Name (_HID, EisaId ("PNP0C02"))
+            Method (_STA, 0, NotSerialized)
+            {
+                If (OSFL)
+                {
+                    Return (0x0F)
+                }
+
+                Return (0x00)
+            }
+             Name (IORG, ResourceTemplate ()
+            {
+                FixedIO (0x0010, 0x10)
+                FixedIO (0x0022, 0x1E)
+                FixedIO (0x0044, 0x1C)
+                ...
+            })
+            Method (_CRS, 0, NotSerialized)
+            {
+                Return (IORG)
+            }
+        }
+
+Hmm, it's not so obvious this one is a win.  There's another like that
+for a PNP0C01 device listing Memory32Fixed ranges.  And another named
+PIC providing an interrupt resource.  The motherboard driver could have
+made use of these if they were marked as present, but they aren't for
+"Microsoft Windows NT".
+
+    Method (_PTS, 1, NotSerialized)
+    {
+        Store (Arg0, DBG8)
+        If (LAnd (LEqual (Arg0, 0x04), LEqual (\_SB.PCI0.OSFL, 0x02)))
+        {
+            Sleep (0x0BB8)
+        }
+        ...
+        If (LNot (\_SB.PCI0.OSFL))
+        {
+            Store (\_SB.PCI0.TLBC, PTB1)
+        }
+       ...
+       Store (\_SB.PCI0.OSFL, \_SB.PCI0.W2FG)
+       ...
+
+Ok, we're doing some special stuff here, a stall for Windows ME, a store
+for Windows NT, but how do we know those aren't bug workarounds specific
+to that version?  There's a corresponding Windows NT check in the _WAK
+method. 
+
+   Of course these are all examples of i386 ACPI implementations.  If
+there was an ia64 ACPI implementation that used _OS, who's to say that
+"Microsoft Windows NT" wouldn't be the untested case.  I don't know what
+Windows sets the _OS to for their ia64 releases.  "Microsoft Windows NT"
+might be as arbitrary as setting it to "foo" there.
+
+   I assume a blacklist was discussed when this was brought up earlier
+on the list.  I'll have to go look why that didn't fly.  Thanks,
+
+	Alex
+
