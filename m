@@ -1,27 +1,51 @@
-From: Christoph Hellwig <hch@ns.caldera.de>
-Date: Tue, 18 Sep 2001 10:23:15 +0000
-Subject: Re: [Linux-ia64] __emul_prefix() problem
-Message-Id: <marc-linux-ia64-105590698805210@msgid-missing>
+From: Weihaw Chuang <weihaw@yahoo.com>
+Date: Mon, 24 Sep 2001 01:43:18 +0000
+Subject: [Linux-ia64] differentiating single-step vs taken-branch trap
+Message-Id: <marc-linux-ia64-105590698805241@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805196@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805196@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Sep 17, 2001 at 04:51:11PM -0700, David Mosberger wrote:
-> I'm not sure there is a clean fix to this, but one proposal is
-> attached below: it causes __emul_lookup_dentry() to ignore the
-> alternate root for paths that resolve to a directory.  This obviously
-> could create other problems, but I suspect there is no solution that
-> works 100% in all cases (the fundamental being that we now have two
-> different root nodes...).
+Hi everyone,
+I've got two questions, but only the first is really
+important.  
+1. I'm using the ptrace kernel interface to trace a
+child process via single-step or taken-branch traps
+(through David Mosberger's utrace tool).  Is there a
+way I can use ptrace to allow me to single-step, and
+in addition observe occurances of taken-branches?  
 
-Looks sant to me and doesn't break Linux-ABI.  For 2.5 I'd prefer
-to somehow build a per-personality namespace.  Al, do you have an
-idea how to keep a secondary namespace alive over the whole uptime
-so non-Linu binaries can switch to it all the time (implicitly)?
+It seems that its possible to set the PSR.SS and
+PSR.TB concurrently, but not a way of differentiating
+the returned trap signal.  All we know upon returning
+from wait is that a trap occured.
 
-	Christoph
+Although it seems redundant, as far as I know there is
+a subtle difference between taken-branch traps and
+single-step traps.  Taken-branch traps return back an
+IIP value of the branch target, before committing the
+the results of the target instruction.  Single-step
+traps assign IIP of the committed instruction.  The
+difference is important if I want to look ahead to get
+register state before a memory operation commits any
+registers writes.   
+
+2. Is there still a ia64 linux kernel mailing list? 
+And is it archived somewhere?
+
+Many thanks,
+-Wei
+
+==************************************************************
+
+Weihaw Chuang
+wchuang@cs.ucsd.edu
+
+************************************************************
+
+__________________________________________________
+Do You Yahoo!?
+Get email alerts & NEW webcam video instant messaging with Yahoo! Messenger. http://im.yahoo.com
 
