@@ -1,51 +1,109 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Fri, 18 Apr 2003 14:38:16 +0000
-Subject: [Linux-ia64] Re: [BUG] perfmon doesn't send SIGPROF in kernel 2.5.64
-Message-Id: <marc-linux-ia64-105590723705562@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Thu, 24 Apr 2003 22:25:57 +0000
+Subject: [Linux-ia64] [PATCH] 4/4 multi-ioport space support for 2.5
+Message-Id: <marc-linux-ia64-105590723705602@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Eric,
+diff -u -ur linux-2.5.67-ia64-030416-io3/arch/ia64/pci/pci.c linux-2.5.67-ia64-030416-io4/arch/ia64/pci/pci.c
+--- linux-2.5.67-ia64-030416-io3/arch/ia64/pci/pci.c	2003-04-24 14:47:27.000000000 -0600
++++ linux-2.5.67-ia64-030416-io4/arch/ia64/pci/pci.c	2003-04-24 14:46:26.000000000 -0600
+@@ -5,6 +5,7 @@
+  *
+  * Copyright (C) 2002 Hewlett-Packard Co
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
++ *	Bjorn Helgaas <bjorn_helgaas@hp.com>
+  *
+  * Note: Above list of copyright holders is incomplete...
+  */
+@@ -116,38 +117,10 @@
+ 
+ subsys_initcall(pci_acpi_init);
+ 
+-void __init
+-pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
+-{
+-	struct pci_controller *controller = PCI_CONTROLLER(dev);
+-	struct pci_window *window;
+-	int i, j;
+-
+-	for (i = 0; i < PCI_NUM_RESOURCES; i++) {
+-		if (!dev->resource[i].start)
+-			continue;
+-
+-#define contains(win, res)	((res)->start >= (win)->start && \
+-				 (res)->end   <= (win)->end)
+-
+-		for (j = 0; j < controller->windows; j++) {
+-			window = &controller->window[j];
+-			if (((dev->resource[i].flags & IORESOURCE_MEM &&
+-			      window->resource.flags & IORESOURCE_MEM) ||
+-			     (dev->resource[i].flags & IORESOURCE_IO &&
+-			      window->resource.flags & IORESOURCE_IO)) &&
+-			    contains(&window->resource, &dev->resource[i])) {
+-				dev->resource[i].start += window->offset;
+-				dev->resource[i].end   += window->offset;
+-			}
+-		}
+-	}
+-}
+-
+ /* Called by ACPI when it finds a new root bus.  */
+ 
+ static struct pci_controller *
+-alloc_pci_controller(int seg)
++alloc_pci_controller (int seg)
+ {
+ 	struct pci_controller *controller;
+ 
+@@ -160,8 +133,8 @@
+ 	return controller;
+ }
+ 
+-struct pci_bus *
+-scan_root_bus(int bus, struct pci_ops *ops, void *sysdata)
++static struct pci_bus *
++scan_root_bus (int bus, struct pci_ops *ops, void *sysdata)
+ {
+ 	struct pci_bus *b;
+ 
+@@ -344,6 +317,34 @@
+ 	return NULL;
+ }
+ 
++void __init
++pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
++{
++	struct pci_controller *controller = PCI_CONTROLLER(dev);
++	struct pci_window *window;
++	int i, j;
++
++	for (i = 0; i < PCI_NUM_RESOURCES; i++) {
++		if (!dev->resource[i].start)
++			continue;
++
++#define contains(win, res)	((res)->start >= (win)->start && \
++				 (res)->end   <= (win)->end)
++
++		for (j = 0; j < controller->windows; j++) {
++			window = &controller->window[j];
++			if (((dev->resource[i].flags & IORESOURCE_MEM &&
++			      window->resource.flags & IORESOURCE_MEM) ||
++			     (dev->resource[i].flags & IORESOURCE_IO &&
++			      window->resource.flags & IORESOURCE_IO)) &&
++			    contains(&window->resource, &dev->resource[i])) {
++				dev->resource[i].start += window->offset;
++				dev->resource[i].end   += window->offset;
++			}
++		}
++	}
++}
++
+ /*
+  *  Called after each bus is probed, but before its children are examined.
+  */
 
-On Fri, Apr 18, 2003 at 02:00:19PM +0200, Eric Piel wrote:
-> Stephane Eranian wrote:
-> > 
-> > The attached patch against 2.5.67 corrects the problem. Note that this
-> > patch also includes other updates.
-> > 
-> > Let me know how it goes.
-> Very good, it worked!:
-
-I glad to see that it worked for you as well this time.
-
-> 
-> Also, after a quick glance at the patch I noticed this update:
-> -/* pmc8  */ { PFM_REG_CONFIG  , 0, 0xffffffff3fffffffUL,
-> 0xffffffff9fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
-> {0UL,0UL, 0UL, 0UL}},
-> -/* pmc9  */ { PFM_REG_CONFIG  , 0, 0xffffffff3ffffffcUL,
-> 0xffffffff9fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
-> {0UL,0UL, 0UL, 0UL}},
-> +/* pmc8  */ { PFM_REG_CONFIG  , 0, 0xffffffff3fffffffUL,
-> 0xffffffff3fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
-> {0UL,0UL, 0UL, 0UL}},
-> +/* pmc9  */ { PFM_REG_CONFIG  , 0, 0xffffffff3ffffffcUL,
-> 0xffffffff3fffffffUL, NULL, pfm_mck_pmc_check, {0UL,0UL, 0UL, 0UL},
-> {0UL,0UL, 0UL, 0UL}},
-> 
-> Could you describe shortly what this is suppose to fix? Recently I had
-> some troubles with some PMU counters on Itanium2 (hard to trigger) and I
-> wonder if this could be solved by that patch...
-> 
-
-This only affects measurements made with the opcode matchers. The UIUC
-folks reported a problem with certain opcode pattern not being counted
-properly. I was off by one bit in the mask. This has no  affect on
-measurements NOT using the opcode matchers.
-
--- 
--Stephane
 
