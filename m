@@ -1,63 +1,50 @@
-From: "Siddha, Suresh B" <suresh.b.siddha@intel.com>
-Date: Sat, 18 Jan 2003 01:15:39 +0000
-Subject: [Linux-ia64] [Patch] Fix in printk.c
+From: Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
+Date: Fri, 17 Jan 2003 06:41:29 +0000
+Subject: [Linux-ia64] skip _PRT entry for non-existent IOSAPICs
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C2BE8F.1CB891E4"
-Message-Id: <marc-linux-ia64-105590709805719@msgid-missing>
+Content-Type: multipart/mixed; boundary="--Next_Part(Fri_Jan_17_15:41:29_2003_801)--"
+Message-Id: <marc-linux-ia64-105590709805710@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+----Next_Part(Fri_Jan_17_15:41:29_2003_801)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-------_=_NextPart_001_01C2BE8F.1CB891E4
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Hi,
 
-c99 specifies
+On some machines that support I/O hot-plugging,
+it happens that after boottime one or more IO SAPICs appear
+after hot-plug event.  Even in that case, ACPI _PRT entries
+can exist for devices behind those IO SAPICs at boottime
+for future use.
 
-<snip>
-       [#7] If, within a  translation  unit,  the  same  identifier
-       appears   with  both  internal  and  external  linkage,  the
-       behavior is undefined.
-</snip>
+Currently iosapic.c will give up parsing _PRT entries
+once one of them hits such a non-existent IO SAPIC.
 
-"early_printk" has this type of behaviour in printk.c. Attached/appended =
-patch removes the dependency on the behaviour of the compiler.
+This patch fixes the problem on 2.5 ia64 bk tree.
+For 2.4, we don't have this problem now.
 
-thanks,
-suresh
+Thanks,
+---
+Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
 
-diff -Nru linux-2.5.52/kernel/printk.c~ linux-2.5.52/kernel/printk.c
---- linux-2.5.52/kernel/printk.c~	Fri Jan 17 14:53:30 2003
-+++ linux-2.5.52/kernel/printk.c	Fri Jan 17 14:53:37 2003
-@@ -329,7 +329,7 @@
- 	}
- #ifdef CONFIG_IA64_EARLY_PRINTK
- 	if (!console_drivers) {
--		static void early_printk (const char *str, size_t len);
-+		void early_printk (const char *str, size_t len);
- 		early_printk(&LOG_BUF(start), end - start);
- 	}
- #endif
+----Next_Part(Fri_Jan_17_15:41:29_2003_801)--
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline; filename="iosapic.c.diff"
 
+--- ia64-2.5/arch/ia64/kernel/iosapic.c	Fri Dec 27 16:27:23 2002
++++ ia64-2.5.mod/arch/ia64/kernel/iosapic.c	Fri Jan 17 15:31:50 2003
+@@ -752,7 +752,7 @@
+ 
+ 			if (index < 0) {
+ 				printk(KERN_WARNING"IOSAPIC: GSI 0x%x has no IOSAPIC!\n", gsi);
+-				return;
++				continue;
+ 			}
+ 			addr = iosapic_lists[index].addr;
+ 			gsi_base = iosapic_lists[index].gsi_base;
 
-------_=_NextPart_001_01C2BE8F.1CB891E4
-Content-Type: application/octet-stream;
-	name="printk.c.diff"
-Content-Transfer-Encoding: base64
-Content-Description: printk.c.diff
-Content-Disposition: attachment;
-	filename="printk.c.diff"
-
-ZGlmZiAtTnJ1IGxpbnV4LTIuNS41Mi9rZXJuZWwvcHJpbnRrLmN+IGxpbnV4LTIuNS41Mi9rZXJu
-ZWwvcHJpbnRrLmMNCi0tLSBsaW51eC0yLjUuNTIva2VybmVsL3ByaW50ay5jfglGcmkgSmFuIDE3
-IDE0OjUzOjMwIDIwMDMNCisrKyBsaW51eC0yLjUuNTIva2VybmVsL3ByaW50ay5jCUZyaSBKYW4g
-MTcgMTQ6NTM6MzcgMjAwMw0KQEAgLTMyOSw3ICszMjksNyBAQA0KIAl9DQogI2lmZGVmIENPTkZJ
-R19JQTY0X0VBUkxZX1BSSU5USw0KIAlpZiAoIWNvbnNvbGVfZHJpdmVycykgew0KLQkJc3RhdGlj
-IHZvaWQgZWFybHlfcHJpbnRrIChjb25zdCBjaGFyICpzdHIsIHNpemVfdCBsZW4pOw0KKwkJdm9p
-ZCBlYXJseV9wcmludGsgKGNvbnN0IGNoYXIgKnN0ciwgc2l6ZV90IGxlbik7DQogCQllYXJseV9w
-cmludGsoJkxPR19CVUYoc3RhcnQpLCBlbmQgLSBzdGFydCk7DQogCX0NCiAjZW5kaWYNCg==
-
-------_=_NextPart_001_01C2BE8F.1CB891E4--
+----Next_Part(Fri_Jan_17_15:41:29_2003_801)----
 
