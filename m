@@ -1,8 +1,10 @@
 From: "Siddha, Suresh B" <suresh.b.siddha@intel.com>
 Date: Fri, 16 Nov 2001 02:05:47 +0000
 Subject: [Linux-ia64] PATCH: Fix for 4KB kernel corruption
-Message-Id: <marc-linux-ia64-105590698805523@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805525@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805523@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805523@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
