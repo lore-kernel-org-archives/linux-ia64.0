@@ -1,20 +1,35 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Fri, 07 May 2004 06:47:31 +0000
-Subject: Re: [PATCH 2.6] Altix - remove node_first_cpu
-Message-Id: <20040507074731.A27028@infradead.org>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 10 May 2004 05:55:36 +0000
+Subject: [patch] 2.6.6 SN2 specific prom flag in mca.c
+Message-Id: <11478.1084168536@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200405062305.i46N55lL278325@fsgi900.americas.sgi.com>
-In-Reply-To: <200405062305.i46N55lL278325@fsgi900.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, May 06, 2004 at 06:05:05PM -0500, Pat Gefre wrote:
-> -		cpu = lnodepda->node_first_cpu;
-> +		cpu = sn_get_node_first_cpu(cnode);
+SN2 prom needs an extra flag on the MCA setup call.
 
-What simply using the topology API ala:
-
-	cpu = first_cpu(node_to_cpumask(cnode))
+Index: 2.6.6/arch/ia64/kernel/mca.c
+=================================--- 2.6.6.orig/arch/ia64/kernel/mca.c	2004-04-05 12:43:31.000000000 -0500
++++ 2.6.6/arch/ia64/kernel/mca.c	2004-04-05 12:52:48.000000000 -0500
+@@ -1207,6 +1207,9 @@
+ 	s64 rc;
+ 	struct ia64_sal_retval isrv;
+ 	u64 timeout = IA64_MCA_RENDEZ_TIMEOUT;	/* platform specific */
++	u64 mca_flags = SAL_MC_PARAM_RZ_ALWAYS;	/* platform specific */
++	if (ia64_platform_is("sn2"))
++		mca_flags |= 0x8;		/* SGI prom specific */
+ 
+ 	IA64_MCA_DEBUG("%s: begin\n", __FUNCTION__);
+ 
+@@ -1224,7 +1227,7 @@
+ 					      SAL_MC_PARAM_MECHANISM_INT,
+ 					      IA64_MCA_RENDEZ_VECTOR,
+ 					      timeout,
+-					      SAL_MC_PARAM_RZ_ALWAYS);
++					      mca_flags);
+ 		rc = isrv.status;
+ 		if (rc = 0)
+ 			break;
 
