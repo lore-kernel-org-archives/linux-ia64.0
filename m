@@ -1,31 +1,28 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Wed, 13 Mar 2002 21:34:12 +0000
-Subject: Re: [Linux-ia64] qla1280 driver update
-Message-Id: <marc-linux-ia64-105590701905267@msgid-missing>
+From: Daniel Yeisley <dpy102@alumni.psu.edu>
+Date: Fri, 22 Mar 2002 20:57:07 +0000
+Subject: [Linux-ia64] ia64_log_get error while booting
+Message-Id: <marc-linux-ia64-105590701905330@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905261@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905261@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+I'm new to Linux on the IA64.  I installed Redhat 7.2 for the Itanium on a Lion 
+system this morning.  It seemed to work fine.  I changed my screen resolution 
+and rebooted.  I get a warning saying that my event log is full.  Linux starts 
+to boot, but then it goes into what seems to be an infinite loop of alternating 
+error messages.  They go by very quickly, but I believe that they are:
+ia64_log_get: Failed to retrieve SAL error record type ...
+ia64_mca_cpe_int_handler: received interrupt. vector = 
+I've looked in the kernel source and both messages come from mca.c.  I'm not 
+sure what the problem is.  I can't boot the machine, not even from the Redhat 
+CDs.
 
->>>>> On Wed, 13 Mar 2002 12:34:46 -0800, Jesse Barnes <jbarnes@sgi.com> said:
-Jesse> Excellent, thanks for the pointer.  I'll give the updated qla2x00
-Jesse> driver a try.
 
-David> If this works for you, would you mind to send me a patch relative
-David> to 2.5?  Given that qlogic seems to have abandoned the drivers,
-David> we might just as well get them into a better shape; I'd do it
-David> myself except I'm running short of time as I'll be on vacation
-David> next week.
 
-Hmmm, it's my impression that Arjan wants to wait a bit until he's a bit
-more pleased with the code.
 
-Arjan?
-
-Jes
+--------------------------------------------------
+Get Your FREE E-Mail Account Today at AcmeMail.net
+http://www.acmemail.net
 
