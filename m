@@ -1,63 +1,65 @@
-From: "Siddha, Suresh B" <suresh.b.siddha@intel.com>
-Date: Wed, 04 Aug 2004 22:04:12 +0000
-Subject: Re: [PATCH] Various swiotlb fixes
-Message-Id: <200408041504.12907.suresh.b.siddha@intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Thu, 05 Aug 2004 06:42:36 +0000
+Subject: [PATCH] adjust the alignment in struct sal_processor_static_info
+Message-Id: <4111D6DC.5080006@jp.fujitsu.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_c1VEBjDoHF1//0i"
+Content-Type: multipart/mixed; boundary="------------090205030702060401070402"
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------090205030702060401070402
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
---Boundary-00=_c1VEBjDoHF1//0i
+Hi all,
+
+Struct ia64_fpreg(asm-ia64/fpu.h) is forced to align 16-byte.
+An array of this struct is in struct sal_processor_static_info
+(asm-ia64/sal.h), however, we can't touch the array correctly
+because of the forced alignment.
+
+Usually, SAL log record contains:
+  Record Header
+    - sizeof(sal_log_record_header_t) = 40
+  Section Header
+    - sizeof(sal_log_sec_hdr_t) = 24
+  Section Body(Processor Error Section)
+    - sizeof(before mod_error_info) = 32
+    - sizeof(sal_log_mod_error_info_t) = 48
+    - sizeof(sal_cpuid_info) = 48
+    - sizeof(sal_log_mod_error_info_t) = 48
+    - sizeof(sal_processor_static_info_t) = 5256
+      (offset of struct ia64_fpreg fr[0]
+        in sal_processor_static_info_t) = 3208
+
+So, the total offset of fr[0] from beginning of the record is:
+    40 + 24 + 32 + 48*n + 48 + 3208
+This number can't be divided by 16. fr[0] never fit to the
+16-byte boundary because of the remainder.
+
+This trivial patch will fix this issue.
+
+Thanks,
+
+H.Seto
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
+--------------090205030702060401070402
 Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+ name="patch-268rc3-sal"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="patch-268rc3-sal"
 
-On Friday 30 July 2004 09:59, Andi Kleen wrote:
->
-> I added support for swiotlb=force for easier testing.
-
-This bootparam has exposed a bug in today's ia64 swiotlb code, because of 
-which the kernel was not booting on my tiger with "swiotlb=force"
-
-In swiotlb_map/unmap_sg(), sg->dma_address is getting setup with virtual 
-address instead of physical.
-
-Attached patch fixes this issue.
-
-thanks,
-suresh
-
---Boundary-00=_c1VEBjDoHF1//0i
-Content-Type: text/x-diff;
-  charset="iso-8859-1";
-  name="swiotlb-0408.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="swiotlb-0408.patch"
-
-Signed-off-by: Suresh Siddha <suresh.b.siddha@intel.com>
-
---- linux-2.6.8-rc2/arch/ia64/lib/swiotlb.c.orig	2004-08-04 14:12:09.000000000 -0700
-+++ linux-2.6.8-rc2/arch/ia64/lib/swiotlb.c	2004-08-04 14:12:16.000000000 -0700
-@@ -492,7 +492,7 @@
- 		addr = SG_ENT_VIRT_ADDRESS(sg);
- 		dev_addr = virt_to_phys(addr);
- 		if (swiotlb_force || address_needs_mapping(hwdev, dev_addr)) {
--			sg->dma_address = (dma_addr_t) map_single(hwdev, addr, sg->length, dir);
-+			sg->dma_address = (dma_addr_t) virt_to_phys(map_single(hwdev, addr, sg->length, dir));
- 			if (!sg->dma_address) {
- 				/* Don't panic here, we expect pci_map_sg users
- 				   to do proper error handling. */
-@@ -522,7 +522,7 @@
- 
- 	for (i = 0; i < nelems; i++, sg++)
- 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
--			unmap_single(hwdev, (void *) sg->dma_address, sg->dma_length, dir);
-+			unmap_single(hwdev, (void *) phys_to_virt(sg->dma_address), sg->dma_length, dir);
- 		else if (dir == DMA_FROM_DEVICE)
- 			mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
- }
-
---Boundary-00=_c1VEBjDoHF1//0i--
+ZGlmZiAtTnVyIGxpbnV4LTIuNi44LXJjMy9pbmNsdWRlL2FzbS1pYTY0L3NhbC5oIGxpbnV4
+LTIuNi44LXJjMy1zYWwvaW5jbHVkZS9hc20taWE2NC9zYWwuaAotLS0gbGludXgtMi42Ljgt
+cmMzL2luY2x1ZGUvYXNtLWlhNjQvc2FsLmgJMjAwNC0wOC0wNCAwNjoyODo0OC4wMDAwMDAw
+MDAgKzA5MDAKKysrIGxpbnV4LTIuNi44LXJjMy1zYWwvaW5jbHVkZS9hc20taWE2NC9zYWwu
+aAkyMDA0LTA4LTA0IDE4OjA1OjU4LjM2NTUxNjM5NSArMDkwMApAQCAtMzY0LDcgKzM2NCw3
+IEBACiAJdTY0IGNyWzEyOF07CiAJdTY0IGFyWzEyOF07CiAJdTY0IHJyWzhdOwotCXN0cnVj
+dCBpYTY0X2ZwcmVnIGZyWzEyOF07CisJc3RydWN0IGlhNjRfZnByZWcgX19hdHRyaWJ1dGVf
+XyAoKHBhY2tlZCkpIGZyWzEyOF07CiB9IHNhbF9wcm9jZXNzb3Jfc3RhdGljX2luZm9fdDsK
+IAogc3RydWN0IHNhbF9jcHVpZF9pbmZvIHsK
+--------------090205030702060401070402--
