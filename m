@@ -1,35 +1,31 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 04 Nov 2002 23:03:48 +0000
-Subject: Re: [Linux-ia64] linuxthread stack problem
-Message-Id: <marc-linux-ia64-105590709805331@msgid-missing>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 21 Nov 2002 19:20:28 +0000
+Subject: [Linux-ia64] ia64 objdump bug for brl instruction
+Message-Id: <marc-linux-ia64-105590709805467@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805328@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805328@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 04 Nov 2002 12:43:46 -0600, Philip Armstrong <pma@sgi.com> said:
+We found a bug in ia64 objdump that brl instruction was decoded incorrectly.  The issue is that the mid 39 bit for the long immediate was incorrectly positioned and resulting in incorrect target branch address for branch long instruction.  This bug is on ia64 only.  The following patch fixes the issue. (note, it also fixes a spelling error as well :-).
 
-  Philip> While in the same subroutine, however, the ordering of the
-  Philip> pthread_cleanup_buffer stack addresses as allocated by the
-  Philip> pthread_cleanup_push macro is indeterminate, at least it is
-  Philip> on our IA64 platform.
+- Ken
 
-  Philip> I have simplified the problem into a short test case that
-  Philip> uses the bracketing and stack address allocation in the same
-  Philip> manner that the pthread_cleanup_push() and
-  Philip> pthread_cleanup_pop() macros do. In my case, we have
-  Philip> STACK_GROW_DOWN defined, and as you can see the second stack
-  Philip> address is actually greater than the first. The
-  Philip> pthread_cancel routine would not execute the second cleanup
-  Philip> subroutine put on the stack in this case becuase the address
-  Philip> comparison (FRAME_LEFT in linuxthreads/cancel.c) would
-  Philip> prohibit it.
+--- opcodes/ia64-dis.c.orig	Tue Mar 13 14:58:35 2001
++++ opcodes/ia64-dis.c	Thu Nov 21 11:16:43 2002
+@@ -167,10 +167,10 @@
+         }
+       else if (odesc - elf64_ia64_operands == IA64_OPND_TGT64)
+ 	{
+-	  /* 60-bit immedate for long branches.  */
++	  /* 60-bit immediate for long branches. */
+ 	  value = (((insn >> 13) & 0xfffff)
+ 		   | (((insn >> 36) & 1) << 59)
+-		   | (slot[1] << 20)) << 4;
++		   | (((slot[1] >> 2) & 0x7fffffffffLL) << 20)) << 4;
+ 	}
+       else
+ 	{
 
-You also might want to send this question to one of the gcc mailing
-lists.
-
-	--david
 
