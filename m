@@ -1,32 +1,26 @@
-From: dann frazier <dannf@dannf.org>
-Date: Sun, 13 Mar 2005 22:16:29 +0000
-Subject: Re: conflicting per_cpu_init() defines on non-SMP
-Message-Id: <1110752189.28262.3.camel@localhost>
+From: "David S. Miller" <davem@davemloft.net>
+Date: Sat, 19 Mar 2005 04:05:55 +0000
+Subject: Re: [patch] arch hook for notifying changes in PTE protections bits
+Message-Id: <20050318200555.2d1980f6.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1110344998.9344.9.camel@localhost>
-In-Reply-To: <1110344998.9344.9.camel@localhost>
+References: <20050318162943.A3157@unix-os.sc.intel.com>
+In-Reply-To: <20050318162943.A3157@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Seth, Rohit" <rohit.seth@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, davidm@hpl.hp.com
 
-On Wed, 2005-03-09 at 09:38 -0800, Grant Grundler wrote:
-> On Tue, Mar 08, 2005 at 10:09:58PM -0700, dann frazier wrote:
-> > Is this the right way to approach a patch to fix this?
-> 
-> It looks right. But I'd expect arch/ia64/mm/discontig.c to use whats
-> in the header file so everyone is using the same definition.
-> 
-> > +#ifdef CONFIG_SMP
-> >  void *per_cpu_init(void)
-> ...
-> 
-> ie move that bit to asm-ia64/percpu.h
 
-Thanks Grant.
-I took a closer look at Jesse's fixes, and he had already solved this in
-a different way.  I'll stick with his method.
+This is way overkill I think.
 
--- 
-dann frazier <dannf@dannf.org>
+Take a look at set_pte_at().  You get the "mm", the
+virtual address, the pte pointer, and the new pte value.
 
+What else could you possibly need to track stuff like this
+and react appropriately? :-)
+
+It is even an argument for batched TLB processing on ia64.
+It simplifies a lot of cache flushing issues and you can
+control the flushing on a per-translation basis however
+you like.
