@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Thu, 03 Feb 2005 17:31:55 +0000
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Thu, 03 Feb 2005 17:41:05 +0000
 Subject: Re: [rfc] generic allocator and mspec driver
-Message-Id: <20050203173155.GC26062@lnx-holt.americas.sgi.com>
+Message-Id: <200502030941.05780.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16897.9640.160896.31584@jaguar.mkp.net>
 In-Reply-To: <16897.9640.160896.31584@jaguar.mkp.net>
@@ -10,17 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Feb 03, 2005 at 09:55:26AM -0500, Jes Sorensen wrote:
-> Is this because the applications will normally allocate their fetchops
-> in the main thread before spawning off the threads? If the mmap is
-> done by the thread that will 'own' the individual fetchop this
-> wouldn't be a problem? Sorry, just trying to understand the nature of
-> how these applications work, my knowledge of MPI etc. is ehm
-> ... limited ;)
+On Wednesday, February 2, 2005 11:47 pm, Jes Sorensen wrote:
+> >>>>> "Jesse" = Jesse Barnes <jbarnes@engr.sgi.com> writes:
+>
+> Jesse> On Wednesday, February 2, 2005 11:10 am, Jes Sorensen wrote:
+> >> The remaining issue I am facing is that for the uncached pool I
+> >> want to make it node aware and we want to use the spill pages from
+> >> the lower granules for this pool which is easily done on
+> >> SN2. However I see no generic way to get from a physical address to
+> >> node id for pages that do not have a struct page assigned to
+> >> them. I am curious if anyone has any suggestions for how to solve
+> >> this in a generic way?
+>
+> Jesse> paddr_to_nid?
+>
+> It's not clear to me this covers the spill memory found in the lower
+> granules and second it's really really slow, though that may not be a
+> real problem.
 
-That is the normal way of doing things.  Nearly all large applications
-have been operating under that assumption for a very long time
-and changing all those apps to do the mmap after spawning workers
-is unlikely.
+You're right, it won't deal with low addresses, only regular, cachable ones 
+afaict.
 
-Robin
+Jesse
