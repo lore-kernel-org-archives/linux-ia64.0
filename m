@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 27 Jan 2004 17:54:02 +0000
+From: Paul Mackerras <paulus@samba.org>
+Date: Tue, 27 Jan 2004 23:49:10 +0000
 Subject: Re: [patch] 2.6.1-mm5 compile do not use shared extable code for
-Message-Id: <16406.42426.519358.353551@napali.hpl.hp.com>
+Message-Id: <16406.63734.400759.452955@cargo.ozlabs.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <E1Aiuv7-0001cS-00@jaguar.mkp.net>
 	<20040120090004.48995f2a.akpm@osdl.org>
@@ -9,41 +9,37 @@ References: <E1Aiuv7-0001cS-00@jaguar.mkp.net>
 	<16402.19894.686335.695215@cargo.ozlabs.ibm.com>
 	<16405.41953.344071.456754@napali.hpl.hp.com>
 	<16406.10170.911012.262682@cargo.ozlabs.ibm.com>
-In-Reply-To: <16406.10170.911012.262682@cargo.ozlabs.ibm.com>
+	<16406.36741.510353.456578@napali.hpl.hp.com>
+In-Reply-To: <16406.36741.510353.456578@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Paul Mackerras <paulus@samba.org>
-Cc: davidm@hpl.hp.com, Andrew Morton <akpm@osdl.org>, Jes Sorensen <jes@trained-monkey.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: davidm@hpl.hp.com
+Cc: Andrew Morton <akpm@osdl.org>, Jes Sorensen <jes@trained-monkey.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>>> On Tue, 27 Jan 2004 19:56:26 +1100, Paul Mackerras <paulus@samba.org> said:
+David Mosberger writes:
 
-  Paul> David Mosberger writes:
-  >> How about the attached one?  It will touch memory more when
-  >> moving an element down, but we're talking about exception tables
-  >> here, and I don't think module loading time would be affected in
-  >> any noticable fashion.
+>   Paul> Also, I don't think there is enough code there to be worth the
+>   Paul> bother of trying to abstract the generic routine so you can
+>   Paul> plug in different compare and move-element routines.  The
+>   Paul> whole sort routine is only 16 lines of code, after all.  Why
+>   Paul> not just have an ia64-specific version of sort_extable?
+>   Paul> That's what I thought you would do.
+> 
+> Because the Alpha needs exactly the same code.
 
-  Paul> Hmmm...  Stylistically I much prefer to pick up the new
-  Paul> element, move the others up and just drop the new element in
-  Paul> where it should go, rather than doing swap, swap, swap down
-  Paul> the list.
+I really don't like the uglification of lib/extable.c.  I think it is
+much better to have ~20 lines of code in each of arch/ia64/mm and
+arch/alpha/mm than to try to generalize lib/extable.c.  Once you add
+all the extra definitions you need for your version, I doubt that the
+overall savings would be more than a dozen lines or so.
 
-The original code may be slightly faster, but who cares?  From a
-readability point of view, I think my version is easier to understand.
+The point is that with lib/extable.c as it is, you can look at one
+page of code, and everything you need to understand that code is
+there.  With your change, I have to hunt around to check what the
+macros are doing on each arch, and flip backwards and forwards to
+check side effects, calling environment etc.  With an ia64-specific
+extable.c, you should be able to look at one page of code there and
+see that the ia64 version is also correct.
 
-  Paul> Also, I don't think there is enough code there to be worth the
-  Paul> bother of trying to abstract the generic routine so you can
-  Paul> plug in different compare and move-element routines.  The
-  Paul> whole sort routine is only 16 lines of code, after all.  Why
-  Paul> not just have an ia64-specific version of sort_extable?
-  Paul> That's what I thought you would do.
-
-That's certainly an option.  It was Andrew who called for a generic
-version.  I tend to agree with him because even though it's just a
-little sort routine, it's one of those things where stupid errors tend
-to creep in.  And like I mentioned earlier, Alpha needs the exact same
-code (and frankly, I'm surprised there are 64-bit platforms that do
-NOT use the location-relative format that Richard invented).
-
-	--david
+Paul.
