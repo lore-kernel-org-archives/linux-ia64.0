@@ -1,7 +1,7 @@
-From: Gary Hade <garyhade@us.ibm.com>
-Date: Wed, 27 Mar 2002 23:45:39 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 27 Mar 2002 23:47:58 +0000
 Subject: Re: [Linux-ia64] Re: compiler version for kernel builds
-Message-Id: <marc-linux-ia64-105590701905340@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905341@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905292@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905292@msgid-missing>
@@ -10,80 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-FYI, earlier this afternoon I was able to successfully build 
-and boot an IA-64 2.4.18 kernel built with:
-	gcc version 3.1 20020327 (prerelease)
- 
-The GCC problem that was previously preventing a successful 
-boot was isolated by Chris McDermott and Steve Christiansen.
-It was fixed earlier today by Richard Henderson.
-  GCC PR 6054 (GCC 3.1 for ia64 fails to restore gp after 
-                 indirect call in Linux kernel)
- 
-Gary
+>>>>> On Wed, 27 Mar 2002 15:45:39 -0800, Gary Hade <garyhade@us.ibm.com> said:
 
+  Gary> FYI, earlier this afternoon I was able to successfully build
+  Gary> and boot an IA-64 2.4.18 kernel built with: gcc version 3.1
+  Gary> 20020327 (prerelease)
 
-On Fri, Mar 15, 2002 at 02:44:36PM -0800, Gary Hade wrote:
-> On Thu, Mar 14, 2002 at 07:56:07PM -0800, David Mosberger wrote:
-> > >>>>> On Thu, 14 Mar 2002 15:46:04 -0800, Jesse Barnes <jbarnes@sgi.com> said:
-> > 
-> >   Jesse> David, which compiler version do you use for kernel builds
-> >   Jesse> these days?
-> > 
-> > I usually use 3.0, though I try to remember to test with 2.96 from
-> > time to time.  I haven't had much luck with 3.1 yet: it builds a
-> > working kernel for the simulator, but the kernel for the real machine
-> > dies early on.  Haven't had time yet to investigate.
-> 
-> I can confirm that gcc-3_1-branch (as of yesterday) is still 
-> unable to build a working kernel.
-> 
-> A few days ago the most current 3.1 source wouldn't even compile 
-> the 2.4.17 kernel source.  It was dying with an internal compiler 
-> error while attempting to compile linux/fs/jbd/journal.c.  I 
-> submitted GCC PR 5892 which was fixed on 3/13. 
-> 
-> Using a gcc built yesterday from the gcc-3_1-branch containing 
-> the above fix I hit a link-time error due to an unresolved reference 
-> to __xchg_called_with_bad_pointer.  We determined that this problem 
-> was due to a change in the compiler inlining behavior where 
-> static inline functions over a certain size are no longer being 
-> inlined by default.  It appears that we will need to use 
-> -finline-limit=n to force inlining of larger functions.  After 
-> adding -finline-limit 00 the kernel compiles and links.  
-> Unfortunately, it hangs right away when you try to boot it.
-> 
-> I'll let you if we learn more.
-> 
-> Gary
-> 
-> > 
-> >   Jesse> Also, is there a document somewhere that
-> >   Jesse> describes building that version as a cross compiler?  Last
-> >   Jesse> time I tried building 3.0.2 as an x86 hosted ia64 cross
-> >   Jesse> compiler, I ran into some trouble.
-> > 
-> > We posted something on this list a while ago (search for "recipe" or
-> > something like that).  We haven't built a cross-compiler recently, so
-> > the recipe may not be perfectly accurate anymore.
-> > 
-> > 	--david
-> > 
-> > 
-> > _______________________________________________
-> > Linux-IA64 mailing list
-> > Linux-IA64@linuxia64.org
-> > http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
-> -- 
-> Gary Hade
-> IBM Linux Technology Center
-> 503-578-4503  IBM T/L: 775-4503
-> garyhade@us.ibm.com
-> http://www.ibm.com/linux/ltc
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+  Gary> The GCC problem that was previously preventing a successful
+  Gary> boot was isolated by Chris McDermott and Steve Christiansen.
+  Gary> It was fixed earlier today by Richard Henderson.  GCC PR 6054
+  Gary> (GCC 3.1 for ia64 fails to restore gp after indirect call in
+  Gary> Linux kernel)
+
+Very good.  One thing less to worry about.
+
+Thanks,
+
+	--david
 
