@@ -1,7 +1,7 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Fri, 16 Mar 2001 21:38:10 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 16 Mar 2001 23:03:33 +0000
 Subject: Re: [Linux-ia64] Status of 64K pagesize support
-Message-Id: <marc-linux-ia64-105590693005292@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005294@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005288@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005288@msgid-missing>
@@ -10,23 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Don Dugger of VA has looked at 64K page support.
+>>>>> On Fri, 16 Mar 2001 15:07:53 -0600 (CST), Jack Steiner <steiner@sgi.com> said:
 
-	- gcc doesnt support 64K alignment (perhaps I am using
-	  an old gcc??)
+  Jack> What is the status of support for 64K pagesizes in IA64. Is
+  Jack> anyone actively working this??
 
-Don reported an assembler problem.  Is that perhaps what you meant?
-In gas/read.c, function s_align, there is a check
-  if (align > 15)
-    {
-      align = 15;
-      as_bad (_("Alignment too large: %u assumed"), align);
-    }
-I don't know why it is there.  I would hypothesize limitations of old object
-file formats like aout/coff.  This problem has been reported on the
-binutils@sources.redhat.com mailing list, but no one there volunteered to
-look into the problem.  This is still on my todo list, along with a lot of
-more important stuff.
+  Jack> I built a 2.4.2 kernel with 64K pages & immediately hit 2
+  Jack> problems:
 
-Jim
+  Jack> 	- gcc doesnt support 64K alignment (perhaps I am using
+  Jack> an old gcc??)
+
+  Jack> 	- drivers/scsi/scsi_dma.c has a bitmap that overflows
+  Jack> with 64K pages.
+
+
+  Jack> I dont mind working on these issues but first wanted to check
+  Jack> if anyone else is working on them.
+
+  Jack> What other issues are people aware of that are lurking.....
+
+There shouldn't be any.  The VM system should handle it just fine.
+
+	--david
 
