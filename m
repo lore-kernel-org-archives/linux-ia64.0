@@ -1,9 +1,9 @@
 From: "kumar" <kumareshind@gmx.net>
-Date: Thu, 20 Jun 2002 06:52:01 +0000
-Subject: Re: [Linux-ia64] problem in sigtimedwait
+Date: Sun, 23 Jun 2002 17:15:39 +0000
+Subject: Fw: [Linux-ia64] problem in sigtimedwait
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----=_NextPart_000_005E_01C21853.6789EE00"
-Message-Id: <marc-linux-ia64-105590701905694@msgid-missing>
+Content-Type: multipart/mixed; boundary="----=_NextPart_000_01C1_01C21B06.055B52E0"
+Message-Id: <marc-linux-ia64-105590701905715@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905688@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905688@msgid-missing>
@@ -11,46 +11,49 @@ To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
 
-------=_NextPart_000_005E_01C21853.6789EE00
+------=_NextPart_000_01C1_01C21B06.055B52E0
 Content-Type: text/plain;
 	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 
+If somebody else have some idea, please post it asap.
+
 Hello david,
-I have attached the test program as you asked for testing "sigtimedwait".
-whether it returns proper "si_fd" value.
+I have attached the test program as you asked for testing
+"sigtimedwait".whether it returns proper "si_fd" value.
 Please try with this.
 
-I have tested by the following way:
-1)Compiled and run the program
-2)In the other terminal, i have run the command "telnet localhost 5001".
-3)You can view the results in the terminal where the test program is
-running.
+ I have tested by the following way:
+ 1)Compiled and run the program
+ 2)In the other terminal, i have run the command "telnet localhost 5001".
+ 3)You can view the results in the terminal where the test program is
+ running.
 
-Thanks in advance.
-Kumar.
+ Thanks in advance.
+ Kumar.
 
-> >>>>> On Wed, 19 Jun 2002 16:31:30 +0530, "kumar" <kumareshind@gmx.net>
-said:
+> > >>>>> On Wed, 19 Jun 2002 16:31:30 +0530, "kumar" <kumareshind@gmx.net>
+> said:
+> >
+> >   Kumar> All, Do IA64 Linux release have complete support for RT
+> >   Kumar> Signals.  Or which version has full support for RT signals.
+> >
+> > There have not been any recent changes in this area.
+> >
+> >   Kumar> The problem we faced is that the : sigtimedwait call does not
+> >   Kumar> return siginfo_t's si_fd value.
+> >
+> > Do you have a minimal test program that reproduces the issue?
+> >
+> > --david
+> >
+> > _______________________________________________
+> > Linux-IA64 mailing list
+> > Linux-IA64@linuxia64.org
+> > http://lists.linuxia64.org/lists/listinfo/linux-ia64
 >
->   Kumar> All, Do IA64 Linux release have complete support for RT
->   Kumar> Signals.  Or which version has full support for RT signals.
->
-> There have not been any recent changes in this area.
->
->   Kumar> The problem we faced is that the : sigtimedwait call does not
->   Kumar> return siginfo_t's si_fd value.
->
-> Do you have a minimal test program that reproduces the issue?
->
-> --david
->
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
-------=_NextPart_000_005E_01C21853.6789EE00
+------=_NextPart_000_01C1_01C21B06.055B52E0
 Content-Type: application/octet-stream;
 	name="rtsignaltest.c"
 Content-Transfer-Encoding: quoted-printable
@@ -210,6 +213,6 @@ int main() {=0A=
 }=0A=
 =0A=
 
-------=_NextPart_000_005E_01C21853.6789EE00--
+------=_NextPart_000_01C1_01C21B06.055B52E0--
 
 
