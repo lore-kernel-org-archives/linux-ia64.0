@@ -1,7 +1,7 @@
-From: Christoph Lameter <christoph@lameter.com>
-Date: Wed, 19 Jan 2005 16:54:09 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 19 Jan 2005 17:40:18 +0000
 Subject: Re: time to reconsider HZ?
-Message-Id: <Pine.LNX.4.58.0501190852300.26378@server.graphe.net>
+Message-Id: <16878.39810.545323.698403@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16872.45685.696721.811934@napali.hpl.hp.com>
 In-Reply-To: <16872.45685.696721.811934@napali.hpl.hp.com>
@@ -10,20 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 14 Jan 2005, David Mosberger wrote:
+>>>>> On Wed, 19 Jan 2005 08:54:09 -0800 (PST), Christoph Lameter <christoph@lameter.com> said:
 
-> Since most other Linux platforms which use HZ>100 use a HZ value of
-> 1000, I'm thinking it may be safer to switch ia64 to HZ00 as well
-> (principle of least difference possible is generally a good one...).
->
-> In the past, I was concerned that there might be enough code that
-> divides by HZ that this might not be such a hot idea, but I think this
-> may not (or at least no longer) be the case: I compiled the same
-> kernel once with HZ00 and once with HZ24 and the code-size
-> actually shrunk.
->
-> What do others think?
+  Christoph> I think its not a big issue and may still be beneficial
+  Christoph> if occasions arise where one has to divide by HZ. Do you
+  Christoph> know why the code size is reduced?
 
-I think its not a big issue and may still be beneficial if occasions arise
-where one has to divide by HZ. Do you know why the code size is reduced?
+I assume it's because we're doing more tick -> msec than tick -> sec
+conversions, but I haven't tried to verify that.  I agree that we
+should first find out what the real reason for the code-size reduction
+is before changing (though the "not wanting to be needlessly
+different" argument still remains...).
 
+	--david
