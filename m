@@ -1,7 +1,7 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Mon, 28 Aug 2000 16:47:05 +0000
-Subject: Re: [Linux-ia64] Re: [Ia64] Netscape (32-bit) locks machine
-Message-Id: <marc-linux-ia64-105590678205391@msgid-missing>
+From: Vadim Furman <vadimf@mainsoft.com>
+Date: Tue, 29 Aug 2000 00:36:58 +0000
+Subject: RE: [Linux-ia64] Re: [Ia64] Netscape (32-bit) locks machine
+Message-Id: <marc-linux-ia64-105590678205397@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205388@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205388@msgid-missing>
@@ -10,9 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Is it a patch to the kernel? If so, which kernel version it will be/is
+incorporated into? 
+
+-----Original Message-----
+From: Michael Madore [mailto:mmadore@turbolinux.com]
+Sent: Monday, August 28, 2000 9:47 AM
+To: Don Dugger
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] Re: [Ia64] Netscape (32-bit) locks machine
+
+
 > Mike-
 > 
-> I must have been asleep since I don't remember seeing the original message.
+> I must have been asleep since I don't remember seeing the original
+message.
 > 
 > If your machine is crashing when running Netscape I would be suspicious of
 > Netscape before I'd blame the X server.  I just discovered a few weeks
@@ -34,4 +46,9 @@ Mike Madore
 Software Engineer
 TurboLinux, Inc.
 
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
