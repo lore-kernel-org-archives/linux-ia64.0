@@ -1,65 +1,52 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 17 Dec 2004 03:36:28 +0000
-Subject: page fault scalability patch V13 [5/8]: atomic pte operations for
-Message-Id: <Pine.LNX.4.58.0412161935200.11341@schroedinger.engr.sgi.com>
+From: Domen Puncer <domen@coderock.org>
+Date: Wed, 29 Dec 2004 19:44:30 +0000
+Subject: [patch] ia64: remove casts in hp/sim/simeth.c
+Message-Id: <20041229194430.GA25967@nd47.coderock.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41BBF923.6040207@yahoo.com.au>
- <Pine.LNX.4.44.0412120914190.3476-100000@localhost.localdomain>
- <20041212212456.GB2714@holomorphy.com> <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: William Lee Irwin III <wli@holomorphy.com>
-Cc: Hugh Dickins <hugh@veritas.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Changelog
-        * Provide atomic pte operations for x86_64
+Remove unneeded casts of (void *) pointers.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Domen Puncer <domen@coderock.org>
 
-Index: linux-2.6.9/include/asm-x86_64/pgalloc.h
-=================================--- linux-2.6.9.orig/include/asm-x86_64/pgalloc.h	2004-10-18 14:54:30.000000000 -0700
-+++ linux-2.6.9/include/asm-x86_64/pgalloc.h	2004-11-23 10:59:01.000000000 -0800
-@@ -7,16 +7,26 @@
- #include <linux/threads.h>
- #include <linux/mm.h>
-
-+#define PMD_NONE 0
-+#define PGD_NONE 0
-+
- #define pmd_populate_kernel(mm, pmd, pte) \
- 		set_pmd(pmd, __pmd(_PAGE_TABLE | __pa(pte)))
- #define pgd_populate(mm, pgd, pmd) \
- 		set_pgd(pgd, __pgd(_PAGE_TABLE | __pa(pmd)))
-+#define pgd_test_and_populate(mm, pgd, pmd) \
-+		(cmpxchg((int *)pgd, PGD_NONE, _PAGE_TABLE | __pa(pmd)) = PGD_NONE)
-
- static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
+--- c/arch/ia64/hp/sim/simeth.c	2004-11-15 13:42:06.000000000 +0100
++++ a/arch/ia64/hp/sim/simeth.c	2004-12-03 14:11:21.000000000 +0100
+@@ -286,7 +286,7 @@ static __inline__ int dev_is_ethdev(stru
+ static int
+ simeth_device_event(struct notifier_block *this,unsigned long event, void *ptr)
  {
- 	set_pmd(pmd, __pmd(_PAGE_TABLE | (page_to_pfn(pte) << PAGE_SHIFT)));
+-	struct net_device *dev = (struct net_device *)ptr;
++	struct net_device *dev = ptr;
+ 	struct simeth_local *local;
+ 	struct in_device *in_dev;
+ 	struct in_ifaddr **ifap = NULL;
+@@ -382,7 +382,7 @@ frame_print(unsigned char *from, unsigne
+ static int
+ simeth_tx(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct simeth_local *local = (struct simeth_local *)dev->priv;
++	struct simeth_local *local = dev->priv;
+ 
+ #if 0
+ 	/* ensure we have at least ETH_ZLEN bytes (min frame size) */
+@@ -446,7 +446,7 @@ simeth_rx(struct net_device *dev)
+ 	int			len;
+ 	int			rcv_count = SIMETH_RECV_MAX;
+ 
+-	local = (struct simeth_local *)dev->priv;
++	local = dev->priv;
+ 	/*
+ 	 * the loop concept has been borrowed from other drivers
+ 	 * looks to me like it's a throttling thing to avoid pushing to many
+@@ -515,7 +515,7 @@ simeth_interrupt(int irq, void *dev_id, 
+ static struct net_device_stats *
+ simeth_get_stats(struct net_device *dev)
+ {
+-	struct simeth_local  *local = (struct simeth_local *) dev->priv;
++	struct simeth_local *local = dev->priv;
+ 
+ 	return &local->stats;
  }
-
-+static inline int pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
-+{
-+	return cmpxchg((int *)pmd, PMD_NONE, _PAGE_TABLE | (page_to_pfn(pte) << PAGE_SHIFT)) = PMD_NONE;
-+}
-+
- extern __inline__ pmd_t *get_pmd(void)
- {
- 	return (pmd_t *)get_zeroed_page(GFP_KERNEL);
-Index: linux-2.6.9/include/asm-x86_64/pgtable.h
-=================================--- linux-2.6.9.orig/include/asm-x86_64/pgtable.h	2004-11-22 15:08:43.000000000 -0800
-+++ linux-2.6.9/include/asm-x86_64/pgtable.h	2004-11-23 10:59:01.000000000 -0800
-@@ -437,6 +437,10 @@
- #define	kc_offset_to_vaddr(o) \
-    (((o) & (1UL << (__VIRTUAL_MASK_SHIFT-1))) ? ((o) | (~__VIRTUAL_MASK)) : (o))
-
-+
-+#define ptep_cmpxchg(__vma,__addr,__xp,__oldval,__newval) (cmpxchg(&(__xp)->pte, pte_val(__oldval), pte_val(__newval)) = pte_val(__oldval))
-+#define __HAVE_ARCH_ATOMIC_TABLE_OPS
-+
- #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
- #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_DIRTY
- #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
-
