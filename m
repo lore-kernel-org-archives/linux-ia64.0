@@ -1,37 +1,40 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 20 Feb 2004 17:11:36 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 20 Feb 2004 23:09:18 +0000
 Subject: Re: Oops in pdflush
-Message-Id: <je1xop4qwn.fsf@sykes.suse.de>
+Message-Id: <16438.37790.455816.252879@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je4qtl7u44.fsf@sykes.suse.de>
 In-Reply-To: <je4qtl7u44.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@napali.hpl.hp.com> writes:
+>>>>> On Fri, 20 Feb 2004 18:11:36 +0100, Andreas Schwab <schwab@suse.de> said:
 
->>>>>> On Fri, 20 Feb 2004 14:34:03 +0100, Andreas Schwab <schwab@suse.de> =
-said:
->
->   Andreas> This happens regularily on all our Intel Tiger SMP systems,
->   Andreas> haven't seen it on UP systems, and neither on any HP system
->   Andreas> we have.  Theses oopses are all from different systems
->   Andreas> running kernels 2.6.2 and 2.6.3 in various incarnations.
->
-> As an additional data-point: we have a tiger here, too, and it's
-> running 2.6.2-rc2 just fine (it's a build-server so we try not to
-> reboot it too often).  Are you saying that 2.6.1 was OK and you
-> started to see the problems only with 2.6.2?
+  Andreas> David Mosberger <davidm@napali.hpl.hp.com> writes:
+  >>>>>>> On Fri, 20 Feb 2004 14:34:03 +0100, Andreas Schwab <schwab@suse.de> said:
+  Andreas> This happens regularily on all our Intel Tiger SMP systems,
+  Andreas> haven't seen it on UP systems, and neither on any HP system
+  Andreas> we have.  Theses oopses are all from different systems
+  Andreas> running kernels 2.6.2 and 2.6.3 in various incarnations.
 
-I can't tell when it started, but I think 2.6.1 already had similar
-problems.
+  >> As an additional data-point: we have a tiger here, too, and it's
+  >> running 2.6.2-rc2 just fine (it's a build-server so we try not to
+  >> reboot it too often).  Are you saying that 2.6.1 was OK and you
+  >> started to see the problems only with 2.6.2?
 
-Andreas.
+  Andreas> I can't tell when it started, but I think 2.6.1 already had similar
+  Andreas> problems.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+That's rather strange.  I'm sure the Intel folks test on Tiger all the
+time and Andrew also seems to test on his Tiger quite frequently.
+Is this with a particular workload?
+
+In any case, it's not good that the stack-trace is truncated.
+gcc-3.3.3 should be good enough, so I'm not sure off hand what's going
+wrong.  If you could enable unwind-debugging (set UNW_DEBUG to 5 in
+arch/ia64/kernel/unwind.c) and capture the resulting output during a
+crash, it might get us further.
+
+	--david
