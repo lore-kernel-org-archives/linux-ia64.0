@@ -1,61 +1,88 @@
-From: Rajesh Shah <rajesh.shah@intel.com>
-Date: Fri, 18 Mar 2005 22:04:37 +0000
-Subject: [patch 04/12] Prevent duplicate bus numbers when scanning PCI bridge
-Message-Id: <20050318140437.D1145@unix-os.sc.intel.com>
+From: Bob Montgomery <bob.montgomery@hp.com>
+Date: Fri, 11 Mar 2005 22:46:46 +0000
+Subject: [PATCH]  Enhanced show_stack output to add backing store regs
+Message-Id: <1110581206.498.109.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050318133856.A878@unix-os.sc.intel.com>
-In-Reply-To: <20050318133856.A878-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from rajesh.shah-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Fri, Mar 18, 2005 at 01:38:57PM -0800
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: gregkh-l3A5Bk7waGM@public.gmane.org, tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
-Cc: linux-pci-jyMamyUUXNJG4ohzP4jBZS1Fcj925eT/@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pcihpd-discuss-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: linux-ia64@vger.kernel.org
 
-When hot-plugging a root bridge, as we try to assign bus numbers
-we may find that the hotplugged hieratchy has more PCI to PCI
-bridges (i.e. bus requirements) than available.  Make sure we
-don't step over an existing bus when that happens. 
+Thanks to the list for all the comments so far.
 
-Signed-off-by: Rajesh Shah <rajesh.shah@intel.com>
----
+Here is the patch that adds the register backing store display to
+ia64_do_show_stack.  Note that the new routine "borrows" the line buffer
+created in ia64_do_show_stack by requiring the caller to pass a pointer
+and a size.  I wanted to avoid growing the stack unnecessarily without
+inlining the whole thing.  Although the buffer in this case is long
+enough to avoid truncation in ia64_dump_bs, the code depends on what I
+think is C99 behavior of snprintf regarding return value during
+truncation.  I tested with a short buffer and saw no evil effects
+besides truncated lines.
 
- linux-2.6.11-mm4-iohp-rshah1/drivers/pci/probe.c |   12 ++++++++++--
- 1 files changed, 10 insertions(+), 2 deletions(-)
+I have not eliminated any backtrace levels, although the lack of
+register output for the topmost level is a start up effect of the
+implementation.
 
-diff -puN drivers/pci/probe.c~prevent_duplicate_busnr drivers/pci/probe.c
---- linux-2.6.11-mm4-iohp/drivers/pci/probe.c~prevent_duplicate_busnr	2005-03-16 13:07:10.376304290 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/drivers/pci/probe.c	2005-03-16 13:07:10.496421476 -0800
-@@ -417,7 +417,7 @@ int __devinit pci_scan_bridge(struct pci
+Signed-off-by: Bob Montgomery <bob.montgomery@hp.com>
+
+--- linux-2.6.11.2/arch/ia64/kernel/process.c	2005-03-09 01:11:42.000000000 -0700
++++ linux-2.6.11.2-bobm/arch/ia64/kernel/process.c	2005-03-11 14:07:17.452448021 -0700
+@@ -54,12 +54,42 @@ static cpumask_t cpu_idle_map;
+ unsigned long boot_option_idle_override = 0;
+ EXPORT_SYMBOL(boot_option_idle_override);
+ 
++void 
++ia64_dump_bs(struct unw_frame_info *info, unsigned long from, 
++	unsigned long to, char *buf, int bufsize)
++{
++	int ii, pos, nchars;
++	unsigned long val;
++	char nat;
++	unsigned long nregs = ia64_rse_num_regs((unsigned long *)from,
++			(unsigned long *)to);
++
++	if (nregs > 128)
++		/* something wrong */
++		return;
++
++	pos = nchars = 0;
++	/* avoid multiple printk's per line */
++	for (ii = 0; ii < nregs; ++ii) {
++		unw_get_gr(info, ii + 32, &val, &nat);
++		nchars += snprintf(buf + nchars, bufsize - nchars,
++			"%sr%-3d:%s%016lx",
++			(pos = 0) ? "    " : " ", ii + 32,
++			nat ? "*" : " ", val);
++		if (++pos = 3 || (ii = nregs - 1)) {
++			printk("%s\n", buf);
++			pos = nchars = 0;
++		}
++	}
++}
++
+ void
+ ia64_do_show_stack (struct unw_frame_info *info, void *arg)
  {
- 	struct pci_bus *child;
- 	int is_cardbus = (dev->hdr_type = PCI_HEADER_TYPE_CARDBUS);
--	u32 buses;
-+	u32 buses, i;
- 	u16 bctl;
+-	unsigned long ip, sp, bsp;
+-	char buf[128];			/* don't make it so big that it overflows the stack! */
++	unsigned long ip, sp, bsp, lbsp;
++	char buf[128];	/* don't make it so big that it overflows the stack! */
  
- 	pci_read_config_dword(dev, PCI_PRIMARY_BUS, &buses);
-@@ -476,6 +476,10 @@ int __devinit pci_scan_bridge(struct pci
- 		/* Clear errors */
- 		pci_write_config_word(dev, PCI_STATUS, 0xffff);
++	lbsp = 0;
+ 	printk("\nCall Trace:\n");
+ 	do {
+ 		unw_get_ip(info, &ip);
+@@ -73,6 +103,9 @@ ia64_do_show_stack (struct unw_frame_inf
+ 			 "                                sp=%016lx bsp=%016lx\n",
+ 			 ip, sp, bsp);
+ 		print_symbol(buf, ip);
++		if (lbsp > bsp)
++			ia64_dump_bs(info, bsp, lbsp, buf, sizeof(buf));
++		lbsp = bsp;
+ 	} while (unw_unwind(info) >= 0);
+ }
  
-+		/* Prevent assigning a bus number that already exists.
-+		 * This can happen when a bridge is hot-plugged */
-+		if (pci_find_bus(pci_domain_nr(bus), max+1))
-+			return max;
- 		child = pci_alloc_child_bus(bus, dev, ++max);
- 		buses = (buses & 0xff000000)
- 		      | ((unsigned int)(child->primary)     <<  0)
-@@ -507,7 +511,11 @@ int __devinit pci_scan_bridge(struct pci
- 			 * as cards with a PCI-to-PCI bridge can be
- 			 * inserted later.
- 			 */
--			max += CARDBUS_RESERVE_BUSNR;
-+			for (i=0; i<CARDBUS_RESERVE_BUSNR; i++)
-+				if (pci_find_bus(pci_domain_nr(bus),
-+							max+i+1))
-+					break;
-+			max += i;
- 		}
- 		/*
- 		 * Set the subordinate bus number to its real value.
-_
+
+
+
