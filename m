@@ -1,41 +1,34 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Mon, 08 Sep 2003 01:17:09 +0000
-Subject: arch/ia64/hp/common/sba_iommu.c should include version.h
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="qMm9M+Fa2AknHoGS"
-Message-Id: <marc-linux-ia64-106298384827966@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 08 Sep 2003 18:26:08 +0000
+Subject: Re: arch/ia64/hp/common/sba_iommu.c should include version.h
+Message-Id: <marc-linux-ia64-106304582419413@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106298384827966@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106298384827966@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+--text follows this line--
+  Ian> As it uses version macros.
+  Ian> This fix allows Linus bk tree to build.
 
---qMm9M+Fa2AknHoGS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I think the proper fix here is to remove the #ifdef alltogether.
+Version-checks inside the main-line kernel are generally frowned upon.
 
-As it uses version macros.  
+Unless somebody objects, I'll make that change.
 
-This fix allows Linus bk tree to build.
+	--david
 
--i
-ianw@gelato.unsw.edu.au
-http://www.gelato.unsw.edu.au
-
-
-
---qMm9M+Fa2AknHoGS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sba_iommu.c.diff"
-
-===== arch/ia64/hp/common/sba_iommu.c 1.29 vs edited =====
---- 1.29/arch/ia64/hp/common/sba_iommu.c	Mon Sep  1 09:14:08 2003
-+++ edited/arch/ia64/hp/common/sba_iommu.c	Mon Sep  8 11:02:04 2003
-@@ -33,6 +33,7 @@
- #include <linux/seq_file.h>
- #include <linux/acpi.h>
- #include <linux/efi.h>
-+#include <linux/version.h>
+  Ian> === arch/ia64/hp/common/sba_iommu.c 1.29 vs edited ==  Ian> --- 1.29/arch/ia64/hp/common/sba_iommu.c	Mon Sep  1 09:14:08 2003
+  Ian> +++ edited/arch/ia64/hp/common/sba_iommu.c	Mon Sep  8 11:02:04 2003
+  Ian> @@ -33,6 +33,7 @@
+  Ian> #include <linux/seq_file.h>
+  Ian> #include <linux/acpi.h>
+  Ian> #include <linux/efi.h>
+  Ian> +#include <linux/version.h>
  
- #include <asm/delay.h>		/* ia64_get_itc() */
- #include <asm/io.h>
-
---qMm9M+Fa2AknHoGS--
+  Ian> #include <asm/delay.h>		/* ia64_get_itc() */
+  Ian> #include <asm/io.h>
+  Ian> --text follows this line--
