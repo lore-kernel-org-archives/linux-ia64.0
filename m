@@ -1,29 +1,21 @@
-From: "Miller, Mike (OS Dev)" <Mike.Miller@COMPAQ.com>
-Date: Tue, 15 May 2001 19:00:17 +0000
-Subject: [Linux-ia64] System hang
-Message-Id: <marc-linux-ia64-105590693005584@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Thu, 17 May 2001 19:42:42 +0000
+Subject: [Linux-ia64] Re: Linux 2.4.3 screen hangs on output
+Message-Id: <marc-linux-ia64-105590693005609@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Sorry if this not the right forum for this problem.
-I have encountered a system hang when running heavy I/O. It only occurs when
-running MP and >4GB RAM. I have seen this under the 2.4.3 and 2.4.4 kernels.
-Current setup is 2.4.4 with the 010508 ia64 diff patch and kdb applied. The
-system has 2 C0 processors and 8GB of memory. The test is very simple, just
-using cpio -p to copy files. It causes a machine check within 5 minutes that
-locks up the boot strap processor. We've looked at HW and cannot pinpoint a
-HW failure. This has been reproduced on several different systems including
-one with B3 processors.
-After stripping out all the extraneous drivers from the kernel including
-USB, storage drivers not in use, WAN, etc. the problem has gone away. I am
-now trying to add drivers back one at a time to isolate the problem w/o any
-luck so far. 
-Has anyone else observed a similiar hang? The outward symptoms are all I/O
-stops and the keyboard does not respond. The system must be power cycled.
+Robboy, David G (david.g.robboy@intel.com) said: 
+> With Redhat  Linux2.4.3 for ia64, when you rlogin or telnet and  then do
+> cat, ls, or other programs that print more than one line, the screen hangs.
+> The system is not dead, but you can't kill that program from the keyboard
+> and you can't get back to your login session.  Is this a familiar problem?
+> Is there a configuration file that's wrong, a kernel bug, or what?
 
-Thanks,
-mikem
+I can't reproduce this here. cat, ls, etc. all work fine over telnet.
+
+Bill
 
