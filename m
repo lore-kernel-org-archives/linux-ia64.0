@@ -1,7 +1,7 @@
-From: Duraid Madina <duraid@octopus.com.au>
-Date: Fri, 11 Apr 2003 20:55:01 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Fri, 11 Apr 2003 21:25:16 +0000
 Subject: Re: [Linux-ia64] Itanium gets supercomputing software
-Message-Id: <marc-linux-ia64-105590723705476@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705478@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705455@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705455@msgid-missing>
@@ -10,16 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Grant Grundler wrote:
-> Try comparing like products.
-> 
-> Single CPU rp2430 is about 1/4 to 1/2 the perf of dual zx6000 depending
-> on what one measures.
+On Sat, Apr 12, 2003 at 06:55:01AM +1000, Duraid Madina wrote:
+> Isn't a single CPU rp2430 somewhere between 1/8 and 1/4 the price of a 
+> dual zx6000?
 
-Isn't a single CPU rp2430 somewhere between 1/8 and 1/4 the price of a 
-dual zx6000?
+Dunno. is it?
+Try comparing dual rp2470 and dual rx2600 with similar products
+from other vendors.
 
-	Duraid
+David wrote:
+|       - hp workstation zx2000 (Linux software enablement kit)
+|	- Intel? Itanium 2 900MHz Processor with 1.5MB on-chip L3 cache
 
+Sorry - my bad.  I misread that as "2x 900 Mhz".
 
+Anyway, my point still stands, comparing a "server" (rackable, remote console)
+with a "workstation" (3D gfx, sound, DVD-ROM) has alot of variables and
+different folks value these things differently.  But even here, I would
+guess the difference in CPU perf alone is 2x or more by most measures.
+Yes, I know the price is 3x but other things make zx2000 attract to
+a different set of customers (like linux support).
+
+grant
 
