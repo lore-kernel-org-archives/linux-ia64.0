@@ -1,29 +1,35 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Sat, 02 Sep 2000 04:00:57 +0000
-Subject: Re: [Linux-ia64] new toolchain snapshots
-Message-Id: <marc-linux-ia64-105590678205448@msgid-missing>
+From: aip@turbolinux.com
+Date: Sat, 09 Sep 2000 01:36:40 +0000
+Subject: [Linux-ia64] possible bug in the efi real time clock
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="6c2NcOVqGQ03X4Wi"
+Message-Id: <marc-linux-ia64-105590678205465@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205422@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205422@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 01 Sep 2000 20:01:21 -0700, 
-Jim Wilson <wilson@cygnus.com> wrote:
->	Compiling the 2.4.0-test7 code for fs/nfs/dir.c with this snapshot
->	generates an unresolved reference to __multi3, for no reason that I can
->	see. 
->
->There is no reference to __multi3.  Only a declaration for it.  The .s file has
->      .globl __multi3
->This causes it to be put in the symbol table where nm can see it, but does
->not result in any relocation for it because we aren't using it.  This should
->be harmless.
+--6c2NcOVqGQ03X4Wi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-It breaks modutils, depmod assumes that all unresolved externals in a
-module are actually used.  I will complain to the modutils maintainer,
-hang on, that's me :(.
 
+On the BigSur B1 stepping with BIOS 60 machine, it crashes when running
+the hwclock.  Could it be a bug in the efi real time clock?
+
+-Andrew=20
+
+--6c2NcOVqGQ03X4Wi
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.2 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
+
+iD8DBQE5uZQoSclQecCvPM8RAmarAKDE9ehxV1Q6h5cllqP5uMnnvZUofgCeOQE6
+tRmQ9GCYyDSoohSoKMJosi8=
+=M49r
+-----END PGP SIGNATURE-----
+
+--6c2NcOVqGQ03X4Wi--
 
