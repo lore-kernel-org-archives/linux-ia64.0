@@ -1,15 +1,71 @@
-From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
-Date: Wed, 16 Jan 2002 03:02:38 +0000
-Subject: [Linux-ia64] [BUG] Interrupt source override (Re: ACPI power button events)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------_3C44E7E8F8540105F1E8_MULTIPART_MIXED_"
-Message-Id: <marc-linux-ia64-105590698805843@msgid-missing>
+From: "Sluder, Charles" <Charles.Sluder@UNISYS.com>
+Date: Wed, 16 Jan 2002 18:47:37 +0000
+Subject: RE: [Linux-ia64] [BUG] Interrupt source override (Re: ACPI power
+Message-Id: <marc-linux-ia64-105590698805849@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805843@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805843@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---------_3C44E7E8F8540105F1E8_MULTIPART_MIXED_
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
+We have similar problems with the IRQ overrides on our CMP and NUMA systems.
+Our system does not have integrated legacy hardware. Instead we insert a
+legacy IO card into a modified PCI slot. THE PCI bus uses IRQ0 - IRQ11 for
+the PCI slots and if the legacy card is present then IRQ12 - IRQ20 are used
+for the legacy devices and IRQ overrides are used to redirect the IRQs. 
+
+One problem we have is that the existing code gives the legacy vectors away
+to the PCI interrupts and then when the overrides are processed the legacy
+IRQs reclaim their vectors, resulting in conflicts between PCI and ISA.
+
+The fix we put in is similar to yours with the addition of the change below.
+
+If the legacy card is present (pcat_compat is set) and the PCI interrupt is
+in the range of the legacy interrupts then we mark the irq as unused. This
+will prevent the vector from being found by iosapic_irq_to_vector(). This
+forces a new vector to be assigned to the PCI irq and leaves the vector free
+to be reclaimed when the IRQ override is processed.
+
+Chuck Sluder
+Unisys Corp.
+
+-- linux-2.4.16/arch/ia64/kernel/iosapic.c     Fri Nov  9 15:26:17 2001
++++ linux/arch/ia64/kernel/iosapic.c    Sun Jan 13 15:45:28 2002
+@@ -544,15 +547,16 @@
+                        /* the interrupt route is for another controller...
+*/
+                        continue;
+
+-               if (pcat_compat && (irq < 16))
++               if (pcat_compat && (irq < 16)){
+                        vector = isa_irq_to_vector(irq);
+-               else {
+-                       vector = iosapic_irq_to_vector(irq);
+-                       if (vector < 0)
+-                               /* new iosapic irq: allocate a vector for it
+*/
+-                               vector = ia64_alloc_irq();
++                       iosapic_irq[vector].pin = -1;   /* mark as unused */
+                }
+
++               vector = iosapic_irq_to_vector(irq);
++               if (vector < 0)
++                       /* new iosapic irq: allocate a vector for it */
++                       vector = ia64_alloc_irq();
++
+                iosapic_irq[vector].addr     = addr;
+                iosapic_irq[vector].base_irq = base_irq;
+                iosapic_irq[vector].pin      = (irq - base_irq);
+
+-----Original Message-----
+From: KOCHI, Takayoshi [mailto:t-kouchi@mvf.biglobe.ne.jp]
+Sent: Tuesday, January 15, 2002 8:03 PM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] [BUG] Interrupt source override (Re: ACPI power
+button events)
+
 
 On BigSur, there's an interrupt source override record for IRQ9 (SCI)
 in ACPI table and the kernel should set it correct.
@@ -41,71 +97,4 @@ Anyway we should obey what the interrupt override record says...
 Thanks,
 -- 
 KOCHI Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
-
---------_3C44E7E8F8540105F1E8_MULTIPART_MIXED_
-Content-Type: application/octet-stream; name="intoverride.diff"
-Content-Disposition: attachment;
- filename="intoverride.diff"
-Content-Transfer-Encoding: base64
-
-SW5kZXg6IGFjcGkuYwo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09ClJDUyBmaWxlOiAvZGF0YS9jdnNyb290L2xpbnV4L2Fy
-Y2gvaWE2NC9rZXJuZWwvYWNwaS5jLHYKcmV0cmlldmluZyByZXZpc2lvbiAxLjEuMS45CmRpZmYg
-LXUgLXIxLjEuMS45IGFjcGkuYwotLS0gYWNwaS5jCTggRGVjIDIwMDEgMDM6MDM6NDAgLTAwMDAJ
-MS4xLjEuOQorKysgYWNwaS5jCTE2IEphbiAyMDAyIDAyOjQwOjEzIC0wMDAwCkBAIC0xMDEsNyAr
-MTAxLDcgQEAKIGFjcGlfbGVnYWN5X2lycSAoY2hhciAqcCkKIHsKIAlhY3BpX2VudHJ5X2ludF9v
-dmVycmlkZV90ICpsZWdhY3kgPSAoYWNwaV9lbnRyeV9pbnRfb3ZlcnJpZGVfdCAqKSBwOwotCXVu
-c2lnbmVkIGxvbmcgcG9sYXJpdHkgPSAwLCBlZGdlX3RyaWdnZXJlZCA9IDA7CisJdW5zaWduZWQg
-bG9uZyBwb2xhcml0eSA9IDAsIHRyaWdnZXIgPSAwOwogCiAJLyoKIAkgKiBJZiB0aGUgcGxhdGZv
-cm0gd2UncmUgcnVubmluZyBkb2Vzbid0IGRlZmluZQpAQCAtMTEwLDE3ICsxMTAsMTAgQEAKIAlp
-ZiAoIWlvc2FwaWNfcmVnaXN0ZXJfbGVnYWN5X2lycSkKIAkJcmV0dXJuOwogCi0Jc3dpdGNoIChs
-ZWdhY3ktPmZsYWdzKSB7Ci0JICAgICAgY2FzZSAweDU6CXBvbGFyaXR5ID0gMTsgZWRnZV90cmln
-Z2VyZWQgPSAxOyBicmVhazsKLQkgICAgICBjYXNlIDB4NzogcG9sYXJpdHkgPSAwOyBlZGdlX3Ry
-aWdnZXJlZCA9IDE7IGJyZWFrOwotCSAgICAgIGNhc2UgMHhkOiBwb2xhcml0eSA9IDE7IGVkZ2Vf
-dHJpZ2dlcmVkID0gMDsgYnJlYWs7Ci0JICAgICAgY2FzZSAweGY6IHBvbGFyaXR5ID0gMDsgZWRn
-ZV90cmlnZ2VyZWQgPSAwOyBicmVhazsKLQkgICAgICBkZWZhdWx0OgotCQlwcmludGsoIiAgICBB
-Q1BJIExlZ2FjeSBJUlEgMHglMDJ4OiBVbmtub3duIGZsYWdzIDB4JXhcbiIsIGxlZ2FjeS0+aXNh
-X2lycSwKLQkJICAgICAgIGxlZ2FjeS0+ZmxhZ3MpOwotCQlicmVhazsKLQl9Ci0JaW9zYXBpY19y
-ZWdpc3Rlcl9sZWdhY3lfaXJxKGxlZ2FjeS0+aXNhX2lycSwgbGVnYWN5LT5waW4sIHBvbGFyaXR5
-LCBlZGdlX3RyaWdnZXJlZCk7CisJcG9sYXJpdHkgPSBsZWdhY3ktPmZsYWdzICYgMHgwMzsKKwl0
-cmlnZ2VyID0gKGxlZ2FjeS0+ZmxhZ3MgPj4gMikgJiAweDAzOworCQorCWlvc2FwaWNfcmVnaXN0
-ZXJfbGVnYWN5X2lycShsZWdhY3ktPmlzYV9pcnEsIGxlZ2FjeS0+cGluLCBwb2xhcml0eSwgdHJp
-Z2dlcik7CiB9CiAKIC8qCkluZGV4OiBpb3NhcGljLmMKPT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQpSQ1MgZmlsZTogL2Rh
-dGEvY3Zzcm9vdC9saW51eC9hcmNoL2lhNjQva2VybmVsL2lvc2FwaWMuYyx2CnJldHJpZXZpbmcg
-cmV2aXNpb24gMS4xLjEuMTAKZGlmZiAtdSAtcjEuMS4xLjEwIGlvc2FwaWMuYwotLS0gaW9zYXBp
-Yy5jCTggRGVjIDIwMDEgMDM6MTA6NDIgLTAwMDAJMS4xLjEuMTAKKysrIGlvc2FwaWMuYwkxNiBK
-YW4gMjAwMiAwMjo0MDoxMyAtMDAwMApAQCAtNDUzLDI0ICs0NTMsNDMgQEAKICAqIEFDUEkgY2Fs
-bHMgdGhpcyB3aGVuIGl0IGZpbmRzIGFuIGVudHJ5IGZvciBhIGxlZ2FjeSBJU0EgaW50ZXJydXB0
-LiAgTm90ZSB0aGF0IHRoZQogICogaXJxX2Jhc2UgYW5kIElPU0FQSUMgYWRkcmVzcyBtdXN0IGJl
-IHNldCBpbiBpb3NhcGljX2luaXQoKS4KICAqLworCisjZGVmaW5lIFBPTEFSSVRZX0FDVElWRV9I
-SUdICSgweDAxKQorI2RlZmluZSBQT0xBUklUWV9BQ1RJVkVfTE9XCSgweDAzKQorI2RlZmluZSBU
-UklHR0VSX0VER0UJCSgweDAxKQorI2RlZmluZSBUUklHR0VSX0xFVkVMCQkoMHgwMykKKwogdm9p
-ZAogaW9zYXBpY19yZWdpc3Rlcl9sZWdhY3lfaXJxICh1bnNpZ25lZCBsb25nIGlycSwKIAkJCSAg
-ICAgdW5zaWduZWQgbG9uZyBwaW4sIHVuc2lnbmVkIGxvbmcgcG9sYXJpdHksCi0JCQkgICAgIHVu
-c2lnbmVkIGxvbmcgZWRnZV90cmlnZ2VyZWQpCisJCQkgICAgIHVuc2lnbmVkIGxvbmcgdHJpZ2dl
-cikKIHsKIAl1bnNpZ25lZCBpbnQgdmVjdG9yID0gaXNhX2lycV90b192ZWN0b3IoaXJxKTsKKwlp
-cnFfZGVzY190ICppZGVzYyA9IGlycV9kZXNjKHZlY3Rvcik7CisJc3RydWN0IGh3X2ludGVycnVw
-dF90eXBlICppcnFfdHlwZTsKIAogI2lmZGVmIERFQlVHX0lSUV9ST1VUSU5HCiAJcHJpbnRrKCJJ
-U0E6IElSUSAldSAtPiBJT1NBUElDIGlycSAweCUwMnggKCVzLCAlcykgLT4gdmVjdG9yICUwMnhc
-biIsCiAJICAgICAgICh1bnNpZ25lZCkgaXJxLCAodW5zaWduZWQpIHBpbiwKLQkgICAgICAgcG9s
-YXJpdHkgPyAiaGlnaCIgOiAibG93IiwgZWRnZV90cmlnZ2VyZWQgPyAiZWRnZSIgOiAibGV2ZWwi
-LAorCSAgICAgICAocG9sYXJpdHkgPT0gUE9MQVJJVFlfQUNUSVZFX0hJR0gpID8gImhpZ2giIDog
-ImxvdyIsCisJICAgICAgICh0cmlnZ2VyID09IFRSSUdHRVJfRURHRSkgPyAiZWRnZSIgOiAibGV2
-ZWwiLAogCSAgICAgICB2ZWN0b3IpOwogI2VuZGlmCiAKIAlpb3NhcGljX2lycVt2ZWN0b3JdLnBp
-biA9IHBpbjsKIAlpb3NhcGljX2lycVt2ZWN0b3JdLmRtb2RlID0gSU9TQVBJQ19MT1dFU1RfUFJJ
-T1JJVFk7Ci0JaW9zYXBpY19pcnFbdmVjdG9yXS5wb2xhcml0eSA9IHBvbGFyaXR5ID8gSU9TQVBJ
-Q19QT0xfSElHSCA6IElPU0FQSUNfUE9MX0xPVzsKLQlpb3NhcGljX2lycVt2ZWN0b3JdLnRyaWdn
-ZXIgPSBlZGdlX3RyaWdnZXJlZCA/IElPU0FQSUNfRURHRSA6IElPU0FQSUNfTEVWRUw7CisJaW9z
-YXBpY19pcnFbdmVjdG9yXS5wb2xhcml0eSA9IChwb2xhcml0eSA9PSBQT0xBUklUWV9BQ1RJVkVf
-SElHSCkKKwkJPyBJT1NBUElDX1BPTF9ISUdIIDogSU9TQVBJQ19QT0xfTE9XOworCWlmICh0cmln
-Z2VyID09IFRSSUdHRVJfRURHRSkgeworCQlpb3NhcGljX2lycVt2ZWN0b3JdLnRyaWdnZXIgPSBJ
-T1NBUElDX0VER0U7CisJCWlkZXNjLT5oYW5kbGVyID0gJmlycV90eXBlX2lvc2FwaWNfZWRnZTsK
-Kwl9IGVsc2UgeworCQlpb3NhcGljX2lycVt2ZWN0b3JdLnRyaWdnZXIgPSBJT1NBUElDX0xFVkVM
-OworCQlpZGVzYy0+aGFuZGxlciA9ICZpcnFfdHlwZV9pb3NhcGljX2xldmVsOworCX0KKworCS8q
-IHJlcHJvZ3JhbSBJT1NBUElDICovCisJc2V0X3J0ZSh2ZWN0b3IsIChpYTY0X2dldF9saWQoKSA+
-PiAxNikgJiAweGZmZmYpOwogfQogCiB2b2lkIF9faW5pdAo=
-
---------_3C44E7E8F8540105F1E8_MULTIPART_MIXED_--
-
 
