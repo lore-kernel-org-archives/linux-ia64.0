@@ -1,7 +1,7 @@
 From: "David S. Miller" <davem@redhat.com>
-Date: Wed, 24 Apr 2002 23:53:31 +0000
+Date: Thu, 25 Apr 2002 00:08:08 +0000
 Subject: [Linux-ia64] Re: PCI DAC routines for SN
-Message-Id: <marc-linux-ia64-105590701905517@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905519@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905493@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905493@msgid-missing>
@@ -11,18 +11,25 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
    From: Jesse Barnes <jbarnes@sgi.com>
-   Date: Wed, 24 Apr 2002 16:13:08 -0700
+   Date: Wed, 24 Apr 2002 17:11:19 -0700
    
-   So the penalty for using DAC comes down to ~.0375% for a 64k I/O, and
-   the benefit is that you don't have to use 32 bit mappings (which can
-   be scarce on some platforms).
+   So if performance isn't an obstacle to implementing a new call, and
+   I've shown that there are platforms where 64 bit consistent mappings
+   are better to use than 32 bit mappings when possible, why can't we add
+   it?  Or maybe just a seperate consistent_mask that drivers could set
+   to indicate they support the operation and let the platform take care
+   of it?
+   
+Where is the platform where it is a problem to keep around
+enough of the _4_ __GIGABYTES__ of consistent memory available
+at bootup?
 
-No some, _your_ platform.   It is the only one with this problem.
+If you can't keep around enough consistent memory within the
+lower 4GB, you have other problems.
 
-You only need this 4GB memory for consistent memory, not
-for anything else!  %99 of the kernel is going to use memory
-for pages and data, not descriptors.
+Devices use, EACH, something like a few kilobytes of consistent
+memory for descriptors.  If you are going to tell me this is
+a big deal, you have to be kidding me.
 
-You can use zones and whatnot to make sure this isn't a problem at
-all.
+Why don't you tell me what the real problem is?
 
