@@ -1,131 +1,127 @@
-From: Ray Bryant <raybry@sgi.com>
-Date: Sun, 28 Mar 2004 21:32:02 +0000
+From: "Martin J. Bligh" <mbligh@aracnet.com>
+Date: Mon, 29 Mar 2004 16:50:39 +0000
 Subject: Re: [Lse-tech] Re: [PATCH] [0/6] HUGETLB memory commitment
-Message-Id: <40674452.1080305@sgi.com>
+Message-Id: <180830000.1080579038@[10.10.2.4]>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk> <20040325130433.0a61d7ef.akpm@osdl.org> <41997489.1080257240@42.150.104.212.access.eclipse.net.uk> <4067131A.7000405@sgi.com> <98220000.1080501001@[10.10.2.4]>
-In-Reply-To: <98220000.1080501001@[10.10.2.4]>
+References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk> <20040325130433.0a61d7ef.akpm@osdl.org> <41997489.1080257240@42.150.104.212.access.eclipse.net.uk> <4067131A.7000405@sgi.com> <98220000.1080501001@[10.10.2.4]> <40674452.1080305@sgi.com>
+In-Reply-To: <40674452.1080305@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Martin J. Bligh" <mbligh@aracnet.com>
+To: Ray Bryant <raybry@sgi.com>
 Cc: Andy Whitcroft <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org
 
+>> Yup, but there were two parts to it:
+>> 
+>> 1. Stop hugepages using the existing overcommit pool for small pages, 
+>> which breaks small page allocations by prematurely the pool.
+>> 2. Give hugepages their own over-commit pool, instead of prefaulting.
+>> 
+>> Personally I think we need both (as you seem to), but (1) is probably
+>> more urgent.
+> 
+> Just to review:  even if we allocate hugetlb pages at fault rather than 
+> at mmap() time, hugetlb pages are created either at system boot time 
+> (kernel parameter "hugepages=") or by setting /proc/sys/vm/nr_hugepages 
+> (or by using the corresponding sysctl).  Once the set of hugepages is 
+> created this way, it never is changed by the act of allocating a huge 
+> page to a process.  (Changing nr_pages can cause the number of unallocated 
+> hugetlbpages to be increased or decreased.)
 
+Yup.
 
-Martin J. Bligh wrote:
->>As I understood this originally, the suggestion was to reserve hugetlb 
->>pages at mmap() or shm_get() time so that the user would get an -ENOMEM 
->>at that time if there aren't enough hugetlb pages to (eventually) satisfy 
->>the request, as per the notion that we shouldn't modify the user API due 
->>to going with allocate on fault instead of hugetlb_prefault().
-> 
-> 
-> Yup, but there were two parts to it:
-> 
-> 1. Stop hugepages using the existing overcommit pool for small pages, 
-> which breaks small page allocations by prematurely the pool.
-> 2. Give hugepages their own over-commit pool, instead of prefaulting.
-> 
-> Personally I think we need both (as you seem to), but (1) is probably
-> more urgent.
+> The reason for pointing this out (apologies if this was obvious to all) 
+> is to emphaisze that hugetlbpages are not created at hugetlbpage allocation 
+> time (which is now done at mmap() time and we'd like to change it to happen 
+> at fault time).
 
-Just to review:  even if we allocate hugetlb pages at fault rather than at mmap() time, hugetlb 
-pages are created either at system boot time (kernel parameter "hugepages=") or by setting 
-/proc/sys/vm/nr_hugepages (or by using the corresponding sysctl).  Once the set of hugepages is 
-created this way, it never is changed by the act of allocating a huge page to a process.  (Changing 
-nr_pages can cause the number of unallocated hugetlbpages to be increased or decreased.)
+Yup.
 
-The reason for pointing this out (apologies if this was obvious to all) is to emphaisze that 
-hugetlbpages are not created at hugetlbpage allocation time (which is now done at mmap() time and 
-we'd like to change it to happen at fault time).
+> So to stop hugepages from using the small page overcommit pool, we just 
+> need code in set_hugetlb_mem_size() to reduce the number of hugetlbpages 
+> created by that code.
 
-So to stop hugepages from using the small page overcommit pool, we just need code in 
-set_hugetlb_mem_size() to reduce the number of hugetlbpages created by that code.
+I think Andy already fixed that bit, though I'm not sure what method he used.
+It seems to me (without really looking), that we just need to not decrement
+the pool size when we map a huge page.
 
-As for (2), I'm a little confused there, as later you appear to agree with me that overcomitting 
-hugetlbpages is likely not useful.   Is it possible that you meant that there should be a list of 
-hugetlbpages from which all allocations are made?  If so, that is the way the code has always 
-worked; step 1 was to create the list of hugetlbpages, and step 2 was to allocate them.
+> As for (2), I'm a little confused there, as later you appear to agree 
+> with me that overcomitting hugetlbpages is likely not useful.  
 
-(Once again, if this is obvious to all, I apologize and we can dump the last 4 paragraphs into the 
-bit bucket with no known effect on entropy in this universe, at least.)
+I think I'm just being confusing via sloppy terminology, but we're in
+resounding agreement in reality ;-)
 
-> 
-> 
->>Since the reservation belongs to the mapped object (file or segment), 
->>I've been storing the current file/segments's reservation in the file 
->>system dependent part of the inode.  That way, it is easily accessible 
->>when the hugetlbfs file or SysV segment is removed and we can reduce 
->>the total number of reserved pages by that file's reservation at that 
->>time.  This also allows us to handle the reservation in the absence 
->>of a vma, as per Andy'c comment below.
-> 
-> 
-> Do we need to store it there, or is one central pool number sufficient?
-> I would have thought it was ...
-> 
+> Is it  possible that you meant that there should be a list of hugetlbpages 
+> from which all allocations are made?  If so, that is the way the code has 
+> always worked; step 1 was to create the list of hugetlbpages, and step 2 
+> was to allocate them.
 
-Yes, there is a central pool number indicating how many hugepages are reserved. The question is, 
-when (and how) do you release that reservation?   My take is that the reservation is associated with 
-the file (for mmap) or segment for SysV.
+I meant if we keep a counter of the number of hugetlb pages available, every
+time we get a call to allocate them, we can avoid prefault by just decrementing
+the counter of "available" pages, and fault them in later, just like the existing
+strict-overcommit code does, and we'll never fail to allocate. If we're doing
+*strict* NUMA bindings, it does need to be a little more complex, in that 
+things will need to remember which node they're "pre-allocated" from. The fact
+that the "overcommit" code *prevents* overcommit is probably not helping the
+discussion's clarity ;-)
 
-For example, program A mmap()'s a hugetlbfs file, but only touches part of the pages.  Program B 
-then mmap()'s the same file with the same size, etc.  When program B does the mmap() the previous 
-reservation should still be in place, right?  (The file is persistent in the page cache even if it 
-does not persist over reboot, so the 2nd program is exepecting to see the data that the first 
-program put there.)
+> (Once again, if this is obvious to all, I apologize and we can dump the last 
+> 4 paragraphs into the bit bucket with no known effect on entropy in this 
+> universe, at least.)
 
-Ditto for a SysV segement.
+Well, above is what *I* meant, and I *think* roughly what you meant. But probably
+best to clarify ;-)
 
-So one can't release the reservation when the current process doing the mmap() goes away, one has to 
-release the reservation when the file/segment is deleted.  Since both mmap() and shmget() create an 
-inode, and the inode is released by hugetlbfs_drop_inode() and friends, it seemed simplest to put 
-the size of the mapped object's reservation in the inode.
+>>> Since the reservation belongs to the mapped object (file or segment), 
+>>> I've been storing the current file/segments's reservation in the file 
+>>> system dependent part of the inode.  That way, it is easily accessible 
+>>> when the hugetlbfs file or SysV segment is removed and we can reduce 
+>>> the total number of reserved pages by that file's reservation at that 
+>>> time.  This also allows us to handle the reservation in the absence 
+>>> of a vma, as per Andy'c comment below.
+>> 
+>> 
+>> Do we need to store it there, or is one central pool number sufficient?
+>> I would have thought it was ...
+> 
+> Yes, there is a central pool number indicating how many hugepages are reserved. 
+> The question is, when (and how) do you release that reservation?   My take is 
+> that the reservation is associated with the file (for mmap) or segment for SysV.
 
-The global count of reserved pages (the "central pool number" in your note), is incremented at 
-mmap() time (well, actually done by hugetlbfs_file_mmap() for both mmap() and shmget()) and 
-decremented at hugetlbfs_drop_inode() time.  If at mmap() time, incrementing the global reservation 
-count would make the global reserved pages count > the number of hugetlbpages, we fail the mmap() 
-with -ENONMEM.
+Ah, I see what you mean. You can't really release it at 0 refcount without changing
+the semantics, in case it's re-used later. Hum. Yes, I see what you mean.
 
-At least that is the way my 2.4.21 code works.  Does that make things clearer?
+> For example, program A mmap()'s a hugetlbfs file, but only touches part of the 
+> pages.  Program B then mmap()'s the same file with the same size, etc.  When 
+> program B does the mmap() the previous reservation should still be in place, right?  
+> (The file is persistent in the page cache even if it does not persist over reboot, 
+> so the 2nd program is exepecting to see the data that the first program put there.)
+> 
+> Ditto for a SysV segement.
 
-> 
->>Admittedly this doesn't alow one to request that hugetlbpages be 
->>overcommitted, or to handle problems caused to the "normal" page 
->>overcommit code due to the presence of hugepages.  But we figure that 
->>anyone that is actually using hugetlb pages is likely to take over 
->>almost all of main memory anyway in a single job, so overcommit 
->>doesn't make much sense to us.
-> 
-> 
-> Seeing as you can't swap them, overcommitting makes no sense to me
-> either ;-)
-> 
-> M.
-> 
-> 
-> 
-> -------------------------------------------------------
-> This SF.Net email is sponsored by: IBM Linux Tutorials
-> Free Linux tutorial presented by Daniel Robbins, President and CEO of
-> GenToo technologies. Learn everything from fundamentals to system
-> administration.http://ads.osdn.com/?ad_id70&alloc_id638&op=click
-> _______________________________________________
-> Lse-tech mailing list
-> Lse-tech@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/lse-tech
-> 
+Yes. I think Adam's patches in my tree support anon mem_map though. That's going to
+get rather tricky ... we run into similar problems as objrmap, I think.
 
--- 
-Best Regards,
-Ray
------------------------------------------------
-                   Ray Bryant
-512-453-9679 (work)         512-507-7807 (cell)
-raybry@sgi.com             raybry@austin.rr.com
-The box said: "Requires Windows 98 or better",
-            so I installed Linux.
------------------------------------------------
+> So one can't release the reservation when the current process doing the mmap() 
+> goes away, one has to release the reservation when the file/segment is deleted.  
+> Since both mmap() and shmget() create an inode, and the inode is released by 
+> hugetlbfs_drop_inode() and friends, it seemed simplest to put the size of the 
+> mapped object's reservation in the inode.
+
+Yup, I'd missed that -  thanks for explaining ;-)
+
+> The global count of reserved pages (the "central pool number" in your note), 
+> is incremented at mmap() time (well, actually done by hugetlbfs_file_mmap() 
+> for both mmap() and shmget()) and decremented at hugetlbfs_drop_inode() time.  
+> If at mmap() time, incrementing the global reservation count would make the 
+> global reserved pages count the number of hugetlbpages, we fail the mmap() 
+> with -ENONMEM.
+> 
+> At least that is the way my 2.4.21 code works.  Does that make things clearer?
+
+A lot ;-)
+
+Thanks,
+
+M.
 
