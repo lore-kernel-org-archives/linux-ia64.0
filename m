@@ -1,40 +1,34 @@
-From: Hanna Linder <hannal@us.ibm.com>
-Date: Wed, 24 Sep 2003 22:26:41 +0000
+From: Paul Jackson <pj@sgi.com>
+Date: Thu, 25 Sep 2003 05:39:44 +0000
 Subject: Re: [Lse-tech] Re: CPUSET Proposal
-Message-Id: <marc-linux-ia64-106444308519469@msgid-missing>
+Message-Id: <marc-linux-ia64-106446847905842@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106444308519469@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106444308519469@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---On Wednesday, September 24, 2003 03:06:08 PM -0700 David Mosberger <davidm@napali.hpl.hp.com> wrote:
-
-> Simon,
-> 
-> Could you please make it VERY clear that the system call numbers the
-> patch is using are NOT OFFICIAL numbers and are therefore likely to
-> change and/or collide unless and until they get accepted into the
-> official tree?
-> 
 > BTW: What do cpusets provide that couldn't be done with user-level
 > tools on top of the existing sched_setaffinity() system call?
-> 
-> Thanks,
-> 
-> 	--david
 
-Blatent plug for the group call:
+I don't see how you can do the migrate_cpuset_processes() from a user
+level daemon.  Just because two tasks happen to be allowed on the same
+CPUs doesn't mean they are in the same cpuset.  The kernel must track,
+across forks, which tasks share a given cpuset.
 
-We have time at the next conference call (Oct 1, 2pm PDT, GMT -0700)
-to discuss this if you all can make it and are interested. The only
-other topic on the agenda is "real time application latency when the
-system is stressed" from Mark Gross at Intel. 
+There are also some resource management capabilities, such as tracking
+and controlling how much memory a cpuset takes, and swapping (with
+possible oom kill) against a cpuset that one can consider extending this
+to, but only if it's in the kernel.  But I'm not ready to push this
+point ... yet.
 
-Simon/Sylvain, let me know if one or both of you would be interested in 
-calling in to give a brief overview and answer questions of this proposal.
-No need for slides or anything, it is a very informal group. If you are
-outside the US I can arrange a toll-free number.
+And the permission model has to remain a rather primitive "root can do
+anything, anyone else can just subset their parent" if it lacks kernel
+hooks to track uid/suid ownership of each cpuset.
 
-Hanna
-
+-- 
+                          I won't rest till it's the best ...
+                          Programmer, Linux Scalability
+                          Paul Jackson <pj@sgi.com> 1.650.933.1373
