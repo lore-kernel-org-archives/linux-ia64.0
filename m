@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Wed, 09 Feb 2005 20:05:47 +0000
+From: James E Wilson <wilson@tuliptree.org>
+Date: Wed, 09 Feb 2005 20:10:13 +0000
 Subject: Re: PATCH: Fix 2.6 kernel ia64 directives
-Message-Id: <20050209200547.GA31021@lucon.org>
+Message-Id: <1107979813.19059.45.camel@aretha.corp.specifixinc.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050202221918.GA7973@lucon.org>
 In-Reply-To: <20050202221918.GA7973@lucon.org>
@@ -10,36 +10,43 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Feb 09, 2005 at 11:35:32AM -0800, David Mosberger wrote:
-> >>>>> On Mon, 07 Feb 2005 12:11:48 -0800, James E Wilson <wilson@tuliptree.org> said:
-> 
->   >> "The assembler ignores the name operands of the
->   >> directive."
-> 
->   Jim> I'd call this is a bug in the manual.
-> 
-> Perhaps.
-> 
->   Jim> Also, I'm told that current IAS gives an error in this case, which is
->   Jim> why gas was modified to do likewise.  Unfortunately, I don't have access
->   Jim> to IAS, or to the HP assembler, so I can not check that.  If this is
->   Jim> wrong, then changing it to a warning certainly makes sense.
-> 
+On Wed, 2005-02-09 at 11:35, David Mosberger wrote:
 > Why should it depend on IAS as to whether GAS does or does not produce
-> an error?  The fact is that GAS has _not_ in the past issued an error
+> an error?
 
-FYI, I checked the current IAS, the name after endp IS ignored by IAS.
+I was wrong about IAS giving an error in this case (.proc/.endp).  I
+mentioned this in an earlier mail.  See Jan's response for the
+clarification.
 
+It has always been the goal since the beginning to be compatible with
+IAS.  Unfortunately, the gas IA-64 port was never finished.  There is
+some stuff that was never implemented, some stuff that was incorrectly
+and/or incompletely implemented, and some stuff that is known to be
+buggy.  The gas IA-64 port is suffering from a lack of attention. 
+Fortunately, there is only one major bug, the DV support is fatally
+flawed and has to be rewritten, and at the moment this problem is
+limited by the fact that the gcc predication support is not smart enough
+to emit code that gas can't handle correctly.
+
+Anyways, these gas problems all need to be fixed eventually.  I do want
+to avoid breaking existing code unnecessarily, but it may not be
+possible in all cases.
+
+> The fact is that GAS has _not_ in the past issued an error
 > and it's not acceptable to break existing code for no good reason.
-> Making it a warning is fine, of course.  That will alert people to the
-> fact that they may have an unintentional inconsistency in their code
-> and will let them fix the error at their convenience.  After enough
-> time has elapsed (at least a year), the severity could (and probably
-> should) be raised to an error.
-> 
+> Making it a warning is fine, of course.
 
-I guess Jim is still catching his emails. I will give him a few days
-to go though my ia64 gas patches which deal this very issues.
+I believe there is a good reason for this.  We are talking about
+directives related to unwind info.  Unwind info only gets tested when
+exceptional conditions occur, at which point it is too late to recover. 
+It is important that the assembler give an error if a problem is
+detected, as otherwise a serious latent bug may go unfixed.  I we give a
+warning, then people may not notice it and fix their code.
 
+However, I do understand that there is some inconvenience here.  I have
+no problem with emitting a warning temporarily to give people a chance
+to migrate.  In fact, I believe I will have to use a warning for now
+because these changes break gcc -pg, and this is not easy to fix as it
+will also require glibc changes.  I already have a patch from HJ to do
+this, I just need to review it.
 
-H.J.
