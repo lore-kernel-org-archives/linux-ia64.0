@@ -1,49 +1,98 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 24 Sep 2001 20:32:24 +0000
-Subject: Re: [Linux-ia64] First Step
-Message-Id: <marc-linux-ia64-105590698805246@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Mon, 17 Sep 2001 14:12:34 +0000
+Subject: [Linux-ia64] sigaltstack not working
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-=-="
+Message-Id: <marc-linux-ia64-105590698805189@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805239@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805239@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 21 Sep 2001 13:31:24 -0700, cfk@pacbell.net said:
+--=-=-=
+Content-Type: text/plain; charset=iso-8859-15
+Content-Transfer-Encoding: quoted-printable
 
-  Charles> Gentlemen, please pardon if a newbie for a bit. I have the
-  Charles> hp cd now with the various rpm files (NUE-1_1, NUE_FS-1,
-  Charles> SDI-0_94 & SKI_LINU). I have a reasonable amount of
-  Charles> experience in Linux from the x86 viewpoint, but I would
-  Charles> like to understand IA-64. So, I would appreciate a few
-  Charles> pointers on how to get started.
+The appended program isn't working as expected.  As soon as the stack
+limit is reached it hangs without actually executing the signal handler.
 
-  Charles> Do I try to rpm install these on a X86 system, probably
-  Charles> not.
+Andreas.
 
-Yes, the Ski and NUE RPMS are indeed for x86 systems.  Once installed,
-you can issue the "nue" command and that will put you in a virtual
-environment that looks like an IA-64 machine).
+--=20
+Andreas Schwab                                  "And now for something
+Andreas.Schwab@suse.de				completely different."
+SuSE Labs, SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
 
-  Charles> I don't yet know how to get an IA-32 system up and
-  Charles> running.
+--=-=-=
+Content-Disposition: attachment; filename=sigaltstack.c
 
-Note that IA-32 is just a different name for x86.  They are the same
-thing.
+#include <stdlib.h>
+#include <stdio.h>
+#include <signal.h>
+#include <setjmp.h>
+#include <sys/types.h>
+#include <sys/resource.h>
 
-  Charles> Assuming I can use one of my existing computers to learn
-  Charles> how to do IA-32 and IA-64 work, what is the series of
-  Charles> steps.
+sigjmp_buf mainloop;
 
-Since you already know x86, there is nothing you need to do to learn
-IA-32.
+volatile int pass = 0;
 
-As for IA-64: NUE and Ski will allow you to do just that.  Since it's
-based on a simulator, it will be too slow to run complicated apps, but
-for learning the architecture and development and debugging, it's
-quite useful.  We even continue to use it for Linux kernel
-development.
+void
+stackoverflow_handler (int sig)
+{
+  pass++;
+  printf ("Stack overflow %d caught.\n", pass);
+  siglongjmp (mainloop, pass);
+}
 
-	--david
+int
+recurse (int n)
+{
+  printf ("%p\n", &n);
+  if (n >= 0)
+    return n + recurse (n + 1);
+  else
+    return 0;
+}
+
+int
+main ()
+{
+  char mystack[16384];
+  struct rlimit rl;
+  stack_t ss;
+  struct sigaction action;
+
+  rl.rlim_cur = rl.rlim_max = 0x100000;	/* 1 MB */
+  setrlimit (RLIMIT_STACK, &rl);
+  ss.ss_sp = mystack;
+  ss.ss_size = sizeof (mystack);
+  ss.ss_flags = 0;
+  if (sigaltstack (&ss, (stack_t *) 0) < 0)
+    exit (0);
+
+  action.sa_handler = stackoverflow_handler;
+  action.sa_flags = SA_ONSTACK;
+  sigemptyset (&action.sa_mask);
+  if (sigaction (SIGSEGV, &action, 0) < 0)
+    exit (0);
+
+  switch (sigsetjmp (mainloop, 1))
+    {
+    case 0:
+    case 1:
+      printf ("Starting recursion pass %d.\n", pass + 1);
+      recurse (0);
+      printf ("no endless recursion?!\n");
+      exit (1);
+
+    case 2:
+      printf ("Test passed.\n");
+      exit (0);
+
+    default:
+      abort ();
+    }
+}
+
+--=-=-=--
 
