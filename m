@@ -1,35 +1,20 @@
-From: Chris Ahna <christopher.j.ahna@intel.com>
-Date: Sat, 29 Sep 2001 01:45:21 +0000
-Subject: Re: [Linux-ia64] Re: kernel update (relative to 2.4.10)
-Message-Id: <marc-linux-ia64-105590698805276@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 14 Sep 2001 23:14:26 +0000
+Subject: [Linux-ia64] Re: Status on ioremap patch
+Message-Id: <marc-linux-ia64-105590698805186@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205855@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205855@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Sep 28, 2001 at 09:13:24AM -0700, David Mosberger wrote:
-> Chris do you have any updates pending?
+>>>>> On Fri, 14 Sep 2001 23:57:03 +0200, Steffen Persvold <sp@scali.no> said:
 
-Well, I do now :-)  On ia64 we want to map even AGP memory as
-writecombined.  The appended patch should fix the rendering problems
-Bill reported earlier.
+  Steffen> So, how about that patch guys ? Any chance you'll put it
+  Steffen> into the mainstream IA64 kernel ???
 
-Chris
+I haven't looked at it yet, but am planning to do so as part of the
+2.4.10 patch.
 
-
---- linux-2.4.10-ia64-010924-pristine/drivers/char/drm/drm_vm.h	Wed Sep 26 09:16:03 2001
-+++ linux-2.4.10-ia64-010924-dev/drivers/char/drm/drm_vm.h	Fri Sep 28 18:40:01 2001
-@@ -524,8 +524,8 @@
-                 	 */
-                 	vma->vm_ops = &DRM(vm_ops);
- #if defined(__ia64__)
--			if (map->type != _DRM_AGP)
--				vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-+			vma->vm_page_prot +			                pgprot_writecombine(vma->vm_page_prot);
- #endif
- 			goto mapswitch_out;
- 		}
+	--david
 
