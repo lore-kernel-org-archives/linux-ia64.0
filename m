@@ -1,7 +1,7 @@
 From: "Seth, Rohit" <rohit.seth@intel.com>
-Date: Fri, 25 Feb 2005 20:47:56 +0000
+Date: Fri, 25 Feb 2005 21:15:05 +0000
 Subject: RE: [patch]:MC/MT enabling/identification for IA-64
-Message-Id: <01EF044AAEE12F4BAAD955CB7506494303134254@scsmsx401.amr.corp.intel.com>
+Message-Id: <01EF044AAEE12F4BAAD955CB75064943031342C3@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <01EF044AAEE12F4BAAD955CB7506494303077707@scsmsx401.amr.corp.intel.com>
 In-Reply-To: <01EF044AAEE12F4BAAD955CB7506494303077707@scsmsx401.amr.corp.intel.com>
@@ -10,33 +10,40 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ashok Raj <mailto:ashok.raj@intel.com> wrote on Friday, February 25,
-2005 12:27 PM:
+David Mosberger <> wrote on Friday, February 25, 2005 12:47 PM:
 
-> On Fri, Feb 25, 2005 at 12:12:34PM -0800, Seth, Rohit wrote:
->> 
->>    Will following work:
->> 
->>    Physical id: Identifying the unique physical package id for LEU
+>>>>>> On Fri, 25 Feb 2005 12:12:34 -0800, "Seth, Rohit"
+>>>>>> <rohit.seth@intel.com> said: 
 > 
-> The spec states that physical processor id or (die id) is not required
-> to be unique.  Are you depending on this being unique?
+>   Rohit> "Cpu Cores" identifying the number of cores in a physical
+>   Rohit> package is present in x86_64 and not there in i386 tree.
+> 
+>   Rohit> Will following work:
+> 
+>   Rohit> Physical id: Identifying the unique physical package id for
+>   LEU Rohit> Core id: Identifying the unique core id on that specific
+>   physical Rohit> package
+>   Rohit> Siblings: Identifying the total number LEUs on that physical
+> package. 
+> 
+> Well, I think it would be useful if we can look at /proc/cpuinfo and
+> get a mapping from Linux CPU number to "topological address" (socket
+> id, core id, thread id).  With that plus taskset, it would be very
+> easy to run a test with, for example, two processes pinned to the two
+> threads on the same core or pinned to separate cores, etc.
 > 
 
-SAL_PHYSICAL_ID_INFO (in conjunction with PAL_LOGICAL_TO_PHYSICAL) is
-guranteed to give unique values for each package in a system.
+For pinning a task (or set of tasks) to same core or multiple cores, you
+only need package id and core id.  The thread information is really not
+required.  Right?
 
-> also PAL_LOGICAL_TO_PHYSICAL states that num_log (or total number of
-> logical processors in this die) doesnt necessarily need to be cpp *
-> tpc) 
+>   Rohit> Siblings is the one that apps have already started using on
+> i386. 
+> 
+> What is it being used for?
 >
 
-Siblings will be equal to num_log.
- 
-> just fyi: even if the numbers might be the same in most cases, its
-> possible 
-> that they could be different, because one thread didnt boot due to
-> some 
-> failure)
-> 
+AFAIK, an easy way for apps (for licensing etc.) to find out if and how
+many LEUs are present without doing any other calculation.
 
+-rohit
