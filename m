@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Thu, 06 Nov 2003 20:31:14 +0000
+From: Paul Jackson <pj@sgi.com>
+Date: Fri, 07 Nov 2003 02:06:28 +0000
 Subject: Re: [DMESG] cpumask_t in action
-Message-Id: <marc-linux-ia64-106815119320838@msgid-missing>
+Message-Id: <marc-linux-ia64-106817088009058@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106807117402763@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106807117402763@msgid-missing>
@@ -10,32 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Nov 06, 2003 at 10:56:55AM -0800, Luck, Tony wrote:
-> > That'd cut us down to:
-> > 
-> > > CPU 3: 61 virtual and 50 physical address bits
-> > > CPU 3: nasid 2, slice 2, cnode 1
-> > > CPU 3: base freq 0.000MHz, ITC ratio/2, ITC freq00.000MHz+/--1ppm
-> > > Calibrating delay loop... 2241.08 BogoMIPS
-> > > CPU3: CPU has booted.
-> > > Starting migration thread for cpu 3
-> 
-> Perhaps we could drop printing the number of virtual/physical address
-> bits, and the frequency&ratio information (or maybe just print if they
-> are different from the boot cpu ... which would most likely surprise
-> the kernel in bad ways, and thus be worthy of printing).  That would
-> cut another two lines for all bar one cpu.
+> The BogoMIPS is another which I would think could be eliminated unless
+> it is significantly different from the boot cpu.  Maybe say greater
+> than 10% different.
 
-Do we need the CPU has booted message?  If it fails to boot, we get
-notified.  Can we leave it at that?
+Or just show the min and max:
 
-As far as I can tell, the nasid and slice is fairly useless.  It might
-be helpful, but there should be more user accessible ways of determining
-the topology than using boot messages.
+  BogoMIPS for 64 CPUs range from 2241.08 to 2298.56
 
-The BogoMIPS is another which I would think could be eliminated unless
-it is significantly different from the boot cpu.  Maybe say greater
-than 10% different.
+If someone knows they have 32 CPUs at 1.1 GHz, and 32 CPUs at 1.3 GHz,
+they don't need to see 32 of these listed as >10% out of spec.
 
-With these, the boot has been reduced to one migration thread message
-when a cpu starts and I believe two lines when one fails to start.
+-- 
+                          I won't rest till it's the best ...
+                          Programmer, Linux Scalability
+                          Paul Jackson <pj@sgi.com> 1.650.933.1373
