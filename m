@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 12 Jan 2005 19:32:51 +0000
-Subject: Re: pgprot_writecombine & shub 1.x
-Message-Id: <200501121132.51722.jbarnes@engr.sgi.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 12 Jan 2005 21:54:51 +0000
+Subject: RE: pgprot_writecombine & shub 1.x
+Message-Id: <16869.40107.667336.912445@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200501111200.02504.jbarnes@sgi.com>
 In-Reply-To: <200501111200.02504.jbarnes@sgi.com>
@@ -10,30 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday, January 12, 2005 10:51 am, Jim Hull wrote:
-> Jesse Barnes wrote:
-> > But what about places that unconditionally set the WC bit
-> > regardless of what the EFI memory map says?
->
-> To be blunt - those places are broken, at least from the perspective of the
-> IPF (ia64 if you prefer) architecture.  IPF declares that it is the
-> platform which gets to decide the supported attributes for each address
-> range, and provides the EFI memory map to inform the OS of this support.
->
-> > pci_mmap_page_range does this for
-> > example if the write_combine flag is set on the vma.
-> > I'm looking for a way to abstract out
-> > uses like that, so that shub 1.x systems don't set the bit.
->
-> I'm not really qualified to design the right linux interfaces, but to be
-> IPF compliant, you need to change all such places to first consult the EFI
-> memory map.  Whether you do this once at boot time, on every call, whether
-> to fail an unsupported request or remap the attribute to something the
-> platform can support (e.g., mapping WC to UC), is all up to you.
+>>>>> On Wed, 12 Jan 2005 20:31:30 +0100 (CET), Hugo Kohmann <hugo@dolphinics.no> said:
 
-Thanks for clarifying, that would certainly make things easier from our 
-perspective.  I suppose that potentially makes the pgprot_* calls a bit more 
-expensive, but with the benefit that they won't clash with what EFI tells the 
-kernel about how memory works.
+  Hugo> Is there any new plans to implement support for writecombine
+  Hugo> in kernel space ?
 
-Jesse
+I don't know of anybody who's working on it at the moment.
+
+  Hugo> We have implemented a new socket transport family, AF_SCI,
+  Hugo> that provides UDP/TCP compliant transport over SCI that needs
+  Hugo> writecombine to archieve max througpht and low latency for
+  Hugo> small messages. Large messages can be send using DMA, but
+  Hugo> small messages highly benefit from memory mapped
+  Hugo> transmission....
+
+I think there are two somewhat separate issues here:
+
+ (1) WC mapping of uncachable address-ranges.
+ (2) WC mapping of memory.
+
+(1) isn't much of an issue (at least for today's chips; I think we may
+still be violating the architecture if we end up mapping the same
+address-range both UC and WC, but current chips don't care, AFAIK).
+
+(2) is where things get trickier.  You'd have to make sure that any
+memory that's mapped WC is allocated in granule-sized chunks.  There
+is no support for this at the moment.  I do think it might be
+worthwhile to support this, but don't know of anybody working on it.
+
+	--david
