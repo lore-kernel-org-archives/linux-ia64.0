@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Fri, 17 Jan 2003 21:19:46 +0000
-Subject: Re: [Linux-ia64] Error compiling 2.4.20 for i386
-Message-Id: <marc-linux-ia64-105590709805715@msgid-missing>
+From: "Bahnsen, Bruce" <bruce.bahnsen@intel.com>
+Date: Fri, 17 Jan 2003 22:01:22 +0000
+Subject: RE: [Linux-ia64] Error compiling 2.4.20 for i386
+Message-Id: <marc-linux-ia64-105590709805716@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805709@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805709@msgid-missing>
@@ -10,8 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Ok, so no common kernel source anytime soon. The undefined reference went
+away after a clean build.
+
+Thanks,
+Bruce
+
+-----Original Message-----
+From: Bjorn Helgaas [mailto:bjorn_helgaas@hp.com]
+Sent: Friday, January 17, 2003 1:20 PM
+To: Bahnsen, Bruce; 'linux-ia64@linuxia64.org'
+Subject: Re: [Linux-ia64] Error compiling 2.4.20 for i386
+
+
 > I was under the mistaken impression that the ia64 patch for 2.4.18 and
-> beyond would not break ia32. I am looking for a way to support both ia32 and
+> beyond would not break ia32. I am looking for a way to support both ia32
+and
 > ia64 from a single kernel source. Is there a plan for the ia64 patch to
 > support this model?
 
@@ -36,5 +50,4 @@ to make sure everything was built by the same toolchain, with the same
 options, etc.
 
 Bjorn
-
 
