@@ -1,20 +1,28 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 17 Sep 2003 22:44:20 +0000
-Subject: Re: MINSIGSTKSZ on ia32
-Message-Id: <marc-linux-ia64-106383895924554@msgid-missing>
+From: Patrick Mochel <mochel@osdl.org>
+Date: Tue, 02 Sep 2003 16:17:59 +0000
+Subject: Re: [PATCH] efivars update
+Message-Id: <marc-linux-ia64-106252231223237@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106306553008889@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106306553008889@msgid-missing>
+References: <marc-linux-ia64-106219352715985@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106219352715985@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Monday 08 September 2003 5:56 pm, Arun Sharma wrote:
-> 
-> MINSIGSTKSZ is defined differently for i386 and ia64. This patch improves compatibility with apps which use sigaltstack(2) with sizes between MINSIGSTKSZ_IA32 and MINSIGSTKSZ.
-> 
-> Patches for both 2.4 and 2.6 are attached.
 
-I applied this for 2.4, thanks.
+> > That patch is below. I'll be sending it to Linus once he gets back from
+> > vacation, unless anyone has any serious objections to it. Note that it
+> > completely removes any limitation on the length of a kobject (and sysfs
+> > directory) name.
+> 
+> Why keep another copy of the name?  Why not use kobj->dentry->qstr->name?
+
+The problem is defining it. The dentry is not allocated until the kobject 
+is registered, and we call through to sysfs. That's not so much a problem, 
+but we'd have to pass the name along with the object down to sysfs in 
+order to create the dentry, which would be a bit messy, IMO.
+
+
+	Pat
 
