@@ -1,7 +1,7 @@
 From: Paul Jackson <pj@sgi.com>
-Date: Thu, 25 Sep 2003 05:40:55 +0000
+Date: Thu, 25 Sep 2003 05:44:54 +0000
 Subject: Re: [Lse-tech] CPUSET Proposal
-Message-Id: <marc-linux-ia64-106446852905858@msgid-missing>
+Message-Id: <marc-linux-ia64-106446876705996@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106442121824485@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106442121824485@msgid-missing>
@@ -10,9 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Where's the user level cpuset.h file?  I wasn't able to find
-it so far -- just a few links in the man pages to it, but only
-on some local file system to which I lack access.
+On the pchange man page, an example starts with:
+
+        # pcreate -np 4 --strict
+        new area created with id 2
+
+How does the 'pcreate' invoker know that the new area
+had an id of "2" ?
 
 -- 
                           I won't rest till it's the best ...
