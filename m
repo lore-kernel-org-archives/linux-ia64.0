@@ -1,79 +1,217 @@
-From: Younggyun Koh <young@cc.gatech.edu>
-Date: Thu, 27 May 2004 00:44:52 +0000
-Subject: Re: Installing kernel 2.6.6 on hp zx6000 (fwd)
-Message-Id: <Pine.GSO.4.58.0405262018450.15968@tokyo.cc.gatech.edu>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 14 May 2004 21:25:59 +0000
+Subject: [PATCH] early console registration
+Message-Id: <200405141425.59867.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_nlTpA1C/aOahcM/"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.GSO.4.58.0405251608490.28567@tokyo.cc.gatech.edu>
-In-Reply-To: <Pine.GSO.4.58.0405251608490.28567@tokyo.cc.gatech.edu>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-after upgrading binutils to 2.15.90.x, i got it built! the previous
-version of ld i used was 2.12.x, which is supposed to meet the minimum
-requirement for 2.6 kernels according to the Documentation/Changes, tho.
 
-but i got another problem...:(
+--Boundary-00=_nlTpA1C/aOahcM/
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-for 2.6 kernel, i installed modules-init-tools 0.9.14 like this,
+Here's another patch that just sets the bit corresponding to the boot CPU in 
+the cpu_online_map if we successfully register an early console.  The 
+early_console_setup routine is simple, and I'd expect additions of the form:
 
-./configure
-make moveold
-make
-make install
-./generate-modprobe.conf /etc/modprobe.conf
-cp modprobe.devfs /etc
+...
+#ifdef CONFIG_SGI_L1_SERIAL_CONSOLE
+	{
+		extern int sn_serial_console_early_setup(void);
+		if (!sn_serial_console_early_setup())
+			return 0;
+	}
+#endif
+...
+#ifdef CONFIG_FOO_CONSOLE
+	{
+		extern int foo_early_setup(void);
+		if (!foo_early_setup())
+			return 0;
+	}
+#endif
+...
+etc.
 
-and in the kernel source directory,
+Is this reasonable?  I've tested it on a couple of machines here and it works 
+well.  It's really useful for debugging setup_arch problems.
 
-make modules_install
-depmod 2.6.6
+Thanks,
+Jesse
 
-after doing all this, i rebooted the machine, but i cannot boot with _2.4_
-kernel that was running well before i installed modules-init-tools.
-when Linux starts, it's stuck on "starting acpi daemon" and doesn't
-proceed any more steps.
 
-elilo.conf for kernel 2.6 was probably wrong, so, i cannot boot with
-either of kernels (2.4 and 2.6)....
+--Boundary-00=_nlTpA1C/aOahcM/
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="early-printk-sn-3.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="early-printk-sn-3.patch"
 
-do you have any ideas? did the installation of modules-init-tools
-possibly affect 2.4 settings? is there a way i can skip starting that
-daemon?
+===== arch/ia64/kernel/setup.c 1.70 vs edited =====
+--- 1.70/arch/ia64/kernel/setup.c	Wed Mar 17 04:46:59 2004
++++ edited/arch/ia64/kernel/setup.c	Fri May 14 14:11:29 2004
+@@ -280,6 +280,28 @@
+ }
+ #endif
+ 
++/**
++ * early_console_setup - setup debugging console
++ *
++ * Consoles started here require little enough setup that we can start using
++ * them very early in the boot process, either right after the machine
++ * vector initialization, or even before if the drivers can detect their hw.
++ *
++ * Returns non-zero if a console couldn't be setup.
++ */
++static int __init early_console_setup(void)
++{
++#ifdef CONFIG_SGI_L1_SERIAL_CONSOLE
++	{
++		extern int sn_serial_console_early_setup(void);
++		if(!sn_serial_console_early_setup())
++			return 0;
++	}
++#endif
++
++	return -1;
++}
++
+ void __init
+ setup_arch (char **cmdline_p)
+ {
+@@ -296,6 +318,10 @@
+ #ifdef CONFIG_IA64_GENERIC
+ 	machvec_init(acpi_get_sysname());
+ #endif
++
++	/* If we register an early console, allow CPU 0 to printk */
++	if (!early_console_setup())
++		cpu_set(smp_processor_id(), cpu_online_map);
+ 
+ #ifdef CONFIG_ACPI_BOOT
+ 	/* Initialize the ACPI boot-time table parser */
+===== drivers/char/sn_serial.c 1.11 vs edited =====
+--- 1.11/drivers/char/sn_serial.c	Mon Mar 29 02:48:14 2004
++++ edited/drivers/char/sn_serial.c	Fri May 14 14:00:05 2004
+@@ -229,24 +229,6 @@
+ 	return ia64_sn_console_intr_status() & SAL_CONSOLE_INTR_RECV;
+ }
+ 
+-/* The early printk (possible setup) and function call */
+-
+-void
+-early_printk_sn_sal(const char *s, unsigned count)
+-{
+-	extern void early_sn_setup(void);
+-
+-	if (!sn_func) {
+-		if (IS_RUNNING_ON_SIMULATOR())
+-			sn_func = &sim_ops;
+-		else
+-			sn_func = &poll_ops;
+-
+-		early_sn_setup();
+-	}
+-	sn_func->sal_puts(s, count);
+-}
+-
+ #ifdef DEBUG
+ /* this is as "close to the metal" as we can get, used when the driver
+  * itself may be broken */
+@@ -259,7 +241,15 @@
+ 
+ 	va_start(args, fmt);
+ 	printed_len = vscnprintf(printk_buf, sizeof(printk_buf), fmt, args);
+-	early_printk_sn_sal(printk_buf, printed_len);
++	if (!sn_func) {
++		if (IS_RUNNING_ON_SIMULATOR())
++			sn_func = &sim_ops;
++		else
++			sn_func = &poll_ops;
++
++		early_sn_setup();
++	}
++	sn_func->sal_puts(printk_buf, printed_len);
+ 	va_end(args);
+ 	return printed_len;
+ }
+@@ -941,6 +931,45 @@
+  */
+ 
+ #ifdef CONFIG_SGI_L1_SERIAL_CONSOLE
++
++/*
++ * Very simple early output routine.  Assumes sn_func operation structure
++ * has arlready been setup by sn_serial_console_early_setup().
++ */
++static void __init
++sn_sal_console_write_early(struct console *co, const char *s, unsigned count)
++{
++	sn_func->sal_puts(s, count);
++}
++
++static struct console sal_console_early __initdata = {
++	.name = "sn_sal",
++	.write = sn_sal_console_write_early,
++	.flags = CON_PRINTBUFFER,
++	.index  = -1,
++};
++
++/*
++ * Register a console early on...
++ */
++int __init
++sn_serial_console_early_setup(void)
++{
++	if (!ia64_platform_is("sn2"))
++		return -1;
++
++	if (IS_RUNNING_ON_SIMULATOR())
++		sn_func = &sim_ops;
++	else
++		sn_func = &poll_ops;
++
++	early_sn_setup(); /* Find SAL entry points */
++
++	register_console(&sal_console_early);
++
++	return 0;
++}
++
+ /*
+  * Print a string to the SAL console.  The console_lock must be held
+  * when we get here.
+@@ -998,18 +1027,10 @@
+ 	return sn_sal_driver;
+ }
+ 
+-static int __init
+-sn_sal_console_setup(struct console *co, char *options)
+-{
+-	return 0;
+-}
+-
+-
+ static struct console sal_console = {
+ 	.name = "ttyS",
+ 	.write = sn_sal_console_write,
+ 	.device = sn_sal_console_device,
+-	.setup = sn_sal_console_setup,
+ 	.index = -1
+ };
+ 
+@@ -1020,6 +1041,7 @@
+ 		sn_sal_switch_to_asynch();
+ 		DPRINTF("sn_sal_serial_console_init : register console\n");
+ 		register_console(&sal_console);
++		unregister_console(&sal_console_early);
+ 	}
+ 	return 0;
+ }
 
-thank you very much,
-
-			-Younggyun Koh (young@cc.gatech.edu)
-
-On Wed, 26 May 2004, H. J. Lu wrote:
-
-> On Wed, May 26, 2004 at 08:46:19AM -0400, Younggyun Koh wrote:
-> > > > 3. i got the link error when i build the kernel
-> > > >
-> > > > bash-2.05$ make CROSS_COMPILE=/opt/gcc-3.3.3/usr/local/bin/
-> > >
-> > > Can you add "V=1" parameter so we can see the commands?
-> >
-> >         /opt/gcc-3.3.3/usr/local/bin/ld  -static -T
-> > arch/ia64/kernel/vmlinux.lds.s arch/ia64/kernel/head.o arch/ia64/kernel/init_task.o   init/built-in.o
-> > --start-group  usr/built-in.o  arch/ia64/kernel/built-in.o  arch/ia64/mm/built-in.o
-> > arch/ia64/ia32/built-in.o  arch/ia64/dig/built-in.o  kernel/built-in.o  mm/built-in.o
-> > fs/built-in.o ipc/built-in.o  security/built-in.o  crypto/built-in.o  lib/lib.a
-> > arch/ia64/lib/lib.a  lib/built-in.o  arch/ia64/lib/built-in.o  drivers/built-in.o
-> > sound/built-in.o  arch/ia64/pci/built-in.o  arch/ia64/hp/common/built-in.o
-> > arch/ia64/hp/zx1/built-in.o arch/ia64/hp/sim/built-in.o  arch/ia64/sn/built-in.o  net/built-in.o
-> > --end-group  -o .tmp_vmlinux1
-> > /opt/gcc-3.3.3/usr/local/bin/ld: final link failed: File truncated
-> > make: *** [.tmp_vmlinux1] Error 1
-> >
->
-> Which linker are you using? I suggest get the current one from
->
-> http://www.kernel.org/pub/linux/devel/binutils/
->
-> It may fix your problem or tell you more about why it fails.
->
->
-> H.J.
->
+--Boundary-00=_nlTpA1C/aOahcM/--
