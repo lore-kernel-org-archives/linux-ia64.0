@@ -1,94 +1,111 @@
-From: "Egan Ford" <egan@sense.net>
-Date: Thu, 17 Jan 2002 19:23:58 +0000
-Subject: RE: [Linux-ia64] Interactive installation with PXE booting
-Message-Id: <marc-linux-ia64-105590698805875@msgid-missing>
+From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
+Date: Wed, 16 Jan 2002 03:02:38 +0000
+Subject: [Linux-ia64] [BUG] Interrupt source override (Re: ACPI power button events)
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------_3C44E7E8F8540105F1E8_MULTIPART_MIXED_"
+Message-Id: <marc-linux-ia64-105590698805843@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805871@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805871@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-prompt
-timeoutP
-default=install
+--------_3C44E7E8F8540105F1E8_MULTIPART_MIXED_
+Content-Type: text/plain; charset="US-ASCII"
+Content-Transfer-Encoding: 7bit
 
-image=vmlinuz
-	label=install
-	read-only
-	initrd=ramdisk.img
+On BigSur, there's an interrupt source override record for IRQ9 (SCI)
+in ACPI table and the kernel should set it correct.
+But the current code doesn't reprogram IO-SAPIC correctly and set
+interrupt handler type, so the SCI interrupts were never delivered
+to running CPUs.
 
-Works, if you use the vmlinuz from CD/kernels and the ramdisk.img from
-CD/images with RH7.1.  I have not receive my 7.2 CDs yet so I have not
-tested.
+This patch fixes this problem.  This is against 2.4.17 + 011226 ia64
+patch (only affects arch/ia64/kernel/iosapic.c and acpi.c).
 
-> -----Original Message-----
-> From: Christopher D. Maestas [mailto:cdmaest@sandia.gov]
-> Sent: Thursday, January 17, 2002 11:20 AM
-> To: Egan Ford
-> Cc: linux-ia64@linuxia64.org
-> Subject: [Linux-ia64] Interactive installation with PXE booting
->
->
-> Has anyone been able to write an elilo.conf that allows for an interactive
-> network installation?  For example in pxelinux.cfg/default I can do:
-> ---
-> label vgainteractiverh72
->         kernel vmlinuz.rh72
->         append vga=extended root=/dev/ram0 initrd=initrd.img.rh72
-> console=tty0
-> ---
->
-> I tried in elilo.conf:
-> ---
-> prompt
-> timeoutP
-> default=localdisk
-> verbose=5
->
-> image=vmlinuz.rh72-ia64
->         label=vgainteractiveia64
->         read-only
->         append = "vga=extended console=tty0"
-> ---
->
-> And them type in vgainteractiveia64 when prompted, but the kernel
-> panics because
-> I didn't append a root option.  I've tried root=/dev/ram0 and that doesn't
-> work either.
->
-> Thanks,
->
-> On Thu, 17 Jan 2002, Egan Ford wrote:
->
-> > prompt
-> > timeoutP
-> > default=install
-> >
-> > image=vmlinuz
-> > 	append="console=ttyS0,9600 ks=nfs:jupiter:/tftpboot/ia64.ks
-> ksdevice=eth0"
-> >  	label=install
-> > 	read-only
-> > 	initrd=ramdisk.img
-> >
-> > This is what I use to boot RH's installation kernel and initrd
-> with elilo
-> > and tftp.
->
-> --
-> Christopher D. Maestas
-> Compaq Federal, LLC
-> Professional Services
-> Consulting Associate III
-> 5951 Jefferson Blvd. N.E.
-> Albuquerque, NM 87109
-> E-Mail: cdmaest@sandia.gov
->         Christopher.Maestas@Compaq.Com
-> Sandia Office Phone: 1.505.284.3643
-> Pager: 1.800.759.8888 PIN # 1278656
-> Fax: 1.505.343.7027
->
+And with this patch, I can cat /proc/acpi/event and see
+"button power 00000080 00000000" now!
+
+On Mon, 14 Jan 2002 16:04:28 -0800
+"KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp> wrote:
+
+> Oh well, our BigSur says
+> 
+>  39:	0	0   IO-SAPIC-edge  acpi
+> 
+> But ACPI specification says the SCI (ACPI interrupt) should be
+> active low, level and shareable.  I'll look into it...
+
+The spec says active low, but the trigger mode is actually
+platform-dependent.  BigSur and AzusA defines IRQ9 override
+as active-high.
+Anyway we should obey what the interrupt override record says...
+
+Thanks,
+-- 
+KOCHI Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+
+--------_3C44E7E8F8540105F1E8_MULTIPART_MIXED_
+Content-Type: application/octet-stream; name="intoverride.diff"
+Content-Disposition: attachment;
+ filename="intoverride.diff"
+Content-Transfer-Encoding: base64
+
+SW5kZXg6IGFjcGkuYwo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09ClJDUyBmaWxlOiAvZGF0YS9jdnNyb290L2xpbnV4L2Fy
+Y2gvaWE2NC9rZXJuZWwvYWNwaS5jLHYKcmV0cmlldmluZyByZXZpc2lvbiAxLjEuMS45CmRpZmYg
+LXUgLXIxLjEuMS45IGFjcGkuYwotLS0gYWNwaS5jCTggRGVjIDIwMDEgMDM6MDM6NDAgLTAwMDAJ
+MS4xLjEuOQorKysgYWNwaS5jCTE2IEphbiAyMDAyIDAyOjQwOjEzIC0wMDAwCkBAIC0xMDEsNyAr
+MTAxLDcgQEAKIGFjcGlfbGVnYWN5X2lycSAoY2hhciAqcCkKIHsKIAlhY3BpX2VudHJ5X2ludF9v
+dmVycmlkZV90ICpsZWdhY3kgPSAoYWNwaV9lbnRyeV9pbnRfb3ZlcnJpZGVfdCAqKSBwOwotCXVu
+c2lnbmVkIGxvbmcgcG9sYXJpdHkgPSAwLCBlZGdlX3RyaWdnZXJlZCA9IDA7CisJdW5zaWduZWQg
+bG9uZyBwb2xhcml0eSA9IDAsIHRyaWdnZXIgPSAwOwogCiAJLyoKIAkgKiBJZiB0aGUgcGxhdGZv
+cm0gd2UncmUgcnVubmluZyBkb2Vzbid0IGRlZmluZQpAQCAtMTEwLDE3ICsxMTAsMTAgQEAKIAlp
+ZiAoIWlvc2FwaWNfcmVnaXN0ZXJfbGVnYWN5X2lycSkKIAkJcmV0dXJuOwogCi0Jc3dpdGNoIChs
+ZWdhY3ktPmZsYWdzKSB7Ci0JICAgICAgY2FzZSAweDU6CXBvbGFyaXR5ID0gMTsgZWRnZV90cmln
+Z2VyZWQgPSAxOyBicmVhazsKLQkgICAgICBjYXNlIDB4NzogcG9sYXJpdHkgPSAwOyBlZGdlX3Ry
+aWdnZXJlZCA9IDE7IGJyZWFrOwotCSAgICAgIGNhc2UgMHhkOiBwb2xhcml0eSA9IDE7IGVkZ2Vf
+dHJpZ2dlcmVkID0gMDsgYnJlYWs7Ci0JICAgICAgY2FzZSAweGY6IHBvbGFyaXR5ID0gMDsgZWRn
+ZV90cmlnZ2VyZWQgPSAwOyBicmVhazsKLQkgICAgICBkZWZhdWx0OgotCQlwcmludGsoIiAgICBB
+Q1BJIExlZ2FjeSBJUlEgMHglMDJ4OiBVbmtub3duIGZsYWdzIDB4JXhcbiIsIGxlZ2FjeS0+aXNh
+X2lycSwKLQkJICAgICAgIGxlZ2FjeS0+ZmxhZ3MpOwotCQlicmVhazsKLQl9Ci0JaW9zYXBpY19y
+ZWdpc3Rlcl9sZWdhY3lfaXJxKGxlZ2FjeS0+aXNhX2lycSwgbGVnYWN5LT5waW4sIHBvbGFyaXR5
+LCBlZGdlX3RyaWdnZXJlZCk7CisJcG9sYXJpdHkgPSBsZWdhY3ktPmZsYWdzICYgMHgwMzsKKwl0
+cmlnZ2VyID0gKGxlZ2FjeS0+ZmxhZ3MgPj4gMikgJiAweDAzOworCQorCWlvc2FwaWNfcmVnaXN0
+ZXJfbGVnYWN5X2lycShsZWdhY3ktPmlzYV9pcnEsIGxlZ2FjeS0+cGluLCBwb2xhcml0eSwgdHJp
+Z2dlcik7CiB9CiAKIC8qCkluZGV4OiBpb3NhcGljLmMKPT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQpSQ1MgZmlsZTogL2Rh
+dGEvY3Zzcm9vdC9saW51eC9hcmNoL2lhNjQva2VybmVsL2lvc2FwaWMuYyx2CnJldHJpZXZpbmcg
+cmV2aXNpb24gMS4xLjEuMTAKZGlmZiAtdSAtcjEuMS4xLjEwIGlvc2FwaWMuYwotLS0gaW9zYXBp
+Yy5jCTggRGVjIDIwMDEgMDM6MTA6NDIgLTAwMDAJMS4xLjEuMTAKKysrIGlvc2FwaWMuYwkxNiBK
+YW4gMjAwMiAwMjo0MDoxMyAtMDAwMApAQCAtNDUzLDI0ICs0NTMsNDMgQEAKICAqIEFDUEkgY2Fs
+bHMgdGhpcyB3aGVuIGl0IGZpbmRzIGFuIGVudHJ5IGZvciBhIGxlZ2FjeSBJU0EgaW50ZXJydXB0
+LiAgTm90ZSB0aGF0IHRoZQogICogaXJxX2Jhc2UgYW5kIElPU0FQSUMgYWRkcmVzcyBtdXN0IGJl
+IHNldCBpbiBpb3NhcGljX2luaXQoKS4KICAqLworCisjZGVmaW5lIFBPTEFSSVRZX0FDVElWRV9I
+SUdICSgweDAxKQorI2RlZmluZSBQT0xBUklUWV9BQ1RJVkVfTE9XCSgweDAzKQorI2RlZmluZSBU
+UklHR0VSX0VER0UJCSgweDAxKQorI2RlZmluZSBUUklHR0VSX0xFVkVMCQkoMHgwMykKKwogdm9p
+ZAogaW9zYXBpY19yZWdpc3Rlcl9sZWdhY3lfaXJxICh1bnNpZ25lZCBsb25nIGlycSwKIAkJCSAg
+ICAgdW5zaWduZWQgbG9uZyBwaW4sIHVuc2lnbmVkIGxvbmcgcG9sYXJpdHksCi0JCQkgICAgIHVu
+c2lnbmVkIGxvbmcgZWRnZV90cmlnZ2VyZWQpCisJCQkgICAgIHVuc2lnbmVkIGxvbmcgdHJpZ2dl
+cikKIHsKIAl1bnNpZ25lZCBpbnQgdmVjdG9yID0gaXNhX2lycV90b192ZWN0b3IoaXJxKTsKKwlp
+cnFfZGVzY190ICppZGVzYyA9IGlycV9kZXNjKHZlY3Rvcik7CisJc3RydWN0IGh3X2ludGVycnVw
+dF90eXBlICppcnFfdHlwZTsKIAogI2lmZGVmIERFQlVHX0lSUV9ST1VUSU5HCiAJcHJpbnRrKCJJ
+U0E6IElSUSAldSAtPiBJT1NBUElDIGlycSAweCUwMnggKCVzLCAlcykgLT4gdmVjdG9yICUwMnhc
+biIsCiAJICAgICAgICh1bnNpZ25lZCkgaXJxLCAodW5zaWduZWQpIHBpbiwKLQkgICAgICAgcG9s
+YXJpdHkgPyAiaGlnaCIgOiAibG93IiwgZWRnZV90cmlnZ2VyZWQgPyAiZWRnZSIgOiAibGV2ZWwi
+LAorCSAgICAgICAocG9sYXJpdHkgPT0gUE9MQVJJVFlfQUNUSVZFX0hJR0gpID8gImhpZ2giIDog
+ImxvdyIsCisJICAgICAgICh0cmlnZ2VyID09IFRSSUdHRVJfRURHRSkgPyAiZWRnZSIgOiAibGV2
+ZWwiLAogCSAgICAgICB2ZWN0b3IpOwogI2VuZGlmCiAKIAlpb3NhcGljX2lycVt2ZWN0b3JdLnBp
+biA9IHBpbjsKIAlpb3NhcGljX2lycVt2ZWN0b3JdLmRtb2RlID0gSU9TQVBJQ19MT1dFU1RfUFJJ
+T1JJVFk7Ci0JaW9zYXBpY19pcnFbdmVjdG9yXS5wb2xhcml0eSA9IHBvbGFyaXR5ID8gSU9TQVBJ
+Q19QT0xfSElHSCA6IElPU0FQSUNfUE9MX0xPVzsKLQlpb3NhcGljX2lycVt2ZWN0b3JdLnRyaWdn
+ZXIgPSBlZGdlX3RyaWdnZXJlZCA/IElPU0FQSUNfRURHRSA6IElPU0FQSUNfTEVWRUw7CisJaW9z
+YXBpY19pcnFbdmVjdG9yXS5wb2xhcml0eSA9IChwb2xhcml0eSA9PSBQT0xBUklUWV9BQ1RJVkVf
+SElHSCkKKwkJPyBJT1NBUElDX1BPTF9ISUdIIDogSU9TQVBJQ19QT0xfTE9XOworCWlmICh0cmln
+Z2VyID09IFRSSUdHRVJfRURHRSkgeworCQlpb3NhcGljX2lycVt2ZWN0b3JdLnRyaWdnZXIgPSBJ
+T1NBUElDX0VER0U7CisJCWlkZXNjLT5oYW5kbGVyID0gJmlycV90eXBlX2lvc2FwaWNfZWRnZTsK
+Kwl9IGVsc2UgeworCQlpb3NhcGljX2lycVt2ZWN0b3JdLnRyaWdnZXIgPSBJT1NBUElDX0xFVkVM
+OworCQlpZGVzYy0+aGFuZGxlciA9ICZpcnFfdHlwZV9pb3NhcGljX2xldmVsOworCX0KKworCS8q
+IHJlcHJvZ3JhbSBJT1NBUElDICovCisJc2V0X3J0ZSh2ZWN0b3IsIChpYTY0X2dldF9saWQoKSA+
+PiAxNikgJiAweGZmZmYpOwogfQogCiB2b2lkIF9faW5pdAo=
+
+--------_3C44E7E8F8540105F1E8_MULTIPART_MIXED_--
 
 
