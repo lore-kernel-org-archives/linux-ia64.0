@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 28 May 2002 22:48:49 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 28 May 2002 23:05:24 +0000
 Subject: RE: [Linux-ia64] NTP broken?
-Message-Id: <marc-linux-ia64-105590701905603@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905605@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905591@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905591@msgid-missing>
@@ -10,44 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I compared a HZ0 kernel with a HZ24 kernel on a BigSur ... it
-made no obvious difference, both kernels lost time at about 38.5
-milliseconds/minute relative to a machine running NTP.
+>>>>> On Tue, 28 May 2002 15:48:49 -0700, "Luck, Tony" <tony.luck@intel.com> said:
 
--Tony
+  Tony> I compared a HZ0 kernel with a HZ24 kernel on a BigSur
+  Tony> ... it made no obvious difference, both kernels lost time at
+  Tony> about 38.5 milliseconds/minute relative to a machine running
+  Tony> NTP.
 
------Original Message-----
-From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
-Sent: Friday, May 24, 2002 7:33 PM
-To: Peter Chubb
-Cc: linux-ia64@linuxia64.org
-Subject: Re: [Linux-ia64] NTP broken?
-
-
->>>>> On Wed, 22 May 2002 13:08:08 +1000, Peter Chubb
-<peter@chubb.wattle.id.au> said:
-
-  Peter> NTP on Linux 2.4.17/IA64 appears broken.  ntpd never seems to
-  Peter> be able to pull the PLL into sync, even after using ntpdate
-  Peter> to set the clock to the correct server time.
-
-  Peter> What are other peoples' experiences with NTP on IA64?
-
-I'm not aware of any problems with NTP keeping in sync with realtime.
-However, I do think the drift on the kernel's time-of-day (without NTP
-synchronization) may be bigger than it could be.  This could be due to
-rounding errors, due to the CPU clock not being accurate enough, or
-something else entirely.  Some time ago, I did look over the code and
-didn't find any obvious rounding errors, but that doesn't mean they
-don't exist.  Actually, one experiment that might be worth doing is to
-set HZ to 100.  This will make maintaining the time-of-day slightly
-easier and since it also happens to be the freq used by x86, makes it
-almost certain that there are no other subtle issues.
+Hmmh, interesting data.  So the rate is 633ppm.  Does anyone know what
+the crystals on the BigSurs are rated at?
 
 	--david
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
