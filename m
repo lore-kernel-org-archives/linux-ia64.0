@@ -1,48 +1,32 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Fri, 24 Sep 2004 06:29:14 +0000
+From: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
+Date: Fri, 24 Sep 2004 20:39:12 +0000
 Subject: Re: [ACPI] [PATCH] PCI IRQ resource deallocation support [2/3]
-Message-Id: <4153BEBA.5030202@jp.fujitsu.com>
+Message-Id: <Pine.LNX.4.60.0409242236330.7426@poirot.grange>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <414FEBDB.2050201@soft.fujitsu.com>
- <200409210857.59457.bjorn.helgaas@hp.com> <4150D458.3050400@jp.fujitsu.com>
- <20040924.145229.108814142.t-kochi@bq.jp.nec.com>
-In-Reply-To: <20040924.145229.108814142.t-kochi-UDFczIW9X1d8UrSeD/g0lQ@public.gmane.org>
+References: <414FEBDB.2050201@soft.fujitsu.com> <200409210857.59457.bjorn.helgaas@hp.com>
+ <4150D458.3050400@jp.fujitsu.com> <20040924.145229.108814142.t-kochi@bq.jp.nec.com>
+ <4153BEBA.5030202@jp.fujitsu.com>
+In-Reply-To: <4153BEBA.5030202@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Takayoshi Kochi <t-kochi-UDFczIW9X1d8UrSeD/g0lQ@public.gmane.org>
-Cc: bjorn.helgaas-VXdhtT5mjnY@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, kaneshige.kenji-tPnzhWqfZ96MLkP6nYsO9A@public.gmane.org, akpm-3NddpPZAyC0@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Cc: Takayoshi Kochi <t-kochi@bq.jp.nec.com>, bjorn.helgaas@hp.com, acpi-devel@lists.sourceforge.net, kaneshige.kenji@soft.fujitsu.com, akpm@osdl.org, greg@kroah.com, len.brown@intel.com, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi Takayoshi,
+On Fri, 24 Sep 2004, Kenji Kaneshige wrote:
 
-Thank you for feedback.
+> Takayoshi Kochi wrote:
+> I'll change my patch to leave dev->irq as it is. And then I'll
+> investigate about defining PCI_UNDEFINED_IRQ.
 
-Takayoshi Kochi wrote:
->> > Why do we need to fiddle with dev->irq?  I think it should
->> > just be undefined after acpi_pci_irq_disable().
->> 
->> I had been considering what the "undefined dev->irq" was.
->> In fact, I had other ideas that was clearing it by zero or
->> -1 (0xffffffff). But I didn't know if we can use these values
->> as a undefined IRQ number. So I'm clearing it by the value
->> which was assigned by PCI core code (pci_read_irq()) before
->> acpi_pci_irq_enable() was called. 
-> 
-> I think it has little sense in restoring value from the configuration
-> space to dev->irq or clearing it.
-> 
-> If we do preventive programming, it may be worth
-> trying to define some magic constant (e.g. PCI_UNDEFINED_IRQ) and
-> panic/BUG when the irq is being enabled.
-> Otherwise, leaving dev->irq as it is would be ok.
+Some platforms (arm, arm26, ppc64) define a macro NO_IRQ:
 
-Hmm, I think you are right.
-I'll change my patch to leave dev->irq as it is. And then I'll
-investigate about defining PCI_UNDEFINED_IRQ.
+include/asm-arm/irq.h:#define NO_IRQ        ((unsigned int)(-1))
+include/asm-arm26/irq.h:#define NO_IRQ      ((unsigned int)(-1))
+include/asm-ppc64/irq.h:#define NO_IRQ      (-1)
 
-In fact, I posted updated patches a little before. I'll re-post
-it with your feedback :-)
-
-Thanks,
-Kenji Kaneshige
+Thanks
+Guennadi
+---
+Guennadi Liakhovetski
 
