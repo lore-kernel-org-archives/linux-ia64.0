@@ -1,36 +1,24 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Fri, 23 Jul 2004 12:29:08 +0000
-Subject: [PATCH] - Update function prototype for sn_io_addr
-Message-Id: <20040723122907.GA7308@sgi.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 23 Jul 2004 17:15:44 +0000
+Subject: Re: [PATCH] - Update function prototype for sn_io_addr
+Message-Id: <16641.18368.354629.689992@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040723122907.GA7308@sgi.com>
+In-Reply-To: <20040723122907.GA7308@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Add "const" to function prototype for sn_io_addr. Cuts boot time
-on simulator in half.
+>>>>> On Fri, 23 Jul 2004 07:29:08 -0500, Jack Steiner <steiner@sgi.com> said:
 
-Signed-off-by: Jack Steiner <steiner@sgi.com>
+  Jack> Add "const" to function prototype for sn_io_addr. Cuts boot
+  Jack> time on simulator in half.
 
+  Jack> Signed-off-by: Jack Steiner <steiner@sgi.com>
 
+  Jack> __attribute__ ((__const__));
 
-Index: linux/include/asm-ia64/sn/sn2/io.h
-=================================--- linux.orig/include/asm-ia64/sn/sn2/io.h
-+++ linux/include/asm-ia64/sn/sn2/io.h
-@@ -9,7 +9,7 @@
- #ifndef _ASM_SN_SN2_IO_H
- #define _ASM_SN_SN2_IO_H
- 
--extern void * sn_io_addr(unsigned long port); /* Forward definition */
-+extern void * sn_io_addr(unsigned long port) __attribute__ ((__const__)); /* Forward definition */
- extern void sn_mmiob(void); /* Forward definition */
- #include <asm/intrinsics.h>
- 
--- 
-Thanks
+I think you're supposed to use __attribute_const__.
 
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
-
+	--david
