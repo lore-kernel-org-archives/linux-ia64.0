@@ -1,39 +1,28 @@
-From: Christian Cotte-Barrot <Christian.Cotte-Barrot@bull.net>
-Date: Wed, 19 Feb 2003 11:55:54 +0000
-Subject: Re: [Linux-ia64] Some Modules fail w/ unresolved cpu_info__per_cpu
-Message-Id: <marc-linux-ia64-105590709805871@msgid-missing>
+From: "Barry Wu" <wu_qingbo1969@hotmail.com>
+Date: Fri, 14 Feb 2003 14:25:00 +0000
+Subject: [Linux-ia64] How linux support ccNUMA machine?
+Message-Id: <marc-linux-ia64-105590709805854@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805176@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805176@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-"Lee, Jung-Ik" wrote:
-> 
-> On 2.5.39,
-> it fails to insmod some modules that refers to "cpu_info__per_cpu".
-> That global IS DEFINE_PER_CPU'd, DECLARE_PER_CPU'd and is in System.map but
-> for some reason it fails to resolve.
-> Have you guys seen this ?
-> 
-> thanks
-> J.I.
-> 
-
-That's an old story but we met the "unresolved symbol cpu_info__per_cpu"
-problem again with e100.o and e1000.o modules on a 2.4.45 release.
-Looks like the EXPORT_SYMBOL macro has problem to generate the
-checksum for symbols defined with *PER_CPU* macros.
-The kernel exports the wrong cpu_info__per_cpu_R__ver_cpu_info__per_cpu
-symbol where "__ver_cpu_info__per_cpu" should be a checksum ?
-Found a cleaner patch than in the past, just replaced
-    EXPORT_SYMBOL(cpu_info__per_cpu);
-  with
-    EXPORT_SYMBOL_NOVERS(cpu_info__per_cpu);
-  in
-    ./arch/ia64/kernel/ia64_ksyms.c
-
-CCB.
-
+SGksIGFsbCwgSSBhbSBuZXcgdG8gY2NOVU1BIG1hY2hpbmUuIEkgYXNrIE1yLiBKb2huIGFib3V0
+IGxpbnV4IG9uClNHSSBBbHRpeCAzMDAwLiBCZWNhdXNlIGhlIGlzIG5vdCByZXNwb25zaWJsZSBm
+b3IgQWx0aXggcHJvbSwKaGUgY291bGQgbm90IGdpdmUgbWUgYW55IGluZm9ybWF0aW9uIGFib3V0
+IGNjTlVNQSBmaXJtd2FyZSB0aGF0CmxpbnV4IHNob3VsZCBkZXBlbmQgb24uIEJlc2lkZXMsIGhl
+IGdpdmUgbWUgYSBsb3Qgb2YgaW5mb3JtYXRpb24KYWJvdXQgbGludXgga2VybmVsLiBJIGRvIG5v
+dCBrbm93IHdoZXRoZXIgaXQgaXMgbGludXggb3IgZmlybXdhcmUKY29tcGxldGUgY2NOVU1BIGlu
+aXRpYWxpemF0aW9uLiBCZWNhdXNlIGluIEFsdGl4LCBpdCBjYW4gc3VwcG9ydAo2NCBjcHVzLCBi
+dXQgZXZlcnkgNCBjcHVzIGlzIGEgQy1icmljay4gSSB0aGluayBldmVyeSBDLWJyaWNrIGhhcwph
+IHByb20uIFRoZXJlZm9yZSwgaXQgaXMgdW5kZXIgZmlybXdhcmUgY29tcGxldGUgNjQgY3B1cyBp
+bml0aWFsaXphdGlvbiAKb3IgbGludXgga2VybmVsIGNvbXBsZXRlLiAKQW5vdGhlciBxdWVzdGlv
+biBpcyBmb3IgSXRhaW51bTIsIHRoZSBzeXN0ZW0gaXMgYm9vdCBmcm9tIDRHLTE2TUIgYWRkcmVz
+cyAKc3BhY2UsIGlmIHRoaXMgUk9NIGFkZHJlc3MgY2FuIGJlIHJlcGxhY2Ugd2l0aCBSQU0gYWRk
+cmVzcyB3aGVuIHN5c3RlbQpzdGFydHVwPyBPdGhlcndpc2UgdGhlcmUgd2lsbCBiZSBtYW55IHBo
+eXNpY2FsIGFkZHJlc3MgaG9sZXMgaW4gdGhlIHN5c3RlbS4KQW0gSSByaWdodD8KSWYgc29tZW9u
+ZSBrbm93cywgcGxlYXNlIGdpdmUgbWUgYSByZXBseS4gVGhhbmtzIGluIGFkdmFuY2UhCgpCYXJy
+eQoKCgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fCs/t08PKwL3nyc/X7rTztcS159fT08q8/s+1zbOhqiBNU04gSG90bWFp
+bKGjICBodHRwOi8vd3d3LmhvdG1haWwuY29tICAKCgo=
