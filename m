@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 03 Mar 2004 22:45:11 +0000
-Subject: RE: [PATCH] more robust halt_light
-Message-Id: <16454.24567.225535.582397@napali.hpl.hp.com>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Wed, 03 Mar 2004 22:56:06 +0000
+Subject: Re: [PATCH] more robust halt_light
+Message-Id: <20040303225606.GA5908@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1078336640.2480.37.camel@patsy.fc.hp.com>
 In-Reply-To: <1078336640.2480.37.camel@patsy.fc.hp.com>
@@ -10,19 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 03 Mar 2004 14:08:00 -0700, Alex Williamson <alex.williamson@hp.com> said:
+On Wed, Mar 03, 2004 at 02:45:11PM -0800, David Mosberger wrote:
+> Can we get rid of the CONFIG option too?  Or do folks who care (too?)
+> much about wake-up latency prefer to turn off a CONFIG option over
+> booting with nohlt?
 
-  Alex> I was curious about that myself, but I thought I remembered
-  Alex> from Stephane that the perf counters didn't really recover
-  Alex> from a PAL_HALT_LIGHT on McKinley.  If that's not the case,
-  Alex> maybe we can move the PAL check into perfmon code, and it can
-  Alex> selectively disable it as it needs via the disable_hlt API.  I
-  Alex> assume there are some cases were perfmon wouldn't need to
-  Alex> disable halt_light on working PAL, so the rev check might not
-  Alex> go away.
+Some people have come to me concerned about the wakeup latency of having
+the halt call in there, and it also looks like the PAL has a bug on our
+platform that causes hangs when we call PAL_HALT_LIGHT (which we're
+tracking down), so I wouldn't mind if the config option stuck around a
+little longer (or was a boot time parameter at least).
 
-Can we get rid of the CONFIG option too?  Or do folks who care (too?)
-much about wake-up latency prefer to turn off a CONFIG option over
-booting with nohlt?
-
-	--david
+Thanks,
+Jesse
