@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Fri, 01 Sep 2000 04:49:16 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Sat, 02 Sep 2000 03:01:21 +0000
 Subject: Re: [Linux-ia64] new toolchain snapshots
-Message-Id: <marc-linux-ia64-105590678205438@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205447@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205422@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205422@msgid-missing>
@@ -10,31 +10,45 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 30 Aug 2000 16:54:29 -0700, 
-Jim Wilson <wilson@cygnus.com> wrote:
->I am making available new toolchain snapshots, based on July FSF gcc sources.
->These snapshots are available from ftp.cygnus.com in pub/ia64-linux.  The
->current snapshot is in the snap-000828 directory.
+	Compiling the 2.4.0-test7 code for fs/nfs/dir.c with this snapshot
+	generates an unresolved reference to __multi3, for no reason that I can
+	see. 
 
-Compiling the 2.4.0-test7 code for fs/nfs/dir.c with this snapshot
-generates an unresolved reference to __multi3, for no reason that I can
-see.  The strange thing is that nm shows the unresolved reference but
-objdump -r does not list it.  BTW, I applied the glibc 2.1.3 patch.
+There is no reference to __multi3.  Only a declaration for it.  The .s file has
+      .globl __multi3
+This causes it to be put in the symbol table where nm can see it, but does
+not result in any relocation for it because we aren't using it.  This should
+be harmless.
 
-This patch stops the toolchain snapshot generating the reference to
-__multi3.  Damned if I know why it works but it does.
-
-Index: 0-test7.6/fs/nfs/dir.c
---- 0-test7.6/fs/nfs/dir.c Thu, 24 Aug 2000 03:29:10 +1000 kaos (linux-2.4/h/b/37_dir.c 1.1.1.4 644)
-+++ 0-test7.6(w)/fs/nfs/dir.c Fri, 01 Sep 2000 15:43:21 +1100 kaos (linux-2.4/h/b/37_dir.c 1.1.1.4 644)
-@@ -807,7 +807,7 @@ static int nfs_sillyrename(struct inode 
- 	static unsigned int sillycounter = 0;
- 	const int      i_inosize  = sizeof(dir_i->i_ino)*2;
- 	const int      countersize = sizeof(sillycounter)*2;
--	const int      slen       = strlen(".nfs") + i_inosize + countersize;
-+	const int      slen       = 4 + i_inosize + countersize;
+	const int      slen       = strlen(".nfs") + i_inosize + countersize;
  	char           silly[slen+1];
- 	struct qstr    qsilly;
- 	struct dentry *sdentry;
 
+As for how we got there, the code is using a dynamic array/variable length
+array.  If the size of the array is not a constant, then we must compute its
+size at runtime so we can allocate it.  The size of the array is not a
+constant because of the strlen call.  We can expand this as a built-in
+function, but the result isn't a constant, it is a register (that holds a
+constant).  Anyways, as far as the compiler is concerned it isn't a constant.
+Internally, gcc computes object sizes as both bits and bytes.  This helps with
+things like bitfields and bit-strings in Pascal like languages.  Since the
+maximum size of an object is 2^64 bytes, a size in bits must be computed as
+a 128 bit value to avoid losing precision.  We don't support 128 values
+directly, so we have to call a libgcc library routine for the multiplication.
+This routine is __multi3.  After generating code, the optimizer quickly figures
+out that the object size is a constant after all, and the call to __multi3
+is optimized away.  However, since we thought we needed the call when first
+generating code, we emitted a declaration for it, because this is the default
+for ELF targets.  This is because some assemblers give an error if you use
+a function or variable before declaring it.  GNU as does not have this problem,
+but the Intel as does.
+
+This problem goes away if you replace the strlen call with a 4, because then
+the object size is obviously a constant, and we don't need run-time code to
+compute its size in bits.
+
+If this really needs to be fixed for some reason, then we could override the
+default definition of ASM_OUTPUT_EXTERNAL_LIBCALL.  We could define it to
+only emit the __multi3 declaration if ias is being used.
+
+Jim
 
