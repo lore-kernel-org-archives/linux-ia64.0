@@ -1,145 +1,59 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Tue, 13 Apr 2004 10:30:04 +0000
-Subject: RE: [PATCH] set_rte() should get iosapic_lock
-Message-Id: <MDEEKOKJPMPMKGHIFAMAMEODDLAA.kaneshige.kenji@jp.fujitsu.com>
+From: Jack Steiner <steiner@sgi.com>
+Date: Fri, 30 Apr 2004 14:44:54 +0000
+Subject: BUG_ON(irqs_disabled()) in smp_call_function - cant boot
+Message-Id: <20040430144454.GA8719@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <MDEEKOKJPMPMKGHIFAMAKELPDLAA.kaneshige.kenji@jp.fujitsu.com>
-In-Reply-To: <MDEEKOKJPMPMKGHIFAMAKELPDLAA.kaneshige.kenji@jp.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi, Benjamin
+There was a BUG_ON(irqs_disabled()) recently added to
+smp_call_function(). 
 
-Thank you for your comments.
+This check is hit during boot. Looks like there is a vfree in
+sg_add that is done with interrupts disabled. This trips the BUG_ON.
 
-> My question is whether it need to be applied to other kernel
-> versions(before ACPI IRQ cleanup patch)?
+The check is valid, but I wonder how many other places will trip the bug
+check.
 
-I think it need to be applied to other kernel version because many
-PCI device drivers call pci_enable_device() and it is also called by
-the PCI hotplug drivers directly or indirectly.
 
-And of course, I believe my patch works with Bjorn's patch.
+Call Trace:
+ [<a000000100019200>] show_stack+0x80/0xa0
+ [<a0000001000402b0>] die+0x1d0/0x2a0
+ [<a0000001000406d0>] ia64_bad_break+0x2f0/0x420
+ [<a000000100011d80>] ia64_leave_kernel+0x0/0x270
+ [<a00000010005d850>] smp_call_function+0x3b0/0x3c0
+ [<a00000010005cc60>] smp_flush_tlb_all+0x40/0x80
+ [<a00000010015b9f0>] unmap_vm_area+0xf0/0x120
+ [<a00000010015c070>] remove_vm_area+0x150/0x1e0
+ [<a00000010015c150>] __vunmap+0x50/0x1e0
+ [<a0000002011ba5f0>] sg_add+0x2d0/0xbe0 [sg]
+ [<a0000001004b4de0>] class_interface_register+0x1e0/0x2a0
+ [<a00000010056bc30>] scsi_register_interface+0x30/0x60
+ [<a00000020114c200>] init_sg+0x140/0x190 [sg]
+ [<a0000001001159c0>] sys_init_module+0x3c0/0x660
+ [<a000000100011be0>] ia64_ret_from_syscall+0x0/0x20
 
-Thanks,
-Kenji Kaneshige
 
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org]On Behalf Of Liu, Benjamin
-> Sent: Tuesday, April 13, 2004 6:07 PM
-> To: Kenji Kaneshige; linux-ia64@vger.kernel.org
-> Subject: RE: [PATCH] set_rte() should get iosapic_lock
->
->
-> Hi, Kenji.
->
-> Lock is used to avoid racing during resource contention. It seems
-> that your patch is just for 2.6.5 which incorporates Bjorn's
-> patch for ACPI IRQ cleanup.
->
-> Here iosapic_lock is used in
-> 1. mask_irq() to protect I/O SAPIC config register write(REG
-> SELECT, and RTE's lower word), iosapic_intr_info
-> read(iosapic_intr_info[vec].low32).
-> 2. unmask_irq() to protect I/O SAPIC config register write(REG
-> SELECT, and RTE's lower word), iosapic_intr_info
-> read(iosapic_intr_info[vec].low32).
-> 3. iosapic_set_affinity() to protect I/O SAPIC config register
-> write(REG SELECT, and RTE's lower/higher words),
-> iosapic_intr_info write(iosapic_intr_info[vec].low32).
->
-> And in set_rte(), your patch intends to protect I/O SAPIC config
-> register write(REG SELECT, and RTE's lower/higher words),
-> iosapic_intr_info write(iosapic_intr_info[vec].low32). Bjorn's
-> patch has defered RTE setting until device driver initialization.
-> So device module loading and "echo 0xff
-> >/proc/irq/xxx/smp_affinity" will cause racing, if without the
-> lock in set_rte().
->
-> My question is whether it need to be applied to other kernel
-> versions(before ACPI IRQ cleanup patch)?
->
-> Thanks,
-> Pingping (Benjamin) Liu
->
->
-> >-----Original Message-----
-> >From: linux-ia64-owner@vger.kernel.org
-> >[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Kenji Kaneshige
-> >Sent: 2004=C4=EA4=D4=C212=C8=D5 20:37
-> >To: linux-ia64@vger.kernel.org
-> >Subject: [PATCH] set_rte() should get iosapic_lock
-> >
-> >Hi,
-> >
-> >Currently set_rte() changes RTE without iosapic_lock held. I guess it
-> >assumes to be called only at the boot time. But set_rte() can be
-> >called by PCI driver not only at the boot time. So I think set_rte()
-> >should get iosapic_lock.
-> >
-> >pci_enable_device(drivers/pci/pci.c)
-> >|
-> >+-> pci_enable_device_bars(drivers/pci/pci.c)
-> >    |
-> >    +-> pcibios_enable_device(arch/ia64/pci/pci.c)
-> >        |
-> >        +-> acpi_pci_irq_enable (drivers/acpi/pci_irq.c)
-> >            |
-> >            +-> iosapic_enable_intr (arch/ia64/kernel/iosapic.c)
-> >                |
-> >                +-> set_rte (arch_ia64/kernel/iosapic.c)
-> >
-> >A following patch fixes this issue.  I'm also attaching this patch
-> >because my mailer replace all tabs with blanks.
-> >
-> >Thanks,
-> >Kenji Kaneshige
-> >
-> >diff -Naur linux-2.6.5/arch/ia64/kernel/iosapic.c
-> >linux-2.6.5-changed/arch/ia64/kernel/iosapic.c
-> >--- linux-2.6.5/arch/ia64/kernel/iosapic.c	2004-04-04
-> >12:37:06.000000000
-> >+0900
-> >+++ linux-2.6.5-changed/arch/ia64/kernel/iosapic.c	2004-04-12
-> >21:08:48.491220447 +0900
-> >@@ -172,7 +172,7 @@
-> > static void
-> > set_rte (unsigned int vector, unsigned int dest, int mask)
-> > {
-> >-	unsigned long pol, trigger, dmode;
-> >+	unsigned long pol, trigger, dmode, flags;
-> > 	u32 low32, high32;
-> > 	char *addr;
-> > 	int rte_index;
-> >@@ -211,11 +211,15 @@
-> > 	/* dest contains both id and eid */
-> > 	high32 =3D (dest << IOSAPIC_DEST_SHIFT);
-> >
-> >-	writel(IOSAPIC_RTE_HIGH(rte_index), addr + IOSAPIC_REG_SELECT);
-> >-	writel(high32, addr + IOSAPIC_WINDOW);
-> >-	writel(IOSAPIC_RTE_LOW(rte_index), addr + IOSAPIC_REG_SELECT);
-> >-	writel(low32, addr + IOSAPIC_WINDOW);
-> >-	iosapic_intr_info[vector].low32 =3D low32;
-> >+	spin_lock_irqsave(&iosapic_lock, flags);
-> >+	{
-> >+		writel(IOSAPIC_RTE_HIGH(rte_index), addr +
-> >IOSAPIC_REG_SELECT);
-> >+		writel(high32, addr + IOSAPIC_WINDOW);
-> >+		writel(IOSAPIC_RTE_LOW(rte_index), addr +
-> >IOSAPIC_REG_SELECT);
-> >+		writel(low32, addr + IOSAPIC_WINDOW);
-> >+		iosapic_intr_info[vector].low32 =3D low32;
-> >+	}
-> >+	spin_unlock_irqrestore(&iosapic_lock, flags);
-> > }
-> >
-> > static void
-> >
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+sg_add(struct class_device *cl_dev)
+{
+        write_lock_irqsave(&sg_dev_arr_lock, iflags);
+        if (sg_nr_dev >= sg_dev_max) {  /* try to resize */
+                write_unlock_irqrestore(&sg_dev_arr_lock, iflags);
+                ...
+                write_lock_irqsave(&sg_dev_arr_lock, iflags);
+                ...
+                vfree((char *) sg_dev_arr);                                                                                                               
+        }                                                                                                                                                               
+        ...
+}
+
+-- 
+Thanks
+
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
 
