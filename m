@@ -1,7 +1,7 @@
 From: gowda_avinash@emc.com
-Date: Fri, 03 Sep 2004 12:11:06 +0000
-Subject: RE: compiling 2.4.21 vanilla kernel
-Message-Id: <50C05B7AA7D6924FB5E384EF14BC647B0DB8D4@inba1mx2.corp.emc.com>
+Date: Fri, 03 Sep 2004 21:29:28 +0000
+Subject: FW: compiling 2.4.21 vanilla kernel
+Message-Id: <50C05B7AA7D6924FB5E384EF14BC647B0DB8D9@inba1mx2.corp.emc.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <50C05B7AA7D6924FB5E384EF14BC647B0DB8C7@inba1mx2.corp.emc.com>
 In-Reply-To: <50C05B7AA7D6924FB5E384EF14BC647B0DB8C7@inba1mx2.corp.emc.com>
@@ -9,6 +9,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
 
 
 
