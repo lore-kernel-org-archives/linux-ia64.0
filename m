@@ -1,53 +1,36 @@
-From: "Adriano Galano" <adriano@satec.es>
-Date: Mon, 14 Apr 2003 15:20:09 +0000
-Subject: RE: [Linux-ia64] zx2000  monitor
-Message-Id: <marc-linux-ia64-105590723705495@msgid-missing>
+From: Chandra Kapate <cs_kapate@yahoo.com>
+Date: Fri, 04 Apr 2003 17:50:16 +0000
+Subject: [Linux-ia64] A clarification about sys32_execve/ia32_execve
+Message-Id: <marc-linux-ia64-105590723705421@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705491@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705491@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi:
+Hi,
+I was looking at how execve syscalls work wrt to 32/64
+syscalls. I have a basic question. I appreciate if
+some once can clarify. I apologize if I am overlooking
+some thing very obvious.
 
->
-> On Mon, Apr 14, 2003 at 08:52:43AM -0600, Alex Williamson wrote:
-> >    Unlikely.  zx2000 requires a plugin graphics adapter.  Typically
-> > this would be an AGP card in slot 2.  All the AGP cards available
-> > with the system should have a standard 15 pin VGA connector and/or
-> > a DVI connector.  If your graphics card only has DVI connectors,
-> > you can get DVI to VGA converter cables.  These usually come with
-> > the card.  AFAIK, EVC is/was only used on parisc hardware.
->
-> Ah, I didn't realise they were different connectors!  You can
-> understand
-> my confusion if you look at the pictures:
->
-> http://www.networktechinc.com/dvi.html
->
+The ia32_execve (in ia32_entry.S) sets up out0, out1,
+out2 and out3 before invoking sys32_execve. The out3
+is setup for regs. But, in sys32_execve, the regs
+is set locally using 9th parameters. I can see how
+the regs is set using 9th parameter. I don't 
+understand  why is set again in sys32_execve
+when it is already set in out3 in ia32_execve and 
+could have used as 4th parameter? Does args mis-match 
+between ia32_execve and sys32_execve matter? 
+OTH, sys_execve does use the regs set in ia64_execve.
+Sorry, if i am overlooking something.
 
-Is *exactly* the last DVI conector (EVC, or P&D). Where I can get DVI to VGA
-converter cables?
+Thanks,
+Chandra
 
-Regards,
-
--Adriano
-
---
-Adriano M. Galano Diez
-http://www.satec.es
-Phone: (+34) 917 089 000
-CPhone: (+34) 600 990 798
-
-
-> --
-> "It's not Hollywood.  War is real, war is primarily not about
-> defeat or
-> victory, it is about death.  I've seen thousands and
-> thousands of dead bodies.
-> Do you think I want to have an academic debate on this
-> subject?" -- Robert Fisk
-
+__________________________________________________
+Do you Yahoo!?
+Yahoo! Tax Center - File online, calculators, forms, and more
+http://tax.yahoo.com
 
