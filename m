@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Thu, 23 Sep 2004 21:09:55 +0000
-Subject: Re: Uncached memory allocator for ia64.
-Message-Id: <20040923210955.GA5477@lnx-holt.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 23 Sep 2004 22:12:40 +0000
+Subject: RE: Uncached memory allocator for ia64.
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F020ED5E5@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040914151629.GA21118@lnx-holt.americas.sgi.com>
 In-Reply-To: <20040914151629.GA21118@lnx-holt.americas.sgi.com>
@@ -10,49 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Sep 17, 2004 at 09:34:58AM -0500, Robin Holt wrote:
-> 
-> I have done a little testing on the uncached.  I think the problem
-> may be bigger than I originally expected.
 
-> I made a simple driver.  On load, it allocated an entire granule and,
-> I think, correctly did all the flushes called for in the processor
-> manual including the PAL call.  A user could then mmap the entire
-> chunk as uncached and work with it.  I did not get any sort of MCAs
-> from this run.
+>I am not sure what will be acceptable at this point.  Should I write
+>an uncached allocator which grabs the granules at boot time before they
+>are ever initialized for cacheable use?  If so, would it be acceptable
+>to just shrink each efi memory map entry by a command line specified
+>size during the efi_memmap_walk callout?  At this point I am so vague
+>on what I should be doing that I am afraid to do much of anything.
 
-To be a little more specific, I was in section 4.4.6.1 Disabling Prefetch
-and Removing Cacheability.  Jack Steiner made a comment to the effect
-of there were additional steps that he knew someone had determined
-were necessary.  Unfortunately, he is on vacation now.
+We already make adjustments to the efi memory map (to trim sections to
+granule boundaries) ... but another hack on top of the layers of ugliness
+there already is going to make things worse.  Perhaps someday we can
+delete it all and start over.
 
-> 
-> I then started the same app which referenced the first word of each page
-> uncached.  I added a timer interrupt which scanned all the page structs
-> on the node from which the granule was allocated and had a reference
-> to the page inside of an impossible if statement (next to impossible
-> as the machine would have to be up for a large number of years).
-> This, I believe, resulted in the speculation of the cache line dirty.
-> By running this test for about 8 minutes, I was able to cause an MCA
-> due to having both a cached and uncached reference to the same cache
-> line on the FSB.
+Grabbing your memory out of the map before any of the rest of Linux
+ever sees it sounds to be a good idea ... it avoids wasting memory
+for page structures in mem_map that can only get you into trouble
+if anyone ever looks at them.
 
-> Note, I was running all the pages structs for the node and not just
-> the ones for this granule.
+If your allocator only needs a small number of pages from each node, then
+it is possible that you'd be able to feed it the trimmed off scraps
+from incomplete granules, rather than pull a whole granule.  So you
+might want to run your scan through the efi map before anyone else
+messes with it.
 
-> Based on this test, I was wondering if it is safe to reuse a granule
-> and leave the page structs in place.  Is this test representative
-> of events which could happen?  Can we destroy the page structs on a
-> running system?
-
-> Thank you in advance for any direction anybody can give me.
-
-I am not sure what will be acceptable at this point.  Should I write
-an uncached allocator which grabs the granules at boot time before they
-are ever initialized for cacheable use?  If so, would it be acceptable
-to just shrink each efi memory map entry by a command line specified
-size during the efi_memmap_walk callout?  At this point I am so vague
-on what I should be doing that I am afraid to do much of anything.
-
-Thanks again,
-Robin Holt
+-Tony
