@@ -1,7 +1,7 @@
 From: Jesse Barnes <jbarnes@sgi.com>
-Date: Mon, 08 Oct 2001 23:55:30 +0000
+Date: Mon, 08 Oct 2001 23:57:34 +0000
 Subject: [Linux-ia64] Re: prctl patch for fpu faults
-Message-Id: <marc-linux-ia64-105590698805305@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805306@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805302@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805302@msgid-missing>
@@ -10,23 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Sure, ok.  Would you like me to submit a new patch that includes the rate
-limiting stuff as the default or do you just wanna hack that stuff back
-in?
+Err... maybe an ALLPRINT option would be nice instead?  Our apps guys were
+requesting that they be given all the fault messages and ip's.  The
+current behavior could be the default though.
 
-Thanks,
 Jesse
 
-On Mon, 8 Oct 2001, David Mosberger wrote:
+On Mon, 8 Oct 2001, Jesse Barnes wrote:
+
+> Sure, ok.  Would you like me to submit a new patch that includes the rate
+> limiting stuff as the default or do you just wanna hack that stuff back
+> in?
 > 
-> I feel pretty strongly that we should handle fpswa faults the same way
-> as unaligned faults.  Given that we rate limit the unaligned faults,
-> I'd prefer to rate limit fpswa as well.  Of course, if you think you'd
-> want to debug more than 5 faults at a time, you could change the
-> tuning parameters (allowing for longer bursts, while keeping the
-> logging rate the same).
+> Thanks,
+> Jesse
 > 
-> 	--david
+> On Mon, 8 Oct 2001, David Mosberger wrote:
+> > 
+> > I feel pretty strongly that we should handle fpswa faults the same way
+> > as unaligned faults.  Given that we rate limit the unaligned faults,
+> > I'd prefer to rate limit fpswa as well.  Of course, if you think you'd
+> > want to debug more than 5 faults at a time, you could change the
+> > tuning parameters (allowing for longer bursts, while keeping the
+> > logging rate the same).
+> > 
+> > 	--david
+> > 
+> 
 > 
 
 
