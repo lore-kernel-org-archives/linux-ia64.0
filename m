@@ -1,7 +1,7 @@
-From: "Siddha, Suresh B" <suresh.b.siddha@intel.com>
-Date: Fri, 24 Oct 2003 20:25:05 +0000
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 24 Oct 2003 20:36:32 +0000
 Subject: RE: Itanium2@900MHz slower than alpha@666MHz ?
-Message-Id: <marc-linux-ia64-106702746913293@msgid-missing>
+Message-Id: <marc-linux-ia64-106702782513709@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106700871121653@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106700871121653@msgid-missing>
@@ -10,18 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> 
-> On Fri, Oct 24, 2003 at 08:55:17PM +0200, Ionut Georgescu wrote:
-> > Thanks, but I still need to learn about this kind of optimization.
-> > After running the program I don't get any .dpi file. And 
-> the name of the
-> > .dpy file is rather related to the pid of the process than 
-> to the name
-> 
-> Sorry, meant the .dyn file.
-> 
+>> One other neat thing about Itanium architecture is the capability of
+>> it's performance counter.  It has capability to do cycle accounting
+that
+>> break-down the number of cycles that are lost due to various kinds of
+>> micro-architectural events, it is based on CPU's actual stall cycles
+in
+>> the pipeline so you can see exactly where the stall is coming from to
+>> eliminate any guess work.
+>
+>Are qprof and pfmon enough to do this ?
 
-You need to use profmerge to convert *.dyn into pgopti.dpi information. Name of the *.dyn file is related to the pid because it will enable collecting information from multiple/parallel runs.
+Yes.
 
-thanks,
-suresh
+>> See electron compiler user's guide for PGO methodology:
+>>
+http://www.intel.com/software/products/compilers/c60l/resources/c_ug_lnx
+>> .pdf
+>
+>Is this the same for 7.x ?
+
+I think so.
+
+- Ken
