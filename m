@@ -1,30 +1,33 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 23 Mar 2004 21:57:02 +0000
-Subject: RE: Question about ia64 linux
-Message-Id: <16480.45742.317088.475004@napali.hpl.hp.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 22 Mar 2004 03:04:34 +0000
+Subject: 2.6.5-rc2 lots of warnings for dma_error
+Message-Id: <5631.1079924674@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <BAY14-F301ImxoKYUVs0007e432@hotmail.com>
-In-Reply-To: <BAY14-F301ImxoKYUVs0007e432@hotmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sun, 21 Mar 2004 22:13:23 -0800, "Luck, Tony" <tony.luck@intel.com> said:
+2.6.5-rc2 generic build, lots of warnings for dma_error.  Latest patch from
+http://www.kernel.org/pub/linux/kernel/ports/ia64/v2.6/testing/cset/cset-1.1661.1.156-to-1.1668.txt.gz
+makes no difference.
 
-  Tony> The software developers manual covers everything that
-  Tony> you need to know.
+In file included from include/asm/pci.h:58,
+                 from include/linux/pci.h:720,
+                 from fs/compat_ioctl.c:58,
+                 from arch/ia64/ia32/ia32_ioctl.c:15:
+include/asm-generic/pci-dma-compat.h: In function `pci_dma_error':
+include/asm-generic/pci-dma-compat.h:104: warning: implicit declaration of function `dma_error'
 
-True, but if you modify code in such a way that it affects a
-procedure's call-frame, then you need to patch the unwind info as
-well, and that's not discussed in these manuals.  The Software
-Convention and Runtime Architecture does discuss unwind info, but
-doesn't directly address the issue of runtime-generated code.  The
-libunwind API (http://www.hpl.hp.com/research/linux/libunwind/) has
-support for (efficiently) describing runtime-generated code but, alas,
-this API isn't used in the kernel yet.  And even if it were, it's
-unlikely the dynamic unwind info support would be enabled for the
-kernel (not until someone demonstrates a real need for having a JIT in
-the kernel, at least ;-).
+# grep DMA /build/kaos/2.6.5-rc2-kdb-v4.3-ia64/.config
+CONFIG_BLK_DEV_IDEDMA_PCI=y
+# CONFIG_BLK_DEV_IDEDMA_FORCED is not set
+CONFIG_IDEDMA_PCI_AUTO=y
+# CONFIG_IDEDMA_ONLYDISK is not set
+CONFIG_BLK_DEV_ADMA=y
+CONFIG_HPT34X_AUTODMA=y
+CONFIG_BLK_DEV_IDEDMA=y
+# CONFIG_IDEDMA_IVB is not set
+CONFIG_IDEDMA_AUTO=y
+# CONFIG_DMA_NONPCI is not set
 
-	--david
