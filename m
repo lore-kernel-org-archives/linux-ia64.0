@@ -1,7 +1,7 @@
-From: Bdale Garbee <bdale@gag.com>
-Date: Fri, 18 Apr 2003 14:52:43 +0000
+From: m.delahaye@esiee.fr (Matthieu Delahaye)
+Date: Fri, 18 Apr 2003 15:19:28 +0000
 Subject: Re: [Linux-ia64] swiotlb on rx4610, again
-Message-Id: <marc-linux-ia64-105590723705563@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705565@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705531@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705531@msgid-missing>
@@ -10,31 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-m.delahaye@esiee.fr (Matthieu Delahaye) writes:
+On Fri, Apr 18, 2003 at 08:52:43AM -0600, Bdale Garbee wrote:
+> m.delahaye@esiee.fr (Matthieu Delahaye) writes:
+> 
+> > But the fact this kernel worked without this option and that now it is
+> > required, I'm quite "annoyed" hoping this is not an hardware issue. 
+> 
+> A couple of general suggestions.
+> 
+> [...]
 
-> But the fact this kernel worked without this option and that now it is
-> required, I'm quite "annoyed" hoping this is not an hardware issue. 
+Thanks Bdale for the suggestions. But I think I didn't express correctly the
+main objective of my mail:
 
-A couple of general suggestions.
+I can make by servers running under Linux...
+and I've justed tell I were using Debian stock kernel just for explaining it
+wasn't an home made with a possible error manually inserted, and to tell
+I was sure it was the same kernel I was using before my crash.
 
-The latest ia64 installer CD for Debian is available online via a link on 
-the http://www.debian.org/ports/ia64/ page.  It uses a 2.4.19 kernel build
-that received extensive testing on HP's Itanium 1 and 2 systems.
+My problem is not here. I am just trying to know if someone have
+an hint on the fact my servers behaviour change over the time with the
+same kernel/softwares.
 
-If you're running my binary kernel image packages on a Debian system, then
-I have been suggesting the 2.4.19 kernel images from the 'sid' tree regardless
-of whether you're running stable, testing, or unstable.  I now recommend the
-2.4.20 021210.em18.1 kernels which we have somewhat less experience with, but
-which are starting to feel as stable as the 2.4.19 images, and contain many
-useful updates.
+Sure I can add a more recent kernel and this may work correctly without
+adding kernel options. But If I have an hardware issue, perhaps it is better to know it now than
+latter.
 
-As has already been indicated, any other questions about running the Debian
-distribution on ia64 systems should be addressed to the debian-ia64 list.
-Pointers to the list archives and subscription instructions are available on
-the ports page mentioned above.
+So that's why I've posted here. I just wanted to know if someone else already have noticed that before. No more.
+I was quite busy today so that I didn't have perform further tests with
+different kernel/configurations and debugging to learn more.
 
-Enjoy!
+Best regards,
 
-Bdale
+Matthieu
 
 
