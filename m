@@ -1,86 +1,67 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 08 Jan 2002 09:26:25 +0000
-Subject: [Linux-ia64] can we make anonymous memory non-EXECUTABLE?
-Message-Id: <marc-linux-ia64-105590698805772@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 03 Jan 2002 08:35:30 +0000
+Subject: [Linux-ia64] Re: is casting of function descriptor assignments for ia64 ONLY a good idea?
+Message-Id: <marc-linux-ia64-105590698805734@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805770@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805770@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The traditional intended behavior of Linux is that anonymous memory
-has the EXECUTE permission turned on.  The reason I say "intended"
-behavior is that there appears to be an old bug in the kernel in this
-respect.  Specifically, the ELF data section is normally mapped with
-READ+WRITE permission (no EXECUTE permission).  The initial break
-value starts at the end of the bss segment and if that value does not
-fall on a page boundary (usually it doesn't), it means that the first
-few bytes allocated with sbrk() will NOT be EXECUTABLE.  Now, on x86
-this doesn't matter, because READ permission implies RIGHT permission,
-but on ia64 and any other architecture that has a separate EXECUTE
-permission, this means that programs cannot rely on memory returned by
-malloc() being executable.  There is obviously several ways to fix
-this problem, but I'm wondering whether it's not time to just say NO
-to turning on execute permission by default on anonymous memory.
+On Wed, 2 Jan 2002 21:46:35 -0800, 
+Piet/Pete Delaney <piet@sgi.com> wrote:
+>SUMMARY:
+>
+>	Keith Owens just pointed out that ia64 function descriptor assignments MUST be cast:
+>
+>		 pointer = ((unsigned long *)(&my_printf))[0])
+>
+>	howerver it appears that other platforms MUST NOT be cast.
+>
+>I was wondering if that a good idea. It seems it might require hacking 
+>a lot of existing code.
 
-I discussed this briefly with Linus and his comments are reproduced
-below.  While I see Linus' points, I do think that turning off EXECUTE
-permission on anonymous would improve the security in practice, if not
-in theory.  But I'd be interested in other people's opinion.  Also, as
-a practical matter, we currently have special hacks in the ia64 page
-fault handler that are needed to work around performance problems that
-arise from the fact that we map anonymous memory with EXECUTE rights
-by default.  Those hacks avoid having to flush the cache for memory
-that's mapped executable but never really executed.  So clearly there
-are technical advantages to not turning on EXECUTE permission, even if
-we ignore the security argument.
+The problem only arises if you want to print or store the location of
+the function code.  That is very rare, most of the time you just pass
+function pointers around and let the compiler handle their format.
+Think of a function pointer as an opaque cookie.
 
-What I'm wondering: how do others feel about this issue?  Since x86
-wont be affected by this, I'm especially interested in the opinion of
-the maintainers of non-x86 platforms.
+>Why is this necessary for just ia64? 
 
-It seems to me that for portability reasons, dynamic code generators
-should always do an mmap() call to ensure that the generated code is
-executable.  If we can agree on this as the recommended practice, then
-I don't see much of a problem with not turning on the EXECUTE right by
-default.
+Not just ia64, powerpc 64 as well.  You are assuming that all pointers
+are the same format when that is not guaranteed by the C standard.  On
+most architectures they are the same, you can convert a function
+pointer to a void pointer and back again but it is not defined
+behaviour.
 
-Opinions?
+On IA64 and PPC64 the function pointer does not reference the function
+itself, instead it points to a function descriptor.  The function
+descriptor contains a pointer to the function code plus additional data
+such as a pointer to the global data to be used when the function is
+called.  This is mandated by the architecture software ABI.
 
-	--david
+I had to solve this problem for my dynamic syscall patch[1] because the
+syscall table points directly to the function code in the kernel, not
+to the function descriptor, even on ia64.  I define DYNAMIC_SYSCALL_T
+and DYNAMIC_SYSCALL_FUNCADDR() which are asm specific.  On most
+systems, funcaddr is a noop.  For i386
 
---------------
-Comments by Linus:
+#define DYNAMIC_SYSCALL_T              long
+#define DYNAMIC_SYSCALL_FUNCADDR(f)    (DYNAMIC_SYSCALL_T)(f)
 
-I would say that the BSS has to be mapped the same way brk() maps things.
-They _are_ the same thing, after all - I consider "brk()" to be a system
-call that just dynamically changes the BSS limits.
+but on ia64 it does real work
 
-So I would say that we have a few options:
+#define DYNAMIC_SYSCALL_T              long long
+#define DYNAMIC_SYSCALL_FUNCADDR(f)    ({DYNAMIC_SYSCALL_T *fp = (DYNAMIC_SYSCALL_T *)(f); fp[0];})
 
- - just explicitly make bss/brk() be non-executable, and tell Compaq that
-   if they want to do dynamic code generation they should use an anonymous
-   mapping with MAP_EXEC.
+BTW, the lack of a true descriptor for syscall entries is one reason
+why trying to put syscalls in modules is a non-starter.  The ia64
+syscall handler assumes that all syscall code is in the kernel using
+the constant kernel global data pointer, so there is no need to change
+the environment on a syscall.  But syscalls in modules require a
+different environment and there is nowhere to store the extra data in
+the syscall table.
 
- - make both of them always be executable, and say "this is how x86 does
-   it, security issues don't help", x86 is the Borg, and you _have_ been
-   assimilated.
+[1] http://marc.theaimsgroup.com/?l=linux-kernel&m0902118219570&w=2
 
- - add a per-process flag (that gets copied at fork() and stays alive over
-   exec()) that allows the system to decide between the two above
-   dynamically on a process-per-process basis. We could default to the
-   stricter thing, and people who aren't happy would just make a wrapper
-   executable (no setuid needed) that sets the flag and executes whatever
-   process it wants to run that needs to execute BSS.
 
-Quite frankly, my personal preference is "We are the borg of x86" choice,
-especially on ia64. The security issue with stack smashing etc is a
-complete non-issue: if the program allows a buffer overrun it is insecure
-whether EXEC is set or not.
-
-But I suspect you should talk this over on ia64 lists and possibly people
-like Alan &co. Feel free to quote this email.
-
-			Linus
