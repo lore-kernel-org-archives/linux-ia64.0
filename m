@@ -1,31 +1,53 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 15 Oct 2003 23:58:45 +0000
-Subject: important fsyscall bug fix (affects McKinley only)
-Message-Id: <marc-linux-ia64-106626252723372@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Fri, 10 Oct 2003 18:44:35 +0000
+Subject: [PATCH] Fix unaligned faults in putstat64
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------010200050002030904080406"
+Message-Id: <marc-linux-ia64-106581266028930@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-While working on a lightweight version of sigprocmask(), I discovered
-that the McKinley E9 workaround had exactly the opposite effect from
-what was intended: it was supposed to ensure that we always return at
-priv level 3, and instead it caused us to always return at priv level
-0!  Fortunately, the fix is pretty simple and the whole patch can be
-found here:
+This is a multi-part message in MIME format.
+--------------010200050002030904080406
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-  http://lia64.bkbits.net:8080/linux-ia64-2.5/cset@1.1512.1.22
 
-Since the fsyscall stubs aren't in wide-spread use yet, I doubt this
-bug will affect many people, but clearly it would have been a problem
-going forward.  Also, remember that the workaround is needed only for
-McKinley.  Merced and Madison are both OK in this regard.
+This seems to be introduced by recent changes in 2.6.0-test series.
 
-The above patch also includes the sigprocmask() light-weight handler
-because it's easiest to observe the bug with this handler (since it's
-invoked via an inlined syscall; non-inlined syscalls mask the problem,
-because they'll return immediately with br.ret again, which drops the
-privilege level back to 3).
+	-Arun
 
-	--david
+
+--------------010200050002030904080406
+Content-Type: text/plain;
+ name="putstat64-align.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="putstat64-align.patch"
+
+LS0tIGxpbnV4LTIuNi4wLXRlc3Q3L2FyY2gvaWE2NC9pYTMyL3N5c19pYTMyLmMJMjAwMy0x
+MC0xMCAyMDo0NToyNy4yODM0MTAzNTIgKzA4MDAKKysrIGxpbnV4LTIuNi4wLXRlc3Q3L2Fy
+Y2gvaWE2NC9pYTMyL3N5c19pYTMyLmMubmV3CTIwMDMtMTAtMTAgMjE6MDY6MjQuNzE1MDM1
+NTczICswODAwCkBAIC0yNDg2LDExICsyNDg2LDE0IEBACiBwdXRzdGF0NjQgKHN0cnVjdCBz
+dGF0NjQgKnVidWYsIHN0cnVjdCBrc3RhdCAqa2J1ZikKIHsKIAlpbnQgZXJyOworCXU2NCBo
+ZGV2OwogCiAJaWYgKGNsZWFyX3VzZXIodWJ1Ziwgc2l6ZW9mKCp1YnVmKSkpCiAJCXJldHVy
+biAtRUZBVUxUOwogCi0JZXJyICA9IF9fcHV0X3VzZXIoaHVnZV9lbmNvZGVfZGV2KGtidWYt
+PmRldiksICZ1YnVmLT5zdF9kZXYpOworCWhkZXYgPSBodWdlX2VuY29kZV9kZXYoa2J1Zi0+
+ZGV2KTsKKwllcnIgID0gX19wdXRfdXNlcihoZGV2LCAodTMyKikmdWJ1Zi0+c3RfZGV2KTsK
+KwllcnIgfD0gX19wdXRfdXNlcihoZGV2ID4+IDMyLCAoKHUzMiopJnVidWYtPnN0X2Rldikg
+KyAxKTsKIAllcnIgfD0gX19wdXRfdXNlcihrYnVmLT5pbm8sICZ1YnVmLT5fX3N0X2lubyk7
+CiAJZXJyIHw9IF9fcHV0X3VzZXIoa2J1Zi0+aW5vLCAmdWJ1Zi0+c3RfaW5vX2xvKTsKIAll
+cnIgfD0gX19wdXRfdXNlcihrYnVmLT5pbm8gPj4gMzIsICZ1YnVmLT5zdF9pbm9faGkpOwpA
+QCAtMjQ5OCw3ICsyNTAxLDkgQEAKIAllcnIgfD0gX19wdXRfdXNlcihrYnVmLT5ubGluaywg
+JnVidWYtPnN0X25saW5rKTsKIAllcnIgfD0gX19wdXRfdXNlcihrYnVmLT51aWQsICZ1YnVm
+LT5zdF91aWQpOwogCWVyciB8PSBfX3B1dF91c2VyKGtidWYtPmdpZCwgJnVidWYtPnN0X2dp
+ZCk7Ci0JZXJyIHw9IF9fcHV0X3VzZXIoaHVnZV9lbmNvZGVfZGV2KGtidWYtPnJkZXYpLCAm
+dWJ1Zi0+c3RfcmRldik7CisJaGRldiA9IGh1Z2VfZW5jb2RlX2RldihrYnVmLT5yZGV2KTsK
+KwllcnIgID0gX19wdXRfdXNlcihoZGV2LCAodTMyKikmdWJ1Zi0+c3RfcmRldik7CisJZXJy
+IHw9IF9fcHV0X3VzZXIoaGRldiA+PiAzMiwgKCh1MzIqKSZ1YnVmLT5zdF9yZGV2KSArIDEp
+OwogCWVyciB8PSBfX3B1dF91c2VyKGtidWYtPnNpemUsICZ1YnVmLT5zdF9zaXplX2xvKTsK
+IAllcnIgfD0gX19wdXRfdXNlcigoa2J1Zi0+c2l6ZSA+PiAzMiksICZ1YnVmLT5zdF9zaXpl
+X2hpKTsKIAllcnIgfD0gX19wdXRfdXNlcihrYnVmLT5hdGltZS50dl9zZWMsICZ1YnVmLT5z
+dF9hdGltZSk7Cg==
+--------------010200050002030904080406--
+
