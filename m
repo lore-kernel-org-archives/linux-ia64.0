@@ -1,19 +1,25 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Thu, 19 Feb 2004 06:05:26 +0000
-Subject: [patch] 2.4.25 Print SN oemdata through the prom
-Message-Id: <8309.1077170726@kao2.melbourne.sgi.com>
+Date: Thu, 19 Feb 2004 06:15:47 +0000
+Subject: [patch] 2.4.25 Print SN oemdata through the prom - take 2
+Message-Id: <8531.1077171347@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <8309.1077170726@kao2.melbourne.sgi.com>
+In-Reply-To: <8309.1077170726@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Take 2, the previous patch accidentally reintroduced the dead
+ia64_sn2_platform_plat_specific_err_print function.
+
 
 salinfo_decode can call into the kernel to decode oem data, via the
 optional and platform specific program called salinfo_decode_oem.  SGI
 SN platforms decode oemdata by calling from kernel into the prom.
 
 --- 2.4.25-ia64-040218/arch/ia64/sn/kernel/mca.c	Thu Feb 19 08:50:02 2004
-+++ 2.4.25-ia64-040218/arch/ia64/sn/kernel/mca.c	Sat Nov  8 14:24:51 2003
++++ sn2/arch/ia64/sn/kernel/mca.c	Thu Feb 19 17:13:16 2004
 @@ -36,6 +36,8 @@
  #include <linux/types.h>
  #include <linux/kernel.h>
@@ -66,7 +72,7 @@ SN platforms decode oemdata by calling from kernel into the prom.
  
  /*
   * print_hook
-@@ -86,11 +124,28 @@ print_hook(const char *fmt, ...)
+@@ -86,7 +124,7 @@ print_hook(const char *fmt, ...)
  	newline = (p != 0);
  
  	va_end(args);
@@ -75,28 +81,7 @@ SN platforms decode oemdata by calling from kernel into the prom.
  	return len;
  }
  
- 
-+
-+/*
-+ * ia64_sn2_platform_plat_specific_err_print
-+ *
-+ * Called by the MCA handler to log platform-specific errors.
-+ */
-+void
-+ia64_sn2_platform_plat_specific_err_print(int header_len, int sect_len, u8 *p_data, prfunc_t prfunc)
-+{
-+	down(&sn_oemdata_mutex);
-+	sn_oemdata_prfunc = prfunc;
-+	ia64_sn_plat_specific_err_print(print_hook, p_data - sect_len);
-+	up(&sn_oemdata_mutex);
-+}
-+
-+
-+
- static void
- sn_cpei_handler(int irq, void *devid, struct pt_regs *regs)
- {
-@@ -118,3 +173,41 @@ sn_init_cpei_timer() {
+@@ -118,3 +156,41 @@ sn_init_cpei_timer() {
          sn_cpei_timer.function = sn_cpei_timer_handler;
          add_timer(&sn_cpei_timer);
  }
