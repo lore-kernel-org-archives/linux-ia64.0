@@ -1,155 +1,234 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Mon, 15 Mar 2004 07:07:31 +0000
-Subject: Re: [patch] 2.6.4 Decode salinfo oemdata via prom
-Message-Id: <5885.1079334451@kao2.melbourne.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 09 Mar 2004 23:26:31 +0000
+Subject: Re: [ACPI] [PATCH] 4 of 6 introduce acpi_global_irq_to_irq()
+Message-Id: <200403091626.31461.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <2724.1079310544@kao2.melbourne.sgi.com>
-In-Reply-To: <2724.1079310544@kao2.melbourne.sgi.com>
+References: <200403091619.04333.bjorn.helgaas@hp.com>
+In-Reply-To: <200403091619.04333.bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Andi Kleen <ak-l3A5Bk7waGM@public.gmane.org>, "Nakajima, Jun" <jun.nakajima-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
-New boilerplate.
+i386, x86_64, ia64, ACPI:  Introduce acpi_global_irq_to_irq()
 
-SN2 platforms provide oemdata in salinfo records.  The decode of that
-oemdata is done via prom routines.  This patch provides the interface
-from user space through the kernel into the prom to do the oem decode.
+Rename acpi_irq_to_vector() to acpi_global_irq_to_irq().
+This function takes an ACPI global IRQ (often called a "global
+system interrupt", but "global_irq" seems to be commonly used
+in Linux), and converts it to a Linux IRQ.
 
-Index: linux-2.6.4/arch/ia64/sn/kernel/mca.c
---- linux-2.6.4.orig/arch/ia64/sn/kernel/mca.c	Thu Mar 11 13:55:23 2004
-+++ linux-2.6.4/arch/ia64/sn/kernel/mca.c	Mon Mar 15 18:05:52 2004
-@@ -1,17 +1,15 @@
- /*
-- * File:	mca.c
-- * Purpose:	SN specific MCA code.
-- *
-  * This file is subject to the terms and conditions of the GNU General Public
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (C) 2001-2003 Silicon Graphics, Inc.  All Rights Reserved.
-+ * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
-  */
+This removes IA64 and PCI_USE_VECTOR #ifdefs from ACPI.
+
+diff -Nru a/arch/i386/kernel/acpi/boot.c b/arch/i386/kernel/acpi/boot.c
+--- a/arch/i386/kernel/acpi/boot.c	Tue Mar  9 15:29:18 2004
++++ b/arch/i386/kernel/acpi/boot.c	Tue Mar  9 15:29:18 2004
+@@ -349,11 +349,13 @@
+ #endif /* CONFIG_ACPI_BUS */
  
- #include <linux/types.h>
- #include <linux/kernel.h>
- #include <linux/timer.h>
-+#include <linux/vmalloc.h>
- #include <asm/sn/sgi.h>
- #include <asm/mca.h>
- #include <asm/sal.h>
-@@ -30,41 +28,43 @@
- struct timer_list sn_cpei_timer;
- void sn_init_cpei_timer(void);
- 
-+/* Printing oemdata from mca uses data that is not passed through SAL, it is
-+ * global.  Only one user at a time.
-+ */
-+static DECLARE_MUTEX(sn_oemdata_mutex);
-+static u8 **sn_oemdata;
-+static u64 *sn_oemdata_size, sn_oemdata_bufsize;
- 
- /*
-  * print_hook
-  *
-  * This function is the callback routine that SAL calls to log error
-- * info for platform errors. 
-+ * info for platform errors.  buf is appended to sn_oemdata, resizing as
-+ * required.
-  */
- static int
- print_hook(const char *fmt, ...)
+ #ifdef CONFIG_X86_IO_APIC
+-int acpi_irq_to_vector(u32 irq)
++int acpi_global_irq_to_irq(u32 global_irq, unsigned int *irq)
  {
--	static int	newline=1;
--	char		buf[400], *p;
--	va_list		args;
--	int		len=0;
--
--
-+	char buf[400];
-+	int len;
-+	va_list args;
- 	va_start(args, fmt);
--	if (newline) {
--		strcpy(buf, "+ ");
--		len += 2;
--	}
--	len += vsnprintf(buf+len, sizeof(buf)-len, fmt, args);
--
--	/* Prefix each line with "+ " to be consistent with mca.c. */
--	p = buf;
--	while ((p=strchr(p, '\n')) && *++p != '\0') {
--		memmove(p+2, p, 1+strlen(p));
--		strncpy(p, "+ ", 2);
--		len += 2;
--	}
--	newline = (p != 0);
--
-+	vsnprintf(buf, sizeof(buf), fmt, args);
- 	va_end(args);
--	printk("%s", buf);
--	return len;
-+	len = strlen(buf);
-+	while (*sn_oemdata_size + len + 1 > sn_oemdata_bufsize) {
-+		u8 *newbuf = vmalloc(sn_oemdata_bufsize += 1000);
-+		if (!newbuf) {
-+			printk(KERN_ERR "%s: unable to extend sn_oemdata\n", __FUNCTION__);
-+			return 0;
-+		}
-+		memcpy(newbuf, *sn_oemdata, *sn_oemdata_size);
-+		vfree(*sn_oemdata);
-+		*sn_oemdata = newbuf;
+-	if (use_pci_vector() && !platform_legacy_irq(irq))
+- 		irq = IO_APIC_VECTOR(irq);
+-	return irq;
++	if (use_pci_vector() && !platform_legacy_irq(global_irq))
++ 		*irq = IO_APIC_VECTOR(global_irq);
++	else
++		*irq = global_irq;
++	return 0;
+ }
+ #endif
+ 
+diff -Nru a/arch/i386/kernel/mpparse.c b/arch/i386/kernel/mpparse.c
+--- a/arch/i386/kernel/mpparse.c	Tue Mar  9 15:29:18 2004
++++ b/arch/i386/kernel/mpparse.c	Tue Mar  9 15:29:18 2004
+@@ -1127,8 +1127,8 @@
+ 
+ 		/* Don't set up the ACPI SCI because it's already set up */
+                 if (acpi_fadt.sci_int = global_irq) {
+-			global_irq = acpi_irq_to_vector(global_irq);
+-			entry->irq = global_irq; /* we still need to set entry's irq */
++			/* we still need to set entry's irq */
++			acpi_global_irq_to_irq(global_irq, &entry->irq);
+ 			continue;
+                 }
+ 	
+@@ -1158,14 +1158,14 @@
+ 		if ((1<<bit) & mp_ioapic_routing[ioapic].pin_programmed[idx]) {
+ 			Dprintk(KERN_DEBUG "Pin %d-%d already programmed\n",
+ 				mp_ioapic_routing[ioapic].apic_id, ioapic_pin);
+-			entry->irq = acpi_irq_to_vector(global_irq);
++			acpi_global_irq_to_irq(global_irq, &entry->irq);
+ 			continue;
+ 		}
+ 
+ 		mp_ioapic_routing[ioapic].pin_programmed[idx] |= (1<<bit);
+ 
+ 		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, global_irq, edge_level, active_high_low)) {
+-			entry->irq = acpi_irq_to_vector(global_irq);
++			acpi_global_irq_to_irq(global_irq, &entry->irq);
+ 		}
+ 		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d -> IRQ %d\n",
+ 			entry->id.segment, entry->id.bus,
+diff -Nru a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+--- a/arch/ia64/kernel/acpi.c	Tue Mar  9 15:29:18 2004
++++ b/arch/ia64/kernel/acpi.c	Tue Mar  9 15:29:18 2004
+@@ -627,12 +627,20 @@
+ }
+ 
+ int
+-acpi_irq_to_vector (u32 gsi)
++acpi_global_irq_to_irq (u32 gsi, unsigned int *irq)
+ {
++	int vector;
++
+ 	if (has_8259 && gsi < 16)
+-		return isa_irq_to_vector(gsi);
++		*irq = isa_irq_to_vector(gsi);
++	else {
++		vector = gsi_to_vector(gsi);
++		if (vector = -1)
++			return -1;
+ 
+-	return gsi_to_vector(gsi);
++		*irq = vector;
 +	}
-+	memcpy(*sn_oemdata + *sn_oemdata_size, buf, len + 1);
-+	*sn_oemdata_size += len;
 +	return 0;
  }
  
+ int
+diff -Nru a/arch/x86_64/kernel/acpi/boot.c b/arch/x86_64/kernel/acpi/boot.c
+--- a/arch/x86_64/kernel/acpi/boot.c	Tue Mar  9 15:29:18 2004
++++ b/arch/x86_64/kernel/acpi/boot.c	Tue Mar  9 15:29:18 2004
+@@ -324,11 +324,13 @@
+ #endif /* CONFIG_ACPI_BUS */
  
-@@ -95,6 +95,43 @@
+ #ifdef CONFIG_X86_IO_APIC
+-int acpi_irq_to_vector(u32 irq)
++int acpi_global_irq_to_irq(u32 global_irq, unsigned int *irq)
  {
- 	init_timer(&sn_cpei_timer);
- 	sn_cpei_timer.expires = jiffies + CPEI_INTERVAL;
--        sn_cpei_timer.function = sn_cpei_timer_handler;
-+	sn_cpei_timer.function = sn_cpei_timer_handler;
- 	add_timer(&sn_cpei_timer);
+-	if (use_pci_vector() && !platform_legacy_irq(irq))
+- 		irq = IO_APIC_VECTOR(irq);
+-	return irq;
++	if (use_pci_vector() && !platform_legacy_irq(global_irq))
++ 		*irq = IO_APIC_VECTOR(global_irq);
++	else
++		*irq = global_irq;
++	return 0;
  }
+ #endif
+ 
+diff -Nru a/arch/x86_64/kernel/mpparse.c b/arch/x86_64/kernel/mpparse.c
+--- a/arch/x86_64/kernel/mpparse.c	Tue Mar  9 15:29:18 2004
++++ b/arch/x86_64/kernel/mpparse.c	Tue Mar  9 15:29:18 2004
+@@ -998,13 +998,13 @@
+ 		if ((1<<bit) & mp_ioapic_routing[ioapic].pin_programmed[idx]) {
+ 			Dprintk(KERN_DEBUG "Pin %d-%d already programmed\n",
+ 				mp_ioapic_routing[ioapic].apic_id, ioapic_pin);
+-			entry->irq = acpi_irq_to_vector(global_irq);
++			acpi_global_irq_to_irq(global_irq, &entry->irq);
+ 			continue;
+ 		}
+ 
+ 		mp_ioapic_routing[ioapic].pin_programmed[idx] |= (1<<bit);
+ 		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, global_irq, edge_level, active_high_low)) {
+-			entry->irq = acpi_irq_to_vector(global_irq);
++			acpi_global_irq_to_irq(global_irq, &entry->irq);
+ 		}
+ 		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d -> IRQ %d\n",
+ 			entry->id.segment, entry->id.bus,
+diff -Nru a/drivers/acpi/osl.c b/drivers/acpi/osl.c
+--- a/drivers/acpi/osl.c	Tue Mar  9 15:29:18 2004
++++ b/drivers/acpi/osl.c	Tue Mar  9 15:29:18 2004
+@@ -240,23 +240,22 @@
+ }
+ 
+ acpi_status
+-acpi_os_install_interrupt_handler(u32 irq, OSD_HANDLER handler, void *context)
++acpi_os_install_interrupt_handler(u32 global_irq, OSD_HANDLER handler, void *context)
+ {
++	unsigned int irq;
 +
-+static int
-+sn_platform_plat_specific_err_print(const u8 *sect_header, u8 **oemdata, u64 *oemdata_size)
-+{
-+	sal_log_plat_specific_err_info_t *psei = (sal_log_plat_specific_err_info_t *)sect_header;
-+	if (!psei->valid.oem_data)
-+		return 0;
-+	down(&sn_oemdata_mutex);
-+	sn_oemdata = oemdata;
-+	sn_oemdata_size = oemdata_size;
-+	ia64_sn_plat_specific_err_print(print_hook, (char *)psei);
-+	up(&sn_oemdata_mutex);
-+	return 0;
-+}
+ 	/*
+ 	 * Ignore the irq from the core, and use the value in our copy of the
+ 	 * FADT. It may not be the same if an interrupt source override exists
+ 	 * for the SCI.
+ 	 */
+-	irq = acpi_fadt.sci_int;
++	global_irq = acpi_fadt.sci_int;
+ 
+-#if defined(CONFIG_IA64) || defined(CONFIG_PCI_USE_VECTOR)
+-	irq = acpi_irq_to_vector(irq);
+-	if (irq < 0) {
++	if (acpi_global_irq_to_irq(global_irq, &irq) < 0) {
+ 		printk(KERN_ERR PREFIX "SCI (ACPI interrupt %d) not registered\n",
+-		       acpi_fadt.sci_int);
++		       global_irq);
+ 		return AE_OK;
+ 	}
+-#endif
+ 	acpi_irq_handler = handler;
+ 	acpi_irq_context = context;
+ 	if (request_irq(irq, acpi_irq, SA_SHIRQ, "acpi", acpi_irq)) {
+@@ -269,12 +268,15 @@
+ }
+ 
+ acpi_status
+-acpi_os_remove_interrupt_handler(u32 irq, OSD_HANDLER handler)
++acpi_os_remove_interrupt_handler(u32 global_irq, OSD_HANDLER handler)
+ {
+-	if (irq) {
+-#if defined(CONFIG_IA64) || defined(CONFIG_PCI_USE_VECTOR)
+-		irq = acpi_irq_to_vector(irq);
+-#endif
++	unsigned int irq;
 +
-+/* Callback when userspace salinfo wants to decode oem data via the platform
-+ * kernel and/or prom.
-+ */
-+int sn_salinfo_platform_oemdata(const u8 *sect_header, u8 **oemdata, u64 *oemdata_size)
-+{
-+	efi_guid_t guid = *(efi_guid_t *)sect_header;
-+	*oemdata_size = 0;
-+	sn_oemdata_bufsize = 0;
-+	vfree(*oemdata);
-+	*oemdata = NULL;
-+	if (efi_guidcmp(guid, SAL_PLAT_SPECIFIC_ERR_SECT_GUID) = 0)
-+		return sn_platform_plat_specific_err_print(sect_header, oemdata, oemdata_size);
-+	return 0;
-+}
++	if (global_irq) {
++		if (acpi_global_irq_to_irq(global_irq, &irq) < 0) {
++			printk(KERN_ERR PREFIX "Can't remove ACPI interrupt handler\n");
++			return AE_ERROR;
++		}
+ 		free_irq(irq, acpi_irq);
+ 		acpi_irq_handler = NULL;
+ 		acpi_irq_irq = 0;
+diff -Nru a/include/asm-i386/acpi.h b/include/asm-i386/acpi.h
+--- a/include/asm-i386/acpi.h	Tue Mar  9 15:29:18 2004
++++ b/include/asm-i386/acpi.h	Tue Mar  9 15:29:18 2004
+@@ -115,9 +115,9 @@
+ /* Fixmap pages to reserve for ACPI boot-time tables (see fixmap.h) */
+ #define FIX_ACPI_PAGES 4
+ 
++extern int acpi_global_irq_to_irq(u32 global_irq, unsigned int *irq);
+ #ifdef CONFIG_X86_IO_APIC
+ extern int skip_ioapic_setup;
+-extern int acpi_irq_to_vector(u32 irq);
+ 
+ static inline void disable_ioapic_setup(void)
+ {
+diff -Nru a/include/asm-ia64/acpi.h b/include/asm-ia64/acpi.h
+--- a/include/asm-ia64/acpi.h	Tue Mar  9 15:29:18 2004
++++ b/include/asm-ia64/acpi.h	Tue Mar  9 15:29:18 2004
+@@ -93,7 +93,7 @@
+ const char *acpi_get_sysname (void);
+ int acpi_request_vector (u32 int_type);
+ int acpi_register_irq (u32 gsi, u32 polarity, u32 trigger);
+-int acpi_irq_to_vector (u32 irq);
++int acpi_global_irq_to_irq (u32 global_irq, unsigned int *irq);
+ 
+ #ifdef CONFIG_ACPI_NUMA
+ /* Proximity bitmap length; _PXM is at most 255 (8 bit)*/
+diff -Nru a/include/asm-x86_64/acpi.h b/include/asm-x86_64/acpi.h
+--- a/include/asm-x86_64/acpi.h	Tue Mar  9 15:29:18 2004
++++ b/include/asm-x86_64/acpi.h	Tue Mar  9 15:29:18 2004
+@@ -109,6 +109,8 @@
+ /* Fixmap pages to reserve for ACPI boot-time tables (see fixmap.h) */
+ #define FIX_ACPI_PAGES 4
+ 
++extern int acpi_global_irq_to_irq(u32 global_irq, unsigned int *irq);
 +
-+static int __init sn_salinfo_init(void)
-+{
-+	salinfo_platform_oemdata = &sn_salinfo_platform_oemdata;
-+	return 0;
-+}
-+
-+module_init(sn_salinfo_init)
+ #else	/* !CONFIG_ACPI_BOOT */
+ #define acpi_lapic 0
+ #define acpi_ioapic 0
 
