@@ -1,51 +1,36 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 29 Jan 2004 19:28:01 +0000
+From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
+Date: Thu, 29 Jan 2004 20:16:52 +0000
 Subject: Re: [RFC/PATCH, 1/4] readX_check() performance evaluation
-Message-Id: <16409.24257.589224.818006@napali.hpl.hp.com>
+Message-Id: <200401292016.i0TKGraI034387@mtv-vpn-hw-mfl-2.corp.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16408.3157.336306.812481@napali.hpl.hp.com>
-	<200401290823.i0T8NTDi024477@mtv-vpn-hw-mfl-2.corp.sgi.com>
-In-Reply-To: <200401290823.i0T8NTDi024477@mtv-vpn-hw-mfl-2.corp.sgi.com>
+In-Reply-To: <16409.24257.589224.818006@napali.hpl.hp.com> from "David Mosberger" at Jan 29, 2004 11:28:01 AM
+References: <00a201c3e541$c0e7d680$2987110a@lsd.css.fujitsu.com>
+In-Reply-To: <00a201c3e541$c0e7d680$2987110a@lsd.css.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
-Cc: davidm@hpl.hp.com, Andi Kleen <ak@suse.de>, davidm@napali.hpl.hp.com, iod00d@hp.com, ishii.hironobu@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: davidm@hpl.hp.com
+Cc: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>, Andi Kleen <ak@suse.de>, davidm@napali.hpl.hp.com, iod00d@hp.com, ishii.hironobu@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>>> On Thu, 29 Jan 2004 09:23:20 +0100 ("CET), Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com> said:
+>   Matthias> We have done a rather large study with DIMMs that had SBEs
+>   Matthias> and have found no evidence that a SBE turns into a UCE,
+>   Matthias> i.e. the fact that a SBE is reported, is no indication
+>   Matthias> that the device might fail soon.
+> 
+> Ehh, wait a second: you're saying that your study proved that if the
+> device isn't failing, it isn't failing. ;-) Of course you'll get noise
 
-  Matthias> We have done a rather large study with DIMMs that had SBEs
-  Matthias> and have found no evidence that a SBE turns into a UCE,
-  Matthias> i.e. the fact that a SBE is reported, is no indication
-  Matthias> that the device might fail soon.
+I should have been more precice. We used field returned parts which 
+had reported SBEs and had been exchanged in the field. Our goal was to
+see if any of these parts "de-generate" over time. Most of these parts
+had hard single bit failures in one or more locations. As I said,
+we didn't find evidence that even hard SBEs turn into a multiple bit
+error. Of course the chances of getting a UCE are higher when a "soft"
+SBE occurs in a memory location which already has a hard SBE.
 
-  Matthias> As a matter of fact the soft error rates increases while
-  Matthias> parts use smaller process technologies and lower supply
-  Matthias> voltages. Cosmic rays are one source for soft
-  Matthias> errors. Another source are alpha particles emitted by the
-  Matthias> solder.
 
-Ehh, wait a second: you're saying that your study proved that if the
-device isn't failing, it isn't failing. ;-) Of course you'll get noise
-and perhaps even lots of it due to cosmic rays but this doesn't say
-anything about the error pattern you when a device _is_ failing (e.g.,
-due to overheating, over-clocking, or wrong voltage).  Or did your
-study cover the cases where a system is operated under "out-of-spec"
-situation?
+Thanks
 
-  Matthias> Still I think it's important to log SBEs, but you probably
-  Matthias> will need a treshhold in case you hit a hard SBE. Also
-  Matthias> scrubbing the memory location (and re-read the location to
-  Matthias> check if the error was transient or not) might be a good
-  Matthias> idea if the memory controller supports this.  If it is a
-  Matthias> true, hard SBE it should be reported. It also might be a
-  Matthias> good idea to mark the page, so it does not get
-  Matthias> re-allocated.
+Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
+Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
 
-Yes.  And once I finally received Andi's earlier mails (guess I have
-to thank MyDoom for that... ;-( ), it was clear that nobody argued for
-turning off the error reporting.  The issue was only whether or not to
-log a message via printk() (which, in this case, clearly isn't a good
-idea).  So I think we're all in violent agreement.
-
-	--david
