@@ -1,64 +1,31 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Wed, 18 Feb 2004 15:32:20 +0000
-Subject: Compile fixes for 2.6.3-mm1
-Message-Id: <20040218153220.GJ12142@localhost>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="USQ0BwiCE5W4XvtQ"
+From: Jason Uhlenkott <jasonuhl@sgi.com>
+Date: Wed, 18 Feb 2004 22:13:32 +0000
+Subject: [PATCH] 2.6.3: ia64_abort(): Use guard page instead of page 0
+Message-Id: <20040218221332.GB87364@dragonfly.csd.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+The ia64_abort() macro deliberately writes to address 0 in order to
+trigger a page fault and an Oops.  This won't work if the process has
+mapped something into page zero:  We'll just print the "kernel BUG"
+message and continue (after having stomped on whatever user memory was
+at address 0). 
 
---USQ0BwiCE5W4XvtQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+A solution is to write to the guard page in region 5, which is
+guaranteed to trigger a page fault.
 
 
-Hi,
-
-I had to apply the following two patches to get 2.6.3-mm1 to compile on
-ia64.  I'm not sure if the pfn_to_nid() is correct.  I used an extern to
-avoid a circular include of asm/numa.h and asm/mmzone.h
-
-I also reverted the compat-ipc-consolidation.patch patch because it
-didn't compile and I couldn't even find a trace of
-struct compat_ipc64_perm
-
-mh
-
--- 
-Martin Hicks                Wild Open Source Inc.
-mort@wildopensource.com     613-266-2296
-
---USQ0BwiCE5W4XvtQ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="compile-fixes-2.6.3-mm1.patch"
-
-===== include/asm-ia64/mmzone.h 1.8 vs edited =====
---- 1.8/include/asm-ia64/mmzone.h	Tue Feb  3 21:35:17 2004
-+++ edited/include/asm-ia64/mmzone.h	Wed Feb 18 06:53:42 2004
-@@ -28,10 +28,12 @@
+--- linux-2.6.3.orig/include/asm-ia64/bug.h	Tue Feb 17 19:57:12 2004
++++ linux-2.6.3/include/asm-ia64/bug.h	Wed Feb 18 14:00:14 2004
+@@ -4,7 +4,7 @@
+ #if (__GNUC__ > 3) || (__GNUC__ = 3 && __GNUC_MINOR__ >= 1)
+ # define ia64_abort()	__builtin_trap()
+ #else
+-# define ia64_abort()	(*(volatile int *) 0 = 0)
++# define ia64_abort()	(*(volatile int *) (0xa000000000000000+2*PERCPU_PAGE_SIZE) = 0)
  #endif
- 
- extern unsigned long max_low_pfn;
-+extern int paddr_to_nid(unsigned long paddr);
- 
- #define pfn_valid(pfn)		(((pfn) < max_low_pfn) && ia64_pfn_valid(pfn))
- #define page_to_pfn(page)	((unsigned long) (page - vmem_map))
- #define pfn_to_page(pfn)	(vmem_map + (pfn))
-+#define pfn_to_nid(pfn)		paddr_to_nid((pfn) << PAGE_SHIFT)
- 
- #else /* CONFIG_DISCONTIGMEM */
- # define NR_NODE_MEMBLKS	4
-===== include/linux/msg.h 1.5 vs edited =====
---- 1.5/include/linux/msg.h	Wed Feb 18 01:09:43 2004
-+++ edited/include/linux/msg.h	Wed Feb 18 06:57:57 2004
-@@ -2,6 +2,7 @@
- #define _LINUX_MSG_H
- 
- #include <linux/ipc.h>
-+#include <linux/list.h>
- 
- /* ipcs ctl commands */
- #define MSG_STAT 11
+ #define BUG() do { printk("kernel BUG at %s:%d!\n", __FILE__, __LINE__); ia64_abort(); } while (0)
 
---USQ0BwiCE5W4XvtQ--
