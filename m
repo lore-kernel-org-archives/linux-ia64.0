@@ -1,40 +1,47 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Tue, 23 Nov 2004 15:13:27 +0000
-Subject: SELinux & ia64
-Message-Id: <41A35397.1080001@sgi.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Tue, 23 Nov 2004 16:13:17 +0000
+Subject: Re: SELinux & ia64
+Message-Id: <20041123161317.GA2775@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <41A35397.1080001@sgi.com>
+In-Reply-To: <41A35397.1080001@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, selinux@tycho.nsa.gov
+To: linux-ia64@vger.kernel.org
 
-SELinux appears to cause warnings while attempting mounts both at 
-boot-time and run-time:
+On Tue, Nov 23, 2004 at 10:13:27AM -0500, Prarit Bhargava wrote:
+> I've tracked this to the usage of le32_to_cpu in 
+> 
+> security/selinux/ss/policydb.c
+> 
+> The code in question uses:
+> 
+>    len = le32_to_cpu(buf[0]);
+> 
+> and should be
+> 
+>    len = le32_to_cpu(get_unaligned(&buf[0]));
 
-kernel unaligned access to 0xa0000002003a0056, ip=0xa0000001002076d0
-kernel unaligned access to 0xa0000002003a005e, ip=0xa0000001002076d0
-kernel unaligned access to 0xa0000002003a0066, ip=0xa0000001002076d0
-kernel unaligned access to 0xa0000002003a006e, ip=0xa0000001002076d0
+It would probably be better to find out why buf is unaligned, and see
+if we can make other changes to make it aligned.  If we can't, then I
+recommend a new macro for accessing this element, rather than nest
+the macros like this.  It could look something like:
 
-I've tracked this to the usage of le32_to_cpu in 
+	len = get_unaligned_le32(buf + 0);
 
-security/selinux/ss/policydb.c
+and be implemented perhaps as:
 
-The code in question uses:
+static u32 get_unaligned_le32(u32 *buf)
+{
+	char *bufc = buf;
+	return *bufc | (*(bufc+1) << 8) | (*(bufc+2) << 16) | (*(bufc+3) << 24);
+}
 
-    len = le32_to_cpu(buf[0]);
-
-and should be
-
-    len = le32_to_cpu(get_unaligned(&buf[0]));
-
-However, this is probably not a good solution as the get_unaligned macro 
-can be expensive
-on platforms other than ia64. 
-
-I'm tempted to redefine the le32_to_cpu function for policydb.c for the 
-ia64 platform, but
-before I go down that road I was wondering if anyone had hit this issue 
-elsewhere in the kernel?
-
-Prarit.
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
