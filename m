@@ -1,66 +1,127 @@
-From: David Brownell <david-b@pacbell.net>
-Date: Tue, 09 Mar 2004 20:39:52 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 09 Mar 2004 23:32:17 +0000
 Subject: Re: [linux-usb-devel] Re: serious 2.6 bug in USB subsystem?
-Message-Id: <404E2B98.6080901@pacbell.net>
+Message-Id: <16462.21505.526926.903904@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20031028013013.GA3991@kroah.com>	<200310280300.h9S30Hkw003073@napali.hpl.hp.com>	<3FA12A2E.4090308@pacbell.net>	<16289.29015.81760.774530@napali.hpl.hp.com>	<16289.55171.278494.17172@napali.hpl.hp.com>	<3FA28C9A.5010608@pacbell.net>	<16457.12968.365287.561596@napali.hpl.hp.com>	<404959A5.6040809@pacbell.net>	<16457.26208.980359.82768@napali.hpl.hp.com>	<4049FE57.2060809@pacbell.net>	<20040308061802.GA25960@cup.hp.com>	<16460.49761.482020.911821@napali.hpl.hp.com>	<404CEA36.2000903@pacbell.net>	<16461.35657.188807.501072@napali.hpl.hp.com>	<404E00B5.5060603@pacbell.net> <16462.1463.686711.622754@napali.hpl.hp.com>
-In-Reply-To: <16462.1463.686711.622754@napali.hpl.hp.com>
+References: <20031028013013.GA3991@kroah.com>
+	<200310280300.h9S30Hkw003073@napali.hpl.hp.com>
+	<3FA12A2E.4090308@pacbell.net>
+	<16289.29015.81760.774530@napali.hpl.hp.com>
+	<16289.55171.278494.17172@napali.hpl.hp.com>
+	<3FA28C9A.5010608@pacbell.net>
+	<16457.12968.365287.561596@napali.hpl.hp.com>
+	<404959A5.6040809@pacbell.net>
+	<16457.26208.980359.82768@napali.hpl.hp.com>
+	<4049FE57.2060809@pacbell.net>
+	<20040308061802.GA25960@cup.hp.com>
+	<16460.49761.482020.911821@napali.hpl.hp.com>
+	<404CEA36.2000903@pacbell.net>
+	<16461.35657.188807.501072@napali.hpl.hp.com>
+	<404E00B5.5060603@pacbell.net>
+	<16462.1463.686711.622754@napali.hpl.hp.com>
+	<404E2B98.6080901@pacbell.net>
+In-Reply-To: <404E2B98.6080901@pacbell.net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: davidm@hpl.hp.com
-Cc: Grant Grundler <iod00d@hp.com>, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: David Brownell <david-b@pacbell.net>
+Cc: davidm@hpl.hp.com, Grant Grundler <iod00d@hp.com>, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
 
-David Mosberger wrote:
-> 
->   > David Mosberger wrote:
->   >> ...  add a new state
->   >> ED_DESCHEDULED, which is treated exactly like ED_IDLE, except
->   >> that in this state, the HC may still be referring to the ED in
->   >> question.  Thus, if
-> 
->   David.B> Sounds exactly like ED_UNLINK -- except maybe that it's not
->   David.B> been put onto ed_rm_list (with ED_DEQUEUE set).
->   David.B> Why add another state?
-> 
-> So you can tell them apart.  See ohci_endpoint_disable().
+David B.,
 
-Not informative.  Why doesn't UNLINK work as-is?
-If there's a bug in how that's handled, better to fix it.
-I'd be willing to believe there is one, given proof.
+I'll respond to your concerns about my OHCI changes later on.  I
+wanted to make progress on the BTC HID issue first so we have the full
+picture.
 
+Remember how I was asking what's so special about 0xf00000 because
+that's the address the OHCI HC was reading from that caused the crash?
+Well, looky here what you get when you interpret the memory at address
+0 as an ED:
 
-> You seem to think small races are OK.  I disagree.  The smaller the
+ hw=3D(info=F0000000 tailp=F0000000 headp=F0000000 nextED=F0000000)
 
-I certainly didn't say that, any more than you said
-that there's no such thing as an engineering tradeoff!
+D'oh!
 
-(With which statement I'd likewise disagree.)
+(I suspect this strange memory pattern is a left-over from the
+memory-testing done by the firmware; I should say thanks to whoever
+invented this pattern; the problem would have been much harder to
+debug if the address hadn't convenently fallen on a write-only region
+of the address-space.)
 
-But I certainly did mean to say that I was skeptical
-you were actually running into one particular race,
-which I've had an eye on for some time.  (And which
-shouldn't have the failure mode you reported, though
-some other things might...)
+Anyhow, I have been wondering since about Sunday whether it's really
+safe to write HcControlHeadED (and HcBulkHeadED) with 0.  The register
+description itself is ambiguous.  Now I'm finding that Figure 6-5
+"List Service Flow" and Section 6.4.2.2 "Locating Endpoint
+Descriptors" are outright contradictory!
 
+The flow-chart suggests that after loading CurrentED with the contents
+of HeadED, the HC checks whether CurrentED is 0 and, if so, does nothing.
+However, the text in Section 6.4.2.2 says:
 
->   David.B> But some parts worry me.  Like changing that code to BUG()
->   David.B> on a driver behavior that's perfectly reasonable;
-> 
-> With my patch, the only reason you enter ED_UNLINK state is
-> ohci_endpoint_disable().  If you try to ohci_urb_enqueue() on an ED in
-> this state, it will fail, so I don't there is a problem (I see now
+ ... At this point, the Host Controller checks the BulkListFilled bit
+ or ControlListFilled bit of the HcCommandStatus register.  If the
+ respective "Filled" bit is set to 1, there is at least one Endpoint
+ Descriptor on the list which needs service.  In this case, the
+ HostController will copy the value of HcControlHeadED or HcBulkHeadED
+ into HcControlCurrentED or HcBulkCurrentED respectively, clear the
+ "Filled" bit to 0, and attempt to process the Endpoint Descriptor now
+ present in the CurrentED register. ...
 
-It's entered in usb_unlink_urb() as always.  So as I
-noted, your patch would make drivers BUG() in cases
-that are perfectly reasonable according to the API.
+So, if the HC behaves as described in the text, then there is an
+obvious race:
 
+  HC						HCD
 
-> that I forgot to set the error-code for this case, that's obviously
-> something that needs to be fixed).  But perhaps you had different
-> semantics in mind for ED_UNLINK?
+  - start new frame
+  - find list enabled (CLE/BLE set)
+  - find "Filled" bit enabled (CLF/BLF set)
+						- ed_deschedule() gets called
+						- turn off "list-enabled" bit
+						- store 0 into *HeadED
+  - read *HeadED and store in *CurrentEd
+  - clear "Filled" bit to 0
+  - process ED at "Current"
 
-As I've said more than once on this thread.
+In other words, whenever de-scheduling the first ED on the control or
+bulk list, there is a risk that with the right timing, you'll end up
+processing the "ED" at address zero!
 
-- Dave
+So I changed ohci-q.c from donig this:
 
+	if (ed->ed_prev =3D NULL) {
+		if (!ed->hwNextED) {
+			ohci->hc_control &=3D ~OHCI_CTRL_CLE;
+			writel (ohci->hc_control, &ohci->regs->control);
+		}
+		writel (le32_to_cpup (&ed->hwNextED),
+			&ohci->regs->ed_controlhead);
+	} else ...
+
+to this:
+
+	if (ed->ed_prev =3D NULL) {
+		if (!ed->hwNextED) {
+			ohci->hc_control &=3D ~OHCI_CTRL_CLE;
+			writel (ohci->hc_control, &ohci->regs->control);
+		} else
+			writel (le32_to_cpup (&ed->hwNextED),
+				&ohci->regs->ed_controlhead);
+	} else ...
+
+and now there are no more crashes when plugging in the BTC keyboard.
+(Note: the change is safe only if the ED being removed remains valid
+until the clearing of the CLE is observed, i.e, until the next start
+of frame, which is the case with my patch from yesterday.)
+
+Now the next problem is to figure out why one of the URBs submitted by
+the HID consistently times out the first time round.  (Oh, and there
+is an infinite loop in hidinput_connect() which is trivial to fix.)
+
+	--david
+
+PS: It would have been nice if I had been smart enough to check the
+    memory at address 0 upfront (as described above), but in truth, I
+    found the problem in the reverse order by noticing that the
+    machine died right after/during the ed_deschedule() and the
+    clearing of the *HeadED register was just about the only thing
+    left that could cause the crash.
