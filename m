@@ -1,61 +1,48 @@
-From: Erich Focht <efocht@ess.nec.de>
-Date: Mon, 04 Nov 2002 18:53:07 +0000
-Subject: [Linux-ia64] O(1) scheduler fix for 2.5-ia64
+From: "Lee, Jung-Ik" <jung-ik.lee@intel.com>
+Date: Wed, 06 Nov 2002 00:09:17 +0000
+Subject: [Linux-ia64] patch for 2.5.45 fusion mptscsih
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------Boundary-00=_J4F2COX2VVUOJ7Q6FZ8W"
-Message-Id: <marc-linux-ia64-105590709805329@msgid-missing>
+Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C28528.BF12C6A0"
+Message-Id: <marc-linux-ia64-105590709805336@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
---------------Boundary-00=_J4F2COX2VVUOJ7Q6FZ8W
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------_=_NextPart_000_01C28528.BF12C6A0
 Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: quoted-printable
+	charset="iso-8859-1"
 
-Hi David,
+The attached patch fixes message/fusion/mptscsih.h that causes kernel build
+error.
 
-this problem is wellknown and I actually thought that it was
-solved. But it looks like the complex prepare_arch_switch()
-etc. macros didn't make it into the 2.5 kernels for IA64. They are
-needed on IA64 because we have to release the runqueue lock during
-context switch. This is similar to sparc64. Thanks to John Hawks for
-noticing this.
+ mptscsih.h |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
 
-Please include this into your kernel tree.
+thanks,
+J.I.
 
-Regards,
-Erich
 
---------------Boundary-00=_J4F2COX2VVUOJ7Q6FZ8W
-Content-Type: text/x-diff;
-  charset="iso-8859-15";
-  name="O1_switch_fix-2.5.45.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="O1_switch_fix-2.5.45.patch"
+------_=_NextPart_000_01C28528.BF12C6A0
+Content-Type: application/octet-stream;
+	name="fusion_2545.diff"
+Content-Disposition: attachment;
+	filename="fusion_2545.diff"
 
-diff -urNp linux-2.5.45-ia64/include/asm-ia64/system.h linux-2.5.45-ia64-o1fix/include/asm-ia64/system.h
---- linux-2.5.45-ia64/include/asm-ia64/system.h	Mon Nov  4 19:31:52 2002
-+++ linux-2.5.45-ia64-o1fix/include/asm-ia64/system.h	Mon Nov  4 19:46:35 2002
-@@ -432,6 +432,18 @@ extern void ia64_load_extra (struct task
- } while (0)
- #endif
+diff -ur linux-2.5.45.org/drivers/message/fusion/mptscsih.h linux-2.5.45-ia64-021031-phpa/drivers/message/fusion/mptscsih.h
+--- linux-2.5.45.org/drivers/message/fusion/mptscsih.h	Wed Oct 30 16:43:46 2002
++++ linux-2.5.45-ia64-021031-phpa/drivers/message/fusion/mptscsih.h	Tue Nov  5 13:33:03 2002
+@@ -267,8 +268,7 @@
+ 	.sg_tablesize			= MPT_SCSI_SG_DEPTH,	\
+ 	.max_sectors			= MPT_SCSI_MAX_SECTORS,	\
+ 	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,	\
+-	.use_clustering			= ENABLE_CLUSTERING,	\
+-	.slave_attach			x_scsi_slave_attach,	\
++	.use_clustering			= ENABLE_CLUSTERING	\
+ }
  
-+#define prepare_arch_switch(rq, next)		\
-+do {	spin_lock(&(next)->switch_lock);	\
-+	spin_unlock(&(rq)->lock);		\
-+} while (0)
-+
-+#define finish_arch_switch(rq, prev)		\
-+do {	spin_unlock_irq(&(prev)->switch_lock);	\
-+} while (0)
-+
-+#define task_running(rq, p) \
-+	((rq)->curr == (p) || spin_is_locked(&(p)->switch_lock))
-+
- #endif /* __KERNEL__ */
- 
- #endif /* __ASSEMBLY__ */
+ #else  /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1) */
 
---------------Boundary-00=_J4F2COX2VVUOJ7Q6FZ8W--
-
+------_=_NextPart_000_01C28528.BF12C6A0--
 
