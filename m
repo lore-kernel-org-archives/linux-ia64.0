@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 25 Jul 2003 01:15:42 +0000
+From: Christopher Wedgwood <cw@sgi.com>
+Date: Tue, 29 Jul 2003 18:34:07 +0000
 Subject: Re: [PATCH] (2.4.x bk) efi_memmap_walk_uc
-Message-Id: <marc-linux-ia64-105909575817537@msgid-missing>
+Message-Id: <marc-linux-ia64-105950380701651@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105883467032028@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105883467032028@msgid-missing>
@@ -10,29 +10,84 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 21 Jul 2003 17:43:54 -0700, Christopher Wedgwood <cw@sgi.com> said:
+On Thu, Jul 24, 2003 at 06:15:42PM -0700, David Mosberger wrote:
 
-  Chris> Hi, On SN2 we have a 'fetchop' driver which does various
-  Chris> magical things with uncached memory (atomic operations within
-  Chris> or across partitions).
+> I really would like to see the code that's using
+> efi_memmap_walk_uc() first.
 
-  Chris> To support this we have efi_memmap_walk_uc defined in a very
-  Chris> similar way to efi_memmap_walk.
+I think Jack sent this to you already, but for the benefit of the
+list (relevant functions rather than send to the list the entire
+driver):
 
-  Chris> How do people feel about merging this in the generic code
-  Chris> (rather than hiding it away in the driver or something more
-  Chris> complex like abstraction and changes to the current efi
-  Chris> code)?
+/*
+ * fetchop_build_memmap,
+ *
+ * Called at boot time to build a map of pages that can be used for
+ * fetchops.
+ */
+static int __init
+fetchop_build_memmap(unsigned long start, unsigned long end, void *arg)
+{
+	struct node_fetchops *fops;
+	long count, bytes;
 
-  Chris> I'd also like to see a version of this in 2.5.x.
+	count = (end - start) >> PAGE_SHIFT;
+	bytes = sizeof(struct node_fetchops) + count/8;
+	fops = vmalloc(bytes);
+	memset(fops, 0, bytes);
+	fops->maddr = FETCHOP_KADDR_TO_MSPEC_ADDR(start);
+	fops->count = count;
+	atomic_add(count, &fops->free);
+	fetchop_stats.pages_total += count;
+	node_fetchops[MSPEC_TO_NID(start)] = fops;
 
-I really would like to see the code that's using efi_memmap_walk_uc()
-first.
+	sn_flush_all_caches((long)__va(start), end - start);
 
-Also, a check like this:
+	return 0;
+}
 
-  Chris> if (md->attribute = EFI_MEMORY_UC)
+/*
+ * fetchop_init
+ *
+ * Called at boot time to initialize the fetchop facility.
+ */
+int __init
+fetchop_init(void)
+{
+	[...]
+	efi_memmap_walk_uc(fetchop_build_memmap, 0);
+	printk(KERN_INFO "%s: v%s\n", DRIVER_ID_STR, REVISION);
 
-is almost certainly wrong (md->attribute is a bitmap).
+	return 0;
+}
 
-	--david
+
+> Also, a check like this:
+>
+>   Chris> if (md->attribute = EFI_MEMORY_UC)
+>
+> is almost certainly wrong (md->attribute is a bitmap).
+
+I think the logic here seems to have been uncached ONLY (ie. all other
+bits zero).  I guess this falls down if new attributes are added so
+something like:
+
+      if ((md->attribute & SOME_MASK) = EFI_MEMORY_UC)
+	 [...]
+
+would then be required.  Since this is the only consumer of this
+interface thus far I'm not sure it's obvious how the function should
+best work.
+
+
+
+The issue right now seems to be whether or not this or some variation
+of this is useful and/or desirable in the mainline kernel or whether
+for now it's best to hide this in the driver until a later stage when
+the EFI interfaces are abstracted out a little more to make this
+easier?
+
+
+
+Thanks,
+  --cw
