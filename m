@@ -1,38 +1,35 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 12 Jul 2003 08:58:45 +0000
-Subject: ia64 patch for 2.5.75
-Message-Id: <marc-linux-ia64-105800033710325@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 11 Jul 2003 19:02:34 +0000
+Subject: [PATCH] acpi_register_irq()
+Message-Id: <marc-linux-ia64-105795124411277@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The latest ia64 patch is now available at
-ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/ in file:
 
-	linux-2.5.75-ia64-030712.diff.gz
+acpi_madt is marked as __initdata, so an attempt to use
+acpi_register_irq() after we discarded init sections would cause us to
+dereference a random location.  Everywhere else uses has_8259 anyway.
 
-It's a "whopping" 10KB in size, so clearly things are heading in the
-right direction.
+Index: arch/ia64/kernel/acpi.c
+=================================RCS file: /var/cvs/linux-2.5/arch/ia64/kernel/acpi.c,v
+retrieving revision 1.11
+diff -u -p -r1.11 acpi.c
+--- arch/ia64/kernel/acpi.c	2 Jul 2003 22:07:32 -0000	1.11
++++ arch/ia64/kernel/acpi.c	11 Jul 2003 18:58:43 -0000
+@@ -720,7 +720,7 @@ acpi_register_irq (u32 gsi, u32 polarity
+ {
+ 	int vector = 0;
+ 
+-	if (acpi_madt->flags.pcat_compat && (gsi < 16))
++	if (has_8259 && (gsi < 16))
+ 		return isa_irq_to_vector(gsi);
+ 
+ 	if (!iosapic_register_intr)
 
-The patch mostly fixes the ACPI irq breakage in the main tree (some
-bits haven't made it yet, apparently) and some per-CPU related fixes
-(those are just temporary workarounds; Rusty is working on the proper
-fix).
-
-There is one mildly interesting change: I moved per-CPU data area from
-region 5 to the end of region 7.  This allows us to address this area
-via a simple "addl" (instead of movl or a GOT access).  At the moment,
-this hardly makes a difference because the compiler can't take
-advantage of it.  I have a prototype of a GCC patch which would change
-that though.  Once GCC can take advantage of this feature, addressing
-CPU-local variables will become even cheaper.
-
-This patch hasn't received a huge amount of testing, but it does seem
-to work quite well for me on a 4-way Itanium 2 machine (rx5670) and
-the Ski simulator.
-
-Enjoy,
-
-	--david
+-- 
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
