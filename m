@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 18 Sep 2001 20:53:44 +0000
+From: Joseph V Moss <jmoss@ichips.intel.com>
+Date: Tue, 18 Sep 2001 21:05:12 +0000
 Subject: Re: [Linux-ia64] Re: PROPOSED: 32/64 bit coexistance
-Message-Id: <marc-linux-ia64-105590698805220@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805221@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805199@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805199@msgid-missing>
@@ -10,26 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 18 Sep 2001 22:07:53 +0200, Andreas Jaeger <aj@suse.de> said:
+> >>>>> On Tue, 18 Sep 2001 18:57:15 +0200, Christoph Hellwig <hch@ns.caldera.de> said:
+> 
+>   Christoph> It does.  On Linux-ABI I use e.g. /emul/osr5, /emul/uw7
+>   Christoph> and /emul/svr4.  Id suggest using /emul/<opsys> for
+>   Christoph> emulations of another operating system for the same
+>   Christoph> architecture, /emul/<arch>-<opsys> for non-native.
+> 
+>   Christoph> Windows should go into /emul/win64 and /emul/ia32-win32.
+> 
+> Sounds reasonable.  /emul/ia32-linux should be it, then.
 
-  Andreas> But there are the following questions which I hope to get
-  Andreas> solved:
-  Andreas> - what's the preferred format on a platform?
-  Andreas> - where will the other formats live?
-  Andreas> - where should
-  Andreas> emulations live?
+I'm not so sure.  Should the architecture name be 'ia32'?  The linux kernel
+and other things have normally referred to it as 'i386' (or any of i[3456]86 in
+some cases).
 
-Yes, these need to be answered, though it shouldn't be hard.  For
-ia64, I think the answers would be:
+Personally, I'd prefer the 'ia32' name, if for no other reason than to avoid
+the problems associated with my parenthetical remark in the last paragraph.
 
-	preferred format: lp64
-	other formats:	  undefined (may want to mention that ia64 UNIX ABI
-			  specifies /lib32 for ilp32; there are no plans to
-			  support this under Linux)
-	emulations:	  /emul/[<arch>-]<opsys> in general,
-			  /emul/ia32-linux for the specific case of Linux/i386
 
-Thanks,
 
-	--david
 
