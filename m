@@ -1,24 +1,34 @@
-From: Jes Sorensen <jes@linuxcare.com>
-Date: Wed, 25 Apr 2001 17:30:57 +0000
-Subject: Re: [Linux-ia64] patch: qla1280 cleanup
-Message-Id: <marc-linux-ia64-105590693005466@msgid-missing>
+From: "McCaffity, Ray" <ray.mccaffity@wcg.com>
+Date: Mon, 16 Apr 2001 14:48:09 +0000
+Subject: [Linux-ia64] Documentation for compiling IA64
+Message-Id: <marc-linux-ia64-105590693005405@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005456@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005456@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Ray" = McCaffity, Ray <ray.mccaffity@wcg.com> writes:
+I downloaded the 2.4.3 kernel from Kernel.org and then the IA64 patch from
+the ports directory.
+I patched the Kernel with the 2.4.3-ia64 diff file.
+I can do a 'make mrproper', and a 'make config' (It even recognizes the IA64
+CPU), I can even do a
+'make dep' but it doesn't let me do a make bzImage or even a make zImage.  I
+tried looking in the 
+make.rules and makefile to see what targets were options, but didn't find
+anything.  What is the target 
+make file?
 
-Ray> Probably a dumb question, but...  How can I tell if I'm running
-Ray> "big sur".
+Is there any documentation on this anywhere?
+All I am trying to do is add ql1280 SCSI, AMI MegaRAID, and Intel
+EtherExpressPro 100, and SMP support
+to the Kernel.
 
-Please fix your broken mail client!!!
+One other thing I noticed.  With x86 version, you can select how much memory
+the Kernel will recognize
+(4GB, 64GB, etc..)  There is 16GB in this server.  Will the Kernel recognize
+all of it?  Right now I have to
+do a mem=2G from the ELI loader.
 
-Replying to a 100K posting with a 3 line question is somewhat
-excessive!
-
-Jes
+Ray McCaffity
 
