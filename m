@@ -1,45 +1,57 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 16 Jun 2004 20:22:45 +0000
-Subject: Re: [PATCH 2/4] SGI Altix cross partition functionality
-Message-Id: <7620.1087417365@ocs3.ocs.com.au>
+From: Andreas Jaeger <aj@suse.de>
+Date: Tue, 01 Jun 2004 09:48:56 +0000
+Subject: Re: lib64 in fedora glibc
+Message-Id: <hollj7wquv.fsf@reger.suse.de>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-=-="
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040616163514.GB27891@sgi.com>
-In-Reply-To: <20040616163514.GB27891@sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <20040528214105.GK9115@mustard.zk3.dec.com>
+In-Reply-To: <20040528214105.GK9115@mustard.zk3.dec.com>
 To: linux-ia64@vger.kernel.org
 
-On Wed, 16 Jun 2004 18:28:22 +0100, 
-Christoph Hellwig <hch@infradead.org> wrote:
->> +static void
->> +xpc_kdb_print_users(xpc_registration_t *registration, int ch_number)
->> +{
->> +	kdb_printf("xpc_registrations[channel=%d] (0x%p):\n", ch_number,
->> +							(void *) registration);
->> +
->> +	kdb_printf("\t&sema=0x%p\n", (void *) &registration->sema);
->> +	kdb_printf("\tfunc=0x%p\n", (void *) registration->func);
->> +	kdb_printf("\tkey=0x%p\n", registration->key);
->> +	kdb_printf("\tnentries=%d\n", registration->nentries);
->> +	kdb_printf("\tmsg_size=%d\n", registration->msg_size);
->> +	kdb_printf("\tassigned_limit=%d\n", registration->assigned_limit);
->> +	kdb_printf("\tidle_limit=%d\n", registration->idle_limit);
->> +}
+--=-=-=
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+
+Grant Grundler <iod00d@hp.com> writes:
+
+> On Fri, May 28, 2004 at 11:33:36PM -0400, Aron Griffis wrote:
+>> > So I guess the question is what would make %%{_lib} be defined as lib6=
+4.
+>>=20
+>> Right, that's why I suggested it appears they're preparing for the
+>> transition.=20
 >
->IIRC Keith objected against adding kdb-related code to mainline in the past.
+> "the transition" might be necessary to support x86_64.
+> Ie most of user space is 32-bit (using /lib) but some apps
+> will run substantially better as native x86_64 binaries.
 
-No, I objected to mainline kdb code like a serial console hook being
-scattered across other patches.  This is not mainline kdb code, it is
-using kdb to add a debugging feature to other code.  I have no
-objection to that, code such as ACPI has done that in the past.
+Just a clarification: AMD64 [1] has most of user space 64-bit.  Only a
+few applications are 32-bit - but this lib/lib64 is the best way to
+handle 32-bit packages (no need to change files).
 
->And IMHO it's indeed better placed in the kdb patch.
+> Moving to lib32 and lib64 makes sense in that environment.
 
-Absolutely not.  kdb has no interest in the debugging entries of
-individual subsystems, in the same way that printk() does not care who
-calls it.
+Not lib32, just lib.
 
-BTW, with kdb v4.4 you no longer need the extra CFLAGS, drop
-CFLAGS_xp_main.o += -I $(TOPDIR)/arch/$(ARCH)/kdb
+Andreas
 
+Footnotes:=20
+[1]  at least the SUSE distribution but I assume others as well.
+
+=2D-=20
+ Andreas Jaeger, aj@suse.de, http://www.suse.de/~aj
+  SUSE Linux AG, Maxfeldstr. 5, 90409 N=FCrnberg, Germany
+   GPG fingerprint =3D 93A3 365E CE47 B889 DF7F  FED1 389A 563C C272 A126
+
+--=-=-=
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBAvFEIOJpWPMJyoSYRAqHJAJwL9NBPnyFa4CpmA9XQhWnVo2h5ngCglgcd
+z5eFAqhxqeuEhupWLC+Yfcg=
+=cZ4x
+-----END PGP SIGNATURE-----
+--=-=-=--
