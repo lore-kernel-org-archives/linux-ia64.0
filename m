@@ -1,18 +1,131 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Tue, 03 Jun 2003 15:57:07 +0000
-Subject: Re: [Linux-ia64] [PATCH] IA-32 emulation patch: ptrace get_FPREGS bug fix
-Message-Id: <marc-linux-ia64-105590723706123@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 09 Jun 2003 23:12:55 +0000
+Subject: [Linux-ia64] cleaning up the INIT code
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C32EDC.A9056699"
+Message-Id: <marc-linux-ia64-105590723706201@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723706099@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723706099@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Friday 30 May 2003 7:19 pm, Pallipadi, Venkatesh wrote:
-> A bug-fix in IA-32 emulation ptrace code. The bug originally got
-> introduced with the addition of FPXREGS support in ptrace.
+This is a multi-part message in MIME format.
 
-I applied this for 2.4.  Thanks!
+------_=_NextPart_001_01C32EDC.A9056699
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+David,
+
+Here's a patch that does some major surgery to the INIT
+code (which I've been looking at a lot more closely while
+I was fixing the recent breakages in this area).  The first
+thing that I noticed while working on it was that on Tiger
+I didn't get the pretty process backtraces on which you'd been
+working so hard.  I just got:
+
+  "Entered OS INIT handler"
+
+which was a lot less helpful :-)  The reason for this turned
+out to be that the SAL on Tiger does not generate an error
+record for an INIT ... so the code that grabbed the error
+record and dissected it to find the minstate saved registers
+did nothing for me.  SAL folks here say they don't have to
+create a record for an INIT (in fact they tell us whether
+there is a record via the "mi" bit of the processor state
+parameter ... see SDV pg. 2:276, and for INIT PSP.mi is 0
+on Tiger).
+
+The PAL does provide a pointer to the minstate area (see
+11.3.2 PALE_CHECK Exit state, and 11.4.2 PALE_INIT Exit State),
+which is still valid when we get to the OS entry points for
+INIT and MCA.  So it seems simpler to just use that, rather than
+go the long way round getting the error record (which doesn't
+even exist on Tiger).
+
+So this patch picks up r17 (pointer to minstate) and r18
+(processor state parameter) and squirrels them away in the
+ia64_sal_to_os_handoff_state structure ... then uses them
+in the INIT handler.
+
+-Tony
+
+------_=_NextPart_001_01C32EDC.A9056699
+Content-Type: application/octet-stream;
+	name="init.patch"
+Content-Transfer-Encoding: base64
+Content-Description: init.patch
+Content-Disposition: attachment;
+	filename="init.patch"
+
+PT09PT0gYXJjaC9pYTY0L2tlcm5lbC9tY2EuYyAxLjMyIHZzIGVkaXRlZCA9PT09PQotLS0gMS4z
+Mi9hcmNoL2lhNjQva2VybmVsL21jYS5jCVdlZCBKdW4gIDQgMTk6MzU6NTMgMjAwMworKysgZWRp
+dGVkL2FyY2gvaWE2NC9rZXJuZWwvbWNhLmMJTW9uIEp1biAgOSAxNDoxNjowOSAyMDAzCkBAIC0z
+MjIsNyArMzIyLDcgQEAKIH0KIAogdm9pZAotaW5pdF9oYW5kbGVyX3BsYXRmb3JtIChzYWxfbG9n
+X3Byb2Nlc3Nvcl9pbmZvX3QgKnByb2NfcHRyLAoraW5pdF9oYW5kbGVyX3BsYXRmb3JtIChwYWxf
+bWluX3N0YXRlX2FyZWFfdCAqbXMsCiAJCSAgICAgICBzdHJ1Y3QgcHRfcmVncyAqcHQsIHN0cnVj
+dCBzd2l0Y2hfc3RhY2sgKnN3KQogewogCXN0cnVjdCB1bndfZnJhbWVfaW5mbyBpbmZvOwpAQCAt
+MzM3LDEwICszMzcsMTAgQEAKIAkgKi8KIAlwcmludGsoIkRlbGF5aW5nIGZvciA1IHNlY29uZHMu
+Li5cbiIpOwogCXVkZWxheSg1KjEwMDAwMDApOwotCXNob3dfbWluX3N0YXRlKCZTQUxfTFBJX1BT
+SV9JTkZPKHByb2NfcHRyKS0+bWluX3N0YXRlX2FyZWEpOworCXNob3dfbWluX3N0YXRlKG1zKTsK
+IAogCXByaW50aygiQmFja3RyYWNlIG9mIGN1cnJlbnQgdGFzayAocGlkICVkLCAlcylcbiIsIGN1
+cnJlbnQtPnBpZCwgY3VycmVudC0+Y29tbSk7Ci0JZmV0Y2hfbWluX3N0YXRlKCZTQUxfTFBJX1BT
+SV9JTkZPKHByb2NfcHRyKS0+bWluX3N0YXRlX2FyZWEsIHB0LCBzdyk7CisJZmV0Y2hfbWluX3N0
+YXRlKG1zLCBwdCwgc3cpOwogCXVud19pbml0X2Zyb21faW50ZXJydXB0aW9uKCZpbmZvLCBjdXJy
+ZW50LCBwdCwgc3cpOwogCWlhNjRfZG9fc2hvd19zdGFjaygmaW5mbywgTlVMTCk7CiAKQEAgLTEy
+NDAsMzIgKzEyNDAsMTkgQEAKIHZvaWQKIGlhNjRfaW5pdF9oYW5kbGVyIChzdHJ1Y3QgcHRfcmVn
+cyAqcHQsIHN0cnVjdCBzd2l0Y2hfc3RhY2sgKnN3KQogewotCXNhbF9sb2dfcHJvY2Vzc29yX2lu
+Zm9fdCAqcHJvY19wdHI7Ci0JaWE2NF9lcnJfcmVjX3QgKnBsb2dfcHRyOworCXBhbF9taW5fc3Rh
+dGVfYXJlYV90ICptczsKIAotCXByaW50ayhLRVJOX0lORk8gIkVudGVyZWQgT1MgSU5JVCBoYW5k
+bGVyXG4iKTsKLQotCS8qIEdldCB0aGUgSU5JVCBwcm9jZXNzb3IgbG9nICovCi0JaWYgKCFpYTY0
+X2xvZ19nZXQoU0FMX0lORk9fVFlQRV9JTklULCAocHJmdW5jX3QpcHJpbnRrKSkKLQkJcmV0dXJu
+OyAgICAgICAgICAgICAgICAgLy8gbm8gcmVjb3JkIHJldHJpZXZlZAotCi0jaWZkZWYgSUE2NF9E
+VU1QX0FMTF9QUk9DX0lORk8KLQlpYTY0X2xvZ19wcmludChTQUxfSU5GT19UWVBFX0lOSVQsIChw
+cmZ1bmNfdClwcmludGspOwotI2VuZGlmCisJcHJpbnRrKEtFUk5fSU5GTyAiRW50ZXJlZCBPUyBJ
+TklUIGhhbmRsZXIuIFBTUD0lbHhcbiIsCisJCWlhNjRfc2FsX3RvX29zX2hhbmRvZmZfc3RhdGUu
+cHJvY19zdGF0ZV9wYXJhbSk7CiAKIAkvKgotCSAqIGdldCBwb2ludGVyIHRvIG1pbiBzdGF0ZSBz
+YXZlIGFyZWEKLQkgKgorCSAqIEFkZHJlc3Mgb2YgbWluc3RhdGUgYXJlYSBwcm92aWRlZCBieSBQ
+QUwgaXMgcGh5c2ljYWwsCisJICogdW5jYWNoZWFibGUgKGJpdCA2MyBzZXQpLiBDb252ZXJ0IHRv
+IExpbnV4IHZpcnR1YWwKKwkgKiBhZGRyZXNzIGluIHJlZ2lvbiA2LgogCSAqLwotCXBsb2dfcHRy
+PShpYTY0X2Vycl9yZWNfdCAqKUlBNjRfTE9HX0NVUlJfQlVGRkVSKFNBTF9JTkZPX1RZUEVfSU5J
+VCk7Ci0JcHJvY19wdHIgPSAmcGxvZ19wdHItPnByb2NfZXJyOwotCi0JaWE2NF9wcm9jZXNzX21p
+bl9zdGF0ZV9zYXZlKCZTQUxfTFBJX1BTSV9JTkZPKHByb2NfcHRyKS0+bWluX3N0YXRlX2FyZWEp
+OwotCi0JLyogQ2xlYXIgdGhlIElOSVQgU0FMIGxvZ3Mgbm93IHRoYXQgdGhleSBoYXZlIGJlZW4g
+c2F2ZWQgaW4gdGhlIE9TIGJ1ZmZlciAqLwotCWlhNjRfc2FsX2NsZWFyX3N0YXRlX2luZm8oU0FM
+X0lORk9fVFlQRV9JTklUKTsKKwltcyA9IChwYWxfbWluX3N0YXRlX2FyZWFfdCAqKShpYTY0X3Nh
+bF90b19vc19oYW5kb2ZmX3N0YXRlLnBhbF9taW5fc3RhdGUgfCAoNnVsPDw2MSkpOwogCi0JaW5p
+dF9oYW5kbGVyX3BsYXRmb3JtKHByb2NfcHRyLCBwdCwgc3cpOwkvKiBjYWxsIHBsYXRmb3JtIHNw
+ZWNpZmljIHJvdXRpbmVzICovCisJaW5pdF9oYW5kbGVyX3BsYXRmb3JtKG1zLCBwdCwgc3cpOwkv
+KiBjYWxsIHBsYXRmb3JtIHNwZWNpZmljIHJvdXRpbmVzICovCiB9CiAKIC8qCj09PT09IGFyY2gv
+aWE2NC9rZXJuZWwvbWNhX2FzbS5TIDEuOCB2cyBlZGl0ZWQgPT09PT0KLS0tIDEuOC9hcmNoL2lh
+NjQva2VybmVsL21jYV9hc20uUwlUdWUgQXByIDE1IDEzOjE2OjM5IDIwMDMKKysrIGVkaXRlZC9h
+cmNoL2lhNjQva2VybmVsL21jYV9hc20uUwlNb24gSnVuICA5IDEzOjIyOjIyIDIwMDMKQEAgLTUw
+LDE0ICs1MCwxNSBAQAogICoJCTYuIEdSMTIgPSBSZXR1cm4gYWRkcmVzcyB0byBsb2NhdGlvbiB3
+aXRoaW4gU0FMX0NIRUNLCiAgKi8KICNkZWZpbmUgU0FMX1RPX09TX01DQV9IQU5ET0ZGX1NUQVRF
+X1NBVkUoX3RtcCkJCVwKLQltb3ZsCV90bXA9aWE2NF9zYWxfdG9fb3NfaGFuZG9mZl9zdGF0ZTs7
+CVwKLQlEQVRBX1ZBX1RPX1BBKF90bXApOzsJCQkJXAorCUxPQURfUEhZU0lDQUwobm9wIDAsIHAw
+LCBfdG1wLCBpYTY0X3NhbF90b19vc19oYW5kb2ZmX3N0YXRlKTs7IFwKIAlzdDgJW190bXBdPXIx
+LDB4MDg7OwkJCVwKIAlzdDgJW190bXBdPXI4LDB4MDg7OwkJCVwKIAlzdDgJW190bXBdPXI5LDB4
+MDg7OwkJCVwKIAlzdDgJW190bXBdPXIxMCwweDA4OzsJCQlcCiAJc3Q4CVtfdG1wXT1yMTEsMHgw
+ODs7CQkJXAotCXN0OAlbX3RtcF09cjEyLDB4MDgKKwlzdDgJW190bXBdPXIxMiwweDA4OzsJCQlc
+CisJc3Q4CVtfdG1wXT1yMTcsMHgwODs7CQkJXAorCXN0OAlbX3RtcF09cjE4LDB4MDgKIAogLyoK
+ICAqIE9TX01DQV9UT19TQUxfSEFORE9GRl9TVEFURSAoU0FMIDMuMCBzcGVjKQpAQCAtNzAsOSAr
+NzEsOCBAQAogICoJcmV0dXJucyBwdHIgdG8gU0FMIHJ0biBzYXZlIGxvYyBpbiBfdG1wCiAgKi8K
+ICNkZWZpbmUgT1NfTUNBX1RPX1NBTF9IQU5ET0ZGX1NUQVRFX1JFU1RPUkUoX3RtcCkJXAotKHA2
+KQltb3ZsCV90bXA9aWE2NF9zYWxfdG9fb3NfaGFuZG9mZl9zdGF0ZTs7CVwKLShwNykJbW92bAlf
+dG1wPWlhNjRfb3NfdG9fc2FsX2hhbmRvZmZfc3RhdGU7OwlcCi0JREFUQV9WQV9UT19QQShfdG1w
+KTs7CQkJCVwKKwlMT0FEX1BIWVNJQ0FMKG5vcCAwLCBwNiwgX3RtcCwgaWE2NF9zYWxfdG9fb3Nf
+aGFuZG9mZl9zdGF0ZSk7OyBcCisJTE9BRF9QSFlTSUNBTChub3AgMCwgcDcsIF90bXAsIGlhNjRf
+b3NfdG9fc2FsX2hhbmRvZmZfc3RhdGUpOzsgXAogKHA2KQltb3ZsCXI4PUlBNjRfTUNBX0NPTERf
+Qk9PVDsJCQlcCiAocDYpCW1vdmwJcjEwPUlBNjRfTUNBX1NBTUVfQ09OVEVYVDsJCVwKIChwNikJ
+YWRkICAgICBfdG1wPTB4MTgsX3RtcDs7CQkJXAo9PT09PSBpbmNsdWRlL2FzbS1pYTY0L21jYS5o
+IDEuNyB2cyBlZGl0ZWQgPT09PT0KLS0tIDEuNy9pbmNsdWRlL2FzbS1pYTY0L21jYS5oCVNhdCBN
+YXkgMTAgMDI6Mjg6NDcgMjAwMworKysgZWRpdGVkL2luY2x1ZGUvYXNtLWlhNjQvbWNhLmgJTW9u
+IEp1biAgOSAxNDoxMTozOCAyMDAzCkBAIC05Miw2ICs5Miw4IEBACiAJdTY0CQlpbXN0b19zYWxf
+Y2hlY2tfcmE7CS8qIFJldHVybiBhZGRyZXNzIGluIFNBTF9DSEVDSyB3aGlsZSBnb2luZwogCQkJ
+CQkJICogYmFjayB0byBTQUwgZnJvbSBPUyBhZnRlciBNQ0EgaGFuZGxpbmcuCiAJCQkJCQkgKi8K
+Kwl1NjQJCXBhbF9taW5fc3RhdGU7CQkvKiBmcm9tIFBBTCBpbiByMTcgKi8KKwl1NjQJCXByb2Nf
+c3RhdGVfcGFyYW07CS8qIGZyb20gUEFMIGluIHIxOC4gU2VlIFNEViAyOjI2OCAxMS4zLjIuMSAq
+LwogfSBpYTY0X21jYV9zYWxfdG9fb3Nfc3RhdGVfdDsKIAogZW51bSB7Cg==
+
+------_=_NextPart_001_01C32EDC.A9056699--
 
