@@ -1,7 +1,7 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Tue, 16 Mar 2004 17:37:43 +0000
+Date: Tue, 16 Mar 2004 17:38:51 +0000
 Subject: Re: [PATCH] Update SN2 defconfig
-Message-Id: <20040316173743.GA29899@sgi.com>
+Message-Id: <20040316173851.GB29899@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040315190240.GY6699@localhost>
 In-Reply-To: <20040315190240.GY6699@localhost>
@@ -10,29 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Mar 15, 2004 at 10:14:20PM -0800, David Mosberger wrote:
-> >>>>> On Mon, 15 Mar 2004 11:05:39 -0800, jbarnes@sgi.com (Jesse Barnes) said:
+On Tue, Mar 16, 2004 at 09:36:28AM -0700, Bjorn Helgaas wrote:
+> On Monday 15 March 2004 11:14 pm, David Mosberger wrote:
+> > The ia64 EARLY_PRINTK support is not part of the official kernel, so
+> > they should be lost to avoid warnings (if someone wanted to integrate
+> > the ia64 EARLY_PRINTK patch with the other early-printk support in the
+> > kernel, that would certainly be welcome, though).
 > 
->   >> CONFIG_MAGIC_SYSRQ=y -CONFIG_IA64_EARLY_PRINTK=y -#
->   >> CONFIG_IA64_EARLY_PRINTK_UART is not set -#
->   >> CONFIG_IA64_EARLY_PRINTK_VGA is not set
->   >> -CONFIG_IA64_EARLY_PRINTK_SGI_SN=y
-> 
->   Jesse> Oops, we don't want to lose early printk from the config...
->   Jesse> Looks ok otherwise, thanks for sending it.
-> 
-> The ia64 EARLY_PRINTK support is not part of the official kernel, so
-> they should be lost to avoid warnings (if someone wanted to integrate
-> the ia64 EARLY_PRINTK patch with the other early-printk support in the
-> kernel, that would certainly be welcome, though).
+> I'm cooking some stuff in this area.  I think it will give us the
+> equivalent of early printk pretty much for free.  It doesn't help
+> with SGI boxes, though, because they have the funny console ;-)
+> I'll try to post a preliminary patch today or tomorrow.
 
-Well, I was hoping to just have one sn2_defconfig file that was shared
-between the linux-ia64-2.5 tree and the to-linus-2.5 tree; that way I'd
-get early printk automatically if I applied the ia64 patch.  I didn't
-think that was a problem (I haven't seen any warnings when I do 'make
-sn2_defconfig' out of Linus' tree), but of course ideally we'd have
-early printk for ia64 in Linus' tree, so I'm looking forward to Bjorn's
-patch.
+Our console should work very early on (our driver supports a polling
+mode that should allow this), so hopefully we can reuse your work...
 
 Thanks,
 Jesse
