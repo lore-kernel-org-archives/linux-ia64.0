@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 22 Feb 2000 23:08:54 +0000
+Date: Wed, 23 Feb 2000 00:02:41 +0000
 Subject: Re: [Linux-ia64] ILP32 support?
-Message-Id: <marc-linux-ia64-105590678204957@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678204959@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678204954@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678204954@msgid-missing>
@@ -10,15 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 22 Feb 2000 14:21:14 -0800, "Vadim Furman" <vadimf@mainsoft.com> said:
+>>>>> On Tue, 22 Feb 2000 16:01:41 -0700, Don Dugger <n0ano@valinux.com> said:
 
-  Vadim> Are there any plans to support ILP32 mode?  Vadim Furman
+  Don> Also, there would have to be some changes to the kernel.  This
+  Don> would create ELF64 processes that have to live within the first
+  Don> 4G of memory.  We already support 32-bit processes but some
+  Don> kernel changes would be required to identify this new entity.
 
-No.  So far, nobody has felt that the (small) benefits of ILP32 are
-worth its trouble.  No kernel mods would be required, but you'd have
-to create a completely new user-level environment (new compiler, new
-header files, all libraries would have to be recompiled with ILP32
-mode, etc.).
+Actually, the forthcoming kernel patch already has a per-process
+mmap-base.  So the only change required in the kernel would be to
+recognize ILP32 binaries and set the mmap-base accordingly (so, yeah,
+I lied when I said no changes would be required... ;-).  (This doesn't
+mean that I think ILP32 support is a good idea...)
 
 	--david
 
