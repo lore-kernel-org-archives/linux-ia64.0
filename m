@@ -1,26 +1,31 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 19 Feb 2004 01:14:59 +0000
-Subject: Re: [PATCH] 2.4.25: BUG(): Use guard page instead of page 0
-Message-Id: <16436.3603.827198.821944@napali.hpl.hp.com>
+From: Mario Smarduch <cms063@email.mot.com>
+Date: Wed, 25 Feb 2004 21:35:24 +0000
+Subject: General question about building kernel.org distros
+Message-Id: <403D151C.1F7A96D1@email.mot.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040218221302.GA87364@dragonfly.csd.sgi.com>
-In-Reply-To: <20040218221302.GA87364@dragonfly.csd.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 18 Feb 2004 14:13:03 -0800, Jason Uhlenkott <jasonuhl@sgi.com> said:
+Hi,
 
-  Jason> The ia64 BUG macro deliberately writes to address 0 in order to
-  Jason> trigger a page fault and an Oops.  This won't work if the process has
-  Jason> mapped something into page zero:  We'll just print the "kernel BUG"
-  Jason> message and continue (after having stomped on whatever user memory was
-  Jason> at address 0).
+I just have a general question regarding building IA64 2.4.25
+stock kernel from kernel.org. After downloading, and building
+with the default  config there were tons of compile errors. These were
+some obvious errors like functions accepting more or less
+parameters then call sites were providing and tons of other
+obvious errors independent of the configuration. Eventually
+I plugged up all the errors and the thing comes up and seems
+to stay up.
 
-  Jason> A solution is to write to the guard page in region 5, which is
-  Jason> guaranteed to trigger a page fault.
+Is this sort of normal when building a source tree from kernel.org
+for IA64 or am I missing something?
 
-The 2.6 kernel uses __builtin_trap(), which is even better (when available).
+For i386 I have no problems like that. I'm a bit concerned
+if a vendor uses this as base for a distribution and has
+to plug up all these holes, you kind of wonder if there are
+any bugs  left behind.
 
-	--david
+- Mario.
+
