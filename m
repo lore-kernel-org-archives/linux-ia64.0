@@ -1,7 +1,7 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Fri, 04 Jun 2004 15:43:37 +0000
-Subject: [PATCH] setup cpu_to_node for cpus not present
-Message-Id: <1086363816.4241.20.camel@tdi>
+From: Dean Nelson <dcn@sgi.com>
+Date: Wed, 16 Jun 2004 16:24:57 +0000
+Subject: [PATCH 0/4] SGI Altix cross partition functionality
+Message-Id: <20040616162457.GA27719@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -9,25 +9,50 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
-   In latest linux-2.5 bitkeeper, if you turn on CONFIG_HOTPLUG_CPU w/
-an NR_CPUS greater than physically presents CPUs, you'll end up taking
-an MCA in __alloc_percpu().  kmem_cache_alloc_node() gets called with a
-node value of -1.  It seems other architectures are defaulting the
-cpu_to_node map to zero for possible, but not present cpus.  Here's a
-trivial patch that does the same for ia64.  Thanks,
+    Terminology
 
-	Alex
+The term 'partition', adopted by the SGI hardware designers and which
+perculated up into the software, is used in reference to a single SSI
+when multiple SSIs are running on a single Altix. An Altix running
+multiple SSIs is said to be 'partitioned', whereas one that is running
+only a single SSI is said to be 'unpartitioned'.
 
-=== arch/ia64/kernel/smpboot.c 1.52 vs edited ==--- 1.52/arch/ia64/kernel/smpboot.c	Fri May 21 15:54:17 2004
-+++ edited/arch/ia64/kernel/smpboot.c	Fri Jun  4 09:21:54 2004
-@@ -525,7 +525,7 @@
- #else
- #		error Fixme: Dunno how to build CPU-to-node map.
- #endif
--		cpu_to_node_map[cpu] = node;
-+		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
- 		if (node >= 0)
- 			cpu_set(cpu, node_to_cpu_mask[node]);
- 	}
+The term '[a]cross partition' refers to a functionality that spans between
+two SSIs on a multi-SSI Altix. ('XP' is its abbreviation.)
 
 
+    Introduction
+
+This feature provides cross partition functionality when running multiple
+partitions on a single SGI Altix.
+
+This functionality includes such things as a pseudo-ethernet driver and
+memory sharing, which are provided by functional support modules that sit
+on top of a low-level communication module.
+
+The communication module provides channels for point-to-point communication
+between the partitions. There is support for eight channels between any
+two partitions (currently only two channels are in use, the remainder are
+available for possible future expansion). A functional support module uses
+the same channel number for all of its cross partition communication across
+the entire Altix.
+
+There is a shim module that acts as an interface between the functional
+support modules and the communication module. Its sole purpose is to allow
+for the communication module to be rmmod'd/insmod'd without 'disturbing'
+the functional support modules and the user processes utilizing them. The
+shim module has also proven itself to be invaluable for debugging.
+
+This feature is being submitted as four separate quilt patches:
+
+    exports  - symbols that need to be exported for XP[C|NET]
+    XP       - shim module
+    XPC      - cross partition (low-level) communication module
+    XPNET    - cross partition pseudo-ethernet driver functional support module
+
+The XPC patch is dependent on the SGI fetchop driver patch to be applied
+first. The SGI fetchop driver patch is being pushed out to the community
+separately by Dean Roe.
+
+The XPC patch is also dependent on bte_copy(). This function activates
+the SGI Altix's Block Transfer Engine (BTE).
