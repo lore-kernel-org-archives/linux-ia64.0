@@ -1,25 +1,33 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Thu, 05 Oct 2000 17:55:40 +0000
-Subject: Re: [Linux-ia64] Error compiling c++ support with glibc 2.2
-Message-Id: <marc-linux-ia64-105590678205546@msgid-missing>
+From: Pete Wyckoff <pw@osc.edu>
+Date: Mon, 09 Oct 2000 15:12:16 +0000
+Subject: [Linux-ia64] avoiding float underflow software assist
+Message-Id: <marc-linux-ia64-105590678205556@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205544@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205544@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jim Wilson <wilson@cygnus.com> writes:
+This little code snippet causes floating-point underflow during the
+multiplication.
 
-> I have since noticed that the same bug got reported to gcc-bugs, and a
-> patch was applied Sept 23 which should fix this problem.  I have not yet
-> tried to extract the patch and test it.
+        float f, g;
+	f = 1.3e-23;
+	g = f * f;
 
-This patch is correct, you can apply it.
+The kernel handler catches the fault and fixes it up, but that's quite
+slow.
 
--- 
----------------.                          ,-.   1325 Chesapeake Terrace
-Ulrich Drepper  \    ,-------------------'   \  Sunnyvale, CA 94089 USA
-Red Hat          `--' drepper at redhat.com   `------------------------
+Is there a way to have the hardware automatically ignore this condition
+and force the result to zero on its own?
+
+I've tried playing with fesetround() and fesetenv() to see if I could
+manage it, to no avail.
+
+kernel 2.4.0-test9
+Turbolinux 000828 distro
+B0 stepping hw
+
+Thanks,
+		-- Pete
 
