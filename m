@@ -1,7 +1,7 @@
-From: Srikanta R <r_srikanta1234@yahoo.com>
-Date: Thu, 15 Apr 2004 03:09:16 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Thu, 15 Apr 2004 04:01:45 +0000
 Subject: Re: 32 bit application on IA-64 Linux
-Message-Id: <20040415030916.74546.qmail@web13125.mail.yahoo.com>
+Message-Id: <16510.2345.843152.740528@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040412042150.30706.qmail@web13122.mail.yahoo.com>
 In-Reply-To: <20040412042150.30706.qmail@web13122.mail.yahoo.com>
@@ -10,38 +10,40 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Arun,
+>>>>> "Srikanta" = Srikanta R <Srikanta> writes:
 
-Thanks for the information. Can you please tell me
-where I can get it from ?
+Srikanta> Hi Arun, Thanks for the information. Can you please tell me
+Srikanta> where I can get it from ?
 
-Thanks,
-Srikanta
+If you're running debian, there's a prebuilt cross compiler available
+from the Gelato Debian repository
 
---- Arun Sharma <arun.sharma@intel.com> wrote:
-> On 4/11/2004 9:21 PM, Srikanta R wrote:
-> 
-> > Hi,
-> > 
-> > I need to compile a 32 bit application on a IA-64
-> > Linux system, that will run on IA-64 system. I
-> didn't
-> > find any such option for the compiler on IA-64
-> Linux
-> > system. Can someone suggest how can I get this
-> done ?
-> 
-> You can install a 32 bit toolchain (compiler +
-> binutils) into /emul/ia32-linux and do this.
-> 
-> 	-Arun
-> 
+See http://www.gelato.unsw.edu.au/IA64wiki/GelatoDebianRepository
+
+or just add this to /etc/apt/sources.list :
+
+   deb http://gelato.unsw.edu.au/debian unstable/$(ARCH)/
+   deb http://gelato.unsw.edu.au/debian unstable/all/
+   deb-src http://gelato.unsw.edu.au/debian/ unstable/source/
+
+and install gcc-i386-linux and binutils-i386-linux
+
+You'll also need to install the ia32-libs package, and
+toolchain-source, then do 
+  tpkg-install-libc i386-linux
+to get the development libraries and headers.
+
+Disclaimer:  I haven't actually done all this.
+
+Another approach would be to install an IA32 native toolchain under
+/emul/ia32-linux/ 
+
+Both dpkg and rpm allow you to specify a root directory; just specify
+/emul/ia32-linux 
 
 
 
-	
-		
-__________________________________
-Do you Yahoo!?
-Yahoo! Tax Center - File online by April 15th
-http://taxes.yahoo.com/filing.html
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
