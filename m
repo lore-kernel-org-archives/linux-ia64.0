@@ -1,62 +1,27 @@
-From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
-Date: Wed, 31 Jul 2002 15:33:02 +0000
-Subject: RE: [Linux-ia64] Apache on Windows 64
-Message-Id: <marc-linux-ia64-105590701905864@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 11 Jul 2002 21:50:47 +0000
+Subject: [Linux-ia64] Re: switch_mm race condition with Ingo's scheduler
+Message-Id: <marc-linux-ia64-105590701905767@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905862@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905862@msgid-missing>
+References: <marc-linux-ia64-105590698805973@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805973@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Don, 
+>>>>> On Wed, 10 Jul 2002 19:27:20 +0200, Erich Focht <efocht@ess.nec.de> said:
 
-Thanks for your information. I was hoping at least somebody from this list
-will know. I will search somewhere else or do it by myself.
+  Erich> Hi David, the attached patch fixes the switch_mm ->
+  Erich> wrap_mmu_context deadlock which can occur in 2.5.18+ia64. We
+  Erich> discussed this in January/February...
 
-Regards,
+The patch basically looks fine to me and I put it in my 2.5 tree with
+a few small changes to take advantage of the new per-CPU scheme
+(avoids clutter in asm/processor.h).  Also, I think it's sufficient to
+call delayed_flush_tlb() in get_new_mmu_context(), as we just need to
+make sure that the TLB does get flushed before.  Or did this not work
+for some reason?
 
--- S
-
------Original Message-----
-From: Don Dugger [mailto:n0ano@radiantdata.com]
-Sent: Tuesday, July 30, 2002 7:30 PM
-To: Akhter, Shameem F
-Cc: linux-ia64@linuxia64.org
-Subject: Re: [Linux-ia64] Apache on Windows 64
-
-
-Shameem-
-
-If you're looking for a version for IA64 Linux then RedHat has an RPM,
-`ftp://ftp.rpmfind.net/linux/rawhide/1.0/ia64/RedHat/RPMS/apache-1.3.23-13.i
-a64.rpm'.  If you're looking for a version for Microsoft Windows then you
-are
-REALLY on the wrong mailing list.  This list is for Linux issues only.
-
-On Tue, Jul 30, 2002 at 06:04:37PM -0700, Akhter, Shameem F wrote:
-> Hi, 
-> 
-> Is there any public released version available for Apache on Windows
-64-bit.
-> If so, what would be location from where I can download the source and
-> binary. 
-> 
-> It would be really helpful, if you could let me know.
-> 
-> Regards,
-> 
-> -- S
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@radiantdata.com
-Ph: 303/652-0870x117
+	--david
 
