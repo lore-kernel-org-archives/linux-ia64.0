@@ -1,7 +1,7 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Wed, 08 Oct 2003 17:30:06 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 09 Oct 2003 20:36:51 +0000
 Subject: Re: [PATCH] kill two dead headers
-Message-Id: <marc-linux-ia64-106563438916634@msgid-missing>
+Message-Id: <marc-linux-ia64-106573199519339@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106451477025244@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106451477025244@msgid-missing>
@@ -10,20 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Oct 08, 2003 at 11:40:05AM -0500, Alan Mayer wrote:
-> > So submit your patches.  Jesse ACKed most of these and said he's waiting
-> > for your group for more feedback.  This didn't happen for more than a
-> > month so I've send them to a public list.  Seems like this is the only
-> > way to get more feedback from you than insults.
-> 
-> I received one of your patches from Jesse about a week ago.  I responded to
-> him.  That has been the extent of it.  I can't address this communication
-> failure beyond that.  
+OK, I was under the impression that Christoph was working with SGI's
+approval.  I don't want to get into the middle of an SGI-internal
+dispute so I'm proposing to do the following:
 
-Sorry, this is partly my fault.  I gave Colin a heads up about all these
-changes, but he went on vacation before he had a chance to comment.
-Colin should probably be listed as the person responsible for
-arch/ia64/sn/io since he's been involved with it for the longest.
+ - The patches that got accepted already will stay there.  In my
+   opinion, they improve the state of the SN directories and
+   personally I'm glad to see someone finally started to clean them
+   up. I'm sorry if this causes some conflicts with an SGI-internal
+   tree, but we have only the public tree to go by.  Hopefully, it's
+   reasonably straightforward to merge Christoph's patches into your
+   internal tree.
 
-Thanks,
-Jesse
+ - For the future, I'll accept patches for the SN tree only from Jesse
+   Barnes (of course, you can delegate internally as you wish, but I
+   prefer to have a single contact for the SN subdirectories and Jesse
+   has proven responsive and responsible so far).  Of course, should
+   there be complaints that contributed patches are not handled in a
+   timely fashion (as Christoph alleged), then we may have to revise
+   this decision.
+
+Does this work for everyone?
+
+	--david
