@@ -1,398 +1,459 @@
 From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Mon, 20 Sep 2004 16:41:07 +0000
-Subject: PATCH-ACPI based CPU hotplug[4/6]-Dynamic cpu register/unregister support
-Message-Id: <20040920094106.F14208@unix-os.sc.intel.com>
+Date: Mon, 20 Sep 2004 16:29:47 +0000
+Subject: Re: PATCH-ACPI based CPU hotplug[0/6]-Core ACPI enhancement support
+Message-Id: <20040920092947.B14208@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040920092520.A14208@unix-os.sc.intel.com>
-In-Reply-To: <20040920092520.A14208-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Mon, Sep 20, 2004 at 09:25:20AM -0700
+In-Reply-To: <20040920092520.A14208@unix-os.sc.intel.com>; from anil.s.keshavamurthy@intel.com on Mon, Sep 20, 2004 at 09:25:20AM -0700
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keshavamurthy Anil S <anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ACPI Developer <acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, LHNS list <lhns-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, Linux IA64 <linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-
+To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Cc: "Brown, Len" <len.brown@intel.com>, ACPI Developer <acpi-devel@lists.sourceforge.net>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
 
 
 ---
-Name:topology.patch
-Status:Tested on 2.6.9-rc2
+Name:acpi_core.patch
+Status: Tested on 2.6.9-rc2
 Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-Depends:	
+Depends: None	
 Version: applies on 2.6.9-rc2	
+
 Description:
-Extends support for dynamic registration and unregistration of the cpu,
-by implementing and exporting arch_register_cpu()/arch_unregister_cpu().
-Also combines multiple implementation of topology_init() functions to
-single topology_init() in case of ia64 architecture.
+This patch provides core hotplug support in acpi by providing
+acpi_bus_trim(), acpi_bus_remove() and acpi_pci_unbind()
+which does exactly reverse of acpi_bus_scan(), acpi_bus_add()
+and acpi_pci_bind(). 
 ---
 
- /dev/null                                                  |   43 ------
- linux-2.6.9-rc2-askeshav/arch/i386/mach-default/topology.c |   31 ++++
- linux-2.6.9-rc2-askeshav/arch/ia64/dig/Makefile            |    5 
- linux-2.6.9-rc2-askeshav/arch/ia64/kernel/Makefile         |    3 
- linux-2.6.9-rc2-askeshav/arch/ia64/kernel/topology.c       |   91 +++++++++++++
- linux-2.6.9-rc2-askeshav/arch/ia64/mm/numa.c               |   35 -----
- linux-2.6.9-rc2-askeshav/drivers/base/cpu.c                |   20 ++
- linux-2.6.9-rc2-askeshav/include/asm-i386/cpu.h            |   17 --
- linux-2.6.9-rc2-askeshav/include/asm-ia64/cpu.h            |    5 
- linux-2.6.9-rc2-askeshav/include/linux/cpu.h               |    3 
- 10 files changed, 154 insertions(+), 99 deletions(-)
+ linux-2.6.9-rc2-askeshav/drivers/acpi/acpi_ksyms.c   |    3 
+ linux-2.6.9-rc2-askeshav/drivers/acpi/bus.c          |    4 
+ linux-2.6.9-rc2-askeshav/drivers/acpi/pci_bind.c     |   45 +++++++
+ linux-2.6.9-rc2-askeshav/drivers/acpi/pci_irq.c      |   42 ++++++-
+ linux-2.6.9-rc2-askeshav/drivers/acpi/scan.c         |  107 +++++++++++++++++--
+ linux-2.6.9-rc2-askeshav/include/acpi/acpi_bus.h     |    9 +
+ linux-2.6.9-rc2-askeshav/include/acpi/acpi_drivers.h |    2 
+ 7 files changed, 194 insertions(+), 18 deletions(-)
 
-diff -L arch/ia64/dig/topology.c -puN arch/ia64/dig/topology.c~topology /dev/null
---- linux-2.6.9-rc2/arch/ia64/dig/topology.c
-+++ /dev/null	2004-06-30 13:03:36.000000000 -0700
-@@ -1,43 +0,0 @@
--/*
-- * arch/ia64/dig/topology.c
-- *	Popuate driverfs with topology information.
-- *	Derived entirely from i386/mach-default.c
-- *  Intel Corporation - Ashok Raj
-- */
--#include <linux/init.h>
--#include <linux/smp.h>
--#include <linux/cpumask.h>
--#include <linux/percpu.h>
--#include <linux/notifier.h>
--#include <linux/cpu.h>
--#include <asm/cpu.h>
--
--static DEFINE_PER_CPU(struct ia64_cpu, cpu_devices);
--
--/*
-- * First Pass: simply borrowed code for now. Later should hook into
-- * hotplug notification for node/cpu/memory as applicable
-- */
--
--static int arch_register_cpu(int num)
--{
--	struct node *parent = NULL;
--
--#ifdef CONFIG_NUMA
--	//parent = &node_devices[cpu_to_node(num)].node;
--#endif
--
--	return register_cpu(&per_cpu(cpu_devices,num).cpu, num, parent);
--}
--
--static int __init topology_init(void)
--{
--    int i;
--
--    for_each_cpu(i) {
--        arch_register_cpu(i);
--	}
--    return 0;
--}
--
--subsys_initcall(topology_init);
-diff -puN arch/ia64/dig/Makefile~topology arch/ia64/dig/Makefile
---- linux-2.6.9-rc2/arch/ia64/dig/Makefile~topology	2004-09-17 18:01:36.290143411 -0700
-+++ linux-2.6.9-rc2-askeshav/arch/ia64/dig/Makefile	2004-09-17 18:01:36.429791847 -0700
-@@ -6,9 +6,4 @@
- #
+diff -puN include/acpi/acpi_bus.h~acpi_core include/acpi/acpi_bus.h
+--- linux-2.6.9-rc2/include/acpi/acpi_bus.h~acpi_core	2004-09-17 16:35:23.116378657 -0700
++++ linux-2.6.9-rc2-askeshav/include/acpi/acpi_bus.h	2004-09-17 16:35:23.233566156 -0700
+@@ -104,6 +104,7 @@ typedef int (*acpi_op_suspend)	(struct a
+ typedef int (*acpi_op_resume)	(struct acpi_device *device, int state);
+ typedef int (*acpi_op_scan)	(struct acpi_device *device);
+ typedef int (*acpi_op_bind)	(struct acpi_device *device);
++typedef int (*acpi_op_unbind)	(struct acpi_device *device);
  
- obj-y := setup.o
--
--ifndef CONFIG_NUMA
--obj-$(CONFIG_IA64_DIG) += topology.o
--endif
--
- obj-$(CONFIG_IA64_GENERIC) += machvec.o
-diff -puN arch/ia64/mm/numa.c~topology arch/ia64/mm/numa.c
---- linux-2.6.9-rc2/arch/ia64/mm/numa.c~topology	2004-09-17 18:01:36.296979349 -0700
-+++ linux-2.6.9-rc2-askeshav/arch/ia64/mm/numa.c	2004-09-17 18:01:36.429791847 -0700
-@@ -20,8 +20,6 @@
- #include <asm/mmzone.h>
- #include <asm/numa.h>
- 
--static struct node *sysfs_nodes;
--static struct cpu *sysfs_cpus;
- 
- /*
-  * The following structures are usually initialized by ACPI or
-@@ -50,36 +48,3 @@ paddr_to_nid(unsigned long paddr)
- 	return (i < num_node_memblks) ? node_memblk[i].nid : (num_node_memblks ? -1 : 0);
- }
- 
--static int __init topology_init(void)
--{
--	int i, err = 0;
--
--	sysfs_nodes = kmalloc(sizeof(struct node) * numnodes, GFP_KERNEL);
--	if (!sysfs_nodes) {
--		err = -ENOMEM;
--		goto out;
--	}
--	memset(sysfs_nodes, 0, sizeof(struct node) * numnodes);
--
--	sysfs_cpus = kmalloc(sizeof(struct cpu) * NR_CPUS, GFP_KERNEL);
--	if (!sysfs_cpus) {
--		kfree(sysfs_nodes);
--		err = -ENOMEM;
--		goto out;
--	}
--	memset(sysfs_cpus, 0, sizeof(struct cpu) * NR_CPUS);
--
--	for (i = 0; i < numnodes; i++)
--		if ((err = register_node(&sysfs_nodes[i], i, 0)))
--			goto out;
--
--	for (i = 0; i < NR_CPUS; i++)
--		if (cpu_online(i))
--			if((err = register_cpu(&sysfs_cpus[i], i,
--					       &sysfs_nodes[cpu_to_node(i)])))
--				goto out;
-- out:
--	return err;
--}
--
--__initcall(topology_init);
-diff -puN include/linux/cpu.h~topology include/linux/cpu.h
---- linux-2.6.9-rc2/include/linux/cpu.h~topology	2004-09-17 18:01:36.301862161 -0700
-+++ linux-2.6.9-rc2-askeshav/include/linux/cpu.h	2004-09-17 18:01:36.430768409 -0700
-@@ -32,6 +32,9 @@ struct cpu {
+ struct acpi_device_ops {
+ 	acpi_op_add		add;
+@@ -115,6 +116,7 @@ struct acpi_device_ops {
+ 	acpi_op_resume		resume;
+ 	acpi_op_scan		scan;
+ 	acpi_op_bind		bind;
++	acpi_op_unbind		unbind;
  };
  
- extern int register_cpu(struct cpu *, int, struct node *);
-+#ifdef CONFIG_HOTPLUG_CPU
-+extern void unregister_cpu(struct cpu *, struct node *);
-+#endif
- struct notifier_block;
- 
- #ifdef CONFIG_SMP
-diff -puN include/asm-ia64/cpu.h~topology include/asm-ia64/cpu.h
---- linux-2.6.9-rc2/include/asm-ia64/cpu.h~topology	2004-09-17 18:01:36.308698098 -0700
-+++ linux-2.6.9-rc2-askeshav/include/asm-ia64/cpu.h	2004-09-17 18:01:36.431744972 -0700
-@@ -14,4 +14,9 @@ DECLARE_PER_CPU(struct ia64_cpu, cpu_dev
- 
- DECLARE_PER_CPU(int, cpu_state);
- 
-+extern int arch_register_cpu(int num);
-+#ifdef CONFIG_HOTPLUG_CPU
-+extern void arch_unregister_cpu(int);
-+#endif
-+
- #endif /* _ASM_IA64_CPU_H_ */
-diff -puN /dev/null arch/ia64/kernel/topology.c
---- /dev/null	2004-06-30 13:03:36.000000000 -0700
-+++ linux-2.6.9-rc2-askeshav/arch/ia64/kernel/topology.c	2004-09-17 18:05:31.993265524 -0700
-@@ -0,0 +1,91 @@
-+/*
-+ * This file is subject to the terms and conditions of the GNU General Public
-+ * License.  See the file "COPYING" in the main directory of this archive
-+ * for more details.
-+ *
-+ * This file contains NUMA specific variables and functions which can
-+ * be split away from DISCONTIGMEM and are used on NUMA machines with
-+ * contiguous memory.
-+ * 		2002/08/07 Erich Focht <efocht@ess.nec.de>
-+ * Populate cpu entries in sysfs for non-numa systems as well
-+ *  	Intel Corporation - Ashok Raj
-+ */
-+
-+#include <linux/config.h>
-+#include <linux/cpu.h>
-+#include <linux/kernel.h>
-+#include <linux/mm.h>
-+#include <linux/node.h>
-+#include <linux/init.h>
-+#include <linux/bootmem.h>
-+#include <asm/mmzone.h>
-+#include <asm/numa.h>
-+#include <asm/cpu.h>
-+
-+#ifdef CONFIG_NUMA
-+static struct node *sysfs_nodes;
-+#endif
-+static struct ia64_cpu *sysfs_cpus;
-+
-+int arch_register_cpu(int num)
-+{
-+	struct node *parent = NULL;
-+	
-+#ifdef CONFIG_NUMA
-+	parent = &sysfs_nodes[cpu_to_node(num)];
-+#endif /* CONFIG_NUMA */
-+
-+	return register_cpu(&sysfs_cpus[num].cpu, num, parent);
-+}
-+
-+#ifdef CONFIG_HOTPLUG_CPU
-+
-+void arch_unregister_cpu(int num)
-+{
-+	struct node *parent = NULL;
-+
-+#ifdef CONFIG_NUMA
-+	int node = cpu_to_node(num);
-+	if (node_online(node))
-+		parent = &sysfs_nodes[node];
-+#endif /* CONFIG_NUMA */
-+
-+	return unregister_cpu(&sysfs_cpus[num].cpu, parent);
-+}
-+EXPORT_SYMBOL(arch_register_cpu);
-+EXPORT_SYMBOL(arch_unregister_cpu);
-+#endif /*CONFIG_HOTPLUG_CPU*/
-+
-+
-+static int __init topology_init(void)
-+{
-+	int i, err = 0;
-+
-+#ifdef CONFIG_NUMA
-+	sysfs_nodes = kmalloc(sizeof(struct node) * MAX_NUMNODES, GFP_KERNEL);
-+	if (!sysfs_nodes) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+	memset(sysfs_nodes, 0, sizeof(struct node) * MAX_NUMNODES);
-+
-+	for (i = 0; i < numnodes; i++)
-+		if ((err = register_node(&sysfs_nodes[i], i, 0)))
-+			goto out;
-+#endif
-+
-+	sysfs_cpus = kmalloc(sizeof(struct ia64_cpu) * NR_CPUS, GFP_KERNEL);
-+	if (!sysfs_cpus) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+	memset(sysfs_cpus, 0, sizeof(struct ia64_cpu) * NR_CPUS);
-+
-+	for_each_present_cpu(i)
-+		if((err = arch_register_cpu(i)))
-+			goto out;
-+out:
-+	return err;
-+}
-+
-+__initcall(topology_init);
-diff -puN arch/ia64/kernel/Makefile~topology arch/ia64/kernel/Makefile
---- linux-2.6.9-rc2/arch/ia64/kernel/Makefile~topology	2004-09-17 18:01:36.314557473 -0700
-+++ linux-2.6.9-rc2-askeshav/arch/ia64/kernel/Makefile	2004-09-17 18:01:36.432721534 -0700
-@@ -6,7 +6,8 @@ extra-y	:= head.o init_task.o vmlinux.ld
- 
- obj-y := acpi.o entry.o efi.o efi_stub.o gate-data.o fsys.o ia64_ksyms.o irq.o irq_ia64.o	\
- 	 irq_lsapic.o ivt.o machvec.o pal.o patch.o process.o perfmon.o ptrace.o sal.o		\
--	 salinfo.o semaphore.o setup.o signal.o sys_ia64.o time.o traps.o unaligned.o unwind.o mca.o mca_asm.o
-+	 salinfo.o semaphore.o setup.o signal.o sys_ia64.o time.o traps.o unaligned.o \
-+	 unwind.o mca.o mca_asm.o topology.o
- 
- obj-$(CONFIG_IA64_BRL_EMU)	+= brl_emu.o
- obj-$(CONFIG_IA64_GENERIC)	+= acpi-ext.o
-diff -puN include/asm-i386/cpu.h~topology include/asm-i386/cpu.h
---- linux-2.6.9-rc2/include/asm-i386/cpu.h~topology	2004-09-17 18:01:36.323346536 -0700
-+++ linux-2.6.9-rc2-askeshav/include/asm-i386/cpu.h	2004-09-17 18:01:36.433698097 -0700
-@@ -11,18 +11,9 @@ struct i386_cpu {
- 	struct cpu cpu;
- };
- extern struct i386_cpu cpu_devices[NR_CPUS];
--
--
--static inline int arch_register_cpu(int num){
--	struct node *parent = NULL;
--	
--#ifdef CONFIG_NUMA
--	int node = cpu_to_node(num);
--	if (node_online(node))
--		parent = &node_devices[node].node;
--#endif /* CONFIG_NUMA */
--
--	return register_cpu(&cpu_devices[num].cpu, num, parent);
--}
-+extern int arch_register_cpu(int num);
-+#ifdef CONFIG_HOTPLUG_CPU
-+extern void arch_unregister_cpu(int);
-+#endif
- 
- #endif /* _ASM_I386_CPU_H_ */
-diff -puN arch/i386/mach-default/topology.c~topology arch/i386/mach-default/topology.c
---- linux-2.6.9-rc2/arch/i386/mach-default/topology.c~topology	2004-09-17 18:01:36.330182473 -0700
-+++ linux-2.6.9-rc2-askeshav/arch/i386/mach-default/topology.c	2004-09-17 18:01:36.434674659 -0700
-@@ -31,6 +31,37 @@
- 
- struct i386_cpu cpu_devices[NR_CPUS];
- 
-+int arch_register_cpu(int num){
-+	struct node *parent = NULL;
-+	
-+#ifdef CONFIG_NUMA
-+	int node = cpu_to_node(num);
-+	if (node_online(node))
-+		parent = &node_devices[node].node;
-+#endif /* CONFIG_NUMA */
-+
-+	return register_cpu(&cpu_devices[num].cpu, num, parent);
-+}
-+
-+#ifdef CONFIG_HOTPLUG_CPU
-+
-+void arch_unregister_cpu(int num) {
-+	struct node *parent = NULL;
-+
-+#ifdef CONFIG_NUMA
-+	int node = cpu_to_node(num);
-+	if (node_online(node))
-+		parent = &node_devices[node].node;
-+#endif /* CONFIG_NUMA */
-+
-+	return unregister_cpu(&cpu_devices[num].cpu, parent);
-+}
-+EXPORT_SYMBOL(arch_register_cpu);
-+EXPORT_SYMBOL(arch_unregister_cpu);
-+#endif /*CONFIG_HOTPLUG_CPU*/
-+
-+
-+
- #ifdef CONFIG_NUMA
- #include <linux/mmzone.h>
- #include <asm/node.h>
-diff -puN drivers/base/cpu.c~topology drivers/base/cpu.c
---- linux-2.6.9-rc2/drivers/base/cpu.c~topology	2004-09-17 18:01:36.335065286 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/base/cpu.c	2004-09-17 18:01:36.435651222 -0700
-@@ -46,10 +46,23 @@ static ssize_t store_online(struct sys_d
- }
- static SYSDEV_ATTR(online, 0600, show_online, store_online);
- 
--static void __init register_cpu_control(struct cpu *cpu)
-+static void __devinit register_cpu_control(struct cpu *cpu)
- {
- 	sysdev_create_file(&cpu->sysdev, &attr_online);
- }
-+void unregister_cpu(struct cpu *cpu, struct node *root)
-+{
-+
-+	if (root)
-+		sysfs_remove_link(&root->sysdev.kobj,
-+				  kobject_name(&cpu->sysdev.kobj));
-+	sysdev_remove_file(&cpu->sysdev, &attr_online);
-+
-+	sysdev_unregister(&cpu->sysdev);
-+
-+	return;
-+}
-+EXPORT_SYMBOL(unregister_cpu);
- #else /* ... !CONFIG_HOTPLUG_CPU */
- static inline void register_cpu_control(struct cpu *cpu)
- {
-@@ -64,7 +77,7 @@ static inline void register_cpu_control(
-  *
-  * Initialize and register the CPU device.
+ struct acpi_driver {
+@@ -313,7 +315,8 @@ extern struct subsystem acpi_subsys;
+  * External Functions
   */
--int __init register_cpu(struct cpu *cpu, int num, struct node *root)
-+int __devinit register_cpu(struct cpu *cpu, int num, struct node *root)
+ 
+-int acpi_bus_get_device(acpi_handle, struct acpi_device **device);
++int acpi_bus_get_device(acpi_handle handle, struct acpi_device **device);
++void acpi_bus_data_handler(acpi_handle handle, u32 function, void *context);
+ int acpi_bus_get_status (struct acpi_device *device);
+ int acpi_bus_get_power (acpi_handle handle, int *state);
+ int acpi_bus_set_power (acpi_handle handle, int state);
+@@ -321,6 +324,10 @@ int acpi_bus_generate_event (struct acpi
+ int acpi_bus_receive_event (struct acpi_bus_event *event);
+ int acpi_bus_register_driver (struct acpi_driver *driver);
+ int acpi_bus_unregister_driver (struct acpi_driver *driver);
++int acpi_bus_scan (struct acpi_device *start);
++void acpi_bus_trim(struct acpi_device *start, int rmdevice);
++int acpi_bus_add (struct acpi_device **child, struct acpi_device *parent, acpi_handle handle, int type);
++
+ 
+ int acpi_create_dir(struct acpi_device *);
+ void acpi_remove_dir(struct acpi_device *);
+diff -puN drivers/acpi/acpi_ksyms.c~acpi_core drivers/acpi/acpi_ksyms.c
+--- linux-2.6.9-rc2/drivers/acpi/acpi_ksyms.c~acpi_core	2004-09-17 16:35:23.123214595 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/acpi_ksyms.c	2004-09-17 16:35:23.233566156 -0700
+@@ -135,6 +135,9 @@ EXPORT_SYMBOL(acpi_bus_generate_event);
+ EXPORT_SYMBOL(acpi_bus_receive_event);
+ EXPORT_SYMBOL(acpi_bus_register_driver);
+ EXPORT_SYMBOL(acpi_bus_unregister_driver);
++EXPORT_SYMBOL(acpi_bus_scan);
++EXPORT_SYMBOL(acpi_bus_trim);
++EXPORT_SYMBOL(acpi_bus_add);
+ 
+ #endif /*CONFIG_ACPI_BUS*/
+ 
+diff -puN drivers/acpi/scan.c~acpi_core drivers/acpi/scan.c
+--- linux-2.6.9-rc2/drivers/acpi/scan.c~acpi_core	2004-09-17 16:35:23.127120845 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/scan.c	2004-09-17 16:35:23.235519281 -0700
+@@ -57,6 +57,7 @@ static void acpi_device_register(struct 
+ 	INIT_LIST_HEAD(&device->children);
+ 	INIT_LIST_HEAD(&device->node);
+ 	INIT_LIST_HEAD(&device->g_list);
++	INIT_LIST_HEAD(&device->wakeup_list);
+ 
+ 	spin_lock(&acpi_device_lock);
+ 	if (device->parent) {
+@@ -64,6 +65,8 @@ static void acpi_device_register(struct 
+ 		list_add_tail(&device->g_list,&device->parent->g_list);
+ 	} else
+ 		list_add_tail(&device->g_list,&acpi_device_list);
++	if (device->wakeup.flags.valid)
++		list_add_tail(&device->wakeup_list,&acpi_wakeup_device_list);
+ 	spin_unlock(&acpi_device_lock);
+ 
+ 	kobject_init(&device->kobj);
+@@ -80,6 +83,18 @@ acpi_device_unregister (
+ 	struct acpi_device	*device, 
+ 	int			type)
  {
- 	int error;
- 
-@@ -81,6 +94,9 @@ int __init register_cpu(struct cpu *cpu,
- 		register_cpu_control(cpu);
- 	return error;
++	spin_lock(&acpi_device_lock);
++	if (device->parent) {
++		list_del(&device->node);
++		list_del(&device->g_list);
++	} else
++		list_del(&device->g_list);
++
++	list_del(&device->wakeup_list);
++
++	spin_unlock(&acpi_device_lock);
++
++	acpi_detach_data(device->handle, acpi_bus_data_handler);
+ 	kobject_unregister(&device->kobj);
+ 	return 0;
  }
-+#ifdef CONFIG_HOTPLUG_CPU
-+EXPORT_SYMBOL(register_cpu);
-+#endif
+@@ -269,12 +284,6 @@ acpi_bus_get_wakeup_device_flags (
+ 	if (!acpi_match_ids(device, "PNP0C0D,PNP0C0C,PNP0C0E"))
+ 		device->wakeup.flags.run_wake = 1;
+ 
+-	/* TBD: lock */
+-	INIT_LIST_HEAD(&device->wakeup_list);
+-	spin_lock(&acpi_device_lock);
+-	list_add_tail(&device->wakeup_list, &acpi_wakeup_device_list);
+-	spin_unlock(&acpi_device_lock);
+-
+ end:
+ 	if (ACPI_FAILURE(status))
+ 		device->flags.wake_capable = 0;
+@@ -315,7 +324,6 @@ acpi_bus_match (
+ 	return acpi_match_ids(device, driver->ids);
+ }
+ 
+-
+ /**
+  * acpi_bus_driver_init 
+  * --------------------
+@@ -721,9 +729,10 @@ int acpi_device_set_context(struct acpi_
+ void acpi_device_get_debug_info(struct acpi_device * device, acpi_handle handle, int type)
+ {
+ #ifdef CONFIG_ACPI_DEBUG_OUTPUT
++
+ 	char		*type_string = NULL;
+ 	char		name[80] = {'?','\0'};
+-	acpi_buffer	buffer = {sizeof(name), name};
++	struct acpi_buffer	buffer = {sizeof(name), name};
+ 
+ 	switch (type) {
+ 	case ACPI_BUS_TYPE_DEVICE:
+@@ -760,7 +769,56 @@ void acpi_device_get_debug_info(struct a
+ #endif /*CONFIG_ACPI_DEBUG_OUTPUT*/
+ }
+ 
+-static int 
++
++int
++acpi_bus_remove (
++	struct acpi_device *dev,
++	int rmdevice)
++{
++	int 			result = 0;
++	struct acpi_driver	*driver;
++	
++	ACPI_FUNCTION_TRACE("acpi_bus_remove");
++
++	if (!dev)
++		return_VALUE(-EINVAL);
++
++	driver = dev->driver;
++
++	if ((driver) && (driver->ops.remove)) {
++
++		if (driver->ops.stop) {
++			result = driver->ops.stop(dev, ACPI_BUS_REMOVAL_EJECT);
++			if (result)
++				return_VALUE(result);
++		}
++
++		result = dev->driver->ops.remove(dev, ACPI_BUS_REMOVAL_EJECT);
++		if (result) {
++			if (driver->ops.start)
++				driver->ops.start(dev);
++			return_VALUE(result);
++		}
++
++		atomic_dec(&dev->driver->references);
++		dev->driver = NULL;
++		acpi_driver_data(dev) = NULL;
++	}
++
++	if (!rmdevice)
++		return_VALUE(0);
++
++	if (dev->flags.bus_address) {
++		if ((dev->parent) && (dev->parent->ops.unbind))
++			dev->parent->ops.unbind(dev);
++	}
++	
++	acpi_device_unregister(dev, ACPI_BUS_REMOVAL_EJECT);
++
++	return_VALUE(0);
++}
++
++int
+ acpi_bus_add (
+ 	struct acpi_device	**child,
+ 	struct acpi_device	*parent,
+@@ -907,7 +965,7 @@ end:
  
  
  
+-static int acpi_bus_scan (struct acpi_device	*start)
++int acpi_bus_scan (struct acpi_device	*start)
+ {
+ 	acpi_status		status = AE_OK;
+ 	struct acpi_device	*parent = NULL;
+@@ -1009,6 +1067,35 @@ static int acpi_bus_scan (struct acpi_de
+ 	return_VALUE(0);
+ }
+ 
++void
++acpi_bus_trim(struct acpi_device	*start,
++		int rmdevice)
++{
++	acpi_status		status = AE_OK;
++	struct acpi_device	*parent = NULL;
++	struct acpi_device	*child = NULL;
++	acpi_handle		phandle = 0;
++	acpi_handle		chandle = 0;
++
++	parent  = start;
++	phandle = start->handle;
++
++	/*
++	 * NOTE: must be freed in a depth-first manner.
++	 */
++	while (1)	{
++		status = acpi_get_next_object(ACPI_TYPE_ANY, phandle,
++			chandle, &chandle);
++		if (ACPI_SUCCESS(status) && chandle != NULL)	{
++			if (acpi_bus_get_device(chandle, &child) = 0)
++				acpi_bus_trim(child, 1);
++		} else {
++			/* this is a leaf */
++			acpi_bus_remove(parent, rmdevice);
++			break;
++		}
++	}
++}
+ 
+ static int
+ acpi_bus_scan_fixed (
+diff -puN include/acpi/acpi_drivers.h~acpi_core include/acpi/acpi_drivers.h
+--- linux-2.6.9-rc2/include/acpi/acpi_drivers.h~acpi_core	2004-09-17 16:35:23.132003657 -0700
++++ linux-2.6.9-rc2-askeshav/include/acpi/acpi_drivers.h	2004-09-17 16:35:23.236495844 -0700
+@@ -61,12 +61,14 @@ int acpi_pci_link_get_irq (acpi_handle h
+ /* ACPI PCI Interrupt Routing (pci_irq.c) */
+ 
+ int acpi_pci_irq_add_prt (acpi_handle handle, int segment, int bus);
++void acpi_pci_irq_del_prt (int segment, int bus);
+ 
+ /* ACPI PCI Device Binding (pci_bind.c) */
+ 
+ struct pci_bus;
+ 
+ int acpi_pci_bind (struct acpi_device *device);
++int acpi_pci_unbind (struct acpi_device *device);
+ int acpi_pci_bind_root (struct acpi_device *device, struct acpi_pci_id *id, struct pci_bus *bus);
+ 
+ /* Arch-defined function to add a bus to the system */
+diff -puN drivers/acpi/pci_irq.c~acpi_core drivers/acpi/pci_irq.c
+--- linux-2.6.9-rc2/drivers/acpi/pci_irq.c~acpi_core	2004-09-17 16:35:23.135909907 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/pci_irq.c	2004-09-17 16:35:23.237472406 -0700
+@@ -43,7 +43,7 @@
+ ACPI_MODULE_NAME		("pci_irq")
+ 
+ struct acpi_prt_list		acpi_prt;
+-
++spinlock_t acpi_prt_lock = SPIN_LOCK_UNLOCKED;
+ 
+ /* --------------------------------------------------------------------------
+                          PCI IRQ Routing Table (PRT) Support
+@@ -68,18 +68,20 @@ acpi_pci_irq_find_prt_entry (
+ 	 * Parse through all PRT entries looking for a match on the specified
+ 	 * PCI device's segment, bus, device, and pin (don't care about func).
+ 	 *
+-	 * TBD: Acquire/release lock
+ 	 */
++	spin_lock(&acpi_prt_lock);
+ 	list_for_each(node, &acpi_prt.entries) {
+ 		entry = list_entry(node, struct acpi_prt_entry, node);
+ 		if ((segment = entry->id.segment) 
+ 			&& (bus = entry->id.bus) 
+ 			&& (device = entry->id.device)
+ 			&& (pin = entry->pin)) {
++			spin_unlock(&acpi_prt_lock);
+ 			return_PTR(entry);
+ 		}
+ 	}
+ 
++	spin_unlock(&acpi_prt_lock);
+ 	return_PTR(NULL);
+ }
+ 
+@@ -141,14 +143,29 @@ acpi_pci_irq_add_entry (
+ 		entry->id.segment, entry->id.bus, entry->id.device, 
+ 		('A' + entry->pin), prt->source, entry->link.index));
+ 
+-	/* TBD: Acquire/release lock */
++	spin_lock(&acpi_prt_lock);
+ 	list_add_tail(&entry->node, &acpi_prt.entries);
+ 	acpi_prt.count++;
++	spin_unlock(&acpi_prt_lock);
+ 
+ 	return_VALUE(0);
+ }
+ 
+ 
++static void
++acpi_pci_irq_del_entry (
++	int				segment,
++	int				bus,
++	struct acpi_prt_entry		*entry)
++{
++	if (segment = entry->id.segment && bus = entry->id.bus){
++		acpi_prt.count--;
++		list_del(&entry->node);
++		kfree(entry);
++	}
++}
++
++
+ int
+ acpi_pci_irq_add_prt (
+ 	acpi_handle		handle,
+@@ -222,7 +239,26 @@ acpi_pci_irq_add_prt (
+ 	return_VALUE(0);
+ }
+ 
++void
++acpi_pci_irq_del_prt (int segment, int bus)
++{
++	struct list_head        *node = NULL, *n = NULL;
++	struct acpi_prt_entry   *entry = NULL;
++
++	if (!acpi_prt.count)    {
++		return;
++	}
+ 
++	printk(KERN_DEBUG "ACPI: Delete PCI Interrupt Routing Table for %x:%x\n",
++		segment, bus);
++	spin_lock(&acpi_prt_lock);
++	list_for_each_safe(node, n, &acpi_prt.entries) {
++		entry = list_entry(node, struct acpi_prt_entry, node);
++
++		acpi_pci_irq_del_entry(segment, bus, entry);
++	}
++	spin_unlock(&acpi_prt_lock);
++}
+ /* --------------------------------------------------------------------------
+                           PCI Interrupt Routing Support
+    -------------------------------------------------------------------------- */
+diff -puN drivers/acpi/pci_bind.c~acpi_core drivers/acpi/pci_bind.c
+--- linux-2.6.9-rc2/drivers/acpi/pci_bind.c~acpi_core	2004-09-17 16:35:23.140792720 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/pci_bind.c	2004-09-17 16:35:23.238448968 -0700
+@@ -214,6 +214,7 @@ acpi_pci_bind (
+ 			data->id.device, data->id.function));
+ 		data->bus = data->dev->subordinate;
+ 		device->ops.bind = acpi_pci_bind;
++		device->ops.unbind = acpi_pci_unbind;
+ 	}
+ 
+ 	/*
+@@ -257,6 +258,49 @@ end:
+ 	return_VALUE(result);
+ }
+ 
++int acpi_pci_unbind(
++	struct acpi_device      *device)
++{
++	int                     result = 0;
++	acpi_status             status = AE_OK;
++	struct acpi_pci_data    *data = NULL;
++	char                    pathname[ACPI_PATHNAME_MAX] = {0};
++	struct acpi_buffer      buffer = {ACPI_PATHNAME_MAX, pathname};
++
++	ACPI_FUNCTION_TRACE("acpi_pci_unbind");
++
++	if (!device || !device->parent)
++		return_VALUE(-EINVAL);
++
++	acpi_get_name(device->handle, ACPI_FULL_PATHNAME, &buffer);
++	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Unbinding PCI device [%s]...\n",
++		pathname));
++
++	status = acpi_get_data(device->handle, acpi_pci_data_handler, (void**)&data);
++	if (ACPI_FAILURE(status)) {
++		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
++			"Unable to get data from device %s\n",
++			acpi_device_bid(device)));
++		result = -ENODEV;
++		goto end;
++	}
++
++	status = acpi_detach_data(device->handle, acpi_pci_data_handler);
++	if (ACPI_FAILURE(status)) {
++		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
++			"Unable to detach data from device %s\n",
++			acpi_device_bid(device)));
++		result = -ENODEV;
++		goto end;
++	}
++	if (data->dev->subordinate) {
++		acpi_pci_irq_del_prt(data->id.segment, data->bus->number);
++	}
++	kfree(data);
++
++end:
++	return_VALUE(result);
++}
+ 
+ int 
+ acpi_pci_bind_root (
+@@ -283,6 +327,7 @@ acpi_pci_bind_root (
+ 	data->id = *id;
+ 	data->bus = bus;
+ 	device->ops.bind = acpi_pci_bind;
++	device->ops.unbind = acpi_pci_unbind;
+ 
+ 	acpi_get_name(device->handle, ACPI_FULL_PATHNAME, &buffer);
+ 
+diff -puN drivers/acpi/bus.c~acpi_core drivers/acpi/bus.c
+--- linux-2.6.9-rc2/drivers/acpi/bus.c~acpi_core	2004-09-17 16:35:23.144698970 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/bus.c	2004-09-17 16:35:23.239425531 -0700
+@@ -53,10 +53,6 @@ struct proc_dir_entry		*acpi_root_dir;
+                                 Device Management
+    -------------------------------------------------------------------------- */
+ 
+-extern void acpi_bus_data_handler (
+-	acpi_handle		handle,
+-	u32			function,
+-	void			*context);
+ int
+ acpi_bus_get_device (
+ 	acpi_handle		handle,
 _
