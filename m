@@ -1,64 +1,32 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Mon, 29 Mar 2004 18:58:47 +0000
-Subject: [PATCH] fix sn_serial warning
-Message-Id: <200403291058.47096.jbarnes@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_nHHaArtF/eaC3/S"
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 22 Mar 2004 03:11:35 +0000
+Subject: [patch] 2.6.5-rc2 salinfo oemdata race fix
+Message-Id: <5785.1079925095@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+sn_oemdata_* variables must only be used under the sn_oemdata_mutex.
 
---Boundary-00=_nHHaArtF/eaC3/S
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+--- linux-2.6.5-rc2.orig/arch/ia64/sn/kernel/mca.c
++++ linux-2.6.5-rc2/arch/ia64/sn/kernel/mca.c
+@@ -108,6 +108,7 @@
+ 	down(&sn_oemdata_mutex);
+ 	sn_oemdata = oemdata;
+ 	sn_oemdata_size = oemdata_size;
++	sn_oemdata_bufsize = 0;
+ 	ia64_sn_plat_specific_err_print(print_hook, (char *)psei);
+ 	up(&sn_oemdata_mutex);
+ 	return 0;
+@@ -120,7 +121,6 @@
+ {
+ 	efi_guid_t guid = *(efi_guid_t *)sect_header;
+ 	*oemdata_size = 0;
+-	sn_oemdata_bufsize = 0;
+ 	vfree(*oemdata);
+ 	*oemdata = NULL;
+ 	if (efi_guidcmp(guid, SAL_PLAT_SPECIFIC_ERR_SECT_GUID) = 0)
 
-In my fixes to quiet the sn_serial driver, I made sn_debug_printf only get 
-used when the DEBUG define was turned on in the driver but forgot to #ifdef 
-out the function definition, causing an 'defined but not used' warning.  This 
-patch fixes that.
 
-Jesse
-
---Boundary-00=_nHHaArtF/eaC3/S
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="sn-serial-warning-fixes.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="sn-serial-warning-fixes.patch"
-
-===== drivers/char/sn_serial.c 1.10 vs edited =====
---- 1.10/drivers/char/sn_serial.c	Mon Mar 22 02:29:18 2004
-+++ edited/drivers/char/sn_serial.c	Mon Mar 29 10:48:14 2004
-@@ -82,10 +82,10 @@
- static unsigned long sn_interrupt_timeout;
- 
- extern u64 master_node_bedrock_address;
--static int sn_debug_printf(const char *fmt, ...);
- 
- #undef DEBUG
- #ifdef DEBUG
-+static int sn_debug_printf(const char *fmt, ...);
- #define DPRINTF(x...) sn_debug_printf(x)
- #else
- #define DPRINTF(x...) do { } while (0)
-@@ -247,6 +247,7 @@
- 	sn_func->sal_puts(s, count);
- }
- 
-+#ifdef DEBUG
- /* this is as "close to the metal" as we can get, used when the driver
-  * itself may be broken */
- static int
-@@ -262,6 +263,7 @@
- 	va_end(args);
- 	return printed_len;
- }
-+#endif /* DEBUG */
- 
- /*
-  * Interrupt handling routines.
-
---Boundary-00=_nHHaArtF/eaC3/S--
