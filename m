@@ -1,43 +1,27 @@
-From: Robert Picco <Robert.Picco@hp.com>
-Date: Thu, 10 Jun 2004 15:23:28 +0000
-Subject: [PATCH] discontig.c
-Message-Id: <40C87CF0.7070206@hp.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 10 Jun 2004 18:10:31 +0000
+Subject: Re: [PATCH] discontig.c
+Message-Id: <16584.42007.189292.179057@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <40C87CF0.7070206@hp.com>
+In-Reply-To: <40C87CF0.7070206@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi David and Andrew:
+>>>>> On Thu, 10 Jun 2004 11:23:28 -0400, Robert Picco <Robert.Picco@hp.com> said:
 
-I found a problem with HP NUMA configuration in 2.6.7-rc3-mm1.  The 
-node_online_map is incorrect
-because of actions taken by reassign_cpu_only_nodes in 
-arch/ia64/mm/discontig.c.  The mm1 patch
-which changes the mempolicy for the init_task uses this invalid 
-node_online_map and eventually uses a
-non-existent node's zonelist when calling __alloc_pages. 
+  Rob> Hi David and Andrew: I found a problem with HP NUMA
+  Rob> configuration in 2.6.7-rc3-mm1.  The node_online_map is
+  Rob> incorrect because of actions taken by reassign_cpu_only_nodes
+  Rob> in arch/ia64/mm/discontig.c.  The mm1 patch which changes the
+  Rob> mempolicy for the init_task uses this invalid node_online_map
+  Rob> and eventually uses a non-existent node's zonelist when calling
+  Rob> __alloc_pages.
 
-The patch below takes care of this issue.  It puts the non-existent 
-nodes offline.
+The patch looks fine to me.  If there are no objections from others, I
+shall be happy to apply it in my tree, if that's what you want me to
+do.
 
-thanks,
-
-Bob
-
-diff -ruN -X /home/picco/losl/dontdiff linux-2.6.7-rc3-m1.orig/arch/ia64/mm/discontig.c linux-2.6.7-rc3-m1.hpet/arch/ia64/mm/discontig.c
---- linux-2.6.7-rc3-m1.orig/arch/ia64/mm/discontig.c	2004-06-07 15:14:58.000000000 -0400
-+++ linux-2.6.7-rc3-m1.hpet/arch/ia64/mm/discontig.c	2004-06-09 18:44:02.000000000 -0400
-@@ -154,6 +154,9 @@
- 
- 	memcpy(numa_slit, numa_slit_fix, sizeof (numa_slit));
- 
-+	for (i = nnode; i < numnodes; i++)
-+		node_set_offline(i);
-+
- 	numnodes = nnode;
- 
- 	return;
-
-
-
+	--david
