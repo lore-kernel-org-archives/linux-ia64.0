@@ -1,29 +1,44 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 04 Oct 2004 15:39:33 +0000
-Subject: potential user/kernel-address confusion
-Message-Id: <200410041539.i94FdXfM031518@napali.hpl.hp.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 20 Oct 2004 19:05:05 +0000
+Subject: [PATCH] fix sba_iommu build
+Message-Id: <200410201205.05111.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_hbrdB/ruK22nefN"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Arun,
+--Boundary-00=_hbrdB/ruK22nefN
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-While running the sparse checker, I discovered a potential problem:
+sba_iommu.c needs to include linux/nodemask.h for node_online now.  Here's a 
+patch to add it.
 
-In elfcore32.h, elf_core_copy_task_fpregs() calls save_ia32_fpstate(),
-which expects to be copying to user-memory.  However, the ELF
-coredumping code will pass you a pointer to kernel-memory and as far
-as I can tell, save_ia32_fpstate() probably fail in that case (I don't
-see any set_fs(KERNEL_DS), at least).
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-On a related note:
+Thanks,
+Jesse
 
- - Isn't ia32_sigsuspend() missing a call to set_fs(KERNEL_DS)?  &mask
-   is a kernel pointer, after all.
+--Boundary-00=_hbrdB/ruK22nefN
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sba-iommu-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sba-iommu-fix.patch"
 
- - Isn't sys32_rt_sigreturn() missing a call to set_fs(KERNEL_DS)
-   before the call to do_sigaltstack()?  &st is a kernel pointer, after all.
+===== arch/ia64/hp/common/sba_iommu.c 1.46 vs edited =====
+--- 1.46/arch/ia64/hp/common/sba_iommu.c	2004-10-05 11:30:38 -07:00
++++ edited/arch/ia64/hp/common/sba_iommu.c	2004-10-20 12:00:32 -07:00
+@@ -33,6 +33,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/acpi.h>
+ #include <linux/efi.h>
++#include <linux/nodemask.h>
+ 
+ #include <asm/delay.h>		/* ia64_get_itc() */
+ #include <asm/io.h>
 
-	--david
+--Boundary-00=_hbrdB/ruK22nefN--
