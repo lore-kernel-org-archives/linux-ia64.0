@@ -1,55 +1,56 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Fri, 26 Sep 2003 10:17:50 +0000
-Subject: [PATCH] simplify SN2 interrupt allocation
-Message-Id: <marc-linux-ia64-106457149810700@msgid-missing>
+Date: Fri, 26 Sep 2003 10:18:47 +0000
+Subject: [PATCH] remove CONFIG_PCI ifdefs in SN2 code
+Message-Id: <marc-linux-ia64-106457154710737@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Same issues as the dma mapping code, but as SN2 interrupt handling is
-totally static and all irqs are allocated on bootup an never freed it's
-not a speed issue.
-
-I really wonder what someone has to smoke to call a that expensive
-dispatcher just to cast the data structure back to the lowlevel one
-directly afterwards...
+It's not like it would compile without PCI support anyway, and these
+ifdefs are _really_ strange.
 
 
 
---- 1.10/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Mon Sep  8 14:12:36 2003
-+++ edited/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Fri Sep 26 12:10:00 2003
-@@ -426,7 +426,7 @@
- 	struct pci_dev *device_dev = NULL;
- 	struct sn_widget_sysdata *widget_sysdata;
- 	struct sn_device_sysdata *device_sysdata;
--	pciio_intr_t intr_handle;
-+	pcibr_intr_t intr_handle;
- 	int cpuid;
- 	vertex_hdl_t device_vertex;
- 	pciio_intr_line_t lines;
-@@ -545,17 +549,17 @@
- 				     (unsigned char *)&lines);
- 	 
- 		irqpdaindr->curr = device_dev;
--		intr_handle = pciio_intr_alloc(device_vertex, NULL, lines, device_vertex);
-+		intr_handle = pcibr_intr_alloc(device_vertex, NULL, lines, device_vertex);
+--- 1.10/arch/ia64/sn/io/machvec/pci.c	Fri Aug  8 19:07:54 2003
++++ edited/arch/ia64/sn/io/machvec/pci.c	Fri Sep 26 12:00:06 2003
+@@ -35,8 +35,6 @@
+  * can probably be removed with a little more cleanup now that the SAL routines
+  * work on sn2.
+  */
+-#ifdef CONFIG_PCI
+-
+ extern vertex_hdl_t devfn_to_vertex(unsigned char bus, unsigned char devfn);
  
--		irq = intr_handle->pi_irq;
-+		irq = intr_handle->bi_irq;
- 		irqpdaindr->device_dev[irq] = device_dev;
--		cpuid = intr_handle->pi_cpu;
--		pciio_intr_connect(intr_handle, (intr_func_t)0, (intr_arg_t)0);
-+		cpuid = intr_handle->bi_cpu;
-+		pcibr_intr_connect(intr_handle, (intr_func_t)0, (intr_arg_t)0);
- 		device_dev->irq = irq;
--		register_pcibr_intr(irq, (pcibr_intr_t)intr_handle);
-+		register_pcibr_intr(irq, intr_handle);
+ int sn_read_config(struct pci_bus *bus, unsigned int devfn, int where, int size, u32 *val)
+@@ -71,9 +69,3 @@
+ 	.read = sn_read_config,
+ 	.write = sn_write_config,
+ };
+-
+-#else
+-struct list_head pci_root_buses;
+-struct list_head pci_root_buses;
+-struct list_head pci_devices;
+-#endif /* CONFIG_PCI */
+--- 1.14/arch/ia64/sn/io/machvec/pci_dma.c	Fri Sep 26 09:13:22 2003
++++ edited/arch/ia64/sn/io/machvec/pci_dma.c	Fri Sep 26 11:59:42 2003
+@@ -572,8 +562,6 @@
+ 	return 1;
+ }
  
- 		for (idx = 0; idx < PCI_ROM_RESOURCE; idx++) {
--			int ibits = ((pcibr_intr_t)intr_handle)->bi_ibits;
-+			int ibits = intr_handle->bi_ibits;
- 			int i;
+-#ifdef CONFIG_PCI
+-
+ /*
+  * New generic DMA routines just wrap sn2 PCI routines until we
+  * support other bus types (if ever).
+@@ -701,8 +689,6 @@
+ 	sn_pci_dma_sync_sg(to_pci_dev(dev), sg, nelems, (int)direction);
+ }
+ EXPORT_SYMBOL(sn_dma_sync_sg);
+-
+-#endif /* CONFIG_PCI */
  
- 			size = device_dev->resource[idx].end -
+ EXPORT_SYMBOL(sn_pci_unmap_single);
+ EXPORT_SYMBOL(sn_pci_map_single);
