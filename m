@@ -1,31 +1,47 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 26 Jun 2001 16:12:26 +0000
-Subject: Re: [Linux-ia64] volatile unsigned long cpu_online_map vs unsigned long cpu_online_map
-Message-Id: <marc-linux-ia64-105590693005771@msgid-missing>
+From: rmenon@informix.com (Ram Menon)
+Date: Tue, 12 Jun 2001 23:39:48 +0000
+Subject: [Linux-ia64] gcc issue ?
+Message-Id: <marc-linux-ia64-105590693005722@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005770@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005770@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On 26 Jun 2001 17:34:52 +0200, Andreas Schwab <schwab@suse.de> said:
+Hi,
 
-  Andreas> include/asm-ia64/smp.h has 'extern unsigned long
-  Andreas> cpu_online_map', but arch/ia64/kernel/setup.c and
-  Andreas> arch/ia64/kernel/smpboot.c have 'volatile unsigned long
-  Andreas> cpu_online_map'.  Which one is correct?
+Following program fails compilation on linux ia64 os, but works on 
+other os's.
 
-It should be volatile.  Apparently, there were some changes in the
-gcc3.0 tree shortly before the final release which made gcc more picky
-(at least I don't recall seeing those messages before).  Also, I think
-there may be a new code generation problem in gcc3.0: the kernel gets
-stuck in the middle of the boot (after the message "Starting up
-secondaries").  I'll try to look into this soon, but I'm at Usenix the
-rest of this week and on vacation right afterwards, so I may not get
-to it until mid-July.  So it looks like gcc3.0 isn't as kernel-ready
-as I thought it was.  Bummer.
+#include <stdarg.h>
 
-	--david
+main()
+{
+
+f(1, 'c', 10);
+}
+
+f(char a, ...)
+{
+
+int cval;
+va_list     args;
+va_start(args, a);
+
+cval = va_arg(args, char);
+
+}
+
+
+[root@timba /root]# cc main.c -o main
+main.c:10: warning: type mismatch with previous implicit declaration
+main.c:6: warning: previous implicit declaration of `f'
+main.c: In function `f':
+main.c:16: `char' is promoted to `int' when passed through `...'
+main.c:16: (so you should pass `int' not `char' to `va_arg')
+
+
+Is va_arg(args, int) same as va_arg(args, char) for char arg ?.
+
+thanks
 
