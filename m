@@ -1,56 +1,49 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 16 Apr 2004 02:49:06 +0000
-Subject: RE: hugetlb demand paging patch part [3/3]
-Message-Id: <200404160249.i3G2n6F13010@unix-os.sc.intel.com>
+From: Ashok Raj <ashok.raj@intel.com>
+Date: Wed, 28 Apr 2004 14:52:55 +0000
+Subject: Re: ia64-cpu-hotplug-cpu_present.patch?
+Message-Id: <20040428075255.A8859@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20040416014045.GE12735@zax>
-References: <200404132325.i3DNPXF21289@unix-os.sc.intel.com>
-In-Reply-To: <200404132325.i3DNPXF21289@unix-os.sc.intel.com>
+References: <20040427225741.2fe78d88.pj@sgi.com>
+In-Reply-To: <20040427225741.2fe78d88.pj@sgi.com>; from pj@sgi.com on Tue, Apr 27, 2004 at 10:57:41PM -0700
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'David Gibson' <david@gibson.dropbear.id.au>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, 'Andrew Morton' <akpm@osdl.org>
+To: Paul Jackson <pj@sgi.com>
+Cc: akpm@osdl.org, ashok.raj@intel.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>> David Gibson wrote on Thursday, April 15, 2004 6:41 PM
-> > > > @@ -175,7 +132,6 @@ struct page *follow_huge_addr(struct mm_
-> > > >  		return NULL;
-> > > >  	page = pte_page(*ptep);
-> > > >  	page += ((addr & ~HPAGE_MASK) >> PAGE_SHIFT);
-> > > > -	get_page(page);
-> > > >  	return page;
-> > > >  }
-> > >
-> > > As far as I can tell, the removal of these get_page()s is also
-> > > unrelated to the demand paging per se.  But afaict removing them is
-> > > correct - the corresponding logic in follow_page() for normal pages
-> > > doesn't appear to do a get_page(), nor do all archs do a get_page().
-> > >
-> > > Does that sound right to you?
-> >
-> > It's a bug in the code that was never exercised with prefaulting.  See
-> > get_user_pages() that short circuits the rest of faulting code with
-> > is_vm_hugetlb_page() test.
->
-> Erm.. it's not clear to me that it could never be exercise:
-> get_user_pages() is not the only caller of follow_page().
+On Tue, Apr 27, 2004 at 10:57:41PM -0700, Paul Jackson wrote:
 
-At least we all agree it's a bug :-)
+Hi Paul,
 
+sorry for the trouble. I will try to address them, and will try to resolve the compile problem
+you are having.
 
-> > > If so, the patch below ought to be safe (and indeed a bugfix) to
-> > > apply now:
-> >
-> > Yep, that's correct, I already did x86 and ia64 in one of the three
-> > patches posted. ;-)
->
-> Yes, I know, but I'm trying to separate which parts of your patches
-> are fixes/cleanups for pre-existing problems, and which are genuinely
-> new for demand paging.
+> I cannot find any mention of it on lkml or any other email list that
+> either Google or I track.
+> 
+> Is there some backdoor path to Andrew's patch directory I don't know of ;)?
 
-The only part I know that is bug fix is the extra get_page() reference
-in follow_huge_addr().  All others are for demand paging.
+I sent the patch to linux-ia64, but forgot to copy lkml. No... i did not buy crispy
+cream for andrew.. although that did cross my mine :-)
 
-- Ken
+Some of the points you raise, i will look into, but here is a quick summary fo Paul's top 10
+list!.
+
+cpu_present is required so that when cpu_up is called in smp_init() we dont call for all
+possible cpu's but just for cpu's physically present. 
+
+cpu_possible - indicates cpu may be available, but may not be present in the system. Hence
+different from phys_cpu_present_mask
+
+cpu_possible wont change dynamically but present_map can change depending on the arrival of 
+cpu's in a system. I implemented it for only ia64, and expection is that ACPI or its equilvalent
+would populate cpu_present_map dynamically.
+
+In architectures that dont have cpu_hotplug capability, i have kept cpu_present and possible the same.
 
 
+Once i take a look at the failures, i will send you an updated patch. again really sorry for the
+inconvenience.
+
+Cheers,
+ashok
