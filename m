@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 17 Oct 2003 20:08:01 +0000
+Date: Fri, 17 Oct 2003 20:11:16 +0000
 Subject: Re: [patch] xbow.c kmalloc fixes
-Message-Id: <marc-linux-ia64-106642330107163@msgid-missing>
+Message-Id: <marc-linux-ia64-106642328707088@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106641220628729@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106641220628729@msgid-missing>
@@ -10,35 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 17 Oct 2003 10:37:54 -0700, jbarnes@sgi.com (Jesse Barnes) said:
+>>>>> On Fri, 17 Oct 2003 18:47:51 +0100, Christoph Hellwig <hch@infradead.org> said:
 
-  Jesse> On Fri, Oct 17, 2003 at 10:31:27AM -0700, David Mosberger
-  Jesse> wrote:
+  Christoph> On Fri, Oct 17, 2003 at 10:31:27AM -0700, David Mosberger
+  Christoph> wrote:
   >> So what should be done about these SN2 cleanups?  I don't want to
   >> accept dozens of small "fixes" (which really are mostly cleanups)
   >> as that would defeat the idea of the code-fixes-only decree.  On
   >> the other hand, I really would like to see the SN2 code cleaned
   >> up so we actually have a sane base to do bug fixes on top of.
 
-  Jesse> Unfortunately, many of the cleanups and fixes (of which there
-  Jesse> are many) are now intertwined.
+  Christoph> What about letting the SGI folks creeate a
+  Christoph> sn-cleanups-2.6 BK tree and let them deal with Linus
+  Christoph> themselves with your below blanket approval?
 
-Yes, I understand and I don't think it makes sense to seprate them
-out, since the cleanups are so badly needed, they should count as
-fixes...
-
-  >> Perhaps it would actually be a better idea to have one big SN2
-  >> cleanup patch which gets applied directly by Andrew?  It seems
-  >> like he would be OK with a one-time exception (since the code had
-  >> been in the works and since the old code is so gross) and as long
-  >> as the patch doesn't break GENERIC compiles, I'm going to be OK
-  >> with it anyhow.  How about it?
-
-  Jesse> Sounds good to me.  Pat, do you have one big patch you can
-  Jesse> send to Andrew that includes Jes' latest checkins?  Let me
-  Jesse> know if you need help testing it.
-
-Great!
+That's what I was suggesting (apart from patch vs bk; I don't care
+about the mechanism of getting the updates into Linus tree; I just
+don't want to be stuck with a large SN2 update which may or may not be
+accepted by Linus/Andrew).
 
 	--david
-
