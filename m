@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 04 Feb 2004 19:50:44 +0000
+From: Patrick Gefre <pfg@sgi.com>
+Date: Thu, 05 Feb 2004 17:11:09 +0000
 Subject: Re: PCI question
-Message-Id: <200402041250.44802.bjorn.helgaas@hp.com>
+Message-Id: <4022792D.2070309@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200402032235.i13MZQXl018906@fsgi900.americas.sgi.com>
 In-Reply-To: <200402032235.i13MZQXl018906@fsgi900.americas.sgi.com>
@@ -10,21 +10,42 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday 04 February 2004 12:10 pm, Patrick Gefre wrote:
-> We keep track of several things that are specific to our system:
-> 
-> struct sn_device_sysdata {
->         vertex_hdl_t            vhdl;
->         pciio_provider_t        *pci_provider;
->         pciio_intr_t            intr_handle;
->         struct sn_flush_device_list *dma_flush_list;
->         pciio_piomap_t          pio_map[PCI_ROM_RESOURCE];
-> };
-> 
-> The platform_data element is what we use in 2.4 and seems like the way 
-> to go for 2.6.
+Greg KH wrote:
 
-If you make yourself a macro to go from a pci_dev to sn_device_sysdata,
-you can make your code independent of where the SGI-specific stuff
-actually lives.  Probably you already do that.
+>On Tue, Feb 03, 2004 at 04:27:09PM -0600, Patrick Gefre wrote:
+>  
+>
+>>The usage of pci_dev.sysdata is a bit confusing to me. I had initially
+>>thought that this was available for any system specific use,  but then
+>>in pcibios_fixup_device_resources() it is specifically cast as a
+>>struct pci_controller *:
+>>
+>>#define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
+>>
+>>void __init
+>>pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
+>>    
+>>
+>
+>What kernel are you looking at?  I don't see either of the above in the
+>2.6.2 kernel tree.
+>
+>thanks,
+>
+>greg k-h
+>  
+>
+In my bitkeeper tree : (bk parent: http://linux.bkbits.net/linux-2.5)
+
+include/asm-ia64/pci.h:
+#define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
+
+arch/ia64/pci/pci.c:
+void __init
+pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
+
+Is there some ia64 patch I'm missing that removes this ?
+
+-- Pat
+
 
