@@ -1,7 +1,7 @@
-From: Matt_Domsch@Dell.com
-Date: Mon, 10 Jun 2002 15:56:38 +0000
-Subject: RE: [Linux-ia64] CD-ROM I/O error
-Message-Id: <marc-linux-ia64-105590701905661@msgid-missing>
+From: j-nomura@ce.jp.nec.com
+Date: Tue, 11 Jun 2002 07:55:15 +0000
+Subject: Re: [Linux-ia64] CD-ROM I/O error
+Message-Id: <marc-linux-ia64-105590701905663@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905659@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905659@msgid-missing>
@@ -10,39 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> when I do 'cat /dev/cdrom > disc.iso' on my Itanium box,
-> I/O error happens on CD-ROM.
+Hi,
 
-If you're trying to simply make an ISO with the right number of sectors, you
-need to use 'isoinfo' to avoid these kinds of end-of-disc problems.
-Something like (yes I use this quite often):
+> > when I do 'cat /dev/cdrom > disc.iso' on my Itanium box,
+> > I/O error happens on CD-ROM.
+> 
+> If you're trying to simply make an ISO with the right number of sectors, you
+> need to use 'isoinfo' to avoid these kinds of end-of-disc problems.
 
-[mdomsch@humbolt mdomsch]$ more ~/check_cds
-#!/bin/sh
+Thank you, Matt.
+I had to specify the number of blocks to read.
 
-CD=0
+I'm still wondering why this does neither occur on my Pentium box
+nor for some other CDs..
 
-while [ 1 ]; do
-      CD=`expr $CD + 1`
-      echo "Insert CD #$CD.  What shall I name it?"
-      read CDNAME
-      SIZE=`isoinfo -d -i /dev/cdrom | grep "Volume size is: " | awk '{print
-$4}'`
-      dd if=/dev/cdrom bs=2k count=$SIZE of=$CDNAME
-      mount /mnt/cdrom
-      ls -lR /mnt/cdrom
-      umount /mnt/cdrom
-done
-
-
-Thanks,
-Matt
-
+Best regards.
 --
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions www.dell.com/linux
-Dell internal Linux lists @ http://insidelists.us.dell.com
-Dell public Linux lists @ http://lists.us.dell.com
-#1 US Linux Server provider for 2001 and Q1/2002! (IDC May 2002)
+NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
+HPC Operating System Group, 1st Computers Software Division,
+Computers Software Operations Unit, NEC Solutions.
 
