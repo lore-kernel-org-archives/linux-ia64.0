@@ -1,39 +1,50 @@
-From: Ashok Raj <ashok.raj@intel.com>
-Date: Mon, 07 Jun 2004 17:22:26 +0000
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Mon, 07 Jun 2004 19:25:57 +0000
 Subject: Re: [lhcs-devel] Re: [RFC] don't create cpu/online sysfs file
-Message-Id: <20040607102226.A19556@unix-os.sc.intel.com>
+Message-Id: <1086636357.16083.1.camel@nighthawk>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="M9NhX3UHpAaciwkO"
+Content-Type: multipart/mixed; boundary="=-37cFrnEtPjar2moEY6s1"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1086390257.24915.132.camel@nighthawk>
 In-Reply-To: <1086390257.24915.132.camel@nighthawk>
 To: linux-ia64@vger.kernel.org
 
 
---M9NhX3UHpAaciwkO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-37cFrnEtPjar2moEY6s1
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-On Mon, Jun 07, 2004 at 09:41:49AM -0700, Dave Hansen wrote:
-> On Mon, 2004-06-07 at 07:08, Ashok Raj wrote:plugging.
-> > +		if (systemcfg->platform == PLATFORM_PSERIES_LPAR)
-> > +			cpu->no_control=1;
+On Mon, 2004-06-07 at 10:22, Ashok Raj wrote:
+> On Mon, Jun 07, 2004 at 09:41:49AM -0700, Dave Hansen wrote:
+> > On Mon, 2004-06-07 at 07:08, Ashok Raj wrote:plugging.
+> > > +		if (systemcfg->platform == PLATFORM_PSERIES_LPAR)
+> > > +			cpu->no_control=1;
+> > 
+> > That condition is also inverted.  Should read:
+> > 
+> > if (systemcfg->platform != PLATFORM_PSERIES_LPAR)
+> > 	cpu->no_control = 1;
 > 
-> That condition is also inverted.  Should read:
+> Good catch...I knew i mentioned untested :-)
 > 
-> if (systemcfg->platform != PLATFORM_PSERIES_LPAR)
-> 	cpu->no_control = 1;
+> fixed patch attached...
 
-Good catch...I knew i mentioned untested :-)
+The smallest of nitpicks:
 
-fixed patch attached...
+	cpu->no_control=1;
 
-Cheers,
-ashok
+needs to be
 
---M9NhX3UHpAaciwkO
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="p00001_cpu_control_file.patch"
+	cpu->no_control = 1;
+
+Would you like to submit this now?
+
+-- Dave
+
+--=-37cFrnEtPjar2moEY6s1
+Content-Disposition: attachment; filename=p00002_cpu_control_file.patch
+Content-Type: text/x-patch; name=p00002_cpu_control_file.patch; charset=ANSI_X3.4-1968
+Content-Transfer-Encoding: 7bit
 
 
 Signed-off-by: Ashok Raj <ashok.raj@intel.com>
@@ -98,7 +109,7 @@ diff -puN arch/ppc64/kernel/sysfs.c~cpu_control_file arch/ppc64/kernel/sysfs.c
 +		 * for hotplugging.
 +		 */
 +		if (systemcfg->platform != PLATFORM_PSERIES_LPAR)
-+			cpu->no_control=1;
++			cpu->no_control = 1;
 +
  		register_cpu(c, cpu, parent);
  
@@ -106,4 +117,5 @@ diff -puN arch/ppc64/kernel/sysfs.c~cpu_control_file arch/ppc64/kernel/sysfs.c
 
 _
 
---M9NhX3UHpAaciwkO--
+--=-37cFrnEtPjar2moEY6s1--
+
