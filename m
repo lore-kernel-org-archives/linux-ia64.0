@@ -1,42 +1,38 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 26 Sep 2003 18:54:16 +0000
-Subject: Fix gnu-efi for gcc 3.3
-Message-Id: <marc-linux-ia64-106460281214294@msgid-missing>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Tue, 30 Sep 2003 00:27:31 +0000
+Subject: [PATCH] small update for Kconfig help text
+Message-Id: <marc-linux-ia64-106488185518593@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-gcc 3.3 may generate sections named .data.rel and .data.rel.local, but the
-linker script included in gnu-efi 3.0a didn't account for them.
+Just a small update for the Kconfig help text for ia64.
 
---- gnu-efi-3.0a/gnuefi/elf_ia64_efi.lds
-+++ gnu-efi-3.0a/gnuefi/elf_ia64_efi.lds
-@@ -28,8 +28,7 @@
-   {
-    *(.rodata*)
-    *(.ctors)
--   *(.data)
--   *(.data1)
-+   *(.data*)
-    *(.gnu.linkonce.d*)
-    *(.plabel)	/* data whose relocs we want to ignore */
-    *(.IA_64.unwind)
-@@ -48,7 +47,7 @@
-   .rela :
-   {
-     *(.rela.text)
--    *(.rela.data)
-+    *(.rela.data*)
-     *(.rela.sdata)
-     *(.rela.got)
-     *(.rela.gnu.linkonce.d*)
+Jesse
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+diff -Nru a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+--- a/arch/ia64/Kconfig	Mon Sep 29 17:06:17 2003
++++ b/arch/ia64/Kconfig	Mon Sep 29 17:06:17 2003
+@@ -64,8 +64,6 @@
+ 
+ 	  To find out what type of IA-64 system you have, you may want to
+ 	  check the IA-64 Linux web site at <http://www.linux-ia64.org/>.
+-	  As of the time of this writing, most hardware is DIG compliant,
+-	  so the "DIG-compliant" option is usually the right choice.
+ 
+ 	  HP-simulator   For the HP simulator
+ 	  (<http://software.hp.com/ia64linux/>).
+@@ -91,6 +89,11 @@
+ 
+ config IA64_SGI_SN2
+ 	bool "SGI-SN2"
++	help
++	  Build a kernel for SGI sn2-based systems.  Choosing this option
++	  rather than building a generic kernel will provide a small
++	  performance boost at the cost of not being able to use the kernel
++	  binary on non-Altix systems.
+ 
+ endchoice
+ 
