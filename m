@@ -1,25 +1,20 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 14 Nov 2002 18:39:28 +0000
-Subject: Re: [Linux-ia64] EFI/SAL question
-Message-Id: <marc-linux-ia64-105590709805432@msgid-missing>
+From: Mario Smarduch <cms063@email.mot.com>
+Date: Tue, 19 Nov 2002 22:59:58 +0000
+Subject: [Linux-ia64] IA64 IPMI RCMP Libraries
+Message-Id: <marc-linux-ia64-105590709805462@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805425@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805425@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 14 Nov 2002 12:30:34 +0100, Christian Hildner <christian.hildner@hob.de> said:
+Has anyone ported any open source IPMI RCMP libraries onto
+IA64. The functionality of interest is communication with a
+chassis mgmt BMC in order to interrogate SDRs, FRU info,
+trap events and manage the chassis including its components.
 
-  Christian> Hi, does EFI (runtime services) or SAL calls use the
-  Christian> global pointer? If yes, how must gp initialized before
-  Christian> doing the call (from assembly)?
+Any info greatly appreciated.
 
-Yes, both use GP.  For SAL, the GP is provided via the
-SAL_DESC_ENTRY_POINT descriptor (page 419 in the ia64 linux kernel
-book).  For EFI, the runtime services routines are given as normal
-function pointers (so they contain both code entry point and gp).
+- mario.
 
-	--david
 
