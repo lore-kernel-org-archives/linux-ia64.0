@@ -1,22 +1,34 @@
-From: Anton Blanchard <anton@samba.org>
-Date: Thu, 13 May 2004 18:43:18 +0000
-Subject: Re: Who owns those locks ?
-Message-Id: <20040513184318.GG11588@krispykreme>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 03 May 2004 22:58:25 +0000
+Subject: bk pull on ia64 linux tree
+Message-Id: <16534.52881.260763.547549@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40A1F4BE.4A298352@nospam.org>
-In-Reply-To: <40A1F4BE.4A298352@nospam.org>
+References: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zoltan.Menyhart@bull.net
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
+Hi Linus,
 
-> Why don't you put the ID of the owner of the lock in the lock word ?
-> Here is your patch for IA-64.
-> Doesn't cost any additional instruction, you can have it in your
-> "production" kernel, too.
+please do a
 
-We already do this on ppc64.
+	bk pull http://lia64.bkbits.net/to-linus-2.5
 
-Anton
+This will update the files shown below.  Just a small bug fix.
+
+Thanks!
+
+	--david
+
+ arch/ia64/kernel/head.S |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
+
+through these ChangeSets:
+
+<davidm@tiger.hpl.hp.com> (04/05/03 1.1609)
+   ia64: Avoid ".save rp, r0" since the kernel unwinder doesn't support it yet.
+   
+   Once we switch to a libunwind-based kernel unwinder, this code can be
+   re-enabled again.
