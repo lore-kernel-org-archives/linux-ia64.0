@@ -1,85 +1,160 @@
-From: Jes Sorensen <jes@trained-monkey.org>
-Date: Wed, 14 Jan 2004 14:36:43 +0000
-Subject: [patch] quiet down SMP boot messages
-Message-Id: <16389.21499.530675.399501@gargle.gargle.HOWL>
+From: Kallol Biswas <kallol.biswas@s2io.com>
+Date: Sat, 17 Jan 2004 01:53:07 +0000
+Subject: Re: dma restriction on Itanium 2: more information on error
+Message-Id: <1074304387.6384.16.camel@kbiswas-dt.s2iotech.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[sent it to the wrong list first - trying again and spelling David's
-name properly - my apologies]
-
-Hi David,
-
-I proposed a patch for this some months ago while 2.5 was in freeze
-mode. Since Linus and Andrew are now taking patches again, I would like
-to propose this one again for 2.6.x.
-
-Basically I'd love to get rid of some of the excessive printks we are
-getting for each CPU spinning up (I'll post a seperate patch to
-linux-kernel for non ia64 specific printks).
-
-Comments?
-
-Thanks,
-Jes
-
-
-diff -urN -X /usr/people/jes/exclude-linux orig/linux-2.6.1-mm3-boot/arch/ia64/kernel/setup.c linux-2.6.1-mm3/arch/ia64/kernel/setup.c
---- orig/linux-2.6.1-mm3-boot/arch/ia64/kernel/setup.c	Wed Jan 14 02:59:48 2004
-+++ linux-2.6.1-mm3/arch/ia64/kernel/setup.c	Wed Jan 14 05:23:51 2004
-@@ -516,8 +516,6 @@
- 		impl_va_msb = vm2.pal_vm_info_2_s.impl_va_msb;
- 		phys_addr_size = vm1.pal_vm_info_1_s.phys_add_size;
- 	}
--	printk(KERN_INFO "CPU %d: %lu virtual and %lu physical address bits\n",
--	       smp_processor_id(), impl_va_msb + 1, phys_addr_size);
- 	c->unimpl_va_mask = ~((7L<<61) | ((1L << (impl_va_msb + 1)) - 1));
- 	c->unimpl_pa_mask = ~((1L<<63) | ((1L << phys_addr_size) - 1));
- }
-diff -urN -X /usr/people/jes/exclude-linux orig/linux-2.6.1-mm3-boot/arch/ia64/kernel/smpboot.c linux-2.6.1-mm3/arch/ia64/kernel/smpboot.c
---- orig/linux-2.6.1-mm3-boot/arch/ia64/kernel/smpboot.c	Sun Jan 11 07:00:35 2004
-+++ linux-2.6.1-mm3/arch/ia64/kernel/smpboot.c	Wed Jan 14 05:24:55 2004
-@@ -401,10 +401,7 @@
- 	}
- 	Dprintk("\n");
+On Fri, 2004-01-16 at 17:48, Kallol Biswas wrote:
+> We have been seeing a problem on itanium 2 running linux 2.4.21-4.EL 
+> with our 10GB ethernet card.
+> The error is PCI related. On PARISC systems the DMA address could not
+> span page boundary due to hardware limitation, do we have the same
+> limitation on Itanium 2 systems also? If the transmit or receive
+> descriptors take more than a page then they should be aligned such a way
+> that DMA does not happen over a page right?
+> 
+> 
+> 
++Platform PCI Bus Error Info Section
++ PCI Bus Error Detail:  Error Status: 0x4a1800 Error Type: 0x2 Bus ID:
+0x40 Bus Address: 0x0 Responder ID: 0xfed24000+Platform PCI Bus Error
+Info Section
++ PCI Bus Error Detail:  Error Status: 0xa1800 Error Type: 0x2 Bus ID:
+0x60 Bus
+Address: 0x0 Responder ID: 0xfed26000+Platform PCI Bus Error Info
+Section
++ PCI Bus Error Detail:  Error Status: 0x0 Error Type: 0x0 Bus ID: 0x60
+Bus Address: 0x0+Platform PCI Bus Error Info Section
++ PCI Bus Error Detail:  Error Status: 0x0 Error Type: 0x0 Bus ID: 0x60
+Bus Address: 0x0+END HARDWARE ERROR STATE AT CPE
++BEGIN HARDWARE ERROR STATE AT CPE
++Err Record ID: 22843435    SAL Rev:  0.02
++Time: 01/16/2004 17:30:37    Severity 2
++Platform Specific Error Info Section
++ Platform Specific Error Detail:  Error Status: 0x91600 GUID: <7>GUID fed28000-0000-0000-0000-d0fe00000000
+ OEM Specific Data: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2a
+12 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 58 00 00 00 00 00 00 00 76 6c 27 13
+de 37 e9 42 a5 2f 41 89 ba 10 dd ed 00 00 00 00 00 00 04 00 00 04 00 00
+00 00 00 00 08 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 10 00
+00 00 00 00 ff 06 00 00 00 00 00 00 90 f8 ff 5f 01 00 12 00 00
  
--	if (cpu_isset(cpu, cpu_callin_map)) {
--		/* number CPUs logically, starting from 1 (BSP is 0) */
--		printk(KERN_INFO "CPU%d: CPU has booted.\n", cpu);
--	} else {
-+	if (!cpu_isset(cpu, cpu_callin_map)) {
- 		printk(KERN_ERR "Processor 0x%x/0x%x is stuck.\n", cpu, sapicid);
- 		ia64_cpu_to_sapicid[cpu] = -1;
- 		cpu_clear(cpu, cpu_online_map);  /* was set in smp_callin() */
-@@ -578,14 +575,11 @@
- 	if (sapicid = -1)
- 		return -EINVAL;
++Platform Specific Error Info Section
++ Platform Specific Error Detail:  Error Status: 0x91100 GUID: <7>GUID fed26000-0000-0000-0000-d0fe00000000
+ OEM Specific Data: 80 86 44 42 00 00 00 00 00 00 00 00 00 00 00 00 2a
+12 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 58 00 00 00 00 00 00 00 76 6c 27 13
+de 37 e9 42 a5 2f 41 89 ba 10 dd ed 00 00 00 00 00 00 03 00 00 04 00 00
+00 00 00 00 40 02 00 00 00 00 00 00 84 86 44 42 00 00 00 80 00 00 00 00
+00 00 00 00 00 00 10 00
+00 00 00 00 f7 06 00 00 00 00 00 00 04 f8 ff 5f 01 00 12 00 00
  
--	printk(KERN_INFO "Processor %d/%d is spinning up...\n", sapicid, cpu);
--
- 	/* Processor goes to start_secondary(), sets online flag */
- 	ret = do_boot_cpu(sapicid, cpu);
- 	if (ret < 0)
- 		return ret;
++Platform Specific Error Info Section
++ Platform Specific Error Detail:  Error Status: 0x91100 GUID: <7>GUID fed26000-0000-0000-0000-d0fe00000000
+ OEM Specific Data: 00 8a e6 4e 00 00 00 00 00 00 00 00 00 00 00 00 2a
+12 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 58 00 00 00 00 00 00 00 76 6c 27 13
+de 37 e9 42 a5 2f 41 89 ba 10 dd ed 00 00 00 00 00 00 03 00 00 04 00 00
+00 00 00 00 40 02 00 00 00 00 00 00 00 8a e6 4e 00 00 00 80 00 00 00 00
+00 00 00 00 c0 00 10 00
+00 00 00 00 f7 06 00 00 00 00 00 00 04 f8 ff 5f 01 00 12 00 00
  
--	printk(KERN_INFO "Processor %d has spun up...\n", cpu);
- 	return 0;
- }
++Platform Specific Error Info Section
++ Platform Specific Error Detail:  Error Status: 0xe1600 GUID: <7>GUID fed26000-0000-0000-0000-d0fe00000000
+ OEM Specific Data: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2a
+12 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 58 00 00 00 00 00 00 00 76 6c 27 13
+de 37 e9 42 a5 2f 41 89 ba 10 dd ed 00 00 00 00 00 00 03 00 00 04 00 00
+00 00 00 00 80 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 10 00
+00 00 00 00 f7 06 00 00 00 00 00 00 14 f8 ff 5f 01 00 12 00 00
  
-diff -urN -X /usr/people/jes/exclude-linux orig/linux-2.6.1-mm3-boot/arch/ia64/sn/kernel/setup.c linux-2.6.1-mm3/arch/ia64/sn/kernel/setup.c
---- orig/linux-2.6.1-mm3-boot/arch/ia64/sn/kernel/setup.c	Wed Jan 14 02:59:48 2004
-+++ linux-2.6.1-mm3/arch/ia64/sn/kernel/setup.c	Wed Jan 14 05:25:24 2004
-@@ -386,9 +386,6 @@
- 	cnode = nasid_to_cnodeid(nasid);
- 	slice = cpu_physical_id_to_slice(cpuphyid);
++Platform PCI Bus Error Info Section
++ PCI Bus Error Detail:  Error Status: 0x4a1800 Error Type: 0x2 Bus ID:
+0x40 Bus Address: 0x0 Responder ID: 0xfed24000+Platform PCI Bus Error
+Info Section
++ PCI Bus Error Detail:  Error Status: 0xa1800 Error Type: 0x2 Bus ID:
+0x60 Bus
+Address: 0x0 Responder ID: 0xfed26000+Platform PCI Bus Error Info
+Section
++ PCI Bus Error Detail:  Error Status: 0x0 Error Type: 0x0 Bus ID: 0x60
+Bus Address: 0x0+Platform PCI Bus Error Info Section
++ PCI Bus Error Detail:  Error Status: 0x0 Error Type: 0x0 Bus ID: 0x60
+Bus Address: 0x0+END HARDWARE ERROR STATE AT CPE
++BEGIN HARDWARE ERROR STATE AT CPE
++Err Record ID: 22843435    SAL Rev:  0.02
++Time: 01/16/2004 17:32:37    Severity 2
++Platform Specific Error Info Section
++ Platform Specific Error Detail:  Error Status: 0x91600 GUID: <7>GUID fed28000-0000-0000-0000-d0fe00000000
+ OEM Specific Data: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 2a
+12 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 58 00 00 00 00 00 00 00 76 6c 27 13
+de 37 e9 42 a5 2f 41 89 ba 10 dd ed 00 00 00 00 00 00 04 00 00 04 00 00
+00 00 00 00 08 02 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 10 00
+00 00 00 00 ff 06 00 00 00 00 00 00 90 f8 ff 5f 01 00 12 00 00
  
--	printk("CPU %d: nasid %d, slice %d, cnode %d\n",
--			smp_processor_id(), nasid, slice, cnode);
--
- 	memset(pda, 0, sizeof(pda));
- 	pda->p_nodepda = nodepdaindr[cnode];
- 	pda->led_address = (typeof(pda->led_address)) (LED0 + (slice<<LED_CPU_SHIFT));
++Platform Specific Error Info Section
++ Platform Specific Error Detail:  Error Status: 0x91100 GUID: <7>GUID fed26000-0000-0000-0000-d0fe00000000
+ OEM Specific Data: 80 86 44 42 00 00 00 00 00 00 00 00 00 00 00 00 2a
+12 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 58 00 00 00 00 00 00 00 76 6c 27 13
+de 37 e9 42 a5 2f 41 89 ba 10 dd ed 00 00 00 00 00 00 03 00 00 04 00 00
+00 00 00 00 40 02 00 00 00 00 00 00 84 86 44 42 00 00 00 80 00 00 00 00
+00 00 00 00 00 00 10 00
+00 00 00 00 f7 06 00 00 00 00 00 00 04 f8 ff 5f 01 00 12 00 00
+ 
++Platform Specific Error Info Section
++ Platform Specific Error Detail:  Error Status: 0x91100 GUID: <7>GUID fed26000-0000-0000-0000-d0fe00000000
+ OEM Specific Data: 00 8a e6 4e 00 00 00 00 00 00 00 00 00 00 00 00 2a
+12 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 58 00 00 00 00 00 00 00 76 6c 27 13
+de 37 e9 42 a5 2f 41 89 ba 10 dd ed 00 00 00 00 00 00 03 00 00 04 00 00
+00 00 00 00 40 02 00 00 00 00 00 00 00 8a e6 4e 00 00 00 80 00 00 00 00
+00 00 00 00 c0 00 10 00
+00 00 00 00 f7 06 00 00 00 00 00 00 04 f8 ff 5f 01 00 12 00 00
+ 
+
+lspci:
+00:01.0 USB Controller: NEC Corporation USB (rev 41)
+00:01.1 USB Controller: NEC Corporation USB (rev 41)
+00:01.2 USB Controller: NEC Corporation USB 2.0 (rev 02)
+00:02.0 IDE interface: CMD Technology Inc PCI0649 (rev 02)
+00:03.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100]
+(rev 0d)
+00:1c.0 Host bridge: Hewlett-Packard Company PCI-X/AGP Local Bus Adapter
+(rev 32)
+00:1d.0 Bridge: Hewlett-Packard Company zx1 I/O Controller (rev 23)
+00:1e.0 Bridge: Hewlett-Packard Company zx1 System Bus Adapter (rev 23)
+20:01.0 SCSI storage controller: LSI Logic / Symbios Logic 53c1030 PCI-X
+Fusion-MPT Dual Ultra320 SCSI (rev 07)
+20:01.1 SCSI storage controller: LSI Logic / Symbios Logic 53c1030 PCI-X
+Fusion-MPT Dual Ultra320 SCSI (rev 07)
+20:1e.0 Host bridge: Hewlett-Packard Company PCI-X/AGP Local Bus Adapter
+(rev 32)
+40:1e.0 Host bridge: Hewlett-Packard Company PCI-X/AGP Local Bus Adapter
+(rev 32)
+60:1e.0 Host bridge: Hewlett-Packard Company PCI-X/AGP Local Bus Adapter
+(rev 32)
+80:01.0 Ethernet controller: Unknown device 17d5:5831 (rev 02)
+80:1e.0 Host bridge: Hewlett-Packard Company PCI-X/AGP Local Bus Adapter
+(rev 32)
+c0:1e.0 Host bridge: Hewlett-Packard Company PCI-X/AGP Local Bus Adapter
+(rev 32)
+e0:01.0 Communication controller: Hewlett-Packard Company Auxiliary Diva
+Serial
+Port (rev 01)
+e0:01.1 Serial controller: Hewlett-Packard Company Diva Serial [GSP]
+Multiport UART (rev 03)
+e0:02.0 VGA compatible controller: ATI Technologies Inc Radeon RV100 QY
+[Radeon
+7000/VE]
+e0:1e.0 Host bridge: Hewlett-Packard Company PCI-X/AGP Local Bus Adapter
+(rev 32)
+
 
