@@ -1,30 +1,43 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Fri, 26 Mar 2004 17:20:46 +0000
-Subject: Re: Migrate pages from a ccNUMA node to another - patch
-Message-Id: <1080321646.31638.105.camel@nighthawk>
+From: Erich Focht <efocht@hpce.nec.com>
+Date: Mon, 29 Mar 2004 23:16:01 +0000
+Subject: Re: Migrate pages from a ccNUMA node to another
+Message-Id: <200403300116.01877.efocht@hpce.nec.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4063F581.ACC5C511@nospam.org>
-In-Reply-To: <4063F581.ACC5C511@nospam.org>
+References: <4063F188.66DB690A@nospam.org>
+In-Reply-To: <4063F188.66DB690A@nospam.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Cc: linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Have you considered any common ground your patch might share with the
-people doing memory hotplug?
+Szia Zoltan,
 
-	http://people.valinux.co.jp/~iwamoto/mh.html
+I like the aproach very much and was hoping that someone will bring
+on-demand page migration to Linux. 
 
-They have a similar problem to your migration that occurs when a user
-wants to remove a whole or partial NUMA node.  
-lhms-devel@lists.sourceforge.net
+> - Migrate pages identified by their physical addresses to another NUMA node
+You want this only for your "AI" keeping track of the hw counters in
+the chipset? I hope you can teach it to keep track of the bandwidth of
+all processes on the machine, otherwise it might disturb the processes
+more than it helps them... and waste the machine's bandwidth with
+migrating pages.
 
-Is your code something that you'd like to see go into the mainline 2.6
-or 2.7 kernel?  
+> - Migrate pages of a virtual user address range to another NUMA node
+This is good. I'm thinking about the rss/node patches, they would tell
+you when you should think about migrating something for a process. My
+current usage model would be simpler: for a given mm migrate all pages
+currently on node A to node B. But the flexibility of your API will
+certainly not remain unused.
 
-Also, please don't spam-encode your address when sending to the list. 
-It just makes it harder for people to send feedback.  
+...
 
--- Dave
+> BTW Has someone a machine with a chip set other than i82870 ?
+??? As far as I know SGI, HP, NEC and IBM have all their own NUMA
+chipsets for IA64. Was this the question? Are you looking for hardware
+counters?
+
+Regards,
+Erich
+
 
