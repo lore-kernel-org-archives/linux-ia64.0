@@ -1,43 +1,37 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Mon, 08 Apr 2002 19:23:14 +0000
+From: Gary Hade <garyhade@us.ibm.com>
+Date: Mon, 08 Apr 2002 19:33:40 +0000
 Subject: Re: [Linux-ia64] C++ doesn't like asm/atomic.h
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-ByJq9s8Wboj6LwADsW25"
-Message-Id: <marc-linux-ia64-105590701905412@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905416@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905396@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905396@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---=-ByJq9s8Wboj6LwADsW25
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+On Mon, Apr 08, 2002 at 01:13:29PM -0700, David Mosberger wrote:
+> >>>>> On 08 Apr 2002 12:23:14 -0700, Ulrich Drepper <drepper@redhat.com> said:
+> 
+>   Uli> On Mon, 2002-04-08 at 12:00, David Mosberger wrote:
+>   >> So you're OK with glibc providing the syscall stubs for
+>   >> module*(), but not the header files required to use them?
+> 
+>   Uli> Yes.  There is no fundamental problems with this.
+> 
+> I guess I don't really see the harm in having glibc provide a header
+> for these system call, but as long as the syscall stubs are there,
+> it's probably not a huge issue in practice.
 
-On Mon, 2002-04-08 at 12:00, David Mosberger wrote:
+David, did you mean to say "... in having glibc not provide ..."?
+                                                ^^^
+I notice that the *_module(2) man pages which advocate the use of
+#include <linux/module.h> are installed as part of the modutils
+package.  Is is possibly "modutils" that should provide the header
+file that avoids sucking in the possibly problematic kernel-only
+code.
 
-> So you're OK with glibc providing the syscall stubs for module*(), but
-> not the header files required to use them?
+Gary
 
-Yes.  There is no fundamental problems with this.
-
---=20
----------------.                          ,-.   1325 Chesapeake Terrace
-Ulrich Drepper  \    ,-------------------'   \  Sunnyvale, CA 94089 USA
-Red Hat          `--' drepper at redhat.com   `------------------------
-
---=-ByJq9s8Wboj6LwADsW25
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iD8DBQA8se4i2ijCOnn/RHQRAiEuAKDJ23wmwQ/ua4sPu5/Lj2lOAJFLYACeNEeP
-1UOhy+saUeaWVYd2GsqRYhU=
-=6QUC
------END PGP SIGNATURE-----
-
---=-ByJq9s8Wboj6LwADsW25--
 
 
