@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Wed, 26 May 2004 14:28:18 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 26 May 2004 15:08:13 +0000
 Subject: Re: Installing kernel 2.6.6 on hp zx6000 (fwd)
-Message-Id: <20040526142818.GC29458@lucon.org>
+Message-Id: <20040526150813.GD16451@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.GSO.4.58.0405251608490.28567@tokyo.cc.gatech.edu>
 In-Reply-To: <Pine.GSO.4.58.0405251608490.28567@tokyo.cc.gatech.edu>
@@ -11,30 +11,18 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 On Wed, May 26, 2004 at 08:46:19AM -0400, Younggyun Koh wrote:
-> > > 3. i got the link error when i build the kernel
-> > >
-> > > bash-2.05$ make CROSS_COMPILE=/opt/gcc-3.3.3/usr/local/bin/
-> >
-> > Can you add "V=1" parameter so we can see the commands?
-> 
 >         /opt/gcc-3.3.3/usr/local/bin/ld  -static -T
-> arch/ia64/kernel/vmlinux.lds.s arch/ia64/kernel/head.o arch/ia64/kernel/init_task.o   init/built-in.o
-> --start-group  usr/built-in.o  arch/ia64/kernel/built-in.o  arch/ia64/mm/built-in.o
-> arch/ia64/ia32/built-in.o  arch/ia64/dig/built-in.o  kernel/built-in.o  mm/built-in.o
-> fs/built-in.o ipc/built-in.o  security/built-in.o  crypto/built-in.o  lib/lib.a
-> arch/ia64/lib/lib.a  lib/built-in.o  arch/ia64/lib/built-in.o  drivers/built-in.o
-> sound/built-in.o  arch/ia64/pci/built-in.o  arch/ia64/hp/common/built-in.o
-> arch/ia64/hp/zx1/built-in.o arch/ia64/hp/sim/built-in.o  arch/ia64/sn/built-in.o  net/built-in.o
-> --end-group  -o .tmp_vmlinux1
-> /opt/gcc-3.3.3/usr/local/bin/ld: final link failed: File truncated
-> make: *** [.tmp_vmlinux1] Error 1
-> 
 
-Which linker are you using? I suggest get the current one from
+ld isn't part of gcc AFAIK.
+I find it odd that it's installed under a "/opt/gcc-3.3.3" directory.
+Anyway...other people understand toolchain much better than I.
 
-http://www.kernel.org/pub/linux/devel/binutils/
+FWIW, I'm not having problems building kernels with gcc 3.3.3
+on any architecture. That's using the current binutils (where
+ld lives) from debian "testing" (aka sarge):
 
-It may fix your problem or tell you more about why it fails.
+grundler@gsyprf3:~$ ld -v
+GNU ld version 2.14.90.0.7 20031029 Debian GNU/Linux
 
 
-H.J.
+grant
