@@ -1,66 +1,90 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 26 Jan 2005 02:16:30 +0000
-Subject: [patch] minor head.S cleanups
-Message-Id: <16886.64894.932077.286431@napali.hpl.hp.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Thu, 20 Jan 2005 17:57:01 +0000
+Subject: [PATCH] fix early SAL init for sn2
+Message-Id: <200501200957.01335.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_tD/7BHEM4FIuMcl"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-While working on something else, I noticed that there are still some
-CONFIG_IA64_EARLY_PRINTK bits left over in head.S, even though that
-option is long gone.
+--Boundary-00=_tD/7BHEM4FIuMcl
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-While at it, I also added a "hint @pause" in the endless loop at the
-end of _start.  Not that it ever should get executed, but if it ever
-does, why waste power/cycles?
+sn2 does early initialization of the SAL so it can use it for early console 
+support.  Unfortunately, the loop to find the SAL entry point was buggy so 
+when we tried out new EFI and SAL system table layouts, the loop didn't 
+terminate.  Here's the fix (doh!, use two different loop counters instead of 
+one and just return if we find the SAL entry point).
 
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-=3D=3D=3D arch/ia64/kernel/head.S 1.30 vs edited =3D=3D--- 1.30/arch/ia64/k=
-ernel/head.S	2005-01-11 15:45:50 -08:00
-+++ edited/arch/ia64/kernel/head.S	2005-01-25 13:36:40 -08:00
-@@ -5,7 +5,7 @@
-  * to set up the kernel's global pointer and jump to the kernel
-  * entry point.
-  *
-- * Copyright (C) 1998-2001, 2003 Hewlett-Packard Co
-+ * Copyright (C) 1998-2001, 2003, 2005 Hewlett-Packard Co
-  *	David Mosberger-Tang <davidm@hpl.hp.com>
-  *	Stephane Eranian <eranian@hpl.hp.com>
-  * Copyright (C) 1999 VA Linux Systems
-@@ -232,21 +232,6 @@
- 	;;
- (isBP)	st8 [r2]=3Dr28		// save the address of the boot param area passed b=
-y the bootloader
-=20
--#ifdef CONFIG_IA64_EARLY_PRINTK
--	.rodata
--alive_msg:
--	stringz "I'm alive and well\n"
--alive_msg_end:
--	.previous
--
--	alloc r2=3Dar.pfs,0,0,2,0
--	movl out0=3Dalive_msg
--	movl out1=3Dalive_msg_end-alive_msg-1
--	;;
--	br.call.sptk.many rp=EArly_printk
--1:	// force new bundle
--#endif /* CONFIG_IA64_EARLY_PRINTK */
--
- #ifdef CONFIG_SMP
- (isAP)	br.call.sptk.many rp=3Dstart_secondary
- .ret0:
-@@ -267,7 +252,9 @@
- 	;;
- 	ld8 out0=3D[r3]
- 	br.call.sptk.many b0=3Dconsole_print
--self:	br.sptk.many self		// endless loop
+Thanks,
+Jesse
+
+--Boundary-00=_tD/7BHEM4FIuMcl
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sal-handler-init-fix-2.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sal-handler-init-fix-2.patch"
+
+===== include/asm-ia64/sal.h 1.26 vs edited =====
+--- 1.26/include/asm-ia64/sal.h	2004-12-13 15:13:54 -08:00
++++ edited/include/asm-ia64/sal.h	2005-01-20 09:45:23 -08:00
+@@ -833,6 +833,8 @@
+ extern int ia64_sal_oemcall_reentrant(struct ia64_sal_retval *, u64, u64, u64,
+ 				      u64, u64, u64, u64, u64);
+ 
++extern void ia64_sal_handler_init(void *entry_point, void *gpval);
 +
-+self:	hint @pause
-+	br.sptk.many self		// endless loop
- END(_start)
-=20
- GLOBAL_ENTRY(ia64_save_debug_regs)
+ #endif /* __ASSEMBLY__ */
+ 
+ #endif /* _ASM_IA64_SAL_H */
+===== arch/ia64/sn/kernel/setup.c 1.47 vs edited =====
+--- 1.47/arch/ia64/sn/kernel/setup.c	2005-01-18 12:27:58 -08:00
++++ edited/arch/ia64/sn/kernel/setup.c	2005-01-20 09:48:03 -08:00
+@@ -163,13 +163,12 @@
+ 
+ void __init early_sn_setup(void)
+ {
+-	void ia64_sal_handler_init(void *entry_point, void *gpval);
+ 	efi_system_table_t *efi_systab;
+ 	efi_config_table_t *config_tables;
+ 	struct ia64_sal_systab *sal_systab;
+ 	struct ia64_sal_desc_entry_point *ep;
+ 	char *p;
+-	int i;
++	int i, j;
+ 
+ 	/*
+ 	 * Parse enough of the SAL tables to locate the SAL entry point. Since, console
+@@ -185,19 +184,21 @@
+ 		    0) {
+ 			sal_systab = __va(config_tables[i].table);
+ 			p = (char *)(sal_systab + 1);
+-			for (i = 0; i < sal_systab->entry_count; i++) {
++			for (j = 0; j < sal_systab->entry_count; j++) {
+ 				if (*p == SAL_DESC_ENTRY_POINT) {
+ 					ep = (struct ia64_sal_desc_entry_point
+ 					      *)p;
+ 					ia64_sal_handler_init(__va
+ 							      (ep->sal_proc),
+ 							      __va(ep->gp));
+-					break;
++					return;
+ 				}
+ 				p += SAL_DESC_SIZE(*p);
+ 			}
+ 		}
+ 	}
++	/* Uh-oh, SAL not available?? */
++	printk(KERN_ERR "failed to find SAL entry point\n");
+ }
+ 
+ extern int platform_intr_list[];
+
+--Boundary-00=_tD/7BHEM4FIuMcl--
