@@ -1,70 +1,95 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 05 Oct 2004 08:00:28 +0000
-Subject: Re: sparse-enablement the 2nd [was Re: yet another sparse-detected bug fix]
-Message-Id: <16738.21660.571136.45162@napali.hpl.hp.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 29 Oct 2004 23:58:13 +0000
+Subject: [PATCH] remove redundant macros
+Message-Id: <200410291658.13048.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_VktgBskSDJC9udv"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Oh, and here is the diffstat, which I forgot to include in the patch.
+--Boundary-00=_VktgBskSDJC9udv
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-	--david
+This patch removes some redundant nasid conversion macros from arch.h and 
+updates callers to use the version they were defined to instead.
 
- arch/ia64/Makefile                |    2 
- arch/ia64/hp/common/sba_iommu.c   |   10 -
- arch/ia64/ia32/ia32_ldt.c         |   25 +--
- arch/ia64/ia32/ia32_signal.c      |  131 ++++++++++---------
- arch/ia64/ia32/ia32_support.c     |    4 
- arch/ia64/ia32/ia32priv.h         |    8 -
- arch/ia64/ia32/sys_ia32.c         |  256 +++++++++++++++++++-------------------
- arch/ia64/kernel/acpi-ext.c       |    2 
- arch/ia64/kernel/acpi.c           |    8 -
- arch/ia64/kernel/efi.c            |   10 -
- arch/ia64/kernel/iosapic.c        |   18 +-
- arch/ia64/kernel/irq.c            |    4 
- arch/ia64/kernel/irq_ia64.c       |    7 -
- arch/ia64/kernel/module.c         |   20 +-
- arch/ia64/kernel/palinfo.c        |    2 
- arch/ia64/kernel/patch.c          |   26 +--
- arch/ia64/kernel/perfmon.c        |    6 
- arch/ia64/kernel/process.c        |   22 +--
- arch/ia64/kernel/ptrace.c         |  109 ++++++++++------
- arch/ia64/kernel/salinfo.c        |    6 
- arch/ia64/kernel/setup.c          |    2 
- arch/ia64/kernel/sigframe.h       |    2 
- arch/ia64/kernel/signal.c         |   30 ++--
- arch/ia64/kernel/smp.c            |    2 
- arch/ia64/kernel/sys_ia64.c       |    4 
- arch/ia64/kernel/time.c           |    2 
- arch/ia64/kernel/traps.c          |   25 +--
- arch/ia64/kernel/unaligned.c      |   18 +-
- arch/ia64/kernel/unwind.c         |   30 ++--
- arch/ia64/lib/csum_partial_copy.c |   12 -
- arch/ia64/lib/io.c                |   22 +--
- arch/ia64/mm/contig.c             |    2 
- arch/ia64/mm/extable.c            |    2 
- arch/ia64/mm/fault.c              |    2 
- arch/ia64/mm/init.c               |    8 -
- arch/ia64/mm/tlb.c                |    2 
- drivers/char/agp/hp-agp.c         |   16 +-
- drivers/char/efirtc.c             |   19 +-
- include/asm-ia64/compat.h         |    8 -
- include/asm-ia64/elf.h            |    6 
- include/asm-ia64/gcc_intrin.h     |   24 +--
- include/asm-ia64/hw_irq.h         |    2 
- include/asm-ia64/io.h             |   85 ++++++------
- include/asm-ia64/iosapic.h        |    8 -
- include/asm-ia64/mmu_context.h    |   12 -
- include/asm-ia64/page.h           |    4 
- include/asm-ia64/pgtable.h        |   10 -
- include/asm-ia64/processor.h      |   10 -
- include/asm-ia64/siginfo.h        |    2 
- include/asm-ia64/signal.h         |    4 
- include/asm-ia64/smp.h            |    8 -
- include/asm-ia64/spinlock.h       |    4 
- include/asm-ia64/system.h         |    4 
- include/asm-ia64/uaccess.h        |   87 ++++++++----
- include/asm-ia64/unistd.h         |    4 
- 55 files changed, 612 insertions(+), 546 deletions(-)
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+
+Thanks,
+Jesse
+
+--Boundary-00=_VktgBskSDJC9udv
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="remove-redundant-nasid-macros.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="remove-redundant-nasid-macros.patch"
+
+===== arch/ia64/sn/kernel/io_init.c 1.5 vs edited =====
+--- 1.5/arch/ia64/sn/kernel/io_init.c	2004-10-26 16:43:02 -07:00
++++ edited/arch/ia64/sn/kernel/io_init.c	2004-10-29 16:01:27 -07:00
+@@ -136,7 +136,7 @@
+ 
+ 	for (i = 0; i < numionodes; i++) {
+ 		hubdev = (struct hubdev_info *)(NODEPDA(i)->pdinfo);
+-		nasid = COMPACT_TO_NASID_NODEID(i);
++		nasid = cnodeid_to_nasid(i);
+ 		status = sal_get_hubdev_info(nasid, (uint64_t) __pa(hubdev));
+ 		if (status)
+ 			continue;
+@@ -313,7 +313,7 @@
+ 	SN_PCIBUS_BUSSOFT(bus) = provider_soft;
+ 
+ 	nasid = NASID_GET(SN_PCIBUS_BUSSOFT(bus)->bs_base);
+-	cnode = NASID_TO_COMPACT_NODEID(nasid);
++	cnode = nasid_to_cnodeid(nasid);
+ 	hubdev_info = (struct hubdev_info *)(NODEPDA(cnode)->pdinfo);
+ 	SN_PCIBUS_BUSSOFT(bus)->bs_xwidget_info =
+ 	    &(hubdev_info->hdi_xwidget_info[SN_PCIBUS_BUSSOFT(bus)->bs_xid]);
+===== arch/ia64/sn/pci/pcibr/pcibr_dma.c 1.2 vs edited =====
+--- 1.2/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2004-10-20 13:25:07 -07:00
++++ edited/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2004-10-29 16:00:49 -07:00
+@@ -226,10 +226,10 @@
+ 		return;
+ 
+ 	nasid = NASID_GET(addr);
+-	if (-1 == NASID_TO_COMPACT_NODEID(nasid))
++	if (-1 == nasid_to_cnodeid(nasid))
+ 		return;
+ 
+-	hubinfo = (NODEPDA(NASID_TO_COMPACT_NODEID(nasid)))->pdinfo;
++	hubinfo = (NODEPDA(nasid_to_cnodeid(nasid)))->pdinfo;
+ 
+ 	if (!hubinfo) {
+ 		BUG();
+===== arch/ia64/sn/pci/pcibr/pcibr_provider.c 1.1 vs edited =====
+--- 1.1/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2004-10-11 13:03:57 -07:00
++++ edited/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2004-10-29 16:01:03 -07:00
+@@ -98,7 +98,7 @@
+ 	}
+ 
+ 	nasid = NASID_GET(soft->pbi_buscommon.bs_base);
+-	cnode = NASID_TO_COMPACT_NODEID(nasid);
++	cnode = nasid_to_cnodeid(nasid);
+ 	hubdev_info = (struct hubdev_info *)(NODEPDA(cnode)->pdinfo);
+ 
+ 	if (hubdev_info->hdi_flush_nasid_list.widget_p) {
+===== include/asm-ia64/sn/arch.h 1.12 vs edited =====
+--- 1.12/include/asm-ia64/sn/arch.h	2004-10-29 16:02:43 -07:00
++++ edited/include/asm-ia64/sn/arch.h	2004-10-29 16:03:13 -07:00
+@@ -24,9 +24,6 @@
+ 
+ typedef u64	nic_t;
+ 
+-#define NASID_TO_COMPACT_NODEID(nasid)  (nasid_to_cnodeid(nasid))
+-#define COMPACT_TO_NASID_NODEID(cnode)  (cnodeid_to_nasid(cnode))
+-
+ extern void sn_flush_all_caches(long addr, long bytes);
+ 
+ #endif /* _ASM_IA64_SN_ARCH_H */
+
+--Boundary-00=_VktgBskSDJC9udv--
