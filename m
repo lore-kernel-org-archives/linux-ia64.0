@@ -1,37 +1,31 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Wed, 08 Oct 2003 23:20:22 +0000
-Subject: [PATCH] move find_memory()
-Message-Id: <marc-linux-ia64-106565533807870@msgid-missing>
+From: John Levon <levon@movementarian.org>
+Date: Mon, 06 Oct 2003 21:18:15 +0000
+Subject: [PATCH] fix warning with CONFIG_PROFILING=y
+Message-Id: <marc-linux-ia64-106547532101241@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Now that the ACPI table parsing stuff has been fixed we can move
-find_memory() back where it belongs--after the SRAT table has been
-parsed.
 
-Thanks,
-Jesse
+Needs a forward declaration of struct pt_regs in Linus's current tree.
 
-diff -Nru a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
---- a/arch/ia64/kernel/setup.c	Mon Sep 29 17:06:17 2003
-+++ b/arch/ia64/kernel/setup.c	Mon Sep 29 17:06:17 2003
-@@ -239,7 +236,6 @@
- 	strlcpy(saved_command_line, *cmdline_p, sizeof(saved_command_line));
+regards
+john
+
+Index: linux-ia64/include/linux/profile.h
+=================================RCS file: /home/cvs/linux-2.5/include/linux/profile.h,v
+retrieving revision 1.5
+diff -u -a -p -r1.5 profile.h
+--- linux-ia64/include/linux/profile.h	7 Mar 2003 15:39:16 -0000	1.5
++++ linux-ia64/include/linux/profile.h	6 Oct 2003 19:20:58 -0000
+@@ -48,6 +48,8 @@ int profile_event_unregister(enum profil
+ int register_profile_notifier(struct notifier_block * nb);
+ int unregister_profile_notifier(struct notifier_block * nb);
  
- 	efi_init();
--	find_memory();
- 
- #ifdef CONFIG_ACPI_BOOT
- 	/* Initialize the ACPI boot-time table parser */
-@@ -253,6 +249,8 @@
- # endif
- #endif /* CONFIG_APCI_BOOT */
- 
-+	find_memory();
++struct pt_regs;
 +
- 	/* process SAL system table: */
- 	ia64_sal_init(efi.sal_systab);
+ /* profiling hook activated on each timer interrupt */
+ void profile_hook(struct pt_regs * regs);
  
