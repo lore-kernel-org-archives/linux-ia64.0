@@ -1,260 +1,106 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Mon, 21 Apr 2003 20:53:16 +0000
-Subject: Re: [Linux-ia64] 32 bit syscall unification in 2.5
-Message-Id: <marc-linux-ia64-105590723705583@msgid-missing>
+From: Martin Hicks <mort@wildopensource.com>
+Date: Tue, 22 Apr 2003 18:23:31 +0000
+Subject: [Linux-ia64] [PATCH] move mmu_gathers into local_cpu_data
+Message-Id: <marc-linux-ia64-105590723705585@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705570@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705570@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@napali.hpl.hp.com> writes:
+Hi,
 
-> 
-> Yes, this I like better, too.  Would you mind sending me an updated patch?
-> 
+This is a patch that moves mmu_gathers into local_cpu_data on IA64 NUMA.
+I'm not exactly sure where to push this patch, because it does touch
+include/asm-generic/tlb.h although it has no effect on non ia64 arches.
 
-A new patch is attached.
+The main reason for making this change is that the mmu_gathers array
+gets very large as the number of processors increases.
 
-        -Arun
+mh
 
-=== arch/ia64/ia32/ia32_entry.S 1.22 vs edited ==--- 1.22/arch/ia64/ia32/ia32_entry.S	Mon Apr 14 22:07:43 2003
-+++ edited/arch/ia64/ia32/ia32_entry.S	Thu Apr 17 18:33:31 2003
-@@ -273,9 +273,9 @@
- 	data8 sys32_sigsuspend
- 	data8 compat_sys_sigpending
- 	data8 sys_sethostname
--	data8 sys32_setrlimit	  /* 75 */
--	data8 sys32_old_getrlimit
--	data8 sys32_getrusage
-+	data8 compat_sys_setrlimit	  /* 75 */
-+	data8 compat_sys_old_getrlimit
-+	data8 compat_sys_getrusage
- 	data8 sys32_gettimeofday
- 	data8 sys32_settimeofday
- 	data8 sys32_getgroups16	  /* 80 */
-@@ -312,7 +312,7 @@
- 	data8 sys_vhangup
- 	data8 sys32_ni_syscall		/* used to be sys_idle */
- 	data8 sys32_ni_syscall
--	data8 sys32_wait4
-+	data8 compat_sys_wait4
- 	data8 sys_swapoff	  /* 115 */
- 	data8 sys32_sysinfo
- 	data8 sys32_ipc
-@@ -389,7 +389,7 @@
- 	data8 sys32_ni_syscall		  /* streams1 */
- 	data8 sys32_ni_syscall		  /* streams2 */
- 	data8 sys32_vfork	  /* 190 */
--	data8 sys32_getrlimit
-+	data8 compat_sys_getrlimit
- 	data8 sys32_mmap2
- 	data8 sys32_truncate64
- 	data8 sys32_ftruncate64
-=== arch/ia64/ia32/sys_ia32.c 1.49 vs edited ==--- 1.49/arch/ia64/ia32/sys_ia32.c	Wed Apr  9 11:51:34 2003
-+++ edited/arch/ia64/ia32/sys_ia32.c	Thu Apr 17 18:54:18 2003
-@@ -1005,77 +1005,6 @@
- 	return ret;
- }
- 
--#define RLIM_INFINITY32	0x7fffffff
--#define RESOURCE32(x) ((x > RLIM_INFINITY32) ? RLIM_INFINITY32 : x)
--
--struct rlimit32 {
--	int	rlim_cur;
--	int	rlim_max;
--};
--
--extern asmlinkage long sys_getrlimit (unsigned int resource, struct rlimit *rlim);
--
--asmlinkage long
--sys32_old_getrlimit (unsigned int resource, struct rlimit32 *rlim)
--{
--	mm_segment_t old_fs = get_fs();
--	struct rlimit r;
--	int ret;
--
--	set_fs(KERNEL_DS);
--	ret = sys_getrlimit(resource, &r);
--	set_fs(old_fs);
--	if (!ret) {
--		ret = put_user(RESOURCE32(r.rlim_cur), &rlim->rlim_cur);
--		ret |= put_user(RESOURCE32(r.rlim_max), &rlim->rlim_max);
--	}
--	return ret;
--}
--
--asmlinkage long
--sys32_getrlimit (unsigned int resource, struct rlimit32 *rlim)
--{
--	mm_segment_t old_fs = get_fs();
--	struct rlimit r;
--	int ret;
--
--	set_fs(KERNEL_DS);
--	ret = sys_getrlimit(resource, &r);
--	set_fs(old_fs);
--	if (!ret) {
--		if (r.rlim_cur >= 0xffffffff)
--			r.rlim_cur = 0xffffffff;
--		if (r.rlim_max >= 0xffffffff)
--			r.rlim_max = 0xffffffff;
--		ret = put_user(r.rlim_cur, &rlim->rlim_cur);
--		ret |= put_user(r.rlim_max, &rlim->rlim_max);
--	}
--	return ret;
--}
--
--extern asmlinkage long sys_setrlimit (unsigned int resource, struct rlimit *rlim);
--
--asmlinkage long
--sys32_setrlimit (unsigned int resource, struct rlimit32 *rlim)
--{
--	struct rlimit r;
--	int ret;
--	mm_segment_t old_fs = get_fs();
--
--	if (resource >= RLIM_NLIMITS)
--		return -EINVAL;
--	if (get_user(r.rlim_cur, &rlim->rlim_cur) || get_user(r.rlim_max, &rlim->rlim_max))
--		return -EFAULT;
--	if (r.rlim_cur = RLIM_INFINITY32)
--		r.rlim_cur = RLIM_INFINITY;
--	if (r.rlim_max = RLIM_INFINITY32)
--		r.rlim_max = RLIM_INFINITY;
--	set_fs(KERNEL_DS);
--	ret = sys_setrlimit(resource, &r);
--	set_fs(old_fs);
--	return ret;
--}
--
- /*
-  * sys32_ipc() is the de-multiplexer for the SysV IPC calls in 32bit emulation..
-  *
-@@ -1724,98 +1653,10 @@
- 	return i;
- }
- 
--struct rusage32 {
--	struct compat_timeval ru_utime;
--	struct compat_timeval ru_stime;
--	int    ru_maxrss;
--	int    ru_ixrss;
--	int    ru_idrss;
--	int    ru_isrss;
--	int    ru_minflt;
--	int    ru_majflt;
--	int    ru_nswap;
--	int    ru_inblock;
--	int    ru_oublock;
--	int    ru_msgsnd;
--	int    ru_msgrcv;
--	int    ru_nsignals;
--	int    ru_nvcsw;
--	int    ru_nivcsw;
--};
--
--static int
--put_rusage (struct rusage32 *ru, struct rusage *r)
--{
--	int err;
--
--	if (!access_ok(VERIFY_WRITE, ru, sizeof(*ru)))
--		return -EFAULT;
--
--	err = __put_user (r->ru_utime.tv_sec, &ru->ru_utime.tv_sec);
--	err |= __put_user (r->ru_utime.tv_usec, &ru->ru_utime.tv_usec);
--	err |= __put_user (r->ru_stime.tv_sec, &ru->ru_stime.tv_sec);
--	err |= __put_user (r->ru_stime.tv_usec, &ru->ru_stime.tv_usec);
--	err |= __put_user (r->ru_maxrss, &ru->ru_maxrss);
--	err |= __put_user (r->ru_ixrss, &ru->ru_ixrss);
--	err |= __put_user (r->ru_idrss, &ru->ru_idrss);
--	err |= __put_user (r->ru_isrss, &ru->ru_isrss);
--	err |= __put_user (r->ru_minflt, &ru->ru_minflt);
--	err |= __put_user (r->ru_majflt, &ru->ru_majflt);
--	err |= __put_user (r->ru_nswap, &ru->ru_nswap);
--	err |= __put_user (r->ru_inblock, &ru->ru_inblock);
--	err |= __put_user (r->ru_oublock, &ru->ru_oublock);
--	err |= __put_user (r->ru_msgsnd, &ru->ru_msgsnd);
--	err |= __put_user (r->ru_msgrcv, &ru->ru_msgrcv);
--	err |= __put_user (r->ru_nsignals, &ru->ru_nsignals);
--	err |= __put_user (r->ru_nvcsw, &ru->ru_nvcsw);
--	err |= __put_user (r->ru_nivcsw, &ru->ru_nivcsw);
--	return err;
--}
--
--asmlinkage long
--sys32_wait4 (int pid, unsigned int *stat_addr, int options, struct rusage32 *ru)
--{
--	if (!ru)
--		return sys_wait4(pid, stat_addr, options, NULL);
--	else {
--		struct rusage r;
--		int ret;
--		unsigned int status;
--		mm_segment_t old_fs = get_fs();
--
--		set_fs(KERNEL_DS);
--		ret = sys_wait4(pid, stat_addr ? &status : NULL, options, &r);
--		set_fs(old_fs);
--		if (put_rusage(ru, &r))
--			return -EFAULT;
--		if (stat_addr && put_user(status, stat_addr))
--			return -EFAULT;
--		return ret;
--	}
--}
--
- asmlinkage long
- sys32_waitpid (int pid, unsigned int *stat_addr, int options)
- {
--	return sys32_wait4(pid, stat_addr, options, NULL);
--}
--
--
--extern asmlinkage long sys_getrusage (int who, struct rusage *ru);
--
--asmlinkage long
--sys32_getrusage (int who, struct rusage32 *ru)
--{
--	struct rusage r;
--	int ret;
--	mm_segment_t old_fs = get_fs();
--
--	set_fs(KERNEL_DS);
--	ret = sys_getrusage(who, &r);
--	set_fs(old_fs);
--	if (put_rusage (ru, &r))
--		return -EFAULT;
--	return ret;
-+	return compat_sys_wait4(pid, stat_addr, options, NULL);
- }
- 
- static unsigned int
---- linux-2.5.67/include/asm-ia64/compat.h-	Fri Apr 18 14:18:17 2003
-+++ linux-2.5.67/include/asm-ia64/compat.h	Fri Apr 18 14:18:38 2003
-@@ -102,6 +102,9 @@
- 	int		f_spare[6];
- };
- 
-+#define COMPAT_RLIM_OLD_INFINITY       0x7fffffff
-+#define COMPAT_RLIM_INFINITY           0xffffffff
+-- 
+Wild Open Source Inc.                  mort@wildopensource.com
+
+
+diff -X /home/mort/diffex -uNr linux-2.4.21-pre5.pristine/arch/ia64/kernel/setup.c linux-2.4.21-pre5/arch/ia64/kernel/setup.c
+--- linux-2.4.21-pre5.pristine/arch/ia64/kernel/setup.c	Sun Mar 30 17:31:07 2003
++++ linux-2.4.21-pre5/arch/ia64/kernel/setup.c	Tue Apr 22 13:22:48 2003
+@@ -566,6 +566,8 @@
+ 		for (cpu = 1; cpu < NR_CPUS; ++cpu)
+ 			memcpy(my_cpu_data->cpu_data[cpu]->cpu_data,
+ 			       my_cpu_data->cpu_data, sizeof(my_cpu_data->cpu_data));
++		my_cpu_data->mmu_gathers = alloc_bootmem_pages_node(BOOT_NODE_DATA(boot_get_local_cnodeid()),
++								    sizeof(mmu_gather_t));
+ 	} else {
+ 		order = get_order(sizeof(struct cpuinfo_ia64));
+ 		my_cpu_data = page_address(alloc_pages_node(numa_node_id(), GFP_KERNEL, order));
+@@ -575,6 +577,10 @@
+ 			     order);
+ 		for (cpu = 0; cpu < NR_CPUS; ++cpu)
+ 			boot_cpu_data->cpu_data[cpu]->cpu_data[smp_processor_id()] = my_cpu_data;
 +
- typedef u32		compat_old_sigset_t;	/* at least 32 bits */
++		my_cpu_data->mmu_gathers = page_address(boot_alloc_pages_node(boot_get_local_cnodeid(),
++									      GFP_KERNEL,
++									      get_order(sizeof(mmu_gather_t)));
+ 	}
+ #else
+ 	my_cpu_data = cpu_data(smp_processor_id());
+diff -X /home/mort/diffex -uNr linux-2.4.21-pre5.pristine/arch/ia64/mm/init.c linux-2.4.21-pre5/arch/ia64/mm/init.c
+--- linux-2.4.21-pre5.pristine/arch/ia64/mm/init.c	Sun Mar 30 17:31:07 2003
++++ linux-2.4.21-pre5/arch/ia64/mm/init.c	Tue Apr 22 13:22:48 2003
+@@ -28,7 +28,9 @@
+ #include <asm/uaccess.h>
+ #include <asm/tlb.h>
  
- #define _COMPAT_NSIG		64
---- linux-2.5.67/kernel/sys.c-	Fri Apr 18 14:21:34 2003
-+++ linux-2.5.67/kernel/sys.c	Fri Apr 18 14:21:54 2003
-@@ -1218,7 +1218,7 @@
- 			? -EFAULT : 0;
- }
++#ifndef CONFIG_NUMA
+ mmu_gather_t mmu_gathers[NR_CPUS];
++#endif
  
--#if !defined(__ia64__) && !defined(CONFIG_V850)
-+#if (!defined(__ia64__) && !defined(CONFIG_V850)) || defined(CONFIG_COMPAT)
+ /* References to section boundaries: */
+ extern char _stext, _etext, _edata, __init_begin, __init_end;
+diff -X /home/mort/diffex -uNr linux-2.4.21-pre5.pristine/include/asm-generic/tlb.h linux-2.4.21-pre5/include/asm-generic/tlb.h
+--- linux-2.4.21-pre5.pristine/include/asm-generic/tlb.h	Fri Aug  2 18:39:45 2002
++++ linux-2.4.21-pre5/include/asm-generic/tlb.h	Tue Apr 22 13:24:36 2003
+@@ -31,15 +31,18 @@
+ 	pte_t	ptes[FREE_PTE_NR];
+ } mmu_gather_t;
  
- /*
-  *	Back compatibility for getrlimit. Needed for some apps.
-
++#ifndef local_mmu_gathers
+ /* Users of the generic TLB shootdown code must declare this storage space. */
+ extern mmu_gather_t	mmu_gathers[NR_CPUS];
++#define local_mmu_gathers	&mmu_gathers[smp_processor_id()]
++#endif
+ 
+ /* tlb_gather_mmu
+  *	Return a pointer to an initialized mmu_gather_t.
+  */
+ static inline mmu_gather_t *tlb_gather_mmu(struct mm_struct *mm)
+ {
+-	mmu_gather_t *tlb = &mmu_gathers[smp_processor_id()];
++	mmu_gather_t *tlb = local_mmu_gathers;
+ 
+ 	tlb->mm = mm;
+ 	/* Use fast mode if there is only one user of this mm (this process) */
+diff -X /home/mort/diffex -uNr linux-2.4.21-pre5.pristine/include/asm-ia64/processor.h linux-2.4.21-pre5/include/asm-ia64/processor.h
+--- linux-2.4.21-pre5.pristine/include/asm-ia64/processor.h	Wed Apr 16 17:41:04 2003
++++ linux-2.4.21-pre5/include/asm-ia64/processor.h	Tue Apr 22 13:38:58 2003
+@@ -189,6 +189,7 @@
+ 	void *node_directory;
+ 	int numa_node_id;
+ 	struct cpuinfo_ia64 *cpu_data[NR_CPUS];
++        void *mmu_gathers;
+ #endif
+ 	/* Platform specific word.  MUST BE LAST IN STRUCT */
+ 	__u64 platform_specific;
+diff -X /home/mort/diffex -uNr linux-2.4.21-pre5.pristine/include/asm-ia64/tlb.h linux-2.4.21-pre5/include/asm-ia64/tlb.h
+--- linux-2.4.21-pre5.pristine/include/asm-ia64/tlb.h	Fri Apr 11 17:56:37 2003
++++ linux-2.4.21-pre5/include/asm-ia64/tlb.h	Tue Apr 22 13:38:59 2003
+@@ -1 +1,6 @@
++
++#ifdef CONFIG_NUMA
++#define local_mmu_gathers local_cpu_data->mmu_gathers
++#endif
++
+ #include <asm-generic/tlb.h>
 
