@@ -1,24 +1,39 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 31 Jul 2003 04:00:56 +0000
-Subject: Re: EXT2_MAX_BLOCK_LOG_SIZE increase?
-Message-Id: <marc-linux-ia64-105962406619445@msgid-missing>
+From: John Hawkes <hawkes@babylon.engr.sgi.com>
+Date: Thu, 03 Jul 2003 20:36:15 +0000
+Subject: [PATCH] improve scalability of 2.4.21 fpassist
+Message-Id: <marc-linux-ia64-105726499515305@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105958015806246@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105958015806246@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jul 30, 2003 at 08:35:41PM -0700, Grant Grundler wrote:
-> It looks like ext2 uses PAGE_SIZE to size it's IOs:
+This change has already made its way into linux-2.5.72-ia64-031619.diff.
+Here is the diff relative to 2.4.21 + linux-2.4.21-ia64-030702.diff.
 
-sorry..hit send key a bit too fast...here's the bit of code I wanted
-to quote:
-fs/ext2/ialloc.c:       inode->i_blksize = PAGE_SIZE;   /* This is the optimal IO size (for stat), not the fs block size */
+This patch *significantly* improves the scalability of handle_fpu_swa()
+when multiple CPUs are generating concurrent fp-assist traps.
+The original algorithm produces cacheline ping-ponging for the cacheline
+that contains fpu_swa_count.  This new algorithm only dirties
+fpu_sw_count when the printk() is about to occur, rather than on every
+fpassist trap, which throttles the ping-ponging to no more than five per
+second.
 
-Does this really mean ext2 tries to do IO in page size chunks?
-I'll assume it does (usually) unless told otherwise since 4k vs 16k
-block size on 16k page size gave basically the same result.
+John Hawkes
 
-grant
+
+
+diff -X /home/hawkes/Patches/ignore.dirs -Naur linux-2.4.21-ia64/arch/ia64/kernel/traps.c linux-2.4.21-ia64-fp/arch/ia64/kernel/traps.c
+--- linux-2.4.21-ia64/arch/ia64/kernel/traps.c	Thu Jul  3 13:10:46 2003
++++ linux-2.4.21-ia64-fp/arch/ia64/kernel/traps.c	Thu Jul  3 13:15:42 2003
+@@ -335,8 +335,9 @@
+ 
+ 	if (jiffies - last_time > 5*HZ)
+ 		fpu_swa_count = 0;
+-	if ((++fpu_swa_count < 5) && !(current->thread.flags & IA64_THREAD_FPEMU_NOPRINT)) {
++	if ((fpu_swa_count < 4) && !(current->thread.flags & IA64_THREAD_FPEMU_NOPRINT)) {
+ 		last_time = jiffies;
++		++fpu_swa_count;
+ 		printk(KERN_WARNING "%s(%d): floating-point assist fault at ip %016lx, isr %016lx\n",
+ 		       current->comm, current->pid, regs->cr_iip + ia64_psr(regs)->ri, isr);
+ 	}
