@@ -1,50 +1,36 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Sat, 20 Nov 2004 01:45:59 +0000
+From: Linus Torvalds <torvalds@osdl.org>
+Date: Sat, 20 Nov 2004 01:56:43 +0000
 Subject: Re: page fault scalability patch V11 [0/7]: overview
-Message-Id: <419EA1D7.2060708@yahoo.com.au>
+Message-Id: <Pine.LNX.4.58.0411191753130.2222@ppc970.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain>  <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com>  <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com>  <419D581F.2080302@yahoo.com.au>  <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>  <419D5E09.20805@yahoo.com.au>  <Pine.LNX.4.58.0411181921001.1674@schroedinger.engr.sgi.com> <1100848068.25520.49.camel@gaston> <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0411191155180.2222@ppc970.osdl.org> <419E98E7.1080402@yahoo.com.au> <Pine.LNX.4.58.0411191726001.1719@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0411191726001.1719@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain>
+  <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com> 
+ <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com> 
+ <419D581F.2080302@yahoo.com.au>  <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>
+  <419D5E09.20805@yahoo.com.au>  <Pine.LNX.4.58.0411181921001.1674@schroedinger.engr.sgi.com>
+ <1100848068.25520.49.camel@gaston> <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411191155180.2222@ppc970.osdl.org> <419E98E7.1080402@yahoo.com.au>
+In-Reply-To: <419E98E7.1080402@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: Linus Torvalds <torvalds@osdl.org>, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Nick Piggin <nickpiggin@yahoo.com.au>
+Cc: Christoph Lameter <clameter@sgi.com>, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Christoph Lameter wrote:
-> On Sat, 20 Nov 2004, Nick Piggin wrote:
-> 
-> 
->>I think this sounds like it might be a good idea. I prefer it to having
->>the unbounded error of sloppy rss (as improbable as it may be in practice).
-> 
-> 
-> It may also be faster since the processors can have exclusive cache lines.
-> 
 
-Yep.
 
-> This means we need to move rss into the task struct. But how does one get
-> from mm struct to task struct? current is likely available most of
-> the time. Is that always the case?
+On Sat, 20 Nov 2004, Nick Piggin wrote:
 > 
+> The per thread rss may wrap (maybe not 64-bit counters), but even so,
+> the summation over all threads should still end up being correct I
+> think.
 
-It is available everywhere that mm_struct is, I guess. So yes, I
-think `current` should be OK.
+Yes. As long as the total rss fits in an int, it doesn't matter if any of
+them wrap. Addition is still associative in twos-complement arithmetic 
+even in the presense of overflows. 
 
-> 
->>The per thread rss may wrap (maybe not 64-bit counters), but even so,
->>the summation over all threads should still end up being correct I
->>think.
-> 
-> 
-> Note though that the mmap_sem is no protection. It is a read lock and may
-> be held by multiple processes while incrementing and decrementing rss.
-> This is likely reducing the number of collisions significantly but it wont
-> be a  guarantee like locking or atomic ops.
-> 
+If you actually want to make it proper standard C, I guess you'd have to 
+make the thing unsigned, which gives you the mod-2**n guarantees even if 
+somebody were to ever make a non-twos-complement machine.
 
-Yeah the read lock won't do anything to serialise it. I think what Linus
-is saying is that we _don't care_ most of the time (because the error will
-be bounded). But if it happened that we really do care anywhere, then the
-write lock should be sufficient.
+		Linus
