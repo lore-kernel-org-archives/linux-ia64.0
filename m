@@ -1,7 +1,7 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Thu, 25 Sep 2003 18:08:04 +0000
+From: Shailabh Nagar <nagar@watson.ibm.com>
+Date: Thu, 25 Sep 2003 20:50:51 +0000
 Subject: Re: [Lse-tech] CPUSET Proposal
-Message-Id: <marc-linux-ia64-106451388924160@msgid-missing>
+Message-Id: <marc-linux-ia64-106452313403787@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106442121824485@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106442121824485@msgid-missing>
@@ -10,26 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2003-09-24 at 23:57, David Mosberger wrote:
->> I wasn't suggesting that x86 is limited to 8-way, I was wondering how
->> many > 8-way x86 Linux machines are actually out there.  I wasn't even
->> being facetious---just curious.
+Shailabh Nagar wrote:
 
-On Thu, Sep 25, 2003 at 02:04:07AM -0700, Dave Hansen wrote:
-> Well, besides the NUMA-Q, which went up to 60x and is dead now, there
-> are at least the IBM Summit chipset machines.  They're sold as 32-ways
-> today on the x445 (that's physical, without hyperthreading).  I've
-> personally booted Linux on a 16-way, but I'm know others have booted on
-> the 32-way configuration.  Patches for this were posted in the last week
-> by James Cleverdon.  
-> There's also the bigsmp code in the kernel for other P4-based systems
-> that are >8x.  I haven't seen any of them yet, but I wouldn't imagine
-> that people would put support in the kernel for hardware that wasn't at
-> least *close* to production. 
+> 
+> CKRM shares some aspects of the first objective i.e. it also seeks 
+> performance isolation for arbitrary groups of processes (classes) too 
+> but differs in that it
+> - uses scheduler modifications to achieve isolation
+> - has a quantitative measures for how much resource is used
 
-I figured the ES7000 and x440/x445 were recent enough they'd be fresh
-in people's mind. Small correction to the NUMA-Q: it was 64x.
+Let me modify that since CPUSETs also provides a coarse-grain (#cpus) 
+quantitative measure.
 
-http://www-3.ibm.com/software/data/db2/benchmarks/050300.html
+CKRM allows % of the total resource (cpu ticks, mem pages etc.) to be 
+specified and is consequently at a finer granularity.
 
--- wli
+
+
+
