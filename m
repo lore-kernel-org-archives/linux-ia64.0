@@ -1,94 +1,67 @@
 From: "H . J . Lu" <hjl@valinux.com>
-Date: Sun, 10 Sep 2000 00:39:26 +0000
+Date: Sun, 10 Sep 2000 00:57:08 +0000
 Subject: Re: [Linux-ia64] kernel update (relative to v2.4.0-test8)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="VbJkn9YxBvnuCH5J"
-Message-Id: <marc-linux-ia64-105590678205477@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205479@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Sat, Sep 09, 2000 at 05:17:12PM -0700, David Mosberger wrote:
-> >>>>> On Sat, 9 Sep 2000 14:49:52 -0700, "H . J . Lu" <hjl@valinux.com> said:
+On Sat, Sep 09, 2000 at 05:39:26PM -0700, H . J . Lu wrote:
+> On Sat, Sep 09, 2000 at 05:17:12PM -0700, David Mosberger wrote:
+> > >>>>> On Sat, 9 Sep 2000 14:49:52 -0700, "H . J . Lu" <hjl@valinux.com> said:
+> > 
+> >   HJ> Yes, I did "make dep". What should include/asm-ia64/offsets.h
+> >   HJ> look like? That may explain many things.
+> > 
+> > Well, it depends on your kernel configuration.  If you did a "make
+> > dep", you should have the right values in there.
+> > 
+> > I'm not sure why the new kernel isn't working for you.  Nothing has
+> > changed in the kernel that would explain an infinite stream of irq 0.
+> > 
 > 
->   HJ> Yes, I did "make dep". What should include/asm-ia64/offsets.h
->   HJ> look like? That may explain many things.
+> I am going through my build log. I found at least 2 problems:
 > 
-> Well, it depends on your kernel configuration.  If you did a "make
-> dep", you should have the right values in there.
+> 1. In inclide/asm-ia64/processor.h, there is
 > 
-> I'm not sure why the new kernel isn't working for you.  Nothing has
-> changed in the kernel that would explain an infinite stream of irq 0.
+> # define loops_per_sec()       loops_per_sec
+> 
+> It is bad if the versioned symbol is enabled.
+> 
+> 2. ACPI_RSDT_SIG is defined both as a string and an integer in
+> 2 different header files. In include/linux/acpi.h
+> 
+> #define ACPI_RSDT_SIG  0x54445352 /* 'RSDT' */
+> 
+> In include/asm-ia64/acpi-ext.h
+> 
+> #define ACPI_RSDT_SIG "RSDT"
+> 
+> It is very confusing.
+> 
+> I am enclosing 2 patches. Please take a look.
 > 
 
-I am going through my build log. I found at least 2 problems:
-
-1. In inclide/asm-ia64/processor.h, there is
-
-# define loops_per_sec()       loops_per_sec
-
-It is bad if the versioned symbol is enabled.
-
-2. ACPI_RSDT_SIG is defined both as a string and an integer in
-2 different header files. In include/linux/acpi.h
-
-#define ACPI_RSDT_SIG  0x54445352 /* 'RSDT' */
-
-In include/asm-ia64/acpi-ext.h
-
-#define ACPI_RSDT_SIG "RSDT"
-
-It is very confusing.
-
-I am enclosing 2 patches. Please take a look.
-
-Thanks.
-
+Opps. The patch for string missed one patch. Here is the new
+string.patch.
 
 H.J.
-
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="macro.patch"
-
---- linux/arch/ia64/kernel/setup.c.macro	Sat Sep  9 17:20:57 2000
-+++ linux/arch/ia64/kernel/setup.c	Sat Sep  9 17:21:25 2000
-@@ -320,7 +320,7 @@ get_cpuinfo (char *buffer)
- 			     features,
- 			     c->ppn, c->number, c->proc_freq / 1000000, c->proc_freq % 1000000,
- 			     c->itc_freq / 1000000, c->itc_freq % 1000000,
--			     loops_per_sec() / 500000, (loops_per_sec() / 5000) % 100);
-+			     ia64_loops_per_sec() / 500000, (ia64_loops_per_sec() / 5000) % 100);
-         }
- 	return p - buffer;
- }
---- linux/include/asm-ia64/processor.h.macro	Sat Sep  9 17:20:05 2000
-+++ linux/include/asm-ia64/processor.h	Sat Sep  9 17:20:27 2000
-@@ -253,9 +253,9 @@ struct cpuinfo_ia64 {
- #define my_cpu_data		cpu_data[smp_processor_id()]
- 
- #ifdef CONFIG_SMP
--# define loops_per_sec()	my_cpu_data.loops_per_sec
-+# define ia64_loops_per_sec()	my_cpu_data.loops_per_sec
- #else
--# define loops_per_sec()	loops_per_sec
-+# define ia64_loops_per_sec()	loops_per_sec
- #endif
- 
- extern struct cpuinfo_ia64 cpu_data[NR_CPUS];
-
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="string.patch"
-
---- linux/arch/ia64/kernel/acpi.c.string	Sat Sep  9 17:30:07 2000
+---
+--- linux/arch/ia64/kernel/acpi.c.string	Sat Sep  9 17:54:02 2000
 +++ linux/arch/ia64/kernel/acpi.c	Sat Sep  9 17:31:11 2000
-@@ -233,7 +233,7 @@ acpi_parse(acpi_rsdp_t *rsdp)
+@@ -226,14 +226,14 @@ acpi_parse(acpi_rsdp_t *rsdp)
+ 		return 0;
+ 	}
+ 
+-	if (strncmp(rsdp->signature, ACPI_RSDP_SIG, ACPI_RSDP_SIG_LEN)) {
++	if (strncmp(rsdp->signature, ACPI_RSDP_SIG_STR, ACPI_RSDP_SIG_LEN)) {
+ 		printk("Uh-oh, ACPI RSDP signature incorrect!\n");
+ 		return 0;
+ 	}
  
  	rsdp->rsdt = __va(rsdp->rsdt);
  	rsdt = rsdp->rsdt;
@@ -134,6 +107,4 @@ Content-Disposition: attachment; filename="string.patch"
  #define ACPI_SAPIC_SIG_LEN 4
  typedef struct {
  	acpi_desc_table_hdr_t header;
-
---VbJkn9YxBvnuCH5J--
 
