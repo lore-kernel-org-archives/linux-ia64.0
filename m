@@ -1,53 +1,45 @@
 From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 27 Aug 2002 11:15:19 +0000
-Subject: [Linux-ia64] Missing EXPORT_SYMBOL
-Message-Id: <marc-linux-ia64-105590701905982@msgid-missing>
+Date: Mon, 26 Aug 2002 11:40:40 +0000
+Subject: [Linux-ia64] DRM compile fix
+Message-Id: <marc-linux-ia64-105590701905979@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-This fixes some missing symbol exports for kernel modules.
+The struct page does not have a wait queue any more.
 
---- linux/arch/ia64/mm/Makefile.~1~
-+++ linux/arch/ia64/mm/Makefile
-@@ -9,6 +9,8 @@
+--- linux/drivers/char/drm/r128_cce.c.~1~
++++ linux/drivers/char/drm/r128_cce.c
+@@ -685,10 +685,10 @@ int r128_do_cleanup_cce( drm_device_t *d
+ 		if( !dev_priv->is_pci && dev->agp->agp_info.chipset =3D INTEL_460GX ) {
+ 			unsigned long alt_rh_off  				(unsigned long) dev_priv->ring.head;
++			struct page *p =3D virt_to_page((void *)alt_rh_off);
 =20
- O_TARGET :=3D mm.o
+-			atomic_dec(&virt_to_page(alt_rh_off)->count);
+-			clear_bit(PG_locked, &virt_to_page(alt_rh_off)->flags);
+-			wake_up(&virt_to_page(alt_rh_off)->wait);
++			put_page(p);
++			unlock_page(p);
+ 			free_page(alt_rh_off);
+ 		}
+ #endif
+--- linux/drivers/char/drm/radeon_cp.c.~1~
++++ linux/drivers/char/drm/radeon_cp.c
+@@ -1028,10 +1028,10 @@ int radeon_do_cleanup_cp( drm_device_t *
+ 		if( !dev_priv->is_pci && dev->agp->agp_info.chipset =3D INTEL_460GX ) {
+ 			unsigned long alt_rh_off  				(unsigned long) dev_priv->ring.head;
++			struct page *p =3D virt_to_page((void *)alt_rh_off);
 =20
-+export-objs :=3D init.o
-+
- obj-y	 :=3D init.o fault.o tlb.o extable.o
-=20
- include $(TOPDIR)/Rules.make
---- linux/arch/ia64/mm/init.c.~1~
-+++ linux/arch/ia64/mm/init.c
-@@ -5,6 +5,7 @@
-  *	David Mosberger-Tang <davidm@hpl.hp.com>
-  */
- #include <linux/config.h>
-+#include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
-=20
-@@ -40,6 +41,7 @@ static unsigned long totalram_pages;
-=20
- #ifdef CONFIG_VIRTUAL_MEM_MAP
- unsigned long vmalloc_end =3D VMALLOC_END_INIT;
-+EXPORT_SYMBOL(vmalloc_end);
-=20
- static struct page *vmem_map;
- static unsigned long num_dma_physpages;
-@@ -475,6 +477,8 @@ ia64_page_valid (struct page *page)
- 	return __get_user(byte, (char *) page) =3D 0;
- }
-=20
-+EXPORT_SYMBOL(ia64_page_valid);
-+
- #endif /* CONFIG_VIRTUAL_MEM_MAP */
-=20
- static int
+-			atomic_dec(&virt_to_page(alt_rh_off)->count);
+-			clear_bit(PG_locked, &virt_to_page(alt_rh_off)->flags);
+-			wake_up(&virt_to_page(alt_rh_off)->wait);
++			put_page(p);
++			unlock_page(p);
+ 			free_page(alt_rh_off);
+ 		}
+ #endif
 
 Andreas.
 
