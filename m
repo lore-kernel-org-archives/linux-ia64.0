@@ -1,7 +1,7 @@
-From: Don Dugger <n0ano@valinux.com>
-Date: Tue, 08 Aug 2000 19:15:29 +0000
+From: Jes Sorensen <jes@linuxcare.com>
+Date: Tue, 08 Aug 2000 19:36:13 +0000
 Subject: Re: [Linux-ia64] Kernel: which machine to choose?
-Message-Id: <marc-linux-ia64-105590678205281@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205283@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205272@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205272@msgid-missing>
@@ -10,24 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Gerrit-
+>>>>> "Gerrit" = Gerrit Huizenga <Gerrit.Huizenga@us.ibm.com> writes:
 
-By default the top level `Makefile' specifies the `-g' flag, which puts
-about 40MB of debug info into the kernel executable.  Just remove this flag
-and your kernel should drop dramatically in size.
+Gerrit> I noted recently that I couldn't build a kernel on the Lion
+Gerrit> when rlogin'd to the machine, but at the console I seem to
+Gerrit> have no problem.
 
-On Tue, Aug 08, 2000 at 11:55:11AM -0700, Gerrit.Huizenga@us.ibm.com wrote:
-> 
-> $ gcc -v
-> Reading specs from /usr/lib/gcc-lib/ia64-redhat-linux/2.9-ia64-000216-final/specs
->  gcc version 2.9-ia64-000216-final
-> 
-> I get 40 MB kernels, although the size of text/data/bss/etc. are about the
-> same as the 7-8 MB kernels shipped with the RedHat distro on my machine.
+Gerrit> Could the problems be a deadlock or other problem in the
+Gerrit> test1/test4 linux tcp code?
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@valinux.com
-Ph: 303/938-9838
+I have actually noticed that my machine seems slightly more stable
+when compiling without spewing the output to a remote window. Ie. if I
+compile XFree in a remote window it is almost certain to lock up, but
+both times I tried running it directing the output from stdout/stderr
+to a local file the build actually completed. This is on a UP A2 Lion
+btw.
+
+I would actually suspect that eepro100 driver or similar.
+
+Jes
 
