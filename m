@@ -1,35 +1,27 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 17 Oct 2003 22:40:48 +0000
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 17 Oct 2003 22:50:28 +0000
 Subject: Re: [RFC] prevent "dd if=/dev/mem" crash
-Message-Id: <marc-linux-ia64-106643054216291@msgid-missing>
+Message-Id: <marc-linux-ia64-106643118916896@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106642876514553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106642876514553@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"Luck, Tony" <tony.luck@intel.com> writes:
-
->> I expect there are probably different opinions about the idea
->> that "dd if=3D/dev/mem" exits without doing anything.  Sparc and
->> 68K have nearby code that bit-buckets writes and returns zeroes
->> for reads of page zero.  We could do that, too, but it seems like
->> kind of a hack, and holes on ia64 can be BIG (on the order of
->> 256GB for one box).
+Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
 >
-> Filling in the holes does seem like a bad idea, but so does returning
-> EOF when you hit a hole (which is what I think your patch is doing).
->
-> Would ENODEV be better?
+> Old behavior:
+> 
+>     # dd if=/dev/mem of=/dev/null
+>     <unrecoverable machine check>
 
-EIO would probably fit better.
+I recently fixed this for ia32 by changing copy_to_user() to not oops if
+the source address generated a fault.  Similarly copy_from_user() returns
+an error if the destination generates a fault.
 
-Andreas.
+In other words: drivers/char/mem.c requires that the architecture's
+copy_*_user() functions correctly handle faults on either the source or
+dest of the copy.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
