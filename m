@@ -1,40 +1,86 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Thu, 18 Mar 2004 23:51:37 +0000
-Subject: [1/3] insert_resource can succeed and return an error
-Message-Id: <20040318235137.GI25059@parcelfarce.linux.theplanet.co.uk>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Sat, 27 Mar 2004 00:03:37 +0000
+Subject: [PATCH] only scan PCI busses that exist
+Message-Id: <200403261603.37747.jbarnes@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_ZTMZAYWioL7EM7o"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+
+--Boundary-00=_ZTMZAYWioL7EM7o
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@debian.org>
-Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@zip.com.au>, Greg KH <greg@kroah.com>, David Mosberger <davidm@hpl.hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Disposition: inline
 
+sn_pci_init was unconditionally scanning 255 PCI busses, even though only a 
+few are actually present on most systems.  This patch adds a check to make 
+sure a given bus exists before doing the scan, which saves a little memory 
+and also makes /sys/devices reflect reality a bit more closely.
 
-If we start again, we can return an error even if we were successful.
-Reset the result to 0 before beginning again.  Why don't we use a
-tailcall here?
+Thanks,
+Jesse
 
-Index: kernel/resource.c
-=================================RCS file: /var/cvs/linux-2.6/kernel/resource.c,v
-retrieving revision 1.12
-diff -u -p -r1.12 resource.c
---- a/kernel/resource.c	28 Feb 2004 01:51:35 -0000	1.12
-+++ b/kernel/resource.c	18 Mar 2004 23:41:01 -0000
-@@ -337,6 +337,7 @@ int insert_resource(struct resource *par
- 	/* existing resource overlaps end of new resource */
- 	if (next->end > new->end) {
- 		parent = next;
-+		result = 0;
- 		goto begin;
+--Boundary-00=_ZTMZAYWioL7EM7o
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="pci-not-all-busses.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="pci-not-all-busses.patch"
+
+===== arch/ia64/sn/io/machvec/pci_bus_cvlink.c 1.36 vs edited =====
+--- 1.36/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Thu Feb 19 09:12:31 2004
++++ edited/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Fri Mar 26 15:50:30 2004
+@@ -811,7 +811,6 @@
+ 	/*
+ 	 * set pci_raw_ops, etc.
+ 	 */
+-
+ 	sgi_master_io_infr_init();
+ 
+ 	for (cnode = 0; cnode < numnodes; cnode++) {
+@@ -826,16 +825,16 @@
+ #endif
+ 
+ 	controller = kmalloc(sizeof(struct pci_controller), GFP_KERNEL);
+-	if (controller) {
+-		memset(controller, 0, sizeof(struct pci_controller));
+-		/* just allocate some devices and fill in the pci_dev structs */
+-		for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
+-			pci_scan_bus(i, &sn_pci_ops, controller);
++	if (!controller) {
++		printk(KERN_WARNING "cannot allocate PCI controller\n");
++		return 0;
  	}
  
+-	/*
+-	 * actually find devices and fill in hwgraph structs
+-	 */
++	memset(controller, 0, sizeof(struct pci_controller));
++
++	for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
++		if (pci_bus_to_vertex(i))
++			pci_scan_bus(i, &sn_pci_ops, controller);
+ 
+ 	done_probing = 1;
+ 
+@@ -857,13 +856,8 @@
+ 	 * set the root start and end so that drivers calling check_region()
+ 	 * won't see a conflict
+ 	 */
+-
+-#ifdef CONFIG_IA64_SGI_SN_SIM
+-	if (! IS_RUNNING_ON_SIMULATOR()) {
+-		ioport_resource.start  = 0xc000000000000000;
+-		ioport_resource.end =    0xcfffffffffffffff;
+-	}
+-#endif
++	ioport_resource.start = 0xc000000000000000;
++	ioport_resource.end = 0xcfffffffffffffff;
+ 
+ 	/*
+ 	 * Set the root start and end for Mem Resource.
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+--Boundary-00=_ZTMZAYWioL7EM7o--
