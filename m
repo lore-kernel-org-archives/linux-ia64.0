@@ -1,60 +1,34 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 17 May 2001 14:58:21 +0000
-Subject: [Linux-ia64] ia32 & perfmon fix (relative to 2.4.4 + 010508 ia64 patch)
-Message-Id: <marc-linux-ia64-105590693005602@msgid-missing>
+From: "Robboy, David G" <david.g.robboy@intel.com>
+Date: Fri, 25 May 2001 05:27:56 +0000
+Subject: [Linux-ia64] Seg. fault in malloc with pthreads on Red Hat R2.4.3
+Message-Id: <marc-linux-ia64-105590693005670@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The patch below fixes a silly typo in the ia32 support and a buglet in
-the PMU support.  I also noticed that "strace -f" is currently broken
-for ia64 processes.  I tracked it down to the coredump related changes
-in ptrace(), but don't have a complete fix yet.
+A 4-threaded fft program  runs on a 4P Lion when built under Turbolinux
+R2.4.1, but gets a segmentation fault in malloc when built under Red Hat
+R2.4.3. 
 
-	--david
+The compiler on the system where it works is:
+gcc version 2.96-ia64-000717 snap 001117
+On the system where it doesn't work:
+gcc version 2.96 20000731 (Red Hat Linux 7.1 2.96-81)
 
---- arch/ia64/kernel/process.c~	Wed May 16 18:27:32 2001
-+++ arch/ia64/kernel/process.c	Wed May 16 23:18:57 2001
-@@ -285,7 +285,7 @@
- 	 * state from the current task to the new task
- 	 */
- 	if (IS_IA32_PROCESS(ia64_task_regs(current)))
--		ia32_save_state(&p->thread);
-+		ia32_save_state(p);
- #endif
- #ifdef CONFIG_PERFMON
- 	p->thread.pfm_pend_notify = 0;
---- ../lia64/arch/ia64/kernel/perfmon.c	Sun Apr 29 17:09:23 2001
-+++ arch/ia64/kernel/perfmon.c	Wed May 16 18:13:26 2001
-@@ -787,26 +787,22 @@
- 	/* XXX: ctx locking may be required here */
- 
- 	for (i = 0; i < count; i++, req++) {
--		int k;
--
- 		if (copy_from_user(&tmp, req, sizeof(tmp))) return -EFAULT;
- 
- 		if (!PMD_IS_IMPL(tmp.pfr_reg.reg_num)) return -EINVAL;
- 
--		k = tmp.pfr_reg.reg_num - PMU_FIRST_COUNTER;
--
- 		if (PMD_IS_COUNTER(tmp.pfr_reg.reg_num)) {
- 			if (ta = current){
- 				val = ia64_get_pmd(tmp.pfr_reg.reg_num);
- 			} else {
--				val = th->pmd[k];
-+				val = th->pmd[tmp.pfr_reg.reg_num];
- 			}
- 			val &= pmu_conf.perf_ovfl_val;
- 			/*
- 			 * lower part of .val may not be zero, so we must be an addition because of
- 			 * residual count (see update_counters).
- 			 */
--			val += ctx->ctx_pmds[k].val;
-+			val += ctx->ctx_pmds[tmp.pfr_reg.reg_num - PMU_FIRST_COUNTER].val;
- 		} else {
- 			/* for now */
- 			if (ta != current) return -EINVAL;
+The program is statically linked. 
+4 threads call malloc, 3 threads return from malloc and one thread gets a
+seg. fault.  Gdb says the fault occurred in pthread_handle_create() and says
+it was a SIGILL.
+
+Is there something special you have to do in order to link to thread-safe
+libraries, other than include "-lpthread" in the command line?
+
+Is this a bug in Red Hat's C library?  If so, is there a way to report it to
+Red Hat?
+
+Thanks,
+David Robboy
+
 
