@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 03 Jun 2004 16:28:52 +0000
+From: Chris Wedgwood <cw@f00f.org>
+Date: Thu, 03 Jun 2004 20:04:12 +0000
 Subject: Re: Scalability enhancements for gettimeofday
-Message-Id: <Pine.LNX.4.58.0406030926420.26108@schroedinger.engr.sgi.com>
+Message-Id: <20040603200412.GA27518@taniwha.stupidest.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405201205.57930.clameter@sgi.com>
 In-Reply-To: <200405201205.57930.clameter@sgi.com>
@@ -10,22 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2 Jun 2004, David Mosberger wrote:
+On Wed, Jun 02, 2004 at 10:33:39AM -0700, David Mosberger wrote:
 
-> >>>>> On Thu, 20 May 2004 12:05:57 -0700, Christoph Lameter <clameter@sgi.com> said:
->
->   Christoph> The Altix systems never use ITC to determine the time so
->   Christoph> this check and the cmpxchg is not necessary.
->
-> I see the problem: the basic problem seems to come from the fact that
-> the non-ITC-interpolation code didn't quite come out the way I
-> anticipated: I expected even this code to use/need last_nsec_offset
-> just like the ITC-based code, but it ended up not doing that.  I
-> _think_ that's OK and, if so, we should probably push all the
-> last_nsec_offset back down into the interpolator-specific code.
-> However, this is tricky code so I want to mull it some more to make
-> sure I'm not missing a subtle race.
+> Does this really make a substantial difference?  My guess is no and,
+> if so, I'd rather not add any more #ifdefs.
 
-I also think that pushing that into the interpolators is probably the
-right way. I could work on a patch to do that if you do not have time
-for it.
+How about have the sn2 init code stomp over this value and point to
+some local code as required?
+
+/me hides :)
+
+
+  --cw
