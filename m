@@ -1,29 +1,37 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Thu, 14 Oct 2004 13:53:23 +0000
+From: Ivan Kokshaysky <ink@jurassic.park.msu.ru>
+Date: Thu, 14 Oct 2004 14:27:04 +0000
 Subject: Re: [PATCH] Introduce PCI <-> CPU address conversion [1/2]
-Message-Id: <20041014135323.GO16153@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <20041014182704.A13971@jurassic.park.msu.ru>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041014124737.GM16153@parcelfarce.linux.theplanet.co.uk> <20041014125348.GA9633@infradead.org>
-In-Reply-To: <20041014125348.GA9633@infradead.org>
+References: <20041014124737.GM16153@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20041014124737.GM16153@parcelfarce.linux.theplanet.co.uk>; from matthew@wil.cx on Thu, Oct 14, 2004 at 01:47:37PM +0100
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>, Matthew Wilcox <matthew@wil.cx>, Greg KH <greg@kroah.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: Greg KH <greg@kroah.com>, linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Thu, Oct 14, 2004 at 01:53:48PM +0100, Christoph Hellwig wrote:
-> I'd rather have this declared in every architectures asm/ header, so it's
-> more explicit that it's an per-arch thing.  Also make it a static inline
-> so we get typechecking.
+On Thu, Oct 14, 2004 at 01:47:37PM +0100, Matthew Wilcox wrote:
+> Some machines have a different address space on the PCI bus from the
+> CPU's bus.  This is currently fixed up in pcibios_fixup_bus().  However,
+> this is not called for hotplug devices.  Calling pcibios_fixup_bus() when
+> a device is hotplugged onto a bus is also wrong as it would attempt to
+> fixup devices that have already been fixed up with potentially horrific
+> consequences.
 
-I actually don't want typechecking.  Sometimes you have a device and
-sometimes you have a bus.  You can get everything you want (sysdata)
-from either, so there's no point in doing dev->bus when all you needed
-was right there.
+This logic makes sense only if you have sort of firmware which
+properly initializes the hotplug devices, so I think that the fixup
+should belong in that particular hotplug driver (or architecture).
+In general case the newly inserted device will have 0s in the BARs,
+so there is no point for bus to CPU conversion. You have to use
+pci_assign_resource() which does know about different address
+spaces.
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+> This patch teaches the generic PCI layer that there may be different
+> address spaces, and converts from bus views to cpu views when reading
+> from BARs.  Some drivers (eg sym2, acpiphp) need to go back the other
+> way, so it also introduces the inverse operation.
+
+This one already exists - pcibios_resource_to_bus().
+
+Ivan.
