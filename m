@@ -1,41 +1,27 @@
-From: Matt_Domsch@Dell.com
-Date: Mon, 26 Feb 2001 23:21:43 +0000
-Subject: [Linux-ia64] [RFC][PATCH] /proc access to EFI variables
-Message-Id: <marc-linux-ia64-105590693005209@msgid-missing>
+From: Francis Galiegue <fg@mandrakesoft.com>
+Date: Mon, 26 Feb 2001 13:18:11 +0000
+Subject: [Linux-ia64] The sys_nanosleep "bug", more details
+Message-Id: <marc-linux-ia64-105590693005203@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-I've created a kernel patch which makes all the EFI variables available
-under /proc/efi.  Support for reading, writing, creating, and destroying
-variables is present.  This patch is at version 0.01.  I've tested it
-myself, and am making it available for comment.  It should not be included
-in David's kernel port yet, nor in any distributions.
+After investigating a little, I found that the process is stuck in...
+schedule()! And always in S state, not D state, so I can C-c it whenever I
+want...
 
-Other changes include:
-- exporting struct efi in kernel/ia64_ksyms.c so efivars can be a module
-- setting the high bit on EFI error status codes in include/asm-ia64/efi.h
-(per spec)
+More strange: if I suspend the process using C-z and put it to the foregrou=
+nd
+again, it completes...
 
-The patch is available at
-http://domsch.com/linux/ia64/linux-2.4.1-010131-efivars-010226.patch.
+Looking at the schedule() code right now...
 
-I welcome any feedback people may have.  In particular, if you know of a
-better way to handle the naming of files, I'm happy to find something
-better.  File names like Boot0000-8be4df61-93ca-11d2-aa0d-00e098032b8c are
-ugly, but required to uniquely distinguish between vendor variables.  Also,
-I've made the assumption that the variable names are in UTF8, and that I can
-ignore the top 8 bits of each unicode character to create a char* file name.
-
-Thanks,
-Matt
-
---
-Matt Domsch
-Dell Linux Systems Group
-Linux OS Development
-www.dell.com/linux
+--=20
+Francis Galiegue, fg@mandrakesoft.com - Normand et fier de l'=EAtre
+"Programming is a race between programmers, who try and make more and more
+idiot-proof software, and universe, which produces more and more remarkable
+idiots. Until now, universe leads the race"  -- R. Cook
 
 
