@@ -1,7 +1,7 @@
 From: Christian Hildner <christian.hildner@hob.de>
-Date: Mon, 11 Nov 2002 08:38:54 +0000
+Date: Mon, 11 Nov 2002 08:49:49 +0000
 Subject: Re: [Linux-ia64] [PATCH] Performance Patch for TLB misses
-Message-Id: <marc-linux-ia64-105590709805379@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805380@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805350@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805350@msgid-missing>
@@ -11,20 +11,32 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
-David Mosberger schrieb:
+Mario Smarduch schrieb:
 
-> >>>>> On Thu, 07 Nov 2002 15:00:27 +0100, Christian Hildner <christian.hildner@hob.de> said:
+> Christian Hildner wrote:
 >
->   Christian> - let the processor also check for privilege level
->   Christian> because it's very very rare
+> > Hi,
+> >
+> > I created a patch that will (hopefully) increase the performance for TLB
+> > miss handling.
+> >
+> > - enlarge the distance between rsm psr.dt and srlz (the movl do not need
+> > data access)
+> >
+> > - let the processor check for the case of page not present (because for
+> > useable systems the common case is that the page is present, so optimize
+> > for that and drop the conditional branch)
+> >
+> > - let the processor also check for privilege level because it's very
+> > very rare
 >
-> I didn't look at the patch too closely but this change looks wrong.
-> It would let user level insert arbitrary identity-mapped TLB
-> translations, which is not safe because it can trigger memory
-> attribute aliasing.
+> Wouldn't removal of this possibly cause cached and uncahced mappings
+> to same page?
 
-Yes, user level would be allowed to insert translations. But the page attributes are hardcoded
-(PAGE_KERNEL) and this will not allow the user to touch this pages.
+Yes, but for the kernel it is allowed also without the patch and the the user could insert a
+duplicate mapping for the same physical page but this useless for him because of the access
+rights and also the kernel would not use these pages (because the kernel has no knowledge of
+this pages).
 
 Christian
 
