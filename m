@@ -1,911 +1,550 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 05 Feb 2004 02:33:45 +0000
-Subject: [patch] 5/6 2.6.2-rc2 mca.c cleanup - Reorder to remove the need for forward declarations and to con
-Message-Id: <4696.1075948425@kao2.melbourne.sgi.com>
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Wed, 25 Feb 2004 12:02:28 +0000
+Subject: IA64 test report: 2.6.3/tiger 2004-2-25: 9/9 pass
+Message-Id: <3ACA40606221794F80A5670F0AF15F8401720D8F@PDSMSX403.ccr.corp.intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3FB97.3D6A2BA1"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Reorder to remove the need for forward declarations and to consolidate related code
+This is a multi-part message in MIME format.
 
-Index: 2-rc2.6/arch/ia64/kernel/mca.c
---- 2-rc2.6/arch/ia64/kernel/mca.c Thu, 05 Feb 2004 12:01:04 +1100 kaos (linux-2.6/Z/c/43_mca.c 1.1.1.5 644)
-+++ 2-rc2.7/arch/ia64/kernel/mca.c Thu, 05 Feb 2004 12:56:08 +1100 kaos (linux-2.6/Z/c/43_mca.c 1.1.1.6 644)
-@@ -46,6 +46,8 @@
-  *            Delete all record printing code, moved to salinfo_decode in user space.
-  *            Mark variables and functions static where possible.
-  *            Delete dead variables and functions.
-+ *            Reorder to remove the need for forward declarations and to consolidate
-+ *            related code.
-  */
- #include <linux/config.h>
- #include <linux/types.h>
-@@ -99,57 +101,6 @@ extern struct hw_interrupt_type	irq_type
- 
- struct ia64_mca_tlb_info ia64_mca_tlb_list[NR_CPUS];
- 
--/* Forward declarations, the code is not in a nice order */
--static void			ia64_mca_wakeup_ipi_wait(void);
--static void			ia64_mca_wakeup(int cpu);
--static void			ia64_mca_wakeup_all(void);
--static void			ia64_log_init(int);
--static irqreturn_t		ia64_mca_rendez_int_handler(int,void *,struct pt_regs *);
--static irqreturn_t		ia64_mca_wakeup_int_handler(int,void *,struct pt_regs *);
--static irqreturn_t		ia64_mca_cmc_int_handler(int,void *,struct pt_regs *);
--static irqreturn_t		ia64_mca_cpe_int_handler(int, void *, struct pt_regs *);
--static irqreturn_t		ia64_mca_cmc_int_caller(int,void *,struct pt_regs *);
--static irqreturn_t		ia64_mca_cpe_int_caller(int,void *,struct pt_regs *);
--static u64			ia64_log_get(int sal_info_type, u8 **buffer);
--
--static struct irqaction cmci_irqaction = {
--	.handler =	ia64_mca_cmc_int_handler,
--	.flags =	SA_INTERRUPT,
--	.name =		"cmc_hndlr"
--};
--
--static struct irqaction cmcp_irqaction = {
--	.handler =	ia64_mca_cmc_int_caller,
--	.flags =	SA_INTERRUPT,
--	.name =		"cmc_poll"
--};
--
--static struct irqaction mca_rdzv_irqaction = {
--	.handler =	ia64_mca_rendez_int_handler,
--	.flags =	SA_INTERRUPT,
--	.name =		"mca_rdzv"
--};
--
--static struct irqaction mca_wkup_irqaction = {
--	.handler =	ia64_mca_wakeup_int_handler,
--	.flags =	SA_INTERRUPT,
--	.name =		"mca_wkup"
--};
--
--#ifdef CONFIG_ACPI
--static struct irqaction mca_cpe_irqaction = {
--	.handler =	ia64_mca_cpe_int_handler,
--	.flags =	SA_INTERRUPT,
--	.name =		"cpe_hndlr"
--};
--
--static struct irqaction mca_cpep_irqaction = {
--	.handler =	ia64_mca_cpe_int_caller,
--	.flags =	SA_INTERRUPT,
--	.name =		"cpe_poll"
--};
--#endif /* CONFIG_ACPI */
--
- #define MAX_CPE_POLL_INTERVAL (15*60*HZ) /* 15 minutes */
- #define MIN_CPE_POLL_INTERVAL (2*60*HZ)  /* 2 minutes */
- #define CMC_POLL_INTERVAL     (1*60*HZ)  /* 1 minute */
-@@ -175,6 +126,107 @@ static int cpe_poll_enabled = 1;
- extern void salinfo_log_wakeup(int type, u8 *buffer, u64 size);
- 
- /*
-+ * IA64_MCA log support
-+ */
-+#define IA64_MAX_LOGS		2	/* Double-buffering for nested MCAs */
-+#define IA64_MAX_LOG_TYPES      4   /* MCA, INIT, CMC, CPE */
-+
-+typedef struct ia64_state_log_s
-+{
-+	spinlock_t	isl_lock;
-+	int		isl_index;
-+	unsigned long	isl_count;
-+	ia64_err_rec_t  *isl_log[IA64_MAX_LOGS]; /* need space to store header + error log */
-+} ia64_state_log_t;
-+
-+static ia64_state_log_t ia64_state_log[IA64_MAX_LOG_TYPES];
-+
-+#define IA64_LOG_ALLOCATE(it, size) \
-+	{ia64_state_log[it].isl_log[IA64_LOG_CURR_INDEX(it)] = \
-+		(ia64_err_rec_t *)alloc_bootmem(size); \
-+	ia64_state_log[it].isl_log[IA64_LOG_NEXT_INDEX(it)] = \
-+		(ia64_err_rec_t *)alloc_bootmem(size);}
-+#define IA64_LOG_LOCK_INIT(it) spin_lock_init(&ia64_state_log[it].isl_lock)
-+#define IA64_LOG_LOCK(it)      spin_lock_irqsave(&ia64_state_log[it].isl_lock, s)
-+#define IA64_LOG_UNLOCK(it)    spin_unlock_irqrestore(&ia64_state_log[it].isl_lock,s)
-+#define IA64_LOG_NEXT_INDEX(it)    ia64_state_log[it].isl_index
-+#define IA64_LOG_CURR_INDEX(it)    1 - ia64_state_log[it].isl_index
-+#define IA64_LOG_INDEX_INC(it) \
-+    {ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index; \
-+    ia64_state_log[it].isl_count++;}
-+#define IA64_LOG_INDEX_DEC(it) \
-+    ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index
-+#define IA64_LOG_NEXT_BUFFER(it)   (void *)((ia64_state_log[it].isl_log[IA64_LOG_NEXT_INDEX(it)]))
-+#define IA64_LOG_CURR_BUFFER(it)   (void *)((ia64_state_log[it].isl_log[IA64_LOG_CURR_INDEX(it)]))
-+#define IA64_LOG_COUNT(it)         ia64_state_log[it].isl_count
-+
-+/*
-+ * ia64_log_init
-+ *	Reset the OS ia64 log buffer
-+ * Inputs   :   info_type   (SAL_INFO_TYPE_{MCA,INIT,CMC,CPE})
-+ * Outputs	:	None
-+ */
-+static void
-+ia64_log_init(int sal_info_type)
-+{
-+	u64	max_size = 0;
-+
-+	IA64_LOG_NEXT_INDEX(sal_info_type) = 0;
-+	IA64_LOG_LOCK_INIT(sal_info_type);
-+
-+	// SAL will tell us the maximum size of any error record of this type
-+	max_size = ia64_sal_get_state_info_size(sal_info_type);
-+	if (!max_size)
-+		/* alloc_bootmem() doesn't like zero-sized allocations! */
-+		return;
-+
-+	// set up OS data structures to hold error info
-+	IA64_LOG_ALLOCATE(sal_info_type, max_size);
-+	memset(IA64_LOG_CURR_BUFFER(sal_info_type), 0, max_size);
-+	memset(IA64_LOG_NEXT_BUFFER(sal_info_type), 0, max_size);
-+}
-+
-+/*
-+ * ia64_log_get
-+ *
-+ *	Get the current MCA log from SAL and copy it into the OS log buffer.
-+ *
-+ *  Inputs  :   info_type   (SAL_INFO_TYPE_{MCA,INIT,CMC,CPE})
-+ *  Outputs :   size        (total record length)
-+ *              *buffer     (ptr to error record)
-+ *
-+ */
-+static u64
-+ia64_log_get(int sal_info_type, u8 **buffer)
-+{
-+	sal_log_record_header_t     *log_buffer;
-+	u64                         total_len = 0;
-+	int                         s;
-+	int irq_safe = sal_info_type != SAL_INFO_TYPE_MCA && sal_info_type != SAL_INFO_TYPE_INIT;
-+
-+	IA64_LOG_LOCK(sal_info_type);
-+
-+	/* Get the process state information */
-+	log_buffer = IA64_LOG_NEXT_BUFFER(sal_info_type);
-+
-+	total_len = ia64_sal_get_state_info(sal_info_type, (u64 *)log_buffer);
-+
-+	if (total_len) {
-+		IA64_LOG_INDEX_INC(sal_info_type);
-+		IA64_LOG_UNLOCK(sal_info_type);
-+		if (irq_safe) {
-+			IA64_MCA_DEBUG("ia64_log_get: SAL error record type %d retrieved. "
-+				       "Record length = %ld\n", sal_info_type, total_len);
-+		}
-+		*buffer = (u8 *) log_buffer;
-+		return total_len;
-+	} else {
-+		IA64_LOG_UNLOCK(sal_info_type);
-+		return 0;
-+	}
-+}
-+
-+/*
-  *  ia64_mca_log_sal_error_record
-  *
-  *  This function retrieves a specified error record type from SAL
-@@ -578,251 +630,79 @@ ia64_mca_cmc_vector_enable_keventd(void 
- }
- 
- /*
-- * ia64_mca_init
-- *
-- *  Do all the system level mca specific initialization.
-+ * ia64_mca_wakeup_ipi_wait
-  *
-- *	1. Register spinloop and wakeup request interrupt vectors
-+ *	Wait for the inter-cpu interrupt to be sent by the
-+ *	monarch processor once it is done with handling the
-+ *	MCA.
-  *
-- *	2. Register OS_MCA handler entry point
-+ *  Inputs  :   None
-+ *  Outputs :   None
-+ */
-+static void
-+ia64_mca_wakeup_ipi_wait(void)
-+{
-+	int	irr_num = (IA64_MCA_WAKEUP_VECTOR >> 6);
-+	int	irr_bit = (IA64_MCA_WAKEUP_VECTOR & 0x3f);
-+	u64	irr = 0;
-+
-+	do {
-+		switch(irr_num) {
-+		      case 0:
-+			irr = ia64_getreg(_IA64_REG_CR_IRR0);
-+			break;
-+		      case 1:
-+			irr = ia64_getreg(_IA64_REG_CR_IRR1);
-+			break;
-+		      case 2:
-+			irr = ia64_getreg(_IA64_REG_CR_IRR2);
-+			break;
-+		      case 3:
-+			irr = ia64_getreg(_IA64_REG_CR_IRR3);
-+			break;
-+		}
-+	} while (!(irr & (1UL << irr_bit))) ;
-+}
-+
-+/*
-+ * ia64_mca_wakeup
-  *
-- *	3. Register OS_INIT handler entry point
-+ *	Send an inter-cpu interrupt to wake-up a particular cpu
-+ *	and mark that cpu to be out of rendez.
-  *
-- *  4. Initialize MCA/CMC/INIT related log buffers maintained by the OS.
-+ *  Inputs  :   cpuid
-+ *  Outputs :   None
-+ */
-+static void
-+ia64_mca_wakeup(int cpu)
-+{
-+	platform_send_ipi(cpu, IA64_MCA_WAKEUP_VECTOR, IA64_IPI_DM_INT, 0);
-+	ia64_mc_info.imi_rendez_checkin[cpu] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE;
-+
-+}
-+
-+/*
-+ * ia64_mca_wakeup_all
-  *
-- *  Note that this initialization is done very early before some kernel
-- *  services are available.
-+ *	Wakeup all the cpus which have rendez'ed previously.
-  *
-  *  Inputs  :   None
-- *
-  *  Outputs :   None
-  */
--void __init
--ia64_mca_init(void)
-+static void
-+ia64_mca_wakeup_all(void)
- {
--	ia64_fptr_t *mon_init_ptr = (ia64_fptr_t *)ia64_monarch_init_handler;
--	ia64_fptr_t *slave_init_ptr = (ia64_fptr_t *)ia64_slave_init_handler;
--	ia64_fptr_t *mca_hldlr_ptr = (ia64_fptr_t *)ia64_os_mca_dispatch;
--	int i;
--	s64 rc;
--	struct ia64_sal_retval isrv;
--	u64 timeout = IA64_MCA_RENDEZ_TIMEOUT;	/* platform specific */
--
--	IA64_MCA_DEBUG("ia64_mca_init: begin\n");
-+	int cpu;
- 
- 	/* Clear the Rendez checkin flag for all cpus */
--	for(i = 0 ; i < NR_CPUS; i++)
--		ia64_mc_info.imi_rendez_checkin[i] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE;
--
--	/*
--	 * Register the rendezvous spinloop and wakeup mechanism with SAL
--	 */
--
--	/* Register the rendezvous interrupt vector with SAL */
--	while (1) {
--		isrv = ia64_sal_mc_set_params(SAL_MC_PARAM_RENDEZ_INT,
--					      SAL_MC_PARAM_MECHANISM_INT,
--					      IA64_MCA_RENDEZ_VECTOR,
--					      timeout,
--					      SAL_MC_PARAM_RZ_ALWAYS);
--		rc = isrv.status;
--		if (rc = 0)
--			break;
--		if (rc = -2) {
--			printk(KERN_INFO "ia64_mca_init: increasing MCA rendezvous timeout from "
--				"%ld to %ld\n", timeout, isrv.v0);
--			timeout = isrv.v0;
-+	for(cpu = 0; cpu < NR_CPUS; cpu++) {
-+		if (!cpu_online(cpu))
- 			continue;
--		}
--		printk(KERN_ERR "ia64_mca_init: Failed to register rendezvous interrupt "
--		       "with SAL.  rc = %ld\n", rc);
--		return;
-+		if (ia64_mc_info.imi_rendez_checkin[cpu] = IA64_MCA_RENDEZ_CHECKIN_DONE)
-+			ia64_mca_wakeup(cpu);
- 	}
- 
--	/* Register the wakeup interrupt vector with SAL */
--	isrv = ia64_sal_mc_set_params(SAL_MC_PARAM_RENDEZ_WAKEUP,
--				      SAL_MC_PARAM_MECHANISM_INT,
--				      IA64_MCA_WAKEUP_VECTOR,
--				      0, 0);
--	rc = isrv.status;
--	if (rc) {
--		printk(KERN_ERR "ia64_mca_init: Failed to register wakeup interrupt with SAL.  "
--		       "rc = %ld\n", rc);
--		return;
--	}
--
--	IA64_MCA_DEBUG("ia64_mca_init: registered mca rendezvous spinloop and wakeup mech.\n");
--
--	ia64_mc_info.imi_mca_handler        = ia64_tpa(mca_hldlr_ptr->fp);
--	/*
--	 * XXX - disable SAL checksum by setting size to 0; should be
--	 *	ia64_tpa(ia64_os_mca_dispatch_end) - ia64_tpa(ia64_os_mca_dispatch);
--	 */
--	ia64_mc_info.imi_mca_handler_size	= 0;
--
--	/* Register the os mca handler with SAL */
--	if ((rc = ia64_sal_set_vectors(SAL_VECTOR_OS_MCA,
--				       ia64_mc_info.imi_mca_handler,
--				       ia64_tpa(mca_hldlr_ptr->gp),
--				       ia64_mc_info.imi_mca_handler_size,
--				       0, 0, 0)))
--	{
--		printk(KERN_ERR "ia64_mca_init: Failed to register os mca handler with SAL.  "
--		       "rc = %ld\n", rc);
--		return;
--	}
--
--	IA64_MCA_DEBUG("ia64_mca_init: registered os mca handler with SAL at 0x%lx, gp = 0x%lx\n",
--		       ia64_mc_info.imi_mca_handler, ia64_tpa(mca_hldlr_ptr->gp));
--
--	/*
--	 * XXX - disable SAL checksum by setting size to 0, should be
--	 * size of the actual init handler in mca_asm.S.
--	 */
--	ia64_mc_info.imi_monarch_init_handler		= ia64_tpa(mon_init_ptr->fp);
--	ia64_mc_info.imi_monarch_init_handler_size	= 0;
--	ia64_mc_info.imi_slave_init_handler		= ia64_tpa(slave_init_ptr->fp);
--	ia64_mc_info.imi_slave_init_handler_size	= 0;
--
--	IA64_MCA_DEBUG("ia64_mca_init: os init handler at %lx\n",
--		       ia64_mc_info.imi_monarch_init_handler);
--
--	/* Register the os init handler with SAL */
--	if ((rc = ia64_sal_set_vectors(SAL_VECTOR_OS_INIT,
--				       ia64_mc_info.imi_monarch_init_handler,
--				       ia64_tpa(ia64_getreg(_IA64_REG_GP)),
--				       ia64_mc_info.imi_monarch_init_handler_size,
--				       ia64_mc_info.imi_slave_init_handler,
--				       ia64_tpa(ia64_getreg(_IA64_REG_GP)),
--				       ia64_mc_info.imi_slave_init_handler_size)))
--	{
--		printk(KERN_ERR "ia64_mca_init: Failed to register m/s init handlers with SAL. "
--		       "rc = %ld\n", rc);
--		return;
--	}
--
--	IA64_MCA_DEBUG("ia64_mca_init: registered os init handler with SAL\n");
--
--	/*
--	 *  Configure the CMCI/P vector and handler. Interrupts for CMC are
--	 *  per-processor, so AP CMC interrupts are setup in smp_callin() (smpboot.c).
--	 */
--	register_percpu_irq(IA64_CMC_VECTOR, &cmci_irqaction);
--	register_percpu_irq(IA64_CMCP_VECTOR, &cmcp_irqaction);
--	ia64_mca_cmc_vector_setup();       /* Setup vector on BSP & enable */
--
--	/* Setup the MCA rendezvous interrupt vector */
--	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, &mca_rdzv_irqaction);
--
--	/* Setup the MCA wakeup interrupt vector */
--	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, &mca_wkup_irqaction);
--
--#ifdef CONFIG_ACPI
--	/* Setup the CPE interrupt vector */
--	{
--		irq_desc_t *desc;
--		unsigned int irq;
--		int cpev = acpi_request_vector(ACPI_INTERRUPT_CPEI);
--
--		if (cpev >= 0) {
--			for (irq = 0; irq < NR_IRQS; ++irq)
--				if (irq_to_vector(irq) = cpev) {
--					desc = irq_descp(irq);
--					desc->status |= IRQ_PER_CPU;
--					desc->handler = &irq_type_iosapic_level;
--					setup_irq(irq, &mca_cpe_irqaction);
--				}
--			ia64_mca_register_cpev(cpev);
--		}
--	}
--#endif
--
--	/* Initialize the areas set aside by the OS to buffer the
--	 * platform/processor error states for MCA/INIT/CMC
--	 * handling.
--	 */
--	ia64_log_init(SAL_INFO_TYPE_MCA);
--	ia64_log_init(SAL_INFO_TYPE_INIT);
--	ia64_log_init(SAL_INFO_TYPE_CMC);
--	ia64_log_init(SAL_INFO_TYPE_CPE);
--
--	printk(KERN_INFO "Mca related initialization done\n");
--}
--
--/*
-- * ia64_mca_wakeup_ipi_wait
-- *
-- *	Wait for the inter-cpu interrupt to be sent by the
-- *	monarch processor once it is done with handling the
-- *	MCA.
-- *
-- *  Inputs  :   None
-- *  Outputs :   None
-- */
--static void
--ia64_mca_wakeup_ipi_wait(void)
--{
--	int	irr_num = (IA64_MCA_WAKEUP_VECTOR >> 6);
--	int	irr_bit = (IA64_MCA_WAKEUP_VECTOR & 0x3f);
--	u64	irr = 0;
--
--	do {
--		switch(irr_num) {
--		      case 0:
--			irr = ia64_getreg(_IA64_REG_CR_IRR0);
--			break;
--		      case 1:
--			irr = ia64_getreg(_IA64_REG_CR_IRR1);
--			break;
--		      case 2:
--			irr = ia64_getreg(_IA64_REG_CR_IRR2);
--			break;
--		      case 3:
--			irr = ia64_getreg(_IA64_REG_CR_IRR3);
--			break;
--		}
--	} while (!(irr & (1UL << irr_bit))) ;
--}
--
--/*
-- * ia64_mca_wakeup
-- *
-- *	Send an inter-cpu interrupt to wake-up a particular cpu
-- *	and mark that cpu to be out of rendez.
-- *
-- *  Inputs  :   cpuid
-- *  Outputs :   None
-- */
--static void
--ia64_mca_wakeup(int cpu)
--{
--	platform_send_ipi(cpu, IA64_MCA_WAKEUP_VECTOR, IA64_IPI_DM_INT, 0);
--	ia64_mc_info.imi_rendez_checkin[cpu] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE;
--
--}
--
--/*
-- * ia64_mca_wakeup_all
-- *
-- *	Wakeup all the cpus which have rendez'ed previously.
-- *
-- *  Inputs  :   None
-- *  Outputs :   None
-- */
--static void
--ia64_mca_wakeup_all(void)
--{
--	int cpu;
--
--	/* Clear the Rendez checkin flag for all cpus */
--	for(cpu = 0; cpu < NR_CPUS; cpu++) {
--		if (!cpu_online(cpu))
--			continue;
--		if (ia64_mc_info.imi_rendez_checkin[cpu] = IA64_MCA_RENDEZ_CHECKIN_DONE)
--			ia64_mca_wakeup(cpu);
--	}
--
--}
-+}
- 
- /*
-  * ia64_mca_rendez_interrupt_handler
-@@ -860,7 +740,6 @@ ia64_mca_rendez_int_handler(int rendez_i
- 	return IRQ_HANDLED;
- }
- 
--
- /*
-  * ia64_mca_wakeup_int_handler
-  *
-@@ -1034,41 +913,6 @@ ia64_mca_cmc_int_handler(int cmc_irq, vo
- }
- 
- /*
-- * IA64_MCA log support
-- */
--#define IA64_MAX_LOGS		2	/* Double-buffering for nested MCAs */
--#define IA64_MAX_LOG_TYPES      4   /* MCA, INIT, CMC, CPE */
--
--typedef struct ia64_state_log_s
--{
--	spinlock_t	isl_lock;
--	int		isl_index;
--	unsigned long	isl_count;
--	ia64_err_rec_t  *isl_log[IA64_MAX_LOGS]; /* need space to store header + error log */
--} ia64_state_log_t;
--
--static ia64_state_log_t ia64_state_log[IA64_MAX_LOG_TYPES];
--
--#define IA64_LOG_ALLOCATE(it, size) \
--	{ia64_state_log[it].isl_log[IA64_LOG_CURR_INDEX(it)] = \
--		(ia64_err_rec_t *)alloc_bootmem(size); \
--	ia64_state_log[it].isl_log[IA64_LOG_NEXT_INDEX(it)] = \
--		(ia64_err_rec_t *)alloc_bootmem(size);}
--#define IA64_LOG_LOCK_INIT(it) spin_lock_init(&ia64_state_log[it].isl_lock)
--#define IA64_LOG_LOCK(it)      spin_lock_irqsave(&ia64_state_log[it].isl_lock, s)
--#define IA64_LOG_UNLOCK(it)    spin_unlock_irqrestore(&ia64_state_log[it].isl_lock,s)
--#define IA64_LOG_NEXT_INDEX(it)    ia64_state_log[it].isl_index
--#define IA64_LOG_CURR_INDEX(it)    1 - ia64_state_log[it].isl_index
--#define IA64_LOG_INDEX_INC(it) \
--    {ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index; \
--    ia64_state_log[it].isl_count++;}
--#define IA64_LOG_INDEX_DEC(it) \
--    ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index
--#define IA64_LOG_NEXT_BUFFER(it)   (void *)((ia64_state_log[it].isl_log[IA64_LOG_NEXT_INDEX(it)]))
--#define IA64_LOG_CURR_BUFFER(it)   (void *)((ia64_state_log[it].isl_log[IA64_LOG_CURR_INDEX(it)]))
--#define IA64_LOG_COUNT(it)         ia64_state_log[it].isl_count
--
--/*
-  *  ia64_mca_cmc_int_caller
-  *
-  * 	Triggered by sw interrupt from CMC polling routine.  Calls
-@@ -1101,7 +945,7 @@ ia64_mca_cmc_int_caller(int cpe_irq, voi
- 	if (cpuid < NR_CPUS) {
- 		platform_send_ipi(cpuid, IA64_CMCP_VECTOR, IA64_IPI_DM_INT, 0);
- 	} else {
--		/* If no log recored, switch out of polling mode */
-+		/* If no log record, switch out of polling mode */
- 		if (start_count = IA64_LOG_COUNT(SAL_INFO_TYPE_CMC)) {
- 
- 			printk(KERN_WARNING "%s: Returning to interrupt driven CMC handler\n", __FUNCTION__);
-@@ -1203,41 +1047,6 @@ ia64_mca_cpe_poll (unsigned long dummy)
- }
- 
- /*
-- * ia64_mca_late_init
-- *
-- *	Opportunity to setup things that require initialization later
-- *	than ia64_mca_init.  Setup a timer to poll for CPEs if the
-- *	platform doesn't support an interrupt driven mechanism.
-- *
-- *  Inputs  :   None
-- *  Outputs :   Status
-- */
--static int __init
--ia64_mca_late_init(void)
--{
--	init_timer(&cmc_poll_timer);
--	cmc_poll_timer.function = ia64_mca_cmc_poll;
--
--	/* Reset to the correct state */
--	cmc_polling_enabled = 0;
--
--	init_timer(&cpe_poll_timer);
--	cpe_poll_timer.function = ia64_mca_cpe_poll;
--
--#ifdef CONFIG_ACPI
--	/* If platform doesn't support CPEI, get the timer going. */
--	if (acpi_request_vector(ACPI_INTERRUPT_CPEI) < 0 && cpe_poll_enabled) {
--		register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
--		ia64_mca_cpe_poll(0UL);
--	}
--#endif
--
--	return 0;
--}
--
--device_initcall(ia64_mca_late_init);
--
--/*
-  * C portion of the OS INIT handler
-  *
-  * Called from ia64_monarch_init_handler
-@@ -1269,77 +1078,256 @@ ia64_init_handler (struct pt_regs *pt, s
- 	init_handler_platform(ms, pt, sw);	/* call platform specific routines */
- }
- 
--/*
-- * ia64_log_init
-- *	Reset the OS ia64 log buffer
-- * Inputs   :   info_type   (SAL_INFO_TYPE_{MCA,INIT,CMC,CPE})
-- * Outputs	:	None
-- */
--static void
--ia64_log_init(int sal_info_type)
-+static int __init
-+ia64_mca_disable_cpe_polling(char *str)
- {
--	u64	max_size = 0;
--
--	IA64_LOG_NEXT_INDEX(sal_info_type) = 0;
--	IA64_LOG_LOCK_INIT(sal_info_type);
-+	cpe_poll_enabled = 0;
-+	return 1;
-+}
- 
--	// SAL will tell us the maximum size of any error record of this type
--	max_size = ia64_sal_get_state_info_size(sal_info_type);
--	if (!max_size)
--		/* alloc_bootmem() doesn't like zero-sized allocations! */
--		return;
-+__setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
- 
--	// set up OS data structures to hold error info
--	IA64_LOG_ALLOCATE(sal_info_type, max_size);
--	memset(IA64_LOG_CURR_BUFFER(sal_info_type), 0, max_size);
--	memset(IA64_LOG_NEXT_BUFFER(sal_info_type), 0, max_size);
--}
-+static struct irqaction cmci_irqaction = {
-+	.handler =	ia64_mca_cmc_int_handler,
-+	.flags =	SA_INTERRUPT,
-+	.name =		"cmc_hndlr"
-+};
-+
-+static struct irqaction cmcp_irqaction = {
-+	.handler =	ia64_mca_cmc_int_caller,
-+	.flags =	SA_INTERRUPT,
-+	.name =		"cmc_poll"
-+};
-+
-+static struct irqaction mca_rdzv_irqaction = {
-+	.handler =	ia64_mca_rendez_int_handler,
-+	.flags =	SA_INTERRUPT,
-+	.name =		"mca_rdzv"
-+};
-+
-+static struct irqaction mca_wkup_irqaction = {
-+	.handler =	ia64_mca_wakeup_int_handler,
-+	.flags =	SA_INTERRUPT,
-+	.name =		"mca_wkup"
-+};
-+
-+#ifdef CONFIG_ACPI
-+static struct irqaction mca_cpe_irqaction = {
-+	.handler =	ia64_mca_cpe_int_handler,
-+	.flags =	SA_INTERRUPT,
-+	.name =		"cpe_hndlr"
-+};
-+
-+static struct irqaction mca_cpep_irqaction = {
-+	.handler =	ia64_mca_cpe_int_caller,
-+	.flags =	SA_INTERRUPT,
-+	.name =		"cpe_poll"
-+};
-+#endif /* CONFIG_ACPI */
- 
- /*
-- * ia64_log_get
-+ * ia64_mca_init
-  *
-- *	Get the current MCA log from SAL and copy it into the OS log buffer.
-+ *  Do all the system level mca specific initialization.
-  *
-- *  Inputs  :   info_type   (SAL_INFO_TYPE_{MCA,INIT,CMC,CPE})
-- *  Outputs :   size        (total record length)
-- *              *buffer     (ptr to error record)
-+ *	1. Register spinloop and wakeup request interrupt vectors
-  *
-+ *	2. Register OS_MCA handler entry point
-+ *
-+ *	3. Register OS_INIT handler entry point
-+ *
-+ *  4. Initialize MCA/CMC/INIT related log buffers maintained by the OS.
-+ *
-+ *  Note that this initialization is done very early before some kernel
-+ *  services are available.
-+ *
-+ *  Inputs  :   None
-+ *
-+ *  Outputs :   None
-  */
--static u64
--ia64_log_get(int sal_info_type, u8 **buffer)
-+void __init
-+ia64_mca_init(void)
- {
--	sal_log_record_header_t     *log_buffer;
--	u64                         total_len = 0;
--	int                         s;
--	int irq_safe = sal_info_type != SAL_INFO_TYPE_MCA && sal_info_type != SAL_INFO_TYPE_INIT;
-+	ia64_fptr_t *mon_init_ptr = (ia64_fptr_t *)ia64_monarch_init_handler;
-+	ia64_fptr_t *slave_init_ptr = (ia64_fptr_t *)ia64_slave_init_handler;
-+	ia64_fptr_t *mca_hldlr_ptr = (ia64_fptr_t *)ia64_os_mca_dispatch;
-+	int i;
-+	s64 rc;
-+	struct ia64_sal_retval isrv;
-+	u64 timeout = IA64_MCA_RENDEZ_TIMEOUT;	/* platform specific */
- 
--	IA64_LOG_LOCK(sal_info_type);
-+	IA64_MCA_DEBUG("ia64_mca_init: begin\n");
- 
--	/* Get the process state information */
--	log_buffer = IA64_LOG_NEXT_BUFFER(sal_info_type);
-+	/* Clear the Rendez checkin flag for all cpus */
-+	for(i = 0 ; i < NR_CPUS; i++)
-+		ia64_mc_info.imi_rendez_checkin[i] = IA64_MCA_RENDEZ_CHECKIN_NOTDONE;
- 
--	total_len = ia64_sal_get_state_info(sal_info_type, (u64 *)log_buffer);
-+	/*
-+	 * Register the rendezvous spinloop and wakeup mechanism with SAL
-+	 */
- 
--	if (total_len) {
--		IA64_LOG_INDEX_INC(sal_info_type);
--		IA64_LOG_UNLOCK(sal_info_type);
--		if (irq_safe) {
--			IA64_MCA_DEBUG("ia64_log_get: SAL error record type %d retrieved. "
--				       "Record length = %ld\n", sal_info_type, total_len);
-+	/* Register the rendezvous interrupt vector with SAL */
-+	while (1) {
-+		isrv = ia64_sal_mc_set_params(SAL_MC_PARAM_RENDEZ_INT,
-+					      SAL_MC_PARAM_MECHANISM_INT,
-+					      IA64_MCA_RENDEZ_VECTOR,
-+					      timeout,
-+					      SAL_MC_PARAM_RZ_ALWAYS);
-+		rc = isrv.status;
-+		if (rc = 0)
-+			break;
-+		if (rc = -2) {
-+			printk(KERN_INFO "ia64_mca_init: increasing MCA rendezvous timeout from "
-+				"%ld to %ld\n", timeout, isrv.v0);
-+			timeout = isrv.v0;
-+			continue;
- 		}
--		*buffer = (u8 *) log_buffer;
--		return total_len;
--	} else {
--		IA64_LOG_UNLOCK(sal_info_type);
--		return 0;
-+		printk(KERN_ERR "ia64_mca_init: Failed to register rendezvous interrupt "
-+		       "with SAL.  rc = %ld\n", rc);
-+		return;
-+	}
-+
-+	/* Register the wakeup interrupt vector with SAL */
-+	isrv = ia64_sal_mc_set_params(SAL_MC_PARAM_RENDEZ_WAKEUP,
-+				      SAL_MC_PARAM_MECHANISM_INT,
-+				      IA64_MCA_WAKEUP_VECTOR,
-+				      0, 0);
-+	rc = isrv.status;
-+	if (rc) {
-+		printk(KERN_ERR "ia64_mca_init: Failed to register wakeup interrupt with SAL.  "
-+		       "rc = %ld\n", rc);
-+		return;
-+	}
-+
-+	IA64_MCA_DEBUG("ia64_mca_init: registered mca rendezvous spinloop and wakeup mech.\n");
-+
-+	ia64_mc_info.imi_mca_handler        = ia64_tpa(mca_hldlr_ptr->fp);
-+	/*
-+	 * XXX - disable SAL checksum by setting size to 0; should be
-+	 *	ia64_tpa(ia64_os_mca_dispatch_end) - ia64_tpa(ia64_os_mca_dispatch);
-+	 */
-+	ia64_mc_info.imi_mca_handler_size	= 0;
-+
-+	/* Register the os mca handler with SAL */
-+	if ((rc = ia64_sal_set_vectors(SAL_VECTOR_OS_MCA,
-+				       ia64_mc_info.imi_mca_handler,
-+				       ia64_tpa(mca_hldlr_ptr->gp),
-+				       ia64_mc_info.imi_mca_handler_size,
-+				       0, 0, 0)))
-+	{
-+		printk(KERN_ERR "ia64_mca_init: Failed to register os mca handler with SAL.  "
-+		       "rc = %ld\n", rc);
-+		return;
-+	}
-+
-+	IA64_MCA_DEBUG("ia64_mca_init: registered os mca handler with SAL at 0x%lx, gp = 0x%lx\n",
-+		       ia64_mc_info.imi_mca_handler, ia64_tpa(mca_hldlr_ptr->gp));
-+
-+	/*
-+	 * XXX - disable SAL checksum by setting size to 0, should be
-+	 * size of the actual init handler in mca_asm.S.
-+	 */
-+	ia64_mc_info.imi_monarch_init_handler		= ia64_tpa(mon_init_ptr->fp);
-+	ia64_mc_info.imi_monarch_init_handler_size	= 0;
-+	ia64_mc_info.imi_slave_init_handler		= ia64_tpa(slave_init_ptr->fp);
-+	ia64_mc_info.imi_slave_init_handler_size	= 0;
-+
-+	IA64_MCA_DEBUG("ia64_mca_init: os init handler at %lx\n",
-+		       ia64_mc_info.imi_monarch_init_handler);
-+
-+	/* Register the os init handler with SAL */
-+	if ((rc = ia64_sal_set_vectors(SAL_VECTOR_OS_INIT,
-+				       ia64_mc_info.imi_monarch_init_handler,
-+				       ia64_tpa(ia64_getreg(_IA64_REG_GP)),
-+				       ia64_mc_info.imi_monarch_init_handler_size,
-+				       ia64_mc_info.imi_slave_init_handler,
-+				       ia64_tpa(ia64_getreg(_IA64_REG_GP)),
-+				       ia64_mc_info.imi_slave_init_handler_size)))
-+	{
-+		printk(KERN_ERR "ia64_mca_init: Failed to register m/s init handlers with SAL. "
-+		       "rc = %ld\n", rc);
-+		return;
- 	}
-+
-+	IA64_MCA_DEBUG("ia64_mca_init: registered os init handler with SAL\n");
-+
-+	/*
-+	 *  Configure the CMCI/P vector and handler. Interrupts for CMC are
-+	 *  per-processor, so AP CMC interrupts are setup in smp_callin() (smpboot.c).
-+	 */
-+	register_percpu_irq(IA64_CMC_VECTOR, &cmci_irqaction);
-+	register_percpu_irq(IA64_CMCP_VECTOR, &cmcp_irqaction);
-+	ia64_mca_cmc_vector_setup();       /* Setup vector on BSP & enable */
-+
-+	/* Setup the MCA rendezvous interrupt vector */
-+	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, &mca_rdzv_irqaction);
-+
-+	/* Setup the MCA wakeup interrupt vector */
-+	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, &mca_wkup_irqaction);
-+
-+#ifdef CONFIG_ACPI
-+	/* Setup the CPE interrupt vector */
-+	{
-+		irq_desc_t *desc;
-+		unsigned int irq;
-+		int cpev = acpi_request_vector(ACPI_INTERRUPT_CPEI);
-+
-+		if (cpev >= 0) {
-+			for (irq = 0; irq < NR_IRQS; ++irq)
-+				if (irq_to_vector(irq) = cpev) {
-+					desc = irq_descp(irq);
-+					desc->status |= IRQ_PER_CPU;
-+					desc->handler = &irq_type_iosapic_level;
-+					setup_irq(irq, &mca_cpe_irqaction);
-+				}
-+			ia64_mca_register_cpev(cpev);
-+		}
-+	}
-+#endif
-+
-+	/* Initialize the areas set aside by the OS to buffer the
-+	 * platform/processor error states for MCA/INIT/CMC
-+	 * handling.
-+	 */
-+	ia64_log_init(SAL_INFO_TYPE_MCA);
-+	ia64_log_init(SAL_INFO_TYPE_INIT);
-+	ia64_log_init(SAL_INFO_TYPE_CMC);
-+	ia64_log_init(SAL_INFO_TYPE_CPE);
-+
-+	printk(KERN_INFO "Mca related initialization done\n");
- }
- 
-+/*
-+ * ia64_mca_late_init
-+ *
-+ *	Opportunity to setup things that require initialization later
-+ *	than ia64_mca_init.  Setup a timer to poll for CPEs if the
-+ *	platform doesn't support an interrupt driven mechanism.
-+ *
-+ *  Inputs  :   None
-+ *  Outputs :   Status
-+ */
- static int __init
--ia64_mca_disable_cpe_polling(char *str)
-+ia64_mca_late_init(void)
- {
--	cpe_poll_enabled = 0;
--	return 1;
-+	init_timer(&cmc_poll_timer);
-+	cmc_poll_timer.function = ia64_mca_cmc_poll;
-+
-+	/* Reset to the correct state */
-+	cmc_polling_enabled = 0;
-+
-+	init_timer(&cpe_poll_timer);
-+	cpe_poll_timer.function = ia64_mca_cpe_poll;
-+
-+#ifdef CONFIG_ACPI
-+	/* If platform doesn't support CPEI, get the timer going. */
-+	if (acpi_request_vector(ACPI_INTERRUPT_CPEI) < 0 && cpe_poll_enabled) {
-+		register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
-+		ia64_mca_cpe_poll(0UL);
-+	}
-+#endif
-+
-+	return 0;
- }
- 
--__setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
-+device_initcall(ia64_mca_late_init);
+------_=_NextPart_001_01C3FB97.3D6A2BA1
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
+ACPI Test Report  for 2.6 ia64 kernel=20
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+
+Hardware Configuration:
+-----------------------
+System Name: ACPI-Tiger
+System Type: 4 way 900 Itanium2, tiger
+M/B revision: N/A
+Processor version: N/A
+Firmware Versions: N/A
+I/O configuration summary:
+	MPT scsi host driver
+	Seagate ST318406LC boot drive
+	IDE floppy and CDROM
+	Serial console
+	USB mouse=20
+	USB keyboard
+	Ethernet Pro 1000
+
+Software Configuration:
+	1.Bk pull form lia64.bkbits.net/linux-ia64-2.5 on 2/25 (Shanghai
+time)
+	2.bk pull from linux-acpi.bkbits.net/linux-acpi-test-2.6.2 on
+2/25 (Shanghai time)
+=09
+ACPI Features Tested: (prioritized).
+--------------------=09
+1. Boot 					tested ok
+2. serial console				tested ok
+3. ATI (run X window system)		tested ok
+4. usb keyboard				tested ok
+5. USB mouse					tested ok
+6. NIC (eg. Ping or ftp)			tested ok
+7. IDE (eg. r/w floppy or CDROM)		tested ok
+8. SCI (eg. Press power button)		tested ok
+9. Soft Power off 				 tested ok
+ <<tiger-2.6-acpi>>=20
+
+------_=_NextPart_001_01C3FB97.3D6A2BA1
+Content-Type: application/octet-stream;
+	name="tiger-2.6-acpi"
+Content-Transfer-Encoding: base64
+Content-Description: tiger-2.6-acpi
+Content-Disposition: attachment;
+	filename="tiger-2.6-acpi"
+
+TGludXggdmVyc2lvbiAyLjYuMyAocm9vdEBhY3BpLXRpZ2VyKSAoZ2NjIHZlcnNpb24gMy4yLjMg
+MjAwMzA1MDIgKFJlZCBIYXQgTGludXggMy4yLjMtMjApKSAjMiBTTVAgV2VkIEZlYiAyNSAxNjo0
+MDozOCBDU1QgMjAwNA0KRUZJIHYxLjEwIGJ5IElOVEVMOiBTQUxzeXN0YWI9MHgzZmU0YzhjMCBB
+Q1BJPTB4M2ZmODQwMDAgQUNQSSAyLjA9MHgzZmY4MzAwMCBNUFM9MHgzZmY4MjAwMCBTTUJJT1M9
+MHhmMDAwMA0KQUNQSTogUlNEUCAodjAwMiBJTlRFTCAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICApIEAgMHgwMDAwMDAwMDNmZjgzMDAwDQpBQ1BJOiBYU0RUICh2MDAxIElOVEVM
+ICBTUjg3MEJONCAweDAxMDcyMDAyIE1TRlQgMHgwMDAxMDAxMykgQCAweDAwMDAwMDAwM2ZmODMw
+OTANCkFDUEk6IEZBRFQgKHYwMDMgSU5URUwgIFNSODcwQk40IDB4MDEwNzIwMDIgTVNGVCAweDAw
+MDEwMDEzKSBAIDB4MDAwMDAwMDAzZmY4MzEzOA0KQUNQSTogTUFEVCAodjAwMSBJTlRFTCAgU1I4
+NzBCTjQgMHgwMTA3MjAwMiBNU0ZUIDB4MDAwMTAwMTMpIEAgMHgwMDAwMDAwMDNmZjgzMjMwDQpB
+Q1BJOiBEU0RUICh2MDAxICBJbnRlbCBTUjg3MEJONCAweDAwMDAwMDAwIE1TRlQgMHgwMTAwMDAw
+ZCkgQCAweDAwMDAwMDAwMDAwMDAwMDANCldhcm5pbmc6IGFjcGlfdGFibGVfcGFyc2UoQUNQSV9T
+UkFUKSByZXR1cm5lZCAwIQ0KV2FybmluZzogYWNwaV90YWJsZV9wYXJzZShBQ1BJX1NMSVQpIHJl
+dHVybmVkIDAhDQplZmkudHJpbV90b3A6IGlnbm9yaW5nIDRLQiBvZiBtZW1vcnkgYXQgMHgwIGR1
+ZSB0byBncmFudWxlIGhvbGUgYXQgMHgwDQplZmkudHJpbV90b3A6IGlnbm9yaW5nIDI0S0Igb2Yg
+bWVtb3J5IGF0IDB4MTAwMCBkdWUgdG8gZ3JhbnVsZSBob2xlIGF0IDB4MA0KZWZpLnRyaW1fdG9w
+OiBpZ25vcmluZyA4S0Igb2YgbWVtb3J5IGF0IDB4NzAwMCBkdWUgdG8gZ3JhbnVsZSBob2xlIGF0
+IDB4MA0KZWZpLnRyaW1fdG9wOiBpZ25vcmluZyA0ODRLQiBvZiBtZW1vcnkgYXQgMHg5MDAwIGR1
+ZSB0byBncmFudWxlIGhvbGUgYXQgMHgwDQplZmkudHJpbV90b3A6IGlnbm9yaW5nIDRLQiBvZiBt
+ZW1vcnkgYXQgMHg4NDAwMCBkdWUgdG8gZ3JhbnVsZSBob2xlIGF0IDB4MA0KZWZpLnRyaW1fdG9w
+OiBpZ25vcmluZyAxMDhLQiBvZiBtZW1vcnkgYXQgMHg4NTAwMCBkdWUgdG8gZ3JhbnVsZSBob2xl
+IGF0IDB4MA0KZWZpLnRyaW1fYm90dG9tOiBpZ25vcmluZyA2NDUxMktCIG9mIG1lbW9yeSBhdCAw
+eDEwMDAwMCBkdWUgdG8gZ3JhbnVsZSBob2xlIGF0IDB4MA0KU0FMIHYzLjAxOiBvZW09SW50ZWwg
+Q29ycCAgICAgICAgICAgICAgICAgICAgICAsIHByb2R1Y3Q9U1I4NzBCTjQNClNBTDogZW50cnk6
+IHBhbF9wcm9jPTB4M2ZlMDgwMTAsIHNhbF9wcm9jPTB4M2ZlNDgwMjANClNBTDogUGxhdGZvcm0g
+ZmVhdHVyZXMgQnVzTG9jayBJUlFfUmVkaXJlY3Rpb24NClNBTDogQVAgd2FrZXVwIHVzaW5nIGV4
+dGVybmFsIGludGVycnVwdCB2ZWN0b3IgMHhmMA0KaW9zYXBpY19zeXN0ZW1faW5pdDogRGlzYWJs
+aW5nIFBDLUFUIGNvbXBhdGlibGUgODI1OSBpbnRlcnJ1cHRzDQpBQ1BJOiBMb2NhbCBBUElDIGFk
+ZHJlc3MgMHhjMDAwMDAwMGZlZTAwMDAwDQpBQ1BJOiBMU0FQSUMgKGFjcGlfaWRbMHgwMF0gbHNh
+cGljX2lkWzB4YzJdIGxzYXBpY19laWRbMHgxOF0gZW5hYmxlZCkNCkNQVSAwICgweGMyMTgpIGVu
+YWJsZWQgKEJTUCkNCkFDUEk6IExTQVBJQyAoYWNwaV9pZFsweDAxXSBsc2FwaWNfaWRbMHhjNl0g
+bHNhcGljX2VpZFsweDE4XSBlbmFibGVkKQ0KQ1BVIDEgKDB4YzYxOCkgZW5hYmxlZA0KQUNQSTog
+TFNBUElDIChhY3BpX2lkWzB4MDJdIGxzYXBpY19pZFsweGM0XSBsc2FwaWNfZWlkWzB4MThdIGVu
+YWJsZWQpDQpDUFUgMiAoMHhjNDE4KSBlbmFibGVkDQpBQ1BJOiBMU0FQSUMgKGFjcGlfaWRbMHgw
+M10gbHNhcGljX2lkWzB4YzBdIGxzYXBpY19laWRbMHgxOF0gZW5hYmxlZCkNCkNQVSAzICgweGMw
+MTgpIGVuYWJsZWQNCkFDUEk6IElPU0FQSUMgKGlkWzB4MF0gZ2xvYmFsX2lycV9iYXNlWzB4MF0g
+YWRkcmVzc1swMDAwMDAwMGZlYzAwMDAwXSkNCkFDUEk6IElPU0FQSUMgKGlkWzB4MV0gZ2xvYmFs
+X2lycV9iYXNlWzB4MThdIGFkZHJlc3NbMDAwMDAwMDBmZWMxMDAwMF0pDQpBQ1BJOiBJT1NBUElD
+IChpZFsweDJdIGdsb2JhbF9pcnFfYmFzZVsweDMwXSBhZGRyZXNzWzAwMDAwMDAwZmVjMjAwMDBd
+KQ0KQUNQSTogSU9TQVBJQyAoaWRbMHgzXSBnbG9iYWxfaXJxX2Jhc2VbMHg0OF0gYWRkcmVzc1sw
+MDAwMDAwMGZlYzMwMDAwXSkNCkFDUEk6IElPU0FQSUMgKGlkWzB4NF0gZ2xvYmFsX2lycV9iYXNl
+WzB4NjBdIGFkZHJlc3NbMDAwMDAwMDBmZWM0MDAwMF0pDQpBQ1BJOiBJT1NBUElDIChpZFsweDVd
+IGdsb2JhbF9pcnFfYmFzZVsweDc4XSBhZGRyZXNzWzAwMDAwMDAwZmVjNTAwMDBdKQ0KQUNQSTog
+SU9TQVBJQyAoaWRbMHg2XSBnbG9iYWxfaXJxX2Jhc2VbMHg5MF0gYWRkcmVzc1swMDAwMDAwMGZl
+YzYwMDAwXSkNCkFDUEk6IFBMQVRfSU5UX1NSQyAobG93IGxldmVsIHR5cGVbMHgzXSBpZFsweDAw
+YzJdIGVpZFsweDE4XSBpb3NhcGljX3ZlY3RvclsweDFlXSBnbG9iYWxfaXJxWzB4MTZdDQpQTEFU
+Rk9STSBpbnQgMHgzOiBHU0kgMHgxNihsb3csbGV2ZWwpIC0+IENQVSAweGMyMTggdmVjdG9yIDMw
+DQpBQ1BJOiBJTlRfU1JDX09WUiAoYnVzIDAgYnVzX2lycSA5IGdsb2JhbF9pcnEgOSBoaWdoIGxl
+dmVsKQ0KcmVnaXN0ZXJfaW50cjogY2hhbmdpbmcgdmVjdG9yIDM5IGZyb20gSU8tU0FQSUMtZWRn
+ZSB0byBJTy1TQVBJQy1sZXZlbA0KNCBDUFVzIGF2YWlsYWJsZSwgNCBDUFVzIHRvdGFsDQpSZWdp
+c3RlcmluZyBsZWdhY3kgQ09NIHBvcnRzIGZvciBzZXJpYWwgY29uc29sZQ0KTUNBIHJlbGF0ZWQg
+aW5pdGlhbGl6YXRpb24gZG9uZQ0KVmlydHVhbCBtZW1fbWFwIHN0YXJ0cyBhdCAweGEwMDA3ZmZm
+ZmZiMDAwMDANCk9uIG5vZGUgMCB0b3RhbHBhZ2VzOiA2MDM3MQ0KICBETUEgem9uZTogNjAzNzEg
+cGFnZXMsIExJRk8gYmF0Y2g6NA0KICBOb3JtYWwgem9uZTogMCBwYWdlcywgTElGTyBiYXRjaDox
+DQogIEhpZ2hNZW0gem9uZTogMCBwYWdlcywgTElGTyBiYXRjaDoxDQpCdWlsdCAxIHpvbmVsaXN0
+cw0KS2VybmVsIGNvbW1hbmQgbGluZTogQk9PVF9JTUFHRT1zY3NpMDpcRUZJXHJlZGhhdFx2bWxp
+bnUuMjYgIHJvb3Q9L2Rldi9zZGEyIGNvbnNvbGU9dHR5UzEsOTYwMG44IGNvbnNvbGU9dHR5MCBy
+bw0KUElEIGhhc2ggdGFibGUgZW50cmllczogNDA5NiAob3JkZXIgMTI6IDY1NTM2IGJ5dGVzKQ0K
+Q1BVIDA6IGJhc2UgZnJlcT0xOTkuNDU4TUh6LCBJVEMgcmF0aW89MTQvMiwgSVRDIGZyZXE9MTM5
+Ni4yMDhNSHorLy0tMXBwbQ0KQ29uc29sZTogY29sb3VyIFZHQSsgODB4MjUNClBsYWNpbmcgc29m
+dHdhcmUgSU8gVExCIGJldHdlZW4gMHhlMDAwMDAwMDA1MGFjMDAwIC0gMHhlMDAwMDAwMDA1MmFj
+MDAwDQpNZW1vcnk6IDk1NzI0OGsvOTY1OTM2ayBhdmFpbGFibGUgKDcyODRrIGNvZGUsIDE5MTY4
+ayByZXNlcnZlZCwgMzE5NWsgZGF0YSwgMjQwayBpbml0KQ0KTWNLaW5sZXkgRXJyYXRhIDkgd29y
+a2Fyb3VuZCBub3QgbmVlZGVkOyBkaXNhYmxpbmcgaXQNCkNhbGlicmF0aW5nIGRlbGF5IGxvb3Au
+Li4gMjA5NC44OCBCb2dvTUlQUw0KRGVudHJ5IGNhY2hlIGhhc2ggdGFibGUgZW50cmllczogNjU1
+MzYgKG9yZGVyOiA1LCA1MjQyODggYnl0ZXMpDQpJbm9kZS1jYWNoZSBoYXNoIHRhYmxlIGVudHJp
+ZXM6IDY1NTM2IChvcmRlcjogNSwgNTI0Mjg4IGJ5dGVzKQ0KTW91bnQtY2FjaGUgaGFzaCB0YWJs
+ZSBlbnRyaWVzOiAxMDI0IChvcmRlcjogMCwgMTYzODQgYnl0ZXMpDQpQT1NJWCBjb25mb3JtYW5j
+ZSB0ZXN0aW5nIGJ5IFVOSUZJWA0KQm9vdCBwcm9jZXNzb3IgaWQgMHgwLzB4YzIxOA0KdGFzayBt
+aWdyYXRpb24gY2FjaGUgZGVjYXkgdGltZW91dDogMTAgbXNlY3MuDQpTdGFydGluZyBtaWdyYXRp
+b24gdGhyZWFkIGZvciBjcHUgMA0KQ1BVIDE6IGJhc2UgZnJlcT0xOTkuNDU4TUh6LCBJVEMgcmF0
+aW89MTQvMiwgSVRDIGZyZXE9MTM5Ni4yMDhNSHorLy0tMXBwbQ0KQ2FsaWJyYXRpbmcgZGVsYXkg
+bG9vcC4uLiAyMDg5Ljc2IEJvZ29NSVBTDQpDUFUgMTogc3luY2hyb25pemVkIElUQyB3aXRoIENQ
+VSAwIChsYXN0IGRpZmYgLTEgY3ljbGVzLCBtYXhlcnIgNTEzIGN5Y2xlcykNClN0YXJ0aW5nIG1p
+Z3JhdGlvbiB0aHJlYWQgZm9yIGNwdSAxDQpDUFUgMjogYmFzZSBmcmVxPTE5OS40NThNSHosIElU
+QyByYXRpbz0xNC8yLCBJVEMgZnJlcT0xMzk2LjIwOE1IeisvLS0xcHBtDQpDYWxpYnJhdGluZyBk
+ZWxheSBsb29wLi4uIDIwODkuNzYgQm9nb01JUFMNCkNQVSAyOiBzeW5jaHJvbml6ZWQgSVRDIHdp
+dGggQ1BVIDAgKGxhc3QgZGlmZiAtMSBjeWNsZXMsIG1heGVyciA1MTMgY3ljbGVzKQ0KU3RhcnRp
+bmcgbWlncmF0aW9uIHRocmVhZCBmb3IgY3B1IDINCkNQVSAzOiBiYXNlIGZyZXE9MTk5LjQ1OE1I
+eiwgSVRDIHJhdGlvPTE0LzIsIElUQyBmcmVxPTEzOTYuMjA4TUh6Ky8tLTFwcG0NCkNhbGlicmF0
+aW5nIGRlbGF5IGxvb3AuLi4gMjA4OS43NiBCb2dvTUlQUw0KQ1BVIDM6IHN5bmNocm9uaXplZCBJ
+VEMgd2l0aCBDUFUgMCAobGFzdCBkaWZmIC0xIGN5Y2xlcywgbWF4ZXJyIDUxMyBjeWNsZXMpDQpT
+dGFydGluZyBtaWdyYXRpb24gdGhyZWFkIGZvciBjcHUgMw0KQnJvdWdodCB1cCAzIENQVXMNClRv
+dGFsIG9mIDQgcHJvY2Vzc29ycyBhY3RpdmF0ZWQgKDgzNjQuMTYgQm9nb01JUFMpLg0KTkVUOiBS
+ZWdpc3RlcmVkIHByb3RvY29sIGZhbWlseSAxNg0KQUNQSTogU3Vic3lzdGVtIHJldmlzaW9uIDIw
+MDQwMjExDQogdGJ4ZmFjZS0wMTE3IFswM10gYWNwaV9sb2FkX3RhYmxlcyAgICAgIDogQUNQSSBU
+YWJsZXMgc3VjY2Vzc2Z1bGx5IGFjcXVpcmVkDQpQYXJzaW5nIGFsbCBDb250cm9sIE1ldGhvZHM6
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4NClRhYmxlIFtE
+U0RUXShpZCBGMDA0KSAtIDEzODUgT2JqZWN0cyB3aXRoIDExMCBEZXZpY2VzIDE2MiBNZXRob2Rz
+IDQwIFJlZ2lvbnMNCkFDUEkgTmFtZXNwYWNlIHN1Y2Nlc3NmdWxseSBsb2FkZWQgYXQgcm9vdCBh
+MDAwMDAwMTAwYTcwOTg4DQpldnhmZXZudC0wMDgyIFswNF0gYWNwaV9lbmFibGUgICAgICAgICAg
+IDogU3lzdGVtIGlzIGFscmVhZHkgaW4gQUNQSSBtb2RlDQpldmdwZWJsay0wNzQ3IFswNl0gZXZf
+Y3JlYXRlX2dwZV9ibG9jayAgIDogR1BFIDAwIHRvIDMxIFtfR1BFXSA0IHJlZ3MgYXQgMDAwMDAw
+MDAwMDAwMEMyOCBvbiBpbnQgOQ0KQ29tcGxldGluZyBSZWdpb24vRmllbGQvQnVmZmVyL1BhY2th
+Z2UgaW5pdGlhbGl6YXRpb246Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uDQpJbml0aWFsaXplZCA0MC80MCBSZWdp
+b25zIDEvMSBGaWVsZHMgMTYvMTYgQnVmZmVycyAxNS8xNSBQYWNrYWdlcyAoMTM5MyBub2RlcykN
+CkV4ZWN1dGluZyBhbGwgRGV2aWNlIF9TVEEgYW5kX0lOSSBtZXRob2RzOi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4uLi4u
+Li4uLi4uLi4uLi4uLi4uLi4uLg0KMTA0IERldmljZXMgZm91bmQgY29udGFpbmluZzogMTA0IF9T
+VEEsIDMgX0lOSSBtZXRob2RzDQpBQ1BJOiBJbnRlcnByZXRlciBlbmFibGVkDQpBQ1BJOiBVc2lu
+ZyBJT1NBUElDIGZvciBpbnRlcnJ1cHQgcm91dGluZw0KQUNQSTogUENJIFJvb3QgQnJpZGdlIFtQ
+Q0kwXSAoMDA6MDApDQpQQ0k6IElnbm9yaW5nIEJBUjAtMyBvZiBJREUgY29udHJvbGxlciAwMDAw
+OjAwOjFmLjENCkFDUEk6IFBDSSBSb290IEJyaWRnZSBbUENJMV0gKDAwOjAyKQ0KQUNQSTogUENJ
+IFJvb3QgQnJpZGdlIFtQQ0kzXSAoMDA6MDkpDQpBQ1BJOiBQQ0kgUm9vdCBCcmlkZ2UgW1BDSTRd
+ICgwMDowZikNClNDU0kgc3Vic3lzdGVtIGluaXRpYWxpemVkDQpkcml2ZXJzL3VzYi9jb3JlL3Vz
+Yi5jOiByZWdpc3RlcmVkIG5ldyBkcml2ZXIgaHViDQpJT1NBUElDOiB2ZWN0b3IgNTAgLT4gQ1BV
+IDB4YzIxOCwgZW5hYmxlZA0KSU9TQVBJQzogdmVjdG9yIDQ5IC0+IENQVSAweGMyMTgsIGVuYWJs
+ZWQNCklPU0FQSUM6IHZlY3RvciA0OCAtPiBDUFUgMHhjMjE4LCBlbmFibGVkDQogcGNpX2lycS0w
+MzAyIFswM10gYWNwaV9wY2lfaXJxX2Rlcml2ZSAgIDogVW5hYmxlIHRvIGRlcml2ZSBJUlEgZm9y
+IGRldmljZSAwMDAwOjAwOjFmLjENCkFDUEk6IE5vIElSUSBrbm93biBmb3IgaW50ZXJydXB0IHBp
+biBBIG9mIGRldmljZSAwMDAwOjAwOjFmLjENCklPU0FQSUM6IHZlY3RvciA1MSAtPiBDUFUgMHhj
+MjE4LCBlbmFibGVkDQpJT1NBUElDOiB2ZWN0b3IgNjcgLT4gQ1BVIDB4YzIxOCwgZW5hYmxlZA0K
+SU9TQVBJQzogdmVjdG9yIDU2IC0+IENQVSAweGMyMTgsIGVuYWJsZWQNCklPU0FQSUM6IHZlY3Rv
+ciA1NyAtPiBDUFUgMHhjMjE4LCBlbmFibGVkDQpJT1NBUElDOiB2ZWN0b3IgNTggLT4gQ1BVIDB4
+YzIxOCwgZW5hYmxlZA0KSU9TQVBJQzogdmVjdG9yIDgwIC0+IENQVSAweGMyMTgsIGVuYWJsZWQN
+CklPU0FQSUM6IHZlY3RvciA3NSAtPiBDUFUgMHhjMjE4LCBlbmFibGVkDQpJT1NBUElDOiB2ZWN0
+b3IgOTAgLT4gQ1BVIDB4YzIxOCwgZW5hYmxlZA0KSU9TQVBJQzogdmVjdG9yIDg1IC0+IENQVSAw
+eGMyMTgsIGVuYWJsZWQNClBDSTogVXNpbmcgQUNQSSBmb3IgSVJRIHJvdXRpbmcNCnBlcmZtb246
+IHZlcnNpb24gMi4wIElSUSAyMzgNCnBlcmZtb246IEl0YW5pdW0gMiBQTVUgZGV0ZWN0ZWQsIDE2
+IFBNQ3MsIDE4IFBNRHMsIDQgY291bnRlcnMgKDQ3IGJpdHMpDQpFRkkgVmFyaWFibGVzIEZhY2ls
+aXR5IHYwLjA2IDIwMDItRGVjLTEwDQpQQUwgSW5mb3JtYXRpb24gRmFjaWxpdHkgdjAuNQ0KcGVy
+Zm1vbjogYWRkZWQgc2FtcGxpbmcgZm9ybWF0IGRlZmF1bHRfZm9ybWF0DQpwZXJmbW9uX2RlZmF1
+bHRfc21wbDogZGVmYXVsdF9mb3JtYXQgdjIuMCByZWdpc3RlcmVkDQpUb3RhbCBIdWdlVExCIG1l
+bW9yeSBhbGxvY2F0ZWQsIDANCkluc3RhbGxpbmcga25mc2QgKGNvcHlyaWdodCAoQykgMTk5NiBv
+a2lyQG1vbmFkLnN3Yi5kZSkuDQp1ZGY6IHJlZ2lzdGVyaW5nIGZpbGVzeXN0ZW0NCkFDUEk6IFBv
+d2VyIEJ1dHRvbiAoRkYpIFtQV1JGXQ0KQUNQSTogUHJvY2Vzc29yIFtDUFUwXSAoc3VwcG9ydHMg
+QzEpDQpBQ1BJOiBQcm9jZXNzb3IgW0NQVTFdIChzdXBwb3J0cyBDMSkNCkFDUEk6IFByb2Nlc3Nv
+ciBbQ1BVMl0gKHN1cHBvcnRzIEMxKQ0KQUNQSTogUHJvY2Vzc29yIFtDUFUzXSAoc3VwcG9ydHMg
+QzEpDQpwdHk6IDI1NiBVbml4OTggcHR5cyBjb25maWd1cmVkDQpFRkkgVGltZSBTZXJ2aWNlcyBE
+cml2ZXIgdjAuNA0KU2VyaWFsOiA4MjUwLzE2NTUwIGRyaXZlciAkUmV2aXNpb246IDEuOTAgJCA0
+IHBvcnRzLCBJUlEgc2hhcmluZyBkaXNhYmxlZA0KYWNwaV9zZXJpYWxfcG9ydDogemVyby1sZW5n
+dGggSU8gcG9ydCByYW5nZT8NCnR0eVMwIGF0IEkvTyAweDNmOCAoaXJxID0gNDQpIGlzIGEgMTY1
+NTBBDQphY3BpX3NlcmlhbF9wb3J0OiB6ZXJvLWxlbmd0aCBJTyBwb3J0IHJhbmdlPw0K/3R0eVMx
+IGF0IEkvTyAweDJmOCAoaXJxID0gNDUpIGlzIGEgMTY1NTBBDQpSQU1ESVNLIGRyaXZlciBpbml0
+aWFsaXplZDogMTYgUkFNIGRpc2tzIG9mIDQwOTZLIHNpemUgMTAyNCBibG9ja3NpemUNCmxvb3A6
+IGxvYWRlZCAobWF4IDggZGV2aWNlcykNCkludGVsKFIpIFBSTy8xMDAwIE5ldHdvcmsgRHJpdmVy
+IC0gdmVyc2lvbiA1LjIuMzAuMS1rMQ0KQ29weXJpZ2h0IChjKSAxOTk5LTIwMDQgSW50ZWwgQ29y
+cG9yYXRpb24uDQpQQ0k6IEZvdW5kIElSUSA1MSBmb3IgZGV2aWNlIDAwMDA6MDE6MDAuMA0KSU9T
+QVBJQzogdmVjdG9yIDUxIC0+IENQVSAweGMyMTgsIGVuYWJsZWQNCmV0aDA6IEludGVsKFIpIFBS
+Ty8xMDAwIE5ldHdvcmsgQ29ubmVjdGlvbg0KRXRoZXJuZXQgQ2hhbm5lbCBCb25kaW5nIERyaXZl
+cjogdjIuNS4wIChEZWNlbWJlciAxLCAyMDAzKQ0KYm9uZGluZzogV2FybmluZzogZWl0aGVyIG1p
+aW1vbiBvciBhcnBfaW50ZXJ2YWwgYW5kIGFycF9pcF90YXJnZXQgbW9kdWxlIHBhcmFtZXRlcnMg
+bXVzdCBiZSBzcGVjaWZpZWQsIG90aGVyd2lzZSBib25kaW5nIHdpbGwgbm90IGQuDQpib25kaW5n
+OiBib25kMCByZWdpc3RlcmVkIHdpdGhvdXQgTUlJIGxpbmsgbW9uaXRvcmluZywgaW4gbG9hZCBi
+YWxhbmNpbmcgKHJvdW5kLXJvYmluKSBtb2RlLg0KYm9uZGluZzogYm9uZDAgcmVnaXN0ZXJlZCB3
+aXRob3V0IEFSUCBtb25pdG9yaW5nDQpVbmlmb3JtIE11bHRpLVBsYXRmb3JtIEUtSURFIGRyaXZl
+ciBSZXZpc2lvbjogNy4wMGFscGhhMg0KaWRlOiBBc3N1bWluZyAzM01IeiBzeXN0ZW0gYnVzIHNw
+ZWVkIGZvciBQSU8gbW9kZXM7IG92ZXJyaWRlIHdpdGggaWRlYnVzPXh4DQpoZGE6IE1BVFNISVRB
+RFZELVJPTSBTUi04MTc2LCBBVEFQSSBDRC9EVkQtUk9NIGRyaXZlDQpoZGI6IExTLTEyMC8yNDAg
+MDAgVUhEIEZsb3BweSwgQVRBUEkgRkxPUFBZIGRyaXZlDQpVc2luZyBhbnRpY2lwYXRvcnkgaW8g
+c2NoZWR1bGVyDQppZGUwIGF0IDB4MWYwLTB4MWY3LDB4M2Y2IG9uIGlycSAzNA0KaGRhOiBBVEFQ
+SSAyNFggRFZELVJPTSBkcml2ZSwgMjU2a0IgQ2FjaGUNClVuaWZvcm0gQ0QtUk9NIGRyaXZlciBS
+ZXZpc2lvbjogMy4yMA0KaWRlLWZsb3BweSBkcml2ZXIgMC45OS5uZXdpZGUNCmhkYjogTm8gZGlz
+ayBpbiBkcml2ZQ0KaGRiOiAyMzQ3NTJrQiwgMjYyLzMyLzU2IENIUywgMjk5NSBrQnBzLCA1MTIg
+c2VjdG9yIHNpemUsIDE1MDAgcnBtDQpzdDogVmVyc2lvbiAyMDA0MDEyMiwgZml4ZWQgYnVmc2l6
+ZSAzMjc2OCwgcy9nIHNlZ3MgMjU2DQpvc3N0IDpJOiBUYXBlIGRyaXZlciB3aXRoIE9uU3RyZWFt
+IHN1cHBvcnQgdmVyc2lvbiAwLjk5LjENCm9zc3QgOkk6ICRJZDogb3NzdC5jLHYgMS43MCAyMDAz
+LzEyLzIzIDE0OjIyOjEyIHdyaWVkZSBFeHAgJA0KRnVzaW9uIE1QVCBiYXNlIGRyaXZlciAzLjAw
+LjAyDQpDb3B5cmlnaHQgKGMpIDE5OTktMjAwMyBMU0kgTG9naWMgQ29ycG9yYXRpb24NClBDSTog
+Rm91bmQgSVJRIDU2IGZvciBkZXZpY2UgMDAwMDowNjowMi4wDQpJT1NBUElDOiB2ZWN0b3IgNTYg
+LT4gQ1BVIDB4YzIxOCwgZW5hYmxlZA0KbXB0YmFzZTogSW5pdGlhdGluZyBpb2MwIGJyaW5ndXAN
+CmlvYzA6IDUzQzEwMzA6IENhcGFiaWxpdGllcz17SW5pdGlhdG9yfQ0KUENJOiBGb3VuZCBJUlEg
+NTcgZm9yIGRldmljZSAwMDAwOjA2OjAyLjENCklPU0FQSUM6IHZlY3RvciA1NyAtPiBDUFUgMHhj
+MjE4LCBlbmFibGVkDQptcHRiYXNlOiBJbml0aWF0aW5nIGlvYzEgYnJpbmd1cA0KaW9jMTogNTND
+MTAzMDogQ2FwYWJpbGl0aWVzPXtJbml0aWF0b3J9DQpGdXNpb24gTVBUIFNDU0kgSG9zdCBkcml2
+ZXIgMy4wMC4wMg0Kc2NzaTAgOiBpb2MwOiBMU0k1M0MxMDMwLCBGd1Jldj0wMTAzMDYwMGgsIFBv
+cnRzPTEsIE1heFE9MjU1LCBJUlE9NTYNCiAgVmVuZG9yOiBTRUFHQVRFICAgTW9kZWw6IFNUMzE4
+NDA2TEMgICAgICAgIFJldjogOEEwMw0KICBUeXBlOiAgIERpcmVjdC1BY2Nlc3MgICAgICAgICAg
+ICAgICAgICAgICAgQU5TSSBTQ1NJIHJldmlzaW9uOiAwMw0KU0NTSSBkZXZpY2Ugc2RhOiAzNTU2
+NjQ3OCA1MTItYnl0ZSBoZHdyIHNlY3RvcnMgKDE4MjEwIE1CKQ0KU0NTSSBkZXZpY2Ugc2RhOiBk
+cml2ZSBjYWNoZTogd3JpdGUgdGhyb3VnaA0KIHNkYTogc2RhMSBzZGEyIHNkYTMNCkF0dGFjaGVk
+IHNjc2kgZGlzayBzZGEgYXQgc2NzaTAsIGNoYW5uZWwgMCwgaWQgMSwgbHVuIDANCkF0dGFjaGVk
+IHNjc2kgZ2VuZXJpYyBzZzAgYXQgc2NzaTAsIGNoYW5uZWwgMCwgaWQgMSwgbHVuIDAsICB0eXBl
+IDANCiAgVmVuZG9yOiBFU0ctU0hWICAgTW9kZWw6IFNDQSBIU0JQIE0xNyAgICAgIFJldjogMDEw
+MQ0KICBUeXBlOiAgIFByb2Nlc3NvciAgICAgICAgICAgICAgICAgICAgICAgICAgQU5TSSBTQ1NJ
+IHJldmlzaW9uOiAwMg0KQXR0YWNoZWQgc2NzaSBnZW5lcmljIHNnMSBhdCBzY3NpMCwgY2hhbm5l
+bCAwLCBpZCA2LCBsdW4gMCwgIHR5cGUgMw0Kc2NzaTEgOiBpb2MxOiBMU0k1M0MxMDMwLCBGd1Jl
+dj0wMTAzMDYwMGgsIFBvcnRzPTEsIE1heFE9MjU1LCBJUlE9NTcNClBDSTogRm91bmQgSVJRIDQ4
+IGZvciBkZXZpY2UgMDAwMDowMDoxZC43DQpJT1NBUElDOiB2ZWN0b3IgNDggLT4gQ1BVIDB4YzIx
+OCwgZW5hYmxlZA0KZWhjaV9oY2QgMDAwMDowMDoxZC43OiBFSENJIEhvc3QgQ29udHJvbGxlcg0K
+ZWhjaV9oY2QgMDAwMDowMDoxZC43OiBpcnEgNDgsIHBjaSBtZW0gYzAwMDAwMDBmOWZmMDAwMA0K
+ZWhjaV9oY2QgMDAwMDowMDoxZC43OiBuZXcgVVNCIGJ1cyByZWdpc3RlcmVkLCBhc3NpZ25lZCBi
+dXMgbnVtYmVyIDENClBDSTogc2xvdCAwMDAwOjAwOjFkLjcgaGFzIGluY29ycmVjdCBQQ0kgY2Fj
+aGUgbGluZSBzaXplIG9mIDAgYnl0ZXMsIGNvcnJlY3RpbmcgdG8gMTI4DQplaGNpX2hjZCAwMDAw
+OjAwOjFkLjc6IFVTQiAyLjAgZW5hYmxlZCwgRUhDSSAxLjAwLCBkcml2ZXIgMjAwMy1EZWMtMjkN
+CnVzYiB1c2IxOiBQcm9kdWN0OiBFSENJIEhvc3QgQ29udHJvbGxlcg0KdXNiIHVzYjE6IE1hbnVm
+YWN0dXJlcjogTGludXggMi42LjMgZWhjaV9oY2QNCnVzYiB1c2IxOiBTZXJpYWxOdW1iZXI6IDAw
+MDA6MDA6MWQuNw0KaHViIDEtMDoxLjA6IFVTQiBodWIgZm91bmQNCmh1YiAxLTA6MS4wOiA0IHBv
+cnRzIGRldGVjdGVkDQpkcml2ZXJzL3VzYi9ob3N0L3VoY2ktaGNkLmM6IFVTQiBVbml2ZXJzYWwg
+SG9zdCBDb250cm9sbGVyIEludGVyZmFjZSBkcml2ZXIgdjIuMQ0KUENJOiBGb3VuZCBJUlEgNTAg
+Zm9yIGRldmljZSAwMDAwOjAwOjFkLjANCklPU0FQSUM6IHZlY3RvciA1MCAtPiBDUFUgMHhjMjE4
+LCBlbmFibGVkDQp1aGNpX2hjZCAwMDAwOjAwOjFkLjA6IFVIQ0kgSG9zdCBDb250cm9sbGVyDQp1
+aGNpX2hjZCAwMDAwOjAwOjFkLjA6IGlycSA1MCwgaW8gYmFzZSAwMDAwMDAwMDAwMDA0Y2MwDQp1
+aGNpX2hjZCAwMDAwOjAwOjFkLjA6IG5ldyBVU0IgYnVzIHJlZ2lzdGVyZWQsIGFzc2lnbmVkIGJ1
+cyBudW1iZXIgMg0KZHJpdmVycy91c2IvaG9zdC91aGNpLWhjZC5jOiBkZXRlY3RlZCAyIHBvcnRz
+DQp1c2IgdXNiMjogUHJvZHVjdDogVUhDSSBIb3N0IENvbnRyb2xsZXINCnVzYiB1c2IyOiBNYW51
+ZmFjdHVyZXI6IExpbnV4IDIuNi4zIHVoY2lfaGNkDQp1c2IgdXNiMjogU2VyaWFsTnVtYmVyOiAw
+MDAwOjAwOjFkLjANCmh1YiAyLTA6MS4wOiBVU0IgaHViIGZvdW5kDQpodWIgMi0wOjEuMDogMiBw
+b3J0cyBkZXRlY3RlZA0KUENJOiBGb3VuZCBJUlEgNDkgZm9yIGRldmljZSAwMDAwOjAwOjFkLjEN
+CklPU0FQSUM6IHZlY3RvciA0OSAtPiBDUFUgMHhjMjE4LCBlbmFibGVkDQp1aGNpX2hjZCAwMDAw
+OjAwOjFkLjE6IFVIQ0kgSG9zdCBDb250cm9sbGVyDQp1aGNpX2hjZCAwMDAwOjAwOjFkLjE6IGly
+cSA0OSwgaW8gYmFzZSAwMDAwMDAwMDAwMDA0Y2UwDQp1aGNpX2hjZCAwMDAwOjAwOjFkLjE6IG5l
+dyBVU0IgYnVzIHJlZ2lzdGVyZWQsIGFzc2lnbmVkIGJ1cyBudW1iZXIgMw0KZHJpdmVycy91c2Iv
+aG9zdC91aGNpLWhjZC5jOiBkZXRlY3RlZCAyIHBvcnRzDQp1c2IgdXNiMzogUHJvZHVjdDogVUhD
+SSBIb3N0IENvbnRyb2xsZXINCnVzYiB1c2IzOiBNYW51ZmFjdHVyZXI6IExpbnV4IDIuNi4zIHVo
+Y2lfaGNkDQp1c2IgdXNiMzogU2VyaWFsTnVtYmVyOiAwMDAwOjAwOjFkLjENCmh1YiAzLTA6MS4w
+OiBVU0IgaHViIGZvdW5kDQpodWIgMy0wOjEuMDogMiBwb3J0cyBkZXRlY3RlZA0KZHJpdmVycy91
+c2IvY29yZS91c2IuYzogcmVnaXN0ZXJlZCBuZXcgZHJpdmVyIGhpZGRldg0KZHJpdmVycy91c2Iv
+Y29yZS91c2IuYzogcmVnaXN0ZXJlZCBuZXcgZHJpdmVyIGhpZA0KZHJpdmVycy91c2IvaW5wdXQv
+aGlkLWNvcmUuYzogdjIuMDpVU0IgSElEIGNvcmUgZHJpdmVyDQptaWNlOiBQUy8yIG1vdXNlIGRl
+dmljZSBjb21tb24gZm9yIGFsbCBtaWNlDQpzZXJpbzogaTgwNDIgQVVYIHBvcnQgYXQgMHg2MCww
+eDY0IGlycSAzNg0KYXRrYmQuYzoga2V5Ym9hcmQgcmVzZXQgZmFpbGVkIG9uIGlzYTAwNjAvc2Vy
+aW8xDQp1c2IgMy0yOiBuZXcgZnVsbCBzcGVlZCBVU0IgZGV2aWNlIHVzaW5nIGFkZHJlc3MgMg0K
+dXNiIDMtMjogUHJvZHVjdDogVVNCIEh1Yg0KaHViIDMtMjoxLjA6IFVTQiBodWIgZm91bmQNCmh1
+YiAzLTI6MS4wOiA3IHBvcnRzIGRldGVjdGVkDQpzZXJpbzogaTgwNDIgS0JEIHBvcnQgYXQgMHg2
+MCwweDY0IGlycSAzMg0KYXRrYmQuYzoga2V5Ym9hcmQgcmVzZXQgZmFpbGVkIG9uIGlzYTAwNjAv
+c2VyaW8wDQpORVQ6IFJlZ2lzdGVyZWQgcHJvdG9jb2wgZmFtaWx5IDINCklQOiByb3V0aW5nIGNh
+Y2hlIGhhc2ggdGFibGUgb2YgMTYzODQgYnVja2V0cywgMjU2S2J5dGVzDQpUQ1A6IEhhc2ggdGFi
+bGVzIGNvbmZpZ3VyZWQgKGVzdGFibGlzaGVkIDEzMTA3MiBiaW5kIDY1NTM2KQ0KdXNiIDMtMi4x
+OiBuZXcgbG93IHNwZWVkIFVTQiBkZXZpY2UgdXNpbmcgYWRkcmVzcyAzDQp1c2IgMy0yLjE6IFBy
+b2R1Y3Q6IFVTQiBDb21wb3NpdGUgS2V5Ym9hcmQNCnVzYiAzLTIuMTogTWFudWZhY3R1cmVyOiBT
+T0xJRFRFSw0KaW5wdXQ6IFVTQiBISUQgdjEuMTAgS2V5Ym9hcmQgW1NPTElEVEVLIFVTQiBDb21w
+b3NpdGUgS2V5Ym9hcmRdIG9uIHVzYi0wMDAwOjAwOjFkLjEtMi4xDQpkcml2ZXJzL3VzYi9pbnB1
+dC9oaWQtY29yZS5jOiBjdHJsIHVyYiBzdGF0dXMgLTMyIHJlY2VpdmVkDQpkcml2ZXJzL3VzYi9p
+bnB1dC9oaWQtY29yZS5jOiBjdHJsIHVyYiBzdGF0dXMgLTMyIHJlY2VpdmVkDQpkcml2ZXJzL3Vz
+Yi9pbnB1dC9oaWQtY29yZS5jOiBjdHJsIHVyYiBzdGF0dXMgLTMyIHJlY2VpdmVkDQppbnB1dCxo
+aWRkZXY5NjogVVNCIEhJRCB2MS4xMCBEZXZpY2UgW1NPTElEVEVLIFVTQiBDb21wb3NpdGUgS2V5
+Ym9hcmRdIG9uIHVzYi0wMDAwOjAwOjFkLjEtMi4xDQp1c2IgMy0yLjM6IG5ldyBsb3cgc3BlZWQg
+VVNCIGRldmljZSB1c2luZyBhZGRyZXNzIDQNCnVzYiAzLTIuMzogUHJvZHVjdDogTWljcm9zb2Z0
+IDUtQnV0dG9uIE1vdXNlIHdpdGggSW50ZWxsaUV5ZShUTSkNCnVzYiAzLTIuMzogTWFudWZhY3R1
+cmVyOiBNaWNyb3NvZnQNCmlucHV0OiBVU0IgSElEIHYxLjEwIE1vdXNlIFtNaWNyb3NvZnQgTWlj
+cm9zb2Z0IDUtQnV0dG9uIE1vdXNlIHdpdGggSW50ZWxsaUV5ZShUTSldIG9uIHVzYi0wMDAwOjAw
+OjFkLjEtMi4zDQphcnBfdGFibGVzOiAoQykgMjAwMiBEYXZpZCBTLiBNaWxsZXINCk5FVDogUmVn
+aXN0ZXJlZCBwcm90b2NvbCBmYW1pbHkgMQ0KTkVUOiBSZWdpc3RlcmVkIHByb3RvY29sIGZhbWls
+eSAxNw0Ka2pvdXJuYWxkIHN0YXJ0aW5nLiAgQ29tbWl0IGludGVydmFsIDUgc2Vjb25kcw0KRVhU
+My1mczogbW91bnRlZCBmaWxlc3lzdGVtIHdpdGggb3JkZXJlZCBkYXRhIG1vZGUuDQpWRlM6IE1v
+dW50ZWQgcm9vdCAoZXh0MyBmaWxlc3lzdGVtKSByZWFkb25seS4NCkZyZWVpbmcgdW51c2VkIGtl
+cm5lbCBtZW1vcnk6IDI0MGtCIGZyZWVkDQp1c2IgMy0yLjQ6IG5ldyBsb3cgc3BlZWQgVVNCIGRl
+dmljZSB1c2luZyBhZGRyZXNzIDUNCnVzYiAzLTIuNDogUHJvZHVjdDogR2VuZXJpYyBLVk0xMDRV
+Qw0KdXNiIDMtMi40OiBNYW51ZmFjdHVyZXI6IFRhbmd0b3ANCmlucHV0OiBVU0IgSElEIHYxLjAw
+IEtleWJvYXJkIFtUYW5ndG9wIEdlbmVyaWMgS1ZNMTA0VUNdIG9uIHVzYi0wMDAwOjAwOjFkLjEt
+Mi40DQpbZTAwMDAwMDAzY2IwODQ0MF0gbGluayAoM2NiMDgyNDIpIGVsZW1lbnQgKDNjYjBjMzAw
+KQ0KIEVsZW1lbnQgIT0gRmlyc3QgVEQNCiAgMDogW2UwMDAwMDAwM2NiMGMxZTBdIGxpbmsgKDNj
+YjBjMzAwKSBlMyBMUyBMZW5ndGg9NyBNYXhMZW49NyBEVDAgRW5kUHQ9MCBEZXY9NSwgUElEPTJk
+KFNFVFVQKSAoYnVmPTNjYWY4MjgwKQ0KICAxOiBbZTAwMDAwMDAzY2IwYzMwMF0gbGluayAoM2Ni
+MGMzNjApIGUzIFNQRCBMUyBTdGFsbGVkIEJhYmJsZSBMZW5ndGg9MiBNYXhMZW49MiBEVDEgRW5k
+UHQ9MCBEZXY9NSwgUElEPTY5KElOKSAoYnVmPTNjYWY4MmEwKQ0KICAyOiBbZTAwMDAwMDAzY2Iw
+YzM2MF0gbGluayAoMDAwMDAwMDEpIGUzIExTIElPQyBBY3RpdmUgTGVuZ3RoPTAgTWF4TGVuPTdm
+ZiBEVDEgRW5kUHQ9MCBEZXY9NSwgUElEPWUxKE9VVCkgKGJ1Zj0wMDAwMDAwMCkNCg0KZHJpdmVy
+cy91c2IvaW5wdXQvaGlkLWNvcmUuYzogY3RybCB1cmIgc3RhdHVzIC03NSByZWNlaXZlZA0KW2Uw
+MDAwMDAwM2NiMDg0MDBdIGxpbmsgKDNjYjA4MjQyKSBlbGVtZW50ICgzY2IwYzJhMCkNCiBFbGVt
+ZW50ICE9IEZpcnN0IFREDQogIDA6IFtlMDAwMDAwMDNjYjBjMjQwXSBsaW5rICgzY2IwYzJhMCkg
+ZTMgTFMgTGVuZ3RoPTcgTWF4TGVuPTcgRFQwIEVuZFB0PTAgRGV2PTUsIFBJRD0yZChTRVRVUCkg
+KGJ1Zj0zY2FmODI4MCkNCiAgMTogW2UwMDAwMDAwM2NiMGMyYTBdIGxpbmsgKDNjYjBjM2MwKSBl
+MyBTUEQgTFMgU3RhbGxlZCBCYWJibGUgTGVuZ3RoPTEgTWF4TGVuPTEgRFQxIEVuZFB0PTAgRGV2
+PTUsIFBJRD02OShJTikgKGJ1Zj0zY2FmODJhMCkNCiAgMjogW2UwMDAwMDAwM2NiMGMzYzBdIGxp
+bmsgKDAwMDAwMDAxKSBlMyBMUyBJT0MgQWN0aXZlIExlbmd0aD0wIE1heExlbj03ZmYgRFQxIEVu
+ZFB0PTAgRGV2PTUsIFBJRD1lMShPVVQpIChidWY9MDAwMDAwMDApDQoNCmRyaXZlcnMvdXNiL2lu
+cHV0L2hpZC1jb3JlLmM6IGN0cmwgdXJiIHN0YXR1cyAtNzUgcmVjZWl2ZWQNCltlMDAwMDAwMDNj
+YjA4NDQwXSBsaW5rICgzY2IwODI0MikgZWxlbWVudCAoM2NiMGMzMDApDQogRWxlbWVudCAhPSBG
+aXJzdCBURA0KICAwOiBbZTAwMDAwMDAzY2IwYzFlMF0gbGluayAoM2NiMGMzMDApIGUzIExTIExl
+bmd0aD03IE1heExlbj03IERUMCBFbmRQdD0wIERldj01LCBQSUQ9MmQoU0VUVVApIChidWY9M2Nh
+ZjgyODApDQogIDE6IFtlMDAwMDAwMDNjYjBjMzAwXSBsaW5rICgzY2IwYzM2MCkgZTMgU1BEIExT
+IFN0YWxsZWQgQmFiYmxlIExlbmd0aD0xIE1heExlbj0xIERUMSBFbmRQdD0wIERldj01LCBQSUQ9
+NjkoSU4pIChidWY9M2NhZjgyYTApDQogIDI6IFtlMDAwMDAwMDNjYjBjMzYwXSBsaW5rICgwMDAw
+MDAwMSkgZTMgTFMgSU9DIEFjdGl2ZSBMZW5ndGg9MCBNYXhMZW49N2ZmIERUMSBFbmRQdD0wIERl
+dj01LCBQSUQ9ZTEoT1VUKSAoYnVmPTAwMDAwMDAwKQ0KDQpkcml2ZXJzL3VzYi9pbnB1dC9oaWQt
+Y29yZS5jOiBjdHJsIHVyYiBzdGF0dXMgLTc1IHJlY2VpdmVkDQppbnB1dDogVVNCIEhJRCB2MS4w
+MCBNb3VzZSBbVGFuZ3RvcCBHZW5lcmljIEtWTTEwNFVDXSBvbiB1c2ItMDAwMDowMDoxZC4xLTIu
+NA0KgICAgICAgICAgICAgICAgIBrZXJuZWwgdW5hbGlnbmVkIGFjY2VzcyB0byAweGEwMDAwMDAx
+MDBhNzA2ODEsIGlwPTB4YTAwMDAwMDEwMDMzNGQyMQ0Ka2VybmVsIHVuYWxpZ25lZCBhY2Nlc3Mg
+dG8gMHhhMDAwMDAwMTAwYTcwNjgxLCBpcD0weGEwMDAwMDAxMDAzMzRkMjENCmtlcm5lbCB1bmFs
+aWduZWQgYWNjZXNzIHRvIDB4YTAwMDAwMDEwMGE3MDY4MSwgaXA9MHhhMDAwMDAwMTAwMzM0ZDIx
+DQogICAgICAgICAgIENQVTAgICAgICAgQ1BVMSAgICAgICBDUFUyICAgICAgIENQVTMNCiAyOTog
+ICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICBMU0FQ
+SUMgIGNtY19wb2xsDQogMzA6ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAg
+ICAgIDAgIElPLVNBUElDLWxldmVsICBjcGVfaG5kbHINCiAzMTogICAgICAgICAgMCAgICAgICAg
+ICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICBMU0FQSUMgIGNtY19obmRscg0KIDM0
+OiAgICAgICAgICAxICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgIDgyICAgSU8tU0FQSUMt
+ZWRnZSAgaWRlMA0KIDM5OiAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAg
+ICAzICBJTy1TQVBJQy1sZXZlbCAgYWNwaQ0KIDQ1OiAgICAgICAgICAxICAgICAgICAgIDAgICAg
+ICAgICAgMCAgICAgICAgICA2ICAgSU8tU0FQSUMtZWRnZSAgc2VyaWFsDQogNDg6ICAgICAgICAg
+IDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgIElPLVNBUElDLWxldmVsICBlaGNp
+X2hjZA0KIDQ5OiAgICAgICAgICA1ICAgICAgICAgIDAgICAgICAgICA1NSAgICAgICAzMDgyICBJ
+Ty1TQVBJQy1sZXZlbCAgdWhjaV9oY2QNCiA1MDogICAgICAgICAgMCAgICAgICAgICAwICAgICAg
+ICAgIDAgICAgICAgICAgMCAgSU8tU0FQSUMtbGV2ZWwgIHVoY2lfaGNkDQogNTE6ICAgICAgICAg
+IDEgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAyNDEgIElPLVNBUElDLWxldmVsICBldGgw
+DQogNTY6ICAgICAgICAxNTYgICAgICAgICAgMSAgICAgICAgICA2ICAgICAgIDM4OTMgIElPLVNB
+UElDLWxldmVsICBpb2MwDQogNTc6ICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAg
+ICAgICAgNDIgIElPLVNBUElDLWxldmVsICBpb2MxDQoyMzI6ICAgICAgICAgIDAgICAgICAgICAg
+MCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgTFNBUElDICBtY2FfcmR6dg0KMjM4OiAg
+ICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIExTQVBJ
+QyAgcGVyZm1vbg0KMjM5OiAgICAgMjIxMjIxICAgICAyMTY3NTkgICAgIDIxNjQ4NiAgICAgMjE2
+MTU5ICAgICAgICAgIExTQVBJQyAgdGltZXINCjI0MDogICAgICAgICAgMCAgICAgICAgICAwICAg
+ICAgICAgIDAgICAgICAgICAgMCAgICAgICAgICBMU0FQSUMgIG1jYV93a3VwDQoyNTQ6ICAgICAg
+ICAgMzAgICAgICAgICA4NSAgICAgICAgIDk2ICAgICAgICAgODYgICAgICAgICAgTFNBUElDICBJ
+UEkNCk5NSTogICAgICAgICAgMCAgICAgICAgICAwICAgICAgICAgIDAgICAgICAgICAgMA0KRVJS
+OiAgICAgICAgICAwDQowMDoxZC4wIFVTQiBDb250cm9sbGVyOiBJbnRlbCBDb3JwLiA4MjgwMURC
+IFVTQiAoSHViICMxKSAocmV2IDAyKSAocHJvZy1pZiAwMCBbVUhDSV0pDQogICAgICAgIFN1YnN5
+c3RlbTogSW50ZWwgQ29ycC46IFVua25vd24gZGV2aWNlIDM0MDINCiAgICAgICAgRmxhZ3M6IGJ1
+cyBtYXN0ZXIsIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgMCwgSVJRIDUwDQogICAgICAgIEkvTyBw
+b3J0cyBhdCA0Y2MwIFtzaXplPTMyXQ0KDQowMDoxZC4xIFVTQiBDb250cm9sbGVyOiBJbnRlbCBD
+b3JwLiA4MjgwMURCIFVTQiAoSHViICMyKSAocmV2IDAyKSAocHJvZy1pZiAwMCBbVUhDSV0pDQog
+ICAgICAgIFN1YnN5c3RlbTogSW50ZWwgQ29ycC46IFVua25vd24gZGV2aWNlIDM0MDINCiAgICAg
+ICAgRmxhZ3M6IGJ1cyBtYXN0ZXIsIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgMCwgSVJRIDQ5DQog
+ICAgICAgIEkvTyBwb3J0cyBhdCA0Y2UwIFtzaXplPTMyXQ0KDQowMDoxZC43IFVTQiBDb250cm9s
+bGVyOiBJbnRlbCBDb3JwLiA4MjgwMURCIFVTQjIgKHJldiAwMikgKHByb2ctaWYgMjAgW0VIQ0ld
+KQ0KICAgICAgICBTdWJzeXN0ZW06IEludGVsIENvcnAuOiBVbmtub3duIGRldmljZSAzNDAyDQog
+ICAgICAgIEZsYWdzOiBidXMgbWFzdGVyLCBtZWRpdW0gZGV2c2VsLCBsYXRlbmN5IDAsIElSUSA0
+OA0KICAgICAgICBNZW1vcnkgYXQgMDAwMDAwMDBmOWZmMDAwMCAoMzItYml0LCBub24tcHJlZmV0
+Y2hhYmxlKSBbc2l6ZT0xS10NCiAgICAgICAgQ2FwYWJpbGl0aWVzOiBbNTBdIFBvd2VyIE1hbmFn
+ZW1lbnQgdmVyc2lvbiAyDQogICAgICAgIENhcGFiaWxpdGllczogWzU4XSAjMGEgWzIwODBdDQoN
+CjAwOjFlLjAgUENJIGJyaWRnZTogSW50ZWwgQ29ycC4gODI4MDFCQS9DQS9EQi9FQiBQQ0kgQnJp
+ZGdlIChyZXYgODIpIChwcm9nLWlmIDAwIFtOb3JtYWwgZGVjb2RlXSkNCiAgICAgICAgRmxhZ3M6
+IGJ1cyBtYXN0ZXIsIGZhc3QgZGV2c2VsLCBsYXRlbmN5IDANCiAgICAgICAgQnVzOiBwcmltYXJ5
+PTAwLCBzZWNvbmRhcnk9MDEsIHN1Ym9yZGluYXRlPTAxLCBzZWMtbGF0ZW5jeT02NA0KICAgICAg
+ICBJL08gYmVoaW5kIGJyaWRnZTogMDAwMDUwMDAtMDAwMDVmZmYNCiAgICAgICAgTWVtb3J5IGJl
+aGluZCBicmlkZ2U6IGZhMDAwMDAwLWZiZmZmZmZmDQoNCjAwOjFmLjAgSVNBIGJyaWRnZTogSW50
+ZWwgQ29ycC4gODI4MDFEQiBMUEMgSW50ZXJmYWNlIENvbnRyb2xsZXIgKHJldiAwMikNCiAgICAg
+ICAgRmxhZ3M6IGJ1cyBtYXN0ZXIsIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgMA0KDQowMDoxZi4x
+IElERSBpbnRlcmZhY2U6IEludGVsIENvcnAuIDgyODAxREIgVWx0cmEgQVRBIFN0b3JhZ2UgQ29u
+dHJvbGxlciAocmV2IDAyKSAocHJvZy1pZiA4YSBbTWFzdGVyIFNlY1AgUHJpUF0pDQogICAgICAg
+IFN1YnN5c3RlbTogSW50ZWwgQ29ycC46IFVua25vd24gZGV2aWNlIDM0MDINCiAgICAgICAgRmxh
+Z3M6IGJ1cyBtYXN0ZXIsIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgMA0KICAgICAgICBJL08gcG9y
+dHMgYXQgPHVuYXNzaWduZWQ+DQogICAgICAgIEkvTyBwb3J0cyBhdCA8dW5hc3NpZ25lZD4NCiAg
+ICAgICAgSS9PIHBvcnRzIGF0IDx1bmFzc2lnbmVkPg0KICAgICAgICBJL08gcG9ydHMgYXQgPHVu
+YXNzaWduZWQ+DQogICAgICAgIEkvTyBwb3J0cyBhdCAxMDAwIFtzaXplPTE2XQ0KICAgICAgICBN
+ZW1vcnkgYXQgPHVuYXNzaWduZWQ+ICgzMi1iaXQsIG5vbi1wcmVmZXRjaGFibGUpIFtkaXNhYmxl
+ZF0gW3NpemU9MUtdDQoNCjAxOjAwLjAgRXRoZXJuZXQgY29udHJvbGxlcjogSW50ZWwgQ29ycC4g
+ODI1NDBFTSBHaWdhYml0IEV0aGVybmV0IENvbnRyb2xsZXIgKHJldiAwMikNCiAgICAgICAgU3Vi
+c3lzdGVtOiBJbnRlbCBDb3JwLjogVW5rbm93biBkZXZpY2UgMzQwMg0KICAgICAgICBGbGFnczog
+YnVzIG1hc3RlciwgNjZNaHosIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgNjQsIElSUSA1MQ0KICAg
+ICAgICBNZW1vcnkgYXQgMDAwMDAwMDBmYmZlMDAwMCAoMzItYml0LCBub24tcHJlZmV0Y2hhYmxl
+KSBbc2l6ZT0xMjhLXQ0KICAgICAgICBJL08gcG9ydHMgYXQgNWNjMCBbc2l6ZT02NF0NCiAgICAg
+ICAgQ2FwYWJpbGl0aWVzOiBbZGNdIFBvd2VyIE1hbmFnZW1lbnQgdmVyc2lvbiAyDQogICAgICAg
+IENhcGFiaWxpdGllczogW2U0XSBQQ0ktWCBub24tYnJpZGdlIGRldmljZS4NCiAgICAgICAgQ2Fw
+YWJpbGl0aWVzOiBbZjBdIE1lc3NhZ2UgU2lnbmFsbGVkIEludGVycnVwdHM6IDY0Yml0KyBRdWV1
+ZT0wLzAgRW5hYmxlLQ0KDQowMTowMS4wIFZHQSBjb21wYXRpYmxlIGNvbnRyb2xsZXI6IEFUSSBU
+ZWNobm9sb2dpZXMgSW5jIFJhZ2UgWEwgKHJldiAyNykgKHByb2ctaWYgMDAgW1ZHQV0pDQogICAg
+ICAgIFN1YnN5c3RlbTogSW50ZWwgQ29ycC46IFVua25vd24gZGV2aWNlIDM0MDINCiAgICAgICAg
+RmxhZ3M6IGJ1cyBtYXN0ZXIsIHN0ZXBwaW5nLCBtZWRpdW0gZGV2c2VsLCBsYXRlbmN5IDY0DQog
+ICAgICAgIE1lbW9yeSBhdCAwMDAwMDAwMGZhMDAwMDAwICgzMi1iaXQsIG5vbi1wcmVmZXRjaGFi
+bGUpIFtzaXplPTE2TV0NCiAgICAgICAgSS9PIHBvcnRzIGF0IDU4MDAgW3NpemU9MjU2XQ0KICAg
+ICAgICBNZW1vcnkgYXQgMDAwMDAwMDBmYmZkMDAwMCAoMzItYml0LCBub24tcHJlZmV0Y2hhYmxl
+KSBbc2l6ZT00S10NCiAgICAgICAgRXhwYW5zaW9uIFJPTSBhdCAwMDAwMDAwMGZiZmEwMDAwIFtk
+aXNhYmxlZF0gW3NpemU9MTI4S10NCiAgICAgICAgQ2FwYWJpbGl0aWVzOiBbNWNdIFBvd2VyIE1h
+bmFnZW1lbnQgdmVyc2lvbiAyDQoNCjAyOjFjLjAgUElDOiBJbnRlbCBDb3JwLiA4Mjg3MFAyIFA2
+NEgyIEkvT3hBUElDIChyZXYgMDQpIChwcm9nLWlmIDIwIFtJTyhYKS1BUElDXSkNCiAgICAgICAg
+RmxhZ3M6IGJ1cyBtYXN0ZXIsIDY2TWh6LCBmYXN0IGRldnNlbCwgbGF0ZW5jeSAwDQogICAgICAg
+IE1lbW9yeSBhdCAwMDAwMDAwMGYxZmYwMDAwICgzMi1iaXQsIG5vbi1wcmVmZXRjaGFibGUpIFtz
+aXplPTRLXQ0KICAgICAgICBDYXBhYmlsaXRpZXM6IFs1MF0gUENJLVggbm9uLWJyaWRnZSBkZXZp
+Y2UuDQoNCjAyOjFkLjAgUENJIGJyaWRnZTogSW50ZWwgQ29ycC4gODI4NzBQMiBQNjRIMiBIdWIg
+UENJIEJyaWRnZSAocmV2IDA0KSAocHJvZy1pZiAwMCBbTm9ybWFsIGRlY29kZV0pDQogICAgICAg
+IEZsYWdzOiBidXMgbWFzdGVyLCA2Nk1oeiwgZmFzdCBkZXZzZWwsIGxhdGVuY3kgNjQNCiAgICAg
+ICAgQnVzOiBwcmltYXJ5PTAyLCBzZWNvbmRhcnk9MDMsIHN1Ym9yZGluYXRlPTA1LCBzZWMtbGF0
+ZW5jeT02NA0KICAgICAgICBJL08gYmVoaW5kIGJyaWRnZTogMDAwMDYwMDAtMDAwMDdmZmYNCiAg
+ICAgICAgTWVtb3J5IGJlaGluZCBicmlkZ2U6IGYyMDAwMDAwLWY1ZmZmZmZmDQogICAgICAgIFBy
+ZWZldGNoYWJsZSBtZW1vcnkgYmVoaW5kIGJyaWRnZTogMDAwMDAwMDBlM2YwMDAwMC0wMDAwMDAw
+MGViZjAwMDAwDQogICAgICAgIENhcGFiaWxpdGllczogWzUwXSBQQ0ktWCBub24tYnJpZGdlIGRl
+dmljZS4NCg0KMDI6MWUuMCBQSUM6IEludGVsIENvcnAuIDgyODcwUDIgUDY0SDIgSS9PeEFQSUMg
+KHJldiAwNCkgKHByb2ctaWYgMjAgW0lPKFgpLUFQSUNdKQ0KICAgICAgICBGbGFnczogYnVzIG1h
+c3RlciwgNjZNaHosIGZhc3QgZGV2c2VsLCBsYXRlbmN5IDANCiAgICAgICAgTWVtb3J5IGF0IDAw
+MDAwMDAwZjFmZTAwMDAgKDMyLWJpdCwgbm9uLXByZWZldGNoYWJsZSkgW3NpemU9NEtdDQogICAg
+ICAgIENhcGFiaWxpdGllczogWzUwXSBQQ0ktWCBub24tYnJpZGdlIGRldmljZS4NCg0KMDI6MWYu
+MCBQQ0kgYnJpZGdlOiBJbnRlbCBDb3JwLiA4Mjg3MFAyIFA2NEgyIEh1YiBQQ0kgQnJpZGdlIChy
+ZXYgMDQpIChwcm9nLWlmIDAwIFtOb3JtYWwgZGVjb2RlXSkNCiAgICAgICAgRmxhZ3M6IGJ1cyBt
+YXN0ZXIsIDY2TWh6LCBmYXN0IGRldnNlbCwgbGF0ZW5jeSA2NA0KICAgICAgICBCdXM6IHByaW1h
+cnk9MDIsIHNlY29uZGFyeT0wNiwgc3Vib3JkaW5hdGU9MDcsIHNlYy1sYXRlbmN5PTY0DQogICAg
+ICAgIEkvTyBiZWhpbmQgYnJpZGdlOiAwMDAwODAwMC0wMDAwOWZmZg0KICAgICAgICBNZW1vcnkg
+YmVoaW5kIGJyaWRnZTogZjYwMDAwMDAtZjhmZmZmZmYNCiAgICAgICAgUHJlZmV0Y2hhYmxlIG1l
+bW9yeSBiZWhpbmQgYnJpZGdlOiAwMDAwMDAwMGVjMDAwMDAwLTAwMDAwMDAwZjBmMDAwMDANCiAg
+ICAgICAgQ2FwYWJpbGl0aWVzOiBbNTBdIFBDSS1YIG5vbi1icmlkZ2UgZGV2aWNlLg0KDQowMzox
+Zi4wIFBDSSBIb3QtcGx1ZyBjb250cm9sbGVyOiBJbnRlbCBDb3JwLiA4Mjg3MFAyIFA2NEgyIEhv
+dCBQbHVnIENvbnRyb2xsZXIgKHJldiAwNCkNCiAgICAgICAgU3Vic3lzdGVtOiBJbnRlbCBDb3Jw
+LjogVW5rbm93biBkZXZpY2UgMDNiMA0KICAgICAgICBGbGFnczogYnVzIG1hc3RlciwgNjZNaHos
+IG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgMCwgSVJRIDY3DQogICAgICAgIE1lbW9yeSBhdCAwMDAw
+MDAwMGUzZmYwMDAwICg2NC1iaXQsIHByZWZldGNoYWJsZSkgW3NpemU9MjU2XQ0KICAgICAgICBD
+YXBhYmlsaXRpZXM6IFs2NF0gUENJLVggbm9uLWJyaWRnZSBkZXZpY2UuDQoNCjA2OjAyLjAgU0NT
+SSBzdG9yYWdlIGNvbnRyb2xsZXI6IExTSSBMb2dpYyAvIFN5bWJpb3MgTG9naWMgNTNjMTAzMCBQ
+Q0ktWCBGdXNpb24tTVBUIER1YWwgVWx0cmEzMjAgU0NTSSAocmV2IDA3KQ0KICAgICAgICBTdWJz
+eXN0ZW06IEludGVsIENvcnAuOiBVbmtub3duIGRldmljZSAzNDAyDQogICAgICAgIEZsYWdzOiBi
+dXMgbWFzdGVyLCA2Nk1oeiwgbWVkaXVtIGRldnNlbCwgbGF0ZW5jeSA2NCwgSVJRIDU2DQogICAg
+ICAgIEkvTyBwb3J0cyBhdCA4ODAwIFtzaXplPTI1Nl0NCiAgICAgICAgTWVtb3J5IGF0IDAwMDAw
+MDAwZjhmZDAwMDAgKDY0LWJpdCwgbm9uLXByZWZldGNoYWJsZSkgW3NpemU9NjRLXQ0KICAgICAg
+ICBNZW1vcnkgYXQgMDAwMDAwMDBmOGZjMDAwMCAoNjQtYml0LCBub24tcHJlZmV0Y2hhYmxlKSBb
+c2l6ZT02NEtdDQogICAgICAgIEV4cGFuc2lvbiBST00gYXQgMDAwMDAwMDBmOGQwMDAwMCBbZGlz
+YWJsZWRdIFtzaXplPTFNXQ0KICAgICAgICBDYXBhYmlsaXRpZXM6IFs1MF0gUG93ZXIgTWFuYWdl
+bWVudCB2ZXJzaW9uIDINCiAgICAgICAgQ2FwYWJpbGl0aWVzOiBbNThdIE1lc3NhZ2UgU2lnbmFs
+bGVkIEludGVycnVwdHM6IDY0Yml0KyBRdWV1ZT0wLzAgRW5hYmxlLQ0KICAgICAgICBDYXBhYmls
+aXRpZXM6IFs2OF0gUENJLVggbm9uLWJyaWRnZSBkZXZpY2UuDQoNCjA2OjAyLjEgU0NTSSBzdG9y
+YWdlIGNvbnRyb2xsZXI6IExTSSBMb2dpYyAvIFN5bWJpb3MgTG9naWMgNTNjMTAzMCBQQ0ktWCBG
+dXNpb24tTVBUIER1YWwgVWx0cmEzMjAgU0NTSSAocmV2IDA3KQ0KICAgICAgICBTdWJzeXN0ZW06
+IEludGVsIENvcnAuOiBVbmtub3duIGRldmljZSAzNDAyDQogICAgICAgIEZsYWdzOiBidXMgbWFz
+dGVyLCA2Nk1oeiwgbWVkaXVtIGRldnNlbCwgbGF0ZW5jeSA2NCwgSVJRIDU3DQogICAgICAgIEkv
+TyBwb3J0cyBhdCA4YzAwIFtzaXplPTI1Nl0NCiAgICAgICAgTWVtb3J5IGF0IDAwMDAwMDAwZjhm
+ZjAwMDAgKDY0LWJpdCwgbm9uLXByZWZldGNoYWJsZSkgW3NpemU9NjRLXQ0KICAgICAgICBNZW1v
+cnkgYXQgMDAwMDAwMDBmOGZlMDAwMCAoNjQtYml0LCBub24tcHJlZmV0Y2hhYmxlKSBbc2l6ZT02
+NEtdDQogICAgICAgIEV4cGFuc2lvbiBST00gYXQgMDAwMDAwMDBmOGUwMDAwMCBbZGlzYWJsZWRd
+IFtzaXplPTFNXQ0KICAgICAgICBDYXBhYmlsaXRpZXM6IFs1MF0gUG93ZXIgTWFuYWdlbWVudCB2
+ZXJzaW9uIDINCiAgICAgICAgQ2FwYWJpbGl0aWVzOiBbNThdIE1lc3NhZ2UgU2lnbmFsbGVkIElu
+dGVycnVwdHM6IDY0Yml0KyBRdWV1ZT0wLzAgRW5hYmxlLQ0KICAgICAgICBDYXBhYmlsaXRpZXM6
+IFs2OF0gUENJLVggbm9uLWJyaWRnZSBkZXZpY2UuDQoNCjA2OjFmLjAgUENJIEhvdC1wbHVnIGNv
+bnRyb2xsZXI6IEludGVsIENvcnAuIDgyODcwUDIgUDY0SDIgSG90IFBsdWcgQ29udHJvbGxlciAo
+cmV2IDA0KQ0KICAgICAgICBTdWJzeXN0ZW06IEludGVsIENvcnAuOiBVbmtub3duIGRldmljZSAw
+M2IwDQogICAgICAgIEZsYWdzOiBidXMgbWFzdGVyLCA2Nk1oeiwgbWVkaXVtIGRldnNlbCwgbGF0
+ZW5jeSAwLCBJUlEgNTgNCiAgICAgICAgTWVtb3J5IGF0IDAwMDAwMDAwZjBmZjAwMDAgKDY0LWJp
+dCwgcHJlZmV0Y2hhYmxlKSBbc2l6ZT0yNTZdDQogICAgICAgIENhcGFiaWxpdGllczogWzY0XSBQ
+Q0ktWCBub24tYnJpZGdlIGRldmljZS4NCg0KMDk6MWMuMCBQSUM6IEludGVsIENvcnAuIDgyODcw
+UDIgUDY0SDIgSS9PeEFQSUMgKHJldiAwNCkgKHByb2ctaWYgMjAgW0lPKFgpLUFQSUNdKQ0KICAg
+ICAgICBGbGFnczogYnVzIG1hc3RlciwgNjZNaHosIGZhc3QgZGV2c2VsLCBsYXRlbmN5IDANCiAg
+ICAgICAgTWVtb3J5IGF0IDAwMDAwMDAwZGJmZjAwMDAgKDMyLWJpdCwgbm9uLXByZWZldGNoYWJs
+ZSkgW3NpemU9NEtdDQogICAgICAgIENhcGFiaWxpdGllczogWzUwXSBQQ0ktWCBub24tYnJpZGdl
+IGRldmljZS4NCg0KMDk6MWQuMCBQQ0kgYnJpZGdlOiBJbnRlbCBDb3JwLiA4Mjg3MFAyIFA2NEgy
+IEh1YiBQQ0kgQnJpZGdlIChyZXYgMDQpIChwcm9nLWlmIDAwIFtOb3JtYWwgZGVjb2RlXSkNCiAg
+ICAgICAgRmxhZ3M6IGJ1cyBtYXN0ZXIsIDY2TWh6LCBmYXN0IGRldnNlbCwgbGF0ZW5jeSA2NA0K
+ICAgICAgICBCdXM6IHByaW1hcnk9MDksIHNlY29uZGFyeT0wYSwgc3Vib3JkaW5hdGU9MGIsIHNl
+Yy1sYXRlbmN5PTY0DQogICAgICAgIEkvTyBiZWhpbmQgYnJpZGdlOiAwMDAwYTAwMC0wMDAwYWZm
+Zg0KICAgICAgICBNZW1vcnkgYmVoaW5kIGJyaWRnZTogZGMwMDAwMDAtZGRmZmZmZmYNCiAgICAg
+ICAgUHJlZmV0Y2hhYmxlIG1lbW9yeSBiZWhpbmQgYnJpZGdlOiAwMDAwMDAwMGNiZjAwMDAwLTAw
+MDAwMDAwY2ZmMDAwMDANCiAgICAgICAgQ2FwYWJpbGl0aWVzOiBbNTBdIFBDSS1YIG5vbi1icmlk
+Z2UgZGV2aWNlLg0KDQowOToxZS4wIFBJQzogSW50ZWwgQ29ycC4gODI4NzBQMiBQNjRIMiBJL094
+QVBJQyAocmV2IDA0KSAocHJvZy1pZiAyMCBbSU8oWCktQVBJQ10pDQogICAgICAgIEZsYWdzOiBi
+dXMgbWFzdGVyLCA2Nk1oeiwgZmFzdCBkZXZzZWwsIGxhdGVuY3kgMA0KICAgICAgICBNZW1vcnkg
+YXQgMDAwMDAwMDBkYmZlMDAwMCAoMzItYml0LCBub24tcHJlZmV0Y2hhYmxlKSBbc2l6ZT00S10N
+CiAgICAgICAgQ2FwYWJpbGl0aWVzOiBbNTBdIFBDSS1YIG5vbi1icmlkZ2UgZGV2aWNlLg0KDQow
+OToxZi4wIFBDSSBicmlkZ2U6IEludGVsIENvcnAuIDgyODcwUDIgUDY0SDIgSHViIFBDSSBCcmlk
+Z2UgKHJldiAwNCkgKHByb2ctaWYgMDAgW05vcm1hbCBkZWNvZGVdKQ0KICAgICAgICBGbGFnczog
+YnVzIG1hc3RlciwgNjZNaHosIGZhc3QgZGV2c2VsLCBsYXRlbmN5IDY0DQogICAgICAgIEJ1czog
+cHJpbWFyeT0wOSwgc2Vjb25kYXJ5PTBjLCBzdWJvcmRpbmF0ZT0wZSwgc2VjLWxhdGVuY3k9NjQN
+CiAgICAgICAgSS9PIGJlaGluZCBicmlkZ2U6IDAwMDBiMDAwLTAwMDBjZmZmDQogICAgICAgIE1l
+bW9yeSBiZWhpbmQgYnJpZGdlOiBkZTAwMDAwMC1lMmZmZmZmZg0KICAgICAgICBQcmVmZXRjaGFi
+bGUgbWVtb3J5IGJlaGluZCBicmlkZ2U6IDAwMDAwMDAwZDAwMDAwMDAtMDAwMDAwMDBkYWYwMDAw
+MA0KICAgICAgICBDYXBhYmlsaXRpZXM6IFs1MF0gUENJLVggbm9uLWJyaWRnZSBkZXZpY2UuDQoN
+CjBhOjFmLjAgUENJIEhvdC1wbHVnIGNvbnRyb2xsZXI6IEludGVsIENvcnAuIDgyODcwUDIgUDY0
+SDIgSG90IFBsdWcgQ29udHJvbGxlciAocmV2IDA0KQ0KICAgICAgICBTdWJzeXN0ZW06IEludGVs
+IENvcnAuOiBVbmtub3duIGRldmljZSAwM2YwDQogICAgICAgIEZsYWdzOiBidXMgbWFzdGVyLCA2
+Nk1oeiwgbWVkaXVtIGRldnNlbCwgbGF0ZW5jeSAwLCBJUlEgODANCiAgICAgICAgTWVtb3J5IGF0
+IDAwMDAwMDAwY2JmZjAwMDAgKDY0LWJpdCwgcHJlZmV0Y2hhYmxlKSBbc2l6ZT0yNTZdDQogICAg
+ICAgIENhcGFiaWxpdGllczogWzY0XSBQQ0ktWCBub24tYnJpZGdlIGRldmljZS4NCg0KMGM6MWYu
+MCBQQ0kgSG90LXBsdWcgY29udHJvbGxlcjogSW50ZWwgQ29ycC4gODI4NzBQMiBQNjRIMiBIb3Qg
+UGx1ZyBDb250cm9sbGVyIChyZXYgMDQpDQogICAgICAgIFN1YnN5c3RlbTogSW50ZWwgQ29ycC46
+IFVua25vd24gZGV2aWNlIDAzYjANCiAgICAgICAgRmxhZ3M6IGJ1cyBtYXN0ZXIsIDY2TWh6LCBt
+ZWRpdW0gZGV2c2VsLCBsYXRlbmN5IDAsIElSUSA3NQ0KICAgICAgICBNZW1vcnkgYXQgMDAwMDAw
+MDBkYWZmMDAwMCAoNjQtYml0LCBwcmVmZXRjaGFibGUpIFtzaXplPTI1Nl0NCiAgICAgICAgQ2Fw
+YWJpbGl0aWVzOiBbNjRdIFBDSS1YIG5vbi1icmlkZ2UgZGV2aWNlLg0KDQowZjoxYy4wIFBJQzog
+SW50ZWwgQ29ycC4gODI4NzBQMiBQNjRIMiBJL094QVBJQyAocmV2IDA0KSAocHJvZy1pZiAyMCBb
+SU8oWCktQVBJQ10pDQogICAgICAgIEZsYWdzOiBidXMgbWFzdGVyLCA2Nk1oeiwgZmFzdCBkZXZz
+ZWwsIGxhdGVuY3kgMA0KICAgICAgICBNZW1vcnkgYXQgMDAwMDAwMDBjNWZmMDAwMCAoMzItYml0
+LCBub24tcHJlZmV0Y2hhYmxlKSBbc2l6ZT00S10NCiAgICAgICAgQ2FwYWJpbGl0aWVzOiBbNTBd
+IFBDSS1YIG5vbi1icmlkZ2UgZGV2aWNlLg0KDQowZjoxZC4wIFBDSSBicmlkZ2U6IEludGVsIENv
+cnAuIDgyODcwUDIgUDY0SDIgSHViIFBDSSBCcmlkZ2UgKHJldiAwNCkgKHByb2ctaWYgMDAgW05v
+cm1hbCBkZWNvZGVdKQ0KICAgICAgICBGbGFnczogYnVzIG1hc3RlciwgNjZNaHosIGZhc3QgZGV2
+c2VsLCBsYXRlbmN5IDY0DQogICAgICAgIEJ1czogcHJpbWFyeT0wZiwgc2Vjb25kYXJ5PTEwLCBz
+dWJvcmRpbmF0ZT0xMSwgc2VjLWxhdGVuY3k9NjQNCiAgICAgICAgSS9PIGJlaGluZCBicmlkZ2U6
+IDAwMDBkMDAwLTAwMDBkZmZmDQogICAgICAgIE1lbW9yeSBiZWhpbmQgYnJpZGdlOiBjNjAwMDAw
+MC1jN2ZmZmZmZg0KICAgICAgICBQcmVmZXRjaGFibGUgbWVtb3J5IGJlaGluZCBicmlkZ2U6IDAw
+MDAwMDAwYmJmMDAwMDAtMDAwMDAwMDBiZmYwMDAwMA0KICAgICAgICBDYXBhYmlsaXRpZXM6IFs1
+MF0gUENJLVggbm9uLWJyaWRnZSBkZXZpY2UuDQoNCjBmOjFlLjAgUElDOiBJbnRlbCBDb3JwLiA4
+Mjg3MFAyIFA2NEgyIEkvT3hBUElDIChyZXYgMDQpIChwcm9nLWlmIDIwIFtJTyhYKS1BUElDXSkN
+CiAgICAgICAgRmxhZ3M6IGJ1cyBtYXN0ZXIsIDY2TWh6LCBmYXN0IGRldnNlbCwgbGF0ZW5jeSAw
+DQogICAgICAgIE1lbW9yeSBhdCAwMDAwMDAwMGM1ZmUwMDAwICgzMi1iaXQsIG5vbi1wcmVmZXRj
+aGFibGUpIFtzaXplPTRLXQ0KICAgICAgICBDYXBhYmlsaXRpZXM6IFs1MF0gUENJLVggbm9uLWJy
+aWRnZSBkZXZpY2UuDQoNCjBmOjFmLjAgUENJIGJyaWRnZTogSW50ZWwgQ29ycC4gODI4NzBQMiBQ
+NjRIMiBIdWIgUENJIEJyaWRnZSAocmV2IDA0KSAocHJvZy1pZiAwMCBbTm9ybWFsIGRlY29kZV0p
+DQogICAgICAgIEZsYWdzOiBidXMgbWFzdGVyLCA2Nk1oeiwgZmFzdCBkZXZzZWwsIGxhdGVuY3kg
+NjQNCiAgICAgICAgQnVzOiBwcmltYXJ5PTBmLCBzZWNvbmRhcnk9MTIsIHN1Ym9yZGluYXRlPTEz
+LCBzZWMtbGF0ZW5jeT02NA0KICAgICAgICBJL08gYmVoaW5kIGJyaWRnZTogMDAwMGUwMDAtMDAw
+MGVmZmYNCiAgICAgICAgTWVtb3J5IGJlaGluZCBicmlkZ2U6IGM4MDAwMDAwLWNhZmZmZmZmDQog
+ICAgICAgIFByZWZldGNoYWJsZSBtZW1vcnkgYmVoaW5kIGJyaWRnZTogMDAwMDAwMDBjMDAwMDAw
+MC0wMDAwMDAwMGM0ZjAwMDAwDQogICAgICAgIENhcGFiaWxpdGllczogWzUwXSBQQ0ktWCBub24t
+YnJpZGdlIGRldmljZS4NCg0KMTA6MWYuMCBQQ0kgSG90LXBsdWcgY29udHJvbGxlcjogSW50ZWwg
+Q29ycC4gODI4NzBQMiBQNjRIMiBIb3QgUGx1ZyBDb250cm9sbGVyIChyZXYgMDQpDQogICAgICAg
+IFN1YnN5c3RlbTogSW50ZWwgQ29ycC46IFVua25vd24gZGV2aWNlIDAzZjANCiAgICAgICAgRmxh
+Z3M6IGJ1cyBtYXN0ZXIsIDY2TWh6LCBtZWRpdW0gZGV2c2VsLCBsYXRlbmN5IDAsIElSUSA5MA0K
+ICAgICAgICBNZW1vcnkgYXQgMDAwMDAwMDBiYmZmMDAwMCAoNjQtYml0LCBwcmVmZXRjaGFibGUp
+IFtzaXplPTI1Nl0NCiAgICAgICAgQ2FwYWJpbGl0aWVzOiBbNjRdIFBDSS1YIG5vbi1icmlkZ2Ug
+ZGV2aWNlLg0KDQoxMjoxZi4wIFBDSSBIb3QtcGx1ZyBjb250cm9sbGVyOiBJbnRlbCBDb3JwLiA4
+Mjg3MFAyIFA2NEgyIEhvdCBQbHVnIENvbnRyb2xsZXIgKHJldiAwNCkNCiAgICAgICAgU3Vic3lz
+dGVtOiBJbnRlbCBDb3JwLjogVW5rbm93biBkZXZpY2UgMDNmMA0KICAgICAgICBGbGFnczogYnVz
+IG1hc3RlciwgNjZNaHosIG1lZGl1bSBkZXZzZWwsIGxhdGVuY3kgMCwgSVJRIDg1DQogICAgICAg
+IE1lbW9yeSBhdCAwMDAwMDAwMGM0ZmYwMDAwICg2NC1iaXQsIHByZWZldGNoYWJsZSkgW3NpemU9
+MjU2XQ0KICAgICAgICBDYXBhYmlsaXRpZXM6IFs2NF0gUENJLVggbm9uLWJyaWRnZSBkZXZpY2Uu
+DQoNClBvd2VyIGRvd24uDQphY3BpX3Bvd2VyX29mZiBjYWxsZWQNCiBod3NsZWVwLTAyNjUgWzAx
+XSBhY3BpX2VudGVyX3NsZWVwX3N0YXRlOiBFbnRlcmluZyBzbGVlcCBzdGF0ZSBbUzVdDQo=
+
+------_=_NextPart_001_01C3FB97.3D6A2BA1--
