@@ -1,42 +1,31 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Wed, 17 Jan 2001 19:50:00 +0000
-Subject: Re: [Linux-ia64] What is the latest kernel debugger for ia64?
-Message-Id: <marc-linux-ia64-105590693005065@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Fri, 05 Jan 2001 19:22:12 +0000
+Subject: RE: [Linux-ia64] fdisk for efi disks?
+Message-Id: <marc-linux-ia64-105590678205886@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005062@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005062@msgid-missing>
+References: <marc-linux-ia64-105590678205863@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205863@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+> I'm a new kid on the block and I was interested if anyone was already
+> working on an fdisk replacement/enhancement to be used on efi disks?
 
-We have updated kernel RPMS (binary and source) with the kdb patch for
-2.4.0.  You can find them on:
+I started work to add GPT support to GNU parted, but made it for 1.2.x, not
+the current 1.4.x, and haven't had the time to do the forward-port.  If
+you've got the time, I'm happy to send you my original patch.
 
-ftp://frontier.turbolinux.com/pub/ia64/updates
+> I wonder if enhancing fdisk such that it also handles efi 
+> disks would be
+> better than building a new tool (efdisk)?
 
+Modifying fdisk would be useful too, IMHO.
 
-On Wed, Jan 17, 2001 at 10:31:04AM -0800, Broadfoot, KenX wrote:
-> 
-> 
-> Is it 2.4.0-test12's? Or is there one for the 2.4.0 kernel yet?
-> 
-> I need to get one ASAP...
-> 
-> Thanks....
-> 
-> --ken
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Thanks,
+Matt Domsch
+Dell Enterprise Systems Group
+Linux Development Team
 
--- 
-Mike Madore
-Software Engineer
-TurboLinux, Inc.
 
