@@ -1,83 +1,51 @@
-From: "'David Gibson'" <david@gibson.dropbear.id.au>
-Date: Fri, 16 Apr 2004 03:27:25 +0000
-Subject: Re: hugetlb demand paging patch part [2/3]
-Message-Id: <20040416032725.GG12735@zax>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 16 Apr 2004 04:13:38 +0000
+Subject: RE: hugetlb demand paging patch part [2/3]
+Message-Id: <200404160413.i3G4DcF13729@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040416023442.GF12735@zax> <200404160258.i3G2w8F13087@unix-os.sc.intel.com>
-In-Reply-To: <200404160258.i3G2w8F13087@unix-os.sc.intel.com>
+In-Reply-To: <20040416032725.GG12735@zax>
+References: <200404132322.i3DNMuF21215@unix-os.sc.intel.com>
+In-Reply-To: <200404132322.i3DNMuF21215@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+To: 'David Gibson' <david@gibson.dropbear.id.au>
 Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, 'Andrew Morton' <akpm@osdl.org>
 
-On Thu, Apr 15, 2004 at 07:58:07PM -0700, Chen, Kenneth W wrote:
-> >>>> David Gibson wrote on Thursday, April 15, 2004 7:35 PM
-> > > Yes, killing follow_hugetlb_page() is safe because follow_page() takes
-> > > care of hugetlb page.  See 2nd patch posted earlier in
-> > > hugetlb_demanding_generic.patch
-> >
-> > Yes, I looked at it already.  But what I'm asking about is applying
-> > this patch *without* (or before) going to demand paging.
-> >
-> > Index: working-2.6/mm/memory.c
-> > =================================> > +++ working-2.6/mm/memory.c	2004-04-16 11:46:31.935870496 +1000
-> > @@ -766,16 +766,13 @@
-> >  				|| !(flags & vma->vm_flags))
-> >  			return i ? : -EFAULT;
-> >
-> > -		if (is_vm_hugetlb_page(vma)) {
-> > -			i = follow_hugetlb_page(mm, vma, pages, vmas,
-> > -						&start, &len, i);
-> > -			continue;
-> > -		}
-> >  		spin_lock(&mm->page_table_lock);
-> >  		do {
-> >  			struct page *map;
-> >  			int lookup_write = write;
-> >  			while (!(map = follow_page(mm, start, lookup_write))) {
-> > +				/* hugepages should always be prefaulted */
-> > +				BUG_ON(is_vm_hugetlb_page(vma));
-> >  				/*
-> >  				 * Shortcut for anonymous pages. We don't want
-> >  				 * to force the creation of pages tables for
-> >
-> > Yes, I looked at it already.  But what I'm asking about is applying
-> > this patch *without* (or before) going to demand paging.
+David Gibson wrote on Thursday, April 15, 2004 8:27 PM
+> Ah!  So it's just an optimiziation - it makes a bit more sense to me
+> now.  I had assumed that this case (hugepage get_user_pages()) would
+> be sufficiently rare that it would not require optimization.
+> Apparently not.
 
-Oh, drat.  Looks like I included the old version of the patch again,
-not the fixed version without the BUG_ON().  Corrected version
-below for real this time.
+It's a huge deal because for *every* I/O, kernel has to do get_user_pages()
+to lock the page, it's really gets in the way with the spin_lock as well.
 
-> In that case, yes, it is not absolutely required. But we do special
-> optimization for follow_hugetlb_pages() in the prefaulting implementation,
-> at least for ia64 arch. It give a sizable gain on db benchmark.
+        spin_lock(&mm->page_table_lock);
+        do {
+                struct page *map;
+                int lookup_write = write;
+                while (!(map = follow_page(mm, start, lookup_write))) {
 
-Ah!  So it's just an optimiziation - it makes a bit more sense to me
-now.  I had assumed that this case (hugepage get_user_pages()) would
-be sufficiently rare that it would not require optimization.
-Apparently not.
+With current state of art platform, I/O requirement pushes into 200K
+per second, this become quite significant.
 
-Do you know where the cycles are going without this optimization?  In
-particular, could it be just the find_vma() in hugepage_vma() called
-before follow_huge_addr()?  I note that IA64 is the only arch to have
-a non-trivial hugepage_vma()/follow_huge_addr() and that its
-follow_huge_addr() doesn't actually use the vma passed in.
 
-So the only significance of the find_vma() is to determine that we're
-in an allocated region and that therefore (with prefault) the hugepage
-PTEs must be present.  If you actually check for the presence of the
-page table entries and the return code of huge_pte_offset() in
-follow_huge_addr() (as your 1/3 patch does), then the only thing that
-hugepage_vma() need do on ia64 is to check that the address lies in
-region 1 (and of course change names and remove the vma parameters,
-since they're no longer used).
+> Do you know where the cycles are going without this optimization?  In
+> particular, could it be just the find_vma() in hugepage_vma() called
+> before follow_huge_addr()?  I note that IA64 is the only arch to have
+> a non-trivial hugepage_vma()/follow_huge_addr() and that its
+> follow_huge_addr() doesn't actually use the vma passed in.
 
-If we could get rid of follow_hugetlb_pages() it would remove an ugly
-function from every arch, which would be nice.
+That's one, plus the spin lock mentioned above.
 
--- 
-David Gibson			| For every complex problem there is a
-david AT gibson.dropbear.id.au	| solution which is simple, neat and
-				| wrong.
-http://www.ozlabs.org/people/dgibson
+
+> If we could get rid of follow_hugetlb_pages() it would remove an ugly
+> function from every arch, which would be nice.
+
+I hope the goal here is not to trim code for existing prefaulting scheme.
+That function has to go for demand paging, and demand paging comes with
+a performance price most people don't realize.  If the goal here is to
+make the code prettier, I vote against that.
+
+
