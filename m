@@ -1,23 +1,22 @@
-From: Richard Henderson <rth@redhat.com>
-Date: Mon, 08 Apr 2002 05:52:19 +0000
-Subject: [Linux-ia64] Re: epilogue count exceeds number of nested prologues
-Message-Id: <marc-linux-ia64-105590701905404@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 25 Apr 2002 22:37:11 +0000
+Subject: [Linux-ia64] /proc/cpuinfo change
+Message-Id: <marc-linux-ia64-105590701905528@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, Apr 07, 2002 at 05:17:14PM -0700, Randolph Chung wrote:
-> The offending assembly code is attached. it's the ".restore sp" near
-> the end that is triggering the error.
+Since McKinley is now officially known as "Itanium 2", I'd
+like to change the /proc/cpuinfo accordingly.  That is, the
+family line would read:
 
-Yes, this assembly is completely scrogged.  It's all inside inline
-assembly too, so it's no one's fault but the programmer.
+family     : Itanium 2
 
-That said, you must be using an old libffi, since the one in gcc
-cvs works just fine.
+I don't know of any applications that are affected by this, but I
+thought it would be good to give a heads-up (I'm not planning to
+change any of the CONFIG options; that would be too much idle work).
 
-
-r~
+	--david
 
