@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 16 Apr 2003 23:31:21 +0000
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Thu, 17 Apr 2003 19:37:49 +0000
 Subject: Re: [Linux-ia64] brl emulation bug fix
-Message-Id: <marc-linux-ia64-105590723705523@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705539@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705514@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705514@msgid-missing>
@@ -10,15 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 16 Apr 2003 14:00:13 -0700, Arun Sharma <arun.sharma@intel.com> said:
+On Wednesday 16 April 2003 3:00 pm, Arun Sharma wrote:
+> This applies to both 2.4 and 2.5. A 64 bit value was being assigned to
+> an int.
 
-  Arun> This applies to both 2.4 and 2.5. A 64 bit value was being assigned to
-  Arun> an int.
+I applied this for 2.4 as well.
 
-It didn't actually apply in 2.5 due to some whitespace differences
-(blank vs. tab), but I applied it by hand now.
+> --- arch/ia64/kernel/brl_emu.c.orig     Thu Oct 17 10:02:52 2002
+> +++ arch/ia64/kernel/brl_emu.c  Thu Oct 17 15:40:29 2002
+> @@ -59,7 +59,7 @@
+>         unsigned long next_ip;
+>         struct siginfo siginfo;
+>         struct illegal_op_return rv;
+> -       int tmp_taken, unimplemented_address;
+> +       long tmp_taken, unimplemented_address;
+> 
+>         rv.fkt = (unsigned long) -1;
+> 
 
-Thanks!
-
-	--david
 
