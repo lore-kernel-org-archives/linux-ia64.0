@@ -1,38 +1,20 @@
-From: Patrick Carey <patrickcarey@yahoo.com>
-Date: Wed, 29 Mar 2000 14:49:59 +0000
-Subject: [Linux-ia64] Proper Form Request...?
-Message-Id: <marc-linux-ia64-105590678204997@msgid-missing>
+From: Christoph Rohland <cr@sap.com>
+Date: Tue, 25 Apr 2000 10:39:27 +0000
+Subject: [Linux-ia64] serial efishell anybody?
+Message-Id: <marc-linux-ia64-105590678205037@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-dear org:
+Hi,
 
-is this the proper forum to seek info. support in
-developing a linux - internet appliance based demo...?
+I have everything working over serial line. Apparently the efishell
+does also use the serial line. But I do not know the port settings and
+how to adjust them.
 
-i do not want to mis-use the intended purpose of this
-organization - forum...
-
-thank you...
-
-sincerely yours,
-
-patrick w. carey
-
-==Patrick W. Carey
-Grapevine Solution's Technology, Inc.
-M.S.#628, 809 Laurel Street
-San Carlos, California 94070
-408-229-4335, 650-378-5290
-Cell: 408-966-1187, Fax:(419)828-8296
-www.gvstec.net - asya@ricochet.net
-
-__________________________________________________
-Do You Yahoo!?
-Talk to your friends online with Yahoo! Messenger.
-http://im.yahoo.com
+Any help appreciated
+        		Christoph
 
 
