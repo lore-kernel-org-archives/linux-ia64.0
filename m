@@ -1,71 +1,47 @@
-From: Kevin Buettner <kev@primenet.com>
-Date: Wed, 22 Mar 2000 00:17:50 +0000
-Subject: Re: [Linux-ia64] gdb support for IA32?
-Message-Id: <marc-linux-ia64-105590678204993@msgid-missing>
+From: Don Dugger <n0ano@valinux.com>
+Date: Thu, 02 Mar 2000 17:45:56 +0000
+Subject: Re: [Linux-ia64] Running ia32 binaries ...
+Message-Id: <marc-linux-ia64-105590678204969@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678204990@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678204990@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mar 21,  4:15pm, Don Dugger wrote:
+Vadim-
 
-> Funny you should ask.  I've just started to do this.  The ultimate
-> goal would be to have a single `gdb' that operates on either an
-> IA64 or IA32 process.  I think that would be a little tricky 
+Did you configure and re-compile the kernel that you are running?
+I don't know if IA32 was configured into the binaries on the CD.
+Make sure that `CONFIG_IA32_SUPPORT' is turned on.
 
-I agree that this is a desirable goal.  But to achieve it the IA-32
-port will have to be fully mult-arch'd first.  (Since the IA-64 port
-is a brand new port, we were able to properly multi-arch it from
-the beginning.)
+Another problem could be with dynamic libraries.  The simplest
+solution is to use the `-static' flag to create a static program.
+If you want to run dynamic binaries you need to make sure that
+all the IA32 dynamic libraries are installed on your IA64 box in
+a separate directory and then have the environment variable
+`LD_LIBRARY_PATH' point to that directory.
 
-> so I'm trying to just take the current `gdb' sources, compile them
-> on my IA64 machine and create a version of `gdb' that only works
-> on IA32 processes running on IA64.  Assuming I don't run into any
-> show stopper problems I should have it up and running within about
-> a week.
+Let me know if either of those don't solve your problem.
 
-Did you create a new ia64-linux-ia32-nat.c (or somesuch) file to fetch
-the registers and such?
-
-Another way to approach this would be to write a ptrace() interface
-for IA-32 processes which provides the same functionality as the
-existing linux/x86 kernel.  Then you could just take a gdb binary
-built for linux/x86 and it'd work.  (Maybe.)
-
-Other news from the gdb front...
-
-  - I've committed the IA-64 specific sources in the gdb tree to the
-    CVS repository at sourceware.cygnus.com.  We still need to get the
-    binutils and opcodes sources committed, but Trillian members
-    should be able to make use of this repository by fetching just the
-    gdb tree from sourceware and using the binutils, opcodes, etc. 
-    from the last release.  (Yes, this is less than optimal...)
-
-  - I've gotten the code for calling inferior functions working.  In
-    order to use it, you'll need to have my Mar 10 ptrace.c patches
-    applied to your kernel.
-
-  - There have been a number of other small changes and bug fixes
-    which should improve the usability of the debugger.  E.g,
-    when you do ``finish'', you'll now see the correct return value
-    (so long as it's not an HFA).  Also, the ``return'' command now
-    works.  Display of floating point values should now work much
-    better provided you've fixed the __scalbn() compiler bug in
-    your libc.  (But there are changes to some of the generic
-    gdb code for floats as well...)
-
-  - I am now able to run the gdb test suite.  I am presently whittling
-    away at the number of failures.
-
-I can put a newer gdb binary up on bunyip if desired...
-
-Kevin
+On Thu, Mar 02, 2000 at 10:24:49AM -0800, Vadim Furman wrote:
+> Hi,
+> I'm trying to run ia32-linux binaries on a ia64 machine with 64-bit kernel
+> from Linux Word CD, and I get: "file not found" error. Are there any patches
+> to install?
+> The program is a simplest "hello world".
+> 
+> 
+> 
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
 -- 
-Kevin Buettner
-kev@primenet.com, kevinb@redhat.com
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@valinux.com
+Ph: 303/938-9838
 
 
