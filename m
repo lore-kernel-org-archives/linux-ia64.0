@@ -1,7 +1,7 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Sun, 22 Jun 2003 05:53:49 +0000
+Date: Sun, 22 Jun 2003 05:57:10 +0000
 Subject: Re: [Discontig-devel] [PATCH] another discontig patch
-Message-Id: <marc-linux-ia64-105626126524891@msgid-missing>
+Message-Id: <marc-linux-ia64-105626144124949@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105618641519753@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105618641519753@msgid-missing>
@@ -10,109 +10,65 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Thanks for looking at this, Christoph.  Comments below.
-
-On Sat, Jun 21, 2003 at 10:06:46AM +0100, Christoph Hellwig wrote:
-> On Thu, Jun 19, 2003 at 03:28:29PM -0700, Jesse Barnes wrote:
-> >  #else /* !CONFIG_SMP */
-> >  	cpu_data = __phys_per_cpu_start;
-> >  #endif /* !CONFIG_SMP */
+On Sat, Jun 21, 2003 at 07:48:08AM -0700, Martin J. Bligh wrote:
+> >> +static struct ia64_node_data	*boot_node_data[NR_NODES] __initdata;
+> >> +static pg_data_t		*pg_data_ptr[NR_NODES] __initdata;
+> >> +static bootmem_data_t		bdata[NR_NODES] __initdata;
+> >> +static unsigned long		boot_pernode[NR_NODES] __initdata;
+> >> +static unsigned long		boot_pernodesize[NR_NODES] __initdata;
 > 
-> Maybe this whole code should better be abstracted out then?  Also
-> the use of smp_processor_id() here is not preempt-safe but I 'm not sure
-> whether preemption is already enabled at that point.
+> The only use that I can *see* (without looking very hard) for 
+> pg_data_ptr is as pg_data_ptr[node]->bdata, for which you already have
+> bdata[node], don't you? The fact that you have both pg_data_ptr and
+> pg_data_ptrs, which seem to do the same thing, but one as initdata,
+> and one not, is also rather confusing ...
 
-I think we're ok preempt wise here, but you're right that it could
-probably be abstracted a bit.  The issue is that we need to create
-per-node data structures containing each node's info before the per-cpu
-stuff is initialized, so we do it all before the bootmem allocator is
-even setup while we discover memory (see
-discontig.c:find_pernode_space() I think).
+Yeah, that's one thing that I keep meaning to remove, but didn't in the
+initial versions to keep the 2.4 and 2.5 patches as close as possible.
 
-> > +static struct ia64_node_data	*boot_node_data[NR_NODES] __initdata;
-> > +static pg_data_t		*pg_data_ptr[NR_NODES] __initdata;
-> > +static bootmem_data_t		bdata[NR_NODES] __initdata;
-> > +static unsigned long		boot_pernode[NR_NODES] __initdata;
-> > +static unsigned long		boot_pernodesize[NR_NODES] __initdata;
+> memcpy(boot_node_data[0]->pg_data_ptrs, pg_data_ptr, sizeof(pg_data_ptr));
 > 
-> Maybe it's time for special pernode data like the percpu data?
-> Okay, okay, not revelant for this patch yet...
-
-It's already there.  It's really necessary to get decent performance,
-and you have to watch out for cache aliasing effects.
-
-> > +extern int filter_rsvd_memory(unsigned long start, unsigned long end, void *arg);
+> hmmm.
 > 
-> Move this to a header?
+> And aren't boot_pernode and boot_pernodesize really part of bdata?
+> Seems like there's a lot of complexity in order to save a couple of
+> pointer dereferences ... during boot ;-) But maybe I'm just misreading
+> it ;-)
 
-Yeah, maybe it should be in asm/page.h?  Or maybe we need an
-asm/discontig.h?
+Well, there's definitely some pointer magic going on here, but I think
+we use that stuff once the system is up as well, though from a different
+pointer.
 
-> > +# define pfn_valid(pfn)	((pfn) < max_mapnr)
-> > +#endif
 > 
-> Hmm, this ifdef mess look ugly.  Can't we use max_low_pfn for the
-> !CONFIG_DISCONTIGMEM case, too and simp;ify it to something like:
-
-Agreed, no question.  I think this could use some additional cleanup.
-
-> #if defined(CONFIG_VIRTUAL_MEM_MAP)
-> extern int ia64_pfn_valid(unsigned long pfn);
-> #else
-> # define ia64_pfn_valid(pfn)	(1)
-> #endif
+> > Maybe it's time for special pernode data like the percpu data?
+> > Okay, okay, not revelant for this patch yet...
 > 
-> #define pfn_valid(pfn)	(((pfn) < max_low_pfn) && ia64_pfn_valid(pfn))
+> ># ifndef CONFIG_VIRTUAL_MEM_MAP
+> ># define	vmem_map		mem_map
+> ># endif
+> > 
+> ># define pfn_to_page(pfn)	(vmem_map + (pfn))
+> ># define page_to_pfn(page)	((unsigned long) (page - vmem_map))
+> > 
+> > In fact I wonder what's so special about mem_map that the symbol
+> > can't be used for the vmalloc'ed version..
+> > 
+> > BTW, what about per-node memmaps for SN2 like it's done for NUMAQ?
 > 
-> > +
-> > +#if defined(CONFIG_DISCONTIGMEM) && defined(CONFIG_VIRTUAL_MEM_MAP)
-> > +  extern struct page *vmem_map;
-> > +# define pfn_to_page(pfn)	(vmem_map + (pfn))
-> > +# define page_to_pfn(page)	((unsigned long) (page - vmem_map))
-> > +#else
-> > +# define pfn_to_page(pfn)	(mem_map + (pfn))
-> > +# define page_to_pfn(page)	((unsigned long) (page - mem_map))
-> > +#endif /* CONFIG_DISCONTIGMEM && CONFIG_VIRTUAL_MEM_MAP */
-> > +
-
-Though I'm not sure if this is the right way to do it...  If discontig
-on ia64 is going to depend on virtual mem map, then making this one
-#ifdef somehow is probably best.
-
-> Hmm, doesn't CONFIG_VIRTUAL_MEM_MAP && !CONFIG_DISCONTIGMEM need
-> vmem_map also.  Again, the ifdef mess is horrible :)
+> I really don't see how you *can't* do that, and have it still work.
+> If the mem_map is placed in node local memory, and not a size that 
+> happens to be a complete number of pages, even if you pack it down 
+> into a vmem_map, it's still not contiguous. So adding a pfn (physical 
+> page frame number) to the base of vmem_map can NOT give you the correct 
+> address.
 > 
-> What about:
-> 
-> #ifndef CONFIG_VIRTUAL_MEM_MAP
-> #define	vmem_map		mem_map
-> #endif
-> 
-> #define pfn_to_page(pfn)	(vmem_map + (pfn))
-> #define page_to_pfn(page)	((unsigned long) (page - vmem_map))
-> 
-> In fact I wonder what's so special about mem_map that the symbol
-> can't be used for the vmalloc'ed version..
+> Presumably this *is* working for you ... but I'm buggered if I know how ;-)
+> Maybe I just need more coffee ;-)
 
-Don't know, I'll have to look some more.
-
-> BTW, what about per-node memmaps for SN2 like it's done for NUMAQ?
-
-AFAIK, the per-node memmaps index into the big virtual memmap, but I'd
-have to look at it some more.  If we made per-node memory maps, then we
-probably wouldn't need to use the virtual mem map, except that it makes
-dealing with holes a bit easier (since on sn2 even memory within a node
-isn't contiguous, and there are big holes between nodes).
-
-> >  #ifdef CONFIG_NUMA
-> >  	struct ia64_node_data *node_data;
-> > +	int nodeid;
-> > +	struct cpuinfo_ia64 *cpu_data[NR_CPUS];
-> >  #endif
-> 
-> Should the big array be before the nodeid field?
-
-Good catch, probably not. :)
+No, there are some mixed metaphors here for sure (at least, as far as I
+understand it!) :).  You can find stuff either using the global vmemmap
+or the per-node maps I think, but honestly, I'm still coming up to speed
+on this code myself, Jack and Kimi are the real experts.
 
 Thanks,
 Jesse
