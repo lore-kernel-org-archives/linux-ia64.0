@@ -1,7 +1,7 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Thu, 12 Sep 2002 00:41:03 +0000
-Subject: Re: [Linux-ia64] Greater than 2TB Filesystem support?
-Message-Id: <marc-linux-ia64-105590701906023@msgid-missing>
+From: "Eastham, M. Thomas (Anitel Technologies)" <EasthaMT@bp.com>
+Date: Thu, 12 Sep 2002 19:20:50 +0000
+Subject: RE: [Linux-ia64] Greater than 2TB Filesystem support?
+Message-Id: <marc-linux-ia64-105590701906025@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701906020@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701906020@msgid-missing>
@@ -10,9 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Peter,
+	I would be forever in you debt if you could patch 2.4.19  I can test
+up to 2.5TB immediately using SGI's XFS.  This would actually be two
+hardware RAID 0 arrays of 1260GB each software raid'ed together.  Our test
+platform today is i386 but we hope to move to IA64 if the testing shows
+promise.  If this works I hope to be able to test a 7.6TB i386 NAS box
+within a few weeks.
+	I'll be sure to share results with the list.
+
+Regards,
+Thomas
+
+
+
+-----Original Message-----
+From: Peter Chubb [mailto:peter@chubb.wattle.id.au]
+Sent: Wednesday, September 11, 2002 7:41 PM
+To: davidm@hpl.hp.com
+Cc: Eastham, M. Thomas (Anitel Technologies); linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] Greater than 2TB Filesystem support?
+
+
 >>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
 
->>>>> On Wed, 11 Sep 2002 09:18:00 -0500, "Eastham, M. Thomas (Anitel Technologies)" <EasthaMT@bp.com> said:
+>>>>> On Wed, 11 Sep 2002 09:18:00 -0500, "Eastham, M. Thomas (Anitel
+Technologies)" <EasthaMT@bp.com> said:
 Thomas> Is there anyone out there that can give me an indication of
 Thomas> when the 2TB FS limitation will be addressed?  We are ready to
 Thomas> implement XFS based IDE Raid IA64 servers with 4+TB today.
