@@ -1,728 +1,457 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Mon, 07 Feb 2005 08:17:14 +0000
-Subject: take6: vector sharing (Large I/O system support)
-Message-Id: <4207240A.1050900@jp.fujitsu.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 07 Feb 2005 19:31:21 +0000
+Subject: prezeroing V6 [1/3]: clear_pages
+Message-Id: <Pine.LNX.4.58.0502071130520.27951@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.58.0501211228430.26068@schroedinger.engr.sgi.com>
+ <1106828124.19262.45.camel@hades.cambridge.redhat.com> <20050202153256.GA19615@logos.cnet>
+ <Pine.LNX.4.58.0502071127470.27951@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0502071127470.27951@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: akpm@osdl.org
+Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi,
+The zeroing of a page of a arbitrary order in page_alloc.c and in hugetlb.c
+is currently done one page at a time. It may be beneficial to
+zero large areas of memory in one go. The following patch introduces
+clear_pages that takes an additional order parameter. clear_pages is only u=
+sed
+when __HAVE_ARCH_CLEAR_PAGES has been defined by an architecture.
 
-Here is an updated patch based on feedbacks.
+clear_pages functions have been provided for ia64, i386, sparc64 and x86_64.
+This version was tested by me on ia64, i386 and x86_64.
 
-Summary of changes:
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-  - Removed trailing whitespaces
+Index: linux-2.6.10/mm/page_alloc.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/mm/page_alloc.c	2005-02-03 22=
+:51:57.000000000 -0800
++++ linux-2.6.10/mm/page_alloc.c	2005-02-07 11:04:32.000000000 -0800
+@@ -599,11 +599,19 @@ void fastcall free_cold_page(struct page
+ 	free_hot_cold_page(page, 1);
+ }
 
-  - Changed iosapic_alloc_rte() to use do/while-loop instead
-    of using goto.
-
-  - Added the debug information that is needed to know if
-    we're running out of statically allocated structures
-    before kmalloc() is initialized.
-
-  - Fixed a possible bug of error check in set_rte().
-
-Thanks,
-Kenji Kaneshige
-
-
-Current ia64 linux cannot handle greater than 184 interrupt sources
-because of the lack of vectors. The following patch enables ia64 linux
-to handle greater than 184 interrupt sources by allowing the same
-vector number to be shared by multiple IOSAPIC's RTEs. The design of
-this patch is besed on "Intel(R) Itanium(R) Processor Family Interrupt
-Architecture Guide".
-
-Even if you don't have a large I/O system, you can see the behavior of
-vector sharing by changing IOSAPIC_LAST_DEVICE_VECTOR to fewer value.
-
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-
-
----
-
- linux-2.6.11-rc3-kanesige/arch/ia64/kernel/iosapic.c  |  356 +++++++++++++-----
- linux-2.6.11-rc3-kanesige/arch/ia64/kernel/irq_ia64.c |   16 
- linux-2.6.11-rc3-kanesige/include/asm-ia64/hw_irq.h   |    1 
- linux-2.6.11-rc3-kanesige/include/asm-ia64/iosapic.h  |    1 
- 4 files changed, 281 insertions(+), 93 deletions(-)
-
-diff -puN arch/ia64/kernel/iosapic.c~vector_sharing arch/ia64/kernel/iosapic.c
---- linux-2.6.11-rc3/arch/ia64/kernel/iosapic.c~vector_sharing	2005-02-03 13:15:19.000000000 +0900
-+++ linux-2.6.11-rc3-kanesige/arch/ia64/kernel/iosapic.c	2005-02-07 13:14:24.000000000 +0900
-@@ -103,15 +103,23 @@ static DEFINE_SPINLOCK(iosapic_lock);
- 
- /* These tables map IA-64 vectors to the IOSAPIC pin that generates this vector. */
- 
--static struct iosapic_intr_info {
-+static struct iosapic_rte_info {
-+	struct list_head rte_list;	/* node in list of RTEs sharing the same vector */
- 	char __iomem	*addr;		/* base address of IOSAPIC */
--	u32		low32;		/* current value of low word of Redirection table entry */
- 	unsigned int	gsi_base;	/* first GSI assigned to this IOSAPIC */
--	char		rte_index;	/* IOSAPIC RTE index (-1 => not an IOSAPIC interrupt) */
-+	char		rte_index;	/* IOSAPIC RTE index */
-+	int		refcnt;		/* reference counter */
-+} iosapic_rte_cache[NR_RTE_CACHE_ENTRIES];
-+
-+static struct iosapic_intr_info {
-+	struct list_head rtes;		/* RTEs using this vector (empty => not an IOSAPIC interrupt) */
-+	int		count;		/* # of RTEs that shares this vector */
-+	u32		low32;		/* current value of low word of Redirection table entry */
-+	unsigned int	dest;		/* destination CPU physical ID */
- 	unsigned char	dmode	: 3;	/* delivery mode (see iosapic.h) */
- 	unsigned char 	polarity: 1;	/* interrupt polarity (see iosapic.h) */
- 	unsigned char	trigger	: 1;	/* trigger mode (see iosapic.h) */
--	int		refcnt;		/* reference counter */
-+	unsigned char	sharable: 1;	/* sharable flag (0: exclusive, 1: sharable) */
- } iosapic_intr_info[IA64_NUM_VECTORS];
- 
- static struct iosapic {
-@@ -127,6 +135,8 @@ static int num_iosapic;
- 
- static unsigned char pcat_compat __initdata;	/* 8259 compatibility flag */
- 
-+static int iosapic_kmalloc_ok;
-+static int rte_cache_shortage;
- 
- /*
-  * Find an IOSAPIC associated with a GSI
-@@ -148,10 +158,12 @@ static inline int
- _gsi_to_vector (unsigned int gsi)
+-static inline void prep_zero_page(struct page *page, int order, int gfp_fl=
+ags)
++void prep_zero_page(struct page *page, unsigned int order, unsigned int gf=
+p_flags)
  {
- 	struct iosapic_intr_info *info;
-+	struct iosapic_rte_info *rte;
- 
- 	for (info = iosapic_intr_info; info < iosapic_intr_info + IA64_NUM_VECTORS; ++info)
--		if (info->gsi_base + info->rte_index = gsi)
--			return info - iosapic_intr_info;
-+		list_for_each_entry(rte, &info->rtes, rte_list)
-+			if (rte->gsi_base + rte->rte_index = gsi)
-+				return info - iosapic_intr_info;
- 	return -1;
- }
- 
-@@ -168,33 +180,52 @@ gsi_to_vector (unsigned int gsi)
- int
- gsi_to_irq (unsigned int gsi)
- {
-+	unsigned long flags;
-+	int irq;
- 	/*
- 	 * XXX fix me: this assumes an identity mapping vetween IA-64 vector and Linux irq
- 	 * numbers...
- 	 */
--	return _gsi_to_vector(gsi);
-+	spin_lock_irqsave(&iosapic_lock, flags);
-+	{
-+		irq = _gsi_to_vector(gsi);
-+	}
-+	spin_unlock_irqrestore(&iosapic_lock, flags);
+ 	int i;
+
+ 	BUG_ON((gfp_flags & (__GFP_WAIT | __GFP_HIGHMEM)) =3D __GFP_HIGHMEM);
 +
-+	return irq;
-+}
-+
-+static struct iosapic_rte_info *gsi_vector_to_rte(unsigned int gsi, unsigned int vec)
-+{
-+	struct iosapic_rte_info *rte;
-+
-+	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
-+		if (rte->gsi_base + rte->rte_index = gsi)
-+			return rte;
-+	return NULL;
- }
- 
- static void
--set_rte (unsigned int vector, unsigned int dest, int mask)
-+set_rte (unsigned int gsi, unsigned int vector, unsigned int dest, int mask)
- {
- 	unsigned long pol, trigger, dmode;
- 	u32 low32, high32;
- 	char __iomem *addr;
- 	int rte_index;
- 	char redir;
-+	struct iosapic_rte_info *rte;
- 
- 	DBG(KERN_DEBUG"IOSAPIC: routing vector %d to 0x%x\n", vector, dest);
- 
--	rte_index = iosapic_intr_info[vector].rte_index;
--	if (rte_index < 0)
-+	rte = gsi_vector_to_rte(gsi, vector);
-+	if (!rte)
- 		return;		/* not an IOSAPIC interrupt */
- 
--	addr    = iosapic_intr_info[vector].addr;
-+	rte_index = rte->rte_index;
-+	addr	= rte->addr;
- 	pol     = iosapic_intr_info[vector].polarity;
- 	trigger = iosapic_intr_info[vector].trigger;
- 	dmode   = iosapic_intr_info[vector].dmode;
--	vector &= (~IA64_IRQ_REDIRECTED);
- 
- 	redir = (dmode = IOSAPIC_LOWEST_PRIORITY) ? 1 : 0;
- 
-@@ -222,6 +253,7 @@ set_rte (unsigned int vector, unsigned i
- 	iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
- 	iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
- 	iosapic_intr_info[vector].low32 = low32;
-+	iosapic_intr_info[vector].dest = dest;
- }
- 
- static void
-@@ -238,18 +270,20 @@ mask_irq (unsigned int irq)
- 	u32 low32;
- 	int rte_index;
- 	ia64_vector vec = irq_to_vector(irq);
-+	struct iosapic_rte_info *rte;
- 
--	addr = iosapic_intr_info[vec].addr;
--	rte_index = iosapic_intr_info[vec].rte_index;
--
--	if (rte_index < 0)
-+	if (list_empty(&iosapic_intr_info[vec].rtes))
- 		return;			/* not an IOSAPIC interrupt! */
- 
- 	spin_lock_irqsave(&iosapic_lock, flags);
- 	{
- 		/* set only the mask bit */
- 		low32 = iosapic_intr_info[vec].low32 |= IOSAPIC_MASK;
--		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
-+		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
-+			addr = rte->addr;
-+			rte_index = rte->rte_index;
-+			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
-+		}
- 	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
- }
-@@ -262,16 +296,19 @@ unmask_irq (unsigned int irq)
- 	u32 low32;
- 	int rte_index;
- 	ia64_vector vec = irq_to_vector(irq);
-+	struct iosapic_rte_info *rte;
- 
--	addr = iosapic_intr_info[vec].addr;
--	rte_index = iosapic_intr_info[vec].rte_index;
--	if (rte_index < 0)
-+	if (list_empty(&iosapic_intr_info[vec].rtes))
- 		return;			/* not an IOSAPIC interrupt! */
- 
- 	spin_lock_irqsave(&iosapic_lock, flags);
- 	{
- 		low32 = iosapic_intr_info[vec].low32 &= ~IOSAPIC_MASK;
--		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
-+		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
-+			addr = rte->addr;
-+			rte_index = rte->rte_index;
-+			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
-+		}
- 	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
- }
-@@ -287,6 +324,7 @@ iosapic_set_affinity (unsigned int irq, 
- 	char __iomem *addr;
- 	int redir = (irq & IA64_IRQ_REDIRECTED) ? 1 : 0;
- 	ia64_vector vec;
-+	struct iosapic_rte_info *rte;
- 
- 	irq &= (~IA64_IRQ_REDIRECTED);
- 	vec = irq_to_vector(irq);
-@@ -296,10 +334,7 @@ iosapic_set_affinity (unsigned int irq, 
- 
- 	dest = cpu_physical_id(first_cpu(mask));
- 
--	rte_index = iosapic_intr_info[vec].rte_index;
--	addr = iosapic_intr_info[vec].addr;
--
--	if (rte_index < 0)
-+	if (list_empty(&iosapic_intr_info[vec].rtes))
- 		return;			/* not an IOSAPIC interrupt */
- 
- 	set_irq_affinity_info(irq, dest, redir);
-@@ -319,8 +354,13 @@ iosapic_set_affinity (unsigned int irq, 
- 			low32 |= (IOSAPIC_FIXED << IOSAPIC_DELIVERY_SHIFT);
- 
- 		iosapic_intr_info[vec].low32 = low32;
--		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
--		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
-+		iosapic_intr_info[vec].dest = dest;
-+		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
-+			addr = rte->addr;
-+			rte_index = rte->rte_index;
-+			iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
-+			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
-+		}
- 	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
- #endif
-@@ -341,9 +381,11 @@ static void
- iosapic_end_level_irq (unsigned int irq)
- {
- 	ia64_vector vec = irq_to_vector(irq);
-+	struct iosapic_rte_info *rte;
- 
- 	move_irq(irq);
--	iosapic_eoi(iosapic_intr_info[vec].addr, vec);
-+	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
-+		iosapic_eoi(rte->addr, vec);
- }
- 
- #define iosapic_shutdown_level_irq	mask_irq
-@@ -423,6 +465,26 @@ iosapic_version (char __iomem *addr)
- 	return iosapic_read(addr, IOSAPIC_VERSION);
- }
- 
-+static int iosapic_find_sharable_vector (unsigned long trigger, unsigned long pol)
-+{
-+	int i, vector = -1, min_count = -1;
-+	struct iosapic_intr_info *info;
-+
-+	for (i = IA64_FIRST_DEVICE_VECTOR; i <= IA64_LAST_DEVICE_VECTOR; i++) {
-+		info = &iosapic_intr_info[i];
-+		if (info->sharable && info->trigger = trigger && info->polarity = pol) {
-+			if (min_count = -1 || info->count < min_count) {
-+				vector = i;
-+				min_count = info->count;
-+			}
-+		}
-+	}
-+	if (vector < 0)
-+		panic("%s: out of interrupt vectors!\n", __FUNCTION__);
-+
-+	return vector;
-+}
-+
- /*
-  * if the given vector is already owned by other,
-  *  assign a new vector for the other and make the vector available
-@@ -432,22 +494,65 @@ iosapic_reassign_vector (int vector)
- {
- 	int new_vector;
- 
--	if (iosapic_intr_info[vector].rte_index >= 0 || iosapic_intr_info[vector].addr
--	    || iosapic_intr_info[vector].gsi_base || iosapic_intr_info[vector].dmode
--	    || iosapic_intr_info[vector].polarity || iosapic_intr_info[vector].trigger)
--	{
-+	if (!list_empty(&iosapic_intr_info[vector].rtes)) {
- 		new_vector = assign_irq_vector(AUTO_ASSIGN);
- 		printk(KERN_INFO "Reassigning vector %d to %d\n", vector, new_vector);
- 		memcpy(&iosapic_intr_info[new_vector], &iosapic_intr_info[vector],
- 		       sizeof(struct iosapic_intr_info));
-+		INIT_LIST_HEAD(&iosapic_intr_info[new_vector].rtes);
-+		list_move(iosapic_intr_info[vector].rtes.next, &iosapic_intr_info[new_vector].rtes);
- 		memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
--		iosapic_intr_info[vector].rte_index = -1;
-+		iosapic_intr_info[vector].low32 = IOSAPIC_MASK;
-+		INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);
- 	}
- }
- 
-+unsigned long iosapic_rte_cache_mask[BITS_TO_LONGS(NR_RTE_CACHE_ENTRIES)];
-+
-+static struct iosapic_rte_info *iosapic_alloc_rte (void)
-+{
-+	int index;
-+
-+	/*
-+	 * iosapic_alloc_rte might be called before kmalloc is initialized,
-+	 * so several number of iosapic_rte_info structures needs to be
-+	 * statically allocated.
-+	 */
-+	do {
-+		index = find_first_zero_bit(iosapic_rte_cache_mask, NR_RTE_CACHE_ENTRIES);
-+		if (index >= NR_RTE_CACHE_ENTRIES) {
-+			if (!iosapic_kmalloc_ok) {
-+				rte_cache_shortage++;
-+				return NULL;
-+			}
-+			return kmalloc(sizeof(struct iosapic_rte_info), GFP_ATOMIC);
-+		}
-+	} while (test_and_set_bit(index, iosapic_rte_cache_mask));
-+
-+	return iosapic_rte_cache + index;
-+}
-+
-+static void iosapic_free_rte (struct iosapic_rte_info *rte)
-+{
-+	unsigned long index = rte - iosapic_rte_cache;
-+
-+	if (index < NR_RTE_CACHE_ENTRIES) {
-+		if (!test_and_clear_bit(index, iosapic_rte_cache_mask))
-+			printk(KERN_WARNING "%s: double free!\n", __FUNCTION__);
++#ifdef __HAVE_ARCH_CLEAR_PAGES
++	if (!PageHighMem(page)) {
++		clear_pages(page_address(page), order);
 +		return;
 +	}
++#endif
 +
-+	kfree(rte);
-+}
-+
-+static inline int vector_is_shared (int vector)
-+{
-+	return (iosapic_intr_info[vector].count > 1);
-+}
-+
- static void
- register_intr (unsigned int gsi, int vector, unsigned char delivery,
--	       unsigned long polarity, unsigned long trigger)
-+	       unsigned long polarity, unsigned long trigger, unsigned long sharable)
- {
- 	irq_desc_t *idesc;
- 	struct hw_interrupt_type *irq_type;
-@@ -455,6 +560,7 @@ register_intr (unsigned int gsi, int vec
- 	int index;
- 	unsigned long gsi_base;
- 	void __iomem *iosapic_address;
-+	struct iosapic_rte_info *rte;
- 
- 	index = find_iosapic(gsi);
- 	if (index < 0) {
-@@ -465,14 +571,33 @@ register_intr (unsigned int gsi, int vec
- 	iosapic_address = iosapic_lists[index].addr;
- 	gsi_base = iosapic_lists[index].gsi_base;
- 
--	rte_index = gsi - gsi_base;
--	iosapic_intr_info[vector].rte_index = rte_index;
-+	if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
-+		if ((rte = iosapic_alloc_rte()) = NULL) {
-+			printk(KERN_WARNING "%s: cannot allocate memory\n", __FUNCTION__);
-+			return;
-+		}
-+
-+		memset(rte, 0, sizeof(struct iosapic_rte_info));
-+		rte_index = gsi - gsi_base;
-+		rte->rte_index	= rte_index;
-+		rte->addr	= iosapic_address;
-+		rte->gsi_base	= gsi_base;
-+		rte->refcnt++;
-+		list_add_tail(&rte->rte_list, &iosapic_intr_info[vector].rtes);
-+		iosapic_intr_info[vector].count++;
-+	}
-+	else if (vector_is_shared(vector)) {
-+		if (!sharable || (iosapic_intr_info[vector].trigger != trigger)
-+			      || (iosapic_intr_info[vector].polarity != polarity)) {
-+			printk (KERN_WARNING "%s: cannot override the interrupt\n", __FUNCTION__);
-+			return;
-+		}
-+	}
-+
- 	iosapic_intr_info[vector].polarity = polarity;
- 	iosapic_intr_info[vector].dmode    = delivery;
--	iosapic_intr_info[vector].addr     = iosapic_address;
--	iosapic_intr_info[vector].gsi_base = gsi_base;
- 	iosapic_intr_info[vector].trigger  = trigger;
--	iosapic_intr_info[vector].refcnt++;
-+	iosapic_intr_info[vector].sharable = sharable;
- 
- 	if (trigger = IOSAPIC_EDGE)
- 		irq_type = &irq_type_iosapic_edge;
-@@ -495,6 +620,13 @@ get_target_cpu (unsigned int gsi, int ve
- 	static int cpu = -1;
- 
- 	/*
-+	 * In case of vector shared by multiple RTEs, all RTEs that
-+	 * share the vector need to use the same destination CPU.
-+	 */
-+	if (!list_empty(&iosapic_intr_info[vector].rtes))
-+		return iosapic_intr_info[vector].dest;
-+
-+	/*
- 	 * If the platform supports redirection via XTP, let it
- 	 * distribute interrupts.
- 	 */
-@@ -566,10 +698,12 @@ int
- iosapic_register_intr (unsigned int gsi,
- 		       unsigned long polarity, unsigned long trigger)
- {
--	int vector;
-+	int vector, mask = 1;
- 	unsigned int dest;
- 	unsigned long flags;
--
-+	struct iosapic_rte_info *rte;
-+	u32 low32;
-+again:
- 	/*
- 	 * If this GSI has already been registered (i.e., it's a
- 	 * shared interrupt, or we lost a race to register it),
-@@ -579,19 +713,45 @@ iosapic_register_intr (unsigned int gsi,
- 	{
- 		vector = gsi_to_vector(gsi);
- 		if (vector > 0) {
--			iosapic_intr_info[vector].refcnt++;
-+			rte = gsi_vector_to_rte(gsi, vector);
-+			rte->refcnt++;
- 			spin_unlock_irqrestore(&iosapic_lock, flags);
- 			return vector;
- 		}
-+	}
-+	spin_unlock_irqrestore(&iosapic_lock, flags);
-+
-+	/* If vector is running out, we try to find a sharable vector */
-+	vector = assign_irq_vector_nopanic(AUTO_ASSIGN);
-+	if (vector < 0)
-+		vector = iosapic_find_sharable_vector(trigger, polarity);
-+
-+	spin_lock_irqsave(&irq_descp(vector)->lock, flags);
-+	spin_lock(&iosapic_lock);
-+	{
-+		if (gsi_to_vector(gsi) > 0) {
-+			if (list_empty(&iosapic_intr_info[vector].rtes))
-+				free_irq_vector(vector);
-+			spin_unlock(&iosapic_lock);
-+			spin_unlock_irqrestore(&irq_descp(vector)->lock, flags);
-+			goto again;
-+		}
- 
--		vector = assign_irq_vector(AUTO_ASSIGN);
- 		dest = get_target_cpu(gsi, vector);
- 		register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
--			polarity, trigger);
-+			polarity, trigger, trigger = IOSAPIC_EDGE ? 0 : 1);
- 
--		set_rte(vector, dest, 1);
-+		/*
-+		 * If the vector is shared and already unmasked for
-+		 * other interrupt sources, don't mask it.
-+		 */
-+		low32 = iosapic_intr_info[vector].low32;
-+		if (vector_is_shared(vector) && !(low32 & IOSAPIC_MASK))
-+			mask = 0;
-+		set_rte(gsi, vector, dest, mask);
- 	}
--	spin_unlock_irqrestore(&iosapic_lock, flags);
-+	spin_unlock_irq(&iosapic_lock);
-+	spin_unlock_irqrestore(&irq_descp(vector)->lock, flags);
- 
- 	printk(KERN_INFO "GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d\n",
- 	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
-@@ -608,8 +768,10 @@ iosapic_unregister_intr (unsigned int gs
- 	unsigned long flags;
- 	int irq, vector;
- 	irq_desc_t *idesc;
--	int rte_index;
-+	u32 low32;
- 	unsigned long trigger, polarity;
-+	unsigned int dest;
-+	struct iosapic_rte_info *rte;
- 
- 	/*
- 	 * If the irq associated with the gsi is not found,
-@@ -628,54 +790,56 @@ iosapic_unregister_intr (unsigned int gs
- 	spin_lock_irqsave(&idesc->lock, flags);
- 	spin_lock(&iosapic_lock);
- 	{
--		rte_index = iosapic_intr_info[vector].rte_index;
--		if (rte_index < 0) {
--			spin_unlock(&iosapic_lock);
--			spin_unlock_irqrestore(&idesc->lock, flags);
-+		if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
- 			printk(KERN_ERR "iosapic_unregister_intr(%u) unbalanced\n", gsi);
- 			WARN_ON(1);
--			return;
-+			goto out;
- 		}
- 
--		if (--iosapic_intr_info[vector].refcnt > 0) {
--			spin_unlock(&iosapic_lock);
--			spin_unlock_irqrestore(&idesc->lock, flags);
--			return;
--		}
--
--		/*
--		 * If interrupt handlers still exist on the irq
--		 * associated with the gsi, don't unregister the
--		 * interrupt.
--		 */
--		if (idesc->action) {
--			iosapic_intr_info[vector].refcnt++;
--			spin_unlock(&iosapic_lock);
--			spin_unlock_irqrestore(&idesc->lock, flags);
--			printk(KERN_WARNING "Cannot unregister GSI. IRQ %u is still in use.\n", irq);
--			return;
--		}
-+		if (--rte->refcnt > 0)
-+			goto out;
- 
--		/* Clear the interrupt controller descriptor. */
--		idesc->handler = &no_irq_type;
-+		/* Mask the interrupt */
-+		low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
-+		iosapic_write(rte->addr, IOSAPIC_RTE_LOW(rte->rte_index), low32);
-+
-+		/* Remove the rte entry from the list */
-+		list_del(&rte->rte_list);
-+		iosapic_intr_info[vector].count--;
-+		iosapic_free_rte(rte);
- 
--		trigger  = iosapic_intr_info[vector].trigger;
-+		trigger	 = iosapic_intr_info[vector].trigger;
- 		polarity = iosapic_intr_info[vector].polarity;
-+		dest     = iosapic_intr_info[vector].dest;
-+		printk(KERN_INFO "GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d unregistered\n",
-+		       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
-+		       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
-+		       cpu_logical_id(dest), dest, vector);
-+
-+		if (list_empty(&iosapic_intr_info[vector].rtes)) {
-+			/* Sanity check */
-+			BUG_ON(iosapic_intr_info[vector].count);
-+
-+			/* Clear the interrupt controller descriptor */
-+			idesc->handler = &no_irq_type;
-+
-+			/* Clear the interrupt information */
-+			memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
-+			iosapic_intr_info[vector].low32 |= IOSAPIC_MASK;
-+			INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);
-+
-+			if (idesc->action) {
-+				printk(KERN_ERR "interrupt handlers still exist on IRQ %u\n", irq);
-+				WARN_ON(1);
-+			}
- 
--		/* Clear the interrupt information. */
--		memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
--		iosapic_intr_info[vector].rte_index = -1;	/* mark as unused */
-+			/* Free the interrupt vector */
-+			free_irq_vector(vector);
-+		}
- 	}
-+ out:
- 	spin_unlock(&iosapic_lock);
- 	spin_unlock_irqrestore(&idesc->lock, flags);
--
--	/* Free the interrupt vector */
--	free_irq_vector(vector);
--
--	printk(KERN_INFO "GSI %u (%s, %s) -> vector %d unregisterd.\n",
--	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
--	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
--	       vector);
+ 	for(i =3D 0; i < (1 << order); i++)
+ 		clear_highpage(page + i);
  }
- #endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
- 
-@@ -717,7 +881,7 @@ iosapic_register_platform_intr (u32 int_
- 		return -1;
- 	}
- 
--	register_intr(gsi, vector, delivery, polarity, trigger);
-+	register_intr(gsi, vector, delivery, polarity, trigger, 0);
- 
- 	printk(KERN_INFO "PLATFORM int %s (0x%x): GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d\n",
- 	       int_type < ARRAY_SIZE(name) ? name[int_type] : "unknown",
-@@ -725,7 +889,7 @@ iosapic_register_platform_intr (u32 int_
- 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
- 	       cpu_logical_id(dest), dest, vector);
- 
--	set_rte(vector, dest, mask);
-+	set_rte(gsi, vector, dest, mask);
- 	return vector;
- }
- 
-@@ -744,14 +908,14 @@ iosapic_override_isa_irq (unsigned int i
- 
- 	vector = isa_irq_to_vector(isa_irq);
- 
--	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, polarity, trigger);
-+	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, polarity, trigger, 0);
- 
- 	DBG("ISA: IRQ %u -> GSI %u (%s,%s) -> CPU %d (0x%04x) vector %d\n",
- 	    isa_irq, gsi, trigger = IOSAPIC_EDGE ? "edge" : "level",
- 	    polarity = IOSAPIC_POL_HIGH ? "high" : "low",
- 	    cpu_logical_id(dest), dest, vector);
- 
--	set_rte(vector, dest, 1);
-+	set_rte(gsi, vector, dest, 1);
- }
- 
- void __init
-@@ -759,8 +923,10 @@ iosapic_system_init (int system_pcat_com
+Index: linux-2.6.10/mm/hugetlb.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/mm/hugetlb.c	2005-02-03 22:51=
+:56.000000000 -0800
++++ linux-2.6.10/mm/hugetlb.c	2005-02-07 11:04:32.000000000 -0800
+@@ -78,7 +78,6 @@ void free_huge_page(struct page *page)
+ struct page *alloc_huge_page(void)
  {
- 	int vector;
- 
--	for (vector = 0; vector < IA64_NUM_VECTORS; ++vector)
--		iosapic_intr_info[vector].rte_index = -1;	/* mark as unused */
-+	for (vector = 0; vector < IA64_NUM_VECTORS; ++vector) {
-+		iosapic_intr_info[vector].low32 = IOSAPIC_MASK;
-+		INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);	/* mark as unused */
-+	}
- 
- 	pcat_compat = system_pcat_compat;
- 	if (pcat_compat) {
-@@ -826,3 +992,13 @@ map_iosapic_to_node(unsigned int gsi_bas
- 	return;
- }
- #endif
-+
-+static int __init iosapic_enable_kmalloc (void)
-+{
-+	iosapic_kmalloc_ok = 1;
-+	if (rte_cache_shortage)
-+		panic("out of rte cache entries!(shortage: %d)\n",
-+		      rte_cache_shortage);
-+	return 0;
-+}
-+core_initcall (iosapic_enable_kmalloc);
-diff -puN arch/ia64/kernel/irq_ia64.c~vector_sharing arch/ia64/kernel/irq_ia64.c
---- linux-2.6.11-rc3/arch/ia64/kernel/irq_ia64.c~vector_sharing	2005-02-03 13:15:19.000000000 +0900
-+++ linux-2.6.11-rc3-kanesige/arch/ia64/kernel/irq_ia64.c	2005-02-03 13:15:19.000000000 +0900
-@@ -63,20 +63,30 @@ EXPORT_SYMBOL(isa_irq_to_vector_map);
- static unsigned long ia64_vector_mask[BITS_TO_LONGS(IA64_NUM_DEVICE_VECTORS)];
- 
- int
--assign_irq_vector (int irq)
-+assign_irq_vector_nopanic (int irq)
- {
- 	int pos, vector;
-  again:
- 	pos = find_first_zero_bit(ia64_vector_mask, IA64_NUM_DEVICE_VECTORS);
- 	vector = IA64_FIRST_DEVICE_VECTOR + pos;
- 	if (vector > IA64_LAST_DEVICE_VECTOR)
--		/* XXX could look for sharable vectors instead of panic'ing... */
--		panic("assign_irq_vector: out of interrupt vectors!");
-+		return -1;
- 	if (test_and_set_bit(pos, ia64_vector_mask))
- 		goto again;
- 	return vector;
- }
- 
-+int
-+assign_irq_vector (int irq)
-+{
-+	int vector = assign_irq_vector_nopanic(irq);
-+
-+	if (vector < 0)
-+		panic("assign_irq_vector: out of interrupt vectors!");
-+
-+	return vector;
-+}
-+
- void
- free_irq_vector (int vector)
- {
-diff -puN include/asm-ia64/hw_irq.h~vector_sharing include/asm-ia64/hw_irq.h
---- linux-2.6.11-rc3/include/asm-ia64/hw_irq.h~vector_sharing	2005-02-03 13:15:19.000000000 +0900
-+++ linux-2.6.11-rc3-kanesige/include/asm-ia64/hw_irq.h	2005-02-03 13:15:19.000000000 +0900
-@@ -81,6 +81,7 @@ extern __u8 isa_irq_to_vector_map[16];
- 
- extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
- 
-+extern int assign_irq_vector_nopanic (int irq); /* allocate a free vector without panic */
- extern int assign_irq_vector (int irq);	/* allocate a free vector */
- extern void free_irq_vector (int vector);
- extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
-diff -puN include/asm-ia64/iosapic.h~vector_sharing include/asm-ia64/iosapic.h
---- linux-2.6.11-rc3/include/asm-ia64/iosapic.h~vector_sharing	2005-02-03 13:15:19.000000000 +0900
-+++ linux-2.6.11-rc3-kanesige/include/asm-ia64/iosapic.h	2005-02-03 13:15:19.000000000 +0900
-@@ -52,6 +52,7 @@
- #ifdef CONFIG_IOSAPIC
- 
- #define NR_IOSAPICS			256
-+#define NR_RTE_CACHE_ENTRIES		256
- 
- static inline unsigned int iosapic_read(char __iomem *iosapic, unsigned int reg)
- {
+ 	struct page *page;
+-	int i;
 
-_
+ 	spin_lock(&hugetlb_lock);
+ 	page =3D dequeue_huge_page();
+@@ -89,8 +88,7 @@ struct page *alloc_huge_page(void)
+ 	spin_unlock(&hugetlb_lock);
+ 	set_page_count(page, 1);
+ 	page[1].mapping =3D (void *)free_huge_page;
+-	for (i =3D 0; i < (HPAGE_SIZE/PAGE_SIZE); ++i)
+-		clear_highpage(&page[i]);
++	prep_zero_page(page, HUGETLB_PAGE_ORDER, GFP_HIGHUSER);
+ 	return page;
+ }
+
+Index: linux-2.6.10/include/asm-ia64/page.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-ia64/page.h	2005-=
+02-03 22:51:35.000000000 -0800
++++ linux-2.6.10/include/asm-ia64/page.h	2005-02-07 11:04:32.000000000 -0800
+@@ -56,8 +56,10 @@
+ # ifdef __KERNEL__
+ #  define STRICT_MM_TYPECHECKS
+
+-extern void clear_page (void *page);
++extern void clear_pages (void *page, int order);
+ extern void copy_page (void *to, void *from);
++#define clear_page(__page) clear_pages(__page, 0)
++#define __HAVE_ARCH_CLEAR_PAGES
+
+ /*
+  * clear_user_page() and copy_user_page() can't be inline functions because
+Index: linux-2.6.10/arch/ia64/kernel/ia64_ksyms.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/ia64/kernel/ia64_ksyms.c=
+	2005-02-03 22:49:31.000000000 -0800
++++ linux-2.6.10/arch/ia64/kernel/ia64_ksyms.c	2005-02-07 11:04:32.00000000=
+0 -0800
+@@ -38,7 +38,7 @@ EXPORT_SYMBOL(__down_trylock);
+ EXPORT_SYMBOL(__up);
+
+ #include <asm/page.h>
+-EXPORT_SYMBOL(clear_page);
++EXPORT_SYMBOL(clear_pages);
+
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+ #include <linux/bootmem.h>
+Index: linux-2.6.10/arch/ia64/lib/clear_page.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/ia64/lib/clear_page.S	20=
+04-12-24 13:33:50.000000000 -0800
++++ linux-2.6.10/arch/ia64/lib/clear_page.S	2005-02-07 11:04:32.000000000 -=
+0800
+@@ -7,6 +7,7 @@
+  * 1/06/01 davidm	Tuned for Itanium.
+  * 2/12/02 kchen	Tuned for both Itanium and McKinley
+  * 3/08/02 davidm	Some more tweaking
++ * 12/10/04 clameter	Make it work on pages of order size
+  */
+ #include <linux/config.h>
+
+@@ -29,27 +30,33 @@
+ #define dst4		r11
+
+ #define dst_last	r31
++#define totsize		r14
+
+-GLOBAL_ENTRY(clear_page)
++GLOBAL_ENTRY(clear_pages)
+ 	.prologue
+-	.regstk 1,0,0,0
+-	mov r16 =3D PAGE_SIZE/L3_LINE_SIZE-1	// main loop count, -1=3Drepeat/until
++	.regstk 2,0,0,0
++	mov r16 =3D PAGE_SIZE/L3_LINE_SIZE	// main loop count
++	mov totsize =3D PAGE_SIZE
+ 	.save ar.lc, saved_lc
+ 	mov saved_lc =3D ar.lc
+-
++	;;
+ 	.body
++	adds dst1 =3D 16, in0
+ 	mov ar.lc =3D (PREFETCH_LINES - 1)
+ 	mov dst_fetch =3D in0
+-	adds dst1 =3D 16, in0
+ 	adds dst2 =3D 32, in0
++	shl r16 =3D r16, in1
++	shl totsize =3D totsize, in1
+ 	;;
+ .fetch:	stf.spill.nta [dst_fetch] =3D f0, L3_LINE_SIZE
+ 	adds dst3 =3D 48, in0		// executing this multiple times is harmless
+ 	br.cloop.sptk.few .fetch
++	add r16 =3D -1,r16
++	add dst_last =3D totsize, dst_fetch
++	adds dst4 =3D 64, in0
+ 	;;
+-	addl dst_last =3D (PAGE_SIZE - PREFETCH_LINES*L3_LINE_SIZE), dst_fetch
+ 	mov ar.lc =3D r16			// one L3 line per iteration
+-	adds dst4 =3D 64, in0
++	adds dst_last =3D -PREFETCH_LINES*L3_LINE_SIZE, dst_last
+ 	;;
+ #ifdef CONFIG_ITANIUM
+ 	// Optimized for Itanium
+@@ -74,4 +81,4 @@ GLOBAL_ENTRY(clear_page)
+ 	;;
+ 	mov ar.lc =3D saved_lc		// restore lc
+ 	br.ret.sptk.many rp
+-END(clear_page)
++END(clear_pages)
+Index: linux-2.6.10/include/asm-i386/page.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-i386/page.h	2005-=
+02-03 22:51:34.000000000 -0800
++++ linux-2.6.10/include/asm-i386/page.h	2005-02-07 11:04:32.000000000 -0800
+@@ -18,7 +18,7 @@
+
+ #include <asm/mmx.h>
+
+-#define clear_page(page)	mmx_clear_page((void *)(page))
++#define clear_pages(page, order)	mmx_clear_page((void *)(page),order)
+ #define copy_page(to,from)	mmx_copy_page(to,from)
+
+ #else
+@@ -28,11 +28,13 @@
+  *	Maybe the K6-III ?
+  */
+
+-#define clear_page(page)	memset((void *)(page), 0, PAGE_SIZE)
++#define clear_pages(page, order)	memset((void *)(page), 0, PAGE_SIZE << (o=
+rder))
+ #define copy_page(to,from)	memcpy((void *)(to), (void *)(from), PAGE_SIZE)
+
+ #endif
+
++#define __HAVE_ARCH_CLEAR_PAGES
++#define clear_page(page) clear_pages(page, 0)
+ #define clear_user_page(page, vaddr, pg)	clear_page(page)
+ #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
+
+Index: linux-2.6.10/include/asm-i386/mmx.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-i386/mmx.h	2004-1=
+2-24 13:34:57.000000000 -0800
++++ linux-2.6.10/include/asm-i386/mmx.h	2005-02-07 11:04:32.000000000 -0800
+@@ -8,7 +8,7 @@
+ #include <linux/types.h>
+
+ extern void *_mmx_memcpy(void *to, const void *from, size_t size);
+-extern void mmx_clear_page(void *page);
++extern void mmx_clear_page(void *page, int order);
+ extern void mmx_copy_page(void *to, void *from);
+
+ #endif
+Index: linux-2.6.10/arch/i386/lib/mmx.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/i386/lib/mmx.c	2004-12-2=
+4 13:34:48.000000000 -0800
++++ linux-2.6.10/arch/i386/lib/mmx.c	2005-02-07 11:04:32.000000000 -0800
+@@ -128,7 +128,7 @@ void *_mmx_memcpy(void *to, const void *
+  *	other MMX using processors do not.
+  */
+
+-static void fast_clear_page(void *page)
++static void fast_clear_page(void *page, int order)
+ {
+ 	int i;
+
+@@ -138,7 +138,7 @@ static void fast_clear_page(void *page)
+ 		"  pxor %%mm0, %%mm0\n" : :
+ 	);
+
+-	for(i=3D0;i<4096/64;i++)
++	for(i=3D0;i<((4096/64) << order);i++)
+ 	{
+ 		__asm__ __volatile__ (
+ 		"  movntq %%mm0, (%0)\n"
+@@ -257,7 +257,7 @@ static void fast_copy_page(void *to, voi
+  *	Generic MMX implementation without K7 specific streaming
+  */
+
+-static void fast_clear_page(void *page)
++static void fast_clear_page(void *page, int order)
+ {
+ 	int i;
+
+@@ -267,7 +267,7 @@ static void fast_clear_page(void *page)
+ 		"  pxor %%mm0, %%mm0\n" : :
+ 	);
+
+-	for(i=3D0;i<4096/128;i++)
++	for(i=3D0;i<((4096/128) << order);i++)
+ 	{
+ 		__asm__ __volatile__ (
+ 		"  movq %%mm0, (%0)\n"
+@@ -359,23 +359,23 @@ static void fast_copy_page(void *to, voi
+  *	Favour MMX for page clear and copy.
+  */
+
+-static void slow_zero_page(void * page)
++static void slow_clear_page(void * page, int order)
+ {
+ 	int d0, d1;
+ 	__asm__ __volatile__( \
+ 		"cld\n\t" \
+ 		"rep ; stosl" \
+ 		: "=3D&c" (d0), "=3D&D" (d1)
+-		:"a" (0),"1" (page),"0" (1024)
++		:"a" (0),"1" (page),"0" (1024 << order)
+ 		:"memory");
+ }
+-
+-void mmx_clear_page(void * page)
++
++void mmx_clear_page(void * page, int order)
+ {
+ 	if(unlikely(in_interrupt()))
+-		slow_zero_page(page);
++		slow_clear_page(page, order);
+ 	else
+-		fast_clear_page(page);
++		fast_clear_page(page, order);
+ }
+
+ static void slow_copy_page(void *to, void *from)
+Index: linux-2.6.10/include/asm-x86_64/page.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-x86_64/page.h	200=
+5-02-03 22:51:46.000000000 -0800
++++ linux-2.6.10/include/asm-x86_64/page.h	2005-02-07 11:04:32.000000000 -0=
+800
+@@ -32,8 +32,10 @@
+ #ifdef __KERNEL__
+ #ifndef __ASSEMBLY__
+
+-void clear_page(void *);
++void clear_pages(void *, int);
+ void copy_page(void *, void *);
++#define __HAVE_ARCH_CLEAR_PAGES
++#define clear_page(__page) clear_pages(__page, 0)
+
+ #define clear_user_page(page, vaddr, pg)	clear_page(page)
+ #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
+Index: linux-2.6.10/arch/x86_64/kernel/x8664_ksyms.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/x86_64/kernel/x8664_ksym=
+s.c	2005-02-03 22:50:03.000000000 -0800
++++ linux-2.6.10/arch/x86_64/kernel/x8664_ksyms.c	2005-02-07 11:04:32.00000=
+0000 -0800
+@@ -108,7 +108,7 @@ EXPORT_SYMBOL(pci_mem_start);
+ #endif
+
+ EXPORT_SYMBOL(copy_page);
+-EXPORT_SYMBOL(clear_page);
++EXPORT_SYMBOL(clear_pages);
+
+ EXPORT_SYMBOL(cpu_pda);
+ #ifdef CONFIG_SMP
+Index: linux-2.6.10/arch/x86_64/lib/clear_page.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/x86_64/lib/clear_page.S	=
+2004-12-24 13:34:33.000000000 -0800
++++ linux-2.6.10/arch/x86_64/lib/clear_page.S	2005-02-07 11:04:32.000000000=
+ -0800
+@@ -1,12 +1,16 @@
+ /*
+  * Zero a page.
+  * rdi	page
++ * rsi	order
+  */
+-	.globl clear_page
++	.globl clear_pages
+ 	.p2align 4
+-clear_page:
++clear_pages:
++	movl   $4096/64,%eax
++	movl	%esi, %ecx
++	shll	%cl, %eax
++	movl	%eax, %ecx
+ 	xorl   %eax,%eax
+-	movl   $4096/64,%ecx
+ 	.p2align 4
+ .Lloop:
+ 	decl	%ecx
+@@ -23,7 +27,7 @@ clear_page:
+ 	jnz	.Lloop
+ 	nop
+ 	ret
+-clear_page_end:
++clear_pages_end:
+
+ 	/* C stepping K8 run faster using the string instructions.
+ 	   It is also a lot simpler. Use this when possible */
+@@ -32,19 +36,22 @@ clear_page_end:
+
+ 	.section .altinstructions,"a"
+ 	.align 8
+-	.quad  clear_page
+-	.quad  clear_page_c
++	.quad  clear_pages
++	.quad  clear_pages_c
+ 	.byte  X86_FEATURE_K8_C
+-	.byte  clear_page_end-clear_page
+-	.byte  clear_page_c_end-clear_page_c
++	.byte  clear_pages_end-clear_pages
++	.byte  clear_pages_c_end-clear_pages_c
+ 	.previous
+
+ 	.section .altinstr_replacement,"ax"
+-clear_page_c:
+-	movl $4096/8,%ecx
++clear_pages_c:
++	movl $4096/8,%eax
++	movl %esi, %ecx
++	shll %cl, %eax
++	movl %eax, %ecx
+ 	xorl %eax,%eax
+ 	rep
+ 	stosq
+ 	ret
+-clear_page_c_end:
++clear_pages_c_end:
+ 	.previous
+Index: linux-2.6.10/arch/sparc64/lib/clear_page.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sparc64/lib/clear_page.S=
+	2004-12-24 13:35:23.000000000 -0800
++++ linux-2.6.10/arch/sparc64/lib/clear_page.S	2005-02-07 11:04:32.00000000=
+0 -0800
+@@ -28,9 +28,12 @@
+ 	.text
+
+ 	.globl		_clear_page
+-_clear_page:		/* %o0=DEst */
++_clear_page:		/* %o0=DEst, %o1=3Dorder */
++	sethi		%hi(PAGE_SIZE/64), %o2
++	clr		%o4
++	or		%o2, %lo(PAGE_SIZE/64), %o2
+ 	ba,pt		%xcc, clear_page_common
+-	 clr		%o4
++	 sllx		%o2, %o1, %o1
+
+ 	/* This thing is pretty important, it shows up
+ 	 * on the profiles via do_anonymous_page().
+@@ -69,16 +72,16 @@ clear_user_page:	/* %o0=DEst, %o1=3Dvaddr
+ 	flush		%g6
+ 	wrpr		%o4, 0x0, %pstate
+
++	sethi		%hi(PAGE_SIZE/64), %o1
+ 	mov		1, %o4
++	or		%o1, %lo(PAGE_SIZE/64), %o1
+
+ clear_page_common:
+ 	VISEntryHalf
+ 	membar		#StoreLoad | #StoreStore | #LoadStore
+ 	fzero		%f0
+-	sethi		%hi(PAGE_SIZE/64), %o1
+ 	mov		%o0, %g1		! remember vaddr for tlbflush
+ 	fzero		%f2
+-	or		%o1, %lo(PAGE_SIZE/64), %o1
+ 	faddd		%f0, %f2, %f4
+ 	fmuld		%f0, %f2, %f6
+ 	faddd		%f0, %f2, %f8
+Index: linux-2.6.10/include/asm-sparc64/page.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sparc64/page.h	20=
+05-02-03 22:51:43.000000000 -0800
++++ linux-2.6.10/include/asm-sparc64/page.h	2005-02-07 11:04:32.000000000 -=
+0800
+@@ -14,8 +14,10 @@
+
+ #ifndef __ASSEMBLY__
+
+-extern void _clear_page(void *page);
+-#define clear_page(X)	_clear_page((void *)(X))
++extern void _clear_page(void *page, int order);
++#define clear_page(X)	_clear_page((void *)(X), 0)
++#define clear_pages _clear_page
++
+ struct page;
+ extern void clear_user_page(void *addr, unsigned long vaddr, struct page *=
+page);
+ #define copy_page(X,Y)	memcpy((void *)(X), (void *)(Y), PAGE_SIZE)
+Index: linux-2.6.10/include/linux/gfp.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/linux/gfp.h	2005-02-0=
+3 22:51:46.000000000 -0800
++++ linux-2.6.10/include/linux/gfp.h	2005-02-07 11:06:13.000000000 -0800
+@@ -131,4 +131,5 @@ extern void FASTCALL(free_cold_page(stru
+
+ void page_alloc_init(void);
+
++void prep_zero_page(struct page *, unsigned int order, unsigned int gfp_fl=
+ags);
+ #endif /* __LINUX_GFP_H */
+
