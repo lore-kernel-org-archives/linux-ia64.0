@@ -1,46 +1,22 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Wed, 18 Apr 2001 19:24:25 +0000
-Subject: [Linux-ia64] gnu-efi-2.0 initrd fix
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="qcHopEYAB45HaUaB"
-Message-Id: <marc-linux-ia64-105590693005425@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Wed, 23 May 2001 18:56:43 +0000
+Subject: [Linux-ia64] problems with ppp/pppd: put_user/copy_to_user
+Message-Id: <marc-linux-ia64-105590693005655@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---qcHopEYAB45HaUaB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+We've got a report of ppp not working; what happens is that it
+puts in the log:
+    Couldn't get channel number: bad address
 
-Hi All,
+when it sends the PPPIOCGCHAN ioctl.
 
-I discovered that there was a bug with the code dealing with initrd in the new
-elilo released as part of gnu-efi-2.0. The ramdisk would get freed by the kernel
-right at initialization time before ever being used because the EFI memory
-type used was wrong. The attached patch fixes the problem.
+However, if we replace the calls to put_user for
+PPPIOCGCHAN & PPPIOCGFLAGS ioctls with copy_to_user,
+it works fine. Shouldn't this not make any difference?
 
-Please try it out and let me know how it goes.
-
-Thanks.
-
--- 
--Stephane
-
---qcHopEYAB45HaUaB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="gnu-efi-2.0-initrd.diff"
-
-diff -urN gnu-efi-2.0-old/elilo/alloc.c gnu-efi-2.0/elilo/alloc.c
---- gnu-efi-2.0-old/elilo/alloc.c	Wed Apr  4 22:20:33 2001
-+++ gnu-efi-2.0/elilo/alloc.c	Wed Apr 18 12:16:57 2001
-@@ -228,7 +228,7 @@
- alloc_initrd(EFI_PHYSICAL_ADDRESS start_addr, UINTN pgcnt)
- {
- 
--	if (alloc_pages(pgcnt, EfiLoaderCode, AllocateAddress, start_addr) == 0) return -1;
-+	if (alloc_pages(pgcnt, EfiRuntimeServicesCode, AllocateAddress, start_addr) == 0) return -1;
- 
- 	initrd_addr  = start_addr;
- 	initrd_pgcnt = pgcnt;
-
---qcHopEYAB45HaUaB--
+Bill
 
