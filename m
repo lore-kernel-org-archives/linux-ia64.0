@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 12 Apr 2003 04:28:29 +0000
-Subject: [Linux-ia64] kernel update (relative to v2.5.67)
-Message-Id: <marc-linux-ia64-105590723705486@msgid-missing>
+From: Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
+Date: Mon, 14 Apr 2003 12:55:19 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to v2.5.67)
+Message-Id: <marc-linux-ia64-105590723705490@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,70 +10,85 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-At long last, here is an ia64 patch relative to 2.5.67.  As usual, the
-ia64 kernel patch is at:
+[Added Cc: to Greg KH and acpi-devel list]
 
- ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Subject: [Linux-ia64] kernel update (relative to v2.5.67)
+Date: Fri, 11 Apr 2003 21:28:29 -0700
+Message-ID: <200304120428.h3C4STTw004554@napali.hpl.hp.com>
 
-in file linux-2.5.67-ia64-030411.diff.gz.
+> This kernel was tested on various zx1-based machines and the HP Ski
+> simulator.  I also tried it on a Big Sur, but it failed with ACPI
+> errors (attached below).  Perhaps someone who actually understands
+> ACPI could look into this?  It's also possible that the firmware on my
+> Big Sur is too old.  So before digging into this too deep, you may
+> want to make sure you have the latest firmware installed.
 
-and a detailed changelog is available at
-(http://lia64.bkbits.net:8080/to-linus-2.5/).
+<snip> 
 
-One of more significant (though small) changes: I replaced the
-show_regs() in the MCA INIT platform handler with some code that dumps
-the min-state area instead.  The pt_regs structure doesn't contain
-terribly interesting data when the INIT handler gets called, and the
-backtrace never worked anyhow (because PAL/SAL switch to a different
-memory stack before calling the INIT handler).  Also, I added a 5
-second delay before the dump starts.  This turns out to be handy when
-the console is multiplexed as is the case for zx1-based machines.  On
-those, you can generate an INIT event via the base-management
-controller's command-line interface.  But to avoid losing output, you
-have to switch back in time before the dump starts.  A 5 second delay
-achieves that.  If someone has any objections with the delay, let me
-know.  I don't think it should be an issue, though, because after the
-dump, the machine enters an endless loop anyhow, so what difference
-could 5 seconds make?  Having said that, it _would_ be nice if the
-INIT handler could be improved to support resuming from INIT events
-(when this is possible).  Anyone interested?
+> ACPI: Subsystem revision 20030328
+>     ACPI-0341: *** Error: Handler for [PCI_Config] returned AE_ERROR
+>     ACPI-1121: *** Error: Method execution failed [\_SB_.CBN_._BBN] (Node e000000005340900), AE_ERROR
+>     ACPI-0098: *** Error: Method execution failed [\_SB_.CBN_._BBN] (Node e000000005340900), AE_ERROR
+> kernel unaligned access to 0x000000000000059d, ip=0xe0000000048a9821
+>     ACPI-0341: *** Error: Handler for [PCI_Config] returned AE_ERROR
+>     ACPI-1121: *** Error: Method execution failed [\PLAT] (Node e00000003f22f840), AE_AML_NO_RETURN_VALUE
+>     ACPI-1121: *** Error: Method execution failed [\_SB_.PCI2._STA] (Node e000000005347e00), AE_AML_NO_RETURN_VALUE
 
-This kernel was tested on various zx1-based machines and the HP Ski
-simulator.  I also tried it on a Big Sur, but it failed with ACPI
-errors (attached below).  Perhaps someone who actually understands
-ACPI could look into this?  It's also possible that the firmware on my
-Big Sur is too old.  So before digging into this too deep, you may
-want to make sure you have the latest firmware installed.
+It seems that newly integrated PCI segment support is incomplete.
 
-Also, folks with hp zx1-based machines with a remote console management
-(ECI) card installed: please make sure you have option
-CONFIG_ACPI_8250 turned OFF.  Otherwise, your kernel will get stuck
-right after the init process starts running.  Since the 8250_acpi.c
-code is only needed for very old zx1-prototypes anyhow, this shouldn't
-be any loss.
+In acpi/osl.c, it does PCI configuration space access like:
 
-While it took a while to get this kernel up to speed, it's now working
-quite well for me (I'm even running it on my deskside workstation).
-Thanks to Alex's sba_iommu, even IDE seems to work nicely again (it
-may have been running just fine for some time though, on non-zx1
-machines).
+  struct pci_bus bus;
+  ..
+  bus.number = __bus_number_to_access__;
+  pci_root_ops->write(&bus, ...);
 
-So, if you haven't tried 2.5 recently, now might be a good time.
+But the ia64 dependent pci_root_ops uses &bus->sysdata to know
+which PCI segment to access:(
 
-Oh, finally: I hope I didn't miss any patches, but if I did, my
-apologies.  Please resend and I'll try to do better next time.
+I also noticed that in acpi/pci_root.c, _SEG is detected but
+ignored;)  So segment support is now meanless (though it's easy
+to remove these two lines).
 
-Enjoy,
-
-	--david
+	case AE_OK:
+		root->id.segment = (u16) value;
+		printk("_SEG exists! Unsupported. Abort.\n");	<= !!!!!
+		BUG();						<= !!!!!
+		break;
 
 
-ACPI: Subsystem revision 20030328
-    ACPI-0341: *** Error: Handler for [PCI_Config] returned AE_ERROR
-    ACPI-1121: *** Error: Method execution failed [\_SB_.CBN_._BBN] (Node e000000005340900), AE_ERROR
-    ACPI-0098: *** Error: Method execution failed [\_SB_.CBN_._BBN] (Node e000000005340900), AE_ERROR
-kernel unaligned access to 0x000000000000059d, ip=0xe0000000048a9821
-    ACPI-0341: *** Error: Handler for [PCI_Config] returned AE_ERROR
-    ACPI-1121: *** Error: Method execution failed [\PLAT] (Node e00000003f22f840), AE_AML_NO_RETURN_VALUE
-    ACPI-1121: *** Error: Method execution failed [\_SB_.PCI2._STA] (Node e000000005347e00), AE_AML_NO_RETURN_VALUE
+To make things worse, ia64 2.5 tree has a dependency loop in
+PCI config space initialization.
+
+  1. To access PCI config space, we need in-kernel PCI tree
+  2. To construct the PCI tree, we need ACPI namespace to
+     detect PCI root bridges
+  3. To check whether a PCI root bridge exists, we have to
+     execute _STA method
+  4. Often _STA method is implemented using PCI config
+     space access, so we need to access the config space
+  5. To access PCI config space, ...
+
+To resolve this problem,
+
+ a) blindly probe bus 0 - 255, as we did in early days before
+    ACPI initialization
+ b) resurrect pci_config_read/write functions so that we can access
+    pci config space (with segment specified) regardless of in-kernel
+    PCI tree
+ c) add #ifdef CONFIG_IA64 to acpi/osl.c to make a fake sysdata
+    to specify segment
+ d) other (any good ideas?)
+
+I think b) is the most straightforward way to solve the situation,
+but as it's once removed, it will be hard to persuade everyone;)
+
+And currently segment support is only implemented on ia64
+(using bus->sysdata) which seems ad hoc and is not implemented
+on i386.  This is also a problem, though it's not so urgent.
+
+Thanks,
+---
+Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
 
