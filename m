@@ -1,172 +1,156 @@
-From: Keith Owens <kaos@melbourne.sgi.com>
-Date: Tue, 30 Jan 2001 03:53:55 +0000
-Subject: [Linux-ia64] kdb v1.7 for IA64 is available
-Message-Id: <marc-linux-ia64-105590693005109@msgid-missing>
+From: William Taber <wtaber@rational.com>
+Date: Wed, 17 Jan 2001 18:12:41 +0000
+Subject: [Linux-ia64] PATCH:  Building on ia32
+Message-Id: <marc-linux-ia64-105590693005061@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+When I downloaded Linux 2.4.0 and applied the linux-2.4.0-ia64-010109.diff
+patch, I discovered that I could no longer compile ia32 kernels.  It turned
+out that there were reletively few changes needed to get the ia32 kernel to
+compile cleanly and come up and run. As I promised yesterday, here are the
+patches I needed to make.  This may not be exhaustive, since I do not have
+all options turned on and I didn't try to build many drivers. Note that this
+patch will remove the buggy code that I reported yesterday, rather than 
+just conditionalizing it.  Since the code was broken and would not run
+properly, as well as being non-portable, I just took it out pending a fix.
+In the interest of getting the latest ia64 changes ready for merging into the
+the main 2.4.x tree at some point, here are the diffs. 
 
-Content-Type: text/plain; charset=us-ascii
+Enjoy.
 
-http://oss.sgi.com/projects/kdb/download/ia64/ contains kdb v1.7 for
-IA64, using the same design as kdb for i386.  This is completely
-incompatible with HP's version of kdb, use one or the other but not
-both.
+Will Taber
 
-kdb-v1.7-ia64-2.4.0-010109 is a patch against Linus's 2.4.0 tree + HP's
-linux-2.4.0-ia64-010109.diff; apply the HP IA64 kernel patch before
-kdb.
-
-You must use a compiler that supports the new unwind code, kdb relies
-on unwind data.  I have been using gcc snapshot snap-001117 from
-cygnus.  The kdb patch also contains code for the i386 version of kdb
-but do not use this patch on i386, the i386 and IA64 patches for kdb
-are not interchangable due to ia64-010109 changes to common kernel code.
-
-There are still a lot of rough edges in kdb for IA64, treat it with
-care.
-
-Save your .config and do make mrproper after applying the kdb patch.
-To cross compile kdb for ia64 from i386 from you need
-kallsyms_i386_ia64.c from kdb/download/ia64.  Compile and save the
-binary anywhere, no special compile options.  Specify the location of
-the cross compile kallsyms on the make command.
-
-Point CROSS_COMPILE_INC at an include library that contains an ia64
-version of bfd.h, it must contain these lines
-
-#define BFD_ARCH_SIZE 64
-#define BFD_HOST_64BIT_LONG 0
-
-Example cross compile from i386 to ia64 with kdb.
-
-make ARCH=ia64 \
-  CROSS_COMPILE=/ia64/install/bin/ia64-unknown-linux- \
-  CROSS_COMPILE_INC=/ia64/install/include/ \
-  KALLSYMS=/ia64/kallsyms_i386_ia64 \
-  vmlinux modules
-
-
-Working:
-
-* Accurate back traces, but only with new unwind code.
-* Display arguments.  This is really the stacked in+local registers,
-  not just the in registers.  Also the values could have been changed
-  between the time the function was called and when the registers were
-  stacked so take the values with a pinch of salt.  This uncertainty is
-  inherent in the IA64 ABI for parameter passing.
-* SMP.  The other cpus are pulled into kdb, but only if they are
-  accepting interrupts.  The cpu command works nicely.
-* Disassembler, up to date with gdb as of approx November 27, 2000.
-* Software breakpoints.
-* Single step.
-* Back trace all (bta) and back trace process (btp).  See note below.
-* Input from serial console or keyboard.
-* All architecture independent commands.
-
-Not working or incomplete:
-
-* No hardware breakpoints, except for single step.
-* Single step until branch is treated as single step.
-* Not all special IA64 registers can be printed.
-* Command history.  There are fragments of HP's command history in kdb
-  for IA64 but they do nothing.  I want to do a proper command history,
-  using cursor keys (up, down, left, right, insert, delete) instead of
-  just ^D, ^N.
-* Input from simulated console.
-* None of the new commands that people have requested have been coded
-  yet.  The hard part of port kdb v1.7 to IA64 has been done, adding
-  new commands is arch independent and is relatively easy.
-* No use of NMI yet.  If a cpu is spinning in kernel with interrupts
-  disabled, you will not be able to debug that process.
-* No documentation updates for IA64 yet.
-* The checks for whether a kernel address is valid or not sometimes
-  treat a valid address as invalid and refuse to print the data at
-  that location.
-
-Accurate and reliable back traces are the hard part, in particular
-deciding if a process that is running on another cpu is in a fit state
-to be traced.  I added a field to struct thread to track the current
-struct switch_stack plus a field in switch_stack to point to the
-previous switch_stack, if any.  Adding those fields and tracking the
-current stack state required a lot of changes in entry.[hS].
-
-A default back trace prints the instruction pointer, the "arguments" in
-hex and the information about the module (or kernel), the section name
-and the addresses that are useful for objdump.  set BTARGS=0 to
-suppress the arguments in hex.  set NOSECT=1 to suppress the section
-data.  You can also expand the back trace data, set BTSYMARG=1 will
-convert arguments into symbols and offsets.  set BTSP=1 will print the
-memory and register stack pointers for each frame.
-
-bp sys_open, followed by bt with BTARGS=5, BTSYMARG=1, BTSP=1.
-
-Entering kdb (current=0xe00000003eb90000, pid 287) on processor 0 due to Breakpoint @ 0xe0000000005bf9e0
-[0]kdb> bt
-0xe0000000005bf9e0 sys_open
-        args (0x20000000002c2498, 0x2, 0x80000ffffffffd00)
-        kernel .text 0xe000000000500000 0xe0000000005bf9e0 0xe0000000005bfda0
-        sp 0xe00000003eb97e60 bsp 0xe00000003eb90dd0 cfm 0x8000000000000003
-0xe000000000521780 ia64_ret_from_syscall
-        args (0x20000000002c2498, 0x2, 0x80000ffffffffd00)
-        kernel .text 0xe000000000500000 0xe000000000521780 0xe0000000005217a0
-        sp 0xe00000003eb97e60 bsp 0xe00000003eb90dd0 cfm 0x0000000000000003
-
-
-Although kdb can accurately determine where the current stack frame is
-for any process, it cannot reliably determine the interrupt point for
-an arbitrary process.  That information is only available in the
-context of the current process.  So if you trace a process by any
-command other than 'bt', kdb gives you the entire stack trace, not just
-from the point of interrupt.  For example, 'bt' above only printed the
-interrupt context for process 287.  But if you explictly print a
-process via btp or bta, kdb has to print the entire stack trace.
-
-[0]kdb> btp 287
-0xe000000000899cd0 kdba_main_loop+0xb0
-        args (0x3, 0x3, 0x80100, 0x0, 0xe00000003eb97cd0)
-        kernel .text 0xe000000000500000 0xe000000000899c20 0xe000000000899d00
-        sp 0xe00000003eb97c00 bsp 0xe00000003eb90e78 cfm 0x0000000000000389
-0xe0000000006b6c80 kdb+0xe60
-        args (0x3, 0x80100, 0xe00000003eb97cd0, 0xe000000000aaa8a8, 0x400000)
-        arg 3 0xe000000000aaa8a8 (kdb_flags)
-        kernel .text 0xe000000000500000 0xe0000000006b5e20 0xe0000000006b7100
-        sp 0xe00000003eb97c20 bsp 0xe00000003eb90e10 cfm 0x0000000000000692
-0xe0000000005329a0 ia64_bad_break+0x2e0
-        args (0x80100, 0xe00000003eb97cd0, 0xe0000000005217a0, 0x2)
-        arg 2 0xe0000000005217a0 (ia64_leave_kernel)
-        kernel .text 0xe000000000500000 0xe0000000005326c0 0xe000000000532a40
-        sp 0xe00000003eb97c30 bsp 0xe00000003eb90de8 cfm 0x0000000000000207
-0xe0000000005217a0 ia64_leave_kernel
-        args (0x80100, 0xe00000003eb97cd0)
-        kernel .text 0xe000000000500000 0xe0000000005217a0 0xe000000000521800
-        sp 0xe00000003eb97cc0 bsp 0xe00000003eb90de8 cfm 0x0000000000000002
-
-        The entries above are handling the breakpoint and entering kdb.
-        For the moment, just ignore the extra kdb entries when you do
-        an explicit back trace of another process.
-
-0xe0000000005bf9e0 sys_open
-        args (0x20000000002c2498, 0x2, 0x80000ffffffffd00)
-        kernel .text 0xe000000000500000 0xe0000000005bf9e0 0xe0000000005bfda0
-        sp 0xe00000003eb97e60 bsp 0xe00000003eb90dd0 cfm 0x8000000000000003
-0xe000000000521780 ia64_ret_from_syscall
-        args (0x20000000002c2498, 0x2, 0x80000ffffffffd00)
-        kernel .text 0xe000000000500000 0xe000000000521780 0xe0000000005217a0
-        sp 0xe00000003eb97e60 bsp 0xe00000003eb90dd0 cfm 0x0000000000000003
+diff -Nur linux-2.4.0-base/drivers/char/mem.c linux-2.4.0/drivers/char/mem.c
+--- linux-2.4.0-base/drivers/char/mem.c	Mon Jan 15 10:40:33 2001
++++ linux-2.4.0/drivers/char/mem.c	Mon Jan 15 16:17:14 2001
+@@ -205,8 +205,10 @@
+ 	    || vma->vm_flags & VM_NONCACHED)
+ 		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+ 
++#if defined(__ia64__)
+ 	if (vma->vm_flags & VM_WRITECOMBINED)
+ 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
++#endif
+ 
+ 	/* Don't try to swap out physical pages.. */
+ 	vma->vm_flags |= VM_RESERVED;
+diff -Nur linux-2.4.0-base/fs/fcntl.c linux-2.4.0/fs/fcntl.c
+--- linux-2.4.0-base/fs/fcntl.c	Mon Jan 15 10:40:34 2001
++++ linux-2.4.0/fs/fcntl.c	Tue Jan 16 14:07:39 2001
+@@ -269,7 +269,9 @@
+ 			 * to fix this will be in libc.
+ 			 */
+ 			err = filp->f_owner.pid;
++#if (__ia64__)
+ 			force_successful_syscall_return();
++#endif
+ 			break;
+ 		case F_SETOWN:
+ 			lock_kernel();
+diff -Nur linux-2.4.0-base/include/asm-ia64/irq.h 
+linux-2.4.0/include/asm-ia64/irq.h
+--- linux-2.4.0-base/include/asm-ia64/irq.h	Fri Mar 10 18:24:02 2000
++++ linux-2.4.0/include/asm-ia64/irq.h	Tue Jan 16 10:46:28 2001
+@@ -27,5 +27,8 @@
+ extern void disable_irq (unsigned int);
+ extern void disable_irq_nosync (unsigned int);
+ extern void enable_irq (unsigned int);
++extern unsigned int do_IRQ (unsigned long irq, struct pt_regs *regs);
++extern void do_IRQ_per_cpu (unsigned long irq, struct pt_regs *regs);
++
+ 
+ #endif /* _ASM_IA64_IRQ_H */
+diff -Nur linux-2.4.0-base/include/asm-ia64/pgalloc.h 
+linux-2.4.0/include/asm-ia64/pgalloc.h
+--- linux-2.4.0-base/include/asm-ia64/pgalloc.h	Thu Jan  4 15:50:18 2001
++++ linux-2.4.0/include/asm-ia64/pgalloc.h	Mon Jan 15 14:38:09 2001
+@@ -281,14 +281,14 @@
+ }
+ 
+ static inline void
+-clear_user_page (void *addr, unsigned long vaddr, struct page *page)
++clear_user_page (void *addr, struct page *page)
+ {
+ 	clear_page(addr);
+ 	flush_dcache_page(page);
+ }
+ 
+ static inline void
+-copy_user_page (void *to, void *from, unsigned long vaddr, struct page *page)
++copy_user_page (void *to, void *from, struct page *page)
+ {
+ 	copy_page(to, from);
+ 	flush_dcache_page(page);
+diff -Nur linux-2.4.0-base/include/linux/highmem.h 
+linux-2.4.0/include/linux/highmem.h
+--- linux-2.4.0-base/include/linux/highmem.h	Mon Jan 15 15:46:09 2001
++++ linux-2.4.0/include/linux/highmem.h	Tue Jan 16 10:52:19 2001
+@@ -45,7 +45,7 @@
+ /* when CONFIG_HIGHMEM is not set these will be plain clear/copy_page */
+ static inline void clear_user_highpage(struct page *page, unsigned long vaddr)
+ {
+-	clear_user_page(kmap(page), vaddr);
++	clear_user_page(kmap(page), page);
+ 	kunmap(page);
+ }
+ 
+@@ -87,7 +87,7 @@
+ 
+ 	vfrom = kmap(from);
+ 	vto = kmap(to);
+-	copy_user_page(vto, vfrom, vaddr);
++	copy_user_page(vto, vfrom, to);
+ 	kunmap(from);
+ 	kunmap(to);
+ }
+diff -Nur linux-2.4.0-base/include/linux/irq.h linux-2.4.0/include/linux/irq.h
+--- linux-2.4.0-base/include/linux/irq.h	Mon Jan 15 10:40:34 2001
++++ linux-2.4.0/include/linux/irq.h	Tue Jan 16 10:47:15 2001
+@@ -56,8 +56,6 @@
+ 
+ #include <asm/hw_irq.h> /* the arch dependent stuff */
+ 
+-extern unsigned int do_IRQ (unsigned long irq, struct pt_regs *regs);
+-extern void do_IRQ_per_cpu (unsigned long irq, struct pt_regs *regs);
+ extern int handle_IRQ_event(unsigned int, struct pt_regs *, struct irqaction 
+*);
+ extern int setup_irq(unsigned int , struct irqaction * );
+ 
+diff -Nur linux-2.4.0-base/mm/memory.c linux-2.4.0/mm/memory.c
+--- linux-2.4.0-base/mm/memory.c	Mon Jan 15 10:40:34 2001
++++ linux-2.4.0/mm/memory.c	Tue Jan 16 12:58:33 2001
+@@ -1150,10 +1150,8 @@
+  */
+ static inline int handle_pte_fault(struct mm_struct *mm,
+ 	struct vm_area_struct * vma, unsigned long address,
+-	int access_type, pte_t * pte)
++	int write_access, pte_t * pte)
+ {
+-	int write_access = is_write_access(access_type);
+-	int exec_access = is_exec_access(access_type);
+ 	pte_t entry;
+ 
+ 	/*
+@@ -1180,8 +1178,6 @@
+ 
+ 		entry = pte_mkdirty(entry);
+ 	}
+-	if (exec_access)
+-		entry = pte_mkexec(entry);
+ 	entry = pte_mkyoung(entry);
+ 	establish_pte(vma, address, pte, entry);
+ 	spin_unlock(&mm->page_table_lock);
 
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.3 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQE6djrSi4UHNye0ZOoRAuchAJ41JB/wDCAhFj4nBM+v8PgCryN5TQCg5RDW
-BH/DbLSloHul7Jnosa4FwrU=kBIV
------END PGP SIGNATURE-----
++---------------------------------------------------------------------+
+| Will Taber                                                          |
+| Software Engineer, CMBU                 E-mail  wtaber@rational.com |
+| Rational Software Corporation           Phone:  781-676-2436        |
+| 20 Maguire Road, Lexington, Mass. 02421                             |
++---------------------------------------------------------------------+
 
 
