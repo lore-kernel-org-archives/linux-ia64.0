@@ -1,167 +1,54 @@
-From: John Levon <levon@movementarian.org>
-Date: Tue, 14 Oct 2003 20:04:37 +0000
-Subject: [PATCH] ia64 perfmon OProfile support
-Message-Id: <marc-linux-ia64-106616192023718@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 13 Oct 2003 23:33:48 +0000
+Subject: [PATCH 2.4 and 2.6] Another mca sub-patch
+Message-Id: <marc-linux-ia64-106608825201386@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+The definition of the pal_process_state_info_s structure
+misses out some useful pieces (e.g. the "mi" bit which indicates
+whether we should call PAL_MC_ERROR_INFO to get more details).
 
-Here's the kernel patch OProfile needs for perfmon support. The rest of
-the changes are all in userspace now, I think.
+Worse yet, some of the bits are in the wrong places (cc/tc/bc).
 
-regards
-john
+See Volume 2 of "Intel Itanium Architecture Software Developer's
+Manual".  (In the Rev 2.1 October 2002 edition, p. 2:268 and 2:276).
 
-Index: linux-cvs//arch/ia64/oprofile/Makefile
-=================================RCS file: /home/cvs/linux-2.5/arch/ia64/oprofile/Makefile,v
-retrieving revision 1.2
-diff -u -a -p -r1.2 Makefile
---- linux-cvs//arch/ia64/oprofile/Makefile	9 Sep 2003 16:07:11 -0000	1.2
-+++ linux-cvs//arch/ia64/oprofile/Makefile	14 Oct 2003 19:57:51 -0000
-@@ -7,3 +7,4 @@ DRIVER_OBJS := $(addprefix ../../../driv
- 		timer_int.o )
+-Tony
+
+diff -ru temp/include/asm-ia64/pal.h mca/include/asm-ia64/pal.h
+--- temp/include/asm-ia64/pal.h	2003-09-08 12:50:12.000000000 -0700
++++ mca/include/asm-ia64/pal.h	2003-10-03 11:47:57.000000000 -0700
+@@ -405,10 +405,11 @@
+ 						 * generated.
+ 						 * (Trap Lost )
+ 						 */
+-			op		: 3,	/* Operation that
+-						 * caused the machine
+-						 * check
++			mi		: 1,	/* More information available
++						 * call PAL_MC_ERROR_INFO
+ 						 */
++			pi		: 1,	/* Precise instruction pointer */
++			pm		: 1,	/* Precise min-state save area */
  
- oprofile-y := $(DRIVER_OBJS) init.o
-+oprofile-$(CONFIG_PERFMON) += perfmon.o
-Index: linux-cvs//arch/ia64/oprofile/init.c
-=================================RCS file: /home/cvs/linux-2.5/arch/ia64/oprofile/init.c,v
-retrieving revision 1.2
-diff -u -a -p -r1.2 init.c
---- linux-cvs//arch/ia64/oprofile/init.c	9 Sep 2003 16:07:11 -0000	1.2
-+++ linux-cvs//arch/ia64/oprofile/init.c	14 Oct 2003 19:57:51 -0000
-@@ -12,14 +12,21 @@
- #include <linux/init.h>
- #include <linux/errno.h>
-  
--extern void timer_init(struct oprofile_operations ** ops);
-+extern int perfmon_init(struct oprofile_operations ** ops);
-+extern void perfmon_exit(void);
+ 			dy		: 1,	/* Processor dynamic
+ 						 * state valid
+@@ -450,11 +451,12 @@
+ 						 * by the processor
+ 						 */
  
- int __init oprofile_arch_init(struct oprofile_operations ** ops)
- {
-+#ifdef CONFIG_PERFMON
-+	return perfmon_init(ops);
-+#endif
- 	return -ENODEV;
- }
+-			reserved2	: 12,
++			reserved2	: 11,
+ 			cc		: 1,	/* Cache check */
+ 			tc		: 1,	/* TLB check */
+ 			bc		: 1,	/* Bus check */
+-			uc		: 1;	/* Unknown check */
++			rc		: 1,	/* Register file check */
++			uc		: 1;	/* Uarch check */
  
+ } pal_processor_state_info_t;
  
- void oprofile_arch_exit(void)
- {
-+#ifdef CONFIG_PERFMON
-+	perfmon_exit();
-+#endif
- }
---- /dev/null	Thu Aug 21 13:36:33 2003
-+++ linux-cvs/arch/ia64/oprofile/perfmon.c	Mon Oct 13 21:43:04 2003
-@@ -0,0 +1,82 @@
-+/**
-+ * @file perfmon.c
-+ *
-+ * @remark Copyright 2003 OProfile authors
-+ * @remark Read the file COPYING
-+ *
-+ * @author John Levon <levon@movementarian.org>
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/config.h>
-+#include <linux/oprofile.h>
-+#include <linux/sched.h>
-+#include <asm/perfmon.h>
-+#include <asm/ptrace.h>
-+#include <asm/errno.h>
-+
-+static int
-+perfmon_handler(struct task_struct * task, void * buf, pfm_ovfl_arg_t * arg,
-+                struct pt_regs * regs, unsigned long stamp)
-+{
-+	int cpu = smp_processor_id();
-+	unsigned long eip = instruction_pointer(regs);
-+	int event = arg->pmd_eventid;
-+ 
-+	oprofile_add_sample(eip, !user_mode(regs), event, cpu);
-+	arg->ovfl_ctrl.bits.reset_ovfl_pmds = 1;
-+	return 0;
-+}
-+
-+
-+#define OPROFILE_FMT_UUID { \
-+	0x77, 0x7a, 0x6e, 0x61, 0x20, 0x65, 0x73, 0x69, 0x74, 0x6e, 0x72, 0x20, 0x61, 0x65, 0x0a, 0x6c }
-+
-+static pfm_buffer_fmt_t oprofile_fmt = {
-+ 	.fmt_name 	    = "oprofile_format",
-+ 	.fmt_uuid	    = OPROFILE_FMT_UUID,
-+ 	.fmt_handler	    = perfmon_handler,
-+};
-+
-+
-+static char * get_cpu_type(void)
-+{
-+	__u8 family = local_cpu_data->family;
-+
-+	switch (family) {
-+		case 0x07:
-+			return "ia64/itanium";
-+		case 0x1f:
-+			return "ia64/itanium2";
-+		default:
-+			return "ia64/ia64";
-+	}
-+}
-+
-+
-+/* all the ops are handled via userspace for IA64 perfmon */
-+static struct oprofile_operations perfmon_ops;
-+
-+static int using_perfmon;
-+
-+int perfmon_init(struct oprofile_operations ** ops)
-+{
-+	int ret = pfm_register_buffer_fmt(&oprofile_fmt);
-+	if (ret)
-+		return -ENODEV;
-+
-+	perfmon_ops.cpu_type = get_cpu_type();
-+	*ops = &perfmon_ops;
-+	using_perfmon = 1;
-+	printk(KERN_INFO "oprofile: using perfmon.\n");
-+	return 0;
-+}
-+
-+
-+void perfmon_exit(void)
-+{
-+	if (!using_perfmon)
-+		return;
-+
-+	pfm_unregister_buffer_fmt(oprofile_fmt.fmt_uuid);
-+}
-Index: linux-cvs//drivers/oprofile/oprof.c
-=================================RCS file: /home/cvs/linux-2.5/drivers/oprofile/oprof.c,v
-retrieving revision 1.9
-diff -u -a -p -r1.9 oprof.c
---- linux-cvs//drivers/oprofile/oprof.c	12 Jun 2003 03:28:40 -0000	1.9
-+++ linux-cvs//drivers/oprofile/oprof.c	14 Oct 2003 19:58:04 -0000
-@@ -88,7 +88,7 @@ int oprofile_start(void)
-  
- 	oprofile_reset_stats();
- 
--	if ((err = oprofile_ops->start()))
-+	if (oprofile_ops->start && (err = oprofile_ops->start()))
- 		goto out;
- 
- 	oprofile_started = 1;
-@@ -104,7 +104,8 @@ void oprofile_stop(void)
- 	down(&start_sem);
- 	if (!oprofile_started)
- 		goto out;
--	oprofile_ops->stop();
-+	if (oprofile_ops->stop)
-+		oprofile_ops->stop();
- 	oprofile_started = 0;
- 	/* wake up the daemon to read what remains */
- 	wake_up_buffer_waiter();
