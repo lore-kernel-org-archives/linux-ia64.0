@@ -1,30 +1,34 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Mon, 16 Aug 2004 16:18:45 +0000
-Subject: Re: page fault fastpath: Increasing SMP scalability by introducing pte locks?
-Message-Id: <20040816161845.GA11200@holomorphy.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 16 Aug 2004 17:28:18 +0000
+Subject: Re: page fault fastpath: Increasing SMP scalability by introducing
+Message-Id: <Pine.LNX.4.58.0408161025420.9812@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com> <20040815130919.44769735.davem@redhat.com> <Pine.LNX.4.58.0408151552280.3370@schroedinger.engr.sgi.com> <20040815165827.0c0c8844.davem@redhat.com> <Pine.LNX.4.58.0408151703580.3751@schroedinger.engr.sgi.com> <20040815185644.24ecb247.davem@redhat.com> <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com> <41205BAA.9030800@sgi.com> <Pine.LNX.4.58.0408160817210.8293@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0408160817210.8293@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
+ <1092609485.9538.27.camel@gaston>
+In-Reply-To: <1092609485.9538.27.camel@gaston>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
-Cc: Ray Bryant <raybry@sgi.com>, "David S. Miller" <davem@redhat.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>, Anton Blanchard <anton@samba.org>
 
-On Mon, 16 Aug 2004, Ray Bryant wrote:
->> Something else to worry about here is mm->rss.  Previously, this was updated
->> only with the page_table_lock held, so concurrent increments were not a
->> problem.  rss may need to converted be an atomic_t if you use pte_locks.
->> It may be that an approximate value for rss is good enough, but I'm not sure
->> how to bound the error that could be introduced by a couple of hundred
->> processers handling page faults in parallel and updating rss without locking
->> it or making it an atomic_t.
+On Mon, 16 Aug 2004, Benjamin Herrenschmidt wrote:
 
-On Mon, Aug 16, 2004 at 08:18:11AM -0700, Christoph Lameter wrote:
-> Correct. There are a number of issues that may have to be addressed but
-> first we need to agree on a general idea how to proceed.
+> On Sun, 2004-08-15 at 23:50, Christoph Lameter wrote:
+> > Well this is more an idea than a real patch yet. The page_table_lock
+> > becomes a bottleneck if more than 4 CPUs are rapidly allocating and using
+> > memory. "pft" is a program that measures the performance of page faults on
+> > SMP system. It allocates memory simultaneously in multiple threads thereby
+> > causing lots of page faults for anonymous pages.
+>
+> Just a note: on ppc64, we already have a PTE lock bit, we use it to
+> guard against concurrent hash table insertion, it could be extended
+> to the whole page fault path provided we can guarantee we will never
+> fault in the hash table on that PTE while it is held. This shouldn't
+> be a problem as long as only user pages are locked that way (which
+> should be the case with do_page_fault) provided update_mmu_cache()
+> is updated to not take this lock, but assume it already held.
 
-I'd favor a per-cpu counter so the cacheline doesn't bounce.
-
-
--- wli
+Is this the _PAGE_BUSY bit? The pte update routines on PPC64 seem to spin
+on that bit when it is set waiting for the hash value update to complete.
+Looks very specific to the PPC64 architecture.
