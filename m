@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 20 Oct 2003 20:42:22 +0000
-Subject: RE: MCA Recovery for Enterprise Server
-Message-Id: <marc-linux-ia64-106668311500762@msgid-missing>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Mon, 27 Oct 2003 06:44:49 +0000
+Subject: Re: MCA Recovery for Enterprise Server
+Message-Id: <marc-linux-ia64-106723722023667@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106663088408345@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106663088408345@msgid-missing>
@@ -10,14 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 20 Oct 2003 10:02:21 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+Hi Tony,
 
-  Tony> David: does "ski" have any hooks for fault injection?
+ I think my words were too short or vague to bring you a real implementation
+image. What I intend to do is to show my basic idea of general MCA handling on
+Linux.
+I will explain more details to you with my next post.
 
-Not that I know of.  However, wouldn't it be possible to extend
-fw-emu.c to do such things?  You could hit Ctrl-C at any point in
-time, then force a branch to a special fault-injection routine.  That
-ought to be workable, though setting up all the info etc. is probably
-non-trivial.
 
-	--david
+Thanks.
+
+------
+
+H.Seto <seto.hidetoshi@jp.fujitsu.com>
+
