@@ -1,8 +1,10 @@
-From: "jamaal" <tracysbdc@bali-belly.com>
-Date: Tue, 18 May 2004 11:17:21 +0000
+From: "eugenio" <daddypacker@beer-garden.com>
+Date: Thu, 20 May 2004 07:22:03 +0000
 Subject: Looking for a promotion?
-Message-Id: <1084922304-28056@excite.com>
+Message-Id: <1085037723-17430@excite.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1084922304-28056@excite.com>
+In-Reply-To: <1084922304-28056@excite.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -57,8 +59,8 @@ http://teddychoice.biz/index.php?su55
 
 
 
-zeppelin hello1rock smiths norman dasha sundance abcdef 
-cascade energycorrado chaos angels
-buttons supra lulu 
+nick mikifirst dexter diana dude god julia 
+tattoo fozziehappyday mayday tigre
+tiffany republic beanie 
 
 REMOV3: http://teddychoice.biz/soft/chair.php
