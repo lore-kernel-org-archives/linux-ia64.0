@@ -1,33 +1,39 @@
-From: Barry Wu <wuqb@nudt.edu.cn>
-Date: Mon, 24 Jun 2002 13:13:43 +0000
-Subject: [Linux-ia64] =?gb2312?B?d2hhdCBhYm91dCBTR0kgSUE2NCBpbyBhZGRyZXNzIG1hcA==?=
-Message-Id: <marc-linux-ia64-105590701905718@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Wed, 26 Jun 2002 18:20:28 +0000
+Subject: [Linux-ia64] perfmon_mckinley.h for 2.4.18 and 2.5.18 available!
+Message-Id: <marc-linux-ia64-105590701905724@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi, all, I am new to Intel Itanium. I do not know
-if io address is special linux. For example, in mips
-io virtual  address can be converted directly to
-physics address by K1seg. I read Itanium system 
-architecture and find that all virtual address have
-to pass TLB transation. Am I right?
+Hi,
 
-I read include/asm-ia64/sn/sn2/addrs.h and find
-that SGI IA64 address is composed of
-node-id  +  node offset
-If all virtual address have to convert by TLB, then
-I think SGI Itanium virtual address have to use
-TR register. But Itanium only has 48 DTR and if
-we use node-id as part of physics address, then 
-each node we have to use a DTR, then SGI IA64 system
-have no too DTR to convert this address. The efficiency
-must be slow for IO address. I do not know if it is
-correct. If someone knows, please give me a reply.
+Today, Intel released the microarchitecture document for
+Itanium2. You can get it from:
 
-Thanks in advance!
+	http://developer.intel.com/design/itanium
 
-Barry 
+This means that I can now publish the missing Itanium2
+file to get perfmon working on Itanium2 systems. 
+
+You can also download the file from:
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/perfmon_mckinley.h
+
+This file must be placed into arch/ia64/kernel and it works
+for both 2.4.18 and 2.5.18.
+
+This file ONLY matters if you have *CONFIG_MCKINLEY AND*
+CONFIG_PERFMON enabled.
+
+Also note that pfmon-1.0 will run in generic mode 
+with a kernel compiled with this file. In generic
+mode, you only get CPU_CYCLES and IA64_INST_RETIRED.
+
+I will release pfmon-1.1 with full Itanium2 support 
+early next week.
+
+-- 
+-Stephane
 
