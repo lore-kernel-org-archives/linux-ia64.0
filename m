@@ -1,44 +1,43 @@
-From: Don Dugger <n0ano@valinux.com>
-Date: Fri, 16 Mar 2001 15:06:21 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Fri, 16 Mar 2001 18:31:08 +0000
 Subject: Re: [Linux-ia64] Fortran compiler for ia64?
-Message-Id: <marc-linux-ia64-105590693005282@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005287@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005278@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005278@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Francis-
+>All is in $subject... The existing toolchain doesn't seem to have any support
+>for Fortran right now.
 
-The IA64 website is `www.linuxia64.org' and it is up and working fine.
+The Red Hat tools group (formerly Cygnus) does not support Fortran, so Fortran
+is not present in our releases.  Fortran is present in the FSF gcc tree
+though, and should be working fine.  Here are test results from a couple of
+days ago off the gcc3 branch:
 
-On Fri, Mar 16, 2001 at 10:53:31AM +0100, Francis Galiegue wrote:
-> All is in $subject... The existing toolchain doesn't seem to have any sup=
-port
-> for Fortran right now.
->=20
-> Oh, and the linux-ia64 website and cygnus FTP site are still down... Is t=
-his
-> normal?
->=20
-> --=20
-> Francis Galiegue, fg@mandrakesoft.com - Normand et fier de l'=EAtre
-> "Programming is a race between programmers, who try and make more and more
-> idiot-proof software, and universe, which produces more and more remarkab=
-le
-> idiots. Until now, universe leads the race"  -- R. Cook
->=20
->=20
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+		== g77 Summary =
+# of expected passes		904
+# of unexpected failures	9
+# of untested testcases		6
+# of unsupported tests		8
 
---=20
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@valinux.com
-Ph: 303/938-9838
+This is very close to the x86 testsuite results.
+
+>Oh, and the linux-ia64 website and cygnus FTP site are still down... Is this
+>normal?
+
+Yes, the cygnus ftp site is still down.  It has been down for over a week,
+and I still don't have any estimate for when it will be back up.
+
+At this point though, I don't think it really matters anymore.  I'd been
+planning for a while to phase out the last compiler release in favor of gcc3.  
+I may as well use the ftp site problems to effect the change.  If you still
+need the old compiler, you can get source RPMS from Red Hat, Suse, Turbolinux,
+etc.  Meanwhile, gcc3 is still not stable enough for building distributions,
+but it should be stable enough for most development work.
+
+Jim
 
