@@ -1,83 +1,67 @@
-From: "Chris McDermott" <mcdermoc@us.ibm.com>
-Date: Wed, 21 Feb 2001 22:38:36 +0000
-Subject: RE: Re: [Linux-ia64] Re: Lockups on 2.4.1
-Message-Id: <marc-linux-ia64-105590693005187@msgid-missing>
+From: Bryce McKinlay <bryce@albatross.co.nz>
+Date: Tue, 27 Feb 2001 09:37:20 +0000
+Subject: [Linux-ia64] gcj static linking fix [Re: gcj build on Itanium]
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------8E5E6652B1740475F705EED2"
+Message-Id: <marc-linux-ia64-105590693005216@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005183@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005183@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Definitely seeing this (at least the problem I reported) on a
-2.4.1-010131 kernel.
+This is a multi-part message in MIME format.
+--------------8E5E6652B1740475F705EED2
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Chris
+"Boehm, Hans" wrote:
 
-> Just my observation:
+> Problem 5: Static linking tends to result in "eh.o...: undefined reference
+> to `fwrite'.  This seems to be a library ordering problem, which might also
+> affect other platforms.
 >
-> The improvement I have seen using the 2.4.1-010131 kernel from any 2.4.0
-> ia64 kernel is major enough to upgrade.
+> Workaround: use "-u fwrite" on the command line.
 >
-> I have not seen any lockups of the sort I have seen on this thread.
->
-> I am running a 4 proc Lion with 4 Gigs memory, Bios 71.
->
-> If you are seeing this issue on 2.4.0 I would upgrade.
->
-> --ken
+> Request: What's a proper fix?
+
+Static libgcc linking seems to require "-lgcc -lc -lgcc" with no other
+libraries in between in order to work correctly. The use of libgcj.spec was
+adding additional libraries between the first "-lgcc" and the "-lc". This patch
+fixes it. I'm checking it in to head + branch.
+
+regards
+
+  [ bryce ]
 
 
------Original Message-----
-From: Jack Steiner [mailto:steiner@sgi.com]
-Sent: Wednesday, February 21, 2001 11:48 AM
-To: linux-ia64@linuxia64.org
-Subject: Re: Re: [Linux-ia64] Re: Lockups on 2.4.1
 
+--------------8E5E6652B1740475F705EED2
+Content-Type: text/plain; charset=us-ascii;
+ name="libgcj.spec.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="libgcj.spec.patch"
 
-> Anyway, I have ITPs connected to the IBM hardware and have noticed that
-> when the lockup occurs, and we lose video, at least one of the CPUs is
-> executing in flush_tlb_no_ptcg() or handle_IPI(), in the 'do' loop where
-> TLB
-> entries are being purged. What I have observed is that the end address
-and
-> the start address are in completely different regions. Usually, the start
-> address
-> is in region register 1 (address of 0x2000XXXXXXXXXXXX) and the end
-address
-> is in region register 3 (address of 0x6000XXXXXXXXXXXX). I don't know if
-> this
-> is the same problem I am seeing on the Lion, but I plan to connect and
-ITP
-> and
-> a serial console (although we haven't been able to get one to work yet on
-> the
-> Lion with BIOS 71) to see if the symptoms are the same.
+2001-02-27  Bryce McKinlay  <bryce@albatross.co.nz>
 
-FWIW, we have seen EXACTLY the same hang running here on our system.
-The start/end addresses for the purge cross region boundaries.
+	* libgcj.spec.in: Insert %(libgcc) before %(liborig) to fix static
+	linking.
 
+Index: libgcj.spec.in
+===================================================================
+RCS file: /cvs/gcc/egcs/libjava/libgcj.spec.in,v
+retrieving revision 1.13
+diff -u -r1.13 libgcj.spec.in
+--- libgcj.spec.in	2001/02/05 05:46:16	1.13
++++ libgcj.spec.in	2001/02/27 09:27:45
+@@ -4,7 +4,7 @@
+ # to link with libgcj.
+ #
+ %rename lib liborig
+-*lib: -lgcj -lm @GCSPEC@ @THREADSPEC@ @ZLIBSPEC@ @SYSTEMSPEC@ %(liborig)
++*lib: -lgcj -lm @GCSPEC@ @THREADSPEC@ @ZLIBSPEC@ @SYSTEMSPEC@ %(libgcc) %(liborig)
+ 
+ *jc1:  @DIVIDESPEC@ @EXCEPTIONSPEC@ @JC1GCSPEC@ -fasynchronous-exceptions
+ 
 
-We are running a 2.4.0 kernel.
-
-
---
-Thanks
-
-Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
-
+--------------8E5E6652B1740475F705EED2--
 
 
