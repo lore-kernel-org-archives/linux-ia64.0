@@ -1,7 +1,7 @@
-From: Lenz Grimmer <grimmer@suse.de>
-Date: Tue, 18 Sep 2001 09:03:26 +0000
+From: Andreas Jaeger <aj@suse.de>
+Date: Tue, 18 Sep 2001 09:03:52 +0000
 Subject: Re: [Linux-ia64] PROPOSED: 32/64 bit coexistance
-Message-Id: <marc-linux-ia64-105590698805203@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805204@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805193@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805193@msgid-missing>
@@ -10,11 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 18 Sep 2001, Jes Sorensen wrote:
+Jes Sorensen <jes@sunsite.dk> writes:
 
-> >>>>> "David" = David Mosberger <davidm@hpl.hp.com> writes:
+>>>>>> "David" = David Mosberger <davidm@hpl.hp.com> writes:
 >
-> >>>>> On Mon, 17 Sep 2001 10:02:14 -0600, Doug Beattie <dbb@caldera.com> said:
+>>>>>> On Mon, 17 Sep 2001 10:02:14 -0600, Doug Beattie <dbb@caldera.com> said:
 > Doug> Your reponse is welcome and invited.  The LSB and FHS groups are
 > Doug> trying to better address the coexistance of 32 and 64 bit in the
 > Doug> 64 bit Itanium environment.
@@ -40,20 +40,20 @@ On 18 Sep 2001, Jes Sorensen wrote:
 > implementation work how the architecture really works and what
 > experience has been gained in these areas already.
 
-Who said, that this is already a "standard"? It's a proposal and you are
-welcome to comment on it. It seems like everybody is aware of the problem
-- this documents simply attempt to make sure, that we all play on the same
-sheet of music and avoid yet another difference between implementations.
+Please read the email that I've send some minutes, George forgot to
+append one paragraph.  We didn't want to suggest that ia64 was changed
+- the purpose was to unify existing practice and decide on a way how
+to handle it with newer 64 bit platforms that have a mixed 32-bit and
+64-bit userland.
 
-Bye,
-	LenZ
+For ia64 the situation is a bit different than for PPC64, S390, x86-64
+and MIPS.
+
+Andreas
+
 -- 
-------------------------------------------------------------------
- Lenz Grimmer                                           SuSE GmbH
- mailto:grimmer@suse.de                       Schanzaeckerstr. 10
- http://www.suse.de/~grimmer/            90443 Nuernberg, Germany
-                 The trodden path is the safest.
-
-
-
+ Andreas Jaeger
+  SuSE Labs aj@suse.de
+   private aj@arthur.inka.de
+    http://www.suse.de/~aj
 
