@@ -1,50 +1,53 @@
-From: Dave Anderson <anderson@redhat.com>
-Date: Wed, 31 Jul 2002 17:33:15 +0000
-Subject: [Linux-ia64] Re: insmod bug causes kernel unwind failures for module text
-Message-Id: <marc-linux-ia64-105590701905866@msgid-missing>
+From: John Marvin <jsm@udlkern.fc.hp.com>
+Date: Fri, 26 Jul 2002 13:35:11 +0000
+Subject: [Linux-ia64] [PATCH] arch/ia64/kernel/efi.c
+Message-Id: <marc-linux-ia64-105590701905832@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905853@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905853@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This one works just fine -- ship it!
+In doing some testing, I discovered the the mem= kernel command line option
+doesn't behave as expected for zx1 based machines. The current implementation
+assumes that memory starts at physical address zero and is physically
+contiguous, i.e. the mem= value is used as a limit on the physical address,
+rather than specifying the maximum physical memory to use.
 
-Thanks,
-  Dave Anderson
+I've enclosed a patch to fix the problem.  Since this is primarily a
+debugging option, this isn't a critical fix.
 
+John Marvin
+jsm@fc.hp.com
 
-Keith Owens wrote:
-
-> On Tue, 30 Jul 2002 09:35:12 -0400,
-> Dave Anderson <anderson@redhat.com> wrote:
-> >Unfortunately the patch won't work, at least in the context of the current
-> >kernel code, because the following range check in ia64_module_init() causes
-> >the insmod to fail:
->
-> Not sure why it worked for me, probably operator error.  Revert
-> segment_base to start of first section.  Against a clean modutils
-> 2.4.18.
->
-> Index: 18.2/obj/obj_ia64.c
-> --- 18.2/obj/obj_ia64.c Fri, 01 Mar 2002 11:39:06 +1100 kaos (modutils-2.4/c/0_obj_ia64.c 1.5 644)
-> +++ 19.6(w)/obj/obj_ia64.c Wed, 31 Jul 2002 10:41:20 +1000 kaos (modutils-2.4/c/0_obj_ia64.c 1.8 644)
-> @@ -911,12 +911,8 @@ arch_apply_relocation(struct obj_file *f
->
->      case R_IA64_SEGREL32LSB :   /* @segrel(sym + add), data4 LSB */
->      case R_IA64_SEGREL64LSB :   /* @segrel(sym + add), data8 LSB */
-> -       if (targsec->header.sh_type & SHT_NOBITS)
-> -           v = ifile->bss - v;
-> -       else if (targsec->header.sh_flags & SHF_EXECINSTR)
-> -           v = ifile->text - v;
-> -       else
-> -           v = ifile->data - v;
-> +       /* Only one segment for modules, see segment_base in arch_archdata */
-> +       v -= f->sections[1]->header.sh_addr;
->         if (r_info = R_IA64_SEGREL32LSB)
->             COPY_32LSB(loc, v);
->         else
-
+--- arch/ia64/kernel/efi.c.old	Mon Oct 17 14:01:13 2044
++++ arch/ia64/kernel/efi.c	Mon Oct 17 14:01:31 2044
+@@ -210,6 +210,7 @@ efi_memmap_walk (efi_freemem_callback_t 
+ 	void *efi_map_start, *efi_map_end, *p, *q;
+ 	efi_memory_desc_t *md, *check_md;
+ 	u64 efi_desc_size, start, end, granule_addr, first_non_wb_addr = 0;
++       unsigned long mem_found = 0;
+ 
+ 	efi_map_start = __va(ia64_boot_param->efi_memmap);
+ 	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+@@ -259,14 +260,16 @@ efi_memmap_walk (efi_freemem_callback_t 
+ 		trim_top(md, first_non_wb_addr);
+ 
+ 		if (is_available_memory(md)) {
+-			if (md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT) > mem_limit) {
+-				if (md->phys_addr > mem_limit)
++			if (mem_found + (md->num_pages << EFI_PAGE_SHIFT) > mem_limit) {
++				if (mem_found >= mem_limit)
+ 					continue;
+-				md->num_pages = (mem_limit - md->phys_addr) >> EFI_PAGE_SHIFT;
++				md->num_pages = (mem_limit - mem_found) >> EFI_PAGE_SHIFT;
+ 			}
+ 
+ 			if (md->num_pages = 0)
+ 				continue;
++
++			mem_found += (md->num_pages << EFI_PAGE_SHIFT);
+ 
+ 			curr.start = PAGE_OFFSET + md->phys_addr;
+ 			curr.end   = curr.start + (md->num_pages << EFI_PAGE_SHIFT);
 
