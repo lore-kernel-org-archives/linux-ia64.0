@@ -1,49 +1,36 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Date: Mon, 08 Mar 2004 21:54:48 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Mon, 08 Mar 2004 22:05:21 +0000
 Subject: Re: [PATCH] fix PCI interrupt setting for ia64
-Message-Id: <20040308215448.I21938@flint.arm.linux.org.uk>
+Message-Id: <200403081505.21644.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3ACA40606221794F80A5670F0AF15F8401B1A017@PDSMSX403.ccr.corp.intel.com> <20040308.182552.55855095.t-kochi@bq.jp.nec.com> <200403081213.22095.bjorn.helgaas@hp.com> <16460.59685.452893.22564@napali.hpl.hp.com>
-In-Reply-To: <16460.59685.452893.22564@napali.hpl.hp.com>; from davidm@napali.hpl.hp.com on Mon, Mar 08, 2004 at 01:44:05PM -0800
+References: <3ACA40606221794F80A5670F0AF15F8401B1A017@PDSMSX403.ccr.corp.intel.com> <16460.59685.452893.22564@napali.hpl.hp.com> <20040308215448.I21938@flint.arm.linux.org.uk>
+In-Reply-To: <20040308215448.I21938@flint.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davidm@hpl.hp.com
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Takayoshi Kochi <t-kochi@bq.jp.nec.com>, benjamin.liu@intel.com, iod00d@hp.com, kaneshige.kenji@jp.fujitsu.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Russell King <rmk+lkml@arm.linux.org.uk>, davidm@hpl.hp.com
+Cc: Takayoshi Kochi <t-kochi@bq.jp.nec.com>, benjamin.liu@intel.com, iod00d@hp.com, kaneshige.kenji@jp.fujitsu.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Mon, Mar 08, 2004 at 01:44:05PM -0800, David Mosberger wrote:
-> >>>>> On Mon, 8 Mar 2004 12:13:22 -0700, Bjorn Helgaas <bjorn.helgaas@hp.com> said:
+On Monday 08 March 2004 2:54 pm, Russell King wrote:
+> OTOH, if you know "this port is absolutely definitely using this IRQ"
+> then you don't want to use IRQ probing.
 > 
->   Bjorn> Strictly speaking, since ACPI tells us about IRQs, we
->   Bjorn> shouldn't need probe_irq_on() on ia64, should we?
-> 
->   Bjorn> I don't see any ACPI smarts in the IDE driver, but I think
->   Bjorn> the serial driver needs only the attached patch to make it
->   Bjorn> avoid the use of probe_irq_on().  I tested this on i2k and
->   Bjorn> various HP zx1 boxes, and it works fine.
-> 
->   Bjorn> Russell, if you agree, would you mind applying this?
-> 
->   Bjorn> ACPI and HCDP tell us what IRQ the serial port uses, so
->   Bjorn> there's no need to have the driver probe for the IRQ.
-> 
-> The patch looks good to me and I certainly agree that probe_irq_on()
-> should be avoided.  However, as long as this interface is part of the
-> Linux kernel, we should support it on ia64 since we can't know for
-> sure when there are no drivers left using that interface.  (And there
-> is no reason this interface is limited to ISA, though that certainly
-> is the bus that generally had to use it, for lack of explicit irq
-> info.)
+> As long as ACPI positively knows the correct IRQ, so we really shouldn't
+> be using IRQ probing here.  The only thing which causes me concern is...
+> what about ACPI table/BIOS bugs?
 
-OTOH, if you know "this port is absolutely definitely using this IRQ"
-then you don't want to use IRQ probing.
+I suspect (not being expert in the serial innards) that with the old
+code things would "just work", and the ACPI table bug would never
+be noticed.
 
-As long as ACPI positively knows the correct IRQ, so we really shouldn't
-be using IRQ probing here.  The only thing which causes me concern is...
-what about ACPI table/BIOS bugs?
+With the new code, my guess is that the device just wouldn't work
+(we think it has an interrupt, but it's not hooked up correctly).
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+My inclination is that it's better to help find ACPI bugs, and
+if broken tables turn out to be a problem, we can add some kind
+of command-line switch or blacklist to deal with it.  But I
+guess we should really get David's opinion, since this is a
+potential issue for 2.6 distributions.
+
+Bjorn
+
