@@ -1,29 +1,63 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 07 Jul 2003 20:11:25 +0000
-Subject: Re: Early printk is Gone....???
-Message-Id: <marc-linux-ia64-105760869930828@msgid-missing>
+From: Matt Tolentino <metolent@unix-os.sc.intel.com>
+Date: Sat, 12 Jul 2003 02:00:02 +0000
+Subject: [PATCH] remove pa->va->pa conversion for efi.acpi
+Message-Id: <marc-linux-ia64-105797540229907@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105711058824791@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105711058824791@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 4 Jul 2003 13:52:48 +1000, Peter Chubb <peter@chubb.wattle.id.au> said:
+David, Andy,
 
->>>>> "Martin" = Martin Hicks <mort@wildopensource.com> writes:
+During ia64 kernel initialization, the physical address of the ACPI tables is passed via the EFI Configuration Table.  In efi_init() the address is stored as a virtual address in the kernel's efi structure.  Later when ACPI is initialized, these are converted back to physical addresses in acpi_find_rsdp() and acpi_os_get_root_pointer().   
 
-  Martin> EARLY_PRINTK is really only for bringup.  It really don't
-  Martin> expect that it will ever be pushed to Linus.  The to-linus
-  Martin> tree is really only for David to stick changesets in for Linus
-  Martin> to pull into the mainline kernel.  It does not compile, and
-  Martin> doesn't have to.
+This patch (against 2.5.75) removes the macro to store the address as virtual and removes the macros doing the reverse conversion back to physical.  As I'm currently working on a patch to add support for booting and initializing  IA-32 kernels from EFI, this simplifies the changes to drivers/acpi/osl.c to also get the physical address.  Fwiw, I was able to boot a slightly older 2.5.69 kernel on an Itanium II system w/o issue with this patch...
 
-  Peter> I understand that; the issue I have is that CONFIG_EARLY_PRINTK is
-  Peter> defined in Kconfig, but does nothing, because the code is not there.
+thanks,
+matt
 
-That's a reasonable objection.  I'll try to remember to move the
-EARLY_PRINTK config option into the linux-ia64-2.5 tree as well.
 
-	--david
+diff -urN linux-2.5.75/arch/ia64/kernel/acpi.c linux-2.5.75-acpi/arch/ia64/kernel/acpi.c
+--- linux-2.5.75/arch/ia64/kernel/acpi.c	2003-07-10 13:09:03.000000000 -0700
++++ linux-2.5.75-acpi/arch/ia64/kernel/acpi.c	2003-07-11 15:20:42.000000000 -0700
+@@ -568,7 +568,7 @@
+ 	unsigned long rsdp_phys = 0;
+ 
+ 	if (efi.acpi20)
+-		rsdp_phys = __pa(efi.acpi20);
++		rsdp_phys = efi.acpi20;
+ 	else if (efi.acpi)
+ 		printk(KERN_WARNING PREFIX "v1.0/r0.71 tables no longer supported\n");
+ 	return rsdp_phys;
+diff -urN linux-2.5.75/arch/ia64/kernel/efi.c linux-2.5.75-acpi/arch/ia64/kernel/efi.c
+--- linux-2.5.75/arch/ia64/kernel/efi.c	2003-07-10 13:04:43.000000000 -0700
++++ linux-2.5.75-acpi/arch/ia64/kernel/efi.c	2003-07-11 15:20:27.000000000 -0700
+@@ -525,10 +525,10 @@
+ 			efi.mps = __va(config_tables[i].table);
+ 			printk(" MPS=0x%lx", config_tables[i].table);
+ 		} else if (efi_guidcmp(config_tables[i].guid, ACPI_20_TABLE_GUID) = 0) {
+-			efi.acpi20 = __va(config_tables[i].table);
++			efi.acpi20 = config_tables[i].table;
+ 			printk(" ACPI 2.0=0x%lx", config_tables[i].table);
+ 		} else if (efi_guidcmp(config_tables[i].guid, ACPI_TABLE_GUID) = 0) {
+-			efi.acpi = __va(config_tables[i].table);
++			efi.acpi = config_tables[i].table;
+ 			printk(" ACPI=0x%lx", config_tables[i].table);
+ 		} else if (efi_guidcmp(config_tables[i].guid, SMBIOS_TABLE_GUID) = 0) {
+ 			efi.smbios = __va(config_tables[i].table);
+diff -urN linux-2.5.75/drivers/acpi/osl.c linux-2.5.75-acpi/drivers/acpi/osl.c
+--- linux-2.5.75/drivers/acpi/osl.c	2003-07-10 13:13:05.000000000 -0700
++++ linux-2.5.75-acpi/drivers/acpi/osl.c	2003-07-11 15:21:18.000000000 -0700
+@@ -142,9 +142,9 @@
+ #ifdef CONFIG_ACPI_EFI
+ 	addr->pointer_type = ACPI_PHYSICAL_POINTER;
+ 	if (efi.acpi20)
+-		addr->pointer.physical = (acpi_physical_address) virt_to_phys(efi.acpi20);
++		addr->pointer.physical = (acpi_physical_address) efi.acpi20;
+ 	else if (efi.acpi)
+-		addr->pointer.physical = (acpi_physical_address) virt_to_phys(efi.acpi);
++		addr->pointer.physical = (acpi_physical_address) efi.acpi;
+ 	else {
+ 		printk(KERN_ERR PREFIX "System description tables not found\n");
+ 		return AE_NOT_FOUND;
