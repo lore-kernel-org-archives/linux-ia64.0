@@ -1,24 +1,39 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Mon, 24 Jul 2000 19:22:22 +0000
-Subject: Re: [Linux-ia64] Internal compiler error in `reload_cse_simplify_operands'
-Message-Id: <marc-linux-ia64-105590678205225@msgid-missing>
+From: Thomas Hiller <thomas.hiller@sap.com>
+Date: Tue, 18 Jul 2000 11:47:06 +0000
+Subject: [Linux-ia64] gcc/as problem: integer operand out of range
+Message-Id: <marc-linux-ia64-105590678205202@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205223@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205223@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-	alxxlog.c: In function `AlLogReadBlock':
-	alxxlog.c:750: Insn does not satisfy its constraints:
+When I compile a c++ program with gcc I get the following messages:
 
-This is a compiler bug.  I would need a testcase so I can reproduce the
-problem, and information about what compiler you are using.
+iaxxsldc.S: Assembler messages:
+iaxxsldc.S:4791: Error: Bad operand value: integer operand out of range
+iaxxsldc.S:4861: Error: Bad operand value: integer operand out of range
+iaxxsldc.S:4879: Error: Bad operand value: integer operand out of range
+iaxxsldc.S:8895: Error: Bad operand value: integer operand out of range
+iaxxsldc.S:8933: Error: Bad operand value: integer operand out of range
 
-The easiest way to create a testcase is to use --save-temps, and then send
-the resulting .i file along with the command line used to create it.
+where 4791 reads as follows:
+add     r32 = -8808, r32
 
-Jim
+Is this a gas problem ? A gcc problem ?
+
+Thanks in advance.
+
+Kind regards,
+Thomas
+
+--
+Thomas Hiller                                           thomas.hiller@compaq.com
+COMPAQ Computer Corporation                             thomas.hiller@sap.com
+Global SAP Solution Center                              Tel: +49 6227 / 7-45426
+LinuxLab @ SAP, Walldorf                                Fax: +49 6227 / 7-43027
+
+
+
 
 
