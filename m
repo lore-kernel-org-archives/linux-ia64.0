@@ -1,7 +1,7 @@
-From: "Neelakantam, NaveenX" <naveenx.neelakantam@intel.com>
-Date: Sun, 14 Apr 2002 22:08:54 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 15 Apr 2002 16:55:28 +0000
 Subject: RE: [Linux-ia64] determining read or write on a page fault
-Message-Id: <marc-linux-ia64-105590701905452@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905455@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905163@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905163@msgid-missing>
@@ -10,61 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It turns out that we have been running into a cc code generation bug.
-Changing the si_code = 0 case from "write" to "read" happened to make the
-bug go away.
+>>>>> On Sun, 14 Apr 2002 15:08:54 -0700, "Neelakantam, NaveenX" <naveenx.neelakantam@intel.com> said:
 
-We have rewritten our code to workaround the bug, and everything works as
-expected.  Sorry for the false alarm.
+  Naveen> It turns out that we have been running into a cc code
+  Naveen> generation bug.  Changing the si_code = 0 case from "write"
+  Naveen> to "read" happened to make the bug go away.
 
-Naveen Neelakantam
+  Naveen> We have rewritten our code to workaround the bug, and
+  Naveen> everything works as expected.  Sorry for the false alarm.
 
------Original Message-----
-From: Hoeflinger, Jay P 
-Sent: Wednesday, April 03, 2002 10:19 AM
-To: 'davidm@hpl.hp.com'
-Cc: linux-ia64@linuxia64.org; Neelakantam, NaveenX
-Subject: RE: [Linux-ia64] determining read or write on a page fault
+By "cc" do you mean gcc?  If so, what version?  Can you check whether
+the bug still occurs with the latest version of gcc (gcc3.0 or, better
+still, gcc3.1-prelease) or provide a test-case?
 
-
-We want to report success using the 2.4.18 kernel and the 
-info sent to the segv handler on a page fault for our distributed
-virtual shared memory system on IA64.  Thanks for your help.  We had
-to make one assumption, though, that wasn't covered in your mail
-(below).
-
-The assumption was that if si_code=0, that the access was a "read".
-We had originally assumed it was a "write", but this caused some errors.
-When we changed to assuming "read", things worked.  Is this assumption
-valid?  When does this case occur?  Our scan of the kernel source seemed
-to indicate that this case can't happen.
-
-Thanks
-
-Jay Hoeflinger and Naveen Neelakantam
-
-
-
------Original Message-----
-From: David Mosberger [mailto:davidm@hpl.hp.com]
-Sent: Friday, February 22, 2002 7:25 PM
-To: Hoeflinger, Jay P
-Cc: linux-ia64@linuxia64.org
-Subject: RE: [Linux-ia64] determining read or write on a page fault
-
-
-If you want to try with a new kernel, the attached patch should give
-you what you want.  Specifically, if you get a SIGSEGV or a SIGBUS and
-si_code is non-zero, you can check si_flags.  If it has the
-__ISR_VALID flag set, then the code in si_isr is valid.  If si_isr is
-valid, you can check whether bit 34 (read exception) or bit 35
-(non-access exception) is set.  If so, you may assume that the signal
-was due to a load (or lfetch or some such).  In all other cases, you'd
-have to play it safe and assume that you're dealing with a write
-access.
+Thanks,
 
 	--david
-
-
-< patch deleted >
 
