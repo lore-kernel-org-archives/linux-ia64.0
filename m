@@ -1,114 +1,87 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Tue, 18 Nov 2003 10:14:23 +0000
-Subject: [RFC] How drivers notice a MCA on I/O read? [3/3]
-Message-Id: <marc-linux-ia64-106915060530349@msgid-missing>
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Tue, 18 Nov 2003 15:06:20 +0000
+Subject: Re: [RFC] How drivers notice a MCA on I/O read? [1/3]
+Message-Id: <marc-linux-ia64-106916801716196@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106915044130197@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106915044130197@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-2022-jp"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a sample of readb_check on kernel.
+Let me make some remarks on I/O triggered MCAs.
 
-I certainly understand that some of this code should be written in assemblers,
-but I‘m not sure in my skill to handle IA64 codes. I would appreciate any
-comments and feedbacks.
+Basically, there are 4 kinds of I/Os:
+- I/O read / write by CPUs
+- I/O read / write by DMAs
 
------
+1. I/O write by CPUs:
 
-H.Seto <seto.hidetoshi@jp.fujitsu.com>
+As the machine is pipelined, the writes are executed *much*
+later that they leave the CPUs. As soon as the data reaches
+an I/O bridge, the I/O is considered to be done for the
+coherency domain. O.K. you can wait and make sure that the
+written data has reached the I/O device, but you will slow
+down by 1000 the I/O access.
+An I/O bridge usually does not remember who the originator is,
+should an error happen, e.g. PCI PERR / SERR, the bridge does
+not know whom to report the error to. It simply issues a
+BERR. This is a global MCA, the interrupted context is
+not precisely saved. You do not even know e.g. if a
+"register++" done just before the MCA arrives,
+if it is actually done or not.
+You cannot resume the execution, you have to create a
+"minimal state" that will be resumed.
+And hard luck, the innocent CPUs are also affected, which
+do not execute a carefully prepared code to survive an MCA.
 
+2. I/O read by CPUs:
 
+Some I/O bridges may poison the data read, instead of
+signaling a BERR.
+(Otherwise see above.)
+The consummation of poisoned data triggers a local, imprecise
+MCA (as above).
+Before issuing the critical read (ld.* rx=[ry]) instruction,
+make sure no operation is in any of the pipelines (e.g. our
+"register++").
+Note that the read operation by itself does not consume
+the bad data, you have to do something with it, e.g.:
 
-/******************************************************************************/
-/************************************* MCA ************************************/
-/******************************************************************************/
-...
-typedef struct {
- void *start;
- void *end;
-} address_range;
+	ld.8	r9=[r10];;	// r10 = I/O address
+	add.8	r8=r9,r9;;	// fake operation
 
-int readb_check(unsigned char*, void*);
-int readw_check(unsigned short*, void*);
-int readl_check(unsigned int*, void*);
-static address_range check_range[] = {
- {(void*)readb_check, (void*)readw_check},
- …
-};
+An "mf.a" does not help, it is useless, it is an MCA
+intern to the CPU.
 
-void MCA_Handler(struct pt_regs *ptregs)
-{
-/* 'ip' is index of register instruction pointer */
-/* 'A' is index of register A */
-…
- /* statements for read_check */
- for (int i = 0; i < sizeof(check_range)/sizeof(address_range); i ++) {
-  if (check_range[i].start <= ptregs['ip']
-   && ptregs['ip'] <= check_range[i].end) {
-   if (ptregs['A'] = current->pid) {/* register A*/
-    ptregs['A'] = 0;
-    break;
-   }
-  }
- }
-…
-}
-…
+3. Memory -> DMA -> I/O
 
+Mostly the same as the case 1.
+The HW could abort the DMA and the DMA status could indicate
+the failure without disturbing the CPUs...
+A usual HW simply sends a BERR to everyone :-(
 
-/******************************************************************************/
-/********************************** read_check ********************************/
-/******************************************************************************/
-__attribute__((noinline)) int readb_check(unsigned char *data, void *adrs)
-{
- int volatile B = current->pid;
- register int volatile A asm("A") /* register A */
- unsigned char  ret;
+4. I/O -> DMA -> Memory
 
- A = B;
- ret = read(adrs);
- asm("mf.a"::);
- if (A != B) {
-  return 0; /* false*/
- } else {
-  *data = ret;
-  return 1; /* true */
- }
-}
+The HW could abort the DMA, the memory could be poisoned to
+indicate to the final consumer the error (CPU local MCA as in
+the case 2), and the DMA status could indicate the failure
+without disturbing the CPUs...
+A usual HW simply sends a BERR to everyone :-(
 
-__attribute__((noinline)) int readw_check(unsigned short *data, void *adrs)
-{
-…
+--------------------------------------------------------------
 
+To cheer you up: a usual machine has got ~ 50.000 hours of
+MTBF (including all other errors).
+Assuming you have got a sophisticated HW that does not send
+unnecessary BERRs, how many errors will be recovered during
+the whole life of the machine ?
+(You cannot do anything to the imprecise MCA models of the
+ia64 architecture).
+How much is the MTBF of a Linux ? A well known commercial
+unix is estimated to have 6.000 hours. Linux can have ...
+Will a not so much reliable SW save the fife of a quite
+good HW ?
 
-/******************************************************************************/
-/************************************ DRIVER **********************************/
-/******************************************************************************/
-…
-DRIVER_MAIN()
-{
- unsigned char data;
- int retry_count, i;
-…
- retry_count = N1;
- for ( i = 0; i < retry_count; i ++ ) {
-  if (readb_check(&data, address1)) break;
- }
- if ( i = retry_count) {
-  /* error */
- }
-…
- retry_count = N2;
- for ( i = 0; i < retry_count; i ++ ) {
-  if (readb_check(&data, address2)) break;
- }
- if ( i = retry_count) {
-  /* error */
- }
-…
-}
-
-
+Zoltan Menyhart
