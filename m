@@ -1,57 +1,53 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 20 Oct 2004 17:17:22 +0000
-Subject: [PATCH] use NULL instead of 0
-Message-Id: <200410201017.22174.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_i2pdBT2vcKaBXjD"
+From: Pat Gefre <pfg@sgi.com>
+Date: Wed, 20 Oct 2004 00:37:30 +0000
+Subject: [PATCH] 2.6.10 Altix : virtual DMA channel mod
+Message-Id: <200410200037.i9K0bUOU145797@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_i2pdBT2vcKaBXjD
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Mod to allow functions other than zero to use virtual channel 1.
 
-Clean up a couple of places that were using 0 instead of NULL, which is the 
-more proper value.
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+Signed-off-by: Patrick Gefre <pfg@sgi.com>
+Acked-by: Patrick Gefre <pfg@sgi.com>
 
-Thanks,
-Jesse
 
---Boundary-00=_i2pdBT2vcKaBXjD
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="sparse-null-cleanups.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="sparse-null-cleanups.patch"
+-- 
 
-===== arch/ia64/mm/discontig.c 1.22 vs edited =====
---- 1.22/arch/ia64/mm/discontig.c	2004-10-19 02:40:14 -07:00
-+++ edited/arch/ia64/mm/discontig.c	2004-10-20 09:24:04 -07:00
-@@ -681,7 +681,7 @@
- 				PAGE_ALIGN(max_low_pfn * sizeof(struct page));
- 			vmem_map = (struct page *) vmalloc_end;
+Patrick Gefre
+Silicon Graphics, Inc.                     (E-Mail)  pfg@sgi.com
+2750 Blue Water Rd                         (Voice)   (651) 683-3127
+Eagan, MN 55121-1400                       (FAX)     (651) 683-3054
+
+
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/10/19 19:27:10-05:00 pfg@sgi.com 
+#   arch/ia64/sn/pci/pcibr/pcibr_dma.c
+#       In PCI mode, we want functions other than zero to use virtual DMA channel
+#       one so we don't thrash the read-response buffers
+# 
+# arch/ia64/sn/pci/pcibr/pcibr_dma.c
+#   2004/10/19 19:27:00-05:00 pfg@sgi.com +4 -0
+#   In PCI mode, we want functions other than zero to use virtual DMA channel
+#   one so we don't thrash the read-response buffers
+# 
+diff -Nru a/arch/ia64/sn/pci/pcibr/pcibr_dma.c b/arch/ia64/sn/pci/pcibr/pcibr_dma.c
+--- a/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2004-10-19 19:27:48 -05:00
++++ b/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2004-10-19 19:27:49 -05:00
+@@ -133,6 +133,10 @@
+ 	} else
+ 		pci_addr |= TIOCP_PCI64_CMDTYPE_MEM;
  
--			efi_memmap_walk(create_mem_map_page_table, 0);
-+			efi_memmap_walk(create_mem_map_page_table, NULL);
- 			printk("Virtual mem_map starts at 0x%p\n", vmem_map);
- 		}
++	/* If PCI mode, func zero uses VCHAN0, every other func uses VCHAN1 */
++	if (!IS_PCIX(pcibus_info) && PCI_FUNC(info->pdi_linux_pcidev->devfn))
++		pci_addr |= PCI64_ATTR_VIRTUAL;
++
+ 	return pci_addr;
  
-===== arch/ia64/mm/numa.c 1.7 vs edited =====
---- 1.7/arch/ia64/mm/numa.c	2004-02-03 21:35:17 -08:00
-+++ edited/arch/ia64/mm/numa.c	2004-10-20 09:23:43 -07:00
-@@ -70,7 +70,7 @@
- 	memset(sysfs_cpus, 0, sizeof(struct cpu) * NR_CPUS);
- 
- 	for (i = 0; i < numnodes; i++)
--		if ((err = register_node(&sysfs_nodes[i], i, 0)))
-+		if ((err = register_node(&sysfs_nodes[i], i, NULL)))
- 			goto out;
- 
- 	for (i = 0; i < NR_CPUS; i++)
-
---Boundary-00=_i2pdBT2vcKaBXjD--
+ }
