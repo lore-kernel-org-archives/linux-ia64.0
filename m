@@ -1,31 +1,43 @@
-From: Rik van Riel <riel@redhat.com>
-Date: Sat, 06 Nov 2004 20:51:41 +0000
+From: "Martin J. Bligh" <mbligh@aracnet.com>
+Date: Sun, 07 Nov 2004 16:11:24 +0000
 Subject: Re: removing mm->rss and mm->anon_rss from kernel?
-Message-Id: <Pine.LNX.4.44.0411061550220.21150-100000@chimarrao.boston.redhat.com>
+Message-Id: <226170000.1099843883@[10.10.2.4]>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4189EC67.40601@yahoo.com.au>  <Pine.LNX.4.58.0411040820250.8211@schroedinger.engr.sgi.com><418AD329.3000609@yahoo.com.au>  <Pine.LNX.4.58.0411041733270.11583@schroedinger.engr.sgi.com><418AE0F0.5050908@yahoo.com.au>  <418AE9BB.1000602@yahoo.com.au><1099622957.29587.101.camel@gaston><418C55A7.9030100@yahoo.com.au> <Pine.LNX.4.58.0411060120190.22874@schroedinger.engr.sgi.com><204290000.1099754257@[10.10.2.4]> <Pine.LNX.4.58.0411060812390.25369@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0411060812390.25369@schroedinger.engr.sgi.com>
-References: <Pine.LNX.4.58.0411060120190.22874@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0411060120190.22874@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Christoph Lameter <clameter@sgi.com>
-Cc: "Martin J. Bligh" <mbligh@aracnet.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-On Sat, 6 Nov 2004, Christoph Lameter wrote:
-
+>> I would've thought SGI would be more worried about this kind of thing
+>> than anyone else ... what's going to happen when you type 'ps' on a large
+>> box, and it does this for 10,000 processes?
+> 
+> Yes but I think this is preferable because of the generally faster
+> operations of the vm without having to continually update statistics. And
+> these statistics seem to be quite difficult to properly generate (why else
+> introduce anon_rss). Without the counters other optimizations are easier
+> to do.
+> 
 > Doing a ps is not a frequent event. Of course this may cause
 > significant load if one does regularly access /proc entities then. Are
 > there any threads from the past with some numbers of what the impact was
 > when we calculated rss via proc?
 
-Running top(1) on stock 2.4 kernels pretty much kills large
-systems from SGI and IBM.  Think about walking the VM for
-10,000 processes, with 3GB virtual memory each, every 3
-seconds.
+Doing ps or top is not unusual at all, and the sysadmins should be able
+to monitor their system in a reasonable way without crippling it, or even
+effecting it significantly.
+ 
+>> If you want to make it quicker, how about doing per-cpu stats, and totalling
+>> them at runtime, which'd be lockless, instead of all the atomic ops?
+> 
+> That has its own complications and would require lots of memory with
+> systems that already have up to 10k cpus.
 
--- 
-"Debugging is twice as hard as writing the code in the first place.
-Therefore, if you write the code as cleverly as possible, you are,
-by definition, not smart enough to debug it." - Brian W. Kernighan
+Ummm 10K cpus? I hope that's a typo for processes, or this discussion is
+getting rather silly ....
+
+M.
 
