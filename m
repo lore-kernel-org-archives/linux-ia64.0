@@ -1,46 +1,73 @@
-From: "David S. Miller" <davem@redhat.com>
-Date: Thu, 07 Feb 2002 02:09:15 +0000
-Subject: Re: [Linux-ia64] Proper fix for sym53c8xx_2 driver and dma64_addr_t
-Message-Id: <marc-linux-ia64-105590698806012@msgid-missing>
+From: Alex Williamson <alex_williamson@hp.com>
+Date: Thu, 14 Feb 2002 17:11:19 +0000
+Subject: [Linux-ia64] [PATCH] linux/fs/partitions/efi.c error handling
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------ED50CD7C3154735BA5B81ACD"
+Message-Id: <marc-linux-ia64-105590698806044@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805991@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805991@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-   From: Christoph Hellwig <hch@caldera.de>
-   Date: Wed, 6 Feb 2002 18:10:42 +0100
-   
-   When the sym2 driver is configured with SYM_CONF_DMA_ADDRESSING_MOD > 1
-   it uses DAC accessing and needs dma64_addr_t.  It doesn't use it
-   when using the default addressing mode.
-   
-NO it damn well does not!  If the platform is NEVER GOING TO GIVE the
-driver a 64-bit address (because, for example, it has IOMMU hardware),
-dma_addr_t need only be 32-bits and that it how it is declared on
-several platforms.
+This is a multi-part message in MIME format.
+--------------ED50CD7C3154735BA5B81ACD
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Please read the DMA API documentation.
 
-dma64_addr_t is _ONLY_, I REPEAT _ONLY_ to be used when the driver
-is making use of the following routines for it's DMA usage:
+   I was testing w/ some disks that appear to have bad partition
+tables and was getting the following error messages:
 
-	pci_dac_page_to_dma
-	pci_dac_dma_to_page
-	pci_dac_dma_to_offset
-	pci_dac_dma_sync_single
+SCSI device sdt: 35566480 512-byte hdwr sectors (18210 MB)
+ sdt:<4>  Warning: Disk has a valid GPT signature but invalid PMBR.
+  Use GNU Parted to correct disk.
 
-And NO SCSI OR NET driver should ever use these routines.
+Unfortunately, that's not where the problem stopped.  I got
+random pointer dereference problems, and was apparently having
+data structures freed out from under them.  Turns out the
+find_valid_gpt() was freeing data structures more than once and
+passing back pointers to freed structures.  Patch below.
 
-In fact, no driver in the tree right now should be using this.
-The only known example that needs those interfaces are clustering
-cards.  And thats it!
+	Alex
 
-Everything in the tree right now should use only pci_map_single and
-friends, and it should set the device DMA mask bits properly to
-indicate DAC capability.  Do you see any pci_map_single, pci_map_sg,
-etc. implementation working with dma64_addr_t arguments?  If so, thats
-a huge bug and it must be fixed.
+--
+Alex Williamson                                  Linux Development Lab
+alex_williamson@hp.com                                 Hewlett Packard
+970-898-9173                                          Fort Collins, CO
+--------------ED50CD7C3154735BA5B81ACD
+Content-Type: text/plain; charset=us-ascii;
+ name="efi.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="efi.diff"
+
+--- linux/fs/partitions/efi.c~	25 Jan 2002 20:15:06 -0000	1.2
++++ linux/fs/partitions/efi.c	14 Feb 2002 16:50:07 -0000
+@@ -549,10 +549,14 @@ find_valid_gpt(struct gendisk *hd, struc
+ 
+ 		*gpt = pgpt;
+ 		*ptes = pptes;
+-		if (agpt)
++		if (agpt) {
+ 			kfree(agpt);
+-		if (aptes)
++			agpt = NULL;
++		}
++		if (aptes) {
+ 			kfree(aptes);
++			aptes = NULL;
++		}
+ 	} /* if primary is valid */
+ 	else {
+ 		/* Primary GPT is bad, check the Alternate GPT */
+@@ -602,6 +606,8 @@ find_valid_gpt(struct gendisk *hd, struc
+ 	/* Both primary and alternate GPTs are bad, and/or PMBR is invalid.
+ 	 * This isn't our disk, return 0.
+ 	 */
++	*gpt = *ptes = NULL;
++
+ 	if (pgpt) {
+ 		kfree(pgpt);
+ 		pgpt = NULL;
+
+--------------ED50CD7C3154735BA5B81ACD--
+
 
