@@ -1,7 +1,7 @@
-From: Colin Ngam <cngam@sgi.com>
-Date: Mon, 07 Mar 2005 20:40:42 +0000
-Subject: Re: PCI Express
-Message-Id: <422CBC4A.7050904@sgi.com>
+From: "Nguyen, Tom L" <tom.l.nguyen@intel.com>
+Date: Mon, 07 Mar 2005 23:03:42 +0000
+Subject: RE: PCI Express
+Message-Id: <C7AB9DA4D0B1F344BF2489FA165E502407F62E52@orsmsx404.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4228F250.7C5E2E3C@sgi.com>
 In-Reply-To: <4228F250.7C5E2E3C@sgi.com>
@@ -10,64 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Grant Grundler wrote:
+On Monday, March 07, 2005 12:41 PM Colin Ngam wrote:
+> I looked at Documentation/MSI-HOWTO.txt(linux-ia64-release-2.6.11) and
 
-Hi Grant,
+> it mentioned that CONFIG_X86_LOCAL_APIC has to be configured.  I did
+not 
+> find this configured on in any sample ia64 config files, but it does 
+> exist in defconfig for i386.  Is this just an ia32 config option?
 
-Thanks for your respond.
+IA64 uses SAPIC instead of IOxAPIC. SAPIC, which is somewhat similar to
+IOxAPIC, is included in IA64 kernel. MSI/MSI-X support configuration
+option therefore is always available in IA64.
 
->On Fri, Mar 04, 2005 at 05:42:08PM -0600, Colin Ngam wrote:
->  
->
->>Is MSI/MSIX support available for ia64?
->>    
->>
->
->Yes
->
-I looked at Documentation/MSI-HOWTO.txt(linux-ia64-release-2.6.11) and 
-it mentioned that CONFIG_X86_LOCAL_APIC has to be configured.  I did not 
-find this configured on in any sample ia64 config files, but it does 
-exist in defconfig for i386.  Is this just an ia32 config option?
-
->
->  
->
->>Are PCIE devices supported in ia
->>
->>    
->>
->
->I'm having trouble with the word "supported".
->You have a PCI-E Bridge and firmware that can talk to it
->hooked up to an ia64 box?
->
-Pretty soon.
-
-Is there any ia64 box with MSI and PCIE actually "activated and running"?
-
-Thanks.
-
-colin
-
->
->Anyway, linux has some PCI-E support in the generic PCI code.
->
->  
->
->>A pointer to any documentations with regards to PCIE and ia64 will
->>be very much appreciated.
->>    
->>
->
->I don't think anything ia64 or linux specific exists.
->
->grant
->-
->To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->  
->
-
-
+Thanks,
+Long
