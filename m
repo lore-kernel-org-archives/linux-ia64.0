@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Fri, 08 Nov 2002 20:39:42 +0000
+From: Rusty Russell <rusty@rustcorp.com.au>
+Date: Sat, 09 Nov 2002 02:48:17 +0000
 Subject: Re: [Linux-ia64] reader-writer livelock problem
-Message-Id: <marc-linux-ia64-105590709805376@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805377@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805355@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805355@msgid-missing>
@@ -10,55 +10,39 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Nov 08, 2002 at 02:17:21PM -0600, Van Maren, Kevin wrote:
-> > all that cacheline bouncing can't do your numa boxes any good.
+In message <1036777105.13021.13.camel@ixodes.goop.org> you write:
+> On Fri, 2002-11-08 at 09:25, Linus Torvalds wrote:
+> > There's another reason for not doing it that way: allowing readers to keep 
+> > interrupts on even in the presense of interrupt uses of readers.
+> > 
+> > If you do the "pending writes stop readers" approach, you get
+> > 
+> > 		cpu1			cpu2
+> > 
+> > 		read_lock() - get
+> > 
+> > 					write_lock_irq() - pending
+> > 
+> > 		irq happens
+> > 		 - read_lock() - deadlock
+> > 
+> > and that means that you need to make readers protect against interrupts 
+> > even if the interrupts only read themselves.
 > 
-> It happens even on our non-NUMA boxes.  But that was the reason
-> behind developing MCS locks: they are designed to minimize the
-> cacheline bouncing due to lock contention, and become a win with
-> a very small number of processors contending the same spinlock.
+> Even without interrupts that would be a bug.  It isn't ever safe to
+> attempt to retake a read lock if you already hold it, because you may
+> deadlock with a pending writer.  Fair multi-reader locks aren't
+> recursive locks.
 
-that's not my point... a resource occupies a number of cachelines;
-bouncing those cachelines between processors is expensive.  if there's
-a real workload that all the processors are contending for the same
-resource, it's time to split up that resource.
+That's the point.  This is explicitly guaranteed with the current
+locks, and you are allowed to recurse on them.  The netfilter code
+explicitly uses this to retake the net brlock, since it gets called
+from different paths.
 
-> I was using gettimeofday() as ONE example of the problem.
-> Fixing gettimeofday(), such as with frlocks (see, for example,
-> http://lwn.net/Articles/7388) fixes ONE occurance of the
-> problem.
-> 
-> Every reader/writer lock that an application can force
-> the kernel to acquire can have this problem.  If there
-> is enough time between acquires, it may take 32 or 64
-> processors to hang the system, but livelock WILL occur.
+Implement "read_lock_yield" or "wrlock_t" but don't break existing
+semantics until 2.7 *please*!
 
-not true.  every reader/writer lock which guards a global resource can
-have this problem.  if the lock only guards your own task's resources,
-there can be no problem. 
-
-> There are MANY other cases where an application can force the
-> kernel to acquire a lock needed by other things.
-
-and i agree they should be fixed.
-
-> Spinlocks are a slightly different story.  While there isn't
-> the starvation issue, livelock can still occur if the kernel
-> needs to acquire the spinlock more often that it takes to
-> acquire.  This is why replacing the xtime_lock with a spinlock
-> fixes the reader/writer livelock, but not the problem: while
-> the writer can now get the spinlock, it can take an entire
-> clock tick to acquire/release it.  So the net behavior is the
-> same: with a 1KHz timer and with 1us cache-cache latency, 32
-> processors spinning on gettimeofday() using a spinlock would
-> have a similar result.
-
-right.  so spinlocking this resource is also not good enough.  did
-you see the "Voyager subarchitecture for 2.5.46" thread earlier this
-week which discussed making it per-cpu?
-http://www.uwsg.iu.edu/hypermail/linux/kernel/0211.0/1799.html
-this seems like the right way to go to me.
-
--- 
-Revolutions do not require corporate support.
+Rusty.
+--
+  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
 
