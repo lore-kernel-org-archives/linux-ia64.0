@@ -1,38 +1,37 @@
-From: Christoph Rohland <cr@sap.com>
-Date: Wed, 24 May 2000 09:52:38 +0000
-Subject: Re: [Linux-ia64] ld failure
-Message-Id: <marc-linux-ia64-105590678205106@msgid-missing>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Thu, 11 May 2000 00:00:15 +0000
+Subject: [Linux-ia64] KDB patch for 2.3.99pre6
+Message-Id: <marc-linux-ia64-105590678205080@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205047@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205047@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph Rohland <cr@sap.com> writes:
+Hi,
 
-> Uros Prestor <uros@turbolinux.com> writes:
->=20
-> > Christoph Rohland wrote:
-> >=20
-> > > This problem is solved with the new gnupro toolkit included on TL
-> > > 0505. (Of course I get now an =EDllegal instruction'when running the
-> > > executable due to the missing brl emulation in the kernel.)
-> >=20
-> > Try the new kernel RPM available on our update site:
-> >=20
-> >      ftp://ftp.turbolinux.com/pub/ia64/0505/updates/RPMS/ia64/kernel-2.=
-3.99-19.ia64.rpm
->=20
-> This now does not generate an ill instruction, but a seg fault in:
+I have put the updated KDB patch relative to 2.3.99pre6 on
+the HPLabs external web site.
 
-We now have the latest glibc, gnupro and kernel from tl-updates and it
-works!
+This patch is just an update from 2.3.51 to 2.3.99pre6. The 
+original patch can be retrieved from SGI's OSS web site
+at http://oss.sgi.com/projects/kdb
 
-Thanks
-		Christoph
+You need 2.3.99pre6 + latest patch from David dated 05/01 applied before
+applying this one.
 
---=20
+The file is available at:
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/kdb-2399pre6.patch
+
++--------------------------------------------------------------------+
+| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
+| Hewlett-Packard Laboratories            |                          |
+| 1501, Page Mill Road MS 1U-15           |                          |
+| Palo  Alto, CA 94303-096                |                          |
+| USA                                     |                          |
+| Tel : (650) 857-7174                    |                          |
+| Fax : (650) 857-5548                    |                          |
++--------------------------------------------------------------------+
 
 
