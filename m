@@ -1,42 +1,40 @@
-From: Brent Casavant <bcasavan@sgi.com>
-Date: Tue, 14 Dec 2004 23:24:02 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Tue, 14 Dec 2004 23:24:39 +0000
 Subject: Re: [PATCH 0/3] NUMA boot hash allocation interleaving
-Message-Id: <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com>
+Message-Id: <1103066679.5420.33.camel@npiggin-nld.site>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.SGI.4.61.0412141140030.22462@kzerza.americas.sgi.com>
- <9250000.1103050790@flay> <20041214191348.GA27225@wotan.suse.de>
- <19030000.1103054924@flay>
-In-Reply-To: <19030000.1103054924@flay>
+	 <9250000.1103050790@flay>  <20041214191348.GA27225@wotan.suse.de>
+In-Reply-To: <20041214191348.GA27225@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Martin J. Bligh" <mbligh@aracnet.com>
-Cc: Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: Andi Kleen <ak@suse.de>
+Cc: "Martin J. Bligh" <mbligh@aracnet.com>, Brent Casavant <bcasavan@sgi.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-On Tue, 14 Dec 2004, Martin J. Bligh wrote:
-
-> --On Tuesday, December 14, 2004 20:13:48 +0100 Andi Kleen <ak@suse.de> wrote:
+On Tue, 2004-12-14 at 20:13 +0100, Andi Kleen wrote:
+> On Tue, Dec 14, 2004 at 10:59:50AM -0800, Martin J. Bligh wrote:
+> > > NUMA systems running current Linux kernels suffer from substantial
+> > > inequities in the amount of memory allocated from each NUMA node
+> > > during boot.  In particular, several large hashes are allocated
+> > > using alloc_bootmem, and as such are allocated contiguously from
+> > > a single node each.
+> > 
+> > Yup, makes a lot of sense to me to stripe these, for the caches that
 > 
-> > I originally was a bit worried about the TLB usage, but it doesn't
-> > seem to be a too big issue (hopefully the benchmarks weren't too
-> > micro though)
+> I originally was a bit worried about the TLB usage, but it doesn't
+> seem to be a too big issue (hopefully the benchmarks weren't too
+> micro though)
 > 
-> Well, as long as we stripe on large page boundaries, it should be fine,
-> I'd think. On PPC64, it'll screw the SLB, but ... tough ;-) We can either
-> turn it off, or only do it on things larger than the segment size, and
-> just round-robin the rest, or allocate from node with most free.
 
-Is there a reasonably easy-to-use existing infrastructure to do this?
-I didn't find anything in my examination of vmalloc itself, so I gave
-up on the idea.
+I wonder if you could have an indirection table for the hash, which
+may allow you to allocate the hash memory from discontinuous, per
+node chunks? Wouldn't the extra pointer chase be a similar cost to
+incurring TLB misses when using the vmalloc scheme?
 
-And just to clarify, are you saying you want to see this before inclusion
-in mainline kernels, or that it would be nice to have but not necessary?
+That _may_ help with relocating hashes for hotplug as well (although
+I expect the hard part may be synchronising access).
 
-Thanks,
-Brent
+Probably too ugly. Just an idea though.
 
--- 
-Brent Casavant                          If you had nothing to fear,
-bcasavan@sgi.com                        how then could you be brave?
-Silicon Graphics, Inc.                    -- Queen Dama, Source Wars
+
