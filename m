@@ -1,31 +1,27 @@
-From: James E Wilson <wilson@specifixinc.com>
-Date: Thu, 27 Jan 2005 21:56:36 +0000
-Subject: anyone using Itanium B-step support?
-Message-Id: <1106862995.18514.108.camel@aretha.corp.specifixinc.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 27 Jan 2005 22:12:55 +0000
+Subject: Re: anyone using Itanium B-step support?
+Message-Id: <16889.26471.787124.55865@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1106862995.18514.108.camel@aretha.corp.specifixinc.com>
+In-Reply-To: <1106862995.18514.108.camel@aretha.corp.specifixinc.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The kernel still has an ITANIUM_BSTEP_SPECIFIC configure option, as of
-2.6.8.1, which enables use of the gcc -mb-step option.  As far as I
-know, this is the only user of the gcc/gas B-step support.  I am
-skeptical that this support still works, and suggest that it be removed,
-so that I can remove the gcc/gas B-step support.
+>>>>> On Thu, 27 Jan 2005 13:56:36 -0800, James E Wilson <wilson@specifixinc.com> said:
 
-The reason why this comes up now is because gas has support to emit
-warnings in cases where extra nops must be emitted to avoid B-step
-errata.  This is enabled by default.  At the time, this was useful to
-ensure backwards compatibility, but now all it does is confuse end users
-who have no idea what an Itanium B-step processor is.  To fix this, I
-need to add an option to enable it, which means I need to fix gcc to
-pass the option to gas, and I also need to fix the kernel to add the
-option to aflags when CONFIG_ITANIUM_BSTEP_SPECIFIC.
+  Jim> However, rather than add more ITANIUM_BSTEP_SPECIFIC support to
+  Jim> the kernel, I think it makes more sense to obsolete it and
+  Jim> remove it.
 
-However, rather than add more ITANIUM_BSTEP_SPECIFIC support to the
-kernel, I think it makes more sense to obsolete it and remove it.
--- 
-Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
+I agree.  I happened to run into the warning just recently myself and
+came to the same conclusion.
 
+We probably still have some B-step Merceds in our lab but IIRC, it was
+so rare to trigger the erratum that even on those boxes we can live
+without the workaround just fine.  And it's not likely that anyone is
+using such old prototype hardware for anything mission critical...
 
+	--david
