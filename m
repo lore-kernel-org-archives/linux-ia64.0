@@ -1,61 +1,76 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 30 Jul 2004 21:17:39 +0000
-Subject: bk pull on ia64 linux tree
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01C02ED8@scsmsx401.amr.corp.intel.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Wed, 21 Jul 2004 08:52:14 +0000
+Subject: [PATCH] bug in irq_affinity_write_proc
+Message-Id: <40FE2EBE.4070007@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
-In-Reply-To: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+Hi,
 
-please do a
+Writing a value with 'R' or 'r' character to /proc/irq/<IRQ#>/smp_affinity
+causes a kernel Oops. The following patch fixes this issue.
 
-        bk pull http://lia64.bkbits.net/to-base-2.6
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-This will update the files shown below.
+---
 
-Thanks! (and thanks to those who provided bk help and scripts to make
-         these changesets prettier and less painful than my first
-         attempt at this).
+ linux-2.6.8-rc2-kanesige/arch/ia64/kernel/irq.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
 
--Tony
+diff -puN arch/ia64/kernel/irq.c~fix_irq_affinity_write_proc arch/ia64/kernel/irq.c
+--- linux-2.6.8-rc2/arch/ia64/kernel/irq.c~fix_irq_affinity_write_proc	2004-07-21 15:32:10.000000000 +0900
++++ linux-2.6.8-rc2-kanesige/arch/ia64/kernel/irq.c	2004-07-21 17:14:18.865086983 +0900
+@@ -88,6 +88,7 @@ irq_desc_t _irq_desc[NR_IRQS] __cachelin
+  * This is updated when the user sets irq affinity via /proc
+  */
+ cpumask_t    __cacheline_aligned pending_irq_cpumask[NR_IRQS];
++static int pending_irq_redir[NR_IRQS];
+ 
+ #ifdef CONFIG_IA64_GENERIC
+ irq_desc_t * __ia64_irq_desc (unsigned int irq)
+@@ -973,6 +974,7 @@ static int irq_affinity_write_proc (stru
+ 	int prelen;
+ 	irq_desc_t *desc = irq_descp(irq);
+ 	unsigned long flags;
++	int redir = 0;
+ 
+ 	if (!desc->handler->set_affinity)
+ 		return -EIO;
+@@ -995,7 +997,7 @@ static int irq_affinity_write_proc (stru
+ 	prelen = 0;
+ 	if (tolower(*rbuf) = 'r') {
+ 		prelen = strspn(rbuf, "Rr ");
+-		irq |= IA64_IRQ_REDIRECTED;
++		redir++;
+ 	}
+ 
+ 	err = cpumask_parse(buffer+prelen, count-prelen, new_value);
+@@ -1012,6 +1014,7 @@ static int irq_affinity_write_proc (stru
+ 		return -EINVAL;
+ 
+ 	spin_lock_irqsave(&desc->lock, flags);
++	pending_irq_redir[irq] = redir;
+ 	pending_irq_cpumask[irq] = new_value;
+ 	spin_unlock_irqrestore(&desc->lock, flags);
+ 
+@@ -1023,11 +1026,12 @@ void move_irq(int irq)
+ 	/* note - we hold desc->lock */
+ 	cpumask_t tmp;
+ 	irq_desc_t *desc = irq_descp(irq);
++	int irq_with_redir = pending_irq_redir[irq] ? (irq | IA64_IRQ_REDIRECTED) : irq;
+ 
+ 	if (!cpus_empty(pending_irq_cpumask[irq])) {
+ 		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
+ 		if (unlikely(!cpus_empty(tmp))) {
+-			desc->handler->set_affinity(irq, pending_irq_cpumask[irq]);
++			desc->handler->set_affinity(irq_with_redir, pending_irq_cpumask[irq]);
+ 		}
+ 		cpus_clear(pending_irq_cpumask[irq]);
+ 	}
 
- arch/ia64/sn/io/sn2/bte_error.c |    9 +++++++++
- arch/ia64/sn/kernel/bte.c       |   11 ++++-------
- drivers/serial/sn_console.c     |   27 +++++++++++++++------------
- 3 files changed, 28 insertions(+), 19 deletions(-)
+_
 
-through these ChangeSets:
 
-<holt@sgi.com> (04/07/30 1.1832)
-   bte_error.c:
-   bte.c:
-     After working with the chip designer some more, we have determined
-one
-     more hardware register we were supposed to write to ensure the SHUB
-     chip was ready for future transfers.  This patch fixes that.  This
-also
-     allowed us to eliminate a udelay which was working around the
-problem.
-
-     During retesting, we uncovered a race condition where transfer
-status
-     was changed by a different cpu after we were expecting one value
-which
-     cascaded to additional problems.  This patch uses a local variable
-to
-     also eliminate that race.
-
-     Signed-off-by: Robin Holt <holt@sgi.com>
-     Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<pfg@sgi.com> (04/07/30 1.1831)
-   sn_console.c:
-     move sn_debug_printf to only compile for DEBUG
-     early printk needs to handle missing carriage returns
-     Signed-off-by: Pat Gefre <pfg@sgi.com>
-     Signed-off-by: Tony Luck <tony.luck@intel.com>
