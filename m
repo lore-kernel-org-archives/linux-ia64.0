@@ -1,37 +1,48 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Thu, 31 Jul 2003 03:54:02 +0000
-Subject: Re: serial legacy ports and ACPI
-Message-Id: <marc-linux-ia64-105962365319200@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 28 Jul 2003 20:39:32 +0000
+Subject: bk pull on ia64 linux tree
+Message-Id: <marc-linux-ia64-105942507026161@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105761215001812@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105761215001812@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Bjorn" = Bjorn Helgaas <bjorn.helgaas@hp.com> writes:
+Hi Linus,
 
-Bjorn> I like the idea of this, but 1) You might pass it by the ACPI
-Bjorn> folks to make sure this is the intent of the spec (sure looks
-Bjorn> reasonable to me, though).  2) I don't really like the
-Bjorn> implementation in the sense that a) The spec suggests that
-Bjorn> LEGACY_DEVICES might also cover things other than serial ports,
-Bjorn> i.e., a legacy LPT port, so: b) I think the check should go in
-Bjorn> arch/.../acpi.c.  We did something similar for keyboard
-Bjorn> detection (see acpi_kbd_controller_present), and I think it
-Bjorn> worked out pretty well.
+please do a
 
-Hi Bjorn,
+	bk pull http://lia64.bkbits.net/to-linus-2.5
 
-I had a chat with Grant and Matthew about is a little while ago (and
-possibly a few other people whom I can't remember right now) and we
-basically came to a similar conclusion. Once I find a bit more time,
-I'd like to introduce an interface along the lines of
+This fixes a stupid typo and works around a problem caused by a recent
+ACPI change by moving the bootmem initialization before ACPI
+initialization.  Together with a three-liner change to the ACPI
+subsystem (attached below for the benefit of the linux-ia64 list),
+this makes 2.6.0-test2 work on ia64.
 
-        legacy_device_present(LEGACY_{IDE,SERIAL,PARALLEL})
+Thanks!
 
-This could be quite useful for other architectures as well I believe.
+	--david
 
-Cheers,
-Jes
+ arch/ia64/kernel/setup.c |    3 +--
+ include/asm-ia64/io.h    |    2 +-
+ 2 files changed, 2 insertions(+), 3 deletions(-)
+
+through these ChangeSets:
+
+<davidm@tiger.hpl.hp.com> (03/07/26 1.1486)
+   ia64: Two small fixes to make ia64 build & work again.
+
+=== drivers/acpi/pci_irq.c 1.18 vs edited ==--- 1.18/drivers/acpi/pci_irq.c	Wed Jun 11 09:54:02 2003
++++ edited/drivers/acpi/pci_irq.c	Sat Jul 26 00:05:17 2003
+@@ -370,6 +370,10 @@
+ 		eisa_set_level_irq(dev->irq);
+ 	}
+ #endif
++#ifdef CONFIG_IOSAPIC
++	if (acpi_irq_model = ACPI_IRQ_MODEL_IOSAPIC)
++		iosapic_enable_intr(dev->irq);
++#endif
+ 
+ 	return_VALUE(dev->irq);
+ }
