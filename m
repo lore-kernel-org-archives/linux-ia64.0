@@ -1,42 +1,57 @@
-From: Paul Jackson <pj@sgi.com>
-Date: Thu, 22 Jul 2004 19:34:37 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Fri, 23 Jul 2004 03:27:24 +0000
 Subject: Re: [RFC] Patch for isolated scheduler domains
-Message-Id: <20040722123437.1f0398db.pj@sgi.com>
+Message-Id: <4100859C.9060409@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040722164126.GB13189@sgi.com>
-In-Reply-To: <20040722164126.GB13189@sgi.com>
+References: <20040722164126.GB13189@sgi.com> <20040722175459.GA30059@elte.hu>
+In-Reply-To: <20040722175459.GA30059@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dimitri Sivanich <sivanich@sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu
+To: Ingo Molnar <mingo@elte.hu>
+Cc: Dimitri Sivanich <sivanich@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-You should double check my logic, but I think a couple of the cpumask
-calculations can be tightened up, as follows.
-
-Dimitri Sivanich <sivanich@sgi.com> wrote:
+Ingo Molnar wrote:
+> * Dimitri Sivanich <sivanich@sgi.com> wrote:
 > 
-> +	cpumask_t cpu_nonisolated;
-> +
-> +	cpus_and(cpu_nonisolated, cpu_possible_map, isol_cpumask);
-> +	cpus_complement(cpu_nonisolated, cpu_nonisolated);
-> +	cpus_and(cpu_nonisolated, cpu_nonisolated, cpu_possible_map);
+> 
+>>I'm interested in implementing something I'll call isolated sched
+>>domains for single cpus (to minimize the latencies involved when doing
+>>things like load balancing on certain select cpus) on IA64.
+>>
+>>Below I've included an initial patch to illustrate what I'd like to
+>>do.  I know there's been mention of 'platform specific work' in the
+>>area of sched domains. This patch only addresses IA64, but could be
+>>made generic as well.  The code is derived directly from the current
+>>default arch_init_sched_domains code.
+> 
+> 
+> it looks good to me - and i'd suggest to put it into sched.c. Every
+> architecture benefits from the ability to define isolated CPUs.
+> 
 
-	cpumask_t cpu_nonisolated;
-	cpus_andnot(cpu_nonisolated, cpu_possible_map, isol_cpumas);
+Cool. Have you actually tried running it? With Ingo's correction, it
+should work fine but I don't think anyone has tested this.
 
+> One minor nit wrt. this line:
+> 
+> +               cpu_sd->flags &= ~(SD_BALANCE_NEWIDLE | SD_BALANCE_EXEC |
+> + SD_BALANCE_CLONE);  /* Probably redundant */
+> 
+> i'd suggest to set it to 0. You dont want WAKE_AFFINE nor WAKE_BALANCE
+> to move your tasks out of the isolated domain.
+> 
+> 
+>>- Assuming boot time configuration is appropriate ('isolcpus=' in my example),
+>>  is allowing boot time configuration of only completely isolated cpus
+>>  focusing too narrowly on this one concept, or should a boot time
+>>  configuration allow for a broader array of configurations, or would other
+>>  types of sched domain configurations be addressed separately?
+> 
+> 
+> i'd prefer to go with this simple solution and wait for actual usage
+> patterns to materialize. If it becomes popular we can define a syscall
+> to configure the domain hierarchy (maybe even the parameters) runtime.
+> 
 
-
-> +		cpumask_t tmp = node_to_cpumask(i);
-> +		cpumask_t nodemask;
-> +		...
-> +		cpus_and(nodemask, tmp, cpu_nonisolated);
-
-		cpumask_t nodemask;
-		...
-		cpus_and(nodemask, node_to_cpumask(i), cpu_nonisolated);
-
--- 
-                          I won't rest till it's the best ...
-                          Programmer, Linux Scalability
-                          Paul Jackson <pj@sgi.com> 1.650.933.1373
+Seconded.
