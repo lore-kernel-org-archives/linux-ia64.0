@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Mon, 20 Oct 2003 08:43:30 +0000
+From: "Martin K. Petersen" <mkp@mkp.net>
+Date: Mon, 20 Oct 2003 15:09:13 +0000
 Subject: Re: [PATCH] fix topology initialization
-Message-Id: <marc-linux-ia64-106663946614308@msgid-missing>
+Message-Id: <marc-linux-ia64-106666279305939@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106641334730082@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106641334730082@msgid-missing>
@@ -10,14 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Kenneth" = Chen, Kenneth W <kenneth.w.chen@intel.com> writes:
+>>>>> "Jes" = Jes Sorensen <jes@wildopensource.com> writes:
 
+>>>>> "Kenneth" = Chen, Kenneth W <kenneth.w.chen@intel.com> writes:
 Kenneth> Is there any libnuma code available somewhere (library,
 Kenneth> kernel patch, etc)?
 
-The closest pointer I can find off hand is this one:
+Jes> The closest pointer I can find off hand is this one:
 
-http://lwn.net/Articles/32848/
+Jes> http://lwn.net/Articles/32848/
 
-Cheers,
-Jes
+Yeah, that's what I was thinking of.  There was some talk about
+extending and embracing libnuma at the kernel summit.
+
+Andi, where's the code hiding?
+
+-- 
+Martin K. Petersen	Wild Open Source, Inc.
+mkp@wildopensource.com	http://www.wildopensource.com/
+
