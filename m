@@ -1,89 +1,120 @@
-From: "David S. Miller" <davem@davemloft.net>
-Date: Mon, 27 Dec 2004 22:48:38 +0000
-Subject: Re: Prezeroing V2 [2/4]: add second parameter to clear_page() for
-Message-Id: <20041227144838.41d1597f.davem@davemloft.net>
+From: Keith Owens <kaos@sgi.com>
+Date: Sat, 25 Dec 2004 12:17:39 +0000
+Subject: Announce: kdb v4.4 is available for kernel 2.6.10
+Message-Id: <18921.1103977059@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
-	<41C20E3E.3070209@yahoo.com.au>
-	<Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
-	<20041224090539.40bba423.davem@davemloft.net>
-In-Reply-To: <20041224090539.40bba423.davem@davemloft.net>
+References: <12956.1085377697@kao2.melbourne.sgi.com>
+In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: "David S. Miller" <davem@davemloft.net>
-Cc: clameter@sgi.com, akpm@osdl.org, linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: kdb@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Fri, 24 Dec 2004 09:05:39 -0800
-"David S. Miller" <davem@davemloft.net> wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> On Thu, 23 Dec 2004 11:33:59 -0800 (PST)
-> Christoph Lameter <clameter@sgi.com> wrote:
->=20
-> > Modification made but it would be good to have some feedback from the a=
-rch maintainers:
-> >=20
->  ...
-> > sparc64
->=20
-> I don't see any sparc64 bits in this patch, else I'd
-> review them :-)
+KDB (Linux Kernel Debugger) has been updated.
 
-So I found time to implement the missing sparc64 clear_page()
-changes, here they are:
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
+ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
 
-=3D=3D=3D arch/sparc64/lib/clear_page.S 1.1 vs edited =3D=3D--- 1.1/arch/sp=
-arc64/lib/clear_page.S	2004-08-08 19:54:07 -07:00
-+++ edited/arch/sparc64/lib/clear_page.S	2004-12-24 08:53:29 -08:00
-@@ -28,9 +28,12 @@
- 	.text
-=20
- 	.globl		_clear_page
--_clear_page:		/* %o0=DEst */
-+_clear_page:		/* %o0=DEst, %o1=3Dorder */
-+	sethi		%hi(PAGE_SIZE/64), %o2
-+	clr		%o4
-+	or		%o2, %lo(PAGE_SIZE/64), %o2
- 	ba,pt		%xcc, clear_page_common
--	 clr		%o4
-+	 sllx		%o2, %o1, %o1
-=20
- 	/* This thing is pretty important, it shows up
- 	 * on the profiles via do_anonymous_page().
-@@ -69,16 +72,16 @@ clear_user_page:	/* %o0=DEst, %o1=3Dvaddr=20
- 	flush		%g6
- 	wrpr		%o4, 0x0, %pstate
-=20
-+	sethi		%hi(PAGE_SIZE/64), %o1
- 	mov		1, %o4
-+	or		%o1, %lo(PAGE_SIZE/64), %o1
-=20
- clear_page_common:
- 	VISEntryHalf
- 	membar		#StoreLoad | #StoreStore | #LoadStore
- 	fzero		%f0
--	sethi		%hi(PAGE_SIZE/64), %o1
- 	mov		%o0, %g1		! remember vaddr for tlbflush
- 	fzero		%f2
--	or		%o1, %lo(PAGE_SIZE/64), %o1
- 	faddd		%f0, %f2, %f4
- 	fmuld		%f0, %f2, %f6
- 	faddd		%f0, %f2, %f8
-=3D=3D=3D include/asm-sparc64/page.h 1.19 vs edited =3D=3D--- 1.19/include/=
-asm-sparc64/page.h	2004-07-27 12:54:49 -07:00
-+++ edited/include/asm-sparc64/page.h	2004-12-24 08:52:17 -08:00
-@@ -14,8 +14,8 @@
-=20
- #ifndef __ASSEMBLY__
-=20
--extern void _clear_page(void *page);
--#define clear_page(X)	_clear_page((void *)(X))
-+extern void _clear_page(void *page, unsigned long order);
-+#define clear_page(X,Y)	_clear_page((void *)(X),(Y))
- struct page;
- extern void clear_user_page(void *addr, unsigned long vaddr, struct page *=
-page);
- #define copy_page(X,Y)	memcpy((void *)(X), (void *)(Y), PAGE_SIZE)
+Current versions are :-
+
+  kdb-v4.4-2.6.10-common-1.bz2
+  kdb-v4.4-2.6.10-i386-1.bz2
+  kdb-v4.4-2.6.10-ia64-1.bz2
+  kdb-v4.4-2.6.9-rc2-x86-64-1.bz2 (may or may not work with 2.6.10).
+
+
+Changelog extract since kdb-v4.4-2.6.9-common-1.
+
+2004-12-25 Keith Owens  <kaos@sgi.com>
+
+	* Add kobject command.
+	* Ignore low addresses and large offsets in kdbnearsym().
+	* Console updates for sn2 simulator.
+	* kdb v4.4-2.6.10-common-1.
+
+2004-12-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.10-rc3-common-1.
+
+2004-11-23 Keith Owens  <kaos@sgi.com>
+
+	* Remove warning message from kdb_get_one_user_page(), it was too noisy.
+	* kdb v4.4-2.6.10-rc2-common-1.
+
+2004-11-02 Keith Owens  <kaos@sgi.com>
+
+	* Build with kdb patch applied but CONFIG_KDB=n.
+	* kdb v4.4-2.6.10-rc1-common-2.
+
+2004-10-29 Keith Owens  <kaos@sgi.com>
+
+	* Handle new compression scheme for kallsyms.
+	* Handle move of DEAD and ZOMBIE for task->state to task->exit_state.
+	* Tweak the concept of a valid kernel address to get all symbols,
+	  including the symbols in the ia64 gate page.
+	* kdb v4.4-2.6.10-rc1-common-1.
+
+2004-10-21 Keith Owens  <kaos@sgi.com>
+
+	* Handle variable size for the kernel log buffer.
+	* kdb v4.4-2.6.9-common-2.
+
+
+Changelog extract since kdb-v4.4-2.6.9-i386-1.
+
+2004-12-25 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.10-i386-1.
+
+2004-12-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.10-rc3-i386-1.
+
+2004-11-23 Keith Owens  <kaos@sgi.com>
+
+	* Coexist with asmlinkage/fastcall changes.
+	* kdb v4.4-2.6.10-rc2-i386-1.
+
+2004-10-29 Keith Owens  <kaos@sgi.com>
+
+	* Handle change defintions for hard and soft irq context.
+	* Make stack switch in kdb backtrace look more like the oops output.
+	* kdb v4.4-2.6.10-rc1-i386-1.
+
+
+
+Changelog extract since kdb v4.4-2.6.9-ia64-1.
+
+2004-12-25 Keith Owens  <kaos@sgi.com>
+
+	* Add cpuinfo command.
+	* kdb-v4.4-2.6.10-ia64-1.
+
+2004-12-07 Keith Owens  <kaos@sgi.com>
+
+	* Clean up error path in kdba_mca_init.
+	* kdb-v4.4-2.6.10-rc3-ia64-1.
+
+2004-11-15 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.10-rc2-ia64-1.
+
+2004-10-29 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.10-rc1-ia64-1.
+
+
+ps.  Bah, Hum{de}bug!
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFBzVpji4UHNye0ZOoRAmy+AJ4iSaztTqGLjr+Ck0X8+TMdXB41IQCghc/P
+p7GtfCEOmVPDj/SVHdecFyw=oO+Z
+-----END PGP SIGNATURE-----
+
