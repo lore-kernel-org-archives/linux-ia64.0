@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Mon, 03 Mar 2003 23:52:37 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 04 Mar 2003 22:06:39 +0000
 Subject: Re: [Linux-ia64] Re: [patch] 2.4.20 unwind.c to handle multiple struct pt_regs
-Message-Id: <marc-linux-ia64-105590709805958@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805963@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805882@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805882@msgid-missing>
@@ -10,17 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 3 Mar 2003 09:47:49 -0700, 
-Bjorn Helgaas <bjorn_helgaas@hp.com> wrote:
->Wow, somebody is actually looking at the BK tree :-)
+>>>>> On Thu, 20 Feb 2003 12:29:20 +1100, Keith Owens <kaos@sgi.com> said:
 
-I do not use BK.  Because I work on PRCS I am not comfortable with
-using BK, there is a possible conflict with the BK 'no competitor'
-clause.  I was looking at Marcelo's 2.4.21-pre5 patch.
+  Keith> Two patches follow.  The first updates include/asm-ia64/unwind.h,
+  Keith> arch/ia64/kernel/unwind_i.h, arch/ia64/kernel/unwind.c to handle
+  Keith> multiple pt_regs on stack.  The second only updates unwind.c, it goes
+  Keith> over the first patch to clean up the debug code, using UNW_DPRINT().
 
->Your patches are still in my "todo" list.  I haven't looked at it
->closely, but my intent is to put it in before the real 2.4.21 patch.
+I applied most of these two patches now.  I omitted the portions where
+you turned error messages into debug statements.  Also, I'm going to
+change dump_info_pt() into something more reasonable.
 
-Thanks.
-
+	--david
 
