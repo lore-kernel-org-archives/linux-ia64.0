@@ -1,7 +1,7 @@
-From: Christoph Rohland <cr@sap.com>
-Date: Tue, 25 Apr 2000 10:23:47 +0000
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Wed, 26 Apr 2000 01:32:15 +0000
 Subject: Re: [Linux-ia64] new kernel diff (relative to 2.3.99-pre5)
-Message-Id: <marc-linux-ia64-105590678205036@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205043@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205032@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205032@msgid-missing>
@@ -10,18 +10,35 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jes Sorensen <Jes.Sorensen@cern.ch> writes:
+I applied this patch to a stock 2.3.99pre5 kernel and compiled it with
+the 3/23 toolchain snapshot + patches and SMP turned on.  The compile
+went ok under a 2.3.51 up kernel, but when I try to boot I get the
+message below and it hangs.  I thought I remembered someone else having
+this problem, but I couldn't find it in my mail archives.  Is there a
+simple solution?  I'm running a 2p Lion box with A3 processors & 2 GB of
+RAM.
 
-> Christoph> with 2.3.99-pre5 + your patch on my Lion. 2.3.52-0419 was
-> Christoph> fine.
-> 
-> Did you by any chance use cp to copy it to a fat partition? There are
-> known issues with cp, whereas 'cat vmlinux > /<dos-partition>/vmlinux'
-> works fine.
+Thanks,
+Jesse
 
-Thanks, that did work...
-
-Greetings
-		Christoph
+fs0:\> eli vmlinux-2.3.99pre5smp root=/dev/sda2
+Booting `vmlinux-2.3.99pre5smp' acpi_get_vectors
+origin = 000000007FCDEE88
+bus = 0
+num_vector = B
+bus = 1
+num_vector = 9
+bus = 2
+num_vector = C
+bus = 3
+num_vector = C
+bus = 4
+num_vector = 8
+bus = 5
+num_vector = 8
+bus = 6
+num_vector = 8
+unable to find _SB_.PCI7
+Terminating boot services
 
 
