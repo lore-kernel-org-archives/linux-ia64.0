@@ -1,23 +1,40 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Fri, 07 Jul 2000 19:50:04 +0000
-Subject: Re: [Linux-ia64] Re: gas dependency checker bug [forwarded message from Xavier Leroy]
-Message-Id: <marc-linux-ia64-105590678205191@msgid-missing>
+From: Michael Madore <mmadore@turbolinux.com>
+Date: Mon, 31 Jul 2000 22:22:09 +0000
+Subject: [Linux-ia64] integer -> pointer question
+Message-Id: <marc-linux-ia64-105590678205250@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205190@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205190@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The assembler DV support is in a funny state at the moment.  Intel has run
-gas through their DV testsuite, identified a number of bugs, and wrote patches
-for them.  Unfortunately, I can't use the Intel patches without FSF copyright
-assignments, and it isn't clear when this issue will be resolved.  Meanwhile,
-Red Hat doesn't have anyone actively working on the assembler, so we are
-waiting to see if we can use the Intel patches, and we will probably wait
-quite a while before giving up and doing the work ourselves.
+Hi,
 
-Jim
+When porting packages to IA64, it is very common to come across code where
+integers are being assigned to pointers.  This results in warning messages
+from the compiler about assigning integers to pointers of a different
+size.
+
+This is very helpful in the case where a function prototype has been
+omitted, or the programmer has simply made bad assumptions about the sizes
+of pointers and integers.
+
+On the other hand, it is not unusual to see void pointers used for storing
+integers, and the programmer has no intention of ever de-referencing the
+pointer.  Glib and GTK+ make extensive use of this technique.
+
+The problem is that this generates the same warning messages as the first
+case, and it makes it more difficult to know if a particular package has
+portability problems.
+
+My question is:  Is there a way to assign integers to void pointers
+without triggering warnings from the compiler?
+
+Thanks
+
+Mike Madore
+Software Engineer
+TurboLinux, Inc.
+
 
 
