@@ -1,27 +1,24 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Fri, 25 Jul 2003 13:40:07 +0000
-Subject: Re: [PATCH] don't use ld.bias
-Message-Id: <marc-linux-ia64-105914052618360@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Thu, 03 Jul 2003 02:02:54 +0000
+Subject: copy_thread preserves kernel stack
+Message-Id: <marc-linux-ia64-105719797219701@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105883179830025@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105883179830025@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jul 24, 2003 at 06:10:13PM -0700, David Mosberger wrote:
-> >>>>> On Mon, 21 Jul 2003 16:55:59 -0700, jbarnes@sgi.com (Jesse Barnes) said:
-> 
->   Jesse> Patch to fix spin_lock to not use ld.bias since it causes a
->   Jesse> bunch of bus activity that hurts scalability when a lock is
->   Jesse> contended.
-> 
-> Yes, using ld.bias really was wrong there.  However, instead of
-> applying your patch, I dropped the old lock code (which was
-> effectively dead code) and instead removed the .bias from the
-> ia64_spinlock_contention() routine in head.S.
+The ia64 version of copy_thread() preserves the parent kernel stack
+which takes stack space away from the child thread, increasing the risk
+of stack overflow.  The i386 version of copy_thread() creates a
+pristine stack for the new thread.
 
-Even better.  Thanks.
+ia64 has a comment "Note: if we get called through kernel_thread() then
+the memory above "(highest addr)" is valid kernel stack memory that
+needs to be copied as well".  i386 kernel threads work fine without the
+extra stack wastage, so there is no generic reason to save the parent
+backtrace.  Apart from unwind problems, I can see no reason for ia64 to
+preserve the parent's task in kernel threads.  Any objections to me
+doing a patch that constructs an empty stack for ia64 kernel threads?
 
-Jesse
+
