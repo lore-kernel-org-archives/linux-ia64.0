@@ -1,38 +1,39 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Tue, 01 Feb 2005 09:03:38 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 01 Feb 2005 17:46:43 +0000
 Subject: Re: Kernel 2.4.21 hangs up
-Message-Id: <41FF45EA.5010908@hob.de>
+Message-Id: <16895.49283.929460.224645@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050201082001.43454.qmail@web51102.mail.yahoo.com>
+References: <41FF0281.6090903@yahoo.com.au>
+	<20050201082001.43454.qmail@web51102.mail.yahoo.com>
+In-Reply-To: <20050201082001.43454.qmail@web51102.mail.yahoo.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: baswaraj kasture <kbaswaraj@yahoo.com>
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Christoph Lameter <clameter@sgi.com>, Andi Kleen <ak@muc.de>, Andrew Morton <akpm@osdl.org>, torvalds@osdl.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-baswaraj kasture schrieb:
+[I trimmed the cc-list...]
 
->Hi,
->
->I compiled kernel 2.4.21 with intel compiler .
->While booting it hangs-up . further i found that it
->hangsup due to call to "calibrate_delay" routine in
->"init/main.c". Also found that loop in the
->callibrate_delay" routine goes infinite.When i comment
->out the call to "callibrate_delay" routine, it works
->fine.Even compiling "init/main.c" with "-O0" works
->fine. I am using IA-64 (Intel Itanium 2 ) with EL3.0.
->
->Any pointers will be great help.
->
-- Download ski from http://www.hpl.hp.com/research/linux/ski/download.php
-- Compile your kernel for the simulator
-- set simulator breakpoint at calibrate_delay
-- look at ar.itc and cr.itm (cr.itm must be greater than ar.itc)
+>>>>> On Tue, 1 Feb 2005 00:20:01 -0800 (PST), baswaraj kasture <kbaswaraj@yahoo.com> said:
 
-Or for debugging on hardware:
--run into loop, press the TOC button, reboot and analyze the dump with 
-efi shell + errdump init
+  Baswaraj> Hi, I compiled kernel 2.4.21 with intel compiler .
 
-Christian
+That's curious.  Last time I checked, the changes needed to use the
+Intel-compiler have not been backported to 2.4.  What kernel sources
+are you working off of?
 
+Also, even with 2.6 you need a script from Intel which does some
+"magic" GCC->ICC option translations to build the kernel with the
+Intel compiler.  AFAIK, this script has not been released by Intel
+(hint, hint...).
+
+  Baswaraj> While booting it hangs-up . further i found that it
+  Baswaraj> hangsup due to call to "calibrate_delay" routine in
+  Baswaraj> "init/main.c". Also found that loop in the
+  Baswaraj> callibrate_delay" routine goes infinite.
+
+I suspect your kernel was just miscompiled.  We have used the
+Intel-compiler internally on a 2.6 kernel and it worked fine at the
+time, though I haven't tried recently.
+
+	--david
