@@ -1,62 +1,67 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 15 Jan 2002 02:03:30 +0000
-Subject: [Linux-ia64] [ANNOUNCE] first prototype of unwind API
-Message-Id: <marc-linux-ia64-105590698805827@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Sat, 19 Jan 2002 00:25:17 +0000
+Subject: [Linux-ia64] [RFC] NUMA functions for accessing replicated areas
+Message-Id: <marc-linux-ia64-105590698805884@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[Note: this announcement is cross-posted to the glibc, gcc, and
- linux-ia64 mailing list because I believe this may be of interest to
- various people on these lists.  This will be the only post of this
- sort; all future discussion will happen on the relevant mailing
- lists.  Thanks for your understanding.]
+The linux kernel debugger (kdb) has hit a problem with setting software
+breakpoints on NUMA boxes with replicated kernel text.  Instead of
+changing one kernel virtual address and affecting the only copy of the
+kernel, kdb has to loop over each replicated area and change each copy
+of the kernel individually, using some mapping that gives access to the
+data on other nodes.
 
-I'm happy to announce a first prototype implementation of a (mostly)
-platform-independent unwind API.  The purpose of this API is to
-simplify the implementation of applications that need to inspect the
-call-chain of a process/thread.  The immediate goal is to use this
-library to implement routines such as glibc's backtrace() function and
-offer a substitute for the unwind implementation currently in gcc (of
-course, it will be up to the glibc and gcc maintainers to decide
-if/when this is appropriate...).
+I don't want code in kdb that knows about every NUMA platform, that is
+a maintenance nightmare.  I want the NUMA platforms to provide the
+following interfaces.  Any objections or changes?  I will do the the
+SGI version, other manufacturers will have to provide the equivalent
+functions if they want to use kdb.
 
-Originally, the API was intended for the ia64 platform, but the
-current draft is platform-independent with the exception of the
-manifest constants for register names (there are a couple of
-well-known register names that make it possible to implement, e.g.,
-backtraces in a completely platform-independent fashion).
+BTW, is there a single NUMA mailing list?  cc: me please, I am not on
+all lists.
 
-The prototype source code is available at:
+CONFIG_NUMA_REPLICATE
 
-  ftp://ftp.hpl.hp.com/pub/linux-ia64/libunwind-0.0.tar.gz
-   md5sum: 9a2935bf589331b17cf23defc3e36bbd  libunwind-0.0.tar.gz
+  Set to y if the platform supports the replication functions.
 
-The current prototype implementation is limited to the ia64 linux
-platform and even that version has received only light testing.  The
-main purpose of this release is to increase the exposure of the API
-and to collect feedback.  It would also be nice to find people
-interested in implementing the API for other platforms (e.g., x86,
-Alpha, etc).
+int numa_replicated(unsigned long address, size)
 
-For more information, please refer to the README in the top-level
-directory of the source distribution.
+  Return 0 if the area (address to address+size-1) is not replicated.
+  Return 1 if it is replicated.
+  Return -EINVAL if the area is a mixture of replicated and
+  non-replicated data.
 
-If this is a topic of interest to you, please consider subscribing to
-the "libunwind" mailing list.  Again, see the README for details.
+int numa_replicate_loop(unsigned long address, (int *func)(void *numadata, void *funcdata), void *funcdata)
 
-For the next steps, I'm planning to create the glue logic needed to
-use libunwind for GCC exception handling.  Once that is working, I'd
-like to do some fairly extensive correctness and performance testing.
+  Call the function for each replication of the address.  numadata
+  identifies this instance of the replicated data, it is an opaque
+  cookie to the function.  funcdata is supplied by the caller of
+  numa_replicate_loop(), it is an opaque cookie to the numa code.
 
-Needless to say: any and all feedback is welcome.  Note that to limit
-SPAM, it is necessary to subscribe to libunwind before you can post to
-the list.  If you do not wish to do that but still have comments, just
-send them directly to me (davidm@hpl.hp.com).
+  Return 0 if the function returns 0 for all calls, otherwise 1.  If
+  any call to func() returns non-zero, numa_replicate_loop() continues
+  with the other replicated areas.  If func() wants to ignore
+  subsequent areas it can set a flag in funcdata.
 
-Thanks,
+int numa_replicate_getarea_size(void *to, unsigned long from_xxx, size_t size, void *numadata)
 
-	--david
+  Read size bytes from from_xxx (which must be a replicated address) to
+  the user's data area.
+
+  Return 0 on success, -EFAULT for invalid from_xxx address or size.
+
+int numa_replicate_putarea_size(unsigned long to_xxx, void *from, size_t size, void *numadata)
+
+  Write size bytes from the user's data area to to_xxx (which must be a
+  replicated address).
+
+  Return 0 on success, -EFAULT for invalid to_xxx address or size.
+
+Is that satisfactory?  Once those routines exist, kdb can use them to
+set software breakpoints.
+
 
