@@ -1,7 +1,7 @@
-From: Andi Kleen <ak@suse.de>
-Date: Fri, 23 May 2003 19:41:31 +0000
-Subject: [Linux-ia64] Re: /proc/kcore - how to fix it
-Message-Id: <marc-linux-ia64-105590723706015@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 23 May 2003 20:52:25 +0000
+Subject: [Linux-ia64] RE: /proc/kcore - how to fix it
+Message-Id: <marc-linux-ia64-105590723706017@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705961@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705961@msgid-missing>
@@ -10,67 +10,61 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 23 May 2003 12:13:04 -0700
-"Luck, Tony" <tony.luck@intel.com> wrote:
+> /dev/mem / dev/kmem has the same problem, it could use that too.
 
-
-> Here's how it works.  The default code in fs/proc/kcore.c doesn't
-> set up any "elf_phdr" sections ... it is left to each architecture
-> to make appropriate calls to "kclist_add()" to specify a base
-> address and size for each piece of kernel virtual address space
-> that needs to be made accessible through /proc/kcore.  To get the
-> old functionality, you'll need two calls that look something like:
+Hmmm ... so "kclist" needs to be globally visible instead of static,
+probably needs to be maintained by the mem driver rather than kcore.c
+(which might not be configured) ... and would need a new name to
+reflect its many uses (kvmlist?)
+ 
+> > Other blocks of kernel virtual space can be added as needed, and
+> > removed again (with kclist_del()).  E.g. discontiguous memory
 > 
->  kclist_add(&kcore_mem, __va(0),
->              max_low_pfn * PAGE_SIZE);
->  kclist_add(&kcore_vmem, (void *)VMALLOC_START,
->              VMALLOC_END-VMALLOC_START);
+> Remove could get racy - /proc/kcore can sleep while accessing such
+> a block. You would need a sleeping lock hold all the time.
+> 
+> What would you need remove for?
 
-Looks good to me.
+Someday we'll support memory hot-add and hot-remove.  But in the
+more immediate future I think that arch/arm allocates space for
+modules outside of vmalloc-land ... so might want to add space to
+the list on module insert, and remove at rmmod time.
 
-/dev/mem / dev/kmem has the same problem, it could use that too.
+Races are a problem ... I'm just not sure how big of a problem.  The
+virtual address to offset mapping stuff below is set up so that the
+offsets of sections in the virtual /proc/kcore file do not change as
+sections appear/disappear (just like the existing kcore code). So
+if you are accessing some vmalloc'd structure and the kernel vfree()s
+some other structure, then you won't get hurt.  But opening /proc/kcore
+and reading the headers doesn't make any promises that memory listed
+in an elf_phdr will still be there by the time you lseek and read,
+which is no different from the existing implementation.
 
 > 
-> The first makes all of memory visible (__i386__, __mc68000__ and
-> __x86_64__ should use __va(PAGE_SIZE) to duplicate the original
-> lack of access to page 0).  The second provides a single map for
-> all "vmalloc" space (the code still searches the vmlist to see
-> what actually exists before accessing it).
+> > The second piece of abstraction is the kc_vaddr_to_offset() and
+> > kc_offset_to_vaddr() macros.  These provide mappings from kernel
+> > virtual addresses to offsets in the virtual file that /proc/kcore
+> > instantiates.  I hope they are sufficient to avoid negative offset
+> > problems that plagued the old /proc/kcore.  Default versions are
+> > provided for the old behaviour (mapping simply adds/subtracts
+> > PAGE_OFFSET).  For ia64 I just need to use a different offset
+> > as all kernel virtual allocations are in the high 37.5% of the
+> > 64-bit virtual address space.
 > 
-> Other blocks of kernel virtual space can be added as needed, and
-> removed again (with kclist_del()).  E.g. discontiguous memory
+> I'm not sure it is a good idea from the interface standpoint, 
+> especially for /dev/kmem.  It would surely be confusing for the user.
 
-Remove could get racy - /proc/kcore can sleep while accessing such
-a block. You would need a sleeping lock hold all the time.
+I agree. /dev/kmem should provide a flat 1:1 map ... and leave users
+to deal with all the negative addresses.  Applications already expect
+this (because on x86 the kernel is already in negative space).
 
-What would you need remove for?
+/proc/kcore is a bit different because it's trying to present
+a regular file view, rather than a char-special file view to
+any tool that wants to use it.  If someone fixes up gdb, objdump,
+readelf, etc. then the macros can be easily removed to provide 1:1
+(though even then it isn't quite 1:1 ... offset in file would be
+"vaddr + elf_buflen" to allow space for the elf headers at the start
+of the file.
 
-> The second piece of abstraction is the kc_vaddr_to_offset() and
-> kc_offset_to_vaddr() macros.  These provide mappings from kernel
-> virtual addresses to offsets in the virtual file that /proc/kcore
-> instantiates.  I hope they are sufficient to avoid negative offset
-> problems that plagued the old /proc/kcore.  Default versions are
-> provided for the old behaviour (mapping simply adds/subtracts
-> PAGE_OFFSET).  For ia64 I just need to use a different offset
-> as all kernel virtual allocations are in the high 37.5% of the
-> 64-bit virtual address space.
-
-I'm not sure it is a good idea from the interface standpoint, especially
-for /dev/kmem.  It would surely be confusing for the user. Yes, a few applications and even some kernel code has signedness problems, but I would
-better fix them instead of adding such a weird interface. 1:1 mapping would 
-be a lot cleaner. It should not be that bad because on i386 the kernel
-is also in negative space.
-
-[i still have some 2.4 patches to fix a few 64bit signedness problems in /proc,
-perhaps I should dust them off and port to 2.5]
-
-
-> But if you have interesting stuff scattered across *every* part of
-> the unsigned address range, then you won't be able to squeeze it all
-> into a signed file offset.
-
-The memory map on x86-64 is rather clean, that's no problem
-
-Thanks for doing this work,
--Andi
+-Tony
 
