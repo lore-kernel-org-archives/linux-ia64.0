@@ -1,12 +1,28 @@
-From: Jun Nakajima <jun@sco.com>
-Date: Thu, 19 Oct 2000 20:56:14 +0000
-Subject: [Linux-ia64] HZ and PROC_CHANGE_PENALTY
-Message-Id: <marc-linux-ia64-105590678205599@msgid-missing>
+From: Stephan.Zeisset@intel.com
+Date: Thu, 19 Oct 2000 21:01:53 +0000
+Subject: RE: [Linux-ia64] HZ and PROC_CHANGE_PENALTY
+Message-Id: <marc-linux-ia64-105590678205600@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205599@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205599@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Interesting observation.
+
+I have seen threads jumping cpus without need on a 2.4.0-test8 kernel and this might explain.
+
+Stephan.
+
+
+-----Original Message-----
+From: Jun Nakajima [mailto:jun@sco.com]
+Sent: Thursday, October 19, 2000 1:56 PM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] HZ and PROC_CHANGE_PENALTY
+
 
 I think we have may CPU affinity issues. 
 
@@ -67,4 +83,10 @@ Jun U Nakajima
 Core OS Development
 SCO/Murray Hill, NJ
 Email: jun@sco.com, Phone: 908-790-2352 Fax: 908-790-2426
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
