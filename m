@@ -1,108 +1,125 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 01 Dec 2004 23:58:17 +0000
-Subject: [archive] deferred rss calculation
-Message-Id: <Pine.LNX.4.58.0412011555150.5721@schroedinger.engr.sgi.com>
+From: Brent Casavant <bcasavan@sgi.com>
+Date: Tue, 14 Dec 2004 17:53:39 +0000
+Subject: [PATCH 3/3] TCP hashes: NUMA interleaving
+Message-Id: <Pine.SGI.4.61.0412141151340.22462@kzerza.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Cc: linux-ia64@vger.kernel.org, ak@suse.de
 
-This patch defers rss calculation by first incrementing rss in the
-task structure and then during the timer interrupt transfers the value
-the value into mm->rss thereby avoiding locks and atomic operations.
+The following patch against 2.6.10-rc3 modifies the TCP ehash and TCP
+bhash to enable the use of vmalloc to alleviate boottime memory allocation
+imbalances on NUMA systems, utilizing flags to the alloc_large_system_hash
+routine in order to centralize the enabling of this behavior.
 
-However, as pointed out by Andrew, the timer interrupt may
-not always occur when a process runs and thus significant inaccuracies
-may result. Patch was abandoned and never became part of the page fault
-scalablity patchset.
+This patch (3/3) depends on patch 1/3 in this patch series.  It
+does not depend on, nor is depended upon by, patch 2/3 in the
+series.
 
-Index: linux-2.6.9/include/linux/sched.h
-=================================--- linux-2.6.9.orig/include/linux/sched.h	2004-11-15 11:13:39.000000000 -0800
-+++ linux-2.6.9/include/linux/sched.h	2004-11-22 14:18:25.000000000 -0800
-@@ -584,6 +584,10 @@
- 	unsigned long it_real_incr, it_prof_incr, it_virt_incr;
- 	struct timer_list real_timer;
- 	unsigned long utime, stime;
-+	long rss;	/* rss counter when mm->rss is not usable. mm->page_table_lock
-+			 * not held but mm->mmap_sem must be held for sync with
-+			 * the timer interrupt which clears rss and updates mm->rss.
-+			 */
- 	unsigned long nvcsw, nivcsw; /* context switch counts */
- 	struct timespec start_time;
- /* mm fault and swap info: this can arguably be seen as either mm-specific or thread-specific */
-Index: linux-2.6.9/mm/rmap.c
-=================================--- linux-2.6.9.orig/mm/rmap.c	2004-11-22 09:51:58.000000000 -0800
-+++ linux-2.6.9/mm/rmap.c	2004-11-22 14:18:25.000000000 -0800
-@@ -263,8 +263,6 @@
- 	pte_t *pte;
- 	int referenced = 0;
+Signed-off-by: Brent Casavant <bcasavan@sgi.com>
 
--	if (!mm->rss)
--		goto out;
- 	address = vma_address(page, vma);
- 	if (address = -EFAULT)
- 		goto out;
-@@ -507,8 +505,6 @@
- 	pte_t pteval;
- 	int ret = SWAP_AGAIN;
-
--	if (!mm->rss)
--		goto out;
- 	address = vma_address(page, vma);
- 	if (address = -EFAULT)
- 		goto out;
-@@ -791,8 +787,7 @@
- 			if (vma->vm_flags & (VM_LOCKED|VM_RESERVED))
- 				continue;
- 			cursor = (unsigned long) vma->vm_private_data;
--			while (vma->vm_mm->rss &&
--				cursor < max_nl_cursor &&
-+			while (cursor < max_nl_cursor &&
- 				cursor < vma->vm_end - vma->vm_start) {
- 				try_to_unmap_cluster(cursor, &mapcount, vma);
- 				cursor += CLUSTER_SIZE;
-Index: linux-2.6.9/kernel/fork.c
-=================================--- linux-2.6.9.orig/kernel/fork.c	2004-11-22 09:51:58.000000000 -0800
-+++ linux-2.6.9/kernel/fork.c	2004-11-22 14:18:25.000000000 -0800
-@@ -876,6 +876,7 @@
- 	p->io_context = NULL;
- 	p->io_wait = NULL;
- 	p->audit_context = NULL;
-+	p->rss = 0;
- #ifdef CONFIG_NUMA
-  	p->mempolicy = mpol_copy(p->mempolicy);
-  	if (IS_ERR(p->mempolicy)) {
-Index: linux-2.6.9/kernel/exit.c
-=================================--- linux-2.6.9.orig/kernel/exit.c	2004-11-22 09:51:58.000000000 -0800
-+++ linux-2.6.9/kernel/exit.c	2004-11-22 14:19:30.000000000 -0800
-@@ -501,6 +501,10 @@
- 	/* more a memory barrier than a real lock */
- 	task_lock(tsk);
- 	tsk->mm = NULL;
-+	spin_lock(&mm->page_table_lock);
-+	mm->rss += tsk->rss;
-+	tsk->rss = 0;
-+	spin_unlock(&mm->page_table_lock);
- 	up_read(&mm->mmap_sem);
- 	enter_lazy_tlb(mm, current);
- 	task_unlock(tsk);
-Index: linux-2.6.9/kernel/timer.c
-=================================--- linux-2.6.9.orig/kernel/timer.c	2004-11-22 09:51:58.000000000 -0800
-+++ linux-2.6.9/kernel/timer.c	2004-11-22 14:18:25.000000000 -0800
-@@ -815,6 +815,15 @@
- 		if (psecs / HZ >= p->signal->rlim[RLIMIT_CPU].rlim_max)
- 			send_sig(SIGKILL, p, 1);
+Index: linux/net/ipv4/tcp.c
+=================================--- linux.orig/net/ipv4/tcp.c	2004-12-10 18:09:49.011272637 -0600
++++ linux/net/ipv4/tcp.c	2004-12-10 18:10:52.285839780 -0600
+@@ -256,6 +256,7 @@
+ #include <linux/smp_lock.h>
+ #include <linux/fs.h>
+ #include <linux/random.h>
++#include <linux/bootmem.h>
+ 
+ #include <net/icmp.h>
+ #include <net/tcp.h>
+@@ -2254,7 +2255,6 @@
+ void __init tcp_init(void)
+ {
+ 	struct sk_buff *skb = NULL;
+-	unsigned long goal;
+ 	int order, i;
+ 
+ 	if (sizeof(struct tcp_skb_cb) > sizeof(skb->cb))
+@@ -2287,43 +2287,35 @@
+ 	 *
+ 	 * The methodology is similar to that of the buffer cache.
+ 	 */
+-	if (num_physpages >= (128 * 1024))
+-		goal = num_physpages >> (21 - PAGE_SHIFT);
+-	else
+-		goal = num_physpages >> (23 - PAGE_SHIFT);
+-
+-	if (thash_entries)
+-		goal = (thash_entries * sizeof(struct tcp_ehash_bucket)) >> PAGE_SHIFT;
+-	for (order = 0; (1UL << order) < goal; order++)
+-		;
+-	do {
+-		tcp_ehash_size = (1UL << order) * PAGE_SIZE /
+-			sizeof(struct tcp_ehash_bucket);
+-		tcp_ehash_size >>= 1;
+-		while (tcp_ehash_size & (tcp_ehash_size - 1))
+-			tcp_ehash_size--;
+-		tcp_ehash = (struct tcp_ehash_bucket *)
+-			__get_free_pages(GFP_ATOMIC, order);
+-	} while (!tcp_ehash && --order > 0);
+-
+-	if (!tcp_ehash)
+-		panic("Failed to allocate TCP established hash table\n");
++	tcp_ehash = (struct tcp_ehash_bucket *)
++		alloc_large_system_hash("TCP established",
++					sizeof(struct tcp_ehash_bucket),
++					thash_entries,
++					(num_physpages >= 128 * 1024) ?
++						(25 - PAGE_SHIFT) :
++						(27 - PAGE_SHIFT),
++					HASH_HIGHMEM,
++					&tcp_ehash_size,
++					NULL,
++					0);
++	tcp_ehash_size = (1 << tcp_ehash_size) >> 1;
+ 	for (i = 0; i < (tcp_ehash_size << 1); i++) {
+ 		rwlock_init(&tcp_ehash[i].lock);
+ 		INIT_HLIST_HEAD(&tcp_ehash[i].chain);
  	}
-+	/* Update mm->rss if necessary */
-+	if (p->rss && p->mm && down_write_trylock(&p->mm->mmap_sem)) {
-+		if (spin_trylock(&p->mm->page_table_lock)) {
-+			p->mm->rss += p->rss;
-+			p->rss = 0;
-+			spin_unlock(&p->mm->page_table_lock);
-+		}
-+		up_write(&p->mm->mmap_sem);
-+	}
- }
+ 
+-	do {
+-		tcp_bhash_size = (1UL << order) * PAGE_SIZE /
+-			sizeof(struct tcp_bind_hashbucket);
+-		if ((tcp_bhash_size > (64 * 1024)) && order > 0)
+-			continue;
+-		tcp_bhash = (struct tcp_bind_hashbucket *)
+-			__get_free_pages(GFP_ATOMIC, order);
+-	} while (!tcp_bhash && --order >= 0);
+-
+-	if (!tcp_bhash)
+-		panic("Failed to allocate TCP bind hash table\n");
++	tcp_bhash = (struct tcp_bind_hashbucket *)
++		alloc_large_system_hash("TCP bind",
++					sizeof(struct tcp_bind_hashbucket),
++					tcp_ehash_size,
++					(num_physpages >= 128 * 1024) ?
++						(25 - PAGE_SHIFT) :
++						(27 - PAGE_SHIFT),
++					HASH_HIGHMEM,
++					&tcp_bhash_size,
++					NULL,
++					64 * 1024);
++	tcp_bhash_size = 1 << tcp_bhash_size;
+ 	for (i = 0; i < tcp_bhash_size; i++) {
+ 		spin_lock_init(&tcp_bhash[i].lock);
+ 		INIT_HLIST_HEAD(&tcp_bhash[i].chain);
+@@ -2332,6 +2324,10 @@
+ 	/* Try to be a bit smarter and adjust defaults depending
+ 	 * on available memory.
+ 	 */
++	for (order = 0; ((1 << order) << PAGE_SHIFT) <
++			(tcp_bhash_size * sizeof(struct tcp_bind_hashbucket));
++			order++)
++		;
+ 	if (order > 4) {
+ 		sysctl_local_port_range[0] = 32768;
+ 		sysctl_local_port_range[1] = 61000;
 
- static inline void do_it_virt(struct task_struct * p, unsigned long ticks)
+-- 
+Brent Casavant                          If you had nothing to fear,
+bcasavan@sgi.com                        how then could you be brave?
+Silicon Graphics, Inc.                    -- Queen Dama, Source Wars
