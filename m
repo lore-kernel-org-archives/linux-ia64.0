@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 27 May 2003 20:34:10 +0000
-Subject: RE: [Linux-ia64] mmap failure
-Message-Id: <marc-linux-ia64-105590723706050@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 27 May 2003 20:38:28 +0000
+Subject: Re: [Linux-ia64] mmap failure
+Message-Id: <marc-linux-ia64-105590723706051@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723706049@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723706049@msgid-missing>
@@ -10,27 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->     it looks like mmap fails when calling mmap as:
-> 
->     mmap(0x30000066910000,
->                 16384,
->             PROT_READ | PROT_WRITE,  
->           MAP_FIXED,MAP_PRIVATE,
->        fd,0x30000066910000);
-> 
-> Other addresses are ok. It fails with EINVAL.
-> Is 0x30000... reserved for the kernel ?
+>>>>> On Tue, 27 May 2003 21:55:05 +0200, Ronald Veldema <veldema@cs.fau.de> said:
 
-0x30000066910000 is too far from a region boundary.
+  Ronald> Hi all, it looks like mmap fails when calling mmap as:
 
-Although Itanium 2 supports a full 64-bit virtual
-address space, Linux can't map objects to any place
-in the 64-bit range because with a 3-level page
-table it can't use all of the address bits.
+  Ronald>     mmap(0x30000066910000, 16384, PROT_READ | PROT_WRITE,
+  Ronald> MAP_FIXED,MAP_PRIVATE, fd,0x30000066910000);
 
-The areas that can be mapped by Linux are at the
-bottom and top of each Itanium "region" (top three
-bits of the virtual address are the region number).
+  Ronald> Other addresses are ok. It fails with EINVAL.  Is
+  Ronald> 0x30000... reserved for the kernel ?  R.
 
--Tony
+No, but it's not mappable by the Linux kernel.
+
+The details are in the VM chapter of my book (Figure 4.13, in
+particular).  If you don't want to buy the book just because of this,
+you're in luck: the VM chapter happens to be the sample chapter
+available at:
+
+	http://www.lia64.org/book/
+
+Hope this helps,
+
+	--david
 
