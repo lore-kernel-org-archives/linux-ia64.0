@@ -1,18 +1,30 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Wed, 05 Jan 2005 11:35:44 +0000
-Subject: Re: [PATCH 2/4] SGI Altix cross partition functionality (1st revision)
-Message-Id: <20050105113544.GC31285@infradead.org>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Mon, 10 Jan 2005 17:17:13 +0000
+Subject: [PATCH] trivial build fix
+Message-Id: <1105377434.6812.19.camel@tdi>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040616163514.GB27891@sgi.com>
-In-Reply-To: <20040616163514.GB27891@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Dec 21, 2004 at 06:20:08AM -0600, Dean Nelson wrote:
-> I'm not sure that adding the 'flag' field is simpler than keeping things
-> the way they are with the per-channel semaphores.
 
-Well, keep them for now.
+  Latest bk of ia64/kernel/topology.c needs linux/nodemask.h.
+asm-ia64/numa.h seems like a reasonable place for it.  Thanks,
+
+	Alex
+
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+
+=== include/asm-ia64/numa.h 1.17 vs edited ==--- 1.17/include/asm-ia64/numa.h	2005-01-07 22:44:03 -07:00
++++ edited/include/asm-ia64/numa.h	2005-01-10 09:38:24 -07:00
+@@ -17,6 +17,7 @@
+ 
+ #include <linux/cache.h>
+ #include <linux/cpumask.h>
++#include <linux/nodemask.h>
+ #include <linux/numa.h>
+ #include <linux/smp.h>
+ #include <linux/threads.h>
+
 
