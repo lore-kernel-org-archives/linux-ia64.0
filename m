@@ -1,45 +1,59 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Wed, 19 Jan 2005 13:09:36 +0000
-Subject: [PATCH]: (resubmitted) Error in ACPI error handling results in WARN_ON
-Message-Id: <41EE5C10.4030604@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------030603060406070606040608"
+From: William Lee Irwin III <wli@holomorphy.com>
+Date: Wed, 26 Jan 2005 02:40:42 +0000
+Subject: Re: 2.6.11-rc2-mm1
+Message-Id: <20050126024042.GH10843@holomorphy.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------030603060406070606040608
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+References: <20050124021516.5d1ee686.akpm@osdl.org>
+In-Reply-To: <20050124021516.5d1ee686.akpm@osdl.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Andrew Morton <akpm@osdl.org>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-The issue here is the error handling within the ACPI layer.  gsi = 0 is a
-valid return value from acpi_pci_irq_lookup, while gsi = (-1) is the value
-returned when a PRT cannot be found.
+On Mon, Jan 24, 2005 at 02:15:16AM -0800, Andrew Morton wrote:
+> ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.11-rc1/2.6.11-rc1-mm1/
+> - Lots of updates and fixes all over the place.
+> - On my test box there is no flashing cursor on the vga console.  Known bug,
+>   please don't report it.
+>   Binary searching shows that the bug was introduced by
+>   cleanup-vc-array-access.patch but that patch is, unfortunately, huge.
+
+Someone who sent you a patch needs to learn how to use grep(1). There are
+18 patches listed by grep -l it_timer patches/*; giving up.
 
 
+-- wli
 
---------------030603060406070606040608
-Content-Type: text/plain;
- name="1-acpi-ide.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="1-acpi-ide.patch"
-
-===== drivers/acpi/pci_irq.c 1.35 vs edited =====
---- 1.35/drivers/acpi/pci_irq.c	2005-01-04 21:48:17 -05:00
-+++ edited/drivers/acpi/pci_irq.c	2005-01-14 08:14:34 -05:00
-@@ -487,10 +487,10 @@
- 	 * If no PRT entry was found, we'll try to derive an IRQ from the
- 	 * device's parent bridge.
- 	 */
--	if (!gsi)
-+	if (gsi == -1)
-  		gsi = acpi_pci_irq_derive(dev, pin,
- 					  &edge_level, &active_high_low);
--	if (!gsi)
-+	if (gsi == -1)
- 		return_VOID;
- 
- 	/*
-
---------------030603060406070606040608--
+drivers/char/mmtimer.c: In function `reschedule_periodic_timer':
+drivers/char/mmtimer.c:423: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:429: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:429: error: structure has no member named `it_incr'
+drivers/char/mmtimer.c:435: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c: In function `mmtimer_interrupt':
+drivers/char/mmtimer.c:471: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c: In function `mmtimer_tasklet':
+drivers/char/mmtimer.c:508: error: structure has no member named `it_incr'
+drivers/char/mmtimer.c:516: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c: In function `sgi_timer_create':
+drivers/char/mmtimer.c:527: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c: In function `sgi_timer_del':
+drivers/char/mmtimer.c:538: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:539: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:547: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:548: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c: In function `sgi_timer_get':
+drivers/char/mmtimer.c:561: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:569: error: structure has no member named `it_incr'
+drivers/char/mmtimer.c:570: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c: In function `sgi_timer_set':
+drivers/char/mmtimer.c:643: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:644: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:645: error: structure has no member named `it_incr'
+drivers/char/mmtimer.c:646: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:652: error: structure has no member named `it_timer'
+drivers/char/mmtimer.c:655: error: structure has no member named `it_timer'
+make[4]: *** [drivers/char/mmtimer.o] Error 1
+make[3]: *** [drivers/char] Error 2
+make[2]: *** [drivers] Error 2
+make[2]: *** Waiting for unfinished jobs....
