@@ -1,7 +1,7 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Tue, 16 Mar 2004 10:42:55 +0000
+Date: Wed, 17 Mar 2004 22:46:32 +0000
 Subject: Re: 2.6.3 Heisenbug in unwind.c
-Message-Id: <2308.1079433775@ocs3.ocs.com.au>
+Message-Id: <6631.1079563592@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <2654.1077624337@ocs3.ocs.com.au>
 In-Reply-To: <2654.1077624337@ocs3.ocs.com.au>
@@ -10,96 +10,117 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 15 Mar 2004 17:52:09 +1100, 
-Keith Owens <kaos@sgi.com> wrote:
->One step further on.  The illegal unwind descriptors are being caused
->by the linker (GNU ld version 2.14.90.0.4 20030523) sometimes putting
->everything from .init.text onwards in an extra output program header.
+On Tue, 16 Mar 2004 21:41:29 -0800, 
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
+>Yes, that basically looks good.  I do think you have to change the
+>order to this:
+>
+>PHDRS {
+>  code   PT_LOAD;
+>  percpu PT_LOAD;
+>  data   PT_LOAD;
+>}
+>
+>to avoid extra padding, though.
 
-Which of course it is entitled to do.  vmlinux.lds.S does not
-explicitly assign sections to segments so ld is allowed to choose its
-own mapping.  Most of the time the .text and .init.text sections are in
-the same segment, but sometimes the linker assigns them to different
-segments, depending on the precise contents of the input files.  When
-those sections are in different segments _and_ you are using binutils
-with buggy ia64 SEGREL code then the result is corrupt unwind data.
+Done.
 
-binutils-2.14.90.0.4-26.3 (RH AS3.0) is not good enough,
-binutils-2.14.90.0.8-8.1 (Fedora) works.
-
-Patch to 2.6.4 to prevent building with a buggy version of binutils.
-
-Index: linux-2.6.4/arch/ia64/scripts/toolchain-flags
-=================================--- linux-2.6.4.orig/arch/ia64/scripts/toolchain-flags	2004-03-10 18:55:49.000000000 -0800
-+++ linux-2.6.4/arch/ia64/scripts/toolchain-flags	2004-03-15 22:11:02.000000000 -0800
-@@ -18,11 +18,6 @@
- rm -f $out
- if [ $res != 00000a00 ]; then
-     CPPFLAGS="$CPPFLAGS -DHAVE_BUGGY_SEGREL"
--    cat >&2 <<EOF
--warning: your linker cannot handle cross-segment segment-relative relocations.
--         please upgrade to a newer version (it is safe to use this linker, but
--         the kernel will be bigger than strictly necessary).
--EOF
- fi
- 
- # Check whether .align inside a function works as expected.
-Index: linux-2.6.4/arch/ia64/kernel/gate.lds.S
-=================================--- linux-2.6.4.orig/arch/ia64/kernel/gate.lds.S	2004-03-10 18:55:24.000000000 -0800
-+++ linux-2.6.4/arch/ia64/kernel/gate.lds.S	2004-03-15 21:21:02.000000000 -0800
-@@ -46,12 +46,8 @@
-   }									:readable
-   .IA_64.unwind_info		: { *(.IA_64.unwind_info*) }
-   .IA_64.unwind			: { *(.IA_64.unwind*) }			:readable :unwind
--#ifdef HAVE_BUGGY_SEGREL
--  .text (GATE_ADDR + PAGE_SIZE)	: { *(.text) *(.text.*) }		:readable
--#else
-   . = ALIGN (PERCPU_PAGE_SIZE) + (. & (PERCPU_PAGE_SIZE - 1));
-   .text				: { *(.text) *(.text.*) }		:epc
--#endif
- 
-   /DISCARD/			: {
-   	*(.got.plt) *(.got)
-@@ -69,9 +65,7 @@
- PHDRS
+Index: linux-2.6.4/arch/ia64/kernel/vmlinux.lds.S
+=================================--- linux-2.6.4.orig/arch/ia64/kernel/vmlinux.lds.S	Mon Mar 15 10:14:58 2004
++++ linux-2.6.4/arch/ia64/kernel/vmlinux.lds.S	Wed Mar 17 14:44:14 2004
+@@ -12,6 +12,11 @@
+ OUTPUT_ARCH(ia64)
+ ENTRY(phys_start)
+ jiffies = jiffies_64;
++PHDRS {
++  code   PT_LOAD;
++  percpu PT_LOAD;
++  data   PT_LOAD;
++}
+ SECTIONS
  {
-   readable  PT_LOAD	FILEHDR	PHDRS	FLAGS(4);	/* PF_R */
--#ifndef HAVE_BUGGY_SEGREL
-   epc	    PT_LOAD	FILEHDR PHDRS	FLAGS(1);	/* PF_X */
--#endif
-   dynamic   PT_DYNAMIC			FLAGS(4);	/* PF_R */
-   unwind    0x70000001; /* PT_IA_64_UNWIND, but ld doesn't match the name */
- }
-Index: linux-2.6.4/arch/ia64/mm/init.c
-=================================--- linux-2.6.4.orig/arch/ia64/mm/init.c	2004-03-10 18:55:26.000000000 -0800
-+++ linux-2.6.4/arch/ia64/mm/init.c	2004-03-15 21:21:18.000000000 -0800
-@@ -265,12 +265,7 @@
- 	 */
- 	page = virt_to_page(ia64_imva(__start_gate_section));
- 	put_kernel_page(page, GATE_ADDR, PAGE_READONLY);
--#ifdef HAVE_BUGGY_SEGREL
--	page = virt_to_page(ia64_imva(__start_gate_section + PAGE_SIZE));
--	put_kernel_page(page, GATE_ADDR + PAGE_SIZE, PAGE_GATE);
--#else
- 	put_kernel_page(page, GATE_ADDR + PERCPU_PAGE_SIZE, PAGE_GATE);
--#endif
- 	ia64_patch_gate();
- }
+   /* Sections to be discarded */
+@@ -27,6 +32,7 @@
+   v = PAGE_OFFSET;	/* this symbol is here to make debugging easier... */
+   phys_start = _start - LOAD_OFFSET;
  
-Index: linux-2.6.4/arch/ia64/Makefile
-=================================--- linux-2.6.4.orig/arch/ia64/Makefile	2004-03-11 22:29:00.000000000 -0800
-+++ linux-2.6.4/arch/ia64/Makefile	2004-03-15 22:18:06.000000000 -0800
-@@ -37,6 +37,12 @@
- 		ftp://ftp.hpl.hp.com/pub/linux-ia64/gas-030124.tar.gz)
- endif
++  code : { } :code
+   . = KERNEL_START;
  
-+ifneq ($(findstring -DHAVE_BUGGY_SEGREL,$(CPPFLAGS)),)
-+$(error Sorry, you need a newer version of binutils, one that is built from	\
-+	a source-tree that post-dates 17-Jul-2003.  binutils-2.14.90.0.8 is	\
-+	known to work)
-+endif
-+
- ifeq ($(GCC_VERSION),2)
- $(error Sorry, your compiler is too old.  GCC v2.96 is known to generate bad code.)
- endif
+   _text = .;
+@@ -180,6 +186,7 @@
+         { *(.data.cacheline_aligned) }
+ 
+   /* Per-cpu data: */
++  percpu : { } :percpu
+   . = ALIGN(PERCPU_PAGE_SIZE);
+   __phys_per_cpu_start = .;
+   .data.percpu PERCPU_ADDR : AT(__phys_per_cpu_start - LOAD_OFFSET)
+@@ -190,6 +197,7 @@
+ 	}
+   . = __phys_per_cpu_start + PERCPU_PAGE_SIZE;	/* ensure percpu data fits into percpu page size */
+ 
++  data : { } :data
+   .data : AT(ADDR(.data) - LOAD_OFFSET)
+ 	{ *(.data) *(.data1) *(.gnu.linkonce.d*) CONSTRUCTORS }
+ 
+@@ -212,6 +220,7 @@
+ 
+   _end = .;
+ 
++  code : { } :code
+   /* Stabs debugging sections.  */
+   .stab 0 : { *(.stab) }
+   .stabstr 0 : { *(.stabstr) }
+
+
+Program Headers:
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  LOAD           0x0000000000010000 0xa000000100000000 0x0000000004000000
+                 0x0000000000730d00 0x0000000000730d00  RWE    10000
+  LOAD           0x0000000000750000 0xffffffffffff0000 0x0000000004740000
+                 0x0000000000009278 0x0000000000009278  RW     10000
+  LOAD           0x0000000000760000 0xa000000100750000 0x0000000004750000
+                 0x000000000017e238 0x000000000036bf00  RW     10000
+  IA_64_UNWIND   0x0000000000618c48 0xa000000100608c48 0x0000000004608c48
+                 0x0000000000034758 0x0000000000034758  R      8
+
+ Section to Segment mapping:
+  Segment Sections...
+   00     .text __ex_table .data.patch.vtop .data.patch.mckinley_e9 .IA_64.unwind_info .IA_64.unwind .rodata __ksymtab __ksymtab_gpl __kcrctab __kcrctab_gpl __ksymtab_strings .opd .init.text .init.data .init.ramfs .init.setup .kdb_initcall.init __param .initcall.init .con_initcall.init .data.init_task .data.page_aligned .data.cacheline_aligned 
+   01     .data.percpu 
+   02     .data .got .sdata .sbss .bss 
+   03     .IA_64.unwind 
+
+>Also, what happens for the case that was giving you grief in the first
+>place?  Does the linker report an error or does it actually do the
+>right thing?
+
+It does the right thing.  The load map and section to segment mapping
+above is from my test case, without PHDR it puts .init.text in a
+separate segment.
+
+>I guess I'm wondering why the linker decided to put it
+>into a different segment in the first place.
+
+The only difference is the size of the input objects, literally a
+single extra nop bundle in one object is enough to trip the error case.
+Also add -q to ld makes the problem disappear.  I am assuming that the
+size difference on input is enough to affect one of the linker's
+hashing algorithms.  That in turn lets the linker see a difference
+between
+
+  { .text __ex_table .data.patch.vtop .data.patch.mckinley_e9
+  .IA_64.unwind_info .IA_64.unwind .rodata __ksymtab __ksymtab_gpl
+  __kcrctab __kcrctab_gpl __ksymtab_strings .opd }
+
+which it puts in a 'R E' segment and these sections
+
+  { .init.text .init.data .init.ramfs .init.setup .kdb_initcall.init
+  __param .initcall.init .con_initcall.init .data.init_task
+  .data.page_aligned .data.cacheline_aligned }
+
+which are marked 'RWE'.  In the normal case all those sections are in a
+single RWE segment.
 
