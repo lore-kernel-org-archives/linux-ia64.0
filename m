@@ -1,7 +1,7 @@
 From: Bill Nottingham <notting@redhat.com>
-Date: Thu, 04 Dec 2003 22:18:09 +0000
+Date: Thu, 04 Dec 2003 22:25:28 +0000
 Subject: Re: can't boot 2.6.0-test11
-Message-Id: <marc-linux-ia64-107057646606273@msgid-missing>
+Message-Id: <marc-linux-ia64-107057690306724@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-107057525104512@msgid-missing>
 In-Reply-To: <marc-linux-ia64-107057525104512@msgid-missing>
@@ -10,46 +10,54 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Stephane Eranian (eranian@hpl.hp.com) said: 
-> On Thu, Dec 04, 2003 at 04:56:20PM -0500, Bill Nottingham wrote:
-> > Trying to boot a 2.6test ia64 kernel here, I'm getting:
-> > 
-> > Loadin vmlinux...Loading Linux... 
-> > alloc.c(line 132):allocator: AllocatePages(2, 2, 3377699721561477, 0x40000000) failed (Not Found)
-> > plain_loader.c(line 291):plain_elf64: AllocatePages(3377699721561477, 0x40000000) for kernel failed
-> > 
-> > Is the kernel just horribly misbuilt somehow, or is something else
-> > going on?
-> > 
-> I saw your E-mail but I just did a bk pull frmo Linus's tree and I can't
-> even get my kernel to build using gcc-3.3.2. I get a lot of unwind related
-> errors:
+Bill Nottingham (notting@redhat.com) said: 
+> > The AllocatePages() says you are trying to allocate 3377699721561477 4KB pages.
+> > Clearly not something you want. Is the output of readelf -e on vmlinux decent?
+> 
+> As much as I can tell, it is. Not that that means much from me.
 
-I'm using 3.2.3, not 3.3.2. Dunno if that makes a big difference.
+Comparing readelf output, one big difference is where it loads the
+percpu data segment:
 
-> From your trace, it looks like your are trying to boot an uncompressed kernel.
-> What this intentional?
+2.6.0-test11:
 
-Both uncompressed and compressed fail in the same way, I was just debugging with
-uncompressed.
+Program Headers:
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  LOAD           0x0000000000010000 0xa000000100000000 0x0000000004000000
+                 0x00000000005a0c00 0x00000000005a0c00  RWE    10000
+  LOAD           0x00000000005c0000 0xffffffffffff0000 0x00000000045b0000
+                 0x00000000000084a8 0x00000000000084a8  RW     10000
+  LOAD           0x00000000005d0000 0xa0000001005c0000 0x00000000045c0000
+                 0x00000000000a3004 0x0000000000131e48  RW     10000
+  IA_64_UNWIND   0x00000000004c8568 0xa0000001004b8568 0x00000000044b8568
+                 0x0000000000029898 0x0000000000029898  R      8
 
-> The AllocatePages() says you are trying to allocate 3377699721561477 4KB pages.
-> Clearly not something you want. Is the output of readelf -e on vmlinux decent?
+ Section to Segment mapping:
+  Segment Sections...
+   00     .text __ex_table .data.patch.vtop .data.patch.mckinley_e9 .machvec .IA_64.unwind_info .IA_64.unwind .rodata __ksymtab __ksymtab_gpl __kcrctab __kcrctab_gpl __ksymtab_strings .opd .init.text .init.data .init.ramfs .init.setup .initcall.init .con_initcall.init .security_initcall.init .data.init_task .data.page_aligned .data.cacheline_aligned
+   01     .data.percpu
+   02     .data .got .sdata .sbss .bss
+   03     .IA_64.unwind
 
-As much as I can tell, it is. Not that that means much from me.
-Jakub found the following that probably is a bug, but applying the patch
-doesn't help it boot:
+2.5.64:
 
---- linux-2.6.0-test11/arch/ia64/kernel/vmlinux.lds.S.foo	2003-12-04 17:16:36.000000000 -0500
-+++ linux-2.6.0-test11/arch/ia64/kernel/vmlinux.lds.S	2003-12-04 17:08:55.000000000 -0500
-@@ -151,7 +151,7 @@
- 	{ *(.con_initcall.init) }
-   __con_initcall_end = .;
-   __security_initcall_start = .;
--  .security_initcall.init : AT(ADDR(.security_initcall.init) - PAGE_OFFSET)
-+  .security_initcall.init : AT(ADDR(.security_initcall.init) - LOAD_OFFSET)
- 	{ *(.security_initcall.init) }
-   __security_initcall_end = .;
-   . = ALIGN(PAGE_SIZE);
+Program Headers:
+  Type           Offset             VirtAddr           PhysAddr
+                 FileSiz            MemSiz              Flags  Align
+  LOAD           0x0000000000010000 0xe000000004400000 0x0000000004400000
+                 0x00000000005dee80 0x00000000005dee80  RWE    10000
+  LOAD           0x00000000005f0000 0xa000000000010000 0x00000000049e0000
+                 0x0000000000002a60 0x0000000000002a60  RW     10000
+  LOAD           0x0000000000600000 0xe0000000049f0000 0x00000000049f0000
+                 0x000000000008a808 0x0000000000164790  RW     10000
+  IA_64_UNWIND   0x00000000004e4898 0xe0000000048d4898 0x00000000048d4898
+                 0x0000000000026fa0 0x0000000000026fa0  R      8
 
-Bill
+ Section to Segment mapping:
+  Segment Sections...
+   00     .text .text.lock __ex_table .IA_64.unwind_info .IA_64.unwind .rodata .opd .init.text .init.data .init.ramfs .init.setup .initcall.init .data.init_task .data.page_aligned .data.cacheline_aligned
+   01     .data.percpu
+   02     .data .got .sdata .sbss .bss
+   03     .IA_64.unwind
+
