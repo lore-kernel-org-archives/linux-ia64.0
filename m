@@ -1,25 +1,42 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Thu, 01 Nov 2001 00:49:37 +0000
-Subject: Re: [Linux-ia64] gcc won't inline function returning struct?
-Message-Id: <marc-linux-ia64-105590698805432@msgid-missing>
+From: Jared Egolf <jegolf@yahoo.com>
+Date: Fri, 16 Nov 2001 00:33:54 +0000
+Subject: [Linux-ia64] kernel panic on root mount / EFI =?unknown-8bit?q?can=E2=80=99t?= see /boot/efi partition!
+Message-Id: <marc-linux-ia64-105590698805521@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805421@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805421@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->If it makes function calls when the author was expecting it to do two
->computations, its performance may well be insufficient to function.
+Using Redhat 7.2 and in the past 7.1, I cannot configure
+the /boot/efi partition with such a type definition that
+EFI will recognize the file-system and thus use it for
+booting purposes.  Our boot procedure has been to boot into
+Whistler and copy over the data to a LS120 and then setup
+to boot from there.  This is occurring on our BigSur, Lion,
+and Azusa machines.
+Unfortunately, whenever I rebuild a kernel, (currently
+attempting with 2.4.14, but also tried 2.4.10 and have only
+tested on the BigSur), the kernel panics without being
+capable of mounting the root partition.  This occurs even
+with the default configuration of the kernel and I suspect
+the two problems may be linked.  It is troubling however
+that while the default Redhat kernel will mount the (/)
+root system after loading the qla1260 driver from the
+initrd file, when I have my new kernel configured to
+compile and include qla1260 it still results in a kernel
+panic.  Is building an initrd file for each kernel rebuild
+truly going to help the situation?  Has anybody else seen a
+situation where EFI refuses to recognize a FAT16 defined
+partition?  Perhaps Whistler is mangling the partition
+tables on all the accessible disks?  Could these problems
+be linked?
+Thank-you for your help,
+Jared Egolf
 
-I've never heard this argument before.  It does make some sense.
 
-It does have a flaw though.  If the code was originally written for IA-32, and
-proven to meet timing constraints on the IA-32 host, then there is no guarantee
-that it will work on an IA-64 host.  The timing analysis will all have to be
-redone.  So perhaps the program has a valid reason for using extern inline,
-but it is still non-portable, which was the point I was trying to make.
-
-Jim
+__________________________________________________
+Do You Yahoo!?
+Find the one for you at Yahoo! Personals
+http://personals.yahoo.com
 
