@@ -1,7 +1,7 @@
-From: john stultz <johnstul@us.ibm.com>
-Date: Fri, 13 Feb 2004 01:05:50 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 13 Feb 2004 01:16:06 +0000
 Subject: Re: [RFC][PATCH] linux-2.6.3-rc2_ia64-cyclone_A0
-Message-Id: <1076634349.8386.52.camel@cog.beaverton.ibm.com>
+Message-Id: <16428.9558.656910.144571@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1076556140.795.119.camel@cog.beaverton.ibm.com>
 In-Reply-To: <1076556140.795.119.camel@cog.beaverton.ibm.com>
@@ -10,57 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 2004-02-12 at 16:14, David Mosberger wrote:
-> >>>>> On Wed, 11 Feb 2004 19:22:21 -0800, john stultz <johnstul@us.ibm.com> said:
-> 
->   John> All, This patch provides access to the cyclone time source
->   John> found on IBM EXA based systems (x450 and x455). This is needed
->   John> on multi-node systems where the CPU ITCs are not synchronized,
->   John> causing possible time inconsistencies.
-> 
->   John> I tried my best to properly follow the time_interpolator
->   John> interface, but please let me know if you see any mistakes.
-> 
->   John> Any comments or suggestions would be greatly appreciated.
-> 
-> It looks mostly OK to me.  Some comments:
-> 
->  - It seems to me cyclone.c should check whether the SAL ITCdrift flag
->    is on and register the cyclone time-interpolator only if it is
->    turned on.
+>>>>> On Thu, 12 Feb 2004 17:05:50 -0800, john stultz <johnstul@us.ibm.com> said:
 
-Hmm. As cyclone is only enabled for x450/x455 systems, I'm not sure if
-that additional check is necessary, but I'll try to look into that.
+  John> Hmm. As cyclone is only enabled for x450/x455 systems, I'm not
+  John> sure if that additional check is necessary, but I'll try to
+  John> look into that.
 
->  - When accessing iomemory space, please use readX()/writeX().  For
->    example:
-> 
->  +	offset = cyclone_timer[0];
-> 
->    should be:
-> 
-> 	offset = readl (cyclone_timer);
+At the very least, verify that the SAL ITCdrift bit is turned on by
+the firmware.  Otherwise, the lightweight handler of gettimeofday()
+will still use ITC-based interpolation.
 
-Ok, will fix. 
-
->  - The formatting is a bit weird.  You can format it for 100 columns
->    wide and it would be nice if you could drop all the trailing
->    whitespace.
-
-Gah! Sorry, I'm terrible w/ whitespace.
-
-
->  - This:
-> +	u32 offset;
-> 	  [snip]
-> +	offset = (offset*NSEC_PER_SEC)/CYCLONE_TIMER_FREQ;
->    will overflow in about 4.3 seconds.  Not likely to happen but
->    it might be safer to declare "offset" as "u64".
-
-Yep, I caught that right after I sent out the patch. 
-
-Thanks so much for the review! I'll apply your suggestions and resend.
-
-thanks again,
--john
-
+	--david
