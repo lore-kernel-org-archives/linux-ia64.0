@@ -1,61 +1,48 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 13 Jan 2005 19:11:08 +0000
-Subject: Re: fixing 2.6.10 UP builds
-Message-Id: <Pine.LNX.4.58.0501131110120.19097@schroedinger.engr.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 19 Jan 2005 23:19:03 +0000
+Subject: state of the ia64 linux tree
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02C33881@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050106201427.GA6009@jale>
-In-Reply-To: <20050106201427.GA6009@jale>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 13 Jan 2005, Christoph Hellwig wrote:
+The 'bk pull' that I just sent to Linus includes all the code
+that has been sitting in the "test-2.6.11" tree.  It's cooked
+there for over a month, and been in the last couple of "-mm"
+releases.
 
-> On Wed, Jan 12, 2005 at 04:20:43PM -0800, Jesse Barnes wrote:
-> > >   CC      drivers/char/mmtimer.o
-> > > drivers/char/mmtimer.c: In function `mmtimer_tasklet':
-> > > drivers/char/mmtimer.c:502: structure has no member named `write_lock'
-> > > make[1]: *** [drivers/char/mmtimer.o] Error 1
-> > > make: *** [drivers/char/mmtimer.o] Error 2
-> >
-> > Looks like we need rwlock_is_write_locked for this one.  Christoph?
->
-> Looks like the driver is doing something completely bogus which it should
-> stop ASAP.
+I still have lots of patches from the past couple of weeks to
+put in, but I wanted to get this merge-in resolved first before
+the patches get too stale to merge, or before we get too close
+to the 2.6.11 release to include such big changes.
 
-Here is the fix:
+Everything I've tried (tiger, zx1, generic) works in SMP mode.
 
-Index: linux-2.6.10/drivers/char/mmtimer.c
-=================================--- linux-2.6.10.orig/drivers/char/mmtimer.c	2004-12-24 13:35:20.000000000 -0800
-+++ linux-2.6.10/drivers/char/mmtimer.c	2005-01-13 09:46:10.000000000 -0800
-@@ -494,17 +494,15 @@ void mmtimer_tasklet(unsigned long data)
- 	/* Send signal and deal with periodic signals */
- 	spin_lock_irqsave(&t->it_lock, flags);
- 	spin_lock(&x->lock);
-+
- 	/* If timer was deleted between interrupt and here, leave */
- 	if (t != x->timer)
- 		goto out;
- 	t->it_overrun = 0;
+Uni-processor support is a mess right now.  Dan's resurrection
+of Jesse's patches for generic-up support doesn't apply ... the
+prime culprit is discontig.c:find_per_node_space() which has been
+touched by several patches, so we still have lots of build
+errors for generic-up.  tiger and zx1 systems do compile cleanly
+with CONFIG_SMP=n, but the tiger stalls:
 
--	if (tasklist_lock.write_lock || posix_timer_event(t, 0) != 0) {
--
--		// printk(KERN_WARNING "mmtimer: cannot deliver signal.\n");
--
-+	if (posix_timer_event(t, 0) != 0)
- 		t->it_overrun++;
--	}
-+
- 	if(t->it_incr) {
- 		/* Periodic timer */
- 		if (reschedule_periodic_timer(x)) {
-@@ -512,7 +510,7 @@ void mmtimer_tasklet(unsigned long data)
- 			x->timer = NULL;
- 		}
- 	} else {
--		/* Ensure we don't false trigger in mmtimer_interrupt */
-+		/* Ensure we do not trigger another tasklet run from mmtimer_interrupt */
- 		t->it_timer.expires = 0;
- 	}
- 	t->it_overrun_last = t->it_overrun;
+ICH4: BIOS configuration fixed.
+ICH4: chipset revision 2
+ICH4: not 100% native mode: will probe irqs later
+    ide0: BM-DMA at 0x1000-0x1007, BIOS settings: hda:DMA, hdb:pio
+    ide1: BM-DMA at 0x1008-0x100f, BIOS settings: hdc:pio, hdd:pio
+!!!
+!!! Uni-processor kernel stops here, SMP goes on to print:
+!!!
+hda: MATSHITADVD-ROM SR-8176, ATAPI CD/DVD-ROM drive
+hdb: LS-120/240 00 UHD Floppy, ATAPI FLOPPY drive
+ide0 at 0x1f0-0x1f7,0x3f6 on irq 34
+hda: ATAPI 61X DVD-ROM drive, 256kB Cache, UDMA(33)
+Uniform CD-ROM driver Revision: 3.20
+
+zx1 (zx2000) doesn't print anything on the VGA, and the system
+resets after 10 seconds.  I need to hook up a serial cable to
+see if it spoke at all before dying.
+
+-Tony
