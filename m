@@ -1,31 +1,59 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Mon, 29 Nov 2004 08:13:16 +0000
-Subject: Re: ia64 emulator or test machine available
-Message-Id: <41AADA1C.1080009@yahoo.com.au>
+From: Ray Bryant <raybry@sgi.com>
+Date: Mon, 22 Nov 2004 19:49:21 +0000
+Subject: Re: [Lse-tech] Re: scalability of signal delivery for Posix Threads
+Message-Id: <41A242C1.10600@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41A7C9DD.20303@yahoo.com.au>
-In-Reply-To: <41A7C9DD.20303@yahoo.com.au>
+References: <41A20AF3.9030408@sgi.com> <20041122160705.GG25636@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20041122160705.GG25636@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, lse-tech <lse-tech@lists.sourceforge.net>, holt@sgi.com, Dean Roe <roe@sgi.com>, Brian Sumner <bls@sgi.com>, John Hawkes <hawkes@tomahawk.engr.sgi.com>
 
-Darren Williams wrote:
-
+Matthew Wilcox wrote:
+> On Mon, Nov 22, 2004 at 09:51:15AM -0600, Ray Bryant wrote:
 > 
-> Possibly the best place to start debugging would be on the Ia64 SKI
-> simulator, http://www.hpl.hp.com/research/linux/ski/index.php.
+>>Since signals are sent much more often than sigaction() is called, it would
+>>seem to make more sense to make sigaction() take a heavier weight lock of
+>>some kind (to update the signal handler decription) and to have the signal
+>>delivery mechanism take a lighter weight lock.  Making 
+>>current->sighand->siglock a rwlock_t really doesn't improve the situation
+>>much, since cache line contention is just a severe in that case (if not 
+>>worse) than it is with the current definition.
 > 
-> Current 2.6 kernel boots and runs. Use 'sim_defconfig' for initial
-> configuration.
+> 
+> What about RCU or seqlock?
 > 
 
-Thanks Darren, and everyone else who kindly replied.
+Well, the sighand->siglock is taken so many places in the kernel (>200 times)
+that RCUing its usage looks like a daunting change to make.
 
-The simulator looks interesting - I will look into that.
+In principle, I guess a seqlock could be made to work.  The idea would be that
+we'd want to get a consistent copy of the sighand structure in the presence
+of very rare updates.  Once again, I'd have to modify all of those code
+paths mentioned above.
 
-I have been given access to an ia64 system that has been sufficient
-for some basic testing. Thank you all for your generosity.
+Since a seqlock was created AFAIK as an alternate to a brlock, and the
+global/local locking structure I described before is more or less equivalent
+to a brlock, I think we are thinking along similar lines.
 
+For me, converting spinlock_irqsave(&p->sighand->siglock) to
+spinlock_irqsave(&p->siglock) and then checking to make sure that
+only task local data is updated in the critical section is an easier
+way to go than modifying each of the code paths to deal with the
+"failure" case for a seqlock.  But I could be proven wrong.
 
-Nick
+Anyway, Andi makes a good point -- if I can fast patch SIGPROF handling,
+then I may have a more localized change, and that is a good thing [tm].
+
+-- 
+Best Regards,
+Ray
+-----------------------------------------------
+                   Ray Bryant
+512-453-9679 (work)         512-507-7807 (cell)
+raybry@sgi.com             raybry@austin.rr.com
+The box said: "Requires Windows 98 or better",
+            so I installed Linux.
+-----------------------------------------------
