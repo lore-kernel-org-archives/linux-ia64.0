@@ -1,7 +1,7 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Tue, 16 Mar 2004 06:22:39 +0000
+Date: Tue, 16 Mar 2004 10:42:55 +0000
 Subject: Re: 2.6.3 Heisenbug in unwind.c
-Message-Id: <6187.1079418159@kao2.melbourne.sgi.com>
+Message-Id: <2308.1079433775@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <2654.1077624337@ocs3.ocs.com.au>
 In-Reply-To: <2654.1077624337@ocs3.ocs.com.au>
@@ -16,14 +16,18 @@ Keith Owens <kaos@sgi.com> wrote:
 >by the linker (GNU ld version 2.14.90.0.4 20030523) sometimes putting
 >everything from .init.text onwards in an extra output program header.
 
-Which of course it is quite entitled to do.  vmlinux.lds.S does not
-define the mapping of sections to segments so the linker can choose the
-layout itself.  Most of the time .text and .init.text are in the same
-segment, but sometimes they are in separate segments.  When they are in
-separate segments _and_ binutils has buggy SEGREL code then the unwind
-data is useless.
+Which of course it is entitled to do.  vmlinux.lds.S does not
+explicitly assign sections to segments so ld is allowed to choose its
+own mapping.  Most of the time the .text and .init.text sections are in
+the same segment, but sometimes the linker assigns them to different
+segments, depending on the precise contents of the input files.  When
+those sections are in different segments _and_ you are using binutils
+with buggy ia64 SEGREL code then the result is corrupt unwind data.
 
-Refuse to build 2.6 ia64 with a buggy binutils.
+binutils-2.14.90.0.4-26.3 (RH AS3.0) is not good enough,
+binutils-2.14.90.0.8-8.1 (Fedora) works.
+
+Patch to 2.6.4 to prevent building with a buggy version of binutils.
 
 Index: linux-2.6.4/arch/ia64/scripts/toolchain-flags
 =================================--- linux-2.6.4.orig/arch/ia64/scripts/toolchain-flags	2004-03-10 18:55:49.000000000 -0800
@@ -40,22 +44,6 @@ Index: linux-2.6.4/arch/ia64/scripts/toolchain-flags
  fi
  
  # Check whether .align inside a function works as expected.
-Index: linux-2.6.4/arch/ia64/Makefile
-=================================--- linux-2.6.4.orig/arch/ia64/Makefile	2004-03-11 22:29:00.000000000 -0800
-+++ linux-2.6.4/arch/ia64/Makefile	2004-03-15 22:18:06.000000000 -0800
-@@ -37,6 +37,12 @@
- 		ftp://ftp.hpl.hp.com/pub/linux-ia64/gas-030124.tar.gz)
- endif
- 
-+ifneq ($(findstring -DHAVE_BUGGY_SEGREL,$(CPPFLAGS)),)
-+$(error Sorry, you need a newer version of binutils, one that is built from	\
-+	a source-tree that post-dates 17-Jul-2003.  binutils-2.14.90.0.8 is	\
-+	known to work)
-+endif
-+
- ifeq ($(GCC_VERSION),2)
- $(error Sorry, your compiler is too old.  GCC v2.96 is known to generate bad code.)
- endif
 Index: linux-2.6.4/arch/ia64/kernel/gate.lds.S
 =================================--- linux-2.6.4.orig/arch/ia64/kernel/gate.lds.S	2004-03-10 18:55:24.000000000 -0800
 +++ linux-2.6.4/arch/ia64/kernel/gate.lds.S	2004-03-15 21:21:02.000000000 -0800
@@ -98,4 +86,20 @@ Index: linux-2.6.4/arch/ia64/mm/init.c
  	ia64_patch_gate();
  }
  
+Index: linux-2.6.4/arch/ia64/Makefile
+=================================--- linux-2.6.4.orig/arch/ia64/Makefile	2004-03-11 22:29:00.000000000 -0800
++++ linux-2.6.4/arch/ia64/Makefile	2004-03-15 22:18:06.000000000 -0800
+@@ -37,6 +37,12 @@
+ 		ftp://ftp.hpl.hp.com/pub/linux-ia64/gas-030124.tar.gz)
+ endif
+ 
++ifneq ($(findstring -DHAVE_BUGGY_SEGREL,$(CPPFLAGS)),)
++$(error Sorry, you need a newer version of binutils, one that is built from	\
++	a source-tree that post-dates 17-Jul-2003.  binutils-2.14.90.0.8 is	\
++	known to work)
++endif
++
+ ifeq ($(GCC_VERSION),2)
+ $(error Sorry, your compiler is too old.  GCC v2.96 is known to generate bad code.)
+ endif
 
