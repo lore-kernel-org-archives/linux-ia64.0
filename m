@@ -1,33 +1,23 @@
-From: "E. Focht" <focht@ess.nec.de>
-Date: Thu, 14 Dec 2000 13:41:51 +0000
-Subject: [Linux-ia64] Mailing list archive broken?
-Message-Id: <marc-linux-ia64-105590678205842@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Thu, 14 Dec 2000 20:15:17 +0000
+Subject: Re: [Linux-ia64] Mailing list archive broken?
+Message-Id: <marc-linux-ia64-105590678205845@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205842@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205842@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+>it looks like the archive page of the mailing list is broken. On the URL
+>http://lists.linuxia64.org/archives//info-ia64/
 
-it looks like the archive page of the mailing list is broken. On the URL
-http://lists.linuxia64.org/archives//info-ia64/
-I can find only two entries:
-2000q2  : 3 mails
-2000q1  : 1 mail
+You are looking at the wrong mailing list archive.  The info mailing
+list has been inactive for a while.  Try looking at the kernel mailing list
+archive.
 
-What's wrong? I removed the digest received today and was looking for a
-message on the gcc -ma-step option...
+http://lists.linuxia64.org/archives//linux-ia64/
 
-Regards,
-Erich
-
-
----
-Dr. Erich Focht                                <efocht@ess.nec.de>
-NEC European Supercomputer Systems, European HPC Technology Center
-Hessbruehlstr. 21B, 70565 Stuttgart, Germany
-phone: +49-711-78055-15                    fax  : +49-711-78055-25
-
-
+Jim
 
