@@ -1,7 +1,7 @@
-From: Sane_Purushottam@emc.com
-Date: Wed, 25 Sep 2002 21:25:35 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 25 Sep 2002 23:29:57 +0000
 Subject: RE: [Linux-ia64] platform detection at run-time
-Message-Id: <marc-linux-ia64-105590701906067@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701906068@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701906051@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701906051@msgid-missing>
@@ -10,110 +10,61 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-SG_IO. The application is sending SCSI commands to the devices.
+>>>>> On Wed, 25 Sep 2002 12:40:20 -0700, "Wichmann, Mats D" <mats.d.wichmann@intel.com> said:
 
-Nitin Sane
-sane_purushottam@emc.com
-(508) 382-7319
+  Mats> Ahem.  I'm listening.  There's a draft ia64 LSB spec available
+  Mats> for review here:
 
+  Mats> http://www.linuxbase.org/spec/lsbia64review.html
 
------Original Message-----
-From: Don Dugger [mailto:n0ano@n0ano.com]
-Sent: Wednesday, September 25, 2002 5:08 PM
-To: Sane_Purushottam@emc.com
-Cc: kevin.vanmaren@unisys.com; linux-ia64@linuxia64.org
-Subject: Re: [Linux-ia64] platform detection at run-time
+  Mats> you can also go directly to the doc from here:
 
+  Mats> http://www.linuxbase.org/spec/index.shtml
 
-Nitin-
+  Mats> (and file bugs in the normal way through sourceforge, which is
+  Mats> better, since if you're logged in when you file it you get
+  Mats> notifications back as it progresses).
 
-Can you tell me exactly which ioctl calls you're using that aren't
-working?  We have code in the kernel to deal with just this situation.
-I didn't transform EVERY ioctl in existence so let me know which ones
-you're using and I'll fix them.
+In the ELF header flags, I didn't see any mention of this bit:
 
-On Wed, Sep 25, 2002 at 03:33:12PM -0400, Sane_Purushottam@emc.com wrote:
-> The reason, I have to detect the architecture at run time has to do with
-the
-> interface with (sg) driver. Since the driver is natively compiled for
-> 64-bit, it expects the data structure handed over to it, to be 64-bit
-wide.
-> Thus my 32-bit application cannot issue ioctl calls successfully.
-> 
-> So, in my application, based on the platform, I fill the appropriate
-> structure before ioctl call.
-> 
-> Nitin Sane
-> sane_purushottam@emc.com
-> (508) 382-7319
-> 
-> 
-> -----Original Message-----
-> From: Van Maren, Kevin [mailto:kevin.vanmaren@unisys.com]
-> Sent: Wednesday, September 25, 2002 3:28 PM
-> To: 'Sane_Purushottam@emc.com '; 'linux-ia64@linuxia64.org '
-> Subject: RE: [Linux-ia64] platform detection at run-time
-> 
-> 
-> Nitin,
-> 
-> Have you decided what you want to do about AMD's x86-64?
-> That is another 64-bit platform that will run your 32-bit binary.
-> 
-> Ideally all three platforms would be enough alike you don't
-> have to worry about it: is there a problem with Linux that is
-> causing you to perform this check?
-> 
-> Kevin
-> 
-> -----Original Message-----
-> From: Sane_Purushottam@emc.com
-> To: linux-ia64@linuxia64.org
-> Cc: Sane_Purushottam@emc.com
-> Sent: 9/25/02 2:18 PM
-> Subject: [Linux-ia64] platform detection at run-time
-> 
-> I have a linux application running on 32-bit machines. Due to some
-> third-party limitations, we cannot build this application on 64-bit
-> machines
-> natively. Thus we'll be using the '32-bit compatibility mode'.
-> 
-> For some application specific reasons, I need to be able to determine at
-> run-time whether the application is running on a 32-bit or a 64-bit
-> platform.
-> 
-> What I have found is that there's no reliable way for the application to
-> determine whether it's running on a 64-bit machine. I use info obtained
-> from
-> /proc/cpuinfo (more specifically family field) to determine the
-> platform.
-> However this is not standard. On Redhat 7.1 (lk 2.4.3-12) family value
-> is
-> set to IA-64 while on Redhat 7.2 (lk 2.4.9-34) this field is set to
-> 'Itanium'.
-> 
-> What is the preferred method to determine the platform at run time ??
-> Are
-> these values likely to change (after I change my code to handle this)
-> ????
-> 
-> Nitin Sane
-> sane_purushottam@emc.com
-> (508) 382-7319
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+/* Least-significant four bits of ELF header's e_flags are
+   OS-specific.  The bits are interpreted as follows by Linux: */
+#define EF_IA_64_LINUX_EXECUTABLE_STACK 0x1 /* is stack (& heap) executable by default? */
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@n0ano.com
+Might be worthwhile to document it, since it is ia64 linux specific
+and hence not mentioned in the ABI.
+
+  Mats> The /emul/linux-i386 stuff is a path prefix supplied by the
+  Mats> kernel, right?  I really don't know whether that should be
+  Mats> mentioned in the spec or not: does an application actually
+  Mats> need to know that this is happening, or is it completely
+  Mats> transparent?  Of course a given system has to "get it right".
+
+Right, /emul/ia32-linux/ is a kernel thing.  I agree it doesn't make
+much sense to describe the mechanism.  However, perhaps you might want
+to document what "uname -m" ought to return when exec'd from an x86
+binary.  (Where does this document talk about x86 support anyhow?)
+
+  Mats> One thing that's been batted around is the name of the dynamic
+  Mats> linker: it's been tentatively called ld-lsb-ia64.so.1 to
+  Mats> parallel the "standard" Linux one, but other folks with 64-bit
+  Mats> architectures prefer a more generic ld-lsb-64.so.1, which
+  Mats> would be the same name regardless of architecture.  Since this
+  Mats> doesn't affect ld-linux, there's no backwards-compatibility
+  Mats> issue with that name...
+
+That's a stupid idea.  The dynamic loader is the _one_ thing that's
+very difficult to emulate when hosting an OS environment on a guest
+OS.  The only clean way to avoid that is to give each loader a unique
+name.  ld-lsb-$(uname -m).so.1 probably would be more reasonable
+(assuming LSB has a VERY good reason why ld-linux-$(uname -m).so.1
+isn't good enough).
+
+Think of what would happen if you wanted to, say, emulate SPARC64
+Linux binaries on an Itanium platform.  If both SPARC64 and ia64 linux
+used /lib/ld-lsb-64.so.1, you'd find yourself in big trouble (and no,
+the /emul/xxx-prefix doesn't help here either; it's a bootstrapping
+problem...).
+
+	--david
 
