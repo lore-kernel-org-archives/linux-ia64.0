@@ -1,40 +1,64 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Thu, 09 Sep 2004 01:07:57 +0000
-Subject: Re: [PATCH] general config option cleanup
-Message-Id: <200409081807.57695.jbarnes@engr.sgi.com>
+From: mita akinobu <amgta@yacht.ocn.ne.jp>
+Date: Sun, 05 Sep 2004 16:32:03 +0000
+Subject: [PATCH] ia64: fix show_mem() for discontig machines
+Message-Id: <200409060132.03951.amgta@yacht.ocn.ne.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200409081447.38703.jbarnes@engr.sgi.com>
-In-Reply-To: <200409081447.38703.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-On Wednesday, September 8, 2004 6:02 pm, Ian Wienand wrote:
-> On Wed, Sep 08, 2004 at 02:47:38PM -0700, Jesse Barnes wrote:
-> > As threatened, here's a patch that unifies the ia64 memory init and
-> > memmap codepaths by unconditionalizing the CONFIG_VIRTUAL_MEM_MAP code
-> > and making CONFIG_DISCONTIGMEM required.  It also allows building with
-> > CONFIG_SMP=n and/or CONFIG_NUMA=n.
->
-> Two related things I noticed.  Firstly, shouldn't the ACPI_NUMA option
-> be linked to NUMA (i.e. if you select one, Kconfig selects the other)?
->
-> Secondly, trying to build with CONFIG_NUMA and CONFIG_ACPI_NUMA off
-> gave errors like
->
-> arch/ia64/mm/built-in.o(.init.text+0x3c0): In function `early_nr_cpus_node':
-> : undefined reference to `node_cpuid'
->
-> arch/ia64/mm/built-in.o(.init.text+0xf71): In function 
-`call_pernode_memory':
-> : undefined reference to `num_node_memblks'
->
-> How about moving the definions in question either outside of #ifdef
-> CONFIG_ACPI_NUMA in apci.c or adding them to discontig.c (as below).
+Hello,
 
-Hmm... yeah, I knew that would break.  The thing is, ia64 NUMA machines all 
-provide ACPI NUMA tables to describe their NUMAness, so I figured it was 
-pointless to try and break that up, but I don't really mind either way.
+On multi-node ia64 system, SysRq-M seems to dump wrong memory info.
+(Since I don't have such a large machine, I don't confirm it)
+It should reset counters every iteration each node in show_mem().
 
-Jesse
+Signed-off-by: Akinobu Mita <mita@yacht.ocn.ne.jp>
+
+--- 2.6/arch/ia64/mm/discontig.c.orig	2004-09-01 13:31:09.000000000 +0900
++++ 2.6/arch/ia64/mm/discontig.c	2004-09-01 13:37:39.000000000 +0900
+@@ -492,14 +492,17 @@ void *per_cpu_init(void)
+  */
+ void show_mem(void)
+ {
+-	int i, reserved = 0;
+-	int shared = 0, cached = 0;
++	int i, total_reserved = 0;
++	int total_shared = 0, total_cached = 0;
++	unsigned long total_present = 0;
+ 	pg_data_t *pgdat;
+ 
+ 	printk("Mem-info:\n");
+ 	show_free_areas();
+ 	printk("Free swap:       %6ldkB\n", nr_swap_pages<<(PAGE_SHIFT-10));
+ 	for_each_pgdat(pgdat) {
++		unsigned long present = pgdat->node_present_pages;
++		int shared = 0, cached = 0, reserved = 0;
+ 		printk("Node ID: %d\n", pgdat->node_id);
+ 		for(i = 0; i < pgdat->node_spanned_pages; i++) {
+ 			if (!ia64_pfn_valid(pgdat->node_start_pfn+i))
+@@ -511,11 +514,19 @@ void show_mem(void)
+ 			else if (page_count(pgdat->node_mem_map+i))
+ 				shared += page_count(pgdat->node_mem_map+i)-1;
+ 		}
+-		printk("\t%ld pages of RAM\n", pgdat->node_present_pages);
++		total_present += present;
++		total_reserved += reserved;
++		total_cached += cached;
++		total_shared += shared;
++		printk("\t%ld pages of RAM\n", present);
+ 		printk("\t%d reserved pages\n", reserved);
+ 		printk("\t%d pages shared\n", shared);
+ 		printk("\t%d pages swap cached\n", cached);
+ 	}
++	printk("%ld pages of RAM\n", total_present);
++	printk("%d reserved pages\n", total_reserved);
++	printk("%d pages shared\n", total_shared);
++	printk("%d pages swap cached\n", total_cached);
+ 	printk("Total of %ld pages in page table cache\n", pgtable_cache_size);
+ 	printk("%d free buffer pages\n", nr_free_buffer_pages());
+ }
+
+
