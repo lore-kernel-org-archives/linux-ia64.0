@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 18 Mar 2005 00:25:37 +0000
+Date: Fri, 18 Mar 2005 00:28:11 +0000
 Subject: Re: recent fix for pgd_addr_end
-Message-Id: <200503180025.j2I0Pbo23624@unix-os.sc.intel.com>
+Message-Id: <200503180028.j2I0SBE23703@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16953.65276.292620.811032@wombat.chubb.wattle.id.au>
 In-Reply-To: <16953.65276.292620.811032@wombat.chubb.wattle.id.au>
