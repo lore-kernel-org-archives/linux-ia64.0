@@ -1,7 +1,7 @@
 From: "Zhu, Yi" <yi.zhu@intel.com>
 Date: Tue, 01 Jul 2003 06:11:13 +0000
 Subject: RE: [Linux-ia64] RTC support on ia64
-Message-Id: <marc-linux-ia64-105704026522310@msgid-missing>
+Message-Id: <marc-linux-ia64-105704038522357@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805600@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805600@msgid-missing>
@@ -165,8 +165,3 @@ Thanks,
 > Linux-IA64@linuxia64.org
 > http://lists.linuxia64.org/lists/listinfo/linux-ia64
 > 
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
