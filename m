@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 16 Dec 2004 00:54:56 +0000
+From: Linus Torvalds <torvalds@osdl.org>
+Date: Thu, 16 Dec 2004 01:18:50 +0000
 Subject: Re: [very very drafty] prezeroing to increase the page fault rate
-Message-Id: <Pine.LNX.4.58.0412151651290.14157@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.58.0412151706390.3279@ppc970.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0412141832350.6975@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0412141832350.6975@schroedinger.engr.sgi.com>
@@ -10,23 +10,54 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 16 Dec 2004, Nick Piggin wrote:
 
-> Christoph, just another thing now that I glance at the patch - the
-> page locking and deferred coalescing seems to be fairly ugly...
 
-Right. I tried various other things that were even uglier before that
-finally worked.
+On Wed, 15 Dec 2004, Christoph Lameter wrote:
+> 
+> The current patch triggers a hardware zeroing device to start zeroing when
+> the buddy allocator generates a free pages over a certain order.  The
+> order can be configured in /proc/sys/vm/zero_order. This has just minimum
+> impact on the system (main impact is that the buddy allocator can no
+> longer merge locked free pages) apart from the system bus.
+> 
+> We could change the idle zeroing to a scrubd which would be
+> controlled by a similar mechanism. Set the minimal order to be scrubbed in
+> /proc/sys/vm/scrub_order?
 
-> Would it be possible to just *allocate* the page, zero it, then
-> free it, and have it get put onto the zero page list from there?
-> If you conceptually think of a page being zeroed as being in use,
-> then it would be natural to allocate it...?
+Yes. Along with some minimal system inactivity threshold or similar, along
+with a way to trigger it actively. For example, there might be loads that
+just _know_ that they are doing to do a lot of this, and having a way for
+them to say "hey, I'll need a ton of pre-zeroed pages" just sounds like a
+good idea if we are going to do this at all.
 
-I tried that. This increases the overhead significantly. Also if you put
-back a zeroed page and its going to be merged with its neighbor (likely
-not zeroed) then the zero bit has to be dropped. Its then getting a bit
-difficult to get zeroed pages into the buddy allocator.
+It's easy to only scrub pages above a certain order, by just looking at
+the buddy order lists. No locking even required, ie you could do something 
+like
 
-One could set the zero bit on each individual page but then that increases
-again overhead of managing them and checking them.
+	for (order = min_order ; order < MAX_ORDER; order++) {
+		struct free_area *area = zone->free_area + order;
+		struct list_head *n = area->free_list.prev;
+
+		/* This is opportunistic, with no locking */
+		barrier();
+		if (n = area->free_list)
+			continue;
+		p = list_entry(n, struct page, lru);
+		/* Already pre-zeroed? */
+		if (p->flags & PAGE_PREZERO)
+			continue;
+
+		/* Ok, found a possible candidate, now we need to be more careful */
+		spin_lock_irqsave(&zone->lock, flags);
+		.. re-do the tests,
+		   remove the page from the list,
+		   drop the lock,
+		   clear the page,
+		   mark it zeroed,
+		   get the lock, 
+		   put the page at the head of the list 
+		...
+
+No?
+
+		Linus
