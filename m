@@ -1,61 +1,62 @@
 From: David Gibson <david@gibson.dropbear.id.au>
-Date: Thu, 15 Apr 2004 01:23:45 +0000
+Date: Thu, 15 Apr 2004 06:42:59 +0000
 Subject: Re: hugetlb demand paging patch part [0/3]
-Message-Id: <20040415012345.GA24941@zax>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="n8g4imXOkfNTN/H1"
+Message-Id: <20040415064259.GD25560@zax>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200404132317.i3DNH4F21162@unix-os.sc.intel.com> <1081933442.4688.6.camel@laptop.fenrus.com>
-In-Reply-To: <1081933442.4688.6.camel@laptop.fenrus.com>
-To: Arjan van de Ven <arjanv@redhat.com>
-Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>
+References: <200404132317.i3DNH4F21162@unix-os.sc.intel.com>
+In-Reply-To: <200404132317.i3DNH4F21162@unix-os.sc.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>
 
+On Tue, Apr 13, 2004 at 04:17:04PM -0700, Chen, Kenneth W wrote:
+> In addition to the hugetlb commit handling that we've been working on
+> off the list, Ray Bryant of SGI and I are also working on demand paging
+> for hugetlb page.  Here are our final version that has been heavily
+> tested on ia64 and x86.  I've broken the patch into 3 pieces so it's
+> easier to read/review, etc.
+> 
+> 1. hugetlb_fix_pte.patch - with demand paging, we can not unconditionally
+>    assume valid pmd/pte.  Fix it up in arch specific huge_pge_offset()
+>    and have all caller check the return value.
+> 
+> 2. hugetlb_demand_generic.patch - this handles bulk of hugetlb demand
+>    paging for generic portion of the kernel.  I've put hugetlb fault
+>    handler in mm/hugetlbpage.c since the fault handler is *exactly* the
+>    same for all arch, but that requires opening up huge_pte_alloc() and
+>    set_huge_pte() functions in each arch.  If people object where it
+>    should live.  It takes me less than a minute to delete the common
+>    code and replicate it in each of the 5 arch that supports hugetlb.
+>    Just let me know if that's the case.
+> 
+> 3. hugetlb_demand_arch.patch - this adds additional arch specific fixes
+>    for x84 and ia64 when generic demand paging is turned on.  Also bulk
+>    of the patch is to clean up with functions that no longer needed.
+> 
+> Some caveats:  I don't have sh and sparc64 hardware to test.  But hugetlb
+> code in these two arch looked like a triplet twin of x86 code.  So I'm
+> pretty sure it will work right out of box.  I've monkeyed around with
+> ppc64 code and after a while I realized it should be left for the experts.
+> I'm sure there are plenty ppc64 developers out there that can get it done
+> in no time.
 
---n8g4imXOkfNTN/H1
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+To the extent that I understand your patches, it shouldn't be that
+hard to adapt for ppc64, with one caveat: on ppc64, unlike the other
+hugepage archs, the format of hugepage PTEs is not identical to the
+format of normal PTEs.  So to do this for ppc64, the generic parts of
+your code will need to use a hugepte_t instead of pte_t - it can be
+typedeffed to pte_t on archs other than ppc64.  Likewise there will
+need to be hugepte_none() and so forth macros.
 
-On Wed, Apr 14, 2004 at 11:04:02AM +0200, Arjan van de Ven wrote:
-> On Wed, 2004-04-14 at 01:17, Chen, Kenneth W wrote:
-> > In addition to the hugetlb commit handling that we've been working on
-> > off the list, Ray Bryant of SGI and I are also working on demand paging
-> > for hugetlb page.  Here are our final version that has been heavily
-> > tested on ia64 and x86.  I've broken the patch into 3 pieces so it's
-> > easier to read/review, etc.
->=20
-> Ok I think it's time to say "HO STOP" here.
->=20
-> If you're going to make the kernel deal with different, concurrent page
-> sizes then please do it for real. Or alternatively leave hugetlb to be
-> the kludge/hack it is right now. Anything inbetween is the road to
-> madness...
+However, there seem to be some changes in your patches that aren't
+directly related to doing demand-paging (though they might be a good
+thing for other reasons).  Further comments in reply to the actual
+patches.
 
-Well, bear in mind that in a number of ways these patches actually
-simplify the hugetlb code, although I think most of that is not
-inherently related to making the hugepage allocation on-demand rather
-than prefaulted.  Nonetheless, doing the demand allocation is actually
-really easy.  Even if you add COW as well, which these patches don't,
-it doesn't actually make the hack any worse than it was already, but
-it does make it more useful.
-
---=20
+-- 
 David Gibson			| For every complex problem there is a
 david AT gibson.dropbear.id.au	| solution which is simple, neat and
 				| wrong.
 http://www.ozlabs.org/people/dgibson
-
---n8g4imXOkfNTN/H1
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAfeQhaILKxv3ab8YRAiWnAJ9Ci0aqAqAL1kIaUrifvugY5hwjMwCfXXWg
-2tJdGbSGhecUD/9XjwCkpYE=
-=Adqz
------END PGP SIGNATURE-----
-
---n8g4imXOkfNTN/H1--
