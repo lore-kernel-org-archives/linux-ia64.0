@@ -1,29 +1,21 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Thu, 14 Jun 2001 06:22:25 +0000
-Subject: Re: [Linux-ia64] Stack unwind functions
-Message-Id: <marc-linux-ia64-105590693005731@msgid-missing>
+From: qiuhb <qiuhb@necas.nec.co.jp>
+Date: Thu, 07 Jun 2001 11:33:11 +0000
+Subject: [Linux-ia64] RPC on IA64
+Message-Id: <marc-linux-ia64-105590693005693@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005729@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005729@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Stack unwinding is supported for C++ exception handling.
+Hi.
 
-If you are asking about user level routines, then it varies, depending on
-which version of gcc you have, but there is nothing really convenient as yet.
+Now I am porting some application from IA32 to IA64 and using RPC.
+Would you tell me whether support scalable data types as like intptr_t.
+The long type is 32-bit on IA32 and it is 64-bit on IA64,yes or no?
 
-The "Nov snapshot" doesn't provide any user level API for unwinding.  However,
-the java runtime wanted a function that worked like the Glibc backtrace
-function, so they added a function to libgcc.c called __ia64_backtrace.
+Thanks.
 
-The gcc-3 prerelease provides the Unwind API documented in the IA-64 ABI.
-However, this alone probably doesn't give you what you want.  Plus, you
-may not be able to use this compiler until there is an OS distribution built
-from it.  And unfortunately the __ia64_backtrace function had to go away,
-since it didn't fit into the new EH implementation that uses the Unwind API.
+Qiu HongBing
 
-Jim
 
