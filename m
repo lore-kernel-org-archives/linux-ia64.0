@@ -1,28 +1,37 @@
-From: janitor@sternwelten.at
-Date: Wed, 01 Sep 2004 21:24:57 +0000
-Subject: [patch 2/2]  minmax-removal 	arch/ia64/hp/sim/simserial.c
-Message-Id: <E1C2cbB-0000KK-HX@sputnik>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 08 Sep 2004 11:17:40 +0000
+Subject: Re: [patch 2/2]  minmax-removal 	arch/ia64/hp/sim/simserial.c
+Message-Id: <16702.59988.40324.690113@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <E1C2cbB-0000KK-HX@sputnik>
+In-Reply-To: <E1C2cbB-0000KK-HX@sputnik>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Tony,
 
+>>>>> On Wed, 01 Sep 2004 23:24:57 +0200, janitor@sternwelten.at said:
 
+  Janitor> Patch (against 2.6.8.1) removes unnecessary min/max macros
+  Janitor> and changes calls to use kernel.h macros instead.
+
+I reviewed and tested this patch and approve of it.  Please apply.
+
+Thanks,
+
+	--david
+
+--
+ia64: minmax-removal in arch/ia64/hp/sim/simserial.c
 
 Patch (against 2.6.8.1) removes unnecessary min/max macros and changes
 calls to use kernel.h macros instead.
 
-Since I dont have the hardware those patches are not tested.
-
-Best regards
-Veeck
-
 Signed-off-by: Michael Veeck <michael.veeck@gmx.net>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-
-
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
 ---
 
