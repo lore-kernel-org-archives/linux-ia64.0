@@ -1,94 +1,79 @@
 From: "H . J . Lu" <hjl@valinux.com>
-Date: Thu, 11 Jan 2001 21:26:01 +0000
-Subject: [Linux-ia64] The 1117 snapshot alignment bug
-Message-Id: <marc-linux-ia64-105590693005029@msgid-missing>
+Date: Thu, 11 Jan 2001 22:02:16 +0000
+Subject: Re: [Linux-ia64] The 1117 snapshot alignment bug
+Message-Id: <marc-linux-ia64-105590693005030@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005029@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005029@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I got a kernel unaligned access bug:
+On Thu, Jan 11, 2001 at 01:26:01PM -0800, H . J . Lu wrote:
+> I got a kernel unaligned access bug:
+> 
+> The problem is
+> 
+>   struct bar x = { b->f4, 0, {0, 0} };
+> 
+> gcc uses
+> 
+> st8 [rX] = r0
+> 
+> for {0, 0}. But st8 requires 8 byte aligment while
+> 
+>   unsigned int f6 [2];
+> 
+> has 4 byte aligment.
+> 
+> BTW, nfs3_proc_create in fs/nfs/nfs3proc.c got miscompiled.
+> 
 
-cp[31284]: Unaligned reference while in kernel
- 30
-
-psr : 00001010080a6038 ifs : 8000000000000813 ip  : [<e00000000063d170>]
-unat: 0000000000000000 pfs : 000000000000040e rsc : 0000000000000003
-rnat: 0000000000000008 bsps: 000000000001003e pr  : 0000000000190293
-ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c8270033f
-b0  : e000000000633b40 b6  : e00000000063d0e0 b7  : e000000000521140
-f6  : 0fff3fffffffff0000000 f7  : 0ffe68000000000000000
-f8  : 1000a8000000000000000 f9  : 1000a8000000000000000
-r1  : e000000000b85a80 r2  : 0000000000000001 r3  : e000000008f3fbc8
-r8  : e00000000063d0e0 r9  : 0000000000000309 r10 : 0000000000000000
-r11 : 0000000000190093 r12 : e000000008f3fbf0 r13 : e000000008f38000
-r14 : 000000000000001c r15 : e00000002c9c4740 r16 : e000000008f3fcd4
-r17 : e000000008f3fcb8 r18 : e000000008f3fcc0 r19 : e000000008f3fcf0
-r20 : e000000008f3fcc8 r21 : e000000008f3fc88 r22 : e0000000296a9028
-r23 : 0000000000000c00 r24 : e0000000296a91f8 r25 : 0000000000000c00
-r26 : e0000000296a9208 r27 : e000000008f3fd84 r28 : e000000008f3fdc8
-r29 : e000000008f3fd60 r30 : 0000000000000002 r31 : 0000000000000000
-r32 : 0000000000000000 r33 : 0000000000000000 r34 : 0000000000000000
-r35 : 0000000000000000 r36 : 0000000000000000 r37 : 0000000000000000
-r38 : 0000000000000000 r39 : 0000000000000000 r40 : 0000000000000000
-r41 : 0000000000000000 r42 : 0000000000000000 r43 : 0000000000000000
-r44 : 0000000000000000 r45 : 0000000000000000 r46 : 0000000000000000
-r47 : 0000000000000000 r48 : 0000000000000000 r49 : 0000000000000000
-r50 : 0000000000000000
-
-when I copied over NFS. I believe it is a compiler bug.
-
-# gcc al.c
-# a.out
-a.out(466): unaligned access to 0x80000ffffffff8bc, ip=0x4000000000000760
-0x80000ffffffff890
-0x80000ffffffff89c: 4
-4
-
-The problem is
-
-  struct bar x = { b->f4, 0, {0, 0} };
-
-gcc uses
-
-st8 [rX] = r0
-
-for {0, 0}. But st8 requires 8 byte aligment while
-
-  unsigned int f6 [2];
-
-has 4 byte aligment.
-
-BTW, nfs3_proc_create in fs/nfs/nfs3proc.c got miscompiled.
+Here is a workaround for the compiler bug.
 
 
-H.J.
-----al.c---
-#include <stdio.h>
-
-enum bool { false, true };
-
-struct bar
-{
-  void *f4;
-  enum bool f5;
-  unsigned int f6 [2];
-};
-
-struct bar
-f_bar (struct bar *b)
-{
-  struct bar x = { b->f4, 0, {0, 0} };
-  printf ("%p\n", &x); 
-  printf ("%p: %d\n", &x.f6, ((long) (&x.f6)) & 0x7); 
-  printf ("%d\n", __alignof__ (x.f6)); 
-  return x;
-}
-
-main ()
-{
-  struct bar x;
-  x = f_bar (&x);
-}
+---
+--- linux/fs/nfs/nfs3proc.c.align	Thu Jan 11 13:27:25 2001
++++ linux/fs/nfs/nfs3proc.c	Thu Jan 11 13:40:59 2001
+@@ -190,11 +190,17 @@ nfs3_proc_create(struct inode *dir, stru
+ 		 int flags, struct nfs_fh *fhandle, struct nfs_fattr *fattr)
+ {
+ 	struct nfs_fattr	dir_attr;
+-	struct nfs3_createargs	arg = { NFS_FH(dir), name->name, name->len,
+-					sattr, 0, { 0, 0 } };
++	struct nfs3_createargs	arg;
+ 	struct nfs3_diropres	res = { &dir_attr, fhandle, fattr };
+ 	int			status;
+ 
++	arg.fh = NFS_FH(dir);
++	arg.name = name->name;
++	arg.len = name->len,
++	arg.sattr = sattr;
++	arg.createmode = 0;
++	arg.verifier [0] = 0;
++	arg.verifier [1] = 0;
+ 	dprintk("NFS call  create %s\n", name->name);
+ 	arg.createmode = NFS3_CREATE_UNCHECKED;
+ 	if (flags & O_EXCL) {
+@@ -362,10 +368,17 @@ nfs3_proc_mkdir(struct inode *dir, struc
+ 		struct nfs_fh *fhandle, struct nfs_fattr *fattr)
+ {
+ 	struct nfs_fattr	dir_attr;
+-	struct nfs3_createargs	arg = { NFS_FH(dir), name->name, name->len,
+-					sattr, 0, { 0, 0 } };
++	struct nfs3_createargs	arg;
+ 	struct nfs3_diropres	res = { &dir_attr, fhandle, fattr };
+ 	int			status;
++
++	arg.fh = NFS_FH(dir);
++	arg.name = name->name;
++	arg.len = name->len,
++	arg.sattr = sattr;
++	arg.createmode = 0;
++	arg.verifier [0] = 0;
++	arg.verifier [1] = 0;
+ 
+ 	dprintk("NFS call  mkdir %s\n", name->name);
+ 	dir_attr.valid = 0;
 
