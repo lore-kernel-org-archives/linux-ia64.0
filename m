@@ -1,7 +1,7 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Mon, 28 Oct 2002 01:51:40 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 28 Oct 2002 03:02:35 +0000
 Subject: Re: [Linux-ia64] quick ia64 patch for 2.5.44 (UP only)
-Message-Id: <marc-linux-ia64-105590709805269@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805271@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805243@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805243@msgid-missing>
@@ -10,26 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Kimio" = Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp> writes:
+I updated the 2.5.44 ia64 patch with the SMP (per-CPU) fix by Kimi.
+Various other minor fixes are there as well.  The patch file is called
 
+	linux-2.5.44-ia64-021027.gz
 
-Kimio> I have a same problem on Bigsur since 2.5.39.
-Kimio> So the problem caused by another bug.
+in the usual place...
 
- Yes, I agree there's another problem here.
+Thanks,
 
-Kimio> I've heard a rumor that this patch might fix it, but I haven't
-Kimio> test it, yet.
+	--david
 
-Kimio> http://marc.theaimsgroup.com/?l=linux-kernel&m3371059120183&w=2
+PS: I only tested Big Sur SMP and 1 out of 3 times it hung on me when
+    switching to runlevel 3.
 
-This patch is for the sound driver, that I haven't compiled in.  So
-it's unlikely to fix my problem.  Although maybe there's a similar
-problem somewhere else?
-
-I did *not* have the problem on 2.5.39 or on 2.5.44 UP (it appears to
-be an SMP problem that was introduced between 2.5.39 and 2.5.44).
-I'm using serial console only.
-
-Peter C
+PPS: It looks like I'll be able to work Mon & Tue.  Wednesday I'll be
+     out and it's unclear how quickly I'll be back afterwards (but I
+     will be reading email so keep the patches coming...).
 
