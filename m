@@ -1,7 +1,7 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Tue, 29 Jan 2002 07:06:46 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 29 Jan 2002 08:39:34 +0000
 Subject: Re: [Linux-ia64] Offsets from C struct into assembler
-Message-Id: <marc-linux-ia64-105590698805947@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805948@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805940@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805940@msgid-missing>
@@ -10,36 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger schrieb:
+>>>>> On Tue, 29 Jan 2002 08:06:46 +0100, Christian Hildner <christian.hildner@hob.de> said:
 
-> >>>>> On Tue, 29 Jan 2002 07:59:43 +1100, Keith Owens <kaos@ocs.com.au> said:
->
->   Keith> On Mon, 28 Jan 2002 08:11:23 -0700, n0ano@indstorage.com
->   Keith> wrote:
->   >> Or you can check out how the IA64 Linux kernel does this.  The
->   >> file `arch/ia64/tools/printoffsets.c' is a program that is
->   >> compiled and, when run, generates the file `include
->   >> asm-ia64/offsets.h' which is an ASM include file containing
->   >> structure offsets.
->
->   Keith> That tool is disappearing in 2.5 kernels.  All architectures
->   Keith> will use the same method for generating asm offsets, the one
->   Keith> I included in my previous mail.
->
-> As of v2.5.3-pre5 I don't see any sign of your new kernel build
-> environment being part of Linus' tree.  Perhaps it will be accepted
-> some day, but until that happens, the scheme described by Don is the
-> correct one.
->
->         --david
+  Christian> Although it would be a nice feature of the gcc if it
+  Christian> could include C headers combined with an assembler
+  Christian> directive for using the offsets the simple solution with
+  Christian> print_offsets does it's job fine. The good thing here is
+  Christian> that awk isn't needed.
 
-Although it would be a nice feature of the gcc if it could include C headers
-combined with an assembler directive for using the offsets the simple solution
-with print_offsets does it's job fine. The good thing here is that awk isn't
-needed.
+It's not difficult to fix print_offsets.c to avoid awk.  We could use
+directives of the form:
 
-Thanks,
+  asm volatile ("uc_rnat = %0"::"i"(offsetof (struct _Unwind_Context, rnat)));
 
-Christian
+for this purpose (this is a cut & paste from gcc's unwind-ia64.c).
 
+	--david
 
