@@ -1,7 +1,7 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Wed, 30 Mar 2005 11:14:39 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Wed, 30 Mar 2005 13:40:49 +0000
 Subject: Re: [PATCH] Pageset Localization V2
-Message-Id: <20050330111439.GA13110@infradead.org>
+Message-Id: <20050330134049.GA21986@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0503292147200.32571@server.graphe.net>
 In-Reply-To: <Pine.LNX.4.58.0503292147200.32571@server.graphe.net>
@@ -11,15 +11,16 @@ Content-Transfer-Encoding: 7bit
 To: Christoph Lameter <christoph@lameter.com>
 Cc: Manfred Spraul <manfred@colorfullife.com>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-mm@kvack.org, shai@scalex86.org
 
-> +#define MAKE_LIST(list, nlist)  \
-> +	do {    \
-> +		if(list_empty(&list))      \
-> +			INIT_LIST_HEAD(nlist);          \
-> +		else {  nlist->next->prev = nlist;      \
-> +			nlist->prev->next = nlist;      \
-> +		}                                       \
-> +	}while(0)
+On Tue, Mar 29, 2005 at 09:51:08PM -0800, Christoph Lameter wrote:
+> +	BUG_ON(process_zones(smp_processor_id()));
 
-This is horrible.  Where are the nlist pointers supposed to point to?
-What's so magic you need the INIT_LIST_HEAD only conditionally?
+No.  Who told you this was a good idea?  This is the *worst* kind of
+assert, calling a function with side-effects.
 
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
