@@ -1,142 +1,60 @@
-From: "Robboy, David G" <david.g.robboy@intel.com>
-Date: Fri, 25 May 2001 23:17:37 +0000
-Subject: [Linux-ia64] Bug report: 4-threaded program gets seg. fault on malloc, on linu
-Message-Id: <marc-linux-ia64-105590693005668@msgid-missing>
+From: Dan Pop <Dan.Pop@cern.ch>
+Date: Thu, 31 May 2001 04:26:56 +0000
+Subject: Re: [Linux-ia64] Bug report: 4-threaded program gets seg. fault on malloc, on linu x R2.4.3.
+Message-Id: <marc-linux-ia64-105590693005674@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005668@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005668@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I have reported this on bugzilla also, Bug #42354.  I don't know whether it
-is
-a kernel bug, libc, or libpthread.
-The attached program spawns 3 new threads, and each of the 4 threads does a
-malloc.  Run it on a 4P Lion.
-On Linux kernel R2.4.3 (Red Hat release 7.0.98), it aborts with a
-segmentation fault.  The same binary executable runs correctly on a R2.4.1
-kernel.
 
+On Fri, 25 May 2001, Robboy, David G wrote:
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>   
-#include <asm/page.h>
+> I have reported this on bugzilla also, Bug #42354.  I don't know whether it
+> is a kernel bug, libc, or libpthread.
 
-#define MAXPROCS        4
+More likely, a problem with your system.
 
-void SlaveStart();
+> The attached program spawns 3 new threads, and each of the 4 threads does a
+> malloc.  Run it on a 4P Lion.
+> On Linux kernel R2.4.3 (Red Hat release 7.0.98), it aborts with a
+> segmentation fault.  The same binary executable runs correctly on a R2.4.1
+> kernel.
 
-typedef struct
-{
-        volatile int bt_count0;
-        volatile int bt_count1;
-} barrier_t;
+I couldn't reproduce your problem, despite having exactly the same
+hardware and software configuration:
 
-static pthread_mutex_t barrier_lock;
-pthread_mutex_t (idlock);
-int id = 0;
-barrier_t start;
-barrier_t end;
-static int threadno = 0;
-static pthread_t thread[MAXPROCS];
+    pcpole67:~ 0 6> uname -a
+    Linux pcpole67 2.4.3-2.10.1smp #1 SMP Fri Apr 20 12:10:00 EDT 2001 ia64 unknown
+    pcpole67:~ 0 7> cat /etc/issue
 
+    Red Hat Linux release 7.0.98 (Wolverine)
+    Kernel 2.4.3-2.10.1smp on a 4-processor ia64
 
-void
-init_barrier(barrier_t *barr)
-{
-	pthread_mutex_init(&(barrier_lock), (const pthread_mutexattr_t *)0);
-	barr->bt_count0 =  barr->bt_count1 = 0;
-}
+    pcpole67:~ 0 8> gcc foo.c -lpthread
+    pcpole67:~ 0 9> ./a.out
+    Calling malloc: 0
+    Calling malloc: 3
+    Called malloc: 0
+    Called malloc: 3
+    Calling malloc: 1
+    Calling malloc: 2
+    Called malloc: 1
+    Called malloc: 2
+    pcpole67:~ 0 10> 
 
-void
-wait_barrier(barrier_t *barr, int nprocs)
-{
-	int rc;
+The box has a vanilla Red Hat release 7.0.98 installation.
 
-	/* Two barriers guarantee that no one comes around to the barrier
-	 * again before everyone is out if it, even if there are long
-	 * delays in the kernel.
- 	 */
-	rc = pthread_mutex_lock(&barrier_lock);
-	if (barr->bt_count0 = nprocs)
-		barr->bt_count0 = 1;
-	else
-		++barr->bt_count0;
-	rc = pthread_mutex_unlock(&barrier_lock);
-	while (barr->bt_count0 < nprocs){
-		;
-	}
+> main(argc, argv)
+> 
+> int argc;
+> char *argv;
+  ^^^^^^^^^^
+If you want to define main in this antique fashion, at least do it right.
 
-	rc = pthread_mutex_lock(&barrier_lock);
-	/* If this has been called before, re-initialize the counter */
-	if (barr->bt_count1 = nprocs)
-		barr->bt_count1 = 1;
-	else
-		++barr->bt_count1;
-	rc = pthread_mutex_unlock(&barrier_lock);
-	while (barr->bt_count1 < nprocs){
-		;
-	}
-}
-
-main(argc, argv)
-
-int argc;
-char *argv;
-
-{
-  int i; 
-  int j; 
-  int c;
-  int status;
-  pthread_attr_t *attr = 0;
-
-  init_barrier(&start);
-  init_barrier(&end);
-
-  for (i=1; i<MAXPROCS; i++) {
-    status = pthread_create(&thread[threadno++], attr,(void
-*)(SlaveStart),(void *)0);
-
-  }
-  SlaveStart();
-
-
-  {exit(0);};
-}
-
-
-void SlaveStart()
-{
-  int i;
-  int j;
-  int MyNum;
-  double error;
-  double *upriv;
-  int initdone; 
-  int finish; 
-  int l_transtime=0;
-  int MyFirst; 
-  int MyLast;
-
-  {pthread_mutex_lock(&(idlock));};
-    MyNum = id;
-    id++;
-  {pthread_mutex_unlock(&(idlock));}; 
-
-
-
-  {wait_barrier((barrier_t *)&(start), (MAXPROCS));};
-
-printf("Calling malloc: %d\n", MyNum);
-  upriv = (double *) malloc(2*(28000000-1)*sizeof(double));  
-  if (upriv = NULL) {
-    fprintf(stderr,"Proc %d could not malloc memory for upriv\n",MyNum);
-    exit(-1);
-  }
-printf("Called malloc: %d\n", MyNum);
-  {wait_barrier((barrier_t *)&(end), (MAXPROCS));};
-}
+Dan
 
 
