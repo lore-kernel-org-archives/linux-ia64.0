@@ -1,63 +1,111 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Fri, 10 Sep 2004 16:39:27 +0000
-Subject: Re: Hanging process on SMP machines?
-Message-Id: <20040910163927.GA8124@lucon.org>
+From: Christoph Hellwig <hch@infradead.org>
+Date: Fri, 03 Sep 2004 23:40:24 +0000
+Subject: Re: Latest Altix I/O code reorganization code
+Message-Id: <20040904004024.A10459@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040909201321.GA21492@lucon.org> <20040910004549.2df18073.akpm@osdl.org>
-In-Reply-To: <20040910004549.2df18073.akpm@osdl.org>
+References: <200408042014.i74KE8fD141211@fsgi900.americas.sgi.com> <20040806141836.A9854@infradead.org> <411AAABB.8070707@sgi.com> <412F4EC9.7050003@sgi.com> <20040827165443.A32567@infradead.org> <20040827172131.A473@infradead.org>
+In-Reply-To: <20040827172131.A473@infradead.org>; from hch@infradead.org on Fri, Aug 27, 2004 at 05:21:31PM +0100
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Christoph Hellwig <hch@infradead.org>, Patrick Gefre <pfg@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Sep 10, 2004 at 12:45:49AM -0700, Andrew Morton wrote:
-> "H. J. Lu" <hjl@lucon.org> wrote:
-> >
-> > I notice that a process may hang on SMP machines at random:
-> > 
-> >  http://bugzilla.kernel.org/show_bug.cgi?id332
-> > 
-> >  I can reliably trigger it within 15 minutes under SMP kernel on P4 HT
-> >  and 4-way ia64 machines. Has anyone else seen it?
-> 
-> It's easy to reproduce on 2-way x86, however it doesn't look like a kernel
-> bug.
-> 
-> 
-> akpm      2503  0.0  0.2  3892  640 pts/0    S    00:34   0:00  |           \_ make
-> akpm      2504  0.0  0.0  1368  192 pts/0    S    00:34   0:00  |               \_ time expect test.exp
-> akpm      2505  0.0  0.5  4776 1276 pts/0    S    00:34   0:00  |                   \_ expect test.exp
-> akpm      4726  0.0  0.0     0    0 ?        Z    00:35   0:00  |                       \_ [true] <defunct>
-> 
-> process 4726 is sleeping at the end of do_exit():
-> 
-> 
-> 	schedule();		<<- here
-> 	BUG();
-> 	/* Avoid "noreturn function does return".  */
-> 	for (;;) ;
-> }
-> 
-> So it has completely exitted and is waiting for someone to reap its exit
-> code and stack slot via wait4().  So what is its parent up to?
-> 
-> 
-> (gdb) thread 69
-> [Switching to thread 69 (Thread 2505)]#0  0xc01653e9 in do_select (n=5, fds=0xcc8b5fa4, 
->     timeout=0xcc8b5fa0) at fs/select.c:257
-> 257                     __timeout = schedule_timeout(__timeout);
-> (gdb) bt
-> #0  0xc01653e9 in do_select (n=5, fds=0xcc8b5fa4, timeout=0xcc8b5fa0) at fs/select.c:257
-> #1  0xc016579c in sys_select (n=5, inp=0x804b444, outp=0x804b4c4, exp=0x804b544, tvp=0xbfffe1d0)
->     at fs/select.c:354
-> #2  0xc0105e39 in sysenter_past_esp () at arch/i386/kernel/semaphore.c:177
-> 
-> The parent is sleeping in select() rather than wait()ing for children.
-> 
+Crosscheck of your new code vs the review:
 
-I don't think SIGCHLD is blocked. Shouldn't SIGCHLD interrupt select?
-UP kernel doesn't have this problem.
+> io_init.c:
+> 
+>  - sal_get_hubdev_info
+> 	umm, you're getting a kernel pointer by a SAL
+>  	call.  I wonders how this is supposed to work when the kernel
+> 	changes it's VA layout.  (Dito for a bunch of other functions)
 
+Still not explanation
 
-H.J.
+>  - sn_io_init
+> 	what's going on here?
+
+gone
+
+> iomv.c:
+> 
+>  - okay, could use some reformatting to fit 80 chars
+
+ok
+
+> pci_dma.c:
+> 
+>  - still using all those indirections althoug there's only a single backend
+
+this comment is fixed, but the one later sent in private (stupid choice
+of interface beteen upper pci dma code and pcibr code ignored)
+
+> pci_extension.c:
+> 
+>  - dito.  Why does this single function need a separate file?
+
+Not addressed.  In general your file organization is mess still.
+
+Just do arch/ia64/sn/pci/ for all pci code and move the rest to
+arch/ia64/sn/kernel.  That how most arches work.
+
+> pcibr_ate.c:
+> 
+>  - doesn't look to bad, but should probably merged into pcibr_dma.c.  And
+>    the trivial < 10 line function opencoded in their only callers.
+
+Not addressed or commented on yet.
+
+> pcibr_provider.c
+> 
+>  actual code code looks okay, but:
+> 
+>   - sal_pcibr_slot_enable/sal_pcibr_slot_disabl are completely unused
+
+you still have typedefs for these around
+
+>   - the pci_provider abstraction is right now completely useless, please
+>     add such abstractions only when you need them (and if you'll ever need
+>     that a few hints:  stop that casting of methods silliness but use
+>     container_of, use C99 initializers, stop the typedef abuse)
+
+ok
+
+>   - request_irq return value needs checking
+
+ok
+
+> 
+> pcibr_reg.c:
+> 
+>  - all this casting is rather horrible.  At least keep a pointer to each
+>    of struct tiocp and pic_s (and kill the _s postifx) in syruct pcibus_info.
+>    the volatiles looks bogus, if you need it you're missing memorry barries.
+
+the type pointer isn't done.  Any specific reason?
+
+> xtalk_providers.c:
+> 
+>  - bogus indirection again.  if you actually do have different lowlevel
+>    implementations they should be hidden inside the prom.  While at it I think
+>    the two calls could just move to arch/ia64/sn/kernel/irq.c
+
+ok
+
+More items:
+
+ - sal_pcibr_rrb_alloc should be merged into its only caller
+ - io_init.c still has KDB ifdefs
+ - sn_pci_set_vchan should absolutely _not_ be placed in qla1280.c,
+   and while you're at it there extern for snia_pcibr_rrb_alloc should
+   move to a header
+ - kill HUBREG_CAST instead of touching it
+ - please don't put your ASSERT into asm/ headers.  In general you
+   should use BUG_ON
+ - why do you add a pfn_t typedef that's not used anywhere
+ - the patch adds include/asm-ia64/sn/xtalk/xtalk_provider.h but there's
+   no more xtalk providers
+
+Your headers are still a complete mess.  There's no point exposing tons
+of defails about the pci interface in include/asm - just keep and
+pci_extensions.h there for non-standard PCI APIs, and the rest should
+stay private inisde arch/ia64/sn/pci/.
