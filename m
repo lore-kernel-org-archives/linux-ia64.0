@@ -1,7 +1,7 @@
 From: Dan Pop <Dan.Pop@cern.ch>
-Date: Mon, 12 Nov 2001 23:50:37 +0000
-Subject: RE: [Linux-ia64] Unaligned access in ia64
-Message-Id: <marc-linux-ia64-105590698805478@msgid-missing>
+Date: Tue, 13 Nov 2001 00:00:01 +0000
+Subject: Re: [Linux-ia64] Unaligned access in ia64
+Message-Id: <marc-linux-ia64-105590698805480@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805472@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805472@msgid-missing>
@@ -13,31 +13,27 @@ To: linux-ia64@vger.kernel.org
 
 On Mon, 12 Nov 2001, Pereira, D LailaX E wrote:
 
-> My program still does not port properly gives the "unaligned access
-> warnings" while running. Also, When I make the files, I also get the
-> warnings of the following type::
-> warning: cast from pointer to integer of different size
-> This happens when I convert (void*) pointer to int i. 
-
-You shouldn't do that, because this conversion is likely to result in
-loss of information, since pointers are 64-bit on IA-64 Linux.
-
-> The following warning is also displayed: 
-> cast to pointer from integer of different size 
+> I have an application running fine on the Intelx86 machines. When I run the
+> same on itanium machine ( linux OS) , I get the following  errors:
+> stress.udp(16868):unaligned access  to 0x4000000000003541,
+> ip=0x400000000001cfe0
+> stress.udp(16868):unaligned access  to 0x4000000000003541,
+> ip=0x400000000001c551
 > 
-> This happens when I convert int i to (void*) pointer . 
-> for example::  function((void*)i);
+> What could be the possible causes for this?
 
-This should not cause any problems, but I can't see its usefulness.
+You're probably converting pointer to char to pointers to types with
+more restrictive alignment requirements.
 
-> How can these warnings be avoided? 
+> Can anyone please point out?
+> what are the general cautions to be taken while porting applications to
+> itanium? for eg any pointer conversions , int conversions etc 
 
-If you want to mix pointers and integers in this way, use long's
-instead of int's.
-
-Also, double check that all the functions returning pointers that your
-program calls are properly declared, either explicitly or by the
-inclusion of the appropriate headers. 
+Each C type wider than char has its own alignment requirements.  Its
+address must be a multiple of its size.  The diagnostics you have
+quoted above suggest that your program attempts to place such objects
+at incorrectly aligned addresses (usually by converting char pointers
+or void pointers to pointers to other types).
 
 Dan
 
