@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 24 Nov 2003 20:00:09 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 24 Nov 2003 21:21:39 +0000
 Subject: RE: weird speed problem
-Message-Id: <marc-linux-ia64-106970446625466@msgid-missing>
+Message-Id: <marc-linux-ia64-106970893131576@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106957761119369@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106957761119369@msgid-missing>
@@ -10,30 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> One _potential_ reason why it ran fast one time, and slow on 
-> other runs
-> is the lack of page colouring in Linux.  If the working set 
-> of your test
-> program is some large percentage of the cache size, then you 
-> can hit this
-> on any architecture, not just ia64.
+>>>>> On Mon, 24 Nov 2003 12:00:09 -0800, "Luck, Tony" <tony.luck@intel.com> said:
 
-Following up to myself (in response to private e-mail requesting
-clarification).
+  Tony> You may be able to determine whether this is your problem by
+  Tony> using Stephane's "pfmon" tool to count cache misses at various
+  Tony> levels of the cache hierarchy, and comparing these numbers
+  Tony> from run to run.  If you see wildly varying numbers, and your
+  Tony> system is idle apart from the test program, then lack of cache
+  Tony> colouring is probably the issue.
 
-You may be able to determine whether this is your problem
-by using Stephane's "pfmon" tool to count cache misses at
-various levels of the cache hierarchy, and comparing these
-numbers from run to run.  If you see wildly varying numbers,
-and your system is idle apart from the test program, then
-lack of cache colouring is probably the issue.
+Sounds like a good suggestion to me, but before doing that, I'd
+recommend to collect a simple profile.  Just to see if anything
+obvious is going wrong (like unaligned accesses, lots of fpswa faults,
+or similar).
 
-You may be able to workaround the lack of cache colouring by
-using hugetlbfs to allocate memory, since you are guaranteed
-to get contiguous physical memory that will line up neatly
-in your cache.  Though this may be overkill (since hugetlbfs
-pagesize is generally much bigger than your cachesize, you'll
-be forced to allocate far more memory than your application
-needs).
+Hans's qprof tool might come in handy for that:
 
--Tony
+  http://www.hpl.hp.com/research/linux/qprof/
+
+Also, I have a not-yet-released tool which can collect call-counts
+(similar to gprof, but without recompilation).  I hope to release it
+sometime next week or shortly thereafter, but if someone screams
+loudly enough, I might consider making a quick but totally unsupported
+snapshot of what I have.
+
+	--david
