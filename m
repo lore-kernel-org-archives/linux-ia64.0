@@ -1,27 +1,39 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Tue, 18 Feb 2003 18:23:03 +0000
-Subject: Re: [Linux-ia64] Problem with elilo 3.3a
-Message-Id: <marc-linux-ia64-105590709805869@msgid-missing>
+From: Christian Cotte-Barrot <Christian.Cotte-Barrot@bull.net>
+Date: Wed, 19 Feb 2003 11:55:54 +0000
+Subject: Re: [Linux-ia64] Some Modules fail w/ unresolved cpu_info__per_cpu
+Message-Id: <marc-linux-ia64-105590709805871@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805846@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805846@msgid-missing>
+References: <marc-linux-ia64-105590709805176@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805176@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Charles,
-
-On Sat, Feb 15, 2003 at 12:28:09AM -0600, Sluder, Charles wrote:
-> Looks like it might be a problem in EFI.  I traced through BS->GetMemMap()
-> and the corruption in the returned memory map are left over data in fields
-> that are not being filled in by the function call.
+"Lee, Jung-Ik" wrote:
+> 
+> On 2.5.39,
+> it fails to insmod some modules that refers to "cpu_info__per_cpu".
+> That global IS DEFINE_PER_CPU'd, DECLARE_PER_CPU'd and is in System.map but
+> for some reason it fails to resolve.
+> Have you guys seen this ?
+> 
+> thanks
+> J.I.
 > 
 
-Can you verify that the address of the buffer used to store the map 
-(and passed to GetMemMap()) is a valid area? If so, you may have
-problems with your platform firmware.
+That's an old story but we met the "unresolved symbol cpu_info__per_cpu"
+problem again with e100.o and e1000.o modules on a 2.4.45 release.
+Looks like the EXPORT_SYMBOL macro has problem to generate the
+checksum for symbols defined with *PER_CPU* macros.
+The kernel exports the wrong cpu_info__per_cpu_R__ver_cpu_info__per_cpu
+symbol where "__ver_cpu_info__per_cpu" should be a checksum ?
+Found a cleaner patch than in the past, just replaced
+    EXPORT_SYMBOL(cpu_info__per_cpu);
+  with
+    EXPORT_SYMBOL_NOVERS(cpu_info__per_cpu);
+  in
+    ./arch/ia64/kernel/ia64_ksyms.c
 
--- 
--Stephane
+CCB.
 
