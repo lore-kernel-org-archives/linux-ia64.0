@@ -1,33 +1,26 @@
-From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
-Date: Mon, 23 Jul 2001 07:42:30 +0000
-Subject: [Linux-ia64] New aic7xxx driver
-Message-Id: <marc-linux-ia64-105590693005859@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Mon, 23 Jul 2001 18:47:41 +0000
+Subject: Re: [Linux-ia64] New aic7xxx driver
+Message-Id: <marc-linux-ia64-105590693005875@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005859@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005859@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>>>>> On Mon, 23 Jul 2001 09:42:30 +0200 (CEST), Martin Wilck <Martin.Wilck@fujitsu-siemens.com> said:
 
-as you may have noticed, Justin Gibbs has published a new version of
-the aic7xxx driver on the driver home page
-(http://people.freebsd.org/~gibbs/linux/).
+  Martin> as you may have noticed, Justin Gibbs has published a new
+  Martin> version of the aic7xxx driver on the driver home page
+  Martin> (http://people.freebsd.org/~gibbs/linux/).
 
-I have run a pretty tough test
-on the new driver over the weekend, and I can say the trouble I had
-with the previous version have definitely gone (no new troubles, either).
-(I actually tested the 6.2.0-beta1 version of the driver, the page now has
-6.2.0 as well).
+  Martin> I have run a pretty tough test on the new driver over the
+  Martin> weekend, and I can say the trouble I had with the previous
+  Martin> version have definitely gone (no new troubles, either).
 
-I recommend all IA-64 users to upgrade the aic7xxx driver.
+That's good to hear!
 
-Martin
-
--- 
-Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
-FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
-
-
-
+	--david
 
