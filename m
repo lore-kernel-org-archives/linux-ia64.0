@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Tue, 04 May 2004 17:27:21 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 04 May 2004 17:43:23 +0000
 Subject: Re: [RFC] I/O MCA recovery
-Message-Id: <200405041027.21466.jbarnes@engr.sgi.com>
+Message-Id: <16535.54843.857029.472041@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405040954.09524.jbarnes@engr.sgi.com>
 In-Reply-To: <200405040954.09524.jbarnes@engr.sgi.com>
@@ -10,38 +10,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tuesday, May 4, 2004 10:14 am, Grant Grundler wrote:
-> On Tue, May 04, 2004 at 09:54:09AM -0700, Jesse Barnes wrote:
-> > Another issue is that the
-> > MCA event may arrive after the processor has switched to a task
-> > completely unrelated to the I/O.  The approach I've taken thus far is to
-> > register the I/O address range that a process mmaps in /proc/bus/pci (in
-> > pci_mmap_page_range), along with its associated PID.
->
-> Why not use the existing resource map?
-> The PCI bus data structures are hierarchial and resources are well
-> defined in that. Seems like the linked list of I/O ranges could (1)
-> get very long and (2) just replicates what's already there.
+>>>>> On Tue, 4 May 2004 09:54:09 -0700, Jesse Barnes <jbarnes@engr.sgi.com> said:
 
-You mean just use request_region at pci_mmap_page_range time instead?  That 
-would prevent multiple processes from accessing the same region, but we'd 
-still want to know the PID of the process that had that range reserved (the 
-gfx guys really want to get a signal when an I/O error occurs so they can 
-recover in userspace; other userspace drivers probably want the same).  
-Another problem is that legacy I/O space isn't listed in any of the PCI 
-resource maps (at least as far as I know), so there would be no way to track 
-that region, which is the one that I'm *really* interested in. :)
+  Jesse> Background: in an effort to allow option ROM emulation on
+  Jesse> ia64 (via the X int10+x86 emulator), I've had to look at
+  Jesse> doing I/O error recovery since many option ROMs expect to do
+  Jesse> legacy I/O port reads and writes to ports that may or may not
+  Jesse> respond (one particular ROM that I've looked at continuously
+  Jesse> polls a register in legacy I/O space until it returns a
+  Jesse> value).  On sn2, when a device doesn't respond to an I/O
+  Jesse> (legacy space or otherwise), a PCI master abort is generated,
+  Jesse> which generally causes an MCA.
 
-> > Ultimately, this involves adding a machine vector for I/O error recovery
-> > and a linked list of I/O regions and their PIDs.  The I/O error handler
-> > could optionally be extended to look for any PCI resource range and call
-> > a per-device error handling callback or shutdown routine.
-> >
-> > Thoughts?  Does this approach sound reasonable?
->
-> Seems to fit nicely with previous pci_read_check() support proposed
-> earlier.
+  Jesse> Recovering from such an event requires reprogramming chipset
+  Jesse> and bridge registers (some to just clear error state and
+  Jesse> others to re-arm error detection) and as such is very
+  Jesse> platform specific.  Another issue is that the MCA event may
+  Jesse> arrive after the processor has switched to a task completely
+  Jesse> unrelated to the I/O.  The approach I've taken thus far is to
+  Jesse> register the I/O address range that a process mmaps in
+  Jesse> /proc/bus/pci (in pci_mmap_page_range), along with its
+  Jesse> associated PID.  When an MCA occurs, an I/O error recovery
+  Jesse> routine checks the target identifier value against the linked
+  Jesse> list of I/O ranges and recovers appropriately (the PID is
+  Jesse> there so that we can send a SIGBUS or somesuch in the
+  Jesse> future).  This allows us to avoid calling PAL_MC_DRAIN on
+  Jesse> every interrupt to try and flush out errors (which I'm
+  Jesse> guessing would be very expensive), but may have other
+  Jesse> problems.
 
-Yeah, it could be tied in with that interface.
+  Jesse> Ultimately, this involves adding a machine vector for I/O
+  Jesse> error recovery and a linked list of I/O regions and their
+  Jesse> PIDs.  The I/O error handler could optionally be extended to
+  Jesse> look for any PCI resource range and call a per-device error
+  Jesse> handling callback or shutdown routine.
 
-Jesse
+  Jesse> Thoughts?  Does this approach sound reasonable?
+
+Eh, I/O space is required to soft-fail, isn't it?
+
+Why can't you hide this in the platform-specific inX/outX routines?  I
+suppose it would be very slow to drain MCAs after every inX/outX, but
+you'd have to do the slow part only once, until you know whether or
+not the given I/O address is safe.
+
+	--david
