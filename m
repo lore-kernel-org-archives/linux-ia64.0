@@ -1,36 +1,68 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 10 Jan 2002 23:37:17 +0000
-Subject: RE: [Linux-ia64] [PATCH]  Support for alternative kernel profiler
-Message-Id: <marc-linux-ia64-105590698805803@msgid-missing>
+From: Matt Chapman <matthewc@cse.unsw.edu.au>
+Date: Fri, 18 Jan 2002 02:54:29 +0000
+Subject: [Linux-ia64] Fwd: Bug#129641: mozilla illegal instruction fault on IA64 (with a fix)
+Message-Id: <marc-linux-ia64-105590698805877@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805742@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805742@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 10 Jan 2002 15:26:58 -0800, "Luck, Tony" <tony.luck@intel.com> said:
+It was suggested that I forward this here, for the benefit of others
+porting mozilla and any other software that relies on the C++ ABI.
 
-  Tony> We don't currently have any way for different software
-  Tony> packages to share the performance counters, so it's very
-  Tony> likely that there would be interactions with Stephane's PMU
-  Tony> code (e.g. I rewrite cr.pmv to a new vector and re-write all
-  Tony> of the pmc[] and pmd[] registers for my own purposes ... this
-  Tony> will upset Stephane's code, similarly my code does not expect
-  Tony> anyone else to touch any PMU registers, or fiddle with
-  Tony> psr.pp/dcr.pp).
+Matt
 
-  Tony> It would probably be safest to turn off CONFIG_PERFMON in a
-  Tony> kernel that is going to load an alternate profiler ... my
-  Tony> profiler seems to cope ok provided nobody calls
-  Tony> sys_perfmonctl().
 
-This hardly seems like an ideal solution.  If you just want to keep
-your patch for yourself, that's probably OK, but if it is to become
-part of the kernel, we should look into a way for safely sharing the
-PMU.  The first obvious way to try is to do the profiling you want on
-top of perfmon.
+----- Forwarded message from Matt Chapman <matthewc@cse.unsw.edu.au> -----
 
-	--david
+Package: mozilla-browser
+Version: 0.9.7-4
+Severity: important
+
+Symptoms: Installation of package fails with "Illegal instruction" fault from
+regxpcom; mozilla dies similarly when executing JavaScript.
+
+This seems to be because in recent versions of g++ - since 3.0.2 according to
+the ChangeLog - class vtables are arrays of function descriptors (which are
+(code address, gp value) pairs) rather than arrays of function pointers (which
+are pointers to function descriptors).
+
+The following fix does the trick for me (it's a little evil, but then this kind
+of code is necessarily evil :)).
+
+Cheers,
+Matt
+
+
+--- mozilla/xpcom/reflect/xptcall/src/md/unix/xptcinvoke_ffi.old	Sun Jan  6 11:03:05 2002
++++ mozilla/xpcom/reflect/xptcall/src/md/unix/xptcinvoke_ffi.cpp	Thu Jan 17 15:34:56 2002
+@@ -83,8 +83,9 @@
+         long offset;		/* offset to beginning of object */
+         unsigned long rtti;	/* address of run-time type info */
+ #endif
+-        void (*methods[1]) ();	/* method table (variable length) */
++        unsigned long methods[1];	/* method table (variable length) */
+     } *vtable = *(struct vtable **) that;
++    void (*method)();
+     ffi_type **arg_types;
+     void **args;
+     ffi_status status;
+@@ -102,6 +103,13 @@
+     if (status != FFI_OK)
+         return NS_ERROR_INVALID_ARG;
+ 
+-    ffi_call (&cif, vtable->methods[methodIndex], &result, args);
++/* As of g++ 3.0.2, IA64 vtables contain function descriptors - matthewc@cse.unsw.edu.au */
++#if defined(__ia64) && __GNUC__ >= 3 && !(__GNUC__ = 3 && __GNUC_MINOR__ = 0 && __GNUC_PATCHLEVEL__ < 2)
++    method = (void (*)())&vtable->methods[2*methodIndex];
++#else
++    method = (void (*)())vtable->methods[methodIndex];
++#endif
++
++    ffi_call (&cif, method, &result, args);
+     return result;
+ }
+
+----- End forwarded message -----
 
