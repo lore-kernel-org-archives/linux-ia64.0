@@ -1,31 +1,28 @@
-From: Martin Pool <mbp@samba.org>
-Date: Wed, 06 Aug 2003 06:00:28 +0000
-Subject: [patch] turn off CONFIG_FD on ia64?
-Message-Id: <marc-linux-ia64-106014965332221@msgid-missing>
+From: Ravi g <ritanium@yahoo.com>
+Date: Sat, 02 Aug 2003 21:55:27 +0000
+Subject: How do acq and rel work?
+Message-Id: <marc-linux-ia64-105986138027457@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-As of linux-2.6.0-test2-ia64-030729, there seems to be no
-asm-ia64/floppy.h, and so the fd driver won't work.  
+Hi everybody,
+          Im just fiddling with critical regions in
+assembly. From what i have seen from intel
+documentation you can make a critical region by
+enclosing it between .acq and .rel instructions.
+          But it looks like with these instructions
+you have to set a flag as a side-effect and check for
+the flag status every time you want to enter the
+critical region. Is that how they work? or are there
+other ways of doing it.
+And finally can somebody point out good links to
+implementing semaphores and like in itanium.
+-Ravi
 
-Might this patch to make sure it does not accidentally get configured
-on be accepted?  
-
---- linux-2.6.0test2-ia64/drivers/block/Kconfig.~1~	2003-07-29 12:07:02.000000000 +1000
-+++ linux-2.6.0test2-ia64/drivers/block/Kconfig	2003-08-06 15:55:16.000000000 +1000
-@@ -6,7 +6,7 @@ menu "Block devices"
- 
- config BLK_DEV_FD
- 	tristate "Normal floppy disk support"
--	depends on !X86_PC9800
-+	depends on !X86_PC9800 && !IA64
- 	---help---
- 	  If you want to use the floppy disk drive(s) of your PC under Linux,
- 	  say Y. Information about this driver, especially important for IBM
-
-
--- 
-Martin 
+__________________________________
+Do you Yahoo!?
+Yahoo! SiteBuilder - Free, easy-to-use web site design software
+http://sitebuilder.yahoo.com
