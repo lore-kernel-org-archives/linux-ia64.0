@@ -1,7 +1,7 @@
-From: Jim Wilson <wilson@specifixinc.com>
-Date: Tue, 23 Sep 2003 02:32:01 +0000
-Subject: Re: libelf package
-Message-Id: <marc-linux-ia64-106428434114681@msgid-missing>
+From: Al Stone <ahs3@fc.hp.com>
+Date: Tue, 23 Sep 2003 16:40:23 +0000
+Subject: RE: libelf package
+Message-Id: <marc-linux-ia64-106433590230745@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106401166405460@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106401166405460@msgid-missing>
@@ -10,26 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 2003-09-22 at 13:52, David Mosberger wrote:
-> For what it's worth, Debian has a libelf package.  Not that this helps
-> with United Linux...
+Debian ia64 includes a libelf that seems to work
+just fine.
 
-I looked at the Debian package, it is the wrong one.  The SuSE package
-is probably the same wrong one.
-
-There is a libelf project that Ulrich Drepper is working on, which he
-hopes will replace the bfd library in binutils some day.  Quite a few
-people have heard of this by now.
-
-There is also a libelf project that was written by Michael Riepe, Uni
-Hannover.  I'd never heard of this one before today, and I doubt many
-others have either.  This is the one in RHL8, and Debian.
-
-Ulrich's project is very much a Red Hat project.  The only way to get it
-that I know of it to get an RPM from Red Hat.  This will have to change
-if he wants to replace bfd, but that is the way it is for now.  This is
-in the elfutils package, even though everyone calls it libelf, probably
-to try to avoid confusion with the other libelf project.
+On Mon, 2003-09-22 at 18:41, Wichmann, Mats D wrote:
+> > For what it's worth, Debian has a libelf package.  Not that this helps
+> > with United Linux...
+> 
+> consumer SuSE, at least, has a libelf package. 
+> But nothing seems to use it... and it looks like
+> it hasn't made it over to UL, which means no ia64
+> version. 
+> 
+> -- mats
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 -- 
-Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
+Ciao,
+al
+----------------------------
+Al Stone
+Linux & Open Source Lab
+Hewlett-Packard Company
+Phone:  970-898-0345
+Telnet:     898-0345
+Fax:    970-898-3804
+E-mail: ahs3@fc.hp.com
+----------------------------
 
