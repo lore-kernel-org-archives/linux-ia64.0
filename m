@@ -1,29 +1,62 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 06 Oct 2004 08:58:59 +0000
-Subject: Re: [PATCH] IA64: fix unprotected access of user memory in system call emulation layer
-Message-Id: <16739.46035.897839.631002@napali.hpl.hp.com>
+From: Suresh Siddha <suresh.b.siddha@intel.com>
+Date: Thu, 07 Oct 2004 02:44:52 +0000
+Subject: [Patch] swiotlb: fallback to swiotlb for consistent DMA mappings
+Message-Id: <20041006194452.B10900@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200410061050.15337.cborntra@de.ibm.com>
-In-Reply-To: <200410061050.15337.cborntra@de.ibm.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Christian =?iso-8859-1?q?Borntr=E4ger?= <cborntra@de.ibm.com>
-Cc: davidm@hpl.hp.com, linux-ia64@vger.kernel.org, akpm@osdl.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 6 Oct 2004 10:50:15 +0200, Christian Borntr=E4ger <cborntra@d=
-e.ibm.com> said:
+This is mainly needed for EM64T platforms and makes sense for ia64 too. 
+Need of this was broughtup sometime(long time?) back on lkml.
+http://www.ussg.iu.edu/hypermail/linux/kernel/0406.3/0112.html
 
-  Christian> Hello, the current IA64/IA32 emulation layer might oops
-  Christian> due to an unprotected access of user memory.  This patch
-  Christian> fixes the problem by using the data from __get_user.
-  Christian> Please Apply
+Appended patch does this.
 
-Already fixed (since yesterday!):
+thanks,
+suresh
+--
 
- http://lia64.bkbits.net:8080/linux-ia64-release-2.6.9/cset@416225cfObm2S3b=
-JVFhQdG2mIL71rw
+Fallback to swiotlb for pci consistent DMA mappings. On EM64T, this will
+increase the practical size limit of pci_alloc_consistent mappings above
+16MB. This makes sense on IA64 too under extreme conditions.
 
-Thanks,
+Signed-off-by: Suresh Siddha <suresh.b.siddha@intel.com>
 
-	--david
+
+diff -Nrup linux/arch/ia64/lib/swiotlb.c linux-swiotlb/arch/ia64/lib/swiotlb.c
+--- linux/arch/ia64/lib/swiotlb.c	2004-09-03 04:01:58.000000000 -0700
++++ linux-swiotlb/arch/ia64/lib/swiotlb.c	2004-09-03 06:33:54.040063240 -0700
+@@ -305,8 +305,15 @@ swiotlb_alloc_coherent (struct device *h
+ 	flags |= GFP_DMA;
+ 
+ 	ret = (void *)__get_free_pages(flags, get_order(size));
+-	if (!ret)
+-		return NULL;
++	if (!ret) {
++		 /* DMA_FROM_DEVICE is to avoid the memcpy in map_single */
++		dma_addr_t handle;
++		handle = swiotlb_map_single(NULL, NULL, size, DMA_FROM_DEVICE);
++		if (dma_mapping_error(handle))
++			return NULL;
++
++		ret = phys_to_virt(handle);
++	}
+ 
+ 	memset(ret, 0, size);
+ 	dev_addr = virt_to_phys(ret);
+@@ -319,7 +326,12 @@ swiotlb_alloc_coherent (struct device *h
+ void
+ swiotlb_free_coherent (struct device *hwdev, size_t size, void *vaddr, dma_addr_t dma_handle)
+ {
+-	free_pages((unsigned long) vaddr, get_order(size));
++	if (!(vaddr >= (void *)io_tlb_start
++                    && vaddr < (void *)io_tlb_end))
++		free_pages((unsigned long) vaddr, get_order(size));
++	else
++		/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
++		swiotlb_unmap_single (hwdev, dma_handle, size, DMA_TO_DEVICE);
+ }
+ 
+ static void swiotlb_full(struct device *dev, size_t size, int dir, int do_panic)
