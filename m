@@ -1,37 +1,21 @@
-From: Ray Bryant <raybry@sgi.com>
-Date: Wed, 10 Nov 2004 18:50:59 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 12 Nov 2004 00:38:44 +0000
 Subject: Re: removing mm->rss and mm->anon_rss from kernel?
-Message-Id: <41926313.6010808@sgi.com>
+Message-Id: <Pine.LNX.4.58.0411111637370.4355@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200411081547.iA8FlH90124208@ben.americas.sgi.com> <41919EA5.7030200@yahoo.com.au>
-In-Reply-To: <41919EA5.7030200@yahoo.com.au>
+References: <Pine.LNX.4.58.0411060120190.22874@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0411060120190.22874@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: Russ Anderson <rja@sgi.com>, Matthew Wilcox <matthew@wil.cx>, "Martin J. Bligh" <mbligh@aracnet.com>, Christoph Lameter <clameter@sgi.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Nick Piggin wrote:
+On Wed, 10 Nov 2004, Magnus Damm wrote:
 
-> 
-> Also, are you using 2.6 kernels on these 512 CPU systems? or are your
-> 2.4 kernels still holding together at that many CPUs?
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+> A nice feature would be to be able to assign each process/mm a stat
+> gathering mode - choose between no statistics, statistics updated every
+> N jiffy and real time statistics. Yeah, dream on.
 
-We aren't supporting customers with 2.6 kernels yet.  NASA's systems are
-all running kernels based on 2.4.x.
+Hmm... Given the various problems with all these approaches this
+may be the right way to go. Working on the dream now.
 
--- 
-Best Regards,
-Ray
------------------------------------------------
-                   Ray Bryant
-512-453-9679 (work)         512-507-7807 (cell)
-raybry@sgi.com             raybry@austin.rr.com
-The box said: "Requires Windows 98 or better",
-            so I installed Linux.
------------------------------------------------
