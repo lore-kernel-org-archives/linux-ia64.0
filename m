@@ -1,52 +1,36 @@
-From: Don Dugger <n0ano@valinux.com>
-Date: Wed, 05 Sep 2001 17:26:40 +0000
-Subject: [Linux-ia64] Location of absolute IA32 shared objects.
-Message-Id: <marc-linux-ia64-105590698805122@msgid-missing>
+From: Christoph Hellwig <hch@ns.caldera.de>
+Date: Wed, 05 Sep 2001 20:47:17 +0000
+Subject: Re: [Linux-ia64] Location of absolute IA32 shared objects.
+Message-Id: <marc-linux-ia64-105590698805128@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805122@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805122@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David-
+On Wed, Sep 05, 2001 at 02:53:11PM -0600, Don Dugger wrote:
+> 2)  How do we deal with absolute path names in IA32 binaries?  This is
+> the question I'm concerned with right now.  The sad reality of life is
+> that there are rogue (I use the term `rogue' with tongue firmly planted
+> in check) IA32 binaries that have hard coded absolute paths to certain
+> libraries.  I think we all agree that `standard' libraries  must be IA64
+> objects and, therefore, we need to find a way to deal with these
+> rogue IA32 programs if we want them to run.
+> 
+> I have a proposed solution to 2 but it's not perfect.  I was kind of hoping
+> that someone had a better idea but it doesn't look like it.  Unless someone
+> comes up with a brainstorm I'll implement my idea and at least we should
+> be able to run the rogue IA32 programs we know about.
 
-No, you can actually check the architecture type in `dlopen' and discover
-that you are trying to use the wrong library.  (That's what I used to do
-before you discovered the better way of using the `/etc/ld.so.cache'.)
+Please take a look at include/asm-*/namei.h - we can define an emulation
+prefix for Linux/i386 (e.g. /emul/linux32) and all lookups will be tried
+there before falling back to the native FS,  This appropeach is already
+used by the MIPS and SPARC ports and by linux-abi for i386.
 
-Having said that I don't have a real strong opinion on this.  You could
-try `/usr/ia32' first and, if there is a file there then it must be the
-one you want and if it isn't there then try the original path.  Or, try
-the orignal path and, if it isn't there or has the wrong architecture,
-try the modified path.  Either way works.
-
-On Wed, Sep 05, 2001 at 09:49:24AM -0700, David Mosberger wrote:
-> >>>>> On Wed, 5 Sep 2001 10:47:42 -0600, Don Dugger <n0ano@valinux.com> said:
-> 
->   Don> Bill raises an interesting problem.  I'd like to suggest a
->   Don> solution and see what everyone thinks.  Since all of the shared
->   Don> objects are loaded by code in `ld-linux.so' I can modify the
->   Don> IA32 version of that library to first try an absolute path and,
->   Don> if that fails, because it's missing or has the wrong
->   Don> architecture, to then tack on a unique prefix, either something
->   Don> like `/usr/ia32' or the contents of an environment variable
->   Don> like `LD_IA32_PATH'.
-> 
-> Wouldn't you have to try the prefix first?  Otherwise, you might end
-> up picking up an ia64 library.
-> 
-> 	--david
-> 
-> 
-> 
-> _______________________________________________
-> ia64-list mailing list
-> ia64-list@redhat.com
-> https://listman.redhat.com/mailman/listinfo/ia64-list
+	Christoph
 
 -- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@valinux.com
-Ph: 303/938-9838
+Of course it doesn't work. We've performed a software upgrade.
 
