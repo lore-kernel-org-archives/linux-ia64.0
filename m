@@ -1,47 +1,95 @@
-From: Hugh Dickins <hugh@veritas.com>
-Date: Sat, 11 Dec 2004 09:23:20 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Sun, 12 Dec 2004 07:54:11 +0000
 Subject: Re: page fault scalability patch V12 [0/7]: Overview and performance
-Message-Id: <Pine.LNX.4.44.0412110914280.1535-100000@localhost.localdomain>
+Message-Id: <41BBF923.6040207@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20041210165745.38c1930e.akpm@osdl.org>
-References: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.44.0412091830580.17648-300000@localhost.localdomain> <Pine.LNX.4.58.0412101006200.8714@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0412101006200.8714@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: clameter@sgi.com, torvalds@osdl.org, benh@kernel.crashing.org, nickpiggin@yahoo.com.au, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Hugh Dickins <hugh@veritas.com>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, 10 Dec 2004, Andrew Morton wrote:
-> Hugh Dickins <hugh@veritas.com> wrote:
-> > 
-> > My inclination would be simply to remove the mark_page_accessed
-> > from do_anonymous_page; but I have no numbers to back that hunch.
+Christoph Lameter wrote:
+> Thank you for the thorough review of my patches. Comments below
 > 
-> With the current implementation of page_referenced() the
-> software-referenced bit doesn't matter anyway, as long as the pte's
-> referenced bit got set.  So as long as the thing is on the active list, we
-> can simply remove the mark_page_accessed() call.
+> On Thu, 9 Dec 2004, Hugh Dickins wrote:
+> 
+> 
+>>Your V12 patches would apply well to 2.6.10-rc3, except that (as noted
+>>before) your mailer or whatever is eating trailing whitespace: trivial
+>>patch attached to apply before yours, removing that whitespace so yours
+>>apply.  But what your patches need to apply to would be 2.6.10-mm.
+> 
+> 
+> I am still mystified as to why this is an issue at all. The patches apply
+> just fine to the kernel sources as is. I have patched kernels numerous
+> times with this patchset and never ran into any issue. quilt removes trailing
+> whitespace from patches when they are generated as far as I can tell.
+> 
+> Patches will be made against mm after Nick's modifications to the 4 level
+> patches are in.
+> 
 
-Yes, you're right.  So we don't need numbers, can just delete that line.
+I've been a bit slow with them, sorry.... but there hasn't been a hard
+decision to go one way or the other with the 4level patches yet.
+Fortunately, it looks like 2.6.10 is having a longish drying out period,
+so I should have something before it is released.
 
-> Except one day the VM might get smarter about pages which are both
-> software-referenced and pte-referenced.
+I would just sit on them for a while, and submit them to -mm when the
+4level patches get merged / ready to merge into 2.6. It shouldn't slow
+down the progress of your patch too much - they'll may have to wait until
+after 2.6.11 anyway I'd say (probably depends on the progress of other
+changes going in).
 
-And on that day, we'd be making other changes, which might well
-involve restoring the mark_page_accessed to do_anonymous_page
-and adding it in the similar places which currently lack it.
 
-But for now...
+>>probably others (harder to think through).  Your 4/7 patch for i386 has
+>>an unused atomic get_64bit function from Nick, I think you'll have to
+>>define a get_pte_atomic macro and use get_64bit in its 64-on-32 cases.
+> 
+> 
+> That would be a performance issue.
+> 
+> 
 
---- 2.6.10-rc3/mm/memory.c	2004-12-05 12:56:12.000000000 +0000
-+++ linux/mm/memory.c	2004-12-11 09:18:39.000000000 +0000
-@@ -1464,7 +1464,6 @@ do_anonymous_page(struct mm_struct *mm, 
- 							 vma->vm_page_prot)),
- 				      vma);
- 		lru_cache_add_active(page);
--		mark_page_accessed(page);
- 		page_add_anon_rmap(page, vma, addr);
- 	}
- 
+Problems were pretty trivial to reproduce here with non atomic 64-bit
+loads being cut in half by atomic 64 bit stores. I don't see a way
+around them, unfortunately.
 
+Test case is to run with CONFIG_HIGHMEM (you needn't have > 4 GB of
+memory in the system, of course), and run 2-4 threads on a dual CPU
+system, doing parallel faulting of the *same* anonymous pages.
+
+What happens is that the load (`entry = *pte`) in handle_pte_fault
+gets cut in half, and handle_pte_fault drops down to do_swap_page,
+and you get an infinite loop trying to read in a non existant swap
+entry IIRC.
+
+>>Hmm, that will only work if you're using atomic set_64bit rather than
+>>relying on page_table_lock in the complementary places which matter.
+>>Which I believe you are indeed doing in your 3level set_pte.  Shouldn't
+>>__set_64bit be using LOCK_PREFIX like __get_64bit, instead of lock?
+> 
+> 
+>>But by making every set_pte use set_64bit, you are significantly slowing
+>>down many operations which do not need that atomicity.  This is quite
+>>visible in the fork/exec/shell results from lmbench on i386 PAE (and is
+>>the only interesting difference, for good or bad, that I noticed with
+>>your patches in lmbench on 2*HT*P4), which run 5-20% slower.  There are
+>>no faults on dst mm (nor on src mm) while copy_page_range is copying,
+>>so its set_ptes don't need to be atomic; likewise during zap_pte_range
+>>(either mmap_sem is held exclusively, or it's in the final exit_mmap).
+>>Probably revert set_pte and set_pte_atomic to what they were, and use
+>>set_pte_atomic where it's needed.
+> 
+> 
+> Good suggestions. Will see what I can do but I will need some assistence
+> my main platform is ia64 and the hardware and opportunities for testing on
+> i386 are limited.
+> 
+
+I think I (and/or others) should be able to help with i386 if you are
+having trouble :)
+
+Nick
