@@ -1,39 +1,57 @@
-From: Juan Quintela <quintela@mandrakesoft.com>
-Date: Mon, 03 Dec 2001 14:38:50 +0000
-Subject: [Linux-ia64] Re: Announce: kdb v1.9 is available for kernel 2.4.16
-Message-Id: <marc-linux-ia64-105590698805580@msgid-missing>
+From: Ville Herva <vherva@niksula.hut.fi>
+Date: Thu, 27 Dec 2001 09:45:01 +0000
+Subject: [Linux-ia64] 2.4.16 + ia64-011128: Unable to execute a "rwx" program
+Message-Id: <marc-linux-ia64-105590698805720@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805577@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805577@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "keith" = Keith Owens <kaos@melbourne.sgi.com> writes:
+whale% pwd
+/tmp
+whale% df -hT .
+Filesystem    Type    Size  Used Avail Use% Mounted on
+/dev/sda1     ext3    3.4G  3.0G  248M  93% /
+whale% ls -l ./prog
+-rwxrwxr-x    1 vherva   vherva    4899088 Dec 27 10:56 ./prog
+whale% stat ./prog
+  File: "./prog"
+  Size: 4899088         Blocks: 9600       IO Block: 16384  Regular File
+Device: 801h/2049d      Inode: 309989      Links: 1    
+Access: (0775/-rwxrwxr-x)  Uid: (  501/  vherva)   Gid: (  504/  vherva)
+Access: Thu Dec 27 11:19:54 2001
+Modify: Thu Dec 27 10:56:15 2001
+Change: Thu Dec 27 11:21:25 2001
 
-keith> On Mon, 3 Dec 2001 08:43:10 +0100, 
-keith> Christoph Hellwig <hch@caldera.de> wrote:
->> On Mon, Dec 03, 2001 at 05:11:31PM +1100, Keith Owens wrote:
->>> This will probably be the last release of kdb using this patch format.
->>> I plan to split kdb into a core patch and smaller arch dependent
->>> patches, instead of one big patch for each arch.
->> 
->> Why can't you release one kdb patch instead?
+whale% file ./prog
+./prog: ELF 64-bit LSB executable, IA-64 (Intel 64 bit architecture) version
+1 (SYSV), dynamically linked (uses shared libs), stripped
+whale% id
+uidP1(vherva) gidP4(vherva) groupsP4(vherva)
+whale% ./prog
+zsh: no such file or directory: ./prog
+whale% strace ./prog
+execve("./prog", ["./prog"], [/* 14 vars */]) = 0
+strace: exec: No such file or directory
+whale% ldd ./prog
+/usr/bin/ldd: ./prog: No such file or directory
+whale% cat /proc/version  
+Linux version 2.4.16 (root@whale) (gcc version 2.96 20000731
+(Mandrake Linux 8.1 2.96-0.62mdk)) #1 SMP Thu Dec 6 14:18:27 EET 2001
 
-keith> Because every architecture except i386 differes from the base kernel.
-keith> IA64 has its own large patch set that has to be applied to the main
-keith> kernel before kdb can be applied.  Sparc uses the vger kernel tree.
-keith> The -ac trees are different again.
+This is a c++ program I compiled with the Intel compiler.
 
-That is bad, now that you are able to create a kernel that will
-compile in i386 & ia64 with latest ia64 patch, I will also like to
-be able to integrate kdb there with support for both archs.
+with 2.4.17rc2 + ia64-011214 an the symptoms are similar, but "strace ldd
+./prog" crashes the machine (hard lockup, only alt-sysrq-b works.) With
+2.4.16+011128 it doesn't crash, but gives
 
-Later, Juan.
+/usr/bin/ldd: ./prog: No such file or directory
 
+Any ideas?
 
--- 
-In theory, practice and theory are the same, but in practice they 
-are different -- Larry McVoy
+ 
+-- v --
+
+v@iki.fi
 
