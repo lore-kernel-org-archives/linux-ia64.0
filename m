@@ -1,37 +1,40 @@
-From: Andi Kleen <ak@muc.de>
-Date: Sat, 28 Aug 2004 01:05:42 +0000
-Subject: Re: page fault scalability patch final : i386 tested, x86_64 support added
-Message-Id: <20040828010542.GB50329@muc.de>
+From: "David S. Miller" <davem@davemloft.net>
+Date: Sat, 28 Aug 2004 01:11:42 +0000
+Subject: Re: page fault scalability patch final : i386 tested, x86_64
+Message-Id: <20040827181142.7c382a65.davem@davemloft.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040816143903.GY11200@holomorphy.com> <B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com> <B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com> <B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com> <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com> <20040827233602.GB1024@wotan.suse.de> <Pine.LNX.4.58.0408271717400.15597@schroedinger.engr.sgi.com> <20040827172337.638275c3.davem@davemloft.net> <20040827173641.5cfb79f6.akpm@osdl.org> <20040827174038.67b9cbce.davem@davemloft.net>
-In-Reply-To: <20040827174038.67b9cbce.davem@davemloft.net>
+References: <20040816143903.GY11200@holomorphy.com>
+	<B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com>
+	<B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com>
+	<B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com>
+	<Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
+	<20040827233602.GB1024@wotan.suse.de>
+	<Pine.LNX.4.58.0408271717400.15597@schroedinger.engr.sgi.com>
+	<20040827172337.638275c3.davem@davemloft.net>
+	<20040827173641.5cfb79f6.akpm@osdl.org>
+	<20040827174038.67b9cbce.davem@davemloft.net>
+	<20040828010542.GB50329@muc.de>
+In-Reply-To: <20040828010542.GB50329@muc.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>
-Cc: Andrew Morton <akpm@osdl.org>, clameter@sgi.com, ak@suse.de, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
+To: Andi Kleen <ak@muc.de>
+Cc: akpm@osdl.org, clameter@sgi.com, ak@suse.de, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, benh@kernel.crashing.org, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
 
-On Fri, Aug 27, 2004 at 05:40:38PM -0700, David S. Miller wrote:
-> On Fri, 27 Aug 2004 17:36:41 -0700
-> Andrew Morton <akpm@osdl.org> wrote:
-> 
-> > This reminds me - where's that 4-level pagetable patch got to?
-> 
-> I've never seen that.
+On 28 Aug 2004 03:05:42 +0200
+Andi Kleen <ak@muc.de> wrote:
 
-It's not really finished yet...
+> I would expect most programs to be not have that many holes,
 
-> 
-> Wow, with that thing we'd _REALLY_ need the clear_page_range()
-> optimizations as 4-levels will be extremely sparse to access
-> on address space teardown.
+Holes are not the issue.
 
-I would expect most programs to be not have that many holes, so
-it will probably not make that much difference for them. But for extreme 
-cases like ElectricFenced agreed it may need some optimizations later.  
-First implementation is minimal changes only though.
+clear_page_tables() doesn't even use the VMA list as a guide
+(it actually can't), it just walks the page tables one pgd at a
+time, one pmd at a time, one pte at a time.  And this has the
+worst cache behavior even for simple cases like lat_proc
+in lmbench.
 
-Also BTW most archs will continue to use 2 or 3 levels, you only have
-to switch to 4 levels if you want to.
-
--Andi
+Each pgd/pmd scan is a data reading walk of a whole page
+(or whatever size the particular page table level blocks
+are for the platform, usually they are PAGE_SIZE).
+It's very costly.
