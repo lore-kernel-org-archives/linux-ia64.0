@@ -1,40 +1,105 @@
-From: Darren Williams <dsw@gelato.unsw.edu.au>
-Date: Tue, 28 Sep 2004 03:24:07 +0000
-Subject: Re: [PATCH] clean up contig/discontig/virt_mem_map macros
-Message-Id: <20040928032407.GD31713@cse.unsw.EDU.AU>
+From: janitor@sternwelten.at
+Date: Wed, 01 Sep 2004 21:24:51 +0000
+Subject: [patch 1/2]  minmax-removal arch/ia64/kernel/unwind.c
+Message-Id: <E1C2cb5-0000Jc-Md@sputnik>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200409272233.i8RMXAV32176@unix-os.sc.intel.com>
-In-Reply-To: <200409272233.i8RMXAV32176@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
-On Mon, 27 Sep 2004, Tony Luck wrote:
 
-> I got this patch from Zou Nan hai to resolve the problem that
-> Andrew Morton has been having booting his ia64 system.  The code
-> is quite a bit cleaner as he has reduced the number of different
-> definitions of pfn_valid/page_to_pfn/pfn_to_page, and left the
-> only remaining ones next to each other in page.h ... so this
-> should be easier to maintain going forward.
-> 
-> It has been tested on a variety of systems:
-> 
-> 	1G Tiger \  Tested by Zou Nan hai, I assume DIG=y, NUMA=n
-> 	8G Tiger /  but I don't know for sure.
-> 	4G Tiger with generic_defconfig
-> 	4G Tiger with DIG kernel, NUMA, DISCONTIG and VIRTUAL_MEM_MAP on
-> 	4G Tiger with DIG kernel, NUMA/DISCONTIG off; VIRTUAL_MEM_MAP on
-> 	HP zx2000 with zx1_defconfig
 
-        HP rx2600 with zx1_defconfig with/without VIRTUAL_MEM_MAP
-compile and boot OK.
+Patch (against 2.6.8.1) removes unnecessary min/max macros and changes
+calls to use kernel.h macros instead.
 
-Darren
+Since I dont have the hardware those patches are not tested.
 
---------------------------------------------------
-Darren Williams <dsw AT gelato.unsw.edu.au>
-Gelato@UNSW <www.gelato.unsw.edu.au>
---------------------------------------------------
+Best regards
+Veeck
+
+Signed-off-by: Michael Veeck <michael.veeck@gmx.net>
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+
+
+
+---
+
+ linux-2.6.9-rc1-bk7-max/arch/ia64/kernel/unwind.c |   15 +++++++--------
+ 1 files changed, 7 insertions(+), 8 deletions(-)
+
+diff -puN arch/ia64/kernel/unwind.c~min-max-arch_ia64_kernel_unwind arch/ia64/kernel/unwind.c
+--- linux-2.6.9-rc1-bk7/arch/ia64/kernel/unwind.c~min-max-arch_ia64_kernel_unwind	2004-09-01 19:38:20.000000000 +0200
++++ linux-2.6.9-rc1-bk7-max/arch/ia64/kernel/unwind.c	2004-09-01 19:38:20.000000000 +0200
+@@ -47,7 +47,6 @@
+ #include "entry.h"
+ #include "unwind_i.h"
+ 
+-#define MIN(a,b)	((a) < (b) ? (a) : (b))
+ #define p5		5
+ 
+ #define UNW_LOG_CACHE_SIZE	7	/* each unw_script is ~256 bytes in size */
+@@ -963,13 +962,13 @@ static inline void
+ desc_mem_stack_f (unw_word t, unw_word size, struct unw_state_record *sr)
+ {
+ 	set_reg(sr->curr.reg + UNW_REG_PSP, UNW_WHERE_NONE,
+-		sr->region_start + MIN((int)t, sr->region_len - 1), 16*size);
++		sr->region_start + min_t(int, t, sr->region_len - 1), 16*size);
+ }
+ 
+ static inline void
+ desc_mem_stack_v (unw_word t, struct unw_state_record *sr)
+ {
+-	sr->curr.reg[UNW_REG_PSP].when = sr->region_start + MIN((int)t, sr->region_len - 1);
++	sr->curr.reg[UNW_REG_PSP].when = sr->region_start + min_t(int, t, sr->region_len - 1);
+ }
+ 
+ static inline void
+@@ -1005,7 +1004,7 @@ desc_reg_when (unsigned char regnum, unw
+ 
+ 	if (reg->where = UNW_WHERE_NONE)
+ 		reg->where = UNW_WHERE_GR_SAVE;
+-	reg->when = sr->region_start + MIN((int)t, sr->region_len - 1);
++	reg->when = sr->region_start + min_t(int, t, sr->region_len - 1);
+ }
+ 
+ static inline void
+@@ -1073,7 +1072,7 @@ desc_label_state (unw_word label, struct
+ static inline int
+ desc_is_active (unsigned char qp, unw_word t, struct unw_state_record *sr)
+ {
+-	if (sr->when_target <= sr->region_start + MIN((int)t, sr->region_len - 1))
++	if (sr->when_target <= sr->region_start + min_t(int, t, sr->region_len - 1))
+ 		return 0;
+ 	if (qp > 0) {
+ 		if ((sr->pr_val & (1UL << qp)) = 0)
+@@ -1114,7 +1113,7 @@ desc_spill_reg_p (unsigned char qp, unw_
+ 
+ 	r = sr->curr.reg + decode_abreg(abreg, 0);
+ 	r->where = where;
+-	r->when = sr->region_start + MIN((int)t, sr->region_len - 1);
++	r->when = sr->region_start + min_t(int, t, sr->region_len - 1);
+ 	r->val = (ytreg & 0x7f);
+ }
+ 
+@@ -1129,7 +1128,7 @@ desc_spill_psprel_p (unsigned char qp, u
+ 
+ 	r = sr->curr.reg + decode_abreg(abreg, 1);
+ 	r->where = UNW_WHERE_PSPREL;
+-	r->when = sr->region_start + MIN((int)t, sr->region_len - 1);
++	r->when = sr->region_start + min_t(int, t, sr->region_len - 1);
+ 	r->val = 0x10 - 4*pspoff;
+ }
+ 
+@@ -1144,7 +1143,7 @@ desc_spill_sprel_p (unsigned char qp, un
+ 
+ 	r = sr->curr.reg + decode_abreg(abreg, 1);
+ 	r->where = UNW_WHERE_SPREL;
+-	r->when = sr->region_start + MIN((int)t, sr->region_len - 1);
++	r->when = sr->region_start + min_t(int, t, sr->region_len - 1);
+ 	r->val = 4*spoff;
+ }
+ 
+
+_
