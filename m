@@ -1,95 +1,20 @@
-From: Julien.Soula@lifl.fr
-Date: Wed, 31 Mar 2004 10:03:08 +0000
-Subject: context-switch on IA64
-Message-Id: <20040331100307.GA1303@foudroyante.lifl.fr>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="rwEMma7ioTxnRzrJ"
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 31 Mar 2004 18:33:38 +0000
+Subject: Re: context-switch on IA64
+Message-Id: <16491.3842.685223.999292@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040331100307.GA1303@foudroyante.lifl.fr>
+In-Reply-To: <20040331100307.GA1303@foudroyante.lifl.fr>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>>>>> On Wed, 31 Mar 2004 12:03:08 +0200, Julien.Soula@lifl.fr said:
 
---rwEMma7ioTxnRzrJ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+  Julien> So the question is : how the task has been re-activated during a
+  Julien> context_switch ?
 
-hello,
+Note that prepare_arch_switch() drops the runqueue lock.
 
-there is something I can't understand in scheduler of 2.6.3 (with
-preemption) on IA64.
-
-I made a test on the "prev" task just before the "context_switch" (in
-fact, just before the "prepare_switch_arch") to know if a specific
-task was still on the runqueue :
-
-	BUG_ON( (prev =3D=3D mytask) && prev->array )
-
-and I made the same test just after the "context_switch" (before the
-"finisk_task"). Eventually, the 2nd BUG_ON is triggered but not the
-1st one.
-
-So the question is : how the task has been re-activated during a
-context_switch ?
-
-Sincerly,=20
---=20
-Julien
-
-
---rwEMma7ioTxnRzrJ
-Content-Type: application/x-pkcs7-signature
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Transfer-Encoding: base64
-
-MIIKXAYJKoZIhvcNAQcCoIIKTTCCCkkCAQExCzAJBgUrDgMCGgUAMAsGCSqGSIb3DQEHAaCC
-CA8wggSaMIIDgqADAgECAgIGGTANBgkqhkiG9w0BAQQFADA0MQswCQYDVQQGEwJGUjENMAsG
-A1UEChMEQ05SUzEWMBQGA1UEAxMNQ05SUy1TdGFuZGFyZDAeFw0wMzA0MDcwNzU2NTJaFw0w
-NDA0MDcwNzU2NTJaMGoxCzAJBgNVBAYTAkZSMQ0wCwYDVQQKEwRDTlJTMRAwDgYDVQQLEwdV
-TVI4MDIyMRUwEwYDVQQDEwxKdWxpZW4gU291bGExIzAhBgkqhkiG9w0BCQEWFEp1bGllbi5T
-b3VsYUBsaWZsLmZyMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAq46AHM1kLvyW
-w2TkspV9WIEnhuRn6ooKzoTrKb/P26frE+azSjUvaI2Nz7QGQQdnIwMdEDHUaBH6PbvbDwku
-ZTYI3jpyYvyK5TRicwMK5aRElOykoEsmy+kCebMZatnHjkzbgonxOlFZEi664SUo79ld1MbC
-MzyH+9TWRTMY7X4SPYwPrErnrU4x531mY0dFPaos8xRJc+yovLlVqC0gtdYB2AboFT+K+2P+
-uBSxf8zERnpnTx0ZAByWOTFrs5WPaJljUey/Vxh7gmtN1k7r6spDGJFeqQaSnPZ/R8RQSHpS
-I46U0sGItfIgJeDAZ6IxaFuK9AWCpR8lyL6ty8X3YwIDAQABo4IBfjCCAXowDAYDVR0TAQH/
-BAIwADARBglghkgBhvhCAQEEBAMCBLAwDgYDVR0PAQH/BAQDAgXgMHgGCWCGSAGG+EIBDQRr
-FmlDZXJ0aWZpY2F0IENOUlMtU3RhbmRhcmQuIFBvdXIgdG91dGUgaW5mb3JtYXRpb24gc2Ug
-cmVwb3J0ZXIg4CBodHRwOi8vaWdjLnNlcnZpY2VzLmNucnMuZnIvQ05SUy1TdGFuZGFyZC8w
-HQYDVR0OBBYEFMbTtO+IHE0H2G9SIvbGWcfBksk1MFMGA1UdIwRMMEqAFGdZpeUHdEkD7wXP
-zC6kGNUQyJ48oS+kLTArMQswCQYDVQQGEwJGUjENMAsGA1UEChMEQ05SUzENMAsGA1UEAxME
-Q05SU4IBAjBZBgNVHR8EUjBQME6gTKBKhkhodHRwOi8vaWdjLnNlcnZpY2VzLmNucnMuZnIv
-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
-Jef01uaY9nl8kA==
-
---rwEMma7ioTxnRzrJ--
+	--david
