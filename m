@@ -1,55 +1,69 @@
-From: Zwane Mwaikambo <zwane@linuxpower.ca>
-Date: Tue, 23 Nov 2004 18:53:31 +0000
-Subject: RE: smp_call_function/flush_tlb_all hang on large memory system
-Message-Id: <Pine.LNX.4.61.0411231152020.7167@musoma.fsmlabs.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Tue, 02 Nov 2004 02:39:19 +0000
+Subject: [PATCH] IA64 build broken... cond_syscall()... Fixes?
+Message-Id: <16774.62295.469676.663865@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <267988DEACEC5A4D86D5FCD780313FBB2BFBB6@exch-03.noida.hcltech.com>
-In-Reply-To: <267988DEACEC5A4D86D5FCD780313FBB2BFBB6@exch-03.noida.hcltech.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Deepak Kumar Gupta, Noida" <dkumar@hcltech.com>
-Cc: 'Robin Holt ' <holt@sgi.com>, "''lilbilchow@yahoo.com' '" <lilbilchow@yahoo.com>, "''ananth@sgi.com' '" <ananth@sgi.com>, "''linux-kernel@vger.kernel.org' '" <linux-kernel@vger.kernel.org>, "''linux-ia64@vger.kernel.org' '" <linux-ia64@vger.kernel.org>
+To: Andrew.Morton.akpm@osdl.org, Tony Luck <tony.luck@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Tue, 23 Nov 2004, Deepak Kumar Gupta, Noida wrote:
 
-> Hi Robin 
-> 
-> The output of CPU is 
-> 
-> CPU  A: 0x02:   Kernel: CPU busy
->         0x03:   Kernel: CPU busy
-> CPU  C: 0x03:   Kernel: CPU busy
-> 
-> well regarding filing the issue.. i haven't yet contactated support
-> persons.. send the mail to just know whether there is already a solution
-> available or not.. 
-> 
-> If you are interested in stack trace.. then it is as follows:-
-> 
-> [0]kdb> bt
-> Stack traceback for pid 7
-> 0xe00000307b818000        7        1  1    0   R  0xe00000307b8185a0 *kswapd
-> 0xe00000000444b120 smp_call_function+0x5e0
->         args (0xe000000005033698, 0xe000000005033698, 0x1,
-> 0xa000000000008000, 0x1)
->         kernel .text 0xe000000004400000 0xe00000000444ab40
-> 0xe00000000444b160
-> 0xe00000000444a330 smp_flush_tlb_all+0x30
->         args (0xe0000000044545a0, 0x288)
->         kernel .text 0xe000000004400000 0xe00000000444a300
-> 0xe00000000444a360
-> 0xe0000000044545a0 flush_tlb_range+0x40
->         args (0xe00000307a5b64c8, 0x2000000002128000, 0x200000000212c000,
-> 0xe000000004559880, 0x58e)
->         kernel .text 0xe000000004400000 0xe000000004454560
-> 0xe000000004454700
-> 0xe000000004559880 try_to_swap_out+0x320
->         args (0xe00000307a5b64c8, 0xe00000303b910468, 0x27be00,
-> 0xe000003045638250, 0xa0007fffffe20300)
->         kernel .text 0xe000000004400000 0xe000000004559560
+Hi Folks,
+   The kernel 2.6 IA64 build has been broken for several days (see
+http://www.gelato.unsw.edu.au/kerncomp )
 
-This function holds mm->page_table_lock which is acquired with interrupts 
-disabled. As a result there is a window for deadlock when you descend into 
-smp_call_function. I suggest you run fast from crusty kernels ;)
+The reason is that cond_syscall() for IA64 is defined as:
 
+  #define cond_syscall(x) asmlinkage long x (void) \
+	__attribute__((weak,alias("sys_ni_syscall")))   
+
+which of course doesn't work if there's a prototype in scope for x,
+unless the type of x just happens to be the same as for sys_ni_syscall.
+
+Changing to the type-safe version
+   #define cond_syscall(x) __typeof__ (x) x \
+	   __attribute__((weak,alias("sys_ni_syscall")));
+gives an error, e.g., 
+ error: `compat_sys_futex' defined both normally and as an alias
+
+Most architectures use inline assembly language which avoids the
+problem.  However, we don't want to do this for IA64, to allow
+compilers other than gcc to be used (in general, gcc generated code
+for IA64 is extremely poor).
+
+There are several ways to fix this.  The simple way is to ensure that
+there are no prototypes for any system calls included in kernel/sys.c
+(the only place where cond_syscall is used).  That's what this patch
+does:
+
+
+
+=== kernel/sys.c 1.97 vs edited ==--- 1.97/kernel/sys.c	2004-10-28 07:35:17 +10:00
++++ edited/kernel/sys.c	2004-11-02 13:34:33 +11:00
+@@ -5,7 +5,6 @@
+  */
+ 
+ #include <linux/config.h>
+-#include <linux/compat.h>
+ #include <linux/module.h>
+ #include <linux/mm.h>
+ #include <linux/utsname.h>
+@@ -25,8 +24,9 @@
+ #include <linux/dcookies.h>
+ #include <linux/suspend.h>
+ 
+-/* Don't include this - it breaks ia64's cond_syscall() implementation */
++/* Don't include these - they break ia64's cond_syscall() implementation */
+ #if 0
++#include <linux/compat.h>
+ #include <linux/syscalls.h>
+ #endif
+ 
+
+
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
