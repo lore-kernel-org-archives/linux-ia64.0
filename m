@@ -1,28 +1,41 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 26 Nov 2003 19:15:01 +0000
-Subject: Re: [PATCH] - kernel profiler & spinlock_contention
-Message-Id: <marc-linux-ia64-106987427702266@msgid-missing>
+From: Martin Hicks <mort@wildopensource.com>
+Date: Tue, 25 Nov 2003 16:23:40 +0000
+Subject: klibc: type of symbol changed warning
+Message-Id: <marc-linux-ia64-106977774928579@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106986108616188@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106986108616188@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 26 Nov 2003 13:02:30 -0600, Jack Steiner <steiner@sgi.com> said:
 
-  Jack> However, if your new tools allows me to determine the caller
-  Jack> of spinlock_contention (I'm guessing that it does), that is
-  Jack> even better!!
+Hello,
 
-Absolutely.  Best of all, it requires absolutely no kernel modes.
-All it requires is a recent 2.6 kernel and an Itanium 2 CPU
-(sorry, Merced is out for this feature).
+I've been trying to get klibc working on ia64.  I'm running into a
+problem while compiling it.  I get a warning during the final link:
 
-  Jack> If a prerelease version of the tools is available, I'll be
-  Jack> happy to try it on our system
+gcc --static --nostdlib -nostartfiles -o udev klibc/klibc/crt0.o udev.o
+udev-add.o udev-remove.o udevdb.o logging.o namedev.o
+libsysfs/sysfs_bus.o libsysfs/sysfs_class.o libsysfs/sysfs_device.o
+libsysfs/sysfs_dir.o libsysfs/sysfs_driver.o libsysfs/sysfs_utils.o
+libsysfs/dlist.o tdb/tdb.o tdb/spinlock.o  klibc/klibc/libc.a
+/usr/lib/gcc-lib/ia64-linux/3.3.2/libgcc.a
 
-I'll see what I can do.
+/usr/bin/ld: Warning: type of symbol `errno' changed from 1 to 6 in
+/usr/lib/gcc-lib/ia64-linux/3.3.2/../../../libc.a(errno.o)
 
-	--david
+Whatever causing this is also messing up other stuff.  The __ctypes
+array, which is used by many of the ctype.h functions is not in the
+right place in the final udev executable.
+
+The fix that I've found is to do the final link with ld instead of gcc.
+
+Anyone know what's causing this problem?
+thanks
+mh
+
+-- 
+Martin Hicks                Wild Open Source Inc.
+mort@wildopensource.com     613-266-2296
+
+
