@@ -1,28 +1,45 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Feb 2004 19:55:13 +0000
-Subject: Re: [PATCH] linux-2.6.3_time-interpolator-fix_A0
-Message-Id: <16442.23201.23710.686062@napali.hpl.hp.com>
+From: "Martin J. Bligh" <mbligh@aracnet.com>
+Date: Thu, 26 Feb 2004 22:21:02 +0000
+Subject: Re: [Lse-tech] Re: fix zonelist ordering for NUMA
+Message-Id: <100070000.1077834062@flay>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1077081648.985.27.camel@cog.beaverton.ibm.com>
-	<1077086574.985.56.camel@cog.beaverton.ibm.com>
-	<16435.3326.193311.110598@napali.hpl.hp.com>
-	<1077565468.19860.78.camel@cog.beaverton.ibm.com>
-In-Reply-To: <1077565468.19860.78.camel@cog.beaverton.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: john stultz <johnstul@us.ibm.com>
-Cc: Andrew Morton <akpm@osdl.org>, Chris McDermott <lcm@us.ibm.com>, ia64 <linux-ia64@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>, David Mosberger <davidm@hpl.hp.com>
+To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 23 Feb 2004 11:44:29 -0800, john stultz <johnstul@us.ibm.com> said:
 
-  John> This patch removes the incorrect call to
-  John> time_interpolator_update and was found to resolve the time
-  John> inconsistencies I had seen while developing the ia64-cyclone
-  John> patch.
 
-  John> Please consider for inclusion.
+--On Wednesday, February 25, 2004 08:54:09 -0800 Jesse Barnes <jbarnes@sgi.com> wrote:
 
-In case it isn't clear: this patch has my support.
+> On Wed, Feb 25, 2004 at 02:01:16PM +0900, j-nomura@ce.jp.nec.com wrote:
+>> >   1) make it arch independent
+>> >      this means having arch code populate a SLIT-like table for use by
+>> >      the generic zonelist building code
+>> 
+>> I would like to hear the comments from people on other arch.
+>> If the same ordering rule can be applicable for others, it's nice.
+> 
+> Martin, does a scheme like this sound ok with you?  Arch specific code
+> would populate a node distance table, which would be used to build each
+> pgdat->zonelist in a smarter way than we do currently.
 
-	--david
+Yeah, looks sensible to me. We probably ought to do this:
+
++#ifndef node_distance
++#define node_distance(from,to) (1)
++#endif
+
+in the generic fallback topology headers, not in the mm/ .c files. Matt?
+
+Also, I seem to recall those build_zonelists functions are used for both
+NUMA and UMA ... now they're getting complex enough that it's probably
+worth making a specific non-NUMA version, if only for the sanity of
+99% of the poor souls trying to work out how a UMA machine lays it out ;-)
+
+It looks like it won't change ordering for existing boxes with single
+layer flat NUMA topologies (round-robin), but we probably ought to check
+that carefully ;-)
+
+M.
+
