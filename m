@@ -1,40 +1,94 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 05 Oct 2004 11:21:00 +0000
-Subject: sparse cleanups for ia32 subsystem
-Message-Id: <16738.33692.510681.306179@napali.hpl.hp.com>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Wed, 06 Oct 2004 22:39:58 +0000
+Subject: Re: sparse cleanups for ia32 subsystem
+Message-Id: <4164743E.8040008@intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------070806060607010204040401"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <16738.33692.510681.306179@napali.hpl.hp.com>
+In-Reply-To: <16738.33692.510681.306179@napali.hpl.hp.com>
 To: linux-ia64@vger.kernel.org
 
-Hi Arun,
+This is a multi-part message in MIME format.
+--------------070806060607010204040401
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Below is a complete patch for the sparse-triggered changes to the ia32
-subsystem.  I take it you may have done some of this already but I
-hope the patch is still useful.  Please feed the patches to Tony as
-you see fit.
+On 10/5/2004 4:21 AM, David Mosberger wrote:
 
-Thanks,
+Hi David,
 
-	--david
+> Hi Arun,
+> 
+> Below is a complete patch for the sparse-triggered changes to the ia32
+> subsystem.  I take it you may have done some of this already but I
+> hope the patch is still useful.  Please feed the patches to Tony as
+> you see fit.
 
---
+Thanks for doing this! I've taken care of the remaining sparse warnings and fixed up a couple of issues you found. Details inside the patch.
+
+Tony, please apply.
+
+	-Arun
+
+--------------070806060607010204040401
+Content-Type: text/plain;
+ name="ia32-sparse.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ia32-sparse.patch"
+
 ia64: sparse annotations and cleanups for ia32 subsystem
 
-Add sparse annotations to ia32 subsystem so it checks out cleanly.
++ Add sparse annotations to ia32 subsystem so it checks out cleanly.
++ Add set_fs(KERNEL_DS) in elfcore32.h
++ Use compat_ptr() instead of P()
++ Fix a bug in ia32_sigsuspend() by introducing __ia32_rt_sigsuspend()
 
 Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+Signed-off-by: Arun Sharma <arun.sharma@intel.com>
 
- ia32_ldt.c     |   25 ++---
- ia32_signal.c  |  119 +++++++++++++++------------
- ia32_support.c |    2 
- ia32priv.h     |    4 
- sys_ia32.c     |  244 ++++++++++++++++++++++++++++-----------------------------
- 5 files changed, 202 insertions(+), 192 deletions(-)
-
-=== arch/ia64/ia32/ia32_ldt.c 1.4 vs edited ==--- 1.4/arch/ia64/ia32/ia32_ldt.c	2003-10-21 12:34:11 -07:00
-+++ edited/arch/ia64/ia32/ia32_ldt.c	2004-10-04 07:52:24 -07:00
+===== arch/ia64/ia32/elfcore32.h 1.3 vs edited =====
+--- 1.3/arch/ia64/ia32/elfcore32.h	Fri Sep  5 18:29:13 2003
++++ edited/arch/ia64/ia32/elfcore32.h	Wed Oct  6 13:22:07 2004
+@@ -103,11 +103,15 @@
+ elf_core_copy_task_fpregs(struct task_struct *tsk, struct pt_regs *regs, elf_fpregset_t *fpu)
+ {
+ 	struct ia32_user_i387_struct *fpstate = (void*)fpu;
++	mm_segment_t old_fs;
+ 
+ 	if (!tsk->used_math)
+ 		return 0;
+-
+-	save_ia32_fpstate(tsk, fpstate);
++	
++	old_fs = get_fs();
++	set_fs(KERNEL_DS);
++	save_ia32_fpstate(tsk, (struct ia32_user_i387_struct __user *) fpstate);
++	set_fs(old_fs);
+ 
+ 	return 1;
+ }
+@@ -117,11 +121,15 @@
+ elf_core_copy_task_xfpregs(struct task_struct *tsk, elf_fpxregset_t *xfpu)
+ {
+ 	struct ia32_user_fxsr_struct *fpxstate = (void*) xfpu;
++	mm_segment_t old_fs;
+ 
+ 	if (!tsk->used_math)
+ 		return 0;
+ 
+-	save_ia32_fpxstate(tsk, fpxstate);
++	old_fs = get_fs();
++	set_fs(KERNEL_DS);
++	save_ia32_fpxstate(tsk, (struct ia32_user_fxsr_struct __user *) fpxstate);
++	set_fs(old_fs);
+ 
+ 	return 1;
+ }
+===== arch/ia64/ia32/ia32_ldt.c 1.4 vs edited =====
+--- 1.4/arch/ia64/ia32/ia32_ldt.c	Tue Oct 21 12:34:11 2003
++++ edited/arch/ia64/ia32/ia32_ldt.c	Wed Oct  6 12:58:15 2004
 @@ -1,5 +1,5 @@
  /*
 - * Copyright (C) 2001 Hewlett-Packard Co
@@ -120,8 +174,9 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  		break;
  	}
  	return ret;
-=== arch/ia64/ia32/ia32_signal.c 1.30 vs edited ==--- 1.30/arch/ia64/ia32/ia32_signal.c	2004-09-21 12:36:02 -07:00
-+++ edited/arch/ia64/ia32/ia32_signal.c	2004-10-05 02:11:19 -07:00
+===== arch/ia64/ia32/ia32_signal.c 1.32 vs edited =====
+--- 1.32/arch/ia64/ia32/ia32_signal.c	Tue Oct  5 11:24:11 2004
++++ edited/arch/ia64/ia32/ia32_signal.c	Wed Oct  6 13:55:35 2004
 @@ -66,7 +66,7 @@
  };
  
@@ -188,7 +243,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 +	__get_user(lo, (unsigned int __user *)&save->cw);
  	num64 = mxcsr & 0xff10;
  	num64 = (num64 << 32) | (lo & 0x1f3f);
- 	fcr = (fcr & (~0xff1000001f3f)) | num64;
+ 	fcr = (fcr & (~0xff1000001f3fUL)) | num64;
  
  	/* setting bits 0..31 with sw and tag and 32..37 from mxcsr */
 -	__get_user(lo, (unsigned int *)&save->sw);
@@ -201,7 +256,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	num64 = mxcsr & 0x3f;
  	num64 = (num64 << 16) | (hi & 0xffff);
  	num64 = (num64 << 16) | (lo & 0xffff);
- 	fsr = (fsr & (~0x3fffffffff)) | num64;
+ 	fsr = (fsr & (~0x3fffffffffUL)) | num64;
  
  	/* setting bits 0..47 with cssel and ipoff */
 -	__get_user(lo, (unsigned int *)&save->ipoff);
@@ -210,7 +265,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 +	__get_user(hi, (unsigned int __user *)&save->cssel);
  	num64 = hi & 0xffff;
  	num64 = (num64 << 32) | lo;
- 	fir = (fir & (~0xffffffffffff)) | num64;
+ 	fir = (fir & (~0xffffffffffffUL)) | num64;
  
  	/* setting bits 0..47 with datasel and dataoff */
 -	__get_user(lo, (unsigned int *)&save->dataoff);
@@ -219,27 +274,56 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 +	__get_user(hi, (unsigned int __user *)&save->datasel);
  	num64 = hi & 0xffff;
  	num64 = (num64 << 32) | lo;
- 	fdr = (fdr & (~0xffffffffffff)) | num64;
-@@ -453,7 +454,7 @@
+ 	fdr = (fdr & (~0xffffffffffffUL)) | num64;
+@@ -452,8 +453,8 @@
+ 		sa->sa.sa_handler = (__sighandler_t) (((unsigned long) restorer << 32) | handler);
  }
  
- asmlinkage long
+-asmlinkage long
 -ia32_rt_sigsuspend (compat_sigset_t *uset, unsigned int sigsetsize, struct sigscratch *scr)
-+ia32_rt_sigsuspend (compat_sigset_t __user *uset, unsigned int sigsetsize, struct sigscratch *scr)
++long
++__ia32_rt_sigsuspend (compat_sigset_t *sset, unsigned int sigsetsize, struct sigscratch *scr)
  {
  	extern long ia64_do_signal (sigset_t *oldset, struct sigscratch *scr, long in_syscall);
  	sigset_t oldset, set;
-@@ -494,7 +495,8 @@
- asmlinkage long
- ia32_sigsuspend (unsigned int mask, struct sigscratch *scr)
- {
--	return ia32_rt_sigsuspend((compat_sigset_t *)&mask, sizeof(mask), scr);
-+	/* XXX: set_fs(KERNEL_DS) seems to be missing here??? --davidm 04/10/04???  */
-+	return ia32_rt_sigsuspend((compat_sigset_t __user *)&mask, sizeof(mask), scr);
+@@ -461,10 +462,7 @@
+ 	scr->scratch_unat = 0;	/* avoid leaking kernel bits to user level */
+ 	memset(&set, 0, sizeof(&set));
+ 
+-	if (sigsetsize > sizeof(sigset_t))
+-		return -EINVAL;
+-
+-	if (copy_from_user(&set.sig, &uset->sig, sigsetsize))
++	if (memcpy(&set.sig, &sset->sig, sigsetsize))
+ 		return -EFAULT;
+ 
+ 	sigdelsetmask(&set, ~_BLOCKABLE);
+@@ -492,9 +490,23 @@
  }
  
  asmlinkage long
-@@ -512,8 +514,8 @@
++ia32_rt_sigsuspend (compat_sigset_t __user *uset, unsigned int sigsetsize, struct sigscratch *scr)
++{
++	compat_sigset_t set;
++
++	if (sigsetsize > sizeof(compat_sigset_t))
++		return -EINVAL;
++
++	if (copy_from_user(&set.sig, &uset->sig, sigsetsize))
++		return -EFAULT;
++
++	return __ia32_rt_sigsuspend(&set, sigsetsize, scr);
++}
++
++asmlinkage long
+ ia32_sigsuspend (unsigned int mask, struct sigscratch *scr)
+ {
+-	return ia32_rt_sigsuspend((compat_sigset_t *)&mask, sizeof(mask), scr);
++	return __ia32_rt_sigsuspend((compat_sigset_t *) &mask, sizeof(mask), scr);
+ }
+ 
+ asmlinkage long
+@@ -512,8 +524,8 @@
  }
  
  asmlinkage long
@@ -250,7 +334,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  {
  	struct k_sigaction new_ka, old_ka;
  	unsigned int handler, restorer;
-@@ -547,7 +549,8 @@
+@@ -547,7 +559,8 @@
  
  
  asmlinkage long
@@ -260,7 +344,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  {
  	mm_segment_t old_fs = get_fs();
  	sigset_t s;
-@@ -562,7 +565,9 @@
+@@ -562,7 +575,9 @@
  			return -EFAULT;
  	}
  	set_fs(KERNEL_DS);
@@ -271,7 +355,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	set_fs(old_fs);
  	if (ret)
  		return ret;
-@@ -574,10 +579,9 @@
+@@ -574,10 +589,9 @@
  }
  
  asmlinkage long
@@ -284,7 +368,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	mm_segment_t old_fs = get_fs();
  	struct timespec t;
  	siginfo_t info;
-@@ -589,8 +593,10 @@
+@@ -589,8 +603,10 @@
  	if (uts && get_compat_timespec(&t, uts))
  		return -EFAULT;
  	set_fs(KERNEL_DS);
@@ -297,7 +381,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	set_fs(old_fs);
  	if (ret >= 0 && uinfo) {
  		if (copy_siginfo_to_user32(uinfo, &info))
-@@ -600,7 +606,7 @@
+@@ -600,7 +616,7 @@
  }
  
  asmlinkage long
@@ -306,7 +390,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  {
  	mm_segment_t old_fs = get_fs();
  	siginfo_t info;
-@@ -609,13 +615,13 @@
+@@ -609,13 +625,13 @@
  	if (copy_siginfo_from_user32(&info, uinfo))
  		return -EFAULT;
  	set_fs(KERNEL_DS);
@@ -322,7 +406,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  {
  	struct k_sigaction new_ka, old_ka;
  	unsigned int handler, restorer;
-@@ -648,7 +654,7 @@
+@@ -648,7 +664,7 @@
  }
  
  static int
@@ -331,7 +415,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  		       struct pt_regs *regs, unsigned long mask)
  {
  	int  err = 0;
-@@ -657,10 +663,10 @@
+@@ -657,10 +673,10 @@
  	if (!access_ok(VERIFY_WRITE, sc, sizeof(*sc)))
  		return -EFAULT;
  
@@ -346,7 +430,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	err |= __put_user(regs->r15, &sc->edi);
  	err |= __put_user(regs->r14, &sc->esi);
  	err |= __put_user(regs->r13, &sc->ebp);
-@@ -674,14 +680,14 @@
+@@ -674,14 +690,14 @@
  	err |= __put_user(current->tss.error_code, &sc->err);
  #endif
  	err |= __put_user(regs->cr_iip, &sc->eip);
@@ -363,7 +447,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  
  	if ( save_ia32_fpstate_live(fpstate) < 0 )
  		err = -EFAULT;
-@@ -705,7 +711,7 @@
+@@ -705,7 +721,7 @@
  }
  
  static int
@@ -372,7 +456,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  {
  	unsigned int err = 0;
  
-@@ -775,10 +781,10 @@
+@@ -775,10 +791,10 @@
  	}
  
  	{
@@ -385,7 +469,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  		if (buf) {
  			err |= restore_ia32_fpstate_live(buf);
  		}
-@@ -808,7 +814,7 @@
+@@ -808,7 +824,7 @@
  /*
   * Determine which stack to use..
   */
@@ -394,7 +478,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  get_sigframe (struct k_sigaction *ka, struct pt_regs * regs, size_t frame_size)
  {
  	unsigned long esp;
-@@ -823,14 +829,14 @@
+@@ -823,14 +839,14 @@
  	}
  	/* Legacy stack switching not supported */
  
@@ -411,7 +495,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	int err = 0;
  
  	frame = get_sigframe(ka, regs, sizeof(*frame));
-@@ -862,9 +868,9 @@
+@@ -862,9 +878,9 @@
  	 * See arch/i386/kernel/signal.c
  	 */
  
@@ -424,7 +508,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  
  	if (err)
  		goto give_sigsegv;
-@@ -896,7 +902,8 @@
+@@ -896,7 +912,8 @@
  		     sigset_t *set, struct pt_regs * regs)
  {
  	struct exec_domain *ed = current_thread_info()->exec_domain;
@@ -434,7 +518,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	int err = 0;
  
  	frame = get_sigframe(ka, regs, sizeof(*frame));
-@@ -906,8 +913,11 @@
+@@ -906,8 +923,11 @@
  
  	err |= __put_user((ed && ed->signal_invmap
  			   && sig < 32 ? ed->signal_invmap[sig] : sig), &frame->sig);
@@ -448,7 +532,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	err |= copy_siginfo_to_user32(&frame->info, info);
  
  	/* Create the ucontext.  */
-@@ -936,9 +946,9 @@
+@@ -936,9 +956,9 @@
  	 * See arch/i386/kernel/signal.c
  	 */
  
@@ -461,7 +545,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  
  	if (err)
  		goto give_sigsegv;
-@@ -982,7 +992,7 @@
+@@ -982,7 +1002,7 @@
  {
  	struct pt_regs *regs = (struct pt_regs *) &stack;
  	unsigned long esp = (unsigned int) regs->r12;
@@ -470,7 +554,7 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	sigset_t set;
  	int eax;
  
-@@ -996,7 +1006,7 @@
+@@ -996,7 +1016,7 @@
  
  	sigdelsetmask(&set, ~_BLOCKABLE);
  	spin_lock_irq(&current->sighand->siglock);
@@ -479,29 +563,33 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	recalc_sigpending();
  	spin_unlock_irq(&current->sighand->siglock);
  
-@@ -1015,7 +1025,7 @@
+@@ -1015,9 +1035,8 @@
  {
  	struct pt_regs *regs = (struct pt_regs *) &stack;
  	unsigned long esp = (unsigned int) regs->r12;
 -	struct rt_sigframe_ia32 *frame = (struct rt_sigframe_ia32 *)(esp - 4);
 +	struct rt_sigframe_ia32 __user *frame = (struct rt_sigframe_ia32 __user *)(esp - 4);
  	sigset_t set;
- 	stack_t st;
+-	stack_t st;
  	int eax;
-@@ -1036,9 +1046,10 @@
  
- 	if (__copy_from_user(&st, &frame->uc.uc_stack, sizeof(st)))
+ 	if (verify_area(VERIFY_READ, frame, sizeof(*frame)))
+@@ -1034,11 +1053,9 @@
+ 	if (restore_sigcontext_ia32(regs, &frame->uc.uc_mcontext, &eax))
  		goto badframe;
-+	/* XXX: set_fs(KERNEL_DS) seems to be missing here??? --davidm 04/10/04???  */
+ 
+-	if (__copy_from_user(&st, &frame->uc.uc_stack, sizeof(st)))
+-		goto badframe;
  	/* It is more difficult to avoid calling this function than to
  	   call it and ignore errors.  */
 -	do_sigaltstack(&st, NULL, esp);
-+	do_sigaltstack((stack_t __user *) &st, NULL, esp);
++	do_sigaltstack((stack_t __user *) &frame->uc.uc_stack, NULL, esp);
  
  	return eax;
  
-=== arch/ia64/ia32/ia32_support.c 1.18 vs edited ==--- 1.18/arch/ia64/ia32/ia32_support.c	2004-09-21 12:36:02 -07:00
-+++ edited/arch/ia64/ia32/ia32_support.c	2004-10-05 01:44:15 -07:00
+===== arch/ia64/ia32/ia32_support.c 1.19 vs edited =====
+--- 1.19/arch/ia64/ia32/ia32_support.c	Tue Oct  5 11:19:50 2004
++++ edited/arch/ia64/ia32/ia32_support.c	Wed Oct  6 12:58:16 2004
 @@ -76,7 +76,7 @@
  	struct ia32_user_desc info;
  	int idx;
@@ -511,8 +599,9 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  		return -EFAULT;
  	if (LDT_empty(&info))
  		return -EINVAL;
-=== arch/ia64/ia32/ia32priv.h 1.13 vs edited ==--- 1.13/arch/ia64/ia32/ia32priv.h	2004-09-21 12:36:02 -07:00
-+++ edited/arch/ia64/ia32/ia32priv.h	2004-10-05 02:11:19 -07:00
+===== arch/ia64/ia32/ia32priv.h 1.15 vs edited =====
+--- 1.15/arch/ia64/ia32/ia32priv.h	Tue Oct  5 11:24:11 2004
++++ edited/arch/ia64/ia32/ia32priv.h	Wed Oct  6 12:58:16 2004
 @@ -556,8 +556,8 @@
  };
  
@@ -524,8 +613,9 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  
  #endif /* !CONFIG_IA32_SUPPORT */
  
-=== arch/ia64/ia32/sys_ia32.c 1.104 vs edited ==--- 1.104/arch/ia64/ia32/sys_ia32.c	2004-09-21 12:39:33 -07:00
-+++ edited/arch/ia64/ia32/sys_ia32.c	2004-10-05 02:11:19 -07:00
+===== arch/ia64/ia32/sys_ia32.c 1.106 vs edited =====
+--- 1.106/arch/ia64/ia32/sys_ia32.c	Tue Oct  5 11:24:11 2004
++++ edited/arch/ia64/ia32/sys_ia32.c	Wed Oct  6 12:58:16 2004
 @@ -70,10 +70,7 @@
  # define DBG(fmt...)
  #endif
@@ -875,12 +965,12 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 -	__get_user(mxcsr, (unsigned int *)&save->mxcsr);
 +	__get_user(mxcsr, (unsigned int __user *)&save->mxcsr);
  	num64 = mxcsr & 0xff10;
- 	tsk->thread.fcr = (tsk->thread.fcr & (~0xff1000000000)) | (num64<<32);
+ 	tsk->thread.fcr = (tsk->thread.fcr & (~0xff1000000000UL)) | (num64<<32);
  	num64 = mxcsr & 0x3f;
 @@ -1823,7 +1820,7 @@
  	      case PTRACE_PEEKDATA:	/* read word at location addr */
  		ret = ia32_peek(regs, child, addr, &value);
- 		if (ret = 0)
+ 		if (ret == 0)
 -			ret = put_user(value, (unsigned int *) A(data));
 +			ret = put_user(value, (unsigned int __user *) compat_ptr(data));
  		else
@@ -1314,11 +1404,11 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	 * __get_free_pages.
  	 */
 @@ -2476,14 +2479,15 @@
- 	if (events64 = NULL) {
+ 	if (events64 == NULL) {
  		events64 = (struct epoll_event *)
  				__get_free_pages(GFP_KERNEL, get_order(size));
--		if (events64 = NULL) 
-+		if (events64 = NULL)
+-		if (events64 == NULL) 
++		if (events64 == NULL)
  			return -ENOMEM;
  		do_free_pages = 1;
  	}
@@ -1372,3 +1462,5 @@ Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
  	set_fs(oldfs);
  
  	if (!err)
+
+--------------070806060607010204040401--
