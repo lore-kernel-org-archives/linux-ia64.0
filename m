@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 23 Sep 2003 21:16:36 +0000
-Subject: RE: NS83820 2.6.0-test5 driver seems unstable on IA64
-Message-Id: <marc-linux-ia64-106436869604402@msgid-missing>
+From: Grant Grundler <iod00d@hp.com>
+Date: Tue, 23 Sep 2003 22:35:40 +0000
+Subject: Re: NS83820 2.6.0-test5 driver seems unstable on IA64
+Message-Id: <marc-linux-ia64-106435656026586@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106394503001622@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106394503001622@msgid-missing>
@@ -10,21 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 23 Sep 2003 22:00:34 +0100, Alan Cox <alan@lxorguk.ukuu.org.uk> said:
+On Tue, Sep 23, 2003 at 01:45:29PM -0700, David S. Miller wrote:
+> Intel actually optimizes this on the P4, what is your
+> response to that?  Is Intel wasting they time? :-)
 
-  >> Looking at a couple of ia64 build servers here I see zero unaligned
-  >> access messages in the logs.
+nono...but Intel doesn't have a choice on x86.
+They have to optimize for the binaries that are out there.
+Compatibility is everything in that market space.
 
-  Alan> Anyone who can deliver network traffic to your box can soon fix that...
+And someone at Intel obviously agrees the newer architectures
+should support misaligned access in SW since ever RISC chip
+they've built (starting with i860, ~1989) does it that way.
 
-Not if he's running Red Hat.  This is on a Red Hat 9 machine (x86,
-just so you can't argue it's ia64-specific...):
+> It's needed on every access to every TCP and IP header portion
+> for the case we're talking about in this thread, where the network
+> device driver gives the networking a packet that ends up with
+> unaligned IP and TCP headers.
 
- $ fgrep LOGLEVEL /etc/rc.sysinit
- /bin/dmesg -n $LOGLEVEL
- $ fgrep LOGLEVEL /etc/sysconfig/*
- /etc/sysconfig/init:LOGLEVEL=3
+Yeah, I don't use most LAN features (PPPoE, VLAN, Appletalk, etc).
+I naively thought there must be a subset everyone uses...but defining
+that subset sounds like a rat hole I shouldn't go near.
 
-Red Hat users won't be bothered by unaligned messages.
+> I once considered adding some get_unaligned() uses to the TCP option
+> parsing code, guess who rejected that patch?  It wasn't me, it was
+> Linus himself and I came to learn that he's right on this one.
 
-	--david
+I'm not totally comfortable with that. The NICs I care about seem to
+"bias the buffer address" to compensate for some "common case".
+Seems like those cases would be cheaper (and more portable) to add
+the get_unaligned() calls in the networking stack....I don't know
+though really.
+
+thanks,
+grant
