@@ -1,69 +1,59 @@
-From: Venkatesh Ramamurthy <Venkateshr@ami.com>
-Date: Thu, 24 Feb 2000 17:10:06 +0000
-Subject: RE: [Linux-ia64] Getting a copy of the CD
-Message-Id: <marc-linux-ia64-105590678204967@msgid-missing>
+From: Tim Riker <TimR@CalderaSystems.com>
+Date: Sat, 19 Feb 2000 06:35:30 +0000
+Subject: [Linux-ia64] CD intructions.
+Message-Id: <marc-linux-ia64-105590678204942@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678204966@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678204966@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-did u try booting from efi shell like these
+The CD David put together needs a doc update. Could we put something up
+on the web site? Here's a short howto:
 
-goto the cdrom filesystem eg fs0:
-fs0:\> eli vmlinux root=ROOT rescue 
+Boot your system with the cd in the drive. At the EFI prompt type (note
+that "rescue" is missing from the docs:
 
-where ROOT= the device node for IDE CDROM ... say eg /dev/hdb if its primary
-slave
+eli vmlinux root=/dev/hda rescue
 
-then you have to fdisk the hard disk , create partitions and copy all files
-& directories manually from the cdrom into the newly created partitions....
-create  one partition as FAT, so that EFI SHELL can see it . copy the
-contents of /boot directory into this FAT partition...
+Log in as root (no password) and fdisk your drive:
 
-next time you boot the system go to the FAT filesystem that you have created
-fs0:\> eli vmlinux root=/dev/hda1   
+fdisk /dev/sda
 
-where /dev/hda1 is the primary master HDD
+create a dos (fat16) partition (/dev/sda1) for later use by EFI
+create an ext2 filesystem for your root (/dev/sda2)
+create a swap partition (/dev/sda4)
+and format them:
 
-Venkatesh
-American Megatrends Inc
+mke2fs /dev/sda2
+mkdosfs /dev/sda1
+mkswap /dev/sda4
 
-On Thursday, February 24, 2000 11:58 AM, Eugene Dale Tyler
-[SMTP:edt@world.std.com] wrote:
-| Hello,
-| 
-| I work for a company that makes a hardware debugger targeted at
-| IA-32 and IA-64 systems. 
-| 
-| We have a Lion Debug Chasis and are looking to load linux on it
-| so that we can get the IA-64 debugging environment up to snuff.
-| I am the firmare engineer responsible for the code that controls
-| the IA-64 platform and a Linux fan. So, it is in my interest to
-| get Linux running on the platform prior to Win2K ;->>
-| 
-| I downloaded the sources from kernel.org and the tool chain from
-| Cygnus, but am going through the same pain as some others I see here.
-| If the CD from Linux World will work enough to get to a shell, then
-| we can make sure our VHPT and other code is running well.
-| 
-| I can be reached at 949/360-1717 or by e-mail.
-| 
-| Thanks in advance for any help you all can provide.
-| 
-| Regards,
-| Dale
-| PGP Public Key Fingerprint =  41 88 59 D9 B2 A7 27 99  F7 EB 1F 0E AD CA
-F1 26 
-| 
-| 
-| 
-| 
-| _______________________________________________
-| Linux-IA64 mailing list
-| Linux-IA64@linuxia64.org
-| http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Now mount them using an existing directory and copy over the cd
+
+mount /dev/sda2 /mnt/cdrom
+cd /
+cp -a README.IA-64 bin boot dev etc etc.simple home \
+ lib log root sbin tmp usr var /mnt/cdrom
+umount /mnt/cdrom
+mount /dev/sda1 /mnt/cdrom/
+cp /boot/* /mnt/cdrom/
+umount /mnt/cdrom
+
+Now you should be ready to reboot off the hard drive. Take the CD out
+and reboot. The from the EFI prompt type:
+
+eli vmlinux root=/dev/sda2
+
+I have not tested these exact procedures, but I will. I promised someone
+at the show I'd write this up. Hope it helps. ;-)
+
+Now could someone (Mike?) write up a simple procedure for the
+development CD? Also Mike mentioned there were native ia64 toolchain
+binaries around? Anyone know where these are?
+-- 
+Tim Riker - http://rikers.org/ - short SIGs! <g>
+All I need to know I could have learned in Kindergarten
+... if I'd just been paying attention.
 
 
