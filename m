@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 25 Jan 2005 17:44:43 +0000
-Subject: Re: Questionable code in pci_sal_read
-Message-Id: <16886.34187.323942.533224@napali.hpl.hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 25 Jan 2005 20:47:03 +0000
+Subject: RE: Questionable code in pci_sal_read
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02CA9ECC@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <jek6q1o7p2.fsf@sykes.suse.de>
 In-Reply-To: <jek6q1o7p2.fsf@sykes.suse.de>
@@ -10,27 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 25 Jan 2005 16:21:45 +0100, Andreas Schwab <schwab@suse.de> said:
+>Ah, yes, that looks wrong.  Looks like the check for (seg > 255) came
+>from the original pci_sal_read().  The original pci_sal_ext_read() did
+>check for (seg > 65535).  My bad.
+>
+>Thanks for catching this.
 
-  Andreas> These are the first few lines in pci_sal_read:
-  Andreas> if ((seg > 255) || (bus > 255) || (devfn > 255) || (reg > 4095))
-  Andreas> return -EINVAL;
 
-  Andreas> if ((seg | reg) <= 255) {
+So you (and Matthew Wilcox) are advocating this change?
 
-  Andreas> When seg <= 255 then ((seg | reg) <= 255) is equivalent to
-  Andreas> (reg <= 255).  But pci_sal_write only rejects (seg >
-  Andreas> 65535).
+=== arch/ia64/pci/pci.c 1.66 vs edited ==--- 1.66/arch/ia64/pci/pci.c	2005-01-22 14:42:51 -08:00
++++ edited/arch/ia64/pci/pci.c	2005-01-25 12:42:49 -08:00
+@@ -71,7 +71,7 @@
+ 	u64 addr, mode, data = 0;
+ 	int result = 0;
+ 
+-	if ((seg > 255) || (bus > 255) || (devfn > 255) || (reg > 4095))
++	if ((seg > 65535) || (bus > 255) || (devfn > 255) || (reg > 4095))
+ 		return -EINVAL;
+ 
+ 	if ((seg | reg) <= 255) {
 
-  Andreas> The lines come from this changeset:
+"seg", "bus", etc. are all "int" ... should we be extra paranoid
+and check for negative values (or change the definitions to unsigned),
+or is that over the top?
 
-  Andreas> http://linux.bkbits.net:8080/linux-2.6/cset%40407c8325V8ZAIQkFDRCUNpu5AXqG1g
-
-Ah, yes, that looks wrong.  Looks like the check for (seg > 255) came
-from the original pci_sal_read().  The original pci_sal_ext_read() did
-check for (seg > 65535).  My bad.
-
-Thanks for catching this.
-
-	--david
-
+-Tony
