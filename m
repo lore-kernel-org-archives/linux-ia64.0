@@ -1,29 +1,35 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 22 Mar 2005 19:59:48 +0000
-Subject: RE: [PATCH 2.6.11] AIO panic on PPC64 caused byis_hugepage_only_range()
-Message-Id: <200503221959.j2MJxmg17815@unix-os.sc.intel.com>
+From: David Gibson <david@gibson.dropbear.id.au>
+Date: Wed, 23 Mar 2005 00:53:05 +0000
+Subject: Re: [PATCH 2.6.11] AIO panic on PPC64 caused by is_hugepage_only_range()
+Message-Id: <20050323005305.GB29765@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <1111519474.15956.40.camel@ibm-c.pdx.osdl.net>
-References: <1111519474.15956.40.camel@ibm-c.pdx.osdl.net>
+References: <1111108348.31932.43.camel@ibm-c.pdx.osdl.net> <20050321184113.0f5e2f6b.akpm@osdl.org> <1111519474.15956.40.camel@ibm-c.pdx.osdl.net>
 In-Reply-To: <1111519474.15956.40.camel@ibm-c.pdx.osdl.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Daniel McNeil' <daniel@osdl.org>, Andrew Morton <akpm@osdl.org>
-Cc: linuxppc64-dev@ozlabs.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-aio@kvack.org, linux-ia64@vger.kernel.org
+To: Daniel McNeil <daniel@osdl.org>
+Cc: Andrew Morton <akpm@osdl.org>, "linuxppc64-dev@ozlabs.org" <linuxppc64-dev@ozlabs.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-aio@kvack.org" <linux-aio@kvack.org>
 
-On Mon, 2005-03-21 at 18:41, Andrew Morton wrote:
-> Did we fix this yet?
->
-
-Daniel McNeil wrote on Tuesday, March 22, 2005 11:25 AM
+On Tue, Mar 22, 2005 at 11:24:34AM -0800, Daniel McNeil wrote:
+> On Mon, 2005-03-21 at 18:41, Andrew Morton wrote:
+> > Did we fix this yet?
+> > 
+> 
 > Here's a patch against 2.6.11 that fixes the problem.
 > It changes is_hugepage_only_range() to take mm as an argument
 > and then changes the places that call it to pass 'mm'.
 > It includes a change for ia64 which has not been compiled.
+> It applies against the latest bk with some offset.
+> 
+> Signed-off-by: Daniel McNeil <daniel@osdl.org>
 
+Looks good to me.
 
-Just a sanity check, tested the patch on ia64. Nothing blows up
-and everything is working.
+Acked-by: David Gibson <dwg@au1.ibm.com>
 
-
+-- 
+David Gibson			| I'll have my music baroque, and my code
+david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
+				| _way_ _around_!
+http://www.ozlabs.org/people/dgibson
