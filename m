@@ -1,28 +1,145 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 18 Dec 2003 20:30:22 +0000
-Subject: [PATCH] Prevent SAL calls from being preempted
-Message-Id: <marc-linux-ia64-107177977525156@msgid-missing>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Wed, 24 Dec 2003 23:46:25 +0000
+Subject: Kernel bug fix: hugepage_ free_pgtables()
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3CA78.24B94DE8"
+Message-Id: <marc-linux-ia64-107230960711204@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-ia64: Prevent SAL calls from being preempted.
+This is a multi-part message in MIME format.
 
-(SAL_CALL_REENTRANT): Disable preemption around the SAL call to
-	make sure we don't get rescheduled on a different CPU.
+------_=_NextPart_001_01C3CA78.24B94DE8
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-=== include/asm-ia64/sal.h 1.19 vs edited ==--- 1.19/include/asm-ia64/sal.h	Sat Aug 16 18:31:13 2003
-+++ edited/include/asm-ia64/sal.h	Wed Dec 10 14:10:04 2003
-@@ -71,7 +71,9 @@
- # define SAL_CALL_REENTRANT(result,args...) do {	\
- 	struct ia64_fpreg __ia64_scs_fr[6];		\
- 	ia64_save_scratch_fpregs(__ia64_scs_fr);	\
-+	preempt_disable();				\
- 	__SAL_CALL(result, args);			\
-+	preempt_enable();				\
- 	ia64_load_scratch_fpregs(__ia64_scs_fr);	\
- } while (0)
- 
+We recently discovered a bug on ia64 when unmapping an address space
+that
+belongs to huge page region.  The generic code unmap_region() calls
+free_pgtables() to free any possible pages that are used for page
+tables.
+However, it does no differentiation whether that region is mapped for
+normal
+page or huge tlb page.  Problem arises when free_pgtables() calculates
+PGDIR
+aligned area based on the default page size, where in the huge page
+case, it
+should really be using huge tlb page size instead.  The pgd_index
+calculation
+should also be adjusted accordingly.
 
+So we need an architecture specific code to handle huge tlb cases.  It
+also
+requires changes in generic part of kernel.  The generic kernel changes
+has
+made into Andrew Morton's 2.6.0-mm1 already.  Here is the ia64 part of
+patch
+to take the new free page table semantics.
+
+A bit more details on the kernel bug:  When there are two huge page
+mappings,
+like the two in the example, first one at the end of PGDIR_SIZE, and
+second
+one starts at next PGDIR_SIZE (64GB with 16K page size):
+8000000ff0000000-8000001000000000 rw-s
+8000001000000000-8000001010000000 rw-s
+Unmapping the first vma would trick free_pgtable to think it can remove
+one
+set of pgd indexed at 0x400, and it went ahead purge the entire pmd/pte
+that
+are still in use by the second mapping. Now any subsequent access to
+pmd/pte
+for the second active mapping will trigger the bug.  We've seen hard
+kernel
+hang on some platform, some other platform will generate MCA, plus all
+kinds
+of unpleasant result.
+
+David, please apply for 2.6.
+
+- Ken
+
+------_=_NextPart_001_01C3CA78.24B94DE8
+Content-Type: application/octet-stream;
+	name="free_pgt.ia64.patch"
+Content-Transfer-Encoding: base64
+Content-Description: free_pgt.ia64.patch
+Content-Disposition: attachment;
+	filename="free_pgt.ia64.patch"
+
+ZGlmZiAtTnVyIGxpbnV4LTIuNi4wL2FyY2gvaWE2NC9tbS9odWdldGxicGFnZS5jIGxpbnV4LTIu
+Ni4wLWtlbi9hcmNoL2lhNjQvbW0vaHVnZXRsYnBhZ2UuYwotLS0gbGludXgtMi42LjAvYXJjaC9p
+YTY0L21tL2h1Z2V0bGJwYWdlLmMJMjAwMy0xMi0xNyAxODo1ODo1Ni4wMDAwMDAwMDAgLTA4MDAK
+KysrIGxpbnV4LTIuNi4wLWtlbi9hcmNoL2lhNjQvbW0vaHVnZXRsYnBhZ2UuYwkyMDAzLTEyLTIz
+IDEzOjQ4OjIzLjAwMDAwMDAwMCAtMDgwMApAQCAtMTQ0LDE3ICsxNDQsNiBAQAogCiAJcmV0dXJu
+IDA7CiB9Ci0vKiBUaGlzIGZ1bmN0aW9uIGNoZWNrcyBpZiB0aGUgYWRkcmVzcyBhbmQgYWRkcmVz
+cytsZW4gZmFsbHMgb3V0IG9mIEh1Z2VUTEIgcmVnaW9uLiAgSXQKLSAqIHJldHVybiAtRUlOVkFM
+IGlmIGFueSBwYXJ0IG9mIGFkZHJlc3MgcmFuZ2UgZmFsbHMgaW4gSHVnZVRMQiByZWdpb24uCi0g
+Ki8KLWludCAgY2hlY2tfdmFsaWRfaHVnZXBhZ2VfcmFuZ2UodW5zaWduZWQgbG9uZyBhZGRyLCB1
+bnNpZ25lZCBsb25nIGxlbikKLXsKLQlpZiAoUkVHSU9OX05VTUJFUihhZGRyKSA9PSBSRUdJT05f
+SFBBR0UpCi0JCXJldHVybiAtRUlOVkFMOwotCWlmIChSRUdJT05fTlVNQkVSKGFkZHIrbGVuKSA9
+PSBSRUdJT05fSFBBR0UpCi0JCXJldHVybiAtRUlOVkFMOwotCXJldHVybiAwOwotfQogCiBpbnQg
+Y29weV9odWdldGxiX3BhZ2VfcmFuZ2Uoc3RydWN0IG1tX3N0cnVjdCAqZHN0LCBzdHJ1Y3QgbW1f
+c3RydWN0ICpzcmMsCiAJCQlzdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKnZtYSkKQEAgLTI3Miw2ICsy
+NjEsNTkgQEAKIAlmcmVlX2h1Z2VfcGFnZShwYWdlKTsKIH0KIAorLyoKKyAqIFNhbWUgYXMgZ2Vu
+ZXJpYyBmcmVlX3BndGFibGVzKCksIGV4Y2VwdCBjb25zdGFudCBQR0RJUl8qIGFuZCBwZ2Rfb2Zm
+c2V0CisgKiBhcmUgaHVnZXRsYiByZWdpb24gc3BlY2lmaWMuCisgKi8KK3ZvaWQgaHVnZXRsYl9m
+cmVlX3BndGFibGVzKHN0cnVjdCBtbXVfZ2F0aGVyICp0bGIsIHN0cnVjdCB2bV9hcmVhX3N0cnVj
+dCAqcHJldiwKKwl1bnNpZ25lZCBsb25nIHN0YXJ0LCB1bnNpZ25lZCBsb25nIGVuZCkKK3sKKwl1
+bnNpZ25lZCBsb25nIGZpcnN0ID0gc3RhcnQgJiBIVUdFVExCX1BHRElSX01BU0s7CisJdW5zaWdu
+ZWQgbG9uZyBsYXN0ID0gZW5kICsgSFVHRVRMQl9QR0RJUl9TSVpFIC0gMTsKKwl1bnNpZ25lZCBs
+b25nIHN0YXJ0X2luZGV4LCBlbmRfaW5kZXg7CisJc3RydWN0IG1tX3N0cnVjdCAqbW0gPSB0bGIt
+Pm1tOworCisJaWYgKCFwcmV2KSB7CisJCXByZXYgPSBtbS0+bW1hcDsKKwkJaWYgKCFwcmV2KQor
+CQkJZ290byBub19tbWFwczsKKwkJaWYgKHByZXYtPnZtX2VuZCA+IHN0YXJ0KSB7CisJCQlpZiAo
+bGFzdCA+IHByZXYtPnZtX3N0YXJ0KQorCQkJCWxhc3QgPSBwcmV2LT52bV9zdGFydDsKKwkJCWdv
+dG8gbm9fbW1hcHM7CisJCX0KKwl9CisJZm9yICg7OykgeworCQlzdHJ1Y3Qgdm1fYXJlYV9zdHJ1
+Y3QgKm5leHQgPSBwcmV2LT52bV9uZXh0OworCisJCWlmIChuZXh0KSB7CisJCQlpZiAobmV4dC0+
+dm1fc3RhcnQgPCBzdGFydCkgeworCQkJCXByZXYgPSBuZXh0OworCQkJCWNvbnRpbnVlOworCQkJ
+fQorCQkJaWYgKGxhc3QgPiBuZXh0LT52bV9zdGFydCkKKwkJCQlsYXN0ID0gbmV4dC0+dm1fc3Rh
+cnQ7CisJCX0KKwkJaWYgKHByZXYtPnZtX2VuZCA+IGZpcnN0KQorCQkJZmlyc3QgPSBwcmV2LT52
+bV9lbmQgKyBIVUdFVExCX1BHRElSX1NJWkUgLSAxOworCQlicmVhazsKKwl9Citub19tbWFwczoK
+KwlpZiAobGFzdCA8IGZpcnN0KQkvKiBmb3IgYXJjaGVzIHdpdGggZGlzY29udGlndW91cyBwZ2Qg
+aW5kaWNlcyAqLworCQlyZXR1cm47CisJLyoKKwkgKiBJZiB0aGUgUEdEIGJpdHMgYXJlIG5vdCBj
+b25zZWN1dGl2ZSBpbiB0aGUgdmlydHVhbCBhZGRyZXNzLCB0aGUKKwkgKiBvbGQgbWV0aG9kIG9m
+IHNoaWZ0aW5nIHRoZSBWQSA+PiBieSBQR0RJUl9TSElGVCBkb2Vzbid0IHdvcmsuCisJICovCisK
+KwlzdGFydF9pbmRleCA9IHBnZF9pbmRleChodGxicGFnZV90b19wYWdlKGZpcnN0KSk7CisJZW5k
+X2luZGV4ID0gcGdkX2luZGV4KGh0bGJwYWdlX3RvX3BhZ2UobGFzdCkpOworCisJaWYgKGVuZF9p
+bmRleCA+IHN0YXJ0X2luZGV4KSB7CisJCWNsZWFyX3BhZ2VfdGFibGVzKHRsYiwgc3RhcnRfaW5k
+ZXgsIGVuZF9pbmRleCAtIHN0YXJ0X2luZGV4KTsKKwl9Cit9CisKIHZvaWQgdW5tYXBfaHVnZXBh
+Z2VfcmFuZ2Uoc3RydWN0IHZtX2FyZWFfc3RydWN0ICp2bWEsIHVuc2lnbmVkIGxvbmcgc3RhcnQs
+IHVuc2lnbmVkIGxvbmcgZW5kKQogewogCXN0cnVjdCBtbV9zdHJ1Y3QgKm1tID0gdm1hLT52bV9t
+bTsKZGlmZiAtTnVyIGxpbnV4LTIuNi4wL2luY2x1ZGUvYXNtLWlhNjQvcGFnZS5oIGxpbnV4LTIu
+Ni4wLWtlbi9pbmNsdWRlL2FzbS1pYTY0L3BhZ2UuaAotLS0gbGludXgtMi42LjAvaW5jbHVkZS9h
+c20taWE2NC9wYWdlLmgJMjAwMy0xMi0xNyAxODo1ODoxNS4wMDAwMDAwMDAgLTA4MDAKKysrIGxp
+bnV4LTIuNi4wLWtlbi9pbmNsdWRlL2FzbS1pYTY0L3BhZ2UuaAkyMDAzLTEyLTIzIDExOjI4OjQ4
+LjAwMDAwMDAwMCAtMDgwMApAQCAtNjMsNyArNjMsNyBAQAogIyBkZWZpbmUgSFBBR0VfU0laRQko
+X19JQTY0X1VMX0NPTlNUKDEpIDw8IEhQQUdFX1NISUZUKQogIyBkZWZpbmUgSFBBR0VfTUFTSwko
+fihIUEFHRV9TSVpFIC0gMSkpCiAjIGRlZmluZSBIQVZFX0FSQ0hfSFVHRVRMQl9VTk1BUFBFRF9B
+UkVBCi0jIGRlZmluZSBBUkNIX0hBU19WQUxJRF9IVUdFUEFHRV9SQU5HRQorIyBkZWZpbmUgQVJD
+SF9IQVNfSFVHRVBBR0VfT05MWV9SQU5HRQogI2VuZGlmIC8qIENPTkZJR19IVUdFVExCX1BBR0Ug
+Ki8KIAogI2lmZGVmIF9fQVNTRU1CTFlfXwpAQCAtMTM3LDcgKzEzNyw5IEBACiAjIGRlZmluZSBo
+dGxicGFnZV90b19wYWdlKHgpCSgoUkVHSU9OX05VTUJFUih4KSA8PCA2MSkJCQkJXAogCQkJCSB8
+IChSRUdJT05fT0ZGU0VUKHgpID4+IChIUEFHRV9TSElGVC1QQUdFX1NISUZUKSkpCiAjIGRlZmlu
+ZSBIVUdFVExCX1BBR0VfT1JERVIJKEhQQUdFX1NISUZUIC0gUEFHRV9TSElGVCkKLWV4dGVybiBp
+bnQgIGNoZWNrX3ZhbGlkX2h1Z2VwYWdlX3JhbmdlKHVuc2lnbmVkIGxvbmcgYWRkciwgdW5zaWdu
+ZWQgbG9uZyBsZW4pOworIyBkZWZpbmUgaXNfaHVnZXBhZ2Vfb25seV9yYW5nZShhZGRyLCBsZW4p
+CQlcCisJIChSRUdJT05fTlVNQkVSKGFkZHIpID09IFJFR0lPTl9IUEFHRSAmJglcCisJICBSRUdJ
+T05fTlVNQkVSKChhZGRyKSsobGVuKSkgPT0gUkVHSU9OX0hQQUdFKQogI2VuZGlmCiAKIHN0YXRp
+YyBfX2lubGluZV9fIGludApkaWZmIC1OdXIgbGludXgtMi42LjAvaW5jbHVkZS9hc20taWE2NC9w
+Z3RhYmxlLmggbGludXgtMi42LjAta2VuL2luY2x1ZGUvYXNtLWlhNjQvcGd0YWJsZS5oCi0tLSBs
+aW51eC0yLjYuMC9pbmNsdWRlL2FzbS1pYTY0L3BndGFibGUuaAkyMDAzLTEyLTE3IDE4OjU4OjM5
+LjAwMDAwMDAwMCAtMDgwMAorKysgbGludXgtMi42LjAta2VuL2luY2x1ZGUvYXNtLWlhNjQvcGd0
+YWJsZS5oCTIwMDMtMTItMjMgMTM6NDY6MTQuMDAwMDAwMDAwIC0wODAwCkBAIC00NTUsNiArNDU1
+LDE1IEBACiAvKiBXZSBwcm92aWRlIG91ciBvd24gZ2V0X3VubWFwcGVkX2FyZWEgdG8gY29wZSB3
+aXRoIFZBIGhvbGVzIGZvciB1c2VybGFuZCAqLwogI2RlZmluZSBIQVZFX0FSQ0hfVU5NQVBQRURf
+QVJFQQogCisjaWZkZWYgQ09ORklHX0hVR0VUTEJfUEFHRQorI2RlZmluZSBIVUdFVExCX1BHRElS
+X1NISUZUCShIUEFHRV9TSElGVCArIDIqKFBBR0VfU0hJRlQtMykpCisjZGVmaW5lIEhVR0VUTEJf
+UEdESVJfU0laRQkoX19JQTY0X1VMKDEpIDw8IEhVR0VUTEJfUEdESVJfU0hJRlQpCisjZGVmaW5l
+IEhVR0VUTEJfUEdESVJfTUFTSwkofihIVUdFVExCX1BHRElSX1NJWkUtMSkpCitzdHJ1Y3QgbW11
+X2dhdGhlcjsKK2V4dGVybiB2b2lkIGh1Z2V0bGJfZnJlZV9wZ3RhYmxlcyhzdHJ1Y3QgbW11X2dh
+dGhlciAqdGxiLAorCXN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqIHByZXYsIHVuc2lnbmVkIGxvbmcg
+c3RhcnQsIHVuc2lnbmVkIGxvbmcgZW5kKTsKKyNlbmRpZgorCiB0eXBlZGVmIHB0ZV90ICpwdGVf
+YWRkcl90OwogCiAvKgo=
+
+------_=_NextPart_001_01C3CA78.24B94DE8--
