@@ -1,127 +1,37 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 28 Aug 2003 17:25:58 +0000
-Subject: Running NUMA kernel on Tiger
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C36D89.71B1BBC9"
-Message-Id: <marc-linux-ia64-106209203611089@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 19 Sep 2003 17:47:46 +0000
+Subject: QLogic drivers in 2.4
+Message-Id: <marc-linux-ia64-106399415917430@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+These drivers, and the ql2xxx stuff in particular, comprise
+one of the big pieces of the 2.4 ia64 patch that hasn't gone
+upstream yet:
 
-------_=_NextPart_001_01C36D89.71B1BBC9
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+ drivers/scsi/ql12160_fw.h                    | 3125 +++---
+ drivers/scsi/ql1280_fw.h                     | 3774 ++++---
+ drivers/scsi/ql2100_fw.h                     | 4740 +++++++++
+ drivers/scsi/ql2200_fw.h                     | 5179 ++++++++++
+ drivers/scsi/ql2300_fw.h                     | 5486 +++++++++++
+ drivers/scsi/qla1280.c                       | 1399 +-
+ drivers/scsi/qla1280.h                       |  297 
+ drivers/scsi/qla2x00.c                       |12823 +++++++++++++++++++++++++++
+ drivers/scsi/qla2x00.h                       | 2492 +++++
+ drivers/scsi/qla2x00exioct.h                 |  823 +
+ drivers/scsi/qla2x00exioctln.h               |  131 
+ drivers/scsi/qla2x00ioctl.c                  | 1179 ++
+ drivers/scsi/qlavendor.c                     |  325 
 
-In case anyone else would like to experment with NUMA code,
-but doesn't have access to a NUMA machine ...
+It looks like at least the ql2xxx stuff is (a) not in the 2.5
+tree, and (b) not in Red Hat kernels.
 
-Here is a patch against 2.6.0test4 + ia64-030826 Mosberger patch that
-will allow you to configure a kernel with:
+So who cares about this stuff?  If I dropped it out of the
+ia64 patch, would anybody be upset enough to help sort
+this out?
 
-	CONFIG_NUMA=3Dy
-	CONFIG_ACPI_NUMA=3Dy
-	CONFIG_DISCONTIGMEM=3Dy
-	CONFIG_VIRTUAL_MEM_MAP=3Dy
+Bjorn
 
-and boot on a Tiger.  You may need to change the "phony_srat"
-initialization in drivers/acpi/tables.c to match the configuration
-of your machine, the version in this patch defines memory below 4G
-to be on node 0, and memory in the range 4G-8G to be on node 1.
-Cpu 0 & 1 are on node 0, cpu 2 & 3  are on node 1.
-
-This patch includes some extra fixes in addition to adding the SRAT =
-table:
-
-1) execute find_memory() after acpi_numa_init() =
-[arch/ia64/kernel/setup.c]
-
-2) Don't allocate memory using alloc_bootmem() in early acpi =
-initializations
-[drivers/acpi/tables.c]
-
-3) Don't use any memory in a granule with a hole =
-[arch/ia64/kernel/efi.c]
-
--Tony
-
-[Thanks to Martin Hicks and Jesse Barnes for patches 1 & 2]
-
-------_=_NextPart_001_01C36D89.71B1BBC9
-Content-Type: application/octet-stream;
-	name="phonysrat.patch"
-Content-Transfer-Encoding: base64
-Content-Description: phonysrat.patch
-Content-Disposition: attachment;
-	filename="phonysrat.patch"
-
-ZGlmZiAtcnUgbGludXgtMi42LjAtdGVzdDQvYXJjaC9pYTY0L2tlcm5lbC9lZmkuYyB0aWdlci1u
-dW1hL2FyY2gvaWE2NC9rZXJuZWwvZWZpLmMKLS0tIGxpbnV4LTIuNi4wLXRlc3Q0L2FyY2gvaWE2
-NC9rZXJuZWwvZWZpLmMJRnJpIEF1ZyAyMiAxNjo1MTowNCAyMDAzCisrKyB0aWdlci1udW1hL2Fy
-Y2gvaWE2NC9rZXJuZWwvZWZpLmMJV2VkIEF1ZyAyNyAxNjo0NzoyNyAyMDAzCkBAIC0zMjQsNyAr
-MzI0LDcgQEAKIAkJCQljaGVja19tZCA9IHE7CiAKIAkJCQlpZiAoY2hlY2tfbWQtPmF0dHJpYnV0
-ZSAmIEVGSV9NRU1PUllfV0IpCi0JCQkJCXRyaW1fYm90dG9tKG1kLCBncmFudWxlX2FkZHIpOwor
-CQkJCQl0cmltX2JvdHRvbShjaGVja19tZCwgZ3JhbnVsZV9hZGRyKTsKIAogCQkJCWlmIChjaGVj
-a19tZC0+cGh5c19hZGRyIDwgZ3JhbnVsZV9hZGRyKQogCQkJCQljb250aW51ZTsKZGlmZiAtcnUg
-bGludXgtMi42LjAtdGVzdDQvYXJjaC9pYTY0L2tlcm5lbC9zZXR1cC5jIHRpZ2VyLW51bWEvYXJj
-aC9pYTY0L2tlcm5lbC9zZXR1cC5jCi0tLSBsaW51eC0yLjYuMC10ZXN0NC9hcmNoL2lhNjQva2Vy
-bmVsL3NldHVwLmMJRnJpIEF1ZyAyMiAxNjo1MjoyMiAyMDAzCisrKyB0aWdlci1udW1hL2FyY2gv
-aWE2NC9rZXJuZWwvc2V0dXAuYwlUdWUgQXVnIDI2IDEzOjM3OjQxIDIwMDMKQEAgLTM3Miw3ICsz
-NzIsNiBAQAogCXN0cmxjcHkoc2F2ZWRfY29tbWFuZF9saW5lLCAqY21kbGluZV9wLCBzaXplb2Yo
-c2F2ZWRfY29tbWFuZF9saW5lKSk7CiAKIAllZmlfaW5pdCgpOwotCWZpbmRfbWVtb3J5KCk7CiAK
-ICNpZmRlZiBDT05GSUdfQUNQSV9CT09UCiAJLyogSW5pdGlhbGl6ZSB0aGUgQUNQSSBib290LXRp
-bWUgdGFibGUgcGFyc2VyICovCkBAIC0zODYsNiArMzg1LDggQEAKICMgZW5kaWYKICNlbmRpZiAv
-KiBDT05GSUdfQVBDSV9CT09UICovCiAKKwlmaW5kX21lbW9yeSgpOworCiAJLyogcHJvY2VzcyBT
-QUwgc3lzdGVtIHRhYmxlOiAqLwogCWlhNjRfc2FsX2luaXQoZWZpLnNhbF9zeXN0YWIpOwogCmRp
-ZmYgLXJ1IGxpbnV4LTIuNi4wLXRlc3Q0L2RyaXZlcnMvYWNwaS90YWJsZXMuYyB0aWdlci1udW1h
-L2RyaXZlcnMvYWNwaS90YWJsZXMuYwotLS0gbGludXgtMi42LjAtdGVzdDQvZHJpdmVycy9hY3Bp
-L3RhYmxlcy5jCVRodSBBdWcgMjggMDk6NTE6MzUgMjAwMworKysgdGlnZXItbnVtYS9kcml2ZXJz
-L2FjcGkvdGFibGVzLmMJVGh1IEF1ZyAyOCAwOTo1MjoyMiAyMDAzCkBAIC02OSw3ICs2OSwxMSBA
-QAogCiBzdGF0aWMgdW5zaWduZWQgbG9uZwkJc2R0X3BhOwkJLyogUGh5c2ljYWwgQWRkcmVzcyAq
-Lwogc3RhdGljIHVuc2lnbmVkIGxvbmcJCXNkdF9jb3VudDsJLyogVGFibGUgY291bnQgKi8KKyNp
-ZiAwCiBzdGF0aWMgc3RydWN0IGFjcGlfdGFibGVfc2R0CSpzZHRfZW50cnk7CisjZWxzZQorc3Rh
-dGljIHN0cnVjdCBhY3BpX3RhYmxlX3NkdAlzZHRfZW50cnlbQUNQSV9NQVhfVEFCTEVTXTsKKyNl
-bmRpZgogCiB2b2lkCiBhY3BpX3RhYmxlX3ByaW50ICgKQEAgLTI4MSw2ICsyODUsNDEgQEAKIAly
-ZXR1cm4gMDsKIH0KIAkgCisvKgorICogU1JBVCBmb3IgbXVsdGktbm9kZSBzaW11bGF0aW9uIG9u
-IFRpZ2VyOgorICogdHdvIG5vZGVzLCB0d28gY3B1cyBvbiBlYWNoLCAwRzxtZW08NEcgb24gbm9k
-ZSAwLCA0RzxtZW08OEcgb24gbm9kZSAxCisgKi8KK3N0cnVjdCB7CisJc3RydWN0IGFjcGlfdGFi
-bGVfc3JhdCBzOworCXN0cnVjdCBhY3BpX3RhYmxlX3Byb2Nlc3Nvcl9hZmZpbml0eSBwWzRdOwor
-CXN0cnVjdCBhY3BpX3RhYmxlX21lbW9yeV9hZmZpbml0eSBtWzJdOworfSBwaG9ueV9zcmF0ID0g
-eworCXsKKwkJeworCQkJeyAnUycsICdSJywgJ0EnLCAnVCcgfSwKKwkJCTAsCisJCQkwLAorCQkJ
-MCwKKwkJCXsgIk9FTUlEIiB9LAorCQkJeyAiT0VNVEJMIiB9LAorCQkJMCwKKwkJCXsgImFzbCIg
-fSwKKwkJCTAKKwkJfSwKKwkJMCwKKwkJMEwKKwl9LAorCXsKKwkJe3sgMCwgMTYgfSwgMCwgMHhD
-MCwgeyAxLCAwIH0sIDB4MTgsICIiIH0sCisJCXt7IDAsIDE2IH0sIDAsIDB4QzIsIHsgMSwgMCB9
-LCAweDE4LCAiIiB9LAorCQl7eyAwLCAxNiB9LCAxLCAweEM0LCB7IDEsIDAgfSwgMHgxOCwgIiIg
-fSwKKwkJe3sgMCwgMTYgfSwgMSwgMHhDNiwgeyAxLCAwIH0sIDB4MTgsICIiIH0sCisgICAgICAg
-IH0sCisJeworCQl7eyAxLCA0MCB9LCAwLCAiIiwgMCwgMCwgMCwgMSwgMSwgeyAxLCAwLCAwIH0s
-IDBMIH0sCisJCXt7IDEsIDQwIH0sIDEsICIiLCAwLCAxLCAwLCAxLCAxLCB7IDEsIDAsIDAgfSwg
-MEwgfSwKKwl9Cit9OwogCiBpbnQgX19pbml0CiBhY3BpX3RhYmxlX3BhcnNlX21hZHRfZmFtaWx5
-ICgKQEAgLTI5OCw2ICszMzcsMTIgQEAKIAlpZiAoIWhhbmRsZXIpCiAJCXJldHVybiAtRUlOVkFM
-OwogCisJaWYgKGlkID09IEFDUElfU1JBVCkgeworCQltYWR0ID0gKHZvaWQgKikmcGhvbnlfc3Jh
-dDsKKwkJbWFkdF9lbmQgPSAodW5zaWduZWQgbG9uZykgbWFkdCArIHNpemVvZihwaG9ueV9zcmF0
-KTsKKwkJZ290byBkb19wYXJzZTsKKwl9CisKIAkvKiBMb2NhdGUgdGhlIE1BRFQgKGlmIGV4aXN0
-cykuIFRoZXJlIHNob3VsZCBvbmx5IGJlIG9uZS4gKi8KIAogCWZvciAoaSA9IDA7IGkgPCBzZHRf
-Y291bnQ7IGkrKykgewpAQCAtMzIxLDYgKzM2Niw3IEBACiAKIAltYWR0X2VuZCA9ICh1bnNpZ25l
-ZCBsb25nKSBtYWR0ICsgc2R0X2VudHJ5W2ldLnNpemU7CiAKK2RvX3BhcnNlOgogCS8qIFBhcnNl
-IGFsbCBlbnRyaWVzIGxvb2tpbmcgZm9yIGEgbWF0Y2guICovCiAKIAllbnRyeSA9IChhY3BpX3Rh
-YmxlX2VudHJ5X2hlYWRlciAqKQpAQCAtMzYwLDYgKzQwNiwxMSBAQAogCWlmICghaGFuZGxlcikK
-IAkJcmV0dXJuIC1FSU5WQUw7CiAKKwlpZiAoaWQgPT0gQUNQSV9TUkFUKSB7CisJCWhhbmRsZXIo
-aWE2NF90cGEoKHVuc2lnbmVkIGxvbmcpJnBob255X3NyYXQpLCBzaXplb2YocGhvbnlfc3JhdCkp
-OworCQlyZXR1cm4gMTsKKwl9CisKIAlmb3IgKGkgPSAwOyBpIDwgc2R0X2NvdW50OyBpKyspIHsK
-IAkJaWYgKHNkdF9lbnRyeVtpXS5pZCAhPSBpZCkKIAkJCWNvbnRpbnVlOwpAQCAtNDI1LDExICs0
-NzYsMTMgQEAKIAkJCXNkdF9jb3VudCA9IEFDUElfTUFYX1RBQkxFUzsKIAkJfQogCisjaWYgMAog
-CQlzZHRfZW50cnkgPSBhbGxvY19ib290bWVtKHNkdF9jb3VudCAqIHNpemVvZihzdHJ1Y3QgYWNw
-aV90YWJsZV9zZHQpKTsKIAkJaWYgKCFzZHRfZW50cnkpIHsKIAkJCXByaW50ayhLRVJOX0VSUiAi
-QUNQSTogQ291bGQgbm90IGFsbG9jYXRlIG1lbSBmb3IgU0RUIGVudHJpZXMhXG4iKTsKIAkJCXJl
-dHVybiAtRU5PTUVNOwogCQl9CisjZW5kaWYKIAogCQlmb3IgKGkgPSAwOyBpIDwgc2R0X2NvdW50
-OyBpKyspCiAJCQlzZHRfZW50cnlbaV0ucGEgPSAodW5zaWduZWQgbG9uZykgbWFwcGVkX3hzZHQt
-PmVudHJ5W2ldOwpAQCAtNDc3LDExICs1MzAsMTMgQEAKIAkJCXNkdF9jb3VudCA9IEFDUElfTUFY
-X1RBQkxFUzsKIAkJfQogCisjaWYgMAogCQlzZHRfZW50cnkgPSBhbGxvY19ib290bWVtKHNkdF9j
-b3VudCAqIHNpemVvZihzdHJ1Y3QgYWNwaV90YWJsZV9zZHQpKTsKIAkJaWYgKCFzZHRfZW50cnkp
-IHsKIAkJCXByaW50ayhLRVJOX0VSUiAiQUNQSTogQ291bGQgbm90IGFsbG9jYXRlIG1lbSBmb3Ig
-U0RUIGVudHJpZXMhXG4iKTsKIAkJCXJldHVybiAtRU5PTUVNOwogCQl9CisjZW5kaWYKIAogCQlm
-b3IgKGkgPSAwOyBpIDwgc2R0X2NvdW50OyBpKyspCiAJCQlzZHRfZW50cnlbaV0ucGEgPSAodW5z
-aWduZWQgbG9uZykgbWFwcGVkX3JzZHQtPmVudHJ5W2ldOwo=
-
-------_=_NextPart_001_01C36D89.71B1BBC9--
