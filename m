@@ -1,31 +1,63 @@
-From: "Deepak Kumar Gupta, Noida" <dkumar@noida.hcltech.com>
-Date: Sat, 29 Nov 2003 07:19:27 +0000
-Subject: problem in using kdb-4.3- 2.4.22 for ia64
-Message-Id: <marc-linux-ia64-107008951015543@msgid-missing>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Wed, 19 Nov 2003 16:30:39 +0000
+Subject: [PATCH] 2.4 make hpzx1 fake pci device safer
+Message-Id: <marc-linux-ia64-106925945515887@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello Everybody
-I am trying to use kdb with 2 CPU ia64 machine (hp-zx6000). I am facing
-following problems: -
 
-1. When I have tried to compile kernel with enable usb keyboard support for
-kdb, then I got compilation errors in drivers/usb/hid-core.c at line number
-72. After removing the compilation error (by adding missing field input in
-the structure driver/usb/hid.h), it compiles successfully.
+   The fake PCI devices created in the 2.4 zx1 machvec provide PCI-like
+config space access to the chipset.  However, there are some registers
+in there that have side effects that you don't just want to stumble
+across.  These are all out beyond the configuration header space, so
+nothing should rely on them.  This patch prevents access to the
+dangerous one that you'd touch looking through /proc/bus/pci.  You can
+probably still shoot yourself in the foot, but you shouldn't be able to
+do it by reading through the proc files.  2.6 has removed these fake
+devices, so the patch is not applicable.  Thanks,
 
-2. After booting the system on kdb enabled kernel, when I crashed it (using
-simple crash module), control goes to KDB. But my now my keyboard is not
-working properly. Remember I have USB keyboard with me.
+	Alex
 
-Can you suggest me where am I wrong ?
+-- 
+Alex Williamson                             HP Linux & Open Source Lab
 
-Looking for ur co-operation and help..
-Please CC mail to me also, as I am not member of mailing list..
-
-Thanks and Best Regards
-Deepak Kumar Gupta
+=== arch/ia64/hp/zx1/hpzx1_misc.c 1.7 vs edited ==--- 1.7/arch/ia64/hp/zx1/hpzx1_misc.c	Thu Oct 16 15:56:24 2003
++++ edited/arch/ia64/hp/zx1/hpzx1_misc.c	Wed Nov 19 09:16:57 2003
+@@ -50,7 +50,14 @@
+ 		fake_dev->sizing = 0; \
+ 		return PCIBIOS_SUCCESSFUL; \
+ 	} \
+-	*value = read##sz(fake_dev->mapped_csrs + where); \
++	switch (where & ~0x7) { \
++		case 0x48: /* initiates config cycles */ \
++		case 0x78: /* elroy suspend mode register */ \
++			*value = 0; \
++			break; \
++		default: \
++			*value = read##sz(fake_dev->mapped_csrs + where); \
++	} \
+ 	if (where = PCI_COMMAND) \
+ 		*value |= PCI_COMMAND_MEMORY; /* SBA omits this */ \
+ 	return PCIBIOS_SUCCESSFUL; \
+@@ -68,8 +75,14 @@
+ 		if (value = (u##bits) ~0) \
+ 			fake_dev->sizing = 1; \
+ 		return PCIBIOS_SUCCESSFUL; \
+-	} else \
+-		write##sz(value, fake_dev->mapped_csrs + where); \
++	} \
++	switch (where & ~0x7) { \
++		case 0x48: /* initiates config cycles */ \
++		case 0x78: /* elroy suspend mode register */ \
++			break; \
++		default: \
++			write##sz(value, fake_dev->mapped_csrs + where); \
++	} \
+ 	return PCIBIOS_SUCCESSFUL; \
+ }
  
+
+
