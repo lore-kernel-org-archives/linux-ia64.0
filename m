@@ -1,76 +1,74 @@
-From: Chuck Fleckenstein <cfleck@co.intel.com>
-Date: Tue, 22 Feb 2000 18:14:27 +0000
-Subject: Re: [Linux-ia64] CD intructions.
-Message-Id: <marc-linux-ia64-105590678204953@msgid-missing>
+From: "Rao, Goutham" <goutham.rao@intel.com>
+Date: Fri, 11 Feb 2000 03:17:52 +0000
+Subject: RE: [Linux-ia64] FRANCE : demande d'infos
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01BF743E.A5604F66"
+Message-Id: <marc-linux-ia64-105590678204925@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678204942@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678204942@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> The CD David put together needs a doc update. Could we put something up
-> on the web site? Here's a short howto:
-> 
-> Boot your system with the cd in the drive. At the EFI prompt type (note
-> that "rescue" is missing from the docs:
-> 
-> eli vmlinux root=/dev/hda rescue
-> 
-> Log in as root (no password) and fdisk your drive:
-> 
-> fdisk /dev/sda
-> 
-> create a dos (fat16) partition (/dev/sda1) for later use by EFI
-> create an ext2 filesystem for your root (/dev/sda2)
-> create a swap partition (/dev/sda4)
-> and format them:
-> 
-> mke2fs /dev/sda2
-> mkdosfs /dev/sda1
-> mkswap /dev/sda4
-> 
-> Now mount them using an existing directory and copy over the cd
-> 
-> mount /dev/sda2 /mnt/cdrom
-> cd /
-> cp -a README.IA-64 bin boot dev etc etc.simple home \
->  lib log root sbin tmp usr var /mnt/cdrom
-> umount /mnt/cdrom
-> mount /dev/sda1 /mnt/cdrom/
-> cp /boot/* /mnt/cdrom/
-> umount /mnt/cdrom
-> 
-> Now you should be ready to reboot off the hard drive. Take the CD out
-> and reboot. The from the EFI prompt type:
-> 
-> eli vmlinux root=/dev/sda2
-> 
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------_=_NextPart_001_01BF743E.A5604F66
+Content-Type: text/plain;
+	charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+
+huh?
+
+-----Original Message-----
+From: starflit@ifrance.com [mailto:starflit@ifrance.com]
+Sent: Thursday, February 10, 2000 7:19 PM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] FRANCE : demande d'infos
 
 
 
-I did something similar to this the other day and it worked.
-The only thing I see missing from above is the change
-to fstab file that was copied to the hard disk..
+Quelqu'un parle-t-il Fran=E7ais???
+
+Si oui, je vous remecie par avance de m'expliquer le but de l'=E9quipe =
+de
+linuxia64 et le r=F4le que peuvent jouer chacun de ses membres et des
+differents partenaires.
 
 
+------_=_NextPart_001_01BF743E.A5604F66
+Content-Type: text/html;
+	charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 
-i.e.  
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
+charset=3Dwindows-1252">
+<TITLE>FRANCE : demande d'infos</TITLE>
 
-change your mount point of root, /,  to that of the sda2 instead of hdc1 (cdrom).
+<META content=3D"MSHTML 5.00.2314.1000" name=3DGENERATOR>
+<META content=3D20000211;4114028 name=3DCREATED>
+<META content=3D" " name=3DCHANGEDBY>
+<META content=3D20000211;4184128 name=3DCHANGED></HEAD>
+<BODY>
+<DIV><FONT color=3D#0000ff face=3DArial size=3D2><SPAN=20
+class=3D901481703-11022000>huh?</SPAN></FONT></DIV>
+<BLOCKQUOTE style=3D"MARGIN-RIGHT: 0px">
+  <DIV align=3Dleft class=3DOutlookMessageHeader dir=3Dltr><FONT =
+face=3DTahoma=20
+  size=3D2>-----Original Message-----<BR><B>From:</B> =
+starflit@ifrance.com=20
+  [mailto:starflit@ifrance.com]<BR><B>Sent:</B> Thursday, February 10, =
+2000 7:19=20
+  PM<BR><B>To:</B> linux-ia64@linuxia64.org<BR><B>Subject:</B> =
+[Linux-ia64]=20
+  FRANCE : demande d'infos<BR><BR></DIV></FONT>
+  <P>Quelqu'un parle-t-il Fran=E7ais???</P>
+  <P>Si oui, je vous remecie par avance de m'expliquer le but de =
+l'=E9quipe de=20
+  linuxia64 et le r=F4le que peuvent jouer chacun de ses membres et des =
+differents=20
+  partenaires.</P></BLOCKQUOTE></BODY></HTML>
 
-/dev/sda2               /                       ext2    defaults        1 1
-
-
-
-
-
-
-Chuck
-
-
-
+------_=_NextPart_001_01BF743E.A5604F66--
 
 
 
