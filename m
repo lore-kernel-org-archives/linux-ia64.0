@@ -1,7 +1,7 @@
-From: Greg KH <greg@kroah.com>
-Date: Thu, 24 Oct 2002 16:54:11 +0000
+From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
+Date: Thu, 24 Oct 2002 17:39:52 +0000
 Subject: [Linux-ia64] Re: PCI Hotplug Drivers for 2.5
-Message-Id: <marc-linux-ia64-105590709805232@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805233@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805223@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805223@msgid-missing>
@@ -10,21 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Oct 24, 2002 at 10:52:09AM -0400, Jeff Garzik wrote:
-> Greg KH wrote:
-> >I think we now all agree that resource management should move into a
-> >place where it can be shared by all pci hotplug drivers, right?
-> >
-> >If so, anyone want to propose some common code?
-> 
-> 
-> drivers/pci/setup* is not enough?
-> 
-> I am surprised that anything needed to be added here...
+> We need this driver as it's the only solution for DIG64 compliant IPF
+> platforms.
 
-There was some reason that code would not work out when I looked at it
-over a year ago.  But I don't remember why, so I'll go look at it again,
-thanks for pointing it out.
+No, not for all DIG64 compliant IPF platforms.  NEC TX7 is also
+a DIG64 compliant IPF platform but doesn't need your driver.
 
-greg k-h
+DIG64(2.1) only states that:
+
+ Firmware Support for PCI Hot-Plug
+                               : Recommended if PCI Hot-Plug is
+                                 implemented
+ ACPI Support for PCI Hot-Plug : Recommended for platforms that
+                                 implement PCI Hot-Plug without SHPC
+ Using PCI Hot-Plug Specifications
+                               : Recommended if PCI Hot-Plug is
+                                 implemented
+
+The spec also states that any PCI Hot-Plug controller must
+follow one of PCI Hot-Plug spec 1.1, SHPC 1.0 or CompactPCI Hot Swap
+spec.  It also strongly recommends SHPC 1.0, which is not covered
+by J.I.'s driver yet.
+
+But anyway Itanium2 platform using intel's hot-plug controller
+will be shipping soon and J.I.'s driver has much better functionality
+than acpiphp.  This would be a decent reason for having the
+driver in the mainline.
+
+And this also motivates us to clean up the duplicated code if
+it were in mainline:)
+
+Thanks,
+-- 
+KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+
 
