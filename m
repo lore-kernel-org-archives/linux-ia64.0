@@ -1,29 +1,28 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Sun, 11 Jul 2004 10:22:34 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Sun, 11 Jul 2004 12:19:50 +0000
 Subject: Re: serious performance regression due to NX patch
-Message-Id: <20040711102234.GA11534@infradead.org>
+Message-Id: <20040711121950.GU5889@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200407100528.i6A5SF8h020094@napali.hpl.hp.com> <Pine.LNX.4.58.0407110437310.26065@devserv.devel.redhat.com> <Pine.LNX.4.58.0407110536130.2248@devserv.devel.redhat.com> <Pine.LNX.4.58.0407110550340.4229@devserv.devel.redhat.com>
-In-Reply-To: <Pine.LNX.4.58.0407110550340.4229@devserv.devel.redhat.com>
+References: <200407100528.i6A5SF8h020094@napali.hpl.hp.com> <Pine.LNX.4.58.0407110437310.26065@devserv.devel.redhat.com> <Pine.LNX.4.58.0407110536130.2248@devserv.devel.redhat.com> <Pine.LNX.4.58.0407110550340.4229@devserv.devel.redhat.com> <20040711030225.11fb61e7.akpm@osdl.org>
+In-Reply-To: <20040711030225.11fb61e7.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@redhat.com>
-Cc: davidm@hpl.hp.com, suresh.b.siddha@intel.com, jun.nakajima@intel.com, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: Ingo Molnar <mingo@redhat.com>, davidm@hpl.hp.com, suresh.b.siddha@intel.com, jun.nakajima@intel.com, torvalds@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Sun, Jul 11, 2004 at 05:52:59AM -0400, Ingo Molnar wrote:
-> 
-> On Sun, 11 Jul 2004, Ingo Molnar wrote:
-> 
-> > > ok, agreed. I'll check that it still does the right thing on x86.
-> > 
-> > it doesnt seem to do the right thing for !PT_GNU_STACK applications on 
-> > x86:
-> 
-> how about the patch below? This way we recognize the fact that x86 didnt
-> have any executability check previously at the point where we discover
-> that it's a 'legacy' binary.
+On Sun, Jul 11, 2004 at 03:02:25AM -0700, Andrew Morton wrote:
+> Apropos of nothing much, CONFIG_X86 would be preferreed here, but x86_64
+> defines that too.
 
-Please don't add per-architecture ifdefs to generic code.  And I'm pretty
-sure there's quite a few more architectures with the same issue.
+IMO, x86-64 should stop defining CONFIG_X86.  It's far more common
+to say "X86 && !X86_64" than it is to say X86.  How about defining
+CONFIG_X86_COMMON and migrating usage of X86 to X86_COMMON?
 
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
