@@ -1,23 +1,37 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 06 Nov 2001 01:12:31 +0000
-Subject: Re: [Linux-ia64] framebuffer console
-Message-Id: <marc-linux-ia64-105590698805443@msgid-missing>
+From: "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp>
+Date: Mon, 12 Nov 2001 08:15:53 +0000
+Subject: [Linux-ia64] Pagesize is different between IA32 and IA64
+Message-Id: <marc-linux-ia64-105590698805465@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805378@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805378@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sun, 4 Nov 2001 22:06:37 +0000, Richard Hirst <rhirst@linuxcare.com> said:
+ Hello all.
 
-  Richard> Yes, write combining works.  Could you include this in your
-  Richard> tree please, (patch is from a 2.4.9 tree)
+ If this problem has already known, I am sorry.
 
-Great!  I applied the patch.
+ I am investigating the problem that calloc returns no
+ cleared area.
+ It was made on IA32 system and executes on IA64.
+ I think calloc expects to clear the memories sbrk
+ returned. But When the program made on IA32 is
+ executing on IA64 system, sbrk sometimes returns no
+ cleared area. 
+ Because the Kernel on IA64 alignes the memories 16K
+ bytes. However, when the progmam made on IA32 is
+ executing on IA64, the function __getpagesize returns
+ 4Kbytes. At this case, if the memories that calloc
+ requests to return sbrk(-xxx) is smaller than
+ 16Kbytes, the kernel do not unmap this memory.
+ (I think that the time that the memories clears 0 by
+ the kernel is when the kernel maps memories by the signal) 
 
-Thanks,
+ How do you think?
 
-	--david
+--
+Regards, 
+Hideki Yamamoto   (V).v.(V) # Empowered by Innovation
+
 
