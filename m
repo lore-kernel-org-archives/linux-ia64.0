@@ -1,28 +1,25 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 13 May 2003 17:54:16 +0000
-Subject: Re: [Linux-ia64] gettimeoffset for 2.5.67
-Message-Id: <marc-linux-ia64-105590723705760@msgid-missing>
+Date: Wed, 14 May 2003 08:01:39 +0000
+Subject: [Linux-ia64] new bitkeeper tree for 2.5 linux/ia64 kernel
+Message-Id: <marc-linux-ia64-105590723705780@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705684@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705684@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On 13 May 2003 11:42:43 -0400, Jes Sorensen <jes@wildopensource.com> said:
+OK, here is hoping I won't regret this: there is now a new bitkeeper
+tree which in theory should correspond to my tree and should (usually)
+build (unlike the to-linus-2.5 tree, which never builds).
 
-  Jes> Today we proudly present to you: gettimeoffset() du jour, the
-  Jes> most beautiful version of gettimeoffset() ever written! With
-  Jes> enhanced bit mangling and fewer stop bits for your exclusive
-  Jes> timing pleasure!
+The tree is at:
 
-Now you're getting into the spirit! ;-)
+  http://lia64.bkbits.net:8080/linux-ia64-2.5
 
-The patch looks pretty good to me.  I'll try it soon (hopefully
-today).
-
-Thanks for your patience.
+My hidden agenda is of course to encourage more folks to keep pushing
+fixes back to Linus, so that by the time 2.6 comes around, the ia64
+kernel will build directly from Linus' source tree.  We're actually
+reasonably close at the moment.
 
 	--david
 
