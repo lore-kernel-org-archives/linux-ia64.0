@@ -1,35 +1,42 @@
-From: Jes Sorensen <jes@linuxcare.com>
-Date: Wed, 09 Aug 2000 15:09:15 +0000
-Subject: Re: [Linux-ia64] Where are sources?
-Message-Id: <marc-linux-ia64-105590678205290@msgid-missing>
+From: Alan Au <alanau@cse.unsw.EDU.AU>
+Date: Thu, 10 Aug 2000 03:12:48 +0000
+Subject: [Linux-ia64] arch/ia64/boot/bootloader.c
+Message-Id: <marc-linux-ia64-105590678205302@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205286@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205286@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Jim" = Jim Wilson <wilson@cygnus.com> writes:
+Can someone please tell me what the first itr mapping (the 1M page in
+region 0) is for?  Thanks.
 
-Jim> We are working on a new toolchain release to replace this one.
-Jim> This release will be made in conjunction with the glibc-2.2
-Jim> release, because of numerous incompatible ABI changes.
-Jim> Meanwhile, you might try an SRPM from one of the other linux
-Jim> releases.
 
-Jim> You will have to rebuild everything from scratch when the new
-Jim> toolchain/glibc releases come out though.
+	/*
+	 * Install a translation register that identity maps the
+	 * kernel's 256MB page.
+	 */
+	ia64_clear_ic(flags);
+	ia64_set_rr(          0, (0x1000 << 8) | (_PAGE_SIZE_1M << 2));
+	ia64_set_rr(PAGE_OFFSET, (ia64_rid(0, PAGE_OFFSET) << 8) |
+			(_PAGE_SIZE_256M << 2));
+	ia64_srlz_d();
+	ia64_itr(0x3, 0, 1024*1024,
+		 pte_val(mk_pte_phys(1024*1024,
+			__pgprot(__DIRTY_BITS|_PAGE_PL_0|_PAGE_AR_RWX))),
+		 	_PAGE_SIZE_1M);
+	ia64_itr(0x3, 1, PAGE_OFFSET,
+		 pte_val(mk_pte_phys(0,
+			__pgprot(__DIRTY_BITS|_PAGE_PL_0|_PAGE_AR_RWX))),
+		 	_PAGE_SIZE_256M);
 
-I am currently working on preparing glibc-2.2 for a release, it is my
-intention to provide a tarball of library+compiler that people can use
-to start compiling their own applications. threads don't work at the
-moment, but most other things seem to be ok (I haven't worked on debug
-and profiling libs yet).
 
-Before release I want to test the changes to siginfo and sigevent that
-were made yesterday but for some reason I have been unable to compile
-a booting kernel for about a month (using different compilers).
 
-Jes
+Alan
+__________
+alanau@cse.unsw.edu.au
+School of Computer Science and Engineering
+University of New South Wales
+
+
 
