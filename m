@@ -1,116 +1,275 @@
 From: Andy Whitcroft <apw@shadowen.org>
-Date: Tue, 23 Mar 2004 17:30:30 +0000
+Date: Wed, 24 Mar 2004 17:38:50 +0000
 Subject: Re: [Lse-tech] Re: Hugetlbpages in very large memory
-Message-Id: <26583785.1080063030@42.150.104.212.access.eclipse.net.uk>
+Message-Id: <27410564.1080149929@42.150.104.212.access.eclipse.net.uk>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="==========001BE54C440C32C87FD2=========="
+Content-Type: multipart/mixed; boundary="==========60A328E7E347DFF585CE=========="
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40528383.10305@sgi.com> <20040313034840.GF4638@wotan.suse.de>
  <20040313184547.6e127b51.akpm@osdl.org> <20040314040634.GC19737@krispykreme>
  <37640233.1079550324@42.150.104.212.access.eclipse.net.uk>
-In-Reply-To: <37640233.1079550324@42.150.104.212.access.eclipse.net.uk>
+ <26583785.1080063030@42.150.104.212.access.eclipse.net.uk>
+In-Reply-To: <26583785.1080063030@42.150.104.212.access.eclipse.net.uk>
 To: Anton Blanchard <anton@samba.org>, Andrew Morton <akpm@osdl.org>, Stephen Smalley <sds@epoch.ncsc.mil>
 Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Martin J. Bligh" <mbligh@aracnet.com>
 
---==========001BE54C440C32C87FD2==========
+--==========60A328E7E347DFF585CE==========
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Been working on the hugetlb page commitment overcommit issues.  I have
-attached a bunch of patches for review purposes, there are a number so I've
-not inlined them, but I can send them, just ask.
+Here is the next installment of HUGETLB memory accounting.  With the stack
+applied (to 2.6.4) HUGETLB allocations are be handled separately to those
+for normal pages.  The set has been tested lightly on i386.  Other
+architectures have not yet been compiled (testers please).  Currently there
+are no tunables for overcommit.  Again patches attached, ask if you need
+them inline.
+
+This patch has an interesting and I believe correct side effect.  Memory is
+now committed when a hugetlb segment is initially requested, even before it
+is attached.  Thus it is no longer possible to shmget many large segments
+and have them fail to attach.
+
+The patch list below ...  Comments??
+
+-apw
+
+010-overcommit_docs:		documentation changes
+015-do_mremap_warning:		cleanup exit handling to prevent warning
+050-mem_acctdom_core:		core changes to create two accounting domains
+055-mem_acctdom_arch:		architecture specific changes for above
+060-mem_acctdom_commitments:	splits vm_committed into a per domain count
+070-mem_acctdom_hugetlb: 	use vm_committed to track HUGETLB usage
+075-em_acctdom_hugetlb_arch:	architecture specific changes for above
 
 The first two patches are cosmetic fixes, either in documentation or to
 remove a warning later in the game.
 
-010-overcommit_docs:	documentation changes.
-015-do_mremap_warning:	change mremap to be more correct and prevents a
-warning when later patches are applied.
+The third and fourth patches patches set the scene.  These are the most
+tested and it is these that I hope Anton can test for us with his "real
+world" failure mode. These two patches introduce the concept of a split
+between the default and hugetlb memory pools and stop the hugtlb pool being
+accounted at all.  This is not as clean as I would like, particularly the
+need to check against VM_AD_DEFAULT in a few places.
 
-The next two patches set the scene.  These are the most tested and it is
-these that I hope Anton can test for us with his "real world" failure mode.
-These two patches introduce the concept of a split between the default and
-hugetlb memory pools and stop the hugtlb pool being accounted at all.  This
-is not as clean as I would like, particularly the need to check against
-VM_AD_DEFAULT in a few places.
+The fifth patch splits the vm_committed count into a per domain count and
+exposes the domain in the interface.
 
-050-mem_acctdom_core: core changes to create two accounting domains
-055-mem_acctdom_arch: architecture specific changes for above.
+The sixth and seventh patch converts hugetlb to use the vm_commitment
+interfaces exposed above.
 
-The next two patches are work in progress and I present them more for
-review of the direction.  This was prompted by the need to check
-VM_AD_DEFAULT explicitly to handle vm_committed.  The first splits the
-current vm_committed into a per domain count.  The final patch is the
-beginnings of making hugetlbfs account for its pages correctly, currently
-it actually only exposes the HUGETLB accounting domain.
-
-060-mem_acctdom_commitments: splits vm_committed into a per domain count
-070-mem_acctdom_hugetlb: starts the process of using above for hugetlb.
-
-Testing for the first four patches and comments on the direction of the
-remaining patches appreciated.
-
--apw
---==========001BE54C440C32C87FD2==========
-Content-Type: text/plain; charset=iso-8859-1; name="010-overcommit_docs.txt"
+--==========60A328E7E347DFF585CE==========
+Content-Type: text/plain; charset=iso-8859-1;
+ name="075-mem_acctdom_hugetlb_arch.txt"
 Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment; filename="010-overcommit_docs.txt"; size=2200
+Content-Disposition: attachment; filename="075-mem_acctdom_hugetlb_arch.txt";
+ size=6232
 
 ---
- commoncap.c     |    2 +-
- dummy.c         |    8 ++++++++
- selinux/hooks.c |    2 +-
- 3 files changed, 10 insertions(+), 2 deletions(-)
+ i386/mm/hugetlbpage.c    |   16 +++++++++++++---
+ ia64/mm/hugetlbpage.c    |   16 +++++++++++++---
+ ppc64/mm/hugetlbpage.c   |   16 +++++++++++++---
+ sparc64/mm/hugetlbpage.c |   16 +++++++++++++---
+ 4 files changed, 52 insertions(+), 12 deletions(-)
 
-diff -upN reference/security/commoncap.c current/security/commoncap.c
---- reference/security/commoncap.c	2004-02-23 18:15:19.000000000 +0000
-+++ current/security/commoncap.c	2004-03-23 15:29:41.000000000 +0000
-@@ -303,7 +303,7 @@ int cap_syslog (int type)
-  * succeed and -ENOMEM implies there is not.
-  *
-  * We currently support three overcommit policies, which are set via the
-- * vm.overcommit_memory sysctl.  See Documentation/vm/overcommit-acounting
-+ * vm.overcommit_memory sysctl.  See =
-Documentation/vm/overcommit-accounting
-  *
-  * Strict overcommit modes added 2002 Feb 26 by Alan Cox.
-  * Additional code 2002 Jul 20 by Robert Love.
-diff -upN reference/security/dummy.c current/security/dummy.c
---- reference/security/dummy.c	2004-03-11 20:47:31.000000000 +0000
-+++ current/security/dummy.c	2004-03-23 15:29:41.000000000 +0000
-@@ -101,6 +101,14 @@ static int dummy_syslog (int type)
- 	return 0;
+diff -X /home/apw/lib/vdiff.excl -rupN reference/arch/i386/mm/hugetlbpage.c =
+current/arch/i386/mm/hugetlbpage.c
+--- reference/arch/i386/mm/hugetlbpage.c	2004-01-09 07:00:02.000000000 =
++0000
++++ current/arch/i386/mm/hugetlbpage.c	2004-03-24 18:03:05.000000000 +0000
+@@ -15,7 +15,7 @@
+ #include <linux/module.h>
+ #include <linux/err.h>
+ #include <linux/sysctl.h>
+-#include <asm/mman.h>
++#include <linux/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/tlbflush.h>
+@@ -513,13 +513,17 @@ module_init(hugetlb_init);
+=20
+ int hugetlb_report_meminfo(char *buf)
+ {
++	int committed =3D atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
++#define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	return sprintf(buf,
+ 			"HugePages_Total: %5lu\n"
+ 			"HugePages_Free:  %5lu\n"
+-			"Hugepagesize:    %5lu kB\n",
++			"Hugepagesize:    %5lu kB\n"
++			"HugeCommited_AS: %8u kB\n",
+ 			htlbzone_pages,
+ 			htlbpagemem,
+-			HPAGE_SIZE/1024);
++			HPAGE_SIZE/1024,
++			K(committed));
  }
 =20
-+/*
-+ * Check that a process has enough memory to allocate a new virtual
-+ * mapping. 0 means there is enough memory for the allocation to
-+ * succeed and -ENOMEM implies there is not.
-+ *
-+ * We currently support three overcommit policies, which are set via the
-+ * vm.overcommit_memory sysctl.  See =
-Documentation/vm/overcommit-accounting
-+ */
- static int dummy_vm_enough_memory(long pages)
+ int is_hugepage_mem_enough(size_t size)
+@@ -527,6 +531,12 @@ int is_hugepage_mem_enough(size_t size)
+ 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <=3D htlbpagemem;
+ }
+=20
++/* Return the number pages of memory we physically have, in PAGE_SIZE =
+units. */
++int hugetlb_total_pages(void)
++{
++	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
++}
++
+ /*
+  * We cannot handle pagefaults against hugetlb pages at all.  They cause
+  * handle_mm_fault() to try to instantiate regular-sized pages in the
+diff -X /home/apw/lib/vdiff.excl -rupN reference/arch/ia64/mm/hugetlbpage.c =
+current/arch/ia64/mm/hugetlbpage.c
+--- reference/arch/ia64/mm/hugetlbpage.c	2004-03-11 20:47:12.000000000 =
++0000
++++ current/arch/ia64/mm/hugetlbpage.c	2004-03-24 18:07:31.000000000 +0000
+@@ -17,7 +17,7 @@
+ #include <linux/smp_lock.h>
+ #include <linux/slab.h>
+ #include <linux/sysctl.h>
+-#include <asm/mman.h>
++#include <linux/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/tlbflush.h>
+@@ -576,13 +576,17 @@ __initcall(hugetlb_init);
+=20
+ int hugetlb_report_meminfo(char *buf)
  {
- 	unsigned long free, allowed;
-diff -upN reference/security/selinux/hooks.c =
-current/security/selinux/hooks.c
---- reference/security/selinux/hooks.c	2004-03-11 20:47:31.000000000 +0000
-+++ current/security/selinux/hooks.c	2004-03-23 15:29:41.000000000 +0000
-@@ -1492,7 +1492,7 @@ static int selinux_syslog(int type)
-  * succeed and -ENOMEM implies there is not.
-  *
-  * We currently support three overcommit policies, which are set via the
-- * vm.overcommit_memory sysctl.  See Documentation/vm/overcommit-acounting
-+ * vm.overcommit_memory sysctl.  See =
-Documentation/vm/overcommit-accounting
-  *
-  * Strict overcommit modes added 2002 Feb 26 by Alan Cox.
-  * Additional code 2002 Jul 20 by Robert Love.
++	int committed =3D atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
++#define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	return sprintf(buf,
+ 			"HugePages_Total: %5lu\n"
+ 			"HugePages_Free:  %5lu\n"
+-			"Hugepagesize:    %5lu kB\n",
++			"Hugepagesize:    %5lu kB\n"
++			"HugeCommited_AS: %8u kB\n",
+ 			htlbzone_pages,
+ 			htlbpagemem,
+-			HPAGE_SIZE/1024);
++			HPAGE_SIZE/1024,
++			K(committed));
+ }
+=20
+ int is_hugepage_mem_enough(size_t size)
+@@ -592,6 +596,12 @@ int is_hugepage_mem_enough(size_t size)
+ 	return 1;
+ }
+=20
++/* Return the number pages of memory we physically have, in PAGE_SIZE =
+units. */
++unsigned long hugetlb_total_pages(void)
++{
++	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
++}
++
+ static struct page *hugetlb_nopage(struct vm_area_struct * area, unsigned =
+long address, int *unused)
+ {
+ 	BUG();
+diff -X /home/apw/lib/vdiff.excl -rupN =
+reference/arch/ppc64/mm/hugetlbpage.c current/arch/ppc64/mm/hugetlbpage.c
+--- reference/arch/ppc64/mm/hugetlbpage.c	2004-03-11 20:47:14.000000000 =
++0000
++++ current/arch/ppc64/mm/hugetlbpage.c	2004-03-24 18:11:09.000000000 +0000
+@@ -17,7 +17,7 @@
+ #include <linux/module.h>
+ #include <linux/err.h>
+ #include <linux/sysctl.h>
+-#include <asm/mman.h>
++#include <linux/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/tlbflush.h>
+@@ -896,13 +896,17 @@ module_init(hugetlb_init);
+=20
+ int hugetlb_report_meminfo(char *buf)
+ {
++	int committed =3D atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
++#define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	return sprintf(buf,
+ 			"HugePages_Total: %5d\n"
+ 			"HugePages_Free:  %5d\n"
+-			"Hugepagesize:    %5lu kB\n",
++			"Hugepagesize:    %5lu kB\n"
++			"HugeCommited_AS: %8u kB",
+ 			htlbpage_total,
+ 			htlbpage_free,
+-			HPAGE_SIZE/1024);
++			HPAGE_SIZE/1024,
++			K(commited));
+ }
+=20
+ /* This is advisory only, so we can get away with accesing
+@@ -912,6 +916,12 @@ int is_hugepage_mem_enough(size_t size)
+ 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <=3D htlbpage_free;
+ }
+=20
++/* Return the number pages of memory we physically have, in PAGE_SIZE =
+units. */
++int hugetlb_total_pages(void)
++{
++	return htlbpage_total * (HPAGE_SIZE / PAGE_SIZE);
++}
++
+ /*
+  * We cannot handle pagefaults against hugetlb pages at all.  They cause
+  * handle_mm_fault() to try to instantiate regular-sized pages in the
+diff -X /home/apw/lib/vdiff.excl -rupN =
+reference/arch/sparc64/mm/hugetlbpage.c =
+current/arch/sparc64/mm/hugetlbpage.c
+--- reference/arch/sparc64/mm/hugetlbpage.c	2004-01-09 06:59:45.000000000 =
++0000
++++ current/arch/sparc64/mm/hugetlbpage.c	2004-03-24 18:12:11.000000000 =
++0000
+@@ -13,8 +13,8 @@
+ #include <linux/smp_lock.h>
+ #include <linux/slab.h>
+ #include <linux/sysctl.h>
++#include <linux/mman.h>
+=20
+-#include <asm/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/tlbflush.h>
+@@ -483,13 +483,17 @@ module_init(hugetlb_init);
+=20
+ int hugetlb_report_meminfo(char *buf)
+ {
++	int committed =3D atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
++#define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	return sprintf(buf,
+ 			"HugePages_Total: %5lu\n"
+ 			"HugePages_Free:  %5lu\n"
+-			"Hugepagesize:    %5lu kB\n",
++			"Hugepagesize:    %5lu kB\n"
++			"HugeCommited_AS: %8u kB\n",
+ 			htlbzone_pages,
+ 			htlbpagemem,
+-			HPAGE_SIZE/1024);
++			HPAGE_SIZE/1024,
++			K(committed));
+ }
+=20
+ int is_hugepage_mem_enough(size_t size)
+@@ -497,6 +501,12 @@ int is_hugepage_mem_enough(size_t size)
+ 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <=3D htlbpagemem;
+ }
+=20
++/* Return the number pages of memory we physically have, in PAGE_SIZE =
+units. */
++int hugetlb_total_pages(void)
++{
++	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
++}
++
+ /*
+  * We cannot handle pagefaults against hugetlb pages at all.  They cause
+  * handle_mm_fault() to try to instantiate regular-sized pages in the
 
---==========001BE54C440C32C87FD2==========
+--==========60A328E7E347DFF585CE==========
 Content-Type: text/plain; charset=iso-8859-1; name="015-do_mremap_warning.txt"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: attachment; filename="015-do_mremap_warning.txt";
@@ -165,7 +324,7 @@ diff -upN reference/mm/mremap.c current/mm/mremap.c
  }
 =20
 
---==========001BE54C440C32C87FD2==========
+--==========60A328E7E347DFF585CE==========
 Content-Type: text/plain; charset=iso-8859-1; name="050-mem_acctdom_core.txt"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: attachment; filename="050-mem_acctdom_core.txt";
@@ -559,7 +718,7 @@ current/security/selinux/hooks.c
 =20
          /*
 
---==========001BE54C440C32C87FD2==========
+--==========60A328E7E347DFF585CE==========
 Content-Type: text/plain; charset=iso-8859-1; name="055-mem_acctdom_arch.txt"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: attachment; filename="055-mem_acctdom_arch.txt";
@@ -639,12 +798,12 @@ long) bprm->p))>>PAGE_SHIFT)) {
  		return -ENOMEM;
  	}
 
---==========001BE54C440C32C87FD2==========
+--==========60A328E7E347DFF585CE==========
 Content-Type: text/plain; charset=iso-8859-1;
  name="060-mem_acctdom_commitments.txt"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: attachment; filename="060-mem_acctdom_commitments.txt";
- size=18519
+ size=18940
 
 Currently only normal page commitments are tracked.  This patch
 provides a framework for tracking page commitments in multiple
@@ -669,9 +828,10 @@ per domain trackable.
  security/selinux/hooks.c |   10 +++++-----
  15 files changed, 85 insertions(+), 59 deletions(-)
 
-diff -upN reference/fs/proc/proc_misc.c current/fs/proc/proc_misc.c
+diff -X /home/apw/lib/vdiff.excl -rupN reference/fs/proc/proc_misc.c =
+current/fs/proc/proc_misc.c
 --- reference/fs/proc/proc_misc.c	2004-03-11 20:47:27.000000000 +0000
-+++ current/fs/proc/proc_misc.c	2004-03-23 15:29:43.000000000 +0000
++++ current/fs/proc/proc_misc.c	2004-03-24 16:09:07.000000000 +0000
 @@ -174,7 +174,7 @@ static int meminfo_read_proc(char *page,
  #define K(x) ((x) << (PAGE_SHIFT - 10))
  	si_meminfo(&i);
@@ -681,9 +841,10 @@ diff -upN reference/fs/proc/proc_misc.c current/fs/proc/proc_misc.c
 =20
  	vmtot =3D (VMALLOC_END-VMALLOC_START)>>10;
  	vmi =3D get_vmalloc_info();
-diff -upN reference/include/linux/mman.h current/include/linux/mman.h
+diff -X /home/apw/lib/vdiff.excl -rupN reference/include/linux/mman.h =
+current/include/linux/mman.h
 --- reference/include/linux/mman.h	2004-01-09 06:59:09.000000000 +0000
-+++ current/include/linux/mman.h	2004-03-23 15:29:43.000000000 +0000
++++ current/include/linux/mman.h	2004-03-24 16:09:07.000000000 +0000
 @@ -12,20 +12,20 @@
 =20
  extern int sysctl_overcommit_memory;
@@ -711,9 +872,10 @@ diff -upN reference/include/linux/mman.h current/include/linux/mman.h
  }
 =20
  /*
-diff -upN reference/include/linux/mm.h current/include/linux/mm.h
---- reference/include/linux/mm.h	2004-03-23 15:29:42.000000000 +0000
-+++ current/include/linux/mm.h	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/include/linux/mm.h =
+current/include/linux/mm.h
+--- reference/include/linux/mm.h	2004-03-23 16:30:13.000000000 +0000
++++ current/include/linux/mm.h	2004-03-24 16:09:07.000000000 +0000
 @@ -117,7 +117,16 @@ struct vm_area_struct {
  #define VM_ACCTDOM(vma) (!!((vma)->vm_flags & VM_HUGETLB))
  #define VM_AD_DEFAULT	0
@@ -742,9 +904,10 @@ diff -upN reference/include/linux/mm.h current/include/linux/mm.h
  			unsigned long address, unsigned long size);
  void clear_page_tables(struct mmu_gather *tlb, unsigned long first, int =
 nr);
-diff -upN reference/kernel/fork.c current/kernel/fork.c
---- reference/kernel/fork.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/kernel/fork.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/kernel/fork.c =
+current/kernel/fork.c
+--- reference/kernel/fork.c	2004-03-23 16:30:13.000000000 +0000
++++ current/kernel/fork.c	2004-03-24 16:09:07.000000000 +0000
 @@ -267,7 +267,7 @@ static inline int dup_mmap(struct mm_str
  	struct vm_area_struct * mpnt, *tmp, **pprev;
  	struct rb_node **rb_link, *rb_parent;
@@ -774,9 +937,10 @@ diff -upN reference/kernel/fork.c current/kernel/fork.c
  	goto out;
  }
  static inline int mm_alloc_pgd(struct mm_struct * mm)
-diff -upN reference/mm/memory.c current/mm/memory.c
---- reference/mm/memory.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/mm/memory.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/memory.c =
+current/mm/memory.c
+--- reference/mm/memory.c	2004-03-23 16:30:13.000000000 +0000
++++ current/mm/memory.c	2004-03-24 16:09:07.000000000 +0000
 @@ -524,7 +524,7 @@ void unmap_page_range(struct mmu_gather=20
   */
  int unmap_vmas(struct mmu_gather **tlbp, struct mm_struct *mm,
@@ -810,9 +974,10 @@ diff -upN reference/mm/memory.c current/mm/memory.c
 =20
  	might_sleep();
 =20
-diff -upN reference/mm/mmap.c current/mm/mmap.c
---- reference/mm/mmap.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/mm/mmap.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/mmap.c =
+current/mm/mmap.c
+--- reference/mm/mmap.c	2004-03-23 16:30:13.000000000 +0000
++++ current/mm/mmap.c	2004-03-24 16:09:07.000000000 +0000
 @@ -54,7 +54,8 @@ pgprot_t protection_map[16] =3D {
 =20
  int sysctl_overcommit_memory =3D 0;	/* default is heuristic overcommit */
@@ -903,9 +1068,10 @@ diff -upN reference/mm/mmap.c current/mm/mmap.c
  	BUG_ON(mm->map_count);	/* This is just debugging */
  	clear_page_tables(tlb, FIRST_USER_PGD_NR, USER_PTRS_PER_PGD);
  	tlb_finish_mmu(tlb, 0, MM_VM_SIZE(mm));
-diff -upN reference/mm/mprotect.c current/mm/mprotect.c
---- reference/mm/mprotect.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/mm/mprotect.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/mprotect.c =
+current/mm/mprotect.c
+--- reference/mm/mprotect.c	2004-03-23 16:30:13.000000000 +0000
++++ current/mm/mprotect.c	2004-03-24 16:09:07.000000000 +0000
 @@ -173,8 +173,7 @@ mprotect_fixup(struct vm_area_struct *vm
  	 * a MAP_NORESERVE private mapping to writable will now reserve.
  	 */
@@ -925,9 +1091,10 @@ diff -upN reference/mm/mprotect.c current/mm/mprotect.c
  	return error;
  }
 =20
-diff -upN reference/mm/mremap.c current/mm/mremap.c
---- reference/mm/mremap.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/mm/mremap.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/mremap.c =
+current/mm/mremap.c
+--- reference/mm/mremap.c	2004-03-23 16:30:13.000000000 +0000
++++ current/mm/mremap.c	2004-03-24 16:09:07.000000000 +0000
 @@ -452,7 +452,7 @@ unsigned long do_mremap(unsigned long ad
  	}
  out_rc:
@@ -937,9 +1104,10 @@ diff -upN reference/mm/mremap.c current/mm/mremap.c
  out:
  	return ret;
  }
-diff -upN reference/mm/nommu.c current/mm/nommu.c
+diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/nommu.c =
+current/mm/nommu.c
 --- reference/mm/nommu.c	2004-02-04 15:09:16.000000000 +0000
-+++ current/mm/nommu.c	2004-03-23 15:29:43.000000000 +0000
++++ current/mm/nommu.c	2004-03-24 16:09:07.000000000 +0000
 @@ -29,7 +29,8 @@ struct page *mem_map;
  unsigned long max_mapnr;
  unsigned long num_physpages;
@@ -950,9 +1118,10 @@ diff -upN reference/mm/nommu.c current/mm/nommu.c
  int sysctl_overcommit_memory; /* default is heuristic overcommit */
  int sysctl_overcommit_ratio =3D 50; /* default is 50% */
 =20
-diff -upN reference/mm/shmem.c current/mm/shmem.c
---- reference/mm/shmem.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/mm/shmem.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/shmem.c =
+current/mm/shmem.c
+--- reference/mm/shmem.c	2004-03-23 16:30:13.000000000 +0000
++++ current/mm/shmem.c	2004-03-24 16:09:07.000000000 +0000
 @@ -529,7 +529,7 @@ static int shmem_notify_change(struct de
  			if (security_vm_enough_memory(VM_AD_DEFAULT, change))
  				return -ENOMEM;
@@ -1008,9 +1177,10 @@ diff -upN reference/mm/shmem.c current/mm/shmem.c
  	return ERR_PTR(error);
  }
 =20
-diff -upN reference/mm/swap.c current/mm/swap.c
+diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/swap.c =
+current/mm/swap.c
 --- reference/mm/swap.c	2004-03-11 20:47:29.000000000 +0000
-+++ current/mm/swap.c	2004-03-23 15:29:43.000000000 +0000
++++ current/mm/swap.c	2004-03-24 16:09:07.000000000 +0000
 @@ -365,17 +365,18 @@ unsigned int pagevec_lookup(struct pagev
   */
  #define ACCT_THRESHOLD	max(16, NR_CPUS * 2)
@@ -1049,9 +1219,10 @@ diff -upN reference/mm/swap.c current/mm/swap.c
  #ifdef CONFIG_SMP
  void percpu_counter_mod(struct percpu_counter *fbc, long amount)
  {
-diff -upN reference/mm/swapfile.c current/mm/swapfile.c
---- reference/mm/swapfile.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/mm/swapfile.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/mm/swapfile.c =
+current/mm/swapfile.c
+--- reference/mm/swapfile.c	2004-03-23 16:30:13.000000000 +0000
++++ current/mm/swapfile.c	2004-03-24 16:09:07.000000000 +0000
 @@ -1048,8 +1048,10 @@ asmlinkage long sys_swapoff(const char _
  		swap_list_unlock();
  		goto out_dput;
@@ -1064,9 +1235,10 @@ diff -upN reference/mm/swapfile.c current/mm/swapfile.c
  	else {
  		err =3D -ENOMEM;
  		swap_list_unlock();
-diff -upN reference/security/commoncap.c current/security/commoncap.c
---- reference/security/commoncap.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/security/commoncap.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/security/commoncap.c =
+current/security/commoncap.c
+--- reference/security/commoncap.c	2004-03-23 16:30:13.000000000 +0000
++++ current/security/commoncap.c	2004-03-24 16:09:07.000000000 +0000
 @@ -312,14 +312,14 @@ int cap_vm_enough_memory(int domain, lon
  {
  	unsigned long free, allowed;
@@ -1105,9 +1277,10 @@ diff -upN reference/security/commoncap.c current/security/commoncap.c
 =20
  	return -ENOMEM;
  }
-diff -upN reference/security/dummy.c current/security/dummy.c
---- reference/security/dummy.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/security/dummy.c	2004-03-23 15:29:43.000000000 +0000
+diff -X /home/apw/lib/vdiff.excl -rupN reference/security/dummy.c =
+current/security/dummy.c
+--- reference/security/dummy.c	2004-03-23 16:30:13.000000000 +0000
++++ current/security/dummy.c	2004-03-24 17:56:16.000000000 +0000
 @@ -113,14 +113,14 @@ static int dummy_vm_enough_memory(int do
  {
  	unsigned long free, allowed;
@@ -1138,7 +1311,7 @@ diff -upN reference/security/dummy.c current/security/dummy.c
  	allowed +=3D total_swap_pages;
 =20
 -	if (atomic_read(&vm_committed_space) < allowed)
-+	if (atomic_read(&vm_committed_space[VM_AD_DEFAULT]) < allowed)
++	if (atomic_read(&vm_committed_space[domain]) < allowed)
  		return 0;
 =20
 -	vm_unacct_memory(pages);
@@ -1146,10 +1319,10 @@ diff -upN reference/security/dummy.c current/security/dummy.c
 =20
  	return -ENOMEM;
  }
-diff -upN reference/security/selinux/hooks.c =
+diff -X /home/apw/lib/vdiff.excl -rupN reference/security/selinux/hooks.c =
 current/security/selinux/hooks.c
---- reference/security/selinux/hooks.c	2004-03-23 15:29:42.000000000 +0000
-+++ current/security/selinux/hooks.c	2004-03-23 15:29:43.000000000 +0000
+--- reference/security/selinux/hooks.c	2004-03-23 16:30:13.000000000 +0000
++++ current/security/selinux/hooks.c	2004-03-24 17:56:28.000000000 +0000
 @@ -1503,14 +1503,14 @@ static int selinux_vm_enough_memory(int=20
  	int rc;
  	struct task_security_struct *tsec =3D current->security;
@@ -1180,7 +1353,7 @@ current/security/selinux/hooks.c
  	allowed +=3D total_swap_pages;
 =20
 -	if (atomic_read(&vm_committed_space) < allowed)
-+	if (atomic_read(&vm_committed_space[VM_AD_DEFAULT]) < allowed)
++	if (atomic_read(&vm_committed_space[domain]) < allowed)
  		return 0;
 =20
 -	vm_unacct_memory(pages);
@@ -1189,51 +1362,306 @@ current/security/selinux/hooks.c
  	return -ENOMEM;
  }
 
---==========001BE54C440C32C87FD2==========
+--==========60A328E7E347DFF585CE==========
 Content-Type: text/plain; charset=iso-8859-1;
  name="070-mem_acctdom_hugetlb.txt"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: attachment; filename="070-mem_acctdom_hugetlb.txt";
- size=1105
+ size=7437
 
 ---
- hugetlbpage.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ fs/hugetlbfs/inode.c     |   44 =
+++++++++++++++++++++++++++++++++++++++------
+ include/linux/hugetlb.h  |    5 +++++
+ security/commoncap.c     |    8 ++++++++
+ security/dummy.c         |    7 +++++++
+ security/selinux/hooks.c |    7 +++++++
+ 5 files changed, 65 insertions(+), 6 deletions(-)
 
-diff -upN reference/arch/i386/mm/hugetlbpage.c =
-current/arch/i386/mm/hugetlbpage.c
---- reference/arch/i386/mm/hugetlbpage.c	2004-01-09 07:00:02.000000000 =
-+0000
-+++ current/arch/i386/mm/hugetlbpage.c	2004-03-23 15:29:41.000000000 +0000
-@@ -15,7 +15,7 @@
- #include <linux/module.h>
- #include <linux/err.h>
- #include <linux/sysctl.h>
--#include <asm/mman.h>
+diff -X /home/apw/lib/vdiff.excl -rupN reference/fs/hugetlbfs/inode.c =
+current/fs/hugetlbfs/inode.c
+--- reference/fs/hugetlbfs/inode.c	2004-02-23 18:15:01.000000000 +0000
++++ current/fs/hugetlbfs/inode.c	2004-03-24 17:57:36.000000000 +0000
+@@ -26,12 +26,15 @@
+ #include <linux/dnotify.h>
+ #include <linux/statfs.h>
+ #include <linux/security.h>
 +#include <linux/mman.h>
- #include <asm/pgalloc.h>
- #include <asm/tlb.h>
- #include <asm/tlbflush.h>
-@@ -513,13 +513,17 @@ module_init(hugetlb_init);
 =20
- int hugetlb_report_meminfo(char *buf)
+ #include <asm/uaccess.h>
+=20
+ /* some random number */
+ #define HUGETLBFS_MAGIC	0x958458f6
+=20
++#define VM_ACCT(size)    (PAGE_CACHE_ALIGN(size) >> PAGE_SHIFT)
++
+ static struct super_operations hugetlbfs_ops;
+ static struct address_space_operations hugetlbfs_aops;
+ struct file_operations hugetlbfs_file_operations;
+@@ -191,6 +194,7 @@ void truncate_hugepages(struct address_s
+ static void hugetlbfs_delete_inode(struct inode *inode)
  {
-+	int committed =3D atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
-+#define K(x) ((x) << (PAGE_SHIFT - 10))
- 	return sprintf(buf,
- 			"HugePages_Total: %5lu\n"
- 			"HugePages_Free:  %5lu\n"
--			"Hugepagesize:    %5lu kB\n",
-+			"Hugepagesize:    %5lu kB\n"
-+			"HugeCommited_AS: %8u kB\n",
- 			htlbzone_pages,
- 			htlbpagemem,
--			HPAGE_SIZE/1024);
-+			HPAGE_SIZE/1024,
-+			K(committed));
+ 	struct hugetlbfs_sb_info *sbinfo =3D HUGETLBFS_SB(inode->i_sb);
++	long change;
+=20
+ 	hlist_del_init(&inode->i_hash);
+ 	list_del_init(&inode->i_list);
+@@ -198,6 +202,9 @@ static void hugetlbfs_delete_inode(struc
+ 	inodes_stat.nr_inodes--;
+ 	spin_unlock(&inode_lock);
+=20
++	change =3D VM_ACCT(inode->i_size) - VM_ACCT(0);
++	if (change)
++		vm_unacct_memory(VM_AD_HUGETLB, change);
+ 	if (inode->i_data.nrpages)
+ 		truncate_hugepages(&inode->i_data, 0);
+=20
+@@ -217,6 +224,7 @@ static void hugetlbfs_forget_inode(struc
+ {
+ 	struct super_block *super_block =3D inode->i_sb;
+ 	struct hugetlbfs_sb_info *sbinfo =3D HUGETLBFS_SB(super_block);
++	long change;
+=20
+ 	if (hlist_unhashed(&inode->i_hash))
+ 		goto out_truncate;
+@@ -239,6 +247,9 @@ out_truncate:
+ 	inode->i_state |=3D I_FREEING;
+ 	inodes_stat.nr_inodes--;
+ 	spin_unlock(&inode_lock);
++	change =3D VM_ACCT(inode->i_size) - VM_ACCT(0);
++	if (change)
++		vm_unacct_memory(VM_AD_HUGETLB, change);
+ 	if (inode->i_data.nrpages)
+ 		truncate_hugepages(&inode->i_data, 0);
+=20
+@@ -312,8 +323,10 @@ static int hugetlb_vmtruncate(struct ino
+ 	unsigned long pgoff;
+ 	struct address_space *mapping =3D inode->i_mapping;
+=20
++	/*
+ 	if (offset > inode->i_size)
+ 		return -EINVAL;
++	*/
+=20
+ 	BUG_ON(offset & ~HPAGE_MASK);
+ 	pgoff =3D offset >> HPAGE_SHIFT;
+@@ -334,6 +347,8 @@ static int hugetlbfs_setattr(struct dent
+ 	struct inode *inode =3D dentry->d_inode;
+ 	int error;
+ 	unsigned int ia_valid =3D attr->ia_valid;
++	long change =3D 0;
++	loff_t csize;
+=20
+ 	BUG_ON(!inode);
+=20
+@@ -345,15 +360,27 @@ static int hugetlbfs_setattr(struct dent
+ 	if (error)
+ 		goto out;
+ 	if (ia_valid & ATTR_SIZE) {
++		csize =3D i_size_read(inode);
+ 		error =3D -EINVAL;
+-		if (!(attr->ia_size & ~HPAGE_MASK))
+-			error =3D hugetlb_vmtruncate(inode, attr->ia_size);
+-		if (error)
++		if (!(attr->ia_size & ~HPAGE_MASK))=20
++			goto out;
++		if (attr->ia_size > csize)
+ 			goto out;
++		change =3D VM_ACCT(csize) - VM_ACCT(attr->ia_size);
++		if (change)
++			vm_unacct_memory(VM_AD_HUGETLB, change);
++		/* XXX: here we commit to removing the mappings, should we do
++		 * this before we attmempt to write the inode or after.  What
++		 * should we do if it fails?
++		 */
++		hugetlb_vmtruncate(inode, attr->ia_size);
+ 		attr->ia_valid &=3D ~ATTR_SIZE;
+ 	}
+ 	error =3D inode_setattr(inode, attr);
+ out:
++	if (error && change)
++		vm_acct_memory(VM_AD_HUGETLB, change);
++
+ 	return error;
  }
 =20
- int is_hugepage_mem_enough(size_t size)
+@@ -697,8 +724,9 @@ struct file *hugetlb_zero_setup(size_t s
+ 	if (!capable(CAP_IPC_LOCK))
+ 		return ERR_PTR(-EPERM);
+=20
+-	if (!is_hugepage_mem_enough(size))
++	if (security_vm_enough_memory(VM_AD_HUGETLB, VM_ACCT(size)))
+ 		return ERR_PTR(-ENOMEM);
++
+ 	n =3D atomic_read(&hugetlbfs_counter);
+ 	atomic_inc(&hugetlbfs_counter);
+=20
+@@ -708,8 +736,10 @@ struct file *hugetlb_zero_setup(size_t s
+ 	quick_string.len =3D strlen(quick_string.name);
+ 	quick_string.hash =3D 0;
+ 	dentry =3D d_alloc(root, &quick_string);
+-	if (!dentry)
+-		return ERR_PTR(-ENOMEM);
++	if (!dentry) {
++		error =3D -ENOMEM;
++		goto out_committed;
++	}
+=20
+ 	error =3D -ENFILE;
+ 	file =3D get_empty_filp();
+@@ -736,6 +766,8 @@ out_file:
+ 	put_filp(file);
+ out_dentry:
+ 	dput(dentry);
++out_committed:
++	vm_unacct_memory(VM_AD_HUGETLB, VM_ACCT(size));
+ 	return ERR_PTR(error);
+ }
+=20
+diff -X /home/apw/lib/vdiff.excl -rupN reference/include/linux/hugetlb.h =
+current/include/linux/hugetlb.h
+--- reference/include/linux/hugetlb.h	2004-02-23 18:15:09.000000000 +0000
++++ current/include/linux/hugetlb.h	2004-03-24 18:01:27.000000000 +0000
+@@ -19,6 +19,7 @@ int hugetlb_prefault(struct address_spac
+ void huge_page_release(struct page *);
+ int hugetlb_report_meminfo(char *);
+ int is_hugepage_mem_enough(size_t);
++unsigned long hugetbl_total_pages(void);
+ struct page *follow_huge_addr(struct mm_struct *mm, struct vm_area_struct =
+*vma,
+ 			unsigned long address, int write);
+ struct vm_area_struct *hugepage_vma(struct mm_struct *mm,
+@@ -48,6 +49,10 @@ static inline int is_vm_hugetlb_page(str
+ {
+ 	return 0;
+ }
++static inline unsigned long hugetlb_total_pages(void)
++{
++	return 0;
++}
+=20
+ #define follow_hugetlb_page(m,v,p,vs,a,b,i)	({ BUG(); 0; })
+ #define follow_huge_addr(mm, vma, addr, write)	0
+diff -X /home/apw/lib/vdiff.excl -rupN reference/security/commoncap.c =
+current/security/commoncap.c
+--- reference/security/commoncap.c	2004-03-24 17:56:50.000000000 +0000
++++ current/security/commoncap.c	2004-03-24 17:57:36.000000000 +0000
+@@ -314,6 +314,13 @@ int cap_vm_enough_memory(int domain, lon
+=20
+ 	vm_acct_memory(domain, pages);
+=20
++	/* Check against the full compliment of hugepages, no reserve. */
++	if (domain =3D=3D VM_AD_HUGETLB) {
++		allowed =3D hugetlb_total_pages();
++
++		goto check;
++	}
++
+ 	/* We only account for the default memory domain, assume overcommit
+ 	 * for all others.
+ 	 */
+@@ -367,6 +374,7 @@ int cap_vm_enough_memory(int domain, lon
+ 	allowed =3D totalram_pages * sysctl_overcommit_ratio / 100;
+ 	allowed +=3D total_swap_pages;
+=20
++check:
+ 	if (atomic_read(&vm_committed_space[domain]) < allowed)
+ 		return 0;
+=20
+diff -X /home/apw/lib/vdiff.excl -rupN reference/security/dummy.c =
+current/security/dummy.c
+--- reference/security/dummy.c	2004-03-24 17:56:50.000000000 +0000
++++ current/security/dummy.c	2004-03-24 17:57:36.000000000 +0000
+@@ -115,6 +115,13 @@ static int dummy_vm_enough_memory(int do
+=20
+ 	vm_acct_memory(domain, pages);
+=20
++	/* Check against the full compliment of hugepages, no reserve. */
++	if (domain =3D=3D VM_AD_HUGETLB) {
++		allowed =3D hugetlb_total_pages();
++
++		goto check;
++	}
++
+ 	/* We only account for the default memory domain, assume overcommit
+ 	 * for all others.
+ 	 */
+diff -X /home/apw/lib/vdiff.excl -rupN reference/security/selinux/hooks.c =
+current/security/selinux/hooks.c
+--- reference/security/selinux/hooks.c	2004-03-24 17:56:50.000000000 +0000
++++ current/security/selinux/hooks.c	2004-03-24 17:57:36.000000000 +0000
+@@ -1505,6 +1505,13 @@ static int selinux_vm_enough_memory(int=20
+=20
+ 	vm_acct_memory(domain, pages);
+=20
++	/* Check against the full compliment of hugepages, no reserve. */
++	if (domain =3D=3D VM_AD_HUGETLB) {
++		allowed =3D hugetlb_total_pages();
++
++		goto check;
++	}
++
+ 	/* We only account for the default memory domain, assume overcommit
+ 	 * for all others.
+ 	 */
 
---==========001BE54C440C32C87FD2==========--
+--==========60A328E7E347DFF585CE==========
+Content-Type: text/plain; charset=iso-8859-1; name="010-overcommit_docs.txt"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment; filename="010-overcommit_docs.txt"; size=2200
+
+---
+ commoncap.c     |    2 +-
+ dummy.c         |    8 ++++++++
+ selinux/hooks.c |    2 +-
+ 3 files changed, 10 insertions(+), 2 deletions(-)
+
+diff -upN reference/security/commoncap.c current/security/commoncap.c
+--- reference/security/commoncap.c	2004-02-23 18:15:19.000000000 +0000
++++ current/security/commoncap.c	2004-03-23 15:29:41.000000000 +0000
+@@ -303,7 +303,7 @@ int cap_syslog (int type)
+  * succeed and -ENOMEM implies there is not.
+  *
+  * We currently support three overcommit policies, which are set via the
+- * vm.overcommit_memory sysctl.  See Documentation/vm/overcommit-acounting
++ * vm.overcommit_memory sysctl.  See =
+Documentation/vm/overcommit-accounting
+  *
+  * Strict overcommit modes added 2002 Feb 26 by Alan Cox.
+  * Additional code 2002 Jul 20 by Robert Love.
+diff -upN reference/security/dummy.c current/security/dummy.c
+--- reference/security/dummy.c	2004-03-11 20:47:31.000000000 +0000
++++ current/security/dummy.c	2004-03-23 15:29:41.000000000 +0000
+@@ -101,6 +101,14 @@ static int dummy_syslog (int type)
+ 	return 0;
+ }
+=20
++/*
++ * Check that a process has enough memory to allocate a new virtual
++ * mapping. 0 means there is enough memory for the allocation to
++ * succeed and -ENOMEM implies there is not.
++ *
++ * We currently support three overcommit policies, which are set via the
++ * vm.overcommit_memory sysctl.  See =
+Documentation/vm/overcommit-accounting
++ */
+ static int dummy_vm_enough_memory(long pages)
+ {
+ 	unsigned long free, allowed;
+diff -upN reference/security/selinux/hooks.c =
+current/security/selinux/hooks.c
+--- reference/security/selinux/hooks.c	2004-03-11 20:47:31.000000000 +0000
++++ current/security/selinux/hooks.c	2004-03-23 15:29:41.000000000 +0000
+@@ -1492,7 +1492,7 @@ static int selinux_syslog(int type)
+  * succeed and -ENOMEM implies there is not.
+  *
+  * We currently support three overcommit policies, which are set via the
+- * vm.overcommit_memory sysctl.  See Documentation/vm/overcommit-acounting
++ * vm.overcommit_memory sysctl.  See =
+Documentation/vm/overcommit-accounting
+  *
+  * Strict overcommit modes added 2002 Feb 26 by Alan Cox.
+  * Additional code 2002 Jul 20 by Robert Love.
+
+--==========60A328E7E347DFF585CE==========--
 
