@@ -1,32 +1,68 @@
-From: Uros Prestor <uros@turbolinux.com>
-Date: Sat, 20 May 2000 03:15:21 +0000
-Subject: Re: [Linux-ia64] IP-relative calls in start.S and initfini.c
-Message-Id: <marc-linux-ia64-105590678205103@msgid-missing>
+From: Trent Mick <trentm@activestate.com>
+Date: Mon, 01 May 2000 18:43:59 +0000
+Subject: [Linux-ia64] bug in fmod on trillian [fmod(-10,1) causes core dump]
+Message-Id: <marc-linux-ia64-105590678205058@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205064@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205064@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-FYI --
+I hope that someone appropriate (i.e. someone at Cygnus or someone on
+ia64-tools) sees this message.
 
-The new gnupro RPM with correct handling of brl instructions is available
-on our FTP site:
+Some arguments to fmod() cause a segmentation fault on trillian. Examples are
+fmod(-10,1), fmod(-10,0.5).
 
-     ftp://ftp.turbolinux.com/pub/ia64/0505/updates/RPMS/ia64/gnupro-2.9-000501p3.ia64.rpm
 
-You will need an updated version of the kernel RPMs (you need at least
-2.3.99-20); the RPMs are also available on our update site.
+Here is a test case:
 
-Uros
+-----------> ls
+Makefile  fmodbug.c
+-----------> cat fmodbug.c
+#include <stdio.h>
+#include <math.h>
+
+int main(void)
+{
+        int i;
+        double d;
+
+        d = fmod(-10.0, 1.0);
+        printf("fmod(-10,1) = %f\n", d);
+
+        return 0;
+}
+-----------> cat Makefile
+all : fmodbug
+
+fmodbug : fmodbug.c
+        gcc -lm fmodbug.c -o fmodbug
+
+test :
+        ./fmodbug
+
+clean :
+        -rm -f fmodbug
+        -rm -f core
+        -rm -f *~
+-----------> make
+gcc -lm fmodbug.c -o fmodbug
+-----------> make test
+./fmodbug
+make: *** [test] Segmentation fault (core dumped)
+----------->
+
+
+I would appreciate a reply if this reaches the proper eyes. Or, if someone
+can tell me to whom this should properly reported...
+
+Thanks,
+Trent
 
 --
-Uros Prestor
-uros@turbolinux.com
-
-
+Trent Mick
+trentm@activestate.com
 
 
 
