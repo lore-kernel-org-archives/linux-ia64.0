@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 07 Nov 2001 02:47:10 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.4.14)
-Message-Id: <marc-linux-ia64-105590698805455@msgid-missing>
+Date: Tue, 27 Nov 2001 05:24:55 +0000
+Subject: [Linux-ia64] kernel update (relative to 2.4.16)
+Message-Id: <marc-linux-ia64-105590698805548@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,42 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 07 Nov 2001 12:48:20 +1100, Keith Owens <kaos@ocs.com.au> said:
+An updated ia64 patch for 2.4.16 is now available at
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/ in file:
 
-  Keith> On Mon, 5 Nov 2001 22:59:53 -0800, 
-  Keith> David Mosberger <davidm@hpl.hp.com> wrote:
-  >> linux-2.4.14-ia64-011105.diff*
-  >> - support non-legacy serial ports via ACPI
+        linux-2.4.16-ia64-011126.diff*
 
-  Keith> Select CONFIG_SERIAL_ACPI, get these errors.
+change log:
 
-  Keith> acpi.c: In function `acpi20_parse':
-  Keith> acpi.c:462: `ACPI_SPCRT_SIG' undeclared (first use in this function)
-  Keith> acpi.c:462: (Each undeclared identifier is reported only once
-  Keith> acpi.c:462: for each function it appears in.)
-  Keith> acpi.c:462: `ACPI_SPCRT_SIG_LEN' undeclared (first use in this function)
-  Keith> acpi.c:463: `ACPI_DBGPT_SIG' undeclared (first use in this function)
-  Keith> acpi.c:463: `ACPI_DBGPT_SIG_LEN' undeclared (first use in this function)
-  Keith> acpi.c:404: warning: `madt' might be used uninitialized in this function
+	- update for 2.4.15/2.4.16:
+		- add show_trace_task()
+		- lots of SGI SN updates (most in "sn" subdirectories)
+		- IA-32 brk() fix by Don Dugger
+	- drop some of the more cosmetic fixes (they will be in the 2.5 tree
+	  instead)
+	- fix EARLY_PRINTK (Tony Luck, I think)
+	- in iosapic.c, move RTE programming to a saner place (Alex Williamson)
+	- fix alignment of bootmap
+	- move machvec_init() a little earlier and call platform_cpu_init() at
+	  end of cpu_init() (Jack Steiner)
+	- swiotlb.c: support "page" member in scatterlist
+	- fix asm clobbers in spinlock.h
+	- add more ACPI tables to asm-ia64/acpi-ext.h
 
-Yes, the patch that was mailed to me had the attached hunk missing.
-If you apply it, it should compile.
+This kernel has been tested with gcc-3.0 on Big Sur and HP Ski
+simulator.  As usual, your mileage may vary.
+
+Enjoy,
 
 	--david
-
---- clean/include/asm-ia64/acpi-ext.h	Tue Nov  6 10:21:28 2001
-+++ merge/include/asm-ia64/acpi-ext.h	Tue Nov  6 10:48:10 2001
-@@ -195,6 +195,12 @@
- #define	ACPI20_ENTRY_PIS_CPEI	3
- #define	ACPI_MAX_PLATFORM_IRQS	4
- 
-+#define ACPI_SPCRT_SIG	"SPCR"
-+#define ACPI_SPCRT_SIG_LEN 4
-+
-+#define ACPI_DBGPT_SIG	"DBGP"
-+#define ACPI_DBGPT_SIG_LEN 4
-+
- extern int acpi20_parse(acpi20_rsdp_t *);
- extern int acpi_parse(acpi_rsdp_t *);
- extern const char *acpi_get_sysname (void);
 
