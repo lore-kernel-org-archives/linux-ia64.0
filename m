@@ -1,91 +1,158 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Thu, 05 Dec 2002 20:28:40 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Fri, 06 Dec 2002 04:47:00 +0000
 Subject: [Linux-ia64] Beta version of pfmon-2.0 available for testing
-Message-Id: <marc-linux-ia64-105590709805507@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805510@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590709805507@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805507@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello everyone,
+Thankyou thankyou thankyou for the man pages...
 
-I have made available for TESTING/REVIEW a beta of version 2.0 of the pfmon 
-PMU-based monitoring tool for Linux/ia64. Depending on the feedback, I should
-release final version on Monday Dec 16th.
+I had  a few difficulties  building debian packages from the source
+tarballs.
 
-There is no major overhaul of the tool despite the new major version 
-number. This changes is dictated by the fact that the library (libpfm)
-on which pfmon is based is now a separate package called libpfm. The 
-licence of the library was changed from GPL to MIT-style licence to allow
-more diverse use (see http://www.opensource.org for details).
+1.  there are argument problems with debstd and dpkg-genchanges (fix
+below)
+2.  Two packages are created with overlapping contents for the library
+packages... not what's wanted I think.
 
-Highlights of the changes:
---------------------------
+Here's a patch that fixes those things.
 
-	1/ pfmon
+diff -r -u libpfm-2.0/debian/libpfm-dev.dirs libpfm_2.0/debian/libpfm-dev.dirs
+--- libpfm-2.0/debian/libpfm-dev.dirs   2002-11-22 05:52:46.000000000 +1100
++++ libpfm_2.0/debian/libpfm-dev.dirs   2002-12-06 15:14:00.000000000 +1100
+@@ -1,3 +1,3 @@
+-/usr/share/doc
++/usr/share/doc/libpfm-dev
+ /usr
+ /usr/include
+Only in libpfm_2.0/debian: libpfm-dev.examples
+diff -r -u libpfm-2.0/debian/libpfm-dev.files libpfm_2.0/debian/libpfm-dev.files
+--- libpfm-2.0/debian/libpfm-dev.files  2002-11-22 05:55:13.000000000 +1100
++++ libpfm_2.0/debian/libpfm-dev.files  2002-12-06 15:41:48.000000000 +1100
+@@ -1,21 +1,51 @@
+-/usr/share/doc/freesmpl.c
+-/usr/share/doc/ita2_irr.c
+-/usr/share/doc/ita2_opcode.c
+-/usr/share/doc/ita2_rr.c
+-/usr/share/doc/ita_btb.c
+-/usr/share/doc/ita_irr.c
+-/usr/share/doc/ita_opcode.c
+-/usr/share/doc/ita_rr.c
+-/usr/share/doc/notify_self.c
+-/usr/share/doc/self.c
+-/usr/share/doc/showreset.c
+-/usr/share/doc/syst.c
+-/usr/share/doc/task.c
+-/usr/share/doc/whichpmu.c
+-/usr/lib/libpfm.a
+-/usr/include/perfmon/perfmon.h
+-/usr/include/perfmon/pfmlib.h
+-/usr/include/perfmon/pfmlib_itanium.h
+-/usr/include/perfmon/pfmlib_itanium2.h
+-/usr/include/perfmon/pfmlib_compiler.h
+-/usr/include/perfmon/pfm_siginfo.h
++usr/share/doc/libpfm-dev/examples/freesmpl.c
++usr/share/doc/libpfm-dev/examples/ita2_irr.c
++usr/share/doc/libpfm-dev/examples/ita2_opcode.c
++usr/share/doc/libpfm-dev/examples/ita2_rr.c
++usr/share/doc/libpfm-dev/examples/ita_btb.c
++usr/share/doc/libpfm-dev/examples/ita_irr.c
++usr/share/doc/libpfm-dev/examples/ita_opcode.c
++usr/share/doc/libpfm-dev/examples/ita_rr.c
++usr/share/doc/libpfm-dev/examples/notify_self.c
++usr/share/doc/libpfm-dev/examples/self.c
++usr/share/doc/libpfm-dev/examples/showreset.c
++usr/share/doc/libpfm-dev/examples/syst.c
++usr/share/doc/libpfm-dev/examples/task.c
++usr/share/doc/libpfm-dev/examples/whichpmu.c
++usr/lib/libpfm.a
++usr/include/perfmon/perfmon.h
++usr/include/perfmon/pfmlib.h
++usr/include/perfmon/pfmlib_itanium.h
++usr/include/perfmon/pfmlib_itanium2.h
++usr/include/perfmon/pfmlib_generic.h
++usr/include/perfmon/pfmlib_compiler.h
++usr/include/perfmon/pfm_siginfo.h
++usr/share/man/man3/libpfm.3
++usr/share/man/man3/libpfm_itanium.3
++usr/share/man/man3/libpfm_itanium2.3
++usr/share/man/man3/pfm_dispatch_events.3
++usr/share/man/man3/pfm_find_event.3
++usr/share/man/man3/pfm_find_event_bycode.3
++usr/share/man/man3/pfm_find_event_bycode_next.3
++usr/share/man/man3/pfm_find_event_byname.3
++usr/share/man/man3/pfm_force_pmu.3
++usr/share/man/man3/pfm_get_event_code.3
++usr/share/man/man3/pfm_get_event_counters.3
++usr/share/man/man3/pfm_get_event_name.3
++usr/share/man/man3/pfm_get_first_event.3
++usr/share/man/man3/pfm_get_impl_counters.3
++usr/share/man/man3/pfm_get_impl_pmcs.3
++usr/share/man/man3/pfm_get_impl_pmds.3
++usr/share/man/man3/pfm_get_next_event.3
++usr/share/man/man3/pfm_get_num_counters.3
++usr/share/man/man3/pfm_get_pmu_name.3
++usr/share/man/man3/pfm_get_pmu_name_bytype.3
++usr/share/man/man3/pfm_get_pmu_type.3
++usr/share/man/man3/pfm_get_version.3
++usr/share/man/man3/pfm_initialize.3
++usr/share/man/man3/pfm_list_supported_pmus.3
++usr/share/man/man3/pfm_pmu_is_supported.3
++usr/share/man/man3/pfm_set_options.3
++usr/share/man/man3/pfm_start.3
++usr/share/man/man3/pfm_stop.3
++usr/share/man/man3/pfm_strerror.3
+diff -r -u libpfm-2.0/debian/libpfm.dirs libpfm_2.0/debian/libpfm.dirs
+--- libpfm-2.0/debian/libpfm.dirs       2002-11-22 05:50:57.000000000 +1100
++++ libpfm_2.0/debian/libpfm.dirs       2002-12-06 15:31:14.000000000 +1100
+@@ -1 +1 @@
+-/usr/lib
++usr/lib
+diff -r -u libpfm-2.0/debian/libpfm.files libpfm_2.0/debian/libpfm.files
+--- libpfm-2.0/debian/libpfm.files      2002-11-22 05:51:27.000000000 +1100
++++ libpfm_2.0/debian/libpfm.files      2002-12-06 15:31:17.000000000 +1100
+@@ -1 +1 @@
+-/usr/lib/libpfm.so.2.0.0
++usr/lib/libpfm.so.2.0.0
+diff -r -u libpfm-2.0/debian/rules libpfm_2.0/debian/rules
+--- libpfm-2.0/debian/rules     2002-11-21 14:01:38.000000000 +1100
++++ libpfm_2.0/debian/rules     2002-12-06 15:37:27.000000000 +1100
+@@ -14,7 +14,7 @@
+        -rm -f build
+        -$(MAKE) distclean
+        -rm -f `find . -name "*~"`
+-       -rm -rf debian/tmp debian/files* core debian/substvars
++       -rm -rf debian/tmp debian/files* core debian/substvars debian/libpfm-dev debian/libpfm
 
-		- support for sampling period randomization. The mechanisms
-		  uses a bitmask and a seed per counters. The random sequence
-		  is fully determined by the seed, allowing identical reruns
-		  (--smpl-periods-randomize).
+ binary-indep: checkroot build
+        $(checkdir)
+@@ -26,12 +26,12 @@
+        $(checkdir)
+        -rm -rf debian/tmp
+        install -d debian/tmp
+-       cd debian/tmp && install -d `cat ../dirs`
++       cd debian/tmp && install -d `cat ../libpfm.dirs`
+        $(MAKE) install DESTDIR=`pwd`/debian/tmp/usr
+ # Must have debmake installed for this to work. Otherwise please copy
+ # /usr/bin/debstd into the debian directory and change debstd to
+debian/debstd
+-       debstd ChangeLog README TODO
+-       dpkg-gencontrol -isp
++       debstd ChangeLog TODO
++       dpkg-gencontrol -is -p${package}
+        chown -R root.root debian/tmp
+        chmod -R go=rX debian/tmp
+        dpkg --build debian/tmp ..
 
-		- support for monitoring at privilege level 1 & 2 (-1, -2).
 
-		- a new option to activate monitoring after a certain number 
-		  of seconds (--trigger-start-delay).
 
-		- a lot of bug fixes related to Itanium2 (BTB) and sampling.
+--
+Dr Peter Chubb				    peterc@gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories, all almost the same.
 
-		- a lot of code cleanup and simplifications.
-
-		- more checking on event combinations.
-
-		- updated documentation (see in docs).
-		
-	2/ libpfm
-		- changed pfmlib_param_t structure to include the pfarg_reg_t table.
-
-		- changed interface to pfm_dispatch_events().
-
-		- man pages for all possible calls, generic and model specific.
-
-		- simplified pfm_find_*() interface
-
-		- support for shared version of the library.
-
-		- a lot of bug fixes and code cleanups.
-
-Thanks to the UIUC Impact Compiler Team, David Mosberger, Elias Mizan, and Dan Magenheimer
-for submitting bug reports and patches.
-
-IMPORTANT NOTES:
-----------------
-- Randomization requires kernel support. You need the upcoming 2.4.20 or 2.5.39 (or higher)
-  for this to work.
-
-- Due to the interface change in the library, existing applications need to be updated.
-  Follow documentation and look at the code examples in the library package.
-
-The preliminary packages are available in full source tarball and RPM formats from:
-
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-2.0.tar.gz
-		MD5SUM: 361e5a882c35555644ea15bcf90ca3ee
-
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/pfmon-2.0-1.ia64.rpm
-		MD5SUM: 93db4e84ee00951eb53b22985e77b640
-	
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/libpfm-2.0.tar.gz
-		MD5SUM: c8fc6826c53eb315a0e95b26e413db62
-
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/libpfm-2.0-1.ia64.rpm
-		MD5SUM: b4d48e728e4c8cc9d145cd72b4b84385
-
-		ftp://ftp.hpl.hp.com/pub/linux-ia64/libpfm-devel-2.0-1.ia64.rpm
-		MD5SUM: 55ab9766a42b5115d65e73b1e05a80a9
-
-Enjoy,
-
--- 
--Stephane
 
