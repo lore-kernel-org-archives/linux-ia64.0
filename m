@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Wed, 30 Jul 2003 16:15:47 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 30 Jul 2003 22:07:34 +0000
 Subject: Re: A new patch for hint_pause
-Message-Id: <marc-linux-ia64-105958187408535@msgid-missing>
+Message-Id: <marc-linux-ia64-105960301403916@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105951916520159@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105951916520159@msgid-missing>
@@ -10,23 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jul 30, 2003 at 09:12:03AM -0700, Jesse Barnes wrote:
-> On Wed, Jul 30, 2003 at 08:51:37AM -0700, H. J. Lu wrote:
-> > On Wed, Jul 30, 2003 at 08:31:18AM -0700, Jesse Barnes wrote:
-> > > So all of this is in the latest CVS version of binutils?  Any idea when
-> > > a release version will support the new features?
-> > > 
-> > 
-> > I released the Linux binutils 2.14.90.0.4.1 on 06/24/2003 and the
-> > current one is 2.14.90.0.5 which was released on 07/22/2003.
+On Tuesday 29 July 2003 6:11 pm, Chris Wedgwood wrote:
+> On Tue, Jul 29, 2003 at 04:51:14PM -0600, Bjorn Helgaas wrote:
 > 
-> I see them now--at the redhat site, earlier I was looking at gnu.org.
+> > +$(warning Warning: Please use binutil version 2.14.90.0.4.1 or higher to get the support of hint instruction in kernel.) 
 > 
+> Making a new binutils a requirement would be considered too drastic?
 
-FYI, the Linux binutils is available at
+I think the new binutils is a requirement for 2.5/2.6, but I didn't want
+to force that for 2.4.
 
-http://www.kernel.org/pub/linux/devel/binutils/
+Bjorn
 
-
-
-H.J.
