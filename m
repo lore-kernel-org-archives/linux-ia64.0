@@ -1,10 +1,10 @@
 From: David Brownell <david-b@pacbell.net>
-Date: Sat, 06 Mar 2004 16:37:43 +0000
+Date: Sat, 06 Mar 2004 17:30:31 +0000
 Subject: Re: [linux-usb-devel] Re: serious 2.6 bug in USB subsystem?
-Message-Id: <4049FE57.2060809@pacbell.net>
+Message-Id: <404A0AB7.5020603@pacbell.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>	<20031028013013.GA3991@kroah.com>	<200310280300.h9S30Hkw003073@napali.hpl.hp.com>	<3FA12A2E.4090308@pacbell.net>	<16289.29015.81760.774530@napali.hpl.hp.com>	<16289.55171.278494.17172@napali.hpl.hp.com>	<3FA28C9A.5010608@pacbell.net>	<16457.12968.365287.561596@napali.hpl.hp.com>	<404959A5.6040809@pacbell.net> <16457.26208.980359.82768@napali.hpl.hp.com>
-In-Reply-To: <16457.26208.980359.82768@napali.hpl.hp.com>
+References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>	<20031028013013.GA3991@kroah.com>	<200310280300.h9S30Hkw003073@napali.hpl.hp.com>	<3FA12A2E.4090308@pacbell.net>	<16289.29015.81760.774530@napali.hpl.hp.com>	<16289.55171.278494.17172@napali.hpl.hp.com>	<3FA28C9A.5010608@pacbell.net>	<16457.12968.365287.561596@napali.hpl.hp.com>	<404959A5.6040809@pacbell.net> <16457.38721.119739.816533@napali.hpl.hp.com>
+In-Reply-To: <16457.38721.119739.816533@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -13,55 +13,45 @@ Cc: Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge
 
 David Mosberger wrote:
 
->   David.B> The reason I keep ending up thinking that readl-elimination
->   David.B> must be OK (me agreeing with Martin) is that the memory
->   David.B> there came from dma_alloc_coherent() ... so if anything's
->   David.B> wrong, it'd be at most lack of rmb(), not a stale-cache
->   David.B> kind of thing.
-> 
-> It's not an issue of DMA coherency, it's an issue of DMA vs. interrupt
-> ordering.  I believe the WHD interrupt is arriving at the CPU before
+> Here is patch #3.  It also Works For Me.  I was wondering whether it
 
-Which is what I sketched to Martin, as the reason to be interested
-in a patch that was equivalent to your second patch.
-
-Unfortunately that doesn't check out as being "the" fix here.
-Martin still saw the problem.  (And I don't see how it'd be
-what gave me several hard lockups ... but it didn't work either,
-and the day before, without that change, no lockup.)
+I've had several "Works For Me" patches too, but then if the
+silicion got kicked a bit differently it'd not behave... :(
 
 
-> the DMA update to the HCCA is done.  In my second patch, the readl()
-> at the beginning of the interrupt ensures that the DMA update to
-> the HCCA is completed before the readl() returns data.
+> it is really safe to mess with the OHCI control registers the way
+> ed_deschedule() does at a time the OHCI is running.  To test this
 
-DMA-coherent memory is defined as "memory for which a write by either
-the device or the processor can immediately be read by the processor
-or device without having to worry about caching effects."  Such a
-write-buffering mechanism is clearly a type of (write-)caching effect,
-and readl() would be a kind of dma_rmb(), if you will.  I suspect the
-docs are wrong about what dma-coherent means.
+It must be, or we'd not have had a driver working for several
+years now!
+
+The quick stop/restart cycles haven't seemed to be a problem
+with any OHCI silicion in the way they are with, for example,
+VIA EHCI.
 
 
-> If this is correct, then the first patch is probably a better
-> approach:
-> 
-> ...
-> -	ed->tick = OHCI_FRAME_NO(ohci->hcca) + 1;
-> +	ed->tick = OHCI_FRAME_NO(ohci->hcca) + 2;
-> ..
-> 
-> This actually makes tons of sense if you think of it like jiffies: you
-> need to make sure you delay at least one full frame-interval.  
+> theory, I delayed the ed_deschedule() handling to finish_unlinks(), as
+> shown in the patch below.  I don't know whether this is really safe as
+> far as the host's lists are concerned, but it does avoid the crashes.
 
-Right, I had that theory too.  As I reported, it doesn't check out
-as the only issue.  Plus, even assuming it's correct, adding another
-millisecond slows down some common operations even more.  I'd rather
-just slow down just the "right" paths, rather than all of them ... :)
+My suspicions have been focussing on finish_unlinks().
+
+That's really the only place the HCD does anything
+that could corrupt the ED queues, which is what looks
+to be happening.
+
+Your change doesn't actually _unlink_ in the same way;
+interesting change, I'll have to think about it.  It
+certainly changes timings.
+
+
+> What's the argument as to why it's safe to update the OHCI control
+> registers in ed_deschedule() at the time start_ed_unlink() is running?
+
+It's always safe to update those registers, except
+that some silicon doesn't support that while the
+controller is suspended.
 
 - Dave
-
-
-
 
 
