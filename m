@@ -1,31 +1,65 @@
-From: Steve Neuner <srn@sgi.com>
-Date: Mon, 05 May 2003 15:46:49 +0000
-Subject: Re: [Linux-ia64] benchmarking results
-Message-Id: <marc-linux-ia64-105590723705636@msgid-missing>
+From: Martin Pool <mbp@samba.org>
+Date: Fri, 02 May 2003 06:43:37 +0000
+Subject: [Linux-ia64] avoid exceptions in copy_from_user?
+Message-Id: <marc-linux-ia64-105590723705628@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705621@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705621@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Maybe in all the cases I can see NUMA architectures and not find references
-> related to what kind of scheduler was used older sched, O(1) or HT? 
+This is probably a flawed idea but I was just curious: could the
+kernel use speculative loads to avoid taking exceptions when a
+copy_from_user or related function faults?  (Something like the
+routine below.)
 
-Hi Adriano,
+I thought that if the chk.s instructions could fit into otherwise
+unused slots, then failing copies would avoid needing to take an
+interrupt and search the fixup table, and could instead branch
+directly to the code to clean up and return.
 
-On the SGI Altix system we've been getting good results with the
-O(1) scheduler.  
+I suspect the answer is that it's not worthwhile, because if the copy
+fails then the kernel is about to go and do something expensive like
+paging or killing the task, and so a little more overhead is not
+important, and anyhow adding instructions to the non-failing case is
+undesirable.
 
-> The limits of the bricks for SMP are 4 proc, how could I assume linear
-> scalability for 8 proc having memory latency accesing the others bricks
-> through R-Brick maybe?
 
-There are many factors that can affect getting good "scalability" beyond
-8p (e.g., hardware design, kernel scalability, user v. kernel workload, 
-user app scalability, I/O subsystem, etc) -- having a good hardware design 
-with a fast system interconnect is essential.
+// int readit(int *a)
+// return the contents of a, or -1 if a is not a valid pointer
 
---steve
+.text
+	.align 16
+	.global readit#
+	.proc readit#
+readit:
+	.prologue
+	// one input, no locals
+	alloc r2 = ar.pfs, 1, 0, 0, 0
+	
+	.body
+
+	// Try to read the thing
+	ld8.s ret0 = [in0]
+	;;
+
+	// Did we break?
+	chk.s ret0, .recovery
+	
+	// Return
+	br.ret.sptk.many b0
+
+.recovery:	
+	mov	ret0 = -1
+	;; 
+	br.ret.sptk.many b0
+
+	.end readit#
+
+
+-- 
+Martin 
+
+
+
 
