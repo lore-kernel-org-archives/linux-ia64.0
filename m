@@ -1,34 +1,31 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 13 Oct 2003 20:28:45 +0000
-Subject: [PATCH 2.6] cannot convert region 5 address to physical by clearing bits 63:61
-Message-Id: <marc-linux-ia64-106607712621564@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 15 Oct 2003 23:58:45 +0000
+Subject: important fsyscall bug fix (affects McKinley only)
+Message-Id: <marc-linux-ia64-106626252723372@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Another no-brainer bug fix snipped out of the quagmire of
-the MCA/TLB patch.  This one is for 2.6 only, we must use
-the new LOAD_PHYSICAL() macro to get the physical address of
-the code label that we want to jump to, the INST_VA_TO_PA()
-macro just clears the region bits, which only works for region
-7 addresses.
+While working on a lightweight version of sigprocmask(), I discovered
+that the McKinley E9 workaround had exactly the opposite effect from
+what was intended: it was supposed to ensure that we always return at
+priv level 3, and instead it caused us to always return at priv level
+0!  Fortunately, the fix is pretty simple and the whole patch can be
+found here:
 
--Tony
+  http://lia64.bkbits.net:8080/linux-ia64-2.5/cset@1.1512.1.22
 
+Since the fsyscall stubs aren't in wide-spread use yet, I doubt this
+bug will affect many people, but clearly it would have been a problem
+going forward.  Also, remember that the workaround is needed only for
+McKinley.  Merced and Madison are both OK in this regard.
 
---- old/include/asm-ia64/mca_asm.h	2003-10-13 13:08:34.474305508 -0700
-+++ new/include/asm-ia64/mca_asm.h	2003-10-13 13:09:57.289734181 -0700
-@@ -110,10 +110,9 @@
- 	;;										\
- 	dep	temp1 = -1, temp1, PSR_MC, 1;						\
- 	;;										\
--	movl	temp2 = start_addr;							\
- 	mov	cr.ipsr = temp1;							\
- 	;;										\
--	INST_VA_TO_PA(temp2);								\
-+	LOAD_PHYSICAL(p0, temp2, start_addr);						\
- 	;;										\
- 	mov	cr.iip = temp2;								\
- 	mov	cr.ifs = r0;								\
+The above patch also includes the sigprocmask() light-weight handler
+because it's easiest to observe the bug with this handler (since it's
+invoked via an inlined syscall; non-inlined syscalls mask the problem,
+because they'll return immediately with br.ret again, which drops the
+privilege level back to 3).
+
+	--david
