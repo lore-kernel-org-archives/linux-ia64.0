@@ -1,32 +1,63 @@
-From: Jim Wilson <wilson@specifixinc.com>
-Date: Mon, 20 Oct 2003 22:24:12 +0000
-Subject: RE: WAW dependency messages
-Message-Id: <marc-linux-ia64-106668880406921@msgid-missing>
+From: John Levon <levon@movementarian.org>
+Date: Tue, 07 Oct 2003 23:27:51 +0000
+Subject: OProfile vs. Perfmon
+Message-Id: <marc-linux-ia64-106556940523002@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106625678318659@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106625678318659@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2003-10-15 at 18:34, Chen, Kenneth W wrote:
-> Oddly enough, "as test.S" doesn't have warning message, but "as -x
-> test.S" does.  gcc is execve with "as -x" which triggers the warning
-> message.
 
-GNU as only does DV checking if the -x option is specified.
+2.6 still lacks proper OProfile support. Will Cohen's older patch was
+rejected due to issues over lack of re-use of the perfmon interface.
 
-The DV checking stuff was never properly finished.  It should be enabled
-by default.  And we should emit errors instead of warnings for provable
-DVs.  However, if we did that, we would then have the problem that false
-positives from bugs would prevent the compiler from working.  So we
-would have to add an option to disable DV checking and have the compiler
-emit it.  But then we would have the problem that the compiler output
-would not get any DV checking from the assembler, which is a worse
-problem than what we have now.  We really need to get the bugs fixed
-first, and then emit errors by default for DVs.  I'm glad to see that HJ
-has time to work on these problems.
+I've been looking briefly at perfmon just now, and wanted to gather your
+thoughts on the best way this needs to be integrated.
+
+First, what OProfile needs :
+
+o some way to set up the counter values
+o system-wide statistical profiling
+o an in-kernel notification on counter overflow, and reset of the
+  counter value at that point
+o some way to mark each generated event by a small integer value and the
+  IP saved at the time of the overflow interrupt
+
+And that's it, I think.
+
+Previously mentioned was the suggestion that OProfile kernel glue should
+hook into perfmon's custom buffer API. Having looked briefly at it, it
+seems the perfmon core has a lot of buffer management code, that we
+really do not want to use, as it would massively complicate the
+arch-independent oprofile core. IOW, the overflow handler would feed
+straight into oprofile_add_sample().  In effect, all we need is to be
+able to receive the overflow interrupts.
+
+It certainly looks like this is easy enough.
+
+The next issue is setting up the counters. Basically the userspace
+should be using pfmlib to program the required events, and using
+sys_perfmonctl to set up a system-wide session. From oprofiled's point
+of view, it would basically write the pmc's, create a session, and start
+the profiling.
+
+I'm a bit baffled by the code concerning ctx_cpu in system-wide mode. Is
+user-space supposed to figure out how many CPUs are up and create a
+context for each of them ? In particular:
+
+   4229         the_cpu = ctx->ctx_cpu = smp_processor_id();
+
+I cannot make head or tail of why the CPU that happens to be running the
+task calling sys_perfmonctl() is relevant at all to system-wide
+profiling. Can someone explain ?
+
+Finally, is the above summary roughly accurate, and are there any
+pitfalls I might need to watch out for ?
+
+thanks,
+john
+
 -- 
-Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
-
+Khendon's Law:
+If the same point is made twice by the same person, the thread is over.
