@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 11 Jul 2003 18:30:31 +0000
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Wed, 16 Jul 2003 03:16:12 +0000
 Subject: RE: 2.5.75 out
-Message-Id: <marc-linux-ia64-105795124111262@msgid-missing>
+Message-Id: <marc-linux-ia64-105832538631884@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105788013113852@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105788013113852@msgid-missing>
@@ -9,6 +9,27 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+David,
+
+The straightforward patch is ready.
+My part of  the patch for removing #ifdef CONFIG_IA64 in ACPI generic code is ready too.
+
+Wilcox,
+Is patch for PCI domain-releated stuff ready? (I'm not sure),
+
+I want Andy to apply the straightforward patch first, then apply the patches for generic code.
+
+Thanks,
+Luming
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
+Sent: 2003?7?12? 2:31
+To: Yu, Luming
+Cc: Chen, Kenneth W; Peter Chubb; davidm@hpl.hp.com; linux-ia64@vger.kernel.org
+Subject: RE: 2.5.75 out
+
 
 Luming,
 
