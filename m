@@ -1,7 +1,7 @@
-From: stefan <stefan@lkcc.org>
-Date: Thu, 27 Sep 2001 07:31:25 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 27 Sep 2001 17:38:34 +0000
 Subject: Re: [Linux-ia64] use of setcontext()/getcontext()
-Message-Id: <marc-linux-ia64-105590698805266@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805269@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805251@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805251@msgid-missing>
@@ -10,45 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 26 Sep 2001, David Mosberger wrote:
+>>>>> On Thu, 27 Sep 2001 09:31:25 +0200 (CEST), stefan <stefan@lkcc.org> said:
 
-> >From this description, it sounds like you'd want to use swapcontext().
-> I don't quite understand your pseudo-code though (what's are
-> save_both_stacks()/restore_both_stacks() supposed to do?).
-> 
-> I do agree though that it would be nice to have a portable and
-> thread-safe way of determining whether or not a getcontext() is
-> returning for the first time.  On ia64, I made getcontext() return
-> this information in register r9, but that's obviously not a portable
-> solution.
+  stefan> Some more details about the pseudo code:
 
-Some more details about the pseudo code:
+  stefan> [snip]
 
-save_both_stacks:
-  ucontext_t ctx;
-  long size;
-  void *backing_store, *stack;
-  getcontext (&ctx);
+  stefan> Does this explain it better ?
 
-  /* save backing store */
-  size = ctx.uc_mcontext.sc_ar_bsp -
-         __libc_ia64_resgister_backing_store_base;
-  backing_store = malloc (size);
-  memcpy (backing_store, __libc_ia64_register_backing_store_base, size);
+Yes, I understand now what you're trying to do.
 
-  /* save stack */
-  size = top_of_stack - (long) &ctx;
-  stack = malloc (size);
-  memcpy (stack, &ctx, size);
+  stefan> I guess I can't just read r9 for the above purpose ?
 
-restore_both_stacks:
-  /* does the opposite; puts the save data back onto same addresses */
+I suppose you could.  Since the solution will be platform-dependent no
+matter how you slice it, you might just as well rely on the ia64 linux
+specific behavior of getcontext().  Below is a code fragment that shows
+how swapcontext() can be implemented on ia64 linux.  You can use the
+same approach for your case.
 
-Does this explain it better ?
+	--david
 
-I guess I can't just read r9 for the above purpose ?
+struct rv
+  {
+    long retval;
+    long first_return;
+  };
 
-Cheers,
-	stefan@lkcc.org
-
+int
+swapcontext (ucontext_t *oucp, const ucontext_t *ucp)
+{
+  struct rv rv = getcontext (oucp);
+  if (rv.first_return)
+    setcontext (ucp);
+  return 0;
+}
 
