@@ -1,137 +1,45 @@
-From: Mark Goodwin <markgw@sgi.com>
-Date: Fri, 22 Oct 2004 03:05:03 +0000
-Subject: [PATCH SGI SN] sn_hwperf correctly handle bricks with multiple slabs
-Message-Id: <Pine.LNX.4.61.0410221300250.8495@woolami.melbourne.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="243703863-362512575-1098414223=:8495"
+From: Jason Uhlenkott <jasonuhl@sgi.com>
+Date: Sun, 24 Oct 2004 00:47:15 +0000
+Subject: [PATCH] fix pgtable.h comments
+Message-Id: <20041024004715.GA391294@dragonfly.csd.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Remove some statements from comments in <asm-ia64/pgtable.h> whose
+correctness is page size dependent.
 
---243703863-362512575-1098414223=:8495
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; FORMAT=flowed
-Content-ID: <Pine.LNX.4.61.0410221303521.8495@woolami.melbourne.sgi.com>
+Signed-off-by: Jason Uhlenkott <jasonuhl@sgi.com>
 
-
-The procfs handler for /proc/sgi_sn/sn_topology did
-not correctly handle multiple slabs in the same brick,
-e.g. a brick containing a compute node and an ionode.
-
-Tony, could you please apply.
-
-Thanks
-
-Signed-off-by: Mark Goodwin <markgw@sgi.com>
---243703863-362512575-1098414223=:8495
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="sn_hwperf_slabsfix.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.61.0410221303430.8495@woolami.melbourne.sgi.com>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME="sn_hwperf_slabsfix.patch"
-
-PT09PT0gYXJjaC9pYTY0L3NuL2tlcm5lbC9zbjIvc25faHdwZXJmLmMgMS40
-IHZzIGVkaXRlZCA9PT09PQ0KLS0tIDEuNC9hcmNoL2lhNjQvc24va2VybmVs
-L3NuMi9zbl9od3BlcmYuYwkyMDA0LTEwLTIxIDA2OjM4OjM1ICsxMDowMA0K
-KysrIGVkaXRlZC9hcmNoL2lhNjQvc24va2VybmVsL3NuMi9zbl9od3BlcmYu
-YwkyMDA0LTEwLTIyIDExOjE1OjQyICsxMDowMA0KQEAgLTk5LDcgKzk5LDcg
-QEANCiAJCXRoaXNfc2xvdCA9IE1PRFVMRV9HRVRfQlBPUyhtb2R1bGVfaWQp
-Ow0KIAkJdGhpc19zbGFiID0gZ2VvX3NsYWIoZ2VvaWQpOw0KIAkJaWYgKHJh
-Y2sgPT0gdGhpc19yYWNrICYmIHNsb3QgPT0gdGhpc19zbG90ICYmIHNsYWIg
-PT0gdGhpc19zbGFiKQ0KLQkJCQlicmVhazsNCisJCQlicmVhazsNCiAJfQ0K
-IA0KIAlyZXR1cm4gY25vZGUgPCBudW1pb25vZGVzID8gY25vZGUgOiAtMTsN
-CkBAIC0xMjEsNDEgKzEyMSwzNSBAQA0KIAlmb3IgKG9yZGluYWw9MCwgcD1v
-YmpzOyBwICE9IG9iajsgcCsrKSB7DQogCQlpZiAoU05fSFdQRVJGX0ZPUkVJ
-R04ocCkpDQogCQkJY29udGludWU7DQotCQlpZiAocC0+bG9jYXRpb25bM10g
-PT0gb2JqLT5sb2NhdGlvblszXSkNCisJCWlmIChTTl9IV1BFUkZfU0FNRV9P
-QkpUWVBFKHAsIG9iaikpDQogCQkJb3JkaW5hbCsrOw0KIAl9DQogDQogCXJl
-dHVybiBvcmRpbmFsOw0KIH0NCiANCi1zdGF0aWMgc3RydWN0IHsNCi0gICAg
-ICAgIGNoYXIJKmJyaWNrX2NoYXJzOw0KLSAgICAgICAgY2hhcgkqYnJpY2tf
-bmFtZTsNCi19IGJyaWNrX25hbWVzW10gPSB7DQotICAgICAgICB7ImNeamJm
-IiwgICAJIm5vZGUiCQl9LA0KLSAgICAgICAgeyJyIiwgICAJInJvdXRlciIJ
-fSwJDQotCXtOVUxMLAkJIj8tYnJpY2siCX0NCi19Ow0KK3N0YXRpYyBjb25z
-dCBjaGFyICpzbGFibmFtZV9ub2RlID0JIm5vZGUiOyAvKiBTSHViIGFzaWMg
-Ki8NCitzdGF0aWMgY29uc3QgY2hhciAqc2xhYm5hbWVfaW9ub2RlID0JImlv
-bm9kZSI7IC8qIFRJTyBhc2ljICovDQorc3RhdGljIGNvbnN0IGNoYXIgKnNs
-YWJuYW1lX3JvdXRlciA9CSJyb3V0ZXIiOyAvKiBOTDNSIG9yIE5MNFIgKi8N
-CitzdGF0aWMgY29uc3QgY2hhciAqc2xhYm5hbWVfb3RoZXIgPQkib3RoZXIi
-OyAvKiB1bmtub3duIGFzaWMgKi8NCiANCi1zdGF0aWMgY2hhciAqc25faHdw
-ZXJmX2dldF9icmlja25hbWUoc3RydWN0IHNuX2h3cGVyZl9vYmplY3RfaW5m
-byAqb2JqLA0KK3N0YXRpYyBjb25zdCBjaGFyICpzbl9od3BlcmZfZ2V0X3Ns
-YWJuYW1lKHN0cnVjdCBzbl9od3BlcmZfb2JqZWN0X2luZm8gKm9iaiwNCiAJ
-CQlzdHJ1Y3Qgc25faHdwZXJmX29iamVjdF9pbmZvICpvYmpzLCBpbnQgKm9y
-ZGluYWwpDQogew0KLQlpbnQgaTsNCi0NCi0JZm9yIChpPTA7IGJyaWNrX25h
-bWVzW2ldLmJyaWNrX2NoYXJzOyBpKyspIHsNCi0JCWlmIChzdHJjaHIoYnJp
-Y2tfbmFtZXNbaV0uYnJpY2tfY2hhcnMsIG9iai0+bG9jYXRpb25bM10pKQ0K
-LQkJCWJyZWFrOw0KLQl9DQorCWludCBpc25vZGU7DQorCWNvbnN0IGNoYXIg
-KnNsYWJuYW1lID0gc2xhYm5hbWVfb3RoZXI7DQogDQotCWlmIChzdHJjbXAo
-YnJpY2tfbmFtZXNbaV0uYnJpY2tfbmFtZSwgIm5vZGUiKSA9PSAwKQ0KKwlp
-ZiAoKGlzbm9kZSA9IFNOX0hXUEVSRl9JU19OT0RFKG9iaikpIHx8IFNOX0hX
-UEVSRl9JU19JT05PREUob2JqKSkgew0KKwkgICAgCXNsYWJuYW1lID0gaXNu
-b2RlID8gc2xhYm5hbWVfbm9kZSA6IHNsYWJuYW1lX2lvbm9kZTsNCiAJCSpv
-cmRpbmFsID0gc25faHdwZXJmX29ial90b19jbm9kZShvYmopOw0KKwl9DQog
-CWVsc2Ugew0KIAkJKm9yZGluYWwgPSBzbl9od3BlcmZfZ2VuZXJpY19vcmRp
-bmFsKG9iaiwgb2Jqcyk7DQotCQlpZiAoIWJyaWNrX25hbWVzW2ldLmJyaWNr
-X2NoYXJzKQ0KLQkJCWJyaWNrX25hbWVzW2ldLmJyaWNrX25hbWVbMF0gPSBv
-YmotPmxvY2F0aW9uWzNdOw0KKwkJaWYgKFNOX0hXUEVSRl9JU19ST1VURVIo
-b2JqKSkNCisJCQlzbGFibmFtZSA9IHNsYWJuYW1lX3JvdXRlcjsNCiAJfQ0K
-IA0KLQlyZXR1cm4gYnJpY2tfbmFtZXNbaV0uYnJpY2tfbmFtZTsNCisJcmV0
-dXJuIHNsYWJuYW1lOw0KIH0NCiANCiBzdGF0aWMgaW50IHNuX3RvcG9sb2d5
-X3Nob3coc3RydWN0IHNlcV9maWxlICpzLCB2b2lkICpkKQ0KQEAgLTE2NSw3
-ICsxNTksNyBAQA0KIAlpbnQgZTsNCiAJaW50IGk7DQogCWludCBqOw0KLQlj
-b25zdCBjaGFyICpicmlja25hbWU7DQorCWNvbnN0IGNoYXIgKnNsYWJuYW1l
-Ow0KIAlpbnQgb3JkaW5hbDsNCiAJY3B1bWFza190IGNwdW1hc2s7DQogCWNo
-YXIgc2xpY2U7DQpAQCAtMTkxLDExICsxODUsMTEgQEANCiAJCQlvYmotPm5h
-bWVbaV0gPSAnXyc7DQogCX0NCiANCi0JYnJpY2tuYW1lID0gc25faHdwZXJm
-X2dldF9icmlja25hbWUob2JqLCBvYmpzLCAmb3JkaW5hbCk7DQotCXNlcV9w
-cmludGYocywgIiVzICVkICVzICVzIGFzaWMgJXMiLCBicmlja25hbWUsIG9y
-ZGluYWwsIG9iai0+bG9jYXRpb24sDQorCXNsYWJuYW1lID0gc25faHdwZXJm
-X2dldF9zbGFibmFtZShvYmosIG9ianMsICZvcmRpbmFsKTsNCisJc2VxX3By
-aW50ZihzLCAiJXMgJWQgJXMgJXMgYXNpYyAlcyIsIHNsYWJuYW1lLCBvcmRp
-bmFsLCBvYmotPmxvY2F0aW9uLA0KIAkJb2JqLT5zbl9od3BfdGhpc19wYXJ0
-ID8gImxvY2FsIiA6ICJzaGFyZWQiLCBvYmotPm5hbWUpOw0KIA0KLQlpZiAo
-c3RyY21wKGJyaWNrbmFtZSwgIm5vZGUiKSAhPSAwKQ0KKwlpZiAoIVNOX0hX
-UEVSRl9JU19OT0RFKG9iaikgJiYgIVNOX0hXUEVSRl9JU19JT05PREUob2Jq
-KSkNCiAJCXNlcV9wdXRjKHMsICdcbicpOw0KIAllbHNlIHsNCiAJCXNlcV9w
-cmludGYocywgIiwgbmFzaWQgMHgleCIsIGNub2RlaWRfdG9fbmFzaWQob3Jk
-aW5hbCkpOw0KQEAgLTIwNiw3ICsyMDAsNyBAQA0KIAkJc2VxX3B1dGMocywg
-J1xuJyk7DQogDQogCQkvKg0KLQkJICogQ1BVcyBvbiB0aGlzIG5vZGUNCisJ
-CSAqIENQVXMgb24gdGhpcyBub2RlLCBpZiBhbnkNCiAJCSAqLw0KIAkJY3B1
-bWFzayA9IG5vZGVfdG9fY3B1bWFzayhvcmRpbmFsKTsNCiAJCWZvcl9lYWNo
-X29ubGluZV9jcHUoaSkgew0KQEAgLTI3OCw5ICsyNzIsOCBAQA0KIAkJCSAq
-Lw0KIAkJCXNlcV9wcmludGYocywgIiBlbmRwb2ludCAlcy0lZCwgcHJvdG9j
-b2wgJXNcbiIsDQogCQkJCXAtPmxvY2F0aW9uLCBwdGRhdGFbcHRdLmNvbm5f
-cG9ydCwNCi0JCQkJc3RyY21wKG9iai0+bmFtZSwgIk5MM1JvdXRlciIpID09
-IDAgfHwNCi0JCQkJc3RyY21wKHAtPm5hbWUsICJOTDNSb3V0ZXIiKSA9PSAw
-ID8NCi0JCQkJIkxMUDMiIDogIkxMUDQiKTsNCisJCQkJKFNOX0hXUEVSRl9J
-U19OTDNST1VURVIob2JqKSB8fA0KKwkJCQlTTl9IV1BFUkZfSVNfTkwzUk9V
-VEVSKHApKSA/ICAiTExQMyIgOiAiTExQNCIpOw0KIAkJfQ0KIAkJdmZyZWUo
-cHRkYXRhKTsNCiAJfQ0KPT09PT0gaW5jbHVkZS9hc20taWE2NC9zbi9zbjIv
-c25faHdwZXJmLmggMS4xIHZzIGVkaXRlZCA9PT09PQ0KLS0tIDEuMS9pbmNs
-dWRlL2FzbS1pYTY0L3NuL3NuMi9zbl9od3BlcmYuaAkyMDA0LTA5LTE3IDA4
-OjE4OjI5ICsxMDowMA0KKysrIGVkaXRlZC9pbmNsdWRlL2FzbS1pYTY0L3Nu
-L3NuMi9zbl9od3BlcmYuaAkyMDA0LTEwLTIyIDExOjE2OjQ1ICsxMDowMA0K
-QEAgLTQxLDcgKzQxLDE1IEBADQogI2RlZmluZSBzbl9od3BfaXNfc2hhcmVk
-CWYuZmllbGRzLmlzX3NoYXJlZA0KICNkZWZpbmUgc25faHdwX2ZsYWdzCQlm
-LmIuZmxhZ3MNCiANCi0jZGVmaW5lIFNOX0hXUEVSRl9GT1JFSUdOKHgpCSgh
-KHgpLT5zbl9od3BfdGhpc19wYXJ0ICYmICEoeCktPnNuX2h3cF9pc19zaGFy
-ZWQpDQorLyogbWFjcm9zIGZvciBvYmplY3QgY2xhc3NpZmljYXRpb24gKi8N
-CisjZGVmaW5lIFNOX0hXUEVSRl9JU19OT0RFKHgpCQkoKHgpICYmIHN0cnN0
-cigoeCktPm5hbWUsICJTSHViIikpDQorI2RlZmluZSBTTl9IV1BFUkZfSVNf
-SU9OT0RFKHgpCQkoKHgpICYmIHN0cnN0cigoeCktPm5hbWUsICJUSU8iKSkN
-CisjZGVmaW5lIFNOX0hXUEVSRl9JU19ST1VURVIoeCkJCSgoeCkgJiYgc3Ry
-c3RyKCh4KS0+bmFtZSwgIlJvdXRlciIpKQ0KKyNkZWZpbmUgU05fSFdQRVJG
-X0lTX05MM1JPVVRFUih4KQkoKHgpICYmIHN0cnN0cigoeCktPm5hbWUsICJO
-TDNSb3V0ZXIiKSkNCisjZGVmaW5lIFNOX0hXUEVSRl9GT1JFSUdOKHgpCQko
-KHgpICYmICEoeCktPnNuX2h3cF90aGlzX3BhcnQgJiYgISh4KS0+c25faHdw
-X2lzX3NoYXJlZCkNCisjZGVmaW5lIFNOX0hXUEVSRl9TQU1FX09CSlRZUEUo
-eCx5KQkoKFNOX0hXUEVSRl9JU19OT0RFKHgpICYmIFNOX0hXUEVSRl9JU19O
-T0RFKHkpKSB8fFwNCisJCQkJCShTTl9IV1BFUkZfSVNfSU9OT0RFKHgpICYm
-IFNOX0hXUEVSRl9JU19JT05PREUoeSkpIHx8XA0KKwkJCQkJKFNOX0hXUEVS
-Rl9JU19ST1VURVIoeCkgJiYgU05fSFdQRVJGX0lTX1JPVVRFUih5KSkpDQog
-DQogLyogbnVtYSBwb3J0IHN0cnVjdHVyZSwgU05fSFdQRVJGX0VOVU1fUE9S
-VFMgcmV0dXJucyBhbiBhcnJheSBvZiB0aGVzZSAqLw0KIHN0cnVjdCBzbl9o
-d3BlcmZfcG9ydF9pbmZvIHsNCg==
-
---243703863-362512575-1098414223=:8495--
+--- a/include/asm-ia64/pgtable.h	2004-10-23 16:56:50.000000000 -0700
++++ b/include/asm-ia64/pgtable.h	2004-10-23 17:31:12.000000000 -0700
+@@ -6,7 +6,7 @@
+  * the IA-64 page table tree.
+  *
+  * This hopefully works with any (fixed) IA-64 page-size, as defined
+- * in <asm/page.h> (currently 8192).
++ * in <asm/page.h>.
+  *
+  * Copyright (C) 1998-2004 Hewlett-Packard Co
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
+@@ -309,15 +309,15 @@
+ }
+ 
+ /* The offset in the 1-level directory is given by the 3 region bits
+-   (61..63) and the seven level-1 bits (33-39).  */
++   (61..63) and the level-1 bits.  */
+ static inline pgd_t*
+ pgd_offset (struct mm_struct *mm, unsigned long address)
+ {
+ 	return mm->pgd + pgd_index(address);
+ }
+ 
+-/* In the kernel's mapped region we have a full 43 bit space available and completely
+-   ignore the region number (since we know its in region number 5). */
++/* In the kernel's mapped region we completely ignore the region number
++   (since we know it's in region number 5). */
+ #define pgd_offset_k(addr) \
+ 	(init_mm.pgd + (((addr) >> PGDIR_SHIFT) & (PTRS_PER_PGD - 1)))
+ 
