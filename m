@@ -1,684 +1,465 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Fri, 24 Sep 2004 23:48:38 +0000
-Subject: Re: PATCH-ACPI based CPU hotplug[5/6]-ACPI processor driver extension
-Message-Id: <20040924164837.E27778@unix-os.sc.intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Fri, 17 Sep 2004 12:00:35 +0000
+Subject: Re: [RFC&PATCH 1/2] PCI Error Recovery (readX_check)
+Message-Id: <414AD1E3.8040703@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com> <20040920094352.G14208@unix-os.sc.intel.com>
-In-Reply-To: <20040920094352.G14208-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Mon, Sep 20, 2004 at 09:43:52AM -0700
+References: <412FDE7B.3070609@jp.fujitsu.com>
+In-Reply-To: <412FDE7B.3070609@jp.fujitsu.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
-Cc: Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ACPI Developer <acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, LHNS list <lhns-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, Linux IA64 <linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Grant Grundler <iod00d@hp.com>, Linus Torvalds <torvalds@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>
 
-On Mon, Sep 20, 2004 at 09:43:52AM -0700, Keshavamurthy Anil S wrote:
-> Changes form previous version
-> 1) Added depends on EXPERIMENTAL in kconfig file
-Changes from previous version
-	Added prink for ACPI_NOTIFY_BUS_CHECK and for ACPI_NOTIFY_DEVICE_CHECK bas=
-ed on
-the community feedback.=20
+Last month I wrote:
+> I understand the needs of Documentation/pci-errors.txt for driver 
+> developers,
+
+So I wrote the document and here it is.
+I'd fully appreciate it if someone could proofread this document.
+
+Thanks,
+H.Seto
+
+#####
+
+		Description about error recovery on PCI
+
+	by Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> on Sep-2004
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This document describes about the implementation and usage of driver APIs
+to enable error detection and how to make PCI/PCI-X transactions safe.
 
 
----
-Name:processor_drv.patch
-Status:Tested on 2.6.9-rc2
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-Depends:=09
-Version: applies on 2.6.9-rc2=09
-Description:
-Extends the processor driver to support ACPI based Physical CPU hotplug.
 
----
+1. Resources used in PCI recovery
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
- include/linux/cpu.h                               |    0=20
- kernel/cpu.c                                      |    0=20
- linux-2.6.9-rc2-askeshav/drivers/acpi/Kconfig     |    8=20
- linux-2.6.9-rc2-askeshav/drivers/acpi/processor.c |  485 +++++++++++++++++=
-+----
- 4 files changed, 424 insertions(+), 69 deletions(-)
+Generally, system has multiple PCI buses, every bus could have multiple
+devices, and bus could be connected to another bus by bus bridge.
+Every (PCI-to-PCI)bridge is also handled as a PCI device.
 
-diff -puN drivers/acpi/Kconfig~processor_drv drivers/acpi/Kconfig
---- linux-2.6.9-rc2/drivers/acpi/Kconfig~processor_drv	2004-09-24 15:26:30.=
-480114232 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/acpi/Kconfig	2004-09-24 15:26:30.58753=
-6106 -0700
-@@ -129,6 +129,14 @@ config ACPI_PROCESSOR
- 	  ACPI C2 and C3 processor states to save power, on systems that
- 	  support it.
-=20
-+config ACPI_HOTPLUG_CPU
-+	bool "Processor Hotplug (EXPERIMENTAL)"
-+	depends on ACPI_PROCESSOR && HOTPLUG_CPU && EXPERIMENTAL
-+	depends on !IA64_SGI_SN
-+	default n
-+	 ---help---
-+	 Select this option if your platform support physical CPU hotplug.
-+
- config ACPI_THERMAL
- 	tristate "Thermal Zone"
- 	depends on ACPI_PROCESSOR
-diff -puN include/linux/cpu.h~processor_drv include/linux/cpu.h
-diff -puN kernel/cpu.c~processor_drv kernel/cpu.c
-diff -puN drivers/acpi/processor.c~processor_drv drivers/acpi/processor.c
---- linux-2.6.9-rc2/drivers/acpi/processor.c~processor_drv	2004-09-24 15:26=
-:30.495739232 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/acpi/processor.c	2004-09-24 15:26:30.5=
-91442356 -0700
-@@ -4,6 +4,8 @@
-  *  Copyright (C) 2001, 2002 Andy Grover <andrew.grover@intel.com>
-  *  Copyright (C) 2001, 2002 Paul Diefenbaugh <paul.s.diefenbaugh@intel.co=
-m>
-  *  Copyright (C) 2004       Dominik Brodowski <linux@brodo.de>
-+ *  Copyright (C) 2004  Anil S Keshavamurthy <anil.s.keshavamurthy@intel.c=
-om>
-+ *  			- Added processor hotplug support
-  *
-  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~=
-~~~
-  *
-@@ -37,11 +39,13 @@
- #include <linux/pci.h>
- #include <linux/pm.h>
- #include <linux/cpufreq.h>
-+#include <linux/cpu.h>
- #include <linux/proc_fs.h>
- #include <linux/seq_file.h>
-=20
- #include <asm/io.h>
- #include <asm/system.h>
-+#include <asm/cpu.h>
- #include <asm/delay.h>
- #include <asm/uaccess.h>
- #include <asm/processor.h>
-@@ -69,10 +73,11 @@
- #define C2_OVERHEAD			4	/* 1us (3.579 ticks per us) */
- #define C3_OVERHEAD			4	/* 1us (3.579 ticks per us) */
-=20
--
- #define ACPI_PROCESSOR_LIMIT_USER	0
- #define ACPI_PROCESSOR_LIMIT_THERMAL	1
-=20
-+#define ACPI_STA_PRESENT 0x00000001
-+
- #define _COMPONENT		ACPI_PROCESSOR_COMPONENT
- ACPI_MODULE_NAME		("acpi_processor")
-=20
-@@ -82,12 +87,16 @@ MODULE_LICENSE("GPL");
-=20
-=20
- static int acpi_processor_add (struct acpi_device *device);
-+static int acpi_processor_start (struct acpi_device *device);
- static int acpi_processor_remove (struct acpi_device *device, int type);
- static int acpi_processor_info_open_fs(struct inode *inode, struct file *f=
-ile);
- static int acpi_processor_throttling_open_fs(struct inode *inode, struct f=
-ile *file);
- static int acpi_processor_power_open_fs(struct inode *inode, struct file *=
-file);
- static int acpi_processor_limit_open_fs(struct inode *inode, struct file *=
-file);
- static int acpi_processor_get_limit_info(struct acpi_processor *pr);
-+static void acpi_processor_notify ( acpi_handle	handle, u32 event, void *d=
-ata);
-+static acpi_status acpi_processor_hotadd_init(acpi_handle handle, int *p_c=
-pu);
-+static int acpi_processor_handle_eject(struct acpi_processor *pr);
-=20
- static struct acpi_driver acpi_processor_driver =3D {
- 	.name =3D		ACPI_PROCESSOR_DRIVER_NAME,
-@@ -96,9 +105,12 @@ static struct acpi_driver acpi_processor
- 	.ops =3D		{
- 				.add =3D		acpi_processor_add,
- 				.remove =3D	acpi_processor_remove,
-+				.start	=3D 	acpi_processor_start,
- 			},
- };
-=20
-+#define INSTALL_NOTIFY_HANDLER		1
-+#define UNINSTALL_NOTIFY_HANDLER	2
-=20
- struct acpi_processor_errata {
- 	u8			smp;
-@@ -2237,23 +2249,30 @@ acpi_processor_get_info (
-=20
- 	cpu_index =3D convert_acpiid_to_cpu(pr->acpi_id);
-=20
--	if ( !cpu0_initialized && (cpu_index =3D 0xff)) {
--		/* Handle UP system running SMP kernel, with no LAPIC in MADT */
--		cpu_index =3D 0;
--	} else if (cpu_index > num_online_cpus()) {
--		/*
--		 *  Extra Processor objects may be enumerated on MP systems with
--		 *  less than the max # of CPUs. They should be ignored.
--		 */
--		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
--			"Error getting cpuindex for acpiid 0x%x\n",
--			pr->acpi_id));
--		return_VALUE(-ENODEV);
--	}
--	cpu0_initialized =3D 1;
--
--	pr->id =3D cpu_index;
--
-+  	/* Handle UP system running SMP kernel, with no LAPIC in MADT */
-+  	if ( !cpu0_initialized && (cpu_index =3D 0xff) &&
-+  		       	(num_online_cpus() =3D 1)) {
-+   		cpu_index =3D 0;
-+   	}
-+
-+   	cpu0_initialized =3D 1;
-+
-+   	pr->id =3D cpu_index;
-+
-+  	/*
-+  	 *  Extra Processor objects may be enumerated on MP systems with
-+  	 *  less than the max # of CPUs. They should be ignored _iff
-+  	 *  they are physically not present.
-+  	 */
-+   	if (cpu_index >=3D  NR_CPUS) {
-+   		if (ACPI_FAILURE(acpi_processor_hotadd_init(pr->handle, &pr->id))) {
-+   			ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+   				"Error getting cpuindex for acpiid 0x%x\n",
-+   				pr->acpi_id));
-+   			return_VALUE(-ENODEV);
-+   		}
-+    	}
-+=20
- 	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Processor [%d:%d]\n", pr->id,=20
- 		pr->acpi_id));
-=20
-@@ -2292,6 +2311,65 @@ acpi_processor_get_info (
- }
-=20
-=20
-+static int
-+acpi_processor_start(
-+	struct acpi_device	*device)
-+{
-+	int			result =3D 0;
-+	acpi_status		status =3D AE_OK;
-+	u32			i =3D 0;
-+	struct acpi_processor	*pr;
-+
-+	ACPI_FUNCTION_TRACE("acpi_processor_start");
-+
-+	pr =3D acpi_driver_data(device);
-+
-+	result =3D acpi_processor_get_info(pr);
-+	if (result) {
-+		/* Processor is physically not present */
-+		return_VALUE(0);
-+	}
-+
-+	BUG_ON((pr->id >=3D NR_CPUS) || (pr->id < 0));
-+
-+	processors[pr->id] =3D pr;
-+
-+	result =3D acpi_processor_add_fs(device);
-+	if (result)
-+		goto end;
-+
-+	status =3D acpi_install_notify_handler(pr->handle, ACPI_DEVICE_NOTIFY,
-+		acpi_processor_notify, pr);
-+	if (ACPI_FAILURE(status)) {
-+		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+			"Error installing device notify handler\n"));
-+	}
-+
-+	/*
-+	 * Install the idle handler if processor power management is supported.
-+	 * Note that the default idle handler (default_idle) will be used on
-+	 * platforms that only support C1.
-+	 */
-+	if ((pr->id =3D 0) && (pr->flags.power)) {
-+		pm_idle_save =3D pm_idle;
-+		pm_idle =3D acpi_processor_idle;
-+	}
-+
-+	printk(KERN_INFO PREFIX "%s [%s] (supports",
-+		acpi_device_name(device), acpi_device_bid(device));
-+	for (i=3D1; i<ACPI_C_STATE_COUNT; i++)
-+		if (pr->power.states[i].valid)
-+			printk(" C%d", i);
-+	if (pr->flags.throttling)
-+		printk(", %d throttling states", pr->throttling.state_count);
-+	printk(")\n");
-+end:
-+
-+	return_VALUE(result);
-+}
-+
-+
-+
- static void
- acpi_processor_notify (
- 	acpi_handle		handle,
-@@ -2333,10 +2411,7 @@ static int
- acpi_processor_add (
- 	struct acpi_device	*device)
- {
--	int			result =3D 0;
--	acpi_status		status =3D AE_OK;
- 	struct acpi_processor	*pr =3D NULL;
--	u32			i =3D 0;
-=20
- 	ACPI_FUNCTION_TRACE("acpi_processor_add");
-=20
-@@ -2353,51 +2428,7 @@ acpi_processor_add (
- 	strcpy(acpi_device_class(device), ACPI_PROCESSOR_CLASS);
- 	acpi_driver_data(device) =3D pr;
-=20
--	result =3D acpi_processor_get_info(pr);
--	if (result)
--		goto end;
--
--	result =3D acpi_processor_add_fs(device);
--	if (result)
--		goto end;
--
--	status =3D acpi_install_notify_handler(pr->handle, ACPI_DEVICE_NOTIFY,=20
--		acpi_processor_notify, pr);
--	if (ACPI_FAILURE(status)) {
--		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,=20
--			"Error installing notify handler\n"));
--		result =3D -ENODEV;
--		goto end;
--	}
--
--	processors[pr->id] =3D pr;
--
--	/*
--	 * Install the idle handler if processor power management is supported.
--	 * Note that the default idle handler (default_idle) will be used on=20
--	 * platforms that only support C1.
--	 */
--	if ((pr->id =3D 0) && (pr->flags.power)) {
--		pm_idle_save =3D pm_idle;
--		pm_idle =3D acpi_processor_idle;
--	}
--=09
--	printk(KERN_INFO PREFIX "%s [%s] (supports",
--		acpi_device_name(device), acpi_device_bid(device));
--	for (i=3D1; i<ACPI_C_STATE_COUNT; i++)
--		if (pr->power.states[i].valid)
--			printk(" C%d", i);
--	if (pr->flags.throttling)
--		printk(", %d throttling states", pr->throttling.state_count);
--	printk(")\n");
--
--end:
--	if (result) {
--		acpi_processor_remove_fs(device);
--		kfree(pr);
--	}
--
--	return_VALUE(result);
-+	return_VALUE(0);
- }
-=20
-=20
-@@ -2416,17 +2447,27 @@ acpi_processor_remove (
-=20
- 	pr =3D (struct acpi_processor *) acpi_driver_data(device);
-=20
-+	if (pr->id >=3D NR_CPUS) {
-+		kfree(pr);
-+		return_VALUE(0);
-+	}
-+
-+	if (type =3D ACPI_BUS_REMOVAL_EJECT) {
-+		if (acpi_processor_handle_eject(pr))
-+			return_VALUE(-EINVAL);
-+	}
-+
- 	/* Unregister the idle handler when processor #0 is removed. */
- 	if (pr->id =3D 0) {
- 		pm_idle =3D pm_idle_save;
- 		synchronize_kernel();
- 	}
-=20
--	status =3D acpi_remove_notify_handler(pr->handle, ACPI_DEVICE_NOTIFY,=20
-+	status =3D acpi_remove_notify_handler(pr->handle, ACPI_DEVICE_NOTIFY,
- 		acpi_processor_notify);
- 	if (ACPI_FAILURE(status)) {
--		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,=20
--			"Error removing notify handler\n"));
-+		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+			"Error removing device notify handler\n"));
- 	}
-=20
- 	acpi_processor_remove_fs(device);
-@@ -2439,6 +2480,308 @@ acpi_processor_remove (
- }
-=20
-=20
-+#ifdef CONFIG_ACPI_HOTPLUG_CPU
-+/*************************************************************************=
-***
-+ * 	Acpi processor hotplug support 				       	    *
-+ *************************************************************************=
-***/
-+
-+static int is_processor_present(acpi_handle handle);
-+
-+static int
-+processor_run_sbin_hotplug(struct acpi_device *device,
-+	       int cpu, char *action)
-+{
-+	char *argv[3], *envp[7], action_str[32], cpu_str[15];
-+	int i, ret;
-+	int len;
-+	char pathname[ACPI_PATHNAME_MAX] =3D {0};
-+	acpi_status status;
-+	char *processor_str;
-+	struct acpi_buffer buffer =3D {ACPI_PATHNAME_MAX, pathname};
-+
-+	ACPI_FUNCTION_TRACE("processor_run_sbin_hotplug");
-+
-+
-+	status =3D acpi_get_name(device->handle, ACPI_FULL_PATHNAME, &buffer);
-+	if (ACPI_FAILURE(status)) {
-+		return(-ENODEV);
-+	}
-+
-+	len =3D strlen("PROCESSOR=3D") + strlen(pathname) + 1;
-+	processor_str =3D kmalloc(len, GFP_KERNEL);
-+	if (!processor_str)
-+		return(-ENOMEM);
-+
-+	sprintf(processor_str, "PROCESSOR=3D%s",pathname);
-+	sprintf(action_str, "ACTION=3D%s", action);
-+	sprintf(cpu_str, "CPU=3D%d", cpu);
-+
-+	i =3D 0;
-+	argv[i++] =3D hotplug_path;
-+	argv[i++] =3D "cpu";
-+	argv[i] =3D NULL;
-+
-+	i =3D 0;
-+	envp[i++] =3D "HOME=3D/";
-+	envp[i++] =3D "PATH=3D/sbin;/bin;/usr/sbin;/usr/bin";
-+	envp[i++] =3D action_str;
-+	envp[i++] =3D processor_str;
-+	envp[i++] =3D cpu_str;
-+	envp[i++] =3D "PLATFORM=ACPI";
-+	envp[i] =3D NULL;
-+
-+	ret =3D call_usermodehelper(argv[0], argv, envp, 0);
-+
-+	kfree(processor_str);
-+	return_VALUE(ret);
-+}
-+
-+
-+static int
-+is_processor_present(
-+	acpi_handle handle)
-+{
-+	acpi_status 		status;
-+	unsigned long		sta =3D 0;
-+
-+	ACPI_FUNCTION_TRACE("is_processor_present");
-+
-+	status =3D acpi_evaluate_integer(handle, "_STA", NULL, &sta);
-+	if (ACPI_FAILURE(status) || !(sta & ACPI_STA_PRESENT)) {
-+		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+			"Processor Device is not present\n"));
-+		return_VALUE(0);
-+	}
-+	return_VALUE(1);
-+}
-+
-+
-+static
-+int acpi_processor_device_add(
-+	acpi_handle	handle,
-+	struct acpi_device **device)
-+{
-+	acpi_handle		phandle;
-+	struct acpi_device 	*pdev;
-+	struct acpi_processor	*pr;
-+
-+	ACPI_FUNCTION_TRACE("acpi_processor_device_add");
-+
-+	if (acpi_get_parent(handle, &phandle)) {
-+		return_VALUE(-ENODEV);
-+	}
-+
-+	if (acpi_bus_get_device(phandle, &pdev)) {
-+		return_VALUE(-ENODEV);
-+	}
-+
-+	if (acpi_bus_add(device, pdev, handle, ACPI_BUS_TYPE_PROCESSOR)) {
-+		return_VALUE(-ENODEV);
-+	}
-+
-+	acpi_bus_scan(*device);
-+
-+	pr =3D acpi_driver_data(*device);
-+	if (!pr)
-+		return_VALUE(-ENODEV);
-+
-+	if ((pr->id >=3D0) && (pr->id < NR_CPUS)) {
-+		processor_run_sbin_hotplug(*device, pr->id, "add");
-+	}
-+	return_VALUE(0);
-+}
-+
-+
-+static void
-+acpi_processor_hotplug_notify (
-+	acpi_handle		handle,
-+	u32			event,
-+	void			*data)
-+{
-+	struct acpi_processor	*pr;
-+	struct acpi_device	*device =3D NULL;
-+	int result;
-+
-+	ACPI_FUNCTION_TRACE("acpi_processor_hotplug_notify");
-+
-+	switch (event) {
-+	case ACPI_NOTIFY_BUS_CHECK:
-+	case ACPI_NOTIFY_DEVICE_CHECK:
-+		printk("Processor driver received %s event\n",
-+			(event=3DACPI_NOTIFY_BUS_CHECK)?
-+			"ACPI_NOTIFY_BUS_CHECK":"ACPI_NOTIFY_DEVICE_CHECK");
-+
-+		if (!is_processor_present(handle))
-+			break;
-+
-+		if (acpi_bus_get_device(handle, &device)) {
-+			result =3D acpi_processor_device_add(handle, &device);
-+			if (result)
-+				ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+					"Unable to add the device\n"));
-+			break;
-+		}
-+
-+		pr =3D acpi_driver_data(device);
-+		if (!pr) {
-+			ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+				"Driver data is NULL\n"));
-+			break;
-+		}
-+	=09
-+		if (pr->id >=3D 0 && (pr->id < NR_CPUS)) {
-+			processor_run_sbin_hotplug(device, pr->id, "remove");
-+			break;
-+		}
-+
-+		result =3D acpi_processor_start(device);
-+		if ((!result) && ((pr->id >=3D0) && (pr->id < NR_CPUS))) {
-+			processor_run_sbin_hotplug(device, pr->id, "add");
-+		} else {
-+			ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-+				"Device [%s] failed to start\n",
-+				acpi_device_bid(device)));
-+		}
-+	break;
-+	case ACPI_NOTIFY_EJECT_REQUEST:
-+		ACPI_DEBUG_PRINT((ACPI_DB_INFO,"received ACPI_NOTIFY_EJECT_REQUEST\n"));
-+
-+		if (acpi_bus_get_device(handle, &device)) {
-+			ACPI_DEBUG_PRINT((ACPI_DB_ERROR,"Device don't exist, dropping EJECT\n")=
-);
-+			break;
-+		}
-+		pr =3D acpi_driver_data(device);
-+		if (!pr) {
-+			ACPI_DEBUG_PRINT((ACPI_DB_ERROR,"Driver data is NULL, dropping EJECT\n"=
-));
-+			return_VOID;
-+		}
-+
-+		if ((pr->id < NR_CPUS) && (cpu_present(pr->id)))
-+			processor_run_sbin_hotplug(device, pr->id, "remove");
-+		break;
-+	default:
-+		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
-+			"Unsupported event [0x%x]\n", event));
-+		break;
-+	}
-+
-+	return_VOID;
-+}
-+
-+static acpi_status
-+processor_walk_namespace_cb(acpi_handle handle,
-+	u32 lvl,
-+	void *context,
-+	void **rv)
-+{
-+	acpi_status 			status;
-+	int *action =3D context;
-+	acpi_object_type	type =3D 0;
-+
-+	status =3D acpi_get_type(handle, &type);
-+	if (ACPI_FAILURE(status))
-+		return(AE_OK);
-+
-+	if (type !=3D ACPI_TYPE_PROCESSOR)
-+		return(AE_OK);
-+
-+	switch(*action) {
-+	case INSTALL_NOTIFY_HANDLER:
-+		acpi_install_notify_handler(handle,
-+			ACPI_SYSTEM_NOTIFY,
-+			acpi_processor_hotplug_notify,
-+			NULL);
-+		break;
-+	case UNINSTALL_NOTIFY_HANDLER:
-+		acpi_remove_notify_handler(handle,
-+			ACPI_SYSTEM_NOTIFY,
-+			acpi_processor_hotplug_notify);
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return(AE_OK);
-+}
-+
-+
-+static acpi_status
-+acpi_processor_hotadd_init(
-+	acpi_handle		handle,
-+	int			*p_cpu)
-+{
-+	ACPI_FUNCTION_TRACE("acpi_processor_hotadd_init");
-+=09
-+	if (!is_processor_present(handle)) {
-+		return_VALUE(AE_ERROR);
-+	}
-+
-+	if (acpi_map_lsapic(handle, p_cpu))
-+		return_VALUE(AE_ERROR);
-+
-+	if (arch_register_cpu(*p_cpu)) {
-+		acpi_unmap_lsapic(*p_cpu);
-+		return_VALUE(AE_ERROR);
-+	}
-+
-+	return_VALUE(AE_OK);
-+}
-+
-+
-+static int
-+acpi_processor_handle_eject(struct acpi_processor *pr)
-+{
-+	if (cpu_online(pr->id)) {
-+		return(-EINVAL);
-+	}
-+	arch_unregister_cpu(pr->id);
-+	acpi_unmap_lsapic(pr->id);
-+	return(0);
-+}
-+#else
-+static acpi_status
-+acpi_processor_hotadd_init(
-+	acpi_handle		handle,
-+	int			*p_cpu)
-+{
-+	return AE_ERROR;
-+}
-+static int
-+acpi_processor_handle_eject(struct acpi_processor *pr)
-+{
-+	return(-EINVAL);
-+}
-+#endif
-+
-+
-+static
-+void acpi_processor_install_hotplug_notify(void)
-+{
-+#ifdef CONFIG_ACPI_HOTPLUG_CPU
-+	int action =3D INSTALL_NOTIFY_HANDLER;
-+	acpi_walk_namespace(ACPI_TYPE_PROCESSOR,
-+				     ACPI_ROOT_OBJECT,
-+				     ACPI_UINT32_MAX,
-+				     processor_walk_namespace_cb,
-+				     &action, NULL);
-+#endif
-+}
-+
-+
-+static
-+void acpi_processor_uninstall_hotplug_notify(void)
-+{
-+#ifdef CONFIG_ACPI_HOTPLUG_CPU
-+	int action =3D UNINSTALL_NOTIFY_HANDLER;
-+	acpi_walk_namespace(ACPI_TYPE_PROCESSOR,
-+				     ACPI_ROOT_OBJECT,
-+				     ACPI_UINT32_MAX,
-+				     processor_walk_namespace_cb,
-+				     &action, NULL);
-+#endif
-+}
-+
-+
- static int __init
- acpi_processor_init (void)
- {
-@@ -2460,6 +2803,8 @@ acpi_processor_init (void)
- 		return_VALUE(-ENODEV);
- 	}
-=20
-+	acpi_processor_install_hotplug_notify();
-+
- 	acpi_thermal_cpufreq_init();
-=20
- 	acpi_processor_ppc_init();
-@@ -2477,6 +2822,8 @@ acpi_processor_exit (void)
-=20
- 	acpi_thermal_cpufreq_exit();
-=20
-+	acpi_processor_uninstall_hotplug_notify();
-+
- 	acpi_bus_unregister_driver(&acpi_processor_driver);
-=20
- 	remove_proc_entry(ACPI_PROCESSOR_CLASS, acpi_root_dir);
-_
+Often host bus bridge(Host-to-PCI bridge, connecting PCI system to the host)
+is also implemented as a PCI device, but this is not always true since
+it isn't definitely defined in the PCI specification.
+
+Normal(Non-bridge) PCI device has a set of status register for itself,
+and bridge has 2 sets of status register for both of its neighbor buses.
+
+Device driver can notice an error on the device by checking the status
+register of device. And also the driver could check the status registers
+of bridge for errors on bus.
+
+Note that the status register of bridge could be referred from multiple
+device drivers because the bus under the bridge could have multiple devices.
+
+Successful recovery relies on the PCI-X bus protocol, where devices
+report data parity errors to their device drivers instead of causing
+the chipset to generate a fatal error (ex. MCA on ia64) to the system.
+
+Resources you can use for recovery are:
+
+   - PCI-X bus protocol support (requirement)
+   - status register of device
+   - status register of bridge
+   - status register of host bus bridge (if available)
+
+
+
+2. Which is recoverable?
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+Errors during PCI/PCI-X transactions are reported by PERR# or SERR# signals.
+
+SERR# indicates a severe system error in the system that makes it impossible
+to continue operation of the system. Generally SERR# is translated to a fatal
+error which result in a system shut down.
+
+PERR# indicates parity error during the data phase. Devices should be report
+and detect data parity errors. Since there are only few platforms supporting
+PCI error recovery, there is a traditional abuse that many platforms are
+configured to escalate recoverable PERR#s as fatal SERR#s without any try.
+
+PERR#s on the PCI/PCI-X bus can affect the following transaction:
+
+   - I/O read
+   - I/O write
+   - Memory-mapped I/O read
+   - Memory-mapped I/O write
+   - DMA from memory to device
+   - DMA from device to memory
+
+Now we are taking them into the scope of what the PCI error recovery is
+trying to support.
+
+   I/O read:
+   Memory-mapped I/O read:
+
+     In case of memory-mapped I/O read(transfer from a device to a CPU),
+     errors occurred on the path(bus) is not detectable on the device.
+     In such case, we should check the status of bridge.
+
+     However, usually there are multiple devices under the one bridge,
+     the status register of bridge is a shared resource of devices.
+     So it could happen the status indicating an error caused by one device
+     could be referred or cleared by drivers handling other device under
+     the same bridge.
+
+     Therefore some negotiations are required to access the status register
+     of bridges.
+
+   I/O write:
+   Memory-mapped I/O write:
+
+     In case of memory-mapped I/O write(transfer from a CPU to a device),
+     since errors occurred on the path(bus) come down to the destination,
+     errors are detectable on the device.
+
+     But also here is a traditional issue that if the device is configured
+     to report a parity error, PERR# asserted from it would be reported to
+     the system. Depending on the chipset or system configuration, it will
+     be escalated as a fatal error.
+
+     Under the PCI-X protocol, this error will be recoverable by the device
+     signaling its device driver. The PCI-X device will send a "Write Data
+     Parity Error" message to notify the parity error, this will not cause
+     any side effect such as SERR#.
+
+   DMA from memory to device:
+   DMA from device to memory:
+
+     In both directions, DMA transfers are handled by the memory controller.
+     The errors and completion of the transfer are delivered to the device and
+     the status register of device is changed to indicate the result of DMA.
+     Device driver could check the status to determine proper action such as
+     device reset or repeat transaction.
+
+     Recovery for DMA transfer also requires the PCI-X support to prevent the
+     system from PERR# escalation.
+
+Let me paraphrase:
+
+   We can use existing interfaces under the PCI-X support to recover almost
+   all type of PCI transactions except mmio read where we should check the
+   bridge status.
+   Special consideration on bridge status is required for mmio read recovery.
+
+
+
+3. Bridge status and Bus error
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+On data transfer, the data go through all bus and bridge on the route.
+
+If a error has occur on a bus, all forwarding bridges on the route would
+reflect the error on its status register.
+
+ex.)
+
+   =Host=
+      |
+    [H2P Bridge]
+      |
+   --------BUS0--------
+      |
+    [P2P Bridge1]
+      |
+   --------BUS1--------
+      |              |
+    [P2P Bridge2]  [P2P Bridge3]
+      |              |
+      |             --------BUS3--------
+      |                      |
+   --------BUS2--------    [devZ]
+        |        |
+      [devX]   [devY]
+
+If BUS1 errors on transfer from a devX to a CPU, the error will be indicated
+on the status register of P2P Bridge1 and H2P Bridge. P2P Bridge2 could not
+be aware the error on BUS1 because it could be happen that Bridge2 cannot
+receive any information from Bridge1 via broken BUS1. (Still can the driver
+talk to Bridge2 via BUS1? Is it danger to rely on the status of Bridge2?)
+
+Therefore, to maximize the scope of bus error detection, we have to check
+the status of the "highest(=nearest to the host)" bridge, and the bridge
+must be realized as a PCI device(it could be not host bus bridge).
+
+
+
+4. Design and Implementation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+4.1 Design
+~~~~~~~~~~
+
+Usually device drivers are coded with no consciousness of other drivers.
+Therefore it is not true that PCI device driver can notice the bus error
+just only checking the status registers of bridge. Because there could be
+other drivers that could change the value of the bridge status.
+
+Therefore again, some negotiations between device drivers are required to
+access the status register of bridges.
+
+What we are going to deal with is a problem in case that one bridge is
+shared by multiple devices. In case that no bridge is shared is no problem.
+
+If the bridge is shared, there are 2 ways:
+
+  - Do I/Os separately (with spinlock protection):
+     Only one of device drivers under one bridge can I/O at one time.
+     In this case there is no other driver who check or change the bridge
+     status, so the value of bridge status is guaranteed not to indicate
+     errors caused by other I/Os.
+
+  - Do I/Os concurrently (with rwlock protection):
+     Multiple device drivers under one bridge can I/O at one time.
+     In this case it is required that drivers should not change the bridge
+     status while other driver is checking the status, and also that drivers
+     who want to clear the status but find there are already errors from
+     anywhere should notify the error to all other drivers running I/O.
+     The value of bridge status indicates just only existent of error.
+     Who cause the error is not distinguishable.
+
+The former is easy to implement, but will have great impact to I/O performance.
+The latter is little complicated, but will not have such performance impact.
+
+Ordinarily, errors occur uncommonly, and even if it had occurred, it would
+be either "recoverable by single retry since it was a usual soft-error" or
+"unrecoverable since it was a seldom hard-error." Almost all of in this worst
+case, no matter who knows who cause the error, all device drivers sharing
+the same bridge should take care of the error sooner or later.
+
+Though we take the latter way.
+
+
+4.2 Procedure
+~~~~~~~~~~~~~
+
+Required procedure of device driver is:
+
+   1) Clear the status
+
+     Until the status indicating an old error, new error cannot appear on
+     the status. To detect new errors, clearing of the status register is
+     required. However, the existence of old error should be notified to
+     all working I/Os, but there is no way to know who are working on.
+     So we create a "working_device" list on bridge, and have all device
+     drivers to register its own device to the list at the beginning of I/O.
+
+     Actions in this step are:
+      - Get write_lock to protect the status and the working_device list
+      - If there are old error, notify it to all devices in working_device
+      - Clear the status
+      - Register oneself to working_device
+      - Release write_lock and Ready to I/O
+
+   2) do I/Os (mmio read)
+
+     States could be changed by results of each I/Os (i.e. error).
+     To prevent the status from vanishing, I/O needs to be excluded while
+     other device driver is clearing the status. Each I/Os can execute at
+     same time, but I/O and clearing cannot execute at same time.
+
+     Actions in this step are:
+      - Get read_lock to protect the status
+      - Do I/Os
+      - (something like barrier could be here, depends on arch)
+      - Release read_lock and Ready to next I/O
+
+   3) Check the status
+
+     Driver can know errors by notice from other driver clearing the bridge
+     status or checking the status by itself. After all, there is no longer
+     need to receive error notice from other driver, so unregistering of the
+     device from "working_device" list should be the end of this step.
+
+     Actions in this step are:
+      - Get write_lock to protect the status and the working_device list
+      - Check whether there were any error notice
+      - Check the status register of bridge
+      - Unregister oneself from working_device
+      - Release write_lock
+      - Return the result, error or non-error
+
+
+4.3 Implements
+~~~~~~~~~~~~~~
+
+Followings show changes in struct pci_dev, pci_bus:
+
+   struct pci_dev {
+   	...
+	list_head working_device;
+		/*
+		   List for management of devices sharing same bridge.
+		   Device drivers should have its device be linked to
+		   the bridge using this list, while the device is doing
+		   I/Os under the bridge.
+		 */
+	unsigned  error_status;
+		/*
+		   You have to clear this before do I/O using this device.
+		   If you find an error on the bridge when you are going to
+		   clear the bridge status, you have to notify the error to
+		   all devices registered to working_device list of the
+		   bridge by making error_status of the device to indicate
+		   error. Conversely your device could be notice errors on
+		   the bridge by checking error_status changed by other
+		   device driver or not.
+		 */
+	...
+   }
+   struct pci_bus {
+   	...
+   	struct rw_semaphore bus_lock;
+		/*
+		  Use for register/unregister of working_device,
+		  actual I/O, and clearing the bridge status.
+		 */
+   	...
+   }
+
+Recovery procedure using new APIs and internals of the APIs:
+
+   1) Clear and Save bridge status for checking the result of mm I/O read
+     void clear_pci_errors(struct pci_dev *)
+
+     {
+	write_lock();
+	if( bridge->state = error ) {
+		for_each(device, bridge->working_device)
+			device->error_status = error;
+		bridge->state = 0;
+	}
+	this->error_status = error;
+	add_list(this, bridge->working_device);
+	write_unlock();
+     }
+
+   2) Real memory mapped I/O read transactions for each types
+     X readX_check(struct pci_dev*, X *addr) [ X = (u8, u16, u32) ]
+
+     {
+	read_lock();
+	readX();
+	barrier();
+	read_unlock();
+     }
+
+   3) Check the result of mm I/O read
+     int read_pci_errors(struct pci_dev *)
+
+     {
+	write_lock();
+	del_list(this, bridge->working_device);
+	berr = bridge->state;
+	write_unlock();
+	derr = this->error_status;
+	return (berr|derr) ? 1 : 0 ;
+     }
+
+
+
+5. Usage of API
+~~~~~~~~~~~~~~~
+
+   void clear_pci_errors(struct pci_dev *)
+
+     Clear all status registers concerning the device before executing of I/O.
+     And prepare to check registering the device to the highest bridge.
+     You should call this at the beginning of session you want to check.
+
+   X readX_check(struct pci_dev*, X *addr) [ X = (u8, u16, u32) ]
+
+     Do actual I/O, with exclusion control to guarantee against the error.
+     Don't merge standard function such as:
+         X readX(addr)
+     in same session. Or the value of status register will not be guaranteed.
+
+   int read_pci_errors(struct pci_dev *)
+
+     Check status registers for the errors.
+     Returned value 0 means no error, and others mean an error.
+     You should call this at the last of session you want to check.
+
+     If you get an error from this, it does not directly mean that an error
+     caused by this session, but that an error occurred on this session or on
+     other session handled by other driver handling a device on same bridge.
+
+
+
+6. Sample code - template
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+You can write RAS-aware driver using pattern as like as following:
+
+  +----------------------------------------------------------------------------+
+  |									      |
+  |	int get_data_buffer(struct pci_dev *dev, u32 *buf, int words)	      |
+  |	{								      |
+  |		int i;							      |
+  |		unsigned long ofs = pci_resource_start(dev, 0) + DATA_OFFSET; |
+  |									      |
+  |		clear_pci_errors(dev);					      |
+  |									      |
+  |		/* Get the whole packet of data.. */			      |
+  |		for (i = 0; i < words; i++)				      |
+  |			*buf++ = readl_check(dev, ofs);			      |
+  |									      |
+  |		/* Did we have any trouble? */				      |
+  |		if (read_pci_errors(dev))				      |
+  |			return -EIO;					      |
+  |									      |
+  |		/* All systems go.. */					      |
+  |		return 0;						      |
+  |	}								      |
+  |									      |
+  +----------------------------------------------------------------------------+
+
+Device driver could implement some possible recovery such as device reset,
+repeat transaction, reallocate buf and so on.
+
+
+
+7. Notes
+~~~~~~~~
+
+7.1 Expected Environment - High-end system configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+These infrastructure are not for desktops but for enterprise servers.
+
+It is assumed that most high-end hardware has enough bridges and that
+the number of devices sharing same bridge would be minimized.
+
+Any "mixed" bridge, having 2 types of device driver, is not acceptable.
+All drivers should be RAS-aware driver supporting PCI error recovery
+infrastructure. Don't use non-aware driver in such situation.
+
+As you know, my implementation was not designed on the assumption that
+"1 bridge = 1 device" like on ppc64, but on "1 bridge = 1 device group."
+Of course, there could be some group of only 1 device.
+It will depend on the structure of the system which you could configure it.
+
+
+7.2 One for all, All for one
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Devices in same group can run at same time keeping with a certain level of
+performance, and not mind being affected(or even killed!) by (PCI bus)error
+caused by someone in the group.  They either swim together or sink together.
+
+Fortunately, such error is rare occurrence, and even if it had occurred,
+it would be either "recoverable by a retry since it was a usual soft-error"
+or "unrecoverable since it was a seldom hard-error."
+
+Without this new recovery infrastructure, there is no way for system to know
+which drivers should retry the transaction to determine whether the error was
+a soft one or a hard one, and also system cannot have these drivers not to
+return the broken data to user.
+
+So now, system will choose to down, last resort comes first.
+
 
