@@ -1,57 +1,83 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 12 Jan 2005 20:46:24 +0000
-Subject: Re: new utility for decoding salinfo records
-Message-Id: <30808.1105562784@ocs3.ocs.com.au>
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Fri, 14 Jan 2005 13:51:25 +0000
+Subject: [PATCH]: Error in ACPI error handling results in WARN_ON
+Message-Id: <41E7CE5D.3010805@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------040908080007040005040305"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1105458388.22104.7.camel@quince.llnl.gov>
-In-Reply-To: <1105458388.22104.7.camel@quince.llnl.gov>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 12 Jan 2005 08:57:36 -0800, 
-Ben Woodard <woodard@redhat.com> wrote:
->Keith, 
->
->I beg to differ with you it is obvious from your post that you didn't
->even look at what I sent. You were so spring loaded with your attack on
->salinfod (something that I did not send along) that you failed to
->actually look at what I produced. In my opinion, that is somewhat
->unprofessional.
+This is a multi-part message in MIME format.
+--------------040908080007040005040305
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-The patch you sent to the list adds salinfo_daemon.C, containing this line
+The issue here is the error handling within the ACPI layer.  gsi = 0 is a
+valid return value from acpi_pci_irq_lookup, while gsi = (-1) is the value
+returned when a PRT cannot be found.
 
-+  strm << "salinfod version " << VERSION
+This error in error handling can result in a WARN_ON at
+arch/ia64/kernel/iosapic.c:622 .
 
-If you include salinfod in your patch then of course I am going to
-fight it.
+The remaining fix is to complete error handling within the core IDE
+layer and the IOC4 IDE driver.
 
->salinfo_decode2 is a completely offline record processor. It does not
->interfere with the read, decode, clear cycle. salinfo_decode2 simply
->looks at the records that are left by the salinfo_decode2 daemon in raw directory.
-                                           ^^^^^^^^^^^^^^^
-I am going to give you the benefit of the doubt and assume that you meant
-salinfo_decode there, not your attempted replacement.
 
-If salinfo_decode2 is completely offline then make it a separate
-package called salinfo_summary instead of trying to add it to
-salinfo_decode.  The existing salinfo_decode is vendor neutral and it
-is going to stay that way.  Different vendors and/or distributions have
-their own requirements for tracking problems, they can choose to use
-salinfo_summary or they can ignore it and use their own tracking
-system.  When you lump the summary program in with the decode program
-then you take away the ability for anybody to determine how they
-summarize the SAL records.
 
->If you had actually looked at what I sent, you would have seen that
->there is absolutely no existing salinfo_decode functionality removed.
+--------------040908080007040005040305
+Content-Type: text/plain;
+ name="acpi-ide.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="acpi-ide.patch"
 
-I did look, salinfo_daemon.C is in the patch that you sent and it
-removes the existing salinfo_decode functionality.
+===== drivers/acpi/pci_irq.c 1.35 vs edited =====
+--- 1.35/drivers/acpi/pci_irq.c	2005-01-04 21:48:17 -05:00
++++ edited/drivers/acpi/pci_irq.c	2005-01-13 16:08:10 -05:00
+@@ -487,10 +487,10 @@
+ 	 * If no PRT entry was found, we'll try to derive an IRQ from the
+ 	 * device's parent bridge.
+ 	 */
+-	if (!gsi)
++	if (gsi == (-1))
+  		gsi = acpi_pci_irq_derive(dev, pin,
+ 					  &edge_level, &active_high_low);
+-	if (!gsi)
++	if (!gsi == (-1))
+ 		return_VOID;
+ 
+ 	/*
+===== drivers/ide/ide-probe.c 1.90 vs edited =====
+--- 1.90/drivers/ide/ide-probe.c	2004-12-10 14:12:14 -05:00
++++ edited/drivers/ide/ide-probe.c	2005-01-14 07:16:42 -05:00
+@@ -841,7 +841,11 @@
+ 	if (fixup)
+ 		fixup(hwif);
+ 
+-	hwif_init(hwif);
++	if (!hwif_init(hwif))
++	{
++		printk("%s: Failed to initialize IDE interface\n", hwif->name);
++		return -1;
++	}
+ 
+ 	if (hwif->present) {
+ 		u16 unit = 0;
+===== drivers/ide/pci/sgiioc4.c 1.22 vs edited =====
+--- 1.22/drivers/ide/pci/sgiioc4.c	2005-01-06 20:35:35 -05:00
++++ edited/drivers/ide/pci/sgiioc4.c	2005-01-14 07:23:27 -05:00
+@@ -669,7 +669,11 @@
+ 		printk(KERN_INFO "%s: %s Bus-Master DMA disabled\n",
+ 		       hwif->name, d->name);
+ 
+-	probe_hwif_init(hwif);
++	if (probe_hwif_init(hwif))
++	{
++		printk(KERN_INFO "%s: initialization failed\n", hwif->name);
++		return -EIO;
++	}
+ 
+ 	/* Create /proc/ide entries */
+ 	create_proc_ide_interfaces(); 
 
-Remove salinfo_daemon.C, make the summary code a separate package from
-salinfo_decode and I might believe that you are not trying to break
-salinfo_decode.  Given the salinfo mess in RHEL4 beta, I am extremely
-suspicious of your current approach.
-
+--------------040908080007040005040305--
