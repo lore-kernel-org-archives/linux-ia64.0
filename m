@@ -1,48 +1,117 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 24 Mar 2005 00:50:31 +0000
-Subject: syscall improvement patch [4/12]
-Message-Id: <200503240050.j2O0oV6s022280@napali.hpl.hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 09 Mar 2005 20:13:24 +0000
+Subject: Page Fault Scalabilty patch V19 [0/4]: Overview
+Message-Id: <20050309201324.29721.28956.sendpatchset@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, Christoph Lameter <clameter@sgi.com>
 
-ia64: On return from syscall, hint b7 with __kernel_syscall_via_epc().
 
-Why is this a good idea?  Clearing b7 to 0 is guaranteed to do us no
-good and writing it with __kernel_syscall_via_epc() yields a 6 cycle
-improvement _if_ the application performs another EPC-based system-
-call without overwriting b7, which is not all that uncommon.  Well
-worth the minimal cost of 1 bundle of code.
+Changelog:
 
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+V18->V19 Fall back to obtaining the page table lock before calling
+	do_wp_page. Keep mark_page_accessed in do_swap_page and
+	add SetPageReferenced in do_anonymous_page
+	Diff against 2.6.11.
+V17->V18 Rediff against 2.6.11-rc5-bk4
+V16->V17 Do not increment page_count in do_wp_page. Performance data
+V15->V16 of this patch: Redesign to allow full backback
+	for architectures that do not supporting atomic operations.
 
-diff -Nru a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
---- a/arch/ia64/kernel/entry.S	2005-03-23 13:28:12 -08:00
-+++ b/arch/ia64/kernel/entry.S	2005-03-23 13:28:12 -08:00
-@@ -692,7 +692,7 @@
- 	;;
- (p6)	ld4 r31=3D[r18]				// load current_thread_info()->flags
- 	ld8 r19=3D[r2],PT(B6)-PT(LOADRS)		// load ar.rsc value for "loadrs"
--	mov b7=3Dr0		// clear b7
-+	nop.i 0
- 	;;
- 	ld8 r23=3D[r3],PT(R11)-PT(AR_BSPSTORE)	// load ar.bspstore (may be garbag=
-e)
- 	ld8 r18=3D[r2],PT(R9)-PT(B6)		// load b6
-@@ -754,7 +754,14 @@
- (pUStk)	ld4 r17=3D[r3]		// r17 =3D cpu_data->phys_stacked_size_p8
- 	mov.m ar.csd=3Dr0		// M2 clear ar.csd
- 	mov f10=F0		// clear f10
-+
-+	nop.m 0
-+	movl r14=3D__kernel_syscall_via_epc	// X
- 	;;
-+	nop.m 0
-+	nop.m 0
-+	mov b7=3Dr14		// I0   clear b7 (hint with __kernel_syscall_via_epc)
-+
- 	mov r14=3Dr0		// clear r14
- 	mov f11=F0		// clear f11
- (pKStk) br.cond.dpnt.many skip_rbs_switch
+Note that this is a release against 2.6.11 and not against the latest
+bk tree. Some changes have made it into Linus tree that will require some
+rework of the patch for post 2.6.11 (look for V20).
+
+An introduction to what this patch does and a patch archive can be found on
+http://oss.sgi.com/projects/page_fault_performance. The archive also has the
+result of various performance tests (LMBench, Microbenchmark and
+kernel compiles).
+
+The basic approach in this patchset is the same as used in SGI's 2.4.X
+based kernels which have been in production use in ProPack 3 for a long time.
+
+The patchset is composed of 4 patches:
+
+1/4: ptep_cmpxchg and ptep_xchg to avoid intermittent zeroing of ptes
+
+	The current way of synchronizing with the CPU or arch specific
+	interrupts updating page table entries is to first set a pte
+	to zero before writing a new value. This patch uses ptep_xchg
+	and ptep_cmpxchg to avoid writing the zero for certain
+	configurations.
+	
+	The patch introduces CONFIG_ATOMIC_TABLE_OPS that may be
+	enabled as a experimental feature during kernel configuration
+	if the hardware is able to support atomic operations and if
+	an SMP kernel is being configured. A Kconfig update for i386,
+	x86_64 and ia64 has been provided. On i386 this options is
+	restricted to CPUs better than a 486 and non PAE mode (that
+	way all the cmpxchg issues on old i386 CPUS and the problems
+	with 64bit atomic operations on recent i386 CPUS are avoided). 
+
+	If CONFIG_ATOMIC_TABLE_OPS is not set then ptep_xchg and
+	ptep_xcmpxchg are realized by falling back to clearing a pte
+	before updating it.
+
+	The patch does not change the use of mm->page_table_lock and
+	the only performance improvement is the replacement of
+	xchg-with-zero-and-then-write-new-pte-value with an xchg with
+	the new value for SMP on some architectures if
+	CONFIG_ATOMIC_TABLE_OPS is configured. It should not do anything
+	major to VM operations.
+
+2/4: Macros for mm counter manipulation
+
+	There are various approaches to handling mm counters if the
+	page_table_lock is no longer acquired. This patch defines
+	macros in include/linux/sched.h to handle these counters and
+	makes sure that these macros are used throughout the kernel
+	to access and manipulate rss and anon_rss. There should be
+	no change to the generated code as a result of this patch.
+
+3/4: Drop the first use of the page_table_lock in handle_mm_fault
+
+	The patch introduces two new functions:
+
+	page_table_atomic_start(mm), page_table_atomic_stop(mm)
+
+	that fall back to the use of the page_table_lock if
+	CONFIG_ATOMIC_TABLE_OPS is not defined.
+
+	If CONFIG_ATOMIC_TABLE_OPS is defined those functions may
+	be used to prep the CPU for atomic table ops (i386 in PAE mode
+	may f.e. get the MMX register ready for 64bit atomic ops) but
+	are simply empty by default.
+
+	Two operations may then be performed on the page table without
+	acquiring the page table lock:
+
+	a) updating access bits in pte
+	b) anonymous read faults installed a mapping to the zero page.
+
+	All counters are still protected with the page_table_lock thus
+	avoiding any issues there.
+
+	Some additional statistics are added to /proc/meminfo to
+	give some statistics. Also counts spurious faults with no
+	effect. There is a surprisingly high number of those on ia64
+	(used to populate the cpu caches with the pte??)
+
+4/4: Drop the use of the page_table_lock in do_anonymous_page
+
+	The second acquisition of the page_table_lock is removed 
+	from do_anonymous_page and allows the anonymous
+	write fault to be possible without the page_table_lock.
+
+	The macros for manipulating rss and anon_rss in include/linux/sched.h
+	are changed if CONFIG_ATOMIC_TABLE_OPS is set to use atomic
+	operations for rss and anon_rss (safest solution for now, other
+	solutions may easily be implemented by changing those macros).
+
+	This patch typically yield significant increases in page fault
+	performance for threaded applications on SMP systems.
+
+
