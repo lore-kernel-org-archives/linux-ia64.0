@@ -1,25 +1,24 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 31 May 2002 06:08:40 +0000
-Subject: [Linux-ia64] kernel update (relative to v2.5.18)
-Message-Id: <marc-linux-ia64-105590701905623@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Wed, 29 May 2002 03:56:22 +0000
+Subject: [Linux-ia64] Missing files in to-linus-2.5 BK tree; build problems
+Message-Id: <marc-linux-ia64-105590701905608@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205111@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The latest ia64 kernel patch is at
-ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/ in file:
+Hi David,
+   The files perfmon_itanium.h, perfmon_generic.h and
+perfmon_mckinley.h are missing from the bk archive. I believe they
+should have been added at:
+      ChangeSet@1.552.24.3 2002-05-24 18:45:43-0700 eranian@hp.com
 
-        linux-2.5.18-ia64-020530.diff.gz
 
-This kernel seems to work quite well both on Itanium 1 and 2 and the
-HP simulator.  I didn't move all the way to 2.5.19 since it seems to
-have some (small) problems which I expect Linus to fix quickly.
+Also, what did you decide to do with the scatter-gather list changes
+(member `address' no longer exists)?   The changes to sb_iommu.c are
+non-trivial, because it looks as if the address field was
+overloaded...
 
-Enjoy,
-
-        --david
+Peter C
 
