@@ -1,46 +1,52 @@
-From: akpm@osdl.org
-Date: Wed, 30 Mar 2005 21:39:57 +0000
-Subject: [patch 1/3] ia64 msi warning fixes
-Message-Id: <200503302139.j2ULdlrc029245@shell0.pdx.osdl.net>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Mon, 21 Mar 2005 17:43:54 +0000
+Subject: [PATCH] fix ia64 Kconfig to allow CONFIG_PM on sn2
+Message-Id: <200503210943.54731.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_afwPCDl6wc/ngRY"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+--Boundary-00=_afwPCDl6wc/ngRY
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
+This probably should have been fixed when I fixed up the generic build for 
+discontig+numa machines, but oh well.
 
-drivers/pci/msi.c: In function `msi_set_mask_bit':
-drivers/pci/msi.c:70: warning: cast from pointer to integer of different size
-drivers/pci/msi.c: In function `msi_capability_init':
-drivers/pci/msi.c:558: warning: cast to pointer from integer of different size
+CONFIG_PM is allowable for generic builds but not for sn2 builds, which 
+doesn't make much sense, and in fact breaks the build if recent ACPI bits are 
+added to the tree.  It looks like the only arch that needs to prevent 
+CONFIG_PM stuff is the ski simulator (though those options could probably use 
+some cleanup as well), so remove the big conditional and replace it with a 
+simple test for IA64_HP_SIM instead.
 
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+Thanks,
+Jesse
 
- 25-akpm/drivers/pci/msi.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+--Boundary-00=_afwPCDl6wc/ngRY
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="ia64-kconfig-pm-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ia64-kconfig-pm-fix.patch"
 
-diff -puN drivers/pci/msi.c~ia64-msi-warning-fixes drivers/pci/msi.c
---- 25/drivers/pci/msi.c~ia64-msi-warning-fixes	Sat Mar 12 18:17:29 2005
-+++ 25-akpm/drivers/pci/msi.c	Sat Mar 12 18:17:53 2005
-@@ -67,7 +67,7 @@ static void msi_set_mask_bit(unsigned in
- 		int		pos;
- 		u32		mask_bits;
+===== arch/ia64/Kconfig 1.85 vs edited =====
+--- 1.85/arch/ia64/Kconfig	2005-01-28 15:32:25 -08:00
++++ edited/arch/ia64/Kconfig	2005-03-21 09:38:29 -08:00
+@@ -328,7 +328,7 @@
  
--		pos = (int)entry->mask_base;
-+		pos = (long)entry->mask_base;
- 		pci_read_config_dword(entry->dev, pos, &mask_bits);
- 		mask_bits &= ~(1);
- 		mask_bits |= flag;
-@@ -555,7 +555,7 @@ static int msi_capability_init(struct pc
- 	dev->irq = vector;
- 	entry->dev = dev;
- 	if (is_mask_bit_support(control)) {
--		entry->mask_base = (void __iomem *)msi_mask_bits_reg(pos,
-+		entry->mask_base = (void __iomem *)(long)msi_mask_bits_reg(pos,
- 				is_64bit_address(control));
- 	}
- 	/* Replace with MSI handler */
-_
+ config PM
+ 	bool "Power Management support"
+-	depends on IA64_GENERIC || IA64_DIG || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB
++	depends on !IA64_HP_SIM
+ 	default y
+ 	help
+ 	  "Power Management" means that parts of your computer are shut
+
+--Boundary-00=_afwPCDl6wc/ngRY--
