@@ -1,42 +1,43 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 16 Oct 2003 16:58:56 +0000
-Subject: [PATCH] serial console registration bugfix (2.6)
-Message-Id: <marc-linux-ia64-106632357111519@msgid-missing>
+From: Rich Altmaier <richa@engr.sgi.com>
+Date: Mon, 20 Oct 2003 15:58:59 +0000
+Subject: fielding PCI bus timeouts - was: prevent "dd if=/dev/mem" crash
+Message-Id: <marc-linux-ia64-106666582210383@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-uart_set_options() can dereference a null pointer.  This happens
-if you specify a console that hasn't previously been setup by
-early_serial_setup().
+Just a note to mention experience with handling hardware failures.
 
-For example, on ia64, the HCDP typically tells us about line 0,
-so we calls early_serial_setup() for it.  If the user specifies
-"console=ttyS3", we machine-check when trying to follow the
-uninitialized port->ops pointer.
+For the case of user mappings to IO buses there are important
+classes of aps, usually realtime or data acquisition, that
+benefit from nice error handling of bus timeouts at user level.
 
-It's not entirely clear to me whether we should return 0 or -ENODEV
-or something.  The advantage of returning zero is that if the user
-specifies "console=ttyS0" and we just lack the HCDP, the console
-doesn't work as early as usual, but it does start working after the
-serial driver detects the port (though the baud/parity/etc from the
-command line are lost).  Returning -ENODEV seems to prevent it from
-ever working.
+These aps tend to be using old or prototype hardware, which can
+fail (cause a bus timeout) during "normal" operation.
+Or at least the user view is that the machine should not crash
+due to "one flaky board".   Hence there is merit in being
+able to translate a PIO-read bus timeout to say a SIGBUS.
 
-Bjorn
+More interesting is the case of PIO-write failure, as the writes
+can be asynchronous.  Meaning by the time the hardware recognizes
+a failure, the CPU's store instruction has graduated and the
+CPU has moved on.  Perhaps gone through a context switch or
+even exitted the user process.  In this case something more
+than a SIGBUS is needed (IRIX has several options to deal with
+this).  
 
-=== drivers/serial/serial_core.c 1.72 vs edited ==--- 1.72/drivers/serial/serial_core.c	Mon Sep 29 18:35:33 2003
-+++ edited/drivers/serial/serial_core.c	Thu Oct 16 09:56:55 2003
-@@ -1859,6 +1859,9 @@
- 	if (flow = 'r')
- 		termios.c_cflag |= CRTSCTS;
- 
-+	if (!port->ops)
-+		return 0;
-+
- 	port->ops->set_termios(port, &termios, NULL);
- 	co->cflag = termios.c_cflag;
- 
+On the thread about dd if=/dev/mem, I don't know of any legitmate
+reason that user code needs to successfully recover from reading
+non-existant phys memory.  I would suggest the princple that
+bad user code should not cause a crash, and bad user code that
+does a lot of reads would be thought harmless by many dangerous
+users.  So some kind of error to the user process is probably
+reasonable, perhaps SIGBUS.
+Silently returning 0 doesn't sound right, as if there were any 
+legitimate reason for this code in the first place, it probably
+relates to some search of the physical address space.  Perhaps
+a diagnostic.
 
+FYI, Rich
