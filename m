@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Mon, 23 Jun 2003 07:13:23 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 23 Jun 2003 18:47:57 +0000
 Subject: Re: [Linux-ia64] RE: [ACPI] acpi_irq_to_vector()
-Message-Id: <marc-linux-ia64-105635264609142@msgid-missing>
+Message-Id: <marc-linux-ia64-105639411317142@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105634836206576@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105634836206576@msgid-missing>
@@ -10,13 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Jun 23, 2003 at 02:02:08PM +0800, Yu, Luming wrote:
-> So I don't think it is reasonable to use pci_dev in acpi_init. 
+>>>>> On Mon, 23 Jun 2003 14:15:07 +0800, "Yu, Luming" <luming.yu@intel.com> said:
 
-That's not what willy was proposing.
-I understood he was proposing a similar scheme; not to use pci_dev.
+  Linux> To remove the ugly ifdef in the common part of ACPI code, I
+  Linux> think the simple way is to define a acpi_irq_to_vector in
+  Linux> arch/i386/acpi which only return acpi_fadt.sci_int.  Or
+  Linux> someone can invent a method that can return correct value for
+  Linux> each platform.
 
-grant
+Shouldn't this be called acpi_gsi_to_irq(), though?
+
+	--david
 
 _______________________________________________
 Linux-IA64 mailing list
