@@ -1,44 +1,23 @@
-From: Joe Griffin <jjg@mscsoftware.com>
-Date: Thu, 17 Oct 2002 16:29:44 +0000
-Subject: Re: [Linux-ia64] system.h / pal.h / types.h
-Message-Id: <marc-linux-ia64-105590709805186@msgid-missing>
+From: "Lee, Jung-Ik" <jung-ik.lee@intel.com>
+Date: Thu, 31 Oct 2002 04:49:24 +0000
+Subject: [Linux-ia64] RE: [Pcihpd-discuss] PCI hotplug broken on IA64
+Message-Id: <marc-linux-ia64-105590709805303@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805181@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805181@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Andreas,
+> I don't think the current way of accessing PCI configuration space
+> with temporary pci_dev and pci_bus is definitive answer but we
+> are depending on it now.
+> Could someone enlighten me?
+> Any ideas?
 
-Thanks for your time.
+All pci config space access before pci_dev/pci_bus are built
+should be able to make direct call to
+pci_config_{read|write}(seg, bus, dev, func, offset, size, value).
 
-Joe Griffin
-
-
-
-
-Andreas Schwab wrote:
-
->Joe Griffin <jjg@mscsoftware.com> writes:
->
->|> Andreas,
->|> 
->|> I am making a few RPMS from source.  The
->|> source has an include of asm/system.h.
->|> If "asm/system.h" is in a "c" program
->|> I do not think a person should have an error.
->|> 
->|> Are you saying that programs should
->|> not have asm/system.h in them?
->
->Yes, if it's not part of the kernel.
->
->Andreas.
->
->  
->
-
-
+Thanks,
+J.I.
 
