@@ -1,90 +1,49 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Date: Tue, 13 Apr 2004 10:20:47 +0000
-Subject: Re: HUGETLB commit handling.
-Message-Id: <6480000.1081851647@[192.168.100.2]>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Tue, 13 Apr 2004 23:17:04 +0000
+Subject: hugetlb demand paging patch part [0/3]
+Message-Id: <200404132317.i3DNH4F21162@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <15037082.1081445730@42.150.104.212.access.eclipse.net.uk> <20040408154742.3faf7141.akpm@osdl.org>
-In-Reply-To: <20040408154742.3faf7141.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: kenneth.w.chen@intel.com, raybry@sgi.com, mbligh@aracnet.com, linux-kernel@vger.kernel.org, anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net
+Cc: raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>
 
---On Thursday, April 08, 2004 15:47:42 -0700 Andrew Morton <akpm@osdl.org> wrote:
+In addition to the hugetlb commit handling that we've been working on
+off the list, Ray Bryant of SGI and I are also working on demand paging
+for hugetlb page.  Here are our final version that has been heavily
+tested on ia64 and x86.  I've broken the patch into 3 pieces so it's
+easier to read/review, etc.
 
-> Andy Whitcroft <apw@shadowen.org> wrote:
->>
->> We have been looking at the HUGETLB page commit issue (offlist) and are
->> close a final merged patch.
->
-> Be aware that I've merged a patch from Bill which does all the hugetlb code
-> unduplication.  A thousand lines gone:
->
->  25-akpm/arch/i386/mm/hugetlbpage.c    |  264 ----------------------------------
->  25-akpm/arch/ia64/mm/hugetlbpage.c    |  251 --------------------------------
->  25-akpm/arch/ppc64/mm/hugetlbpage.c   |  257 ---------------------------------
->  25-akpm/arch/sh/mm/hugetlbpage.c      |  258 ---------------------------------
->  25-akpm/arch/sparc64/mm/hugetlbpage.c |  259 ---------------------------------
->  25-akpm/fs/hugetlbfs/inode.c          |    2
->  25-akpm/include/linux/hugetlb.h       |    7
->  25-akpm/kernel/sysctl.c               |    6
->  25-akpm/mm/Makefile                   |    1
->  25-akpm/mm/hugetlb.c                  |  245 +++++++++++++++++++++++++++++++
->  10 files changed, 263 insertions(+), 1287 deletions(-)
->
-> Of course, this buggers up everyone else's patches, but I do think this
-> work has to come first.
->
-> I still need to test this on ppc64 and ia64.  I've dropped a rollup against
-> 2.6.5 at http://www.zip.com.au/~akpm/linux/patches/stuff/mc3.bz2 which you
-> should work against until I get -mc3 out for real.
+1. hugetlb_fix_pte.patch - with demand paging, we can not unconditionally
+   assume valid pmd/pte.  Fix it up in arch specific huge_pge_offset()
+   and have all caller check the return value.
 
-After bashing my poor bruised head against the screen for a
-considerable period I've discovered that memset'ing your IO space
-to zero is a very good way to stop your machine dead, silently.
-Anyhow, here is a patch against -mc4 to make HUGETLB support actually
-work in the presence of memory in ZONE_HIGHMEM.
+2. hugetlb_demand_generic.patch - this handles bulk of hugetlb demand
+   paging for generic portion of the kernel.  I've put hugetlb fault
+   handler in mm/hugetlbpage.c since the fault handler is *exactly* the
+   same for all arch, but that requires opening up huge_pte_alloc() and
+   set_huge_pte() functions in each arch.  If people object where it
+   should live.  It takes me less than a minute to delete the common
+   code and replicate it in each of the 5 arch that supports hugetlb.
+   Just let me know if that's the case.
 
--apw
+3. hugetlb_demand_arch.patch - this adds additional arch specific fixes
+   for x84 and ia64 when generic demand paging is turned on.  Also bulk
+   of the patch is to clean up with functions that no longer needed.
 
-== 8< =When clearing a large page allocation ensure we use a page clear function
-which will correctly clear a ZONE_HIGHMEM page.
+Some caveats:  I don't have sh and sparc64 hardware to test.  But hugetlb
+code in these two arch looked like a triplet twin of x86 code.  So I'm
+pretty sure it will work right out of box.  I've monkeyed around with
+ppc64 code and after a while I realized it should be left for the experts.
+I'm sure there are plenty ppc64 developers out there that can get it done
+in no time.
 
----
- hugetlb.c |    5 ++++-
- 1 files changed, 4 insertions(+), 1 deletion(-)
+Patches relative to linux-2.6.5-mm4 and on top of hugetlb overcommit
+handling patch posted by Andy Whitcroft.
 
-diff -upN reference/mm/hugetlb.c current/mm/hugetlb.c
---- reference/mm/hugetlb.c	2004-04-13 12:10:56.000000000 +0100
-+++ current/mm/hugetlb.c	2004-04-13 12:12:20.000000000 +0100
-@@ -9,6 +9,7 @@
- #include <linux/mm.h>
- #include <linux/hugetlb.h>
- #include <linux/sysctl.h>
-+#include <linux/highmem.h>
+Andrew, would you please review and consider for -mm?  Thanks.
 
- const unsigned long hugetlb_zero = 0, hugetlb_infinity = ~0UL;
- static unsigned long nr_huge_pages, free_huge_pages;
-@@ -66,6 +67,7 @@ void free_huge_page(struct page *page)
- struct page *alloc_huge_page(void)
- {
- 	struct page *page;
-+	int i;
-
- 	spin_lock(&hugetlb_lock);
- 	page = dequeue_huge_page();
-@@ -77,7 +79,8 @@ struct page *alloc_huge_page(void)
- 	spin_unlock(&hugetlb_lock);
- 	set_page_count(page, 1);
- 	page->lru.prev = (void *)free_huge_page;
--	memset(page_address(page), 0, HPAGE_SIZE);
-+	for (i = 0; i < (HPAGE_SIZE/PAGE_SIZE); ++i)
-+		clear_highpage(&page[i]);
- 	return page;
- }
-
-
-
+- Ken
 
 
