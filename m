@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Tue, 04 Nov 2003 10:29:19 +0000
+From: Christian Hildner <christian.hildner@hob.de>
+Date: Tue, 04 Nov 2003 11:00:57 +0000
 Subject: Re: Page table mapped and identity segments!
-Message-Id: <marc-linux-ia64-106794194920991@msgid-missing>
+Message-Id: <marc-linux-ia64-106794372722594@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106794072219848@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106794072219848@msgid-missing>
@@ -10,8 +10,9 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 4 Nov 2003 15:40:06 +0530, 
-"Ameya Mitragotri" <ameya.mitragotri@wipro.com> wrote:
+Ameya Mitragotri schrieb:
+
+>Hello,
 >I am refering to David's and Stephanes's book on the IA64 linux kernel.
 From my understanding, 
 >
@@ -24,7 +25,30 @@ From my understanding,
 >the System.map generated contains addresses only starting with
 >0xa0000..which means all these lie in the page table mapped segments
 >(region 5).
+>
+>Why is this happening?
+>
+Kernel mapping has changed in the 2.6 kernel. The kernel is now 
+relocatable (needed for new hardware). Because of that it was decided to 
+move the kernel outside the identity mapped region. But the virtual to 
+physical mappings are nevertheless done with the old mechanism of pinned 
+large 64M pages for text and data. See head.S where these mappings are done.
 
-The book refers to the 2.4 and earlier kernels.  In 2.6 kernels the
-kernel code and data lives in region 5, not 7.
+Christian
+
+> 
+>
+>Apologies if this is too trivial to be asked.
+>
+>Thanks
+>Ameya
+>
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>  
+>
+
 
