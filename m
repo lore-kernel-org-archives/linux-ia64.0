@@ -1,24 +1,28 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 09 Oct 2003 20:29:54 +0000
-Subject: Re: Wrong flags for gate.o
-Message-Id: <marc-linux-ia64-106573199519344@msgid-missing>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Tue, 07 Oct 2003 20:42:08 +0000
+Subject: [PATCH] fix sn2 pci discovery in generic kernels
+Message-Id: <marc-linux-ia64-106555967613003@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sun, 28 Sep 2003 17:27:52 +0100, Matthew Wilcox <willy@debian.org> said:
+Don't try to use the sn2 I/O code if we're not on sn2 or we may get into
+trouble.  Only makes a difference for generic kernels.
 
-  Matthew> CPP     arch/ia64/kernel/gate.lds.s
-  Matthew> AS      arch/ia64/kernel/gate.o
-  Matthew> GATE arch/ia64/kernel/gate.so
-  Matthew> AS      arch/ia64/kernel/gate-data.o
-  Matthew> arch/ia64/kernel/gate-data.S: Assembler messages:
-  Matthew> arch/ia64/kernel/gate-data.S:1: Warning: setting incorrect section attributes for .data.gate
-  Matthew> GATE arch/ia64/kernel/gate-syms.o
+Thanks,
+Jesse
 
-I cannot reproduce this (with as v2.13.90) and don't know why your
-assembler is complaining.
-
-	--david
+=== arch/ia64/sn/io/machvec/pci_bus_cvlink.c 1.10 vs edited ==--- 1.10/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Mon Sep  8 05:12:36 2003
++++ edited/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Tue Oct  7 11:39:30 2003
+@@ -863,6 +863,9 @@
+ 	int i = 0;
+ 	struct pci_controller *controller;
+ 
++	if (!ia64_platform_is("sn2"))
++	    return 0;
++
+ 	/*
+ 	 * set pci_raw_ops, etc.
+ 	 */
