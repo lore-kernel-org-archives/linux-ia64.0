@@ -1,30 +1,32 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 05 Mar 2003 00:45:05 +0000
-Subject: Re: [Linux-ia64] [patch] 2.4.20-021210 misaligned sal error record
-Message-Id: <marc-linux-ia64-105590709805968@msgid-missing>
+From: Chandra Kapate <cs_kapate@yahoo.com>
+Date: Fri, 28 Mar 2003 20:21:19 +0000
+Subject: [Linux-ia64] 32bit syscall numbers
+Message-Id: <marc-linux-ia64-105590723705359@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805925@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805925@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 05 Mar 2003 11:33:33 +1100, Keith Owens <kaos@sgi.com> said:
+Hi,
 
-  Keith> Linus recommends static inline instead of #define unless
-  Keith> there is no choice.  static inline does type checking,
-  Keith> #define does not.
+How do I find the 32 bit syscall numbers?
+I don't see any defines for, say __NR_ia32_chdir in 
+any of the include files.
+One can look at the arch/ia64/ia32/entry.S file and
+deduce the numbers. But, is there any easy way?
+I see asm-x86_64/ia32_unistd.h file which contains
+the 32 bit syscall numbers.  But, I don't see the
+corresponding file for ia64. 
 
-That's a good principle, but doesn't really apply here.  You do
-get type-checking:
+I am running RedHat AS 2.1 on Itanium-2 box.
 
-#define SAL_LPI_PSI_INFO(l)				\
-	sal_log_processor_info_t *_l = (l);
+Thanks,
 
-and for this type of work-around-C-limitation helper routine, I think
-a capitalized macro actually results in more readable code.  It's a
-matter of taste, of course.
+Chandra 
 
-	--david
+__________________________________________________
+Do you Yahoo!?
+Yahoo! Platinum - Watch CBS' NCAA March Madness, live on your desktop!
+http://platinum.yahoo.com
 
