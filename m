@@ -1,49 +1,71 @@
-From: "Seth, Rohit" <rohit.seth@intel.com>
-Date: Sat, 15 Mar 2003 03:08:48 +0000
-Subject: RE: [Linux-ia64] page size > 16KB
-Message-Id: <marc-linux-ia64-105590709806130@msgid-missing>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Thu, 06 Mar 2003 22:53:21 +0000
+Subject: Re: [Linux-ia64] SN makefile stuff
+Message-Id: <marc-linux-ia64-105590709805992@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709806057@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709806057@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The HugeTLB page documentation with 2.5.64 is most uptodate.  The
-default setting on SLES8 uses 16MB hugepage size.
+On Thu, Mar 06, 2003 at 10:39:36PM +0100, Sam Ravnborg wrote:
+> On Wed, Mar 05, 2003 at 04:12:49PM -0800, Jesse Barnes wrote:
+> 
+> Hi Jesse.
+> >From a Makefile perspective it looks like you have made a really good job.
+> A few comments - see below.
 
-> -----Original Message-----
-> From: Jesse Barnes [mailto:jbarnes@sgi.com] 
-> Sent: Friday, March 14, 2003 9:34 AM
-> To: Jan Schreckenbach
-> Cc: linux-ia64@linuxia64.org
-> Subject: Re: [Linux-ia64] page size > 16KB
+Thanks for looking at this, I hadn't yet dug out your last mail about
+what I should be doing, so I wasn't sure if I remembered everything.
+
+> Usually I use the rule to convert to full path in arch/$(ARCH)/Makefile
 > 
-> 
-> On Fri, Mar 14, 2003 at 01:33:12PM +0100, Jan Schreckenbach wrote:
-> > yep, I'm doing some benchmark stuff with SAP/SAPDB and the 
-> performance 
-> > is not as good as I expected. CONFIG_HUGETLB_PAGE=y is 
-> standard on a 
-> > SLES8 kernel (2.4.19-SMP). I changed the page size from 16K 
-> to 64K and 
-> > the performance increase was 2-3 percent. Changing  Huge TLB Page 
-> > Size" seems not to have any effect.
-> 
-> Are you using the huge TLB support (it's not transparent to 
-> the app). If you're  seeing a few percent going from 16k to 
-> 64k, I'd expect that you'd see a bigger gain going from 16k 
-> to using the huge tlb api.  See 
-> Documentation/vm/hugetlbpage.txt in the kernel source for an 
-> idea of how to make use it (not sure if the doc is up to 
-> date, haven't used it myself).
-> 
-> Jesse
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org 
-> http://lists.linuxia64.org/lists/listinfo/linu> x-ia64
-> 
+> The following is preferred assuming you generate file named fakeprom.
+> > +	$(Q)$(MAKE) $(build)=$(fakeprom) $(fakeprom)/$@
+
+Oh, ok.
+
+> > diff -Naru linux-2.5.60-ia64-sn/arch/ia64/sn/fakeprom/Makefile work-sn2/arch/ia64/sn/fakeprom/Makefile
+> > --- linux-2.5.60-ia64-sn/arch/ia64/sn/fakeprom/Makefile	Mon Feb 10 10:38:53 2003
+> > +++ work-sn2/arch/ia64/sn/fakeprom/Makefile	Mon Mar  3 13:30:10 2003
+> >  
+> > -obj-y=fpromasm.o main.o fw-emu.o fpmem.o klgraph_init.o
+> > +targets-$(CONFIG_IA64_SGI_SN) := fakeprom
+> Cannot (from the patch) see the purpose of this assignment.
+
+I didn't know about EXTRA_TARGETS, but I think this allowed it to
+build when I called 'make fakeprom'.
+
+> > -fprom: $(OBJ)
+> > -	$(LD) -static -Tfprom.lds -o fprom $(OBJ) $(LIB)
+> > +OBJS := $(obj)/fpromasm.o $(obj)/main.o $(obj)/fw-emu.o $(obj)/fpmem.o \
+> > +	$(obj)/klgraph_init.o
+> >  
+> > -.S.o:
+> > -	$(CC)  -D__ASSEMBLY__ $(AFLAGS) $(AFLAGS_KERNEL) -c -o $*.o $<
+> > -.c.o:
+> > -	$(CC)  $(CFLAGS) $(CFLAGS_KERNEL) -c -o $*.o $<
+> > +fakeprom: $(obj)/fakeprom $(obj)/vmlinux.sym
+> > +	cp $(obj)/fakeprom $(obj)/fprom
+> $(obj)/fprom is a target here.
+
+I should probably just generate fprom directly instead of copying it,
+otherwise I should use $(src)/fprom?
+
+> > +
+> > +$(obj)/fakeprom: $(src)/fprom.lds $(OBJS) arch/ia64/lib/lib.a
+> > +	$(call if_changed,ld)
+>
+> You must add FORCE as prerequisite, otherwise it will not work as expected.
+> All targets used must be listed in: EXTRA_TARGETS
+> EXTRA_TARGETS := fprom fakeprom vmlinux.sym
+
+Could that explain why the files in arch/ia64/sn/fakeprom get rebuilt
+everytime?
+
+I'll fix this stuff up and post a diff against David's next patch (or
+bk tree, hint hint :).
+
+Thanks,
+Jesse
 
