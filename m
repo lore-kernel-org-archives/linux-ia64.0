@@ -1,7 +1,7 @@
-From: Don Dugger <n0ano@valinux.com>
-Date: Mon, 30 Apr 2001 22:51:46 +0000
+From: Keith Owens <kaos@ocs.com.au>
+Date: Mon, 30 Apr 2001 23:20:33 +0000
 Subject: Re: [Linux-ia64] Cleanup include/asm-ia64/offsets.h - take 2
-Message-Id: <marc-linux-ia64-105590693005492@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005493@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005486@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005486@msgid-missing>
@@ -10,66 +10,53 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith-
+On Mon, 30 Apr 2001 16:51:46 -0600, 
+Don Dugger <n0ano@valinux.com> wrote:
+>The number of defines is not the issue.  This issue is that with
+>the current system these defines are only defined once.  If you
+>create two different definitions that must match then I can
+>guarantee that some time in the future the definitions will get
+>out of sync and we'll spend an inordinate amount of time tracking
+>down a glitch that never would have occurred if we'd kept with
+>the current scheme of generating `offsets.h'.
 
-The number of defines is not the issue.  This issue is that with
-the current system these defines are only defined once.  If you
-create two different definitions that must match then I can
-guarantee that some time in the future the definitions will get
-out of sync and we'll spend an inordinate amount of time tracking
-down a glitch that never would have occurred if we'd kept with
-the current scheme of generating `offsets.h'.
+Why is defining a field twice an issue?  Both the C and asm definitions
+are defined as offsets of fields within a structure by name.  Neither
+the structure name nor the field names are ever going to change,
+switch_stack is as critical a structure as you can get.  Do you really
+expect this definition to change?
 
-If the only solution you can come up with is to create multiple
-definitions then I'm with David, let's just keep the current scheme.
+  #define IA64_SWITCH_STACK_B0_OFFSET (offsetof(struct switch_stack, b0))
 
-On Tue, May 01, 2001 at 08:31:04AM +1000, Keith Owens wrote:
-> On Mon, 30 Apr 2001 08:00:57 -0700, 
-> David Mosberger <davidm@hpl.hp.com> wrote:
-> >>>>>> On Mon, 30 Apr 2001 14:57:45 +1000, Keith Owens <kaos@ocs.com.au> said:
-> >
-> >  Keith> Second version of offsets.h cleanup patch.  Instead of
-> >  Keith> changing lots of C code, define just the 11 IA64_*_OFFSET
-> >  Keith> fields used by C in ptrace.h.
-> >
-> >This is better, but still no cigar: print_tools knows all the symbols
-> >that we might want to use in assembly or C code so I'd rather have it
-> >generate all definitions.  I'm OK with using different definitions for
-> >C and asm, _provided_ they have the same name and they are
-> >automatically generated (to ensure consistency).  Ideally, I'd like
-> >these #defines to live in the same place (header file).
-> 
-> The kernel build system copes reasonably well with shipped files, using
-> implicit dependencies which take config changes into account.  kbuild
-> has problems with generated files because they require explicit
-> dependency information to ensure that they are built before any file
-> that uses a generated file is read.
-> 
-> A single version of offsets.h is a problem because it needs to be
-> included in several .c files, each of those .c files requires an
-> explicit dependency on the build of offsets.h.  Because offsets.h
-> depends on config changes, on header changes and possibly on command
-> line parameters to make, it is impractible to work out if any of the
-> inputs to offsets.h have changed.  Instead it must be generated every
-> time and checked to see if has changed.  That is acceptable for 5
-> assembler files, it is not acceptable to regenerate offsets.h for every
-> .c file that might include offsets.h.
-> 
-> There are only 11 IA64_*_OFFSET fields used by .c files.  The cleanest
-> solution is to define those 11 fields in the headers that also define
-> the structure, which is what I did.  There is no justification for
-> complicating the kernel build system any more than it already is, just
-> to avoid 11 #defines.
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Other architectures accept that they need different definitions for C
+and asm.  In fact ix86 is even worse, it has these hard coded lines in
+arch/i386/kernel/entry.S and everybody lives with it.
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@valinux.com
-Ph: 303/938-9838
+/*
+ * these are offsets into the task-struct.
+ */
+state           =  0
+flags           =  4
+sigpending      =  8
+addr_limit      = 12
+exec_domain     = 16
+need_resched    = 20
+tsk_ptrace      = 24
+processor       = 52
+
+>If the only solution you can come up with is to create multiple
+>definitions then I'm with David, let's just keep the current scheme.
+
+The current scheme relies on users manually running make dep after any
+change that might affect the offsets of the fields generated by
+print-offsets.  Make any change that affects the size of struct
+task_struct (including config changes), forget to run make dep and your
+kernel build is useless.  Relying on *every* user to manually run make
+dep after any patch or config change that *might* affect offsets.h is
+unacceptable.
+
+You have a choice between a clean kbuild that requires 11 #defines that
+will never change or the existing method which relies on human
+intervention.  The current scheme is an bomb waiting to go off.
+
 
