@@ -1,87 +1,206 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 09 Mar 2004 23:24:50 +0000
-Subject: Re: [ACPI] [PATCH] 1 of 6 sync mpparse
-Message-Id: <200403091624.50746.bjorn.helgaas@hp.com>
+From: Andy Whitcroft <apw@shadowen.org>
+Date: Thu, 25 Mar 2004 17:02:49 +0000
+Subject: [PATCH] [5/6] HUGETLB memory commitment
+Message-Id: <18926564.1080234169@42.150.104.212.access.eclipse.net.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403091619.04333.bjorn.helgaas@hp.com>
-In-Reply-To: <200403091619.04333.bjorn.helgaas@hp.com>
+References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
+In-Reply-To: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org
-Cc: Andi Kleen <ak@suse.de>, "Nakajima, Jun" <jun.nakajima@intel.com>, "Brown, Len" <len.brown@intel.com>
+To: Anton Blanchard <anton@samba.org>, Andrew Morton <akpm@osdl.org>, Stephen Smalley <sds@epoch.ncsc.mil>
+Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Martin J. Bligh" <mbligh@aracnet.com>
 
-i386, x86_64: sync mpparse.c slightly
+[075-mem_acctdom_hugetlb_arch]
 
-This cleans up a little whitespace and a couple typos to remove
-needless differences between mpparse.c for i386 and x86_64.
+Convert hugetlb to accounting domains (arch)
 
-diff -Nru a/arch/i386/kernel/mpparse.c b/arch/i386/kernel/mpparse.c
---- a/arch/i386/kernel/mpparse.c	Tue Mar  9 13:13:20 2004
-+++ b/arch/i386/kernel/mpparse.c	Tue Mar  9 13:13:20 2004
-@@ -1,5 +1,5 @@
- /*
-- *	Intel Multiprocessor Specificiation 1.1 and 1.4
-+ *	Intel Multiprocessor Specification 1.1 and 1.4
-  *	compliant MP-table parsing routines.
-  *
-  *	(c) 1995 Alan Cox, Building #3 <alan@redhat.com>
-@@ -1158,19 +1158,19 @@
- 		if ((1<<bit) & mp_ioapic_routing[ioapic].pin_programmed[idx]) {
- 			Dprintk(KERN_DEBUG "Pin %d-%d already programmed\n",
- 				mp_ioapic_routing[ioapic].apic_id, ioapic_pin);
-- 			entry->irq = acpi_irq_to_vector(irq);
-+			entry->irq = acpi_irq_to_vector(irq);
- 			continue;
- 		}
+---
+ i386/mm/hugetlbpage.c    |   16 +++++++++++++---
+ ia64/mm/hugetlbpage.c    |   16 +++++++++++++---
+ ppc64/mm/hugetlbpage.c   |   16 +++++++++++++---
+ sparc64/mm/hugetlbpage.c |   16 +++++++++++++---
+ 4 files changed, 52 insertions(+), 12 deletions(-)
+
+diff -upN reference/arch/i386/mm/hugetlbpage.c current/arch/i386/mm/hugetlbpage.c
+--- reference/arch/i386/mm/hugetlbpage.c	2004-01-09 07:00:02.000000000 +0000
++++ current/arch/i386/mm/hugetlbpage.c	2004-03-25 15:03:27.000000000 +0000
+@@ -15,7 +15,7 @@
+ #include <linux/module.h>
+ #include <linux/err.h>
+ #include <linux/sysctl.h>
+-#include <asm/mman.h>
++#include <linux/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/tlbflush.h>
+@@ -513,13 +513,17 @@ module_init(hugetlb_init);
  
- 		mp_ioapic_routing[ioapic].pin_programmed[idx] |= (1<<bit);
+ int hugetlb_report_meminfo(char *buf)
+ {
++	int committed = atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
++#define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	return sprintf(buf,
+ 			"HugePages_Total: %5lu\n"
+ 			"HugePages_Free:  %5lu\n"
+-			"Hugepagesize:    %5lu kB\n",
++			"Hugepagesize:    %5lu kB\n"
++			"HugeCommited_AS: %8u kB\n",
+ 			htlbzone_pages,
+ 			htlbpagemem,
+-			HPAGE_SIZE/1024);
++			HPAGE_SIZE/1024,
++			K(committed));
+ }
  
- 		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, irq, edge_level, active_high_low)) {
-- 			entry->irq = acpi_irq_to_vector(irq);
-- 		}
-+			entry->irq = acpi_irq_to_vector(irq);
-+		}
- 		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d -> IRQ %d\n",
--			entry->id.segment, entry->id.bus, 
--			entry->id.device, ('A' + entry->pin), 
--			mp_ioapic_routing[ioapic].apic_id, ioapic_pin, 
-+			entry->id.segment, entry->id.bus,
-+			entry->id.device, ('A' + entry->pin),
-+			mp_ioapic_routing[ioapic].apic_id, ioapic_pin,
- 			entry->irq);
- 	}
+ int is_hugepage_mem_enough(size_t size)
+@@ -527,6 +531,12 @@ int is_hugepage_mem_enough(size_t size)
+ 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <= htlbpagemem;
+ }
  
-diff -Nru a/arch/x86_64/kernel/mpparse.c b/arch/x86_64/kernel/mpparse.c
---- a/arch/x86_64/kernel/mpparse.c	Tue Mar  9 13:13:20 2004
-+++ b/arch/x86_64/kernel/mpparse.c	Tue Mar  9 13:13:20 2004
-@@ -9,7 +9,7 @@
-  *		Erich Boleyn	:	MP v1.4 and additional changes.
-  *		Alan Cox	:	Added EBDA scanning
-  *		Ingo Molnar	:	various cleanups and rewrites
-- *	Maciej W. Rozycki	:	Bits for default MP configurations
-+ *		Maciej W. Rozycki:	Bits for default MP configurations
-  *		Paul Diefenbaugh:	Added full ACPI support
-  */
- 
-@@ -1009,14 +1009,14 @@
-  			if (use_pci_vector() && !platform_legacy_irq(irq))
-  				irq = IO_APIC_VECTOR(irq);
- 			entry->irq = irq;
-- 		}
--		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d"
--			" -> IRQ %d\n", entry->id.segment, entry->id.bus, 
--			entry->id.device, ('A' + entry->pin), 
-+		}
-+		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d -> IRQ %d\n",
-+			entry->id.segment, entry->id.bus,
-+			entry->id.device, ('A' + entry->pin),
- 			mp_ioapic_routing[ioapic].apic_id, ioapic_pin,
- 			entry->irq);
- 	}
--	
++/* Return the number pages of memory we physically have, in PAGE_SIZE units. */
++unsigned long hugetlb_total_pages(void)
++{
++	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
++}
 +
- 	print_IO_APIC();
+ /*
+  * We cannot handle pagefaults against hugetlb pages at all.  They cause
+  * handle_mm_fault() to try to instantiate regular-sized pages in the
+diff -upN reference/arch/ia64/mm/hugetlbpage.c current/arch/ia64/mm/hugetlbpage.c
+--- reference/arch/ia64/mm/hugetlbpage.c	2004-03-11 20:47:12.000000000 +0000
++++ current/arch/ia64/mm/hugetlbpage.c	2004-03-25 15:03:27.000000000 +0000
+@@ -17,7 +17,7 @@
+ #include <linux/smp_lock.h>
+ #include <linux/slab.h>
+ #include <linux/sysctl.h>
+-#include <asm/mman.h>
++#include <linux/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/tlbflush.h>
+@@ -576,13 +576,17 @@ __initcall(hugetlb_init);
  
- 	return;
+ int hugetlb_report_meminfo(char *buf)
+ {
++	int committed = atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
++#define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	return sprintf(buf,
+ 			"HugePages_Total: %5lu\n"
+ 			"HugePages_Free:  %5lu\n"
+-			"Hugepagesize:    %5lu kB\n",
++			"Hugepagesize:    %5lu kB\n"
++			"HugeCommited_AS: %8u kB\n",
+ 			htlbzone_pages,
+ 			htlbpagemem,
+-			HPAGE_SIZE/1024);
++			HPAGE_SIZE/1024,
++			K(committed));
+ }
+ 
+ int is_hugepage_mem_enough(size_t size)
+@@ -592,6 +596,12 @@ int is_hugepage_mem_enough(size_t size)
+ 	return 1;
+ }
+ 
++/* Return the number pages of memory we physically have, in PAGE_SIZE units. */
++unsigned long hugetlb_total_pages(void)
++{
++	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
++}
++
+ static struct page *hugetlb_nopage(struct vm_area_struct * area, unsigned long address, int *unused)
+ {
+ 	BUG();
+diff -upN reference/arch/ppc64/mm/hugetlbpage.c current/arch/ppc64/mm/hugetlbpage.c
+--- reference/arch/ppc64/mm/hugetlbpage.c	2004-03-11 20:47:14.000000000 +0000
++++ current/arch/ppc64/mm/hugetlbpage.c	2004-03-25 15:03:27.000000000 +0000
+@@ -17,7 +17,7 @@
+ #include <linux/module.h>
+ #include <linux/err.h>
+ #include <linux/sysctl.h>
+-#include <asm/mman.h>
++#include <linux/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/tlbflush.h>
+@@ -896,13 +896,17 @@ module_init(hugetlb_init);
+ 
+ int hugetlb_report_meminfo(char *buf)
+ {
++	int committed = atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
++#define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	return sprintf(buf,
+ 			"HugePages_Total: %5d\n"
+ 			"HugePages_Free:  %5d\n"
+-			"Hugepagesize:    %5lu kB\n",
++			"Hugepagesize:    %5lu kB\n"
++			"HugeCommited_AS: %8u kB",
+ 			htlbpage_total,
+ 			htlbpage_free,
+-			HPAGE_SIZE/1024);
++			HPAGE_SIZE/1024,
++			K(commited));
+ }
+ 
+ /* This is advisory only, so we can get away with accesing
+@@ -912,6 +916,12 @@ int is_hugepage_mem_enough(size_t size)
+ 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <= htlbpage_free;
+ }
+ 
++/* Return the number pages of memory we physically have, in PAGE_SIZE units. */
++int hugetlb_total_pages(void)
++{
++	return htlbpage_total * (HPAGE_SIZE / PAGE_SIZE);
++}
++
+ /*
+  * We cannot handle pagefaults against hugetlb pages at all.  They cause
+  * handle_mm_fault() to try to instantiate regular-sized pages in the
+diff -upN reference/arch/sparc64/mm/hugetlbpage.c current/arch/sparc64/mm/hugetlbpage.c
+--- reference/arch/sparc64/mm/hugetlbpage.c	2004-01-09 06:59:45.000000000 +0000
++++ current/arch/sparc64/mm/hugetlbpage.c	2004-03-25 15:03:27.000000000 +0000
+@@ -13,8 +13,8 @@
+ #include <linux/smp_lock.h>
+ #include <linux/slab.h>
+ #include <linux/sysctl.h>
++#include <linux/mman.h>
+ 
+-#include <asm/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ #include <asm/tlbflush.h>
+@@ -483,13 +483,17 @@ module_init(hugetlb_init);
+ 
+ int hugetlb_report_meminfo(char *buf)
+ {
++	int committed = atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
++#define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	return sprintf(buf,
+ 			"HugePages_Total: %5lu\n"
+ 			"HugePages_Free:  %5lu\n"
+-			"Hugepagesize:    %5lu kB\n",
++			"Hugepagesize:    %5lu kB\n"
++			"HugeCommited_AS: %8u kB\n",
+ 			htlbzone_pages,
+ 			htlbpagemem,
+-			HPAGE_SIZE/1024);
++			HPAGE_SIZE/1024,
++			K(committed));
+ }
+ 
+ int is_hugepage_mem_enough(size_t size)
+@@ -497,6 +501,12 @@ int is_hugepage_mem_enough(size_t size)
+ 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <= htlbpagemem;
+ }
+ 
++/* Return the number pages of memory we physically have, in PAGE_SIZE units. */
++int hugetlb_total_pages(void)
++{
++	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
++}
++
+ /*
+  * We cannot handle pagefaults against hugetlb pages at all.  They cause
+  * handle_mm_fault() to try to instantiate regular-sized pages in the
 
