@@ -1,34 +1,69 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 15 Oct 2003 22:51:15 +0000
-Subject: Re: [PATCH] a little more documentation in fsys.txt
-Message-Id: <marc-linux-ia64-106625829219963@msgid-missing>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Mon, 20 Oct 2003 06:19:14 +0000
+Subject: MCA Recovery for Enterprise Server
+Message-Id: <marc-linux-ia64-106663088408345@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106574771001988@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106574771001988@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 10 Oct 2003 14:01:29 -0700, David Mosberger <davidm@linux.hpl.hp.com> said:
+Hi.
 
->>>>> On Fri, 10 Oct 2003 10:55:54 +1000, Ian Wienand <ianw@gelato.unsw.edu.au> said:
-  Ian> Hi, Attached is a suggestion for a small addition to fsys.txt
-  Ian> about how userspace can use fast system calls.
+Now I am considering the way to apply Linux to Mission-Critical Enterprise
+system on IPF (Itanium Processor Family) Server. Generally, Enterprise Server
+requires high-reliability and high-availability, so I recognize following
+features as fundamentals:
 
-  Ian> If people think this is totally wrong, or that something like
-  Ian> this might be more appropriate in our WiKi, that's fine.
+ - Recovery from device error
+ - Recovery from intermittent corrected error (ex. Single-bit ECC error)
+ - Structured Error logging
 
-  David> I like the idea of improving the documentation, but since
-  David> we're in bug-fix-only mode, I won't be able to apply the
-  David> patch for now.  Please resend when 2.7 is open.
+Aims of these are:
 
-Actually, it seems silly to discourage documentation improvements.  If
-anything, we should encourage them as 2.6.0 stabilizes (as long as
-we're talking about updating real documentation, not just munging
-comments for typos etc.).  I checked with Andrew and he seems OK with
-such updates, so I applied this patch to my tree now.
+ - Keep stable.
+ - Quick maintenance by early error detecting/declaring.
 
-Thanks,
 
-	--david
+These features we working on are realized by functions that recover system
+from hardware error, block suffered device by judging from CPU/Memory/Chipset
+error severity. An outline is here:
+
+ a) Fault Location and Error Classification
+    Detect suffered unit and determine error severity on interrupted timing.
+
+ b) Recovery from device error
+    If error is local, disable suffered devices and block operations target to
+    them. Else, reboot system immediately.
+
+ c) Error Logging
+    Structured error log helps maintenance engineer, remote maintenance system,
+    and policed error observer.
+
+ d) Error Prediction (from intermittent corrected error)
+    To prevent expected error on sick component, check every corrected error
+    and alert user to confirmed. This feature will be realized by daemon in
+    user-land.
+
+I am planning to offer a) to c) by the mid of March 2004, and d) by the end of
+2005.
+
+
+However, some of these features seem to depend on the platform implementation.
+So I am designing a Platform-MCA (Machine Check Abort) handler for our IPF
+machine.
+
+Is there any guideline(s) to implement Platform-MCA handler?
+I have found a symbol named PLATFORM_MCA_HANDLERS in /arch/ia64/kernel/mca.c,
+but it seems not to work.
+
+Also, if you know any technique for debugging MCA codes, please show me the
+smart way.
+
+
+Thanks.
+
+------
+
+H.Seto <seto.hidetoshi@jp.fujitsu.com>
+
