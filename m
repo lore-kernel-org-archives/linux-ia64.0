@@ -1,30 +1,29 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 05 Jun 2004 04:18:14 +0000
-Subject: Re: [patch 2.6.6] Workaround linker bug
-Message-Id: <16577.18822.988624.4464@napali.hpl.hp.com>
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 09 Jun 2004 16:51:03 +0000
+Subject: Re: Please requeue atlas3
+Message-Id: <20040609165103.GC24864@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <9422.1085636381@kao2.melbourne.sgi.com>
-In-Reply-To: <9422.1085636381@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 27 May 2004 15:39:41 +1000, Keith Owens <kaos@sgi.com> said:
+On Wed, Jun 09, 2004 at 10:05:15AM -0600, LaMont Jones wrote:
+> On Wed, Jun 09, 2004 at 11:31:38AM -0400, Camm Maguire wrote:
+> > TO close the book on ia64 atlas3, are there any isa extensions
+> > available on certain subclasses of the cpu which might warrant a
+> > separate build, as is the case for sse2 on i386?
+> 
+> Absolutely no clue here.  Anyone else?
 
-  Keith> Building 2.6.6-ia64-040521, using GNU ld version 2.14.90.0.4
-  Keith> 20030523.  __gp is sometimes set incorrectly.  Instead of
-  Keith> being .got + 0x2000000, it is set to .data + 0x2000000, which
-  Keith> breaks some LTOFF22 and GPREL22 entries.
+I think the only ISA addition so far is BranchLong which gets emulated
+by the kernel.  I hear murmurings of additional instructions in future
+processors, but let's cross that bridge when there's silicon to be had.
 
-  Keith> This is non-deterministic, changing the path name to the
-  Keith> kernel tree which changes the size of some messages in .data
-  Keith> is enough to make the linker get it right.  Force __gp to be
-  Keith> based on .got.
-
-I can't say I have seen this myself, but the workaround is sensible enough,
-so I applied the patch.
-
-Thanks, and sorry for the delay (still working through my backlog...).
-
-	--david
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
