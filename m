@@ -1,52 +1,27 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 06 Mar 2002 19:45:38 +0000
-Subject: [Linux-ia64] psr.dt state when DO_SAVE_MIN is invoked
-Message-Id: <marc-linux-ia64-105590701905232@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 06 Mar 2002 20:22:16 +0000
+Subject: Re: [Linux-ia64] psr.dt state when DO_SAVE_MIN is invoked
+Message-Id: <marc-linux-ia64-105590701905233@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905232@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905232@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Some systems running an old kernel (2.4.7) have been seen to
-hang looping in an apparent recursive TLB fault.  The same tests
-that locked up these machines seem to run fine on new kernels,
-but while looking into the issue the following oddity was
-noted in the code, that still exists in 2.4.18
+>>>>> On Wed, 6 Mar 2002 11:45:38 -0800, "Luck, Tony" <tony.luck@intel.com> said:
 
-in arch/ia64/kernel/ivt.S we have:
-ENTRY(page_fault)
-        ssm psr.dt
-        ;;
-        srlz.i
-        ;;
-        SAVE_MIN_WITH_COVER
+  Tony> See how page_fault explicitly sets psr.dt, and then invokes a
+  Tony> macro that says that the assumed entry state is psr.dt should
+  Tony> be off. Is the comment just plain wrong, or is there a
+  Tony> potential issue here?
 
-and minstate.h defines:
+The comment is wrong.  It used to be correct, but when the MC folks
+changed the code to do the min save through virtual space, the comment
+apparently wasn't updated.  I'll fix this.
 
-#define SAVE_MIN_WITH_COVER     DO_SAVE_MIN(cover, mov rCRIFS=cr.ifs,)
+Thanks,
 
-which in turn says:
-
-/*
- * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
- * the minimum state necessary that allows us to turn psr.ic back
- * on.
- *
- * Assumed state upon entry:
- *      psr.ic: off
- *      psr.dt: off
- *      r31:    contains saved predicates (pr)
- *
-	...
-
-See how page_fault explicitly sets psr.dt, and then invokes a macro
-that says that the assumed entry state is psr.dt should be off. Is
-the comment just plain wrong, or is there a potential issue here?
-
-The 2.4.7 failure hits at around the 67 hour mark in the tests, the
-newer (RedHat 7.2 a.k.a. 2.4.9-18) kernel survives 72 hours ... but
-that's as long as we scheduled the test to run.
-
--Tony
+	--david
 
