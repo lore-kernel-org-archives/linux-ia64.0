@@ -1,7 +1,7 @@
 From: Roy Dragseth <royd@cc.uit.no>
-Date: Wed, 08 Jan 2003 21:58:47 +0000
+Date: Wed, 08 Jan 2003 22:08:51 +0000
 Subject: Re: [Linux-ia64] disabling nics in efi.
-Message-Id: <marc-linux-ia64-105590709805648@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805649@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805644@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805644@msgid-missing>
@@ -10,14 +10,19 @@ Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wednesday 08 January 2003 22:50, Joseph V Moss wrote:
-> Have you tried just using the 'ksdevice=3Deth2' option to tell anaconda to
-> use eth2 for the kickstart install?
+On Wednesday 08 January 2003 22:52, Alex Williamson wrote:
+>    The EFI driver has nothing to do with whether the NIC shows up
+> to the OS.  It only makes it unavailble from EFI, the hardware is
+> still there.  I don't know of any way to make the NICs not show up
+> other than not loading the module.
 
-yes, it still insists on getting it through eth0.  At least that what I thi=
-nk=20
-it is trying to do because it works ok when I connect a cable to that=20
-interface.
+So, I was indeed missing the point.
+
+The only viable path seems to be preventing the kernel to probe the interfa=
+ces=20
+using the reserve boot option.  If I only could figure out how to compute t=
+he=20
+right addresses...
 
 r.
 
