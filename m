@@ -1,36 +1,56 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Tue, 25 Mar 2003 18:03:55 +0000
-Subject: Re: [Linux-ia64] [patch] logical CPU numbering
-Message-Id: <marc-linux-ia64-105590723705310@msgid-missing>
+From: Vladimir Simonov <sv@sw.com.sg>
+Date: Fri, 21 Mar 2003 09:36:23 +0000
+Subject: [Linux-ia64] show_trace_task portability
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------070404030001040607040703"
+Message-Id: <marc-linux-ia64-105590723705283@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705277@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705277@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------070404030001040607040703
+Content-Type: text/plain; charset=KOI8-R; format=flowed
+Content-Transfer-Encoding: 7bit
 
-On Thu, Mar 20, 2003 at 12:07:32PM -0800, Wichmann, Mats D wrote:
-> 
-> > If a CPU fails to start during smp_boot_cpus(), then the logical CPU
-> > numbering gets will have a "hole".  Using the number of booted CPU's
-> > instead of the loop index will correct this.
-> 
-> Just curious, does having a hole cause a problem?
-> It might well; I don't know.
-> 
-> I consider some future scenario where if cpu X
-> didn't come up, it can be hot-replaced, at which
-> point one might actually want to have that "slot"
-> reserved for it. 
+Hi!
+Trying to port some patches from i386 to ia64 I've found that
+show_trace_task is the only portable way to show tasks' call
+traces(perhaps because it is called from ./kernel/sched.c:)).
+But its ia64 implementation can't work with running task.
 
-I thought there was some code that depended on having logical cpus
-numbered without holes.  I can't find any evidence of it anymore, so
-perhaps its not a bug.
+Attached patch fixes this issue.
 
-mh
+As I understand show_trace and show_stack are platform
+dependent or have different sense/args.
 
--- 
-Wild Open Source Inc.                  mort@wildopensource.com
+Any opinion?
+
+Best regards
+Vladimir Simonov
+
+
+--------------070404030001040607040703
+Content-Type: text/plain;
+ name="diff-show_trace_task.ia64"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="diff-show_trace_task.ia64"
+
+--- linux.orig/arch/ia64/kernel/process.c	Fri Mar 21 08:32:37 2003
++++ linux/arch/ia64/kernel/process.c		Fri Mar 21 08:53:06 2003
+@@ -53,10 +53,7 @@
+ void
+ show_trace_task (struct task_struct *task)
+ {
+-	struct unw_frame_info info;
+-
+-	unw_init_from_blocked_task(&info, task);
+-	do_show_stack(&info, 0);
++	show_stack(task);
+ }
+ 
+ void
+
+--------------070404030001040607040703--
+
 
