@@ -1,29 +1,23 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 17 Oct 2003 15:25:15 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 17 Oct 2003 15:51:47 +0000
 Subject: Re: [2.6 PATCH] Missing exported symbol
-Message-Id: <marc-linux-ia64-106640434818851@msgid-missing>
+Message-Id: <marc-linux-ia64-106640598821231@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106638921002098@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106638921002098@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-jbarnes@sgi.com (Jesse Barnes) writes:
+>>>>> On Fri, 17 Oct 2003 13:12:07 +0200, Andreas Schwab <schwab@suse.de> said:
 
-> That said, shouldn't these symols be exported in the files that contain
-> them?
+  Andreas> +EXPORT_SYMBOL(machine_power_off);
+  Andreas> +EXPORT_SYMBOL(machine_restart);
 
-Yes, that's true.  We should eventually remove all exports from
-ia64_ksyms.c except those that are implemented in assembler.  But I think
-we should postpone that after test8 since Linus only wants bug fixes at
-this time.
+These are supposed to be exported where they get defined (actually,
+true for everything in ia64_ksyms.c).  I had a fix for this, but due
+to operator-error it got lost.  I'll re-fix it.
 
-Andreas.
+	--david
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
