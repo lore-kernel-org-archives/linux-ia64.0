@@ -1,37 +1,31 @@
-From: Pat Gefre <pfg@sgi.com>
-Date: Wed, 20 Oct 2004 00:35:34 +0000
-Subject: [PATCH] 2.6.10 Altix : export sn_dma_mapping_error for libata
-Message-Id: <200410200035.i9K0ZY4u145701@fsgi900.americas.sgi.com>
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Thu, 07 Oct 2004 19:48:49 +0000
+Subject: Allow -mtune=merced for gcc 3.4
+Message-Id: <20041007194849.GA32425@lucon.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Mod to export sn_dma_mapping_error - needed by libata
+Gcc 3.4.2 fixed ia64 -mtune=merced regressions on Linux 2.6 kernel:
+
+http://gcc.gnu.org/bugzilla/show_bug.cgi?id278
+
+I have been using this patch for several months now.
 
 
-
-Signed-off-by: Patrick Gefre <pfg@sgi.com>
-Acked-by: Patrick Gefre <pfg@sgi.com>
-
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/10/19 19:23:42-05:00 pfg@sgi.com 
-#   arch/ia64/sn/pci/pci_dma.c
-#       Export for drivers/scsi/libata.ko
-# 
-# arch/ia64/sn/pci/pci_dma.c
-#   2004/10/19 19:23:32-05:00 pfg@sgi.com +1 -0
-#   Export for drivers/scsi/libata.ko
-# 
-diff -Nru a/arch/ia64/sn/pci/pci_dma.c b/arch/ia64/sn/pci/pci_dma.c
---- a/arch/ia64/sn/pci/pci_dma.c	2004-10-19 19:25:32 -05:00
-+++ b/arch/ia64/sn/pci/pci_dma.c	2004-10-19 19:25:32 -05:00
-@@ -474,3 +474,4 @@
- EXPORT_SYMBOL(sn_pci_alloc_consistent);
- EXPORT_SYMBOL(sn_pci_free_consistent);
- EXPORT_SYMBOL(sn_pci_dma_supported);
-+EXPORT_SYMBOL(sn_dma_mapping_error);
+H.J.
+--
+--- linux-2.6.8/arch/ia64/Makefile.merced	2004-08-30 10:38:31.733105785 -0700
++++ linux-2.6.8/arch/ia64/Makefile	2004-08-30 11:03:38.206994164 -0700
+@@ -40,8 +40,7 @@ $(error Sorry, your compiler is too old.
+ endif
+ 
+ ifeq ($(GCC_VERSION),0304)
+-# Workaround Itanium 1 bugs in gcc 3.4.
+-#	cflags-$(CONFIG_ITANIUM)	+= -mtune=merced
++	cflags-$(CONFIG_ITANIUM)	+= -mtune=merced
+ 	cflags-$(CONFIG_MCKINLEY)	+= -mtune=mckinley
+ endif
+ 
