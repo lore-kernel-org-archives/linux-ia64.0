@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 27 May 2003 18:42:57 +0000
+Date: Tue, 27 May 2003 18:56:20 +0000
 Subject: Re: [Linux-ia64] run time code generation for IA-64
-Message-Id: <marc-linux-ia64-105590723706046@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723706048@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723706033@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723706033@msgid-missing>
@@ -10,18 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 27 May 2003 11:17:47 -0700, David Mosberger <davidm@linux.hpl.hp.com> said:
+>>>>> On Wed, 28 May 2003 00:17:42 +0530 (IST), CH Gowri Kumar <gkumar@csa.iisc.ernet.in> said:
 
->>>>> On Mon, 26 May 2003 16:07:30 +0530 (IST), CH Gowri Kumar <gkumar@csa.iisc.ernet.in> said:
-  CH> Also, I am storing the GP,RP etc. in R4,R5 (as they are
-  CH> preserved across function calls).
+  CH> Hi David,
+  >> Where do you have R4 and R5 before using them?
 
-  David> Where do you have R4 and R5 before using them?  Using local
-		      ^
-		      |
-		should be an "s"
+  CH> Did you mean to say that I have to save R4 and R5 before using them?
 
-Sorry about that.
+Yes, of course: "preserved" means you have to save a register before
+using it.  On the positive side, it's contents will get preserved
+across calls.
+
+  CH> Just wondering why isn't there a standard calling convention on IA-64.
+  CH> Something of this sort(if at all to be saved):
+  CH> rp has to be saved in loc0
+  CH> sp has to be saved in loc1
+  CH> gp has to be saved in loc2
+
+That would needlessly constrain code optimization.  For example, on
+ia64, it's almost never necessary to save sp.
 
 	--david
 
