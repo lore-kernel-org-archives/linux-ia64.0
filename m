@@ -1,119 +1,37 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sat, 20 Dec 2003 02:56:38 +0000
-Subject: Re: [patch] 2.6.0 MCA TLB error recovery
-Message-Id: <marc-linux-ia64-107188914431904@msgid-missing>
+From: umut aymakoglu <umutaymak@yahoo.com>
+Date: Wed, 24 Dec 2003 23:13:13 +0000
+Subject: segv at strcmp
+Message-Id: <marc-linux-ia64-107230762310061@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107181047921141@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107181047921141@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 19 Dec 2003 16:32:14 -0800, 
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
->>>>>> On Sat, 20 Dec 2003 11:26:12 +1100, Keith Owens <kaos@sgi.com> said:
->
->  Keith> David, please apply the first mca/salinfo patch to your tree
->  Keith> (Forward port the recent changes to pal.h, sal.h, mca.h,
->  Keith> salinfo.c and mca.c from 2.4.23-rc2 to 2.6.0-test9), then I
->  Keith> will do a 2.6 version of the second patch over the top.
->
->Whoops, too late.  I did see the preempt comments and figured you'll
->fix that once it's in the tree.  Can you go from what's in the bk
->trees now (give me a minute or two, I'm just pushing things to
->to-linus-2.5 and linux-ia64-2.5 will be next).
+Hi -
 
-Convert cmc deadlock avoidance patch from 2.4 to 2.6.
+We have hit a problem with strcmp() on UnitedLinux 1.0
+with kernel: 2.4.19 and glibc: 2.2.5.
+I am wondering if anybody has seen something like it
+or knows if already there is a patch. I do not have a
+small repro but i will try to explain:
 
---- 2.6.0/arch/ia64/kernel/mca.c.orig	Sat Dec 20 13:33:30 2003
-+++ 2.6.0/arch/ia64/kernel/mca.c	Sat Dec 20 13:52:10 2003
-@@ -55,7 +55,7 @@
- #include <linux/module.h>
- #include <linux/kernel.h>
- #include <linux/smp.h>
--#include <linux/tqueue.h>
-+#include <linux/workqueue.h>
- 
- #include <asm/delay.h>
- #include <asm/machvec.h>
-@@ -158,8 +158,6 @@
- 
- extern void salinfo_log_wakeup(int type, u8 *buffer, u64 size);
- 
--static struct tq_struct	cmc_disable_tq, cmc_enable_tq;
--
- /*
-  *  ia64_mca_log_sal_error_record
-  *
-@@ -622,14 +620,11 @@
-  *
-  * Called via keventd (smp_call_function() is not safe in interrupt context) to
-  * disable the cmc interrupt vector.
-- *
-- * Note: needs preempt_disable() if you apply the preempt patch to 2.4.
-  */
- static void
- ia64_mca_cmc_vector_disable_keventd(void *unused)
- {
--	ia64_mca_cmc_vector_disable(NULL);
--	smp_call_function(ia64_mca_cmc_vector_disable, NULL, 1, 0);
-+	on_each_cpu(ia64_mca_cmc_vector_disable, NULL, 1, 0);
- }
- 
- /*
-@@ -637,14 +632,11 @@
-  *
-  * Called via keventd (smp_call_function() is not safe in interrupt context) to
-  * enable the cmc interrupt vector.
-- *
-- * Note: needs preempt_disable() if you apply the preempt patch to 2.4.
-  */
- static void
- ia64_mca_cmc_vector_enable_keventd(void *unused)
- {
--	smp_call_function(ia64_mca_cmc_vector_enable, NULL, 1, 0);
--	ia64_mca_cmc_vector_enable(NULL);
-+	on_each_cpu(ia64_mca_cmc_vector_enable, NULL, 1, 0);
- }
- 
- /*
-@@ -680,9 +672,6 @@
- 
- 	IA64_MCA_DEBUG("ia64_mca_init: begin\n");
- 
--	INIT_TQUEUE(&cmc_disable_tq, ia64_mca_cmc_vector_disable_keventd, NULL);
--	INIT_TQUEUE(&cmc_enable_tq, ia64_mca_cmc_vector_enable_keventd, NULL);
--
- 	/* initialize recovery success indicator */
- 	ia64_os_mca_recovery_successful = 0;
- 
-@@ -1055,6 +1044,9 @@
- 	ia64_return_to_sal_check();
- }
- 
-+static DECLARE_WORK(cmc_disable_work, ia64_mca_cmc_vector_disable_keventd, NULL);
-+static DECLARE_WORK(cmc_enable_work, ia64_mca_cmc_vector_enable_keventd, NULL);
-+
- /*
-  * ia64_mca_cmc_int_handler
-  *
-@@ -1101,7 +1093,7 @@
- 
- 			cmc_polling_enabled = 1;
- 			spin_unlock(&cmc_history_lock);
--			schedule_task(&cmc_disable_tq);
-+			schedule_work(&cmc_disable_work);
- 
- 			/*
- 			 * Corrected errors will still be corrected, but
-@@ -1196,7 +1188,7 @@
- 		if (start_count = IA64_LOG_COUNT(SAL_INFO_TYPE_CMC)) {
- 
- 			printk(KERN_WARNING "%s: Returning to interrupt driven CMC handler\n", __FUNCTION__);
--			schedule_task(&cmc_enable_tq);
-+			schedule_work(&cmc_enable_work);
- 			cmc_polling_enabled = 0;
- 
- 		} else {
+The segv happens at memcmp() at a line like:
+'strcmp(x, "this is 24 chars long")' where x is a char
+pointer with a length of 7 and the constant has a
+length of 24. x is located at the first 8 bytes of the
+last 16 bytes at the end of a non-contiguous shared
+memory segment. memcmp() segvs when it tries to load 8
+bytes from the "r19" register which initially has the
+address of x and points to the end of the segment when
+the segv happens.
 
+any help would be appreciated,
+thanks,
+Umut 
+
+
+__________________________________
+Do you Yahoo!?
+New Yahoo! Photos - easier uploading and sharing.
+http://photos.yahoo.com/
