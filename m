@@ -1,55 +1,58 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 07 Jun 2004 15:06:54 +0000
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Tue, 08 Jun 2004 08:03:20 +0000
 Subject: Re: Who owns those locks ?
-Message-Id: <200406070906.54132.bjorn.helgaas@hp.com>
+Message-Id: <40C572C8.20B13640@nospam.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40A1F4BE.4A298352@nospam.org> <200406031139.58964.bjorn.helgaas@hp.com> <40C42E4B.15F1E605@nospam.org>
-In-Reply-To: <40C42E4B.15F1E605@nospam.org>
+References: <40A1F4BE.4A298352@nospam.org> <200406031139.58964.bjorn.helgaas@hp.com> <40C42E4B.15F1E605@nospam.org> <200406070906.54132.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Zoltan.Menyhart@bull.net
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Monday 07 June 2004 2:58 am, Zoltan Menyhart wrote:
-> Bjorn Helgaas wrote:
-> > On Wednesday 12 May 2004 3:56 am, Zoltan Menyhart wrote:
-> > > Got a dead lock ?
-> > > No idea how you got there ?
-> > >
-> > > Why don't you put the ID of the owner of the lock in the lock word ?
-> > > Here is your patch for IA-64.
-> > > Doesn't cost any additional instruction, you can have it in your
-> > > "production" kernel, too.
-> > 
-> > Whatever happened with this patch?  I really like the idea, but
-> > it seems like it died on the vine.  Maybe it's time to clean it
-> > up, pull all the bits together, and repost it.
-> 
-> Here you are.
-> (I'm still playing with 2.6.5)
+Bjorn Helgaas wrote:
+>=20
+> There are a couple issues I was thinking of when
+> I wrote "clean it up, pull the bits together...":
+>=20
+>         1) Tony Luck's question about what happens when
+>            "shr.u r30 =3D r13, 12" yields zero in the 32-bit
+>            lock value.  I'm not the 2.6 maintainer, but I'd
+>            sure like to see some solution for this.  It would
+>            be a nightmare to debug a system where one random
+>            task didn't release locks correctly.  Since other
+>            arches use a trick like this, I'm hoping they've
+>            figured out something we can copy (I haven't looked).
 
-There are a couple issues I was thinking of when
-I wrote "clean it up, pull the bits together...":
+Sure, I did not want to make an error like saying:
+"640 K ought to be enough for everyone".
 
-	1) Tony Luck's question about what happens when
-	   "shr.u r30 = r13, 12" yields zero in the 32-bit
-	   lock value.  I'm not the 2.6 maintainer, but I'd
-	   sure like to see some solution for this.  It would
-	   be a nightmare to debug a system where one random
-	   task didn't release locks correctly.  Since other
-	   arches use a trick like this, I'm hoping they've
-	   figured out something we can copy (I haven't looked).
+I'm afraid, there is no perfect solution.
 
-	2) A nit-pick, but for things like this:
+- We do not want to change the lock size to 64 bits, do we ?
+  -- Couple of new alignment problems.
 
--                     "  mov r30 = 1;;\n\t"
-+                     /* "  mov r30 = 1;;\n\t" */
-+                     "  shr.u r30 = r13, 12;;\n\t"     /* Current task pointer */
+- You keep my code, it is correct for a memory size up to 16 Tbytes.
 
-	   just remove the old line, don't comment it out.
+- You shift by PAGE_SHIFT, rather than by 12 (using page size of
+  16 Kbytes) =3D> up to  64 Tbytes.
+  -- Not that much human readable lock values.
 
-Thanks for collecting the bits.  I looked at it last week, got
-derailed trying to figure out how the pre-gcc-3.3 lock contention
-code worked (a comment there would have been helpful), and got
-distracted.
+- You move to PAGE_SIZE =3D 64 K, you get human readable lock values
+  up to 256 Tbytes.
+
+- You could store the "PID | miraculous bit" (to avoid PID =3D 0
+  problem).
+  -- Somewhat longer code.
+
+I expect the main stream IA64 kernel to move to PAGE_SIZE =3D 64 K by
+the time there will be machines with more than 16 Tbytes of memory
+(as the processors have got just a very limited number of
+translation look aside buffer entries, and the ever growing
+application / memory sizes result in higher TLB miss rate unless the
+page size increases).
+
+
+Regards,
+
+Zolt=E1n
