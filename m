@@ -1,7 +1,7 @@
-From: Christopher Wedgwood <cw@sgi.com>
-Date: Tue, 22 Jul 2003 04:43:35 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 25 Jul 2003 01:15:42 +0000
 Subject: Re: [PATCH] (2.4.x bk) efi_memmap_walk_uc
-Message-Id: <marc-linux-ia64-105884902708537@msgid-missing>
+Message-Id: <marc-linux-ia64-105909575817537@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105883467032028@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105883467032028@msgid-missing>
@@ -10,20 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Jul 21, 2003 at 09:08:28PM -0600, Bjorn Helgaas wrote:
+>>>>> On Mon, 21 Jul 2003 17:43:54 -0700, Christopher Wedgwood <cw@sgi.com> said:
 
-> Yeah, I agree.  What about doing it for 2.5/2.6 first?
+  Chris> Hi, On SN2 we have a 'fetchop' driver which does various
+  Chris> magical things with uncached memory (atomic operations within
+  Chris> or across partitions).
 
-If David is willing I'll take a stab...  the code is pretty horrendous
-in places in the way it runs on large NUMA machines from memory
-(printk efi_memmap_walk and watch the run).
+  Chris> To support this we have efi_memmap_walk_uc defined in a very
+  Chris> similar way to efi_memmap_walk.
 
-I'll make some notes later this week for people to tear apart.
+  Chris> How do people feel about merging this in the generic code
+  Chris> (rather than hiding it away in the driver or something more
+  Chris> complex like abstraction and changes to the current efi
+  Chris> code)?
 
-For 2.4.x though I'll move the code into the driver as I have pretty
-limited cycles.
+  Chris> I'd also like to see a version of this in 2.5.x.
 
+I really would like to see the code that's using efi_memmap_walk_uc()
+first.
 
+Also, a check like this:
 
-Thanks,
-  --cw
+  Chris> if (md->attribute = EFI_MEMORY_UC)
+
+is almost certainly wrong (md->attribute is a bitmap).
+
+	--david
