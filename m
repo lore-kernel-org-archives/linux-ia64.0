@@ -1,7 +1,7 @@
-From: "Martin K. Petersen" <mkp@mkp.net>
-Date: Fri, 17 Oct 2003 18:51:02 +0000
-Subject: Re: [PATCH] fix topology initialization
-Message-Id: <marc-linux-ia64-106641693501576@msgid-missing>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 17 Oct 2003 19:22:17 +0000
+Subject: RE: [PATCH] fix topology initialization
+Message-Id: <marc-linux-ia64-106641894303639@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106641334730082@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106641334730082@msgid-missing>
@@ -9,6 +9,20 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Is there any libnuma code available somewhere (library, kernel patch,
+etc)?
+
+
+-----Original Message-----
+From: linux-ia64-owner@vger.kernel.org
+[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Martin K.
+Petersen
+Sent: Friday, October 17, 2003 11:51 AM
+To: Christoph Hellwig
+Cc: davidm@hpl.hp.com; linux-ia64@vger.kernel.org
+Subject: Re: [PATCH] fix topology initialization
+
 
 >>>>> "Christoph" = Christoph Hellwig <hch@infradead.org> writes:
 
@@ -39,5 +53,3 @@ a set of SN2-specific utilities.
 -- 
 Martin K. Petersen	Silicon Graphics, Inc.
 mkp@sgi.com		http://www.sgi.com/
-
-
