@@ -1,79 +1,80 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 18 Jul 2002 20:36:52 +0000
-Subject: [Linux-ia64] forwarded message from Rusty Trivial Russell
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="vLr0uSZoR4"
-Message-Id: <marc-linux-ia64-105590701905781@msgid-missing>
+From: Erich Focht <efocht@ess.nec.de>
+Date: Tue, 09 Jul 2002 17:27:14 +0000
+Subject: [Linux-ia64] O(1) scheduler "complex" macros
+Message-Id: <marc-linux-ia64-105590701905746@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---vLr0uSZoR4
-Content-Type: text/plain; charset=us-ascii
-Content-Description: message body text
-Content-Transfer-Encoding: 7bit
+Hi Ingo,
 
-Could someone from SGI take care of this?
+the patch eliminating the frozen_lock which went into 2.5.22 requires
+macros for prepare_arch_schedule(), etc... On IA64 I think that we need
+to use the "complex" macros, otherwise there is a potential deadlock.
 
-Thanks,
+Unfortunately the "complex" macros seem to have the problem that the "prev"
+task can be stolen right before the context switch. In your description to
+the patch you wrote:
 
-	--david
+> architectures that need to unlock the runqueue before doing the switch can
+> do the following:
+>
+>  #define prepare_arch_schedule(prev)             task_lock(prev)
+>  #define finish_arch_schedule(prev)              task_unlock(prev)
+>  #define prepare_arch_switch(rq)                 spin_unlock(&(rq)->lock)
+>  #define finish_arch_switch(rq)                  __sti()
+>
+> this way the task-lock makes sure that a task is not scheduled on some
+> other CPU before the switch-out finishes, but the runqueue lock is
+> dropped.
 
+Suppose we have 
+  cpu1: idle1
+  cpu2: prev2 -> next2  (in the switch)
 
---vLr0uSZoR4
-Content-Type: message/rfc822
-Content-Description: forwarded message
-Content-Transfer-Encoding: 7bit
+I don't understand how task_lock(prev2) done on cpu2 can prevent cpu1 to
+schedule prev2, which it stole after the RQ#2 lock release. It will just
+try to task_lock(idle1), which will be successfull.
 
-Return-Path: <rusty@samba.org>
-Received: from hplms2.hpl.hp.com (root@hplms2.hpl.hp.com [15.0.152.33])
-	by napali.hpl.hp.com (8.12.2/8.12.2/Debian -5) with ESMTP id g6I3Mpuh007784
-	for <davidm@napali.hpl.hp.com>; Wed, 17 Jul 2002 20:22:51 -0700
-Received: from deimos.hpl.hp.com (deimos.hpl.hp.com [15.0.48.190])
-	by hplms2.hpl.hp.com (8.10.2/8.10.2 HPL-PA Hub) with ESMTP id g6I3Mok16455
-	for <davidm@hpl.hp.com>; Wed, 17 Jul 2002 20:22:51 -0700 (PDT)
-Received: from lists.samba.org (samba.sourceforge.net [198.186.203.85])
-	by deimos.hpl.hp.com (8.9.3 (PHNE_24419)/HPL-PA Relay) with ESMTP id UAA09300
-	for <davidm@hpl.hp.com>; Wed, 17 Jul 2002 20:22:50 -0700 (PDT)
-Received: by lists.samba.org (Postfix, from userid 1080)
-	id A35FA4474; Wed, 17 Jul 2002 20:23:29 -0700 (PDT)
-Message-Id: <20020718032329.A35FA4474@lists.samba.org>
-From: Rusty Trivial Russell <rusty@rustcorp.com.au>
-Sender: rusty@rustcorp.com.au
-To: davidm@hpl.hp.com
-Subject: [TRIVIAL] PATCH 2.5: kconfig spurious bool default value (1_3)
-Date: Thu, 18 Jul 2002 13:08:30 +1000
+The problems I have are with a small and ugly testprogram which generates
+128 threads which all just do   system("exit");  Running this program
+continuously sooner or later leads to attempts to switch to tasks which
+have already exited. Inserting a small udelay after prepare_arch_switch
+reveals the problem earlier.
 
-From: (via Rusty) Greg Banks <gnb@alphalink.com.au>
+I also tried inserting "while (spin_is_locked(&(next)->alloc_lock));"
+but it didn't help.
 
-  
-  Some CML1 rule contributors seem to think that the "bool" statement
-  takes a third argument which is the default value.  It doesn't.
-  
+Any idea how to fix this problem?
 
---- trivial-2.5.26/arch/ia64/config.in.orig	Thu Jul 18 13:00:51 2002
-+++ trivial-2.5.26/arch/ia64/config.in	Thu Jul 18 13:00:51 2002
-@@ -71,15 +71,15 @@
- 
- if [ "$CONFIG_IA64_SGI_SN1" = "y" -o  "$CONFIG_IA64_SGI_SN2" = "y" ]; then
- 	define_bool CONFIG_IA64_SGI_SN y
--	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG n
-+	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG
- 	bool '  Enable SGI Medusa Simulator Support' CONFIG_IA64_SGI_SN_SIM
- 	bool '  Enable autotest (llsc). Option to run cache test instead of booting' \
--			CONFIG_IA64_SGI_AUTOTEST n
-+			CONFIG_IA64_SGI_AUTOTEST
- 	define_bool CONFIG_DEVFS_FS y
- 	if [ "$CONFIG_DEVFS_FS" = "y" ]; then
--	  bool '    Enable DEVFS Debug Code' CONFIG_DEVFS_DEBUG n
-+	  bool '    Enable DEVFS Debug Code' CONFIG_DEVFS_DEBUG
- 	fi
--	bool '  Enable protocol mode for the L1 console' CONFIG_SERIAL_SGI_L1_PROTOCOL y
-+	bool '  Enable protocol mode for the L1 console' CONFIG_SERIAL_SGI_L1_PROTOCOL
- 	define_bool CONFIG_DISCONTIGMEM y
- 	define_bool CONFIG_IA64_MCA y
- 	define_bool CONFIG_NUMA y
--- 
-  Don't blame me: the Monkey is driving
+Thanks a lot in advance,
+best regards,
 
---vLr0uSZoR4--
+Erich
+
+PS: Below is the relevant part of schedule():
+
+	prepare_arch_schedule(prev);
+...
+	if (likely(prev != next)) {
+		rq->nr_switches++;
+		rq->curr = next;
+		prepare_arch_switch(rq);
+		//while (spin_is_locked(&(next)->alloc_lock));
+		prev = context_switch(prev, next);
+		barrier();
+		rq = this_rq();
+		finish_arch_switch(rq);
+	} else
+		spin_unlock_irq(&rq->lock);
+ 	finish_arch_schedule(prev);
+
+PPS: The potential deadlock on IA64 for the "simple" macros comes from
+the fact that we sometimes wrap the context counter and need to
+read_lock(tasklist_lock). Doing this without releasing the RQ can lead
+to a deadlock with sys_wait4, where a write_lock(&tasklist_lock) is
+needed, inside of which a __wake_up needs the RQ lock :-(
+
 
