@@ -1,7 +1,7 @@
-From: Doug Beattie <dbb@caldera.com>
-Date: Fri, 02 Nov 2001 16:20:41 +0000
-Subject: Re: [Linux-ia64] Upgrading from 2.4.3
-Message-Id: <marc-linux-ia64-105590698805436@msgid-missing>
+From: "Saxena, Sunil" <sunil.saxena@intel.com>
+Date: Fri, 02 Nov 2001 22:34:26 +0000
+Subject: RE: [Linux-ia64] Upgrading from 2.4.3
+Message-Id: <marc-linux-ia64-105590698805438@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805434@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805434@msgid-missing>
@@ -9,6 +9,23 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Hi Jonathan,
+
+I would request you to file QuAD case so that support team at Intel can
+review your current hardware level and determine MAX BIOS level that you can
+use.  Hope this helps.
+
+Thanks
+Sunil
+
+-----Original Message-----
+From: Doug Beattie [mailto:dbb@caldera.com]
+Sent: Friday, November 02, 2001 8:21 AM
+To: Jonathan Thackray
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] Upgrading from 2.4.3
+
 
 Jonathan:
 
@@ -72,4 +89,9 @@ Douglas B. Beattie
 ------------------
 Linux Test Architect - Caldera, Inc.
 dbb@caldera.com
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
