@@ -1,7 +1,7 @@
-From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
-Date: Wed, 01 Aug 2001 23:27:04 +0000
-Subject: RE: [Linux-ia64] Panic in linuxrc (2.4.7)
-Message-Id: <marc-linux-ia64-105590693005987@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 02 Aug 2001 01:13:14 +0000
+Subject: Re: [Linux-ia64] Panic in linuxrc (2.4.7)
+Message-Id: <marc-linux-ia64-105590693005988@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005983@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005983@msgid-missing>
@@ -10,41 +10,37 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I've just got my first (secondhand) IA64 box, and I'm trying 
-> to get 2.4.7
-> running so port some other kernel code (loadable security 
-> modules) to the
-> IA64.
-> 
-> Taking a vanilla 2.4.7, applying the 0726 patch (#2) and the suggested
-> compiler fix as I'm using stock RedHat 7.1, I get...
+>>>>> On Wed, 1 Aug 2001 16:15:43 -0700, David Mosberger <davidm@hpl.hp.com> said:
 
-> Freeing initrd memory: 736kB freed
-> VFS: Mounted root (ext2 filesystem).
-> linuxrc[8]: IA-64 Illegal operation fault 0
+  David> Do you have CONFIG_PERFMON enabled?  If not, try turning it
+  David> on.  We are investigating the problem.  It looks to be a
+  David> Heisenbug: the problem gets triggered depending on what the
+  David> exact code layout is.  Adding or removing a single bundle in
+  David> the right place seems to make the difference...
 
-> Running this through ksymoops gave
-> 
-> Warning (Oops_read): Code line not seen, dumping what data is 
-> available
-> 
-> >>IP;  e000000004721ee0 <long_do_clear+70/110>   <==> >>b0;  e00000000440ef90 <do_linuxrc+d0/100>
-> >>b6;  e000000004482060 <generic_file_mmap+0/1a0>
-> >>b7;  e00000000440f810 <ia64_switch_to+b0/120>
-> Trace; e0000000044140b0 <show_stack+50/c0>
+OK, this turns out to be due to an assembler bug: the assembler fails
+to put a stop bit in front of an "alloc" instruction if the "alloc" is
+preceded by a .align directive and the directive inserts one or more
+"nop" bundles. ;-(
 
-> Any clues ?
+This bug was difficult to track down because it got triggered while
+psr.ic was cleared, which means that the IP reported in the tombstone
+is all wrong and there is no easy way to find out at which address the
+real fault occurred.  Well, at least the workaround is easy:
 
-I sent an email about this on 7/28, but didn't get a reply (but you sent
-more info than I did):
+--- arch/ia64/kernel/entry.S-orig	Wed Aug  1 12:48:26 2001
++++ arch/ia64/kernel/entry.S	Wed Aug  1 18:05:31 2001
+@@ -687,7 +687,7 @@
+ 	shladd in0=loc1,3,r17
+ 	mov in1=0
+ 	;;
+-	.align 32
++//	.align 32
+ rse_clear_invalid:
+ 	// cycle 0
+  { .mii
 
-  I tried upgrading to 2.4.7+IA64-010726, but when I did that, "init" dies:
-    init[1]: IA-64 Illegal operation fault 0
-  [...]
-    Kernel panic: Attempted to kill init!
+Please try again with this patch applied.
 
-The 2.4.5 kernel boots with the 6/26 patches, but I'd like to run a newer
-kernel too :-)
-
-Kevin
+	--david
 
