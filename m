@@ -1,25 +1,49 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Date: Fri, 16 Jan 2004 22:02:16 +0000
-Subject: Re: [PATCH] make HCDP dependent on serial console
-Message-Id: <20040116220216.A5904@flint.arm.linux.org.uk>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 06 Jan 2004 21:29:54 +0000
+Subject: kernel update (relative to 2.4.24)
+Message-Id: <200307021108.36683.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200401131706.56756.bjorn.helgaas@hp.com>
-In-Reply-To: <200401131706.56756.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Jan 13, 2004 at 05:06:56PM -0700, Bjorn Helgaas wrote:
-> I propose the following HCDP Kconfig patch.  It makes HCDP
-> selectable only when serial console has been selected.  One
-> desirable side effect is that both are then available only
-> when statically compiled in (i.e., not built as a module).
+The ia64 kernel patch for Linux 2.4.24 is available here:
 
-Applied.
+    ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/linux-2.4.24-ia64-040106.diff.gz
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+The current 2.4-based ia64 tree is also available as a BitKeeper
+repository.  You can browse the changelog and the source files with a
+normal browser at:
+
+    http://lia64.bkbits.net:8080/linux-ia64-2.4
+
+or you can use the BitKeeper tools to maintain a local copy of the
+tree like this:
+
+    $ bk clone bk://lia64.bkbits.net/linux-ia64-2.4 linux-ia64-2.4
+
+Bjorn
+
+
+There were no ia64-specific changes between 2.4.23-ia64-031205
+and 2.4.24-ia64-040106.  Summary of changes from 2.4.23 to 2.4.24
+(from Marcelo's announcement):
+
+<bjorn.helgaas:hp.com>:
+  o Fix 2.4 EFI RTC oops
+
+<marcelo.tosatti:cyclades.com>:
+  o Andrea Arcangeli: malicious users of mremap() syscall can gain priviledges
+
+<marcelo:logos.cnet>:
+  o Harald Welte: Fix ipchains MASQUERADE oops
+  o Change EXTRAVERSION to 2.4.24-rc1
+
+<trini:mvista.com>:
+  o /dev/rtc can leak parts of kernel memory to unpriviledged users
+
+Jean Tourrilhes:
+  o IrDA kernel log buster
+
+
