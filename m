@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 10 Jan 2002 21:09:14 +0000
-Subject: [Linux-ia64] Re: Announce: kdb v2.0 is available for kernel 2.4.17
-Message-Id: <marc-linux-ia64-105590698805797@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Thu, 10 Jan 2002 21:31:45 +0000
+Subject: RE: [Linux-ia64] Re: Announce: kdb v2.0 is available for kernel 2
+Message-Id: <marc-linux-ia64-105590698805799@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805789@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805789@msgid-missing>
@@ -10,37 +10,34 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 10 Jan 2002 19:48:26 +0100 (NFT), 
-Xavier Bru <Xavier.Bru@bull.net> wrote:
->We must take care that the common KDB patch (kdb-v2.0-2.4.17-common-3)
->conflicts with the IA64 patch on 2.4.17(linux-2.4.17-ia64-011226.diff). (needs to merge both patches).
->I did not notice that first time and got a strange KDB behavior ( kdb_init()
->was not called, and no way to quit kdb after breaking into it ).
+> I would like to get crc32 in base as well but I believe that another
+> person has been working on this as well.  If you like I will reconcile
+> the two versions and get one crc32 into base kernel.
 
-That is due to the ia64 patch adding CONFIG_PERMON patches into
-init/main.c.  AFAICT there is no reason that this patch cannot be sent
-to Marcelo to reduce the footprint of the ia64 patch on common code.
+Jeff Garzik and I have I've been unsuccessful in getting crc32 into the base
+kernels.  Jeff sent the patch once, I've sent the patch repeatedly.  Marcelo
+looked at it and said he wanted to see it in 2.5.x first.  Linus has been
+silent.
 
-David, can you send these ia64 patches to Marcelo for inclusion in base
-kernel?  If you are too busy I will package them up and send them.
+http://domsch.com/linux/patches/crc32/2.5.2-pre7/ has the current
+implementation, broken into several smaller parts, and provided as one big
+patch too.  Two additional drivers (de2140x.c and sis900.c) were modified
+*after* the patch set was created and are also there; the
+drivers/net/Makefile.lib needs to be touched to add those drivers to the
+list - I haven't done that yet.
 
-  Documentation/Configure.help
-  Documentation/kernel-parameters.txt
-  init/main.c
-  Makefile (second chunk only, adding AFLAGS_KERNEL)
-  include/linux/mm.h (just to reserve the bits)
-  include/linux/prctl.h (reserve the bits)
-  include/linux/time.h
-  kernel/ksyms.c
-  kernel/signal.c
-  kernel/sys.c
+Keith, if you can get it in, I'd be glad for it.
 
-The list above excludes anything that might affect other architectures.
-The patch to ensure that the console variables are contiguous is
-already in 2.4.18-pre1.
+Bugger is, when 2.5.x does away with fs/partitions/*, my need for the crc32
+function in the kernel to support GPT dies too.  Progress I guess...
 
-I would like to get crc32 in base as well but I believe that another
-person has been working on this as well.  If you like I will reconcile
-the two versions and get one crc32 into base kernel.
+Thanks,
+Matt
 
+--
+Matt Domsch
+Sr. Software Engineer
+Dell Linux Solutions www.dell.com/linux
+#1 US Linux Server provider with 24.5% (IDC Dec 2001)
+#2 Worldwide Linux Server provider with 18.2% (IDC Dec 2001)
 
