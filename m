@@ -1,55 +1,56 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Tue, 24 Jul 2001 02:12:58 +0000
-Subject: [Linux-ia64] elilo-3.0 PXE mode fix
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="oC1+HKm2/end4ao3"
-Message-Id: <marc-linux-ia64-105590693005888@msgid-missing>
+From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
+Date: Sat, 28 Jul 2001 08:03:38 +0000
+Subject: [Linux-ia64] IA64 Linux issues
+Message-Id: <marc-linux-ia64-105590693005948@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---oC1+HKm2/end4ao3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I'm running Caldera's 6/20/01 snapshot (modified 2.4.4 kernel) on a 4X,
+8GB Lion.
 
-Hi,
+Under even "light" I/O load (mkfs to 2-4 disks) I get horiffic behavior --
+basically what is described on this thread:
+http://www.cs.helsinki.fi/linux/linux-kernel/2001-20/0763.html
+[I/O drops down to < 300 I/Os per second (vmstat), but all the CPUs are
+pegged 99%+ system time.]
 
-I have identified a problem causing elilo to fail when netbooting from 
-a PXE server. Due to a stupid mistake on my part, the config file was
-set to the kernel image file when querying the PXE layers.
+That is after I first used "swiotlb240" at elilo to avoid the panic,
+and then hacked the qlogicfc driver (patch at bottom) and applied the
+latest Adaptec driver patch (6.2.0) from freebsd.org to get 39-bit DMA.
+Problem occurs with 39160 & QL2200.
 
-This problem DOES NOT affect netbooting using regular DHCP server.
+I tried upgrading to 2.4.7+IA64-010726, but when I did that, "init" dies:
+  init[1]: IA-64 Illegal operation fault 0
+[...]
+  Kernel panic: Attempted to kill init!
 
-The fix is attached to this E-mail.
+So i tried 2.4.5+IA64-010626.  Once I fixed two bugs in smp.c that prevented
+compilation, it seemed to work.  Except that the I/O peformance was just as
+bad.
 
--- 
--Stephane
 
---oC1+HKm2/end4ao3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="elilo-010723-2.diff"
 
---- elilo-3.0/fs/netfs.c	Sun Jul  1 23:14:35 2001
-+++ elilo-3.1/fs/netfs.c	Mon Jul 23 19:06:17 2001
-@@ -488,7 +488,7 @@
- 		length = opts[i+1];
- 		if (tag == 71) {
- 			server_type =(opts[i+2]<<8) | opts[i+3];
--			Print(L"ServerType: %d\r\n", server_type);
-+			DBG_PRINT((L"ServerType: %d\r\n", server_type));
- 			return server_type;
- 		}
- 		i+= 2 + length;
---- elilo-3.0/glue_netfs.c	Sun Jul  1 22:50:35 2001
-+++ elilo-3.1/glue_netfs.c	Mon Jul 23 19:04:38 2001
-@@ -70,7 +70,7 @@
- 			config[maxlen-1] = CHAR_NULL;
- 		}
- 
--		status = netfs->netfs_query_layer(netfs, 0, NETFS_KERNEL_LAYER, maxlen, config);
-+		status = netfs->netfs_query_layer(netfs, 0, NETFS_KERNEL_LAYER, maxlen, kname);
- 		if (EFI_ERROR(status)) {
- 			StrnCpy(kname, NETFS_DEFAULT_KERNEL, maxlen-1);
- 			kname[maxlen-1] = CHAR_NULL;
+qlogicfc.c patch:
+doesn't do this in 2.4.7, which seems odd, since the driver *appears*
+to support 64-bit DMA.
 
---oC1+HKm2/end4ao3--
+Anyway, with the following patch I appear to get 64-bit DMA enabled (at
+least I don't get a panic on the 8GB IA-64 box running QL2200 cards w/o
+tweaking the swiotlb array size).
+
+--- qlogicfc.c.orig
++++ qlogicfc.c
+@@ -2079,6 +2079,9 @@ static int isp2x00_init(struct Scsi_Host
+        sh->irq = irq;
+        sh->io_port = io_base;
+
++       if (pci_set_dma_mask(pdev, (dma_addr_t) 0xFFFFffffFFFFffffUL))
++               printk("qlogicfc%d: Failed to update dma_mask\n",
++                       hostdata->host_id);
+        LEAVE("isp2x00_init");
+
+        return 0;
 
