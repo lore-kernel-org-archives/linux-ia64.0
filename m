@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 31 Aug 2000 17:43:24 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Thu, 31 Aug 2000 20:08:07 +0000
 Subject: Re: [Linux-ia64] new toolchain snapshots
-Message-Id: <marc-linux-ia64-105590678205427@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205432@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205422@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205422@msgid-missing>
@@ -10,27 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 31 Aug 2000 14:44:59 +0200 (MET DST), Dan Pop <Dan.Pop@cern.ch> said:
+	I'm getting a lot of warnings for format %p with the new toolchain on
+	kernel 2.4.0-test7, e.g.
 
-  Dan> On Thu, 31 Aug 2000, Keith Owens wrote:
+Before everyone goes and changes a lot of code, you should be aware that these
+warnings have since changed several times in the FSF gcc sources.  And will
+likely change again in the future.
 
-  >> I'm getting a lot of warnings for format %p with the new
-  >> toolchain on kernel 2.4.0-test7, e.g.
-  >> 
-  >> pci-dma.c:100: warning: void format, char arg (arg 2)
-  >> 
-  >> static char *io_tlb_start, *io_tlb_end; printk("Placing software
-  >> IO TLB between 0x%p - 0x%p\n", io_tlb_start, io_tlb_end);
-  >> 
-  >> What is the correct way to handle these?  Cast all pointers to
-  >> (void *) for printing or is there a compiler option I can use to
-  >> make %p accept any pointer, i.e. the old behaviour?
+The current FSF gcc sources won't give a warning for void * or char * used
+with %p, and will accept other pointer types if you aren't using -pedantic.
 
-  Dan> The *correct* way to fix it is to cast every argument
-  Dan> corresponding to a %p to void *, because this is what the C
-  Dan> standard requires for printf.
+We can either live with the current set of warnings, or I can try to bring over
+patches from more recent FSF gcc sources to make them go away.
 
-Geez, gotta love ANSI C...  I'll fix the ia64 specific kernel files.
-
-	--david
+Jim
 
