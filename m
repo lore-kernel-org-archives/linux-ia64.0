@@ -1,109 +1,185 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Tue, 14 Dec 2004 21:31:27 +0000
-Subject: [PATCH] Fix memcpy_fromio prototype
-Message-Id: <20041214213127.GV27199@parcelfarce.linux.theplanet.co.uk>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 08 Dec 2004 17:50:58 +0000
+Subject: [PATCH] Document serial device naming and console usage
+Message-Id: <200412081050.59024.bjorn.helgaas@hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_D8ztBR9WS4BXmXv"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+--Boundary-00=_D8ztBR9WS4BXmXv
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Remove one layer of indirection from memcpy_fromio/memcpy_toio/memset_io
-and fix the prototypes to be const where appropriate.
+There's been a lot of turmoil recently about how Linux/ia64
+deals with serial devices.
 
-Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+Here's a start at some documentation on the situation.
 
-Index: arch/ia64/lib/io.c
-=================================RCS file: /var/cvs/linux-2.6/arch/ia64/lib/io.c,v
-retrieving revision 1.6
-diff -u -p -r1.6 io.c
---- arch/ia64/lib/io.c	29 Nov 2004 19:55:31 -0000	1.6
-+++ arch/ia64/lib/io.c	14 Dec 2004 21:23:07 -0000
-@@ -8,8 +8,7 @@
-  * Copy data from IO memory space to "real" memory space.
-  * This needs to be optimized.
-  */
--void
--__ia64_memcpy_fromio (void *to, volatile void __iomem *from, long count)
-+void memcpy_fromio(void *to, const volatile void __iomem *from, long count)
- {
- 	char *dst = to;
- 
-@@ -18,30 +17,28 @@ __ia64_memcpy_fromio (void *to, volatile
- 		*dst++ = readb(from++);
- 	}
- }
--EXPORT_SYMBOL(__ia64_memcpy_fromio);
-+EXPORT_SYMBOL(memcpy_fromio);
- 
- /*
-  * Copy data from "real" memory space to IO memory space.
-  * This needs to be optimized.
-  */
--void
--__ia64_memcpy_toio (volatile void __iomem *to, void *from, long count)
-+void memcpy_toio(volatile void __iomem *to, const void *from, long count)
- {
--	char *src = from;
-+	const char *src = from;
- 
- 	while (count) {
- 		count--;
- 		writeb(*src++, to++);
- 	}
- }
--EXPORT_SYMBOL(__ia64_memcpy_toio);
-+EXPORT_SYMBOL(memcpy_toio);
- 
- /*
-  * "memset" on IO memory space.
-  * This needs to be optimized.
-  */
--void
--__ia64_memset_c_io (volatile void __iomem *dst, unsigned long c, long count)
-+void memset_io(volatile void __iomem *dst, int c, long count)
- {
- 	unsigned char ch = (char)(c & 0xff);
- 
-@@ -51,7 +48,7 @@ __ia64_memset_c_io (volatile void __iome
- 		dst++;
- 	}
- }
--EXPORT_SYMBOL(__ia64_memset_c_io);
-+EXPORT_SYMBOL(memset_io);
- 
- #ifdef CONFIG_IA64_GENERIC
- 
-Index: include/asm-ia64/io.h
-=================================RCS file: /var/cvs/linux-2.6/include/asm-ia64/io.h,v
-retrieving revision 1.8
-diff -u -p -r1.8 io.h
---- include/asm-ia64/io.h	29 Nov 2004 19:56:42 -0000	1.8
-+++ include/asm-ia64/io.h	14 Dec 2004 21:23:08 -0000
-@@ -447,14 +447,9 @@ iounmap (volatile void __iomem *addr)
- /*
-  * String version of IO memory access ops:
-  */
--extern void __ia64_memcpy_fromio (void *, volatile void __iomem *, long);
--extern void __ia64_memcpy_toio (volatile void __iomem *, void *, long);
--extern void __ia64_memset_c_io (volatile void __iomem *, unsigned long, long);
--
--#define memcpy_fromio(to,from,len)	__ia64_memcpy_fromio((to), (from),(len))
--#define memcpy_toio(to,from,len)	__ia64_memcpy_toio((to),(from),(len))
--#define memset_io(addr,c,len)		__ia64_memset_c_io((addr), 0x0101010101010101UL*(u8)(c), \
--							   (len))
-+extern void memcpy_fromio(void *dst, const volatile void __iomem *src, long n);
-+extern void memcpy_toio(volatile void __iomem *dst, const void *src, long n);
-+extern void memset_io(volatile void __iomem *s, int c, long n);
- 
- #define dma_cache_inv(_start,_size)             do { } while (0)
- #define dma_cache_wback(_start,_size)           do { } while (0)
+Comments welcome.  I don't know how SGI console devices work,
+so I didn't say anything about them.
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+--Boundary-00=_D8ztBR9WS4BXmXv
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="serial-doc.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="serial-doc.patch"
+
+Document how Linux/ia64 names serial devices and how to use them
+as console devices.
+
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+
+--- /dev/null	2003-09-17 12:43:43.000000000 -0600
++++ linux-2.5/Documentation/ia64/serial.txt	2004-12-08 10:36:38.893573600 -0700
+@@ -0,0 +1,144 @@
++SERIAL DEVICE NAMING
++
++    As of 2.6.10, serial devices on ia64 are named based on the
++    order of ACPI and PCI enumeration.  The first device in the
++    ACPI namespace (if any) becomes /dev/ttyS0, the second becomes
++    /dev/ttyS1, etc., and PCI devices are named sequentially
++    starting after the ACPI devices.
++
++    Prior to 2.6.10, there were confusing exceptions to this:
++
++	- Firmware on some machines (mostly from HP) provides an HCDP
++	  table[1] that tells the kernel about devices that can be used
++	  as a serial console.  If the user specified "console=ttyS0"
++	  or the EFI ConOut path contained only UART devices, the
++	  kernel registered the device described by the HCDP as
++	  /dev/ttyS0.
++
++	- If there was no HCDP, we assumed there were UARTs at the
++	  legacy COM port addresses (I/O ports 0x3f8 and 0x2f8), so
++	  the kernel registered those as /dev/ttyS0 and /dev/ttyS1.
++
++    Any additional ACPI or PCI devices were registered sequentially
++    after /dev/ttyS0 as they were discovered.
++ 
++    With an HCDP, device names changed depending on EFI configuration
++    and "console=" arguments.  Without an HCDP, device names didn't
++    change, but we registered devices that might not really exist.
++
++    For example, an HP rx1600 with a single built-in serial port
++    (described in the ACPI namespace) plus an MP[2] (a PCI device) has
++    these ports:
++
++                                  pre-2.6.10      pre-2.6.10
++                    MMIO         (EFI console    (EFI console
++                   address        on builtin)     on MP port)    2.6.10
++                  ==========      ==========      ==========     ======
++      builtin     0xff5e0000        ttyS0           ttyS1         ttyS0
++      MP UPS      0xf8031000        ttyS1           ttyS2         ttyS1
++      MP Console  0xf8030000        ttyS2           ttyS0         ttyS2
++      MP 2        0xf8030010        ttyS3           ttyS3         ttyS3
++      MP 3        0xf8030038        ttyS4           ttyS4         ttyS4
++  
++CONSOLE SELECTION
++
++    EFI knows what your console devices are, but it doesn't tell the
++    kernel quite enough to actually locate them.  The DIG64 HCDP
++    table[1] does tell the kernel where potential serial console
++    devices are, but not all firmware supplies it.  Also, EFI supports
++    multiple simultaneous consoles and doesn't tell the kernel which
++    should be the "primary" one.
++
++    So how do you tell Linux which console device to use?
++
++	- If your firmware supplies the HCDP, it is simplest to
++	  configure EFI with a single device (either a UART or a VGA
++	  card) as the console.  Then you don't need to tell Linux
++	  anything; the kernel will automatically use the EFI console.
++
++	  (This works only in 2.6.6 or later; prior to that you had
++	  to specify "console=ttyS0" to get a serial console.)
++
++	- Without an HCDP, Linux defaults to a VGA console unless you
++	  specify a "console=" argument.
++
++    NOTE: Don't assume that a serial console device will be /dev/ttyS0.
++    It might be ttyS1, ttyS2, etc.  Make sure you have the appropriate
++    entries in /etc/inittab (for getty) and /etc/securetty (to allow
++    root login).
++
++EARLY SERIAL CONSOLE
++
++    The kernel can't start using a serial console until it knows where
++    the device lives.  Normally this happens when the driver enumerates
++    all the serial devices, which can happen a minute or more after the 
++    kernel starts booting.
++
++    2.6.10 and later kernels have an "early uart" driver that works
++    very early in the boot process.  The kernel will automatically use
++    this if the user supplies an argument like "console=uart,io,0x3f8",
++    or if the EFI console path contains only a UART device and the
++    firmware supplies an HCDP.
++
++TROUBLESHOOTING SERIAL CONSOLE PROBLEMS
++ 
++    No kernel output after elilo prints "Uncompressing Linux... done":
++
++	- You specified "console=ttyS0" but Linux changed the device
++	  to which ttyS0 refers.  Configure exactly one EFI console
++	  device[3] and remove the "console=" option.
++
++	- The EFI console path contains both a VGA device and a UART.
++	  EFI and elilo use both, but Linux defaults to VGA.  Remove
++	  the VGA device from the EFI console path[3].
++  
++	- Multiple UARTs selected as EFI console devices.  EFI and
++	  elilo use all selected devices, but Linux uses only one.
++	  Make sure only one UART is selected in the EFI console
++	  path[3].
++
++	- You're connected to an HP MP port[2] but have a non-MP UART
++	  selected as EFI console device.  EFI uses the MP as a
++	  console device even when it isn't explicitly selected.
++	  Either move the console cable to the non-MP UART, or change
++	  the EFI console path[3] to the MP UART.
++ 
++    Long pause (60+ seconds) between "Uncompressing Linux... done" and
++    start of kernel output:
++ 
++	- No early console because you used "console=ttyS<n>".  Remove
++	  the "console=" option if your firmware supplies an HCDP.
++
++	- If you don't have an HCDP, the kernel doesn't know where
++	  your console lives until the driver discovers serial
++	  devices.  Use "console=uart, io,0x3f8" (or appropriate
++	  address for your machine).
++ 
++    Kernel and init script output works fine, but no "login:" prompt:
++ 
++	- Add getty entry to /etc/inittab for console tty.  Look for
++	  the "Adding console on ttyS<n>" message that tells you which
++	  device is the console.
++ 
++    "login:" prompt, but can't login as root:
++ 
++	- Add entry to /etc/securetty for console tty.
++ 
++
++
++[1] http://www.dig64.org/specifications/DIG64_PCDPv20.pdf
++    The table was originally defined as the "HCDP" for "Headless
++    Console/Debug Port."  The current version is the "PCDP" for
++    "Primary Console and Debug Port Devices."
++
++[2] The HP MP (management processor) is a PCI device that provides
++    several UARTs.  One of the UARTs is often used as a console; the
++    EFI Boot Manager identifies it as "Acpi(HWP0002,700)/Pci(...)/Uart".
++    The external connection is usually a 25-pin connector, and a
++    special dongle converts that to three 9-pin connectors, one of
++    which is labelled "Console."
++
++[3] EFI console devices are configured using the EFI Boot Manager
++    "Boot option maintenance" menu.  You may have to interrupt the
++    boot sequence to use this menu, and you will have to reset the
++    box after changing console configuration.
+
+--Boundary-00=_D8ztBR9WS4BXmXv--
