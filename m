@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Thu, 15 May 2003 20:24:12 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 15 May 2003 21:17:13 +0000
 Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705846@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705847@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,35 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, May 15, 2003 at 01:07:39PM -0700, David S. Miller wrote:
->    From: Colin Ngam <cngam@sgi.com>
->    Date: Thu, 15 May 2003 08:17:58 -0500
->    
->    Anyway, to make a long story short, we like to "extend" these
->    interfaces to return DMA addresses of 64 bits if and when the
->    driver has the full capabality to support DAC - via it's
->    DMA mask capability setting.
-> 
-> All devices I am aware of do not support 64-bit addresses for their
-> descriptors, only 32-bit.
+On Thu, May 15, 2003 at 01:19:40PM -0700, David S. Miller wrote:
+> Do not mix "must" parameters such as read/write protections with
+> "it would be nice if" flag bits.
 
-PCI-X devices are required to support 64 bit addrs.  They'll only
-generate SAC if the top 32 bits are 0, but our platform is incapable
-of handling this, since the IOMMU can't be used in PCI-X mode (i.e. we
-need high order bits for PCI-X devices).
+R/W "hints" is not required for ia64/parisc IOMMUs.
+AFAIK, only swiotlb requires it and ZX1 IOMMU support has a one
+performance optimization which makes use of R/W hint.
 
-> There is a huge difference between using a "64-bit address" and
-> requiring to generate a DAC cycle, the latter of which is
-> probably what you need and that is independant of what kind of
-> address pci_alloc_consistent() is giving you.
+In short, "must" only applies to some subset of working platforms.
 
-Unfortunately, we need both for PCI-X on Altix.  How about this:
-drivers that support PCI-X cards are required to program the full 64
-bits of a pci_alloc_consistent DMA address, the top 32 bits of which
-can be zero for most platforms.  That means that the device will only
-generate a SAC for most platforms, but on platforms like ours, the top
-32 bits will contain useful information, so a DAC will be generated.
+But in general I agree, hints should be useful to most architectures.
+Having too many platform specific hints becomes hell for driver
+writers.
 
-Thanks,
-Jesse
+grant
 
