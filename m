@@ -1,78 +1,29 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Wed, 06 Oct 2004 22:52:29 +0000
-Subject: [PATCH] IA-32: Support for new system call: waitid
-Message-Id: <4164772D.3080904@intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------010206010107050706070504"
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 04 Oct 2004 15:39:33 +0000
+Subject: potential user/kernel-address confusion
+Message-Id: <200410041539.i94FdXfM031518@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010206010107050706070504
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+Arun,
 
-Hi Tony,
+While running the sparse checker, I discovered a potential problem:
 
-The attached patch adds support for the new system call waitid that was introduced recently.
+In elfcore32.h, elf_core_copy_task_fpregs() calls save_ia32_fpstate(),
+which expects to be copying to user-memory.  However, the ELF
+coredumping code will pass you a pointer to kernel-memory and as far
+as I can tell, save_ia32_fpstate() probably fail in that case (I don't
+see any set_fs(KERNEL_DS), at least).
 
-	-Arun
+On a related note:
 
+ - Isn't ia32_sigsuspend() missing a call to set_fs(KERNEL_DS)?  &mask
+   is a kernel pointer, after all.
 
---------------010206010107050706070504
-Content-Type: text/plain;
- name="ia32-waitid.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="ia32-waitid.patch"
+ - Isn't sys32_rt_sigreturn() missing a call to set_fs(KERNEL_DS)
+   before the call to do_sigaltstack()?  &st is a kernel pointer, after all.
 
-QWRkZWQgc3VwcG9ydCBmb3IgdGhlIG5ldyBzeXNjYWxsIHN5c193YWl0aWQoKQoKU2lnbmVk
-LW9mZi1ieTogQXJ1biBTaGFybWEgPGFydW4uc2hhcm1hQGludGVsLmNvbT4KCkluZGV4OiBs
-aW51eC0yLjYtY3ZzL2FyY2gvaWE2NC9pYTMyL2lhMzJfZW50cnkuUwo9PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-ClJDUyBmaWxlOiAvaG9tZS9hZHNoYXJtYS9kaXNrMi9jdnMvbGludXgtMi41L2FyY2gvaWE2
-NC9pYTMyL2lhMzJfZW50cnkuUyx2CnJldHJpZXZpbmcgcmV2aXNpb24gMS4zNwpkaWZmIC11
-IC1yMS4zNyBpYTMyX2VudHJ5LlMKLS0tIGxpbnV4LTIuNi1jdnMvYXJjaC9pYTY0L2lhMzIv
-aWEzMl9lbnRyeS5TCTI0IEF1ZyAyMDA0IDE4OjI3OjA3IC0wMDAwCTEuMzcKKysrIGxpbnV4
-LTIuNi1jdnMvYXJjaC9pYTY0L2lhMzIvaWEzMl9lbnRyeS5TCTIxIFNlcCAyMDA0IDE4OjA4
-OjIwIC0wMDAwCkBAIC00OTMsNiArNDkzLDggQEAKICAgCWRhdGE4IGNvbXBhdF9zeXNfbXFf
-dGltZWRyZWNlaXZlCS8qIDI4MCAqLwogICAJZGF0YTggY29tcGF0X3N5c19tcV9ub3RpZnkK
-ICAgCWRhdGE4IGNvbXBhdF9zeXNfbXFfZ2V0c2V0YXR0cgorCWRhdGE4IHN5c19uaV9zeXNj
-YWxsCQkvKiByZXNlcnZlZCBmb3Iga2V4ZWMgKi8KKwlkYXRhOCBzeXMzMl93YWl0aWQKIAog
-CS8vIGd1YXJkIGFnYWluc3QgZmFpbHVyZXMgdG8gaW5jcmVhc2UgSUEzMl9OUl9zeXNjYWxs
-cwogCS5vcmcgaWEzMl9zeXNjYWxsX3RhYmxlICsgOCpJQTMyX05SX3N5c2NhbGxzCkluZGV4
-OiBsaW51eC0yLjYtY3ZzL2FyY2gvaWE2NC9pYTMyL3N5c19pYTMyLmMKPT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PQpSQ1MgZmlsZTogL2hvbWUvYWRzaGFybWEvZGlzazIvY3ZzL2xpbnV4LTIuNS9hcmNoL2lh
-NjQvaWEzMi9zeXNfaWEzMi5jLHYKcmV0cmlldmluZyByZXZpc2lvbiAxLjcxCmRpZmYgLXUg
-LXIxLjcxIHN5c19pYTMyLmMKLS0tIGxpbnV4LTIuNi1jdnMvYXJjaC9pYTY0L2lhMzIvc3lz
-X2lhMzIuYwkxMiBKdWwgMjAwNCAyMToyNDowMCAtMDAwMAkxLjcxCisrKyBsaW51eC0yLjYt
-Y3ZzL2FyY2gvaWE2NC9pYTMyL3N5c19pYTMyLmMJMjEgU2VwIDIwMDQgMTg6MDc6NTQgLTAw
-MDAKQEAgLTI3MjgsNiArMjcyOCwzMiBAQAogCQkJICAgICAgIGFkdmljZSk7IAogfSAKIAor
-YXNtbGlua2FnZSBsb25nIHN5czMyX3dhaXRpZChpbnQgd2hpY2gsIGNvbXBhdF9waWRfdCBw
-aWQsCisJCQkgICAgIHNpZ2luZm9fdDMyIF9fdXNlciAqdWluZm8sIGludCBvcHRpb25zLAor
-CQkJICAgICBzdHJ1Y3QgY29tcGF0X3J1c2FnZSBfX3VzZXIgKnVydSkKK3sKKwlzaWdpbmZv
-X3QgaW5mbzsKKwlzdHJ1Y3QgcnVzYWdlIHJ1OworCWxvbmcgcmV0OworCW1tX3NlZ21lbnRf
-dCBvbGRfZnMgPSBnZXRfZnMoKTsKKworCWluZm8uc2lfc2lnbm8gPSAwOworCXNldF9mcyAo
-S0VSTkVMX0RTKTsKKwlyZXQgPSBzeXNfd2FpdGlkKHdoaWNoLCBwaWQsIChzaWdpbmZvX3Qg
-X191c2VyICopICZpbmZvLCBvcHRpb25zLAorCQkJIHVydSA/ICZydSA6IE5VTEwpOworCXNl
-dF9mcyAob2xkX2ZzKTsKKworCWlmIChyZXQgPCAwIHx8IGluZm8uc2lfc2lnbm8gPT0gMCkK
-KwkJcmV0dXJuIHJldDsKKworCWlmICh1cnUgJiYgKHJldCA9IHB1dF9jb21wYXRfcnVzYWdl
-KCZydSwgdXJ1KSkpCisJCXJldHVybiByZXQ7CisKKwlCVUdfT04oaW5mby5zaV9jb2RlICYg
-X19TSV9NQVNLKTsKKwlpbmZvLnNpX2NvZGUgfD0gX19TSV9DSExEOworCXJldHVybiBjb3B5
-X3NpZ2luZm9fdG9fdXNlcjMyKHVpbmZvLCAmaW5mbyk7Cit9CisKICNpZmRlZglOT1RZRVQg
-IC8qIFVOVEVTVEVEIEZPUiBJQTY0IEZST00gSEVSRSBET1dOICovCiAKIGFzbWxpbmthZ2Ug
-bG9uZyBzeXMzMl9zZXRyZXVpZChjb21wYXRfdWlkX3QgcnVpZCwgY29tcGF0X3VpZF90IGV1
-aWQpCkluZGV4OiBsaW51eC0yLjYtY3ZzL2luY2x1ZGUvYXNtLWlhNjQvaWEzMi5oCj09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT0KUkNTIGZpbGU6IC9ob21lL2Fkc2hhcm1hL2Rpc2syL2N2cy9saW51eC0yLjUv
-aW5jbHVkZS9hc20taWE2NC9pYTMyLmgsdgpyZXRyaWV2aW5nIHJldmlzaW9uIDEuMjIKZGlm
-ZiAtdSAtcjEuMjIgaWEzMi5oCi0tLSBsaW51eC0yLjYtY3ZzL2luY2x1ZGUvYXNtLWlhNjQv
-aWEzMi5oCTE5IEp1biAyMDA0IDE0OjQ5OjAyIC0wMDAwCTEuMjIKKysrIGxpbnV4LTIuNi1j
-dnMvaW5jbHVkZS9hc20taWE2NC9pYTMyLmgJMjEgU2VwIDIwMDQgMTc6NTU6NDMgLTAwMDAK
-QEAgLTYsNyArNiw3IEBACiAjaW5jbHVkZSA8YXNtL3B0cmFjZS5oPgogI2luY2x1ZGUgPGFz
-bS9zaWduYWwuaD4KIAotI2RlZmluZSBJQTMyX05SX3N5c2NhbGxzCQkyODMJLyogbGVuZ3Ro
-IG9mIHN5c2NhbGwgdGFibGUgKi8KKyNkZWZpbmUgSUEzMl9OUl9zeXNjYWxscwkJMjg1CS8q
-IGxlbmd0aCBvZiBzeXNjYWxsIHRhYmxlICovCiAjZGVmaW5lIElBMzJfUEFHRV9TSElGVAkJ
-CTEyCS8qIDRLQiBwYWdlcyAqLwogCiAjaWZuZGVmIF9fQVNTRU1CTFlfXwo=
---------------010206010107050706070504--
+	--david
