@@ -1,160 +1,126 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Mon, 25 Oct 2004 15:34:51 +0000
-Subject: [PATCH] - Delete obsolete code grom SGI console driver
-Message-Id: <20041025153450.GA24620@sgi.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 15 Oct 2004 19:06:52 +0000
+Subject: page fault scalability patch V10: [5/7] i386 atomic pte operations
+Message-Id: <Pine.LNX.4.58.0410151206250.26697@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0409201348070.4628@schroedinger.engr.sgi.com>
+ <20040920205752.GH4242@wotan.suse.de> <200409211841.25507.vda@port.imtp.ilyichevsk.odessa.ua>
+ <20040921154542.GB12132@wotan.suse.de> <41527885.8020402@myrealbox.com>
+ <20040923090345.GA6146@wotan.suse.de> <Pine.LNX.4.58.0409271204180.31769@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
+Changelog
+	* Atomic pte operations for i386
 
-Tony - please apply:
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
+Index: linux-2.6.9-rc4/include/asm-i386/pgtable.h
+=================================--- linux-2.6.9-rc4.orig/include/asm-i386/pgtable.h	2004-10-10 19:58:24.000000000 -0700
++++ linux-2.6.9-rc4/include/asm-i386/pgtable.h	2004-10-14 11:32:37.000000000 -0700
+@@ -412,6 +412,7 @@
+ #define __HAVE_ARCH_PTEP_SET_WRPROTECT
+ #define __HAVE_ARCH_PTEP_MKDIRTY
+ #define __HAVE_ARCH_PTE_SAME
++#define __HAVE_ARCH_ATOMIC_TABLE_OPS
+ #include <asm-generic/pgtable.h>
 
-Delete obsolete code that supports the SGI simulator. This
-support code has been moved into the fakeprom and is no
-longer required in the kernel.
+ #endif /* _I386_PGTABLE_H */
+Index: linux-2.6.9-rc4/include/asm-i386/pgtable-3level.h
+=================================--- linux-2.6.9-rc4.orig/include/asm-i386/pgtable-3level.h	2004-10-10 19:58:41.000000000 -0700
++++ linux-2.6.9-rc4/include/asm-i386/pgtable-3level.h	2004-10-14 11:32:37.000000000 -0700
+@@ -6,7 +6,8 @@
+  * tables on PPro+ CPUs.
+  *
+  * Copyright (C) 1999 Ingo Molnar <mingo@redhat.com>
+- */
++ * August 26, 2004 added ptep_cmpxchg and ptep_xchg <christoph@lameter.com>
++*/
 
+ #define pte_ERROR(e) \
+ 	printk("%s:%d: bad pte %p(%08lx%08lx).\n", __FILE__, __LINE__, &(e), (e).pte_high, (e).pte_low)
+@@ -141,4 +142,26 @@
+ #define __pte_to_swp_entry(pte)		((swp_entry_t){ (pte).pte_high })
+ #define __swp_entry_to_pte(x)		((pte_t){ 0, (x).val })
 
-Signed-off-by: Jack Steiner <steiner@sgi.com>
++/* Atomic PTE operations */
++static inline pte_t ptep_xchg(struct mm_struct *mm, pte_t *ptep, pte_t newval)
++{
++	pte_t res;
++
++	/* xchg acts as a barrier before the setting of the high bits.
++	 * (But we also have a cmpxchg8b. Why not use that? (cl))
++	  */
++	res.pte_low = xchg(&ptep->pte_low, newval.pte_low);
++	res.pte_high = ptep->pte_high;
++	ptep->pte_high = newval.pte_high;
++
++	return res;
++}
++
++
++static inline int ptep_cmpxchg(struct mm_struct *mm, unsigned long address, pte_t *ptep, pte_t oldval, pte_t newval)
++{
++	return cmpxchg(ptep, pte_val(oldval), pte_val(newval)) = pte_val(oldval);
++}
++
++
+ #endif /* _I386_PGTABLE_3LEVEL_H */
+Index: linux-2.6.9-rc4/include/asm-i386/pgtable-2level.h
+=================================--- linux-2.6.9-rc4.orig/include/asm-i386/pgtable-2level.h	2004-10-10 19:58:05.000000000 -0700
++++ linux-2.6.9-rc4/include/asm-i386/pgtable-2level.h	2004-10-14 11:32:37.000000000 -0700
+@@ -82,4 +82,8 @@
+ #define __pte_to_swp_entry(pte)		((swp_entry_t) { (pte).pte_low })
+ #define __swp_entry_to_pte(x)		((pte_t) { (x).val })
 
----
++/* Atomic PTE operations */
++#define ptep_xchg(mm,xp,a)       __pte(xchg(&(xp)->pte_low, (a).pte_low))
++#define ptep_cmpxchg(mm,a,xp,oldpte,newpte) (cmpxchg(&(xp)->pte_low, (oldpte).pte_low, (newpte).pte_low)=(oldpte).pte_low)
++
+ #endif /* _I386_PGTABLE_2LEVEL_H */
+Index: linux-2.6.9-rc4/include/asm-i386/pgalloc.h
+=================================--- linux-2.6.9-rc4.orig/include/asm-i386/pgalloc.h	2004-10-10 19:57:02.000000000 -0700
++++ linux-2.6.9-rc4/include/asm-i386/pgalloc.h	2004-10-14 11:32:37.000000000 -0700
+@@ -7,6 +7,8 @@
+ #include <linux/threads.h>
+ #include <linux/mm.h>		/* for struct page */
 
---- linux_base/drivers/serial/sn_console.c	2004-10-22 11:36:37 -05:00
-+++ linux/drivers/serial/sn_console.c	2004-10-25 10:23:55 -05:00
-@@ -108,7 +108,6 @@ static struct sn_cons_port sal_console_p
- /* Only used if USE_DYNAMIC_MINOR is set to 1 */
- static struct miscdevice misc;	/* used with misc_register for dynamic */
- 
--extern u64 __iomem *master_node_bedrock_address;
- extern void early_sn_setup(void);
- 
- #undef DEBUG
-@@ -124,9 +123,6 @@ static int snt_hw_puts_raw(const char *,
- static int snt_hw_puts_buffered(const char *, int);
- static int snt_poll_getc(void);
- static int snt_poll_input_pending(void);
--static int snt_sim_puts(const char *, int);
--static int snt_sim_getc(void);
--static int snt_sim_input_pending(void);
- static int snt_intr_getc(void);
- static int snt_intr_input_pending(void);
- static void sn_transmit_chars(struct sn_cons_port *, int);
-@@ -140,14 +136,6 @@ static struct sn_sal_ops poll_ops = {
- 	.sal_input_pending = snt_poll_input_pending
- };
- 
--/* A table for the simulator */
--static struct sn_sal_ops sim_ops = {
--	.sal_puts_raw = snt_sim_puts,
--	.sal_puts = snt_sim_puts,
--	.sal_getc = snt_sim_getc,
--	.sal_input_pending = snt_sim_input_pending
--};
--
- /* A table for interrupts enabled */
- static struct sn_sal_ops intr_ops = {
- 	.sal_puts_raw = snt_hw_puts_raw,
-@@ -194,53 +182,6 @@ static int snt_poll_input_pending(void)
- 	return !status && input;
++#define PMD_NONE 0L
++
+ #define pmd_populate_kernel(mm, pmd, pte) \
+ 		set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(pte)))
+
+@@ -16,6 +18,19 @@
+ 		((unsigned long long)page_to_pfn(pte) <<
+ 			(unsigned long long) PAGE_SHIFT)));
  }
- 
--/* routines for running the console on the simulator */
--
--/**
-- * snt_sim_puts - send to the console, used in simulator mode
-- * @str: String to send
-- * @count: length of string
-- *
-- */
--static int snt_sim_puts(const char *str, int count)
--{
--	int counter = count;
--
--#ifdef FLAG_DIRECT_CONSOLE_WRITES
--	/* This is an easy way to pre-pend the output to know whether the output
--	 * was done via sal or directly */
--	writeb('[', master_node_bedrock_address + (UART_TX << 3));
--	writeb('+', master_node_bedrock_address + (UART_TX << 3));
--	writeb(']', master_node_bedrock_address + (UART_TX << 3));
--	writeb(' ', master_node_bedrock_address + (UART_TX << 3));
--#endif				/* FLAG_DIRECT_CONSOLE_WRITES */
--	while (counter > 0) {
--		writeb(*str, master_node_bedrock_address + (UART_TX << 3));
--		counter--;
--		str++;
--	}
--	return count;
--}
--
--/**
-- * snt_sim_getc - Get character from console in simulator mode
-- *
-- */
--static int snt_sim_getc(void)
--{
--	return readb(master_node_bedrock_address + (UART_RX << 3));
--}
--
--/**
-- * snt_sim_input_pending - Check if there is input pending in simulator mode
-- *
-- */
--static int snt_sim_input_pending(void)
--{
--	return readb(master_node_bedrock_address +
--		     (UART_LSR << 3)) & UART_LSR_DR;
--}
--
- /* routines for an interrupt driven console (normal) */
- 
- /**
-@@ -491,11 +432,7 @@ static int sn_debug_printf(const char *f
- 	printed_len = vsnprintf(printk_buf, sizeof(printk_buf), fmt, args);
- 
- 	if (!sal_console_port.sc_ops) {
--		if (IS_RUNNING_ON_SIMULATOR())
--			sal_console_port.sc_ops = &sim_ops;
--		else
--			sal_console_port.sc_ops = &poll_ops;
--
-+		sal_console_port.sc_ops = &poll_ops;
- 		early_sn_setup();
- 	}
- 	sal_console_port.sc_ops->sal_puts_raw(printk_buf, printed_len);
-@@ -781,12 +718,8 @@ static void __init sn_sal_switch_to_asyn
- 	spin_lock_irqsave(&port->sc_port.lock, flags);
- 
- 	/* early_printk invocation may have done this for us */
--	if (!port->sc_ops) {
--		if (IS_RUNNING_ON_SIMULATOR())
--			port->sc_ops = &sim_ops;
--		else
--			port->sc_ops = &poll_ops;
--	}
-+	if (!port->sc_ops)
-+		port->sc_ops = &poll_ops;
- 
- 	/* we can't turn on the console interrupt (as request_irq
- 	 * calls kmalloc, which isn't set up yet), so we rely on a
-@@ -1155,11 +1088,7 @@ int __init sn_serial_console_early_setup
- 	if (!ia64_platform_is("sn2"))
- 		return -1;
- 
--	if (IS_RUNNING_ON_SIMULATOR())
--		sal_console_port.sc_ops = &sim_ops;
--	else
--		sal_console_port.sc_ops = &poll_ops;
--
-+	sal_console_port.sc_ops = &poll_ops;
- 	early_sn_setup();	/* Find SAL entry points */
- 	register_console(&sal_console_early);
- 
--- 
-Thanks
++
++/* Atomic version */
++static inline int pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
++{
++#ifdef CONFIG_X86_PAE
++	return cmpxchg8b( ((unsigned long long *)pmd), PMD_NONE, _PAGE_TABLE +
++		((unsigned long long)page_to_pfn(pte) <<
++			(unsigned long long) PAGE_SHIFT) ) = PMD_NONE;
++#else
++	return cmpxchg( (unsigned long *)pmd, PMD_NONE, _PAGE_TABLE + (page_to_pfn(pte) << PAGE_SHIFT)) = PMD_NONE;
++#endif
++}
++
+ /*
+  * Allocate and free page tables.
+  */
+@@ -49,6 +64,7 @@
+ #define pmd_free(x)			do { } while (0)
+ #define __pmd_free_tlb(tlb,x)		do { } while (0)
+ #define pgd_populate(mm, pmd, pte)	BUG()
++#define pgd_test_and_populate(mm, pmd, pte)	({ BUG(); 1; })
 
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
+ #define check_pgt_cache()	do { } while (0)
 
