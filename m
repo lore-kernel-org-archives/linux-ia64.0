@@ -1,7 +1,7 @@
-From: Matt Chapman <matthewc@cse.unsw.edu.au>
-Date: Thu, 13 Nov 2003 03:14:14 +0000
-Subject: Re: Latest 2.6 IA64 Baseline (Mosberger) testing report (Boot hang)
-Message-Id: <marc-linux-ia64-106869327020510@msgid-missing>
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Thu, 13 Nov 2003 12:32:49 +0000
+Subject: RE: Latest 2.6 IA64 Baseline (Mosberger) testing report (Boot hang)
+Message-Id: <marc-linux-ia64-106872723316888@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106863716316469@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106863716316469@msgid-missing>
@@ -9,6 +9,19 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+I double-checked my config file. You are right.  After correcting this mistake, I can successfully boot 2.6 on lion.
+
+Thanks 
+Luming
+
+-----Original Message-----
+From: linux-ia64-owner@vger.kernel.org [mailto:linux-ia64-owner@vger.kernel.org]On Behalf Of Matt Chapman
+Sent: 2003?11?13? 11:14
+To: Yu, Luming
+Cc: linux-acpi; linux-ia64@vger.kernel.org
+Subject: Re: Latest 2.6 IA64 Baseline (Mosberger) testing report (Boot hang)
+
 
 It boots fine on Lion here, it looks like you might be using the wrong config?
 The config you attached is for ZX1/McKinley.
@@ -52,3 +65,7 @@ On Wed, Nov 12, 2003 at 07:37:22PM +0800, Yu, Luming wrote:
 > 
 
 
+-
+To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
