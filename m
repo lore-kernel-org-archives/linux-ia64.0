@@ -1,29 +1,25 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Thu, 24 May 2001 21:56:40 +0000
-Subject: [Linux-ia64] Re: EFI GPT tools ?
-Message-Id: <marc-linux-ia64-105590693005672@msgid-missing>
+From: Andy Polyakov <appro@fy.chalmers.se>
+Date: Wed, 23 May 2001 14:04:44 +0000
+Subject: [Linux-ia64] OpenSSL IA-64 port
+Message-Id: <marc-linux-ia64-105590693005650@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005581@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005581@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bill Nottingham (notting@redhat.com) said: 
-> McCaffity, Ray (ray.mccaffity@wcg.com) said: 
-> > I guess I'm not really sure what GPT is, but is there any IA64
-> > support journaled file systems yet?  (ReiserFS or JFS, etc..)
-> > If this is the parted tool for partitioning, I have used that
-> > on x86, but doesn't appear to support anything but ext2.
-> 
-> I tried reiserfs once, it did not work *at all*. I keep meaning
-> to try it again, but I haven't got around to it.
+(Being a member of OpenSSL development team) I'm working on OpenSSL
+IA-64 port, in particular on assembler implementation of
+multiple-precision arithmetic. I have the code (1000 lines and growing)
+runnning under HP SKI emulator, but would like to test and more
+important benchmark it on real hardware. Apparently the compile farms
+that were set up by Linux vendors at the end of 2000 aren't available
+any longer (at least all the links lead to non-existing pages). So I
+wonder if anybody can provide any useful pointers (or an account, in
+return I can consider porting my implementation to glibc:-).
 
-I checked again; with reiserfs you can create & mount filesystems,
-and copy data onto them, but if you try and read a directory,
-you get unaligned accesses in the kernel, and you can't see any
-files/directories.
+Please note that I'm not subscribed to the list and would appreciate if
+you contact me directly.
 
-Bill
+A lot of thanks in advance. Andy.
 
