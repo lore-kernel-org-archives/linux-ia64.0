@@ -1,39 +1,35 @@
-From: Matt Chapman <matthewc@cse.unsw.edu.au>
-Date: Thu, 28 Aug 2003 05:32:59 +0000
-Subject: Fix for nosmp (2.6)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="5vNYLRcllDrimb99"
-Message-Id: <marc-linux-ia64-106204881928311@msgid-missing>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Fri, 08 Aug 2003 21:45:26 +0000
+Subject: [PATCH] is_headless_node fix
+Message-Id: <marc-linux-ia64-106037918027371@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-
---5vNYLRcllDrimb99
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Patch should be self-explanatory.
+Fix is_headless_node() macro to use node_to_cpumask().
 
 Thanks,
-Matt
+Jesse
 
-
---5vNYLRcllDrimb99
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="smpboot.diff"
-
---- linux-2.6.0-test4/arch/ia64/kernel/smpboot.c.orig	2003-08-28 13:34:27.000000000 +1000
-+++ linux-2.6.0-test4/arch/ia64/kernel/smpboot.c	2003-08-28 15:23:15.000000000 +1000
-@@ -534,8 +534,8 @@
- 		printk(KERN_INFO "SMP mode deactivated.\n");
- 		cpus_clear(cpu_online_map);
- 		cpus_clear(phys_cpu_present_map);
--		cpu_set(1, cpu_online_map);
--		cpu_set(1, phys_cpu_present_map);
-+		cpu_set(0, cpu_online_map);
-+		cpu_set(0, phys_cpu_present_map);
- 		return;
- 	}
- }
-
---5vNYLRcllDrimb99--
+diff -Nru a/include/asm-ia64/sn/nodepda.h b/include/asm-ia64/sn/nodepda.h
+--- a/include/asm-ia64/sn/nodepda.h	Fri Aug  8 14:44:53 2003
++++ b/include/asm-ia64/sn/nodepda.h	Fri Aug  8 14:44:53 2003
+@@ -12,6 +12,7 @@
+ #include <linux/config.h>
+ #include <asm/sn/sgi.h>
+ #include <asm/irq.h>
++#include <asm/topology.h>
+ #include <asm/sn/intr.h>
+ #include <asm/sn/router.h>
+ #include <asm/sn/pda.h>
+@@ -127,7 +128,7 @@
+  * Check if given a compact node id the corresponding node has all the
+  * cpus disabled. 
+  */
+-#define is_headless_node(cnode)		(!test_bit(cnode, &node_has_active_cpus))
++#define is_headless_node(cnode)		(!node_to_cpumask(cnode))
+ 
+ /*
+  * Check if given a node vertex handle the corresponding node has all the
