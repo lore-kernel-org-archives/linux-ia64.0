@@ -1,242 +1,80 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 21 Oct 2004 03:52:28 +0000
-Subject: Announce: kdb v4.4 is available for kernel 2.6.9
-Message-Id: <6628.1098330748@kao2.melbourne.sgi.com>
+From: <akepner@sgi.com>
+Date: Wed, 13 Oct 2004 00:21:41 +0000
+Subject: bug in 2.6.9-rc4-mm1 ia64/mm/init.c
+Message-Id: <Pine.LNX.4.33.0410121705510.31839-100000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12956.1085377697@kao2.melbourne.sgi.com>
-In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kdb@oss.sgi.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-KDB (Linux Kernel Debugger) has been updated.
-
-ftp://oss.sgi.com/projects/kdb/download/v4.4/
-ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
-
-Current versions are :-
-
-  kdb-v4.4-2.6.9-common-1.bz2
-  kdb-v4.4-2.6.9-i386-1.bz2
-  kdb-v4.4-2.6.9-ia64-1.bz2
-  kdb-v4.4-2.6.9-rc2-x86-64-1.bz2 (may or may not work with 2.6.9).
-
-
-Changelog extract since kdb-v4.4-2.6.7-common-1.
-
-
-2004-10-19 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-common-1.
-
-2004-10-12 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-rc4-common-1.
-
-2004-10-01 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-rc3-common-1.
-
-2004-09-30 Keith Owens  <kaos@sgi.com>
-
-	* Add stackdepth command to Documentation/kdb/kdb.mm.  stackdepth is
-	  only supported on i386 and ia64 at the moment.
-	* Skip kdbm_pg memmap build on x86_64.  Scott Lurndal, 3leafnetworks.
-	* Export kdb_serial_str for modular I/O.  Bryan Cardillo, UPenn.
-	* Reinstate tab completion for symbols.
-	* kdb v4.4-2.6.9-rc2-common-2.
-
-2004-09-14 Keith Owens  <kaos@sgi.com>
-
-	* Add task states C (traCed) and E (dEad).
-	* kdb v4.4-2.6.9-rc2-common-1.
-
-2004-08-27 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-rc1-common-1.
-
-2004-08-14 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.8-common-1.
-
-2004-08-12 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.8-rc4-common-1.
-
-2004-08-05 Keith Owens  <kaos@sgi.com>
-
-	* Mark kdb_initcall as __attribute_used__ for newer gcc.
-	* kdb v4.4-2.6.8-rc3-common-2.
-
-2004-08-04 Keith Owens  <kaos@sgi.com>
-
-	* Add mdp (memory display physical) comnmand.
-	  Ananth N Mavinakayanahalli, IBM.
-	* kdb v4.4-2.6.8-rc3-common-1.
-
-2004-07-18 Keith Owens  <kaos@sgi.com>
-
-	* Patch for new sn_console.  Erik Jacobson. SGI.
-	* kdb v4.4-2.6.8-rc2-common-1.
-
-2004-07-12 Keith Owens  <kaos@sgi.com>
-
-	* Convert kdbm_task to standard cpumask_t.
-	* Document '*' (all breakpoints) option on bd/be/bc commands.
-	* kdb v4.4-2.6.8-rc1-common-1.
-
-2004-06-30 Keith Owens  <kaos@sgi.com>
-
-	* Common changes to help the x86-64 port.
-	* kdb v4.4-2.6.7-common-3.
-
-2004-06-20 Keith Owens  <kaos@sgi.com>
-
-	* Move kdb includes in mm/swapfile.c to reduce conflicts with other
-	  SGI patches.
-	* kdb v4.4-2.6.7-common-2.
-
-
-Changelog extract since kdb-v4.4-2.6.7-i386-1.
-
-
-2004-10-19 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-i386-1.
-
-2004-10-12 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-rc4-i386-1.
-
-2004-10-01 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-rc3-i386-1.
-
-2004-09-30 Keith Owens  <kaos@sgi.com>
-
-	* Add stackdepth command.
-	* Handle backtrace with separate soft and hard irq stacks
-          (CONFIG_4KSTACKS).
-	* Work around RESTORE_ALL macro, which can only be used once.
-	* Export kdba_dumpregs.  Bryan Cardillo, UPenn.
-	* kdb v4.4-2.6.9-rc2-i386-2.
-
-2004-09-14 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-rc2-i386-1.
-
-2004-08-27 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.9-rc1-i386-1.
-
-2004-08-14 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.8-i386-1.
-
-2004-08-12 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.8-rc4-i386-1.
-
-2004-08-04 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.8-rc3-i386-1.
-
-2004-07-18 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.8-rc2-i386-1.
-
-2004-07-12 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.8-rc1-i386-1.
-
-2004-06-16 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.7-i386-1.
-
-
-Changelog extract since kdb v4.4-2.6.7-ia64-040629-1.
-
-
-2004-10-19 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.9-ia64-1.
-
-2004-10-12 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.9-rc4-ia64-1.
-
-2004-10-01 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.9-rc3-ia64-1.
-
-2004-09-30 Keith Owens  <kaos@sgi.com>
-
-	* Add stackdepth command.
-	* kdb-v4.4-2.6.9-rc2-ia64-3.
-
-2004-09-16 Keith Owens  <kaos@sgi.com>
-
-	* Fixes for current in region 5 instead of 7 (idle task on cpu 0).
-	* kdb-v4.4-2.6.9-rc2-ia64-2.
-
-2004-09-14 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.9-rc2-ia64-1.
-
-2004-08-27 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.9-rc1-ia64-1.
-
-2004-08-14 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.8-ia64-1.
-
-2004-08-12 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.8-rc4-ia64-1.
-
-2004-08-04 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.8-rc3-ia64-1.
-
-2004-07-18 Keith Owens  <kaos@sgi.com>
-
-	* New config name for SN serial console.
-	* kdb-v4.4-2.6.8-rc2-ia64-1.
-
-2004-07-12 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.8-rc1-ia64-1.
-
-
-Changelog extract for kdb v4.4-2.6.9-rc2-x86-64-1.
-
-
-2004-09-30 Keith Owens <kaos@sgi.com>
-
-	* Port to 2.6.9-rc2
-	* Fix line editting characters.  Jim Houston, Comcast.
-	* kdb v4.4-2.6.9-rc2-x86-64-1.
-
-2004-08-15 Jack F. Vogel <jfv@bluesong.net>
-	* Port to 2.6.8
-	* tighten up the code, using the built-in
-	  die_chain notify interface, thanks to
-	  Andi Kleen for pointing this out.
-
-2004-05-15 Jack F. Vogel <jfv@bluesong.net>
-	* port to 2.6.6 for x86_64
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQFBdzJ8i4UHNye0ZOoRAmL7AKDuGQLB94/yos2DoSSC5X7AubniVgCguA26
-FQLeGkj6GWY7PjnCgLqdYno=y0AP
------END PGP SIGNATURE-----
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: akpm@osdl.org, jbarnes@sgi.com
+
+
+Hi Folks; 
+
+Tried a kernel built with akpm's 2.6.9-rc4-mm1 patch today (using 
+a default sn2 .config file.) It crashes on boot with:
+
+....
+SGI SAL version 3.40
+Virtual mem_map starts at 0xa0007ffe85938000
+Unable to handle kernel paging request at virtual address a0007ffeaf970000
+swapper[0]: Oops 8813272891392 [1]
+Modules linked in:
+
+Pid: 0, CPU 0, comm:              swapper
+psr : 00001010084a2010 ifs : 8000000000000004 ip  : [<a0000001008236c0>]    
+Not tainted
+ip is at memmap_init_zone+0x80/0x140
+unat: 0000000000000000 pfs : 000000000000030a rsc : 0000000000000003
+rnat: 0000000000000000 bsps: 0000000000000000 pr  : 80000000ff5655a5
+ldrs: 0000000000000000 ccv : 000000000000001f fpsr: 0009804c8a70433f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a00000010005d920 b6  : a00000010005d740 b7  : a0000001004b2640
+f6  : 1003e000000000001e000 f7  : 1003e6db6db6db6db6db7
+f8  : 1003e0000000005407000 f9  : 1003e0000000000000000
+f10 : 1003e0000000000000000 f11 : 1003e2492492492492493
+r1  : a000000100c53830 r2  : 00000000000f0000 r3  : a000000100a69880
+r8  : a000000100a69880 r9  : 0000000006008000 r10 : 0000000000000000
+r11 : 0000000000000000 r12 : a000000100863d80 r13 : a00000010085c000
+r14 : a0007ffe85938000 r15 : a0007ffeb0000000 r16 : 00000000000d2000
+r17 : a0007ffeaf970000 r18 : 0000000000000800 r19 : a0007ffeb0000000
+r20 : ffffffffffffffff r21 : 000fffffffffffff r22 : 0000000000000000
+r23 : 0000000000000000 r24 : a0007ffeb0000000 r25 : 0000000000000000
+r26 : a0007ffeb0003fff r27 : ffffffffffffc000 r28 : a0007ffeb0000000
+r29 : a0007ffeaf938000 r30 : 0000000005407000 r31 : 00000000054d9000
+POD entered via OS requested halt, using Cac mode
+0 000: POD SysCt Cac> POD entered via INIT, using Cac mode
+
+I traced this down to a recent patch (see 
+http://marc.theaimsgroup.com/?l=linux-mm&m9723728329408&w=2) 
+which contains:
+
+diff -puN arch/ia64/mm/init.c~ia64_fix arch/ia64/mm/init.c
+--- test-kernel/arch/ia64/mm/init.c~ia64_fix    2004-10-08 
+18:29:20.510992392 +0900
++++ test-kernel-kamezawa/arch/ia64/mm/init.c    2004-10-08 
+18:29:20.515991632 +0900
+@@ -410,7 +410,8 @@ virtual_memmap_init (u64 start, u64 end,
+        struct page *map_start, *map_end;
+
+        args = (struct memmap_init_callback_data *) arg;
+-
++       start = GRANULEROUNDDOWN(start);
++       end = GRANULEROUNDUP(end);
+        map_start = vmem_map + (__pa(start) >> PAGE_SHIFT);
+        map_end   = vmem_map + (__pa(end) >> PAGE_SHIFT);
+
+
+Merely commenting out the new lines containting GRANULEROUNDDOWN, and 
+GRANULEROUNDUP allowed the system to boot and me to finish the testing 
+I needed to do. 
+
+Looks like the above patch needs to be revised. I could test it if 
+necessary. Please email me directly as I'm not subscribed to lkml 
+or linux-ia64.
+
+--
+
+Arthur
 
