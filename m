@@ -1,31 +1,47 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 23 Jun 2003 22:43:05 +0000
-Subject: 2.5 bk tree broken?
-Message-Id: <marc-linux-ia64-105640820432133@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 23 Jun 2003 22:52:17 +0000
+Subject: Re: 2.5 bk tree broken?
+Message-Id: <marc-linux-ia64-105640875132527@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105640820432133@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105640820432133@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I did a "bk pull" from
+Yes, what's there on bkbits.net is totally obsolete (5 weeks old!).
 
-http://lia64.bkbits.net:8080/linux-ia64-2.5
+I know bkbits.net had a machine failure on Friday/Saturday.
 
-a few minutes ago, and was surprised when BitKeeper
-complained about lots of merge collisions (the bk tree
-into which I pulled hasn't even had a "bk edit" run in
-it, let alone any changes checked in).
+BK folks: could you restore a recent version of the linux-ia64-2.5
+repository?
 
-Since I'm a neophyte at BK, I tried my usual fix (remove
-the whole tree, and run "bk clone" again).  This succeeded
-without any reported errors, but time seems to have gone
-backwards. The tree I now see is missing some stuff that
-was checked into 2.5.72 (e.g fixes to include/asm-ia64/mca.h
-and arch/ia64/kernel/mca.h for cleaner handling of INIT
-events).
+Thanks,
 
-The Web interface to BK says the newest changeset in this
-tree was applied 5 weeks ago.
+	--david
 
--Tony
+>>>>> On Mon, 23 Jun 2003 15:43:05 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+
+  Tony> I did a "bk pull" from
+  Tony> http://lia64.bkbits.net:8080/linux-ia64-2.5
+
+  Tony> a few minutes ago, and was surprised when BitKeeper complained
+  Tony> about lots of merge collisions (the bk tree into which I
+  Tony> pulled hasn't even had a "bk edit" run in it, let alone any
+  Tony> changes checked in).
+
+  Tony> Since I'm a neophyte at BK, I tried my usual fix (remove the
+  Tony> whole tree, and run "bk clone" again).  This succeeded without
+  Tony> any reported errors, but time seems to have gone
+  Tony> backwards. The tree I now see is missing some stuff that was
+  Tony> checked into 2.5.72 (e.g fixes to include/asm-ia64/mca.h and
+  Tony> arch/ia64/kernel/mca.h for cleaner handling of INIT events).
+
+  Tony> The Web interface to BK says the newest changeset in this tree
+  Tony> was applied 5 weeks ago.
+
+  Tony> -Tony - To unsubscribe from this list: send the line
+  Tony> "unsubscribe linux-ia64" in the body of a message to
+  Tony> majordomo@vger.kernel.org More majordomo info at
+  Tony> http://vger.kernel.org/majordomo-info.html
