@@ -1,22 +1,29 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 23 Aug 2003 02:05:15 +0000
-Subject: Re: build problems/questions (2.6.0-test3)
-Message-Id: <marc-linux-ia64-106160448400635@msgid-missing>
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Wed, 06 Aug 2003 01:34:46 +0000
+Subject: PATCH: Use rm -f instead of rm
+Message-Id: <marc-linux-ia64-106013374422175@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106151574613417@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106151574613417@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 22 Aug 2003 14:57:02 -0700, "Randy.Dunlap" <rddunlap@osdl.org> said:
+"rm" may be aliased to "rm -i".
 
-  Randy> David, do you want to merge it, or want me to send to lkml
-  Randy> for more comments?
+# make
 
-The patch looks good to me, but since it's touching on stuff outside
-of arch/ia64 or include/asm-ia64, can you ask the respective
-maintainer(s) to apply it?
+may prompt for user response. It kills "nohup make".
 
-	--david
+
+H.J.
+--- linux/arch/ia64/Makefile.ia64	Tue Aug  5 17:21:30 2003
++++ linux/arch/ia64/Makefile	Tue Aug  5 18:30:27 2003
+@@ -28,7 +28,7 @@ CHECK_GAS_FOR_HINT=arch/ia64/scripts/che
+ MAKE_GAS_HINT_TEST=arch/ia64/scripts/make_gas_hint_test
+ 
+ ifneq (, $(shell ls $(CHECK_GAS_FOR_HINT)))
+-$(shell rm $(CHECK_GAS_FOR_HINT))
++$(shell rm -f $(CHECK_GAS_FOR_HINT))
+ endif
+ 
+ CHECK_GAS_CMD:=($(CC) $(MAKE_GAS_HINT_TEST).c -o $(MAKE_GAS_HINT_TEST) |$(AS) -o $(CHECK_GAS_FOR_HINT) -;rm $(MAKE_GAS_HINT_TEST))>&/dev/null
