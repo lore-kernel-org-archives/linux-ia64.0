@@ -1,29 +1,61 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 24 May 2002 19:19:57 +0000
-Subject: Re: [Linux-ia64] linux 2.5.17 --- acpi-related hang on boot?
-Message-Id: <marc-linux-ia64-105590701905599@msgid-missing>
+From: Steffen Persvold <sp@scali.com>
+Date: Thu, 02 May 2002 17:41:36 +0000
+Subject: RE: [Linux-ia64] new kernel patch (relative to 2.4.18)
+Message-Id: <marc-linux-ia64-105590701905547@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905590@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905590@msgid-missing>
+References: <marc-linux-ia64-105590701905293@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905293@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 22 May 2002 11:43:36 +1000, Peter Chubb <peter@chubb.wattle.id.au> said:
+On Thu, 11 Apr 2002, Saxena, Sunil wrote:
 
-  Peter> Hi, With the small pfn_to_pte patch I sent here last week,
-  Peter> Linux 2.5.17 builds and boots on the HP simulator.  But on a
-  Peter> real i2000 it hangs during boot.
+> Hi Chris,
+> 
+> McKinley information still requires NDA and hence it cannot be mailed on
+> this public mailing lists.
+> 
 
-The problem is due to this patch:
+I'm building with CONFIG_IA64_GENERIC. This is what I get :
 
- http://linux.bkbits.net:8080/linux-2.5/diffs/drivers/acpi/acpi_osl.c@1.3?nav=index.html|src/|src/drivers|src/drivers/acpi|hist/drivers/acpi/acpi_osl.c
+kallsyms pass 1
+ld -static -T arch/ia64/vmlinux.lds arch/ia64/kernel/head.o 
+arch/ia64/kernel/init_task.o init/main.o init/version.o --start-group 
+arch/ia64/kernel/kernel.o arch/ia64/mm/mm.o arch/ia64/ia32/ia32.o 
+arch/ia64/hp/hp.o arch/ia64/dig/dig.a kernel/kernel.o mm/mm.o fs/fs.o 
+ipc/ipc.o kdb/kdb.o  drivers/acpi/acpi.o drivers/char/char.o 
+drivers/block/block.o drivers/misc/misc.o drivers/net/net.o 
+drivers/media/media.o drivers/char/drm/drm.o 
+drivers/net/appletalk/appletalk.o drivers/atm/atm.o 
+drivers/ide/idedriver.o drivers/scsi/scsidrv.o drivers/cdrom/driver.o 
+drivers/pci/driver.o drivers/video/video.o drivers/md/mddev.o 
+drivers/sensors/sensor.o net/network.o 
+/usr/src/redhat/BUILD/linux/arch/ia64/lib/lib.a 
+/usr/src/redhat/BUILD/linux/lib/lib.a 
+/usr/src/redhat/BUILD/linux/arch/ia64/kdb/kdba.o 
+/usr/src/redhat/BUILD/linux/arch/ia64/lib/lib.a --end-group -o .tmp_vmlinux1
+arch/ia64/hp/hp.o: In function `hp_csr_space':
+arch/ia64/hp/hp.o(.text+0x3d82): undefined reference to `acpi_get_crs'
+arch/ia64/hp/hp.o(.text+0x3df2): undefined reference to `acpi_get_crs_type'
+arch/ia64/hp/hp.o(.text+0x3e52): undefined reference to `acpi_dispose_crs'
+arch/ia64/hp/hp.o(.text+0x3fa2): undefined reference to `acpi_dispose_crs'
+arch/ia64/hp/hp.o(.text+0x4062): undefined reference to `acpi_dispose_crs'
+arch/ia64/hp/hp.o: In function `hpzx1_lba_probe':
+arch/ia64/hp/hp.o(.text+0x4322): undefined reference to `acpi_cf_evaluate_method'
+arch/ia64/hp/hp.o: In function `hpzx1_acpi_dev_init':
+arch/ia64/hp/hp.o(.text+0x44f2): undefined reference to `pci_conf'
+ 
 
-Changing #if 0 to #if 1 gives me a working kernel (2.5.17).
+I can see that they are ZX1 related. Is this due to some missing files 
+because of NDA requirement too, or is there another public fix out there ?
 
-I haven't had time to look into a proper fix (need to finish the new
-TLB flushing code first).
+Regards,
+-- 
+  Steffen Persvold   | Scalable Linux Systems |   Try out the world's best
+ mailto:sp@scali.com |  http://www.scali.com  | performing MPI implementation:
+Tel: (+47) 2262 8950 |   Olaf Helsets vei 6   |      - ScaMPI 1.13.8 -
+Fax: (+47) 2262 8951 |   N0621 Oslo, NORWAY   | >320MBytes/s and <4uS latency
 
-	--david
 
