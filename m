@@ -1,7 +1,7 @@
-From: Francis Galiegue <fg@mandrakesoft.com>
-Date: Fri, 10 Nov 2000 14:49:43 +0000
-Subject: Re: [Linux-ia64] Recommended compiler for compiling kernels test10
-Message-Id: <marc-linux-ia64-105590678205682@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Fri, 10 Nov 2000 22:47:25 +0000
+Subject: Re: [Linux-ia64] Recommended compiler for compiling kernels test10 and upper?
+Message-Id: <marc-linux-ia64-105590678205683@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205680@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205680@msgid-missing>
@@ -10,32 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 10 Nov 2000, Jes Sorensen wrote:
+I am maintaining a stable compiler for the ia64-linux (formerly Trillian)
+group.  You can get it via ftp from ftp.cygnus.com in pub/ia64-linux.
+This compiler assumes that you are using glibc 2.2.  This is based on FSF
+gcc snapshots from the July/August timeframe.  There are patches to make
+uit mostly work with glibc 2.1.3.
 
-> Francis> Right now I'm using the ia64-final version of gcc, and from
-> Francis> test10 on a check is done on whether __GNUC_MINOR__ is
-> Francis> greater than 91. ia64-final returns 9 which is obviously not
-> Francis> what the kernel expects...
-> 
-> Which compiler is this?
-> 
+You can try using FSF gcc snapshots, but they tend to be a bit chaotic.
+Especially so for ia64, because we are still doing optimization work on the
+ia64 port, and hence we are occasionally destabilizing the ia64 port with
+new optimizations.
 
-2.9-ia64-000216-final
-
-> Francis> After commenting this out and fixing by hand quite a lot of
-> Francis> places, I got it to compile and boot though. But more recent
-> Francis> snapshots of gcc are available. Are they worth upgrading?
-> 
-> Yes, you need the latest to compile glibc anyway.
-> 
-
-OK, thanks :)
-
-
--- 
-Francis Galiegue, fg@mandrakesoft.com
-"Programming is a race between programmers, who try and make more and more
-idiot-proof software, and universe, which produces more and more remarkable
-idiots. Until now, universe leads the race"  -- R. Cook
-
+Jim
 
