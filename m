@@ -1,55 +1,42 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Fri, 27 Apr 2001 22:09:45 +0000
-Subject: [Linux-ia64] New Red Hat Linux Beta release for ia64 available
-Message-Id: <marc-linux-ia64-105590693005483@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 27 Apr 2001 03:56:09 +0000
+Subject: [Linux-ia64] [PATCH] gas fix for .spillsp.p/.spillpsp.p directives
+Message-Id: <marc-linux-ia64-105590693005481@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205864@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205864@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-A new Red Hat Linux beta release for ia64 is available - Wolverine.
+The attached patch fixes a bug in the gas .spillsp.p/.spillpsp.p
+directives.  Could someone check this into the official binutils
+tree?
 
-You can get it from:
+Thanks,
 
-ftp://ftp.redhat.com/pub/redhat/linux/beta/wolverine/en/os/ia64/
+	--david
 
-ISOs are available at:
+2001-04-26  David Mosberger  <davidm@hpl.hp.com>
 
-ftp://ftp.redhat.com/pub/redhat/linux/beta/wolverine/en/iso/ia64/
+	* config/tc-ia64.c (dot_spillmem_p): Fix output_spill_?sprel_p()
+	argument passing order: predicate goes last, not first.
 
-This release includes the 2.4.3 kernel + 010405 ia64 patch, the
-ELILO loader, XFree86 4.0.3 (including DRI support), and other enhancements.
-
-Recommended steppings/firmware:
-
-   B3 or C0 processors
-   Build 99 firmware (workstation)
-   Build 76 firmware (server)
-   
-Known bugs/caveats:
-    o The following software is known to be broken in this beta release:
-        - KDE
-        - aspell
-    o Support for the following hardware is known to be broken on machines
-      with more than 2 GB of memory in the Red Hat Linux Itanium beta:
-        - USB
-        - Compaq Smart Array 5xxx
-        - Compaq Smart/2 RAID Controller
-    o Upgrades are not supported.
-    
-For more notes, see the RELEASE-NOTES file included in the distribution.
-Please report bugs/problems via bugzilla, at
-   http://bugzilla.redhat.com/bugzilla/
-
-There is a mailing list you can join for discussion of this Red Hat Linux
-release on ia64; to subscribe, send mail to ia64-list-request@redhat.com with
-
-	       subscribe
-
-in the subject line.  You can leave the body empty.
-
-Bill
+Index: config/tc-ia64.c
+=================================RCS file: /cvs/src/src/gas/config/tc-ia64.c,v
+retrieving revision 1.48
+diff -u -r1.48 tc-ia64.c
+--- config/tc-ia64.c	2001/04/14 03:51:40	1.48
++++ config/tc-ia64.c	2001/04/27 03:53:23
+@@ -3613,9 +3613,9 @@
+     }
+ 
+   if (psprel)
+-    add_unwind_entry (output_spill_psprel_p (qp, ab, reg, e3.X_add_number));
++    add_unwind_entry (output_spill_psprel_p (ab, reg, e3.X_add_number, qp));
+   else
+-    add_unwind_entry (output_spill_sprel_p (qp, ab, reg, e3.X_add_number));
++    add_unwind_entry (output_spill_sprel_p (ab, reg, e3.X_add_number, qp));
+ }
+ 
+ static void
 
