@@ -1,57 +1,43 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 14 May 2003 18:55:56 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 14 May 2003 19:30:31 +0000
 Subject: Re: [Linux-ia64] kernel 2.5.69 doesn't compile for UP
-Message-Id: <marc-linux-ia64-105590723705806@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705807@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705787@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705787@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Matthew Wilcox <willy@debian.org> writes:
+>>>>> On Wed, 14 May 2003 19:05:45 +0100, Matthew Wilcox <willy@debian.org> said:
 
-|> On Wed, May 14, 2003 at 10:32:14AM -0700, David Mosberger wrote:
-|> >   Matthew> Yuck.  The right way to do this is
-|> >   Matthew> read_trylock(&tasklist_lock); The observant will have
-|> >   Matthew> noted:
-|> >=20
-|> >   Matthew> /* Where's read_trylock? */
-|> >=20
-|> >   Matthew> in include/linux/spinlock.h but that doen't justify _not
-|> >   Matthew> writing it_ when you need it.
-|> >=20
-|> > You want to send me a patch? ;-)
-|>=20
-|> Yes, I'd love to ;-)  I just need to fix your 2.5.69 patch so it'll comp=
-ile :-P
-|> $ find -type f |xargs grep compat_sys_setaffinity
-|> ./arch/ia64/ia32/ia32_entry.S:  data8 compat_sys_setaffinity
-|> Binary file ./arch/ia64/ia32/ia32_entry.o matches
-|> Binary file ./arch/ia64/ia32/built-in.o matches
+  Matthew> Yes, I'd love to ;-) I just need to fix your 2.5.69 patch
+  Matthew> so it'll compile :-P $ find -type f |xargs grep
+  Matthew> compat_sys_setaffinity ./arch/ia64/ia32/ia32_entry.S: data8
 
---- linux-2.5.69/arch/ia64/ia32/ia32_entry.S.~1~	2003-05-14 12:14:33.000000=
-000 +0200
-+++ linux-2.5.69/arch/ia64/ia32/ia32_entry.S	2003-05-14 12:57:22.000000000 =
-+0200
-@@ -439,8 +439,8 @@ ia32_syscall_table:
- 	data8 sys_ni_syscall
- 	data8 sys_ni_syscall
- 	data8 compat_sys_futex	/* 240 */
--	data8 compat_sys_setaffinity
--	data8 compat_sys_getaffinity
-+	data8 compat_sys_sched_setaffinity
-+	data8 compat_sys_sched_getaffinity
- 	data8 sys_ni_syscall
- 	data8 sys_ni_syscall
- 	data8 sys_ni_syscall	/* 245 */
+The ia32 subsystem does NOT work at the moment, as I mentioned in my
+announcement.  If you chose to ignore my messages, tough luck.
 
-Andreas.
+  Matthew> Seriously, this is an attitude I see way too much of in
+  Matthew> this port.  Something's broken so it gets kludged inside
+  Matthew> arch/ia64 (or worse yet,
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+It's always nice to hear your opinions.
+
+  Matthew> Maybe it's a relic of the "secret beginnings" of this port,
+  Matthew> or maybe people from certain companies have too narrow a
+  Matthew> focus, but it has to stop.  I think the attitude is
+  Matthew> starting to change but there's a lot of cruft built up.
+
+Oh, yeah, bring out your conspiracy theories.  Yawn.
+
+Perhaps you might want to consider a more obvious scenario?  Like,
+there is much more work to go around than time/people to do it all and
+hence certain things get lower priority?
+
+In fact, why not start with yourself?  If you see something that you
+absolutely hate, send in a patch to fix it.  That's how Linux works.
+
+	--david
 
