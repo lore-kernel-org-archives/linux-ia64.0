@@ -1,69 +1,17 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Wed, 29 Sep 2004 09:42:33 +0000
-Subject: Re: perfmon broken
-Message-Id: <20040929094233.GC9707@frankl.hpl.hp.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 22 Sep 2004 21:13:12 +0000
+Subject: rename generic_defconfig to defconfig?
+Message-Id: <200409221713.12673.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1096412318.14161.51.camel@tdi>
-In-Reply-To: <1096412318.14161.51.camel@tdi>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Alex,
+Just thought I'd float the idea of making the ia64 defconfig into a generic 
+ia64 kernel config.  It's probably easiest just to rename generic_defconfig 
+to defconfig since that already works everywhere (well, except for akpm's box 
+apparently).  That would make it extra easy to build a working kernel for the 
+various ia64 boxes out there...
 
-Yes, your patch will likely fix the problem. I need to check
-to see if we need to keep TASK_STOPPED.
-
-Thanks.
-
-
-On Tue, Sep 28, 2004 at 04:58:38PM -0600, Alex Williamson wrote:
-> 
->    Looks like this changeset back between 2.6.9-rc1-bk15 & bk16 broke
-> perfmon:
-> 
-> http://linux.bkbits.net:8080/linux-2.5/cset@413f1bdabfaQNzIZpU6bPxNlSxdriQ
-> 
->         [PATCH] cleanup ptrace stops and remove notify_parent
->         
->         This adds a new state TASK_TRACED that is used in place of
->         TASK_STOPPED when a thread stops because it is ptraced.  Now
->         ptrace operations are only permitted when the target is in
->         TASK_TRACED state, not in TASK_STOPPED.
->         ...
-> 
->  Here's the simple fix, perhaps Stephane has a better approach.  Thanks,
-> 
-> 	Alex
-> 
-> -- 
-> Signed-off-by: Alex Williamson <alex.williamson@hp.com>
-> 
-> 
-> === arch/ia64/kernel/perfmon.c 1.90 vs edited ==> --- 1.90/arch/ia64/kernel/perfmon.c	2004-09-03 08:54:08 -06:00
-> +++ edited/arch/ia64/kernel/perfmon.c	2004-09-28 16:42:05 -06:00
-> @@ -2601,7 +2601,7 @@
->  	 */
->  	if (task = current) return 0;
->  
-> -	if (task->state != TASK_STOPPED) {
-> +	if ((task->state != TASK_STOPPED) && (task->state != TASK_TRACED)){
->  		DPRINT(("cannot attach to non-stopped task [%d] state=%ld\n", task->pid, task->state));
->  		return -EBUSY;
->  	}
-> @@ -4755,7 +4755,8 @@
->  	 * the task must be stopped.
->  	 */
->  	if (PFM_CMD_STOPPED(cmd)) {
-> -		if (task->state != TASK_STOPPED) {
-> +		if ((task->state != TASK_STOPPED) &&
-> +		    (task->state != TASK_TRACED)) {
->  			DPRINT(("[%d] task not in stopped state\n", task->pid));
->  			return -EBUSY;
->  		}
-> 
-
--- 
-
--Stephane
+Jesse
