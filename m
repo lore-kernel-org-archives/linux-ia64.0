@@ -1,22 +1,27 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Thu, 30 Mar 2000 22:07:58 +0000
-Subject: Re: [Linux-ia64] question about -fpermissive flag in g++
-Message-Id: <marc-linux-ia64-105590678204999@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Wed, 15 Mar 2000 15:54:54 +0000
+Subject: [Linux-ia64] INIT switch handler
+Message-Id: <marc-linux-ia64-105590678204984@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678204998@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678204998@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It sounds like the option is working as intended, but does not do what you
-hoped it would do.
+The init handler in arch/ia64/kernel/mca.c doesn't do anything yet.  Does
+anyone have plans for what such a handler should or will do on Linux?
 
-If you want a better answer, you will probably have to ask on 
-gcc-bugs@gcc.gnu.org, since I doubt that anyone here has enough g++
-expertise to comment on the specifics of what -fpermissive does.
+When the init switch is pressed, it causes a reset of the processor(s). The
+purpose of the init
+switch on Lion is the same as the NMI switch on the IA-32 platforms. The
+OS will have to write a handler that will check and see that the init
+switch has been pressed and dump the state of the processor and the state
+of the system.
+ 
+Thanks,
+Matt Domsch
+IA-64 Linux Lead Engineer
+Dell Computer Corporation
 
-Jim
 
 
