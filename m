@@ -1,146 +1,137 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 28 Jan 2005 21:10:11 +0000
-Subject: [PATCH] fix IOSAPIC destinations when CONFIG_SMP=n
-Message-Id: <1106946611.9150.34.camel@eeyore>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 07 Jan 2005 00:06:22 +0000
+Subject: [PATCH] long line & codingstyle cleanups for contig.c
+Message-Id: <200501061606.22753.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_+Jd3B3ejtbmUmRH"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Always use cpu_physical_id() (which is really the ID/EID of
-a processor's Local SAPIC) when programming IOSAPIC entries.
+--Boundary-00=_+Jd3B3ejtbmUmRH
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Previously we sometimes used hard_smp_processor_id(), which
-is correct when CONFIG_SMP=y but wrong otherwise.
+This small patch cleans up long lines in contig.c and makes the function 
+declarations adhere to Documentation/CodingStyle.  Whitespace only changes.
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-=== arch/ia64/kernel/iosapic.c 1.51 vs edited ==--- 1.51/arch/ia64/kernel/iosapic.c	2005-01-20 22:02:13 -07:00
-+++ edited/arch/ia64/kernel/iosapic.c	2005-01-28 13:16:05 -07:00
-@@ -91,7 +91,6 @@
- 
- 
- #undef DEBUG_INTERRUPT_ROUTING
--#undef OVERRIDE_DEBUG
- 
- #ifdef DEBUG_INTERRUPT_ROUTING
- #define DBG(fmt...)	printk(fmt)
-@@ -499,14 +498,14 @@
- 	 * distribute interrupts.
- 	 */
- 	if (smp_int_redirect & SMP_IRQ_REDIRECTION)
--		return hard_smp_processor_id();
-+		return cpu_physical_id(smp_processor_id());
- 
- 	/*
- 	 * Some interrupts (ACPI SCI, for instance) are registered
- 	 * before the BSP is marked as online.
- 	 */
- 	if (!cpu_online(smp_processor_id()))
--		return hard_smp_processor_id();
-+		return cpu_physical_id(smp_processor_id());
- 
- #ifdef CONFIG_NUMA
- 	{
-@@ -553,7 +552,7 @@
- 
- 	return cpu_physical_id(cpu);
- #else
--	return hard_smp_processor_id();
-+	return cpu_physical_id(smp_processor_id());
- #endif
- }
- 
-@@ -740,7 +739,7 @@
- 			  unsigned long trigger)
- {
- 	int vector;
--	unsigned int dest = hard_smp_processor_id();
-+	unsigned int dest = cpu_physical_id(smp_processor_id());
- 
- 	vector = isa_irq_to_vector(isa_irq);
- 
-=== include/asm-ia64/smp.h 1.19 vs edited ==--- 1.19/include/asm-ia64/smp.h	2004-10-05 12:30:39 -06:00
-+++ edited/include/asm-ia64/smp.h	2005-01-28 13:16:06 -07:00
-@@ -3,16 +3,14 @@
+Thanks,
+Jesse & the 80 column brigade
+
+--Boundary-00=_+Jd3B3ejtbmUmRH
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="contig-cleanup.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="contig-cleanup.patch"
+
+===== arch/ia64/mm/contig.c 1.10 vs edited =====
+--- 1.10/arch/ia64/mm/contig.c	2004-12-28 13:38:55 -08:00
++++ edited/arch/ia64/mm/contig.c	2005-01-06 15:51:33 -08:00
+@@ -34,8 +34,7 @@
   *
-  * Copyright (C) 1999 VA Linux Systems
-  * Copyright (C) 1999 Walt Drummond <drummond@valinux.com>
-- * Copyright (C) 2001-2003 Hewlett-Packard Co
-+ * (c) Copyright 2001-2003, 2005 Hewlett-Packard Development Company, L.P.
-  *	David Mosberger-Tang <davidm@hpl.hp.com>
-+ *	Bjorn Helgaas <bjorn.helgaas@hp.com>
+  * Just walks the pages in the system and describes where they're allocated.
   */
- #ifndef _ASM_IA64_SMP_H
- #define _ASM_IA64_SMP_H
+-void
+-show_mem (void)
++void show_mem(void)
+ {
+ 	int i, total = 0, reserved = 0;
+ 	int shared = 0, cached = 0;
+@@ -75,8 +74,7 @@
+  * Passed as a callback function to efi_memmap_walk() to determine the highest
+  * available page frame number in the system.
+  */
+-int
+-find_max_pfn (unsigned long start, unsigned long end, void *arg)
++int find_max_pfn(unsigned long start, unsigned long end, void *arg)
+ {
+ 	unsigned long *max_pfnp = arg, pfn;
  
- #include <linux/config.h>
--
--#ifdef CONFIG_SMP
--
- #include <linux/init.h>
- #include <linux/threads.h>
- #include <linux/kernel.h>
-@@ -24,6 +22,25 @@
- #include <asm/processor.h>
- #include <asm/ptrace.h>
+@@ -95,8 +93,7 @@
+  * Find a place to put the bootmap and return its starting address in
+  * bootmap_start.  This address must be page-aligned.
+  */
+-int
+-find_bootmap_location (unsigned long start, unsigned long end, void *arg)
++int find_bootmap_location(unsigned long start, unsigned long end, void *arg)
+ {
+ 	unsigned long needed = *(unsigned long *)arg;
+ 	unsigned long range_start, range_end, free_start;
+@@ -139,8 +136,7 @@
+  * Walk the EFI memory map and find usable memory for the system, taking
+  * into account reserved areas.
+  */
+-void
+-find_memory (void)
++void find_memory(void)
+ {
+ 	unsigned long bootmap_size;
  
-+static inline unsigned int
-+ia64_get_lid (void)
-+{
-+	union {
-+		struct {
-+			unsigned long reserved : 16;
-+			unsigned long eid : 8;
-+			unsigned long id : 8;
-+			unsigned long ignored : 32;
-+		} f;
-+		unsigned long bits;
-+	} lid;
-+
-+	lid.bits = ia64_getreg(_IA64_REG_CR_LID);
-+	return lid.f.id << 8 | lid.f.eid;
-+}
-+
-+#ifdef CONFIG_SMP
-+
- #define XTP_OFFSET		0x1e0008
+@@ -174,8 +170,7 @@
+  *
+  * Allocate and setup per-cpu data areas.
+  */
+-void *
+-per_cpu_init (void)
++void *per_cpu_init(void)
+ {
+ 	void *cpu_data;
+ 	int cpu;
+@@ -187,20 +182,23 @@
+ 	 */
+ 	if (smp_processor_id() == 0) {
+ 		cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * NR_CPUS,
+-					   PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
++					   PERCPU_PAGE_SIZE,
++					   __pa(MAX_DMA_ADDRESS));
+ 		for (cpu = 0; cpu < NR_CPUS; cpu++) {
+-			memcpy(cpu_data, __phys_per_cpu_start, __per_cpu_end - __per_cpu_start);
+-			__per_cpu_offset[cpu] = (char *) cpu_data - __per_cpu_start;
++			memcpy(cpu_data, __phys_per_cpu_start,
++			       __per_cpu_end - __per_cpu_start);
++			__per_cpu_offset[cpu] = (char *) cpu_data -
++				__per_cpu_start;
+ 			cpu_data += PERCPU_PAGE_SIZE;
+-			per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
++			per_cpu(local_per_cpu_offset, cpu) =
++				__per_cpu_offset[cpu];
+ 		}
+ 	}
+ 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
+ }
+ #endif /* CONFIG_SMP */
  
- #define SMP_IRQ_REDIRECTION	(1 << 0)
-@@ -90,22 +107,7 @@
- 		writeb(0x0f, ipi_base_addr + XTP_OFFSET); /* Set XTP to max */
+-static int
+-count_pages (u64 start, u64 end, void *arg)
++static int count_pages(u64 start, u64 end, void *arg)
+ {
+ 	unsigned long *count = arg;
+ 
+@@ -209,8 +207,7 @@
  }
  
--static inline unsigned int
--hard_smp_processor_id (void)
--{
--	union {
--		struct {
--			unsigned long reserved : 16;
--			unsigned long eid : 8;
--			unsigned long id : 8;
--			unsigned long ignored : 32;
--		} f;
--		unsigned long bits;
--	} lid;
--
--	lid.bits = ia64_getreg(_IA64_REG_CR_LID);
--	return lid.f.id << 8 | lid.f.eid;
--}
-+#define hard_smp_processor_id()		ia64_get_lid()
+ #ifdef CONFIG_VIRTUAL_MEM_MAP
+-static int
+-count_dma_pages (u64 start, u64 end, void *arg)
++static int count_dma_pages(u64 start, u64 end, void *arg)
+ {
+ 	unsigned long *count = arg;
  
- /* Upping and downing of CPUs */
- extern int __cpu_disable (void);
-@@ -125,7 +127,8 @@
+@@ -224,8 +221,7 @@
+  * Set up the page tables.
+  */
  
- #else
- 
--#define cpu_logical_id(cpuid)		0
-+#define cpu_logical_id(i)		0
-+#define cpu_physical_id(i)		ia64_get_lid()
- 
- #endif /* CONFIG_SMP */
- #endif /* _ASM_IA64_SMP_H */
+-void
+-paging_init (void)
++void paging_init(void)
+ {
+ 	unsigned long max_dma;
+ 	unsigned long zones_size[MAX_NR_ZONES];
 
+--Boundary-00=_+Jd3B3ejtbmUmRH--
 
