@@ -1,168 +1,25 @@
-From: "Kaigai Kohei" <kaigai@ak.jp.nec.com>
-Date: Tue, 15 Jun 2004 12:52:26 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 17 Jun 2004 01:10:29 +0000
 Subject: Re: [PATCH] Kernel panic on IA-64 Linux with SELinux
-Message-Id: <022601c452d7$9c85b0b0$f97d220a@linux.bs1.fc.nec.co.jp>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----=_NextPart_000_0223_01C45323.0C5AE220"
+Message-Id: <16592.61317.129353.62981@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <013f01c44ddb$636d4aa0$f97d220a@linux.bs1.fc.nec.co.jp>
 In-Reply-To: <013f01c44ddb$636d4aa0$f97d220a@linux.bs1.fc.nec.co.jp>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+>>>>> On Tue, 15 Jun 2004 21:52:26 +0900, "Kaigai Kohei" <kaigai@ak.jp.nec.com> said:
 
-------=_NextPart_000_0223_01C45323.0C5AE220
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+  Kaigai> I'm sorry the patch attached with the previous mail was
+  Kaigai> wrong.  Please ignore it. orz
 
-I'm sorry the patch attached with the previous mail was wrong.
-Please ignore it. orz
+  Kaigai> The patch attached with this mail is the latest version.
 
-The patch attached with this mail is the latest version.
+OK, I check this in now, with a small change to the ia64_switch_to()
+portion, so that the instructions get packed better.
 
-------------------------------------
-Dear David
+Thanks for tracking this down and fixing it!
 
-The attached patch moves the current of cpu_idle from region 7 to region 5.
-
-The init_task can be viewed from either region 5 or 7.
-But the current(r13) of cpu_idle was a region 7 address while &init_task
-referes to a region 5 address. Thus, some bad effects occurred.
-(This problem came to the front first time by enabling SELinux.)
-
-
-Signed-off-by: Kazuto MIYOSHI <k-miyoshi@cb.jp.nec.com>
-Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
-Signed-off-by: Kaigai Kohei <kaigai@ak.jp.nec.com>
-------------------------------------
-
-> Dear David
-> 
-> The attached patch moves the current of cpu_idle from region 7 to region 5.
-> 
-> The init_task can be viewed from either region 5 or 7.
-> But the current(r13) of cpu_idle was a region 7 address while &init_task
-> referes to a region 5 address. Thus, some bad effects occurred.
-> (This problem came to the front first time by enabling SELinux.)
-> 
-> 
-> Signed-off-by: Kazuto MIYOSHI <k-miyoshi@cb.jp.nec.com>
-> Signed-off-by: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
-> Signed-off-by: Kaigai Kohei <kaigai@ak.jp.nec.com>
-> 
-> Thanks, so much.
-> --------
-> Kaigai Kohei, Linux Promotion Center, NEC
-> E-mail: kaigai@ak.jp.nec.com
-> 
-> 
-> > Hi Kaigai,
-> > 
-> > Thanks for looking into this issue.
-> > 
-> > >>>>> On Tue, 15 Jun 2004 11:28:14 +0900, "Kaigai Kohei" <kaigai@ak.jp.nec.com> said:
-> > 
-> >   Kaigai> I have applied this patch to 2.6.6 kernel, and system stall
-> >   Kaigai> occurred while booting up. The problem is in
-> >   Kaigai> init_mount_tree().  The init_mount_tree() function uses
-> >   Kaigai> do_each_thread() macro defined as follows:
-> > 
-> >   Kaigai> #define do_each_thread(g, t) \
-> >   Kaigai>   for (g = t = &init_task ; (g = t = next_task(g)) != &init_task ; ) do
-> > 
-> > Yeah, that'd do it.
-> > 
-> >   Kaigai> There are several solutions against this problem.
-> > 
-> >   Kaigai> (1) Initializing only wait_chldexit as my first patch.
-> > 
-> >   Kaigai> (2) Moving current of swapper from region 7 to region 5 as
-> >   Kaigai> Miyoshi's second patch.
-> > 
-> >   Kaigai> (3) Replacing &init_task with task_t *p_init_task which
-> >   Kaigai> refers to init_task in region 7, and refers to init_task
-> >   Kaigai> directly on other archtectures.
-> > 
-> >   Kaigai> (1) is easy but ad hoc. (3) needs to correct generic code.
-> >   Kaigai> (2) is consistent on &init_task is in region 5 and
-> >   Kaigai> current(r13) for cpu_idle refers to region 5. But the number
-> >   Kaigai> of steps in switch_to() macro will increase.  This overhead
-> >   Kaigai> is not a big problem, I guess.
-> > 
-> >   Kaigai> For reasons already stated I prefer (2). What do you think?
-> > 
-> > I agree, (2) seems to best solution so far.  It maintains the
-> > invariant that static data will be in region 5.  The extra
-> > instructions should be pretty much free since it should be possible to
-> > schedule them into existing stalls.
-> > 
-> > Can you resend the tested patch with proper changelog and "Signed-off-by"
-> > trailer?
-> > 
-> > Thanks,
-> > 
-> > --david
-> >
-------=_NextPart_000_0223_01C45323.0C5AE220
-Content-Type: application/octet-stream;
-	name="migrate.init_task.2.6.7-rc3.040615.patch"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
-	filename="migrate.init_task.2.6.7-rc3.040615.patch"
-
-diff -rNU2 linux-2.6.7-rc3/arch/ia64/kernel/entry.S =
-linux-2.6.7-rc3.selinux/arch/ia64/kernel/entry.S=0A=
---- linux-2.6.7-rc3/arch/ia64/kernel/entry.S	2004-06-08 =
-04:14:02.000000000 +0900=0A=
-+++ linux-2.6.7-rc3.selinux/arch/ia64/kernel/entry.S	2004-06-15 =
-19:29:47.981929427 +0900=0A=
-@@ -178,5 +178,9 @@=0A=
- 	DO_SAVE_SWITCH_STACK=0A=
- 	.body=0A=
--=0A=
-+	=0A=
-+	movl r25=3Dinit_task=0A=
-+	;;=0A=
-+	cmp.eq p7,p6=3Dr25,in0=0A=
-+	=0A=
- 	adds r22=3DIA64_TASK_THREAD_KSP_OFFSET,r13=0A=
- 	mov r27=3DIA64_KR(CURRENT_STACK)=0A=
-@@ -190,5 +194,5 @@=0A=
- 	 * If we've already mapped this task's page, we can skip doing it =
-again.=0A=
- 	 */=0A=
--	cmp.eq p7,p6=3Dr26,r27=0A=
-+(p6)	cmp.eq p7,p6=3Dr26,r27=0A=
- (p6)	br.cond.dpnt .map=0A=
- 	;;=0A=
-diff -rNU2 linux-2.6.7-rc3/arch/ia64/kernel/head.S =
-linux-2.6.7-rc3.selinux/arch/ia64/kernel/head.S=0A=
---- linux-2.6.7-rc3/arch/ia64/kernel/head.S	2004-06-08 =
-04:14:42.000000000 +0900=0A=
-+++ linux-2.6.7-rc3.selinux/arch/ia64/kernel/head.S	2004-06-15 =
-19:26:26.912398427 +0900=0A=
-@@ -155,4 +155,7 @@=0A=
- 	;;=0A=
- 	tpa r3=3Dr2		// r3 =3D=3D phys addr of task struct=0A=
-+	;;=0A=
-+	shr.u r16=3Dr3,IA64_GRANULE_SHIFT=0A=
-+	(isBP) br.cond.dpnt .load_current // BP stack is on region 5 and no =
-need to map it=0A=
- 	// load mapping for stack (virtaddr in r2, physaddr in r3)=0A=
- 	rsm psr.ic=0A=
-@@ -166,5 +169,4 @@=0A=
- 	;;=0A=
- 	mov r17=3Drr[r2]=0A=
--	shr.u r16=3Dr3,IA64_GRANULE_SHIFT=0A=
- 	;;=0A=
- 	dep r17=3D0,r17,8,24=0A=
-@@ -181,4 +183,5 @@=0A=
-   	;;=0A=
- =0A=
-+.load_current:=0A=
- 	// load the "current" pointer (r13) and ar.k6 with the current task=0A=
- 	mov IA64_KR(CURRENT)=3Dr2		// virtual address=0A=
-
-------=_NextPart_000_0223_01C45323.0C5AE220--
-
+	--david
