@@ -1,39 +1,27 @@
-From: Sebastien Lelarge <Sebastien.Lelarge@bull.net>
-Date: Thu, 04 Jul 2002 06:45:58 +0000
-Subject: [Linux-ia64] [patch] kdb-v2.1-2.4.18-ia64-usb-keyboard
-Message-Id: <marc-linux-ia64-105590701905735@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Thu, 04 Jul 2002 08:03:50 +0000
+Subject: Re: [Linux-ia64] [patch] kdb-v2.1-2.4.18-ia64-usb-keyboard
+Message-Id: <marc-linux-ia64-105590701905737@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905735@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905735@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hello list,
+Sebastien Lelarge <Sebastien.Lelarge@bull.net> writes:
 
-I'm student in France and I'm working on IA64 machines by BULL 
-in France. We had a problem using KDB on Tiger machine because of the
-lack of PS/2 port on this machine. In order to bring a solution, I
-have written some code to bring USB support in KDB. I'm using a RedHat 
-7.2. You must apply this patch after the 2 KDB patches. It provides an 
-option called "Support for USB Keyboard in KDB" in Kernel Hacking
-section. 
+|> Notice that you won't be able to use your USB Keyboard before USB
+|> subsystem is started. But it's a solution to debug a system running.
 
-For now, it supports the usb-uhci driver for the USB controller. 
-and supports the two USB keyboard drivers (hid and usbkbd) used by
-RedHat.
+Another solution is to use a serial console.
 
-Notice that you won't be able to use your USB Keyboard before USB
-subsystem is started. But it's a solution to debug a system running.
+Andreas.
 
-You can download it at
-ftp://oss.sgi.com/www/projects/kdb/download/v2.1/kdb-v2.1-2.4.18-ia64-usb-keyboard-2.bz2
-
-For now, it works on kernel 2.4.18 with all recent patches. If you
-have remarks, please reply adding kdb@oss.sgi.com in copy of your mail.
-
-Thanks
--- 
-LELARGE Sebastien			            
-BULL S.A - Linux IA64 Team    mailto:sebastien.lelarge@bull.net
-38000 Echirolles
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
 
