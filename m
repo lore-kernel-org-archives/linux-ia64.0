@@ -1,7 +1,7 @@
-From: "H . J . Lu" <hjl@valinux.com>
-Date: Mon, 13 Nov 2000 20:59:54 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Mon, 13 Nov 2000 21:14:47 +0000
 Subject: Re: [Linux-ia64] Recommended compiler for compiling kernels test1 0 and upper?
-Message-Id: <marc-linux-ia64-105590678205695@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205696@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205680@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205680@msgid-missing>
@@ -10,17 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Nov 13, 2000 at 12:38:40PM -0800, Broadfoot, KenX wrote:
-> Redhat 7.0 shipped with two compilers.
-> The new one is gcc 2.95 and it is terrible for compiling kernels. ( ia32 )
-> 
+>FYI, last time when I checked it, this bug
+>http://gcc.gnu.org/ml/gcc-bugs/2000-08/msg00526.html
+>still is in CVS. BTW, there are some analysis and a kludge at
+>http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id836
 
-I have very few problems with gcc 2.96 in RedHat 7.0. You just need 2
-small kernel patches. 
+But that isn't an ia64 compiler bug, so it isn't really my problem.  
+And since it only shows up in an unusual case, presumably from using the
+--enable-shared configure option which few people use, and since there is
+an easy workaround, I see no reason why I need to spend time trying to fix it.
 
-# cat /proc/version
-Linux version 2.2.17-0.5smp (root@load137.var.com) (gcc version 2.96 20000731 (Red Hat Linux 7.0)) #1 SMP Mon Oct 16 14:35:44 PDT 2000
-
-
-H.J.
+Jim
 
