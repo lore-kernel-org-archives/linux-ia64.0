@@ -1,38 +1,54 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Wed, 15 Nov 2000 20:02:30 +0000
-Subject: Re: [Linux-ia64] Problem compiling latest gcc (001024 snapshot)
-Message-Id: <marc-linux-ia64-105590678205727@msgid-missing>
+From: Jonathan Case Nicklin <nicklin@missioncriticallinux.com>
+Date: Tue, 07 Nov 2000 17:03:21 +0000
+Subject: [Linux-ia64] Performance Monitor Internals:
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------9913A90A1403C79E4E1232E3"
+Message-Id: <marc-linux-ia64-105590678205661@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205721@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205721@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->../../gcc/config/ia64/lib1funcs.asm:655: Error: Unknown opcode `mov.ret.sptk
+--------------9913A90A1403C79E4E1232E3
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Somehow gcc accidentally used an out-of-date assembler.
+Greetings,
 
->/usr/src/RPM/BUILD/src/builddir/gcc/xgcc -B/usr/src/RPM/BUILD/src/builddir/gcc/
->-B/usr/ia64-mandrake-linux/bin/ -I/usr/ia64-mandrake-linux/include -O2
+    My colleague and I are working with the IA64 performance monitors
+and would like to get involved
+    or at least learn more about the development effort of the syscall
+interface and its internals. Has
+    any person or group been assigned to this task? If so, please email
+me or the list so we can
+    possibly collaborate on the design/implementation effort.
 
-The -B options here are in the wrong order.  If you have an old assembler in
-/usr/ia64-mandrake-linux/bin/, then gcc will accidentally use this old
-assembler instead of the new assembler in /usr/src/.../builddir/gcc.
-This can be fixed by doing a "make install-gas" as Jes suggested, or by
-renaming the old /usr/ia64-mandrake-linux tree to move it out of the way as
-Bill suggested.
+Sincerely,
+Jonathan Case Nicklin / John Baboval
 
-We've had a lot of problems with ordering of these -B options.  It has been
-broken and fixed several times this year.  The current stable compiler I am
-maintaining was made from a FSF gcc snapshot when this was broken.  This
-is only a problem when there is an ABI change though, so hopefully you only
-have to deal with this once.
+Mission Critical Linux
+www.missioncriticallinux.com
 
->Oh, and BTW, .033 is unreadable, it's 600 on the FTP site.
 
-Fixed.
+--------------9913A90A1403C79E4E1232E3
+Content-Type: text/html; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Jim
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<tt>Greetings,</tt><tt></tt>
+<p><tt>&nbsp;&nbsp;&nbsp; My colleague and I are working with the IA64
+performance monitors and would like to get involved</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; or at least learn more about the development
+effort of the syscall interface and its internals. Has</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; any person or group been assigned to this task?
+If so, please email me or the list so we can</tt>
+<br><tt>&nbsp;&nbsp;&nbsp; possibly collaborate on the design/implementation
+effort.</tt><tt></tt>
+<p><tt>Sincerely,</tt>
+<br><tt>Jonathan Case Nicklin / John Baboval</tt><tt></tt>
+<p><tt>Mission Critical Linux</tt>
+<br><tt>www.missioncriticallinux.com</tt>
+<br>&nbsp;</html>
+
+--------------9913A90A1403C79E4E1232E3--
+
 
