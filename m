@@ -1,30 +1,33 @@
-From: alext@fc.hp.com (Alex Tsariounov)
-Date: Mon, 27 Sep 2004 16:24:18 +0000
-Subject: CPU utilization measurement tools/methods for network performance tests
-Message-Id: <20040927162418.GA2524@fc.hp.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Mon, 27 Sep 2004 22:51:59 +0000
+Subject: Re: CPU utilization measurement tools/methods for network performance tests
+Message-Id: <16728.39311.361436.774923@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040927162418.GA2524@fc.hp.com>
+In-Reply-To: <20040927162418.GA2524@fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello:
+>>>>> "Alex" = Alex Tsariounov <alext@fc.hp.com> writes:
 
-I am currently using netperf to measure performance of a couple of
-network drivers on ia64/2.6.7 and am having a trying time measuring
-CPU utilization.
+Alex> Hello: I am currently using netperf to measure performance of a
+Alex> couple of network drivers on ia64/2.6.7 and am having a trying
+Alex> time measuring CPU utilization.
 
-Does anyone have a dependable tool or method to measure CPU
-utilization, especially over a minute/two-minute-long measurement
-interval?
+I suggest you check out ipbench (http://ipbench.sf.net) which in its
+latency measurement has an accurate CPU-usage measurement algorithm,
+at least for uniprocessors.  Because so much network handling happens
+at interrupt time, the usual system and user times are useless for
+this purpose.
 
-I'd like to get a little more accurate and dependable result than just
-eye-balling top for the run.  Also, something that does not interfere
-with the test would be important.
+There's going to be a new release of ipbench sometime soon now, a
+complete rewrite using Python to drive the system, that should be a
+lot more stabole and usable than the current version.
 
-The CPU utilization measurement methods provided by netperf produce
-different results depending on which one is used and I'd like to use a
-secondary method to confirm them.
 
-Thank you,
-Alex
+
+-- 
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
