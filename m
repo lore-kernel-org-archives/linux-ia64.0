@@ -1,66 +1,62 @@
-From: Matt Tolentino <metolent@snoqualmie.dp.intel.com>
-Date: Fri, 30 Apr 2004 00:09:10 +0000
-Subject: Re: [patch 1/3] efivars driver update and move
-Message-Id: <200404300155.i3U1tEs3004947@snoqualmie.dp.intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 06 Apr 2004 21:27:47 +0000
+Subject: Re: hardware random number generator?
+Message-Id: <200404061527.47578.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200404221732.i3MHWJcc023373@snoqualmie.dp.intel.com>
-In-Reply-To: <200404221732.i3MHWJcc023373@snoqualmie.dp.intel.com>
+References: <405F9A2E.8040509@pobox.com>
+In-Reply-To: <405F9A2E.8040509@pobox.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org, alex.williamson@hp.com, Matt_Domsch@dell.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
+Jeff, can you apply this patch to hw_random.c?  Thanks.
 
-> On Thu, 2004-04-29 at 15:19, Matt Domsch wrote:
-> > On Thu, Apr 29, 2004 at 01:50:54PM -0600, Alex Williamson wrote:
-> > > # stat BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c\ /
-> > >   File: `BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c /'
-> > 
-> > FWIW, my Intel Tiger2-based system doesn't have the space 
-> at the end...
-> > 
-> > >         *(short_name + strlen(short_name)) = '-';
-> > >         efi_guid_unparse(vendor_guid, short_name + 
-> strlen(short_name));
-> > >         *(short_name + strlen(short_name)) = ' ';
-> > 
-> > even though looking at this I would have expected it to...
-> 
->    Yeah, I'm not sure how you couldn't have a space at the end...
+The following patch allows hw_random.c to build on ia64.  (The problem
+was just that the VIA stuff has i386 assembly in it.  The current code
+only probes for VIA on i386 anyway, so this patch just adds more ifdefs
+so the VIA code is only built for i386.)
 
-That's odd. 
-
-> > Can you remove that last line and see what it does?  Best as I can
-> > tell, it isn't necessary or desired.
-> 
->    Yes, removing that last line above gets rid of the space, 
-> everything
-> looks right, and efibootmgr doesn't complain.  I'd attach a patch but
-> I'm curious if Matt T. had some reason for adding it.
-
-I had it in there because when I originally rewrote this 
-driver for sysfs it kept cutting off the last character.  I
-had to put it aside for a bit and just didn't take it out
-last week before I resent it.  I just retried it on local
-ia64 and x86 machines and it worked fine on both accounts
-without the extra space. 
-
-Andrew, can you please apply the following patch to remove 
-space?
-
-thanks,
-matt
-
-
-diff -urN linux-2.6.6-rc3-clean/drivers/firmware/efivars.c linux-2.6.6-rc3/drivers/firmware/efivars.c
---- linux-2.6.6-rc3-clean/drivers/firmware/efivars.c	2004-04-27 18:36:33.000000000 -0700
-+++ linux-2.6.6-rc3/drivers/firmware/efivars.c	2004-04-29 16:31:48.052355632 -0700
-@@ -633,7 +633,6 @@
+=== drivers/char/hw_random.c 1.13 vs edited ==--- 1.13/drivers/char/hw_random.c	Fri Jan 30 21:25:15 2004
++++ edited/drivers/char/hw_random.c	Wed Mar 24 16:16:21 2004
+@@ -92,10 +92,12 @@
+ static unsigned int amd_data_present (void);
+ static u32 amd_data_read (void);
  
- 	*(short_name + strlen(short_name)) = '-';
- 	efi_guid_unparse(vendor_guid, short_name + strlen(short_name));
--	*(short_name + strlen(short_name)) = ' ';
++#ifdef __i386__
+ static int __init via_init(struct pci_dev *dev);
+ static void via_cleanup(void);
+ static unsigned int via_data_present (void);
+ static u32 via_data_read (void);
++#endif
  
- 	kobject_set_name(&new_efivar->kobj, short_name);
- 	kobj_set_kset_s(new_efivar, vars_subsys);
+ struct rng_operations {
+ 	int (*init) (struct pci_dev *dev);
+@@ -137,8 +139,10 @@
+ 	/* rng_hw_amd */
+ 	{ amd_init, amd_cleanup, amd_data_present, amd_data_read, 4 },
+ 
++#ifdef __i386__
+ 	/* rng_hw_via */
+ 	{ via_init, via_cleanup, via_data_present, via_data_read, 1 },
++#endif
+ };
+ 
+ /*
+@@ -341,6 +345,7 @@
+ 	/* FIXME: twiddle pmio, also? */
+ }
+ 
++#ifdef __i386__
+ /***********************************************************************
+  *
+  * VIA RNG operations
+@@ -456,6 +461,7 @@
+ {
+ 	/* do nothing */
+ }
++#endif
+ 
+ 
+ /***********************************************************************
+
