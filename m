@@ -1,268 +1,83 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Date: Fri, 20 Apr 2001 17:02:46 +0000
-Subject: [Linux-ia64] [PATCH] /proc/efi moves to /proc/efi/vars
-Message-Id: <marc-linux-ia64-105590693005440@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 12 Apr 2001 06:31:47 +0000
+Subject: [Linux-ia64] small strace fix
+Message-Id: <marc-linux-ia64-105590693005394@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Below please find a patch, against 2.4.3 + ia64-010405 which moves the
-EFI variables from /proc/efi to /proc/efi/vars.  This allows other
-modules to create files in /proc/efi and not clash with the
-variables.  Also, CONFIG_IA64_EFIVARS has changed to CONFIG_EFI_VARS,
-consistent with CONFIG_EFI_PARTITION.
-I've tested this against 2.4.3 and it works.  David, please include
-this in your next IA-64 patch.
+Hi Don,
 
-Thanks,
-Matt
+Attached below is a small fix for strace.  It makes strace work across
+inlined system calls.  Actually, you also need a one-line fix to the
+kernel for this to really work:
 
--- 
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Systems Group
-Linux OS Development
-www.dell.com/linux
+--- arch/ia64/kernel/ivt.S~	Thu Mar 29 13:57:32 2001
++++ arch/ia64/kernel/ivt.S	Wed Apr 11 23:09:07 2001
+@@ -702,7 +702,7 @@
+ 	st8 [r16]=3Dr18				// store new value for cr.isr
+=20
+ (p8)	br.call.sptk.many b6=B6			// ignore this return addr
+-	br.call.sptk.many rp=3Dia64_trace_syscall	// rp will be overwritten (igno=
+red)
++	br.cond.sptk.many ia64_trace_syscall
+ 	// NOT REACHED
+ END(break_fault)
+=20
 
+	--david
 
+ChangeLog
 
-diff -burN linux/Documentation/Configure.help linux.efivars/Documentation/Configure.help
---- linux/Documentation/Configure.help	Fri Apr 20 11:49:06 2001
-+++ linux.efivars/Documentation/Configure.help	Thu Apr 19 16:33:38 2001
-@@ -17342,12 +17342,11 @@
-   To use this option, you have to check that the "/proc file system
-   support" (CONFIG_PROC_FS) is enabled, too.
+2001-04-11  David Mosberger  <davidm@hpl.hp.com>
 
--/proc/efi support
--CONFIG_IA64_EFIVARS
-+/proc/efi/vars support
-+CONFIG_EFI_VARS
-   If you say Y here, you are able to get EFI (Extensible Firmware
--  Interface) variable information in /proc/pal.  This can be used to
--  change the boot order in the EFI Boot Manager.
--
-+  Interface) variable information in /proc/efi/vars.  You may read,
-+  write, create, and destroy EFI variables through this interface.
+	* syscall.c (syscall_enter): Use PT_RBS_END instead of deprecated
+	PT_AR_BSP.  Pick up arguments starting with out0, which is not
+	always the same as r32 (e.g., consider inlined syscalls).
 
-   To use this option, you have to check that the "/proc file system
-   support" (CONFIG_PROC_FS) is enabled, too.
-diff -burN linux/arch/ia64/config.in linux.efivars/arch/ia64/config.in
---- linux/arch/ia64/config.in	Fri Apr 20 11:49:06 2001
-+++ linux.efivars/arch/ia64/config.in	Thu Apr 19 16:33:38 2001
-@@ -110,7 +110,7 @@
- bool 'SMP support' CONFIG_SMP
- bool 'Performance monitor support' CONFIG_PERFMON
- tristate '/proc/pal support' CONFIG_IA64_PALINFO
--tristate '/proc/efi support' CONFIG_IA64_EFIVARS
-+tristate '/proc/efi/vars support' CONFIG_EFI_VARS
-
- bool 'Networking support' CONFIG_NET
- bool 'System V IPC' CONFIG_SYSVIPC
-diff -burN linux/arch/ia64/kernel/Makefile linux.efivars/arch/ia64/kernel/Makefile
---- linux/arch/ia64/kernel/Makefile	Fri Apr 20 11:49:06 2001
-+++ linux.efivars/arch/ia64/kernel/Makefile	Thu Apr 19 16:33:38 2001
-@@ -19,7 +19,7 @@
- obj-$(CONFIG_IA64_GENERIC) += machvec.o iosapic.o
- obj-$(CONFIG_IA64_DIG) += iosapic.o
- obj-$(CONFIG_IA64_PALINFO) += palinfo.o
--obj-$(CONFIG_IA64_EFIVARS) += efivars.o
-+obj-$(CONFIG_EFI_VARS) += efivars.o
- obj-$(CONFIG_PCI) += pci.o
- obj-$(CONFIG_SMP) += smp.o smpboot.o
- obj-$(CONFIG_IA64_MCA) += mca.o mca_asm.o
-diff -burN linux/arch/ia64/kernel/efi.c linux.efivars/arch/ia64/kernel/efi.c
---- linux/arch/ia64/kernel/efi.c	Fri Apr 20 11:49:06 2001
-+++ linux.efivars/arch/ia64/kernel/efi.c	Fri Apr 20 11:35:07 2001
-@@ -23,6 +23,7 @@
- #include <linux/init.h>
- #include <linux/types.h>
- #include <linux/time.h>
-+#include <linux/proc_fs.h>
-
- #include <asm/efi.h>
- #include <asm/io.h>
-@@ -37,6 +38,17 @@
- struct efi efi;
- static efi_runtime_services_t *runtime;
-
-+/*
-+ * efi_dir is allocated here, but the directory isn't created
-+ * here, as proc_mkdir() doesn't work this early in the bootup
-+ * process.  Therefore, each module, like efivars, must test for
-+ *    if (!efi_dir)  efi_dir = proc_mkdir("efi", NULL);
-+ * prior to creating their own entries under /proc/efi.
-+ */
-+#ifdef CONFIG_PROC_FS
-+struct proc_dir_entry *efi_dir = NULL;
-+#endif
-+
- static unsigned long mem_limit = ~0UL;
-
- static efi_status_t
-@@ -441,4 +454,10 @@
- 	efi.set_variable = __va(runtime->set_variable);
- 	efi.get_next_high_mono_count = __va(runtime->get_next_high_mono_count);
- 	efi.reset_system = __va(runtime->reset_system);
-+}
-+
-+static void __exit
-+efivars_exit(void)
-+{
-+ 	remove_proc_entry(efi_dir->name, NULL);
- }
-diff -burN linux/arch/ia64/kernel/efivars.c linux.efivars/arch/ia64/kernel/efivars.c
---- linux/arch/ia64/kernel/efivars.c	Fri Apr 20 11:49:06 2001
-+++ linux.efivars/arch/ia64/kernel/efivars.c	Fri Apr 20 11:33:58 2001
-@@ -6,8 +6,8 @@
-  * This code takes all variables accessible from EFI runtime and
-  *  exports them via /proc
-  *
-- * Reads to /proc/efi/varname return an efi_variable_t structure.
-- * Writes to /proc/efi/varname must be an efi_variable_t structure.
-+ * Reads to /proc/efi/vars/varname return an efi_variable_t structure.
-+ * Writes to /proc/efi/vars/varname must be an efi_variable_t structure.
-  * Writes with DataSize = 0 or Attributes = 0 deletes the variable.
-  * Writes with a new value in VariableName+VendorGuid creates
-  * a new variable.
-@@ -29,6 +29,15 @@
-  *
-  * Changelog:
-  *
-+ *  20 April 2001 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   Moved vars from /proc/efi to /proc/efi/vars, and made
-+ *   efi.c own the /proc/efi directory.
-+ *   v0.03 release to linux-ia64@linuxia64.org
-+ *
-+ *  26 March 2001 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   At the request of Stephane, moved ownership of /proc/efi
-+ *   to efi.c, and now efivars lives under /proc/efi/vars.
-+ *
-  *  12 March 2001 - Matt Domsch <Matt_Domsch@dell.com>
-  *   Feedback received from Stephane Eranian incorporated.
-  *   efivar_write() checks copy_from_user() return value.
-@@ -57,7 +66,7 @@
- MODULE_AUTHOR("Matt Domsch <Matt_Domsch@Dell.com>");
- MODULE_DESCRIPTION("/proc interface to EFI Variables");
-
--#define EFIVARS_VERSION "0.02 2001-Mar-12"
-+#define EFIVARS_VERSION "0.03 2001-Apr-20"
-
- static int
- efivar_read(char *page, char **start, off_t off,
-@@ -92,7 +101,7 @@
-
- spinlock_t efivars_lock = SPIN_LOCK_UNLOCKED;
- static LIST_HEAD(efivar_list);
--static struct proc_dir_entry *efi_dir = NULL;
-+static struct proc_dir_entry *efi_vars_dir = NULL;
-
- #define efivar_entry(n) list_entry(n, efivar_entry_t, list)
-
-@@ -188,7 +197,7 @@
-
-
- 	/* Create the entry in proc */
--	new_efivar->entry = create_proc_entry(short_name, 0600, efi_dir);
-+	new_efivar->entry = create_proc_entry(short_name, 0600, efi_vars_dir);
- 	kfree(short_name); short_name = NULL;
- 	if (!new_efivar->entry) return 1;
-
-@@ -286,7 +295,7 @@
- 	/* Since the data ptr we've currently got is probably for
- 	   a different variable find the right variable.
- 	   This allows any properly formatted data structure to
--	   be written to any of the files in /proc/efi and it will work.
-+	   be written to any of the files in /proc/efi/vars and it will work.
- 	*/
- 	list_for_each(pos, &efivar_list) {
- 		search_efivar = efivar_entry(pos);
-@@ -320,7 +329,7 @@
-
- 	if (!var_data->DataSize || !var_data->Attributes) {
- 		/* We just deleted the NVRAM variable */
--		remove_proc_entry(efivar->entry->name, efi_dir);
-+		remove_proc_entry(efivar->entry->name, efi_vars_dir);
- 		list_del(&efivar->list);
- 		kfree(efivar);
+Index: syscall.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3DRCS file: /cvsroot/strace/strace/syscall.c,v
+retrieving revision 1.25.2.3
+diff -u -r1.25.2.3 syscall.c
+--- syscall.c	2001/03/07 01:13:25	1.25.2.3
++++ syscall.c	2001/04/12 06:27:57
+@@ -1190,21 +1190,26 @@
  	}
-@@ -354,12 +364,22 @@
-
- 	printk(KERN_INFO "EFI Variables Facility v%s\n", EFIVARS_VERSION);
-
-+        /* Since efi.c happens before procfs is available,
-+           we create the directory here if it doesn't
-+           already exist.  There's probably a better way
-+           to do this.
-+        */
-+        if (!efi_dir)
-+                efi_dir = proc_mkdir("efi", NULL);
-+
-+	efi_vars_dir = proc_mkdir("vars", efi_dir);
-+
-+
-+
- 	/* Per EFI spec, the maximum storage allocated for both
- 	   the variable name and variable data is 1024 bytes.
- 	*/
-
--	efi_dir = proc_mkdir("efi", NULL);
--
- 	memset(variable_name, 0, 1024);
-
- 	do {
-@@ -401,11 +421,11 @@
-
- 	list_for_each(pos, &efivar_list) {
- 		efivar = efivar_entry(pos);
--		remove_proc_entry(efivar->entry->name, efi_dir);
-+		remove_proc_entry(efivar->entry->name, efi_vars_dir);
- 		list_del(&efivar->list);
- 		kfree(efivar);
- 	}
--	remove_proc_entry(efi_dir->name, NULL);
-+	remove_proc_entry(efi_vars_dir->name, efi_dir);
- 	spin_unlock(&efivars_lock);
-
- }
-diff -burN linux/arch/ia64/kernel/ia64_ksyms.c linux.efivars/arch/ia64/kernel/ia64_ksyms.c
---- linux/arch/ia64/kernel/ia64_ksyms.c	Fri Apr 20 11:49:06 2001
-+++ linux.efivars/arch/ia64/kernel/ia64_ksyms.c	Thu Apr 19 16:33:38 2001
-@@ -137,3 +137,8 @@
-
- extern struct efi efi;
- EXPORT_SYMBOL(efi);
-+
-+#include <linux/proc_fs.h>
-+extern struct proc_dir_entry *efi_dir;
-+EXPORT_SYMBOL(efi_dir);
-+
-diff -burN linux/include/asm-ia64/efi.h linux.efivars/include/asm-ia64/efi.h
---- linux/include/asm-ia64/efi.h	Fri Apr 20 11:49:07 2001
-+++ linux.efivars/include/asm-ia64/efi.h	Fri Apr 20 11:32:23 2001
-@@ -15,6 +15,7 @@
- #include <linux/string.h>
- #include <linux/time.h>
- #include <linux/types.h>
-+#include <linux/proc_fs.h>
-
- #include <asm/page.h>
- #include <asm/system.h>
-@@ -245,5 +246,13 @@
- #define EFI_VARIABLE_NON_VOLATILE       0x0000000000000001
- #define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
- #define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
-+
-+
-+/*
-+ * efi_dir is allocated in arch/ia64/kernel/efi.c.
-+ */
-+#ifdef CONFIG_PROC_FS
-+extern struct proc_dir_entry *efi_dir;
+ #elif defined (IA64)
+ 	{
+-		unsigned long *bsp, cfm, i;
++		unsigned long *out0, *rbs_end, cfm, sof, sol, i;
++#ifndef PT_RBS_END
++# define PT_RBS_END	PT_AR_BSP	/* be backwards compatible with kernels befo=
+re 2.4.4... */
 +#endif
-
- #endif /* _ASM_IA64_EFI_H */
-
-
+=20
+-		if (upeek(pid, PT_AR_BSP, (long *) &bsp) < 0)
++		if (upeek(pid, PT_RBS_END, (long *) &rbs_end) < 0)
+ 			return -1;
+ 		if (upeek(pid, PT_CFM, (long *) &cfm) < 0)
+ 			return -1;
+=20
+-		bsp =3D ia64_rse_skip_regs(bsp, -(cfm & 0x7f));
++		sof =3D (cfm >> 0) & 0x7f;
++		sol =3D (cfm >> 7) & 0x7f;
++		out0 =3D ia64_rse_skip_regs(rbs_end, -sof + sol);
+=20
+ 		if (tcp->scno >=3D 0 && tcp->scno < nsyscalls && sysent[tcp->scno].nargs=
+ !=3D -1)
+ 			tcp->u_nargs =3D sysent[tcp->scno].nargs;
+-		else=20
++		else
+      	        	tcp->u_nargs =3D MAX_ARGS;
+ 		for (i =3D 0; i < tcp->u_nargs; ++i) {
+-			if (umoven(tcp, (unsigned long) ia64_rse_skip_regs(bsp, i), sizeof(long=
+),
++			if (umoven(tcp, (unsigned long) ia64_rse_skip_regs(out0, i), sizeof(lon=
+g),
+ 				   (char *) &tcp->u_arg[i])
+ 			    < 0)
+ 				return -1;
 
