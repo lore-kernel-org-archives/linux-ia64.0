@@ -1,28 +1,36 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 12 Mar 2004 18:00:29 +0000
-Subject: Re: [PATCH] Fix show_mem panic
-Message-Id: <16465.64189.848251.504020@napali.hpl.hp.com>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Mon, 01 Mar 2004 22:45:26 +0000
+Subject: [PATCH] don't assume iosapic interrupt controller in mca.c
+Message-Id: <20040301224526.GA22182@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403121424.i2CEO2a21024@udlkern.fc.hp.com>
-In-Reply-To: <200403121424.i2CEO2a21024@udlkern.fc.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 12 Mar 2004 07:24:02 -0700 (MST), John Marvin <jsm@udlkern.fc.hp.com> said:
+Any problems with this patch?  Sn2 doesn't have an iosapic interrupt
+controller, so we'd rather not hardcode that type into mca.c for the CPE
+interrupt vector.
 
-  John> ia64_pfn_valid (unsigned long pfn)
-  John> {
-  John> char byte;
-  John> +	struct page *page = pfn_to_page(pfn);
+Thanks,
+Jesse
+
+=== arch/ia64/kernel/mca.c 1.59 vs edited ==--- 1.59/arch/ia64/kernel/mca.c	Thu Feb 12 16:14:34 2004
++++ edited/arch/ia64/kernel/mca.c	Mon Mar  1 14:43:35 2004
+@@ -103,8 +103,6 @@
  
-  John> -	return __get_user(byte, (char *) pfn_to_page(pfn)) = 0;
-  John> +	return     (__get_user(byte, (char *) page) = 0)
-  John> +		&& (__get_user(byte, (char *) (page + 1) - 1) = 0);
-  John> }
-
-Would it make sense to do only the first __get_user() _unless_ the
-"struct page" crosses a page?
-
-	--david
+ static ia64_mc_info_t		ia64_mc_info;
+ 
+-extern struct hw_interrupt_type	irq_type_iosapic_level;
+-
+ struct ia64_mca_tlb_info ia64_mca_tlb_list[NR_CPUS];
+ 
+ #define MAX_CPE_POLL_INTERVAL (15*60*HZ) /* 15 minutes */
+@@ -1253,7 +1251,6 @@
+ 				if (irq_to_vector(irq) = cpev) {
+ 					desc = irq_descp(irq);
+ 					desc->status |= IRQ_PER_CPU;
+-					desc->handler = &irq_type_iosapic_level;
+ 					setup_irq(irq, &mca_cpe_irqaction);
+ 				}
+ 			ia64_mca_register_cpev(cpev);
