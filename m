@@ -1,67 +1,72 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Thu, 31 May 2001 04:44:34 +0000
-Subject: [Linux-ia64] new version of NUE (IA-64 LDK) available for downloads
-Message-Id: <marc-linux-ia64-105590693005676@msgid-missing>
+From: Don Dugger <n0ano@valinux.com>
+Date: Tue, 08 May 2001 22:12:30 +0000
+Subject: [Linux-ia64] Fix two IA32 bugs.
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="7JfCtLOvnd9MIVvH"
+Message-Id: <marc-linux-ia64-105590693005550@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+--7JfCtLOvnd9MIVvH
+Content-Type: text/plain; charset=us-ascii
 
+David-
 
-I wanted to let you know that there is now a new version of the 
-HP IA-64 Linux Development Kit (LDK) available for free download at:
+Here's a patch, against the 2.4.3 kernel + the 0405 IA64 patch + the
+LDT patch, that fixes two IA32 buglets:
 
-	http://www.software.hp.com/LIA64
+1)  A typo in `siginfo64to32' caught by Dave Engebretsen.  I can only
+assume that this code is never called because otherwise the bug should
+have caused the kernel to dereference location 0.
 
-The LDK allows users to easily (most of the time, no makefile modifications 
-required) port/develop Linux/ia64 applications on their Linux/ia32 systems. 
-You can compile, RUN and DEBUG the generated binaries using the HP ski IA-64 
-simulator included in the kit.
+2)  Initialize the IA32 registers on process startup.  This should fix
+the problem you were seeing where the JAVA JRE was not terminating
+properly.  Since EDX was not being initialized the IA32 exit code could
+have been jumping into never-never land.
 
-It is also possible to do kernel developments and boot the latest Linux/ia64
-kernel using this simulator.
-
-The full environment has been tested on Redhat6.2, 7.0, 7.1 versions and 
-should be fine on most other RPM-based distributions. You need about 400MB
-of disk space to install the kit. Upgrading from previous versions is supported.
-
-The new version includes:
-	- an updated NUE filesystem 
-
-	- the latest gcc-2.x stable version for Linux/ia64
-
-	- glibc version 2.2
-
-	- an updated version of ski (0.943)
-
-	- an updated root filesystem for booting the Linux kernel with the 
-	  simulator
-
-You can download the 4 RPMS for free from the web site mentioned above
-or have a CDROM sent to you.
-
-Users are encouraged to subscribe to the lia64-sim public mailing-list:
-
-To subscribe:
-	- send mail to majordomo@linux.hpl.hp.com
-	  with "subscribe lia64-sim" in the body of the message
-
-or participate in the discussion forum at:
-
-	http://devresource.hp.com/devresource/Forums/Forums.html
-
-Enjoy,
 -- 
-+--------------------------------------------------------------------+
-| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
-| Hewlett-Packard Laboratories            |                          |
-| 1501, Page Mill Road MS 1U-15           |                          |
-| Palo  Alto, CA 94303-096                |                          |
-| USA                                     |                          |
-| Tel : (650) 857-7174                    |                          |
-| Fax : (650) 857-5548                    |                          |
-+--------------------------------------------------------------------+
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@valinux.com
+Ph: 303/938-9838
+
+--7JfCtLOvnd9MIVvH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="patch_0507.l"
+
+--- linux-2.4.3-ia64/arch/ia64/ia32/binfmt_elf32.c	Mon May  7 08:40:48 2001
++++ kernel-bigsur/arch/ia64/ia32/binfmt_elf32.c	Fri May  4 15:46:04 2001
+@@ -157,6 +157,19 @@
+ 	current->thread.tssd = IA32_SEG_UNSCRAMBLE(ia32_gdt_table[_TSS(nr)]);
+ 
+ 	ia32_load_state(current);
++	/*
++	 *  According to the ABI %edx points to an `atexit' handler.
++	 *  Since we don't have one we'll set it to 0 and initialize
++	 *  all the other registers just to make things more deterministic,
++	 *  ala the i386 implementation.
++	 */
++	regs->r8 = 0;	/* %eax */
++	regs->r11 = 0;	/* %ebx */
++	regs->r9 = 0;	/* %ecx */
++	regs->r10 = 0;	/* %edx */
++	regs->r13 = 0;	/* %ebp */
++	regs->r14 = 0;	/* %esi */
++	regs->r15 = 0;	/* %edi */
+ }
+ 
+ int
+--- linux-2.4.3-ia64/arch/ia64/ia32/sys_ia32.c	2001/04/19 20:43:31
++++ kernel-bigsur/arch/ia64/ia32/sys_ia32.c	2001/05/08 21:58:08
+@@ -3230,7 +3230,7 @@
+ siginfo_t32 *
+ siginfo64to32(siginfo_t32 *d, siginfo_t *s)
+ {
+-	memset (&d, 0, sizeof(siginfo_t32));
++	memset (d, 0, sizeof(siginfo_t32));
+ 	d->si_signo = s->si_signo;
+ 	d->si_errno = s->si_errno;
+ 	d->si_code = s->si_code;
+
+--7JfCtLOvnd9MIVvH--
 
