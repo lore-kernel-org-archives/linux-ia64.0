@@ -1,233 +1,146 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 21 Jan 2005 20:09:33 +0000
-Subject: alloc_zeroed_user_highpage to fix the clear_user_highpage issue
-Message-Id: <Pine.LNX.4.58.0501211206380.25925@schroedinger.engr.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 28 Jan 2005 21:10:11 +0000
+Subject: [PATCH] fix IOSAPIC destinations when CONFIG_SMP=n
+Message-Id: <1106946611.9150.34.camel@eeyore>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0501041512450.1536@schroedinger.engr.sgi.com>
- <Pine.LNX.4.44.0501082103120.5207-100000@localhost.localdomain>
- <20050108135636.6796419a.davem@davemloft.net>
-In-Reply-To: <20050108135636.6796419a.davem@davemloft.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "David S. Miller" <davem@davemloft.net>
-Cc: Hugh Dickins <hugh@veritas.com>, akpm@osdl.org, linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-This patch adds a new function alloc_zeroed_user_highpage that is then used in the
-anonymous page fault handler and in the COW code to allocate zeroed pages. The function
-can be defined per arch to setup special processing for user pages by defining
-__HAVE_ARCH_ALLOC_ZEROED_USER_PAGE. For arches that do not need to do special things
-for user pages, alloc_zeroed_user_highpage is defined to simply do
+Always use cpu_physical_id() (which is really the ID/EID of
+a processor's Local SAPIC) when programming IOSAPIC entries.
 
-	alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr)
+Previously we sometimes used hard_smp_processor_id(), which
+is correct when CONFIG_SMP=y but wrong otherwise.
 
-Patch against 2.6.11-rc1-bk9
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-This patch needs to update a number of archs. Wish there was a better way
-to do this.
-
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-
-Index: linux-2.6.10/include/linux/highmem.h
-=================================--- linux-2.6.10.orig/include/linux/highmem.h	2005-01-21 10:43:59.000000000 -0800
-+++ linux-2.6.10/include/linux/highmem.h	2005-01-21 10:44:27.000000000 -0800
-@@ -42,6 +42,17 @@ static inline void clear_user_highpage(s
- 	smp_wmb();
- }
-
-+#ifndef __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+static inline struct page* alloc_zeroed_user_highpage(struct vm_area_struct *vma,
-+	 unsigned long vaddr)
-+{
-+	struct page *page = alloc_page_vma(GFP_HIGHUSER, vma, vaddr);
-+
-+	clear_user_highpage(page, vaddr);
-+	return page;
-+}
-+#endif
-+
- static inline void clear_highpage(struct page *page)
- {
- 	void *kaddr = kmap_atomic(page, KM_USER0);
-Index: linux-2.6.10/mm/memory.c
-=================================--- linux-2.6.10.orig/mm/memory.c	2005-01-21 10:43:59.000000000 -0800
-+++ linux-2.6.10/mm/memory.c	2005-01-21 11:10:42.000000000 -0800
-@@ -84,20 +84,6 @@ EXPORT_SYMBOL(high_memory);
- EXPORT_SYMBOL(vmalloc_earlyreserve);
-
- /*
-- * We special-case the C-O-W ZERO_PAGE, because it's such
-- * a common occurrence (no need to read the page to know
-- * that it's zero - better for the cache and memory subsystem).
-- */
--static inline void copy_cow_page(struct page * from, struct page * to, unsigned long address)
--{
--	if (from = ZERO_PAGE(address)) {
--		clear_user_highpage(to, address);
--		return;
--	}
--	copy_user_highpage(to, from, address);
--}
--
--/*
-  * Note: this doesn't free the actual pages themselves. That
-  * has been handled earlier when unmapping all the memory regions.
-  */
-@@ -1329,11 +1315,16 @@ static int do_wp_page(struct mm_struct *
-
- 	if (unlikely(anon_vma_prepare(vma)))
- 		goto no_new_page;
--	new_page = alloc_page_vma(GFP_HIGHUSER, vma, address);
--	if (!new_page)
--		goto no_new_page;
--	copy_cow_page(old_page,new_page,address);
--
-+	if (old_page = ZERO_PAGE(address)) {
-+		new_page = alloc_zeroed_user_highpage(vma, address);
-+		if (!new_page)
-+			goto no_new_page;
-+	} else {
-+		new_page = alloc_page_vma(GFP_HIGHUSER, vma, address);
-+		if (!new_page)
-+			goto no_new_page;
-+		copy_user_highpage(new_page, old_page, address);
-+	}
- 	/*
- 	 * Re-check the pte - we dropped the lock
+=== arch/ia64/kernel/iosapic.c 1.51 vs edited ==--- 1.51/arch/ia64/kernel/iosapic.c	2005-01-20 22:02:13 -07:00
++++ edited/arch/ia64/kernel/iosapic.c	2005-01-28 13:16:05 -07:00
+@@ -91,7 +91,6 @@
+ 
+ 
+ #undef DEBUG_INTERRUPT_ROUTING
+-#undef OVERRIDE_DEBUG
+ 
+ #ifdef DEBUG_INTERRUPT_ROUTING
+ #define DBG(fmt...)	printk(fmt)
+@@ -499,14 +498,14 @@
+ 	 * distribute interrupts.
  	 */
-@@ -1795,10 +1786,9 @@ do_anonymous_page(struct mm_struct *mm,
-
- 		if (unlikely(anon_vma_prepare(vma)))
- 			goto no_mem;
--		page = alloc_page_vma(GFP_HIGHUSER, vma, addr);
-+		page = alloc_zeroed_user_highpage(vma, addr);
- 		if (!page)
- 			goto no_mem;
--		clear_user_highpage(page, addr);
-
- 		spin_lock(&mm->page_table_lock);
- 		page_table = pte_offset_map(pmd, addr);
-Index: linux-2.6.10/include/asm-ia64/page.h
-=================================--- linux-2.6.10.orig/include/asm-ia64/page.h	2004-12-24 13:34:00.000000000 -0800
-+++ linux-2.6.10/include/asm-ia64/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -75,6 +75,16 @@ do {						\
- 	flush_dcache_page(page);		\
- } while (0)
-
-+
-+#define alloc_zeroed_user_highpage(vma, vaddr) \
-+({						\
-+	struct page *page = alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr); \
-+	flush_dcache_page(page);		\
-+	page;					\
-+})
-+
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+
- #define virt_addr_valid(kaddr)	pfn_valid(__pa(kaddr) >> PAGE_SHIFT)
-
- #ifdef CONFIG_VIRTUAL_MEM_MAP
-Index: linux-2.6.10/include/asm-i386/page.h
-=================================--- linux-2.6.10.orig/include/asm-i386/page.h	2005-01-21 10:43:58.000000000 -0800
-+++ linux-2.6.10/include/asm-i386/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -36,6 +36,9 @@
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
-+#define alloc_zeroed_user_highpage(vma, vaddr) alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr)
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+
- /*
-  * These are used to make use of C type-checking..
-  */
-Index: linux-2.6.10/include/asm-x86_64/page.h
-=================================--- linux-2.6.10.orig/include/asm-x86_64/page.h	2005-01-21 10:43:59.000000000 -0800
-+++ linux-2.6.10/include/asm-x86_64/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -38,6 +38,8 @@ void copy_page(void *, void *);
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
-+#define alloc_zeroed_user_highpage(vma, vaddr) alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr)
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
- /*
-  * These are used to make use of C type-checking..
-  */
-Index: linux-2.6.10/include/asm-m32r/page.h
-=================================--- linux-2.6.10.orig/include/asm-m32r/page.h	2004-12-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/include/asm-m32r/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -17,6 +17,9 @@ extern void copy_page(void *to, void *fr
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
-+#define alloc_zeroed_user_highpage(vma, vaddr) alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr)
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+
- /*
-  * These are used to make use of C type-checking..
-  */
-Index: linux-2.6.10/include/asm-alpha/page.h
-=================================--- linux-2.6.10.orig/include/asm-alpha/page.h	2004-12-24 13:35:24.000000000 -0800
-+++ linux-2.6.10/include/asm-alpha/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -18,6 +18,9 @@
- extern void clear_page(void *page);
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
-
-+#define alloc_zeroed_user_highpage(vma, vaddr) alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vmaddr)
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+
- extern void copy_page(void * _to, void * _from);
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
-Index: linux-2.6.10/include/asm-m68knommu/page.h
-=================================--- linux-2.6.10.orig/include/asm-m68knommu/page.h	2005-01-21 10:43:58.000000000 -0800
-+++ linux-2.6.10/include/asm-m68knommu/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -30,6 +30,9 @@
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
-+#define alloc_zeroed_user_highpage(vma, vaddr) alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr)
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+
- /*
-  * These are used to make use of C type-checking..
-  */
-Index: linux-2.6.10/include/asm-cris/page.h
-=================================--- linux-2.6.10.orig/include/asm-cris/page.h	2004-12-24 13:34:30.000000000 -0800
-+++ linux-2.6.10/include/asm-cris/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -21,6 +21,9 @@
- #define clear_user_page(page, vaddr, pg)    clear_page(page)
- #define copy_user_page(to, from, vaddr, pg) copy_page(to, from)
-
-+#define alloc_zeroed_user_highpage(vma, vaddr) alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr)
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+
- /*
-  * These are used to make use of C type-checking..
-  */
-Index: linux-2.6.10/include/asm-s390/page.h
-=================================--- linux-2.6.10.orig/include/asm-s390/page.h	2004-12-24 13:34:01.000000000 -0800
-+++ linux-2.6.10/include/asm-s390/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -106,6 +106,9 @@ static inline void copy_page(void *to, v
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
-+#define alloc_zeroed_user_highpage(vma, vaddr) alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr)
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+
- /* Pure 2^n version of get_order */
- extern __inline__ int get_order(unsigned long size)
+ 	if (smp_int_redirect & SMP_IRQ_REDIRECTION)
+-		return hard_smp_processor_id();
++		return cpu_physical_id(smp_processor_id());
+ 
+ 	/*
+ 	 * Some interrupts (ACPI SCI, for instance) are registered
+ 	 * before the BSP is marked as online.
+ 	 */
+ 	if (!cpu_online(smp_processor_id()))
+-		return hard_smp_processor_id();
++		return cpu_physical_id(smp_processor_id());
+ 
+ #ifdef CONFIG_NUMA
+ 	{
+@@ -553,7 +552,7 @@
+ 
+ 	return cpu_physical_id(cpu);
+ #else
+-	return hard_smp_processor_id();
++	return cpu_physical_id(smp_processor_id());
+ #endif
+ }
+ 
+@@ -740,7 +739,7 @@
+ 			  unsigned long trigger)
  {
-Index: linux-2.6.10/include/asm-h8300/page.h
-=================================--- linux-2.6.10.orig/include/asm-h8300/page.h	2004-12-24 13:35:25.000000000 -0800
-+++ linux-2.6.10/include/asm-h8300/page.h	2005-01-21 10:44:27.000000000 -0800
-@@ -30,6 +30,9 @@
- #define clear_user_page(page, vaddr, pg)	clear_page(page)
- #define copy_user_page(to, from, vaddr, pg)	copy_page(to, from)
-
-+#define alloc_zeroed_user_highpage(vma, vaddr) alloc_page_vma(GFP_HIGHUSER | __GFP_ZERO, vma, vaddr)
-+#define __HAVE_ARCH_ALLOC_ZEROED_USER_HIGHPAGE
-+
- /*
-  * These are used to make use of C type-checking..
+ 	int vector;
+-	unsigned int dest = hard_smp_processor_id();
++	unsigned int dest = cpu_physical_id(smp_processor_id());
+ 
+ 	vector = isa_irq_to_vector(isa_irq);
+ 
+=== include/asm-ia64/smp.h 1.19 vs edited ==--- 1.19/include/asm-ia64/smp.h	2004-10-05 12:30:39 -06:00
++++ edited/include/asm-ia64/smp.h	2005-01-28 13:16:06 -07:00
+@@ -3,16 +3,14 @@
+  *
+  * Copyright (C) 1999 VA Linux Systems
+  * Copyright (C) 1999 Walt Drummond <drummond@valinux.com>
+- * Copyright (C) 2001-2003 Hewlett-Packard Co
++ * (c) Copyright 2001-2003, 2005 Hewlett-Packard Development Company, L.P.
+  *	David Mosberger-Tang <davidm@hpl.hp.com>
++ *	Bjorn Helgaas <bjorn.helgaas@hp.com>
   */
+ #ifndef _ASM_IA64_SMP_H
+ #define _ASM_IA64_SMP_H
+ 
+ #include <linux/config.h>
+-
+-#ifdef CONFIG_SMP
+-
+ #include <linux/init.h>
+ #include <linux/threads.h>
+ #include <linux/kernel.h>
+@@ -24,6 +22,25 @@
+ #include <asm/processor.h>
+ #include <asm/ptrace.h>
+ 
++static inline unsigned int
++ia64_get_lid (void)
++{
++	union {
++		struct {
++			unsigned long reserved : 16;
++			unsigned long eid : 8;
++			unsigned long id : 8;
++			unsigned long ignored : 32;
++		} f;
++		unsigned long bits;
++	} lid;
++
++	lid.bits = ia64_getreg(_IA64_REG_CR_LID);
++	return lid.f.id << 8 | lid.f.eid;
++}
++
++#ifdef CONFIG_SMP
++
+ #define XTP_OFFSET		0x1e0008
+ 
+ #define SMP_IRQ_REDIRECTION	(1 << 0)
+@@ -90,22 +107,7 @@
+ 		writeb(0x0f, ipi_base_addr + XTP_OFFSET); /* Set XTP to max */
+ }
+ 
+-static inline unsigned int
+-hard_smp_processor_id (void)
+-{
+-	union {
+-		struct {
+-			unsigned long reserved : 16;
+-			unsigned long eid : 8;
+-			unsigned long id : 8;
+-			unsigned long ignored : 32;
+-		} f;
+-		unsigned long bits;
+-	} lid;
+-
+-	lid.bits = ia64_getreg(_IA64_REG_CR_LID);
+-	return lid.f.id << 8 | lid.f.eid;
+-}
++#define hard_smp_processor_id()		ia64_get_lid()
+ 
+ /* Upping and downing of CPUs */
+ extern int __cpu_disable (void);
+@@ -125,7 +127,8 @@
+ 
+ #else
+ 
+-#define cpu_logical_id(cpuid)		0
++#define cpu_logical_id(i)		0
++#define cpu_physical_id(i)		ia64_get_lid()
+ 
+ #endif /* CONFIG_SMP */
+ #endif /* _ASM_IA64_SMP_H */
+
 
