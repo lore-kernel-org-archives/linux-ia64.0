@@ -1,29 +1,35 @@
-From: Grant Grundler <grundler@cup.hp.com>
-Date: Fri, 02 Aug 2002 22:37:24 +0000
-Subject: Re: [Linux-ia64] [PATCH] dynamic IRQ allocation
-Message-Id: <marc-linux-ia64-105590701905900@msgid-missing>
+From: "Kingkeo, Michael" <Michael_Kingkeo@adaptec.com>
+Date: Mon, 19 Aug 2002 01:35:59 +0000
+Subject: [Linux-ia64] (no subject)
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C24720.C541BAE0"
+Message-Id: <marc-linux-ia64-105590701905953@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905851@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905851@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <marc-linux-ia64-105590678205296@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205296@msgid-missing>
 To: linux-ia64@vger.kernel.org
 
-Bjorn Helgaas wrote:
-> There are actually relatively few ia64 dependencies in iosapic.c,
-> too, so I could imagine (in the distant future) using it across
-> architectures, too.  PA-RISC already uses the same hardware,
-> and I wouldn't be surprised if others do eventually.
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
 
-yes. x86 (Foster, ie HyperThreading CPU) does too.
-80-90% of iosapic.c for ia64 and parisc are functionally identical.
-IIRC, differences are in "discovery" and PCI routing table setup.
-Haven't looked at x86 version yet.
+------_=_NextPart_001_01C24720.C541BAE0
+Content-Type: text/plain;
+	charset="iso-8859-1"
 
-If someone wants to merge them, I can make HW available remotely.
-I've got all the HW but not the time. :^(
-(IA64 rx2600 and PARISC A500 are already remotely accessible).
+ 
 
-grant
+------_=_NextPart_001_01C24720.C541BAE0
+Content-Type: text/html;
+	charset="iso-8859-1"
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
+
+
+<META content="MSHTML 5.50.4134.600" name=GENERATOR></HEAD>
+<BODY>
+<DIV>&nbsp;</DIV></BODY></HTML>
+
+------_=_NextPart_001_01C24720.C541BAE0--
 
