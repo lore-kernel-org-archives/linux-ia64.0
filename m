@@ -1,110 +1,162 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 18 Mar 2005 21:03:15 +0000
-Subject: bk pull on 2.4 ia64 linux tree
-Message-Id: <1111179795.13286.64.camel@eeyore>
+From: Robin Holt <holt@sgi.com>
+Date: Tue, 01 Mar 2005 16:35:49 +0000
+Subject: [Patch 3/3 Try 3] Shrink page table quicklist based on free memory.
+Message-Id: <20050301163549.GA32354@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Marcelo,
 
-Please do a
+Tony,
 
-	bk pull http://lia64.bkbits.net/to-marcelo-2.4
-
-This will update the following files:
-
- arch/ia64/configs/dig           |   20 ++++++++++++-----
- arch/ia64/configs/generic       |   20 ++++++++++++-----
- arch/ia64/configs/numa          |   20 ++++++++++++-----
- arch/ia64/configs/ski           |   17 ++++++++++----
- arch/ia64/configs/zx1           |   20 ++++++++++++-----
- arch/ia64/defconfig             |   20 ++++++++++++-----
- arch/ia64/hp/common/sba_iommu.c |    9 +++++++
- arch/ia64/kernel/entry.S        |   27 +++++++++++++++++-----
- arch/ia64/kernel/ivt.S          |   47 +++++++++++++++++++++-------------------
- arch/ia64/kernel/palinfo.c      |    2 -
- arch/ia64/kernel/process.c      |    2 -
- arch/ia64/kernel/unwind.c       |   38 +++++++++++++++++++-------------
- arch/ia64/vmlinux.lds.S         |    7 +++++
- include/asm-ia64/pgtable.h      |    9 ++++---
- 14 files changed, 178 insertions(+), 80 deletions(-)
-
-through these ChangeSets:
-
-<kaos@sgi.com> (05/03/18 1.1466)
-   [IA64] Tighten up unw_unwind_to_user check
-   
-   Detect user space by the unwind frame with predicate PRED_USER_STACK
-   set, instead of a user space IP.  Tighten up the last ditch check for
-   running off the top of the kernel stack.
-   
-   Based on a suggestion by David Mosberger, reworked to fit the current
-   tree.  This survives my stress test which used to break 2.6.9 kernels.
-   Unlike 2.6.11, the stress test now unwinds to the correct point, so
-   gdb can get the user space registers.
-   
-   Signed-off-by: Keith Owens <kaos@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<bjorn.helgaas@hp.com> (05/03/12 1.1464)
-   ia64: Update defconfigs.
-
-<yanmin.zhang@intel.com> (05/03/12 1.1463)
-   [IA64] clean up ptrace corner cases
-   
-   Patch from yanmin.zhang@intel.com to fix up some corner cases
-   in ptrace.  Many thanks to davidm for reviewing and improving.
-   
-   Backported to 2.4 by Bjorn Helgaas (bjorn.helgaas@hp.com).
-
-<kaos@sgi.com> (05/03/12 1.1462)
-   [IA64] Sanity check unw_unwind_to_user
-   
-   Signed-off-by: Keith Owens <kaos@sgi.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<bjorn.helgaas@hp.com> (05/03/12 1.1461)
-   ia64: add missing syscall-slot.
-
-<bjorn.helgaas@hp.com> (04/08/31 1.1459)
-   ia64: fix perfmon typo in /proc/pal/CPU*/processor_info w.r.t. BERR
-   
-   Initially reported by Danny Kwong from HP.
-   
-   Signed-Off-By: stephane eranian <eranian@hpl.hp.com>
-   Signed-Off-By: Bjorn Helgaas <bjorn.helgaas@hp.com>
-
-<davidm@tiger.hpl.hp.com> (04/08/03 1.1455)
-   ia64: Fix _PAGE_CHG_MASK so PROT_NONE works again.  Caught by Linus.
-
-<davidm@tiger.hpl.hp.com> (04/08/03 1.1454)
-   Fix pte_modify() bug which allowed mprotect() to change too many bits.
-   Found by Russell King.
-
-<bjorn.helgaas@hp.com> (04/07/02 1.1451)
-   ia64: round iommu allocations to power-of-two sizes.
-   
-   Round IOVA allocations to power-of-two sizes to avoid
-   REO/Grande defect AR2305.
-
-<bjorn.helgaas@hp.com> (04/07/02 1.1450)
-   [PATCH] ia64: force all kernel sections into one and the same segment
-   
-   Older versions of the linker do not handle cross-segment segment-relative
-   relocations properly.  This becomes a real problem when the linker decides
-   to put .text and .text.init into different segments (for whatever reasons)
-   because in that case, broken linkers will produce a broken unwind section,
-   which can cause nasty Heisenbugs, where, for example, unwinding may or may
-   not work depending on the exact value of the IP in a function.
-   
-   [Backport of Keith Owens' 2.6 change]
+This patch shrinks the quicklist based upon free memory on the node
+instead of the high/low water marks.  I have written it to enable
+preemption periodically and recalculate the amount to shrink every
+time we have freed enough pages that the quicklist size should have grown.
+I retain the scan of free memory on the node as other processes may be
+draining at the same time as we are adding.
 
 
-Thanks!
-
-Bjorn
+Signed-off-by: Robin Holt <holt@sgi.com>
 
 
+No noticable performance change on lmbench.  For completeness sake, here
+are the before and after numbers:
+
+Before:
+Process fork+exit: 180.8065 microseconds
+Process fork+exit: 182.4286 microseconds
+Process fork+exit: 184.0333 microseconds
+Process fork+exit: 183.3226 microseconds
+Process fork+exit: 182.6333 microseconds
+Process fork+exit: 183.4000 microseconds
+Process fork+exit: 183.4667 microseconds
+Process fork+exit: 182.1935 microseconds
+Process fork+exit: 182.0667 microseconds
+Process fork+exit: 183.7742 microseconds
+Process fork+execve: 188.1667 microseconds
+Process fork+execve: 188.6071 microseconds
+Process fork+execve: 187.5333 microseconds
+Process fork+execve: 188.9286 microseconds
+Process fork+execve: 188.4333 microseconds
+Process fork+execve: 187.6000 microseconds
+Process fork+execve: 187.6333 microseconds
+Process fork+execve: 188.5333 microseconds
+Process fork+execve: 187.9655 microseconds
+Process fork+execve: 186.3667 microseconds
+After:
+Process fork+exit: 182.3793 microseconds
+Process fork+exit: 183.0667 microseconds
+Process fork+exit: 182.9333 microseconds
+Process fork+exit: 183.7742 microseconds
+Process fork+exit: 182.9333 microseconds
+Process fork+exit: 183.6774 microseconds
+Process fork+exit: 182.2903 microseconds
+Process fork+exit: 183.2667 microseconds
+Process fork+exit: 181.0333 microseconds
+Process fork+exit: 183.0000 microseconds
+Process fork+execve: 187.9333 microseconds
+Process fork+execve: 188.2000 microseconds
+Process fork+execve: 188.5333 microseconds
+Process fork+execve: 188.7333 microseconds
+Process fork+execve: 189.0000 microseconds
+Process fork+execve: 188.8667 microseconds
+Process fork+execve: 187.3333 microseconds
+Process fork+execve: 189.5172 microseconds
+Process fork+execve: 188.4333 microseconds
+Process fork+execve: 188.7667 microseconds
+
+ init.c |   48 ++++++++++++++++++++++++------------------------
+ 1 files changed, 24 insertions(+), 24 deletions(-)
+
+
+Index: linux-2.6/arch/ia64/mm/init.c
+=================================--- linux-2.6.orig/arch/ia64/mm/init.c	2005-03-01 10:20:38.289030938 -0600
++++ linux-2.6/arch/ia64/mm/init.c	2005-03-01 10:20:38.374967413 -0600
+@@ -50,24 +50,48 @@
+ EXPORT_SYMBOL(vmem_map);
+ #endif
+ 
+-static int pgt_cache_water[2] = { 25, 50 };
+-
+ struct page *zero_page_memmap_ptr;		/* map entry for zero page */
+ EXPORT_SYMBOL(zero_page_memmap_ptr);
+ 
++#define quicklist_size		local_cpu_data->pgtable_quicklist_size
++#define MIN_PGT_PAGES		25UL
++/* This value was chosen to prevent a large block of frees to hold off timer ticks */
++#define NODE_FREE_PAGES_SHIFT	4
++
++static inline long
++max_pgt_pages (void)
++{
++	u64 node_free_pages, max_pgt_pages;
++
++#ifndef	CONFIG_NUMA
++	node_free_pages = nr_free_pages();
++#else
++	node_free_pages = nr_free_pages_pgdat(NODE_DATA(numa_node_id()));
++#endif
++	max_pgt_pages = node_free_pages >> NODE_FREE_PAGES_SHIFT;
++	max_pgt_pages = max(max_pgt_pages, MIN_PGT_PAGES);
++	return max_pgt_pages;
++}
++
++
+ void
+ check_pgt_cache (void)
+ {
+-	int low, high;
++	long pages_to_free;
+ 
+-	low = pgt_cache_water[0];
+-	high = pgt_cache_water[1];
++	if (unlikely(quicklist_size <= MIN_PGT_PAGES))
++		return;
+ 
+ 	preempt_disable();
+-	if (local_cpu_data->pgtable_quicklist_size > (u64) high) {
+-		do {
++	pages_to_free = quicklist_size - max_pgt_pages();
++	while (unlikely(pages_to_free > 0)) {
++		pages_to_free = min(pages_to_free, 1L << NODE_FREE_PAGES_SHIFT);
++		while (pages_to_free--) {
+ 			free_page((unsigned long)pgtable_quicklist_alloc());
+-		} while (local_cpu_data->pgtable_quicklist_size > (u64) low);
++		}
++		preempt_enable();
++		preempt_disable();
++		pages_to_free = quicklist_size - max_pgt_pages();
+ 	}
+ 	preempt_enable();
+ }
+@@ -521,7 +545,6 @@
+ mem_init (void)
+ {
+ 	long reserved_pages, codesize, datasize, initsize;
+-	unsigned long num_pgt_pages;
+ 	pg_data_t *pgdat;
+ 	int i;
+ 	static struct kcore_list kcore_mem, kcore_vmem, kcore_kernel;
+@@ -563,19 +586,6 @@
+ 	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
+ 
+ 	/*
+-	 * Allow for enough (cached) page table pages so that we can map the entire memory
+-	 * at least once.  Each task also needs a couple of page tables pages, so add in a
+-	 * fudge factor for that (don't use "threads-max" here; that would be wrong!).
+-	 * Don't allow the cache to be more than 10% of total memory, though.
+-	 */
+-#	define NUM_TASKS	500	/* typical number of tasks */
+-	num_pgt_pages = nr_free_pages() / PTRS_PER_PGD + NUM_TASKS;
+-	if (num_pgt_pages > nr_free_pages() / 10)
+-		num_pgt_pages = nr_free_pages() / 10;
+-	if (num_pgt_pages > (u64) pgt_cache_water[1])
+-		pgt_cache_water[1] = num_pgt_pages;
+-
+-	/*
+ 	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
+ 	 * (heavy-weight) handler, but mark it by setting bit 0, so the fsyscall entry
+ 	 * code can tell them apart.
