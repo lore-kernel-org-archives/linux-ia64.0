@@ -1,30 +1,42 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 02 Aug 2001 01:29:16 +0000
-Subject: Re: [Linux-ia64] Tracing the execution path
-Message-Id: <marc-linux-ia64-105590693005989@msgid-missing>
+From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
+Date: Wed, 08 Aug 2001 09:55:41 +0000
+Subject: [Linux-ia64] AGP
+Message-Id: <marc-linux-ia64-105590693006009@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005979@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005979@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 1 Aug 2001 11:59:40 -0700 (PDT), Krishna Kanth Sistla <krishnakanths@yahoo.com> said:
+Hi,
 
-  Krishna> Hi all, I am doing some benchmarking runs on a Softsur
-  Krishna> running linux. I am interested in obtaining the actual
-  Krishna> execution trace of a user level code. Is there some tool in
-  Krishna> linux that can let me do this?. Some tool that
+I am wondering to which extent AGP and DRI are supported by Linux-IA64.
+So far I have always configured agpgart and DRI into my kernels, but I
+keep getting depmod error messages:
 
-  Krishna> can print out the intruction execution trace of any user
-  Krishna> level program. Any help will be greatly appreciated.
+depmod: *** Unresolved symbols in /lib/modules/2.4.7fsc/kernel/drivers/char/agp/agpgart.o
+depmod: 	agp_vmmap
+depmod: 	agp_vmunmap
+depmod: 	agp_flush_tlb_all
 
-The HP Ski simulator can do that.  See http://software.hp.com/ia64linux/
+(I know that fixing this requires only a tiny Makefile patch, but the fact
+that this problem exists at least since 2.4.3 makes me feel taht noone
+ever tried this out).
 
-The other thing you could do is use the utrace program that I posted
-to this list a while ago.  It can do both taken-branch trap based
-tracing and single-step trap based tracing.
+On Lion at least, there is no AGP bus anyway. I don't know about Big Sur,
+but the option "Enable full AGP RQ (requires Big Sur BIOS 99 or newer)
+seems to suggest that Big Sur supports AGP.
 
-	--david
+My questions:
+- Is it correct that AGP/DRI support makes no sense on Lion?
+- What about BigSur?
+
+Martin
+
+-- 
+Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
+FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
+
+
+
 
