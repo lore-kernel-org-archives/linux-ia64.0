@@ -1,7 +1,7 @@
-From: "Wichmann, Mats D" <mats.d.wichmann@intel.com>
-Date: Fri, 06 Feb 2004 17:34:35 +0000
+From: Jim Wilson <wilson@specifixinc.com>
+Date: Sat, 07 Feb 2004 02:05:15 +0000
 Subject: RE: gcc problems
-Message-Id: <A06801158AE07847B27A52C1A074BC1D0247BC58@fmsmsx404.fm.intel.com>
+Message-Id: <1076119515.1051.169.camel@leaf.tuliptree.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040206000058.7e928d80.akpm@osdl.org>
 In-Reply-To: <20040206000058.7e928d80.akpm@osdl.org>
@@ -10,35 +10,58 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Fri, 2004-02-06 at 09:34, Wichmann, Mats D wrote:
+> If it's a question of glibc 2.2.x vs. 2.3.x, there are
+> ia64 Linux distributions based on glibc 2.2 that work
+> pretty well - SUSE's SLES8, for example.
 
-> >> -  unsigned long int sc_rsvd[16];/* reserved for future use */
-> >> +  unsigned long int sc_rbs_base;/* NULL or new base of 
-> sighandler's rbs */
-> >> +  unsigned long int sc_loadrs;	/* see description above */
-> >> +  unsigned long int sc_ar25;	/* cmp8xchg16 uses this */
-> >> +  unsigned long int sc_ar26;	/* rsvd for scratch use */
-> >> +  unsigned long int sc_rsvd[12];/* reserved for future use */
-> >>
-> >> > The easiest workaround is probably to install libunwind 
-> on your system
-> >>
-> >> The right fix is not to use a 2 years old glibc.
-> > 
-> > 
-> > That's not very old.  One shouldn't have to upgrade libc 
-> just to build gcc?
-> 
-> Did the two-year-old libc really support ia64 well?   I guess 
-> Itanium 1 was out then, but those were early days...
+gcc-3.x will have some problems when used on a glibc-2.2.x system, but
+most of them are obscure, and probably none of them apply to building
+kernels, because the kernel doesn't link in glibc.
 
-If it's a question of glibc 2.2.x vs. 2.3.x, there are
-ia64 Linux distributions based on glibc 2.2 that work
-pretty well - SUSE's SLES8, for example.  The glibc
-used there is somewhere in between the two extremes
-noted here (sc_rsvd is 14, and the sc_rbs_base and
-sc_loadrs fields are defined).
+It is reasonable that gcc should be buildable though.  I believe the
+following patch solves this problem.  I just ifdefed out the code for
+old glibc versions.  I see no point in trying to make this work, because
+unwinding will fail (for user apps) for other reasons if you are using
+glibc-2.2.4.
 
-It's kind of painful when we have to have these lockstep
-dependencies but I guess things have to be moved forward
-somehow.
+I don't have access to a glibc-2.2.4 system for testing.  I can't use
+such old systems for gcc 3.x development.  It works OK for glibc 2.3,
+where it has no effect.  If someone tells me that this does work, then I
+can check it into the FSF gcc sources.
+
+2004-02-06  James E Wilson  <wilson@specifixinc.com>
+
+	* config/ia64/linux.h (MD_FALLBACK_FRAME_STATE_FOR): Only define for
+	glibc 2.3 or better.
+
+Index: linux.h
+=================================RCS file: /cvs/gcc/gcc/gcc/config/ia64/linux.h,v
+retrieving revision 1.27
+diff -p -r1.27 linux.h
+*** linux.h	19 Dec 2003 14:00:51 -0000	1.27
+--- linux.h	7 Feb 2004 01:50:46 -0000
+*************** do {						\
+*** 58,63 ****
+--- 58,68 ----
+  /* Do code reading to identify a signal frame, and set the frame
+     state data appropriately.  See unwind-dw2.c for the structs.  */
+  
++ /* This works only for glibc-2.3 and later, because sigcontext is different
++    in glibc-2.2.4.  */
++ 
++ #if __GLIBC__ > 2 || (__GLIBC__ = 2 && __GLIBC_MINOR__ >= 3)
++ 
+  #ifdef IN_LIBGCC2
+  #include <signal.h>
+  #include <sys/ucontext.h>
+*************** do {						\
+*** 207,209 ****
+--- 212,215 ----
+      }
+  
+  #endif /* IN_LIBGCC2 */
++ #endif /* glibc-2.3 or better */
+-- 
+Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
 
