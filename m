@@ -1,368 +1,39 @@
-From: Alex Williamson <alex_williamson@hp.com>
-Date: Mon, 03 Mar 2003 21:12:01 +0000
-Subject: [Linux-ia64] [PATCH] CMC polling
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------DEEA71E55DC9E1EFB6605986"
-Message-Id: <marc-linux-ia64-105590709805957@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 26 Mar 2003 02:13:01 +0000
+Subject: [Linux-ia64] Re: ia64_mca_rendez_int_handler use of hard_smp_processor_id
+Message-Id: <marc-linux-ia64-105590723705313@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------DEEA71E55DC9E1EFB6605986
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+On Wed, 26 Mar 2003 12:55:55 +1100, 
+Peter Chubb <peter@chubb.wattle.id.au> wrote:
+>Index: 20.5/arch/ia64/kernel/mca.c
+>--- 20.5/arch/ia64/kernel/mca.c Wed, 11 Dec 2002 20:58:53 +1100 kaos (linux-2.4/s/c/5_mca.c 1.1.3.2.3.1.1.1.1.3 644)
+>+++ 20.5(w)/arch/ia64/kernel/mca.c Wed, 26 Mar 2003 08:14:29 +1100 kaos (linux-2.4/s/c/5_mca.c 1.1.3.2.3.1.1.1.1.3 644)
+>@@ -640,13 +640,10 @@ ia64_mca_wakeup_all(void)
+> void
+> ia64_mca_rendez_int_handler(int rendez_irq, void *arg, struct pt_regs *ptregs)
+> {
+>-	int flags, cpu = 0;
+>+	int flags, cpu = smp_processor_id();
+> 	/* Mask all interrupts */
+> 	save_and_cli(flags);
+>
+>If this is called from a preemptible context, then move the cpu >cmp_processor_id() within the save_and_cli() section, or it won't be
+>preempt safe.  (thread could be migrated between getting the processor
+>ID and stopping interrupts.)
 
+2.4, preempt is not my problem :).  In any case, MCA rendezvous is a
+normal interrupt
 
-   Here's another feature I'd like to add to MCA support; the ability
-to detect a flood of CMCs and switch to polling mode for retrieving
-CMC logs.  Once no more CMC logs are found, return to and interrupt
-driven handler.  If the "flood" threshold is never reached, the CMC
-handler simply behaves as it does today.
+  ivt.S:interrupt ->
+    ia64_handle_irq ->
+      ia64_mca_rendez_int_handler.
 
-   It's useful to get the CMC logs to know that something isn't
-quite right, but if you end up with some bad memory it's too easy for
-them to interfere with useful work.  I've tested this on an HP rx2600,
-with a known bad DIMM.  This DIMM acts like it has a completely dead
-DRAM on it.  With the current CMC handler, once I hit that range of
-memory addresses, the system essentially dies, constantly handling
-CMC errors.  With this patch, the system hits the threshold quickly,
-but remains functional with no performance degredation once in polling
-mode.  This patch applies against linux-2.4.20-ia64-021210 and 
-includes:
-
- - Switching CMCs to polling mode at predeterimined threshold
- - If polling for CPEs, poll on all processors
- - Fix timestamp on log output
-
-Feedback welcome.  Thanks,
-
-	Alex
---------------DEEA71E55DC9E1EFB6605986
-Content-Type: text/plain; charset=us-ascii;
- name="cmc_polling_mca_updates.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="cmc_polling_mca_updates.diff"
-
---- arch/ia64/kernel/mca.c~	2003-03-03 11:41:09.000000000 -0700
-+++ arch/ia64/kernel/mca.c	2003-03-03 11:41:23.000000000 -0700
-@@ -45,6 +45,7 @@
- #include <linux/timer.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
-+#include <linux/smp.h>
- 
- #include <asm/machvec.h>
- #include <asm/page.h>
-@@ -53,6 +54,7 @@
- #include <asm/sal.h>
- #include <asm/mca.h>
- 
-+#include <asm/processor.h>
- #include <asm/irq.h>
- #include <asm/hw_irq.h>
- 
-@@ -110,8 +112,16 @@
- 
- #define MAX_CPE_POLL_INTERVAL (15*60*HZ) /* 15 minutes */
- #define MIN_CPE_POLL_INTERVAL (2*60*HZ)  /* 2 minutes */
-+#define CMC_POLL_INTERVAL     (1*60*HZ)  /* 1 minute */
-+#define CMC_HISTORY_LENGTH    5
- 
- static struct timer_list cpe_poll_timer;
-+static struct timer_list cmc_poll_timer;
-+/*
-+ * Start with this in the wrong state so we won't play w/ timers
-+ * before the system is ready.
-+ */
-+static int cmc_polling_enabled = 1;
- 
- /*
-  *  ia64_mca_log_sal_error_record
-@@ -160,7 +170,7 @@
- void
- ia64_mca_cpe_int_handler (int cpe_irq, void *arg, struct pt_regs *ptregs)
- {
--	IA64_MCA_DEBUG("ia64_mca_cpe_int_handler: received interrupt. vector = %#x\n", cpe_irq);
-+	IA64_MCA_DEBUG("ia64_mca_cpe_int_handler: received interrupt. CPU:%d vector = %#x\n", smp_processor_id(), cpe_irq);
- 
- 	/* Get the CMC error record and log it */
- 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE, 0);
-@@ -331,6 +341,60 @@
- 		       smp_processor_id(), ia64_get_cmcv());
- }
- 
-+/*
-+ * ia64_mca_cmc_vector_disable
-+ *
-+ *  Mask the corrected machine check vector register in the processor.
-+ *  This function is invoked on a per-processor basis.
-+ *
-+ * Inputs
-+ *      dummy(unused)
-+ *
-+ * Outputs
-+ *	None
-+ */
-+void
-+ia64_mca_cmc_vector_disable (void *dummy)
-+{
-+	cmcv_reg_t	cmcv;
-+	
-+	cmcv = (cmcv_reg_t)ia64_get_cmcv();
-+
-+	cmcv.cmcv_mask = 1; /* Mask/disable interrupt */
-+	ia64_set_cmcv(cmcv.cmcv_regval);
-+
-+	IA64_MCA_DEBUG("ia64_mca_cmc_vector_disable: CPU %d corrected "
-+		       "machine check vector %#x disabled.\n",
-+		       smp_processor_id(), cmcv.cmcv_vector);
-+}
-+
-+/*
-+ * ia64_mca_cmc_vector_enable
-+ *
-+ *  Unmask the corrected machine check vector register in the processor.
-+ *  This function is invoked on a per-processor basis.
-+ *
-+ * Inputs
-+ *      dummy(unused)
-+ *
-+ * Outputs
-+ *	None
-+ */
-+void
-+ia64_mca_cmc_vector_enable (void *dummy)
-+{
-+	cmcv_reg_t	cmcv;
-+	
-+	cmcv = (cmcv_reg_t)ia64_get_cmcv();
-+
-+	cmcv.cmcv_mask = 0; /* Unmask/enable interrupt */
-+	ia64_set_cmcv(cmcv.cmcv_regval);
-+
-+	IA64_MCA_DEBUG("ia64_mca_cmc_vector_enable: CPU %d corrected "
-+		       "machine check vector %#x enabled.\n",
-+		       smp_processor_id(), cmcv.cmcv_vector);
-+}
-+
- 
- #if defined(MCA_TEST)
- 
-@@ -780,11 +844,63 @@
- void
- ia64_mca_cmc_int_handler(int cmc_irq, void *arg, struct pt_regs *ptregs)
- {
-+	static unsigned long	cmc_history[CMC_HISTORY_LENGTH];
-+	static int		index;
-+	static spinlock_t	cmc_history_lock = SPIN_LOCK_UNLOCKED;
-+
- 	IA64_MCA_DEBUG("ia64_mca_cmc_int_handler: received interrupt vector = %#x on CPU %d\n",
- 		       cmc_irq, smp_processor_id());
- 
- 	/* Get the CMC error record and log it */
- 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CMC, 0);
-+
-+	spin_lock(&cmc_history_lock);
-+	if (!cmc_polling_enabled) {
-+		int i, count = 1; /* we know 1 happened now */
-+		unsigned long now = jiffies;
-+		
-+		for (i = 0; i < CMC_HISTORY_LENGTH; i++) {
-+			if (now - cmc_history[i] <= HZ)
-+				count++;
-+		}
-+
-+		IA64_MCA_DEBUG(KERN_INFO "CMC threshold %d/%d\n", count, CMC_HISTORY_LENGTH);
-+		if (count >= CMC_HISTORY_LENGTH) {
-+			/*
-+			 * CMC threshold exceeded, clear the history
-+			 * so we have a fresh start when we return
-+			 */
-+			for (index = 0 ; index < CMC_HISTORY_LENGTH; index++)
-+				cmc_history[index] = 0;
-+			index = 0;
-+
-+			/* Switch to polling mode */
-+			cmc_polling_enabled = 1;
-+
-+			/* Unlock before smp_call_function or risk deadlock */
-+			spin_unlock(&cmc_history_lock);
-+			smp_call_function(ia64_mca_cmc_vector_disable, NULL, 1, 1);
-+			ia64_mca_cmc_vector_disable(NULL);
-+
-+			/*
-+			 * Corrected errors will still be corrected, but
-+			 * make sure there's a log somewhere that indicates
-+			 * something is generating more than we can handle.
-+			 */
-+			printk(KERN_WARNING "ia64_mca_cmc_int_handler: WARNING: Switching to polling CMC handler, error records may be lost\n");
-+			
-+
-+			mod_timer(&cmc_poll_timer, jiffies + CMC_POLL_INTERVAL);
-+
-+			/* lock already released, get out now */
-+			return;
-+		} else {
-+			cmc_history[index++] = now;
-+			if (index == CMC_HISTORY_LENGTH)
-+				index = 0;
-+		}
-+	}
-+	spin_unlock(&cmc_history_lock);
- }
- 
- /*
-@@ -797,6 +913,7 @@
- {
- 	spinlock_t	isl_lock;
- 	int		isl_index;
-+	unsigned long	isl_count;
- 	ia64_err_rec_t  *isl_log[IA64_MAX_LOGS]; /* need space to store header + error log */
- } ia64_state_log_t;
- 
-@@ -813,11 +930,78 @@
- #define IA64_LOG_NEXT_INDEX(it)    ia64_state_log[it].isl_index
- #define IA64_LOG_CURR_INDEX(it)    1 - ia64_state_log[it].isl_index
- #define IA64_LOG_INDEX_INC(it) \
--    ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index
-+    {ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index; \
-+    ia64_state_log[it].isl_count++;}
- #define IA64_LOG_INDEX_DEC(it) \
-     ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index
- #define IA64_LOG_NEXT_BUFFER(it)   (void *)((ia64_state_log[it].isl_log[IA64_LOG_NEXT_INDEX(it)]))
- #define IA64_LOG_CURR_BUFFER(it)   (void *)((ia64_state_log[it].isl_log[IA64_LOG_CURR_INDEX(it)]))
-+#define IA64_LOG_COUNT(it)         ia64_state_log[it].isl_count
-+
-+/*
-+ *  ia64_mca_cmc_int_caller
-+ *
-+ * 	Call CMC interrupt handler, only purpose is to have a
-+ * 	smp_call_function callable entry.
-+ *
-+ * Inputs   :	dummy(unused)
-+ * Outputs  :	None
-+ * */
-+static void
-+ia64_mca_cmc_int_caller(void *dummy)
-+{
-+	ia64_mca_cmc_int_handler(0, NULL, NULL);
-+}
-+
-+/*
-+ *  ia64_mca_cmc_poll
-+ *
-+ *	Poll for Corrected Machine Checks (CMCs)
-+ *
-+ * Inputs   :   dummy(unused)
-+ * Outputs  :   None
-+ *
-+ */
-+static void
-+ia64_mca_cmc_poll (unsigned long dummy)
-+{
-+	int start_count;
-+
-+	start_count = IA64_LOG_COUNT(SAL_INFO_TYPE_CMC);
-+
-+	/* Call the interrupt handler */
-+	local_irq_disable();
-+	smp_call_function(ia64_mca_cmc_int_caller, NULL, 1, 1);
-+	ia64_mca_cmc_int_caller(NULL);
-+	local_irq_enable();
-+
-+	/*
-+	 * If no log recored, switch out of polling mode.
-+	 */
-+	if (start_count == IA64_LOG_COUNT(SAL_INFO_TYPE_CMC)) {
-+		printk(KERN_WARNING "ia64_mca_cmc_poll: Returning to interrupt driven CMC handler\n");
-+		cmc_polling_enabled = 0;
-+		smp_call_function(ia64_mca_cmc_vector_enable, NULL, 1, 1);
-+		ia64_mca_cmc_vector_enable(NULL);
-+	} else {
-+		mod_timer(&cmc_poll_timer, jiffies + CMC_POLL_INTERVAL);
-+	}
-+}
-+
-+/*
-+ *  ia64_mca_cpe_int_caller
-+ *
-+ * 	Call CPE interrupt handler, only purpose is to have a
-+ * 	smp_call_function callable entry.
-+ *
-+ * Inputs   :	dummy(unused)
-+ * Outputs  :	None
-+ * */
-+static void
-+ia64_mca_cpe_int_caller(void *dummy)
-+{
-+	ia64_mca_cpe_int_handler(0, NULL, NULL);
-+}
- 
- /*
-  *  ia64_mca_cpe_poll
-@@ -832,19 +1016,22 @@
- static void
- ia64_mca_cpe_poll (unsigned long dummy)
- {
--	int start_index;
-+	int start_count;
- 	static int poll_time = MAX_CPE_POLL_INTERVAL;
- 
--	start_index = IA64_LOG_CURR_INDEX(SAL_INFO_TYPE_CPE);
-+	start_count = IA64_LOG_COUNT(SAL_INFO_TYPE_CPE);
- 
- 	/* Call the interrupt handler */
--	ia64_mca_cpe_int_handler(0, NULL, NULL);
-+	local_irq_disable();
-+	smp_call_function(ia64_mca_cpe_int_caller, NULL, 1, 1);
-+	ia64_mca_cpe_int_caller(NULL);
-+	local_irq_enable();
- 
- 	/*
- 	 * If a log was recorded, increase our polling frequency,
- 	 * otherwise, backoff.
- 	 */
--	if (start_index != IA64_LOG_CURR_INDEX(SAL_INFO_TYPE_CPE)) {
-+	if (start_count != IA64_LOG_COUNT(SAL_INFO_TYPE_CPE)) {
- 		poll_time = max(MIN_CPE_POLL_INTERVAL, poll_time/2);
- 	} else {
- 		poll_time = min(MAX_CPE_POLL_INTERVAL, poll_time * 2);
-@@ -865,11 +1052,19 @@
- static int __init
- ia64_mca_late_init(void)
- {
--	if (acpi_request_vector(ACPI_INTERRUPT_CPEI) < 0) {
--		init_timer(&cpe_poll_timer);
--		cpe_poll_timer.function = ia64_mca_cpe_poll;
--		ia64_mca_cpe_poll(0);
--	}
-+	init_timer(&cmc_poll_timer);
-+	cmc_poll_timer.function = ia64_mca_cmc_poll;
-+
-+	/* Reset to the correct state */
-+	cmc_polling_enabled = 0;
-+
-+	init_timer(&cpe_poll_timer);
-+	cpe_poll_timer.function = ia64_mca_cpe_poll;
-+
-+	/* If platform doesn't support CPEI, get the timer going. */
-+	if (acpi_request_vector(ACPI_INTERRUPT_CPEI) < 0)
-+		ia64_mca_cpe_poll(0UL);
-+
- 	return 0;
- }
- 
-@@ -1077,7 +1272,7 @@
- {
- 	prfunc("+Err Record ID: %d    SAL Rev: %2x.%02x\n", lh->id,
- 		lh->revision.major, lh->revision.minor);
--	prfunc("+Time: %02x/%02x/%02x%02x %02d:%02d:%02d    Severity %d\n",
-+	prfunc("+Time: %02x/%02x/%02x%02x %02x:%02x:%02x    Severity %d\n",
- 		lh->timestamp.slh_month, lh->timestamp.slh_day,
- 		lh->timestamp.slh_century, lh->timestamp.slh_year,
- 		lh->timestamp.slh_hour, lh->timestamp.slh_minute,
-
---------------DEEA71E55DC9E1EFB6605986--
+It is my understanding that the interrupt handler will not migrate off
+the current cpu, even with preempt.
 
 
