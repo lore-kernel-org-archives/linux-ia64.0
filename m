@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
-Date: Thu, 17 Jan 2002 09:43:21 +0000
+Date: Thu, 17 Jan 2002 09:45:54 +0000
 Subject: Re: [Linux-ia64] Help with Ingo scheduler on IA64
-Message-Id: <marc-linux-ia64-105590698805866@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805867@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805816@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805816@msgid-missing>
@@ -10,23 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 16 Jan 2002, David Mosberger wrote:
+On Wed, 16 Jan 2002, Nick Pollitt wrote:
 
-> The fundamental problem is that current set_cpus_allowed() lets the
-> same task run on two CPUs for a brief period of time.  This violates
-> scheduling assumptions made by the kernel and hence results in race
-> conditions.
+> With this hack, I'm getting an SMP boot all the way to the init script
+> 'Checking for new Hardware [OK]' before the hang.
 
-i've fixed this in -J0 already, without adding overhead to the scheduler
-hotpath. I've added better task-migration code as well. Every architecture
-has to define the following function:
-
-     extern void smp_migrate_task(int cpu, task_t *task);
-
-the lowlevel code has to pass the 'task' pointer over to the target CPU.
-(architectures that can send information in cross-CPU messages can send it
-over directly - in the x86 case it's done similarly to
-smp_call_function().)
+i'd suggest to remove the dont_clear thing from sched.c, unless there are
+other reasons to it, apart from working around the task migration bug.
 
 	Ingo
 
