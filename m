@@ -1,49 +1,59 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Thu, 06 Dec 2001 18:08:54 +0000
-Subject: Re: [Linux-ia64] 2.4.16-ia64-011128 compile errors with CONFIG_IA64_HP_SIM=y
-Message-Id: <marc-linux-ia64-105590698805630@msgid-missing>
+From: "Nakajima, Jun" <jun.nakajima@intel.com>
+Date: Mon, 03 Dec 2001 22:38:43 +0000
+Subject: [Linux-ia64] mmap bug fix for IA-32 apps
+Message-Id: <marc-linux-ia64-105590698805593@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805570@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805570@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith,
+We found a bug with the mmap code in support of IA-32 apps. That bug was
+exposed in a multi-threaded environment, and malloc(2), for example, was
+causing a segmentation fault because of it.
+Basically, the current code always saves and restores the user area that is
+not part of the range specified by mmap(2) but on the native (i.e. IA-64)
+page(s) affected by mmap() (because of the page-size difference between
+IA-32 and IA-64), when it changes the protection.
 
-On Sun, Dec 02, 2001 at 03:49:58PM +1100, Keith Owens wrote:
-> Trying out all the platform targets in 2.4.16-ia64-011128.
-> CONFIG_IA64_HP_SIM=y does not compile out of the box.
-> 
-You mean if you try to compile with:
-	CONFIG_SIMETH=m
-	CONFIG_SIM_SERIAL=m
+Since such a user area can already have write protection, it's possible it
+can cause data corruption when the kernel restores the saved (old) data. 
 
-It works if they are compiled in. I fixed the simeth, I just dropped the
-module support because it is not really necessary. The simserial driver
-cannot be compiled as a module and you don't want to compile with CONFIG_VT on.
+We tested several IA-32 applications, including Netscape.
 
-> drivers/net/simeth.c: In function `init_module':
-> drivers/net/simeth.c:566: `simeth_dev' undeclared (first use in this function)
-> drivers/net/simeth.c: In function `cleanup_module':
-> drivers/net/simeth.c:578: `simeth_dev' undeclared (first use in this function)
-> drivers/net/simeth.c: At top level:
-> drivers/net/simeth.c:110: warning: `simeth_setup' defined but not used
-> 
-> drivers/char/simserial.o: In function `rs_read_proc':
-> drivers/char/simserial.o(.text+0x3160): multiple definition of `rs_read_proc'
-> drivers/char/serial.o(.text+0x8f00): first defined here
-> drivers/char/pc_keyb.o: In function `detect_auxiliary_port':
-> drivers/char/pc_keyb.o(.text.init+0x761): undefined reference to `aux_device_present'
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Thanks,
+Jun
 
--- 
+diff -Nu arch/ia64/ia32/sys_ia32.c.orig arch/ia64/ia32/sys_ia32.c 
+--- arch/ia64/ia32/sys_ia32.c.orig      Fri Nov 16 13:07:10 2001
++++ arch/ia64/ia32/sys_ia32.c   Fri Nov 30 13:17:55 2001
+@@ -285,7 +285,16 @@
+        if (!page)
+                return -ENOMEM;
+ 
+-       if (old_prot)
++       if (old_prot & VM_WRITE) {
++               if (flags & MAP_ANONYMOUS) {
++                       if (clear_user((void *) start, end - start)) {
++                               ret = -EFAULT;
++                               goto out;
++                       }
++                       goto out;
++               } else
++                       goto skip_mmap;
++       } else if (old_prot)
+                copy_from_user(page, (void *) PAGE_START(start), PAGE_SIZE);
+ 
+        down_write(&current->mm->mmap_sem);
+@@ -306,6 +315,7 @@
+                        copy_to_user((void *) end, page + PAGE_OFF(end),
+                                     PAGE_SIZE - PAGE_OFF(end));
+        }
++skip_mmap:
+        if (!(flags & MAP_ANONYMOUS)) {
+                /* read the file contents */
+                inode = file->f_dentry->d_inode;
 
--Stephane
+
+
 
