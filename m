@@ -1,38 +1,25 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sat, 28 Feb 2004 14:47:54 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Sat, 28 Feb 2004 14:55:37 +0000
 Subject: Re: Oops in pdflush
-Message-Id: <17292.1077979674@ocs3.ocs.com.au>
+Message-Id: <je4qtbqmmu.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je4qtl7u44.fsf@sykes.suse.de>
 In-Reply-To: <je4qtl7u44.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Sat, 28 Feb 2004 04:00:34 -0800, 
-Andrew Morton <akpm@osdl.org> wrote:
->Having just looked at the code, I don't understand the problem.
->
->If kernel thread A starts kernel thread B and kernel thread B starts
->kernel thread C and so on, how does that cause stack windup?
+David Mosberger <davidm@napali.hpl.hp.com> writes:
 
-Backtrace from a pdflush task on standard 2.6.3 ia64.
+> Say, Andreas, did you by chance have 3 disk drives in your Tiger?
 
-schedule+0xf30
-__pdflush+0x230
-pdflush+0x20
-kernel_thread+0x100
-pdflush_init+0x30
-do_initcalls+0xc0
-init+0xe0
-kernel_thread+0x100
-rest_init+0x30
-start_kernel+0x460
-_start+0x280
+No, only one.
 
-Each use of kernel_thread results in a cloned stack which inherits the
-stack usage from the previous thread.  Some architectures have a
-kernel_thread helper which resets the stack, others do not.  Without a
-helper, each call whittles away at the stack.
+Andreas.
 
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
