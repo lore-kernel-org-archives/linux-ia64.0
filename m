@@ -1,32 +1,31 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Tue, 08 Feb 2005 23:22:15 +0000
-Subject: perfmon2 specification document available
-Message-Id: <20050208232215.GC10542@frankl.hpl.hp.com>
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Thu, 03 Feb 2005 22:12:19 +0000
+Subject: PATCH: 2.4/2.6: Remove duplicated END(memcpy)
+Message-Id: <20050203221219.GA28919@lucon.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+The new assembler doesn't like
 
-The perfmon2 full interface specification (v0.6) is now available as
-an HPLabs external technical report. The interface is carefully designed
-to be very generic and flexible without compromising access to
-processor specific features. There is nothing specific to Itanium in it.
-As of today, this is the most advanced interface available for Linux. 
-We hope it could serve as a basis of discussion on a future unified Linux
-interface.
+	.proc memcpy
+	.endp memcpy
+	.proc __copy_user
+	.endp memcpy
+	.endp __copy_user
 
-The document IS NOT a description of the current Linux/ia64 implementation
-in 2.6 kernels. Instead, this document describes how the interface will
-look like in the near future.
 
-As users of the interface, I would like to sollicitate your comments.
-
-You can grab the document at:
-	http://www.hpl.hp.com/techreports/2004/HPL-2004-200R1.html
-
-Thanks.
--- 
--Stephane
+H.J.
+----
+--- linux-2.4.21/arch/ia64/lib/memcpy_mck.S.endp	2005-02-03 12:20:36.000000000 -0800
++++ linux-2.4.21/arch/ia64/lib/memcpy_mck.S	2005-02-03 13:49:51.000000000 -0800
+@@ -541,7 +541,6 @@ EK(.ex_handler,  (p17)	st8	[dst1]=r39,8)
+ #undef B
+ #undef C
+ #undef D
+-END(memcpy)
+ 
+ /*
+  * Due to lack of local tag support in gcc 2.x assembler, it is not clear which
