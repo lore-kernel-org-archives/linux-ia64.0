@@ -1,144 +1,77 @@
-From: "Faccini, Bruno" <bruno.faccini@intel.com>
-Date: Wed, 25 Oct 2000 07:12:51 +0000
-Subject: RE: [Linux-ia64] Problems building "2.4.0-test9" kernel source on
-Message-Id: <marc-linux-ia64-105590678205621@msgid-missing>
+From: Einar Saltnes <eisa@scali.no>
+Date: Fri, 13 Oct 2000 09:55:10 +0000
+Subject: [Linux-ia64] clock stops on test9
+Message-Id: <marc-linux-ia64-105590678205567@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205589@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205589@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Creating a new and "virgin" Kernel source tree with the base
-"linux-2.4.0-test9" tar-ball and apply
-"linux-2.4.0-test9-ia64-001004.diff.gz" on top of it worked (ie no "patch"
-pbs/errors at all) and finally allowed me to build a bootable + reliable
-Kernel.
+Hi,
+I have upgraded a dual Itanium Workstation SDV from A3-stepping/BIOS 50
+to B1-stepping/BIOS 60. After getting the upgraded box up and running
+stable (had to decrease the FSB speed or move memory as pointed out by
+Intel), I had some hard time trying to get linux up and run.
+RedHat developer distro 0825 did not install. When taking out one cpu I
+could get some further in the installation from the CD, but not finish
+it successfully.
+To install a newer kernel, I had to swap the disk to my UP Itanium
+Workstation SDV A2-stepping/BIOS 50 which has been running stable, more
+or less, on the 0829 kernel update from RedHat. Then compile a new
+kernel
+and swap disks again.
+I am now running the test9 kernel on the dual B1-stepping Itanium and it
+seems to run stable, more or less. I have also installed
+modutils-2.3.17, which was pointed out on this list.
 
-But this again looks to me as a possible improvement required with the
-Kernel distribs+patching process which appear to require an un-touched
-source tree receiving the base version and any further patches, in parrallel
-of a second one used for builds and config. changes and to be kept in-sync
-....
+However, there are some problems with the system clock. The BIOS clock
+seems to run OK, but in linux the clock seems to stop after some random
+time. When using "date", time stands still after some random time! This
+gives me some trouble using other utilities e.g. ping and even shutdown.
+This shows only on the dual B1-stepping box and not the UP A2-stepping
+box. It can run OK for a few minutes or for some hours.
+Anyone got a clue?
 
-Bruno.
+Which configuration settings should I use regarding the A-stepping /
+A1-stepping / B-stepping / B1-stepping settings in menuconfig for my two
+Itanium boxes (see below)?
+What about the settings if I change back to Dual A3-stepping / BIOS 50 ?
+(So far I have been looking at H.J.Lu's settings which was posted on Sep
+08)
 
-> -----Original Message-----
-> From: Faccini, Bruno 
-> Sent: mardi 24 octobre 2000 08:30
-> To: 'davidm@hpl.hp.com'
-> Cc: linux-ia64@linuxia64.org
-> Subject: RE: [Linux-ia64] Problems building "2.4.0-test9" 
-> kernel source
-> on/for IA-64
-> 
-> 
-> 
-> Ok, I installed "linux-2.4.0-test9-ia64-001004.diff.gz", 
-> downloaded from 
-> "ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64" and as 
-> expected, due to its content, it fixed my earlier 2 issues 
-> (multiple compilation errors for "arch/ia64/kernel/setup.c" 
-> and "unsatisfied externals" for "[disable,reenable]_usb()" 
-> entry points) I got with the original and full 
-> "linux-2.4.0-test9" tar-ball.
-> 
-> But the patch/diff file reported a new pb/inconsistencies 
-> within the "include/asm-ia64/offsets.h" source file :
-> 
-> --------
-> patching file linux-2.4.0-test9/include/asm-ia64/offsets.h
-> Hunk #1 FAILED at 11.
-> Hunk #2 FAILED at 21.
-> 2 out of 2 hunks FAILED -- saving rejects to file 
-> linux-2.4.0-test9/include/asm-ia64/offsets.h.rej
-> --------
-> 
-> and I am a little bit puzzled there due to the suspected high 
-> impact ([Task, Thread]'s fields offsets !!) of the related 
-> values/defines (expected and new values vs current one) :
-> 
-> ------------
-> - #define IA64_TASK_SIZE			2864	/* 0xb30 */
-> - #define IA64_TASK_THREAD_OFFSET		896	/* 0x380 */
-> - #define IA64_TASK_THREAD_KSP_OFFSET	896	/* 0x380 */
-> - #define IA64_TASK_THREAD_SIGMASK_OFFSET	2744	/* 0xab8 */
-> + #define IA64_TASK_SIZE			3328	/* 0xd00 */
-> + #define IA64_TASK_THREAD_OFFSET		1424	/* 0x590 */
-> + #define IA64_TASK_THREAD_KSP_OFFSET	1424	/* 0x590 */
-> + #define IA64_TASK_THREAD_SIGMASK_OFFSET	3184	/* 0xc70 */
-> 
-> vs/with the current source lines !! :
-> 
-> #define IA64_TASK_SIZE			3456	/* 0xd80 */
-> #define IA64_TASK_THREAD_OFFSET		1456	/* 0x5b0 */
-> #define IA64_TASK_THREAD_KSP_OFFSET	1456	/* 0x5b0 */
-> #define IA64_TASK_THREAD_SIGMASK_OFFSET	3304	/* 0xce8 */
-> -------------
-> 
-> Since this "include/asm-ia64/offsets.h" file appear 
-> automatically generated as per the "make config/make 
-> dep/make" steps ("arch/ia64/tools/print_offsets") and 
-> according to the current configuration options, its actual 
-> content may have been computed as part of my earlier build 
-> attempt with the "-test9" base distrib., and thus I may 
-> ignore the current patch reported errors.
-> 
-> May be I am doing something wrong, but this may also point to 
-> a current patching method lack, where config. related and 
-> generated files are included within patches/diff files and 
-> thus prevent a safe and full install on top of an already 
-> used Kernel build source tree.
-> 
-> BTW, and keeping all of this in mind, I re-ran the full 
-> Kernel clean-up and build steps and will see how it goes (and 
-> mainly if I get a "consistent" and coherent 
-> "arch/ia64/tools/print_offsets" file generated as part of the 
-> build process) and let you know asap.
-> 
-> Bruno.
-> 
-> > -----Original Message-----
-> > From: Faccini, Bruno 
-> > Sent: jeudi 19 octobre 2000 13:38
-> > To: 'davidm@hpl.hp.com'
-> > Subject: RE: [Linux-ia64] Problems building "2.4.0-test9" 
-> > kernel source
-> > on/for IA-64
-> > 
-> > 
-> > 
-> > Will try it asap and let you know.
-> > 
-> > BTW, thank's for your quick reply.
-> > 
-> > Bruno.
-> > 
-> > > -----Original Message-----
-> > > From: David Mosberger [mailto:davidm@hpl.hp.com]
-> > > Sent: mercredi 18 octobre 2000 21:49
-> > > To: Faccini, Bruno
-> > > Cc: linux-ia64@linuxia64.org
-> > > Subject: Re: [Linux-ia64] Problems building "2.4.0-test9" 
-> > > kernel source
-> > > on/for IA-64
-> > > 
-> > > 
-> > > >>>>> On Tue, 17 Oct 2000 23:35:46 -0700, "Faccini, Bruno" 
-> > > <bruno.faccini@intel.com> said:
-> > > 
-> > >   Bruno> Trying to build "-test9" full tar-ball on/for an 
-> > IA-64 SDV, I
-> > >   Bruno> got the following problems/errors
-> > > 
-> > > Sounds like you didn't apply the IA-64 patch in the 
-> .../ports/ia64/
-> > > directory.  Could this be the problem?
-> > > 
-> > > 	--david
-> > > 
-> > 
-> 
 
+Workstation SDV #1:
+- UP A2-stepping
+- Bios 50
+- 1GB memory
+- QLA1280 scsi-adapter
+- SCSI-disk
+- LS-120 floppy drive
+- IDE CD-ROM
+- ATI Rage128 PCI graphics adapter
+- linux-2.4.0-test9 UP configuration
+
+Workstation SDV #2:
+- Dual B1-stepping
+- BIOS 60
+- 1GB memory
+- QLA1280 scsi-adapter
+- SCSI-disk
+- LS-120 floppy drive
+- IDE CD-ROM
+- ATI Rage128 PCI graphics adapter
+- linux-2.4.0-test9 SMP configuration
+
+BTW, when talking about BigSurs and Lions how can I tell them apart? It
+would be nice to know when something on this list applies to my Itanium
+boxes.
+
+Thanks,
+Einar
+-- 
+| Einar Saltnes          |         Scali AS         |
+| mailto:eisa@scali.no   |   http://www.scali.com   |
+| Phone:+47 22 62 89 50  |  Scalable Linux Systems  |
+| Fax  :+47 22 62 89 51  |      and Technology      |
 
