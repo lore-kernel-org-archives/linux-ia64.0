@@ -1,44 +1,48 @@
-From: Jared Egolf <jegolf@yahoo.com>
-Date: Fri, 16 Nov 2001 21:42:35 +0000
-Subject: [Linux-ia64] kernel panic on root mount / EFI cant see
-Message-Id: <marc-linux-ia64-105590698805531@msgid-missing>
+From: Jonathan Thackray <jthackray@zeus.com>
+Date: Fri, 02 Nov 2001 15:03:37 +0000
+Subject: [Linux-ia64] Upgrading from 2.4.3
+Message-Id: <marc-linux-ia64-105590698805434@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805521@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805521@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Thank you very much for your reply.  I did double check and
-I am having this problem on a system where the partition
-type is set to 'ef'.  It doesn't seem to matter which
-partition type I attempt to use.
--- Jared Egolf
+Hi,
 
-> From: Bdale Garbee <bdale@gag.com>
-> Date: Thu, 15 Nov 2001 17:47:42 -0700
+Can anyone tell me what firmware / BIOS is needed for newer kernels?
+I'm attempting to upgrade our LION currently running 2.4.3
+(Red Hat Linux release 7.0.98 (Wolverine))
 
-> jegolf@yahoo.com (Jared Egolf) writes:
+I've compiled 2.4.13, installed it, but it panics when booting,
+somewhere after scanning the PCI bus. I've also burnt Debian woody for
+ia64 onto CD, but this just hangs when booting (it prints some kernel
+messages then hangs). Our BIOS / firmware is on BIOS 69, and I've
+attempted to upgrade, but our I/O card is 'legacy', so BIOS 69 is the
+latest it can run.
 
->> Using Redhat 7.2 and in the past 7.1, I cannot configure
->> the /boot/efi partition with such a type definition that
->> EFI will recognize the file-system and thus use it for
->> booting purposes.
+Can I run newer kernels, or will I have to get a new box?
+/proc/cpuinfo says:
 
-> FYI, it appears the defined partition type for EFI FAT is
-'ef', and for 
-> EFI GPT it's 'ee'.  Debian currently requires that you
-use 'ef'.
+processor  : 0
+vendor     : GenuineIntel
+family     : IA-64
+model      : Itanium
+revision   : 2
+archrev    : 0
+features   : standard
+cpu number : 0
+cpu regs   : 4
+cpu MHz    : 666.738000
+itc MHz    : 666.738000
+BogoMIPS   : 442.49
 
-> Modern versions of fdisk, cfdisk, et al know these
-types...
+Thanks,
+Jon.
 
-> Bdale
+-- 
+Jonathan Thackray         Zeus House, Cowley Road, Cambridge CB4 OZT, UK
+Software Engineer                   +44 1223 525000, fax +44 1223 525100
+Zeus Technology                                         http://zeus.com/
 
-
-__________________________________________________
-Do You Yahoo!?
-Find the one for you at Yahoo! Personals
-http://personals.yahoo.com
 
