@@ -1,120 +1,106 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 30 Jul 2003 16:44:57 +0000
-Subject: Patch get supported TLB purge page sizes from PAL
-Message-Id: <marc-linux-ia64-105958352410819@msgid-missing>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Fri, 25 Jul 2003 20:41:34 +0000
+Subject: [PATCH] ia64 Kconfig cleanup
+Message-Id: <marc-linux-ia64-105916572315991@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I applied the attached patch to 2.4 (this is a backport of a couple
-changes from 2.5).  Thanks, Rohit.
+Here are some small updates to the ia64 Kconfig file.  I think it's safe
+to apply (i.e. it won't break anything than the already broken sn2
+compile), and gets rid of some obsolete options.
 
-Bjorn
+Thanks,
+Jesse
 
-
-#### AUTHOR rohit.seth@intel.com
-#### COMMENT START
-### Comments for ChangeSet
-[PATCH] ia64: patch to use >256MB purges
-
-Attached is the updated patch that takes the supported purge page size
-bits from PAL call.
-
-Backported from 2.5, including two subsequent cleanups:
-    ia64: Clean up purge-page-size-from-PAL patch a bit.
-    ia64: Allow 4GB TLB purges by default.  Reported by Rohit Seth.
-### Comments for arch/ia64/mm/tlb.c
-ia64: patch to use >256MB purges
-
-(purge): Use this struct to group "purge_pgbits" and "max_purge_size".
-(flush_tlb_range): Mark while-loop condition as "unlikely()".
-(ia64_tlb_init): Instead of panic'ing, default to architected purge page-sizes
-        when PAL_VM_PAGE_SIZE fails.
-(ia64_tlb_init): 4GB is also an architected page-size for purges, so allow it by
-        default.  Reported by Rohit Seth.
-#### COMMENT END
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1046  -> 1.1047 
-#	  arch/ia64/mm/tlb.c	1.8     -> 1.9    
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/07/30	bjorn.helgaas@hp.com	1.1047
-# tlb purge patch
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
---- a/arch/ia64/mm/tlb.c	Wed Jul 30 11:11:29 2003
-+++ b/arch/ia64/mm/tlb.c	Wed Jul 30 11:11:29 2003
-@@ -21,17 +21,10 @@
- #include <asm/pal.h>
- #include <asm/delay.h>
+diff -Nru a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+--- a/arch/ia64/Kconfig	Thu Jul 17 16:59:05 2003
++++ b/arch/ia64/Kconfig	Thu Jul 17 16:59:05 2003
+@@ -211,7 +211,7 @@
  
--#define SUPPORTED_PGBITS (			\
--		1 << _PAGE_SIZE_256M |		\
--		1 << _PAGE_SIZE_64M  |		\
--		1 << _PAGE_SIZE_16M  |		\
--		1 << _PAGE_SIZE_4M   |		\
--		1 << _PAGE_SIZE_1M   |		\
--		1 << _PAGE_SIZE_256K |		\
--		1 << _PAGE_SIZE_64K  |		\
--		1 << _PAGE_SIZE_16K  |		\
--		1 << _PAGE_SIZE_8K   |		\
--		1 << _PAGE_SIZE_4K )
-+static struct {
-+	unsigned long mask;	/* mask of supported purge page-sizes */
-+	unsigned long max_bits; /* log2() of largest supported purge page-size */
-+} purge;
+ config NUMA
+ 	bool "Enable NUMA support" if IA64_GENERIC || IA64_DIG || IA64_HP_ZX1
+-	default y if IA64_SGI_SN2
++	default y if IA64_SGI_SN2 || IA64_GENERIC
+ 	help
+ 	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
+ 	  Access).  This option is for configuring high-end multiprocessor
+@@ -234,9 +234,8 @@
+ endchoice
  
- struct ia64_ctx ia64_ctx = {
- 	.lock =	SPIN_LOCK_UNLOCKED,
-@@ -149,22 +142,10 @@
- 	}
+ config DISCONTIGMEM
+-	bool
+-	depends on IA64_SGI_SN2 || (IA64_GENERIC || IA64_DIG || IA64_HP_ZX1) && NUMA
+-	default y
++	bool "Discontiguous memory support" if (IA64_DIG && NUMA)
++	default y if IA64_SGI_SN2 || IA64_GENERIC
+ 	help
+ 	  Say Y to support efficient handling of discontiguous physical memory,
+ 	  for architectures which are either NUMA (Non-Uniform Memory Access)
+@@ -245,8 +244,7 @@
  
- 	nbits = ia64_fls(size + 0xfff);
--	if (((1UL << nbits) & SUPPORTED_PGBITS) = 0) {
--		if (nbits > _PAGE_SIZE_256M)
--			nbits = _PAGE_SIZE_256M;
--		else
--			/*
--			 * Some page sizes are not implemented in the
--			 * IA-64 arch, so if we get asked to clear an
--			 * unsupported page size, round up to the
--			 * nearest page size.  Note that we depend on
--			 * the fact that if page size N is not
--			 * implemented, 2*N _is_ implemented.
--			 */
--			++nbits;
--		if (((1UL << nbits) & SUPPORTED_PGBITS) = 0)
--			panic("flush_tlb_range: BUG: nbits=%lu\n", nbits);
--	}
-+	while (unlikely (((1UL << nbits) & purge.mask) = 0) && (nbits < purge.max_bits))
-+		++nbits;
-+	if (nbits > purge.max_bits)
-+		nbits = purge.max_bits;
- 	start &= ~((1UL << nbits) - 1);
+ config VIRTUAL_MEM_MAP
+ 	bool "Enable Virtual Mem Map"
+-	depends on !NUMA
+-	default y if IA64_GENERIC || IA64_DIG || IA64_HP_ZX1
++	default y if !IA64_HP_SIM
+ 	help
+ 	  Say Y to compile the kernel with support for a virtual mem map.
+ 	  This is an alternate method of supporting large holes in the
+@@ -259,8 +257,8 @@
+ 	  are unsure, say Y.
  
- # ifdef CONFIG_SMP
-@@ -185,6 +166,15 @@
- ia64_tlb_init (void)
- {
- 	ia64_ptce_info_t ptce_info;
-+	unsigned long tr_pgbits;
-+	long status;
-+
-+	if ((status = ia64_pal_vm_page_size(&tr_pgbits, &purge.mask)) != 0) {
-+		printk(KERN_ERR "PAL_VM_PAGE_SIZE failed with status=%ld;"
-+		       "defaulting to architected purge page-sizes.\n", status);
-+		purge.mask = 0x115557000;
-+	}
-+	purge.max_bits = ia64_fls(purge.mask);
+ config IA64_MCA
+-	bool "Enable IA-64 Machine Check Abort" if IA64_GENERIC || IA64_DIG || IA64_HP_ZX1
+-	default y if IA64_SGI_SN2
++	bool "Enable IA-64 Machine Check Abort"
++	default y if !IA64_HP_SIM
+ 	help
+ 	  Say Y here to enable machine check support for IA-64.  If you're
+ 	  unsure, answer Y.
+@@ -292,43 +290,12 @@
+ 	depends on IA64_GENERIC || IA64_DIG || IA64_HP_ZX1 || IA64_SGI_SN2
+ 	default y
  
- 	ia64_get_ptce(&ptce_info);
- 	local_cpu_data->ptce_base = ptce_info.base;
-
+-config IA64_SGI_SN_DEBUG
+-	bool "Enable extra debugging code"
+-	depends on IA64_SGI_SN2
+-	help
+-	  Turns on extra debugging code in the SGI SN (Scalable NUMA) platform
+-	  for IA-64.  Unless you are debugging problems on an SGI SN IA-64 box,
+-	  say N.
+-
+ config IA64_SGI_SN_SIM
+ 	bool "Enable SGI Medusa Simulator Support"
+ 	depends on IA64_SGI_SN2
+ 	help
+ 	  If you are compiling a kernel that will run under SGI's IA-64
+ 	  simulator (Medusa) then say Y, otherwise say N.
+-
+-config IA64_SGI_AUTOTEST
+-	bool "Enable autotest (llsc). Option to run cache test instead of booting"
+-	depends on IA64_SGI_SN2
+-	help
+-	  Build a kernel used for hardware validation. If you include the
+-	  keyword "autotest" on the boot command line, the kernel does NOT boot.
+-	  Instead, it starts all cpus and runs cache coherency tests instead.
+-
+-	  If unsure, say N.
+-
+-config SERIAL_SGI_L1_PROTOCOL
+-	bool "Enable protocol mode for the L1 console"
+-	depends on IA64_SGI_SN2
+-	help
+-	  Uses protocol mode instead of raw mode for the level 1 console on the
+-	  SGI SN (Scalable NUMA) platform for IA-64.  If you are compiling for
+-	  an SGI SN box then Y is the recommended value, otherwise say N.
+-
+-config PERCPU_IRQ
+-	bool
+-	depends on IA64_SGI_SN2
+-	default y
+ 
+ # On IA-64, we always want an ELF /proc/kcore.
+ config KCORE_ELF
