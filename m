@@ -1,58 +1,65 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 02 Jul 2004 01:37:15 +0000
-Subject: [patch 2.6.7-ia64-040629] Correct invalid unwind data
-Message-Id: <3948.1088732235@kao2.melbourne.sgi.com>
+From: Tony Luck <tony.luck@intel.com>
+Date: Thu, 19 Aug 2004 17:23:46 +0000
+Subject: calling oem sal functions
+Message-Id: <4124E222.2080105@intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------080903060705030900040608"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-ASM_UNW_PRLG_GRSAVE(n) must match the number of input registers in the
-following alloc statement.  Otherwise you get invalid backtraces :(
+This is a multi-part message in MIME format.
+--------------080903060705030900040608
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+Dean,
 
-Index: 2.6.7-ia64-040629/arch/ia64/ia32/ia32_entry.S
-=================================--- 2.6.7-ia64-040629.orig/arch/ia64/ia32/ia32_entry.S	Fri Jul  2 11:22:02 2004
-+++ 2.6.7-ia64-040629/arch/ia64/ia32/ia32_entry.S	Fri Jul  2 11:26:04 2004
-@@ -32,7 +32,7 @@ ENTRY(ia32_execve)
- END(ia32_execve)
+I've been thinking about this, and it does seem unresonable that there
+is no way for an OEM written module to make a call to an OEM SAL function.
+
+Would something like the (compiles, but untested) attached patch work
+for you?  The return value of 0/-1 just indicates whether the SAL call
+was attempted.  Callers should look at the status field of the isrvp
+structure to determine the actual success of the call.
+
+Would you also need "_nolock" and "_reentrant" versions?
+
+-Tony
+
+--------------080903060705030900040608
+Content-Type: text/plain;
+ name="oemsal.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="oemsal.patch"
+
+===== arch/ia64/kernel/sal.c 1.11 vs edited =====
+--- 1.11/arch/ia64/kernel/sal.c	2004-07-09 00:11:46 +00:00
++++ edited/arch/ia64/kernel/sal.c	2004-08-19 17:02:07 +00:00
+@@ -10,6 +10,7 @@
  
- ENTRY(ia32_clone)
--	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(2)
-+	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(5)
- 	alloc r16=ar.pfs,5,2,6,0
- 	DO_SAVE_SWITCH_STACK
- 	mov loc0=rp
-Index: 2.6.7-ia64-040629/arch/ia64/kernel/pal.S
-=================================--- 2.6.7-ia64-040629.orig/arch/ia64/kernel/pal.S	Fri Jul  2 11:22:02 2004
-+++ 2.6.7-ia64-040629/arch/ia64/kernel/pal.S	Fri Jul  2 11:27:05 2004
-@@ -54,7 +54,7 @@ END(ia64_pal_default_handler)
-  *
-  */
- GLOBAL_ENTRY(ia64_pal_call_static)
--	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(6)
-+	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(5)
- 	alloc loc1 = ar.pfs,5,5,0,0
- 	movl loc2 = pal_entry_point
- 1:	{
-@@ -100,7 +100,7 @@ END(ia64_pal_call_static)
-  * 	in2 - in3   Remaning PAL arguments
-  */
- GLOBAL_ENTRY(ia64_pal_call_stacked)
--	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(5)
-+	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(4)
- 	alloc loc1 = ar.pfs,4,4,4,0
- 	movl loc2 = pal_entry_point
+ #include <linux/kernel.h>
+ #include <linux/init.h>
++#include <linux/module.h>
+ #include <linux/spinlock.h>
+ #include <linux/string.h>
  
-@@ -147,7 +147,7 @@ END(ia64_pal_call_stacked)
- 
- 
- GLOBAL_ENTRY(ia64_pal_call_phys_static)
--	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(6)
-+	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(4)
- 	alloc loc1 = ar.pfs,4,7,0,0
- 	movl loc2 = pal_entry_point
- 1:	{
+@@ -262,3 +263,15 @@
+ 		p += SAL_DESC_SIZE(*p);
+ 	}
+ }
++
++int
++oem_sal_call(struct ia64_sal_retval *isrvp, u64 oemfunc, u64 arg1, u64 arg2,
++	     u64 arg3, u64 arg4, u64 arg5, u64 arg6, u64 arg7)
++{
++	if (oemfunc < 0x02000000 || oemfunc > 0x03ffffff)
++		return -1;
++	SAL_CALL(*isrvp, oemfunc, arg1, arg2, arg3, arg4, arg5, arg6, arg7);
++	return 0;
++}
++
++EXPORT_SYMBOL(oem_sal_call);
+
+--------------080903060705030900040608--
 
