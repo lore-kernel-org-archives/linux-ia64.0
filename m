@@ -1,23 +1,55 @@
-From: "David S. Miller" <davem@davemloft.net>
-Date: Tue, 15 Mar 2005 18:40:35 +0000
-Subject: Re: bad pgd/pmd in latest BK on ia64
-Message-Id: <20050315104035.40549ea8.davem@davemloft.net>
+From: Mark Maule <maule@sgi.com>
+Date: Thu, 10 Mar 2005 21:55:38 +0000
+Subject: [PATCH 2.6.11-rc2 0/3] altix: AGP bridge support for tioca chip
+Message-Id: <20050310215538.16305.1181.18064@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F031272AF@scsmsx401.amr.corp.intel.com>
-	<20050314143442.2ab086c9.davem@davemloft.net>
-	<20050315132458.GB19113@localhost>
-In-Reply-To: <20050315132458.GB19113@localhost>
+References: <20050204213158.16671.87679.94380@attica.americas.sgi.com>
+In-Reply-To: <20050204213158.16671.87679.94380@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Martin Hicks <mort@sgi.com>
-Cc: tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Tue, 15 Mar 2005 08:24:58 -0500
-Martin Hicks <mort@sgi.com> wrote:
+Second resend of "altix: tioca chip driver (agp)" originally sent
+on 2005-02-04.  First resend was missing a Signed-off-by line in the 
+sn2-pci-dma-abstraction.patch.
 
-> It's also busted on ia64 in 2.6.11-mm3 if that narrows thing down.
+This patchset provides new hardware support for the SGI TIOCA agp chip.
 
-Not necessary, we found the problem and the fix is in Linus's
-tree.  The clear_page_range() had to be restored to using
-pgd_index() looping at the top level.
+In order to stitch this into the SGI sn2 pci dma layer, it is necessary
+to add an abstraction which is implmented by PATCH 1/3 
+(sn2-pci-dma-abstraction.patch).
+
+Additionally, a couple of header files were moved out of arch/ia64/sn
+and into include/asm-ia64/sn.  I also took the opportunity to kill some
+unused macros.  This is done by PATCH 2/3 (sn2-move-pci-headers.patch).
+
+The TIOCA driver is implemented as an sn2 pci provider with hooks 
+externalized for an upcoming agpgart backend.  The TIOCA kernel driver is
+provided with PATCH 3/3 (sn2-tioca-driver.patch).
+
+Changes from first review:
+
+sn2-pci-dma-abstraction.patch
+	Use a local provider variable to improve readability
+
+sn2-move-pci-headers.patch
+	No changes
+
+sn2-tioca-driver.patch
+	Misc. style-related cleanups
+	Remove unneeded casts
+	Fix error-case memory leak
+	Use list_for_each_entry() instead of list_for_each()
+	Use list routines for dmamap management
+	Move prom version checking to tioca_bus_fixup()
+
+	Note:  I elected to leave the EXPORT_SYMBOL's alone as they
+	are being used by our agpgart backend stub currently in
+	development.  If we end up merging everything together as it looks
+	like alpha does, then I'll yank 'em.  At a minimum, we should be
+	able to remove tioca_gart_found and just count the elements
+	in tioca_list.
+
+thanks
+Mark
