@@ -1,139 +1,219 @@
-From: Alex Williamson <alex_williamson@hp.com>
-Date: Tue, 25 Feb 2003 20:36:32 +0000
-Subject: [Linux-ia64] [PATCH] MCA updates w/o memory scrubbing
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------A370D04E991B18D29A485D46"
-Message-Id: <marc-linux-ia64-105590709805929@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Thu, 20 Feb 2003 18:03:03 +0000
+Subject: [Linux-ia64] [PATCH] 4/5 iosapic: self-documenting polarity/trigger arguments
+Message-Id: <marc-linux-ia64-105590709805890@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------A370D04E991B18D29A485D46
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Make interrupt registration functions take named constants for
+polarity and trigger mode.  Old -> new magic decoder ring:
+	polarity 0 -> IOSAPIC_POL_LOW	(#defined to 1)
+	polarity 1 -> IOSAPIC_POL_HIGH	(#defined to 0)
+	trigger 0  -> IOSAPIC_LEVEL	(#defined to 1)
+	trigger 1  -> IOSAPIC_EDGE	(#defined to 0)
 
-
-  Here's an update to the patch I sent a couple weeks ago.  I'm going
-to retract the memory scrubbing piece of the patch till I get some
-more validation that it's beneficial.  I kept the CPE polling on all
-processors, the MCA timestamp fix, and added a better mechanism for
-the CPE polling to determine if a log was found.  Previously, if an
-even number of CPE logs were retrieved, the index looked like nothing
-happened.  Feedback welcome.  Thanks,
-
-	Alex 
-
---
-Alex Williamson                                  Linux Development Lab
-alex_williamson@hp.com                                 Hewlett Packard
-970-898-9173                                          Fort Collins, CO
---------------A370D04E991B18D29A485D46
-Content-Type: text/plain; charset=us-ascii;
- name="cpe_polling_fixes.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="cpe_polling_fixes.diff"
-
---- linux-2.4.20/arch/ia64/kernel/mca.c~	2003-02-25 09:39:25.000000000 -0700
-+++ linux-2.4.20/arch/ia64/kernel/mca.c	2003-02-25 09:44:30.000000000 -0700
-@@ -45,6 +45,7 @@
- #include <linux/timer.h>
- #include <linux/module.h>
- #include <linux/kernel.h>
-+#include <linux/smp.h>
+diff -u -ur iosapic-4/arch/ia64/kernel/acpi.c iosapic-5/arch/ia64/kernel/acpi.c
+--- iosapic-4/arch/ia64/kernel/acpi.c	2003-02-18 15:33:08.000000000 -0700
++++ iosapic-5/arch/ia64/kernel/acpi.c	2003-02-19 16:50:25.000000000 -0700
+@@ -335,8 +335,8 @@
+ 						plintsrc->iosapic_vector,
+ 						plintsrc->eid,
+ 						plintsrc->id,
+-						(plintsrc->flags.polarity = 1) ? 1 : 0,
+-						(plintsrc->flags.trigger = 1) ? 1 : 0);
++						(plintsrc->flags.polarity = 1) ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
++						(plintsrc->flags.trigger = 1) ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
  
- #include <asm/machvec.h>
- #include <asm/page.h>
-@@ -53,6 +54,7 @@
- #include <asm/sal.h>
- #include <asm/mca.h>
+ 	platform_intr_list[plintsrc->type] = vector;
+ 	return 0;
+@@ -359,8 +359,8 @@
+ 		return 0;
  
-+#include <asm/processor.h>
- #include <asm/irq.h>
- #include <asm/hw_irq.h>
+ 	iosapic_override_isa_irq(p->bus_irq, p->global_irq,
+-				 (p->flags.polarity = 1) ? 1 : 0,
+-				 (p->flags.trigger = 1) ? 1 : 0);
++				 (p->flags.polarity = 1) ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
++				 (p->flags.trigger = 1) ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
+ 	return 0;
+ }
  
-@@ -160,7 +162,7 @@
- void
- ia64_mca_cpe_int_handler (int cpe_irq, void *arg, struct pt_regs *ptregs)
- {
--	IA64_MCA_DEBUG("ia64_mca_cpe_int_handler: received interrupt. vector = %#x\n", cpe_irq);
-+	IA64_MCA_DEBUG("ia64_mca_cpe_int_handler: received interrupt. CPU:%d vector = %#x\n", smp_processor_id(), cpe_irq);
+@@ -618,7 +618,7 @@
+ 	if (has_8259 && sci_irq < 16)
+ 		return 0;	/* legacy, no setup required */
  
- 	/* Get the CMC error record and log it */
- 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE, 0);
-@@ -797,6 +799,7 @@
- {
- 	spinlock_t	isl_lock;
- 	int		isl_index;
-+	unsigned long	isl_count;
- 	ia64_err_rec_t  *isl_log[IA64_MAX_LOGS]; /* need space to store header + error log */
- } ia64_state_log_t;
+-	iosapic_register_intr(sci_irq, 0, 0);
++	iosapic_register_intr(sci_irq, IOSAPIC_POL_LOW, IOSAPIC_LEVEL);
+ 	return 0;
+ }
  
-@@ -813,11 +816,28 @@
- #define IA64_LOG_NEXT_INDEX(it)    ia64_state_log[it].isl_index
- #define IA64_LOG_CURR_INDEX(it)    1 - ia64_state_log[it].isl_index
- #define IA64_LOG_INDEX_INC(it) \
--    ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index
-+    {ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index; \
-+    ia64_state_log[it].isl_count++;}
- #define IA64_LOG_INDEX_DEC(it) \
-     ia64_state_log[it].isl_index = 1 - ia64_state_log[it].isl_index
- #define IA64_LOG_NEXT_BUFFER(it)   (void *)((ia64_state_log[it].isl_log[IA64_LOG_NEXT_INDEX(it)]))
- #define IA64_LOG_CURR_BUFFER(it)   (void *)((ia64_state_log[it].isl_log[IA64_LOG_CURR_INDEX(it)]))
-+#define IA64_LOG_COUNT(it)         ia64_state_log[it].isl_count
-+
-+/*
-+ *  ia64_mca_cpe_int_caller
-+ *
-+ * 	Call CPE interrupt handler, only purpose is to have a
-+ * 	smp_call_function callable entry.
-+ *
-+ * Inputs   :	dummy(unused)
-+ * Outputs  :	None
-+ * */
-+static void
-+ia64_mca_cpe_int_caller(void *dummy)
-+{
-+	ia64_mca_cpe_int_handler(0, NULL, NULL);
-+}
+@@ -681,7 +681,7 @@
+ 			 (spcr->global_int[1] << 8)  |
+ 			 (spcr->global_int[0])  );
  
- /*
-  *  ia64_mca_cpe_poll
-@@ -832,19 +852,20 @@
+-		vector = iosapic_register_intr(gsi, 1, 1);
++		vector = iosapic_register_intr(gsi, IOSAPIC_POL_HIGH, IOSAPIC_EDGE);
+ 	}
+ 	return 0;
+ }
+@@ -849,7 +849,8 @@
+ 		return 0;
+ 
+ 	/* Turn it on */
+-	vector = iosapic_register_intr (gsi, polarity, trigger);
++	vector = iosapic_register_intr (gsi, polarity ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW,
++			trigger ? IOSAPIC_EDGE : IOSAPIC_LEVEL);
+ 	return vector;
+ }
+ 
+diff -u -ur iosapic-4/arch/ia64/kernel/iosapic.c iosapic-5/arch/ia64/kernel/iosapic.c
+--- iosapic-4/arch/ia64/kernel/iosapic.c	2003-02-18 15:26:54.000000000 -0700
++++ iosapic-5/arch/ia64/kernel/iosapic.c	2003-02-18 15:30:34.000000000 -0700
+@@ -444,7 +444,7 @@
+ 
  static void
- ia64_mca_cpe_poll (unsigned long dummy)
+ register_intr (unsigned int gsi, int vector, unsigned char delivery,
+-	       unsigned long polarity, unsigned long edge_triggered)
++	       unsigned long polarity, unsigned long trigger)
  {
--	int start_index;
-+	int start_count;
- 	static int poll_time = MAX_CPE_POLL_INTERVAL;
+ 	irq_desc_t *idesc;
+ 	struct hw_interrupt_type *irq_type;
+@@ -464,18 +464,16 @@
  
--	start_index = IA64_LOG_CURR_INDEX(SAL_INFO_TYPE_CPE);
-+	start_count = IA64_LOG_COUNT(SAL_INFO_TYPE_CPE);
+ 	rte_index = gsi - gsi_base;
+ 	iosapic_intr_info[vector].rte_index = rte_index;
+-	iosapic_intr_info[vector].polarity = polarity ? IOSAPIC_POL_HIGH : IOSAPIC_POL_LOW;
++	iosapic_intr_info[vector].polarity = polarity;
+ 	iosapic_intr_info[vector].dmode    = delivery;
+ 	iosapic_intr_info[vector].addr     = iosapic_address;
+ 	iosapic_intr_info[vector].gsi_base = gsi_base;
++	iosapic_intr_info[vector].trigger  = trigger;
  
- 	/* Call the interrupt handler */
--	ia64_mca_cpe_int_handler(0, NULL, NULL);
-+	smp_call_function(ia64_mca_cpe_int_caller, NULL, 1, 1);
-+	ia64_mca_cpe_int_caller(NULL);
+-	if (edge_triggered) {
+-		iosapic_intr_info[vector].trigger = IOSAPIC_EDGE;
++	if (trigger = IOSAPIC_EDGE)
+ 		irq_type = &irq_type_iosapic_edge;
+-	} else {
+-		iosapic_intr_info[vector].trigger = IOSAPIC_LEVEL;
++	else
+ 		irq_type = &irq_type_iosapic_level;
+-	}
  
- 	/*
- 	 * If a log was recorded, increase our polling frequency,
- 	 * otherwise, backoff.
- 	 */
--	if (start_index != IA64_LOG_CURR_INDEX(SAL_INFO_TYPE_CPE)) {
-+	if (start_count != IA64_LOG_COUNT(SAL_INFO_TYPE_CPE)) {
- 		poll_time = max(MIN_CPE_POLL_INTERVAL, poll_time/2);
- 	} else {
- 		poll_time = min(MAX_CPE_POLL_INTERVAL, poll_time * 2);
-@@ -1077,7 +1098,7 @@
+ 	idesc = irq_desc(vector);
+ 	if (idesc->handler != irq_type) {
+@@ -493,7 +491,7 @@
+  */
+ int
+ iosapic_register_intr (unsigned int gsi,
+-		       unsigned long polarity, unsigned long edge_triggered)
++		       unsigned long polarity, unsigned long trigger)
  {
- 	prfunc("+Err Record ID: %d    SAL Rev: %2x.%02x\n", lh->id,
- 		lh->revision.major, lh->revision.minor);
--	prfunc("+Time: %02x/%02x/%02x%02x %02d:%02d:%02d    Severity %d\n",
-+	prfunc("+Time: %02x/%02x/%02x%02x %02x:%02x:%02x    Severity %d\n",
- 		lh->timestamp.slh_month, lh->timestamp.slh_day,
- 		lh->timestamp.slh_century, lh->timestamp.slh_year,
- 		lh->timestamp.slh_hour, lh->timestamp.slh_minute,
-
---------------A370D04E991B18D29A485D46--
+ 	int vector;
+ 	unsigned int dest = (ia64_get_lid() >> 16) & 0xffff;
+@@ -503,11 +501,11 @@
+ 		vector = ia64_alloc_vector();
+ 
+ 	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
+-		      polarity, edge_triggered);
++		      polarity, trigger);
+ 
+ 	printk(KERN_INFO "GSI 0x%x(%s,%s) -> CPU 0x%04x vector %d\n",
+-	       gsi, (polarity ? "high" : "low"),
+-	       (edge_triggered ? "edge" : "level"), dest, vector);
++	       gsi, (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
++	       (trigger = IOSAPIC_EDGE ? "edge" : "level"), dest, vector);
+ 
+ 	/* program the IOSAPIC routing table */
+ 	set_rte(vector, dest);
+@@ -521,7 +519,7 @@
+ int
+ iosapic_register_platform_intr (u32 int_type, unsigned int gsi,
+ 				int iosapic_vector, u16 eid, u16 id,
+-				unsigned long polarity, unsigned long edge_triggered)
++				unsigned long polarity, unsigned long trigger)
+ {
+ 	unsigned char delivery;
+ 	int vector;
+@@ -551,11 +549,11 @@
+ 	}
+ 
+ 	register_intr(gsi, vector, delivery, polarity,
+-		      edge_triggered);
++		      trigger);
+ 
+ 	printk(KERN_INFO "PLATFORM int 0x%x: GSI 0x%x(%s,%s) -> CPU 0x%04x vector %d\n",
+-	       int_type, gsi, (polarity ? "high" : "low"),
+-	       (edge_triggered ? "edge" : "level"), dest, vector);
++	       int_type, gsi, (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
++	       (trigger = IOSAPIC_EDGE ? "edge" : "level"), dest, vector);
+ 
+ 	/* program the IOSAPIC routing table */
+ 	set_rte(vector, dest);
+@@ -570,18 +568,18 @@
+ void
+ iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
+ 			  unsigned long polarity,
+-			  unsigned long edge_triggered)
++			  unsigned long trigger)
+ {
+ 	int vector;
+ 	unsigned int dest = (ia64_get_lid() >> 16) & 0xffff;
+ 
+ 	vector = isa_irq_to_vector(isa_irq);
+ 
+-	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, polarity, edge_triggered);
++	register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, polarity, trigger);
+ 
+ 	DBG("ISA: IRQ %u -> GSI 0x%x (%s,%s) -> CPU 0x%04x vector %d\n",
+ 	    isa_irq, gsi,
+-	    polarity ? "high" : "low", edge_triggered ? "edge" : "level",
++	    polarity = IOSAPIC_POL_HIGH ? "high" : "low", trigger = IOSAPIC_EDGE ? "edge" : "level",
+ 	    dest, vector);
+ 
+ 	/* program the IOSAPIC routing table */
+@@ -641,8 +639,7 @@
+ 		 * Override table.
+ 		 */
+ 		for (isa_irq = 0; isa_irq < 16; ++isa_irq)
+-			/* IOSAPIC_POL_HIGH, IOSAPIC_EDGE */
+-			iosapic_override_isa_irq(isa_irq, isa_irq, 1, 1);
++			iosapic_override_isa_irq(isa_irq, isa_irq, IOSAPIC_POL_HIGH, IOSAPIC_EDGE);
+ 	}
+ }
+ 
+@@ -718,7 +715,7 @@
+ 				/* new GSI; allocate a vector for it */
+ 				vector = ia64_alloc_vector();
+ 
+-			register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, 0, 0);
++			register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY, IOSAPIC_POL_LOW, IOSAPIC_LEVEL);
+ 		}
+ 		snprintf(pci_id, sizeof(pci_id), "%02x:%02x:%02x[%c]",
+ 			 entry->id.segment, entry->id.bus, entry->id.device, 'A' + entry->pin);
+diff -u -ur iosapic-4/include/asm-ia64/iosapic.h iosapic-5/include/asm-ia64/iosapic.h
+--- iosapic-4/include/asm-ia64/iosapic.h	2003-02-18 15:11:00.000000000 -0700
++++ iosapic-5/include/asm-ia64/iosapic.h	2003-02-18 15:27:45.000000000 -0700
+@@ -58,16 +58,16 @@
+ extern int gsi_to_irq (unsigned int gsi);
+ extern void iosapic_parse_prt (void);
+ extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
+-				  unsigned long edge_triggered);
++				  unsigned long trigger);
+ extern void iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
+ 				      unsigned long polarity,
+-				      unsigned long edge_triggered);
++				      unsigned long trigger);
+ extern int iosapic_register_platform_intr (u32 int_type,
+ 					   unsigned int gsi,
+ 					   int pmi_vector,
+ 					   u16 eid, u16 id,
+ 					   unsigned long polarity,
+-					   unsigned long edge_triggered);
++					   unsigned long trigger);
+ extern unsigned int iosapic_version (char *addr);
+ 
+ extern void iosapic_pci_fixup (int);
 
 
