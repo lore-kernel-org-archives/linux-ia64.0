@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 20 Oct 2003 17:42:26 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 20 Oct 2003 18:48:27 +0000
 Subject: Re: [RFC] prevent "dd if=/dev/mem" crash
-Message-Id: <marc-linux-ia64-106667188118697@msgid-missing>
+Message-Id: <marc-linux-ia64-106667573723954@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106642876514553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106642876514553@msgid-missing>
@@ -10,78 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Friday 17 October 2003 5:55 pm, Andrew Morton wrote:
-> Still, the code you have is quite reasonable.  But please structure it
-> thusly:
-> ...
+>>>>> On Mon, 20 Oct 2003 09:17:10 -0600, Bjorn Helgaas <bjorn.helgaas@hp.com> said:
 
-Here's a patch structured that way.
+  Bjorn> On Friday 17 October 2003 6:21 pm, David Mosberger wrote:
+  >> What about memory-mapped device registers?  Isn't all memory
+  >> physically contiguous on x86 and that's why the "p >  >> __pa(high_memory)" test saves you from that?
 
-> As for return values: if the requested read or write starts at a
-> not-present address it should probably return -EFAULT.  This is what ia32
-> will do.  Arguably this is indistinguishable from a bad address on the
-> userspace side and we should return -EINVAL but whatever.
+  Bjorn> As others have mentioned, using read/write on /dev/mem to get
+  Bjorn> at memory-mapped registers is unlikely to work on ia64
+  Bjorn> anyway, because read/write use cacheable mappings.  Using
+  Bjorn> mmap does work (using uncacheable mappings), and my patch
+  Bjorn> doesn't change that path.
 
-I made it return -EFAULT.  I worry a little bit because ia32
-returned 0 (short read) when (addr >= high_memory) before,
-but I don't have a strong opinion one way or the other.
+True, I just find this whole thing rather disgusting: different
+behavior for read/write vs. mmap; but you're right, it's nothing
+new and probably the most pragmatic "solution".
 
-=== drivers/char/mem.c 1.44 vs edited ==--- 1.44/drivers/char/mem.c	Sun Sep 21 15:50:34 2003
-+++ edited/drivers/char/mem.c	Mon Oct 20 10:43:08 2003
-@@ -79,6 +79,22 @@
- #endif
- }
- 
-+#ifndef ARCH_HAS_VALID_PHYS_ADDR_RANGE
-+static inline int valid_phys_addr_range(unsigned long addr, size_t *count)
-+{
-+	unsigned long end_mem;
-+
-+	end_mem = __pa(high_memory);
-+	if (addr >= end_mem)
-+		return 0;
-+
-+	if (*count > end_mem - addr)
-+		*count = end_mem - addr;
-+
-+	return 1;
-+}
-+#endif
-+
- static ssize_t do_write_mem(struct file * file, void *p, unsigned long realp,
- 			    const char * buf, size_t count, loff_t *ppos)
- {
-@@ -113,14 +129,10 @@
- 			size_t count, loff_t *ppos)
- {
- 	unsigned long p = *ppos;
--	unsigned long end_mem;
- 	ssize_t read;
- 
--	end_mem = __pa(high_memory);
--	if (p >= end_mem)
--		return 0;
--	if (count > end_mem - p)
--		count = end_mem - p;
-+	if (!valid_phys_addr_range(p, &count))
-+		return -EFAULT;
- 	read = 0;
- #if defined(__sparc__) || (defined(__mc68000__) && defined(CONFIG_MMU))
- 	/* we don't have page 0 mapped on sparc and m68k.. */
-@@ -149,13 +161,9 @@
- 			 size_t count, loff_t *ppos)
- {
- 	unsigned long p = *ppos;
--	unsigned long end_mem;
- 
--	end_mem = __pa(high_memory);
--	if (p >= end_mem)
--		return 0;
--	if (count > end_mem - p)
--		count = end_mem - p;
-+	if (!valid_phys_addr_range(p, &count))
-+		return -EFAULT;
- 	return do_write_mem(file, __va(p), p, buf, count, ppos);
- }
- 
+  Bjorn> I bet that ia32 does have page tables for this case, and that
+  Bjorn> an attempt to read non-existent physical memory will cause a
+  Bjorn> TLB miss from which copy_*_user() can easily recover.
 
+True, but even this doesn't help for MMIO space, where a device may
+decode less than a full page.  So you'd still end up accessing address
+holes.  Just that x86 returns garbage in that case (I think).
+
+	--david
