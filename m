@@ -1,43 +1,28 @@
-From: Thomas Hiller <thomas.hiller@sap.com>
-Date: Wed, 28 Mar 2001 08:09:58 +0000
-Subject: [Linux-ia64] Error messages during link step
-Message-Id: <marc-linux-ia64-105590693005360@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Wed, 28 Mar 2001 11:44:44 +0000
+Subject: Re: [Linux-ia64] Error messages during link step
+Message-Id: <marc-linux-ia64-105590693005361@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005360@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005360@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Thomas Hiller <thomas.hiller@sap.com> writes:
 
-I get the following messages during linking:
+|> @gprel relocation against dynamic symbol rstrswbptr
 
-Dwarf Error: Could not find abbrev number 51. (same message with other numbers)
+This is most likely due to trying to link a non-PIC object into a shared
+library.   All code in a shared libarary must be compiled with -fPIC.
 
-abclib.o(.IA_64.unwind_info+0x51658): unsupported reloc
+Andreas.
 
-@gprel relocation against dynamic symbol rstrswbptr
-
-What is the cause for this ?
-
-I'm using:
-
-GNU ld version 2.9-ia64-000717 (with BFD 2.9-ia64-000717)
-
-gcc version 2.96-ia64-000717 snap 001117
-
-Suse 20010309
-
-Regards,
-
-Thomas
-
---
-Thomas Hiller                                           thomas.hiller@compaq.com
-COMPAQ Computer Corporation                             thomas.hiller@sap.com
-Global SAP Solution Center                              Tel: +49 6227 / 7-45426
-LinuxLab @ SAP, Walldorf                                Fax: +49 6227 / 7-55426
-
-
-
+--=20
+Andreas Schwab                                  "And now for something
+SuSE Labs                                        completely different."
+Andreas.Schwab@suse.de
+SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
 
