@@ -1,85 +1,44 @@
-From: "Seth, Rohit" <rohit.seth@intel.com>
-Date: Tue, 15 Mar 2005 17:43:31 +0000
-Subject: Mprotect needs arch hook for updated PTE settings
-Message-Id: <01EF044AAEE12F4BAAD955CB75064943032C6020@scsmsx401.amr.corp.intel.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Wed, 16 Mar 2005 12:58:04 +0000
+Subject: Re: Mprotect needs arch hook for updated PTE settings
+Message-Id: <42382D5C.1030104@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <01EF044AAEE12F4BAAD955CB75064943032C6020@scsmsx401.amr.corp.intel.com>
+In-Reply-To: <01EF044AAEE12F4BAAD955CB75064943032C6020@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-Cc: davidm@hpl.hp.com
+To: "Seth, Rohit" <rohit.seth@intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, davidm@hpl.hp.com
 
-Recently on IA-64, we have found an issue where old data could be used
-by apps.  The sequence of operations includes few mprotects from user
-space (glibc) goes like this:
+An application should not change the protection of its _own_ text region
+without knowing well the requirements of the given architecture.
+I do not think we should add anything into the kernel for this case.
 
-1- The text region of an executable is mmaped using PROT_READ|PROT_EXEC.
-As a result, a shared page is allocated to user.
+I did see /lib/ld-linux-ia64.so.* changing the protection of the text
+segment of the _victim_ application, when it linked the library references.
+ld-linux-ia64.so.* changes the protection for the whole text segment
+(otherwise, as the protection is per VMA, it would result in a VMA
+fragmentation).
+The text segment can be huge. There is no reason to flush all the text
+segment every time when ld-linux-ia64.so.* patches an instruction and
+changes the protection.
 
-2- User then requests the text region to be mprotected with
-PROT_READ|PROT_WRITE.   Kernel removes the execute permission and leave
-the read permission on the text region.
+I think the solution should consist of these two measures:
 
-3- Subsequent write operation by user results in page fault and
-eventually resulting in COW break. User gets a new private copy of the
-page.  At this point kernel marks the new page for defered flush. 
+1. Let's say that if an VMA is "executable", then it remains "executable"
+   for ever, i.e. the mprotect() keeps the PROT_EXEC bit.
+   As a result, if a page is faulted in for this VMA in the mean time, the
+   old good mechanism makes sure that the I-caches are flushed.
 
-4- User then request the text region to be mprotected back with
-PROT_READ|PROT_EXEC.  mprotect suppport code in kernel, flushes the
-caches, updates the PTEs and then flushes the TLBs.  Though after
-updating the PTEs  with new permissions,  we don't let the arch specific
-code know about the new mappings (through update_mmu_cache like
-routine).  IA-64 typically uses update_mmu_cache to check for the
-defered flush flag (that got set in step 3) to maintain cache coherency
-lazily (The local I and D caches on IA-64 are incoherent).  
+2. Let's modify ld-linux-<arch>.so.*: having patched an instruction, it
+   should take the appropriate, architecture dependent measure, e.g. for
+   ia64, it should issue an "fc" instruction.
 
-DavidM suggeested that we would need to add a hook in the function
-change_pte_range in mm/mprotect.c  This would let the architecture
-specific code to look at the new ptes to decide if it needs to update
-any other architectual/kernel state based on the updated (new
-permissions) PTE values.
+   (Who cares for a debugger ? It should know what it does ;-).)
 
-Please let me know your comments.
+I think there is no need for any extra flushes.
 
-A prototype patch including the support for IA-64 goes as follows:
+Thanks,
 
---- linux-2.6.10/mm/mprotect.c  2004-12-24 13:35:50.000000000 -0800
-+++ linux-2.6.10.work/mm/mprotect.c     2005-03-14 23:51:01.511553704
--0800
-@@ -46,14 +46,16 @@
-                end = PMD_SIZE;
-        do {
-                if (pte_present(*pte)) {
--                       pte_t entry;
-+                       pte_t entry, nentry;
-
-                        /* Avoid an SMP race with hardware updated
-dirty/clean
-                         * bits by wiping the pte and then setting the
-new pte
-                         * into place.
-                         */
-                        entry = ptep_get_and_clear(pte);
--                       set_pte(pte, pte_modify(entry, newprot));
-+                       nentry = pte_modify(entry, newprot);
-+                       set_pte(pte, nentry);
-+                       lazy_mmu_update(pte, entry, nentry);
-                }
-                address += PAGE_SIZE;
-                pte++;
---- linux-2.6.10/arch/ia64/mm/init.c    2004-12-24 13:34:32.000000000
--0800
-+++ linux-2.6.10.work/arch/ia64/mm/init.c       2005-03-15
-00:16:21.880422504 -0800
-@@ -95,6 +95,11 @@
-        set_bit(PG_arch_1, &page->flags);       /* mark page as clean */
- }
-
-+void
-+lazy_mmu_update(pte_t *pte, pte_t opte, pte_t npte)
-+{
-+       update_mmu_cache(NULL, 0, npte);
-+}
- inline void
- ia64_set_rbs_bot (void)
- {
+Zoltan Menyhart
