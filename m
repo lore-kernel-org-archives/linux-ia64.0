@@ -1,47 +1,79 @@
-From: Pete Wyckoff <pw@osc.edu>
-Date: Thu, 02 Nov 2000 19:37:34 +0000
-Subject: [Linux-ia64] gdb null ptr
-Message-Id: <marc-linux-ia64-105590678205646@msgid-missing>
+From: Hirofumi Fujita <h-fujita@ebina.hitachi.co.jp>
+Date: Fri, 17 Nov 2000 02:48:17 +0000
+Subject: [Linux-ia64] Re: SW IO TLB buffer management in kernel test10
+Message-Id: <marc-linux-ia64-105590678205738@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-This is probably the wrong place to fix the bug, but it keeps gdb
-from crashing on codes created using sgif90 (Version 0.01.0-11).
+Thanks. I understand the problem.
 
-The type structure which causes the problem has null for both name and
-tag_name.  I didn't look far enough to figure out why.  Code in question
-is tag_type_to_type called from die_type.
+I tried the patch but swiotlb=8192 option is needed to successfully
+format 4GB ext2 partition, otherwise kernel panics.
 
-Patch against snap-001024 with patches from README.glibc213 and
-patch.02[7-9].
+I don't know why such huge buffer is needed.
 
-How was I using it?  Start the mpi code, attach it with gdb, wait for
-the FPE to arrive, "Segmentation fault" without patch.  With patch,
+Hirofumi Fujita
+Hitachi, Ltd.
 
-    Program received signal SIGFPE, Arithmetic exception.
-    0x400000000002c292 in output (ISTATE=CAnnot access memory at address 0x0
-    ) at put.F:91
-    91                    gf(i,ic) =3D gf(i,ic) +
+>=20
+> Hello,
+> From: Hirofumi Fujita <h-fujita@ebina.hitachi.co.jp>
+> Subject: [Linux-ia64] SW IO TLB buffer management in kernel test10
+> Date: Wed, 15 Nov 2000 17:15:52 +0900
+>=20
+>> there seems to be a problem on buffer management of SW IO TLB.
+>> The contents of io_tlb_list[] become broken.
+> ...
+>> I applied the attached patch and kernel panic when mke2fs /dev/sda4.
+>> (QLogic BIOS setting: >4GB addressing is disabled)
+>> Kernel panic: __pci_map_single: could not allocate software IO TLB (1638=
+4 bytes)
+>> At this time, io_tlb_list[] are almost 0.
+> ...
+>> With swiotlb=8192 option, mke2fs successes,
+>> but 60% of io_tlb_list[] remain 0 after mke2fs finished.
+>> This is because pci_unmap is not called correctly ?
+>=20
+> I think it's because your patch makes pci_unmap do nothing on io_tlb_list=
+[].
+> In __pci_unmap_single, making 2 steps apart has its meaning.
+>=20
+> The patch should be something like this?
 
-istate is an (implicit) integer*4 parameter passed to subroutine output.
 
-		-- Pete
-
-
---- src/gdb/dwarf2read.c.orig	Thu Nov  2 14:28:21 2000
-+++ src/gdb/dwarf2read.c	Thu Nov  2 14:28:34 2000
-@@ -4522,7 +4522,7 @@
- 	    {
- 	      const char *nameoftype;
- 	      nameoftype =3D TYPE_NAME(dwarf2_cached_types[hashval]) =3D NULL ? T=
-YPE_TAG_NAME(dwarf2_cached_types[hashval]) : TYPE_NAME(dwarf2_cached_types[=
-hashval]);
--	      if (strcmp(attrname, nameoftype) =3D 0)
-+	      if (nameoftype && strcmp(attrname, nameoftype) =3D 0)
- 		{
- 		  die->type=3Ddwarf2_cached_types[hashval];
- 		}
+--- arch/ia64/kernel/pci-dma.c	2000/11/07 06:49:39	1.1.1.4.2.1
++++ arch/ia64/kernel/pci-dma.c	2000/11/15 13:50:28
+@@ -109,7 +109,8 @@
+ {
+ 	unsigned long flags;
+ 	char *dma_addr;
+-	unsigned int i, nslots, stride, index, wrap;
++	unsigned int nslots, stride, index, wrap, count;
++	int i;
+=20
+ 	/*
+ 	 * For mappings greater than a page size, we limit the stride (and hence =
+alignment)
+@@ -133,7 +134,7 @@
+ 		wrap =3D index =3D ALIGN(io_tlb_index, stride);
+=20
+ 		if (index >=3D io_tlb_nslabs)=20
+-			index =3D 0;
++			wrap =3D index =3D 0;
+=20
+ 		do {
+ 			/*
+@@ -144,6 +145,9 @@
+ 			if (io_tlb_list[index] >=3D nslots) {
+ 				for (i =3D index; i < index + nslots; i++)
+ 					io_tlb_list[i] =3D 0;
++				count =3D 0;
++				for (i =3D index - 1; (i >=3D 0) && io_tlb_list[i]; i--)
++					io_tlb_list[i] =3D ++count;
+ 				dma_addr =3D io_tlb_start + (index << IO_TLB_SHIFT);
+=20
+ 				/*
 
