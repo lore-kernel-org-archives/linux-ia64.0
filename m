@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 23 Sep 2003 20:00:03 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Tue, 23 Sep 2003 20:38:19 +0000
 Subject: Re: NS83820 2.6.0-test5 driver seems unstable on IA64
-Message-Id: <marc-linux-ia64-106439024820366@msgid-missing>
+Message-Id: <marc-linux-ia64-106435005618770@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106394503001622@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106394503001622@msgid-missing>
@@ -10,32 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 23 Sep 2003 12:10:44 -0700, "David S. Miller" <davem@redhat.com> said:
+On Tue, Sep 23, 2003 at 11:51:22AM -0700, David S. Miller wrote:
+> > Even x86 pays at least a one cycle penalty for every misaligned access.
+> 
+> Yes, one cycle, and it's completely lost in the noise when it happens.
 
-  >> Look, this may be difficult for you to understand, but different
-  >> people find different policies useful.
+Depends on the app - for the networking stack, I agree.
 
-  David> You, sure.  But you are not the only user of the ia64 port just
-  David> as I am not the only user of the sparc64 port and if sparc64 generated
-  David> diagnostic messages not useful to people other than me I'd have to
-  David> quiet them by default.
+To revisit Ben's comment: if we know something is likely to be misaligned,
+a RISC processor can efficiently load both parts and merge them (one cycle
+penalty vs a regular aligned load). Given misaligned accesses are infrequent
+enough to affect performance, it makes sense to do this in SW because
+it reduces cost of the HW design/test/mfg cycles.
 
-But they _are_ useful.  Peter certainly noticed very quickly that
-there was a problem with the ns83820 driver.  Do you think it would
-have been better for the kernel to run silently at greatly degraded
-performance?  I think not.
+...
+> It is an unavoidable axoim in the kernel networking.  Unaligned accesses
+> will happen, and they aren't a bug and therefore not worthy of mention
+> in the kernel logs any more than "page was freed" :-)
 
-The optimistic assumption that the network stack is making about
-headers being aligned works as long as unaligned headers are
-relatively rare.  If unaligned headers are common, we'll have to do
-something about that for ia64 (and Alpha, SPARC, PA-RISC, MIPS, etc.),
-because performance will otherwise suck.
+Ok. If the kernel networking stack used get_unaligned() in the one place
+Peter originally found, x86/sparc64?/et al wouldn't see a difference.
+It would avoid traps on ia64 and parisc.  Bad idea?
+Any other arches it might help/hurt on?
 
-BTW: Peter, I'm not quite sure I understand why your machine got into
-real problems because of the printks.  The messages are supposed to be
-rated limited to at most 5 per 5 second interval.  Each message is
-about 80 bytes in size, so we're talking about 80 bytes/s.  Do you
-know what really went wrong here?  Did the rate limiting not work as
-expected or is there something strange about your setup?
-
-	--david
+grant
