@@ -1,7 +1,7 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Wed, 28 Jan 2004 23:57:49 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 29 Jan 2004 00:38:39 +0000
 Subject: Re: [PATCH] - Improve SN2 TLB flushing algorithms
-Message-Id: <16408.19581.3185.272432@wombat.chubb.wattle.id.au>
+Message-Id: <16408.22031.116929.993415@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040128205912.GA27401@sgi.com>
 In-Reply-To: <20040128205912.GA27401@sgi.com>
@@ -10,34 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Jack" = Jack Steiner <steiner@SGI.com> writes:
+Jack,
 
-Jack> On Wed, Jan 28, 2004 at 09:17:59PM +0000, Christoph Hellwig
-Jack> wrote:
->> On Wed, Jan 28, 2004 at 02:59:12PM -0600, Jack Steiner wrote: >
->> +#ifdef CONFIG_NUMA > + cpus_clear(mm->cpu_vm_mask); > +#endif
->> 
->> I really hate this ifdefs all over the place.  Does this really
->> hurt that much on non-NUMA systems?  Also SN2 seems to use this
->> code always so CONFIG_NUMA looks like the wrong ifdef to me.
+As others pointed out, the CONFIG_NUMA are rather ugly here:
 
-Jack> Are you suggesting that we remove the #ifdef OR hide the code in
-Jack> a function that, depending on config options, may or may not do
-Jack> anything?
+ > @@ -106,6 +107,9 @@
+ >  		/* re-check, now that we've got the lock: */
+ >  		context = mm->context;
+ >  		if (context = 0) {
+ > +#ifdef CONFIG_NUMA
+ > +			cpus_clear(mm->cpu_vm_mask);
+ > +#endif
+ >  			if (ia64_ctx.next >= ia64_ctx.limit)
+ >  				wrap_mmu_context(mm);
+ >  			mm->context = context = ia64_ctx.next++;
+ > @@ -170,6 +174,10 @@
+ >  	do {
+ >  		context = get_mmu_context(mm);
+ >  		MMU_TRACE('A', smp_processor_id(), mm, context);
+ > +#ifdef CONFIG_NUMA
+ > +		if (!cpu_isset(smp_processor_id(), mm->cpu_vm_mask))
+ > +			cpu_set(smp_processor_id(), mm->cpu_vm_mask);
+ > +#endif
+ >  		reload_context(context);
+ >  		MMU_TRACE('a', smp_processor_id(), mm, context);
+ >  		/* in the unlikely event of a TLB-flush by another thread, redo the load: */
 
-Jack> The code is needed on kernels built for SN2. That includes both
-Jack> CONFIG_IA64_GENERIC & CONFIG_IA64_SGI_SN2. I agree that
-Jack> CONFIG_NUMA is not a great choice but nothing else seemed
-Jack> appropriate.
+I'd be OK with unconditionally maintaining cpu_vm_mask but only if
+cpu_vm_mask falls into the same cache-line as mm->context.  AFAIK,
+this _used_ to be the case, but recently some (large) members were
+added between "cpu_vm_mask" and "context".  I suspect that's just a
+mistake.  Could you float a patch on lkml to fix this?
 
-As CONFIG_IA64_GENERIC is a superset of CONFIG_IA64_SGI_SN2
-why not make CONFIG_IA64_GENERIC turn on CONFIG_IA64_SGI_SN2   and
-then only test for the latter.
-
-And yes, using a function that disappears or does nothing on platforms
-for which it is inappropriate is a better approach than littering
-#ifdefs though the code.
-
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+	--david
