@@ -1,40 +1,35 @@
-From: Chris McDermott <lcm@us.ibm.com>
-Date: Tue, 11 Dec 2001 19:15:11 +0000
-Subject: Re: [Linux-ia64] Hard "hangs" with 2.4.16
-Message-Id: <marc-linux-ia64-105590698805683@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 11 Dec 2001 05:44:33 +0000
+Subject: [Linux-ia64] Re: new GPT and uuid patches
+Message-Id: <marc-linux-ia64-105590698805681@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805665@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805665@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David,
+>>>>> On Mon, 10 Dec 2001 22:17:06 -0600, Matt_Domsch@Dell.com said:
 
-Thanks for the suggestion. The latest F/W I have is 97B. I upgraded to 
-this revision and it fixed the problem. It appears that anyone wishing 
-to run Linux kernels > 2.4.10 on Intel Lion SDVs must use an unsupported
-BIOS.  Intel, through their Merced SDV program, will apparently not 
-support a BIOS greater than 83B. The later BIOS builds are reserved for 
-use on OEM platforms only. So, I would assume that if you do install
-the unsupported BIOS and your SDV dies, you would not be able to get
-support from Intel. Would anyone from Intel care to confirm this?
+  Matt> to be useful in more places.  I withdraw my previous patch
+  Matt> implementing uuid.[ch] as libraries, letting efi_guid_t remain
+  Matt> it's own unique thing.  It was hard enough getting the crc32
+  Matt> library patch submitted, making other non-critical library
+  Matt> cleanups is more than I can handle ATM.
 
-Thanks,
+Most of the patch looks good to me, but I do not understand why you
+want to use a structured type for GUID.  This really does make the
+whole store much more complicated than it has to be.  As per our
+earlier discussion with Linus and Alan, the GUID should be just an
+unstructured sequence of 16 bytes.  If you do that, all those ugly
+conversion routines can go away and your head doesn't spin trying to
+figure out what needs to be big-endian and what needs to be little
+endian.  The *only* thing that needs to be endian aware is the
+parsing/printing routines.  Those will be EFI GUID specific and will
+have to make up for the mistake Intel made when defining the external
+representation in the weird mixed byteorder (well, I'm assuming it was
+a mistake; I don't assume someone would willfully do such a thing ;-).
+The other benefit is that this will make GUIDs identical to UUIDs
+(which they ought be), except for the external representation.
 
-Chris
-
-On Mon, Dec 10, 2001 at 16:01 -0800, David Mosberger wrote: 
-> >>>>> On Mon, 10 Dec 2001 14:49:45 -0800, Chris McDermott <lcm@us.ibm.com> said:
-> 
->   Chris> Jack,
->   Chris> Looks like my problem is something else. This patch didn't
->   Chris> correct the problem.
-> 
-> My guess is you need newer firmware.  Try 99 or whatever else is the
-> latest.  (This firmware may still be hard to get; I didn't check
-> recently.)
-> 
-> 	--david
+	--david
 
