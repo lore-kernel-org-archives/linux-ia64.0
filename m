@@ -1,25 +1,32 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 28 Jun 2003 06:00:21 +0000
-Subject: out next week
-Message-Id: <marc-linux-ia64-105678003306577@msgid-missing>
+Date: Wed, 18 Jun 2003 18:50:28 +0000
+Subject: Re: [patch] input: Fix CLOCK_TICK_RATE usage ...  [8/13]
+Message-Id: <marc-linux-ia64-105596232527176@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Next week (from June 30th on) I'll be on vacation.  I pushed my latest
-tree into the linux-ia64-2.5 bk repository and the autopatch at:
+>>>>> On Wed, 18 Jun 2003 09:47:44 -0500, Hollis Blanchard <hollisb@us.ibm.com> said:
 
- ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/testing/cset/index.html
+  Hollis> On Tuesday, Jun 17, 2003, at 18:24 US/Central, David Mosberger wrote:
+  >> #ifdef CONFIG_LEGACY_HW
+  >> # define PIT_FREQ	1193182
+  >> # define LATCH		((CLOCK_TICK_RATE + HZ/2) / HZ)
+  >> #endif
 
-is also up-to-date.  Furthermore, if Linus pulls in Sam's fix for
-usr/Makefile (to use .incbin instead of LD_BLOB), then it should be
-possible to build a working ia64 kernel out of Linus' tree.
+  >> This way, machines that support legacy hardware can define
+  >> CONFIG_LEGACY_HW and on others, the macro can be left undefined, so
+  >> that any attempt to compile drivers requiring legacy hw would fail to
+  >> compile upfront (much better than accessing random ports!).
 
-In other words, I'm confident that nobody will miss me here for a
-couple of days... ;-)
+  Hollis> Is "having legacy hardware" an all-or-nothing condition for you? If
+  Hollis> not, a CONFIG_LEGACY_PIT might be more appropriate...
 
-Enjoy,
+I believe it is, though I'm not entirely certain about Intel's Tiger
+platform.  If more fine-grained distinction really is needed, I
+suspect we'd rather want something called CONFIG_8259_PIT.  Might be a
+good idea to do this for all legacy devices.
 
 	--david
