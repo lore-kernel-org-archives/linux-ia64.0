@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sat, 18 Oct 2003 01:41:11 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 18 Oct 2003 01:48:33 +0000
 Subject: Re: [RFC] prevent "dd if=/dev/mem" crash
-Message-Id: <marc-linux-ia64-106644129923832@msgid-missing>
+Message-Id: <marc-linux-ia64-106644172924074@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106642876514553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106642876514553@msgid-missing>
@@ -10,16 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Matt Chapman <matthewc@cse.unsw.edu.au> wrote:
->
-> It *does* signal a fault, in the form of a machine check.  On other
->  architectures I'm familiar with this is usually implemented as an
->  interrupt, but the idea is similar - when the system bus controller
->  detects a bad address on the bus, it returns all 1s (for a read) and
->  signals an interrupt.
+>>>>> On Fri, 17 Oct 2003 17:49:55 -0700, Andrew Morton <akpm@osdl.org> said:
 
-I see.  That seems OK.  At least it means that software can implement a
-probing function and that the time interval between hot unplug and handling
-the unplug interrupt can be managed appropriately.
+  Andrew> We _want_ to be able to read mmio ranges via /dev/mem, don't
+  Andrew> we?  I guess it has never come up because everyone uses
+  Andrew> kmem.
 
+I just don't see how making a "dd if=/dev/mem" safe and allowing
+access to arbitrary physical memory can go to together.  Given that
+/dev/mem _is_ being used for accessing mmio space, is it really worth
+bothering trying to make such a "dd" safe?
 
+  Andrew> If the hardware doesn't give the system programmer a choice
+  Andrew> then the hardware is poorly designed, surely?
+
+Emh, we're talking about _physical_ memory accesses here.  AFAIK,
+failures on physical memory accesses are never signaled with
+synchronous faults (not on any reasonably modern high performance
+architecture, at least).  Loads probably _could_ be signalled
+synchronously, but consider stores: would you really want to wait with
+retiring a store until it has made it all the way to some slow ISA
+device?  I think not (IN/OUT do that).  No, modern CPUs check the
+TLB/page-table and if that check passes, they'll _assume_ the memory
+access will complete without errors.  If it doesn't, they signal an
+asynchronous failure (e.g., via an MCA).
+
+	--david
