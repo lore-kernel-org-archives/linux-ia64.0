@@ -1,84 +1,17 @@
-From: GV <gv_kovai@yahoo.com>
-Date: Sun, 04 May 2003 00:43:25 +0000
-Subject: [Linux-ia64] sys_epoll patch for ia64-linux
-Message-Id: <marc-linux-ia64-105590723705633@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 28 May 2003 15:53:07 +0000
+Subject: [Linux-ia64] heads up: current bk tree & lightweight syscalls
+Message-Id: <marc-linux-ia64-105590723706054@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello All,
+The syscall optimizations temporarily broke the lightweight system
+call infrastructure (because the optimized paths no longer preserve
+b6 and r11).  I hope to have a fix for that today (with everything
+going faster in the end...).
 
-I am new to this list. Have a sys_epoll patched 2.4.20
-kernel. sys_epoll
-patch adds the following 3 system calls
-
-epoll_create()
-epoll_ctl()
-epoll_wait().
-
-As this patch actually targets i386, modified the two
-files for ia64 as
-follows for the kernel compilation.
-
-/usr/src/linux-2.4.20.se1/include/asm-ia64/unistd.h
-/* Added by GV - sys_epoll support */
-#define __NR_epoll_create               1280
-#define __NR_epoll_ctl                  1281
-#define __NR_epoll_wait                 1282
-
-/usr/src/linux-2.4.20.se1/arch/ia64/kernel/entry.S
-        data8 ia64_ni_syscall           // 1279
-reserved for sys_lookup_dcookie
-        data8 sys_epoll_create          // 1280
-        data8 sys_epoll_ctl
-        data8 sys_epoll_wait
-
-To overcome glibc issue, wrote the simple code as
-follows...
-
-
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <errno.h>
-
-#define SYS_epoll_create 1280
-
-int main() {
-
-        int rc;
-
-        rc = syscall(SYS_epoll_create, 10);
-
-        if(rc = -1) {
-                printf("syscall Failed, %s %d\n",
-strerror(errno), errno);
-                return 1;
-        } else {
-                printf("syscall passed\n");
-        }
-}
-
-Note: Also tried with '__NR_' instead of 'SYS'
-
-----------------------------------------
-
-This program returns with error code 38 - Function NOT
-implemented.
-
-Here is the patch :
-http://www.xmailserver.org/linux-patches/epoll-lt-2.4.20-0.5
-.diff
-
-Any help/thoughts will be much appreciated.
-
-Regards,
-GV
-
-
-__________________________________
-Do you Yahoo!?
-The New Yahoo! Search - Faster. Easier. Bingo.
-http://search.yahoo.com
+	--david
 
