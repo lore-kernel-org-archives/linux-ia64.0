@@ -1,71 +1,52 @@
-From: Mark Goodwin <markgw@sgi.com>
-Date: Wed, 12 Jan 2005 07:02:51 +0000
-Subject: [PATCH] fix SN2 hwperf error handling
-Message-Id: <Pine.LNX.4.61.0501121758491.9145@woolami.melbourne.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="243703863-1744758509-1105513136=:9145"
+From: Russ Anderson <rja@sgi.com>
+Date: Fri, 07 Jan 2005 21:12:15 +0000
+Subject: [patch] correct PERCPU_MCA_SIZE and ia64_init_stack size
+Message-Id: <200501072112.j07LCF3S219017@ben.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Two changes:
 
---243703863-1744758509-1105513136=:9145
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; FORMAT=flowed
-Content-ID: <Pine.LNX.4.61.0501121759051.9145@woolami.melbourne.sgi.com>
+  * PERCPU_MCA_SIZE was the size of the wrong structure.
+  * ia64_init_stack was larger than necessary.
 
+Signed-off-by: Russ Anderson <rja@sgi.com>
 
-Fix the error handling for the SN2 hardware perf ioctl interface.
+--------------------------------------------------------------
+Index: 2.6.11/include/asm-ia64/mca.h
+=================================--- 2.6.11.orig/include/asm-ia64/mca.h	2005-01-07 14:37:22.026643158 -0600
++++ 2.6.11/include/asm-ia64/mca.h	2005-01-07 14:40:21.986122830 -0600
+@@ -61,8 +61,6 @@
+ 
+ } ia64_mc_info_t;
+ 
+-#define PERCPU_MCA_SIZE sizeof(struct ia64_mc_info_s)
+-
+ typedef struct ia64_mca_sal_to_os_state_s {
+ 	u64		imsto_os_gp;		/* GP of the os registered with the SAL */
+ 	u64		imsto_pal_proc;		/* PAL_PROC entry point - physical addr */
+@@ -110,12 +108,14 @@
+ 
+ typedef struct ia64_mca_cpu_s {
+ 	u64	ia64_mca_stack[IA64_MCA_STACK_SIZE] 		__attribute__((aligned(16)));
+-	u64	ia64_mca_proc_state_dump[512] 			__attribute__((aligned(16)));
++	u64	ia64_mca_proc_state_dump[512]			__attribute__((aligned(16)));
+ 	u64	ia64_mca_stackframe[32]				__attribute__((aligned(16)));
+-	u64	ia64_mca_bspstore[IA64_MCA_BSPSTORE_SIZE] 	__attribute__((aligned(16)));
+-	u64	ia64_init_stack[KERNEL_STACK_SIZE] 		__attribute__((aligned(16)));
++	u64	ia64_mca_bspstore[IA64_MCA_BSPSTORE_SIZE]	__attribute__((aligned(16)));
++	u64	ia64_init_stack[KERNEL_STACK_SIZE/8] 		__attribute__((aligned(16)));
+ } ia64_mca_cpu_t;
+ 
++#define PERCPU_MCA_SIZE sizeof(ia64_mca_cpu_t)
++
+ extern void ia64_mca_init(void);
+ extern void ia64_os_mca_dispatch(void);
+ extern void ia64_os_mca_dispatch_end(void);
 
-Signed-off-by: Mark Goodwin <markgw@sgi.com>
-
-Thanks,
-Mark
-
---243703863-1744758509-1105513136=:9145
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="sn_hwperf_fix_err_handling.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.61.0501121758560.9145@woolami.melbourne.sgi.com>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME="sn_hwperf_fix_err_handling.patch"
-
-PT09PT0gYXJjaC9pYTY0L3NuL2tlcm5lbC9zbjIvc25faHdwZXJmLmMgMS41
-IHZzIGVkaXRlZCA9PT09PQ0KLS0tIDEuNS9hcmNoL2lhNjQvc24va2VybmVs
-L3NuMi9zbl9od3BlcmYuYwkyMDA0LTEwLTI3IDA1OjEyOjU4ICsxMDowMA0K
-KysrIGVkaXRlZC9hcmNoL2lhNjQvc24va2VybmVsL3NuMi9zbl9od3BlcmYu
-YwkyMDA1LTAxLTEyIDE3OjU0OjMyICsxMTowMA0KQEAgLTMsNyArMyw3IEBA
-DQogICogTGljZW5zZS4gIFNlZSB0aGUgZmlsZSAiQ09QWUlORyIgaW4gdGhl
-IG1haW4gZGlyZWN0b3J5IG9mIHRoaXMgYXJjaGl2ZQ0KICAqIGZvciBtb3Jl
-IGRldGFpbHMuDQogICoNCi0gKiBDb3B5cmlnaHQgKEMpIDIwMDQgU2lsaWNv
-biBHcmFwaGljcywgSW5jLiBBbGwgcmlnaHRzIHJlc2VydmVkLg0KKyAqIENv
-cHlyaWdodCAoQykgMjAwNC0yMDA1IFNpbGljb24gR3JhcGhpY3MsIEluYy4g
-QWxsIHJpZ2h0cyByZXNlcnZlZC4NCiAgKg0KICAqIFNHSSBBbHRpeCB0b3Bv
-bG9neSBhbmQgaGFyZHdhcmUgcGVyZm9ybWFuY2UgbW9uaXRvcmluZyBBUEku
-DQogICogTWFyayBHb29kd2luIDxtYXJrZ3dAc2dpLmNvbT4uIA0KQEAgLTM3
-Myw2ICszNzMsNDIgQEANCiAJcmV0dXJuIHI7DQogfQ0KIA0KKy8qIG1hcCBT
-QUwgaHdwZXJmIGVycm9yIGNvZGUgdG8gc3lzdGVtIGVycm9yIGNvZGUgKi8N
-CitzdGF0aWMgaW50IHNuX2h3cGVyZl9tYXBfZXJyKGludCBod3BlcmZfZXJy
-KQ0KK3sNCisJaW50IGU7DQorDQorCXN3aXRjaChod3BlcmZfZXJyKSB7DQor
-CWNhc2UgU05fSFdQRVJGX09QX09LOg0KKwkJZSA9IDA7DQorCQlicmVhazsN
-CisNCisJY2FzZSBTTl9IV1BFUkZfT1BfTk9NRU06DQorCQllID0gLUVOT01F
-TTsNCisJCWJyZWFrOw0KKw0KKwljYXNlIFNOX0hXUEVSRl9PUF9OT19QRVJN
-Og0KKwkJZSA9IC1FUEVSTTsNCisJCWJyZWFrOw0KKw0KKwljYXNlIFNOX0hX
-UEVSRl9PUF9JT19FUlJPUjoNCisJCWUgPSAtRUlPOw0KKwkJYnJlYWs7DQor
-DQorCWNhc2UgU05fSFdQRVJGX09QX0JVU1k6DQorCWNhc2UgU05fSFdQRVJG
-X09QX1JFQ09ORklHVVJFOg0KKwkJZSA9IC1FQUdBSU47DQorCQlicmVhazsN
-CisNCisJY2FzZSBTTl9IV1BFUkZfT1BfSU5WQUw6DQorCWRlZmF1bHQ6DQor
-CQllID0gLUVJTlZBTDsNCisJCWJyZWFrOw0KKwl9DQorDQorCXJldHVybiBl
-Ow0KK30NCisNCiAvKg0KICAqIGlvY3RsIGZvciAic25faHdwZXJmIiBtaXNj
-IGRldmljZQ0KICAqLw0KQEAgLTUxMCwxMiArNTQ2LDIwIEBADQogCQlvcF9p
-bmZvLnYwID0gJnYwOw0KIAkJb3BfaW5mby5vcCA9IG9wOw0KIAkJciA9IHNu
-X2h3cGVyZl9vcF9jcHUoJm9wX2luZm8pOw0KKwkJaWYgKHIpIHsNCisJCQly
-ID0gc25faHdwZXJmX21hcF9lcnIocik7DQorCQkJZ290byBlcnJvcjsNCisJ
-CX0NCiAJCWJyZWFrOw0KIA0KIAlkZWZhdWx0Og0KIAkJLyogYWxsIG90aGVy
-IG9wcyBhcmUgYSBkaXJlY3QgU0FMIGNhbGwgKi8NCiAJCXIgPSBpYTY0X3Nu
-X2h3cGVyZl9vcChzbl9od3BlcmZfbWFzdGVyX25hc2lkLCBvcCwNCiAJCQkg
-ICAgICBhLmFyZywgYS5zeiwgKHU2NCkgcCwgMCwgMCwgJnYwKTsNCisJCWlm
-IChyKSB7DQorCQkJciA9IHNuX2h3cGVyZl9tYXBfZXJyKHIpOw0KKwkJCWdv
-dG8gZXJyb3I7DQorCQl9DQogCQlhLnYwID0gdjA7DQogCQlicmVhazsNCiAJ
-fQ0K
-
---243703863-1744758509-1105513136=:9145--
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
