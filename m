@@ -1,35 +1,47 @@
-From: Francis Galiegue <fg@mandrakesoft.com>
-Date: Thu, 16 Nov 2000 18:05:15 +0000
-Subject: Re: [Linux-ia64] gcc: thanks
-Message-Id: <marc-linux-ia64-105590678205733@msgid-missing>
+From: Pete Wyckoff <pw@osc.edu>
+Date: Thu, 02 Nov 2000 19:37:34 +0000
+Subject: [Linux-ia64] gdb null ptr
+Message-Id: <marc-linux-ia64-105590678205646@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205731@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205731@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Thu, 16 Nov 2000, H . J . Lu wrote:
+This is probably the wrong place to fix the bug, but it keeps gdb
+from crashing on codes created using sgif90 (Version 0.01.0-11).
 
-> 
-> I have 2 patches to fix an ABI bug in binutils and glibc where the
-> DT_INIT/FINI entries should be the function address, not the function
-> descriptor. As of today, binutils and glibc assume they are function
-> addresses. My patches are at
-> 
-> http://ftp.valinux.com/pub/support/hjl/ia64/bfd-init.patch
-> http://ftp.valinux.com/pub/support/hjl/ia64/glibc-2.2-init.patch
-> 
-> They should be tested and checked in ASAP.
-> 
+The type structure which causes the problem has null for both name and
+tag_name.  I didn't look far enough to figure out why.  Code in question
+is tag_type_to_type called from die_type.
 
-Downloaded, will test tomorrow. Thanks.
+Patch against snap-001024 with patches from README.glibc213 and
+patch.02[7-9].
 
--- 
-Francis Galiegue, fg@mandrakesoft.com
-"Programming is a race between programmers, who try and make more and more
-idiot-proof software, and universe, which produces more and more remarkable
-idiots. Until now, universe leads the race"  -- R. Cook
+How was I using it?  Start the mpi code, attach it with gdb, wait for
+the FPE to arrive, "Segmentation fault" without patch.  With patch,
 
+    Program received signal SIGFPE, Arithmetic exception.
+    0x400000000002c292 in output (ISTATE=CAnnot access memory at address 0x0
+    ) at put.F:91
+    91                    gf(i,ic) =3D gf(i,ic) +
+
+istate is an (implicit) integer*4 parameter passed to subroutine output.
+
+		-- Pete
+
+
+--- src/gdb/dwarf2read.c.orig	Thu Nov  2 14:28:21 2000
++++ src/gdb/dwarf2read.c	Thu Nov  2 14:28:34 2000
+@@ -4522,7 +4522,7 @@
+ 	    {
+ 	      const char *nameoftype;
+ 	      nameoftype =3D TYPE_NAME(dwarf2_cached_types[hashval]) =3D NULL ? T=
+YPE_TAG_NAME(dwarf2_cached_types[hashval]) : TYPE_NAME(dwarf2_cached_types[=
+hashval]);
+-	      if (strcmp(attrname, nameoftype) =3D 0)
++	      if (nameoftype && strcmp(attrname, nameoftype) =3D 0)
+ 		{
+ 		  die->type=3Ddwarf2_cached_types[hashval];
+ 		}
 
