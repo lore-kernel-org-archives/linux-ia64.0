@@ -1,47 +1,26 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Fri, 14 Jan 2005 14:18:07 +0000
-Subject: Re: [PATCH]: Error in ACPI error handling results in WARN_ON
-Message-Id: <41E7D49F.1020201@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------020106040702070200090202"
+From: Rajesh Shah <rajesh.shah@intel.com>
+Date: Thu, 20 Jan 2005 02:38:53 +0000
+Subject: Re: [Pcihpd-discuss] [PATCH] Convert acpiphp to use generic resource code
+Message-Id: <20050119183853.C12618@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41E7CE5D.3010805@sgi.com>
-In-Reply-To: <41E7CE5D.3010805@sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------020106040702070200090202
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, Jan 19, 2005 at 06:51:20PM +0000, Matthew Wilcox wrote:
+> 
+> This patch converts acpiphp to use the generic PCI resource assignment
+> code.  It's quite large, but most of it is deleting the acpiphp_pci and
+> acpiphp_res files.  It's tested on an hp Integrity rx8620 (which won't
+> work without this patch).  Testers with other hardware welcomed.
+> 
+I've been playing around in this area too, working on root bridge
+hot-plug. I like these changes very much, and will move my patches
+on top of yours.
 
-Thanks for your input Matthew -- it's always appreciated.
+One nit - this patch does not program hpp values into hotplugged
+devices. This is easy to fix, since you already have the values
+as part of the bridge structure.
 
-Here's a new patch taking into account Matthew's comments.
-
-
-
---------------020106040702070200090202
-Content-Type: text/plain;
- name="acpi-ide.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="acpi-ide.patch"
-
-===== drivers/acpi/pci_irq.c 1.35 vs edited =====
---- 1.35/drivers/acpi/pci_irq.c	2005-01-04 21:48:17 -05:00
-+++ edited/drivers/acpi/pci_irq.c	2005-01-14 08:14:34 -05:00
-@@ -487,10 +487,10 @@
- 	 * If no PRT entry was found, we'll try to derive an IRQ from the
- 	 * device's parent bridge.
- 	 */
--	if (!gsi)
-+	if (gsi == -1)
-  		gsi = acpi_pci_irq_derive(dev, pin,
- 					  &edge_level, &active_high_low);
--	if (!gsi)
-+	if (gsi == -1)
- 		return_VOID;
- 
- 	/*
-
---------------020106040702070200090202--
+Rajesh
