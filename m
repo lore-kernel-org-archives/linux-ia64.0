@@ -1,51 +1,30 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Tue, 23 Sep 2003 23:56:40 +0000
-Subject: [PATCH] discontig patch (work in progress)
-Message-Id: <marc-linux-ia64-106436165231302@msgid-missing>
+Date: Wed, 24 Sep 2003 01:26:13 +0000
+Subject: Re: [PATCH] discontig patch (work in progress)
+Message-Id: <marc-linux-ia64-106436683002988@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106436165231302@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106436165231302@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I spent some time trying to make things a little clearer, eliminate some
-redundancy, conform to coding style, and generally cleanup the patch.
-The contig/discontig split patch I posted still hasn't made its way to
-lia64.bkbits.net, so this patch is against a tree with my patch applied.
-I still plan on splitting things out quite a bit more and cleaning more
-stuff up, but I thought I'd post this so people can look at it.
+On Tue, Sep 23, 2003 at 04:56:40PM -0700, Jesse Barnes wrote:
+> done, like removing the shouting from GRANULEROUND* and naming nodeid()
+> something better (maybe numa_node_id()?).
 
- arch/ia64/Kconfig           |   30 --
- arch/ia64/Makefile          |    2 
- arch/ia64/kernel/acpi.c     |   30 --
- arch/ia64/kernel/setup.c    |   34 ---
- arch/ia64/mm/contig.c       |   33 +++
- arch/ia64/mm/discontig.c    |  471 +++++++++++++++++++++++---------------------
- arch/ia64/mm/init.c         |  167 +++++++--------
- include/asm-ia64/meminit.h  |    8 
- include/asm-ia64/mmzone.h   |  144 ++-----------
- include/asm-ia64/nodedata.h |   29 --
- include/asm-ia64/numa.h     |   19 +
- include/asm-ia64/page.h     |    8 
- include/asm-ia64/percpu.h   |    1 
- include/asm-ia64/pgtable.h  |    4 
- include/linux/mm.h          |    5 
- kernel/ksyms.c              |    2 
- mm/memory.c                 |    2 
-
-One thing that immediately springs to mind is the per-cpu stuff.  That
-should probably be split into contig and discontig versions and put in
-the appropriate files, and obviously the non-ia64 stuff
-(!CONFIG_DISCONTIGMEM -> CONFIG_VIRTUAL_MEM_MAP || !CONFIG_DISCONTIGMEM)
-will be split out and sent seperately.  I could probably also seperate
-the patch that changes the arguments to the callback functions to be
-more consistent.  And of course there's other cleanup that needs to be
-done, like removing the shouting from GRANULEROUND* and naming nodeid()
-something better (maybe numa_node_id()?).
+How about I just nuke it since numa_node_id() is already defined in
+include/linux/mmzone.h?  Here's an updated version.  And even though
+CONFIG_DISCONTIGMEM depends on CONFIG_VIRTUAL_MEM_MAP with this patch,
+I've left the #if defined(VIRTUAL_MEM_MAP) || !defined(DISCONTIGMEM) in
+the ia64 files as opposed to removing them altogether since (1) it's
+more consistent with the rest of the tree that way and (2) I'd like to
+remove that dependency so we can measure the perf. impact of virtual
+memmap on discontig machines like David said he wanted to do for zx1.
 
 Thanks,
 Jesse
-
 
 diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-contig/arch/ia64/Kconfig linux-ia64-2.5-sn/arch/ia64/Kconfig
 --- linux-ia64-2.5-contig/arch/ia64/Kconfig	Mon Sep 22 15:27:01 2003
@@ -276,7 +255,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +}
 diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-contig/arch/ia64/mm/discontig.c linux-ia64-2.5-sn/arch/ia64/mm/discontig.c
 --- linux-ia64-2.5-contig/arch/ia64/mm/discontig.c	Mon Sep 22 18:18:27 2003
-+++ linux-ia64-2.5-sn/arch/ia64/mm/discontig.c	Tue Sep 23 16:41:25 2003
++++ linux-ia64-2.5-sn/arch/ia64/mm/discontig.c	Tue Sep 23 17:28:14 2003
 @@ -18,115 +18,188 @@
  #include <linux/acpi.h>
  #include <linux/efi.h>
@@ -347,7 +326,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +struct ia64_node_data* __init early_get_node_data(void)
  {
 -	return node_data[boot_get_local_nodeid()];
-+	return boot_node_data[nodeid()];
++	return boot_node_data[numa_node_id()];
  }
  
 -/*
@@ -880,7 +859,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  }
 diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-contig/arch/ia64/mm/init.c linux-ia64-2.5-sn/arch/ia64/mm/init.c
 --- linux-ia64-2.5-contig/arch/ia64/mm/init.c	Mon Sep 22 18:18:27 2003
-+++ linux-ia64-2.5-sn/arch/ia64/mm/init.c	Tue Sep 23 13:40:11 2003
++++ linux-ia64-2.5-sn/arch/ia64/mm/init.c	Tue Sep 23 17:52:22 2003
 @@ -32,6 +32,7 @@
  #include <asm/tlb.h>
  #include <asm/uaccess.h>
@@ -1116,15 +1095,17 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
  static int
  count_reserved_pages (u64 start, u64 end, void *arg)
-@@ -606,11 +603,9 @@
+@@ -606,11 +603,11 @@
  	platform_dma_init();
  #endif
  
 -#ifndef CONFIG_DISCONTIGMEM
++#if defined(CONFIG_VIRTUAL_MEM_MAP) || !defined(CONFIG_DISCONTIGMEM)
  	if (!mem_map)
  		BUG();
  	max_mapnr = max_low_pfn;
 -#endif
++#endif /* CONFIG_VIRTUAL_MEM_MAP || !CONFIG_DISCONTIGMEM */
  
  	high_memory = __va(max_low_pfn * PAGE_SIZE);
  
@@ -1148,7 +1129,7 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  extern void call_pernode_memory(unsigned long start, unsigned long end, void *arg);
 diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-contig/include/asm-ia64/mmzone.h linux-ia64-2.5-sn/include/asm-ia64/mmzone.h
 --- linux-ia64-2.5-contig/include/asm-ia64/mmzone.h	Mon Sep 22 15:27:20 2003
-+++ linux-ia64-2.5-sn/include/asm-ia64/mmzone.h	Mon Sep 22 15:22:12 2003
++++ linux-ia64-2.5-sn/include/asm-ia64/mmzone.h	Tue Sep 23 17:33:19 2003
 @@ -3,7 +3,7 @@
   * License.  See the file "COPYING" in the main directory of this archive
   * for more details.
@@ -1158,16 +1139,18 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
   * Copyright (c) 2002 NEC Corp.
   * Copyright (c) 2002 Erich Focht <efocht@ess.nec.de>
   * Copyright (c) 2002 Kimio Suganuma <k-suganuma@da.jp.nec.com>
-@@ -14,150 +14,50 @@
+@@ -12,152 +12,49 @@
+ #define _ASM_IA64_MMZONE_H
+ 
  #include <linux/config.h>
- #include <linux/init.h>
+-#include <linux/init.h>
  
 -/*
 - * Given a kaddr, find the base mem_map address for the start of the mem_map
 - * entries for the bank containing the kaddr.
 - */
 -#define BANK_MEM_MAP_BASE(kaddr) local_node_data->bank_mem_map_base[BANK_MEM_MAP_INDEX(kaddr)]
- 
+-
 -/*
 - * Given a kaddr, this macro return the relative map number 
 - * within the bank.
@@ -1175,12 +1158,18 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 -#define BANK_MAP_NR(kaddr) 	(BANK_OFFSET(kaddr) >> PAGE_SHIFT)
 +#ifdef CONFIG_NUMA
  
--/*
++#ifdef CONFIG_IA64_DIG
+ /*
 - * Given a pte, this macro returns a pointer to the page struct for the pte.
-- */
++ * Platform definitions for DIG NUMA platforms
+  */
 -#define pte_page(pte)	virt_to_page(PAGE_OFFSET | (pte_val(pte)&_PFN_MASK))
--
--/*
++#define MAX_PHYSNODE_ID	8
++#define NR_NODES	8
++#define NR_MEMBLKS	(NR_NODES * 32) /* interleaved, contiguous memory */
+ 
++#elif CONFIG_IA64_SGI_SN2
+ /*
 - * Determine if a kaddr is a valid memory address of memory that
 - * actually exists. 
 - *
@@ -1196,76 +1185,70 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 - *	(However, this won't work on SGI platforms since IO space is embedded 
 - * 	within the range of valid memory addresses & nodes have holes in the 
 - *	address range between banks). 
-- */
++ * SN2 definitions
+  */
 -#define kern_addr_valid(kaddr)		({long _kav=(long)(kaddr);	\
 -					VALID_MEM_KADDR(_kav);})
--
--/*
++#define MAX_PHYSNODE_ID	2048
++#define NR_NODES	256
++#define NR_MEMBLKS	(NR_NODES)
+ 
++#elif CONFIG_IA64_GENERIC
+ /*
 - * Given a kaddr, return a pointer to the page struct for the page.
 - * If the kaddr does not represent RAM memory that potentially exists, return
 - * a pointer the page struct for max_mapnr. IO addresses will
 - * return the page for max_nr. Addresses in unpopulated RAM banks may
 - * return undefined results OR may panic the system.
 - *
-- */
++ * These defs should work on any ia64 platform
+  */
 -#define virt_to_page(kaddr)	({long _kvtp=(long)(kaddr);	\
 -				(VALID_MEM_KADDR(_kvtp))	\
 -					? BANK_MEM_MAP_BASE(_kvtp) + BANK_MAP_NR(_kvtp)	\
 -					: NULL;})
-+#ifdef CONFIG_IA64_DIG
- 
- /*
+-
+-/*
 - * Given a page struct entry, return the physical address that the page struct represents.
 - * Since IA64 has all memory in the DMA zone, the following works:
-+ * Platform definitions for DIG platform with contiguous memory.
-  */
+- */
 -#define page_to_phys(page)	__pa(page_address(page))
 -
 -#define node_mem_map(nid)	(NODE_DATA(nid)->node_mem_map)
 -
 -#define node_localnr(pfn, nid)	((pfn) - NODE_DATA(nid)->node_start_pfn)
-+#define MAX_PHYSNODE_ID	8		/* Maximum node number +1 */
-+#define NR_NODES	8		/* Maximum number of nodes in SSI */
-+#define NR_MEMBLKS	(NR_NODES * 32)
- 
+-
 -#define pfn_to_page(pfn)	(struct page *)(node_mem_map(pfn_to_nid(pfn)) + node_localnr(pfn, pfn_to_nid(pfn)))
- 
+-
 -#define pfn_to_nid(pfn)		 local_node_data->node_id_map[(pfn << PAGE_SHIFT) >> BANKSHIFT]
- 
+-
 -#define page_to_pfn(page)	(long)((page - page_zone(page)->zone_mem_map) + page_zone(page)->zone_start_pfn)
+-
++#define MAX_PHYSNODE_ID 2048
++#define NR_NODES        256
++#define NR_MEMBLKS      (NR_NODES)
  
-+#elif CONFIG_IA64_SGI_SN2
- 
- /*
+-/*
 - * pfn_valid should be made as fast as possible, and the current definition
 - * is valid for machines that are NUMA, but still contiguous, which is what
 - * is currently supported. A more generalised, but slower definition would
 - * be something like this - mbligh:
 - * ( pfn_to_pgdat(pfn) && (pfn < node_end_pfn(pfn_to_nid(pfn))) )
-+ * Platform definitions for DIG platform with contiguous memory.
-  */
+- */
 -#define pfn_valid(pfn)          (pfn < max_low_pfn)
 -extern unsigned long max_low_pfn;
-+#define MAX_PHYSNODE_ID	2048		/* Maximum node number +1 */
-+#define NR_NODES	256		/* Maximum number of compute nodes in SSI */
-+#define NR_MEMBLKS	(NR_NODES)
- 
-+#elif CONFIG_IA64_GENERIC
- 
+-
+-
 -#ifdef CONFIG_IA64_DIG
- 
- /*
+-
+-/*
 - * Platform definitions for DIG platform with contiguous memory.
-+ * Platform definitions for GENERIC platform with contiguous or discontiguous memory.
-  */
+- */
 -#define MAX_PHYSNODE_ID	8	/* Maximum node number +1 */
 -#define NR_NODES	8	/* Maximum number of nodes in SSI */
-+#define MAX_PHYSNODE_ID 2048		/* Maximum node number +1 */
-+#define NR_NODES        256		/* Maximum number of nodes in SSI */
-+#define NR_MEMBLKS      (NR_NODES)
- 
+-
 -#define MAX_PHYS_MEMORY	(1UL << 40)	/* 1 TB */
- 
+-
 -/*
 - * Bank definitions.
 - * Configurable settings for DIG: 512MB/bank:  16GB/node,
@@ -1281,19 +1264,21 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 -# define BANKSHIFT		33
  #else
 -# error Unsupported bank and nodesize!
-+#error unknown platform
- #endif
+-#endif
 -#define BANKSIZE		(1UL << BANKSHIFT)
 -#define BANK_OFFSET(addr)	((unsigned long)(addr) & (BANKSIZE-1))
 -#define NR_BANKS		(NR_BANKS_PER_NODE * NR_NODES)
- 
--/*
+-
+ /*
 - * VALID_MEM_KADDR returns a boolean to indicate if a kaddr is
 - * potentially a valid cacheable identity mapped RAM memory address.
 - * Note that the RAM may or may not actually be present!!
-- */
++ * Better fill it in
+  */
 -#define VALID_MEM_KADDR(kaddr)	1
--
++#error unknown platform
++#endif
+ 
 -/*
 - * Given a nodeid & a bank number, find the address of the mem_map
 - * entry for the first page of the bank.
@@ -1303,9 +1288,11 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 +extern void build_cpu_to_node_map(void);
  
 -#elif defined(CONFIG_IA64_SGI_SN2)
--/*
++#else /* !CONFIG_NUMA */
+ /*
 - * SGI SN2 discontig definitions
-- */
++ * Some defaults for a non-NUMA system
+  */
 -#define MAX_PHYSNODE_ID	2048	/* 2048 node ids (also called nasid) */
 -#define NR_NODES	128	/* Maximum number of nodes in SSI */
 -#define MAX_PHYS_MEMORY	(1UL << 49)
@@ -1317,7 +1304,8 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 -#define BANK_OFFSET(addr)	((unsigned long)(addr) & (BANKSIZE-1))
 -#define NR_BANKS		(NR_BANKS_PER_NODE * NR_NODES)
 -#define VALID_MEM_KADDR(kaddr)	1
-+#else /* CONFIG_NUMA */
++#define NR_NODES	1
++#define NR_MEMBLKS      (NR_NODES)
  
 -/*
 - * Given a nodeid & a bank number, find the address of the mem_map
@@ -1325,10 +1313,9 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
 - */
 -#define BANK_MEM_MAP_INDEX(kaddr) \
 -	(((unsigned long)(kaddr) & (MAX_PHYS_MEMORY-1)) >> BANKSHIFT)
-+#define NR_NODES	1
++#endif /* CONFIG_NUMA */
  
 -#endif /* CONFIG_IA64_DIG */
-+#endif /* CONFIG_NUMA */
  #endif /* _ASM_IA64_MMZONE_H */
 diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-contig/include/asm-ia64/nodedata.h linux-ia64-2.5-sn/include/asm-ia64/nodedata.h
 --- linux-ia64-2.5-contig/include/asm-ia64/nodedata.h	Mon Sep 22 15:27:20 2003
@@ -1399,47 +1386,39 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  #endif /* _ASM_IA64_NODEDATA_H */
 diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-contig/include/asm-ia64/numa.h linux-ia64-2.5-sn/include/asm-ia64/numa.h
 --- linux-ia64-2.5-contig/include/asm-ia64/numa.h	Mon Sep 22 18:18:29 2003
-+++ linux-ia64-2.5-sn/include/asm-ia64/numa.h	Tue Sep 23 14:18:41 2003
-@@ -13,18 +13,25 @@
++++ linux-ia64-2.5-sn/include/asm-ia64/numa.h	Tue Sep 23 18:16:09 2003
+@@ -13,18 +13,13 @@
  
  #include <linux/config.h>
  #include <linux/cpumask.h>
 +#include <linux/cache.h>
 +#include <linux/threads.h>
 +#include <linux/smp.h>
++#include <asm/mmzone.h>
  
  #ifdef CONFIG_NUMA
  
- #ifdef CONFIG_DISCONTIGMEM
- # include <asm/mmzone.h>
+-#ifdef CONFIG_DISCONTIGMEM
+-# include <asm/mmzone.h>
 -# define NR_MEMBLKS   (NR_BANKS)
- #else
- # define NR_NODES     (8)
- # define NR_MEMBLKS   (NR_NODES * 8)
- #endif
- 
+-#else
+-# define NR_NODES     (8)
+-# define NR_MEMBLKS   (NR_NODES * 8)
+-#endif
+-
 -#include <linux/cache.h>
-+#define NODEMASK_WORDCOUNT       ((NR_NODES+(BITS_PER_LONG-1))/BITS_PER_LONG)
-+
-+#define NODE_MASK_NONE   { [0 ... ((NR_NODES+BITS_PER_LONG-1)/BITS_PER_LONG)-1] = 0 }
-+
-+typedef unsigned long   nodemask_t[NODEMASK_WORDCOUNT];
-+                                                                                                                             
  extern volatile char cpu_to_node_map[NR_CPUS] __cacheline_aligned;
  extern volatile cpumask_t node_to_cpu_mask[NR_NODES] __cacheline_aligned;
  
-@@ -65,7 +72,13 @@
+@@ -65,7 +60,10 @@
  
  extern int paddr_to_nid(unsigned long paddr);
  
 -#define local_nodeid (cpu_to_node_map[smp_processor_id()])
-+#define nodeid() ((int)cpu_to_node_map[smp_processor_id()])
-+
 +#else /* !CONFIG_NUMA */
 +
 +#define node_distance(from,to) 10
 +#define paddr_to_nid(x) 0
-+#define nodeid() 0
  
  #endif /* CONFIG_NUMA */
  
@@ -1481,30 +1460,34 @@ diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c -
  
 diff -Naur -X /home/jbarnes/dontdiff --exclude=MAINTAINERS --exclude=pci_irq.c --exclude=tables.c --exclude=qla1280.c --exclude=logo --exclude=char linux-ia64-2.5-contig/include/asm-ia64/pgtable.h linux-ia64-2.5-sn/include/asm-ia64/pgtable.h
 --- linux-ia64-2.5-contig/include/asm-ia64/pgtable.h	Mon Sep 22 15:27:20 2003
-+++ linux-ia64-2.5-sn/include/asm-ia64/pgtable.h	Tue Sep 23 12:20:29 2003
-@@ -174,7 +174,6 @@
++++ linux-ia64-2.5-sn/include/asm-ia64/pgtable.h	Tue Sep 23 17:01:21 2003
+@@ -174,7 +174,7 @@
  	return (addr & (local_cpu_data->unimpl_pa_mask)) = 0;
  }
  
 -#ifndef CONFIG_DISCONTIGMEM
++#if defined(CONFIG_VIRTUAL_MEM_MAP) || !defined(CONFIG_DISCONTIGMEM)
  /*
   * kern_addr_valid(ADDR) tests if ADDR is pointing to valid kernel
-  * memory.  For the return value to be meaningful, ADDR must be >@@ -190,7 +189,6 @@
+  * memory.  For the return value to be meaningful, ADDR must be >@@ -190,7 +190,7 @@
   */
  #define kern_addr_valid(addr)	(1)
  
 -#endif
++#endif /* CONFIG_VIRTUAL_MEM_MAP || !CONFIG_DISCONTIGMEM */
  
  /*
   * Now come the defines and routines to manage and access the three-level
-@@ -241,10 +239,8 @@
+@@ -241,10 +241,10 @@
  #define pte_none(pte) 			(!pte_val(pte))
  #define pte_present(pte)		(pte_val(pte) & (_PAGE_P | _PAGE_PROTNONE))
  #define pte_clear(pte)			(pte_val(*(pte)) = 0UL)
 -#ifndef CONFIG_DISCONTIGMEM
++#if defined(CONFIG_VIRTUAL_MEM_MAP) || !defined(CONFIG_DISCONTIGMEM)
  /* pte_page() returns the "struct page *" corresponding to the PTE: */
  #define pte_page(pte)			virt_to_page(((pte_val(pte) & _PFN_MASK) + PAGE_OFFSET))
 -#endif
++#endif /* CONFIG_VIRTUAL_MEM_MAP || !CONFIG_DISCONTIGMEM */
  
  #define pmd_none(pmd)			(!pmd_val(pmd))
  #define pmd_bad(pmd)			(!ia64_phys_addr_valid(pmd_val(pmd)))
