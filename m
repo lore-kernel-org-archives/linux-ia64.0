@@ -1,204 +1,550 @@
-From: "Yu, Luming" <luming.yu@intel.com>
-Date: Wed, 14 Jan 2004 09:37:49 +0000
-Subject: IA64 test report: 2.6.1-rc1/tiger 2004-1-14: 9/9 pass
-Message-Id: <3ACA40606221794F80A5670F0AF15F8401720CD1@PDSMSX403.ccr.corp.intel.com>
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Thu, 15 Jan 2004 16:40:28 +0000
+Subject: Yet another INIT handler
+Message-Id: <4006C27C.E692ADC7@nospam.org>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3DA82.13149C06"
+Content-Type: multipart/mixed; boundary="------------CACE70477455A39A70D8CAE1"
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
+--------------CACE70477455A39A70D8CAE1
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-------_=_NextPart_001_01C3DA82.13149C06
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+As the MCA hand-off procedure differs just a bit from that of the
+INIT, with a slight addition, I can handle the INITs, too.
 
-ACPI Test Report  for 2.6 ia64 kernel=20
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+Predicates can tell what to deal with in our mca_asm1.S.
 
-Hardware Configuration:
------------------------
-System Name: ACPI-Tiger
-System Type: 4 way 900 Itanium2, tiger
-M/B revision: N/A
-Processor version: N/A
-Firmware Versions: N/A
-I/O configuration summary:
-	MPT scsi host driver
-	Seagate ST318406LC boot drive
-	IDE floppy and CDROM
-	Serial console
-	USB mouse=20
-	USB keyboard
-	Ethernet Pro 1000
+Currently, my stuff is activated only if the kernel is compiled in
+debug mode, otherwise the original routines take the INIT.
 
-Software Configuration:
-	1.Bk pull form lia64.bkbits.net/linux-ia64-2.5 on 1/14 (Shanghai
-time)
-		pull nothing
-	2.bk pull from linux-acpi.bkbits.net/linux-acpi-test-2.6.0 on
-1/14 (Shanghai time)
-		pull nothing
-=09
-ACPI Features Tested: (prioritized).
---------------------
-1. Boot 					tested ok
-2. serial console				tested ok
-3. ATI (run X window system)		tested ok
-4. usb keyboard				tested ok
-5. USB mouse				tested ok
-6. NIC (eg. Ping or ftp)			tested ok
-7. IDE (eg. r/w floppy or CDROM)	tested ok
-8. SCI (eg. Press power button)		tested ok
-9. Soft Power off 			tested ok
+You push the button, each CPU goes in to the high level INIT routine,
+prints out the most important registers ( in order to demonstrate that
+we've caught the INIT ), and - if the PSP.co is on, - it returns with
+success.
 
-           CPU0       CPU1       CPU2       CPU3
- 29:          0          0          0          0          LSAPIC
-cmc_poll
- 30:          0          0          0          0  IO-SAPIC-level
-cpe_hndlr
- 31:          0          0          0          0          LSAPIC
-cmc_hndlr
- 34:          1          9        226          0   IO-SAPIC-edge  ide0
- 39:          0          0         18          0  IO-SAPIC-level  acpi
- 45:          0          0          7          0   IO-SAPIC-edge  serial
- 48:          0          0          0          0  IO-SAPIC-level
-ehci_hcd
- 49:          2         43       2203          0  IO-SAPIC-level
-uhci_hcd
- 50:          0          0          0          0  IO-SAPIC-level
-uhci_hcd
- 51:          1          8        520          0  IO-SAPIC-level  eth0
- 56:          5        149       6029          0  IO-SAPIC-level  ioc0
- 57:          0          0         42          0  IO-SAPIC-level  ioc1
-232:          0          0          0          0          LSAPIC
-mca_rdzv
-238:          0          0          0          0          LSAPIC
-perfmon
-239:     228703     225347     223459     224441          LSAPIC  timer
-240:          0          0          0          0          LSAPIC
-mca_wkup
-254:         73         91        131        140          LSAPIC  IPI
-NMI:          0          0          0          0
-ERR:          0
+We could call the KDB from the high level INIT routine.
 
-Problems:
-1.alloc 0xffff-0x0 from PCI IO for PCI Bus 0000:08 failed
-bjorn knew this issue.
+The key features of the INIT handler are:
 
-2. pci_irq-0302 [03] acpi_pci_irq_derive   : Unable to derive IRQ for
-device 0000:00:1f.1
-ACPI: No IRQ known for interrupt pin A of device 0000:00:1f.1
+* Everything is CPU local ( an MCA data area is allocated and hooked
+  to each "cpuinfo" structure, there is room for the INIT, too )
 
-Please refere bugzilla.kernel.org/show_bug.cgi?id=3D1534=20
+* No locks to protect the stack, the RSE, ...
 
- <<2.6.ZIP>>=20
+* No rendezvous
+  - Does not seem to work if not all the CPUs are started up,
+    i.e. you specify a "maxcpus=<NUM>"...
 
+* No monarch, nor slave
+  - All CPUs enter the high level INIT routine
+  - The KDB has got a chance to synchronize them :-)
 
-------_=_NextPart_001_01C3DA82.13149C06
-Content-Type: application/x-zip-compressed;
-	name="2.6.ZIP"
-Content-Transfer-Encoding: base64
-Content-Description: 2.6.ZIP
-Content-Disposition: attachment;
-	filename="2.6.ZIP"
+* The same data structure as for our MCA
+  - The KDB can use common routines
 
-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
+There is a lock in the high level INIT routine for not to mix up
+the print-outs.
 
-------_=_NextPart_001_01C3DA82.13149C06--
+Why do I use another, separate data area for the INIT ?
+If I am lost in my MCA handler, and I push the button...
+
+This patch is against the version 2.6.1 + kdb-v4.3-2.6.1-common-b0.bz2 +
+kdb-v4.3-2.6.1-ia64-b0.bz2 + our MCA patch
+(ftp://visibull.frec.bull.fr/pub/linux/mca/mca.patch-jan-14 ) 
+
+Your remarks will be appreciated.
+
+Zoltan Menyhart
+--------------CACE70477455A39A70D8CAE1
+Content-Type: text/plain; charset=us-ascii;
+ name="init.patch-jan-15"
+Content-Disposition: inline;
+ filename="init.patch-jan-15"
+Content-Transfer-Encoding: 7bit
+
+diff -ruN tmp/arch/ia64/kernel/mca.c linux-2.6.1-jan-15/arch/ia64/kernel/mca.c
+--- tmp/arch/ia64/kernel/mca.c	2004-01-15 17:02:39.000000000 +0100
++++ linux-2.6.1-jan-15/arch/ia64/kernel/mca.c	2004-01-15 16:19:16.000000000 +0100
+@@ -121,8 +121,14 @@
+ u64				ia64_mca_serialize;
+ static void			ia64_mca_wakeup_ipi_wait(void);
+ static void			ia64_log_init(int);
++
++#if defined(CONFIG_DEBUG_KERNEL)			// Temporary :-)
++extern void			ia64_os_init_dispatch(void);
++#else
+ extern void			ia64_monarch_init_handler (void);
+ extern void			ia64_slave_init_handler (void);
++#endif
++
+ static u64			ia64_log_get(int sal_info_type, u8 **buffer);
+ extern struct hw_interrupt_type	irq_type_iosapic_level;
+ 
+@@ -710,8 +716,13 @@
+ void __init
+ ia64_mca_init(void)
+ {
++#if defined(CONFIG_DEBUG_KERNEL)			// Temporary :-)
++	ia64_fptr_t *mon_init_ptr = (ia64_fptr_t *)ia64_os_init_dispatch;
++	ia64_fptr_t *slave_init_ptr = (ia64_fptr_t *)ia64_os_init_dispatch;
++#else
+ 	ia64_fptr_t *mon_init_ptr = (ia64_fptr_t *)ia64_monarch_init_handler;
+ 	ia64_fptr_t *slave_init_ptr = (ia64_fptr_t *)ia64_slave_init_handler;
++#endif
+ 	ia64_fptr_t *mca_hldlr_ptr = (ia64_fptr_t *)ia64_os_mca_dispatch;
+ 	int i;
+ 	s64 rc;
+diff -ruN tmp/arch/ia64/kernel/mca1.c linux-2.6.1-jan-15/arch/ia64/kernel/mca1.c
+--- tmp/arch/ia64/kernel/mca1.c	2004-01-15 17:02:39.000000000 +0100
++++ linux-2.6.1-jan-15/arch/ia64/kernel/mca1.c	2004-01-15 16:19:16.000000000 +0100
+@@ -119,7 +119,7 @@
+ _STATIC_ int		mca_check_sal_err_rec(void);
+ _STATIC_ int		mca_cpu_and_patform_err(const sal_log_processor_info_t * const);
+ static void		print_os_to_sal_handoff(void);
+-extern int		mca_sal_clear_state_info(void);
++extern int		mca_sal_clear_state_info(unsigned int);
+ extern int		mca_check_sal_log_version(const efi_guid_t, const sal_log_revision_t);
+ extern sal_log_section_hdr_t *
+ 		mca_look_up_1st_section(const sal_log_record_header_t * const, const efi_guid_t);
+@@ -204,12 +204,74 @@
+  */
+ 
+ 
++spinlock_t	init_print_lock = SPIN_LOCK_UNLOCKED;
++
++
++/*
++ * ia64_hi_level_init_handler()
++ *
++ * C portion of the "OS_INIT" handler, called from the "OS_INIT" dispatch code (see in mca_asm1.S)
++ * which is in turn called from "SAL_INIT()".
++ *
++ * Inputs:	SAL to OS hand off state (see local_cpu_data->mca_page->init.handoff)
++ *
++ * Outputs:	OS to SAL hand off state (see also the same structure)
++ */
++void
++ia64_hi_level_init_handler(void)
++{
++	MCA_page_t				* const mca_p = (MCA_page_t *)
++								local_cpu_data->mca_page;
++	const pal_min_state_area_t		* const ms = (pal_min_state_area_t *)
++								mca_p->init.handoff.min_state;
++	const pal_processor_state_info_t	state = * (pal_processor_state_info_t *)
++								& mca_p->init.handoff.psp;
++
++	KDBA_MCA_TRACE();
++	spin_lock(&init_print_lock);
++	PRINT("\nINIT handler called on cpu %d\n\n", MY_GET_CPU());
++	PRINT("PSR: 0x%08lx_%08lx, ", mca_p->init.handoff.psr >> 32,
++							mca_p->init.handoff.psr & 0xffffffff);
++	PRINT("PSP (GR18): 0x%08lx_%08lx:\n", mca_p->init.handoff.psp >> 32,
++							mca_p->init.handoff.psp & 0xffffffff);
++	print_psp(mca_p->init.handoff.psp);
++	PRINT("min state from GR17: 0x%p:\n\n", ms);
++	/*
++	 * The min. sate must be accessed as non-cached memory. Use 0xc000... addresses.
++	 */
++	show_min_state((pal_min_state_area_t *) ((u64) ms | __IA64_UNCACHED_OFFSET));
++	_delay_();
++	spin_unlock(&init_print_lock);
++#if defined(CONFIG_KDB)
++//	kdba_mca_init(SAL_INFO_TYPE_INIT);		// One day it'll work :-)
++#endif
++	/*
++	 * By default: say INIT has been recovered and return to the same context.
++	 */
++	mca_p->init.handoff.status = IA64_MCA_CORRECTED;
++	mca_p->init.handoff.context = IA64_MCA_SAME_CONTEXT;
++
++	CALL_KDB();
++
++	(void) mca_sal_clear_state_info(SAL_INFO_TYPE_INIT);	// No lock
++
++	spin_lock(&init_print_lock);
++	PRINT("\nINIT handler returning on cpu %d\n\n", MY_GET_CPU());
++	if (state.co)					// Continuable bit is on
++		print_os_to_sal_handoff();
++	else
++		PRINT("\nPSP.co is off, I do not give you much chance :-)\n\n");
++	_delay_();
++	spin_unlock(&init_print_lock);
++}
++
++
+ /*
+  * ia64_mca_ucmc_handler()
+  *
+  * This is a wrapper function for the real machine check handler, mainly for debugging purpose,
+- * called from the OS_MCA dispatch code (see in mca_asm1.S) which is in turn called from
+- * SAL_CHECK().
++ * called from the "OS_MCA" dispatch code (see in mca_asm1.S) which is in turn called from
++ * "SAL_CHECK()".
+  *
+  * Inputs:	SAL to OS hand off state (see local_cpu_data->mca_page->mca.handoff)
+  *
+@@ -664,7 +726,7 @@
+ 		 */
+ 		// TODO: my error log...
+ 		if (rc == 0){					// All sections say "CORRECTED"
+-			rc = mca_sal_clear_state_info();	// SAL_CLEAR_STATE_INFO - no lock
++			rc = mca_sal_clear_state_info(SAL_INFO_TYPE_MCA);// No lock
+ 			if (rc == SAL_CALL_OK_MORE_ERR_REC_AVAILABLE){
+ 				DEBUG_TEXT(more_sal_log);
+ 				return rc;
+@@ -951,7 +1013,7 @@
+ 	case -1:					// CPU error recovery failed
+ 		return -1;
+ 	case 0:						// Already corrected: some TR errors
+-		rc = mca_sal_clear_state_info();	// SAL_CLEAR_STATE_INFO - no lock
++		rc = mca_sal_clear_state_info(SAL_INFO_TYPE_MCA);// No lock
+ 		if (rc == SAL_CALL_OK_MORE_ERR_REC_AVAILABLE){
+ 			DEBUG_TEXT(more_sal_log);
+ 			return rc;
+@@ -1144,7 +1206,7 @@
+ 	PRINT("OS to SAL hand-off sate:\nStatus:\t");
+ 	switch(mca_p->mca.handoff.status){
+ 	case IA64_MCA_CORRECTED:
+-		p = "Error has been corrected by OS_MCA";
++		p = "Problem has been corrected by OS_MCA/OS_INIT";
+ 		break;
+ 	case IA64_MCA_WARM_BOOT:
+ 		p = "Warm boot of the system need from SAL";
+diff -ruN tmp/arch/ia64/kernel/mca_asm.S linux-2.6.1-jan-15/arch/ia64/kernel/mca_asm.S
+--- tmp/arch/ia64/kernel/mca_asm.S	2004-01-15 17:02:39.000000000 +0100
++++ linux-2.6.1-jan-15/arch/ia64/kernel/mca_asm.S	2004-01-15 16:19:16.000000000 +0100
+@@ -501,6 +501,9 @@
+ //EndStub//////////////////////////////////////////////////////////////////////
+ 
+ 
++#if !defined(CONFIG_DEBUG_KERNEL)
++
++
+ #ifndef	CONFIG_KDB
+ // ok, the issue here is that we need to save state information so
+ // it can be useable by the kernel debugger and show regs routines.
+@@ -730,3 +733,7 @@
+ 
+ 1:	br.sptk 1b
+ END(ia64_slave_init_handler)
++
++
++#endif // #if !defined(CONFIG_DEBUG_KERNEL)
++
+diff -ruN tmp/arch/ia64/kernel/mca_asm1.S linux-2.6.1-jan-15/arch/ia64/kernel/mca_asm1.S
+--- tmp/arch/ia64/kernel/mca_asm1.S	2004-01-15 17:02:39.000000000 +0100
++++ linux-2.6.1-jan-15/arch/ia64/kernel/mca_asm1.S	2004-01-15 16:19:16.000000000 +0100
+@@ -34,6 +34,8 @@
+ //	r6:		Old PSR while we are in virtual mode
+ //	r7:		KERNEL_START - <actual physical kernel load address>
+ //	r13:		Saves ar.pfs
++//	p1:		Set for MCA processing (aliased as "mca")
++//	p2:		Set for INIT processing (aliased as "init")
+ //
+ // Scratch registers:
+ //	r14...r16, r19...r21, r23...r31
+@@ -65,6 +67,10 @@
+ //////////////////////////////////////////////////////////////////////////////////////////////////
+ 
+ 
++#define	mca	p1					// Predicate indicating MCA processing
++#define	init	p2					// Predicate indicating INIT processing
++
++
+ //
+ // This macro converts a data virtual address to a physical address - use this macro before the
+ // translation cache is repaired.
+@@ -84,12 +90,14 @@
+ //
+ #define	HALT_THE_MACHINE_ON_ERROR(pr)								\
+ (pr)	br		1f ;;									;\
++2:												;\
++(init)	br		2b ;;				/* INIT does not use "..._HALT" */	;\
+ 	mov		r9 = r10			/* GP for SAL */			;\
+ 	mov		b0 = r12			/* Return address */			;\
+ 	mov		r22 = r17			/* Min. state address */		;\
+ 	mov		r8 = MCA_INIT_HALT ;;							;\
+ 	mov		r10 = MCA_INIT_SAME_CONTEXT						;\
+-	br		b0									;\
++	br		b0				/* Who cares for a broken "ar.pfs" ? */	;\
+ 1:
+ 
+ 
+@@ -118,20 +126,24 @@
+ 							/*	"MCA page" of the current CPU */
+ 
+ 
+-#if 0
+-
+-	movl		r31 = 1f ;;			// Cannot *call* as subroutine
+-	add		r31 = r31, r7 ;;		// Physical address
+-	mov		b0 = r31			// (would mess up ar.pfs, ar.ec,...)
+-	add		r2 = MCA_state_dump_offset, r2	// r2 -> save area
+-	br		ia64_os_mca_proc_state_restore ;;
+-	.global	ia64_os_mca_proc_state_restore
+-1:	//
+-
+-
++//
++// There are cases when we cannot *call* subroutines because it would mess up ar.pfs, ar.ec,...
++//
++// Register usage:
++//	r31:		Scratch
++// Output:
++//	b0:		Return address (physical) for the subroutine
++//
++// Note:
++//	The subroute must return bye use of "br b0" and not "br.ret.sptk b0".
++//
+ #define	QCALL(subroutine)									\
+-
+-#endif
++	movl		r31 = 1f ;;			/* Return address for the subroutine */	;\
++	add		r31 = r31, r7 ;;		/* Physical address */			;\
++	mov		b0 = r31								;\
++	br		subroutine ;;								;\
++	.global		subroutine								;\
++1:
+ 
+ 
+ 	.text
+@@ -143,20 +155,53 @@
+ //      ia64_os_mca_dispatch()
+ //
+ // Description:
+-//       Machine check abort starts here (a.k.a OS_MCA)
++//      Machine check abort starts here (a.k.a. "OS_MCA").
+ //
+-// Do not register "ia64_os_mca_dispatch" as OS_MCA before the "MCA page" is set up
++// Note:
++//	Do not register "ia64_os_mca_dispatch" as "OS_MCA" before the "MCA page" is set up
+ //--
+ ia64_os_mca_dispatch:
+ 	.global		ia64_os_mca_dispatch
++	cmp.eq		mca, init = r0, r0		// Predicates indicating MCA processing
++	br		mca_init
++
++
++#if defined(CONFIG_DEBUG_KERNEL)			// Temporary :-)
++
++//++
++// Name:
++//      ia64_os_init_dispatch()
++//
++// Description:
++//      INIT handling starts here (a.k.a. "OS_INIT").
++//	There are no separate monarch /slave handlers.
++//
++// Note:
++//	Do not register "ia64_init_handler" as "OS_INIT" before the "MCA page" is set up
++//--
++ia64_os_init_dispatch:
++	.global		ia64_os_init_dispatch
++	cmp.eq		init, mca = r0, r0		// Predicates indicating INIT processing
++	br		mca_init
+ 
++#endif // #if defined(CONFIG_DEBUG_KERNEL)
++
++
++//++
++// Name:
++//      mca_init()
++//
++// Description:
++//	Common MCA / INIT handler.
++//--
++mca_init:
+ 	// We cannot use the tpa instruction before the translation cache is repared.
+ 	// We can lop off bits 61...63 for the adresses 0xe000...
+ 	// For the first IA64_GRANULE of the addresses 0xa000..., r7 will hold
+ 	// KERNEL_START - <actual physical kernel load address> to help address conversion.
+-	mov		r31 = ip
++1:	mov		r31 = ip
+ 	mov		r13 = ar.pfs
+-	movl		r7 = ia64_os_mca_dispatch ;;
++	movl		r7 = 1b ;;
+ 	sub		r7 = r31, r7 ;;
+ 
+ 	br.call.sptk	b0 = get_cpu_number ;;		// r4 = logical CPU number: 0...NR_CPUS-1
+@@ -171,38 +216,45 @@
+ 	HALT_THE_MACHINE_ON_ERROR(p31)			// If it is, then halt the machine
+ 
+ 	// Save the SAL to OS hand off state.
+-	add		r3 = MCA_handoff_st_offset, r2	// r3 -> save area
++(mca)	add		r3 = MCA_handoff_st_offset, r2	// r3 -> MCA save area
++	;;						// Just to make the assembler happy
++(init)	add		r3 = INIT_handoff_st_offset, r2	// r3 -> INIT save area
+ 	br.call.sptk	b0 = save_handoff_st ;;
+ 	mov		ar.pfs = r13
+ 
+ 	// LOG PROCESSOR STATE INFO FROM HERE ON...
+-	movl		r31 = 1f ;;			// Cannot *call* as subroutine
+-	add		r31 = r31, r7 ;;		// Physical address
+-	mov		b0 = r31			// (would mess up ar.pfs, ar.ec,...)
+-	add		r2 = MCA_state_dump_offset, r2	// r2 -> save area
+-	br		ia64_os_mca_proc_state_dump ;;
+-	.global		ia64_os_mca_proc_state_dump
+-1:
++(mca)	add		r2 = MCA_state_dump_offset, r2	// r2 -> MCA save area
++	;;						// Just to make the assembler happy
++(init)	add		r2 = INIT_state_dump_offset, r2	// r2 -> INIT save area
++	QCALL(ia64_os_mca_proc_state_dump)
++
+ 	// No control over what ia64_os_mca_proc_state_dump() does, reload r2, r4, r5 and r7.
+ 	RELOAD_R2_R4_R5_R7() ;;
+ 
+-	// Setup new stack frame and the RSE stuff for OS_MCA handling.
+-	add		r29 = MCA_bspstore_offset, r2	// r11-> local bspstore area location
+-	add		r30 = MCA_stackframe_offset, r2
++	// Setup new stack frame and the RSE stuff for "OS_MCA" / "OS_INIT" handling.
++(mca)	add		r29 = MCA_bspstore_offset, r2	// -> local bspstore area location
++(mca)	add		r30 = MCA_stackframe_offset, r2
++	;;						// Just to make the assembler happy
++(init)	add		r29 = INIT_bspstore_offset, r2	// -> local bspstore area location
++(init)	add		r30 = INIT_stackframe_offset, r2
+ 	rse_switch_context(/* TMP */ r31, r30, r29)	// RSC management in this new context
+ 
+ 	// Unconditionally purge and re-load the TLBs to recover any resident errors.
+-	br.call.sptk	b0 = ia64_mca_tlb_purge_reload ;;
++(mca)	br.call.sptk	b0 = ia64_mca_tlb_purge_reload ;;
+ 
+ 	// Stack top - allow 16 bytes of scratch (C calling convention).
+-	add		r12 = MCA_stack_end_offset-16, r2
++(mca)	add		r12 = MCA_stack_end_offset-16, r2
++	;;						// Just to make the assembler happy
++(init)	add		r12 = INIT_stack_end_offset-16, r2
+ 
+         // Enter virtual mode from physical mode.
+ 	VIRTUAL_MODE_ENTER(/* TMP */ r31, /* TMP */ r30, 1f, /* OUT: old PSR */ r6)
+ 1:
+ 	// Call virtual mode handler: ia64_mca_ucmc_handler();
+-	movl		r31 = ia64_mca_ucmc_handler ;;
++(mca)	movl		r31 = ia64_mca_ucmc_handler ;;
++(init)	movl		r31 = ia64_hi_level_init_handler ;;
+ 	.global		ia64_mca_ucmc_handler
++	.global		ia64_hi_level_init_handler
+ 	mov		b6 = r31 ;;
+ 	br.call.sptk.many b0 = b6 ;;
+ 
+@@ -216,36 +268,36 @@
+ 	PHYSICAL_MODE_ENTER(/* TMP */ r31, /* TMP */ r30, 1f, r6)
+ 1:
+ 	// Switch back to the original context for RSE.
+-	add		r29 = MCA_stackframe_offset, r2
++(mca)	add		r29 = MCA_stackframe_offset, r2
++	;;						// Just to make the assembler happy
++(init)	add		r29 = INIT_stackframe_offset, r2
+ 	// movl		r30 = IA64_PSR_MC
+ 	mov		r30 = r0			// No reason for clearing the psr.mc bit
+ 	rse_return_context(r30, /* TMP */ r31, r29)
+ 
+ 	// Restore dumped processor state.
+-	movl		r31 = 1f ;;			// Cannot *call* as subroutine
+-	add		r31 = r31, r7 ;;		// Physical address
+-	mov		b0 = r31			// (would mess up ar.pfs, ar.ec,...)
+-	add		r2 = MCA_state_dump_offset, r2	// r2 -> save area
+-	br		ia64_os_mca_proc_state_restore ;;
+-	.global	ia64_os_mca_proc_state_restore
+-1:
++(mca)	add		r2 = MCA_state_dump_offset, r2	// r2 -> MCA save area
++	;;						// Just to make the assembler happy
++(init)	add		r2 = INIT_state_dump_offset, r2	// r2 -> INIT save area
++	QCALL(ia64_os_mca_proc_state_restore)
++
+ 	// No control over what ia64_os_mca_proc_state_restore() does, reload r2, r4, r5 and r7.
+ 	mov		r13 = ar.pfs
+ 	RELOAD_R2_R4_R5_R7() ;;
+ 
+ 	// Establish the OS to SAL hand off state.
+-	add		r3 = MCA_handoff_st_offset, r2	// r3 -> hand off state
++(mca)	add		r3 = MCA_handoff_st_offset, r2	// r3 -> MCA save area
++	;;						// Just to make the assembler happy
++(init)	add		r3 = INIT_handoff_st_offset, r2	// r3 -> INIT save area
+ 	br.call.sptk	b0 = load_handoff_st ;;
+ 	mov		ar.pfs = r13
+ 
+-	// Return to SALE_CHECK.
++	// Return to the SAL; MCA and INIT use the same type of hand off structure
+ 	add		r31 = MCA_SAL_ret_adr_offset, r3 ;;
+-	ld8		r31 = [r31] ;;			// SAL_CHECK return address
++	ld8		r31 = [r31] ;;			// SAL return address
+ 	mov		b0 = r31 ;;
+ 	br		b0 ;;
+ 
+-ia64_os_mca_dispatch_end:
+-	.global		ia64_os_mca_dispatch_end
+ 
+ //EndMain//////////////////////////////////////////////////////////////////////
+ 
+@@ -273,6 +325,9 @@
+ // Additional registers from th PAL
+ //	r17:		min-state save area address stored in XR0 from PAL_CHECK
+ //	r18:		Processor State Parameter from PAL
++//
++// Note:
++//	MCA and INIT use the same hand off structure.
+ //--
+ save_handoff_st:
+ 	add		r31 = MCA_PAL_proc_offset, r3
+@@ -317,6 +372,9 @@
+ //	PSR:		Processor Status Register saved on SAL to OS handoff
+ // Preserved:
+ //	r3
++//
++// Note:
++//	MCA and INIT use the same hand off structure.
+ //--
+ load_handoff_st:
+ 	add		r31 = MCA_status_offset, r3
+diff -ruN tmp/arch/ia64/kernel/mca_util.c linux-2.6.1-jan-15/arch/ia64/kernel/mca_util.c
+--- tmp/arch/ia64/kernel/mca_util.c	2004-01-15 17:02:39.000000000 +0100
++++ linux-2.6.1-jan-15/arch/ia64/kernel/mca_util.c	2004-01-15 16:19:16.000000000 +0100
+@@ -241,21 +241,23 @@
+ /*
+  * Clear the processor and platform information logged by SAL.
+  *
++ * Inputs:	type:		SAL_INFO_TYPE_MCA, ...
++ *
+  * Returns:	The status from SAL_CLEAR_STATE_INFO
+  */
+ int
+-mca_sal_clear_state_info(void)
++mca_sal_clear_state_info(unsigned int type)
+ {
+ 	s64	status;
+ 
+ 	KDBA_MCA_TRACE();
+-	switch(status = ia64_sal_clear_state_info_no_lock(SAL_INFO_TYPE_MCA)){
++	switch(status = ia64_sal_clear_state_info_no_lock(type)){
+ 	case SAL_CALL_OK_MORE_ERR_REC_AVAILABLE:
+ 	case SAL_CALL_OK:
+ 		return (int) status;
+ 	default:
+-		panic("\nMCA: apparently, I do not know how to call SAL_CLEAR_STATE_INFO, "
+-								"status = %ld\n", status);
++		panic("\nApparently, I do not know how to call "
++				"SAL_CLEAR_STATE_INFO(%u), status = %ld\n", type, status);
+ 		return (int) status;
+ 	}
+ 	/*NOTREACHED*/
+diff -ruN tmp/include/asm-ia64/mca.h linux-2.6.1-jan-15/include/asm-ia64/mca.h
+--- tmp/include/asm-ia64/mca.h	2004-01-15 17:02:39.000000000 +0100
++++ linux-2.6.1-jan-15/include/asm-ia64/mca.h	2004-01-15 16:19:26.000000000 +0100
+@@ -120,6 +120,11 @@
+ 	u64		proc_state_param;	/* from PAL in r18. See SDV 2:268 11.3.2.1 */
+ } ia64_mca_sal_to_os_state_t;
+ 
++
++/*
++ * MCA and INIT return codes.
++ * (INIT does not use "IA64_MCA_COLD_BOOT" or "IA64_MCA_HALT".)
++ */
+ enum {
+ 	IA64_MCA_CORRECTED	=	0x0,	/* Error has been corrected by OS_MCA */
+ 	IA64_MCA_WARM_BOOT	=	-1,	/* Warm boot of the system need from SAL */
+
+--------------CACE70477455A39A70D8CAE1--
+
