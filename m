@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 14 May 2003 02:40:50 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 14 May 2003 06:33:33 +0000
 Subject: Re: [Linux-ia64] Dump driver module
-Message-Id: <marc-linux-ia64-105590723705773@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705778@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705751@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705751@msgid-missing>
@@ -10,25 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 14 May 2003 12:32:17 +1000, Martin Pool <mbp@samba.org> said:
+On Wed, May 14, 2003 at 12:32:17PM +1000, Martin Pool wrote:
+> But you also need to know which disk to write to, and where.
+...
+> If any of this got screwed up, you might
+> write your dump over /home instead -- and then rather than a possibly
+> once-off kernel crash, you've lost lots of data.
 
-  Martin> So for a really reliable dump, you'd want to check and "lock
-  Martin> down" these variables at startup into a region of memory not
-  Martin> easily changed by the kernel, and accessible by EFI.  NVRAM?
-  Martin> I don't know if there's anything suitable on IPF.
+I'll take that risk since I've never seen it nor heard of it
+happening with HPUX after ~6 years of working HPUX IO subsystems.
+I'm sure HPUX has done things to help mitigate that risk.
+(like storing paths in NVRAM or some other hard to reach place.)
+All problem reports (including memory corruption problems) came with
+crash dumps.
 
-EFI provides (persistent) environment variables for this purpose.
-Don't know how well they're protected, typically, but that's probably
-more of an implementation issue than anything else.
+Besides, fsck after the reboot is much more likely to trash data
+on disk than the original memory corruption problem.
 
-  Martin> It would be an interesting project, although since network
-  Martin> dumps run a lower risk of clobbering filesystems they're
-  Martin> probably a smarter design.  It would be cool to do it in
-  Martin> EFI, if that's possible.
+While it's clearly feasible to dump over gigabit networks,
+I'm not sure how pervasive gigabit networks are.
+Probably standard now for core commercial/scientific centers.
+I fear dumping 4GB of memory over 100BT would be painful.
+(I pulled 4GB out of a hat; rx5670 supports 48GB of RAM).
 
-"Smart" is relative. I'm typing this on an Itanium box which doesn't
-have anything on the network that could serve as a dump device (it's
-own disk would be fine, though).
-
-	--david
+grant
 
