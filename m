@@ -1,35 +1,55 @@
 From: Matthew Dobson <colpatch@us.ibm.com>
-Date: Tue, 09 Nov 2004 19:23:44 +0000
+Date: Tue, 09 Nov 2004 19:43:02 +0000
 Subject: Re: Externalize SLIT table
-Message-Id: <1100028224.3980.7.camel@arrakis>
+Message-Id: <1100029381.3980.12.camel@arrakis>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20041103205655.GA5084@sgi.com>
 	 <20041104.105908.18574694.t-kochi@bq.jp.nec.com>
-	 <20041104040713.GC21211@wotan.suse.de>
-In-Reply-To: <20041104040713.GC21211@wotan.suse.de>
+	 <20041104141337.GA18445@sgi.com>  <200411041631.42627.efocht@hpce.nec.com>
+In-Reply-To: <200411041631.42627.efocht@hpce.nec.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: Takayoshi Kochi <t-kochi@bq.jp.nec.com>, steiner@sgi.com, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
+To: Erich Focht <efocht@hpce.nec.com>
+Cc: Jack Steiner <steiner@sgi.com>, Takayoshi Kochi <t-kochi@bq.jp.nec.com>, linux-ia64@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>
 
-On Wed, 2004-11-03 at 20:07, Andi Kleen wrote:
-> On Thu, Nov 04, 2004 at 10:59:08AM +0900, Takayoshi Kochi wrote:
-> > (3) all distances in one line like /proc/<PID>/stat
+On Thu, 2004-11-04 at 07:31, Erich Focht wrote:
+> On Thursday 04 November 2004 15:13, Jack Steiner wrote:
+> > I think it would also be useful to have a similar cpu-to-cpu distance
+> > metric:
+> >         % cat /sys/devices/system/cpu/cpu0/distance
+> >         10 20 40 60 
 > > 
-> > % cat /sys/devices/system/node/node0/distance
-> > 10 66 46 66
+> > This gives the same information but is cpu-centric rather than
+> > node centric.
 > 
-> I would prefer that. 
+> I don't see the use of that once you have some way to find the logical
+> CPU to node number mapping. The "node distances" are meant to be
+> proportional to the memory access latency ratios (20 means 2 times
+> larger than local (intra-node) access, which is by definition 10). 
+> If the cpu_to_cpu distance is necessary because there is a hierarchy
+> in the memory blocks inside one node, then maybe the definition of a
+> node should be changed...
 > 
-> -Andi
+> We currently have (at least in -mm kernels):
+>        % ls /sys/devices/system/node/node0/cpu*
+> for finding out which CPUs belong to which nodes. Together with
+>        /sys/devices/system/node/node0/distances
+> this should be enough for user space NUMA tools.
+> 
+> Regards,
+> Erich
 
-That would be my vote as well.  One line, space delimited.  Easy to
-parse...  Plus you could easily reproduce the entire SLIT matrix by:
-
-cd /sys/devices/system/node/
-for i in `ls node*`; do cat $i/distance; done
-
+I have to agree with Erich here.  Node distances make sense, but adding
+'cpu distances' which are just re-exporting the node distances in each
+cpu's directory in sysfs doesn't make much sense to me.  Especially
+because it is so trivial to get a list of which CPUs are on which node. 
+If you're looking for groups of CPUs which are close, simply look for
+groups of nodes that are close, then use the CPUs on those nodes.  If we
+came up with some sort of different notion of 'distance' for CPUs and
+exported that, I'd be OK with it, because it'd be new information.  I
+don't think we should export the *exact same* node distance information
+through the CPUs, though.
 
 -Matt
 
