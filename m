@@ -1,35 +1,39 @@
-From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
-Date: Fri, 30 Aug 2002 22:28:51 +0000
-Subject: Re: [Linux-ia64] PCI_BUSES_TO_SCAN off by 1?
-Message-Id: <marc-linux-ia64-105590701906008@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Mon, 12 Aug 2002 18:40:50 +0000
+Subject: [Linux-ia64] RE: efibootmgr commands + kickstart
+Message-Id: <marc-linux-ia64-105590701905933@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701906005@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701906005@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 30 Aug 2002 15:11:20 -0600
-Bjorn Helgaas <bjorn_helgaas@hp.com> wrote:
+> For some reason the following commands fail in the post 
+> section of a kickstart
+> for installation:
+> ---
+> /usr/sbin/efibootmgr -w -c -d /dev/sdb -L "RedHat Linux (efi 
+> backup )" > /dev/ttyS0
+> /usr/sbin/efibootmgr -w -c -d /dev/sda -L "RedHat Linux"  > /dev/ttyS0
 
-> > Is there any reason we don't scan the last PCI bus on IA64?
-> > arch/ia64/kernel/pci.c has PCI_BUSES_TO_SCAN set to 255 instead
-> > of 256, which prevents the kernel from scanning bus 255.  This
-> > causes is some problems since some of our machines (ie, the
-> > Itanium2 "tiger") place chipset registers in PCI config space on
-> > the last PCI bus.
-> 
-> I agree, it sounds like an off-by-one error.
-> 
-> Along this line, I had been hoping that if we find any PCI root
-> bridges via ACPI, we could skip the blind scanning of buses 0-255.
-> It sounds like skipping the blind scan might break tiger, though.
+Do you have a relatively new firmware? :-(
+(you can tell by switching to VT2 and doing a 'ls /proc/efi/vars'.  If
+there's no 'Efi-{some-big-GUID}' there, then you need a new copy of
+efibootmgr to handle the fact that that entry disappeared from the firmware,
+and efibootmgr prior to 0.4.0 requires it to exist...
 
-AFAIK, tiger defines PCI bus 255 as a host-bus bridge in ACPI.
+If this is it, you'll need to grab a new copy of efibootmgr from
+http://domsch.com/linux/ia64/efibootmgr/ ,  build it, and drop the resultant
+binary in place of the existing one.
 
 Thanks,
--- 
-KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+Matt
+
+--
+Matt Domsch
+Sr. Software Engineer, Lead Engineer, Architect
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+#1 US Linux Server provider for 2001 and Q1/2002! (IDC May 2002)
 
 
