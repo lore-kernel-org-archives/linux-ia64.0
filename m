@@ -1,67 +1,70 @@
 From: Rajesh Shah <rajesh.shah@intel.com>
-Date: Fri, 18 Mar 2005 22:02:27 +0000
-Subject: [patch 03/12] Make pcibios_fixup_bus() hot-plug safe
-Message-Id: <20050318140227.C1145@unix-os.sc.intel.com>
+Date: Fri, 18 Mar 2005 22:09:22 +0000
+Subject: [patch 06/12] Link newly created pci child bus to its parent on creation
+Message-Id: <20050318140922.F1145@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050318133856.A878@unix-os.sc.intel.com>
-In-Reply-To: <20050318133856.A878@unix-os.sc.intel.com>; from rajesh.shah@intel.com on Fri, Mar 18, 2005 at 01:38:57PM -0800
+In-Reply-To: <20050318133856.A878-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from rajesh.shah-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Fri, Mar 18, 2005 at 01:38:57PM -0800
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: gregkh@suse.de, tony.luck@intel.com, len.brown@intel.com
-Cc: linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net, linux-ia64@vger.kernel.org, acpi-devel@lists.sourceforge.net
+To: gregkh-l3A5Bk7waGM@public.gmane.org, tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+Cc: linux-pci-jyMamyUUXNJG4ohzP4jBZS1Fcj925eT/@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, pcihpd-discuss-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 
-PCI scan code calls the arch specific pcibios_fixup_bus() each
-time it scans a new bridge. For root bridge hot-plug, the bridge
-and it's attached devices may not have been configured properly
-yet, so it's not safe to claim those resources at this time.
-
-This code goes away when we clean up the way pci resources are
-claimed (in pci_enable_device()), so this is only a stopgap fix.
+When a pci child bus is created, add it to the parent's children
+list immediately rather than waiting till pci_bus_add_devices().
+For hot-plug bridges/devices, pci_bus_add_devices() may be called
+much later, after they have been properly configured. In the 
+meantime, this allows us to use the normal pci bus search functions
+for the hot-plug bridges/buses.
 
 Signed-off-by: Rajesh Shah <rajesh.shah@intel.com>
 ---
 
- linux-2.6.11-mm4-iohp-rshah1/arch/ia64/pci/pci.c |   22 +++++++++++++++++++++-
- 1 files changed, 21 insertions(+), 1 deletion(-)
+ linux-2.6.11-mm4-iohp-rshah1/drivers/pci/bus.c   |   11 +++++++----
+ linux-2.6.11-mm4-iohp-rshah1/drivers/pci/probe.c |    4 ++--
+ 2 files changed, 9 insertions(+), 6 deletions(-)
 
-diff -puN arch/ia64/pci/pci.c~ia64-pcibios_fixup_bus-hotplug-safe arch/ia64/pci/pci.c
---- linux-2.6.11-mm4-iohp/arch/ia64/pci/pci.c~ia64-pcibios_fixup_bus-hotplug-safe	2005-03-16 13:07:06.343101214 -0800
-+++ linux-2.6.11-mm4-iohp-rshah1/arch/ia64/pci/pci.c	2005-03-16 13:07:06.450523088 -0800
-@@ -391,6 +391,25 @@ void pcibios_bus_to_resource(struct pci_
- 	res->end = region->end + offset;
- }
+diff -puN drivers/pci/probe.c~pci_link_child_bus drivers/pci/probe.c
+--- linux-2.6.11-mm4-iohp/drivers/pci/probe.c~pci_link_child_bus	2005-03-16 13:07:18.745444812 -0800
++++ linux-2.6.11-mm4-iohp-rshah1/drivers/pci/probe.c	2005-03-16 13:07:18.857749498 -0800
+@@ -457,7 +457,7 @@ int __devinit pci_scan_bridge(struct pci
+ 			return max;
+ 		}
  
-+static int __devinit is_valid_resource(struct pci_dev *dev, int idx)
-+{
-+	unsigned int i, type_mask = IORESOURCE_IO | IORESOURCE_MEM;
-+	struct resource *devr = &dev->resource[idx];
-+
-+	if (!dev->bus)
-+		return 0;
-+	for (i=0; i<PCI_BUS_NUM_RESOURCES; i++) {
-+		struct resource *busr = dev->bus->resource[i];
-+
-+		if (!busr || ((busr->flags ^ devr->flags) & type_mask))
-+			continue;
-+		if ((devr->start) && (devr->start >= busr->start) &&
-+				(devr->end <= busr->end))
-+			return 1;
-+	}
-+	return 0;
-+}
-+
- static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
- {
- 	struct pci_bus_region region;
-@@ -404,7 +423,8 @@ static void __devinit pcibios_fixup_devi
- 		region.start = dev->resource[i].start;
- 		region.end = dev->resource[i].end;
- 		pcibios_bus_to_resource(dev, &dev->resource[i], &region);
--		pci_claim_resource(dev, i);
-+		if ((is_valid_resource(dev, i)))
-+			pci_claim_resource(dev, i);
- 	}
- }
+-		child = pci_alloc_child_bus(bus, dev, busnr);
++		child = pci_add_new_bus(bus, dev, busnr);
+ 		if (!child)
+ 			return max;
+ 		child->primary = buses & 0xFF;
+@@ -484,7 +484,7 @@ int __devinit pci_scan_bridge(struct pci
+ 		 * This can happen when a bridge is hot-plugged */
+ 		if (pci_find_bus(pci_domain_nr(bus), max+1))
+ 			return max;
+-		child = pci_alloc_child_bus(bus, dev, ++max);
++		child = pci_add_new_bus(bus, dev, ++max);
+ 		buses = (buses & 0xff000000)
+ 		      | ((unsigned int)(child->primary)     <<  0)
+ 		      | ((unsigned int)(child->secondary)   <<  8)
+diff -puN drivers/pci/bus.c~pci_link_child_bus drivers/pci/bus.c
+--- linux-2.6.11-mm4-iohp/drivers/pci/bus.c~pci_link_child_bus	2005-03-16 13:07:18.749351062 -0800
++++ linux-2.6.11-mm4-iohp-rshah1/drivers/pci/bus.c	2005-03-16 13:07:18.858726061 -0800
+@@ -121,10 +121,13 @@ void __devinit pci_bus_add_devices(struc
+ 		 * If there is an unattached subordinate bus, attach
+ 		 * it and then scan for unattached PCI devices.
+ 		 */
+-		if (dev->subordinate && list_empty(&dev->subordinate->node)) {
+-			spin_lock(&pci_bus_lock);
+-			list_add_tail(&dev->subordinate->node, &dev->bus->children);
+-			spin_unlock(&pci_bus_lock);
++		if (dev->subordinate) {
++		       if (list_empty(&dev->subordinate->node)) {
++			       spin_lock(&pci_bus_lock);
++			       list_add_tail(&dev->subordinate->node,
++					       &dev->bus->children);
++			       spin_unlock(&pci_bus_lock);
++		       }
+ 			pci_bus_add_devices(dev->subordinate);
  
+ 			sysfs_create_link(&dev->subordinate->class_dev.kobj, &dev->dev.kobj, "bridge");
 _
