@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 12 Jul 2004 22:01:41 +0000
-Subject: Re: Timer patches (nsec support + fastcalls for gettod/clock_gettime for all clocks)
-Message-Id: <16627.2629.763879.766318@napali.hpl.hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 12 Jul 2004 23:40:13 +0000
+Subject: Re: Timer patches (nsec support + fastcalls for gettod/clock_gettime
+Message-Id: <B6E8046E1E28D34EB815A11AC8CA3129023F68FA@mtv-atc-605e--n.corp.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0407091545250.5720@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0407091545250.5720@schroedinger.engr.sgi.com>
@@ -10,40 +10,35 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christoph,
+On Mon, 12 Jul 2004, David Mosberger wrote:
 
-Your putting out patches faster than I can comment on them, so I'll
-just start commenting anyhow... ;-)
+> I haven't reviewed the assembly code yet--the fsys-handlers need great
+> care (and testing), obviously.  (Does your fsys_gettimeofday() save
+> "pr" before modifying p1 etc?  I didn't see it, but like I said, I
+> haven't yet fully reviewed the assembly code.  Also, please use ar.itc
+> instead of ar44.)
 
-In general, I think your patches are heading in a good direction.
-Very nice to have someone to get this fleshed out properly!
+Ok. Will do all of what you said that I did not quote. Do I really
+need to save predicates? There are no docs on saving pr and the old
+gettimeofday assembly routine did not save the predicates and worked
+without a problem.
 
-Minor stuff:
+>  * I think the getnstimeofday() changes won't be accepted.  Instead,
+>    probably a better approach is to switch over to gettimeofday()
+>    returning a timespec.  IIRC, George Anziger had a patch to do that.
+>    Perhaps you can ask him to dust off that patch?
 
- - please avoid trailing whitespace (as usual)
- - please try to stay closer to Linux formatting conventions, e.g.,
-   there should be blanks around assignment-operators; also the
-   code in time_interpolator_get_offset() is formatted _really_
-   strangely
- - the DEBUG-stuff should be dropped in the final version, I think
+I was not able to find the patch but I will talk to George about this.
+However, gettimeofday with a timeval is an established standard. George's
+current patches on sf.net use clock_gettime to retrieve higher precision
+timer values.
 
-I haven't reviewed the assembly code yet--the fsys-handlers need great
-care (and testing), obviously.  (Does your fsys_gettimeofday() save
-"pr" before modifying p1 etc?  I didn't see it, but like I said, I
-haven't yet fully reviewed the assembly code.  Also, please use ar.itc
-instead of ar44.)
+What could be done is to change do_gettimeofday to use a timespec and then
+have sys_gettimeofday to the proper scaling. Is that what you were
+thinking? But do_gettimeofday is used a gazillion times all over the linux
+sources and changing that would result in a huge patch that might not be
+acceptable either.
 
-Is there any reason the CPU_TIMER macro couldn't be replaced in
-get_cycles()?
+I surely wish there would be some easy way of dealing with the
+gettimeofday legacy issue.
 
-Two other comments:
-
- * Perhaps rename TIME_SOURCE_MEM{32,64} to TIME_SOURCE_MMIO{32,64}
-   for clarity?
-
- * I think the getnstimeofday() changes won't be accepted.  Instead,
-   probably a better approach is to switch over to gettimeofday()
-   returning a timespec.  IIRC, George Anziger had a patch to do that.
-   Perhaps you can ask him to dust off that patch?
-
-	--david
