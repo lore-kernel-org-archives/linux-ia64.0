@@ -1,37 +1,33 @@
-From: Alex Williamson <alex_williamson@attbi.com>
-Date: Sun, 28 Apr 2002 14:58:48 +0000
-Subject: Re: [Linux-ia64] McKinley keyboard problems.
-Message-Id: <marc-linux-ia64-105590701905535@msgid-missing>
+From: Jeremy Fox <jerfox@Stanford.EDU>
+Date: Mon, 01 Apr 2002 03:20:01 +0000
+Subject: [Linux-ia64] Basic Advice Needed
+Message-Id: <marc-linux-ia64-105590701905348@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905534@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905534@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Steffen,
+I have some very basic newbie questions. Is ia64 Linux stable enough
+for use for very long running and high memory using (> 5 GB)
+scientific computations?
 
-    David's latest 2.4.18 patch set is getting pretty close to fully
-functional on the zx1 chipset.  The install kernel from RH is not
-going to work since it depends on some legacy I/O features in the Intel
-chipsets.  I'd suggest trying Debian.  The latest Debian kernel has the
-patch set necessary for this chipset (and it's free!).
+And a followup, if it is stable, is this stability really only found
+on kernels above a certain number? If so, what number should I be
+upgrading to?
 
-	Alex <alex_williamson@hp.com>
+And finally, are certain distributions more committed to ia64 niche
+market? And is HP-UX more stable?
 
+Longer story: I bought a Dell workstation of off eBay and the seller
+is trying to install Linux on it. He installed SuSE from the isos and
+claims it is unstable at high memory. Unfortunately, he doesn't have
+any commerical OSes so it is hard to tell if this is a hardware or
+software problem. He also can't make install CDs for RedHat because
+RedHat doesn't release ia64 isos. :)
 
-Steffen Persvold wrote:
- > Hi all,
- >
- > We just got two HP McKinley systems in our lab, but I'm not able to
- > install them with RH 7.2 (kernel-2.4.9-18) because they only got USB
- > keyboard/mouse. When the kernel boots it complains about "keyboard
- > jammed" and when the RH installer finally starts the keyboard is
- > "dead". Any ideas ? Is this fixed with newer kernels ?
- >
- > Thanks,
-
-
-
+-- 
+------------------------
+Jeremy T. Fox
+jerfox@stanford.edu
 
