@@ -1,7 +1,7 @@
 From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Wed, 18 Dec 2002 23:35:54 +0000
+Date: Thu, 19 Dec 2002 00:21:08 +0000
 Subject: Re: [Linux-ia64] installation help
-Message-Id: <marc-linux-ia64-105590709805613@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805614@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805612@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805612@msgid-missing>
@@ -10,34 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Dec 18, 2002 at 03:25:17PM -0800, Jian Chen wrote:
-> Hi,
-> 
-> I downoaded ski and nue, and installed with:
-> 
-> rpm -Uhv ski-0.943l-2.i386.rpm
-> rpm -Uhv nue-1.1-1.i386.rpm
-> rpm -Uhv nue-fs-1.2-1.i386.rpm
-> 
-> I verified my installation with hello.c, but found
-> that the compiled binary file can't be executed. Does
-> anyone know why?
-> 
-> My system is Redhat Linux 7.3, CPU Intel Pentium4
-> 2.00GHZ, gcc version 2.96 20000731.
-> 
+Jane,
 
-On some systems, the RPM post install script does not properly
-execute the init script necessary to get the IA-64 binary
-executed by the simulator. It is very easy to fix.
-
-As root, simply type:
-
-# /etc/rc.d/init.d/ia64fmt start
-
-Then you will be able to run the IA-64 binary inside the NUE environment.
-Note that next time you reboot your system, the rc script will be executed
-automatically.
+On Wed, Dec 18, 2002 at 04:14:44PM -0800, Jian Chen wrote:
+> 
+> I installed ski and nue in order to use a cross
+> compiler (open 64) from Intel on IA32. As I said, the
+> binary did not work when I installed the compiler. Now
+> that it works after running '/etc/rc.d/init.d/ia64fmt
+> start'. Do I need to reinstall the compiler?
+> 
+I would guess no. You would need to reinstall only if during the
+installation of this compiler they need to run an IA-64 binary.
 
 -- 
 -Stephane
