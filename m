@@ -1,24 +1,36 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 19 Nov 2004 06:35:25 +0000
-Subject: RE: [PATCH] 2.6.10-rc1 pfmon broken by bad merge?
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F026C5935@scsmsx401.amr.corp.intel.com>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Sat, 27 Nov 2004 00:27:09 +0000
+Subject: ia64 emulator or test machine available
+Message-Id: <41A7C9DD.20303@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041118230118.GC15892@esmail.cup.hp.com>
-In-Reply-To: <20041118230118.GC15892@esmail.cup.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Just pulled/rebuilt from the bk linux-ia64-release-2.6.10 tree
->and it failed to build with :
->arch/ia64/kernel/perfmon.c: In function `pfm_handle_work':
->arch/ia64/kernel/perfmon.c:5068: error: parse error before '/' token
->
->Following trivial patch fixes what looks like a merge bug.
->
->Signed-off-by: Grant Grundler <iod00d@hp.com>
+Hi,
 
-Applied.
+I have been doing some work in the area of page table lock reduction
+in collaboration with Christoph Lameter. The main aim of this is to
+improve multi-threaded page fault performance, but may also benefit
+other areas, like multi threded futex performance, and page reclaim.
 
--Tony
+I have working implementations on i386 and x86-64, and now I would like
+to get an ia64 version running. For two reasons: first, SGI is pushing
+most of the work in this area, obviously for their ia64 systems;
+
+second, ia64's implementation of pte access faults in software means
+there is a possibility to implement mutual exclusion for pte access with
+pte lock bits rather than cmpxchg, and with no downside. pte lock bits
+may prove to be more scalable than cmpxchg in some areas.
+
+With the help of Keith and Christoph, we have a version that is close
+to booting - however I can't ask or expect them to debug my bugs. So if
+anyone is interested in giving me access to an emulator or (preferably)
+machine with serial console and power access that boots recent 2.6
+kernels then I would be much obliged.
+
+I wouldn't require anything fancy, nor for (hopefully) too long a time.
+
+Thanks,
+Nick
