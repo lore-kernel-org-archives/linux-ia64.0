@@ -1,24 +1,20 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Wed, 25 Oct 2000 18:15:40 +0000
-Subject: [Linux-ia64] Re: CPU stepping in /proc/cpuinfo?
-Message-Id: <marc-linux-ia64-105590678205628@msgid-missing>
+From: "Geddes, Brian J" <brian.j.geddes@intel.com>
+Date: Fri, 06 Oct 2000 18:00:15 +0000
+Subject: [Linux-ia64] SPECViewperf
+Message-Id: <marc-linux-ia64-105590678205555@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Francis Galiegue (fg@mandrakesoft.com) said: 
-> Update: someone told me that revision in /proc/cpuinfo was what I was looking
-> for. 0 means Ax stepping, 1 or more means Bx. Is this the case?
+All - 
 
-AFAIK:
+Has anyone tried to compile Viewperf (an OpenGL benchmarking app) on IA64
+Linux?  I'm about to start trying, and any insights/experience would be very
+helpful.
 
-   0 	=  Ax
-   1	=  B0
-   2	=  B1
-   3	=  B2
-...
+Thanks!
+- Brian
 
-Bill
 
