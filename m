@@ -1,7 +1,7 @@
-From: "Qiu HongBing" <qiuhb@necas.nec.co.jp>
-Date: Fri, 18 May 2001 01:52:19 +0000
-Subject: [Linux-ia64] make cross-gcc error use GNUPro ToolKit
-Message-Id: <marc-linux-ia64-105590693005612@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Fri, 18 May 2001 05:41:33 +0000
+Subject: Re: [Linux-ia64] make cross-gcc error use GNUPro ToolKit
+Message-Id: <marc-linux-ia64-105590693005613@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005611@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005611@msgid-missing>
@@ -10,48 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-SGkNCg0KSSB3YW50IHRvIHBvcnQgc29tZSBhcHBsaWNhdGlvbnMgZnJvbSBJQTMyIHRvIElBNjQu
-IFNvIEkgd2FudCB0byBoYXZlIGEgY3Jvc3MtZ2NjIGFuZCBnZXQgR05VUHJvIFRvb2xLaXQgc291
-cmNlIGFuZCBtYWtlLGJ1dCBzb21lIGVycm9ycyBoYXBwZW5lZC5JZiB3aG8ga25vd3MgLFBsZWFz
-ZSBoZWxwIG1lLg0KDQpNeSBQQyBpcyBQSUkgMzUwIGFuZCBPUyBpcyBSZWRoYXQgNy4xLg0KdGhl
-IGdjYyBpcyAyLjk2DQp0aGUgZ2xpYmMgaXMgZ2xpYmMtZGV2ZWwtMi4yLjItMQ0KDQpUaGFua3Mu
-DQoNCnN0ZXAgMToNCiBjZCAvd29yazt0YXIgeHp2ZiBzcmMudGFyLloNCg0Kc3RlcCAyOg0KIG1r
-ZGlyIGluc3RhbGwtZGlyO2NkIGluc3RhbGwtZGlyDQogLi4vc3JjL2NvbmZpZ3VyZSAtLXRhcmdl
-dD1pYTY0LXBjLWxpbnV4DQogbWFrZSBhbGwgTEFOR1VBR0VTPSJjIGMrKyINCg0Kc3RlcCAzOg0K
-IHRoZSBlcnJvciBsb29rcyBsaWtlIHRoaXM6DQpkbyBcDQogIGVjaG8gJHtuYW1lfTsgXA0KICAv
-d29yay9iLWlhNjQtcGMtbGludXgvZ2NjL3hnY2MgLUIvd29yay9iLWlhNjQtcGMtbGludXgvZ2Nj
-LyAtQi91c3IvbG9jYWwvaWE2NC1wYy1saW51eC9iaW4vIC1JL3Vzci9sb2NhbC9pYTY0LXBjLWxp
-bnV4L2luY2x1ZGUgLU8yICAtRENST1NTX0NPTVBJTEUgLURJTl9HQ0MgICAgLWcgLU8yICAtSS4v
-aW5jbHVkZSAgLWZQSUMgLWcxICAtRElOX0xJQkdDQzIgLURfX0dDQ19GTE9BVF9OT1RfTkVFREVE
-ICAtSS4gLUkuLi8uLi9zcmMvZ2NjIC1JLi4vLi4vc3JjL2djYy9jb25maWcgLUkuLi8uLi9zcmMv
-Z2NjLy4uL2luY2x1ZGUgLWMgLURMJHtuYW1lfSBcDQogICAgICAgLi4vLi4vc3JjL2djYy9saWJn
-Y2MyLmMgLW8gJHtuYW1lfS5vOyBcDQogIGlmIFsgJD8gLWVxIDAgXSA7IHRoZW4gdHJ1ZTsgZWxz
-ZSBleGl0IDE7IGZpOyBcDQogIC93b3JrL2ItaWE2NC1wYy1saW51eC9iaW51dGlscy9hciByYyB0
-bXBsaWJnY2MyLmEgJHtuYW1lfS5vOyBcDQogIHJtIC1mICR7bmFtZX0ubzsgXA0KZG9uZQ0KX211
-bGRpMw0KLi4vLi4vc3JjL2djYy9saWJnY2MyLmM6NDQ6IHN0ZGxpYi5oOiBObyBzdWNoIGZpbGUg
-b3IgZGlyZWN0b3J5DQouLi8uLi9zcmMvZ2NjL2xpYmdjYzIuYzo0NTogdW5pc3RkLmg6IE5vIHN1
-Y2ggZmlsZSBvciBkaXJlY3RvcnkNCm1ha2VbMV06ICoqKiBbbGliZ2NjMi5hXSBFcnJvciAxDQoN
-CkluIHRoaXMgc3RlcCxJIGNoYW5nZSB0aGUgY29uZmlndXJlIGFzIGZvbGxvd3M6DQogY2QgL2lu
-c3RhbGwtZGlyL2djYztybSAqIC1yZjsuLi8uLi9zcmMvZ2NjL2NvbmZpZ3VyZSAtLXRhcmdldD1p
-YTY0LXBjLWxpbnV4IC0tZGlzYWJsZS10aHJlYWRzDQogbWFrZSBhbGwgTEFOR1VBR0VTPSJjIGMr
-KyIgVEFSR0VUX0xJQkdDQzJfQ0ZMQUdTPSItZm9taXQtZnJhbWUtcG9pbnRlciAtZlBJQyAtRGlu
-aGliaXRfbGliYyAtRF9fZ3Rocl9wb3NpeF9oIg0KDQogdGhlIGdjYyBpcyBvayBhbmQgSSBjb250
-aW51ZSB0byBtYWtlIGFzIGZvbGxvd3M6DQoNCnN0ZXAgNDoNCiBjZCAvd29yay9pbnN0YWxsLWRp
-cg0KIG1ha2UgYWxsIExBTkdVQUdFUz0iYyBjKysiIFRBUkdFVF9MSUJHQ0MyX0NGTEFHUz0iLWZv
-bWl0LWZyYW1lLXBvaW50ZXIgLWZQSUMNCi1EaW5oaWJpdF9saWJjIC1EX19ndGhyX3Bvc2l4X2gi
-DQoNCiB0aGUgZXJyb3IgbG9va3MgbGlrZSB0aGlzOg0KL3Vzci9sb2NhbC9pYTY0LXBjLWxpbnV4
-L2Jpbi8gLWMgLWZvbWl0LWZyYW1lLXBvaW50ZXIgLURpbmhpYml0X2xpYmMgLURfX2d0aHJfcG9z
-aXhfaCAtZyAtTzIgIC1JLiAtSS4uLy4uLy4uL3NyYy9saWJpbyAgLi4vLi4vLi4vc3JjL2xpYmlv
-L2lvZ2V0bGluZS5jDQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gLi4vLi4vLi4vc3JjL2xpYmlvL2lv
-Z2V0bGluZS5jOjI2Og0KLi4vLi4vLi4vc3JjL2xpYmlvL2xpYmlvUC5oOjMwOiBlcnJuby5oOiBO
-byBzdWNoIGZpbGUgb3IgZGlyZWN0b3J5DQpJbiBmaWxlIGluY2x1ZGVkIGZyb20gLi4vLi4vLi4v
-c3JjL2xpYmlvL2lvbGliaW8uaDoxLA0KICAgICAgICAgICAgICAgICBmcm9tIC4uLy4uLy4uL3Ny
-Yy9saWJpby9saWJpb1AuaDo0NywNCiAgICAgICAgICAgICAgICAgZnJvbSAuLi8uLi8uLi9zcmMv
-bGliaW8vaW9nZXRsaW5lLmM6MjY6DQouLi8uLi8uLi9zcmMvbGliaW8vbGliaW8uaDozMDogX0df
-Y29uZmlnLmg6IE5vIHN1Y2ggZmlsZSBvciBkaXJlY3RvcnkNCi4uLy4uLy4uL3NyYy9saWJpby9p
-b2dldGxpbmUuYzoyNzogc3RyaW5nLmg6IE5vIHN1Y2ggZmlsZSBvciBkaXJlY3RvcnkNCm1ha2U6
-ICoqKiBbaW9nZXRsaW5lLm9dIEVycm9yIDENCg0Kc3RlcCA1Og0KIEkgdGhpbmsgaXQgbWF5IGJl
-IHRoZSBjb25maWd1cmUgcGFyYW1ldGVyIG5vdC1jb3JyZXQuIEkgd2FudCB0byBrbm93IHdoeSBh
-bmQgaG93IHRvIHNvbHZlIGl0Lg0K
+Hi,
 
+On Fri, May 18, 2001 at 09:43:52AM +0800, Minnow wrote:
+> 
+> I want to port some applications from IA32 to IA64. So I want to have a cross-gcc and get GNUPro ToolKit source and make,but some errors happened.If who knows ,Please help me.
+> 
+> My PC is PII 350 and OS is Redhat 7.1.
+> the gcc is 2.96
+> the glibc is glibc-devel-2.2.2-1
+>  
+Instead of going down that path, I would higly recommend that you use the
+HP IA-64 Linux Development Kit (LDK) that is available for free downloads
+from:
+
+	http://software.hp.com/ia64linux
+
+It includes a very nice environment to cross-develop and has the gcc cross-compiler
+builtin. The other advantages is that you can also run the generated binary
+on your Linux/PC because the kit incorporates the HP Ia-64 Ski simulator as well.
+This simulator also provides source level debugging.
+
+A new version of the kit which will include the latest stable gnupro and
+the latest glibc2.2 should become available within the next few days.
+
+--
+-Stephane
 
