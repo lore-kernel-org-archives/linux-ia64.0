@@ -1,45 +1,62 @@
-From: Hugh Dickins <hugh@veritas.com>
-Date: Wed, 01 Sep 2004 11:30:07 +0000
-Subject: Re: Bad interaction between virtual memmap and rmap changes?
-Message-Id: <Pine.LNX.4.44.0409011218210.5398-100000@localhost.localdomain>
+From: Thibaut VARENE <T-Bone@parisc-linux.org>
+Date: Sun, 26 Sep 2004 16:33:33 +0000
+Subject: kernel troubles on rx2600 while running sbuild
+Message-Id: <20040926183333.1592f4cd@Tatooine.r3z0>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040901055933.GC21873@cse.unsw.EDU.AU>
-In-Reply-To: <20040901055933.GC21873@cse.unsw.EDU.AU>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 1 Sep 2004, Ian Wienand wrote:
-> 
-> With 2.6.9-rc1 on IA64 I have this problem when I boot on an rx2600
-> (with both SMP and uniprocessor builds) :
-> 
-> Bad page state at free_hot_cold_page (in process 'swapper', page e0000000049bcd08)
-> flags:0x00000000 mapping:0000000000000000 mapcount:1 count:0
-> Backtrace:
-> [-- no backtrace is printed, unfortunately, and the machine stops dead --]
-> 
-> But I also noticed that virtual mem map was right at around the same
-> place :
-> 
-> Virtual mem_map starts at 0xe000000004928000
-> 
-> So I turned that off in the config, and it appears to work OK.  I
-> noticed there were a lot of rmap changes with respect to locking just
-> recently put in, and I suspect they are the culprit.
+Hi,
 
-But they went in just _after_ 2.6.9-rc1, so however evil
-they may be, I doubt they're guilty of this particular sin!
+I've been having some troubles while running 'sbuild' (debian package
+autobuilder system) on freshly installed Debian Sarge rx2600 boxes.
 
-Previous cases of bad page state mapcount:1 (which tends to be
-followed later by the BUG_ON(!page->mapcount) from page_remove_rmap,
-since the bad page state gets forced to "good") have been resolved
-by unrelated code freeing a page which didn't (any longer) belong
-to it; but no instance of that in 2.6.9-rc1 springs to my mind.
+First issue:
+rx2600 2-way with 4GB RAM, using debian
+kernel-image-2.6.8.1-4-mckinley-smp
 
-I'm afraid I don't know much about IA64 and virtual mem_maps,
-so I'd better leave you in more capable hands.
+The box went into a very unstable state while building aptitude (roughly
+5 hours after starting sbuild). Several processes went into "D" state and
+the logs started to get flooded by the following 3 lines (repeated 435743
+times, that is, until i rebooted the system):
 
-Hugh
+Sep 24 02:03:27 gandalf kernel: b_state=0x00000019, b_size@96
+Sep 24 02:03:27 gandalf kernel: device blocksize: 4096
+Sep 24 02:03:27 gandalf kernel:__find_get_block_slow() failed.
+block05635, b_blocknr05632
 
+At that point I could nonetheless login and reboot the system.
+I then ran a disk check just in case (including badblocks check) which
+shown nothing.
+
+There I thought that SMP might not be a good idea when running sbuild so I
+switched to a UP system, with the same configuration (except for the RAM &
+nb of CPUs):
+
+Second issue:
+rx2600 1-way with 2GB RAM, using debian kernel-image-2.6.8.1-4-mckinley
+
+The system was taken down approx 4h after staring sbuild, unfortunately
+the console logs were bloated with stack dumps and got enventually
+purged, so i couldn't gather much info, therefore i'm just posting it for
+the record. Here is what I could collect:
+
+<6>note: sh[8180] exited with preempt_count 1
+Unable to handle kernel NULL pointer dereference (address
+0000000000000028)
+sh[8180]: Oops 8813272891392 [18]
+
+As a matter of fact, I can't tell whether this was the problem that took
+the machine down. The only thing i can tell, is that switching back to 2.4
+(kernel-image-2.4.27-1-mckinley) seems to have made this system much more
+stable, since it's been running sbuild now for 16h straight without any
+problem.
+
+HTH,
+
+
+Thibaut VARENE
+The PA/Linux ESIEE Team
+http://www.pateam.org/
