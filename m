@@ -1,7 +1,7 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Thu, 10 Jul 2003 23:22:42 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 10 Jul 2003 23:31:14 +0000
 Subject: Re: clone testcases in LTP
-Message-Id: <marc-linux-ia64-105787938313209@msgid-missing>
+Message-Id: <marc-linux-ia64-105787991313681@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105778639326638@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105778639326638@msgid-missing>
@@ -10,57 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+>>>>> On Fri, 11 Jul 2003 09:22:42 +1000, Peter Chubb <peter@chubb.wattle.id.au> said:
 
->>>>> On Thu, 10 Jul 2003 11:18:38 -0500, Nathan Straz <nstraz@sgi.com> said:
->>> /* int __clone2(int (*fn) (void *arg), void *child_stack_base, */
->>> /* size_t child_stack_size, int flags, void *arg, */ /* pid_t
->>> *parent_tid, void *tls, pid_t *child_tid) */
+  Peter> I'm not finding that clone2() works -- We get a segfault in the cloned
+  Peter> process when it returns.
 
-I'm not finding that clone2() works -- We get a segfault in the cloned
-process when it returns.
+  Peter> __clone2(func, stack, STACKSIZE, SIGCHLD, NULL, NULL,  NULL, NULL))
 
-This is the program:
+Umh, you're creating a new process with a different initial function.
+I doubt this has ever been tested.  It probably should work, but I
+don't know of any app doing this for real (either you fork, or you
+create a thread).
 
-#include <stdio.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <stdlib.h>
-
-int func(void *arg) { 
-    fprintf(stderr, "In child\n"); 
-    return 0;
-} 
- 
-int main(void) 
-{ 
-        int pagesize = sysconf(_SC_PAGESIZE); 
-        char *stack;
-	int status;
-        pid_t kidpid; 
- 
-#define STACKSIZE (pagesize*8) 
-        stack = valloc(STACKSIZE); 
-        if ((kidpid = __clone2(func, stack, STACKSIZE, SIGCHLD, NULL,
-		    NULL,  NULL, NULL)) = -1) 
-                perror("clone"); 
-        else { 
-                waitpid(kidpid, &status, __WALL);
-                if (status) 
-                   fprintf(stderr, "child failed: status %x\n", 
-				   status); 
-	} 
-        return 0; 
-}
-
-I see:
-
-In child
-child failed: status b
-
-where b translates to segfault.
-
-Peter c
-
-
+	--david
