@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 07 Aug 2003 19:42:10 +0000
+From: Erich Focht <efocht@hpce.nec.com>
+Date: Fri, 08 Aug 2003 11:20:22 +0000
 Subject: Re: IPMI Help to access Firmware Versions.
-Message-Id: <marc-linux-ia64-106028542207291@msgid-missing>
+Message-Id: <marc-linux-ia64-106034241420003@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106026637713348@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106026637713348@msgid-missing>
@@ -10,26 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Aug 07, 2003 at 07:51:14PM +0530, Kamesh Reddy wrote:
-> I want to access the various firmware versions of devices like MP, BMC of the
-> machine running Linux (64 Bit) etc.
+On Thursday 07 August 2003 21:42, Grant Grundler wrote:
+> > If so how do
+> > I use it (IPMI) to get the information I need.
+>
+> I'd like to know as well.
 
-EFI shell doesn't provide this?
-Or you want to read this info programmatically while the OS is running?
-perhaps under /proc/ someplace?
-I looked around a bit but didn't see aything obvious.
+In principle this should work with newer versions of lm_sensors. I've
+seen it running on IA32 but didn't try it myself. But in priciple this
+should also work for IA64. Try Google for
+    bmcsensors i2c-ipmi lm_sensors2 ...
+
+Regards,
+Erich
 
 
-> I have understood that this can be done
-> using IPMI. I want to know if IPMI is implemented on Linux 64.
 
-yes
- 
-> If so how do
-> I use it (IPMI) to get the information I need.
-
-I'd like to know as well.
-
-thanks
-grant
 
