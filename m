@@ -1,20 +1,25 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 27 Feb 2002 01:54:23 +0000
-Subject: [Linux-ia64] Re: Announce: kdb v2.1 is available for kernel 2.4.18
-Message-Id: <marc-linux-ia64-105590701905192@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 12 Feb 2002 06:12:32 +0000
+Subject: [Linux-ia64] heads up: data will soon be non-executable by default
+Message-Id: <marc-linux-ia64-105590698806037@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 26 Feb 2002 12:25:07 +1100, 
-Keith Owens <kaos@sgi.com> wrote:
->ftp://oss.sgi.com/projects/kdb/download/v2.1/
->
->  kdb-v2.1-2.4.18-common-1.bz2
->  kdb-v2.1-2.4.18-i386-1.bz2
+Just as a heads up: Linus accepted the patch to make the default
+rights on a data page (stack and heap) architecture dependent.  I'm
+planning to turn off execute permission on data and stack pages soon
+(2.4.18 and 2.5.5, respectively); if you have any legitimate concern
+about this, now is the time to speak up!
 
-kdb-v2.1-2.4.18-ia64-020226-1.bz2 has just been added.
+Once the default execute permissions are gone, we can get rid of the
+lazy-execute bit code, which will obviate the need for an
+ia64-specific page fault handler and speed up programs that do dynamic
+code generation.
 
+Thanks,
+
+	--david
 
