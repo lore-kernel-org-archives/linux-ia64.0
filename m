@@ -1,38 +1,40 @@
-From: <ameya.mitragotri@wipro.com>
-Date: Fri, 30 Jan 2004 12:49:29 +0000
-Subject: Problem with interrupts + lkcd on IA64!
-Message-Id: <CC7A2BA2F1CA9E43B2B62C4783B42C7B9A88EE@blr-ec-msg05.wipro.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 13 Jan 2004 23:45:09 +0000
+Subject: [PATCH] move HCDP under serial console #ifdef
+Message-Id: <200401131645.09430.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
-I am working on an IA64 Itanium machine with an MPT SCSI
-adapter. 
+Currently you can select HCDP independent of serial console.  This
+doesn't seem very useful, and makes the setup_serial_hcdp() reference
+unresolved if the serial driver is built as a module.
 
-1) I have patched my kernel (2.6.1) with lkcd and I am trying
-to dump using the keyboard combination of Alt+SysRq+d.
-This always ends up in a hung kernel.
+CONFIG_SERIAL_8250_CONSOLE is only selectable if the serial core is
+built in (SERIAL_8250=y), so this patch makes sure we don't try to
+call setup_serial_hcdp() unless it is actually built in to the kernel.
 
-2) The kernel does not hang if the dump starts from a non
-interrupt/bottom half context.
+(I think we should also make HCDP selection dependent on
+SERIAL_8250_CONSOLE=y in Kconfig; I'll send a separate patch
+for that since it's not ia64-specific.)
 
-3) Dumping, however, is successful on an X86 machine
-(no scsi here) in both the above scenarios.
-
-It is an observation that with Alt+SysRq+d, dumping progresses from
-the bottom half of the keyboard interrupt. The same would 
-imply that, all interrupts would be enabled and dumping should 
-progress.
-
-4) I noticed that the values of psr.i and psr.ic are 1 when
-we are waiting for the interrupt (psr.i and psr.ic are the same
-for points 1 and 2 mentioned above)
-
-Any suggestions as to what may be going wrong here?
-
-Thanks
-Ameya
+=== arch/ia64/kernel/setup.c 1.64 vs edited ==--- 1.64/arch/ia64/kernel/setup.c	Mon Dec 29 14:37:24 2003
++++ edited/arch/ia64/kernel/setup.c	Mon Jan 12 15:46:23 2004
+@@ -317,13 +317,13 @@
+ #ifdef CONFIG_ACPI_BOOT
+ 	acpi_boot_init();
+ #endif
++#ifdef CONFIG_SERIAL_8250_CONSOLE
+ #ifdef CONFIG_SERIAL_8250_HCDP
+ 	if (efi.hcdp) {
+ 		void setup_serial_hcdp(void *);
+ 		setup_serial_hcdp(efi.hcdp);
+ 	}
+ #endif
+-#ifdef CONFIG_SERIAL_8250_CONSOLE
+ 	/*
+ 	 * Without HCDP, we won't discover any serial ports until the serial driver looks
+ 	 * in the ACPI namespace.  If ACPI claims there are some legacy devices, register
 
