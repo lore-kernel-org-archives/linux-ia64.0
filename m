@@ -1,32 +1,27 @@
-From: Jes Sorensen <jes@sunsite.dk>
-Date: Fri, 28 Sep 2001 12:39:28 +0000
-Subject: Re: [Linux-ia64] Re: Status on ioremap patch
-Message-Id: <marc-linux-ia64-105590698805271@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Mon, 10 Sep 2001 23:40:34 +0000
+Subject: [Linux-ia64] Re: [PATCH] to remove unused hcl_spinlock
+Message-Id: <marc-linux-ia64-105590698805165@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805186@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805186@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Steffen" = Steffen Persvold <sp@scali.no> writes:
+>>>>> On Fri, 07 Sep 2001 15:01:40 -0700, "David C. Hansen" <haveblue@us.ibm.com> said:
 
-Steffen> David Mosberger wrote:
->>  I haven't looked at it yet, but am planning to do so as part of
->> the 2.4.10 patch.
+  David.Hansen> I was looking at spinlocks in the kernel and came
+  David.Hansen> across hcl_spinlock.  If you look at this paper:
+  David.Hansen> http://lse.sourceforge.net/lockhier/global-spin-lock ,
+  David.Hansen> you can see a part on hcl_spinlock.  It is
+  David.Hansen> initialized. but never used.  Was this lock meant to
+  David.Hansen> guard something?  Is that thing still in the code?  If
+  David.Hansen> it isn't, here is a patch to remove hcl_spinlock.
 
-Steffen> I just discovered that several files in arch/ia64/kernel
-Steffen> (more specifically acpi.c, efi.c and iosapic.c) calls ioremap
-Steffen> with 0 as size argument. This is ok with the current ioremap
-Steffen> implementation which always uses region 6 and therefore in
-Steffen> theory doesn't need a size since it's mapped all the
-Steffen> time.
+Just FYI: stuff in the sn/ subdirectories is SGI specific.  Since I
+can't test that, I try to avoid touching it and it would be up to SGI
+to incorporate your patch (I suspect they have fixed that already: the
+SN code hasn't been synced in a while).
 
-This is really borked, it should be changed whether we change the
-ioremap() implementation or not. ioremap() really should be treated
-identically on all architectures from the users perspective.
-
-Cheers
-Jes
+	--david
 
