@@ -1,32 +1,210 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Feb 2004 20:12:59 +0000
-Subject: Re: [patch] 2.4.25 sync unwind code with 2.6.3
-Message-Id: <16442.24267.353386.287861@napali.hpl.hp.com>
+From: Andreas Schwab <schwab@suse.de>
+Date: Fri, 20 Feb 2004 13:34:03 +0000
+Subject: Oops in pdflush
+Message-Id: <je4qtl7u44.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3792.1077504388@kao2.melbourne.sgi.com>
-In-Reply-To: <3792.1077504388@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+This happens regularily on all our Intel Tiger SMP systems, haven't seen
+it on UP systems, and neither on any HP system we have.  Theses oopses are
+all from different systems running kernels 2.6.2 and 2.6.3 in various
+incarnations.  They are all using e1000 and mptscsih, unlike the HP
+systems, so it might be a bug in either of those drivers.
 
-  Keith> I am not happy with the kludge that avoids the deadlock on
-  Keith> script-> lock, anybody got a better solution?  The kludge
-  Keith> assumes script-> that the first field in an ia64 rwsem is a
-  Keith> spinlock.  I have hit this unwind deadlock a couple of times
-  Keith> during processing of asynchronous MCA events, so I want it
-  Keith> fixed.
+pdflush[5742]: Oops 11012296146944 [1]
 
-What I did for libunwind is to avoid deadlock by falling back to
-uncached unwinding if necessary.  That is, if a lock is taken, it just
-creates an unwind script on the local stack.
+Pid: 5742, CPU 2, comm:              pdflush
+psr : 0000121008026018 ifs : 800000000000040b ip  : [<a000000100485d01>]   =
+ Not tainted
+ip is at ip_finish_output2+0x41/0x560
+unat: 0000000000000000 pfs : 0000000000000797 rsc : 0000000000000003
+rnat: e000000007ac7890 bsps: 0000000000001310 pr  : 82aa6aa6a555969b
+ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c0270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a000000100451900 b6  : a000000100282bc0 b7  : a000000100485cc0
+f6  : 000000000000000000000 f7  : 1003e000000000011d541
+f8  : 1003e000000000016fa06 f9  : 1003e0000000000b38153
+f10 : 1003e000000000023aa82 f11 : 1003e0000000000000001
+r1  : a000000100988130 r2  : 000000005dde178a r3  : 0000000000100000
+r8  : 0000000000000001 r9  : 00000000000006a8 r10 : 840d3f83e0420336
+r11 : 840d3f83e04202b6 r12 : e000000007286830 r13 : e000000007280000
+r14 : 0000000000000001 r15 : a0000001004af498 r16 : a0000001004af530
+r17 : 000000005e01380a r18 : 0000000000232080 r19 : a0000001004af528
+r20 : a00000010084b2c0 r21 : 0000000000100000 r22 : 0000000000100000
+r23 : a0000001007e4ca0 r24 : a000000100485cc0 r25 : e000000007286840
+r26 : 00000000ffffffff r27 : e00000003feb66d8 r28 : 0000000000000000
+r29 : e00000003feb66d4 r30 : 0000000000100000 r31 : e00000003feb66d0
 
-It would be good to replace the built-in kernel unwinder with
-something based on libunwind.  That would make it much easier to keep
-the code in sync (and libunwind is much better tested).  I have been
-toying with the idea of doing this for 2.7, but it hasn't been very
-high priority to me because, for the most part, the kernel unwinder is
-good enough.
+Call Trace:
+ [<a0000001000169e0>] show_stack+0x80/0xa0
+                                sp=E000000007286a38 bsp=E000000007286a18
+ [<a000000100039270>] die+0x170/0x200
+                                sp=E000000007286c08 bsp=E0000000072869d8
+ [<a000000100057760>] ia64_do_page_fault+0x720/0xa60
+                                sp=E000000007286c08 bsp=E000000007286970
+ [<a00000010000d560>] ia64_leave_kernel+0x0/0x260
+                                sp=E000000007286c98 bsp=E000000007286970
+ <0>Kernel panic: Aiee, killing interrupt handler!
+In interrupt handler - not syncing
 
-	--david
+pdflush[18576]: General Exception: IA-64 Reserved Register/Field fault (dat=
+a access) 2199023255600 [1]
+
+Pid: 18576, CPU 3, comm:              pdflush
+psr : 0000121008026038 ifs : 800000000000494e ip  : [<a00000020005a6a1>]   =
+ Not tainted
+ip is at scsi_io_completion+0x321/0x820 [scsi_mod]
+unat: 0000000000000000 pfs : 000000000000494e rsc : 0000000000000003
+rnat: 0000000000000892 bsps: a00000020024c000 pr  : 80000000afb59567
+ldrs: 0000000000000000 ccv : a00000020024c000 fpsr: 0009804c8270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a00000020005a5e0 b6  : a000000100003320 b7  : a00000010034a1c0
+f6  : e00000000b839210e00000001e0cc700 f7  : 600000001d48800000000000000000=
+00
+f8  : e00000001d48e808a00000010063b6f0 f9  : a00000020005a5e0e00000001d48e8=
+08
+f10 : 1003e000000000000494e f11 : e00000001d48e808a00000010063b6f0
+r1  : 0000000000000001 r2  : 0000000000004000 r3  : 0000000000000001
+r8  : 0000000000000000 r9  : 0000000000000000 r10 : 0000000000000000
+r11 : e00000003c168b98 r12 : e00000001d48e840 r13 : e00000001d488000
+r14 : e00000003c168b98 r15 : 000000000000003f r16 : a00000020004e190
+r17 : 0000000000000307 r18 : a000000200220000 r19 : e00000003db7fb80
+r20 : 0000000000000000 r21 : 00000000000000e8 r22 : e00000001e0cc800
+r23 : 0000000000000001 r24 : e00000001e0cc700 r25 : 0000000000000000
+r26 : e00000000b839200 r27 : e00000000b839280 r28 : 0000000000000001
+r29 : 0000000000000001 r30 : a000000200022940 r31 : 000000000000040b
+
+Call Trace:
+ [<a0000001000169e0>] show_stack+0x80/0xa0
+                                sp=E00000001d48ea80 bsp=E00000001d48ea60
+ [<a000000100039270>] die+0x170/0x200
+                                sp=E00000001d48ec50 bsp=E00000001d48ea28
+ [<a000000100039470>] ia64_fault+0x110/0x1020
+                                sp=E00000001d48ec50 bsp=E00000001d48e9c8
+ [<a00000010000d560>] ia64_leave_kernel+0x0/0x260
+                                sp=E00000001d48ee60 bsp=E00000001d48e9c8
+ <0>Kernel panic: Aiee, killing interrupt handler!
+In interrupt handler - not syncing
+
+pdflush[25442]: Oops 8804682956800 [1]
+
+Pid: 25442, CPU 2, comm:              pdflush
+psr : 0000101008026018 ifs : 8000000000001228 ip  : [<a00000020042dc30>]   =
+ Not tainted
+ip is at e1000_clean+0xcb0/0x12e0 [e1000]
+unat: 0000000000000000 pfs : 0000000000001228 rsc : 0000000000000003
+rnat: 000000000000058e bsps: a000000100987ef0 pr  : 80005940af669697
+ldrs: 0000000000000000 ccv : ffffffff00000000 fpsr: 0009804c0270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a00000020042dff0 b6  : a000000100255040 b7  : a000000100492560
+f6  : ffffffffffff87300000000000000000 f7  : 04000e00000000000008c
+f8  : 10000a000000200456488 f9  : e00000000765170ce000000035070000
+f10 : e000000007651440000000090000000c f11 : a00000020044d038a00000020044d0=
+20
+r1  : a000000200628000 r2  : e00000003b2260dc r3  : e00000003b225f08
+r8  : 0000000000000000 r9  : e00000003b226084 r10 : e00000003c8add04
+r11 : e00000003feb3550 r12 : e000000009c3e830 r13 : e000000009c38000
+r14 : 0000000000000001 r15 : 0000000000000010 r16 : e000000007651000
+r17 : e000000009c3e850 r18 : e000000003497618 r19 : e00000000349762c
+r20 : e000000003497580 r21 : 0000000000000002 r22 : a00000010079acf8
+r23 : cccccccccccccccd r24 : 000000000001003e r25 : 0000001008022018
+r26 : 000000000001003e r27 : e000000003497580 r28 : 000000000000008c
+r29 : 0000000000000000 r30 : e0f8188000000000 r31 : 0008000000080000
+
+Call Trace:
+ [<a0000001000169e0>] show_stack+0x80/0xa0
+                                sp=E000000009c3e950 bsp=E000000009c3e930
+ [<a000000100039270>] die+0x170/0x200
+                                sp=E000000009c3eb20 bsp=E000000009c3e8f8
+ [<a0000001000577c0>] ia64_do_page_fault+0x720/0xa60
+                                sp=E000000009c3eb20 bsp=E000000009c3e890
+ [<a00000010000d560>] ia64_leave_kernel+0x0/0x260
+                                sp=E000000009c3ebb0 bsp=E000000009c3e890
+ <0>Kernel panic: Aiee, killing interrupt handler!
+In interrupt handler - not syncing
+
+pdflush[4171]: General Exception: IA-64 Reserved Register/Field fault (data=
+ access) 4947802325040 [1]
+
+Pid: 4171, CPU 1, comm:              pdflush
+psr : 0000121008026038 ifs : 8000000000000002 ip  : [<a00000010012ff41>]   =
+ Not tainted
+ip is at end_buffer_async_write+0x401/0x440
+unat: 0000000000000000 pfs : 0000000000000002 rsc : e00000003711bc80
+rnat: 0000000000001000 bsps: 0000000000000000 pr  : e00000003711bcb0
+ldrs: 0000000000000793 ccv : a000000100988130 fpsr: 000000000000038b
+csd : c00000003711bcaa ssd : 0000000000000000
+b0  : a00000010033d440 b6  : 0000000000006000 b7  : e00000003711bc80
+f6  : a00000010000d56000000000000000ef f7  : a00000010098813000000000000000=
+05
+f8  : e00000002d0066c0e00000002d006530 f9  : a0000001006dfa8000000480000000=
+30
+f10 : 1003e0000000000000060 f11 : 1003e000000000000ce4f
+r1  : a000000100988130 r2  : 0000000000004000 r3  : a00000010079d134
+r8  : e00000001c3e2a10 r9  : 0000000000022000 r10 : 0000000000000000
+r11 : 0000000000000000 r12 : e00000003711bc80 r13 : a000000100130cc0
+r14 : 000000000000009d r15 : a000000100988130 r16 : 0000001008026038
+r17 : a000000100126c70 r18 : 0000000000000206 r19 : 0000000000000207
+r20 : a0000001005e7fc8 r21 : a0000001005f3640 r22 : 000000000000038a
+r23 : 000000000000000f r24 : e00000002d0066c0 r25 : 0000000000000018
+r26 : 0000048000000030 r27 : e00000000829d120 r28 : 0000000000000000
+r29 : 0000000000000003 r30 : e00000002d0066c0 r31 : e00000002d006530
+
+Call Trace:
+ [<a0000001000169e0>] show_stack+0x80/0xa0
+                                sp=E00000002d006898 bsp=E00000002d006878
+ [<a000000100039270>] die+0x170/0x200
+                                sp=E00000002d006a68 bsp=E00000002d006840
+ [<a000000100039470>] ia64_fault+0x110/0x1020
+                                sp=E00000002d006a68 bsp=E00000002d0067e0
+ [<a00000010000d560>] ia64_leave_kernel+0x0/0x260
+                                sp=E00000002d006c78 bsp=E00000002d0067e0
+ <0>Kernel panic: Aiee, killing interrupt handler!
+In interrupt handler - not syncing
+
+pdflush[5219]: Oops 11012296146944 [1]
+
+Pid: 5219, CPU 3, comm:              pdflush
+psr : 0000121008026018 ifs : 8000000000000590 ip  : [<a00000010044f951>]   =
+ Not tainted
+ip is at nf_iterate+0x171/0x240
+unat: 0000000000000000 pfs : 0000000000000590 rsc : 0000000000000003
+rnat: a00000010047d090 bsps: 0000000000000490 pr  : 82aa6aa6a555aa9b
+ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c0270033f
+csd : 0000000000000000 ssd : 0000000000000000
+b0  : a00000010044f910 b6  : a000000100282140 b7  : a00000010025d620
+f6  : 000000000000000000000 f7  : 1003e000000000014ce25
+f8  : 1003e000000000082d395 f9  : 1003e0000000003fe1500
+f10 : 1003e0000000000299c4a f11 : 1003e0000000000000001
+r1  : a0000001009880e0 r2  : ffffffffffefffff r3  : 0000000000100000
+r8  : 0000000000000001 r9  : 00000000000006a8 r10 : 0000000000000000
+r11 : e0000000384ce778 r12 : e0000000384ce7c0 r13 : e0000000384c8000
+r14 : 0000000000000001 r15 : 0000000000098764 r16 : e0000000384ce748
+r17 : e00000003c729300 r18 : e00000003c72930c r19 : e0000000384ce740
+r20 : a0000001007e3c18 r21 : 0000000000100000 r22 : 0000000000100000
+r23 : a0000001007e4c18 r24 : e0000000384ce780 r25 : e00000003c72931c
+r26 : 00000000ffffffff r27 : e00000003c729318 r28 : 0000000000000000
+r29 : e00000003c729314 r30 : 0000000000100000 r31 : e00000003c729310
+
+Call Trace:
+ [<a0000001000169e0>] show_stack+0x80/0xa0
+                                sp=E0000000384ceaa0 bsp=E0000000384cea80
+ [<a000000100039270>] die+0x170/0x200
+                                sp=E0000000384cec70 bsp=E0000000384cea48
+ [<a000000100057760>] ia64_do_page_fault+0x720/0xa60
+                                sp=E0000000384cec70 bsp=E0000000384ce9d8
+ [<a00000010000d560>] ia64_leave_kernel+0x0/0x260
+                                sp=E0000000384ced00 bsp=E0000000384ce9d8
+ <0>Kernel panic: Aiee, killing interrupt handler!
+In interrupt handler - not syncing
+
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
