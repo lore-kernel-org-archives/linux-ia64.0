@@ -1,60 +1,116 @@
-From: Jeff Licquia <jlicquia@progeny.com>
-Date: Tue, 09 Apr 2002 05:56:54 +0000
-Subject: Re: [Linux-ia64] epilogue count exceeds number of nested prologues
-Message-Id: <marc-linux-ia64-105590701905425@msgid-missing>
+From: "Summers, Dow" <dsummers@verisign.com>
+Date: Fri, 05 Apr 2002 19:37:01 +0000
+Subject: RE: [Linux-ia64] ia64_log_get error while booting
+Message-Id: <marc-linux-ia64-105590701905394@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905403@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905403@msgid-missing>
+References: <marc-linux-ia64-105590701905330@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905330@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2002-04-09 at 00:09, Randolph Chung wrote:
-> > I'm unable to reproduce this.  If I'm understanding you right, the
-> > problem occurred during the configure phase of mozilla (not libffi).
-> 
-> that's right
-> 
-> > I just rebuilt Mozilla from the current CVS tree with gcc3.1
-> > pre-release and the current CVS binutils.  It built just fine and the
-> > resulting binary seems to work flawlessly.
-> 
-> I'm building from Debian sources. It's possible that it's simply out of
-> date (I'm building version 0.9.9).
-> 
-> > >From the assembly code you provided, it looks as if conftest.c tried
-> > to call FFI_STATIC_CLOSURE() from within a function, which can't
-> > possibly work.
-> 
-> indeed, mozilla's configure.in says:
-> 
->     if test "$LIBFFI_FOUND" = "yes"; then
->         AC_MSG_CHECKING("for FFI_STATIC_CLOSURE in libffi")
->         AC_TRY_COMPILE([#include "ffi.h"],
->                         [ FFI_STATIC_CLOSURE(foo, bar, baz, quux); ],
->                         [ LIBFFI_HAS_STATIC_CLOSURE=yes ])
->         AC_MSG_RESULT("$result")
->     fi
-> 
-> which generates (from config.log):
-> 
-> configure:13494: checking for FFI_STATIC_CLOSURE in libffi
-> configure:13503: gcc-3.0 -c -I/home/randolph/debian/mozilla-0.9.9/build-tree/libffi-install/include  -fshort-wchar -pthread -pipe   -I/usr/X11R6/include conftest.c 1>&5
-> {standard input}: Assembler messages:
-> {standard input}:40: Error: Epilogue count of 4294967296 exceeds number of nested prologues (0)
-> configure: failed program was:
-> #line 13496 "configure"
-> #include "confdefs.h"
-> #include "ffi.h"
-> int main() {
->  FFI_STATIC_CLOSURE(foo, bar, baz, quux);
-> ; return 0; }
+I've been tracking this problem on my machine. I've worked out
+that if I have a CD in the drive with the drive door closed when
+the machine is powered on it will boot and run.  If there isn't
+a CD in the drive and the drive door is closed when I boot the
+machine the kerenl hangs in the MCA code.
 
-I claim responsibility for this code.  For some reason, it worked in
-older revisions.
+I'm running Redhat 7.2 with a bios 109.
 
-But yes, I can see how that's incorrect, and should be changed.  I can
-whip up a patch if no one else is tomorrow.
+---
+Dow Summers
 
+
+-----Original Message-----
+From: Daniel Yeisley [mailto:dpy102@alumni.psu.edu]
+Sent: Friday, March 22, 2002 4:51 PM
+To: Hall, Jenna S
+Cc: linux-ia64@linuxia64.org
+Subject: RE: [Linux-ia64] ia64_log_get error while booting
+
+
+Well, it works now.  All I did was power cycle the machine.  I have no idea 
+what could have been wrong.  I'll have to take a look at the BIOS level next
+
+week.
+
+Thanks for the help.
+Dan
+
+
+
+Quoting "Hall, Jenna S" <jenna.s.hall@intel.com>:
+
+> Daniel,
+> 
+> What BIOS are you running on your Lion?  Older BIOSes did not have the
+> correct firmware support for machine checks, so if you boot a kernel with
+> CONFIG_IA64_MCA enabled in the kernel config, this behavior could result.
+> 
+> You have two options:
+> 
+> 1. Upgrade your BIOS - this is only an option if you have an OEM Lion (it
+> is
+> not recommended or supported by Intel to upgrade the BIOS past build 83 on
+> SDV Lions).  You can determine if you have an OEM Lion by looking at the
+> back of the legacy I/O card inside the machine - OEM machines will have
+> "OEM
+> Legacy" silkscreened on the back of the card.
+> 2. Disable CONFIG_IA64_MCA in your .config file, rebuild the kernel, then
+> reboot with that new kernel.
+> 
+> Jenna
+> 
+> -----Original Message-----
+> From: Daniel Yeisley [mailto:dpy102@alumni.psu.edu]
+> Sent: Friday, March 22, 2002 12:57 PM
+> To: linux-ia64@linuxia64.org
+> Subject: [Linux-ia64] ia64_log_get error while booting
+> 
+> I'm new to Linux on the IA64.  I installed Redhat 7.2 for the Itanium on a
+> Lion
+> system this morning.  It seemed to work fine.  I changed my screen
+> resolution
+> and rebooted.  I get a warning saying that my event log is full.  Linux
+> starts
+> to boot, but then it goes into what seems to be an infinite loop of
+> alternating
+> error messages.  They go by very quickly, but I believe that they are:
+> ia64_log_get: Failed to retrieve SAL error record type ...
+> ia64_mca_cpe_int_handler: received interrupt. vector > I've looked in the kernel source and both messages come from mca.c.  I'm
+> not
+> sure what the problem is.  I can't boot the machine, not even from the
+> Redhat
+> CDs.
+> 
+> 
+> 
+> 
+> --------------------------------------------------
+> Get Your FREE E-Mail Account Today at AcmeMail.net
+> http://www.acmemail.net
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> 
+
+
+
+
+--------------------------------------------------
+Get Your FREE E-Mail Account Today at AcmeMail.net
+http://www.acmemail.net
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
