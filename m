@@ -1,53 +1,29 @@
-From: Don Dugger <n0ano@valinux.com>
-Date: Wed, 17 Jan 2001 21:43:53 +0000
-Subject: [Linux-ia64] Re: strace fix for 32-bit exeve()
-Message-Id: <marc-linux-ia64-105590693005070@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Wed, 21 Feb 2001 18:12:41 +0000
+Subject: [Linux-ia64] Re: Re: Lockups on 2.4.1
+Message-Id: <marc-linux-ia64-105590693005178@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David-
+David Mosberger (davidm@hpl.hp.com) said: 
+> Please be more specific when reporting bugs.  At the least, include
+> (a) what type of machine and (b) what kernel patch you were running at
+> the time.  Ideally, also describe what you where doing at the time and
+> try to get a backtrace with kdb, if possible.
 
-Thanks for the patch, I'll look into implementing it properly.
+2P BigSur, using UP 010131 kernel, on top of 2.4.1-ac16 (certainly, this
+could cause problems).
 
-On Wed, Jan 17, 2001 at 01:06:17PM -0800, David Mosberger wrote:
-> Here is a quick hack that makes it possible to trace an x86 execve()
-> on an IA-64 machine without getting completely garbled output.  It
-> also adds a sanity check to prevent strace from crashing when the
-> system call number is garbage.  With these hacks in place, I was able
-> to strace an x86 program as it was execve'ing an IA-64 program.  The
-> output wasn't completely correct (there is a bogus syscall number
-> after the execve() and the result values are incorrect for the IA-64
-> syscalls), but at least this patch illustrates where some of the
-> problems lie.
-> 
-> Note that the changes to process.c are just a quick hack and should
-> not be used as is.  The clean solution would be to maintain a
-> "target_pointer_size" inside strace and use that to determine how many
-> bytes to read for a pointer stored in memory.  Note that while the
-> patche fixes the reading of the argv[] and envp[] pointers for
-> execve(), there are certainly other places where pointers are being
-> read from memory and those would have to be fixed, too.  Also, the
-> code below isn't endian clean: it wouldn't work on big-endian
-> machines.
-> 
-> On a related note, it might also be helpful to prefix the syscall
-> names with "x86_" when operating in IA-32 mode.  Otherwise, the only
-> way to tell whether you're dealing with IA-64 or x86 code is by
-> looking for addresses and checking whether they're above or below 4GB.
-> 
-> I'm unhappy to be sending out such an incomplete (useless?) patch, but
-> I'm hoping someone else interested in this can find the time needed to
-> do this right.  strace is just such an incredibly useful debugging
-> tool that I think it would be well worth to do this properly.
-> 
-> 	--david
+As to what I was doing, in one case, nothing at all, in another, untarring
+a tarball. The video shuts off and the machine is completely dead, which
+makes diagnosing what happened difficult (hm, need to find serial cable.)
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@valinux.com
-Ph: 303/938-9838
+Since it has happened when I wasn't watching the machine intently,
+it's entirely possible it's related to when it turns off the monitor
+via DPMS, but that would just be weird.
+
+Bill
 
