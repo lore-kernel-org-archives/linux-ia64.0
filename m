@@ -1,100 +1,38 @@
-From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
-Date: Wed, 12 May 2004 11:27:04 +0000
-Subject: Who owns those locks ? (2)
-Message-Id: <40A20A08.9EAAD8E@nospam.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------0866B09AA21AF112BB5F74E4"
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Thu, 06 May 2004 21:44:38 +0000
+Subject: Re: [Lhms-devel] RE: [2.6.6 PATCH] Exposing EFI memory map
+Message-Id: <1083879878.2811.971.camel@nighthawk>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------0866B09AA21AF112BB5F74E4
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-I have forgotten the function "_raw_spin_trylock()" :-(
-
-Zolt=E1n
---------------0866B09AA21AF112BB5F74E4
-Content-Type: text/plain; charset=us-ascii;
- name="n475"
-Content-Disposition: inline;
- filename="n475"
+References: <D36CE1FCEFD3524B81CA12C6FE5BCAB002FFEB1F@fmsmsx406.fm.intel.com>
+In-Reply-To: <D36CE1FCEFD3524B81CA12C6FE5BCAB002FFEB1F@fmsmsx406.fm.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Matthew E Tolentino <matthew.e.tolentino@intel.com>
+Cc: Sourav Sen <souravs@india.hp.com>, "HELGAAS,BJORN (HP-Ft. Collins)" <bjorn_helgaas@am.exch.hp.com>, Matt Domsch <Matt_Domsch@dell.com>, linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>, lhms <lhms-devel@lists.sourceforge.net>
 
---- 2.6.5.ref/include/asm-ia64/spinlock.h	Sun Apr  4 05:36:17 2004
-+++ 2.6.5.new/include/asm-ia64/spinlock.h	Wed May 12 13:17:50 2004
-@@ -45,7 +45,8 @@
- 	asm volatile ("{\n\t"
- 		      "  mov ar.ccv = r0\n\t"
- 		      "  mov r28 = ip\n\t"
--		      "  mov r30 = 1;;\n\t"
-+		      /* "  mov r30 = 1;;\n\t" */
-+		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
- 		      "}\n\t"
- 		      "cmpxchg4.acq r30 = [%1], r30, ar.ccv\n\t"
- 		      "movl r29 = ia64_spinlock_contention_pre3_4;;\n\t"
-@@ -57,7 +58,8 @@
- 	asm volatile ("{\n\t"
- 		      "  mov ar.ccv = r0\n\t"
- 		      "  mov r28 = ip\n\t"
--		      "  mov r30 = 1;;\n\t"
-+		      /* "  mov r30 = 1;;\n\t" */
-+		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
- 		      "}\n\t"
- 		      "cmpxchg4.acq r30 = [%1], r30, ar.ccv;;\n\t"
- 		      "cmp4.ne p14, p0 = r30, r0\n"
-@@ -68,7 +70,8 @@
- # ifdef CONFIG_ITANIUM
- 	/* don't use brl on Itanium... */
- 	/* mis-declare, so we get the entry-point, not it's function descriptor: */
--	asm volatile ("mov r30 = 1\n\t"
-+	asm volatile (/* "  mov r30 = 1;;\n\t" */
-+		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
- 		      "mov ar.ccv = r0;;\n\t"
- 		      "cmpxchg4.acq r30 = [%0], r30, ar.ccv\n\t"
- 		      "movl r29 = ia64_spinlock_contention;;\n\t"
-@@ -77,7 +80,8 @@
- 		      "(p14) br.call.spnt.many b6 = b6"
- 		      : "=r"(ptr) : "r"(ptr) : IA64_SPINLOCK_CLOBBERS);
- # else
--	asm volatile ("mov r30 = 1\n\t"
-+	asm volatile (/* "  mov r30 = 1;;\n\t" */
-+		      "  shr.u r30 = r13, 12;;\n\t"	/* Current task pointer */
- 		      "mov ar.ccv = r0;;\n\t"
- 		      "cmpxchg4.acq r30 = [%0], r30, ar.ccv;;\n\t"
- 		      "cmp4.ne p14, p0 = r30, r0\n\t"
-@@ -89,14 +93,17 @@
- #else /* !ASM_SUPPORTED */
- # define _raw_spin_lock(x)								\
- do {											\
--	__u32 *ia64_spinlock_ptr = (__u32 *) (x);					\
--	__u64 ia64_spinlock_val;							\
--	ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, 1, 0);			\
-+	__u32	*ia64_spinlock_ptr = (__u32 *) (x);					\
-+	__u64	ia64_spinlock_val;							\
-+	__u32	new_spinlock_val = (__u32)((__u64) current >> 12);			\
-+											\
-+	ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, new_spinlock_val, 0);	\
- 	if (unlikely(ia64_spinlock_val)) {						\
- 		do {									\
- 			while (*ia64_spinlock_ptr)					\
- 				ia64_barrier();						\
--			ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr, 1, 0);	\
-+			ia64_spinlock_val = ia64_cmpxchg4_acq(ia64_spinlock_ptr,	\
-+								new_spinlock_val, 0);	\
- 		} while (ia64_spinlock_val);						\
- 	}										\
- } while (0)
-@@ -104,7 +111,7 @@
- 
- #define spin_is_locked(x)	((x)->lock != 0)
- #define _raw_spin_unlock(x)	do { barrier(); ((spinlock_t *) x)->lock = 0; } while (0)
--#define _raw_spin_trylock(x)	(cmpxchg_acq(&(x)->lock, 0, 1) == 0)
-+#define _raw_spin_trylock(x)	(cmpxchg_acq(&(x)->lock, 0, (__u32)((__u64) current >> 12)) == 0)
- #define spin_unlock_wait(x)	do { barrier(); } while ((x)->lock)
- 
- typedef struct {
+On Thu, 2004-05-06 at 13:54, Tolentino, Matthew E wrote:
+> > > Interesting. What does ppc64 do with the memmap after that?  
+> > 
+> > This doesn't even concern mem_map yet.  The userspace ppc64 hotplug
+> > tools actually write into the "OpenFirmware" tree from 
+> > userspace, after
+> > a hotplug happens.  This is partly because all of the ppc64 hotplug
+> > operations happen in userspace as it stands now.  
+> 
+> Umm..  my mistake, I meant the memory map passed up by the firmware,
+> not THE mem_map.  ;-)
 
---------------0866B09AA21AF112BB5F74E4--
+Sorry for the ppc64 tangent, ia64 list people... :)
+
+I'm not quite sure what's it's used for.  I *think* there's a node in
+each of the fake OpenFirmware tree directories that exports a magic
+resource tag that can identify the memory when it's handed back to the
+hypervisor. 
+
+We need this number exported to userspace, because we basically make the
+hypervisor calls from there.  It's safe to say that I'd prefer this
+method be revised at some point in the future.  
+
+-- Dave
 
