@@ -1,81 +1,27 @@
 From: Darren Williams <dsw@gelato.unsw.edu.au>
-Date: Fri, 10 Sep 2004 04:12:00 +0000
-Subject: [PATCH] 2.6.9-rc1 Ia64 build broken due to HPET
-Message-Id: <20040910041200.GN5668@cse.unsw.EDU.AU>
+Date: Fri, 10 Sep 2004 04:22:44 +0000
+Subject: Re: [PATCH] 2.6.9-rc1 Ia64 build broken due to HPET
+Message-Id: <20040910042244.GO5668@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040910041200.GN5668@cse.unsw.EDU.AU>
+In-Reply-To: <20040910041200.GN5668@cse.unsw.EDU.AU>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The ia64 build broke overnight due to this patch
-http://marc.theaimsgroup.com/?l=linux-ia64&m9211170801213&w=2
-any ia64 arch that includes CONFIG_HPET will fail
-on the build, this effect generic_defconfig also.
+Hi Darren
 
+On Fri, 10 Sep 2004, Darren Williams wrote:
 
-  CC      drivers/char/hpet.o
-drivers/char/hpet.c:669: error: `MC' undeclared here (not in a function)
-drivers/char/hpet.c:669: error: initializer element is not constant
-drivers/char/hpet.c:669: error: (near initialization for `hpet_interpolator.addr')
-drivers/char/hpet.c: In function `hpet_init':
-drivers/char/hpet.c:956: error: `hpet_cycles_per_sec' undeclared (first use in this function)
-drivers/char/hpet.c:956: error: (Each undeclared identifier is reported only once
-drivers/char/hpet.c:956: error: for each function it appears in.)
-drivers/char/hpet.c:960: error: `hpet_nsecs_per_cycle' undeclared (first use in this function)
-make[2]: *** [drivers/char/hpet.o] Error 1
-
-The included patch will need to be scrutinised due
-to the fact I had no idea what to assign to:
-hpet_interpolator.addr
-signed-off-by Darren Williams <dswATgelato.unsw.edu.au>
-
-# ChangeSet
-#   2004/09/10 13:11:25+10:00 dsw@vanilla.gelato 
-#   Define hpet_cycles_per_sec for hpet clock calculation and assign
-#   nsec_per_cyc directly to hpet_interpolator.nsec_per_cyc
-#   
-#   The assignment of .addr = hpet_control is more than likely bogus
-#   time_interpolator.addr requires an address of a counter or function
-# 
-# drivers/char/hpet.c
-#   2004/09/10 13:11:18+10:00 dsw@vanilla.gelato +4 -3
-#   Define hpet_cycles_per_sec for hpet clock calculation and assign
-#   nsec_per_cyc directly to hpet_interpolator.nsec_per_cyc
-#   
-#   The assignment of .addr = hpet_control is more than likely bogus
-#   time_interpolator.addr requires an address of a counter or function
-#   
-diff -Nru a/drivers/char/hpet.c b/drivers/char/hpet.c
---- a/drivers/char/hpet.c	2004-09-10 13:36:48 +10:00
-+++ b/drivers/char/hpet.c	2004-09-10 13:36:48 +10:00
-@@ -665,7 +665,7 @@
- static struct time_interpolator hpet_interpolator = {
- 	.source = TIME_SOURCE_MMIO64,
- 	.shift = 10,
--	.addr = MC
-+	.addr = hpet_control
- };
- 
- #endif
-@@ -951,13 +951,14 @@
- #ifdef	CONFIG_TIME_INTERPOLATION
- 		{
- 			struct hpet *hpet;
--
-+			long hpet_cycles_per_sec;
-+
- 			hpet = hpets->hp_hpet;
- 			hpet_cycles_per_sec = hpet_time_div(hpets->hp_period);
- 			hpet_interpolator.frequency = hpet_cycles_per_sec;
- 			hpet_interpolator.drift = hpet_cycles_per_sec *
- 			    HPET_DRIFT / 1000000;
--			hpet_nsecs_per_cycle = 1000000000 / hpet_cycles_per_sec;
-+			hpet_interpolator.nsec_per_cyc = 1000000000 / hpet_cycles_per_sec;
- 			register_time_interpolator(&hpet_interpolator);
- 		}
- #endif
-
+> The ia64 build broke overnight due to this patch
+> http://marc.theaimsgroup.com/?l=linux-ia64&m9211170801213&w=2
+> any ia64 arch that includes CONFIG_HPET will fail
+> on the build, this effect generic_defconfig also.
+> 
+> 
+Me slow see:
+http://marc.theaimsgroup.com/?l=linux-ia64&m9468628322563&w=2
 
 --------------------------------------------------
 Darren Williams <dsw AT gelato.unsw.edu.au>
