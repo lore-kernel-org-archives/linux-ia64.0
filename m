@@ -1,39 +1,52 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 03 Dec 2001 23:21:24 +0000
-Subject: Re: [Linux-ia64] mmap bug fix for IA-32 apps
-Message-Id: <marc-linux-ia64-105590698805594@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Sun, 02 Dec 2001 04:23:01 +0000
+Subject: [Linux-ia64] No include/asm-ia64/mmzone.h in 2.4.16-ia64-011128
+Message-Id: <marc-linux-ia64-105590698805569@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805593@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805593@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Jun,
+I tried compiling 2.4.16-ia64-011128 as type SGI-SN1.  It broke at
+include/linux/mmzone.h:138 trying to include asm/mmzone.h which does
+not exist on ia64.  Is ia64-011128 supposed to compile sn1/sn2 out of
+the box or are there extra patches required?
 
-Caveat: there are a couple of nasty race conditions in the IA-32 mmap
-emulation code.  I tried to fix some of that when I reworked the mmap
-code, but the situation is still far from perfect.  The problem is
-that the IA-32 emulator needs the mmap_sem, but it needs it at times
-when it could cause page faults (which would cause a deadlock).  To
-fix the worst race conditions, I introduced the separate
-ia32_mmap_sem, but holding it of course doesn't stop other threads for
-modifying the task's mappings through page faults.
+Also this does not look right in arch/ia64/Makefile.  GENERIC and
+SGI_SN do not agree on the core files and subirs, does anybody ever use
+generic?
 
-At the moment, I'm afraid that 4KB pages is the only way to get fully
-thread-safe IA-32 emulation.
+ifdef CONFIG_IA64_GENERIC
+        CORE_FILES      :=      arch/$(ARCH)/hp/hp.a    \
+                                arch/$(ARCH)/sn/sn.o    \
+                                arch/$(ARCH)/dig/dig.a  \
+                                arch/$(ARCH)/sn/io/sgiio.o \
+                                $(CORE_FILES)
+        SUBDIRS         :=      arch/$(ARCH)/hp         \
+                                arch/$(ARCH)/sn/sn1     \
+                                arch/$(ARCH)/sn         \
+                                arch/$(ARCH)/dig        \
+                                arch/$(ARCH)/sn/io      \
+                                $(SUBDIRS)
 
-Now, to your patch: it doesn't look safe to me.  It patches the old
-page if VM_WRITE is set.  But what if MAP_SHARED was used to map that
-page?  We may have just ended up modifying a file.
+else # !GENERIC
 
-I think the proper solution is to fix the race conditions.  It's
-probably best to get rid of ia32_mmap_sem alltogether, because it
-harms scalability, too.  I don't have a good idea at the moment how to
-fix the problem though.  Perhaps we could solve these issues properly
-with a recursive mmap_sem.  IIRC, there was talk about that on the
-kernel list at some point (was it Manfred?).
+....
 
-	--david
+ifdef CONFIG_IA64_SGI_SN
+        CFLAGS          += -DBRINGUP
+        SUBDIRS         :=      arch/$(ARCH)/sn/kernel  \
+                                arch/$(ARCH)/sn/io      \
+                                arch/$(ARCH)/sn/fakeprom        \
+                                $(SUBDIRS)
+        CORE_FILES      :=      arch/$(ARCH)/sn/kernel/sn.o     \
+                                arch/$(ARCH)/sn/io/sgiio.o      \
+                                $(CORE_FILES)
+endif
+
+At the subject of arch/ia64/Makefile, it tests for CONFIG_IA64_SOFTSDV
+but nothing else in the kernel refers to that variable, it cannot be
+set.
+
 
