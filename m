@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 11 Nov 2003 00:55:30 +0000
-Subject: bk pull on ia64 linux tree
-Message-Id: <marc-linux-ia64-106851224727368@msgid-missing>
+Date: Tue, 11 Nov 2003 02:38:49 +0000
+Subject: Re: bk pull on ia64 linux tree
+Message-Id: <marc-linux-ia64-106851834432358@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105942507026161@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105942507026161@msgid-missing>
@@ -16,22 +16,26 @@ please do a
 
 	bk pull http://lia64.bkbits.net/to-linus-2.5
 
-This will update the files shown below.
-
-This one fixes the mprotect() bug found by Russell King last week.
-It's a critical bug fix because a knowledgable programmer could
-abuse it to crash a machine.
+This should fix the PROT_NONE botch, along with a bug that caused
+/proc/irq/prof_cpu_mask to output bad info, which could break
+user-level tools.
 
 Thanks!
 
 	--david
 
- include/asm-ia64/pgtable.h |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/irq.c     |    2 +-
+ include/asm-ia64/pgtable.h |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
 through these ChangeSets:
 
-<davidm@tiger.hpl.hp.com> (03/11/10 1.1357)
-   Fix pte_modify() bug which allowed mprotect() to change too many bits.
-   Found by Russell King.
+<davidm@tiger.hpl.hp.com> (03/11/10 1.1359)
+   ia64: Fix _PAGE_CHG_MASK so PROT_NONE works again.  Caught by Linus.
+
+<pj@sgi.com> (03/11/10 1.1358)
+   [PATCH] ia64: fix bug in prof_cpu_mask_read_proc()
+   
+   Display of cpumask for /proc/irq/prof_cpu_mask has a botch in the print
+   loop - should consume 2 bytes per loop.
 
