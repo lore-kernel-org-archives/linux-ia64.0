@@ -1,7 +1,7 @@
 From: =?ISO-8859-1?Q?G=E9rard_Roudier?= <groudier@free.fr>
-Date: Tue, 04 Dec 2001 17:01:31 +0000
+Date: Tue, 04 Dec 2001 18:15:06 +0000
 Subject: Re: [Linux-ia64] 2.4.16-ia64-011128 is missing dma64_addr_t
-Message-Id: <marc-linux-ia64-105590698805602@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805610@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805568@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805568@msgid-missing>
@@ -11,29 +11,39 @@ Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
 
-On Mon, 3 Dec 2001, David Mosberger wrote:
+On Tue, 4 Dec 2001, David Mosberger wrote:
 
-> >>>>> On Mon, 3 Dec 2001 19:23:38 +0100 (CET), =3D?ISO-8859-1?Q?G=3DE9rar=
-d_Roudier?=3D <groudier@free.fr> said:
+> >>>>> On Tue, 4 Dec 2001 09:45:19 +0100, Christoph Hellwig <hch@caldera.d=
+e> said:
 >
->   Gerard> Sorry for having missed this dma detail in sym53c8xx_2
->   Gerard> driver, but I cannot accept your 'bug' statement. Extremally
->   Gerard> bogus are proprietary hardwares that require much complexity
->   Gerard> in driver development, hence injecting useless bloat and
->   Gerard> bugs and, may-be, just sometimes discouraging people to
->   Gerard> develop drivers as a sad result.
+>   Christoph> On Mon, Dec 03, 2001 at 11:34:28AM -0800, David Mosberger
+>   Christoph> wrote:
+>   >> This error appears to be due to a bug in the sym53c8xx_2 driver.
+>   >> Note that dma64_addr_t should be used only for the pci_dac_*
+>   >> interface, which I do not want to support on ia64 unless and
+>   >> until we absolutely have to (technically, there is no need for
+>   >> pci_dac_* on ia64 or x86).
 >
-> Sorry, I didn't mean to critize your work.  I use "bug" fairly
-> casually and didn't mean to be insulting.  If it came across that way,
-> my apologies...
+>   Christoph> IA64 should use instead of it's horrible iommu emulation.
+>
+> Huh?  pci_dac_*() does not help you here at all.  pci_dac_*() is only
+> needed/useful for 64-bit platforms which use a dma_addr_t that is
+> smaller than 64 bits.  And even then is it needed only for drivers
+> that create tons of mappings.
 
-No apology needed. My posting was not against you. I just wanted to shout
-my opinion about real source of tons of bugs beeing in the complexity
-injected in modern kernels in order to support software-unfriendy designed
-hardware. I didn't feel insulted at all by your 'bug' statement applying
-to the driver, but just didn't accept it as is.
+I am under the impression that it has been invented for sparc64 as a
+provision for PCI devices that may gain advantage of real 64 bit DMA PCI
+on this hardware. This platform has some streaming mode DMA implemented
+for 32 bit PCI through an IO/MMU.
 
-You are doing a great work for Linux. Sorry for having been so unclear.
+Choices are:
+
+1) Faster IOs but only in 32 bit PCI mode + software complexity as a
+   malus.
+2) Slower IOs in 64 bit PCI mode.
+
+Chosing the less bad one, here choice #1, is what is to be done when no
+good choice is available.
 
   G=E9rard.
 
