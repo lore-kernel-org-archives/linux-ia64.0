@@ -1,48 +1,26 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 03 Mar 2005 05:17:01 +0000
+Date: Thu, 03 Mar 2005 05:19:31 +0000
 Subject: Re: Page fault scalability patch V18: Drop first acquisition of ptl
-Message-Id: <Pine.LNX.4.58.0503022110280.4083@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.58.0503022117450.4083@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0503011947001.25441@schroedinger.engr.sgi.com>
  <Pine.LNX.4.58.0503011951100.25441@schroedinger.engr.sgi.com>
  <20050302174507.7991af94.akpm@osdl.org> <Pine.LNX.4.58.0503021803510.3080@schroedinger.engr.sgi.com>
  <20050302185508.4cd2f618.akpm@osdl.org> <Pine.LNX.4.58.0503021856380.3365@schroedinger.engr.sgi.com>
- <20050302201425.2b994195.akpm@osdl.org> <Pine.LNX.4.58.0503022021150.3816@schroedinger.engr.sgi.com>
- <20050302205612.451d220b.akpm@osdl.org>
-In-Reply-To: <20050302205612.451d220b.akpm@osdl.org>
+ <20050302201425.2b994195.akpm@osdl.org> <16934.39386.686708.768378@cargo.ozlabs.ibm.com>
+In-Reply-To: <16934.39386.686708.768378@cargo.ozlabs.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Paul Mackerras <paulus@samba.org>
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, benh@kernel.crashing.org, anton@samba.org
 
-On Wed, 2 Mar 2005, Andrew Morton wrote:
+On Thu, 3 Mar 2005, Paul Mackerras wrote:
 
-> Have the ppc64 and sparc64 people reviewed and acked the change?  (Not a
-> facetious question - I just haven't been following the saga sufficiently
-> closely to remember).
+> More generally, I would be interested to know what sorts of
+> applications or benchmarks show scalability problems on large machines
+> due to contention on mm->page_table_lock.
 
-There should be no change to these arches
-
-> > Because if a pte is locked it should not be used.
->
-> Confused.  Why not just spin on the lock in the normal manner?
-
-I thought you wanted to lock the pte? This is realized through a lock bit
-in the pte. If that lock bit is set one should not use the pte. Otherwise
-the lock is bypassed. Or are you proposing a write lock only?
-
-> If the other relvant architecture people say "we can use this" then perhaps
-> we should grin and bear it.  But one does wonder whether some more sweeping
-> design change is needed.
-
-Could we at least get the first two patches in? I can then gradually
-address the other issues piece by piece.
-
-The necessary more sweeping design change can be found at
-
-http://marc.theaimsgroup.com/?l=linux-kernel&m0922543030922&w=2
-
-but these may be a long way off. These patches address an urgent issue
-that we have with higher CPU counts for a long time and the method used
-here has been used for years in our ProPack line.
+Number crunching apps that use vast amounts of memory through MPI or
+large databases etc. They stall for a long time during their
+initialization phase without these patches.
