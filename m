@@ -1,45 +1,32 @@
 From: Jes Sorensen <jes@wildopensource.com>
-Date: Tue, 22 Feb 2005 21:34:23 +0000
+Date: Tue, 22 Feb 2005 21:38:42 +0000
 Subject: Re: [patch -mm series] ia64 specific /dev/mem handlers
-Message-Id: <yq0acpwl1nk.fsf@jaguar.mkp.net>
+Message-Id: <yq0650kl1gd.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16923.193.128608.607599@jaguar.mkp.net>
 	<20050222020309.4289504c.akpm@osdl.org>
 	<yq0ekf8lksf.fsf@jaguar.mkp.net>
 	<20050222175225.GK28741@parcelfarce.linux.theplanet.co.uk>
 	<20050222112513.4162860d.akpm@osdl.org>
-In-Reply-To: <20050222112513.4162860d.akpm@osdl.org>
+	<1109100938.25666.44.camel@localhost>
+In-Reply-To: <1109100938.25666.44.camel@localhost>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Matthew Wilcox <matthew@wil.cx>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dave Hansen <haveblue@us.ibm.com>
+Cc: Andrew Morton <akpm@osdl.org>, Matthew Wilcox <matthew@wil.cx>, linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
->>>>> "Andrew" = Andrew Morton <akpm@osdl.org> writes:
+>>>>> "Dave" = Dave Hansen <haveblue@us.ibm.com> writes:
 
-Andrew> Matthew Wilcox <matthew@wil.cx> wrote:
->> 
->> On Tue, Feb 22, 2005 at 09:41:04AM -0500, Jes Sorensen wrote:
->> > >> + if (page->flags & PG_uncached)
->> > 
->> > Andrew> dude.  That ain't gonna work ;)
->> > 
->> > Pardon my lack of clue, but why not?
+Dave> I was talking with Nigel Cunningham about doing something a
+Dave> little different from the classic page flag bits when the number
+Dave> of users is restricted and performance isn't ultra-critical.
+Dave> Would something like this work for you, instead of using a real
+Dave> page->flags bit for PG_cached?
 
-Andrew> 	if (page->flags & (1<<PG_uncached))
+Just took a quick look at this and it looks a bit heavy for our
+use. We are only looking at a small number of pages. However I could
+imagine future cases where performance may be more critical.
 
-Andrew> would have been correcter.
-
-DOH!
-
-Desperately seeking a bulk supply of those brown paper bags!
-
->> I think you're supposed to always use test_bit() to check page
->> flags
-
-Andrew> Yup.  Add PageUncached macros to page-flags.h.
-
-Mmmmm another butt ugly StUdLyCaPs macro coming soon.
-
-Thanks,
+Cheers,
 Jes
