@@ -1,15 +1,36 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 08 Mar 2004 21:28:02 +0000
-Subject: Re: Help in setting up serial console on 64 bit machine
-Message-Id: <16460.58722.881615.608507@napali.hpl.hp.com>
+From: "Dachepalli, Sudhir" <sudhir.dachepalli@lsil.com>
+Date: Tue, 09 Mar 2004 15:04:24 +0000
+Subject: RE: Help in setting up serial console on 64 bit machine
+Message-Id: <53CF1076699CD711B7DD0002A51363F102C36036@exw-ks.ks.lsil.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <53CF1076699CD711B7DD0002A51363F102C36031@exw-ks.ks.lsil.com>
-In-Reply-To: <53CF1076699CD711B7DD0002A51363F102C36031@exw-ks.ks.lsil.com>
+References: <16460.58722.881615.608507@napali.hpl.hp.com>
+In-Reply-To: <16460.58722.881615.608507@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Dachepalli, Sudhir" <sudhir.dachepalli@lsil.com>
-Cc: "'Linux-Kernel (E-mail)'" <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+To: "'linux-ia64@vger.kernel.org'" <linux-ia64@vger.kernel.org>
+Cc: "'Linux-Serial (E-mail)'" <linux-serial@vger.kernel.org>
+
+Hello David,
+
+   I have tried with 115200 also. Since it was not working I settled to 9600
+.
+
+   The Serial console was ttyS1. This is because this is the one with which
+   I have done some data/text transfer through minicom sessions.
+   Also I have checked the status change in FLAGS at /proc/tty/driver/serial
+   when minicom is connected.
+
+regards,
+sudhir
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
+Sent: Monday, March 08, 2004 3:28 PM
+To: Dachepalli, Sudhir
+Cc: 'Linux-Kernel (E-mail)'; linux-ia64@vger.kernel.org
+Subject: Re: Help in setting up serial console on 64 bit machine
+
 
 Sudhir,
 
@@ -24,7 +45,8 @@ Also, 9600 baud is rather slow.  If the client-side can handle it,
 
 	--david
 
->>>>> On Mon, 8 Mar 2004 15:04:04 -0600 , "Dachepalli, Sudhir" <sudhir.dachepalli@lsil.com> said:
+>>>>> On Mon, 8 Mar 2004 15:04:04 -0600 , "Dachepalli, Sudhir"
+<sudhir.dachepalli@lsil.com> said:
 
   Sudhir> Hello SerialConsole user,
  
