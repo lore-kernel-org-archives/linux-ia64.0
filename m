@@ -1,28 +1,24 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Wed, 05 Mar 2003 22:19:25 +0000
-Subject: Re: [Linux-ia64] (no subject)
-Message-Id: <marc-linux-ia64-105590709805977@msgid-missing>
+From: "dai yiyang" <daiyiyang@hotmail.com>
+Date: Mon, 10 Mar 2003 13:28:02 +0000
+Subject: [Linux-ia64] Intel's fortan compiler
+Message-Id: <marc-linux-ia64-105590709806015@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205296@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205296@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
-> im trying to install mandrake on a 64 bit itanium machine. i can't get the cd 
-> drive to be recognized in the fsX format. it instead shows up as blk4 and 
-> consequently i can't read the files on the damn cd nor can i use the elilo 
-> command.
-> does anyone know if this is a hardware issue or if i can somehow get the cd 
-> drive to show up as fs something...
-
-This is an ia64 CD, right?  EFI might recognize an x86 CD, but you
-certainly wouldn't be able to install from it.
-
-If you insert the CD after power-up, you may have to do "map -r" to
-get EFI to look at the media and figure out there's a filesystem there.
-
-Bjorn
-
-
+SGkgYWxsOiAKCiAgICBJcyB0aGVyZSBhbnlib2R5IGtub3cgaG93IHRvIHVzZSB0aGUgLW51cyBv
+cHRpb24gb2YgSW50ZWwncyBmb3J0YW4gCmNvbXBpbGVyIG9uIElBNjQgPz8gCgogICAgYmFzaWNs
+eSAsIGZvcnRhbiBjb21waWxlciB3aWxsIGFkZCBhIHVuZGVyc2NvcmUgdG8gYW55IHVuc29sdmVk
+IHN5bWJvbCAKaW4gdGhlIHNvdXJjZSAsdGhhdCBtZWFucyBpZiB0aGUgY2FsbCBpcyAic3lzdGVt
+IiAsIHRoZW4gdGhlIGV4cG9ydGVkIApzeW1ib2wgd2lsbCBiZSAic3lzdGVtXyIKCnRoZSAiLW51
+cyIgaXMgdG8gZ2V0IHJpZCBvZiB0aGUgdW5kZXJzY29yZSBvZiB0aGUgZXhwb3J0ZWQgc3ltYm9s
+IHNvIHRoYXQgCml0IGNhbiBiZSBsaW5rZWQgd2l0aCBDIGxpYiAsLCwsIAoKICAgIE15IHByb2Js
+ZW0gaXMgOiBJIGp1c3Qgd2FudCB0byBnZXQgcmlkIG9mIHRoZSB1bmRlcnNjb3JlIGZvciBzZWxl
+Y3RlZCAKc3ltYm9sICwgSW50ZWwncyBjb21waWxlciBtYW51YWwgc2FpZCBJIGNhbiBkbyB0aGF0
+IHdpdGggdGhlIG9wdGlvbiAKIi1udXNbZmlsZV0iICAsIGJ1dCBpdCBkb250IHdvcmsgLgoKICAg
+IEFueW9uZSBjYW4gaGVscCBtZSA/PyAKClJlZ2FyZHMsIApZaXlhbmcgCiAKCgoKCgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwrT68Gqu/q1xMXz09G9+NDQvbvB96Osx+vKudPDIE1TTiBNZXNzZW5nZXI6ICBodHRwOi8vbWVz
+c2VuZ2VyLm1zbi5jb20vY24gIAoKCg==
