@@ -1,45 +1,190 @@
-From: "Ashok Raj" <ashok.raj@intel.com>
-Date: Mon, 26 Apr 2004 16:16:44 +0000
-Subject: RE: [RFC IA64 Hotplug] [Patch 1/7] core_kernel_init.patch
-Message-Id: <ORSMSX404XRPmcarcR40000019b@orsmsx404.amr.corp.intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Fri, 09 Apr 2004 07:05:14 +0000
+Subject: [PATCH] switching between CPEI&CPEP
+Message-Id: <0HVW00DA36CQCF@fjmail502.fjmail.jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <ORSMSX4041LEdyt3cew00000172@orsmsx404.amr.corp.intel.com>
-In-Reply-To: <ORSMSX4041LEdyt3cew00000172@orsmsx404.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-   
-
->-----Original Message-----
->From: Andrew Morton [mailto:akpm@osdl.org]
->Sent: Sunday, April 25, 2004 10:36 PM
->To: Raj, Ashok
->Cc: lhcs-devel@lists.sourceforge.net; linux-ia64@vger.kernel.org;
->davidm@hpl.hp.com; rusty@rustcorp.com.au; Luck, Tony; Mallick, Asit K;
->Saxena, Sunil; Shah, Rajesh
->Subject: Re: [RFC IA64 Hotplug] [Patch 1/7] core_kernel_init.patch
->
->
->These patches were disastrously wordwrapped by your mailer (usually an
->indication that the code is using too-long lines, too).
->
->Having nothing better to do, I fixed them all up and applied them to my
->tree, thanks.
->
->One of the patches adds a KDB initialisation hook to init/main.c.  Was this
->deliberate?
-
-Nope. The kdb was inadvertently included by mistake.. sorry about that.
-
-I forgot one step in using the LOOKOUT to get the word wrap thingy to fix..
-I will be careful the next time :-(
+Hi, all,
 
 
+I've already sent this patch, but receiving no feedback, so I try again.
 
-Cheers,
-ashok raj
-- Linux Core Software Group
+Why there isn't code switching between CPEI and CPEP?
+As you may know, we already have a code switching between CMCI and CMCP.
 
+I estimate the one of the reasons is that there are differences between 
+each platforms. 
+
+Intel's Tiger4 uses CPEI properly. I don't know IBM's well, but I heard 
+that the HP's platform doesn't up any CPEI by itself, and SGI's uses 
+special interface instead of usual CPEI.
+
+I think there are many machines never use CPEI but CPEP.
+So maybe this CPEI/P switching patch will not be useful for them.
+
+But on the other hand, if the properly standard system (like Intel's) 
+have enormous quantity of I/O devices, I think this patch will become 
+to be required.
+
+What do you think?
+
+
+Thanks,
+
+H.Seto
+
+-----
+
+--- arch/ia64/kernel/mca.c.orig	2004-04-06 17:16:06.000000000 +0900
++++ arch/ia64/kernel/mca.c	2004-04-06 17:16:12.000000000 +0900
+@@ -108,6 +108,7 @@
+ #define MAX_CPE_POLL_INTERVAL (15*60*HZ) /* 15 minutes */
+ #define MIN_CPE_POLL_INTERVAL (2*60*HZ)  /* 2 minutes */
+ #define CMC_POLL_INTERVAL     (1*60*HZ)  /* 1 minute */
++#define CPE_HISTORY_LENGTH    5
+ #define CMC_HISTORY_LENGTH    5
+ 
+ static struct timer_list cpe_poll_timer;
+@@ -270,14 +271,55 @@
+ static irqreturn_t
+ ia64_mca_cpe_int_handler (int cpe_irq, void *arg, struct pt_regs *ptregs)
+ {
+-	IA64_MCA_DEBUG("%s: received interrupt. CPU:%d vector = %#x\n",
+-		       __FUNCTION__, smp_processor_id(), cpe_irq);
++	static unsigned long	cpe_history[CPE_HISTORY_LENGTH];
++	static int		index;
++	static spinlock_t	cpe_history_lock = SPIN_LOCK_UNLOCKED;
++
++	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
++		       __FUNCTION__, cpe_irq, smp_processor_id());
+ 
+ 	/* SAL spec states this should run w/ interrupts enabled */
+ 	local_irq_enable();
+ 
+-	/* Get the CMC error record and log it */
++	/* Get the CPE error record and log it */
+ 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
++
++	spin_lock(&cpe_history_lock);
++	if (!cpe_poll_enabled && acpi_request_vector(ACPI_INTERRUPT_CPEI)) {
++
++		int i, count = 1; /* we know 1 happened now */
++		unsigned long now = jiffies;
++
++		for (i = 0; i < CPE_HISTORY_LENGTH; i++) {
++			if (now - cpe_history[i] <= HZ)
++				count++;
++		}
++
++		IA64_MCA_DEBUG(KERN_INFO "CPE threshold %d/%d\n", count, CPE_HISTORY_LENGTH);
++		if (count >= CPE_HISTORY_LENGTH) {
++
++			cpe_poll_enabled = 1;
++			spin_unlock(&cpe_history_lock);
++			disable_irq_nosync(local_vector_to_irq(IA64_CPE_VECTOR));
++
++			/*
++			 * Corrected errors will still be corrected, but
++			 * make sure there's a log somewhere that indicates
++			 * something is generating more than we can handle.
++			 */
++			printk(KERN_WARNING "WARNING: Switching to polling CPE handler; error records may be lost\n");
++
++			mod_timer(&cpe_poll_timer, jiffies + MIN_CPE_POLL_INTERVAL);
++
++			/* lock already released, get out now */
++			return IRQ_HANDLED;
++		} else {
++			cpe_history[index++] = now;
++			if (index = CPE_HISTORY_LENGTH)
++				index = 0;
++		}
++	}
++	spin_unlock(&cpe_history_lock);
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -901,7 +943,7 @@
+  * 	handled
+  */
+ static irqreturn_t
+-ia64_mca_cmc_int_caller(int cpe_irq, void *arg, struct pt_regs *ptregs)
++ia64_mca_cmc_int_caller(int cmc_irq, void *arg, struct pt_regs *ptregs)
+ {
+ 	static int start_count = -1;
+ 	unsigned int cpuid;
+@@ -912,7 +954,7 @@
+ 	if (start_count = -1)
+ 		start_count = IA64_LOG_COUNT(SAL_INFO_TYPE_CMC);
+ 
+-	ia64_mca_cmc_int_handler(cpe_irq, arg, ptregs);
++	ia64_mca_cmc_int_handler(cmc_irq, arg, ptregs);
+ 
+ 	for (++cpuid ; cpuid < NR_CPUS && !cpu_online(cpuid) ; cpuid++);
+ 
+@@ -971,7 +1013,7 @@
+ ia64_mca_cpe_int_caller(int cpe_irq, void *arg, struct pt_regs *ptregs)
+ {
+ 	static int start_count = -1;
+-	static int poll_time = MAX_CPE_POLL_INTERVAL;
++	static int poll_time = MIN_CPE_POLL_INTERVAL;
+ 	unsigned int cpuid;
+ 
+ 	cpuid = smp_processor_id();
+@@ -989,15 +1031,23 @@
+ 	} else {
+ 		/*
+ 		 * If a log was recorded, increase our polling frequency,
+-		 * otherwise, backoff.
++		 * otherwise, backoff or return to interrupt mode.
+ 		 */
+ 		if (start_count != IA64_LOG_COUNT(SAL_INFO_TYPE_CPE)) {
+ 			poll_time = max(MIN_CPE_POLL_INTERVAL, poll_time / 2);
+-		} else {
++		} else if (acpi_request_vector(ACPI_INTERRUPT_CPEI) < 0) {
+ 			poll_time = min(MAX_CPE_POLL_INTERVAL, poll_time * 2);
++		} else {
++			poll_time = MIN_CPE_POLL_INTERVAL;
++
++			printk(KERN_WARNING "Returning to interrupt driven CPE handler\n");
++			enable_irq(local_vector_to_irq(IA64_CPE_VECTOR));
++			cpe_poll_enabled = 0;
+ 		}
++
++		if (cpe_poll_enabled)
++			mod_timer(&cpe_poll_timer, jiffies + poll_time);
+ 		start_count = -1;
+-		mod_timer(&cpe_poll_timer, jiffies + poll_time);
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -1240,7 +1290,7 @@
+ 	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, &mca_wkup_irqaction);
+ 
+ #ifdef CONFIG_ACPI
+-	/* Setup the CPE interrupt vector */
++	/* Setup the CPEI/P vector and handler */
+ 	{
+ 		irq_desc_t *desc;
+ 		unsigned int irq;
+@@ -1255,6 +1305,7 @@
+ 				}
+ 			ia64_mca_register_cpev(cpev);
+ 		}
++		register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
+ 	}
+ #endif
+ 
+@@ -1295,7 +1346,6 @@
+ #ifdef CONFIG_ACPI
+ 	/* If platform doesn't support CPEI, get the timer going. */
+ 	if (acpi_request_vector(ACPI_INTERRUPT_CPEI) < 0 && cpe_poll_enabled) {
+-		register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
+ 		ia64_mca_cpe_poll(0UL);
+ 	}
+ #endif
 
