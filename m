@@ -1,213 +1,118 @@
-From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
-Date: Fri, 23 Aug 2002 04:52:40 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Fri, 23 Aug 2002 10:10:55 +0000
 Subject: Re: [Linux-ia64] kernel update (relative to 2.4.19)
-Message-Id: <marc-linux-ia64-105590701905977@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905978@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi Bjorn,
+Hi!
 
-I have comments on arch/ia64/kernel/acpi.c:
+Here is a patch to kill many warnings.
 
- o acpi_get_current_resources
-   After some version (around Apr. 2002), ACPI CA has automatic memory
-   allocation functionality.  If acpi_buffer's length is
-   ACPI_ALLOCATE_BUFFER, memory is allocated automatically.
-   So independent acpi_get_crs makes less sense, we can use
-   acpi_get_current_resources directly.  Returning -ENOMEM
-   as acpi_status is also wrong.
-
- o void * as a pointer to byte array
-   I was taught that this is a gcc extension, can to do any arithmetic
-   operation and should be avoided.
-   I'm not sure this is still true in C99.
-   Maybe you reject this because original is simpler and works anyway.
-
--	res = buf->pointer + *offset;
-+	res = (acpi_resource *)((char *) buf->pointer + *offset);
-
- o acpi_resource's id and length
-   It is really counter-intuitive, but you can't count on length
-   member of acpi_resource:(  In acpi_get_crs_addr(), there's a
-   corner case that resource doesn't have any memory resource
-   records.  In that case, it will go into infinite loop.
-   If you encounter ACPI_RSTYPE_END_TAG, it's the end
-   of resources.
-
-+			case ACPI_RSTYPE_END_TAG:
-+				return;
-+				break;
-
-  o I made some functions static
-
-  o rewrite acpi_dispose_crs with acpi_os_free
-    It's not important:)
-
-Index: lia64-2.4/arch/ia64/kernel/acpi.c
-diff -u lia64-2.4/arch/ia64/kernel/acpi.c:1.1.1.15 lia64-2.4/arch/ia64/kernel/acpi.c:1.1.1.15.4.1
---- lia64-2.4/arch/ia64/kernel/acpi.c:1.1.1.15	Thu Aug 22 10:39:56 2002
-+++ lia64-2.4/arch/ia64/kernel/acpi.c	Thu Aug 22 20:55:08 2002
-@@ -112,33 +112,7 @@
- 
- #ifdef CONFIG_ACPI
- 
--/**
-- * acpi_get_crs - Return the current resource settings for a device
-- * obj: A handle for this device
-- * buf: A buffer to be populated by this call.
-- *
-- * Pass a valid handle, typically obtained by walking the namespace and a
-- * pointer to an allocated buffer, and this function will fill in the buffer
-- * with a list of acpi_resource structures.
-- */
--acpi_status
--acpi_get_crs (acpi_handle obj, acpi_buffer *buf)
--{
--	acpi_status result;
--	buf->length = 0;
--	buf->pointer = NULL;
--
--	result = acpi_get_current_resources(obj, buf);
--	if (result != AE_BUFFER_OVERFLOW)
--		return result;
--	buf->pointer = kmalloc(buf->length, GFP_KERNEL);
--	if (!buf->pointer)
--		return -ENOMEM;
--
--	return acpi_get_current_resources(obj, buf);
--}
--
--acpi_resource *
-+static acpi_resource *
- acpi_get_crs_next (acpi_buffer *buf, int *offset)
+--- linux/arch/ia64/hp/common/sba_iommu.c.~1~
++++ linux/arch/ia64/hp/common/sba_iommu.c
+@@ -626,7 +626,7 @@ mark_clean (void *addr, size_t size)
+ 	pg_addr =3D PAGE_ALIGN((unsigned long) addr);
+ 	end =3D (unsigned long) addr + size;
+ 	while (pg_addr + PAGE_SIZE <=3D end) {
+-		struct page *page =3D virt_to_page(pg_addr);
++		struct page *page =3D virt_to_page((void *)pg_addr);
+ 		set_bit(PG_arch_1, &page->flags);
+ 		pg_addr +=3D PAGE_SIZE;
+ 	}
+--- linux/arch/ia64/kernel/machvec.c.~1~
++++ linux/arch/ia64/kernel/machvec.c
+@@ -15,7 +15,7 @@ struct ia64_machine_vector ia64_mv;
+  * into a memory map index.
+  */
+ unsigned long
+-map_nr_dense (unsigned long addr)
++map_nr_dense (void *addr)
  {
- 	acpi_resource *res;
-@@ -146,12 +120,12 @@
- 	if (*offset >= buf->length)
- 		return NULL;
- 
--	res = buf->pointer + *offset;
-+	res = (acpi_resource *)((char *) buf->pointer + *offset);
- 	*offset += res->length;
- 	return res;
+ 	return MAP_NR_DENSE(addr);
  }
- 
--acpi_resource_data *
-+static acpi_resource_data *
- acpi_get_crs_type (acpi_buffer *buf, int *offset, int type)
+--- linux/arch/ia64/lib/swiotlb.c.~1~
++++ linux/arch/ia64/lib/swiotlb.c
+@@ -351,7 +351,7 @@ mark_clean (void *addr, size_t size)
+ 	pg_addr =3D PAGE_ALIGN((unsigned long) addr);
+ 	end =3D (unsigned long) addr + size;
+ 	while (pg_addr + PAGE_SIZE <=3D end) {
+-		struct page *page =3D virt_to_page(pg_addr);
++		struct page *page =3D virt_to_page((void *)pg_addr);
+ 		set_bit(PG_arch_1, &page->flags);
+ 		pg_addr +=3D PAGE_SIZE;
+ 	}
+--- linux/arch/ia64/mm/init.c.~1~
++++ linux/arch/ia64/mm/init.c
+@@ -114,8 +114,8 @@ free_initmem (void)
+=20
+ 	addr =3D (unsigned long) &__init_begin;
+ 	for (; addr < (unsigned long) &__init_end; addr +=3D PAGE_SIZE) {
+-		clear_bit(PG_reserved, &virt_to_page(addr)->flags);
+-		set_page_count(virt_to_page(addr), 1);
++		clear_bit(PG_reserved, &virt_to_page((void *)addr)->flags);
++		set_page_count(virt_to_page((void *)addr), 1);
+ 		free_page(addr);
+ 		++totalram_pages;
+ 	}
+@@ -164,10 +164,10 @@ free_initrd_mem(unsigned long start, uns
+ 		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n", (end - start) >=
+> 10);
+=20
+ 	for (; start < end; start +=3D PAGE_SIZE) {
+-		if (!VALID_PAGE(virt_to_page(start)))
++		if (!VALID_PAGE(virt_to_page((void *)start)))
+ 			continue;
+-		clear_bit(PG_reserved, &virt_to_page(start)->flags);
+-		set_page_count(virt_to_page(start), 1);
++		clear_bit(PG_reserved, &virt_to_page((void *)start)->flags);
++		set_page_count(virt_to_page((void *)start), 1);
+ 		free_page(start);
+ 		++totalram_pages;
+ 	}
+@@ -554,7 +554,7 @@ count_reserved_pages (u64 start, u64 end
+ 	unsigned long *count =3D arg;
+ 	struct page *pg;
+=20
+-	for (pg =3D virt_to_page(start); pg < virt_to_page(end); ++pg)
++	for (pg =3D virt_to_page((void *)start); pg < virt_to_page((void *)end); =
+++pg)
+ 		if (PageReserved(pg))
+ 			++num_reserved;
+ 	*count +=3D num_reserved;
+--- linux/arch/ia64/sn/kernel/setup.c.~1~
++++ linux/arch/ia64/sn/kernel/setup.c
+@@ -137,7 +137,7 @@ char drive_info[4*16];
+  * virt_to_page() (asm-ia64/page.h), among other things.
+  */
+ unsigned long
+-sn_map_nr (unsigned long addr)
++sn_map_nr (void *addr)
  {
- 	for (;;) {
-@@ -163,12 +137,6 @@
- 	}
+ 	return MAP_NR_DISCONTIG(addr);
  }
- 
--void
--acpi_dispose_crs (acpi_buffer *buf)
--{
--	kfree(buf->pointer);
--}
--
- static void
- acpi_get_crs_addr (acpi_buffer *buf, int type, u64 *base, u64 *length, u64 *tra)
- {
-@@ -210,6 +178,9 @@
- 					return;
- 				}
- 				break;
-+			case ACPI_RSTYPE_END_TAG:
-+				return;
-+				break;
- 		}
- 	}
- }
-@@ -218,13 +189,14 @@
- acpi_get_addr_space(acpi_handle obj, u8 type, u64 *base, u64 *length, u64 *tra)
- {
- 	acpi_status status;
--	acpi_buffer buf;
-+	acpi_buffer buf = { .length =  ACPI_ALLOCATE_BUFFER,
-+			    .pointer = NULL };
- 
- 	*base = 0;
- 	*length = 0;
- 	*tra = 0;
- 
--	status = acpi_get_crs(obj, &buf);
-+	status = acpi_get_current_resources(obj, &buf);
- 	if (ACPI_FAILURE(status)) {
- 		printk(KERN_ERR PREFIX "Unable to get _CRS data on object\n");
- 		return status;
-@@ -232,7 +204,7 @@
- 
- 	acpi_get_crs_addr(&buf, type, base, length, tra);
- 
--	acpi_dispose_crs(&buf);
-+	acpi_os_free(buf.pointer);
- 
- 	return AE_OK;
- }
-@@ -254,7 +226,8 @@
- {
- 	int i, offset = 0;
- 	acpi_status status;
--	acpi_buffer buf;
-+	acpi_buffer buf = { .length =  ACPI_ALLOCATE_BUFFER,
-+			    .pointer = NULL };
- 	acpi_resource_vendor *res;
- 	acpi_hp_vendor_long *hp_res;
- 	efi_guid_t vendor_guid;
-@@ -262,7 +235,7 @@
- 	*csr_base = 0;
- 	*csr_length = 0;
- 
--	status = acpi_get_crs(obj, &buf);
-+	status = acpi_get_current_resources(obj, &buf);
- 	if (ACPI_FAILURE(status)) {
- 		printk(KERN_ERR PREFIX "Unable to get _CRS data on object\n");
- 		return status;
-@@ -271,7 +244,7 @@
- 	res = (acpi_resource_vendor *)acpi_get_crs_type(&buf, &offset, ACPI_RSTYPE_VENDOR);
- 	if (!res) {
- 		printk(KERN_ERR PREFIX "Failed to find config space for device\n");
--		acpi_dispose_crs(&buf);
-+		acpi_os_free(buf.pointer);
- 		return AE_NOT_FOUND;
- 	}
- 
-@@ -279,14 +252,14 @@
- 
- 	if (res->length != HP_CCSR_LENGTH || hp_res->guid_id != HP_CCSR_TYPE) {
- 		printk(KERN_ERR PREFIX "Unknown Vendor data\n");
--		acpi_dispose_crs(&buf);
-+		acpi_os_free(buf.pointer);
- 		return AE_TYPE; /* Revisit error? */
- 	}
- 
- 	memcpy(&vendor_guid, hp_res->guid, sizeof(efi_guid_t));
- 	if (efi_guidcmp(vendor_guid, HP_CCSR_GUID) != 0) {
- 		printk(KERN_ERR PREFIX "Vendor GUID does not match\n");
--		acpi_dispose_crs(&buf);
-+		acpi_os_free(buf.pointer);
- 		return AE_TYPE; /* Revisit error? */
- 	}
- 
-@@ -295,7 +268,7 @@
- 		*csr_length |= ((u64)(hp_res->csr_length[i]) << (i * 8));
- 	}
- 
--	acpi_dispose_crs(&buf);
-+	acpi_os_free(buf.pointer);
- 
- 	return AE_OK;
- }
+--- linux/include/asm-ia64/machvec.h.~1~
++++ linux/include/asm-ia64/machvec.h
+@@ -25,7 +25,7 @@ typedef void ia64_mv_cpu_init_t(void);
+ typedef void ia64_mv_irq_init_t (void);
+ typedef void ia64_mv_pci_fixup_t (int);
+ typedef void ia64_mv_pci_enable_device_t (struct pci_dev *);
+-typedef unsigned long ia64_mv_map_nr_t (unsigned long);
++typedef unsigned long ia64_mv_map_nr_t (void *);
+ typedef void ia64_mv_mca_init_t (void);
+ typedef void ia64_mv_mca_handler_t (void);
+ typedef void ia64_mv_cmci_handler_t (int, void *, struct pt_regs *);
 
-Thanks,
--- 
-KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+Andreas.
 
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
 
