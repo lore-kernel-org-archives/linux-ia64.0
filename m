@@ -1,7 +1,7 @@
 From: Andrew Morton <akpm@osdl.org>
-Date: Tue, 23 Mar 2004 18:08:45 +0000
+Date: Tue, 23 Mar 2004 18:16:44 +0000
 Subject: Re: 2.6.5-rc2 lots of warnings for dma_error
-Message-Id: <20040323100845.67796352.akpm@osdl.org>
+Message-Id: <20040323101644.472c47ae.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <5631.1079924674@kao2.melbourne.sgi.com>
 In-Reply-To: <5631.1079924674@kao2.melbourne.sgi.com>
@@ -10,25 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
+Andrew Morton <akpm@osdl.org> wrote:
 >
-> >>>>> On Mon, 22 Mar 2004 14:37:58 -0700, Bjorn Helgaas <bjorn.helgaas@hp.com> said:
+> > But let's put the blame where it belongs: the name space was
+>  > "polluted" by introducing dma_error().  It certainly must be
+>  > legal to implement basic APIs using macros.
 > 
->   Bjorn> On Monday 22 March 2004 1:21 pm, Andrew Morton wrote:
->   >> gack, what a fiasco.
-> 
->   >> Here's a new patch which includes everyone's 2000 millicents'
->   >> worth:
-> 
->   Bjorn> Not to prolong the agony, but using the following
->   Bjorn> asm-ia64/dma-mapping.h patch fixes the namespace pollution
->   Bjorn> problem, obviating the need for the ide-cd.c patch:
-> 
-> But let's put the blame where it belongs: the name space was
-> "polluted" by introducing dma_error().  It certainly must be
-> legal to implement basic APIs using macros.
+>  yes, perhaps it's not too late to change it.  Anton, what will this break?
 
-yes, perhaps it's not too late to change it.  Anton, what will this break?
+Here's a completer patch.  I'll submit this I think.
+
+
+
+We're getting namespace collisions from the new dma_error().  Rename it to
+dma_mapping_error().
+
 
 ---
 
@@ -37,11 +33,13 @@ yes, perhaps it's not too late to change it.  Anton, what will this break?
  25-akpm/include/asm-generic/dma-mapping.h    |    4 ++--
  25-akpm/include/asm-generic/pci-dma-compat.h |    4 ++--
  25-akpm/include/asm-i386/dma-mapping.h       |    2 +-
- 5 files changed, 10 insertions(+), 10 deletions(-)
+ 25-akpm/include/asm-ppc64/pci.h              |    2 +-
+ 25-akpm/include/asm-sparc64/pci.h            |    2 +-
+ 7 files changed, 12 insertions(+), 12 deletions(-)
 
 diff -puN Documentation/DMA-API.txt~rename-dma_error Documentation/DMA-API.txt
---- 25/Documentation/DMA-API.txt~rename-dma_error	2004-03-23 10:07:25.799844696 -0800
-+++ 25-akpm/Documentation/DMA-API.txt	2004-03-23 10:08:05.309838264 -0800
+--- 25/Documentation/DMA-API.txt~rename-dma_error	2004-03-23 10:12:37.798413704 -0800
++++ 25-akpm/Documentation/DMA-API.txt	2004-03-23 10:12:37.808412184 -0800
 @@ -279,14 +279,14 @@ recommended that you never use these unl
  cache width is.
  
@@ -61,8 +59,8 @@ diff -puN Documentation/DMA-API.txt~rename-dma_error Documentation/DMA-API.txt
  reduce current DMA mapping usage or delay and try again later).
  
 diff -puN Documentation/DMA-mapping.txt~rename-dma_error Documentation/DMA-mapping.txt
---- 25/Documentation/DMA-mapping.txt~rename-dma_error	2004-03-23 10:07:25.816842112 -0800
-+++ 25-akpm/Documentation/DMA-mapping.txt	2004-03-23 10:08:09.533196216 -0800
+--- 25/Documentation/DMA-mapping.txt~rename-dma_error	2004-03-23 10:12:37.799413552 -0800
++++ 25-akpm/Documentation/DMA-mapping.txt	2004-03-23 10:12:37.808412184 -0800
 @@ -850,12 +850,12 @@ failure can be determined by:
  - checking if pci_alloc_consistent returns NULL or pci_map_sg returns 0
  
@@ -79,8 +77,8 @@ diff -puN Documentation/DMA-mapping.txt~rename-dma_error Documentation/DMA-mappi
  		 * reduce current DMA mapping usage,
  		 * delay and try again later or
 diff -puN include/asm-generic/dma-mapping.h~rename-dma_error include/asm-generic/dma-mapping.h
---- 25/include/asm-generic/dma-mapping.h~rename-dma_error	2004-03-23 10:07:25.845837704 -0800
-+++ 25-akpm/include/asm-generic/dma-mapping.h	2004-03-23 10:08:13.036663608 -0800
+--- 25/include/asm-generic/dma-mapping.h~rename-dma_error	2004-03-23 10:12:37.801413248 -0800
++++ 25-akpm/include/asm-generic/dma-mapping.h	2004-03-23 10:12:37.809412032 -0800
 @@ -141,9 +141,9 @@ dma_sync_sg_for_device(struct device *de
  }
  
@@ -94,8 +92,8 @@ diff -puN include/asm-generic/dma-mapping.h~rename-dma_error include/asm-generic
  
  /* Now for the API extensions over the pci_ one */
 diff -puN include/asm-generic/pci-dma-compat.h~rename-dma_error include/asm-generic/pci-dma-compat.h
---- 25/include/asm-generic/pci-dma-compat.h~rename-dma_error	2004-03-23 10:07:25.861835272 -0800
-+++ 25-akpm/include/asm-generic/pci-dma-compat.h	2004-03-23 10:08:16.571126288 -0800
+--- 25/include/asm-generic/pci-dma-compat.h~rename-dma_error	2004-03-23 10:12:37.803412944 -0800
++++ 25-akpm/include/asm-generic/pci-dma-compat.h	2004-03-23 10:12:37.809412032 -0800
 @@ -99,9 +99,9 @@ pci_dma_sync_sg_for_device(struct pci_de
  }
  
@@ -109,8 +107,8 @@ diff -puN include/asm-generic/pci-dma-compat.h~rename-dma_error include/asm-gene
  
  #endif
 diff -puN include/asm-i386/dma-mapping.h~rename-dma_error include/asm-i386/dma-mapping.h
---- 25/include/asm-i386/dma-mapping.h~rename-dma_error	2004-03-23 10:07:25.878832688 -0800
-+++ 25-akpm/include/asm-i386/dma-mapping.h	2004-03-23 10:08:21.434386960 -0800
+--- 25/include/asm-i386/dma-mapping.h~rename-dma_error	2004-03-23 10:12:37.804412792 -0800
++++ 25-akpm/include/asm-i386/dma-mapping.h	2004-03-23 10:12:37.810411880 -0800
 @@ -111,7 +111,7 @@ dma_sync_sg_for_device(struct device *de
  }
  
@@ -119,6 +117,30 @@ diff -puN include/asm-i386/dma-mapping.h~rename-dma_error include/asm-i386/dma-m
 +dma_mapping_error(dma_addr_t dma_addr)
  {
  	return 0;
+ }
+diff -puN include/asm-ppc64/pci.h~rename-dma_error include/asm-ppc64/pci.h
+--- 25/include/asm-ppc64/pci.h~rename-dma_error	2004-03-23 10:12:37.806412488 -0800
++++ 25-akpm/include/asm-ppc64/pci.h	2004-03-23 10:12:37.810411880 -0800
+@@ -170,7 +170,7 @@ static inline int pci_dac_dma_supported(
+ }
+ 
+ #define PCI_DMA_ERROR_CODE      (~(dma_addr_t)0x0)
+-static inline int pci_dma_error(dma_addr_t dma_addr)
++static inline int pci_dma_mapping_error(dma_addr_t dma_addr)
+ {
+ 	return (dma_addr = PCI_DMA_ERROR_CODE);
+ }
+diff -puN include/asm-sparc64/pci.h~rename-dma_error include/asm-sparc64/pci.h
+--- 25/include/asm-sparc64/pci.h~rename-dma_error	2004-03-23 10:15:28.991388416 -0800
++++ 25-akpm/include/asm-sparc64/pci.h	2004-03-23 10:15:42.161386272 -0800
+@@ -215,7 +215,7 @@ pci_dac_dma_sync_single_for_device(struc
+ 
+ #define PCI_DMA_ERROR_CODE	(~(dma_addr_t)0x0)
+ 
+-static inline int pci_dma_error(dma_addr_t dma_addr)
++static inline int pci_dma_mapping_error(dma_addr_t dma_addr)
+ {
+ 	return (dma_addr = PCI_DMA_ERROR_CODE);
  }
 
 _
