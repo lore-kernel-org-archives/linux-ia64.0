@@ -1,27 +1,31 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 30 Apr 2004 14:52:28 +0000
-Subject: Re: BUG_ON(irqs_disabled()) in smp_call_function - cant boot
-Message-Id: <3330.1083336748@ocs3.ocs.com.au>
+From: "Martin J. Bligh" <mbligh@aracnet.com>
+Date: Wed, 14 Apr 2004 15:21:37 +0000
+Subject: Re: [Lse-tech] Re: hugetlb demand paging patch part [0/3]
+Message-Id: <17200000.1081956095@[10.10.2.4]>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040430144454.GA8719@sgi.com>
-In-Reply-To: <20040430144454.GA8719@sgi.com>
+References: <200404132317.i3DNH4F21162@unix-os.sc.intel.com> <1081933442.4688.6.camel@laptop.fenrus.com>
+In-Reply-To: <1081933442.4688.6.camel@laptop.fenrus.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: arjanv@redhat.com, "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>
 
-On Fri, 30 Apr 2004 09:44:54 -0500, 
-Jack Steiner <steiner@sgi.com> wrote:
->There was a BUG_ON(irqs_disabled()) recently added to
->smp_call_function(). 
->
->This check is hit during boot. Looks like there is a vfree in
->sg_add that is done with interrupts disabled. This trips the BUG_ON.
->
->The check is valid, but I wonder how many other places will trip the bug
->check.
+>> In addition to the hugetlb commit handling that we've been working on
+>> off the list, Ray Bryant of SGI and I are also working on demand paging
+>> for hugetlb page.  Here are our final version that has been heavily
+>> tested on ia64 and x86.  I've broken the patch into 3 pieces so it's
+>> easier to read/review, etc.
+> 
+> Ok I think it's time to say "HO STOP" here.
+> 
+> If you're going to make the kernel deal with different, concurrent page
+> sizes then please do it for real. Or alternatively leave hugetlb to be
+> the kludge/hack it is right now. Anything inbetween is the road to
+> madness...
 
-Calling vfree() with interrupts disabled eventually leads to
-smp_call_function() with interrupts disabled, which is a deadlock just
-waiting to happen.
+I'd prefer to see it walk step by step to "doing it for real" than have
+a huge cataclysmic patch that breaks everything ....
+
+M.
 
