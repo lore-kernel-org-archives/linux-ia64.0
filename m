@@ -1,29 +1,43 @@
-From: Jeremy Higdon <jeremy@sgi.com>
-Date: Fri, 13 Feb 2004 23:39:00 +0000
-Subject: Re: mpt sets 64bit consistent mask yet requires mapping in same 4 GB chunk?!?
-Message-Id: <20040213233900.GE504054@sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 09 Feb 2004 01:53:28 +0000
+Subject: mca.c: Incorrect recovery from TLB errors?
+Message-Id: <2848.1076291608@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <0E3FA95632D6D047BA649F95DAB60E5703EF915E@exa-atlanta.se.lsil.com> <20040213213043.GB20323@sgi.com> <200402131552.43935.bjorn.helgaas@hp.com> <20040213231308.GT31168@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040213231308.GT31168@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <willy@debian.org>
-Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, Jesse Barnes <jbarnes@sgi.com>, "Moore, Eric Dean" <Emoore@lsil.com>, Alex Williamson <alex.williamson@hp.com>, linux-scsi@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Fri, Feb 13, 2004 at 11:13:08PM +0000, Matthew Wilcox wrote:
-> On Fri, Feb 13, 2004 at 03:52:43PM -0700, Bjorn Helgaas wrote:
-> > > I think Alex's second suggestion would be the best--do a single
-> > > allocation rather than falling back to a 32 bit consistent mask.
-> > 
-> > But even with a single allocation, there's nothing to prevent it
-> > from crossing a 4GB boundary, is there?
-> 
-> Since we use buddy allocators everywhere, we'd need to be doing 8GB
-> allocations to cross a 4GB barrier.  Of course if we change allocators ...
+In both 2.4 and 2.6 kernels, arch/ia64/kernel/mca.c
+ia64_return_to_sal_check() has
 
-... and this particular behavior, then I think lots of hardware will
-stop working, because LSI is not the only vendor with this sort of
-limitation  :-)
+	if (psp->cc = 1 && psp->bc = 1 && psp->rc = 1 && psp->uc = 1)
+		ia64_os_to_sal_handoff_state.imots_os_status = IA64_MCA_COLD_BOOT;
+	else
+		ia64_os_to_sal_handoff_state.imots_os_status = IA64_MCA_CORRECTED;
 
-jeremy
+Why does it test for all the cc/bc/rc/uc bits being set?  Surely that
+should be or, not and?  The real test for recovery is
+
+	psp->tc && !(psp->cc || psp->bc || psp->rc || psp->uc)
+
+The existing code is also inconsistent with the test in mca_asm.S, that
+only tests for psp->tc being 1 and ignores the other bits.
+
+Tony: it makes life easier for kdb if the "am I going to recover" test
+is promoted from ia64_return_to_sal_check() to ia64_mca_ucmc_handler()
+and passed down to ia64_return_to_sal_check().  Otherwise kdb has to
+duplicate the code in ia64_return_to_sal_check() to decide if the MCA
+is recoverable or not, normally you do not want kdb to handle a
+recovered error.  Any objections to this?
+
+void
+ia64_mca_ucmc_handler(void)
+{
+	pal_processor_state_info_t *psp = (pal_processor_state_info_t *)
+		&ia64_sal_to_os_handoff_state.proc_state_param;
+	int recover = psp->tc && !(psp->cc || psp->bc || psp->rc || psp->uc);
+	...
+	ia64_return_to_sal_check(psp, recover)
+}
+
