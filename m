@@ -1,81 +1,131 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Mon, 24 Feb 2003 22:12:11 +0000
-Subject: [Linux-ia64] [PATCH] Another SN update [1/2]
-Message-Id: <marc-linux-ia64-105590709805922@msgid-missing>
+From: "John Dobrott" <johndobrott@iname.com>
+Date: Wed, 26 Feb 2003 20:44:27 +0000
+Subject: [Linux-ia64] help
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_NextPart_000_0005_01C2DDA5.9055CE40"
+Message-Id: <marc-linux-ia64-105590709805933@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Here's an update to the ia64 mmzone.h file that adds some SN2 specific
-defines (which will probably have to be changed later, but it's a
-start).
+This is a multi-part message in MIME format.
 
-Thanks,
-Jesse
+------=_NextPart_000_0005_01C2DDA5.9055CE40
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 
---- linux-2.5.60-ia64/include/asm-ia64/mmzone.h	Mon Feb 10 10:39:17 2003
-+++ linux-2.5.60-ia64-sn/include/asm-ia64/mmzone.h	Mon Feb 24 12:32:26 2003
-@@ -76,7 +76,7 @@
  
- #define pfn_to_page(pfn)	(struct page *)(node_mem_map(pfn_to_nid(pfn)) + node_localnr(pfn, pfn_to_nid(pfn)))
- 
--#define pfn_to_nid(pfn)		 local_node_data->node_id_map[(pfn << PAGE_SHIFT) >> DIG_BANKSHIFT]
-+#define pfn_to_nid(pfn)		 local_node_data->node_id_map[(pfn << PAGE_SHIFT) >> BANKSHIFT]
- 
- #define page_to_pfn(page)	(long)((page - page_zone(page)->zone_mem_map) + page_zone(page)->zone_start_pfn)
- 
-@@ -110,15 +110,15 @@
-  */
- #define NR_BANKS_PER_NODE	32
- #if defined(CONFIG_IA64_NODESIZE_16GB)
--# define DIG_BANKSHIFT		29
-+# define BANKSHIFT		29
- #elif defined(CONFIG_IA64_NODESIZE_64GB)
--# define DIG_BANKSHIFT		31
-+# define BANKSHIFT		31
- #elif defined(CONFIG_IA64_NODESIZE_256GB)
--# define DIG_BANKSHIFT		33
-+# define BANKSHIFT		33
- #else
- # error Unsupported bank and nodesize!
- #endif
--#define BANKSIZE		(1UL << DIG_BANKSHIFT)
-+#define BANKSIZE		(1UL << BANKSHIFT)
- #define BANK_OFFSET(addr)	((unsigned long)(addr) & (BANKSIZE-1))
- #define NR_BANKS		(NR_BANKS_PER_NODE * NR_NODES)
- 
-@@ -134,7 +134,30 @@
-  * entry for the first page of the bank.
-  */
- #define BANK_MEM_MAP_INDEX(kaddr) \
--	(((unsigned long)(kaddr) & (MAX_PHYS_MEMORY-1)) >> DIG_BANKSHIFT)
-+	(((unsigned long)(kaddr) & (MAX_PHYS_MEMORY-1)) >> BANKSHIFT)
-+
-+#elif defined(CONFIG_IA64_SGI_SN2)
-+/*
-+ * SGI SN2 discontig definitions
-+ */
-+#define MAX_PHYSNODE_ID	2048	/* 2048 node ids (also called nasid) */
-+#define NR_NODES	128	/* Maximum number of nodes in SSI */
-+#define MAX_PHYS_MEMORY	(1UL << 49)
-+
-+#define BANKSHIFT		38
-+#define NR_BANKS_PER_NODE	4
-+#define SN2_NODE_SIZE		(64UL*1024*1024*1024)	/* 64GB per node */
-+#define BANKSIZE		(SN2_NODE_SIZE/NR_BANKS_PER_NODE)
-+#define BANK_OFFSET(addr)	((unsigned long)(addr) & (BANKSIZE-1))
-+#define NR_BANKS		(NR_BANKS_PER_NODE * NR_NODES)
-+#define VALID_MEM_KADDR(kaddr)	1
-+
-+/*
-+ * Given a nodeid & a bank number, find the address of the mem_map
-+ * entry for the first page of the bank.
-+ */
-+#define BANK_MEM_MAP_INDEX(kaddr) \
-+	(((unsigned long)(kaddr) & (MAX_PHYS_MEMORY-1)) >> BANKSHIFT)
- 
- #endif /* CONFIG_IA64_DIG */
- #endif /* _ASM_IA64_MMZONE_H */
+
+------=_NextPart_000_0005_01C2DDA5.9055CE40
+Content-Type: text/html;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+<html xmlns:o=3D"urn:schemas-microsoft-com:office:office" =
+xmlns:w=3D"urn:schemas-microsoft-com:office:word" =
+xmlns=3D"http://www.w3.org/TR/REC-html40">
+
+<head>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
+charset=3Dus-ascii">
+
+
+<meta name=3DProgId content=3DWord.Document>
+<meta name=3DGenerator content=3D"Microsoft Word 10">
+<meta name=3DOriginator content=3D"Microsoft Word 10">
+<link rel=3DFile-List href=3D"cid:filelist.xml@01C2DDA5.8F6776A0">
+<!--[if gte mso 9]><xml>
+ <o:OfficeDocumentSettings>
+  <o:DoNotRelyOnCSS/>
+ </o:OfficeDocumentSettings>
+</xml><![endif]--><!--[if gte mso 9]><xml>
+ <w:WordDocument>
+  <w:SpellingState>Clean</w:SpellingState>
+  <w:GrammarState>Clean</w:GrammarState>
+  <w:DocumentKind>DocumentEmail</w:DocumentKind>
+  <w:EnvelopeVis/>
+  <w:Compatibility>
+   <w:BreakWrappedTables/>
+   <w:SnapToGridInCell/>
+   <w:WrapTextWithPunct/>
+   <w:UseAsianBreakRules/>
+  </w:Compatibility>
+  <w:BrowserLevel>MicrosoftInternetExplorer4</w:BrowserLevel>
+ </w:WordDocument>
+</xml><![endif]-->
+<style>
+<!--
+ /* Style Definitions */
+ p.MsoNormal, li.MsoNormal, div.MsoNormal
+	{mso-style-parent:"";
+	margin:0in;
+	margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:12.0pt;
+	font-family:"Times New Roman";
+	mso-fareast-font-family:"Times New Roman";}
+a:link, span.MsoHyperlink
+	{color:blue;
+	text-decoration:underline;
+	text-underline:single;}
+a:visited, span.MsoHyperlinkFollowed
+	{color:purple;
+	text-decoration:underline;
+	text-underline:single;}
+span.EmailStyle17
+	{mso-style-type:personal-compose;
+	mso-style-noshow:yes;
+	mso-ansi-font-size:10.0pt;
+	mso-bidi-font-size:10.0pt;
+	font-family:Arial;
+	mso-ascii-font-family:Arial;
+	mso-hansi-font-family:Arial;
+	mso-bidi-font-family:Arial;
+	color:windowtext;}
+@page Section1
+	{size:8.5in 11.0in;
+	margin:1.0in 1.25in 1.0in 1.25in;
+	mso-header-margin:.5in;
+	mso-footer-margin:.5in;
+	mso-paper-source:0;}
+div.Section1
+	{page:Section1;}
+-->
+</style>
+<!--[if gte mso 10]>
+<style>
+ /* Style Definitions */=20
+ table.MsoNormalTable
+	{mso-style-name:"Table Normal";
+	mso-tstyle-rowband-size:0;
+	mso-tstyle-colband-size:0;
+	mso-style-noshow:yes;
+	mso-style-parent:"";
+	mso-padding-alt:0in 5.4pt 0in 5.4pt;
+	mso-para-margin:0in;
+	mso-para-margin-bottom:.0001pt;
+	mso-pagination:widow-orphan;
+	font-size:10.0pt;
+	font-family:"Times New Roman";}
+</style>
+<![endif]-->
+</head>
+
+<body lang=3DEN-US link=3Dblue vlink=3Dpurple =
+style=3D'tab-interval:.5in'>
+
+<div class=3DSection1>
+
+<p class=3DMsoNormal><font size=3D2 face=3DArial><span =
+style=3D'font-size:10.0pt;
+font-family:Arial'><o:p>&nbsp;</o:p></span></font></p>
+
+</div>
+
+</body>
+
+</html>
+
+------=_NextPart_000_0005_01C2DDA5.9055CE40--
+
 
