@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Fri, 17 Jan 2003 16:05:33 +0000
-Subject: Re: [Linux-ia64] Error compiling 2.4.20 for i386
-Message-Id: <marc-linux-ia64-105590709805713@msgid-missing>
+From: "Bahnsen, Bruce" <bruce.bahnsen@intel.com>
+Date: Fri, 17 Jan 2003 17:51:32 +0000
+Subject: RE: [Linux-ia64] Error compiling 2.4.20 for i386
+Message-Id: <marc-linux-ia64-105590709805714@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805709@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805709@msgid-missing>
@@ -9,6 +9,29 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Thanks Bjorn
+
+I was under the mistaken impression that the ia64 patch for 2.4.18 and
+beyond would not break ia32. I am looking for a way to support both ia32 and
+ia64 from a single kernel source. Is there a plan for the ia64 patch to
+support this model?
+
+The smp_threads_ready error is just gcc-3 being more picky about matching
+volatile qualifiers. I can get ia64 to compile now. However, I'm getting
+this link error now...
+
+net/network.o(.debug_info+0x6f4b26): undefined reference to `L5661'
+
+Bruce
+
+
+-----Original Message-----
+From: Bjorn Helgaas [mailto:bjorn_helgaas@hp.com]
+Sent: Friday, January 17, 2003 8:06 AM
+To: Bahnsen, Bruce; 'linux-ia64@linuxia64.org'
+Subject: Re: [Linux-ia64] Error compiling 2.4.20 for i386
+
 
 On Thursday 16 January 2003 5:42 pm, Bahnsen, Bruce wrote:
 > I applied the ia64 patch to the 2.4.20 kernel (all from kernel.org). If I
@@ -26,7 +49,8 @@ but I don't bother to update the i386-specific ACPI bits.  So it's
 likely that this is a result of that mismatch.
 
 > setup.c: In function `parse_cmdline_early':
-> setup.c:792: `enable_acpi_smp_table' undeclared (first use in this function)
+> setup.c:792: `enable_acpi_smp_table' undeclared (first use in this
+function)
  
 > I am getting errors compiling ia64 as well, such as:
 > ...
@@ -38,5 +62,4 @@ the "volatile" declaration of smp_threads_ready in smpboot.c, so
 this won't be an issue for 2.4.21.
 
 Bjorn
-
 
