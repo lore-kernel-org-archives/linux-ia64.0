@@ -1,26 +1,23 @@
-From: Christoph Rohland <cr@sap.com>
-Date: Mon, 08 May 2000 11:47:23 +0000
-Subject: Re: [Linux-ia64] Lost clock tick on CPU 0 (now=3b6bca57923, next=3b6b627b32c)!!t
-Message-Id: <marc-linux-ia64-105590678205072@msgid-missing>
+From: Russell Mok <rmok@algorithmics.com>
+Date: Fri, 19 May 2000 19:07:30 +0000
+Subject: [Linux-ia64] problem building gnu tool
+Message-Id: <marc-linux-ia64-105590678205100@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205046@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205046@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Stephane Eranian <eranian@cello.hpl.hp.com> writes:
-> On your Lion are you using the builtin eepro 100 controller ? We
-> have seen things like that with that flaky controller. Ever since we
-> added an extra eepro100 PCI card in the machine I don't recall ever
-> seeing this again.
+I download the source on a redhat 5.2 machine and try to build a cross
+compiler for ia64.  The build fails because unistd.h and other system
+headers are missing.  I tried to make configure to think I don't have
+any system headers using --with-headers=empty-dir and
+--without-headers but neither worked.
 
-Adding an extra eepro and disabling the onboard one did not help.
+Basically I'm asking a way to generate a cross-compiler for ia64 linux
+on a 32-bit linux host.  Thanks.
 
-Greetings
-		Christoph
+Russell
 
--- 
 
 
