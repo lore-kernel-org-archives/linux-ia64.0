@@ -1,23 +1,23 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 14 Jan 2002 21:51:24 +0000
-Subject: Re: [Linux-ia64] pre-built Mozilla 0.9.7 anyone?
-Message-Id: <marc-linux-ia64-105590698805821@msgid-missing>
+From: Erich Focht <focht@ess.nec.de>
+Date: Thu, 31 Jan 2002 10:45:00 +0000
+Subject: [Linux-ia64] Re: switch_mm race condition with Ingo's scheduler
+Message-Id: <marc-linux-ia64-105590698805973@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805758@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805758@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 14 Jan 2002 13:33:16 -0800, David Mosberger <davidm@napali.hpl.hp.com> said:
+> 
+> Is it really necessary to flush all TLBs when doing a context switch on
+> one?
 
-  David> The snapshot built with gcc3.0 fine (using -O as usual).  I
-  David> just started a build with gcc 3.1 (pre-release).
+I think the global TLB flush is not necessary at all when the mmu_context
+counter wraps over (in wrap_mmu_context). Please tell me if I'm wrong...
 
-Well, that didn't go too well: with gcc3.1 (experimental), the build
-crashes very early on when trying to run xpidl.  Looks to me like bad
-code is being generated, though I have not had time to look closer.
+Commented that out and got rid of the lockups with Ingo's scheduler.
 
-	--david
+Regards,
+Erich
+
 
