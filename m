@@ -1,41 +1,30 @@
-From: Hirofumi Fujita <h-fujita@ebina.hitachi.co.jp>
-Date: Mon, 20 Nov 2000 11:07:25 +0000
-Subject: [Linux-ia64] kernel test10 CMCV definition
-Message-Id: <marc-linux-ia64-105590678205752@msgid-missing>
+From: "Vollmer, Michael" <michael.vollmer@intel.com>
+Date: Tue, 21 Nov 2000 21:16:02 +0000
+Subject: [Linux-ia64] Itanium(TM) Developer Conference Amsterdam, November 30 + Decembe
+Message-Id: <marc-linux-ia64-105590678205761@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Dear Developer, 
 
-In test10 kernel, the definition of CMC vector register looks
-different from Intel's documnet (The Itanium Architecture Software
-Developer's Manual Vol. 2 rev. 1.1: System Architecture).
+Intel is happy to invite you to an exclusive event for top server and
+workstation software developers - the Itanium(TM) Developer Conference.
 
-The order of bit fields are wrong ?
+Learn how to get your software ready for the Itanium(TM) architecture, 
+make the right tools, compiler and tuning software work for you,
+master advanced topics of Itanium(TM) performance tuning and benefit from
+Intel's
+industry enabling programs, including developer support and Itanium(TM) loan
+systems!
 
-Hirofumi Fujita
-Hitachi, Ltd.
+For more information and online registration, please visit
+http://www.intel.com/europe/xdc.
 
---- linux-2.4.0-test10-ia64-001115/include/asm-ia64/mca.h.org	Thu Nov 16 17:46:36 2000
-+++ linux-2.4.0-test10-ia64-001115/include/asm-ia64/mca.h	Mon Nov 20 17:23:24 2000
-@@ -46,11 +46,11 @@
- 	u64	cmcv_regval;
- 	struct	{
- 		u64  	cmcr_vector		: 8;
--		u64	cmcr_ignored1		: 47;
--		u64	cmcr_mask		: 1;
--		u64	cmcr_reserved1		: 3;
--		u64	cmcr_ignored2		: 1;
--		u64	cmcr_reserved2		: 4;
-+		u64	cmcr_reserved1		: 4;
-+		u64	cmcr_ignored1		: 1;
-+		u64	cmcr_reserved2		: 3;
-+		u64	cmcr_mask		: 1;
-+		u64	cmcr_ignored2		: 47;
- 	} cmcv_reg_s;
- 
- } cmcv_reg_t;
+
+Intel GmbH 
+Technical Marketing ISG EMEA 
+
 
