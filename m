@@ -1,148 +1,177 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Tue, 07 Dec 2004 07:21:05 +0000
-Subject: [PATCH] IRQ resource deallocation [1/2]
-Message-Id: <41B559E1.8050401@jp.fujitsu.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 01 Dec 2004 23:42:51 +0000
+Subject: page fault scalability patch V12 [2/7]: atomic pte operations for
+Message-Id: <Pine.LNX.4.58.0412011542101.5721@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
+ <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>, Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Hugh Dickins <hugh@veritas.com>, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-This patch is ACPI portion of IRQ resource deallocation.
+Changelog
+        * Provide atomic pte operations for ia64
+        * Enhanced parallelism in page fault handler if applied together
+          with the generic patch
 
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-----
-Kernel Version:	2.6.10-rc3
-Depends:	none
-Description:
+Index: linux-2.6.9/include/asm-ia64/pgalloc.h
+=================================--- linux-2.6.9.orig/include/asm-ia64/pgalloc.h	2004-10-18 14:53:06.000000000 -0700
++++ linux-2.6.9/include/asm-ia64/pgalloc.h	2004-11-19 07:54:19.000000000 -0800
+@@ -34,6 +34,10 @@
+ #define pmd_quicklist		(local_cpu_data->pmd_quick)
+ #define pgtable_cache_size	(local_cpu_data->pgtable_cache_sz)
 
-This patch is ACPI portion of IRQ deallocation. This patch defines the
-following new interface. The implementation of this interface depends
-on each platform.
-
-    o void acpi_unregister_gsi(u32 gsi)
-
-        This is a opposite portion of acpi_register_gsi(). This has a
-        responsibility for deallocating IRQ resources associated with
-        the specified GSI number.
-
-        We need to consider the case of shared interrupt. In the case
-        of shared interrupt, acpi_register_gsi() is called multiple
-        times for one gsi. That is, registrations and unregistrations
-        can be nested.
-
-        This function undoes the effect of one call to
-        acpi_register_gsi(). If this matches the last registration,
-        IRQ resources associated with the specified GSI number are
-        freed.
-
-This patch also adds the following new function.
-
-    o void acpi_pci_irq_disable (struct pci_dev *dev)
-
-        This function is a opposite portion of
-        acpi_pci_enable_irq(). It clears the device's linux IRQ number
-        and calls acpi_unregister_gsi() to deallocate IRQ resources.
-
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-
-
----
-
- linux-2.6.10-rc3-kanesige/drivers/acpi/pci_irq.c |   52 +++++++++++++++++++++++
- linux-2.6.10-rc3-kanesige/include/linux/acpi.h   |   13 +++++
- 2 files changed, 65 insertions(+)
-
-diff -puN drivers/acpi/pci_irq.c~IRQ_deallocation_acpi drivers/acpi/pci_irq.c
---- linux-2.6.10-rc3/drivers/acpi/pci_irq.c~IRQ_deallocation_acpi	2004-12-06 19:51:50.274759676 +0900
-+++ linux-2.6.10-rc3-kanesige/drivers/acpi/pci_irq.c	2004-12-06 19:54:43.254430880 +0900
-@@ -407,3 +407,55 @@ acpi_pci_irq_enable (
++/* Empty entries of PMD and PGD */
++#define PMD_NONE       0
++#define PGD_NONE       0
++
+ static inline pgd_t*
+ pgd_alloc_one_fast (struct mm_struct *mm)
+ {
+@@ -78,12 +82,19 @@
+ 	preempt_enable();
  }
- EXPORT_SYMBOL(acpi_pci_irq_enable);
- 
-+
-+#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
-+void
-+acpi_pci_irq_disable (
-+	struct pci_dev		*dev)
-+{
-+	u32			gsi = 0;
-+	u8			pin = 0;
-+	int			edge_level = ACPI_LEVEL_SENSITIVE;
-+	int			active_high_low = ACPI_ACTIVE_LOW;
-+
-+	ACPI_FUNCTION_TRACE("acpi_pci_irq_disable");
-+
-+	if (!dev)
-+		return_VOID;
-+	
-+	pci_read_config_byte(dev, PCI_INTERRUPT_PIN, &pin);
-+	if (!pin)
-+		return_VOID;
-+	pin--;
-+
-+	if (!dev->bus)
-+		return_VOID;
-+
-+	/* 
-+	 * First we check the PCI IRQ routing table (PRT) for an IRQ.
-+	 */
-+ 	gsi = acpi_pci_irq_lookup(dev->bus, PCI_SLOT(dev->devfn), pin,
-+				  &edge_level, &active_high_low);
-+	/*
-+	 * If no PRT entry was found, we'll try to derive an IRQ from the
-+	 * device's parent bridge.
-+	 */
-+	if (!gsi)
-+ 		gsi = acpi_pci_irq_derive(dev, pin,
-+					  &edge_level, &active_high_low);
-+	if (!gsi)
-+		return_VOID;
-+
-+	/*
-+	 * TBD: It might be worth clearing dev->irq by magic constant
-+	 * (e.g. PCI_UNDEFINED_IRQ).
-+	 */
-+
-+	printk(KERN_INFO PREFIX "PCI interrupt for device %s disabled\n",
-+	       pci_name(dev));
-+
-+	acpi_unregister_gsi(gsi);
-+
-+	return_VOID;
-+}
-+#endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
-diff -puN include/linux/acpi.h~IRQ_deallocation_acpi include/linux/acpi.h
---- linux-2.6.10-rc3/include/linux/acpi.h~IRQ_deallocation_acpi	2004-12-06 19:51:50.276712814 +0900
-+++ linux-2.6.10-rc3-kanesige/include/linux/acpi.h	2004-12-06 19:51:50.279642521 +0900
-@@ -416,6 +416,15 @@ static inline int acpi_boot_init(void)
- unsigned int acpi_register_gsi (u32 gsi, int edge_level, int active_high_low);
- int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
- 
-+/*
-+ * This function undoes the effect of one call to acpi_register_gsi().
-+ * If this matches the last registration, any IRQ resources for gsi
-+ * are freed.
-+ */
-+#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
-+void acpi_unregister_gsi (u32 gsi);
-+#endif
-+
- #ifdef CONFIG_ACPI_PCI
- 
- struct acpi_prt_entry {
-@@ -441,6 +450,10 @@ struct pci_dev;
- int acpi_pci_irq_enable (struct pci_dev *dev);
- void acpi_penalize_isa_irq(int irq);
- 
-+#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
-+void acpi_pci_irq_disable (struct pci_dev *dev);
-+#endif
-+
- struct acpi_pci_driver {
- 	struct acpi_pci_driver *next;
- 	int (*add)(acpi_handle handle);
 
-_
++
+ static inline void
+ pgd_populate (struct mm_struct *mm, pgd_t *pgd_entry, pmd_t *pmd)
+ {
+ 	pgd_val(*pgd_entry) = __pa(pmd);
+ }
+
++/* Atomic populate */
++static inline int
++pgd_test_and_populate (struct mm_struct *mm, pgd_t *pgd_entry, pmd_t *pmd)
++{
++	return ia64_cmpxchg8_acq(pgd_entry,__pa(pmd), PGD_NONE) = PGD_NONE;
++}
+
+ static inline pmd_t*
+ pmd_alloc_one_fast (struct mm_struct *mm, unsigned long addr)
+@@ -132,6 +143,13 @@
+ 	pmd_val(*pmd_entry) = page_to_phys(pte);
+ }
+
++/* Atomic populate */
++static inline int
++pmd_test_and_populate (struct mm_struct *mm, pmd_t *pmd_entry, struct page *pte)
++{
++	return ia64_cmpxchg8_acq(pmd_entry, page_to_phys(pte), PMD_NONE) = PMD_NONE;
++}
++
+ static inline void
+ pmd_populate_kernel (struct mm_struct *mm, pmd_t *pmd_entry, pte_t *pte)
+ {
+Index: linux-2.6.9/include/asm-ia64/pgtable.h
+=================================--- linux-2.6.9.orig/include/asm-ia64/pgtable.h	2004-11-15 11:13:38.000000000 -0800
++++ linux-2.6.9/include/asm-ia64/pgtable.h	2004-11-19 07:55:35.000000000 -0800
+@@ -30,6 +30,8 @@
+ #define _PAGE_P_BIT		0
+ #define _PAGE_A_BIT		5
+ #define _PAGE_D_BIT		6
++#define _PAGE_IG_BITS          53
++#define _PAGE_LOCK_BIT         (_PAGE_IG_BITS+3)       /* bit 56. Aligned to 8 bits */
+
+ #define _PAGE_P			(1 << _PAGE_P_BIT)	/* page present bit */
+ #define _PAGE_MA_WB		(0x0 <<  2)	/* write back memory attribute */
+@@ -58,6 +60,7 @@
+ #define _PAGE_PPN_MASK		(((__IA64_UL(1) << IA64_MAX_PHYS_BITS) - 1) & ~0xfffUL)
+ #define _PAGE_ED		(__IA64_UL(1) << 52)	/* exception deferral */
+ #define _PAGE_PROTNONE		(__IA64_UL(1) << 63)
++#define _PAGE_LOCK		(__IA64_UL(1) << _PAGE_LOCK_BIT)
+
+ /* Valid only for a PTE with the present bit cleared: */
+ #define _PAGE_FILE		(1 << 1)		/* see swap & file pte remarks below */
+@@ -270,6 +273,8 @@
+ #define pte_dirty(pte)		((pte_val(pte) & _PAGE_D) != 0)
+ #define pte_young(pte)		((pte_val(pte) & _PAGE_A) != 0)
+ #define pte_file(pte)		((pte_val(pte) & _PAGE_FILE) != 0)
++#define pte_locked(pte)		((pte_val(pte) & _PAGE_LOCK)!=0)
++
+ /*
+  * Note: we convert AR_RWX to AR_RX and AR_RW to AR_R by clearing the 2nd bit in the
+  * access rights:
+@@ -281,8 +286,15 @@
+ #define pte_mkyoung(pte)	(__pte(pte_val(pte) | _PAGE_A))
+ #define pte_mkclean(pte)	(__pte(pte_val(pte) & ~_PAGE_D))
+ #define pte_mkdirty(pte)	(__pte(pte_val(pte) | _PAGE_D))
++#define pte_mkunlocked(pte)	(__pte(pte_val(pte) & ~_PAGE_LOCK))
+
+ /*
++ * Lock functions for pte's
++ */
++#define ptep_lock(ptep)		test_and_set_bit(_PAGE_LOCK_BIT, ptep)
++#define ptep_unlock(ptep)	{ clear_bit(_PAGE_LOCK_BIT,ptep); smp_mb__after_clear_bit(); }
++#define ptep_unlock_set(ptep, val) set_pte(ptep, pte_mkunlocked(val))
++/*
+  * Macro to a page protection value as "uncacheable".  Note that "protection" is really a
+  * misnomer here as the protection value contains the memory attribute bits, dirty bits,
+  * and various other bits as well.
+@@ -342,7 +354,6 @@
+ #define pte_unmap_nested(pte)		do { } while (0)
+
+ /* atomic versions of the some PTE manipulations: */
+-
+ static inline int
+ ptep_test_and_clear_young (pte_t *ptep)
+ {
+@@ -414,6 +425,26 @@
+ #endif
+ }
+
++/*
++ * IA-64 doesn't have any external MMU info: the page tables contain all the necessary
++ * information.  However, we use this routine to take care of any (delayed) i-cache
++ * flushing that may be necessary.
++ */
++extern void update_mmu_cache (struct vm_area_struct *vma, unsigned long vaddr, pte_t pte);
++
++static inline int
++ptep_cmpxchg (struct vm_area_struct *vma, unsigned long addr, pte_t *ptep, pte_t oldval, pte_t newval)
++{
++	/*
++	 * IA64 defers icache flushes. If the new pte is executable we may
++	 * have to flush the icache to insure cache coherency immediately
++	 * after the cmpxchg.
++	 */
++	if (pte_exec(newval))
++		update_mmu_cache(vma, addr, newval);
++	return ia64_cmpxchg8_acq(&ptep->pte, newval.pte, oldval.pte) = oldval.pte;
++}
++
+ static inline int
+ pte_same (pte_t a, pte_t b)
+ {
+@@ -476,13 +507,6 @@
+ 	struct vm_area_struct * prev, unsigned long start, unsigned long end);
+ #endif
+
+-/*
+- * IA-64 doesn't have any external MMU info: the page tables contain all the necessary
+- * information.  However, we use this routine to take care of any (delayed) i-cache
+- * flushing that may be necessary.
+- */
+-extern void update_mmu_cache (struct vm_area_struct *vma, unsigned long vaddr, pte_t pte);
+-
+ #define __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
+ /*
+  * Update PTEP with ENTRY, which is guaranteed to be a less
+@@ -560,6 +584,8 @@
+ #define __HAVE_ARCH_PTEP_MKDIRTY
+ #define __HAVE_ARCH_PTE_SAME
+ #define __HAVE_ARCH_PGD_OFFSET_GATE
++#define __HAVE_ARCH_ATOMIC_TABLE_OPS
++#define __HAVE_ARCH_LOCK_TABLE_OPS
+ #include <asm-generic/pgtable.h>
+
+ #endif /* _ASM_IA64_PGTABLE_H */
 
