@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 15 Jun 2004 04:25:36 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 15 Jun 2004 04:25:40 +0000
 Subject: RE: [PATCH] Kernel panic on IA-64 Linux with SELinux
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01727AD7@scsmsx401.amr.corp.intel.com>
+Message-Id: <16590.31300.583565.349947@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <013f01c44ddb$636d4aa0$f97d220a@linux.bs1.fc.nec.co.jp>
 In-Reply-To: <013f01c44ddb$636d4aa0$f97d220a@linux.bs1.fc.nec.co.jp>
@@ -10,18 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->There are similer problems
->(The condition of the loop termination depends on &init_task).
->- do_each_process() macro       ... in include/linux/sched.h
->- is_devfsd_or_child() function ... in fs/devfs/base.c
->- get_tgid_list() function      ... in fs/proc/base.c
+>>>>> On Mon, 14 Jun 2004 21:17:34 -0700, "Luck, Tony" <tony.luck@intel.com> said:
 
-Grepping through the kernel shows nine places where
-generic code is using "&init_task".  (Way up from the
-one that existed when the kernel relocation patch was
-first dreamed of :-( )  An no guarantee that people won't
-add more.
+  Tony> We could go for a slightly uglier version of
+  Tony> initialize_init_task() that just fixes the list_head elements
+  Tony> ... there are only six of them ... so in one respect this
+  Tony> isn't too ugly, but it would require maintenance every time
+  Tony> someone added/removed a new list from the task structure.
 
-Your option 2 is looking like the best choice.
+I'm worried that would only defer the pain.  As long as we keep in
+mind that static data resides in region 5, we should be OK with
+Kaigai's second solution ("current" points to region 5 address for
+swapper task).
 
--Tony
+	--david
