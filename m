@@ -1,7 +1,7 @@
-From: "Mallick, Asit K" <asit.k.mallick@intel.com>
-Date: Thu, 08 May 2003 17:14:20 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 08 May 2003 17:55:06 +0000
 Subject: RE: [Linux-ia64] High fpu register corruption
-Message-Id: <marc-linux-ia64-105590723705688@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705692@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705679@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705679@msgid-missing>
@@ -10,55 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David,
+>>>>> On Thu, 8 May 2003 10:14:20 -0700, "Mallick, Asit K" <asit.k.mallick@intel.com> said:
 
-The save part in the context switch also needs to be fixed and we will
-take a look at this.
-Thanks,
-Asit
+  Asit> David, The save part in the context switch also needs to be
+  Asit> fixed and we will take a look at this.
 
+Are you sure?  It looks fine to me.  What's the scenario you're
+worried about?  Note that if an application clears psr.mfh it says: I
+no longer care about the state, next time I touch it, give me whatever
+contents you have (either all zeroes or an earlier snapshot of fph;
+never the contents of fph from another thread, of course).
 
-> -----Original Message-----
-> From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
-> Sent: Thursday, May 08, 2003 10:03 AM
-> To: Andreas Schwab
-> Cc: linux-ia64@linuxia64.org; Chris Mason
-> Subject: Re: [Linux-ia64] High fpu register corruption
-> 
-> >>>>> On Thu, 08 May 2003 16:16:13 +0200, Andreas Schwab
-<schwab@suse.de>
-> said:
-> 
->   Andreas> When a process clears the psr.mfh bit after using the high
->   Andreas> fpu registers and then starts using them again it can
->   Andreas> corrupt the fpu state of another process.  In order for
->   Andreas> this to happen there must be some context switches
->   Andreas> inbetween (thanks to Chris Mason for tracking this down):
-> 
-> Ah, _now_ it makes sense.  I got a similar bug report yesterday, but
-> it claimed the _old_ (2.4.19) context switch was breaking and the
-> new one (2.4.20) was fine.  When I looked at the old code, I couldn't
-> find anythign wrong with it.
-> 
->   Andreas> +	} else if (ia64_get_fpu_owner() != next)
-\
->   Andreas> +		ia64_psr(ia64_task_regs(next))->dfh = 1;
-\
-> 
-> I suspect what we really want to do here is something along the lines
-> of:
-> 
->   Andreas> +	ia64_psr(ia64_task_regs(next))->dfh =
-> (ia64_get_fpu_owner() != next);		\
-> 
-> This expresses the invariant we're after: the next thread has DFH set
-> unless it owns the FPH partition.  IIRC, this is what the UP code does
-> already.
-> 
-> 	--david
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Note that the fph registers are all scratch registers.  Are you
+worried about someone implementing a non-standard calling convention?
+Even then I think an application that clears psr.mfh is saying that
+the fph contents is no longer relevant, so I think we'd still be OK.
+
+	--david
 
