@@ -1,57 +1,34 @@
-From: Roy Dragseth <royd@cc.uit.no>
-Date: Fri, 10 Jan 2003 21:39:35 +0000
+From: Grant Grundler <grundler@cup.hp.com>
+Date: Sat, 11 Jan 2003 00:06:52 +0000
 Subject: Re: [Linux-ia64] Re: Re: disabling nics using boot options.
-Message-Id: <marc-linux-ia64-105590709805664@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805665@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805661@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805661@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I've done some more investigation into this matter, it seems like the whole=
-=20
-problem stems from a timing issue:
+Roy Dragseth wrote:
+> But, if I put in a sleep 60 after ifup in the /etc/init.d/network 
+> script, everything is ok.  
 
-I reconfigured the Gbit interface to use a static ip-adress, but the proble=
-m=20
-persisted: The interface comes up seemingly all right during the init proce=
-ss=20
-in the normal bootup sequence, but the subsequent ypbind fail to find any=20
-ypservers. =20
-
-So, the problem doesn't have anything to do with dhcp, at least, so it seem=
-s=20
-to me.  But, if I put in a sleep 60 after ifup in the /etc/init.d/network=20
-script, everything is ok. =20
-
-To me, an illiterate when it comes to drivers and network hardware, it seem=
-s=20
-like the network card (or driver) needs some time to get ready to serve aft=
-er=20
-beeing configured.  Again, the problem only occurs when running Gbit, it=20
-never shows up when I connect to a 100Mbit switch.
-
-Well, I think I've pulled enough hair out of my head over this.  I'll just =
-
-have to bite the bullet and rig all the machines with an extra cable and us=
-e=20
-the 100Mbit interface for the network installs.  Another day of stretching =
-
-cables, sigh...
-
-A big thanks to all who have replied to me with suggestions, especially Bil=
-l.
-
-r.
+IIRC, dhclient forks and lets the child/fork do the actual work.
+With sleep 60, seems the new process would run immediately.
+Perhaps the problem is an issue with the dhclient child-process 
+not getting executed before something else attempts to use the
+interface?
+You have time to try "sleep 1" or "sleep 5"?
 
 
---=20
+> To me, an illiterate when it comes to drivers and network hardware, it seems 
+> like the network card (or driver) needs some time to get ready to serve after
+> beeing configured.  Again, the problem only occurs when running Gbit, it 
+> never shows up when I connect to a 100Mbit switch.
 
-  The Computer Center, University of Troms=F8, N-9037 TROMS=D8, Norway.
-	      phone:+47 77 64 41 07, fax:+47 77 64 41 00
-     Roy Dragseth, High Performance Computing System Administrator
-	 Direct call: +47 77 64 62 56. email: royd@cc.uit.no
+hmmm...I don't know anything about Gbit vs 100Bt negotiations, but maybe
+the Gbit negotiation is just taking longer?
 
+grant
 
