@@ -1,7 +1,7 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Thu, 19 Jun 2003 20:48:33 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 19 Jun 2003 21:47:16 +0000
 Subject: Re: SCSI ERRORS triggered by BIO_VMERGE_BOUNDARY
-Message-Id: <marc-linux-ia64-105605585016024@msgid-missing>
+Message-Id: <marc-linux-ia64-105605932519964@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105604433402604@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105604433402604@msgid-missing>
@@ -11,13 +11,12 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 On Thu, Jun 19, 2003 at 10:36:34AM -0700, David Mosberger wrote:
-> machines (assuming the SGI guys can get the latest 2.5 bits to boot,
-> of course).  This should tell us whether the bug is really in the I/O
+> My suspicion is that something is wrong in the sba_iommu.c code
+> with respect to block merging.
 
-Almost there, I promise!  Once the discontig stuff is in, the only piece
-left will be PCI initialization.  We used to drive it via pcibios_init
-and platform_pci_fixup, but now that the ia64 PCI layer is totally ACPI
-driven, I have to figure out something else.
+That's probably a good place to start. The DMA block merging code
+is the most fragile peice in sba_iommu.c. I still have fixes from
+Peter Chubb on fixing some of that in the partial rewrite I started
+last year. I might have some time short-term to revisit that a bit.
 
-Thanks,
-Jesse
+grant
