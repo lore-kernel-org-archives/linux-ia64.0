@@ -1,68 +1,78 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 30 Oct 2003 22:50:48 +0000
-Subject: Re: [patch 0/4] kernel salinfo changes
-Message-Id: <marc-linux-ia64-106755440714961@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 03 Oct 2003 23:27:25 +0000
+Subject: [PATCH 2.6.0test5: 2 of 3] MCA/TLB recovery
+Message-Id: <marc-linux-ia64-106522368223247@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106750258117748@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106750258117748@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 30 Oct 2003 15:16:23 -0700, 
-Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
->On Thursday 30 October 2003 1:28 am, Keith Owens wrote:
->> patch 1 - Print the header from INIT records, correct typo in sal.h.
->> patch 2 - Clean up kernel salinfo state checking.
->> patch 3 - Add the ability for user space salinfo to ask kernel salinfo
->>           and/or the prom to decode the oem data sections of SAL records.
->
->As for patch 3, that's an interesting concept.  My initial reaction
->is that it seems sort of backwards to put this sort of "binary ->
->ASCII" decoding mechanism into the kernel or the prom.
->
->I can see that it might be convenient to be able to stash all
->that secret IP in the prom, and it certainly does address the
->problem of version skew, but it just seems wrong to get the
->kernel in the middle, ferrying data back and forth.
+This part is just a clean-up of the logging code to only
+print registers that are implemented (instead of blindly
+dumping CR[0] ... CR[127] and AR[0] ... AR[127].
 
-Up until 2.4.21 we had the ability to call SAL to assist with decoding
-the oemdata and that feature was being used by modifying
-platform_mem_dev_err_print and friends.  Moving salinfo to user space
-removed that ability, patch 3 just reinstates it.
+-Tony
 
-The SAL record is already in the kernel.  User space reads the raw
-record and, before clearing the record from SAL, asks the kernel/prom
-to decode the oem data.  Then user space clears the record.  The data
-is not being fed from user space back into the kernel; think of it as
-the kernel delivering existing data in a different format.
-
->HP has the same problem, of course, with wanting to protect
->the meaning of the OEM data, so I had imagined some sort
->of binary-only user-level decoder, or perhaps a generic
->open-source decoder to which one could add proprietary
->plugins.
-
-That is skating close to a GPL violation.  Any binary only user level
-decoder would have to be written from scratch, not using any of the GPL
-headers or code.  A plugin might work, but it still has the problem of
-version skew between user space and the kernel.
-
->If you really want the decoding in the prom, what about a
->module that allowed you to make arbitrary SAL calls from
->user-land?
-
-The raw record would have to be fed back from user space into the
-kernel.  Security and the integrity of the record is a worry, even with
-programs that can only be called by root.  The module would have to
-support its own interface to user space, requiring another /proc or
-/dev entry.  It would end up duplicating the code that is already in
-kernel salinfo.c and would require additional checks to verify the
-record format before passing it to SAL.  A big advantage of patch 3 is
-that the record never leaves the kernel so SAL knows the record is
-valid.
-
-Security, code reuse and minimum overhead all say to extend the
-existing interface rather than add a new interface.
+diff -ru linux-2.6.0-test5/arch/ia64/kernel/mca.c temp/arch/ia64/kernel/mca.c
+--- linux-2.6.0-test5/arch/ia64/kernel/mca.c	2003-09-08 12:50:03.000000000 -0700
++++ temp/arch/ia64/kernel/mca.c	2003-10-03 15:37:40.095070954 -0700
+@@ -1498,6 +1498,12 @@
+ 			lh->timestamp.slh_second, lh->severity);
+ }
+ 
++/* Bitmasks of implemented registers */
++static u64 arbits[2] = { 0x11117f2f00ffUL, 0x7UL };
++static u64 brbits[1] = { 0xffUL };
++static u64 crbits[2] = { 0x3fb0107UL, 0x307ffUL };
++static u64 rrbits[1] = { 0xffUL };
++
+ /*
+  * ia64_log_processor_regs_print
+  *	Print the contents of the saved processor register(s) in the format
+@@ -1513,6 +1519,7 @@
+ void
+ ia64_log_processor_regs_print(u64	*regs,
+ 			      int	reg_num,
++			      u64	*reg_bits,
+ 			      char	*reg_class,
+ 			      char	*reg_prefix,
+ 			      prfunc_t	prfunc)
+@@ -1521,7 +1528,8 @@
+ 
+ 	prfunc("+%s Registers\n", reg_class);
+ 	for (i = 0; i < reg_num; i++)
+-		prfunc("+ %s[%d] 0x%lx\n", reg_prefix, i, regs[i]);
++		if (reg_bits[i/64] & (1UL << (i%64)))
++			prfunc("+ %s[%d] 0x%lx\n", reg_prefix, i, regs[i]);
+ }
+ 
+ /*
+@@ -2159,22 +2167,22 @@
+ 
+ 		/* Print branch register contents if valid */
+ 		if (spsi->valid.br)
+-			ia64_log_processor_regs_print(spsi->br, 8, "Branch", "br",
++			ia64_log_processor_regs_print(spsi->br, 8, brbits, "Branch", "br",
+ 						      prfunc);
+ 
+ 		/* Print control register contents if valid */
+ 		if (spsi->valid.cr)
+-			ia64_log_processor_regs_print(spsi->cr, 128, "Control", "cr",
++			ia64_log_processor_regs_print(spsi->cr, 128, crbits, "Control", "cr",
+ 						      prfunc);
+ 
+ 		/* Print application register contents if valid */
+ 		if (spsi->valid.ar)
+-			ia64_log_processor_regs_print(spsi->ar, 128, "Application",
++			ia64_log_processor_regs_print(spsi->ar, 128, arbits, "Application",
+ 						      "ar", prfunc);
+ 
+ 		/* Print region register contents if valid */
+ 		if (spsi->valid.rr)
+-			ia64_log_processor_regs_print(spsi->rr, 8, "Region", "rr",
++			ia64_log_processor_regs_print(spsi->rr, 8, rrbits, "Region", "rr",
+ 						      prfunc);
+ 
+ 		/* Print floating-point register contents if valid */
 
