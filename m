@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 26 Apr 2000 15:15:22 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 26 Apr 2000 17:57:57 +0000
 Subject: Re: [Linux-ia64] 2.3.99-pre5 Kernel Compile
-Message-Id: <marc-linux-ia64-105590678205050@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205053@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205048@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205048@msgid-missing>
@@ -10,53 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Alternatively, strip the debug info with "strip" or "objcopy
---strip-all".  The debug info is quite useful when you need to map
-kernel addresses to source code (gdb does that very well).
+	Perhaps the real question should be: why is it that gcc produces such
+	bloated debug info?
 
-Perhaps the real question should be: why is it that gcc produces such
-bloated debug info?  I'm not 100% sure, but I do believe that it would
-be possible to do a lot better (perhaps with help from the linker).
+I haven't looked at the ia64-linux kernel specifically, but in most cases the
+problem is duplicated debug info for header files.  This is particularly a
+problem for large C++ programs.  If a header file is included in twenty
+different files, you end up with 20 copies of the debug info for that
+header file.  This is something that everyone using DWARF2 eventually
+complains about.  There are also a few other areas where the gcc DWARF2
+implementation could be improved with respect to debug info size.
 
-	--david
+It is possible to eliminate a lot of the duplicate info in the linker.
+However, because DWARF2 debug info is highly encoded to save space, this
+would require the linker to decode the debug info, factor out common info,
+and then re-encode the debug info.  This is a lot of work for the linker, and
+is not easy to implement.
 
->>>>> On Wed, 26 Apr 2000 08:47:47 -0600, Don Dugger <n0ano@valinux.com> said:
+There is a DWARF2 standards committee that is working on a revision of the
+DWARF2 standard, and one of the things that they are working on making it
+easier to reduce the debug info size at link time.  If we could put header
+file debug info in its own section for instance, then we can use normal linker
+support for discarding duplicate sections to reduce the debug info size.
+Cygnus is contributing to this committee, and I expect that we will be
+implementing some of these new features in the gcc DWARF2 implementation.
 
-  Don> Ronen- Remove the `-g' flag from the `CFLAGS' definition in
-  Don> your top level `Makefile' and your kernel should go back to
-  Don> ~5M.
+People using stabs don't see this problem because stabs already has support
+for eliminating duplicate header file debug info.  This is easy to do in
+stabs, because there is no complicated encoding of the data that gets in the
+way of identifying duplicate debug info.
 
-  Don> On Wed, Apr 26, 2000 at 10:40:02AM -0400, roneng@ca.ibm.com
-  Don> wrote:
-  >> 
-  >> 
-  >> Hi,
-  >> 
-  >> I was wondering if anyone has had a problem with very large
-  >> kernel sizes when compiling the 2.3.99-pre5 kernel with the 4/24
-  >> patch.  When I compile this kernel I get a 34Mb kernel, but when
-  >> I compile the 2.3.47 kernel sources in turbolinux distribution
-  >> with the same .config file I get a 5MB kernel. The toolchains I
-  >> have tries have been the 2/16 toolchain included with the
-  >> turbolinux distribution and the 3/23 toolchain (
-  >> gnupro-2.9-000323.src.rpm).
-  >> 
-  >> 
-  >> Thank you, Ronen Grosman - e-mail roneng@ca.ibm.com
-  >> 
-  >> 
-  >> 
-  >> 
-  >> _______________________________________________ Linux-IA64
-  >> mailing list Linux-IA64@linuxia64.org
-  >> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
-  Don> -- Don Dugger "Censeo Toto nos in Kansa esse decisse." -
-  Don> D. Gale n0ano@valinux.com Ph: 303/938-9838
-
-
-  Don> _______________________________________________ Linux-IA64
-  Don> mailing list Linux-IA64@linuxia64.org
-  Don> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Jim
 
 
