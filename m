@@ -1,40 +1,44 @@
-From: "John Lee" <jlee@platsolns.com>
-Date: Fri, 30 Apr 2004 22:06:15 +0000
-Subject: RE: SAL PCI config space
-Message-Id: <AEBB9AF2F7713A4FAB1397435451162E4BEE32@spock.invent.psi.com>
+From: Andreas Schwab <schwab@suse.de>
+Date: Mon, 05 Apr 2004 16:49:45 +0000
+Subject: Missing overflow check in mmap
+Message-Id: <jek70u74k6.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040430175138.GT22558@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20040430175138.GT22558@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+Calling mmap with len =3D -1 was silently accepted.
 
-> -----Original Message-----
-> From: Luck, Tony [mailto:tony.luck@intel.com] 
-> Sent: Friday, April 30, 2004 2:59 PM
-> To: Grant Grundler; John Lee
-> Cc: Matthew Wilcox; linux-ia64@vger.kernel.org
-> Subject: RE: SAL PCI config space
-> 
-> >> Multiple OSs/executables on different Soft partitions do not share
-> >> others' lock variables, unless otherwise all SAL calls of soft
-> >> partitions are redirected to one hosting OS, which sounds not
-> >> reasonable.
-> >
-> >Yes. I think that's why the SAL spec changed because all the vendors
-> >want to support virtual machines.
-> >But that doesn't help the older boxes which do not implement
-> >the newer SAL spec or have "non-compliant" implementations.
-> 
-> There would be other issues besides whether some SAL calls
-> are re-entrant to running multiple OS in soft partitions. E.g.
-> MCA
+Andreas.
 
-I'm already there. RAS for soft partitions ;)
-Any forum or discussion on that front would be helpful if you could
-invite us.
+--- linux-2.6.5/arch/ia64/kernel/sys_ia64.c.~1~	2004-04-04 05:37:23.0000000=
+00 +0200
++++ linux-2.6.5/arch/ia64/kernel/sys_ia64.c	2004-04-05 18:16:24.424002264 +=
+0200
+@@ -201,10 +201,16 @@ do_mmap2 (unsigned long addr, unsigned l
+ 	 * A zero mmap always succeeds in Linux, independent of whether or not the
+ 	 * remaining arguments are valid.
+ 	 */
+-	len =3D PAGE_ALIGN(len);
+ 	if (len =3D 0)
+ 		goto out;
+=20
++	/* Careful about overflows.. */
++	len =3D PAGE_ALIGN(len);
++	if (!len || len > TASK_SIZE) {
++		addr =3D -EINVAL;
++		goto out;
++	}
++
+ 	/*
+ 	 * Don't permit mappings into unmapped space, the virtual page table of a=
+ region,
+ 	 * or across a region boundary.  Note: RGN_MAP_LIMIT is equal to 2^n-PAGE=
+_SIZE
 
-Thanks,
-John Lee
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
