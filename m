@@ -1,153 +1,295 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Mon, 01 Mar 2004 16:20:47 +0000
-Subject: [PATCH] Add support for extended PCI config space
-Message-Id: <20040301162047.GZ25779@parcelfarce.linux.theplanet.co.uk>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 09 Mar 2004 23:26:04 +0000
+Subject: Re: [ACPI] [PATCH] 3 of 6 use global_irq to refer to ACPI global IRQs
+Message-Id: <200403091626.04892.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200403091619.04333.bjorn.helgaas@hp.com>
+In-Reply-To: <200403091619.04333.bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Andi Kleen <ak-l3A5Bk7waGM@public.gmane.org>, "Nakajima, Jun" <jun.nakajima-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
 
+i386, x86_64: Use "global_irq", not "irq", when referring to ACPI global IR=
+Qs
 
-Support for extended config space on ia64.
+In mpparse.c, rename "irq" to "global_irq" to make it clear
+these are ACPI global IRQs, not the usual Linux IRQs.
 
- - Add the new parameter 'type' to ia64_sal_pci_config_{read,write}
- - Change callers to match.
- - Don't check `value' for NULL -- drivers/pci/access.c guarantees it isn't.
- - Make pci_sal_ops static.
- - Add pci_sal_ext_ops.
- - Introduce pci_set_sal_ops() as an arch_initcall to ensure the raw_pci_ops
-   get set before we walk the ACPI namespace to discover PCI root bridges
-
-Index: arch/ia64/pci/pci.c
-=================================RCS file: /var/cvs/linux-2.6/arch/ia64/pci/pci.c,v
-retrieving revision 1.6
-diff -u -p -r1.6 pci.c
---- a/arch/ia64/pci/pci.c	28 Feb 2004 01:49:51 -0000	1.6
-+++ b/arch/ia64/pci/pci.c	1 Mar 2004 16:06:22 -0000
-@@ -57,17 +57,16 @@ struct pci_fixup pcibios_fixups[1];
- 	((u64)(seg << 24) | (u64)(bus << 16) | \
- 	 (u64)(devfn << 8) | (u64)(reg))
- 
--
- static int
- pci_sal_read (int seg, int bus, int devfn, int reg, int len, u32 *value)
+diff -Nru a/arch/i386/kernel/mpparse.c b/arch/i386/kernel/mpparse.c
+--- a/arch/i386/kernel/mpparse.c	Tue Mar  9 15:25:27 2004
++++ b/arch/i386/kernel/mpparse.c	Tue Mar  9 15:25:27 2004
+@@ -851,18 +851,18 @@
+=20
+=20
+ static int __init mp_find_ioapic (
+-	int			irq)
++	int			global_irq)
  {
- 	int result = 0;
- 	u64 data = 0;
- 
--	if (!value || (seg > 255) || (bus > 255) || (devfn > 255) || (reg > 255))
-+	if ((seg > 255) || (bus > 255) || (devfn > 255) || (reg > 255))
- 		return -EINVAL;
- 
--	result = ia64_sal_pci_config_read(PCI_SAL_ADDRESS(seg, bus, devfn, reg), len, &data);
-+	result = ia64_sal_pci_config_read(PCI_SAL_ADDRESS(seg, bus, devfn, reg), 0, len, &data);
- 
- 	*value = (u32) data;
- 
-@@ -80,15 +79,61 @@ pci_sal_write (int seg, int bus, int dev
- 	if ((seg > 255) || (bus > 255) || (devfn > 255) || (reg > 255))
- 		return -EINVAL;
- 
--	return ia64_sal_pci_config_write(PCI_SAL_ADDRESS(seg, bus, devfn, reg), len, value);
-+	return ia64_sal_pci_config_write(PCI_SAL_ADDRESS(seg, bus, devfn, reg), 0, len, value);
+ 	int			i =3D 0;
+=20
+-	/* Find the IOAPIC that manages this IRQ. */
++	/* Find the IOAPIC that manages this global IRQ. */
+ 	for (i =3D 0; i < nr_ioapics; i++) {
+-		if ((irq >=3D mp_ioapic_routing[i].irq_start)
+-			&& (irq <=3D mp_ioapic_routing[i].irq_end))
++		if ((global_irq >=3D mp_ioapic_routing[i].irq_start)
++			&& (global_irq <=3D mp_ioapic_routing[i].irq_end))
+ 			return i;
+ 	}
+=20
+-	printk(KERN_ERR "ERROR: Unable to locate IOAPIC for IRQ %d\n", irq);
++	printk(KERN_ERR "ERROR: Unable to locate IOAPIC for global IRQ %d\n", glo=
+bal_irq);
+=20
+ 	return -1;
  }
- 
--struct pci_raw_ops pci_sal_ops = {
-+static struct pci_raw_ops pci_sal_ops = {
- 	.read = 	pci_sal_read,
- 	.write =	pci_sal_write
- };
- 
--struct pci_raw_ops *raw_pci_ops = &pci_sal_ops;	/* default to SAL */
-+/* SAL 3.2 adds support for extended config space. */
-+
-+#define PCI_SAL_EXT_ADDRESS(seg, bus, devfn, reg) \
-+	((u64)(seg << 28) | (u64)(bus << 20) | \
-+	 (u64)(devfn << 12) | (u64)(reg))
-+
-+static int
-+pci_sal_ext_read (int seg, int bus, int devfn, int reg, int len, u32 *value)
-+{
-+	int result = 0;
-+	u64 data = 0;
-+
-+	if ((seg > 65535) || (bus > 255) || (devfn > 255) || (reg > 4095))
-+		return -EINVAL;
-+
-+	result = ia64_sal_pci_config_read(PCI_SAL_EXT_ADDRESS(seg, bus, devfn, reg), 1, len, &data);
-+
-+	*value = (u32) data;
-+
-+	return result;
-+}
-+
-+static int
-+pci_sal_ext_write (int seg, int bus, int devfn, int reg, int len, u32 value)
-+{
-+	if ((seg > 65535) || (bus > 255) || (devfn > 255) || (reg > 4095))
-+		return -EINVAL;
-+
-+	return ia64_sal_pci_config_write(PCI_SAL_EXT_ADDRESS(seg, bus, devfn, reg), 1, len, value);
-+}
-+
-+static struct pci_raw_ops pci_sal_ext_ops = {
-+	.read = 	pci_sal_ext_read,
-+	.write =	pci_sal_ext_write
-+};
-+
-+struct pci_raw_ops *raw_pci_ops = &pci_sal_ops;	/* default to SAL < 3.2 */
-+
-+static int __init pci_set_sal_ops(void)
-+{
-+	if (sal_version >= SAL_VERSION_CODE(3, 2)) {
-+		raw_pci_ops = &pci_sal_ext_ops;
-+	}
-+	return 0;
-+}
-+
-+arch_initcall(pci_set_sal_ops);
- 
- 
- static int
-Index: include/asm-ia64/sal.h
-=================================RCS file: /var/cvs/linux-2.6/include/asm-ia64/sal.h,v
-retrieving revision 1.4
-diff -u -p -r1.4 sal.h
---- a/include/asm-ia64/sal.h	7 Jan 2004 21:30:42 -0000	1.4
-+++ b/include/asm-ia64/sal.h	1 Mar 2004 16:06:30 -0000
-@@ -741,10 +746,10 @@ ia64_sal_mc_set_params (u64 param_type, 
- 
- /* Read from PCI configuration space */
- static inline s64
--ia64_sal_pci_config_read (u64 pci_config_addr, u64 size, u64 *value)
-+ia64_sal_pci_config_read (u64 pci_config_addr, int type, u64 size, u64 *value)
+@@ -906,7 +906,7 @@
+ 		io_apic_get_redir_entries(idx);
+=20
+ 	printk("IOAPIC[%d]: apic_id %d, version %d, address 0x%lx, "
+-		"IRQ %d-%d\n", idx, mp_ioapics[idx].mpc_apicid,=20
++		"global IRQ %d-%d\n", idx, mp_ioapics[idx].mpc_apicid,=20
+ 		mp_ioapics[idx].mpc_apicver, mp_ioapics[idx].mpc_apicaddr,
+ 		mp_ioapic_routing[idx].irq_start,
+ 		mp_ioapic_routing[idx].irq_end);
+@@ -1029,7 +1029,7 @@
+=20
+ extern FADT_DESCRIPTOR acpi_fadt;
+=20
+-void __init mp_config_ioapic_for_sci(int irq)
++void __init mp_config_ioapic_for_sci(int global_irq)
  {
- 	struct ia64_sal_retval isrv;
--	SAL_CALL(isrv, SAL_PCI_CONFIG_READ, pci_config_addr, size, 0, 0, 0, 0, 0);
-+	SAL_CALL(isrv, SAL_PCI_CONFIG_READ, pci_config_addr, size, type, 0, 0, 0, 0);
- 	if (value)
- 		*value = isrv.v0;
- 	return isrv.status;
-@@ -752,11 +757,11 @@ ia64_sal_pci_config_read (u64 pci_config
- 
- /* Write to PCI configuration space */
- static inline s64
--ia64_sal_pci_config_write (u64 pci_config_addr, u64 size, u64 value)
-+ia64_sal_pci_config_write (u64 pci_config_addr, int type, u64 size, u64 value)
- {
- 	struct ia64_sal_retval isrv;
- 	SAL_CALL(isrv, SAL_PCI_CONFIG_WRITE, pci_config_addr, size, value,
--	         0, 0, 0, 0);
-+	         type, 0, 0, 0);
- 	return isrv.status;
+ 	int ioapic;
+ 	int ioapic_pin;
+@@ -1076,11 +1076,11 @@
+ 	 */
+ 	flags =3D entry->flags;
+ 	acpi_fadt.sci_int =3D entry->global_irq;
+-	irq =3D entry->global_irq;
++	global_irq =3D entry->global_irq;
+=20
+-	ioapic =3D mp_find_ioapic(irq);
++	ioapic =3D mp_find_ioapic(global_irq);
+=20
+-	ioapic_pin =3D irq - mp_ioapic_routing[ioapic].irq_start;
++	ioapic_pin =3D global_irq - mp_ioapic_routing[ioapic].irq_start;
+=20
+ 	/*
+ 	 * MPS INTI flags:
+@@ -1088,7 +1088,7 @@
+ 	 *  polarity: 0=DEfault, 1=3Dhigh, 3=3Dlow
+ 	 * Per ACPI spec, default for SCI means level/low.
+ 	 */
+-	io_apic_set_pci_routing(ioapic, ioapic_pin, irq,=20
++	io_apic_set_pci_routing(ioapic, ioapic_pin, global_irq,=20
+ 		(flags.trigger =3D 1 ? 0 : 1), (flags.polarity =3D 1 ? 0 : 1));
  }
- 
+=20
+@@ -1100,7 +1100,7 @@
+ 	struct acpi_prt_entry	*entry =3D NULL;
+ 	int			ioapic =3D -1;
+ 	int			ioapic_pin =3D 0;
+-	int			irq =3D 0;
++	int			global_irq =3D 0;
+ 	int			idx, bit =3D 0;
+ 	int			edge_level =3D 0;
+ 	int			active_high_low =3D 0;
+@@ -1114,32 +1114,32 @@
+=20
+ 		/* Need to get irq for dynamic entry */
+ 		if (entry->link.handle) {
+-			irq =3D acpi_pci_link_get_irq(entry->link.handle, entry->link.index, &e=
+dge_level, &active_high_low);
+-			if (!irq)
++			global_irq =3D acpi_pci_link_get_irq(entry->link.handle, entry->link.in=
+dex, &edge_level, &active_high_low);
++			if (!global_irq)
+ 				continue;
+ 		}
+ 		else {
+ 			/* Hardwired IRQ. Assume PCI standard settings */
+-			irq =3D entry->link.index;
++			global_irq =3D entry->link.index;
+ 			edge_level =3D 1;
+ 			active_high_low =3D 1;
+ 		}
+=20
+ 		/* Don't set up the ACPI SCI because it's already set up */
+-                if (acpi_fadt.sci_int =3D irq) {
+-			irq =3D acpi_irq_to_vector(irq);
+-			entry->irq =3D irq; /* we still need to set entry's irq */
++                if (acpi_fadt.sci_int =3D global_irq) {
++			global_irq =3D acpi_irq_to_vector(global_irq);
++			entry->irq =3D global_irq; /* we still need to set entry's irq */
+ 			continue;
+                 }
+ =09
+-		ioapic =3D mp_find_ioapic(irq);
++		ioapic =3D mp_find_ioapic(global_irq);
+ 		if (ioapic < 0)
+ 			continue;
+-		ioapic_pin =3D irq - mp_ioapic_routing[ioapic].irq_start;
++		ioapic_pin =3D global_irq - mp_ioapic_routing[ioapic].irq_start;
+=20
+ 		if (es7000_plat) {
+-			if (!ioapic && (irq < 16))
+-				irq +=3D 16;
++			if (!ioapic && (global_irq < 16))
++				global_irq +=3D 16;
+ 		}
+=20
+ 		/*=20
+@@ -1158,14 +1158,14 @@
+ 		if ((1<<bit) & mp_ioapic_routing[ioapic].pin_programmed[idx]) {
+ 			Dprintk(KERN_DEBUG "Pin %d-%d already programmed\n",
+ 				mp_ioapic_routing[ioapic].apic_id, ioapic_pin);
+-			entry->irq =3D acpi_irq_to_vector(irq);
++			entry->irq =3D acpi_irq_to_vector(global_irq);
+ 			continue;
+ 		}
+=20
+ 		mp_ioapic_routing[ioapic].pin_programmed[idx] |=3D (1<<bit);
+=20
+-		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, irq, edge_level, active=
+_high_low)) {
+-			entry->irq =3D acpi_irq_to_vector(irq);
++		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, global_irq, edge_level,=
+ active_high_low)) {
++			entry->irq =3D acpi_irq_to_vector(global_irq);
+ 		}
+ 		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d -> IRQ %d\n",
+ 			entry->id.segment, entry->id.bus,
+diff -Nru a/arch/x86_64/kernel/mpparse.c b/arch/x86_64/kernel/mpparse.c
+--- a/arch/x86_64/kernel/mpparse.c	Tue Mar  9 15:25:27 2004
++++ b/arch/x86_64/kernel/mpparse.c	Tue Mar  9 15:25:27 2004
+@@ -697,18 +697,18 @@
+=20
+=20
+ static int __init mp_find_ioapic (
+-	int			irq)
++	int			global_irq)
+ {
+ 	int			i =3D 0;
+=20
+-	/* Find the IOAPIC that manages this IRQ. */
++	/* Find the IOAPIC that manages this global IRQ. */
+ 	for (i =3D 0; i < nr_ioapics; i++) {
+-		if ((irq >=3D mp_ioapic_routing[i].irq_start)
+-			&& (irq <=3D mp_ioapic_routing[i].irq_end))
++		if ((global_irq >=3D mp_ioapic_routing[i].irq_start)
++			&& (global_irq <=3D mp_ioapic_routing[i].irq_end))
+ 			return i;
+ 	}
+=20
+-	printk(KERN_ERR "ERROR: Unable to locate IOAPIC for IRQ %d\n", irq);
++	printk(KERN_ERR "ERROR: Unable to locate IOAPIC for global IRQ %d\n", glo=
+bal_irq);
+=20
+ 	return -1;
+ }
+@@ -752,7 +752,7 @@
+ 		io_apic_get_redir_entries(idx);
+=20
+ 	printk(KERN_INFO "IOAPIC[%d]: apic_id %d, version %d, address 0x%x, "
+-		"IRQ %d-%d\n", idx, mp_ioapics[idx].mpc_apicid,=20
++		"global IRQ %d-%d\n", idx, mp_ioapics[idx].mpc_apicid,=20
+ 		mp_ioapics[idx].mpc_apicver, mp_ioapics[idx].mpc_apicaddr,
+ 		mp_ioapic_routing[idx].irq_start,
+ 		mp_ioapic_routing[idx].irq_end);
+@@ -878,7 +878,7 @@
+=20
+ extern FADT_DESCRIPTOR acpi_fadt;
+=20
+-void __init mp_config_ioapic_for_sci(int irq)
++void __init mp_config_ioapic_for_sci(int global_irq)
+ {
+ 	int ioapic;
+ 	int ioapic_pin;
+@@ -925,11 +925,11 @@
+ 	 */
+ 	flags =3D entry->flags;
+ 	acpi_fadt.sci_int =3D entry->global_irq;
+-	irq =3D entry->global_irq;
++	global_irq =3D entry->global_irq;
+=20
+-	ioapic =3D mp_find_ioapic(irq);
++	ioapic =3D mp_find_ioapic(global_irq);
+=20
+-	ioapic_pin =3D irq - mp_ioapic_routing[ioapic].irq_start;
++	ioapic_pin =3D global_irq - mp_ioapic_routing[ioapic].irq_start;
+=20
+ 	/*
+ 	 * MPS INTI flags:
+@@ -937,7 +937,7 @@
+ 	 *  polarity: 0=DEfault, 1=3Dhigh, 3=3Dlow
+ 	 * Per ACPI spec, default for SCI means level/low.
+ 	 */
+-	io_apic_set_pci_routing(ioapic, ioapic_pin, irq,=20
++	io_apic_set_pci_routing(ioapic, ioapic_pin, global_irq,=20
+ 		(flags.trigger =3D 1 ? 0 : 1), (flags.polarity =3D 1 ? 0 : 1));
+ }
+=20
+@@ -949,7 +949,7 @@
+ 	struct acpi_prt_entry	*entry =3D NULL;
+ 	int			ioapic =3D -1;
+ 	int			ioapic_pin =3D 0;
+-	int			irq =3D 0;
++	int			global_irq =3D 0;
+ 	int			idx, bit =3D 0;
+ 	int			edge_level =3D 0;
+ 	int			active_high_low =3D 0;
+@@ -963,24 +963,24 @@
+=20
+ 		/* Need to get irq for dynamic entry */
+ 		if (entry->link.handle) {
+-			irq =3D acpi_pci_link_get_irq(entry->link.handle, entry->link.index, &e=
+dge_level, &active_high_low);
+-			if (!irq)
++			global_irq =3D acpi_pci_link_get_irq(entry->link.handle, entry->link.in=
+dex, &edge_level, &active_high_low);
++			if (!global_irq)
+ 				continue;
+ 		} else {
+ 			/* Hardwired IRQ. Assume PCI standard settings */
+-			irq =3D entry->link.index;
++			global_irq =3D entry->link.index;
+ 			edge_level =3D 1;
+ 			active_high_low =3D 1;
+ 		}
+=20
+ 		/* Don't set up the ACPI SCI because it's already set up */
+-		if (acpi_fadt.sci_int =3D irq)
++		if (acpi_fadt.sci_int =3D global_irq)
+ 			continue;
+=20
+-		ioapic =3D mp_find_ioapic(irq);
++		ioapic =3D mp_find_ioapic(global_irq);
+ 		if (ioapic < 0)
+ 			continue;
+-		ioapic_pin =3D irq - mp_ioapic_routing[ioapic].irq_start;
++		ioapic_pin =3D global_irq - mp_ioapic_routing[ioapic].irq_start;
+=20
+ 		/*=20
+ 		 * Avoid pin reprogramming.  PRTs typically include entries =20
+@@ -998,13 +998,13 @@
+ 		if ((1<<bit) & mp_ioapic_routing[ioapic].pin_programmed[idx]) {
+ 			Dprintk(KERN_DEBUG "Pin %d-%d already programmed\n",
+ 				mp_ioapic_routing[ioapic].apic_id, ioapic_pin);
+-			entry->irq =3D acpi_irq_to_vector(irq);
++			entry->irq =3D acpi_irq_to_vector(global_irq);
+ 			continue;
+ 		}
+=20
+ 		mp_ioapic_routing[ioapic].pin_programmed[idx] |=3D (1<<bit);
+-		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, irq, edge_level, active=
+_high_low)) {
+-			entry->irq =3D acpi_irq_to_vector(irq);
++		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, global_irq, edge_level,=
+ active_high_low)) {
++			entry->irq =3D acpi_irq_to_vector(global_irq);
+ 		}
+ 		printk(KERN_DEBUG "%02x:%02x:%02x[%c] -> %d-%d -> IRQ %d\n",
+ 			entry->id.segment, entry->id.bus,
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
