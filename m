@@ -1,7 +1,7 @@
 From: Christian Hildner <christian.hildner@hob.de>
-Date: Wed, 02 Jun 2004 06:26:53 +0000
+Date: Wed, 02 Jun 2004 06:41:53 +0000
 Subject: Re: Real time clock on ia64 platforms
-Message-Id: <40BD732D.6030709@hob.de>
+Message-Id: <40BD76B1.5010709@hob.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40BC3558.7040606@hob.de>
 In-Reply-To: <40BC3558.7040606@hob.de>
@@ -10,42 +10,44 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Alex Williamson schrieb:
+Stephane Eranian schrieb:
 
->On Tue, 2004-06-01 at 01:50, Christian Hildner wrote:
+>Christian,
+>
+>On Wed, Jun 02, 2004 at 07:56:49AM +0200, Christian Hildner wrote:
 >  
 >
->>Hi,
+>>Matthew Wilcox schrieb:
 >>
->>someone may know what kind of RTC device the ia64 platforms (HP ZX 6000 
->>+ i2000) use. I want to access it directly, without using EFI calls.
 >>    
 >>
+>>>On Tue, Jun 01, 2004 at 09:50:48AM +0200, Christian Hildner wrote:
+>>>
+>>>
+>>>      
+>>>
+>>>>someone may know what kind of RTC device the ia64 platforms (HP ZX 6000 
+>>>>+ i2000) use. I want to access it directly, without using EFI calls.
+>>>>  
+>>>>
+>>>>        
+>>>>
+>>>It's probably different on each of them.  Why do you want to access it
+>>>without going through firmware?
+>>>
+>>>      
+>>>
+>>It's just because I need rtc information in an environment where no EFI 
+>>calls are possible. I am aware of the non-portability of doing so. But 
+>>there is no other way.
+>>
+>>    
+>>
+>What do you mean by "rtc information"? Are you after a very fine granularity
+>timer?
 >
->   This is strongly not recommended.  On HP chipset boxes, the devices
->are only designed to be accessed via the EFI calls (and yes, EFI
->firmware can and does work around bugs in the RTC).  There's also no
->architected way to find the real RTC in the address map.
->
-So the only chance to access the rtc directly is to do it the same way 
-the firmware does. Since the firmware is that hardware specific it does 
-not need to "find" it because the firmware already knows where the rtc 
-is and how to access it. If the rtc is not mapped in the conventional 
-port address map, how does the firmware access it? Is there a 
-firmware-only accessible io memory map or is it done with machine 
-specific registers (msr)?
-
->  Why do you
->need to poke it directly?
->
-Because I need to call it from an environment, where no EFI calls are 
-possible. I know that the solution is absolutely not portable in any way 
-and in common it is bad doing that way but in that special case there is 
-no other way to go. And  the portability is given at another layer on 
-top of it.
+I just need access to a rtc device on the HP ZX 6000 comparable to that 
+Dallas devices on PC boards.
 
 Christian
-
->	Alex
->
 
