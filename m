@@ -1,69 +1,114 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Tue, 18 Feb 2003 19:52:40 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.5.60)
-Message-Id: <marc-linux-ia64-105590709805870@msgid-missing>
+From: Volker Birk <vb@ebios.de>
+Date: Fri, 14 Feb 2003 09:02:57 +0000
+Subject: [Linux-ia64] strange performance behaviour with floats
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="vtzGhvizbBRQ85DL"
+Message-Id: <marc-linux-ia64-105590709805852@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205111@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wed, Feb 12, 2003 at 03:26:10PM -0800, David Mosberger wrote:
-> An updated ia64 patch is now at:
->=20
->  ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/linux-2.5.60-ia64-=
-030212.diff.gz
+--vtzGhvizbBRQ85DL
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for the update.  Here's an error I got when trying to build it
-for my Bug Sur machine:
+Hello,
 
-  gcc -Wp,-MD,drivers/char/agp/.i460-agp.o.d -D__KERNEL__ -Iinclude -Wall -=
-Wstrict-prototypes -Wno-trigraphs -g -O2 -fno-strict-aliasing -fno-common -=
-pipe  -ffixed-r13 -mfixed-range=F10-f15,f32-f127 -falign-functions2 -frenam=
-e-registers --param max-inline-insnsP00 -fomit-frame-pointer -nostdinc -iwi=
-thprefix include -mconstant-gp   -DKBUILD_BASENAME=3Di460_agp -DKBUILD_MODN=
-AME=3Di460_agp -c -o drivers/char/agp/i460-agp.o drivers/char/agp/i460-agp.c
-drivers/char/agp/i460-agp.c:563: parse error before ';' token
-make[3]: *** [drivers/char/agp/i460-agp.o] Error 1
-make[2]: *** [drivers/char/agp] Error 2
-make[1]: *** [drivers/char] Error 2
-make: *** [drivers] Error 2
+I'm wondering about the strange behaviour of the Linux scheduling on my
+rx5670:
 
-Seems that an extra ';' got into the structure initialization,
-probably during conversion to C99 syle.  The following patch gets me
-to this link error:
+---------------------------- snip --------------------------------------
+bronto:~ # cat dingens.c
+#include <stdio.h>
 
-        ld  -static -T arch/ia64/vmlinux.lds.s arch/ia64/kernel/head.o arch=
-/ia64/kernel/init_task.o   init/built-in.o --start-group  usr/built-in.o  a=
-rch/ia64/kernel/built-in.o  arch/ia64/mm/built-in.o  arch/ia64/ia32/built-i=
-n.o  arch/ia64/dig/built-in.o  kernel/built-in.o  mm/built-in.o  fs/built-i=
-n.o  ipc/built-in.o  security/built-in.o  crypto/built-in.o  lib/lib.a  arc=
-h/ia64/lib/lib.a  drivers/built-in.o  sound/built-in.o  arch/ia64/pci/built=
--in.o  net/built-in.o --end-group  -o vmlinux
-drivers/built-in.o(.text+0xa51f1): In function `agp_return_size':
-: undefined reference to `.L111'
-drivers/built-in.o(.text+0xa52d1): In function `agp_num_entries':
-: undefined reference to `.L121'
-make: *** [vmlinux] Error 1
+int main()
+{      =20
+        int i;
+        double x, y;
 
-Thanks,
-Jesse
+        x =3D rand(); y =3D rand();
 
+        printf("x =3D %.2g, y =3D %.2g\n", x, y);
 
---- linux-2.5.60-ia64/drivers/char/agp/i460-agp.c.orig  2003-02-13 10:28:40=
-.000000000 -0800
-+++ linux-2.5.60-ia64/drivers/char/agp/i460-agp.c       2003-02-13 10:23:04=
-.000000000 -0800
-@@ -560,7 +560,7 @@
- }
+        for (i=3D0;i<1000000000;i++) {
+                x *=3D y;
+//              y /=3D x;
+        }
+}
 
- static struct agp_driver i460_agp_driver =3D {
--       .owner =3D THIS_MODULE;
-+       .owner =3D THIS_MODULE
- };
+bronto:~ # gcc -O2 -o dingens dingens.c
+bronto:~ # time ./dingens
+x =3D 1.8e+09, y =3D 8.5e+08
 
- static int __init agp_intel_i460_probe (struct pci_dev *dev, const struct =
-pci_device_id *ent)
+real    0m1.486s
+user    0m1.485s
+sys     0m0.001s
+bronto:~ # time ./dingens
+x =3D 1.8e+09, y =3D 8.5e+08
+
+real    0m4.450s
+user    0m4.450s
+sys     0m0.000s
+bronto:~ #=20
+---------------------------- snap --------------------------------------
+
+There is really no I/O while that time (so it may not be a problem with
+the scheduling on the CPU which handles the interrupts).
+
+No load at all, time and dingens are the only processes which do not
+sleep.
+
+Sometimes that computing consumes 1.5 sec. CPU time, sometimes 4.5 sec.
+I cannot find a rule for that, nor can I predict when it will last how
+long.
+
+Some machine info:
+
+---------------------------- snip --------------------------------------
+bronto:~ # uname -a
+Linux bronto 2.4.19 #11 SMP Sat Nov 2 18:47:02 CET 2002 ia64   GNU/Linux
+bronto:~ # head -n 13 /proc/cpuinfo=20
+processor  : 0
+vendor     : GenuineIntel
+arch       : IA-64
+family     : Itanium 2
+model      : 0
+revision   : 7
+archrev    : 0
+features   : branchlong
+cpu number : 0
+cpu regs   : 4
+cpu MHz    : 900.000000
+itc MHz    : 900.000000
+BogoMIPS   : 1346.37
+bronto:~ # grep ^processor /proc/cpuinfo
+processor  : 0
+processor  : 1
+processor  : 2
+processor  : 3
+bronto:~ #=20
+---------------------------- snap --------------------------------------
+
+Does anybody know what's up with that machine?
+
+Volker Birk
+--=20
+*** ebios Informationssysteme, Germany      ***
+*** Gut-Betha-Platz 1, 88339 Bad Waldsee    ***
+*** Phone +49-7524-93421 Fax +49-7524-93423 ***
+*** mailto:vb@ebios.de                      ***
+
+--vtzGhvizbBRQ85DL
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.7 (GNU/Linux)
+
+iD8DBQE+TLDBq2Wx34LtkcYRAr1nAJ0aKLGkKjCKjY8hOA3au87S5oZswwCgnxei
+eVmxO0dm4mC1ZmaYjutln9I=
+=t8lR
+-----END PGP SIGNATURE-----
+
+--vtzGhvizbBRQ85DL--
 
