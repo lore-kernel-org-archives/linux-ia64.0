@@ -1,45 +1,63 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Thu, 02 Sep 2004 18:42:43 +0000
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Fri, 03 Sep 2004 02:19:04 +0000
 Subject: Re: Problem with no mem_map arg to init functions change?
-Message-Id: <20040902184243.GH5492@holomorphy.com>
+Message-Id: <20040903021904.GK21873@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="4LFBTxd4L5NLO6ly"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040902053659.GG21873@cse.unsw.EDU.AU>
 In-Reply-To: <20040902053659.GG21873@cse.unsw.EDU.AU>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Sep 02, 2004 at 04:05:56PM +0100, Matthew Wilcox wrote:
-> Ah, basic lack of understanding of what VIRTUAL_MEM_MAP is used for
-> and why it exists.  It should be exclusive with DISCONTIGMEM as they
-> both solve the same problem, but in wildly different ways.  At the time
-> VIRTUAL_MEM_MAP was put in, the DISCONTIGMEM code was utterly broken
-> and nobody was interested in fixing it ("we have a version in the LSE
-> patch that doesn't suck as much" doesn't help).
-> Both should address the memory map on zx1:
-> 0-1 GB
-> 257-260GB
-> 4-256GB
-> (in practice, the maximum memory you can put in any zx1 box at the moment
-> is 128GB because 4GB DIMMs aren't supported in the rx5670)
-> Without VIRTUAL_MEM_MAP or DISCONTIGMEM, a 2GB zx1 machine would have
-> a 13GB mem_map.  So DISCONTIGMEM does away with the global mem_map and
-> VIRTUAL_MEM_MAP constructs a mem_map in vmalloc space rather than the
-> kernel's fixed mapping.
-> If DISCONTIGMEM now works properly, I think VIRTUAL_MEM_MAP can disappear.
 
-My understanding of virtual mem_map was that it was used to remove some
-kind of excessive address calculation overhead from CONFIG_DISCONTIGMEM.
+--4LFBTxd4L5NLO6ly
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-This usage is valid too, of course. In this case we either need to adjust
-include/asm-ia64/page.h for virtual mem_map or contig_page_data.mem_map
-needs to be initialized with the virtual mem_map's base prior to calling
-free_area_init_node(), and for that matter, Ian Wienand appears to fall
-into the category of systems without a large gap because
-find_largest_hole().  is returning something less than LARGE_GAP.
+On Thu, Sep 02, 2004 at 11:42:43AM -0700, William Lee Irwin III wrote:
+> This usage is valid too, of course. In this case we either need to adjust
+> include/asm-ia64/page.h for virtual mem_map
 
-There are a lot of things going wrong at once here.
+Thanks to all the explanations I think I'm starting to understand all
+these options; I'll try to document things a little more fully in our
+WiKi soon (http://www.gelato.unsw.edu.au/IA64wiki if you've never seen
+it).
 
+I applied the following trivial patch and things seem to work now.
+This way, pfn_to_page(0) returns 0xa0007fff... (the virtual mem map)
+which I belive to be correct.
 
--- wli
+===== include/asm-ia64/page.h 1.26 vs edited =====
+--- 1.26/include/asm-ia64/page.h        2004-07-27 15:26:50 +10:00
++++ edited/include/asm-ia64/page.h      2004-09-03 12:04:37 +10:00
+@@ -84,6 +84,13 @@
+ #endif
+
+ #ifndef CONFIG_DISCONTIGMEM
++# ifdef CONFIG_VIRTUAL_MEM_MAP
++extern struct page *vmem_map;
++#  define pfn_valid(pfn)       (((pfn) < max_mapnr) && ia64_pfn_valid(pfn))
++#  define page_to_pfn(page)    ((unsigned long) (page - vmem_map))
++#  define pfn_to_page(pfn)     (vmem_map + (pfn))
++# endif
++#else /* !CONFIG_VIRTUAL_MEM_MAP */
+ #define pfn_valid(pfn)         (((pfn) < max_mapnr) && ia64_pfn_valid(pfn))
+ #define page_to_pfn(page)      ((unsigned long) (page - mem_map))
+ #define pfn_to_page(pfn)       (mem_map + (pfn))
+
+-i
+
+--4LFBTxd4L5NLO6ly
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFBN9SYWDlSU/gp6ecRAl9QAJ9JsVYcylmSrlZmFL59hbX41Ypc9gCfS5Bn
+rdMVv8kSsU5GUwT0eNjReQM=
+=oqcy
+-----END PGP SIGNATURE-----
+
+--4LFBTxd4L5NLO6ly--
