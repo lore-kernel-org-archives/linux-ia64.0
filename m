@@ -1,57 +1,49 @@
-From: David Brownell <david-b@pacbell.net>
-Date: Sat, 06 Mar 2004 17:30:31 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Mon, 08 Mar 2004 06:18:02 +0000
 Subject: Re: [linux-usb-devel] Re: serious 2.6 bug in USB subsystem?
-Message-Id: <404A0AB7.5020603@pacbell.net>
+Message-Id: <20040308061802.GA25960@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>	<20031028013013.GA3991@kroah.com>	<200310280300.h9S30Hkw003073@napali.hpl.hp.com>	<3FA12A2E.4090308@pacbell.net>	<16289.29015.81760.774530@napali.hpl.hp.com>	<16289.55171.278494.17172@napali.hpl.hp.com>	<3FA28C9A.5010608@pacbell.net>	<16457.12968.365287.561596@napali.hpl.hp.com>	<404959A5.6040809@pacbell.net> <16457.38721.119739.816533@napali.hpl.hp.com>
-In-Reply-To: <16457.38721.119739.816533@napali.hpl.hp.com>
+References: <20031028013013.GA3991@kroah.com> <200310280300.h9S30Hkw003073@napali.hpl.hp.com> <3FA12A2E.4090308@pacbell.net> <16289.29015.81760.774530@napali.hpl.hp.com> <16289.55171.278494.17172@napali.hpl.hp.com> <3FA28C9A.5010608@pacbell.net> <16457.12968.365287.561596@napali.hpl.hp.com> <404959A5.6040809@pacbell.net> <16457.26208.980359.82768@napali.hpl.hp.com> <4049FE57.2060809@pacbell.net>
+In-Reply-To: <4049FE57.2060809@pacbell.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davidm@hpl.hp.com
-Cc: Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
+To: David Brownell <david-b@pacbell.net>
+Cc: davidm@hpl.hp.com, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
 
-David Mosberger wrote:
+On Sat, Mar 06, 2004 at 08:37:43AM -0800, David Brownell wrote:
+> DMA-coherent memory is defined as "memory for which a write by either
+> the device or the processor can immediately be read by the processor
+> or device without having to worry about caching effects."
 
-> Here is patch #3.  It also Works For Me.  I was wondering whether it
+The use of "immediate" here means no other sync function needs to
+be called to access the data - ie don't need to call pci_sync_single().
 
-I've had several "Works For Me" patches too, but then if the
-silicion got kicked a bit differently it'd not behave... :(
-
-
-> it is really safe to mess with the OHCI control registers the way
-> ed_deschedule() does at a time the OHCI is running.  To test this
-
-It must be, or we'd not have had a driver working for several
-years now!
-
-The quick stop/restart cycles haven't seemed to be a problem
-with any OHCI silicion in the way they are with, for example,
-VIA EHCI.
-
-
-> theory, I delayed the ed_deschedule() handling to finish_unlinks(), as
-> shown in the patch below.  I don't know whether this is really safe as
-> far as the host's lists are concerned, but it does avoid the crashes.
-
-My suspicions have been focussing on finish_unlinks().
-
-That's really the only place the HCD does anything
-that could corrupt the ED queues, which is what looks
-to be happening.
-
-Your change doesn't actually _unlink_ in the same way;
-interesting change, I'll have to think about it.  It
-certainly changes timings.
+In general, the accesses are ordered following PCI ordering rules.
+But every architecture (including x86) has issues with "inflight" DMA.
+Line based Interrupts are delivered on a different path than DMA 
+and thus ordering can't be enforced.
+For example, the code around the following comment in drivers/net/tg3.c:
+	/*
+	 * Flush PCI write.  This also guarantees that our
+	 * status block has been flushed to host memory.
+	 */
 
 
-> What's the argument as to why it's safe to update the OHCI control
-> registers in ed_deschedule() at the time start_ed_unlink() is running?
+> `Such a
+> write-buffering mechanism is clearly a type of (write-)caching effect,
 
-It's always safe to update those registers, except
-that some silicon doesn't support that while the
-controller is suspended.
+No - the data is still in flight and in some deterministic time frame
+will become visible to the CPU.
+Calling it a "caching effect" confuses the issues even worse.
 
-- Dave
+> and readl() would be a kind of dma_rmb(), if you will.
 
+Yes, that's correct - but it's orthogonal to "cache coherent".
 
+> I suspect the docs are wrong about what dma-coherent means.
+
+Not "wrong", just misunderstood. ;^)
+
+hth,
+grant
