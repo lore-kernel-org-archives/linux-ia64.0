@@ -1,26 +1,27 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 04 Aug 2004 23:33:35 +0000
-Subject: Re: [BROKEN PATCH] kexec for ia64
-Message-Id: <20040804233335.GD548@cup.hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 05 Aug 2004 16:45:48 +0000
+Subject: RE: [BROKEN PATCH] kexec for ia64
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01CB2705@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200407261524.40804.jbarnes@engr.sgi.com> <200407261536.05133.jbarnes@engr.sgi.com> <20040730155504.2a51b1fa.rddunlap@osdl.org> <m18ycvhx1j.fsf@ebiederm.dsl.xmission.com>
-In-Reply-To: <m18ycvhx1j.fsf@ebiederm.dsl.xmission.com>
+References: <200407261524.40804.jbarnes@engr.sgi.com>
+In-Reply-To: <200407261524.40804.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Eric W. Biederman" <ebiederm@xmission.com>
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>, Jesse Barnes <jbarnes@engr.sgi.com>, linux-ia64@vger.kernel.org, fastboot@osdl.org, linux-kernel@vger.kernel.org
+To: Jesse Barnes <jbarnes@engr.sgi.com>, "Eric W. Biederman" <ebiederm@xmission.com>, khalid.aziz@hp.com
+Cc: "Randy.Dunlap" <rddunlap@osdl.org>, linux-ia64@vger.kernel.org, fastboot@osdl.org, linux-kernel@vger.kernel.org
 
-On Wed, Aug 04, 2004 at 07:07:04AM -0600, Eric W. Biederman wrote:
-> Initially that patch
-> was targeted for a kernel without device_shutdown(), so I was
-> likely considering the old trick of running through all of the PCI
-> devices and disabling their bus master bit.
+Jesse Barnes wrote:
+>With the addition of some ACPI tables and such.  I don't think 
+>those are freed by the kernel right now though, so it should
+>be pretty easy to point at the originals from the newly kexec'd
+>kernel, or make copies.
 
-Blindly disabling all PCI bus master bits will also kill VGA/serial
-console and any USB keyboard attached to the system.
+The "trim_bottom" and "trim_top" functions currently modify
+the memory map in place.  But this would only make a difference
+if you tried to kexec a kernel with a smaller granule size than
+the originally running kernel, and even then would only
+result in missing seeing some memory that you might have been
+able to use.
 
-I'll comment more on the "DMA is a Red Herring" when I can read
-more what it is about.
-
-grant
+-Tony
