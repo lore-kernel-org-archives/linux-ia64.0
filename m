@@ -1,24 +1,28 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 31 Jul 2001 19:22:50 +0000
-Subject: RE: [Linux-ia64] settings AR.k0 to ia64_iobase is wrong?
-Message-Id: <marc-linux-ia64-105590693005972@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Mon, 30 Jul 2001 21:13:48 +0000
+Subject: [Linux-ia64] Matrox G400 DRI doesn't work w/ Linux/ia64 2.4.5
+Message-Id: <marc-linux-ia64-105590693005951@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005964@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005964@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 31 Jul 2001 11:57:09 -0700, "Dong Wei" <dong_wei@hp.com> said:
+I'm running RedHat 7.1 on an HP i2000 ia64 box with a Matrox G400.  This 
+has kernel 2.4.3 (with RedHat's patches) and XFree86 4.0.3.
 
-  Dong> AR.k0 contains the virtual address that SAL uses for the IO
-  Dong> Port Base.  The SAL spec asks the OSes not to change this
-  Dong> value until the IVAs are taken over. The reason for this is
-  Dong> that some implementation of SAL contains the x86 BIOS code.
+DRI seems to work fine as far as I can tell (glxinfo says "Mesa DRI G400", 
+gears reports ~36 fps with "dri" and "glx" loaded, ~28 fps without).
 
-Yup.  We don't violate this assumption as we switch the IVA long
-before we touch AR.k0.
+However, DRI doesn't work with a 2.4.5 kernel.  The kernel boots fine, and 
+X starts up fine, and glxinfo again says "Mesa DRI G400", but gears opens 
+a window with nothing in it.  After starting gears, I can move the mouse 
+pointer, but X seems dead.  The screen looks fine (with the empty gears 
+window), but no mouse events work and I can't kill the server.
 
-	--david
+I've applied RedHat's agp kernel patches to my 2.4.5 kernel, so 
+drivers/char/agp and drivers/char/drm are identical between the working 
+2.4.3 and the broken 2.4.5 trees.
+
+Bjorn
 
