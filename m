@@ -1,7 +1,7 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Thu, 16 Sep 2004 06:49:29 +0000
+From: Kazuto Miyoshi <miyoshi@linux.bs1.fc.nec.co.jp>
+Date: Thu, 16 Sep 2004 13:51:09 +0000
 Subject: Re: INIT dumps broken?
-Message-Id: <41493779.8060202@hob.de>
+Message-Id: <20040916.225109.395614316.miyoshi@linux.bs1.fc.nec.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200409141450.i8EEotfk029379@napali.hpl.hp.com>
 In-Reply-To: <200409141450.i8EEotfk029379@napali.hpl.hp.com>
@@ -10,41 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Russ Anderson schrieb:
 
->Correctly understanding the proper way to translate addresses for
->the various regions would be the first step.
->
->The top 3 bits of the virtual address is the virtual region number.  
->
->If it is a region 7 (0xe) address, then masking off the top 3 bits 
->yields the correct physical address.
->
->If it is a region 5 (0xa) address, then a "tpa" instruction (using 
->the TLB) should yield the correct physical address (assuming there is
->a valid TLB entry for that virtual address).
->
->Would that be the correct way to translate the addresses?
->
-If you can rely on a working ivt and uncorrupted page tables, yes.
+Hello, 
 
->Are there exceptions, such as region 7 addresses where masking off 
->the top 3 bits would not yield the correct physical address?
->
-No. Region 7 is per definition one to one mapped. Because of that the 
-kernel went from region 7 (2.4.x) to region 5 (2.6.x) to allow having a 
-relocatable kernel at a fixed virtual address.
+Thank you for detailed explanation.
 
->How should region 5 addresses without a valid TLB mapping be handled?
->
-If you don't accept tlb misses thrown by tpa then you have to first make 
-sure that the address is in the page table mapped segment and second 
-walk the page tables in physical mode (see ivt.S nested TLB handler).
+> So if our task is anything other than the initial "init_task",
+> we'll take a nice region 7 address from ar.k6, and convert to
+> physical by zapping bits [63:61].  But we happen to be running
+> the init_task, then ar.k6 contains a region 5 address, and we
+> create a garbage address by clearing the high bits, which can
+> lead to an MCA (if the address points somewhere bad) or to
+> stomping on some random place (if the address happens to be a
+> legal physical address).
 
->Are there any other regions that need handling, and if so, how?
->
-There shouldn't be other regions needed. Nevertheless you could also 
-walk the page tables for them.
+I checked the INIT log and it showed r13 and xip had actually 0xa..
+address, the "stomping on some random place" scenario is probable.
+I tried reducing memory from 2GB and it reproduced the MCA.
 
-Christian
-
+Best Regards,
+--
+Kazuto Miyoshi, NEC
+miyoshi@hpc.bs1.fc.nec.co.jp
