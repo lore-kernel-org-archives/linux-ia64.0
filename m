@@ -1,69 +1,51 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Tue, 02 Nov 2004 02:39:19 +0000
-Subject: [PATCH] IA64 build broken... cond_syscall()... Fixes?
-Message-Id: <16774.62295.469676.663865@wombat.chubb.wattle.id.au>
+From: Andrew Morton <akpm@osdl.org>
+Date: Tue, 02 Nov 2004 03:28:22 +0000
+Subject: Re: [PATCH] IA64 build broken... cond_syscall()... Fixes?
+Message-Id: <20041101201808.58a559a5.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200411020239.iA22dsQl026520@mail23.syd.optusnet.com.au>
+In-Reply-To: <200411020239.iA22dsQl026520@mail23.syd.optusnet.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew.Morton.akpm@osdl.org, Tony Luck <tony.luck@intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Peter Chubb <peterc@gelato.unsw.edu.au>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
+Peter Chubb <peterc@gelato.unsw.edu.au> wrote:
+>
+> 
+> Hi Folks,
+>    The kernel 2.6 IA64 build has been broken for several days (see
+> http://www.gelato.unsw.edu.au/kerncomp )
+> 
+> The reason is that cond_syscall() for IA64 is defined as:
+> 
+>   #define cond_syscall(x) asmlinkage long x (void) \
+> 	__attribute__((weak,alias("sys_ni_syscall")))   
+> 
+> which of course doesn't work if there's a prototype in scope for x,
+> unless the type of x just happens to be the same as for sys_ni_syscall.
+> 
+> Changing to the type-safe version
+>    #define cond_syscall(x) __typeof__ (x) x \
+> 	   __attribute__((weak,alias("sys_ni_syscall")));
+> gives an error, e.g., 
+>  error: `compat_sys_futex' defined both normally and as an alias
 
-Hi Folks,
-   The kernel 2.6 IA64 build has been broken for several days (see
-http://www.gelato.unsw.edu.au/kerncomp )
+Yeah, it's a real bitch, that.
 
-The reason is that cond_syscall() for IA64 is defined as:
+> Most architectures use inline assembly language which avoids the
+> problem.  However, we don't want to do this for IA64, to allow
+> compilers other than gcc to be used (in general, gcc generated code
+> for IA64 is extremely poor).
+> 
+> There are several ways to fix this.  The simple way is to ensure that
+> there are no prototypes for any system calls included in kernel/sys.c
+> (the only place where cond_syscall is used).  That's what this patch
+> does:
 
-  #define cond_syscall(x) asmlinkage long x (void) \
-	__attribute__((weak,alias("sys_ni_syscall")))   
+But I bet it introduces various nasty warnings or type-unsafety on other
+architectures.
 
-which of course doesn't work if there's a prototype in scope for x,
-unless the type of x just happens to be the same as for sys_ni_syscall.
-
-Changing to the type-safe version
-   #define cond_syscall(x) __typeof__ (x) x \
-	   __attribute__((weak,alias("sys_ni_syscall")));
-gives an error, e.g., 
- error: `compat_sys_futex' defined both normally and as an alias
-
-Most architectures use inline assembly language which avoids the
-problem.  However, we don't want to do this for IA64, to allow
-compilers other than gcc to be used (in general, gcc generated code
-for IA64 is extremely poor).
-
-There are several ways to fix this.  The simple way is to ensure that
-there are no prototypes for any system calls included in kernel/sys.c
-(the only place where cond_syscall is used).  That's what this patch
-does:
-
-
-
-=== kernel/sys.c 1.97 vs edited ==--- 1.97/kernel/sys.c	2004-10-28 07:35:17 +10:00
-+++ edited/kernel/sys.c	2004-11-02 13:34:33 +11:00
-@@ -5,7 +5,6 @@
-  */
- 
- #include <linux/config.h>
--#include <linux/compat.h>
- #include <linux/module.h>
- #include <linux/mm.h>
- #include <linux/utsname.h>
-@@ -25,8 +24,9 @@
- #include <linux/dcookies.h>
- #include <linux/suspend.h>
- 
--/* Don't include this - it breaks ia64's cond_syscall() implementation */
-+/* Don't include these - they break ia64's cond_syscall() implementation */
- #if 0
-+#include <linux/compat.h>
- #include <linux/syscalls.h>
- #endif
- 
-
-
-
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+Shouldn't we just bite the bullet and hoist all that cond_syscall stuff out
+into its own .c file?
