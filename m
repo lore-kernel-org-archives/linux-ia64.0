@@ -1,7 +1,7 @@
-From: Alex Williamson <alex_williamson@hp.com>
-Date: Tue, 06 Aug 2002 15:44:02 +0000
+From: Steffen Persvold <sp@scali.com>
+Date: Tue, 06 Aug 2002 15:44:40 +0000
 Subject: Re: [Linux-ia64] 2.4.9 vs 2.4.18 for HPC
-Message-Id: <marc-linux-ia64-105590701905914@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905913@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905912@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905912@msgid-missing>
@@ -10,16 +10,8 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-To name a few...
+On Tue, 6 Aug 2002, Egan Ford wrote:
 
- - HP zx1 chipset support
- - McKinley Perfmon support
- - McKinley optimized assembly for copy_user, memcpy, copy_page
-
-	Alex
-
-Egan Ford wrote:
-> 
 > With respect to Itanium2 what advantages does 2.4.18 have over 2.4.9 in
 > an HPC environment?
 > 
@@ -31,11 +23,15 @@ Egan Ford wrote:
 > I am trying to build a case for software development on 2.4.18/19
 > kernel.org kernels.
 > 
-> Thanks.
-> 
 
---
-Alex Williamson                                  Linux Development Lab
-alex_williamson@hp.com                                 Hewlett Packard
-970-898-9173                                          Fort Collins, CO
+I don't think RH 7.2 2.4.9 kernels will run on Itanium2. You'll need 
+atleast 2.4.18 + the latest patchset from David.
+
+Regards,
+-- 
+  Steffen Persvold   | Scalable Linux Systems |   Try out the world's best
+ mailto:sp@scali.com |  http://www.scali.com  | performing MPI implementation:
+Tel: (+47) 2262 8950 |   Olaf Helsets vei 6   |      - ScaMPI 1.13.8 -
+Fax: (+47) 2262 8951 |   N0621 Oslo, NORWAY   | >320MBytes/s and <4uS latency
+
 
