@@ -1,35 +1,22 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 21 Jun 2004 20:59:39 +0000
-Subject: [PATCH] define cpu_logical_id() always
-Message-Id: <200406211459.39151.bjorn.helgaas@hp.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 26 Jun 2004 00:50:36 +0000
+Subject: Re: [PATCH] define cpu_logical_id() always
+Message-Id: <16604.51292.126083.13994@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200406211459.39151.bjorn.helgaas@hp.com>
+In-Reply-To: <200406211459.39151.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Define cpu_logical_id() even when !SMP.  I added uses of this in some
-iosapic printk's, which broke the UP build.
+>>>>> On Mon, 21 Jun 2004 14:59:39 -0600, Bjorn Helgaas <bjorn.helgaas@hp.com> said:
 
-=== include/asm-ia64/smp.h 1.17 vs edited ==--- 1.17/include/asm-ia64/smp.h	2004-05-14 20:00:12 -06:00
-+++ edited/include/asm-ia64/smp.h	2004-06-21 14:44:12 -06:00
-@@ -123,5 +123,9 @@
- extern void lock_ipi_calllock(void);
- extern void unlock_ipi_calllock(void);
- 
-+#else
-+
-+#define cpu_logical_id(cpuid)		0
-+
- #endif /* CONFIG_SMP */
- #endif /* _ASM_IA64_SMP_H */
-=== include/asm-ia64/sn/sn_cpuid.h 1.8 vs edited ==--- 1.8/include/asm-ia64/sn/sn_cpuid.h	2004-02-03 22:39:51 -07:00
-+++ edited/include/asm-ia64/sn/sn_cpuid.h	2004-06-21 14:53:37 -06:00
-@@ -84,7 +84,6 @@
-  */
- 
- #ifndef CONFIG_SMP
--#define cpu_logical_id(cpu)				0
- #define cpu_physical_id(cpuid)			((ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff)
- #endif
- 
+  Bjorn> Define cpu_logical_id() even when !SMP.  I added uses of this
+  Bjorn> in some iosapic printk's, which broke the UP build.
+
+I'm OK with the patch per se, but since there is no existing use of
+the macro for UP, I'd prefer it to be added along with the UP-user(s).
+Otherwise, somebody may come along and clean up the "unused" macro.
+
+	--david
