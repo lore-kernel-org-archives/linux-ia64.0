@@ -1,80 +1,31 @@
-From: Matt Chapman <matthewc@cse.unsw.edu.au>
-Date: Sun, 09 Feb 2003 07:58:06 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sun, 09 Feb 2003 08:48:40 +0000
 Subject: Re: [Linux-ia64] sigaltstack and RBS
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="cWoXeonUoKmBZSoM"
-Message-Id: <marc-linux-ia64-105590709805827@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805828@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805824@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805824@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---cWoXeonUoKmBZSoM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+>>>>> On Sun, 9 Feb 2003 18:58:06 +1100, Matt Chapman <matthewc@cse.unsw.edu.au> said:
 
-Here's a small test program.
+  Matt> Here's a small test program.
 
-Matt
+Hmmh, the test program doesn't test backing-store _overflow_, it tests
+what happens when you _remove_ a formerly valid mapping.  The program
+fails because the "rfi" that gets executed when returning from
+mprotect() may end up trying to restore registers that got spilled to
+the backing store before the call mprotect(), the mprotect() then
+removes access permission and hence the "rfi" can never finish
+execution (effectively, the mprotect() makes the contents of the
+spilled stacked registers disappear for good).
 
+The current sigaltstack implementation isn't designed to handle such a
+case.  And I'm not sure whether it should.  Is there a particular
+reason you want to do this sort of thing?
 
---cWoXeonUoKmBZSoM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="test.c"
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <signal.h>
-#include <sys/mman.h>
-#include <asm/page.h>
-
-#define RBS_BASE	(void *)0x60000fff80000000UL
-#define RBS_SIZE	PAGE_SIZE
-
-static void
-mprotect_rbs(int flags)
-{
-	mprotect(RBS_BASE, RBS_SIZE, flags);
-}
-
-static void
-SIGSEGV_handler(int sig, siginfo_t *info, void *uc)
-{
-#if 1
-	abort();
-#endif
-	mprotect_rbs(PROT_READ|PROT_WRITE);
-}
-
-int
-main(void)
-{
-	struct sigaction sa;
-	stack_t newstack;
-	static unsigned long stack[SIGSTKSZ/sizeof(unsigned long)] __attribute__((aligned(PAGE_SIZE))) /* paranoia */;
-
-	newstack.ss_sp = stack;
-	newstack.ss_flags = 0;
-	newstack.ss_size = sizeof(stack);
-	if (sigaltstack(&newstack, NULL) == -1)
-	{
-		perror("sigaltstack");
-		return 1;
-	}
-
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
-	sa.sa_sigaction = SIGSEGV_handler;
-	if (sigaction(SIGSEGV, &sa, NULL) == -1)
-	{
-		perror("sigaction");
-		return 1;
-	}
-
-	mprotect_rbs(0);
-	printf("Still alive!\n");
-	return 0;
-}
-
---cWoXeonUoKmBZSoM--
+	--david
 
