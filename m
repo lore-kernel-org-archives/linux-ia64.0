@@ -1,7 +1,7 @@
-From: Doug Beattie <dbb@caldera.com>
-Date: Wed, 05 Sep 2001 17:57:11 +0000
-Subject: Re: [Linux-ia64] Re: Wolverine RPMs
-Message-Id: <marc-linux-ia64-105590698805124@msgid-missing>
+From: "Saxena, Sunil" <sunil.saxena@intel.com>
+Date: Wed, 05 Sep 2001 19:20:01 +0000
+Subject: RE: [Linux-ia64] Re: Wolverine RPMs
+Message-Id: <marc-linux-ia64-105590698805126@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805121@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805121@msgid-missing>
@@ -9,6 +9,21 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Have you folks looked at the "UNIX System V Application Binary Interface" at
+http://developer.intel.com/design/IA-64/ ?  Section 5.3.1 suggests locations
+for the libraries.
+
+Thanks
+Sunil
+
+-----Original Message-----
+From: Doug Beattie [mailto:dbb@caldera.com]
+Sent: Wednesday, September 05, 2001 10:57 AM
+To: Don Dugger
+Cc: Bill Nottingham; ia64-list@redhat.com; linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] Re: Wolverine RPMs
+
 
 Don and others:
 
@@ -21,12 +36,15 @@ Doug
 
 Don Dugger wrote:
 > 
-> Bill raises an interesting problem.  I'd like to suggest a solution and see
+> Bill raises an interesting problem.  I'd like to suggest a solution and
+see
 > what everyone thinks.  Since all of the shared objects are loaded by code
-> in `ld-linux.so' I can modify the IA32 version of that library to first try
+> in `ld-linux.so' I can modify the IA32 version of that library to first
+try
 > an absolute path and, if that fails, because it's missing or has the wrong
 > architecture, to then tack on a unique prefix, either something like
-> `/usr/ia32' or the contents of an environment variable like `LD_IA32_PATH'.
+> `/usr/ia32' or the contents of an environment variable like
+`LD_IA32_PATH'.
 > 
 > This is a little ugly since all of the distro's would have to install s
 > special version of `ld-linux.so' but at least this is just one library
@@ -68,4 +86,9 @@ Douglas B. Beattie
 ------------------
 Linux Test Architect - Caldera, Inc.
 dbb@caldera.com
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
