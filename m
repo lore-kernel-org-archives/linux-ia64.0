@@ -1,68 +1,59 @@
-From: "Tian, Kevin" <kevin.tian@intel.com>
-Date: Wed, 23 Jun 2004 14:26:40 +0000
-Subject: RE: BUG 2.6.7 hangs on boot (rx2600)
-Message-Id: <571ACEFD467F7749BC50E0A98C17CDD8046AD43A@pdsmsx403>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 23 Jun 2004 17:03:56 +0000
+Subject: Re: BUG 2.6.7 hangs on boot (rx2600)
+Message-Id: <200406231303.56583.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_8fb2ARr/7I9OaTJ"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040622061505.GA23075@cup.hp.com>
 In-Reply-To: <20040622061505.GA23075@cup.hp.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 6/23/2004 6:38AM, Sharma Arun wrote:
->I saw it on a 4 way Tiger as well. The kernel was compiled using the
-RHEL3
->toolchain.
->Saw the machine sitting in dispatch_to_fault_handler: with the IIP
-pointing to
->count_reserved_pages(). I think IFA was 0.
->
->Didn't get a chance to debug this further.
->
->	-Arun
 
-I also saw such hang on Tiger, when rpmbuild on SLES9-RC2. I'm
-suspecting that recent patch which moves init_task to region 5 may break
-sth there.
+--Boundary-00=_8fb2ARr/7I9OaTJ
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Env:
-Tiger 4 with 4 Madison
-SLES9-RC2 (linux-2.6.5-7.79)
+On Wednesday, June 23, 2004 10:26 am, Tian, Kevin wrote:
+> I'm suspecting line in ia64_switch_to:
+> 	/*
+> 	* If we've already mapped this task's page, we can skip doing it
+> again.
+> 	*/
+> (p6)	cmp.eq p7,p6=r27,r27 <----- Should here cmp.eq.unc be used
+> instead? No time to test it now...
 
-Description:
-Before rpmbuild, I applied partial-page patch derived from David's tree,
-which happened to contain another patch to move init_task to region 5.
-Then when I booted the new kernel created by rpmbuild (so by default
-config file), Tiger hangs immediately. 
+Thanks a lot Kevin, that worked great!  Here's the patch for people who want 
+something a little easier to apply.  Too bad the init_task move patch was 
+mixed up with some ia32 stuff or it would have been easier to revert this 
+change for testing.
 
-Excluding patch for moving init_task made problem away.
-======Kernel just stopped at general_exception(), with IIP pointing to
-count_reserved_pages():
-IIP: 0xa0000001000594a0 (In count_reserved_pages)
-ISR: 0x00000028400000030
-IFA: 0xe00000004fefe6018
+Clear both p7 and p6 predicates in the check for task struct mapping in 
+ia64_switch_to.
 
-Then by single step:
-General_exception() -> dispatch_to_default_handler() ->
-SAVE_MIN_WITH_COVER_R19:
-	MINSTATE_GET_CURRENT(r16);	//r16 = 0xa00000010070c000
-(&init_task)
-	...
-	adds r16=IA64_TASK_THREAD_ON_USTACK_OFFSET,r16;
-\
-	;;
-\
-	ld1 r17=[r16];	<------Just in this point, ITP also hangs and
-seems another fault happening. 
+Jesse
 
-I'm suspecting line in ia64_switch_to:
-	/*
-	* If we've already mapped this task's page, we can skip doing it
-again.
-	*/
-(p6)	cmp.eq p7,p6=r27,r27 <----- Should here cmp.eq.unc be used
-instead? No time to test it now...
+--Boundary-00=_8fb2ARr/7I9OaTJ
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="init-task-move-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="init-task-move-fix.patch"
 
-Thanks,
-Kevin
+===== arch/ia64/kernel/entry.S 1.61 vs edited =====
+--- 1.61/arch/ia64/kernel/entry.S	2004-06-16 21:09:33 -04:00
++++ edited/arch/ia64/kernel/entry.S	2004-06-23 12:47:37 -04:00
+@@ -191,7 +191,7 @@
+ 	/*
+ 	 * If we've already mapped this task's page, we can skip doing it again.
+ 	 */
+-(p6)	cmp.eq p7,p6=r26,r27
++(p6)	cmp.eq.unc p7,p6=r26,r27
+ (p6)	br.cond.dpnt .map
+ 	;;
+ .done:
+
+--Boundary-00=_8fb2ARr/7I9OaTJ--
