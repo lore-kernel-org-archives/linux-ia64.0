@@ -1,68 +1,66 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Wed, 21 Apr 2004 14:22:28 +0000
-Subject: Re: [PATCH] add some EFI device smarts
-Message-Id: <20040421142228.GM18329@parcelfarce.linux.theplanet.co.uk>
+From: Ray Bryant <raybry@sgi.com>
+Date: Mon, 05 Apr 2004 15:26:32 +0000
+Subject: Re: [Lse-tech] RE: [PATCH] HUGETLB memory commitment
+Message-Id: <40717AA8.9050900@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200404201600.26207.bjorn.helgaas@hp.com> <20040420235038.GB29850@lists.us.dell.com> <200404210659.22884.bjorn.helgaas@hp.com>
-In-Reply-To: <200404210659.22884.bjorn.helgaas@hp.com>
+References: <200404040331.i343VSF02496@unix-os.sc.intel.com>
+In-Reply-To: <200404040331.i343VSF02496@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Matt Domsch <Matt_Domsch@dell.com>, linux-ia64@vger.kernel.org, Matt Tolentino <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: 'Andy Whitcroft' <apw@shadowen.org>, "Martin J. Bligh" <mbligh@aracnet.com>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org
 
-On Wed, Apr 21, 2004 at 06:59:22AM -0600, Bjorn Helgaas wrote:
-> > > +		/* Convert Unicode to normal chars */
-> > > +		for (i = 0; i < (name_size/sizeof(name_unicode[0])); i++)
-> > > +			name_utf8[i] = name_unicode[i] & 0xff;
-> > > +		name_utf8[i] = 0;
-> > 
-> > I've never had a clear understanding of this.  It's not really UTF8
-> > (else straight ASCII text could be used), but more like UCS2.
+Ken,
+
+Chen, Kenneth W wrote:
+
 > 
-> I don't understand Unicode either.  Maybe the attached is a little
-> closer?  The EFI spec (1.10, table 2-2) says strings are stored in
-> UTF-16, and I think that UTF-16 is the same as ASCII for
-> (0 < c <= 0x7f).
+> A simple counter won't work for different file offset mapping.  It has to
+> be some sort of per-inode, per-block reservation tracking.  I think we are
+> steering in the right direction though.
+> 
+> 
+> 
 
-Ah, I know this one ...
+OK, pardon my question about test code, that is trivial enough I guess.
 
-UTF-16 is like UCS-2 except that it has escapes to let you use past the
-first plane of Unicode.  That is, by and large it's 2-bytes long, but
-sometimes it can be 4 or more bytes long.  How to convert?  Let's see ...
+Anyway, the only way I can see to make this work with non-zero offset is to 
+hang a list of segment descriptors (offset and size) for each reserved segment 
+off of the inode.  Then when a new mapping comes in, we search the segment 
+list to see if the new offset and size overlaps with any of the existing 
+reserved segments.  If it doesn't, then we make a new reservation (and request 
+file system quota) for the current size, and add the current request to the 
+reserved segment list.  If it does, and it fits entirely in a previously 
+reserved segement, then no change to reservation/quota needs to be made.  If 
+it only partially fits, then we need to make a new reservation/quota request 
+for the number of new huge pages required and update the overlapping segment's 
+length to reflect the new reservation.
 
-	for (i = 0, j = 0; i < (name_size/sizeof(name_unicode[0])); i++) {
-		unsigned int rune = name_unicode[i];
-		if (0xD7FF < rune && rune < 0xE000) {
-			rune = (rune & 0x7ff) << 10;
-			rune |= name_unicode[++i] & 0x3ff;
-		}
-		if (rune < 0x80) {
-			name_utf8[j++] = rune;
-		} else if (rune < 0x800) {
-			name_utf8[j++] = 0xc0 | (rune >> 6);
-			name_utf8[j++] = 0x80 | (rune & 0x3f);
-		} else if (rune < 0x10000) {
-			name_utf8[j++] = 0xe0 | (rune >> 12);
-			name_utf8[j++] = 0x80 | ((rune >> 6) & 0x3f);
-			name_utf8[j++] = 0x80 | (rune & 0x3f);
-		} else {
-			name_utf8[j++] = 0xf0 | (rune >> 18);
-			name_utf8[j++] = 0x80 | ((rune >> 12) & 0x3f);
-			name_utf8[j++] = 0x80 | ((rune >> 6) & 0x3f);
-			name_utf8[j++] = 0x80 | (rune & 0x3f);
-		}
-	}
+Then in truncate_hugepages() we can search the segment list again, discarding 
+full or partial segments that occur either entirely or partially beyond 
+"lstart", as appropropriate and doing hugetlb_unreserve() and 
+hugetlbfs_put_quota() for the appropriate number of pages.
 
-ftp://ftp.rfc-editor.org/in-notes/rfc2279.txt
-ftp://ftp.rfc-editor.org/in-notes/rfc2781.txt
+This will be quite a bit of code and complexity.  Do we still think this is 
+all worth it to follow Andrew's suggestion of no API changes for "allocate on
+fault" hugetlbpages?  It would be a lot cleaner just to return SIGBUS if we 
+run out of hugepages and be done with it, in spite of the API change.
 
-Haven't even tried to compile it ...
+Is there a simpler way to do the correct reservation?  (One could allocate the 
+pages at mmap() time, resurrecting hugetlb_prefault(), but zero the pages at 
+fault time, this would solve the original problem we ran into at SGI, but 
+would not solve Andi's requirement to postpone allocation so NUMA API's can 
+control placement.)
 
 -- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Best Regards,
+Ray
+-----------------------------------------------
+                   Ray Bryant
+512-453-9679 (work)         512-507-7807 (cell)
+raybry@sgi.com             raybry@austin.rr.com
+The box said: "Requires Windows 98 or better",
+            so I installed Linux.
+-----------------------------------------------
+
