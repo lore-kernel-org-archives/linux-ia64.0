@@ -1,45 +1,36 @@
-From: Mike Habeck <habeck@sgi.com>
-Date: Fri, 25 Mar 2005 19:34:24 +0000
-Subject: [PATCH 2.6.12 0/0] Altix only: Fix for sn_dma_flush
-Message-Id: <424467C0.5B60B7A0@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------E1D6981551A892136DEA14A3"
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 24 Mar 2005 00:50:08 +0000
+Subject: syscall improvement patch [2/12]
+Message-Id: <200503240050.j2O0o8JW022268@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------E1D6981551A892136DEA14A3
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+ia64: Use dynamic prediction for RSE-clearing branches.
 
-Tony,
+This by itself is good for a 1-2 cycle speed up.  Effect is bigger
+when combined with the later patches.
 
-The following patch fixes a bug in the SGI Altix sn_dma_flush code.  
-sn_dma_flush is broken in 2.6.  The code isn't waiting for the DMA 
-data to be flushed out of the PIC ASIC. This patch is based off the 
-linux-ia64-test-2.6.12 tree
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-Signed-off-by: Mike Habeck <habeck@sgi.com>
---------------E1D6981551A892136DEA14A3
-Content-Type: text/plain; charset=us-ascii;
- name="sn_dma_flush.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="sn_dma_flush.patch"
-
-Index: test-2.6.12/arch/ia64/sn/pci/pcibr/pcibr_dma.c
-===================================================================
---- test-2.6.12.orig/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2005-03-24 14:34:42.591117130 -0600
-+++ test-2.6.12/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2005-03-24 15:56:33.535718144 -0600
-@@ -301,7 +301,7 @@
- 		spin_lock_irqsave(&((struct sn_flush_device_list *)p)->
- 				  sfdl_flush_lock, flags);
- 
--		p->sfdl_flush_value = 0;
-+		*p->sfdl_flush_addr = 0;
- 
- 		/* force an interrupt. */
- 		*(volatile uint32_t *)(p->sfdl_force_int_addr) = 1;
-
---------------E1D6981551A892136DEA14A3--
-
+=== arch/ia64/kernel/entry.S 1.83 vs edited ==--- 1.83/arch/ia64/kernel/entry.S	2005-03-23 11:50:09 -08:00
++++ edited/arch/ia64/kernel/entry.S	2005-03-23 11:50:30 -08:00
+@@ -1012,14 +1012,14 @@
+ 	mov loc5=0
+ 	mov loc6=0
+ 	mov loc7=0
+-(pRecurse) br.call.sptk.few b0=rse_clear_invalid
++(pRecurse) br.call.dptk.few b0=rse_clear_invalid
+ 	;;
+ 	mov loc8=0
+ 	mov loc9=0
+ 	cmp.ne pReturn,p0=r0,in1	// if recursion count != 0, we need to do a br.ret
+ 	mov loc10=0
+ 	mov loc11=0
+-(pReturn) br.ret.sptk.many b0
++(pReturn) br.ret.dptk.many b0
+ #endif /* !CONFIG_ITANIUM */
+ #	undef pRecurse
+ #	undef pReturn
