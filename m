@@ -1,29 +1,40 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 03 Nov 2004 00:59:18 +0000
-Subject: [patch 2.6.10-rc1] Do not disable interrupts in ia64_sn_plat_specific_err_print
-Message-Id: <6539.1099443558@kao2.melbourne.sgi.com>
+From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Date: Fri, 05 Nov 2004 05:56:09 +0000
+Subject: [PATCH] Fix duplicate config for IA64_MCA_RECOVERY
+Message-Id: <20041105145609.0310d9ee.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: tony.luck@intel.com, akpm@osdl.org
+Cc: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-ia64_sn_plat_specific_err_print() ends up calling vfree() which
-requires IPI which can deadlock if interrupts are disabled.  Do not
-disable interrupts in ia64_sn_plat_specific_err_print().
+Here is a small bug fix against 2.6.10-rc1-mm2.
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+Thanks,
+Keiichiro Tokunaga
 
-Index: linux/include/asm-ia64/sn/sn_sal.h
-=================================--- linux.orig/include/asm-ia64/sn/sn_sal.h	Wed Nov  3 11:02:27 2004
-+++ linux/include/asm-ia64/sn/sn_sal.h	Wed Nov  3 11:54:21 2004
-@@ -313,7 +313,7 @@ ia64_sn_plat_specific_err_print(int (*ho
- 	ret_stuff.v0 = 0;
- 	ret_stuff.v1 = 0;
- 	ret_stuff.v2 = 0;
--	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_PRINT_ERROR, (uint64_t)hook, (uint64_t)rec, 0, 0, 0, 0, 0);
-+	SAL_CALL_REENTRANT(ret_stuff, SN_SAL_PRINT_ERROR, (uint64_t)hook, (uint64_t)rec, 0, 0, 0, 0, 0);
+Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Description:
+Fix duplicate config for IA64_MCA_RECOVERY.
+
+---
+
+ linux-2.6.10-rc1-mm2-kei/arch/ia64/Kconfig |    3 ---
+ 1 files changed, 3 deletions(-)
+
+diff -puN arch/ia64/Kconfig~fix_mca_kconfig arch/ia64/Kconfig
+--- linux-2.6.10-rc1-mm2/arch/ia64/Kconfig~fix_mca_kconfig	2004-11-05 14:44:19.861106461 +0900
++++ linux-2.6.10-rc1-mm2-kei/arch/ia64/Kconfig	2004-11-05 14:45:28.620439785 +0900
+@@ -491,9 +491,6 @@ config COMPAT
+ config IA64_MCA_RECOVERY
+ 	tristate "MCA recovery from errors other than TLB."
  
- 	return ret_stuff.status;
- }
+-config IA64_MCA_RECOVERY
+-	tristate "MCA recovery from errors other than TLB."
+-
+ config PERFMON
+ 	bool "Performance monitor support"
+ 	help
 
+_
