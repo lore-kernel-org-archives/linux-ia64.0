@@ -1,56 +1,37 @@
-From: Matt_Domsch@Dell.com
-Date: Sun, 23 Sep 2001 20:40:59 +0000
-Subject: [Linux-ia64] [PATCH] efivars.c spinlock fix
-Message-Id: <marc-linux-ia64-105590698805240@msgid-missing>
+From: "Eric Wang" <ericwang25@hotmail.com>
+Date: Mon, 03 Sep 2001 01:31:00 +0000
+Subject: [Linux-ia64] lilo in IA64
+Message-Id: <marc-linux-ia64-105590698805112@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David, below and posted at
-http://domsch.com/linux/patches/efivars-spinlock-20010718.patch is a patch
-to prevent efivars.c from holding a spinlock while allocating memory.  Also
-frees an allocation in the event of an error.  This applies against your
-latest 2.4.9 patch.  Please include this in your 2.4.10 patch.
+Dear all,
 
-Thanks,
-Matt
+I am porting some script source code from Linux IA32 to Linux IA64 
+environment. I am using RedHat 7.1 OS. When I run a command:
 
--- 
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions
-www.dell.com/linux
-#2 Linux Server provider with 17% in the US and 14% Worldwide (IDC)!
-#3 Unix provider with 18% in the US (Dataquest)!
+lilo -r /mnt
 
-$ more efivars-spinlock-20010718.patch
---- linux/arch/ia64/kernel/efivars.c.orig       Wed Jul 18 22:09:12 2001
-+++ linux/arch/ia64/kernel/efivars.c    Wed Jul 18 22:13:36 2001
-@@ -276,21 +276,20 @@
-        if (!capable(CAP_SYS_ADMIN))
-                return -EACCES;
+It could not run. The error message is: command not found.
 
--       spin_lock(&efivars_lock);
-        MOD_INC_USE_COUNT;
+Since the system was boot by elilo in EFI environment, Could you please tell 
+me if there is a lilo or elilo programm in the linux ia64 environment so 
+that I can execute it in BASH shell?
 
-        var_data = kmalloc(size, GFP_KERNEL);
-        if (!var_data) {
-                MOD_DEC_USE_COUNT;
--               spin_unlock(&efivars_lock);
-                return -ENOMEM;
-        }
-        if (copy_from_user(var_data, buffer, size)) {
-                MOD_DEC_USE_COUNT;
--               spin_unlock(&efivars_lock);
-+               kfree(var_data);
-                return -EFAULT;
-        }
+Thanks!
+
+Eric
+
+Eric Wang
+IA64 desktop engineering
+SGI
+(650)9338821
 
 
-+       spin_lock(&efivars_lock);
+_________________________________________________________________
+Get your FREE download of MSN Explorer at http://explorer.msn.com/intl.asp
 
-        /* Since the data ptr we've currently got is probably for
-           a different variable find the right variable.
 
