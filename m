@@ -1,7 +1,7 @@
 From: Keith Owens <kaos@ocs.com.au>
-Date: Thu, 24 Jan 2002 05:23:21 +0000
+Date: Thu, 24 Jan 2002 05:31:39 +0000
 Subject: Re: [Linux-ia64] patch for vmlinux.lds.S
-Message-Id: <marc-linux-ia64-105590698805923@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805924@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805920@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805920@msgid-missing>
@@ -9,6 +9,8 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Oops, wrong version of the script in previous mail.
 
 On Wed, 23 Jan 2002 21:40:09 -0500, 
 Bill Nottingham <notting@redhat.com> wrote:
@@ -49,7 +51,7 @@ use strict;
 use integer;
 die($0 . " takes exactly one argument, the vmlinux to be explored\n") if($#ARGV);
 
-my ($data, $section, $start, $size);
+my ($data, $start, $size);
 my @f;
 
 open(VMLINUX, $ARGV[0]) || die("cannot open $ARGV[0] for reading");
@@ -61,7 +63,6 @@ die("$0 could not find .IA_64.unwind section in $ARGV[0]\n") if($data eq "");
 print("Unwind section ", $data, "\n");
 $data =~ s/[][]//g;
 (@f) = split(' ', $data);
-$section = $f[0];
 $start = hex($f[4]);
 $size = hex($f[5]);
 
@@ -77,8 +78,8 @@ my $error = 0;
 for ($i = 0; $i < $size; $i += 24) {
 	# unpack Q is optional, don't rely on it
 	@unwind = unpack("LLLLLL", substr($data, $i, 24));
-	if ($unwind[0] < $previous[0] ||
-	    $unwind[0] = $previous[0] && $unwind[1] < $previous[1]) {
+	if ($unwind[1] < $previous[1] ||
+	    $unwind[1] = $previous[1] && $unwind[0] < $previous[0]) {
 		printf("Out of order\n");
 		printf("start 0x%08x%08x end 0x%08x%08x info 0x%08x%08x\n",
 			$previous[1], $previous[0], $previous[3], $previous[2], $previous[5], $previous[4]);
