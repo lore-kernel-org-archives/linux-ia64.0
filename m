@@ -1,32 +1,50 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 11 Feb 2004 06:17:53 +0000
-Subject: Re: offsets.h and 32 -> 64 bit cross-compiling
-Message-Id: <6299.1076480273@kao2.melbourne.sgi.com>
+From: Bob Montgomery <bob.montgomery@hp.com>
+Date: Tue, 10 Feb 2004 00:48:57 +0000
+Subject: unwabi mismatch in 2.4.X kernels breaks oops call trace (unwind)
+Message-Id: <1076374136.10372.3.camel@peas.bobm>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <401DA58C.8070105@kegel.com>
-In-Reply-To: <401DA58C.8070105@kegel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 10 Feb 2004 21:59:58 -0800, 
-Dan Kegel <dank@kegel.com> wrote:
->David Mosberger wrote:
->> Umh, you're using the wrong compiler.  You must use the IA-64
->> cross-compiler for print_offsets.c.  That's the entire point of
->> generating offsets.h at build-time: to ensure the definitions match
->> your (IA-64) compiler (and kernel-configuration).
->
->But how do I do that when I'm building the cross-compiler?
->As far as I can tell, it looks like offsets.h is needed to
->compile the cross-compiler.  Perhaps I can compile the bootstrap
->compiler with a dummy version of offsets.h?
+Oops stack unwinding was broken in 2.4.22 by this patch that was
+picked up from 2.5/2.6:
+                               
+--- 1.5/arch/ia64/kernel/entry.h	Mon Feb  9 13:41:40 2004
++++ 1.6/arch/ia64/kernel/entry.h	Mon Feb  9 13:41:40 2004
+@@ -14,7 +14,7 @@
+ #define SW(f)		(IA64_SWITCH_STACK_##f##_OFFSET)
+ 
+ #define PT_REGS_SAVES(off)			\
+-	.unwabi @svr4, 'i';			\
++	.unwabi 3, 'i';				\
+ 	.fframe IA64_PT_REGS_SIZE+16+(off);	\
+ 	.spillsp rp, PT(CR_IIP)+16+(off);	\
+ 	.spillsp ar.pfs, PT(CR_IFS)+16+(off);	\
 
-Which compiler file needs asm/offsets.h?  I doubt that any user space
-code should be using that file, it is probably being included by
-mistake.
 
-QAD workaround, copy /usr/include/asm/offsets.h from an ia64 system to
-/usr/include/asm.
+If we want to keep this change in 2.4.X, we need to also change the
+test in desc_abi (unwind.c) to check for abi = 3 instead of 0.
+
+static inline void
+desc_abi (unsigned char abi, unsigned char context, struct unw_state_record *sr){
+        if (abi = 0 && context = 'i') {
+                sr->flags |= UNW_FLAG_INTERRUPT_FRAME;
+                UNW_DPRINT(3, "unwind.%s: interrupt frame\n", __FUNCTION__);
+        }
+        else
+                UNW_DPRINT(0, "unwind%s: ignoring unwabi(abi=0x%x,context=0x%x)\n",
+                                __FUNCTION__, abi, context);
+}
+
+Otherwise we can just back the entry.h patch out.  So my question
+is: Is there a compelling reason to change the abi number from 0 to
+3 in 2.4.X kernels?  Is there an outside tool that cares, or is it
+sufficient for these two snippets of kernel code to merely agree on
+some number?
+
+Thanks,
+Bob Montgomery
+
 
