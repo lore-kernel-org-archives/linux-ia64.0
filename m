@@ -1,33 +1,65 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Mon, 16 Aug 2004 18:31:16 +0000
-Subject: Documentation update for ia64_switch_mode_virt
-Message-Id: <B05667366EE6204181EABE9C1B1C0EB50405D52F@scsmsx401.amr.corp.intel.com>
+From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Date: Wed, 18 Aug 2004 01:42:49 +0000
+Subject: Bug in function find_bootmap_location in kernel 2.6.8
+Message-Id: <8126E4F969BA254AB43EA03C59F44E842B6AC4@pdsmsx404>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C484C4.AB9790B0"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Update comments in function ia64_switch_mode_virt() to reflect actual
-implementation from recent region 5 init_task bug fix.
+This is a multi-part message in MIME format.
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+------_=_NextPart_001_01C484C4.AB9790B0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+Function find_bootmap_location has 2 bugs.
+
+Firstly, if it's done successfully, it should return -1 instead of 1
+because its caller, efi_memmap_walk, will end when find_bootmap_location
+returns a value smaller than 0.
+
+Secondly, statement 'free_start =3D PAGE_ALIGN(rsvd_region[i].end)' =
+should
+been moved forward. free_start needs to be initialized for every loop
+iteration.  Current implementation is buggy where initialization is
+skipped if range_end <=3D range_start.  Skipping initializing will leads
+to overlapping bootmap with one of the rsvd_regions and subsequently
+kernel hang at boot time.
+
+Here is the patch to fix them against kernel 2.6.8.
+
+Singed-off-by:	Zhang Yanmin <yanmin.zhang@intel.com>
+Signed-off-by:	Yao Jun		<junx.yao@intel.com>
 
 
---- linux-2.6.7/arch/ia64/kernel/head.S.orig	2004-08-16
-10:59:55.000000000 -0700
-+++ linux-2.6.7/arch/ia64/kernel/head.S	2004-08-16 11:14:10.000000000
--0700
-@@ -781,8 +781,7 @@
- 
- 	// going to virtual
- 	//   - for code addresses, set upper bits of addr to
-KERNEL_START
--	//   - for stack addresses, set upper 3 bits to 0xe.... Dont
-change any of the
--	//     lower bits since we want it to stay identity mapped
-+	//   - for stack addresses, copy from input argument
- 	movl r18=KERNEL_START
- 	dep r3=0,r3,KERNEL_TR_PAGE_SHIFT,64-KERNEL_TR_PAGE_SHIFT
- 	dep r14=0,r14,KERNEL_TR_PAGE_SHIFT,64-KERNEL_TR_PAGE_SHIFT
 
+ <<find_bootmap_location_err.patch.diff>>=20
+
+------_=_NextPart_001_01C484C4.AB9790B0
+Content-Type: application/octet-stream;
+	name="find_bootmap_location_err.patch.diff"
+Content-Transfer-Encoding: base64
+Content-Description: find_bootmap_location_err.patch.diff
+Content-Disposition: attachment;
+	filename="find_bootmap_location_err.patch.diff"
+
+ZGlmZiAtTnJhdXAgbGludXgtMi42LjgvYXJjaC9pYTY0L21tL2NvbnRpZy5jIGxpbnV4LTIuNi44
+X2ZpeC9hcmNoL2lhNjQvbW0vY29udGlnLmMKLS0tIGxpbnV4LTIuNi44L2FyY2gvaWE2NC9tbS9j
+b250aWcuYwkyMDA0LTA4LTE2IDA3OjU5OjU4LjU0MjI4MDM3MCArMDgwMAorKysgbGludXgtMi42
+LjhfZml4L2FyY2gvaWE2NC9tbS9jb250aWcuYwkyMDA0LTA4LTE2IDA4OjEwOjI5LjU5MTEwMDc2
+NSArMDgwMApAQCAtMTE2LDE5ICsxMTYsMTkgQEAgZmluZF9ib290bWFwX2xvY2F0aW9uICh1bnNp
+Z25lZCBsb25nIHN0YQogCQlyYW5nZV9zdGFydCA9IG1heChzdGFydCwgZnJlZV9zdGFydCk7CiAJ
+CXJhbmdlX2VuZCAgID0gbWluKGVuZCwgcnN2ZF9yZWdpb25baV0uc3RhcnQgJiBQQUdFX01BU0sp
+OwogCisJCWZyZWVfc3RhcnQgPSBQQUdFX0FMSUdOKHJzdmRfcmVnaW9uW2ldLmVuZCk7CisKIAkJ
+aWYgKHJhbmdlX2VuZCA8PSByYW5nZV9zdGFydCkKIAkJCWNvbnRpbnVlOyAvKiBza2lwIG92ZXIg
+ZW1wdHkgcmFuZ2UgKi8KIAotCSAgICAgICAJaWYgKHJhbmdlX2VuZCAtIHJhbmdlX3N0YXJ0ID49
+IG5lZWRlZCkgeworCQlpZiAocmFuZ2VfZW5kIC0gcmFuZ2Vfc3RhcnQgPj0gbmVlZGVkKSB7CiAJ
+CQlib290bWFwX3N0YXJ0ID0gX19wYShyYW5nZV9zdGFydCk7Ci0JCQlyZXR1cm4gMTsJLyogZG9u
+ZSAqLworCQkJcmV0dXJuIC0xOwkvKiBkb25lICovCiAJCX0KIAogCQkvKiBub3RoaW5nIG1vcmUg
+YXZhaWxhYmxlIGluIHRoaXMgc2VnbWVudCAqLwogCQlpZiAocmFuZ2VfZW5kID09IGVuZCkKIAkJ
+CXJldHVybiAwOwotCi0JCWZyZWVfc3RhcnQgPSBQQUdFX0FMSUdOKHJzdmRfcmVnaW9uW2ldLmVu
+ZCk7CiAJfQogCXJldHVybiAwOwogfQo=
+
+------_=_NextPart_001_01C484C4.AB9790B0--
