@@ -1,42 +1,51 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Fri, 12 Jan 2001 02:13:02 +0000
-Subject: Re: [Linux-ia64] The 1117 snapshot alignment bug
-Message-Id: <marc-linux-ia64-105590693005035@msgid-missing>
+From: Maciej Golebiewski <maciej@ccrl-nece.technopark.gmd.de>
+Date: Fri, 12 Jan 2001 16:20:20 +0000
+Subject: [Linux-ia64] /proc/pid/mem and stack variables
+Message-Id: <marc-linux-ia64-105590693005037@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005029@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005029@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Yes, it is a compiler bug.  It is a generic problem effecting all targets,
-though it is more noticable for 64-bit machines.  Not clear when it was
-introduced, I didn't want to spend that much time looking at the problem.
-The bug was independently found and fixed by Richard Kenner last week.
+Hello everyone,
 
-Tue Jan  2 10:47:38 2001  Richard Kenner  <kenner@vlsi1.ultra.nyu.
+I'm new on this list. I looked through the archives but could not
+find answer to my problem.
 
-	* expr.c (store_constructor_field): Update ALIGN before calling
-	store_constructor.
+I have a library that makes use of /proc/pid/mem entries in the
+/proc pseudo-filesystem. It runs perfectly on IA32 under 2.2.12
+(and some superficial tests suggest that it works under
+2.4.0-test12 as well).
 
-Index: expr.c
-=================================RCS file: /cvs/cvsfiles/devo/gcc/expr.c,v
-retrieving revision 1.425.2.2
-diff -p -r1.425.2.2 expr.c
-*** expr.c	2000/08/14 20:10:41	1.425.2.2
---- expr.c	2001/01/12 02:04:27
-*************** store_constructor_field (target, bitsize
-*** 4224,4229 ****
---- 4224,4233 ----
-  			    ? BLKmode : VOIDmode,
-  			    plus_constant (XEXP (target, 0),
-  					   bitpos / BITS_PER_UNIT));
-+ 
-+       if (bitpos != 0)
-+ 	align = MIN (align, bitpos & - bitpos);
-+ 
-        store_constructor (exp, target, align, cleared, bitsize / BITS_PER_UNIT);
-      }
-    else
+I have recompiled the library on IA64 under 2.4.0-test12
+and using version 2.9-ia64-000216-final. The library works
+OK except when the address it tries to access via /proc/pid/mem
+refers to variables allocated on stack (e.g. local arrays defined
+in functions).
+
+This is a snippet of code used to access memory via /proc/pid/mem:
+
+void mem_read (int fd, void *buf, void *addr, size_t len) {
+
+	if (lseek (fd, (off_t)addr, SEEK_SET) =3D=3D (off_t)-1)
+                perror ("lseek");
+	read (fd, buf, len);
+
+lseek in this code fails (EINVAL) always when addr is address of
+a variable allocated on stack.
+
+I have no idea if the problem is because I'm doing something
+wrong, or because /proc/pid/mem is not yet fully implemented on IA64.
+I appreciate any hints and help with this.
+
+Thanks in advance,
+
+Maciej
+
+--=20
+Maciej Go=B3=EAbiewski
+golebiewski@ccrl-nece.de
+http://www.ccrl-nece.technopark.gmd.de/~maciej
+C&C Research Laboratories, NEC Europe Ltd., Sankt Augustin, Germany
 
