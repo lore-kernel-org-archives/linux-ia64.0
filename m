@@ -1,7 +1,7 @@
 From: Robin Holt <holt@sgi.com>
-Date: Thu, 03 Mar 2005 21:26:33 +0000
+Date: Tue, 15 Mar 2005 19:33:55 +0000
 Subject: [Patch 1/3] Reclaim pmd and pte tables to quicklists.
-Message-Id: <20050303212633.GA947@lnx-holt.americas.sgi.com>
+Message-Id: <20050315193355.GB25617@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050302183918.GB16517@lnx-holt.americas.sgi.com>
 In-Reply-To: <20050302183918.GB16517@lnx-holt.americas.sgi.com>
@@ -9,7 +9,6 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
-
 
 Tony,
 
@@ -34,16 +33,15 @@ Process fork+exit: 186.7037 microseconds
 Process fork+execve: 699.0000 microseconds
 Process fork+/bin/sh -c: 2960.0000 microseconds
 
- arch/ia64/mm/contig.c        |    3 -
- arch/ia64/mm/discontig.c     |    3 -
- arch/ia64/mm/init.c          |   16 +++---
- include/asm-ia64/pgalloc.h   |  112 +++++++++++++++++--------------------------
- include/asm-ia64/processor.h |    3 -
- 5 files changed, 60 insertions(+), 77 deletions(-)
+ arch/ia64/mm/contig.c        |    3
+ arch/ia64/mm/discontig.c     |    3
+ arch/ia64/mm/init.c          |   16 +++-
+ include/asm-ia64/pgalloc.h   |  141 ++++++++++++++++--------------------------- include/asm-ia64/processor.h |    3
+ 5 files changed, 69 insertions(+), 97 deletions(-)
 
 Index: linux-2.6/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c	2005-03-02 12:01:02.438578237 -0600
-+++ linux-2.6/arch/ia64/mm/discontig.c	2005-03-02 12:19:54.928448700 -0600
+=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c	2005-03-14 15:28:36.858765952 -0600
++++ linux-2.6/arch/ia64/mm/discontig.c	2005-03-14 15:28:51.543175549 -0600
 @@ -582,7 +582,8 @@
  	printk("%d reserved pages\n", total_reserved);
  	printk("%d pages shared\n", total_shared);
@@ -55,8 +53,8 @@ Index: linux-2.6/arch/ia64/mm/discontig.c
  }
  
 Index: linux-2.6/arch/ia64/mm/init.c
-=================================--- linux-2.6.orig/arch/ia64/mm/init.c	2005-03-02 12:01:02.438578237 -0600
-+++ linux-2.6/arch/ia64/mm/init.c	2005-03-02 17:08:45.904718178 -0600
+=================================--- linux-2.6.orig/arch/ia64/mm/init.c	2005-03-14 15:28:36.858765952 -0600
++++ linux-2.6/arch/ia64/mm/init.c	2005-03-15 11:53:08.751226566 -0600
 @@ -39,6 +39,9 @@
  
  DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
@@ -96,9 +94,9 @@ Index: linux-2.6/arch/ia64/mm/init.c
  	/*
  	 * This needs to be called _after_ the command line has been parsed but _before_
 Index: linux-2.6/include/asm-ia64/pgalloc.h
-=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-02 12:01:02.439554788 -0600
-+++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-02 14:34:20.705277635 -0600
-@@ -23,57 +23,66 @@
+=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-14 15:28:36.859742504 -0600
++++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-15 11:53:13.456256641 -0600
+@@ -23,146 +23,115 @@
  #include <asm/mmu_context.h>
  #include <asm/processor.h>
  
@@ -112,16 +110,14 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 -#define pgd_quicklist		(local_cpu_data->pgd_quick)
 -#define pmd_quicklist		(local_cpu_data->pmd_quick)
 -#define pgtable_cache_size	(local_cpu_data->pgtable_cache_sz)
- 
--static inline pgd_t*
--pgd_alloc_one_fast (struct mm_struct *mm)
 +DECLARE_PER_CPU(unsigned long *, __pgtable_quicklist);
 +#define pgtable_quicklist __ia64_per_cpu_var(__pgtable_quicklist)
 +DECLARE_PER_CPU(long, __pgtable_quicklist_size);
 +#define pgtable_quicklist_size __ia64_per_cpu_var(__pgtable_quicklist_size)
-+
-+static inline long
-+pgtable_quicklist_total_size(void)
+ 
+-static inline pgd_t*
+-pgd_alloc_one_fast (struct mm_struct *mm)
++static inline long pgtable_quicklist_total_size(void)
 +{
 +	long ql_size;
 +	int cpuid;
@@ -132,9 +128,7 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 +	return ql_size;
 +}
 +
-+
-+static inline void*
-+pgtable_quicklist_alloc(void)
++static inline void *pgtable_quicklist_alloc(void)
  {
  	unsigned long *ret = NULL;
  
@@ -151,28 +145,17 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 -		ret = NULL;
 +		--pgtable_quicklist_size;
 +	} else {
-+		ret = (unsigned long *)__get_free_page(GFP_KERNEL|__GFP_ZERO);
++		ret = (unsigned long *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
 +	}
  
  	preempt_enable();
  
 -	return (pgd_t *) ret;
-+	return ret;
-+}
-+
-+static inline void
-+pgtable_quicklist_free (void *pgtable_entry)
-+{
-+	preempt_disable();
-+	*(unsigned long *)pgtable_entry = (unsigned long) pgtable_quicklist;
-+	pgtable_quicklist = (unsigned long *) pgtable_entry;
-+	++pgtable_quicklist_size;
-+	preempt_enable();
- }
- 
- static inline pgd_t*
- pgd_alloc (struct mm_struct *mm)
- {
+-}
+-
+-static inline pgd_t*
+-pgd_alloc (struct mm_struct *mm)
+-{
 -	/* the VM system never calls pgd_alloc_one_fast(), so we do it here. */
 -	pgd_t *pgd = pgd_alloc_one_fast(mm);
 -
@@ -180,27 +163,35 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 -		pgd = (pgd_t *)__get_free_page(GFP_KERNEL|__GFP_ZERO);
 -	}
 -	return pgd;
-+	return pgtable_quicklist_alloc();
++	return ret;
  }
  
- static inline void
- pgd_free (pgd_t *pgd)
+-static inline void
+-pgd_free (pgd_t *pgd)
++static inline void pgtable_quicklist_free(void *pgtable_entry)
  {
--	preempt_disable();
+ 	preempt_disable();
 -	*(unsigned long *)pgd = (unsigned long) pgd_quicklist;
 -	pgd_quicklist = (unsigned long *) pgd;
 -	++pgtable_cache_size;
--	preempt_enable();
-+	pgtable_quicklist_free(pgd);
++	*(unsigned long *)pgtable_entry = (unsigned long)pgtable_quicklist;
++	pgtable_quicklist = (unsigned long *)pgtable_entry;
++	++pgtable_quicklist_size;
+ 	preempt_enable();
  }
  
- static inline void
-@@ -83,40 +92,15 @@
+-static inline void
+-pud_populate (struct mm_struct *mm, pud_t *pud_entry, pmd_t *pmd)
++static inline pgd_t *pgd_alloc(struct mm_struct *mm)
+ {
+-	pud_val(*pud_entry) = __pa(pmd);
++	return pgtable_quicklist_alloc();
  }
  
- static inline pmd_t*
+-static inline pmd_t*
 -pmd_alloc_one_fast (struct mm_struct *mm, unsigned long addr)
--{
++static inline void pgd_free(pgd_t * pgd)
+ {
 -	unsigned long *ret = NULL;
 -
 -	preempt_disable();
@@ -215,19 +206,27 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 -	preempt_enable();
 -
 -	return (pmd_t *)ret;
--}
--
++	pgtable_quicklist_free(pgd);
+ }
+ 
 -static inline pmd_t*
- pmd_alloc_one (struct mm_struct *mm, unsigned long addr)
+-pmd_alloc_one (struct mm_struct *mm, unsigned long addr)
++static inline void
++pud_populate(struct mm_struct *mm, pud_t * pud_entry, pmd_t * pmd)
  {
 -	pmd_t *pmd = (pmd_t *)__get_free_page(GFP_KERNEL|__GFP_REPEAT|__GFP_ZERO);
--
++	pud_val(*pud_entry) = __pa(pmd);
++}
+ 
 -	return pmd;
++static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long addr)
++{
 +	return pgtable_quicklist_alloc();
  }
  
- static inline void
- pmd_free (pmd_t *pmd)
+-static inline void
+-pmd_free (pmd_t *pmd)
++static inline void pmd_free(pmd_t * pmd)
  {
 -	preempt_disable();
 -	*(unsigned long *)pmd = (unsigned long) pmd_quicklist;
@@ -238,9 +237,25 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
  }
  
  #define __pmd_free_tlb(tlb, pmd)	pmd_free(pmd)
-@@ -136,32 +120,28 @@
- static inline struct page *
- pte_alloc_one (struct mm_struct *mm, unsigned long addr)
+ 
+ static inline void
+-pmd_populate (struct mm_struct *mm, pmd_t *pmd_entry, struct page *pte)
++pmd_populate(struct mm_struct *mm, pmd_t * pmd_entry, struct page *pte)
+ {
+ 	pmd_val(*pmd_entry) = page_to_phys(pte);
+ }
+ 
+ static inline void
+-pmd_populate_kernel (struct mm_struct *mm, pmd_t *pmd_entry, pte_t *pte)
++pmd_populate_kernel(struct mm_struct *mm, pmd_t * pmd_entry, pte_t * pte)
+ {
+ 	pmd_val(*pmd_entry) = __pa(pte);
+ }
+ 
+-static inline struct page *
+-pte_alloc_one (struct mm_struct *mm, unsigned long addr)
++static inline struct page *pte_alloc_one(struct mm_struct *mm,
++					 unsigned long addr)
  {
 -	struct page *pte = alloc_pages(GFP_KERNEL|__GFP_REPEAT|__GFP_ZERO, 0);
 -
@@ -248,8 +263,10 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 +	return virt_to_page(pgtable_quicklist_alloc());
  }
  
- static inline pte_t *
- pte_alloc_one_kernel (struct mm_struct *mm, unsigned long addr)
+-static inline pte_t *
+-pte_alloc_one_kernel (struct mm_struct *mm, unsigned long addr)
++static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm,
++					  unsigned long addr)
  {
 -	pte_t *pte = (pte_t *)__get_free_page(GFP_KERNEL|__GFP_REPEAT|__GFP_ZERO);
 -
@@ -257,15 +274,17 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 +	return pgtable_quicklist_alloc();
  }
  
- static inline void
- pte_free (struct page *pte)
+-static inline void
+-pte_free (struct page *pte)
++static inline void pte_free(struct page *pte)
  {
 -	__free_page(pte);
 +	pgtable_quicklist_free(page_address(pte));
  }
  
- static inline void
- pte_free_kernel (pte_t *pte)
+-static inline void
+-pte_free_kernel (pte_t *pte)
++static inline void pte_free_kernel(pte_t * pte)
  {
 -	free_page((unsigned long) pte);
 +	pgtable_quicklist_free(pte);
@@ -274,11 +293,14 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 -#define __pte_free_tlb(tlb, pte)	tlb_remove_page((tlb), (pte))
 +#define __pte_free_tlb(tlb, pte)	pte_free(pte)
  
- extern void check_pgt_cache (void);
+-extern void check_pgt_cache (void);
++extern void check_pgt_cache(void);
  
+-#endif /* _ASM_IA64_PGALLOC_H */
++#endif				/* _ASM_IA64_PGALLOC_H */
 Index: linux-2.6/include/asm-ia64/processor.h
-=================================--- linux-2.6.orig/include/asm-ia64/processor.h	2005-03-02 12:01:02.439554788 -0600
-+++ linux-2.6/include/asm-ia64/processor.h	2005-03-02 12:13:30.521744672 -0600
+=================================--- linux-2.6.orig/include/asm-ia64/processor.h	2005-03-14 15:28:36.860719056 -0600
++++ linux-2.6/include/asm-ia64/processor.h	2005-03-14 15:28:51.548058308 -0600
 @@ -145,9 +145,6 @@
  	__u64 nsec_per_cyc;	/* (1000000000<<IA64_NSEC_PER_CYC_SHIFT)/itc_freq */
  	__u64 unimpl_va_mask;	/* mask of unimplemented virtual address bits (from PAL) */
@@ -290,8 +312,8 @@ Index: linux-2.6/include/asm-ia64/processor.h
  	__u64 proc_freq;	/* frequency of processor */
  	__u64 cyc_per_usec;	/* itc_freq/1000000 */
 Index: linux-2.6/arch/ia64/mm/contig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/contig.c	2005-03-02 12:01:02.438578237 -0600
-+++ linux-2.6/arch/ia64/mm/contig.c	2005-03-02 12:20:08.362864301 -0600
+=================================--- linux-2.6.orig/arch/ia64/mm/contig.c	2005-03-14 15:28:36.859742504 -0600
++++ linux-2.6/arch/ia64/mm/contig.c	2005-03-14 15:28:51.548058308 -0600
 @@ -61,7 +61,8 @@
  	printk("%d reserved pages\n", reserved);
  	printk("%d pages shared\n", shared);
