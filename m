@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 02 Aug 2002 21:47:06 +0000
+From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
+Date: Fri, 02 Aug 2002 22:01:49 +0000
 Subject: Re: [Linux-ia64] [PATCH] dynamic IRQ allocation
-Message-Id: <marc-linux-ia64-105590701905895@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905896@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905851@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905851@msgid-missing>
@@ -10,14 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 2 Aug 2002 15:44:26 -0600, Bjorn Helgaas <bjorn_helgaas@hp.com> said:
+On Fri, 2 Aug 2002 14:22:41 -0700
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
 
-  Bjorn> iosapic_init_pci_irq() is the only thing in iosapic.c that
-  Bjorn> uses ACPI directly.
+> >>>>> On Fri, 02 Aug 2002 10:45:11 -0700, "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp> said:
+> 
+>   >>  register_irq() -> register_intr()
+> 
+> No can do.  At the platform-independent level, we have to accommodate
+> the Linux irq naming convention.  (In the book I used the name "irq
+> number" to make it clearer that this is just a logical number, not
+> necessarily something corresponding to a physical line.)
 
-This routine will change a lot if we switch over to using the
-corresponding ACPI code.  I'll see if I can prototype this in 2.5
-today.
+Did you take register_irq() for request_irq()?
 
-	--david
+register_irq() is declared as static void register_irq(...) in
+iosapic.c.
+
+It does pretty iosapic-dependent stuff.
+
+Thanks,
+-- 
+KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+
 
