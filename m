@@ -1,187 +1,35 @@
-From: "Seth, Rohit" <rohit.seth@intel.com>
-Date: Sat, 22 Feb 2003 04:37:01 +0000
-Subject: [Linux-ia64] HugeTLB Page patch for IA-64 2.5.60 kernel
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C2DA2C.0AA57CD0"
-Message-Id: <marc-linux-ia64-105590709805906@msgid-missing>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Wed, 05 Feb 2003 00:15:20 +0000
+Subject: [Linux-ia64] MAINTAINERS update for SN support
+Message-Id: <marc-linux-ia64-105590709805812@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+Just a quick addition to the MAINTAINERS file for 2.5 SN support.
+Hopefully this'll make it easier for us to keep the SN stuff up to
+date.
 
-------_=_NextPart_001_01C2DA2C.0AA57CD0
-Content-Type: multipart/alternative;
-	boundary="----_=_NextPart_002_01C2DA2C.0AA57CD0"
-
-
-------_=_NextPart_002_01C2DA2C.0AA57CD0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-Please find attached a hugetlb page patch for IA-64 2.5.60 kernel .
-Changes in generic files are mostly backported from 2.5.62 (to get
-hugetlb support functioning properly). =20
-
-Let me know if anyone sees any issues.
-
-thanks,
-rohit
+Thanks,
+Jesse
 
 
- <<patch.2560>>=20
-
-------_=_NextPart_002_01C2DA2C.0AA57CD0
-Content-Type: text/html;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
-<HTML>
-<HEAD>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
-charset=3Dus-ascii">
-<META NAME=3D"Generator" CONTENT=3D"MS Exchange Server version =
-6.0.6336.0">
-<TITLE>HugeTLB Page patch for IA-64 2.5.60 kernel</TITLE>
-</HEAD>
-<BODY>
-<!-- Converted from text/rtf format -->
-
-<P><FONT SIZE=3D2 FACE=3D"Arial">Please find attached a hugetlb page =
-patch for IA-64 2.5.60 kernel .&nbsp; Changes in generic files are =
-mostly backported from 2.5.62 (to get hugetlb support functioning =
-properly).&nbsp; </FONT></P>
-
-<P><FONT SIZE=3D2 FACE=3D"Arial">Let me know if anyone sees any =
-issues.</FONT>
-</P>
-
-<P><FONT SIZE=3D2 FACE=3D"Arial">thanks,</FONT>
-
-<BR><FONT SIZE=3D2 FACE=3D"Arial">rohit</FONT>
-</P>
-<BR>
-
-<P><FONT FACE=3D"Arial" SIZE=3D2 COLOR=3D"#000000"> =
-&lt;&lt;patch.2560&gt;&gt; </FONT>
-</P>
-
-</BODY>
-</HTML>
-------_=_NextPart_002_01C2DA2C.0AA57CD0--
-
-------_=_NextPart_001_01C2DA2C.0AA57CD0
-Content-Type: application/octet-stream;
-	name="patch.2560"
-Content-Transfer-Encoding: base64
-Content-Description: patch.2560
-Content-Disposition: attachment;
-	filename="patch.2560"
-
-LS0tIGluY2x1ZGUvbGludXgvaHVnZXRsYi5oLm9yZwlXZWQgRmViIDE5IDEyOjExOjE2IDIwMDMK
-KysrIGluY2x1ZGUvbGludXgvaHVnZXRsYi5oCUZyaSBGZWIgMjEgMTA6NDY6NTUgMjAwMwpAQCAt
-MjYsNiArMjYsNyBAQAogCQkJCQl1bnNpZ25lZCBsb25nIGFkZHJlc3MpOwogc3RydWN0IHBhZ2Ug
-KmZvbGxvd19odWdlX3BtZChzdHJ1Y3QgbW1fc3RydWN0ICptbSwgdW5zaWduZWQgbG9uZyBhZGRy
-ZXNzLAogCQkJCXBtZF90ICpwbWQsIGludCB3cml0ZSk7CitpbnQgaXNfYWxpZ25lZF9odWdlcGFn
-ZV9yYW5nZSh1bnNpZ25lZCBsb25nIGFkZHIsIHVuc2lnbmVkIGxvbmcgbGVuKTsKIGludCBwbWRf
-aHVnZShwbWRfdCBwbWQpOwogCiBleHRlcm4gaW50IGh0bGJwYWdlX21heDsKQEAgLTU2LDYgKzU3
-LDcgQEAKICNkZWZpbmUgaHVnZXBhZ2Vfdm1hKG1tLCBhZGRyKQkJCTAKICNkZWZpbmUgbWFya19t
-bV9odWdldGxiKG1tLCB2bWEpCQlkbyB7IH0gd2hpbGUgKDApCiAjZGVmaW5lIGZvbGxvd19odWdl
-X3BtZChtbSwgYWRkciwgcG1kLCB3cml0ZSkJMAorI2RlZmluZSBpc19hbGlnbmVkX2h1Z2VwYWdl
-X3JhbmdlKGFkZHIsIGxlbikJMAogI2RlZmluZSBwbWRfaHVnZSh4KQkwCiAKICNpZm5kZWYgSFBB
-R0VfTUFTSwotLS0gaW5jbHVkZS9hc20taWE2NC9wYWdlLmgub3JnCUZyaSBGZWIgMjEgMTA6NDE6
-NTUgMjAwMworKysgaW5jbHVkZS9hc20taWE2NC9wYWdlLmgJRnJpIEZlYiAyMSAxMTozNTowMCAy
-MDAzCkBAIC0xMjgsNiArMTI4LDkgQEAKICMgZGVmaW5lIGh0bGJwYWdlX3RvX3BhZ2UoeCkJKChS
-RUdJT05fTlVNQkVSKHgpIDw8IDYxKQkJCQlcCiAJCQkJIHwgKFJFR0lPTl9PRkZTRVQoeCkgPj4g
-KEhQQUdFX1NISUZULVBBR0VfU0hJRlQpKSkKICMgZGVmaW5lIEhVR0VUTEJfUEFHRV9PUkRFUgko
-SFBBR0VfU0hJRlQgLSBQQUdFX1NISUZUKQorZXh0ZXJuIGludCAgaXNfaW52YWxpZF9odWdlcGFn
-ZV9yYW5nZSh1bnNpZ25lZCBsb25nIGFkZHIsIHVuc2lnbmVkIGxvbmcgbGVuKTsKKyNlbHNlCisj
-ZGVmaW5lIGlzX2ludmFsaWRfaHVnZXBhZ2VfcmFuZ2UoYWRkciwgbGVuKSAwCiAjZW5kaWYKIAog
-c3RhdGljIF9faW5saW5lX18gaW50Ci0tLSBtbS9tbWFwLmMub3JnCVdlZCBGZWIgMTkgMTE6NDU6
-NTEgMjAwMworKysgbW0vbW1hcC5jCVdlZCBGZWIgMTkgMTI6NTY6MDcgMjAwMwpAQCAtNzk3LDEw
-ICs3OTcsMjYgQEAKIAkJdW5zaWduZWQgbG9uZyBwZ29mZiwgdW5zaWduZWQgbG9uZyBmbGFncykK
-IHsKIAlpZiAoZmxhZ3MgJiBNQVBfRklYRUQpIHsKKwkJdW5zaWduZWQgbG9uZyByZXQ7CisKIAkJ
-aWYgKGFkZHIgPiBUQVNLX1NJWkUgLSBsZW4pCiAJCQlyZXR1cm4gLUVOT01FTTsKIAkJaWYgKGFk
-ZHIgJiB+UEFHRV9NQVNLKQogCQkJcmV0dXJuIC1FSU5WQUw7CisJCWlmIChmaWxlICYmIGlzX2Zp
-bGVfaHVnZXBhZ2VzKGZpbGUpKSAKKwkJLyogSWYgdGhlIHJlcXVlc3QgaXMgZm9yIGh1Z2VwYWdl
-cywgdGhlbiBtYWtlIHN1cmUgdGhhdCBhZGRyCisJCSAqIGFuZCBsZW5ndGggaXMgcHJvcGVybHkg
-YWxpZ25lZC4KKwkJICovCisJCQlyZXQgPSBpc19hbGlnbmVkX2h1Z2VwYWdlX3JhbmdlKGFkZHIs
-IGxlbik7CisJCWVsc2UgCisJCS8qIAorCQkgKiBNYWtlIHN1cmUgdGhhdCBhIG5vcm1hbCByZXF1
-ZXN0IGlzIG5vdCBmYWxsaW5nCisJCSAqIGluIHJlc2VydmVkIGh1Z2VwYWdlIHJhbmdlLiAgRm9y
-IHNvbWUgYXJjaHMgbGlrZSBJQS02NCwgCisJCSAqIHRoZXJlIGlzIHNlcGVyYXRlIHJlZ2lvbiBm
-b3IgaHVnZXBhZ2VzLgorCQkgKi8KKwkJCXJldCA9IGlzX2ludmFsaWRfaHVnZXBhZ2VfcmFuZ2Uo
-YWRkciwgbGVuKTsKKwkJaWYgKHJldCkKKwkJCXJldHVybiByZXQ7CiAJCXJldHVybiBhZGRyOwog
-CX0KIAotLS0gZnMvaHVnZXRsYmZzL2lub2RlLmMub3JnCVdlZCBGZWIgMTkgMTE6MDE6NDMgMjAw
-MworKysgZnMvaHVnZXRsYmZzL2lub2RlLmMJV2VkIEZlYiAxOSAxMTowMzoyNyAyMDAzCkBAIC00
-NSw2ICs0NSw3IEBACiB7CiAJc3RydWN0IGlub2RlICppbm9kZSA9ZmlsZS0+Zl9kZW50cnktPmRf
-aW5vZGU7CiAJc3RydWN0IGFkZHJlc3Nfc3BhY2UgKm1hcHBpbmcgPSBpbm9kZS0+aV9tYXBwaW5n
-OworCWxvZmZfdCBsZW47CiAJaW50IHJldDsKIAogCWlmICghY2FwYWJsZShDQVBfSVBDX0xPQ0sp
-KQpAQCAtNjUsNiArNjYsMTAgQEAKIAl2bWEtPnZtX2ZsYWdzIHw9IFZNX0hVR0VUTEIgfCBWTV9S
-RVNFUlZFRDsKIAl2bWEtPnZtX29wcyA9ICZodWdldGxiX3ZtX29wczsKIAlyZXQgPSBodWdldGxi
-X3ByZWZhdWx0KG1hcHBpbmcsIHZtYSk7CisJbGVuID0gKGxvZmZfdCkodm1hLT52bV9lbmQgLSB2
-bWEtPnZtX3N0YXJ0KSArCisJCSgobG9mZl90KXZtYS0+dm1fcGdvZmYgPDwgUEFHRV9TSElGVCk7
-CisJaWYgKHJldCA9PSAwICYmIGlub2RlLT5pX3NpemUgPCBsZW4pCisJCWlub2RlLT5pX3NpemUg
-PSBsZW47CiAJdXAoJmlub2RlLT5pX3NlbSk7CiAJcmV0dXJuIHJldDsKIH0KQEAgLTIxMSw3ICsy
-MTYsNyBAQAogCQlsaXN0X2FkZCgmaW5vZGUtPmlfbGlzdCwgJmlub2RlX3VudXNlZCk7CiAJfQog
-CWlub2Rlc19zdGF0Lm5yX3VudXNlZCsrOwotCWlmICghc3VwZXJfYmxvY2sgfCAoc3VwZXJfYmxv
-Y2stPnNfZmxhZ3MgJiBNU19BQ1RJVkUpKSB7CisJaWYgKCFzdXBlcl9ibG9jayB8fCAoc3VwZXJf
-YmxvY2stPnNfZmxhZ3MgJiBNU19BQ1RJVkUpKSB7CiAJCXNwaW5fdW5sb2NrKCZpbm9kZV9sb2Nr
-KTsKIAkJcmV0dXJuOwogCX0KLS0tIGFyY2gvaWE2NC9tbS9odWdldGxicGFnZS5jLm9yZwlUaHUg
-RmViIDEzIDExOjI0OjQ0IDIwMDMKKysrIGFyY2gvaWE2NC9tbS9odWdldGxicGFnZS5jCUZyaSBG
-ZWIgMjEgMTg6MTc6NTggMjAwMwpAQCAtOTUsNiArOTUsMzEgQEAKIAlzZXRfcHRlKHBhZ2VfdGFi
-bGUsIGVudHJ5KTsKIAlyZXR1cm47CiB9CisvKgorICogVGhpcyBmdW5jdGlvbiBjaGVja3MgZm9y
-IHByb3BlciBhbGlnbm1lbnQgb2YgaW5wdXQgYWRkciBhbmQgbGVuIHBhcmFtZXRlcnMuCisgKi8K
-K2ludCBpc19hbGlnbmVkX2h1Z2VwYWdlX3JhbmdlKHVuc2lnbmVkIGxvbmcgYWRkciwgdW5zaWdu
-ZWQgbG9uZyBsZW4pCit7CisJaWYgKGxlbiAmIH5IUEFHRV9NQVNLKQorCQlyZXR1cm4gLUVJTlZB
-TDsKKwlpZiAoYWRkciAmIH5IUEFHRV9NQVNLKQorCQlyZXR1cm4gLUVJTlZBTDsKKwlpZiAoUkVH
-SU9OX05VTUJFUihhZGRyKSAhPSBSRUdJT05fSFBBR0UpCisJCXJldHVybiAtRUlOVkFMOworCisJ
-cmV0dXJuIDA7Cit9CisvKiBUaGlzIGZ1bmN0aW9uIGNoZWNrcyBpZiB0aGUgYWRkcmVzcyBhbmQg
-YWRkcmVzcytsZW4gZmFsbHMgb3V0IG9mIEh1Z2VUTEIgcmVnaW9uLiAgSXQKKyAqIHJldHVybiAt
-RUlOVkFMIGlmIGFueSBwYXJ0IG9mIGFkZHJlc3MgcmFuZ2UgZmFsbHMgaW4gSHVnZVRMQiByZWdp
-b24uCisgKi8KK2ludCAgaXNfaW52YWxpZF9odWdlcGFnZV9yYW5nZSh1bnNpZ25lZCBsb25nIGFk
-ZHIsIHVuc2lnbmVkIGxvbmcgbGVuKQoreworCWlmIChSRUdJT05fTlVNQkVSKGFkZHIpID09IFJF
-R0lPTl9IUEFHRSkKKwkJcmV0dXJuIC1FSU5WQUw7CisJaWYgKFJFR0lPTl9OVU1CRVIoYWRkcits
-ZW4pID09IFJFR0lPTl9IUEFHRSkKKwkJcmV0dXJuIC1FSU5WQUw7CisJcmV0dXJuIDA7Cit9CiAK
-IGludCBjb3B5X2h1Z2V0bGJfcGFnZV9yYW5nZShzdHJ1Y3QgbW1fc3RydWN0ICpkc3QsIHN0cnVj
-dCBtbV9zdHJ1Y3QgKnNyYywKIAkJCXN0cnVjdCB2bV9hcmVhX3N0cnVjdCAqdm1hKQpAQCAtMTU4
-LDYgKzE4MywzOSBAQAogCXJldHVybiBpOwogfQogCitzdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3QgKmh1
-Z2VwYWdlX3ZtYShzdHJ1Y3QgbW1fc3RydWN0ICptbSwgdW5zaWduZWQgbG9uZyBhZGRyKQorewor
-CWlmIChtbS0+dXNlZF9odWdldGxiKSB7CisJCWlmIChSRUdJT05fTlVNQkVSKGFkZHIpID09IFJF
-R0lPTl9IUEFHRSkgeworCQkJc3RydWN0IHZtX2FyZWFfc3RydWN0ICp2bWEgPSBmaW5kX3ZtYSht
-bSwgYWRkcik7CisJCQlpZiAodm1hICYmIGlzX3ZtX2h1Z2V0bGJfcGFnZSh2bWEpKQorCQkJCXJl
-dHVybiB2bWE7CisJCX0KKwl9CisJcmV0dXJuIE5VTEw7Cit9CisKK3N0cnVjdCBwYWdlICpmb2xs
-b3dfaHVnZV9hZGRyKHN0cnVjdCBtbV9zdHJ1Y3QgKm1tLCBzdHJ1Y3Qgdm1fYXJlYV9zdHJ1Y3Qg
-KnZtYSwgdW5zaWduZWQgbG9uZyBhZGRyLCBpbnQgd3JpdGUpCit7CisJc3RydWN0IHBhZ2UgKnBh
-Z2U7CisJcHRlX3QgKnB0ZXA7CisKKwlwdGVwID0gaHVnZV9wdGVfb2Zmc2V0KG1tLCBhZGRyKTsK
-KwlwYWdlID0gcHRlX3BhZ2UoKnB0ZXApOworCXBhZ2UgKz0gKChhZGRyICYgfkhQQUdFX01BU0sp
-ID4+IFBBR0VfU0hJRlQpOworCWdldF9wYWdlKHBhZ2UpOworCXJldHVybiBwYWdlOworfQoraW50
-IHBtZF9odWdlKHBtZF90IHBtZCkKK3sKKwlyZXR1cm4gMDsKK30KK3N0cnVjdCBwYWdlICoKK2Zv
-bGxvd19odWdlX3BtZChzdHJ1Y3QgbW1fc3RydWN0ICptbSwgdW5zaWduZWQgbG9uZyBhZGRyZXNz
-LCBwbWRfdCAqcG1kLCBpbnQgd3JpdGUpCit7CisJcmV0dXJuIE5VTEw7Cit9CisKIHZvaWQgZnJl
-ZV9odWdlX3BhZ2Uoc3RydWN0IHBhZ2UgKnBhZ2UpCiB7CiAJQlVHX09OKHBhZ2VfY291bnQocGFn
-ZSkpOwpAQCAtMTg5LDggKzI0Nyw2IEBACiAJQlVHX09OKHN0YXJ0ICYgKEhQQUdFX1NJWkUgLSAx
-KSk7CiAJQlVHX09OKGVuZCAmIChIUEFHRV9TSVpFIC0gMSkpOwogCi0Jc3Bpbl9sb2NrKCZodGxi
-cGFnZV9sb2NrKTsKLQlzcGluX3VubG9jaygmaHRsYnBhZ2VfbG9jayk7CiAJZm9yIChhZGRyZXNz
-ID0gc3RhcnQ7IGFkZHJlc3MgPCBlbmQ7IGFkZHJlc3MgKz0gSFBBR0VfU0laRSkgewogCQlwdGUg
-PSBodWdlX3B0ZV9vZmZzZXQobW0sIGFkZHJlc3MpOwogCQlpZiAocHRlX25vbmUoKnB0ZSkpCkBA
-IC0yNDIsOCArMjk4LDEyIEBACiAJCQkJcmV0ID0gLUVOT01FTTsKIAkJCQlnb3RvIG91dDsKIAkJ
-CX0KLQkJCWFkZF90b19wYWdlX2NhY2hlKHBhZ2UsIG1hcHBpbmcsIGlkeCwgR0ZQX0FUT01JQyk7
-CisJCQlyZXQgPSBhZGRfdG9fcGFnZV9jYWNoZShwYWdlLCBtYXBwaW5nLCBpZHgsIEdGUF9BVE9N
-SUMpOwogCQkJdW5sb2NrX3BhZ2UocGFnZSk7CisJCQlpZiAocmV0KSB7CisJCQkJZnJlZV9odWdl
-X3BhZ2UocGFnZSk7CisJCQkJZ290byBvdXQ7CisJCQl9CiAJCX0KIAkJc2V0X2h1Z2VfcHRlKG1t
-LCB2bWEsIHBhZ2UsIHB0ZSwgdm1hLT52bV9mbGFncyAmIFZNX1dSSVRFKTsKIAl9CkBAIC0yODcs
-OCArMzQ3LDggQEAKIAkJCQlicmVhazsKIAkJfQogCQlwYWdlID0gbGlzdF9lbnRyeShwLCBzdHJ1
-Y3QgcGFnZSwgbGlzdCk7Ci0JCWlmICgocGFnZV96b25lKHBhZ2UpKS0+bmFtZVswXSAhPSAnSCcp
-IC8vIExvb2sgZm9yIG5vbi1IaWdobWVtCi0JCQkJbWFwID0gcGFnZTsKKwkJaWYgKCFQYWdlSGln
-aE1lbShwYWdlKSkKKwkJCW1hcCA9IHBhZ2U7CiAJfQogCWlmIChtYXApIHsKIAkJbGlzdF9kZWwo
-Jm1hcC0+bGlzdCk7CkBAIC0zMDIsOCArMzYyLDggQEAKIAogaW50IHNldF9odWdldGxiX21lbV9z
-aXplKGludCBjb3VudCkKIHsKLQlpbnQgaiwgbGNvdW50OwotCXN0cnVjdCBwYWdlICpwYWdlLCAq
-bWFwOworCWludCAgbGNvdW50OworCXN0cnVjdCBwYWdlICpwYWdlIDsKIAlleHRlcm4gbG9uZyBo
-dGxiem9uZV9wYWdlczsKIAlleHRlcm4gc3RydWN0IGxpc3RfaGVhZCBodGxicGFnZV9mcmVlbGlz
-dDsKIApAQCAtNDAyLDUgKzQ2Miw0IEBACiAKIHN0cnVjdCB2bV9vcGVyYXRpb25zX3N0cnVjdCBo
-dWdldGxiX3ZtX29wcyA9IHsKIAkubm9wYWdlID0JaHVnZXRsYl9ub3BhZ2UsCi0JLmNsb3NlID0J
-emFwX2h1Z2V0bGJfcmVzb3VyY2VzLAogfTsK
-
-------_=_NextPart_001_01C2DA2C.0AA57CD0--
+--- linux-2.5.59/MAINTAINERS	Thu Jan 16 18:22:18 2003
++++ linux-2.5.59-ia64/MAINTAINERS	Mon Feb  3 14:37:59 2003
+@@ -797,6 +797,13 @@
+ W:	http://www.linuxia64.org/
+ S:	Maintained
+ 
++SN-IA64 (Itanium) SUB-PLATFORM
++P:	Jesse Barnes
++M:	jbarnes@sgi.com
++L:	linux-ia64@linuxia64.org
++W:	http://www.sgi.com/altix
++S:	Maintained
++
+ IBM MCA SCSI SUBSYSTEM DRIVER
+ P:	Michael Lang
+ M:	langa2@kph.uni-mainz.de
 
