@@ -1,73 +1,209 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Thu, 11 Sep 2003 23:30:34 +0000
-Subject: [PATCH] Re: salinfo.c
-Message-Id: <marc-linux-ia64-106332321511150@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 23 Sep 2003 18:29:22 +0000
+Subject: [PATCH] 2.4 Factor agp_generic_agp_enable()
+Message-Id: <marc-linux-ia64-106434256108195@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Sep 11, 2003 at 04:01:26PM -0700, David Mosberger wrote:
-> Hi Jesse,
-> 
-> Have you noticed that salinfo.c isn't hooked into the 2.6 kernel at
-> all?  If it's not used, we should just remove it.  Otherwise, we
-> should probably add CONFIG_IA64_SALINFO and mention salinfo.c in the
-> Makefile... ;-)
+Here's another in the series of patches to get all the IA64 AGP/DRM
+stuff upstream in 2.4.
 
-Here's the fix.
+This just splits out parts of agp_generic_agp_enable() into two
+new functions: agp_collect_device_status() and agp_device_command().
+ZX1 can't use agp_generic_agp_enable() directly because its
+AGP bridge is not a PCI device.  But the actual AGP *devices*
+are PCI devices, of course, so this change lets ZX1 use the
+relevant parts without duplicating all the code.
 
-Jesse
+Essentially the same thing is in linux-2.5 (2.5 has more AGP 3.x
+support, so it has some extra stuff related to that).
 
-diff -Nru a/arch/ia64/Kconfig b/arch/ia64/Kconfig
---- a/arch/ia64/Kconfig	Thu Sep 11 16:29:20 2003
-+++ b/arch/ia64/Kconfig	Thu Sep 11 16:29:20 2003
-@@ -413,6 +413,16 @@
- 	  To use this option, you have to ensure that the "/proc file system
- 	  support" (CONFIG_PROC_FS) is enabled, too.
+Bjorn
+
+=== drivers/char/agp/agpgart_be.c 1.48 vs edited ==--- 1.48/drivers/char/agp/agpgart_be.c	Wed Sep 10 09:01:55 2003
++++ edited/drivers/char/agp/agpgart_be.c	Tue Sep 23 14:00:47 2003
+@@ -397,97 +397,104 @@
  
-+config IA64_SALINFO
-+	tristate "/proc/sal support"
-+	help
-+	  The /proc/sal directory exports the SAL (system abstraction layer)
-+	  feature bits, like whether the platform is subject to ITC drift.  It
-+	  is intended to be used by user programs that care about such things.
+ /* Generic Agp routines - Start */
+ 
+-static void agp_generic_agp_enable(u32 mode)
++static u32 agp_collect_device_status(u32 mode, u32 command)
+ {
+-	struct pci_dev *device = NULL;
+-	u32 command, scratch;
+-	u8 cap_ptr;
++	struct pci_dev *device;
++	u8 agp;
++	u32 scratch;
+ 
+-	pci_read_config_dword(agp_bridge.dev,
+-			      agp_bridge.capndx + 4,
+-			      &command);
++	pci_for_each_dev(device) {
++		agp = pci_find_capability(device, PCI_CAP_ID_AGP);
++		if (!agp)
++			continue;
 +
-+	  To use this option, you have to ensure that the "/proc file system
-+	  support" (CONFIG_PROC_FS) is enabled, too.
++		/*
++		 * Ok, here we have a AGP device. Disable impossible 
++		 * settings, and adjust the readqueue to the minimum.
++		 */
++		pci_read_config_dword(device, agp + PCI_AGP_STATUS, &scratch);
 +
- config EFI_VARS
- 	tristate "/proc/efi/vars support"
- 	help
-diff -Nru a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
---- a/arch/ia64/kernel/Makefile	Thu Sep 11 16:29:20 2003
-+++ b/arch/ia64/kernel/Makefile	Thu Sep 11 16:29:20 2003
-@@ -14,6 +14,7 @@
- obj-$(CONFIG_IA64_HP_ZX1)	+= acpi-ext.o
- obj-$(CONFIG_IA64_MCA)		+= mca.o mca_asm.o
- obj-$(CONFIG_IA64_PALINFO)	+= palinfo.o
-+obj-$(CONFIG_IA64_SALINFO)	+= salinfo.o
- obj-$(CONFIG_IOSAPIC)		+= iosapic.o
- obj-$(CONFIG_MODULES)		+= module.o
- obj-$(CONFIG_SMP)		+= smp.o smpboot.o
-diff -Nru a/arch/ia64/kernel/salinfo.c b/arch/ia64/kernel/salinfo.c
---- a/arch/ia64/kernel/salinfo.c	Thu Sep 11 16:29:20 2003
-+++ b/arch/ia64/kernel/salinfo.c	Thu Sep 11 16:29:20 2003
-@@ -5,6 +5,7 @@
-  *
-  * Copyright (c) 2001 Silicon Graphics, Inc.  All rights reserved.
-  *
-+ * 09/11/2003	jbarnes@sgi.com		updated for 2.6
-  * 10/30/2001	jbarnes@sgi.com		copied much of Stephane's palinfo
-  *					code to create this file
-  */
-@@ -59,7 +60,7 @@
- 		*sdir = create_proc_read_entry (salinfo_entries[i].name, 0, salinfo_dir,
- 						  salinfo_read, (void *)salinfo_entries[i].feature);
- 		if (*sdir)
--			*sdir->owner = THIS_MODULE;
-+			(*sdir)->owner = THIS_MODULE;
- 		sdir++;
++		/* adjust RQ depth */
++		command +		    ((command & ~0xff000000) |
++		     min_t(u32, (mode & 0xff000000),
++			 min_t(u32, (command & 0xff000000),
++			     (scratch & 0xff000000))));
++
++		/* disable SBA if it's not supported */
++		if (!((command & 0x00000200) &&
++		      (scratch & 0x00000200) &&
++		      (mode & 0x00000200)))
++			command &= ~0x00000200;
++
++		/* disable FW if it's not supported */
++		if (!((command & 0x00000010) &&
++		      (scratch & 0x00000010) &&
++		      (mode & 0x00000010)))
++			command &= ~0x00000010;
++
++		if (!((command & 4) &&
++		      (scratch & 4) &&
++		      (mode & 4)))
++			command &= ~0x00000004;
++
++		if (!((command & 2) &&
++		      (scratch & 2) &&
++		      (mode & 2)))
++			command &= ~0x00000002;
++
++		if (!((command & 1) &&
++		      (scratch & 1) &&
++		      (mode & 1)))
++			command &= ~0x00000001;
++	}
+ 
+-	/*
+-	 * PASS1: go throu all devices that claim to be
+-	 *        AGP devices and collect their data.
+-	 */
++	if (command & 4)
++		command &= ~3;	/* 4X */
++	if (command & 2)
++		command &= ~5;	/* 2X (8X for AGP3.0) */
++	if (command & 1)
++		command &= ~6;	/* 1X (4X for AGP3.0) */
+ 
++	return command;
++}
++
++static void agp_device_command(u32 command, int agp_v3)
++{
++	struct pci_dev *device;
++	int mode;
++
++	mode = command & 0x7;
++	if (agp_v3)
++		mode *= 4;
+ 
+ 	pci_for_each_dev(device) {
+-		cap_ptr = pci_find_capability(device, PCI_CAP_ID_AGP);
+-		if (cap_ptr != 0x00) {
+-			/*
+-			 * Ok, here we have a AGP device. Disable impossible 
+-			 * settings, and adjust the readqueue to the minimum.
+-			 */
+-
+-			pci_read_config_dword(device, cap_ptr + 4, &scratch);
+-
+-			/* adjust RQ depth */
+-			command -			    ((command & ~0xff000000) |
+-			     min_t(u32, (mode & 0xff000000),
+-				 min_t(u32, (command & 0xff000000),
+-				     (scratch & 0xff000000))));
+-
+-			/* disable SBA if it's not supported */
+-			if (!((command & 0x00000200) &&
+-			      (scratch & 0x00000200) &&
+-			      (mode & 0x00000200)))
+-				command &= ~0x00000200;
+-
+-			/* disable FW if it's not supported */
+-			if (!((command & 0x00000010) &&
+-			      (scratch & 0x00000010) &&
+-			      (mode & 0x00000010)))
+-				command &= ~0x00000010;
+-
+-			if (!((command & 4) &&
+-			      (scratch & 4) &&
+-			      (mode & 4)))
+-				command &= ~0x00000004;
+-
+-			if (!((command & 2) &&
+-			      (scratch & 2) &&
+-			      (mode & 2)))
+-				command &= ~0x00000002;
+-
+-			if (!((command & 1) &&
+-			      (scratch & 1) &&
+-			      (mode & 1)))
+-				command &= ~0x00000001;
+-		}
++		u8 agp = pci_find_capability(device, PCI_CAP_ID_AGP);
++		if (!agp)
++			continue;
++
++		printk(KERN_INFO PFX "Putting AGP V%d device at %s into %dx mode\n",
++				agp_v3 ? 3 : 2, device->slot_name, mode);
++		pci_write_config_dword(device, agp + PCI_AGP_COMMAND, command);
  	}
- 	*sdir++ = salinfo_dir;
+-	/*
+-	 * PASS2: Figure out the 4X/2X/1X setting and enable the
+-	 *        target (our motherboard chipset).
+-	 */
++}
+ 
+-	if (command & 4) {
+-		command &= ~3;	/* 4X */
+-	}
+-	if (command & 2) {
+-		command &= ~5;	/* 2X */
+-	}
+-	if (command & 1) {
+-		command &= ~6;	/* 1X */
+-	}
++static void agp_generic_agp_enable(u32 mode)
++{
++	u32 command;
++
++	pci_read_config_dword(agp_bridge.dev,
++			      agp_bridge.capndx + PCI_AGP_STATUS,
++			      &command);
++
++	command = agp_collect_device_status(mode, command);
+ 	command |= 0x00000100;
+ 
+ 	pci_write_config_dword(agp_bridge.dev,
+-			       agp_bridge.capndx + 8,
++			       agp_bridge.capndx + PCI_AGP_COMMAND,
+ 			       command);
+ 
+-	/*
+-	 * PASS3: Go throu all AGP devices and update the
+-	 *        command registers.
+-	 */
+-
+-	pci_for_each_dev(device) {
+-		cap_ptr = pci_find_capability(device, PCI_CAP_ID_AGP);
+-		if (cap_ptr != 0x00)
+-			pci_write_config_dword(device, cap_ptr + 8, command);
+-	}
++	agp_device_command(command, 0);
+ }
+ 
+ static int agp_generic_create_gatt_table(void)
+
