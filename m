@@ -1,42 +1,54 @@
-From: James Morris <jmorris@redhat.com>
-Date: Sun, 24 Aug 2003 15:25:48 +0000
-Subject: Re: selinux build failure
-Message-Id: <marc-linux-ia64-106173880624656@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 28 Aug 2003 16:04:13 +0000
+Subject: [PATCH 2.4 and 2.6] trim.bottom trims the wrong entry
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C36D7E.06862A74"
+Message-Id: <marc-linux-ia64-106208671402725@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106161286205885@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106161286205885@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Sun, 24 Aug 2003, Christoph Hellwig wrote:
+This is a multi-part message in MIME format.
 
-> Argg, this is b0rked.  {asm,linux}/compat.h are for the 32bit compatiblity
-> code.  64bit arches don't have fcntl64 - see the #if BITS_PER_LONG = 32
-> around sys_fcntl64 in fcntl.c..
+------_=_NextPart_001_01C36D7E.06862A74
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Indeed.  How about this?
+This was a fun one to track down.  I was trying to provide
+a fake SRAT table so that I could start working on some more
+ccNUMA issues on a non-NUMA tiger box, but my kernel kept dying
+while running scripts out of /etc/init.d/*
 
+I found I was getting an MCA while executing an lfetch.excl in
+clear_page_tables(), the address that was being fetched was
+0xe0000000000a00e8, which is non-cacheable VGA memory on Tiger.
 
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+Root cause was the "trim" code in efi_memmap_walk() had failed
+to trim away all the blocks of memory in the bottom granule when
+it had seen the memory hole there, so the kernel had managed to
+allocate a page at 0x9c000 as a page table, and when the process
+using it ended, the cleanup code prefetched off the end of the
+page, and into the VGA memory, causing an MCA.
 
-diff -urN -X dontdiff linux-2.6.0-test4.orig/security/selinux/hooks.c linux-2.6.0-test4.w1/security/selinux/hooks.c
---- linux-2.6.0-test4.orig/security/selinux/hooks.c	2003-08-23 11:53:14.000000000 +1000
-+++ linux-2.6.0-test4.w1/security/selinux/hooks.c	2003-08-25 01:23:11.690432168 +1000
-@@ -2057,9 +2057,11 @@
- 		case F_GETLK:
- 		case F_SETLK:
- 	        case F_SETLKW:
-+#if BITS_PER_LONG = 32
- 	        case F_GETLK64:
- 		case F_SETLK64:
- 	        case F_SETLKW64:
-+#endif
- 			if (!file->f_dentry || !file->f_dentry->d_inode) {
- 				err = -EINVAL;
- 				break;
+The problem is that efi_memmap_walk() repeatedly trims the same
+entry, instead of trimming each of the entries in the granule.
 
+-Tony
+
+------_=_NextPart_001_01C36D7E.06862A74
+Content-Type: application/octet-stream;
+	name="trim.patch"
+Content-Transfer-Encoding: base64
+Content-Description: trim.patch
+Content-Disposition: attachment;
+	filename="trim.patch"
+
+ZGlmZiAtcnUgYS9hcmNoL2lhNjQva2VybmVsL2VmaS5jIGIvYXJjaC9pYTY0L2tlcm5lbC9lZmku
+YwotLS0gYS9hcmNoL2lhNjQva2VybmVsL2VmaS5jCVdlZCBBdWcgMjcgMTU6NDk6MjcgMjAwMwor
+KysgYi9hcmNoL2lhNjQva2VybmVsL2VmaS5jCVdlZCBBdWcgMjcgMTY6NDc6MjcgMjAwMwpAQCAt
+MzI0LDcgKzMyNCw3IEBACiAJCQkJY2hlY2tfbWQgPSBxOwogCiAJCQkJaWYgKGNoZWNrX21kLT5h
+dHRyaWJ1dGUgJiBFRklfTUVNT1JZX1dCKQotCQkJCQl0cmltX2JvdHRvbShtZCwgZ3JhbnVsZV9h
+ZGRyKTsKKwkJCQkJdHJpbV9ib3R0b20oY2hlY2tfbWQsIGdyYW51bGVfYWRkcik7CiAKIAkJCQlp
+ZiAoY2hlY2tfbWQtPnBoeXNfYWRkciA8IGdyYW51bGVfYWRkcikKIAkJCQkJY29udGludWU7Cg==
+
+------_=_NextPart_001_01C36D7E.06862A74--
