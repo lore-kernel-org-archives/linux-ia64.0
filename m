@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 19 Dec 2003 18:07:04 +0000
-Subject: RE: [patch] 2.6.0 MCA TLB error recovery
-Message-Id: <marc-linux-ia64-107185743501256@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 19 Dec 2003 23:22:32 +0000
+Subject: Re: [patch] 2.6.0 MCA TLB error recovery
+Message-Id: <marc-linux-ia64-107187619022726@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-107181047921141@msgid-missing>
 In-Reply-To: <marc-linux-ia64-107181047921141@msgid-missing>
@@ -10,29 +10,9 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> >It looks like salinfo_log_wakeup() is called right before
-> >ia64_log_print() ... so I'm not sure why the salinfo_decode
-> >daemon kept on snoozing.  Keith: am I missing something obvious?
-> 
-> From the top of salinfo_log_wakeup()
-> 
->  * ...  MCA and INIT events are
->  * not irq safe, do not call any routines that use spinlocks, 
-> they may deadlock.
+I didn't keep the old patches around.  Could you and Keith send me a
+consistent set of patches?  That would help me.
 
-Okay ... that was pretty danged obvious!  Thanks for pointing
-it out so gently :-)
+Thanks,
 
-> MCA and INIT records are noted but it is not safe to call up() from
-> those interrupts, so the daemon cannot be woken.  This has not been a
-> problem in the past because MCA and INIT were not recoverable, the
-> records are picked up on the next boot.  Once my patches are 
-> in David's
-> tree, I will update salinfo to periodically check for any MCA or INIT
-> records and kick the daemon.  There was no point before, I had no way
-> of testing this case.
-
-Sounds good.  Salinfo-0.4 is beautiful by the way.  Getting all the
-bits decoded from processor state parameter and ipsr/xpsr etc. is great.
-
--Tony
+	--david
