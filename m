@@ -1,59 +1,38 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sat, 10 Jan 2004 07:23:26 +0000
-Subject: ia64 problems with NR_CPUS > 256
-Message-Id: <20040109232326.38dd1e95.akpm@osdl.org>
+From: <ameya.mitragotri@wipro.com>
+Date: Fri, 30 Jan 2004 12:49:29 +0000
+Subject: Problem with interrupts + lkcd on IA64!
+Message-Id: <CC7A2BA2F1CA9E43B2B62C4783B42C7B9A88EE@blr-ec-msg05.wipro.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Rusty Russell <rusty@rustcorp.com.au> wrote:
->
-> In message <20040109141236.4bcf7293.akpm@osdl.org> you write:
-> > jbarnes@sgi.com (Jesse Barnes) wrote:
-> > >
-> > > Thanks, this patch works.  However, it appears that something (not you
-> > > Pat!) broke cpumasks again--I got failures when I tried a 512p build.
-> >=20
-> > That's probably Rusty breaking stuff again.  The relevant patches are:
-> >=20
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.1/2.6=
-.1-mm1/broken-out/make-for_each_cpu-iterator-more-friendly.patch
-> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.1/2.6=
-.1-mm1/broken-out/make-for_each_cpu-iterator-more-friendly-fix.patch
->=20
-> Probably.  Paul Jackson acked them though, so I'm a little surprised.
->=20
+Hi,
+I am working on an IA64 Itanium machine with an MPT SCSI
+adapter. 
 
-OK, here's the scoop.   ia64 with NR_CPUSQ2:
+1) I have patched my kernel (2.6.1) with lkcd and I am trying
+to dump using the keyboard combination of Alt+SysRq+d.
+This always ends up in a hung kernel.
 
-  /usr/local/gcc-3.3.1/bin/gcc -Wp,-MD,kernel/.sched.o.d -nostdinc -iwithpr=
-efix include -D__KERNEL__ -Iinclude   -D__KERNEL__ -Iinclude   -Wall -Wstri=
-ct-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -pipe  -ffixe=
-d-r13 -mfixed-range=F12-f15,f32-f127 -falign-functions2 -frename-registers =
--O2 -fomit-frame-pointer    -mconstant-gp -DKBUILD_BASENAME=3Dsched -DKBUIL=
-D_MODNAME=3Dsched -c -o kernel/.tmp_sched.o kernel/sched.c
-kernel/sched.c: In function `nr_uninterruptible':
-kernel/sched.c:905: error: structure has no member named `val'
-kernel/sched.c:905: error: structure has no member named `val'
-kernel/sched.c: In function `nr_context_switches':
+2) The kernel does not hang if the dump starts from a non
+interrupt/bottom half context.
 
-The problem is that Rusty's patch _used_ for_each_cpu().  It is already
-broken.
+3) Dumping, however, is successful on an X86 machine
+(no scsi here) in both the above scenarios.
 
-In cpumask_const_reference.h we have stuff like:
+It is an observation that with Alt+SysRq+d, dumping progresses from
+the bottom half of the keyboard interrupt. The same would 
+imply that, all interrupts would be enabled and dumping should 
+progress.
 
-#define cpus_and_const(dst,src1,src2)     cpus_and(dst,*(src1).val,*(src2).=
-val)
+4) I noticed that the values of psr.i and psr.ic are 1 when
+we are waiting for the interrupt (psr.i and psr.ic are the same
+for points 1 and 2 mentioned above)
 
-But include/linux/cpumask.h never defines a version of struct cpumask which
-has a `val' member in it.
+Any suggestions as to what may be going wrong here?
 
-So somewhere along the line, the pass-by-reference stuff got broken.
-
-Bill, how is this actually supposed to work?  Is `val' supposed to be in
-struct cpumask, or is the cpumask_const_reference.h code wrong?
-
-Thanks.
+Thanks
+Ameya
 
