@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 08 Jan 2002 19:15:11 +0000
-Subject: Re: [Linux-ia64] Re: can we make anonymous memory non-EXECUTABLE?
-Message-Id: <marc-linux-ia64-105590698805777@msgid-missing>
+From: "Albert D. Cahalan" <acahalan@cs.uml.edu>
+Date: Tue, 08 Jan 2002 19:32:41 +0000
+Subject: [Linux-ia64] Re: can we make anonymous memory non-EXECUTABLE?
+Message-Id: <marc-linux-ia64-105590698805778@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805771@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805771@msgid-missing>
@@ -10,21 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 8 Jan 2002 13:23:15 +0000 (GMT), Alan Cox <alan@lxorguk.ukuu.org.uk> said:
+David Mosberger writes:
 
-  Alan> We are borg of x86 is true for the near future, but codifying
-  Alan> an x86ism for all ports for ever seems unwise.
+> I think that's fine.  If the consensus is that apps *should* use
+> mprotect() to get executable permission (Linus implied as much) and
+> it's an architecture specific choice as to whether this is enforced,
+> I'm happy.  My belief is that we could make this change on ia64
+> without undue burden on programmers.  If not, I'm sure I'll find out
+> about it and I'm willing to take the responsibility.
 
-Glad to hear that.
+If you turn off executable permission right now, you can add it
+back at some future date.
 
-  Alan> For IA32 on IA64 binaries you would however need to keep the
-  Alan> executable data behaviour.
+If you leave the executable permission, we're stuck with it as
+the ABI becomes set in stone.
 
-Yes.  I don't recall off hand whether the x86 emulation hardware (aka
-"IVE") automatically takes care of that.  I'll work on prototyping
-this.
+So turn it off ASAP.
 
-Thanks,
-
-	--david
 
