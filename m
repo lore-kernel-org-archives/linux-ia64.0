@@ -1,79 +1,114 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 16 Jan 2004 04:59:56 +0000
+From: Martin Pool <mbp@sourcefrog.net>
+Date: Fri, 16 Jan 2004 07:01:47 +0000
 Subject: Re: a question about memory access on IA64
-Message-Id: <16391.28620.39161.362377@napali.hpl.hp.com>
+Message-Id: <20040116070147.GC766@happy.sourcefrog.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="VywGB/WGlW4DM4P8"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40075464.6010202@sinosoft.com.cn>
 In-Reply-To: <40075464.6010202@sinosoft.com.cn>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Sorry, but your problem report is still very incomplete.  Please
-provide a _self-contained_ minimal test program that reproduces the
-problem for you and describe you how compile the program.  Without a
-complete test-case there are a million variations of what could be
-wrong.
 
-	--david
+--VywGB/WGlW4DM4P8
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->>>>> On Fri, 16 Jan 2004 12:02:02 +0800, liuduo <liuduo@sinosoft.com.cn> said:
+Please reply to the list, not to me.
 
-  Liuduo> David:
-  Liuduo> Sorry, i only describe the process about the error occurs .
+On 16 Jan 2004, liuduo <liuduo@sinosoft.com.cn> wrote:
+> Martin Pool wrote:
+> >On 16 Jan 2004, liuduo <liuduo@sinosoft.com.cn> wrote:
+> >>David:
+> >>Sorry, i only describe the process about the error occurs .
+> >>
+> >>  typedef struct b{
+> >>    char*  pDescriptName;
+> >>    char*           pVendorName;
+> >>    unsigned int	RevisionID;
+> >>   }B;
+> >>
+> >>  typedef struct pci{
+> >>   int c;
+> >>   struct b bb[512];
+> >>   }PCI;
+> >>
+> >>int main()
+> >>{
+> >>
+> >>
+> >>   struct pci a;
+> >>
+> >>   //function for operation a
+> >>   func(&a);
+> >>   return 0;
+> >>}
+> >>
+> >
+> >>the func is in an lib, it's an lib export function, and the func is as=
+=20
+> >>follows;
+> >>
+> >
+> >Do you mean that it works if you use the first struct definition, and
+> >if you pu the func into the same file?=20
+> >
+> yes
+>=20
+> >Does it have to be in a
+> >library to fail?
+> >
+> yes
+>=20
+> >
+> >
+> >Could it be that you are using different structure packing for
+> >building the library, either through compiler options or #pragmas in
+> >some other header file?
+> >
+> we use the #pragma pack (1)  in the file that the func is in it.
 
-  Liuduo> typedef struct b{
-  Liuduo> char*  pDescriptName;
-  Liuduo> char*           pVendorName;
-  Liuduo> unsigned int	RevisionID;
-  Liuduo> }B;
+Don't do that then.  If you access a struct with different packing
+conventions, your program will lose its fingers.
 
-  Liuduo> typedef struct pci{
-  Liuduo> int c;
-  Liuduo> struct b bb[512];
-  Liuduo> }PCI;
+> >>func(struct pci* a)
+> >>{
+> >>    char tmp[256];
+> >>   for(num=3D0;num<512;num++)
+> >>   {
+> >>    a->bb[num].pDescriptName =3D (char*)malloc(100);
+> >>    strcpy(a->bb[num].pDescriptName , "dddd");
+> >>    a->bb[num].pVendorName =3D (char*)malloc(100);
+> >>    strcpy(a->bb[num].pVendorName , "fffff");
+> >>    a->bb[num].RevisionID =3D 22;
+> >>   }
+> >>   a->c =3D 512;
+> >>}
+> >>when call the func , the segmentation fault occurs,
+> >>and then we modified the struct A as follows
+> >>   typedef struct pci{
+> >>   struct b bb[512];
+> >>   int c;
+> >>   }PCI;
+> >>it's normal.
+> >>please tell me why?
+> >>thanks a lot.
 
-  Liuduo> int main()
-  Liuduo> {
+--=20
+Martin
 
+--VywGB/WGlW4DM4P8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-  Liuduo> struct pci a;
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
 
-  Liuduo> //function for operation a
-  Liuduo> func(&a);
-  Liuduo> return 0;
-  Liuduo> }
-  Liuduo> the func is in an lib, it's an lib export function, and the func is as 
-  Liuduo> follows;
+iD8DBQFAB4xbPGPKP6Cz6IsRAsc1AJ0WIA9TEWiJuCMA8Cp7hcWbjL9pywCfbVuh
+FTRET8kfdiHNe44KHKkaCS8=
+=aPdv
+-----END PGP SIGNATURE-----
 
-  Liuduo> func(struct pci* a)
-  Liuduo> {
-  Liuduo> char tmp[256];
-  Liuduo> for(num=0;num<512;num++)
-  Liuduo> {
-  a-> bb[num].pDescriptName = (char*)malloc(100);
-  Liuduo> strcpy(a->bb[num].pDescriptName , "dddd");
-  a-> bb[num].pVendorName = (char*)malloc(100);
-  Liuduo> strcpy(a->bb[num].pVendorName , "fffff");
-  a-> bb[num].RevisionID = 22;
-  Liuduo> }
-  a-> c = 512;
-  Liuduo> }
-  Liuduo> when call the func , the segmentation fault occurs,
-  Liuduo> and then we modified the struct A as follows
-  Liuduo> typedef struct pci{
-  Liuduo> struct b bb[512];
-  Liuduo> int c;
-  Liuduo> }PCI;
-  Liuduo> it's normal.
-  Liuduo> please tell me why?
-  Liuduo> thanks a lot.
-  Liuduo> -- 
-  Liuduo> ===================  Liuduo> Liu duo
-  Liuduo> tel:(010)62570007-509
-  Liuduo> email:liuduo@sinosoft.com.cn
-  Liuduo> Sinosoft Software.Co.Ltd.
-  Liuduo> Esmpro Group.Secic Department
-  Liuduo> ===================
-
+--VywGB/WGlW4DM4P8--
