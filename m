@@ -1,7 +1,7 @@
 From: Paul Mackerras <paulus@samba.org>
-Date: Thu, 23 Dec 2004 21:01:30 +0000
+Date: Thu, 23 Dec 2004 21:11:06 +0000
 Subject: Re: Prezeroing V2 [0/3]: Why and When it works
-Message-Id: <16843.12842.127923.387226@cargo.ozlabs.ibm.com>
+Message-Id: <16843.13418.630413.64809@cargo.ozlabs.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
 	<41C20E3E.3070209@yahoo.com.au>
@@ -17,21 +17,26 @@ Cc: , , , akpm@osdl.org, , linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-
 Christoph Lameter writes:
 
 > The most expensive operation in the page fault handler is (apart of SMP
-> locking overhead) the zeroing of the page. This zeroing means that all
-> cachelines of the faulted page (on Altix that means all 128 cachelines of
-> 128 byte each) must be loaded and later written back. This patch allows to
-> avoid having to load all cachelines if only a part of the cachelines of
-> that page is needed immediately after the fault.
+> locking overhead) the zeroing of the page.
 
-On ppc64 we avoid having to zero newly-allocated page table pages by
-using a slab cache for them, with a constructor function that zeroes
-them.  Page table pages naturally end up being full of zeroes when
-they are freed, since ptep_get_and_clear, pmd_clear or pgd_clear has
-been used on every non-zero entry by that stage.  Thus there is no
-extra work required either when allocating them or freeing them.
+Re-reading this I see that you mean the zeroing of the page that is
+mapped into the process address space, not the page table pages.  So
+ignore my previous reply.
 
-I don't see any point in your patches for systems which don't have
-some magic hardware for zeroing pages.  Your patch seems like a lot of
-extra code that only benefits a very small number of machines.
+Do you have any statistics on how often a page fault needs to supply a
+page of zeroes versus supplying a copy of an existing page, for real
+applications?
+
+In any case, unless you have magic page-zeroing hardware, I am still
+inclined to think that zeroing the page at the time of the fault is
+the most efficient, since that means the page will be hot in the cache
+for the process to use.  If you zero it earlier using CPU stores, it
+can only cause more overall memory traffic, as far as I can see.
+
+I did some measurements once on my G5 powermac (running a ppc64 linux
+kernel) of how long clear_page takes, and it only takes 96ns for a 4kB
+page.  This is real-life elapsed time in the kernel, not just some
+cache-hot benchmark measurement.  Thus I don't think your patch will
+gain us anything on ppc64.
 
 Paul.
