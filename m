@@ -1,30 +1,39 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 26 Nov 2003 23:21:07 +0000
-Subject: sigtramp bug-fix (applies to 2.4 and 2.6)
-Message-Id: <marc-linux-ia64-106988919920591@msgid-missing>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Mon, 08 Dec 2003 05:30:00 +0000
+Subject: Re: [patch] 2.4.23 fix deadlock in ia64_mca_cmc_int_caller
+Message-Id: <marc-linux-ia64-107086176219239@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Laurent Morichetti found a bug in the signal trampoline for which I
-just checked in a fix.  The problem was that the trampoline was using
-a scratch predicate-register in an unwind-directive.  This was wrong,
-because the routine isn't a leaf and that scratch register may get
-clobbered by the signal handler.  To work around the problem, simply
-switch from using p8 to p1 (that's fine because "pr" is already
-saved/restored by the kernel).
+On Sun, 2003-12-07 at 22:08, Keith Owens wrote:
+> smp_call_function() must not be called from interrupt context (can
+> deadlock on tasklist_lock).  Use keventd to call smp_call_function().
+> 
 
-For details, see this URL:
+Keith,
 
-  http://lia64.bkbits.net:8080/to-linus-2.5/cset@1.1497
+   Looks good to me, only comment I have would be to tack the below
+chunk into ia64_mca_late_init().  Anywhere before setting
+cmc_polling_enabled to the correct state should prevent a race.  Thanks
+for fixing this.
 
-Bjorn, could you apply this patch for 2.4 as well?  If it doesn't
-apply, let me know (it should be very close though, apart from a large
-fuzz).
+	Alex
 
-BTW: If someone were working on an unwind-info validation tool, that
-sure would be useful!
+> @@ -2411,3 +2429,12 @@ ia64_mca_disable_cpe_polling(char *str)
+>  }
+>  
+>  __setup("disable_cpe_poll", ia64_mca_disable_cpe_polling);
+> +
+> +static int __init init_mca(void)
+> +{
+> +	INIT_TQUEUE(&cmc_disable_tq, ia64_mca_cmc_vector_disable_keventd, NULL);
+> +	INIT_TQUEUE(&cmc_enable_tq, ia64_mca_cmc_vector_enable_keventd, NULL);
+> +        return 0;
+> +}
+> +
+> +module_init(init_mca)
 
-	--david
+
