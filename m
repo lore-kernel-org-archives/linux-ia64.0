@@ -1,7 +1,7 @@
-From: john stultz <johnstul@us.ibm.com>
-Date: Thu, 29 Jul 2004 17:02:11 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 29 Jul 2004 17:13:38 +0000
 Subject: Re: [PATCH] minor cyclone cleanup
-Message-Id: <1091120530.6094.8.camel@leatherman.cornchips.homelinux.net>
+Message-Id: <200407291113.38609.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200407291054.05720.bjorn.helgaas@hp.com>
 In-Reply-To: <200407291054.05720.bjorn.helgaas@hp.com>
@@ -10,32 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 2004-07-29 at 09:54, Bjorn Helgaas wrote:
-> Trivial cleanup.  BTW, the ia64 cyclone code has no copyright or license.
+On Thursday 29 July 2004 11:02 am, john stultz wrote:
+> Stay tuned! As soon as I finish reworking the NTP code bI'll be mailing
+> out code. 
 
-Looks good to me! If a copyright/license message is necessary, I can
-create a patch for you. 
+Ah, an NTP expert :-)  What do you think about adding an RTC driver
+to NTP?  On our boxes (and I suspect many others), the system clock
+is driven by  the interval timer.  But the RTC is much more accurate,
+so it'd be nice if NTP knew how to use it.
 
-> There's also an arch/i386/kernel/timers/timer_cyclone.c that looks
-> suspiciously similar, and few if any actual architecture dependencies
-> in either the i386 or the ia64 files.  Why are they different?
+The RTC is terribly slow and has low resolution, but in the absence of
+anything better, it'd be nice if we could use it.
 
-Indeed, they are very similar, but because the timeofday subsystems are
-so different in each arch I implemented it separately. 
-
-I hope to fix this in 2.7/2.6 (whatever) by merging all the arch
-specific timeofday code into one arch independent implementation. Then
-just a single time-source driver will be needed for both arches (ACPI PM
-and HPET will additionally be able to be shared). 
-
-Stay tuned! As soon as I finish reworking the NTP code bI'll be mailing
-out code. 
-
-> Make cyclone_setup() take no args, rather than an ignored "char *"
-> and return void.  Fix typos and whitespace.
-
-Apologies for the mess, thanks for cleaning that up!
-
-thanks again, 
--john
-
+Is this possible?  Feasible?  I know the NTP guys would probably
+laugh us out of the room, but not everybody has a fancy clock
+attached to their box.
