@@ -1,32 +1,33 @@
-From: Robin Holt <holt@sgi.com>
-Date: Sat, 20 Nov 2004 01:46:10 +0000
-Subject: Re: another approach to rss : sloppy rss
-Message-Id: <20041120014610.GA20576@lnx-holt.americas.sgi.com>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Fri, 19 Nov 2004 06:56:17 +0000
+Subject: pte bit spin lock
+Message-Id: <419D9911.1080306@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain> <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com> <419D47E6.8010409@yahoo.com.au> <Pine.LNX.4.58.0411181711130.834@schroedinger.engr.sgi.com> <419D4EC7.6020100@yahoo.com.au> <Pine.LNX.4.58.0411181834260.1421@schroedinger.engr.sgi.com> <419D8C07.9040606@yahoo.com.au> <Pine.LNX.4.58.0411191116480.24095@schroedinger.engr.sgi.com> <20041119195721.GA2203@lnx-holt.americas.sgi.com> <419E9CC1.8060503@yahoo.com.au>
-In-Reply-To: <419E9CC1.8060503@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: Robin Holt <holt@sgi.com>, Christoph Lameter <clameter@sgi.com>, Hugh Dickins <hugh@veritas.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Sat, Nov 20, 2004 at 12:24:17PM +1100, Nick Piggin wrote:
-> Well, you still need to put those counters on seperate cachelines, so you
-> still need to pad them out quite a lot. Then as they are shared, you _still_
-> need to make them atomic, and they'll still be bouncing around too.
-> 
-> Linus' idea of a per-thread 'pages_in - pages_out' counter may prove to be
-> just the right solution though.
+Hi list,
 
-I can go with either solution.  Not sure how many cpus we can group together
-before the cacheline becomes so hot that we need to fan them out.  I have
-a gut feeling it is alot.
+I was wondering if it might be possible to change arch/ia64/kernel/ivt.S
+routines that modify pte access bits, to first take a "spin lock bit" in
+the pte before any other modifications to it, and clear the lock bit when
+done?
 
-On the 2.4 kernel which SGI put together, we just changed rss to an
-atomic and ensured it was in a seperate cacheline from the locks and
-performance was more than adequate.  I realize a lot has changed since
-2.4, but the concepts are similar.
+And second question, a pte's memory doesn't ever get updated transparently
+by the hardware on ia64, does it?
 
-Just my 2 cents,
-Robin
+
+I have been helping Christoph to look at some ways to reduce page_table_lock
+locking. It appears that the ptl can be entirely removed by using per-pte
+locks, however this can only be efficient if *all* updates to the pte obey
+the lock (if not, then all accesses, and the pte-unlock have to be atomic so
+the dirty bit doesn't get lost).
+
+And my last question... I wonder if someone might be able to help me do the
+assembly for the locking in ivt.S provided it is a small job and I give the
+specification? Sorry, I have no idea about ia64 assembly :(
+
+Thanks,
+Nick
