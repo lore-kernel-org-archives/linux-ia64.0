@@ -1,50 +1,33 @@
-From: "eli" <chaos21barry@hotmail.com>
-Date: Tue, 24 Feb 2004 07:00:41 +0000
-Subject: Lose Fat, Gain Muscle with HGH!!!
-Message-Id: <1077606041-5874@excite.com>
+From: Jes Sorensen <jes@trained-monkey.org>
+Date: Mon, 09 Feb 2004 15:27:39 +0000
+Subject: [RFC] speeding up pci_unmap_sg() for SAC mappings
+Message-Id: <16423.42731.766788.360790@gargle.gargle.HOWL>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1077514777-20610@excite.com>
-In-Reply-To: <1077514777-20610@excite.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 40free.net.ph@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
+Hi,
 
-Tired of looking at your wrinkled face in the mirror as you pluck yet another grey hair and watch the pounds pile on? Is the "spark" missing from your love life? If you're over 40, chances are it is. Wouldn't you enjoy a longer, healthier and happier life? 
+I was looking at the sn2 PCI mapping code and realized how it is costing
+to do a basic pci_unmap because the code has to search a table to figure
+out which struct dmamap entry matches a given dma address. Clearly the
+sn code could be improved in terms of how it is currently implemented,
+however there is still the fundamental problem of mapping from a
+dma_addr_t to a dma-map entry which I believe all IOMMU code
+implmentations suffer from. The pretty way to clean this up would
+probably require changing the whole mapping API, however one of the most
+interesting cases is pci_unmap_sg.
 
-http://improvedpills.com/hgh/index.php?pid=eph9106
+Christoph suggested that we add an arch dependent pointer to struct
+scatterlist that we can use to short circuit the unmap process.
 
+Anyone have any strong objections to this? While it can be considered a
+bit hackerish it really should help on performance without making any
+visible changes to the end user.
 
-Human Growth Hormone can repair the physiology of the old cell, and rejuvenating the body, and reversing years of damage!
+Comments?
 
-http://improvedpills.com/hgh/index.php?pid=eph9106
-
-
-
-Human Growth Hormone (HGH) increases: 
-
-Energy 
-Weight Loss 
-Muscle Gain and Endurance  
-Increase Immune Function
-Smoother Skin - More Elasticity
-Quality of Deep Sleep 
-
-http://improvedpills.com/hgh/index.php?pid=eph9106
-
-
-
-
-
-
-
-
-
-
-
-
-
-awesome carolinajeff dodgers canela river percy norman 
-benoit magnumtoronto khan alpha1
-bach josie pookie1 
+Cheers,
+Jes
