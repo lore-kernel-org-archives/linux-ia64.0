@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Tue, 04 May 2004 23:31:26 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 04 May 2004 23:31:47 +0000
 Subject: Re: [RFC] I/O MCA recovery
-Message-Id: <20040504233126.GC3395@cup.hp.com>
+Message-Id: <16536.10211.963767.500306@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405040954.09524.jbarnes@engr.sgi.com>
 In-Reply-To: <200405040954.09524.jbarnes@engr.sgi.com>
@@ -10,15 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, May 04, 2004 at 04:17:30PM -0700, Jesse Barnes wrote:
-> That's nice (that's why I wanted a pointer to a spec--I can hand it to our hw 
-> guys who have been asking for it).
+>>>>> On Tue, 4 May 2004 16:17:30 -0700, Jesse Barnes <jbarnes@engr.sgi.com> said:
 
-Well, ask Intel. Nicely. :^)
+  Jesse> That's nice (that's why I wanted a pointer to a spec--I can
+  Jesse> hand it to our hw guys who have been asking for it).
 
-> Alex says that zx1 can soft fail on IO port accesses if configured to do so.  
+I'm not sure you'll find an explicit statement to that effect.  In my
+opinion, it's implied because the x86 IN/OUT instructions do not (and
+should not) cause MCAs.
 
-Ok. Then IO Port and MMIO accesses will by default hardfail on ZX1.
-I believe there is only one bit that can be twiddled regarding this.
-
-grant
+	--david
