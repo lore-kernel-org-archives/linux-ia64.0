@@ -1,26 +1,22 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 31 Aug 2001 00:40:57 +0000
-Subject: Re: [Linux-ia64] kernel bug in mmap
-Message-Id: <marc-linux-ia64-105590698805109@msgid-missing>
+Date: Tue, 28 Aug 2001 00:24:46 +0000
+Subject: [Linux-ia64] Re: Write Combining (Write Coalescing) on memory mapped I/O on IA64.
+Message-Id: <marc-linux-ia64-105590698805106@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805108@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805108@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 31 Aug 2001 01:05:56 +0100, Richard Hirst <rhirst@linuxcare.com> said:
+>>>>> On Sat, 25 Aug 2001 16:40:24 +0200, Steffen Persvold <sp@scali.no> said:
 
-  Richard> Hi, Attempts to mmap an empty file result in the file being
-  Richard> left busy, such that the file system cannot be unmounted.
-  Richard> Fix below.
+  Steffen> Just a repost since I didn't get any feedback. I've also
+  Steffen> copied some auhtors I found in asm/io.h. I appologize for
+  Steffen> any inconvenience, but this issue is quite important to us.
 
-Thanks for the patch.  There seem to be several other error conditions
-in do_mmap2() in which the fput() is skipped.  I'll fix those, too.
-
-Thanks,
+I didn't see anything fundamentally wrong with what you're trying to
+do, but I haven't looked at the code.  Some debugging may be called
+for.
 
 	--david
-
 
