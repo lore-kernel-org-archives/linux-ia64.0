@@ -1,7 +1,7 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Tue, 22 May 2001 21:57:40 +0000
-Subject: Re: [Linux-ia64] 2.4.4 stability on Lions
-Message-Id: <marc-linux-ia64-105590693005645@msgid-missing>
+From: "Wiegrefe, Don J" <don.j.wiegrefe@intel.com>
+Date: Tue, 22 May 2001 22:33:48 +0000
+Subject: RE: [Linux-ia64] 2.4.4 stability on Lions
+Message-Id: <marc-linux-ia64-105590693005647@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005642@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005642@msgid-missing>
@@ -9,6 +9,23 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+While it is true you should always use the latest BIOS that matches your
+processor stepping ( in this case 76 ). The solution to your problem is to
+alter your SCSI host adapter settings to operate > 4GB. If you can use the
+SCSI FastUtil the setting to change is found under host adapter settings.
+ Hope this helps. 
+ 
+ Don Wiegrefe
+ Soft Sur/ Lion Hardware/BIOS Support
+
+-----Original Message-----
+From: Michael Madore [mailto:mmadore@turbolinux.com]
+Sent: Tuesday, May 22, 2001 2:58 PM
+To: Matt_Domsch@Dell.com
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] 2.4.4 stability on Lions
+
 
 I just noticed that the machine locked up on me while sitting at the EFI
 shell prompt.  I've downloaded BIOS 76 (latest available on Quad) and I'll
@@ -47,4 +64,10 @@ Mike Madore
 Senior Software Engineer
 TurboLinux, Inc.
 (650)228-5203
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
