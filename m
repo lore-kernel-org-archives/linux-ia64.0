@@ -1,7 +1,7 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Thu, 13 Nov 2003 22:45:29 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 14 Nov 2003 13:11:43 +0000
 Subject: Re: problem in booting HP zx6000 with stock kernel 2.5.75
-Message-Id: <marc-linux-ia64-106876398802218@msgid-missing>
+Message-Id: <marc-linux-ia64-106881558014067@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106840426422921@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106840426422921@msgid-missing>
@@ -10,22 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Jesse" = Jesse Barnes <jbarnes@sgi.com> writes:
+On Fri, Nov 14, 2003 at 09:45:29AM +1100, Peter Chubb wrote:
+> >>>>> "Jesse" = Jesse Barnes <jbarnes@sgi.com> writes:
+> 
+> Jesse> On Thu, Nov 13, 2003 at 02:51:43PM +0000, Matthew Wilcox wrote:
+> >> I'd suggest we want to have defconfig as generic, then add configs/
+> 
+> Are you planning for separate SMP and UP configs?
 
-Jesse> On Thu, Nov 13, 2003 at 02:51:43PM +0000, Matthew Wilcox wrote:
->> Jesse and I discussed this yesterday.  To take advantage of the new
->> multiple-defconfigs scheme in 2.6, what we need to do is:
->> 
->> - Create files called arch/ia64/configs/*_defconfig - To use them,
->> type "make zx1_defconfig" (for example).  - Keep them up to date
->> ...
->> 
->> There's a bikeshed question about which configs to support.  I
->> think the rule is pretty simple -- if someone's willing to step up
->> and maintain the config for a platform, let's put it in.
->> 
->> I'd suggest we want to have defconfig as generic, then add configs/
+I wasn't.  These are only default configs; it's pretty straightforward
+to turn an SMP config into a UP config.  Much more simple than maintaining
+two configs which differ only in UP vs SMP.
 
-Are you planning for separate SMP and UP configs?
-
-Peetr C
+-- 
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
