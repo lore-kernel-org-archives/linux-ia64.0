@@ -1,71 +1,25 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Mon, 05 Apr 2004 17:22:42 +0000
-Subject: [PATCH] setup max dma addr earlier on hp boxes
-Message-Id: <1081185762.2277.10.camel@patsy.fc.hp.com>
+From: "Santosh Abraham" <santosha@india.hp.com>
+Date: Fri, 30 Apr 2004 11:57:27 +0000
+Subject: Cache related question
+Message-Id: <005c01c42ea8$a22c9270$e5624c0f@india.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi,
 
-   sba_iommu was setting up MAX_DMA_ADDRESS way too late to do any
-good.  This patch makes it get setup via platform_setup, so it's ready
-for paging_init().  All pages should show up in zone DMA now.  Against
-latest 2.6.  Thanks,
+I came to know recently that the itanium based processors
+do not implement the inclusion principle wrt caches ? Is
+this information correct ?
 
-	Alex
+This was a bit surprising, as I had imagined that inclusion
+would'nt be maitained perhaps only after a certain L1 cache
+size. What are the trade-offs involved ?
 
--- 
-Alex Williamson                             HP Linux & Open Source Lab
+Would there be any s/w (kernel) visible effects of not 
+implementing inclusion ?
 
-=== arch/ia64/hp/common/sba_iommu.c 1.41 vs edited ==--- 1.41/arch/ia64/hp/common/sba_iommu.c	Mon Mar 22 03:52:38 2004
-+++ edited/arch/ia64/hp/common/sba_iommu.c	Mon Apr  5 11:14:20 2004
-@@ -1732,7 +1732,6 @@
- 
- 	if ((long) ~iovp_mask > (long) ia64_max_iommu_merge_mask)
- 		ia64_max_iommu_merge_mask = ~iovp_mask;
--	MAX_DMA_ADDRESS = ~0UL;
- 
- 	printk(KERN_INFO PFX
- 		"%s %d.%d HPA 0x%lx IOVA space %dMb at 0x%lx\n",
-@@ -1965,6 +1964,18 @@
- }
- 
- subsys_initcall(sba_init); /* must be initialized after ACPI etc., but before any drivers... */
-+
-+extern void dig_setup(char**);
-+/*
-+ * MAX_DMA_ADDRESS needs to be setup prior to paging_init to do any good,
-+ * so we use the platform_setup hook to fix it up.
-+ */
-+void __init
-+sba_setup(char **cmdline_p)
-+{
-+	MAX_DMA_ADDRESS = ~0UL;
-+	dig_setup(cmdline_p);
-+}
- 
- static int __init
- nosbagart(char *str)
-=== include/asm-ia64/machvec_hpzx1.h 1.10 vs edited ==--- 1.10/include/asm-ia64/machvec_hpzx1.h	Tue Mar 23 17:28:49 2004
-+++ edited/include/asm-ia64/machvec_hpzx1.h	Mon Apr  5 11:07:18 2004
-@@ -2,6 +2,7 @@
- #define _ASM_IA64_MACHVEC_HPZX1_h
- 
- extern ia64_mv_setup_t dig_setup;
-+extern ia64_mv_setup_t			sba_setup;
- extern ia64_mv_dma_alloc_coherent	sba_alloc_coherent;
- extern ia64_mv_dma_free_coherent	sba_free_coherent;
- extern ia64_mv_dma_map_single		sba_map_single;
-@@ -19,7 +20,7 @@
-  * the macros are used directly.
-  */
- #define platform_name			"hpzx1"
--#define platform_setup			dig_setup
-+#define platform_setup			sba_setup
- #define platform_dma_init		machvec_noop
- #define platform_dma_alloc_coherent	sba_alloc_coherent
- #define platform_dma_free_coherent	sba_free_coherent
-
-
+thx,
+santosh.
