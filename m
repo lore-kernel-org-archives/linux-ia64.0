@@ -1,7 +1,7 @@
 From: Aron Griffis <aron@hp.com>
-Date: Tue, 09 Mar 2004 17:14:34 +0000
+Date: Tue, 09 Mar 2004 17:21:58 +0000
 Subject: Re: crash on SysRq : Show Memory
-Message-Id: <20040309171434.GA10141@mustard.americas.cpqcorp.net>
+Message-Id: <20040309172158.GB10141@mustard.americas.cpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040309160904.GF7569@mustard.americas.cpqcorp.net>
 In-Reply-To: <20040309160904.GF7569@mustard.americas.cpqcorp.net>
@@ -11,9 +11,12 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 Aron Griffis wrote:	[Tue Mar 09 2004, 11:09:04AM EST]
-> I'm running davidm's bk kernel, version 2.6.4-rc1, built with gcc-3.3.
-                                                                ^^^^^^^^
-Sorry, I meant gcc-3.3.3
+>  <<00>>KIenr nienlt eprarnuipct:  hAainedel,e rk i-l lniontg  siynntceirnrugp
+>  h a                                                                         t
+
+Deciphered:
+    Kernel panic: Aiee, killing interrupt
+    In interrupt handler - not syncing
 
 -- 
 Aron Griffis
