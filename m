@@ -1,60 +1,70 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 06 Oct 2004 20:48:32 +0000
+From: Colin Ngam <cngam@sgi.com>
+Date: Wed, 06 Oct 2004 20:55:59 +0000
 Subject: Re: [PATCH] 2.6 SGI Altix I/O code reorganization
-Message-Id: <20041006204832.GB26459@cup.hp.com>
+Message-Id: <41645BDE.E9732310@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com> <41644301.9EC028B3@sgi.com> <20041006195424.GF25773@cup.hp.com> <200410061327.28572.jbarnes@engr.sgi.com>
-In-Reply-To: <200410061327.28572.jbarnes@engr.sgi.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com> <41644301.9EC028B3@sgi.com> <20041006195424.GF25773@cup.hp.com> <200410061327.28572.jbarnes@engr.sgi.com> <20041006204832.GB26459@cup.hp.com> <20041006210525.GI16153@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@engr.sgi.com>
-Cc: Grant Grundler <iod00d@hp.com>, Colin Ngam <cngam@sgi.com>, Patrick Gefre <pfg@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, Matthew Wilcox <matthew@wil.cx>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: Grant Grundler <iod00d@hp.com>, Jesse Barnes <jbarnes@engr.sgi.com>, Patrick Gefre <pfg@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Wed, Oct 06, 2004 at 01:27:28PM -0700, Jesse Barnes wrote:
-> Though now what's there seems awfully redundant, wouldn't you say?
+Matthew Wilcox wrote:
 
-Yes - but we are using code which *requires* the arch define raw_pci_ops.
-See drivers/acpi/osl.c:acpi_os_initialize()
-
-#ifdef CONFIG_ACPI_PCI
-	if (!raw_pci_ops) {
-		printk(KERN_ERR PREFIX "Access to PCI configuration space unavailable\n");
-		return AE_NULL_ENTRY;
-	}
-#endif
-
-
-> Just 
-> allowing direct access to pci_root_ops is a much simpler approach and gets 
-> rid of a bunch of extra, unneeded code (i.e. closer to Pat's original 
-> version).
-
-Agreed. I'm not real clear on why drivers/acpi didn't do that.
-But apperently ACPI supports many methods to PCI or PCI-Like (can you
-guess I'm not clear on this?) config space. raw_pci_ops supports
-multiple methods in i386. ia64 only happens to use one so far.
-It seems right for SN2 to use this mechanism if it needs a different
-method.
-
-Willy tried to explain this to me yesterday and I thought I understood
-most of it...apperently that was a transient moment of clarity. :^/
-
-...
-> > Can you quote the bit of the patch which implements "if the bus does not
-> > exist" check?
-> > I can't find it.
-> 
-> In the current code it's:
-> 
->  for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
->   if (pci_bus_to_vertex(i))
->    pci_scan_bus(i, &sn_pci_ops, controller);
+> On Wed, Oct 06, 2004 at 01:48:32PM -0700, Grant Grundler wrote:
+> > Agreed. I'm not real clear on why drivers/acpi didn't do that.
+> > But apperently ACPI supports many methods to PCI or PCI-Like (can you
+> > guess I'm not clear on this?) config space. raw_pci_ops supports
+> > multiple methods in i386. ia64 only happens to use one so far.
+> > It seems right for SN2 to use this mechanism if it needs a different
+> > method.
+> >
+> > Willy tried to explain this to me yesterday and I thought I understood
+> > most of it...apperently that was a transient moment of clarity. :^/
 >
-> which causes the next loop to only fixup existing busses. But I don't see it 
-> in the new code.
+> Let's try it again, by email this time.
+>
+> Fundamentally, there is a huge impedence mismatch between how the ACPI
+> interpreter wants to access PCI configuration space, and how Linux wants
+> to access PCI configuration space.  Linux always has at least a pci_bus
+> around, if not a pci_dev.  So we can use dev->bus->ops to abstract the
+> architecture-specific implementation of "how do I get to configuration
+> space for this bus?"
+>
+> ACPI doesn't have a pci_bus.  It just passes around a struct of { domain,
+> bus, dev, function } and expects the OS-specific code to determine what
+> to do with it.  The original hacky code constructed a fake pci_dev on the
+> stack and called the regular methods.  This broke ia64 because we needed
+> something else to be valid (I forget what), so as part of the grand "get
+> ia64 fully merged upstream" effort, I redesigned the OS-specific code.
+>
+> Fortunately, neither i386 nor ia64 actually need the feature Linux has
+> to have a per-bus pci_ops -- it's always the same.  I think powerpc is
+> the only architecture that needs it.  So I introduced a pci_raw_ops that
+> both ACPI and a generic pci_root_ops could call.
+>
+> The part I didn't seem to be able to get across to you yesterday was
+> that pci_root_ops is not just used for the PCI root bridge, it's used
+> for accessing every PCI device underneath that root bridge.
 
-Ok. I'm glad it's not just me 'cuz I'm having a bad day.
+Hi Guys,
 
-thanks,
-grant
+Therefore, would it be perfectly fine if we remove the static from pci_root_ops
+so that we can use it outside of pci/pci.c??  I can include this in a follow-on
+patch.
+
+Thanks.
+
+colin
+
+>
+>
+> --
+> "Next the statesmen will invent cheap lies, putting the blame upon
+> the nation that is attacked, and every man will be glad of those
+> conscience-soothing falsities, and will diligently study them, and refuse
+> to examine any refutations of them; and thus he will by and by convince
+> himself that the war is just, and will thank God for the better sleep
+> he enjoys after this process of grotesque self-deception." -- Mark Twain
+
