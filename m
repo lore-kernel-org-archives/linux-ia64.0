@@ -1,19 +1,25 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 20 Apr 2000 06:50:20 +0000
-Subject: [Linux-ia64] forgot to mention...
-Message-Id: <marc-linux-ia64-105590678205021@msgid-missing>
+From: "Dharani Vilwanathan" <vdharani@lucent.com>
+Date: Mon, 17 Apr 2000 13:44:56 +0000
+Subject: [Linux-ia64] IA-64 system
+Message-Id: <marc-linux-ia64-105590678205016@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The full diff relative to 2.3.51 is in:
+Hi,
 
-	ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
+Can someone tell me whom I should contact in Intel to get hold of an IA-64
+system? The Intel web page does not give any details on this and I was
+trying to contact them without any clue. I am yet to get
+in touch with a person in Intel to help me out.
 
-with the name linux-2.3.51-ia64-000419.diff.bz2
+Thanks in advance.
 
-	--david
+Regards
+dharani
+
+
 
 
