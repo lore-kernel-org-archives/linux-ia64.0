@@ -1,47 +1,38 @@
-From: Neil Gorsuch <ngorsuch@ncsa.uiuc.edu>
-Date: Mon, 16 Sep 2002 17:27:47 +0000
-Subject: Re: [Linux-ia64] redhat or mandrake on HP i2000 ia64 ?
-Message-Id: <marc-linux-ia64-105590701906030@msgid-missing>
+From: Randolph Chung <randolph@tausq.org>
+Date: Tue, 03 Sep 2002 16:26:55 +0000
+Subject: [Linux-ia64] latest glibc snapshot does not build on ia64?
+Message-Id: <marc-linux-ia64-105590701906009@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701906026@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701906026@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The redhat 7.2 CD boots, gets to the point saying "loading qla1280 scsi 
-driver" , waits a while,
-then outputs:
+Haven't dug into this too much yet; wanted to see if anyone else has
+seen this?
 
-exec: permission denied
-install exited abnormally
-...
-you may safely reboot your system
+CPP='gcc-3.2 -E -x c-header'  /home/randolph/debian/glibc-package/ia64-linux/obj
+/elf/ld-linux-ia64.so.2 --library-path /home/randolph/debian/glibc-package/ia64-
+linux/obj:/home/randolph/debian/glibc-package/ia64-linux/obj/math:/home/randolph
+/debian/glibc-package/ia64-linux/obj/elf:/home/randolph/debian/glibc-package/ia6
+4-linux/obj/dlfcn:/home/randolph/debian/glibc-package/ia64-linux/obj/nss:/home/r
+andolph/debian/glibc-package/ia64-linux/obj/nis:/home/randolph/debian/glibc-pack
+age/ia64-linux/obj/rt:/home/randolph/debian/glibc-package/ia64-linux/obj/resolv:
+/home/randolph/debian/glibc-package/ia64-linux/obj/crypt:/home/randolph/debian/g
+libc-package/ia64-linux/obj/linuxthreads /home/randolph/debian/glibc-package/ia6
+4-linux/obj/sunrpc/rpcgen -Y ../scripts -c rpcsvc/bootparam_prot.x -o /home/rand
+olph/debian/glibc-package/ia64-linux/obj/sunrpc/xbootparam_prot.T
+.././scripts/mkinstalldirs /home/randolph/debian/glibc-package/ia64-linux/obj/su
+nrpc/rpcsvc
+Inconsistency detected by ld.so: ../sysdeps/ia64/dl-machine.h: 591: elf_machine_
+rela: Assertion `! "unexpected dynamic reloc format"' failed!
 
-At 01:14 PM 9/12/2002 -0700, Joe Griffin wrote:
->Hi Neil,
->
->I have loaded RH 7.1, 7.2 and mandrake (can't recall which version of mdrk)
->on HP i2000 systems.  They are all B3.  (My RH 7.1 used a boot floppy, but
->the 7.2 came from the CD.
->
->What kind of error are you getting?
->
->Joe
->
->Neil Gorsuch wrote:
->
->>I have the official redhat 7.2 ia64 CD set, tried installing on an HP 
->>i2000 machine and it didn't get very far (couldn't even load the kernel 
->>off the CD using elilo). Has anyone installed redhat or mandrake on HP 
->>i2000 machines?
->>
->>_______________________________________________
->>Linux-IA64 mailing list
->>Linux-IA64@linuxia64.org
->>http://lists.linuxia64.org/lists/listinfo/linux-ia64
->>
->
+this is while building glibc 2.2.93 with gcc-3.2.1 (20020830) and binutils
+2.13.90.0.4 20020814
 
+randolph
+--  
+Randolph Chung
+Debian GNU/Linux Developer, hppa/ia64 ports
+http://www.tausq.org/
 
