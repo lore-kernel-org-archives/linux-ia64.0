@@ -1,16 +1,30 @@
 From: Steffen Persvold <sp@scali.no>
-Date: Sun, 12 Aug 2001 10:49:49 +0000
+Date: Sat, 25 Aug 2001 14:40:24 +0000
 Subject: [Linux-ia64] Write Combining (Write Coalescing) on memory mapped I/O on IA64.
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------A8EF1264F1A4B7B91E5A9A57"
-Message-Id: <marc-linux-ia64-105590698805062@msgid-missing>
+Content-Type: multipart/mixed; boundary="------------521E6C0A23855329F2532E78"
+Message-Id: <marc-linux-ia64-105590698805104@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805062@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805062@msgid-missing>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------A8EF1264F1A4B7B91E5A9A57
+--------------521E6C0A23855329F2532E78
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+
+Just a repost since I didn't get any feedback. I've also copied some auhtors I
+found in asm/io.h. I appologize for any inconvenience, but this issue is quite
+important to us.
+
+Regards,
+-- 
+  Steffen Persvold               Systems Engineer
+  Email : mailto:sp@scali.no     Scali AS (http://www.scali.com)
+  Tlf   : (+47) 22 62 89 50      Olaf Helsets vei 6
+  Fax   : (+47) 22 62 89 51      N-0621 Oslo, Norway
+
 
 Hi,
 
@@ -60,7 +74,7 @@ Thanks,
   Email : mailto:sp@scali.no     Scali AS (http://www.scali.com)
   Tlf   : (+47) 22 62 89 50      Olaf Helsets vei 6
   Fax   : (+47) 22 62 89 51      N-0621 Oslo, Norway
---------------A8EF1264F1A4B7B91E5A9A57
+--------------521E6C0A23855329F2532E78
 Content-Type: text/plain; charset=us-ascii;
  name="ia64-ioremap.patch"
 Content-Transfer-Encoding: 7bit
@@ -252,6 +266,7 @@ Content-Disposition: inline;
  
  /*
 
---------------A8EF1264F1A4B7B91E5A9A57--
+
+--------------521E6C0A23855329F2532E78--
 
 
