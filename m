@@ -1,116 +1,33 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Thu, 24 Mar 2005 22:57:47 +0000
-Subject: [PATCH] use common pxm function
-Message-Id: <1111705067.8284.14.camel@tdi>
+From: Mark Maule <maule@sgi.com>
+Date: Wed, 16 Mar 2005 22:48:59 +0000
+Subject: [PATCH 2.6.12 1/1] altix: disable TIOCA GART TLB prefetching
+Message-Id: <20050316224859.11870.56864.89665@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Patch to disable SGI TIOCA GART TLB prefetching due to hw bug.
 
-   That patch below simplifies a couple places where we search for _PXM
-values in ACPI namespace.  Thanks,
+Signed-off-by: Mark Maule <maule@sgi.com>
 
-	Alex
-
--- 
-Signed-off-by: Alex Williamson <alex.williamson@hp.com>
-
-=== arch/ia64/hp/common/sba_iommu.c 1.51 vs edited ==--- 1.51/arch/ia64/hp/common/sba_iommu.c	2005-03-11 11:57:59 -07:00
-+++ edited/arch/ia64/hp/common/sba_iommu.c	2005-03-24 14:35:28 -07:00
-@@ -1928,43 +1928,17 @@
- static void __init
- sba_map_ioc_to_node(struct ioc *ioc, acpi_handle handle)
- {
--	struct acpi_buffer buffer = {ACPI_ALLOCATE_BUFFER, NULL};
--	union acpi_object *obj;
--	acpi_handle phandle;
- 	unsigned int node;
-+	int pxm;
+=== arch/ia64/sn/pci/tioca_provider.c 1.1 vs 1.2 ==--- 1.1/arch/ia64/sn/pci/tioca_provider.c	2005-03-10 16:33:04 -06:00
++++ 1.2/arch/ia64/sn/pci/tioca_provider.c	2005-03-16 16:28:48 -06:00
+@@ -171,15 +171,15 @@
+ 	 *      use agp op-combining
+ 	 *      use GET semantics to fetch memory
+ 	 *      participate in coherency domain
+-	 *      prefetch TLB entries
++	 * 	DISABLE GART PREFETCHING due to hw bug tracked in SGI PV930029
+ 	 */
  
- 	ioc->node = MAX_NUMNODES;
- 
--	/*
--	 * Check for a _PXM on this node first.  We don't typically see
--	 * one here, so we'll end up getting it from the parent.
--	 */
--	if (ACPI_FAILURE(acpi_evaluate_object(handle, "_PXM", NULL, &buffer))) {
--		if (ACPI_FAILURE(acpi_get_parent(handle, &phandle)))
--			return;
-+	pxm = acpi_get_pxm(handle);
- 
--		/* Reset the acpi buffer */
--		buffer.length = ACPI_ALLOCATE_BUFFER;
--		buffer.pointer = NULL;
--
--		if (ACPI_FAILURE(acpi_evaluate_object(phandle, "_PXM", NULL,
--		                                      &buffer)))
--			return;
--	}
--
--	if (!buffer.length || !buffer.pointer)
--		return;
--
--	obj = buffer.pointer;
--
--	if (obj->type != ACPI_TYPE_INTEGER ||
--	    obj->integer.value >= MAX_PXM_DOMAINS) {
--		acpi_os_free(buffer.pointer);
-+	if (pxm < 0)
- 		return;
--	}
- 
--	node = pxm_to_nid_map[obj->integer.value];
--	acpi_os_free(buffer.pointer);
-+	node = pxm_to_nid_map[pxm];
- 
- 	if (node >= MAX_NUMNODES || !node_online(node))
- 		return;
-=== arch/ia64/kernel/acpi.c 1.83 vs edited ==--- 1.83/arch/ia64/kernel/acpi.c	2005-01-10 14:55:30 -07:00
-+++ edited/arch/ia64/kernel/acpi.c	2005-03-24 14:35:35 -07:00
-@@ -779,7 +779,7 @@
- 	union acpi_object *obj;
- 	struct acpi_table_iosapic *iosapic;
- 	unsigned int gsi_base;
--	int node;
-+	int pxm, node;
- 
- 	/* Only care about objects w/ a method that returns the MADT */
- 	if (ACPI_FAILURE(acpi_evaluate_object(handle, "_MAT", NULL, &buffer)))
-@@ -805,29 +805,16 @@
- 	gsi_base = iosapic->global_irq_base;
- 
- 	acpi_os_free(buffer.pointer);
--	buffer.length = ACPI_ALLOCATE_BUFFER;
--	buffer.pointer = NULL;
+ 	ca_base->ca_control1 |= CA_AGPDMA_OP_ENB_COMBDELAY;	/* PV895469 ? */
+ 	ca_base->ca_control2 &= ~(CA_GART_MEM_PARAM);
+ 	ca_base->ca_control2 |= (0x2ull << CA_GART_MEM_PARAM_SHFT);
+ 	tioca_kern->ca_gart_iscoherent = 1;
+-	ca_base->ca_control2 |-	    (CA_GART_WR_PREFETCH_ENB | CA_GART_RD_PREFETCH_ENB);
++	ca_base->ca_control2 &+	    ~(CA_GART_WR_PREFETCH_ENB | CA_GART_RD_PREFETCH_ENB);
  
  	/*
--	 * OK, it's an IOSAPIC MADT entry, look for a _PXM method to tell
-+	 * OK, it's an IOSAPIC MADT entry, look for a _PXM value to tell
- 	 * us which node to associate this with.
- 	 */
--	if (ACPI_FAILURE(acpi_evaluate_object(handle, "_PXM", NULL, &buffer)))
-+	pxm = acpi_get_pxm(handle);
-+	if (pxm < 0)
- 		return AE_OK;
- 
--	if (!buffer.length || !buffer.pointer)
--		return AE_OK;
--
--	obj = buffer.pointer;
--
--	if (obj->type != ACPI_TYPE_INTEGER ||
--	    obj->integer.value >= MAX_PXM_DOMAINS) {
--		acpi_os_free(buffer.pointer);
--		return AE_OK;
--	}
--
--	node = pxm_to_nid_map[obj->integer.value];
--	acpi_os_free(buffer.pointer);
-+	node = pxm_to_nid_map[pxm];
- 
- 	if (node >= MAX_NUMNODES || !node_online(node) ||
- 	    cpus_empty(node_to_cpumask(node)))
-
-
+ 	 * Unmask GART fetch error interrupts.  Clear residual errors first.
