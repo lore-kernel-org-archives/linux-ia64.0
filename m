@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 11 Feb 2004 20:02:01 +0000
-Subject: Re: Query regarding Itanium (Mapping of register values)
-Message-Id: <16426.35385.82820.511412@napali.hpl.hp.com>
+From: "Kotian, Deepak" <Deepak.Kotian@patni.com>
+Date: Thu, 12 Feb 2004 03:53:09 +0000
+Subject: RE: Query regarding Itanium (Mapping of register values)
+Message-Id: <374639AB1012AA4C840022842AA95BC2013AE5DE@ruby.patni.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <374639AB1012AA4C840022842AA95BC20138E3FC@ruby.patni.com>
 In-Reply-To: <374639AB1012AA4C840022842AA95BC20138E3FC@ruby.patni.com>
@@ -9,6 +9,24 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Thanks David,
+gdb uses gregset structure, could you please
+provide a link in gdb source, because we 
+need something like gdb core analysis.
+
+Thanks and Regards
+Deepak
+
+
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
+Sent: Thursday, February 12, 2004 1:32 AM
+To: Kotian, Deepak
+Cc: linux-ia64@vger.kernel.org
+Subject: Re: Query regarding Itanium (Mapping of register values)
+
 
 Deepak,
 
