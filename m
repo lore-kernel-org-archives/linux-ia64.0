@@ -1,106 +1,32 @@
-From: Pat Gefre <pfg@sgi.com>
-Date: Wed, 10 Mar 2004 15:17:12 +0000
-Subject: [2.6 PATCH] Altix affinity fix
-Message-Id: <200403101517.i2AFHCfZ084981@fsgi900.americas.sgi.com>
+From: <dhruv.anand@wipro.com>
+Date: Mon, 01 Mar 2004 14:54:50 +0000
+Subject: Boot param 'mem' with relocated kernel.
+Message-Id: <CC7A2BA2F1CA9E43B2B62C4783B42C7BE2E7D5@blr-ec-msg05.wipro.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davidm@napali.hpl.hp.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
+Hi, 
 
-Fix for affinity bug.
+I am trying to load 2.6.1 kernel at 1MB. The  kernel size is 3.6M. 
+The page granularity is set to 16Mb for the kernel.  I need to restrict
+the memory usage of this kernel. I am trying to do this by using the 
+"mem=XXXM" boot parameter. This does not work, and results in a kernel 
+panic with the message "Killing idle task" and another panic with
+message 
+"killing interrupt handler".
 
+The same works fine for a normal kernel(without relocation).
 
--- Pat
+As an alternative, I tried restricting memory by calling the
+reserve_bootmem()
+function. This works fine.
 
-Patrick Gefre
-Silicon Graphics, Inc.                     (E-Mail)  pfg@sgi.com
-2750 Blue Water Rd                         (Voice)   (651) 683-3127
-Eagan, MN 55121-1400                       (FAX)     (651) 683-3054
+Is there any dependency of the 'mem' parameter on a relocated kernel?
+Have I missed out something ? 
 
+Regards
+Dhruv.
 
-
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1694  -> 1.1695 
-#	arch/ia64/sn/kernel/irq.c	1.20    -> 1.21   
-#	arch/ia64/sn/io/sn2/shub_intr.c	1.9     -> 1.10   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/03/08	pfg@sgi.com	1.1695
-# arch/ia64/sn/io/sn2/shub_intr.c
-#     Use the proper calling args for the pcireg_ functions
-# arch/ia64/sn/kernel/irq.c
-#     Use the cpu mask as an input arg rather than the cpu ID
-#     Discard the redirect bit if set.
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/sn/io/sn2/shub_intr.c b/arch/ia64/sn/io/sn2/shub_intr.c
---- a/arch/ia64/sn/io/sn2/shub_intr.c	Mon Mar  8 17:48:39 2004
-+++ b/arch/ia64/sn/io/sn2/shub_intr.c	Mon Mar  8 17:48:39 2004
-@@ -200,7 +200,6 @@
- 	int cpuphys, slice;
- 	nasid_t nasid;
- 	unsigned long xtalk_addr;
--	void		*bridge = intr->bi_soft->bs_base;
- 	int		irq;
- 	int		i;
- 	int		old_cpu;
-@@ -237,13 +236,13 @@
- 	for (bit = 0; bit < 8; bit++) {
- 		if (intr->bi_ibits & (1 << bit) ) {
- 			/* Disable interrupts. */
--			pcireg_intr_enable_bit_clr(bridge, bit);
-+			pcireg_intr_enable_bit_clr(intr->bi_soft, bit);
- 			/* Reset Host address (Interrupt destination) */
--			pcireg_intr_addr_addr_set(bridge, bit, xtalk_addr);
-+			pcireg_intr_addr_addr_set(intr->bi_soft, bit, xtalk_addr);
- 			/* Enable interrupt */
--			pcireg_intr_enable_bit_set(bridge, bit);
-+			pcireg_intr_enable_bit_set(intr->bi_soft, bit);
- 			/* Force an interrupt, just in case. */
--			pcireg_force_intr_set(bridge, bit);
-+			pcireg_force_intr_set(intr->bi_soft, bit);
- 		}
- 	}
- 	irq = intr->bi_irq;
-diff -Nru a/arch/ia64/sn/kernel/irq.c b/arch/ia64/sn/kernel/irq.c
---- a/arch/ia64/sn/kernel/irq.c	Mon Mar  8 17:48:39 2004
-+++ b/arch/ia64/sn/kernel/irq.c	Mon Mar  8 17:48:39 2004
-@@ -15,6 +15,7 @@
- #include <linux/interrupt.h>
- #include <linux/slab.h>
- #include <linux/bootmem.h>
-+#include <linux/cpumask.h>
- #include <asm/page.h>
- #include <asm/pgtable.h>
- #include <asm/sn/sgi.h>
-@@ -118,10 +119,11 @@
- }
- 
- static void
--sn_set_affinity_irq(unsigned int irq, unsigned long cpu)
-+sn_set_affinity_irq(unsigned int irq, cpumask_t mask)
- {
- #ifdef CONFIG_SMP
- 	int redir = 0;
-+	int cpu;
- 	struct sn_intr_list_t *p = sn_intr_list[irq];
- 	pcibr_intr_t intr;
- 	extern void sn_shub_redirect_intr(pcibr_intr_t intr, unsigned long cpu);
-@@ -135,7 +137,9 @@
- 	if (intr = NULL)
- 		return; 
- 
-+	cpu = first_cpu(mask);
- 	sn_shub_redirect_intr(intr, cpu);
-+	irq = irq & 0xff;  /* strip off redirect bit, if someone stuck it on. */
- 	(void) set_irq_affinity_info(irq, cpu_physical_id(intr->bi_cpu), redir);
- #endif /* CONFIG_SMP */
- }
