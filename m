@@ -1,56 +1,45 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Wed, 06 Oct 2004 21:05:25 +0000
+From: Patrick Gefre <pfg@sgi.com>
+Date: Thu, 07 Oct 2004 15:02:41 +0000
 Subject: Re: [PATCH] 2.6 SGI Altix I/O code reorganization
-Message-Id: <20041006210525.GI16153@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <41655A91.1010307@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com> <41644301.9EC028B3@sgi.com> <20041006195424.GF25773@cup.hp.com> <200410061327.28572.jbarnes@engr.sgi.com> <20041006204832.GB26459@cup.hp.com>
-In-Reply-To: <20041006204832.GB26459@cup.hp.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com> <20041006195424.GF25773@cup.hp.com> <41645150.6020608@sgi.com> <200410061344.38265.jbarnes@engr.sgi.com>
+In-Reply-To: <200410061344.38265.jbarnes@engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Jesse Barnes <jbarnes@engr.sgi.com>, Colin Ngam <cngam@sgi.com>, Patrick Gefre <pfg@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, Matthew Wilcox <matthew@wil.cx>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Jesse Barnes <jbarnes@engr.sgi.com>
+Cc: Grant Grundler <iod00d@hp.com>, Colin Ngam <cngam@sgi.com>, "Luck, Tony" <tony.luck@intel.com>, Matthew Wilcox <matthew@wil.cx>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Wed, Oct 06, 2004 at 01:48:32PM -0700, Grant Grundler wrote:
-> Agreed. I'm not real clear on why drivers/acpi didn't do that.
-> But apperently ACPI supports many methods to PCI or PCI-Like (can you
-> guess I'm not clear on this?) config space. raw_pci_ops supports
-> multiple methods in i386. ia64 only happens to use one so far.
-> It seems right for SN2 to use this mechanism if it needs a different
-> method.
+Jesse Barnes wrote:
+> On Wednesday, October 6, 2004 1:10 pm, Patrick Gefre wrote:
 > 
-> Willy tried to explain this to me yesterday and I thought I understood
-> most of it...apperently that was a transient moment of clarity. :^/
+>>I don't plan on respinning the large patches (unless of course they get out
+>>of date). It would be great to get the kill, add and qla patch in so we can
+>>move forward and address some these other smaller issues - rather than
+>>holding up the larger mods for them.
+> 
+> 
+> I agree, but could you please just 'vi' the 002-add-files patch and remove 
+> these?
+> 
+>  drivers/char/mmtimer.c                          |    1
+>  drivers/char/snsc.c                             |   25
+>  drivers/ide/pci/sgiioc4.c                       |   23
+>  drivers/serial/sn_console.c                     |  214
+> 
+> They should each be separate cleanup patches.  What I've done in the past is 
+> make copies (in this case 5) of the big patch.  Then I edit all of them to 
+> include only the hunks I want there.  Hopefully that'll minimize the pain of 
+> respinning the big patch (i.e. no respin).  Also, Tony doesn't want to deal 
+> with the above files, patches for them should be sent to Andrew as separate 
+> mails with lkml in the cc list.
+> 
 
-Let's try it again, by email this time.
+These are not cleanup.
 
-Fundamentally, there is a huge impedence mismatch between how the ACPI
-interpreter wants to access PCI configuration space, and how Linux wants
-to access PCI configuration space.  Linux always has at least a pci_bus
-around, if not a pci_dev.  So we can use dev->bus->ops to abstract the
-architecture-specific implementation of "how do I get to configuration
-space for this bus?"
+The mmtimer code and sn_console include a file that doesn't exist anymore in the directory included 
+- it's moved to somewhere else in the 002 patch.
 
-ACPI doesn't have a pci_bus.  It just passes around a struct of { domain,
-bus, dev, function } and expects the OS-specific code to determine what
-to do with it.  The original hacky code constructed a fake pci_dev on the
-stack and called the regular methods.  This broke ia64 because we needed
-something else to be valid (I forget what), so as part of the grand "get
-ia64 fully merged upstream" effort, I redesigned the OS-specific code.
+snsc.c, sgiioc4.c have changes for things that won't exist after this patch is applied.
 
-Fortunately, neither i386 nor ia64 actually need the feature Linux has
-to have a per-bus pci_ops -- it's always the same.  I think powerpc is
-the only architecture that needs it.  So I introduced a pci_raw_ops that
-both ACPI and a generic pci_root_ops could call.
-
-The part I didn't seem to be able to get across to you yesterday was
-that pci_root_ops is not just used for the PCI root bridge, it's used
-for accessing every PCI device underneath that root bridge.
-
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
