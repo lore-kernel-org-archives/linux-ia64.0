@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 06 Jan 2005 18:28:19 +0000
-Subject: RE: [patch] per cpu MCA/INIT fixes.
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02A674DA@scsmsx401.amr.corp.intel.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Thu, 06 Jan 2005 18:36:04 +0000
+Subject: Re: [patch] per cpu MCA/INIT fixes.
+Message-Id: <200501061036.04379.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200501060308.j0638M7s194286@ben.americas.sgi.com>
 In-Reply-To: <200501060308.j0638M7s194286@ben.americas.sgi.com>
@@ -10,23 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->The above will probably conflict with Jack's recent change to 
->stagger the per-node structures by one cacheline.  You may have to rediff 
->against one of Tony's test trees.
-
-I just applied and pushed Jack's patch to the test-2.6.11 tree, Russ, can
-you fix up your patch to apply cleanly on top of Jack's.
-
->> +#ifdef CONFIG_SMP
->> +#include <asm/mca.h>
->> +#endif
+On Thursday, January 6, 2005 10:21 am, Russ Anderson wrote:
+> Yea, I wasn't quite sure what to do about that.  Jack's change had not
+> been accepted, so I didn't want to make my change dependent on it.
+> His change is only two lines, so it's easy to change my patch if needed.
 >
->Just a nit, header files should always be safe to include 
->unconditionally.  If they're not, the headers need fixing (barring out of tree 
->stuff like kdb of course).
+> FWIW, the lines don't conflict and my patch applies correctly on top of
+> Jack's change.
+>
+> patching file arch/ia64/mm/discontig.c
+> Hunk #1 succeeded at 350 (offset 2 lines).
+> Hunk #2 succeeded at 370 (offset 2 lines).
 
-Agreed ... this looks really ugly ... surely we want to support MCA
-on uni-processors as well as SMP!  What's the issue that provoked
-adding the #ifdef here?
+Oh, ok, that looks good then.  I guess you just need to fix the #ifdef around 
+#include <asm/mca.h> then.
 
--Tony
+Thanks,
+Jesse
