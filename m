@@ -1,124 +1,101 @@
-From: Bruce Losure <blosure@americas.sgi.com>
-Date: Mon, 25 Apr 2005 18:41:20 +0000
-Subject: [PATCH 2.6.12] Altix patch to add bricktype knowledge to tiocx bus
-Message-Id: <Pine.LNX.4.44.0504251338170.8952-100000@fsgi025.americas.sgi.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Tue, 05 Apr 2005 23:06:37 +0000
+Subject: [patch] MCA recovery improvements
+Message-Id: <200504052306.j35N6bvW8985157@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+Jack Steiner uncovered some opportunities for improvement in
+the MCA recovery code.
 
-Tony,
+  1) Set bsp to save registers on the kernel stack.
+  2) Disable interrupts while in the MCA recovery code.
+  3) Change the way the user process is killed, to avoid=20
+     a panic in schedule.
 
-Here is a patch to enable the SGI tiocx bus driver to distingush between
-FPGA-attached h/w and non-FPGA-attached h/w.
+Testing shows that these changes make the recovery code much=20
+more reliable with the 2.6.12 kernel.
 
-Thanks,
+Signed-off-by: Russ Anderson <rja@sgi.com>
 
-Signed-off-by: Bruce Losure <blosure@sgi.com>
-
-Index: athena-test-2.6.12/include/asm-ia64/sn/l1.h
-=================================--- athena-test-2.6.12.orig/include/asm-ia64/sn/l1.h	2005-04-08 07:52:20.870806177 -0500
-+++ athena-test-2.6.12/include/asm-ia64/sn/l1.h	2005-04-25 08:11:24.551131538 -0500
-@@ -29,8 +29,9 @@
- #define L1_BRICKTYPE_CHI_CG     0x76            /* v */
- #define L1_BRICKTYPE_X          0x78            /* x */
- #define L1_BRICKTYPE_X2         0x79            /* y */
--#define L1_BRICKTYPE_SA		0x5e            /* ^ */ /* TIO bringup brick */
-+#define L1_BRICKTYPE_SA		0x5e            /* ^ */
- #define L1_BRICKTYPE_PA		0x6a            /* j */
- #define L1_BRICKTYPE_IA		0x6b            /* k */
-+#define L1_BRICKTYPE_ATHENA	0x2b            /* + */
- 
- #endif /* _ASM_IA64_SN_L1_H */
-Index: athena-test-2.6.12/arch/ia64/sn/kernel/tiocx.c
-=================================--- athena-test-2.6.12.orig/arch/ia64/sn/kernel/tiocx.c	2005-04-25 07:58:07.584410880 -0500
-+++ athena-test-2.6.12/arch/ia64/sn/kernel/tiocx.c	2005-04-25 08:18:44.712258170 -0500
-@@ -21,6 +21,8 @@
- #include <asm/sn/types.h>
- #include <asm/sn/shubio.h>
- #include <asm/sn/tiocx.h>
-+#include <asm/sn/l1.h>
-+#include <asm/sn/module.h>
- #include "tio.h"
- #include "xtalk/xwidgetdev.h"
- #include "xtalk/hubdev.h"
-@@ -308,14 +310,12 @@
- 	}
+---------------------------------------------------------------------------=
+---------
+Index: linux/arch/ia64/kernel/mca_drv.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/mca_drv.c	2005-04-0=
+1 13:28:21.897191890 -0600
++++ linux/arch/ia64/kernel/mca_drv.c	2005-04-01 13:29:48.547634088 -0600
+@@ -132,8 +132,7 @@
+ 	spin_unlock(&mca_bh_lock);
+=20
+ 	/* This process is about to be killed itself */
+-	force_sig(SIGKILL, current);
+-	schedule();
++	do_exit(SIGKILL);
  }
- 
--uint64_t
--tiocx_dma_addr(uint64_t addr)
-+uint64_t tiocx_dma_addr(uint64_t addr)
- {
- 	return PHYS_TO_TIODMA(addr);
- }
- 
--uint64_t
--tiocx_swin_base(int nasid)
-+uint64_t tiocx_swin_base(int nasid)
- {
- 	return TIO_SWIN_BASE(nasid, TIOCX_CORELET);
- }
-@@ -366,7 +366,29 @@
- 	udelay(2000);
- }
- 
--static int fpga_attached(nasid_t nasid)
-+static int tiocx_btchar_get(int nasid)
-+{
-+	moduleid_t module_id;
-+	geoid_t geoid;
-+	int cnodeid;
-+
-+	cnodeid = nasid_to_cnodeid(nasid);
-+	geoid = cnodeid_get_geoid(cnodeid);
-+	module_id = geo_module(geoid);
-+	return MODULE_GET_BTCHAR(module_id);
-+}
-+
-+static int is_fpga_brick(int nasid)
-+{
-+	switch (tiocx_btchar_get(nasid)) {
-+	case L1_BRICKTYPE_SA:
-+	case L1_BRICKTYPE_ATHENA:
-+		return 1;
-+	}
-+	return 0;
-+}
-+
-+static int bitstream_loaded(nasid_t nasid)
- {
- 	uint64_t cx_credits;
- 
-@@ -383,7 +405,7 @@
- 	int mfg_num = CX_DEV_NONE;
- 	nasid_t nasid = cx_dev->cx_id.nasid;
- 
--	if (fpga_attached(nasid)) {
-+	if (bitstream_loaded(nasid)) {
- 		uint64_t cx_id;
- 
- 		cx_id @@ -414,9 +436,10 @@
- {
- 	struct cx_dev *cx_dev = to_cx_dev(dev);
- 
--	return sprintf(buf, "0x%x 0x%x 0x%x\n",
-+	return sprintf(buf, "0x%x 0x%x 0x%x %d\n",
- 		       cx_dev->cx_id.nasid,
--		       cx_dev->cx_id.part_num, cx_dev->cx_id.mfg_num);
-+		       cx_dev->cx_id.part_num, cx_dev->cx_id.mfg_num,
-+		       tiocx_btchar_get(cx_dev->cx_id.nasid));
- }
- 
- static ssize_t store_cxdev_control(struct device *dev, const char *buf,
-@@ -462,7 +485,7 @@
- 		if ((nasid = cnodeid_to_nasid(cnodeid)) < 0)
- 			break;	/* No more nasids .. bail out of loop */
- 
--		if (nasid & 0x1) {	/* TIO's are always odd */
-+		if ((nasid & 0x1) && is_fpga_brick(nasid)) {
- 			struct hubdev_info *hubdev;
- 			struct xwidget_info *widgetp;
-
+=20
+ /**
+@@ -439,6 +438,7 @@
+ 			psr2 =3D (struct ia64_psr *)&pmsa->pmsa_ipsr;
+ 			psr2->cpl =3D 0;
+ 			psr2->ri  =3D 0;
++			psr2->i  =3D 0;
+=20
+ 			return 1;
+ 		}
+Index: linux/arch/ia64/kernel/mca_drv_asm.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/mca_drv_asm.S	2005-=
+04-01 13:28:15.696086223 -0600
++++ linux/arch/ia64/kernel/mca_drv_asm.S	2005-04-01 14:31:24.275077908 -0600
+@@ -10,6 +10,7 @@
+=20
+ #include <asm/asmmacro.h>
+ #include <asm/processor.h>
++#include <asm/ptrace.h>
+=20
+ GLOBAL_ENTRY(mca_handler_bhhook)
+ 	invala						// clear RSE ?
+@@ -20,12 +21,21 @@
+ 	;;					=09
+ 	alloc		r16=3Dar.pfs,0,2,1,0		// make a new frame
+ 	;;
++	mov		ar.rsc=3D0
++	;;
+ 	mov		r13=3DIA64_KR(CURRENT)		// current task pointer
+ 	;;
+-	adds		r12=3DIA64_TASK_THREAD_KSP_OFFSET,r13
++	mov		r2=3Dr13
++	;;
++	addl		r22=3DIA64_RBS_OFFSET,r2
++	;;
++	mov		ar.bspstore=3Dr22
+ 	;;
+-	ld8		r12=3D[r12]			// stack pointer
++	addl		sp=3DIA64_STK_OFFSET-IA64_PT_REGS_SIZE,r2
+ 	;;
++	adds		r2=3DIA64_TASK_THREAD_ON_USTACK_OFFSET,r13
++	;;
++	st1		[r2]=3Dr0				// clear current->thread.on_ustack flag
+ 	mov		loc0=3Dr16
+ 	movl		loc1=3Dmca_handler_bh		// recovery C function
+ 	;;
+@@ -34,7 +44,9 @@
+ 	;;
+ 	mov		loc1=3Drp
+ 	;;
+-	br.call.sptk.many    rp=B6			// not return ...
++	ssm		psr.i
++	;;
++	br.call.sptk.many    rp=B6			// does not return ...
+ 	;;
+ 	mov		ar.pfs=3Dloc0
+ 	mov 		rp=3Dloc1
+---------------------------------------------------------------------------=
+---------
+--=20
+Russ Anderson, OS RAS/Partitioning Project Lead =20
+SGI - Silicon Graphics Inc          rja@sgi.com
