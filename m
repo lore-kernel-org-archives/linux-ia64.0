@@ -1,130 +1,83 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 19 Jan 2005 04:54:18 +0000
-Subject: [patch] cleanup C uage of global/root-function predicates
-Message-Id: <16877.59386.135421.212523@napali.hpl.hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 28 Jan 2005 20:38:18 +0000
+Subject: page fault scalability patch V16 [4/4]: Drop page_table_lock in
+Message-Id: <Pine.LNX.4.58.0501281237440.19266@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <41E5B7AD.40304@yahoo.com.au> <Pine.LNX.4.58.0501121552170.12669@schroedinger.engr.sgi.com>
+ <41E5BC60.3090309@yahoo.com.au> <Pine.LNX.4.58.0501121611590.12872@schroedinger.engr.sgi.com>
+ <20050113031807.GA97340@muc.de> <Pine.LNX.4.58.0501130907050.18742@schroedinger.engr.sgi.com>
+ <20050113180205.GA17600@muc.de> <Pine.LNX.4.58.0501131701150.21743@schroedinger.engr.sgi.com>
+ <20050114043944.GB41559@muc.de> <Pine.LNX.4.58.0501140838240.27382@schroedinger.engr.sgi.com>
+ <20050114170140.GB4634@muc.de> <Pine.LNX.4.58.0501281233560.19266@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0501281233560.19266@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andi Kleen <ak@muc.de>
+Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Andrew Morton <akpm@osdl.org>, torvalds@osdl.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 
-The patch below is purely a cleanup but it's a prerequisite for the
-next bug fix patch.
+Do not use the page_table_lock in do_anonymous_page. This will significantly
+increase the parallelism in the page fault handler in SMP systems. The patch
+also modifies the definitions of _mm_counter functions so that rss and anon_rss
+become atomic.
 
-	--david
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+Index: linux-2.6.10/mm/memory.c
+=================================--- linux-2.6.10.orig/mm/memory.c	2005-01-27 16:39:24.000000000 -0800
++++ linux-2.6.10/mm/memory.c	2005-01-27 16:39:24.000000000 -0800
+@@ -1839,12 +1839,12 @@ do_anonymous_page(struct mm_struct *mm,
+ 						 vma->vm_page_prot)),
+ 			      vma);
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/01/18 20:48:49-08:00 davidm@tiger.hpl.hp.com 
-#   ia64: Cleanup C usage of global/root-function predicates.
-# 
-# arch/ia64/kernel/unwind.c
-#   2005/01/18 20:41:58-08:00 davidm@tiger.hpl.hp.com +1 -3
-#   (p5): Delete this macro.
-#   (unw_unwind): Replace pNonSys with PRED_NON_SYSCALL.
-# 
-# arch/ia64/kernel/ptrace.c
-#   2005/01/18 20:41:57-08:00 davidm@tiger.hpl.hp.com +2 -5
-#   (p4): Delete this macro.
-#   (p5): Likewise.
-#   (convert_to_non_syscall): Replace pSys with (1UL << PRED_SYSCALL) and
-#   	pNonSys with (1UL << PRED_NON_SYSCALL).
-# 
-# arch/ia64/kernel/entry.h
-#   2005/01/18 20:41:57-08:00 davidm@tiger.hpl.hp.com +18 -7
-#   (PRED_LEAVE_SYSCALL): New macro.
-#   (PRED_KERNEL_STACK): Likewise.
-#   (PRED_USER_STACK): Likewise.
-#   (PRED_SYSCALL): Likewise.
-#   (PRED_NON_SYSCALL): Likewise.
-#   (PASTE2): Likewise.
-#   (PASTE): Likewise.
-#   (pLvSys): Define based on PRED_LEAVE_SYSCALL.
-#   (pKStk): Define based on PRED_KERNEL_STACK.
-#   (pUStk): Define based on PRED_USER_STACK.
-#   (pSys): Define based on PRED_SYSCALL.
-#   (pNonSys): Define based on PRED_NON_SYSCALL.
-# 
-diff -Nru a/arch/ia64/kernel/entry.h b/arch/ia64/kernel/entry.h
---- a/arch/ia64/kernel/entry.h	2005-01-18 20:52:16 -08:00
-+++ b/arch/ia64/kernel/entry.h	2005-01-18 20:52:16 -08:00
-@@ -1,14 +1,25 @@
- #include <linux/config.h>
- 
- /*
-- * Preserved registers that are shared between code in ivt.S and entry.S.  Be
-- * careful not to step on these!
-+ * Preserved registers that are shared between code in ivt.S and
-+ * entry.S.  Be careful not to step on these!
-  */
--#define pLvSys		p1	/* set 1 if leave from syscall; otherwise, set 0 */
--#define pKStk		p2	/* will leave_{kernel,syscall} return to kernel-stacks? */
--#define pUStk		p3	/* will leave_{kernel,syscall} return to user-stacks? */
--#define pSys		p4	/* are we processing a (synchronous) system call? */
--#define pNonSys		p5	/* complement of pSys */
-+#define PRED_LEAVE_SYSCALL	1 /* TRUE iff leave from syscall */
-+#define PRED_KERNEL_STACK	2 /* returning to kernel-stacks? */
-+#define PRED_USER_STACK		3 /* returning to user-stacks? */
-+#define PRED_SYSCALL		4 /* inside a system call? */
-+#define PRED_NON_SYSCALL	5 /* complement of PRED_SYSCALL */
-+
-+#ifdef __ASSEMBLY__
-+# define PASTE2(x,y)	x##y
-+# define PASTE(x,y)	PASTE2(x,y)
-+
-+# define pLvSys		PASTE(p,PRED_LEAVE_SYSCALL)
-+# define pKStk		PASTE(p,PRED_KERNEL_STACK)
-+# define pUStk		PASTE(p,PRED_USER_STACK)
-+# define pSys		PASTE(p,PRED_SYSCALL)
-+# define pNonSys	PASTE(p,PRED_NON_SYSCALL)
-+#endif
- 
- #define PT(f)		(IA64_PT_REGS_##f##_OFFSET)
- #define SW(f)		(IA64_SWITCH_STACK_##f##_OFFSET)
-diff -Nru a/arch/ia64/kernel/ptrace.c b/arch/ia64/kernel/ptrace.c
---- a/arch/ia64/kernel/ptrace.c	2005-01-18 20:52:16 -08:00
-+++ b/arch/ia64/kernel/ptrace.c	2005-01-18 20:52:16 -08:00
-@@ -30,9 +30,6 @@
- 
- #include "entry.h"
- 
--#define p4	(1UL << 4)	/* for pSys (see entry.h) */
--#define p5	(1UL << 5)	/* for pNonSys (see entry.h) */
--
- /*
-  * Bits in the PSR that we allow ptrace() to change:
-  *	be, up, ac, mfl, mfh (the user mask; five bits total)
-@@ -707,8 +704,8 @@
+-	spin_lock(&mm->page_table_lock);
++	page_table_atomic_start(mm);
+
+ 	if (!ptep_cmpxchg(page_table, orig_entry, entry)) {
+ 		pte_unmap(page_table);
+ 		page_cache_release(page);
+-		spin_unlock(&mm->page_table_lock);
++		page_table_atomic_stop(mm);
+ 		inc_page_state(cmpxchg_fail_anon_write);
+ 		return VM_FAULT_MINOR;
  	}
- 
- 	unw_get_pr(&prev_info, &pr);
--	pr &= ~pSys;
--	pr |= pNonSys;
-+	pr &= ~(1UL << PRED_SYSCALL);
-+	pr |=  (1UL << PRED_NON_SYSCALL);
- 	unw_set_pr(&prev_info, pr);
- 
- 	pt->cr_ifs = (1UL << 63) | cfm;
-diff -Nru a/arch/ia64/kernel/unwind.c b/arch/ia64/kernel/unwind.c
---- a/arch/ia64/kernel/unwind.c	2005-01-18 20:52:16 -08:00
-+++ b/arch/ia64/kernel/unwind.c	2005-01-18 20:52:16 -08:00
-@@ -47,8 +47,6 @@
- #include "entry.h"
- #include "unwind_i.h"
- 
--#define p5		5
--
- #define UNW_LOG_CACHE_SIZE	7	/* each unw_script is ~256 bytes in size */
- #define UNW_CACHE_SIZE		(1 << UNW_LOG_CACHE_SIZE)
- 
-@@ -1899,7 +1897,7 @@
- 	num_regs = 0;
- 	if ((info->flags & UNW_FLAG_INTERRUPT_FRAME)) {
- 		info->pt = info->sp + 16;
--		if ((pr & (1UL << pNonSys)) != 0)
-+		if ((pr & (1UL << PRED_NON_SYSCALL)) != 0)
- 			num_regs = *info->cfm_loc & 0x7f;		/* size of frame */
- 		info->pfs_loc  			(unsigned long *) (info->pt + offsetof(struct pt_regs, ar_pfs));
+@@ -1862,7 +1862,7 @@ do_anonymous_page(struct mm_struct *mm,
+
+ 	update_mmu_cache(vma, addr, entry);
+ 	pte_unmap(page_table);
+-	spin_unlock(&mm->page_table_lock);
++	page_table_atomic_stop(mm);
+
+ 	return VM_FAULT_MINOR;
+ }
+Index: linux-2.6.10/include/linux/sched.h
+=================================--- linux-2.6.10.orig/include/linux/sched.h	2005-01-27 16:39:24.000000000 -0800
++++ linux-2.6.10/include/linux/sched.h	2005-01-27 16:40:24.000000000 -0800
+@@ -203,10 +203,26 @@ arch_get_unmapped_area_topdown(struct fi
+ extern void arch_unmap_area(struct vm_area_struct *area);
+ extern void arch_unmap_area_topdown(struct vm_area_struct *area);
+
++#ifdef CONFIG_ATOMIC_TABLE_OPS
++/*
++ * Atomic page table operations require that the counters are also
++ * incremented atomically
++*/
++#define set_mm_counter(mm, member, value) atomic_set(&(mm)->member, value)
++#define get_mm_counter(mm, member) ((unsigned long)atomic_read(&(mm)->member))
++#define update_mm_counter(mm, member, value) atomic_add(value, &(mm)->member)
++#define MM_COUNTER_T atomic_t
++
++#else
++/*
++ * No atomic page table operations. Counters are protected by
++ * the page table lock
++ */
+ #define set_mm_counter(mm, member, value) (mm)->member = (value)
+ #define get_mm_counter(mm, member) ((mm)->member)
+ #define update_mm_counter(mm, member, value) (mm)->member += (value)
+ #define MM_COUNTER_T unsigned long
++#endif
+
+ struct mm_struct {
+ 	struct vm_area_struct * mmap;		/* list of VMAs */
+
