@@ -1,33 +1,23 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Tue, 09 Sep 2003 23:57:03 +0000
-Subject: [PATCH] update Kconfig comment for NR_CPUS
-Message-Id: <marc-linux-ia64-106315215800794@msgid-missing>
+From: William Lee Irwin III <wli@holomorphy.com>
+Date: Wed, 17 Sep 2003 22:34:27 +0000
+Subject: Re: [Discontig-devel] [PATCH] fix build_zonelists for CONFIG_ACPI_NUMA
+Message-Id: <marc-linux-ia64-106383801220397@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Noticed this when I built a kernel for a 256p machine.
+On Wed, Sep 17, 2003 at 02:31:58PM -0700, Jesse Barnes wrote:
+> Here's a ugly little patch to make build_zonelists use the ACPI SLIT
+> table on ia64 if it's present.  Comments?  Should we have a generic
+> Linux distance table that we use for this?  That way people could
+> populate it at early boot and we could make this code work for all
+> platforms.
+> Btw, this patch sits on top of the last discontig patch I posted.
 
-Jesse
+I say we take this verbatim for the time being and put in the generic
+table later, once there are more boxen that can use it.
 
-=== arch/ia64/Kconfig 1.42 vs edited ==--- 1.42/arch/ia64/Kconfig	Mon Sep  8 16:15:14 2003
-+++ edited/arch/ia64/Kconfig	Tue Sep  9 16:55:14 2003
-@@ -424,9 +424,15 @@
- 	  support" (CONFIG_PROC_FS) is enabled, too.
- 
- config NR_CPUS
--	int "Maximum number of CPUs (2-64)"
-+	int "Maximum number of CPUs"
- 	depends on SMP
- 	default "64"
-+	help
-+	  You should set this to the number of CPUs in your system, but
-+	  keep in mind that a kernel compiled for e.g. 2 CPUs will boot but
-+	  only use 2 CPUs on a >2 CPU system.  Setting this to a value larger
-+	  than 64 will cause the use of a CPU mask array, causing a small
-+	  performance hit.
- 
- source "fs/Kconfig.binfmt"
- 
+
+-- wli
