@@ -1,27 +1,21 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 28 Aug 2002 05:38:39 +0000
-Subject: Re: [Linux-ia64] PATCH: 2.5 kconfig synchronise banners 4 (fwd)
-Message-Id: <marc-linux-ia64-105590701905990@msgid-missing>
+From: chas williams <chas@cmf.nrl.navy.mil>
+Date: Wed, 14 Aug 2002 13:31:45 +0000
+Subject: [Linux-ia64] patching the syscall table via a module
+Message-Id: <marc-linux-ia64-105590701905938@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905989@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905989@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 28 Aug 2002 00:19:05 -0500 (CDT), 
-Kai Germaschewski <kai-germaschewski@uiowa.edu> wrote:
->
->[Maybe someone here knows an answer? If not, I'll just remove the SN 
->specific special casing of devfs]
->
->Hi,
->
->is there any specific reason that SN1/2 have non-standard behavior with 
->respect to devfs? If not, I'd prefer to just throw away that special case 
->entirely.
+afs patches the syscall table when it loads as a module.  currently afs
+pags and pioctl are implemented this way.  while this might change in
+the future, its not going to happen any time soon.  i have run into a
+problem with this recently, and noticed that sys_call_table is declared
+as .rodata.  my older ia64 machines dont seem to enforce the read only,
+but the new sn machine does!
 
-SN1/2 require devfs.  Already fixed in 2.4.19-ia64-020821 patch.
-
+is there a particular reason the sys_call_table needs to be .rodata and
+not just .data?  could it be changed?  it seems the ia64 port is the
+only port that does this.
 
