@@ -1,39 +1,35 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 05 Dec 2001 02:15:50 +0000
-Subject: Re: [Linux-ia64] Bug in signal handling
-Message-Id: <marc-linux-ia64-105590698805614@msgid-missing>
+From: Ville Herva <vherva@niksula.hut.fi>
+Date: Fri, 07 Dec 2001 08:10:07 +0000
+Subject: [Linux-ia64] eepro100 hang?
+Message-Id: <marc-linux-ia64-105590698805637@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805573@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805573@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 4 Dec 2001 17:14:26 -0800, Richard Henderson <rth@redhat.com> said:
+at http://linuxia64.org/todo.html, it says 
 
-  Richard> On Mon, Dec 03, 2001 at 06:19:52PM -0800, David Mosberger
-  Richard> wrote:
-  >> Richard, I'm cc'ing you because it appears to me that Alpha Linux
-  >> may have the same problem.
+  EEPro100 ? Hangs on >180MB xfers
 
-  Richard> I don't think it does:
+Is this supposed to be fixed?
 
-  Richard> That is, after do_signal we restore registers and return.
+Mandrake ftp installation stalled in the middle, and when I straced the
+process from shell, it seemed to be loading rpm from ftp server, but the
+read always returned 1 byte, and and it took about half a second to do so.
 
-  Richard> Unless you meant something else?
+On second run it stalled as well, but in another place. I kill -HUP'ed the
+download, and the rest went fine.
 
-Oh, sorry, I was referring to teh *other* problem... ;-)
+After installation, I can scp a 650MB image just fine, but that's from local
+network.
 
-What I meant is that the check for re-scheduling
-(current->need_resched) and signal deliverify (current->sigpending)
-needs to be done with interrupts turned off, and the interrupts need
-to be left off until user space is reached.  Otherwise, you could get
-an interrupt which would wake up a higher priority task or post a
-signal between the check and the return to user space.
+I dig any deeper yet.
 
-I didn't see this interrupt disabling in the Alpha version of entry.S,
-but I have to admit my Alpha assembly is getting quite rusty.
+HP i2000, eepro100.
 
-	--david
+
+-- v --
+
+v@iki.fi
 
