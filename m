@@ -1,83 +1,96 @@
-From: "KOCHI, Takayoshi" <t-kouchi@mvf.biglobe.ne.jp>
-Date: Thu, 31 Oct 2002 02:00:40 +0000
-Subject: [Linux-ia64] PCI hotplug broken on IA64
-Message-Id: <marc-linux-ia64-105590709805302@msgid-missing>
+From: "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
+Date: Wed, 16 Oct 2002 01:26:21 +0000
+Subject: [Linux-ia64] [PATCH] Clearing of exception status before calling IA32 user sig
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C274B3.08869180"
+Message-Id: <marc-linux-ia64-105590709805168@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------_=_NextPart_000_01C274B3.08869180
+Content-Type: text/plain;
+	charset="iso-8859-1"
+
 
 Hi,
 
-The PCI segment support which was introduced at 2.4.19-020821 ia64 patch
-broke PCI hotplug core driver.  The way ia64 port does is using
-ia64 specific 'pci_controller' structure, embedding a segment
-number in it and making pci_bus->sysdata point to the structure.
+   One more bug fix for IA32 exception handler. IA32 exception handler is
+not clearing the exception status, before calling the user signal handler
+routine. The issue was first observed due to an IA32 binary (which runs fine
+on IA32 system), failing on Itanium based system. The binary was trying to
+do an "finit" in the user SIGFPE handler. As the exception state was not
+cleared before calling the user signal handler, the finit there was failing,
+due to the pending exception.
 
-All config space access functions refer to the structure so if
-pci_controller structures are not setup correctly, all pci
-configuration space acesss will fail.
+   The attached patch fixes the issue. [Note: Applies over <base> + <IA32
+fpstate Save/Restore patch which was sent previously>.]
 
-I don't think the current way of accessing PCI configuration space
-with temporary pci_dev and pci_bus is definitive answer but we
-are depending on it now.
-
-Could someone enlighten me?
-Any ideas?
-
-BTW, 2.5 is not affected (yet) because it doesn't include segment support.
-Below is my dirty (and not correct) workaround.
-
-Index: lia64-2.4/drivers/hotplug/pci_hotplug_util.c
-diff -u lia64-2.4/drivers/hotplug/pci_hotplug_util.c:1.1.1.1 lia64-2.4/drivers/hotplug/pci_hotplug_util.c:1.1.1.1.2.1
---- lia64-2.4/drivers/hotplug/pci_hotplug_util.c:1.1.1.1	Tue Aug 20 16:41:38 2002
-+++ lia64-2.4/drivers/hotplug/pci_hotplug_util.c	Thu Sep  5 16:49:49 2002
-@@ -55,6 +55,9 @@
- {
- 	struct pci_dev *my_dev;
- 	struct pci_bus *my_bus;
-+#ifdef CONFIG_IA64
-+	struct pci_controller *controller;
-+#endif
- 
- 	/* Some validity checks. */
- 	if ((function > 7) ||
-@@ -71,13 +74,29 @@
- 		kfree (my_dev);
- 		return -ENOMEM;
- 	}
-+#ifdef CONFIG_IA64
-+	controller = kmalloc (sizeof (struct pci_controller), GFP_KERNEL);
-+	if (!controller) {
-+		kfree (my_bus);
-+		kfree (my_dev);
-+		return -ENOMEM;
-+	}
-+#endif
- 	memset(my_dev, 0, sizeof(struct pci_dev));
- 	memset(my_bus, 0, sizeof(struct pci_bus));
-+#ifdef CONFIG_IA64
-+	memset(controller, 0, sizeof(struct pci_controller));
-+	/* assume seg is 0 */
-+#endif
- 
- 	my_bus->number = bus;
- 	my_bus->ops = ops;
- 	my_dev->devfn = PCI_DEVFN(slot, function);
- 	my_dev->bus = my_bus;
-+#ifdef CONFIG_IA64
-+	my_bus->sysdata = (void *)controller;
-+	my_dev->sysdata = my_bus->sysdata;
-+#endif
- 	*pci_dev = my_dev;
- 	return 0;
- }
-
-
+   Please let me know, if you need any more information on this.
 
 Thanks,
--- 
-KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+-Venkatesh
 
+--- ia64-fpe/arch/ia64/ia32/ia32_signal.c.org2	Mon Oct 14 19:10:48 2002
++++ ia64-fpe/arch/ia64/ia32/ia32_signal.c	Tue Oct 15 16:16:23 2002
+@@ -219,6 +219,7 @@
+ 	struct _fpreg_ia32 *fpregp;
+ 	char buf[32];
+ 	unsigned long fsr, fcr, fir, fdr;
++	unsigned long new_fsr;
+ 	unsigned long num128[2];
+ 	unsigned long mxcsr=0;
+ 	int fp_tos, fr8_st_map;
+@@ -231,6 +232,13 @@
+ 	asm volatile ( "mov %0=ar.fcr;" : "=r"(fcr));
+ 	asm volatile ( "mov %0=ar.fir;" : "=r"(fir));
+ 	asm volatile ( "mov %0=ar.fdr;" : "=r"(fdr));
++	/*
++	 * We need to clear the exception state before calling the signal
++	 * handler. Clear the bits 15, bits 0-7 in fp status word. Similar
++	 * to the functionality of fnclex instruction.
++	 */ 
++	new_fsr = fsr & (~0x80ff) ;
++	asm volatile ( "mov ar.fsr=%0;" :: "r"(new_fsr));
+ 
+ 	__put_user(fcr & 0xffff, &save->cw);
+ 	__put_user(fsr & 0xffff, &save->sw);
+ <<fpe.2418_finit.patch>> 
+
+------_=_NextPart_000_01C274B3.08869180
+Content-Type: application/octet-stream;
+	name="fpe.2418_finit.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="fpe.2418_finit.patch"
+
+--- ia64-fpe/arch/ia64/ia32/ia32_signal.c.org2	Mon Oct 14 19:10:48 =
+2002=0A=
++++ ia64-fpe/arch/ia64/ia32/ia32_signal.c	Tue Oct 15 16:16:23 2002=0A=
+@@ -219,6 +219,7 @@=0A=
+ 	struct _fpreg_ia32 *fpregp;=0A=
+ 	char buf[32];=0A=
+ 	unsigned long fsr, fcr, fir, fdr;=0A=
++	unsigned long new_fsr;=0A=
+ 	unsigned long num128[2];=0A=
+ 	unsigned long mxcsr=3D0;=0A=
+ 	int fp_tos, fr8_st_map;=0A=
+@@ -231,6 +232,13 @@=0A=
+ 	asm volatile ( "mov %0=3Dar.fcr;" : "=3Dr"(fcr));=0A=
+ 	asm volatile ( "mov %0=3Dar.fir;" : "=3Dr"(fir));=0A=
+ 	asm volatile ( "mov %0=3Dar.fdr;" : "=3Dr"(fdr));=0A=
++	/*=0A=
++	 * We need to clear the exception state before calling the signal=0A=
++	 * handler. Clear the bits 15, bits 0-7 in fp status word. Similar=0A=
++	 * to the functionality of fnclex instruction.=0A=
++	 */ =0A=
++	new_fsr =3D fsr & (~0x80ff) ;=0A=
++	asm volatile ( "mov ar.fsr=3D%0;" :: "r"(new_fsr));=0A=
+ =0A=
+ 	__put_user(fcr & 0xffff, &save->cw);=0A=
+ 	__put_user(fsr & 0xffff, &save->sw);=0A=
+
+------_=_NextPart_000_01C274B3.08869180--
 
