@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 16 Mar 2004 06:14:20 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 16 Mar 2004 16:36:28 +0000
 Subject: Re: [PATCH] Update SN2 defconfig
-Message-Id: <16470.39740.140979.959569@napali.hpl.hp.com>
+Message-Id: <200403160936.28465.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040315190240.GY6699@localhost>
 In-Reply-To: <20040315190240.GY6699@localhost>
@@ -10,19 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 15 Mar 2004 11:05:39 -0800, jbarnes@sgi.com (Jesse Barnes) said:
+On Monday 15 March 2004 11:14 pm, David Mosberger wrote:
+> The ia64 EARLY_PRINTK support is not part of the official kernel, so
+> they should be lost to avoid warnings (if someone wanted to integrate
+> the ia64 EARLY_PRINTK patch with the other early-printk support in the
+> kernel, that would certainly be welcome, though).
 
-  >> CONFIG_MAGIC_SYSRQ=y -CONFIG_IA64_EARLY_PRINTK=y -#
-  >> CONFIG_IA64_EARLY_PRINTK_UART is not set -#
-  >> CONFIG_IA64_EARLY_PRINTK_VGA is not set
-  >> -CONFIG_IA64_EARLY_PRINTK_SGI_SN=y
+I'm cooking some stuff in this area.  I think it will give us the
+equivalent of early printk pretty much for free.  It doesn't help
+with SGI boxes, though, because they have the funny console ;-)
+I'll try to post a preliminary patch today or tomorrow.
 
-  Jesse> Oops, we don't want to lose early printk from the config...
-  Jesse> Looks ok otherwise, thanks for sending it.
-
-The ia64 EARLY_PRINTK support is not part of the official kernel, so
-they should be lost to avoid warnings (if someone wanted to integrate
-the ia64 EARLY_PRINTK patch with the other early-printk support in the
-kernel, that would certainly be welcome, though).
-
-	--david
