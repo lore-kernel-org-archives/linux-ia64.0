@@ -1,20 +1,45 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Mon, 30 Jun 2003 16:30:30 +0000
-Subject: Re: IA-32 support patch: munmap should return EINVAL if size == 0
-Message-Id: <marc-linux-ia64-105699112311251@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Tue, 24 Jun 2003 22:51:08 +0000
+Subject: IA-32 support patch: fcntl64 calls are broken
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------020701040306010302040000"
+Message-Id: <marc-linux-ia64-105649509512709@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105649312310734@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105649312310734@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tuesday 24 June 2003 4:16 pm, Arun Sharma wrote:
-> 
-> Native IA-32 returns EINVAL on a unmap of size 0. Our behavior is currently not compatible.
-> 
-> Please apply to both 2.4 and 2.5.
+This is a multi-part message in MIME format.
+--------------020701040306010302040000
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Applied to 2.4 (and David put it in 2.5 as well).
+
+Currently, sys32_fcntl64() is broken, because it passes F_*64 commands to sys_fcntl(), which it doesn't understand. The F_XXX64 commands need to be converted to F_XXX before calling sys_fcntl().
+
+We also eliminated a copy, because the 32 bit struct flock64 and the 64 bit struct flock seem to be identical.
+
+This patch is relevant only to 2.4, as it has already been taken care of in 2.5.
+
+	-Arun
+
+--------------020701040306010302040000
+Content-Type: text/plain;
+ name="fcntl.29.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="fcntl.29.txt"
+
+LS0tIGxpbnV4L2FyY2gvaWE2NC9pYTMyL3N5c19pYTMyLmMtCTIwMDMtMDUtMjggMjM6Mzc6
+MDIuMDAwMDAwMDAwIC0wNzAwDQorKysgbGludXgvYXJjaC9pYTY0L2lhMzIvc3lzX2lhMzIu
+YwkyMDAzLTA2LTI0IDAyOjQ3OjEwLjAwMDAwMDAwMCAtMDcwMA0KQEAgLTM2MTgsMTQgKzM1
+OTUsOSBAQA0KIAkgICAgICBjYXNlIEZfR0VUTEs2NDoNCiAJICAgICAgY2FzZSBGX1NFVExL
+NjQ6DQogCSAgICAgIGNhc2UgRl9TRVRMS1c2NDoNCi0JCWlmIChpYTMyX2dldF9mbG9jaygm
+ZiwgYXJnKSkNCi0JCQlyZXR1cm4gLUVGQVVMVDsNCi0JCW9sZF9mcyA9IGdldF9mcygpOw0K
+LQkJc2V0X2ZzKEtFUk5FTF9EUyk7DQotCQlyZXQgPSBzeXNfZmNudGwoZmQsIGNtZCwgKHVu
+c2lnbmVkIGxvbmcpICZmKTsNCi0JCXNldF9mcyhvbGRfZnMpOw0KLQkJaWYgKGNtZCA9PSBG
+X0dFVExLICYmIGlhMzJfcHV0X2Zsb2NrKCZmLCBhcmcpKQ0KLQkJCXJldHVybiAtRUZBVUxU
+Ow0KKwkJcmV0ID0gc3lzX2ZjbnRsKGZkLCAoY21kID09IEZfR0VUTEs2NCkgPyBGX0dFVExL
+IDoNCisJCQkoKGNtZCA9PSBGX1NFVExLNjQpID8gRl9TRVRMSyA6IEZfU0VUTEtXKSwNCisJ
+CQkodW5zaWduZWQgbG9uZylhcmcpOw0KIAkJYnJlYWs7DQogDQogCSAgICAgIGRlZmF1bHQ6
+DQoNCg0K
+--------------020701040306010302040000--
 
