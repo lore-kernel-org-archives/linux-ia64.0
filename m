@@ -1,39 +1,45 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 21 Mar 2002 10:28:52 +0000
+From: Steve Christiansen <smc@us.ibm.com>
+Date: Thu, 21 Mar 2002 20:02:32 +0000
 Subject: Re: [Linux-ia64] Trouble building cross compilers
-Message-Id: <marc-linux-ia64-105590701905312@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905313@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905309@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905309@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jesse Barnes <jbarnes@sgi.com> writes:
+On Wed, Mar 20, 2002 at 06:30:47PM -0800, Jesse Barnes wrote:
+> I have a couple of questions about cross compiling with gcc 3.0:
+> 
+> 1) is it possible to build an x86 hosted gcc 3.0 ia64 cross compiler
+>    without nue?  Or, which packages do I need to build a gcc cross
+>    compiler?
 
-|> a) built and installed binutils 2.12 (configured with
-|>    --target=3Dia64-gnu-linux --prefix=3D/tmp/ia64-cross-3.0)
-|> b) tried to build and install gcc 3.0 (configured with the same options
-|>    as above), but with 'make LANGUAGES=3Dc' instead of just 'make'
+I've not been able to build an x86 to ia64 cross compiler using 3.0
+"out of the box".  I have a patch for 3.0.4 in the tarball at
 
-LANGUAGES=3Dc is obsolete, configure with --enable-languages=3Dc instead.
+http://www.ibm.com/developerworks/oss/linux/tools/
 
-|> Unfortunately, I got hung up in the middle of step (b) with the errors
-|> shown below.  IIRC, the Cygnus snapshot tarballs were 'cross-compile
-|> ready' in that they had all the necessary header files and utilities
-|> needed for a full cross development environment.  Any notes on how
-|> those trees were built would be appreciated.
+which seems to work.  It's a hack, so no guarantees.
 
-You need to have the target headers installed somewhere and use
---with-headers=3D/place/of/target/headers when configuring the cross
-compiler.
+The 3.1 pre-release branch works fine, so you might consider using CVS
+or a pre-release snapshot.  See http://gcc.gnu.org
 
-Andreas.
+The gcc mailing list thread beginning with the following may also
+be helpful.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE GmbH, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+http://gcc.gnu.org/ml/gcc/2002-02/msg00585.html
+
+And here's another useful resource, if you haven't already discovered it:
+
+http://www.objsw.com/CrossGCC/
+
+
+-- 
+Steve Christiansen <smc@us.ibm.com>
+IBM Linux Technology Center
+503-578-4177  IBM T/L: 775-4177
+http://www.ibm.com/linux/ltc
 
