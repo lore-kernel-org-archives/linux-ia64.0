@@ -1,74 +1,69 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Thu, 05 Feb 2004 20:23:35 +0000
-Subject: [PATCH] fix readX_relaxed machine vectors for ia64
-Message-Id: <20040205202335.GA6551@sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 11 Feb 2004 20:55:15 +0000
+Subject: [PATCH] Make serial console work for any port
+Message-Id: <200402111355.15835.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: torvalds@osdl.org, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Russell King <rmk@arm.linux.org.uk>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-I left out some of the necessary machine vector magic in my
-readX_relaxed patch, which broke the ia64 generic build.  Please apply
-this patch to the BK tree to fix it.
+The current serial console code only works for ports that are either
+defined in SERIAL_PORT_DFNS (and set up by serial8250_isa_init_ports())
+or registered by early_serial_setup().
 
-Thanks,
-Jesse
+On ia64, SERIAL_PORT_DFNS is empty because we discover everything
+via ACPI and PCI.  And we only use early_serial_setup() for one port
+described by the HCDP firmware table.
 
-=== arch/ia64/lib/io.c 1.6 vs edited ==--- 1.6/arch/ia64/lib/io.c	Mon Jan  5 07:30:22 2004
-+++ edited/arch/ia64/lib/io.c	Thu Feb  5 12:14:22 2004
-@@ -65,6 +65,10 @@
- #undef __ia64_readw
- #undef __ia64_readl
- #undef __ia64_readq
-+#undef __ia64_readb_relaxed
-+#undef __ia64_readw_relaxed
-+#undef __ia64_readl_relaxed
-+#undef __ia64_readq_relaxed
- #undef __ia64_writeb
- #undef __ia64_writew
- #undef __ia64_writel
-@@ -126,6 +130,30 @@
+This patch against 2.6.3-rc2 makes it work for any valid port.  If we
+don't know about the port early, we just return -ENODEV from the
+setup() function, which leaves the serial console disabled.  After the
+driver has found all the ports, we try to register the serial console
+again if it hasn't been enabled already.
+
+I think the "port->type = PORT_UNKNOWN" test is cleaner than the
+"port->ops" test -- it more clearly gets to the point of "do we know
+about this port".
+
+
+=== drivers/serial/8250.c 1.43 vs edited ==--- 1.43/drivers/serial/8250.c	Fri Jan  2 12:35:07 2004
++++ edited/drivers/serial/8250.c	Wed Feb 11 13:13:11 2004
+@@ -1976,6 +1976,8 @@
+ 	if (co->index >= UART_NR)
+ 		co->index = 0;
+ 	port = &serial8250_ports[co->index].port;
++	if (port->type = PORT_UNKNOWN)
++		return -ENODEV;
  
- unsigned long
- __ia64_readq (void *addr)
-+{
-+	return ___ia64_readq (addr);
-+}
-+
-+unsigned char
-+__ia64_readb_relaxed (void *addr)
-+{
-+	return ___ia64_readb (addr);
-+}
-+
-+unsigned short
-+__ia64_readw_relaxed (void *addr)
-+{
-+	return ___ia64_readw (addr);
-+}
-+
-+unsigned int
-+__ia64_readl_relaxed (void *addr)
-+{
-+	return ___ia64_readl (addr);
-+}
-+
-+unsigned long
-+__ia64_readq_relaxed (void *addr)
- {
- 	return ___ia64_readq (addr);
+ 	/*
+ 	 * Temporary fix.
+@@ -2006,6 +2008,14 @@
+ 	return 0;
  }
-=== include/asm-ia64/machvec_init.h 1.6 vs edited ==--- 1.6/include/asm-ia64/machvec_init.h	Sat May 10 02:28:47 2003
-+++ edited/include/asm-ia64/machvec_init.h	Thu Feb  5 11:40:56 2004
-@@ -16,6 +16,10 @@
- extern ia64_mv_readw_t __ia64_readw;
- extern ia64_mv_readl_t __ia64_readl;
- extern ia64_mv_readq_t __ia64_readq;
-+extern ia64_mv_readb_t __ia64_readb_relaxed;
-+extern ia64_mv_readw_t __ia64_readw_relaxed;
-+extern ia64_mv_readl_t __ia64_readl_relaxed;
-+extern ia64_mv_readq_t __ia64_readq_relaxed;
+ console_initcall(serial8250_console_init);
++
++static int __init serial8250_late_console_init(void)
++{
++	if (!(serial8250_console.flags & CON_ENABLED))
++		register_console(&serial8250_console);
++	return 0;
++}
++late_initcall(serial8250_late_console_init);
  
- #define MACHVEC_HELPER(name)									\
-  struct ia64_machine_vector machvec_##name __attribute__ ((unused, __section__ (".machvec")))	\
+ #define SERIAL8250_CONSOLE	&serial8250_console
+ #else
+=== drivers/serial/serial_core.c 1.78 vs edited ==--- 1.78/drivers/serial/serial_core.c	Sat Jan 24 14:53:13 2004
++++ edited/drivers/serial/serial_core.c	Wed Feb 11 12:36:12 2004
+@@ -1871,9 +1871,6 @@
+ 	if (flow = 'r')
+ 		termios.c_cflag |= CRTSCTS;
+ 
+-	if (!port->ops)
+-		return 0;	/* "console=" on ia64 */
+-
+ 	port->ops->set_termios(port, &termios, NULL);
+ 	co->cflag = termios.c_cflag;
+ 
+
