@@ -1,38 +1,31 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 04 May 2001 15:02:36 +0000
-Subject: Re: [Linux-ia64] Re: location of statcked registers after exception (superceeds previous email)
-Message-Id: <marc-linux-ia64-105590693005536@msgid-missing>
+From: "David Engebretsen" <engebret@us.ibm.com>
+Date: Wed, 02 May 2001 19:29:01 +0000
+Subject: [Linux-ia64] Possible bug in siginfo64to32()
+Message-Id: <marc-linux-ia64-105590693005514@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005534@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005534@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 3 May 2001 23:51:26 -0700 (PDT), Weihaw CHUANG <wchuang@cs.ucsd.edu> said:
+Although I do not work on linux-ia64, I believe we found a bug bringing up
+PPC64 with some regression tests that also exists in the IA64 code that
+someone might want to look into.
 
-  Weihaw> Anyways the solution appears to be (again correct me if
-  Weihaw> anything is brain damaged):
+In arch/ia64/ia32/sys_ia32.c, the function siginfo64to32(siginfo_t32 *d,
+...)
+does the following:
+   memset(&d, 0, sizeof(siginfo_t32));
 
-Note that when using ptrace() to read PT_AR_BSP, you get a pointer to
-the _end_ of the backing store, i.e., you get the value of ar.bsp as
-if a "cover" instruction had been executed by the target task.  Since
-the task is blocked at the time you call ptrace(), the stacked
-registers are indeed on the stack (they get written to the
-backingstore by the "flushrs" instruction in the context switch
-routine).
+Seems like the &d should just be d.
 
-Thus, to read stacked register, you'd do something along the lines of:
+Is this a legitimate bug, or are we missing something here?
 
-    unsigned long *rbs_end, *bsp;
+Thanks -
 
-    rbs_end = ptrace(PTRACED_PEEKUSER, pid, PT_AR_BSP, 0);
-    bsp = ia64_rse_skip_regs(rbs_end, -cfm.sof);
-    regvalue = ptrace(PTRACE_PEEKDATA, pid,
-	              ia64_rse_skip_regs(bsp, regid - 32), 0);
+Dave Engebretsen
+Linux on PowerPC Development, IBM Rochester
+Internal  : ibmusm07(engebret), T/L 8-553-2925
+External : engebret@us.ibm.com, (507) 253-2925
 
-(The code in utrace.c is outdated in this respect.)
-
-	--david
 
