@@ -1,24 +1,24 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Wed, 15 Oct 2003 06:38:49 +0000
-Subject: Re: [Gelato-technical] What's still broken?
-Message-Id: <marc-linux-ia64-106619995621339@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 08 Oct 2003 23:57:01 +0000
+Subject: patch suggestion (was Re: [PATCH] move find_memory())
+Message-Id: <marc-linux-ia64-106565756509670@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106569513704299@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106569513704299@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+>>>>> On Wed, 8 Oct 2003 16:20:22 -0700, jbarnes@sgi.com (Jesse Barnes) said:
 
-David> I don't understand this entry:
-Peter> - AGP driver still doesn't build.
+  Jesse> Now that the ACPI table parsing stuff has been fixed we can
+  Jesse> move find_memory() back where it belongs--after the SRAT
+  Jesse> table has been parsed.
 
-David> I build agpgart.ko, i460-gart.ko, and hp-agp.ko on a regular
-David> basis.  I'm not aware of any build issues.
+Quick suggestion: when you submit patches for 2.6.0, it would be a
+good idea to explain what kind of bug this fixes, so that Linus can
+see easily that it's a bug fix.
 
-It seems to be fixed now.  At the time I tried it there were issues.
-I've updated the Wiki.
+(Jess, don't worry about this particular patch, I'll update the
+changelog myself.)
 
-Petr C
+	--david
