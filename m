@@ -1,1880 +1,381 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Tue, 15 Feb 2005 02:49:51 +0000
-Subject: [RFC] Use separate MCA/INIT stacks
-Message-Id: <13813.1108435791@kao2.melbourne.sgi.com>
+From: jes@trained-monkey.org (Jes Sorensen)
+Date: Thu, 17 Feb 2005 09:40:44 +0000
+Subject: [patch] cleanup shubio.h
+Message-Id: <16916.26268.349906.868160@jaguar.mkp.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="gn2pNDqVXQ"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-The changeover to per cpu MCA/INIT stacks appears to be working.
-However we still treat them as if we had one MCA stack and no INIT
-stack, IOW we are still restricted to one MCA or INIT event at a time.
-The (incomplete and work in progress) patch below aims to really use
-the per cpu MCA/INIT stacks, my target is :-
 
-* Handle concurrent MCA events on multiple cpus.
-* Handle concurrent INIT events on multiple cpus, both monarch and
-  slave.
-* Cope with nested events, to diagnose MCA events in INIT handlers.
-* Give decent traceback through MCA and INIT events, for both online
-  (kdb, gdb) and after the event (lcrash) diagnosis.
-* Recover from INIT as well as MCA events.  This includes INIT events
-  that were sent because an MCA hit some disabled cpus.
+--gn2pNDqVXQ
+Content-Type: text/plain; charset=us-ascii
+Content-Description: message body text
+Content-Transfer-Encoding: 7bit
 
-Although the patch is incomplete, it will compile.  It is big enough
-and there are enough unanswered questions that I am throwing this open
-for abuse^Wreview.  Ignore the restore path for returning to the
-original stack, that will be filled in once the entry path is
-satisfactory.
+Hi,
 
-The patch is bigger than I wanted because I had to remove the static
-SAL to OS and OS to SAL states, making them per event instead.  That
-caused a lot of small changes in mca.c and mca_drv.c, to pass the
-structure instead of using a single static version.  There is enough
-overlap between SAL to OS and OS to SAL to make it worth consolidating
-them into a single SAL/OS state structure.
+This patch cleans up include/asm/sn/shubio.h by removing a ton of
+whitespaces and running it through Lindent, reducing it's size by almost
+30KB. No actual content has been changed.
 
-proc_state_dump has gone completely.  The MCA/INIT handler should only
-need to save the registers that the kernel changes, IOW struct pt_regs
-is all that is required.  There may be a couple of other variables that
-need to be saved, such as previous values of the IA64_KR registers,
-those still need to be added.
+Signed-off by: Jes Sorensen <jes@wildopensource.com>
 
-The rse_ variables and macros have been removed, together with the
-separate stackframe.  They are replaced by the standard RBS switch
-information in struct pt_regs.
+Cheers,
+Jes
 
-Outstanding questions:
 
-* What does "current" mean when we have normal stacks plus MCA and INIT
-  stacks?  Does current point to the original stack, or does it point
-  to the current MCA/INIT stack.  My preference is to point current at
-  the current MCA/INIT stack, if that means copying the current state
-  from the previous stack then so be it.
+--gn2pNDqVXQ
+Content-Type: application/octet-stream
+Content-Disposition: attachment;
+	filename="shubio-shrink.diff.bz2"
+Content-Transfer-Encoding: base64
 
-* Does the MCA/INIT stack need to be wired into IA64_KR_CURRENT_STACK
-  and IA64_TR_CURRENT_STACK?  If it does, what happens to access to the
-  original stack?
-
-* Does the code in ia64_pt_regs_save() look sensible?  In particular
-  are the NaT handling and the RBS switch correct?
-
-Still to do: The INIT path.  Unwinding.  Finish the restore path.
-
- arch/ia64/kernel/asm-offsets.c |   40 +
- arch/ia64/kernel/mca.c         |   65 --
- arch/ia64/kernel/mca_asm.S     | 1045 +++++++++++++++++-------------------=
------
- arch/ia64/kernel/mca_drv.c     |   37 -
- include/asm-ia64/mca.h         |   62 +-
- include/asm-ia64/mca_asm.h     |  128 +----
- 6 files changed, 571 insertions(+), 806 deletions(-)
-
-Index: linux/include/asm-ia64/mca.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/include/asm-ia64/mca.h	2005-02-15 13=
-:27:38.000000000 +1100
-+++ linux/include/asm-ia64/mca.h	2005-02-15 13:27:42.000000000 +1100
-@@ -11,8 +11,6 @@
- #ifndef _ASM_IA64_MCA_H
- #define _ASM_IA64_MCA_H
-=20
--#define IA64_MCA_STACK_SIZE	8192
--
- #if !defined(__ASSEMBLY__)
-=20
- #include <linux/interrupt.h>
-@@ -63,18 +61,26 @@ typedef struct ia64_mc_info_s {
-=20
- } ia64_mc_info_t;
-=20
--typedef struct ia64_mca_sal_to_os_state_s {
--	u64		imsto_os_gp;		/* GP of the os registered with the SAL */
--	u64		imsto_pal_proc;		/* PAL_PROC entry point - physical addr */
--	u64		imsto_sal_proc;		/* SAL_PROC entry point - physical addr */
--	u64		imsto_sal_gp;		/* GP of the SAL - physical */
--	u64		imsto_rendez_state;	/* Rendez state information */
--	u64		imsto_sal_check_ra;	/* Return address in SAL_CHECK while going
--						 * back to SAL from OS after MCA handling.
--						 */
--	u64		pal_min_state;		/* from PAL in r17 */
--	u64		proc_state_param;	/* from PAL in r18. See SDV 2:268 11.3.2.1 */
--} ia64_mca_sal_to_os_state_t;
-+/* Handover state from SAL to OS and vice versa, for both MCA and INIT eve=
-nts.
-+ * Note: mca_asm.S depends on the precise layout of this structure.
-+ */
-+
-+struct ia64_sal_os_state {
-+	/* SAL to OS, must be at offset 0 */
-+	u64			os_gp;			/* GP of the os registered with the SAL, physical */
-+	u64			pal_proc;		/* PAL_PROC entry point, physical */
-+	u64			sal_proc;		/* SAL_PROC entry point, physical */
-+	u64			rendez_state;		/* Rendez state information */
-+	u64			proc_state_param;	/* from R18 */
-+	/* common, must follow SAL to OS */
-+	u64			sal_ra;			/* Return address in SAL, physical */
-+	u64			sal_gp;			/* GP of the SAL - physical */
-+	pal_min_state_area_t	*pal_min_state;		/* from R17.  physical in asm, virt=
-ual in C */
-+	/* OS to SAL, must follow common */
-+	u64			os_status;		/* OS status to SAL, enum below */
-+	u64			context;		/* 0 if return to same context
-+							   1 if return to new context */
-+};
-=20
- enum {
- 	IA64_MCA_CORRECTED	=3D	0x0,	/* Error has been corrected by OS_MCA */
-@@ -88,29 +94,10 @@ enum {
- 	IA64_MCA_NEW_CONTEXT	=3D	-1	/* SAL to return to new context */
- };
-=20
--typedef struct ia64_mca_os_to_sal_state_s {
--	u64		imots_os_status;	/*   OS status to SAL as to what happened
--						 *   with the MCA handling.
--						 */
--	u64		imots_sal_gp;		/* GP of the SAL - physical */
--	u64		imots_context;		/* 0 if return to same context
--						   1 if return to new context */
--	u64		*imots_new_min_state;	/* Pointer to structure containing
--						 * new values of registers in the min state
--						 * save area.
--						 */
--	u64		imots_sal_check_ra;	/* Return address in SAL_CHECK while going
--						 * back to SAL from OS after MCA handling.
--						 */
--} ia64_mca_os_to_sal_state_t;
--
- /* Per-CPU MCA state that is too big for normal per-CPU variables.  */
-=20
- struct ia64_mca_cpu {
--	u64 stack[IA64_MCA_STACK_SIZE/8];	/* MCA memory-stack */
--	u64 proc_state_dump[512];
--	u64 stackframe[32];
--	u64 rbstore[IA64_MCA_STACK_SIZE/8];	/* MCA reg.-backing store */
-+	u64 mca_stack[KERNEL_STACK_SIZE/8];
- 	u64 init_stack[KERNEL_STACK_SIZE/8];
- } __attribute__ ((aligned(16)));
-=20
-@@ -121,11 +108,14 @@ extern void ia64_mca_init(void);
- extern void ia64_mca_cpu_init(void *);
- extern void ia64_os_mca_dispatch(void);
- extern void ia64_os_mca_dispatch_end(void);
--extern void ia64_mca_ucmc_handler(void);
-+extern void ia64_mca_ucmc_handler(struct ia64_sal_os_state *);
-+extern void ia64_init_handler(struct pt_regs *,
-+			      struct switch_stack *,
-+			      struct ia64_sal_os_state *);
- extern void ia64_monarch_init_handler(void);
- extern void ia64_slave_init_handler(void);
- extern void ia64_mca_cmc_vector_setup(void);
--extern int  ia64_reg_MCA_extension(void*);
-+extern int  ia64_reg_MCA_extension(int (*fn)(void *, struct ia64_sal_os_st=
-ate *));
- extern void ia64_unreg_MCA_extension(void);
-=20
- #endif /* !__ASSEMBLY__ */
-Index: linux/arch/ia64/kernel/mca_asm.S
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/mca_asm.S	2005-02-1=
-5 13:27:38.000000000 +1100
-+++ linux/arch/ia64/kernel/mca_asm.S	2005-02-15 13:27:42.000000000 +1100
-@@ -16,6 +16,9 @@
- // 04/11/12 Russ Anderson <rja@sgi.com>
- //		   Added per cpu MCA/INIT stack save areas.
- //
-+// 05/02/13 Keith Owens <kaos@sgi.com>
-+//		   Use per cpu MCA/INIT stack save areas for all data.
-+//
- #include <linux/config.h>
- #include <linux/threads.h>
-=20
-@@ -39,68 +42,6 @@
-=20
- #include "minstate.h"
-=20
--/*
-- * SAL_TO_OS_MCA_HANDOFF_STATE (SAL 3.0 spec)
-- *		1. GR1 =3D OS GP
-- *		2. GR8 =3D PAL_PROC physical address
-- *		3. GR9 =3D SAL_PROC physical address
-- *		4. GR10 =3D SAL GP (physical)
-- *		5. GR11 =3D Rendez state
-- *		6. GR12 =3D Return address to location within SAL_CHECK
-- */
--#define SAL_TO_OS_MCA_HANDOFF_STATE_SAVE(_tmp)		\
--	LOAD_PHYSICAL(p0, _tmp, ia64_sal_to_os_handoff_state);; \
--	st8	[_tmp]=3Dr1,0x08;;			\
--	st8	[_tmp]=3Dr8,0x08;;			\
--	st8	[_tmp]=3Dr9,0x08;;			\
--	st8	[_tmp]=3Dr10,0x08;;			\
--	st8	[_tmp]=3Dr11,0x08;;			\
--	st8	[_tmp]=3Dr12,0x08;;			\
--	st8	[_tmp]=3Dr17,0x08;;			\
--	st8	[_tmp]=3Dr18,0x08
--
--/*
-- * OS_MCA_TO_SAL_HANDOFF_STATE (SAL 3.0 spec)
-- * (p6) is executed if we never entered virtual mode (TLB error)
-- * (p7) is executed if we entered virtual mode as expected (normal case)
-- *	1. GR8 =3D OS_MCA return status
-- *	2. GR9 =3D SAL GP (physical)
-- *	3. GR10 =3D 0/1 returning same/new context
-- *	4. GR22 =3D New min state save area pointer
-- *	returns ptr to SAL rtn save loc in _tmp
-- */
--#define OS_MCA_TO_SAL_HANDOFF_STATE_RESTORE(_tmp)	\
--	movl	_tmp=3Dia64_os_to_sal_handoff_state;;	\
--	DATA_VA_TO_PA(_tmp);;				\
--	ld8	r8=3D[_tmp],0x08;;			\
--	ld8	r9=3D[_tmp],0x08;;			\
--	ld8	r10=3D[_tmp],0x08;;			\
--	ld8	r22=3D[_tmp],0x08;;
--	// now _tmp is pointing to SAL rtn save location
--
--/*
-- * COLD_BOOT_HANDOFF_STATE() sets ia64_mca_os_to_sal_state
-- *	imots_os_status=3DIA64_MCA_COLD_BOOT
-- *	imots_sal_gp=3DSAL GP
-- *	imots_context=3DIA64_MCA_SAME_CONTEXT
-- *	imots_new_min_state=3DMin state save area pointer
-- *	imots_sal_check_ra=3DReturn address to location within SAL_CHECK
-- *
-- */
--#define COLD_BOOT_HANDOFF_STATE(sal_to_os_handoff,os_to_sal_handoff,tmp)\
--	movl	tmp=3DIA64_MCA_COLD_BOOT;					\
--	movl	sal_to_os_handoff=3D__pa(ia64_sal_to_os_handoff_state);	\
--	movl	os_to_sal_handoff=3D__pa(ia64_os_to_sal_handoff_state);;	\
--	st8	[os_to_sal_handoff]=3Dtmp,8;;				\
--	ld8	tmp=3D[sal_to_os_handoff],48;;				\
--	st8	[os_to_sal_handoff]=3Dtmp,8;;				\
--	movl	tmp=3DIA64_MCA_SAME_CONTEXT;;				\
--	st8	[os_to_sal_handoff]=3Dtmp,8;;				\
--	ld8	tmp=3D[sal_to_os_handoff],-8;;				\
--	st8     [os_to_sal_handoff]=3Dtmp,8;;				\
--	ld8	tmp=3D[sal_to_os_handoff];;				\
--	st8     [os_to_sal_handoff]=3Dtmp;;
--
- #define GET_IA64_MCA_DATA(reg)						\
- 	GET_THIS_PADDR(reg, ia64_mca_data)				\
- 	;;								\
-@@ -108,14 +49,12 @@
-=20
- 	.global ia64_os_mca_dispatch
- 	.global ia64_os_mca_dispatch_end
--	.global ia64_sal_to_os_handoff_state
--	.global	ia64_os_to_sal_handoff_state
-=20
- 	.text
- 	.align 16
-=20
- ia64_os_mca_dispatch:
--
-+	.prologue
- 	// Serialize all MCA processing
- 	mov	r3=3D1;;
- 	LOAD_PHYSICAL(p0,r2,ia64_mca_serialize);;
-@@ -124,24 +63,17 @@ ia64_os_mca_spin:
- 	cmp.ne	p6,p0=3Dr4,r0
- (p6)	br ia64_os_mca_spin
-=20
--	// Save the SAL to OS MCA handoff state as defined
--	// by SAL SPEC 3.0
--	// NOTE : The order in which the state gets saved
--	//	  is dependent on the way the C-structure
--	//	  for ia64_mca_sal_to_os_state_t has been
--	//	  defined in include/asm/mca.h
--	SAL_TO_OS_MCA_HANDOFF_STATE_SAVE(r2)
--	;;
--
--	// LOG PROCESSOR STATE INFO FROM HERE ON..
--begin_os_mca_dump:
--	br	ia64_os_mca_proc_state_dump;;
--
--ia64_os_mca_done_dump:
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_MCA_STACK_OFFSET	// use the MCA stack
-+	br.sptk ia64_sal_os_state_save		// save the SAL to OS MCA handoff state
-+1:
-=20
--	LOAD_PHYSICAL(p0,r16,ia64_sal_to_os_handoff_state+56)
-+	GET_IA64_MCA_DATA(r2)
-+	// Using MCA stack, struct ia64_sal_os_state, variable proc_state_param
-+	;;
-+	add r3=3DIA64_MCA_CPU_MCA_STACK_OFFSET+MCA_SOS_OFFSET+IA64_SAL_OS_STATE_P=
-ROC_STATE_PARAM_OFFSET, r2
- 	;;
--	ld8 r18=3D[r16]		// Get processor state parameter on existing PALE_CHECK.
-+	ld8 r18=3D[r3]				// Get processor state parameter on existing PALE_CHECK.
- 	;;
- 	tbit.nz p6,p7=3Dr18,60
- (p7)	br.spnt done_tlb_purge_and_reload
-@@ -305,65 +237,56 @@ begin_tlb_purge_and_reload:
- 	itr.d dtr[r20]=3Dr16
- 	;;
- 	srlz.d
--	;;
--	br.sptk.many done_tlb_purge_and_reload
--err:
--	COLD_BOOT_HANDOFF_STATE(r20,r21,r22)
--	br.sptk.many ia64_os_mca_done_restore
-=20
- done_tlb_purge_and_reload:
-=20
--	// Setup new stack frame for OS_MCA handling
--	GET_IA64_MCA_DATA(r2)
--	;;
--	add r3 =3D IA64_MCA_CPU_STACKFRAME_OFFSET, r2
--	add r2 =3D IA64_MCA_CPU_RBSTORE_OFFSET, r2
--	;;
--	rse_switch_context(r6,r3,r2);;	// RSC management in this new context
--
--	GET_IA64_MCA_DATA(r2)
--	;;
--	add r2 =3D IA64_MCA_CPU_STACK_OFFSET+IA64_MCA_STACK_SIZE-16, r2
--	;;
--	mov r12=3Dr2		// establish new stack-pointer
-+	// create struct pt_regs from min_state, switch stack
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_MCA_STACK_OFFSET	// use the MCA stack
-+	br.sptk ia64_pt_regs_save
-+1:
-+
-+	// everything saved, now we can set the kernel registers
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_MCA_STACK_OFFSET	// use the MCA stack
-+	br.sptk ia64_set_kernel_registers
-+1:
-=20
-         // Enter virtual mode from physical mode
- 	VIRTUAL_MODE_ENTER(r2, r3, ia64_os_mca_virtual_begin, r4)
- ia64_os_mca_virtual_begin:
-=20
--	// Call virtual mode handler
--	movl		r2=3Dia64_mca_ucmc_handler;;
--	mov		b6=3Dr2;;
--	br.call.sptk.many    b0=B6;;
--.ret0:
--	// Revert back to physical mode before going back to SAL
--	PHYSICAL_MODE_ENTER(r2, r3, ia64_os_mca_virtual_end, r4)
--ia64_os_mca_virtual_end:
-+	mov ar.rsc=3D3				// set eager mode for C handler
-=20
--	// restore the original stack frame here
-+	// Call virtual mode handler
-+	alloc r14=3Dar.pfs,0,0,1,0
-+	.body
- 	GET_IA64_MCA_DATA(r2)
- 	;;
--	add r2 =3D IA64_MCA_CPU_STACKFRAME_OFFSET, r2
--	;;
--	movl    r4=3DIA64_PSR_MC
-+	add out0=3DIA64_MCA_CPU_MCA_STACK_OFFSET+MCA_SOS_OFFSET, r2
- 	;;
--	rse_return_context(r4,r3,r2)	// switch from interrupt context for RSE
-+	DATA_PA_TO_VA(out0,r2)
-+	br.call.sptk.many    b0=3Dia64_mca_ucmc_handler;;
-=20
--	// let us restore all the registers from our PSI structure
--	mov	r8=3Dgp
--	;;
--begin_os_mca_restore:
--	br	ia64_os_mca_proc_state_restore;;
-+	// Revert back to physical mode before going back to SAL
-+	PHYSICAL_MODE_ENTER(r2, r3, ia64_os_mca_virtual_end, r4)
-+ia64_os_mca_virtual_end:
-=20
--ia64_os_mca_done_restore:
--	OS_MCA_TO_SAL_HANDOFF_STATE_RESTORE(r2);;
--	// branch back to SALE_CHECK
--	ld8		r3=3D[r2];;
--	mov		b0=3Dr3;;		// SAL_CHECK return address
-+	// restore struct pt_regs (kernel modified registers), switch back to
-+	// previous stack
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_MCA_STACK_OFFSET	// use the MCA stack
-+	br.sptk ia64_pt_regs_restore
-+1:
-+
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_MCA_STACK_OFFSET	// use the MCA stack
-+	br.sptk ia64_sal_os_state_restore	// restore the SAL to OS MCA handoff st=
-ate
-+1:
-+	mov		b0=3Dr12;;		// SAL_CHECK return address
-=20
- 	// release lock
--	movl		r3=3Dia64_mca_serialize;;
--	DATA_VA_TO_PA(r3);;
-+	LOAD_PHYSICAL(p0,r3,ia64_mca_serialize);;
- 	st8.rel		[r3]=3Dr0
-=20
- 	br		b0
-@@ -374,471 +297,403 @@ ia64_os_mca_dispatch_end:
-=20
- //++
- // Name:
--//      ia64_os_mca_proc_state_dump()
-+//      ia64_sal_os_state_save()
- //
- // Stub Description:
- //
--//       This stub dumps the processor state during MCHK to a data area
-+//       Save the SAL/OS state.  This is sensitive to the layout of struct
-+//       ia64_sal_os_state in mca.h.
-+//
-+//       r2 contains the return address, r3 contains either
-+//       IA64_MCA_CPU_MCA_STACK_OFFSET or IA64_MCA_CPU_INIT_STACK_OFFSET.
-+//
-+//       The OS to SAL section of struct ia64_sal_os_state is set to a def=
-ault
-+//       value of cold boot and return to the same context.
- //
- //--
-=20
--ia64_os_mca_proc_state_dump:
--// Save bank 1 GRs 16-31 which will be used by c-language code when we swi=
-tch
--//  to virtual addressing mode.
-+ia64_sal_os_state_save:
-+	mov b0=3Dr2		// save return address
- 	GET_IA64_MCA_DATA(r2)
-+	add r3=3DMCA_SOS_OFFSET, r3
-+	;;
-+	add r3=3Dr2, r3		// struct ia64_sal_os_state on MCA or INIT stack
-+	;;
-+	st8 [r3]=3Dr1,8		// OS GP, physical
-+	;;
-+	st8 [r3]=3Dr8,8		// PAL_PROC, physical
-+	;;
-+	st8 [r3]=3Dr9,8		// SAL_PROC, physical
-+	;;
-+	st8 [r3]=3Dr11,8		// rendezvous state
-+	;;
-+	st8 [r3]=3Dr18,8		// processor state parameter
-+	;;
-+	st8 [r3]=3Dr12,8		// SAL return address, physical
-+	;;
-+	st8 [r3]=3Dr10,8		// SAL GP, physical
-+	;;
-+	st8 [r3]=3Dr17,8		// PAL min_state, physical in asm, virtual in C
-+	mov r6=3DIA64_MCA_COLD_BOOT
- 	;;
--	add r2 =3D IA64_MCA_CPU_PROC_STATE_DUMP_OFFSET, r2
-+	st8 [r3]=3Dr6,8		// set default OS status
-+	mov r7=3DIA64_MCA_SAME_CONTEXT
- 	;;
--// save ar.NaT
--	mov		r5=3Dar.unat                  // ar.unat
-+	st8 [r3]=3Dr7,8		// set default OS context
-+	br.sptk b0
-=20
--// save banked GRs 16-31 along with NaT bits
--	bsw.1;;
--	st8.spill	[r2]=3Dr16,8;;
--	st8.spill	[r2]=3Dr17,8;;
--	st8.spill	[r2]=3Dr18,8;;
--	st8.spill	[r2]=3Dr19,8;;
--	st8.spill	[r2]=3Dr20,8;;
--	st8.spill	[r2]=3Dr21,8;;
--	st8.spill	[r2]=3Dr22,8;;
--	st8.spill	[r2]=3Dr23,8;;
--	st8.spill	[r2]=3Dr24,8;;
--	st8.spill	[r2]=3Dr25,8;;
--	st8.spill	[r2]=3Dr26,8;;
--	st8.spill	[r2]=3Dr27,8;;
--	st8.spill	[r2]=3Dr28,8;;
--	st8.spill	[r2]=3Dr29,8;;
--	st8.spill	[r2]=3Dr30,8;;
--	st8.spill	[r2]=3Dr31,8;;
--
--	mov		r4=3Dar.unat;;
--	st8		[r2]=3Dr4,8                // save User NaT bits for r16-r31
--	mov		ar.unat=3Dr5                  // restore original unat
--	bsw.0;;
--
--//save BRs
--	add		r4=3D8,r2                  // duplicate r2 in r4
--	add		r6=3D2*8,r2                // duplicate r2 in r4
--
--	mov		r3=B0
--	mov		r5=B1
--	mov		r7=B2;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=B3
--	mov		r5=B4
--	mov		r7=B5;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=B6
--	mov		r5=B7;;
--	st8		[r2]=3Dr3,2*8
--	st8		[r4]=3Dr5,2*8;;
--
--cSaveCRs:
--// save CRs
--	add		r4=3D8,r2                  // duplicate r2 in r4
--	add		r6=3D2*8,r2                // duplicate r2 in r4
--
--	mov		r3=3Dcr.dcr
--	mov		r5=3Dcr.itm
--	mov		r7=3Dcr.iva;;
--
--	st8		[r2]=3Dr3,8*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;            // 48 byte rements
--
--	mov		r3=3Dcr.pta;;
--	st8		[r2]=3Dr3,8*8;;            // 64 byte rements
--
--// if PSR.ic=3D0, reading interruption registers causes an illegal operati=
-on fault
--	mov		r3=3Dpsr;;
--	tbit.nz.unc	p6,p0=3Dr3,PSR_IC;;           // PSI Valid Log bit pos. test
--(p6)    st8     [r2]=3Dr0,9*8+160             // increment by 232 byte inc.
--begin_skip_intr_regs:
--(p6)	br		SkipIntrRegs;;
--
--	add		r4=3D8,r2                  // duplicate r2 in r4
--	add		r6=3D2*8,r2                // duplicate r2 in r6
--
--	mov		r3=3Dcr.ipsr
--	mov		r5=3Dcr.isr
--	mov		r7=3Dr0;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dcr.iip
--	mov		r5=3Dcr.ifa
--	mov		r7=3Dcr.itir;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dcr.iipa
--	mov		r5=3Dcr.ifs
--	mov		r7=3Dcr.iim;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dcr25;;                   // cr.iha
--	st8		[r2]=3Dr3,160;;               // 160 byte rement
--
--SkipIntrRegs:
--	st8		[r2]=3Dr0,152;;               // another 152 byte .
--
--	add		r4=3D8,r2                     // duplicate r2 in r4
--	add		r6=3D2*8,r2                   // duplicate r2 in r6
--
--	mov		r3=3Dcr.lid
--//	mov		r5=3Dcr.ivr                     // cr.ivr, don't read it
--	mov		r7=3Dcr.tpr;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dr0                       // cr.eoi =3D> cr67
--	mov		r5=3Dr0                       // cr.irr0 =3D> cr68
--	mov		r7=3Dr0;;                     // cr.irr1 =3D> cr69
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dr0                       // cr.irr2 =3D> cr70
--	mov		r5=3Dr0                       // cr.irr3 =3D> cr71
--	mov		r7=3Dcr.itv;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dcr.pmv
--	mov		r5=3Dcr.cmcv;;
--	st8		[r2]=3Dr3,7*8
--	st8		[r4]=3Dr5,7*8;;
--
--	mov		r3=3Dr0                       // cr.lrr0 =3D> cr80
--	mov		r5=3Dr0;;                     // cr.lrr1 =3D> cr81
--	st8		[r2]=3Dr3,23*8
--	st8		[r4]=3Dr5,23*8;;
--
--	adds		r2%*8,r2;;
--
--cSaveARs:
--// save ARs
--	add		r4=3D8,r2                  // duplicate r2 in r4
--	add		r6=3D2*8,r2                // duplicate r2 in r6
--
--	mov		r3=3Dar.k0
--	mov		r5=3Dar.k1
--	mov		r7=3Dar.k2;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dar.k3
--	mov		r5=3Dar.k4
--	mov		r7=3Dar.k5;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dar.k6
--	mov		r5=3Dar.k7
--	mov		r7=3Dr0;;                     // ar.kr8
--	st8		[r2]=3Dr3,10*8
--	st8		[r4]=3Dr5,10*8
--	st8		[r6]=3Dr7,10*8;;           // rement by 72 bytes
--
--	mov		r3=3Dar.rsc
--	mov		ar.rsc=3Dr0			    // put RSE in enforced lazy mode
--	mov		r5=3Dar.bsp
--	;;
--	mov		r7=3Dar.bspstore;;
--	st8		[r2]=3Dr3,3*8
--	st8		[r4]=3Dr5,3*8
--	st8		[r6]=3Dr7,3*8;;
--
--	mov		r3=3Dar.rnat;;
--	st8		[r2]=3Dr3,8*13             // increment by 13x8 bytes
--
--	mov		r3=3Dar.ccv;;
--	st8		[r2]=3Dr3,8*4
--
--	mov		r3=3Dar.unat;;
--	st8		[r2]=3Dr3,8*4
--
--	mov		r3=3Dar.fpsr;;
--	st8		[r2]=3Dr3,8*4
--
--	mov		r3=3Dar.itc;;
--	st8		[r2]=3Dr3,160                 // 160
--
--	mov		r3=3Dar.pfs;;
--	st8		[r2]=3Dr3,8
--
--	mov		r3=3Dar.lc;;
--	st8		[r2]=3Dr3,8
--
--	mov		r3=3Dar.ec;;
--	st8		[r2]=3Dr3
--	add		r2=3D8*62,r2               //padding
--
--// save RRs
--	mov		ar.lc=3D0x08-1
--	movl		r4=3D0x00;;
--
--cStRR:
--	dep.z		r5=3Dr4,61,3;;
--	mov		r3=3Drr[r5];;
--	st8		[r2]=3Dr3,8
--	add		r4=3D1,r4
--	br.cloop.sptk.few	cStRR
-+//EndStub/////////////////////////////////////////////////////////////////=
-/////
-+
-+
-+//++
-+// Name:
-+//      ia64_sal_os_state_restore()
-+//
-+// Stub Description:
-+//
-+//       Restore the SAL/OS state.  This is sensitive to the layout of str=
-uct
-+//       ia64_sal_os_state in mca.h.
-+//
-+//       r2 contains the return address, r3 contains either
-+//       IA64_MCA_CPU_MCA_STACK_OFFSET or IA64_MCA_CPU_INIT_STACK_OFFSET.
-+//
-+//--
-+
-+ia64_sal_os_state_restore:
-+	mov b0=3Dr2		// save return address
-+	GET_IA64_MCA_DATA(r2)
-+	add r3=3DMCA_SOS_OFFSET+IA64_SAL_OS_STATE_COMMON_OFFSET, r3
-+	;;
-+	add r3=3Dr2, r3		// common struct ia64_sal_os_state on MCA or INIT stack
-+	;;
-+	ld8 r12=3D[r3],8		// SAL return address, physical
-+	;;
-+	ld8 r9=3D[r3],8		// SAL GP, physical
-+	;;
-+	ld8 r22=3D[r3],8		// pal_min_state
-+	;;
-+	ld8 r8=3D[r3],8		// OS status
- 	;;
--end_os_mca_dump:
--	br	ia64_os_mca_done_dump;;
-+	ld8 r10=3D[r3],8		// OS context
-+	br.sptk b0
-=20
- //EndStub/////////////////////////////////////////////////////////////////=
-/////
-=20
-=20
- //++
- // Name:
--//       ia64_os_mca_proc_state_restore()
-+//	ia64_pt_regs_save()
- //
- // Stub Description:
- //
--//       This is a stub to restore the saved processor state during MCHK
-+//	Create a struct pt_regs from the current registers plus the contents
-+//	of pal_min_state.
- //
-+//	r2 contains the return address, r3 contains either
-+//	IA64_MCA_CPU_MCA_STACK_OFFSET or IA64_MCA_CPU_INIT_STACK_OFFSET.
-+//
-+//	On entry, sos->pal_min_state is physical, on exit it is virtual.
-+//
-+//	On entry RBS is still on the original stack, this routine switches RBS
-+//	to use the MCA/INIT stack.  MCA/INIT handlers are entered in RSE lazy
-+//	mode, with cover already issued.
-+//=09
- //--
-=20
--ia64_os_mca_proc_state_restore:
-+#define	ms		r4
-+#define	regs		r5
-+#define	save_unat	r6
-+#define	temp1		r2	/* careful, it overlaps with input registers */
-+#define	temp2		r3	/* careful, it overlaps with input registers */
-+#define	temp3		r7
-+#define	temp4		r8
-=20
--// Restore bank1 GR16-31
-+ia64_pt_regs_save:
-+	add regs=3DMCA_PT_REGS_OFFSET, r3
-+	add temp2=3DMCA_SOS_OFFSET+IA64_SAL_OS_STATE_PAL_MIN_STATE_OFFSET, r3
-+	mov b0=3Dr2		// save return address
-+	GET_IA64_MCA_DATA(temp1)
-+	;;
-+	add temp2=3Dtemp2, temp1	// struct ia64_sal_os_state.pal_min_state on MCA=
- or INIT stack
-+	add regs=3Dregs, temp1	// struct pt_regs on MCA or INIT stack
-+	;;
-+	// Address of minstate area provided by PAL is physical, uncacheable.
-+	// Convert to Linux virtual address in region 6 for C code.
-+	ld8 ms=3D[temp2]		// pal_min_state, physical
-+	;;
-+	dep temp1=3D-1,ms,62,2	// set region 6
-+	;;
-+	st8 [temp2]=3Dtemp1	// pal_min_state, virtual
-+
-+	// copy the ar, cr, pr, br entries
-+	add temp1=3DIA64_PMSA_PR_OFFSET, ms
-+	add temp2=3DIA64_PT_REGS_PR_OFFSET, regs
-+	;;
-+	ld8 temp3=3D[temp1],8			// pmsa_pr
-+	;;
-+	st8 [temp2]=3Dtemp3
-+	add temp2=3DIA64_PT_REGS_B0_OFFSET, regs
-+	ld8 temp4=3D[temp1],8			// pmsa_br0
-+	;;
-+	st8 [temp2]=3Dtemp4
-+	add temp2=3DIA64_PT_REGS_AR_RSC_OFFSET, regs
-+	ld8 temp3=3D[temp1],8			// pmsa_rsc
-+	;;
-+	st8 [temp2]=3Dtemp3
-+	// if ipsr.ic then use pmsa_{iip,ipsr,ifs}, else use pmsa_{xip,xpsr,xfs}
-+	// we just copied pmsa_rsc, so temp1 contains &pmsa_iip.
-+	add temp2=3DIA64_PMSA_IPSR_OFFSET, ms
-+	;;
-+	ld8 temp3=3D[temp2]			// pmsa_ipsr
-+	;;
-+	tbit.z p6,p0=3Dtemp3, 13			// test ipsr.ic
-+	;;
-+(p6)	add temp1=3DIA64_PMSA_XIP_OFFSET-IA64_PMSA_IIP_OFFSET, temp1
-+	;;
-+	ld8 temp3=3D[temp1],8			// save iip or xip
-+	add temp2=3DIA64_PT_REGS_CR_IIP_OFFSET, regs
-+	;;
-+	st8 [temp2]=3Dtemp3
-+	ld8 temp4=3D[temp1],8			// save ispr or xpsr
-+	add temp2=3DIA64_PT_REGS_CR_IPSR_OFFSET, regs
-+	;;
-+	st8 [temp2]=3Dtemp4
-+	ld8 temp3=3D[temp1],8			// save ifs or xfs
-+	add temp2=3DIA64_PT_REGS_CR_IFS_OFFSET, regs
-+	;;
-+	st8 [temp2]=3Dtemp3
-+	mov temp3=3Dar.unat
-+	add temp2=3DIA64_PT_REGS_AR_UNAT_OFFSET, regs
-+	;;
-+	st8 [temp2]=3Dtemp3			// save ar.unat
-+	mov temp3=3Dar.pfs
-+	add temp2=3DIA64_PT_REGS_AR_PFS_OFFSET, regs
-+	;;
-+	st8 [temp2]=3Dtemp3			// save ar.pfs
-+	mov temp3=3Dar.bspstore
-+	add temp2=3DIA64_PT_REGS_AR_BSPSTORE_OFFSET, regs
-+	;;
-+	extr.u temp4=3Dtemp3, 61, 3		// region from old ar.bspstore=20
-+	;;
-+	cmp.ne p6,p0=3Dtemp4, r0			// is old ar.bspstore a virtual address?
-+(p6)	br.cond.dpnt 1f
-+	DATA_PA_TO_VA(temp3,temp4)		// no, C code needs a virtual address
-+	;;
-+1:	st8 [temp2]=3Dtemp3			// save ar.bspstore
-+	mov temp3=3Dar.rnat
-+	add temp2=3DIA64_PT_REGS_AR_RNAT_OFFSET, regs
-+	;;
-+	st8 [temp2]=3Dtemp3			// save ar.rnat
-+	mov temp1=3D-MCA_PT_REGS_OFFSET+IA64_RBS_OFFSET
-+	;;
-+	add temp1=3Dtemp1, regs			// step to RBS offset in current stack
-+	add temp2=3DIA64_PT_REGS_LOADRS_OFFSET, regs
-+	;;
-+	mov ar.bspstore=3Dtemp1			// switch RBS to MCA/INIT stack
-+	;;
-+	mov temp3=3Dar.bsp
-+	;;
-+	sub temp3=3Dtemp3, temp1			// ar.bsp - ar.bspstore
-+	;;
-+	shl temp3=3Dtemp3,16			// compute ar.rsc to be used for "loadrs"
-+	;;
-+	st8 [temp2]=3Dtemp3			// save loadrs
-+
-+	// copy the general registers that are not done by SAVE_REST
-+	mov save_unat=3Dar.unat				// save current unat
-+	ld8 temp1=3D[ms]					// pmsa_nat_bits
-+	;;
-+	mov ar.unat=3Dtemp1				// load NaT bits for registers in pal_min_state
-+	add temp1=3DIA64_PMSA_GR_OFFSET+(1-1)*8, ms	// &pal_min_state_area.pmsa_g=
-r[1-1], saved GR1
-+	add temp2=3DIA64_PMSA_GR_OFFSET+(2-1)*8, ms	// &pal_min_state_area.pmsa_g=
-r[2-1], saved GR2
-+	add temp3=3DIA64_PMSA_GR_OFFSET+(3-1)*8, ms	// &pal_min_state_area.pmsa_g=
-r[3-1], saved GR3
-+	;;
-+	ld8.fill r1=3D[temp1]
-+	ld8.fill r16=3D[temp2]				// copy r2 in r16
-+	ld8.fill r17=3D[temp3]				// copy r3 in r17
-+	;;
-+	add temp1=3DIA64_PMSA_GR_OFFSET+(8-1)*8, ms	// &pal_min_state_area.pmsa_g=
-r[8-1], saved GR8
-+	add temp2=3DIA64_PMSA_GR_OFFSET+(9-1)*8, ms	// &pal_min_state_area.pmsa_g=
-r[9-1], saved GR9
-+	;;
-+	ld8.fill r8=3D[temp1],16
-+	ld8.fill r9=3D[temp2],16
-+	;;
-+	ld8.fill r10=3D[temp1],16
-+	ld8.fill r11=3D[temp2],16
-+	;;
-+	ld8.fill r12=3D[temp1],16
-+	ld8.fill r13=3D[temp2],16
-+	;;
-+	ld8.fill r14=3D[temp1]
-+	ld8.fill r15=3D[temp2]
-+	;;
-+	mov ar.unat=3Dsave_unat				// restore current unat
-+	add temp1=3DIA64_PT_REGS_R8_OFFSET, regs
-+	add temp2=3DIA64_PT_REGS_R9_OFFSET, regs
-+	;;
-+.mem.offset 0,0; st8.spill [temp1]=3Dr8,16
-+.mem.offset 8,0; st8.spill [temp2]=3Dr9,16
-+	;;
-+.mem.offset 0,0; st8.spill [temp1]=3Dr10
-+.mem.offset 8,0; st8.spill [temp2]=3Dr11
-+	;;
-+	add temp1=3DIA64_PT_REGS_R1_OFFSET, regs
-+	add temp2=3DIA64_PT_REGS_R12_OFFSET, regs
-+	;;
-+.mem.offset 0,0; st8.spill [temp1]=3Dr1
-+.mem.offset 8,0; st8.spill [temp2]=3Dr12
-+	;;
-+	add temp1=3DIA64_PT_REGS_R13_OFFSET, regs
-+	add temp2=3DIA64_PT_REGS_R14_OFFSET, regs
-+	;;
-+.mem.offset 0,0; st8.spill [temp1]=3Dr13
-+.mem.offset 8,0; st8.spill [temp2]=3Dr14
-+	;;
-+	add temp1=3DIA64_PT_REGS_R15_OFFSET, regs
-+	add temp2=3DIA64_PT_REGS_R2_OFFSET, regs
-+	;;
-+.mem.offset 0,0; st8.spill [temp1]=3Dr15
-+.mem.offset 8,0; st8.spill [temp2]=3Dr16,8	// actually r2
-+	;;
-+	st8.spill [temp2]=3Dr17			// actually r3
-+	;;
-+
-+	// restore bank 1 gr16-31 from pal_minstate, including NaT bits.
-+	// SAVE_REST assumes that these registers are unchanged from the
-+	// interrupt.
-+
-+	mov save_unat=3Dar.unat			// save current unat
-+	ld8 temp1=3D[ms]				// pmsa_nat_bits
-+	;;
-+	mov ar.unat=3Dtemp1			// load NaT bits for registers in pal_min_state
-+	add temp1=3DIA64_PMSA_BANK1_GR_OFFSET, ms		// &pal_min_state_area.pmsa_ba=
-nk1_gr[0], saved GR16
-+	add temp2=3DIA64_PMSA_BANK1_GR_OFFSET+8, ms	// &pal_min_state_area.pmsa_b=
-ank1_gr[1], saved GR17
-+	;;
-+	ld8.fill r16=3D[temp1],16
-+	ld8.fill r17=3D[temp2],16
-+	;;
-+	ld8.fill r18=3D[temp1],16
-+	ld8.fill r19=3D[temp2],16
-+	;;
-+	ld8.fill r20=3D[temp1],16
-+	ld8.fill r21=3D[temp2],16
-+	;;
-+	ld8.fill r22=3D[temp1],16
-+	ld8.fill r23=3D[temp2],16
-+	;;
-+	ld8.fill r24=3D[temp1],16
-+	ld8.fill r25=3D[temp2],16
-+	;;
-+	ld8.fill r26=3D[temp1],16
-+	ld8.fill r27=3D[temp2],16
-+	;;
-+	ld8.fill r28=3D[temp1],16
-+	ld8.fill r29=3D[temp2],16
-+	;;
-+	ld8.fill r30=3D[temp1],16
-+	ld8.fill r31=3D[temp2],16
-+	;;
-+	mov ar.unat=3Dsave_unat			// restore current unat
-+
-+	// get ready for SAVE_REST
-+	add temp1=3DIA64_PT_REGS_R16_OFFSET, regs
-+	add temp2=3DIA64_PT_REGS_R17_OFFSET, regs
-+	mov r8=3Dar.ccv
-+	mov r9=3Dar.csd
-+	mov r10=3Dar.ssd
-+	movl r11=3DFPSR_DEFAULT
-+	;;
-+	SAVE_REST
-+
-+	br.sptk b0
-+
-+//EndStub/////////////////////////////////////////////////////////////////=
-/////
-+
-+
-+//++
-+// Name:
-+//      ia64_pt_regs_restore()
-+//
-+// Stub Description:
-+//
-+//	Restore the modified kernel registers from the struct pt_regs that was
-+//	created from the entry state plus pal_min_state.
-+//
-+//	r2 contains the return address, r3 contains either
-+//	IA64_MCA_CPU_MCA_STACK_OFFSET or IA64_MCA_CPU_INIT_STACK_OFFSET.
-+//
-+//	On entry, pal_min_state is virtual, on exit it is physical.
-+//
-+//	On entry RBS is on the MCA/INIT stack, this routine switches RBS
-+//	back to the previous stack.
-+//
-+//--
-+
-+ia64_pt_regs_restore:
-+	mov b0=3Dr2		// save return address
- 	GET_IA64_MCA_DATA(r2)
-+	add r3=3DMCA_SOS_OFFSET+IA64_SAL_OS_STATE_PAL_MIN_STATE_OFFSET, r3
-+	;;
-+	add r3=3Dr2, r3		// struct ia64_sal_os_state.pal_min_state on MCA or INIT=
- stack
-+	;;
-+	// Convert Linux virtual address in region 6 back to physical.
-+	ld8 ms=3D[r3]		// pal_min_state, virtual
- 	;;
--	add r2 =3D IA64_MCA_CPU_PROC_STATE_DUMP_OFFSET, r2
-+	DATA_VA_TO_PA(ms)
-+	;;
-+	st8 [r3]=3Dms
-+	// FIXME: restore pt_regs
-+	br.sptk b0
-+
-+//EndStub/////////////////////////////////////////////////////////////////=
-/////
-=20
--restore_GRs:                                    // restore bank-1 GRs 16-31
--	bsw.1;;
--	add		r3=16*8,r2;;                // to get to NaT of GR 16-31
--	ld8		r3=3D[r3];;
--	mov		ar.unat=3Dr3;;                // first restore NaT
--
--	ld8.fill	r16=3D[r2],8;;
--	ld8.fill	r17=3D[r2],8;;
--	ld8.fill	r18=3D[r2],8;;
--	ld8.fill	r19=3D[r2],8;;
--	ld8.fill	r20=3D[r2],8;;
--	ld8.fill	r21=3D[r2],8;;
--	ld8.fill	r22=3D[r2],8;;
--	ld8.fill	r23=3D[r2],8;;
--	ld8.fill	r24=3D[r2],8;;
--	ld8.fill	r25=3D[r2],8;;
--	ld8.fill	r26=3D[r2],8;;
--	ld8.fill	r27=3D[r2],8;;
--	ld8.fill	r28=3D[r2],8;;
--	ld8.fill	r29=3D[r2],8;;
--	ld8.fill	r30=3D[r2],8;;
--	ld8.fill	r31=3D[r2],8;;
--
--	ld8		r3=3D[r2],8;;              // increment to skip NaT
--	bsw.0;;
--
--restore_BRs:
--	add		r4=3D8,r2                  // duplicate r2 in r4
--	add		r6=3D2*8,r2;;              // duplicate r2 in r4
--
--	ld8		r3=3D[r2],3*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;
--	mov		b0=3Dr3
--	mov		b1=3Dr5
--	mov		b2=3Dr7;;
--
--	ld8		r3=3D[r2],3*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;
--	mov		b3=3Dr3
--	mov		b4=3Dr5
--	mov		b5=3Dr7;;
--
--	ld8		r3=3D[r2],2*8
--	ld8		r5=3D[r4],2*8;;
--	mov		b6=3Dr3
--	mov		b7=3Dr5;;
--
--restore_CRs:
--	add		r4=3D8,r2                  // duplicate r2 in r4
--	add		r6=3D2*8,r2;;              // duplicate r2 in r4
--
--	ld8		r3=3D[r2],8*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;            // 48 byte increments
--	mov		cr.dcr=3Dr3
--	mov		cr.itm=3Dr5
--	mov		cr.iva=3Dr7;;
--
--	ld8		r3=3D[r2],8*8;;            // 64 byte increments
--//      mov		cr.pta=3Dr3
--
--
--// if PSR.ic=3D1, reading interruption registers causes an illegal operati=
-on fault
--	mov		r3=3Dpsr;;
--	tbit.nz.unc	p6,p0=3Dr3,PSR_IC;;           // PSI Valid Log bit pos. test
--(p6)    st8     [r2]=3Dr0,9*8+160             // increment by 232 byte inc.
--
--begin_rskip_intr_regs:
--(p6)	br		rSkipIntrRegs;;
--
--	add		r4=3D8,r2                  // duplicate r2 in r4
--	add		r6=3D2*8,r2;;              // duplicate r2 in r4
--
--	ld8		r3=3D[r2],3*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;
--	mov		cr.ipsr=3Dr3
--//	mov		cr.isr=3Dr5                   // cr.isr is read only
--
--	ld8		r3=3D[r2],3*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;
--	mov		cr.iip=3Dr3
--	mov		cr.ifa=3Dr5
--	mov		cr.itir=3Dr7;;
--
--	ld8		r3=3D[r2],3*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;
--	mov		cr.iipa=3Dr3
--	mov		cr.ifs=3Dr5
--	mov		cr.iim=3Dr7
--
--	ld8		r3=3D[r2],160;;               // 160 byte increment
--	mov		cr.iha=3Dr3
--
--rSkipIntrRegs:
--	ld8		r3=3D[r2],152;;               // another 152 byte inc.
--
--	add		r4=3D8,r2                     // duplicate r2 in r4
--	add		r6=3D2*8,r2;;                 // duplicate r2 in r6
--
--	ld8		r3=3D[r2],8*3
--	ld8		r5=3D[r4],8*3
--	ld8		r7=3D[r6],8*3;;
--	mov		cr.lid=3Dr3
--//	mov		cr.ivr=3Dr5                   // cr.ivr is read only
--	mov		cr.tpr=3Dr7;;
--
--	ld8		r3=3D[r2],8*3
--	ld8		r5=3D[r4],8*3
--	ld8		r7=3D[r6],8*3;;
--//	mov		cr.eoi=3Dr3
--//	mov		cr.irr0=3Dr5                  // cr.irr0 is read only
--//	mov		cr.irr1=3Dr7;;                // cr.irr1 is read only
--
--	ld8		r3=3D[r2],8*3
--	ld8		r5=3D[r4],8*3
--	ld8		r7=3D[r6],8*3;;
--//	mov		cr.irr2=3Dr3                  // cr.irr2 is read only
--//	mov		cr.irr3=3Dr5                  // cr.irr3 is read only
--	mov		cr.itv=3Dr7;;
--
--	ld8		r3=3D[r2],8*7
--	ld8		r5=3D[r4],8*7;;
--	mov		cr.pmv=3Dr3
--	mov		cr.cmcv=3Dr5;;
--
--	ld8		r3=3D[r2],8*23
--	ld8		r5=3D[r4],8*23;;
--	adds		r2=3D8*23,r2
--	adds		r4=3D8*23,r4;;
--//	mov		cr.lrr0=3Dr3
--//	mov		cr.lrr1=3Dr5
--
--	adds		r2=3D8*2,r2;;
--
--restore_ARs:
--	add		r4=3D8,r2                  // duplicate r2 in r4
--	add		r6=3D2*8,r2;;              // duplicate r2 in r4
--
--	ld8		r3=3D[r2],3*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;
--	mov		ar.k0=3Dr3
--	mov		ar.k1=3Dr5
--	mov		ar.k2=3Dr7;;
--
--	ld8		r3=3D[r2],3*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;
--	mov		ar.k3=3Dr3
--	mov		ar.k4=3Dr5
--	mov		ar.k5=3Dr7;;
--
--	ld8		r3=3D[r2],10*8
--	ld8		r5=3D[r4],10*8
--	ld8		r7=3D[r6],10*8;;
--	mov		ar.k6=3Dr3
--	mov		ar.k7=3Dr5
--	;;
--
--	ld8		r3=3D[r2],3*8
--	ld8		r5=3D[r4],3*8
--	ld8		r7=3D[r6],3*8;;
--//	mov		ar.rsc=3Dr3
--//	mov		ar.bsp=3Dr5                   // ar.bsp is read only
--	mov		ar.rsc=3Dr0			    // make sure that RSE is in enforced lazy mode
--	;;
--	mov		ar.bspstore=3Dr7;;
--
--	ld8		r9=3D[r2],8*13;;
--	mov		ar.rnat=3Dr9
--
--	mov		ar.rsc=3Dr3
--	ld8		r3=3D[r2],8*4;;
--	mov		ar.ccv=3Dr3
--
--	ld8		r3=3D[r2],8*4;;
--	mov		ar.unat=3Dr3
--
--	ld8		r3=3D[r2],8*4;;
--	mov		ar.fpsr=3Dr3
--
--	ld8		r3=3D[r2],160;;               // 160
--//      mov		ar.itc=3Dr3
--
--	ld8		r3=3D[r2],8;;
--	mov		ar.pfs=3Dr3
--
--	ld8		r3=3D[r2],8;;
--	mov		ar.lc=3Dr3
--
--	ld8		r3=3D[r2];;
--	mov		ar.ec=3Dr3
--	add		r2=3D8*62,r2;;             // padding
--
--restore_RRs:
--	mov		r5=3Dar.lc
--	mov		ar.lc=3D0x08-1
--	movl		r4=3D0x00;;
--cStRRr:
--	dep.z		r7=3Dr4,61,3
--	ld8		r3=3D[r2],8;;
--	mov		rr[r7]=3Dr3                   // what are its access previledges?
--	add		r4=3D1,r4
--	br.cloop.sptk.few	cStRRr
-+
-+//++
-+// Name:
-+//	ia64_set_kernel_registers()
-+//
-+// Stub Description:
-+//
-+//	Set the registers that are required by the kernel to run on an MCA/INIT
-+//	stack.
-+//
-+//	r2 contains the return address, r3 contains either
-+//	IA64_MCA_CPU_MCA_STACK_OFFSET or IA64_MCA_CPU_INIT_STACK_OFFSET.
-+//=09
-+//--
-+
-+ia64_set_kernel_registers:
-+	add temp3=3DMCA_SP_OFFSET, r3
-+	add temp4=3DMCA_SOS_OFFSET+IA64_SAL_OS_STATE_OS_GP_OFFSET, r3
-+	mov b0=3Dr2		// save return address
-+	GET_IA64_MCA_DATA(r2)
-+	;;
-+	add temp4=3Dtemp4, r2	// &struct ia64_sal_os_state.os_gp
-+	;;
-+	ld8 r1=3D[temp4]		// OS GP from SAL OS state
-+	add r12=3Dr2, temp3	// kernel stack pointer on MCA/INIT stack
-+	add r13=3Dr2, r3		// set current to start of MCA/INIT stack
- 	;;
--	mov		ar.lc=3Dr5
-+	DATA_PA_TO_VA(r1,temp1)
-+	DATA_PA_TO_VA(r12,temp2)
-+	DATA_PA_TO_VA(r13,temp3)
- 	;;
--end_os_mca_restore:
--	br	ia64_os_mca_done_restore;;
-+	mov IA64_KR(CURRENT)=3Dr13
-+
-+	// FIXME: do I need to wire IA64_KR_CURRENT_STACK and IA64_TR_CURRENT_STA=
-CK?
-+
-+	br.sptk b0
-=20
- //EndStub/////////////////////////////////////////////////////////////////=
-/////
-=20
-+#undef	ms
-+#undef	regs
-+#undef	save_unat
-+#undef	temp1
-+#undef	temp2
-+#undef	temp3
-+#undef	temp4
-+
-=20
- // ok, the issue here is that we need to save state information so
- // it can be useable by the kernel debugger and show regs routines.
-@@ -870,51 +725,44 @@ end_os_mca_restore:
- GLOBAL_ENTRY(ia64_monarch_init_handler)
- 	.prologue
- 	// stash the information the SAL passed to os
--	SAL_TO_OS_MCA_HANDOFF_STATE_SAVE(r2)
--	;;
--	SAVE_MIN_WITH_COVER
--	;;
--	mov r8=3Dcr.ifa
--	mov r9=3Dcr.isr
--	adds r3=3D8,r2				// set up second base pointer
--	;;
--	SAVE_REST
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_INIT_STACK_OFFSET	// use the INIT stack
-+	br.sptk ia64_sal_os_state_save		// save the SAL to OS INIT handoff state
-+1:
-+
-+	// create struct pt_regs from min_state, switch stack, set kernel registe=
-rs
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_MCA_STACK_OFFSET	// use the MCA stack
-+	br.sptk ia64_pt_regs_save
-+1:
-+	//
-+        // Enter virtual mode from physical mode
-+	VIRTUAL_MODE_ENTER(r2, r3, ia64_os_init_virtual_begin, r4)
-+ia64_os_init_virtual_begin:
-=20
--// ok, enough should be saved at this point to be dangerous, and supply
--// information for a dump
--// We need to switch to Virtual mode before hitting the C functions.
-+	mov ar.rsc=3D3				// set eager mode for C handler
-=20
--	movl	r2=3DIA64_PSR_IT|IA64_PSR_IC|IA64_PSR_DT|IA64_PSR_RT|IA64_PSR_DFH|IA=
-64_PSR_BN
--	mov	r3=3Dpsr	// get the current psr, minimum enabled at this point
--	;;
--	or	r2=3Dr2,r3
--	;;
--	movl	r3=3DIVirtual_Switch
--	;;
--	mov	cr.iip=3Dr3	// short return to set the appropriate bits
--	mov	cr.ipsr=3Dr2	// need to do an rfi to set appropriate bits
--	;;
--	rfi
--	;;
--IVirtual_Switch:
--	//
--	// We should now be running virtual
--	//
--	// Let's call the C handler to get the rest of the state info
--	//
--	alloc r14=3Dar.pfs,0,0,2,0		// now it's safe (must be first in insn group=
-!)
--	;;
--	adds out0=16,sp				// out0 =3D pointer to pt_regs
--	;;
--	DO_SAVE_SWITCH_STACK
--	.body
--	adds out1=16,sp				// out0 =3D pointer to switch_stack
-+	// Call virtual mode handler
-+	br.call.sptk.many    b0=3Dia64_init_handler;;
-=20
--	br.call.sptk.many rp=3Dia64_init_handler
--.ret1:
-+	// Revert back to physical mode before going back to SAL
-+	PHYSICAL_MODE_ENTER(r2, r3, ia64_os_init_virtual_end, r4)
-+ia64_os_init_virtual_end:
-+
-+	// restore struct pt_regs (kernel modified registers), switch back to
-+	// previous stack
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_INIT_STACK_OFFSET	// use the INIT stack
-+	br.sptk ia64_pt_regs_restore
-+1:
-+
-+	movl r2=1F				// return address
-+	mov r3=3DIA64_MCA_CPU_INIT_STACK_OFFSET	// use the INIT stack
-+	br.sptk ia64_sal_os_state_restore	// restore the SAL to OS INIT handoff s=
-tate
-+1:
-+	mov		b0=3Dr12;;		// SAL_CHECK return address
-+	br		b0
-=20
--return_from_init:
--	br.sptk return_from_init
- END(ia64_monarch_init_handler)
-=20
- //
-@@ -926,3 +774,4 @@ END(ia64_monarch_init_handler)
- GLOBAL_ENTRY(ia64_slave_init_handler)
- 1:	br.sptk 1b
- END(ia64_slave_init_handler)
-+
-Index: linux/arch/ia64/kernel/asm-offsets.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/asm-offsets.c	2005-=
-02-15 13:27:38.000000000 +1100
-+++ linux/arch/ia64/kernel/asm-offsets.c	2005-02-15 13:27:42.000000000 +1100
-@@ -211,17 +211,41 @@ void foo(void)
- #endif
-=20
- 	BLANK();
--	DEFINE(IA64_MCA_CPU_PROC_STATE_DUMP_OFFSET,
--	       offsetof (struct ia64_mca_cpu, proc_state_dump));
--	DEFINE(IA64_MCA_CPU_STACK_OFFSET,
--	       offsetof (struct ia64_mca_cpu, stack));
--	DEFINE(IA64_MCA_CPU_STACKFRAME_OFFSET,
--	       offsetof (struct ia64_mca_cpu, stackframe));
--	DEFINE(IA64_MCA_CPU_RBSTORE_OFFSET,
--	       offsetof (struct ia64_mca_cpu, rbstore));
-+	DEFINE(IA64_MCA_CPU_MCA_STACK_OFFSET,
-+	       offsetof (struct ia64_mca_cpu, mca_stack));
- 	DEFINE(IA64_MCA_CPU_INIT_STACK_OFFSET,
- 	       offsetof (struct ia64_mca_cpu, init_stack));
- 	BLANK();
-+	DEFINE(IA64_SAL_OS_STATE_COMMON_OFFSET,
-+	       offsetof (struct ia64_sal_os_state, sal_ra));
-+	DEFINE(IA64_SAL_OS_STATE_OS_GP_OFFSET,
-+	       offsetof (struct ia64_sal_os_state, os_gp));
-+	DEFINE(IA64_SAL_OS_STATE_PAL_MIN_STATE_OFFSET,
-+	       offsetof (struct ia64_sal_os_state, pal_min_state));
-+	DEFINE(IA64_SAL_OS_STATE_PROC_STATE_PARAM_OFFSET,
-+	       offsetof (struct ia64_sal_os_state, proc_state_param));
-+	DEFINE(IA64_SAL_OS_STATE_SIZE,
-+	       sizeof (struct ia64_sal_os_state));
-+	DEFINE(IA64_PMSA_GR_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_gr));
-+	DEFINE(IA64_PMSA_BANK1_GR_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_bank1_gr));
-+	DEFINE(IA64_PMSA_PR_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_pr));
-+	DEFINE(IA64_PMSA_BR0_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_br0));
-+	DEFINE(IA64_PMSA_RSC_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_rsc));
-+	DEFINE(IA64_PMSA_IIP_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_iip));
-+	DEFINE(IA64_PMSA_IPSR_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_ipsr));
-+	DEFINE(IA64_PMSA_IFS_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_ifs));
-+	DEFINE(IA64_PMSA_XIP_OFFSET,
-+	       offsetof (struct pal_min_state_area_s, pmsa_xip));
-+	BLANK();
-+
- 	/* used by fsys_gettimeofday in arch/ia64/kernel/fsys.S */
- 	DEFINE(IA64_TIME_INTERPOLATOR_ADDRESS_OFFSET, offsetof (struct time_inter=
-polator, addr));
- 	DEFINE(IA64_TIME_INTERPOLATOR_SOURCE_OFFSET, offsetof (struct time_interp=
-olator, source));
-Index: linux/include/asm-ia64/mca_asm.h
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/include/asm-ia64/mca_asm.h	2005-02-1=
-5 13:27:38.000000000 +1100
-+++ linux/include/asm-ia64/mca_asm.h	2005-02-15 13:27:42.000000000 +1100
-@@ -8,6 +8,8 @@
-  * Copyright (C) 2000 David Mosberger-Tang <davidm@hpl.hp.com>
-  * Copyright (C) 2002 Intel Corp.
-  * Copyright (C) 2002 Jenna Hall <jenna.s.hall@intel.com>
-+ * Copyright (C) 2004 Silicon Graphics, Inc
-+ * Copyright (C) 2004 Keith Owens <kaos@sgi.com>
-  */
- #ifndef _ASM_IA64_MCA_ASM_H
- #define _ASM_IA64_MCA_ASM_H
-@@ -207,106 +209,30 @@
- 	;;
-=20
- /*
-- * The following offsets capture the order in which the
-- * RSE related registers from the old context are
-- * saved onto the new stack frame.
-- *
-- *	+-----------------------+
-- *	|NDIRTY [BSP - BSPSTORE]|
-- *	+-----------------------+
-- *	|	RNAT		|
-- *	+-----------------------+
-- *	|	BSPSTORE	|
-- *	+-----------------------+
-- *	|	IFS		|
-- *	+-----------------------+
-- *	|	PFS		|
-- *	+-----------------------+
-- *	|	RSC		|
-- *	+-----------------------+ <-------- Bottom of new stack frame
-- */
--#define  rse_rsc_offset		0
--#define  rse_pfs_offset		(rse_rsc_offset+0x08)
--#define  rse_ifs_offset		(rse_pfs_offset+0x08)
--#define  rse_bspstore_offset	(rse_ifs_offset+0x08)
--#define  rse_rnat_offset	(rse_bspstore_offset+0x08)
--#define  rse_ndirty_offset	(rse_rnat_offset+0x08)
--
--/*
-- * rse_switch_context
-- *
-- *	1. Save old RSC onto the new stack frame
-- *	2. Save PFS onto new stack frame
-- *	3. Cover the old frame and start a new frame.
-- *	4. Save IFS onto new stack frame
-- *	5. Save the old BSPSTORE on the new stack frame
-- *	6. Save the old RNAT on the new stack frame
-- *	7. Write BSPSTORE with the new backing store pointer
-- *	8. Read and save the new BSP to calculate the #dirty registers
-- * NOTE: Look at pages 11-10, 11-11 in PRM Vol 2
-- */
--#define rse_switch_context(temp,p_stackframe,p_bspstore)			\
--	;;									\
--	mov     temp=3Dar.rsc;;							\
--	st8     [p_stackframe]=3Dtemp,8;;					\
--	mov     temp=3Dar.pfs;;							\
--	st8     [p_stackframe]=3Dtemp,8;						\
--	cover ;;								\
--	mov     temp=3Dcr.ifs;;							\
--	st8     [p_stackframe]=3Dtemp,8;;						\
--	mov     temp=3Dar.bspstore;;						\
--	st8     [p_stackframe]=3Dtemp,8;;					\
--	mov     temp=3Dar.rnat;;							\
--	st8     [p_stackframe]=3Dtemp,8;						\
--	mov     ar.bspstore=3Dp_bspstore;;					\
--	mov     temp=3Dar.bsp;;							\
--	sub     temp=3Dtemp,p_bspstore;;						\
--	st8     [p_stackframe]=3Dtemp,8;;
--
--/*
-- * rse_return_context
-- *	1. Allocate a zero-sized frame
-- *	2. Store the number of dirty registers RSC.loadrs field
-- *	3. Issue a loadrs to insure that any registers from the interrupted
-- *	   context which were saved on the new stack frame have been loaded
-- *	   back into the stacked registers
-- *	4. Restore BSPSTORE
-- *	5. Restore RNAT
-- *	6. Restore PFS
-- *	7. Restore IFS
-- *	8. Restore RSC
-- *	9. Issue an RFI
-- */
--#define rse_return_context(psr_mask_reg,temp,p_stackframe)			\
--	;;									\
--	alloc   temp=3Dar.pfs,0,0,0,0;						\
--	add     p_stackframe=3Drse_ndirty_offset,p_stackframe;;			\
--	ld8     temp=3D[p_stackframe];;						\
--	shl     temp=3Dtemp,16;;							\
--	mov     ar.rsc=3Dtemp;;							\
--	loadrs;;								\
--	add     p_stackframe=3D-rse_ndirty_offset+rse_bspstore_offset,p_stackfram=
-e;;\
--	ld8     temp=3D[p_stackframe];;						\
--	mov     ar.bspstore=3Dtemp;;						\
--	add     p_stackframe=3D-rse_bspstore_offset+rse_rnat_offset,p_stackframe;=
-;\
--	ld8     temp=3D[p_stackframe];;						\
--	mov     ar.rnat=3Dtemp;;							\
--	add     p_stackframe=3D-rse_rnat_offset+rse_pfs_offset,p_stackframe;;	\
--	ld8     temp=3D[p_stackframe];;						\
--	mov     ar.pfs=3Dtemp;;							\
--	add     p_stackframe=3D-rse_pfs_offset+rse_ifs_offset,p_stackframe;;	\
--	ld8     temp=3D[p_stackframe];;						\
--	mov     cr.ifs=3Dtemp;;							\
--	add     p_stackframe=3D-rse_ifs_offset+rse_rsc_offset,p_stackframe;;	\
--	ld8     temp=3D[p_stackframe];;						\
--	mov     ar.rsc=3Dtemp ;							\
--	mov     temp=3Dpsr;;							\
--	or      temp=3Dtemp,psr_mask_reg;;					\
--	mov     cr.ipsr=3Dtemp;;							\
--	mov     temp=3Dip;;							\
--	add     temp=3D0x30,temp;;						\
--	mov     cr.iip=3Dtemp;;							\
--	srlz.i;;								\
--	rfi;;
-+ * The MCA and INIT stacks in struct ia64_mca_cpu look like normal kernel
-+ * stacks, except that the SAL/OS state is stored at the top of the MCA/IN=
-IT
-+ * stack.  To support concurrent entry to MCA or INIT, as well as MCA over
-+ * INIT, each event needs its own SAL/OS state.  All entries are 16 byte
-+ * aligned.
-+ *
-+ *      +---------------------------+
-+ *      |        SAL/OS state       |
-+ *      +---------------------------+
-+ *      |         pt_regs           |
-+ *      +---------------------------+
-+ *      |    16 byte scratch area   |
-+ *      +---------------------------+ <-------- SP at start of C MCA handl=
-er
-+ *      |           .....           |
-+ *      +---------------------------+
-+ *      | RBS for MCA/INIT handler  |
-+ *      +---------------------------+
-+ *      | struct task, not used yet |
-+ *      +---------------------------+ <-------- Bottom of MCA/INIT stack
-+ */
-+
-+#define ALIGN16(x)			((x)&~15)
-+#define MCA_SOS_OFFSET			ALIGN16(KERNEL_STACK_SIZE-IA64_SAL_OS_STATE_SIZE)
-+#define MCA_PT_REGS_OFFSET		ALIGN16(MCA_SOS_OFFSET-IA64_PT_REGS_SIZE)
-+#define MCA_SP_OFFSET			ALIGN16(MCA_PT_REGS_OFFSET-16)
-=20
- #endif /* _ASM_IA64_MCA_ASM_H */
-Index: linux/arch/ia64/kernel/mca_drv.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/mca_drv.c	2005-02-1=
-5 13:27:38.000000000 +1100
-+++ linux/arch/ia64/kernel/mca_drv.c	2005-02-15 13:27:42.000000000 +1100
-@@ -4,6 +4,8 @@
-  *
-  * Copyright (C) 2004 FUJITSU LIMITED
-  * Copyright (C) Hidetoshi Seto (seto.hidetoshi@jp.fujitsu.com)
-+ * Copyright (C) 2005 Silicon Graphics, Inc
-+ * Copyright (C) Keith Owens <kaos@sgi.com>
-  */
- #include <linux/config.h>
- #include <linux/types.h>
-@@ -38,10 +40,6 @@
- /* max size of SAL error record (default) */
- static int sal_rec_max =3D 10000;
-=20
--/* from mca.c */
--static ia64_mca_sal_to_os_state_t *sal_to_os_handoff_state;
--static ia64_mca_os_to_sal_state_t *os_to_sal_handoff_state;
--
- /* from mca_drv_asm.S */
- extern void *mca_handler_bhhook(void);
-=20
-@@ -317,7 +315,8 @@ init_record_index_pools(void)
-  */
-=20
- static mca_type_t
--is_mca_global(peidx_table_t *peidx, pal_bus_check_info_t *pbci)
-+is_mca_global(peidx_table_t *peidx, pal_bus_check_info_t *pbci,
-+	      struct ia64_sal_os_state *sos)
- {
- 	pal_processor_state_info_t *psp =3D (pal_processor_state_info_t*)peidx_ps=
-p(peidx);
-=20
-@@ -328,7 +327,7 @@ is_mca_global(peidx_table_t *peidx, pal_
- 	 * Therefore it is local MCA when rendezvous has not been requested.
- 	 * Failed to rendezvous, the system must be down.
- 	 */
--	switch (sal_to_os_handoff_state->imsto_rendez_state) {
-+	switch (sos->rendez_state) {
- 		case -1: /* SAL rendezvous unsuccessful */
- 			return MCA_IS_GLOBAL;
- 		case  0: /* SAL rendezvous not required */
-@@ -389,7 +388,8 @@ is_mca_global(peidx_table_t *peidx, pal_
-  */
-=20
- static int
--recover_from_read_error(slidx_table_t *slidx, peidx_table_t *peidx, pal_bu=
-s_check_info_t *pbci)
-+recover_from_read_error(slidx_table_t *slidx, peidx_table_t *peidx, pal_bu=
-s_check_info_t *pbci,
-+			struct ia64_sal_os_state *sos)
- {
- 	sal_log_mod_error_info_t *smei;
- 	pal_min_state_area_t *pmsa;
-@@ -427,7 +427,7 @@ recover_from_read_error(slidx_table_t *s
- 			 *  setup for resume to bottom half of MCA,
- 			 * "mca_handler_bhhook"
- 			 */
--			pmsa =3D (pal_min_state_area_t *)(sal_to_os_handoff_state->pal_min_stat=
-e | (6ul<<61));
-+			pmsa =3D sos->pal_min_state;
- 			/* pass to bhhook as 1st argument (gr8) */
- 			pmsa->pmsa_gr[8-1] =3D smei->target_identifier;
- 			/* set interrupted return address (but no use) */
-@@ -459,7 +459,8 @@ recover_from_read_error(slidx_table_t *s
-  */
-=20
- static int
--recover_from_platform_error(slidx_table_t *slidx, peidx_table_t *peidx, pa=
-l_bus_check_info_t *pbci)
-+recover_from_platform_error(slidx_table_t *slidx, peidx_table_t *peidx, pa=
-l_bus_check_info_t *pbci,
-+			    struct ia64_sal_os_state *sos)
- {
- 	int status =3D 0;
- 	pal_processor_state_info_t *psp =3D (pal_processor_state_info_t*)peidx_ps=
-p(peidx);
-@@ -469,7 +470,7 @@ recover_from_platform_error(slidx_table_
- 		case 1: /* partial read */
- 		case 3: /* full line(cpu) read */
- 		case 9: /* I/O space read */
--			status =3D recover_from_read_error(slidx, peidx, pbci);
-+			status =3D recover_from_read_error(slidx, peidx, pbci, sos);
- 			break;
- 		case 0: /* unknown */
- 		case 2: /* partial write */
-@@ -508,7 +509,8 @@ recover_from_platform_error(slidx_table_
-  */
-=20
- static int
--recover_from_processor_error(int platform, slidx_table_t *slidx, peidx_tab=
-le_t *peidx, pal_bus_check_info_t *pbci)
-+recover_from_processor_error(int platform, slidx_table_t *slidx, peidx_tab=
-le_t *peidx, pal_bus_check_info_t *pbci,
-+			     struct ia64_sal_os_state *sos)
- {
- 	pal_processor_state_info_t *psp =3D (pal_processor_state_info_t*)peidx_ps=
-p(peidx);
-=20
-@@ -545,7 +547,7 @@ recover_from_processor_error(int platfor
- 	 * This means "there are some platform errors".
- 	 */
- 	if (platform)=20
--		return recover_from_platform_error(slidx, peidx, pbci);
-+		return recover_from_platform_error(slidx, peidx, pbci, sos);
- 	/*=20
- 	 * On account of strange SAL error record, we cannot recover.=20
- 	 */
-@@ -562,8 +564,7 @@ recover_from_processor_error(int platfor
-=20
- static int
- mca_try_to_recover(void *rec,=20
--	ia64_mca_sal_to_os_state_t *sal_to_os_state,
--	ia64_mca_os_to_sal_state_t *os_to_sal_state)
-+	struct ia64_sal_os_state *sos)
- {
- 	int platform_err;
- 	int n_proc_err;
-@@ -571,10 +572,6 @@ mca_try_to_recover(void *rec,=20
- 	peidx_table_t peidx;
- 	pal_bus_check_info_t pbci;
-=20
--	/* handoff state from/to mca.c */
--	sal_to_os_handoff_state =3D sal_to_os_state;
--	os_to_sal_handoff_state =3D os_to_sal_state;
--
- 	/* Make index of SAL error record */
- 	platform_err =3D mca_make_slidx(rec, &slidx);
-=20
-@@ -597,11 +594,11 @@ mca_try_to_recover(void *rec,=20
- 	*((u64*)&pbci) =3D peidx_check_info(&peidx, bus_check, 0);
-=20
- 	/* Check whether MCA is global or not */
--	if (is_mca_global(&peidx, &pbci))
-+	if (is_mca_global(&peidx, &pbci, sos))
- 		return 0;
- =09
- 	/* Try to recover a processor error */
--	return recover_from_processor_error(platform_err, &slidx, &peidx, &pbci);
-+	return recover_from_processor_error(platform_err, &slidx, &peidx, &pbci, =
-sos);
- }
-=20
- /*
-Index: linux/arch/ia64/kernel/mca.c
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/mca.c	2005-02-15 13=
-:27:38.000000000 +1100
-+++ linux/arch/ia64/kernel/mca.c	2005-02-15 13:27:42.000000000 +1100
-@@ -48,6 +48,9 @@
-  *            Delete dead variables and functions.
-  *            Reorder to remove the need for forward declarations and to c=
-onsolidate
-  *            related code.
-+ *
-+ * 2005-02-13 Keith Owens <kaos@sgi.com>
-+ *	      Convert MCA/INIT handlers to use per event stacks and SAL/OS stat=
-e.
-  */
- #include <linux/config.h>
- #include <linux/types.h>
-@@ -84,8 +87,6 @@
- #endif
-=20
- /* Used by mca_asm.S */
--ia64_mca_sal_to_os_state_t	ia64_sal_to_os_handoff_state;
--ia64_mca_os_to_sal_state_t	ia64_os_to_sal_handoff_state;
- u64				ia64_mca_serialize;
- DEFINE_PER_CPU(u64, ia64_mca_data); /* =3D __per_cpu_mca[smp_processor_id(=
-)] */
- DEFINE_PER_CPU(u64, ia64_mca_per_cpu_pte); /* PTE to map per-CPU area */
-@@ -804,38 +805,24 @@ ia64_mca_wakeup_int_handler(int wakeup_i
-  */
-=20
- static void
--ia64_return_to_sal_check(int recover)
-+ia64_return_to_sal_check(int recover, struct ia64_sal_os_state *sos)
- {
--
--	/* Copy over some relevant stuff from the sal_to_os_mca_handoff
--	 * so that it can be used at the time of os_mca_to_sal_handoff
--	 */
--	ia64_os_to_sal_handoff_state.imots_sal_gp -		ia64_sal_to_os_handoff_state=
-.imsto_sal_gp;
--
--	ia64_os_to_sal_handoff_state.imots_sal_check_ra -		ia64_sal_to_os_handoff=
-_state.imsto_sal_check_ra;
--
- 	if (recover)
--		ia64_os_to_sal_handoff_state.imots_os_status =3D IA64_MCA_CORRECTED;
-+		sos->os_status =3D IA64_MCA_CORRECTED;
- 	else
--		ia64_os_to_sal_handoff_state.imots_os_status =3D IA64_MCA_COLD_BOOT;
-+		sos->os_status =3D IA64_MCA_COLD_BOOT;
-=20
- 	/* Default =3D tell SAL to return to same context */
--	ia64_os_to_sal_handoff_state.imots_context =3D IA64_MCA_SAME_CONTEXT;
--
--	ia64_os_to_sal_handoff_state.imots_new_min_state -		(u64 *)ia64_sal_to_os=
-_handoff_state.pal_min_state;
--
-+	sos->context =3D IA64_MCA_SAME_CONTEXT;
- }
-=20
- /* Function pointer for extra MCA recovery */
- int (*ia64_mca_ucmc_extension)
--	(void*,ia64_mca_sal_to_os_state_t*,ia64_mca_os_to_sal_state_t*)
-+	(void*,struct ia64_sal_os_state*)
- 	=3D NULL;
-=20
- int
--ia64_reg_MCA_extension(void *fn)
-+ia64_reg_MCA_extension(int (*fn)(void *, struct ia64_sal_os_state *))
- {
- 	if (ia64_mca_ucmc_extension)
- 		return 1;
-@@ -867,15 +854,15 @@ EXPORT_SYMBOL(ia64_unreg_MCA_extension);
-  *	Monarch also has the duty of sending wakeup-IPIs to pull the
-  *	slave processors out of rendezvous spinloop.
-  *
-- *  Inputs  :   None
-+ *  Inputs  :   SAL/OS state for this event.
-  *  Outputs :   None
-  */
- void
--ia64_mca_ucmc_handler(void)
-+ia64_mca_ucmc_handler(struct ia64_sal_os_state *sos)
- {
- 	pal_processor_state_info_t *psp =3D (pal_processor_state_info_t *)
--		&ia64_sal_to_os_handoff_state.proc_state_param;
--	int recover;=20
-+		&sos->proc_state_param;
-+	int recover;
-=20
- 	/* Get the MCA error record and log it */
- 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_MCA);
-@@ -883,11 +870,10 @@ ia64_mca_ucmc_handler(void)
- 	/* TLB error is only exist in this SAL error record */
- 	recover =3D (psp->tc && !(psp->cc || psp->bc || psp->rc || psp->uc))
- 	/* other error recovery */
--	   || (ia64_mca_ucmc_extension=20
-+	   || (ia64_mca_ucmc_extension
- 		&& ia64_mca_ucmc_extension(
- 			IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA),
--			&ia64_sal_to_os_handoff_state,
--			&ia64_os_to_sal_handoff_state));=20
-+			sos));
-=20
- 	if (recover) {
- 		sal_log_record_header_t *rh =3D IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA);
-@@ -901,7 +887,7 @@ ia64_mca_ucmc_handler(void)
- 	ia64_mca_wakeup_all();
-=20
- 	/* Return to SAL */
--	ia64_return_to_sal_check(recover);
-+	ia64_return_to_sal_check(recover, sos);
- }
-=20
- static DECLARE_WORK(cmc_disable_work, ia64_mca_cmc_vector_disable_keventd,=
- NULL);
-@@ -1127,7 +1113,8 @@ ia64_mca_cpe_poll (unsigned long dummy)
-  *
-  * Called from ia64_monarch_init_handler
-  *
-- * Inputs: pointer to pt_regs where processor info was saved.
-+ * Inputs: pointer to pt_regs where processor info was saved.  SAL/OS stat=
-e for
-+ * this event.
-  *
-  * Returns:
-  *   0 if SAL must warm boot the System
-@@ -1135,24 +1122,16 @@ ia64_mca_cpe_poll (unsigned long dummy)
-  *
-  */
- void
--ia64_init_handler (struct pt_regs *pt, struct switch_stack *sw)
-+ia64_init_handler (struct pt_regs *pt, struct switch_stack *sw,
-+		   struct ia64_sal_os_state *sos)
- {
--	pal_min_state_area_t *ms;
--
- 	oops_in_progress =3D 1;	/* avoid deadlock in printk, but it makes recover=
-y dodgy */
- 	console_loglevel =3D 15;	/* make sure printks make it to console */
-=20
- 	printk(KERN_INFO "Entered OS INIT handler. PSP=3D%lx\n",
--		ia64_sal_to_os_handoff_state.proc_state_param);
--
--	/*
--	 * Address of minstate area provided by PAL is physical,
--	 * uncacheable (bit 63 set). Convert to Linux virtual
--	 * address in region 6.
--	 */
--	ms =3D (pal_min_state_area_t *)(ia64_sal_to_os_handoff_state.pal_min_stat=
-e | (6ul<<61));
-+		sos->proc_state_param);
-=20
--	init_handler_platform(ms, pt, sw);	/* call platform specific routines */
-+	init_handler_platform(sos->pal_min_state, pt, sw);	/* call platform speci=
-fic routines */
- }
-=20
- static int __init
-
+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
+IW8MDF4=
+--gn2pNDqVXQ--
