@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 26 Jul 2004 23:42:54 +0000
+From: Christian Hildner <christian.hildner@hob.de>
+Date: Tue, 27 Jul 2004 08:24:41 +0000
 Subject: Re: [BROKEN PATCH] kexec for ia64
-Message-Id: <16645.38654.649250.630791@napali.hpl.hp.com>
+Message-Id: <41061149.1030709@hob.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200407261524.40804.jbarnes@engr.sgi.com>
 In-Reply-To: <200407261524.40804.jbarnes@engr.sgi.com>
@@ -10,19 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 26 Jul 2004 16:34:01 -0700, Jesse Barnes <jbarnes@engr.sgi.com> said:
+Jesse Barnes schrieb:
 
-  Jesse> On Monday, July 26, 2004 4:30 pm, David Mosberger wrote:
-  >> >>>>> On Mon, 26 Jul 2004 16:09:51 -0700, David Mosberger >>>>>
-  >> <davidm@linux.hpl.hp.com> said:
+>I'm also worried about a few things in this patch.  Is relocate_kernel.S 
+>really necessary in 2.6?  Can we copy the kernel to a contiguous 64MB aligned 
+>area, drop into phys mode and just jump to it?  
+>
+You should be safe with that but you should consider flushing TLB 
+entries of the old kernel before the newly started kernel inserts its 
+own translations.
 
-  >> Oops, the first sentence got garabled: it was meant to say:
+Christian
 
-  Jesse> So we just need to avoid EFI boot time services in the kexec
-  Jesse> path, ok.  How about the kernel relocation question?
-
-No idea.  I haven't looked at the ia64 kexec patch or relocate_kernel.S.
-I don't see any reason why your suggestion shouldn't work, but with
-these kinds of things, the devil is always in the detail.
-
-	--david
