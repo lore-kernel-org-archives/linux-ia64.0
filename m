@@ -1,47 +1,29 @@
-From: rmenon@informix.com (Ram Menon)
-Date: Tue, 12 Jun 2001 23:39:48 +0000
-Subject: [Linux-ia64] gcc issue ?
-Message-Id: <marc-linux-ia64-105590693005722@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 13 Jun 2001 00:14:31 +0000
+Subject: Re: [Linux-ia64] gcc issue ?
+Message-Id: <marc-linux-ia64-105590693005723@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005722@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005722@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>cval = va_arg(args, char);
 
-Following program fails compilation on linux ia64 os, but works on 
-other os's.
+This isn't valid ISO C.  You must use promoted types when calling va_args,
+and hence you must use int here, just like the error message says.
 
-#include <stdarg.h>
+Older versions of gcc, and many other compilers tend to accept this, with
+various results, e.g. sometimes it works, sometimes it doesn't.  New versions
+of gcc always give an error at compile time.
 
-main()
-{
+>Following program fails compilation on linux ia64 os, but works on 
+>other os's.
 
-f(1, 'c', 10);
-}
+This isn't IA-64 specific behaviour.  If you use a new gcc, it will give this
+same error on all systems.
 
-f(char a, ...)
-{
-
-int cval;
-va_list     args;
-va_start(args, a);
-
-cval = va_arg(args, char);
-
-}
-
-
-[root@timba /root]# cc main.c -o main
-main.c:10: warning: type mismatch with previous implicit declaration
-main.c:6: warning: previous implicit declaration of `f'
-main.c: In function `f':
-main.c:16: `char' is promoted to `int' when passed through `...'
-main.c:16: (so you should pass `int' not `char' to `va_arg')
-
-
-Is va_arg(args, int) same as va_arg(args, char) for char arg ?.
-
-thanks
+Jim
 
