@@ -1,162 +1,243 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 01 Mar 2005 16:35:49 +0000
-Subject: [Patch 3/3 Try 3] Shrink page table quicklist based on free memory.
-Message-Id: <20050301163549.GA32354@lnx-holt.americas.sgi.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Fri, 11 Mar 2005 00:25:56 +0000
+Subject: [patch 2/2] Altix: Shub2 BTE support - BTE recovery code
+Message-Id: <200503110025.j2B0Pul34003981@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+[patch 2/2] Altix: Shub2 BTE support - BTE recovery code
 
-Tony,
+This patch adds support for shub2 BTE.
 
-This patch shrinks the quicklist based upon free memory on the node
-instead of the high/low water marks.  I have written it to enable
-preemption periodically and recalculate the amount to shrink every
-time we have freed enough pages that the quicklist size should have grown.
-I retain the scan of free memory on the node as other processes may be
-draining at the same time as we are adding.
+patch 1:
+	Add new MMR definitions.
+	Modify BTE initialiation
+	Modify BTE copy.
 
+patch 2:
+	Shub2 BTE recovery code will be implemented in SAL.  
+	Define the SAL interface.
+	Modify bte_error to call SAL for shub2.
 
-Signed-off-by: Robin Holt <holt@sgi.com>
-
-
-No noticable performance change on lmbench.  For completeness sake, here
-are the before and after numbers:
-
-Before:
-Process fork+exit: 180.8065 microseconds
-Process fork+exit: 182.4286 microseconds
-Process fork+exit: 184.0333 microseconds
-Process fork+exit: 183.3226 microseconds
-Process fork+exit: 182.6333 microseconds
-Process fork+exit: 183.4000 microseconds
-Process fork+exit: 183.4667 microseconds
-Process fork+exit: 182.1935 microseconds
-Process fork+exit: 182.0667 microseconds
-Process fork+exit: 183.7742 microseconds
-Process fork+execve: 188.1667 microseconds
-Process fork+execve: 188.6071 microseconds
-Process fork+execve: 187.5333 microseconds
-Process fork+execve: 188.9286 microseconds
-Process fork+execve: 188.4333 microseconds
-Process fork+execve: 187.6000 microseconds
-Process fork+execve: 187.6333 microseconds
-Process fork+execve: 188.5333 microseconds
-Process fork+execve: 187.9655 microseconds
-Process fork+execve: 186.3667 microseconds
-After:
-Process fork+exit: 182.3793 microseconds
-Process fork+exit: 183.0667 microseconds
-Process fork+exit: 182.9333 microseconds
-Process fork+exit: 183.7742 microseconds
-Process fork+exit: 182.9333 microseconds
-Process fork+exit: 183.6774 microseconds
-Process fork+exit: 182.2903 microseconds
-Process fork+exit: 183.2667 microseconds
-Process fork+exit: 181.0333 microseconds
-Process fork+exit: 183.0000 microseconds
-Process fork+execve: 187.9333 microseconds
-Process fork+execve: 188.2000 microseconds
-Process fork+execve: 188.5333 microseconds
-Process fork+execve: 188.7333 microseconds
-Process fork+execve: 189.0000 microseconds
-Process fork+execve: 188.8667 microseconds
-Process fork+execve: 187.3333 microseconds
-Process fork+execve: 189.5172 microseconds
-Process fork+execve: 188.4333 microseconds
-Process fork+execve: 188.7667 microseconds
-
- init.c |   48 ++++++++++++++++++++++++------------------------
- 1 files changed, 24 insertions(+), 24 deletions(-)
+The patches apply on top of
+  - Jack Steiner's patch of 3/1/05 ("New chipset support for SN platform")
+  - Mark Goodwin's patch of 3/8/05 ("Altix SN topology support for new
+                                        chipsets and pci topology")
+  - Greg Howard's patch of 3/10/05 ("Altix system controller event handling").
 
 
-Index: linux-2.6/arch/ia64/mm/init.c
-=================================--- linux-2.6.orig/arch/ia64/mm/init.c	2005-03-01 10:20:38.289030938 -0600
-+++ linux-2.6/arch/ia64/mm/init.c	2005-03-01 10:20:38.374967413 -0600
-@@ -50,24 +50,48 @@
- EXPORT_SYMBOL(vmem_map);
- #endif
+Signed-off-by: Russ Anderson <rja@sgi.com>
+
+---------------------------------------------------------------------------------
+Index: linux/include/asm-ia64/sn/sn_sal.h
+=================================--- linux.orig/include/asm-ia64/sn/sn_sal.h	2005-03-10 16:51:59.893333402 -0600
++++ linux/include/asm-ia64/sn/sn_sal.h	2005-03-10 17:53:06.567325324 -0600
+@@ -8,7 +8,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All rights reserved.
++ * Copyright (c) 2000-2005 Silicon Graphics, Inc.  All rights reserved.
+  */
  
--static int pgt_cache_water[2] = { 25, 50 };
+ 
+@@ -77,7 +77,7 @@
+ #define  SN_SAL_IOIF_GET_PCI_TOPOLOGY	           0x02000059
+ 
+ #define SN_SAL_HUB_ERROR_INTERRUPT		   0x02000060
 -
- struct page *zero_page_memmap_ptr;		/* map entry for zero page */
- EXPORT_SYMBOL(zero_page_memmap_ptr);
++#define SN_SAL_BTE_RECOVER			   0x02000061
  
-+#define quicklist_size		local_cpu_data->pgtable_quicklist_size
-+#define MIN_PGT_PAGES		25UL
-+/* This value was chosen to prevent a large block of frees to hold off timer ticks */
-+#define NODE_FREE_PAGES_SHIFT	4
-+
-+static inline long
-+max_pgt_pages (void)
+ /*
+  * Service-specific constants
+@@ -1023,4 +1023,19 @@
+ 	return (int) rv.status;
+ }
+ 
++/*
++ * BTE error recovery is implemented in SAL
++ */
++static inline int
++ia64_sn_bte_recovery(nasid_t nasid)
 +{
-+	u64 node_free_pages, max_pgt_pages;
++	struct ia64_sal_retval rv;
 +
-+#ifndef	CONFIG_NUMA
-+	node_free_pages = nr_free_pages();
-+#else
-+	node_free_pages = nr_free_pages_pgdat(NODE_DATA(numa_node_id()));
-+#endif
-+	max_pgt_pages = node_free_pages >> NODE_FREE_PAGES_SHIFT;
-+	max_pgt_pages = max(max_pgt_pages, MIN_PGT_PAGES);
-+	return max_pgt_pages;
++	rv.status = 0;
++	SAL_CALL_NOLOCK(rv, SN_SAL_BTE_RECOVER, 0, 0, 0, 0, 0, 0, 0);
++	if (rv.status = SALRET_NOT_IMPLEMENTED)
++		return 0;
++	return (int) rv.status;
 +}
 +
-+
- void
- check_pgt_cache (void)
- {
--	int low, high;
-+	long pages_to_free;
+ #endif /* _ASM_IA64_SN_SN_SAL_H */
+Index: linux/arch/ia64/sn/kernel/huberror.c
+=================================--- linux.orig/arch/ia64/sn/kernel/huberror.c	2005-03-04 15:39:14.733722125 -0600
++++ linux/arch/ia64/sn/kernel/huberror.c	2005-03-10 17:57:59.045792194 -0600
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (C) 1992 - 1997, 2000,2002-2004 Silicon Graphics, Inc. All rights reserved.
++ * Copyright (C) 1992 - 1997, 2000,2002-2005 Silicon Graphics, Inc. All rights reserved.
+  */
  
--	low = pgt_cache_water[0];
--	high = pgt_cache_water[1];
-+	if (unlikely(quicklist_size <= MIN_PGT_PAGES))
-+		return;
+ #include <linux/types.h>
+@@ -38,8 +38,11 @@
+ 	if ((int)ret_stuff.v0)
+ 		panic("hubii_eint_handler(): Fatal TIO Error");
  
- 	preempt_disable();
--	if (local_cpu_data->pgtable_quicklist_size > (u64) high) {
--		do {
-+	pages_to_free = quicklist_size - max_pgt_pages();
-+	while (unlikely(pages_to_free > 0)) {
-+		pages_to_free = min(pages_to_free, 1L << NODE_FREE_PAGES_SHIFT);
-+		while (pages_to_free--) {
- 			free_page((unsigned long)pgtable_quicklist_alloc());
--		} while (local_cpu_data->pgtable_quicklist_size > (u64) low);
-+		}
-+		preempt_enable();
-+		preempt_disable();
-+		pages_to_free = quicklist_size - max_pgt_pages();
- 	}
- 	preempt_enable();
+-	if (!(nasid & 1)) /* Not a TIO, handle CRB errors */
+-		(void)hubiio_crb_error_handler(hubdev_info);
++	if (is_shub1()) {
++		if (!(nasid & 1)) /* Not a TIO, handle CRB errors */
++			(void)hubiio_crb_error_handler(hubdev_info);
++	} else 
++		bte_error_handler((unsigned long)NODEPDA(nasid_to_cnodeid(nasid)));
+ 
+ 	return IRQ_HANDLED;
  }
-@@ -521,7 +545,6 @@
- mem_init (void)
- {
- 	long reserved_pages, codesize, datasize, initsize;
--	unsigned long num_pgt_pages;
- 	pg_data_t *pgdat;
- 	int i;
- 	static struct kcore_list kcore_mem, kcore_vmem, kcore_kernel;
-@@ -563,19 +586,6 @@
- 	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
+Index: linux/arch/ia64/sn/kernel/bte_error.c
+=================================--- linux.orig/arch/ia64/sn/kernel/bte_error.c	2005-03-04 15:39:14.732745573 -0600
++++ linux/arch/ia64/sn/kernel/bte_error.c	2005-03-10 18:01:29.663793041 -0600
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (c) 2000-2004 Silicon Graphics, Inc.  All Rights Reserved.
++ * Copyright (c) 2000-2005 Silicon Graphics, Inc.  All Rights Reserved.
+  */
  
- 	/*
--	 * Allow for enough (cached) page table pages so that we can map the entire memory
--	 * at least once.  Each task also needs a couple of page tables pages, so add in a
--	 * fudge factor for that (don't use "threads-max" here; that would be wrong!).
--	 * Don't allow the cache to be more than 10% of total memory, though.
--	 */
--#	define NUM_TASKS	500	/* typical number of tasks */
--	num_pgt_pages = nr_free_pages() / PTRS_PER_PGD + NUM_TASKS;
--	if (num_pgt_pages > nr_free_pages() / 10)
--		num_pgt_pages = nr_free_pages() / 10;
--	if (num_pgt_pages > (u64) pgt_cache_water[1])
--		pgt_cache_water[1] = num_pgt_pages;
+ #include <linux/types.h>
+@@ -33,48 +33,28 @@
+  * Wait until all BTE related CRBs are completed
+  * and then reset the interfaces.
+  */
+-void bte_error_handler(unsigned long _nodepda)
++void shub1_bte_error_handler(unsigned long _nodepda)
+ {
+ 	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
+-	spinlock_t *recovery_lock = &err_nodepda->bte_recovery_lock;
+ 	struct timer_list *recovery_timer = &err_nodepda->bte_recovery_timer;
+ 	nasid_t nasid;
+ 	int i;
+ 	int valid_crbs;
+-	unsigned long irq_flags;
+-	volatile u64 *notify;
+-	bte_result_t bh_error;
+ 	ii_imem_u_t imem;	/* II IMEM Register */
+ 	ii_icrb0_d_u_t icrbd;	/* II CRB Register D */
+ 	ii_ibcr_u_t ibcr;
+ 	ii_icmr_u_t icmr;
+ 	ii_ieclr_u_t ieclr;
+ 
+-	BTE_PRINTK(("bte_error_handler(%p) - %d\n", err_nodepda,
++	BTE_PRINTK(("shub1_bte_error_handler(%p) - %d\n", err_nodepda,
+ 		    smp_processor_id()));
+ 
+-	spin_lock_irqsave(recovery_lock, irq_flags);
 -
+ 	if ((err_nodepda->bte_if[0].bh_error = BTE_SUCCESS) &&
+ 	    (err_nodepda->bte_if[1].bh_error = BTE_SUCCESS)) {
+ 		BTE_PRINTK(("eh:%p:%d Nothing to do.\n", err_nodepda,
+ 			    smp_processor_id()));
+-		spin_unlock_irqrestore(recovery_lock, irq_flags);
+ 		return;
+ 	}
 -	/*
- 	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
- 	 * (heavy-weight) handler, but mark it by setting bit 0, so the fsyscall entry
- 	 * code can tell them apart.
+-	 * Lock all interfaces on this node to prevent new transfers
+-	 * from being queued.
+-	 */
+-	for (i = 0; i < BTES_PER_NODE; i++) {
+-		if (err_nodepda->bte_if[i].cleanup_active) {
+-			continue;
+-		}
+-		spin_lock(&err_nodepda->bte_if[i].spinlock);
+-		BTE_PRINTK(("eh:%p:%d locked %d\n", err_nodepda,
+-			    smp_processor_id(), i));
+-		err_nodepda->bte_if[i].cleanup_active = 1;
+-	}
+ 
+ 	/* Determine information about our hub */
+ 	nasid = cnodeid_to_nasid(err_nodepda->bte_if[0].bte_cnode);
+@@ -101,7 +81,6 @@
+ 		mod_timer(recovery_timer, HZ * 5);
+ 		BTE_PRINTK(("eh:%p:%d Marked Giving up\n", err_nodepda,
+ 			    smp_processor_id()));
+-		spin_unlock_irqrestore(recovery_lock, irq_flags);
+ 		return;
+ 	}
+ 	if (icmr.ii_icmr_fld_s.i_crb_vld != 0) {
+@@ -120,8 +99,6 @@
+ 				BTE_PRINTK(("eh:%p:%d Valid %d, Giving up\n",
+ 					    err_nodepda, smp_processor_id(),
+ 					    i));
+-				spin_unlock_irqrestore(recovery_lock,
+-						       irq_flags);
+ 				return;
+ 			}
+ 		}
+@@ -146,6 +123,51 @@
+ 	ibcr.ii_ibcr_fld_s.i_soft_reset = 1;
+ 	REMOTE_HUB_S(nasid, IIO_IBCR, ibcr.ii_ibcr_regval);
+ 
++	del_timer(recovery_timer);
++}
++
++/*
++ * Wait until all BTE related CRBs are completed
++ * and then reset the interfaces.
++ */
++void bte_error_handler(unsigned long _nodepda)
++{
++	struct nodepda_s *err_nodepda = (struct nodepda_s *)_nodepda;
++	spinlock_t *recovery_lock = &err_nodepda->bte_recovery_lock;
++	int i;
++	nasid_t nasid;
++	unsigned long irq_flags;
++	volatile u64 *notify;
++	bte_result_t bh_error;
++
++	BTE_PRINTK(("bte_error_handler(%p) - %d\n", err_nodepda,
++		    smp_processor_id()));
++
++	spin_lock_irqsave(recovery_lock, irq_flags);
++
++	/*
++	 * Lock all interfaces on this node to prevent new transfers
++	 * from being queued.
++	 */
++	for (i = 0; i < BTES_PER_NODE; i++) {
++		if (err_nodepda->bte_if[i].cleanup_active) {
++			continue;
++		}
++		spin_lock(&err_nodepda->bte_if[i].spinlock);
++		BTE_PRINTK(("eh:%p:%d locked %d\n", err_nodepda,
++			    smp_processor_id(), i));
++		err_nodepda->bte_if[i].cleanup_active = 1;
++	}
++
++	if (is_shub1()) {
++		shub1_bte_error_handler(_nodepda);
++	} else {
++		nasid = cnodeid_to_nasid(err_nodepda->bte_if[0].bte_cnode);
++
++		if (ia64_sn_bte_recovery(nasid))
++			panic("bte_error_handler(): Fatal BTE Error");
++	}
++
+ 	for (i = 0; i < BTES_PER_NODE; i++) {
+ 		bh_error = err_nodepda->bte_if[i].bh_error;
+ 		if (bh_error != BTE_SUCCESS) {
+@@ -165,8 +187,6 @@
+ 		spin_unlock(&err_nodepda->bte_if[i].spinlock);
+ 	}
+ 
+-	del_timer(recovery_timer);
+-
+ 	spin_unlock_irqrestore(recovery_lock, irq_flags);
+ }
+ 
+---------------------------------------------------------------------------------
