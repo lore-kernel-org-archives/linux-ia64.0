@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 21 Feb 2003 16:06:29 +0000
+From: Randolph Chung <randolph@tausq.org>
+Date: Fri, 21 Feb 2003 16:10:25 +0000
 Subject: Re: [Linux-ia64] ski and gcc-3.x
-Message-Id: <marc-linux-ia64-105590709805900@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805902@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805894@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805894@msgid-missing>
@@ -10,19 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 21 Feb 2003 00:14:22 -0800, Randolph Chung <randolph@tausq.org> said:
+> Did you verify that you have write access on /var/ski-disks/sda?
 
-  Randolph> now i just have to figure out what i'm doing wrong and why
-  Randolph> it doesn't see the simulated scsi disk... :(
+yes, but i didn't read the instructions carefully enough so i thought if
+i had simscsi=/var/ski-disks/sd my disk file is also called
+/var/ski-disks/sd (instead of .../sda)
 
-  Randolph> I'm running ski with: ski linux-2.5.60/bootloader
-  Randolph> linux-2.5.60/vmlinux simscsi=/var/ski-disks/sd
+it's booting now with 1.30 bogomips :-)
 
-  Randolph> and all i see is:
-
-  Randolph> VFS: Cannot open root device "" or 08:01
-
-Did you verify that you have write access on /var/ski-disks/sda?
-
-	--david
+thanks,
+randolph
+-- 
+Randolph Chung
+Debian GNU/Linux Developer, hppa/ia64 ports
+http://www.tausq.org/
 
