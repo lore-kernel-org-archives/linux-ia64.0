@@ -1,22 +1,45 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Mon, 08 Dec 2003 23:50:14 +0000
-Subject: Re: q-tools OOPS
-Message-Id: <marc-linux-ia64-107092780401500@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Mon, 29 Dec 2003 19:41:44 +0000
+Subject: GL-related crash w/ X 4.3 & kernel 2.6
+Message-Id: <marc-linux-ia64-107272704926812@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107092374429612@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107092374429612@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Peter" = Peter Chubb <peter@chubb.wattle.id.au> writes:
 
-Peter> Hi David, Dunno what's going on here.  I've built q-tools
-Peter> against libpfm3.0 and libc 2.3.2.ds1-10.0.1 from Debian using
-Peter> gcc 3.2.3.
+I'm not terribly familiar with how X and the kernel interact, so please
+bear with me if I used the wrong terms.
 
-This *does* appear to be a preemption problem.  Build the kernel
-without CONFIG_PREEMPT, and q-syscollect works correctly.
+The slow way to reproduce the problem:
+	Run glxgears and do other things.  Eventually X will stop responding.
+	Took a few hours.
 
-Peter C
+The fast way:
+	Run flightgear.  This typically locks up within a minute or two.
+
+I can still ssh into the machine.  Running top typically shows either
+X or the application hogging 99% of the CPU.  The mouse pointer still
+moves on the screen, but the focus will not change to any other X app.
+The window manager does not respond.
+
+The machine is a zx2000 workstation with a Radeon 7000/VE card.  Kernel is
+2.6.0 plus some additional changes (mostly jgarzik's latest netdrivers
+patch) [but it's happened with other 2.6 kernels].  The X server is
+Debian's 4.3.0-0pre1v5 [but it's happened with other 4.3.0 releases].
+
+First, can anyone else reproduce this or not, and with what other
+combinations of X, kernel, hardware, etc?
+
+Second, since neither strace nor gdb is willing to cooperate in helping
+to track this down, can anyone more knowledgable than I about the ways
+of GL suggest how to start debugging this?
+
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
