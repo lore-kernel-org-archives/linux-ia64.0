@@ -1,8 +1,10 @@
 From: Robin Holt <holt@sgi.com>
-Date: Wed, 02 Mar 2005 18:41:03 +0000
+Date: Thu, 03 Mar 2005 21:27:49 +0000
 Subject: [Patch 2/3] Free page tables belonging to remote nodes.
-Message-Id: <20050302184103.GC16517@lnx-holt.americas.sgi.com>
+Message-Id: <20050303212749.GB947@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050302184103.GC16517@lnx-holt.americas.sgi.com>
+In-Reply-To: <20050302184103.GC16517@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -40,15 +42,13 @@ Process fork+exit: 182.2333 microseconds
 Process fork+execve: 692.7500 microseconds
 Process fork+/bin/sh -c: 2905.5000 microseconds
 
-
- pgalloc.h |   10 ++++++++++
- 1 files changed, 10 insertions(+)
-
+ pgalloc.h |    7 +++++++
+ 1 files changed, 7 insertions(+)
 
 Index: linux-2.6/include/asm-ia64/pgalloc.h
-=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-02 12:19:09.672133971 -0600
-+++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-02 12:23:57.155152045 -0600
-@@ -64,6 +64,13 @@
+=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-02 17:40:38.500562862 -0600
++++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-03 06:54:13.068518897 -0600
+@@ -66,6 +66,13 @@
  static inline void
  pgtable_quicklist_free (void *pgtable_entry)
  {
@@ -60,5 +60,5 @@ Index: linux-2.6/include/asm-ia64/pgalloc.h
 +#endif
 +
  	preempt_disable();
- 	*(unsigned long *)pgtable_entry = (unsigned long) __ia64_per_cpu_var(pgtable_quicklist);
- 	__ia64_per_cpu_var(pgtable_quicklist) = (unsigned long *) pgtable_entry;
+ 	*(unsigned long *)pgtable_entry = (unsigned long) pgtable_quicklist;
+ 	pgtable_quicklist = (unsigned long *) pgtable_entry;
