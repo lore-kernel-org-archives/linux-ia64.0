@@ -1,8 +1,10 @@
 From: Mark Maule <maule@sgi.com>
-Date: Fri, 04 Feb 2005 21:32:08 +0000
+Date: Tue, 08 Feb 2005 00:08:21 +0000
 Subject: [PATCH 2.6.11-rc2 2/3] altix: move pci headers
-Message-Id: <20050204213208.16671.47540.48258@attica.americas.sgi.com>
+Message-Id: <20050208000821.10005.38668.70147@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050204213208.16671.47540.48258@attica.americas.sgi.com>
+In-Reply-To: <20050204213208.16671.47540.48258@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
