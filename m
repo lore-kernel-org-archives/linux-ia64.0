@@ -1,42 +1,26 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Thu, 11 Jan 2001 14:46:17 +0000
-Subject: Re: [Linux-ia64] Basic query about xski
-Message-Id: <marc-linux-ia64-105590693005021@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 10 Jan 2001 00:54:03 +0000
+Subject: Re: [Linux-ia64] IA-64 cross compiler binary
+Message-Id: <marc-linux-ia64-105590678205906@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005020@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005020@msgid-missing>
+References: <marc-linux-ia64-105590678205861@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205861@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>Where can you download the latest IA-64 cross compilers in binary form?
 
-On Thu, Jan 11, 2001 at 05:17:34PM +0530, Sapariya Manish.j wrote:
-> Hi,
-> I am new to ia 64 as well as linux.
-> I could successfully load and run ski and nue on my Linux system,
-> But when i run xski from my nue promp it gives me following error.
-> 
-> Xlib: connection to "localhost:0,0" refused by server
-> Xlib:Client is not authorised to connect to server
-> Error:Cant open display localhost:0
-> 
+I am not aware of anyone publicly distributing IA-64 gcc cross compiler
+binaries.  It is a lot of work to build and maintain them, and I don't have
+time to do it myself.
 
-Before entering nue, you must allow connection to your Xserver for localhost:
-% xhost +localhost
-% nue
+Sources for the latest IA-64 GNU toolchain can be found at ftp.cygnus.com
+in pub/ia64-linux.  It isn't too hard to build them cross.  Just copy
+/usr/include and /usr/lib from the ia64-linux target to the host, and then
+use configure with --target=ia64-linux --with-libs=<path to ia64 /usr/lib>
+--with-headers=<patch to ia64 /usr/include>.
 
-Even though this looks obvious, the default configuration does not take
-care of that.
-
-+--------------------------------------------------------------------+
-| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
-| Hewlett-Packard Laboratories            |                          |
-| 1501, Page Mill Road MS 1U-15           |                          |
-| Palo  Alto, CA 94303-096                |                          |
-| USA                                     |                          |
-| Tel : (650) 857-7174                    |                          |
-| Fax : (650) 857-5548                    |                          |
-+--------------------------------------------------------------------+
+Jim
 
