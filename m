@@ -1,49 +1,47 @@
-From: Robin Holt <holt@sgi.com>
-Date: Sun, 05 Sep 2004 11:45:13 +0000
-Subject: Re: [PATCH 2/4] SGI Altix cross partition functionality (1st revision)
-Message-Id: <20040905114513.GA429@lnx-holt.americas.sgi.com>
+From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Date: Thu, 23 Sep 2004 16:23:01 +0000
+Subject: [PATCH][0/4] NUMA node handling support for ACPI container driver
+Message-Id: <20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040616163514.GB27891@sgi.com>
-In-Reply-To: <20040616163514.GB27891@sgi.com>
+References: <20040920092520.A14208@unix-os.sc.intel.com>
+	<20040920094719.H14208@unix-os.sc.intel.com>
+In-Reply-To: <20040920094719.H14208@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Cc: len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, tokunaga.keiich@jp.fujitsu.com
 
-On Sat, Sep 04, 2004 at 11:35:11AM -0500, Russ Anderson wrote:
-> Christoph Hellwig wrote:
-> > 
-> > > I like keeping the lock protecting as little as possible.  This has been
-> > > drilled into peoples heads here at SGI since the early Cray days.  We have
-> > > always been told to keep locks protecting a single cohesive group of data.
-> > 
-> > Keep it as simple as possible and optimize where optimization is needed.
-> > Needless complexity is the root of all evil.
+On Mon, 20 Sep 2004 09:47:19 -0700, Keshavamurthy Anil S wrote:
+> Changes from previous release:
+> 1) Typo fix- ACPI004 to ACPI0004
+> 2) Added depends on EXPERIMENTAL in Kconfig file
 > 
-> IMHO, Dean's code is simple and not complex.  There is a lock per channel.
-> What's so complex about that?
-> 
-> Dean's code> + for (ch_number = 0; ch_number < XPC_NCHANNELS; ch_number++) {
-> Dean's code> +         sema_init(&xpc_registrations[ch_number].sema, 1);  /* mutex */
-> Dean's code> + }
-> 
-...
-> 
-> What Dean is doing, and what the Cray and SGI people have learned over
-> the last couple decades of hard work, is that it is simpler and less complex 
-> to design in fine grain locks to avoid scaling problems.  We know that CPUs 
-> will get faster, the number of CPUs will increase, as will the number of nodes 
-> and amount of memory.  And as they increase, we know that big locks will get 
-> hot and need to broken up.  So that is why you will find people that
-> believe that it is simpler and less complex to design in fine grain locks,
-> to avoid having to track down and fix scaling bugs.  
+> ---
+> Name:container_drv.patch
+> Status: Tested on 2.6.9-rc1
+> Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+> Depends:	
+> Version: applies on 2.6.9-rc1
+> Description:
+> This is the very early version on the Container driver which supports
+> hotplug notifications on ACPI0004, PNP0A05 and PNP0A06 devices.
+> 	Changes from previous release:
+> 	1) Mergerd the typo fix patch which changes "ACPI004" to "ACPI0004"
+> ---
 
-I would add that I think a lock that is protecting a channel is clearer to
-understand than a lock per partition protecting all the channels in it.  When
-I look at the partition structure and see a lock for the channels, I would,
-at first glance, assume it is protecting addition or removal of the channels.
+I have made a patchset to add 'NUMA node handling support' to
+your patchset.  If a container that is identical to NUMA node is
+hotplugged, this handles NUMA related stuffs.  For instance,
+creating/deleting sysfs directories and files of node, data structures,
+and etc...
 
-I remember someone once saying "Speaking clearly is saying what the other
-person understands."  I think that applies here.
+  - numa_hp_base.patch
+  - numa_hp_ia64.patch
+  - acpi_numa_hp.patch
+  - container_for_numa.patch
 
-Robin
+Status: Tested on 2.6.9-rc2 including your patchset posted earlier.
+
+Thanks,
+Keiichiro Tokunaga
