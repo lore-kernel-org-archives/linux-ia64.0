@@ -1,7 +1,7 @@
-From: James Morris <jmorris@redhat.com>
-Date: Sun, 24 Aug 2003 14:49:52 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Sun, 24 Aug 2003 15:02:45 +0000
 Subject: Re: selinux build failure
-Message-Id: <marc-linux-ia64-106173680023378@msgid-missing>
+Message-Id: <marc-linux-ia64-106173738323797@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106161286205885@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106161286205885@msgid-missing>
@@ -10,40 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 22 Aug 2003, Randy.Dunlap wrote:
-
-> selinux/hooks.c won't build on ia64.
-> 2.6.0-test3 + ia64 patch or 2.6.0-test4.
+On Mon, Aug 25, 2003 at 12:49:52AM +1000, James Morris wrote:
+> > see a good way to #include asm/compat.h, nor is it available for all
+> > processor architectures.
 > 
-> security/selinux/hooks.c: In function `selinux_file_fcntl':
-> security/selinux/hooks.c:2032: error: `F_GETLK64' undeclared (first use in
-> this function) security/selinux/hooks.c:2033: error: `F_SETLK64' undeclared
-> (first use in this function) security/selinux/hooks.c:2034: error:
-> `F_SETLKW64' undeclared (first use in this function)
+> It is available via <linux/compat.h> if CONFIG_COMPAT is defined.
 > 
-> The __64 versions of these are defined in include/asm-ia64/compat.h. I don't
-> see a good way to #include asm/compat.h, nor is it available for all
-> processor architectures.
+> Does the patch below fix this for you?
 
-It is available via <linux/compat.h> if CONFIG_COMPAT is defined.
-
-Does the patch below fix this for you?
-
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
-
-diff -urN -X dontdiff linux-2.6.0-test4.orig/security/selinux/hooks.c linux-2.6.0-test4.w1/security/selinux/hooks.c
---- linux-2.6.0-test4.orig/security/selinux/hooks.c	2003-08-23 11:53:14.000000000 +1000
-+++ linux-2.6.0-test4.w1/security/selinux/hooks.c	2003-08-25 00:31:58.655604472 +1000
-@@ -44,6 +44,7 @@
- #include <linux/ext2_fs.h>
- #include <linux/proc_fs.h>
- #include <linux/kd.h>
-+#include <linux/compat.h>
- #include <net/icmp.h>
- #include <net/ip.h>		/* for sysctl_local_port_range[] */
- #include <net/tcp.h>		/* struct or_callable used in sock_rcv_skb */
+Argg, this is b0rked.  {asm,linux}/compat.h are for the 32bit compatiblity
+code.  64bit arches don't have fcntl64 - see the #if BITS_PER_LONG = 32
+around sys_fcntl64 in fcntl.c..
 
