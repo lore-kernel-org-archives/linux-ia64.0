@@ -1,34 +1,50 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Sat, 22 Jun 2002 19:33:05 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905711@msgid-missing>
+From: Pavel Machek <pavel@suse.cz>
+Date: Mon, 17 Jun 2002 08:16:29 +0000
+Subject: [Linux-ia64] Re: [ACPI] [PATCH] random ia64 acpi fixes
+Message-Id: <marc-linux-ia64-105590701905684@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205111@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@napali.hpl.hp.com> writes:
+Hi!
 
-|> The latest ia64 kernel patch for 2.4.18 is at
-|> ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/ in file:
-|>=20
-|> 	linux-2.4.18-ia64-020622.diff.gz
+> Won't build on ia64 without this change.
 
-This is undefined (from drivers/acpi/tables.c):
+This one is wrong. You should create empty include/asm/save_state.h instead.
 
-+		entry =3D (acpi_table_entry_header *)
-+			((unsigned long) entry +=3D entry->length);
+									Pavel
+> 
+> diff -urNX ../dontdiff linux-2418/drivers/acpi/system.c linux-acpi/drivers/acpi/system.c
+> --- linux-2418/drivers/acpi/system.c	Wed Jun 12 09:08:54 2002
+> +++ linux-acpi/drivers/acpi/system.c	Wed Jun 12 07:20:26 2002
+> @@ -37,7 +37,9 @@
+>  #include <linux/proc_fs.h>
+>  #include <asm/uaccess.h>
+>  #include <asm/acpi.h>
+> +#ifdef __i386__
+>  #include <asm/save_state.h>
+> +#endif
+>  #include "acpi_bus.h"
+>  #include "acpi_drivers.h"
+>  
+> 
+> -- 
+> It's always legal to use Linux (TM) systems
+> http://www.gnu.org/philosophy/why-free.html
+> 
+> _______________________________________________________________
+> 
+> Sponsored by:
+> ThinkGeek at http://www.ThinkGeek.com/
+> _______________________________________________
+> Acpi-devel mailing list
+> Acpi-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/acpi-devel
 
-entry is modified twice without an intervening sequence point.
+-- 
+Philips Velo 1: 1"x4"x8", 300gram, 60, 12MB, 40bogomips, linux, mutt,
+details at http://atrey.karlin.mff.cuni.cz/~pavel/velo/index.html.
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
 
