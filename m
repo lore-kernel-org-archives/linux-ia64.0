@@ -1,44 +1,29 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Tue, 11 May 2004 18:42:24 +0000
-Subject: [PATCH] kill warnings in sn2 specific pci init
-Message-Id: <200405111142.24110.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_Q6RoAUMB/adMTvx"
+From: Darren Williams <dsw@gelato.unsw.edu.au>
+Date: Fri, 28 May 2004 02:18:51 +0000
+Subject: Re: [patch] The actual error #endif up wrt #ifdef __ARCH_WANT_SYS_SIGPROCMASK
+Message-Id: <20040528021851.GC4596@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi Darren
 
---Boundary-00=_Q6RoAUMB/adMTvx
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+On Fri, 28 May 2004, Darren Williams wrote:
 
-A couple of unused variable warnings cropped up in the sn2 pci init routine.  
-This patch kills the unused variables.
+> 
+> Also if
+> CONFIG_IA32_SUPPORT
+> is not set in the attached config we are getting
+> the follwing errors:
 
-Jesse
+arch/ia64/kernel/built-in.o(.rodata+0x4c8): In function `sys_call_table':
+: undefined reference to `sys_rt_sigaction'
 
---Boundary-00=_Q6RoAUMB/adMTvx
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="kill-sn-pci-init-warnings.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="kill-sn-pci-init-warnings.patch"
 
-===== arch/ia64/sn/io/machvec/pci_bus_cvlink.c 1.38 vs edited =====
---- 1.38/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Wed Apr 28 09:20:53 2004
-+++ edited/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Tue May 11 11:08:47 2004
-@@ -791,8 +791,7 @@
- 	struct list_head *ln;
- 	struct pci_bus *pci_bus = NULL;
- 	struct pci_dev *pci_dev = NULL;
--	extern int numnodes;
--	int cnode, ret;
-+	int ret;
- #ifdef CONFIG_PROC_FS
- 	extern void register_sn_procfs(void);
- #endif
 
---Boundary-00=_Q6RoAUMB/adMTvx--
+--------------------------------------------------
+Darren Williams <dsw AT gelato.unsw.edu.au>
+Gelato@UNSW <www.gelato.unsw.edu.au>
+--------------------------------------------------
