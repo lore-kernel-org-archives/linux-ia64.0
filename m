@@ -1,31 +1,49 @@
 From: William Lee Irwin III <wli@holomorphy.com>
-Date: Mon, 09 Aug 2004 18:59:28 +0000
+Date: Mon, 09 Aug 2004 19:12:40 +0000
 Subject: Re: Hugetlb demanding paging for -mm tree
-Message-Id: <20040809185928.GR11200@holomorphy.com>
+Message-Id: <20040809191240.GS11200@holomorphy.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <01EF044AAEE12F4BAAD955CB7506494302005232@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <01EF044AAEE12F4BAAD955CB7506494302005232@scsmsx401.amr.corp.intel.com>
+References: <20040807083613.GZ17188@holomorphy.com> <200408091854.i79IsCY12450@unix-os.sc.intel.com>
+In-Reply-To: <200408091854.i79IsCY12450@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Seth, Rohit" <rohit.seth@intel.com>
-Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, Hirokazu Takahashi <taka@valinux.co.jp>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, "Seth, Rohit" <rohit.seth@intel.com>
 
-Chen, Kenneth W <mailto:kenneth.w.chen@intel.com> wrote on Monday,
->> I suppose this is fixable in update_mmu_cache() where it can check the
->> type of pte and do appropriate sizing and other things.  ia64 would
->> have 
->> to check the address instead of looking at the pte.
+William Lee Irwin III wrote on Saturday, August 07, 2004 1:36 AM
+>> This is needed because we're only freeing pagetables at pgd granularity
+>> at munmap() -time. It makes more sense to refine it to pmd granularity
+>> instead of this cleanup pass, as it's a memory leak beyond just hugetlb
+>> data structure corruption.
 
-On Mon, Aug 09, 2004 at 11:43:32AM -0700, Seth, Rohit wrote:
-> Why do we need update_mmu_cache for hugepages?
+On Mon, Aug 09, 2004 at 11:54:13AM -0700, Chen, Kenneth W wrote:
+> That would be nice and ease the pain on x86.  OTOH, leaving pte persistent
+> right now may help in mmap/munmap intensive workload since unmap_region()
+> only destroys all pte allocation at pgd granularity.
 
-As things stand in mainline, it's not an obvious issue. Ken appears to
-be calling it for hugetlb in the ZFOD fault handling patches, which
-have the issue that it may behave badly in several respects when acting
-on large pages. The cache coherency bits in update_mmu_fault() are
-necessary in general, but mainline omits them. It should only result in
-intermittent failures on machines with sufficiently incoherent caches.
+We're better off caching pagetables for that. I don't appear to be able
+to get the code to cache 3rd-level pagetables on ia32 past permavetoes.
+
+
+William Lee Irwin III wrote on Saturday, August 07, 2004 1:36 AM
+>> I wonder why this bugfix was rolled into the demand paging patch instead
+>> of shipped separately. And for that matter, this fix applies to mainline.
+
+On Mon, Aug 09, 2004 at 11:54:13AM -0700, Chen, Kenneth W wrote:
+> The bug fix went into hugetlb_prefault() function in the mainline for the
+> prefaulting case.  It went to that function instead of huge_pte_alloc
+> and huge_pte_offset is to avoid scrubbing at pte lookup time. One
+> thing we can do for demand paging case is to scrub it at initial mmap
+> hugetlb vma, so the penalty is paid upfront instead of at every pte
+> allocation/lookup time.
+
+Good thing I brought a barfbag back from the OLS return flight... the
+leak really is a major issue, esp. on 64-bit where vast amounts of
+virtualspace are mapped and hence vast amounts of pagetables may leak.
+
+I'll put the pagetable cleanup on my TODO along with ia64 pagetable
+caching (which should be as easy as it was for ppc64).
 
 
 -- wli
