@@ -1,45 +1,36 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Fri, 05 Apr 2002 16:44:40 +0000
-Subject: Re: [Linux-ia64] pipe() not setting errno.
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-rVp2ubm5t6QdcnaxrU2t"
-Message-Id: <marc-linux-ia64-105590701905392@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Fri, 12 Apr 2002 15:05:37 +0000
+Subject: [Linux-ia64] Missing EXPORT_SYMBOL memset
+Message-Id: <marc-linux-ia64-105590701905441@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905376@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905376@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
---=-rVp2ubm5t6QdcnaxrU2t
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+GCC 3 may generate calls to memset, so we need to export it to modules.
+For example, lvm requires it now, referenced from lvm.c:lvm_do_vg_rename.
 
-On Thu, 2002-04-04 at 05:36, Andreas Schwab wrote:
+--- linux/arch/ia64/kernel/ia64_ksyms.c.~1~	2002-04-11 12:02:05.000000000 +=
+0200
++++ linux/arch/ia64/kernel/ia64_ksyms.c	2002-04-11 17:40:21.000000000 +0200
+@@ -27,6 +27,10 @@
+ EXPORT_SYMBOL(strtok);
+ EXPORT_SYMBOL(strpbrk);
+=20
++#undef memset
++extern void *memset(void *, int, size_t);
++EXPORT_SYMBOL_NOVERS(memset);
++
+ #include <linux/irq.h>
+ EXPORT_SYMBOL(isa_irq_to_vector_map);
+ EXPORT_SYMBOL(enable_irq);
 
-> 2002-04-04  Andreas Schwab  <schwab@suse.de>
->=20
-> 	* sysdeps/unix/sysv/linux/ia64/pipe.S: Don't overwrite r8 on
-> 	error.
-
-I've applied the patch now.  Thanks,
+Andreas.
 
 --=20
----------------.                          ,-.   1325 Chesapeake Terrace
-Ulrich Drepper  \    ,-------------------'   \  Sunnyvale, CA 94089 USA
-Red Hat          `--' drepper at redhat.com   `------------------------
-
---=-rVp2ubm5t6QdcnaxrU2t
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iD8DBQA8rdR42ijCOnn/RHQRAiwkAKC9kQrhew3fuh9rLpTL3bMwQ4ONyQCePMus
-WPbMXttnxRJB5MmLI+yINTA=
-=8syi
------END PGP SIGNATURE-----
-
---=-rVp2ubm5t6QdcnaxrU2t--
-
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE GmbH, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
 
