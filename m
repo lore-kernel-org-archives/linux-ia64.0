@@ -1,75 +1,161 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 07 Feb 2005 19:30:42 +0000
-Subject: prezeroing V6 [0/3]: Changes and overview
-Message-Id: <Pine.LNX.4.58.0502071127470.27951@schroedinger.engr.sgi.com>
+From: Robin Holt <holt@sgi.com>
+Date: Sat, 26 Feb 2005 14:54:33 +0000
+Subject: [Patch 3/3 - Corrected] Shrink page table quicklist based on free memory.
+Message-Id: <20050226145433.GA11386@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0501211228430.26068@schroedinger.engr.sgi.com>
- <1106828124.19262.45.camel@hades.cambridge.redhat.com> <20050202153256.GA19615@logos.cnet>
-In-Reply-To: <20050202153256.GA19615@logos.cnet>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Changes from V4 to V6:
-o V5 posted as independent patches
-o copyright update in Altix BTE driver
-o Note early work on __GFP_ZERO by Andrea Arcangeli
-o Simplify Altix BTE zeroing driver and handle timeouts correctly
-  (kscrubd hung once in a while).
-o Support /proc/buddyinfo
-o Make the higher order clear_page patch less invasive. Name it clear_pages.
-o patch against 2.6.11-rc3
 
-More information and a combined patchset is available at
-http://oss.sgi.com/projects/page_fault_performance.
+Tony,
 
-The most expensive operation in the page fault handler is (apart of SMP
-locking overhead) the touching of all cache lines of a page by
-zeroing the page. This zeroing means that all cachelines of the faulted
-page (on Altix that means all 128 cachelines of 128 byte each) must be
-handled and later written back. This patch allows to avoid having to
-use all cachelines  if only a part of the cachelines of that page is
-needed immediately after the fault. Doing so will only be effective for
-sparsely accessed memory which is typical for anonymous memory and pte maps.
-Prezeroed pages will only be used for those purposes. Unzeroed pages
-will be used as usual for file mapping, page caching etc etc.
+This is the corrected patch.  I missed a 'quilt refresh'.  The only
+change from the previous is PGT_FREES_PER_TICK is actually used.
 
-The patch makes prezeroing very effective by:
+This patch shrinks the quicklist based upon free memory on the node
+instead of the high/low water marks.  I also limit the rate of drain from
+the quicklist by 256 entries per pass.  The limit was placed because this
+freeing is done with the preemption disabled and large frees have caused
+unexpected bubbles in latency.  The 256 was chosen based on some test
+runs which showed blips above the noise range with 4096 pages and that 256
+pages resulted in the least amount of overshoot as processes were exiting.
+Typical response at 128 would be periodic freeing of pages followed by
+allocating at next startup.  With 256, this was nearly never observed.
 
-1. Appplying zeroing operations only to pages of higher order, which results
-in many pages that will later become zero order pages to be zeroed in one
-step.
 
-2. Hardware support for offloading zeroing from the cpu. This avoids
-the invalidation of the cpu caches by extensive zeroing operations.
+Signed-off-by: Robin Holt <holt@sgi.com>
 
-The scrub daemon is invoked when a unzeroed page of a certain order has
-been generated so that its worth running it. If no higher order pages are
-present then the logic will favor hot zeroing rather than simply shifting
-processing around. kscrubd typically runs only for a fraction of a second
-and sleeps for long periods of time even under memory benchmarking. kscrubd
-performs short bursts of zeroing when needed and tries to stay out off the
-processor as much as possible.
 
-The benefits of prezeroing are reduced to minimal quantities if all
-cachelines of a page are touched. Prezeroing can only be effective
-if the whole page is not immediately used after the page fault.
+No noticable performance change on lmbench.  For completeness sake, here
+are the before and after numbers:
 
-The patch is composed of 3 parts:
+Before:
+Process fork+exit: 180.8065 microseconds
+Process fork+exit: 182.4286 microseconds
+Process fork+exit: 184.0333 microseconds
+Process fork+exit: 183.3226 microseconds
+Process fork+exit: 182.6333 microseconds
+Process fork+exit: 183.4000 microseconds
+Process fork+exit: 183.4667 microseconds
+Process fork+exit: 182.1935 microseconds
+Process fork+exit: 182.0667 microseconds
+Process fork+exit: 183.7742 microseconds
+Process fork+execve: 188.1667 microseconds
+Process fork+execve: 188.6071 microseconds
+Process fork+execve: 187.5333 microseconds
+Process fork+execve: 188.9286 microseconds
+Process fork+execve: 188.4333 microseconds
+Process fork+execve: 187.6000 microseconds
+Process fork+execve: 187.6333 microseconds
+Process fork+execve: 188.5333 microseconds
+Process fork+execve: 187.9655 microseconds
+Process fork+execve: 186.3667 microseconds
+After:
+Process fork+exit: 182.3793 microseconds
+Process fork+exit: 183.0667 microseconds
+Process fork+exit: 182.9333 microseconds
+Process fork+exit: 183.7742 microseconds
+Process fork+exit: 182.9333 microseconds
+Process fork+exit: 183.6774 microseconds
+Process fork+exit: 182.2903 microseconds
+Process fork+exit: 183.2667 microseconds
+Process fork+exit: 181.0333 microseconds
+Process fork+exit: 183.0000 microseconds
+Process fork+execve: 187.9333 microseconds
+Process fork+execve: 188.2000 microseconds
+Process fork+execve: 188.5333 microseconds
+Process fork+execve: 188.7333 microseconds
+Process fork+execve: 189.0000 microseconds
+Process fork+execve: 188.8667 microseconds
+Process fork+execve: 187.3333 microseconds
+Process fork+execve: 189.5172 microseconds
+Process fork+execve: 188.4333 microseconds
+Process fork+execve: 188.7667 microseconds
 
-[1/3] clear_pages(page, order) to zero higher order pages
-	Adds a clear_pages function with the ability to zero higher order
-	pages. This allows the zeroing of large areas of memory without repeately
-	invoking clear_page() from the page allocator, scrubd and the huge
-	page allocator.
+ init.c |   48 ++++++++++++++++++++++++------------------------
+ 1 files changed, 24 insertions(+), 24 deletions(-)
 
-[2/3] Page Zeroing
-	Adds management of ZEROED and NOT_ZEROED pages and a background daemon
-	called scrubd.
 
-[3/3] SGI Altix Block Transfer Engine Support
-	Implements a driver to shift the zeroing off the cpu into hardware.
-	This avoids the potential impact of zeroing on cpu caches.
-
+Index: linux-2.6/arch/ia64/mm/init.c
+=================================--- linux-2.6.orig/arch/ia64/mm/init.c	2005-02-26 08:16:22.301586496 -0600
++++ linux-2.6/arch/ia64/mm/init.c	2005-02-26 08:51:33.709465180 -0600
+@@ -50,25 +50,39 @@
+ EXPORT_SYMBOL(vmem_map);
+ #endif
+ 
+-static int pgt_cache_water[2] = { 25, 50 };
+-
+ struct page *zero_page_memmap_ptr;		/* map entry for zero page */
+ EXPORT_SYMBOL(zero_page_memmap_ptr);
+ 
++#define quicklist_size		local_cpu_data->pgtable_quicklist_size
++#define MIN_PGT_PAGES		25UL
++/* This value was chosen to prevent a large block of frees to hold off timer ticks */
++#define PGT_FREES_PER_TICK	256
++
+ void
+ check_pgt_cache (void)
+ {
+-	int low, high;
++	u64 node_free_pages, max_pgt_pages;
++
++	if (quicklist_size <= MIN_PGT_PAGES)
++		return;
++
++#ifndef	CONFIG_NUMA
++	node_free_pages = nr_free_pages();
++#else
++	node_free_pages = nr_free_pages_pgdat(NODE_DATA(numa_node_id()));
++#endif
++	max_pgt_pages = node_free_pages >> 4;
++	max_pgt_pages = max(max_pgt_pages, MIN_PGT_PAGES);
+ 
+-	low = pgt_cache_water[0];
+-	high = pgt_cache_water[1];
++	if (quicklist_size <= max_pgt_pages)
++		return;
+ 
+ 	preempt_disable();
+-	if (local_cpu_data->pgtable_quicklist_size > (u64) high) {
+-		do {
+-			free_page((unsigned long)pgtable_quicklist_alloc());
+-		} while (local_cpu_data->pgtable_quicklist_size > (u64) low);
+-	}
++	max_pgt_pages = min(max_pgt_pages, quicklist_size+PGT_FREES_PER_TICK);
++
++	do {
++		free_page((unsigned long)pgtable_quicklist_alloc());
++	} while (quicklist_size > max_pgt_pages);
+ 	preempt_enable();
+ }
+ 
+@@ -521,7 +535,6 @@
+ mem_init (void)
+ {
+ 	long reserved_pages, codesize, datasize, initsize;
+-	unsigned long num_pgt_pages;
+ 	pg_data_t *pgdat;
+ 	int i;
+ 	static struct kcore_list kcore_mem, kcore_vmem, kcore_kernel;
+@@ -563,19 +576,6 @@
+ 	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
+ 
+ 	/*
+-	 * Allow for enough (cached) page table pages so that we can map the entire memory
+-	 * at least once.  Each task also needs a couple of page tables pages, so add in a
+-	 * fudge factor for that (don't use "threads-max" here; that would be wrong!).
+-	 * Don't allow the cache to be more than 10% of total memory, though.
+-	 */
+-#	define NUM_TASKS	500	/* typical number of tasks */
+-	num_pgt_pages = nr_free_pages() / PTRS_PER_PGD + NUM_TASKS;
+-	if (num_pgt_pages > nr_free_pages() / 10)
+-		num_pgt_pages = nr_free_pages() / 10;
+-	if (num_pgt_pages > (u64) pgt_cache_water[1])
+-		pgt_cache_water[1] = num_pgt_pages;
+-
+-	/*
+ 	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
+ 	 * (heavy-weight) handler, but mark it by setting bit 0, so the fsyscall entry
+ 	 * code can tell them apart.
