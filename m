@@ -1,35 +1,22 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 26 Jun 2001 17:15:16 +0000
-Subject: Re: [Linux-ia64] Re: volatile unsigned long cpu_online_map vs unsigned long cpu_online_map
-Message-Id: <marc-linux-ia64-105590693005777@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 26 Jun 2001 17:30:37 +0000
+Subject: [Linux-ia64] Re: volatile unsigned long cpu_online_map vs unsigned long cpu_online_map
+Message-Id: <marc-linux-ia64-105590693005778@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005772@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005772@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bill Nottingham <notting@redhat.com> writes:
+>>>>> On Tue, 26 Jun 2001 12:24:20 -0400, Bill Nottingham <notting@redhat.com> said:
 
-|> Andreas Schwab (schwab@suse.de) said:=20
-|> > |> Also, shoudn't it be extern in at least one of setup.c/smpboot.c?
-|> >=20
-|> > No.  The definition in setup.c is guarded by CONFIG_SMP, and smpboot.c=
- is
-|> > not use on non-SMP.
-|>=20
-|> But then on a SMP kernel you have two definitions of the same
-|> symbol, yes?
+  Bill> Also, shoudn't it be extern in at least one of
+  Bill> setup.c/smpboot.c?
 
-Yes, you are right, I got the logic wrong.
+I already have taken care of that in the latest source tree.  I don't
+think it causes any problems.
 
-Andreas.
-
---=20
-Andreas Schwab                                  "And now for something
-SuSE Labs                                        completely different."
-Andreas.Schwab@suse.de
-SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+	--david
 
