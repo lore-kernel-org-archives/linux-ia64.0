@@ -1,36 +1,27 @@
-From: "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp>
-Date: Mon, 24 Jun 2002 06:48:09 +0000
-Subject: Re: [Linux-ia64] /usr/lib/gcrt1.o on RH 7.2
-Message-Id: <marc-linux-ia64-105590701905716@msgid-missing>
+From: j-nomura@ce.jp.nec.com
+Date: Tue, 11 Jun 2002 12:01:04 +0000
+Subject: [Linux-ia64] Does MCA handler work correctly?
+Message-Id: <marc-linux-ia64-105590701905664@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905700@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905700@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
- This issue was the known bug.
- Sorry for bothering all.
+Hello,
 
- I deeply appreciate that Greg told me this issus has
- already issued in Feb.
+does MCA handler of 2.4.18 work correctly on multiple processors?
 
-http://gcc.gnu.org/ml/gcc-bugs/2002-02/msg00777.html
+While looking into mca.c and mca_asm.S, they have single static stack
+area for MCA handling, but I could not find synchronization code
+between processors.
 
-End of my email
+It seems that when MCA occurs on multiple processors, they may break
+stacks each other.
+
+Best regards.
 --
-Yours faithfully,
-Hideki Yamamoto   (V).v.(V) # Empowered by Innovation
-
-> 
-> >>>>> On Sat, 22 Jun 2002 15:16:15 +0900, "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp> said:
-> 
->   Hideki>  Let me know glibc version in your site which you did try.
-> 
-> I was just using the latest glibc package from the Debian "testing"
-> archive.
-> 
-> 	--david
-> 
+NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
+HPC Operating System Group, 1st Computers Software Division,
+Computers Software Operations Unit, NEC Solutions.
 
