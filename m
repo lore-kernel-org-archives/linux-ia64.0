@@ -1,81 +1,78 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 22 Oct 2004 15:39:29 +0000
-Subject: FW: Hugepages demand paging V1 [0/4]: Discussion and overview
-Message-Id: <200410221537.i9MFbJq30136@unix-os.sc.intel.com>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Wed, 06 Oct 2004 22:52:29 +0000
+Subject: [PATCH] IA-32: Support for new system call: waitid
+Message-Id: <4164772D.3080904@intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------010206010107050706070504"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Just in case someone on ia64 mailing list is interested in this subject
-discussed on LKML.  Original posting:
+This is a multi-part message in MIME format.
+--------------010206010107050706070504
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-http://marc.theaimsgroup.com/?l=linux-kernel&m9842212329631&w=2
-http://marc.theaimsgroup.com/?l=linux-kernel&m9842289920357&w=2
-http://marc.theaimsgroup.com/?l=linux-kernel&m9842190400028&w=2
-http://marc.theaimsgroup.com/?l=linux-kernel&m9845820830658&w=2
-http://marc.theaimsgroup.com/?l=linux-kernel&m9842250726548&w=2
+Hi Tony,
 
+The attached patch adds support for the new system call waitid that was introduced recently.
 
-
------Original Message-----
-From: Christoph Lameter [mailto:clameter@sgi.com]
-Sent: Thursday, October 21, 2004 9:55 PM
-To: Chen, Kenneth W
-Cc: William Lee Irwin III; raybry@sgi.com; linux-kernel@vger.kernel.org
-Subject: Hugepages demand paging V1 [0/4]: Discussion and overview
-
-This is a revised edition of the hugetlb demand page patches by
-Kenneth Chen which were discussed in the following thread in August 2004
-
-http://marc.theaimsgroup.com/?t9171285000004&r=1&w=2
-
-The initial post by Ken was in April in
-
-http://marc.theaimsgroup.com/?l=linux-ia64&m8189860401704&w=2
-
-Hugetlb demand paging has been part of the production release of SuSE SLES
-9 for awhile now (used by such products as Oracle) and this patchset is
-intended to help hugetlb demand paging also get into the official Linux kernel.
-
-This first version of the patchset is a collection of the patches from the
-above mentioned thread in August. The key unresolved issue in that thread was
-the necessity of using update_cache_mmu after setting up a huge pte.
-
-update_cache_mmu is intended to update the mmu cache for a PAGESIZE page and
-not for a huge page. The solution adopted here (as already suggested as
-a possible solution in that thread) is to require an extension of
-the semantics of set_huge_pte: set_huge_pte() must also do for huge pages
-what update_cache_mmu does for PAGESIZE pages. For that purpose an additional
-address parameter was added to set_huge_pte() which will conviently break
-any old code. The patch included hopefully already fixes all occurrences
-of set_huge_pte.
-
-A linux-2.6.9-bk5 kernel with this patchset was build on IA64 and successfully
-tested using a performance test program for hugetlb pages.
-
-Note that this is the first patchset and is to be seen as discussion basis.
-not as a final patchset. Please review these patches.
-
-The patchset consists of 4 patches.
-
-1/4 Demand Paging patch. This is the base and is mostly Ken's original work
-	plus a fix that was posted later.
-
-2/4 set_huge_pte update. This updates the set_huge_pte function for all
-	architectures and insures that the arch specific action for
-	update_mmu_cache is taken (which may be do nothing for some arches).
-	Please verify that this really addresses the issues for each arch
-	and that it is complete.
-
-3/4 Overcommit patch: Mostly the original work by Ken plus a fix that he
-	posted later.
-
-4/4 Numa patch: Work by Raymund Bryant and myself at SGI to make
-	the huge page allocator try to allocate local memory instead always
-	starting at node zero. This definitely needs to be more sophisticated.
-
-Patches 1 to 3 must be applied together. The Numa patch is optional.
+	-Arun
 
 
+--------------010206010107050706070504
+Content-Type: text/plain;
+ name="ia32-waitid.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="ia32-waitid.patch"
+
+QWRkZWQgc3VwcG9ydCBmb3IgdGhlIG5ldyBzeXNjYWxsIHN5c193YWl0aWQoKQoKU2lnbmVk
+LW9mZi1ieTogQXJ1biBTaGFybWEgPGFydW4uc2hhcm1hQGludGVsLmNvbT4KCkluZGV4OiBs
+aW51eC0yLjYtY3ZzL2FyY2gvaWE2NC9pYTMyL2lhMzJfZW50cnkuUwo9PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+ClJDUyBmaWxlOiAvaG9tZS9hZHNoYXJtYS9kaXNrMi9jdnMvbGludXgtMi41L2FyY2gvaWE2
+NC9pYTMyL2lhMzJfZW50cnkuUyx2CnJldHJpZXZpbmcgcmV2aXNpb24gMS4zNwpkaWZmIC11
+IC1yMS4zNyBpYTMyX2VudHJ5LlMKLS0tIGxpbnV4LTIuNi1jdnMvYXJjaC9pYTY0L2lhMzIv
+aWEzMl9lbnRyeS5TCTI0IEF1ZyAyMDA0IDE4OjI3OjA3IC0wMDAwCTEuMzcKKysrIGxpbnV4
+LTIuNi1jdnMvYXJjaC9pYTY0L2lhMzIvaWEzMl9lbnRyeS5TCTIxIFNlcCAyMDA0IDE4OjA4
+OjIwIC0wMDAwCkBAIC00OTMsNiArNDkzLDggQEAKICAgCWRhdGE4IGNvbXBhdF9zeXNfbXFf
+dGltZWRyZWNlaXZlCS8qIDI4MCAqLwogICAJZGF0YTggY29tcGF0X3N5c19tcV9ub3RpZnkK
+ICAgCWRhdGE4IGNvbXBhdF9zeXNfbXFfZ2V0c2V0YXR0cgorCWRhdGE4IHN5c19uaV9zeXNj
+YWxsCQkvKiByZXNlcnZlZCBmb3Iga2V4ZWMgKi8KKwlkYXRhOCBzeXMzMl93YWl0aWQKIAog
+CS8vIGd1YXJkIGFnYWluc3QgZmFpbHVyZXMgdG8gaW5jcmVhc2UgSUEzMl9OUl9zeXNjYWxs
+cwogCS5vcmcgaWEzMl9zeXNjYWxsX3RhYmxlICsgOCpJQTMyX05SX3N5c2NhbGxzCkluZGV4
+OiBsaW51eC0yLjYtY3ZzL2FyY2gvaWE2NC9pYTMyL3N5c19pYTMyLmMKPT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PQpSQ1MgZmlsZTogL2hvbWUvYWRzaGFybWEvZGlzazIvY3ZzL2xpbnV4LTIuNS9hcmNoL2lh
+NjQvaWEzMi9zeXNfaWEzMi5jLHYKcmV0cmlldmluZyByZXZpc2lvbiAxLjcxCmRpZmYgLXUg
+LXIxLjcxIHN5c19pYTMyLmMKLS0tIGxpbnV4LTIuNi1jdnMvYXJjaC9pYTY0L2lhMzIvc3lz
+X2lhMzIuYwkxMiBKdWwgMjAwNCAyMToyNDowMCAtMDAwMAkxLjcxCisrKyBsaW51eC0yLjYt
+Y3ZzL2FyY2gvaWE2NC9pYTMyL3N5c19pYTMyLmMJMjEgU2VwIDIwMDQgMTg6MDc6NTQgLTAw
+MDAKQEAgLTI3MjgsNiArMjcyOCwzMiBAQAogCQkJICAgICAgIGFkdmljZSk7IAogfSAKIAor
+YXNtbGlua2FnZSBsb25nIHN5czMyX3dhaXRpZChpbnQgd2hpY2gsIGNvbXBhdF9waWRfdCBw
+aWQsCisJCQkgICAgIHNpZ2luZm9fdDMyIF9fdXNlciAqdWluZm8sIGludCBvcHRpb25zLAor
+CQkJICAgICBzdHJ1Y3QgY29tcGF0X3J1c2FnZSBfX3VzZXIgKnVydSkKK3sKKwlzaWdpbmZv
+X3QgaW5mbzsKKwlzdHJ1Y3QgcnVzYWdlIHJ1OworCWxvbmcgcmV0OworCW1tX3NlZ21lbnRf
+dCBvbGRfZnMgPSBnZXRfZnMoKTsKKworCWluZm8uc2lfc2lnbm8gPSAwOworCXNldF9mcyAo
+S0VSTkVMX0RTKTsKKwlyZXQgPSBzeXNfd2FpdGlkKHdoaWNoLCBwaWQsIChzaWdpbmZvX3Qg
+X191c2VyICopICZpbmZvLCBvcHRpb25zLAorCQkJIHVydSA/ICZydSA6IE5VTEwpOworCXNl
+dF9mcyAob2xkX2ZzKTsKKworCWlmIChyZXQgPCAwIHx8IGluZm8uc2lfc2lnbm8gPT0gMCkK
+KwkJcmV0dXJuIHJldDsKKworCWlmICh1cnUgJiYgKHJldCA9IHB1dF9jb21wYXRfcnVzYWdl
+KCZydSwgdXJ1KSkpCisJCXJldHVybiByZXQ7CisKKwlCVUdfT04oaW5mby5zaV9jb2RlICYg
+X19TSV9NQVNLKTsKKwlpbmZvLnNpX2NvZGUgfD0gX19TSV9DSExEOworCXJldHVybiBjb3B5
+X3NpZ2luZm9fdG9fdXNlcjMyKHVpbmZvLCAmaW5mbyk7Cit9CisKICNpZmRlZglOT1RZRVQg
+IC8qIFVOVEVTVEVEIEZPUiBJQTY0IEZST00gSEVSRSBET1dOICovCiAKIGFzbWxpbmthZ2Ug
+bG9uZyBzeXMzMl9zZXRyZXVpZChjb21wYXRfdWlkX3QgcnVpZCwgY29tcGF0X3VpZF90IGV1
+aWQpCkluZGV4OiBsaW51eC0yLjYtY3ZzL2luY2x1ZGUvYXNtLWlhNjQvaWEzMi5oCj09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT0KUkNTIGZpbGU6IC9ob21lL2Fkc2hhcm1hL2Rpc2syL2N2cy9saW51eC0yLjUv
+aW5jbHVkZS9hc20taWE2NC9pYTMyLmgsdgpyZXRyaWV2aW5nIHJldmlzaW9uIDEuMjIKZGlm
+ZiAtdSAtcjEuMjIgaWEzMi5oCi0tLSBsaW51eC0yLjYtY3ZzL2luY2x1ZGUvYXNtLWlhNjQv
+aWEzMi5oCTE5IEp1biAyMDA0IDE0OjQ5OjAyIC0wMDAwCTEuMjIKKysrIGxpbnV4LTIuNi1j
+dnMvaW5jbHVkZS9hc20taWE2NC9pYTMyLmgJMjEgU2VwIDIwMDQgMTc6NTU6NDMgLTAwMDAK
+QEAgLTYsNyArNiw3IEBACiAjaW5jbHVkZSA8YXNtL3B0cmFjZS5oPgogI2luY2x1ZGUgPGFz
+bS9zaWduYWwuaD4KIAotI2RlZmluZSBJQTMyX05SX3N5c2NhbGxzCQkyODMJLyogbGVuZ3Ro
+IG9mIHN5c2NhbGwgdGFibGUgKi8KKyNkZWZpbmUgSUEzMl9OUl9zeXNjYWxscwkJMjg1CS8q
+IGxlbmd0aCBvZiBzeXNjYWxsIHRhYmxlICovCiAjZGVmaW5lIElBMzJfUEFHRV9TSElGVAkJ
+CTEyCS8qIDRLQiBwYWdlcyAqLwogCiAjaWZuZGVmIF9fQVNTRU1CTFlfXwo=
+--------------010206010107050706070504--
