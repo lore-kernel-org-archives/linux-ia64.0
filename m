@@ -1,28 +1,27 @@
-From: Scott Hankin <shankin@rational.com>
-Date: Fri, 08 Dec 2000 18:58:08 +0000
-Subject: [ia64-dist] Re: [Linux-ia64] TurboLinux IA-64 Beta 2 (2000-11-23)
-Message-Id: <marc-linux-ia64-105590678205819@msgid-missing>
+From: hiren_mehta@agilent.com
+Date: Fri, 29 Dec 2000 00:30:28 +0000
+Subject: [Linux-ia64] applying patch
+Message-Id: <marc-linux-ia64-105590678205876@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->  This is the second beta release of TurboLinux Frontier IA-64.
->  The distribution is available for download at the TurboLinux ftp site:
->
->      ftp://ftp.turbolinux.com/pub/ia64/TLF-ia64-1120.iso
->      ftp://ftp.turbolinux.com/pub/ia64/TLF-ia64-1120-nox.iso
->      ftp://ftp.turbolinux.com/pub/ia64/1120/{RPMS,SRPMS}
+Hi All,
 
-These appear to be no longer available.  Is there an alternate location
-from which they can be downloaded?
+I looked at the http://www.kernel.org/pub/linux/kernel/ports/ia64/
+directory. The directory has only one big .tar.gz file with kernel
+sources and the rest of the files are patches. After I looked at the
+directory, I got totally confused as there are readme files which
+can tell me how to use the patches and what should be the base kernel
+to apply the patch. Is it that, the big tar.gz file should be the base
+kernel and then I need to apply all the patches appearing in the
+directory or that I need to apply only a specific patch ?
 
-- Scott
+If there is any readmes or any other information regarding the patches
+please send me the URL so that I can go through that.
 
------------------------------
-Scott Hankin                  In the beginning, there was nothing, then
-Rational Software             God said, "Let there be light."  And there
-20 Maguire Road               was light.  There was still nothing, but
-Lexington, MA 02421           you could see it a lot better.
+Thanks and regards,
+-hiren
 
