@@ -1,34 +1,21 @@
-From: Gustavo Niemeyer <niemeyer@conectiva.com>
-Date: Mon, 23 Apr 2001 18:38:41 +0000
-Subject: Re: [Linux-ia64] 2.4.3 + 010405 hanging
-Message-Id: <marc-linux-ia64-105590693005450@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Tue, 24 Apr 2001 21:00:02 +0000
+Subject: [Linux-ia64] Re: patch: qla1280 cleanup
+Message-Id: <marc-linux-ia64-105590693005457@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005437@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005437@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Gustavo> Hello!  When I try to do a complex task like kernel compiling
-> Gustavo> and I'm running kernel 2.4.3 with ia64 patch 010405, the
-> Gustavo> system is hanging frequently.
-> 
-> Gustavo> Any known issues about this?
-> 
-> There is a known problem with the rw semaphores that can cause
-> something like this. David included a basic fix in an ldt patch he
-> posted a couple of days ago.
-> 
-> I think this snippet is the relevant part.
+Jes Sorensen (jes@linuxcare.com) said: 
+> PS: The qla1280 firmware image included with the 010405 patch is under
+> a license that is conflicting with the GPL. Anyone have a contact at
+> QLogic so we can get this resolved?
 
-Thank you Jes!!
+Duane Grigsby <duane.grigsby@qlogic.com> is the maintainer
+supposedly now. We've had to ping them about the firmware
+license once before; it got resolved fairly quickly then.
 
-I've been working for a few days with the patched kernel and
-it seems to be working just fine!!
-
--- 
-Gustavo Niemeyer
-
-[ 2AAC 7928 0FBF 0299 5EB5  60E2 2253 B29A 6664 3A0C ]
+Bill
 
