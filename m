@@ -1,50 +1,53 @@
-From: "Robboy, David G" <david.g.robboy@intel.com>
-Date: Tue, 27 Mar 2001 01:31:36 +0000
-Subject: [Linux-ia64] smp_call_function / handle_IPI bug
-Message-Id: <marc-linux-ia64-105590693005355@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Mon, 12 Mar 2001 22:29:07 +0000
+Subject: [Linux-ia64] [PATCH] /proc access to EFI variables v0.02
+Message-Id: <marc-linux-ia64-105590693005275@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The linux kernel function smp_call_function does this:
+I've created a kernel patch which makes all the EFI variables available
+under /proc/efi.  Support for reading, writing, creating, and destroying
+variables is present.
 
-	Set variable 'smp_call_function_data' to point to data (this is both
-a pointer and a lock)
-	Send IPI interrupts to other processors
-	Wait a good long time
-	If other processors haven't responded
-		clear the lock (which also nulls out the pointer)
-		return
-	if (wait)
-		wait for execution to complete
-	clear the lock
-	return
+I've incorporated feedback from Stephane Eranian (thanks!).
+This patch is at version 0.02.  I've tested it myself, and believe it ready
+for inclusion in David's tree.
 
-The function handle_IPI() dereferences the pointer 'smp_call_function_data'
-in order to get its data.
+Other changes include:
+- exporting struct efi in kernel/ia64_ksyms.c so efivars can be a module
+- setting the high bit on EFI error status codes in include/asm-ia64/efi.h
+(per spec) (There's probably a cleaner way to do this.)
 
-It can happen that a processor is busy for a long time and finally gets
-around to handling an IPI, when the sender of the IPI has already given up
-and cleared the lock.  In that case, handle_IPI() dereferences a null
-pointer and panics the kernel.  I can demonstrate that it's possible.
 
-Before dereferencing the pointer, handle_IPI should check for a null pointer
-and "break" if it is null.  This simple fix does not guarantee that the
-value of smp_call_function_data is still what the sender of the IPI
-intended, but I propose that it's up to the programmer to  synchronize his
-threads correctly.  The kernel does not have to enforce correct
-synchronization, but it should not panic itself.
+The patch is available at
+http://domsch.com/linux/ia64/linux-2.4.1-010131-efivars-010312.patch, and is
+also attached.
 
-The fix I recommend is in the IPI_CALL_FUNC case of
-smp_call_function_data(), check for a null pointer and break if it is null.
+Reads to /proc/efi/varname return an efi_variable_t structure.
+Writes to /proc/efi/varname must be an efi_variable_t structure.
+Writes with DataSize = 0 or Attributes = 0 deletes the variable named in the
+structure.  You should write to a different variable name file than the one
+you are deleting (i.e., to delete Boot0000*, write to Boot0001*, with a name
+of Boot0000 in the name field of the structure).  This avoids the problem of
+deleting a /proc file while you are holding an open file handle to it.
+Writes to any file with a new value in VariableName+VendorGuid creates a new
+variable.
 
-I'll be glad to submit a patch for R2.4.1 if there is no disagreement with
-this solution and if someone will tell me where to send the patch.
+I haven't written a user-space app for manipulating the variables, but
+that's necessary.  Or, you can cat one of the variables to a file, and use a
+hex editor to change it, then cat it back.  That works well.
 
-David Robboy
+As always, your feedback is appreciated.
 
-	
+Thanks,
+Matt
 
+--
+Matt Domsch
+Dell Linux Systems Group
+Linux OS Development
+www.dell.com/linux
 
