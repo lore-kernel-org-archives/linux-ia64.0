@@ -1,14 +1,18 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 25 Mar 2004 16:08:25 +0000
-Subject: [PATCH] Fix uninitialized data in EFI RTC /proc interface
-Message-Id: <200403250908.25718.bjorn.helgaas@hp.com>
+Date: Thu, 25 Mar 2004 16:15:53 +0000
+Subject: Re: [PATCH] Fix uninitialized data in EFI RTC /proc interface
+Message-Id: <200403250915.53296.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200403250908.25718.bjorn.helgaas@hp.com>
+In-Reply-To: <200403250908.25718.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-=== drivers/char/efirtc.c 1.8 vs edited ==--- 1.8/drivers/char/efirtc.c	Mon Jan 19 16:38:04 2004
+(Sorry about the malformed patch -- I screwed it up while adding
+the text at the top.  Here's a corrected one.)
+
 Please apply the following patch (based on 2.6.5-rc2).
 
 The problem is that we don't clear out the efi_time_t buffer
@@ -20,6 +24,7 @@ The effect is that 'cat /proc/driver/efirtc' shows garbage in
 the nanoseconds part of the alarm time, and sometimes artifacts
 like bogus alarm date and junk after the actual end of the text.
 
+=== drivers/char/efirtc.c 1.8 vs edited ==--- 1.8/drivers/char/efirtc.c	Mon Jan 19 16:38:04 2004
 +++ edited/drivers/char/efirtc.c	Thu Mar 25 08:48:45 2004
 @@ -6,13 +6,13 @@
   *
