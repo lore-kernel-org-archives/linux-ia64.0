@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Mon, 07 Mar 2005 16:48:13 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Mon, 07 Mar 2005 16:50:35 +0000
 Subject: Re: PCI Express
-Message-Id: <20050307164813.GD749@esmail.cup.hp.com>
+Message-Id: <20050307165035.GH28741@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4228F250.7C5E2E3C@sgi.com>
 In-Reply-To: <4228F250.7C5E2E3C@sgi.com>
@@ -10,22 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Mar 04, 2005 at 05:42:08PM -0600, Colin Ngam wrote:
-> Is MSI/MSIX support available for ia64?
+On Mon, Mar 07, 2005 at 08:48:13AM -0800, Grant Grundler wrote:
+> On Fri, Mar 04, 2005 at 05:42:08PM -0600, Colin Ngam wrote:
+> > Are PCIE devices supported in ia64?
+> 
+> I'm having trouble with the word "supported".
+> You have a PCI-E Bridge and firmware that can talk to it
+> hooked up to an ia64 box?
+> 
+> Anyway, linux has some PCI-E support in the generic PCI code.
 
-Yes
+... and I wrote the ia64-specific bits to access extended PCI config space
+through the SAL PCI accessors.  See PCI_SAL_EXT_ADDRESS().
 
-> Are PCIE devices supported in ia64?
+Various PCIe features are in the process of being added.  It all depends
+what you mean when you say "supported".
 
-I'm having trouble with the word "supported".
-You have a PCI-E Bridge and firmware that can talk to it
-hooked up to an ia64 box?
-
-Anyway, linux has some PCI-E support in the generic PCI code.
-
-> A pointer to any documentations with regards to PCIE and ia64 will
-> be very much appreciated.
-
-I don't think anything ia64 or linux specific exists.
-
-grant
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
