@@ -1,32 +1,27 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 09 Jan 2003 07:24:01 +0000
-Subject: [Linux-ia64] Re: strace improvement patch
-Message-Id: <marc-linux-ia64-105590709805654@msgid-missing>
+Date: Thu, 02 Jan 2003 21:27:00 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to 2.5.52)
+Message-Id: <marc-linux-ia64-105590709805632@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805650@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805650@msgid-missing>
+References: <marc-linux-ia64-105590678205111@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 8 Jan 2003 23:05:55 -0800, Roland McGrath <roland@redhat.com> said:
+>>>>> On Thu, 26 Dec 2002 15:07:11 +0900, Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp> said:
 
-  Roland> Are you sure this really works on IA64?
+  Kimio> Hi David,
+  Kimio> Please apply this patch for discontigmem.
+  Kimio> I made sure NUMA kernel worked fine with the patch
+  Kimio> on 16way Itanium machine.
 
-Yes, it works very well on 2.5.52.  I tested it on decidedly
-non-trivial, heavily multithreaded programs.
-
-  Roland> I've committed the changes (along with some more fixes and
-  Roland> new support for the new threads features in Linux 2.5).  Can
-  Roland> you get the current sources from sourceforge and try them on
-  Roland> IA64?  After getting a cvs checkout, you'll need to run
-  Roland> "autoreconf -i" with automake-1.7.2 and autoconf-2.57.
-
-I tried it and it works fine with 2.5.52.  Then I also tried on a
-2.4.20 machine and sure enough, there it dies with a SIGSEGV.  I can
-look into it, but not tonight, so you may want to go ahead with the
-test-release.
+The patch didn't apply because of whitespace issues and because it
+wasn't relative to the parent of the top-level directory.  I applied
+it by hand now, but in the future, please try to submit proper patches
+(if you mailer does the munging, you can send patches as a MIME
+attachement).
 
 Thanks,
 
