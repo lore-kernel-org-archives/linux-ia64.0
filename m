@@ -1,85 +1,42 @@
 From: Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
-Date: Fri, 25 Oct 2002 23:23:43 +0000
+Date: Sat, 26 Oct 2002 01:09:28 +0000
 Subject: Re: [Linux-ia64] quick ia64 patch for 2.5.44 (UP only)
-Message-Id: <marc-linux-ia64-105590709805255@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805256@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805243@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805243@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 Hi,
 
-I found that functions in timer.c and rcupdate.c are calling
-tasklet_init() for all CPUs before APs start running.
-I think per_cpu() cannot be used for not running CPU for ia64,
-and this assumption was broken by them.
-
-I attached args for tasklet_init() at booting and you can see
-tasklet structures for CPU#0 are only valid.
-Caller might be init_timers() and rcu_init().
-
-I cannot come up with good solution for it but I think
-we have to change current per_cpu implementation.
-Any idea?
+I succeeded to boot the kernel on 8way ia64 box by
+porting the generic percpu (i.e. i386's percpu) to ia64.
+I think this should not right way to fix the problem.
+I can show the patch if there is a requirement.
 
 Thanks,
 Kimi
 
-enter tasklet_init t=E000000100000180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=A000000000008180, func=E000000004a2e340
-enter tasklet_init t=E000000100000158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-enter tasklet_init t=A000000000008158, func=E000000004a2c100
-
-
-On Fri, 25 Oct 2002 14:50:33 -0700
+On Fri, 25 Oct 2002 16:23:43 -0700
 Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp> wrote:
 
-> I found that tasklet_hi_action() seemed to call NULL pointer.
-> So I tried to put following code (I guess this is wrong fix)
-> into the function;
->=20
-> 	if (t->func =3D NULL) {
-> 		tasklet_unlock(t);
-> 		continue;
-> 	}
->=20
-> And the system initialization moved on, but it hung at INIT execution.
-> Anyway, I feel this problem might be related to the timer change.
->=20
-> http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=103393743102152&w=3D2
+> I found that functions in timer.c and rcupdate.c are calling
+> tasklet_init() for all CPUs before APs start running.
+> I think per_cpu() cannot be used for not running CPU for ia64,
+> and this assumption was broken by them.
+> 
+> I attached args for tasklet_init() at booting and you can see
+> tasklet structures for CPU#0 are only valid.
+> Caller might be init_timers() and rcu_init().
+> 
+> I cannot come up with good solution for it but I think
+> we have to change current per_cpu implementation.
+> Any idea?
 
---=20
+-- 
 Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
 
 
