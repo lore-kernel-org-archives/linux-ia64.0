@@ -1,36 +1,33 @@
-From: Uros Prestor <uros@turbolinux.com>
-Date: Fri, 08 Dec 2000 19:17:07 +0000
-Subject: Re: [ia64-dist] Re: [Linux-ia64] TurboLinux IA-64 Beta 2
-Message-Id: <marc-linux-ia64-105590678205820@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Wed, 06 Dec 2000 00:40:42 +0000
+Subject: [Linux-ia64] ia64 patch breaks ix86 compile
+Message-Id: <marc-linux-ia64-105590678205795@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Scott Hankin wrote:
+linux-2.4.0-test10-ia64-001115.diff includes this patch which breaks
+ix86 compiles from the same source tree, no definition for
+pgprot_writecombine.  Anybody care to fix this for ix86?
 
-> >  This is the second beta release of TurboLinux Frontier IA-64.
-> >  The distribution is available for download at the TurboLinux ftp site:
-> >
-> >      ftp://ftp.turbolinux.com/pub/ia64/TLF-ia64-1120.iso
-> >      ftp://ftp.turbolinux.com/pub/ia64/TLF-ia64-1120-nox.iso
-> >      ftp://ftp.turbolinux.com/pub/ia64/1120/{RPMS,SRPMS}
->
-> These appear to be no longer available.  Is there an alternate location
-> from which they can be downloaded?
-
-We have temporarily moved the IA-64 bits to
-
-     ftp://frontier.turbolinux.com/pub/ia64
-
-Uros
-
-
---
-Uros Prestor
-uros@turbolinux.com
-
-
+Index: 0-test11.1/drivers/char/mem.c
+--- 0-test11.1/drivers/char/mem.c Wed, 15 Nov 2000 12:00:34 +1100 kaos (linux-2.4/N/b/49_mem.c 1.3.1.5 644)
++++ 0-test11.13(w)/drivers/char/mem.c Mon, 20 Nov 2000 16:50:00 +1100 kaos (linux-2.4/N/b/49_mem.c 1.3.1.6 644)
+@@ -198,8 +198,12 @@ static int mmap_mem(struct file * file, 
+ 	 * through a file pointer that was marked O_SYNC will be
+ 	 * done non-cached.
+ 	 */
+-	if (noncached_address(offset) || (file->f_flags & O_SYNC))
++	if (noncached_address(offset) || (file->f_flags & O_SYNC)
++	    || vma->vm_flags & VM_NONCACHED)
+ 		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
++
++	if (vma->vm_flags & VM_WRITECOMBINED)
++		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+ 
+ 	/*
+ 	 * Don't dump addresses that are not real memory to a core file.
 
 
