@@ -1,54 +1,33 @@
-From: "Verkist, Bruno" <Bruno.Verkist@fujitsu-siemens.com>
-Date: Tue, 10 Jul 2001 07:11:21 +0000
-Subject: AW: [Linux-ia64] XFree 4.1 and console switching
-Message-Id: <marc-linux-ia64-105590693005834@msgid-missing>
+From: "peck, william" <peck_william@emc.com>
+Date: Fri, 27 Jul 2001 14:08:11 +0000
+Subject: [Linux-ia64] Ksymoops
+Message-Id: <marc-linux-ia64-105590693005944@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005830@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005830@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-9"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Yes, I've seen this on my Lion Qual with SuSE 7.2a RC1 (2.4.4-SMP).
-It's an annoying "feature" when I start tests in KDE2 an switch to text
-console
-with ALT-F1 (or ALT-F10 to check messages).
+Has anyone here used ksymoops on ia64?  I don't know if I am doing anything
+wrong but I get an awful lot of warnings when I try to run a panic through
+it on ia64.  I have done these lots of times on i386 with no problems..  
 
-Regards,
-Bruno
----
-Bruno Verkist mailto:Bruno.Verkist@fujitsu-siemens.com
-FSC EP PS HE4, Paderborn      Tel. +49 5251 8 15365
+Before I run my test that panics the system I boot with the console
+redirected to the serial port.  I cat /proc/ksyms to a file.  Then after the
+panic I reboot and run the captured text through with the ksyms file I
+grabbed and the rest are defaults.
 
+I get lots of warnings on my System.map.  I also get the complaint that it
+can't find my /lib/qla1280.o scsi module but I know thats because it came
+from an initrd image.  (Does anyone else think thats a bug?  Should the
+initrd library be at the same path as the real module when the system is
+loaded? ie /lib/modules/2.4.4/kernel/drivers/scsi/qla1280.o)
 
-=20
+I can post my panic here if anyone is interested.  I just fear that I'm not
+doing something right and I want to make sure I'm reporting good bug
+reports!
 
-> -----Urspr=FCngliche Nachricht-----
-> Von:	Michael Madore [SMTP:mmadore@turbolinux.com]
-> Gesendet am:	Montag, 09. Juli 2001 21:23
-> An:	linux-ia64@linuxia64.org
-> Betreff:	[Linux-ia64] XFree 4.1 and console switching
->=20
-> Hi,
->=20
-> I have noticed that on some machines (Big Surs and Lions) switching back
-> and
-> forth between X Windows and the text console (via Alt-F1, etc) will cause
-> the machine to crash.  The screen is blank and the box is unresponsive
-> both
-> locally and over the network.
->=20
-> Has anyone else seen this?
->=20
-> --=20
-> Mike Madore
-> Senior Software Engineer
-> TurboLinux, Inc.
-> (650)228-5203
->=20
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+:-)
+
+Thanks!
 
