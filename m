@@ -1,29 +1,48 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 27 Nov 2001 00:25:14 +0000
-Subject: Re: [Linux-ia64] null pointer in iosapic_pci_fixup()
-Message-Id: <marc-linux-ia64-105590698805546@msgid-missing>
+From: "Pereira, D LailaX E" <d.lailax.e.pereira@intel.com>
+Date: Wed, 14 Nov 2001 18:16:46 +0000
+Subject: [Linux-ia64] ia-64 cast warning??
+Message-Id: <marc-linux-ia64-105590698805513@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805543@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805543@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 26 Nov 2001 17:17:26 +0100 (NFT), Xavier Bru  <Xavier.Bru@bull.net> said:
+Hi
+Consider the following macro : executing in a program , on linux ia-64
+machine: 
+ifdef CIRC_DEBUG
+#define CBUFSIZE 32768 
+#define CHECK_CIRC_ALIGNMENT( A ) \
+if (((unsigned int)(circbuff + A))%sizeof(caddr_t)) { A += (sizeof(caddr_t)
+- (((unsigned int)(circbuff + A))%sizeof(caddr_t)))/sizeof(unsigned short);
+}
 
-  Xavier> When a device is found behind a pci/pci bridge and this
-  Xavier> device has no IRQ decribed in the ACPI table, Linux prints a
-  Xavier> warning message: " PCI: Couldn't map irq for (...)"
-  Xavier> unfortunately there is a null "bridge" pointer at that
-  Xavier> point. This makes the system hang in release 2.4.9 and have
-  Xavier> a wrong print of bus , device and irq in kernel 2.4.13.
+#define CIRCADDR( A ) \
+CHECK_CIRC_ALIGNMENT(CBptr) \
+*(caddr_t *)(circbuff + CBptr) = A; \
+CBptr = (CBptr + sizeof(caddr_t)/sizeof(short)) % CBUFSIZE;
 
-The previous printk() seems to suffer from the same bug.  I changed
-both of them.
+#endif
 
-Thanks,
 
-	--david
+int main(){
+  unsigned int volatile* mask;
+  unsigned short circbuff[CBUFSIZE];
+  unsigned int CBptr;
+  unsigned int current;
+.....
+  CHECK_CIRC_ALIGNMENT(current);
+.....
+}
 
+I always get the warning : 
+warning : cast from pointer to integer of different size  on the line
+CHECK_CIRC_ALIGNMENT(current);
+
+when I compile the above program.I want to get rid of the warning.I am not
+able to figure out why I get this warning.??
+Please let me know 
+
+D'laila
 
