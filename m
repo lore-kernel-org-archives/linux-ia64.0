@@ -1,79 +1,30 @@
-From: Christopher Wedgwood <cw@sgi.com>
-Date: Tue, 22 Jul 2003 00:43:54 +0000
-Subject: [PATCH] (2.4.x bk) efi_memmap_walk_uc
-Message-Id: <marc-linux-ia64-105883467032028@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 22 Jul 2003 02:16:04 +0000
+Subject: Re: [PATCH] (2.4.x bk) efi_memmap_walk_uc
+Message-Id: <marc-linux-ia64-105884018903130@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105883467032028@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105883467032028@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+On Monday 21 July 2003 6:43 pm, Christopher Wedgwood wrote:
+> To support this we have efi_memmap_walk_uc defined in a very similar
+> way to efi_memmap_walk.
 
-On SN2 we have a 'fetchop' driver which does various magical things
-with uncached memory (atomic operations within or across partitions).
+I sort of object to adding a parallel function just to extract
+regions with a different attribute.  I'd rather rework efi_memmap_walk
+to call the callback for *every* memory descriptor, and make the
+callback responsible for filtering out the regions of interest.
 
-To support this we have efi_memmap_walk_uc defined in a very similar
-way to efi_memmap_walk.
+The only problem is that the existing callbacks would have
+to be changed.  Plus, all the trimming that's currently in
+efi_memmap_walk to make sure all the granules with WB
+memory are completely WB, would have to be reworked
+or pulled out into its own function.  I kind of like the idea
+of factoring it out anyway.
 
-How do people feel about merging this in the generic code (rather than
-hiding it away in the driver or something more complex like
-abstraction and changes to the current efi code)?
+Bjorn
 
-I'd also like to see a version of this in 2.5.x.
-
-
- arch/ia64/kernel/efi.c |   27 +++++++++++++++++++++++++++
- include/linux/efi.h    |    1 +
- 2 files changed, 28 insertions(+)
-
-
-
-Flame away,
-
-  --cw
-
-
-=== arch/ia64/kernel/efi.c 1.12 vs edited ==--- 1.12/arch/ia64/kernel/efi.c	Fri Mar 14 16:08:01 2003
-+++ edited/arch/ia64/kernel/efi.c	Mon Jul 21 17:34:27 2003
-@@ -723,3 +723,30 @@
-  	remove_proc_entry(efi_dir->name, NULL);
- #endif
- }
-+
-+/*
-+ * Walks the EFI memory map and calls CALLBACK once for each EFI memory descriptor that
-+ * has memory that marked as only EFI_MEMORY_UC.
-+ */
-+void
-+efi_memmap_walk_uc (efi_freemem_callback_t callback, void *arg)
-+{
-+	void *efi_map_start, *efi_map_end, *p;
-+	efi_memory_desc_t *md;
-+	u64 efi_desc_size, start, end;
-+
-+	efi_map_start = __va(ia64_boot_param->efi_memmap);
-+	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
-+	efi_desc_size = ia64_boot_param->efi_memdesc_size;
-+
-+	for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
-+		md = p;
-+
-+		if (md->attribute = EFI_MEMORY_UC) {
-+			start = PAGE_ALIGN(md->phys_addr);
-+			end = PAGE_ALIGN((md->phys_addr+(md->num_pages << EFI_PAGE_SHIFT)) & PAGE_MASK);
-+			if ((*callback)(start, end, arg) < 0)
-+				return;
-+		}
-+	}
-+}
-=== include/linux/efi.h 1.3 vs edited ==--- 1.3/include/linux/efi.h	Thu Sep 12 11:57:59 2002
-+++ edited/include/linux/efi.h	Mon Jul 21 17:35:43 2003
-@@ -260,6 +260,7 @@
- extern void efi_init (void);
- extern void efi_map_pal_code (void);
- extern void efi_memmap_walk (efi_freemem_callback_t callback, void *arg);
-+extern void efi_memmap_walk_uc (efi_freemem_callback_t callback, void *arg);
- extern void efi_gettimeofday (struct timeval *tv);
- extern void efi_enter_virtual_mode (void);	/* switch EFI to virtual mode, if possible */
- extern u64 efi_get_iobase (void);
