@@ -1,29 +1,32 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Sat, 23 Feb 2002 01:01:05 +0000
-Subject: [Linux-ia64] Re: problem with unwind info for .init/.fini sections
-Message-Id: <marc-linux-ia64-105590701905181@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Tue, 05 Feb 2002 21:13:48 +0000
+Subject: Re: [Linux-ia64] Pseudo-ops: IAS versus ia64-hp-linux-as
+Message-Id: <marc-linux-ia64-105590698805992@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905180@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905180@msgid-missing>
+References: <marc-linux-ia64-105590698805959@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805959@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 22 Feb 2002 16:58:08 -0800, Richard Henderson <rth@redhat.com> said:
+>The following explanation is from the developer of IAS:
 
-  Richard> On Fri, Feb 22, 2002 at 11:54:27AM -0800, David Mosberger
-  Richard> wrote:
-  >> While we found the problem with ia64 linux, I suspect other
-  >> platforms that rely on unwind info are likely to be affected as
-  >> well.
+Thanks for the explanation.  It has been obvious to me for almost 3 years
+that there was a problem with managing the size of the short data section,
+and it is good to see that Intel has defined a solution for this.
 
-  Richard> This is .init -- why do you care if you can unwind through
-  Richard> it?
+>Note: that the two must come together and the need for linker support. As
+>far as I know GNU linker does not support this.
 
-Because a debugger might need to do so.  I found the problem while
-trying to print a backtrace with the Ski simulator while it was
-executing inside an init function.
+Because the GNU hackers didn't know about the feature until now.  ld8.mov isn't
+mentioned in my copy of the Assembler Reference Guide.  I see that there is a
+new version of it on the Intel web site, but in order to figure that out,
+I had to download it first.  It would be nice if these documents had version
+numbers, so I can more easily tell when new versions are available.  Also,
+the lack of change bars and a document history chapter means I have to
+compare the new doc against the old doc by hand to find what is new.  That
+is enough of a hassle that I rarely bother to do it.
 
-	--david
+Jim
 
