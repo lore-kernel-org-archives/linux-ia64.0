@@ -1,44 +1,29 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Sat, 23 Aug 2003 17:30:38 +0000
-Subject: [PATCH] default to building compressed
-Message-Id: <marc-linux-ia64-106166018214674@msgid-missing>
+From: Sam Ravnborg <sam@ravnborg.org>
+Date: Sat, 23 Aug 2003 21:06:10 +0000
+Subject: Re: [PATCH] default to building compressed
+Message-Id: <marc-linux-ia64-106167293524944@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106166018214674@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106166018214674@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Sat, Aug 23, 2003 at 06:30:38PM +0100, Matthew Wilcox wrote:
+> 
+> i386 defaults to building `bzImage' (as well as modules) if you just type
+> `make'.  This patch mirrors that on ia64 by building `compressed'.
+>
+> Comments?
 
-i386 defaults to building `bzImage' (as well as modules) if you just type
-`make'.  This patch mirrors that on ia64 by building `compressed'.
+Why not kill this 'compressed' indirection.
+If people want to build vmlinux.gz, then let people specify that.
+Much less confusing.
 
-Comments?
+The build should also write out the full path to the location of the
+kernel - no reason for people to guess the directory.
 
-Index: arch/ia64/Makefile
-=================================RCS file: /var/cvs/linux-2.6/arch/ia64/Makefile,v
-retrieving revision 1.4
-diff -u -p -r1.4 Makefile
---- a/arch/ia64/Makefile	23 Aug 2003 02:46:23 -0000	1.4
-+++ b/arch/ia64/Makefile	23 Aug 2003 17:28:23 -0000
-@@ -70,6 +70,8 @@ boot := arch/ia64/hp/sim/boot
- 
- .PHONY: boot compressed check
- 
-+all: compressed
-+
- compressed: vmlinux.gz
- 
- vmlinux.gz: vmlinux
-@@ -100,6 +102,6 @@ boot:	lib/lib.a vmlinux
- 
- 
- define archhelp
--  echo '  compressed	- Build compressed kernel image'
-+  echo '* compressed	- Build compressed kernel image'
-   echo '  boot		- Build vmlinux and bootloader for Ski simulator'
- endef
+Sorry - no patch this time :-(
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+	Sam
