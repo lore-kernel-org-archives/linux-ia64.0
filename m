@@ -1,49 +1,136 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sun, 14 Mar 2004 02:45:47 +0000
+From: Nobuhiko Yoshida <n-yoshida@pst.fujitsu.com>
+Date: Tue, 16 Mar 2004 00:30:03 +0000
 Subject: Re: Hugetlbpages in very large memory machines.......
-Message-Id: <20040313184547.6e127b51.akpm@osdl.org>
+Message-Id: <JP20040316093003.3103921@pst.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40528383.10305@sgi.com>
-	<20040313034840.GF4638@wotan.suse.de>
-In-Reply-To: <20040313034840.GF4638@wotan.suse.de>
+References: <20040313.135638.78732994.taka@valinux.co.jp>
+In-Reply-To: <20040313.135638.78732994.taka@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: raybry@sgi.com, linux-kernel@vger.kernel.org
+Cc: lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, Hirokazu Takahashi <taka@valinux.co.jp>
 
-Andi Kleen <ak@suse.de> wrote:
->
-> > We've looked at allocating and zeroing hugetlbpages at fault time, which 
->  > would at least allow multiple processors to be thrown at the problem.  
->  > Question is, has anyone else been working on
->  > this problem and might they have prototype code they could share with us?
+Hello,
+
+Hirokazu Takahashi <taka@valinux.co.jp> :
+> Hello,
 > 
->  Yes. I ran into exactly this problem with NUMA API too. 
->  mbind() runs after mmap, but it cannot work anymore when
->  the pages are already allocated.
+> My following patch might help you. It inclueds pagefault routine
+> for hugetlbpages. If you want to use it for your purpose, you need to
+> remove some code from hugetlb_prefault() that will call hugetlb_fault().
+> http://people.valinux.co.jp/~taka/patches/va01-hugepagefault.patch
 > 
->  I fixed it on x86-64/i386 by allocating the pages lazily.
->  Doing it for IA64 has been on the todo list too.
+> But it's just for IA32.
 > 
->  i386/x86-64 Code as an example attached.
-> 
->  One drawback is that the out of memory handling is lot less nicer
->  than it was before - when you run out of hugepages you get SIGBUS
->  now instead of a ENOMEM from mmap. Maybe some prereservation would
->  make sense, but that would be somewhat harder. Alternatively
->  fall back to smaller pages if possible (I was told it isn't easily
->  possible on IA64)
+> I heard that n-yoshida@pst.fujitsu.com was porting this patch
+> on IA64.
 
-Demand-paging the hugepages is a decent feature to have, and ISTR resisting
-it before for this reason.
+Below is the patch I ported Takahashi-san's one for IA64.
+However, my patch is for kernel 2.6.0 and cannot be
+appiled to 2.6.1 or later.
 
-Even though it's early in the 2.6 series I'd be a bit worried about
-breaking existing hugetlb users in this way.  Yes, the pages are
-preallocated so it is unlikely that a working setup is suddenly going to
-break.  Unless someone is using the return value from mmap to find out how
-many pages they can get.
+Thank you,
+Nobuhiko Yoshida
 
-So ho-hum.  I think it needs to be back-compatible.  Could we add
-MAP_NO_PREFAULT?
-
+diff -dupr linux-2.6.0.org/arch/ia64/mm/hugetlbpage.c linux-2.6.0.HugeTLB/arch/ia64/mm/hugetlbpage.c
+--- linux-2.6.0.org/arch/ia64/mm/hugetlbpage.c  2003-12-18 11:58:56.000000000 +0900
++++ linux-2.6.0.HugeTLB/arch/ia64/mm/hugetlbpage.c  2004-01-06 14:26:53.000000000 +0900
+@@ -170,8 +170,10 @@ int copy_hugetlb_page_range(struct mm_st
+            goto nomem;
+        src_pte = huge_pte_offset(src, addr);
+        entry = *src_pte;
+-       ptepage = pte_page(entry);
+-       get_page(ptepage);
++       if (!pte_none(entry)) {
++           ptepage = pte_page(entry);
++           get_page(ptepage);
++       }   
+        set_pte(dst_pte, entry);
+        dst->rss += (HPAGE_SIZE / PAGE_SIZE);
+        addr += HPAGE_SIZE;
+@@ -195,6 +197,12 @@ follow_hugetlb_page(struct mm_struct *mm
+    do {
+        pstart = start & HPAGE_MASK;
+        ptep = huge_pte_offset(mm, start);
++
++       if (!ptep || pte_none(*ptep)) {
++           hugetlb_fault(mm, vma, 0, start);
++           ptep = huge_pte_offset(mm, start);
++       }
++
+        pte = *ptep;
+ 
+ back1:
+@@ -236,6 +244,12 @@ struct page *follow_huge_addr(struct mm_
+    pte_t *ptep;
+ 
+    ptep = huge_pte_offset(mm, addr);
++
++   if (!ptep || pte_none(*ptep)) {
++       hugetlb_fault(mm, vma, 0, addr);
++       ptep = huge_pte_offset(mm, addr);
++   }
++
+    page = pte_page(*ptep);
+    page += ((addr & ~HPAGE_MASK) >> PAGE_SHIFT);
+    get_page(page);
+@@ -246,7 +260,8 @@ int pmd_huge(pmd_t pmd)
+    return 0;
+ }
+ struct page *
+-follow_huge_pmd(struct mm_struct *mm, unsigned long address, pmd_t *pmd, int write)
++follow_huge_pmd(struct mm_struct *mm, struct vm_area_struct *vma,
++       unsigned long address, pmd_t *pmd, int write)
+ {
+    return NULL;
+ }
+@@ -518,6 +533,48 @@ int is_hugepage_mem_enough(size_t size)
+    return 1;
+ }
+ 
++
++int hugetlb_fault(struct mm_struct *mm, struct vm_area_struct *vma, int write_access, unsigned long address)
++{
++   struct file *file = vma->vm_file;
++   struct address_space *mapping = file->f_dentry->d_inode->i_mapping;
++   struct page *page;
++   unsigned long idx;
++   pte_t *pte;
++   int ret = VM_FAULT_MINOR;
++
++   BUG_ON(vma->vm_start & ~HPAGE_MASK);
++   BUG_ON(vma->vm_end & ~HPAGE_MASK);
++
++   spin_lock(&mm->page_table_lock);
++
++   idx = ((address - vma->vm_start) >> HPAGE_SHIFT)
++       + (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
++   page = find_get_page(mapping, idx);
++
++   if (!page) {
++       page = alloc_hugetlb_page();
++       if (!page) {
++           ret = VM_FAULT_SIGBUS;
++           goto out;
++       }
++       ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
++       unlock_page(page);
++       if (ret) {
++           free_huge_page(page);
++           ret = VM_FAULT_SIGBUS;
++           goto out;
++       }
++   }
++   pte = huge_pte_alloc(mm, address);
++   set_huge_pte(mm, vma, page, pte, vma->vm_flags & VM_WRITE);
++/*      update_mmu_cache(vma, address, *pte); */
++out:
++   spin_unlock(&mm->page_table_lock);
++   return ret;
++}
++
++
+ static struct page *hugetlb_nopage(struct vm_area_struct * area, unsigned long address, int unused)
+ {
+    BUG();
