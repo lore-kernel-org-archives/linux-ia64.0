@@ -1,7 +1,7 @@
 From: Robin Holt <holt@sgi.com>
-Date: Thu, 03 Mar 2005 21:27:49 +0000
+Date: Tue, 15 Mar 2005 19:34:33 +0000
 Subject: [Patch 2/3] Free page tables belonging to remote nodes.
-Message-Id: <20050303212749.GB947@lnx-holt.americas.sgi.com>
+Message-Id: <20050315193433.GC25617@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050302184103.GC16517@lnx-holt.americas.sgi.com>
 In-Reply-To: <20050302184103.GC16517@lnx-holt.americas.sgi.com>
@@ -9,7 +9,6 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
-
 
 Tony,
 
@@ -42,23 +41,25 @@ Process fork+exit: 182.2333 microseconds
 Process fork+execve: 692.7500 microseconds
 Process fork+/bin/sh -c: 2905.5000 microseconds
 
- pgalloc.h |    7 +++++++
- 1 files changed, 7 insertions(+)
+ pgalloc.h |    9 +++++++++
+ 1 files changed, 9 insertions(+)
 
 Index: linux-2.6/include/asm-ia64/pgalloc.h
-=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-02 17:40:38.500562862 -0600
-+++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-03 06:54:13.068518897 -0600
-@@ -66,6 +66,13 @@
- static inline void
- pgtable_quicklist_free (void *pgtable_entry)
+=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-15 07:10:18.790421107 -0600
++++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-15 07:11:40.862761856 -0600
+@@ -61,6 +61,15 @@
+ 
+ static inline void pgtable_quicklist_free(void *pgtable_entry)
  {
 +#ifdef CONFIG_NUMA
-+	if (unlikely(page_to_nid(virt_to_page(pgtable_entry)) != numa_node_id())) {
-+		free_page((unsigned long) pgtable_entry);
++	unsigned long nid = page_to_nid(virt_to_page(pgtable_entry));
++
++	if (unlikely(nid != numa_node_id())) {
++		free_page((unsigned long)pgtable_entry);
 +		return;
 +	}
 +#endif
 +
  	preempt_disable();
- 	*(unsigned long *)pgtable_entry = (unsigned long) pgtable_quicklist;
- 	pgtable_quicklist = (unsigned long *) pgtable_entry;
+ 	*(unsigned long *)pgtable_entry = (unsigned long)pgtable_quicklist;
+ 	pgtable_quicklist = (unsigned long *)pgtable_entry;
