@@ -1,24 +1,31 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Wed, 11 Apr 2001 19:57:41 +0000
-Subject: [Linux-ia64] Re: libc patch: add unwind directives to str*/mem*
-Message-Id: <marc-linux-ia64-105590693005393@msgid-missing>
+From: chadbeane@iwon.com
+Date: Thu, 12 Apr 2001 19:23:36 +0000
+Subject: [Linux-ia64] Fellow Bostonians
+Message-Id: <marc-linux-ia64-105590693005396@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@hpl.hp.com> writes:
+Hey,
 
-> Below is a patch to add unwind directives to the str* and mem*
-> routines.  It also cleans up a few minor things (see ChangeLog for
-> details).  The string/ and inet/ testsuites still run fine after
-> applying this patch
+I just wanted to throw out a quick hello to any of you who are living in
+the boston area (or suburbs ofcourse).  I just moved here and I was wondering
+how I can get involved in the Linux community around here. I don't anyone
+but I'd like to meet some people with similar interests and I figured this
+would be a good place to start. Feel free to email me at chadbeane@iwon.com.
 
-Thanks, I've applied the patch.
+Thanks and I can't wait to hear from you.
 
--- 
----------------.                          ,-.   1325 Chesapeake Terrace
-Ulrich Drepper  \    ,-------------------'   \  Sunnyvale, CA 94089 USA
-Red Hat          `--' drepper at redhat.com   `------------------------
+Chad
+
+
+
+iWon is giving away $10,000,000 on Monday, April 16th! 
+Click here for details:
+http://www.iwon.com/home/prizes/10_million/10_million_overview/
+
+
+
 
