@@ -1,7 +1,7 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Date: Wed, 28 Jan 2004 02:55:17 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 28 Jan 2004 03:09:58 +0000
 Subject: Re: [RFC/PATCH, 2/4] readX_check() performance evaluation
-Message-Id: <Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
+Message-Id: <20040128030958.GH11844@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <00a301c3e541$c13a6350$2987110a@lsd.css.fujitsu.com>
 In-Reply-To: <00a301c3e541$c13a6350$2987110a@lsd.css.fujitsu.com>
@@ -11,43 +11,36 @@ Content-Transfer-Encoding: 7bit
 To: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
 Cc: linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
 
-
-
-On Wed, 28 Jan 2004, Hironobu Ishii wrote:
->
+On Wed, Jan 28, 2004 at 10:54:37AM +0900, Hironobu Ishii wrote:
 > This is a readX_check() prototype patch to evaluate
 > the performance disadvantage.
 
-Quite frankly, I'd much rather have something more like this:
+I think you've just demonstrated why this type of interface is unacceptable:
 
-	clear_pcix_errors(dev);
-	..
-	x = readX_check(dev, offset);	/* Maybe several ones, maybe in a loop */
-	..
-	error = read_pcix_errors(dev);
-	if (error)
-		take_pcix_offline(dev);
+> + #ifdef CONFIG_PCI_RECOVERY
+> +   {
+> +    int read_fail;
+> +    read_fail = CHIPREG_READ32(&pa, &ioc->chip->ReplyFifo);
+> +    if (read_fail) {
+> +     printk("PCI PIO read error:%d\n", read_fail);
+> +     /* recovery code */
+> +    }
+> +    if (pa = 0xFFFFFFFF)
+> +     return IRQ_HANDLED;
+> +   }
+> + #else
+>     if ((pa = CHIPREG_READ32(&ioc->chip->ReplyFifo)) = 0xFFFFFFFF)
+>      return IRQ_HANDLED;
+> ! #endif
 
-in other words, I'd rather _not_ see the "readX_check()" code itself have 
-the retry logic and error value handling.
+We go from two easily understood lines to ten plus the recovery code.
+If indeed recovery is even possible.  An exception framework is clearly
+the way to do this.
 
-Why? Because on a number of architectures it is entirely possible that the 
-error comes as a _asynchronous_ machine exception or similar. So I'd much 
-rather have the interfaces be designed for that. Also, it's likely to 
-perform a lot better, and result in much clearer code this way (ie you can 
-try to set up the whole command before reading the error just once).
-
-It is _also_ going to be a hell of a lot easier to disable the code if you 
-want to, with just a
-
-	#ifndef CONFIG_PCI_RECOVERY
-	  #define clear_pcix_errors(dev) do { } while (0)
-	  #define read_pcix_errors(dev)  (0)
-	  #define take_pcix_offline(dev) do { } while (0)
-	#endif
-
-in a header file for architectures that don't support it.
-
-Does anybody see any downsides to something like this?
-
-			Linus
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
