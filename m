@@ -1,7 +1,7 @@
-From: Erich Focht <efocht@ess.nec.de>
-Date: Sun, 27 Oct 2002 17:13:31 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Sun, 27 Oct 2002 23:57:17 +0000
 Subject: Re: [Linux-ia64] quick ia64 patch for 2.5.44 (UP only)
-Message-Id: <marc-linux-ia64-105590709805260@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805264@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805243@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805243@msgid-missing>
@@ -10,19 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Kimi,
+>>>>> "Kimio" = Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp> writes:
 
-On Saturday 26 October 2002 03:09, Kimio Suganuma wrote:
-> I succeeded to boot the kernel on 8way ia64 box by
-> porting the generic percpu (i.e. i386's percpu) to ia64.
-> I think this should not right way to fix the problem.
-> I can show the patch if there is a requirement.
+Kimio> Hi Erich,
+Kimio> Here is the patch.
+Kimio> I changed cpu_init() in setup.c so that BSP prepares
+Kimio> per_cpu data for all CPUS.
 
-yes, please send the patch. I'd like to test something on 2.5.44
-on Azusa on Monday.
+After applying this patch, I can boot on SMP.  However, the machine
+hangs on shutdown
 
-Regards,
-Erich
+...
+Deconfiguring network interfaces... done.
+Deactivating swap... done.
+Unmounting local filesystems... done.
+Rebooting... Shutting down devices
 
+so there's still something wrong, not sure what (as interrupts are
+disabled, I can't use the magic sysrq key to find out what's
+happening)
 
+Peter C
 
