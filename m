@@ -1,7 +1,7 @@
-From: Randolph Chung <randolph@tausq.org>
-Date: Thu, 10 Apr 2003 23:56:37 +0000
+From: Duraid Madina <duraid@octopus.com.au>
+Date: Thu, 10 Apr 2003 23:58:08 +0000
 Subject: Re: [Linux-ia64] Itanium gets supercomputing software
-Message-Id: <marc-linux-ia64-105590723705459@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705460@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705455@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705455@msgid-missing>
@@ -10,19 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+David Mosberger wrote:
+> Remember that Intel is targeting Itanium 2 against Power4 and SPARC.
+> In that space, the price of Itanium 2 is very competitive.
+
+OK, I want to be clear on this. I asked why Itanium hardware is still so 
+expensive. Your answer seems to be marketing speak for "The prices are 
+still high because we are _happy_ selling small quantities of this 
+equipment to people used to paying through the nose for good quality 
+hardware." Is this correct?
+
+Can I then conclude that Intel has not yet had any interest whatsoever 
+in driving IA64 into the realm of reasonble prices? It's sad to see so 
+much work being put into this Linux port when, if things remain as they 
+are, it will hardly be used.
+
+>   Duraid> Seriously, IA64 must be the first architecture in history
+>   Duraid> where a software simulator is still being developed 4 years
+>   Duraid> after commercial availability of silicon (indeed, entire
+>   Duraid> systems).
+> 
 > What's a software simulator got to do with anything?  Certain things
 > are easier to develop on a simulator, others are easier to develop on
 > hardware.  Nothing unique to IA64.
 
-hear hear... i might have access to a bunch of parisc hardware, but i
-would love to get my hands on a good parisc simulator. 
+I put it to you that software is easier to develop on hardware. Nothing 
+unique to IA64, indeed.
 
-i setup the ia64 simulator to play with kernel modules support.. but now
-that david got it working... :-)
+	Duraid
 
-randolph
--- 
-Randolph Chung
-Debian GNU/Linux Developer, hppa/ia64 ports
-http://www.tausq.org/
 
