@@ -1,34 +1,24 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Mon, 24 Feb 2003 01:45:10 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 24 Feb 2003 01:50:41 +0000
 Subject: [Linux-ia64] Re: strange performance behaviour with floats
-Message-Id: <marc-linux-ia64-105590709805910@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805911@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590709805910@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805910@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="macroman"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-T24gRnJpLCAyMSBGZWIgMjAwMyAxODozMDozMiAtMDgwMCwgCkRhdmlkIE1vc2JlcmdlciA8ZGF2
-aWRtQG5hcGFsaS5ocGwuaHAuY29tPiB3cm90ZToKPjEtY3ljbGUgbG9vcHMgYXJlCj5uZXZlciBv
-cHRpbWFsIG9uIE1jS2lubGV5ICh0aGF0J3Mgd2h5IHRoZSBMaW51eCBib2dvbWlwcyBjb21lcyBv
-dXQgYXQKPjE0MzggaW5zdGVhZCBvZiAyMDAwLCBmb3IgZXhhbXBsZSksIHRob3VnaCBJIGRvbid0
-IGtub3cgdGhlIGV4YWN0Cj5taWNyby1hcmNoaXRlY3R1cmFsIGRldGFpbHMgdGhhdCBjYXVzZSB0
-aGlzLgoKLS0tIGluY2x1ZGUvYXNtLWlhNjQvZGVsYXkuaAorKysgaW5jbHVkZS9hc20taWE2NC9k
-ZWxheS5oCkBAIC03MSw3ICs3MSw3IEBACiAKICAgICAgICBfX2FzbV9fIF9fdm9sYXRpbGVfXygi
-bW92ICUwPWFyLmxjOzsiIDogIj1yIihzYXZlZF9hcl9sYykpOwogICAgICAgIF9fYXNtX18gX192
-b2xhdGlsZV9fKCJtb3YgYXIubGM9JTA7OyIgOjogInIiKGxvb3BzIC0gMSkpOwotICAgICAgICBf
-X2FzbV9fIF9fdm9sYXRpbGVfXygiMTpcdGJyLmNsb29wLnNwdGsuZmV3IDFiOzsiKTsKKyAgICAg
-ICAgX19hc21fXyBfX3ZvbGF0aWxlX18oIjE6XHRub3AgMDtub3AgMDtub3AgMDtici5jbG9vcC5z
-cHRrLmZldyAxYjs7Iik7CiAgICAgICAgX19hc21fXyBfX3ZvbGF0aWxlX18oIm1vdiBhci5sYz0l
-MCIgOjogInIiKHNhdmVkX2FyX2xjKSk7CiB9CgpnZW5lcmF0ZWQgYSB0d28gYnVuZGxlIGxvb3Ag
-YXMgeW91IHN1Z2dlc3RlZCwgYnV0IEJvZ29NSVBTIHdlbnQgZG93biwKbm90IHVwLgoKT3JpZ2lu
-YWwgY29kZSwgb25lIGJ1bmRsZSBici5jbG9vcDoKCiAgQ1BVIDA6IGJhc2UgZnJlcSAwLjAwME1I
-eiwgSVRDIHJhdGlvPTkvMiwgSVRDIGZyZXGQMC4wMDBNSHoKICBDYWxpYnJhdGluZyBkZWxheSBs
-b29wLi4uIDEzNDcuNTIgQm9nb01JUFMKCk1vZGlmaWVkIGNvZGUsIHR3byBidW5kbGUgYnIuY2xv
-b3A6CgogIENQVSAwOiBiYXNlIGZyZXEgMC4wMDBNSHosIElUQyByYXRpbz05LzIsIElUQyBmcmVx
-kDAuMDAwTUh6CiAgQ2FsaWJyYXRpbmcgZGVsYXkgbG9vcC4uLiA4OTguNjggQm9nb01JUFMKCnBy
-b2Nlc3NvciAgOiAwCnZlbmRvciAgICAgOiBHZW51aW5lSW50ZWwKYXJjaCAgICAgICA6IElBLTY0
-CmZhbWlseSAgICAgOiBJdGFuaXVtIDIKbW9kZWwgICAgICA6IDAKcmV2aXNpb24gICA6IDYKYXJj
-aHJldiAgICA6IDAKZmVhdHVyZXMgICA6IGJyYW5jaGxvbmcKY3B1IG51bWJlciA6IDAKY3B1IHJl
-Z3MgICA6IDQKY3B1IE1IeiAgICA6IDkwMC4wMDAwMDAKaXRjIE1IeiAgICA6IDkwMC4wMDAwMDAK
-Cgo=
+>>>>> On Mon, 24 Feb 2003 12:45:10 +1100, Keith Owens <kaos@sgi.com> said:
+
+  Keith> generated a two bundle loop as you suggested, but BogoMIPS went down,
+  Keith> not up.
+
+Note: 2 bundle != 2 cycle, but even ignoring that: what did you
+expect?  BogoMIPS counts 2 instructions per loop iteration no matter
+how many instructions are being executed.  Perhaps you can get the
+compiler to unroll the loop.  Then you'd see a higher BogoMIPS.
+
+	--david
+
