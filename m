@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 07 Jun 2004 17:46:41 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 07 Jun 2004 18:14:00 +0000
 Subject: Re: Scalability enhancements for gettimeofday
-Message-Id: <Pine.LNX.4.58.0406071041270.2844@schroedinger.engr.sgi.com>
+Message-Id: <16580.45160.472402.207890@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405201205.57930.clameter@sgi.com>
 In-Reply-To: <200405201205.57930.clameter@sgi.com>
@@ -10,26 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Would it be possible to avoid any changes to arch independent code by
-changing get_offset fir the ITC clock to never return an earlier offset in
-the same tick?
+>>>>> On Mon, 7 Jun 2004 10:46:41 -0700 (PDT), Christoph Lameter <clameter@sgi.com> said:
 
-Then the ITC specific code in the gettimeofday could be removed.
+  Christoph> Would it be possible to avoid any changes to arch
+  Christoph> independent code by changing get_offset fir the ITC clock
+  Christoph> to never return an earlier offset in the same tick?
 
-There is a use of volatile that be better avoided (I think the general
-recommendation on l-k is to use barriers). The fieldname "is_drifty" can
-lead to misunderstandings since drift is typically used to refer to
-continual drift due to inaccuracies of the clocks and not because a
-variety of clocks are in use.
+I didn't think so.  The problem is that for ITC-interpolation, we
+basically need a two-phase protocol: get an offset and if everything
+is consistent, commit to the new offset.  You're welcome to try,
+though.
 
-On Fri, 4 Jun 2004, David Mosberger wrote:
-
-> >>>>> On Thu, 20 May 2004 12:05:57 -0700, Christoph Lameter <clameter@sgi.com> said:
->
->   Christoph> The Altix systems use a global clock as the time source
->   Christoph> for gettimeofday and not the ITC.  In do_gettimeofday() a
->   Christoph> cmpxchg instruction is used to insure that ITC based time
->   Christoph> calculations never return an earlier time.  This cmpxchg
->   Christoph> seems to be the reason for the scalability issues.
->
-> How does the attached look/work for you?
+	--david
