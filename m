@@ -1,126 +1,54 @@
-From: Greg Harris <gregh@unify.com>
-Date: Fri, 26 May 2000 15:27:49 +0000
-Subject: [Linux-ia64] Linux IA-64 yacc error
+From: Bill Nottingham <notting@redhat.com>
+Date: Fri, 26 May 2000 15:32:01 +0000
+Subject: Re: [Linux-ia64] Linux IA-64 yacc error
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01BFC726.F32535D0"
-Message-Id: <marc-linux-ia64-105590678205109@msgid-missing>
+Content-Type: multipart/mixed; boundary="IS0zKkzwUGydFO0o"
+Message-Id: <marc-linux-ia64-105590678205110@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205109@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205109@msgid-missing>
 To: linux-ia64@vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+--IS0zKkzwUGydFO0o
+Content-Type: text/plain; charset=us-ascii
 
-------_=_NextPart_000_01BFC726.F32535D0
-Content-Type: text/plain
+Greg Harris (gregh@unify.com) said: 
+> > yacc makey.y
+> > 
+> > yacc:f - out of space.
 
-Is this the correct forum for this question?
+yacc is broken. Try the attached patch.
 
-> Here is my problem. I am currently trying to build tools/src/nmake 
-> on trillian machine(received from Intel) with linux as OS. Here is the
-> error
-> I get
-> 
-> yacc makey.y
-> 
-> yacc:f - out of space.
-> 
-> The machine has ample disk space.
-> 
- We are  able to compile simple y file with existing yacc.   
-> yacc is unable to handle complex
-> file such as makey.y. 
-> 
-> 
-> Greg Harris
-> Senior Software Engineer (I18N)
-> Unify Corporation <<makey.y>> 
+Bill
 
-------_=_NextPart_000_01BFC726.F32535D0
-Content-Type: TEXT/plain;
-	name="makey.y"
-Content-Disposition: attachment;
-	filename="makey.y"
+--IS0zKkzwUGydFO0o
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="byacc-fix.patch"
 
-%term number stop DEFINED
-%term EQ NE LE GE LS RS
-%term ANDAND OROR
-%left ','
-%right '='
-%right '?' ':'
-%left OROR
-%left ANDAND
-%left '|' '^'
-%left '&'
-%binary EQ NE
-%binary '<' '>' LE GE
-%left LS RS
-%left '+' '-'
-%left '*' '/' '%'
-%right '!' '~' UMINUS
-%left '(' '.'
-%%
-S:	e stop	={return($1);}
+--- byacc-1.9/defs.h.busted	Sat May  6 21:10:56 2000
++++ byacc-1.9/defs.h	Sat May  6 21:11:22 2000
+@@ -1,7 +1,8 @@
+ #include <assert.h>
+ #include <ctype.h>
+ #include <stdio.h>
+-
++#include <string.h>
++#include <stdlib.h>
+ 
+ /*  machine-dependent definitions			*/
+ /*  the following definitions are for the Tahoe		*/
+@@ -280,10 +281,3 @@
+ extern int errno;
+ 
+ 
+-/* system functions */
+-
+-extern void free();
+-extern char *calloc();
+-extern char *malloc();
+-extern char *realloc();
+-extern char *strcpy();
 
-
-e:	  e '*' e
-		={$$ = $1 * $3;}
-	| e '/' e
-		={$$ = ($3 != 0) ? $1 / $3 : 0;}
-	| e '%' e
-		={$$ = ($3 != 0) ? $1 % $3 : 0;}
-	| e '+' e
-		={$$ = $1 + $3;}
-	| e '-' e
-		={$$ = $1 - $3;}
-	| e LS e
-		={$$ = $1 << $3;}
-	| e RS e
-		={$$ = $1 >> $3;}
-	| e '<' e
-		={$$ = $1 < $3;}
-	| e '>' e
-		={$$ = $1 > $3;}
-	| e LE e
-		={$$ = $1 <= $3;}
-	| e GE e
-		={$$ = $1 >= $3;}
-	| e EQ e
-		={$$ = $1 == $3;}
-	| e NE e
-		={$$ = $1 != $3;}
-	| e '&' e
-		={$$ = $1 & $3;}
-	| e '^' e
-		={$$ = $1 ^ $3;}
-	| e '|' e
-		={$$ = $1 | $3;}
-	| e ANDAND e
-		={$$ = $1 && $3;}
-	| e OROR e
-		={$$ = $1 || $3;}
-	| e '?' e ':' e
-		={$$ = $1 ? $3 : $5;}
-	| e ',' e
-		={$$ = $3;}
-	| term
-		={$$ = $1;}
-term:
-	  '-' term %prec UMINUS
-		={$$ = -$2;}
-	| '!' term
-		={$$ = !$2;}
-	| '~' term
-		={$$ = ~$2;}
-	| '(' e ')'
-		={$$ = $2;}
-	| DEFINED '(' number ')'
-		={$$= $3;}
-	| DEFINED number
-		={$$ = $2;}
-	| number
-		={$$= $1;}
-%%
-
-------_=_NextPart_000_01BFC726.F32535D0--
+--IS0zKkzwUGydFO0o--
 
 
