@@ -1,105 +1,71 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 15 Mar 2002 19:41:58 +0000
-Subject: [Linux-ia64] forwarded message from Russell King
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="zwykVQheeQ"
-Message-Id: <marc-linux-ia64-105590701905296@msgid-missing>
+From: Matt_Domsch@Dell.com
+Date: Thu, 28 Mar 2002 23:17:34 +0000
+Subject: [Linux-ia64] GUID cleanups and GPT patches
+Message-Id: <marc-linux-ia64-105590701905342@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---zwykVQheeQ
-Content-Type: text/plain; charset=us-ascii
-Content-Description: message body text
-Content-Transfer-Encoding: 7bit
+David, I've finally gotten around to doing the GUID cleanups as we
+discussed.  Additionally it brings the GPT code for 2.4.18 and 2.5.17 into
+alignment again.  I'm still trying to get the GPT stuff in the standard
+kernel, but the fs/partitions maintainer has been busy with other non-Linux
+work.  Since the GPT code again has dependencies on IA-64 port-specific
+files, I'll submit only the GPT stuff to Linus and Marcelo after the IA-64
+code is merged there.
 
-I thought I'd forward this bug-report as I won't be able to act on it
-before leaving for vacation.
+Common changes:
+* EFI_GUID macro defined per your suggestion - efi_guid_t is now a struct of
+char[16].  Fixed all GUID definitions.
+* Made one unified efi_guid_unparse() static inline in asm-ia64/efi.h.
+Removed three other definitions of similar in efivars.c and mca.c.
+* fixed endianness of fs/partitions/efi.c - thanks to Richard Hirst and his
+GPT work in Parted.
+* cleaned up find_valid_gpt() to make it easier to see what's going on and
+avoid future NULL ptr deref cases if this code gets modified yet again.
+* Only use partition table slots 0..max_p.  The previous behaviour would let
+you delete a partition in the middle of the table, and on next boot all the
+partition numbers above that would switch down.  This change makes it
+consistent with the MSDOS concept of primary partitions.  /dev/sdaX exists
+iff the partition type is not NULL.
 
-	--david
+Changes only to 2.4.18:
+* Brought fs/partitions/efi.[ch] in line with 2.5.x.
+* Removed CONFIG_DEVFS_GUID stuff from 2.4.18
+* Moved crc32 functions into efi.c - in 2.4.19pre there's now a different
+include/linux/crc32.h and no lib/crc32.c, which would otherwise conflict.
+include/linux/crc32.h and lib/crc32.c may be removed from your patch
+entirely.
 
-
---zwykVQheeQ
-Content-Type: message/rfc822
-Content-Description: forwarded message
-Content-Transfer-Encoding: 7bit
-
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Return-Path: <linux-kernel-owner@vger.kernel.org>
-Received: from hplms2.hpl.hp.com (root@hplms2.hpl.hp.com [15.0.152.33])
-	by napali.hpl.hp.com (8.12.1/8.12.1/Debian -5) with ESMTP id g2FDWhf7007188
-	for <davidm@napali.hpl.hp.com>; Fri, 15 Mar 2002 05:32:43 -0800
-Received: from deimos.hpl.hp.com (deimos.hpl.hp.com [15.0.48.190])
-	by hplms2.hpl.hp.com (8.10.2/8.10.2 HPL-PA Hub) with ESMTP id g2FDWf209373
-	for <davidm@hpl.hp.com>; Fri, 15 Mar 2002 05:32:42 -0800 (PST)
-Received: from vger.kernel.org (vger.kernel.org [12.107.208.194])
-	by deimos.hpl.hp.com (8.9.3 (PHNE_24419)/HPL-PA Relay) with ESMTP id FAA15002
-	for <davidm@hpl.hp.com>; Fri, 15 Mar 2002 05:32:41 -0800 (PST)
-Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
-	id <S292368AbSCON3O>; Fri, 15 Mar 2002 08:29:14 -0500
-Received: (majordomo@vger.kernel.org) by vger.kernel.org
-	id <S292339AbSCON3C>; Fri, 15 Mar 2002 08:29:02 -0500
-Received: from www.deepbluesolutions.co.uk ([212.18.232.186]:64268 "EHLO
-	caramon.arm.linux.org.uk") by vger.kernel.org with ESMTP
-	id <S291279AbSCON2o>; Fri, 15 Mar 2002 08:28:44 -0500
-Received: from [3ffe:8260:2002:1:201:2ff:fe14:8fad] (helo=flint.arm.linux.org.uk)
-	by caramon.arm.linux.org.uk with esmtp (Exim 3.16 #1)
-	id 16lrl8-0008OG-00; Fri, 15 Mar 2002 13:28:38 +0000
-Received: from rmk by flint.arm.linux.org.uk with local (Exim 3.16 #1)
-	id 16lrl7-0006vK-00; Fri, 15 Mar 2002 13:28:37 +0000
-Message-ID: <20020315132837.D24984@flint.arm.linux.org.uk>
-User-Agent: Mutt/1.2.5i
-Precedence: bulk
-X-Mailing-List: linux-kernel@vger.kernel.org
-From: Russell King <rmk@arm.linux.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-To: linux-kernel@vger.kernel.org, Linus Torvalds <torvalds@transmeta.com>,
-   Marcelo Tosatti <marcelo@conectiva.com.br>, davej@suse.de
-Subject: [PATCH] 2.4 and 2.5: fix /proc/kcore
-Date: Fri, 15 Mar 2002 13:28:37 +0000
-
-As mentioned on May 11 on LKML, here is a patch to fix /proc/kcore for
-architectures which do not have RAM located at physical address 0.
-
-I did say I'd send this on Monday, however I only got feedback from the
-ia64 people, and /proc/kcore is already broken on their machines anyway.
-(They need to fix it up; they place modules below PAGE_OFFSET, which
-breaks our generated ELF core header).
-
-So I've decided to send it a few days early.
-
-Please apply.
-
---- orig/fs/proc/kcore.c	Fri Mar 15 10:14:44 2002
-+++ linux/fs/proc/kcore.c	Fri Mar 15 11:18:21 2002
-@@ -381,8 +381,13 @@
- 			return tsz;
- 	}
- #endif
--	/* fill the remainder of the buffer from kernel VM space */
--	start = (unsigned long)__va(*fpos - elf_buflen);
-+	
-+	/*
-+	 * Fill the remainder of the buffer from kernel VM space.
-+	 * We said in the ELF header that the data which starts
-+	 * at 'elf_buflen' is virtual address PAGE_OFFSET. --rmk
-+	 */
-+	start = PAGE_OFFSET + (*fpos - elf_buflen);
- 	if ((tsz = (PAGE_SIZE - (start & ~PAGE_MASK))) > buflen)
- 		tsz = buflen;
- 		
+Changes only in 2.5.7-pre1:
+* Moved CONFIG_PARTITION_EFI help text to fs/partitions/Config.help
 
 
--- 
-Russell King (rmk@arm.linux.org.uk)                The developer of ARM Linux
-             http://www.arm.linux.org.uk/personal/aboutme.html
+On top of linux-2.4.18 plus linux-2.4.18-ia64-020226.patch:
+http://domsch.com/linux/ia64/linux-2.4.18-ia64-020226-gpt-guidcleanup-200203
+27.patch
 
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
 
---zwykVQheeQ--
+On top of linux-2.5.7-pre1 plus linux-2.5.7-pre1-ia64-020314:
+http://domsch.com/linux/ia64/linux-2.5.7-pre1-gpt-guidcleanup-20020327.patch
+
+
+While I can't get 2.5.7-pre1 to boot on my IA-64 workstation (hangs after
+saying "I'm alive and well..."), 2.4.18 appears to work just fine.
+
+I've also built this with 2.5.7-dj2 on x86 and it works fine.  Dave Jones
+has had the GPT stuff in his tree for a while now.
+http://domsch.com/linux/ia64/linux-2.5.7-dj2-gpt-guidcleanup-20020327.patch.
+
+Thanks,
+Matt
+
+--
+Matt Domsch
+Sr. Software Engineer
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+#1 US Linux Server provider for 2001!
 
