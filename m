@@ -1,20 +1,23 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Sat, 17 Apr 2004 12:50:14 +0000
-Subject: Re: Kill off hugepage_vma()
-Message-Id: <20040417125014.GE743@holomorphy.com>
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Thu, 08 Apr 2004 15:54:40 +0000
+Subject: syscall_linkage
+Message-Id: <407575C0.840593AC@nospam.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040416062215.GF26707@zax> <200404162214.i3GMEdF22343@unix-os.sc.intel.com>
-In-Reply-To: <200404162214.i3GMEdF22343@unix-os.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: 'David Gibson' <david@gibson.dropbear.id.au>, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-On Fri, Apr 16, 2004 at 03:14:39PM -0700, Chen, Kenneth W wrote:
-> Minor FYI: on ia64, huge page address is in region 4.
+Can somebody explain me, please, what the difference is between an
+__attribute__((syscall_linkage)) call and a regular one ?
 
-This is an artifact of the implementation, not a hardware limitation.
+The Itanium Software Conventions & Runtime Architecture Guide does
+not say a word about it, does it mean it is a non standard way to
+pass parameters ?
 
+What registers need / do not need to be saved with respect to what
+is written in the Intel book ?
 
--- wli
+Thanks,
+
+Zolt=E1n Menyh=E1rt
