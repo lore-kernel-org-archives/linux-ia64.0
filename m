@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 16 Jan 2004 22:32:09 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 16 Jan 2004 23:35:38 +0000
 Subject: Re: [PATCH] Kconfig cleanup, part 1
-Message-Id: <200401161532.09601.bjorn.helgaas@hp.com>
+Message-Id: <20040116233538.GA14872@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200401161136.37066.bjorn.helgaas@hp.com>
 In-Reply-To: <200401161136.37066.bjorn.helgaas@hp.com>
@@ -10,19 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Friday 16 January 2004 2:39 pm, Peter Chubb wrote:
->  config IA64_HP_ZX1
-> -	bool "HP-zx1"
-> +	bool "HP"
+On Fri, Jan 16, 2004 at 11:36:37AM -0700, Bjorn Helgaas wrote:
+> I'd really like to do a more extensive cleanup along the lines of
+> Matthew Wilcox's patch:
 > 
-> Please don't do this.  You'll get people selecting it for the HP
-> I2000 and RX4610, which are *not* based on the ZX1 chipset, even
-> though they're made by HP.
+>     http://linux.bkbits.net:8080/linux-2.5/cset@1.1296.78.7
+> 
+> but I'm not sure how people feel about this during 2.6.  I guess if
+> we want to do it at all in 2.6, sooner's better than later.  For a
+> sample of what the cleaned-up version looks like, try:
 
-Yes, you're right.  And the result is particularly ugly -- 
-booting an IA64_HP_ZX1 kernel on an i2000 gives no output at
-all (at least on a serial console).
+I'm working towards this on several architectures.  A large part of this
+is marking options as "depends on PCI" and "depends on X86" so that the
+simulator targets (Ski, uml, etc) can use the generic drivers/Kconfig.
+That work's going in through the kernel-janitors tree at the moment.
 
-We do need something more general than HP-zx1, though.  It
-already supports sx1000 as well.  I'll try to think of something.
-
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
