@@ -1,32 +1,225 @@
-From: Alex Williamson <alex_williamson@hp.com>
-Date: Wed, 18 Dec 2002 19:26:56 +0000
-Subject: Re: [Linux-ia64] RTC support on ia64
-Message-Id: <marc-linux-ia64-105590709805611@msgid-missing>
+From: Erlend Aasland <erlend-a@ux.his.no>
+Date: Tue, 03 Dec 2002 13:02:09 +0000
+Subject: [Linux-ia64] [TRIVIAL PATCH 2.5] get rid of CONFIG_UDF_RW (ia64)
+Message-Id: <marc-linux-ia64-105590709805496@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805600@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805600@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Joel GUILLET wrote:
-> 
-> The RTC legacy hardware seems to be on the i870 chipset. And if you don't
-> have this one, you may not be able to use it.
+Remove CONFIG_UDF_RW from ia64 defconfigs (it's not used anymore)
 
-   Obviously, but that wasn't really my point.  What I'm really
-after is that on ia64 you really shouldn't be assuming legacy
-hardware is present and blindly poking port space and setting up
-irqs based on that assumption.  Not only might it not work on
-a legacy free box, it might break other things.  I think you
-really need to make some attempt to determine if the hardware is
-out there, and I don't see one in the rtc_init path.
+Regards,
+	Erlend Aasland
 
-	Alex
-
---
-Alex Williamson                                  Linux Development Lab
-alex_williamson@hp.com                                 Hewlett Packard
-970-898-9173                                          Fort Collins, CO
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-bigsur-mp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-bigsur-mp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-bigsur-mp	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-bigsur-mp	Tue Dec  3 00:48:05 2002
+@@ -539,7 +539,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-bigsur-sp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-bigsur-sp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-bigsur-sp	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-bigsur-sp	Tue Dec  3 00:48:05 2002
+@@ -539,7 +539,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-dig-mp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-dig-mp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-dig-mp	Mon Sep  2 15:56:57 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-dig-mp	Tue Dec  3 00:48:05 2002
+@@ -301,7 +301,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-dig-sp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-dig-sp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-dig-sp	Mon Sep  2 15:56:57 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-dig-sp	Tue Dec  3 00:48:05 2002
+@@ -301,7 +301,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-generic-mp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-generic-mp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-generic-mp	Mon Sep  2 15:56:57 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-generic-mp	Tue Dec  3 00:48:05 2002
+@@ -296,7 +296,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-generic-sp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-generic-sp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-generic-sp	Mon Sep  2 15:56:57 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-generic-sp	Tue Dec  3 00:48:05 2002
+@@ -296,7 +296,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-hp-sp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-hp-sp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-hp-sp	Mon Sep  2 15:56:57 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-hp-sp	Tue Dec  3 00:48:05 2002
+@@ -266,7 +266,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-prom-medusa linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-prom-medusa
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-prom-medusa	Mon Sep  2 15:56:57 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-prom-medusa	Tue Dec  3 00:48:05 2002
+@@ -376,7 +376,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-sn1-mp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-sn1-mp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-sn1-mp	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-sn1-mp	Tue Dec  3 00:48:05 2002
+@@ -510,7 +510,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ CONFIG_XFS_SUPPORT=y
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-sn1-mp-modules linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-sn1-mp-modules
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-sn1-mp-modules	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-sn1-mp-modules	Tue Dec  3 00:48:05 2002
+@@ -512,7 +512,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ CONFIG_XFS_SUPPORT=y
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-sn1-mp-syn1-0 linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-sn1-mp-syn1-0
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-sn1-mp-syn1-0	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-sn1-mp-syn1-0	Tue Dec  3 00:48:05 2002
+@@ -510,7 +510,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ CONFIG_XFS_SUPPORT=y
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-sn1-sp linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-sn1-sp
+--- linux-2.5.50/arch/ia64/sn/configs/sn1/defconfig-sn1-sp	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn1/defconfig-sn1-sp	Tue Dec  3 00:48:05 2002
+@@ -510,7 +510,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ CONFIG_XFS_SUPPORT=y
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-dig-numa linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-dig-numa
+--- linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-dig-numa	Mon Sep  2 15:56:59 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-dig-numa	Tue Dec  3 00:48:05 2002
+@@ -302,7 +302,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-dig-mp linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-dig-mp
+--- linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-dig-mp	Mon Sep  2 15:56:59 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-dig-mp	Tue Dec  3 00:48:05 2002
+@@ -301,7 +301,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-dig-sp linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-dig-sp
+--- linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-dig-sp	Mon Sep  2 15:56:59 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-dig-sp	Tue Dec  3 00:48:05 2002
+@@ -301,7 +301,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ # CONFIG_XFS_SUPPORT is not set
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-mp linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-mp
+--- linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-mp	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-mp	Tue Dec  3 00:48:05 2002
+@@ -509,7 +509,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ CONFIG_XFS_SUPPORT=y
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-mp-modules linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-mp-modules
+--- linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-mp-modules	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-mp-modules	Tue Dec  3 00:48:05 2002
+@@ -511,7 +511,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ CONFIG_XFS_SUPPORT=y
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-prom-medusa linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-prom-medusa
+--- linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-prom-medusa	Mon Sep  2 15:56:59 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-prom-medusa	Tue Dec  3 00:48:05 2002
+@@ -384,7 +384,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ CONFIG_XFS_SUPPORT=y
+diff -urN linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-sp linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-sp
+--- linux-2.5.50/arch/ia64/sn/configs/sn2/defconfig-sn2-sp	Tue Oct 22 00:13:58 2002
++++ linux-2.5.50-eaa/arch/ia64/sn/configs/sn2/defconfig-sn2-sp	Tue Dec  3 00:48:05 2002
+@@ -509,7 +509,6 @@
+ CONFIG_EXT2_FS=y
+ # CONFIG_SYSV_FS is not set
+ # CONFIG_UDF_FS is not set
+-# CONFIG_UDF_RW is not set
+ # CONFIG_UFS_FS is not set
+ # CONFIG_UFS_FS_WRITE is not set
+ CONFIG_XFS_SUPPORT=y
 
