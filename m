@@ -1,36 +1,32 @@
-From: "dai yiyang" <daiyiyang@hotmail.com>
-Date: Mon, 28 Oct 2002 09:42:59 +0000
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Mon, 28 Oct 2002 16:41:06 +0000
 Subject: Re: [Linux-ia64] build a bootable kernel
-Message-Id: <marc-linux-ia64-105590709805275@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805277@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805272@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805272@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-dGhhbmtzIGZvciB5b3VyIGhlbHAKdGhlIGtlcm5lbCBmaWxlIGhhcyBiZWVuIGJ1aWx0IC4KYnV0
-IGhvdyB0byBsb2FkIHRoZSBrZXJuZWwgZHVyaW5nIHN5c3RlbSBib290IHRpbWUgPwpJIGhhdmUg
-ZWRpdCB0aGUgZWxpbG8uY29uZiBmaWxlIGFkZCB0aGUgbmV3IGtlcm5lbCdzIHBhdGggLgpidXQg
-dGhlIHRoZSBzeXN0ZW0gaGFsdGVkIGF0ICJ1bWNvbXByZXNzZWQga2VybmVsIC4uLi4uLm9rIC4i
-CgpJIHRoaW5rIGl0cyBkdWUgdG8gSSBkbyBub3QgaW5zdGFsbCB0aGUgYm9vdGxvYWRlciAsIGJ1
-dCBJIGRvbnQga29udyBob3cgdG8gCmhhbmRsZSBpdCA6KAoKUmVnYXJkcywKRGFpWWl5YW5nCgoK
-PkZyb206IERhdmlkIE1vc2JlcmdlciA8ZGF2aWRtQG5hcGFsaS5ocGwuaHAuY29tPgo+UmVwbHkt
-VG86IGRhdmlkbUBocGwuaHAuY29tCj5UbzogImRhaSB5aXlhbmciIDxkYWl5aXlhbmdAaG90bWFp
-bC5jb20+Cj5DQzogbGludXgtaWE2NEBsaW51eGlhNjQub3JnCj5TdWJqZWN0OiBSZTogW0xpbnV4
-LWlhNjRdIGJ1aWxkIGEgYm9vdGFibGUga2VybmVsCj5EYXRlOiBTdW4sIDI3IE9jdCAyMDAyIDIz
-OjMxOjQxIC0wODAwCj4KPiA+Pj4+PiBPbiBNb24sIDI4IE9jdCAyMDAyIDE0OjQ5OjExICswODAw
-LCAiZGFpIHlpeWFuZyIgCjxkYWl5aXlhbmdAaG90bWFpbC5jb20+IHNhaWQ6Cj4KPiAgIGRhaT4g
-SGkgOiBJIGhhdmUgYnVpbGQgYSAyLjUuMzkga2VybmVsIHVuZGVyIHJlZGhhdCA3LjIgdXNlICJt
-YWtlCj4gICBkYWk+IHZtbGludXgiICwgdGhlIG91dHB1dCBmaWxlIHZtbGludXggaXMgNTVNISAg
-YW5kIHNlZW1zIGNhbm5vdCBiZQo+ICAgZGFpPiBsb2FkZWQgYnkgZWxpbG8gLiAgUGVyIG15IGNo
-ZWNrIHRoZSBvcmlnaW5hbCBrZXJuZWwgZmlsZQo+ICAgZGFpPiBkZWZhdWx0IGluc3RhbGxlZCBv
-biB0aGUgc3lzdGVtIGlzIG9ubHkgMU0gLCBJIHRoaW5rIGl0IHNob3VsZAo+ICAgZGFpPiBiZWVu
-IGNvbXByZXNzZWQgLiAgQW55Ym9keSBjYW4gcHJvdmlkZSBtZSB0aGUgcmlnaHQgc3RlcCB0bwo+
-ICAgZGFpPiBidWlsZCBhIGJvb3RhYmxlIGtlcm5lbCB1bmRlciBpYTY0ID8KPgo+CW1ha2UgY29t
-cHJlc3NlZAo+Cj53aWxsIGJ1aWxkIHlvdSBhIHN0cmlwcGVkICYgY29tcHJlc3NlZCBrZXJuZWwg
-aW4gdm1saW51eC5nei4KPgo+CS0tZGF2aWQKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwrT68Gqu/q1xMXz09G9+NDQvbvB
-96Osx+vKudPDIE1TTiBNZXNzZW5nZXI6IGh0dHA6Ly9tZXNzZW5nZXIubXNuLmNvbS9sY2NuLyAK
-Cgo=
+Hello,
+
+On Mon, Oct 28, 2002 at 05:42:59PM +0800, dai yiyang wrote:
+> thanks for your help
+> the kernel file has been built .
+> but how to load the kernel during system boot time ?
+> I have edit the elilo.conf file add the new kernel's path .
+> but the the system halted at "umcompressed kernel ......ok ."
+> 
+What kind of machine are you trying to boot?
+What is the .config file used to build the kernel?
+What is the content of elilo.conf?
+
+With this information I may be able to tell you what's wrong.
+
+Thanks.
+
+-- 
+-Stephane
+
