@@ -1,8 +1,10 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 08 Jan 2002 00:25:10 +0000
+Date: Tue, 08 Jan 2002 09:26:25 +0000
 Subject: [Linux-ia64] can we make anonymous memory non-EXECUTABLE?
-Message-Id: <marc-linux-ia64-105590698805770@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805772@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805770@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805770@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -82,4 +84,3 @@ But I suspect you should talk this over on ia64 lists and possibly people
 like Alan &co. Feel free to quote this email.
 
 			Linus
-
