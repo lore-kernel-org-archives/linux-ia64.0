@@ -1,117 +1,45 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 09 Mar 2005 20:13:24 +0000
-Subject: Page Fault Scalabilty patch V19 [0/4]: Overview
-Message-Id: <20050309201324.29721.28956.sendpatchset@schroedinger.engr.sgi.com>
+From: Colin Ngam <cngam@sgi.com>
+Date: Fri, 18 Mar 2005 16:37:59 +0000
+Subject: [PATCH 2.6.12 0/0] Altix only: Register Error Interrupt Handlers correctly.
+Message-Id: <20050318163759.6651.84005.43068@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, Christoph Lameter <clameter@sgi.com>
+To: linux-ia64@vger.kernel.org
 
+Hi Tony,
 
-Changelog:
+The following patch ensures that the correct error interrupt handling 
+routine is initialized.  This patch is based on the 2.6.12 ia64 release tree.
 
-V18->V19 Fall back to obtaining the page table lock before calling
-	do_wp_page. Keep mark_page_accessed in do_swap_page and
-	add SetPageReferenced in do_anonymous_page
-	Diff against 2.6.11.
-V17->V18 Rediff against 2.6.11-rc5-bk4
-V16->V17 Do not increment page_count in do_wp_page. Performance data
-V15->V16 of this patch: Redesign to allow full backback
-	for architectures that do not supporting atomic operations.
+Please accept this patch.
 
-Note that this is a release against 2.6.11 and not against the latest
-bk tree. Some changes have made it into Linus tree that will require some
-rework of the patch for post 2.6.11 (look for V20).
+Signed-off-by: Colin Ngam <cngam@sgi.com>
 
-An introduction to what this patch does and a patch archive can be found on
-http://oss.sgi.com/projects/page_fault_performance. The archive also has the
-result of various performance tests (LMBench, Microbenchmark and
-kernel compiles).
-
-The basic approach in this patchset is the same as used in SGI's 2.4.X
-based kernels which have been in production use in ProPack 3 for a long time.
-
-The patchset is composed of 4 patches:
-
-1/4: ptep_cmpxchg and ptep_xchg to avoid intermittent zeroing of ptes
-
-	The current way of synchronizing with the CPU or arch specific
-	interrupts updating page table entries is to first set a pte
-	to zero before writing a new value. This patch uses ptep_xchg
-	and ptep_cmpxchg to avoid writing the zero for certain
-	configurations.
-	
-	The patch introduces CONFIG_ATOMIC_TABLE_OPS that may be
-	enabled as a experimental feature during kernel configuration
-	if the hardware is able to support atomic operations and if
-	an SMP kernel is being configured. A Kconfig update for i386,
-	x86_64 and ia64 has been provided. On i386 this options is
-	restricted to CPUs better than a 486 and non PAE mode (that
-	way all the cmpxchg issues on old i386 CPUS and the problems
-	with 64bit atomic operations on recent i386 CPUS are avoided). 
-
-	If CONFIG_ATOMIC_TABLE_OPS is not set then ptep_xchg and
-	ptep_xcmpxchg are realized by falling back to clearing a pte
-	before updating it.
-
-	The patch does not change the use of mm->page_table_lock and
-	the only performance improvement is the replacement of
-	xchg-with-zero-and-then-write-new-pte-value with an xchg with
-	the new value for SMP on some architectures if
-	CONFIG_ATOMIC_TABLE_OPS is configured. It should not do anything
-	major to VM operations.
-
-2/4: Macros for mm counter manipulation
-
-	There are various approaches to handling mm counters if the
-	page_table_lock is no longer acquired. This patch defines
-	macros in include/linux/sched.h to handle these counters and
-	makes sure that these macros are used throughout the kernel
-	to access and manipulate rss and anon_rss. There should be
-	no change to the generated code as a result of this patch.
-
-3/4: Drop the first use of the page_table_lock in handle_mm_fault
-
-	The patch introduces two new functions:
-
-	page_table_atomic_start(mm), page_table_atomic_stop(mm)
-
-	that fall back to the use of the page_table_lock if
-	CONFIG_ATOMIC_TABLE_OPS is not defined.
-
-	If CONFIG_ATOMIC_TABLE_OPS is defined those functions may
-	be used to prep the CPU for atomic table ops (i386 in PAE mode
-	may f.e. get the MMX register ready for 64bit atomic ops) but
-	are simply empty by default.
-
-	Two operations may then be performed on the page table without
-	acquiring the page table lock:
-
-	a) updating access bits in pte
-	b) anonymous read faults installed a mapping to the zero page.
-
-	All counters are still protected with the page_table_lock thus
-	avoiding any issues there.
-
-	Some additional statistics are added to /proc/meminfo to
-	give some statistics. Also counts spurious faults with no
-	effect. There is a surprisingly high number of those on ia64
-	(used to populate the cpu caches with the pte??)
-
-4/4: Drop the use of the page_table_lock in do_anonymous_page
-
-	The second acquisition of the page_table_lock is removed 
-	from do_anonymous_page and allows the anonymous
-	write fault to be possible without the page_table_lock.
-
-	The macros for manipulating rss and anon_rss in include/linux/sched.h
-	are changed if CONFIG_ATOMIC_TABLE_OPS is set to use atomic
-	operations for rss and anon_rss (safest solution for now, other
-	solutions may easily be implemented by changing those macros).
-
-	This patch typically yield significant increases in page fault
-	performance for threaded applications on SMP systems.
-
-
+=== arch/ia64/sn/kernel/io_init.c 1.9 vs edited ==--- 1.9/arch/ia64/sn/kernel/io_init.c	2005-01-11 18:22:08 -06:00
++++ edited/arch/ia64/sn/kernel/io_init.c	2005-03-17 18:32:02 -06:00
+@@ -142,6 +142,12 @@
+ 		if (status)
+ 			continue;
+ 
++		/* Attach the error interrupt handlers */
++		if (nasid & 1)
++			ice_error_init(hubdev);
++		else
++			hub_error_init(hubdev);
++
+ 		for (widget = 0; widget <= HUB_WIDGET_ID_MAX; widget++)
+ 			hubdev->hdi_xwidget_info[widget].xwi_hubinfo = hubdev;
+ 
+@@ -179,10 +185,6 @@
+ 			    sn_flush_device_list;
+ 		}
+ 
+-		if (!(i & 1))
+-			hub_error_init(hubdev);
+-		else
+-			ice_error_init(hubdev);
+ 	}
+ 
+ }
