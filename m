@@ -1,53 +1,28 @@
-From: john stultz <johnstul@us.ibm.com>
-Date: Mon, 23 Feb 2004 19:44:29 +0000
-Subject: [PATCH] linux-2.6.3_time-interpolator-fix_A0
-Message-Id: <1077565468.19860.78.camel@cog.beaverton.ibm.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 23 Feb 2004 19:55:13 +0000
+Subject: Re: [PATCH] linux-2.6.3_time-interpolator-fix_A0
+Message-Id: <16442.23201.23710.686062@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1077081648.985.27.camel@cog.beaverton.ibm.com>
-	 <1077086574.985.56.camel@cog.beaverton.ibm.com>
-	 <16435.3326.193311.110598@napali.hpl.hp.com>
-In-Reply-To: <16435.3326.193311.110598@napali.hpl.hp.com>
+	<1077086574.985.56.camel@cog.beaverton.ibm.com>
+	<16435.3326.193311.110598@napali.hpl.hp.com>
+	<1077565468.19860.78.camel@cog.beaverton.ibm.com>
+In-Reply-To: <1077565468.19860.78.camel@cog.beaverton.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Chris McDermott <lcm@us.ibm.com>, ia64 <linux-ia64@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>, David Mosberger <davidm@hpl.hp.com>
+To: john stultz <johnstul@us.ibm.com>
+Cc: Andrew Morton <akpm@osdl.org>, Chris McDermott <lcm@us.ibm.com>, ia64 <linux-ia64@vger.kernel.org>, lkml <linux-kernel@vger.kernel.org>, David Mosberger <davidm@hpl.hp.com>
 
-[Resending to Andrew and LKML]
+>>>>> On Mon, 23 Feb 2004 11:44:29 -0800, john stultz <johnstul@us.ibm.com> said:
 
-All,
-	In developing the ia64-cyclone patch, which implements a cyclone based
-time interpolator, I found the following bug which could cause time
-inconsistencies. 
+  John> This patch removes the incorrect call to
+  John> time_interpolator_update and was found to resolve the time
+  John> inconsistencies I had seen while developing the ia64-cyclone
+  John> patch.
 
-In update_wall_time_one_tick(), which is called each timer interrupt, we
-call time_interpolator_update(delta_nsec) where delta_nsec is
-approximately NSEC_PER_SEC/HZ. This directly correlates with the changes
-to xtime which occurs in update_wall_time_one_tick().
+  John> Please consider for inclusion.
 
-However in update_wall_time(), on a second overflow, we again call
-time_interpolator_update(NSEC_PER_SEC). However while the components of
-xtime are being changed, the overall value of xtime does not (nsec is
-decremented NSEC_PER_SEC and sec is incremented).  Thus this call to
-time_interpolator_update is incorrect.
+In case it isn't clear: this patch has my support.
 
-This patch removes the incorrect call to time_interpolator_update and
-was found to resolve the time inconsistencies I had seen while
-developing the ia64-cyclone patch.
-
-Please consider for inclusion.
-
-
-diff -Nru a/kernel/timer.c b/kernel/timer.c
---- a/kernel/timer.c	Wed Feb 18 12:04:03 2004
-+++ b/kernel/timer.c	Wed Feb 18 12:04:03 2004
-@@ -677,7 +677,6 @@
- 	if (xtime.tv_nsec >= 1000000000) {
- 	    xtime.tv_nsec -= 1000000000;
- 	    xtime.tv_sec++;
--	    time_interpolator_update(NSEC_PER_SEC);
- 	    second_overflow();
- 	}
- }
-
-
+	--david
