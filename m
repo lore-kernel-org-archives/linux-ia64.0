@@ -1,120 +1,29 @@
-From: JinShan Xiong <jinshan.xiong@gmail.com>
-Date: Mon, 31 Jan 2005 03:56:43 +0000
-Subject: How to intercept system calls on ia64 linux kernel
-Message-Id: <b3b26beb050130195674d2930c@mail.gmail.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 31 Jan 2005 17:34:32 +0000
+Subject: Re: How to intercept system calls on ia64 linux kernel
+Message-Id: <16894.27688.84989.561686@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <b3b26beb050130195674d2930c@mail.gmail.com>
+In-Reply-To: <b3b26beb050130195674d2930c@mail.gmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi all,
+Note that it is very dangerous to compile kernel modules like so:
 
-The program has been tested on a HP-ia machine with redhat AS2.1
-installed, and the kernel version is 2.4.18-e.47smp.
+>>>>> On Mon, 31 Jan 2005 11:56:43 +0800, JinShan Xiong <jinshan.xiong@gmai=
+l.com> said:
 
-Thanks helps from David .
+  JinShan> gcc -c -D__KERNEL__ -DMODULE -I/lib/modules/`uname
 
-JinShan
+This is missing the -mfixed-range=F12-f15,f32-f127 option, which means
+that more complicated modules will end up trashing floating-point
+registers which means that your module will cause random crashes in
+user-level codes.  I'd recommend to compile modules the same way as normal
+kernel code, except that you need to remove the -mconstant-gp flag.
 
-Here is the source code:
-/* ro.c */
-/* vi: set ts=4 sw=4 expandtab: */
+In 2.6, this has gotten a lot easier, since modules are built using
+the normal kbuild infrastructure.
 
-#include <linux/config.h>
-#include <linux/kernel.h>
-#include <linux/module.h>
-#include <linux/unistd.h>
-#include <linux/sched.h>
-#include <asm/pgtable.h>
-#include <linux/vmalloc.h>
-#include <linux/mm.h>
-#include <asm/uaccess.h>
-
-extern unsigned long sys_call_table[];
-
-//static long (*old_time)(struct timeval *, struct timezone *);
-//extern unsigned long new_time_stub;
-static unsigned long old_time;
-extern void new_time_stub();
-struct foo {
-    void *ip;
-    void *gp;
-};
-
-asm (
-"       .text\n"
-"        .proc new_time_stub\n"
-"new_time_stub:"    
-"       .prologue\n"
-"       .regstk 2, 3, 2, 0\n"
-"       .save ar.pfs, loc1\n"
-"       alloc loc1 = ar.pfs, 2, 3, 2, 0\n"
-"       movl r2 = @gprel(zero);;\n"
-"       .save rp, loc0\n"
-"       mov loc0 = rp\n"
-"       mov loc2 = gp\n"
-"       sub gp = r0, r2\n"
-"       mov out0 = in0\n"
-"       mov out1 = in1\n"
-"       br.call.sptk.many rp = new_time\n"
-"1:      mov rp = loc0\n"
-"       mov ar.pfs = loc1\n"
-"       mov gp = loc2\n"
-"       br.ret.sptk.many rp\n"
-"       .endp\n"
-);
-
-static atomic_t time_enter_count = ATOMIC_INIT(0);
-long new_time(struct timeval *tv, struct timezone *tz)
-{
-    int ret = -EFAULT;
-    atomic_inc(&time_enter_count);
-    printk("time be called!\n");
-    if (tv) {
-        struct timeval ktv;
-        do_gettimeofday(&ktv);
-        if (copy_to_user(tv, &ktv, sizeof(ktv))) {
-            goto out;
-        }
-    }
-    if (tz) {
-        extern struct timezone sys_tz;
-        if (copy_to_user(tz, &sys_tz, sizeof(sys_tz))) {
-            goto out;
-        }
-    }
-    ret = 0;
-
-out:
-    atomic_dec(&time_enter_count);
-    return ret;
-}
-
-int init_module(void)
-{
-    printk("new_time_stub is %llx\n", new_time_stub);
-    old_time = sys_call_table[__NR_gettimeofday - 1024];
-    sys_call_table[__NR_gettimeofday - 1024] = ((struct
-foo*)&new_time_stub)->ip;
-    printk("old_time is %llx\n", old_time);
-    return 0;
-}
-
-void cleanup_module()
-{
-    /* should restore syscall here! */
-    sys_call_table[__NR_gettimeofday - 1024] = old_time; 
-    printk("Byebye!\n");
-
-    /* Here is a race condition window when running on smp. */
-    do {
-        current->state = TASK_INTERRUPTIBLE;
-        schedule_timeout(1);
-    } while(atomic_read(&time_enter_count));
-}
-
-makefile:
-               gcc -c -D__KERNEL__ -DMODULE -I/lib/modules/`uname
--r`/build/include ro.c
-               ld -r -o mod.o ro.o --defsym zero=0
+	--david
