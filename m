@@ -1,61 +1,79 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Sat, 11 Sep 2004 00:14:06 +0000
-Subject: [PATCH] Online CPU with maxcpus option panics
-Message-Id: <20040910171405.A28196@unix-os.sc.intel.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Sat, 18 Sep 2004 23:30:44 +0000
+Subject: page fault scalability patch V8: [6/7] atomic pte operations for
+Message-Id: <Pine.LNX.4.58.0409181629490.24054@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
+ <20040816143903.GY11200@holomorphy.com>
+ <B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com>
+ <B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com>
+ <B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com>
+ <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
+ <1094012689.6538.330.camel@gaston> <Pine.LNX.4.58.0409010938200.9907@schroedinger.engr.sgi.com>
+ <1094080164.4025.17.camel@gaston> <Pine.LNX.4.58.0409012140440.23186@schroedinger.engr.sgi.com>
+ <20040901215741.3538bbf4.davem@davemloft.net>
+ <Pine.LNX.4.58.0409020920570.26893@schroedinger.engr.sgi.com>
+ <20040902131057.0341e337.davem@davemloft.net>
+ <Pine.LNX.4.58.0409021358540.28182@schroedinger.engr.sgi.com>
+ <20040902140759.5f1003d5.davem@davemloft.net>
+ <B6E8046E1E28D34EB815A11AC8CA312902CD3243@mtv-atc-605e--n.corp.sgi.com>
+In-Reply-To: <B6E8046E1E28D34EB815A11AC8CA312902CD3243@mtv-atc-605e--n.corp.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: "David S. Miller" <davem@davemloft.net>, benh@kernel.crashing.org, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, ak@muc.de, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
 
-Hi Andrew,
-	I booted IA64 kernel with "maxcpus=" set to less than
-the total available processors in the system. Then I tried
-to online the CPU which was offline due to "maxcpus=" restirction.
-i.e  when I tried to online the CPU which never was online at boot
-crashed the system.
+Changelog
+	* Provide atomic pte operations for x86_64
 
-Attached patch fixes the problem.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Please apply.
+Index: linus/include/asm-x86_64/pgalloc.h
+=================================--- linus.orig/include/asm-x86_64/pgalloc.h	2004-09-18 14:25:23.000000000 -0700
++++ linus/include/asm-x86_64/pgalloc.h	2004-09-18 14:25:23.000000000 -0700
+@@ -7,16 +7,26 @@
+ #include <linux/threads.h>
+ #include <linux/mm.h>
 
-Signed-off-by: Anil Keshavamurthy <anil.s.keshavamurthy@intel.com>
++#define PMD_NONE 0
++#define PGD_NONE 0
++
+ #define pmd_populate_kernel(mm, pmd, pte) \
+ 		set_pmd(pmd, __pmd(_PAGE_TABLE | __pa(pte)))
+ #define pgd_populate(mm, pgd, pmd) \
+ 		set_pgd(pgd, __pgd(_PAGE_TABLE | __pa(pmd)))
++#define pgd_test_and_populate(mm, pgd, pmd) \
++		(cmpxchg(pgd, PGD_NONE, _PAGE_TABLE | __pa(pmd)) = PGD_NONE)
 
----
-
- linux-2.6.9-rc1-mm2-askeshav/arch/ia64/kernel/smpboot.c |    2 +-
- linux-2.6.9-rc1-mm2-askeshav/kernel/fork.c              |    4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff -puN arch/ia64/kernel/smpboot.c~maxcpufix arch/ia64/kernel/smpboot.c
---- linux-2.6.9-rc1-mm2/arch/ia64/kernel/smpboot.c~maxcpufix	2004-09-09 16:30:01.497896672 -0700
-+++ linux-2.6.9-rc1-mm2-askeshav/arch/ia64/kernel/smpboot.c	2004-09-09 16:33:21.626800471 -0700
-@@ -356,7 +356,7 @@ start_secondary (void *unused)
- 	return cpu_idle();
- }
- 
--struct pt_regs * __init idle_regs(struct pt_regs *regs)
-+struct pt_regs * __devinit idle_regs(struct pt_regs *regs)
+ static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
  {
- 	return NULL;
+ 	set_pmd(pmd, __pmd(_PAGE_TABLE | (page_to_pfn(pte) << PAGE_SHIFT)));
  }
-diff -puN kernel/fork.c~maxcpufix kernel/fork.c
---- linux-2.6.9-rc1-mm2/kernel/fork.c~maxcpufix	2004-09-09 16:30:17.358248041 -0700
-+++ linux-2.6.9-rc1-mm2-askeshav/kernel/fork.c	2004-09-09 16:31:17.844575425 -0700
-@@ -1069,13 +1069,13 @@ bad_fork_free:
- 	goto fork_out;
- }
- 
--struct pt_regs * __init __attribute__((weak)) idle_regs(struct pt_regs *regs)
-+struct pt_regs * __devinit __attribute__((weak)) idle_regs(struct pt_regs *regs)
+
++static inline int pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
++{
++	return cmpxchg(pmd, PMD_NONE, _PAGE_TABLE | (page_to_pfn(pte) << PAGE_SHIFT)) = PMD_NONE;
++}
++
+ extern __inline__ pmd_t *get_pmd(void)
  {
- 	memset(regs, 0, sizeof(struct pt_regs));
- 	return regs;
- }
- 
--task_t * __init fork_idle(int cpu)
-+task_t * __devinit fork_idle(int cpu)
- {
- 	task_t *task;
- 	struct pt_regs regs;
-_
+ 	return (pmd_t *)get_zeroed_page(GFP_KERNEL);
+Index: linus/include/asm-x86_64/pgtable.h
+=================================--- linus.orig/include/asm-x86_64/pgtable.h	2004-09-18 14:25:23.000000000 -0700
++++ linus/include/asm-x86_64/pgtable.h	2004-09-18 14:25:23.000000000 -0700
+@@ -436,6 +436,11 @@
+ #define	kc_offset_to_vaddr(o) \
+    (((o) & (1UL << (__VIRTUAL_MASK_SHIFT-1))) ? ((o) | (~__VIRTUAL_MASK)) : (o))
+
++
++#define ptep_xchg(mm,addr,xp,newval)	__pte(xchg(&(xp)->pte, pte_val(newval))
++#define ptep_cmpxchg(mm,addr,xp,newval,oldval) (cmpxchg(&(xp)->pte, pte_val(newval), pte_val(oldval) = pte_val(oldval))
++#define __HAVE_ARCH_ATOMIC_TABLE_OPS
++
+ #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
+ #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_DIRTY
+ #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
+
+
