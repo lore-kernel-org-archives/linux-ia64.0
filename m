@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 21 Sep 2004 20:09:47 +0000
+Date: Wed, 22 Sep 2004 23:14:53 +0000
 Subject: bk pull on ia64 linux tree
-Message-Id: <200409212009.i8LK9l526704@unix-os.sc.intel.com>
+Message-Id: <200409222314.i8MNErR05567@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
 In-Reply-To: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
@@ -22,48 +22,53 @@ Thanks!
 
 -Tony
 
- arch/ia64/configs/sn2_defconfig |   17 +++++-----
- arch/ia64/ia32/binfmt_elf32.c   |   39 +++++++++++++++++++++++
- arch/ia64/ia32/ia32_entry.S     |    4 +-
- arch/ia64/ia32/ia32_signal.c    |   33 +++++++++++++------
- arch/ia64/ia32/ia32_support.c   |   28 ++++++++++++++--
- arch/ia64/ia32/ia32priv.h       |   11 ++++--
- arch/ia64/ia32/sys_ia32.c       |   67 ----------------------------------------
- arch/ia64/mm/init.c             |    2 -
- include/asm-ia64/ia32.h         |    2 -
- 9 files changed, 108 insertions(+), 95 deletions(-)
+ arch/ia64/hp/common/sba_iommu.c |   80 +++++++++++++++++++++++++++++++++++++++-
+ arch/ia64/kernel/acpi.c         |   67 +++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/iosapic.c      |   55 ++++++++++++++++++++++++++-
+ arch/ia64/mm/discontig.c        |   35 ++++++++++++-----
+ arch/ia64/pci/pci.c             |    5 ++
+ include/asm-ia64/iosapic.h      |    3 +
+ 6 files changed, 230 insertions(+), 15 deletions(-)
 
 through these ChangeSets:
 
-<jbarnes@sgi.com> (04/09/21 1.1867.3.8)
-   [IA64] sn2_defconfig update take 2
-    
-   Please apply this one instead.  It turns on mmtimer and increases the number
-   of sg entries for the LSI driver.
+<alex.williamson@hp.com> (04/09/09 1.1803.153.3)
+   [IA64] iosapic.h, pci.c, iosapic.c, acpi.c: iosapic NUMA interrupt locality
    
-   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+   This patch associates IOSAPICs with NUMA nodes such that interrupts
+   gets assigned to a reasonably good default CPU.  The patch does not
+   depend on the pxm_to_nid_map fixup, but results will be strange in some
+   configurations without it.  This should work on any NUMA box that
+   exposes IOSAPICs with _MAT & _PXM methods, but it's only been tested on
+   an rx8620.  There should be no change in behavior for boxes that don't
+   export both of these in ACPI namespace.
+    
+   Signed-off-by: Alex Williamson <alex.williamson@hp.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<gordon.jin@intel.com> (04/09/21 1.1915)
-   [IA64] ia32compat: Disable syscalls sys32_iopl() and sys32_ioperm() on ia64.
+<alex.williamson@hp.com> (04/09/09 1.1803.153.2)
+   [IA64] sba_iommu.c: sba_iommu NUMA locality
    
-   Disable syscalls sys32_iopl() and sys32_ioperm() on ia64.
-   To emulate these 2 syscalls correctly, we need to guarantee uncached
-   memory attributes on ia64, which is difficult. The only user of this
-   interface that we know of is X. So we think it's better to disable it.
+   This patch adds NUMA locality info to sba_iommu, allowing coherent
+   DMA mappings to be allocated from the node nearest to the I/O.  This
+   patch isn't dependent on the previous pxm_to_nid_map fixup, but may be
+   sub-optimal in some cases without it.  Thanks
     
-   Signed-off-by: Gordon Jin <gordon.jin@intel.com>
-   Signed-off-by: Arun Sharma <arun.sharma@intel.com>
+   Signed-off-by: Alex Williamson <alex.williamson@hp.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<kevin.tian@intel.com> (04/09/21 1.1914)
-   [IA64] ia32compat: Put signal restorer code on a gate page
+<alex.williamson@hp.com> (04/09/09 1.1803.153.1)
+   [IA64] discontig.c: fixup pxm_to_nid_map
    
-   When userland doesn't specify sigaction->sa_restorer, we try to put
-   the restorer code on the stack. But this breaks ia32 binaries with
-   non-executable stacks. We now put the restorer code on a gate page.
+   I'd like to be able to use pxm_to_nid_map in several places to
+   discover proximity domain to node id associations.  Unfortunately, after
+   reassign_cpu_only_nodes() plays with the node space, the pxm_to_nid_map
+   doesn't necessarily reflect reality.  This fixes up the table so it's
+   still valid.  Note that nid_to_pxm_map is still potentially broken, but
+   has a one-to-many problem if the above function combines several
+   proximity domains into a single node.  Thanks to Bob Picco for the base
+   patch.
     
-   Signed-off-by: Kevin Tian <kevin.tian@intel.com>
-   Signed-off-by: Arun Sharma <arun.sharma@intel.com>
+   Signed-off-by: Alex Williamson <alex.williamson@hp.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
