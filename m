@@ -1,46 +1,46 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Wed, 20 Mar 2002 00:08:49 +0000
-Subject: RE: [Linux-ia64] mkswap fails to create large swap partitions on
-Message-Id: <marc-linux-ia64-105590701905305@msgid-missing>
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Fri, 01 Mar 2002 23:06:22 +0000
+Subject: Re: [Linux-ia64] O(1) scheduler K3+ for IA64
+Message-Id: <marc-linux-ia64-105590701905208@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905268@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905268@msgid-missing>
+References: <marc-linux-ia64-105590701905201@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905201@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Kevin" = Van Maren <Van> writes:
+Hey Erich, I've been testing out your latest K3+ patch (along with
+yours and Mike's NUMA scheduler changes) and found that it seems less
+stable than the old version that used locking for the tlb flush stuff.
+I think there's a deadlock somewhere in the new code since
+2.4.17 + kdb + ia64 + Ingo K3 + old K3+: rock solid
+2.4.17 + kdb + ia64 + Ingo K3 + new K3+: sometimes hangs at boot,
+  sometimes after a few hackbench processes have run
 
+I'm in the process of trying to figure out exactly why the hangs
+happen, but I thought I'd let you know since you might be able to find
+out right away.
 
-Kevin> So we're okay until about a couple terrabytes is all, until we
-Kevin> change all the index variables to "long". :-) But even one
-Kevin> terrabyte is 16x 64GB.
+Thanks,
+Jesse
 
-I'm currently looking at some other problems which would also limit
-the size of a single swap file/device to 1TB --- the genhd code limits
-the size of a partition to 2^31-1 blocks, where a block is *known* to
-be 512 bytes. (The 512 number is so embedded that's it's going to be a
-major effort to remove, not only from the code, but from the brains of
-the programmers... so the only thing we can do is change the size of
-the index variables, and all the interfaces that use them).
-
-So even if swap could be specified bigger than 1TB, you couldn't
-create a volume that big to put it on (even with LVM).
-
-
-Kevin> Also, the kernel should probably try to use "some" of the swap
-Kevin> space if it can't vmalloc storage for the whole thing -- maybe
-Kevin> cut p->max in half until the vmalloc succeeds?  I see the case
-Kevin> where you are low on memory and can't add more swap because you
-Kevin> can't allocate enough memory and the only swapfile you have is
-Kevin> 100GB...
-
-Interesting idea... I'll think about it.
-
-Peter C
---
-Working on the Gelato project 
-http://www.gelato.org/ 
-http://www.gelato.unsw.edu.au/  (coming soon!)
+On Thu, Feb 28, 2002 at 07:44:42PM +0100, Erich Focht wrote:
+> Hi,
+> 
+> the latest scheduler from Ingo included in 2.5.6-pre1 includes
+> set_cpus_allowed() function working for all processes. Here is a port to
+> IA64, kernel 2.4.17. Please apply: 
+>   - kdb-v2.1-2.4.17-common-2
+>   - linux-2.4.17-ia64-011226.diff
+>   - kdb-v2.1-2.4.17-ia64-011226-1
+>   - sched-O1-2.4.17-K3.patch  from http://people.redhat.com/mingo/O(1)-scheduler/
+>   - the appended ia64 port with K3+ changes.
+> 
+> There is a small bugfix included (disable interrupts in
+> migration_task) and I changed the way how the migration tasks were
+> distributed across the CPUs. I hope this works for everybody...
+> 
+> Regards,
+> Erich
 
