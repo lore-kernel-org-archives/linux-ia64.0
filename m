@@ -1,38 +1,36 @@
-From: "sebastian ruml" <sruml@gmx.de>
-Date: Sat, 20 Jul 2002 11:43:38 +0000
-Subject: [Linux-ia64] (no subject)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----=_NextPart_000_0009_01C22FF3.73BD7630"
-Message-Id: <marc-linux-ia64-105590701905795@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 10 Jul 2002 04:24:39 +0000
+Subject: [Linux-ia64] radeon frame buffer bug?
+Message-Id: <marc-linux-ia64-105590701905750@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205296@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205296@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+Normally I don't turn on the frame buffer code, but by coincidence, I
+had it turned on today on an Itanium 2 box with a Radeon card.  The
+kernel crashed late in the boot when the frame buffer driver was
+trying to blink the cursor (I think).  I took a quick look at the code
+and it seems to me that the Radeon driver is missing an ioremap().
+The patch below isn't quite correct, as the second argument to
+ioremap() needs to be the size of the buffer (not sure what it is); of
+course, on ia64 the size doesn't really matter due to the identity
+mapping that we're using.
 
-------=_NextPart_000_0009_01C22FF3.73BD7630
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Anybody who's more familiar with this code have any comments?
 
-confirm 676391
+	--david
 
-------=_NextPart_000_0009_01C22FF3.73BD7630
-Content-Type: text/html;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
-<META http-equiv=3DContent-Type content=3D"text/html; =
-charset=3Diso-8859-1">
-<META content=3D"MSHTML 6.00.2600.0" name=3DGENERATOR>
-<STYLE></STYLE>
-</HEAD>
-<BODY bgColor=3D#ffffff>
-<DIV>confirm 676391</DIV></BODY></HTML>
-
-------=_NextPart_000_0009_01C22FF3.73BD7630--
-
+--- drivers/video/radeonfb.c~	Tue Feb 26 11:38:30 2002
++++ drivers/video/radeonfb.c	Tue Jul  9 19:06:15 2002
+@@ -1692,7 +1692,7 @@
+                 
+         disp->dispsw_data = NULL;
+         
+-        disp->screen_base = (char*)rinfo->fb_base;
++        disp->screen_base = ioremap(rinfo->fb_base, 0);
+         disp->type = FB_TYPE_PACKED_PIXELS;
+         disp->type_aux = 0;
+         disp->ypanstep = 1;
 
