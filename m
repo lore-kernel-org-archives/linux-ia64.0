@@ -1,7 +1,7 @@
-From: "Pat O'Rourke" <orourke@mclinux.com>
-Date: Wed, 27 Sep 2000 23:54:58 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Wed, 27 Sep 2000 23:55:12 +0000
 Subject: Re: [Linux-ia64] [PATCH] ivt.S
-Message-Id: <marc-linux-ia64-105590678205526@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205527@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205523@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205523@msgid-missing>
@@ -10,31 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I don't see why that would be necessary.  Perhaps you misunderstood
-> how tbit.nc.unc works?
+>>>>> On Wed, 27 Sep 2000 19:54:58 -0400, "Pat O'Rourke" <orourke@mclinux.com> said:
 
-Thanks, not anymore. :-)
+  >> #ifdef CONFIG_DISABLE_VHPT itlb_fault: #endif
 
-> Can you try the attached patch (it's relative to the original
-> version)?
+  Pat> and a similar #ifdef in the dtlb case.
 
-I booted this UP and SMP and everything seems okay.
+  Pat> [This code isn't in the last patch based on test8 that I am
+  Pat> aware of (0913?)]
 
-However, the patch would not apply cleanly though, due to:
+Yes, sorry about that.  This is new code added by Asit.  A new kernel
+patch with this code will be out hopefully later this week.
 
->  #ifdef CONFIG_DISABLE_VHPT
->  itlb_fault:
->  #endif
+Thanks,
 
-and a similar #ifdef in the dtlb case.
-
-[This code isn't in the last patch based on test8 that I am aware of (0913?)]
-
-Pat
-
--- 
-Patrick O'Rourke
-orourke@missioncriticallinux.com
-
-
+	--david
 
