@@ -1,208 +1,152 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Fri, 19 Dec 2003 23:20:57 +0000
-Subject: [PATCH] initialize bootmem maps in reverse order
-Message-Id: <marc-linux-ia64-107187618522723@msgid-missing>
+From: Martin Hicks <mort@wildopensource.com>
+Date: Fri, 19 Dec 2003 14:11:58 +0000
+Subject: [PATCH] timer_interrupt wrapper for sn2
+Message-Id: <marc-linux-ia64-107184313715128@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107151544512148@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107151544512148@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The arch-independent bootmem code now requires that arches initialize
-their bootmem maps in reverse order (in particular, from high to low
-addesses), otherwise alloc_bootmem_pages_low() won't work.  This change
-makes the ia64 code do just that, so that machines without an IOMMU can
-allocate their bounce buffers in low memory at early boot.  It also adds
-a sanity check to the early init code to make sure that each node has a
-local data area, because if they don't, many things will break later on
-and may be hard to track down.
 
-Jesse
+Hi,
 
-diff -Nru a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
---- a/arch/ia64/mm/discontig.c	Fri Dec 19 15:16:57 2003
-+++ b/arch/ia64/mm/discontig.c	Fri Dec 19 15:16:57 2003
-@@ -134,94 +134,69 @@
- 				     int node)
+Here is a small wrapper for timer_interrupt for sn2.  It changes the
+default timer_interrupt handler to an sn2 specific one if the kernel is
+running on sn2.
+
+I floated a different patch a long time ago, but I think that this one
+is much better.  It lets us run some platform-specific stuff during the
+timer interrupt without making any changes at all to timer_interrupt().
+
+It applies against Linus' linux-2.5 bk tree as of a few minutes ago.
+
+thanks
+mh
+
+-- 
+Martin Hicks                Wild Open Source Inc.
+mort@wildopensource.com     613-266-2296
+
+
+
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1355  -> 1.1356 
+#	arch/ia64/kernel/time.c	1.36    -> 1.37   
+#	arch/ia64/sn/kernel/sn2/Makefile	1.12    -> 1.13   
+#	               (new)	        -> 1.1     arch/ia64/sn/kernel/sn2/timer_interrupt.c
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/11/03	mort@green.bork.org	1.1356
+# Create a thin wrapper around timer_interrupt() so sn2 can execute
+# some platform specific code during the timer interrupt.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/kernel/time.c b/arch/ia64/kernel/time.c
+--- a/arch/ia64/kernel/time.c	Mon Nov  3 18:37:14 2003
++++ b/arch/ia64/kernel/time.c	Mon Nov  3 18:37:14 2003
+@@ -237,7 +237,7 @@
+ 	atomic_inc((atomic_t *)&prof_buffer[ip]);
+ }
+ 
+-static irqreturn_t
++irqreturn_t
+ timer_interrupt (int irq, void *dev_id, struct pt_regs *regs)
  {
- 	unsigned long epfn, cpu, cpus;
--	unsigned long pernodesize = 0, pernode;
--       	void *cpu_data;
-+	unsigned long pernodesize = 0, pernode, pages, mapsize;
-+	void *cpu_data;
- 	struct bootmem_data *bdp = &mem_data[node].bootmem_data;
- 
- 	epfn = (start + len) >> PAGE_SHIFT;
- 
-+	pages = bdp->node_low_pfn - (bdp->node_boot_start >> PAGE_SHIFT);
-+	mapsize = bootmem_bootmap_pages(pages) << PAGE_SHIFT;
-+
- 	/*
- 	 * Make sure this memory falls within this node's usable memory
- 	 * since we may have thrown some away in build_maps().
- 	 */
--	if (start < bdp->node_boot_start ||
--	    epfn > bdp->node_low_pfn)
-+	if (start < bdp->node_boot_start || epfn > bdp->node_low_pfn)
- 		return 0;
- 
- 	/* Don't setup this node's local space twice... */
--	if (!mem_data[node].pernode_addr) {
--		/*
--		 * Calculate total size needed, incl. what's necessary
--		 * for good alignment and alias prevention.
--		 */
--		cpus = early_nr_cpus_node(node);
--		pernodesize += PERCPU_PAGE_SIZE * cpus;
--		pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
--		pernodesize += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
--		pernodesize = PAGE_ALIGN(pernodesize);
--		pernode = NODEDATA_ALIGN(start, node);
--
--		/* Is this range big enough for what we want to store here? */
--		if (start + len > (pernode + pernodesize)) {
--			mem_data[node].pernode_addr = pernode;
--			mem_data[node].pernode_size = pernodesize;
--			memset(__va(pernode), 0, pernodesize);
--
--			cpu_data = (void *)pernode;
--			pernode += PERCPU_PAGE_SIZE * cpus;
--
--			mem_data[node].pgdat = __va(pernode);
--			pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
--
--			mem_data[node].node_data = __va(pernode);
--			pernode += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
--
--			mem_data[node].pgdat->bdata = bdp;
--			pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
--
--			/*
--			 * Copy the static per-cpu data into the region we
--			 * just set aside and then setup __per_cpu_offset
--			 * for each CPU on this node.
--			 */
--			for (cpu = 0; cpu < NR_CPUS; cpu++) {
--				if (node = node_cpuid[cpu].nid) {
--					memcpy(__va(cpu_data), __phys_per_cpu_start,
--					       __per_cpu_end-__per_cpu_start);
--					__per_cpu_offset[cpu] -						(char*)__va(cpu_data) -
--						__per_cpu_start;
--					cpu_data += PERCPU_PAGE_SIZE;
--				}
--			}
--		}
--	}
-+	if (mem_data[node].pernode_addr)
-+		return 0;
-+
-+	/*
-+	 * Calculate total size needed, incl. what's necessary
-+	 * for good alignment and alias prevention.
-+	 */
-+	cpus = early_nr_cpus_node(node);
-+	pernodesize += PERCPU_PAGE_SIZE * cpus;
-+	pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
-+	pernodesize += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
-+	pernodesize = PAGE_ALIGN(pernodesize);
-+	pernode = NODEDATA_ALIGN(start, node);
-+
-+	/* Is this range big enough for what we want to store here? */
-+	if (start + len > (pernode + pernodesize + mapsize)) {
-+		mem_data[node].pernode_addr = pernode;
-+		mem_data[node].pernode_size = pernodesize;
-+		memset(__va(pernode), 0, pernodesize);
-+
-+		cpu_data = (void *)pernode;
-+		pernode += PERCPU_PAGE_SIZE * cpus;
-+
-+		mem_data[node].pgdat = __va(pernode);
-+		pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
- 
--	pernode = mem_data[node].pernode_addr;
--	pernodesize = mem_data[node].pernode_size;
--	if (pernode && !bdp->node_bootmem_map) {
--		unsigned long pages, mapsize, map = 0;
--
--		pages = bdp->node_low_pfn -
--			(bdp->node_boot_start >> PAGE_SHIFT);
--		mapsize = bootmem_bootmap_pages(pages) << PAGE_SHIFT;
-+		mem_data[node].node_data = __va(pernode);
-+		pernode += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
-+
-+		mem_data[node].pgdat->bdata = bdp;
-+		pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
- 
- 		/*
--		 * The map will either contain the pernode area or begin
--		 * after it.
-+		 * Copy the static per-cpu data into the region we
-+		 * just set aside and then setup __per_cpu_offset
-+		 * for each CPU on this node.
- 		 */
--		if (pernode - start > mapsize)
--			map = start;
--		else if (start + len - pernode - pernodesize > mapsize)
--			map = pernode + pernodesize;
--
--		if (map) {
--			init_bootmem_node(mem_data[node].pgdat,
--					  map>>PAGE_SHIFT,
--					  bdp->node_boot_start>>PAGE_SHIFT,
--					  bdp->node_low_pfn);
-+		for (cpu = 0; cpu < NR_CPUS; cpu++) {
-+			if (node = node_cpuid[cpu].nid) {
-+				memcpy(__va(cpu_data), __phys_per_cpu_start,
-+				       __per_cpu_end - __per_cpu_start);
-+				__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
-+					__per_cpu_start;
-+				cpu_data += PERCPU_PAGE_SIZE;
-+			}
- 		}
--
- 	}
- 
- 	return 0;
-@@ -314,6 +289,8 @@
-  */
- void __init find_memory(void)
+ 	unsigned long new_itm;
+@@ -395,6 +395,12 @@
+ void __init
+ time_init (void)
  {
-+	int node;
-+
- 	reserve_memory();
- 
- 	if (numnodes = 0) {
-@@ -327,6 +304,31 @@
- 	/* These actually end up getting called by call_pernode_memory() */
- 	efi_memmap_walk(filter_rsvd_memory, build_node_maps);
- 	efi_memmap_walk(filter_rsvd_memory, find_pernode_space);
-+
-+	/*
-+	 * Initialize the boot memory maps in reverse order since that's
-+	 * what the bootmem allocator expects
-+	 */
-+	for (node = numnodes - 1; node >= 0; node--) {
-+		unsigned long pernode, pernodesize, map;
-+		struct bootmem_data *bdp;
-+
-+		bdp = &mem_data[node].bootmem_data;
-+		pernode = mem_data[node].pernode_addr;
-+		pernodesize = mem_data[node].pernode_size;
-+		map = pernode + pernodesize;
-+
-+		/* Sanity check... */
-+		if (!pernode)
-+			panic("pernode space for node %d "
-+			      "could not be allocated!", node);
-+
-+		init_bootmem_node(mem_data[node].pgdat,
-+				  map>>PAGE_SHIFT,
-+				  bdp->node_boot_start>>PAGE_SHIFT,
-+				  bdp->node_low_pfn);
++	/* sn2 timer_interrupt wrapper */
++	if (ia64_platform_is("sn2")) {
++		extern irqreturn_t sn_timer_interrupt(int, void *, struct pt_regs *);
++		timer_irqaction.handler = sn_timer_interrupt;
 +	}
 +
- 	efi_memmap_walk(filter_rsvd_memory, free_node_bootmem);
+ 	register_percpu_irq(IA64_TIMER_VECTOR, &timer_irqaction);
+ 	efi_gettimeofday(&xtime);
+ 	ia64_init_itm();
+diff -Nru a/arch/ia64/sn/kernel/sn2/Makefile b/arch/ia64/sn/kernel/sn2/Makefile
+--- a/arch/ia64/sn/kernel/sn2/Makefile	Mon Nov  3 18:37:14 2003
++++ b/arch/ia64/sn/kernel/sn2/Makefile	Mon Nov  3 18:37:14 2003
+@@ -12,4 +12,4 @@
+ EXTRA_CFLAGS := -DLITTLE_ENDIAN
  
- 	reserve_pernode_space();
+ obj-y += cache.o io.o ptc_deadlock.o sn2_smp.o sn_proc_fs.o \
+-	 prominfo_proc.o timer.o
++	 prominfo_proc.o timer.o timer_interrupt.o
+diff -Nru a/arch/ia64/sn/kernel/sn2/timer_interrupt.c b/arch/ia64/sn/kernel/sn2/timer_interrupt.c
+--- /dev/null	Wed Dec 31 16:00:00 1969
++++ b/arch/ia64/sn/kernel/sn2/timer_interrupt.c	Mon Nov  3 18:37:14 2003
+@@ -0,0 +1,65 @@
++/*
++ *
++ *
++ * Copyright (c) 2003 Silicon Graphics, Inc.  All Rights Reserved.
++ * 
++ * This program is free software; you can redistribute it and/or modify it 
++ * under the terms of version 2 of the GNU General Public License 
++ * as published by the Free Software Foundation.
++ * 
++ * This program is distributed in the hope that it would be useful, but 
++ * WITHOUT ANY WARRANTY; without even the implied warranty of 
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
++ * 
++ * Further, this software is distributed without any warranty that it is 
++ * free of the rightful claim of any third person regarding infringement 
++ * or the like.  Any license provided herein, whether implied or 
++ * otherwise, applies only to this software file.  Patent licenses, if 
++ * any, provided herein do not apply to combinations of this program with 
++ * other software, or any other product whatsoever.
++ * 
++ * You should have received a copy of the GNU General Public 
++ * License along with this program; if not, write the Free Software 
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston MA 02111-1307, USA.
++ * 
++ * Contact information:  Silicon Graphics, Inc., 1600 Amphitheatre Pkwy, 
++ * Mountain View, CA  94043, or:
++ * 
++ * http://www.sgi.com 
++ * 
++ * For further information regarding this notice, see: 
++ * 
++ * http://oss.sgi.com/projects/GenInfo/NoticeExplan
++ */
++
++#include <linux/interrupt.h>
++#include <asm/sn/pda.h>
++#include <asm/sn/leds.h>
++
++extern void sn_lb_int_war_check(void);
++extern irqreturn_t timer_interrupt (int irq, void *dev_id, struct pt_regs *regs);
++
++#define SN_LB_INT_WAR_INTERVAL 100
++
++irqreturn_t
++sn_timer_interrupt(int irq, void *dev_id, struct pt_regs *regs)
++{
++	/* LED blinking */
++	if (!pda->hb_count--) {
++		pda->hb_count = HZ/2;
++		set_led_bits(pda->hb_state ^= LED_CPU_HEARTBEAT, LED_CPU_HEARTBEAT);
++	}
++
++	if (enable_shub_wars_1_1()) {
++		/* Bugfix code for SHUB 1.1 */
++        	if (pda->pio_shub_war_cam_addr)
++                	*pda->pio_shub_war_cam_addr = 0x8000000000000010UL;
++	}
++	if (pda->sn_lb_int_war_ticks = 0)
++		sn_lb_int_war_check();
++	pda->sn_lb_int_war_ticks++;
++	if (pda->sn_lb_int_war_ticks >= SN_LB_INT_WAR_INTERVAL)
++		pda->sn_lb_int_war_ticks = 0;
++
++	return timer_interrupt(irq, dev_id, regs);
++}
