@@ -1,7 +1,7 @@
-From: "Yu, Fenghua" <fenghua.yu@intel.com>
-Date: Thu, 25 Sep 2003 20:28:09 +0000
-Subject: RE: [Lse-tech] Re: CPUSET Proposal
-Message-Id: <marc-linux-ia64-106452214602648@msgid-missing>
+From: Sylvain Jeaugey <sylvain.jeaugey@bull.net>
+Date: Fri, 26 Sep 2003 07:17:57 +0000
+Subject: Re: [Lse-tech] Re: CPUSET Proposal
+Message-Id: <marc-linux-ia64-106456075800832@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106444308519469@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106444308519469@msgid-missing>
@@ -10,27 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->> You could also do a big chunk of this by allowing normal 
->> privledge users
->> to sched_setaffinity() a *subset* of their current allowed 
->> CPU set, but
->> not expand it.  sched_setaffinity() isn't *that* old of an 
->> interface, so
->> I'm not sure why you can't just change the application at 
->> this point.  
+On Thu, 25 Sep 2003, Hubertus Franke wrote:
 
->Because you need virtual cpu numbers.  Suppose I have a 16-way
->system, and *two* applications that know nothing about each other,
->but each happens to want 5 cpus to run.
+> Again, I see cpusets and CKRM as addressing two orthogonal issues wrt to 
+> cpu's
+> 
+> cpusets  (partitioning in space)   with hierarchies
+> CKRM  (time partitioning)         how much of  time does a class get...
+We do agree. We took a look at CKRM and that is the conclusion we 
+achieved. At first sight, it could look like the goal are the same -and in 
+some points it is- but the two approaches are different. It looks 
+like it would be better to combine them rather to try to merge them.
 
->With cpusets each application can ask the kernel for 5 cpus
->(or a wrapper that invokes the application can do so), and then
->the application can happily divide its work between virtual cpus
->0, 1, 2, 3, 4 (using sched_setaffinity()).  The kernel can be smart
->and provide different physical cpus for each of the cpusets.
-
-In this case, the applications can get all of current affinity info by
-calling sched_getaffinity(). Thus, the applications can schedule the
-processes to different cpus without bothering kernel.
-
+Sylvain
 
