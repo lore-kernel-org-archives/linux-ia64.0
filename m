@@ -1,46 +1,44 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 19 Nov 2004 03:28:41 +0000
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Fri, 19 Nov 2004 07:05:20 +0000
 Subject: Re: fast path for anonymous memory allocation
-Message-Id: <Pine.LNX.4.58.0411181921001.1674@schroedinger.engr.sgi.com>
+Message-Id: <1100847920.25497.46.camel@gaston>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain>
- <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com>
- <419D581F.2080302@yahoo.com.au> <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>
- <419D5E09.20805@yahoo.com.au>
-In-Reply-To: <419D5E09.20805@yahoo.com.au>
+	 <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com>
+	 <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com>
+	 <419D581F.2080302@yahoo.com.au>
+In-Reply-To: <419D581F.2080302@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Nick Piggin <nickpiggin@yahoo.com.au>
-Cc: Hugh Dickins <hugh@veritas.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+Cc: Christoph Lameter <clameter@sgi.com>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-On Fri, 19 Nov 2004, Nick Piggin wrote:
+On Fri, 2004-11-19 at 13:19 +1100, Nick Piggin wrote:
+> Christoph Lameter wrote:
+> > This patch conflicts with the page fault scalability patch but I could not
+> > leave this stone unturned. No significant performance increases so
+> > this is just for the record in case someone else gets the same wild idea.
+> > 
+> 
+> I had a similar wild idea. Mine was to just make sure we have a spare
+> per-CPU page ready before taking any locks.
+> 
+> Ahh, you're doing clear_user_highpage after the pte is already set up?
+> Won't that be racy? I guess that would be an advantage of my approach,
+> the clear_user_highpage can be done first (although that is more likely
+> to be wasteful of cache).
 
-> But you're doing it after you've set up a pte for that page you are
-> clearing... I think? What's to stop another thread trying to read or
-> write to it concurrently?
+Yah, doing clear_user_highpage() after setting the PTE is unfortunately
+unacceptable. It show interesting bugs... As soon as the PTE is setup,
+another thread on another CPU can hit the page, you'll then clear what
+it's writing... 
 
-Nothing. If this had led to anything then we would have needed to address
-this issue. The clearing had to be outside of the lock in order not to
-impact the performance tests negatively.
+Take for example 2 threads writing to different structures in the same
+page of anonymous memory. The first one triggers the allocation, the
+second writes right away, "sees" the new PTE, and writes just before the
+first one does clear_user_highpage...
 
-> > If you do the clearing with the page table lock held then performance will
-> > suffer.
-> Yeah very much, but if you allocate and clear a "just in case" page
-> _before_ taking any locks for the fault then you'd be able to go
-> straight through do_anonymous_page.
->
-> But yeah that has other issues like having a spare page per CPU (maybe
-> not so great a loss), and having anonymous faults much more likely to
-> get pages which are cache cold.
+Ben.
 
-You may be able to implement that using the hot and cold lists. Have
-something that runs on the lists and prezeros and preformats these pages
-(idle thread?).
 
-Set some flag to indicate that a page has been prepared and then just zing
-it in if do_anymous_page finds that flag said.
-
-But I think this may be introduce way too much complexity
-into the page fault handler.
