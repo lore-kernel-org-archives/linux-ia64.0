@@ -1,62 +1,43 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 21 Sep 2001 15:44:18 +0000
-Subject: Re: [Linux-ia64] AT Keyboard not present?
-Message-Id: <marc-linux-ia64-105590698805237@msgid-missing>
+From: Steffen Persvold <sp@scali.no>
+Date: Mon, 10 Sep 2001 14:16:31 +0000
+Subject: Re: [Linux-ia64] Re: Write Combining (Write Coalescing) on memory mapped
+Message-Id: <marc-linux-ia64-105590698805151@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805137@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805137@msgid-missing>
+References: <marc-linux-ia64-105590698805106@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805106@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Richard,
+Steffen Persvold wrote:
+> 
+> David Mosberger wrote:
+> >
+> > >>>>> On Sat, 25 Aug 2001 16:40:24 +0200, Steffen Persvold <sp@scali.no> said:
+> >
+> >   Steffen> Just a repost since I didn't get any feedback. I've also
+> >   Steffen> copied some auhtors I found in asm/io.h. I appologize for
+> >   Steffen> any inconvenience, but this issue is quite important to us.
+> >
+> > I didn't see anything fundamentally wrong with what you're trying to
+> > do, but I haven't looked at the code.  Some debugging may be called
+> > for.
+> >
+> 
+> Do you think it's easier to set up a region which is mapped all the time, so
+> that ioremap_nocache() uses the already defined region 6 for uncached accesses
+> and ioremap() uses this new region with "Write Coalescing" enabled ? How should
+> I proceed to introduce such a region ?
+> 
 
-Some good hunting!
+I haven't received any response. Does that mean that you guys don't even care
+about this issue ??
 
->>>>> On Thu, 20 Sep 2001 23:56:25 +0100, Richard Hirst <rhirst@linuxcare.com> said:
-
-  Richard> Turns out the interrupt isn't lost, it is just held off
-  Richard> until the previous one has been completely serviced...
-
-  Richard>   User hits CapsLock
-  Richard>   CPU enters arch/ia64/kernel/irq_ia64.c:ia64_handle_irq()
-  Richard>   which calls arch/ia64/kernel/irq.c:do_IRQ()
-  Richard>   which calls the kb interrupt handler
-  Richard>   and then do_IRQ() sees local_softirq_pending() and calls
-  Richard> do_softirq()
-  Richard>   that will run the keyboard tasklet, which calls
-  Richard> drivers/char/pc_keyb.c:pckbd_leds()
-  Richard>   pckbd_leds() calls send_data() which expects the kb to
-  Richard> generate interrupts
-  Richard>   those interrupts can't happen because we havn't yet
-  Richard> returned to ia64_handle_irq() and called ia64_eoi() for the
-  Richard> last one
-  Richard> eventually send_data() gives up and returns, we unwind and
-  Richard> call ia64_eio() and the keyboard interrupts.
-
-Ah, yes, this makes tons of sense.
-
-  Richard> I'm guessing that ia64_eoi() is needed before the next k/b
-  Richard> int can happen, but it sounds logical.
-
-Yes, that's what we used to do until the softirq-rewrite happened in
-2.4.7.
-
-  Richard> The answer _might_ be to move the call to do_softirq() from
-  Richard> the end of do_IRQ() to the end of ia64_handle_irq().  I've
-  Richard> tried that, and it works, but I don't claim to know the
-  Richard> ia64 interrupt h/w or s/w, so there may be nasty
-  Richard> side-effects.  Calling do_softirq() only once all pending
-  Richard> ints have been completely serviced sounds more correct to
-  Richard> me anyway.
-
-That's probably the best thing to do for now.  For 2.5, the idea is to
-have a single, platform-independent irq.c and for this reason, I'm
-trying to keep the ia64 version as close to the x86 version as
-possible.  But this obviously is something that needs to be changed.
-
-Thanks,
-
-	--david
+Regards,
+-- 
+  Steffen Persvold   |  Scali Computer AS   |   Try out the world's best   
+ mailto:sp@scali.no  | http://www.scali.com | performing MPI implementation:
+Tel: (+47) 2262 8950 |  Olaf Helsets vei 6  |      - ScaMPI 1.12.2 -         
+Fax: (+47) 2262 8951 |  N0621 Oslo, NORWAY  | >300MBytes/s and <4uS latency
 
