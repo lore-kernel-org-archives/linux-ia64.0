@@ -1,36 +1,127 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 11 May 2004 16:55:44 +0000
-Subject: Re: 2.6.5 unwind problem with rp <- r0
-Message-Id: <16545.1424.69361.799582@napali.hpl.hp.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 24 May 2004 05:48:17 +0000
+Subject: Announce: kdb v4.4 is available for kernel 2.6.6
+Message-Id: <12956.1085377697@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4885.1083211711@kao2.melbourne.sgi.com>
-In-Reply-To: <4885.1083211711@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kdb@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 11 May 2004 21:32:00 +1000, Keith Owens <kaos@sgi.com> said:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-  >>  Can you try what's in the current bk repository?  It closely
-  >> follows your patch, apart from some naming and from switching the
-  >> asm files to actually use ".save rp, r0".
+KDB (Linux Kernel Debugger) has been updated.
 
-  Keith> I don't have bk access.  Where's the patch?
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
 
-At:
+Current versions are :-
 
- http://kernel.org/pub/linux/kernel/ports/ia64/v2.6/testing/cset/index.html
+  kdb-v4.4-2.6.6-common-1.bz2
+  kdb-v4.4-2.6.6-i386-1.bz2
+  kdb-v4.4-2.6.6-ia64-1.bz2
 
-You'll definitely want:
+There are some user and developer changes in this release, hence the
+bump from kdb v4.3 to v4.4.
 
-  ChangeSet 2004/05/10 22:48:57-07:00, davidm @ tiger.hpl.hp.com
+User visible changes:
 
-There is also a tiny fix for unwind.c in:
+  The sequence to enter kdb from a serial console is now <escape>KDB.
+  The old <control>A sequence caused problems for people using editors
+  and GNU readline over a seral link.  Edit kdb_serial_str in
+  kdb/kdbmain.c if you do not like <escape>KDB.
 
-  ChangeSet 2004/05/10 23:44:48-07:00, davidm @ tiger.hpl.hp.com
+  New summary command.
 
-but that one isn't strictly needed (it mainly corrects a prototype to
-avoid a compiler-warning).
+  The cpu command distinguishes between cpus that are in kdb control,
+  cpus that have some kdb data but are not in kdb control ('+') and
+  cpus with no kdb data ('*').  Also the format of the output has
+  changed, to make it more readable on big systems.
 
-	--david
+  New process states, 'I' for idle and 'M' for sleeping system daemons.
+  By default tasks in states I and M are not printed, they rarely
+  contribute anything to problem diagnosis.  Use ps IM or ps A to see
+  them.
+
+  dmesg can print any part of the log, not just the end.
+
+  The md command will suppress a run of zeroes.
+
+  Section data is suppressed by default.  Pity, it can be useful when
+  debugging modules, but the in kernel module loader in 2.6 does not
+  maintain section data.
+
+Developer visible changes:
+
+  arch/$(ARCH)/kdb/{ansidecl,bfd}.h have been moved to include/asm-$(ARCH).
+  Makefiles used to add -I $(TOPDIR) arch/$(ARCH)/kdb to CFLAGS, this
+  is no longer required.  #include "bfd.h" or "ansidecl.h" replaced by
+  <asm/bfd.h> and <asm/ansidecl.h>.
+
+  Some kdb fields have moved from kdb.h to kdbprivate.h.  You need to
+  use #include <linux/kdbprivate.h> in code that uses kdb internals.
+
+  If you maintain an architecture specific kdb patch, please upgrade to
+  kdb v4.4 and send it to me.
+
+
+Changelog extract since kdb-v4.3-2.6.6-common-1.
+
+2004-05-23 Keith Owens  <kaos@sgi.com>
+
+	* Shrink the output from the cpu command.
+	* Add cpu state 'I', the cpu is idle.
+	* Add cpu state '+', some kdb data is available but the cpu is not
+	  responding.
+	* Do not print tasks in state I or M by default in ps and bta commands.
+	* Add states I (idle task) and M (sleeping system daemon) to ps and
+	  bta commands.
+	* Delete unused variables.
+	* Move private kdb fields from kdb.h to kdbprivate.h.
+	* Print 'for keyboard entry' for the special cases when KDB_ENTER() is
+	  used to get registers.
+	* Move bfd.h and ansidecl.h from arch/$(ARCH)/kdb to include/asm-$(ARCH)
+	  and remove -I arch/$(ARCH)/kdb.
+	* dmesg command now prints from either the start or end of dmesg, or at
+	  an arbitrary point in the middle of the kernel log buffer.
+	* Sensible string dump for multi byte md commands.
+	* 'page' command handles ia64 correctly.
+	* Show some activity when waiting for cpus to enter kdb.
+	* Change the KDB entry code to <esc>KDB.
+	* Allow comment commands, starting with '#'.
+	* Commands defined using defcmd from kdb_cmds are not printed as they
+	  are entered, use defcmd with no parameters to print all the defined
+	  commands.
+	* Add summary command.
+	* Update copyright notices.
+	* Zero suppression on md command.
+	* Make set NOSECT=1 the default.
+	* PPC64 uses OF-stdout instead of console.  Ananth N Mavinakayanahalli.
+	* kdb v4.4-2.6.6-common-1.
+
+Changelog extract since kdb-v4.3-2.6.6-i386-1.
+
+2004-05-23 Keith Owens  <kaos@sgi.com>
+
+	* Move bfd.h and ansidecl.h from arch/$(ARCH)/kdb to include/asm-$(ARCH).
+	* Update copyright notices.
+	* kdb v4.4-2.6.6-i386-1.
+
+Changelog extract since kdb v4.3-2.6.6-rc3-ia64-1.
+
+2004-05-23 Keith Owens  <kaos@sgi.com>
+
+	* Move bfd.h and ansidecl.h from arch/$(ARCH)/kdb to include/asm-$(ARCH).
+	* ia64-opc.c needs kdbprivate.h after common reorganisation.
+	* Update copyright notices.
+	* kdb v4.4-2.6.6-ia64-1.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFAsYyhi4UHNye0ZOoRAuopAKCzXUXdb1ZAXgNRVgh3A1Ae6NqrwACgjAKt
+qlT0gcdOIS4Hx3usoGyLTGM=aqHg
+-----END PGP SIGNATURE-----
+
