@@ -1,43 +1,44 @@
-From: j-nomura@ce.jp.nec.com
-Date: Thu, 13 Feb 2003 05:52:54 +0000
+From: grundler@cup.hp.com (Grant Grundler)
+Date: Thu, 13 Feb 2003 17:53:24 +0000
 Subject: Re: [Linux-ia64] kernel update (relative to 2.5.60)
-Message-Id: <marc-linux-ia64-105590709805839@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805840@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hello,
-
-I had to apply the patch below to build with CONFIG_NUMA.
-
+On Wed, Feb 12, 2003 at 03:26:10PM -0800, David Mosberger wrote:
 > An updated ia64 patch is now at:
-> 
->  ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/linux-2.5.60-ia64-030212.diff.gz
-> 
-> This is mostly a sync with Linus' tree.  The patch above contains some
-> non-ia64 patches which are there because Linus pushed them into his
-> bitkeeper tree after releasing 2.5.60 and before I picked it up.
+>=20
+>  ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/linux-2.5.60-ia64-=
+030212.diff.gz
+>=20
 
---- linux.old/include/asm-ia64/topology.h
-+++ linux/include/asm-ia64/topology.h
-@@ -26,7 +26,7 @@
- /*
-  * Returns a bitmask of CPUs on Node 'node'.
-  */
--#define node_to_cpumask(node) (node_to_cpumask[node])
-+#define node_to_cpumask(node) (node_to_cpu_mask[node])
- 
- #else
- #define cpu_to_node(cpu) (0)
+  gcc -Wp,-MD,arch/ia64/mm/.hugetlbpage.o.d -D__KERNEL__ -Iinclude -Wall -W=
+strict-prototypes -Wno-trigraphs -g -O2 -fno-strict-aliasing -fno-common -p=
+ipe  -ffixed-r13 -mfixed-range=F10-f15,f32-f127 -falign-functions2 -frename=
+-registers --param max-inline-insnsP00 -fomit-frame-pointer -nostdinc -iwit=
+hprefix include -mconstant-gp   -DKBUILD_BASENAME=3Dhugetlbpage -DKBUILD_MO=
+DNAME=3Dhugetlbpage -c -o arch/ia64/mm/hugetlbpage.o arch/ia64/mm/hugetlbpa=
+ge.c
+  arch/ia64/mm/hugetlbpage.c: In function `set_hugetlb_mem_size':
+  arch/ia64/mm/hugetlbpage.c:305: warning: unused variable `j'
+  arch/ia64/mm/hugetlbpage.c:306: warning: unused variable `map'
+  arch/ia64/mm/hugetlbpage.c: At top level:
+  arch/ia64/mm/hugetlbpage.c:405: `zap_hugetlb_resources' undeclared here (=
+not in a function)
+  arch/ia64/mm/hugetlbpage.c:405: initializer element is not constant
+  arch/ia64/mm/hugetlbpage.c:405: (near initialization for `hugetlb_vm_ops.=
+close')
+  make[1]: *** [arch/ia64/mm/hugetlbpage.o] Error 1
+  make: *** [arch/ia64/mm] Error 2
 
+I don't have time to learn about HUGE_TLB and will disable for now.
+TPC-C folks will want HUGE_TLB working.
 
-Best regards.
---
-NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
-HPC Operating System Group, 1st Computers Software Division,
-Computers Software Operations Unit, NEC Solutions.
+thanks,
+grant
 
