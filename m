@@ -1,62 +1,28 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Thu, 03 Mar 2005 20:53:18 +0000
-Subject: Re: [PATCH] Errenous use of memset and memcpy
-Message-Id: <4227793E.3020403@intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------020106000504070006040800"
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 14 Mar 2005 22:06:09 +0000
+Subject: bad pgd/pmd in latest BK on ia64
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F031272AF@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1108848352.682.2.camel@boxen>
-In-Reply-To: <1108848352.682.2.camel@boxen>
-To: linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------020106000504070006040800
-Content-Type: text/plain; charset=UTF-8; format=flowed
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: linux kernel <linux-kernel@vger.kernel.org>
+Cc: linux-ia64@vger.kernel.org
 
-On 2/22/2005 9:37 AM, Bjorn Helgaas wrote:
-> On Sun, 2005-02-20 at 11:38 +0100, Alexander Nyberg wrote:
->> ===== arch/ia64/ia32/ia32_signal.c 1.35 vs edited =====
->> --- 1.35/arch/ia64/ia32/ia32_signal.c	2005-01-25 21:23:45 +01:00
->> +++ edited/arch/ia64/ia32/ia32_signal.c	2005-02-20 11:32:55 +01:00
->> @@ -460,9 +460,9 @@ __ia32_rt_sigsuspend (compat_sigset_t *s
->>  	sigset_t oldset, set;
->>  
->>  	scr->scratch_unat = 0;	/* avoid leaking kernel bits to user level */
->> -	memset(&set, 0, sizeof(&set));
->> +	memset(&set, 0, sizeof(sigset_t));
-> 
-> To check that the above is correct, you have to go look up
-> the declaration of "set".  Why not do this:
-> 
-> +	memset(&set, 0, sizeof(set));
-> 
-> which is clearly correct, regardless of the declaration?
->
+Trying to boot a build of the latest BK on ia64 I see
+a series of messages like this:
 
-Agree and I think memcpy is just fine. Tony, please apply the attached patch.
+mm/memory.c:99: bad pgd e0000001feba4000.
+mm/memory.c:99: bad pgd e0000001febac000.
+mm/memory.c:99: bad pgd e0000001febc0d10.
+mm/memory.c:105: bad pmd f000eef3f0000200.
+mm/memory.c:105: bad pmd f000eef3f000e2c3.
+mm/memory.c:105: bad pmd f000ff54f000eef3.
+mm/memory.c:105: bad pmd f000292cf0002984.
 
-	-Arun
+before the kernel gets an OOPS on a deref NULL
+at resched_task+0x41/0x1a0.
 
+2.6.11-bk9 boots ok, so this was added recently.
 
---------------020106000504070006040800
-Content-Type: text/plain;
- name="sigsuspend-memcpy.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="sigsuspend-memcpy.patch"
-
-LSBGaXggdGhlIGluY29ycmVjdCBhcmd1bWVudCB0byBzaXplb2YoKQotIG1lbWNweSBzaG91
-bGQgYWx3YXlzIHN1Y2NlZWQgYmVjYXVzZSBpdCdzIGEga2VybmVsIHNwYWNlIHRvIGtlcm5l
-bCBzcGFjZSBjb3B5LgoKU2lnbmVkLW9mZi1ieTogQXJ1biBTaGFybWEgPGFydW4uc2hhcm1h
-QGludGVsLmNvbT4KCi0tLSBsaW51eC0yLjYtY3ZzL2FyY2gvaWE2NC9pYTMyL2lhMzJfc2ln
-bmFsLmMJMyBGZWIgMjAwNSAxODoyOTo0NSAtMDAwMAkxLjI1CisrKyBsaW51eC0yLjYtY3Zz
-L2FyY2gvaWE2NC9pYTMyL2lhMzJfc2lnbmFsLmMJMiBNYXIgMjAwNSAyMzo0MzowOSAtMDAw
-MApAQCAtNDYwLDEwICs0NjAsOSBAQAogCXNpZ3NldF90IG9sZHNldCwgc2V0OwogCiAJc2Ny
-LT5zY3JhdGNoX3VuYXQgPSAwOwkvKiBhdm9pZCBsZWFraW5nIGtlcm5lbCBiaXRzIHRvIHVz
-ZXIgbGV2ZWwgKi8KLQltZW1zZXQoJnNldCwgMCwgc2l6ZW9mKCZzZXQpKTsKKwltZW1zZXQo
-JnNldCwgMCwgc2l6ZW9mKHNldCkpOwogCi0JaWYgKG1lbWNweSgmc2V0LnNpZywgJnNzZXQt
-PnNpZywgc2lnc2V0c2l6ZSkpCi0JCXJldHVybiAtRUZBVUxUOworCW1lbWNweSgmc2V0LnNp
-ZywgJnNzZXQtPnNpZywgc2lnc2V0c2l6ZSk7CiAKIAlzaWdkZWxzZXRtYXNrKCZzZXQsIH5f
-QkxPQ0tBQkxFKTsKIAo=
---------------020106000504070006040800--
+-Tony
