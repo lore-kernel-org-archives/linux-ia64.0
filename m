@@ -1,7 +1,7 @@
-From: "Lee, Jung-Ik" <jung-ik.lee@intel.com>
-Date: Thu, 24 Oct 2002 16:37:50 +0000
-Subject: [Linux-ia64] RE: PCI Hotplug Drivers for 2.5
-Message-Id: <marc-linux-ia64-105590709805230@msgid-missing>
+From: Greg KH <greg@kroah.com>
+Date: Thu, 24 Oct 2002 16:46:30 +0000
+Subject: [Linux-ia64] Re: PCI Hotplug Drivers for 2.5
+Message-Id: <marc-linux-ia64-105590709805231@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805223@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805223@msgid-missing>
@@ -10,34 +10,79 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Thu, Oct 24, 2002 at 09:24:30AM -0700, Lee, Jung-Ik wrote:
 > 
-> I think we now all agree that resource management should move into a
-> place where it can be shared by all pci hotplug drivers, right?
-> 
-> If so, anyone want to propose some common code?  I think the stuff in
-> the ACPI driver that was pulled from the Compaq driver is a 
-> great start.
-> I can try to pull this into the core myself, but if the Intel 
-> developers
-> have the time, and energy, I would greatly appreciate their help (or
-> anyone else who wants to join in.)
-> 
+> ACPI is a must for PHP enumeration/configuration and resource management for
+> DIG64/ACPI compliant platforms. ACPI method is optional for controller/slot
+> operations(event management). intcphp driver conforms to ACPI resource
+> management. I didn't enable ACPI based event management for PHP since it is
+> optional and provides less feature than controller based solution - LED,
+> MRL, Bus/Adapter speeds/capabilities, etc.
 
-Resource Management code in phprm.h works fine for both ACPI based platforms
-and non-ACPI platforms (smbios, BIOS $HRT, pcibios_pci_irq_routing...) doing
-php enumeration, configuration, resource allocation, etc. Only phprm_acpi.c
-is included in this release for size matters.
-intcphp driver is free from controller type, IA32/IPF, ACPI/non-ACPI and
-depending on kernel configuration, it can bind to either ACPI PHPRM or
-non-ACPI PHPRM.
+But as the code you sent me isn't enabled for ACPI, I don't see how it
+ties into the existing Compaq based PCI driver.  How does this work?
+Are you trying to have 1 driver handle both the PCI and ACPI
+functionality?
 
-PCI resource handling code - that does add/delete/sort/combine, etc on
-pci_resource - has nothing to do with ACPI or non-ACPI so it should be
-common across cpqphp, ibmphp, acpiphp and intcphp. They are duplicated and
-varied due to mother structures differences.
+> > As an example from your patch:
+> > 
+> > +enum php_ctlr_type phphpc_get_ctlr_type()
+> > +{
+> > +       return PCI;
+> > +}
+> > 
+> > It never returns any other type, so the ACPI or ISA sections of the
+> > driver will never get called.  Or am I missing something?
+> > 
+> This is because this release only addresses PCI version only. I can take
+> this out too, with ease :)
 
-> thanks,
-> 
-> greg k-h
-> 
+As this means there is a lot of "dead code" in the driver, you should
+take all of it out.
+
+> > >  intcphp:
+> > >     Php driver source for Compaq or compatible Intel Hotplug
+> > >     controllers on IA32 or DIG64-ACPI compliant IA64 platforms.
+> > 
+> > So this overloads the current Compaq driver?  It looks like this "new"
+> > driver will also handle all of the same controllers the current Compaq
+> > driver does, right?  If not, it sure looks like you are 
+> > accepting all of
+> > the same PCI ID values :)
+> > 
+> Probably, as PCI ID indicates :)
+
+Ok, no, I will not accept this driver then, as you are duplicating the
+entire Compaq driver.  Just provide a patch for the existing driver with
+your new functionality.
+
+> > >     + LINUX_VERSION checks are removed.
+> > 
+> > And replaced with the odd BEFORE_2_5 check :)
+> > Please just rip these out and send a version that is only for the 2.5
+> > kernel.
+> > 
+> Ah, you noticed it.. OK (pain in my heart :))
+
+Hm, directly trying to sneak something by me, by just renaming a
+#define.  Not nice. :(
+
+> We need this driver as it's the only solution for DIG64 compliant IPF
+> platforms.
+> Can we work in parallel ? - Make this driver available and we all work
+> together for enhanced pci_hotplug core.
+
+No, does your driver _have_ to be in the 2.5 kernel tree right now for
+some reason?  Can't anyone who _has_ to have PCI Hotplug support for
+these types of machines (and I don't think there are any types of these
+machines currently shipping, right?  And they wouldn't be running a 2.5
+kernel on them, right?) just grab your driver if they really need it?
+
+> Also I'll talk with cpqphp owner over the integration of the two.
+
+You're talking to him :)
+
+thanks,
+
+greg k-h
 
