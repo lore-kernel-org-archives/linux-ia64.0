@@ -1,30 +1,54 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 02 Jun 2004 07:22:40 +0000
-Subject: Re: Real time clock on ia64 platforms
-Message-Id: <20040602072240.GC27448@lnx-holt.americas.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 07 Jun 2004 05:40:38 +0000
+Subject: Announce: kdb v4.4 is available for kernel 2.6.7-rc2
+Message-Id: <9766.1086586838@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40BC3558.7040606@hob.de>
-In-Reply-To: <40BC3558.7040606@hob.de>
+References: <12956.1085377697@kao2.melbourne.sgi.com>
+In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kdb@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
 
-On Wed, Jun 02, 2004 at 08:26:53AM +0200, Christian Hildner wrote:
-> Alex Williamson schrieb:
-> 
-> >On Tue, 2004-06-01 at 01:50, Christian Hildner wrote:
-> > Why do you
-> >need to poke it directly?
-> >
-> Because I need to call it from an environment, where no EFI calls are 
-> possible. I know that the solution is absolutely not portable in any way 
-> and in common it is bad doing that way but in that special case there is 
-> no other way to go. And  the portability is given at another layer on 
-> top of it.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-What are you doing with it?  Can you just use ITC in the realtime sensitive
-portion of your code and then convert ITC ticks back into clock time as
-needed?
+KDB (Linux Kernel Debugger) has been updated.
 
-Robin Holt
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
+
+Current versions are :-
+
+  kdb-v4.4-2.6.7-rc2-common-1.bz2
+  kdb-v4.4-2.6.7-rc2-i386-1.bz2
+  kdb-v4.4-2.6.7-rc2-ia64-1.bz2
+
+Changelog extract since kdb-v4.4-2.6.6-common-2.
+
+2004-06-07 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.7-rc2-common-1.
+
+Changelog extract since kdb-v4.4-2.6.6-i386-2.
+
+2004-06-07 Keith Owens  <kaos@sgi.com>
+
+	* Force KALLSYMS and KALLSYMS_ALL for CONFIG_KDB.
+	* kdb v4.4-2.6.7-rc2-i386-1.
+
+Changelog extract since kdb v4.4-2.6.6-ia64-040521-2.
+
+2004-06-07 Keith Owens  <kaos@sgi.com>
+
+	* Force KALLSYMS and KALLSYMS_ALL for CONFIG_KDB.
+	* kdb v4.4-2.6.7-rc2-1.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFAw//Wi4UHNye0ZOoRAo9yAKCVtms2D35Q5rVCr6P+ibfzDtsrFACg9Poq
+kV3UGuIR8ABdaQ2Bf6QSLfc=1g61
+-----END PGP SIGNATURE-----
+
