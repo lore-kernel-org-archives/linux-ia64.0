@@ -1,7 +1,7 @@
 From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 22 Apr 2004 02:37:58 +0000
+Date: Fri, 23 Apr 2004 07:09:14 +0000
 Subject: RE: [PATCH][RFC] Vector sharing
-Message-Id: <MDEEKOKJPMPMKGHIFAMAOEELDNAA.kaneshige.kenji@jp.fujitsu.com>
+Message-Id: <MDEEKOKJPMPMKGHIFAMAGEHNDNAA.kaneshige.kenji@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <MDEEKOKJPMPMKGHIFAMAOENCDMAA.kaneshige.kenji@jp.fujitsu.com>
 In-Reply-To: <MDEEKOKJPMPMKGHIFAMAOENCDMAA.kaneshige.kenji@jp.fujitsu.com>
@@ -10,68 +10,62 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Jean-Francois,
+Hi Bjorn,
 
-> I agree with you ACPI IRQ cleanup patch or my patch only stops the
-> waste of the vector resource for line not used but doesn't solve  the
-> problem completely.
+> Yes, I think you're right.  Thanks for posting your patch.  I'll
+> integrate that when I get some time to work on that again.
+> (I apologize that it is taking me so long to get the patch
+> straightened out.  I haven't had much time to work on it
+> lately.)
 
-Thank you :)
+I'm glad to contribute to your patch. I'll send comments or
+patches again when I find something about your patch.
 
-> In addition with on of theses patch our patch set_rte() should get
-> iosapic_lock is mandatory.
 
-I think both of your patch needs to get iosapic_lock in
-iosapic_register_intr()
-also. Please see following message:
+> I also agree that while my patch should reduce the usage of
+> vectors, we will also need another mechanism to avoid running
+> out.  I don't know whether the right answer is sharing,
+> doing per-CPU vector allocation, some combination, or what.
 
-http://www.gelato.unsw.edu.au/linux-ia64/0404/9352.html
+Though the performance of per-CPU vector allocation is certainly
+good, but I don't think it is good approach because the lack of
+vector will happen in the following case:
+
+	o if system has few CPUs
+	o if CPUs are hot-removed by operator
+
+The combination of sharing and per-CPU sounds good, though
+I have not investigated it much yet. I think it is good for us to
+implement vector sharing first, and implement per-CPU allocation
+afterwards.
 
 Thanks,
 Kenji Kaneshige
 
------Original Message-----
-From: Jean-Francois Neyroud [mailto:Jean-Francois.Neyroud@bull.net]
-Sent: Wednesday, April 21, 2004 3:26 PM
-To: Kenji Kaneshige
-Cc: linux-ia64@vger.kernel.org; Bjorn Helgaas
-Subject: Re: [PATCH][RFC] Vector sharing
 
-
-
-
-Kenji Kaneshige wrote:
-
-Hi,
-
-Thank you for your comments.
-
-
-An other or complementary way is to attach a vector only for interrupt
-lines witch are used, PCI slots have 4 interrupt lines but only 1 or
-sometime 2 are used by adapters.
-
-
-I agree with attaching a vector only for interrupt lines which are used.
-Your patch stops the waste of the vector resource, and it becomes difficult
-for the lack of vectors to happen. I think we can also do this by using
-Bjorn's
-ACPI IRQ cleanup patch. To tell the truth, I also had a same idea before.
-
-However, this idea doesn't solve the problem completely. The problem will
-happen in the following case:
-
-	o many PCI adapters have 2 or more functions
-	o machine has more than 184 PCI slots in the same domain
-
-So, I think vector sharing is necessary to solve this problem.
-
-
-I agree with you ACPI IRQ cleanup patch or my patch only stops the waste of
-the vector resource for line not used but doesn't solve  the problem
-completely.
-In addition with on of theses patch our patch set_rte() should get
-iosapic_lock is mandatory.
-
-Jean-Francois
-
+> -----Original Message-----
+> From: Bjorn Helgaas [mailto:bjorn.helgaas@hp.com]
+> Sent: Thursday, April 22, 2004 1:45 PM
+> To: Kenji Kaneshige
+> Subject: Re: [PATCH][RFC] Vector sharing
+> 
+> 
+> On Wednesday 21 April 2004 8:37 pm, you wrote:
+> > I think both of your patch needs to get iosapic_lock in
+> > iosapic_register_intr()
+> > also. Please see following message:
+> > 
+> > http://www.gelato.unsw.edu.au/linux-ia64/0404/9352.html
+> 
+> Yes, I think you're right.  Thanks for posting your patch.  I'll
+> integrate that when I get some time to work on that again.
+> (I apologize that it is taking me so long to get the patch
+> straightened out.  I haven't had much time to work on it
+> lately.)
+> 
+> I also agree that while my patch should reduce the usage of
+> vectors, we will also need another mechanism to avoid running
+> out.  I don't know whether the right answer is sharing,
+> doing per-CPU vector allocation, some combination, or what.
+> 
+> Bjorn
