@@ -1,93 +1,29 @@
-From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Date: Wed, 22 Sep 2004 09:57:53 +0000
-Subject: Re: [ACPI] PATCH-ACPI based CPU hotplug[5/6]-ACPI processor driver
-Message-Id: <20040922185753.4f57d124.tokunaga.keiich@jp.fujitsu.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 01 Sep 2004 16:19:35 +0000
+Subject: ia64 2.6.8 patch
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01F09A76@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com>
- <20040920094352.G14208@unix-os.sc.intel.com>
-In-Reply-To: <20040920094352.G14208@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Cc: tokunaga.keiich@jp.fujitsu.com, len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Mon, 20 Sep 2004 09:43:52 -0700 Keshavamurthy Anil S wrote:
-> Changes form previous version
-> 1) Added depends on EXPERIMENTAL in kconfig file
-> 
-> ---
-> Name:processor_drv.patch
-> Status:Tested on 2.6.9-rc2
-> Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-> Depends:	
-> Version: applies on 2.6.9-rc2	
-> Description:
-> Extends the processor driver to support ACPI based Physical CPU hotplug.
+David Mosberger gently reminded me:
+>A tiger4 owner asked me why there isn't an ia64-specific patch for
+>2.6.8.1 yet.  Are you planning to put one out shortly?
 
-> +static int
-> +is_processor_present(
-> +	acpi_handle handle)
-> +{
-> +	acpi_status 		status;
-> +	unsigned long		sta = 0;
-> +
-> +	ACPI_FUNCTION_TRACE("is_processor_present");
-> +
-> +	status = acpi_evaluate_integer(handle, "_STA", NULL, &sta);
-> +	if (ACPI_FAILURE(status) || !(sta & ACPI_STA_PRESENT)) {
-> +		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
-> +			"Processor Device is not present\n"));
-> +		return_VALUE(0);
-> +	}
-> +	return_VALUE(1);
-> +}
+I've put linux-2.6.8-ia64-040901.diff.gz in the usual place
+on kernel.org ... this is a patch against Linus 2.6.8, but
+includes the 2.6.8 -> 2.6.8.1 generic patches as well as all
+the pieces that I put into my linux-ia64-release-2.6.8.1 tree
+(which turns out to be more than I really should have, many
+of the pieces should just have gone to the release-2.6.9 tree).
 
-This assumes that a device is not present if acpi_evaluate_integer()
-returns failure.  But, from the ACPI spec, I think we should assume
-the device is present if the function fails due to a failure in finding
-_STA method.
+The only piece anyone really *needs* to build 2.6.8 or 2.6.8.1
+on ia64 is the one line addition to include/asm-ia64/acpi.h
 
-I am attaching a patch to fix this.  Please see it below.
+ #define acpi_disabled 0        /* ACPI always enabled on IA64 */
++#define acpi_noirq 0   /* ACPI always enabled on IA64 */
+ #define acpi_pci_disabled 0 /* ACPI PCI always enabled on IA64 */
 
-Thanks,
-Keiichiro Tokunaga
-
-
-Name: cpu_hp_sta_fix.patch
-Status: Tested on 2.6.9-rc2
-Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Description:
-Fix the evaluation method of _STA in drivers/acpi/processor.c.  If a processor
-object does not have _STA, we should consider it as present.
-
-
----
-
- linux-2.6.9-rc2-fix-kei/drivers/acpi/processor.c |   12 +++++++++++-
- 1 files changed, 11 insertions(+), 1 deletion(-)
-
-diff -puN drivers/acpi/processor.c~cpu_hp_sta_fix drivers/acpi/processor.c
---- linux-2.6.9-rc2-fix/drivers/acpi/processor.c~cpu_hp_sta_fix	2004-09-22 11:56:58.000000000 +0900
-+++ linux-2.6.9-rc2-fix-kei/drivers/acpi/processor.c	2004-09-22 18:36:34.000000000 +0900
-@@ -2551,7 +2551,17 @@ is_processor_present(
- 	ACPI_FUNCTION_TRACE("is_processor_present");
- 
- 	status = acpi_evaluate_integer(handle, "_STA", NULL, &sta);
--	if (ACPI_FAILURE(status) || !(sta & ACPI_STA_PRESENT)) {
-+	if (ACPI_FAILURE(status)) {
-+		/* Assume device is present if it does not have _STA. */
-+		if (status = AE_NOT_FOUND)
-+			return_VALUE(1);
-+		else {
-+			printk(KERN_WARNING "Failed to evaluate _STA.\n");
-+			return_VALUE(0);
-+		}
-+	}
-+
-+	if (!(sta & ACPI_STA_PRESENT)) {
- 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
- 			"Processor Device is not present\n"));
- 		return_VALUE(0);
-
-_
+-Tony
