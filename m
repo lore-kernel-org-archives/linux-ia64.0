@@ -1,30 +1,43 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 14 Nov 2002 00:55:13 +0000
-Subject: Re: [Linux-ia64] sigcontext structure
-Message-Id: <marc-linux-ia64-105590709805417@msgid-missing>
+From: Xavier Bru  <Xavier.Bru@bull.net>
+Date: Tue, 26 Nov 2002 17:54:36 +0000
+Subject: [Linux-ia64] 2.5.45 with CONFIG_NUMA=y
+Message-Id: <marc-linux-ia64-105590709805486@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701906086@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701906086@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 13 Nov 2002 12:42:20 -0600, "shiva chetan" <chetan@uiuc.edu> said:
+Hi,
 
-  Chetan> Hi, The sigcontext structure of linux/i386 has the following
-  Chetan> fields
+Booting the 2.5.45 kernel on our numa platform, we hit 2 problems:
 
-  Chetan> trapno (stores trap number) err (stores faulting address)
-  Chetan> cr2 (contains type of fault)
+. Current settings for DIG are : 512MB/bank, 16GB/node,(mmzone.h)  but our
+platform can support 64 GB/node (Even with less memory, bios maps
+each node memory modulo 64GB).=20
+As it has been cleanly coded :-), we just changed DIG_BANKSHIFT to 31=20
+(2GB banks) and system runs.=20
+Should these values bee incremented in the future ?
 
-  Chetan> what are the equivalent fields in the sigcontext structure
-  Chetan> of linux/ia64 ?  its not very apparent from the definition
-  Chetan> of the structure.
+. We can't get X11 working (Xserver loops in user mode). Note that=20
+it works OK with 2.5.45 without DISCONTIG_MEM set. Having a look to the
+mappings in /proc/ and the XFree86 log, we saw no difference. Any idea=20
+?
 
-There is no 1-to-1 correspondence, but such info is stored in siginfo
-on ia64.  See siginfo.h.
+thanks in advance for your help.
 
-	--david
+Xavier
+
+--=20
+
+ Sinc=E8res salutations.
+_____________________________________________________________________
+=20
+Xavier BRU                 BULL ISD/R&D/INTEL office:     FREC B1-422
+tel : +33 (0)4 76 29 77 45                    http://www-frec.bull.fr
+fax : +33 (0)4 76 29 77 70                 mailto:Xavier.Bru@bull.net
+addr: BULL, 1 rue de Provence, BP 208, 38432 Echirolles Cedex, FRANCE
+_____________________________________________________________________
+
 
 
