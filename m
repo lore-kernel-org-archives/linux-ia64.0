@@ -1,7 +1,7 @@
-From: Sane_Purushottam@emc.com
-Date: Wed, 25 Sep 2002 19:33:12 +0000
+From: "Wichmann, Mats D" <mats.d.wichmann@intel.com>
+Date: Wed, 25 Sep 2002 19:40:20 +0000
 Subject: RE: [Linux-ia64] platform detection at run-time
-Message-Id: <marc-linux-ia64-105590701906061@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701906063@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701906051@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701906051@msgid-missing>
@@ -10,75 +10,87 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The reason, I have to detect the architecture at run time has to do with the
-interface with (sg) driver. Since the driver is natively compiled for
-64-bit, it expects the data structure handed over to it, to be 64-bit wide.
-Thus my 32-bit application cannot issue ioctl calls successfully.
-
-So, in my application, based on the platform, I fill the appropriate
-structure before ioctl call.
-
-Nitin Sane
-sane_purushottam@emc.com
-(508) 382-7319
-
-
------Original Message-----
-From: Van Maren, Kevin [mailto:kevin.vanmaren@unisys.com]
-Sent: Wednesday, September 25, 2002 3:28 PM
-To: 'Sane_Purushottam@emc.com '; 'linux-ia64@linuxia64.org '
-Subject: RE: [Linux-ia64] platform detection at run-time
+>   Nathan> What are the puzzle pieces of a "properly configured
+>   Nathan> machine?"  It's worked on all Redhat 7.2 based systems I've
+>   Nathan> run.
+> 
+> It's wrong if execve("/bin/uname") returns a different value than the
+> x86 uname() system call.  To ensure consistency, it is necessary to
+> install the x86 version of uname in /emul/ia32-linux/bin/.
+> 
+> I'd hope that stuff like this will eventually be spelled out in the
+> LSB documents.
 
 
-Nitin,
+Ahem.  I'm listening.  There's a draft ia64 LSB spec
+available for review here:
 
-Have you decided what you want to do about AMD's x86-64?
-That is another 64-bit platform that will run your 32-bit binary.
+http://www.linuxbase.org/spec/lsbia64review.html
 
-Ideally all three platforms would be enough alike you don't
-have to worry about it: is there a problem with Linux that is
-causing you to perform this check?
+you can also go directly to the doc from here:
 
-Kevin
+http://www.linuxbase.org/spec/index.shtml
 
------Original Message-----
-From: Sane_Purushottam@emc.com
-To: linux-ia64@linuxia64.org
-Cc: Sane_Purushottam@emc.com
-Sent: 9/25/02 2:18 PM
-Subject: [Linux-ia64] platform detection at run-time
+(and file bugs in the normal way through sourceforge,
+which is better, since if you're logged in when you
+file it you get notifications back as it progresses).
 
-I have a linux application running on 32-bit machines. Due to some
-third-party limitations, we cannot build this application on 64-bit
-machines
-natively. Thus we'll be using the '32-bit compatibility mode'.
+It got tagged with a close date of this Friday,
+but if there's any enthusiasm forthcoming, I don't
+mind keeping that open a bit longer.  Seems like
+the announcement of the review period that was
+supposed to go "everywhere" never did get sent to
+this list, at least I don't recall seeing it.
+(Prob'ly should have done that myself; sorry).
 
-For some application specific reasons, I need to be able to determine at
-run-time whether the application is running on a 32-bit or a 64-bit
-platform.
+We've really kind of sidestepped some of these issues, 
+for a variety of reasons.
 
-What I have found is that there's no reliable way for the application to
-determine whether it's running on a 64-bit machine. I use info obtained
-from
-/proc/cpuinfo (more specifically family field) to determine the
-platform.
-However this is not standard. On Redhat 7.1 (lk 2.4.3-12) family value
-is
-set to IA-64 while on Redhat 7.2 (lk 2.4.9-34) this field is set to
-'Itanium'.
+First off, there was some effort a while back to talk
+about /proc/cpuinfo, and then that was killed.  I don't
+recall the whole discussion, but /proc/cpuinfo will NOT
+be standardized in the LSB in the forseeable future.
 
-What is the preferred method to determine the platform at run time ??
-Are
-these values likely to change (after I change my code to handle this)
-????
+Secondly, the current consensus seems to be that issues
+of compatibility library and file location will be resolved
+behind the scenes, so the spec should not say much about 
+them. For example, an ia32 binary will be linked against
+ld-linux.so.2 (or for an LSB application, ld-lsb.so.1),
+and it's that dynamic linker's work to figure out
+things about the libraries.  There's already, for
+example, one ia32 implementation where the LSB dynamic
+linker actually picks libraries out of /lib/lsb
+instead of /lib or /usr/lib.  That's allowed....
 
-Nitin Sane
-sane_purushottam@emc.com
-(508) 382-7319
+The /emul/linux-i386 stuff is a path prefix supplied
+by the kernel, right?  I really don't know whether
+that should be mentioned in the spec or not: does
+an application actually need to know that this is
+happening, or is it completely transparent?  Of
+course a given system has to "get it right".
 
+I do think the issue that started this thread is worthy
+of some sort of mention in the LSB.
 
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+The LSB in general is following FHS ideas, I know
+that discussion spilled onto this list about a year
+ago.
+
+One thing that's been batted around is the name of
+the dynamic linker:  it's been tentatively called
+ld-lsb-ia64.so.1 to parallel the "standard" Linux
+one, but other folks with 64-bit architectures
+prefer a more generic ld-lsb-64.so.1, which would be
+the same name regardless of architecture.  Since this 
+doesn't affect ld-linux, there's no backwards-compatibility
+issue with that name...
+
+Anyway, any and all comments on this stuff gratefully
+accepted.
+
+Thanks,
+
+Mats Wichmann
+(if you couldn't guess, I'm Intel's current representative 
+to the LSB)
 
