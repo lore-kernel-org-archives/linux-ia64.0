@@ -1,61 +1,48 @@
-From: John Levon <levon@movementarian.org>
-Date: Wed, 08 Oct 2003 19:46:49 +0000
-Subject: Re: OProfile vs. Perfmon
-Message-Id: <marc-linux-ia64-106564249926532@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 13 Oct 2003 08:55:38 +0000
+Subject: Race in salinfo.c?
+Message-Id: <marc-linux-ia64-106603536206819@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106556940523002@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106556940523002@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Oct 08, 2003 at 10:40:30AM -0700, Stephane Eranian wrote:
+I need a sanity check on the existing salinfo.c code, it looks like a
+race.
 
-> Again, different tools have different goals. The important point
-> is that I believe we can provide that kind of flexibility while still using 
-> a single kernel interface.
+salinfo_log_wakeup()
 
-Absolutely agreed, it is not sensible to have multiple interfaces to the
-same thing, and flexibility in the type of performance counting is
-important.
+  set_bit(smp_processor_id(), &event->cpu_mask);
+  wake_up_interruptible(&event->queue);
 
-> If you looked at the default format (perfmon_default_smpl.c), you see how this 
-> can be implemented.  As for buffer management, again, perfmon-2 gives you a 
-> choice. You can have perfmon-2 allocates and remap the buffer into the address 
-> space of the tool OR you can do this yourself, i.e., allocate you own buffer 
-> AND export it in ANY WAY you want.
+salinfo_event_read()
 
-Sounds great.
+  if (!event->cpu_mask) {
+    ...
+    interruptible_sleep_on(&event->queue);
 
-> The idea is that the user space tools would go through the perfmonctl() system
-> call to setup the counters for a system-wide session. You do NOT need to use
-> pfmlib if you already have your own libary to handle the IA-64 events and
-> their encodings. In fact, the upcoming version 3.0 of the libpfm library is 
-> TOTALLY disconnected from the kernel interface. In any case, Keep in mind 
-> that the library DOES NOT call perfmonctl(), it is just here to help you 
-> figure out what values to program into the PMC registers given what you want to
-> measure.
 
-We do have our own stuff but it would certainly make sense for us to use
-pfmlib for the allocation/setup.
 
-> The tool simply needs to fork/pthread_create a worker task for each CPU
-> it wants to measure on and it must pinned the task. The system-wide perfmon 
-> context will be bound to the CPU is was created on. The creator task can 
-> later migrate to other CPUs, but the context can only be accessed from tasks 
-> running on its CPU. I realize that this is not the model you have chosen, but
-> I believe you can fairly easily hide the difference into some small library.
+      cpu 0                                   cpu 1
+salinfo_log_wakeup                      salinfo_event_read
+                                        event->cpu_mask = 0
+set_bit()
+wake_up_interruptible(), nothing on
+the queue
+                                        interruptible_sleep_on()
 
-OK, thanks for clarifying. It's certainly not much code to fork off N
-tasks and pin them to each CPU before calling the stuff to create a
-context.
+cpu 1 missed the event.  It will only be picked up if another salinfo
+event occurs and calls wake_up_interruptible() a second time.
 
-I'll get hacking :)
+If that race exists (I cannot see anything that prevents it), the only
+solution is to grab BKL around accesses of event->cpu_mask.  It has to
+be BKL, we have no atomic operation that does 
 
-thanks,
-john
+  drop_lock();
+  interruptible_sleep_on();
+  acquire_lock();
 
--- 
-Khendon's Law:
-If the same point is made twice by the same person, the thread is over.
+I am already doing other work on salinfo.c.  If this race is real then
+I will do a patch to close it.
+
