@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 05 May 2004 15:36:56 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 05 May 2004 15:44:48 +0000
 Subject: Re: mmap() of /dev/kmem issue
-Message-Id: <20040505153656.GD9752@cup.hp.com>
+Message-Id: <20040505154448.GW2281@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4097C51D.71EA0BEA@email.mot.com>
 In-Reply-To: <4097C51D.71EA0BEA@email.mot.com>
@@ -10,32 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, May 05, 2004 at 09:57:41AM -0500, Mario Smarduch wrote:
-> But there are cases where
-> kernel values just need to be read timely.
+On Wed, May 05, 2004 at 08:08:21AM -0700, Luck, Tony wrote:
+> Mapping kernel memory as uncacheable into a user process
+> seems like a recipe for disaster (well at least for an
+> MCA when the processor catches you using mixed attributes).
 
-Watching kernel data from userspace is an impossible task.
-Unless one has a "real time" scheduler and *halts* all kernel
-activity, the kernel values visible to user space will lag
-what the kernel does. Something like KGDB can do that.
-It's not something I expect to work correctly.
-Ergo define an interface (eg gettimeofday() or /proc/sys/kernel/*)
-to get "sane" values and move on.
+... which is why we don't do that.
 
-> As things
-> are right now you can still corrupt the kernel but
-> are unable to do anything useful because of attribute
-> aliasing to that range. Perhaps a rejection of mapping
-> such regions for writes should be imposed,
+See drivers/char/mem.c::mmap_mem().  We call uncached_access() which does:
 
-Maybe. I don't understand the VM well enough.
+#elif defined(CONFIG_IA64)
+        /*
+         * On ia64, we ignore O_SYNC because we cannot tolerate memory attribute 
+aliases.
+         */
+        return !(efi_mem_attributes(addr) & EFI_MEMORY_WB);
 
-> but I'm
-> not sure how mapping it as uncachable helps?
-> To me this behaviour seems buggy.
-
-I'm still inclined to think the approach is wrong.
-Maybe you have a better test case that doesn't involve user
-interaction and shows why the data has to come from /dev/kmem?
-
-grant
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
