@@ -1,50 +1,55 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 03 Apr 2003 20:08:46 +0000
-Subject: Re: [Linux-ia64] module support for 2.5 kernel
-Message-Id: <marc-linux-ia64-105590723705402@msgid-missing>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Thu, 03 Apr 2003 06:36:47 +0000
+Subject: [Linux-ia64] rx2600 console output with management card
+Message-Id: <marc-linux-ia64-105590723705386@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705330@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705330@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  Xavier> Hi David,
+Hello,
 
-  Xavier> Thanks for providing this important functionality.
+Does anyone know if there is some trick to getting linux console
+output through the management processor on the rx2600?  all the
+documentation states that the management card processor output mirrors
+the system console when not it it's managment mode -- which it does
+until linux starts.
 
-  Xavier> We found the following (minor :-) problems:
+linux console works fine when plugged into the 'normal' serial port
+(which is labeled 'console'), but when plugged into the console output
+of the management card (via the provided splitter) I see none of
+linux's output.  same problem via telnet -- everything stops when efi
+stops.
 
-  Xavier> 1) missing module.o in arch/ia64/kernel/Makefile.
+our hp support guy said he thinks hpux uses special /dev entries to
+output via the management card, i couldn't verify this.
 
-Oops, I must have dropped that by accident.  Sorry.
+some extra info :
 
-  Xavier> 2) using CONFIG_MODVERSIONS, the per-cpu-check.awk script fails with
-  Xavier> __crc_xxx symbols:
+we boot with console=ttyS0
 
-  Xavier> 000000004d13d7e9 A __crc_page_states__per_cpu not in per-cpu section
-  Xavier> 00000000b4f8f003 A __crc_cpu_info__per_cpu not in per-cpu section
-  Xavier> make: *** [vmlinux] Error 1
+From the EFI boot maintenance menu I have
+* Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100)
+* Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100)
+* Acpi(HWP0002,700)/Pci(2|0)
+selected as output/input/error devices.
 
-  Xavier> Just changing the script to ignore them fixes the problem.
+from .config
+#
+# Serial drivers
+#
+CONFIG_SERIAL_8250=y
+# CONFIG_SERIAL_8250_ACPI is not set
+CONFIG_SERIAL_8250_CONSOLE=y
+CONFIG_SERIAL_8250_HCDP=y
+# CONFIG_SERIAL_8250_EXTENDED is not set
 
-Yes, the warning is bogus.  Your fix looks fine to me.
+any suggestions appreciated!
 
-  Xavier> 3) with CONFIG_NUMA set, there are undefined symbols building modules:
+-i
+ianw@gelato.unsw.edu.au
+http://www.gelato.unsw.edu.au
 
-  Xavier> scripts/modpost vmlinux drivers/md/dm-mod.o drivers/net/e1000/e1000.o drivers/net/eepro100.o drivers/md/md.o drivers/net/mii.o fs/xfs/xfs.o
-  Xavier> *** Warning: "cpu_info__per_cpu" [fs/xfs/xfs.ko] undefined!
-  Xavier> *** Warning: "cpu_info__per_cpu" [drivers/md/md.ko] undefined!
-  Xavier> *** Warning: "cpu_to_node_map" [drivers/md/md.ko] undefined!
 
-  Xavier> exporting them in ia64_ksyms.c fixes the problem.
-
-  Xavier> Hereafter a possible patch that applies on top of yours:
-
-OK, I don't know why cpu_info__per_cpu wasn't exported for NUMA.  I
-suspect it had something to do with using node-local memory.  If
-someone sees a problem with exporting this symbol, please speak up.
-
-	--david
 
