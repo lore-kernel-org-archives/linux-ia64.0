@@ -1,32 +1,26 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 19 Sep 2001 21:43:26 +0000
-Subject: Re: [Linux-ia64] Re: PROPOSED: 32/64 bit coexistance
-Message-Id: <marc-linux-ia64-105590698805227@msgid-missing>
+From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
+Date: Mon, 10 Sep 2001 17:47:45 +0000
+Subject: [Linux-ia64] large binary question
+Message-Id: <marc-linux-ia64-105590698805157@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805199@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805199@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 19 Sep 2001 02:02:35 -0400, Jakub Jelinek <jakub@redhat.com> said:
+Hi,
 
-  Jakub> On Tue, Sep 18, 2001 at 01:47:12PM -0700, David Mosberger
-  Jakub> wrote:
-  >> That would be good.  It might also be good to explicitly state
-  >> that these trees are expected to follow the filesystem layout
-  >> conventions of the emulated environment (to the degree that this
-  >> makes sense).  For example, you could assume that there would be:
-  >> 
-  >> /emul/ia32-linux/etc/ld.so.conf
+We tried to compile a "large" application on Linux/IA64, and get get this:
 
-  Jakub> Why ld.so.conf? /etc/ld.so.conf should be enough when
-  Jakub> ldconfig handles multiple ABI libraries.
+/usr/bin/ld: ../FOO.05.x: short data segment overflowed (0x7a4588 >0x400000)
 
-I think there is a choice.  You could do it either way (theoretically
-at least).  From a user perspective, it's probably better to have just
-/etc/ld.so.conf.
+when trying to link it.  Running "size" on all the .o files, it looks like
+the combined text segment is about 15x10^6 bytes, as well as (more modest)
+460K data and 60K BSS between all the object files.
 
-	--david
+Any ideas on how to link it?  Would it help to compile some of the files
+into a library first: would PIC code avoid the limit?
+
+Thanks,
+Kevin Van Maren
 
