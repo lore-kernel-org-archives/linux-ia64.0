@@ -1,32 +1,37 @@
-From: "Michael Weisbach" <michael.weisbach@de.ibm.com>
-Date: Thu, 29 Nov 2001 08:50:53 +0000
-Subject: [Linux-ia64] TokenRing on IA-64?
-Message-Id: <marc-linux-ia64-105590698805561@msgid-missing>
+From: Erich Focht <efocht@ess.nec.de>
+Date: Thu, 22 Nov 2001 10:29:05 +0000
+Subject: [Linux-ia64] kernel/sched.c -1ULL vs. (cycles_t) -1
+Message-Id: <marc-linux-ia64-105590698805541@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello folks :),
+David,
 
-is there any success on using Token Ring cards?
+in your ia64 patches you have a small cosmetic change which is (sort of)
+making kernel/sched.c platform dependent:
 
-I=B4ve tried to compile a kernel coming with RH7.2b2/ia64, loaded the new
-kernel
-and module (olympic.o) successfully - but TR doesn=B4t work at all, I fear.
-After
-a little while the entire box stops :-( and no network traffic comes out of
-tr0.
+diff -urN linux-2.4.14/kernel/sched.c linux-2.4.14-lia/kernel/sched.c
+--- linux-2.4.14/kernel/sched.c Wed Oct 24 10:18:08 2001
++++ linux-2.4.14-lia/kernel/sched.c     Wed Oct 24 10:21:35 2001
+@@ -266,7 +266,7 @@
+                                target_tsk = tsk;
+                        }
+                } else {
+-                       if (oldest_idle = -1ULL) {
++                       if (oldest_idle = (cycles_t) -1) {
+                                int prio = preemption_goodness(tsk, p,
+cpu);
+ 
+[ in two places ].
+Because of this one needs separate patches for IA-64 and other platforms
+when
+working on the scheduler. Would you mind taking this out or trying to
+get it into
+the base-line kernel?
 
-TIA,
-
-     Micha
-
---
-IT -Services and Solutions GmbH... an IBM Global Services Company
-michael.weisbach@de.ibm.com, +49-175-7238810 / +49-(0)7031-16-1956 /
-*120-1956
-
-
+Thanks,
+Erich
 
