@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 06 Mar 2004 05:49:20 +0000
+Date: Sat, 06 Mar 2004 07:21:32 +0000
 Subject: Re: [linux-usb-devel] Re: serious 2.6 bug in USB subsystem?
-Message-Id: <16457.26208.980359.82768@napali.hpl.hp.com>
+Message-Id: <16457.31740.99944.563029@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>
 	<20031028013013.GA3991@kroah.com>
@@ -12,66 +12,60 @@ References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>
 	<3FA28C9A.5010608@pacbell.net>
 	<16457.12968.365287.561596@napali.hpl.hp.com>
 	<404959A5.6040809@pacbell.net>
-In-Reply-To: <404959A5.6040809@pacbell.net>
+	<16457.26208.980359.82768@napali.hpl.hp.com>
+In-Reply-To: <16457.26208.980359.82768@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Brownell <david-b@pacbell.net>
-Cc: davidm@hpl.hp.com, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
+To: David Brownell <david-b@pacbell.net>, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it, davidm@hpl.hp.com
 
->>>>> On Fri, 05 Mar 2004 20:55:01 -0800, David Brownell <david-b@pacbell.net> said:
-  >> Turns out it's this patch that was causing the crashes:
+>>>>> On Fri, 5 Mar 2004 21:49:20 -0800, David Mosberger <davidm@linux.hpl.hp.com> said:
 
-  >> http://linux.bkbits.net:8080/linux-2.5/cset@1.1619.1.17
+  David> It's not an issue of DMA coherency, it's an issue of DMA
+  David> vs. interrupt ordering.  I believe the WHD interrupt is
+  David> arriving at the CPU before the DMA update to the HCCA is
+  David> done.
 
-  David.B> Maybe in 2.6.4-rc2... but not in 2.6.0-test{8,9}!!
+Actually, it looks like I misunderstood the OHCI spec on first reading.
+It seems like the causal relationship goes like this:
 
-Of course.  What I'm saying is that in 2.6.0-test{8,9} it was rare to
-trigger the problem (only with BTC keyboard) and the change above made
-it trivial to trigger the keyboard.  Basically, your fix in
-cset 1.1619.1.17 made it more common for stuff to be unlinked in
-the "deferred" (proper) manner and that made it much more likely to
-trigger the bug.
+ (1) Start of Frame -> (2) update HccaFrameNumber -> (3) trigger SF interrupt
 
-  David.B> The reason I keep ending up thinking that readl-elimination
-  David.B> must be OK (me agreeing with Martin) is that the memory
-  David.B> there came from dma_alloc_coherent() ... so if anything's
-  David.B> wrong, it'd be at most lack of rmb(), not a stale-cache
-  David.B> kind of thing.
+Now, suppose you get a WDH interrupt between (1) and (2).  You'd read
+the old frame-number yet by the time the interrupt from (3) arrives
+the HC might already be accessing the ED that you're about to remove.
 
-It's not an issue of DMA coherency, it's an issue of DMA vs. interrupt
-ordering.  I believe the WHD interrupt is arriving at the CPU before
-the DMA update to the HCCA is done.  In my second patch, the readl()
-at the beginning of the interrupt ensures that the DMA update to
-the HCCA is completed before the readl() returns data.
+If this is correct, then the first patch is probably a better
+approach:
 
-  David.B> It reads the frame number directly from the controller, so
-  David.B> it's not possible that it can be so stale that an rmb()
-  David.B> wouldn't fix sequencing issues.
+=== drivers/usb/host/ohci-q.c 1.48 vs edited ==--- 1.48/drivers/usb/host/ohci-q.c	Tue Mar  2 05:52:46 2004
++++ edited/drivers/usb/host/ohci-q.c	Fri Mar  5 17:25:55 2004
+@@ -438,7 +451,7 @@
+ 	 * behave.  frame_no wraps every 2^16 msec, and changes right before
+ 	 * SF is triggered.
+ 	 */
+-	ed->tick = OHCI_FRAME_NO(ohci->hcca) + 1;
++	ed->tick = OHCI_FRAME_NO(ohci->hcca) + 2;
+ 
+ 	/* rm_list is just singly linked, for simplicity */
+ 	ed->ed_next = ohci->ed_rm_list;
 
-Eh, it's read like this:
+This actually makes tons of sense if you think of it like jiffies: you
+need to make sure you delay at least one full frame-interval.  If you
+set the tick to "+ 1" and the current tick is almost over, that
+requirement is violated.  Setting it to "+ 2" should be safe.  The
+only problem I can think of is if the delay between point (1) and (2)
+were to exceed one frame-interval (1 msec).  While unlikely, the right
+PCI topology and heavy bus traffic perhaps could cause such delays.
+However, even then it's probably OK because the HC would presumably
+stall when trying to update the HccaFrameNumber the second time and
+the previous update hasn't completed yet.
 
-   #define OHCI_FRAME_NO(hccap) ((u16)le32_to_cpup(&(hccap)->frame_no))
-
-   finish_unlinks (ohci, OHCI_FRAME_NO(ohci->hcca), ptregs);
-
-The HCCA is in host memory.
-
-  >> - HCD ends up dereferencing a bad pointer and ends up reading
-  >> from address 0xf0000000, which on our ia64 machines is a
-  >> read-only area, which then results in a machine-check abort
-
-  David.B> I'm surprised that DMA from a read-only area would be a
-  David.B> problem!  :) If OHCI is getting a PCI error, I'd expect a
-  David.B> "UE" IRQ.
-
-You must have not received my follow-up message.  There was a typo in
-my message: it was supposed to say "write-only" area.
-
-  David.B> I still suspect some problem in the HID code.  But right
-  David.B> now I'm quite certain of a recent-ish OHCI issue.
-
-I'm 99% certain that the problem I saw back in October (BTC keyboard)
-was identical to the one triggered by cset 1.1619.1.17.
+Here is one little piece of evidence that's consistent with this
+explanation: last week I tried to rip some audio tracks off a CD.
+With PIO, this caused interrupts to get delayed 2-3msec and that
+caused all kinds of weird effects on the USB bus.  Mostly, I'd
+suddenly lose the keyboard or the mouse, though reconnecting them
+would "fix" the problem for a short time.
 
 	--david
