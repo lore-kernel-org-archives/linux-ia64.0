@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Fri, 16 May 2003 00:29:05 +0000
+From: James Bottomley <James.Bottomley@HansenPartnership.com>
+Date: Fri, 16 May 2003 00:31:20 +0000
 Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705872@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705875@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,27 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, May 15, 2003 at 04:27:33PM -0700, David S. Miller wrote:
->    From: Jesse Barnes <jbarnes@sgi.com>
->    Date: Thu, 15 May 2003 13:24:12 -0700
->    
->    How about this: drivers that support PCI-X cards are required to
->    program the full 64 bits of a pci_alloc_consistent DMA address, the
->    top 32 bits of which can be zero for most platforms.
+On Thu, 2003-05-15 at 19:17, David S. Miller wrote:
+> Having to support DAC cycles does not mean that it must support full
+> 64-bit DMA addresses in it's descriptors.
 > 
-> How about this: you put the device attributes where they belong,
-> in the device struct.
+> A cost sensitive PCI-X device may wish to use 32-bit addressing in
+> it's descriptors in order to keep pin counts down etc.
 
-That's fine, it'll work for us.  I just wanted to make sure that
-dma_alloc_consistent could return a 64 bit DMA addr.  Having a
-consistent_dma_mask will allow us to do that for devices that support
-it.  We'll have to switch devices that can't into PCI mode for them to
-operate correctly on our hw.
+This is certainly a property of the aic79xx driver (only using 32 bit
+descriptor tables).  It has this nice code in the driver for doing it:
 
-Also, are you saying that tg3 doesn't support all 64 bits of the DMA
-address?  If so, I'm not sure how it's working on our platform either,
-unless we're forcing it into PCI mode; I'll have to check.
+aic79xx.c:
 
-Thanks,
-Jesse
+	/*
+	 * Although we can dma data above 4GB, our
+	 * "consistent" memory is below 4GB for
+	 * space efficiency reasons (only need a 4byte
+	 * address).  For this reason, we have to reset
+	 * our dma mask when doing allocations.
+	 */
+	if (ahd->dev_softc != NULL)
+		ahd_pci_set_dma_mask(ahd->dev_softc, 0xFFFFFFFF);
+	*vaddr = pci_alloc_consistent(ahd->dev_softc,
+				      dmat->maxsize, &map->bus_addr);
+	if (ahd->dev_softc != NULL)
+		ahd_pci_set_dma_mask(ahd->dev_softc,
+				     ahd->platform_data->hw_dma_mask);
+
+And it comes in PCI-X flavours.
+
+James
+
+
 
