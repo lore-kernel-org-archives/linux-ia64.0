@@ -1,7 +1,7 @@
-From: "Mallick, Asit K" <asit.k.mallick@intel.com>
-Date: Fri, 02 Mar 2001 01:00:44 +0000
-Subject: RE: [Linux-ia64] CONFIG_IA64_L1_CACHE_SHIFT
-Message-Id: <marc-linux-ia64-105590693005240@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 02 Mar 2001 15:51:55 +0000
+Subject: Re: [Linux-ia64] CONFIG_IA64_L1_CACHE_SHIFT
+Message-Id: <marc-linux-ia64-105590693005242@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005236@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005236@msgid-missing>
@@ -10,40 +10,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Also this is configurable to take care of future processors that may have
-higher cache line sizes.
+>>>>> On 02 Mar 2001 00:18:48 +0100, Jes Sorensen <jes@linuxcare.com> said:
 
-Thanks,
-Asit
+>>>>> "David" = David Mosberger <davidm@hpl.hp.com> writes:
+>>>>> On 01 Mar 2001 20:29:28 +0100, Jes Sorensen <jes@linuxcare.com> said:
+  Jes> in the config file? We already have SMP_CACHE_BYTES and
+  Jes> L1_CACHE bytes for all architectures, it doesn't make a whole
+  Jes> lot of sense to me ot invent yet another alignment rule.
 
+  David> $ fgrep CONFIG_IA64_L1 include/asm-ia64/cache.h #define
+  David> L1_CACHE_SHIFT CONFIG_IA64_L1_CACHE_SHIFT
 
-> -----Original Message-----
-> From: David Mosberger [mailto:davidm@hpl.hp.com]
-> Sent: Thursday, March 01, 2001 2:35 PM
-> To: Jes Sorensen
-> Cc: linux-ia64@linuxia64.org
-> Subject: Re: [Linux-ia64] CONFIG_IA64_L1_CACHE_SHIFT
-> 
-> 
-> >>>>> On 01 Mar 2001 20:29:28 +0100, Jes Sorensen 
-> <jes@linuxcare.com> said:
-> 
->   Jes> Hi Anyone who can explain why there is a
-> 
->   Jes> define_int CONFIG_IA64_L1_CACHE_SHIFT 6
-> 
->   Jes> in the config file? We already have SMP_CACHE_BYTES and
->   Jes> L1_CACHE bytes for all architectures, it doesn't make a whole
->   Jes> lot of sense to me ot invent yet another alignment rule.
-> 
-> $ fgrep CONFIG_IA64_L1 include/asm-ia64/cache.h 
-> #define L1_CACHE_SHIFT          CONFIG_IA64_L1_CACHE_SHIFT
-> 
-> 	--david
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
+  Jes> Hmmm ok
+
+  Jes> It just seemed weird to have it in the config.in
+  Jes> file.
+
+Why?  The cache line size is not defined by the architecture (only the
+_minimum_ size is architected at 32 bytes), so it may well vary with
+future chips.  Also, on some platforms it's beneficial to align to a
+bigger size (e.g., SN1), even if the L1 cache line size is the same.
+
+  Jes> Btw. shouldn't the acpi code use SMP_CACHE_BYTES for alignment?
+  Jes> It doesn't buy you a whole lot to align on L1 cache boundaries
+  Jes> if you're trying to be SMP aware - or is it rather a DMA vs CPU
+  Jes> alignment issue?
+
+I don't know.  Not to hurt any feelings, but the ACPI code is a
+monstrous piece of software that strikes me as being very poorly
+integrated into the Linux kernel.  It seems to redo everything on its
+own and does so often more poorly than if it were to use the existing
+facilities.  Case in point: it defines its own unaligned access macros
+in acmacros.h even though such a facility already is provided in
+<asm/unaligned.h>.  Of course, the stuff provided in <asm/unaligned.h>
+does the Right Thing, unlike the macros defined in acmacros.h.  Sigh.
+
+My suspicion is that the acpi code is also needlessly complex.  The
+ACPI spec obviously doesn't help things (must be the worst spec ever
+written), but I think the whole situation is not unlike USB: a poor
+spec is likely to lead to a poor implementation, but that doesn't mean
+it can't be implemented cleanly.  The question is of course whether
+someone cares enough to attempt to either clean up the existing
+implementation or re-implement the entire thing from scratch.
+
+	--david
 
