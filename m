@@ -1,31 +1,35 @@
-From: Grant Grundler <grundler@cup.hp.com>
-Date: Mon, 11 Nov 2002 22:02:32 +0000
-Subject: Re: [Linux-ia64] RE: +AFs-Linux-ia64+AF0- reader-writer livelock proble
-Message-Id: <marc-linux-ia64-105590709805394@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Thu, 07 Nov 2002 10:05:33 +0000
+Subject: [Linux-ia64] Re: Bugzilla 21597
+Message-Id: <marc-linux-ia64-105590709805348@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805391@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805391@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-"Van Maren, Kevin" wrote:
-> It is also possible that a processor can get stuck +ACI-forever+ACI-
-> spinning in the kernel with interrupts disabled trying to
-> acquire a lock, and never succeed, without the rest of the
-> kernel going south.  If that happens, and application will
-> be livelocked, but the rest of the system will function.
+Robert Lewis <robertle@caldera.com> writes:
 
-Probably not. ia64 systems (and x86 systems with IO xapic) direct
-IO interrupts to specific CPUs. Devices would not get serviced
-in the above case and IO to/from those devices would come to a
-grinding halt. It would look more like "dead" lock than "live" lock.
+|> Hi Andreas,
+|>=20
+|> We have submitted bugzilla 21597 for the necessary
+|> IA64 patches to support Unisys and their ES7000.
+|>=20
+|> Unisys is asking me for a status.  They would like to
+|> know if this was accepted and if so what Build Level
+|> release they can look for the patch.
+|>=20
+|> Can someone please give me a status that I can pass along to them?
 
+What is the state of the patch wrt the discussion here?  Also, please
+provide an unmangled version of the patch (as an attachment, *not*
+inline).
 
-> It really depends on the particular circumstances.
+Andreas.
 
-yes. But it sounds very likely to me.
-
-grant
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
 
