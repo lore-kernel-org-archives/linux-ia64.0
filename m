@@ -1,7 +1,7 @@
 From: Marcelo Tosatti <marcelo@conectiva.com.br>
-Date: Thu, 07 Aug 2003 12:05:14 +0000
+Date: Thu, 07 Aug 2003 12:32:28 +0000
 Subject: Re: [PATCH] trivial 2.4/2.6 PCI name change/addition
-Message-Id: <marc-linux-ia64-106025797803161@msgid-missing>
+Message-Id: <marc-linux-ia64-106025969204967@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106019991620116@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106019991620116@msgid-missing>
@@ -24,5 +24,8 @@ On Wed, 6 Aug 2003, Bjorn Helgaas wrote:
 > 
 > Marcelo, do we need to do anything else to get this in your tree?
 
-Nope. Its in.
+
+Actually this doesnt apply cleanly to my tree Bjorn.
+
+Can you please send me an updated patch? 
 
