@@ -1,26 +1,48 @@
-From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
-Date: Thu, 26 Jul 2001 09:22:58 +0000
-Subject: Re: [Linux-ia64] Reiserfs (was: Re: __ia64_syscall ?)
-Message-Id: <marc-linux-ia64-105590693005923@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Thu, 26 Jul 2001 21:13:37 +0000
+Subject: [Linux-ia64] Re: XFree86 4.1.0, Linux/ia64, and various video cards
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="VbJkn9YxBvnuCH5J"
+Message-Id: <marc-linux-ia64-105590693005936@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005918@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005918@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-For those interested:
+--VbJkn9YxBvnuCH5J
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-This is the source of the endian-patch that makes ReiserFS work
-on IA64 (although originally developed for PPC).
+Branden Robinson (branden@progeny.com) said: 
+> The tests were conducted using a patched version of 4.1.0 for Debian and
+> Progeny that works around a problem with PIC symbols being absent in static
+> libraries, which powerpc, ia64, and hppa (among possible others) do not
+> tolerate.  At the same time, PIC symbols in X server modules cause the X
+> server to segfault.  I'll be submitting this patch to XFree86 shortly.
 
-http://penguinppc.org/~jeffm/
+That's easily fixed with config hackery. I'm surprised this hasn't
+been added yet.
 
--- 
-Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
-FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
+Bill
 
+--VbJkn9YxBvnuCH5J
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="XFree86-4.0.1-pic.patch"
 
+--- XFree86-4.0.1/xc/config/cf/Imake.rules.shared	Tue Sep 26 02:25:48 2000
++++ XFree86-4.0.1/xc/config/cf/Imake.rules	Tue Sep 26 02:13:57 2000
+@@ -2015,11 +2015,11 @@
+  * NormalLibObjCompile - compile fragment for a normal library object file
+  */
+ #ifndef NormalLibObjCompile
+-#define NormalLibObjCompile(options) ObjectCompile(options)
++#define NormalLibObjCompile(options) ObjectCompile(options $(PICFLAGS))
+ #endif
+ 
+ #ifndef NormalLibObjCplusplusCompile
+-#define NormalLibObjCplusplusCompile(options) ObjectCplusplusCompile(options)
++#define NormalLibObjCplusplusCompile(options) ObjectCplusplusCompile(options $(PICFLAGS))
+ #endif
+ 
+ /*
 
+--VbJkn9YxBvnuCH5J--
 
