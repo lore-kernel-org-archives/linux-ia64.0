@@ -1,31 +1,43 @@
-From: Anton Blanchard <anton@samba.org>
-Date: Wed, 15 Dec 2004 14:47:30 +0000
+From: "Martin J. Bligh" <mbligh@aracnet.com>
+Date: Wed, 15 Dec 2004 15:08:46 +0000
 Subject: Re: [PATCH 0/3] NUMA boot hash allocation interleaving
-Message-Id: <20041215144730.GC24000@krispykreme.ozlabs.ibm.com>
+Message-Id: <690790000.1103123325@[10.10.2.4]>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com> <50260000.1103061628@flay> <20041215045855.GH27225@wotan.suse.de>
-In-Reply-To: <20041215045855.GH27225@wotan.suse.de>
+References: <Pine.SGI.4.61.0412141140030.22462@kzerza.americas.sgi.com> <9250000.1103050790@flay> <20041214191348.GA27225@wotan.suse.de> <19030000.1103054924@flay> <Pine.SGI.4.61.0412141720420.22462@kzerza.americas.sgi.com> <20041215040854.GC27225@wotan.suse.de> <686170000.1103094885@[10.10.2.4]> <20041215071734.GO27225@wotan.suse.de>
+In-Reply-To: <20041215071734.GO27225@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Andi Kleen <ak@suse.de>
-Cc: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>, Brent Casavant <bcasavan@sgi.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, jrsantos@austin.ibm.com
+Cc: Brent Casavant <bcasavan@sgi.com>, linux-kernel@vger.kernel.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
- 
-> Given that Brent did lots of benchmarks which didn't show any slowdowns
-> I don't think this is really needed (at least as long as nobody
-> demonstrates a ireal slowdown from the patch). And having such special
-> cases is always ugly, better not have them when not needed.
+--Andi Kleen <ak@suse.de> wrote (on Wednesday, December 15, 2004 08:17:34 +0100):
 
-Id like to see a benchmark that has a large footprint in the hash. A few
-connection netperf run isnt going to stress the hash is it?
+> On Tue, Dec 14, 2004 at 11:14:46PM -0800, Martin J. Bligh wrote:
+>> Well hold on a sec. We don't need to use the hugepages pool for this,
+>> do we? This is the same as using huge page mappings for the whole of
+>> kernel space on ia32. As long as it's a kernel mapping, and 16MB aligned
+>> and contig, we get it for free, surely?
+> 
+> The whole point of the patch is to not use the direct mapping, but
+> use a different interleaved mapping on NUMA machines to spread
+> the memory out over multiple nodes.
 
-Also what page size were the runs done with? On x86-64 and ppc64 the 4kB page
-size may make a difference to Brents runs.
+Right, I know it's not there pre-existant - I was thinking of frigging it 
+by hand though, rather than using the hugepage pool infrastructure.
 
-specSFS (an NFS server benchmarmk) has been very sensitive to TLB issues
-for us, it uses all the memory as pagecache and you end up with 10
-million+ dentries. Something similar that pounds on the dcache would be
-interesting.
+>> > Using other page sizes would be probably tricky because the 
+>> > linux VM can currently barely deal with two page sizes.
+>> > I suspect handling more would need some VM infrastructure effort
+>> > at least in the changed port. 
+>> 
+>> For the general case I'd agree. But this is a setup-time only tweak
+>> of the static kernel mapping, isn't it?
+> 
+> It's probably not impossible, just lots of ugly special cases.
+> e.g. how about supporting it for /proc/kcore etc? 
 
-Anton
+Hmmm. Yes, not considered those. 
+
+M.
+
