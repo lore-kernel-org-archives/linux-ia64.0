@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 30 Mar 2004 15:19:27 +0000
-Subject: Re: Abnormal behaviour towards "INIT" interrupt management
-Message-Id: <200403300819.27696.bjorn.helgaas@hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 30 Mar 2004 18:52:49 +0000
+Subject: RE: Abnormal behaviour towards "INIT" interrupt management
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6FE5D586@scsmsx401.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40691B80.9070309@Ext.Bull.Net>
 In-Reply-To: <40691B80.9070309@Ext.Bull.Net>
@@ -10,37 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tuesday 30 March 2004 12:02 am, Francois Wellenreiter wrote:
-> Then I push on the "dump" button that generates an INIT interruption to 
-> all the processors. This signal is then caught by PAL, and SAL which 
-> calls (with a reason [register GR11] equal to 2) 
-> "ia64_monarch_init_handler" on the monarch processor and 
-> "ia64_slave_init_handler" on the slave ones (to this point, I hope to be 
-> right, isn't it ?).
+>> What I've noticed using traces (and further an ITP tool) is that for 
+>> each processor the "ia64_monarch_init_handler" is ever called. :-(
+>
+>Are you saying that more than one processor calls
+>ia64_monarch_init_handler()?  If so, I think something
+>is broken.
 
-Yes.  If I understand correctly, you observe that one processor
-calls ia64_monarch_init_handler(), and all the others call
-ia64_slave_init_handler().  So far, that is correct behavior.
+Or are you saying that NO processor gets to ia64_monarch_init_handler?
 
-> What I've noticed using traces (and further an ITP tool) is that for 
-> each processor the "ia64_monarch_init_handler" is ever called. :-(
+Just a sanity check ... when you set the ITP breakpoint to catch
+the entry ... you did set it at the *physical* address of this function?
 
-Are you saying that more than one processor calls
-ia64_monarch_init_handler()?  If so, I think something
-is broken.  But I haven't seen that behavior.  Here is
-ia64_slave_init_handler():
-
-	GLOBAL_ENTRY(ia64_slave_init_handler)
-	1:      br.sptk 1b
-	END(ia64_slave_init_handler)
-
-So I'd be surprised to see the slave processors do anything
-interesting.
-
-I do know that we are missing some useful behavior in this area --
-namely, we don't extract the min-state area for the slave processors,
-so we don't get backtraces for the currently-running tasks on them.
-
-Bjorn
-
-
+-Tony
