@@ -1,44 +1,49 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Date: Tue, 01 Mar 2005 16:49:45 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Tue, 01 Mar 2005 16:59:04 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org>
+Message-Id: <20050301165904.GN28741@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <422428EC.3090905@jp.fujitsu.com> <42249A44.4020507@pobox.com>
-In-Reply-To: <42249A44.4020507@pobox.com>
+References: <422428EC.3090905@jp.fujitsu.com> <42249A44.4020507@pobox.com> <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jeff Garzik <jgarzik@pobox.com>
-Cc: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
 
-
-
-On Tue, 1 Mar 2005, Jeff Garzik wrote:
+On Tue, Mar 01, 2005 at 08:49:45AM -0800, Linus Torvalds wrote:
+> On Tue, 1 Mar 2005, Jeff Garzik wrote:
+> > A new API handles none of this.
 > 
-> A new API handles none of this.
+> Ehh? 
 
-Ehh? 
+I think what Jeff meant was "this new API handles none of this".
+And that's true, it doesn't handle DMA errors.  But I think that's just
+something that hasn't been written/designed yet.
 
-The new API is what _allows_ a driver to care. It doesn't handle DMA, but
-I think that's because nobody knows how to handle it (ie it's probably
-hw-dependent and all existign implementations would thus be
-driver-specific anyway).
+So how should we handle it?  Obviously the driver may not be executing
+when a PCI parity error occurs, so we probably get to find out about
+this through some architecture-specific whole-system error, let's call
+it an MCA.
 
-And in the sense of "any general new api handles none of it", your 
-argument doesn't make sense. The _old_ IO API's clearly don't handle it. 
-So if you seem to say that "A new API" can't handle it either, then that 
-translates to "no API can ever handle it". Fair enough, if you think it's 
-impossible, but clearly you can handle some things.
+The MCA handler has to go and figure out what the hell just happened
+(was it a DIMM error, PCI bus error, etc).  OK, fine, it finds that it
+was an error on PCI bus 73.  At this point, I think the architecture
+error handler needs to call into the PCI subsystem and say "Hey, there
+was an error, you deal with it".
 
-And yes, CLEARLY drivers will have to do all the heavy lifting. 
+If we're lucky, we get all the information that allows us to figure
+out which device it was (eg a destination address that matches a BAR),
+then we could have a ->error method in the pci_driver that handles it.
+If there's no ->error method, at leat call ->remove so one device only
+takes itself down.
 
-I don't expect most drivers to care. In fact, I expect about five to ten
-drivers to be converted to really care, and then for some forseeable time
-you'll have to be very picky about your hardware if you care about PCI 
-parity errors etc. Most people don't, and most drivers won't be written in 
-environments where they can be reasonably tested.
+Does this make sense?
 
-That's just a fact. Anybody who expects all drivers to suddenly start 
-doing IO checks is just living in a dream world.
-
-		Linus
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
