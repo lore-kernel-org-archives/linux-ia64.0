@@ -1,45 +1,27 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 01 Aug 2002 08:18:27 +0000
-Subject: [Linux-ia64] 2.5.29 pre-patch
-Message-Id: <marc-linux-ia64-105590701905875@msgid-missing>
+From: <shamc@ufrima.imag.fr>
+Date: Fri, 02 Aug 2002 08:05:28 +0000
+Subject: [Linux-ia64] Help for OpenGFS
+Message-Id: <marc-linux-ia64-105590701905883@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-For those of you who want to play with the latest 2.5.xx kernels urgently,
-I placed a lightly tested patch at:
+Hi:
 
-	ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/testing/
+    Since last week,I've tried to install the file system OpenGfs in IA 64,
+however the source didn't get compiled. In fact, it exists 2 patches
+different: -one for the kernel 2.4.17 adapted IA 64     
+           -one for the source of OpenGfs adapted to the kernel 2.4.17
 
-in file patch-v2.5.29-ia64.diff.
+It seems that these two patches have some conflits between them: for example,
+there is redefinition of "semaphore.h" in the first patch. 
 
-Note: this patch is unusually large (~800KB) because it also contains
-the stuff the Linus has pushed into the bitkeeper tree after releasing
-2.5.29.
+Has anyone ever installed Open Gfs in IA 64 ? Or ever faced to the similar
+problem, please help me or send me a mail:
 
-With this patch, 2.5.29 seems to boot fine on the Ski simulator (UP and MP)
-and on Itanium 1 workstations (aka Big Sur).  I haven't tried much else.
 
-Caveats:
+  shamc@ufrima.imag.fr
 
-	- the ia64-specific AGP/DRM patches have not been merged yet,
-	  so for now you'll have to turn those off
-
-	- gcc3.1 dies for me with an ICE on ide-floppy.c; haven't had time
-	  to look into this one
-
-	- expect to have to do some cli/sti cleanup, depending on which
-	  driver you're using
-
-I still have a long list of things to check/update/verify, so this is
-certainly not the final 2.5.29 patch for ia64, but perhaps it's
-already useful to others in its current form.
-
-One request: I'd appreciate if someone (Jenna?) could take a look at
-the changes I made to mca.c.  It was using cli() and I'm not sure what
-the purpose of it was.  Thus my changes may be wrong.
-
-	--daivd
 
