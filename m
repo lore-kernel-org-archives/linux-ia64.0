@@ -1,43 +1,18 @@
-From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
-Date: Tue, 25 Sep 2001 22:36:26 +0000
-Subject: [Linux-ia64] Open source libraries on Itanium...
-Message-Id: <marc-linux-ia64-105590698805252@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Tue, 02 Oct 2001 05:20:56 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to 2.4.10)
+Message-Id: <marc-linux-ia64-105590698805285@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205111@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+2.4.10-ia64-010924 incorrectly patches include/asm-alpha/processor.h
+and include/asm-i386/processor.h, partially duplicating code that is
+already in Linus's tree.  Completely delete those sections of the
+2.4.10-ia64-010924 patch.
 
-Is there anybody who might be able to let me know the status of the
-following tools on Itanium. All of them are open source. If anybody knows
-about the status on Itanium, please let me know. 
-
-ACE (ADAPTIVE Communication Environment)
-Dinkum Libraries
-Regex++
-CPP Unit
-
-The details as follows:
-
-ACE - http://www.cs.wustl.edu/~schmidt/ACE-overview.html -
-http://www.riverace.com/
-STL - http://www.dinkumware.com/libraries.html
-Regex++ - http://ourworld.compuserve.com/homepages/John_Maddock/regexpp.htm
-CPP Unit - http://sourceforge.net/projects/cppunit/
-
-
-Regards,
-
--- Shameem
-
-Shameem Akhter
-Platform & Technology Enabling
-Solution Enabling Group
-Telephone: (503) 264-1644 (O)
-           (503) 970-3112 (C)
-
-If you would like to join "Intel Software Community" (ISC), please visit
-http://seg.intel.com/shameem
 
