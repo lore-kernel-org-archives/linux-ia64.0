@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 08 Nov 2003 07:10:29 +0000
-Subject: Re: Problem with accessing page tables
-Message-Id: <marc-linux-ia64-106827544306970@msgid-missing>
+From: "Ameya Mitragotri" <ameya.mitragotri@wipro.com>
+Date: Sat, 08 Nov 2003 07:58:59 +0000
+Subject: RE: Problem with accessing page tables
+Message-Id: <marc-linux-ia64-106827833908491@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106826502101883@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106826502101883@msgid-missing>
@@ -10,14 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 8 Nov 2003 09:46:38 +0530, "Ameya Mitragotri" <ameya.mitragotri@wipro.com> said:
+>   Ameya> One of the checks below fails because the call 
+> pmd_offset gives pmd 
+>   Ameya> With value o.
+> 
+> That means the PTE directory hasn't been allocated yet.  
+> Perfectly normal for memory that hasn't been accessed yet.
 
-  >>> pmd = pmd_offset(pgd, address); <<<
+We passed the address of swapper_pg_dir and this is what we got.
 
-  Ameya> One of the checks below fails because the call pmd_offset gives pmd 
-  Ameya> With value o.
+Nov  8 12:29:35 i2 kernel: The swapper_pg_dir address is
+a0000001008d6000
+Nov  8 12:29:35 i2 kernel: The pgd offset is 280 address of pgd entry is
+a0000001008d6000 value @ pgd entry is 2146033664
+Nov  8 12:29:35 i2 kernel: The pmd offset is 201 pmd address is
+e00000007fe9f008
+value @ pmd is 0
 
-That means the PTE directory hasn't been allocated yet.  Perfectly
-normal for memory that hasn't been accessed yet.
+Now I think the memory for the swapper_pg_dir has already been
+allocated.
+I still get PMD as 0.
 
-	--david
+Am I doing something fundamentally wrong?
+
+Thanks
+ameya
