@@ -1,52 +1,107 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Tue, 15 Oct 2002 18:01:07 +0000
-Subject: [Linux-ia64] elilo-3.3a is now available
-Message-Id: <marc-linux-ia64-105590709805163@msgid-missing>
+From: Greg KH <greg@kroah.com>
+Date: Tue, 22 Oct 2002 23:49:13 +0000
+Subject: [Linux-ia64] Re: Two PCI Hotplug Drivers for 2.5
+Message-Id: <marc-linux-ia64-105590709805210@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+On Tue, Oct 22, 2002 at 04:28:14PM -0700, Lee, Jung-Ik wrote:
+> 
+> Hi Greg,
+> 
+> Please find the attached two PCI hotplug drivers for 2.5.
+> 
+>  intcphp: New Intel's PHP driver for CPQ or equivalent Intel
+> 	    controllers for IA32/IA64, ACPI/legacy platforms.
+> 	    This driver is needed for IA64 servers (Lion,
+> 	    Tiger, etc), and has been verified on 2.5.39
+>  acpiphp: ACPI based PHP driver updated to support CAL(*).
+> 	    ACPI based ctrl/slot operations are abstracted to
+> 	    CAL module. This has been verified on 2.5.39 and
+> 	    Feature/functionality remain the same. 
+> 	    Patch against Tak's 2.5.39 patch is included.
+> 
+> 
+> (*) CAL is a Controller Abstraction Layer that we came up to provide a
+> convenient and uniform interface to different types of hotplug controllers.
+> CAL abstracts details of individual HP controller/slot operations and also
+> provides flexibility of binding different CAL modules to single php driver
+> core. Both intcphp driver and acpiphp driver support CAL interface.
 
-I have just released version 3.3a of elilo, the EFI bootloader 
-for Linux/ia64 and Linux/ia32.
+Ah, something like this is nice to have, but you duplicated a _lot_ of
+code in getting here.  A patch moving some of the common Compaq code to
+the pci_hotplug.o module, which would enable a lot of the compaq and
+acpi driver code to be removed would be greatly appreciated.
 
-Typically elilo is on a 6-month revision cycle but I have decided to release
-an updated version to fix some important bugs found in the last two months. 
+> The reason why we separated slot/controller operations(event management) as
+> CAL is to make most of Common hotplug driver components not only for Hotplug
+> PCI driver but also for Hotplug-Everything, required for Atlas project, and
+> other server platforms.
+> For Hotplug-everything - Hotplug-PCI, IO-Node, and memory, etc.-, ACPI based
+> Resource Management and Event management are key common components.
+> 
+> To design an ACPI based PCI HP driver, we need a combination of the two
+> common Hotplug-Everything components and PCI HP driver core.
+> 	1. ACPI based PHPRM(Resource Management/configuration)
+> 	2. Event Management(ACPI based or OEM ctrl based CAL)
+> 	3. PHP driver core: usage model of PHP
+> 
+> For Hotplug-Others, #1, and #2 should be the same and #3 will be replaced
+> with Hotplug-Other driver core.
+> 
+> This release is the first step to achieve the goal of the Common HotPlug
+> architecture while minimizing affects on existing PHP driver features and
+> functionalities. Current status of the drivers is: 
+>   + Both conform to CAL.
 
-This version DOES NOT have any new features simply bug fixes.
-I *STRONGLY* recommend that everyone migrates to this new version as 
-several important bugs have been fixed. See ChangeLog for details.
+A layer you came up with?  I would hope this driver would match it :)
 
-I would like to thanks Levent Akyl, NOMURA Jun'ichi, and Andreas Schwab
-for submitting bug reports and patches for this release.
+>   + hotplug_ops routines are identical.
 
-To compile this package on both IA-32 and IA-64, you need gcc3.x and
-binutils 2.11.90 or higher. Also if you're using anything newer than 
-gcc3.0 release, you need to grab the updated version of the gnu-efi
-package, i.e., gnu-efi-3.0a, because there were some changes in the
-way gcc treats constant strings which impact the loader script used
-to build elilo. You can grab the package at:
+We have common hotplug operations right now.  What's wrong with those?
+I'm not going to have some API that looks the same for PCI cards and
+memory DIMMS, that's just dumb.  They are different things, and do
+different things, don't try to merge them together.
 
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/gnu-efi-3.0a.tar.gz
+>   + Functionality of Resource managements(PHPRM) are the
+>     same and soon will share phprm_acpi.
+>   + Both will use common php core.
 
-As usual, I have included precompiled binaries for IA-64 (elilo-ia64.efi)
-and IA-32 (elilo-ia32.efi). To try out the IA-32 version, you need a PC
-with EFI support. This can either be a native EFI implementation or
-a PC with a legacy BIOS booted with the EFI floppies from the Intel
-sample implementation which you can get at:
+Hm, and also you can now plug in closed source hotplug drivers, as you
+went around the existing EXPORT_SYMBOL_GPL() symbols.  I've told you
+about this _many_ times in the past and will never accept such a patch,
+as you have said this is your end goal.
 
-	http://developer.intel.com/technology/efi
+> The ultimate difference between acpiphp driver and intcphp driver,
+> therefore, will be the CAL implementation only. I.e., acpiphp will use ACPI
+> based event management for controller/slot operations thru CAL interface,
+> while intcphp can use either it's own HPC controller based CAL or acpiphp's
+> ACPI based event management CAL.
+> 
+> 
+> We've tested two drivers with 2.5.39/IA64. This should also apply to 2.5.41
+> and later. 2.4 backport will be available later as needed.
+> Please apply.
 
-The new version of elilo can be downloaded from:
+Because of the above comments, no, I will not.  What I will accept would
+be:
+	- move the common code that you have already identified into the
+	  pci_hotplug core.  That will enable the Compaq and ACPI
+	  drivers to remove a lot of code (and hopefully the IBM driver,
+	  but don't worry about that if it doesn't look obvious.)
+	- stick with the existing pci_hotplug API for hotplug PCI
+	  drivers.  If you need something different from what is
+	  currently there, please let me know.  But do NOT try to go
+	  around the EXPORT_SYMBOL_GPL functions by providing your own
+	  shim layer, that's not acceptable.
+	- please remove all typedefs from the code.
+	- remove all LINUX_VERSION checks as they are necessary for code
+	  that is in the main kernel tree.
 
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/elilo-3.3a.tar.gz
-	MD5SUM: de5c507c9abbd24c993ac280835dcc57
+thanks,
 
-Enjoy,
-
--- 
--Stephane
+greg k-h
 
