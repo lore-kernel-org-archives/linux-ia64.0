@@ -1,30 +1,34 @@
-From: Andi Kleen <ak@suse.de>
-Date: Tue, 19 Apr 2005 13:08:40 +0000
-Subject: Re: [PATCH 2.4/2.6] arch/{ia64,x86_64,s390}: Fix: sys32_sendfile does not set offset on 32bit compat
-Message-Id: <20050419130840.GC7715@wotan.suse.de>
+From: Bruce Losure <blosure@sgi.com>
+Date: Mon, 04 Apr 2005 12:23:28 +0000
+Subject: [PATCH 2.6.12] Altix patch to fix missing Kconfig dependency.
+Message-Id: <Pine.LNX.4.44.0504040717010.8457-100000@fsgi025.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Apr 19, 2005 at 11:13:47AM +0900, Yoshioka Tsuneo wrote:
-> Hello
-> 
-> If we use 64bit kernel on ia64/x86_64/s390 architecture, and we run
-> 32bit binary on 32bit compatibility mode, sendfile system call seems be
-> not set offset argument.
-> This is because sendfile's return value is not zero but the code regards
-> the result by return value is zero or not.
-> This problem will be affect to ia64/x86_64/s390 and not affect to other
-> architecture does not affect other architecture (mips/parisc/ppc64/sparc64).
-> So, I have multi-posted this e-mail to ia64/x86_64/s390 maintainer and
-> mailling list.
-> 
-> Following patch will fix the problem. (I have confirmed on my EM64T
-> machine.)
 
-Thanks, looks good. Just need to figure out which of the architecture
-maintainers pushes the patch now ,-)
+Tony,
 
--Andi
+This is a one-liner to make the mbcs driver depend on SGI_TIOCX in the
+drivers/char/Kconfig file.
+
+Thanks,
+-Bruce
+
+Signed-off-by: Bruce Losure <blosure@sgi.com>
+
+Index: tiocx-test-2.6.12/drivers/char/Kconfig
+=================================--- tiocx-test-2.6.12.orig/drivers/char/Kconfig 2005-03-23 18:50:41.588156677 -0600
++++ tiocx-test-2.6.12/drivers/char/Kconfig      2005-04-04 07:14:57.317156041 -0500
+@@ -408,7 +408,7 @@
+  
+ config SGI_MBCS
+        tristate "SGI FPGA Core Services driver support"
+-       depends on (IA64_SGI_SN2 || IA64_GENERIC)
++       depends on SGI_TIOCX
+        help
+          If you have an SGI Altix with an attached SABrick
+          say Y or M here, otherwise say N.
+
