@@ -1,55 +1,78 @@
-From: Bdale Garbee <bdale@gag.com>
-Date: Mon, 11 Jun 2001 22:56:55 +0000
-Subject: [Linux-ia64] problem with mmap?
-Message-Id: <marc-linux-ia64-105590693005712@msgid-missing>
+From: root <davidm@hpl.hp.com>
+Date: Tue, 12 Jun 2001 06:32:00 +0000
+Subject: Re: [Linux-ia64] problem with mmap?
+Message-Id: <marc-linux-ia64-105590693005714@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005712@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005712@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-In chasing down a problem in the Debian installation toolset where sed was
-generating no output when processing /proc/mounts, we discovered what looks
-like a bug.
+>>>>> On 11 Jun 2001 16:56:55 -0600, Bdale Garbee <bdale@gag.com> said:
 
-The kernel is allowing an mmap of /proc/mounts to succeed, which gives sed 
-a 0-byte mmap'ed file.  On other architectures, the mmap fails so sed resorts
-to normal reading which works fine.
+  Bdale> In chasing down a problem in the Debian installation toolset
+  Bdale> where sed was generating no output when processing
+  Bdale> /proc/mounts, we discovered what looks like a bug.
 
-An strace of a trivial test case that works elsewhere but not on IA-64 using 
-sed is attached.  The SYS_1212 is actually an fstat.
+  Bdale> The kernel is allowing an mmap of /proc/mounts to succeed,
+  Bdale> which gives sed a 0-byte mmap'ed file.  On other
+  Bdale> architectures, the mmap fails so sed resorts to normal
+  Bdale> reading which works fine.
 
-This is 2.4.5 with the 010530 patch set applied, running on a single B3.
+Good catch!  This was caused by an accidental reversal of two
+special-case/error tests.  This had the effect that a zero-length
+mmap() would always succeed, even though it should fail with EBADF on
+a non-anonymous mmap() of a file that doesn't support the mmap()
+operation (as is the case for /proc/mounts).
 
-Bdale
+The attached patch fixes the problem.
 
+Thanks,
 
-execve("./sed", ["./sed", "-e", "", "/proc/mounts"], [/* 17 vars */]) = 0
-uname({sys="Linux", node="itanium", ...}) = 0
-brk(0)                                  = 0x600000000000ceb8
-open("/etc/ld.so.preload", O_RDONLY)    = -1 ENOENT (No such file or directory)
-open("/etc/ld.so.cache", O_RDONLY)      = 3
-SYS_1212(0x3, 0x80000fffffffaee0, 0, 0, 0, 0, 0, 0) = 0
-mmap(NULL, 24060, PROT_READ, MAP_PRIVATE, 3, 0) = 0x2000000000030000
-close(3)                                = 0
-open("/lib/libc.so.6.1", O_RDONLY)      = 3
-read(3, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0002\0\1\0\0\0\260\225"..., 1024) = 1024
-SYS_1212(0x3, 0x80000fffffffaee0, 0, 0, 0, 0, 0, 0) = 0
-mmap(NULL, 2457296, PROT_READ|PROT_EXEC, MAP_PRIVATE, 3, 0) = 0x2000000000044000
-mprotect(0x200000000027c000, 130768, PROT_NONE) = 0
-mmap(0x2000000000284000, 81920, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED, 3, 0x230000) = 0x2000000000284000
-mmap(0x2000000000298000, 16080, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x2000000000298000
-close(3)                                = 0
-mmap(NULL, 16384, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x2000000000038000
-munmap(0x2000000000030000, 24060)       = 0
-getpid()                                = 31236
-brk(0)                                  = 0x600000000000ceb8
-brk(0x600000000000cf18)                 = 0x600000000000cf18
-brk(0x6000000000010000)                 = 0x6000000000010000
-open("/proc/mounts", O_RDONLY)          = 3
-SYS_1212(0x3, 0x80000fffffffbbe0, 0x80000fffffffbe72, 0, 0x1b6, 0, 0x600000000000c690, 0x200000000003d6e0) = 0
-mmap(NULL, 0, PROT_READ, MAP_PRIVATE, 3, 0) = 0
-close(3)                                = 0
-close(1)                                = 0
-exit(0)                                 = ?
+	--davidm
+
+--- arch/ia64/kernel/sys_ia64.c~	Sun Apr 29 17:12:35 2001
++++ arch/ia64/kernel/sys_ia64.c	Mon Jun 11 22:27:42 2001
+@@ -178,11 +178,22 @@
+ 	unsigned long roff;
+ 	struct file *file = 0;
+ 
++	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
++	if (!(flags & MAP_ANONYMOUS)) {
++		file = fget(fd);
++		if (!file)
++			return -EBADF;
++
++		if (!file->f_op || !file->f_op->mmap)
++			return -ENODEV;
++	}
++
+ 	/*
+-	 * A zero mmap always succeeds in Linux, independent of
+-	 * whether or not the remaining arguments are valid.
++	 * A zero mmap always succeeds in Linux, independent of whether or not the
++	 * remaining arguments are valid.
+ 	 */
+-	if (PAGE_ALIGN(len) = 0)
++	len = PAGE_ALIGN(len);
++	if (len = 0)
+ 		return addr;
+ 
+ 	/* don't permit mappings into unmapped space or the virtual page table of a region: */
+@@ -193,13 +204,6 @@
+ 	/* don't permit mappings that would cross a region boundary: */
+ 	if (rgn_index(addr) != rgn_index(addr + len))
+ 		return -EINVAL;
+-
+-	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
+-	if (!(flags & MAP_ANONYMOUS)) {
+-		file = fget(fd);
+-		if (!file)
+-			return -EBADF;
+-	}
+ 
+ 	down_write(&current->mm->mmap_sem);
+ 	addr = do_mmap_pgoff(file, addr, len, prot, flags, pgoff);
 
