@@ -1,79 +1,32 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Sat, 18 Sep 2004 23:30:44 +0000
-Subject: page fault scalability patch V8: [6/7] atomic pte operations for
-Message-Id: <Pine.LNX.4.58.0409181629490.24054@schroedinger.engr.sgi.com>
+From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Date: Mon, 20 Sep 2004 16:25:20 +0000
+Subject: PATCH-ACPI based CPU hotplug[0/6]
+Message-Id: <20040920092520.A14208@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
- <20040816143903.GY11200@holomorphy.com>
- <B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com>
- <B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com>
- <B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com>
- <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
- <1094012689.6538.330.camel@gaston> <Pine.LNX.4.58.0409010938200.9907@schroedinger.engr.sgi.com>
- <1094080164.4025.17.camel@gaston> <Pine.LNX.4.58.0409012140440.23186@schroedinger.engr.sgi.com>
- <20040901215741.3538bbf4.davem@davemloft.net>
- <Pine.LNX.4.58.0409020920570.26893@schroedinger.engr.sgi.com>
- <20040902131057.0341e337.davem@davemloft.net>
- <Pine.LNX.4.58.0409021358540.28182@schroedinger.engr.sgi.com>
- <20040902140759.5f1003d5.davem@davemloft.net>
- <B6E8046E1E28D34EB815A11AC8CA312902CD3243@mtv-atc-605e--n.corp.sgi.com>
-In-Reply-To: <B6E8046E1E28D34EB815A11AC8CA312902CD3243@mtv-atc-605e--n.corp.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: "David S. Miller" <davem@davemloft.net>, benh@kernel.crashing.org, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, ak@muc.de, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
+To: Len Brown <len.brown@intel.com>, ACPI Developer <acpi-devel@lists.sourceforge.net>, LHNS list <lhns-devel@lists.sourceforge.net>
+Cc: Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
 
-Changelog
-	* Provide atomic pte operations for x86_64
+Hi Len,
+  I am resending the following set of patches which support ACPI based physical 
+CPU hotplug for IA64 platform, after having including all the community 
+feedback(of course I got very thin feedback) which I got on 
+acpi-devel mailing list.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+This set of patches has been tested on linux-2.6.9-rc2. Also this time I am 
+cc'ing ia64/lkml mailing lists as patch 3/6 and patch 4/6 touches arch specific files.
 
-Index: linus/include/asm-x86_64/pgalloc.h
-=================================--- linus.orig/include/asm-x86_64/pgalloc.h	2004-09-18 14:25:23.000000000 -0700
-+++ linus/include/asm-x86_64/pgalloc.h	2004-09-18 14:25:23.000000000 -0700
-@@ -7,16 +7,26 @@
- #include <linux/threads.h>
- #include <linux/mm.h>
+Details:(Applies cleanly onto linux-2.6.9-rc2)
+Patch[1/6]- Core ACPI enhancement support
+Patch[2/6]- ACPI hotplug eject interface support
+Patch[3/6]- Arch specific support for mapping lsapic to cpu
+Patch[4/6]- Dynamic cpu registration and unregistration support
+Patch[5/6]- Extend ACPI processor driver to support Hotplug
+Patch[6/6]- ACPI container driver(New driver)
 
-+#define PMD_NONE 0
-+#define PGD_NONE 0
-+
- #define pmd_populate_kernel(mm, pmd, pte) \
- 		set_pmd(pmd, __pmd(_PAGE_TABLE | __pa(pte)))
- #define pgd_populate(mm, pgd, pmd) \
- 		set_pgd(pgd, __pgd(_PAGE_TABLE | __pa(pmd)))
-+#define pgd_test_and_populate(mm, pgd, pmd) \
-+		(cmpxchg(pgd, PGD_NONE, _PAGE_TABLE | __pa(pmd)) = PGD_NONE)
+Please consider applying this patch onto your test tree.
 
- static inline void pmd_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
- {
- 	set_pmd(pmd, __pmd(_PAGE_TABLE | (page_to_pfn(pte) << PAGE_SHIFT)));
- }
-
-+static inline int pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
-+{
-+	return cmpxchg(pmd, PMD_NONE, _PAGE_TABLE | (page_to_pfn(pte) << PAGE_SHIFT)) = PMD_NONE;
-+}
-+
- extern __inline__ pmd_t *get_pmd(void)
- {
- 	return (pmd_t *)get_zeroed_page(GFP_KERNEL);
-Index: linus/include/asm-x86_64/pgtable.h
-=================================--- linus.orig/include/asm-x86_64/pgtable.h	2004-09-18 14:25:23.000000000 -0700
-+++ linus/include/asm-x86_64/pgtable.h	2004-09-18 14:25:23.000000000 -0700
-@@ -436,6 +436,11 @@
- #define	kc_offset_to_vaddr(o) \
-    (((o) & (1UL << (__VIRTUAL_MASK_SHIFT-1))) ? ((o) | (~__VIRTUAL_MASK)) : (o))
-
-+
-+#define ptep_xchg(mm,addr,xp,newval)	__pte(xchg(&(xp)->pte, pte_val(newval))
-+#define ptep_cmpxchg(mm,addr,xp,newval,oldval) (cmpxchg(&(xp)->pte, pte_val(newval), pte_val(oldval) = pte_val(oldval))
-+#define __HAVE_ARCH_ATOMIC_TABLE_OPS
-+
- #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_YOUNG
- #define __HAVE_ARCH_PTEP_TEST_AND_CLEAR_DIRTY
- #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
-
-
+Thanks,
+Anil S Keshavamurthy
