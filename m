@@ -1,48 +1,37 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Mon, 03 May 2004 19:47:32 +0000
-Subject: Re: [PATCH] - deleting huge pages
-Message-Id: <20040503194732.GA22056@sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 27 May 2004 05:39:41 +0000
+Subject: [patch 2.6.6] Workaround linker bug
+Message-Id: <9422.1085636381@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040502123028.GA13812@sgi.com>
-In-Reply-To: <20040502123028.GA13812@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-(Update to previous mail - patch updated for latest tree)
+Building 2.6.6-ia64-040521, using GNU ld version 2.14.90.0.4 20030523.
+__gp is sometimes set incorrectly.  Instead of being .got + 0x2000000,
+it is set to .data + 0x2000000, which breaks some LTOFF22 and GPREL22
+entries.
 
-If you attempt to allocate a LOT more huge pages than are physically
-available, the kernel may reference a NULL pte.
+This is non-deterministic, changing the path name to the kernel tree
+which changes the size of some messages in .data is enough to make the
+linker get it right.  Force __gp to be based on .got.
 
-If the mmap fails, do_mmap_pgoff attempts to unmap the vma range it
-was mapping. Depending on where it failed during
-the mmap, some of the higher level PGD/PMDs may not have been assigned.
-
-The same problem exists in 2.4. I'll post a second patch in a few
-days....
-
-
-
-
---- linux_base/arch/ia64/mm/hugetlbpage.c	2004-05-03 09:36:00.000000000 -0500
-+++ linux/arch/ia64/mm/hugetlbpage.c	2004-05-03 14:38:21.000000000 -0500
-@@ -245,7 +245,7 @@
+Index: linux/arch/ia64/kernel/vmlinux.lds.S
+=================================--- linux.orig/arch/ia64/kernel/vmlinux.lds.S	Thu May 27 15:08:02 2004
++++ linux/arch/ia64/kernel/vmlinux.lds.S	Thu May 27 15:16:11 2004
+@@ -202,11 +202,10 @@ SECTIONS
+   .data : AT(ADDR(.data) - LOAD_OFFSET)
+ 	{ *(.data) *(.data1) *(.gnu.linkonce.d*) CONSTRUCTORS }
  
- 	for (address = start; address < end; address += HPAGE_SIZE) {
- 		pte = huge_pte_offset(mm, address);
--		if (pte_none(*pte))
-+		if (!pte || pte_none(*pte))
- 			continue;
- 		page = pte_page(*pte);
- 		put_page(page);
-
-
-
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
+-  . = ALIGN(16);
+-  __gp = . + 0x200000;	/* gp must be 16-byte aligned for exc. table */
+-
++  . = ALIGN(16);	/* gp must be 16-byte aligned for exc. table */
+   .got : AT(ADDR(.got) - LOAD_OFFSET)
+ 	{ *(.got.plt) *(.got) }
++  __gp = ADDR(.got) + 0x200000;
+   /* We want the small data sections together, so single-instruction offsets
+      can access them all, and initialized data all before uninitialized, so
+      we can shorten the on-disk segment size.  */
 
