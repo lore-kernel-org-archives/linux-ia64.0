@@ -1,50 +1,25 @@
-From: Matt_Domsch@Dell.com
-Date: Wed, 11 Jul 2001 17:28:36 +0000
-Subject: [Linux-ia64] [PATCH] re-order partition type check
-Message-Id: <marc-linux-ia64-105590693005844@msgid-missing>
+From: Andy Polyakov <appro@fy.chalmers.se>
+Date: Tue, 10 Jul 2001 17:15:43 +0000
+Subject: [Linux-ia64] OpenSSL 0.9.6b PK performance patch
+Message-Id: <marc-linux-ia64-105590693005840@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The patch below re-orders the check for GPT partitions to be ahead of
-testing for msdos partitions.  This is to conform with the EFI Spec, and
-follows how GNU Parted is also implemented.
+Hi,
 
+As the subject suggests I have the pleasure to announce that public-key
+op performance patch relative to just released OpenSSL 0.9.6b is
+available for download at
+http://www.openssl.org/~appro/096b.linux-ia64.diff. I want to point out
+that 0.9.6a and 0.9.6b address a number of security problems and users
+of older version are urged to upgrade.
 
---- linux/fs/partitions/check.c~        Tue Jul  3 14:26:04 2001
-+++ linux/fs/partitions/check.c Tue Jul  3 14:26:36 2001
-@@ -46,6 +46,9 @@
- #ifdef CONFIG_ACORN_PARTITION
-        acorn_partition,
- #endif
-+#ifdef CONFIG_EFI_PARTITION
-+       efi_partition,
-+#endif
- #ifdef CONFIG_MSDOS_PARTITION
-        msdos_partition,
- #endif
-@@ -72,9 +75,6 @@
- #endif
- #ifdef CONFIG_IBM_PARTITION
-        ibm_partition,
--#endif
--#ifdef CONFIG_EFI_PARTITION
--       efi_partition,
- #endif
-        NULL
- };
+Please note that I'm not subscribed to this list and if you want to
+comment or have a question I would appreciate if you contact me directly
+(by putting my e-mail address to Cc: field:-).
 
-
-Thanks,
-Matt
---
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions
-www.dell.com/linux
-#2 Linux Server provider with 17% in the US and 14% Worldwide (IDC)!
-#3 Unix provider with 18% in the US (Dataquest)!
-
+Cheers. Andy.
 
