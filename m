@@ -1,7 +1,7 @@
-From: "Li, Jack" <jack.li@intel.com>
-Date: Fri, 02 Apr 2004 21:19:38 +0000
-Subject: RE: [Linux-ia64] elilo-3.0 PXE mode fix
-Message-Id: <3AA03342E913FA4BA6D8BD0732BFC74B0547D148@pdsmsx402.pd.intel.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 02 Apr 2004 23:18:16 +0000
+Subject: Re: [Linux-ia64] elilo-3.0 PXE mode fix
+Message-Id: <20040402231816.GC963@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <3AA03342E913FA4BA6D8BD0732BFC74B0547D016@pdsmsx402.pd.intel.com>
 In-Reply-To: <3AA03342E913FA4BA6D8BD0732BFC74B0547D016@pdsmsx402.pd.intel.com>
@@ -10,42 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Stephane Eranian <mailto:eranian@hpl.hp.com> wrote on Saturday, April
-03, 2004 1:08 AM:
+Jack,
 
-> Jack,
+On Fri, Apr 02, 2004 at 04:19:10PM -0700, Brett Johnson wrote:
+> On Fri, 2004-04-02 at 14:19, Li, Jack wrote:
+> > Thank you. But I am using the PXE of a RedHat 9.0. So do you know if
+> > this PXE server can support IA64? Do you have a sample pxe.conf for the
+> > PXE server?
 > 
-> On Fri, Apr 02, 2004 at 03:06:34PM +0800, Li, Jack wrote:
->> 
->> I am also trying to setup PXE for IA64. Could you send a copy of your
->> pxe.conf file to me? And the boot strap you are using?  Thanks.
->> 
-> I suggest you use elilo-3.4 instead of 3.0. The package contains an
-> example of the dcph/pxe setup I used to test this. The problem was
-> that the ISC DHCPD needed some extensions to support PXE/Ia64. Those
-> extensions were added by Intel but I don't know if they ever made it
-> into the official ISC DHCPD server, you'd have to check.
+> I don't have a redhat9 machine, but based on what I see on rpmfind.net,
+> it looks like they're using dhcp 3.0p1, which should work fine.
 > 
-> Anyway, in the elilo-3.4 package, go to examples/netboot. You'll
-> find a PXE config file.
+> As Stephane mentioned, there is an example config in the elilo
+> "netbooting.txt" document.  You can get it from
 > 
-> Hope this helps.
+> http://cvs.sourceforge.net/viewcvs.py/elilo/elilo/docs/netbooting.txt
 > 
-> PS: Brett Johnson is the new maintainer of the package and he has
-> setup 
-> a SourceForge web for elilo: http://elilo.sf.net
+There is also a dcp-pxe.conf in elilo/examples/
 
-Thank you. But I am using the PXE of a RedHat 9.0. So do you know if
-this PXE server can support IA64? Do you have a sample pxe.conf for the
-PXE server?
+-- 
 
-
-Senior SW Engineer, Intel Corporation.
-Intel China Software Lab. 
-Tel: 021-52574545 ext. 1306
-iNet: 8-752-1306
- 
-Opinions expressed are those of the author and do not represent Intel
-Corporation
-
-
+-Stephane
