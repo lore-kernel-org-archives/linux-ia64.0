@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@melbourne.sgi.com>
-Date: Tue, 24 Jul 2001 00:16:44 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 24 Jul 2001 00:19:36 +0000
 Subject: Re: [Linux-ia64] XFS / IA64 system call conflict
-Message-Id: <marc-linux-ia64-105590693005880@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005881@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005867@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005867@msgid-missing>
@@ -10,23 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 23 Jul 2001 09:49:49 -0700, 
-David Mosberger <davidm@hpl.hp.com> wrote:
->>>>>> On Tue, 24 Jul 2001 00:16:18 +1000, Keith Owens <kaos@melbourne.sgi.com> said:
->
->  Keith> The problem is that IA64 is stuck on kernel 2.4.5 while XFS
->  Keith> development is up to 2.4.7.
->
->Don't worry, a 2.4.7 based patch is in the works (and, no, I won't
->apologize for going on vacation...).
->
->What bothers me is that you apparently did not even try to contact me
->to get official numbers.  At least, I don't see any earlier message
->from you in this regard.
+>>>>> On Tue, 24 Jul 2001 10:16:44 +1000, Keith Owens <kaos@melbourne.sgi.com> said:
 
-There is no 'official' source for syscall numbers.  The lack of a
-standard process for assigning new syscall numbers is one of the
-annoying things about the kernel and glibc.  Everybody picks their own
-on every arch, which almost guarantees conflicts.
+  Keith> There is no 'official' source for syscall numbers.
 
+Yes, there is: you send me mail, I add the respective numbers to
+unistd.h, and that's it.  Anyone who messes with that protocol is on
+his/her own.
+
+	--david
+
+PS: Note that syscall numbers are arch specific, so if you're looking
+    for a platform-independent process, you're looking for the wrong
+    thing.
 
