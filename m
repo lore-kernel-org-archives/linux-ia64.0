@@ -1,43 +1,31 @@
-From: "=?gb2312?B?zMYg0+4=?=" <ytang5@hotmail.com>
-Date: Fri, 30 Nov 2001 06:31:38 +0000
-Subject: Re: [Linux-ia64] about linux/ia64 mm
-Message-Id: <marc-linux-ia64-105590698805565@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Wed, 21 Nov 2001 00:40:56 +0000
+Subject: [Linux-ia64] 2.4.14 Missing asm clobbers
+Message-Id: <marc-linux-ia64-105590698805537@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805562@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805562@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-dGh4IGEgbG90IGZpcnN0OyAgCmFuZCBhcyBfcGEoeCkgaXMgZGVmaW5lZCB0byAoKHgpLVBBR0Vf
-T0ZGU0VUKSwgc28gaSB0aGluaywga2VybmVsIHNwYWNlIApmcm9tIFBBR0VfT0ZGU0VUIHRvIChQ
-QUdFX09GRlNFVCArIFNpemUgb2YgTWVtcm95KSBzaG91bGQgYmUgbWFwcGVkIApkaXJlY3RseSB0
-byAwIC1TaXplIG9mIE1lbW9yeTsgc28gd2hhdCBoYXBwZW5zIGlmIGNvZGVzIGFjY2VzcyBhZGRy
-ZXNzIApyZXR1cm5lZCBieSBmdW5jdGlvbnMgc3VjaCBhcyBnZXRfZnJlZV9wYWdlcygpKGl0IHNo
-b3VsZCByYW5nZSBpbiAKW1BBR0VfT0ZGU0VULFBBR0VfT0ZGU0VUKy4uLl0pPyBob3cgY291bGQg
-aXQgYmUgdHJhbnNsYXRlZCBieSBNTVU/CmFuZCB3aGF0IHlvdSBtZWFuLCB0aGVyZSBhcmUgYm90
-aCA2NE0tcGFnZSBhbmQgY29uZmlndXJhYmxlIApQQUdFX1NJWkUoNCw4ayxldGMpIGZvciBSZWdp
-b24gNz8gb3IgaSBqdXN0IG1pc3NlZCBzb21ldGhpbmc/CgpyZ2RzCgo+RnJvbTogRGF2aWQgTW9z
-YmVyZ2VyIDxkYXZpZG1AaHBsLmhwLmNvbT4KPlJlcGx5LVRvOiBkYXZpZG1AaHBsLmhwLmNvbQo+
-VG86ICLMxiDT7iIgPHl0YW5nNUBob3RtYWlsLmNvbT4KPkNDOiBsaW51eC1pYTY0QGxpbnV4aWE2
-NC5vcmcKPlN1YmplY3Q6IFJlOiBbTGludXgtaWE2NF0gYWJvdXQgbGludXgvaWE2NCBtbQo+RGF0
-ZTogVGh1LCAyOSBOb3YgMjAwMSAyMTo0MzoxOCAtMDgwMAo+Cj4gPj4+Pj4gT24gVGh1LCAyOSBO
-b3YgMjAwMSAyMzoxOTo1MyArMDgwMCwgIj0/Z2IyMzEyP0I/ek1ZZzArND0/PSIgCjx5dGFuZzVA
-aG90bWFpbC5jb20+IHNhaWQ6Cj4KPiAgIFRhbmc+IGhpIGFsbCwgaSB3YXMgYSBsaXR0bGUgY29u
-ZnVzZWQgYnkgbGludXgvaWE2NCBtbTsgYXMgaSBrbm93LAo+ICAgVGFuZz4gbGludXggcmVxdWly
-ZXMgcGh5c2ljYWwgbWVtb3J5IHRvIGJlIG1hcHBlZCBjb250aWd1b3VzbHkgdG8KPiAgIFRhbmc+
-IGtlcm5lbCBzcGFjZSggZG9uJ3QgY2FyZSBoaWdobWVtKTsgYW5kIFBBR0VfT0ZGU0VUIGlzIGRl
-ZmluZWQKPiAgIFRhbmc+IHRvIDB4ZTAwMDAwMDAwMDAwMDAwMCBpbiBsaW51eC9pYTY0OyB0aGF0
-J3MgcmVnaW9uIDcsIGl0cyBwYWdlCj4gICBUYW5nPiBzaXplIGlzIGZpeGVkIHRvIDY0TSgyLjQu
-MTIpLiBob3cgY291bGQgX19nZXRfZnJlZV9wYWdlcygpCj4gICBUYW5nPiBhbGxvY2F0ZSBzdWNo
-IGEgYmlnIF9wYWdlXz8gaXQncyBhYnNvbHV0ZWx5IGltcG9zc2libGUuICBzbyBpCj4gICBUYW5n
-PiB0aGluayBpIG1hZGUgYSBiaWcgbWlzdGFrZSBzb21ld2hlcmUsIHdvdWxkIHNvbWVvbmUgaGVs
-cCBtZQo+ICAgVGFuZz4gb3V0PyAgdGh4IDotKQo+Cj5UaGUgcGFnZSBhbGxvY2F0b3Igd29ya3Mg
-YXQgdGhlIHBhZ2UgZnJhbWUgbGV2ZWwsIHdoaWNoIGNhbiBiZQo+Y29uZmlndXJlZCB0byBoYXZl
-IGEgc2l6ZSBvZiA0LCA4LCAxNiwgb3IgNjRLQi4gIFRoZSBsYXJnZSBUTEIKPm1hcHBpbmdzIGFy
-ZSB1c2VkIG1lcmVseSB0byBhY2Nlc3MgdGhlIHVuZGVybHlpbmcgbWVtb3J5ICh0aGluayBvZiBp
-dAo+YXMgYSBwaHlzaWNhbCBhZGRyZXNzIHNwYWNlIHdpdGggYSBub24temVybyBzdGFydGluZyBh
-ZGRyZXNzKS4KPgo+CS0tZGF2aWQKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwrE+r/J0tTU2iBNU04gSG90bWFpbCDVvrXj
-IGh0dHA6Ly93d3cuaG90bWFpbC5jb20vY24gw+K30crVt6K159fT08q8/goKCg==
+A comment of Linus's on l-k promoted me to check ia64 inline asm for
+predicates.  I was surprised to find what look like missing asm
+clobbers.  I am not 100% sure that these are errors (gcc clobbers are a
+black art ;) so there is no patch.
+
+include/asm-ia64/spinlock.h.
+
+  spin_lock() changes ar.ccv, p7 without a clobber (!NEW_LOCK version).
+  read_lock() changes p6 without a clobber.
+  write_lock() changes ar.ccv, p7 without a clobber.
+
+arch/ia64/kernel/traps.c
+
+  fp_emulate() does ldf f10, f11 without a clobber.
+
+arch/ia64/kernel/unaligned.c
+
+  invala_gr() and invala_fr() do invala without a "memory" clobber.
+  Not sure if it is necessary or not.
+
+
