@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Mon, 24 Mar 2003 12:50:32 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 24 Mar 2003 19:19:08 +0000
 Subject: Re: [Linux-ia64] Linux, Itanium and PA/RISC
-Message-Id: <marc-linux-ia64-105590723705300@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705301@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705295@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705295@msgid-missing>
@@ -10,35 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Mar 24, 2003 at 01:23:32PM +0100, Adriano Galano wrote:
-> If IPF support PA-RISC mapping is not easy to "port" the PA/RISC Linux,
-> excluding architectural changes in the chipset or booting process?
+>>>>> On Mon, 24 Mar 2003 12:10:37 +0000, Matthew Wilcox <willy@debian.org> said:
 
-Why would you want to?  ia64 already has its own perfectly good Linux port.
+  Matthew> On Mon, Mar 24, 2003 at 11:41:18AM +0100, Adriano Galano
+  Matthew> wrote:
+  >> Hi all:
 
-> How HP/UX v 11.6 could be offer compatibility between PA/RISC and Itanium 2
-> systems?
+  >> I read that IA-64 support PA-RISC instruction mapping. That's
+  >> mean that I can use Linux for PA/RISC
+  >> (http://www.parisc-linux.org/) in a Itanium 2 computer?
 
-That's `11i v1.6'.  Quoting from
-http://www.hp.com/products1/unix/operating/choice/hp-ux11i_details.html
+  Matthew> No.  You certainly can't run a PA-RISC kernel on an IA64
+  Matthew> box, just like you can't run an x86 kernel on an ia64 box.
 
-	PA-RISC binary compatibility
+Ugh, that's not strictly true.  You definitely can boot x86 linux and
+windows 98 on Itanium.  I believe the same is true for Itanium 2 if
+you have Intel's firmware, though I have never tried that myself.
 
-  HP-UX 11i version 1.6 includes the Aries dynamic code translation
-  technology as an integrated component. Aries is built on the close
-  relationship between the PA-RISC and Intel Itanium instruction sets
-  and provides binary compatibility for PA-RISC binaries on the Itanium
-  processor family. Aries can be used where performance is not critical
-  or where it is not possible to create a native Itanium processor
-  family binary.
-
-> How "exact" is the PA-RISC mapping on the IA-64 core?
-
-Not particularly close.  If you look at the assembly language level,
-there's a lot of similarities, but there's a lot of differences too.
-
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+	--david
 
