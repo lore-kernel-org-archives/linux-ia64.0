@@ -1,22 +1,26 @@
-From: "Dai, Yiyang" <yiyang.dai@hp.com>
-Date: Tue, 12 Nov 2002 14:38:18 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Wed, 13 Nov 2002 00:25:27 +0000
 Subject: [Linux-ia64] =?gb2312?B?tPC4tDogW0xpbnV4LWlhNjRdIG5ld2JpZSBxdWVzdGlvbg==?=
-Message-Id: <marc-linux-ia64-105590709805400@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805408@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590709805400@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805400@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="gb2312"
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-SGkgOgoKICAgeW91IHdpbGwgbmVlZCB0byBidWlsZCBhIGNyb3NzLWNvbXBpbGVyIG9uIGlhMzIg
-Zmlyc3QgLCBhbmQgdGhlbiBlZGl0IHRoZSBNYWtlZmlpbGUgb2YgdGhlIGtlcm5lbCBzb3VyY2Ug
-dG8gdXNlIHRoZSBjcm9zcy1jb21waWxlciB0byBidWlsZCB0aGUga2VybmVsIG9uIHlvdXIgaWEz
-MiAuCgpSZWdhcmRzLApEYWlZaXlhbmcKCi0tLS0t1K3KvNPKvP4tLS0tLQq3orz+yMs6IHd1cWJA
-bnVkdC5lZHUuY24gW21haWx0bzp3dXFiQG51ZHQuZWR1LmNuXQq3osvNyrG85DogMjAwMsTqMTHU
-wjEyyNUgMjI6MDMKytW8/sjLOiBsaW51eC1pYTY0QGxpbnV4aWE2NC5vcmcK1vfM4jogW0xpbnV4
-LWlhNjRdIG5ld2JpZSBxdWVzdGlvbgoKCkhpLCBhbGwsCgpJIHdhbnQgdG8gY29tcGlsZXIgaWE2
-NCBrZXJuZWwgb24gaWEzMiBzeXN0ZW0uCkhvdyB0byBkbz8gSWYgc29tZW9uZSBrbm93cywgcGxl
-YXNlIGhlbHAgbWUuCgpUaGFua3MhCgpRaW5nYm8KCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCkxpbnV4LUlBNjQgbWFpbGluZyBsaXN0CkxpbnV4LUlBNjRA
-bGludXhpYTY0Lm9yZwpodHRwOi8vbGlzdHMubGludXhpYTY0Lm9yZy9saXN0cy9saXN0aW5mby9s
-aW51eC1pYTY0Cgo=
+>>>>> "Yiyang" = Yiyang Dai <Dai> writes:
+
+Yiyang> Hi : you will need to build a cross-compiler on ia32 first ,
+Yiyang> and then edit the Makefiile of the kernel source to use the
+Yiyang> cross-compiler to build the kernel on your ia32 .
+
+Easiest way actually is to grab the nue and ski packages from hp,
+which gives you a more-or-less complete (but a little old)
+development environment for IA64 that runs on IA32.
+
+URL is/was http://www.software.hp.com/products/LIA64
+
+PeterC
+
