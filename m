@@ -1,48 +1,36 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 10 Mar 2003 17:00:51 +0000
-Subject: Re: [Linux-ia64] get_scratch_regs in bk 2.4 unwind.c
-Message-Id: <marc-linux-ia64-105590709806018@msgid-missing>
+From: Mario Smarduch <cms063@email.mot.com>
+Date: Fri, 14 Mar 2003 17:21:21 +0000
+Subject: [Linux-ia64] Pre-emption patch for IA-64
+Message-Id: <marc-linux-ia64-105590709806101@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709806009@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709806009@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 08 Mar 2003 14:57:11 +1100, Keith Owens <kaos@sgi.com> said:
+Hi,
+    we're trying to build a reliable low-latency system for use
+in telco call processing carrier grade environments (on rx2600
+NEBS like servers) . One of the patches we're heavily relying on
+is the 'Kernel Preemption' patch. First of we're interested in the
+(i) status of this patch on  IA-64 (ii) any issues that you may
+have ran into.
 
-  Keith> UNW_DPRINT(3, "unwind.%s: sp 0x%lx pt 0x%lx\n", __FUNCTION__, info->sp, info->pt);
+Our understanding is that the 'Preemption Patch' offers a systematic
+scheduling checkpoint vs. 'low latency patch' which examines
+the kernel for any long running code  and based on that
+preemption checks are inserted in the kernel proper only (kernel.org)
+but addon packages may introduce long latencies. While we plan to
+run with 1mS clock tick, low latency  and the preemption
+paches, the preemption patch is viewed as a must to gurantee
+a bound on 'soft-realtime response'.  Please point out if these
+assumption are somewhat correct or is too much emphasis
+being placed on the preemption patch, the soft-realtime response
+we're looking for is 1mS.
 
-  Keith> __FUNCTION__ will always print get_scratch_regs which is of no use, we
-  Keith> need the calling function.  My patch passed in the calling function
-  Keith> name as a parameter.  Please revert to passing in the function name or
-  Keith> make get_scratch_regs a #define so it gets the calling function name.
-  Keith> Also I printed the new value of info->pt, it is useful when debugging
-  Keith> bad unwind data.
+thanks,
+    Mario.
 
-We're not going to pass around arguments that are only used for
-debugging.  If you want to, we could print __builtin_return_address(0)
-along with the function name (or we could use the kernel symbol table
-to print the symbolic name).
 
-  Keith> unw_access_gr has
 
-  Keith> /* access a scratch register */
-  Keith> if (!info->pt) {
-  Keith> UNW_DPRINT(0, "unwind.%s: no pt-regs; cannot access r%d\n",
-  Keith> __FUNCTION__, regnum);
-  Keith> return -1;
-  Keith> }
-  Keith> pt = get_scratch_regs(info);
-
-  Keith> Why the test for !info->pt?  No other use of get_scratch_regs
-  Keith> has that test, unw_access_[abf]r will continue with whatever
-  Keith> data get_scratch_regs returns, using pt_regs on top of stack
-  Keith> if info->pt is undefined.  The code is inconsistent.
-
-I agree.  Looks like something went wrong during the merge.  I'll fix
-that.
-
-	--david
 
