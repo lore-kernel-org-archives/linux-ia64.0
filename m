@@ -1,23 +1,25 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 10 Mar 2004 00:09:13 +0000
-Subject: Re: [ACPI] [PATCH] 4 of 6 introduce acpi_global_irq_to_irq()
-Message-Id: <200403091709.13272.bjorn.helgaas@hp.com>
+From: <dhruv.anand@wipro.com>
+Date: Mon, 01 Mar 2004 14:55:42 +0000
+Subject: Issues regarding memory hole.
+Message-Id: <CC7A2BA2F1CA9E43B2B62C4783B42C7BE2E7D7@blr-ec-msg05.wipro.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <7F740D512C7C1046AB53446D37200173FEB472@scsmsx402.sc.intel.com>
-In-Reply-To: <7F740D512C7C1046AB53446D37200173FEB472@scsmsx402.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Nakajima, Jun" <jun.nakajima@intel.com>, davidm@hpl.hp.com
-Cc: acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, Andi Kleen <ak@suse.de>, "Brown, Len" <len.brown@intel.com>
+To: linux-ia64@vger.kernel.org
 
-On Tuesday 09 March 2004 5:00 pm, Nakajima, Jun wrote:
-> I agree with David. And GSI is more consistent with the ACPI spec, and
-> you don't need to explain what it is.
+Hi, 
+I am booting with the 2.6.1 kernel on Itanium2 machine.
+The page granularity is set to 16MB for the kernel. 
 
-OK, once we get the current patches squared away, I'll prepare a patch
-to change to "gsi".  (It will be more extensive, because I think it
-makes sense to change the names in include/linux/acpi.h, such as those
-in struct acpi_table_ioapic and struct acpi_table_iosapic, at the
-same time.)
+After normal boot of the kernel, I observe a memory hole 
+from 1-16MB. Why is this usable memory region discarded 
+as a memory hole? 
 
+As per my understanding, the kernel requires contiguous 
+Write-Back memory for allocation. Is this the only reason? 
+
+Can this memory be reused after the kernel has booted?
+
+Regards
+Dhruv.
