@@ -1,56 +1,55 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 05 Jan 2001 19:09:46 +0000
-Subject: Re: [Linux-ia64] applying patch
-Message-Id: <marc-linux-ia64-105590678205881@msgid-missing>
+Date: Fri, 05 Jan 2001 20:29:13 +0000
+Subject: Re: [Linux-ia64] Re: alignment issues on netif_rx (fwd)
+Message-Id: <marc-linux-ia64-105590678205890@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Hiren,
-
-The patches go on top of the corresponding tree from Linus.  For
-example, linux-2.4.0-test12-ia64-001214.diff.bz2 goes on top of
-Linus's linux-2.4.0-test12 tree.
-
-On a related note: for those using the test12 tree, be sure to make
-the following change after applying the IA-64 patch.  Without this
-change, bad crashes can occur on systems with <2GB of RAM (it can
-happen on systems with >=2GB of RAM too, but it's much less likely to
-occur):
-
-	Change line 330 in arch/ia64/lib/swiotlb.c from:
-
-		set_bit(PG_arch_1, &virt_to_page(pg_addr));
-	to
-		struct page *page = virt_to_page(pg_addr);
-		set_bit(PG_arch_1, &page->flags);
-
-Hope this helps,
+Yes, that's a known problem.  Unalignment fault handling is REALLY
+slow on IA-64 so it's not something you want to do in general.
+However, the kernel certainly shouldn't crash due to an unaligned
+network header either, so we need to enable unaligned handling in the
+kernel (along with printing a nasty message ;-).
 
 	--david
 
->>>>> On Thu, 28 Dec 2000 17:30:28 -0700, hiren_mehta@agilent.com said:
+>>>>> On Mon, 18 Dec 2000 11:42:14 +1100, Keith Owens <kaos@ocs.com.au> said:
 
-  Hiren> Hi All, I looked at the
-  Hiren> http://www.kernel.org/pub/linux/kernel/ports/ia64/
-  Hiren> directory. The directory has only one big .tar.gz file with
-  Hiren> kernel sources and the rest of the files are patches. After I
-  Hiren> looked at the directory, I got totally confused as there are
-  Hiren> readme files which can tell me how to use the patches and
-  Hiren> what should be the base kernel to apply the patch. Is it
-  Hiren> that, the big tar.gz file should be the base kernel and then
-  Hiren> I need to apply all the patches appearing in the directory or
-  Hiren> that I need to apply only a specific patch ?
+  Keith> This just came up on the netdev list.  Is Andi correct and
+  Keith> misaligned IP options will cause a kernel error?
 
-  Hiren> If there is any readmes or any other information regarding
-  Hiren> the patches please send me the URL so that I can go through
-  Hiren> that.
+  Keith> ------- Forwarded Message
 
-  Hiren> Thanks and regards, -hiren
+  Keith> Return-Path: <owner-netdev@oss.sgi.com> Date: Sun, 17 Dec
+  Keith> 2000 22:36:12 +0100 From: Andi Kleen <ak@muc.de> To: Johannes
+  Keith> Erdfelt <johannes@erdfelt.com> Cc: "David S. Miller"
+  Keith> <davem@redhat.com>, kai@thphy.uni-duesseldorf.de,
+  Keith> netdev@oss.sgi.com Subject: Re: alignment issues on netif_rx
 
-  Hiren> _______________________________________________ Linux-IA64
-  Hiren> mailing list Linux-IA64@linuxia64.org
-  Hiren> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+  Keith> On Sun, Dec 17, 2000 at 04:21:14PM +0100, Johannes Erdfelt
+  Keith> wrote:
+  >>  However, I can't imagine we've made it this long without this
+  >> being a problem so there must be something I'm missing.
+
+  Keith> Nobody apparently tried to use IPX on IA64 yet (due to a
+  Keith> different ethernet header length it usually has to deal with
+  Keith> an misaligned header)
+
+  Keith> With this there are also plenty of ways to crash an IA64 box
+  Keith> remotely, e.g. by putting misaligned timestamps into options.
+
+
+  Keith> - -Andi
+
+
+  Keith> ------- End of Forwarded Message
+
+
+
+  Keith> _______________________________________________ Linux-IA64
+  Keith> mailing list Linux-IA64@linuxia64.org
+  Keith> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
