@@ -1,43 +1,38 @@
-From: Arjan van de Ven <arjanv@redhat.com>
-Date: Wed, 21 May 2003 09:01:33 +0000
+From: Mike Galbraith <efault@gmx.de>
+Date: Wed, 21 May 2003 09:26:31 +0000
 Subject: [Linux-ia64] Re: web page on O(1) scheduler
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-jdn4kkStXG9zAFTHIY0R"
-Message-Id: <marc-linux-ia64-105590723705966@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705967@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590723705966@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723705966@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---=-jdn4kkStXG9zAFTHIY0R
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+At 11:49 PM 5/20/2003 -0700, David Mosberger wrote:
+>Recently, I started to look into some odd performance behaviors of the
+>O(1) scheduler.  I decided to document what I found in a web page
+>at:
+>
+>         http://www.hpl.hp.com/research/linux/kernel/o1.php
 
-On Wed, 2003-05-21 at 08:49, David Mosberger wrote:
+<snip>
 
->=20
-> I think the web pages should be most relevant to the HPTC (high
-> performance technical computing) community, since this is the
-> community that is most likely affected by some of the performance
-> oddities of the O(1) scheduler.  Certainly anyone using OpenMP on
-> Intel platforms (x86 and ia64) may want to take a look.
+>Comments welcome.
 
-oh you mean the OpenMP broken behavior of calling sched_yield() in a
-tight loop to implement spinlocks ?
+The page mentions persistent starvation.  My own explorations of this issue 
+indicate that the primary source is always selecting the highest priority 
+queue.  Combine that with the round-robin, and you have a good chance of 
+being grossly unfair with some workloads.  I know for certain that lock 
+holders in the active array can be starved for very long periods by tasks 
+entering higher priority queues, thereby causing even more starvation when 
+they finally get the cpu and can release the lock (sleepers go through the 
+roof).
 
-I'd guess that instead of second guessing the runtime, they should use
-the pthreads primitives which are the fastest for the platform one would
-hope.. (eg futexes nowadays)
+Try the attached overly simplistic (KISS:) diff, and watch your starvation 
+issues be very noticably reduced.
 
---=-jdn4kkStXG9zAFTHIY0R
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+         -Mike 
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iD8DBQA+y0BsxULwo51rQBIRArOMAJ9yAk3Z9IroEHYebopZJURFBSCi6ACgny4i
-qyZcXObrE3j3F9UpJ3B1uEo=
-=l5W7
------END PGP SIGNATURE-----
-
---=-jdn4kkStXG9zAFTHIY0R--
 
