@@ -1,45 +1,33 @@
-From: Marc Aurele La France <tsi@ualberta.ca>
-Date: Thu, 26 Jul 2001 20:39:30 +0000
+From: Branden Robinson <branden@progeny.com>
+Date: Thu, 26 Jul 2001 20:49:41 +0000
 Subject: [Linux-ia64] Re: [Xpert]XFree86 4.1.0, Linux/ia64, and various video cards
-Message-Id: <marc-linux-ia64-105590693005933@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005935@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005933@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005933@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 26 Jul 2001, Branden Robinson wrote:
+On Thu, Jul 26, 2001 at 02:39:30PM -0600, Marc Aurele La France wrote:
+> Err.  The ATI driver was one of the ones used to do the port.
 
-> Here's a report on some hardware testing we've been doing at Progeny:
+Hrm.  That's interesting.  :)
 
-> The tests were conducted using a patched version of 4.1.0 for Debian and
-> Progeny that works around a problem with PIC symbols being absent in static
-> libraries, which powerpc, ia64, and hppa (among possible others) do not
-> tolerate.  At the same time, PIC symbols in X server modules cause the X
-> server to segfault.  I'll be submitting this patch to XFree86 shortly.
+> No attachment present.
 
-> The tests were run on an HP Workstation i2000.
+I forgot, and the followup message that included them is now stuck in
+xpert's moderator queue for being too large.  *sigh*
 
-> 5) ATI Rage Pro Turbo AGP
-> 	The server crashed on startup with a SIGILL; a log file is
-> 	attached.  I presume the atimisc driver has not yet been ported to
-> 	ia64.
+I'll send you a copy of the ATI log privately.
 
-Err.  The ATI driver was one of the ones used to do the port.
+BTW, if folks on the linux-ia64 list would Cc me on replies, I'd appreciate
+it.
 
-No attachment present.
-
-Marc.
-
-+----------------------------------+-----------------------------------+
-|  Marc Aurele La France           |  work:   1-780-492-9310           |
-|  Computing and Network Services  |  fax:    1-780-492-1729           |
-|  352 General Services Building   |  email:  tsi@ualberta.ca          |
-|  University of Alberta           +-----------------------------------+
-|  Edmonton, Alberta               |                                   |
-|  T6G 2H1                         |     Standard disclaimers apply    |
-|  CANADA                          |                                   |
-+----------------------------------+-----------------------------------+
-XFree86 Core Team member.  ATI driver and X server internals.
-
+-- 
+Branden Robinson          | GPG signed/encrypted mail welcome
+branden@progeny.com       | 1024D/9C0BCBFB
+Consultant                | D5F6 D4C9 E25B 3D37 068C
+Progeny Linux Systems     | 72E8 0F42 191A 9C0B CBFB
 
