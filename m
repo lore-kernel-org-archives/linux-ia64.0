@@ -1,64 +1,59 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Tue, 27 May 2003 04:08:29 +0000
-Subject: [Linux-ia64] Fix ps/2 mouse and keyboard on I2000, 2.5.69-bk
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="kHwtAPD/q8"
-Message-Id: <marc-linux-ia64-105590723706042@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 31 May 2003 00:03:09 +0000
+Subject: [Linux-ia64] fsyscall infrastructure finished (hopefully... ;-)
+Message-Id: <marc-linux-ia64-105590723706094@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---kHwtAPD/q8
-Content-Type: text/plain; charset=us-ascii
-Content-Description: message body text
-Content-Transfer-Encoding: 7bit
+Now that there is a streamlined syscall path (thanks to Rohit,
+Fenghua, & Asit's work), it was time to finish the fsyscall
+infrastructure such that it avoids using the "break" instruction when
+entering the kernel.  I just pushed the necessary code into the
+linux-ia64-2.5 tree.
 
+The net result is that epc-based stubs are now always faster, even if
+there is no light-weight systemcall handler.  In a nut-shell:
 
-I finally got sufficiently fed up to fix the PS/2 keyboard.  The
-problem is that the generic code requests an ISA interrupt directly,
-instead of via isa_irq_to_vector().
+ - null system call with break-based stub:		285 cycles
+ - null system call with epc-based stub (fsyscall):	266 cycles
+ - null system call with light-weight handler:		 50 cycles
 
+ - gettimeofday with break-based stub:			491 cycles
+ - gettimeofday with epc-based stub (fsyscall):		466 cycles
+ - gettimeofday with light-weight handler:		136 cycles
 
---kHwtAPD/q8
-Content-Type: text/plain
-Content-Disposition: inline;
-	filename="p1"
-Content-Transfer-Encoding: 7bit
+Relative to older kernels:
+						original w/Rohit's  current
+						2.5.69   patch	    2.5.69
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1101  -> 1.1102 
-#	drivers/input/serio/i8042-io.h	1.4     -> 1.5    
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/05/27	peterc@wombat.disy.cse.unsw.edu.au	1.1102
-# IA64: Fix  I2000 no keyboard interrupt problem.
-# --------------------------------------------
-#
-diff -Nru a/drivers/input/serio/i8042-io.h b/drivers/input/serio/i8042-io.h
---- a/drivers/input/serio/i8042-io.h	Tue May 27 14:07:29 2003
-+++ b/drivers/input/serio/i8042-io.h	Tue May 27 14:07:29 2003
-@@ -20,11 +20,14 @@
-  */
- 
- #ifdef __alpha__
--#define I8042_KBD_IRQ	1
--#define I8042_AUX_IRQ	(RTC_PORT(0) == 0x170 ? 9 : 12)	/* Jensen is special */
-+# define I8042_KBD_IRQ	1
-+# define I8042_AUX_IRQ	(RTC_PORT(0) == 0x170 ? 9 : 12)	/* Jensen is special */
-+#elif defined(__ia64__)
-+# define I8042_KBD_IRQ isa_irq_to_vector(1)
-+# define I8042_AUX_IRQ isa_irq_to_vector(12)
- #else
--#define I8042_KBD_IRQ	1
--#define I8042_AUX_IRQ	12
-+# define I8042_KBD_IRQ	1
-+# define I8042_AUX_IRQ	12
- #endif
- 
- /*
+ - null system call with break-based stub:	338 cyc  282 cyc    285 cyc
+ - null system call with light-weight handler:	 49 cyc    n/a       50 cyc
+ - gettimeofday with break-based stub:		544 cyc  491 cyc    491 cyc
+ - gettimeofday with light-weight handler:	130 cyc    n/a      136 cyc
 
---kHwtAPD/q8--
+So, by and large, the final version should be as good or substantially
+better than what was there before.
+
+I'm quite certain there is more tuning that could be done in the
+syscall path, but what's there now is reasonably straightforward and
+performs rather well.  A nice thing about the current setup is that
+syscall restart works _exactly_ the same, independent of whether the
+(heavy-weight) system call was entered via break or via epc.  This
+saves a substantial amount of complexity.
+
+I also added a new boot command line option.  If you boot with
+"nolwsys", then the kernel won't be using light-weight system-call
+handlers at all.  This is primarily useful for performance
+measurements, but the code to support it is so trivial that I left it
+in there.
+
+Caveat: the current linux-ia64-2.5 breaks execve to ia32 tasks. It'll
+get fixed some day.  In the meantime, sorry about that.
+
+Enjoy,
+
+	--david
 
