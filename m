@@ -1,7 +1,7 @@
-From: Andi Kleen <ak@suse.de>
-Date: Wed, 15 Oct 2003 12:42:58 +0000
+From: Christoph Hellwig <hch@lst.de>
+Date: Wed, 15 Oct 2003 12:54:53 +0000
 Subject: Re: IA64 ino_t incorrectly sized?
-Message-Id: <marc-linux-ia64-106622180407727@msgid-missing>
+Message-Id: <marc-linux-ia64-106622328109553@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106378281914262@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106378281914262@msgid-missing>
@@ -10,14 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->  	__kernel_old_dev_t	ex_dev;
-> +#ifdef __ia64__
-> +	unsigned int		ex_ino;	/* ABI preservation */
-> +#else
->  	__kernel_ino_t		ex_ino;
-> +#endif
+On Wed, Oct 15, 2003 at 11:25:04AM +1000, Nathan Scott wrote:
+> I'd appreciate any suggestions about a cleaner way to do the
+> common types.h and nfsd/syscall.h header changes.
 
-Please don't make it #ifdef __ia64__, but some other define that other
-architectures who may want to move the 64bit ino_t too can just set.
+First question:  What about other LP64 arches besides IA64.  IMHO
+having differen't ino_t on different LP64 arches is a rather bad idea.
 
--Andi
+AQnd if we go the ino_t is unsigned long route for all 64bit arches
+the ifdefs would also magically disappear..
+
