@@ -1,38 +1,76 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Fri, 03 Sep 2004 19:30:27 +0000
-Subject: ACPI pci hotplug patch series
-Message-Id: <20040903193027.GO642@parcelfarce.linux.theplanet.co.uk>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 15 Sep 2004 18:56:16 +0000
+Subject: Re: sigaltstack() + siglongjmp() breakage
+Message-Id: <16712.36944.40589.885751@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <greg@kroah.com>, pcihpd-discuss@lists.sourceforge.net
-Cc: linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
+Just to close on this issue: the glibc maintainers are of the opinion
+that programs must not use sig/longjmp() to cross stacks, not even
+from the alternate signal stack to the normal stack.  Thus, the
+current sig/longjmp() implementation remains unchanged.
 
-A series of 5 patches coming up that make acpiphp work on an rx8620.
-Unfortunately, they'll cause i386 to not work, so don't apply these
-for now.
+Of course, despite this "mandate" of not using longjmp() to cross
+stacks, the NPTL thread-library did precisely that.  To fix NPTL, it
+now implements its own version of longjmp() which knows how to safely
+cross from the alternate signal stack to the normal signal stack.
 
-01-pci-bus-address.diff
-Adds a way to convert from a global system address to a local pci bus address.
+What does it all mean:
 
-02-ia64-fixups.diff
-Fix some bugs.  Nothing earth-shattering.
+ - No change to current longjmp()/siglongjmp().  In particular, there
+   is no performance impact.
 
-03-acpiphp-domains.diff
-Make acpiphp handle domains properly
+ - The glibc in the CVS tree has been fixed so pthread_cancel() is
+   safe to use with NPTL.
 
-04-acpiphp-pcidev.diff
-Prevent acpiphp from crashing the system in nasty untracable ways
+I didn't get any feedback on the original bug-report from this list,
+so I take it that nobody is likely to be affected by this issue anyhow
+and the current solution is hopefully sufficient for everybody.
 
-05-acpiphp-misc.diff
-Some minor cleanups
+Thanks,
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+	--david
+
+>>>>> On Mon, 23 Aug 2004 10:31:56 -0700, David Mosberger <davidm@linux.hpl.hp.com> said:
+
+  >> Back in Feb 2002, we changed the kernel to spill the dirty
+  >> partition of the register stack onto the alternate signal stack
+  >> rather than spilling it onto the old stack.  This inadvertently
+  >> broke siglongjmp().  As a result, if you do a siglongjmp() out of
+  >> a signal handler which uses the alternate signal stack, it's
+  >> possible (and often likely) that the contents of register-backing
+  >> store will be trashed.
+
+  >> Apparently, this isn't something that tons of programs do as
+  >> nobody seems to have complained so far.  I only discovered it
+  >> when tracking down a test-case failure in libc which only showed
+  >> with libunwind; GCC's built-in unwinder masks the bug for
+  >> unrelated reasons.
+
+  >> Fixing this problem is of course very important but since it's
+  >> rather fundamental stuff, I'll need to test it carefully before
+  >> posting a patch.  For now, I just wanted to give a heads up in
+  >> case somebody is seeing failures in programs that use alternate
+  >> signal stacks and siglongjmp().
+
+  >> If you need a quick workaround, you could consider using the
+  >> setjmp/longjmp implementation that comes with libunwind [1] (it's
+  >> in library libunwind-setjmp).  This implementation doesn't suffer
+  >> from the problem described above, but, on the flip-side, you need
+  >> fairly current libraries and compilers to be sure that the
+  >> unwind-info is correct.  Without correct unwind-info, the
+  >> libunwind implementation of setjmp/longjmp would fail, of course.
+  >> Also, another thing to consider is that with the libunwind-based
+  >> implementation, setjmp() will be extremely fast (just needs to
+  >> store 3 words), but longjmp() will be much slower (since the
+  >> stack needs to be unwound).
+
+  >> 	--david
+
+  >> [1] http://www.hpl.hp.com/research/linux/
+  >> _______________________________________________ ia64_rd mailing
+  >> list ia64_rd@ldl.fc.hp.com
+  >> http://linux.fc.hp.com/cgi-bin/mailman/listinfo/ia64_rd
