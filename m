@@ -1,415 +1,166 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Fri, 15 Nov 2002 02:22:24 +0000
-Subject: [Linux-ia64] First crack at preemption support for IA64
-Message-Id: <marc-linux-ia64-105590709805442@msgid-missing>
+From: "Pallipadi, Venkatesh" <venkatesh.pallipadi@intel.com>
+Date: Wed, 27 Nov 2002 01:45:20 +0000
+Subject: [Linux-ia64] [PATCH] IA32 exception handler: restore of instruction and data pointers
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C295B6.A5315CC6"
+Message-Id: <marc-linux-ia64-105590709805491@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi folks,
-   Here's my first go at preemption support for IA64.  I've tested it
-on the simulator and I2000 UP.  It's very rough around the edges
-(especially in entry.S), but someone may have some useful comments for
-me... so it's being released here.
+This is a multi-part message in MIME format.
 
-So far, it appears that response to mouse movememnts ont eh console,
-etc., is *more* jerky with the preempt turned on than without.
+------_=_NextPart_001_01C295B6.A5315CC6
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Expect a warning from the IDE code when you boot, too.  You'll get the
-same thing on IA32 with CONFIG_PREEMPT.
+Hi,
 
-The stuff in entry.S is hard to follow.  The pseudocode works like
-this:
+One more patch in the series of IA32 exception handling patches. I had
+thought that during an IA32 exception handling, the fields cssel, ipoff,
+datasel and dataoff are READONLY information. But, as it turns out, they
+are not. They need to be restored while returning from the exception=20
+handler.
 
-ia64_leave_kernel(bool pKern, bool pUser, machine_context_t ctx)
-{
-	local_irq_disable();
-	while (pUser && current->threadinfo->flags & (RESCHED | NOTIFY) ||
-	      pKern && preempt_count = 0 &&
-		    current->threadinfo->flags & RESCHED) {
-		  if (pKern)
-			preempt_count() = PREEMPT_ACTIVE;
-		   if (current->threadinfo->flags & RESCHED)
-		        schedule();
-	           else
-		        notify_resume();
-		   local_irq_disable()
-		   if (pKern)
-		      preempt_count() = 0;
-        }
-	set_context(ctx);
-}
+The attached patch does the following:
+1) restores cssel, ipoff, datasel and dataoff properly during the return
+from exception handler
+2) An additional check to maintain correctness while restoring the=20
+exception status word
 
-but the set_context is effectively done in parallel with all of the
-other stuff.
-			
+Please let me know, if you need any more information on this.
 
+Thanks,
+-Venkatesh
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.815   -> 1.816  
-#	arch/ia64/kernel/entry.S	1.21    -> 1.22   
-#	include/asm-ia64/hardirq.h	1.10    -> 1.11   
-#	arch/ia64/Config.help	1.10    -> 1.11   
-#	arch/ia64/kernel/efivars.c	1.8     -> 1.9    
-#	arch/ia64/hp/sim/simserial.c	1.9     -> 1.10   
-#	include/asm-ia64/thread_info.h	1.5     -> 1.6    
-#	 arch/ia64/config.in	1.36    -> 1.37   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 02/11/15	peterc@gelato.unsw.edu.au	1.816
-# Preliminary preemption support.
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/Config.help b/arch/ia64/Config.help
---- a/arch/ia64/Config.help	Fri Nov 15 13:07:05 2002
-+++ b/arch/ia64/Config.help	Fri Nov 15 13:07:05 2002
-@@ -567,3 +567,13 @@
- 
-   Select "16MB" for a small granule size.
-   Select "64MB" for a large granule size.  This is the current default.
+--- arch/ia64/ia32/ia32_signal.c.org1	Fri Nov 15 13:25:09 2002
++++ arch/ia64/ia32/ia32_signal.c	Mon Nov 25 11:35:06 2002
+@@ -165,10 +165,10 @@
+  *    sw         ar.fsr(0:15)
+  *    tag        ar.fsr(16:31)               with odd numbered bits not =
+used
+  *                                           (read returns 0, writes =
+ignored)
+- *    ipoff      ar.fir(0:31)   RO
+- *    cssel      ar.fir(32:47)  RO
+- *    dataoff    ar.fdr(0:31)   RO
+- *    datasel    ar.fdr(32:47)  RO
++ *    ipoff      ar.fir(0:31)    =20
++ *    cssel      ar.fir(32:47)    =20
++ *    dataoff    ar.fdr(0:31)     =20
++ *    datasel    ar.fdr(32:47)    =20
+  *   =20
+  *    _st[(0+TOS)%8]   f8
+  *    _st[(1+TOS)%8]   f9                    (f8, f9 from ptregs)
+@@ -328,7 +328,7 @@
+ 	unsigned long num64, mxcsr;
+ 	struct _fpreg_ia32 *fpregp;
+ 	char buf[32];
+-	unsigned long fsr, fcr;
++	unsigned long fsr, fcr, fir, fdr;
+ 	int fp_tos, fr8_st_map;
+=20
+ 	if (!access_ok(VERIFY_READ, save, sizeof(*save)))
+@@ -345,6 +345,8 @@
+ 	 */
+ 	asm volatile ( "mov %0=3Dar.fsr;" : "=3Dr"(fsr));
+ 	asm volatile ( "mov %0=3Dar.fcr;" : "=3Dr"(fcr));
++	asm volatile ( "mov %0=3Dar.fir;" : "=3Dr"(fir));
++	asm volatile ( "mov %0=3Dar.fdr;" : "=3Dr"(fdr));
+=20
+ 	__get_user(mxcsr, (unsigned int *)&save->mxcsr);
+ 	/* setting bits 0..5 8..12 with cw and 39..47 from mxcsr */
+@@ -355,14 +357,34 @@
+=20
+ 	/* setting bits 0..31 with sw and tag and 32..37 from mxcsr */
+ 	__get_user(lo, (unsigned int *)&save->sw);
++	/* set bits 15,7 (fsw.b, fsw.es) to reflect the current error status =
+*/
++	if ( !(lo & 0x7f) )
++		lo &=3D (~0x8080);
+ 	__get_user(hi, (unsigned int *)&save->tag);
+ 	num64 =3D mxcsr & 0x3f;
+ 	num64 =3D (num64 << 16) | (hi & 0xffff);
+ 	num64 =3D (num64 << 16) | (lo & 0xffff);
+ 	fsr =3D (fsr & (~0x3fffffffff)) | num64;
+=20
++	/* setting bits 0..47 with cssel and ipoff */
++	__get_user(lo, (unsigned int *)&save->ipoff);
++	__get_user(hi, (unsigned int *)&save->cssel);
++	num64 =3D hi & 0xffff;
++	num64 =3D (num64 << 32) | lo;
++	fir =3D (fir & (~0xffffffffffff)) | num64;
 +
-+CONFIG_PREEMPT
-+  This option reduces the latency of the kernel when reacting to
-+  real-time or interactive events by allowing a low priority process to
-+  be preempted even if it is in kernel mode executing a system call.
-+  This allows applications to run more reliably even when the system is
-+  under load.
++	/* setting bits 0..47 with datasel and dataoff */
++	__get_user(lo, (unsigned int *)&save->dataoff);
++	__get_user(hi, (unsigned int *)&save->datasel);
++	num64 =3D hi & 0xffff;
++	num64 =3D (num64 << 32) | lo;
++	fdr =3D (fdr & (~0xffffffffffff)) | num64;
 +
-+  Say Y here if you are building a kernel for a desktop, embedded
-+  or real-time system.  Say N if you are unsure.
-diff -Nru a/arch/ia64/config.in b/arch/ia64/config.in
---- a/arch/ia64/config.in	Fri Nov 15 13:07:05 2002
-+++ b/arch/ia64/config.in	Fri Nov 15 13:07:05 2002
-@@ -117,6 +117,7 @@
- fi
- 
- bool 'SMP support' CONFIG_SMP
-+bool 'Preemptible Kernel' CONFIG_PREEMPT
- bool 'Support running of Linux/x86 binaries' CONFIG_IA32_SUPPORT
- bool 'Performance monitor support' CONFIG_PERFMON
- tristate '/proc/pal support' CONFIG_IA64_PALINFO
-diff -Nru a/arch/ia64/hp/sim/simserial.c b/arch/ia64/hp/sim/simserial.c
---- a/arch/ia64/hp/sim/simserial.c	Fri Nov 15 13:07:05 2002
-+++ b/arch/ia64/hp/sim/simserial.c	Fri Nov 15 13:07:05 2002
-@@ -63,7 +63,6 @@
- 
- static char *serial_name = "SimSerial driver";
- static char *serial_version = "0.6";
--static spinlock_t serial_lock = SPIN_LOCK_UNLOCKED;
- 
- /*
-  * This has been extracted from asm/serial.h. We need one eventually but
-@@ -235,14 +234,15 @@
- 
- 	if (!tty || !info->xmit.buf) return;
- 
--	spin_lock_irqsave(&serial_lock, flags);
-+	local_save_flags(flags);
-+	local_irq_disable();
- 	if (CIRC_SPACE(info->xmit.head, info->xmit.tail, SERIAL_XMIT_SIZE) = 0) {
--		spin_unlock_irqrestore(&serial_lock, flags);
-+		local_irq_restore(flags);
- 		return;
- 	}
- 	info->xmit.buf[info->xmit.head] = ch;
- 	info->xmit.head = (info->xmit.head + 1) & (SERIAL_XMIT_SIZE-1);
--	spin_unlock_irqrestore(&serial_lock, flags);
-+	local_irq_restore(flags);
- }
- 
- static _INLINE_ void transmit_chars(struct async_struct *info, int *intr_done)
-@@ -250,7 +250,9 @@
- 	int count;
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&serial_lock, flags);
+ 	asm volatile ( "mov ar.fsr=3D%0;" :: "r"(fsr));
+ 	asm volatile ( "mov ar.fcr=3D%0;" :: "r"(fcr));
++	asm volatile ( "mov ar.fir=3D%0;" :: "r"(fir));
++	asm volatile ( "mov ar.fdr=3D%0;" :: "r"(fdr));
 +
-+	local_save_flags(flags);
-+	local_irq_disable();
- 
- 	if (info->x_char) {
- 		char c = info->x_char;
-@@ -293,7 +295,7 @@
- 		info->xmit.tail += count;
- 	}
- out:
--	spin_unlock_irqrestore(&serial_lock, flags);
-+	local_irq_restore(flags);
- }
- 
- static void rs_flush_chars(struct tty_struct *tty)
-@@ -334,7 +336,8 @@
- 				break;
- 			}
- 
--			spin_lock_irqsave(&serial_lock, flags);
-+			local_save_flags(flags);
-+			local_irq_disable();
- 			{
- 				c1 = CIRC_SPACE_TO_END(info->xmit.head, info->xmit.tail,
- 						       SERIAL_XMIT_SIZE);
-@@ -344,7 +347,7 @@
- 				info->xmit.head = ((info->xmit.head + c) &
- 						   (SERIAL_XMIT_SIZE-1));
- 			}
--			spin_unlock_irqrestore(&serial_lock, flags);
-+			local_irq_restore(flags);
- 
- 			buf += c;
- 			count -= c;
-@@ -352,7 +355,8 @@
- 		}
- 		up(&tmp_buf_sem);
- 	} else {
--		spin_lock_irqsave(&serial_lock, flags);
-+		local_save_flags(flags);
-+		local_irq_disable();
- 		while (1) {
- 			c = CIRC_SPACE_TO_END(info->xmit.head, info->xmit.tail, SERIAL_XMIT_SIZE);
- 			if (count < c)
-@@ -367,7 +371,7 @@
- 			count -= c;
- 			ret += c;
- 		}
--		spin_unlock_irqrestore(&serial_lock, flags);
-+		local_irq_restore(flags);
- 	}
- 	/*
- 	 * Hey, we transmit directly from here in our case
-@@ -398,9 +402,10 @@
- 	struct async_struct *info = (struct async_struct *)tty->driver_data;
- 	unsigned long flags;
- 
--	spin_lock_irqsave(&serial_lock, flags);
-+	local_save_flags(flags);
-+	local_irq_disable();
- 	info->xmit.head = info->xmit.tail = 0;
--	spin_unlock_irqrestore(&serial_lock, flags);
-+	local_irq_restore(flags);
- 
- 	wake_up_interruptible(&tty->write_wait);
- 
-@@ -573,7 +578,8 @@
- 	       state->irq);
- #endif
- 
--	spin_lock_irqsave(&serial_lock, flags);
-+	local_save_flags(flags);
-+	local_irq_disable();
- 	{
- 		/*
- 		 * First unlink the serial port from the IRQ chain...
-@@ -611,7 +617,7 @@
- 
- 		info->flags &= ~ASYNC_INITIALIZED;
- 	}
--	spin_unlock_irqrestore(&serial_lock, flags);
-+	local_irq_restore(flags);
- }
- 
- /*
-@@ -634,13 +640,14 @@
- 
- 	state = info->state;
- 
--	spin_lock_irqsave(&serial_lock, flags);
-+	local_irq_save(flags);
-+	local_irq_disable();
- 	if (tty_hung_up_p(filp)) {
- #ifdef SIMSERIAL_DEBUG
- 		printk("rs_close: hung_up\n");
- #endif
- 		MOD_DEC_USE_COUNT;
--		spin_unlock_irqrestore(&serial_lock, flags);
-+		local_irq_restore(flags);
- 		return;
- 	}
- #ifdef SIMSERIAL_DEBUG
-@@ -665,11 +672,11 @@
- 	}
- 	if (state->count) {
- 		MOD_DEC_USE_COUNT;
--		spin_unlock_irqrestore(&serial_lock, flags);
-+		local_irq_restore(flags);
- 		return;
- 	}
- 	info->flags |= ASYNC_CLOSING;
--	spin_unlock_irqrestore(&serial_lock, flags);
-+	local_irq_restore(flags);
- 
- 	/*
- 	 * Now we wait for the transmit buffer to clear; and we notify
-@@ -776,7 +783,8 @@
- 	if (!page)
- 		return -ENOMEM;
- 
--	spin_lock_irqsave(&serial_lock, flags);
-+	local_save_flags(flags);
-+	local_irq_disable();
- 
- 	if (info->flags & ASYNC_INITIALIZED) {
- 		free_page(page);
-@@ -857,11 +865,11 @@
- 	}
- 
- 	info->flags |= ASYNC_INITIALIZED;
--	spin_unlock_irqrestore(&serial_lock, flags);
-+	local_irq_restore(flags);
- 	return 0;
- 
- errout:
--	spin_unlock_irqrestore(&serial_lock, flags);
-+	local_irq_restore(flags);
- 	return retval;
- }
- 
-diff -Nru a/arch/ia64/kernel/efivars.c b/arch/ia64/kernel/efivars.c
---- a/arch/ia64/kernel/efivars.c	Fri Nov 15 13:07:05 2002
-+++ b/arch/ia64/kernel/efivars.c	Fri Nov 15 13:07:05 2002
-@@ -66,6 +66,7 @@
- #include <linux/module.h>
- #include <linux/smp.h>
- #include <linux/efi.h>
-+#include <linux/smp_lock.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -342,6 +343,9 @@
- 
- 
- 
-+/*
-+ * Called with BKL held
-+ */
- static int __init
- efivars_init(void)
- {
-@@ -351,10 +355,11 @@
- 	efi_char16_t *variable_name = kmalloc(1024, GFP_KERNEL);
- 	unsigned long variable_name_size = 1024;
- 
--	spin_lock(&efivars_lock);
- 
- 	printk(KERN_INFO "EFI Variables Facility v%s\n", EFIVARS_VERSION);
- 
-+        BUG_ON(!kernel_locked());
-+
-         /* Since efi.c happens before procfs is available,
-            we create the directory here if it doesn't
-            already exist.  There's probably a better way
-@@ -398,7 +403,6 @@
- 	} while (status != EFI_NOT_FOUND);
- 
- 	kfree(variable_name);
--	spin_unlock(&efivars_lock);
- 	return 0;
- }
- 
-diff -Nru a/arch/ia64/kernel/entry.S b/arch/ia64/kernel/entry.S
---- a/arch/ia64/kernel/entry.S	Fri Nov 15 13:07:05 2002
-+++ b/arch/ia64/kernel/entry.S	Fri Nov 15 13:07:05 2002
-@@ -570,10 +570,16 @@
- GLOBAL_ENTRY(ia64_leave_kernel)
- 	PT_REGS_UNWIND_INFO(0)
- 	// work.need_resched etc. mustn't get changed by this CPU before it returns to userspace:
-+.work_recheck:
- (pUser)	cmp.eq.unc p6,p0=r0,r0			// p6 <- pUser
--(pUser)	rsm psr.i
-+	rsm psr.i				// disable interrupts
- 	;;
--(pUser)	adds r17=TI_FLAGS+IA64_TASK_SIZE,r13
-+	adds r17=TI_FLAGS+IA64_TASK_SIZE,r13
-+(pKern) adds r20=TI_PRE_COUNT+IA64_TASK_SIZE,r13
-+	;;
-+(pKern) ld4  r21=[r20]			// preempt_count ->r21
-+	;;
-+(pKern)	cmp.eq	p6,p0=r21,r0
- 	;;
- .work_processed:
- (p6)	ld4 r18=[r17]				// load current_thread_info()->flags
-@@ -802,6 +808,11 @@
- .work_pending:
- 	tbit.z p6,p0=r18,TIF_NEED_RESCHED		// current_thread_info()->need_resched=0?
- (p6)	br.cond.sptk.few .notify
-+(pKern)	dep r21=-1,r0,PREEMPT_ACTIVE_BIT,1
-+	;;
-+(pKern) ssm psr.i
-+(pKern) st4 [r20]=r21
-+	
- #if __GNUC__ < 3
- 	br.call.spnt.many rp=invoke_schedule
- #else
-@@ -811,6 +822,9 @@
- 	rsm psr.i
- 	;;
- 	adds r17=TI_FLAGS+IA64_TASK_SIZE,r13
-+	adds r20=TI_PRE_COUNT+IA64_TASK_SIZE,r13
-+	;;
-+	st8 [r20]=r0
- 	br.cond.sptk.many .work_processed		// re-check
- 
- .notify:
-@@ -844,7 +858,7 @@
- 	br.cond.sptk ia64_leave_kernel
- END(handle_syscall_error)
- 
--#ifdef CONFIG_SMP
-+#if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT)
- 	/*
- 	 * Invoke schedule_tail(task) while preserving in0-in7, which may be needed
- 	 * in case a system call gets restarted.
-@@ -861,7 +875,7 @@
- 	br.ret.sptk.many rp
- END(ia64_invoke_schedule_tail)
- 
--#endif /* CONFIG_SMP */
-+#endif /* CONFIG_SMP || CONFIG_PREEMPT */
- 
- #if __GNUC__ < 3
- 
-diff -Nru a/include/asm-ia64/hardirq.h b/include/asm-ia64/hardirq.h
---- a/include/asm-ia64/hardirq.h	Fri Nov 15 13:07:05 2002
-+++ b/include/asm-ia64/hardirq.h	Fri Nov 15 13:07:05 2002
-@@ -83,13 +83,13 @@
- #define hardirq_trylock()	(!in_interrupt())
- #define hardirq_endlock()	do { } while (0)
- 
--#define in_atomic()		(preempt_count() != 0)
- #define irq_enter()		(preempt_count() += HARDIRQ_OFFSET)
- 
- #if CONFIG_PREEMPT
--# error CONFIG_PREEMT currently not supported.
-+# define in_atomic()		((preempt_count() & ~PREEMPT_ACTIVE) != kernel_locked())
- # define IRQ_EXIT_OFFSET (HARDIRQ_OFFSET-1)
- #else
-+# define in_atomic()		(preempt_count() != 0)
- # define IRQ_EXIT_OFFSET HARDIRQ_OFFSET
- #endif
- 
-diff -Nru a/include/asm-ia64/thread_info.h b/include/asm-ia64/thread_info.h
---- a/include/asm-ia64/thread_info.h	Fri Nov 15 13:07:05 2002
-+++ b/include/asm-ia64/thread_info.h	Fri Nov 15 13:07:05 2002
-@@ -15,7 +15,8 @@
- #define TI_ADDR_LIMIT	0x10
- #define TI_PRE_COUNT	0x18
- 
--#define PREEMPT_ACTIVE	0x4000000
-+#define PREEMPT_ACTIVE_BIT 26
-+#define PREEMPT_ACTIVE	(1<<PREEMPT_ACTIVE_BIT)
- 
- #ifndef __ASSEMBLY__
- 
+ 	/*=20
+ 	 * restore f8, f9 onto pt_regs
+ 	 * restore f10..f15 onto live registers
 
 
 
+------_=_NextPart_001_01C295B6.A5315CC6
+Content-Type: application/octet-stream;
+	name="fpe3.patch"
+Content-Transfer-Encoding: base64
+Content-Description: fpe3.patch
+Content-Disposition: attachment;
+	filename="fpe3.patch"
 
---
-Dr Peter Chubb				    peterc@gelato.unsw.edu.au
-You are lost in a maze of BitKeeper repositories, all almost the same.
+LS0tIGFyY2gvaWE2NC9pYTMyL2lhMzJfc2lnbmFsLmMub3JnMQlGcmkgTm92IDE1IDEzOjI1OjA5
+IDIwMDIKKysrIGFyY2gvaWE2NC9pYTMyL2lhMzJfc2lnbmFsLmMJTW9uIE5vdiAyNSAxMTozNTow
+NiAyMDAyCkBAIC0xNjUsMTAgKzE2NSwxMCBAQAogICogICAgc3cgICAgICAgICBhci5mc3IoMDox
+NSkKICAqICAgIHRhZyAgICAgICAgYXIuZnNyKDE2OjMxKSAgICAgICAgICAgICAgIHdpdGggb2Rk
+IG51bWJlcmVkIGJpdHMgbm90IHVzZWQKICAqICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
+ICAgICAgICAgICAgIChyZWFkIHJldHVybnMgMCwgd3JpdGVzIGlnbm9yZWQpCi0gKiAgICBpcG9m
+ZiAgICAgIGFyLmZpcigwOjMxKSAgIFJPCi0gKiAgICBjc3NlbCAgICAgIGFyLmZpcigzMjo0Nykg
+IFJPCi0gKiAgICBkYXRhb2ZmICAgIGFyLmZkcigwOjMxKSAgIFJPCi0gKiAgICBkYXRhc2VsICAg
+IGFyLmZkcigzMjo0NykgIFJPCisgKiAgICBpcG9mZiAgICAgIGFyLmZpcigwOjMxKSAgICAgCisg
+KiAgICBjc3NlbCAgICAgIGFyLmZpcigzMjo0NykgICAgIAorICogICAgZGF0YW9mZiAgICBhci5m
+ZHIoMDozMSkgICAgICAKKyAqICAgIGRhdGFzZWwgICAgYXIuZmRyKDMyOjQ3KSAgICAgCiAgKiAg
+ICAKICAqICAgIF9zdFsoMCtUT1MpJThdICAgZjgKICAqICAgIF9zdFsoMStUT1MpJThdICAgZjkg
+ICAgICAgICAgICAgICAgICAgIChmOCwgZjkgZnJvbSBwdHJlZ3MpCkBAIC0zMjgsNyArMzI4LDcg
+QEAKIAl1bnNpZ25lZCBsb25nIG51bTY0LCBteGNzcjsKIAlzdHJ1Y3QgX2ZwcmVnX2lhMzIgKmZw
+cmVncDsKIAljaGFyIGJ1ZlszMl07Ci0JdW5zaWduZWQgbG9uZyBmc3IsIGZjcjsKKwl1bnNpZ25l
+ZCBsb25nIGZzciwgZmNyLCBmaXIsIGZkcjsKIAlpbnQgZnBfdG9zLCBmcjhfc3RfbWFwOwogCiAJ
+aWYgKCFhY2Nlc3Nfb2soVkVSSUZZX1JFQUQsIHNhdmUsIHNpemVvZigqc2F2ZSkpKQpAQCAtMzQ1
+LDYgKzM0NSw4IEBACiAJICovCiAJYXNtIHZvbGF0aWxlICggIm1vdiAlMD1hci5mc3I7IiA6ICI9
+ciIoZnNyKSk7CiAJYXNtIHZvbGF0aWxlICggIm1vdiAlMD1hci5mY3I7IiA6ICI9ciIoZmNyKSk7
+CisJYXNtIHZvbGF0aWxlICggIm1vdiAlMD1hci5maXI7IiA6ICI9ciIoZmlyKSk7CisJYXNtIHZv
+bGF0aWxlICggIm1vdiAlMD1hci5mZHI7IiA6ICI9ciIoZmRyKSk7CiAKIAlfX2dldF91c2VyKG14
+Y3NyLCAodW5zaWduZWQgaW50ICopJnNhdmUtPm14Y3NyKTsKIAkvKiBzZXR0aW5nIGJpdHMgMC4u
+NSA4Li4xMiB3aXRoIGN3IGFuZCAzOS4uNDcgZnJvbSBteGNzciAqLwpAQCAtMzU1LDE0ICszNTcs
+MzQgQEAKIAogCS8qIHNldHRpbmcgYml0cyAwLi4zMSB3aXRoIHN3IGFuZCB0YWcgYW5kIDMyLi4z
+NyBmcm9tIG14Y3NyICovCiAJX19nZXRfdXNlcihsbywgKHVuc2lnbmVkIGludCAqKSZzYXZlLT5z
+dyk7CisJLyogc2V0IGJpdHMgMTUsNyAoZnN3LmIsIGZzdy5lcykgdG8gcmVmbGVjdCB0aGUgY3Vy
+cmVudCBlcnJvciBzdGF0dXMgKi8KKwlpZiAoICEobG8gJiAweDdmKSApCisJCWxvICY9ICh+MHg4
+MDgwKTsKIAlfX2dldF91c2VyKGhpLCAodW5zaWduZWQgaW50ICopJnNhdmUtPnRhZyk7CiAJbnVt
+NjQgPSBteGNzciAmIDB4M2Y7CiAJbnVtNjQgPSAobnVtNjQgPDwgMTYpIHwgKGhpICYgMHhmZmZm
+KTsKIAludW02NCA9IChudW02NCA8PCAxNikgfCAobG8gJiAweGZmZmYpOwogCWZzciA9IChmc3Ig
+JiAofjB4M2ZmZmZmZmZmZikpIHwgbnVtNjQ7CiAKKwkvKiBzZXR0aW5nIGJpdHMgMC4uNDcgd2l0
+aCBjc3NlbCBhbmQgaXBvZmYgKi8KKwlfX2dldF91c2VyKGxvLCAodW5zaWduZWQgaW50ICopJnNh
+dmUtPmlwb2ZmKTsKKwlfX2dldF91c2VyKGhpLCAodW5zaWduZWQgaW50ICopJnNhdmUtPmNzc2Vs
+KTsKKwludW02NCA9IGhpICYgMHhmZmZmOworCW51bTY0ID0gKG51bTY0IDw8IDMyKSB8IGxvOwor
+CWZpciA9IChmaXIgJiAofjB4ZmZmZmZmZmZmZmZmKSkgfCBudW02NDsKKworCS8qIHNldHRpbmcg
+Yml0cyAwLi40NyB3aXRoIGRhdGFzZWwgYW5kIGRhdGFvZmYgKi8KKwlfX2dldF91c2VyKGxvLCAo
+dW5zaWduZWQgaW50ICopJnNhdmUtPmRhdGFvZmYpOworCV9fZ2V0X3VzZXIoaGksICh1bnNpZ25l
+ZCBpbnQgKikmc2F2ZS0+ZGF0YXNlbCk7CisJbnVtNjQgPSBoaSAmIDB4ZmZmZjsKKwludW02NCA9
+IChudW02NCA8PCAzMikgfCBsbzsKKwlmZHIgPSAoZmRyICYgKH4weGZmZmZmZmZmZmZmZikpIHwg
+bnVtNjQ7CisKIAlhc20gdm9sYXRpbGUgKCAibW92IGFyLmZzcj0lMDsiIDo6ICJyIihmc3IpKTsK
+IAlhc20gdm9sYXRpbGUgKCAibW92IGFyLmZjcj0lMDsiIDo6ICJyIihmY3IpKTsKKwlhc20gdm9s
+YXRpbGUgKCAibW92IGFyLmZpcj0lMDsiIDo6ICJyIihmaXIpKTsKKwlhc20gdm9sYXRpbGUgKCAi
+bW92IGFyLmZkcj0lMDsiIDo6ICJyIihmZHIpKTsKKwogCS8qIAogCSAqIHJlc3RvcmUgZjgsIGY5
+IG9udG8gcHRfcmVncwogCSAqIHJlc3RvcmUgZjEwLi5mMTUgb250byBsaXZlIHJlZ2lzdGVycwo=
+
+------_=_NextPart_001_01C295B6.A5315CC6--
 
