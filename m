@@ -1,137 +1,88 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 17 Feb 2004 22:24:21 +0000
-Subject: RE: Limit hash table size
-Message-Id: <B05667366EE6204181EABE9C1B1C0EB501F2AADF@scsmsx401.sc.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3F5A4.CA4805B5"
+From: Andrew Morton <akpm@osdl.org>
+Date: Tue, 17 Feb 2004 23:24:51 +0000
+Subject: Re: Limit hash table size
+Message-Id: <20040217152451.7e1796d9.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B05667366EE6204181EABE9C1B1C0EB5802441@scsmsx401.sc.intel.com>
-In-Reply-To: <B05667366EE6204181EABE9C1B1C0EB5802441@scsmsx401.sc.intel.com>
-To: Andrew Morton <akpm@osdl.org>
+References: <B05667366EE6204181EABE9C1B1C0EB501F2AADF@scsmsx401.sc.intel.com>
+In-Reply-To: <B05667366EE6204181EABE9C1B1C0EB501F2AADF@scsmsx401.sc.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
 Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+"Chen, Kenneth W" <kenneth.w.chen@intel.com> wrote:
+>
+> OK, here is another revision on top of what has been discussed.  It adds
+> 4 boot time parameters so user can override default size as needed to
+> suite special needs.
 
-------_=_NextPart_001_01C3F5A4.CA4805B5
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+You've set the default to 2M entries, with an option for this to be
+increased via a boot parameter.  This means that people whose machines have
+lots of memory and a sane number of zones may suddenly wonder why their
+app-which-uses-a-zillion-files is running like crap.
 
-OK, here is another revision on top of what has been discussed.  It adds
-4 boot time parameters so user can override default size as needed to
-suite special needs.  I will sent a separate patch for
-kernel-parameters.txt if everyone is OK with this one.
+I think it would be better to leave things as they are, with a boot option
+to scale the tables down.  The below patch addresses the inode and dentry
+caches.  Need to think a bit more about the networking ones.
 
-- Ken
+> I will sent a separate patch for
+> kernel-parameters.txt if everyone is OK with this one.
 
------Original Message-----
-From: Andrew Morton [mailto:akpm@osdl.org]=20
-Sent: Thursday, February 05, 2004 3:58 PM
-To: Chen, Kenneth W
-Cc: linux-kernel@vger.kernel.org; linux-ia64@vger.kernel.org
-Subject: Re: Limit hash table size
+Yes please.
 
-Ken, I remain unhappy with this patch.  If a big box has 500 million
-dentries or inodes in cache (is possible), those hash chains will be
-more
-than 200 entries long on average.  It will be very slow.
 
-We need to do something smarter.  At least, for machines which do not
-have
-the ia64 proliferation-of-zones problem.
+diff -puN fs/dcache.c~limit-hash-table-sizes-boot-options-restore-defaults fs/dcache.c
+--- 25/fs/dcache.c~limit-hash-table-sizes-boot-options-restore-defaults	Tue Feb 17 15:11:09 2004
++++ 25-akpm/fs/dcache.c	Tue Feb 17 15:11:29 2004
+@@ -49,7 +49,6 @@ static kmem_cache_t *dentry_cache; 
+  */
+ #define D_HASHBITS     d_hash_shift
+ #define D_HASHMASK     d_hash_mask
+-#define D_HASHMAX	(2*1024*1024UL)	/* max number of entries */
+ 
+ static unsigned int d_hash_mask;
+ static unsigned int d_hash_shift;
+@@ -1567,12 +1566,11 @@ static void __init dcache_init(unsigned 
+ 	
+ 	set_shrinker(DEFAULT_SEEKS, shrink_dcache_memory);
+ 
+-	if (!dhash_entries) {
++	if (!dhash_entries)
+ 		dhash_entries = PAGE_SHIFT < 13 ?
+ 				mempages >> (13 - PAGE_SHIFT) :
+ 				mempages << (PAGE_SHIFT - 13);
+-		dhash_entries = min(D_HASHMAX, dhash_entries);
+-	}
++
+ 	dhash_entries *= sizeof(struct hlist_head);
+ 	for (order = 0; ((1UL << order) << PAGE_SHIFT) < dhash_entries; order++)
+ 		;
+diff -puN fs/inode.c~limit-hash-table-sizes-boot-options-restore-defaults fs/inode.c
+--- 25/fs/inode.c~limit-hash-table-sizes-boot-options-restore-defaults	Tue Feb 17 15:11:09 2004
++++ 25-akpm/fs/inode.c	Tue Feb 17 15:11:47 2004
+@@ -53,7 +53,6 @@
+  */
+ #define I_HASHBITS	i_hash_shift
+ #define I_HASHMASK	i_hash_mask
+-#define I_HASHMAX	(2*1024*1024UL)	/* max number of entries */
+ 
+ static unsigned int i_hash_mask;
+ static unsigned int i_hash_shift;
+@@ -1336,12 +1335,11 @@ void __init inode_init(unsigned long mem
+ 	for (i = 0; i < ARRAY_SIZE(i_wait_queue_heads); i++)
+ 		init_waitqueue_head(&i_wait_queue_heads[i].wqh);
+ 
+-	if (!ihash_entries) {
++	if (!ihash_entries)
+ 		ihash_entries = PAGE_SHIFT < 14 ?
+ 				mempages >> (14 - PAGE_SHIFT) :
+ 				mempages << (PAGE_SHIFT - 14);
+-		ihash_entries = min(I_HASHMAX, ihash_entries);
+-	}
++
+ 	ihash_entries *= sizeof(struct hlist_head);
+ 	for (order = 0; ((1UL << order) << PAGE_SHIFT) < ihash_entries; order++)
+ 		;
 
-Maybe we should leave the sizing of these tables as-is, and add some
-hook
-which allows the architecture to scale them back.
 
-------_=_NextPart_001_01C3F5A4.CA4805B5
-Content-Type: application/octet-stream;
-	name="hash4.patch"
-Content-Transfer-Encoding: base64
-Content-Description: hash4.patch
-Content-Disposition: attachment;
-	filename="hash4.patch"
-
-ZGlmZiAtTnVyIGxpbnV4LTIuNi4zLXJjNC9mcy9kY2FjaGUuYyBsaW51eC0yLjYuMy1yYzQuaGFz
-aC9mcy9kY2FjaGUuYwotLS0gbGludXgtMi42LjMtcmM0L2ZzL2RjYWNoZS5jCTIwMDQtMDItMTYg
-MTg6MjE6NTQuMDAwMDAwMDAwIC0wODAwCisrKyBsaW51eC0yLjYuMy1yYzQuaGFzaC9mcy9kY2Fj
-aGUuYwkyMDA0LTAyLTE3IDE0OjAzOjIxLjAwMDAwMDAwMCAtMDgwMApAQCAtNDksNiArNDksNyBA
-QAogICovCiAjZGVmaW5lIERfSEFTSEJJVFMgICAgIGRfaGFzaF9zaGlmdAogI2RlZmluZSBEX0hB
-U0hNQVNLICAgICBkX2hhc2hfbWFzaworI2RlZmluZSBEX0hBU0hNQVgJKDIqMTAyNCoxMDI0VUwp
-CS8qIG1heCBudW1iZXIgb2YgZW50cmllcyAqLwogCiBzdGF0aWMgdW5zaWduZWQgaW50IGRfaGFz
-aF9tYXNrOwogc3RhdGljIHVuc2lnbmVkIGludCBkX2hhc2hfc2hpZnQ7CkBAIC0xNTMxLDYgKzE1
-MzIsMTYgQEAKIAlyZXR1cm4gaW5vOwogfQogCitzdGF0aWMgX19pbml0ZGF0YSB1bnNpZ25lZCBs
-b25nIGRoYXNoX2VudHJpZXM7CitzdGF0aWMgaW50IF9faW5pdCBzZXRfZGhhc2hfZW50cmllcyhj
-aGFyICpzdHIpCit7CisJaWYgKCFzdHIpCisJCXJldHVybiAwOworCWRoYXNoX2VudHJpZXMgPSBz
-aW1wbGVfc3RydG91bChzdHIsICZzdHIsIDApOworCXJldHVybiAxOworfQorX19zZXR1cCgiZGhh
-c2hfZW50cmllcz0iLCBzZXRfZGhhc2hfZW50cmllcyk7CisKIHN0YXRpYyB2b2lkIF9faW5pdCBk
-Y2FjaGVfaW5pdCh1bnNpZ25lZCBsb25nIG1lbXBhZ2VzKQogewogCXN0cnVjdCBobGlzdF9oZWFk
-ICpkOwpAQCAtMTU1NiwxMSArMTU2NywxNCBAQAogCQogCXNldF9zaHJpbmtlcihERUZBVUxUX1NF
-RUtTLCBzaHJpbmtfZGNhY2hlX21lbW9yeSk7CiAKLSNpZiBQQUdFX1NISUZUIDwgMTMKLQltZW1w
-YWdlcyA+Pj0gKDEzIC0gUEFHRV9TSElGVCk7Ci0jZW5kaWYKLQltZW1wYWdlcyAqPSBzaXplb2Yo
-c3RydWN0IGhsaXN0X2hlYWQpOwotCWZvciAob3JkZXIgPSAwOyAoKDFVTCA8PCBvcmRlcikgPDwg
-UEFHRV9TSElGVCkgPCBtZW1wYWdlczsgb3JkZXIrKykKKwlpZiAoIWRoYXNoX2VudHJpZXMpIHsK
-KwkJZGhhc2hfZW50cmllcyA9IFBBR0VfU0hJRlQgPCAxMyA/CisJCQkJbWVtcGFnZXMgPj4gKDEz
-IC0gUEFHRV9TSElGVCkgOgorCQkJCW1lbXBhZ2VzIDw8IChQQUdFX1NISUZUIC0gMTMpOworCQlk
-aGFzaF9lbnRyaWVzID0gbWluKERfSEFTSE1BWCwgZGhhc2hfZW50cmllcyk7CisJfQorCWRoYXNo
-X2VudHJpZXMgKj0gc2l6ZW9mKHN0cnVjdCBobGlzdF9oZWFkKTsKKwlmb3IgKG9yZGVyID0gMDsg
-KCgxVUwgPDwgb3JkZXIpIDw8IFBBR0VfU0hJRlQpIDwgZGhhc2hfZW50cmllczsgb3JkZXIrKykK
-IAkJOwogCiAJZG8gewpkaWZmIC1OdXIgbGludXgtMi42LjMtcmM0L2ZzL2lub2RlLmMgbGludXgt
-Mi42LjMtcmM0Lmhhc2gvZnMvaW5vZGUuYwotLS0gbGludXgtMi42LjMtcmM0L2ZzL2lub2RlLmMJ
-MjAwNC0wMi0xNiAxODoyMzozNi4wMDAwMDAwMDAgLTA4MDAKKysrIGxpbnV4LTIuNi4zLXJjNC5o
-YXNoL2ZzL2lub2RlLmMJMjAwNC0wMi0xNyAxNDowMzoyMS4wMDAwMDAwMDAgLTA4MDAKQEAgLTUz
-LDYgKzUzLDcgQEAKICAqLwogI2RlZmluZSBJX0hBU0hCSVRTCWlfaGFzaF9zaGlmdAogI2RlZmlu
-ZSBJX0hBU0hNQVNLCWlfaGFzaF9tYXNrCisjZGVmaW5lIElfSEFTSE1BWAkoMioxMDI0KjEwMjRV
-TCkJLyogbWF4IG51bWJlciBvZiBlbnRyaWVzICovCiAKIHN0YXRpYyB1bnNpZ25lZCBpbnQgaV9o
-YXNoX21hc2s7CiBzdGF0aWMgdW5zaWduZWQgaW50IGlfaGFzaF9zaGlmdDsKQEAgLTEzMjcsNiAr
-MTMyOCwxNiBAQAogCQl3YWtlX3VwX2FsbCh3cSk7CiB9CiAKK3N0YXRpYyBfX2luaXRkYXRhIHVu
-c2lnbmVkIGxvbmcgaWhhc2hfZW50cmllczsKK3N0YXRpYyBpbnQgX19pbml0IHNldF9paGFzaF9l
-bnRyaWVzKGNoYXIgKnN0cikKK3sKKwlpZiAoIXN0cikKKwkJcmV0dXJuIDA7CisJaWhhc2hfZW50
-cmllcyA9IHNpbXBsZV9zdHJ0b3VsKHN0ciwgJnN0ciwgMCk7CisJcmV0dXJuIDE7Cit9CitfX3Nl
-dHVwKCJpaGFzaF9lbnRyaWVzPSIsIHNldF9paGFzaF9lbnRyaWVzKTsKKwogLyoKICAqIEluaXRp
-YWxpemUgdGhlIHdhaXRxdWV1ZXMgYW5kIGlub2RlIGhhc2ggdGFibGUuCiAgKi8KQEAgLTEzNDAs
-OSArMTM1MSwxNCBAQAogCWZvciAoaSA9IDA7IGkgPCBBUlJBWV9TSVpFKGlfd2FpdF9xdWV1ZV9o
-ZWFkcyk7IGkrKykKIAkJaW5pdF93YWl0cXVldWVfaGVhZCgmaV93YWl0X3F1ZXVlX2hlYWRzW2ld
-LndxaCk7CiAKLQltZW1wYWdlcyA+Pj0gKDE0IC0gUEFHRV9TSElGVCk7Ci0JbWVtcGFnZXMgKj0g
-c2l6ZW9mKHN0cnVjdCBobGlzdF9oZWFkKTsKLQlmb3IgKG9yZGVyID0gMDsgKCgxVUwgPDwgb3Jk
-ZXIpIDw8IFBBR0VfU0hJRlQpIDwgbWVtcGFnZXM7IG9yZGVyKyspCisJaWYgKCFpaGFzaF9lbnRy
-aWVzKSB7CisJCWloYXNoX2VudHJpZXMgPSBQQUdFX1NISUZUIDwgMTQgPworCQkJCW1lbXBhZ2Vz
-ID4+ICgxNCAtIFBBR0VfU0hJRlQpIDoKKwkJCQltZW1wYWdlcyA8PCAoUEFHRV9TSElGVCAtIDE0
-KTsKKwkJaWhhc2hfZW50cmllcyA9IG1pbihJX0hBU0hNQVgsIGloYXNoX2VudHJpZXMpOworCX0K
-KwlpaGFzaF9lbnRyaWVzICo9IHNpemVvZihzdHJ1Y3QgaGxpc3RfaGVhZCk7CisJZm9yIChvcmRl
-ciA9IDA7ICgoMVVMIDw8IG9yZGVyKSA8PCBQQUdFX1NISUZUKSA8IGloYXNoX2VudHJpZXM7IG9y
-ZGVyKyspCiAJCTsKIAogCWRvIHsKZGlmZiAtTnVyIGxpbnV4LTIuNi4zLXJjNC9uZXQvaXB2NC9y
-b3V0ZS5jIGxpbnV4LTIuNi4zLXJjNC5oYXNoL25ldC9pcHY0L3JvdXRlLmMKLS0tIGxpbnV4LTIu
-Ni4zLXJjNC9uZXQvaXB2NC9yb3V0ZS5jCTIwMDQtMDItMTYgMTg6MjM6MzcuMDAwMDAwMDAwIC0w
-ODAwCisrKyBsaW51eC0yLjYuMy1yYzQuaGFzaC9uZXQvaXB2NC9yb3V0ZS5jCTIwMDQtMDItMTcg
-MTQ6MDM6MjEuMDAwMDAwMDAwIC0wODAwCkBAIC0yNzE3LDYgKzI3MTcsMTYgQEAKICNlbmRpZiAv
-KiBDT05GSUdfUFJPQ19GUyAqLwogI2VuZGlmIC8qIENPTkZJR19ORVRfQ0xTX1JPVVRFICovCiAK
-K3N0YXRpYyBfX2luaXRkYXRhIHVuc2lnbmVkIGxvbmcgcmhhc2hfZW50cmllczsKK3N0YXRpYyBp
-bnQgX19pbml0IHNldF9yaGFzaF9lbnRyaWVzKGNoYXIgKnN0cikKK3sKKwlpZiAoIXN0cikKKwkJ
-cmV0dXJuIDA7CisJcmhhc2hfZW50cmllcyA9IHNpbXBsZV9zdHJ0b3VsKHN0ciwgJnN0ciwgMCk7
-CisJcmV0dXJuIDE7Cit9CitfX3NldHVwKCJyaGFzaF9lbnRyaWVzPSIsIHNldF9yaGFzaF9lbnRy
-aWVzKTsKKwogaW50IF9faW5pdCBpcF9ydF9pbml0KHZvaWQpCiB7CiAJaW50IGksIG9yZGVyLCBn
-b2FsLCByYyA9IDA7CkBAIC0yNzQzLDcgKzI3NTMsMTAgQEAKIAkJcGFuaWMoIklQOiBmYWlsZWQg
-dG8gYWxsb2NhdGUgaXBfZHN0X2NhY2hlXG4iKTsKIAogCWdvYWwgPSBudW1fcGh5c3BhZ2VzID4+
-ICgyNiAtIFBBR0VfU0hJRlQpOwotCisJaWYgKCFyaGFzaF9lbnRyaWVzKQorCQlnb2FsID0gbWlu
-KDEwLCBnb2FsKTsKKwllbHNlCisJCWdvYWwgPSAocmhhc2hfZW50cmllcyAqIHNpemVvZihzdHJ1
-Y3QgcnRfaGFzaF9idWNrZXQpKSA+PiBQQUdFX1NISUZUOwogCWZvciAob3JkZXIgPSAwOyAoMVVM
-IDw8IG9yZGVyKSA8IGdvYWw7IG9yZGVyKyspCiAJCS8qIE5PVEhJTkcgKi87CiAKZGlmZiAtTnVy
-IGxpbnV4LTIuNi4zLXJjNC9uZXQvaXB2NC90Y3AuYyBsaW51eC0yLjYuMy1yYzQuaGFzaC9uZXQv
-aXB2NC90Y3AuYwotLS0gbGludXgtMi42LjMtcmM0L25ldC9pcHY0L3RjcC5jCTIwMDQtMDItMTYg
-MTg6MjI6MDUuMDAwMDAwMDAwIC0wODAwCisrKyBsaW51eC0yLjYuMy1yYzQuaGFzaC9uZXQvaXB2
-NC90Y3AuYwkyMDA0LTAyLTE3IDE0OjAzOjIxLjAwMDAwMDAwMCAtMDgwMApAQCAtMjU3MCw2ICsy
-NTcwLDE2IEBACiBleHRlcm4gdm9pZCBfX3NrYl9jYl90b29fc21hbGxfZm9yX3RjcChpbnQsIGlu
-dCk7CiBleHRlcm4gdm9pZCB0Y3BkaWFnX2luaXQodm9pZCk7CiAKK3N0YXRpYyBfX2luaXRkYXRh
-IHVuc2lnbmVkIGxvbmcgdGhhc2hfZW50cmllczsKK3N0YXRpYyBpbnQgX19pbml0IHNldF90aGFz
-aF9lbnRyaWVzKGNoYXIgKnN0cikKK3sKKwlpZiAoIXN0cikKKwkJcmV0dXJuIDA7CisJdGhhc2hf
-ZW50cmllcyA9IHNpbXBsZV9zdHJ0b3VsKHN0ciwgJnN0ciwgMCk7CisJcmV0dXJuIDE7Cit9Citf
-X3NldHVwKCJ0aGFzaF9lbnRyaWVzPSIsIHNldF90aGFzaF9lbnRyaWVzKTsKKwogdm9pZCBfX2lu
-aXQgdGNwX2luaXQodm9pZCkKIHsKIAlzdHJ1Y3Qgc2tfYnVmZiAqc2tiID0gTlVMTDsKQEAgLTI2
-MTEsNiArMjYyMSwxMCBAQAogCWVsc2UKIAkJZ29hbCA9IG51bV9waHlzcGFnZXMgPj4gKDIzIC0g
-UEFHRV9TSElGVCk7CiAKKwlpZiAoIXRoYXNoX2VudHJpZXMpCisJCWdvYWwgPSBtaW4oMTAsIGdv
-YWwpOworCWVsc2UgCisJCWdvYWwgPSAodGhhc2hfZW50cmllcyAqIHNpemVvZihzdHJ1Y3QgdGNw
-X2VoYXNoX2J1Y2tldCkpID4+IFBBR0VfU0hJRlQ7CiAJZm9yIChvcmRlciA9IDA7ICgxVUwgPDwg
-b3JkZXIpIDwgZ29hbDsgb3JkZXIrKykKIAkJOwogCWRvIHsK
-
-------_=_NextPart_001_01C3F5A4.CA4805B5--
