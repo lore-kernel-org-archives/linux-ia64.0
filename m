@@ -1,28 +1,46 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Fri, 13 Apr 2001 01:27:11 +0000
-Subject: Re: [Linux-ia64] wierd console behavior?
-Message-Id: <marc-linux-ia64-105590693005400@msgid-missing>
+From: Steven Cole <scole@lanl.gov>
+Date: Wed, 25 Apr 2001 14:54:03 +0000
+Subject: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related orphans from Configure.help
+Message-Id: <marc-linux-ia64-105590693005460@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005397@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005397@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger (davidm@hpl.hp.com) said: 
->   Bill> I'm seeing on some of my machines that while on the text
->   Bill> console, all the non-bold text will blank out after some
->   Bill> period of inactivity, while the bold/bright text remains. (It
->   Bill> all comes back after hitting a key, of course.)
-> 
->   Bill> Is this a bug in the kernel's console blanking routines?
-> 
-> I suppose it could be, though I have never before heard of this
-> strange behavior.  Is this only on Lions or Big Surs as well?
+Alan,
 
-I've only seen this on Big Surs, actually. I'm rarely at the
-consoles of our Lions for an extended period.
+The following three Configure.help entries have been confirmed dead, or
+not needing help by Keith Owens.  
 
-Bill
+The last of these, CONFIG_IA64_AZUSA_HACKS,  is listed by Keith as 
+removed by a 2.4.2-ia64-010228 patch, but it still appears in 2.4.3-ac14.
+
+Steven
+
+--- linux/Documentation/Configure.help.ac14     Wed Apr 25 08:14:33 2001
++++ linux/Documentation/Configure.help  Wed Apr 25 08:40:50 2001
+@@ -18611,22 +18611,6 @@
+   redirect interrupts to different CPUs.  Select N here if you're
+   unsure.
+ 
+-Enable use of global TLB purge instruction (ptc.g)
+-CONFIG_ITANIUM_PTCG
+-  Say Y here if you want the kernel to use the IA-64 "ptc.g"
+-  instruction to flush the TLB on all CPUs.  Select N here if
+-  you're unsure.
+-
+-Enable SoftSDV hacks
+-CONFIG_IA64_SOFTSDV_HACKS
+-  Say Y here to enable hacks to make the kernel work on the Intel
+-  SoftSDV simulator.  Select N here if you're unsure.
+-
+-Enable AzusA hacks
+-CONFIG_IA64_AZUSA_HACKS
+-  Say Y here to enable hacks to make the kernel work on the NEC
+-  AzusA platform.  Select N here if you're unsure.
+-
+ Enable IA-64 Machine Check Abort
+ CONFIG_IA64_MCA
+   Say Y here to enable machine check support for IA-64.  If you're
 
