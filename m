@@ -1,33 +1,27 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Sat, 23 Sep 2000 03:37:31 +0000
-Subject: [Linux-ia64] Announce: modutils 2.3.17 is available
-Message-Id: <marc-linux-ia64-105590678205516@msgid-missing>
+From: "H . J . Lu" <hjl@valinux.com>
+Date: Wed, 27 Sep 2000 22:39:47 +0000
+Subject: [Linux-ia64] test8+0913 patch on B1 BigSur UP
+Message-Id: <marc-linux-ia64-105590678205525@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Fastest download from kernel.org.
-Mirror at ftp://ftp.<country>.kernel.org/pub/linux/utils/kernel/modutils/v2.3
-Master at ftp://ftp.ocs.com.au/pub/modutils/v2.3.  (slow)
+On Wed, Sep 13, 2000 at 06:50:33PM -0700, David Mosberger wrote:
+> Since the last diff had a few serious problems, including the infamous
+> ACPI bug and an fph problem that caused xmms not to work on UP
+> machine, there is now a new diff available at:
+> 
+>  ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
+> 
+> in file linux-2.4.0-test8-ia64-000913.diff.
+> 
 
-patch-modutils-2.3.17.bz2       Patch from modutils 2.3.16 to 2.3.17
-modutils-2.3.17.tar.bz2         Source tarball, includes RPM spec file
-modutils-2.3.17-1.src.rpm       As above, in SRPM format
-modutils-2.3.17-1.i386.rpm      Compiled with egcs-2.91.66, glibc 2.1.2
+I couldn't get this kernel to work on my B1 BigSur UP. It hangs at the
+random places when going to run level 1 to 3. BTW, test8+0908+acpi
+works fine.
 
-Changelog extract
 
-	* config.{guess,sub}, configure.in updates by Pavel Roskin.
-	* Fix a NULL base_dir in modinfo.  Reported by John Summerfield.
-	* obj_ia64 patch for module unwind.  Mike Stephens.
-	* Add vmlinux, vmlinuz, bzImage, zImage to prune list.
-	* depmod -F System.map only looks at exported symbols.
-	* Convert to bzip2.
-
-IA64 users with patch 2.4.0-test8-000908 or later need this version of
-modutils for correct unwind support in modules.  Otherwise IA64 modules
-may not load.
-
+H.J.
 
