@@ -1,28 +1,35 @@
-From: janitor@sternwelten.at
-Date: Wed, 01 Sep 2004 21:24:51 +0000
-Subject: [patch 1/2]  minmax-removal arch/ia64/kernel/unwind.c
-Message-Id: <E1C2cb5-0000Jc-Md@sputnik>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 08 Sep 2004 11:07:22 +0000
+Subject: Re: [patch 1/2]  minmax-removal arch/ia64/kernel/unwind.c
+Message-Id: <16702.59370.787152.513978@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <E1C2cb5-0000Jc-Md@sputnik>
+In-Reply-To: <E1C2cb5-0000Jc-Md@sputnik>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Tony,
 
+>>>>> On Wed, 01 Sep 2004 23:24:51 +0200, janitor@sternwelten.at said:
 
+  janitor> Patch (against 2.6.8.1) removes unnecessary min/max macros
+  janitor> and changes calls to use kernel.h macros instead.
+
+I reviewed and tested this patch and approve of it.  Please apply.
+
+	--david
+
+---
+ia64: minmax-removal in arch/ia64/kernel/unwind.c
 
 Patch (against 2.6.8.1) removes unnecessary min/max macros and changes
 calls to use kernel.h macros instead.
 
-Since I dont have the hardware those patches are not tested.
-
-Best regards
-Veeck
-
 Signed-off-by: Michael Veeck <michael.veeck@gmx.net>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-
-
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
 ---
 
