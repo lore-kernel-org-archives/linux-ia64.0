@@ -1,28 +1,27 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 24 Mar 2005 05:55:42 +0000
-Subject: [patch] fix stray backslash
-Message-Id: <200503240555.j2O5tgLW023251@napali.hpl.hp.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 02 Mar 2005 18:34:07 +0000
+Subject: [Patch 0/3] Page Table quicklist fixups.
+Message-Id: <20050302183407.GA16517@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Trivial fix to drop a stray backslash in the
-MINSTATE_START_SAVE_MIN_VIRT macro.
+Tony,
 
-	--david
+I have a new set of patches.  The changes incorporate the comments from
+the previous submission with two exceptions.
 
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
+1) Kenneth Chen suggested hooking the quicklist shrink into the page_alloc
+code so pages could be reclaimed when memory conditions are tight.
+This work is beyond the scope of these changes.  These changes to not
+make that already existing circumstance worse.
 
-=== arch/ia64/kernel/minstate.h 1.19 vs edited ==--- 1.19/arch/ia64/kernel/minstate.h	2005-01-26 10:01:31 -08:00
-+++ edited/arch/ia64/kernel/minstate.h	2005-03-23 21:46:39 -08:00
-@@ -26,7 +26,7 @@
- (pKStk) addl r1=-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r12) */	\
- 	;;											\
- (pUStk)	mov r18=ar.bsp;										\
--(pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */		\
-+(pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */
- 
- #define MINSTATE_END_SAVE_MIN_VIRT								\
- 	bsw.1;			/* switch back to bank 1 (must be last in insn group) */	\
+2) David Mosberger requested the pte, pmd, and pgd allocations pass
+a size into the pgtable_alloc_one routine and introduce a BUG_ON.
+I have not fully digested this change yet.  When that gets resolved,
+I would think these are ready for inclusion.
+
+Thanks,
+Robin Holt
