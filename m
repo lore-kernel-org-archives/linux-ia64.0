@@ -1,34 +1,26 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 15 Apr 2004 05:11:30 +0000
-Subject: Re: kernel update (relative to 2.6.5)
-Message-Id: <16510.6530.787181.529586@napali.hpl.hp.com>
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 30 Apr 2004 17:51:38 +0000
+Subject: SAL PCI config space
+Message-Id: <20040430175138.GT22558@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200404140103.i3E13cB0004406@napali.hpl.hp.com>
-In-Reply-To: <200404140103.i3E13cB0004406@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 15 Apr 2004 12:54:12 +1000, Martin Pool <mbp@sourcefrog.net> said:
 
-  Martin> On Wed, 14 Apr 2004 13:59:24 +0200, Andreas Schwab wrote:
-  >> Martin Pool <mbp@sourcefrog.net> writes:
-  >> 
-  >>> On Wed, 14 Apr 2004 16:22:28 +1000, Martin Pool wrote:
-  >>> 
-  >>>> *** Warning: "per_cpu__local_per_cpu_offset"
-  >>>> [drivers/net/yellowfin.ko] has no C RC!
-  >>>  Please disregard my message, this seems not to be caused by
-  >>> your patch.
-  >>
-  >> http://marc.theaimsgroup.com/?l=linux-kernel&m6570613115664&w=2
+ia64_sal_pci_config_read() and ia64_sal_pci_config_write() use SAL_CALL().
+This takes an IRQ-safe spinlock, but SAL 3.2 says that SAL_PCI_CONFIG_READ
+and SAL_PCI_CONFIG_WRITE are both MP-safe and reentrant.  So is there
+any reason we shouldn't use SAL_CALL_REENTRANT?
 
-  Martin> Thanks for that.  Your patch fixes it for me too.  Maybe it
-  Martin> could be merged into David's tree?
+(at the moment, we're protected by pci_lock so it wouldn't matter,
+but I'm just about to submit a patch to do away with that)
 
-I don't like to clutter the ia64 patch with stuff that has
-nothing/little to do with ia64.  Why isn't this patch in the Linus'
-tree yet?
-
-	--david
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
