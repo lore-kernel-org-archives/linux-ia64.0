@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 11 Jan 2005 21:25:21 +0000
-Subject: Re: new utility for decoding salinfo records
-Message-Id: <16868.17473.256001.26279@napali.hpl.hp.com>
+Date: Tue, 11 Jan 2005 21:36:14 +0000
+Subject: RE: new utility for decoding salinfo records
+Message-Id: <16868.18126.166479.535592@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1105458388.22104.7.camel@quince.llnl.gov>
 In-Reply-To: <1105458388.22104.7.camel@quince.llnl.gov>
@@ -10,18 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 11 Jan 2005 13:12:37 -0800, Ben Woodard <woodard@redhat.com> said:
+>>>>> On Tue, 11 Jan 2005 13:23:48 -0800, "Luck, Tony" <tony.luck@intel.com> said:
 
-  Ben> Does this sound like better wording to you?
+  Tony> Whether it is a problem depends on the liklihood of it
+  Tony> cascading into a multi-bit error ... for which I don't have
+  Tony> any data.
 
-Yup.
-
->>>>> On Tue, 11 Jan 2005 13:03:22 -0800, Ben Woodard <woodard@redhat.com> said:
-
-  Ben> We believed rates of SBEs in the neighborhood of 1/hr would
-  Ben> ultimately lead to MBEs but further testing has shown that we
-  Ben> really don't see DIMMS with SBEs turing in MBEs.
-
-That's very interesting.
+While this is not an area I have experience with, it does seem to me
+that considering how many clusters (really: "machines" with large
+amounts of memory) are out there, there seems an amazing dearth of
+solid data.  The memory manufacturers presumably have it, but are
+disinterested in sharing.  On the other hand, I don't see any reason
+why cluster operators (such as national labs) don't collect & share
+such data more.  It's difficult for systems folks to make good choices
+without such data, especially since the effects often appear to be
+counter-intuitive (like SBEs not turning into MBEs).
 
 	--david
