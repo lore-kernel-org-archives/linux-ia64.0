@@ -1,7 +1,7 @@
-From: Joseph V Moss <jmoss@ichips.intel.com>
-Date: Tue, 18 Sep 2001 21:05:12 +0000
+From: Jakub Jelinek <jakub@redhat.com>
+Date: Wed, 19 Sep 2001 06:02:35 +0000
 Subject: Re: [Linux-ia64] Re: PROPOSED: 32/64 bit coexistance
-Message-Id: <marc-linux-ia64-105590698805221@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805224@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805199@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805199@msgid-missing>
@@ -10,24 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> >>>>> On Tue, 18 Sep 2001 18:57:15 +0200, Christoph Hellwig <hch@ns.caldera.de> said:
+On Tue, Sep 18, 2001 at 01:47:12PM -0700, David Mosberger wrote:
+> That would be good.  It might also be good to explicitly state that
+> these trees are expected to follow the filesystem layout conventions
+> of the emulated environment (to the degree that this makes sense).
+> For example, you could assume that there would be:
 > 
->   Christoph> It does.  On Linux-ABI I use e.g. /emul/osr5, /emul/uw7
->   Christoph> and /emul/svr4.  Id suggest using /emul/<opsys> for
->   Christoph> emulations of another operating system for the same
->   Christoph> architecture, /emul/<arch>-<opsys> for non-native.
-> 
->   Christoph> Windows should go into /emul/win64 and /emul/ia32-win32.
-> 
-> Sounds reasonable.  /emul/ia32-linux should be it, then.
+> 	/emul/ia32-linux/etc/ld.so.conf
 
-I'm not so sure.  Should the architecture name be 'ia32'?  The linux kernel
-and other things have normally referred to it as 'i386' (or any of i[3456]86 in
-some cases).
+Why ld.so.conf? /etc/ld.so.conf should be enough when ldconfig handles
+multiple ABI libraries.
 
-Personally, I'd prefer the 'ia32' name, if for no other reason than to avoid
-the problems associated with my parenthetical remark in the last paragraph.
+> 	/emul/ia32-linux/lib
+> 	/emul/ia32-linux/usr/lib
 
-
-
+	Jakub
 
