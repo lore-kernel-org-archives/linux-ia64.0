@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 13 Nov 2003 03:31:24 +0000
+From: "David S. Miller" <davem@redhat.com>
+Date: Thu, 13 Nov 2003 03:56:01 +0000
 Subject: Re: Inefficient TLB flushing
-Message-Id: <marc-linux-ia64-106869408221123@msgid-missing>
+Message-Id: <marc-linux-ia64-106869606922555@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106866775025427@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106866775025427@msgid-missing>
@@ -10,37 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Wed, 12 Nov 2003 14:01:19 -0600
 Jack Steiner <steiner@sgi.com> wrote:
->
-> > Either that, or add a new interface function
->  > 
->  > 	int mmu_gather_is_full_mm(mmu_gather *tlb);
->  > 
->  > and use it...
->  > 
-> 
->  How implementation independent should it be? Currently, there is only one
->  field in the mmu_gather structure that must be preserved. However, if we
->  want to make the interface truly implementation independent, it seems
->  like we should define something like:
-> 
->  	if (need_resched()) {
->  		struct mmu_gather_state state;
->  		tlb_mmu_gather_save_state(*tlbp, &state);
->  		tlb_finish_mmu(*tlbp, tlb_start, start);
->  		...
->  		*tlbp = tlb_mmu_gather_restore_state(&state);
->  	}
-> 
->  Is this overkill?
 
-Think so ;) The `full_mm_flush' boolean is the only state thing we can pass
-into tlb_gather_mmu anyway.
+> --- /usr/tmp/TmpDir.19957-0/linux/mm/memory.c_1.79	Wed Nov 12 13:56:25 2003
+> +++ linux/mm/memory.c	Wed Nov 12 12:57:25 2003
+> @@ -574,9 +574,10 @@
+>  			if ((long)zap_bytes > 0)
+>  				continue;
+>  			if (need_resched()) {
+> +				int fullmm = (*tlbp)->fullmm;
+>  				tlb_finish_mmu(*tlbp, tlb_start, start);
+>  				cond_resched_lock(&mm->page_table_lock);
+> -				*tlbp = tlb_gather_mmu(mm, 0);
+> +				*tlbp = tlb_gather_mmu(mm, fullmm);
+>  				tlb_start_valid = 0;
+>  			}
+>  			zap_bytes = ZAP_BLOCK_SIZE;
 
-> 
->  Should we use the patch given above for 2.6.0 & replace it with an implementation 
->  independent interface for 2.6.1?
-
-Just the little wrapper which doesn't assume the presence of
-mmu_gather.full_mm should suffice.
-
+This patch looks perfectly fine, good analysis.
