@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 29 Jul 2003 22:54:27 +0000
-Subject: RE: [PATCH] (2.4.x bk) efi_memmap_walk_uc
-Message-Id: <marc-linux-ia64-105951943520407@msgid-missing>
+From: Jack Steiner <steiner@sgi.com>
+Date: Tue, 29 Jul 2003 23:49:04 +0000
+Subject: Re: [PATCH] (2.4.x bk) efi_memmap_walk_uc
+Message-Id: <marc-linux-ia64-105952256122956@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105883467032028@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105883467032028@msgid-missing>
@@ -10,17 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 29 Jul 2003 15:47:34 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+> > 
+> > We could like to be able to allocate from or near to a given node in
+> > NUMA configurations.  When allocating pages for MINSTATE areas you can
+> > then have that code try to allocate memory on the same node as the
+> > appropriate CPU.
+> 
+> We can do that ... but i hope that MCA error recovery isn't a common
+> enough path that allocating min_state from the correct node ever shows
+> up on anyone's performance radar!
+ 
+True, but on NUMA systems (at least ours) you want MINSTATE area to be node
+local for other reasons. Some types of errors cause the interconnect to fail.
+The PAL/SAL should be able to log errors without making offnode references.
 
-  Tony> We could plan ahead for hypothetical future multi-page users by
-  Tony> defining a "size" argument to alloc/free
 
-Let's stick with a tried-and-true malloc/free-like interface (nobody
-every gets size arguments to free() right, do they?).
 
-  Tony> but keep our (your) life simple for now by only implementing
-  Tony> the one-page-at-a-time usage model.
 
-Sure, that sounds reasonable.
+-- 
+Thanks
 
-	--david
+Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
+
