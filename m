@@ -1,44 +1,267 @@
-From: Paul Jackson <pj@sgi.com>
-Date: Wed, 05 Nov 2003 04:17:53 +0000
-Subject: [PATCH] prof_cpu_mask_read_proc() cpumask print in /proc botch
-Message-Id: <marc-linux-ia64-106800594630021@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 06 Nov 2003 06:53:09 +0000
+Subject: [patch] 2.4.23-pre9 pal.h, mca.c
+Message-Id: <marc-linux-ia64-106810166228695@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Display of cpumask for /proc/irq/prof_cpu_mask has a botch in the print
-loop - should consume 2 bytes per loop.
+While enhancing the user space salinfo code to do full decoding, I
+found some PAL definitions that have not been updated for revision 2.1.
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1356  -> 1.1357 
-#	arch/ia64/kernel/irq.c	1.30    -> 1.31   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/11/04	pj@sgi.com	1.1357
-# fix prof_cpu_mask_read_proc() print loop - 2 bytes per iteration
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/kernel/irq.c b/arch/ia64/kernel/irq.c
---- a/arch/ia64/kernel/irq.c	Tue Nov  4 19:31:16 2003
-+++ b/arch/ia64/kernel/irq.c	Tue Nov  4 19:31:16 2003
-@@ -1039,7 +1039,7 @@
- 	if (count < HEX_DIGITS+1)
- 		return -EINVAL;
+diff -ur 2.4.23-pre9-cset-1.1069.1.104-to-1.1111/include/asm-ia64/pal.h 2.4.23-pre9-cset-1.1069.1.104-to-1.1111-pal/include/asm-ia64/pal.h
+--- 2.4.23-pre9-cset-1.1069.1.104-to-1.1111/include/asm-ia64/pal.h	Fri Oct 31 12:11:39 2003
++++ 2.4.23-pre9-cset-1.1069.1.104-to-1.1111-pal/include/asm-ia64/pal.h	Thu Nov  6 17:48:11 2003
+@@ -463,23 +463,13 @@
+ } pal_processor_state_info_t;
  
--	for (k = 0; k < sizeof(cpumask_t)/sizeof(unsigned long); ++k) {
-+	for (k = 0; k < sizeof(cpumask_t)/sizeof(u16); ++k) {
- 		int j = sprintf(page, "%04hx", (u16)cpus_coerce(*mask));
- 		len += j;
- 		page += j;
+ typedef struct pal_cache_check_info_s {
+-	u64		reserved1	: 16,
+-			way		: 5,	/* Way in which the
+-						 * error occurred
+-						 */
+-			reserved2	: 1,
+-			mc		: 1,	/* Machine check corrected */
+-			tv		: 1,	/* Target address
+-						 * structure is valid
+-						 */
+-
+-			wv		: 1,	/* Way field valid */
+-			op		: 3,	/* Type of cache
++	u64		op		: 4,	/* Type of cache
+ 						 * operation that
+ 						 * caused the machine
+ 						 * check.
+ 						 */
+-
++			level		: 2,	/* Cache level */
++			reserved1	: 2,
+ 			dl		: 1,	/* Failure in data part
+ 						 * of cache line
+ 						 */
+@@ -488,11 +478,34 @@
+ 						 */
+ 			dc		: 1,	/* Failure in dcache */
+ 			ic		: 1,	/* Failure in icache */
+-			index		: 24,	/* Cache line index */
+-			mv		: 1,	/* mesi valid */
+ 			mesi		: 3,	/* Cache line state */
+-			level		: 4;	/* Cache level */
++			mv		: 1,	/* mesi valid */
++			way		: 5,	/* Way in which the
++						 * error occurred
++						 */
++			wiv		: 1,	/* Way field valid */
++			reserved2	: 10,
++
++			index		: 20,	/* Cache line index */
++			reserved3	: 2,
+ 
++			is		: 1,	/* instruction set (1 = ia32) */
++			iv		: 1,	/* instruction set field valid */
++			pl		: 2,	/* privilege level */
++			pv		: 1,	/* privilege level field valid */
++			mcc		: 1,	/* Machine check corrected */
++			tv		: 1,	/* Target address
++						 * structure is valid
++						 */
++			rq		: 1,	/* Requester identifier
++						 * structure is valid
++						 */
++			rp		: 1,	/* Responder identifier
++						 * structure is valid
++						 */
++			pi		: 1;	/* Precise instruction pointer
++						 * structure is valid
++						 */
+ } pal_cache_check_info_t;
+ 
+ typedef struct pal_tlb_check_info_s {
+@@ -500,18 +513,38 @@
+ 	u64		tr_slot		: 8,	/* Slot# of TR where
+ 						 * error occurred
+ 						 */
+-			reserved2	: 8,
++			trv		: 1,	/* tr_slot field is valid */
++			reserved1	: 1,
++			level		: 2,	/* TLB level where failure occurred */
++			reserved2	: 4,
+ 			dtr		: 1,	/* Fail in data TR */
+ 			itr		: 1,	/* Fail in inst TR */
+ 			dtc		: 1,	/* Fail in data TC */
+ 			itc		: 1,	/* Fail in inst. TC */
+-			mc		: 1,	/* Machine check corrected */
+-			reserved1	: 43;
++			op		: 4,	/* Cache operation */
++			reserved3	: 30,
+ 
++			is		: 1,	/* instruction set (1 = ia32) */
++			iv		: 1,	/* instruction set field valid */
++			pl		: 2,	/* privilege level */
++			pv		: 1,	/* privilege level field valid */
++			mcc		: 1,	/* Machine check corrected */
++			tv		: 1,	/* Target address
++						 * structure is valid
++						 */
++			rq		: 1,	/* Requester identifier
++						 * structure is valid
++						 */
++			rp		: 1,	/* Responder identifier
++						 * structure is valid
++						 */
++			pi		: 1;	/* Precise instruction pointer
++						 * structure is valid
++						 */
+ } pal_tlb_check_info_t;
+ 
+ typedef struct pal_bus_check_info_s {
+-	u64		size		: 5,	/* Xaction size*/
++	u64		size		: 5,	/* Xaction size */
+ 			ib		: 1,	/* Internal bus error */
+ 			eb		: 1,	/* External bus error */
+ 			cc		: 1,	/* Error occurred
+@@ -520,22 +553,99 @@
+ 						 */
+ 			type		: 8,	/* Bus xaction type*/
+ 			sev		: 5,	/* Bus error severity*/
+-			tv		: 1,	/* Targ addr valid */
+-			rp		: 1,	/* Resp addr valid */
+-			rq		: 1,	/* Req addr valid */
++			hier		: 2,	/* Bus hierarchy level */
++			reserved1	: 1,
+ 			bsi		: 8,	/* Bus error status
+ 						 * info
+ 						 */
+-			mc		: 1,	/* Machine check corrected */
+-			reserved1	: 31;
++			reserved2	: 22,
++
++			is		: 1,	/* instruction set (1 = ia32) */
++			iv		: 1,	/* instruction set field valid */
++			pl		: 2,	/* privilege level */
++			pv		: 1,	/* privilege level field valid */
++			mcc		: 1,	/* Machine check corrected */
++			tv		: 1,	/* Target address
++						 * structure is valid
++						 */
++			rq		: 1,	/* Requester identifier
++						 * structure is valid
++						 */
++			rp		: 1,	/* Responder identifier
++						 * structure is valid
++						 */
++			pi		: 1;	/* Precise instruction pointer
++						 * structure is valid
++						 */
+ } pal_bus_check_info_t;
+ 
++typedef struct pal_reg_file_check_info_s {
++	u64		id		: 4,	/* Register file identifier */
++			op		: 4,	/* Type of register
++						 * operation that
++						 * caused the machine
++						 * check.
++						 */
++			reg_num		: 7,	/* Register number */
++			rnv		: 1,	/* reg_num valid */
++			reserved2	: 38,
++
++			is		: 1,	/* instruction set (1 = ia32) */
++			iv		: 1,	/* instruction set field valid */
++			pl		: 2,	/* privilege level */
++			pv		: 1,	/* privilege level field valid */
++			mcc		: 1,	/* Machine check corrected */
++			reserved3	: 3,
++			pi		: 1;	/* Precise instruction pointer
++						 * structure is valid
++						 */
++} pal_reg_file_check_info_t;
++
++typedef struct pal_uarch_check_info_s {
++	u64		sid		: 5,	/* Structure identification */
++			level		: 3,	/* Level of failure */
++			array_id	: 4,	/* Array identification */
++			op		: 4,	/* Type of
++						 * operation that
++						 * caused the machine
++						 * check.
++						 */
++			way		: 6,	/* Way of structure */
++			wv		: 1,	/* way valid */
++			xv		: 1,	/* index valid */
++			reserved1	: 8,
++			index		: 8,	/* Index or set of the uarch
++						 * structure that failed.
++						 */
++			reserved2	: 24,
++
++			is		: 1,	/* instruction set (1 = ia32) */
++			iv		: 1,	/* instruction set field valid */
++			pl		: 2,	/* privilege level */
++			pv		: 1,	/* privilege level field valid */
++			mcc		: 1,	/* Machine check corrected */
++			tv		: 1,	/* Target address
++						 * structure is valid
++						 */
++			rq		: 1,	/* Requester identifier
++						 * structure is valid
++						 */
++			rp		: 1,	/* Responder identifier
++						 * structure is valid
++						 */
++			pi		: 1;	/* Precise instruction pointer
++						 * structure is valid
++						 */
++} pal_uarch_check_info_t;
++
+ typedef union pal_mc_error_info_u {
+ 	u64				pmei_data;
+ 	pal_processor_state_info_t	pme_processor;
+ 	pal_cache_check_info_t		pme_cache;
+ 	pal_tlb_check_info_t		pme_tlb;
+ 	pal_bus_check_info_t		pme_bus;
++	pal_reg_file_check_info_t	pme_reg_file;
++	pal_uarch_check_info_t		pme_uarch;
+ } pal_mc_error_info_t;
+ 
+ #define pmci_proc_unknown_check			pme_processor.uc
+diff -ur 2.4.23-pre9-cset-1.1069.1.104-to-1.1111/arch/ia64/kernel/mca.c 2.4.23-pre9-cset-1.1069.1.104-to-1.1111-pal/arch/ia64/kernel/mca.c
+--- 2.4.23-pre9-cset-1.1069.1.104-to-1.1111/arch/ia64/kernel/mca.c	Fri Oct 31 12:11:35 2003
++++ 2.4.23-pre9-cset-1.1069.1.104-to-1.1111-pal/arch/ia64/kernel/mca.c	Thu Nov  6 17:41:38 2003
+@@ -1613,13 +1613,13 @@
+ 	if (info->dl)
+ 		prfunc(" Line: Data,");
+ 	prfunc(" Operation: %s,", pal_cache_op[info->op]);
+-	if (info->wv)
++	if (info->wiv)
+ 		prfunc(" Way: %d,", info->way);
+ 	if (cache_check_info->valid.target_identifier)
+ 		/* Hope target address is saved in target_identifier */
+ 		if (info->tv)
+ 			prfunc(" Target Addr: 0x%lx,", target_addr);
+-	if (info->mc)
++	if (info->mcc)
+ 		prfunc(" MC: Corrected");
+ 	prfunc("\n");
+ }
+@@ -1661,7 +1661,7 @@
+ 		prfunc("  Failure: Data Translation Register");
+ 		prfunc(" ,Slot: %ld", info->tr_slot);
+ 	}
+-	if (info->mc)
++	if (info->mcc)
+ 		prfunc(" ,MC: Corrected");
+ 	prfunc("\n");
+ }
+@@ -1707,7 +1707,7 @@
+ 		prfunc(" ,Error: Internal");
+ 	if (info->eb)
+ 		prfunc(" ,Error: External");
+-	if (info->mc)
++	if (info->mcc)
+ 		prfunc(" ,MC: Corrected");
+ 	if (info->tv)
+ 		prfunc(" ,Target Address: 0x%lx", targ_addr);
 
-
--- 
-                          I won't rest till it's the best ...
-                          Programmer, Linux Scalability
-                          Paul Jackson <pj@sgi.com> 1.650.933.1373
