@@ -1,176 +1,81 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 15 Oct 2004 19:06:19 +0000
-Subject: page fault scalability patch V10: [4/7] cmpxchg for 386 and 486
-Message-Id: <Pine.LNX.4.58.0410151205370.26697@schroedinger.engr.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 04 Oct 2004 06:25:50 +0000
+Subject: [patch 3/5 salinfo-0.6] kernel-clear
+Message-Id: <11369.1096871150@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0409201348070.4628@schroedinger.engr.sgi.com>
- <20040920205752.GH4242@wotan.suse.de> <200409211841.25507.vda@port.imtp.ilyichevsk.odessa.ua>
- <20040921154542.GB12132@wotan.suse.de> <41527885.8020402@myrealbox.com>
- <20040923090345.GA6146@wotan.suse.de> <Pine.LNX.4.58.0409271204180.31769@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Changelog
-	* Make cmpxchg and cmpxchg8b generally available on i386.
-	* Provide emulation of cmpxchg suitable for UP if build and
-	  run on 386.
-	* Provide emulation of cmpxchg8b suitable for UP if build
-	  and run on 386 or 486.
+kernel-clear    Handle Ben Woodward's incompatible kernel change in 2.6.9-rc3
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-
-Index: linux-2.6.9-rc4/include/asm-i386/system.h
-=================================--- linux-2.6.9-rc4.orig/include/asm-i386/system.h	2004-10-10 19:56:39.000000000 -0700
-+++ linux-2.6.9-rc4/include/asm-i386/system.h	2004-10-14 11:32:35.000000000 -0700
-@@ -240,7 +240,24 @@
-  */
-
- #ifdef CONFIG_X86_CMPXCHG
-+
- #define __HAVE_ARCH_CMPXCHG 1
-+#define cmpxchg(ptr,o,n)\
-+	((__typeof__(*(ptr)))__cmpxchg((ptr),(unsigned long)(o),\
-+					(unsigned long)(n),sizeof(*(ptr))))
-+
-+#else
-+
-+/*
-+ * Building a kernel capable running on 80386. It may be necessary to
-+ * simulate the cmpxchg on the 80386 CPU.
+Index: salinfo-0.6/salinfo_decode.c
+=================================--- salinfo-0.6.orig/salinfo_decode.c	Wed Sep 15 16:21:10 2004
++++ salinfo-0.6/salinfo_decode.c	Mon Oct  4 12:17:47 2004
+@@ -9,6 +9,8 @@
+  * 2003-11-16 Break out oem data decoder so each platform can handle the
+  *	      oem data as it likes.
+  *	      Keith Owens <kaos@sgi.com>
++ * 2004-10-04 Handle kernels that clear the bit themselves when there is no data.
++ *	      Keith Owens <kaos@sgi.com>
+  *
+  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  *
+@@ -97,11 +99,36 @@ usage (void)
+ 		, stderr);
+ }
+ 
++/* Ben Woodard of RedHat changed the kernel salinfo code around 2.6.9-rc3 to
++ * clear the cpu state bit if there is no data.  He did not add any indication
++ * to user space of this change, which means that user space must deduce if it
++ * is running on a kernel with or without Ben Woodward's change :(.
++ *
++ * Start off by assuming we are running on a changed kernel, and do not write
++ * 'clear' to the kernel when there is no data.  When running on an old kernel,
++ * user space will then be invoked repeatedly with no data.  Detect this loop
++ * for an old kernel and turn on do_clear.
 + */
 +
-+extern unsigned long cmpxchg_386(void *, unsigned long, unsigned long);
+ static int
+-clear_cpu(int fd_data, int cpu, const char *data_filename)
++clear_cpu(int fd_data, int cpu, const char *data_filename, int have_data)
+ {
+ 	char text[400];
+ 	int l;
++	static int prev_cpu = -1, loop = 0, do_clear = 0;
 +
-+#define cmpxchg(ptr,o,n)\
-+	((__typeof__(*(ptr)))cmpxchg_386((ptr),(unsigned long)(o),\
-+					(unsigned long)(n),sizeof(*(ptr))))
- #endif
-
- static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
-@@ -270,10 +287,32 @@
- 	return old;
- }
-
--#define cmpxchg(ptr,o,n)\
--	((__typeof__(*(ptr)))__cmpxchg((ptr),(unsigned long)(o),\
--					(unsigned long)(n),sizeof(*(ptr))))
--
-+static inline unsigned long long __cmpxchg8b(volatile unsigned long long *ptr,
-+	       unsigned long long old, unsigned long long newv)
-+{
-+	unsigned long long prev;
-+	 __asm__ __volatile__(
-+	LOCK_PREFIX "cmpxchg8b %4\n"
-+	: "=A" (prev)
-+	: "0" (old), "c" ((unsigned long)(newv >> 32)),
-+       		"b" ((unsigned long)(newv & 0xffffffffLL)), "m" (ptr)
-+	: "memory");
-+	return prev ;
-+}
-+
-+#ifdef CONFIG_X86_CMPXCHG8B
-+#define cmpxchg8b __cmpxchg8b
-+#else
-+/*
-+ * Building a kernel capable of running on 80486 and 80386. Both
-+ * do not support cmpxchg8b. Call a function that emulates the
-+ * instruction if necessary.
-+ */
-+extern unsigned long long cmpxchg_486(unsigned long long *,
-+				unsigned long long, unsigned long long);
-+#define cmpxchg8b cmpxchg8b_486
-+#endif
-+
- #ifdef __KERNEL__
- struct alt_instr {
- 	__u8 *instr; 		/* original instruction */
-Index: linux-2.6.9-rc4/arch/i386/Kconfig
-=================================--- linux-2.6.9-rc4.orig/arch/i386/Kconfig	2004-10-10 19:57:06.000000000 -0700
-+++ linux-2.6.9-rc4/arch/i386/Kconfig	2004-10-14 11:32:35.000000000 -0700
-@@ -345,6 +345,11 @@
- 	depends on !M386
- 	default y
-
-+config X86_CMPXCHG8B
-+	bool
-+	depends on !M386 && !M486
-+	default y
-+
- config X86_XADD
- 	bool
- 	depends on !M386
-Index: linux-2.6.9-rc4/arch/i386/kernel/cpu/intel.c
-=================================--- linux-2.6.9-rc4.orig/arch/i386/kernel/cpu/intel.c	2004-10-10 19:57:16.000000000 -0700
-+++ linux-2.6.9-rc4/arch/i386/kernel/cpu/intel.c	2004-10-14 11:32:35.000000000 -0700
-@@ -415,5 +415,65 @@
- 	return 0;
- }
-
-+#ifndef CONFIG_X86_CMPXCHG
-+unsigned long cmpxchg_386(volatile void *ptr, unsigned long old,
-+				      unsigned long new, int size)
-+{
-+	unsigned long prev;
-+	unsigned long flags;
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but the
-+	 * currently running cpu can do cmpxchg after all
-+	 * All CPUs except 386 support CMPXCHG
-+	 */
-+	if (cpu_data->x86 > 3) return __cmpxchg(ptr, old, new, size);
-+
-+	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
-+	local_irq_save(flags);
-+	switch (size) {
-+	case 1:
-+		prev = * (u8 *)ptr;
-+		if (prev = old) *(u8 *)ptr = new;
-+		break;
-+	case 2:
-+		prev = * (u16 *)ptr;
-+		if (prev = old) *(u16 *)ptr = new;
-+	case 4:
-+		prev = *(u32 *)ptr;
-+		if (prev = old) *(u32 *)ptr = new;
-+		break;
++	if (have_data)
++		loop = 0;
++	if (!do_clear) {
++		if (cpu <= prev_cpu) {
++			++loop;
++			if (loop = 2)
++				do_clear = 1;
++		}
++		prev_cpu = cpu;
 +	}
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg_386);
-+#endif
-+
-+#ifndef CONFIG_X86_CMPXCHG8B
-+unsigned long long cmpxchg8b_486(unsigned long long *ptr,
-+	       unsigned long long old, unsigned long long newv)
-+{
-+	unsigned long long prev;
-+	unsigned long flags;
-+
-+	/*
-+	 * Check if the kernel was compiled for an old cpu but
-+	 * we are running really on a cpu capable of cmpxchg8b
-+	 */
-+
-+	if (cpu_has(cpu_data, X86_FEATURE_CX8)) return __cmpxchg8b(ptr, old newv);
-+
-+	/* Poor mans cmpxchg8b for 386 and 486. Not suitable for SMP */
-+	local_irq_save(flags);
-+	prev = *ptr;
-+	if (prev = old) *ptr = newv;
-+	local_irq_restore(flags);
-+	return prev;
-+}
-+
-+EXPORT_SYMBOL(cmpxchg8b_486);
-+#endif
-+
- // arch_initcall(intel_cpu_init);
++	if (!have_data && !do_clear)
++		return 0;
+ 
+ 	snprintf(text, sizeof(text), "clear %d\n", cpu);
+ 	l = strlen(text);
+@@ -226,7 +253,7 @@ talk_to_sal (const char *type, const cha
+ 			goto out;
+ 		}
+ 		if (!(buffer = salinfo_buffer(fd_data, &bufsize))) {
+-			if (clear_cpu(fd_data, cpu, data_filename))
++			if (clear_cpu(fd_data, cpu, data_filename, 0))
+ 				goto out;
+ 			continue;	/* event but no data is normal at boot */
+ 		}
+@@ -292,7 +319,7 @@ talk_to_sal (const char *type, const cha
+ 		printf("END HARDWARE ERROR STATE from %s on cpu %d\n", type, cpu);
+ 		free(buffer);
+ 		fclose(stdout);
+-		if (clear_cpu(fd_data, cpu, data_filename))
++		if (clear_cpu(fd_data, cpu, data_filename, 1))
+ 			goto out;
+ 
+ 	}
 
