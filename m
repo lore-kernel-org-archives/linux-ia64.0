@@ -1,20 +1,21 @@
-From: Anton Blanchard <anton@samba.org>
-Date: Wed, 24 Mar 2004 01:49:56 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 24 Mar 2004 18:29:23 +0000
 Subject: Re: 2.6.5-rc2 lots of warnings for dma_error
-Message-Id: <20040324014956.GG27747@krispykreme>
+Message-Id: <200403241129.23222.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <5631.1079924674@kao2.melbourne.sgi.com>
 In-Reply-To: <5631.1079924674@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
- 
-> yes, perhaps it's not too late to change it.  Anton, what will this break?
+On Tuesday 23 March 2004 11:17 am, Andrew Morton wrote:
+> > =A0We're getting namespace collisions from the new dma_error(). =A0Rena=
+me it to
+> > =A0dma_mapping_error().
+>=20
+> Updated ia64 patch:
 
-pci_dma_error came from x86-64, and dma_error was the natural
-counterpart. Due to the conflicts in ide-cd.c I guess we should change
-it.
-
-Anton
+I verified that current linux-2.5 BK + this patch builds and boots OK
+(generic_defconfig), FWIW.
