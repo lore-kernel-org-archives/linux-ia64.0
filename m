@@ -1,35 +1,37 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Fri, 03 Dec 2004 18:00:09 +0000
-Subject: Re: memccpy() gives inconsistent results on mmapped files
-Message-Id: <20041203180009.GA12808@lucon.org>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Tue, 14 Dec 2004 19:31:12 +0000
+Subject: Should we relax in udelay()?
+Message-Id: <20041214193112.GT27199@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <9880.1102044614@kao2.melbourne.sgi.com>
-In-Reply-To: <9880.1102044614@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Dec 03, 2004 at 07:22:41AM -0500, Jeff Hanson wrote:
-> Christoph Hellwig wrote:
-> >On Fri, Dec 03, 2004 at 02:30:14PM +1100, Keith Owens wrote:
-> >
-> >>Glenn Fowler of ATT reported that memccpy() gives inconsistent results
-> >>on mmapped files.  This was reported to SGI, but the bug is ia64
-> >>generic, I get the same errors on a vanilla ia64 box.
-> >>
-> >>Glenn's test case follows, it has been tweaked to add a PREFAULT
-> >>option.  Prefaulting the input file makes memccpy work.  The problem
-> >>occurs on both glibc 2.2.4 and glibc 2.3.3.
-> >
-> >
-> >Didn't Jes fix that long ago in SGIs glibc?
-> 
-> Yes he did.  For exactly the same customer with the same test code.
 
-Can someone send me a patch?
+Would the following patch be a good idea?  Obviously, this is a busy-loop,
+but does itc tick correctly while we're relaxing?
 
-Thanks.
+Index: include/asm-ia64/delay.h
+=================================RCS file: /var/cvs/linux-2.6/include/asm-ia64/delay.h,v
+retrieving revision 1.4
+diff -u -p -r1.4 delay.h
+--- linux/include/asm-ia64/delay.h	23 May 2004 23:52:58 -0000	1.4
++++ linux/include/asm-ia64/delay.h	14 Dec 2004 18:20:51 -0000
+@@ -91,7 +91,7 @@ udelay (unsigned long usecs)
+ 	unsigned long cycles = usecs*local_cpu_data->cyc_per_usec;
+ 
+ 	while (ia64_get_itc() - start < cycles)
+-		/* skip */;
++		cpu_relax();
+ }
+ 
+ #endif /* _ASM_IA64_DELAY_H */
 
-
-H.J.
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
