@@ -1,7 +1,7 @@
-From: Randolph Chung <randolph@tausq.org>
-Date: Fri, 21 Feb 2003 16:10:25 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 21 Feb 2003 16:17:34 +0000
 Subject: Re: [Linux-ia64] ski and gcc-3.x
-Message-Id: <marc-linux-ia64-105590709805902@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805903@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805894@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805894@msgid-missing>
@@ -10,18 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Did you verify that you have write access on /var/ski-disks/sda?
+>>>>> On Fri, 21 Feb 2003 08:10:25 -0800, Randolph Chung <randolph@tausq.org> said:
 
-yes, but i didn't read the instructions carefully enough so i thought if
-i had simscsi=/var/ski-disks/sd my disk file is also called
-/var/ski-disks/sd (instead of .../sda)
+  >> Did you verify that you have write access on /var/ski-disks/sda?
 
-it's booting now with 1.30 bogomips :-)
+  Randolph> yes, but i didn't read the instructions carefully enough
+  Randolph> so i thought if i had simscsi=/var/ski-disks/sd my disk
+  Randolph> file is also called /var/ski-disks/sd (instead of .../sda)
 
-thanks,
-randolph
--- 
-Randolph Chung
-Debian GNU/Linux Developer, hppa/ia64 ports
-http://www.tausq.org/
+  Randolph> it's booting now with 1.30 bogomips :-)
+
+Great!  1.30 bogomips is the right number (it's deterministic and not
+dependent on the simulation speed).
+
+	--david
 
