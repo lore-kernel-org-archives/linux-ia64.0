@@ -1,82 +1,65 @@
-From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
-Date: Thu, 27 May 2004 11:52:44 +0000
-Subject: Hot plug vs. reliability
-Message-Id: <40B5D68C.466FE969@nospam.org>
+From: "Richard B. Johnson" <root@chaos.analogic.com>
+Date: Thu, 27 May 2004 12:13:54 +0000
+Subject: Re: Hot plug vs. reliability
+Message-Id: <Pine.LNX.4.53.0405270757250.2487@chaos>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <40B5D68C.466FE969@nospam.org>
+In-Reply-To: <40B5D68C.466FE969@nospam.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Zoltan.Menyhart@bull.net
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-I've got some questions about how hot plugging can (or cannot)
-ensure reliability:
+On Thu, 27 May 2004, Zoltan Menyhart wrote:
 
-When we produce machines, we execute tests like burn in, stress,
-validation, etc. tests. In addition, every time a machine is switched
-on, a power on self test is executed.
-When we hot plug (add, remove, swap) a component that has never been
-seen, how can we make sure that the modified machine achieves the
-same MTBF as the original machine had, without passing any of the
-tests I mentioned above ?
+> I've got some questions about how hot plugging can (or cannot)
+> ensure reliability:
+>
+> When we produce machines, we execute tests like burn in, stress,
+> validation, etc. tests. In addition, every time a machine is switched
+> on, a power on self test is executed.
 
-There are cases when not the "worst case" design is used. You select=20
-components "carefully". E.g. you use a quicker component after a
-slower one to compensate the excessive delay, or you select parallel
-components with similar irregularities (no problem if they are too
-slow assuming they are similarly slow). How can we match a hot
-plug device with the existing ones ?
-Our engineers made hard effort e.g. to equalize the delays on the
-"back plain" to make sure the signals reaches the components with
-the same delay.
-A machine is fabricated with the same series of the CPU / memory
-boards. (And they are tested together.) What if the new series of
-these boards are somewhat quicker ?
+The POST routine only verifies that some hardware "works" at the
+instant it's tested. It has nothing to do with reliability.
 
-A test can do any "irregular" operation whatever it wants. E.g.
-the memory controller can be switched into a test mode, that allows
-reading / writing the memory without the intervention of the ECC
-logic. One can fill in the memory with some predefined pattern and
-check if the ECC logic does what it has to do. Can we do this for
-memory hot plug without breaking a running OS ?
-Another example: we add a CPU board and we need to make sure that
-the coherency dialog goes fine. Can we carry out these tests
-without perturbing the already on line CPUs ?
-How can we make sure that a freshly inserted I/O card can reach
-all the memory it has to, it can interrupt any CPU it has to ?
-(Again, without breaking the OS.)
+> When we hot plug (add, remove, swap) a component that has never been
+> seen, how can we make sure that the modified machine achieves the
+> same MTBF as the original machine had, without passing any of the
+> tests I mentioned above ?
+>
 
-And now the most difficult tests: how can we make sure that no error
-will be undetected. E.g. at the power on test, we can voluntarily
-provoke "machine checks" to make sure that these kinds of errors are
-safely detected. Can we really do this on a living operating system ?
-No problem resetting several times the machine (by the service
-processor). Obviously, it is not a good idea for a running system.
-What can we do in case of hungs, time-outs ?
+If you want a highly-reliable machine of any type, the components
+are normally burned-in to catch "infant mortality" problems. If
+you "hot-plug" a component, that component should have undergone
+the same kind of burn-in if you wish to maintain some degree
+of reliability. Again a POST routine does not assure anything.
+And, in fact, it's just normally initialization. If you look
+at the stupid, ludicrous, "testing" done in the early IBM/PC
+BIOS, you will understand that it was just some junk that
+some committee decided had to be done, like moving values
+around between CPU registers -- If the CPU didn't work, it
+couldn't test itself -- if the CPU did work, it couldn't
+test itself, etc... Just crap.
 
-Do you know of some firmware services like "in place testing" ? I mean
-the operating system invokes a specific firmware call and hands over
-the control of the machine temporarily (say for 1 millisecond) to the
-firmware. The firmware can execute a small part of the validation
-test (without corrupting any data, without losing an interrupt, etc.)
-then it returns to the OS. This latter resumes the operations and
-calls again the firmware the tests somewhat later.
+Now, memory testing has some validity because you generally
+need to access it once to get all the bits into a "known"
+state where the charge-pump (refresh) will keep it. However,
+I doubt that much bad memory has actually been detected during
+POST. It's much later, when programs or the kernel crash,
+that bad memory is detected.
 
-We cannot remove safely failing memory / CPUs. In most of the cases
-it is too late. We (in the OS) can see some corrected CPU, memory, I/O
-and platform errors. Yet the OS has not got and should not have the
-knowledge when a component is "enough bad". I think it is the firmware
-that has all the information about the details of the HW events.
-Do you know of some firmware services which can say something like:
-"hey, remove the component X otherwise your MTBF will drop by 95 %..." ?
+[SNIPPED...]
 
-Today HW components are sold without much testing. They say O.K. got
-a problem?, just send it back, we'll refund. Thanks. I just have broken
-my system.
-Shall I have a PCI test pad just for validate PCI cards before hot
-plugging it in ?
+So your concern that POST hasn't been run when you hot-plug
+a component isn't a problem. You cannot "test-in" reliability.
+You need to design it in, test it to make sure it's been
+built like it was designed, then burn it in to solve the
+infant mortality problem.
 
-Do we really want to hot plug in order to compromise our MTBF ?
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.4.26 on an i686 machine (5570.56 BogoMips).
+            Note 96.31% of all statistics are fiction.
 
-Thanks,
 
-Zolt=E1n Menyh=E1rt
