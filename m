@@ -1,59 +1,44 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Mon, 27 Sep 2004 05:01:28 +0000
-Subject: Re: [ACPI] [PATCH] PCI IRQ resource deallocation support [2/3]
-Message-Id: <41579EA8.8000700@jp.fujitsu.com>
+From: Len Brown <len.brown@intel.com>
+Date: Mon, 13 Sep 2004 19:22:30 +0000
+Subject: Re: [ACPI] [PATCH] restore _OS object to "Linux" for ia64
+Message-Id: <1095103349.2512.16.camel@d845pe>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <414FEBDB.2050201@soft.fujitsu.com>
- <200409210857.59457.bjorn.helgaas@hp.com> <4150D458.3050400@jp.fujitsu.com>
- <20040924.145229.108814142.t-kochi@bq.jp.nec.com>
- <4153BEBA.5030202@jp.fujitsu.com>
- <Pine.LNX.4.60.0409242236330.7426@poirot.grange>
-In-Reply-To: <Pine.LNX.4.60.0409242236330.7426@poirot.grange>
+References: <1095100068.20631.30.camel@tdi>
+In-Reply-To: <1095100068.20631.30.camel@tdi>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Guennadi Liakhovetski <g.liakhovetski@gmx.de>
-Cc: Takayoshi Kochi <t-kochi@bq.jp.nec.com>, bjorn.helgaas@hp.com, acpi-devel@lists.sourceforge.net, kaneshige.kenji@soft.fujitsu.com, akpm@osdl.org, greg@kroah.com, len.brown@intel.com, tony.luck@intel.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Alex Williamson <alex.williamson-VXdhtT5mjnY@public.gmane.org>
+Cc: linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ACPI Developers <acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
 
-Hi Guennadi Liakhovetski,
+On Mon, 2004-09-13 at 14:27, Alex Williamson wrote:
+>    A recent change to ACPI made the _OS object falsely report the OS as
+> "Microsoft Windows NT".  This seems like a slippery slope, and I'd
+> rather not go down it for ia64.  I think all of the ia64 OEMs are
+> involved enough with Linux that this isn't necessary and the change
+> limits the options should ACPI firmware need to make an OS specific work
+> around.  The patch below will make all ia64 boxes report a default _OS
+> of "Linux".
 
-Thank you for the information.
-I refer to arm, arm26 and ppc64 codes.
+While I share your pride in Linux, there are a couple of reasons
+why we do not make _OS return "Linux".
 
-Thanks,
-Kenji Kaneshige
+_OS is a deprecated interface -- it has been replaced
+by the more flexible _OSI.  So with _OS we're talking
+about past, not future systems.  And there is a total
+population of 0 systems in the installed base that check
+for _OS ="Linux" in their firmware.  On the other hand, there
+are zillions of systems that check for Windows with _OS,
+and the !Windows path through the firmware is effectivly
+unvalidated.
 
+While this is really important on i386, it may not be
+important for ia64.  However, unless you can show
+me an existing system that checks for _OS=Linux, then
+it only adds risk w/o reward to make this change, even
+if just on ia64.  New systems should be using _OSI.
 
-Guennadi Liakhovetski wrote:
+thanks,
+-Len
 
-> On Fri, 24 Sep 2004, Kenji Kaneshige wrote:
-> 
->> Takayoshi Kochi wrote:
->> I'll change my patch to leave dev->irq as it is. And then I'll
->> investigate about defining PCI_UNDEFINED_IRQ.
-> 
-> 
-> Some platforms (arm, arm26, ppc64) define a macro NO_IRQ:
-> 
-> include/asm-arm/irq.h:#define NO_IRQ        ((unsigned int)(-1))
-> include/asm-arm26/irq.h:#define NO_IRQ      ((unsigned int)(-1))
-> include/asm-ppc64/irq.h:#define NO_IRQ      (-1)
-> 
-> Thanks
-> Guennadi
-> ---
-> Guennadi Liakhovetski
-> 
-> 
-> 
-> -------------------------------------------------------
-> This SF.Net email is sponsored by: YOU BE THE JUDGE. Be one of 170
-> Project Admins to receive an Apple iPod Mini FREE for your judgement on
-> who ports your project to Linux PPC the best. Sponsored by IBM.
-> Deadline: Sept. 24. Go here: http://sf.net/ppc_contest.php
-> _______________________________________________
-> Acpi-devel mailing list
-> Acpi-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/acpi-devel
-> 
 
