@@ -1,24 +1,63 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Fri, 07 Mar 2003 22:28:48 +0000
-Subject: Re: [Linux-ia64] Re: gas generates incorrect ia64 unwind rlen val ues
-Message-Id: <marc-linux-ia64-105590709806006@msgid-missing>
+From: Kimi Suganuma <suganuma@hpc.bs1.fc.nec.co.jp>
+Date: Fri, 07 Mar 2003 08:57:14 +0000
+Subject: Re: [Discontig-devel] Re: [Linux-ia64] discontigmem patch for 2.4.20
+Message-Id: <marc-linux-ia64-105590709805999@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805569@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805569@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Friday 17 January 2003 7:30 pm, David Mosberger wrote:
-> OK, I checked this script into arch/ia64/scripts/unwcheck.sh now. 
-> ...
-> I also fixed the handful of problems it pointed out.  I agree that
-> those are really gas bugs (except perhaps for the unwind info in
-> gate.S, which was a bit clunky).  But for now, I fixed things by
-> adding explicit nop's and commenting out .align directives.  The
-> removal of .align may cost us a cycle or two in some routines, but I
-> don't it's noticable in practice.
+Hi Bjorn,
 
-I applied these changes to 2.4 as well.
+Thank you for your consideration. I'll fix all warnings.
+
+And about problems on HP machines, I guess the reason is that
+the current CONFIG_NUMA kernel doesn't work right on a system
+which needs the VIRTUAL_MEM_MAP function.
+I thought that the CONFIG_NUMA kernel doesn't have to work on
+such the systems, I mean you can make a kernel with just
+turning off CONFIG_NUMA at config.
+However, it would better if CONFIG_NUMA kernel works on all types
+of machines. So I'll try to find out a solution for this issue.
+
+Best Regards,
+Kimi
+
+
+On Thu, 6 Mar 2003 11:31:25 -0700
+Bjorn Helgaas <bjorn_helgaas@hp.com> wrote:
+
+> > I back ported the IA64 discontigmem function in 2.5 to 2.4.20.
+> > I tested the patch on 8 way Itanium2 NUMA server with
+> > a NUMA kernel and an SMP kernel.
+> > 
+> > David, Bjorn, please let me know is there any possibility
+> > that you take this patch into the ia64-patch for 2.4.
+> 
+> I'm in the process of merging this patch, but when I build a
+> "generic" kernel (with CONFIG_NUMA=y and CONFIG_DISCONTIGMEM=y),
+> I get many new warnings:
+> 
+> /home/helgaas/bk/testing/include/asm/mmzone.h:62:21: warning: "virt_to_page" redefined
+> /home/helgaas/bk/testing/include/asm/page.h:57:1: warning: this is the location of the previous definition
+> /home/helgaas/bk/testing/include/asm/mmzone.h:71:21: warning: "page_to_phys" redefined
+> /home/helgaas/bk/testing/include/asm/page.h:58:1: warning: this is the location of the previous definition
+> /home/helgaas/bk/testing/include/linux/mmzone.h:229:21: warning: "numa_node_id" redefined
+> /home/helgaas/bk/testing/include/asm/processor.h:206:1: warning: this is the location of the previous definition
+> 
+> Could you look into these and send a new patch to correct them?
+> Also, the resulting kernel doesn't boot (it MCAs) on HP rx2600
+> and zx2000.  I'll look into it in my spare time, but you can
+> probably do so more efficiently.
+> 
+> A small patch that applies on top of the previous patch would be
+> easiest.
+> 
+> Bjorn
+
+
+-- 
+suganuma <suganuma@hpc.bs1.fc.nec.co.jp>
+
 
