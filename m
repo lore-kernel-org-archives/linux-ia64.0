@@ -1,50 +1,35 @@
-From: Ray Bryant <raybry@engr.sgi.com>
-Date: Fri, 15 Feb 2002 15:47:08 +0000
-Subject: Re: [Linux-ia64] size of spinlock_t
-Message-Id: <marc-linux-ia64-105590701905110@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Wed, 20 Feb 2002 15:34:27 +0000
+Subject: [Linux-ia64] Bug in linker script
+Message-Id: <marc-linux-ia64-105590701905140@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905101@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905101@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Yes that was it.  Thanks.  I am totally amazed that "make clean; make
-vmlinux" did not remake offsets.h.
+The linker script for linking vmlinux is discarding the .text.exit
+section, but not the corresponding .IA64_unwind.text.exit and
+.IA64_unwind_info.text.exit sections.  This can cause dangling relocations
+when compiling with gcc3.
 
-David Mosberger wrote:
-> 
-> >>>>> On Fri, 15 Feb 2002 00:14:55 -0600, Ray Bryant <raybry@engr.sgi.com> said:
-> 
->   Ray> In experimenting with new numa lock implementation, I changed
->   Ray> the size of spinlock_t to 16 bytes.  The resulting kernel hangs
->   Ray> on our SN hardware just after printing "All processors have
->   Ray> done init_idle".  Now it is possible this is something peculiar
->   Ray> to the SGI kernels, but I was wondering if anyone knew of
->   Ray> places in the IA64 kernel that "know" that
->   Ray> sizeof(spinlock_t)=8 and don't work correctly if this is
->   Ray> changed.
-> 
-> Are you sure it's not just include/asm/offsets.h that's out of date?
-> Make sure you have no stray arch/ia64/tools/print_offsets.s file and
-> then rerun make dep.
-> 
->         --david
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Andreas.
 
--- 
-Best Regards,
-Ray
------------------------------------------------
-Ray Bryant               SGI
-512-453-9679 (work)      512-507-7807 (cell)
-raybry@sgi.com           raybry@austin.rr.com
-     Computers are like air conditioners.
-   They stop working when you open Windows.
------------------------------------------------
+--- linux/arch/ia64/vmlinux.lds.S.~1~	Tue Jul 31 19:30:09 2001
++++ linux/arch/ia64/vmlinux.lds.S	Tue Feb 19 15:34:49 2002
+@@ -13,6 +13,8 @@
+ 	*(.text.exit)
+ 	*(.data.exit)
+ 	*(.exitcall.exit)
++	*(.IA_64.unwind.text.exit)
++	*(.IA_64.unwind_info.text.exit)
+ 	}
+=20
+   v =3D PAGE_OFFSET;	/* this symbol is here to make debugging easier... */
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE GmbH, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
 
