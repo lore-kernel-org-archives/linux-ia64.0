@@ -1,127 +1,29 @@
-From: Jason Baron <almostivan@yahoo.com>
-Date: Wed, 28 Aug 2002 16:02:16 +0000
-Subject: [Linux-ia64] make xconfig
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="0-17865078-1030550536=:65272"
-Message-Id: <marc-linux-ia64-105590701905993@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Wed, 28 Aug 2002 16:16:07 +0000
+Subject: Re: [Linux-ia64] make xconfig
+Message-Id: <marc-linux-ia64-105590701905994@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905993@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905993@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---0-17865078-1030550536=:65272
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> This issue has been discussed a bit and I agree that
+> the right solution is probably to fix the way that
+> xconfig works.  Short of this, we could choose not to
+> source drivers/block/Config.in, and instead include
+> the drivers/block/Config.in parameters in
+> arch/ia64/config.in, as in the attached patch.  This
+> bloats the file a bit, but solves the issue in an arch
+> independent way.
 
-If I enable xconfig, I get these errors from the 
-linux-2.4.19-ia64-020821.diff:
+Duplicating the contents of drivers/block/Config.in doesn't
+feel like an improvement.  Doesn't it just add more opportunity
+for me to make merge mistakes?  I don't need any more of
+those :-)
 
-ERROR - Attempting to write value for unconfigured
-variable (CONFIG_BLK_DEV_LOOP).
-ERROR - Attempting to write value for unconfigured
-variable (CONFIG_BLK_DEV_NBD).
-ERROR - Attempting to write value for unconfigured
-variable (CONFIG_BLK_DEV_RAM).
+Bjorn
 
-The consequence is that these parameters do not get
-written to the appropriate files.  Also, there are two
-top level "Block devices" menues.
-
-This issue has been discussed a bit and I agree that
-the right solution is probably to fix the way that
-xconfig works.  Short of this, we could choose not to
-source drivers/block/Config.in, and instead include
-the drivers/block/Config.in parameters in
-arch/ia64/config.in, as in the attached patch.  This
-bloats the file a bit, but solves the issue in an arch
-independent way.
-
--Jason Baron
-
-__________________________________________________
-Do You Yahoo!?
-Yahoo! Finance - Get real-time stock quotes
-http://finance.yahoo.com
---0-17865078-1030550536=:65272
-Content-Type: application/octet-stream; name="config.in.patch"
-Content-Transfer-Encoding: base64
-Content-Description: config.in.patch
-Content-Disposition: attachment; filename="config.in.patch"
-
-LS0tIGFyY2gvaWE2NC9jb25maWcuaW4uYmFrCVdlZCBBdWcgMjggMTA6MjU6
-MDcgMjAwMgorKysgYXJjaC9pYTY0L2NvbmZpZy5pbglXZWQgQXVnIDI4IDEw
-OjIwOjI5IDIwMDIKQEAgLTEzNiw3ICsxMzYsNjQgQEAKIGlmIFsgIiRDT05G
-SUdfSUE2NF9IUF9TSU0iID0gIm4iIF07IHRoZW4KICAgc291cmNlIGRyaXZl
-cnMvbXRkL0NvbmZpZy5pbgogICBzb3VyY2UgZHJpdmVycy9wbnAvQ29uZmln
-LmluCi0gIHNvdXJjZSBkcml2ZXJzL2Jsb2NrL0NvbmZpZy5pbgorZmkKKwor
-IworIyBCbG9jayBkZXZpY2UgZHJpdmVyIGNvbmZpZ3VyYXRpb24KKyMKK21h
-aW5tZW51X29wdGlvbiBuZXh0X2NvbW1lbnQKK2NvbW1lbnQgJ0Jsb2NrIGRl
-dmljZXMnCisKK2lmIFsgIiRDT05GSUdfSUE2NF9IUF9TSU0iID0gIm4iIF07
-IHRoZW4KKyAgdHJpc3RhdGUgJ05vcm1hbCBQQyBmbG9wcHkgZGlzayBzdXBw
-b3J0JyBDT05GSUdfQkxLX0RFVl9GRAorICBpZiBbICIkQ09ORklHX0FNSUdB
-IiA9ICJ5IiBdOyB0aGVuCisgICAgdHJpc3RhdGUgJ0FtaWdhIGZsb3BweSBz
-dXBwb3J0JyBDT05GSUdfQU1JR0FfRkxPUFBZCisgIGZpCisgIGlmIFsgIiRD
-T05GSUdfQVRBUkkiID0gInkiIF07IHRoZW4KKyAgICAgdHJpc3RhdGUgJ0F0
-YXJpIGZsb3BweSBzdXBwb3J0JyBDT05GSUdfQVRBUklfRkxPUFBZCisgIGZp
-CisgIGlmIFsgIiRDT05GSUdfTUFDIiA9ICJ5IiBdOyB0aGVuCisgICAgIGRl
-cF9ib29sICdNYWNpbnRvc2ggSUlmeC9RdWFkcmEgOTAwL1F1YWRyYSA5NTAg
-ZmxvcHB5IHN1cHBvcnQgKEVYUEVSSU1FTlRBTCknIENPTkZJR19CTEtfREVW
-X1NXSU1fSU9QICRDT05GSUdfRVhQRVJJTUVOVEFMCisgIGZpCisgIGlmIFsg
-IiRDT05GSUdfTUNBIiA9ICJ5IiBdOyB0aGVuCisgICAgIHRyaXN0YXRlICdQ
-Uy8yIEVTREkgaGFyZCBkaXNrIHN1cHBvcnQnIENPTkZJR19CTEtfREVWX1BT
-MgorICBmaQorICBpZiBbICIkQ09ORklHX1pPUlJPIiA9ICJ5IiBdOyB0aGVu
-CisgICAgIHRyaXN0YXRlICdBbWlnYSBab3JybyBJSSByYW1kaXNrIHN1cHBv
-cnQnIENPTkZJR19BTUlHQV9aMlJBTQorICBmaQorICBpZiBbICIkQ09ORklH
-X0FUQVJJIiA9ICJ5IiBdOyB0aGVuCisgICAgIHRyaXN0YXRlICdBdGFyaSBB
-Q1NJIHN1cHBvcnQnIENPTkZJR19BVEFSSV9BQ1NJCisgICAgIGlmIFsgIiRD
-T05GSUdfQVRBUklfQUNTSSIgIT0gIm4iIF07IHRoZW4KKyAgICAgICAgY29t
-bWVudCAnU29tZSBkZXZpY2VzIChlLmcuIENEIGp1a2Vib3gpIHN1cHBvcnQg
-bXVsdGlwbGUgTFVOcycKKyAgICAgICAgYm9vbCAnICBQcm9iZSBhbGwgTFVO
-cyBvbiBlYWNoIEFDU0kgZGV2aWNlJyBDT05GSUdfQUNTSV9NVUxUSV9MVU4K
-KyAgICAgICAgdHJpc3RhdGUgJyAgQXRhcmkgU0xNIGxhc2VyIHByaW50ZXIg
-c3VwcG9ydCcgQ09ORklHX0FUQVJJX1NMTQorICAgICBmaQorICBmaQorICBk
-ZXBfdHJpc3RhdGUgJ1hUIGhhcmQgZGlzayBzdXBwb3J0JyBDT05GSUdfQkxL
-X0RFVl9YRCAkQ09ORklHX0lTQQorICBkZXBfdHJpc3RhdGUgJ1BhcmFsbGVs
-IHBvcnQgSURFIGRldmljZSBzdXBwb3J0JyBDT05GSUdfUEFSSURFICRDT05G
-SUdfUEFSUE9SVAorICBpZiBbICIkQ09ORklHX1BBUklERSIgPSAieSIgLW8g
-IiRDT05GSUdfUEFSSURFIiA9ICJtIiBdOyB0aGVuCisgICAgIHNvdXJjZSBk
-cml2ZXJzL2Jsb2NrL3BhcmlkZS9Db25maWcuaW4KKyAgZmkKKyAgZGVwX3Ry
-aXN0YXRlICdDb21wYXEgU01BUlQyIHN1cHBvcnQnIENPTkZJR19CTEtfQ1BR
-X0RBICRDT05GSUdfUENJCisgIGRlcF90cmlzdGF0ZSAnQ29tcGFxIFNtYXJ0
-IEFycmF5IDV4eHggc3VwcG9ydCcgQ09ORklHX0JMS19DUFFfQ0lTU19EQSAk
-Q09ORklHX1BDSSAKKyAgZGVwX21ib29sICcgICAgICAgU0NTSSB0YXBlIGRy
-aXZlIHN1cHBvcnQgZm9yIFNtYXJ0IEFycmF5IDV4eHgnIENPTkZJR19DSVNT
-X1NDU0lfVEFQRSAkQ09ORklHX0JMS19DUFFfQ0lTU19EQSAkQ09ORklHX1ND
-U0kKKyAgZGVwX3RyaXN0YXRlICdNeWxleCBEQUM5NjAvREFDMTEwMCBQQ0kg
-UkFJRCBDb250cm9sbGVyIHN1cHBvcnQnIENPTkZJR19CTEtfREVWX0RBQzk2
-MCAkQ09ORklHX1BDSQorICBkZXBfdHJpc3RhdGUgJ01pY3JvIE1lbW9yeSBN
-TTU0MTUgQmF0dGVyeSBCYWNrZWQgUkFNIHN1cHBvcnQnIENPTkZJR19CTEtf
-REVWX1VNRU0gJENPTkZJR19QQ0kgJENPTkZJR19FWFBFUklNRU5UQUwKK2Zp
-ICMgIUhQX1NJTQorCisgIHRyaXN0YXRlICdMb29wYmFjayBkZXZpY2Ugc3Vw
-cG9ydCcgQ09ORklHX0JMS19ERVZfTE9PUAorICBkZXBfdHJpc3RhdGUgJ05l
-dHdvcmsgYmxvY2sgZGV2aWNlIHN1cHBvcnQnIENPTkZJR19CTEtfREVWX05C
-RCAkQ09ORklHX05FVAorCisgIHRyaXN0YXRlICdSQU0gZGlzayBzdXBwb3J0
-JyBDT05GSUdfQkxLX0RFVl9SQU0KKyAgaWYgWyAiJENPTkZJR19CTEtfREVW
-X1JBTSIgPSAieSIgLW8gIiRDT05GSUdfQkxLX0RFVl9SQU0iID0gIm0iIF07
-IHRoZW4KKyAgICAgaW50ICcgIERlZmF1bHQgUkFNIGRpc2sgc2l6ZScgQ09O
-RklHX0JMS19ERVZfUkFNX1NJWkUgNDA5NgorICBmaQorICBkZXBfYm9vbCAn
-ICBJbml0aWFsIFJBTSBkaXNrIChpbml0cmQpIHN1cHBvcnQnIENPTkZJR19C
-TEtfREVWX0lOSVRSRCAkQ09ORklHX0JMS19ERVZfUkFNCisKK2VuZG1lbnUK
-KworCitpZiBbICIkQ09ORklHX0lBNjRfSFBfU0lNIiA9ICJuIiBdOyB0aGVu
-CiAgIHNvdXJjZSBkcml2ZXJzL2llZWUxMzk0L0NvbmZpZy5pbgogICBzb3Vy
-Y2UgZHJpdmVycy9tZXNzYWdlL2kyby9Db25maWcuaW4KICAgc291cmNlIGRy
-aXZlcnMvbWQvQ29uZmlnLmluCkBAIC0xNTQsMTggKzIxMSw3IEBACiAgICAg
-ZGVmaW5lX2Jvb2wgQ09ORklHX0JMS19ERVZfSEQgbgogICBmaQogICBlbmRt
-ZW51Ci1lbHNlICMgSFBfU0lNCi0gIG1haW5tZW51X29wdGlvbiBuZXh0X2Nv
-bW1lbnQKLSAgY29tbWVudCAnQmxvY2sgZGV2aWNlcycKLSAgdHJpc3RhdGUg
-J0xvb3BiYWNrIGRldmljZSBzdXBwb3J0JyBDT05GSUdfQkxLX0RFVl9MT09Q
-Ci0gIGRlcF90cmlzdGF0ZSAnTmV0d29yayBibG9jayBkZXZpY2Ugc3VwcG9y
-dCcgQ09ORklHX0JMS19ERVZfTkJEICRDT05GSUdfTkVUCi0KLSAgdHJpc3Rh
-dGUgJ1JBTSBkaXNrIHN1cHBvcnQnIENPTkZJR19CTEtfREVWX1JBTQotICBp
-ZiBbICIkQ09ORklHX0JMS19ERVZfUkFNIiA9ICJ5IiAtbyAiJENPTkZJR19C
-TEtfREVWX1JBTSIgPSAibSIgXTsgdGhlbgotICAgIGludCAnICBEZWZhdWx0
-IFJBTSBkaXNrIHNpemUnIENPTkZJR19CTEtfREVWX1JBTV9TSVpFIDQwOTYK
-LSAgZmkKLSAgZW5kbWVudQotZmkgIyBIUF9TSU0KK2ZpICMgIUhQX1NJTQog
-CiBtYWlubWVudV9vcHRpb24gbmV4dF9jb21tZW50CiBjb21tZW50ICdTQ1NJ
-IHN1cHBvcnQnCg==
-
---0-17865078-1030550536=:65272--
 
