@@ -1,83 +1,62 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Sun, 20 Jan 2002 00:02:20 +0000
-Subject: [Linux-ia64] Re: [Discontig-devel] Re: [RFC] NUMA functions for accessing replicated areas
-Message-Id: <marc-linux-ia64-105590698805890@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 15 Jan 2002 02:03:30 +0000
+Subject: [Linux-ia64] [ANNOUNCE] first prototype of unwind API
+Message-Id: <marc-linux-ia64-105590698805827@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> 
-> On Sat, 19 Jan 2002 18:27:48 +0100, 
-> Andrea Arcangeli <andrea@suse.de> wrote:
-> >On Sat, Jan 19, 2002 at 11:25:17AM +1100, Keith Owens wrote:
-> >The opaque void * spread across all the API looks rather scary.
-> >Furthmore I'm not convinced we need to pass any cookie to the api, all
-> >the calls knows the numadata info by the static status after boot.
-> >
-> >So I think something like this should be enough:
-> >
-> >	int numa_replicated(unsigned long address, int size);
-> >	int numa_getarea(void *to, unsigned long from, int size);
-> >	int numa_putarea(unsigned long to, void *from, int size);
-> 
-> That assumes that all replicated data is identical.  It starts off that
-> way but what prevents one set of replicated data being changed and not
-> the others?  I don't mind that assumption, it makes life easier for kdb,
-> but I did not want to constrain NUMA implementations.  However if
-> everyone agrees that each instance of replcated data should always be
-> identical then numa_getarea() can read from any instance and
-> numa_putarea() writes to all instances, no need for numa_replicate_loop.
+[Note: this announcement is cross-posted to the glibc, gcc, and
+ linux-ia64 mailing list because I believe this may be of interest to
+ various people on these lists.  This will be the only post of this
+ sort; all future discussion will happen on the relevant mailing
+ lists.  Thanks for your understanding.]
 
-Currently, all replicated data is identical. I can imagine a few cases where
-we might consider having different data, but nothing like that is currently 
-planned. I doubt that any performance advantage of non-identical replicated
-data is worth the extra complexity.
+I'm happy to announce a first prototype implementation of a (mostly)
+platform-independent unwind API.  The purpose of this API is to
+simplify the implementation of applications that need to inspect the
+call-chain of a process/thread.  The immediate goal is to use this
+library to implement routines such as glibc's backtrace() function and
+offer a substitute for the unwind implementation currently in gcc (of
+course, it will be up to the glibc and gcc maintainers to decide
+if/when this is appropriate...).
 
+Originally, the API was intended for the ia64 platform, but the
+current draft is platform-independent with the exception of the
+manifest constants for register names (there are a couple of
+well-known register names that make it possible to implement, e.g.,
+backtraces in a completely platform-independent fashion).
 
-There is one thing that occurred to me. Currently, on IA64, the replicated
-data is read-execute. The NUMA code known how to write it but I dont
-know if you want to teach kdb how to do it. It is easy to do on IA64. I
-dont know about other platforms (or even if it would apply).
+The prototype source code is available at:
 
-TR0 is used to access the node local copy of kernel text
+  ftp://ftp.hpl.hp.com/pub/linux-ia64/libunwind-0.0.tar.gz
+   md5sum: 9a2935bf589331b17cf23defc3e36bbd  libunwind-0.0.tar.gz
 
-	INSTRUCTION TRANSLATION REGISTERS
-	NODE 0, CPU 0
-	|             VPN              PPN        PS  MA  ED AR PL D A P  KEY    RID   |
-	|  0 | e002000000000000 0000000000000000  64M WB  1  1  0  0 1 1 000000 000007 |	
+The current prototype implementation is limited to the ia64 linux
+platform and even that version has received only light testing.  The
+main purpose of this release is to increase the exposure of the API
+and to collect feedback.  It would also be nice to find people
+interested in implementing the API for other platforms (e.g., x86,
+Alpha, etc).
 
-	NODE 1, CPU 0
-	|             VPN              PPN        PS  MA  ED AR PL D A P  KEY    RID   |
-	|  0 | e002000000000000 0000000204000000  64M WB  1  1  0  0 1 1 000000 000007 |
+For more information, please refer to the README in the top-level
+directory of the source distribution.
 
+If this is a topic of interest to you, please consider subscribing to
+the "libunwind" mailing list.  Again, see the README for details.
 
+For the next steps, I'm planning to create the glue logic needed to
+use libunwind for GCC exception handling.  Once that is working, I'd
+like to do some fairly extensive correctness and performance testing.
 
+Needless to say: any and all feedback is welcome.  Note that to limit
+SPAM, it is necessary to subscribe to libunwind before you can post to
+the list.  If you do not wish to do that but still have comments, just
+send them directly to me (davidm@hpl.hp.com).
 
+Thanks,
 
-> 
-> >Futhmore it may be even better to drop numa_replicated completly and to
-> >default using numa_getarea/numa_putarea always, this should make kdb
-> >even cleaner. Implementation of getarea/putarea for non numa case will
-> >be a simple memcpy.
-> 
-> If numa_replicated() returns true then it is safe to use memcpy, if
-> numa_replicated() is omitted then the get/put functions must validate
-> the from address on get and the to address on put.  kdb v2.1 relies on
-> the MMU via __copy_to_user() to detect invalid user supplied addresses.
-> 
-> 
-> _______________________________________________
-> Discontig-devel mailing list
-> Discontig-devel@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/discontig-devel
-> 
-
-
--- 
-Thanks
-
-Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
-
+	--david
 
