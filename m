@@ -1,54 +1,35 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Fri, 28 Sep 2001 19:01:12 +0000
-Subject: [Linux-ia64] Re: kernel update (relative to 2.4.10)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
-Message-Id: <marc-linux-ia64-105590698805275@msgid-missing>
+From: Chris Ahna <christopher.j.ahna@intel.com>
+Date: Sat, 29 Sep 2001 01:45:21 +0000
+Subject: Re: [Linux-ia64] Re: kernel update (relative to 2.4.10)
+Message-Id: <marc-linux-ia64-105590698805276@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205855@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205855@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+On Fri, Sep 28, 2001 at 09:13:24AM -0700, David Mosberger wrote:
+> Chris do you have any updates pending?
 
-Bill Nottingham (notting@redhat.com) said: 
-> FWIW, PCI r128 seemed to work fine, at least until the machine
-> check. :(
+Well, I do now :-)  On ia64 we want to map even AGP memory as
+writecombined.  The appended patch should fix the rendering problems
+Bill reported earlier.
 
-Attached is a patch for PCI that fixes a definite oops in r128 and
-presumably the same one in the radeon driver. Dunno if this was related
-to the hard lockup/machine check I saw or not.
+Chris
 
-Bill
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="linux-2.4.10-ia64-pcidrm.patch"
-
---- linux/drivers/char/drm/r128_cce.c.foo	Fri Sep 28 14:26:06 2001
-+++ linux/drivers/char/drm/r128_cce.c	Fri Sep 28 14:26:17 2001
-@@ -681,7 +681,7 @@
- 		/*
- 		 * Free the page we grabbed for RPTR_ADDR
- 		 */
--		if( dev->agp->agp_info.chipset == INTEL_460GX ) {
-+		if( !dev_priv->is_pci && dev->agp->agp_info.chipset == INTEL_460GX ) {
- 			unsigned long alt_rh_off =
- 				(unsigned long) dev_priv->ring.head;
- 
---- linux-2.4.9-0.15/drivers/char/drm/radeon_cp.c.foo	Fri Sep 28 14:46:11 2001
-+++ linux-2.4.9-0.15/drivers/char/drm/radeon_cp.c	Fri Sep 28 14:47:23 2001
-@@ -1026,7 +1026,7 @@
- 		/*
- 		 * Free the page we grabbed for RPTR_ADDR
- 		 */
--		if( dev->agp->agp_info.chipset == INTEL_460GX ) {
-+		if( !dev_priv->is_pci && dev->agp->agp_info.chipset == INTEL_460GX ) {
- 			unsigned long alt_rh_off =
- 				(unsigned long) dev_priv->ring.head;
- 
-
---YZ5djTAD1cGYuMQK--
+--- linux-2.4.10-ia64-010924-pristine/drivers/char/drm/drm_vm.h	Wed Sep 26 09:16:03 2001
++++ linux-2.4.10-ia64-010924-dev/drivers/char/drm/drm_vm.h	Fri Sep 28 18:40:01 2001
+@@ -524,8 +524,8 @@
+                 	 */
+                 	vma->vm_ops = &DRM(vm_ops);
+ #if defined(__ia64__)
+-			if (map->type != _DRM_AGP)
+-				vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
++			vma->vm_page_prot +			                pgprot_writecombine(vma->vm_page_prot);
+ #endif
+ 			goto mapswitch_out;
+ 		}
 
