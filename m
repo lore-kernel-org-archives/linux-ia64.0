@@ -1,38 +1,83 @@
-From: Takayoshi Kochi <t-kochi@bq.jp.nec.com>
-Date: Thu, 11 Mar 2004 01:34:47 +0000
-Subject: Re: [PATCH] fix PCI interrupt setting for ia64
-Message-Id: <20040311.103447.10929472.t-kochi@bq.jp.nec.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Thu, 11 Mar 2004 05:29:59 +0000
+Subject: RE: [PATCH] fix PCI interrupt setting for ia64
+Message-Id: <MDEEKOKJPMPMKGHIFAMAIEMADGAA.kaneshige.kenji@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16463.30226.948230.439549@napali.hpl.hp.com>
-	<MDEEKOKJPMPMKGHIFAMAEELHDGAA.kaneshige.kenji@jp.fujitsu.com>
-In-Reply-To: <MDEEKOKJPMPMKGHIFAMAEELHDGAA.kaneshige.kenji@jp.fujitsu.com>
+In-Reply-To: <20040311.103447.10929472.t-kochi@bq.jp.nec.com>
+References: <MDEEKOKJPMPMKGHIFAMAKECGDGAA.kaneshige.kenji@jp.fujitsu.com>
+In-Reply-To: <MDEEKOKJPMPMKGHIFAMAKECGDGAA.kaneshige.kenji@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kaneshige.kenji@jp.fujitsu.com
+To: Takayoshi Kochi <t-kochi@bq.jp.nec.com>, kaneshige.kenji@jp.fujitsu.com
 Cc: davidm@hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
 Hi,
 
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Subject: RE: [PATCH] fix PCI interrupt setting for ia64
-Date: Thu, 11 Mar 2004 09:34:06 +0900
+Sorry, I misunderstood your concern.
 
+I think you are right. Probe_irq_on() still have another problems even if my
+patch
+is applied. For example, if buggy PCI device generates interrupts during its
+device
+driver calls probe_irq_on(), these interrupts might be considered as
+spurious and
+IRQ probing will fail. I think this is another problem than I pointed out.
+
+In addition to this, if probe_irq_on() is used for PCI interrupts (level
+triggered),
+interrupts are generated repeatedly because there are no handlers which
+clears
+these interrupt request. But I think this is not a problem, because these
+interrupts
+will be masked by probe_irq_on() or probe_irq_off() soon. If this is a
+problem, I think
+probe_irq_on() should never be used for PCI (level triggered) interrupt
+probing.
+
+Regards,
+Kenji Kaneshige
+
+
+> -----Original Message-----
+> From: linux-ia64-owner@vger.kernel.org
+> [mailto:linux-ia64-owner@vger.kernel.org]On Behalf Of Takayoshi Kochi
+> Sent: Thursday, March 11, 2004 10:35 AM
+> To: kaneshige.kenji@jp.fujitsu.com
+> Cc: davidm@hpl.hp.com; linux-ia64@vger.kernel.org;
+> linux-kernel@vger.kernel.org
+> Subject: Re: [PATCH] fix PCI interrupt setting for ia64
+>
+>
 > Hi,
-> 
-> I'm sorry that the report falls behind. I wanted to check out by using
-> real device driver which uses a probe_irq_on(), but I don't have appropriate
-> environment now.
-> 
-> Though I didn't check out on a real machine yet, I believe my patch doesn't
-> have any influence on probe_irq_on() because current probe_irq_on() calls
-> startup callback to unmask the RTEs as you said before.
+>
+> From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+> Subject: RE: [PATCH] fix PCI interrupt setting for ia64
+> Date: Thu, 11 Mar 2004 09:34:06 +0900
+>
+> > Hi,
+> >
+> > I'm sorry that the report falls behind. I wanted to check out by using
+> > real device driver which uses a probe_irq_on(), but I don't
+> have appropriate
+> > environment now.
+> >
+> > Though I didn't check out on a real machine yet, I believe my
+> patch doesn't
+> > have any influence on probe_irq_on() because current
+> probe_irq_on() calls
+> > startup callback to unmask the RTEs as you said before.
+>
+> My concern was that if there's a buggy PCI device that raises
+> interrupts all the time until it's initialized by some device driver,
+> probe_irq_on() would not work as expected regardless of whether
+> your patch is applied or not.  I thought masking the interrupt line
+> doesn't work around this case.
+>
+> ---
+> Takayoshi Kochi <t-kochi@bq.jp.nec.com>
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-My concern was that if there's a buggy PCI device that raises
-interrupts all the time until it's initialized by some device driver,
-probe_irq_on() would not work as expected regardless of whether
-your patch is applied or not.  I thought masking the interrupt line
-doesn't work around this case.
-
----
-Takayoshi Kochi <t-kochi@bq.jp.nec.com>
