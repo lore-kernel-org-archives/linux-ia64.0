@@ -1,24 +1,22 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 25 Sep 2002 16:01:16 +0000
-Subject: [Linux-ia64] Re: IOSAPIC cleanup and bugfixes patch
-Message-Id: <marc-linux-ia64-105590701906050@msgid-missing>
+Date: Fri, 13 Sep 2002 03:53:10 +0000
+Subject: [Linux-ia64] limited-time offer for HP Itanium 2 machines with Red Hat Linux
+Message-Id: <marc-linux-ia64-105590701906028@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Now that ia64 has been switched over to using the ACPI PCI irq code in
-the the 2.5 tree, I'm wondering whether we shouldn't just make the
-Linux irq numbers equal to the GSIs.  Both are (relatively) arbitrary,
-small numbers and making them equal would simplify things a bit.  The
-only downside would be that the Linux irq numbers would no longer be
-equal to the IA-64 vectors, so that the irq->vector translation would
-have to go through a table-lookup even on "small" systems.  The
-performance effect of this should be completely trivial (i.e., I bet
-it's not measurable).
+I have dual feelings about posting commercial announcements on this
+list, but the following offer is, IMHO, genuinely a good value and
+since it's valid until October 18 only, time matters.  I'll keep it
+short:
 
-Comments?  Takers? ;-)
+ zx2000: 1x900MHz/1.5MB Itanium 2, 512MB RAM, 36GB SCSI disk, Quadro2: $3,991
+ zx6000: 2x900MHz/1.5MB Itanium 2, 512MB RAM, 36GB SCSI disk, Quadro2: $7,851
+
+For details, see http://www.hp.com/go/redhat/
 
 	--david
 
