@@ -1,79 +1,67 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 06 Mar 2004 09:17:53 +0000
+From: David Brownell <david-b@pacbell.net>
+Date: Sat, 06 Mar 2004 16:37:43 +0000
 Subject: Re: [linux-usb-devel] Re: serious 2.6 bug in USB subsystem?
-Message-Id: <16457.38721.119739.816533@napali.hpl.hp.com>
+Message-Id: <4049FE57.2060809@pacbell.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>
-	<20031028013013.GA3991@kroah.com>
-	<200310280300.h9S30Hkw003073@napali.hpl.hp.com>
-	<3FA12A2E.4090308@pacbell.net>
-	<16289.29015.81760.774530@napali.hpl.hp.com>
-	<16289.55171.278494.17172@napali.hpl.hp.com>
-	<3FA28C9A.5010608@pacbell.net>
-	<16457.12968.365287.561596@napali.hpl.hp.com>
-	<404959A5.6040809@pacbell.net>
-In-Reply-To: <404959A5.6040809@pacbell.net>
+References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>	<20031028013013.GA3991@kroah.com>	<200310280300.h9S30Hkw003073@napali.hpl.hp.com>	<3FA12A2E.4090308@pacbell.net>	<16289.29015.81760.774530@napali.hpl.hp.com>	<16289.55171.278494.17172@napali.hpl.hp.com>	<3FA28C9A.5010608@pacbell.net>	<16457.12968.365287.561596@napali.hpl.hp.com>	<404959A5.6040809@pacbell.net> <16457.26208.980359.82768@napali.hpl.hp.com>
+In-Reply-To: <16457.26208.980359.82768@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Brownell <david-b@pacbell.net>
-Cc: davidm@hpl.hp.com, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
+To: davidm@hpl.hp.com
+Cc: Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
 
->>>>> On Fri, 05 Mar 2004 20:55:01 -0800, David Brownell <david-b@pacbell.net> said:
+David Mosberger wrote:
 
-  >> Does this sound plausible?
+>   David.B> The reason I keep ending up thinking that readl-elimination
+>   David.B> must be OK (me agreeing with Martin) is that the memory
+>   David.B> there came from dma_alloc_coherent() ... so if anything's
+>   David.B> wrong, it'd be at most lack of rmb(), not a stale-cache
+>   David.B> kind of thing.
+> 
+> It's not an issue of DMA coherency, it's an issue of DMA vs. interrupt
+> ordering.  I believe the WHD interrupt is arriving at the CPU before
 
-  David.B> Parts of it.  There's definite recent nastiness.  Of the
-  David.B> type that other eyes sometimes see better.
+Which is what I sketched to Martin, as the reason to be interested
+in a patch that was equivalent to your second patch.
 
-Here is patch #3.  It also Works For Me.  I was wondering whether it
-it is really safe to mess with the OHCI control registers the way
-ed_deschedule() does at a time the OHCI is running.  To test this
-theory, I delayed the ed_deschedule() handling to finish_unlinks(), as
-shown in the patch below.  I don't know whether this is really safe as
-far as the host's lists are concerned, but it does avoid the crashes.
+Unfortunately that doesn't check out as being "the" fix here.
+Martin still saw the problem.  (And I don't see how it'd be
+what gave me several hard lockups ... but it didn't work either,
+and the day before, without that change, no lockup.)
 
-What's the argument as to why it's safe to update the OHCI control
-registers in ed_deschedule() at the time start_ed_unlink() is running?
 
-	--david
+> the DMA update to the HCCA is done.  In my second patch, the readl()
+> at the beginning of the interrupt ensures that the DMA update to
+> the HCCA is completed before the readl() returns data.
 
-=== drivers/usb/host/ohci-q.c 1.48 vs edited ==--- 1.48/drivers/usb/host/ohci-q.c	Tue Mar  2 05:52:46 2004
-+++ edited/drivers/usb/host/ohci-q.c	Sat Mar  6 01:09:16 2004
-@@ -274,7 +274,10 @@
-  */
- static void ed_deschedule (struct ohci_hcd *ohci, struct ed *ed) 
- {
-+#if 0
- 	ed->hwINFO |= ED_SKIP;
-+	wmb();
-+#endif
- 
- 	switch (ed->type) {
- 	case PIPE_CONTROL:
-@@ -431,7 +434,12 @@
- {    
- 	ed->hwINFO |= ED_DEQUEUE;
- 	ed->state = ED_UNLINK;
-+#if 0
- 	ed_deschedule (ohci, ed);
-+#else
-+	ed->hwINFO |= ED_SKIP;
-+	wmb();
-+#endif
- 
- 	/* SF interrupt might get delayed; record the frame counter value that
- 	 * indicates when the HC isn't looking at it, so concurrent unlinks
-@@ -896,6 +904,11 @@
- 				last = &ed->ed_next;
- 				continue;
- 			}
-+
-+#if 0
-+#else
-+			ed_deschedule (ohci, ed);
-+#endif
- 
- 			if (!list_empty (&ed->td_list)) {
- 				struct td	*td;
+DMA-coherent memory is defined as "memory for which a write by either
+the device or the processor can immediately be read by the processor
+or device without having to worry about caching effects."  Such a
+write-buffering mechanism is clearly a type of (write-)caching effect,
+and readl() would be a kind of dma_rmb(), if you will.  I suspect the
+docs are wrong about what dma-coherent means.
+
+
+> If this is correct, then the first patch is probably a better
+> approach:
+> 
+> ...
+> -	ed->tick = OHCI_FRAME_NO(ohci->hcca) + 1;
+> +	ed->tick = OHCI_FRAME_NO(ohci->hcca) + 2;
+> ..
+> 
+> This actually makes tons of sense if you think of it like jiffies: you
+> need to make sure you delay at least one full frame-interval.  
+
+Right, I had that theory too.  As I reported, it doesn't check out
+as the only issue.  Plus, even assuming it's correct, adding another
+millisecond slows down some common operations even more.  I'd rather
+just slow down just the "right" paths, rather than all of them ... :)
+
+- Dave
+
+
+
+
 
