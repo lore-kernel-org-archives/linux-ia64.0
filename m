@@ -1,1004 +1,286 @@
-From: Matt Tolentino <metolent@snoqualmie.dp.intel.com>
-Date: Sat, 09 Aug 2003 01:04:54 +0000
-Subject: [patch] move efivars to drivers/efi
-Message-Id: <marc-linux-ia64-106039165703199@msgid-missing>
+From: Arun Sharma <adsharma@unix-os.sc.intel.com>
+Date: Fri, 08 Aug 2003 01:40:17 +0000
+Subject: compat_ioctl.c support in 2.6
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------070100060901040705010705"
+Message-Id: <marc-linux-ia64-106030709427520@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+This is a multi-part message in MIME format.
+--------------070100060901040705010705
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-This patch against 2.6.0-test2 does several things:
 
-1.  Creates a new directory (drivers/efi) into which I propose current and future drivers that interact with EFI firmware be placed.  This enables architectures that employ EFI compliant firmware to use the same drivers and avoid the maintenance hassle of multiple copies.  
+The attached patch (against 2.6) helps IA-32 applications take advantage of the generic 32 bit (fs/compat_ioctl.c) ioctl handlers. Please apply.
 
-2.  Move the current EFI variable services driver (efivars) found in arch/ia64/kernel into drivers/efi.
+	-Arun
 
-Note that I've added similar config options for x86 in a separate patch that also enables EFI awareness that I'll resend to the list shortly.  
+--------------070100060901040705010705
+Content-Type: text/plain;
+ name="ioctl32.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="ioctl32.patch"
 
-Thoughts?  Comments?
+SW5kZXg6IGluY2x1ZGUvYXNtLWlhNjQvdWFjY2Vzcy5oCj09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGlu
+Y2x1ZGUvYXNtLWlhNjQvdWFjY2Vzcy5oCShyZXZpc2lvbiAxMjIwMikKKysrIGluY2x1ZGUv
+YXNtLWlhNjQvdWFjY2Vzcy5oCSh3b3JraW5nIGNvcHkpCkBAIC0yNDAsNiArMjQwLDE4IEBA
+CiAJX19jdV9sZW47CQkJCQkJCQkJCVwKIH0pCiAKKyNkZWZpbmUgX19jb3B5X2luX3VzZXIo
+dG8sIGZyb20sIHNpemUpICAgICAgICAgIFwKKyAgICAgICAgX19jb3B5X3VzZXIoKHRvKSwg
+KGZyb20pLCAoc2l6ZSkpCisKK3N0YXRpYyBpbmxpbmUgdW5zaWduZWQgbG9uZworY29weV9p
+bl91c2VyKHZvaWQgKnRvLCBjb25zdCB2b2lkICpmcm9tLCB1bnNpZ25lZCBsb25nIG4pCit7
+CisgICAgICAgIGlmKGxpa2VseShhY2Nlc3Nfb2soVkVSSUZZX1JFQUQsIGZyb20sIG4pICYm
+CisgICAgICAgICAgIGFjY2Vzc19vayhWRVJJRllfV1JJVEUsIHRvLCBuKSkpCisgICAgICAg
+ICAgICAgICAgbiA9IF9fY29weV91c2VyKHRvLCBmcm9tLCBuKTsKKyAgICAgICAgcmV0dXJu
+IG47Cit9CisKIGV4dGVybiB1bnNpZ25lZCBsb25nIF9fZG9fY2xlYXJfdXNlciAodm9pZCAq
+LCB1bnNpZ25lZCBsb25nKTsKIAogI2RlZmluZSBfX2NsZWFyX3VzZXIodG8sbikJCQlcCklu
+ZGV4OiBpbmNsdWRlL2FzbS1pYTY0L2NvbXBhdC5oCj09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KLS0tIGluY2x1
+ZGUvYXNtLWlhNjQvY29tcGF0LmgJKHJldmlzaW9uIDEyMjAyKQorKysgaW5jbHVkZS9hc20t
+aWE2NC9jb21wYXQuaAkod29ya2luZyBjb3B5KQpAQCAtMTMzLDcgKzEzMyw3IEBACiBjb21w
+YXRfYWxsb2NfdXNlcl9zcGFjZSAobG9uZyBsZW4pCiB7CiAJc3RydWN0IHB0X3JlZ3MgKnJl
+Z3MgPSBpYTY0X3Rhc2tfcmVncyhjdXJyZW50KTsKLQlyZXR1cm4gKHZvaWQgKikgKChyZWdz
+LT5yMTIgJiAtMTYpIC0gbGVuKTsKKwlyZXR1cm4gKHZvaWQgKikgKCgocmVncy0+cjEyICYg
+MHhmZmZmZmZmZikgJiAtMTYpIC0gbGVuKTsKIH0KIAogI2VuZGlmIC8qIF9BU01fSUE2NF9D
+T01QQVRfSCAqLwpJbmRleDogYXJjaC9pYTY0L2lhMzIvaWEzMl9pb2N0bC5jCj09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT0KLS0tIGFyY2gvaWE2NC9pYTMyL2lhMzJfaW9jdGwuYwkocmV2aXNpb24gMTIyMDIp
+CisrKyBhcmNoL2lhNjQvaWEzMi9pYTMyX2lvY3RsLmMJKHdvcmtpbmcgY29weSkKQEAgLTcs
+MTExICs3LDEzIEBACiAgKglEYXZpZCBNb3NiZXJnZXItVGFuZyA8ZGF2aWRtQGhwbC5ocC5j
+b20+CiAgKi8KIAotI2luY2x1ZGUgPGxpbnV4L3R5cGVzLmg+Ci0jaW5jbHVkZSA8bGludXgv
+ZGlyZW50Lmg+Ci0jaW5jbHVkZSA8bGludXgvZnMuaD4JCS8qIGFyZ2gsIG1zZG9zX2ZzLmgg
+aXNuJ3Qgc2VsZi1jb250YWluZWQuLi4gKi8KICNpbmNsdWRlIDxsaW51eC9zaWduYWwuaD4J
+LyogYXJnaCwgbXNkb3NfZnMuaCBpc24ndCBzZWxmLWNvbnRhaW5lZC4uLiAqLwotI2luY2x1
+ZGUgPGxpbnV4L2NvbXBhdC5oPgotCiAjaW5jbHVkZSAiaWEzMnByaXYuaCIKLQotI2luY2x1
+ZGUgPGxpbnV4L2NvbmZpZy5oPgotI2luY2x1ZGUgPGxpbnV4L2tlcm5lbC5oPgotI2luY2x1
+ZGUgPGxpbnV4L3NjaGVkLmg+Ci0jaW5jbHVkZSA8bGludXgvc21wLmg+Ci0jaW5jbHVkZSA8
+bGludXgvc21wX2xvY2suaD4KLSNpbmNsdWRlIDxsaW51eC9pb2N0bC5oPgotI2luY2x1ZGUg
+PGxpbnV4L2lmLmg+Ci0jaW5jbHVkZSA8bGludXgvc2xhYi5oPgotI2luY2x1ZGUgPGxpbnV4
+L2hkcmVnLmg+Ci0jaW5jbHVkZSA8bGludXgvcmFpZC9tZC5oPgotI2luY2x1ZGUgPGxpbnV4
+L2tkLmg+Ci0jaW5jbHVkZSA8bGludXgvcm91dGUuaD4KLSNpbmNsdWRlIDxsaW51eC9pbjYu
+aD4KLSNpbmNsdWRlIDxsaW51eC9pcHY2X3JvdXRlLmg+Ci0jaW5jbHVkZSA8bGludXgvc2ti
+dWZmLmg+Ci0jaW5jbHVkZSA8bGludXgvbmV0bGluay5oPgotI2luY2x1ZGUgPGxpbnV4L3Z0
+Lmg+Ci0jaW5jbHVkZSA8bGludXgvZmlsZS5oPgotI2luY2x1ZGUgPGxpbnV4L2ZkLmg+Ci0j
+aW5jbHVkZSA8bGludXgvcHBwX2RlZnMuaD4KLSNpbmNsdWRlIDxsaW51eC9pZl9wcHAuaD4K
+LSNpbmNsdWRlIDxsaW51eC9pZl9wcHBveC5oPgotI2luY2x1ZGUgPGxpbnV4L210aW8uaD4K
+LSNpbmNsdWRlIDxsaW51eC9jZHJvbS5oPgotI2luY2x1ZGUgPGxpbnV4L2xvb3AuaD4KLSNp
+bmNsdWRlIDxsaW51eC9hdXRvX2ZzLmg+Ci0jaW5jbHVkZSA8bGludXgvYXV0b19mczQuaD4K
+LSNpbmNsdWRlIDxsaW51eC9kZXZmc19mcy5oPgotI2luY2x1ZGUgPGxpbnV4L3R0eS5oPgot
+I2luY2x1ZGUgPGxpbnV4L3Z0X2tlcm4uaD4KLSNpbmNsdWRlIDxsaW51eC9mYi5oPgotI2lu
+Y2x1ZGUgPGxpbnV4L2V4dDJfZnMuaD4KLSNpbmNsdWRlIDxsaW51eC92aWRlb2Rldi5oPgot
+I2luY2x1ZGUgPGxpbnV4L25ldGRldmljZS5oPgotI2luY2x1ZGUgPGxpbnV4L3Jhdy5oPgot
+I2luY2x1ZGUgPGxpbnV4L3NtYl9mcy5oPgotI2luY2x1ZGUgPGxpbnV4L2Jsa3BnLmg+Ci0j
+aW5jbHVkZSA8bGludXgvYmxrZGV2Lmg+Ci0jaW5jbHVkZSA8bGludXgvZWxldmF0b3IuaD4K
+LSNpbmNsdWRlIDxsaW51eC9ydGMuaD4KLSNpbmNsdWRlIDxsaW51eC9wY2kuaD4KLSNpbmNs
+dWRlIDxsaW51eC9ydGMuaD4KLSNpbmNsdWRlIDxsaW51eC9tb2R1bGUuaD4KLSNpbmNsdWRl
+IDxsaW51eC9zZXJpYWwuaD4KLSNpbmNsdWRlIDxsaW51eC9yZWlzZXJmc19mcy5oPgotI2lu
+Y2x1ZGUgPGxpbnV4L2lmX3R1bi5oPgotI2luY2x1ZGUgPGxpbnV4L2RpcmVudC5oPgotI2lu
+Y2x1ZGUgPGxpbnV4L2N0eXBlLmg+Ci0jaW5jbHVkZSA8bGludXgvbmNwX2ZzLmg+Ci0jaW5j
+bHVkZSA8bmV0L2JsdWV0b290aC9ibHVldG9vdGguaD4KLSNpbmNsdWRlIDxuZXQvYmx1ZXRv
+b3RoL3JmY29tbS5oPgotCi0jaW5jbHVkZSA8c2NzaS9zY3NpLmg+Ci0vKiBVZ2x5IGhhY2su
+ICovCi0jdW5kZWYgX19LRVJORUxfXwotI2luY2x1ZGUgPHNjc2kvc2NzaV9pb2N0bC5oPgot
+I2RlZmluZSBfX0tFUk5FTF9fCi0jaW5jbHVkZSA8c2NzaS9zZy5oPgotCi0jaW5jbHVkZSA8
+YXNtL3R5cGVzLmg+Ci0jaW5jbHVkZSA8YXNtL3VhY2Nlc3MuaD4KLSNpbmNsdWRlIDxsaW51
+eC9ldGh0b29sLmg+Ci0jaW5jbHVkZSA8bGludXgvbWlpLmg+Ci0jaW5jbHVkZSA8bGludXgv
+aWZfYm9uZGluZy5oPgotI2luY2x1ZGUgPGxpbnV4L3dhdGNoZG9nLmg+Ci0KLSNpbmNsdWRl
+IDxhc20vbW9kdWxlLmg+CisgIAorI2RlZmluZQlJTkNMVURFUworI2luY2x1ZGUgImNvbXBh
+dF9pb2N0bC5jIgogI2luY2x1ZGUgPGFzbS9pb2N0bDMyLmg+Ci0jaW5jbHVkZSA8bGludXgv
+c291bmRjYXJkLmg+Ci0jaW5jbHVkZSA8bGludXgvbHAuaD4KIAotI2luY2x1ZGUgPGxpbnV4
+L2F0bS5oPgotI2luY2x1ZGUgPGxpbnV4L2F0bWFycC5oPgotI2luY2x1ZGUgPGxpbnV4L2F0
+bWNsaXAuaD4KLSNpbmNsdWRlIDxsaW51eC9hdG1kZXYuaD4KLSNpbmNsdWRlIDxsaW51eC9h
+dG1pb2MuaD4KLSNpbmNsdWRlIDxsaW51eC9hdG1sZWMuaD4KLSNpbmNsdWRlIDxsaW51eC9h
+dG1tcGMuaD4KLSNpbmNsdWRlIDxsaW51eC9hdG1zdmMuaD4KLSNpbmNsdWRlIDxsaW51eC9h
+dG1fdGNwLmg+Ci0jaW5jbHVkZSA8bGludXgvc29uZXQuaD4KLSNpbmNsdWRlIDxsaW51eC9h
+dG1fc3VuaS5oPgotI2luY2x1ZGUgPGxpbnV4L210ZC9tdGQuaD4KLQotI2luY2x1ZGUgPG5l
+dC9ibHVldG9vdGgvYmx1ZXRvb3RoLmg+Ci0jaW5jbHVkZSA8bmV0L2JsdWV0b290aC9oY2ku
+aD4KLQotI2luY2x1ZGUgPGxpbnV4L3VzYi5oPgotI2luY2x1ZGUgPGxpbnV4L3VzYmRldmlj
+ZV9mcy5oPgotI2luY2x1ZGUgPGxpbnV4L25iZC5oPgotI2luY2x1ZGUgPGxpbnV4L3JhbmRv
+bS5oPgotI2luY2x1ZGUgPGxpbnV4L2ZpbHRlci5oPgotCi0jaW5jbHVkZSA8Li4vZHJpdmVy
+cy9jaGFyL2RybS9kcm0uaD4KLSNpbmNsdWRlIDwuLi9kcml2ZXJzL2NoYXIvZHJtL21nYV9k
+cm0uaD4KLSNpbmNsdWRlIDwuLi9kcml2ZXJzL2NoYXIvZHJtL2k4MTBfZHJtLmg+Ci0KICNk
+ZWZpbmUgSU9DVExfTlIoYSkJKChhKSAmIH4oX0lPQ19TSVpFTUFTSyA8PCBfSU9DX1NJWkVT
+SElGVCkpCiAKICNkZWZpbmUgRE9fSU9DVEwoZmQsIGNtZCwgYXJnKSAoewkJCVwKQEAgLTEy
+OCw2ICszMCw5IEBACiAKIGFzbWxpbmthZ2UgbG9uZyBzeXNfaW9jdGwodW5zaWduZWQgaW50
+IGZkLCB1bnNpZ25lZCBpbnQgY21kLCB1bnNpZ25lZCBsb25nIGFyZyk7CiAKKyNkZWZpbmUg
+Q09ERQorI2luY2x1ZGUgImNvbXBhdF9pb2N0bC5jIgorCiAjZGVmaW5lCVZGQVRfSU9DVExf
+UkVBRERJUl9CT1RIMzIJX0lPUigncicsIDEsIHN0cnVjdCBsaW51eDMyX2RpcmVudFsyXSkK
+ICNkZWZpbmUJVkZBVF9JT0NUTF9SRUFERElSX1NIT1JUMzIJX0lPUigncicsIDIsIHN0cnVj
+dCBsaW51eDMyX2RpcmVudFsyXSkKIApAQCAtMTU4LDI5OCArNjMsNiBAQAogCXJldHVybiBy
+ZXQ7IAogfSAKIAotLyoKLSAqICBUaGUgdHJhbnNmb3JtIGNvZGUgZm9yIHRoZSBTR19JTyBp
+b2N0bCB3YXMgYnJhemVubHkgbGlmdGVkIGZyb20KLSAqICB0aGUgU3BhcmM2NCBwb3J0IGlu
+IHRoZSBmaWxlIGBhcmNoL3NwYXJjNjQva2VybmVsL2lvY3RsMzIuYycuCi0gKiAgVGhhbmtz
+IHRvIEpha3ViIEplbGluZWsgJiBFZGRpZSBDLiBEb3N0LgotICovCi10eXBlZGVmIHN0cnVj
+dCBzZ19pb19oZHIzMiB7Ci0JaW50IGludGVyZmFjZV9pZDsJLyogW2ldICdTJyBmb3IgU0NT
+SSBnZW5lcmljIChyZXF1aXJlZCkgKi8KLQlpbnQgZHhmZXJfZGlyZWN0aW9uOwkvKiBbaV0g
+ZGF0YSB0cmFuc2ZlciBkaXJlY3Rpb24gICovCi0JY2hhciAgY21kX2xlbjsJCS8qIFtpXSBT
+Q1NJIGNvbW1hbmQgbGVuZ3RoICggPD0gMTYgYnl0ZXMpICovCi0JY2hhciAgbXhfc2JfbGVu
+OwkJLyogW2ldIG1heCBsZW5ndGggdG8gd3JpdGUgdG8gc2JwICovCi0Jc2hvcnQgaW92ZWNf
+Y291bnQ7CS8qIFtpXSAwIGltcGxpZXMgbm8gc2NhdHRlciBnYXRoZXIgKi8KLQlpbnQgZHhm
+ZXJfbGVuOwkJLyogW2ldIGJ5dGUgY291bnQgb2YgZGF0YSB0cmFuc2ZlciAqLwotCWludCBk
+eGZlcnA7CQkvKiBbaV0sIFsqaW9dIHBvaW50cyB0byBkYXRhIHRyYW5zZmVyIG1lbW9yeQot
+CQkJCQkgICAgICBvciBzY2F0dGVyIGdhdGhlciBsaXN0ICovCi0JaW50IGNtZHA7CQkvKiBb
+aV0sIFsqaV0gcG9pbnRzIHRvIGNvbW1hbmQgdG8gcGVyZm9ybSAqLwotCWludCBzYnA7CQkv
+KiBbaV0sIFsqb10gcG9pbnRzIHRvIHNlbnNlX2J1ZmZlciBtZW1vcnkgKi8KLQlpbnQgdGlt
+ZW91dDsJCS8qIFtpXSBNQVhfVUlOVC0+bm8gdGltZW91dCAodW5pdDogbWlsbGlzZWMpICov
+Ci0JaW50IGZsYWdzOwkJLyogW2ldIDAgLT4gZGVmYXVsdCwgc2VlIFNHX0ZMQUcuLi4gKi8K
+LQlpbnQgcGFja19pZDsJCS8qIFtpLT5vXSB1bnVzZWQgaW50ZXJuYWxseSAobm9ybWFsbHkp
+ICovCi0JaW50IHVzcl9wdHI7CQkvKiBbaS0+b10gdW51c2VkIGludGVybmFsbHkgKi8KLQlj
+aGFyICBzdGF0dXM7CQkvKiBbb10gc2NzaSBzdGF0dXMgKi8KLQljaGFyICBtYXNrZWRfc3Rh
+dHVzOwkvKiBbb10gc2hpZnRlZCwgbWFza2VkIHNjc2kgc3RhdHVzICovCi0JY2hhciAgbXNn
+X3N0YXR1czsJLyogW29dIG1lc3NhZ2luZyBsZXZlbCBkYXRhIChvcHRpb25hbCkgKi8KLQlj
+aGFyICBzYl9sZW5fd3I7CS8qIFtvXSBieXRlIGNvdW50IGFjdHVhbGx5IHdyaXR0ZW4gdG8g
+c2JwICovCi0Jc2hvcnQgaG9zdF9zdGF0dXM7CS8qIFtvXSBlcnJvcnMgZnJvbSBob3N0IGFk
+YXB0ZXIgKi8KLQlzaG9ydCBkcml2ZXJfc3RhdHVzOwkvKiBbb10gZXJyb3JzIGZyb20gc29m
+dHdhcmUgZHJpdmVyICovCi0JaW50IHJlc2lkOwkJLyogW29dIGR4ZmVyX2xlbiAtIGFjdHVh
+bF90cmFuc2ZlcnJlZCAqLwotCWludCBkdXJhdGlvbjsJCS8qIFtvXSB0aW1lIHRha2VuIGJ5
+IGNtZCAodW5pdDogbWlsbGlzZWMpICovCi0JaW50IGluZm87CQkvKiBbb10gYXV4aWxpYXJ5
+IGluZm9ybWF0aW9uICovCi19IHNnX2lvX2hkcjMyX3Q7ICAvKiA2NCBieXRlcyBsb25nIChv
+biBJQTMyKSAqLwotCi1zdGF0aWMgaW50IGFsbG9jX3NnX2lvdmVjKHNnX2lvX2hkcl90ICpz
+Z3AsIGludCB1cHRyMzIpCi17Ci0Jc3RydWN0IGNvbXBhdF9pb3ZlYyAqdWlvdiA9IChzdHJ1
+Y3QgY29tcGF0X2lvdmVjICopIFAodXB0cjMyKTsKLQlzZ19pb3ZlY190ICpraW92OwotCWlu
+dCBpOwotCi0Jc2dwLT5keGZlcnAgPSBrbWFsbG9jKHNncC0+aW92ZWNfY291bnQgKgotCQkJ
+ICAgICAgc2l6ZW9mKHNnX2lvdmVjX3QpLCBHRlBfS0VSTkVMKTsKLQlpZiAoIXNncC0+ZHhm
+ZXJwKQotCQlyZXR1cm4gLUVOT01FTTsKLQltZW1zZXQoc2dwLT5keGZlcnAsIDAsCi0JICAg
+ICAgIHNncC0+aW92ZWNfY291bnQgKiBzaXplb2Yoc2dfaW92ZWNfdCkpOwotCi0Ja2lvdiA9
+IChzZ19pb3ZlY190ICopIHNncC0+ZHhmZXJwOwotCWZvciAoaSA9IDA7IGkgPCBzZ3AtPmlv
+dmVjX2NvdW50OyBpKyspIHsKLQkJaW50IGlvdl9iYXNlMzI7Ci0JCWlmIChfX2dldF91c2Vy
+KGlvdl9iYXNlMzIsICZ1aW92LT5pb3ZfYmFzZSkgfHwKLQkJICAgIF9fZ2V0X3VzZXIoa2lv
+di0+aW92X2xlbiwgJnVpb3YtPmlvdl9sZW4pKQotCQkJcmV0dXJuIC1FRkFVTFQ7Ci0KLQkJ
+a2lvdi0+aW92X2Jhc2UgPSBrbWFsbG9jKGtpb3YtPmlvdl9sZW4sIEdGUF9LRVJORUwpOwot
+CQlpZiAoIWtpb3YtPmlvdl9iYXNlKQotCQkJcmV0dXJuIC1FTk9NRU07Ci0JCWlmIChjb3B5
+X2Zyb21fdXNlcihraW92LT5pb3ZfYmFzZSwKLQkJCQkgICAodm9pZCAqKSBQKGlvdl9iYXNl
+MzIpLAotCQkJCSAgIGtpb3YtPmlvdl9sZW4pKQotCQkJcmV0dXJuIC1FRkFVTFQ7Ci0KLQkJ
+dWlvdisrOwotCQlraW92Kys7Ci0JfQotCi0JcmV0dXJuIDA7Ci19Ci0KLXN0YXRpYyBpbnQg
+Y29weV9iYWNrX3NnX2lvdmVjKHNnX2lvX2hkcl90ICpzZ3AsIGludCB1cHRyMzIpCi17Ci0J
+c3RydWN0IGNvbXBhdF9pb3ZlYyAqdWlvdiA9IChzdHJ1Y3QgY29tcGF0X2lvdmVjICopIFAo
+dXB0cjMyKTsKLQlzZ19pb3ZlY190ICpraW92ID0gKHNnX2lvdmVjX3QgKikgc2dwLT5keGZl
+cnA7Ci0JaW50IGk7Ci0KLQlmb3IgKGkgPSAwOyBpIDwgc2dwLT5pb3ZlY19jb3VudDsgaSsr
+KSB7Ci0JCWludCBpb3ZfYmFzZTMyOwotCi0JCWlmIChfX2dldF91c2VyKGlvdl9iYXNlMzIs
+ICZ1aW92LT5pb3ZfYmFzZSkpCi0JCQlyZXR1cm4gLUVGQVVMVDsKLQotCQlpZiAoY29weV90
+b191c2VyKCh2b2lkICopIFAoaW92X2Jhc2UzMiksCi0JCQkJIGtpb3YtPmlvdl9iYXNlLAot
+CQkJCSBraW92LT5pb3ZfbGVuKSkKLQkJCXJldHVybiAtRUZBVUxUOwotCi0JCXVpb3YrKzsK
+LQkJa2lvdisrOwotCX0KLQotCXJldHVybiAwOwotfQotCi1zdGF0aWMgdm9pZCBmcmVlX3Nn
+X2lvdmVjKHNnX2lvX2hkcl90ICpzZ3ApCi17Ci0Jc2dfaW92ZWNfdCAqa2lvdiA9IChzZ19p
+b3ZlY190ICopIHNncC0+ZHhmZXJwOwotCWludCBpOwotCi0JZm9yIChpID0gMDsgaSA8IHNn
+cC0+aW92ZWNfY291bnQ7IGkrKykgewotCQlpZiAoa2lvdi0+aW92X2Jhc2UpIHsKLQkJCWtm
+cmVlKGtpb3YtPmlvdl9iYXNlKTsKLQkJCWtpb3YtPmlvdl9iYXNlID0gTlVMTDsKLQkJfQot
+CQlraW92Kys7Ci0JfQotCWtmcmVlKHNncC0+ZHhmZXJwKTsKLQlzZ3AtPmR4ZmVycCA9IE5V
+TEw7Ci19Ci0KLXN0YXRpYyBpbnQgc2dfaW9jdGxfdHJhbnModW5zaWduZWQgaW50IGZkLCB1
+bnNpZ25lZCBpbnQgY21kLCB1bnNpZ25lZCBsb25nIGFyZykKLXsKLQlzZ19pb19oZHIzMl90
+ICpzZ19pbzMyOwotCXNnX2lvX2hkcl90IHNnX2lvNjQ7Ci0JaW50IGR4ZmVycDMyLCBjbWRw
+MzIsIHNicDMyOwotCW1tX3NlZ21lbnRfdCBvbGRfZnM7Ci0JaW50IGVyciA9IDA7Ci0KLQlz
+Z19pbzMyID0gKHNnX2lvX2hkcjMyX3QgKilhcmc7Ci0JZXJyID0gX19nZXRfdXNlcihzZ19p
+bzY0LmludGVyZmFjZV9pZCwgJnNnX2lvMzItPmludGVyZmFjZV9pZCk7Ci0JZXJyIHw9IF9f
+Z2V0X3VzZXIoc2dfaW82NC5keGZlcl9kaXJlY3Rpb24sICZzZ19pbzMyLT5keGZlcl9kaXJl
+Y3Rpb24pOwotCWVyciB8PSBfX2dldF91c2VyKHNnX2lvNjQuY21kX2xlbiwgJnNnX2lvMzIt
+PmNtZF9sZW4pOwotCWVyciB8PSBfX2dldF91c2VyKHNnX2lvNjQubXhfc2JfbGVuLCAmc2df
+aW8zMi0+bXhfc2JfbGVuKTsKLQllcnIgfD0gX19nZXRfdXNlcihzZ19pbzY0LmlvdmVjX2Nv
+dW50LCAmc2dfaW8zMi0+aW92ZWNfY291bnQpOwotCWVyciB8PSBfX2dldF91c2VyKHNnX2lv
+NjQuZHhmZXJfbGVuLCAmc2dfaW8zMi0+ZHhmZXJfbGVuKTsKLQllcnIgfD0gX19nZXRfdXNl
+cihzZ19pbzY0LnRpbWVvdXQsICZzZ19pbzMyLT50aW1lb3V0KTsKLQllcnIgfD0gX19nZXRf
+dXNlcihzZ19pbzY0LmZsYWdzLCAmc2dfaW8zMi0+ZmxhZ3MpOwotCWVyciB8PSBfX2dldF91
+c2VyKHNnX2lvNjQucGFja19pZCwgJnNnX2lvMzItPnBhY2tfaWQpOwotCi0Jc2dfaW82NC5k
+eGZlcnAgPSBOVUxMOwotCXNnX2lvNjQuY21kcCA9IE5VTEw7Ci0Jc2dfaW82NC5zYnAgPSBO
+VUxMOwotCi0JZXJyIHw9IF9fZ2V0X3VzZXIoY21kcDMyLCAmc2dfaW8zMi0+Y21kcCk7Ci0J
+c2dfaW82NC5jbWRwID0ga21hbGxvYyhzZ19pbzY0LmNtZF9sZW4sIEdGUF9LRVJORUwpOwot
+CWlmICghc2dfaW82NC5jbWRwKSB7Ci0JCWVyciA9IC1FTk9NRU07Ci0JCWdvdG8gb3V0Owot
+CX0KLQlpZiAoY29weV9mcm9tX3VzZXIoc2dfaW82NC5jbWRwLAotCQkJICAgKHZvaWQgKikg
+UChjbWRwMzIpLAotCQkJICAgc2dfaW82NC5jbWRfbGVuKSkgewotCQllcnIgPSAtRUZBVUxU
+OwotCQlnb3RvIG91dDsKLQl9Ci0KLQllcnIgfD0gX19nZXRfdXNlcihzYnAzMiwgJnNnX2lv
+MzItPnNicCk7Ci0Jc2dfaW82NC5zYnAgPSBrbWFsbG9jKHNnX2lvNjQubXhfc2JfbGVuLCBH
+RlBfS0VSTkVMKTsKLQlpZiAoIXNnX2lvNjQuc2JwKSB7Ci0JCWVyciA9IC1FTk9NRU07Ci0J
+CWdvdG8gb3V0OwotCX0KLQlpZiAoY29weV9mcm9tX3VzZXIoc2dfaW82NC5zYnAsCi0JCQkg
+ICAodm9pZCAqKSBQKHNicDMyKSwKLQkJCSAgIHNnX2lvNjQubXhfc2JfbGVuKSkgewotCQll
+cnIgPSAtRUZBVUxUOwotCQlnb3RvIG91dDsKLQl9Ci0KLQllcnIgfD0gX19nZXRfdXNlcihk
+eGZlcnAzMiwgJnNnX2lvMzItPmR4ZmVycCk7Ci0JaWYgKHNnX2lvNjQuaW92ZWNfY291bnQp
+IHsKLQkJaW50IHJldDsKLQotCQlpZiAoKHJldCA9IGFsbG9jX3NnX2lvdmVjKCZzZ19pbzY0
+LCBkeGZlcnAzMikpKSB7Ci0JCQllcnIgPSByZXQ7Ci0JCQlnb3RvIG91dDsKLQkJfQotCX0g
+ZWxzZSB7Ci0JCXNnX2lvNjQuZHhmZXJwID0ga21hbGxvYyhzZ19pbzY0LmR4ZmVyX2xlbiwg
+R0ZQX0tFUk5FTCk7Ci0JCWlmICghc2dfaW82NC5keGZlcnApIHsKLQkJCWVyciA9IC1FTk9N
+RU07Ci0JCQlnb3RvIG91dDsKLQkJfQotCQlpZiAoY29weV9mcm9tX3VzZXIoc2dfaW82NC5k
+eGZlcnAsCi0JCQkJICAgKHZvaWQgKikgUChkeGZlcnAzMiksCi0JCQkJICAgc2dfaW82NC5k
+eGZlcl9sZW4pKSB7Ci0JCQllcnIgPSAtRUZBVUxUOwotCQkJZ290byBvdXQ7Ci0JCX0KLQl9
+Ci0KLQkvKiBVbnVzZWQgaW50ZXJuYWxseSwgZG8gbm90IGV2ZW4gYm90aGVyIHRvIGNvcHkg
+aXQgb3Zlci4gKi8KLQlzZ19pbzY0LnVzcl9wdHIgPSBOVUxMOwotCi0JaWYgKGVycikKLQkJ
+cmV0dXJuIC1FRkFVTFQ7Ci0KLQlvbGRfZnMgPSBnZXRfZnMoKTsKLQlzZXRfZnMgKEtFUk5F
+TF9EUyk7Ci0JZXJyID0gc3lzX2lvY3RsIChmZCwgY21kLCAodW5zaWduZWQgbG9uZykgJnNn
+X2lvNjQpOwotCXNldF9mcyAob2xkX2ZzKTsKLQotCWlmIChlcnIgPCAwKQotCQlnb3RvIG91
+dDsKLQotCWVyciA9IF9fcHV0X3VzZXIoc2dfaW82NC5wYWNrX2lkLCAmc2dfaW8zMi0+cGFj
+a19pZCk7Ci0JZXJyIHw9IF9fcHV0X3VzZXIoc2dfaW82NC5zdGF0dXMsICZzZ19pbzMyLT5z
+dGF0dXMpOwotCWVyciB8PSBfX3B1dF91c2VyKHNnX2lvNjQubWFza2VkX3N0YXR1cywgJnNn
+X2lvMzItPm1hc2tlZF9zdGF0dXMpOwotCWVyciB8PSBfX3B1dF91c2VyKHNnX2lvNjQubXNn
+X3N0YXR1cywgJnNnX2lvMzItPm1zZ19zdGF0dXMpOwotCWVyciB8PSBfX3B1dF91c2VyKHNn
+X2lvNjQuc2JfbGVuX3dyLCAmc2dfaW8zMi0+c2JfbGVuX3dyKTsKLQllcnIgfD0gX19wdXRf
+dXNlcihzZ19pbzY0Lmhvc3Rfc3RhdHVzLCAmc2dfaW8zMi0+aG9zdF9zdGF0dXMpOwotCWVy
+ciB8PSBfX3B1dF91c2VyKHNnX2lvNjQuZHJpdmVyX3N0YXR1cywgJnNnX2lvMzItPmRyaXZl
+cl9zdGF0dXMpOwotCWVyciB8PSBfX3B1dF91c2VyKHNnX2lvNjQucmVzaWQsICZzZ19pbzMy
+LT5yZXNpZCk7Ci0JZXJyIHw9IF9fcHV0X3VzZXIoc2dfaW82NC5kdXJhdGlvbiwgJnNnX2lv
+MzItPmR1cmF0aW9uKTsKLQllcnIgfD0gX19wdXRfdXNlcihzZ19pbzY0LmluZm8sICZzZ19p
+bzMyLT5pbmZvKTsKLQllcnIgfD0gY29weV90b191c2VyKCh2b2lkICopUChzYnAzMiksIHNn
+X2lvNjQuc2JwLCBzZ19pbzY0Lm14X3NiX2xlbik7Ci0JaWYgKHNnX2lvNjQuZHhmZXJwKSB7
+Ci0JCWlmIChzZ19pbzY0LmlvdmVjX2NvdW50KQotCQkJZXJyIHw9IGNvcHlfYmFja19zZ19p
+b3ZlYygmc2dfaW82NCwgZHhmZXJwMzIpOwotCQllbHNlCi0JCQllcnIgfD0gY29weV90b191
+c2VyKCh2b2lkICopUChkeGZlcnAzMiksCi0JCQkJCSAgICBzZ19pbzY0LmR4ZmVycCwKLQkJ
+CQkJICAgIHNnX2lvNjQuZHhmZXJfbGVuKTsKLQl9Ci0JaWYgKGVycikKLQkJZXJyID0gLUVG
+QVVMVDsKLQotb3V0OgotCWlmIChzZ19pbzY0LmNtZHApCi0JCWtmcmVlKHNnX2lvNjQuY21k
+cCk7Ci0JaWYgKHNnX2lvNjQuc2JwKQotCQlrZnJlZShzZ19pbzY0LnNicCk7Ci0JaWYgKHNn
+X2lvNjQuZHhmZXJwKSB7Ci0JCWlmIChzZ19pbzY0LmlvdmVjX2NvdW50KSB7Ci0JCQlmcmVl
+X3NnX2lvdmVjKCZzZ19pbzY0KTsKLQkJfSBlbHNlIHsKLQkJCWtmcmVlKHNnX2lvNjQuZHhm
+ZXJwKTsKLQkJfQotCX0KLQlyZXR1cm4gZXJyOwotfQotCi1zdGF0aWMgX19pbmxpbmVfXyB2
+b2lkICphbGxvY191c2VyX3NwYWNlKGxvbmcgbGVuKQotewotCXN0cnVjdCBwdF9yZWdzCSpy
+ZWdzID0gKChzdHJ1Y3QgcHRfcmVncyAqKSgodW5zaWduZWQgbG9uZykgY3VycmVudCArCi0J
+CQkJCQkgICAgSUE2NF9TVEtfT0ZGU0VUKSkgLSAxOwotCXJldHVybiAodm9pZCAqKXJlZ3Mt
+PnIxMiAtIGxlbjsgCi19Ci0KLXN0cnVjdCBpZm1hcDMyIHsKLQl1MzIgbWVtX3N0YXJ0Owot
+CXUzMiBtZW1fZW5kOwotCXVuc2lnbmVkIHNob3J0IGJhc2VfYWRkcjsKLQl1bnNpZ25lZCBj
+aGFyIGlycTsKLQl1bnNpZ25lZCBjaGFyIGRtYTsKLQl1bnNpZ25lZCBjaGFyIHBvcnQ7Ci19
+OwotCi1zdHJ1Y3QgaWZyZXEzMiB7Ci0jZGVmaW5lIElGSFdBRERSTEVOICAgICA2Ci0jZGVm
+aW5lIElGTkFNU0laICAgICAgICAxNgotICAgICAgICB1bmlvbiB7Ci0gICAgICAgICAgICAg
+ICAgY2hhciAgICBpZnJuX25hbWVbSUZOQU1TSVpdOyAgICAgICAgICAgIC8qIGlmIG5hbWUs
+IGUuZy4gImVuMCIgKi8KLSAgICAgICAgfSBpZnJfaWZybjsKLSAgICAgICAgdW5pb24gewot
+ICAgICAgICAgICAgICAgIHN0cnVjdCAgc29ja2FkZHIgaWZydV9hZGRyOwotICAgICAgICAg
+ICAgICAgIHN0cnVjdCAgc29ja2FkZHIgaWZydV9kc3RhZGRyOwotICAgICAgICAgICAgICAg
+IHN0cnVjdCAgc29ja2FkZHIgaWZydV9icm9hZGFkZHI7Ci0gICAgICAgICAgICAgICAgc3Ry
+dWN0ICBzb2NrYWRkciBpZnJ1X25ldG1hc2s7Ci0gICAgICAgICAgICAgICAgc3RydWN0ICBz
+b2NrYWRkciBpZnJ1X2h3YWRkcjsKLSAgICAgICAgICAgICAgICBzaG9ydCAgIGlmcnVfZmxh
+Z3M7Ci0gICAgICAgICAgICAgICAgaW50ICAgICBpZnJ1X2l2YWx1ZTsKLSAgICAgICAgICAg
+ICAgICBpbnQgICAgIGlmcnVfbXR1OwotICAgICAgICAgICAgICAgIHN0cnVjdCAgaWZtYXAz
+MiBpZnJ1X21hcDsKLSAgICAgICAgICAgICAgICBjaGFyICAgIGlmcnVfc2xhdmVbSUZOQU1T
+SVpdOyAgIC8qIEp1c3QgZml0cyB0aGUgc2l6ZSAqLwotCQljaGFyCWlmcnVfbmV3bmFtZVtJ
+Rk5BTVNJWl07Ci0gICAgICAgICAgICAgICAgY29tcGF0X2NhZGRyX3QgaWZydV9kYXRhOwot
+ICAgICAgICB9IGlmcl9pZnJ1OwotfTsKLQotaW50IHNpb2NkZXZwcml2YXRlX2lvY3RsKHVu
+c2lnbmVkIGludCBmZCwgdW5zaWduZWQgaW50IGNtZCwgdW5zaWduZWQgbG9uZyBhcmcpCi17
+Ci0Jc3RydWN0IGlmcmVxICp1X2lmcmVxNjQ7Ci0Jc3RydWN0IGlmcmVxMzIgKnVfaWZyZXEz
+MiA9IChzdHJ1Y3QgaWZyZXEzMiAqKSBhcmc7Ci0JY2hhciB0bXBfYnVmW0lGTkFNU0laXTsK
+LQl2b2lkICpkYXRhNjQ7Ci0JdTMyIGRhdGEzMjsKLQotCWlmIChjb3B5X2Zyb21fdXNlcigm
+dG1wX2J1ZlswXSwgJih1X2lmcmVxMzItPmlmcl9pZnJuLmlmcm5fbmFtZVswXSksCi0JCQkg
+ICBJRk5BTVNJWikpCi0JCXJldHVybiAtRUZBVUxUOwotCWlmIChfX2dldF91c2VyKGRhdGEz
+MiwgJnVfaWZyZXEzMi0+aWZyX2lmcnUuaWZydV9kYXRhKSkKLQkJcmV0dXJuIC1FRkFVTFQ7
+Ci0JZGF0YTY0ID0gKHZvaWQgKikgUChkYXRhMzIpOwotCi0JdV9pZnJlcTY0ID0gYWxsb2Nf
+dXNlcl9zcGFjZShzaXplb2YoKnVfaWZyZXE2NCkpOwotCi0JLyogRG9uJ3QgY2hlY2sgdGhl
+c2UgdXNlciBhY2Nlc3NlcywganVzdCBsZXQgdGhhdCBnZXQgdHJhcHBlZAotCSAqIGluIHRo
+ZSBpb2N0bCBoYW5kbGVyIGluc3RlYWQuCi0JICovCi0JY29weV90b191c2VyKCZ1X2lmcmVx
+NjQtPmlmcl9pZnJuLmlmcm5fbmFtZVswXSwgJnRtcF9idWZbMF0sIElGTkFNU0laKTsKLQlf
+X3B1dF91c2VyKGRhdGE2NCwgJnVfaWZyZXE2NC0+aWZyX2lmcnUuaWZydV9kYXRhKTsKLQot
+CXJldHVybiBzeXNfaW9jdGwoZmQsIGNtZCwgKHVuc2lnbmVkIGxvbmcpIHVfaWZyZXE2NCk7
+Ci19Ci0KIHR5cGVkZWYgaW50ICgqIGlvY3RsMzJfaGFuZGxlcl90KSh1bnNpZ25lZCBpbnQs
+IHVuc2lnbmVkIGludCwgdW5zaWduZWQgbG9uZywgc3RydWN0IGZpbGUgKik7CiAKICNkZWZp
+bmUgQ09NUEFUSUJMRV9JT0NUTChjbWQpCQlIQU5ETEVfSU9DVEwoKGNtZCksc3lzX2lvY3Rs
+KQpAQCAtNDYwLDggKzczLDkgQEAKIAl9OyBzdHJ1Y3QgaW9jdGxfdHJhbnMgaW9jdGxfZW5k
+WzBdOwogCiBJT0NUTF9UQUJMRV9TVEFSVAotI2luY2x1ZGUgPGxpbnV4L2NvbXBhdF9pb2N0
+bC5oPgogSEFORExFX0lPQ1RMKFZGQVRfSU9DVExfUkVBRERJUl9CT1RIMzIsIHZmYXRfaW9j
+dGwzMikKIEhBTkRMRV9JT0NUTChWRkFUX0lPQ1RMX1JFQURESVJfU0hPUlQzMiwgdmZhdF9p
+b2N0bDMyKQotSEFORExFX0lPQ1RMKFNHX0lPLHNnX2lvY3RsX3RyYW5zKQorI2RlZmluZSBE
+RUNMQVJFUworI2luY2x1ZGUgImNvbXBhdF9pb2N0bC5jIgorI2luY2x1ZGUgPGxpbnV4L2Nv
+bXBhdF9pb2N0bC5oPgogSU9DVExfVEFCTEVfRU5ECkluZGV4OiBhcmNoL2lhNjQvaWEzMi9N
+YWtlZmlsZQo9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
+PT09PT09PT09PT09PT09PT09PT09Ci0tLSBhcmNoL2lhNjQvaWEzMi9NYWtlZmlsZQkocmV2
+aXNpb24gMTIyMDIpCisrKyBhcmNoL2lhNjQvaWEzMi9NYWtlZmlsZQkod29ya2luZyBjb3B5
+KQpAQCAtNCwzICs0LDUgQEAKIAogb2JqLXkgOj0gaWEzMl9lbnRyeS5vIHN5c19pYTMyLm8g
+aWEzMl9pb2N0bC5vIGlhMzJfc2lnbmFsLm8gXAogCSBpYTMyX3N1cHBvcnQubyBpYTMyX3Ry
+YXBzLm8gYmluZm10X2VsZjMyLm8gaWEzMl9sZHQubworCitDRkxBR1NfaWEzMl9pb2N0bC5v
+ICs9IC1JZnMvCg==
+--------------070100060901040705010705--
 
-thanks,
-matt
-
-diff -urN linux-2.6.0-test2-bk/arch/ia64/defconfig linux-2.6.0-test2-bk-efi/arch/ia64/defconfig
---- linux-2.6.0-test2-bk/arch/ia64/defconfig	2003-08-08 16:51:21.000000000 -0700
-+++ linux-2.6.0-test2-bk-efi/arch/ia64/defconfig	2003-08-08 17:15:37.000000000 -0700
-@@ -76,6 +76,7 @@
- CONFIG_COMPAT=y
- CONFIG_PERFMON=y
- CONFIG_IA64_PALINFO=y
-+CONFIG_EFI=y
- CONFIG_EFI_VARS=y
- CONFIG_NR_CPUS
- CONFIG_BINFMT_ELF=y
-diff -urN linux-2.6.0-test2-bk/arch/ia64/Kconfig linux-2.6.0-test2-bk-efi/arch/ia64/Kconfig
---- linux-2.6.0-test2-bk/arch/ia64/Kconfig	2003-08-08 16:51:21.000000000 -0700
-+++ linux-2.6.0-test2-bk-efi/arch/ia64/Kconfig	2003-08-08 17:15:37.000000000 -0700
-@@ -433,15 +433,7 @@
- 	  To use this option, you have to ensure that the "/proc file system
- 	  support" (CONFIG_PROC_FS) is enabled, too.
- 
--config EFI_VARS
--	tristate "/proc/efi/vars support"
--	help
--	  If you say Y here, you are able to get EFI (Extensible Firmware
--	  Interface) variable information in /proc/efi/vars.  You may read,
--	  write, create, and destroy EFI variables through this interface.
--
--	  To use this option, you have to check that the "/proc file system
--	  support" (CONFIG_PROC_FS) is enabled, too.
-+source "drivers/efi/Kconfig"
- 
- config NR_CPUS
- 	int "Maximum number of CPUs (2-64)"
-diff -urN linux-2.6.0-test2-bk/arch/ia64/kernel/efivars.c linux-2.6.0-test2-bk-efi/arch/ia64/kernel/efivars.c
---- linux-2.6.0-test2-bk/arch/ia64/kernel/efivars.c	2003-08-08 16:51:21.000000000 -0700
-+++ linux-2.6.0-test2-bk-efi/arch/ia64/kernel/efivars.c	1969-12-31 16:00:00.000000000 -0800
-@@ -1,442 +0,0 @@
--/*
-- * EFI Variables - efivars.c
-- *
-- * Copyright (C) 2001 Dell Computer Corporation <Matt_Domsch@dell.com>
-- *
-- * This code takes all variables accessible from EFI runtime and
-- *  exports them via /proc
-- *
-- * Reads to /proc/efi/vars/varname return an efi_variable_t structure.
-- * Writes to /proc/efi/vars/varname must be an efi_variable_t structure.
-- * Writes with DataSize = 0 or Attributes = 0 deletes the variable.
-- * Writes with a new value in VariableName+VendorGuid creates
-- * a new variable.
-- *
-- *
-- *  This program is free software; you can redistribute it and/or modify
-- *  it under the terms of the GNU General Public License as published by
-- *  the Free Software Foundation; either version 2 of the License, or
-- *  (at your option) any later version.
-- *
-- *  This program is distributed in the hope that it will be useful,
-- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- *  GNU General Public License for more details.
-- *
-- *  You should have received a copy of the GNU General Public License
-- *  along with this program; if not, write to the Free Software
-- *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-- *
-- * Changelog:
-- *
-- *  10 Dec 2002 - Matt Domsch <Matt_Domsch@dell.com>
-- *   fix locking per Peter Chubb's findings
-- * 
-- *  25 Mar 2002 - Matt Domsch <Matt_Domsch@dell.com>
-- *   move uuid_unparse() to include/asm-ia64/efi.h:efi_guid_unparse()
-- *
-- *  12 Feb 2002 - Matt Domsch <Matt_Domsch@dell.com>
-- *   use list_for_each_safe when deleting vars.
-- *   remove ifdef CONFIG_SMP around include <linux/smp.h>
-- *   v0.04 release to linux-ia64@linuxia64.org
-- *
-- *  20 April 2001 - Matt Domsch <Matt_Domsch@dell.com>
-- *   Moved vars from /proc/efi to /proc/efi/vars, and made
-- *   efi.c own the /proc/efi directory.
-- *   v0.03 release to linux-ia64@linuxia64.org
-- *
-- *  26 March 2001 - Matt Domsch <Matt_Domsch@dell.com>
-- *   At the request of Stephane, moved ownership of /proc/efi
-- *   to efi.c, and now efivars lives under /proc/efi/vars.
-- *
-- *  12 March 2001 - Matt Domsch <Matt_Domsch@dell.com>
-- *   Feedback received from Stephane Eranian incorporated.
-- *   efivar_write() checks copy_from_user() return value.
-- *   efivar_read/write() returns proper errno.
-- *   v0.02 release to linux-ia64@linuxia64.org
-- *
-- *  26 February 2001 - Matt Domsch <Matt_Domsch@dell.com>
-- *   v0.01 release to linux-ia64@linuxia64.org
-- */
--
--#include <linux/config.h>
--#include <linux/types.h>
--#include <linux/errno.h>
--#include <linux/init.h>
--#include <linux/proc_fs.h>
--#include <linux/sched.h>		/* for capable() */
--#include <linux/mm.h>
--#include <linux/module.h>
--#include <linux/smp.h>
--#include <linux/efi.h>
--
--#include <asm/uaccess.h>
--
--MODULE_AUTHOR("Matt Domsch <Matt_Domsch@Dell.com>");
--MODULE_DESCRIPTION("/proc interface to EFI Variables");
--MODULE_LICENSE("GPL");
--
--#define EFIVARS_VERSION "0.06 2002-Dec-10"
--
--static int
--efivar_read(char *page, char **start, off_t off,
--	    int count, int *eof, void *data);
--static int
--efivar_write(struct file *file, const char *buffer,
--	     unsigned long count, void *data);
--
--
--/*
-- * The maximum size of VariableName + Data = 1024
-- * Therefore, it's reasonable to save that much
-- * space in each part of the structure,
-- * and we use a page for reading/writing.
-- */
--
--typedef struct _efi_variable_t {
--	efi_char16_t  VariableName[1024/sizeof(efi_char16_t)];
--	efi_guid_t    VendorGuid;
--	unsigned long DataSize;
--	__u8          Data[1024];
--	efi_status_t  Status;
--	__u32         Attributes;
--} __attribute__((packed)) efi_variable_t;
--
--
--typedef struct _efivar_entry_t {
--	efi_variable_t          var;
--	struct proc_dir_entry   *entry;
--	struct list_head        list;
--} efivar_entry_t;
--
--/*
--  efivars_lock protects two things:
--  1) efivar_list - adds, removals, reads, writes
--  2) efi.[gs]et_variable() calls.
--  It must not be held when creating proc entries or calling kmalloc.
--  efi.get_next_variable() is only called from efivars_init(),
--  which is protected by the BKL, so that path is safe.
--*/
--static spinlock_t efivars_lock = SPIN_LOCK_UNLOCKED;
--static LIST_HEAD(efivar_list);
--static struct proc_dir_entry *efi_vars_dir;
--
--#define efivar_entry(n) list_entry(n, efivar_entry_t, list)
--
--/* Return the number of unicode characters in data */
--static unsigned long
--utf8_strlen(efi_char16_t *data, unsigned long maxlength)
--{
--	unsigned long length = 0;
--	while (*data++ != 0 && length < maxlength)
--		length++;
--	return length;
--}
--
--/* Return the number of bytes is the length of this string */
--/* Note: this is NOT the same as the number of unicode characters */
--static inline unsigned long
--utf8_strsize(efi_char16_t *data, unsigned long maxlength)
--{
--	return utf8_strlen(data, maxlength/sizeof(efi_char16_t)) * sizeof(efi_char16_t);
--}
--
--
--static int
--proc_calc_metrics(char *page, char **start, off_t off,
--		  int count, int *eof, int len)
--{
--	if (len <= off+count) *eof = 1;
--	*start = page + off;
--	len -= off;
--	if (len>count) len = count;
--	if (len<0) len = 0;
--	return len;
--}
--
--/*
-- * efivar_create_proc_entry()
-- * Requires:
-- *    variable_name_size = number of bytes required to hold
-- *                         variable_name (not counting the NULL
-- *                         character at the end.
-- *    efivars_lock is not held on entry or exit.
-- * Returns 1 on failure, 0 on success
-- */
--static int
--efivar_create_proc_entry(unsigned long variable_name_size,
--			 efi_char16_t *variable_name,
--			 efi_guid_t *vendor_guid)
--{
--
--	int i, short_name_size = variable_name_size / sizeof(efi_char16_t) + 38;
--	char *short_name;
--	efivar_entry_t *new_efivar;
--
--        short_name = kmalloc(short_name_size+1, GFP_KERNEL);
--        new_efivar = kmalloc(sizeof(efivar_entry_t), GFP_KERNEL);
--
--	if (!short_name || !new_efivar)  {
--		if (short_name)        kfree(short_name);
--		if (new_efivar)        kfree(new_efivar);
--		return 1;
--	}
--	memset(short_name, 0, short_name_size+1);
--	memset(new_efivar, 0, sizeof(efivar_entry_t));
--
--	memcpy(new_efivar->var.VariableName, variable_name,
--	       variable_name_size);
--	memcpy(&(new_efivar->var.VendorGuid), vendor_guid, sizeof(efi_guid_t));
--
--	/* Convert Unicode to normal chars (assume top bits are 0),
--	   ala UTF-8 */
--	for (i=0; i< (int) (variable_name_size / sizeof(efi_char16_t)); i++) {
--		short_name[i] = variable_name[i] & 0xFF;
--	}
--
--	/* This is ugly, but necessary to separate one vendor's
--	   private variables from another's.         */
--
--	*(short_name + strlen(short_name)) = '-';
--	efi_guid_unparse(vendor_guid, short_name + strlen(short_name));
--
--	/* Create the entry in proc */
--	new_efivar->entry = create_proc_entry(short_name, 0600, efi_vars_dir);
--	kfree(short_name); short_name = NULL;
--	if (!new_efivar->entry) return 1;
--
--	new_efivar->entry->owner = THIS_MODULE;
--	new_efivar->entry->data = new_efivar;
--	new_efivar->entry->read_proc = efivar_read;
--	new_efivar->entry->write_proc = efivar_write;
--
--        spin_lock(&efivars_lock);
--        list_add(&new_efivar->list, &efivar_list);
--        spin_unlock(&efivars_lock);
--
--	return 0;
--}
--
--
--
--/***********************************************************
-- * efivar_read()
-- * Requires:
-- * Modifies: page
-- * Returns: number of bytes written, or -EINVAL on failure
-- ***********************************************************/
--
--static int
--efivar_read(char *page, char **start, off_t off, int count, int *eof, void *data)
--{
--	int len = sizeof(efi_variable_t);
--	efivar_entry_t *efi_var = data;
--	efi_variable_t *var_data = (efi_variable_t *)page;
--
--	if (!page || !data) return -EINVAL;
--
--	spin_lock(&efivars_lock);
--
--	memcpy(var_data, &efi_var->var, len);
--
--	var_data->DataSize = 1024;
--	var_data->Status = efi.get_variable(var_data->VariableName,
--					    &var_data->VendorGuid,
--					    &var_data->Attributes,
--					    &var_data->DataSize,
--					    var_data->Data);
--
--	spin_unlock(&efivars_lock);
--
--	return proc_calc_metrics(page, start, off, count, eof, len);
--}
--
--/***********************************************************
-- * efivar_write()
-- * Requires: data is an efi_setvariable_t data type,
-- *           properly filled in, possibly by a call
-- *           first to efivar_read().
-- *           Caller must have CAP_SYS_ADMIN
-- * Modifies: NVRAM
-- * Returns: var_data->DataSize on success, errno on failure
-- *
-- ***********************************************************/
--static int
--efivar_write(struct file *file, const char *buffer,
--	     unsigned long count, void *data)
--{
--	unsigned long strsize1, strsize2;
--	int found=0;
--	struct list_head *pos, *n;
--	unsigned long size = sizeof(efi_variable_t);
--	efi_status_t status;
--	efivar_entry_t *efivar = data, *search_efivar = NULL;
--	efi_variable_t *var_data;
--	if (!data || count != size) {
--		printk(KERN_WARNING "efivars: improper struct of size 0x%lx passed.\n", count);
--		return -EINVAL;
--	}
--	if (!capable(CAP_SYS_ADMIN))
--		return -EACCES;
--
--	var_data = kmalloc(size, GFP_KERNEL);
--	if (!var_data)
--		return -ENOMEM;
--	if (copy_from_user(var_data, buffer, size)) {
--                kfree(var_data);
--		return -EFAULT;
--	}
--
--	spin_lock(&efivars_lock);
--
--	/* Since the data ptr we've currently got is probably for
--	   a different variable find the right variable.
--	   This allows any properly formatted data structure to
--	   be written to any of the files in /proc/efi/vars and it will work.
--	*/
--	list_for_each_safe(pos, n, &efivar_list) {
--		search_efivar = efivar_entry(pos);
--		strsize1 = utf8_strsize(search_efivar->var.VariableName, 1024);
--		strsize2 = utf8_strsize(var_data->VariableName, 1024);
--		if ( strsize1 = strsize2 &&
--		     !memcmp(&(search_efivar->var.VariableName),
--			     var_data->VariableName, strsize1) &&
--		     !efi_guidcmp(search_efivar->var.VendorGuid,
--				  var_data->VendorGuid)) {
--			found = 1;
--			break;
--		}
--	}
--	if (found) efivar = search_efivar;
--
--	status = efi.set_variable(var_data->VariableName,
--				  &var_data->VendorGuid,
--				  var_data->Attributes,
--				  var_data->DataSize,
--				  var_data->Data);
--
--	if (status != EFI_SUCCESS) {
--		printk(KERN_WARNING "set_variable() failed: status=%lx\n", status);
--		kfree(var_data);
--		spin_unlock(&efivars_lock);
--		return -EIO;
--	}
--
--
--	if (!var_data->DataSize || !var_data->Attributes) {
--		/* We just deleted the NVRAM variable */
--		remove_proc_entry(efivar->entry->name, efi_vars_dir);
--		list_del(&efivar->list);
--		kfree(efivar);
--	}
--
--	spin_unlock(&efivars_lock);
--
--	/* If this is a new variable, set up the proc entry for it. */
--	if (!found) {
--		efivar_create_proc_entry(utf8_strsize(var_data->VariableName,
--						      1024),
--					 var_data->VariableName,
--					 &var_data->VendorGuid);
--	}
--
--	kfree(var_data);
--	return size;
--}
--
--
--
--static int __init
--efivars_init(void)
--{
--
--	efi_status_t status;
--	efi_guid_t vendor_guid;
--	efi_char16_t *variable_name = kmalloc(1024, GFP_KERNEL);
--	unsigned long variable_name_size = 1024;
--
--	printk(KERN_INFO "EFI Variables Facility v%s\n", EFIVARS_VERSION);
--
--        /* Since efi.c happens before procfs is available,
--           we create the directory here if it doesn't
--           already exist.  There's probably a better way
--           to do this.
--        */
--        if (!efi_dir)
--                efi_dir = proc_mkdir("efi", NULL);
--
--	efi_vars_dir = proc_mkdir("vars", efi_dir);
--
--	/* Per EFI spec, the maximum storage allocated for both
--	   the variable name and variable data is 1024 bytes.
--	*/
--
--	memset(variable_name, 0, 1024);
--
--	do {
--		variable_name_size24;
--
--		status = efi.get_next_variable(&variable_name_size,
--					       variable_name,
--					       &vendor_guid);
--
--
--		switch (status) {
--		case EFI_SUCCESS:
--			efivar_create_proc_entry(variable_name_size,
--						 variable_name,
--						 &vendor_guid);
--			break;
--		case EFI_NOT_FOUND:
--			break;
--		default:
--			printk(KERN_WARNING "get_next_variable: status=%lx\n", status);
--			status = EFI_NOT_FOUND;
--			break;
--		}
--
--	} while (status != EFI_NOT_FOUND);
--
--	kfree(variable_name);
--	return 0;
--}
--
--static void __exit
--efivars_exit(void)
--{
--	struct list_head *pos, *n;
--	efivar_entry_t *efivar;
--
--        spin_lock(&efivars_lock);
--	list_for_each_safe(pos, n, &efivar_list) {
--		efivar = efivar_entry(pos);
--		remove_proc_entry(efivar->entry->name, efi_vars_dir);
--		list_del(&efivar->list);
--		kfree(efivar);
--	}
--	spin_unlock(&efivars_lock);
--
--	remove_proc_entry(efi_vars_dir->name, efi_dir);
--}
--
--module_init(efivars_init);
--module_exit(efivars_exit);
--
--/*
-- * Overrides for Emacs so that we follow Linus's tabbing style.
-- * Emacs will notice this stuff at the end of the file and automatically
-- * adjust the settings for this buffer only.  This must remain at the end
-- * of the file.
-- * ---------------------------------------------------------------------------
-- * Local variables:
-- * c-indent-level: 4
-- * c-brace-imaginary-offset: 0
-- * c-brace-offset: -4
-- * c-argdecl-indent: 4
-- * c-label-offset: -4
-- * c-continued-statement-offset: 4
-- * c-continued-brace-offset: 0
-- * indent-tabs-mode: nil
-- * tab-width: 8
-- * End:
-- */
-diff -urN linux-2.6.0-test2-bk/arch/ia64/kernel/Makefile linux-2.6.0-test2-bk-efi/arch/ia64/kernel/Makefile
---- linux-2.6.0-test2-bk/arch/ia64/kernel/Makefile	2003-08-08 16:51:21.000000000 -0700
-+++ linux-2.6.0-test2-bk-efi/arch/ia64/kernel/Makefile	2003-08-08 17:15:37.000000000 -0700
-@@ -8,7 +8,6 @@
- 	 irq_lsapic.o ivt.o machvec.o pal.o patch.o process.o perfmon.o ptrace.o sal.o		\
- 	 semaphore.o setup.o signal.o sys_ia64.o time.o traps.o unaligned.o unwind.o
- 
--obj-$(CONFIG_EFI_VARS)		+= efivars.o
- obj-$(CONFIG_IA64_BRL_EMU)	+= brl_emu.o
- obj-$(CONFIG_IA64_GENERIC)	+= acpi-ext.o
- obj-$(CONFIG_IA64_HP_ZX1)	+= acpi-ext.o
-diff -urN linux-2.6.0-test2-bk/drivers/efi/efivars.c linux-2.6.0-test2-bk-efi/drivers/efi/efivars.c
---- linux-2.6.0-test2-bk/drivers/efi/efivars.c	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.0-test2-bk-efi/drivers/efi/efivars.c	2003-08-08 17:15:37.000000000 -0700
-@@ -0,0 +1,442 @@
-+/*
-+ * EFI Variables - efivars.c
-+ *
-+ * Copyright (C) 2001 Dell Computer Corporation <Matt_Domsch@dell.com>
-+ *
-+ * This code takes all variables accessible from EFI runtime and
-+ *  exports them via /proc
-+ *
-+ * Reads to /proc/efi/vars/varname return an efi_variable_t structure.
-+ * Writes to /proc/efi/vars/varname must be an efi_variable_t structure.
-+ * Writes with DataSize = 0 or Attributes = 0 deletes the variable.
-+ * Writes with a new value in VariableName+VendorGuid creates
-+ * a new variable.
-+ *
-+ *
-+ *  This program is free software; you can redistribute it and/or modify
-+ *  it under the terms of the GNU General Public License as published by
-+ *  the Free Software Foundation; either version 2 of the License, or
-+ *  (at your option) any later version.
-+ *
-+ *  This program is distributed in the hope that it will be useful,
-+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ *  GNU General Public License for more details.
-+ *
-+ *  You should have received a copy of the GNU General Public License
-+ *  along with this program; if not, write to the Free Software
-+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-+ *
-+ * Changelog:
-+ *
-+ *  10 Dec 2002 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   fix locking per Peter Chubb's findings
-+ * 
-+ *  25 Mar 2002 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   move uuid_unparse() to include/asm-ia64/efi.h:efi_guid_unparse()
-+ *
-+ *  12 Feb 2002 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   use list_for_each_safe when deleting vars.
-+ *   remove ifdef CONFIG_SMP around include <linux/smp.h>
-+ *   v0.04 release to linux-ia64@linuxia64.org
-+ *
-+ *  20 April 2001 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   Moved vars from /proc/efi to /proc/efi/vars, and made
-+ *   efi.c own the /proc/efi directory.
-+ *   v0.03 release to linux-ia64@linuxia64.org
-+ *
-+ *  26 March 2001 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   At the request of Stephane, moved ownership of /proc/efi
-+ *   to efi.c, and now efivars lives under /proc/efi/vars.
-+ *
-+ *  12 March 2001 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   Feedback received from Stephane Eranian incorporated.
-+ *   efivar_write() checks copy_from_user() return value.
-+ *   efivar_read/write() returns proper errno.
-+ *   v0.02 release to linux-ia64@linuxia64.org
-+ *
-+ *  26 February 2001 - Matt Domsch <Matt_Domsch@dell.com>
-+ *   v0.01 release to linux-ia64@linuxia64.org
-+ */
-+
-+#include <linux/config.h>
-+#include <linux/types.h>
-+#include <linux/errno.h>
-+#include <linux/init.h>
-+#include <linux/proc_fs.h>
-+#include <linux/sched.h>		/* for capable() */
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/smp.h>
-+#include <linux/efi.h>
-+
-+#include <asm/uaccess.h>
-+
-+MODULE_AUTHOR("Matt Domsch <Matt_Domsch@Dell.com>");
-+MODULE_DESCRIPTION("/proc interface to EFI Variables");
-+MODULE_LICENSE("GPL");
-+
-+#define EFIVARS_VERSION "0.06 2002-Dec-10"
-+
-+static int
-+efivar_read(char *page, char **start, off_t off,
-+	    int count, int *eof, void *data);
-+static int
-+efivar_write(struct file *file, const char *buffer,
-+	     unsigned long count, void *data);
-+
-+
-+/*
-+ * The maximum size of VariableName + Data = 1024
-+ * Therefore, it's reasonable to save that much
-+ * space in each part of the structure,
-+ * and we use a page for reading/writing.
-+ */
-+
-+typedef struct _efi_variable_t {
-+	efi_char16_t  VariableName[1024/sizeof(efi_char16_t)];
-+	efi_guid_t    VendorGuid;
-+	unsigned long DataSize;
-+	__u8          Data[1024];
-+	efi_status_t  Status;
-+	__u32         Attributes;
-+} __attribute__((packed)) efi_variable_t;
-+
-+
-+typedef struct _efivar_entry_t {
-+	efi_variable_t          var;
-+	struct proc_dir_entry   *entry;
-+	struct list_head        list;
-+} efivar_entry_t;
-+
-+/*
-+  efivars_lock protects two things:
-+  1) efivar_list - adds, removals, reads, writes
-+  2) efi.[gs]et_variable() calls.
-+  It must not be held when creating proc entries or calling kmalloc.
-+  efi.get_next_variable() is only called from efivars_init(),
-+  which is protected by the BKL, so that path is safe.
-+*/
-+static spinlock_t efivars_lock = SPIN_LOCK_UNLOCKED;
-+static LIST_HEAD(efivar_list);
-+static struct proc_dir_entry *efi_vars_dir;
-+
-+#define efivar_entry(n) list_entry(n, efivar_entry_t, list)
-+
-+/* Return the number of unicode characters in data */
-+static unsigned long
-+utf8_strlen(efi_char16_t *data, unsigned long maxlength)
-+{
-+	unsigned long length = 0;
-+	while (*data++ != 0 && length < maxlength)
-+		length++;
-+	return length;
-+}
-+
-+/* Return the number of bytes is the length of this string */
-+/* Note: this is NOT the same as the number of unicode characters */
-+static inline unsigned long
-+utf8_strsize(efi_char16_t *data, unsigned long maxlength)
-+{
-+	return utf8_strlen(data, maxlength/sizeof(efi_char16_t)) * sizeof(efi_char16_t);
-+}
-+
-+
-+static int
-+proc_calc_metrics(char *page, char **start, off_t off,
-+		  int count, int *eof, int len)
-+{
-+	if (len <= off+count) *eof = 1;
-+	*start = page + off;
-+	len -= off;
-+	if (len>count) len = count;
-+	if (len<0) len = 0;
-+	return len;
-+}
-+
-+/*
-+ * efivar_create_proc_entry()
-+ * Requires:
-+ *    variable_name_size = number of bytes required to hold
-+ *                         variable_name (not counting the NULL
-+ *                         character at the end.
-+ *    efivars_lock is not held on entry or exit.
-+ * Returns 1 on failure, 0 on success
-+ */
-+static int
-+efivar_create_proc_entry(unsigned long variable_name_size,
-+			 efi_char16_t *variable_name,
-+			 efi_guid_t *vendor_guid)
-+{
-+
-+	int i, short_name_size = variable_name_size / sizeof(efi_char16_t) + 38;
-+	char *short_name;
-+	efivar_entry_t *new_efivar;
-+
-+        short_name = kmalloc(short_name_size+1, GFP_KERNEL);
-+        new_efivar = kmalloc(sizeof(efivar_entry_t), GFP_KERNEL);
-+
-+	if (!short_name || !new_efivar)  {
-+		if (short_name)        kfree(short_name);
-+		if (new_efivar)        kfree(new_efivar);
-+		return 1;
-+	}
-+	memset(short_name, 0, short_name_size+1);
-+	memset(new_efivar, 0, sizeof(efivar_entry_t));
-+
-+	memcpy(new_efivar->var.VariableName, variable_name,
-+	       variable_name_size);
-+	memcpy(&(new_efivar->var.VendorGuid), vendor_guid, sizeof(efi_guid_t));
-+
-+	/* Convert Unicode to normal chars (assume top bits are 0),
-+	   ala UTF-8 */
-+	for (i=0; i< (int) (variable_name_size / sizeof(efi_char16_t)); i++) {
-+		short_name[i] = variable_name[i] & 0xFF;
-+	}
-+
-+	/* This is ugly, but necessary to separate one vendor's
-+	   private variables from another's.         */
-+
-+	*(short_name + strlen(short_name)) = '-';
-+	efi_guid_unparse(vendor_guid, short_name + strlen(short_name));
-+
-+	/* Create the entry in proc */
-+	new_efivar->entry = create_proc_entry(short_name, 0600, efi_vars_dir);
-+	kfree(short_name); short_name = NULL;
-+	if (!new_efivar->entry) return 1;
-+
-+	new_efivar->entry->owner = THIS_MODULE;
-+	new_efivar->entry->data = new_efivar;
-+	new_efivar->entry->read_proc = efivar_read;
-+	new_efivar->entry->write_proc = efivar_write;
-+
-+        spin_lock(&efivars_lock);
-+        list_add(&new_efivar->list, &efivar_list);
-+        spin_unlock(&efivars_lock);
-+
-+	return 0;
-+}
-+
-+
-+
-+/***********************************************************
-+ * efivar_read()
-+ * Requires:
-+ * Modifies: page
-+ * Returns: number of bytes written, or -EINVAL on failure
-+ ***********************************************************/
-+
-+static int
-+efivar_read(char *page, char **start, off_t off, int count, int *eof, void *data)
-+{
-+	int len = sizeof(efi_variable_t);
-+	efivar_entry_t *efi_var = data;
-+	efi_variable_t *var_data = (efi_variable_t *)page;
-+
-+	if (!page || !data) return -EINVAL;
-+
-+	spin_lock(&efivars_lock);
-+
-+	memcpy(var_data, &efi_var->var, len);
-+
-+	var_data->DataSize = 1024;
-+	var_data->Status = efi.get_variable(var_data->VariableName,
-+					    &var_data->VendorGuid,
-+					    &var_data->Attributes,
-+					    &var_data->DataSize,
-+					    var_data->Data);
-+
-+	spin_unlock(&efivars_lock);
-+
-+	return proc_calc_metrics(page, start, off, count, eof, len);
-+}
-+
-+/***********************************************************
-+ * efivar_write()
-+ * Requires: data is an efi_setvariable_t data type,
-+ *           properly filled in, possibly by a call
-+ *           first to efivar_read().
-+ *           Caller must have CAP_SYS_ADMIN
-+ * Modifies: NVRAM
-+ * Returns: var_data->DataSize on success, errno on failure
-+ *
-+ ***********************************************************/
-+static int
-+efivar_write(struct file *file, const char *buffer,
-+	     unsigned long count, void *data)
-+{
-+	unsigned long strsize1, strsize2;
-+	int found=0;
-+	struct list_head *pos, *n;
-+	unsigned long size = sizeof(efi_variable_t);
-+	efi_status_t status;
-+	efivar_entry_t *efivar = data, *search_efivar = NULL;
-+	efi_variable_t *var_data;
-+	if (!data || count != size) {
-+		printk(KERN_WARNING "efivars: improper struct of size 0x%lx passed.\n", count);
-+		return -EINVAL;
-+	}
-+	if (!capable(CAP_SYS_ADMIN))
-+		return -EACCES;
-+
-+	var_data = kmalloc(size, GFP_KERNEL);
-+	if (!var_data)
-+		return -ENOMEM;
-+	if (copy_from_user(var_data, buffer, size)) {
-+                kfree(var_data);
-+		return -EFAULT;
-+	}
-+
-+	spin_lock(&efivars_lock);
-+
-+	/* Since the data ptr we've currently got is probably for
-+	   a different variable find the right variable.
-+	   This allows any properly formatted data structure to
-+	   be written to any of the files in /proc/efi/vars and it will work.
-+	*/
-+	list_for_each_safe(pos, n, &efivar_list) {
-+		search_efivar = efivar_entry(pos);
-+		strsize1 = utf8_strsize(search_efivar->var.VariableName, 1024);
-+		strsize2 = utf8_strsize(var_data->VariableName, 1024);
-+		if ( strsize1 = strsize2 &&
-+		     !memcmp(&(search_efivar->var.VariableName),
-+			     var_data->VariableName, strsize1) &&
-+		     !efi_guidcmp(search_efivar->var.VendorGuid,
-+				  var_data->VendorGuid)) {
-+			found = 1;
-+			break;
-+		}
-+	}
-+	if (found) efivar = search_efivar;
-+
-+	status = efi.set_variable(var_data->VariableName,
-+				  &var_data->VendorGuid,
-+				  var_data->Attributes,
-+				  var_data->DataSize,
-+				  var_data->Data);
-+
-+	if (status != EFI_SUCCESS) {
-+		printk(KERN_WARNING "set_variable() failed: status=%lx\n", status);
-+		kfree(var_data);
-+		spin_unlock(&efivars_lock);
-+		return -EIO;
-+	}
-+
-+
-+	if (!var_data->DataSize || !var_data->Attributes) {
-+		/* We just deleted the NVRAM variable */
-+		remove_proc_entry(efivar->entry->name, efi_vars_dir);
-+		list_del(&efivar->list);
-+		kfree(efivar);
-+	}
-+
-+	spin_unlock(&efivars_lock);
-+
-+	/* If this is a new variable, set up the proc entry for it. */
-+	if (!found) {
-+		efivar_create_proc_entry(utf8_strsize(var_data->VariableName,
-+						      1024),
-+					 var_data->VariableName,
-+					 &var_data->VendorGuid);
-+	}
-+
-+	kfree(var_data);
-+	return size;
-+}
-+
-+
-+
-+static int __init
-+efivars_init(void)
-+{
-+
-+	efi_status_t status;
-+	efi_guid_t vendor_guid;
-+	efi_char16_t *variable_name = kmalloc(1024, GFP_KERNEL);
-+	unsigned long variable_name_size = 1024;
-+
-+	printk(KERN_INFO "EFI Variables Facility v%s\n", EFIVARS_VERSION);
-+
-+        /* Since efi.c happens before procfs is available,
-+           we create the directory here if it doesn't
-+           already exist.  There's probably a better way
-+           to do this.
-+        */
-+        if (!efi_dir)
-+                efi_dir = proc_mkdir("efi", NULL);
-+
-+	efi_vars_dir = proc_mkdir("vars", efi_dir);
-+
-+	/* Per EFI spec, the maximum storage allocated for both
-+	   the variable name and variable data is 1024 bytes.
-+	*/
-+
-+	memset(variable_name, 0, 1024);
-+
-+	do {
-+		variable_name_size24;
-+
-+		status = efi.get_next_variable(&variable_name_size,
-+					       variable_name,
-+					       &vendor_guid);
-+
-+
-+		switch (status) {
-+		case EFI_SUCCESS:
-+			efivar_create_proc_entry(variable_name_size,
-+						 variable_name,
-+						 &vendor_guid);
-+			break;
-+		case EFI_NOT_FOUND:
-+			break;
-+		default:
-+			printk(KERN_WARNING "get_next_variable: status=%lx\n", status);
-+			status = EFI_NOT_FOUND;
-+			break;
-+		}
-+
-+	} while (status != EFI_NOT_FOUND);
-+
-+	kfree(variable_name);
-+	return 0;
-+}
-+
-+static void __exit
-+efivars_exit(void)
-+{
-+	struct list_head *pos, *n;
-+	efivar_entry_t *efivar;
-+
-+        spin_lock(&efivars_lock);
-+	list_for_each_safe(pos, n, &efivar_list) {
-+		efivar = efivar_entry(pos);
-+		remove_proc_entry(efivar->entry->name, efi_vars_dir);
-+		list_del(&efivar->list);
-+		kfree(efivar);
-+	}
-+	spin_unlock(&efivars_lock);
-+
-+	remove_proc_entry(efi_vars_dir->name, efi_dir);
-+}
-+
-+module_init(efivars_init);
-+module_exit(efivars_exit);
-+
-+/*
-+ * Overrides for Emacs so that we follow Linus's tabbing style.
-+ * Emacs will notice this stuff at the end of the file and automatically
-+ * adjust the settings for this buffer only.  This must remain at the end
-+ * of the file.
-+ * ---------------------------------------------------------------------------
-+ * Local variables:
-+ * c-indent-level: 4
-+ * c-brace-imaginary-offset: 0
-+ * c-brace-offset: -4
-+ * c-argdecl-indent: 4
-+ * c-label-offset: -4
-+ * c-continued-statement-offset: 4
-+ * c-continued-brace-offset: 0
-+ * indent-tabs-mode: nil
-+ * tab-width: 8
-+ * End:
-+ */
-diff -urN linux-2.6.0-test2-bk/drivers/efi/Kconfig linux-2.6.0-test2-bk-efi/drivers/efi/Kconfig
---- linux-2.6.0-test2-bk/drivers/efi/Kconfig	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.0-test2-bk-efi/drivers/efi/Kconfig	2003-08-08 17:15:37.000000000 -0700
-@@ -0,0 +1,26 @@
-+#
-+# EFI Configuration
-+#
-+
-+menu "EFI Support"
-+
-+config EFI
-+	bool "EFI Driver Support"
-+	---help---
-+	  EFI (Extensible Firmware Interface) support for Linux enables 
-+	  the use of drivers that provide architecturally independent 
-+	  functionality.  This support is applicable to architectures 
-+	  that support EFI.  
-+
-+config EFI_VARS
-+	tristate "/proc/efi/vars support"
-+	depends on PROC_FS && EFI
-+	---help---
-+	  If you say Y here, you are able to get EFI (Extensible Firmware
-+	  Interface) variable information in /proc/efi/vars.  You may read,
-+	  write, create, and destroy EFI variables through this interface.
-+
-+ 	  To use this option, you have to check that the "/proc file system
-+	  support (CONFIG_PROC_FS) is enabled, too.
-+
-+endmenu
-diff -urN linux-2.6.0-test2-bk/drivers/efi/Makefile linux-2.6.0-test2-bk-efi/drivers/efi/Makefile
---- linux-2.6.0-test2-bk/drivers/efi/Makefile	1969-12-31 16:00:00.000000000 -0800
-+++ linux-2.6.0-test2-bk-efi/drivers/efi/Makefile	2003-08-08 17:15:37.000000000 -0700
-@@ -0,0 +1,3 @@
-+# EFI Variable Access
-+obj-$(CONFIG_EFI_VARS)		+= efivars.o
-+
-diff -urN linux-2.6.0-test2-bk/drivers/Makefile linux-2.6.0-test2-bk-efi/drivers/Makefile
---- linux-2.6.0-test2-bk/drivers/Makefile	2003-08-08 16:52:07.000000000 -0700
-+++ linux-2.6.0-test2-bk-efi/drivers/Makefile	2003-08-08 17:15:37.000000000 -0700
-@@ -49,3 +49,4 @@
- obj-$(CONFIG_MCA)		+= mca/
- obj-$(CONFIG_EISA)		+= eisa/
- obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
-+obj-$(CONFIG_EFI)		+= efi/
