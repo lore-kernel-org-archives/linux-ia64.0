@@ -1,25 +1,25 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Tue, 05 Dec 2000 22:17:55 +0000
-Subject: Re: [Linux-ia64] Fault 26?
-Message-Id: <marc-linux-ia64-105590678205792@msgid-missing>
+From: John Kohl <jtk@rational.com>
+Date: Fri, 15 Dec 2000 16:32:48 +0000
+Subject: [Linux-ia64] test11, test12 kernel vs. big sur: Unexpected irq vector
+Message-Id: <marc-linux-ia64-105590678205850@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205788@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205788@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger (davidm@hpl.hp.com) said: 
-> >>>>> On Tue, 5 Dec 2000 16:53:45 -0500, Bill Nottingham <notting@redhat.com> said:
-> 
->   Bill> What is fault type 26?  I'm getting a few of these recently.
-> 
-> It's the "NaT consumption fault".  Either buggy code is trying to eat
-> a NaT value or something else goes wrong and a NaT value is created
-> when it shouldn't be.
+I tried booting a kernel built from the latest test12 patch kit on one
+of our development systems (big sur, A stepping).  It
+starts up, prints out a few messages, then loops forever printing
+       Unexpected irq vector 0x0 on CPU 0!
+This comes from arch/ia64/kernel/irq.c.
 
-Hm. We're getting it (in cpp) when building the kernel.
+We had the same problems with the test11 kernels.  Any suggestions on
+how to debug and/or remedy this?
 
-Bill
+-- 
+=John Kohl <jtk@rational.com>, Software Engineer
+Rational Software, Configuration Management Business Unit
+Mark your calendars!  Rational User Conference 2001, July 22-26, 2001
+in beautiful Denver, Colorado
 
