@@ -1,51 +1,51 @@
-From: Jim Wilson <wilson@specifixinc.com>
-Date: Mon, 19 Jul 2004 17:41:37 +0000
-Subject: Re: problem creating cross compile ia64
-Message-Id: <1090258898.1070.14.camel@localhost>
+From: Dean Nelson <dcn@sgi.com>
+Date: Wed, 14 Jul 2004 16:01:08 +0000
+Subject: Re: [PATCH 1/4] SGI Altix cross partition functionality
+Message-Id: <20040714160108.GA10539@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040719130226.3282.qmail@web14205.mail.yahoo.com>
-In-Reply-To: <20040719130226.3282.qmail@web14205.mail.yahoo.com>
+References: <20040616163339.GA27891@sgi.com>
+In-Reply-To: <20040616163339.GA27891@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 2004-07-19 at 06:02, Daniele Velardi wrote:
-> I have to create a cross compiler to run on host
-> machine i686 to compile file for target machine
-> ia64:
+On Wed, Jun 16, 2004 at 05:39:44PM +0100, Christoph Hellwig wrote:
+> On Wed, Jun 16, 2004 at 11:33:39AM -0500, Dean Nelson wrote:
+> >  #include <asm/page.h>
+> >  #include <asm/sal.h>
+> >  #include <asm/pal.h>
+> >  
+> >  spinlock_t sal_lock __cacheline_aligned = SPIN_LOCK_UNLOCKED;
+> > +EXPORT_SYMBOL(sal_lock);
+> 
+> No.  Please don't make random sal calls from modules.
 
-The best source of info I know of for building linux cross compilers is
-Dan Kegel's crosstool.  See
-    http://kegel.com/crosstool
-This is a collection of scripts to automate the process of building a
-cross compiler from gcc and glibc sources.
+We're only making one sal call (i.e., SN_SAL_GET_PARTITION_ADDR) to get the
+address of a partition's reserved page.
 
-If all you want is a cross compiler for building the kernel, then you
-are already done.  You don't need any of the libraries, as the kernel
-doesn't use them, so you can ignore the errors you are getting and just
-install what you have.  It might be confusing to have a compiler
-installed that can only work for compiling kernels though; I don't
-generally recommend doing this.
+> > +
+> >  unsigned long sal_platform_features;
+> >  
+> >  unsigned short sal_revision;
+> > @@ -38,6 +41,8 @@ default_handler (void)
+> >  }
+> >  
+> >  ia64_sal_handler ia64_sal = (ia64_sal_handler) default_handler;
+> > +EXPORT_SYMBOL(ia64_sal);
+> 
+> Dito.  I think you need to find a better abstraction.
 
-If you want to compile anything other than the kernel, then you have to
-have the libraries.  This can be built from gcc and glibc sources by
-using Kegel's crosstool above, or it can be built from gcc source by
-copying libraries/header files from the target IA-64 machine.  The new
-way involves using --with-sysroot, the old way involves using
---with-headers and --with-libs.  I don't recall if --with-sysroot is in
-3.3.3, but it is is in 3.3.4.  If you don't have a convenient IA-64
-machine to copy libraries and header files from, then crosstool might be
-a better choice.
+What kind of abstraction are you looking for?
 
-> configure --disable-nls --prefix=/usr
-> --mandir=/usr/share/man --infodir=/usr/share/info   
-> --target=ia64-linux
+In include/asm-ia64/sn/sn_sal.h, there are inline functions that are wrappers
+for the SAL_CALL() macro, (for example, ia64_sn_get_console_nasid()). Is this
+what you are looking for? (But even if we did create such a function, we'd
+still need to export sal_lock and ia64_sal because both are referenced by the
+SAL_CALL() macro.) I'd hate to put such an abstraction into sal.c, since the
+functionality of my sal call is ia64/sn specific, and sal.c is generic
+ia64.
 
-It isn't a good idea to configure a cross-compiler using --prefix=/usr. 
-The cross compiler might think its header files are in /usr/include and
-its libraries in /usr/lib.  They aren't.  Better is to use something
-like /opt or /usr/local.
--- 
-Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
+Thanks,
+Dean
 
