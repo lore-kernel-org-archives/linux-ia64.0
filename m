@@ -1,26 +1,50 @@
-From: Andi Kleen <ak@muc.de>
-Date: Thu, 08 Apr 2004 17:51:26 +0000
-Subject: Re: HUGETLB commit handling.
-Message-Id: <20040408175126.GA72736@colin2.muc.de>
+From: "Seth, Rohit" <rohit.seth@intel.com>
+Date: Thu, 08 Apr 2004 21:58:40 +0000
+Subject: RE: HUGETLB commit handling.
+Message-Id: <01EF044AAEE12F4BAAD955CB75064943014B92FA@scsmsx401.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1IKJu-Zn-29@gated-at.bofh.it> <m3u0zuwgbf.fsf@averell.firstfloor.org> <40758A74.3040107@sgi.com>
-In-Reply-To: <40758A74.3040107@sgi.com>
+References: <15037082.1081445730@42.150.104.212.access.eclipse.net.uk>
+In-Reply-To: <15037082.1081445730@42.150.104.212.access.eclipse.net.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ray Bryant <raybry@sgi.com>
-Cc: Andi Kleen <ak@muc.de>, Andy Whitcroft <apw@shadowen.org>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, "Martin J. Bligh" <mbligh@aracnet.com>, linux-kernel@vger.kernel.org, anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org
+To: Andy Whitcroft <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, Ray Bryant <raybry@sgi.com>
+Cc: "Martin J. Bligh" <mbligh@aracnet.com>, linux-kernel@vger.kernel.org, anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org
 
-> The other problem we are wrestling with is how to do the ia386 and ia64 
-> lazy allocation code without breaking the architectures that haven't yet 
-> switched to lazy allocation.  There will probbaly be some
+Andy Whitcroft <> wrote on Thursday, April 08, 2004 9:36 AM:
+
+> We have been looking at the HUGETLB page commit issue (offlist) and
+> are close a final merged patch.  However, our testing seems to have
+> thrown up an inconsistency in interface which we are not sure whether
+> to fix or not.   
 > 
-> #define ARCH_USES_HUGETLB_PREFAULT
+> With normal shm segments we commit the pages we will need at shmget()
+> time. 
+> The real pages being allocated on demand.  With hugetlb pages we
+> currently do not manage commit, but allocate them on map, shmat() in
+> this case.  When we add commit handling it would seem most
+> appropriate to commit the pages in shmget() as for small page
+> mappings.  However, this might seem to change the semantics slightly,
+> in that if there is insufficient hugepages available then the failure
+> would come at shmget() and not shmat() time.      
 > 
-> nonsense added to deal with the latter, if needed.
+> I would contend this is the right thing to do, as it makes the
+> semantics of hugepages match that of the existing small pages.  We
+> are looking for a consensus as this might be construed as a semantic
+> change.   
+> 
 
-In my patch I just used weak functions: use a dummy weak function
-in the high level code and overwrite from the architecture specific 
-code as needed. This avoids all the ifdefs.
+IMO, doing this accounting check at shmget time seems reasonable as it
+aligns the accouting semantics of normal and hugepages.
 
--Andi
+
+> Thoughts.
+> 
+> -apw
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64"
+> in the body of a message to majordomo@vger.kernel.org More majordomo
+> info at  http://vger.kernel.org/majordomo-info.html  
+
