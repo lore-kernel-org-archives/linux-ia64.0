@@ -1,7 +1,7 @@
-From: "David S. Miller" <davem@redhat.com>
-Date: Tue, 23 Sep 2003 06:22:37 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Tue, 23 Sep 2003 10:40:05 +0000
 Subject: Re: NS83820 2.6.0-test5 driver seems unstable on IA64
-Message-Id: <marc-linux-ia64-106429908824468@msgid-missing>
+Message-Id: <marc-linux-ia64-106431367304136@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106394503001622@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106394503001622@msgid-missing>
@@ -10,19 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 22 Sep 2003 20:36:29 -0400
-Benjamin LaHaise <bcrl@kvack.org> wrote:
+>>>>> "David" = David S Miller <davem@redhat.com> writes:
 
-> Denied.  Dave, please explain.
+David> On Mon, 22 Sep 2003 20:36:29 -0400 Benjamin LaHaise
+David> <bcrl@kvack.org> wrote:
 
-Why should I have anything to explain? :-)
+>> Denied.  Dave, please explain.
 
-The fact that ia64 is doing a printk for an unaligned kernel
-load or store is what you should be asking questions about :)
+David> Why should I have anything to explain? :-)
 
-It's one thing if ia64 keeps track of unaligned accesses as
-a counter statistic, but emitting a printk for everyone is
-pretty anti-social.
+David> The fact that ia64 is doing a printk for an unaligned kernel
+David> load or store is what you should be asking questions about :)
 
-Unaligned accesses in the kernel are perfectly normal, and are
-absolutely going to happen in various kinds of networking setups.
+How expensive is it to take the trap and do a fix up, compared to
+making an aligned copy?  As it involves raising and handling a fault
+disassembling the instruction that caused the fault, etc., I'd be
+surprised if it's much less than 1000 cycles, even without the printk,
+although I haven't measured it yet, and can't find enough info in the
+architecture manuals to know what it is.
+
+Even if it's only 500 cycles, you can copy and realign a large packet
+in that time. 
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories,   all slightly different.
