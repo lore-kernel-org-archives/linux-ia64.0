@@ -1,24 +1,26 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 26 Jul 2001 08:14:00 +0000
-Subject: [Linux-ia64] kernel update (2nd patch relative to 2.4.7)
-Message-Id: <marc-linux-ia64-105590693005922@msgid-missing>
+Date: Mon, 23 Jul 2001 23:54:56 +0000
+Subject: [Linux-ia64] updated Mozilla binaries available
+Message-Id: <marc-linux-ia64-105590693005878@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The latest IA-64 patch is available at:
+The latest IA-64 binaries for mozilla can be found at:
 
- ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
+ ftp://ftp.hpl.hp.com/pub/linux-ia64/mozilla-ia64-unknown-linux-010720.tar.gz
 
-in file linux-2.4.7-ia64-010726.diff*.
+To run this binary, you'll need libgcc_s.so.1.  The easiest way to get
+this library is to copy it from the gcc 3.0 release.  E.g., with the
+gcc3.0 tar ball on ftp.hpl.hp.com, simply copy this library from
+/opt/gcc3/lib/ to /usr/lib and run "ldconfig" and you should be all
+set.
 
-This patch is just a small update compared to the 010723 patch.  It
-fixes the UP hang problem and has Alex' workaround for the Lion MADT
-table bug.  Other assorted (small) patches are included too, though
-you'll still need gcc3.0 for a successful compilation (or use Bills or
-Keith's workaround for the Nov 17 compiler).
+Mozilla is coming along quite nicely and i use it now for almost all
+of my browsing tasks.  It still crashes on some web sites, but by and
+large, it works well and is fast.
 
 	--david
 
