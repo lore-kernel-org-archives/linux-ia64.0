@@ -1,25 +1,36 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Tue, 04 Jan 2005 23:45:42 +0000
+From: Linus Torvalds <torvalds@osdl.org>
+Date: Wed, 05 Jan 2005 00:34:21 +0000
 Subject: Re: Prezeroing V3 [1/4]: Allow request for zeroed memory
-Message-Id: <1104882342.16305.12.camel@localhost>
+Message-Id: <Pine.LNX.4.58.0501041629490.4111@ppc970.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
-	 <41C20E3E.3070209@yahoo.com.au>
-	 <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
-	 <Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
-	 <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
-	 <Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
-	 <Pine.GSO.4.61.0501011123550.27452@waterleaf.sonytel.be>
-	 <Pine.LNX.4.58.0501041510430.1536@schroedinger.engr.sgi.com>
-	 <Pine.LNX.4.58.0501041512450.1536@schroedinger.engr.sgi.com>
+ <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
+ <Pine.GSO.4.61.0501011123550.27452@waterleaf.sonytel.be>
+ <Pine.LNX.4.58.0501041510430.1536@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0501041512450.1536@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0501041512450.1536@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Christoph Lameter <clameter@sgi.com>
-Cc: Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, linux-mm <linux-mm@kvack.org>, Linux Kernel Development <linux-kernel@vger.kernel.org>
+Cc: Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-mm@kvack.org, Linux Kernel Development <linux-kernel@vger.kernel.org>
 
-On Tue, 2005-01-04 at 15:13 -0800, Christoph Lameter wrote:
+
+
+On Tue, 4 Jan 2005, Christoph Lameter wrote:
+>
+> This patch introduces __GFP_ZERO as an additional gfp_mask element to allow
+> to request zeroed pages from the page allocator.
+
+Ok, let's start merging this slowly, and in particular, this 1/4 one looks 
+pretty much like a cleanup regardless of whatever else happen, so let's 
+just do it. However, for it to really be a cleanup, how about making 
+_this_ part:
+
+> +
 > +		if (gfp_flags & __GFP_ZERO) {
 > +#ifdef CONFIG_HIGHMEM
 > +			if (PageHighMem(page)) {
@@ -31,17 +42,22 @@ On Tue, 2005-01-04 at 15:13 -0800, Christoph Lameter wrote:
 > +#endif
 > +			clear_page(page_address(page), order);
 > +		}
+
+Match the existing previous part:
+
 >  		if (order && (gfp_flags & __GFP_COMP))
 >  			prep_compound_page(page, order);
 
-That #ifdef can probably die.  The compiler should get that all by
-itself:
 
-> #ifdef CONFIG_HIGHMEM
-> #define PageHighMem(page)       test_bit(PG_highmem, &(page)->flags)
-> #else
-> #define PageHighMem(page)       0 /* needed to optimize away at compile time */
-> #endif
+and just split it up into a "prep_zero_page(page, order)"? I dislike 
+#ifdef's in the middle of deep functions. In the middle of a _trivial_ 
+function it's much more palatable.
 
--- Dave
+At that point at least part 1 ends up being a nice clean patch on its own, 
+and should even shrink the code-size a bit. IOW, it not only is a cleanup, 
+there is even a technical argument for it (even without worrying about the 
+next stages).
 
+Hmm?
+
+		Linus
