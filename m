@@ -1,32 +1,30 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 07 Mar 2003 13:57:04 +0000
-Subject: [Linux-ia64] ia64_spinlock_contention and NEW_LOCK
-Message-Id: <marc-linux-ia64-105590709806001@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 11 Mar 2003 22:37:23 +0000
+Subject: Re: [Linux-ia64] ia64_spinlock_contention and NEW_LOCK
+Message-Id: <marc-linux-ia64-105590709806035@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590709806001@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709806001@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-2.4.0-test6-ia64-000811 introduced ia64_spinlock_contention and
-NEW_LOCK.  AFAICT they have been disabled ever since they were
-introduced.  Are there any plans to use this NEW_LOCK code?  I have two
-reasons for asking.
+>>>>> On Sat, 08 Mar 2003 00:57:04 +1100, Keith Owens <kaos@sgi.com> said:
 
-(1) If ia64_spinlock_contention is going to be used then it needs
-    unwind data, otherwise an interrupt in this code will not get a
-    decent backtrace.
+  Keith> 2.4.0-test6-ia64-000811 introduced ia64_spinlock_contention
+  Keith> and NEW_LOCK.  AFAICT they have been disabled ever since they
+  Keith> were introduced.  Are there any plans to use this NEW_LOCK
+  Keith> code?
 
-(2) To enable kdb and lkcd diagnosis of hung spinlocks, I want the
-    contention path to check for a 'enter debugger now!' flag[*].
-    Obviously such a test would be better handled in a single
-    contention routine instead of being expanded as part of every
-    spinlock usage.
+I still think it would make sense to have back-off logic in the
+spinlock contention case, but given that I haven't had time to work on
+it in the last 2 years and nobody else has expressed interest in it, I
+think it's time to just nuke the code.  If someone wants to work on it
+later on, it's been archived often enough that the code can be dug out
+if necessary.
 
-[*] I tried DavidM's suggestion of using INIT interrupts to break into
-disabled spinlocks.  It works, and with kdb v4.0 you get a decent
-backtrace.  However INIT is far too destructive, once INIT has been
-sent the cpu is dead.  Barely acceptable for a completely hung machine,
-no good if you are just trying to diagnose a problem.
+Thanks for reminding me.
 
+	--david
 
