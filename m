@@ -1,35 +1,30 @@
-From: domen@coderock.org
-Date: Sat, 19 Mar 2005 13:19:06 +0000
-Subject: [patch 1/1] printk : arch/ia64/kernel/smp.c
-Message-Id: <20050319131906.E934A1F245@trashy.coderock.org>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 22 Mar 2005 21:52:21 +0000
+Subject: RE: [patch 1/1] printk : arch/ia64/kernel/smp.c
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03211699@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050319131906.E934A1F245@trashy.coderock.org>
+In-Reply-To: <20050319131906.E934A1F245@trashy.coderock.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+> 	if (cpuid = me) {
+>-		printk("%s: trying to call self\n", __FUNCTION__);
+>+		printk(KERN_INFO "%s: trying to call self\n", __FUNCTION__);
+> 		put_cpu();
+> 		return -EBUSY;
+> 	}
 
+I think this is a bit higher priority than KERN_INFO.  If we
+get here, then someone did something wrong at a higher level,
+and they may be disapponited that the function they want called
+isn't going to be called.
 
-printk() calls should include appropriate KERN_* constant.
+Perhaps KERN_WARNING would be more appropriate?
 
-Signed-off-by: Christophe Lucas <clucas@rotomalug.org>
-Signed-off-by: Domen Puncer <domen@coderock.org>
----
+It might also be kind to anyone trying to debug this to print
+the "func" argument.
 
-
- kj-domen/arch/ia64/kernel/smp.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN arch/ia64/kernel/smp.c~printk-arch_ia64_kernel_smp arch/ia64/kernel/smp.c
---- kj/arch/ia64/kernel/smp.c~printk-arch_ia64_kernel_smp	2005-03-18 20:05:41.000000000 +0100
-+++ kj-domen/arch/ia64/kernel/smp.c	2005-03-18 20:05:41.000000000 +0100
-@@ -269,7 +269,7 @@ smp_call_function_single (int cpuid, voi
- 	int me = get_cpu(); /* prevent preemption and reschedule on another processor */
- 
- 	if (cpuid = me) {
--		printk("%s: trying to call self\n", __FUNCTION__);
-+		printk(KERN_INFO "%s: trying to call self\n", __FUNCTION__);
- 		put_cpu();
- 		return -EBUSY;
- 	}
-_
+-Tony
