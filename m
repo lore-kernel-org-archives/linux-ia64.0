@@ -1,38 +1,22 @@
-From: "Martin K. Petersen" <mkp@wildopensource.com>
-Date: Tue, 19 Oct 2004 15:59:12 +0000
-Subject: Re: [PATCH] Convert pgtable cache to slab
-Message-Id: <yq1ekjupulr.fsf@wilson.mkp.net>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 04 Oct 2004 06:23:10 +0000
+Subject: [patch 0/5 salinfo-0.6] summary
+Message-Id: <11145.1096870990@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq1wtxnprkq.fsf@wilson.mkp.net>
-In-Reply-To: <yq1wtxnprkq.fsf@wilson.mkp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Tony" = Luck, Tony <tony.luck@intel.com> writes:
+The next 5 patches update salinfo from 0.5 to 0.6.  The complete
+tarball can be found at ftp://ftp.ocs.com.au:/pub/salinfo-0.6.tar.gz.
+If Bjorn accepts this update then it will move to
+ftp://ftp.kernel.org/pub/linux/kernel/people/helgaas/salinfo-0.6.tar.gz.
 
->> I have made setup_gate() an initcall.
-
-Tony> Did you build with CONFIG_IA32_SUPPORT=y 
-
-Yes I did.
-
-
-Tony> ... the ia32_mem_init() call sets up some gate pages too, won't
-Tony> it run into the same issue that setup_gate() does when called
-Tony> before you've set up the pgtable_cache()? [Just guessing, I
-Tony> didn't try this either]
-
-No because it doesn't use the pgd/pmd/pte calls like setup_gate()
-does.
+cleanup         Remove some dead code from salinfo 0.5, mainly from SuSE
+logrotate       Use a better method of log rotation
+kernel-clear    Handle Ben Woodward's incompatible kernel change in 2.6.9-rc3 
+output          Stop stdout and stderr stamping on each other
+version         Bump the version to 0.6
 
 
-Tony> I'm going to hold off on your patch while I see what happens to
-Tony> the 4-level patch.
-
-Okie.
-
--- 
-Martin K. Petersen	Wild Open Source, Inc.
-mkp@wildopensource.com	http://www.wildopensource.com/
