@@ -1,38 +1,36 @@
-From: Andi Kleen <ak@muc.de>
-Date: Wed, 09 Mar 2005 22:56:14 +0000
-Subject: Re: Page Fault Scalability patch V19 [4/4]: Drop use of
-Message-Id: <m13bv4whrl.fsf@muc.de>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 09 Mar 2005 23:02:54 +0000
+Subject: Re: Page Fault Scalability patch V19 [4/4]: Drop use of page_table_lock
+Message-Id: <Pine.LNX.4.58.0503091500040.30604@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050309201324.29721.28956.sendpatchset@schroedinger.engr.sgi.com>
-	<20050309201344.29721.26698.sendpatchset@schroedinger.engr.sgi.com>
-In-Reply-To: <20050309201344.29721.26698.sendpatchset@schroedinger.engr.sgi.com> (Christoph
- Lameter's message of "Wed, 9 Mar 2005 12:13:44 -0800 (PST)")
+ <20050309201344.29721.26698.sendpatchset@schroedinger.engr.sgi.com>
+ <m13bv4whrl.fsf@muc.de>
+In-Reply-To: <m13bv4whrl.fsf@muc.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
+To: Andi Kleen <ak@muc.de>
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Christoph Lameter <clameter@sgi.com> writes:
+On Wed, 9 Mar 2005, Andi Kleen wrote:
 
-> Do not use the page_table_lock in do_anonymous_page. This will significantly
-> increase the parallelism in the page fault handler in SMP systems. The patch
-> also modifies the definitions of _mm_counter functions so that rss and anon_rss
-> become atomic.
+> I still think it's a bad idea to add arbitary process size limits like this:
 
-I still think it's a bad idea to add arbitary process size limits like this:
+The limit is pretty high: 2^31*PAGE_SIZE bytes. For the standard 4k
+pagesize this will be >8TB.
 
->  
-> +#ifdef CONFIG_ATOMIC_TABLE_OPS
-> +/*
-> + * Atomic page table operations require that the counters are also
-> + * incremented atomically
-> +*/
-> +#define set_mm_counter(mm, member, value) atomic_set(&(mm)->member, value)
-> +#define get_mm_counter(mm, member) ((unsigned long)atomic_read(&(mm)->member))
-> +#define update_mm_counter(mm, member, value) atomic_add(value, &(mm)->member)
-> +#define MM_COUNTER_T atomic_t
+> >
+> > +#ifdef CONFIG_ATOMIC_TABLE_OPS
+> > +/*
+> > + * Atomic page table operations require that the counters are also
+> > + * incremented atomically
+> > +*/
+> > +#define set_mm_counter(mm, member, value) atomic_set(&(mm)->member, value)
+> > +#define get_mm_counter(mm, member) ((unsigned long)atomic_read(&(mm)->member))
+> > +#define update_mm_counter(mm, member, value) atomic_add(value, &(mm)->member)
+> > +#define MM_COUNTER_T atomic_t
+>
+> Can you use atomic64_t on 64bit systems at least?
 
-Can you use atomic64_t on 64bit systems at least? 
-
--Andi
+If atomic64_t is available on all 64 bit systems then its no problem.
