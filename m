@@ -1,646 +1,526 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 27 Sep 2001 01:20:24 +0000
-Subject: [Linux-ia64] [PATCH] important bug fix
-Message-Id: <marc-linux-ia64-105590698805263@msgid-missing>
+Date: Mon, 10 Sep 2001 15:41:05 +0000
+Subject: [Linux-ia64] ia32 cleanup patch
+Message-Id: <marc-linux-ia64-105590698805154@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Yesterday, I discovered that the ia32 subsystem is missing support for
-the regular sigsuspend() system call (newer versions of glibc use
-rt_sigsuspend()).  When looking at the existing ia32 rt_sigsuspend()
-code, I realized that it was wrong and shouldn't work at all.  Turns
-the reason it worked was because there was a missing access_ok() in
-sys_rt_sigsuspend().  Ouch!  This is a serious bug as it creates a
-security hole.  The patch below fixes this problem and updates the
-ia32 subsystem accordingly.
+Here is a cleanup patch for the ia32 subsystem.  Originally, the goal
+was to fix the problems that kept the ia32 subsystem from working when
+using an ia64 page size of 4KB, but I ended up cleaning up the ia32
+mmap() and mprotect() in the end.  The result is that 4KB page size
+should now work, plus realplayer seems to work fine now, too.
 
-Anyhow interested in writing (or enhancing an existing) kernel
-validation suite which will verify that all system calls return
--EFAULT for illegal pointer arguments?  Bugs like these could be
-caught very easily...
+Don, could you take a look at it and perhaps run whatever ia32 test
+suite you have?  If it looks good, I'd like to include these changes
+in the next ia64 patch.
 
 	--david
 
-diff -urN lia64/arch/ia64/ia32/ia32_entry.S lia64-kdb/arch/ia64/ia32/ia32_entry.S
---- lia64/arch/ia64/ia32/ia32_entry.S	Mon Sep 24 21:44:23 2001
-+++ lia64-kdb/arch/ia64/ia32/ia32_entry.S	Wed Sep 26 17:44:51 2001
-@@ -48,31 +48,43 @@
- 	br.ret.sptk.many rp
- END(ia32_clone)
- 
--	//
--	// Get possibly unaligned sigmask argument into an aligned
--	//   kernel buffer
--GLOBAL_ENTRY(ia32_rt_sigsuspend)
--	// We'll cheat and not do an alloc here since we are ultimately
--	// going to do a simple branch to the IA64 sys_rt_sigsuspend.
--	// r32 is still the first argument which is the signal mask.
--	// We copy this 4-byte aligned value to an 8-byte aligned buffer
--	// in the task structure and then jump to the IA64 code.
--	zxt4 r32=r32
--	;;
--	EX(.Lfail, ld4 r2=[r32],4)		// load low part of sigmask
--	;;
--	EX(.Lfail, ld4 r3=[r32])		// load high part of sigmask
--	adds r32=IA64_TASK_THREAD_SIGMASK_OFFSET,r13
--	;;
--	st8 [r32]=r2
--	adds r10=IA64_TASK_THREAD_SIGMASK_OFFSET+4,r13
-+ENTRY(sys32_rt_sigsuspend)
-+	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(8)
-+	alloc loc1=ar.pfs,8,2,3,0		// preserve all eight input regs
-+	mov loc0=rp
-+	mov out0=in0				// mask
-+	mov out1=in1				// sigsetsize
-+	mov out2=sp				// out2 = &sigscratch
-+	.fframe 16
-+	adds sp=-16,sp				// allocate dummy "sigscratch"
- 	;;
-+	.body
-+	br.call.sptk.many rp=ia32_rt_sigsuspend
-+1:	.restore sp
-+	adds sp,sp
-+	mov rp=loc0
-+	mov ar.pfs=loc1
-+	br.ret.sptk.many rp
-+END(sys32_rt_sigsuspend)
- 
--	st4 [r10]=r3
--	br.cond.sptk.many sys_rt_sigsuspend
--
--.Lfail:	br.ret.sptk.many rp	// failed to read sigmask
--END(ia32_rt_sigsuspend)
-+ENTRY(sys32_sigsuspend)
-+	.prologue ASM_UNW_PRLG_RP|ASM_UNW_PRLG_PFS, ASM_UNW_PRLG_GRSAVE(8)
-+	alloc r2=ar.pfs,8,2,3,0			// preserve all eight input regs
-+	mov loc0=rp
-+	mov out0=in0				// mask
-+	mov out1=4				// sigsetsize
-+	;;
-+	mov out2=sp				// out2 = &sigscratch
-+	.fframe 16
-+	adds sp=-16,sp				// allocate dummy "sigscratch"
-+	.body
-+	br.call.sptk.many rp=ia32_rt_sigsuspend
-+1:	.restore sp
-+	adds sp,sp
-+	mov rp=loc0
-+	mov ar.pfs=loc1
-+	br.ret.sptk.many rp
-+END(sys32_sigsuspend)
- 
- GLOBAL_ENTRY(ia32_ret_from_clone)
- 	PT_REGS_UNWIND_INFO(0)
-@@ -236,7 +248,7 @@
- 	data8 sys32_ni_syscall
- 	data8 sys_setreuid	/* 16-bit version */	  /* 70 */
- 	data8 sys_setregid	/* 16-bit version */
--	data8 sys32_ni_syscall
-+	data8 sys32_sigsuspend
- 	data8 sys32_sigpending
- 	data8 sys_sethostname
- 	data8 sys32_setrlimit	  /* 75 */
-@@ -343,7 +355,7 @@
- 	data8 sys_rt_sigpending
- 	data8 sys32_rt_sigtimedwait
- 	data8 sys32_rt_sigqueueinfo
--	data8 ia32_rt_sigsuspend
-+	data8 sys32_rt_sigsuspend
- 	data8 sys32_pread	  /* 180 */
- 	data8 sys32_pwrite
- 	data8 sys_chown	/* 16-bit version */
-diff -urN lia64/arch/ia64/ia32/ia32_signal.c lia64-kdb/arch/ia64/ia32/ia32_signal.c
---- lia64/arch/ia64/ia32/ia32_signal.c	Mon Sep 24 21:45:00 2001
-+++ lia64-kdb/arch/ia64/ia32/ia32_signal.c	Wed Sep 26 16:54:44 2001
-@@ -29,6 +29,10 @@
- #include <asm/segment.h>
- #include <asm/ia32.h>
- 
-+#include "../kernel/sigframe.h"
-+
-+#define A(__x)		((unsigned long)(__x))
-+
- #define DEBUG_SIG	0
- #define _BLOCKABLE	(~(sigmask(SIGKILL) | sigmask(SIGSTOP)))
- 
-@@ -139,7 +143,220 @@
- 	return err;
- }
- 
-+static inline void
-+sigact_set_handler (struct k_sigaction *sa, unsigned int handler, unsigned int restorer)
-+{
-+	if (handler + 1 <= 2)
-+		/* SIG_DFL, SIG_IGN, or SIG_ERR: must sign-extend to 64-bits */
-+		sa->sa.sa_handler = (__sighandler_t) A((int) handler);
-+	else
-+		sa->sa.sa_handler = (__sighandler_t) (((unsigned long) restorer << 32) | handler);
-+}
-+
-+asmlinkage long
-+ia32_rt_sigsuspend (sigset32_t *uset, unsigned int sigsetsize, struct sigscratch *scr)
-+{
-+	extern long ia64_do_signal (sigset_t *oldset, struct sigscratch *scr, long in_syscall);
-+	sigset_t oldset, set;
-+
-+	scr->scratch_unat = 0;	/* avoid leaking kernel bits to user level */
-+	memset(&set.sig, 0, sizeof(&set.sig));
-+
-+	if (sigsetsize > sizeof(sigset_t))
-+		return -EINVAL;
-+
-+	if (copy_from_user(&set.sig, &uset->sig, sigsetsize))
-+		return -EFAULT;
-+
-+	sigdelsetmask(&set, ~_BLOCKABLE);
-+
-+	spin_lock_irq(&current->sigmask_lock);
-+	{
-+		oldset = current->blocked;
-+		current->blocked = set;
-+		recalc_sigpending(current);
-+	}
-+	spin_unlock_irq(&current->sigmask_lock);
-+
-+	/*
-+	 * The return below usually returns to the signal handler.  We need to pre-set the
-+	 * correct error code here to ensure that the right values get saved in sigcontext
-+	 * by ia64_do_signal.
-+	 */
-+	scr->pt.r8 = -EINTR;
-+	while (1) {
-+		current->state = TASK_INTERRUPTIBLE;
-+		schedule();
-+		if (ia64_do_signal(&oldset, scr, 1))
-+			return -EINTR;
-+	}
-+}
-+
-+asmlinkage long
-+sys32_signal (int sig, unsigned int handler)
-+{
-+	struct k_sigaction new_sa, old_sa;
-+	int ret;
-+
-+	sigact_set_handler(&new_sa, handler, 0);
-+	new_sa.sa.sa_flags = SA_ONESHOT | SA_NOMASK;
-+
-+	ret = do_sigaction(sig, &new_sa, &old_sa);
-+
-+	return ret ? ret : IA32_SA_HANDLER(&old_sa);
-+}
-+
-+asmlinkage long
-+sys32_rt_sigaction (int sig, struct sigaction32 *act,
-+		    struct sigaction32 *oact, unsigned int sigsetsize)
-+{
-+	struct k_sigaction new_ka, old_ka;
-+	unsigned int handler, restorer;
-+	int ret;
-+
-+	/* XXX: Don't preclude handling different sized sigset_t's.  */
-+	if (sigsetsize != sizeof(sigset32_t))
-+		return -EINVAL;
-+
-+	if (act) {
-+		ret = get_user(handler, &act->sa_handler);
-+		ret |= get_user(new_ka.sa.sa_flags, &act->sa_flags);
-+		ret |= get_user(restorer, &act->sa_restorer);
-+		ret |= copy_from_user(&new_ka.sa.sa_mask, &act->sa_mask, sizeof(sigset32_t));
-+		if (ret)
-+			return -EFAULT;
-+
-+		sigact_set_handler(&new_ka, handler, restorer);
-+	}
-+
-+	ret = do_sigaction(sig, act ? &new_ka : NULL, oact ? &old_ka : NULL);
-+
-+	if (!ret && oact) {
-+		ret = put_user(IA32_SA_HANDLER(&old_ka), &oact->sa_handler);
-+		ret |= put_user(old_ka.sa.sa_flags, &oact->sa_flags);
-+		ret |= put_user(IA32_SA_RESTORER(&old_ka), &oact->sa_restorer);
-+		ret |= copy_to_user(&oact->sa_mask, &old_ka.sa.sa_mask, sizeof(sigset32_t));
-+	}
-+	return ret;
-+}
-+
-+
-+extern asmlinkage long sys_rt_sigprocmask (int how, sigset_t *set, sigset_t *oset,
-+					   size_t sigsetsize);
-+
-+asmlinkage long
-+sys32_rt_sigprocmask (int how, sigset32_t *set, sigset32_t *oset, unsigned int sigsetsize)
-+{
-+	mm_segment_t old_fs = get_fs();
-+	sigset_t s;
-+	long ret;
-+
-+	if (sigsetsize > sizeof(s))
-+		return -EINVAL;
-+
-+	if (set) {
-+		memset(&s, 0, sizeof(s));
-+		if (copy_from_user(&s.sig, set, sigsetsize))
-+			return -EFAULT;
-+	}
-+	set_fs(KERNEL_DS);
-+	ret = sys_rt_sigprocmask(how, set ? &s : NULL, oset ? &s : NULL, sizeof(s));
-+	set_fs(old_fs);
-+	if (ret)
-+		return ret;
-+	if (oset) {
-+		if (copy_to_user(oset, &s.sig, sigsetsize))
-+			return -EFAULT;
-+	}
-+	return 0;
-+}
-+
-+asmlinkage long
-+sys32_sigprocmask (int how, unsigned int *set, unsigned int *oset)
-+{
-+	return sys32_rt_sigprocmask(how, (sigset32_t *) set, (sigset32_t *) oset, sizeof(*set));
-+}
-+
-+asmlinkage long
-+sys32_rt_sigtimedwait (sigset32_t *uthese, siginfo_t32 *uinfo, struct timespec32 *uts,
-+		       unsigned int sigsetsize)
-+{
-+	extern asmlinkage long sys_rt_sigtimedwait (const sigset_t *, siginfo_t *,
-+						    const struct timespec *, size_t);
-+	extern int copy_siginfo_to_user32 (siginfo_t32 *, siginfo_t *);
-+	mm_segment_t old_fs = get_fs();
-+	struct timespec t;
-+	siginfo_t info;
-+	sigset_t s;
-+	int ret;
-+
-+	if (copy_from_user(&s.sig, uthese, sizeof(sigset32_t)))
-+		return -EFAULT;
-+	if (uts) {
-+		ret = get_user(t.tv_sec, &uts->tv_sec);
-+		ret |= get_user(t.tv_nsec, &uts->tv_nsec);
-+		if (ret)
-+			return -EFAULT;
-+	}
-+	set_fs(KERNEL_DS);
-+	ret = sys_rt_sigtimedwait(&s, &info, &t, sigsetsize);
-+	set_fs(old_fs);
-+	if (ret >= 0 && uinfo) {
-+		if (copy_siginfo_to_user32(uinfo, &info))
-+			return -EFAULT;
-+	}
-+	return ret;
-+}
-+
-+asmlinkage long
-+sys32_rt_sigqueueinfo (int pid, int sig, siginfo_t32 *uinfo)
-+{
-+	extern asmlinkage long sys_rt_sigqueueinfo (int, int, siginfo_t *);
-+	extern int copy_siginfo_from_user32 (siginfo_t *to, siginfo_t32 *from);
-+	mm_segment_t old_fs = get_fs();
-+	siginfo_t info;
-+	int ret;
-+
-+	if (copy_siginfo_from_user32(&info, uinfo))
-+		return -EFAULT;
-+	set_fs(KERNEL_DS);
-+	ret = sys_rt_sigqueueinfo(pid, sig, &info);
-+	set_fs(old_fs);
-+	return ret;
-+}
- 
-+asmlinkage long
-+sys32_sigaction (int sig, struct old_sigaction32 *act, struct old_sigaction32 *oact)
-+{
-+	struct k_sigaction new_ka, old_ka;
-+	unsigned int handler, restorer;
-+	int ret;
-+
-+	if (act) {
-+		old_sigset32_t mask;
-+
-+		ret = get_user(handler, &act->sa_handler);
-+		ret |= get_user(new_ka.sa.sa_flags, &act->sa_flags);
-+		ret |= get_user(restorer, &act->sa_restorer);
-+		ret |= get_user(mask, &act->sa_mask);
-+		if (ret)
-+			return ret;
-+
-+		sigact_set_handler(&new_ka, handler, restorer);
-+		siginitset(&new_ka.sa.sa_mask, mask);
-+	}
-+
-+	ret = do_sigaction(sig, act ? &new_ka : NULL, oact ? &old_ka : NULL);
-+
-+	if (!ret && oact) {
-+		ret = put_user(IA32_SA_HANDLER(&old_ka), &oact->sa_handler);
-+		ret |= put_user(old_ka.sa.sa_flags, &oact->sa_flags);
-+		ret |= put_user(IA32_SA_RESTORER(&old_ka), &oact->sa_restorer);
-+		ret |= put_user(old_ka.sa.sa_mask.sig[0], &oact->sa_mask);
-+	}
-+
-+	return ret;
-+}
- 
- static int
- setup_sigcontext_ia32 (struct sigcontext_ia32 *sc, struct _fpstate_ia32 *fpstate,
-diff -urN lia64/arch/ia64/ia32/sys_ia32.c lia64-kdb/arch/ia64/ia32/sys_ia32.c
---- lia64/arch/ia64/ia32/sys_ia32.c	Mon Sep 24 21:45:20 2001
-+++ lia64-kdb/arch/ia64/ia32/sys_ia32.c	Wed Sep 26 16:36:20 2001
-@@ -538,154 +538,6 @@
- 	return retval;
- }
- 
--static inline void
--sigact_set_handler (struct k_sigaction *sa, unsigned int handler, unsigned int restorer)
--{
--	if (handler + 1 <= 2)
--		/* SIG_DFL, SIG_IGN, or SIG_ERR: must sign-extend to 64-bits */
--		sa->sa.sa_handler = (__sighandler_t) A((int) handler);
--	else
--		sa->sa.sa_handler = (__sighandler_t) (((unsigned long) restorer << 32) | handler);
--}
--
--asmlinkage long
--sys32_signal (int sig, unsigned int handler)
--{
--	struct k_sigaction new_sa, old_sa;
--	int ret;
--
--	sigact_set_handler(&new_sa, handler, 0);
--	new_sa.sa.sa_flags = SA_ONESHOT | SA_NOMASK;
--
--	ret = do_sigaction(sig, &new_sa, &old_sa);
--
--	return ret ? ret : IA32_SA_HANDLER(&old_sa);
--}
--
--asmlinkage long
--sys32_rt_sigaction (int sig, struct sigaction32 *act,
--		    struct sigaction32 *oact, unsigned int sigsetsize)
--{
--	struct k_sigaction new_ka, old_ka;
--	unsigned int handler, restorer;
--	int ret;
--
--	/* XXX: Don't preclude handling different sized sigset_t's.  */
--	if (sigsetsize != sizeof(sigset32_t))
--		return -EINVAL;
--
--	if (act) {
--		ret = get_user(handler, &act->sa_handler);
--		ret |= get_user(new_ka.sa.sa_flags, &act->sa_flags);
--		ret |= get_user(restorer, &act->sa_restorer);
--		ret |= copy_from_user(&new_ka.sa.sa_mask, &act->sa_mask, sizeof(sigset32_t));
--		if (ret)
--			return -EFAULT;
--
--		sigact_set_handler(&new_ka, handler, restorer);
--	}
--
--	ret = do_sigaction(sig, act ? &new_ka : NULL, oact ? &old_ka : NULL);
--
--	if (!ret && oact) {
--		ret = put_user(IA32_SA_HANDLER(&old_ka), &oact->sa_handler);
--		ret |= put_user(old_ka.sa.sa_flags, &oact->sa_flags);
--		ret |= put_user(IA32_SA_RESTORER(&old_ka), &oact->sa_restorer);
--		ret |= copy_to_user(&oact->sa_mask, &old_ka.sa.sa_mask, sizeof(sigset32_t));
--	}
--	return ret;
--}
--
--
--extern asmlinkage long sys_rt_sigprocmask (int how, sigset_t *set, sigset_t *oset,
--					   size_t sigsetsize);
--
--asmlinkage long
--sys32_rt_sigprocmask (int how, sigset32_t *set, sigset32_t *oset, unsigned int sigsetsize)
--{
--	mm_segment_t old_fs = get_fs();
--	sigset_t s;
--	long ret;
--
--	if (sigsetsize > sizeof(s))
--		return -EINVAL;
--
--	if (set) {
--		memset(&s, 0, sizeof(s));
--		if (copy_from_user(&s.sig, set, sigsetsize))
--			return -EFAULT;
--	}
--	set_fs(KERNEL_DS);
--	ret = sys_rt_sigprocmask(how, set ? &s : NULL, oset ? &s : NULL, sizeof(s));
--	set_fs(old_fs);
--	if (ret)
--		return ret;
--	if (oset) {
--		if (copy_to_user(oset, &s.sig, sigsetsize))
--			return -EFAULT;
--	}
--	return 0;
--}
--
--asmlinkage long
--sys32_sigprocmask (int how, unsigned int *set, unsigned int *oset)
--{
--	return sys32_rt_sigprocmask(how, (sigset32_t *) set, (sigset32_t *) oset, sizeof(*set));
--}
--
--struct timespec32 {
--	int	tv_sec;
--	int	tv_nsec;
--};
--
--asmlinkage long
--sys32_rt_sigtimedwait (sigset32_t *uthese, siginfo_t32 *uinfo, struct timespec32 *uts,
--		       unsigned int sigsetsize)
--{
--	extern asmlinkage long sys_rt_sigtimedwait (const sigset_t *, siginfo_t *,
--						    const struct timespec *, size_t);
--	extern int copy_siginfo_to_user32 (siginfo_t32 *, siginfo_t *);
--	mm_segment_t old_fs = get_fs();
--	struct timespec t;
--	siginfo_t info;
--	sigset_t s;
--	int ret;
--
--	if (copy_from_user(&s.sig, uthese, sizeof(sigset32_t)))
--		return -EFAULT;
--	if (uts) {
--		ret = get_user(t.tv_sec, &uts->tv_sec);
--		ret |= get_user(t.tv_nsec, &uts->tv_nsec);
--		if (ret)
--			return -EFAULT;
--	}
--	set_fs(KERNEL_DS);
--	ret = sys_rt_sigtimedwait(&s, &info, &t, sigsetsize);
--	set_fs(old_fs);
--	if (ret >= 0 && uinfo) {
--		if (copy_siginfo_to_user32(uinfo, &info))
--			return -EFAULT;
--	}
--	return ret;
--}
--
--asmlinkage long
--sys32_rt_sigqueueinfo (int pid, int sig, siginfo_t32 *uinfo)
--{
--	extern asmlinkage long sys_rt_sigqueueinfo (int, int, siginfo_t *);
--	extern int copy_siginfo_from_user32 (siginfo_t *to, siginfo_t32 *from);
--	mm_segment_t old_fs = get_fs();
--	siginfo_t info;
--	int ret;
--
--	if (copy_siginfo_from_user32(&info, uinfo))
--		return -EFAULT;
--	set_fs(KERNEL_DS);
--	ret = sys_rt_sigqueueinfo(pid, sig, &info);
--	set_fs(old_fs);
--	return ret;
--}
--
- static inline int
- put_statfs (struct statfs32 *ubuf, struct statfs *kbuf)
- {
-@@ -2694,39 +2546,6 @@
- 		 */
- 		return sys_fcntl(fd, cmd, arg);
- 	}
--}
--
--asmlinkage long
--sys32_sigaction (int sig, struct old_sigaction32 *act, struct old_sigaction32 *oact)
--{
--	struct k_sigaction new_ka, old_ka;
--	unsigned int handler, restorer;
--	int ret;
--
--	if (act) {
--		old_sigset32_t mask;
--
--		ret = get_user(handler, &act->sa_handler);
--		ret |= get_user(new_ka.sa.sa_flags, &act->sa_flags);
--		ret |= get_user(restorer, &act->sa_restorer);
--		ret |= get_user(mask, &act->sa_mask);
--		if (ret)
--			return ret;
--
--		sigact_set_handler(&new_ka, handler, restorer);
--		siginitset(&new_ka.sa.sa_mask, mask);
--	}
--
--	ret = do_sigaction(sig, act ? &new_ka : NULL, oact ? &old_ka : NULL);
--
--	if (!ret && oact) {
--		ret = put_user(IA32_SA_HANDLER(&old_ka), &oact->sa_handler);
--		ret |= put_user(old_ka.sa.sa_flags, &oact->sa_flags);
--		ret |= put_user(IA32_SA_RESTORER(&old_ka), &oact->sa_restorer);
--		ret |= put_user(old_ka.sa.sa_mask.sig[0], &oact->sa_mask);
--	}
--
--	return ret;
- }
- 
- asmlinkage long sys_ni_syscall(void);
-diff -urN lia64/arch/ia64/kernel/sigframe.h lia64-kdb/arch/ia64/kernel/sigframe.h
---- lia64/arch/ia64/kernel/sigframe.h	Mon Sep 24 21:52:26 2001
-+++ lia64-kdb/arch/ia64/kernel/sigframe.h	Wed Sep 26 16:32:49 2001
-@@ -1,3 +1,9 @@
-+struct sigscratch {
-+	unsigned long scratch_unat;	/* ar.unat for the general registers saved in pt */
-+	unsigned long pad;
-+	struct pt_regs pt;
-+};
-+
- struct sigframe {
- 	/*
- 	 * Place signal handler args where user-level unwinder can find them easily.
-diff -urN lia64/arch/ia64/kernel/signal.c lia64-kdb/arch/ia64/kernel/signal.c
---- lia64/arch/ia64/kernel/signal.c	Mon Sep 24 21:52:38 2001
-+++ lia64-kdb/arch/ia64/kernel/signal.c	Wed Sep 26 16:32:46 2001
-@@ -2,7 +2,7 @@
-  * Architecture-specific signal handling support.
+diff -urN lia64/arch/ia64/ia32/binfmt_elf32.c lia64-kdb/arch/ia64/ia32/binfmt_elf32.c
+--- lia64/arch/ia64/ia32/binfmt_elf32.c	Mon Apr 23 12:04:15 2001
++++ lia64-kdb/arch/ia64/ia32/binfmt_elf32.c	Sun Sep  9 23:40:56 2001
+@@ -3,7 +3,7 @@
   *
-  * Copyright (C) 1999-2001 Hewlett-Packard Co
-- * Copyright (C) 1999-2001 David Mosberger-Tang <davidm@hpl.hp.com>
+  * Copyright (C) 1999 Arun Sharma <arun.sharma@intel.com>
+  * Copyright (C) 2001 Hewlett-Packard Co
+- * Copyright (C) 2001 David Mosberger-Tang <davidm@hpl.hp.com>
 + *	David Mosberger-Tang <davidm@hpl.hp.com>
   *
-  * Derived from i386 and Alpha versions.
-  */
-@@ -39,12 +39,6 @@
- # define GET_SIGSET(k,u)	__get_user((k)->sig[0], &(u)->sig[0])
- #endif
+  * 06/16/00	A. Mallick	initialize csd/ssd/tssd/cflg for ia32_load_state
+  * 04/13/01	D. Mosberger	dropped saving tssd in ar.k1---it's not needed
+@@ -51,16 +51,13 @@
+ /* Global descriptor table */
+ unsigned long *ia32_gdt_table, *ia32_tss;
  
--struct sigscratch {
--	unsigned long scratch_unat;	/* ar.unat for the general registers saved in pt */
--	unsigned long pad;
--	struct pt_regs pt;
--};
+-struct page *
++static struct page *
+ put_shared_page (struct task_struct * tsk, struct page *page, unsigned long address)
+ {
+ 	pgd_t * pgd;
+ 	pmd_t * pmd;
+ 	pte_t * pte;
+ 
+-	if (page_count(page) != 1)
+-		printk("mem_map disagrees with %p at %08lx\n", (void *) page, address);
 -
- extern long ia64_do_signal (sigset_t *, struct sigscratch *, long);	/* forward decl */
+ 	pgd = pgd_offset(tsk->mm, address);
  
- long
-@@ -55,6 +49,10 @@
- 	/* XXX: Don't preclude handling different sized sigset_t's.  */
- 	if (sigsetsize != sizeof(sigset_t))
- 		return -EINVAL;
+ 	spin_lock(&tsk->mm->page_table_lock);
+@@ -96,6 +93,9 @@
+ 	 * Map GDT and TSS below 4GB, where the processor can find them.  We need to map
+ 	 * it with privilege level 3 because the IVE uses non-privileged accesses to these
+ 	 * tables.  IA-32 segmentation is used to protect against IA-32 accesses to them.
++	 *
++	 * Note: Since we don't have a vmarea for the GDT and TSS pages, we don't need
++	 *	 to worry about an exit()ing IA-32 task freeing these pages.
+ 	 */
+ 	put_shared_page(current, virt_to_page(ia32_gdt_table), IA32_GDT_OFFSET);
+ 	if (PAGE_SHIFT <= IA32_PAGE_SHIFT)
+@@ -213,6 +213,7 @@
+ 	return 0;
+ }
+ 
++#if 0
+ static unsigned long
+ ia32_mm_addr (unsigned long addr)
+ {
+@@ -224,34 +225,38 @@
+ 		return ELF_PAGESTART(addr);
+ 	return ELF_PAGEALIGN(addr);
+ }
++#endif
+ 
+ /*
+- *  Normally we would do an `mmap' to map in the process's text section.
+- *  This doesn't work with IA32 processes as the ELF file might specify
+- *  a non page size aligned address.  Instead we will just allocate
+- *  memory and read the data in from the file.  Slightly less efficient
+- *  but it works.
++ * Normally we would do an `mmap' to map in the process's text section.  This doesn't work
++ * with IA32 processes as the ELF file might specify a non page size aligned address.
++ * Instead we will just allocate memory and read the data in from the file.  Slightly less
++ * efficient but it works.
+  */
+-extern long ia32_do_mmap (struct file *filep, unsigned int len, unsigned int prot,
+-			  unsigned int flags, unsigned int fd, unsigned int offset);
+-
+ static unsigned long
+ elf_map32 (struct file *filep, unsigned long addr, struct elf_phdr *eppnt, int prot, int type)
+ {
+ 	unsigned long retval;
+ 
+-	if (eppnt->p_memsz >= (1UL<<32) || addr > (1UL<<32) - eppnt->p_memsz)
+-		return -EINVAL;
+-
+ 	/*
+-	 *  Make sure the elf interpreter doesn't get loaded at location 0
+-	 *    so that NULL pointers correctly cause segfaults.
++	 * Make sure the elf interpreter doesn't get loaded at location 0 so that NULL
++	 * pointers correctly cause segfaults.
+ 	 */
+ 	if (addr = 0)
+ 		addr += PAGE_SIZE;
 +
-+	if (!access_ok(VERIFY_READ, uset, sigsetsize))
-+		return -EFAULT;
++#if 0
++	if (eppnt->p_memsz >= (1UL<<32) || addr > (1UL<<32) - eppnt->p_memsz)
++		return -EINVAL;
 +
- 	if (GET_SIGSET(&set, uset))
+ 	set_brk(ia32_mm_addr(addr), addr + eppnt->p_memsz);
+ 	memset((char *) addr + eppnt->p_filesz, 0, eppnt->p_memsz - eppnt->p_filesz);
+ 	kernel_read(filep, eppnt->p_offset, (char *) addr, eppnt->p_filesz);
+ 	retval = (unsigned long) addr;
++#else
++	retval = ia32_do_mmap(filep, (addr & IA32_PAGE_MASK),
++			      eppnt->p_filesz + (eppnt->p_vaddr & ~IA32_PAGE_MASK), prot, type,
++			      eppnt->p_offset - (eppnt->p_vaddr & ~IA32_PAGE_MASK));
++#endif
+ 	return retval;
+ }
+diff -urN lia64/arch/ia64/ia32/ia32_entry.S lia64-kdb/arch/ia64/ia32/ia32_entry.S
+--- lia64/arch/ia64/ia32/ia32_entry.S	Tue Jun 26 22:21:54 2001
++++ lia64-kdb/arch/ia64/ia32/ia32_entry.S	Sun Sep  9 16:35:30 2001
+@@ -85,7 +85,7 @@
+ 	st8.spill [r2]=r8			// store return value in slot for r8
+ 	br.call.sptk.few rp=invoke_syscall_trace // give parent a chance to catch return value
+ .ret2:	alloc r2=ar.pfs,0,0,0,0			// drop the syscall argument frame
+-	br.cond.sptk.many ia64_leave_kernel	// rp MUST be != ia64_leave_kernel!
++	br.cond.sptk.many ia64_leave_kernel
+ END(ia32_trace_syscall)
+ 
+ GLOBAL_ENTRY(sys32_vfork)
+diff -urN lia64/arch/ia64/ia32/sys_ia32.c lia64-kdb/arch/ia64/ia32/sys_ia32.c
+--- lia64/arch/ia64/ia32/sys_ia32.c	Mon Aug 20 12:20:42 2001
++++ lia64-kdb/arch/ia64/ia32/sys_ia32.c	Sun Sep  9 23:56:16 2001
+@@ -7,8 +7,8 @@
+  * Copyright (C) 1999		Arun Sharma <arun.sharma@intel.com>
+  * Copyright (C) 1997,1998	Jakub Jelinek (jj@sunsite.mff.cuni.cz)
+  * Copyright (C) 1997		David S. Miller (davem@caip.rutgers.edu)
+- * Copyright (C) 2000		Hewlett-Packard Co.
+- * Copyright (C) 2000		David Mosberger-Tang <davidm@hpl.hp.com>
++ * Copyright (C) 2000-2001 Hewlett-Packard Co
++ *	David Mosberger-Tang <davidm@hpl.hp.com>
+  *
+  * These routines maintain argument size conversion between 32bit and 64bit
+  * environment.
+@@ -66,6 +66,10 @@
+ 
+ extern asmlinkage long sys_execve (char *, char **, char **, struct pt_regs *);
+ extern asmlinkage long sys_mprotect (unsigned long, size_t, unsigned long);
++extern asmlinkage long sys_munmap (unsigned long, size_t);
++
++/* forward declaration: */
++asmlinkage long sys32_mprotect (unsigned int, unsigned int, int);
+ 
+ static int
+ nargs (unsigned int arg, char **ap)
+@@ -217,96 +221,137 @@
+ 
+ #define OFFSET4K(a)	((a) & 0xfff)
+ 
+-unsigned long
+-do_mmap_fake(struct file *file, unsigned long addr, unsigned long len,
+-	unsigned long prot, unsigned long flags, loff_t off)
++#if PAGE_SHIFT > IA32_PAGE_SHIFT
++
++static unsigned long
++do_mmap_fake (struct file *file, unsigned long addr, unsigned long len, int prot, int flags,
++	      loff_t off)
+ {
++	unsigned long faddr = (addr & PAGE_MASK), end, front_len, back_len, retval;
++	void *front = 0, *back = 0;
+ 	struct inode *inode;
+-	void *front, *back;
+-	unsigned long baddr;
+-	int r;
+ 	char c;
+ 
+-	if (OFFSET4K(addr) || OFFSET4K(off))
+-		return -EINVAL;
++	/*
++	 * Allow any kind of access: this lets us avoid having to figure out what the
++	 * protection of the partial front and back pages is...
++	 */
+ 	prot |= PROT_WRITE;
+-	front = NULL;
+-	back = NULL;
+-	if ((baddr = (addr & PAGE_MASK)) != addr && get_user(c, (char *)baddr) = 0) {
+-		front = kmalloc(addr - baddr, GFP_KERNEL);
++
++	if (OFFSET4K(addr))
++		return -EINVAL;
++
++	end = addr + len;
++	front_len = addr - faddr;
++	back_len = (end & ~PAGE_MASK);
++
++	if (front_len && get_user(c, (char *)faddr) = 0) {
++		front = kmalloc(front_len, GFP_KERNEL);
+ 		if (!front)
+ 			return -ENOMEM;
+-		__copy_user(front, (void *)baddr, addr - baddr);
++		__copy_user(front, (void *)faddr, front_len);
+ 	}
+-	if (addr && ((addr + len) & ~PAGE_MASK) && get_user(c, (char *)(addr + len)) = 0) {
+-		back = kmalloc(PAGE_SIZE - ((addr + len) & ~PAGE_MASK), GFP_KERNEL);
++
++	if (addr && back_len && get_user(c, (char *)end) = 0) {
++		back = kmalloc(PAGE_SIZE - back_len, GFP_KERNEL);
+ 		if (!back) {
+-			if (front)
+-				kfree(front);
+-			return -ENOMEM;
++			addr = -ENOMEM;
++			goto fail;
+ 		}
+-		__copy_user(back, (char *)addr + len, PAGE_SIZE - ((addr + len) & ~PAGE_MASK));
++		__copy_user(back, (char *)end, PAGE_SIZE - back_len);
+ 	}
++
+ 	down_write(&current->mm->mmap_sem);
+-	r = do_mmap(0, baddr, len + (addr - baddr), prot, flags | MAP_ANONYMOUS, 0);
++	{
++		retval = do_mmap(0, faddr, len + front_len, prot, flags | MAP_ANONYMOUS, 0);
++	}
+ 	up_write(&current->mm->mmap_sem);
+-	if (r < 0)
+-		return(r);
+-	if (addr = 0)
+-		addr = r;
++
++	if (IS_ERR((void *) retval)) {
++		addr = retval;
++		goto fail;
++	}
++
++	if (!addr)
++		addr = retval;
++
++	end = addr + len;
++
+ 	if (back) {
+-		__copy_user((char *)addr + len, back, PAGE_SIZE - ((addr + len) & ~PAGE_MASK));
++		__copy_user((char *) end, back, PAGE_SIZE - back_len);
+ 		kfree(back);
+ 	}
+ 	if (front) {
+-		__copy_user((void *)baddr, front, addr - baddr);
++		__copy_user((void *) faddr, front, front_len);
+ 		kfree(front);
+ 	}
+-	if (flags & MAP_ANONYMOUS) {
+-		clear_user((char *)addr, len);
+-		return(addr);
++
++	if (!(flags & MAP_ANONYMOUS)) {
++		inode = file->f_dentry->d_inode;
++		if (!inode->i_fop
++		    || !file->f_op->read
++		    || (*file->f_op->read)(file, (char *)addr, len, &off) < 0)
++		{
++			sys_munmap(addr, len + front_len);
++			return -EINVAL;
++		}
+ 	}
+-	if (!file)
+-		return -EINVAL;
+-	inode = file->f_dentry->d_inode;
+-	if (!inode->i_fop)
+-		return -EINVAL;
+-	if (!file->f_op->read)
+-		return -EINVAL;
+-	r = file->f_op->read(file, (char *)addr, len, &off);
+-	return (r < 0) ? -EINVAL : addr;
++	return addr;
++
++  fail:
++	if (front)
++		kfree(front);
++	if (back)
++		kfree(back);
++	return addr;
+ }
+ 
+-long
+-ia32_do_mmap (struct file *file, unsigned int addr, unsigned int len, unsigned int prot,
+-	      unsigned int flags, unsigned int fd, unsigned int offset)
++#endif /* PAGE_SHIFT > IA32_PAGE_SHIFT */
++
++unsigned long
++ia32_do_mmap (struct file *file, unsigned long addr, unsigned long len, int prot, int flags,
++	      loff_t offset)
+ {
+-	long error = -EFAULT;
+-	unsigned int poff;
++	if (file && (!file->f_op || !file->f_op->mmap))
++		return -ENODEV;
+ 
+-	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
+-	prot |= PROT_EXEC;
++	len = IA32_PAGE_ALIGN(len);
++	if (len = 0)
++		return addr;
++
++	if (len > IA32_PAGE_OFFSET || addr > IA32_PAGE_OFFSET - len)
++		return -EINVAL;
++
++	if (OFFSET4K(offset))
++		return -EINVAL;
++
++	if (prot & (PROT_READ | PROT_WRITE))
++		prot |= PROT_EXEC;	/* x86 has no "execute" permission bit... */
+ 
++#if PAGE_SHIFT > IA32_PAGE_SHIFT
+ 	if ((flags & MAP_FIXED) && ((addr & ~PAGE_MASK) || (offset & ~PAGE_MASK)))
+-		error = do_mmap_fake(file, addr, len, prot, flags, (loff_t)offset);
+-	else {
+-		poff = offset & PAGE_MASK;
+-		len += offset - poff;
++		addr = do_mmap_fake(file, addr, len, prot, flags, offset);
++	else
++#endif
++	{
++		loff_t pgoff = offset & PAGE_MASK;
++		len += offset - pgoff;
+ 
+ 		down_write(&current->mm->mmap_sem);
+-		error = do_mmap_pgoff(file, addr, len, prot, flags, poff >> PAGE_SHIFT);
++		{
++			addr = do_mmap(file, addr, len, prot, flags, pgoff);
++		}
+ 		up_write(&current->mm->mmap_sem);
+ 
+-		if (!IS_ERR((void *) error))
+-			error += offset - poff;
++		if (!IS_ERR((void *) addr))
++			addr += offset - pgoff;
+ 	}
+-	return error;
++	return addr;
+ }
+ 
+ /*
+- * Linux/i386 didn't use to be able to handle more than
+- * 4 system call parameters, so these system calls used a memory
+- * block for parameter passing..
++ * Linux/i386 didn't use to be able to handle more than 4 system call parameters, so these
++ * system calls used a memory block for parameter passing..
+  */
+ 
+ struct mmap_arg_struct {
+@@ -319,56 +364,114 @@
+ };
+ 
+ asmlinkage long
+-sys32_mmap(struct mmap_arg_struct *arg)
++sys32_mmap (struct mmap_arg_struct *arg)
+ {
+ 	struct mmap_arg_struct a;
+ 	struct file *file = NULL;
+-	long retval;
++	unsigned long addr;
++	int flags;
+ 
+ 	if (copy_from_user(&a, arg, sizeof(a)))
  		return -EFAULT;
  
-@@ -73,15 +71,9 @@
- 	 * pre-set the correct error code here to ensure that the right values
- 	 * get saved in sigcontext by ia64_do_signal.
- 	 */
--#ifdef CONFIG_IA32_SUPPORT
--        if (IS_IA32_PROCESS(&scr->pt)) {
--                scr->pt.r8 = -EINTR;
--        } else
--#endif
--	{
--		scr->pt.r8 = EINTR;
--		scr->pt.r10 = -1;
--	}
-+	scr->pt.r8 = EINTR;
-+	scr->pt.r10 = -1;
+-	if (PAGE_ALIGN(a.len) = 0)
+-		return a.addr;
++	if (OFFSET4K(a.offset))
++		return -EINVAL;
 +
- 	while (1) {
- 		current->state = TASK_INTERRUPTIBLE;
- 		schedule();
++	flags = a.flags;
+ 
+-	if (!(a.flags & MAP_ANONYMOUS)) {
++	flags &= ~(MAP_EXECUTABLE | MAP_DENYWRITE);
++	if (!(flags & MAP_ANONYMOUS)) {
+ 		file = fget(a.fd);
+ 		if (!file)
+ 			return -EBADF;
+ 	}
+-#ifdef	CONFIG_IA64_PAGE_SIZE_4KB
+-	if ((a.offset & ~PAGE_MASK) != 0)
+-		return -EINVAL;
+ 
+-	down_write(&current->mm->mmap_sem);
+-	retval = do_mmap_pgoff(file, a.addr, a.len, a.prot, a.flags, a.offset >> PAGE_SHIFT);
+-	up_write(&current->mm->mmap_sem);
+-#else
+-	retval = ia32_do_mmap(file, a.addr, a.len, a.prot, a.flags, a.fd, a.offset);
+-#endif
++	addr = ia32_do_mmap(file, a.addr, a.len, a.prot, flags, a.offset);
++
+ 	if (file)
+ 		fput(file);
+-	return retval;
++	return addr;
++}
++
++#if PAGE_SHIFT > IA32_PAGE_SHIFT
++
++/*
++ * When mprotect()ing a partial page, we set the permission to the union of the old
++ * settings and the new settings.  In other words, it's only possible to make access to a
++ * partial page less restrictive.
++ */
++static long
++mprotect_partial_page (unsigned long address, int new_prot)
++{
++	struct mm_struct *mm = current->mm;
++	struct vm_area_struct *vma;
++	int old_prot = 0;
++
++	if (new_prot = PROT_NONE)
++		return 0;		/* optimize case where nothing changes... */
++
++	address &= ~PAGE_MASK;
++
++	down_read(&mm->mmap_sem);
++	{
++		vma = find_vma(mm, address);
++		if (vma && vma->vm_start <= address)
++			old_prot = (vma->vm_flags & 0xf);
++	}
++	up_read(&mm->mmap_sem);
++
++	return sys_mprotect(address, PAGE_SIZE, new_prot | old_prot);
+ }
+ 
++#endif /* PAGE_SHIFT > IA32_PAGE_SHIFT */
++
+ asmlinkage long
+-sys32_mprotect(unsigned long start, size_t len, unsigned long prot)
++sys32_mprotect (unsigned int start, unsigned int len, int prot)
+ {
++#if PAGE_SHIFT > IA32_PAGE_SHIFT
++	unsigned long end;
++	long retval;
++#endif
+ 
+-#ifdef	CONFIG_IA64_PAGE_SIZE_4KB
+-	return(sys_mprotect(start, len, prot));
+-#else	// CONFIG_IA64_PAGE_SIZE_4KB
+-	if (prot = 0)
+-		return(0);
+-	len += start & ~PAGE_MASK;
+-	if ((start & ~PAGE_MASK) && (prot & PROT_WRITE))
++	if (prot & (PROT_READ | PROT_WRITE))
++		/* on x86, PROT_WRITE implies PROT_READ and PROT_READ implies PROT_EXEC... */
+ 		prot |= PROT_EXEC;
+-	return(sys_mprotect(start & PAGE_MASK, len & PAGE_MASK, prot));
+-#endif	// CONFIG_IA64_PAGE_SIZE_4KB
++
++#if PAGE_SHIFT > IA32_PAGE_SHIFT
++	if (OFFSET4K(start))
++		return -EINVAL;
++
++	len = IA32_PAGE_ALIGN(len);
++	end = start + len;
++	if (end < start)
++		return -EINVAL;
++
++	if (start & ~PAGE_MASK) {
++		/* start address is 4KB aligned but not page aligned. */
++		retval = mprotect_partial_page(start, prot);
++		if (retval < 0)
++			return retval;
++
++		len -= (start & ~PAGE_MASK);
++		start = PAGE_ALIGN(start);
++
++		if (start >= end)
++			return 0;
++	}
++
++	if (end & ~PAGE_MASK) {
++		/* end address is 4KB aligned but not page aligned. */
++		retval = mprotect_partial_page(end, prot);
++		if (retval < 0)
++			return retval;
++		len -= (len & ~PAGE_MASK);
++	}
++#endif
++	return sys_mprotect(start, len, prot);
+ }
+ 
+ asmlinkage long
+-sys32_pipe(int *fd)
++sys32_pipe (int *fd)
+ {
+ 	int retval;
+ 	int fds[2];
+@@ -397,8 +500,8 @@
+ }
+ 
+ asmlinkage long
+-sys32_rt_sigaction(int sig, struct sigaction32 *act,
+-		   struct sigaction32 *oact,  unsigned int sigsetsize)
++sys32_rt_sigaction (int sig, struct sigaction32 *act,
++		    struct sigaction32 *oact,  unsigned int sigsetsize)
+ {
+ 	struct k_sigaction new_ka, old_ka;
+ 	int ret;
 diff -urN lia64/include/asm-ia64/ia32.h lia64-kdb/include/asm-ia64/ia32.h
---- lia64/include/asm-ia64/ia32.h	Mon Sep 24 22:56:58 2001
-+++ lia64-kdb/include/asm-ia64/ia32.h	Wed Sep 26 16:34:37 2001
-@@ -39,6 +39,11 @@
+--- lia64/include/asm-ia64/ia32.h	Mon Jul 23 14:38:14 2001
++++ lia64-kdb/include/asm-ia64/ia32.h	Sun Sep  9 22:38:10 2001
+@@ -34,6 +34,8 @@
+ 
+ #define IA32_PAGE_SHIFT		12	/* 4KB pages */
+ #define IA32_PAGE_SIZE		(1ULL << IA32_PAGE_SHIFT)
++#define IA32_PAGE_MASK		(~(IA32_PAGE_SIZE - 1))
++#define IA32_PAGE_ALIGN(addr)	(((addr) + IA32_PAGE_SIZE - 1) & IA32_PAGE_MASK)
  #define IA32_CLOCKS_PER_SEC	100	/* Cast in stone for IA32 Linux */
  #define IA32_TICK(tick)		((unsigned long long)(tick) * IA32_CLOCKS_PER_SEC / CLOCKS_PER_SEC)
  
-+struct timespec32 {
-+	int	tv_sec;
-+	int	tv_nsec;
-+};
-+
- /* fcntl.h */
- struct flock32 {
-        short l_type;
-diff -urN lia64/include/asm-ia64/processor.h lia64-kdb/include/asm-ia64/processor.h
---- lia64/include/asm-ia64/processor.h	Mon Sep 24 22:26:48 2001
-+++ lia64-kdb/include/asm-ia64/processor.h	Wed Sep 26 16:25:01 2001
-@@ -347,10 +344,7 @@
- 	__u64 ssd;			/* IA32 stack selector descriptor */
- 	__u64 tssd;			/* IA32 TSS descriptor */
- 	__u64 old_iob;			/* old IOBase value */
--	union {
--		__u64 sigmask;		/* aligned mask for sigsuspend scall */
--	} un;
--# define INIT_THREAD_IA32	0, 0, 0x17800000037fULL, 0, 0, 0, 0, 0, 0, {0},
-+# define INIT_THREAD_IA32	0, 0, 0x17800000037fULL, 0, 0, 0, 0, 0, 0,
- #else
- # define INIT_THREAD_IA32
- #endif /* CONFIG_IA32_SUPPORT */
+@@ -421,6 +423,7 @@
+ extern void ia32_init_addr_space (struct pt_regs *regs);
+ extern int ia32_setup_arg_pages (struct linux_binprm *bprm);
+ extern int ia32_exception (struct pt_regs *regs, unsigned long isr);
++extern unsigned long ia32_do_mmap (struct file *, unsigned long, unsigned long, int, int, loff_t);
+ 
+ #endif /* !CONFIG_IA32_SUPPORT */
+ 
 
