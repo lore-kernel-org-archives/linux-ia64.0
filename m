@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 22 Jul 2002 18:05:50 +0000
+From: Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
+Date: Mon, 22 Jul 2002 23:54:23 +0000
 Subject: Re: [Linux-ia64] kernel update (relative to v2.4.18)
-Message-Id: <marc-linux-ia64-105590701905802@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905805@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,28 +10,46 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 22 Jul 2002 13:54:36 +0200, Andreas Schwab <schwab@suse.de> said:
+Hi,
 
-  Andreas> David Mosberger <davidm@napali.hpl.hp.com> writes: |> The
-  Andreas> latest ia64 kernel patch is at |>
-  Andreas> ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/ in
-  Andreas> file: |> |> linux-2.4.18-ia64-020719.diff.gz
+On Sat, 20 Jul 2002 00:08:22 -0700
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
 
-  Andreas> Why are you explicitly disabling CONFIG_BLK_DEV_LOOP,
-  Andreas> CONFIG_BLK_DEV_NBD and CONFIG_BLK_DEV_RAM?
+> The latest ia64 kernel patch is at
+> ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/ in file:
+> 
+>         linux-2.4.18-ia64-020719.diff.gz
 
-I generally trust Keith's build-environment related fixes.  Turned out
-to be a mistake in this particular case.  I just uploaded a new
-patch:
+In this version, my system doesn't boot without increasing swiotlb.
+It was able to boot with default swiotlb in the previous version.
 
-	linux-2.4.18-ia64-020722.diff.gz
+I found eepro100 driver was trying to get swiotlb of
+(0x610 bytes * 1024 = 0x184000) at booting, and this caused
+swiotlb shortage.
 
-It goes back to the more drastic solution of turning off "xconfig"
-alltogether (it tells you to use "menuconfig" instead).  I don't care
-about "xconfig" myself, but of course will welcome patches that fix
-the problems for real.
+I guess the problem might be caused by this modification;
 
-The new patch also has the additional #define's needed for the tg3 driver.
+> - Include eepro1000 and Tigon3 support (various, plus bug fixes by
+>   Grant Grundler for these and other gigE cards)
 
-	--david
+In linux-2.4.18/drivers/net/eepro100.c, RX_RING_SIZE is changed to 1024!!
+
+-------------
+ /* A few values that may be tweaked. */
+ /* The ring sizes should be a power of two for efficiency. */
+-#define TX_RING_SIZE   32
+-#define RX_RING_SIZE   32
++#define TX_RING_SIZE   64
++#define RX_RING_SIZE   1024
+--------------
+
+If this modification is permanent, I think default value of swiotlb
+should be increased. Any comment?
+
+Regards,
+Kimi
+
+-- 
+Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp>
+
 
