@@ -1,7 +1,7 @@
-From: Jes Sorensen <Jes.Sorensen@cern.ch>
-Date: Tue, 22 Feb 2000 10:34:23 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Wed, 23 Feb 2000 05:07:04 +0000
 Subject: Re: [Linux-ia64] building the toolchain
-Message-Id: <marc-linux-ia64-105590678204952@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678204964@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678204943@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678204943@msgid-missing>
@@ -10,30 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Jim" = Jim Wilson <wilson@cygnus.com> writes:
+	The only trouble I had was with 'make install prefix=/usr/local/ia64/'
+	command, where the Makefile in build/itcl/iwidgets3.0.0/unix needed to be
+	fixed a bit, to point to the TCL and TK directories within the top-level src
+	directory.
 
-Jim> The OS CD-rom does contain a copy of the glibc sources in
-Jim> /usr/src.  So you can still do a build, but you essentially have
-Jim> to build gcc and glibc at the same time.  I've never done that.
-Jim> I'm a novice when it comes to glibc builds, so I can't guarantee
-Jim> that I can figure out how to do this.
+The recommended way to build the toolchain is to specify prefix when
+configuring, not when installing.  E.g., something like
+	configure --prefix=/usr/local/ia64 ...
+	make all
+	make install
+If you give the prefix at configure time, then programs with builtin pathnames
+will have the correct pathnames.  If you give the prefix at install time,
+some programs may fail to work, unless you set an environment variable or
+use a command line option to override the default pathnames.
 
-Hmmm bummer
+If you did not specify a prefix to configure, this may explain why
+itcl/iwidgets3.0.0/unix got confused.  configure thought you were building
+something for /usr/local by default, it noticed that there was already tcl/tk
+stuff in /usr/local, and tried to use it.  This stuff is obviously wrong for
+a cross compiler though.  And it is also wrong because you ended up with
+pathnames pointing to someone else's tcl/tk source tree.
 
-Well it shouldn't be too hard actually.
+	What I haven't yet seen is a glibc release (with include files) that lets
+	you build even simple IA64 apps.
 
-First trick is to build gcc for cross compiling like if you were
-simply compiling the kernel. Then build glibc with something like
-this:
+This is unfortunate.
 
-mkdir glibc-build
-cd glibc-build
-../glibc/configure  --with-headers=/usr/src/linux-ia64/include --disable-profile --disable-sanity-checks --disable-cvs --enable-add-ons=crypt --prefix=<glibc-hack-directory>  --host=ia64-gnu-linux --build=i386-linux
-make install
+However, there are glibc sources in /usr/src on the OS CD-rom.  If you are
+feeling adventurous, you could try to compile them yourself.  I haven't
+tried this myself.  I'll probably wait until the linux distributors have
+something ready.
 
-Then afterwards one should be able to configure gcc to pick up the
-glibc headers and library.
-
-Jes
+Jim
 
 
