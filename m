@@ -1,50 +1,30 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Mon, 07 Apr 2003 22:09:44 +0000
-Subject: Re: [Linux-ia64] spin_unlock() problem
-Message-Id: <marc-linux-ia64-105590723705429@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 07 Apr 2003 22:18:43 +0000
+Subject: RE: [Linux-ia64] spin_unlock() problem
+Message-Id: <marc-linux-ia64-105590723705430@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705414@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705414@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+> Thanks for the book reference, I went and read it and then went on to
+> the Intel IA-64 Architecture Software Developer's Manual, vol #1. I
+> only have an old version 1.1 dated July 2000, so it's possible that
+> there is an updated version out with further clarifications.
 
-David> *a is guaranteed to have the value "foo" when *b observes bar.
-David> spin_unlock() has release semantics and that ensures that all
-David> subsequent (in program order) memory operations are observed
-David> after the store with release semantics.
+Newer versions of the manuals can be found online at developer.intel.com
+(follow links: h/w design > processors > server processors > Itanium family=
+")
 
-Hi David,
+In particular you might be interested in "A Formal Specification of Intel=AE
+Itanium=AE Processor Family Memory Ordering"
 
-Back to getting a sore head from this one ;-(
+http://developer.intel.com/design/itanium/downloads/251429.htm
 
-Thanks for the book reference, I went and read it and then went on to
-the Intel IA-64 Architecture Software Developer's Manual, vol #1. I
-only have an old version 1.1 dated July 2000, so it's possible that
-there is an updated version out with further clarifications.
+[But it might just make your head hurt even more].
 
-Quoting section 4.4.7 "Memory Access Ordering", 2nd paragraph, it says
-" .... Release data accesses guarantee that all previous data accesses
-are made visible prior to being made visible themselves." The way I
-understand that, it is possible that a store performed after an st.rel
-may become visible prior to the st.rel, like in this example:
-
-  st [r2] = r32
-  st.rel [r3] = r33
-  st [r4] = r34
-
-In other words we are only guarantied that [r2] is valid when [r3]
-appears but have no guarantie that [r4] doesn't show up on the bus
-prior to [r3]?
-
-Sorry for continuing to pester you about this one, it's the only
-explanation I can find for the problems some people have been seeing
-for tty->count getting messed up in some cases (it is always modified
-while holding a spin lock).
-
-Cheers,
-Jes
+-Tony Luck
 
