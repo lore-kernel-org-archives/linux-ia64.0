@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Wed, 04 Feb 2004 19:17:00 +0000
+From: Jack Steiner <steiner@sgi.com>
+Date: Wed, 04 Feb 2004 19:40:47 +0000
 Subject: Re: [PATCH] turn off irqdebug by default on Altix
-Message-Id: <20040204111700.2cf6bc80.akpm@osdl.org>
+Message-Id: <20040204194047.GC18796@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040204152841.GB3387@localhost>
 In-Reply-To: <20040204152841.GB3387@localhost>
@@ -10,22 +10,44 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Martin Hicks <mort@bork.org> wrote:
->
-> A while ago there was a discussion, started by Jack Steiner, about a hot
->  cache line in the irqdebug code that makes booting on large machines
->  very slow.  The original thread can be found here:
+On Wed, Feb 04, 2004 at 02:08:05PM -0500, Martin Hicks wrote:
 > 
->  http://marc.theaimsgroup.com/?l=linux-kernel&m6858073229831&w=2
 > 
->  The end result was that it was felt that irqdebug sould remain on by
->  default on small machines, and that large machines should turn it off be
->  default if it was causing a problem.
+> On Wed, Feb 04, 2004 at 11:04:43AM -0800, Chen, Kenneth W wrote:
+> > This is really confusing with two parameters that do the same thing.
+> > What will happen if someone pass noirqdebug and irqdebug at the same
+> > time?
+> > 
+> > What's wrong with boot time parameter of noirqdebug?
+> 
+> It just means that if you forget to pass this option then your machine
+> never boots.  Well, it will boot.  Eventually.  Jack is a patient man,
+> and he said he never waited long enough for it to boot.
 
-Yup.
+Actually, I determined that a big system would never boot. Each cpu would have to
+do about 1500usec of work every 1000usec.  (highly dependent on the
+system interconnect).
 
->  Here is a patch that turns it off for sn2.  It applies cleanly against
->  the linux-2.5 bk tree from this morning.
+Each clock tick, the desc->irq_count is incremented by each cpu. On a big
+system, this creates an incredibly hot cache line. On a big system, it takes
+more than a millisecond to do the update. At that point, another clock
+interrupt is already pending. Forward progress stops.
 
-I think it would be better to kill noirqdebug altogether, and to simply
-require irqdebug=N.
+Another possible approach might be to special case note_interrupt() to
+skip the update for the timer tick. (I havent actually looked at the code, but
+this should be possible). 
+
+
+> 
+> mh
+> 
+> -- 
+> Martin Hicks || mort@bork.org || PGP/GnuPG: 0x4C7F2BEE
+
+-- 
+Thanks
+
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
+
