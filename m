@@ -1,38 +1,24 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 11 Mar 2003 20:45:30 +0000
+From: Jes Sorensen <jes@wildopensource.com>
+Date: Tue, 11 Mar 2003 21:04:48 +0000
 Subject: Re: [Linux-ia64] 2.4.20 / DIG
-Message-Id: <marc-linux-ia64-105590709806030@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709806031@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709806024@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709806024@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jes Sorensen <jes@wildopensource.com> writes:
+>>>>> "Andreas" = Andreas Schwab <schwab@suse.de> writes:
 
-|> Hi
-|>=20
-|> I am trying to compile Bjorn's 2.4.20 kernel on my old Intel C0 based
-|> box with a RH7.2 install on it (with updates), gcc-2.96.
-|>=20
-|> The Red Hat 2.4.9 kernels work just fine on it, but my selfcompiled
-|> 2.4.20 kernels explode before it gets to probing the SCSI bus. In SMP
-|> mode it reboots so fast I can't see exactly where it hands, if I set
-|> maxcpus=3D1 it gets to saying EFI Variables Facility - then hangs for a
-|> bit and then reboots.
-|>=20
-|> Is this a known problem? Any clues?
+Andreas> Try disabling CONFIG_IA64_MCA, IIRC this is a problem of a
+Andreas> missing hardware component.
 
-Try disabling CONFIG_IA64_MCA, IIRC this is a problem of a missing
-hardware component.
+Bingo! Give that man a cigar!
 
-Andreas.
+Thanks a lot, I am back in business!
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Cheers,
+Jes
 
