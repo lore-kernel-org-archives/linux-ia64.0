@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 21 Aug 2003 05:09:43 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 26 Aug 2003 20:25:32 +0000
 Subject: Re: IA-32 compatibility patch: FP denormal handling
-Message-Id: <marc-linux-ia64-106144259906774@msgid-missing>
+Message-Id: <marc-linux-ia64-106192998906755@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106141205114677@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106141205114677@msgid-missing>
@@ -10,15 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 20 Aug 2003 13:39:51 -0700, Arun Sharma <adsharma@unix-os.sc.intel.com> said:
+On Wednesday 20 August 2003 2:39 pm, Arun Sharma wrote:
+> 
+> The following patch makes ia64 compatible with i386 with respect to siginfo.si_code on FP denormal operands. This is necessary for the correct emulation of many IA-32 apps.
+> 
+> Please apply to both 2.4 and 2.5.
 
-  Arun> The following patch makes ia64 compatible with i386 with
-  Arun> respect to siginfo.si_code on FP denormal operands. This is
-  Arun> necessary for the correct emulation of many IA-32 apps.
+Applied for 2.4, thanks!
 
-  Arun> Please apply to both 2.4 and 2.5.
-
-Looks good to me.  I applied it (apologies for the garbled bk changelog
-entry...).
-
-	--david
