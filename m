@@ -1,25 +1,26 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 14 May 2003 23:31:14 +0000
-Subject: Re: [Linux-ia64] kernel 2.5.69 doesn't compile for UP
-Message-Id: <marc-linux-ia64-105590723705810@msgid-missing>
+From: Zac Morris <zorro7_98@yahoo.com>
+Date: Thu, 08 May 2003 13:44:45 +0000
+Subject: [Linux-ia64] Running Serial Jobs on IA 64
+Message-Id: <marc-linux-ia64-105590723705678@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705787@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705787@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 14 May 2003 20:55:56 +0200, Andreas Schwab <schwab@suse.de> said:
+I want to run jobs on a single IA64 box with 4 CPUs. 
+Will this job be serial or parallel? What should my
+machine file look like?
 
-  Andreas> -	data8 compat_sys_setaffinity
-  Andreas> -	data8 compat_sys_getaffinity
-  Andreas> +	data8 compat_sys_sched_setaffinity
-  Andreas> +	data8 compat_sys_sched_getaffinity
+Appreciate any help!!
 
-I applied this patch.
+Thanks,
+ZAC
 
-Thanks!
 
-	--david
+
+__________________________________
+Do you Yahoo!?
+The New Yahoo! Search - Faster. Easier. Bingo.
+http://search.yahoo.com
 
