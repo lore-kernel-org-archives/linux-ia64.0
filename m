@@ -1,37 +1,38 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Mon, 25 Oct 2004 08:04:43 +0000
-Subject: Re: ptrace problem in 2.6.9
-Message-Id: <20041025080443.GB2071@frankl.hpl.hp.com>
+From: Robin Holt <holt@sgi.com>
+Date: Thu, 14 Oct 2004 11:40:03 +0000
+Subject: Double spin_unlock in bte.c
+Message-Id: <20041014114003.GF19122@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041022170557.GW19372@frankl.hpl.hp.com>
-In-Reply-To: <20041022170557.GW19372@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->   Stephane> Hi Roland, I have some problems with the recent
->   Stephane> modifications to the Ptrace infrastructure in 2.6.9
->   Stephane> release. Basically I have the smiple test program attached
->   Stephane> to this E-mail and it hangs in 2.6.9 but not in
->   Stephane> 2.6.9-rc4. Somehow the first waitpid() does not return. It
->   Stephane> is not clear to me why.  Is there something Ineed to
->   Stephane> change in the call itself?  I am running all of this on a
->   Stephane> 2-way IA-64 machine with 2.6.9. I have not tried on x86.
-> 
->   David> Shoot, I think I ran into the same problem yesterday when
->   David> running the GCC testsuite.  In my case, the problem seemed to
->   David> disappear (mostly) after downgrading "expect" from the
->   David> "unstable" to the "stable" version, but the symptoms where
->   David> exactly like in your case: waitpid() didn't return, so I
->   David> suspect it really was the kernel's fault.  I'll try Roland's
->   David> patch on Monday.
-> 
-> Then again, may be not: it appears that the bug only relates to
-> PTRACE'd processes, which "expect" is unlikely to do.  Oh, well, would
-> have been too easy.
-> 
-In any case, that fixed the problem for me.
 
--- 
--Stephane
+If all bte interfaces are in use, the current code will leave the
+bte pointer set when exiting from the loop trying to locate an
+interface to use.  This results in two processes using the same
+interface and both trying to free the same one.  With a
+premptible kernel, this results in the preempt count getting
+off.
+
+Signed-off-by: Robin Holt
+
+
+Index: linux-2.6/arch/ia64/sn/kernel/bte.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/bte.c	2004-10-06 11:48:25.000000000 -0500
++++ linux-2.6/arch/ia64/sn/kernel/bte.c	2004-10-14 06:34:45.000000000 -0500
+@@ -131,12 +131,12 @@
+ 				    (BTE_LNSTAT_LOAD(bte) & BTE_ACTIVE)) {
+ 					/* Got the lock but BTE still busy */
+ 					spin_unlock(&bte->spinlock);
+-					bte = NULL;
+ 				} else {
+ 					/* we got the lock and it's not busy */
+ 					break;
+ 				}
+ 			}
++			bte = NULL;
+ 		}
+ 
+ 		if (bte != NULL) {
