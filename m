@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 15 Feb 2005 19:49:42 +0000
+From: Jes Sorensen <jes@wildopensource.com>
+Date: Tue, 15 Feb 2005 19:59:05 +0000
 Subject: Re: [rfc] generic allocator and mspec driver
-Message-Id: <20050215194942.GD24401@lnx-holt.americas.sgi.com>
+Message-Id: <yq07jl9ppbq.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16897.9640.160896.31584@jaguar.mkp.net>
 In-Reply-To: <16897.9640.160896.31584@jaguar.mkp.net>
@@ -10,29 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Feb 15, 2005 at 11:19:40AM -0800, David Mosberger wrote:
-> >>>>> On Tue, 15 Feb 2005 13:11:20 -0600, Robin Holt <holt@sgi.com> said:
-> 
->   Robin> We saw many silent data corruptions. The SN2 hardware will
->   Robin> give an MCA if both types of references are made by the cpu
->   Robin> at about the same time, but that depends on both transactions
->   Robin> being on the bus in close relationship to each other.
-> 
-> Yes, but the point is it affects _most_ of today's machines, including
-> x86.  A while ago, there were some nasty data corruption issues on AMD
-> chips caused by the AGP GART and the large mappings used by the Linux
-> kernel, for example.
+>>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
 
-One thing I had not thought about before this is SN2 hardware will also
-allow us to change the memory protections for the cachelines in the pages
-of this granule to not allow cached references.  I am not sure if this
-has been tested aside from design verification testing and probably some
-of the offline diagnostic tests.
+>>>>> On 15 Feb 2005 03:44:26 -0500, Jes Sorensen <jes@wildopensource.com> said:
+Jes> Ahh, so not totally off. It's also used for internal debugging in
+Jes> reiser4, but I'll happily ignore that while waving the 'friends
+Jes> don't let friends run reiser4' flag ;)
 
-Would anybody have a concern with marking those cache lines as processor
-uncached only?  Would there ever be a time that we would expect _ANY_
-type of cached reference when the granule is being used for uncached
-that would be an acceptable use?
+David> What are they smoking?  Which part of PG_arch_1 do they not
+David> understand?  ^^^^
 
-Thanks,
-Robin
+I suspect it's some sort of garden weed, the one labelled 'if we use
+this magic flag, then nobody will notice us sneaking something in
+under the rug'.
+
+Gotta love 'em ;-)
+
+Jes
