@@ -1,22 +1,24 @@
-From: Russell King <rmk@arm.linux.org.uk>
-Date: Tue, 04 May 2004 15:28:02 +0000
-Subject: Re: [PATCH] 8250_hcdp needs irq sharing
-Message-Id: <20040504162802.C22911@flint.arm.linux.org.uk>
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Fri, 21 May 2004 17:08:20 +0000
+Subject: Can gcc 3.4 compile 2.6.6 kernel?
+Message-Id: <20040521170820.GA5516@lucon.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1082990579.15656.31.camel@localhost>
-In-Reply-To: <1082990579.15656.31.camel@localhost>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, May 03, 2004 at 10:48:55AM -0600, Alex Williamson wrote:
-> Does this look more reasonable?  Thanks,
+Has anyone tried to use gcc 3.4 to compile 2.6.6 kernel? I got many
+dependency violation messages from assembler and
 
-Applied, thanks.
+mm/memory.c: In function `copy_page_range':
+mm/memory.c:391: internal compiler error: in verify_local_live_at_start, at
+flow.c:546
+Please submit a full bug report,
+with preprocessed source if appropriate.
+See <URL:http://gcc.gnu.org/bugs.html> for instructions.
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+Also does 2.6.6 work on bigsur?
+
+
+H.J.
