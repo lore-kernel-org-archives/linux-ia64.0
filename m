@@ -1,34 +1,38 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Wed, 16 Aug 2000 15:45:09 +0000
-Subject: Re: [Linux-ia64] Exporting symbol in linux2.4/ia64
-Message-Id: <marc-linux-ia64-105590678205337@msgid-missing>
+From: "G\\351raud Krawezik" <gk@scali.no>
+Date: Wed, 02 Aug 2000 09:33:20 +0000
+Subject: [Linux-ia64] Problem installing Linux on a dual-itanium
+Message-Id: <marc-linux-ia64-105590678205263@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205335@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205335@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 16 Aug 2000 13:59:27 +0200 (MEST), 
-"G\\351raud Krawezik" <gk@scali.no> wrote:
->While working on a driver, I've experienced the following when trying to
->insmod it (i'm using 2.4-test6):
->
->unresolved symbol clear_page
->unresolved symbol softirq_state
->unresolved symbol __ia64_memcpy_toio
->unresolved symbol __free_pages_ok
->
->softirq_state is a 'case to study', but for the three others, it's
->slightly different, as:
+Hello,
 
-softirq_state was moved and renamed in 2.4.0-test6.  See
-include/linux/irq_cpustat.h for the new definitions.  You either
-compiled your module against old headers or you are trying to insmod an
-old module.  2.4.0-test6 also cleaned up the /lib/modules directory
-structure but the transition might have left old structure around, try
-"rm -rf /lib/modules/2.4.0-test6" and "make modules_install" to get rid
-of any old structure.  Also check that you have modutils 2.3.14.
+I am experiencing several problems installing linux (kernel 2.4.0-test1)
+on a dual-cpu ia64.
+The machine is an intel SDV.
+
+When running the installation from the CD, there's no probleand everything
+works fine.
+- We create the three partitions on the HD
+- Let things go...
+
+After rebooting, when I use the EFI shell and type 'ELI', I get a 'ELI not
+found'.
+
+If I use the other item (for advanced booting mode), and try to boot
+directly on the correct partition, then it starts booting, but ends up
+into 'vmlinux-2.4.0.0-8smp: read failed: Device Error'
+
+Has anyone got a tip about this?
+
+
+ps: I installed the same system on a single cpu SDV with no problem, but
+this one had got the previous bios...
+
+Geraud
+
 
 
