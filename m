@@ -1,30 +1,27 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Mon, 07 Jun 2004 20:09:12 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Mon, 07 Jun 2004 21:06:47 +0000
 Subject: Re: lib64 in fedora glibc
-Message-Id: <20040607200912.GA8394@nostromo.devel.redhat.com>
+Message-Id: <jek6yj2i3c.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040528214105.GK9115@mustard.zk3.dec.com>
 In-Reply-To: <20040528214105.GK9115@mustard.zk3.dec.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Saxena, Sunil (sunil.saxena@intel.com) said: 
-> on Friday, June 04, 2004 1:21 PM, Bill Nottingham wrote :
-> > Actually, most x86-64 stuff is native too. Where this normally
-> > hits with ISVs is their middleware apps. Apparently, ISVs are
-> > averse to rebuilding their custom-changed Apache or databases,
-> > and want to just run the x86 binaries.
-> > 
-> We did not receive any complaints from any ISVs for running x86 binaries
-> today.
-> I agree that they may have gone through some irritation to get it to
-> work.  I 
-> would love know details of the cases where you saw this did not work.
+Bill Nottingham <notting@redhat.com> writes:
 
-Pretty simple... install all the x86 RPMs required to run x86
-OpenOfffice.... it will not start, due to it being unable to
-find its library directories.
+> Pretty simple... install all the x86 RPMs required to run x86
+> OpenOfffice.... it will not start, due to it being unable to
+> find its library directories.
 
-Bill
+Works for me.
+
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
