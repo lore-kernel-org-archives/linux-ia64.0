@@ -1,35 +1,121 @@
-From: "'David Gibson'" <david@gibson.dropbear.id.au>
-Date: Fri, 16 Apr 2004 04:02:32 +0000
-Subject: Re: hugetlb demand paging patch part [0/3]
-Message-Id: <20040416040231.GA13552@zax>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 13 Apr 2004 16:41:06 +0000
+Subject: [PATCH] PCI MSI Kconfig consolidation
+Message-Id: <200404131041.06275.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040416033251.GH12735@zax> <200404160343.i3G3h8F13447@unix-os.sc.intel.com>
-In-Reply-To: <200404160343.i3G3h8F13447@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, lse-tech@lists.sourceforge.net, raybry@sgi.com, 'Andy Whitcroft' <apw@shadowen.org>, Andrew Morton <akpm@osdl.org>
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, tom.l.nguyen@intel.com, Andi Kleen <ak@suse.de>
 
-On Thu, Apr 15, 2004 at 08:43:08PM -0700, Chen, Kenneth W wrote:
-> David Gibson wrote on Thursday, April 15, 2004 8:33 PM
-> > To unify even the non-ppc64 archs we already have to allow for the
-> > hugepage pagetables to have different structure across archs - on i386
-> > and ppc64 the hugePTEs lie in PMD slots, on sparc64 and sh they lie in
-> > (normal) PTE slots and on IA64 they lie in the PTE slots of a special
-> > set of pagetables.  Given that, it seems conceptually logical to me
-> > that we also not assume the hugepage PTEs have the same layout as
-> > normal PTEs.  It makes the handle_mm_fault function not the least more
-> > complicated.
-> 
-> Correction: huge page pte on ia64 has the same format as a normal page pte.
+This consolidates the PCI MSI configuration into drivers/pci/Kconfig,
+removing it from the i386, x86_64, and ia64 Kconfig.
 
-Yes, the PTEs have the same format, but the page table layout is not
-identical (it's almost the same, but the address is shifted right
-before doing the lookup).
+It also changes the default for ia64 from "y" to "n".  The default on
+i386 is "n" already, and I'm not sure why ia64 should be different.
 
--- 
-David Gibson			| For every complex problem there is a
-david AT gibson.dropbear.id.au	| solution which is simple, neat and
-				| wrong.
-http://www.ozlabs.org/people/dgibson
+=== arch/i386/Kconfig 1.116 vs edited ==--- 1.116/arch/i386/Kconfig	Mon Apr 12 11:54:45 2004
++++ edited/arch/i386/Kconfig	Tue Apr 13 10:26:55 2004
+@@ -1095,25 +1095,6 @@
+ 	select ACPI_BOOT
+ 	default y
+ 
+-config PCI_USE_VECTOR
+-	bool "Vector-based interrupt indexing (MSI)"
+-	depends on X86_LOCAL_APIC && X86_IO_APIC
+-	default n
+-	help
+-	   This replaces the current existing IRQ-based index interrupt scheme
+-	   with the vector-base index scheme. The advantages of vector base
+-	   over IRQ base are listed below:
+-	   1) Support MSI implementation.
+-	   2) Support future IOxAPIC hotplug
+-
+-	   Note that this allows the device drivers to enable MSI, Message
+-	   Signaled Interrupt, on all MSI capable device functions detected.
+-	   Message Signal Interrupt enables an MSI-capable hardware device to
+-	   send an inbound Memory Write on its PCI bus instead of asserting
+-	   IRQ signal on device IRQ pin.
+-
+-	   If you don't know what to do here, say N.
+-
+ source "drivers/pci/Kconfig"
+ 
+ config ISA
+=== arch/ia64/Kconfig 1.69 vs edited ==--- 1.69/arch/ia64/Kconfig	Mon Apr 12 19:50:46 2004
++++ edited/arch/ia64/Kconfig	Tue Apr 13 10:30:55 2004
+@@ -361,16 +361,6 @@
+ 	  information about which PCI hardware does work under Linux and which
+ 	  doesn't.
+ 
+-config PCI_USE_VECTOR
+-	bool
+-	default y if IA64
+-	help
+-	   This enables MSI, Message Signaled Interrupt, on specific
+-	   MSI capable device functions detected upon requests from the
+-	   device drivers. Message Signal Interrupt enables an MSI-capable
+-	   hardware device to send an inbound Memory Write on its PCI bus
+-	   instead of asserting IRQ signal on device IRQ pin.
+-
+ config PCI_DOMAINS
+ 	bool
+ 	default PCI
+=== arch/x86_64/Kconfig 1.47 vs edited ==--- 1.47/arch/x86_64/Kconfig	Mon Apr 12 11:53:56 2004
++++ edited/arch/x86_64/Kconfig	Tue Apr 13 10:29:09 2004
+@@ -336,26 +336,6 @@
+ 	depends on PCI
+ 	select ACPI_BOOT
+ 
+-# the drivers/pci/msi.c code needs to be fixed first before enabling
+-config PCI_USE_VECTOR
+-	bool "Vector-based interrupt indexing"
+-	depends on X86_LOCAL_APIC && NOTWORKING
+-	default n
+-	help
+-	   This replaces the current existing IRQ-based index interrupt scheme
+-	   with the vector-base index scheme. The advantages of vector base
+-	   over IRQ base are listed below:
+-	   1) Support MSI implementation.
+-	   2) Support future IOxAPIC hotplug
+-
+-	   Note that this enables MSI, Message Signaled Interrupt, on all
+-	   MSI capable device functions detected if users also install the
+-	   MSI patch. Message Signal Interrupt enables an MSI-capable
+-	   hardware device to send an inbound Memory Write on its PCI bus
+-	   instead of asserting IRQ signal on device IRQ pin.
+-
+-	   If you don't know what to do here, say N.
+-
+ source "drivers/pci/Kconfig"
+ 
+ source "drivers/pcmcia/Kconfig"
+=== drivers/pci/Kconfig 1.3 vs edited ==--- 1.3/drivers/pci/Kconfig	Thu Jan  9 17:14:51 2003
++++ edited/drivers/pci/Kconfig	Tue Apr 13 10:30:17 2004
+@@ -1,6 +1,25 @@
+ #
+ # PCI configuration
+ #
++config PCI_USE_VECTOR
++	bool "Vector-based interrupt indexing (MSI)"
++	depends on (X86_LOCAL_APIC && X86_IO_APIC && !X86_64) || IA64
++	default n
++	help
++	   This replaces the current existing IRQ-based index interrupt scheme
++	   with the vector-base index scheme. The advantages of vector base
++	   over IRQ base are listed below:
++	   1) Support MSI implementation.
++	   2) Support future IOxAPIC hotplug
++
++	   Note that this allows the device drivers to enable MSI, Message
++	   Signaled Interrupt, on all MSI capable device functions detected.
++	   Message Signal Interrupt enables an MSI-capable hardware device to
++	   send an inbound Memory Write on its PCI bus instead of asserting
++	   IRQ signal on device IRQ pin.
++
++	   If you don't know what to do here, say N.
++
+ config PCI_LEGACY_PROC
+ 	bool "Legacy /proc/pci interface"
+ 	depends on PCI
