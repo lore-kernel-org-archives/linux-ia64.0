@@ -1,559 +1,213 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 07 Jan 2005 00:17:51 +0000
-Subject: [PATCH] long line & codingstyle cleanup for init.c
-Message-Id: <200501061617.51354.jbarnes@engr.sgi.com>
+Date: Fri, 07 Jan 2005 00:21:12 +0000
+Subject: [PATCH] long line & codingstyle cleanup for tlb.c
+Message-Id: <200501061621.12475.jbarnes@engr.sgi.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_vUd3BRaMfYn8IE/"
+Content-Type: multipart/mixed; boundary="Boundary-00=_4Xd3BlT2JW8CRHN"
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200501061617.51354.jbarnes@engr.sgi.com>
+In-Reply-To: <200501061617.51354.jbarnes@engr.sgi.com>
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_vUd3BRaMfYn8IE/
+--Boundary-00=_4Xd3BlT2JW8CRHN
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-Fix long lines and coding style in init.c.  This file could probably use some 
-#include trimming as well, but I didn't attempt that with this patch.
+Fixup long lines and coding style in tlb.c.
 
 Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
 Thanks,
 Jesse
 
---Boundary-00=_vUd3BRaMfYn8IE/
+--Boundary-00=_4Xd3BlT2JW8CRHN
 Content-Type: text/plain;
   charset="us-ascii";
-  name="init-cleanup.patch"
+  name="tlb-cleanup.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="init-cleanup.patch"
+	filename="tlb-cleanup.patch"
 
-===== arch/ia64/mm/init.c 1.74 vs edited =====
---- 1.74/arch/ia64/mm/init.c	2005-01-04 14:58:07 -08:00
-+++ edited/arch/ia64/mm/init.c	2005-01-06 16:16:40 -08:00
-@@ -7,7 +7,6 @@
- #include <linux/config.h>
- #include <linux/kernel.h>
- #include <linux/init.h>
+===== arch/ia64/mm/tlb.c 1.23 vs edited =====
+--- 1.23/arch/ia64/mm/tlb.c	2004-10-05 11:24:11 -07:00
++++ edited/arch/ia64/mm/tlb.c	2005-01-06 16:11:49 -08:00
+@@ -16,7 +16,6 @@
+ #include <linux/sched.h>
+ #include <linux/smp.h>
+ #include <linux/mm.h>
 -
- #include <linux/bootmem.h>
- #include <linux/efi.h>
- #include <linux/elf.h>
-@@ -20,7 +19,6 @@
- #include <linux/swap.h>
- #include <linux/proc_fs.h>
- #include <linux/bitops.h>
--
- #include <asm/a.out.h>
- #include <asm/dma.h>
- #include <asm/ia32.h>
-@@ -56,8 +54,7 @@
- struct page *zero_page_memmap_ptr;		/* map entry for zero page */
- EXPORT_SYMBOL(zero_page_memmap_ptr);
+ #include <asm/delay.h>
+ #include <asm/mmu_context.h>
+ #include <asm/pgalloc.h>
+@@ -25,13 +24,15 @@
  
--void
--check_pgt_cache (void)
-+void check_pgt_cache(void)
- {
- 	int low, high;
+ static struct {
+ 	unsigned long mask;	/* mask of supported purge page-sizes */
+-	unsigned long max_bits;	/* log2() of largest supported purge page-size */
++	unsigned long max_bits;	/* log2() of largest supported purge
++				   page-size */
+ } purge;
  
-@@ -76,30 +73,33 @@
- 	preempt_enable();
- }
- 
--void
--update_mmu_cache (struct vm_area_struct *vma, unsigned long vaddr, pte_t pte)
-+void update_mmu_cache(struct vm_area_struct *vma, unsigned long vaddr,
-+		      pte_t pte)
- {
- 	unsigned long addr;
- 	struct page *page;
- 
- 	if (!pte_exec(pte))
--		return;				/* not an executable page... */
-+		return;	/* not an executable page... */
- 
- 	page = pte_page(pte);
--	/* don't use VADDR: it may not be mapped on this CPU (or may have just been flushed): */
-+	/*
-+	 * don't use VADDR: it may not be mapped on this CPU (or may have just
-+	 * been flushed)
-+	 */
- 	addr = (unsigned long) page_address(page);
- 
- 	if (test_bit(PG_arch_1, &page->flags))
--		return;				/* i-cache is already coherent with d-cache */
-+		return;	/* i-cache is already coherent with d-cache */
- 
- 	flush_icache_range(addr, addr + PAGE_SIZE);
--	set_bit(PG_arch_1, &page->flags);	/* mark page as clean */
-+	set_bit(PG_arch_1, &page->flags); /* mark page as clean */
- }
- 
--inline void
--ia64_set_rbs_bot (void)
-+inline void ia64_set_rbs_bot(void)
- {
--	unsigned long stack_size = current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
-+	unsigned long stack_size =
-+		current->signal->rlim[RLIMIT_STACK].rlim_max & -16;
- 
- 	if (stack_size > MAX_USER_STACK_SIZE)
- 		stack_size = MAX_USER_STACK_SIZE;
-@@ -112,17 +112,17 @@
-  * store (which grows upwards) and install the gateway page which is
-  * used for signal trampolines, etc.
-  */
--void
--ia64_init_addr_space (void)
-+void ia64_init_addr_space(void)
- {
- 	struct vm_area_struct *vma;
- 
- 	ia64_set_rbs_bot();
- 
- 	/*
--	 * If we're out of memory and kmem_cache_alloc() returns NULL, we simply ignore
--	 * the problem.  When the process attempts to write to the register backing store
--	 * for the first time, it will get a SEGFAULT in this case.
-+	 * If we're out of memory and kmem_cache_alloc() returns NULL, we
-+	 * simply ignore the problem.  When the process attempts to write to
-+	 * the register backing store for the first time, it will get a
-+	 * SEGFAULT in this case.
- 	 */
- 	vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
- 	if (vma) {
-@@ -130,7 +130,8 @@
- 		vma->vm_mm = current->mm;
- 		vma->vm_start = current->thread.rbs_bot & PAGE_MASK;
- 		vma->vm_end = vma->vm_start + PAGE_SIZE;
--		vma->vm_page_prot = protection_map[VM_DATA_DEFAULT_FLAGS & 0x7];
-+		vma->vm_page_prot =
-+			protection_map[VM_DATA_DEFAULT_FLAGS & 0x7];
- 		vma->vm_flags = VM_DATA_DEFAULT_FLAGS | VM_GROWSUP;
- 		down_write(&current->mm->mmap_sem);
- 		if (insert_vm_struct(current->mm, vma)) {
-@@ -141,15 +142,21 @@
- 		up_write(&current->mm->mmap_sem);
- 	}
- 
--	/* map NaT-page at address zero to speed up speculative dereferencing of NULL: */
-+	/*
-+	 * map NaT-page at address zero to speed up speculative dereferencing
-+	 * of NULL
-+	 */
- 	if (!(current->personality & MMAP_PAGE_ZERO)) {
- 		vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
- 		if (vma) {
- 			memset(vma, 0, sizeof(*vma));
- 			vma->vm_mm = current->mm;
- 			vma->vm_end = PAGE_SIZE;
--			vma->vm_page_prot = __pgprot(pgprot_val(PAGE_READONLY) | _PAGE_MA_NAT);
--			vma->vm_flags = VM_READ | VM_MAYREAD | VM_IO | VM_RESERVED;
-+			vma->vm_page_prot =
-+				__pgprot(pgprot_val(PAGE_READONLY) |
-+					 _PAGE_MA_NAT);
-+			vma->vm_flags = VM_READ | VM_MAYREAD | VM_IO |
-+				VM_RESERVED;
- 			down_write(&current->mm->mmap_sem);
- 			if (insert_vm_struct(current->mm, vma)) {
- 				up_write(&current->mm->mmap_sem);
-@@ -161,8 +168,7 @@
- 	}
- }
- 
--void
--free_initmem (void)
-+void free_initmem(void)
- {
- 	unsigned long addr, eaddr;
- 
-@@ -179,8 +185,7 @@
- 	       (__init_end - __init_begin) >> 10);
- }
- 
--void
--free_initrd_mem (unsigned long start, unsigned long end)
-+void free_initrd_mem(unsigned long start, unsigned long end)
- {
- 	struct page *page;
- 	/*
-@@ -218,7 +223,8 @@
- 	end = end & PAGE_MASK;
- 
- 	if (start < end)
--		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n", (end - start) >> 10);
-+		printk(KERN_INFO "Freeing initrd memory: %ldkB freed\n",
-+		       (end - start) >> 10);
- 
- 	for (; start < end; start += PAGE_SIZE) {
- 		if (!virt_addr_valid(start))
-@@ -234,8 +240,8 @@
- /*
-  * This installs a clean page in the kernel's page table.
-  */
--struct page *
--put_kernel_page (struct page *page, unsigned long address, pgprot_t pgprot)
-+struct page *put_kernel_page(struct page *page, unsigned long address,
-+			     pgprot_t pgprot)
- {
- 	pgd_t *pgd;
- 	pud_t *pud;
-@@ -243,10 +249,10 @@
- 	pte_t *pte;
- 
- 	if (!PageReserved(page))
--		printk(KERN_ERR "put_kernel_page: page at 0x%p not in reserved memory\n",
--		       page_address(page));
-+		printk(KERN_ERR "put_kernel_page: page at 0x%p not in "
-+		       "reserved memory\n", page_address(page));
- 
--	pgd = pgd_offset_k(address);		/* note: this is NOT pgd_offset()! */
-+	pgd = pgd_offset_k(address); /* note: this is NOT pgd_offset()! */
- 
- 	spin_lock(&init_mm.page_table_lock);
- 	{
-@@ -272,14 +278,14 @@
- 	return page;
- }
- 
--static void
--setup_gate (void)
-+static void setup_gate(void)
- {
- 	struct page *page;
- 
- 	/*
--	 * Map the gate page twice: once read-only to export the ELF headers etc. and once
--	 * execute-only page to enable privilege-promotion via "epc":
-+	 * Map the gate page twice: once read-only to export the ELF headers
-+	 * etc. and once execute-only page to enable privilege-promotion via
-+	 * "epc":
- 	 */
- 	page = virt_to_page(ia64_imva(__start_gate_section));
- 	put_kernel_page(page, GATE_ADDR, PAGE_READONLY);
-@@ -292,8 +298,7 @@
- 	ia64_patch_gate();
- }
- 
--void __devinit
--ia64_mmu_init (void *my_cpu_data)
-+void __devinit ia64_mmu_init(void *my_cpu_data)
- {
- 	unsigned long psr, pta, impl_va_bits;
- 	extern void __devinit tlb_init (void);
-@@ -315,39 +320,43 @@
- 	ia64_srlz_i();
- 
- 	/*
--	 * Check if the virtually mapped linear page table (VMLPT) overlaps with a mapped
--	 * address space.  The IA-64 architecture guarantees that at least 50 bits of
--	 * virtual address space are implemented but if we pick a large enough page size
--	 * (e.g., 64KB), the mapped address space is big enough that it will overlap with
--	 * VMLPT.  I assume that once we run on machines big enough to warrant 64KB pages,
--	 * IMPL_VA_MSB will be significantly bigger, so this is unlikely to become a
--	 * problem in practice.  Alternatively, we could truncate the top of the mapped
--	 * address space to not permit mappings that would overlap with the VMLPT.
-+	 * Check if the virtually mapped linear page table (VMLPT) overlaps
-+	 * with a mapped address space.  The IA-64 architecture guarantees that
-+	 * at least 50 bits of virtual address space are implemented but if we
-+	 * pick a large enough page size (e.g., 64KB), the mapped address space
-+	 * is big enough that it will overlap with VMLPT.  I assume that once
-+	 * we run on machines big enough to warrant 64KB pages, IMPL_VA_MSB
-+	 * will be significantly bigger, so this is unlikely to become a
-+	 * problem in practice.  Alternatively, we could truncate the top of
-+	 * the mapped address space to not permit mappings that would overlap
-+	 * with the VMLPT.
- 	 * --davidm 00/12/06
- 	 */
--#	define pte_bits			3
--#	define mapped_space_bits	(3*(PAGE_SHIFT - pte_bits) + PAGE_SHIFT)
-+#	define pte_bits          3
-+#	define mapped_space_bits (3*(PAGE_SHIFT - pte_bits) + PAGE_SHIFT)
- 	/*
--	 * The virtual page table has to cover the entire implemented address space within
--	 * a region even though not all of this space may be mappable.  The reason for
--	 * this is that the Access bit and Dirty bit fault handlers perform
--	 * non-speculative accesses to the virtual page table, so the address range of the
--	 * virtual page table itself needs to be covered by virtual page table.
-+	 * The virtual page table has to cover the entire implemented address
-+	 * space within a region even though not all of this space may be
-+	 * mappable.  The reason for this is that the Access bit and Dirty bit
-+	 * fault handlers perform non-speculative accesses to the virtual page
-+	 * table, so the address range of the virtual page table itself needs
-+	 * to be covered by virtual page table.
- 	 */
--#	define vmlpt_bits		(impl_va_bits - PAGE_SHIFT + pte_bits)
--#	define POW2(n)			(1ULL << (n))
-+#	define vmlpt_bits (impl_va_bits - PAGE_SHIFT + pte_bits)
-+#	define POW2(n)    (1ULL << (n))
- 
- 	impl_va_bits = ffz(~(local_cpu_data->unimpl_va_mask | (7UL << 61)));
- 
- 	if (impl_va_bits < 51 || impl_va_bits > 61)
--		panic("CPU has bogus IMPL_VA_MSB value of %lu!\n", impl_va_bits - 1);
-+		panic("CPU has bogus IMPL_VA_MSB value of %lu!\n",
-+		      impl_va_bits - 1);
- 
- 	/* place the VMLPT at the end of each page-table mapped region: */
- 	pta = POW2(61) - POW2(vmlpt_bits);
- 
- 	if (POW2(mapped_space_bits) >= pta)
--		panic("mm/init: overlap between virtually mapped linear page table and "
--		      "mapped kernel space!");
-+		panic("mm/init: overlap between virtually mapped linear page "
-+		      "table and mapped kernel space!");
- 	/*
- 	 * Set the (virtually mapped linear) page table address.  Bit
- 	 * 8 selects between the short and long format, bits 2-7 the
-@@ -364,14 +373,15 @@
- #endif
- 
- 	/*
--	 * The MCA info structure was allocated earlier and a physical address pointer
--	 * saved in k3.  Move that pointer into the cpuinfo structure and save
--	 * the physical address of the cpuinfo structure in k3.
-+	 * The MCA info structure was allocated earlier and a physical address
-+	 * pointer saved in k3.  Move that pointer into the cpuinfo structure
-+	 * and save the physical address of the cpuinfo structure in k3.
- 	 */
- 	cpuinfo = (struct cpuinfo_ia64 *)my_cpu_data;
- 	cpuinfo->ia64_pa_mca_data = (__u64 *)ia64_get_kr(IA64_KR_PA_CPU_INFO);
- 
--	cpuinfo->percpu_paddr = pte_val(mk_pte_phys(__pa(my_cpu_data), PAGE_KERNEL));
-+	cpuinfo->percpu_paddr = pte_val(mk_pte_phys(__pa(my_cpu_data),
-+						    PAGE_KERNEL));
- 	ia64_set_kr(IA64_KR_PA_CPU_INFO, __pa(my_cpu_data));
- 
- 	/*
-@@ -381,9 +391,7 @@
- }
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
--
--int
--create_mem_map_page_table (u64 start, u64 end, void *arg)
-+int create_mem_map_page_table(u64 start, u64 end, void *arg)
- {
- 	unsigned long address, start_page, end_page;
- 	struct page *map_start, *map_end;
-@@ -403,20 +411,24 @@
- 	for (address = start_page; address < end_page; address += PAGE_SIZE) {
- 		pgd = pgd_offset_k(address);
- 		if (pgd_none(*pgd))
--			pgd_populate(&init_mm, pgd, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
-+			pgd_populate(&init_mm, pgd,
-+				     alloc_bootmem_pages_node(NODE_DATA(node),
-+							      PAGE_SIZE));
- 		pud = pud_offset(pgd, address);
- 
- 		if (pud_none(*pud))
--			pud_populate(&init_mm, pud, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
-+			pud_populate(&init_mm, pud,
-+				     alloc_bootmem_pages_node(NODE_DATA(node),
-+							      PAGE_SIZE));
- 		pmd = pmd_offset(pud, address);
- 
- 		if (pmd_none(*pmd))
- 			pmd_populate_kernel(&init_mm, pmd, alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE));
-+
- 		pte = pte_offset_kernel(pmd, address);
- 
- 		if (pte_none(*pte))
--			set_pte(pte, pfn_pte(__pa(alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE)) >> PAGE_SHIFT,
--					     PAGE_KERNEL));
-+			set_pte(pte, pfn_pte(__pa(alloc_bootmem_pages_node(NODE_DATA(node), PAGE_SIZE)) >> PAGE_SHIFT, PAGE_KERNEL));
- 	}
- 	return 0;
- }
-@@ -428,8 +440,7 @@
- 	unsigned long zone;
+ struct ia64_ctx ia64_ctx = {
+ 	.lock =		SPIN_LOCK_UNLOCKED,
+ 	.next =		1,
+-	.limit =	(1 << 15) - 1,		/* start out with the safe (architected) limit */
++	.limit =	(1 << 15) - 1, /* start out with the safe
++					  (architected) limit */
+ 	.max_ctx =	~0U
  };
  
--static int
--virtual_memmap_init (u64 start, u64 end, void *arg)
-+static int virtual_memmap_init(u64 start, u64 end, void *arg)
- {
- 	struct memmap_init_callback_data *args;
- 	struct page *map_start, *map_end;
-@@ -445,23 +456,25 @@
- 		map_end = args->end;
- 
- 	/*
--	 * We have to initialize "out of bounds" struct page elements that fit completely
--	 * on the same pages that were allocated for the "in bounds" elements because they
--	 * may be referenced later (and found to be "reserved").
--	 */
--	map_start -= ((unsigned long) map_start & (PAGE_SIZE - 1)) / sizeof(struct page);
--	map_end += ((PAGE_ALIGN((unsigned long) map_end) - (unsigned long) map_end)
--		    / sizeof(struct page));
-+	 * We have to initialize "out of bounds" struct page elements that fit
-+	 * completely on the same pages that were allocated for the "in bounds"
-+	 * elements because they may be referenced later (and found to be
-+	 * "reserved").
-+	 */
-+	map_start -= ((unsigned long) map_start & (PAGE_SIZE - 1)) /
-+		sizeof(struct page);
-+	map_end += (PAGE_ALIGN((unsigned long) map_end) -
-+		    (unsigned long) map_end) / sizeof(struct page);
- 
- 	if (map_start < map_end)
- 		memmap_init_zone((unsigned long)(map_end - map_start),
--				 args->nid, args->zone, page_to_pfn(map_start));
-+				 args->nid, args->zone,
-+				 page_to_pfn(map_start));
- 	return 0;
- }
- 
--void
--memmap_init (unsigned long size, int nid, unsigned long zone,
--	     unsigned long start_pfn)
-+void memmap_init(unsigned long size, int nid, unsigned long zone,
-+		 unsigned long start_pfn)
- {
- 	if (!vmem_map)
- 		memmap_init_zone(size, nid, zone, start_pfn);
-@@ -479,20 +492,18 @@
- 	}
- }
- 
--int
--ia64_pfn_valid (unsigned long pfn)
-+int ia64_pfn_valid(unsigned long pfn)
- {
--	char byte;
- 	struct page *pg = pfn_to_page(pfn);
-+	char byte;
- 
--	return     (__get_user(byte, (char __user *) pg) == 0)
--		&& ((((u64)pg & PAGE_MASK) == (((u64)(pg + 1) - 1) & PAGE_MASK))
--			|| (__get_user(byte, (char __user *) (pg + 1) - 1) == 0));
-+	return (__get_user(byte, (char __user *) pg) == 0) &&
-+		((((u64)pg & PAGE_MASK) == (((u64)(pg + 1) - 1) & PAGE_MASK))
-+		 || (__get_user(byte, (char __user *) (pg + 1) - 1) == 0));
- }
- EXPORT_SYMBOL(ia64_pfn_valid);
- 
--int
--find_largest_hole (u64 start, u64 end, void *arg)
-+int find_largest_hole(u64 start, u64 end, void *arg)
- {
- 	u64 *max_gap = arg;
- 
-@@ -507,8 +518,7 @@
- }
- #endif /* CONFIG_VIRTUAL_MEM_MAP */
- 
--static int
--count_reserved_pages (u64 start, u64 end, void *arg)
-+static int count_reserved_pages(u64 start, u64 end, void *arg)
- {
- 	unsigned long num_reserved = 0;
- 	unsigned long *count = arg;
-@@ -521,17 +531,15 @@
- }
- 
+@@ -40,12 +41,11 @@
  /*
-- * Boot command-line option "nolwsys" can be used to disable the use of any light-weight
-- * system call handler.  When this option is in effect, all fsyscalls will end up bubbling
-- * down into the kernel and calling the normal (heavy-weight) syscall handler.  This is
-- * useful for performance testing, but conceivably could also come in handy for debugging
-- * purposes.
-+ * Boot command-line option "nolwsys" can be used to disable the use of any
-+ * light-weight system call handler.  When this option is in effect, all
-+ * fsyscalls will end up bubbling down into the kernel and calling the normal
-+ * (heavy-weight) syscall handler.  This is useful for performance testing, but
-+ * conceivably could also come in handy for debugging purposes.
+  * Acquire the ia64_ctx.lock before calling this function!
   */
--
- static int nolwsys;
- 
--static int __init
--nolwsys_setup (char *s)
-+static int __init nolwsys_setup(char *s)
+-void
+-wrap_mmu_context (struct mm_struct *mm)
++void wrap_mmu_context(struct mm_struct *mm)
  {
- 	nolwsys = 1;
- 	return 1;
-@@ -539,8 +547,7 @@
+ 	unsigned long tsk_context, max_ctx = ia64_ctx.max_ctx;
+ 	struct task_struct *tsk;
+-	int i;
++	int i, cpu;
  
- __setup("nolwsys", nolwsys_setup);
+ 	if (ia64_ctx.next > max_ctx)
+ 		ia64_ctx.next = 300;	/* skip daemons */
+@@ -54,7 +54,6 @@
+ 	/*
+ 	 * Scan all the task's mm->context and set proper safe range
+ 	 */
+-
+ 	read_lock(&tasklist_lock);
+   repeat:
+ 	for_each_process(tsk) {
+@@ -63,30 +62,33 @@
+ 		tsk_context = tsk->mm->context;
+ 		if (tsk_context == ia64_ctx.next) {
+ 			if (++ia64_ctx.next >= ia64_ctx.limit) {
+-				/* empty range: reset the range limit and start over */
++				/* empty range: reset the range limit and
++				   start over */
+ 				if (ia64_ctx.next > max_ctx)
+ 					ia64_ctx.next = 300;
+ 				ia64_ctx.limit = max_ctx + 1;
+ 				goto repeat;
+ 			}
+ 		}
+-		if ((tsk_context > ia64_ctx.next) && (tsk_context < ia64_ctx.limit))
++		if ((tsk_context > ia64_ctx.next) &&
++		    (tsk_context < ia64_ctx.limit))
+ 			ia64_ctx.limit = tsk_context;
+ 	}
+ 	read_unlock(&tasklist_lock);
+-	/* can't call flush_tlb_all() here because of race condition with O(1) scheduler [EF] */
+-	{
+-		int cpu = get_cpu(); /* prevent preemption/migration */
+-		for (i = 0; i < NR_CPUS; ++i)
+-			if (cpu_online(i) && (i != cpu))
+-				per_cpu(ia64_need_tlb_flush, i) = 1;
+-		put_cpu();
+-	}
++	/*
++	 * can't call flush_tlb_all() here because of race condition with
++	 * O(1) scheduler [EF]
++	 */
++	cpu = get_cpu(); /* prevent preemption/migration */
++	for (i = 0; i < NR_CPUS; ++i)
++		if (cpu_online(i) && (i != cpu))
++			per_cpu(ia64_need_tlb_flush, i) = 1;
++	put_cpu();
+ 	local_flush_tlb_all();
+ }
  
 -void
--mem_init (void)
-+void mem_init(void)
+-ia64_global_tlb_purge (unsigned long start, unsigned long end, unsigned long nbits)
++void ia64_global_tlb_purge(unsigned long start, unsigned long end,
++			   unsigned long nbits)
  {
- 	long reserved_pages, codesize, datasize, initsize;
- 	unsigned long num_pgt_pages;
-@@ -550,9 +557,9 @@
+ 	static spinlock_t ptcg_lock = SPIN_LOCK_UNLOCKED;
  
- #ifdef CONFIG_PCI
- 	/*
--	 * This needs to be called _after_ the command line has been parsed but _before_
--	 * any drivers that may need the PCI DMA interface are initialized or bootmem has
--	 * been freed.
-+	 * This needs to be called _after_ the command line has been parsed but
-+	 * _before_ any drivers that may need the PCI DMA interface are
-+	 * initialized or bootmem has been freed.
- 	 */
- 	platform_dma_init();
- #endif
-@@ -566,7 +573,8 @@
- 	high_memory = __va(max_low_pfn * PAGE_SIZE);
+@@ -105,8 +107,7 @@
+ 	spin_unlock(&ptcg_lock);
+ }
  
- 	kclist_add(&kcore_mem, __va(0), max_low_pfn * PAGE_SIZE);
--	kclist_add(&kcore_vmem, (void *)VMALLOC_START, VMALLOC_END-VMALLOC_START);
-+	kclist_add(&kcore_vmem, (void *)VMALLOC_START,
-+		   VMALLOC_END - VMALLOC_START);
- 	kclist_add(&kcore_kernel, _stext, _end - _stext);
+-void
+-local_flush_tlb_all (void)
++void local_flush_tlb_all(void)
+ {
+ 	unsigned long i, j, flags, count0, count1, stride0, stride1, addr;
  
- 	for_each_pgdat(pgdat)
-@@ -579,16 +587,24 @@
- 	datasize =  (unsigned long) _edata - (unsigned long) _etext;
- 	initsize =  (unsigned long) __init_end - (unsigned long) __init_begin;
+@@ -129,15 +130,16 @@
+ }
+ EXPORT_SYMBOL(local_flush_tlb_all);
  
--	printk(KERN_INFO "Memory: %luk/%luk available (%luk code, %luk reserved, "
--	       "%luk data, %luk init)\n", (unsigned long) nr_free_pages() << (PAGE_SHIFT - 10),
--	       num_physpages << (PAGE_SHIFT - 10), codesize >> 10,
--	       reserved_pages << (PAGE_SHIFT - 10), datasize >> 10, initsize >> 10);
--
--	/*
--	 * Allow for enough (cached) page table pages so that we can map the entire memory
--	 * at least once.  Each task also needs a couple of page tables pages, so add in a
--	 * fudge factor for that (don't use "threads-max" here; that would be wrong!).
--	 * Don't allow the cache to be more than 10% of total memory, though.
-+	printk(KERN_INFO "Memory: %luk/%luk available "
-+	       "(%luk code, "
-+	       "%luk reserved, "
-+	       "%luk data, "
-+	       "%luk init)\n",
-+	       (unsigned long) nr_free_pages() << (PAGE_SHIFT - 10),
-+	       num_physpages << (PAGE_SHIFT - 10),
-+	       codesize >> 10,
-+	       reserved_pages << (PAGE_SHIFT - 10),
-+	       datasize >> 10,
-+	       initsize >> 10);
-+
-+	/*
-+	 * Allow for enough (cached) page table pages so that we can map the
-+	 * entire memory at least once.  Each task also needs a couple of page
-+	 * tables pages, so add in a fudge factor for that (don't use
-+	 * "threads-max" here; that would be wrong!). Don't allow the cache to
-+	 * be more than 10% of total memory, though.
- 	 */
- #	define NUM_TASKS	500	/* typical number of tasks */
- 	num_pgt_pages = nr_free_pages() / PTRS_PER_PGD + NUM_TASKS;
-@@ -598,8 +614,9 @@
- 		pgt_cache_water[1] = num_pgt_pages;
+-void
+-flush_tlb_range (struct vm_area_struct *vma, unsigned long start, unsigned long end)
++void flush_tlb_range(struct vm_area_struct *vma, unsigned long start,
++		     unsigned long end)
+ {
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	unsigned long size = end - start;
+ 	unsigned long nbits;
  
- 	/*
--	 * For fsyscall entrpoints with no light-weight handler, use the ordinary
--	 * (heavy-weight) handler, but mark it by setting bit 0, so the fsyscall entry
-+	 * For fsyscall entrpoints with no light-weight handler, use the
-+	 * ordinary (heavy-weight) handler, but mark it by setting bit 0, so
-+	 * the fsyscall entry
- 	 * code can tell them apart.
- 	 */
- 	for (i = 0; i < NR_syscalls; ++i) {
+ 	if (mm != current->active_mm) {
+-		/* this does happen, but perhaps it's not worth optimizing for? */
++		/* this does happen, but perhaps it's not worth optimizing
++		   for? */
+ #ifdef CONFIG_SMP
+ 		flush_tlb_all();
+ #else
+@@ -147,27 +149,27 @@
+ 	}
+ 
+ 	nbits = ia64_fls(size + 0xfff);
+-	while (unlikely (((1UL << nbits) & purge.mask) == 0) && (nbits < purge.max_bits))
++	while (unlikely (((1UL << nbits) & purge.mask) == 0) &&
++	       (nbits < purge.max_bits))
+ 		++nbits;
+ 	if (nbits > purge.max_bits)
+ 		nbits = purge.max_bits;
+ 	start &= ~((1UL << nbits) - 1);
+ 
+-# ifdef CONFIG_SMP
++#ifdef CONFIG_SMP
+ 	platform_global_tlb_purge(start, end, nbits);
+-# else
++#else
+ 	do {
+ 		ia64_ptcl(start, (nbits<<2));
+ 		start += (1UL << nbits);
+ 	} while (start < end);
+-# endif
++#endif
+ 
+ 	ia64_srlz_i();			/* srlz.i implies srlz.d */
+ }
+ EXPORT_SYMBOL(flush_tlb_range);
+ 
+-void __devinit
+-ia64_tlb_init (void)
++void __devinit ia64_tlb_init(void)
+ {
+ 	ia64_ptce_info_t ptce_info;
+ 	unsigned long tr_pgbits;
+@@ -175,7 +177,8 @@
+ 
+ 	if ((status = ia64_pal_vm_page_size(&tr_pgbits, &purge.mask)) != 0) {
+ 		printk(KERN_ERR "PAL_VM_PAGE_SIZE failed with status=%ld;"
+-		       "defaulting to architected purge page-sizes.\n", status);
++		       "defaulting to architected purge page-sizes.\n",
++		       status);
+ 		purge.mask = 0x115557000UL;
+ 	}
+ 	purge.max_bits = ia64_fls(purge.mask);
+@@ -187,5 +190,5 @@
+ 	local_cpu_data->ptce_stride[0] = ptce_info.stride[0];
+ 	local_cpu_data->ptce_stride[1] = ptce_info.stride[1];
+ 
+-	local_flush_tlb_all();		/* nuke left overs from bootstrapping... */
++	local_flush_tlb_all(); /* nuke left overs from bootstrapping... */
+ }
 
---Boundary-00=_vUd3BRaMfYn8IE/--
+--Boundary-00=_4Xd3BlT2JW8CRHN--
