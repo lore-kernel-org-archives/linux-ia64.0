@@ -1,7 +1,7 @@
-From: "Mallick, Asit K" <asit.k.mallick@intel.com>
-Date: Tue, 29 Jun 2004 16:20:49 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 29 Jun 2004 21:43:15 +0000
 Subject: RE: Why large stack frame for PAL call
-Message-Id: <9AB83E4717F13F419BD880F5254709E502FF6803@scsmsx402.amr.corp.intel.com>
+Message-Id: <16609.57971.744388.366433@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200406271740.i5RHeaY24803@unix-os.sc.intel.com>
 In-Reply-To: <200406271740.i5RHeaY24803@unix-os.sc.intel.com>
@@ -10,40 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Chen, Kenneth W <> wrote on Tuesday, June 29, 2004 8:14 AM:
+>>>>> On Tue, 29 Jun 2004 09:20:49 -0700, "Mallick, Asit K" <asit.k.mallick@intel.com> said:
 
-> David Mosberger wrote on Monday, June 28, 2004 10:50 PM
->> 
->>   Ken> Does anyone know why we need such large stack frame for PAL
->>   Ken> static call?  PAL isn't even suppose to touch any stack
->>   Ken> register for static calling convention.  Is it for legacy
-Ken>
->> reason or something? 
->> 
->> Good question.  I was able to track the source down to a patch that
->> was sent to me by Walt Drummond on Aug 11, 1999.  The authors listed
->> in the relevant file (it was called palcall.S back then) were Don
->> Dugger and Walt Drummond (in this order), so my guess is the code was
->> originally written by Don.  At that time, the primary target for Don
->> would have been SoftSDV.  Perhaps it was to work around a bug in
->> SoftSDV, though I suspect it's just as likely that the code came
-about
->> by a misunderstood/misdocumented PAL-requirement.
->> 
->> Perhaps Don or Asit remember how this came about?
->> 
->> I also cannot find a requirement that would demand allocating 96
->> stacked registers before making a PAL call and I'd be in favor of
->> cleaning that up.
-> 
-> Checked with Asit. Yes, this was more of a conservative code just like
-> what Don said.  Patch to clean it up.
+  Asit> I rechecked some of my old documents and found that there was
+  Asit> version of the SDM that stated that the caller should ensure
+  Asit> that all 96 stacked registers are available before calling PAL
+  Asit> procedure.
 
-I rechecked some of my old documents and found that there was version of
-the SDM that stated that the caller should ensure that all 96 stacked
-registers are available before calling PAL procedure. However, this
-restriction was removed in subsequent documents and is no longer needed.
-The code did not get updated. So, Ken's patch should be fine.
+Ah, that sounds vaguely familiar.
 
-Thanks,
-Asit
+  Asit> However, this restriction was removed in subsequent documents
+  Asit> and is no longer needed.  The code did not get updated. So,
+  Asit> Ken's patch should be fine.
+
+I guess we should try it on a Merced box, just to be reasonably sure.
+I'll do that.
+
+I guess this points out a weakness in the "checkstack" script: it
+ought to add the space allocated by the "alloc" instructions as well.
+Since the script is written in the wrong language (OK, at least the
+language-name starts with "p", I'll give them credit for that ;-), I
+won't try to fix this.  Perhaps someone else wants to bite?
+
+	--david
