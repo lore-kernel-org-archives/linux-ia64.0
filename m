@@ -1,27 +1,43 @@
-From: "Sapariya Manish.j" <S.Manish@zensar.com>
-Date: Tue, 28 Nov 2000 09:24:42 +0000
-Subject: [Linux-ia64] Information about EFI.
-Message-Id: <marc-linux-ia64-105590678205775@msgid-missing>
+From: gjertsen@us.ibm.com
+Date: Thu, 16 Nov 2000 20:18:47 +0000
+Subject: [Linux-ia64] "unsupported reloc" error with ld
+Message-Id: <marc-linux-ia64-105590678205735@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi all,
-I dont know whethere this is the correct place to ask this question or not
-but i couldnt get it anywhere else.
 
-The question is about EFI bios32/ia64 emulator for 32 bit systems.
+Can a compiler person out there provide some insight
+on the following error I get with some C++ code when
+doing a final bind with ld:
 
-I want to write a exception handler for my application written in EFI.
-Right now i dont have access to 64 bit machine thats why i am trying it on
-32 bit machine.
+fs/fs.o(.IA_64.unwind+0x98b8): unsupported reloc
+(... a bunch of these ...)
 
-But i could nt get any information about how could i do it.
+I am trying out the new toolchain from cygnus, 1024 snapshot,
+with the old glibc v2.1.3 (and the 2 patches for ABI and shared libs).
+This is an improvement from before when I was also getting additional
+"Dwarf Error" messages with the current turbolinux toolchain:
 
-Any suggestions will be of great help.
+--------------------------------------------------------------------------------------------------
+ld: Dwarf Error: Could not find abbrev number 100.
+(... a bunch more similar to this ...)
+fs/fs.o(.IA_64.unwind+0x98d0): unsupported reloc
+(... a bunch more similar to this ...)
+--------------------------------------------------------------------------------------------------
 
-thanx,
-Manish.
+Based on scaning the IA64 mail lists I saw two notes
+that discussed similar looking problems that referred
+to C++ EH and the use of inconsistant libraries and toolchain:
+
+[Linux-ia64] Bad unwind record ...   Mon, 24 Jul 2000
+[Linux-ia64] ld failure  26 Apr 2000
+
+Thanks,
+
+--Rob
+
+
 
