@@ -1,43 +1,49 @@
-From: "Neelakantam, NaveenX" <naveenx.neelakantam@intel.com>
-Date: Tue, 16 Apr 2002 20:18:15 +0000
-Subject: RE: [Linux-ia64] determining read or write on a page fault
-Message-Id: <marc-linux-ia64-105590701905458@msgid-missing>
+From: =?windows-1252?Q?Anders=20Herbj=F8rnsen?= <anders.herbjornsen@start.no>
+Date: Thu, 04 Apr 2002 11:48:50 +0000
+Subject: [Linux-ia64] pipe() not setting errno.
+Message-Id: <marc-linux-ia64-105590701905376@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905163@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905163@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Yes, I meant gcc (version 2.96 20000731).  I've verified that the bug still
-exists in gcc3.0, but I haven't been able to create a testcase yet.
+Hello,
 
-Naveen
+When running out of file descriptors pipe() does return -1 but
+errno is not set. This is working ok on IA32 systems, but fails
+on IA64. I've tested this with kernels 2.4.9 and 2.4.18.
 
------Original Message-----
-From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
-Sent: Monday, April 15, 2002 11:55 AM
-To: Neelakantam, NaveenX
-Cc: Hoeflinger, Jay P; 'davidm@hpl.hp.com'; 'linux-ia64@linuxia64.org'
-Subject: RE: [Linux-ia64] determining read or write on a page fault
+Below is a small sample program to illustrate the problem:
+
+########################################################
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+
+int main (int argc, char **argv){
+  int i;
+  for (i =3D 0; i < 3000; i++) {
+    int fd[2];
+    if (-1 =3D pipe(fd))
+      break;
+    printf ("%d ", i);
+  } /* for */
+  printf ("\npipe number %d error: errno=3D%d\n", i, errno);
+  return errno;
+}
+#############################################################
+
+Sample run:
+
+$ ulimit -n 12
+$ ./tpipe
+0 1 2 3
+pipe number 4 error: errno=3D0
+
+Regards
+Anders Herbj=F8rnsen
 
 
->>>>> On Sun, 14 Apr 2002 15:08:54 -0700, "Neelakantam, NaveenX"
-<naveenx.neelakantam@intel.com> said:
 
-  Naveen> It turns out that we have been running into a cc code
-  Naveen> generation bug.  Changing the si_code = 0 case from "write"
-  Naveen> to "read" happened to make the bug go away.
-
-  Naveen> We have rewritten our code to workaround the bug, and
-  Naveen> everything works as expected.  Sorry for the false alarm.
-
-By "cc" do you mean gcc?  If so, what version?  Can you check whether
-the bug still occurs with the latest version of gcc (gcc3.0 or, better
-still, gcc3.1-prelease) or provide a test-case?
-
-Thanks,
-
-	--david
 
