@@ -1,32 +1,48 @@
-From: j-nomura@ce.jp.nec.com
-Date: Tue, 11 Jun 2002 07:55:15 +0000
-Subject: Re: [Linux-ia64] CD-ROM I/O error
-Message-Id: <marc-linux-ia64-105590701905663@msgid-missing>
+From: Takanori Kawano <t-kawano@ebina.hitachi.co.jp>
+Date: Tue, 04 Jun 2002 07:45:42 +0000
+Subject: [Linux-ia64] Question about wbinvd
+Message-Id: <marc-linux-ia64-105590701905635@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905659@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905659@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Hello,
 
-> > when I do 'cat /dev/cdrom > disc.iso' on my Itanium box,
-> > I/O error happens on CD-ROM.
-> 
-> If you're trying to simply make an ISO with the right number of sectors, you
-> need to use 'isoinfo' to avoid these kinds of end-of-disc problems.
+I have a question about wbinvd in acpi code.
 
-Thank you, Matt.
-I had to specify the number of blocks to read.
+In 2.4.18, wbinvd is implemented in drivers/acpi/include/platform/acgcc.h
+ as follows.
 
-I'm still wondering why this does neither occur on my Pentium box
-nor for some other CDs..
+static inline void
+wbinvd (void)
+{
+        unsigned long flags, vector, position = 0;
+        long status;
 
-Best regards.
---
-NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
-HPC Operating System Group, 1st Computers Software Division,
-Computers Software Operations Unit, NEC Solutions.
+        do {
+                ia64_clear_ic(flags);
+                status = ia64_pal_cache_flush(0x3, (PAL_CACHE_FLUSH_INVALIDATE
+                                                    | PAL_CACHE_FLUSH_CHK_INTRS)
+,
+                                              &position, &vector);
+                local_irq_restore(flags);
+                if (status = 1) {
+                        ia64_eoi();
+                        hw_resend_irq(NULL, vector);
+                }
+        } while (status = 1);
+}
+
+I think it may cause infinite loop if PAL_CACHE_FLUSH continues to 
+exit for a pending interrupt without flushing any lines. 
+Is it correct to call hw_resend_irq as is?
+
+regards,
+---
+Takanori Kawano
+Hitachi Ltd,
+Internet Systems Platform Division
+t-kawano@ebina.hitachi.co.jp
 
