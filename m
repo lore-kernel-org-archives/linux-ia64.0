@@ -1,137 +1,46 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 07 Jan 2005 00:06:22 +0000
-Subject: [PATCH] long line & codingstyle cleanups for contig.c
-Message-Id: <200501061606.22753.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_+Jd3B3ejtbmUmRH"
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 20 Jan 2005 16:16:26 +0000
+Subject: [patch] minor spinlock cleanups
+Message-Id: <20050120161626.GD13812@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
---Boundary-00=_+Jd3B3ejtbmUmRH
-Content-Type: text/plain;
-  charset="us-ascii"
+References: <16878.54402.344079.528038@cargo.ozlabs.ibm.com> <20050120023445.GA3475@taniwha.stupidest.org> <20050119190104.71f0a76f.akpm@osdl.org> <20050120031854.GA8538@taniwha.stupidest.org> <16879.29449.734172.893834@wombat.chubb.wattle.id.au> <Pine.LNX.4.58.0501200747230.8178@ppc970.osdl.org> <20050120160839.GA13067@elte.hu> <20050120161116.GA13812@elte.hu> <20050120161259.GB13812@elte.hu> <20050120161450.GC13812@elte.hu>
+In-Reply-To: <20050120161450.GC13812@elte.hu>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, Chris Wedgwood <cw@f00f.org>, Andrew Morton <akpm@osdl.org>, paulus@samba.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, dsw@gelato.unsw.edu.au, benh@kernel.crashing.org, linux-ia64@vger.kernel.org, hch@infradead.org, wli@holomorphy.com, jbarnes@sgi.com
 
-This small patch cleans up long lines in contig.c and makes the function 
-declarations adhere to Documentation/CodingStyle.  Whitespace only changes.
+[this patch didnt change due to can_lock but i've resent it so that the
+patch stream is complete. this concludes my current spinlock patches.]
+--
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+cleanup: remove stale semicolon from linux/spinlock.h and stale space
+from asm-i386/spinlock.h.
 
-Thanks,
-Jesse & the 80 column brigade
+	Ingo
 
---Boundary-00=_+Jd3B3ejtbmUmRH
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="contig-cleanup.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="contig-cleanup.patch"
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
 
-===== arch/ia64/mm/contig.c 1.10 vs edited =====
---- 1.10/arch/ia64/mm/contig.c	2004-12-28 13:38:55 -08:00
-+++ edited/arch/ia64/mm/contig.c	2005-01-06 15:51:33 -08:00
-@@ -34,8 +34,7 @@
-  *
-  * Just walks the pages in the system and describes where they're allocated.
+--- linux/include/linux/spinlock.h.orig
++++ linux/include/linux/spinlock.h
+@@ -202,7 +202,7 @@ typedef struct {
+ #define _raw_spin_lock(lock)	do { (void)(lock); } while(0)
+ #define spin_is_locked(lock)	((void)(lock), 0)
+ #define _raw_spin_trylock(lock)	(((void)(lock), 1))
+-#define spin_unlock_wait(lock)	(void)(lock);
++#define spin_unlock_wait(lock)	(void)(lock)
+ #define _raw_spin_unlock(lock) do { (void)(lock); } while(0)
+ #endif /* CONFIG_DEBUG_SPINLOCK */
+ 
+--- linux/include/asm-i386/spinlock.h.orig
++++ linux/include/asm-i386/spinlock.h
+@@ -92,7 +92,7 @@ static inline void spin_unlock_wait(spin
+  * (except on PPro SMP or if we are using OOSTORE)
+  * (PPro errata 66, 92)
   */
--void
--show_mem (void)
-+void show_mem(void)
- {
- 	int i, total = 0, reserved = 0;
- 	int shared = 0, cached = 0;
-@@ -75,8 +74,7 @@
-  * Passed as a callback function to efi_memmap_walk() to determine the highest
-  * available page frame number in the system.
-  */
--int
--find_max_pfn (unsigned long start, unsigned long end, void *arg)
-+int find_max_pfn(unsigned long start, unsigned long end, void *arg)
- {
- 	unsigned long *max_pfnp = arg, pfn;
+- 
++
+ #if !defined(CONFIG_X86_OOSTORE) && !defined(CONFIG_X86_PPRO_FENCE)
  
-@@ -95,8 +93,7 @@
-  * Find a place to put the bootmap and return its starting address in
-  * bootmap_start.  This address must be page-aligned.
-  */
--int
--find_bootmap_location (unsigned long start, unsigned long end, void *arg)
-+int find_bootmap_location(unsigned long start, unsigned long end, void *arg)
- {
- 	unsigned long needed = *(unsigned long *)arg;
- 	unsigned long range_start, range_end, free_start;
-@@ -139,8 +136,7 @@
-  * Walk the EFI memory map and find usable memory for the system, taking
-  * into account reserved areas.
-  */
--void
--find_memory (void)
-+void find_memory(void)
- {
- 	unsigned long bootmap_size;
- 
-@@ -174,8 +170,7 @@
-  *
-  * Allocate and setup per-cpu data areas.
-  */
--void *
--per_cpu_init (void)
-+void *per_cpu_init(void)
- {
- 	void *cpu_data;
- 	int cpu;
-@@ -187,20 +182,23 @@
- 	 */
- 	if (smp_processor_id() == 0) {
- 		cpu_data = __alloc_bootmem(PERCPU_PAGE_SIZE * NR_CPUS,
--					   PERCPU_PAGE_SIZE, __pa(MAX_DMA_ADDRESS));
-+					   PERCPU_PAGE_SIZE,
-+					   __pa(MAX_DMA_ADDRESS));
- 		for (cpu = 0; cpu < NR_CPUS; cpu++) {
--			memcpy(cpu_data, __phys_per_cpu_start, __per_cpu_end - __per_cpu_start);
--			__per_cpu_offset[cpu] = (char *) cpu_data - __per_cpu_start;
-+			memcpy(cpu_data, __phys_per_cpu_start,
-+			       __per_cpu_end - __per_cpu_start);
-+			__per_cpu_offset[cpu] = (char *) cpu_data -
-+				__per_cpu_start;
- 			cpu_data += PERCPU_PAGE_SIZE;
--			per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
-+			per_cpu(local_per_cpu_offset, cpu) =
-+				__per_cpu_offset[cpu];
- 		}
- 	}
- 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
- }
- #endif /* CONFIG_SMP */
- 
--static int
--count_pages (u64 start, u64 end, void *arg)
-+static int count_pages(u64 start, u64 end, void *arg)
- {
- 	unsigned long *count = arg;
- 
-@@ -209,8 +207,7 @@
- }
- 
- #ifdef CONFIG_VIRTUAL_MEM_MAP
--static int
--count_dma_pages (u64 start, u64 end, void *arg)
-+static int count_dma_pages(u64 start, u64 end, void *arg)
- {
- 	unsigned long *count = arg;
- 
-@@ -224,8 +221,7 @@
-  * Set up the page tables.
-  */
- 
--void
--paging_init (void)
-+void paging_init(void)
- {
- 	unsigned long max_dma;
- 	unsigned long zones_size[MAX_NR_ZONES];
-
---Boundary-00=_+Jd3B3ejtbmUmRH--
-
+ #define spin_unlock_string \
