@@ -1,34 +1,27 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 10 Apr 2003 00:44:19 +0000
-Subject: RE: [Linux-ia64] mmap crashes system after mapping PCI device into user space and reading and writin
-Message-Id: <marc-linux-ia64-105590723705453@msgid-missing>
+Date: Wed, 23 Apr 2003 18:02:59 +0000
+Subject: [Linux-ia64] Re: gettimeoffset() for sn2
+Message-Id: <marc-linux-ia64-105590723705593@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705441@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705441@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 9 Apr 2003 19:53:38 -0400, "Mike Fox" <mfox@annapmicro.com> said:
+>>>>> On Wed, 23 Apr 2003 12:19:25 -0400, Jes Sorensen <jes@wildopensource.com> said:
 
-  Mike> Turns out my pgprot_noncached was not getting called, so I
-  Mike> took it out of the conditional. Thanks for all of your help.
+  Jes> This patch is against 2.4.21-pre5-cset-1.1020, I will be working on a
+  Jes> 2.5.x version later today.
 
-Ah, that explains it.
+  Jes> Unless there are strong objections, I'd love to see this applied to the
+  Jes> 2.4.x tree. Oh yes, I tested it on my zx1 as well.
 
-  Mike> I went ahead and bought the book, "ia-64 linux kernel", by
-  Mike> David Mosberger and Stephane Eranian.
+One small comment: lose the " = NULL" initializers for the global
+*time_hook variables; they only increase the data size for no good
+reason.
 
-Great choice! ;-))
-
-Seriously though: an errata, kernel change log, and a searchable index
-are available at:
-
-  http://www.lia64.org/book/
-
-There were some stupid typos that snuck by, so the errata is
-especially important.
+The bigger issue: note that do_gettimeofday() acquires a _read_ lock.
+Thus, you need to be careful about updating rtc_offset atomically.
 
 	--david
 
