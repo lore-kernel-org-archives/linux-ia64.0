@@ -1,41 +1,54 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Fri, 22 Oct 2004 08:53:42 +0000
-Subject: ia64 get_fs() build fix
-Message-Id: <20041022015342.2add97ee.akpm@osdl.org>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 20 Oct 2004 17:16:13 +0000
+Subject: [PATCH] sparse cleanup for mca.c
+Message-Id: <200410201016.13798.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_d1pdB1fXXx6+guv"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+--Boundary-00=_d1pdB1fXXx6+guv
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Not sure how I managed to do this, but...
+Looks like we were casting a value into a union and sparse doesn't like that.  
+Why not just assign it directly to the appropriate field?
 
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-In file included from arch/ia64/ia32/binfmt_elf32.c:22:
-arch/ia64/ia32/elfcore32.h: In function `elf_core_copy_task_fpregs':            arch/ia64/ia32/elfcore32.h:111: warning: implicit declaration of function `get_fs'                                                                              arch/ia64/ia32/elfcore32.h:111: error: incompatible types in assignment
-arch/ia64/ia32/elfcore32.h:112: warning: implicit declaration of function `set_fs'
-arch/ia64/ia32/elfcore32.h:112: error: `KERNEL_DS' undeclared (first use in this function)
-arch/ia64/ia32/elfcore32.h:112: error: (Each undeclared identifier is reported only once
-arch/ia64/ia32/elfcore32.h:112: error: for each function it appears in.)        arch/ia64/ia32/elfcore32.h: In function `elf_core_copy_task_xfpregs':
-arch/ia64/ia32/elfcore32.h:129: error: incompatible types in assignment         arch/ia64/ia32/elfcore32.h:130: error: `KERNEL_DS' undeclared (first use in this function)
+Thanks,
+Jesse
 
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+--Boundary-00=_d1pdB1fXXx6+guv
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sparse-mca-fixups.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sparse-mca-fixups.patch"
 
- 25-akpm/arch/ia64/ia32/elfcore32.h |    1 +
- 1 files changed, 1 insertion(+)
-
-diff -puN arch/ia64/ia32/elfcore32.h~ia64-get_fs-build-fix arch/ia64/ia32/elfcore32.h
---- 25/arch/ia64/ia32/elfcore32.h~ia64-get_fs-build-fix	Fri Oct 22 16:42:20 2004
-+++ 25-akpm/arch/ia64/ia32/elfcore32.h	Fri Oct 22 16:42:35 2004
-@@ -9,6 +9,7 @@
- #define _ELFCORE32_H_
+===== arch/ia64/kernel/mca.c 1.69 vs edited =====
+--- 1.69/arch/ia64/kernel/mca.c	2004-09-30 11:49:13 -07:00
++++ edited/arch/ia64/kernel/mca.c	2004-10-20 09:27:20 -07:00
+@@ -593,7 +593,7 @@
+ {
+ 	cmcv_reg_t	cmcv;
  
- #include <asm/intrinsics.h>
-+#include <asm/uaccess.h>
+-	cmcv = (cmcv_reg_t)ia64_getreg(_IA64_REG_CR_CMCV);
++	cmcv.cmcv_regval = ia64_getreg(_IA64_REG_CR_CMCV);
  
- #define USE_ELF_CORE_DUMP 1
+ 	cmcv.cmcv_mask = 1; /* Mask/disable interrupt */
+ 	ia64_setreg(_IA64_REG_CR_CMCV, cmcv.cmcv_regval);
+@@ -620,7 +620,7 @@
+ {
+ 	cmcv_reg_t	cmcv;
  
-_
+-	cmcv = (cmcv_reg_t)ia64_getreg(_IA64_REG_CR_CMCV);
++	cmcv.cmcv_regval = ia64_getreg(_IA64_REG_CR_CMCV);
+ 
+ 	cmcv.cmcv_mask = 0; /* Unmask/enable interrupt */
+ 	ia64_setreg(_IA64_REG_CR_CMCV, cmcv.cmcv_regval);
 
+--Boundary-00=_d1pdB1fXXx6+guv--
