@@ -1,33 +1,36 @@
-From: alext@fc.hp.com (Alex Tsariounov)
-Date: Fri, 04 Jun 2004 18:49:10 +0000
-Subject: small syntax patch to entry.S
-Message-Id: <20040604184909.GB2294@fc.hp.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Fri, 25 Jun 2004 16:12:16 +0000
+Subject: [PATCH] trashing bootmem on non-NUMA boxes
+Message-Id: <1088179936.4106.15.camel@tdi>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello, David,
 
-I looked on the latest bitkeeper ia64 tree (well, at least what I
-thought was the latest...) and this one still seems to be there.
-It doesn't seem to bother the assembler, but it gives my syntax
-colorizer the chills.
+   call_pernode_memory() is rounding memory regions to page boundaries,
+but in the non-NUMA case, it's incorrectly passing the rounded start and
+the original length.  Any reserved memory regions sitting beyond a
+memory region that isn't nicely aligned is potentially at risk for
+getting freed and trashed.  This is a fairly nasty bug that can bite in
+very hard to find ways.  In my case, the EFI memory map was getting
+overwritten, causing the ACPI methods to access chipset registers
+cachable instead of uncachable.  It could potentially be causing some of
+the random hangs and strange behavior we're seeing lately.
 
-Thanks,
-Alex
+Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+
+=== arch/ia64/mm/discontig.c 1.15 vs edited ==--- 1.15/arch/ia64/mm/discontig.c	Thu Jun 24 02:55:57 2004
++++ edited/arch/ia64/mm/discontig.c	Fri Jun 25 09:39:20 2004
+@@ -549,7 +549,7 @@
+ 	if (!num_node_memblks) {
+ 		/* No SRAT table, so assume one node (node 0) */
+ 		if (start < end)
+-			(*func)(start, len, 0);
++			(*func)(start, end - start, 0);
+ 		return;
+ 	}
+ 
 
 
-diff -Nru -X dontdiff linux-2.6.6/arch/ia64/kernel/entry.S linux-2.6.6.fix/arch/ia64/kernel/entry.S
---- linux-2.6.6/arch/ia64/kernel/entry.S	2004-06-04 12:32:57.000000000 -0600
-+++ linux-2.6.6.fix/arch/ia64/kernel/entry.S	2004-06-04 12:34:09.000000000 -0600
-@@ -21,7 +21,7 @@
-  * Jonathan Nicklin	<nicklin@missioncriticallinux.com>
-  * Patrick O'Rourke	<orourke@missioncriticallinux.com>
-  * 11/07/2000
-- /
-+ */
- /*
-  * Global (preserved) predicate usage on syscall entry/exit path:
-  *
