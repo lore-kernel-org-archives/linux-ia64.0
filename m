@@ -1,58 +1,39 @@
-From: Joel GUILLET <Joel.Guillet@bull.net>
-Date: Wed, 05 Feb 2003 08:39:48 +0000
-Subject: Re: [Linux-ia64] _raw_write_trylock() missing
-Message-Id: <marc-linux-ia64-105590709805815@msgid-missing>
+From: Eric Piel <Eric.Piel@Bull.Net>
+Date: Fri, 28 Feb 2003 09:52:33 +0000
+Subject: [Linux-ia64] Port of the posix timers to IA64
+Message-Id: <marc-linux-ia64-105590709805943@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805809@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805809@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+Hello David,
 
-On Wed, 5 Feb 2003, Ian Wienand wrote:
+I'm working on the port of the posix timers to IA64. The first (over 4)
+part has just been integrated in the linus tree (2.5.63) so I think you
+can find interest in my work. 
+Even if it's supposed to be portable accross platforms, due to some mix
+between long and int, it doesn't run correctly on IA64. 
 
-> On Tue, Feb 04, 2003 at 03:18:22PM +0100, Joel GUILLET wrote:
-> > What the macro is doing : (at least, what I think it is doing)
-> >
-> > - if the actual lock value is equal to "0",
-> > 	change the lock value to "00.....0001"
+Here comes my question, I'm still newbie to kernel hacking and IA64
+compilation and I don't know how I should handle some troubles with
+longs. In the code I have some cases like this one:
 
-Sorry for that mistake in my mail, but the value I actually want to store
-into the lock is the 32 bit value "1000000...000".
+long v;
+:
+:
+if ( v >= (1 << 56)){
+:
+}
 
-... because the rw_lock value is composed with :
-- 1 bit for the write "flag" (the most significant bit of a _long_ value)
-- 31 bits for the read flags
+It seems very strange for me that when compiling this part gcc considers
+that eveything must be converted to int. I have to write 1UL instead of
+1 in order to obtain the correct behaviour of the code. I guess you've
+already come along with such problem.
+So, first, do you think it's a bug in gcc? Second should I convert every
+1's I see by 1UL's (there are only few but sounds so strange)?
 
-... so the value of r29 (0x80000000) should be OK.
-
-
-> > 	else do nothing
-> >
-> > The code for this : (in include/asm-ia64/spinlock.h)
-> > 		"dep r29 = -1, r0, 31, 1\n"
->
-> doesn't this make the value of r29 0x80000000?  i.e the 1 is at the
-> wrong end.
->
-> > 		"cmpxchg4.acq result = [rw], r29, ar.ccv\n"
->
-> so here you end up swapping 0x8000000 into rw if rw=0
->
-> i think maybe just making doing mov r29 = 1 above will do what you
-> want.
->
-> -i
-> ianw@gelato.unsw.edu.au
-> http://www.gelato.unsw.edu.au
->
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
->
-
+Thanks
+Eric
 
