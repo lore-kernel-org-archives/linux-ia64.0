@@ -1,38 +1,28 @@
-From: Pat Gefre <pfg@sgi.com>
-Date: Wed, 11 Aug 2004 23:31:54 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 12 Aug 2004 11:55:51 +0000
 Subject: Re: Altix I/O code reorganization - 11 of 21
-Message-Id: <200408112331.i7BNVsWk140739@fsgi900.americas.sgi.com>
+Message-Id: <20040812115551.GO5387@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200408112331.i7BNVsWk140739@fsgi900.americas.sgi.com>
+In-Reply-To: <200408112331.i7BNVsWk140739@fsgi900.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, hch@infradead.org
+To: Pat Gefre <pfg@sgi.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, hch@infradead.org
 
+On Wed, Aug 11, 2004 at 06:31:54PM -0500, Pat Gefre wrote:
+> +# Makefile for the sn2 io routines.
+> +
+> +obj-y				:=  klconflib.o
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/08/11 16:26:33-05:00 pfg@sgi.com 
-#   New klconfig Makefile
-# 
-# arch/ia64/sn/ioif/klconfig/Makefile
-#   2004/08/11 16:24:39-05:00 pfg@sgi.com +10 -0
-# 
-# arch/ia64/sn/ioif/klconfig/Makefile
-#   2004/08/11 16:24:39-05:00 pfg@sgi.com +0 -0
-#   BitKeeper file /work.attica2/pfg/Linux/2.5-BK/to-base-2.6/arch/ia64/sn/ioif/klconfig/Makefile
-# 
-diff -Nru a/arch/ia64/sn/ioif/klconfig/Makefile b/arch/ia64/sn/ioif/klconfig/Makefile
---- /dev/null	Wed Dec 31 16:00:00 196900
-+++ b/arch/ia64/sn/ioif/klconfig/Makefile	2004-08-11 16:27:03 -05:00
-@@ -0,0 +1,10 @@
-+#
-+# This file is subject to the terms and conditions of the GNU General Public
-+# License.  See the file "COPYING" in the main directory of this archive
-+# for more details.
-+#
-+# Copyright (C) 2002-2003 Silicon Graphics, Inc.  All Rights Reserved.
-+#
-+# Makefile for the sn2 io routines.
-+
-+obj-y				:=  klconflib.o
+I agree with Christoph.  It's ridiculous to have one file per directory
+like this.
+
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
