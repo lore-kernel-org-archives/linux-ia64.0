@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 26 Jan 2005 18:11:10 +0000
+From: Russ Anderson <rja@sgi.com>
+Date: Wed, 26 Jan 2005 19:01:32 +0000
 Subject: Re: [patch] fix per-CPU MCA mess and make UP kernels work again
-Message-Id: <200501261011.10889.jbarnes@engr.sgi.com>
+Message-Id: <200501261901.j0QJ1WGk12184884@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16887.1203.470842.161249@napali.hpl.hp.com>
 In-Reply-To: <16887.1203.470842.161249@napali.hpl.hp.com>
@@ -10,20 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday, January 26, 2005 10:05 am, David Mosberger wrote:
-> Hmmh, I probably misread the patch.  I was looking at this hunk:
->
-> +#ifdef CONFIG_SMP
->  /**
->   * per_cpu_init - setup per-cpu variables
->   *
-> @@ -558,6 +586,7 @@
->
->   return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
->  }
-> +#endif /* CONFIG_SMP */
+David Mosberger wrote:
+> 
+> BTW: can you remind me why you want node-local MCA data?  Performance
+> is probably not an issue.  Are you concerned about error-containment,
+> hot-swap, or something else?
 
-Oh, you're right.  My patch just defaults to using __phys_per_cpu_start.  
-That's probably why the MCA stuff didn't work.
+I'm not aware of a compelling functional reason that the MCA data 
+has to be node-local.  The key feature is that each CPU have a unique
+MCA data area.  If all the MCA data areas are on one node, that
+should be OK.  If a CPU cannot access MCA data memory on a remote 
+node, odds are we will die anyway.
 
-Jesse
+It seems logical to me that MCA data be close to the node/cpu using
+it, but workable if it is not.
+
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
