@@ -1,24 +1,25 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Wed, 12 Feb 2003 23:29:49 +0000
-Subject: [Linux-ia64] Preemption patch
-Message-Id: <marc-linux-ia64-105590709805838@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Thu, 20 Feb 2003 02:36:38 +0000
+Subject: [Linux-ia64] GPT_HEADER_REVISION_V1_02
+Message-Id: <marc-linux-ia64-105590709805883@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi David,
-   Turned out that the problems I was having with the preemption patch
-were indeed hardware related.  So feel free to merge that patch.
-There're still problems with Perfmon, but I'd rather wait until
-Stephane's new code is merged before addressing them.
+We noticed that parted-1.6.3 is using GPT_HEADER_REVISION_V1_02 in the
+GPT header. This is probably due to the ambiguity in the EFI spec about
+what the revision number in the GPT means. The intention was that this
+revision number is not necessarily the same as the EFI spec number.
 
-I've run withpreemption enabled on dual and single McKinley  and on
-the simualtor and so far so good.  I see interrupt latency variablilty
-drop from 4000--320000 cycles to 4000--8000 cycles, which is good.
-I don't yet see any major user-visible differences though.
+We'll issue a clarification on this topic. For now, can we have parted
+revert to GPT_HEADER_REVISION_V1_00 ?
 
-Peter C
+Not fixing this may result in incompatibility with other disk
+partitioning tools.
+
+	-Arun
+
 
 
