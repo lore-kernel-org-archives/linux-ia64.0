@@ -1,51 +1,61 @@
-From: Patrick Gefre <pfg@sgi.com>
-Date: Thu, 05 Feb 2004 17:11:09 +0000
-Subject: Re: PCI question
-Message-Id: <4022792D.2070309@sgi.com>
+From: john stultz <johnstul@us.ibm.com>
+Date: Wed, 18 Feb 2004 06:42:54 +0000
+Subject: possible time_interpolator bug?
+Message-Id: <1077086574.985.56.camel@cog.beaverton.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200402032235.i13MZQXl018906@fsgi900.americas.sgi.com>
-In-Reply-To: <200402032235.i13MZQXl018906@fsgi900.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Greg KH wrote:
+All,
+	Using my ia64-cyclone patch I've been occasionally noticing time
+inconsistencies near second overflows. Being as the whole purpose of the
+patch is to avoid time inconsistencies, I've been wearing my forehead
+raw trying to find the bug in my implementation of the cyclone time
+interpolator. 
 
->On Tue, Feb 03, 2004 at 04:27:09PM -0600, Patrick Gefre wrote:
->  
->
->>The usage of pci_dev.sysdata is a bit confusing to me. I had initially
->>thought that this was available for any system specific use,  but then
->>in pcibios_fixup_device_resources() it is specifically cast as a
->>struct pci_controller *:
->>
->>#define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
->>
->>void __init
->>pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
->>    
->>
->
->What kernel are you looking at?  I don't see either of the above in the
->2.6.2 kernel tree.
->
->thanks,
->
->greg k-h
->  
->
-In my bitkeeper tree : (bk parent: http://linux.bkbits.net/linux-2.5)
+I believe I have found either a bug in the time_interpolator code, or a
+bug in my understanding of how it is supposed to work. 
 
-include/asm-ia64/pci.h:
-#define PCI_CONTROLLER(busdev) ((struct pci_controller *) busdev->sysdata)
+Looking in kernel/timer.c at update_wall_time_one_tick() and
+update_wall_time().
 
-arch/ia64/pci/pci.c:
-void __init
-pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
+First in update_wall_time():
 
-Is there some ia64 patch I'm missing that removes this ?
+static void update_wall_time(unsigned long ticks)
+{
+	do {
+		ticks--;
+		update_wall_time_one_tick();
+	} while (ticks);
 
--- Pat
+	if (xtime.tv_nsec >= 1000000000) {
+	    xtime.tv_nsec -= 1000000000;
+	    xtime.tv_sec++;
+	    time_interpolator_update(NSEC_PER_SEC);
+	    second_overflow();
+	}
+}
+
+So each second, we call "_update(NSEC_PER_SEC)", however for each tick
+we call update_wall_time_one_tick() which calls "_update(delta_nsec)". 
+
+Thus in a period of one second, we call _update() HZ times w/
+~NSEC_PER_SEC/HZ as an argument, then at the second overflow we call it
+again w/ NSEC_PER_SEC. 
+
+It seems that calling _update() on the second overflow is unnecessary.
+And because in my implementation of update_cyclone(), we then clear the
+offset_base variable, this causes time inconsistencies. 
+
+It would be noted that time inconsistencies are not seen using the ITC
+interpolator, however the ITC interpolator has an empty _update
+function.
+
+Am I just missing something here?
+
+thanks
+-john
 
 
