@@ -1,7 +1,7 @@
-From: Matt_Domsch@Dell.com
-Date: Tue, 15 May 2001 12:13:31 +0000
+From: "McCaffity, Ray" <ray.mccaffity@wcg.com>
+Date: Tue, 15 May 2001 14:46:52 +0000
 Subject: RE: [Linux-ia64] EFI GPT tools ?
-Message-Id: <marc-linux-ia64-105590693005577@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005578@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005576@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005576@msgid-missing>
@@ -9,6 +9,18 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+I guess I'm not really sure what GPT is, but is there any IA64
+support journaled file systems yet?  (ReiserFS or JFS, etc..)
+If this is the parted tool for partitioning, I have used that
+on x86, but doesn't appear to support anything but ext2.
+
+-----Original Message-----
+From: Matt_Domsch@Dell.com [mailto:Matt_Domsch@Dell.com]
+Sent: Tuesday, May 15, 2001 7:14 AM
+To: Martin.Wilck@fujitsu-siemens.com; linux-ia64@linuxia64.org
+Subject: RE: [Linux-ia64] EFI GPT tools ?
+
 
 > Some months ago, my colleague Josef Moellers posted
 > a question on the availability of fdisk and friends
@@ -40,4 +52,9 @@ Linux OS Development
 www.dell.com/linux
 
 
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
