@@ -1,28 +1,120 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Mon, 03 Jan 2005 17:54:48 +0000
-Subject: Re: Increase page fault rate by prezeroing V1 [0/3]: Overview
-Message-Id: <Pine.LNX.4.58.0501030953530.21811@schroedinger.engr.sgi.com>
+From: JinShan Xiong <jinshan.xiong@gmail.com>
+Date: Mon, 31 Jan 2005 03:56:43 +0000
+Subject: How to intercept system calls on ia64 linux kernel
+Message-Id: <b3b26beb050130195674d2930c@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
- <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
- <20041224183128.GI13747@dualathlon.random>
-In-Reply-To: <20041224183128.GI13747@dualathlon.random>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrea Arcangeli <andrea@suse.de>
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, "Luck, Tony" <tony.luck@intel.com>, Robin Holt <holt@sgi.com>, Adam Litke <agl@us.ibm.com>, linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-mm@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Fri, 24 Dec 2004, Andrea Arcangeli wrote:
+Hi all,
 
-> Did you notice I already implemented full PG_zero caching here with
-> prezeroing on top of it?
->
-> 	http://www.kernel.org/pub/linux/kernel/people/andrea/patches/v2.6/2.6.9/PG_zero-2
-> 	http://www.kernel.org/pub/linux/kernel/people/andrea/patches/v2.6/2.6.9/PG_zero-2-no-zerolist-reserve-1
->
-> I was about to push this in SP1, but it was a bit late.
+The program has been tested on a HP-ia machine with redhat AS2.1
+installed, and the kernel version is 2.4.18-e.47smp.
 
-Yes but this did not do the trick and the interface to get zeroed pages is
-a bit difficult to handle.
+Thanks helps from David .
 
+JinShan
+
+Here is the source code:
+/* ro.c */
+/* vi: set ts=4 sw=4 expandtab: */
+
+#include <linux/config.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/unistd.h>
+#include <linux/sched.h>
+#include <asm/pgtable.h>
+#include <linux/vmalloc.h>
+#include <linux/mm.h>
+#include <asm/uaccess.h>
+
+extern unsigned long sys_call_table[];
+
+//static long (*old_time)(struct timeval *, struct timezone *);
+//extern unsigned long new_time_stub;
+static unsigned long old_time;
+extern void new_time_stub();
+struct foo {
+    void *ip;
+    void *gp;
+};
+
+asm (
+"       .text\n"
+"        .proc new_time_stub\n"
+"new_time_stub:"    
+"       .prologue\n"
+"       .regstk 2, 3, 2, 0\n"
+"       .save ar.pfs, loc1\n"
+"       alloc loc1 = ar.pfs, 2, 3, 2, 0\n"
+"       movl r2 = @gprel(zero);;\n"
+"       .save rp, loc0\n"
+"       mov loc0 = rp\n"
+"       mov loc2 = gp\n"
+"       sub gp = r0, r2\n"
+"       mov out0 = in0\n"
+"       mov out1 = in1\n"
+"       br.call.sptk.many rp = new_time\n"
+"1:      mov rp = loc0\n"
+"       mov ar.pfs = loc1\n"
+"       mov gp = loc2\n"
+"       br.ret.sptk.many rp\n"
+"       .endp\n"
+);
+
+static atomic_t time_enter_count = ATOMIC_INIT(0);
+long new_time(struct timeval *tv, struct timezone *tz)
+{
+    int ret = -EFAULT;
+    atomic_inc(&time_enter_count);
+    printk("time be called!\n");
+    if (tv) {
+        struct timeval ktv;
+        do_gettimeofday(&ktv);
+        if (copy_to_user(tv, &ktv, sizeof(ktv))) {
+            goto out;
+        }
+    }
+    if (tz) {
+        extern struct timezone sys_tz;
+        if (copy_to_user(tz, &sys_tz, sizeof(sys_tz))) {
+            goto out;
+        }
+    }
+    ret = 0;
+
+out:
+    atomic_dec(&time_enter_count);
+    return ret;
+}
+
+int init_module(void)
+{
+    printk("new_time_stub is %llx\n", new_time_stub);
+    old_time = sys_call_table[__NR_gettimeofday - 1024];
+    sys_call_table[__NR_gettimeofday - 1024] = ((struct
+foo*)&new_time_stub)->ip;
+    printk("old_time is %llx\n", old_time);
+    return 0;
+}
+
+void cleanup_module()
+{
+    /* should restore syscall here! */
+    sys_call_table[__NR_gettimeofday - 1024] = old_time; 
+    printk("Byebye!\n");
+
+    /* Here is a race condition window when running on smp. */
+    do {
+        current->state = TASK_INTERRUPTIBLE;
+        schedule_timeout(1);
+    } while(atomic_read(&time_enter_count));
+}
+
+makefile:
+               gcc -c -D__KERNEL__ -DMODULE -I/lib/modules/`uname
+-r`/build/include ro.c
+               ld -r -o mod.o ro.o --defsym zero=0
