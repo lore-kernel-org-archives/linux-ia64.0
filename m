@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Wed, 05 Mar 2003 00:11:46 +0000
+From: grundler@cup.hp.com (Grant Grundler)
+Date: Wed, 05 Mar 2003 18:58:13 +0000
 Subject: Re: [Linux-ia64] tg3 deadlock issue in ia64 2.4.20?
-Message-Id: <marc-linux-ia64-105590709805966@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805975@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805964@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805964@msgid-missing>
@@ -10,15 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Tue, Mar 04, 2003 at 06:04:58PM -0600, Brent Clements wrote:
 > I was just curious, is the tg3 deadlock bug in the latest ia64 patch for
 > 2.4.20? Or does this bug not exist in the 2.4.20 ia64 kernel source?
+>
+> I was just curious because redhat just released a bug fix for 2.4.18.
 
-Are you referring to the recent MCA problem (see the email thread here:
-http://www.uwsg.iu.edu/hypermail/linux/kernel/0302.1/1098.html)?
+Brent,
+Could you be more specific about the above "deadlock bug" or bug fix?
+ie a URL to either or a bugzilla entry would be sufficient.
 
-If so, this problem does not affect 2.4.20-ia64-021210.  The problem
-was introduced by a 5701 defect workaround.  The workaround was
-not in the tg3 driver in 2.4.20; it went into tg3 on 1/30/2003.
+My gut feeling is this is a different issue than the MCA problem
+bjorn thought it might be.
 
-Bjorn
+thanks,
+grant
 
