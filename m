@@ -1,57 +1,43 @@
-From: Khoa Nguyen <khoan@rsn.hp.com>
-Date: Wed, 30 Aug 2000 19:45:03 +0000
-Subject: [Linux-ia64] BigSur on the LAN
-Message-Id: <marc-linux-ia64-105590678205419@msgid-missing>
+From: Michael Madore <mmadore@turbolinux.com>
+Date: Thu, 10 Aug 2000 01:56:35 +0000
+Subject: [Linux-ia64] XFree 4.0.1 module loading
+Message-Id: <marc-linux-ia64-105590678205301@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+Hi,
 
-I've been monitoring this list for a few days now and everyone seems to
-have the IA64 box on the lan. To date, we have not been able to put our
-bigsur on the lan. I've tried RedHat, and Turbo linux distribution to 
-no avail. If you know of any step that I might have missed, please let 
-me know. We'd like to put our box on the lan for every one to play with.
+I have XFree 4.0.1 built on IA64, however I am having an issue with
+loadable modules that I would like to address.
 
-Here is what I've tried so far:
-	1. Installed Turbo linux (one version older than the lastest).
-	   Configured network params.
-	   Successfully pinged itself, but couldn't ping any other IP
-	   eth0 listed as eepro100: IRQ 10, base addr 0x1000
-	   Periodically got: "eth0: Transmit timed out: status f088 
-	                      0c00 at 28/56 command 0001a000"
+Loading individual modules works fine.  Unfortunately, if a module
+references a symbol inside another module, the dlopen() call  won't
+resolve the symbol.
 
-	2. Installed latest RedHat.
-	   Configured network params.
-	   Successfully pinged itself, but couldn't ping any other IP
-	   eth0 listed as eepro100: IRQ 10, base addr 0x1000
-	   Periodically got: "eth0: Transmit timed out: status f088 
-	                      0c00 at 28/56 command 0001a000"
+This is primarily a problem while running XFree86 -configure to create an
+initial configure file.  Here is an example:
 
-	3. Used RedHat latest as a base and rebuild the kernel with 
-	   module support.
-	   Compiled eepro100 as modules
-	   Copied System.map and vmlinux and rename them appropriately
-	   to /boot and /boot/efi respectively.
-	   Tried 'modprobe eepro100' and got these errors:
-	   "..../eepro100.o: unresolved symbol pci_unmap_single"
-	   "..../eepro100.o: unresolved symbol pci_map_single"
-	   "..../eepro100.o: unresolved symbol pci_dma_sync_single"
+(II) LoadModule: "mga"
+(II) Loading /usr/X11R6/lib/modules/drivers/mga_drv.so
+dlopen: /usr/X11R6/lib/modules/drivers/mga_drv.so: undefined symbol:
+vgaHWddc1SetSpeed
+(EE) Failed to load /usr/X11R6/lib/modules/drivers/mga_drv.so
+(II) UnloadModule: "mga"
 
-I thought that the built-in ethernet card is bad. So, we bought a PCI
-Intel Pro/100+. After installing it, the box continually reboots.
 
-Here is the system config:
-	SDV Pre-Qual
-	A-3 stepping processor
-	1G RAM.
+vgaHWddc1SetSpeed is defined in /usr/X11R6/lib/modules/libvgahw.so
 
-Any help is greatly appreciated.
+How would dlopen() know to look at that module to resolve the dependency?
 
-Thanks,
+Mike Madore
+Software Engineer
+TurboLinux, Inc.
 
-Khoa.
+
+
+
+
 
