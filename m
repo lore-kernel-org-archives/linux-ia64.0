@@ -1,25 +1,34 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 16 Jan 2003 22:53:25 +0000
-Subject: Re: [Linux-ia64] ia64_fls patch (asm-ia64/bitops.h)
-Message-Id: <marc-linux-ia64-105590709805706@msgid-missing>
+Date: Wed, 08 Jan 2003 18:32:42 +0000
+Subject: [Linux-ia64] Re: [RFC] proposed change for syscall stub
+Message-Id: <marc-linux-ia64-105590709805643@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805705@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805705@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 16 Jan 2003 17:48:33 -0500, "MAGENHEIMER,DAN (HP-FtCollins,ex1)" <dan_magenheimer@hp.com> said:
+Jim Hull noticed that I posted the wrong code for the syscall stub:
+the one I sent out fits in 5 bundles, not 4 as advertised.  The
+4-bundle code looks like this:
 
-  Dan> Here's a patch for a mistake in ia64_fls in bitops.h.  The result
-  Dan> was incorrect (64) for inputs starting at 0xfffffffffffffc00.
-  Dan> I've also fixed the comment and the return value (which was -65535!)
-  Dan> for a zero input value.
+really_new_syscall_stub:
+	adds r2 = SYSINFO_OFF, r13;;
+	ld8 r2 = [r2]
+	mov r9 = ar.pfs;;
+	mov r15 = SYSCALL_NR
+	mov b7 = r2
+	br.call.sptk.many b6 = b7;;
+	cmp.eq p6,p0 = -1, r10
+	mov ar.pfs = r9
+(p6)	br.cond.spnt.few syscall_error
+	br.ret.sptk.many rp;;
 
-No!  The comment was correct: the function is UNDEFINED for an argument of 0.
-
-The rest looks good though.
+The only difference here is that we dirty both b6 and b7, which allows
+us to remove one stop bit and hence save one bundle.  On McKinley,
+dirtying more scratch branch registers may impact branch target
+address prediction accuracy, but the effect is small enough that I
+decided to go for better code-density instead.
 
 	--david
 
