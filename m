@@ -1,7 +1,7 @@
-From: Christoph Hellwig <hch@ns.caldera.de>
-Date: Tue, 18 Sep 2001 16:57:15 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 18 Sep 2001 17:22:46 +0000
 Subject: Re: [Linux-ia64] Re: PROPOSED: 32/64 bit coexistance
-Message-Id: <marc-linux-ia64-105590698805212@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805213@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805199@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805199@msgid-missing>
@@ -10,37 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Sep 18, 2001 at 09:33:11AM -0700, David Mosberger wrote:
-> I think LSB is correct in suggesting /libXX for the native code model
-> and "something" else for emulated code models.  /opt/emu32 is clearly
-> a silly name though: it mixes up the data model and the code model
-> again.  For the IA-64 Linux project, we're currently using
-> /emul/ia32-linux for the IA-32 subsystem.  (If there is strong
-> objection and good reasons to reject the "/emul" prefix, I suppose we
-> could use /opt/emu/ia32-linux/ instead.)
+>>>>> On Tue, 18 Sep 2001 18:57:15 +0200, Christoph Hellwig <hch@ns.caldera.de> said:
 
-Don't put it in /opt.  For something like a binray emulator /opt
-is just silly.
+  Christoph> It does.  On Linux-ABI I use e.g. /emul/osr5, /emul/uw7
+  Christoph> and /emul/svr4.  Id suggest using /emul/<opsys> for
+  Christoph> emulations of another operating system for the same
+  Christoph> architecture, /emul/<arch>-<opsys> for non-native.
 
-Currently mips and sparc use /usr/gnemul/<opsys>, Linux-ABI for ix86
-uses /emul/<opsys>.  I'd suggest going for one of those, possibly
-the latter (:)).
+  Christoph> Windows should go into /emul/win64 and /emul/ia32-win32.
 
-> A related question is whether /emul/ is reserved for "same OS"
-> emulation.  E.g., where would a Windows emulator go?  If /emul/ only
-> ever contains Linux emulators, then we could change the prefix to
-> /emul/ia32/ but, from a user perspective, I think it would be
-> preferable if /emul/ were allowed to contain foreign OS emulators as
-> well.
+Sounds reasonable.  /emul/ia32-linux should be it, then.
 
-It does.  On Linux-ABI I use e.g. /emul/osr5, /emul/uw7 and /emul/svr4.
-Id suggest using /emul/<opsys> for emulations of another operating
-system for the same architecture, /emul/<arch>-<opsys> for non-native.
-
-Windows should go into /emul/win64 and /emul/ia32-win32.
-
-	Christoph
-
--- 
-Whip me.  Beat me.  Make me maintain AIX.
+	--david
 
