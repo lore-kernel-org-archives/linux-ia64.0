@@ -1,36 +1,34 @@
-From: Christoph Lameter <christoph@lameter.com>
-Date: Sun, 15 Aug 2004 23:55:57 +0000
+From: "David S. Miller" <davem@redhat.com>
+Date: Sun, 15 Aug 2004 23:58:27 +0000
 Subject: Re: page fault fastpath: Increasing SMP scalability by introducing
-Message-Id: <Pine.LNX.4.58.0408151654240.4346@server.home>
+Message-Id: <20040815165827.0c0c8844.davem@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <2ttIr-2e4-17@gated-at.bofh.it> <2tzE4-6sw-25@gated-at.bofh.it>
- <2tCiw-8pK-1@gated-at.bofh.it> <m31xi8dkm2.fsf@averell.firstfloor.org>
-In-Reply-To: <m31xi8dkm2.fsf@averell.firstfloor.org>
+References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
+	<20040815130919.44769735.davem@redhat.com>
+	<Pine.LNX.4.58.0408151552280.3370@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0408151552280.3370@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@muc.de>
-Cc: Christoph Lameter <clameter@sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Mon, 16 Aug 2004, Andi Kleen wrote:
+On Sun, 15 Aug 2004 15:58:27 -0700 (PDT)
+Christoph Lameter <clameter@sgi.com> wrote:
 
-> Christoph Lameter <clameter@sgi.com> writes:
->
-> > On Sun, 15 Aug 2004, David S. Miller wrote:
+> On Sun, 15 Aug 2004, David S. Miller wrote:
+> 
 > >
-> >>
-> >> Is the read lock in the VMA semaphore enough to let you do
-> >> the pgd/pmd walking without the page_table_lock?
-> >> I think it is, but just checking.
-> >
-> > That would be great.... May I change the page_table lock to
-> > be a read write spinlock instead?
->
-> That's probably not a good idea. r/w locks are extremly slow on
-> some architectures. Including ia64.
+> > Is the read lock in the VMA semaphore enough to let you do
+> > the pgd/pmd walking without the page_table_lock?
+> > I think it is, but just checking.
+> 
+> That would be great.... May I change the page_table lock to
+> be a read write spinlock instead?
 
-I was thinking about a read write spinlock not an readwrite
-semaphore. Look at include/asm-ia64/spinlock.h.
-The implementations are almost the same. Are you sure
-about this?
+No, I means "is the read long _ON_ the VMA semaphore".
+The VMA semaphore is a read/write semaphore, and we grab
+it for reading in the code path you're modifying.
 
+Please don't change page_table_lock to a rwlock, it's
+only needed for write accesses.
