@@ -1,25 +1,26 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 01 Mar 2004 19:29:30 +0000
-Subject: RE: Issues regarding memory hole.
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F4FB1E0@scsmsx401.sc.intel.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Wed, 17 Mar 2004 21:21:00 +0000
+Subject: sched-domains
+Message-Id: <20040317132100.106f62e7.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <CC7A2BA2F1CA9E43B2B62C4783B42C7BE2E7D7@blr-ec-msg05.wipro.com>
-In-Reply-To: <CC7A2BA2F1CA9E43B2B62C4783B42C7BE2E7D7@blr-ec-msg05.wipro.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->I am booting with the 2.6.1 kernel on Itanium2 machine.
->The page granularity is set to 16MB for the kernel. 
->
->After normal boot of the kernel, I observe a memory hole 
->from 1-16MB. Why is this usable memory region discarded 
->as a memory hole? 
 
-1-16MB is discarded on many machines because of the PC
-compatible VGA memory mapped in the bottom 1MB.  The Linux
-ia64 kernel requires that *all* of a granule be real memory,
-all of the granule must be cacheable too.
+Folks, I remain all in a dither over the sched-domains NUMA/SMT work which
+has been in the -mm kernels for a while.
 
--Tony
+I have no concerns about its stability, but I do want to see general
+agreement that this is the way to proceed, although of course it may need
+enhancements/tuning later on.
+
+In terms of performace testing results I believe everything has been
+positive except for some testing which Andi did on the STREAM benchmark.
+
+My question is: to what extent have the ia64 NUMA architectural people
+reviewed this code, and what is the risk that someone will come along in
+six months time saying we need to rip it all out?
+
+Thanks.
