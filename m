@@ -1,28 +1,25 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Thu, 14 Oct 2004 19:47:47 +0000
+From: Adam Heath <doogie@debian.org>
+Date: Thu, 14 Oct 2004 23:36:47 +0000
 Subject: Re: [PATCH] General purpose zeroed page slab
-Message-Id: <20041014194747.GV16153@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <Pine.LNX.4.58.0410141836270.1221@gradall.private.brainfood.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <yq1oej5s0po.fsf@wilson.mkp.net> <20041014173637.GQ16153@parcelfarce.linux.theplanet.co.uk> <20041014184915.GE18321@redhat.com> <200410142208.49831.vda@port.imtp.ilyichevsk.odessa.ua>
-In-Reply-To: <200410142208.49831.vda@port.imtp.ilyichevsk.odessa.ua>
+References: <yq1oej5s0po.fsf@wilson.mkp.net> <20041014180427.GA7973@wotan.suse.de>
+In-Reply-To: <20041014180427.GA7973@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Cc: Dave Jones <davej@redhat.com>, Matthew Wilcox <matthew@wil.cx>, Brian Gerst <bgerst@didntduck.org>, "Martin K. Petersen" <mkp@wildopensource.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@osdl.org, tony.luck@intel.com
+To: Andi Kleen <ak@suse.de>
+Cc: "Martin K. Petersen" <mkp@wildopensource.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@osdl.org, tony.luck@intel.com
 
-On Thu, Oct 14, 2004 at 10:08:49PM +0300, Denis Vlasenko wrote:
-> BTW, zeroing with non-temporal stores may be a huge win here.
-> It is 300% faster on Athlon.
+On Thu, 14 Oct 2004, Andi Kleen wrote:
 
-That assumes the page isn't going to be reused quickly.  The point of
-slab is that the page does get reused quickly.  So you *want* the data
-to be hot in cache.
+> Also that's pretty dumb. How about keeping track how much of the
+> page got non zeroed (e.g. by using a few free words in struct page
+> for a coarse grained dirty bitmap)
+>
+> Then you could memset on free only the parts that got actually
+> changed, and never waste cache lines for anything else.
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+That will fail when a struct is placed in the page, and only the beginning and
+end of the struct was changed.
+
