@@ -1,7 +1,7 @@
-From: "H. J. Lu" <hjl@lucon.org>
-Date: Mon, 04 Aug 2003 19:53:26 +0000
-Subject: Re: milstone reached: ia64 linux builds out of Linus' tree
-Message-Id: <marc-linux-ia64-106002696711502@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Mon, 04 Aug 2003 23:06:18 +0000
+Subject: milstone reached: ia64 linux builds out of Linus' tree
+Message-Id: <marc-linux-ia64-106003847823287@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106001867501939@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106001867501939@msgid-missing>
@@ -10,54 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This code is taken from 2.4 kernel, which is enabled for all ia64
-machines. The only difference is
+>>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
 
-        if (has_8259 && irq < 16)
-                return isa_irq_to_vector(irq);
+David> Now that Linus' tree works for ia64, the next question is how
+David> we can keep it that way.  I think it would be useful to have
+David> someone setup a cron job which does daily builds/automated
+David> tests off of Linus tree.  If something breaks, the person doing
+David> this could perhaps come up with a minimal patch which gets
+David> Linus' tree to build again (and submit a patch to the
+David> appropriate maintainer, with cc to the linux-ia64 list).  I
+David> plan on continuing to put out roughly monthly ia64-specific
+David> patches and during those normal cycles, I'd then integrate the
+David> "quick fix up" patches as needed.  Does this sound reasonable?
+David> Anybody want to volunteer for this "Linus watchdog" role?
 
-	return gsi_to_vector(irq);
+We can do this.  We're tracking Linus's tree anyway for the work we're
+doing.  
 
-instead of just
+  We'd probably do daily automated builds to check that the kernel
+still compiles cleanly for HPSIM, DIG, and ZX1, but test only weekly.
 
-	return gsi_to_vector(irq);
+If you have anyu specific configuration options you think should be
+included, let us know.
 
-I think bigsur is one of those uses 8259 and ISA. I don't believe any
-new ia64 machines do that.
 
-H.J.
----
-On Mon, Aug 04, 2003 at 12:07:19PM -0700, David Mosberger wrote:
-> Can someone look into/explain why this patch is needed for Big Sur?
-> Either the old code is wrong for other machines, too, or the old code
-> is broken and we just don't exercise it on the other ia64 machines?
-> 
-> 	--david
-> 
-> >>>>> On Mon, 4 Aug 2003 11:10:33 -0700, "H. J. Lu" <hjl@lucon.org> said:
-> 
->   >> I just tried the latest on my big sur, and though I think modules work
->   >> (at least they build for other machines), big sur is broken because
->   >> non-ACPI based PCI enumeration has been removed from the tree.
-> 
->   HJ> Can you try this patch for bigsur?
-> 
-> 
->   HJ> H.J.
->   HJ> ---
->   HJ> --- linux/drivers/acpi/osl.c.acpi	Mon Jul 28 11:41:53 2003
->   HJ> +++ linux/drivers/acpi/osl.c	Mon Jul 28 15:12:44 2003
->   HJ> @@ -250,7 +250,12 @@ acpi_os_install_interrupt_handler(u32 ir
->   HJ> irq = acpi_fadt.sci_int;
->  
->   HJ> #ifdef CONFIG_IA64
->   HJ> -	irq = gsi_to_vector(irq);
->   HJ> +	irq = acpi_irq_to_vector (irq);
->   HJ> +	if (irq < 0) {
->   HJ> +		printk(KERN_ERR PREFIX "SCI (IRQ%d/%d) not registerd\n",
->   HJ> +		       irq, acpi_fadt.sci_int);
->   HJ> +		return AE_OK;
->   HJ> +	}
->   HJ> #endif
->   HJ> acpi_irq_irq = irq;
->   HJ> acpi_irq_handler = handler;
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories,   all slightly different.
