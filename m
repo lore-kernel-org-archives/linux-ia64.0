@@ -1,53 +1,30 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 26 Jan 2001 08:09:55 +0000
-Subject: [Linux-ia64] gcc bug
-Message-Id: <marc-linux-ia64-105590693005105@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Fri, 26 Jan 2001 09:40:22 +0000
+Subject: Re: [Linux-ia64] gcc bug
+Message-Id: <marc-linux-ia64-105590693005106@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005105@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005105@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The attached program demonstrates a gcc code generation bug.  I'm
-seeing this bug with the November snapshot with all patches applied.
-Specifically, if I compile the program with "-O", it works fine and I
-get:
+On Fri, 26 Jan 2001 00:09:55 -0800, 
+David Mosberger <davidm@hpl.hp.com> wrote:
+>The attached program demonstrates a gcc code generation bug.
+>
+>struct f {
+>  unsigned long lo : 32;
+>  unsigned long hi : 32;
+>};
 
-	$ gcc -O t.c
-	$ ./a.out 
-	feed0000beef
+K&R says "Fields may be declared only as ints".  The C99 rational says
+"Three types of bit fields are now defined: plain int calls for
+implementation-defined signedness (as in K&R), signed int calls for
+assuredly signed fields, and unsigned int calls for unsigned fields".
+I am surprised that the compiler accepted unsigned long, it is not
+listed as a gcc extension.  Do you get the same error when those fields
+are changed to unsigned int?
 
-However, if I compile it with "-O2", I get:
-
-	$ gcc -O2 t.c
-	$ ./a.out
-	beef
-
-which obviously can't be right.
-
-	--david
-
-struct f {
-  unsigned long lo : 32;
-  unsigned long hi : 32;
-};
-
-unsigned long r;
-
-void
-doit (unsigned long value1, unsigned long value2)
-{
-  unsigned long w, t;
-
-  ((struct f*)&w)->lo = ((struct f*)&value1)->lo;
-  ((struct f*)&w)->hi = ((struct f*)&value2)->hi;
-  r = w;
-}
-
-int
-main (int argc, char **argv)
-{
-  doit(0xbeef, 0xfeed00000000);
-  printf ("%lx\n", r);
-}
 
