@@ -1,88 +1,28 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 24 Jan 2004 03:00:34 +0000
+From: Paul Mackerras <paulus@samba.org>
+Date: Sat, 24 Jan 2004 10:49:26 +0000
 Subject: Re: [patch] 2.6.1-mm5 compile do not use shared extable code for
-Message-Id: <16401.57298.175645.749468@napali.hpl.hp.com>
+Message-Id: <16402.19894.686335.695215@cargo.ozlabs.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <E1Aiuv7-0001cS-00@jaguar.mkp.net>
 	<20040120090004.48995f2a.akpm@osdl.org>
-In-Reply-To: <20040120090004.48995f2a.akpm@osdl.org>
+	<16401.57298.175645.749468@napali.hpl.hp.com>
+In-Reply-To: <16401.57298.175645.749468@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Jes Sorensen <jes@trained-monkey.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, paulus@samba.org
+To: davidm@hpl.hp.com
+Cc: Andrew Morton <akpm@osdl.org>, Jes Sorensen <jes@trained-monkey.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>>> On Tue, 20 Jan 2004 09:00:04 -0800, Andrew Morton <akpm@osdl.org> said:
+David Mosberger writes:
 
-  Andrew> Jes Sorensen <jes@trained-monkey.org> wrote:
-  >>  The new sort_extable and shares search_extable code doesn't work
-  >> on ia64.
+> How about something along these lines?  If you want to standardize on
+> a single instruction-address format, I'd strongly favor using the
+> location-relative addresses used on Alpha and ia64 (it makes no sense
+> to uses a full 64-bit address for those members).
 
-  Andrew> hm, OK.  It would be nice if ia64 could use the generic code
-  Andrew> at some stage, of course.
+Won't you have to change the offset when you move the entry, if the
+value you store is relative to the address of the entry?  You could
+get around that by storing the offset relative to the start of the
+exception table, I guess.
 
-How about something along these lines?  If you want to standardize on
-a single instruction-address format, I'd strongly favor using the
-location-relative addresses used on Alpha and ia64 (it makes no sense
-to uses a full 64-bit address for those members).
-
-	--david
-
-=== lib/extable.c 1.3 vs edited ==--- 1.3/lib/extable.c	Tue Jan 20 17:58:55 2004
-+++ edited/lib/extable.c	Fri Jan 23 18:10:10 2004
-@@ -19,6 +19,12 @@
- extern struct exception_table_entry __stop___ex_table[];
- 
- #ifndef ARCH_HAS_SORT_EXTABLE
-+
-+# ifndef exception_table_entry_insn
-+   /* Return the instruction address to which exception tabl entry E applies.  */
-+#  define exception_table_entry_insn(e)	((e)->insn)
-+# endif
-+
- /*
-  * The exception table needs to be sorted so that the binary
-  * search that we use to find entries in it works properly.
-@@ -33,7 +39,7 @@
- 	/* insertion sort */
- 	for (p = start + 1; p < finish; ++p) {
- 		/* start .. p-1 is sorted */
--		if (p[0].insn < p[-1].insn) {
-+		if (exception_table_entry_insn(&p[0]) < exception_table_entry_insn(&p[-1])) {
- 			/* move element p down to its right place */
- 			el = *p;
- 			q = p;
-@@ -41,7 +47,8 @@
- 				/* el comes before q[-1], move q[-1] up one */
- 				q[0] = q[-1];
- 				--q;
--			} while (q > start && el.insn < q[-1].insn);
-+			} while (q > start && (exception_table_entry_insn(&el)
-+					       < exception_table_entry_insn(&q[-1])));
- 			*q = el;
- 		}
- 	}
-=== include/asm-ia64/uaccess.h 1.16 vs edited ==--- 1.16/include/asm-ia64/uaccess.h	Fri Jan 23 16:43:32 2004
-+++ edited/include/asm-ia64/uaccess.h	Fri Jan 23 18:06:38 2004
-@@ -283,13 +283,18 @@
- 	__su_ret;						\
- })
- 
--#define ARCH_HAS_SORT_EXTABLE
- #define ARCH_HAS_SEARCH_EXTABLE
- 
- struct exception_table_entry {
--	int addr;	/* gp-relative address of insn this fixup is for */
--	int cont;	/* gp-relative continuation address; if bit 2 is set, r9 is set to 0 */
-+	int addr;	/* loc-relative address of insn this fixup is for */
-+	int cont;	/* loc-relative continuation address; if bit 2 is set, r9 is set to 0 */
- };
-+
-+#define exception_table_entry_insn(e)				\
-+({								\
-+	const struct exception_table_entry *_etei_e = (e);	\
-+	(u64) &(_etei_e)->addr + (_etei_e)->addr;		\
-+})
- 
- extern void handle_exception (struct pt_regs *regs, const struct exception_table_entry *e);
- extern const struct exception_table_entry *search_exception_tables (unsigned long addr);
+Paul.
