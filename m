@@ -1,7 +1,7 @@
-From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
-Date: Mon, 17 May 2004 19:15:50 +0000
-Subject: Re: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <200405171915.i4HJFpOH002584@mtv-vpn-hw-mfl-1.corp.sgi.com>
+From: Matthew Dobson <colpatch@us.ibm.com>
+Date: Mon, 17 May 2004 23:01:21 +0000
+Subject: RE: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
+Message-Id: <1084834881.4095.20.camel@arrakis>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040513150842.22F5.YGOTO@us.fujitsu.com>
 In-Reply-To: <20040513150842.22F5.YGOTO@us.fujitsu.com>
@@ -10,26 +10,49 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Don't always equate HOTPLUG with physical removal/addition.
+On Sun, 2004-05-16 at 19:34, Kenji Kaneshige wrote:
+> Hi,
 > 
-> In the above case of balancing between partitions, its a still a hotplug
-> wrt the kernel, where the cpu is removed from os image (say scheduler etc)
-> and reintroduce the new resource to another running partition.
+> > > I have just one concern.
+> > > How about a container device that contains IO devices only?
+> > >   - Does it count as a NUMA node?
+> > >   - Is it having a NUMA node ID?
+> >
+> > Yes, it would count as NUMA node with a NUMA ID.
+> >
+> > So a NUMA node could have CPUs, memory, and I/O,
+> > where each of those may or may not be present.
+> >
+> > There could be a node without any CPU, memory, or I/O.
+> > An example would be an I/O only node with PCI devices
+> > that are hot plug.  The PCI devices may or may not be
+> > connected at any point in time.
+> 
+> I don't know about NUMA much, but I think NUMA node ID is based
+> on the SRAT at the boot time. But SRAT doesn't have entries for I/O
+> devices. How should we create the NUMA node ID for I/O nodes at the
+> boot time?
+> 
+> Thanks,
+> Kenji Kaneshige
 
-Thanks, this make sense. I was previously working on systems which allowed
-real physical hot swap, i.e. physical replacement of CPU, memory etc without
-OS reboot, hence my questions.
+The NUMA node ID *can* be based on the SRAT, but doesn't *have* to be. 
+It's really up to each individual architecture how they want to number
+their nodes.  Or at least that's the way things should work.  That was a
+large part of the motivation behind the nodemask patches I submitted a
+while ago.  We would like individual architectures to be able to number
+their nodes in any manner they deem appropriate, as long as 0 <= nid <
+MAX_NUMNODES.  Currently there is an additional requirement (that the
+nodemask code would eliminate) that nodes must be numbered sequentially
+without any gaps in the numbering, ie: 0 <= nid < numnodes.  There is
+really no good reason that this has to hold, so we should get rid of it.
 
-[ Just as a site-note, I always wondered if hotplug would be a useful feature
-  for larger configurations to reduce boot-time. For example, on a 64P system 
-  you start the kernel on some "root" CPU with a relativly small amount of
-  memory, so it should boot relativly fast. While the system is going into
-  the desired run-level, hotplug/add now adds in parallel all available CPUs,
-  main memory, I/O etc. The idea is that you probably don't need 64P and
-  1 Terabyte to start system services
-]
+We want macros like for_each_node_with_cpus(),
+for_each_node_with_memory(), etc, that people can use to iterate over
+the type of nodes they care about.
 
+I'd look at SGI's IA64 code for examples of how to create NUMA nodes
+with only I/O on them.
 
-Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
-Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
+-Matt
 
