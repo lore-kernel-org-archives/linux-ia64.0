@@ -1,45 +1,28 @@
-From: "Zhu, Yi" <yi.zhu@intel.com>
-Date: Wed, 31 Mar 2004 05:58:38 +0000
-Subject: RE: realfeel4 for libpfm-3.0
-Message-Id: <3ACA40606221794F80A5670F0AF15F8403BD53C5@PDSMSX403.ccr.corp.intel.com>
+From: Andreas Schwab <schwab@suse.de>
+Date: Tue, 23 Mar 2004 00:01:19 +0000
+Subject: Symbios 53C8XX broken on ia64?
+Message-Id: <je3c80ph2o.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3ACA40606221794F80A5670F0AF15F842DB199@PDSMSX403.ccr.corp.intel.com>
-In-Reply-To: <3ACA40606221794F80A5670F0AF15F842DB199@PDSMSX403.ccr.corp.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
+Cc: linux-scsi@vger.kernel.org
 
-Stephane Eranian wrote:
-> I looked at your ported version of realfeel4.c. There were three
-> problems with it: 
-> 
-> 	- with the new perfmon interface, a system-wide context
-> 	  is not automatically pinned to a CPU. You need an
-> 	  explicit call to sched_setaffinity(). The perfmonctl()
-> 	  calls, in this case, are only authorized from when the
-> 	  calling tasking is running on the CPU that was used when
-> 	  PFM_LOAD_CONTEXT was issued. To avoid problems it is always
-> 	  best to explicitely call sched_setaffinity() prior to
+Has anyone been able to get the sym53c8xx_2 driver in 2.6.5-rc2 working on
+HP zx1?  On the machines I tried it does not find any disks anymore.  This
+has been working fine with 2.6.3.
 
-> PFM_LOAD_CONTEXT. 
-> 
-> 	- for system-wide context, you currently cannot use
-> 	  pfm_self_start()/pfm_self_stop() which are lighweight
-> 	  versions of PFM_START/PFM_STOP. I am hoping to remove
-this
-> restrictions soon. 
-> 
-> 	- You had two calls to PFM_RESTART in you overflow handler.
-> 
-> The attached program does work for me.
+CONFIG_SCSI_SYM53C8XX_2=3Dm
+CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE=3D1
+CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS=16
+CONFIG_SCSI_SYM53C8XX_MAX_TAGSd
+# CONFIG_SCSI_SYM53C8XX_IOMAPPED is not set
 
+Andreas.
 
-Thank you very much Stephane and Peter!
-
-I make the realfeel4 work with the modified realfeel4n.c and Peter's tip
-to
-disable CONFIG_IA64_PAL_IDLE.
-
-Thanks,
--yi
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
