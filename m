@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Tue, 04 May 2004 22:36:13 +0000
+From: Chris Wedgwood <cw@f00f.org>
+Date: Tue, 04 May 2004 22:50:57 +0000
 Subject: Re: [RFC] I/O MCA recovery
-Message-Id: <200405041536.13104.jbarnes@engr.sgi.com>
+Message-Id: <20040504225057.GA24344@taniwha.stupidest.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200405040954.09524.jbarnes@engr.sgi.com>
 In-Reply-To: <200405040954.09524.jbarnes@engr.sgi.com>
@@ -10,29 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tuesday, May 4, 2004 11:20 am, David Mosberger wrote:
->   Jesse> This is I/O initiated by userspace loads/stores, so unless I
->   Jesse> wrap every in/out with some sort of ioctl or something, those
->   Jesse> won't help me.
->
-> User-level accesses are mapped via the MMU so you could always
-> intercept the page-faults.
+On Tue, May 04, 2004 at 10:51:37AM -0700, Grant Grundler wrote:
 
-Wouldn't that mean that on every I/O access we'd have to page fault, do the 
-I/O, and then invalidate the mapping?  That seems like a lot of overhead.
+> Linux really needs a driver/card that can provide HW acceleration
+> without first having BIOS initializing it. parisc-linux port
+> (and probably a few others) could use such a driver/card too.
 
->   Jesse> Also, with this scheme, we could potentially recover from
->   Jesse> regular read/writes too.
->
-> _If_ there is an infrastructure what you can hook into, fine.  But I'm
-> highly suspicious of using broken platforms as a justification for new
-> infrastructure.
+Modern hardware is complex.  The (closed) McApple firmware has
+firmware to init various video cards and stufff AFAIK.  Not sure if
+this is any better than BIOS emulation though.
 
-Are you describing ia64 as a broken platform here?  The problem I'm trying to 
-solve isn't sn2 specific (though part of the X stuff I have to do will be 
-driven by sn2 requirements), it's a generic way to deal with hard fails on 
-PIO reads, which afaik, affects all ia64 platforms.  Correct me if I'm wrong 
-here...
 
-Thanks,
-Jesse
+
+   --cw
