@@ -1,8 +1,10 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 15 May 2001 07:36:41 +0000
+Date: Tue, 15 May 2001 07:41:57 +0000
 Subject: [Linux-ia64] libffi patch
-Message-Id: <marc-linux-ia64-105590693005574@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005575@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005574@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005574@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
