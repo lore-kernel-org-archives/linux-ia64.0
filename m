@@ -1,63 +1,64 @@
-From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
-Date: Thu, 27 May 2004 15:02:14 +0000
+From: Russ Anderson <rja@sgi.com>
+Date: Thu, 27 May 2004 16:06:18 +0000
 Subject: Re: Hot plug vs. reliability
-Message-Id: <200405271502.i4RF2F3X002327@mtv-vpn-hw-mfl-1.corp.sgi.com>
+Message-Id: <200405271606.i4RG6IYC001896@ben.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <40B5FF96.44F9EE15@nospam.org> from "Zoltan Menyhart" at May 27, 2004 04:47:51 PM
+In-Reply-To: <40B5D68C.466FE969@nospam.org> from "Zoltan Menyhart" at May 27, 2004 01:52:44 PM
 References: <40B5D68C.466FE969@nospam.org>
 In-Reply-To: <40B5D68C.466FE969@nospam.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Zoltan.Menyhart@bull.net
-Cc: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-> I agree, in this case there is no loss of MTBF.
-> Yet let's call this activity as run time re-partitioning of the machine.
-> (Most people - me too - consider hot plugging as physically plugging
-> things in / out.)
+Zoltan Menyhart wrote:
+> 
+> We cannot remove safely failing memory / CPUs. In most of the cases
+> it is too late. 
 
-You're right, it's confusing and I made the same assumptions you make :
-physically moving parts. (and I worked on a systems a couple of years
-back where we actually had hotswap :-))
+This is a key point.  To get the most value out of hot plug (as
+a reliability feature) the system must be able to detect and
+"ride through" component failures.  Conversly, if the system
+crashes on the first component failure, the ability to hot remove
+the broken component has little value.
 
-> But the new comers are tested in a different environment, with
-> different tolerance range. I just simply do not trust :-)
+For example, memory hot-plug has the most value if the system can
+"ride through" a memory uncorrectable, isolate the bad memory 
+(ie not re-use the page with the bad DIMM cells), shoot the application
+that hit the uncorrectable (or better yet, have some checkpoint/restart
+mechanism to avoid killing the application), migrate data off
+the physical DIMM (etc) to get the system to the point that the
+bad DIMM can be physically replaced, and re-integrate the new memory.
 
-Not really. It's up to the vendor and at least here at SGI we have pretty
-tight rules and tolerances.
+My point is that a key part of the whole hot plug story is the
+ability to detect and ride thought the initial errors that would
+prompt someone to want to replace the component.  And without that
+part the significant effort to do the rest of the pieces has significantly
+less value.
 
-> I do not think the timing / the delays are auto adjusting. You select
-> a component X to work next to the component Y because you know that
-> X in "here" and Y in "there" in the tolerance range...
+>                  We (in the OS) can see some corrected CPU, memory, I/O
+> and platform errors. Yet the OS has not got and should not have the
+> knowledge when a component is "enough bad". I think it is the firmware
+> that has all the information about the details of the HW events.
+> Do you know of some firmware services which can say something like:
+> "hey, remove the component X otherwise your MTBF will drop by 95 %..." ?
 
-They do (impedance match). An example are SRAMs used for CPUs with external 
-caches for example.  I've learned a lot about that :-)). You also
-have stuff like auto-learning for echo-clock timings etc, but this is really
-very platform and CPU specific
+The difficulty with predictive analysis is determining the exact
+indicator of a potential failure.  Many times the first indication
+is a fatal error that crashes the system (which is why error recovery
+to "ride through" failures is so important).  Other errors, such 
+as memory singlebits, may (or may not) increase the probability of
+failure, but does is increase the probability enough to warrent
+a service action?  (Service actions have costs, too.)
 
-> I think the OS has to be platform independent. How can a platform independent
-> OS know if <n> errors of this / that type requires what intervention ?
-> We'll have the same binary of the OS (+ drivers) for a small desk top or
-> for a 32 CPU "main frame". Only the firmware is different...
+A technical difficulty with predictive analysis is that each component 
+has a different failure characteristics and the failure charicteristics
+can change with spacific technologies.  For example, smaller die 
+technologies can increase the soft failure rates.  And by the 
+time the long term failure characteristics are fully understood 
+the technology is obsolete.  :-(
 
-An OS is never platform independent, there always is a machine dependant layer.
-I'm not really concerned about the total numbers of errors in a system, 
-regardless if we have one, 32 or 512 CPUs. If we see a component starting to 
-fail, it should be isolated in order to avoid catastrophic failure
-
-> Most of our clients just do not want to touch their 10 year old rubbish
-> Fortran programs. If I get a hint of danger (today it does not come from the FW)
-> I could take a check point and call for service intervention...
-
-That's a well know problem (although I think 20 years or more are more 
-likely ...)
-I think however there are new applications coming up using large or 
-ultra-scale systems where more fault tolerance can be designed in at the OS,
-libarary or even user level
-
-Amicalement
-
-Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
-Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
-
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
