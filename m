@@ -1,7 +1,7 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Thu, 10 Aug 2000 01:56:35 +0000
-Subject: [Linux-ia64] XFree 4.0.1 module loading
-Message-Id: <marc-linux-ia64-105590678205301@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Wed, 30 Aug 2000 06:04:48 +0000
+Subject: [Linux-ia64] kdb-2.4-test7 available
+Message-Id: <marc-linux-ia64-105590678205417@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -10,34 +10,23 @@ To: linux-ia64@vger.kernel.org
 
 Hi,
 
-I have XFree 4.0.1 built on IA64, however I am having an issue with
-loadable modules that I would like to address.
+I have just uploaded the KDB patch for 2.4.0-test7. No new features
+simply fixes to the smp support to accomodate test7. You need
+David's 0823 IA-64 patch.
 
-Loading individual modules works fine.  Unfortunately, if a module
-references a symbol inside another module, the dlopen() call  won't
-resolve the symbol.
+You can get it from the HPLabs FTP site at:
 
-This is primarily a problem while running XFree86 -configure to create an
-initial configure file.  Here is an example:
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/kdb-2.4-test7.patch.gz
 
-(II) LoadModule: "mga"
-(II) Loading /usr/X11R6/lib/modules/drivers/mga_drv.so
-dlopen: /usr/X11R6/lib/modules/drivers/mga_drv.so: undefined symbol:
-vgaHWddc1SetSpeed
-(EE) Failed to load /usr/X11R6/lib/modules/drivers/mga_drv.so
-(II) UnloadModule: "mga"
+Enjoy.
 
-
-vgaHWddc1SetSpeed is defined in /usr/X11R6/lib/modules/libvgahw.so
-
-How would dlopen() know to look at that module to resolve the dependency?
-
-Mike Madore
-Software Engineer
-TurboLinux, Inc.
-
-
-
-
-
++--------------------------------------------------------------------+
+| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
+| Hewlett-Packard Laboratories            |                          |
+| 1501, Page Mill Road MS 1U-15           |                          |
+| Palo  Alto, CA 94303-096                |                          |
+| USA                                     |                          |
+| Tel : (650) 857-7174                    |                          |
+| Fax : (650) 857-5548                    |                          |
++--------------------------------------------------------------------+
 
