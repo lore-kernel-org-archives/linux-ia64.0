@@ -1,53 +1,72 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Thu, 21 Oct 2004 11:01:57 +0000
-Subject: Re: [PATCH 1/4] SGI Altix cross partition functionality (1st revision)
-Message-Id: <20041021110157.GA26638@sgi.com>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Wed, 06 Oct 2004 18:51:44 +0000
+Subject: [PATCH] Support ia32 exec domains without CONFIG_IA32_SUPPORT
+Message-Id: <41643EC0.1010505@intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------050604090403050708010008"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040616163339.GA27891@sgi.com>
-In-Reply-To: <20040616163339.GA27891@sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Oct 21, 2004 at 09:59:27AM +0100, Christoph Hellwig wrote:
-> On Tue, Sep 14, 2004 at 01:58:37PM -0500, Dean Nelson wrote:
-> > > As said previously you're not supposed to mess with this one.
-> > 
-> > Yeah, I know, but how is one suppose to deal with the following
-> > issue raised by Robin? (Never did get a response from you.)
-> > 
-> > On Wed, Jun 16, 2004 at 02:36:22PM -0500, Robin Holt wrote:
-> > > On Wed, Jun 16, 2004 at 06:43:47PM +0100, Christoph Hellwig wrote:
-> > > > On Wed, Jun 16, 2004 at 12:40:53PM -0500, Robin Holt wrote:
-> > > > > > > +EXPORT_SYMBOL(sys_sched_setscheduler);
-> > > > > >
-> > > > > > Again, don't mess with scheduler paramters from your modules.
-> > > > >
-> > > > > How should a kernel thread raise itself to real-time priority?
-> > > >
-> > > > Answer to both:  it shouldn't
-> > >
-> > > To the second, we found that contention would result in very high
-> > > latency without raising the priority to real-time levels.  What is
-> > > the proper way to handle having a user thread at the same priority
-> > > as a kernel thread causing this holdoff?
-> > 
-> > The problem arises when enough user processes, which have the same
-> > priority as XPC's kthreads, are spinning doing a bit of work mixed
-> > with sleeping. Because of the sleep, these processes get a bonus
-> > which gives them a higher effective priority than the XPC kthreads.
-> > As a result, when cross partition interrupts come in, the XPC kthreads
-> > do not get scheduled immediately, but are held off until the end of
-> > the user processes' time slice.
-> > 
-> > This problem was encountered running a legitimate user land work load.
-> > I concocted the following program to reproduce the behavior we were
-> > seeing. I did this to see if the problem still exists on the 2.6
-> > kernel (we originally saw the problem running on 2.4).
-> 
-> Any reason you're doing that work from thread and not tasklets that
-> get scheduled ASAP?
+This is a multi-part message in MIME format.
+--------------050604090403050708010008
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yeah, these threads may block for an indefinite period of time.
 
+The attached patch enables the alternate root feature for programs running with a different personality such as PER_LINUX32, even though in-kernel 32 bit support is turned off.
+
+Although this feature can be emulated at the user level, it's more efficient to do it in the kernel.
+
+Tony, please apply.
+
+	-Arun
+
+
+--------------050604090403050708010008
+Content-Type: text/plain;
+ name="ia32-exec-domain.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="ia32-exec-domain.patch"
+
+ClJlZ2lzdGVyIHRoZSBpYTMyIGV4ZWMgZG9tYWluIGV2ZW4gdGhvdWdoIENPTkZJR19JQTMy
+X1NVUFBPUlQgYW5kCkNPTkZJR19DT01QQVQgYXJlIHR1cm5lZCBvZmYuIFRoaXMgaXMgbmVj
+ZXNzYXJ5IHRvIHN1cHBvcnQgdGhlIGFsdGVybmF0ZQpyb290IGZlYXR1cmUgZm9yIHByb2dy
+YW1zIHJ1bm5pbmcgd2l0aCBQRVJfTElOVVgzMi4KClNpZ25lZC1vZmYtYnk6IEFydW4gU2hh
+cm1hIDxhcnVuLnNoYXJtYUBpbnRlbC5jb20+CgotLS0gbGludXgyNi9pbmNsdWRlL2FzbS1p
+YTY0L2lhMzIuaC0JMjAwNC0xMC0wNSAxNTozMDowNS4wMDAwMDAwMDAgLTA3MDAKKysrIGxp
+bnV4MjYvaW5jbHVkZS9hc20taWE2NC9pYTMyLmgJMjAwNC0xMC0wNSAxNTozMToxMS4wMDAw
+MDAwMDAgLTA3MDAKQEAgLTExLDYgKzExLDggQEAKIAogI2lmbmRlZiBfX0FTU0VNQkxZX18K
+IAorZXh0ZXJuIGludCByZWdpc3Rlcl9pYTMyX2V4ZWNfZG9tYWluKHZvaWQpOworCiAjIGlm
+ZGVmIENPTkZJR19JQTMyX1NVUFBPUlQKIAogZXh0ZXJuIHZvaWQgaWEzMl9jcHVfaW5pdCAo
+dm9pZCk7Ci0tLSBsaW51eDI2L2FyY2gvaWE2NC9rZXJuZWwvcHJvY2Vzcy5jLQkyMDA0LTEw
+LTA1IDE1OjIwOjA0LjAwMDAwMDAwMCAtMDcwMAorKysgbGludXgyNi9hcmNoL2lhNjQva2Vy
+bmVsL3Byb2Nlc3MuYwkyMDA0LTEwLTA1IDE1OjMwOjU3LjAwMDAwMDAwMCAtMDcwMApAQCAt
+NzY1LDMgKzc2NSwxOSBAQAogfQogCiBFWFBPUlRfU1lNQk9MKG1hY2hpbmVfcG93ZXJfb2Zm
+KTsKKworc3RydWN0IGV4ZWNfZG9tYWluIGlhMzJfZXhlY19kb21haW47CisKK2ludCBfX2lu
+aXQKK3JlZ2lzdGVyX2lhMzJfZXhlY19kb21haW4oKQoreworCWlhMzJfZXhlY19kb21haW4u
+bmFtZSA9ICJMaW51eC94ODYiOworCWlhMzJfZXhlY19kb21haW4uaGFuZGxlciA9IE5VTEw7
+CisJaWEzMl9leGVjX2RvbWFpbi5wZXJzX2xvdyA9IFBFUl9MSU5VWDMyOworCWlhMzJfZXhl
+Y19kb21haW4ucGVyc19oaWdoID0gUEVSX0xJTlVYMzI7CisJaWEzMl9leGVjX2RvbWFpbi5z
+aWduYWxfbWFwID0gZGVmYXVsdF9leGVjX2RvbWFpbi5zaWduYWxfbWFwOworCWlhMzJfZXhl
+Y19kb21haW4uc2lnbmFsX2ludm1hcCA9IGRlZmF1bHRfZXhlY19kb21haW4uc2lnbmFsX2lu
+dm1hcDsKKwlyZXR1cm4gcmVnaXN0ZXJfZXhlY19kb21haW4oJmlhMzJfZXhlY19kb21haW4p
+OworfQorCitfX2luaXRjYWxsKHJlZ2lzdGVyX2lhMzJfZXhlY19kb21haW4pOwotLS0gbGlu
+dXgyNi9hcmNoL2lhNjQvaWEzMi9pYTMyX3N1cHBvcnQuYy0JMjAwNC0xMC0wNSAxNToxOToy
+NC4wMDAwMDAwMDAgLTA3MDAKKysrIGxpbnV4MjYvYXJjaC9pYTY0L2lhMzIvaWEzMl9zdXBw
+b3J0LmMJMjAwNC0xMC0wNSAxNjozNzo1MC4wMDAwMDAwMDAgLTA3MDAKQEAgLTI5LDcgKzI5
+LDYgQEAKIAogZXh0ZXJuIHZvaWQgZGllX2lmX2tlcm5lbCAoY2hhciAqc3RyLCBzdHJ1Y3Qg
+cHRfcmVncyAqcmVncywgbG9uZyBlcnIpOwogCi1zdHJ1Y3QgZXhlY19kb21haW4gaWEzMl9l
+eGVjX2RvbWFpbjsKIHN0cnVjdCBwYWdlICppYTMyX3NoYXJlZF9wYWdlW05SX0NQVVNdOwog
+dW5zaWduZWQgbG9uZyAqaWEzMl9ib290X2dkdDsKIHVuc2lnbmVkIGxvbmcgKmNwdV9nZHRf
+dGFibGVbTlJfQ1BVU107CkBAIC0yMTEsMTQgKzIxMCw2IEBACiBzdGF0aWMgaW50IF9faW5p
+dAogaWEzMl9pbml0ICh2b2lkKQogewotCWlhMzJfZXhlY19kb21haW4ubmFtZSA9ICJMaW51
+eC94ODYiOwotCWlhMzJfZXhlY19kb21haW4uaGFuZGxlciA9IE5VTEw7Ci0JaWEzMl9leGVj
+X2RvbWFpbi5wZXJzX2xvdyA9IFBFUl9MSU5VWDMyOwotCWlhMzJfZXhlY19kb21haW4ucGVy
+c19oaWdoID0gUEVSX0xJTlVYMzI7Ci0JaWEzMl9leGVjX2RvbWFpbi5zaWduYWxfbWFwID0g
+ZGVmYXVsdF9leGVjX2RvbWFpbi5zaWduYWxfbWFwOwotCWlhMzJfZXhlY19kb21haW4uc2ln
+bmFsX2ludm1hcCA9IGRlZmF1bHRfZXhlY19kb21haW4uc2lnbmFsX2ludm1hcDsKLQlyZWdp
+c3Rlcl9leGVjX2RvbWFpbigmaWEzMl9leGVjX2RvbWFpbik7Ci0KICNpZiBQQUdFX1NISUZU
+ID4gSUEzMl9QQUdFX1NISUZUCiAJewogCQlleHRlcm4ga21lbV9jYWNoZV90ICpwYXJ0aWFs
+X3BhZ2VfY2FjaGVwOwo=
+--------------050604090403050708010008--
