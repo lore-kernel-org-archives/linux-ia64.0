@@ -1,106 +1,128 @@
-From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
-Date: Thu, 27 May 2004 12:17:50 +0000
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Thu, 27 May 2004 14:47:51 +0000
 Subject: Re: Hot plug vs. reliability
-Message-Id: <200405271217.i4RCHpTg001943@mtv-vpn-hw-mfl-1.corp.sgi.com>
+Message-Id: <40B5FF96.44F9EE15@nospam.org>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <40B5D68C.466FE969@nospam.org> from "Zoltan Menyhart" at May 27, 2004 01:52:44 PM
-References: <40B5D68C.466FE969@nospam.org>
-In-Reply-To: <40B5D68C.466FE969@nospam.org>
+References: <200405271217.i4RCHpTg001943@mtv-vpn-hw-mfl-1.corp.sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Zoltan.Menyhart@bull.net
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
 Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-My (limited) understanding of hotplug is that the major motivations
-are more adminstrative/reconfiguration then actually replacing failing
-components "on-the-fly".
+Matthias Fouquet-Lapar wrote:
+>=20
+> My (limited) understanding of hotplug is that the major motivations
+> are more adminstrative/reconfiguration then actually replacing failing
+> components "on-the-fly".
 
-> When we produce machines, we execute tests like burn in, stress,
-> validation, etc. tests. In addition, every time a machine is switched
-> on, a power on self test is executed.
-> When we hot plug (add, remove, swap) a component that has never been
-> seen, how can we make sure that the modified machine achieves the
-> same MTBF as the original machine had, without passing any of the
-> tests I mentioned above ?
+I agree, in this case there is no loss of MTBF.
+Yet let's call this activity as run time re-partitioning of the machine.
+(Most people - me too - consider hot plugging as physically plugging
+things in / out.)
 
-Tyically you'll have similar burn-in tests for the components. The same
-probably is true for component repair
+> Tyically you'll have similar burn-in tests for the components. The same
+> probably is true for component repair
 
-> There are cases when not the "worst case" design is used. You select 
-> components "carefully". E.g. you use a quicker component after a
-> slower one to compensate the excessive delay, or you select parallel
-> components with similar irregularities (no problem if they are too
-> slow assuming they are similarly slow). How can we match a hot
-> plug device with the existing ones ?
+But the new comers are tested in a different environment, with
+different tolerance range. I just simply do not trust :-)
 
-A fair amount of devices copes with this that for example electrical
-driver impedance is adjusted by the device after a specific number of
-operations. Totally invisible to SW. 
+> > There are cases when not the "worst case" design is used. You select
+> > components "carefully". E.g. you use a quicker component after a
+> > slower one to compensate the excessive delay, or you select parallel
+> > components with similar irregularities (no problem if they are too
+> > slow assuming they are similarly slow). How can we match a hot
+> > plug device with the existing ones ?
+>=20
+> A fair amount of devices copes with this that for example electrical
+> driver impedance is adjusted by the device after a specific number of
+> operations. Totally invisible to SW.
 
-> A test can do any "irregular" operation whatever it wants. E.g.
-> the memory controller can be switched into a test mode, that allows
-> reading / writing the memory without the intervention of the ECC
-> logic. One can fill in the memory with some predefined pattern and
-> check if the ECC logic does what it has to do. Can we do this for
-> memory hot plug without breaking a running OS ?
-> Another example: we add a CPU board and we need to make sure that
-> the coherency dialog goes fine. Can we carry out these tests
-> without perturbing the already on line CPUs ?
-> How can we make sure that a freshly inserted I/O card can reach
-> all the memory it has to, it can interrupt any CPU it has to ?
-> (Again, without breaking the OS.)
+I do not think the timing / the delays are auto adjusting. You select
+a component X to work next to the component Y because you know that
+X in "here" and Y in "there" in the tolerance range...
 
-I think a lot (all ?) can be done with on-line diagnostics. Clearly adding
-a defective CPU or node board which causes coherency traffic to fail
-should not happen. 
+> > A test can do any "irregular" operation whatever it wants. E.g.
+> > the memory controller can be switched into a test mode, that allows
+> > reading / writing the memory without the intervention of the ECC
+> > logic. One can fill in the memory with some predefined pattern and
+> > check if the ECC logic does what it has to do. Can we do this for
+> > memory hot plug without breaking a running OS ?
+> > Another example: we add a CPU board and we need to make sure that
+> > the coherency dialog goes fine. Can we carry out these tests
+> > without perturbing the already on line CPUs ?
+> > How can we make sure that a freshly inserted I/O card can reach
+> > all the memory it has to, it can interrupt any CPU it has to ?
+> > (Again, without breaking the OS.)
+>=20
+> I think a lot (all ?) can be done with on-line diagnostics. Clearly adding
+> a defective CPU or node board which causes coherency traffic to fail
+> should not happen.
 
-> And now the most difficult tests: how can we make sure that no error
-> will be undetected. E.g. at the power on test, we can voluntarily
-> provoke "machine checks" to make sure that these kinds of errors are
-> safely detected. Can we really do this on a living operating system ?
-> No problem resetting several times the machine (by the service
-> processor). Obviously, it is not a good idea for a running system.
-> What can we do in case of hungs, time-outs ?
-> 
-> Do you know of some firmware services like "in place testing" ? I mean
-> the operating system invokes a specific firmware call and hands over
-> the control of the machine temporarily (say for 1 millisecond) to the
-> firmware. The firmware can execute a small part of the validation
-> test (without corrupting any data, without losing an interrupt, etc.)
-> then it returns to the OS. This latter resumes the operations and
-> calls again the firmware the tests somewhat later.
-> 
-> We cannot remove safely failing memory / CPUs. In most of the cases
-> it is too late. We (in the OS) can see some corrected CPU, memory, I/O
-> and platform errors. Yet the OS has not got and should not have the
-> knowledge when a component is "enough bad". I think it is the firmware
-> that has all the information about the details of the HW events.
-> Do you know of some firmware services which can say something like:
-> "hey, remove the component X otherwise your MTBF will drop by 95 %..." ?
+Probably it is platform dependent.
+I saw our FW guys doing a couple of black magic, e.g. pumping data in / out
+to / from the LSIs through JTAGs, "abusing" the "back doors".
+Another example: we bought some Intel IA64 boards (CPUs + memory) and
+I saw things, by use of an In Target Probe, like switching back to i386 mod=
+e (!!!)
+or freely playing with cache attributes or doing tricky synchronization
+among the CPUs.
+I've simply got concerns...
 
-That's a point where I totally disagree. I think the OS should have at least
-the option to know about every failure in the system. The OS should log
-these events, I think in a fair amount of cases recovery is possible.
-It might impact the application, but the OS can recover. This would not
-be possible from the firmware alone.
+> > We cannot remove safely failing memory / CPUs. In most of the cases
+> > it is too late. We (in the OS) can see some corrected CPU, memory, I/O
+> > and platform errors. Yet the OS has not got and should not have the
+> > knowledge when a component is "enough bad". I think it is the firmware
+> > that has all the information about the details of the HW events.
+> > Do you know of some firmware services which can say something like:
+> > "hey, remove the component X otherwise your MTBF will drop by 95 %..." ?
+>=20
+> That's a point where I totally disagree. I think the OS should have at le=
+ast
+> the option to know about every failure in the system. The OS should log
+> these events, I think in a fair amount of cases recovery is possible.
+> It might impact the application, but the OS can recover. This would not
+> be possible from the firmware alone.
 
-I'm currently looking at scenarios where the OS would provide hooks
-for an application to implement "self-healing", i.e. the application
-is notified about an uncorrectable memory error for example and can attempt
-to work around it. 
+Well, the OS can log events, why not ?
+Yet what do you do if you cannot boot, cannot read the log ?
+We've got an embedded computer (service processor) that logs everything
+and it's got a private Ethernet plug =3D> you can read its log even if
+the main machine is off.
 
-> Today HW components are sold without much testing. They say O.K. got
-> a problem?, just send it back, we'll refund. Thanks. I just have broken
-> my system.
+I think the OS has to be platform independent. How can a platform independe=
+nt
+OS know if <n> errors of this / that type requires what intervention ?
+We'll have the same binary of the OS (+ drivers) for a small desk top or
+for a 32 CPU "main frame". Only the firmware is different...
 
-I think this really is vendor/platform specific. Many vendors will do extensive
-testing of components shipped to customers in addition to root-cause failure
-analysis of returned components.
+Most of our clients run a single (HPC) application on a machine.
+For them, there is no use to save the OS. I can understand that in other
+environments with many applications it is important to save the OS.
 
+> I'm currently looking at scenarios where the OS would provide hooks
+> for an application to implement "self-healing", i.e. the application
+> is notified about an uncorrectable memory error for example and can attem=
+pt
+> to work around it.
 
-Thanks
+Most of our clients just do not want to touch their 10 year old rubbish
+Fortran programs. If I get a hint of danger (today it does not come from th=
+e FW)
+I could take a check point and call for service intervention...
 
-Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
-Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
+> > Today HW components are sold without much testing. They say O.K. got
+> > a problem?, just send it back, we'll refund. Thanks. I just have broken
+> > my system.
+>=20
+> I think this really is vendor/platform specific. Many vendors will do ext=
+ensive
+> testing of components shipped to customers in addition to root-cause fail=
+ure
+> analysis of returned components.
 
+Probably, we should change platform - just kidding ;-)
+
+Thanks,
+
+Zolt=E1n
