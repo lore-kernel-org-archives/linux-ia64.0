@@ -1,25 +1,29 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 01 Jul 2004 19:46:44 +0000
+From: Karim Yaghmour <karim@opersys.com>
+Date: Fri, 02 Jul 2004 00:47:31 +0000
 Subject: Re: [PATCH] IA64 audit support
-Message-Id: <20040701124644.5e301ca0.akpm@osdl.org>
+Message-Id: <40E4B0A3.3080706@opersys.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200406301556.i5UFuGg8009251@redrum.boston.redhat.com>
-In-Reply-To: <200406301556.i5UFuGg8009251@redrum.boston.redhat.com>
+References: <200406301556.i5UFuGg8009251@redrum.boston.redhat.com> <20040701124644.5e301ca0.akpm@osdl.org>
+In-Reply-To: <20040701124644.5e301ca0.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Peter Martuccelli <peterm@redhat.com>
-Cc: peterm@redhat.com, faith@redhat.com, davidm@hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, ray.lanza@hp.com
+To: Andrew Morton <akpm@osdl.org>
+Cc: Peter Martuccelli <peterm@redhat.com>, faith@redhat.com, davidm@hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, ray.lanza@hp.com
 
-Peter Martuccelli <peterm@redhat.com> wrote:
->
->  Here is one of the audit tasks we talked about.  This patch adds 
->  ia64 support to the audit subsystem.  I have tested the ia64 audit 
->  support without any issues to report. The original patch was from
->  from Ray Lanza.
 
-It's nice and simple.
+Andrew Morton wrote:
+> It's nice and simple.
 
-> Requesting patch to be merged in the next version. 
+Andrew, I have got to ask:
 
-Via davidm, please.
+I, and quite a few other folks, have been trying to get the Linux Trace Toolkit
+in the kernel for the past 5 years and the code being added is almost identical to what the audit patch adds, yet
+we've
+
+Karim
+-- 
+Author, Speaker, Developer, Consultant
+Pushing Embedded and Real-Time Linux Systems Beyond the Limits
+http://www.opersys.com || karim@opersys.com || 1-866-677-4546
+
