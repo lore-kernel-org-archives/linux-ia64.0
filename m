@@ -1,7 +1,7 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Wed, 08 May 2002 19:43:42 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 08 May 2002 20:29:56 +0000
 Subject: Re: [Linux-ia64] new kernel patch (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905556@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905557@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905293@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905293@msgid-missing>
@@ -10,88 +10,42 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> 
-> >>>>> On Wed, 8 May 2002 11:25:08 -0700 , "Luck, Tony" <tony.luck@intel.com> said:
-> 
->   Tony> David Mosberger wrote:
->   >> If you look at the patch, you'll also see that I started merging
->   >> the "mem_map in virtual memory" patch (CONFIG_VIRTUAL_MEM_MAP),
->   >> which is currently needed on zx1 platforms with >1GB of memory.
->   >> However, the merge isn't complete and the new code isn't working
->   >> yet.
-> 
->   Tony> When I started working on a new discontigmem patch for ia64,
->   Tony> Kanoj Sarcar dissuaded me from a virtual mem_map with a lot of
->   Tony> fast handwaving on the cost of TLB faults to access page
->   Tony> structures.  He stated (and I agreed) that there wasn't much
->   Tony> reason to expect good locality of reference to page structs
->   Tony> ... so this could have a measurable impact.  Sadly, neither of
->   Tony> us actually made any measurements to back up this belief.
-> 
->   Tony> Have you looked at the possible performance effect of this
->   Tony> change?
-> 
-> The person who wrote this code (John Marvin) did look into this and
-> for the test he looked at (which included lmbench and kernel
-> compilation), couldn't find a noticable performance difference.
-> 
-> Nevertheless, I'm not completely comfortable with this approach.  The
-> reason is that (a) it's not completely general (there could be machine
-> configurations where the mem_map is so large that it would exceed the
-> mappable space in region 5) and (b) increasing the TLB pressure is
-> just about the last thing I want to do (I'm not just worried about the
-> cost of accessing mem_map per se, but about thrashing the TLB and
-> kicking out more useful translations).
-> 
-> On the other hand, the virtual mem_map implementation has a compelling
-> simplicity to it and is more general than most everything else I have
-> seen so far.
-> 
->   Tony> Would the discontigmem patch meet the needs of the zx1
->   Tony> platform?
-> 
-> The patches I have seen so far always assume that you *know* where the
-> holes are.  That just doesn't cut it.  DIG makes absolutely no
-> guarantees about the physical memory layout and we need a kernel that
-> can work on all (reasonable) DIG machines.
+>>>>> On Wed, 8 May 2002 14:43:42 -0500 (CDT), Jack Steiner <steiner@sgi.com> said:
 
-Agree.
+  Jack> I dont think the latest discontig patch makes any assumptions
+  Jack> about memory layout and where memory holes appear. This info
+  Jack> is passed to the kernel in the ACPI tables.  There are also
+  Jack> platform specific macros defined in a platform mmzone_xxx file
+  Jack> that are used to provide platform abstractions.
 
-I dont think the latest discontig patch makes any assumptions about memory layout
-and where memory holes appear. This info is passed to the kernel in the ACPI tables.
-There are also platform specific macros defined in a platform mmzone_xxx file
-that are used to provide platform abstractions.
+The discontig patch would be a lot more acceptable to me if it didn't
+drag in all the other NUMA stuff.  As it stands, it's overkill.
 
-Can the zx1 platform provide the necessary ACPI tables?? If so, it would
-be interesting to see what the asm/mmzone_zx1.h file would look 
-like (assuming it could be done).
+Also, the discontig patch has a buch of hardcoded limits (e.g.,
+maximum number of nodes, max. "clumps" per node, etc.), so it's really
+not all that general by itself.  It's just more tweakable.
 
+  Jack> Can the zx1 platform provide the necessary ACPI tables?? If
+  Jack> so, it would be interesting to see what the asm/mmzone_zx1.h
+  Jack> file would look like (assuming it could be done).
 
+All the info needed for discontiguous memory is in the EFI memory
+table.  The ACPI tables should be needed only for locality info, which
+has very little to do with discontinuity (one usually implies the
+other, but not vice versa).
 
-> 
-> There have been discussions on this topic on the lkml recently and
-> different solutions have been proposed.  I don't really care too much
-> which solution is used in the end as long as it is able to accommodate
-> arbitrary physical layouts and has no dramatic performance impact.
+  >>  There have been discussions on this topic on the lkml recently
+  >> and different solutions have been proposed.  I don't really care
+  >> too much which solution is used in the end as long as it is able
+  >> to accommodate arbitrary physical layouts and has no dramatic
+  >> performance impact.
 
-Agree. I'm certainly happy with any approach that satisfies these requirements.
+  Jack> Agree. I'm certainly happy with any approach that satisfies
+  Jack> these requirements.
 
+I think it would be interesting to see a discontig patch which leaves
+out all the NUMA stuff.  I really believe it would actually help clean
+up that patch a lot.
 
-> For now, the virtual mem-map approach is working (modulo my merging
-> goofs) and it should be interesting to compare it to other approaches.
-> 
-> 	--david
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
-
-
--- 
-Thanks
-
-Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
-
+	--david
 
