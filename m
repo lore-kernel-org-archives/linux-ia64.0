@@ -1,34 +1,76 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Thu, 28 Aug 2003 19:25:14 +0000
-Subject: Re: [Discontig-devel] Re: 2.6.0 test3 does not boot on ia64 NUMA
-Message-Id: <marc-linux-ia64-106209895720920@msgid-missing>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 13 Aug 2003 15:37:50 +0000
+Subject: Re: hugetlb compile problems (2.4 with gcc-3.4)
+Message-Id: <marc-linux-ia64-106078984603174@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Aug 26, 2003 at 12:13:07PM -0400, Martin Hicks wrote:
+On Tuesday 12 August 2003 1:37 pm, Stephane Eranian wrote:
+> I have run into some compilation problems on mm/hugetlb.c
+> when using gcc3.4, it is more picky. It fails because
+> in the latest 2.4 kernel there is the following:
 > 
+> static long    htlbzone_pages;
 > 
-> On Tue, Aug 26, 2003 at 05:39:32PM +0200, Xavier Bru wrote:
-> > 
-> > I tried to put find_memory()  after acpi_numa_init() as in 2.5.72, but 
-> > now we get:
-> >      bootmem alloc of 100 bytes failed! in acpi_table_init()
-> > that now uses the bootmem allocator.
-> > 
-> > I wonder what should be the right order for initialisation, and if
-> > there are ia64 platforms running 2.6.0 with CONFIG_NUMA. Any help is
-> > apreciated.
+> int set_hugetlb_mem_size(int count)
+> {
+> 	int j, lcount;
+> 	struct page *page, *map;
+> >>>	extern long htlbzone_pages;
+> 	extern struct list_head htlbpage_freelist;
 > 
-> Jesse Barnes has an unreleased patch to make SGI SN2 work, which does
-> move the find_memory() after acpi_numa_init().  There is another patch,
-> which I've attached, which removes the bootmem alloc of memory in ACPI.
+> }
 
-I talked with Andy Grover about this and I think he agreed to remove the
-alloc_bootmem calls from ACPI table initialization, so we should be ok
-once that gets merged into Linus' tree.  I'll double check with Andy
-when I get back.
+I applied the following patch for 2.4:
 
-Jesse
+#### AUTHOR bjorn.helgaas@hp.com
+#### COMMENT START
+### Comments for ChangeSet
+HUGETLB: remove bogus "extern" decls to satisfy gcc-3.4.
+### Comments for arch/ia64/mm/hugetlbpage.c
+HUGETLB: remove bogus "extern" decls to satisfy gcc-3.4.
+#### COMMENT END
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1076  -> 1.1077 
+#	arch/ia64/mm/hugetlbpage.c	1.2     -> 1.3    
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/08/13	bjorn.helgaas@hp.com	1.1077
+# HUGETLB: remove bogus "extern" decls to satisfy gcc-3.4.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/mm/hugetlbpage.c b/arch/ia64/mm/hugetlbpage.c
+--- a/arch/ia64/mm/hugetlbpage.c	Wed Aug 13 10:41:45 2003
++++ b/arch/ia64/mm/hugetlbpage.c	Wed Aug 13 10:41:45 2003
+@@ -12,12 +12,11 @@
+ #include <linux/pagemap.h>
+ #include <linux/smp_lock.h>
+ #include <linux/slab.h>
+-#include <linux/module.h>
++#include <linux/sysctl.h>
+ #include <asm/mman.h>
+ #include <asm/pgalloc.h>
+ #include <asm/tlb.h>
+ 
+-#include <linux/sysctl.h>
+ 
+ #define TASK_HPAGE_BASE (REGION_HPAGE << REGION_SHIFT)
+ 
+@@ -357,8 +356,6 @@
+ {
+ 	int j, lcount;
+ 	struct page *page, *map;
+-	extern long htlbzone_pages;
+-	extern struct list_head htlbpage_freelist;
+ 
+ 	if (count < 0)
+ 		lcount = count;
+
