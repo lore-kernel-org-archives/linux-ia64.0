@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 07 Jan 2002 17:12:28 +0000
+From: Erich Focht <focht@ess.nec.de>
+Date: Mon, 07 Jan 2002 17:16:41 +0000
 Subject: Re: [Linux-ia64] PATCH redirectable IRQs
-Message-Id: <marc-linux-ia64-105590698805761@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805762@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805756@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805756@msgid-missing>
@@ -10,14 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The patch looks good to me, except that it needs to be documented
-somewhere.  I suggest Documentation/ia64/irq-redir.txt or something
-along those lines.
+On Mon, 7 Jan 2002, Andreas Schwab wrote:
 
-Could you do this and also consider Andreas' comment and then resend
-the patch?
+[...]
+> |> +		if (redir = 1)
+> 
+> Just a nit: since redir is a boolean value it should be used as such.
 
-Thanks,
+You're right.
 
-	--david
+[...]
+> Should this handle buf[0] = 'f'?  You get this when you read the file, so
+> someone will probably try to write in the same format.  Unfortunately this
+> conflicts with the use of hexadecimal for the cpu number, so
+> irq_affinity_read_proc should perhaps not output the 'f' prefix.
+
+Yes, that's why I left it away. And leaving the output of "f" away in
+irq_affinity_read_proc() sounds good, too.
+
+I'll resend the patch with some documentation, as suggested by David.
+
+Regards,
+Erich
+
+
 
