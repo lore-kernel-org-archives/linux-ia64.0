@@ -1,34 +1,28 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Tue, 20 Aug 2002 11:11:23 +0000
+From: Richard Hirst <rhirst@linuxcare.com>
+Date: Tue, 20 Aug 2002 11:22:30 +0000
 Subject: Re: [Linux-ia64] Kernel dumps stacks while calling exported function from a loadable module
-Message-Id: <marc-linux-ia64-105590701905957@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905959@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905956@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905956@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Aug 20, 2002 at 05:52:32PM +0800, Jeff Lee wrote:
-> I am having trouble in calling exported functions on my RH 7.2 box.
-> running 2.4.9-18 kernel.  The calling module causes kernel stack dumps
+On Tue, Aug 20, 2002 at 07:41:47PM +0800, Jeff Lee wrote:
+> My kernel was from the RH installation CD.  I haven't touched it yet.
+> 
+> I used gcc3.1 for a reason: the 2.96 gcc causes the same problem; hence I tried gcc3.1 but that doesn't seem to matter,
+> 
+> Actually, I tried a little experiment.  I printed the address of dummy() out;  surprisingly, the reading of dummy() is different in the exporting module from the calling module (no wonder the kernel stacks).  But, any other global variables look fine.  
+> 
+> What so special about the kernel function symbols in IA 64?
 
-My understanding is that this kernel was compiled with gcc 2.96 ...
+A pointer to a function on ia64 is actually a pointer to a struct
+containing the address of the function and the data pointer to use in
+the function.
 
-> The compilation line looks like this:
->=20
-> /opt/gcc3.1/bin/gcc -c -DLINUX -D__SMP__ -D"__BOOT_KERNEL_SMP=3D1"
-> -D"__BOOT_KERNEL_UP=3D0"  -O2 -Wall -Wstrict-prototypes  -D__ia64__ -D_LP=
-64
-> -ffixed-r13 -mfixed-range=F10-f15,f32-f127 -falign-functions2
-> -fno-common -Wno-unused -mb-step -I -I/usr/src/linux-2.4/drivers/scsi -I
-> -I/scsi  -I/usr/src/linux-2.4/drivers/scsi -DMODULE -DMODVERSIONS -include
-> /usr/src/linux-2.4/include/linux/modversions.h-D__KERNEL__  myhello1.c
+Richard
 
-... and you're using gcc 3.1, so maybe this compiler mismatch is causing
-the problem?
-
---=20
-Revolutions do not require corporate support.
 
