@@ -1,37 +1,88 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 27 May 2004 18:53:23 +0000
-Subject: Re: a elilo.conf question
-Message-Id: <20040527185323.GD25564@cup.hp.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Wed, 19 May 2004 01:10:00 +0000
+Subject: Kill warnings in 2.6.6
+Message-Id: <E1BQFaq-0003bB-KT@wombat.disy.cse.unsw.edu.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.GSO.4.58.0405271410140.660@tokyo.cc.gatech.edu>
-In-Reply-To: <Pine.GSO.4.58.0405271410140.660@tokyo.cc.gatech.edu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, May 27, 2004 at 02:21:52PM -0400, Younggyun Koh wrote:
-> VFS:Cannot open root device "sda3" or unknown-block(0,0)
-> Please append a currect "root=" boot option
-> Kernel panic: VFS: Unable to mount root fs on unknown-block(0,0)
-> 
-> (/dev/sda3 is mounted to / in the kernel 2.4)
 
-While bjorn, stephane, and david could be right,
-arch/ia64/defconfig and arch/ia64/configs/zx1_defconfig
-has FUSION enabled by default as a built-in driver.
-My advice is to start with zx1_defconfig and customize
-that for your useage.
+Here're four patches to get rid of warnings in Linux 2.6.6, IA64.
 
-One parisc, I get bitten by /dev/sda getting renamed to something
-else (eg /dev/sdi) everytime I switch between 2.4/2.6 kernels.
-My solution of course is to only use 2.6 kernels. :^)
+The first is a copy of a fix four lines up; the second declares some
+structures (that aren't used anyway), the third hides a function
+that's used only for SMP, and the fourth makes cond_syscall use a real
+prototype.  It's safe to make the conditional system call have the
+same signature as the thing it's aliased to.
 
-If no disks show up, then the Fusion driver is missing.
-If you can find the disk with the "right" partition
-layout in your 2.6 console boot output (before the panic),
-then this is likely the problem. If that's the case,
-don't forget to update /etc/fstab entries if they aren't
-"mount by label" or are not using mdadm.
+=== arch/ia64/ia32/ia32_signal.c 1.27 vs edited ==--- 1.27/arch/ia64/ia32/ia32_signal.c	Fri Apr 23 16:38:17 2004
++++ edited/arch/ia64/ia32/ia32_signal.c	Tue May 18 13:18:25 2004
+@@ -173,7 +173,8 @@
+ 		case __SI_MESGQ >> 16:
+ 			err |= __put_user(from->si_uid, &to->si_uid);
+ 			err |= __put_user(from->si_pid, &to->si_pid);
+-			err |= __put_user(from->si_ptr, &to->si_ptr);
++			addr = (unsigned long)from->si_ptr;
++			err |= __put_user(addr, &to->si_ptr);
+ 			break;
+ 		}
+ 	}
 
-grant
+
+=== arch/ia64/kernel/machvec.c 1.7 vs edited ==--- 1.7/arch/ia64/kernel/machvec.c	Thu Mar 18 16:57:15 2004
++++ edited/arch/ia64/kernel/machvec.c	Tue May 18 13:00:35 2004
+@@ -61,6 +61,9 @@
+ }
+ EXPORT_SYMBOL(machvec_timer_interrupt);
+ 
++struct device;
++struct scatterlist;
++
+ void
+ machvec_dma_sync_single (struct device *hwdev, dma_addr_t dma_handle, size_t size, int dir)
+ {
+
+
+=== arch/ia64/kernel/perfmon.c 1.73 vs edited ==--- 1.73/arch/ia64/kernel/perfmon.c	Fri Apr  9 02:28:59 2004
++++ edited/arch/ia64/kernel/perfmon.c	Tue May 18 13:01:03 2004
+@@ -4559,6 +4559,7 @@
+ 	return 0;
+ }
+ 
++#ifdef CONFIG_SMP
+ static void
+ pfm_force_cleanup(pfm_context_t *ctx, struct pt_regs *regs)
+ {
+@@ -4582,7 +4583,7 @@
+ 
+ 	DPRINT(("force cleanupf for [%d]\n",  task->pid));
+ }
+-
++#endif
+ 
+ 
+ /*
+
+
+=== include/asm-ia64/unistd.h 1.40 vs edited ==--- 1.40/include/asm-ia64/unistd.h	Thu Apr 15 18:26:53 2004
++++ edited/include/asm-ia64/unistd.h	Tue May 18 12:52:06 2004
+@@ -367,12 +367,12 @@
+ /*
+  * "Conditional" syscalls
+  *
+- * Note, this macro can only be used in the file which defines sys_ni_syscall, i.e., in
+- * kernel/sys.c.  This version causes warnings because the declaration isn't a
+- * proper prototype, but we can't use __typeof__ either, because not all cond_syscall()
+- * declarations have prototypes at the moment.
++ * Note, this macro can only be used in the file which defines
++ * sys_ni_syscall, i.e., in kernel/sys.c.  It is used to provide
++ * addresses for system call functions for entry.S, where the
++ * functions could be configured out.
+  */
+-#define cond_syscall(x) asmlinkage long x() __attribute__((weak,alias("sys_ni_syscall")));
++#define cond_syscall(x) asmlinkage long x(void) __attribute__((weak,alias("sys_ni_syscall")));
+ 
+ #endif /* !__ASSEMBLY__ */
+ #endif /* __KERNEL__ */
