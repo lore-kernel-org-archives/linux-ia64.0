@@ -1,47 +1,57 @@
-From: k Macy <kip_macy@yahoo.com>
-Date: Wed, 05 Sep 2001 18:14:38 +0000
-Subject: Re: [Linux-ia64] can't compile on x86 - building cross-compiler for ia64 getting SIGSEGV
-Message-Id: <marc-linux-ia64-105590698805125@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 27 Sep 2001 08:31:24 +0000
+Subject: [Linux-ia64] Re: kernel update (relative to 2.4.10)
+Message-Id: <marc-linux-ia64-105590698805267@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805115@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805115@msgid-missing>
+References: <marc-linux-ia64-105590678205855@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205855@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It looks like in both cases it was my fault,
-when building the compiler I set the --host=ia64...
-when it should have been --target=ia64...
-When building 2.4.9 I hadn't downloaded and applied
-the latest patches to the tree. The default IA64 in
-the linux tree is pretty broken.
+>>>>> On Wed, 26 Sep 2001 17:59:11 -0400, Bill Nottingham <notting@redhat.com> said:
 
-In both cases the compiler should have failed a lot 
-more gracefully, but it sounds like 32bit->64bit
-cross-compilation is non-trivial.
+  Bill> David Mosberger (davidm@hpl.hp.com) said:
+  >> with these fixes in place, I'm able to successfully run the ia32
+  >> versions of realplay, OpenOffice, mozilla, netscape, acrobat,
+  >> strace, Intel compilers, etc.  But as usual, your mileage may
+  >> vary.
 
-Thanks.
+  Bill> Did you try wine? :)
 
-           -Kip
+I hadn't.
 
---- Jim Wilson <wilson@cygnus.com> wrote:
-> >Current gcc code will not cross compile from ix86
-> to ia64, it gets
-> >problems with conditional return of 64 bit values
-> in some functions.
-> 
-> A bug report would be very useful, yes.  You didn't
-> even mention what
-> program is being miscompiled.  If you have already
-> reported the bug, please
-> point me at the report.
-> 
-> Jim
+  Bill> Seriously, I tried this previously, and it didn't really work
+  Bill> at all.  At the time, I wasn't even sure if it could be *made*
+  Bill> to work, and I haven't looked since.
 
+I wasn't sure either.  I looked at the docs a bit and there doesn't
+seem to be anything that would stop it from working in principle.
+16-bit apps might be harder, as those require vm86() which I know
+nothing about (I'm sure it could be implemented by someone more
+knowledge of x86).
 
-__________________________________________________
-Do You Yahoo!?
-Get email alerts & NEW webcam video instant messaging with Yahoo! Messenger
-http://im.yahoo.com
+Encouraged by this, I tried the wine RPM from Red Hat. After fixing
+the ia32 sendmsg()/recvmsg() implementations, I am now able to run
+"wordpad.exe" and "mspaint.exe".  I had never seen wine in a working
+state, so I was quite amazed to see a windows-looking application pop
+up!  As far as I can tell, these two apps work perfectly fine.
+
+However, I didn't get much else to work (e.g., acrobat and the HP
+printing software both died after the splash screen...).  Even with
+"wordpad.exe" I get some worrisome warning messages:
+
+ err:win32:fixup_imports No implementation for shlwapi.dll.0(StrRetToBufA) imported from shell32.dll, setting to 0xdeadbeef
+ err:win32:fixup_imports No implementation for shlwapi.dll.0(StrRetToBufW) imported from shell32.dll, setting to 0xdeadbeef
+ FIXME:pthread_rwlock_rdlock
+ FIXME:pthread_rwlock_unlock
+
+I think the first two errors are real problems.  Not sure about the
+pthread-related messages.  I suppose if someone is serious about this,
+all of these could be fixed.
+
+Oh, to get this to work, I had to switch to 4KB page size.
+
+	--david
 
