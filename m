@@ -1,350 +1,305 @@
-From: Kenji Kaneshige <kaneshige.kenji@soft.fujitsu.com>
-Date: Tue, 21 Sep 2004 08:52:54 +0000
-Subject: [PATCH] PCI IRQ resource deallocation support [3/3]
-Message-Id: <414FEBE6.8050505@soft.fujitsu.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 01 Sep 2004 00:44:16 +0000
+Subject: [PATCH] CONFIG_SMP=n fixes redux
+Message-Id: <200408311744.16748.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_gtRNBu7cYAgbajt"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <414FEBC6.4030901@jp.fujitsu.com>
-In-Reply-To: <414FEBC6.4030901@jp.fujitsu.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+--Boundary-00=_gtRNBu7cYAgbajt
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm-3NddpPZAyC0@public.gmane.org, greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Disposition: inline
 
+Today both Christoph and Alex mentioned that they thought this patch would be 
+nice to have in the tree.  It allows a generic kernel to build and run when 
+CONFIG_SMP=n.  I'd still like feedback about the per-cpu stuff though, in 
+particular, this
 
-This is an ia64 portion of IRQ resource deallocation. It implements
-pcibios_disable_device() and acpi_unregister_gsi() for ia64.
++#ifdef CONFIG_SMP
+        /* Set the node_data pointer for each per-cpu struct */
+        for (cpu = 0; cpu < NR_CPUS; cpu++) {
+                node = node_cpuid[cpu].nid;
+                per_cpu(cpu_info, cpu).node_data = mem_data[node].node_data;
+        }
++#else
++       {
++               struct cpuinfo_ia64 *cpu0_cpu_info;
++               cpu = 0;
++               node = node_cpuid[cpu].nid;
++               cpu0_cpu_info = (struct cpuinfo_ia64 *)(__phys_per_cpu_start +
++                       ((char *)&per_cpu__cpu_info - __per_cpu_start));
++               cpu0_cpu_info->node_data = mem_data[node].node_data;
++       }
++#endif /* CONFIG_SMP */
 
-    o acpi_unregister_gsi()
+is really ugly.  Maybe I should take this opportunity to convert the early 
+memory allocation code to using the bootmem allocator instead of backdooring 
+it via find_pernode_space()?  I think that would mean we could share more 
+code between the contig and discontigmem cases, but we'd also have to be 
+careful to avoid cacheline aliasing.
 
-        Summary of changes for implementing this interface:
+Thanks,
+Jesse
 
-        - Add new function iosapic_unregister_intr() into
-          arch/ia64/kernel/iosapic.c. This function frees an interrupt
-          vector and related data structures.
+--Boundary-00=_gtRNBu7cYAgbajt
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="ia64-generic-no-smp-3.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ia64-generic-no-smp-3.patch"
 
-        - Add new function free_irq_vector() into
-          arch/ia64/kernel/irq_ia64.c. This frees an unused vector.
-
-        - Change assign_irq_vector() to be able to support
-          free_irq_vector().
-
-    o pcibios_disable_device()
-
-        This calls acpi_pci_irq_disable() to deallocate IRQ resources.
-
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-
-
----
-
- linux-2.6.9-rc2-mm1-kanesige/arch/ia64/Kconfig           |    9 +
- linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c     |    3 
- linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/iosapic.c  |   82 +++++++++++++--
- linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/irq.c      |    9 +
- linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/irq_ia64.c |   27 ++++
- linux-2.6.9-rc2-mm1-kanesige/arch/ia64/pci/pci.c         |    3 
- linux-2.6.9-rc2-mm1-kanesige/include/asm-ia64/hw_irq.h   |    2 
- linux-2.6.9-rc2-mm1-kanesige/include/asm-ia64/iosapic.h  |    4 
- 8 files changed, 124 insertions(+), 15 deletions(-)
-
-diff -puN arch/ia64/Kconfig~IRQ_deallocation_ia64 arch/ia64/Kconfig
---- linux-2.6.9-rc2-mm1/arch/ia64/Kconfig~IRQ_deallocation_ia64	2004-09-21 15:24:28.251867327 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/Kconfig	2004-09-21 15:24:28.271398701 +0900
-@@ -500,6 +500,15 @@ config IA64_PALINFO
- 	  To use this option, you have to ensure that the "/proc file system
- 	  support" (CONFIG_PROC_FS) is enabled, too.
+===== arch/ia64/kernel/Makefile 1.34 vs edited =====
+--- 1.34/arch/ia64/kernel/Makefile	2004-08-16 07:51:35 -07:00
++++ edited/arch/ia64/kernel/Makefile	2004-08-31 17:33:30 -07:00
+@@ -15,6 +15,7 @@
+ obj-$(CONFIG_IOSAPIC)		+= iosapic.o
+ obj-$(CONFIG_MODULES)		+= module.o
+ obj-$(CONFIG_SMP)		+= smp.o smpboot.o
++obj-$(CONFIG_NUMA)		+= numa.o
+ obj-$(CONFIG_PERFMON)		+= perfmon_default_smpl.o
+ obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
  
-+config IA64_DEALLOCATE_IRQ
-+	bool "IRQ resource deallocation support (EXPERIMENTAL)"
-+	depends on IOSAPIC && EXPERIMENTAL
-+	default n
-+	help
-+	  Say Y here to experiment with deallocating IRQ resources
-+	  dynamically.
-+	  Say N if you want to disable IRQ resource deallocation.
-+
- source "drivers/firmware/Kconfig"
- 
- source "fs/Kconfig.binfmt"
-diff -puN arch/ia64/kernel/acpi.c~IRQ_deallocation_ia64 arch/ia64/kernel/acpi.c
---- linux-2.6.9-rc2-mm1/arch/ia64/kernel/acpi.c~IRQ_deallocation_ia64	2004-09-21 15:24:28.259679877 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c	2004-09-21 15:24:28.272375269 +0900
-@@ -524,6 +524,9 @@ EXPORT_SYMBOL(acpi_register_gsi);
- void
- acpi_unregister_gsi (unsigned int irq)
- {
-+#ifdef CONFIG_IA64_DEALLOCATE_IRQ
-+	iosapic_unregister_intr(irq);
-+#endif
- }
- EXPORT_SYMBOL(acpi_unregister_gsi);
- 
-diff -puN arch/ia64/kernel/iosapic.c~IRQ_deallocation_ia64 arch/ia64/kernel/iosapic.c
---- linux-2.6.9-rc2-mm1/arch/ia64/kernel/iosapic.c~IRQ_deallocation_ia64	2004-09-21 15:24:28.260656445 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/iosapic.c	2004-09-21 15:24:28.273351838 +0900
-@@ -111,6 +111,7 @@ static struct iosapic_intr_info {
- 	unsigned char	dmode	: 3;	/* delivery mode (see iosapic.h) */
- 	unsigned char 	polarity: 1;	/* interrupt polarity (see iosapic.h) */
- 	unsigned char	trigger	: 1;	/* trigger mode (see iosapic.h) */
-+	int		refcnt;		/* reference counter */
- } iosapic_intr_info[IA64_NUM_VECTORS];
- 
- static struct iosapic {
-@@ -177,7 +178,7 @@ gsi_to_irq (unsigned int gsi)
- static void
- set_rte (unsigned int vector, unsigned int dest, int mask)
- {
--	unsigned long pol, trigger, dmode, flags;
-+	unsigned long pol, trigger, dmode;
- 	u32 low32, high32;
- 	char *addr;
- 	int rte_index;
-@@ -218,13 +219,9 @@ set_rte (unsigned int vector, unsigned i
- 	/* dest contains both id and eid */
- 	high32 = (dest << IOSAPIC_DEST_SHIFT);
- 
--	spin_lock_irqsave(&iosapic_lock, flags);
--	{
--		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
--		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
--		iosapic_intr_info[vector].low32 = low32;
--	}
--	spin_unlock_irqrestore(&iosapic_lock, flags);
-+	iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
-+	iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
-+	iosapic_intr_info[vector].low32 = low32;
- }
- 
- static void
-@@ -475,6 +472,7 @@ register_intr (unsigned int gsi, int vec
- 	iosapic_intr_info[vector].addr     = iosapic_address;
- 	iosapic_intr_info[vector].gsi_base = gsi_base;
- 	iosapic_intr_info[vector].trigger  = trigger;
-+	iosapic_intr_info[vector].refcnt++;
- 
- 	if (trigger = IOSAPIC_EDGE)
- 		irq_type = &irq_type_iosapic_edge;
-@@ -576,6 +574,7 @@ iosapic_register_intr (unsigned int gsi,
- 	{
- 		vector = gsi_to_vector(gsi);
- 		if (vector > 0) {
-+			iosapic_intr_info[vector].refcnt++;
- 			spin_unlock_irqrestore(&iosapic_lock, flags);
- 			return vector;
- 		}
-@@ -584,6 +583,8 @@ iosapic_register_intr (unsigned int gsi,
- 		dest = get_target_cpu(gsi, vector);
- 		register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
- 			polarity, trigger);
-+
-+		set_rte(vector, dest, 1);
+===== arch/ia64/kernel/acpi.c 1.74 vs edited =====
+--- 1.74/arch/ia64/kernel/acpi.c	2004-08-05 21:40:29 -07:00
++++ edited/arch/ia64/kernel/acpi.c	2004-08-31 17:33:31 -07:00
+@@ -624,8 +624,10 @@
+ 			if (smp_boot_data.cpu_phys_id[cpu] != hard_smp_processor_id())
+ 				node_cpuid[i++].phys_id = smp_boot_data.cpu_phys_id[cpu];
  	}
- 	spin_unlock_irqrestore(&iosapic_lock, flags);
- 
-@@ -592,10 +593,73 @@ iosapic_register_intr (unsigned int gsi,
- 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
- 	       cpu_logical_id(dest), dest, vector);
- 
--	set_rte(vector, dest, 1);
- 	return vector;
- }
- 
-+#ifdef CONFIG_IA64_DEALLOCATE_IRQ
-+void
-+iosapic_unregister_intr (unsigned int irq)
-+{
-+	unsigned long flags;
-+	irq_desc_t *idesc;
-+	int rte_index;
-+	unsigned int gsi;
-+	unsigned long trigger, polarity;
-+	ia64_vector vector = irq_to_vector(irq);
-+		
-+	idesc = irq_descp(irq);
-+	spin_lock_irqsave(&idesc->lock, flags);
-+	spin_lock(&iosapic_lock);
-+	{
-+		rte_index = iosapic_intr_info[vector].rte_index;
-+		if (rte_index < 0) {
-+			spin_unlock(&iosapic_lock);
-+			spin_unlock_irqrestore(&idesc->lock, flags);
-+			return;		/* not an IOSAPIC interrupt */
-+		}
-+
-+		if (--iosapic_intr_info[vector].refcnt > 0) {
-+			spin_unlock(&iosapic_lock);
-+			spin_unlock_irqrestore(&idesc->lock, flags);
-+			return;
-+		}
-+
-+		/*
-+		 * If interrupt handlers still exists on the irq
-+		 * associated with the gsi, don't unregister the
-+		 * interrupt.
-+		 */
-+		if (unlikely(idesc->action)) {
-+			iosapic_intr_info[vector].refcnt++;
-+			spin_unlock_irqrestore(&idesc->lock, flags);
-+			printk(KERN_WARNING "Cannot unregister GSI. IRQ %u is still in use.\n", irq);
-+			return;
-+		}
-+
-+		/* Clear the interrupt controller descriptor. */
-+		idesc->handler = &no_irq_type;
-+
-+		gsi = iosapic_intr_info[vector].gsi_base + rte_index;
-+		trigger  = iosapic_intr_info[vector].trigger;
-+		polarity = iosapic_intr_info[vector].polarity;
-+
-+		/* Clear the interrupt information. */
-+		memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
-+		iosapic_intr_info[vector].rte_index = -1;	/* mark as unused */
-+	}
-+	spin_unlock(&iosapic_lock);
-+	spin_unlock_irqrestore(&idesc->lock, flags);
-+
-+	/* Free the interrupt vector */
-+	free_irq_vector(vector);
-+
-+	printk(KERN_INFO "GSI %u (%s, %s) -> vector %d unregisterd.\n",
-+	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
-+	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
-+	       vector);
-+}
-+#endif /* CONFIG_IA64_DEALLOCATE_IRQ */
-+
- /*
-  * ACPI calls this when it finds an entry for a platform interrupt.
-  * Note that the irq_base and IOSAPIC address must be set in iosapic_init().
-diff -puN arch/ia64/kernel/irq.c~IRQ_deallocation_ia64 arch/ia64/kernel/irq.c
---- linux-2.6.9-rc2-mm1/arch/ia64/kernel/irq.c~IRQ_deallocation_ia64	2004-09-21 15:24:28.262609583 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/irq.c	2004-09-21 15:24:28.273351838 +0900
-@@ -879,8 +879,11 @@ int setup_irq(unsigned int irq, struct i
- 	struct irqaction *old, **p;
- 	irq_desc_t *desc = irq_descp(irq);
- 
--	if (desc->handler = &no_irq_type)
-+	spin_lock_irqsave(&desc->lock,flags);
-+	if (desc->handler = &no_irq_type) {
-+		spin_unlock_irqrestore(&desc->lock,flags);
- 		return -ENOSYS;
-+	}
- 	/*
- 	 * Some drivers like serial.c use request_irq() heavily,
- 	 * so we have to be careful not to interfere with a
-@@ -906,7 +909,6 @@ int setup_irq(unsigned int irq, struct i
- 	/*
- 	 * The following block of code has to be executed atomically
- 	 */
--	spin_lock_irqsave(&desc->lock,flags);
- 	p = &desc->action;
- 	if ((old = *p) != NULL) {
- 		/* Can't share interrupts unless both agree to */
-@@ -1040,6 +1042,9 @@ void move_irq(int irq)
- 	irq_desc_t *desc = irq_descp(irq);
- 	int redir = test_bit(irq, pending_irq_redir);
- 
-+	if (unlikely(!desc->handler->set_affinity))
-+		return;
-+
- 	if (!cpus_empty(pending_irq_cpumask[irq])) {
- 		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
- 		if (unlikely(!cpus_empty(tmp))) {
-diff -puN arch/ia64/kernel/irq_ia64.c~IRQ_deallocation_ia64 arch/ia64/kernel/irq_ia64.c
---- linux-2.6.9-rc2-mm1/arch/ia64/kernel/irq_ia64.c~IRQ_deallocation_ia64	2004-09-21 15:24:28.264562720 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/irq_ia64.c	2004-09-21 15:24:28.274328407 +0900
-@@ -74,15 +74,34 @@ irq_exit (void)
- 	preempt_enable_no_resched();
- }
- 
-+static unsigned long ia64_vector_mask[BITS_TO_LONGS(IA64_NUM_DEVICE_VECTORS)];
-+
- int
- assign_irq_vector (int irq)
- {
--	static int next_vector = IA64_FIRST_DEVICE_VECTOR;
--
--	if (next_vector > IA64_LAST_DEVICE_VECTOR)
-+	int pos, vector;
-+ again:
-+	pos = find_first_zero_bit(ia64_vector_mask, IA64_NUM_DEVICE_VECTORS);
-+	vector = IA64_FIRST_DEVICE_VECTOR + pos;
-+	if (vector > IA64_LAST_DEVICE_VECTOR)
- 		/* XXX could look for sharable vectors instead of panic'ing... */
- 		panic("assign_irq_vector: out of interrupt vectors!");
--	return next_vector++;
-+	if (test_and_set_bit(pos, ia64_vector_mask))
-+		goto again;
-+	return vector;
-+}
-+
-+void
-+free_irq_vector (int vector)
-+{
-+	int pos;
-+
-+	if (vector < IA64_FIRST_DEVICE_VECTOR || vector > IA64_LAST_DEVICE_VECTOR)
-+		return;
-+
-+	pos = vector - IA64_FIRST_DEVICE_VECTOR;
-+	if (!test_and_clear_bit(pos, ia64_vector_mask))
-+		printk(KERN_WARNING "%s: double free!\n", __FUNCTION__);
- }
- 
- extern unsigned int do_IRQ(unsigned long irq, struct pt_regs *regs);
-diff -puN arch/ia64/pci/pci.c~IRQ_deallocation_ia64 arch/ia64/pci/pci.c
---- linux-2.6.9-rc2-mm1/arch/ia64/pci/pci.c~IRQ_deallocation_ia64	2004-09-21 15:24:28.265539289 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/pci/pci.c	2004-09-21 15:24:28.274328407 +0900
-@@ -451,6 +451,9 @@ pcibios_enable_device (struct pci_dev *d
- void
- pcibios_disable_device (struct pci_dev *dev)
- {
-+#ifdef CONFIG_IA64_DEALLOCATE_IRQ
-+	acpi_pci_irq_disable(dev);
-+#endif /* CONFIG_IA64_DEALLOCATE_IRQ */
- }
- 
- void
-diff -puN include/asm-ia64/hw_irq.h~IRQ_deallocation_ia64 include/asm-ia64/hw_irq.h
---- linux-2.6.9-rc2-mm1/include/asm-ia64/hw_irq.h~IRQ_deallocation_ia64	2004-09-21 15:24:28.267492426 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/include/asm-ia64/hw_irq.h	2004-09-21 15:24:28.275304975 +0900
-@@ -50,6 +50,7 @@ typedef u8 ia64_vector;
-  */
- #define IA64_FIRST_DEVICE_VECTOR	0x30
- #define IA64_LAST_DEVICE_VECTOR		0xe7
-+#define IA64_NUM_DEVICE_VECTORS		(IA64_LAST_DEVICE_VECTOR - IA64_FIRST_DEVICE_VECTOR + 1)
- 
- #define IA64_MCA_RENDEZ_VECTOR		0xe8	/* MCA rendez interrupt */
- #define IA64_PERFMON_VECTOR		0xee	/* performanc monitor interrupt vector */
-@@ -83,6 +84,7 @@ extern unsigned long ipi_base_addr;
- extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
- 
- extern int assign_irq_vector (int irq);	/* allocate a free vector */
-+extern void free_irq_vector (int vector);
- extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
- extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
- 
-diff -puN include/asm-ia64/iosapic.h~IRQ_deallocation_ia64 include/asm-ia64/iosapic.h
---- linux-2.6.9-rc2-mm1/include/asm-ia64/iosapic.h~IRQ_deallocation_ia64	2004-09-21 15:24:28.269445563 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/include/asm-ia64/iosapic.h	2004-09-21 15:24:28.275304975 +0900
-@@ -78,6 +78,9 @@ extern int gsi_to_irq (unsigned int gsi)
- extern void iosapic_enable_intr (unsigned int vector);
- extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
- 				  unsigned long trigger);
-+#ifdef CONFIG_IA64_DEALLOCATE_IRQ
-+extern void iosapic_unregister_intr (unsigned int irq);
+-	build_cpu_to_node_map();
+ # endif
 +#endif
- extern void __init iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
- 				      unsigned long polarity,
- 				      unsigned long trigger);
-@@ -97,6 +100,7 @@ extern void __init map_iosapic_to_node (
- #define iosapic_system_init(pcat_compat)			do { } while (0)
- #define iosapic_init(address,gsi_base)				do { } while (0)
- #define iosapic_register_intr(gsi,polarity,trigger)		(gsi)
-+#define iosapic_unregister_intr(irq)				do { } while (0)
- #define iosapic_override_isa_irq(isa_irq,gsi,polarity,trigger)	do { } while (0)
- #define iosapic_register_platform_intr(type,gsi,pmi,eid,id, \
- 	polarity,trigger)					(gsi)
++#ifdef CONFIG_ACPI_NUMA
++	build_cpu_to_node_map();
+ #endif
+ 	/* Make boot-up look pretty */
+ 	printk(KERN_INFO "%d CPUs available, %d CPUs total\n", available_cpus, total_cpus);
+===== arch/ia64/kernel/setup.c 1.79 vs edited =====
+--- 1.79/arch/ia64/kernel/setup.c	2004-08-04 11:08:05 -07:00
++++ edited/arch/ia64/kernel/setup.c	2004-08-31 17:33:32 -07:00
+@@ -317,11 +317,9 @@
+ 	machvec_init(acpi_get_sysname());
+ #endif
+ 
+-#ifdef CONFIG_SMP
+ 	/* If we register an early console, allow CPU 0 to printk */
+ 	if (!early_console_setup())
+ 		cpu_set(smp_processor_id(), cpu_online_map);
+-#endif
+ 
+ #ifdef CONFIG_ACPI_BOOT
+ 	/* Initialize the ACPI boot-time table parser */
+===== arch/ia64/kernel/smpboot.c 1.60 vs edited =====
+--- 1.60/arch/ia64/kernel/smpboot.c	2004-08-24 02:08:43 -07:00
++++ edited/arch/ia64/kernel/smpboot.c	2004-08-31 17:33:33 -07:00
+@@ -478,47 +478,6 @@
+ 	}
+ }
+ 
+-#ifdef CONFIG_NUMA
+-
+-/* on which node is each logical CPU (one cacheline even for 64 CPUs) */
+-u8 cpu_to_node_map[NR_CPUS] __cacheline_aligned;
+-EXPORT_SYMBOL(cpu_to_node_map);
+-/* which logical CPUs are on which nodes */
+-cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
+-
+-/*
+- * Build cpu to node mapping and initialize the per node cpu masks.
+- */
+-void __init
+-build_cpu_to_node_map (void)
+-{
+-	int cpu, i, node;
+-
+-	for(node=0; node<MAX_NUMNODES; node++)
+-		cpus_clear(node_to_cpu_mask[node]);
+-	for(cpu = 0; cpu < NR_CPUS; ++cpu) {
+-		/*
+-		 * All Itanium NUMA platforms I know use ACPI, so maybe we
+-		 * can drop this ifdef completely.                    [EF]
+-		 */
+-#ifdef CONFIG_ACPI_NUMA
+-		node = -1;
+-		for (i = 0; i < NR_CPUS; ++i)
+-			if (cpu_physical_id(cpu) == node_cpuid[i].phys_id) {
+-				node = node_cpuid[i].nid;
+-				break;
+-			}
+-#else
+-#		error Fixme: Dunno how to build CPU-to-node map.
+-#endif
+-		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
+-		if (node >= 0)
+-			cpu_set(cpu, node_to_cpu_mask[node]);
+-	}
+-}
+-
+-#endif /* CONFIG_NUMA */
+-
+ /*
+  * Cycle through the APs sending Wakeup IPIs to boot each.
+  */
+===== arch/ia64/mm/discontig.c 1.18 vs edited =====
+--- 1.18/arch/ia64/mm/discontig.c	2004-08-26 23:30:29 -07:00
++++ edited/arch/ia64/mm/discontig.c	2004-08-31 17:33:33 -07:00
+@@ -225,6 +225,33 @@
+ }
+ 
+ /**
++ * per_cpu_node_setup - setup per-cpu areas on each node
++ * @cpu_data: per-cpu area on this node
++ * @node: node to setup
++ *
++ * Copy the static per-cpu data into the region we just set aside and then
++ * setup __per_cpu_offset for each CPU on this node.  Return a pointer to
++ * the end of the area.
++ */
++static void *per_cpu_node_setup(void *cpu_data, int node)
++{
++#ifdef CONFIG_SMP
++	int cpu;
++
++	for (cpu = 0; cpu < NR_CPUS; cpu++) {
++		if (node == node_cpuid[cpu].nid) {
++			memcpy(__va(cpu_data), __phys_per_cpu_start,
++			       __per_cpu_end - __per_cpu_start);
++			__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
++				__per_cpu_start;
++			cpu_data += PERCPU_PAGE_SIZE;
++		}
++	}
++#endif
++	return cpu_data;
++}
++
++/**
+  * find_pernode_space - allocate memory for memory map and per-node structures
+  * @start: physical start of range
+  * @len: length of range
+@@ -255,7 +282,7 @@
+ static int __init find_pernode_space(unsigned long start, unsigned long len,
+ 				     int node)
+ {
+-	unsigned long epfn, cpu, cpus;
++	unsigned long epfn, cpus;
+ 	unsigned long pernodesize = 0, pernode, pages, mapsize;
+ 	void *cpu_data;
+ 	struct bootmem_data *bdp = &mem_data[node].bootmem_data;
+@@ -305,20 +332,7 @@
+ 		mem_data[node].pgdat->bdata = bdp;
+ 		pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
+ 
+-		/*
+-		 * Copy the static per-cpu data into the region we
+-		 * just set aside and then setup __per_cpu_offset
+-		 * for each CPU on this node.
+-		 */
+-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
+-			if (node == node_cpuid[cpu].nid) {
+-				memcpy(__va(cpu_data), __phys_per_cpu_start,
+-				       __per_cpu_end - __per_cpu_start);
+-				__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
+-					__per_cpu_start;
+-				cpu_data += PERCPU_PAGE_SIZE;
+-			}
+-		}
++		cpu_data = per_cpu_node_setup(cpu_data, node);
+ 	}
+ 
+ 	return 0;
+@@ -384,8 +398,8 @@
+  */
+ static void __init initialize_pernode_data(void)
+ {
+-	int cpu, node;
+ 	pg_data_t *pgdat_list[NR_NODES];
++	int cpu, node;
+ 
+ 	for (node = 0; node < numnodes; node++)
+ 		pgdat_list[node] = mem_data[node].pgdat;
+@@ -395,12 +409,22 @@
+ 		memcpy(mem_data[node].node_data->pg_data_ptrs, pgdat_list,
+ 		       sizeof(pgdat_list));
+ 	}
+-
++#ifdef CONFIG_SMP
+ 	/* Set the node_data pointer for each per-cpu struct */
+ 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+ 		node = node_cpuid[cpu].nid;
+ 		per_cpu(cpu_info, cpu).node_data = mem_data[node].node_data;
+ 	}
++#else
++	{
++		struct cpuinfo_ia64 *cpu0_cpu_info;
++		cpu = 0;
++		node = node_cpuid[cpu].nid;
++		cpu0_cpu_info = (struct cpuinfo_ia64 *)(__phys_per_cpu_start +
++			((char *)&per_cpu__cpu_info - __per_cpu_start));
++		cpu0_cpu_info->node_data = mem_data[node].node_data;
++	}
++#endif /* CONFIG_SMP */
+ }
+ 
+ /**
+@@ -464,6 +488,7 @@
+ 	find_initrd();
+ }
+ 
++#ifdef CONFIG_SMP
+ /**
+  * per_cpu_init - setup per-cpu variables
+  *
+@@ -474,15 +499,15 @@
+ {
+ 	int cpu;
+ 
+-	if (smp_processor_id() == 0) {
+-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
+-			per_cpu(local_per_cpu_offset, cpu) =
+-				__per_cpu_offset[cpu];
+-		}
+-	}
++	if (smp_processor_id() != 0)
++		return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
++
++	for (cpu = 0; cpu < NR_CPUS; cpu++)
++		per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
+ 
+ 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
+ }
++#endif /* CONFIG_SMP */
+ 
+ /**
+  * show_mem - give short summary of memory stats
+===== include/asm-ia64/smp.h 1.18 vs edited =====
+--- 1.18/include/asm-ia64/smp.h	2004-06-21 13:44:12 -07:00
++++ edited/include/asm-ia64/smp.h	2004-08-31 17:33:34 -07:00
+@@ -126,6 +126,7 @@
+ #else
+ 
+ #define cpu_logical_id(cpuid)		0
++#define cpu_physical_id(i)	((ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff)
+ 
+ #endif /* CONFIG_SMP */
+ #endif /* _ASM_IA64_SMP_H */
+===== include/asm-ia64/sn/sn_cpuid.h 1.10 vs edited =====
+--- 1.10/include/asm-ia64/sn/sn_cpuid.h	2004-08-18 11:00:37 -07:00
++++ edited/include/asm-ia64/sn/sn_cpuid.h	2004-08-31 17:33:35 -07:00
+@@ -83,10 +83,6 @@
+  *
+  */
+ 
+-#ifndef CONFIG_SMP
+-#define cpu_physical_id(cpuid)			((ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff)
+-#endif
+-
+ /*
+  * macros for some of these exist in sn/addrs.h & sn/arch.h, etc. However, 
+  * trying #include these files here causes circular dependencies.
 
-_
-
+--Boundary-00=_gtRNBu7cYAgbajt--
