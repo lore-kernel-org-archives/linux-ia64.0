@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 19 Sep 2003 18:43:16 +0000
-Subject: RE: QLogic drivers in 2.4
-Message-Id: <marc-linux-ia64-106399712320834@msgid-missing>
+From: Christoph Hellwig <hch@infradead.org>
+Date: Sat, 20 Sep 2003 07:20:25 +0000
+Subject: Re: QLogic drivers in 2.4
+Message-Id: <marc-linux-ia64-106404244824429@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106399415917430@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106399415917430@msgid-missing>
@@ -10,39 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On a second thought, the qla2x00 driver in ia64 tree is so old that it
-doesn't add much value for the effort that people put in. Dropping it
-isn't going to doom the earth or something.
+On Fri, Sep 19, 2003 at 11:40:29AM -0700, Grant Grundler wrote:
+> I'd think Jes could(had?) submit(ted) qla1280 bits himself upstream.
 
+Last time I asked him (ok, that's a looong time ago) he didn't want to
+submit it for 2.4.  His driver is in 2.5 though but is 2.4-compatible.
 
------Original Message-----
-From: Chen, Kenneth W 
-Sent: Friday, September 19, 2003 11:24 AM
-To: 'Bjorn Helgaas'; linux-ia64@vger.kernel.org
-Subject: RE: QLogic drivers in 2.4
+It would be really nice (TM) to see it in Marcelo's tree.
 
+> I thought for 2.5.x someone was maintaining an 8.x qla FC driver which was
+> in parallel with qla2xxx 6.x FC drivers maintained by qlogic.
+> I'm not sure what happened here since I don't see it in
+> David's linux-ia64-2.5 bk tree.
 
-> > Redhat AS2.1 and EL3 have at least qla2xxx and qla1280.
-> 
-> $ l
-redhat/rhel3-b2/usr/src/linux-2.4.21-1.1931.2.399.ent/drivers/scsi/qla*
->
-redhat/rhel3-b2/usr/src/linux-2.4.21-1.1931.2.399.ent/drivers/scsi/qla12
-80.c
->
-redhat/rhel3-b2/usr/src/linux-2.4.21-1.1931.2.399.ent/drivers/scsi/qla12
-80.h
-> $ l redhat/2.4.18-e.37/src/drivers/scsi/qla*
-> redhat/2.4.18-e.37/src/drivers/scsi/qla1280.c
-> redhat/2.4.18-e.37/src/drivers/scsi/qla1280.h
-> 
-> I see they have qla1280, but I don't see qla2xxx.  Am I looking in the
-> wrong place?
+Well, that someone is qlogic.  But I don's see why it should go into
+the ia64 tree.  Once qlogic got the driver in shape it and/or the feral
+driver should go into mainline.  This is actually on the 2.6 should-fix
+list.
 
-Redhat stuff the qla2xxx under drivers/addon/qla2200
-
-
-> Do you care enough to help get these changes upstream?
-> I'm tired of carrying them in the ia64 patch.
-
-Probably not that far.
