@@ -1,31 +1,34 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 20 Aug 2004 08:06:21 +0000
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 20 Aug 2004 14:57:30 +0000
 Subject: Re: [PATCH] add scheduler domains for ia64
-Message-Id: <20040820080621.GA2310@elte.hu>
+Message-Id: <200408201057.30813.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200408131108.40502.jbarnes@engr.sgi.com> <200408171657.32357.jbarnes@engr.sgi.com> <41255DBA.3030909@yahoo.com.au> <200408192222.35512.jbarnes@engr.sgi.com>
-In-Reply-To: <200408192222.35512.jbarnes@engr.sgi.com>
+References: <200408131108.40502.jbarnes@engr.sgi.com> <200408192222.35512.jbarnes@engr.sgi.com> <20040819232855.5d919155.akpm@osdl.org>
+In-Reply-To: <20040819232855.5d919155.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@engr.sgi.com>
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, John Hawkes <hawkes@sgi.com>
+To: Andrew Morton <akpm@osdl.org>
+Cc: nickpiggin@yahoo.com.au, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, hawkes@sgi.com, mingo@elte.hu
 
+On Friday, August 20, 2004 2:28 am, Andrew Morton wrote:
+> Jesse Barnes <jbarnes@engr.sgi.com> wrote:
+> > Yep, it's been working ok so far.  There's still more we can do, but this
+> > is a good start I think.  Andrew, this version applies on top of
+> > 2.6.8.1-mm2 but overwrites most of the earlier node-span patch by moving
+> > bits from arch/ia64 to kernel/sched.c, so let me know if you want the
+> > patch in a different format.
+>
+> Is OK.  I wiggled it into the logical place so we'll end up with a sane
+> patch series.
+>
+> Watch the warnings please...
+>
+>
+>
+> kernel/sched.c:3732: warning: `sched_domain_node_span' defined but not used
 
-* Jesse Barnes <jbarnes@engr.sgi.com> wrote:
+Oops, sorry about that!  I meant to test with CONFIG_NUMA=n but fell asleep.  
+I'll be more careful in the future.
 
-> This patch adds some more NUMA specific logic to the creation of
-> scheduler domains.  Domains spanning all CPUs in a large system are
-> too large to schedule across efficiently, leading to livelocks and
-> inordinate amounts of time being spent in scheduler routines.  With
-> this patch applied, the node scheduling domains for NUMA platforms
-> will only contain a specified number of nearby CPUs, based on the
-> value of SD_NODES_PER_DOMAIN.  It also allows arches to override
-> SD_NODE_INIT, which sets the domain scheduling parameters for each
-> node's domain.  This is necessary especially for large systems.
-
-looks good to me too.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-
-	Ingo
+Jesse
