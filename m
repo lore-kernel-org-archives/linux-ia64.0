@@ -1,7 +1,7 @@
-From: Christopher Wedgwood <cw@sgi.com>
-Date: Wed, 30 Jul 2003 00:02:06 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 30 Jul 2003 00:05:04 +0000
 Subject: Re: [PATCH] (2.4.x bk) efi_memmap_walk_uc
-Message-Id: <marc-linux-ia64-105952342323620@msgid-missing>
+Message-Id: <marc-linux-ia64-105952369523859@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105883467032028@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105883467032028@msgid-missing>
@@ -10,15 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Jul 29, 2003 at 06:56:15PM -0500, Jack Steiner wrote:
+>>>>> On Tue, 29 Jul 2003 18:56:15 -0500 (CDT), Jack Steiner <steiner@sgi.com> said:
 
-> If granularity is bytes, we need to support page-aligned
-> allocations. Fetchop pages are mmap'ed to user space.
+  Jack> If granularity is bytes, we need to support page-aligned
+  Jack> allocations. Fetchop pages are mmap'ed to user space.
 
-We could insist the allocator always return naturally aligned
-allocations --- a page-size allocation will be page-aligned.  The only
-kicker here is that someone wishing to allocate a large chunk of UC
-space might get a failure where they otherwise would not.
+I see.  But then EFI-page-aligned memory won't do you no good either
+(i.e., you'd need a PAGE_SIZE-based allocator).  Alternatively, just
+allocated PAGE_SIZE+1 extra bytes and do the alignment yourself?
 
-
-  --cw
+	--david
