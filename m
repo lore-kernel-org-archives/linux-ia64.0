@@ -1,7 +1,7 @@
-From: Ben Woodard <woodard@redhat.com>
-Date: Tue, 11 Jan 2005 21:12:37 +0000
+From: Russ Anderson <rja@efs.americas.sgi.com>
+Date: Tue, 11 Jan 2005 21:22:17 +0000
 Subject: Re: new utility for decoding salinfo records
-Message-Id: <1105477957.22104.170.camel@quince.llnl.gov>
+Message-Id: <200501112122.j0BLMHZQ086482@efs.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1105458388.22104.7.camel@quince.llnl.gov>
 In-Reply-To: <1105458388.22104.7.camel@quince.llnl.gov>
@@ -10,34 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2005-01-11 at 11:03, David Mosberger wrote:
-> >>>>> On Tue, 11 Jan 2005 07:46:28 -0800, Ben Woodard <woodard@redhat.com> said:
+David Mosberger wrote:
 > 
->   Ben>        salinfo_decode2 also has the capability to generate
->   Ben> output that is designed to be easily parsed by a machine. This
->   Ben> is useful when you want to automate monitoring of large numbers
->   Ben> of machines. For example, instead of having scripts notify you
->   Ben> every time an ignorable single bit memory error occurs, the
->   Ben> monitoring scripts can easily ignore those errors and only
->   Ben> point out higher priority error conditions.
-> 
-> It seems a bit dangerous to me to encourage ignoring single-bit
-> errors.  Perhaps it would be better to suggest to summarize these
-> errors?
-> 
-> 	--david
+> Yes.  While individual single-bit errors aren't terribly interesting,
+> periodic summaries almost certainly would be.  If only so you know
+> when to order replacement DIMMs... ;-)
 
-Does this sound like better wording to you?
+The only reason customers care about single bits (a recovered error)
+is out of fear that they will soon lead to a multi-bit error (that
+is not recoverable) that crashes the system.  If the system recovers 
+from multi-bits without crashing, either by killing the app
+that hit the multi-bit or (better) by backing up to the last 
+checkpoint (losing processing time, but not data), then the 
+customer won't even care about single bits.
 
-salinfo_decode2 also has the capability to generate output that is
-designed to be easily parsed by a machine. This is useful when you want
-to automate monitoring of large numbers of machines. For example,
-instead of having scripts notify the sysadmin every time an isolated
-single bit memory error occurs, the monitoring scripts can be designed
-to ignore those isolated errors (but save them for later summary
-reporting) and notify the sysadmin only if the rate exceeds a specified
-threshold.
+Then the answer is you order the replacement DIMMs after they fail.  :-)
 
--ben
+Or maybe not even then.  Hard drives have flaw tables that indicate
+the parts of the disks to avoid.  If memory DIMMs had flaw tables,
+and the equivilent of badblocks, why would you replace a DIMM?
 
-
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
