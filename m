@@ -1,28 +1,29 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 25 Dec 2003 07:37:01 +0000
-Subject: Re: IA64 test report: 2.6.0-test11/tiger 2003-12-18: 9/9 pass
-Message-Id: <marc-linux-ia64-107233783423867@msgid-missing>
+From: Deepak Gupta <hideepak_1999@yahoo.com>
+Date: Wed, 17 Dec 2003 05:38:40 +0000
+Subject: Remote debug support in gdb for ia64 ?
+Message-Id: <marc-linux-ia64-107163953102819@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107174005310297@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107174005310297@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Dec 25, 2003 at 03:14:25PM +0800, Yu, Luming wrote:
-> >> (What does it mean to have an
-> >> address space descriptor that starts at 0xffffffff and ends at 0x0?)
-> >For PCI-PCI bridges, it means disable that particular window/range
-> register.
-> >ie don't decode and route transactions. 
-> 
-> But I didn't find this kind of explanation on ACPI spec.
+Hello Everybody
 
-I was just commenting on how PCI-PCI Bridges behave and I know OS code
-(both linux and hpux) expects this behavior.
+I am trying to use GDB to remote debug  a Linux Kernel
+running on an IA64 Machine. I am running the GDB on an
+i386 Machine. 
 
-I have no idea what ACPI says about this or even if ACPI
-specification should dictate this behavior.
+Does GDB have remote debugging support for an IA64
+Machine. I could not find any file of the sort -
+ia64-stub.c. If GDB does have support, lpease be kind
+enough to let me know the corresponding file in the
+GDB Source Code.
 
-grant
+Thanking you,
+Deepak
+
+__________________________________
+Do you Yahoo!?
+Free Pop-Up Blocker - Get it now
+http://companion.yahoo.com/
