@@ -1,31 +1,49 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Tue, 01 Mar 2005 21:31:42 +0000
-Subject: [patch] Remove unused cpu_bte_if from pda_s
-Message-Id: <200503012131.j21LVgUn8252665@clink.americas.sgi.com>
+From: Bob Montgomery <bob.montgomery@hp.com>
+Date: Thu, 31 Mar 2005 20:17:34 +0000
+Subject: [PATCH]  Can't unwind through dispatch_illegal_op_fault
+Message-Id: <1112300254.498.198.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Remove unused cpu_bte_if from pda_s.
+Tony,
 
-Signed-off-by: Russ Anderson <rja@sgi.com>
+Here is the patch worked out with David Mosberger to fix the unwind info
+for dispatch_illegal_op_fault in ivt.S.  Before adding this patch, an
+illegal op in the kernel would not show a complete stack trace in the
+oops message.
 
-------------------------------------------------------------------
-Index: linux/include/asm-ia64/sn/pda.h
-=================================--- linux.orig/include/asm-ia64/sn/pda.h	2005-03-01 13:06:42.311437897 -0600
-+++ linux/include/asm-ia64/sn/pda.h	2005-03-01 15:14:27.337653828 -0600
-@@ -53,8 +53,6 @@
- 	unsigned long pio_write_status_val;
- 	volatile unsigned long *pio_shub_war_cam_addr;
- 
--	struct bteinfo_s *cpu_bte_if[BTES_PER_NODE];	/* cpu interface order */
--
- 	unsigned long	sn_soft_irr[4];
- 	unsigned long	sn_in_service_ivecs[4];
- 	short		cnodeid_to_nasid_table[MAX_NUMNODES];
-------------------------------------------------------------------
+Add PT_REGS_UNWIND_INFO to dispatch_illegal_op_fault to allow stack
+unwind to continue through that stack level when kernel code commits an
+illegal operation. 
+
+Signed-off-by: Bob Montgomery <bob.montgomery@hp.com> 
+
+--- linux-2.6.11.2/arch/ia64/kernel/ivt.S	2005-03-30 14:52:53.291418136 -0700
++++ linux-2.6.11.2-bobm/arch/ia64/kernel/ivt.S	2005-03-30 14:03:29.687938816 -0700
+@@ -957,6 +957,8 @@ END(ia64_syscall_setup)
+ 	 * element, followed by the arguments.
+ 	 */
+ ENTRY(dispatch_illegal_op_fault)
++	.prologue
++	.body
+ 	SAVE_MIN_WITH_COVER
+ 	ssm psr.ic | PSR_DEFAULT_BITS
+ 	;;
+@@ -969,6 +971,7 @@ ENTRY(dispatch_illegal_op_fault)
+ 	mov out0=ar.ec
+ 	;;
+ 	SAVE_REST
++	PT_REGS_UNWIND_INFO(0)
+ 	;;
+ 	br.call.sptk.many rp=ia64_illegal_op_fault
+ .ret0:	;;
+
+
+
+
 -- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+Bob Montgomery <bob.montgomery@hp.com>
+
