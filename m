@@ -1,12 +1,30 @@
-From: "Maribasavaiah, Prasad" <prasad.maribasavaiah@intel.com>
-Date: Thu, 10 May 2001 21:11:30 +0000
-Subject: [Linux-ia64] Kernel Bug
-Message-Id: <marc-linux-ia64-105590693005565@msgid-missing>
+From: "DE-DINECHIN,CHRISTOPHE (HP-Cupertino,ex1)" <christophe_de-dinechin@hp.com>
+Date: Thu, 10 May 2001 23:25:05 +0000
+Subject: RE: [Linux-ia64] Kernel Bug
+Message-Id: <marc-linux-ia64-105590693005566@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005565@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005565@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+I don't know if this is the same thing, but I observed that on some older
+kernels when trying to allocate all memory from a driver. I did not re-test
+recently.
+
+Christophe
+
+-----Original Message-----
+From: linux-ia64-admin@linuxia64.org
+[mailto:linux-ia64-admin@linuxia64.org]On Behalf Of Maribasavaiah,
+Prasad
+Sent: Thursday, May 10, 2001 2:12 PM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] Kernel Bug
+
+
 
 We are getting kernel BUG message when running a stress test on Redhat Linux
 Beta 1,  the message says bug at line 82 in page_alloc.c. The line 82 calls
@@ -141,4 +159,9 @@ Phone : (253) 371 4803
 
 
 
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
