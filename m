@@ -1,62 +1,58 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Mon, 03 Dec 2001 06:11:31 +0000
-Subject: [Linux-ia64] Announce: kdb v1.9 is available for kernel 2.4.16
-Message-Id: <marc-linux-ia64-105590698805576@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 27 Dec 2001 09:12:03 +0000
+Subject: [Linux-ia64] missing ia32 fixes
+Message-Id: <marc-linux-ia64-105590698805719@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+To my surprise, the GDT initialization bug fix that Don posted back in
+October never made it into my released patches.  I didn't notice until
+now.  The attached patch fixes this problem and also fixes a problem
+with the GDT table initialization which shows when running on an MP
+machine.  With these two patches, I'm able to run TurboTax 2000 under
+WINE again.  TaxCut 2000 also seems to work (mostly).  Haven't tried
+the 2001 versions yet.  In any case, don't sue me if ia64 linux + wine
++ your favorite tax program gives you a bad return! ;-)
 
-Content-Type: text/plain; charset=us-ascii
+	--david
 
-ftp://oss.sgi.com/projects/kdb/download/ix86/kdb-v1.9-2.4.16.bz2
-ftp://oss.sgi.com/projects/kdb/download/ia64/kdb-v1.9-2.4.16-ia64-011128.bz2
-
-Ethan Solomita (ethan@cs.columbia.edu) has done a port of kdb to
-sparc64 against 2.4.13.  I will upgrade that to 2.4.16, integrate it
-with the other kdb changes since 2.4.13 and release it in a few days.
-
-This will probably be the last release of kdb using this patch format.
-I plan to split kdb into a core patch and smaller arch dependent
-patches, instead of one big patch for each arch.
-
-Changelog extract.
-
-2001-12-03 Keith Owens  <kaos@sgi.com>
-
-	* Upgrade to 2.4.16.
-	* Add include/asm-um/kdb.h stub to allow XFS to be tested under UML.
-	* Check if an interrupt frame on i386 came from user space.
-	* Out of scope bug fix in kdb_id.c.  Ethan Solomita.
-	* Changes to common code to support sparc64.  Ethan Solomita.
-	* Change GFP_KERNEL to GFP_ATOMIC in disasm.  Ethan Solomita.
-
-2001-11-16 Keith Owens  <kaos@sgi.com>
-
-	* Upgrade to 2.4.15-pre5.
-	* Wrap () around #define expressions with unary operators.
-
-2001-11-13 Keith Owens  <kaos@sgi.com>
-
-	* Upgrade to 2.4.15-pre4.
-	* kbdm_pg.c patch from Hugh Dickins.
-
-2001-11-07 Keith Owens  <kaos@sgi.com>
-
-	* Upgrade to 2.4.14-ia64-011105.
-	* Change name of l1 serial I/O routine, add ia64 init command.  SGI.
-	* Sync kdbm_pg with XFS.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.4 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQE8CxeSi4UHNye0ZOoRAg5XAJ0X38pwRAQn626kA52x3blkPqJEZQCfYFZf
-uEs8b9QtISbATIBWtO44H/Ms4
------END PGP SIGNATURE-----
-
+--- linux-2.4.17/arch/ia64/ia32/ia32_support.c	Mon Nov 26 11:18:20 2001
++++ lia64-2.4/arch/ia64/ia32/ia32_support.c	Thu Dec 27 01:06:02 2001
+@@ -153,10 +153,12 @@
+ 	/* We never change the TSS and LDT descriptors, so we can share them across all CPUs.  */
+ 	ldt_size = PAGE_ALIGN(IA32_LDT_ENTRIES*IA32_LDT_ENTRY_SIZE);
+ 	for (nr = 0; nr < NR_CPUS; ++nr) {
+-		ia32_gdt[_TSS(nr)] = IA32_SEG_DESCRIPTOR(IA32_TSS_OFFSET, 235,
+-							 0xb, 0, 3, 1, 1, 1, 0);
+-		ia32_gdt[_LDT(nr)] = IA32_SEG_DESCRIPTOR(IA32_LDT_OFFSET, ldt_size - 1,
+-							 0x2, 0, 3, 1, 1, 1, 0);
++		ia32_gdt[_TSS(nr) >> IA32_SEGSEL_INDEX_SHIFT]
++			= IA32_SEG_DESCRIPTOR(IA32_TSS_OFFSET, 235,
++					      0xb, 0, 3, 1, 1, 1, 0);
++		ia32_gdt[_LDT(nr) >> IA32_SEGSEL_INDEX_SHIFT]
++			= IA32_SEG_DESCRIPTOR(IA32_LDT_OFFSET, ldt_size - 1,
++					      0x2, 0, 3, 1, 1, 1, 0);
+ 	}
+ }
+ 
+--- linux-2.4.17/arch/ia64/ia32/binfmt_elf32.c	Mon Nov 26 11:18:19 2001
++++ lia64-2.4/arch/ia64/ia32/binfmt_elf32.c	Thu Dec 27 00:23:46 2001
+@@ -142,10 +142,11 @@
+ 	/*
+ 	 * Setup GDTD.  Note: GDTD is the descrambled version of the pseudo-descriptor
+ 	 * format defined by Figure 3-11 "Pseudo-Descriptor Format" in the IA-32
+-	 * architecture manual.
++	 * architecture manual. Also note that the only fields that are not ignored are
++	 * `base', `limit', 'G', `P' (must be 1) and `S' (must be 0).
+ 	 */
+-	regs->r31 = IA32_SEG_UNSCRAMBLE(IA32_SEG_DESCRIPTOR(IA32_GDT_OFFSET, IA32_PAGE_SIZE - 1, 0,
+-							    0, 0, 0, 0, 0, 0));
++	regs->r31 = IA32_SEG_UNSCRAMBLE(IA32_SEG_DESCRIPTOR(IA32_GDT_OFFSET, IA32_PAGE_SIZE - 1,
++							    0, 0, 0, 1, 0, 0, 0));
+ 	/* Setup the segment selectors */
+ 	regs->r16 = (__USER_DS << 16) | __USER_DS; /* ES = DS, GS, FS are zero */
+ 	regs->r17 = (__USER_DS << 16) | __USER_CS; /* SS, CS; ia32_load_state() sets TSS and LDT */
 
