@@ -1,7 +1,7 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Tue, 22 Jun 2004 18:17:07 +0000
+From: Christoph Hellwig <hch@infradead.org>
+Date: Tue, 22 Jun 2004 18:26:15 +0000
 Subject: Re: [PATCH 3/4] SGI Altix cross partition functionality
-Message-Id: <20040622181707.GA26313@sgi.com>
+Message-Id: <20040622182615.GA7251@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040617183638.GA3712@sgi.com>
 In-Reply-To: <20040617183638.GA3712@sgi.com>
@@ -10,24 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jun 17, 2004 at 08:22:29PM +0100, Christoph Hellwig wrote:
+On Tue, Jun 22, 2004 at 01:17:07PM -0500, Dean Nelson wrote:
+> On Thu, Jun 17, 2004 at 08:22:29PM +0100, Christoph Hellwig wrote:
+> > 
+> > +} xpc_vars_t;
+> > 
+> > please kill all the typedef gunk.
 > 
-> +} xpc_vars_t;
+> I'm in the process of ditching all of my typedef's. But before I axed the
+> following two I thought I'd ask if an exception should be made in their
+> case? Or are all typedef's deemed offlimits without exception?
 > 
-> please kill all the typedef gunk.
+> 	typedef void (*xpc_channel_func_t)(enum xpc_retval, partid_t, int,
+> 						void *, void *);
+> 
+> 	typedef void (*xpc_notify_func_t)(enum xpc_retval, partid_t, int,
+> 						void *);
+> 
+> (Note: I had nothing to do with the partid_t typedef.)
 
-I'm in the process of ditching all of my typedef's. But before I axed the
-following two I thought I'd ask if an exception should be made in their
-case? Or are all typedef's deemed offlimits without exception?
-
-	typedef void (*xpc_channel_func_t)(enum xpc_retval, partid_t, int,
-						void *, void *);
-
-	typedef void (*xpc_notify_func_t)(enum xpc_retval, partid_t, int,
-						void *);
-
-(Note: I had nothing to do with the partid_t typedef.)
-
-Thanks,
-Dean
+Thos are okay.  In the kernel we often don't use _t postfixes for those
+either, but it doesn't really matter.
 
