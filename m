@@ -1,58 +1,27 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 17 Sep 2001 23:51:11 +0000
-Subject: [Linux-ia64] __emul_prefix() problem
-Message-Id: <marc-linux-ia64-105590698805196@msgid-missing>
+From: Christoph Hellwig <hch@ns.caldera.de>
+Date: Tue, 18 Sep 2001 10:23:15 +0000
+Subject: Re: [Linux-ia64] __emul_prefix() problem
+Message-Id: <marc-linux-ia64-105590698805210@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805196@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805196@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I have been toying with __emul_prefix() on ia64 linux as a means to
-deal with x86 programs that use absolute paths when loading shared
-objects (such as PAM or the GTK themes).  This works quite well, but
-it breaks the traditional UNIX way of translating a relative path
-into an absolute path.  The OpenOffice installer does this, for
-example.  What happens precisely is that the installer attempts to
-create an absolute path by stat()ing "/." and then walking the parent
-directory chain until it finds the directory entry with a matching
-i-node number.  This doesn't work because if an x86 binary stat()s
-this path, it will get the i-node number of /emul/ia32-linux/ (in the
-ia64 linux case) and things quickly go downhill from there.
+On Mon, Sep 17, 2001 at 04:51:11PM -0700, David Mosberger wrote:
+> I'm not sure there is a clean fix to this, but one proposal is
+> attached below: it causes __emul_lookup_dentry() to ignore the
+> alternate root for paths that resolve to a directory.  This obviously
+> could create other problems, but I suspect there is no solution that
+> works 100% in all cases (the fundamental being that we now have two
+> different root nodes...).
 
-I'm not sure there is a clean fix to this, but one proposal is
-attached below: it causes __emul_lookup_dentry() to ignore the
-alternate root for paths that resolve to a directory.  This obviously
-could create other problems, but I suspect there is no solution that
-works 100% in all cases (the fundamental being that we now have two
-different root nodes...).
+Looks sant to me and doesn't break Linux-ABI.  For 2.5 I'd prefer
+to somehow build a per-personality namespace.  Al, do you have an
+idea how to keep a secondary namespace alive over the whole uptime
+so non-Linu binaries can switch to it all the time (implicitly)?
 
-Comments?
-
-	--david
-
-PS: I cc'd all the platform maintainers that use a non-NULL
-    emul_prefix, except for Dave Miller who in private mail indicated
-    that he doesn't care about this problem
-
---- fs/namei.c~	Sat Jul 21 20:20:40 2001
-+++ fs/namei.c	Mon Sep 17 15:10:20 2001
-@@ -604,10 +604,14 @@
- static int __emul_lookup_dentry(const char *name, struct nameidata *nd)
- {
- 	if (path_walk(name, nd))
--		return 0;
-+		return 0;		/* something went wrong... */
- 
--	if (!nd->dentry->d_inode) {
-+	if (!nd->dentry->d_inode || S_ISDIR(nd->dentry->d_inode->i_mode)) {
- 		struct nameidata nd_root;
-+		/*
-+		 * NAME was not found in alternate root or it's a directory.  Try to find
-+		 * it in the normal root:
-+		 */
- 		nd_root.last_type = LAST_ROOT;
- 		nd_root.flags = nd->flags;
- 		read_lock(&current->fs->lock);
-
+	Christoph
 
