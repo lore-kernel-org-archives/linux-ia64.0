@@ -1,48 +1,39 @@
-From: "Lee, Jung-Ik" <jung-ik.lee@intel.com>
-Date: Wed, 06 Nov 2002 00:09:17 +0000
-Subject: [Linux-ia64] patch for 2.5.45 fusion mptscsih
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C28528.BF12C6A0"
-Message-Id: <marc-linux-ia64-105590709805336@msgid-missing>
+From: Mario Smarduch <cms063@email.mot.com>
+Date: Mon, 11 Nov 2002 21:46:05 +0000
+Subject: [Linux-ia64] Re: +-AFs-Linux-ia64+-AF0- reader-writer livelock proble
+Message-Id: <marc-linux-ia64-105590709805393@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+David Mosberger wrote:
 
-------_=_NextPart_000_01C28528.BF12C6A0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+> >>>>> On Mon, 11 Nov 2002 14:36:38 -0600, "Van Maren, Kevin" <kevin.vanmaren@unisys.com> said:
+>
+>   Van> I have not looked at this, but I don't believe it is the right
+>   Van> way to solve the problem: users who _need_ to use all
+>   Van> the CPUs for computation would be punished just to work around
+>   Van> a kernel implementation issue: that's like saying don't allow
+>   Van> processes to allocate virtual memory because if the VM is
+>   Van> over-committed by X amount the kernel deadlocks.
+>
+>   Van> It would be a bad hack to limit the system-call rate just to
+>   Van> prevent livelock.
+>
+> Certainly.  I didn't suggest PRM as a way to _solve_ the livelock
+> problem, but since Mario asked for a method to cap CPU utilization, I
+> mentiond it.
+>
+>         --david
 
-The attached patch fixes message/fusion/mptscsih.h that causes kernel build
-error.
+Absolutelly its not a method to solve the problem.  As a matter of fact
+its just a first approach that came to mind to protect the system.
+It could be any other viable way before a final fix.
+Like I said in the previous email you're not going to sell too many
+high end servers to a customer aware of this issue without a contingency plan.
 
- mptscsih.h |    3 +--
- 1 files changed, 1 insertion(+), 2 deletions(-)
+- Mario.
 
-thanks,
-J.I.
-
-
-------_=_NextPart_000_01C28528.BF12C6A0
-Content-Type: application/octet-stream;
-	name="fusion_2545.diff"
-Content-Disposition: attachment;
-	filename="fusion_2545.diff"
-
-diff -ur linux-2.5.45.org/drivers/message/fusion/mptscsih.h linux-2.5.45-ia64-021031-phpa/drivers/message/fusion/mptscsih.h
---- linux-2.5.45.org/drivers/message/fusion/mptscsih.h	Wed Oct 30 16:43:46 2002
-+++ linux-2.5.45-ia64-021031-phpa/drivers/message/fusion/mptscsih.h	Tue Nov  5 13:33:03 2002
-@@ -267,8 +268,7 @@
- 	.sg_tablesize			= MPT_SCSI_SG_DEPTH,	\
- 	.max_sectors			= MPT_SCSI_MAX_SECTORS,	\
- 	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,	\
--	.use_clustering			= ENABLE_CLUSTERING,	\
--	.slave_attach			x_scsi_slave_attach,	\
-+	.use_clustering			= ENABLE_CLUSTERING	\
- }
- 
- #else  /* LINUX_VERSION_CODE >= KERNEL_VERSION(2,5,1) */
-
-------_=_NextPart_000_01C28528.BF12C6A0--
 
