@@ -1,38 +1,36 @@
-From: "Earl" <petunia21molly1@hotmail.com>
-Date: Thu, 02 Sep 2004 22:13:48 +0000
-Subject: Anonymous PAIN MEDS!
-Message-Id: <1094163228-23729@excite.com>
+From: Robin Holt <holt@sgi.com>
+Date: Tue, 14 Sep 2004 15:16:29 +0000
+Subject: Uncached memory allocator for ia64.
+Message-Id: <20040914151629.GA21118@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1094135269-4943@excite.com>
-In-Reply-To: <1094135269-4943@excite.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Save up to 80% on popular meds!
+In an effort to get the SGI Special Memory driver into the kernel,
+Christoph Hellwig pointed me at a discussion of a general purpose uncached
+memory allocator.  The thread is here:
 
-*** GREAT SPECIALS ***
+http://www.gelato.unsw.edu.au/linux-ia64/0307/6218.html
 
-Check it out: http://www.hjigoeoi.com/_85924943b9db73ac62baa654773c6a8e/4
+I would like to reopen this discussion to determine the scope of work
+that would need to be done.
 
-- No doctor visits or hassles
-- Quick delivery to your front door
+I would like to start with the general, what are we trying to solve?
+I can not think of a single reason aside from the previously discussed
+min state area for the kernel to ever need to work with memory uncached.
 
-Visit us here: http://www.hjigoeoi.com/_85924943b9db73ac62baa654773c6a8e/4
+Assuming there is no reason, can we pare this discussion back to a page
+based allocator?  That would be much simpler to work with and would not
+need to recombine fragments.
 
+Given a page based allocator, can we just use the code that is in the
+fetchop driver?  It does a per-node page based allocation.  Can that
+code be renamed to no longer mention mspec?  Where in the tree should
+this functionality live?  Would it be acceptable to always work with
+physical addresses?
 
-On medication long term?  
-Buy bulk through us and LITERALLY SAVE THOUSANDS!
-
-
-
-denali arianewanker suzuki softball
-lady mirandafozzie t-bone booster rugby nick smiths 
-canced racerx ruby 
-johnson petuniakleenex isaac philip
-doom2 wanker bmw 
-redrum laddietheking obiwan bmw
-
-tootsie amelieledzep fool cccccc kathy spain dragonfl 
+Thanks,
+Robin Holt
 
