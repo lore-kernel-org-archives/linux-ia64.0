@@ -1,46 +1,37 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 09 Mar 2005 23:06:27 +0000
-Subject: Re: Page Fault Scalability patch V19 [1/4]: pte_cmpxchg and
-Message-Id: <Pine.LNX.4.58.0503091503140.30604@schroedinger.engr.sgi.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Wed, 16 Mar 2005 01:33:22 +0000
+Subject: __IA64_UNCACHED_OFFSET undefined...
+Message-Id: <16951.36066.84031.81177@berry.gelato.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050309201324.29721.28956.sendpatchset@schroedinger.engr.sgi.com>
- <20050309201329.29721.1860.sendpatchset@schroedinger.engr.sgi.com>
- <m1y8cwv2yl.fsf@muc.de>
-In-Reply-To: <m1y8cwv2yl.fsf@muc.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@muc.de>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Thu, 10 Mar 2005, Andi Kleen wrote:
 
-> Christoph Lameter <clameter@sgi.com> writes:
-> >
-> > Atomic operations may be enabled in the kernel configuration on
-> > i386, ia64 and x86_64 if a suitable CPU is configured in SMP mode.
-> > Generic atomic definitions for ptep_xchg and ptep_cmpxchg
-> > have been provided based on the existing xchg() and cmpxchg() functions
-> > that already work atomically on many platforms. It is very
->
-> I'm curious - do you have any micro benchmarks on i386 or x86-64 systems
-> about the difference between spin_lock(ptl) access; spin_unlock(ptl);
-> and cmpxchg ?
+Hi,
+	Changeset
+jes@wildopensource.com[torvalds]|ChangeSet|20050314001633|21074 
+introduced new functions into include/asm-ia64/uaccess.h, and broke
+IA64 compilation.  I think it needs the attached additional change:
 
-There is a benchmark for UP on
-http://oss.sgi.com/projects/page_fault_performance.
+Compile log shows:
+include2/asm/uaccess.h: In function `xlate_dev_mem_ptr':
+include2/asm/uaccess.h:382: error: `__IA64_UNCACHED_OFFSET' undeclared (first use in this function)
+include2/asm/uaccess.h:382: error: (Each undeclared identifier is reported only once
+include2/asm/uaccess.h:382: error: for each function it appears in.)
+include2/asm/uaccess.h: In function `xlate_dev_kmem_ptr':
+include2/asm/uaccess.h:400: error: `__IA64_UNCACHED_OFFSET' undeclared (first use in this function)
 
-> cmpxchg can be quite slow, with bad luck it could be slower than
-> the spinlocks.
 
-Spinlocks also require atomic operations like a lock decb on i386 in order
-to acquire the locks. And the page_table_lock is acquired two
-times in the page fault handler. In order for this to be faster
-
-2*spinlock acquisition and release would have to be faster than a cmpxchg.
-
-> A P4 would be good to benchmark this because it seems to be the worst
-> case.
-
-The numbers on the webpage are for an AMD64. But I can try
-to get some testing done on a P4 too.
+Index: linux-2.5-import/include/asm-ia64/uaccess.h
+=================================--- linux-2.5-import.orig/include/asm-ia64/uaccess.h	2005-03-15 12:28:43.000428390 +1100
++++ linux-2.5-import/include/asm-ia64/uaccess.h	2005-03-16 12:32:32.899217137 +1100
+@@ -40,6 +40,7 @@
+ 
+ #include <asm/intrinsics.h>
+ #include <asm/pgtable.h>
++#include <asm/io.h>
+ 
+ /*
+  * For historical reasons, the following macros are grossly misnamed:
