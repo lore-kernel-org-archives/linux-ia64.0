@@ -1,35 +1,24 @@
-From: "Kingkeo, Michael" <Michael_Kingkeo@adaptec.com>
-Date: Mon, 19 Aug 2002 01:35:59 +0000
-Subject: [Linux-ia64] (no subject)
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C24720.C541BAE0"
-Message-Id: <marc-linux-ia64-105590701905953@msgid-missing>
+From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
+Date: Fri, 30 Aug 2002 20:45:42 +0000
+Subject: [Linux-ia64] PCI_BUSES_TO_SCAN off by 1?
+Message-Id: <marc-linux-ia64-105590701906005@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205296@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205296@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+Hi all,
 
-------_=_NextPart_001_01C24720.C541BAE0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Is there any reason we don't scan the last PCI bus on IA64?
+arch/ia64/kernel/pci.c has PCI_BUSES_TO_SCAN set to 255 instead
+of 256, which prevents the kernel from scanning bus 255.  This
+causes is some problems since some of our machines (ie, the
+Itanium2 "tiger") place chipset registers in PCI config space on
+the last PCI bus.  I've run with it set to 256 on the Lion and
+some other machines with no apparent problems.
 
- 
+Thanks,
+Kevin
 
-------_=_NextPart_001_01C24720.C541BAE0
-Content-Type: text/html;
-	charset="iso-8859-1"
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
-<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=iso-8859-1">
-
-
-<META content="MSHTML 5.50.4134.600" name=GENERATOR></HEAD>
-<BODY>
-<DIV>&nbsp;</DIV></BODY></HTML>
-
-------_=_NextPart_001_01C24720.C541BAE0--
 
