@@ -1,7 +1,7 @@
-From: "Bahnsen, Bruce" <bruce.bahnsen@intel.com>
-Date: Fri, 17 Jan 2003 22:01:22 +0000
-Subject: RE: [Linux-ia64] Error compiling 2.4.20 for i386
-Message-Id: <marc-linux-ia64-105590709805716@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Tue, 21 Jan 2003 17:39:25 +0000
+Subject: Re: [Linux-ia64] Error compiling 2.4.20 for i386
+Message-Id: <marc-linux-ia64-105590709805735@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805709@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805709@msgid-missing>
@@ -10,44 +10,47 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ok, so no common kernel source anytime soon. The undefined reference went
-away after a clean build.
-
-Thanks,
-Bruce
-
------Original Message-----
-From: Bjorn Helgaas [mailto:bjorn_helgaas@hp.com]
-Sent: Friday, January 17, 2003 1:20 PM
-To: Bahnsen, Bruce; 'linux-ia64@linuxia64.org'
-Subject: Re: [Linux-ia64] Error compiling 2.4.20 for i386
-
-
-> I was under the mistaken impression that the ia64 patch for 2.4.18 and
-> beyond would not break ia32. I am looking for a way to support both ia32
-and
-> ia64 from a single kernel source. Is there a plan for the ia64 patch to
-> support this model?
-
-No, I don't have a plan to support both ia32 and ia64 with the ia64
-patch.  I just don't have the time, equipment, or knowledge to maintain
-the ia32 side of that equation.  The ACPI update I mentioned is one
-big issue.  Another is the PCI BAR sizing problem -- ia64 requires
-an approach that is unsafe on i386.
-
-Of course, I do try to reduce the size of the ia64 patch by pushing
-things upstream, and if it were ever reduced to zero, or to only
-arch/ia64 things, then i386 should Just Work.  That's not likely to
-happen anytime soon, though.
-
-> However, I'm getting
-> this link error now...
+On Thursday 16 January 2003 5:42 pm, Bahnsen, Bruce wrote:
+> I applied the ia64 patch to the 2.4.20 kernel (all from kernel.org). If I
+> try to compile i386 using the default config, I get the following compile
+> error:
 > 
-> net/network.o(.debug_info+0x6f4b26): undefined reference to `L5661'
+> setup.c:792: `enable_acpi_smp_table' undeclared (first use in this function)
 
-I don't have a clue on this one.  I'd try a clean build from scratch
-to make sure everything was built by the same toolchain, with the same
-options, etc.
+I seem to have mistakenly removed the declaration.  With the attached
+patch on top of 2.4.20-ia64-021210, I was able to build an i386 image
+(I didn't test it, though).  
+
+I try not to gratuitously break other architectures, but when I
+do, I'm happy to include fixes like this if people are interested
+in doing them.
 
 Bjorn
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.994   -> 1.995  
+#	arch/i386/kernel/setup.c	1.59    -> 1.60   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/01/21	bjorn_helgaas@hp.com	1.995
+# i386: Fix enable_acpi_smp_table merge botch.
+# --------------------------------------------
+#
+diff -Nru a/arch/i386/kernel/setup.c b/arch/i386/kernel/setup.c
+--- a/arch/i386/kernel/setup.c	Tue Jan 21 10:19:48 2003
++++ b/arch/i386/kernel/setup.c	Tue Jan 21 10:19:48 2003
+@@ -175,6 +175,8 @@
+ static u32 disabled_x86_caps[NCAPINTS] __initdata = { 0 };
+ extern int blk_nohighio;
+ 
++int enable_acpi_smp_table;
++
+ /*
+  * This is set up by the setup-routine at boot-time
+  */
+
 
