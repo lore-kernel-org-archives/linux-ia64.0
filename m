@@ -1,216 +1,142 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 15 Dec 2004 19:03:30 +0000
-Subject: Anticipatory prefaulting in the page fault handler V3
-Message-Id: <Pine.LNX.4.58.0412151102140.12306@schroedinger.engr.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 03 Dec 2004 03:30:14 +0000
+Subject: memccpy() gives inconsistent results on mmapped files
+Message-Id: <9880.1102044614@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
-  <156610000.1102546207@flay>  <Pine.LNX.4.58.0412091130160.796@schroedinger.engr.sgi.com>
-  <200412132330.23893.amgta@yacht.ocn.ne.jp> 
- <Pine.LNX.4.58.0412130905140.360@schroedinger.engr.sgi.com>  <8880000.1102976179@flay>
-  <Pine.LNX.4.58.0412131730410.817@schroedinger.engr.sgi.com>
- <1103052678.28318.446.camel@localhost.localdomain>
-In-Reply-To: <1103052678.28318.446.camel@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Adam Litke <agl@us.ibm.com>
-Cc: "Martin J. Bligh" <mbligh@aracnet.com>, Akinobu Mita <amgta@yacht.ocn.ne.jp>, nickpiggin@yahoo.com.au, Jeff Garzik <jgarzik@pobox.com>, torvalds@osdl.org, hugh@veritas.com, benh@kernel.crashing.org, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Changes from V2 to V3:
-- check for empty pte before setting additional pte's in aggregate
-  read
+Glenn Fowler of ATT reported that memccpy() gives inconsistent results
+on mmapped files.  This was reported to SGI, but the bug is ia64
+generic, I get the same errors on a vanilla ia64 box.
 
-The page fault handler for anonymous pages can generate significant overhead
-apart from its essential function which is to clear and setup a new page
-table entry for a never accessed memory location. This overhead increases
-significantly in an SMP environment.
+Glenn's test case follows, it has been tweaked to add a PREFAULT
+option.  Prefaulting the input file makes memccpy work.  The problem
+occurs on both glibc 2.2.4 and glibc 2.3.3.
 
-In the page table scalability patches, we addressed the issue by changing
-the locking scheme so that multiple fault handlers are able to be processed
-concurrently on multiple cpus. This patch attempts to aggregate multiple
-page faults into a single one. It does that by noting
-anonymous page faults generated in sequence by an application.
+# for i in 1 257 513 1025;do cc -DNUM=$i testmemccpy.c; ./a.out; done
+FAILED NUM 1 offset 0 size 64 no match
+FAILED NUM 257 offset 16384 size 8
+OLD xxxxxxxx
+NEW xxxxxxxN
+FAILED NUM 513 offset 32768 size 8
+OLD xxxxxxxx
+NEW xxxxxxxN
+FAILED NUM 1025 offset 65536 size 8
+OLD xxxxxxxx
+NEW xxxxxxxN
 
-If a fault occurred for page x and is then followed by page x+1 then it may
-be reasonable to expect another page fault at x+2 in the future. If page
-table entries for x+1 and x+2 would be prepared in the fault handling for
-page x+1 then the overhead of taking a fault for x+2 is avoided. However
-page x+2 may never be used and thus we may have increased the rss
-of an application unnecessarily. The swapper will take care of removing
-that page if memory should get tight.
+# for i in 1 257 513 1025;do cc -DNUM=$i -DPREFAULT testmemccpy.c; ./a.out; done
+No errors.
 
-The following patch makes the anonymous fault handler anticipate future
-faults. For each fault a prediction is made where the fault would occur
-(assuming linear acccess by the application). If the prediction turns out to
-be right (next fault is where expected) then a number of pages is
-preallocated in order to avoid a series of future faults. The order of the
-preallocation increases by the power of two for each success in sequence.
+/*
+ * the umpteenth linux ia64 memccpy indictment
+ *
+ * Glenn Fowler ATT
+ *
+ * creates/clobbers the file ./testmemccpy.dat
+ *
+ * fails with
+ *
+ *      -DNUM=1 
+ *      -DNUM%7
+ *      -DNUMQ3
+ *      -DNUM25
+ *
+ * works with -DOH and any -DNUM=n, n>0, n<memory-limit
+ *
+ * please eradicate the cute memccpy tricks
+ * surely the processor is fast enough to minimize their impact
+ *
+ * Also works with -DPREFAULT - prefaulting the mmapped file gives the
+ * correct results in memccpy.  kaos@sgi.com
+ */
 
-The first successful prediction leads to an additional page being allocated.
-Second successful prediction leads to 2 additional pages being allocated.
-Third to 4 pages and so on. The max order is 3 by default. In a large
-continous allocation the number of faults is reduced by a factor of 8.
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 
-Patch against 2.6.10-rc3-bk7:
+#ifndef NUM
+#define NUM 257
+#endif
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+#if OH
 
-Index: linux-2.6.9/include/linux/sched.h
-=================================--- linux-2.6.9.orig/include/linux/sched.h	2004-12-13 15:14:40.000000000 -0800
-+++ linux-2.6.9/include/linux/sched.h	2004-12-14 12:21:26.000000000 -0800
-@@ -537,6 +537,8 @@
- #endif
+#undef  memccpy
+#define memccpy memccpy_that_works
 
- 	struct list_head tasks;
-+	unsigned long anon_fault_next_addr;	/* Predicted sequential fault address */
-+	int anon_fault_order;			/* Last order of allocation on fault */
- 	/*
- 	 * ptrace_list/ptrace_children forms the list of my children
- 	 * that were stolen by a ptracer.
-Index: linux-2.6.9/mm/memory.c
-=================================--- linux-2.6.9.orig/mm/memory.c	2004-12-13 15:14:40.000000000 -0800
-+++ linux-2.6.9/mm/memory.c	2004-12-14 12:23:36.000000000 -0800
-@@ -55,6 +55,7 @@
+void* memccpy(void* as1, const void* as2, int c, size_t n)
+{
+        char*           s1 = (char*)as1;
+        const char*     s2 = (char*)as2;
+        const char*     ep = s2 + n;
 
- #include <linux/swapops.h>
- #include <linux/elf.h>
-+#include <linux/pagevec.h>
+        while (s2 < ep)
+                if ((*s1++ = *s2++) = c)
+                        return s1;
+        return 0;
+}
 
- #ifndef CONFIG_DISCONTIGMEM
- /* use the per-pgdat data instead for discontigmem - mbligh */
-@@ -1432,52 +1433,103 @@
- 		unsigned long addr)
- {
- 	pte_t entry;
--	struct page * page = ZERO_PAGE(addr);
--
--	/* Read-only mapping of ZERO_PAGE. */
--	entry = pte_wrprotect(mk_pte(ZERO_PAGE(addr), vma->vm_page_prot));
-+ 	unsigned long end_addr;
-+
-+	addr &= PAGE_MASK;
-+
-+ 	if (likely((vma->vm_flags & VM_RAND_READ) || current->anon_fault_next_addr != addr)) {
-+		/* Single page */
-+		current->anon_fault_order = 0;
-+		end_addr = addr + PAGE_SIZE;
-+	} else {
-+		/* Sequence of faults detect. Perform preallocation */
-+ 		int order = ++current->anon_fault_order;
-+
-+		if ((1 << order) < PAGEVEC_SIZE)
-+			end_addr = addr + (PAGE_SIZE << order);
-+		else {
-+			end_addr = addr + PAGEVEC_SIZE * PAGE_SIZE;
-+			current->anon_fault_order = 3;
-+		}
+#endif
 
--	/* ..except if it's a write access */
-+		if (end_addr > vma->vm_end)
-+			end_addr = vma->vm_end;
-+		if ((addr & PMD_MASK) != (end_addr & PMD_MASK))
-+			end_addr &= PMD_MASK;
-+	}
- 	if (write_access) {
--		/* Allocate our own private page. */
-+
-+		unsigned long a;
-+		int i;
-+		struct pagevec pv;
-+
- 		pte_unmap(page_table);
- 		spin_unlock(&mm->page_table_lock);
+static const char x[] = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxN";
 
-+		pagevec_init(&pv, 0);
-+
- 		if (unlikely(anon_vma_prepare(vma)))
--			goto no_mem;
--		page = alloc_page_vma(GFP_HIGHUSER, vma, addr);
--		if (!page)
--			goto no_mem;
--		clear_user_highpage(page, addr);
-+			return VM_FAULT_OOM;
-+
-+		/* Allocate the necessary pages */
-+		for(a = addr; a < end_addr ; a += PAGE_SIZE) {
-+			struct page *p = alloc_page_vma(GFP_HIGHUSER, vma, a);
-+
-+			if (likely(p)) {
-+				clear_user_highpage(p, a);
-+				pagevec_add(&pv, p);
-+			} else {
-+				if (a = addr)
-+					return VM_FAULT_OOM;
-+				break;
-+			}
-+		}
+int main()
+{
+        char*           b;
+        char*           s;
+        char*           e;
+        char*           t;
+        long            m;
+        int             f;
+        char            u[1024];
 
- 		spin_lock(&mm->page_table_lock);
--		page_table = pte_offset_map(pmd, addr);
+        if ((f = open("testmemccpy.dat", O_CREAT|O_RDWR|O_TRUNC, 0666)) < 0)
+        {
+                fprintf(stderr, "creat error\n");
+                return 1;
+        }
+        for (m = 0; m < NUM; m++)
+                if (write(f, x, sizeof(x)-1) != sizeof(x)-1)
+                {
+                        fprintf(stderr, "write error\n");
+                        return 1;
+                }
+        if (lseek(f, (off_t)0, SEEK_SET))
+        {
+                fprintf(stderr, "seek error\n");
+                return 1;
+        }
+        m *= (sizeof(x)-1);
+        if (!(b = s = mmap((void*)0, m, PROT_READ|PROT_WRITE, MAP_PRIVATE, f, (off_t)0)))
+        {
+                fprintf(stderr, "mmap error\n");
+                return 1;
+        }
+#ifdef	PREFAULT
+	for (s = b; s < b+m; s+@96)
+		f = *s;
+	s = b;
+#endif
+        for (e = s + m; s < e && (t = memccpy(u, s, 'N', (e-s) > sizeof(u) ? sizeof(u) : (e-s))); s += (t-u))
+                if ((t-u) != (sizeof(x)-1) || memcmp(u, s, t-u))
+                {
+                        fprintf(stderr, "FAILED NUM %d offset %lu size %lu\n", NUM, (unsigned long)(s-b), (unsigned long)(t-u));
+                        fprintf(stderr, "OLD %-.*s\n", t-u, s);
+                        fprintf(stderr, "NEW %-.*s\n", t-u, u);
+                        return 1;
+                }
+        if (s < e)
+        {
+                fprintf(stderr, "FAILED NUM %d offset %lu size %lu no match\n", NUM, (unsigned long)(s-b), (unsigned long)(e-s));
+                return 1;
+        }
+        return 0;
+}
 
--		if (!pte_none(*page_table)) {
-+		for(i = 0; addr < a; addr += PAGE_SIZE, i++) {
-+			struct page *p = pv.pages[i];
-+
-+			page_table = pte_offset_map(pmd, addr);
-+			if (unlikely(!pte_none(*page_table))) {
-+				/* Someone else got there first */
-+				pte_unmap(page_table);
-+				page_cache_release(p);
-+				continue;
-+			}
-+
-+ 			entry = maybe_mkwrite(pte_mkdirty(mk_pte(p,
-+ 						 vma->vm_page_prot)),
-+ 					      vma);
-+
-+			mm->rss++;
-+			lru_cache_add_active(p);
-+			SetPageReferenced(p);
-+			page_add_anon_rmap(p, vma, addr);
-+
-+			set_pte(page_table, entry);
- 			pte_unmap(page_table);
--			page_cache_release(page);
--			spin_unlock(&mm->page_table_lock);
--			goto out;
-+
-+ 			/* No need to invalidate - it was non-present before */
-+ 			update_mmu_cache(vma, addr, entry);
-+		}
-+ 	} else {
-+ 		/* Read */
-+		entry = pte_wrprotect(mk_pte(ZERO_PAGE(addr), vma->vm_page_prot));
-+nextread:
-+		set_pte(page_table, entry);
-+		pte_unmap(page_table);
-+		update_mmu_cache(vma, addr, entry);
-+		addr += PAGE_SIZE;
-+		if (unlikely(addr < end_addr)) {
-+			page_table = pte_offset_map(pmd, addr);
-+			if (likely(pte_none(*page_table)))
-+				goto nextread;
- 		}
--		mm->rss++;
--		entry = maybe_mkwrite(pte_mkdirty(mk_pte(page,
--							 vma->vm_page_prot)),
--				      vma);
--		lru_cache_add_active(page);
--		mark_page_accessed(page);
--		page_add_anon_rmap(page, vma, addr);
- 	}
--
--	set_pte(page_table, entry);
--	pte_unmap(page_table);
--
--	/* No need to invalidate - it was non-present before */
--	update_mmu_cache(vma, addr, entry);
-+	current->anon_fault_next_addr = addr;
- 	spin_unlock(&mm->page_table_lock);
--out:
- 	return VM_FAULT_MINOR;
--no_mem:
--	return VM_FAULT_OOM;
- }
 
- /*
