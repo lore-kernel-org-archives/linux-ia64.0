@@ -1,33 +1,33 @@
-From: SYEC Support Department <syec.support.department@learningweb.biz>
-Date: Sat, 05 Jun 2004 14:38:18 +0000
-Subject: A user is searching for experiences about: linux-ia64@vger.kernel.org
-Message-Id: <200406051737.i55HbN4R022538@mail.share-your-opinion.biz>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Fri, 04 Jun 2004 15:43:37 +0000
+Subject: [PATCH] setup cpu_to_node for cpus not present
+Message-Id: <1086363816.4241.20.camel@tdi>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-********This is not commercial email.********
 
-ALERT! - Someone who knows you is attempting to share experiences opinions and experiences about you via our website. 
+   In latest linux-2.5 bitkeeper, if you turn on CONFIG_HOTPLUG_CPU w/
+an NR_CPUS greater than physically presents CPUs, you'll end up taking
+an MCA in __alloc_percpu().  kmem_cache_alloc_node() gets called with a
+node value of -1.  It seems other architectures are defaulting the
+cpu_to_node map to zero for possible, but not present cpus.  Here's a
+trivial patch that does the same for ia64.  Thanks,
 
-The purpose of this email is to inform you that a posting has been made about you at our website.  This is email is not commercial in nature.  
+	Alex
 
-If this email message was delivered to your spam or bulk email folder please notify your ISP or spam filtering company regarding this mistake on their part.
-
-To view all of the postings about you use this link:
-
-http://8.shyxp.us/lx.php?a=search&b=5&c=linux-ia64@vger.kernel.org
-
-Anonymous users post Experience Requests at this website. An Experience Request is simply an indication of a user's interest in sharing the experiences that he or she has had with a particular individual or business. Each Experience Request has one subject (an individual or business), and the subject is identified in the Experience Request. 
-
-IMPORTANT - To add this email address to our Do Not Email List click here:
-
-http://6.shyxp.us/lx.php?a=donotemail&b=linux-ia64@vger.kernel.org
-
-Regards,
-
-SYEC Support
+=== arch/ia64/kernel/smpboot.c 1.52 vs edited ==--- 1.52/arch/ia64/kernel/smpboot.c	Fri May 21 15:54:17 2004
++++ edited/arch/ia64/kernel/smpboot.c	Fri Jun  4 09:21:54 2004
+@@ -525,7 +525,7 @@
+ #else
+ #		error Fixme: Dunno how to build CPU-to-node map.
+ #endif
+-		cpu_to_node_map[cpu] = node;
++		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
+ 		if (node >= 0)
+ 			cpu_set(cpu, node_to_cpu_mask[node]);
+ 	}
 
 
