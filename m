@@ -1,7 +1,7 @@
-From: Rajesh Shah <rajesh.shah@intel.com>
-Date: Wed, 06 Apr 2005 23:16:18 +0000
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Wed, 06 Apr 2005 23:29:24 +0000
 Subject: Re: tiger_defconfig build fails for 2.6.12-rc2-mm1
-Message-Id: <20050406161617.A32116@unix-os.sc.intel.com>
+Message-Id: <Pine.LNX.4.58.0504061625160.27785@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050405165047.A21553@unix-os.sc.intel.com>
 In-Reply-To: <20050405165047.A21553@unix-os.sc.intel.com>
@@ -10,31 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Apr 06, 2005 at 03:48:38PM -0700, Andrew Morton wrote:
-> Andrew Morton <akpm@osdl.org> wrote:
-> >
-> > Do we know what the problem was with
-> > add-a-clear_pages-function-to-clear-pages-of-higher.patch?  Was it a build
-> > error or a compile error?
-> 
-> err, s/build/runtime/
+On Wed, 6 Apr 2005, Rajesh Shah wrote:
 
-That was a compile error too:
+> That was a compile error too:
+>
+> arch/ia64/kernel/ia64_ksyms.c:41: error: `clear_page' undeclared here (not in a function)
+> arch/ia64/kernel/ia64_ksyms.c:41: error: initializer element is not constant
+> arch/ia64/kernel/ia64_ksyms.c:41: error: (near initialization for `__ksymtab_clear_page.value')
+> arch/ia64/kernel/ia64_ksyms.c:41: error: __ksymtab_clear_page causes a section type conflict
+> make[1]: *** [arch/ia64/kernel/ia64_ksyms.o] Error 1
+>
+> After reverting the patch, the resulting kernel booted fine for
+> me.
 
-arch/ia64/kernel/ia64_ksyms.c:41: error: `clear_page' undeclared here (not in a function)
-arch/ia64/kernel/ia64_ksyms.c:41: error: initializer element is not constant
-arch/ia64/kernel/ia64_ksyms.c:41: error: (near initialization for `__ksymtab_clear_page.value')
-arch/ia64/kernel/ia64_ksyms.c:41: error: __ksymtab_clear_page causes a section type conflict
-make[1]: *** [arch/ia64/kernel/ia64_ksyms.o] Error 1
-
-After reverting the patch, the resulting kernel booted fine for
-me. 
-
-By the way, I noticed that the automated OSDL PLM compile
-failed too:
-http://www.osdl.org/plm-cgi/plm?module=patch_info&patch_idC61
-
-Their .config was different from mine but it had both the compile
-failures I saw, plus some more.
-
-Rajesh
+Are you sure that the patch was fully applied? The patch adds clear_page
+to include/asm-ia64/page.h and ia64_ksyms does #include <asm/page.h>
