@@ -1,54 +1,136 @@
-From: "David C. Hansen" <haveblue@us.ibm.com>
-Date: Fri, 07 Sep 2001 22:01:40 +0000
-Subject: [Linux-ia64] [PATCH] to remove unused hcl_spinlock
-Message-Id: <marc-linux-ia64-105590698805147@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Sun, 30 Sep 2001 16:44:58 +0000
+Subject: [Linux-ia64] [patch] additional mozilla fixes
+Message-Id: <marc-linux-ia64-105590698805278@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I was looking at spinlocks in the kernel and came across hcl_spinlock. 
-If you look at this paper:
-http://lse.sourceforge.net/lockhier/global-spin-lock , you can see a
-part on hcl_spinlock.  It is initialized. but never used.  Was this lock
-meant to guard something?  Is that thing still in the code?  If it
-isn't, here is a patch to remove hcl_spinlock.
+Below is a small patch which makes mozilla/netscape plugins work.
+Yes, I finally got tired of mozilla/ia64 crashing whenever visiting, a
+site with, e.g., flash content.
 
---- linux-2.4.9/arch/ia64/sn/io/hcl.c	Thu Apr  5 12:51:47 2001
-+++ linux/arch/ia64/sn/io/hcl.c	Fri Sep  7 14:52:40 2001
-@@ -49,7 +49,6 @@
+Speaking of which: does anyone understand the source policy for the
+Macromedia flash player?  If it allows for re-distribution of the
+binary, it might be worthwhile to try it out.  I did consider using
+the open source flash player from Olivier Odebon
+(http://www.swift-tools.com/Flash/).  It can be made to work on ia64,
+but it has some problems, e.g., with uncompressed sound, and seems to
+make mozilla unstable (though that could be my fault; i used it as an
+experiment to teach it esd support... ;-).
+
+	--david
+
+Index: config/mkdepend/imakemdep.h
+=================================RCS file: /cvsroot/mozilla/config/mkdepend/imakemdep.h,v
+retrieving revision 3.2
+diff -u -r3.2 imakemdep.h
+--- config/mkdepend/imakemdep.h	1998/09/05 04:22:25	3.2
++++ config/mkdepend/imakemdep.h	2001/09/30 07:29:27
+@@ -437,6 +437,9 @@
+ # ifdef __i386__
+ 	"-D__i386__",
+ # endif
++# ifdef __ia64
++	"-D__ia64",
++# endif
+ # ifdef __GNUC__
+ 	"-traditional",
+ # endif
+Index: directory/c-sdk/ldap/libraries/liblber/lber-int.h
+=================================RCS file: /cvsroot/mozilla/directory/c-sdk/ldap/libraries/liblber/lber-int.h,v
+retrieving revision 1.2.2.3
+diff -u -r1.2.2.3 lber-int.h
+--- directory/c-sdk/ldap/libraries/liblber/lber-int.h	2001/03/28 00:06:13	1.2.2.3
++++ directory/c-sdk/ldap/libraries/liblber/lber-int.h	2001/09/30 07:29:27
+@@ -170,23 +170,22 @@
+ 	     (((_l)&0xff0000)>>8) + (((_l)&0xff000000)>>24))
+ #define LBER_NTOHL(_l) LBER_HTONL(_l)
+ 
+-#elif !defined(__alpha) || defined(VMS)
++#elif !defined(__ia64) && (!defined(__alpha) || defined(VMS))
+ 
+ #define LBER_HTONL( l )	htonl( l )
+ #define LBER_NTOHL( l )	ntohl( l )
+ 
+-#else /* __alpha */
++#else /* __alpha || __ia64 */
  /*
-  * Some Global definitions.
+- * htonl and ntohl on the DEC Alpha under OSF 1 seem to only swap the
+- * lower-order 32-bits of a (64-bit) long, so we define correct versions
+- * here.
++ * htonl and ntohl on the 64-bit UNIX platforms only swap the lower-order
++ * 32-bits of a (64-bit) long, so we define correct versions here.
   */
--spinlock_t hcl_spinlock;
- devfs_handle_t hcl_handle = NULL;
+ #define LBER_HTONL( l )	(((long)htonl( (l) & 0x00000000FFFFFFFF )) << 32 \
+     			| htonl( ( (l) & 0xFFFFFFFF00000000 ) >> 32 ))
  
- invplace_t invplace_none = {
-@@ -152,8 +151,6 @@
- 	printk ("%s: hcl_debug: 0x%0x\n", HCL_NAME, hcl_debug);
- 	printk ("\n%s: boot_options: 0x%0x\n", HCL_NAME, boot_options);
+ #define LBER_NTOHL( l )	(((long)ntohl( (l) & 0x00000000FFFFFFFF )) << 32 \
+     			| ntohl( ( (l) & 0xFFFFFFFF00000000 ) >> 32 ))
+-#endif /* __alpha */
++#endif /* __alpha || __ia64 */
+ 
+ 
+ /* function prototypes */
+Index: embedding/browser/activex/src/pluginhostctrl/pluginsdk_include/npapi.h
+=================================RCS file: /cvsroot/mozilla/embedding/browser/activex/src/pluginhostctrl/pluginsdk_include/npapi.h,v
+retrieving revision 1.1
+diff -u -r1.1 npapi.h
+--- embedding/browser/activex/src/pluginhostctrl/pluginsdk_include/npapi.h	2001/09/13 12:37:10	1.1
++++ embedding/browser/activex/src/pluginhostctrl/pluginsdk_include/npapi.h	2001/09/30 07:29:28
+@@ -58,21 +58,21 @@
+ typedef unsigned short uint16;
  #endif
--
--	spin_lock_init(&hcl_spinlock);
+ #ifndef _UINT32
+-#if defined(__alpha)
++#if defined(__alpha) || defined(__ia64)
+ typedef unsigned int uint32;
+-#else /* __alpha */
++#else /* __alpha || __ia64 */
+ typedef unsigned long uint32;
+-#endif /* __alpha */
++#endif /* __alpha || __ia64 */
+ #endif
+ #ifndef _INT16
+ typedef short int16;
+ #endif
+ #ifndef _INT32
+-#if defined(__alpha)
++#if defined(__alpha) || defined(__ia64)
+ typedef int int32;
+-#else /* __alpha */
++#else /* __alpha || __ia64 */
+ typedef long int32;
+-#endif /* __alpha */
++#endif /* __alpha || __ia64 */
+ #endif
  
- 	/*
- 	 * Create the hwgraph_root on devfs.
---- linux-2.4.9/include/asm-ia64/sn/hcl.h	Thu Apr  5 12:51:47 2001
-+++ linux/include/asm-ia64/sn/hcl.h	Fri Sep  7 14:53:53 2001
-@@ -10,7 +10,6 @@
- #ifndef _ASM_SN_HCL_H
- #define _ASM_SN_HCL_H
+ #ifndef FALSE
+
+Index: include/npapi.h
+=================================RCS file: /cvsroot/mozilla/include/npapi.h,v
+retrieving revision 3.18
+diff -u -r3.18 npapi.h
+--- include/npapi.h	2001/09/26 00:39:38	3.18
++++ include/npapi.h	2001/09/30 07:29:41
+@@ -164,7 +164,7 @@
+ #endif
  
--extern spinlock_t hcl_spinlock;
- extern devfs_handle_t hcl_handle; /* HCL driver */
- extern devfs_handle_t hwgraph_root;
- extern devfs_handle_t linux_busnum;
-
-
---
-David C. Hansen
-haveblue@us.ibm.com
-IBM LTC Base/OS Group
-(503)578-4080
+ #ifndef _UINT32
+-#    if defined(__alpha)
++#    if defined(__alpha) || defined(__ia64)
+ typedef unsigned int uint32;
+ #    else  /* __alpha */
+ typedef unsigned long uint32;
+@@ -180,7 +180,7 @@
+ #endif
+ 
+ #ifndef _INT32
+-#    if defined(__alpha)
++#    if defined(__alpha) || defined(__ia64)
+ typedef int int32;
+ #    else  /* __alpha */
+ typedef long int32;
 
