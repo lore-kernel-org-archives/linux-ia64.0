@@ -1,7 +1,7 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Mon, 28 Jun 2004 17:36:45 +0000
-Subject: RE: Three random questions
-Message-Id: <200406281735.i5SHZ3Y02989@unix-os.sc.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 29 Jun 2004 06:16:21 +0000
+Subject: Re: Three random questions
+Message-Id: <16609.2357.39317.295491@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40E01743.4060309@octopus.com.au>
 In-Reply-To: <40E01743.4060309@octopus.com.au>
@@ -10,21 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Duraid Madina wrote on Monday, June 28, 2004 6:04 AM
-> 2) What is the Right Way to get huge pages at the moment? I'm running a
-> 2.6.5-rc and seem to be running across odd bugs using hugetlbfs.
+>>>>> On Mon, 28 Jun 2004 23:04:03 +1000, Duraid Madina <duraid@octopus.com.au> said:
 
-Check out Documentation/vm/hugetlbpage.txt in the kernel source tree for
-a detailed explanation.  If you found any bug in this area, please report
-to the mailing list.  We fixed a few bugs last week. So might be good to
-try latest kernel.
+  Duraid> 1) Has anyone pondered writing an HPUX-to-Linux ELF64 object
+  Duraid> demangler/translator? *damn* that aCC is good sometimes..
 
+It might be easier to generate assembly code.  I have done that
+occasionally but the real issue is of course that HP-UX is big-endian,
+so only endian-neutral code will work directly that way (and even so
+there may be a licensing issue with running HP-UX generated code on a
+Linux system; IANAL...).
 
-> 3) Whatever happened to alloc_hugepages()? That strikes me as vastly (!)
-> superior to hugetlbfs, at least for the scientist types who just want to
-> escape horrible TLB thrashing.
-
-This was debated on the linux kernel mailing list extensively in the past,
-check out the archive.
-
-
+	--david
