@@ -1,159 +1,176 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 26 Oct 2004 21:57:02 +0000
-Subject: [PATCH] ia64 iomap implementation
-Message-Id: <200410261557.02701.bjorn.helgaas@hp.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_ugsfBl0XookVqkc"
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Thu, 28 Oct 2004 19:41:16 +0000
+Subject: [PATCH] pci_bus_to_resource
+Message-Id: <20041028194116.GA388@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_ugsfBl0XookVqkc
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-ia64: implement iomap interfaces
+Since some ia64 platforms have non-identity-mapped PCI busses, we need
+to implement pcibios_resource_to_bus and pcibios_bus_to_resource.
+Also clean up some >80 column comments and delete an unnecessary parameter
+to pcibios_fixup_device_resources().
 
-This preserves the ioreadX() == inX() semantics (same as i386),
-since it's not clear that the speedup of omitting the mf.a for
-port operations is worth the risk of breaking drivers.
-
-This touches lib/iomap.c as well as the ia64-specific stuff, so
-I guess you and Linus can sort that out.
-
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
-
-===== include/asm-ia64/io.h 1.22 vs edited =====
---- 1.22/include/asm-ia64/io.h 2004-10-25 14:06:49 -06:00
-+++ edited/include/asm-ia64/io.h 2004-10-26 14:17:37 -06:00
-@@ -32,7 +32,8 @@
-  */
- #define IO_SPACE_LIMIT  0xffffffffffffffffUL
+Index: linux-2.6/arch/ia64/pci/pci.c
+=================================RCS file: /var/cvs/linux-2.6/arch/ia64/pci/pci.c,v
+retrieving revision 1.16
+diff -u -p -r1.16 pci.c
+--- linux-2.6/arch/ia64/pci/pci.c	21 Oct 2004 18:58:08 -0000	1.16
++++ linux-2.6/arch/ia64/pci/pci.c	28 Oct 2004 19:33:33 -0000
+@@ -328,33 +328,65 @@ out1:
+ 	return NULL;
+ }
  
--#define MAX_IO_SPACES   16
-+#define MAX_IO_SPACES_BITS  4
-+#define MAX_IO_SPACES   (1UL << MAX_IO_SPACES_BITS)
- #define IO_SPACE_BITS   24
- #define IO_SPACE_SIZE   (1UL << IO_SPACE_BITS)
- 
-@@ -52,10 +53,24 @@
- 
- # ifdef __KERNEL__
- 
-+/*
-+ * All MMIO iomem cookies are in region 6; anything less is a PIO cookie:
-+ * 0xCxxxxxxxxxxxxxxx MMIO cookie (return from ioremap)
-+ * 0x000000001SPPPPPP PIO cookie (S=space number, P..P=port)
-+ *
-+ * ioread/writeX() uses the leading 1 in PIO cookies (PIO_OFFSET) to catch
-+ * code that uses bare port numbers without the prerequisite pci_iomap().
-+ */
-+#define PIO_OFFSET  (1UL << (MAX_IO_SPACES_BITS + IO_SPACE_BITS))
-+#define PIO_MASK  (PIO_OFFSET - 1)
-+#define PIO_RESERVED  __IA64_UNCACHED_OFFSET
-+#define HAVE_ARCH_PIO_SIZE
+-void __init
+-pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
++void pcibios_resource_to_bus(struct pci_dev *dev,
++		struct pci_bus_region *region, struct resource *res)
+ {
+ 	struct pci_controller *controller = PCI_CONTROLLER(dev);
+-	struct pci_window *window;
+-	int i, j;
++	unsigned long offset = 0;
++	int i;
 +
- #include <asm/intrinsics.h>
- #include <asm/machvec.h>
- #include <asm/page.h>
- #include <asm/system.h>
-+#include <asm-generic/iomap.h>
- 
- /*
-  * Change virtual addresses to physical addresses and vv.
-===== lib/iomap.c 1.5 vs edited =====
---- 1.5/lib/iomap.c 2004-10-18 23:27:35 -06:00
-+++ edited/lib/iomap.c 2004-10-26 14:10:11 -06:00
-@@ -19,7 +19,10 @@
-  *
-  * Architectures for which this is not true can't use this generic
-  * implementation and should do their own copy.
-- *
-+ */
++	for (i = 0; i < controller->windows; i++) {
++		struct pci_window *window = &controller->window[i];
++		if (!(window->resource.flags & res->flags))
++			continue;
++		if (window->resource.start > res->start - window->offset)
++			continue;
++		if (window->resource.end < res->end - window->offset)
++			continue;
++		offset = window->offset;
++		break;
++	}
 +
-+#ifndef HAVE_ARCH_PIO_SIZE
-+/*
-  * We encode the physical PIO addresses (0-0xffff) into the
-  * pointer by offsetting them with a constant (0x10000) and
-  * assuming that all the low addresses are always PIO. That means
-@@ -29,6 +32,7 @@
- #define PIO_OFFSET 0x10000UL
- #define PIO_MASK 0x0ffffUL
- #define PIO_RESERVED 0x40000UL
-+#endif
- 
- /*
-  * Ugly macros are a way of life.
-
---Boundary-00=_ugsfBl0XookVqkc
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="iomap.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="iomap.patch"
-
-===== include/asm-ia64/io.h 1.22 vs edited =====
---- 1.22/include/asm-ia64/io.h	2004-10-25 14:06:49 -06:00
-+++ edited/include/asm-ia64/io.h	2004-10-26 14:17:37 -06:00
-@@ -32,7 +32,8 @@
-  */
- #define IO_SPACE_LIMIT		0xffffffffffffffffUL
- 
--#define MAX_IO_SPACES			16
-+#define MAX_IO_SPACES_BITS		4
-+#define MAX_IO_SPACES			(1UL << MAX_IO_SPACES_BITS)
- #define IO_SPACE_BITS			24
- #define IO_SPACE_SIZE			(1UL << IO_SPACE_BITS)
- 
-@@ -52,10 +53,24 @@
- 
- # ifdef __KERNEL__
- 
-+/*
-+ * All MMIO iomem cookies are in region 6; anything less is a PIO cookie:
-+ *	0xCxxxxxxxxxxxxxxx	MMIO cookie (return from ioremap)
-+ *	0x000000001SPPPPPP	PIO cookie (S=space number, P..P=port)
-+ *
-+ * ioread/writeX() uses the leading 1 in PIO cookies (PIO_OFFSET) to catch
-+ * code that uses bare port numbers without the prerequisite pci_iomap().
-+ */
-+#define PIO_OFFSET		(1UL << (MAX_IO_SPACES_BITS + IO_SPACE_BITS))
-+#define PIO_MASK		(PIO_OFFSET - 1)
-+#define PIO_RESERVED		__IA64_UNCACHED_OFFSET
-+#define HAVE_ARCH_PIO_SIZE
++	region->start = res->start - offset;
++	region->end = res->end - offset;
++}
 +
- #include <asm/intrinsics.h>
- #include <asm/machvec.h>
- #include <asm/page.h>
- #include <asm/system.h>
-+#include <asm-generic/iomap.h>
- 
- /*
-  * Change virtual addresses to physical addresses and vv.
-===== lib/iomap.c 1.5 vs edited =====
---- 1.5/lib/iomap.c	2004-10-18 23:27:35 -06:00
-+++ edited/lib/iomap.c	2004-10-26 14:10:11 -06:00
-@@ -19,7 +19,10 @@
-  *
-  * Architectures for which this is not true can't use this generic
-  * implementation and should do their own copy.
-- *
-+ */
++void pcibios_bus_to_resource(struct pci_dev *dev,
++		struct resource *res, struct pci_bus_region *region)
++{
++	struct pci_controller *controller = PCI_CONTROLLER(dev);
++	unsigned long offset = 0;
++	int i;
 +
-+#ifndef HAVE_ARCH_PIO_SIZE
-+/*
-  * We encode the physical PIO addresses (0-0xffff) into the
-  * pointer by offsetting them with a constant (0x10000) and
-  * assuming that all the low addresses are always PIO. That means
-@@ -29,6 +32,7 @@
- #define PIO_OFFSET	0x10000UL
- #define PIO_MASK	0x0ffffUL
- #define PIO_RESERVED	0x40000UL
-+#endif
++	for (i = 0; i < controller->windows; i++) {
++		struct pci_window *window = &controller->window[i];
++		if (!(window->resource.flags & res->flags))
++			continue;
++		if (window->resource.start > region->start)
++			continue;
++		if (window->resource.end < region->end)
++			continue;
++		offset = window->offset;
++		break;
++	}
++
++	res->start = region->start + offset;
++	res->end = region->end + offset;
++}
++
++static void __devinit pcibios_fixup_device_resources(struct pci_dev *dev)
++{
++	struct pci_bus_region region;
++	int i;
+ 	int limit = (dev->hdr_type = PCI_HEADER_TYPE_NORMAL) ? \
+ 		PCI_BRIDGE_RESOURCES : PCI_NUM_RESOURCES;
  
- /*
-  * Ugly macros are a way of life.
+ 	for (i = 0; i < limit; i++) {
+-		if (!dev->resource[i].start)
++		if (!dev->resource[i].flags)
+ 			continue;
+-
+-#define contains(win, res)	((res)->start >= (win)->start && \
+-				 (res)->end   <= (win)->end)
+-
+-		for (j = 0; j < controller->windows; j++) {
+-			window = &controller->window[j];
+-			if (((dev->resource[i].flags & IORESOURCE_MEM &&
+-			      window->resource.flags & IORESOURCE_MEM) ||
+-			     (dev->resource[i].flags & IORESOURCE_IO &&
+-			      window->resource.flags & IORESOURCE_IO)) &&
+-			    contains(&window->resource, &dev->resource[i])) {
+-				dev->resource[i].start += window->offset;
+-				dev->resource[i].end   += window->offset;
+-			}
+-		}
++		region.start = dev->resource[i].start;
++		region.end = dev->resource[i].end;
++		pcibios_bus_to_resource(dev, &dev->resource[i], &region);
+ 		pci_claim_resource(dev, i);
+ 	}
+ }
+@@ -368,7 +400,7 @@ pcibios_fixup_bus (struct pci_bus *b)
+ 	struct pci_dev *dev;
+ 
+ 	list_for_each_entry(dev, &b->devices, bus_list)
+-		pcibios_fixup_device_resources(dev, b);
++		pcibios_fixup_device_resources(dev);
+ 
+ 	return;
+ }
+@@ -451,21 +483,21 @@ pci_mmap_page_range (struct pci_dev *dev
+ 		     enum pci_mmap_state mmap_state, int write_combine)
+ {
+ 	/*
+-	 * I/O space cannot be accessed via normal processor loads and stores on this
+-	 * platform.
++	 * I/O space cannot be accessed via normal processor loads and
++	 * stores on this platform.
+ 	 */
+ 	if (mmap_state = pci_mmap_io)
+ 		/*
+-		 * XXX we could relax this for I/O spaces for which ACPI indicates that
+-		 * the space is 1-to-1 mapped.  But at the moment, we don't support
+-		 * multiple PCI address spaces and the legacy I/O space is not 1-to-1
+-		 * mapped, so this is moot.
++		 * XXX we could relax this for I/O spaces for which ACPI
++		 * indicates that the space is 1-to-1 mapped.  But at the
++		 * moment, we don't support multiple PCI address spaces and
++		 * the legacy I/O space is not 1-to-1 mapped, so this is moot.
+ 		 */
+ 		return -EINVAL;
+ 
+ 	/*
+-	 * Leave vm_pgoff as-is, the PCI space address is the physical address on this
+-	 * platform.
++	 * Leave vm_pgoff as-is, the PCI space address is the physical
++	 * address on this platform.
+ 	 */
+ 	vma->vm_flags |= (VM_SHM | VM_LOCKED | VM_IO);
+ 
+Index: linux-2.6/include/asm-ia64/pci.h
+=================================RCS file: /var/cvs/linux-2.6/include/asm-ia64/pci.h,v
+retrieving revision 1.7
+diff -u -p -r1.7 pci.h
+--- linux-2.6/include/asm-ia64/pci.h	21 Oct 2004 18:59:54 -0000	1.7
++++ linux-2.6/include/asm-ia64/pci.h	28 Oct 2004 19:33:44 -0000
+@@ -121,7 +121,12 @@ static inline void pcibios_add_platform_
+ {
+ }
+ 
+-/* generic pci stuff */
+-#include <asm-generic/pci.h>
++extern void pcibios_resource_to_bus(struct pci_dev *dev,
++		struct pci_bus_region *region, struct resource *res);
++
++extern void pcibios_bus_to_resource(struct pci_dev *dev,
++		struct resource *res, struct pci_bus_region *region);
++
++#define pcibios_scan_all_fns(a, b)	0
+ 
+ #endif /* _ASM_IA64_PCI_H */
 
---Boundary-00=_ugsfBl0XookVqkc--
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
