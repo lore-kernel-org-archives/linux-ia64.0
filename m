@@ -1,33 +1,25 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Sat, 14 Aug 2004 22:05:37 +0000
-Subject: [PATCH] Don't allow hw_random to be selected on ia64
-Message-Id: <20040814220537.GD12936@parcelfarce.linux.theplanet.co.uk>
+From: Andreas Schwab <schwab@suse.de>
+Date: Sat, 14 Aug 2004 22:37:05 +0000
+Subject: Re: [PATCH] Don't allow hw_random to be selected on ia64
+Message-Id: <jebrhdxs6m.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040814220537.GD12936@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040814220537.GD12936@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+Matthew Wilcox <willy@debian.org> writes:
 
-The hw_random driver includes some i386 asm so won't compile on ia64.
+> The hw_random driver includes some i386 asm so won't compile on ia64.
 
-diff -urpNX dontdiff linus-2.6/drivers/char/Kconfig parisc-2.6/drivers/char/Kconfig
---- linus-2.6/drivers/char/Kconfig	Sat Aug 14 11:16:31 2004
-+++ parisc-2.6/drivers/char/Kconfig	Sat Aug 14 11:05:28 2004
-@@ -689,7 +689,7 @@ config NWFLASH
- 
- config HW_RANDOM
- 	tristate "Intel/AMD/VIA HW Random Number Generator support"
--	depends on (X86 || IA64) && PCI
-+	depends on X86 && PCI
- 	---help---
- 	  This driver provides kernel-side support for the Random Number
- 	  Generator hardware found on Intel i8xx-based motherboards,
+Works fine here.
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
