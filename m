@@ -1,7 +1,7 @@
 From: Jes Sorensen <jes@wildopensource.com>
-Date: Tue, 15 Feb 2005 19:59:05 +0000
+Date: Tue, 15 Feb 2005 20:02:01 +0000
 Subject: Re: [rfc] generic allocator and mspec driver
-Message-Id: <yq07jl9ppbq.fsf@jaguar.mkp.net>
+Message-Id: <yq03bvxpp6u.fsf@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16897.9640.160896.31584@jaguar.mkp.net>
 In-Reply-To: <16897.9640.160896.31584@jaguar.mkp.net>
@@ -10,20 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+>>>>> "Robin" = Robin Holt <holt@sgi.com> writes:
 
->>>>> On 15 Feb 2005 03:44:26 -0500, Jes Sorensen <jes@wildopensource.com> said:
-Jes> Ahh, so not totally off. It's also used for internal debugging in
-Jes> reiser4, but I'll happily ignore that while waving the 'friends
-Jes> don't let friends run reiser4' flag ;)
+Robin> Would anybody have a concern with marking those cache lines as
+Robin> processor uncached only?  Would there ever be a time that we
+Robin> would expect _ANY_ type of cached reference when the granule is
+Robin> being used for uncached that would be an acceptable use?
 
-David> What are they smoking?  Which part of PG_arch_1 do they not
-David> understand?  ^^^^
+Robin,
 
-I suspect it's some sort of garden weed, the one labelled 'if we use
-this magic flag, then nobody will notice us sneaking something in
-under the rug'.
+I don't see any valid such cases. In principle one has to go through
+the reverse procedure to convert something from uncached to cached and
+since we don't do that in any place I don't see any valid reason to do
+so. Anyone doing it in kdb etc. would be in for what they are getting,
+so I  don't think thats valid concern.
 
-Gotta love 'em ;-)
-
+Cheers,
 Jes
