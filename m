@@ -1,56 +1,42 @@
 From: Hugh Dickins <hugh@veritas.com>
-Date: Wed, 24 Nov 2004 16:30:59 +0000
-Subject: RE: [PATCH 1/2] setup_arg_pages can insert overlapping vma
-Message-Id: <Pine.LNX.4.44.0411241558300.5064-100000@localhost.localdomain>
+Date: Wed, 24 Nov 2004 16:41:58 +0000
+Subject: Re: [PATCH 1/2] setup_arg_pages can insert overlapping vma
+Message-Id: <Pine.LNX.4.44.0411241631310.5118-100000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <894E37DECA393E4D9374E0ACBBE7427013C9AB@pdsmsx402.ccr.corp.intel.com>
+In-Reply-To: <20041124152250.GA4797@mschwid3.boeblingen.de.ibm.com>
 References: <894E37DECA393E4D9374E0ACBBE7427013C9AB@pdsmsx402.ccr.corp.intel.com>
 In-Reply-To: <894E37DECA393E4D9374E0ACBBE7427013C9AB@pdsmsx402.ccr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Zou, Nanhai" <nanhai.zou@intel.com>
-Cc: Chris Wright <chrisw@osdl.org>, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, "Luck, Tony" <tony.luck@intel.com>, Martin Schwidefsky <schwidefsky@de.ibm.com>, Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Martin Schwidefsky <schwidefsky@de.ibm.com>
+Cc: akpm@osdl.org, nanhai.zou@intel.com, chrisw@osdl.org, torvalds@osdl.org, tony.luck@intel.com, ak@suse.de, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Thanks a lot for taking this further.
-
-On Wed, 24 Nov 2004, Zou, Nanhai wrote:
-> I think ia64 ia32
-> subsystem is not vulnerable to this kind of overlapping vm problem,
-> because it does not support a.out binary format, 
-> X84_64 is vulnerable to this. 
+On Wed, 24 Nov 2004, Martin Schwidefsky wrote:
 > 
-> just do a 
-> perl -e'print"\x07\x01".("\x00"x10)."\x00\xe0\xff\xff".("\x00"x16)'>
-> evilaout
-> you will get it.
->  
-> and IA64 is also vulnerable to this kind of bug in 64 bit elf support,
-> it just insert a vma of zero page without checking overlap, so user can
-> construct a elf with section begin from 0x0 to trigger this BUGON().I
-> attach a testcase to trigger this bug
-> I don't know what about s390. However, I think it's safe to check
-> overlap before we actually insert a vma into vma list.
+> In principle the patch is fine (it works and fixes a problem).
+> 
+> I tried to find out why s390 needs its own setup_arg_pages32 function.
+> After I've compared the function with the common setup_arg_pages several
+> times and still couldn't find a reason for it I just removed the function.
+> Still works fine. I think the reason to introduce setup_arg_pages32 has
+> been the STACK_TOP define which needs to reflect the smaller address
+> space for 31 bit programs. Since the change that made TASK_SIZE look
+> at the TIF_31BIT bit to return the correct value for 31 and 64 bit
+> programs STACK_TOP is just correct as well. 
+> 
+> In short, just remove setup_arg_pages32.
 
-I expect you're right: I have neither machines nor expertise to say.
+Tell me I'm being silly, Martin, but wouldn't it be wiser to stick with
+setup_arg_pages32 (with Nanhai's patch) for 2.6.10, then remove it after?
 
-> And I also feel check vma overlap everywhere is unnecessary, because
-> invert_vm_struct will check it again, so the check is duplicated. It's
-> better to have invert_vm_struct return a value then let caller check if
-> it successes.
-> Here is a patch against 2.6.10.rc2-mm3
-> I have tested it on i386, x86_64 and ia64 machines.
+I'm cautious here because about six months ago I sent Andrew a patch
+which eliminated setup_arg_pages32 (or equiv) from the three arches,
+but the x86_64 one just wouldn't boot on Andrew's machine.  Both hch
+and I spent hours staring at the code, neither of us could work out why.
 
-Yes, I agree, that's a welcome improvement.  I'm surprised if all
-those ia64_elf32_init checks are necessary, but better safe than sorry.
-
-Something crosses my mind, you'll know better than I: is it possible to
-construct ELFs or A.OUTs which would need the check in insert_vm_struct
-to be even more defensive?  That is, should it also be checking that
-vma->vm_end > vma->vm_start (vma being the one to be inserted)?
-Or that vma->vm_end <= TASK_SIZE?  If I remember rightly, a 0-length
-vma can cause confusion but survive quite well until exit_mmap's
-BUG_ON(mm->map_count).
+Now, s390 may be greatly superior ;) but all the setup_arg_pages32
+redefining is twisty weird stuff - good to be rid of it, but right now?
 
 Hugh
 
