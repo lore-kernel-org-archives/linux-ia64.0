@@ -1,571 +1,148 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Tue, 21 Dec 2004 18:30:48 +0000
-Subject: [PATCH] add legacy resource support to sysfs
-Message-Id: <200412211030.49179.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_ZvGyB+rj2vajkys"
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Tue, 07 Dec 2004 07:21:05 +0000
+Subject: [PATCH] IRQ resource deallocation [1/2]
+Message-Id: <41B559E1.8050401@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>, willy@debian.org, Bjorn Helgaas <bjorn.helgaas@hp.com>
-
---Boundary-00=_ZvGyB+rj2vajkys
-Content-Type: text/plain;
-  charset="us-ascii"
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>, Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 
-This sits on top of my last two patches to sysfs (the one that adds mmap 
-support and the one that exports PCI resources in sysfs).  It adds per-bus 
-legacy_io and legacy_mem files for use by userspace applications that want to 
-do legacy port I/O or access legacy ISA memory.  It's protected by a new 
-HAVE_PCI_LEGACY ifdef modeled after HAVE_PCI_MMAP since not all arches will 
-support it.  It's really just an RFC at this point, I have to rediff once 
-Greg incorporates the above patches (the second of which I have to rediff and 
-resubmit).
+This patch is ACPI portion of IRQ resource deallocation.
 
-Thanks,
-Jesse
 
---Boundary-00=_ZvGyB+rj2vajkys
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="sysfs-legacy-resource.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="sysfs-legacy-resource.patch"
+----
+Kernel Version:	2.6.10-rc3
+Depends:	none
+Description:
 
-===== arch/ia64/pci/pci.c 1.59 vs edited =====
---- 1.59/arch/ia64/pci/pci.c	2004-11-05 11:55:25 -08:00
-+++ edited/arch/ia64/pci/pci.c	2004-12-21 10:25:37 -08:00
-@@ -6,6 +6,7 @@
-  * Copyright (C) 2002 Hewlett-Packard Co
-  *	David Mosberger-Tang <davidm@hpl.hp.com>
-  *	Bjorn Helgaas <bjorn_helgaas@hp.com>
-+ * Copyright (C) 2004 Silicon Graphics, Inc.
-  *
-  * Note: Above list of copyright holders is incomplete...
-  */
-@@ -518,7 +519,7 @@
- 	 * Leave vm_pgoff as-is, the PCI space address is the physical
- 	 * address on this platform.
- 	 */
--	vma->vm_flags |= (VM_SHM | VM_LOCKED | VM_IO);
-+	vma->vm_flags |= (VM_SHM | VM_RESERVED | VM_IO);
+This patch is ACPI portion of IRQ deallocation. This patch defines the
+following new interface. The implementation of this interface depends
+on each platform.
+
+    o void acpi_unregister_gsi(u32 gsi)
+
+        This is a opposite portion of acpi_register_gsi(). This has a
+        responsibility for deallocating IRQ resources associated with
+        the specified GSI number.
+
+        We need to consider the case of shared interrupt. In the case
+        of shared interrupt, acpi_register_gsi() is called multiple
+        times for one gsi. That is, registrations and unregistrations
+        can be nested.
+
+        This function undoes the effect of one call to
+        acpi_register_gsi(). If this matches the last registration,
+        IRQ resources associated with the specified GSI number are
+        freed.
+
+This patch also adds the following new function.
+
+    o void acpi_pci_irq_disable (struct pci_dev *dev)
+
+        This function is a opposite portion of
+        acpi_pci_enable_irq(). It clears the device's linux IRQ number
+        and calls acpi_unregister_gsi() to deallocate IRQ resources.
+
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+
+---
+
+ linux-2.6.10-rc3-kanesige/drivers/acpi/pci_irq.c |   52 +++++++++++++++++++++++
+ linux-2.6.10-rc3-kanesige/include/linux/acpi.h   |   13 +++++
+ 2 files changed, 65 insertions(+)
+
+diff -puN drivers/acpi/pci_irq.c~IRQ_deallocation_acpi drivers/acpi/pci_irq.c
+--- linux-2.6.10-rc3/drivers/acpi/pci_irq.c~IRQ_deallocation_acpi	2004-12-06 19:51:50.274759676 +0900
++++ linux-2.6.10-rc3-kanesige/drivers/acpi/pci_irq.c	2004-12-06 19:54:43.254430880 +0900
+@@ -407,3 +407,55 @@ acpi_pci_irq_enable (
+ }
+ EXPORT_SYMBOL(acpi_pci_irq_enable);
  
- 	if (write_combine)
- 		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-@@ -530,6 +531,123 @@
- 		return -EAGAIN;
- 
- 	return 0;
-+}
 +
-+/**
-+ * pci_mmap_legacy_page_range - map legacy memory space to userland
-+ * @bus: bus whose legacy space we're mapping
-+ * @vma: vma passed in by mmap
-+ *
-+ * Map legacy memory space for this device back to userspace using a machine
-+ * vector to get the base address.
-+ */
-+int
-+pci_mmap_legacy_page_range(struct pci_bus *bus, struct vm_area_struct *vma)
++#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
++void
++acpi_pci_irq_disable (
++	struct pci_dev		*dev)
 +{
-+	unsigned long addr;
-+	int ret;
++	u32			gsi = 0;
++	u8			pin = 0;
++	int			edge_level = ACPI_LEVEL_SENSITIVE;
++	int			active_high_low = ACPI_ACTIVE_LOW;
 +
-+	if ((ret = pci_get_legacy_mem(bus, &addr)))
-+		return ret;
++	ACPI_FUNCTION_TRACE("acpi_pci_irq_disable");
 +
-+	vma->vm_pgoff += addr >> PAGE_SHIFT;
++	if (!dev)
++		return_VOID;
++	
++	pci_read_config_byte(dev, PCI_INTERRUPT_PIN, &pin);
++	if (!pin)
++		return_VOID;
++	pin--;
++
++	if (!dev->bus)
++		return_VOID;
++
++	/* 
++	 * First we check the PCI IRQ routing table (PRT) for an IRQ.
++	 */
++ 	gsi = acpi_pci_irq_lookup(dev->bus, PCI_SLOT(dev->devfn), pin,
++				  &edge_level, &active_high_low);
++	/*
++	 * If no PRT entry was found, we'll try to derive an IRQ from the
++	 * device's parent bridge.
++	 */
++	if (!gsi)
++ 		gsi = acpi_pci_irq_derive(dev, pin,
++					  &edge_level, &active_high_low);
++	if (!gsi)
++		return_VOID;
 +
 +	/*
-+	 * Leave vm_pgoff as-is, the PCI space address is the physical
-+	 * address on this platform.
++	 * TBD: It might be worth clearing dev->irq by magic constant
++	 * (e.g. PCI_UNDEFINED_IRQ).
 +	 */
-+	vma->vm_flags |= (VM_SHM | VM_RESERVED | VM_IO);
 +
-+	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-+			    vma->vm_end - vma->vm_start, vma->vm_page_prot))
-+		return -EAGAIN;
++	printk(KERN_INFO PREFIX "PCI interrupt for device %s disabled\n",
++	       pci_name(dev));
 +
-+	return 0;
++	acpi_unregister_gsi(gsi);
++
++	return_VOID;
 +}
-+
-+/**
-+ * ia64_pci_get_legacy_mem - generic legacy mem routine
-+ * @bus: bus to get legacy memory base address for
-+ * @addr: caller allocated variable for the base address
-+ *
-+ * Find the base of legacy memory for @dev.  This is typically the first
-+ * megabyte of bus address space for @dev or is simply 0 on platforms whose
-+ * chipsets support legacy I/O and memory routing.  Returns 0 on success
-+ * or a standard error code on failure.
-+ *
-+ * This is the ia64 generic version of this routine.  Other platforms
-+ * are free to override it with a machine vector.
-+ */
-+int ia64_pci_get_legacy_mem(struct pci_bus *bus, unsigned long *addr)
-+{
-+	*addr = 0;
-+	return 0;
-+}
-+
-+/**
-+ * ia64_pci_legacy_read - read from legacy I/O space
-+ * @bus: bus to read
-+ * @port: legacy port value
-+ * @val: caller allocated storage for returned value
-+ * @size: number of bytes to read
-+ *
-+ * Simply reads @size bytes from @port and puts the result in @val.
-+ *
-+ * Again, this (and the write routine) are generic versions that can be
-+ * overridden by the platform.  This is necessary on platforms that don't
-+ * support legacy I/O routing or that hard fail on legacy I/O timeouts.
-+ */
-+int ia64_pci_legacy_read(struct pci_bus *bus, u16 port, u32 *val, u8 size)
-+{
-+	int ret = size;
-+
-+	switch (size) {
-+	case 1:
-+		*val = inb(port);
-+		break;
-+	case 2:
-+		*val = inw(port);
-+		break;
-+	case 4:
-+		*val = inl(port);
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
-+}
-+
-+/**
-+ * ia64_pci_legacy_write - perform a legacy I/O write
-+ * @bus: bus pointer
-+ * @port: port to write
-+ * @val: value to write
-+ * @size: number of bytes to write from @val
-+ *
-+ * Simply writes @size bytes of @val to @port.
-+ */
-+int ia64_pci_legacy_write(struct pci_dev *bus, u16 port, u32 val, u8 size)
-+{
-+	int ret = 0;
-+
-+	switch (size) {
-+	case 1:
-+		outb(val, port);
-+		break;
-+	case 2:
-+		outw(val, port);
-+		break;
-+	case 4:
-+		outl(val, port);
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+
-+	return ret;
- }
++#endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
+diff -puN include/linux/acpi.h~IRQ_deallocation_acpi include/linux/acpi.h
+--- linux-2.6.10-rc3/include/linux/acpi.h~IRQ_deallocation_acpi	2004-12-06 19:51:50.276712814 +0900
++++ linux-2.6.10-rc3-kanesige/include/linux/acpi.h	2004-12-06 19:51:50.279642521 +0900
+@@ -416,6 +416,15 @@ static inline int acpi_boot_init(void)
+ unsigned int acpi_register_gsi (u32 gsi, int edge_level, int active_high_low);
+ int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
  
- /**
-===== arch/ia64/sn/pci/pci_dma.c 1.2 vs edited =====
---- 1.2/arch/ia64/sn/pci/pci_dma.c	2004-10-20 12:00:10 -07:00
-+++ edited/arch/ia64/sn/pci/pci_dma.c	2004-12-21 09:14:18 -08:00
-@@ -475,3 +475,77 @@
- EXPORT_SYMBOL(sn_pci_free_consistent);
- EXPORT_SYMBOL(sn_pci_dma_supported);
- EXPORT_SYMBOL(sn_dma_mapping_error);
-+
-+int sn_pci_get_legacy_mem(struct pci_bus *bus, unsigned long *addr)
-+{
-+	if (!SN_PCIBUS_BUSSOFT(bus))
-+		return -ENODEV;
-+
-+	*addr = SN_PCIBUS_BUSSOFT(bus)->bs_legacy_mem | __IA64_UNCACHED_OFFSET;
-+
-+	return 0;
-+}
-+
-+int sn_pci_legacy_read(struct pci_bus *bus, u16 port, u32 *val, u8 size)
-+{
-+	int ret = size;
-+	unsigned long addr;
-+
-+	if (!SN_PCIBUS_BUSSOFT(bus)) {
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	addr = SN_PCIBUS_BUSSOFT(bus)->bs_legacy_io | __IA64_UNCACHED_OFFSET;
-+	addr += port;
-+
-+	ret = ia64_sn_probe_mem(addr, (long)size, (void *)val);
-+
-+	/* Read timed out, return -1 to emulate soft fail */
-+	if (ret == 1)
-+		*val = -1;
-+
-+	/* Invalid argument */
-+	if (ret == 2)
-+		ret = -EINVAL;
-+
-+ out:
-+	return ret;
-+}
-+
-+int sn_pci_legacy_write(struct pci_bus *bus, u16 port, u32 val, u8 size)
-+{
-+	int ret = 0;
-+	unsigned long paddr;
-+	unsigned long *addr;
-+
-+	if (!SN_PCIBUS_BUSSOFT(bus)) {
-+		ret = -ENODEV;
-+		goto out;
-+	}
-+
-+	/* Put the phys addr in uncached space */
-+	paddr = SN_PCIBUS_BUSSOFT(bus)->bs_legacy_io | __IA64_UNCACHED_OFFSET;
-+	paddr += port;
-+	addr = (unsigned long *)paddr;
-+
-+	switch (size) {
-+	case 1:
-+		*(volatile u8 *)(addr) = (u8)(val);
-+		ret = 1;
-+		break;
-+	case 2:
-+		*(volatile u16 *)(addr) = (u16)(val);
-+		ret = 2;
-+		break;
-+	case 4:
-+		*(volatile u32 *)(addr) = (u32)(val);
-+		ret = 4;
-+		break;
-+	default:
-+		ret = -EINVAL;
-+		break;
-+	}
-+ out:
-+	return ret;
-+}
-===== drivers/pci/pci-sysfs.c 1.14 vs edited =====
---- 1.14/drivers/pci/pci-sysfs.c	2004-12-21 09:56:43 -08:00
-+++ edited/drivers/pci/pci-sysfs.c	2004-12-21 09:59:00 -08:00
-@@ -179,6 +179,73 @@
- 	return count;
- }
- 
-+#ifdef HAVE_PCI_LEGACY
-+/**
-+ * pci_read_legacy_io - read byte(s) from legacy I/O port space
-+ * @kobj: kobject corresponding to file to read from
-+ * @buf: buffer to store results
-+ * @off: offset into legacy I/O port space
-+ * @count: number of bytes to read
-+ *
-+ * Reads 1, 2, or 4 bytes from legacy I/O port space using an arch specific
-+ * callback routine (pci_legacy_read).
++/*
++ * This function undoes the effect of one call to acpi_register_gsi().
++ * If this matches the last registration, any IRQ resources for gsi
++ * are freed.
 + */
-+ssize_t
-+pci_read_legacy_io(struct kobject *kobj, char *buf, loff_t off, size_t count)
-+{
-+        struct pci_bus *bus = to_pci_bus(container_of(kobj,
-+                                                      struct device, kobj));
-+
-+        /* Only support 1, 2 or 4 byte accesses */
-+        if (count != 1 && count != 2 && count != 4)
-+                return -EINVAL;
-+
-+        return pci_legacy_read(bus, off, (u32 *)buf, count);
-+}
-+
-+/**
-+ * pci_write_legacy_io - write byte(s) to legacy I/O port space
-+ * @kobj: kobject corresponding to file to read from
-+ * @buf: buffer containing value to be written
-+ * @off: offset into legacy I/O port space
-+ * @count: number of bytes to write
-+ *
-+ * Writes 1, 2, or 4 bytes from legacy I/O port space using an arch specific
-+ * callback routine (pci_legacy_write).
-+ */
-+ssize_t
-+pci_write_legacy_io(struct kobject *kobj, char *buf, loff_t off, size_t count)
-+{
-+        struct pci_bus *bus = to_pci_bus(container_of(kobj,
-+                                                      struct device, kobj));
-+        /* Only support 1, 2 or 4 byte accesses */
-+        if (count != 1 && count != 2 && count != 4)
-+                return -EINVAL;
-+
-+        return pci_legacy_write(bus, off, *(u32 *)buf, count);
-+}
-+
-+/**
-+ * pci_mmap_legacy_mem - map legacy PCI memory into user memory space
-+ * @kobj: kobject corresponding to device to be mapped
-+ * @attr: struct bin_attribute for this file
-+ * @vma: struct vm_area_struct passed to mmap
-+ *
-+ * Uses an arch specific callback, pci_mmap_legacy_page_range, to mmap
-+ * legacy memory space (first meg of bus space) into application virtual
-+ * memory space.
-+ */
-+int
-+pci_mmap_legacy_mem(struct kobject *kobj, struct bin_attribute *attr,
-+                    struct vm_area_struct *vma)
-+{
-+        struct pci_bus *bus = to_pci_bus(container_of(kobj,
-+                                                      struct device, kobj));
-+
-+        return pci_mmap_legacy_page_range(bus, vma);
-+}
-+#endif /* HAVE_PCI_LEGACY */
-+
- #ifdef HAVE_PCI_MMAP
- /**
-  * pci_mmap_resource - map a PCI resource into user memory space
-===== drivers/pci/probe.c 1.72 vs edited =====
---- 1.72/drivers/pci/probe.c	2004-11-11 12:53:33 -08:00
-+++ edited/drivers/pci/probe.c	2004-12-21 09:06:12 -08:00
-@@ -802,6 +802,30 @@
- 	b->class_dev.class = &pcibus_class;
- 	sprintf(b->class_dev.class_id, "%04x:%02x", pci_domain_nr(b), bus);
- 	error = class_device_register(&b->class_dev);
-+
-+#ifdef HAVE_PCI_LEGACY
-+	b->legacy_io = kmalloc(sizeof(struct bin_attribute) * 2,
-+			       GFP_ATOMIC);
-+	if (b->legacy_io) {
-+		b->legacy_io->attr.name = "legacy_io";
-+		b->legacy_io->size = 0xffff;
-+		b->legacy_io->attr.mode = S_IRUSR | S_IWUSR;
-+		b->legacy_io->attr.owner = THIS_MODULE;
-+		b->legacy_io->read = pci_read_legacy_io;
-+		b->legacy_io->write = pci_write_legacy_io;
-+		sysfs_create_bin_file(&b->bridge->kobj, b->legacy_io);
-+
-+		/* Allocated above after the legacy_io struct */
-+		b->legacy_mem = b->legacy_io + 1;
-+		b->legacy_mem->attr.name = "legacy_mem";
-+		b->legacy_mem->size = 1024*1024;
-+		b->legacy_mem->attr.mode = S_IRUSR | S_IWUSR;
-+		b->legacy_mem->attr.owner = THIS_MODULE;
-+		b->legacy_mem->mmap = pci_mmap_legacy_mem;
-+		sysfs_create_bin_file(&b->bridge->kobj, b->legacy_mem);
-+	}
++#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
++void acpi_unregister_gsi (u32 gsi);
 +#endif
 +
- 	if (error)
- 		goto class_dev_reg_err;
- 	error = class_device_create_file(&b->class_dev, &class_device_attr_cpuaffinity);
-===== include/asm-ia64/machvec.h 1.29 vs edited =====
---- 1.29/include/asm-ia64/machvec.h	2004-10-25 13:06:49 -07:00
-+++ edited/include/asm-ia64/machvec.h	2004-12-21 09:14:46 -08:00
-@@ -20,6 +20,7 @@
- struct irq_desc;
- struct page;
- struct mm_struct;
-+struct pci_bus;
+ #ifdef CONFIG_ACPI_PCI
  
- typedef void ia64_mv_setup_t (char **);
- typedef void ia64_mv_cpu_init_t (void);
-@@ -31,6 +32,11 @@
- typedef struct irq_desc *ia64_mv_irq_desc (unsigned int);
- typedef u8 ia64_mv_irq_to_vector (unsigned int);
- typedef unsigned int ia64_mv_local_vector_to_irq (u8);
-+typedef int ia64_mv_pci_get_legacy_mem_t (struct pci_bus *, unsigned long *);
-+typedef int ia64_mv_pci_legacy_read_t (struct pci_bus *, u16 port, u32 *val,
-+				       u8 size);
-+typedef int ia64_mv_pci_legacy_write_t (struct pci_bus *, u16 port, u32 val,
-+					u8 size);
+ struct acpi_prt_entry {
+@@ -441,6 +450,10 @@ struct pci_dev;
+ int acpi_pci_irq_enable (struct pci_dev *dev);
+ void acpi_penalize_isa_irq(int irq);
  
- /* DMA-mapping interface: */
- typedef void ia64_mv_dma_init (void);
-@@ -125,6 +131,9 @@
- #  define platform_irq_desc		ia64_mv.irq_desc
- #  define platform_irq_to_vector	ia64_mv.irq_to_vector
- #  define platform_local_vector_to_irq	ia64_mv.local_vector_to_irq
-+#  define platform_pci_get_legacy_mem	ia64_mv.pci_get_legacy_mem
-+#  define platform_pci_legacy_read	ia64_mv.pci_legacy_read
-+#  define platform_pci_legacy_write	ia64_mv.pci_legacy_write
- #  define platform_inb		ia64_mv.inb
- #  define platform_inw		ia64_mv.inw
- #  define platform_inl		ia64_mv.inl
-@@ -172,6 +181,9 @@
- 	ia64_mv_irq_desc *irq_desc;
- 	ia64_mv_irq_to_vector *irq_to_vector;
- 	ia64_mv_local_vector_to_irq *local_vector_to_irq;
-+	ia64_mv_pci_get_legacy_mem_t *pci_get_legacy_mem;
-+	ia64_mv_pci_legacy_read_t *pci_legacy_read;
-+	ia64_mv_pci_legacy_write_t *pci_legacy_write;
- 	ia64_mv_inb_t *inb;
- 	ia64_mv_inw_t *inw;
- 	ia64_mv_inl_t *inl;
-@@ -215,6 +227,9 @@
- 	platform_irq_desc,			\
- 	platform_irq_to_vector,			\
- 	platform_local_vector_to_irq,		\
-+	platform_pci_get_legacy_mem,		\
-+	platform_pci_legacy_read,		\
-+	platform_pci_legacy_write,		\
- 	platform_inb,				\
- 	platform_inw,				\
- 	platform_inl,				\
-@@ -329,6 +344,15 @@
- #endif
- #ifndef platform_local_vector_to_irq
- # define platform_local_vector_to_irq	__ia64_local_vector_to_irq
++#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
++void acpi_pci_irq_disable (struct pci_dev *dev);
 +#endif
-+#ifndef platform_pci_get_legacy_mem
-+# define platform_pci_get_legacy_mem	ia64_pci_get_legacy_mem
-+#endif
-+#ifndef platform_pci_legacy_read
-+# define platform_pci_legacy_read	ia64_pci_legacy_read
-+#endif
-+#ifndef platform_pci_legacy_write
-+# define platform_pci_legacy_write	ia64_pci_legacy_write
- #endif
- #ifndef platform_inb
- # define platform_inb		__ia64_inb
-===== include/asm-ia64/machvec_init.h 1.8 vs edited =====
---- 1.8/include/asm-ia64/machvec_init.h	2004-10-25 13:06:49 -07:00
-+++ edited/include/asm-ia64/machvec_init.h	2004-12-16 10:56:59 -08:00
-@@ -5,6 +5,9 @@
- extern ia64_mv_irq_desc __ia64_irq_desc;
- extern ia64_mv_irq_to_vector __ia64_irq_to_vector;
- extern ia64_mv_local_vector_to_irq __ia64_local_vector_to_irq;
-+extern ia64_mv_pci_get_legacy_mem_t ia64_pci_get_legacy_mem;
-+extern ia64_mv_pci_legacy_read_t ia64_pci_legacy_read;
-+extern ia64_mv_pci_legacy_write_t ia64_pci_legacy_write;
- 
- extern ia64_mv_inb_t __ia64_inb;
- extern ia64_mv_inw_t __ia64_inw;
-===== include/asm-ia64/machvec_sn2.h 1.16 vs edited =====
---- 1.16/include/asm-ia64/machvec_sn2.h	2004-10-25 13:06:49 -07:00
-+++ edited/include/asm-ia64/machvec_sn2.h	2004-12-16 10:56:59 -08:00
-@@ -43,6 +43,9 @@
- extern ia64_mv_irq_desc sn_irq_desc;
- extern ia64_mv_irq_to_vector sn_irq_to_vector;
- extern ia64_mv_local_vector_to_irq sn_local_vector_to_irq;
-+extern ia64_mv_pci_get_legacy_mem_t sn_pci_get_legacy_mem;
-+extern ia64_mv_pci_legacy_read_t sn_pci_legacy_read;
-+extern ia64_mv_pci_legacy_write_t sn_pci_legacy_write;
- extern ia64_mv_inb_t __sn_inb;
- extern ia64_mv_inw_t __sn_inw;
- extern ia64_mv_inl_t __sn_inl;
-@@ -105,6 +108,9 @@
- #define platform_irq_desc		sn_irq_desc
- #define platform_irq_to_vector		sn_irq_to_vector
- #define platform_local_vector_to_irq	sn_local_vector_to_irq
-+#define platform_pci_get_legacy_mem	sn_pci_get_legacy_mem
-+#define platform_pci_legacy_read	sn_pci_legacy_read
-+#define platform_pci_legacy_write	sn_pci_legacy_write
- #define platform_dma_init		machvec_noop
- #define platform_dma_alloc_coherent	sn_dma_alloc_coherent
- #define platform_dma_free_coherent	sn_dma_free_coherent
-===== include/asm-ia64/pci.h 1.27 vs edited =====
---- 1.27/include/asm-ia64/pci.h	2004-11-03 13:36:55 -08:00
-+++ edited/include/asm-ia64/pci.h	2004-12-21 09:09:42 -08:00
-@@ -85,6 +85,20 @@
- #define HAVE_PCI_MMAP
- extern int pci_mmap_page_range (struct pci_dev *dev, struct vm_area_struct *vma,
- 				enum pci_mmap_state mmap_state, int write_combine);
-+#define HAVE_PCI_LEGACY
-+extern int pci_mmap_legacy_page_range(struct pci_bus *bus,
-+				      struct vm_area_struct *vma);
-+extern ssize_t pci_read_legacy_io(struct kobject *kobj, char *buf, loff_t off,
-+				  size_t count);
-+extern ssize_t pci_write_legacy_io(struct kobject *kobj, char *buf, loff_t off,
-+				   size_t count);
-+extern int pci_mmap_legacy_mem(struct kobject *kobj,
-+			       struct bin_attribute *attr,
-+			       struct vm_area_struct *vma);
 +
-+#define pci_get_legacy_mem platform_pci_get_legacy_mem
-+#define pci_legacy_read platform_pci_legacy_read
-+#define pci_legacy_write platform_pci_legacy_write
- 
- struct pci_window {
- 	struct resource resource;
-===== include/asm-ia64/sn/sn_sal.h 1.17 vs edited =====
---- 1.17/include/asm-ia64/sn/sn_sal.h	2004-11-03 13:41:17 -08:00
-+++ edited/include/asm-ia64/sn/sn_sal.h	2004-12-16 11:19:33 -08:00
-@@ -474,6 +474,52 @@
- 	return isrv.v0;
- }
- 
-+/**
-+ * ia64_sn_probe_mem - read from memory safely
-+ * @addr: address to probe
-+ * @size: number bytes to read (1,2,4,8)
-+ * @data_ptr: address to store value read by probe (-1 returned if probe fails)
-+ *
-+ * Call into the SAL to do a memory read.  If the read generates a machine
-+ * check, this routine will recover gracefully and return -1 to the caller.
-+ * @addr is usually a kernel virtual address in uncached space (i.e. the
-+ * address starts with 0xc), but if called in physical mode, @addr should
-+ * be a physical address.
-+ *
-+ * Return values:
-+ *  0 - probe successful
-+ *  1 - probe failed (generated MCA)
-+ *  2 - Bad arg
-+ * <0 - PAL error
-+ */
-+static inline u64
-+ia64_sn_probe_mem(long addr, long size, void *data_ptr)
-+{
-+	struct ia64_sal_retval isrv;
-+
-+	SAL_CALL(isrv, SN_SAL_PROBE, addr, size, 0, 0, 0, 0, 0);
-+
-+	if (data_ptr) {
-+		switch (size) {
-+		case 1:
-+			*((u8*)data_ptr) = (u8)isrv.v0;
-+			break;
-+		case 2:
-+			*((u16*)data_ptr) = (u16)isrv.v0;
-+			break;
-+		case 4:
-+			*((u32*)data_ptr) = (u32)isrv.v0;
-+			break;
-+		case 8:
-+			*((u64*)data_ptr) = (u64)isrv.v0;
-+			break;
-+		default:
-+			isrv.status = 2;
-+		}
-+	}
-+	return isrv.status;
-+}
-+
- /*
-  * Retrieve the system serial number as an ASCII string.
-  */
-===== include/linux/pci.h 1.143 vs edited =====
---- 1.143/include/linux/pci.h	2004-12-21 09:56:43 -08:00
-+++ edited/include/linux/pci.h	2004-12-21 09:58:29 -08:00
-@@ -594,6 +594,8 @@
- 	unsigned short  pad2;
- 	struct device		*bridge;
- 	struct class_device	class_dev;
-+	struct bin_attribute	*legacy_io; /* legacy I/O for this bus */
-+	struct bin_attribute	*legacy_mem; /* legacy mem */
- };
- 
- #define pci_bus_b(n)	list_entry(n, struct pci_bus, node)
+ struct acpi_pci_driver {
+ 	struct acpi_pci_driver *next;
+ 	int (*add)(acpi_handle handle);
 
---Boundary-00=_ZvGyB+rj2vajkys--
+_
+
