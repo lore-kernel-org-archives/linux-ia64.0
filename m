@@ -1,32 +1,28 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Mon, 16 Dec 2002 17:41:18 +0000
-Subject: Re: [Linux-ia64] can linux support intel 870 chipset now?
-Message-Id: <marc-linux-ia64-105590709805571@msgid-missing>
+From: Fons Rademakers <Fons.Rademakers@cern.ch>
+Date: Mon, 09 Dec 2002 14:33:37 +0000
+Subject: [Linux-ia64] backtrace()...
+Message-Id: <marc-linux-ia64-105590709805519@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805565@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805565@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Hi all, I am new to this maillist. I do not know if
-> linux can support intel 870 chipset now? If can,
-> where can I download the kernel for it? If someone
-> knows, please help me. Thanks in advance!
+Hi David,
 
-Download the base kernel from:
+  I try to use backtrace() (/usr/include/execinfo.h) but it returns
+nothing meaningfull (one 0 stackframe). This is on Itanium2:
 
-    ftp://ftp.kernel.org/pub/linux/kernel/v2.4/linux-2.4.20.tar.bz2
+Kernel 2.4.18-e.4smp
+glibc-2.2.4-29.2
 
-and the IA64 patch from:
+Is this expected or should I do something special?
 
-    ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/linux-2.4.20-ia64-021210.diff.gz
+Cheers, Fons.
 
-This should support the Intel 870 chipset, though I don't have such
-a machine and can't test it directly.
 -- 
-Bjorn Helgaas - bjorn_helgaas at hp.com
-Linux and Open Source Lab
-Hewlett-Packard Company
+Org:    CERN, European Laboratory for Particle Physics.
+Mail:   1211 Geneve 23, Switzerland
+E-Mail: Fons.Rademakers@cern.ch              Phone: +41 22 7679248
+WWW:    http://root.cern.ch/~rdm/            Fax:   +41 22 7679480
 
