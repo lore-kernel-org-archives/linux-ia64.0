@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 09 Sep 2004 05:51:29 +0000
+Date: Mon, 13 Sep 2004 19:46:09 +0000
 Subject: bk pull on ia64 linux tree
-Message-Id: <200409090551.i895pTs08770@unix-os.sc.intel.com>
+Message-Id: <200409131946.i8DJk9732045@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
 In-Reply-To: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
@@ -22,56 +22,45 @@ Thanks!
 
 -Tony
 
- arch/ia64/hp/sim/simserial.c |    6 +-----
- arch/ia64/kernel/acpi.c      |    1 +
- arch/ia64/kernel/irq.c       |    2 ++
- arch/ia64/kernel/unwind.c    |   15 +++++++--------
- arch/ia64/mm/discontig.c     |   17 ++++++++++++++---
- arch/ia64/pci/pci.c          |    2 +-
- 6 files changed, 26 insertions(+), 17 deletions(-)
+ arch/ia64/Makefile                       |    2 
+ arch/ia64/sn/io/machvec/pci_bus_cvlink.c |   15 ++
+ arch/ia64/sn/kernel/sn2/sn_proc_fs.c     |  185 ++++++++++++++-----------------
+ 3 files changed, 101 insertions(+), 101 deletions(-)
 
 through these ChangeSets:
 
-<schwab@suse.de> (04/09/08 1.1803.133.5)
-   [IA64] acpi.c: export pm_power_off for use by ipmi_poweroff module.
+<eranian@hpl.hp.com> (04/09/13 1.1803.144.1)
+   [IA64] Makefile: fix for the PTRACE_SYSCALL corruption bug
    
-   Signed-off-by: Andreas Schwab <schwab@suse.de>
+   Thanks to David for his help in tracking it down.
+   
+     compile the kernel with sibling call optimization
+     turned off. There is a problem with all functions
+     using the optimization and the asmlinkage attribute.
+     The compiler should not perform the optimization on
+     these functions because it cannot preserve the syscall
+     parameters in the callee. This caused SIGSEGV on programs
+     traced with PTRACE_SYSCALL, for instance.
+   
+   signed-off-by: stephane eranian <eranian@hpl.hp.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<mita@yacht.ocn.ne.jp> (04/09/08 1.1803.133.4)
-   [IA64] discontig.c: reset counters every iteration each node in show_mem().
-   
-   On multi-node ia64 system, SysRq-M seems to dump wrong memory info.
-   (Since I don't have such a large machine, I don't confirm it)
-   It should reset counters every iteration each node in show_mem().
-   Jesse Barnes: "This looks good".
+<jbarnes@sgi.com> (04/09/09 1.1803.143.7)
+   [IA64-SGI]: disable non-display ROM resources
     
-   Signed-off-by: Akinobu Mita <mita@yacht.ocn.ne.jp>
+   This patch is needed to correctly support the new sysfs rom file.  On sn2, we
+   only allocate PIO space for display option ROMs since PIO space is a
+   relatively scarce resource (we've seen exhaustion when running with several
+   qla cards in the same domain).  And without this patch we won't zero out
+   non-display ROM resources which can lead to panics if anyone tries to use the
+   bogus addresses left over there from the generic PCI probing code.
+   
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-<willy@debian.org> (04/09/08 1.1803.133.3)
-   [IA64] pci.c: assign parent to the ROM resource
+<markgw@sgi.com> (04/09/09 1.1803.143.6)
+   [IA64-SGI] sn_proc_fs.c: convert to use seq_file API
    
-   Jon Smirl's patch to export roms via sysfs exposes a bug in the ia64
-   PCI code; we're not assigning a parent to the ROM resource. Patch
-   supplied by Matthew Wilcox
-   
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<janitor@sternwelten.at> (04/09/08 1.1803.133.2)
-   [IA64] minmax-removal in simserial.c, unwind.c
-    
-   Patch (against 2.6.8.1) removes unnecessary min/max macros and changes
-   calls to use kernel.h macros instead.
-   
-   Signed-off-by: Michael Veeck <michael.veeck@gmx.net>
-   Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-   Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-
-<davidm@hpl.hp.com> (04/09/08 1.1803.133.1)
-   [IA64] irq.c: Kill warning about variables which are unused in UP kernels.
-   
-   Signed-off-by: davidm@hpl.hp.com
+   Signed-off-by: Mark Goodwin <markgw@sgi.com>
    Signed-off-by: Tony Luck <tony.luck@intel.com>
 
