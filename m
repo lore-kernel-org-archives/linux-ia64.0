@@ -1,7 +1,7 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 29 Jul 2003 23:56:15 +0000
+From: Christopher Wedgwood <cw@sgi.com>
+Date: Wed, 30 Jul 2003 00:00:26 +0000
 Subject: Re: [PATCH] (2.4.x bk) efi_memmap_walk_uc
-Message-Id: <marc-linux-ia64-105952298923313@msgid-missing>
+Message-Id: <marc-linux-ia64-105952331923555@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105883467032028@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105883467032028@msgid-missing>
@@ -10,29 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> 
-> >>>>> On Tue, 29 Jul 2003 15:35:16 -0700, Christopher Wedgwood <cw@sgi.com> said:
-> 
->   Christopher> That sounds pretty good.  Even a naive bitmap allocator
->   Christopher> would probably work initially.  Might we ever want to
->   Christopher> allocate 2+ pages?  Forcing all allocations to be a
->   Christopher> single page makes many things easier.
-> 
-> The allocation granularity should be bytes, in my opinion.  The point
-> of the UC allocator is so that we can share a single 64MB UC granule
-> across the multiple users (of which there are a grand total of 2, at
-> the moment...).
-> 
-> 	--david
-> 
+On Tue, Jul 29, 2003 at 03:47:34PM -0700, Luck, Tony wrote:
 
-If granularity is bytes, we need to support page-aligned allocations. Fetchop
-pages are mmap'ed to user space.
+> min_state areas for MCA will be smaller than a page ... so *my* use
+> of this allocator doesn't require multi-page.
 
-As far as fetchop is concerned, we always allocate 1 page at a time.
+I'm guessing you'll only need 1k or 4k per-cpu right?  What about any
+padding here?
 
--- 
-Thanks
+On Tue, Jul 29, 2003 at 03:54:27PM -0700, David Mosberger wrote:
 
-Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
+> Let's stick with a tried-and-true malloc/free-like interface (nobody
+> every gets size arguments to free() right, do they?).
 
+I'd like to claim this is too complex and that page would suffice
+except clearly for MINSTATE purposes page granularity is wasteful.
+Jack also pointed out for MINSTATE handling on SN2 we would want
+local-node pages so perhaps something like:
+
+    u64 ia64_uc_alloc(u64 nbytes, int nodeid, int flags);
+    void ia64_uc)free(u64 paddr);
+
+Simply claim '0' is not a useful physical address in this sense and
+thus signifies and error?
+
+The 'flags' seems overly complex but would be a mechanism to insist
+that memory is allocated from the given node (as opposed to just a
+hint for locality).
+
+Comments?
+
+
+
+  --cw
