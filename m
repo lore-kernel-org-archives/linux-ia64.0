@@ -1,97 +1,64 @@
-From: Darren Williams <dsw@gelato.unsw.edu.au>
-Date: Tue, 24 Feb 2004 21:44:19 +0000
-Subject: Re: [BUG] 2.6.3 Slab corruption: errors are triggered when memory exceeds 2.5GB (correction)
-Message-Id: <20040224214419.GC18070@cse.unsw.EDU.AU>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 17 Feb 2004 23:28:28 +0000
+Subject: Re: radeon warning on 64-bit platforms
+Message-Id: <16434.41884.249541.156083@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040224002237.GE8906@cse.unsw.EDU.AU>
-In-Reply-To: <20040224002237.GE8906@cse.unsw.EDU.AU>
+References: <16434.35199.597235.894615@napali.hpl.hp.com>
+	<1077054385.2714.72.camel@thor.asgaard.local>
+	<16434.36137.623311.751484@napali.hpl.hp.com>
+	<1077055209.2712.80.camel@thor.asgaard.local>
+	<16434.37025.840577.826949@napali.hpl.hp.com>
+	<1077058106.2713.88.camel@thor.asgaard.local>
+In-Reply-To: <1077058106.2713.88.camel@thor.asgaard.local>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: torvalds@osdl.org, Michel =?ISO-8859-1?Q?D=E4nzer?= <michel@daenzer.net>
+Cc: davidm@hpl.hp.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi Rich
+Linus and Michel,
 
-We are a research group that it partially funded by HP, however if
-SGI would like to donate, loan or even contribute to funding for
-our research we would be glad to use SGI equipment.
+Here is a proposed patch for fixing the compile-warning that shows up
+when compiling radeon_state.c on a 64-bit platform (Itanium, in my
+case).  According to Michel, RADEON_PARAM_SAREA_HANDLE is used only on
+embedded platforms and since it is not possible to fix the problem
+without breaking backwards-compatibility for those platforms, the
+interim fix is to simply desupport this particular ioctl() on 64-bit
+platforms (i.e., make it fail with EINVAL).
 
-How many machines are you able to send, our address is.... :)
+If there are no objections, please apply.
 
-Take a look at
-http://www.gelato.unsw.edu.au
+	--david
 
-
-Thanks
-Darren
- 
-
-On Tue, 24 Feb 2004, Rich Altmaier wrote:
-
-> Darren, seriously I urge you to consider use of SGI systems.
-> We have run physical memory up to 1Tbyte.
-> See our products at http://www.sgi.com/servers/altix/350/
-> Thanks!
-> Rich
-> Rich Altmaier
-> VP of Storage and Software Engineering, SGI
-> 
-> 
-> Darren Williams wrote:
-> 
-> >Hi Darren
-> >
-> >On Tue, 24 Feb 2004, Darren Williams wrote:
-> >
-> >
-> >>On Ia64 Itanium 1 machines with more than 2.5GB of RAM the follwing error 
-> >>is triggered.
-> >>
-> >>slab error in check_poison_obj(): cache `size-16384': object was modified 
-> >>after freeing
-> >>
-> >>The machine that triggered the error above is an
-> >>
-> >>i2000 HP workstation
-> >>4gb RAM
-> >>1gb SWAP
-> >>
-> >>An identical machine with 3GB ram produces:
-> >
-> >                            ^^^
-> > 
-> >
-> >>slab error in check_poison_obj(): cache `size-2048': object was modified 
-> >>after freeing
-> >>
-> >>if the amount of RAM is reduced to 2.5GB or less then the errors do not 
-> >>appear.
-> >
-> >                                     ^^^^^ 
-> >
-> >
-> >>Kernel logs and configs can be found at:
-> >>http://quasar.cse.unsw.edu.au/~dsw/public-files/lemon-debug/
-> >>
-> >>
-> >>--------------------------------------------------
-> >>Darren Williams <dsw AT gelato.unsw.edu.au>
-> >>Gelato@UNSW <www.gelato.unsw.edu.au>
-> >>--------------------------------------------------
-> >>-
-> >>To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> >>the body of a message to majordomo@vger.kernel.org
-> >>More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> >
-> >--------------------------------------------------
-> >Darren Williams <dsw AT gelato.unsw.edu.au>
-> >Gelato@UNSW <www.gelato.unsw.edu.au>
-> >--------------------------------------------------
-> >-
-> >To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> >the body of a message to majordomo@vger.kernel.org
-> >More majordomo info at  http://vger.kernel.org/majordomo-info.html
---------------------------------------------------
-Darren Williams <dsw AT gelato.unsw.edu.au>
-Gelato@UNSW <www.gelato.unsw.edu.au>
---------------------------------------------------
+=3D=3D=3D drivers/char/drm/radeon_state.c 1.23 vs edited =3D=3D--- 1.23/dri=
+vers/char/drm/radeon_state.c	Tue Feb  3 21:29:26 2004
++++ edited/drivers/char/drm/radeon_state.c	Tue Feb 17 15:23:01 2004
+@@ -2186,9 +2186,24 @@
+ 		value =3D dev_priv->ring_rptr_offset;
+ 		break;
+ 	case RADEON_PARAM_SAREA_HANDLE:
+-		/* The lock is the first dword in the sarea. */
+-		value =3D (int)dev->lock.hw_lock;=20
+-		break;=09
++		/*
++		 * This ioctl() doesn't work on 64-bit platforms because hw_lock is a
++		 * pointer which can't fit into an int-sized variable.  According to
++		 * Michael D=E4nzer, the ioctl() is only used on embedded platforms, so =
+not
++		 * supporting it shouldn't be a problem.  If the same functionality is
++		 * needed on 64-bit platforms, a new ioctl() would have to be added, so
++		 * backwards-compatibility for the embedded platforms can be maintained.
++		 *	--davidm 4-Feb-2004.
++		 */
++	  	if (sizeof (dev->lock.hw_lock) <=3D sizeof (int))
++		    /*
++		     * The lock is the first dword in the sarea.  Cast to "long" so it
++		     * compiles without warning on 64-bit platforms.
++		     */
++		    value =3D (long)dev->lock.hw_lock;
++		else
++		    return DRM_ERR(EINVAL);
++		break;
+ 	case RADEON_PARAM_GART_TEX_HANDLE:
+ 		value =3D dev_priv->gart_textures_offset;
+ 		break;
