@@ -1,206 +1,170 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Date: Thu, 25 Mar 2004 17:02:49 +0000
-Subject: [PATCH] [5/6] HUGETLB memory commitment
-Message-Id: <18926564.1080234169@42.150.104.212.access.eclipse.net.uk>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Tue, 02 Mar 2004 02:21:53 +0000
+Subject: [PATCH] CPE trigger-switching by threshold
+Message-Id: <0HTX0044UFWGF7@fjmail505.fjmail.jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
-In-Reply-To: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Anton Blanchard <anton@samba.org>, Andrew Morton <akpm@osdl.org>, Stephen Smalley <sds@epoch.ncsc.mil>
-Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Martin J. Bligh" <mbligh@aracnet.com>
+To: linux-ia64@vger.kernel.org
 
-[075-mem_acctdom_hugetlb_arch]
+Hi,
 
-Convert hugetlb to accounting domains (arch)
+Like CMC, is it better to implement a trigger-switching between
+interrupt and poll for CPE?
 
----
- i386/mm/hugetlbpage.c    |   16 +++++++++++++---
- ia64/mm/hugetlbpage.c    |   16 +++++++++++++---
- ppc64/mm/hugetlbpage.c   |   16 +++++++++++++---
- sparc64/mm/hugetlbpage.c |   16 +++++++++++++---
- 4 files changed, 52 insertions(+), 12 deletions(-)
 
-diff -upN reference/arch/i386/mm/hugetlbpage.c current/arch/i386/mm/hugetlbpage.c
---- reference/arch/i386/mm/hugetlbpage.c	2004-01-09 07:00:02.000000000 +0000
-+++ current/arch/i386/mm/hugetlbpage.c	2004-03-25 15:03:27.000000000 +0000
-@@ -15,7 +15,7 @@
- #include <linux/module.h>
- #include <linux/err.h>
- #include <linux/sysctl.h>
--#include <asm/mman.h>
-+#include <linux/mman.h>
- #include <asm/pgalloc.h>
- #include <asm/tlb.h>
- #include <asm/tlbflush.h>
-@@ -513,13 +513,17 @@ module_init(hugetlb_init);
+Thanks,
+
+H.Seto
+
+
+--- linux-2.6.3/arch/ia64/kernel/mca.c	2004-02-19 18:36:08.000000000 +0900
++++ linux-2.6.3/arch/ia64/kernel/mca+cpe_poll.c	2004-03-02 10:22:09.272642488 +0900
+@@ -110,6 +110,7 @@
+ #define MAX_CPE_POLL_INTERVAL (15*60*HZ) /* 15 minutes */
+ #define MIN_CPE_POLL_INTERVAL (2*60*HZ)  /* 2 minutes */
+ #define CMC_POLL_INTERVAL     (1*60*HZ)  /* 1 minute */
++#define CPE_HISTORY_LENGTH    5
+ #define CMC_HISTORY_LENGTH    5
  
- int hugetlb_report_meminfo(char *buf)
+ static struct timer_list cpe_poll_timer;
+@@ -272,14 +273,55 @@
+ static irqreturn_t
+ ia64_mca_cpe_int_handler (int cpe_irq, void *arg, struct pt_regs *ptregs)
  {
-+	int committed = atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
-+#define K(x) ((x) << (PAGE_SHIFT - 10))
- 	return sprintf(buf,
- 			"HugePages_Total: %5lu\n"
- 			"HugePages_Free:  %5lu\n"
--			"Hugepagesize:    %5lu kB\n",
-+			"Hugepagesize:    %5lu kB\n"
-+			"HugeCommited_AS: %8u kB\n",
- 			htlbzone_pages,
- 			htlbpagemem,
--			HPAGE_SIZE/1024);
-+			HPAGE_SIZE/1024,
-+			K(committed));
- }
- 
- int is_hugepage_mem_enough(size_t size)
-@@ -527,6 +531,12 @@ int is_hugepage_mem_enough(size_t size)
- 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <= htlbpagemem;
- }
- 
-+/* Return the number pages of memory we physically have, in PAGE_SIZE units. */
-+unsigned long hugetlb_total_pages(void)
-+{
-+	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
-+}
+-	IA64_MCA_DEBUG("%s: received interrupt. CPU:%d vector = %#x\n",
+-		       __FUNCTION__, smp_processor_id(), cpe_irq);
++	static unsigned long	cpe_history[CPE_HISTORY_LENGTH];
++	static int		index;
++	static spinlock_t	cpe_history_lock = SPIN_LOCK_UNLOCKED;
 +
- /*
-  * We cannot handle pagefaults against hugetlb pages at all.  They cause
-  * handle_mm_fault() to try to instantiate regular-sized pages in the
-diff -upN reference/arch/ia64/mm/hugetlbpage.c current/arch/ia64/mm/hugetlbpage.c
---- reference/arch/ia64/mm/hugetlbpage.c	2004-03-11 20:47:12.000000000 +0000
-+++ current/arch/ia64/mm/hugetlbpage.c	2004-03-25 15:03:27.000000000 +0000
-@@ -17,7 +17,7 @@
- #include <linux/smp_lock.h>
- #include <linux/slab.h>
- #include <linux/sysctl.h>
--#include <asm/mman.h>
-+#include <linux/mman.h>
- #include <asm/pgalloc.h>
- #include <asm/tlb.h>
- #include <asm/tlbflush.h>
-@@ -576,13 +576,17 @@ __initcall(hugetlb_init);
++	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
++		       __FUNCTION__, cpe_irq, smp_processor_id());
  
- int hugetlb_report_meminfo(char *buf)
- {
-+	int committed = atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
-+#define K(x) ((x) << (PAGE_SHIFT - 10))
- 	return sprintf(buf,
- 			"HugePages_Total: %5lu\n"
- 			"HugePages_Free:  %5lu\n"
--			"Hugepagesize:    %5lu kB\n",
-+			"Hugepagesize:    %5lu kB\n"
-+			"HugeCommited_AS: %8u kB\n",
- 			htlbzone_pages,
- 			htlbpagemem,
--			HPAGE_SIZE/1024);
-+			HPAGE_SIZE/1024,
-+			K(committed));
- }
+ 	/* SAL spec states this should run w/ interrupts enabled */
+ 	local_irq_enable();
  
- int is_hugepage_mem_enough(size_t size)
-@@ -592,6 +596,12 @@ int is_hugepage_mem_enough(size_t size)
- 	return 1;
- }
- 
-+/* Return the number pages of memory we physically have, in PAGE_SIZE units. */
-+unsigned long hugetlb_total_pages(void)
-+{
-+	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
-+}
+-	/* Get the CMC error record and log it */
++	/* Get the CPE error record and log it */
+ 	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
 +
- static struct page *hugetlb_nopage(struct vm_area_struct * area, unsigned long address, int *unused)
- {
- 	BUG();
-diff -upN reference/arch/ppc64/mm/hugetlbpage.c current/arch/ppc64/mm/hugetlbpage.c
---- reference/arch/ppc64/mm/hugetlbpage.c	2004-03-11 20:47:14.000000000 +0000
-+++ current/arch/ppc64/mm/hugetlbpage.c	2004-03-25 15:03:27.000000000 +0000
-@@ -17,7 +17,7 @@
- #include <linux/module.h>
- #include <linux/err.h>
- #include <linux/sysctl.h>
--#include <asm/mman.h>
-+#include <linux/mman.h>
- #include <asm/pgalloc.h>
- #include <asm/tlb.h>
- #include <asm/tlbflush.h>
-@@ -896,13 +896,17 @@ module_init(hugetlb_init);
- 
- int hugetlb_report_meminfo(char *buf)
- {
-+	int committed = atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
-+#define K(x) ((x) << (PAGE_SHIFT - 10))
- 	return sprintf(buf,
- 			"HugePages_Total: %5d\n"
- 			"HugePages_Free:  %5d\n"
--			"Hugepagesize:    %5lu kB\n",
-+			"Hugepagesize:    %5lu kB\n"
-+			"HugeCommited_AS: %8u kB",
- 			htlbpage_total,
- 			htlbpage_free,
--			HPAGE_SIZE/1024);
-+			HPAGE_SIZE/1024,
-+			K(commited));
- }
- 
- /* This is advisory only, so we can get away with accesing
-@@ -912,6 +916,12 @@ int is_hugepage_mem_enough(size_t size)
- 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <= htlbpage_free;
- }
- 
-+/* Return the number pages of memory we physically have, in PAGE_SIZE units. */
-+int hugetlb_total_pages(void)
-+{
-+	return htlbpage_total * (HPAGE_SIZE / PAGE_SIZE);
-+}
++	spin_lock(&cpe_history_lock);
++	if (!cpe_poll_enabled && acpi_request_vector(ACPI_INTERRUPT_CPEI)) {
 +
- /*
-  * We cannot handle pagefaults against hugetlb pages at all.  They cause
-  * handle_mm_fault() to try to instantiate regular-sized pages in the
-diff -upN reference/arch/sparc64/mm/hugetlbpage.c current/arch/sparc64/mm/hugetlbpage.c
---- reference/arch/sparc64/mm/hugetlbpage.c	2004-01-09 06:59:45.000000000 +0000
-+++ current/arch/sparc64/mm/hugetlbpage.c	2004-03-25 15:03:27.000000000 +0000
-@@ -13,8 +13,8 @@
- #include <linux/smp_lock.h>
- #include <linux/slab.h>
- #include <linux/sysctl.h>
-+#include <linux/mman.h>
- 
--#include <asm/mman.h>
- #include <asm/pgalloc.h>
- #include <asm/tlb.h>
- #include <asm/tlbflush.h>
-@@ -483,13 +483,17 @@ module_init(hugetlb_init);
- 
- int hugetlb_report_meminfo(char *buf)
- {
-+	int committed = atomic_read(&vm_committed_space[VM_AD_HUGETLB]);
-+#define K(x) ((x) << (PAGE_SHIFT - 10))
- 	return sprintf(buf,
- 			"HugePages_Total: %5lu\n"
- 			"HugePages_Free:  %5lu\n"
--			"Hugepagesize:    %5lu kB\n",
-+			"Hugepagesize:    %5lu kB\n"
-+			"HugeCommited_AS: %8u kB\n",
- 			htlbzone_pages,
- 			htlbpagemem,
--			HPAGE_SIZE/1024);
-+			HPAGE_SIZE/1024,
-+			K(committed));
- }
- 
- int is_hugepage_mem_enough(size_t size)
-@@ -497,6 +501,12 @@ int is_hugepage_mem_enough(size_t size)
- 	return (size + ~HPAGE_MASK)/HPAGE_SIZE <= htlbpagemem;
- }
- 
-+/* Return the number pages of memory we physically have, in PAGE_SIZE units. */
-+int hugetlb_total_pages(void)
-+{
-+	return htlbzone_pages * (HPAGE_SIZE / PAGE_SIZE);
-+}
++		int i, count = 1; /* we know 1 happened now */
++		unsigned long now = jiffies;
 +
- /*
-  * We cannot handle pagefaults against hugetlb pages at all.  They cause
-  * handle_mm_fault() to try to instantiate regular-sized pages in the
++		for (i = 0; i < CPE_HISTORY_LENGTH; i++) {
++			if (now - cpe_history[i] <= HZ)
++				count++;
++		}
++
++		IA64_MCA_DEBUG(KERN_INFO "CPE threshold %d/%d\n", count, CPE_HISTORY_LENGTH);
++		if (count >= CPE_HISTORY_LENGTH) {
++
++			cpe_poll_enabled = 1;
++			spin_unlock(&cpe_history_lock);
++			disable_irq_nosync(local_vector_to_irq(IA64_CPE_VECTOR));
++
++			/*
++			 * Corrected errors will still be corrected, but
++			 * make sure there's a log somewhere that indicates
++			 * something is generating more than we can handle.
++			 */
++			printk(KERN_WARNING "WARNING: Switching to polling CPE handler; error records may be lost\n");
++
++			mod_timer(&cpe_poll_timer, jiffies + MIN_CPE_POLL_INTERVAL);
++
++			/* lock already released, get out now */
++			return IRQ_HANDLED;
++		} else {
++			cpe_history[index++] = now;
++			if (index = CPE_HISTORY_LENGTH)
++				index = 0;
++		}
++	}
++	spin_unlock(&cpe_history_lock);
+ 	return IRQ_HANDLED;
+ }
+ 
+@@ -903,7 +945,7 @@
+  * 	handled
+  */
+ static irqreturn_t
+-ia64_mca_cmc_int_caller(int cpe_irq, void *arg, struct pt_regs *ptregs)
++ia64_mca_cmc_int_caller(int cmc_irq, void *arg, struct pt_regs *ptregs)
+ {
+ 	static int start_count = -1;
+ 	unsigned int cpuid;
+@@ -914,7 +956,7 @@
+ 	if (start_count = -1)
+ 		start_count = IA64_LOG_COUNT(SAL_INFO_TYPE_CMC);
+ 
+-	ia64_mca_cmc_int_handler(cpe_irq, arg, ptregs);
++	ia64_mca_cmc_int_handler(cmc_irq, arg, ptregs);
+ 
+ 	for (++cpuid ; cpuid < NR_CPUS && !cpu_online(cpuid) ; cpuid++);
+ 
+@@ -973,7 +1015,7 @@
+ ia64_mca_cpe_int_caller(int cpe_irq, void *arg, struct pt_regs *ptregs)
+ {
+ 	static int start_count = -1;
+-	static int poll_time = MAX_CPE_POLL_INTERVAL;
++	static int poll_time = MIN_CPE_POLL_INTERVAL;
+ 	unsigned int cpuid;
+ 
+ 	cpuid = smp_processor_id();
+@@ -991,15 +1033,23 @@
+ 	} else {
+ 		/*
+ 		 * If a log was recorded, increase our polling frequency,
+-		 * otherwise, backoff.
++		 * otherwise, backoff or return to interrupt mode.
+ 		 */
+ 		if (start_count != IA64_LOG_COUNT(SAL_INFO_TYPE_CPE)) {
+ 			poll_time = max(MIN_CPE_POLL_INTERVAL, poll_time / 2);
+-		} else {
++		} else if (acpi_request_vector(ACPI_INTERRUPT_CPEI) < 0) {
+ 			poll_time = min(MAX_CPE_POLL_INTERVAL, poll_time * 2);
++		} else {
++			poll_time = MIN_CPE_POLL_INTERVAL;
++
++			printk(KERN_WARNING "Returning to interrupt driven CPE handler\n");
++			enable_irq(local_vector_to_irq(IA64_CPE_VECTOR));
++			cpe_poll_enabled = 0;
+ 		}
++
++		if (cpe_poll_enabled)
++			mod_timer(&cpe_poll_timer, jiffies + poll_time);
+ 		start_count = -1;
+-		mod_timer(&cpe_poll_timer, jiffies + poll_time);
+ 	}
+ 
+ 	return IRQ_HANDLED;
+@@ -1242,7 +1292,7 @@
+ 	register_percpu_irq(IA64_MCA_WAKEUP_VECTOR, &mca_wkup_irqaction);
+ 
+ #ifdef CONFIG_ACPI
+-	/* Setup the CPE interrupt vector */
++	/* Setup the CPEI/P vector and handler */
+ 	{
+ 		irq_desc_t *desc;
+ 		unsigned int irq;
+@@ -1258,6 +1308,7 @@
+ 				}
+ 			ia64_mca_register_cpev(cpev);
+ 		}
++		register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
+ 	}
+ #endif
+ 
+@@ -1298,7 +1349,6 @@
+ #ifdef CONFIG_ACPI
+ 	/* If platform doesn't support CPEI, get the timer going. */
+ 	if (acpi_request_vector(ACPI_INTERRUPT_CPEI) < 0 && cpe_poll_enabled) {
+-		register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
+ 		ia64_mca_cpe_poll(0UL);
+ 	}
+ #endif
 
