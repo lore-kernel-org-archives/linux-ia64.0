@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Thu, 15 May 2003 16:37:06 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 15 May 2003 21:32:10 +0000
 Subject: Re: [Linux-ia64] new bitkeeper tree for 2.5 linux/ia64 kernel
-Message-Id: <marc-linux-ia64-105590723705832@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705849@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705780@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705780@msgid-missing>
@@ -10,46 +10,42 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday 14 May 2003 7:22 pm, Keith Owens wrote:
-> On Wed, 14 May 2003 18:13:45 -0700, 
-> David Mosberger <davidm@napali.hpl.hp.com> wrote:
-> >>>>>> On Thu, 15 May 2003 09:53:56 +1000, Keith Owens <kaos@ocs.com.au> said:
-> >
-> >  Keith> Are you going to set up the automatic patch extraction from
-> >  Keith> this tree, like
-> >  Keith> ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4/testing/cset?
-> >
-> >I have no idea how this works and I'm not really interested in
-> >learning about it either.  But I totally agree that it's a Good Thing.
-> >So, if I _have_ to do something (e.g., because of permissions or some
-> >such), give me a receipe for what I need to do.  Other than that, go
-> >ahead and make the magic happen...
-> 
-> Bjorn did it recently for the 2.4 ia64 bk tree.  He would be the best
-> person to ask.
+Hi Bjorn,
 
-Here's what I did (on kernel.org, from memory):
+>>>>> On Thu, 15 May 2003 10:37:06 -0600, Bjorn Helgaas <bjorn_helgaas@hp.com> said:
 
-	mkdir ~/BK
-	(cd ~/BK && bk clone -q bk://lia64.bkbits.net/linux-ia64-2.4 linux-ia64-2.4)
+  Bjorn> Here's what I did (on kernel.org, from memory):
 
-	mkdir -p ~/bkexport-cache/linux-ia64-2.4
-	mkdir -p /staging/helgaas/linux-ia64-2.4
-	mkdir -p /pub/linux/kernel/ports/ia64/v2.4/testing/cset
+  Bjorn> mkdir ~/BK
+  Bjorn> (cd ~/BK && bk clone -q bk://lia64.bkbits.net/linux-ia64-2.4 linux-ia64-2.4)
 
-	mkdir ~/bin
-	cp ~dwmw2/working/bkexport/bkexport.sh ~/bin/
-	cat <<-EOF > ~/bin/update-patch
-		#!/bin/sh
+  Bjorn> mkdir -p ~/bkexport-cache/linux-ia64-2.4
+  Bjorn> mkdir -p /staging/helgaas/linux-ia64-2.4
+  Bjorn> mkdir -p /pub/linux/kernel/ports/ia64/v2.4/testing/cset
 
-		/bin/nice -n 12 /home/helgaas/bin/bkexport.sh /home/helgaas/BK/linux-ia64-2.4 /pub/linux/kernel/ports/ia64/v2.4/testing/cset /home/helgaas/bkexport-cache/linux-ia64-2.4 "" /staging/helgaas/linux-ia64-2.4
-	EOF
+  Bjorn> mkdir ~/bin
+  Bjorn> cp ~dwmw2/working/bkexport/bkexport.sh ~/bin/
+  Bjorn> cat <<-EOF > ~/bin/update-patch
+  Bjorn> #!/bin/sh
 
-Then I just run ~/bin/update-patch by hand whenever I update
-the BK tree.  dwmw2 runs it periodically from cron for linux-2.4
-and linux-2.5, but my updates are much less frequent, so I just
-do it by hand.
+  Bjorn> /bin/nice -n 12 /home/helgaas/bin/bkexport.sh /home/helgaas/BK/linux-ia64-2.4 /pub/linux/kernel/ports/ia64/v2.4/testing/cset /home/helgaas/bkexport-cache/linux-ia64-2.4 "" /staging/helgaas/linux-ia64-2.4
+  Bjorn> EOF
 
-Bjorn
+  Bjorn> Then I just run ~/bin/update-patch by hand whenever I update
+  Bjorn> the BK tree.  dwmw2 runs it periodically from cron for linux-2.4
+  Bjorn> and linux-2.5, but my updates are much less frequent, so I just
+  Bjorn> do it by hand.
 
+Your memory is excellent.  It worked without a hitch.
+
+OK, for all you patch-heads:
+
+  http://www.kernel.org/pub/linux/kernel/ports/ia64/v2.5/testing/cset/
+
+I added a cronjob to update it daily, but if it falls behind, I
+probably won't notice.  Just holler in that case.
+
+Enjoy,
+
+	--david
 
