@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 11 Apr 2003 21:06:26 +0000
-Subject: Re: [Linux-ia64] ias and stack unwind
-Message-Id: <marc-linux-ia64-105590723705477@msgid-missing>
+From: "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com>
+Date: Fri, 11 Apr 2003 21:55:15 +0000
+Subject: RE: [Linux-ia64] ias and stack unwind
+Message-Id: <marc-linux-ia64-105590723705480@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705471@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705471@msgid-missing>
@@ -9,6 +9,19 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+I don't think that explains it in my case.  I'm using ecc version 7.1.
+Did you have to use any special options?  
+
+Jay
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
+Sent: Friday, April 11, 2003 4:06 PM
+To: Hoeflinger, Jay P
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] ias and stack unwind
+
 
 >>>>> On Fri, 11 Apr 2003 12:05:30 -0700, "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com> said:
 
