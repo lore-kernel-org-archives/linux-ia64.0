@@ -1,28 +1,38 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 13 Feb 2004 16:10:52 +0000
-Subject: Re: IA64 test report: 2.6.2-rc2/Lion 2004-2-11: 10/9 pass
-Message-Id: <200402130910.52071.bjorn.helgaas@hp.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 02 Feb 2004 07:00:01 +0000
+Subject: [patch] 0/5 2.4.25-pre7 mca.c cleanup
+Message-Id: <6503.1075705201@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3ACA40606221794F80A5670F0AF15F8401720D38@PDSMSX403.ccr.corp.intel.com>
-In-Reply-To: <3ACA40606221794F80A5670F0AF15F8401720D38@PDSMSX403.ccr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Friday 13 February 2004 7:18 am, Yu, Luming wrote:
-> > We still have this IRQ issue:
-> > 
-> > 	 pci_irq-0302 [03] acpi_pci_irq_derive   : Unable to 
-> > derive IRQ for device 00003
-> > 	ACPI: No IRQ known for interrupt pin B of device 0000:00:03.3
-> > 
-> > Or do we have confirmation that this is just a firmware defect?
-> > 
-> 
-> Not likely, PS/2 keyboard works well with 2.4 kernel.
+mca.c has potential deadlocks on printk() for MCA and INIT records,
+they are not irq safe.
 
-The IRQ problem is separate from the PS/2 keyboard problem.  The
-IRQ problem above is for device 00:03.3, which is the SMBus device
-according to your lspci output.
+There is a lot of crud in mca.c, with obsolete printing code, unused
+declarations, functions and data that are global when they should be
+static, functions and data that are not used or are only set to 0,
+function returns that are tested but are always 0.  In addition the
+code is disordered, requiring forward declarations and scattering
+related functions to different parts of the file.  All of which make it
+awkward to follow the code.
+
+The following 5 patches do :-
+
+1 Avoid deadlock when using printk() for MCA and INIT records.
+2 Delete all record printing code, moved to salinfo_decode in user space.
+3 Mark variables and functions static where possible.
+4 Delete dead variables and functions.
+5 Reorder to remove the need for forward declarations and to consolidate
+  related code.
+
+Altogether they shrink mca.c from 2420 to 1322 lines and make it much
+more readable.
+
+The only functional change is the removal of any attempt to print the
+CMC/CPE/MCA/INIT record contents in the kernel.  Now we just get one
+line to say that a record has been detected, except for MCA which
+prints nothing at all.
 
