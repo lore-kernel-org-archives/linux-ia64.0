@@ -1,32 +1,32 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 13 Oct 2003 19:01:38 +0000
-Subject: Re: libunwind question
-Message-Id: <marc-linux-ia64-106607171714962@msgid-missing>
+Date: Wed, 15 Oct 2003 00:05:14 +0000
+Subject: GENERIC still failing?
+Message-Id: <marc-linux-ia64-106617635106445@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106606816410248@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106606816410248@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 13 Oct 2003 11:01:47 -0700, Umut Aymakoglu <umuta@us.ibm.com> said:
+According to this page:
 
-  Umut> During unwinding is there a way to tell if the ip is from a
-  Umut> shared library or from an executable and get the name of the
-  Umut> object it is from?
+	http://www.gelato.unsw.edu.au/kerncomp/
 
-Not with libunwind itself.
+GENERIC builds are still failing:
 
-  Umut> I use the unw_get_proc_name() call to get the symbol name but
-  Umut> would like to get the name of the object as well.
+  gcc -Wp,-MD,fs/ext2/.balloc.o.d -nostdinc -iwithprefix include -D__KERNEL=
+__ -Iinclude   -D__KERNEL__ -Iinclude   -Wall -Wstrict-prototypes -Wno-trig=
+raphs -O2 -fno-strict-aliasing -fno-common -pipe  -ffixed-r13 -mfixed-range=
+=F12-f15,f32-f127 -falign-functions2 -frename-registers -fomit-frame-pointe=
+r    -mconstant-gp -DKBUILD_BASENAME=BAlloc -DKBUILD_MODNAME=3Dext2 -c -o f=
+s/ext2/balloc.o fs/ext2/balloc.c
+arch/ia64/sn/kernel/setup.c:94: error: `MAX_PHYSNODE_ID' undeclared here (n=
+ot in a function)
+arch/ia64/sn/kernel/setup.c:94: error: conflicting types for `physical_node=
+_map'
+include/asm/sn/sn_cpuid.h:126: error: previous declaration of `physical_nod=
+e_map'
 
-You should be able to get that by walking the list of mapped objects.
-You can get that with dl_iterate_phdr().  The callback will be invoked
-once for each object and then you can check the ELF PHDR to see if the
-IP falls inside the object.
+Anybody care to send me a fix for this?
 
 	--david
-
-PS: I'm cc'ing libunwind, since that's probably a more appropriate place
-    to discuss such issues.
