@@ -1,43 +1,54 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 07 May 2002 01:58:41 +0000
-Subject: Re: [Linux-ia64] A Couple of Questions on 2.4.18
-Message-Id: <marc-linux-ia64-105590701905552@msgid-missing>
+From: Wang Yi <wang_yi_2000@163.com>
+Date: Sat, 11 May 2002 08:59:59 +0000
+Subject: [Linux-ia64] Problem about NVidia driver 1.0-2880 on Linux-ia64 kernel 2.4.18
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------91675E51D624A09168691C45"
+Message-Id: <marc-linux-ia64-105590701905571@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905551@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905551@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 6 May 2002 17:57:24 -0700, Alberto Munoz <amunoz@vmware.com> said:
+This is a multi-part message in MIME format.
+--------------91675E51D624A09168691C45
+Content-Type: text/plain; charset=gb2312
+Content-Transfer-Encoding: 7bit
 
-  Alberto> Hello Everyone, I just upgraded my Linux kernel to 2.4.18
-  Alberto> and have a couple of questions:
+There is no any mistake reported when build and install NVIDIA_kernel
+dirver and NVIDIA_GLX driver.
+glxinfo of XFree86 can provide corrent information after the new driver
+is installed.
+My OpenGL programs work well without recompilation.But when I rebuild
+them, the ld report
+                      /usr/lib/libGLcore.so.1: undefined reference to
+'__nvsym10421'
 
-  Alberto> - I am having trouble dynamically loading NFS. It complains
-  Alberto> about an unresolved external (memset). Poking around
-  Alberto> through the IA64 files (ia64_ksyms.c) I noticed that memset
-  Alberto> is no longer exported (as it was in 2.4.9), instead
-  Alberto> __memset_generic is being exported. Is there anything I am
-  Alberto> failing to do to get external modules to resolve memset to
-  Alberto> __memset_generic?
+The RedHat Linux for Itanium 7.1 installed on my machine has a version
+2.4.3 kernel, which  cannot match the requirement of the NVdriver. So I
+downloaded and installed the 2.4.18 kernel.
+I unpack linux kernel 2.4.18 at ~/linux and build it successfully. It
+works well also.
 
-  Alberto> - acpi.c (in arch/ia64/kernel) is forced to be included
-  Alberto> with the IA64 kernel, but if one wants to run that kernel
-  Alberto> on top of the SKI simulator (which does not have ACPI), the
-  Alberto> kernel refuses to compile because some of the definitions
-  Alberto> used by acpi.c are included under ifdefs (that are not
-  Alberto> defined the configuration file for the SKI simulator, like
-  Alberto> CONFIG_ACPI_BOOT and CONFIG_ACPI_PCI) in
-  Alberto> include/linux/acp.h.
+when I build the NVIDIA_kernel driver, I use the following command :
+   make SYSINCLUDE=~/linux/include
 
-  Alberto> I have hacked my way around both of these problems, but I
-  Alberto> would like to know if there are more elegant ways of
-  Alberto> getting around them, or if I am entirely missing something.
+I have tried several time to rebuild the driver. But the results are
+same.
 
-Not really.  The next patch should have these problems fixed (due out
-very soon).
+--------------91675E51D624A09168691C45
+Content-Type: text/x-vcard; charset=gb2312;
+ name="wang_yi_2000.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Description: Card for Wang Yi
+Content-Disposition: attachment;
+ filename="wang_yi_2000.vcf"
 
-	--david
+begin:vcard 
+n:;
+x-mozilla-html:FALSE
+adr:;;;;;;
+version:2.1
+x-mozilla-cpt:;-26096
+end:vcard
+
+--------------91675E51D624A09168691C45--
+
 
