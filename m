@@ -1,236 +1,259 @@
-From: Ashok Raj <ashok.raj@intel.com>
-Date: Thu, 29 Apr 2004 16:21:07 +0000
-Subject: take3: Updated CPU Hotplug patches for IA64 [just the last patch 7/7]cpu_present_map.patch
-Message-Id: <20040429092107.A29687@unix-os.sc.intel.com>
+From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
+Date: Thu, 01 Apr 2004 08:44:46 +0000
+Subject: Re: Migrate pages from a ccNUMA node to another
+Message-Id: <406BD67E.8AF22D69@nospam.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4063F581.ACC5C511@nospam.org>
+			 <1080321646.31638.105.camel@nighthawk>  <40695C68.4A5F551E@nospam.org> <1080662328.10037.48.camel@nighthawk>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: akpm@osdl.org, davidm@hpl.hp.com, rusty@rustycorp.com.au, tony.luck@intel.com, rajesh.shah@intel.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hi Andrew
+Dave,
 
-please replace the last patch cpu_present_map with this attached patch. In the earlier version, i didnt validate with sgi config
-that had caused some compile problems with sn2_defconfig that Paul Jackson reported. Iam working with him to clean up the patch
-to fit his new cpumask related changes.
+Thank you for your remarks.
 
-we will need to find a new home for the following section that is in asm-ia64/cpumask.h
+Sure, I'll do my best to comply with the coding style of the community.
 
-#ifdef CONFIG_HOTPLUG_CPU
-#define ARCH_HAS_CPU_PRESENT_MAP
-#endif
+Dave Hansen wrote:
+> Before anything else, please take a long look at
+> Documentation/CodingStyle.  Pay particular attention to the column
+> width, indenting, and function sections.
 
-Paul is cleaning up this cpumask and explained that it will disapper in his new patch. I will work with him closely to find a new
-place, or an equivalent when his patches get released.
+Shell I really stick to the width of 80 characters ?
+I have got 89, yet several other files already are much wider.
 
-thanks to David Mosberger and Paul to help cleanup my patches.
+By the indenting issues, do you mean (not) breaking lines like these below ?
 
-Cheers,
-Ashok
+			if ((pte_val(*pte) & _PFN_MASK) !							(*p & _PFN_MASK))
 
+(I do have TABs =3D 8 spaces.)
 
-Name: cpu_present_map.patch
-Author: Ashok Raj (Intel Corporation)
-D: This patch adds cpu_present_map, cpu_present() and for_each_cpu_present()
-D: to distinguish between possible cpu's in a system and cpu's physically
-D: present in a system. Before cpu hotplug was introduced cpu_possible()
-D: represented cpu's physically present in the system. With hotplug capable
-D: Kernel, there is a requirement to distinguish a cpu as possible verses a 
-D: CPU physically present in the system. This is required so thta when
-D: smp_init() attempts to start all cpu's it should now only attempt
-D: to start cpu's present in the system. When a hotplug cpu is
-D: physically inserted cpu_present_map will have bits updated
-D: dynamically.
+Cutting the functions into smaller pieces - I'll try to do my best.
 
+> One of the best things about your code is that it uses a lot of
+> architecture-independent functions and data structures.  The page table
+> walks in your patch, for instance, would work on any Linux
+> architecture.  However, all of this code is in the ia64 arc.  Why?  Will
+> other NUMA architectures not need this page migration functionality?
 
----
+I made an effort to write it as architecture independent as possible
+(I guess only the SAVE_ITC - STORE_DELAY macro pair is to be re-written.)
+As I have not even seen any other NUMA machine - I would not post a code th=
+at
+no one ever tried on the other architectures.
 
- arch/ia64/kernel/smp.c                           |    0 
- linux-2.6.5-lhcs-root/arch/ia64/kernel/smpboot.c |   21 +++++++++++++++++++--
- linux-2.6.5-lhcs-root/fs/proc/proc_misc.c        |    4 ++--
- linux-2.6.5-lhcs-root/include/asm-ia64/cpumask.h |    3 +++
- linux-2.6.5-lhcs-root/include/asm-ia64/smp.h     |    5 +++++
- linux-2.6.5-lhcs-root/include/linux/cpumask.h    |   17 +++++++++++++++++
- linux-2.6.5-lhcs-root/init/main.c                |    4 ++--
- linux-2.6.5-lhcs-root/kernel/cpu.c               |    2 +-
- 8 files changed, 49 insertions(+), 7 deletions(-)
+> Also, although it's great
+> while you're developing a patch, it's best to try and refrain from
+> documenting things in comments things that are already a non-tricky part
+> of the way that things already work:
+> //
+> // "pte_page->mapping" points at the victim process'es "mm_struct"
+> //
+> These comments really just take up space and reduce readability.
 
-diff -puN include/asm-ia64/smp.h~cpu_present include/asm-ia64/smp.h
---- linux-2.6.5-lhcs/include/asm-ia64/smp.h~cpu_present	2004-04-28 16:59:25.614591293 -0700
-+++ linux-2.6.5-lhcs-root/include/asm-ia64/smp.h	2004-04-28 16:59:25.626310049 -0700
-@@ -48,7 +48,12 @@ extern volatile int ia64_cpu_to_sapicid[
- 
- extern unsigned long ap_wakeup_vector;
- 
-+#ifdef CONFIG_HOTPLUG_CPU
-+extern cpumask_t cpu_possible_map;
-+#define cpu_present_map phys_cpu_present_map
-+#else
- #define cpu_possible_map phys_cpu_present_map
-+#endif
- 
- /*
-  * Function to map hard smp processor id to logical id.  Slow, so don't use this in
-diff -puN arch/ia64/kernel/smpboot.c~cpu_present arch/ia64/kernel/smpboot.c
---- linux-2.6.5-lhcs/arch/ia64/kernel/smpboot.c~cpu_present	2004-04-28 16:59:25.616544419 -0700
-+++ linux-2.6.5-lhcs-root/arch/ia64/kernel/smpboot.c	2004-04-28 16:59:25.627286612 -0700
-@@ -87,9 +87,15 @@ DEFINE_PER_CPU(int, cpu_state);
- /* Bitmask of currently online CPUs */
- cpumask_t cpu_online_map;
- EXPORT_SYMBOL(cpu_online_map);
-+
- cpumask_t phys_cpu_present_map;
- EXPORT_SYMBOL(phys_cpu_present_map);
- 
-+#ifdef CONFIG_HOTPLUG_CPU
-+cpumask_t cpu_possible_map;
-+EXPORT_SYMBOL(cpu_possible_map);
-+#endif
-+
- /* which logical CPU number maps to which CPU (physical APIC ID) */
- volatile int ia64_cpu_to_sapicid[NR_CPUS];
- EXPORT_SYMBOL(ia64_cpu_to_sapicid);
-@@ -108,6 +114,7 @@ static int __init
- nointroute (char *str)
- {
- 	no_int_routing = 1;
-+	printk ("no_int_routing on\n");
- 	return 1;
- }
- 
-@@ -472,13 +479,23 @@ smp_build_cpu_map (void)
- 	int sapicid, cpu, i;
- 	int boot_cpu_id = hard_smp_processor_id();
- 
--	for (cpu = 0; cpu < NR_CPUS; cpu++)
-+	/*
-+	 * Since ACPI does not give us whats MAX cpu's
-+	 * possible in the entire platform, we will just have to use
-+	 * NR_CPUS set for possible map. cpu_present_map a.k.a
-+	 * phys_cpu_present_map can grow based on a new cpu
-+	 * becomming available to the system.
-+	 */
-+	cpus_clear(cpu_possible_map);
-+	for (cpu=0; cpu < NR_CPUS; cpu++) {
- 		ia64_cpu_to_sapicid[cpu] = -1;
-+		cpu_set(cpu, cpu_possible_map);
-+	}
- 
- 	ia64_cpu_to_sapicid[0] = boot_cpu_id;
-+
- 	cpus_clear(phys_cpu_present_map);
- 	cpu_set(0, phys_cpu_present_map);
--
- 	for (cpu = 1, i = 0; i < smp_boot_data.cpu_count; i++) {
- 		sapicid = smp_boot_data.cpu_phys_id[i];
- 		if (sapicid = boot_cpu_id)
-diff -puN include/linux/cpumask.h~cpu_present include/linux/cpumask.h
---- linux-2.6.5-lhcs/include/linux/cpumask.h~cpu_present	2004-04-28 16:59:25.618497545 -0700
-+++ linux-2.6.5-lhcs-root/include/linux/cpumask.h	2004-04-28 16:59:25.627286612 -0700
-@@ -16,6 +16,16 @@ extern cpumask_t cpu_possible_map;
- #define cpu_online(cpu)			cpu_isset(cpu, cpu_online_map)
- #define cpu_possible(cpu)		cpu_isset(cpu, cpu_possible_map)
- 
-+#ifdef ARCH_HAS_CPU_PRESENT_MAP
-+extern cpumask_t cpu_present_map;
-+#define cpu_present(cpu)		cpu_isset(cpu, cpu_present_map)
-+#define num_present_cpus()		cpus_weight(cpu_present_map)
-+#else
-+#define cpu_present_map			cpu_possible_map
-+#define cpu_present(x)			cpu_possible(x)
-+#define num_present_cpus()		num_possible_cpus()
-+#endif
-+
- #define for_each_cpu_mask(cpu, mask)					\
- 	for (cpu = first_cpu_const(mk_cpumask_const(mask));		\
- 		cpu < NR_CPUS;						\
-@@ -23,16 +33,23 @@ extern cpumask_t cpu_possible_map;
- 
- #define for_each_cpu(cpu) for_each_cpu_mask(cpu, cpu_possible_map)
- #define for_each_online_cpu(cpu) for_each_cpu_mask(cpu, cpu_online_map)
-+#define for_each_present_cpu(cpu) for_each_cpu_mask(cpu, cpu_present_map)
- #else
- #define	cpu_online_map			cpumask_of_cpu(0)
- #define	cpu_possible_map		cpumask_of_cpu(0)
-+#define cpu_present_map			cpumask_of_cpu(0)
-+
- #define num_online_cpus()		1
- #define num_possible_cpus()		1
-+#define num_present_cpus()		1
-+
- #define cpu_online(cpu)			({ BUG_ON((cpu) != 0); 1; })
- #define cpu_possible(cpu)		({ BUG_ON((cpu) != 0); 1; })
-+#define cpu_present(cpu)		({ BUG_ON((cpu) != 0); 1; })
- 
- #define for_each_cpu(cpu) for (cpu = 0; cpu < 1; cpu++)
- #define for_each_online_cpu(cpu) for (cpu = 0; cpu < 1; cpu++)
-+#define for_each_present_cpu(cpu) for (cpu = 0; cpu < 1; cpu++)
- #endif
- 
- #define cpumask_scnprintf(buf, buflen, map)				\
-diff -puN init/main.c~cpu_present init/main.c
---- linux-2.6.5-lhcs/init/main.c~cpu_present	2004-04-28 16:59:25.619474108 -0700
-+++ linux-2.6.5-lhcs-root/init/main.c	2004-04-28 16:59:25.628263175 -0700
-@@ -357,10 +357,10 @@ static void __init smp_init(void)
- 	unsigned j = 1;
- 
- 	/* FIXME: This should be done in userspace --RR */
--	for (i = 0; i < NR_CPUS; i++) {
-+	for_each_present_cpu(i) {
- 		if (num_online_cpus() >= max_cpus)
- 			break;
--		if (cpu_possible(i) && !cpu_online(i)) {
-+		if (!cpu_online(i)) {
- 			cpu_up(i);
- 			j++;
- 		}
-diff -puN kernel/cpu.c~cpu_present kernel/cpu.c
---- linux-2.6.5-lhcs/kernel/cpu.c~cpu_present	2004-04-28 16:59:25.621427234 -0700
-+++ linux-2.6.5-lhcs-root/kernel/cpu.c	2004-04-28 16:59:25.628263175 -0700
-@@ -169,7 +169,7 @@ int __devinit cpu_up(unsigned int cpu)
- 	if ((ret = down_interruptible(&cpucontrol)) != 0)
- 		return ret;
- 
--	if (cpu_online(cpu)) {
-+	if (cpu_online(cpu) || !cpu_present(cpu)) {
- 		ret = -EINVAL;
- 		goto out;
- 	}
-diff -puN arch/ia64/kernel/smp.c~cpu_present arch/ia64/kernel/smp.c
-diff -puN fs/proc/proc_misc.c~cpu_present fs/proc/proc_misc.c
---- linux-2.6.5-lhcs/fs/proc/proc_misc.c~cpu_present	2004-04-28 16:59:25.623380360 -0700
-+++ linux-2.6.5-lhcs-root/fs/proc/proc_misc.c	2004-04-28 16:59:25.628263175 -0700
-@@ -368,7 +368,7 @@ int show_stat(struct seq_file *p, void *
- 	if (wall_to_monotonic.tv_nsec)
- 		--jif;
- 
--	for_each_cpu(i) {
-+	for_each_online_cpu(i) {
- 		int j;
- 
- 		user += kstat_cpu(i).cpustat.user;
-@@ -390,7 +390,7 @@ int show_stat(struct seq_file *p, void *
- 		(unsigned long long)jiffies_64_to_clock_t(iowait),
- 		(unsigned long long)jiffies_64_to_clock_t(irq),
- 		(unsigned long long)jiffies_64_to_clock_t(softirq));
--	for_each_cpu(i) {
-+	for_each_online_cpu(i) {
- 
- 		/* Copy values here to work around gcc-2.95.3, gcc-2.96 */
- 		user = kstat_cpu(i).cpustat.user;
-diff -puN include/asm-ia64/cpumask.h~cpu_present include/asm-ia64/cpumask.h
---- linux-2.6.5-lhcs/include/asm-ia64/cpumask.h~cpu_present	2004-04-28 16:59:25.625333486 -0700
-+++ linux-2.6.5-lhcs-root/include/asm-ia64/cpumask.h	2004-04-28 16:59:25.629239738 -0700
-@@ -1,6 +1,9 @@
- #ifndef _ASM_IA64_CPUMASK_H
- #define _ASM_IA64_CPUMASK_H
- 
-+#ifdef CONFIG_HOTPLUG_CPU
-+#define ARCH_HAS_CPU_PRESENT_MAP
-+#endif
- #include <asm-generic/cpumask.h>
- 
- #endif /* _ASM_IA64_CPUMASK_H */
+This one was for myself :-)
 
-_
+It is difficult to find the golden mean. E.g. if I have not inserted
+a comment here:
+
+	mm =3D current->mm;
+	//
+	// Actually, there is no need to grab "mm" because it is ours, wont go
+	// away in the mean time. As we do not want to ask questions when
+	// releasing it...
+	// It is safe just to increment the counter: it is ours.
+	//
+	atomic_inc(&mm->mm_users);
+
+I think people could have asked why on the Earth I incremented "current->mm=
+->mm_users".
+Or another example:
+
+	//
+	// "get_task_mm()" includes "task_lock()" that "nests both inside and outs=
+ide of
+	// read_lock(&tasklist_lock)" - as a note in "sched.h" states.
+	//
+
+As there is no "locking guide", at least I make a note why I think I'm safe.
+
+(I think the main goals are efficiency and quality: how much effort it take=
+s to
+add a new functionality, to correct a bug or simply to understand the code;
+how much chance we've got not to crash the system.
+In the old golden ages, there were some few gurus who knew the code by hart.
+It was efficient for them not to waste time on "useless stuff". Now as the
+Linux community becomes larger and larger, the meaning what the efficiency =
+is
+has changed. I think the efficiency should mean how easily people can under=
+stand,
+add, change, correct things. How can I be efficient if need to resolve puzz=
+les ?
+No problem with solving puzzles, it's an intellectual challenge. But how ca=
+n I know
+if some "stuff" is there intentionally or by chance ? Or I just misundersto=
+od the
+puzzle ? The quality requirement is against solving puzzles.
+
+Most of my comments are "synchronization points" for those who want to unde=
+rstand
+my code and "statements" for those who want to double check if I've missed =
+a point.
+
+Another OS that "must not be named" includes thousands of ASSERT()-s and as=
+sert()-s
+(see also the JFS of Linux) and the lower case assert()-s are kept even for
+non debug mode. Should not include Linux lost of similar "statements" ?)
+
+> I find the comments inside of function and macro calls a bit hard to
+> read:
+> STORE_DELAY(/* in */ unlock_time, /* out */ new_page_unlock);
+
+I think there is a conceptual problem here, e.g.:
+
+	a =3D 1; b =3D 2;
+	Foo(a); Foo_2(&b);
+	c =3D a + b;		// Is still a =3D 1 and b =3D 2 ?
+
+I just read through the code: o.k. we call a "functionality" Foo(a) - assum=
+ing
+it is a speaking name - I can see more or less what it does; but is "a" sil=
+l equal
+to 1 at the 3rd line ?
+Don't know. If Foo() is a function, then "a" has not been changed, if Foo()=
+ is a
+macro - who knows ? As far as "b" and Foo_2() are concerned, "&" is
+a more than warning that "b" gets modified.
+I have to warn the reader "by hand" that an argument gets modified.
+It is more "space efficient" as I wrote than writing as:
+
+	/* Warning: "new_page_unlock" is going to be changed */
+	STORE_DELAY(unlock_time, new_page_unlock);
+
+> I think every VM hacker has a couple of these functions stashed around
+> in various patches for debugging, but they're not really something that
+> belongs in the kernel.  In general, you should try to remove debugging
+> code before posting a patch.
+
+If you want to print out a VMA, where is the debug service ?
+I agree this is not best place in my code. As the print out routines should
+be kept coherent with the definitions of the respective structures, they
+should be some static functions in the .h files.
+I'll remove them but we still need some official stuff.
+
+I stopped my source navigator after it has dug up the 1000th "...DEBUG..." =
+:-)
+
+> +       case _SIZEOF_STATISTICS_:
+> +               rc =3D  *(long long *) &_statistics_sizes;
+> +               break;
+>=20
+> I'm sure the statistics are very important, but they're a bit
+> intrusive.  Can you separate that code out into a file by itself?  Are
+> they even something that a user would want when they're running
+> normally, or is it another debugging feature?
+
+As our "AI" is very much experimental, I really do not know how much
+this information is useful. Neither the HW assisted nor the application
+driven version knows how many pages are movable, how many of them cannot
+be handled at all by my migration mechanism (e.g. you have a SysV SHM).
+Other error information or knowing how much it costs can be a feed back
+for the "AI". Probably it is useful wen we tune the profile for an
+application. We need more experience.
+
+> +migrate_virt_addr_range(
+> ...
+> +       u.ll =3D syscall(__NR_page_migrate, _VA_RANGE_MIGRATE_,
+> +                      address, length, node, pid);
+> ...
+> +}
+> Making syscalls from inside of the kernel is strongly discouraged.  I'm
+> not sure what you're trying to do there.  You might want to look at some
+> existing code like sys_mmap() vs do_mmap().
+
+The wrapper functions like this are after an "#if !defined(__KERNEL__)"
+
+As "types.h" also contains "#ifdef __KERNEL__"...
+
+> +#define        __VA(pgdi, pmdi, ptei)  (((pgdi) >> (PAGE_SHIFT - 6)) << =
+61 |           \
+> +                               ((pgdi) & ((PTRS_PER_PGD >> 3) - 1)) << P=
+GDIR_SHIFT |   \
+> +                               (pmdi) << PMD_SHIFT | (ptei) << PAGE_SHIF=
+T)
+>=20
+> There are magic numbers galore in this macro.  Would this work?
+
+Well, I just copied what the offitial "pgd_index()" macro and its fellows d=
+o:
+
+pgd_index (unsigned long address)
+{
+	unsigned long region =3D address >> 61;
+	unsigned long l1index =3D (address >> PGDIR_SHIFT) & ((PTRS_PER_PGD >> 3) =
+- 1);
+
+	return (region << (PAGE_SHIFT - 6)) | l1index;
+}
+
+Me too, I'd like to see more symbolic constants...
+But I don't want to be more catholic than the Pope :-)
+
+> #define __VA(pgdi, pmdi, ptei)  ((pgdi)*PGDIR_SIZE + \
+>                                  (pmdi)*PMD_SIZE +   \
+>                                  (ptei)*PAGE_SIZE)
+> If ia64 doesn't have the _SIZE macros, you can just copy them from
+> include/asm-i386/pgtable*.h
+
+Unfortunately, it is not so simple like that.
+We've got 5 user regions out of 8 regions of size of 0x2000000000000
+(don't know how is this called). Only the first 16 Tbytes of each region
+are mapped bye the PGD-PMD-PTE structure. Then we've got a large hole
+that cannot be taken into account by your macro. I.e. we count as
+
+0x000fffffffffffff, 0x2000000000000, ... 0x200fffffffffffff, 0x4000000000000
+
+Apart from using some nice macros with speaking names instead of "<< 61",
+I cannot see any simpler way for the conversion (as far as IA64 is concerne=
+d).
+
+> -- 2.6.4.ref/mm/rmap.c Tue Mar 16 10:18:17 2004
+> +++ 2.6.4.mig4/mm/rmap.c        Thu Mar 25 09:00:13 2004
+> ...
+> -struct pte_chain {
+> -       unsigned long next_and_idx;
+> -       pte_addr_t ptes[NRPTE];
+> -} ____cacheline_aligned;-- 2.6.4.ref/include/asm-ia64/rmap-locking.h
+>=20
+> Exposing the VM internals like that probably isn't going to be
+> acceptable.  Why was this necessary?
+
+Previously, I was more ambitious, and wanted to handle the not direct
+mapped pages, too. I'll put back where it was.
+
+For the rest: it's YES.
+
+> There don't appear to be any security checks in your syscall.  Should
+> all users be allowed to migrate memory around at will from any pid?
+
+Well, who makes migrate someone else, cannot read / write the victim's data,
+nor can break it. For more security, I can add a something like whoever can
+kill an application, s/he can migrate it, too.
+
+> By not modifying a single line in the existing VM path, your patch
+> simply duplicates functionality from that existing code, which I'm not
+> sure is any better. =20
+
+> I think there's a lot of commonality with what the swap code, NUMA page
+> migration, and memory removal have to do.  However, none of them share
+> any code today.  I think all of the implementations could benefit from
+> making them a bit more generic.=20
+
+I can agree on not doubling code. I can give a try to the code written by
+Hirokazu Takahashi and see if it is sufficiently efficient for me.
+
+Thanks,
+
+Zolt=E1n
