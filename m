@@ -1,26 +1,18 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 22 Oct 2002 01:30:49 +0000
-Subject: [Linux-ia64] Re: PCI hotplug changes for 2.5.39 or later
-Message-Id: <marc-linux-ia64-105590709805204@msgid-missing>
+From: "dai yiyang" <daiyiyang@hotmail.com>
+Date: Mon, 28 Oct 2002 00:54:18 +0000
+Subject: [Linux-ia64] Cross compile help!
+Message-Id: <marc-linux-ia64-105590709805267@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709805195@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709805195@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 18 Oct 2002 04:10:56 -0700, "Lee, Jung-Ik" <jung-ik.lee@intel.com> said:
-
-  JI> The following patch fixes ia64 kernel dump on Hot-Add of PCI
-  JI> bridge cards.  pcibios_fixup_bus(); pci_do_scan_bus(); on
-  JI> Hot-Add of bridge adapter;
-
-The patch was broken because your mailer wrapped long lines (the
-"pcibios_fixup_pbus_ranges() declaration got wrapped).  I fixed this
-by hand, but please make sure this won't happen again in the future.
-
-Thanks,
-
-	--david
-
+SGkgYWxsOgoKICAgSSBoYXZlIHN1Y2Nlc3NlZCBidWlsZCBpYTY0IGxpbnV4IGtlcm5lbCB1bmRl
+ciBpYTMyIHBsYXRmb3JtICwgYnV0IEkgY2FuIApub3QgYWRkIHRoZSBkZWJ1ZyBpbmZvcm1hdGlv
+biBpbnRvIHRoZSBrZXJuZWwgLCBJdCBzZWVtcyB0aGUgL3NpYm4va2FsbHN5bXMgCm9ubHkgc3Vw
+cG9ydCBsb2NhbCBhcmNoaXRlY3R1cmUsCiAgIEhvdyB0byBtYWtlIGEgaWE2NCBrZXJuZWwgd2l0
+aCBkZWJ1ZyBpbmZvbWF0aW9uIHVuZGVyIGNyb3NzIGNvbXBpbGUgCmVudmlyb21lbnQgPwoKClRo
+YW5rcywKRGFpWWl5YW5nCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX18Kw+K30c/C1NggTVNOIEV4cGxvcmVyOiAgaHR0cDov
+L2V4cGxvcmVyLm1zbi5jb20vbGNjbi8gCgoK
