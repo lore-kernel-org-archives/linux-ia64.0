@@ -1,39 +1,62 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 23 Aug 2004 17:45:23 +0000
-Subject: RE: IA64 bitkeeper trees (again)
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01E5EC56@scsmsx401.amr.corp.intel.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Wed, 25 Aug 2004 06:28:35 +0000
+Subject: Re: IA64 bitkeeper trees (again)
+Message-Id: <20040825062835.GA6900@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="mYCpIKhGyMATD0i+"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4123D3A2.2050609@intel.com>
 In-Reply-To: <4123D3A2.2050609@intel.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ian Wienand wrote:
->On Wed, Aug 18, 2004 at 10:09:38PM +0000, Tony Luck wrote:
->> The actual names all have "linux-ia64-" prepended.  E.g.
->> 
->>   http://lia64.bkbits.net/linux-ia64-test-2.6.9
->> 
->> The names of the trees all change when Linus makes a release.
->
->I don't know how or if it's even possible, but is there some way to
->make a linux-ia64-test-latest symbolic link (or something) that you
->can pull from to always have the latest testing tree?
 
-It wasn't possible last week ... but "ask and ye shall receive". Larry
-McVoy added a symlink feature to the bkbits.net admin interface for us
-(Thanks Larry).
+--mYCpIKhGyMATD0i+
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-So what would you like the names of the symlinks to be?  I'm thinking
-of:
+On Mon, Aug 23, 2004 at 10:45:23AM -0700, Luck, Tony wrote:
+> So what would you like the names of the symlinks to be?  I'm thinking
+> of:
+>=20
+>    linux-ia64-release-2.6.8.1 -> release-2.6
+>    linux-ia64-test-2.6.8.1    -> test-2.6
+>    linux-ia64-release-2.6.9   -> release-2.6.next
+>    linux-ia64-test-2.6.9      -> test-2.6.next
+>=20
+> but I'd be happy to entertain better suggstions.
 
-   linux-ia64-release-2.6.8.1 -> release-2.6
-   linux-ia64-test-2.6.8.1    -> test-2.6
-   linux-ia64-release-2.6.9   -> release-2.6.next
-   linux-ia64-test-2.6.9      -> test-2.6.next
+Just an idea (and I may have misunderstood the process); why not name
+the trees for the people they are going to, for example
 
-but I'd be happy to entertain better suggstions.
+test-2.6         -> linux-ia64-tony (the main IA64 development area)
+test-2.6.next    -> linux-ia64-to-mm (patches waiting to go to -mm series)
+release-2.6.next -> linux-ia64-to-linus (patches waiting to go to official =
+kernel)
 
--Tony
+I'm still not sure where the other release tree fits in all of this
+though.=20
+
+Under this my thinking was a developer sends (non-trivial) patch that
+first goes into -tony where it makes the core ia64 developers happy,
+gets moved into -mm where it is picked up and used by a wider
+audience, eventually it gets put into -linus where it is moved into
+the main kernel.  Smaller patches, like a compile fix or whatever, go
+straight from -tony to -linus?
+
+-i
+
+--mYCpIKhGyMATD0i+
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFBLDGTWDlSU/gp6ecRAoRhAJ909RaZaYpgIiGXH74BGFDgI23nrgCg3JTT
+zzrLiDQHL+Bg2fNhSb1f1eg=
+=UsJ6
+-----END PGP SIGNATURE-----
+
+--mYCpIKhGyMATD0i+--
