@@ -1,7 +1,7 @@
-From: Dan Pop <Dan.Pop@cern.ch>
-Date: Tue, 06 Nov 2001 22:03:06 +0000
-Subject: RE: [Linux-ia64] cpuinfo family changed in 2.4.7
-Message-Id: <marc-linux-ia64-105590698805451@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Tue, 06 Nov 2001 23:22:19 +0000
+Subject: Re: [Linux-ia64] cpuinfo family changed in 2.4.7
+Message-Id: <marc-linux-ia64-105590698805452@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805447@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805447@msgid-missing>
@@ -10,21 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>Hasn't Intel officially renamed it IPF?
 
-On Tue, 6 Nov 2001, David Mosberger wrote:
+No.  IA-32 is to Pentium as IA-64 is to Itanium.  The first one is the
+architecture name, the second one is Intel's proprietary implementation of
+that architecture.
 
-> >>>>> On Tue, 6 Nov 2001 14:42:35 -0600, "Donny Cooper" <dcooper@atcc.necsys.com> said:
-> 
->   Donny> David, What about the recently added "arch" field for 2.4.7,
->   Donny> will it stay consistent in the kernel throughout each chip
->   Donny> generation for Intel 64-bit.
-> 
->   Donny> Currently --> arch : IA-64
-> 
-> Yup, it's hardcoded and I am not planing on changing it.
+Intel marketing will tell you that only the terms Pentium and Itanium (IPF)
+are acceptable, but you have to consider the source.  Intel doesn't make
+money when someone buys a generic IA-32 chip, like the AMD Athlon.  They
+only make money if someone buys an Intel branded chip like the Pentium.
+So Intel wants you to use the term Pentium always, so that more people will
+be encouraged to buy Pentiums.  Likewise for Itanium.
 
-Hasn't Intel officially renamed it IPF?
+GNU/Linux however supports all IA-32 chips, whether Intel makes them or not,
+so we want to use generic architecture names like x86 and IA-32 instead of
+Pentium.  Likewise, we will support all IA-64 chips, whether Intel makes them
+or not, so IA-64 is preferable to Itanium and IPF when talking about the
+architecture.
 
-Dan
-
+Jim
 
