@@ -1,29 +1,30 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 23 Sep 2004 18:31:32 +0000
-Subject: Re: 2.6.9-rc2-mm2
-Message-Id: <20040923113132.5dd5813b.akpm@osdl.org>
+From: alext@fc.hp.com (Alex Tsariounov)
+Date: Mon, 27 Sep 2004 16:24:18 +0000
+Subject: CPU utilization measurement tools/methods for network performance tests
+Message-Id: <20040927162418.GA2524@fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F020ED221@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F020ED221@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: jbarnes@engr.sgi.com, peterc@gelato.unsw.edu.au, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-"Luck, Tony" <tony.luck@intel.com> wrote:
->
-> >It looks like Tony is wearing the BPB.  The below patch from
->                                    ^^^?
-> Huh?  I can tell from context that this is all my fault (to which
-> I agree; it is), but what does "BPB" stand for?
+Hello:
 
-brown paper bag
+I am currently using netperf to measure performance of a couple of
+network drivers on ia64/2.6.7 and am having a trying time measuring
+CPU utilization.
 
-> I'll take a look at this.
+Does anyone have a dependable tool or method to measure CPU
+utilization, especially over a minute/two-minute-long measurement
+interval?
 
-Thanks.
+I'd like to get a little more accurate and dependable result than just
+eye-balling top for the run.  Also, something that does not interfere
+with the test would be important.
 
->  Can you post the .config that you are using.
+The CPU utilization measurement methods provided by netperf produce
+different results depending on which one is used and I'd like to use a
+secondary method to confirm them.
 
-http://www.zip.com.au/~akpm/linux/patches/stuff/config-ia64
+Thank you,
+Alex
