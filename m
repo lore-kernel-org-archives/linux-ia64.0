@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Tue, 11 Nov 2003 00:25:27 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 11 Nov 2003 00:59:03 +0000
 Subject: Re: [PATCH] enable platform dependent MCA handling
-Message-Id: <marc-linux-ia64-106851034925692@msgid-missing>
+Message-Id: <marc-linux-ia64-106851237427467@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106850974125144@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106850974125144@msgid-missing>
@@ -10,16 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 11 Nov 2003 09:12:20 +0900, 
-Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> wrote:
->This is a patch that makes #ifdef mechanism in /arch/ia64/kernel/mca.c
->to work properly, and enable switching platform dependent error handling.
->For example, this supports OS to have an OEM call-back function for MCAs.
->Since this is a roughly scratched prototype, please give me your comments.
+>>>>> On Tue, 11 Nov 2003 09:12:20 +0900, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> said:
 
-Defining any platform specific handlers at compile time is a problem for
-generic kernels.  If you want a generic ia64 kernel (CONFIG_IA64_GENERIC=y)
-to run on any hardware then all the platform specific code should be
-chosen at run time, not at compile time.  That is, use ia64_platform_is()
-to select platform specific code at run time.
+  Hidetoshi> Hi.  This is a patch that makes #ifdef mechanism in
+  Hidetoshi> /arch/ia64/kernel/mca.c to work properly, and enable
+  Hidetoshi> switching platform dependent error handling.  For
+  Hidetoshi> example, this supports OS to have an OEM call-back
+  Hidetoshi> function for MCAs.  Since this is a roughly scratched
+  Hidetoshi> prototype, please give me your comments.
 
+I think you ought to be machvecs for this purpose.
+
+	--david
