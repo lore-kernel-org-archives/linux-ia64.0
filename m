@@ -1,103 +1,46 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Fri, 20 Apr 2001 16:47:01 +0000
-Subject: [Linux-ia64] Oops, here is the test program
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Wed, 18 Apr 2001 19:24:25 +0000
+Subject: [Linux-ia64] gnu-efi-2.0 initrd fix
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="wac7ysb48OaltWcw"
-Message-Id: <marc-linux-ia64-105590693005443@msgid-missing>
+Content-Type: multipart/mixed; boundary="qcHopEYAB45HaUaB"
+Message-Id: <marc-linux-ia64-105590693005425@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
---wac7ysb48OaltWcw
+--qcHopEYAB45HaUaB
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Haven't had my morning caffeine yet. ;-)
+Hi All,
+
+I discovered that there was a bug with the code dealing with initrd in the new
+elilo released as part of gnu-efi-2.0. The ramdisk would get freed by the kernel
+right at initialization time before ever being used because the EFI memory
+type used was wrong. The attached patch fixes the problem.
+
+Please try it out and let me know how it goes.
+
+Thanks.
 
 -- 
-Mike Madore
-Software Engineer
-TurboLinux, Inc.
+-Stephane
 
---wac7ysb48OaltWcw
+--qcHopEYAB45HaUaB
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="test.c"
+Content-Disposition: attachment; filename="gnu-efi-2.0-initrd.diff"
 
-#include <stdio.h>
-#include <string.h>
-#include <sys/io.h>
-#include <asm/vm86.h>
+diff -urN gnu-efi-2.0-old/elilo/alloc.c gnu-efi-2.0/elilo/alloc.c
+--- gnu-efi-2.0-old/elilo/alloc.c	Wed Apr  4 22:20:33 2001
++++ gnu-efi-2.0/elilo/alloc.c	Wed Apr 18 12:16:57 2001
+@@ -228,7 +228,7 @@
+ alloc_initrd(EFI_PHYSICAL_ADDRESS start_addr, UINTN pgcnt)
+ {
+ 
+-	if (alloc_pages(pgcnt, EfiLoaderCode, AllocateAddress, start_addr) == 0) return -1;
++	if (alloc_pages(pgcnt, EfiRuntimeServicesCode, AllocateAddress, start_addr) == 0) return -1;
+ 
+ 	initrd_addr  = start_addr;
+ 	initrd_pgcnt = pgcnt;
 
-#ifdef USE_LIBC_VM86
-#include <sys/vm86.h>
-#endif
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <unistd.h>
-#include <fcntl.h>
-
-#define REAL_MEM_BASE 	((void *)0x10000)
-#define REAL_MEM_SIZE 	0x10000
-#define REAL_MEM_BLOCKS 	0x100
-
-
-struct mem_block
-	{
-	unsigned int size : 20;
-	unsigned int free : 1;
-	};
-
-
-static struct
-	{
-	int ready;
-	int count;
-	struct mem_block blocks[REAL_MEM_BLOCKS];
-	} mem_info = { 0 };
-
-static int
-real_mem_init(void)
-	{
-	void *m;
-	int fd_zero;
-
-	if (mem_info.ready)
-		return 1;
-
-	fd_zero = open("/dev/zero", O_RDONLY);
-	if (fd_zero == -1)
-		{
-		perror("open /dev/zero");
-		return 0;
-		}
-
-	m = mmap((void *)REAL_MEM_BASE, REAL_MEM_SIZE,
-	 PROT_READ | PROT_WRITE | PROT_EXEC,
-	 MAP_FIXED | MAP_PRIVATE, fd_zero, 0);
-
-	if (m == (void *)-1)
-		{
-		perror("mmap /dev/zero");
-		close(fd_zero);
-		return 0;
-		}
-
-	mem_info.ready = 1;
-	mem_info.count = 1;
-	mem_info.blocks[0].size = REAL_MEM_SIZE;
-	mem_info.blocks[0].free = 1;
-        
-	return 1;
-	}
-
-
-int main( void )
-{
-	real_mem_init();
-	return 0;
-}
-
-
---wac7ysb48OaltWcw--
+--qcHopEYAB45HaUaB--
 
