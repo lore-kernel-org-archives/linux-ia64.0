@@ -1,8 +1,10 @@
 From: "Heck, Steve" <Steve.Heck@am.sony.com>
-Date: Wed, 05 Jul 2000 23:18:02 +0000
+Date: Wed, 05 Jul 2000 23:21:26 +0000
 Subject: [Linux-ia64] Porting the 32 Bit SCSI Tape Driver (ST.C) to IA-64?
-Message-Id: <marc-linux-ia64-105590678205186@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205187@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205186@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205186@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
