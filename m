@@ -1,69 +1,18 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 26 Sep 2003 22:00:50 +0000
-Subject: Hugetlbf segv on invalid mount option and mem leak
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C38479.A59D92F4"
-Message-Id: <marc-linux-ia64-106461366326303@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 05 Sep 2003 14:17:42 +0000
+Subject: NFS server in 2.6.0-test4
+Message-Id: <marc-linux-ia64-106277249713529@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
 
-------_=_NextPart_001_01C38479.A59D92F4
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: quoted-printable
+FYI, nfsd is broken on ia64 in 2.6.0-test4.  NeilBrown's looking at it,
+but I just wanted to warn anyone else who might run into it.
 
-Here is a patch that fixes a rather nasty bug in hugetlbfs.  If root
-tries to mount a hugetlbfs with invalid mount option,
-hugetlbfs_fill_super incorrectly returns error code instead of NULL on
-couple error conditions, causing generic vfs layer to segfault and took
-some semaphore with it, the end result is kernel hang on any subsequent
-file system mount/unmount.  There are some other cases that has memory
-leak upon error conditions.
-
-The first problem is 2.4 specific, while memleak problem exist in both
-2.4 and 2.6.
-Bjorn, again, would you please merge in your 2.4 tree?  I'll push the
-rest for 2.6.
-
-- Ken
-
-------_=_NextPart_001_01C38479.A59D92F4
-Content-Type: application/octet-stream;
-	name="hugetlbfs-memleak.patch"
-Content-Transfer-Encoding: base64
-Content-Description: hugetlbfs-memleak.patch
-Content-Disposition: attachment;
-	filename="hugetlbfs-memleak.patch"
-
-ZGlmZiAtTnVycCAyLjQuMjMtcHJlNS9mcy9odWdldGxiZnMvaW5vZGUuYyAyLjQuMjMtcHJlNS5r
-ZW4vZnMvaHVnZXRsYmZzL2lub2RlLmMKLS0tIDIuNC4yMy1wcmU1L2ZzL2h1Z2V0bGJmcy9pbm9k
-ZS5jCUZyaSBTZXAgMjYgMTQ6NDc6MDMgMjAwMworKysgMi40LjIzLXByZTUua2VuL2ZzL2h1Z2V0
-bGJmcy9pbm9kZS5jCUZyaSBTZXAgMjYgMTQ6Mjg6MjEgMjAwMwpAQCAtNjIyLDIzICs2MjIsMjEg
-QEAgaHVnZXRsYmZzX2ZpbGxfc3VwZXIoc3RydWN0IHN1cGVyX2Jsb2NrIAogewogCXN0cnVjdCBp
-bm9kZSAqIGlub2RlOwogCXN0cnVjdCBkZW50cnkgKiByb290OwotCWludCByZXQ7CiAJc3RydWN0
-IGh1Z2V0bGJmc19jb25maWcgY29uZmlnOwogCXN0cnVjdCBodWdldGxiZnNfc2JfaW5mbyAqc2Jp
-bmZvOwogCi0Jc2JpbmZvID0ga21hbGxvYyhzaXplb2Yoc3RydWN0IGh1Z2V0bGJmc19zYl9pbmZv
-KSwgR0ZQX0tFUk5FTCk7Ci0JaWYgKCFzYmluZm8pCi0JCXJldHVybiAtRU5PTUVNOwotCXNiLT51
-LmdlbmVyaWNfc2JwID0gc2JpbmZvOwotIAogCWNvbmZpZy5ucl9ibG9ja3MgPSAtMTsgLyogTm8g
-bGltaXQgb24gc2l6ZSBieSBkZWZhdWx0LiAqLwogCWNvbmZpZy5ucl9pbm9kZXMgPSAtMTsgLyog
-Tm8gbGltaXQgb24gbnVtYmVyIG9mIGlub2RlcyBieSBkZWZhdWx0LiAqLwogCWNvbmZpZy51aWQg
-PSBjdXJyZW50LT5mc3VpZDsKIAljb25maWcuZ2lkID0gY3VycmVudC0+ZnNnaWQ7CiAJY29uZmln
-Lm1vZGUgPSAwNzU1OwotCXJldCA9IGh1Z2V0bGJmc19wYXJzZV9vcHRpb25zKGRhdGEsICZjb25m
-aWcpOwotCWlmIChyZXQpCi0JCXJldHVybiByZXQ7CisJaWYgKGh1Z2V0bGJmc19wYXJzZV9vcHRp
-b25zKGRhdGEsICZjb25maWcpKQorCQlyZXR1cm4gTlVMTDsKKworCXNiaW5mbyA9IGttYWxsb2Mo
-c2l6ZW9mKHN0cnVjdCBodWdldGxiZnNfc2JfaW5mbyksIEdGUF9LRVJORUwpOworCWlmICghc2Jp
-bmZvKQorCQlyZXR1cm4gTlVMTDsKKwlzYi0+dS5nZW5lcmljX3NicCA9IHNiaW5mbzsKIAogCXNw
-aW5fbG9ja19pbml0KCZzYmluZm8tPnN0YXRfbG9jayk7CiAJc2JpbmZvLT5tYXhfYmxvY2tzID0g
-Y29uZmlnLm5yX2Jsb2NrczsKQEAgLTY1MiwxNSArNjUwLDE4IEBAIGh1Z2V0bGJmc19maWxsX3N1
-cGVyKHN0cnVjdCBzdXBlcl9ibG9jayAKIAlpbm9kZSA9IGh1Z2V0bGJmc19nZXRfaW5vZGUoc2Is
-IGNvbmZpZy51aWQsIGNvbmZpZy5naWQsCiAJCQkJU19JRkRJUiB8IGNvbmZpZy5tb2RlLCAwKTsK
-IAlpZiAoIWlub2RlKQotCQlyZXR1cm4gTlVMTDsKKwkJZ290byBvdXRfZnJlZTsKIAogCXJvb3Qg
-PSBkX2FsbG9jX3Jvb3QoaW5vZGUpOwogCWlmICghcm9vdCkgewogCQlpcHV0KGlub2RlKTsKLQkJ
-cmV0dXJuIE5VTEw7CisJCWdvdG8gb3V0X2ZyZWU7CiAJfQogCXNiLT5zX3Jvb3QgPSByb290Owog
-CXJldHVybiBzYjsKK291dF9mcmVlOgorCWtmcmVlKHNiaW5mbyk7CisJcmV0dXJuIE5VTEw7CiB9
-CiAKIHN0YXRpYyBERUNMQVJFX0ZTVFlQRShodWdldGxiZnNfZnNfdHlwZSwgImh1Z2V0bGJmcyIs
-IGh1Z2V0bGJmc19maWxsX3N1cGVyLCBGU19MSVRURVIpOwo=
-
-------_=_NextPart_001_01C38479.A59D92F4--
+-- 
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
