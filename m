@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 14 May 2003 18:42:51 +0000
+Date: Wed, 14 May 2003 23:00:58 +0000
 Subject: Re: [Linux-ia64] Parallel make
-Message-Id: <marc-linux-ia64-105590723705805@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705809@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705774@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705774@msgid-missing>
@@ -10,20 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 14 May 2003 19:48:46 +0200, Sam Ravnborg <sam@ravnborg.org> said:
+>>>>> On Wed, 14 May 2003 10:42:14 +0200, Eric Piel <Eric.Piel@Bull.Net> said:
 
-  Sam> On Wed, May 14, 2003 at 01:38:23PM +1000, Ian Wienand wrote:
-  >> When I try a parallel make, make seems to get it's dependencies
-  >> out of order.
+  Eric> David Mosberger wrote:
 
-  Sam> Could you try the following patch.
+  >> BTW: have you gotten any feedback regarding the timer bug you
+  >> reported?  I think the same (rounding) bug may have broken the
+  >> profil() call in libc.
 
-  Sam> It does: 1) Remove superflous all: target, covered by the main
-  Sam> Makefile 2) .PHONY shall only list non-file targets 3) Use make
-  Sam> $@, $< where appropriate 4) For the offset file do not
-  Sam> duplicate dependencies from main Makefile
+  Eric> Yes, I'm working with George Anzinger on this issue. For now a
+  Eric> "workaround" is to revert the functions
+  Eric> timespec_to_jiffies()...jiffies_to_timeval() in
+  Eric> include/linux/time.h and tstojiffie() in posix-timers.c to the
+  Eric> versions of 2.5.67 .
 
-Very nice.  Seems to do the trick for me.
+That works for me.  Undoing the time.h changes does make profil() work
+again.
+
+Thanks,
 
 	--david
 
