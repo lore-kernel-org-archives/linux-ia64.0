@@ -1,40 +1,41 @@
-From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Date: Fri, 05 Nov 2004 05:56:09 +0000
-Subject: [PATCH] Fix duplicate config for IA64_MCA_RECOVERY
-Message-Id: <20041105145609.0310d9ee.tokunaga.keiich@jp.fujitsu.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 17 Nov 2004 19:33:57 +0000
+Subject: [PATCH 2.6.10-rc2-mm1] Fix ia64 flush_tlb_page build error
+Message-Id: <200411171233.57689.bjorn.helgaas@hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_le6mB9jUnagidf7"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+--Boundary-00=_le6mB9jUnagidf7
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com, akpm@osdl.org
-Cc: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Content-Disposition: inline
 
-Here is a small bug fix against 2.6.10-rc1-mm2.
+Fix ia64 build error: implicit declaration of function `flush_tlb_page'
 
-Thanks,
-Keiichiro Tokunaga
+--Boundary-00=_le6mB9jUnagidf7
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="flush_tlb_page-ia64-build-fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="flush_tlb_page-ia64-build-fix.patch"
 
-Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Description:
-Fix duplicate config for IA64_MCA_RECOVERY.
+Fix ia64 build error: implicit declaration of function `flush_tlb_page'
 
----
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
- linux-2.6.10-rc1-mm2-kei/arch/ia64/Kconfig |    3 ---
- 1 files changed, 3 deletions(-)
-
-diff -puN arch/ia64/Kconfig~fix_mca_kconfig arch/ia64/Kconfig
---- linux-2.6.10-rc1-mm2/arch/ia64/Kconfig~fix_mca_kconfig	2004-11-05 14:44:19.861106461 +0900
-+++ linux-2.6.10-rc1-mm2-kei/arch/ia64/Kconfig	2004-11-05 14:45:28.620439785 +0900
-@@ -491,9 +491,6 @@ config COMPAT
- config IA64_MCA_RECOVERY
- 	tristate "MCA recovery from errors other than TLB."
+--- a/mm/mempolicy.c.orig	2004-11-17 10:24:04.538856116 -0700
++++ b/mm/mempolicy.c	2004-11-17 10:42:06.584741299 -0700
+@@ -80,6 +80,7 @@
+ #include <linux/rmap.h>
+ #include <linux/swap.h>
+ #include <asm/pgalloc.h>
++#include <asm/tlbflush.h>
+ #include <asm/uaccess.h>
  
--config IA64_MCA_RECOVERY
--	tristate "MCA recovery from errors other than TLB."
--
- config PERFMON
- 	bool "Performance monitor support"
- 	help
+ static kmem_cache_t *policy_cache;
 
-_
+--Boundary-00=_le6mB9jUnagidf7--
