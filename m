@@ -1,89 +1,39 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Sat, 18 Sep 2004 23:31:29 +0000
-Subject: page fault scalability patch V8: [7/7] atomic pte operations for
-Message-Id: <Pine.LNX.4.58.0409181630480.24054@schroedinger.engr.sgi.com>
+Date: Mon, 20 Sep 2004 15:44:13 +0000
+Subject: Re: page fault scalability patch V8: [7/7] atomic pte operations
+Message-Id: <Pine.LNX.4.58.0409200843570.3633@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
- <20040816143903.GY11200@holomorphy.com>
- <B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com>
- <B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com>
- <B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com>
- <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
- <1094012689.6538.330.camel@gaston> <Pine.LNX.4.58.0409010938200.9907@schroedinger.engr.sgi.com>
- <1094080164.4025.17.camel@gaston> <Pine.LNX.4.58.0409012140440.23186@schroedinger.engr.sgi.com>
- <20040901215741.3538bbf4.davem@davemloft.net>
- <Pine.LNX.4.58.0409020920570.26893@schroedinger.engr.sgi.com>
- <20040902131057.0341e337.davem@davemloft.net>
- <Pine.LNX.4.58.0409021358540.28182@schroedinger.engr.sgi.com>
- <20040902140759.5f1003d5.davem@davemloft.net>
  <B6E8046E1E28D34EB815A11AC8CA312902CD3243@mtv-atc-605e--n.corp.sgi.com>
-In-Reply-To: <B6E8046E1E28D34EB815A11AC8CA312902CD3243@mtv-atc-605e--n.corp.sgi.com>
+ <Pine.LNX.4.58.0409181630480.24054@schroedinger.engr.sgi.com>
+ <200409191435.09445.vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200409191435.09445.vda@port.imtp.ilyichevsk.odessa.ua>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: "David S. Miller" <davem@davemloft.net>, benh@kernel.crashing.org, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, ak@muc.de, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Cc: akpm@osdl.org, "David S. Miller" <davem@davemloft.net>, benh@kernel.crashing.org, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, ak@muc.de, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
 
-Changelog
-	* Provide atomic pte operations for s390
+On Sun, 19 Sep 2004, Denis Vlasenko wrote:
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+> On Sunday 19 September 2004 02:31, Christoph Lameter wrote:
+> > +static inline int
+> > +pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *page)
+> > +{
+> > +	int rc;
+> > +	spin_lock(&mm->page_table_lock);
+> > +
+> > +	rc=pte_same(*pmd, _PAGE_INVALID_EMPTY);
+> > +	if (rc) pmd_populate(mm, pmd, page);
+> > +	spin_unlock(&mm->page_table_lock);
+> > +	return rc;
+> > +}
+>
+> Considering that spin_lock and spin_unlock are inline functions,
+> this function may end up being large.
+>
+> I didn't see a single non-inlined function in these patches yet.
+> Please think about code size.
 
-Index: linus/include/asm-s390/pgtable.h
-=================================--- linus.orig/include/asm-s390/pgtable.h	2004-09-18 14:25:23.000000000 -0700
-+++ linus/include/asm-s390/pgtable.h	2004-09-18 14:47:30.000000000 -0700
-@@ -783,6 +783,19 @@
-
- #define kern_addr_valid(addr)   (1)
-
-+/* Atomic PTE operations */
-+#define __HAVE_ARCH_ATOMIC_TABLE_OPS
-+
-+static inline pte_t ptep_xchg(struct mm_struct *mm, unsigned long address, pte_t *ptep, pte_t pteval)
-+{
-+	return __pte(xchg(ptep, pte_val(pteval)));
-+}
-+
-+static inline int ptep_cmpxchg (struct mm_struct *mm, unsigned long address, pte_t *ptep, pte_t oldval, pte_t newval)
-+{
-+	return cmpxchg(ptep, pte_val(oldval), pte_val(newval)) = pte_val(oldval);
-+}
-+
- /*
-  * No page table caches to initialise
-  */
-Index: linus/include/asm-s390/pgalloc.h
-=================================--- linus.orig/include/asm-s390/pgalloc.h	2004-09-18 14:25:23.000000000 -0700
-+++ linus/include/asm-s390/pgalloc.h	2004-09-18 14:47:30.000000000 -0700
-@@ -97,6 +97,10 @@
- 	pgd_val(*pgd) = _PGD_ENTRY | __pa(pmd);
- }
-
-+static inline int pgd_test_and_populate(struct mm_struct *mm, pdg_t *pgd, pmd_t *pmd)
-+{
-+	return cmpxchg(pgd, _PAGE_TABLE_INV, _PGD_ENTRY | __pa(pmd)) = _PAGE_TABLE_INV;
-+}
- #endif /* __s390x__ */
-
- static inline void
-@@ -119,6 +123,18 @@
- 	pmd_populate_kernel(mm, pmd, (pte_t *)((page-mem_map) << PAGE_SHIFT));
- }
-
-+static inline int
-+pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *page)
-+{
-+	int rc;
-+	spin_lock(&mm->page_table_lock);
-+
-+	rc=pte_same(*pmd, _PAGE_INVALID_EMPTY);
-+	if (rc) pmd_populate(mm, pmd, page);
-+	spin_unlock(&mm->page_table_lock);
-+	return rc;
-+}
-+
- /*
-  * page table entry allocation/free routines.
-  */
+This function is only used once.
 
