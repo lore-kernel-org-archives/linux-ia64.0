@@ -1,25 +1,21 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 04 Sep 2001 17:09:03 +0000
-Subject: Re: [Linux-ia64] Proc num on an MP plateform
-Message-Id: <marc-linux-ia64-105590698805118@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Fri, 07 Sep 2001 20:45:51 +0000
+Subject: [Linux-ia64] Re: AT Keyboard not present?
+Message-Id: <marc-linux-ia64-105590698805145@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805116@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805116@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 04 Sep 2001 15:01:28 +0200, gerard <gerard@mylos.grenoble.hp.com> said:
+KOCHI Takayoshi (t-kouchi@mvf.biglobe.ne.jp) said: 
+> It was a BigSur with a PS/2 keyboard and a PS/2 mouse.
+> I didn't configure usb driver in the kernel nor load
+> as a module.
 
-  Gerard> Hi I am working on a MP system and I need to know on which
-  Gerard> proc num I am running, is there a macro/function call to do
-  Gerard> this?(kernel mode).
+I've noticed some oddness with the keyboard controller on my BigSur;
+for whatever reason, on a cold boot, one keyboard I have needs replugged
+for it to work. The same keyboard works fine on other machines.
 
-Depends on what number you want.  If you want the SAPIC id,
-ia64_get_lid() is the way to go.  If you just want a unique number,
-you can use smp_processor_id().  If you want a number in the range
-from 0..smp_num_cpus-1, you can use cpu_number_map(smp_processor_id()).
-
-	--david
+Bill
 
