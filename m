@@ -1,32 +1,64 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Mon, 20 Sep 2004 16:25:20 +0000
-Subject: PATCH-ACPI based CPU hotplug[0/6]
-Message-Id: <20040920092520.A14208@unix-os.sc.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 08 Sep 2004 10:02:52 +0000
+Subject: to .nta or not?
+Message-Id: <16702.55500.416678.727769@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Len Brown <len.brown@intel.com>, ACPI Developer <acpi-devel@lists.sourceforge.net>, LHNS list <lhns-devel@lists.sourceforge.net>
-Cc: Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-Hi Len,
-  I am resending the following set of patches which support ACPI based physical 
-CPU hotplug for IA64 platform, after having including all the community 
-feedback(of course I got very thin feedback) which I got on 
-acpi-devel mailing list.
+A recent discussion initiated among Dave Miller, Linus and a couple of
+others made me wonder if the .nta qualifiers in the clear_page()
+routine are really a win.  Interestingly, on a 2-way 1.5GHz/6M
+Madison, removing the .nta _increases_ the time spent in clear_page()
+(as you'd expect) but _overall_ it results in faster linux kernel
+compile-times.  It would be interesting to try this on a wider range
+of machines and workloads, so I attached the patch below.  If a large
+number of workloads and machines can benefit from the (efficient)
+cache-warmup done by clear_page(), perhaps we should consider removing
+the ".nta"s for good.
 
-This set of patches has been tested on linux-2.6.9-rc2. Also this time I am 
-cc'ing ia64/lkml mailing lists as patch 3/6 and patch 4/6 touches arch specific files.
+If you have an interesting workload, please give it a try and post the
+results (relative numbers are OK if you're leery to post absolute
+results).
 
-Details:(Applies cleanly onto linux-2.6.9-rc2)
-Patch[1/6]- Core ACPI enhancement support
-Patch[2/6]- ACPI hotplug eject interface support
-Patch[3/6]- Arch specific support for mapping lsapic to cpu
-Patch[4/6]- Dynamic cpu registration and unregistration support
-Patch[5/6]- Extend ACPI processor driver to support Hotplug
-Patch[6/6]- ACPI container driver(New driver)
+	--david
 
-Please consider applying this patch onto your test tree.
-
-Thanks,
-Anil S Keshavamurthy
+=== arch/ia64/lib/clear_page.S 1.6 vs edited ==--- 1.6/arch/ia64/lib/clear_page.S	2002-03-11 19:32:00 -08:00
++++ edited/arch/ia64/lib/clear_page.S	2004-08-16 05:24:05 -07:00
+@@ -43,7 +43,7 @@
+ 	adds dst1 = 16, in0
+ 	adds dst2 = 32, in0
+ 	;;
+-.fetch:	stf.spill.nta [dst_fetch] = f0, L3_LINE_SIZE
++.fetch:	stf.spill [dst_fetch] = f0, L3_LINE_SIZE
+ 	adds dst3 = 48, in0		// executing this multiple times is harmless
+ 	br.cloop.sptk.few .fetch
+ 	;;
+@@ -59,17 +59,17 @@
+ 	;;
+ #else
+ 	// Optimized for McKinley
+-1:	stf.spill.nta [dst1] = f0, 64
+-	stf.spill.nta [dst2] = f0, 64
+-	stf.spill.nta [dst3] = f0, 64
+-	stf.spill.nta [dst4] = f0, 128
++1:	stf.spill [dst1] = f0, 64
++	stf.spill [dst2] = f0, 64
++	stf.spill [dst3] = f0, 64
++	stf.spill [dst4] = f0, 128
+ 	cmp.lt p8,p0=dst_fetch, dst_last
+ 	;;
+-	stf.spill.nta [dst1] = f0, 64
+-	stf.spill.nta [dst2] = f0, 64
++	stf.spill [dst1] = f0, 64
++	stf.spill [dst2] = f0, 64
+ #endif
+-	stf.spill.nta [dst3] = f0, 64
+-(p8)	stf.spill.nta [dst_fetch] = f0, L3_LINE_SIZE
++	stf.spill [dst3] = f0, 64
++(p8)	stf.spill [dst_fetch] = f0, L3_LINE_SIZE
+ 	br.cloop.sptk.few 1b
+ 	;;
+ 	mov ar.lc = saved_lc		// restore lc
