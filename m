@@ -1,34 +1,56 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 12 Aug 2002 22:42:24 +0000
-Subject: Re: [Linux-ia64] test patch relative to 2.5.30
-Message-Id: <marc-linux-ia64-105590701905935@msgid-missing>
+From: Hanna Linder <hannal@us.ibm.com>
+Date: Tue, 20 Aug 2002 18:44:47 +0000
+Subject: [Linux-ia64] Re: PCI Cleanup (fwd)
+Message-Id: <marc-linux-ia64-105590701905960@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905931@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905931@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 12 Aug 2002 13:20:48 -0700, Kimio Suganuma <k-suganuma@mvj.biglobe.ne.jp> said:
+Forgot to cc the ia64 mailing list.
 
-  Kimio> Hi David, I updated the boot-change patch for 2.5.30.
-  Kimio> Curious to say, the kernel with the patch worked fine on two
-  Kimio> way Bigsur, while the original kernel caused panic at
-  Kimio> booting.
+Thanks.
 
-Thanks for the patch, I applied it now.
+Hanna
 
-  Kimio> Why don't you take it into your tree? :-)
+---------- Forwarded Message ----------
+Date: Tuesday, August 20, 2002 11:30:58 -0700
+From: Hanna Linder <hannal@us.ibm.com>
+To: davidm@hpl.hp.com
+Subject: Re: PCI Cleanup
 
-It's simply a matter of finding time.  Doing the DRM update was a big
-effort for me because I'm not all that familiar with AGP, GART, etc.,
-yet it's important to clean it up so we can get it into the mainline
-of the kernel (otherwise, it will keep eating small bits of my time
-each time a new kernel is released).  Of course, having 2.5.29 corrupt
-files on some of my IDE disks didn't help either.  Anyhow, I think
-we're very close now to having DRM out of the way (only one open issue
-is left over).
 
-	--david
+Thanks for your quick reply. I found your 2.5.30 test patch and 
+I will give it a try on a system here. They are all MP but I
+will configure it as UP.
+
+Thanks,
+
+Hanna
+
+--On Tuesday, August 20, 2002 11:00:13 -0700 David Mosberger <davidm@napali.hpl.hp.com> wrote:
+
+>>>>>> On Tue, 20 Aug 2002 10:58:35 -0700, Hanna Linder <hannal@us.ibm.com> said:
+> 
+>   Hanna> I have not compiled or run this code. The most recent ia64
+>   Hanna> port for 2.5 is 2.5.18 if there is one for 2.5.31 please let
+>   Hanna> me know. Otherwise, if there are any problems let me know and
+>   Hanna> I will be happy to resubmit.
+> 
+> For later patches, please see the test-patches that I sent on the
+> linux-ia64 mailing list (and please cc that list for matters related
+> to ia64).
+> 
+> Thanks,
+> 
+> 	--david
+> 
+
+
+
+
+---------- End Forwarded Message ----------
+
+
 
