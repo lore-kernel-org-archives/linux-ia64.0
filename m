@@ -1,77 +1,174 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 18 Feb 2004 00:45:45 +0000
-Subject: RE: Limit hash table size
-Message-Id: <B05667366EE6204181EABE9C1B1C0EB501F2AAE1@scsmsx401.sc.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C3F5B8.8AF40FFC"
+From: Robert Picco <Robert.Picco@hp.com>
+Date: Tue, 17 Feb 2004 13:53:59 +0000
+Subject: PXM/Nid/SLIT patch
+Message-Id: <40321CF7.5020301@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B05667366EE6204181EABE9C1B1C0EB5802441@scsmsx401.sc.intel.com>
-In-Reply-To: <B05667366EE6204181EABE9C1B1C0EB5802441@scsmsx401.sc.intel.com>
-To: Andrew Morton <akpm@osdl.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+This patch enables cell based HP machines to boot with a NUMA configured 2.6 Linux kernel.  The
+problem is the default hardware configuration reports N-1 CPUs nodes without
+memory.  The Nth node has all interleaved memory.  This resulted in the NUMA kernel panicing
+very early.  The patch eliminates CPU nodes with no memory and reassigns these CPUs to the
+interleaved memory node. The NID space is compressed during the CPU reassignments.
 
-------_=_NextPart_001_01C3F5B8.8AF40FFC
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Bob
 
-Updates to Documentation/kernel-parameters.txt for the 4 new boot time
-parameters.
+--- linux-2.6.2-orig/arch/ia64/kernel/acpi.c	2004-02-16 10:14:53.000000000 -0500
++++ linux-2.6.2/arch/ia64/kernel/acpi.c	2004-02-17 06:10:20.000000000 -0500
+@@ -338,11 +338,16 @@
+ #undef SLIT_DEBUG
+ 
+ #define PXM_FLAG_LEN ((MAX_PXM_DOMAINS + 1)/32)
++#define	PXM_MAGIC	(255)
+ 
+ static int __initdata srat_num_cpus;			/* number of cpus */
+ static u32 __initdata pxm_flag[PXM_FLAG_LEN];
++static u32 __initdata mpxm_flag[PXM_FLAG_LEN];
+ #define pxm_bit_set(bit)	(set_bit(bit,(void *)pxm_flag))
++#define	pxm_bit_clear(bit)	(clear_bit(bit, (void *)pxm_flag))
+ #define pxm_bit_test(bit)	(test_bit(bit,(void *)pxm_flag))
++#define	mpxm_bit_set(bit)	(set_bit(bit, (void *) mpxm_flag))
++#define	mpxm_bit_test(bit)	(test_bit(bit, (void *) mpxm_flag))
+ /* maps to convert between proximity domain and logical node ID */
+ int __initdata pxm_to_nid_map[MAX_PXM_DOMAINS];
+ int __initdata nid_to_pxm_map[MAX_NUMNODES];
+@@ -424,6 +429,110 @@
+ 	num_memblks++;
+ }
+ 
++static void __init
++acpi_pxm_magic_slit_fix(void)
++{
++	u8		distance, x;
++	int		i, j, nid;
++#define	SLIT_IDENTITY	10
++
++
++	if (!pxm_bit_test(PXM_MAGIC) || slit_table->localities >= PXM_MAGIC)
++		return;
++
++	nid = pxm_to_nid_map[PXM_MAGIC];
++
++	for (distance = SLIT_IDENTITY*2, i = 0; i < slit_table->localities; i++) {
++		if (!pxm_bit_test(i))
++			continue;
++		for (j = 0; j < slit_table->localities; j++) {
++			if (!pxm_bit_test(j) || (i = j))
++				continue;
++
++			x = (slit_table->entry[i*slit_table->localities + j] + SLIT_IDENTITY) / 2;
++			distance = min(x, distance);
++		}
++	}
++
++	/*
++	 * Fill in distances for PXM magic.
++	 */
++
++	for (i = 0; i < numnodes;  i++) 
++		node_distance(i, nid) = distance;
++
++	for (i = 0; i < (numnodes - 1); i++)
++		node_distance(nid, i) = distance;
++
++	node_distance(nid, nid) = SLIT_IDENTITY;
++
++
++	return;
++}
++
++static void __init
++acpi_pxm_magic_fix(void)
++{
++	struct node_memblk_s	*p;
++	int			i, nnode, nid, cpu, pxm;
++
++
++	/*
++	 * If every nid has memory then we are done.
++	 */
++
++	for (nnode = 0, p = &node_memblk[0]; p < &node_memblk[num_memblks]; p++) 
++		if (!mpxm_bit_test(p->nid)) {
++			mpxm_bit_set(p->nid);
++			nnode++;
++		}
++	
++	/*
++	 * All nids with memory.
++	 */
++
++	if (nnode = numnodes) 
++		return;
++
++	/*
++	 * Change logical node id for nids without memory.
++	 * If we are removing a nid without memory, then
++	 * move that nid's cpus to nnode-1 which will become
++	 * the magic PXM's logical node id.  The node_cpu[X].nid
++	 * is the PXM but will change later to logical node
++	 * id.
++	 */
++
++	for (nid = 0, i = 0; i < numnodes; i++) 
++		if (mpxm_bit_test(i)) {
++			if (i = nid) {
++				nid++;
++				continue;
++			}
++
++			for (p = &node_memblk[0]; p < &node_memblk[num_memblks]; p++)
++				if (p->nid = i)
++					p->nid = nid;
++
++			pxm = nid_to_pxm_map[i];
++			pxm_to_nid_map[pxm] = nid;
++			nid_to_pxm_map[nid] = pxm;
++			nid++;
++		}
++		else {
++			for (cpu = 0; cpu < srat_num_cpus; cpu++)
++				if (node_cpuid[cpu].nid = nid_to_pxm_map[i])
++					node_cpuid[cpu].nid = PXM_MAGIC;
++
++			pxm_to_nid_map[i] = nnode - 1;
++			pxm_bit_clear(nid_to_pxm_map[i]);
++		}
++
++	numnodes = nnode;
++
++	return;
++}
++
+ void __init
+ acpi_numa_arch_fixup (void)
+ {
+@@ -451,6 +560,8 @@
+ 	for (i = 0; i < num_memblks; i++)
+ 		node_memblk[i].nid = pxm_to_nid_map[node_memblk[i].nid];
+ 
++	acpi_pxm_magic_fix();
++
+ 	/* assign memory bank numbers for each chunk on each node */
+ 	for (i = 0; i < numnodes; i++) {
+ 		int bank;
+@@ -468,8 +579,13 @@
+ 	printk(KERN_INFO "Number of logical nodes in system = %d\n", numnodes);
+ 	printk(KERN_INFO "Number of memory chunks in system = %d\n", num_memblks);
+ 
+-	if (!slit_table) return;
++	if (!slit_table) 
++		return;
++
+ 	memset(numa_slit, -1, sizeof(numa_slit));
++
++	acpi_pxm_magic_slit_fix();
++
+ 	for (i=0; i<slit_table->localities; i++) {
+ 		if (!pxm_bit_test(i))
+ 			continue;
 
-- Ken
 
-
------Original Message-----
-From: Chen, Kenneth W=20
-Sent: Tuesday, February 17, 2004 4:17 PM
-To: 'Andrew Morton'
-Cc: linux-kernel@vger.kernel.org; linux-ia64@vger.kernel.org
-Subject: RE: Limit hash table size
-
-> I think it would be better to leave things as they are,
-> with a boot option to scale the tables down.
-
-OK, here is one that adds boot time parameters only and leave everything
-else untouched.
-
-> The below patch addresses the inode and dentry caches.
-> Need to think a bit more about the networking ones.
-
-Don't know what happened to my mailer, the mailing list archive shows
-complete patch including the network part.  Hope this time you receive
-the whole thing.
-
-------_=_NextPart_001_01C3F5B8.8AF40FFC
-Content-Type: application/octet-stream;
-	name="knl_param.patch"
-Content-Transfer-Encoding: base64
-Content-Description: knl_param.patch
-Content-Disposition: attachment;
-	filename="knl_param.patch"
-
-ZGlmZiAtTnVyIGxpbnV4LTIuNi4zLXJjNC9Eb2N1bWVudGF0aW9uL2tlcm5lbC1wYXJhbWV0ZXJz
-LnR4dCBsaW51eC0yLjYuMy1yYzQuaGFzaC9Eb2N1bWVudGF0aW9uL2tlcm5lbC1wYXJhbWV0ZXJz
-LnR4dAotLS0gbGludXgtMi42LjMtcmM0L0RvY3VtZW50YXRpb24va2VybmVsLXBhcmFtZXRlcnMu
-dHh0CTIwMDQtMDItMTYgMTg6MjM6NDQuMDAwMDAwMDAwIC0wODAwCisrKyBsaW51eC0yLjYuMy1y
-YzQuaGFzaC9Eb2N1bWVudGF0aW9uL2tlcm5lbC1wYXJhbWV0ZXJzLnR4dAkyMDA0LTAyLTE3IDE2
-OjQxOjU4LjAwMDAwMDAwMCAtMDgwMApAQCAtMjkyLDYgKzI5Miw5IEBACiAKIAlkZXZmcz0JCVtE
-RVZGU10KIAkJCVNlZSBEb2N1bWVudGF0aW9uL2ZpbGVzeXN0ZW1zL2RldmZzL2Jvb3Qtb3B0aW9u
-cy4KKworCWRoYXNoX2VudHJpZXM9CVtLTkxdCisJCQlTZXQgbnVtYmVyIG9mIGhhc2ggYnVja2V0
-cyBmb3IgZGVudHJ5IGNhY2hlLgogIAogCWRpZ2k9CQlbSFcsU0VSSUFMXQogCQkJSU8gcGFyYW1l
-dGVycyArIGVuYWJsZS9kaXNhYmxlIGNvbW1hbmQuCkBAIC00MjQsNiArNDI3LDkgQEAKIAlpZGxl
-PQkJW0hXXQogCQkJRm9ybWF0OiBpZGxlPXBvbGwgb3IgaWRsZT1oYWx0CiAgCisJaWhhc2hfZW50
-cmllcz0JW0tOTF0KKwkJCVNldCBudW1iZXIgb2YgaGFzaCBidWNrZXRzIGZvciBpbm9kZSBjYWNo
-ZS4KKwogCWluMjAwMD0JCVtIVyxTQ1NJXQogCQkJU2VlIGhlYWRlciBvZiBkcml2ZXJzL3Njc2kv
-aW4yMDAwLmMuCiAKQEAgLTg3Myw2ICs4NzksOSBAQAogCiAJcmVzdW1lPQkJW1NXU1VTUF0gU3Bl
-Y2lmeSB0aGUgcGFydGl0aW9uIGRldmljZSBmb3Igc29mdHdhcmUgc3VzcGVuc2lvbgogCisJcmhh
-c2hfZW50cmllcz0JW0tOTCxORVRdCisJCQlTZXQgbnVtYmVyIG9mIGhhc2ggYnVja2V0cyBmb3Ig
-cm91dGUgY2FjaGUKKyAKIAlyaXNjb204PQlbSFcsU0VSSUFMXQogCQkJRm9ybWF0OiA8aW9fYm9h
-cmQxPlssPGlvX2JvYXJkMj5bLC4uLjxpb19ib2FyZE4+XV0KIApAQCAtMTEzNSw2ICsxMTQ0LDkg
-QEAKIAl0Z2Z4XzI9CQlTZWUgRG9jdW1lbnRhdGlvbi9pbnB1dC9qb3lzdGljay1wYXJwb3J0LnR4
-dC4KIAl0Z2Z4XzM9CiAKKwl0aGFzaF9lbnRyaWVzPQlbS05MLE5FVF0KKwkJCVNldCBudW1iZXIg
-b2YgaGFzaCBidWNrZXRzIGZvciBUQ1AgY29ubmVjdGlvbgorCiAJdGlwYXI9CQlbSFddCiAJCQlT
-ZWUgaGVhZGVyIG9mIGRyaXZlcnMvY2hhci90aXBhci5jLgogCg==
-
-------_=_NextPart_001_01C3F5B8.8AF40FFC--
