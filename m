@@ -1,27 +1,58 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 17 Aug 2004 13:07:14 +0000
-Subject: Re: writing to "/proc/irq/xxxx/smp_affinity" produces a kernel crash
-Message-Id: <16674.770.492550.634976@napali.hpl.hp.com>
+From: Dean Nelson <dcn@sgi.com>
+Date: Tue, 10 Aug 2004 19:54:00 +0000
+Subject: Re: [PATCH 1/4] SGI Altix cross partition functionality
+Message-Id: <20040810195400.GA11858@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4121FF26.70102@Ext.Bull.Net>
-In-Reply-To: <4121FF26.70102@Ext.Bull.Net>
+References: <20040616163339.GA27891@sgi.com>
+In-Reply-To: <20040616163339.GA27891@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 17 Aug 2004 14:50:46 +0200, Francois Wellenreiter <Francois.Wellenreiter@Ext.Bull.Net> said:
+On Sat, Jul 31, 2004 at 07:46:23AM -0500, Robin Holt wrote:
+> On Fri, Jul 30, 2004 at 03:15:35PM -0700, Luck, Tony wrote:
+> > Dean> The question is whether we export ia64_sal and sal_lock? Or change these
+> > Dean> inline functions to no longer be inline, move them to a new file (sn_sal.c),
+> > Dean> and export the individual function names?
+> > 
+> > Dean> From my point of view the first solution is better from the standpoint of
+> > Dean> the diagnostics folks who write tests that need to make SAL calls. It doesn't
+> > Dean> seem appropriate that the linux kernel be the repository of a bunch of ad hoc
+> > Dean> and miscellaneous SAL wrapper functions that no one but the diagnostics folks
+> > Dean> use.
+> > 
+> > Dean> I would like to know your opinions on the direction to go with this.
+> > 
+> > This looks like a lesser of two evils decision.  On balance I think
+> > that I'd prefer not to open up the floodgates for modules to make
+> > arbitrary SAL calls ... so I'd prefer to see you un-inline and
+> > export the functions that you need. "sn_sal.c" sounds a plausible
+> > name for a file to house these functions.
+> 
+> This leaves our diags people with a fairly difficult position.
+> They have some online diags which need to excercise parts of the shub.
+> Those activities are currently coded in the PROM (make online and offline
+> diags a lot more consistent) executed via SAL calls.
+> 
+> Would you be alright with changing the inlines into real functions,
+> but still exporting the ia64_sal symbol as well?
+> 
+> Will you accept the online diags people sending sal call additions that
+> no kernel component will ever use?  Will that policy remain consistent
+> into the future?  This makes our job much more difficult as we move
+> toward not having our own kernel at all, but using standard distribution
+> kernels as they will always lag the community in merging back changes
+> made to the ia64 tree.  Again, that argues for having the ia64_sal
+> exported.  Please consider those needs when making your decision.
 
-  Francois> Apparently a little bug was introduced in 2.6.7 kernel dealing with IRQ
-  Francois> redirection managemant via proc filesystem.
-  Francois> The behavior is quite simple, just type :
+Tony,
 
-  Francois> echo "r 00000001" > /proc/irq/{xy}/smp_affinity
+I'm interested in your response to what Robin wrote. Care to comment?
 
-  Francois> where {xy} is a valid irq, and your kernel will crash.
+And just another data point: we no longer need the sal_lock exported,
+just ia64_sal, does this affect your thoughts on this matter?
 
-Already fixed.  See:
+Thanks,
+Dean
 
- http://linux.bkbits.net:8080/linux-2.5/cset@1.1807.3.42
-
-	--david
