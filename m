@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn_helgaas@hp.com>
-Date: Thu, 17 Apr 2003 15:49:49 +0000
+From: Bdale Garbee <bdale@gag.com>
+Date: Fri, 18 Apr 2003 14:52:43 +0000
 Subject: Re: [Linux-ia64] swiotlb on rx4610, again
-Message-Id: <marc-linux-ia64-105590723705532@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705563@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705531@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705531@msgid-missing>
@@ -10,28 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday 17 April 2003 7:06 am, Matthieu Delahaye wrote:
-> Hi guys,
-> 
-> I have two rx4610 which ran well until last week under Linux for more than
-> one year.
-> They ran with first an unstable and then a stable Debian Woody with the
-> standard stock kernel (2.4.17) provided by Debian.
-> I didn't change their hardware configuration since.
-> 
-> Thanks to an ext3 filesystem crash, I had to reinstall Linux on. Using
-> the same standard process I always used, no way this time to complete
-> the installation:
-> Kernel panic: map_single could not allocated software IO TLB (42 bytes)
-> In interrupt handler - not syncing
-> Looking on the second one I have, same problem.
+m.delahaye@esiee.fr (Matthieu Delahaye) writes:
 
-Can you give us a little more information about what kernel you're
-trying to reinstall?  Often the installer uses a different kernel than
-the one you end up running, so perhaps the install kernel is broken.
-If you're reinstalling Debian,  you might get more knowledgeable help
-on debian-ia64@lists.debian.org.
+> But the fact this kernel worked without this option and that now it is
+> required, I'm quite "annoyed" hoping this is not an hardware issue. 
 
-Bjorn
+A couple of general suggestions.
+
+The latest ia64 installer CD for Debian is available online via a link on 
+the http://www.debian.org/ports/ia64/ page.  It uses a 2.4.19 kernel build
+that received extensive testing on HP's Itanium 1 and 2 systems.
+
+If you're running my binary kernel image packages on a Debian system, then
+I have been suggesting the 2.4.19 kernel images from the 'sid' tree regardless
+of whether you're running stable, testing, or unstable.  I now recommend the
+2.4.20 021210.em18.1 kernels which we have somewhat less experience with, but
+which are starting to feel as stable as the 2.4.19 images, and contain many
+useful updates.
+
+As has already been indicated, any other questions about running the Debian
+distribution on ia64 systems should be addressed to the debian-ia64 list.
+Pointers to the list archives and subscription instructions are available on
+the ports page mentioned above.
+
+Enjoy!
+
+Bdale
 
 
