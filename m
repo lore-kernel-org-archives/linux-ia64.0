@@ -1,7 +1,7 @@
 From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Wed, 02 Feb 2005 03:09:37 +0000
+Date: Fri, 04 Feb 2005 06:27:10 +0000
 Subject: Re: page fault scalability patch V16 [3/4]: Drop page_table_lock
-Message-Id: <1107313778.5131.32.camel@npiggin-nld.site>
+Message-Id: <1107498430.5461.17.camel@npiggin-nld.site>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <41E5B7AD.40304@yahoo.com.au>
 	 <Pine.LNX.4.58.0501121552170.12669@schroedinger.engr.sgi.com>
@@ -22,38 +22,32 @@ References: <41E5B7AD.40304@yahoo.com.au>
 	 <Pine.LNX.4.58.0502011718240.5549@schroedinger.engr.sgi.com>
 	 <1107308498.5131.28.camel@npiggin-nld.site>
 	 <Pine.LNX.4.58.0502011843570.6511@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0502011843570.6511@schroedinger.engr.sgi.com>
+	 <1107313778.5131.32.camel@npiggin-nld.site>
+In-Reply-To: <1107313778.5131.32.camel@npiggin-nld.site>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Christoph Lameter <clameter@sgi.com>
 Cc: Andi Kleen <ak@muc.de>, Andrew Morton <akpm@osdl.org>, torvalds@osdl.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 
-On Tue, 2005-02-01 at 18:49 -0800, Christoph Lameter wrote:
-> On Wed, 2 Feb 2005, Nick Piggin wrote:
+On Wed, 2005-02-02 at 14:09 +1100, Nick Piggin wrote:
+> On Tue, 2005-02-01 at 18:49 -0800, Christoph Lameter wrote:
+> > On Wed, 2 Feb 2005, Nick Piggin wrote:
+
+> > I mean we could just speculatively copy, risk copying crap and
+> > discard that later when we find that the pte has changed. This would
+> > simplify the function:
+> > 
 > 
-> > Well yeah, but the interesting case is when that isn't a lock ;)
-> >
-> > I'm not saying what you've got is no good. I'm sure it would be fine
-> > for testing. And if it happens that we can do the "page_count doesn't
-> > mean anything after it has reached zero and been freed. Nor will it
-> > necessarily be zero when a new page is allocated" thing without many
-> > problems, then this may be a fine way to do it.
-> >
-> > I was just pointing out this could be a problem without putting a
-> > lot of thought into it...
-> 
-> Surely we need to do this the right way. Do we really need to
-> use page_cache_get()? Is anything relying on page_count = 2 of
-> the old_page?
-> 
-> I mean we could just speculatively copy, risk copying crap and
-> discard that later when we find that the pte has changed. This would
-> simplify the function:
+> I think this may be the better approach. Anyone else?
 > 
 
-I think this may be the better approach. Anyone else?
+Not to say it is perfect either. Normal semantics say not to touch
+a page if it is not somehow pinned. So this may cause problems in
+corner cases (DEBUG_PAGEALLOC comes to mind... hopefully nothing else).
+
+But I think a plain read of the page when it isn't pinned is less
+yucky than writing into the non-pinned struct page.
 
 
-Find local movie times and trailers on Yahoo! Movies.
-http://au.movies.yahoo.com
+
