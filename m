@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 21 Jan 2002 20:41:25 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Mon, 21 Jan 2002 21:11:57 +0000
 Subject: Re: [Linux-ia64] Help with Ingo scheduler on IA64
-Message-Id: <marc-linux-ia64-105590698805909@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805903@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805816@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805816@msgid-missing>
@@ -10,14 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 21 Jan 2002 23:30:32 +0100 (CET), Ingo Molnar <mingo@elte.hu> said:
+On Mon, 21 Jan 2002, Erich Focht wrote:
 
-  Ingo> Besides causing the current bug, it was superfluous in the old
-  Ingo> scheduler as well, so i'm only wondering aloud - perhaps there
-  Ingo> were more subtle reasons as well?
+> what's the problem with the following code?
+>
+> switch_tasks:
+> 	prev->need_resched = 0;
+>
+> 	if (likely(prev != next)) {
+> 		rq->nr_switches++;
+> 		rq->curr = next;
+> 		spin_unlock_irq(&rq->lock);          // <-
+> 		context_switch(prev, next, 0);
 
-No, it wasn't superfluous.  It had to re-establish the original state
-after disabling interrupts to switch the TLB pinning.
+the runqueue must not be unlocked before the current task is completely
+inactive - otherwise another CPU could grab (or even free) this task.
 
-	--david
+	Ingo
+
 
