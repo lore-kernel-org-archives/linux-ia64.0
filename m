@@ -1,33 +1,44 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Mon, 04 Feb 2002 19:22:33 +0000
-Subject: Re: [Linux-ia64] O(1) MQ scheduler J9 patch for IA64
-Message-Id: <marc-linux-ia64-105590698805985@msgid-missing>
+From: "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com>
+Date: Thu, 21 Feb 2002 21:09:30 +0000
+Subject: [Linux-ia64] determining read or write on a page fault
+Message-Id: <marc-linux-ia64-105590701905163@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805977@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805977@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 4 Feb 2002, Erich Focht wrote:
+We are writing software that handles page faults on an Itanium system, and
+so have registered a SIGSEGV
+handler.  We think we know how to determine the address being referenced,
+but don't know how to determine
+whether the access was a read or a write.
 
-> > Why is there a global change of current->processor to current->cpu?
-> > That has knock on effects because #define cpu and references to that
-> > macro also have to be changed.  I don't see any benefit.
->
-> Keith,
-> I can only guess that Ingo wanted to see the problematic spots when he
-> compiles. I think there was a discussion on linux-kernel ML but I didn't
-> follow it, so maybe Ingo can tell us...
+We believe that the handler entry point should be:
 
-the current->processor => current->cpu indeed was such a helper, to find
-places that rely on p->cpu. (it's mostly code that has scheduling
-relevance.)
+void
+segv_handler(
+        int                  sig,
+       siginfo_t *sip, 
+        struct sigcontext *scp)
 
-renaming ->nice to ->__nice had another purpose, eg. in the -K2 patch
-there is no 'nice' field anymore, ->static_prio is used.
+and the address of the access therefore should be:
 
-	Ingo
+((caddr_t)sip->si_addr)
+
+but how do we determine READ vs WRITE?
+
+In IA-32 linux, we could check the PF_ERR bit.  Is there an equivalent for
+IA-64?
+
+Thanks
+
+Naveen Neelakantam and Jay Hoeflinger
+
+
+Jay Hoeflinger, jay.p.hoeflinger@intel.com
+KAI Software, A Division of Intel Americas, Inc., http://www.kai.com
+Phone 217/356-2288, Direct 217/356-5052 x 140, Fax 217/356-5199
+
 
 
