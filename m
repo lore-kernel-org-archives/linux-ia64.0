@@ -1,31 +1,93 @@
-From: Mark Goodwin <markgw@sgi.com>
-Date: Tue, 23 Jan 2001 06:02:14 +0000
-Subject: [Linux-ia64] ia32 RPMs on ia64 systems
-Message-Id: <marc-linux-ia64-105590693005088@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Wed, 31 Jan 2001 21:21:58 +0000
+Subject: [Linux-ia64] new Red Hat Linux ia64 beta release available
+Message-Id: <marc-linux-ia64-105590693005113@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I have an ia32 RPM that I need to support on ia64 - it has to remain ia32
-due to some 3rd party libs for which I don't have the src (don't flame me).
+For those people not on the general Red Hat announce lists, a new
+beta release of Red Hat Linux for ia64 is available. From the
+general announcement:
 
-At the moment I have to force RPM to let me install it, with horrible things like
-rpm --ignorearch --nodeps --badreloc \
-    --relocate /usr/lib=/usr/i386-glibc21-linux/usr/lib -i <ia32package>
+    Announcing...
+                          Red Hat Linux "Fisher"
+                             (a beta release)
 
-or depending on your ia64 distribution, I may need to relocate to /usr/ia32
-or for some other distro, probably to somewhere else ...
+    Red Hat, Inc. presents a beta release of Red Hat Linux for your
+    hacking pleasure.  First, the regular drill:
 
-Could someone from the each distro (redhat, suse, turbo, and deb) please tell
-me what they are planning to do about ia32 packaging/installation support? Can
-we please standardize on the relocation directories? At the moment, ia32 binaries
-work just fine - it's the file system standards base and packaging support that
-seem to be missing.. thanks, I'll summarize to the list.
+       This is a beta release of Red Hat Linux.  It is not intended for
+       mission critical applications.  It`s not even intended for
+       non-mission critical applications.  Important data should not be
+       entrusted to Fisher, as it may eat it and make loud belching
+       noises.
 
---
-Mark Goodwin
-SGI Engineering.
+...
 
+    You can enter bug reports for any problems you
+    might find by using bugzilla at:
+
+      http://bugzilla.redhat.com/bugzilla/
+
+...
+
+    *  Where can I get this release?
+
+    Fisher can be downloaded from our public FTP site at:
+
+       ftp://ftp.redhat.com/pub/redhat/beta/fisher
+
+    With the support of volunteers ftp site administrators, Fisher is
+    available from several mirrors.  The following sites have complete
+    copies of Fisher, so please use a mirror close to you:
+
+    Indiana, USA:
+       http://csociety-ftp.ecn.purdue.edu/pub/redhat/beta/fisher
+       ftp://csociety-ftp.ecn.purdue.edu/pub/redhat/beta/fisher
+
+    Minnesota, USA:
+       ftp://ftp.mn-linux.org/linux/redhat/beta/fisher
+
+    Buffalo, New York, USA:
+       ftp://ftp.cse.buffalo.edu/mirror/Linux/redhat/beta/fisher
+
+    Pennsylvania, USA:
+       http://carroll.cac.psu.edu/pub/linux/distributions/redhat/redhat/beta/fisher
+       ftp://carroll.cac.psu.edu/pub/linux/distributions/redhat/redhat/beta/fisher
+       rsync://carroll.cac.psu.edu/redhat-beta/fisher
+
+    Australia:
+       ftp://ftp.planetmirror.com/pub/redhat/beta/fisher
+       http://www.planetmirror.com/pub/redhat/beta/fisher
+
+    Please also see our official mirror list:
+       http://www.redhat.com/download/mirror.html
+
+    as more of the mirror sites may have picked up the beta by the time
+    you read this.
+
+    *  What's new in this beta?
+
+       General system improvements:
+         o Itanium(tm) architecture support is included
+...
+    * Major known issues:
+...
+       o X and KDE have known failures on Itanium.
+
+As always, there is a mailing list to discuss the IA-64 release. To
+subscribe, send mail to ia64-list-request@redhat.com with
+
+subscribe
+
+in the subject line. You can leave the body empty.
+
+You can also subscribe to the general Fisher discussion list; to 
+do so, send mail to fisher-list-request@redhat.com in a similar
+manner (subject of 'subscribe', empty body).
+
+Bill
 
