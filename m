@@ -1,108 +1,57 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 07 Apr 2004 02:08:43 +0000
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 07 Apr 2004 09:34:48 +0000
 Subject: Re: [RFC] readX_check() - Interface for PCI-X error recovery
-Message-Id: <20040407020843.GE10560@cup.hp.com>
+Message-Id: <0HVS005L4NY0JZ@fjmail505.fjmail.jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
-In-Reply-To: <0HVQ0051BXG19H@fjmail506.fjmail.jp.fujitsu.com>
+References: <20040406115145.GA23258@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040406115145.GA23258@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+To: Matthew Wilcox <willy@debian.org>
 Cc: Linux Kernel mailing list <linux-kernel@vger.kernel.org>, Linux IA64 Mailing List <linux-ia64@vger.kernel.org>, Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>
 
-On Tue, Apr 06, 2004 at 08:04:49PM +0900, Hidetoshi Seto wrote:
-...
-> - Resources newly required:
+Matthew Wilcox <willy@debian.org> wrote:
+
+> > 	list of recoverable physical address regions
 > 
->     on struct device:
-> 	error flag
-> 	list of recoverable physical address regions
+> Can't you just use the pci_dev->resource regions for this?
 
-I think willy already pointed out the struct pci_dev->resources[] should point 
-to MMIO adress ranges the PCI(-X) device "owns".
+If there is a list separated usual one, driver can choice which region 
+to check or not. However, in general, maybe almost all driver will regist 
+all region it has.
+Agree, I'll use the pci_dev->resource. This is a realistic approach.
 
-> 	pointer to host bridge of the device
-
-ditto. I think willy meant walk pci_dev->bus->parent until bus->self
-is NULL normally should work.
-
->     on per_cpu:
-> 	list of currently checking devices
-
-Why wouldn't this be per PCI host bus controller instead of per CPU?
-
-I'm thinking SMP - any CPU could access any MMIO region.
-How those MMIO addresses get routed depends on how PCI Host Bus
-controllers are programmed. Ie Bridges have to route MMIO transactions
-to children (PCI devices).
-
-> - Interfaces newly required:
+> > 	pointer to host bridge of the device
 > 
->     clear_pcix_errors(dev)
-> 	Clear the error flag of the dev, and start to check the device.
-> 	This also clears the status register of its host bridge.
-> 
->     readX_check(dev,vaddr)
-> 	Read a register of the device mapped to vaddr, and check errors 
-> 	if possible(This is depending on its architecture. In the case of 
-> 	ia64, we can generate a MCA from an error by simple operation to 
-> 	test the read data.)
-> 	If any error happen on the recoverable region, set the error flag.
->
->     read_pcix_errors(dev)
-> 	Return whether here was an error or not referring the error flag in 
-> 	struct device and the status register of the host bridge, and stop 
-> 	checking of the device.
-> 
->     register_pcix_region(dev,paddr,len)
->     unregister_pcix_region(dev)
-> 	Register/Unregister a physical address region that the driver can 
-> 	recover. This function would be in the init/cleanup of the driver.
+> Again, there's already ways of getting to this from the pci_dev.
 
-Could register/unregister functionality be part of the clear/read errors?
+I see, this wouldn't cost so much. I'll use.
 
+> >     clear_pcix_errors(dev)
 > 
-> 
-> - Flow
-> 
->   xx_probe(dev, ...)
->   {
->     ..
-> 	register_pcix_region(dev,paddr,len);
->     ..
->   }
-> 
->   xx_intr()
->   {
-> 	spin_lock_irqsave();		/* disable interrupt & preemption */
-> 
-> 	clear_pcix_errors(dev);		/* clear error flag */
-> 	{
-> 	  ..
-> 	    x = readX_check(dev, vaddr);
-> 	  ..
-> 	}
-> 	error = read_pcix_errors(dev);	/* read error flag */
-> 	if (error)
-> 		recovery_or_offline(dev);
-> 
-> 	spin_lock_irqrestore();		/* enable interrupt & preemption */
+> For consistency, how about naming these functions pci_clear_errors()
+> and pci_check_errors()?  PCI-Express has similar error-checking abilities
+> and I'd hate to see two extremely similar capabilities at war with each
+> other over unacceoptable names ;-)
 
-Holding the spinlock might not be realistic for most drivers
-during a recovery - ie re-init the HW. I understand this is a
-generic example but it's a bit too simple...
+Sounds good. I think these naming are more better for peace porpose :-)
+
+> >     readX_check(dev,vaddr)
+> 
+> I really don't think we want another readX variant.  Do we then also
+> add readX_check_relaxed()?  Can't we just pretend the MCA is asynchronous
+> on ia64?  I'm sure we'd get better performance.
+
+On ia64, readX_check() will be used to make sure that there has no MCA before 
+read_pcix_errors(). I think we could use original plain readX() in place of 
+readX_check() if we ignore checking accuracy or if the driver takes care to 
+all loaded data. But I don't know how about this on other architecture.
+
+I think inside of readX_check() would be mostly arch specified codes.
 
 
-...
->     on other arch:
-> 	if it is not possible on the arch, do like:
-> 	#ifndef CONFIG_PCI_RECOVERY
-> 	  #define clear_pcix_errors(dev) do { } while (0)
-> 	  #define read_pcix_errors(dev)  (0)
-> 	#endif
+Thanks,
 
-And need similar for the register/unregister/readX_check() calls.
+H.Seto
 
-thanks,
-grant
