@@ -1,29 +1,22 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Thu, 06 May 2004 15:08:38 +0000
-Subject: Re: [2.6.6 PATCH] Exposing EFI memory map
-Message-Id: <200405060908.39311.bjorn.helgaas@hp.com>
+From: "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
+Date: Thu, 06 May 2004 16:14:03 +0000
+Subject: RE: [2.6.6 PATCH] Exposing EFI memory map
+Message-Id: <D36CE1FCEFD3524B81CA12C6FE5BCAB002FFEB18@fmsmsx406.fm.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <004801c4336c$daae5840$39624c0f@india.hp.com>
-In-Reply-To: <004801c4336c$daae5840$39624c0f@india.hp.com>
+References: <003801c43347$812a1590$39624c0f@india.hp.com>
+In-Reply-To: <003801c43347$812a1590$39624c0f@india.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Sourav Sen <souravs@india.hp.com>
-Cc: 'Matt Domsch' <Matt_Domsch@dell.com>, matthew.e.tolentino@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, tony.luck@intel.com
+To: Matt Domsch <Matt_Domsch@dell.com>, Sourav Sen <souravs@india.hp.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Thursday 06 May 2004 7:20 am, Sourav Sen wrote:
-> + 1) Why does userspace / humans need to know this?  For 
-> + debugging firmware?
-> 	
-> 	Maybe. But the point I had in mind is, say for example
-> memory diagnostics applications/exercisers which reads (Blind
-> reads, without caring about contents) memory
-> to uncover errors (single bit errors)  can use
-> this to know the usable ranges and map them thru /dev/mem and
-> read those ranges.
+> 2) Can the memory map output ever be larger than PAGE_SIZE (lower
+> limit is 4KB on x86)?  If not, what guarantees that?  If so, you need
+> your own read mechanism rather than the generic sysfs one.
 
-For this application, the EFI memory map isn't what you want.
-It's a pretty good approximation today, but the day when we'll
-be able to hot-add memory is fast approaching, and the EFI map
-won't mention anything added after boot.  We'll discover all
-that via ACPI (on ia64).
+There are no size guarantees with the EFI memory map.  It could
+be of various sizes...
+
+matt
+
