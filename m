@@ -1,106 +1,195 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Fri, 25 Jul 2003 20:41:34 +0000
-Subject: [PATCH] ia64 Kconfig cleanup
-Message-Id: <marc-linux-ia64-105916572315991@msgid-missing>
+From: Christopher Wedgwood <cw@sgi.com>
+Date: Thu, 17 Jul 2003 01:34:20 +0000
+Subject: [PATCH] (2.6.0-test1 bk) SN2 Minimalist PAL mapping
+Message-Id: <marc-linux-ia64-105840575616404@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Here are some small updates to the ia64 Kconfig file.  I think it's safe
-to apply (i.e. it won't break anything than the already broken sn2
-compile), and gets rid of some obsolete options.
+David,
 
-Thanks,
-Jesse
+Given then lack of objections to the 2.4.x version of this patch thus
+far how do you feel about something like this?
 
-diff -Nru a/arch/ia64/Kconfig b/arch/ia64/Kconfig
---- a/arch/ia64/Kconfig	Thu Jul 17 16:59:05 2003
-+++ b/arch/ia64/Kconfig	Thu Jul 17 16:59:05 2003
-@@ -211,7 +211,7 @@
+Patch against your linux-ia64-2.5 bk tree.
+
+
+
+  --cw
+
+
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1392  -> 1.1393 
+#	arch/ia64/kernel/efi.c	1.21    -> 1.22   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/07/16	cw@tomahawk.engr.sgi.com	1.1393
+# On SN2 map MAP using the smallest possible that will work.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+--- a/arch/ia64/kernel/efi.c	Wed Jul 16 18:29:53 2003
++++ b/arch/ia64/kernel/efi.c	Wed Jul 16 18:29:53 2003
+@@ -33,11 +33,20 @@
  
- config NUMA
- 	bool "Enable NUMA support" if IA64_GENERIC || IA64_DIG || IA64_HP_ZX1
--	default y if IA64_SGI_SN2
-+	default y if IA64_SGI_SN2 || IA64_GENERIC
- 	help
- 	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
- 	  Access).  This option is for configuring high-end multiprocessor
-@@ -234,9 +234,8 @@
- endchoice
+ #define EFI_DEBUG	0
  
- config DISCONTIGMEM
--	bool
--	depends on IA64_SGI_SN2 || (IA64_GENERIC || IA64_DIG || IA64_HP_ZX1) && NUMA
--	default y
-+	bool "Discontiguous memory support" if (IA64_DIG && NUMA)
-+	default y if IA64_SGI_SN2 || IA64_GENERIC
- 	help
- 	  Say Y to support efficient handling of discontiguous physical memory,
- 	  for architectures which are either NUMA (Non-Uniform Memory Access)
-@@ -245,8 +244,7 @@
++#ifdef EFI_DEBUG
++/* make debugging visible */
++#undef KERN_DEBUG
++#define KERN_DEBUG KERN_ERR
++#endif
++
+ extern efi_status_t efi_call_phys (void *, ...);
  
- config VIRTUAL_MEM_MAP
- 	bool "Enable Virtual Mem Map"
--	depends on !NUMA
--	default y if IA64_GENERIC || IA64_DIG || IA64_HP_ZX1
-+	default y if !IA64_HP_SIM
- 	help
- 	  Say Y to compile the kernel with support for a virtual mem map.
- 	  This is an alternate method of supporting large holes in the
-@@ -259,8 +257,8 @@
- 	  are unsure, say Y.
+ struct efi efi;
+ static efi_runtime_services_t *runtime;
  
- config IA64_MCA
--	bool "Enable IA-64 Machine Check Abort" if IA64_GENERIC || IA64_DIG || IA64_HP_ZX1
--	default y if IA64_SGI_SN2
-+	bool "Enable IA-64 Machine Check Abort"
-+	default y if !IA64_HP_SIM
- 	help
- 	  Say Y here to enable machine check support for IA-64.  If you're
- 	  unsure, answer Y.
-@@ -292,43 +290,12 @@
- 	depends on IA64_GENERIC || IA64_DIG || IA64_HP_ZX1 || IA64_SGI_SN2
- 	default y
++/* For some architectures (presently only SN2) we may want to map the PAL differently */
++static void (*alternate_pal_map)(void);
++
+ /*
+  * efi_dir is allocated here, but the directory isn't created
+  * here, as proc_mkdir() doesn't work this early in the bootup
+@@ -392,8 +401,12 @@
+  * Look for the PAL_CODE region reported by EFI and maps it using an
+  * ITR to enable safe PAL calls in virtual mode.  See IA-64 Processor
+  * Abstraction Layer chapter 11 in ADAG
++ *
++ * This is called for every CPU in the system (ie. from efi_init for
++ * the boot CPU and from start_secondary() in smpboot.c for all other
++ * CPUs)
+  */
+-void
++void __init
+ efi_map_pal_code (void)
+ {
+ 	void *efi_map_start, *efi_map_end, *p;
+@@ -403,6 +416,11 @@
+ 	u64 mask, psr;
+ 	u64 vaddr;
  
--config IA64_SGI_SN_DEBUG
--	bool "Enable extra debugging code"
--	depends on IA64_SGI_SN2
--	help
--	  Turns on extra debugging code in the SGI SN (Scalable NUMA) platform
--	  for IA-64.  Unless you are debugging problems on an SGI SN IA-64 box,
--	  say N.
--
- config IA64_SGI_SN_SIM
- 	bool "Enable SGI Medusa Simulator Support"
- 	depends on IA64_SGI_SN2
- 	help
- 	  If you are compiling a kernel that will run under SGI's IA-64
- 	  simulator (Medusa) then say Y, otherwise say N.
--
--config IA64_SGI_AUTOTEST
--	bool "Enable autotest (llsc). Option to run cache test instead of booting"
--	depends on IA64_SGI_SN2
--	help
--	  Build a kernel used for hardware validation. If you include the
--	  keyword "autotest" on the boot command line, the kernel does NOT boot.
--	  Instead, it starts all cpus and runs cache coherency tests instead.
--
--	  If unsure, say N.
--
--config SERIAL_SGI_L1_PROTOCOL
--	bool "Enable protocol mode for the L1 console"
--	depends on IA64_SGI_SN2
--	help
--	  Uses protocol mode instead of raw mode for the level 1 console on the
--	  SGI SN (Scalable NUMA) platform for IA-64.  If you are compiling for
--	  an SGI SN box then Y is the recommended value, otherwise say N.
--
--config PERCPU_IRQ
--	bool
--	depends on IA64_SGI_SN2
--	default y
++	if (alternate_pal_map) {
++		alternate_pal_map();
++		return;
++	}
++
+ 	efi_map_start = __va(ia64_boot_param->efi_memmap);
+ 	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
+ 	efi_desc_size = ia64_boot_param->efi_memdesc_size;
+@@ -463,6 +481,93 @@
+ 	}
+ }
  
- # On IA-64, we always want an ELF /proc/kcore.
- config KCORE_ELF
++/*
++ * This is more-or-less a copy of the original PAL mapping with replicated functionality.
++ * It all repeated here (out of line on the above) for clarity.  Since this is marked __init
++ * code it doesn't hurt that much.  Arguably we should either generalize these two functions
++ * or allow for a platform specific mapping function (a little tricky this early in the boot
++ * but not impossible).
++ *
++ * Please see the genric code for comments if any of this is unclear.
++ *
++ */
++static void __init
++sgisn_efi_map_pal_code(void)
++{
++	static u64 pal_start = 0ul, pal_end = 0ul;
++	void *efi_map_start, *efi_map_end, *p;
++	int pg_shift;
++	u64 efi_desc_size;
++	u64 vaddr, mask, psr;
++
++#if EFI_DEBUG
++	printk("SGI: Mapping PAL.\n");
++#endif
++
++	efi_map_start = __va(ia64_boot_param->efi_memmap);
++	efi_map_end   = efi_map_start + ia64_boot_param->efi_memmap_size;
++	efi_desc_size = ia64_boot_param->efi_memdesc_size;
++
++	/* The first time this runs (on the boot processor) we copy the PAL's start and end
++	   addresses because the trim code destroy's the EFI MD */
++	if (!pal_start) {
++		efi_memory_desc_t *md = NULL;
++
++		/* scan the efi memory map to find the PAL_CODE descriptor */
++		for (p = efi_map_start; p < efi_map_end; p += efi_desc_size) {
++			md = (efi_memory_desc_t*)p;
++
++			if (md->type != EFI_PAL_CODE)
++				continue;
++
++			break; /* there's only enough room in this town for one PAL */
++		}
++
++		if (!md)
++			panic(KERN_ERR "SN2: Unable to performace minimalist PAL mapping\n");
++
++		pal_start = md->phys_addr;
++		pal_end = pal_start + (md->num_pages << EFI_PAGE_SHIFT);
++
++		if (pal_end <= pal_start)
++			panic(KERN_ERR "SGI: PAL_CODE MD already hosed\n");
++	}
++
++	/* Find out the smallest page with which we can map the PAL */
++	for (pg_shift = _PAGE_SIZE_64K; pg_shift <= IA64_GRANULE_SHIFT; pg_shift += 2) {
++		/* round the start address down to our test page size */
++		u64 chk_start = pal_start & (~((1ul << pg_shift) - 1));
++
++		/* does the test page size cover the newly aligned size? */
++		if ((1ul << pg_shift) >= (pal_end - chk_start))
++			break;
++	}
++
++	if (pg_shift > IA64_GRANULE_SHIFT)
++		panic(KERN_ERR "SGI: Woah!  PAL code size bigger than a granule!");
++
++	vaddr = (u64)__va(pal_start);
++	mask  = ~((1ul<<pg_shift) - 1);
++
++#if EFI_DEBUG
++	printk("SGI: CPU(%d) pg_shift %d\n", smp_processor_id(), pg_shift);
++	printk("SGI: CPU(%d) actual PAL range phys: 0x%lx-0x%lx\n", smp_processor_id(), pal_start, pal_end);
++	printk("SGI: CPU(%d) PAL mapping from phys:0x%lx-0x%lx to virt:0x%lx-0x%lx\n",
++	       smp_processor_id(),
++	       pal_start & mask, (pal_start & mask) + (1ul<<pg_shift) - 1,
++	       vaddr & mask, (vaddr & mask) + (1ul<<pg_shift) - 1);
++#endif
++
++	psr = ia64_clear_ic();
++	ia64_itr(0x1, IA64_TR_PALCODE, vaddr & mask, pte_val(pfn_pte((pal_start & mask) >> PAGE_SHIFT, PAGE_KERNEL)), pg_shift);
++	ia64_set_psr(psr);
++	ia64_srlz_i();
++
++	printk(KERN_DEBUG "SGI: Mapped PAL for CPU %d\n", smp_processor_id());
++}
++
++/* This is called early for the boot-CPU only...  we are therefore somewhat restricted in
++ * what we can blindly do. */
+ void __init
+ efi_init (void)
+ {
+@@ -573,6 +678,14 @@
+ 		}
+ 	}
+ #endif
++
++	/* SGI's SN2 (Altix) requires slightly different PAL mapping semantics.  For now we
++	   check if this is the case and do it all out-of-line for clarity (once the code is
++	   merged we can clean this up).  We use a function pointer here because we want
++	   this decision to follow for all other non-boot CPUs where we don't easily have
++	   access to the vendor string (unless we want to be more invasive). */
++	if (!strncmp(vendor, "SGI", 3))
++		alternate_pal_map = sgisn_efi_map_pal_code;
+ 
+ 	efi_map_pal_code();
+ 	efi_enter_virtual_mode();
