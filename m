@@ -1,62 +1,65 @@
-From: Suresh Siddha <suresh.b.siddha@intel.com>
-Date: Thu, 07 Oct 2004 02:44:52 +0000
-Subject: [Patch] swiotlb: fallback to swiotlb for consistent DMA mappings
-Message-Id: <20041006194452.B10900@unix-os.sc.intel.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Sat, 30 Oct 2004 00:03:59 +0000
+Subject: [PATCH] move nic_t to asm/sn/types.h
+Message-Id: <200410291704.00027.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_wptgBiEJLsXyNec"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is mainly needed for EM64T platforms and makes sense for ia64 too. 
-Need of this was broughtup sometime(long time?) back on lkml.
-http://www.ussg.iu.edu/hypermail/linux/kernel/0406.3/0112.html
+--Boundary-00=_wptgBiEJLsXyNec
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Appended patch does this.
+Somehow nic_t crept into arch.h.  Move it to types.h where it belongs (it 
+depends on u64, so pull in linux/types.h too).
 
-thanks,
-suresh
---
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-Fallback to swiotlb for pci consistent DMA mappings. On EM64T, this will
-increase the practical size limit of pci_alloc_consistent mappings above
-16MB. This makes sense on IA64 too under extreme conditions.
+Thanks,
+Jesse
 
-Signed-off-by: Suresh Siddha <suresh.b.siddha@intel.com>
+--Boundary-00=_wptgBiEJLsXyNec
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="move-nic-t-to-types.h.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="move-nic-t-to-types.h.patch"
 
-
-diff -Nrup linux/arch/ia64/lib/swiotlb.c linux-swiotlb/arch/ia64/lib/swiotlb.c
---- linux/arch/ia64/lib/swiotlb.c	2004-09-03 04:01:58.000000000 -0700
-+++ linux-swiotlb/arch/ia64/lib/swiotlb.c	2004-09-03 06:33:54.040063240 -0700
-@@ -305,8 +305,15 @@ swiotlb_alloc_coherent (struct device *h
- 	flags |= GFP_DMA;
+diff -Nru a/include/asm-ia64/sn/arch.h b/include/asm-ia64/sn/arch.h
+--- a/include/asm-ia64/sn/arch.h	2004-10-29 17:02:58 -07:00
++++ b/include/asm-ia64/sn/arch.h	2004-10-29 17:02:58 -07:00
+@@ -22,8 +22,6 @@
+  */
+ #define MAX_COMPACT_NODES       2048
  
- 	ret = (void *)__get_free_pages(flags, get_order(size));
--	if (!ret)
--		return NULL;
-+	if (!ret) {
-+		 /* DMA_FROM_DEVICE is to avoid the memcpy in map_single */
-+		dma_addr_t handle;
-+		handle = swiotlb_map_single(NULL, NULL, size, DMA_FROM_DEVICE);
-+		if (dma_mapping_error(handle))
-+			return NULL;
+-typedef u64	nic_t;
+-
+ extern void sn_flush_all_caches(long addr, long bytes);
+ 
+ #endif /* _ASM_IA64_SN_ARCH_H */
+diff -Nru a/include/asm-ia64/sn/types.h b/include/asm-ia64/sn/types.h
+--- a/include/asm-ia64/sn/types.h	2004-10-29 17:02:58 -07:00
++++ b/include/asm-ia64/sn/types.h	2004-10-29 17:02:58 -07:00
+@@ -9,13 +9,15 @@
+ #ifndef _ASM_IA64_SN_TYPES_H
+ #define _ASM_IA64_SN_TYPES_H
+ 
++#include <linux/types.h>
 +
-+		ret = phys_to_virt(handle);
-+	}
- 
- 	memset(ret, 0, size);
- 	dev_addr = virt_to_phys(ret);
-@@ -319,7 +326,12 @@ swiotlb_alloc_coherent (struct device *h
- void
- swiotlb_free_coherent (struct device *hwdev, size_t size, void *vaddr, dma_addr_t dma_handle)
- {
--	free_pages((unsigned long) vaddr, get_order(size));
-+	if (!(vaddr >= (void *)io_tlb_start
-+                    && vaddr < (void *)io_tlb_end))
-+		free_pages((unsigned long) vaddr, get_order(size));
-+	else
-+		/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
-+		swiotlb_unmap_single (hwdev, dma_handle, size, DMA_TO_DEVICE);
- }
- 
- static void swiotlb_full(struct device *dev, size_t size, int dir, int do_panic)
+ typedef unsigned long 	cpuid_t;
+ typedef signed short	nasid_t;	/* node id in numa-as-id space */
+ typedef signed char	partid_t;	/* partition ID type */
+ typedef unsigned int    moduleid_t;     /* user-visible module number type */
+ typedef unsigned int    cmoduleid_t;    /* kernel compact module id type */
+ typedef signed char     slabid_t;
+-
++typedef u64 nic_t;
+ typedef unsigned long iopaddr_t;
+ typedef unsigned long paddr_t;
+ typedef short cnodeid_t;
+
+--Boundary-00=_wptgBiEJLsXyNec--
