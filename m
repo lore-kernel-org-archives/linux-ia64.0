@@ -1,7 +1,7 @@
-From: Will Cohen <wcohen@redhat.com>
-Date: Tue, 26 Aug 2003 22:02:58 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 26 Aug 2003 22:05:11 +0000
 Subject: Re: [PATCH] ia64 oprofile support for 2.6.0-test4
-Message-Id: <marc-linux-ia64-106193732314907@msgid-missing>
+Message-Id: <marc-linux-ia64-106193733214941@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106193081107734@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106193081107734@msgid-missing>
@@ -10,33 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
->>>>>>On Tue, 26 Aug 2003 17:19:14 -0400, Will Cohen <wcohen@redhat.com> said:
->>>>>
-> 
->   Will> For OProfile it didn't make a difference, but for the
->   Will> histograms it is wasteful. I didn't think about the impact on
->   Will> the traditional histogram.
-> 
-> You can't just break existing data formats for absolutely no reason.
-> 
->   Will> Do the histogram analysis tools currently handle
-> 
-> Yes.  For example, I use "readprofile -b" from time to time to get
-> instruction-level histograms.
-> 
->   Will> the fiction of bundle instruction 0 at address ending in 0,
->   Will> bundle instruction 1 ending in 4, and bundle instruction 2 in
->   Will> 8? GDB doesn't.
-> 
-> And encoding the slot number in bits 0 and 1 is somehow less
-> fictitious? ;-)
+>>>>> On Tue, 26 Aug 2003 17:51:15 -0400, Will Cohen <wcohen@redhat.com> said:
 
-They are equally fictitious. I just happen to pick the wrong one. I 
-changed the patch to be compatible with the existing data format used 
-for the kernel profiling.
+  Will> I have revised the patch based on the comments below: 1) use
+  Will> ip instead of eip 2) multiply ri by 4, to get more compact
+  Will> histograms
 
--Will
+Hmmh, I'm not sure I like this patch better.  Like I mentioned in the
+earlier mail, it does make sense to encode the slot number in bits 0
+and 1 for instruction_pointer().  That is the canonical representation
+used by IA-64 Linux (and ELF, gdb, etc.).  The traditional histogram
+is a special case, because there it is more useful to get the slot
+number bits close to the bundle-address bits, so I think we should
+special-case this in ia64_do_profile() instead.  Perhaps something
+along the lines of:
 
+	ip = instruction_pointer(regs);
+	/* for histogram, encode slot bits in address bits 2 and 3: */
+	slot = ip & 3;
+	ip = (ip & ~3UL) + 4*slot;
 
-
+  --david
