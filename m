@@ -1,95 +1,73 @@
-From: Cary Coutant <cary@cup.hp.com>
-Date: Fri, 05 Mar 2004 00:05:00 +0000
-Subject: Possible race condition with deferred binding on IPF
-Message-Id: <BEC72735-6E38-11D8-9E11-003065589C02@cup.hp.com>
+From: Zack Weinberg <zack@codesourcery.com>
+Date: Sun, 07 Mar 2004 21:53:19 +0000
+Subject: Re: Possible race condition with deferred binding on IPF
+Message-Id: <87u1102uk0.fsf@egil.codesourcery.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <BEC72735-6E38-11D8-9E11-003065589C02@cup.hp.com>
+In-Reply-To: <BEC72735-6E38-11D8-9E11-003065589C02@cup.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-We (HP) have discovered a missing requirement in the psABI document 
-with respect to import stubs and inlined import stubs. The deferred 
-binding sequence relies on careful ordering of the two stores that 
-update the function descriptor in the dynamic loader's 
-bind-on-reference routine, and the two loads in the import stub. The 
-import stub must load the entry point address, followed by the gp 
-value, while the BOR routine must store the gp value first, followed by 
-the entry point address. This ensures that one thread cannot interfere 
-with another thread if both are making the same call at about the same 
-time. Furthermore, we need to ensure strong ordering with the use of 
-".acq" and ".rel" completers.
+Cary Coutant <cary@cup.hp.com> writes:
 
-The race condition to be avoided is this:
-
-     Thread 1               Thread 2
-     --------               --------
-                            load (garbage) gp value
-     store new gp value
-     store new entry point
-                            load (new) entry point
-
-If the loads become visible out of order, and the stores become visible 
-between the two loads, we will branch to the actual entry point with a 
-garbage gp value. Forcing strong ordering between the two stores and 
-between the two loads eliminates the possibility of this ordering 
-between the two loads, and therefore eliminates the race condition.
-
-To our knowledge, we have not yet observed an application failure due 
-to this problem. We discovered this while finding a compiler bug in 
-which the two loads were physically moved out of order by the compiler, 
-and came to realize that the psABI does not state any requirement for 
-strong ordering.
-
-This problem has potential impact on the following Gnu/Linux components:
-
-- gcc is not affected, since it does not inline import stubs (I think).
-- The intel compiler needs to be fixed to generate the necessary 
-ld8.acq in inlined import stubs.
-- gld needs to be fixed to generate the necessary ld8.acq in the import 
-stubs.
-- the dynamic loader is not affected, as it uses the required st8.rel 
-already.
-- handcoded assembly language source is at risk, but inlined import 
-stub sequences in handcoded assembly code are, I hope, rare.
-
-While it's clearly important to fix these components, I believe that 
-any actual failures due to the missing .acq are so unlikely that there 
-is no great urgency to encourage a recompile of the world.
-
-I have proposed the following changes to the IA-64 psABI document:
-
-1. In Section 5.3.6 ("Procedure Linkage Table"), the following 
-additional text is needed:
-
-"An import stub (whether in the procedure linkage table or inlined at 
-the point of call) must ensure strong ordering between  the load of the 
-first doubleword of the local function descriptor and the load of the 
-second doubleword. This means that the two loads may not be reordered, 
-and the first load must have acquire semantics."
-
+> We (HP) have discovered a missing requirement in the psABI document
+> with respect to import stubs and inlined import stubs.
 ...
 
-"When the dynamic loader updates the local function descriptor entry, 
-it must store the second doubleword of the function descriptor (the 
-function's gp value) before storing the first doubleword (the function 
-address), and the second store must have release semantics, ensuring 
-strong ordering between the two stores."
+> 2. The example code in Figure 5-4 needs the ".acq" completer on the
+> first load instruction, as follows:
+>
+>      ...
+>      .PLT1: (entry for symbol name1)
+>          addl     r15 = @pltoff(name1), gp ;;
+>          ld8.acq  r16 = [r15], 8
+>          mov      r14 = gp ;;
+>          ld8      gp = [r15]
+>          mov      b6 = r16
+>          br       b6
 
-2. The example code in Figure 5-4 needs the ".acq" completer on the 
-first load instruction, as follows:
+I believe that this corresponds to the following code in bfd/elfxx-ia64.c:
 
-     ...
-     .PLT1: (entry for symbol name1)
-         addl     r15 = @pltoff(name1), gp ;;
-         ld8.acq  r16 = [r15], 8
-         mov      r14 = gp ;;
-         ld8      gp = [r15]
-         mov      b6 = r16
-         br       b6
-     ...
+static const bfd_byte plt_full_entry[PLT_FULL_ENTRY_SIZE] {
+  0x0b, 0x78, 0x00, 0x02, 0x00, 0x24,  /*   [MMI]       addl r15=0,r1;;    */
+  0x00, 0x41, 0x3c, 0x30, 0x28, 0xc0,  /*               ld8 r16=[r15],8    */
+  0x01, 0x08, 0x00, 0x84,              /*               mov r14=r1;;       */
+  0x11, 0x08, 0x00, 0x1e, 0x18, 0x10,  /*   [MIB]       ld8 r1=[r15]       */
+  0x60, 0x80, 0x04, 0x80, 0x03, 0x00,  /*               mov b6=r16         */
+  0x60, 0x00, 0x80, 0x00               /*               br.few b6;;        */
+};
 
+Converting the ld8 to a ld8.acq is a simple matter of changing the
+second line of this array to
 
-Cary Coutant
-HP-UX Runtime Architect
+  0x00, 0x41, 0x3c, 0x70, 0x29, 0xc0,  /*               ld8.acq r16=[r15],8 */
 
+However, I have two related concerns before I try to submit a patch:
+
+1) If I assemble the sample code above, using GAS 2.14, the first byte
+   of the first bundle is 0a, not 0b.  Hex-editing it to 0b doesn't
+   seem to make any difference to the disassembly, but I would like to
+   know if there is a difference anyway.
+
+2) There is another code sequence synthesized by the linker that might
+   need the same treatment:
+
+static const bfd_byte plt_header[PLT_HEADER_SIZE] {
+  0x0b, 0x10, 0x00, 0x1c, 0x00, 0x21,  /*   [MMI]       mov r2=r14;;       */
+  0xe0, 0x00, 0x08, 0x00, 0x48, 0x00,  /*               addl r14=0,r2      */
+  0x00, 0x00, 0x04, 0x00,              /*               nop.i 0x0;;        */
+  0x0b, 0x80, 0x20, 0x1c, 0x18, 0x14,  /*   [MMI]       ld8 r16=[r14],8;;  */
+  0x10, 0x41, 0x38, 0x30, 0x28, 0x00,  /*               ld8 r17=[r14],8    */
+  0x00, 0x00, 0x04, 0x00,              /*               nop.i 0x0;;        */
+  0x11, 0x08, 0x00, 0x1c, 0x18, 0x10,  /*   [MIB]       ld8 r1=[r14]       */
+  0x60, 0x88, 0x04, 0x80, 0x03, 0x00,  /*               mov b6=r17         */
+  0x60, 0x00, 0x80, 0x00               /*               br.few b6;;        */
+};
+
+I don't understand what this code is doing so I can't be sure which
+ld8 needs an .acq.  (In fact, I don't understand the point of the
+first bundle at all.)
+
+zw
