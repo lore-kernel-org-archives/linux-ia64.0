@@ -1,53 +1,57 @@
-From: "Hall, Jenna S" <jenna.s.hall@intel.com>
-Date: Fri, 25 Jan 2002 17:29:49 +0000
+From: "Mallick, Asit K" <asit.k.mallick@intel.com>
+Date: Fri, 25 Jan 2002 22:57:09 +0000
 Subject: RE: [Linux-ia64] Patch to fix latest kernels issue with FW83
-Message-Id: <marc-linux-ia64-105590698805933@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805937@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805927@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805927@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is yet another symptom of running old firmware.  To avoid this, turn of
-"Enable IA-64 Machine Check Abort" under General Setup in your config.
 
-In short, the older firmware releases contain MCA support that is either
-broken or nonexistent.  In this case the firmware is falsely reporting
-corrected platform errors to the OS, in an endless stream that debilitates
-the OS if OS MCA reporting is enabled.
+> -----Original Message-----
+> From: Bjorn Helgaas [mailto:bjorn_helgaas@hp.com]
+> Sent: Friday, January 25, 2002 8:08 AM
+> To: Mallick, Asit K; linux-ia64@linuxia64.org
+> Subject: Re: [Linux-ia64] Patch to fix latest kernels issue with FW83
+> 
+> 
+> On Thursday 24 January 2002 12:46 pm, Mallick, Asit K wrote:
+> > We have root caused the stability problem with latest 
+> kernels and FW83
+> > (LION platform). The following patch (based on 2.4.17) fixes the
+> > problem.
+> ...
+> > -   "ld4.bias r2 = [%0]\n"                  \
+> > +   "ld4 r2 = [%0]\n"                   \
+> 
+> Can you elaborate on this a bit?  All I know about ld.bias is 
+> the statement
+> in section 4.4.6.1 of Vol 1 that
+> 
+>     [ld.bias] is a hint to the implementation to acquire exclusive
+>     ownership of the line containing the addressed data.  The bias
+>     hint does not affect program functionality and may be ignored
+>     by the implementation.
 
-Jenna
+This is correcnt.
 
------Original Message-----
-From: Andreas Schwab [mailto:schwab@suse.de]
-Sent: Friday, January 25, 2002 7:12 AM
-To: Mallick, Asit K
-Cc: linux-ia64@linuxia64.org
-Subject: Re: [Linux-ia64] Patch to fix latest kernels issue with FW83
+> 
+> I can believe the patch is a performance optimization (my 
+> intuition is that
+> when the holder writes the lock to release it, the waiter will merely
+> invalidate its shared line, where it previously had to invalidate and
+> copyout its exclusive line), but I don't see how this should improve
+> stability.  What am I missing?
 
-"Mallick, Asit K" <asit.k.mallick@intel.com> writes:
+FW83 does not have a workaround for a chipset issue (chipset SAC errata#2 in
+460GX specification update) that could cause a livelock with ld.bias loops
+and no modification. The later version of the FWs have the workaround and
+will not see this problem.
 
-|> We have root caused the stability problem with latest kernels and FW83
-(LION
-|> platform). The following patch (based on 2.4.17) fixes the problem.
-Please
-|> let me know if you still see a problem after applying this patch.
 
-I'm getting an infinite stream of "ia64_log_get: Failed to retrieve
-SAL error record type 3", rendering the machine useless.
-
-Andreas.
-
---
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE GmbH, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Thanks,
+Asit
 
