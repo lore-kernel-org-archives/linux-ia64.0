@@ -1,225 +1,117 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Mon, 20 Sep 2004 16:38:19 +0000
-Subject: PATCH-ACPI based CPU hotplug[3/6]-Mapping lsapic to cpu
-Message-Id: <20040920093819.E14208@unix-os.sc.intel.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 17 Sep 2004 21:00:41 +0000
+Subject: [PATCH] sn2_defconfig update take 2
+Message-Id: <200409171400.41405.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_5B1SBB0Bibg1LhF"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com>
-In-Reply-To: <20040920092520.A14208-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Mon, Sep 20, 2004 at 09:25:20AM -0700
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+--Boundary-00=_5B1SBB0Bibg1LhF
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keshavamurthy Anil S <anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ACPI Developer <acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, LHNS list <lhns-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, Linux IA64 <linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+
+Please apply this one instead.  It turns on mmtimer and increases the number 
+of sg entries for the LSI driver.
+
+Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+
+Thanks,
+Jesse
 
 
 
----
-Name:acpi_hotplug_arch.patch
-Status: Tested on 2.6.9-rc2
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-Depends:	
-Version: applies on 2.6.9-rc2	
-Description: 
-This patch provides the architecture specifice support for mapping lsapic to cpu array.
-Currently this supports just IA64. Support for IA32 and x86_64 is in progress
----
+--Boundary-00=_5B1SBB0Bibg1LhF
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sn2-defconfig-update-6.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sn2-defconfig-update-6.patch"
 
- linux-2.6.9-rc2-askeshav/arch/i386/kernel/acpi/boot.c |   22 +++
- linux-2.6.9-rc2-askeshav/arch/ia64/kernel/acpi.c      |  127 +++++++++++++++++-
- linux-2.6.9-rc2-askeshav/include/linux/acpi.h         |    6 
- 3 files changed, 153 insertions(+), 2 deletions(-)
+===== arch/ia64/configs/sn2_defconfig 1.12 vs edited =====
+--- 1.12/arch/ia64/configs/sn2_defconfig	2004-09-02 22:46:36 -07:00
++++ edited/arch/ia64/configs/sn2_defconfig	2004-09-17 13:58:53 -07:00
+@@ -1,7 +1,7 @@
+ #
+ # Automatically generated make config: don't edit
+-# Linux kernel version: 2.6.9-rc1
+-# Fri Aug 27 22:00:00 2004
++# Linux kernel version: 2.6.9-rc2
++# Fri Sep 17 13:58:32 2004
+ #
+ 
+ #
+@@ -13,6 +13,7 @@
+ #
+ # General setup
+ #
++CONFIG_LOCALVERSION=""
+ CONFIG_SWAP=y
+ CONFIG_SYSVIPC=y
+ CONFIG_POSIX_MQUEUE=y
+@@ -33,6 +34,8 @@
+ CONFIG_IOSCHED_DEADLINE=y
+ CONFIG_IOSCHED_CFQ=y
+ # CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
++CONFIG_SHMEM=y
++# CONFIG_TINY_SHMEM is not set
+ 
+ #
+ # Loadable module support
+@@ -54,6 +57,7 @@
+ CONFIG_RWSEM_XCHGADD_ALGORITHM=y
+ CONFIG_TIME_INTERPOLATION=y
+ CONFIG_EFI=y
++CONFIG_GENERIC_IOMAP=y
+ # CONFIG_IA64_GENERIC is not set
+ # CONFIG_IA64_DIG is not set
+ # CONFIG_IA64_HP_ZX1 is not set
+@@ -210,7 +214,6 @@
+ # CONFIG_BLK_DEV_IDEDMA_FORCED is not set
+ CONFIG_IDEDMA_PCI_AUTO=y
+ # CONFIG_IDEDMA_ONLYDISK is not set
+-CONFIG_BLK_DEV_ADMA=y
+ # CONFIG_BLK_DEV_AEC62XX is not set
+ # CONFIG_BLK_DEV_ALI15X3 is not set
+ # CONFIG_BLK_DEV_AMD74XX is not set
+@@ -277,7 +280,8 @@
+ # CONFIG_SCSI_AIC7XXX is not set
+ # CONFIG_SCSI_AIC7XXX_OLD is not set
+ # CONFIG_SCSI_AIC79XX is not set
+-# CONFIG_SCSI_MEGARAID is not set
++# CONFIG_MEGARAID_NEWGEN is not set
++# CONFIG_MEGARAID_LEGACY is not set
+ CONFIG_SCSI_SATA=y
+ # CONFIG_SCSI_SATA_SVW is not set
+ # CONFIG_SCSI_ATA_PIIX is not set
+@@ -334,8 +338,7 @@
+ # Fusion MPT device support
+ #
+ CONFIG_FUSION=y
+-CONFIG_FUSION_MAX_SGE=40
+-CONFIG_FUSION_ISENSE=m
++CONFIG_FUSION_MAX_SGE=128
+ CONFIG_FUSION_CTL=m
+ 
+ #
+@@ -550,7 +553,6 @@
+ CONFIG_UNIX98_PTYS=y
+ CONFIG_LEGACY_PTYS=y
+ CONFIG_LEGACY_PTY_COUNT=256
+-# CONFIG_QIC02_TAPE is not set
+ 
+ #
+ # IPMI
+@@ -575,6 +577,7 @@
+ CONFIG_RAW_DRIVER=m
+ # CONFIG_HPET is not set
+ CONFIG_MAX_RAW_DEVS=256
++CONFIG_MMTIMER=y
+ 
+ #
+ # I2C support
 
-diff -puN include/linux/acpi.h~acpi_hotplug_arch include/linux/acpi.h
---- linux-2.6.9-rc2/include/linux/acpi.h~acpi_hotplug_arch	2004-09-17 17:56:49.136826616 -0700
-+++ linux-2.6.9-rc2-askeshav/include/linux/acpi.h	2004-09-17 17:56:49.231553178 -0700
-@@ -396,6 +396,12 @@ void acpi_numa_processor_affinity_init (
- void acpi_numa_memory_affinity_init (struct acpi_table_memory_affinity *ma);
- void acpi_numa_arch_fixup(void);
- 
-+#ifdef CONFIG_ACPI_HOTPLUG_CPU
-+/* Arch dependent functions for cpu hotplug support */
-+int acpi_map_lsapic(acpi_handle handle, int *pcpu);
-+int acpi_unmap_lsapic(int cpu);
-+#endif /* CONFIG_ACPI_HOTPLUG_CPU */
-+
- extern int acpi_mp_config;
- 
- extern u32 pci_mmcfg_base_addr;
-diff -puN arch/ia64/kernel/acpi.c~acpi_hotplug_arch arch/ia64/kernel/acpi.c
---- linux-2.6.9-rc2/arch/ia64/kernel/acpi.c~acpi_hotplug_arch	2004-09-17 17:56:49.140732866 -0700
-+++ linux-2.6.9-rc2-askeshav/arch/ia64/kernel/acpi.c	2004-09-17 17:56:49.232529740 -0700
-@@ -354,11 +354,11 @@ acpi_parse_madt (unsigned long phys_addr
- #define PXM_FLAG_LEN ((MAX_PXM_DOMAINS + 1)/32)
- 
- static int __initdata srat_num_cpus;			/* number of cpus */
--static u32 __initdata pxm_flag[PXM_FLAG_LEN];
-+static u32 __devinitdata pxm_flag[PXM_FLAG_LEN];
- #define pxm_bit_set(bit)	(set_bit(bit,(void *)pxm_flag))
- #define pxm_bit_test(bit)	(test_bit(bit,(void *)pxm_flag))
- /* maps to convert between proximity domain and logical node ID */
--int __initdata pxm_to_nid_map[MAX_PXM_DOMAINS];
-+int __devinitdata pxm_to_nid_map[MAX_PXM_DOMAINS];
- int __initdata nid_to_pxm_map[MAX_NUMNODES];
- static struct acpi_table_slit __initdata *slit_table;
- 
-@@ -650,4 +650,127 @@ acpi_gsi_to_irq (u32 gsi, unsigned int *
- 	return 0;
- }
- 
-+/*
-+ *  ACPI based hotplug support for CPU
-+ */
-+#ifdef CONFIG_ACPI_HOTPLUG_CPU
-+static
-+int
-+acpi_map_cpu2node(acpi_handle handle, int cpu, long physid)
-+{
-+#ifdef CONFIG_ACPI_NUMA
-+	int 			pxm_id = 0;
-+	union acpi_object 	*obj;
-+	struct acpi_buffer 	buffer = {ACPI_ALLOCATE_BUFFER, NULL};
-+
-+	if (ACPI_FAILURE(acpi_evaluate_object(handle, "_PXM", NULL, &buffer)))
-+		goto pxm_id_0;
-+
-+	if ((!buffer.length) || (!buffer.pointer))
-+		goto pxm_id_0;
-+
-+	obj = buffer.pointer;
-+	if (obj->type != ACPI_TYPE_INTEGER) {
-+		acpi_os_free(buffer.pointer);
-+		goto pxm_id_0;
-+	}
-+
-+	pxm_id = obj->integer.value;
-+
-+pxm_id_0:
-+	/*
-+	 * Assuming that the container driver would have set the proximity
-+	 * domain and would have initialized pxm_to_nid_map[pxm_id] && pxm_flag
-+	 */
-+
-+	/* Return Error if proximity domain is not set */
-+	if (!pxm_bit_test(pxm_id))
-+		return -EINVAL;
-+
-+	node_cpuid[cpu].phys_id =  physid;
-+	node_cpuid[cpu].nid = pxm_to_nid_map[pxm_id];
-+
-+#endif
-+	return(0);
-+}
-+
-+
-+int
-+acpi_map_lsapic(acpi_handle handle, int *pcpu)
-+{
-+	struct acpi_buffer buffer = {ACPI_ALLOCATE_BUFFER, NULL};
-+	union acpi_object *obj;
-+	struct acpi_table_lsapic *lsapic;
-+	cpumask_t tmp_map;
-+	long physid;
-+	int cpu;
-+ 
-+	if (ACPI_FAILURE(acpi_evaluate_object(handle, "_MAT", NULL, &buffer)))
-+		return -EINVAL;
-+
-+	if (!buffer.length ||  !buffer.pointer)
-+		return -EINVAL;
-+ 
-+	obj = buffer.pointer;
-+	if (obj->type != ACPI_TYPE_BUFFER ||
-+	    obj->buffer.length < sizeof(*lsapic)) {
-+		acpi_os_free(buffer.pointer);
-+		return -EINVAL;
-+	}
-+
-+	lsapic = (struct acpi_table_lsapic *)obj->buffer.pointer;
-+
-+	if ((lsapic->header.type != ACPI_MADT_LSAPIC) ||
-+	    (!lsapic->flags.enabled)) {
-+		acpi_os_free(buffer.pointer);
-+		return -EINVAL;
-+	}
-+
-+	physid = ((lsapic->id <<8) | (lsapic->eid));
-+
-+	acpi_os_free(buffer.pointer);
-+	buffer.length = ACPI_ALLOCATE_BUFFER;
-+	buffer.pointer = NULL;
-+
-+	cpus_complement(tmp_map, cpu_present_map);
-+	cpu = first_cpu(tmp_map);
-+	if(cpu >= NR_CPUS)
-+		return -EINVAL;
-+
-+	if (ACPI_FAILURE(acpi_map_cpu2node(handle, cpu, physid)))
-+	return -ENODEV;
-+
-+ 	cpu_set(cpu, cpu_present_map);
-+	ia64_cpu_to_sapicid[cpu] = physid;
-+	ia64_acpiid_to_sapicid[lsapic->acpi_id] = ia64_cpu_to_sapicid[cpu];
-+
-+	*pcpu = cpu;
-+	return(0);
-+}
-+EXPORT_SYMBOL(acpi_map_lsapic);
-+
-+
-+int
-+acpi_unmap_lsapic(int cpu)
-+{
-+	int i;
-+
-+	for (i=0; i<MAX_SAPICS; i++) {
-+ 		if (ia64_acpiid_to_sapicid[i] = ia64_cpu_to_sapicid[cpu]) {
-+ 			ia64_acpiid_to_sapicid[i] = -1;
-+ 			break;
-+ 		}
-+ 	}
-+	ia64_cpu_to_sapicid[cpu] = -1;
-+	cpu_clear(cpu,cpu_present_map);
-+
-+#ifdef CONFIG_ACPI_NUMA
-+	/* NUMA specific cleanup's */
-+#endif
-+
-+	return(0);
-+}
-+EXPORT_SYMBOL(acpi_unmap_lsapic);
-+#endif /* CONFIG_ACPI_HOTPLUG_CPU */
-+ 
- #endif /* CONFIG_ACPI_BOOT */
-diff -puN arch/i386/kernel/acpi/boot.c~acpi_hotplug_arch arch/i386/kernel/acpi/boot.c
---- linux-2.6.9-rc2/arch/i386/kernel/acpi/boot.c~acpi_hotplug_arch	2004-09-17 17:56:49.145615679 -0700
-+++ linux-2.6.9-rc2-askeshav/arch/i386/kernel/acpi/boot.c	2004-09-17 17:56:49.233506303 -0700
-@@ -478,6 +478,28 @@ unsigned int acpi_register_gsi(u32 gsi, 
- }
- EXPORT_SYMBOL(acpi_register_gsi);
- 
-+/*
-+ *  ACPI based hotplug support for CPU
-+ */
-+#ifdef CONFIG_ACPI_HOTPLUG_CPU
-+int
-+acpi_map_lsapic(acpi_handle handle, int *pcpu)
-+{
-+	/* TBD */
-+	return -EINVAL;
-+}
-+EXPORT_SYMBOL(acpi_map_lsapic);
-+
-+
-+int
-+acpi_unmap_lsapic(int cpu)
-+{
-+	/* TBD */
-+	return -EINVAL;
-+}
-+EXPORT_SYMBOL(acpi_unmap_lsapic);
-+#endif /* CONFIG_ACPI_HOTPLUG_CPU */
-+
- static unsigned long __init
- acpi_scan_rsdp (
- 	unsigned long		start,
-_
+--Boundary-00=_5B1SBB0Bibg1LhF--
