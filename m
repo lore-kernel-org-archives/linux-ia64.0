@@ -1,70 +1,52 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Thu, 29 Apr 2004 19:50:54 +0000
-Subject: RE: [patch 1/3] efivars driver update and move
-Message-Id: <1083268253.8416.100.camel@localhost>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Thu, 29 Apr 2004 21:19:30 +0000
+Subject: Re: [patch 1/3] efivars driver update and move
+Message-Id: <20040429211930.GC15106@lists.us.dell.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="96YOpH+ONegL0A3E"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <D36CE1FCEFD3524B81CA12C6FE5BCAB002FFEAB3@fmsmsx406.fm.intel.com>
-In-Reply-To: <D36CE1FCEFD3524B81CA12C6FE5BCAB002FFEAB3@fmsmsx406.fm.intel.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>
-Cc: akpm@osdl.org, linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>, Matt_Domsch@dell.com
+References: <D36CE1FCEFD3524B81CA12C6FE5BCAB002FFEAB3@fmsmsx406.fm.intel.com> <1083268253.8416.100.camel@localhost>
+In-Reply-To: <1083268253.8416.100.camel@localhost>
+To: Alex Williamson <alex.williamson@hp.com>
+Cc: "Tolentino, Matthew E" <matthew.e.tolentino@intel.com>, akpm@osdl.org, linux-ia64 <linux-ia64@vger.kernel.org>, linux-kernel <linux-kernel@vger.kernel.org>
 
 
-   Good work on the sysfs port, I like it too.  I ran into a little
-problem trying it with the newest efibootmgr (test3) on an HP rx2600. 
-I'm not sure what the problem is, so this is a bug report/query. 
-Efibootmgr complains "show_boot_order(): No such file or directory". 
-However, it looks ok:
+--96YOpH+ONegL0A3E
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-# find /sys/firmware/efi/vars/ -name BootOrder*
-/sys/firmware/efi/vars/BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c 
+On Thu, Apr 29, 2004 at 01:50:54PM -0600, Alex Williamson wrote:
+> # stat BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c\ /
+>   File: `BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c /'
 
-Looking at the directory a little more closely
+FWIW, my Intel Tiger2-based system doesn't have the space at the end...
 
-# stat BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c\ /
-  File: `BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c /'
-...
+>         *(short_name + strlen(short_name)) =3D '-';
+>         efi_guid_unparse(vendor_guid, short_name + strlen(short_name));
+>         *(short_name + strlen(short_name)) =3D ' ';
 
-What's the purpose of the ' ' at the end of the directory name?  The
-comment in the code suggests it might have a purpose:
+even though looking at this I would have expected it to...
 
-        /* This is ugly, but necessary to separate one vendor's
-           private variables from another's.         */
+Can you remove that last line and see what it does?  Best as I can
+tell, it isn't necessary or desired.
 
-        *(short_name + strlen(short_name)) = '-';
-        efi_guid_unparse(vendor_guid, short_name + strlen(short_name));
-        *(short_name + strlen(short_name)) = ' ';
+--=20
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
 
-But the same comment was in the /proc efivar code, without the
-additional space tagged onto the end.  All of the EFI variables end with
-a space, so there's nothing special about this one.  Is the space
-intentional?  The data in the variable looks good otherwise:
+--96YOpH+ONegL0A3E
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-# xxd BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c\ /data 
-0000000: 0100 0000 0200 0500 0600 0300            ............
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
 
-# xxd BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c\ /guid 
-0000000: 3862 6534 6466 3631 2d39 3363 612d 3131  8be4df61-93ca-11
-0000010: 6432 2d61 6130 642d 3030 6530 3938 3033  d2-aa0d-00e09803
-0000020: 3262 3863 0a                             2b8c.
+iD8DBQFAkXFiIavu95Lw/AkRAuLhAJ9EMcgAuxZ+OMgqf5f2bMt1FHYBjACfRsJd
+AUHRI8EORk+Utka3OFnP2uM=
+=Q3HN
+-----END PGP SIGNATURE-----
 
-# xxd BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c\ /attributes 
-0000000: 4546 495f 5641 5249 4142 4c45 5f4e 4f4e  EFI_VARIABLE_NON
-0000010: 5f56 4f4c 4154 494c 450a 4546 495f 5641  _VOLATILE.EFI_VA
-0000020: 5249 4142 4c45 5f42 4f4f 5453 4552 5649  RIABLE_BOOTSERVI
-0000030: 4345 5f41 4343 4553 530a 4546 495f 5641  CE_ACCESS.EFI_VA
-0000040: 5249 4142 4c45 5f52 554e 5449 4d45 5f41  RIABLE_RUNTIME_A
-0000050: 4343 4553 530a                           CCESS.
-
-# xxd BootOrder-8be4df61-93ca-11d2-aa0d-00e098032b8c\ /size       
-0000000: 3078 630a                                0xc.
-
-Thanks,
-
-	Alex
-
--- 
-Alex Williamson                             HP Linux & Open Source Lab
-
+--96YOpH+ONegL0A3E--
