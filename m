@@ -1,7 +1,7 @@
-From: Jim Wilson <wilson@specifixinc.com>
-Date: Fri, 07 May 2004 07:48:46 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 10 May 2004 20:16:33 +0000
 Subject: Re: [PATCH] new ".serialize" gas directive
-Message-Id: <1083916127.1073.158.camel@leaf.tuliptree.org>
+Message-Id: <16543.58145.776571.385405@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16537.51724.854691.934006@napali.hpl.hp.com>
 In-Reply-To: <16537.51724.854691.934006@napali.hpl.hp.com>
@@ -10,36 +10,39 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, 2004-05-06 at 16:47, David Mosberger wrote:
-> Isn't it true that GCC never produces a NaT on its own and never uses
-> uninitialized registers?
+>>>>> On 07 May 2004 00:48:46 -0700, Jim Wilson <wilson@specifixinc.com> said:
 
-Currently, we never intentionally produce NaTs.  However, hopefully
-someday we will, so we should be careful about things like this.
+  Jim> I don't have a lot of time for IA-64 gcc work at the moment.  It might
+  Jim> be useful to have a gcc bug report for this so we don't lose track of
+  Jim> it.
 
-I am not sure about the uninitialized register thing.  It used to be the
-case that you could get writes to uninitialized registers if you had an
-uninitialized variable in the source.  Of course, in that case, the
-program is broken anyways.  However, I think this might have been fixed
-for other non-IPF reasons.  I couldn't get an unitialized register use
-with a trivial example.
+I was going to submit a bug-report, but it's difficult to provide a
+reliable test-case, because other changes in the compiler can easily
+make one particular warning go away, just to show up in some other
+place.  For example, with the CVS gcc (pre-3.5), the warning from
+mm/vmscan.c is gone but instead we get several other warnings such as
+this one from net/drivers/bonding/bond_main.c:
 
->  Perhaps GCC
-> should assert that p34 and p35 are mutually exclusive (effectively
-> asserting that r22 is not a NaT)?
+$ as -x drivers/net/bonding/bond_main.s
+drivers/net/bonding/bond_main.s: Assembler messages:
+drivers/net/bonding/bond_main.s:3409: Warning: Use of 'addl' may violate WAW dependency 'GR%, % in 1 - 127' (impliedf), specific resource number is 42
+drivers/net/bonding/bond_main.s:3408: Warning: This is the location of the conflicting usage
 
-There is no trivial way to do this.  At the moment, gcc only emits the
-mutex directive if a predicate register is live across a basic block. 
-That is the only case that gas can't figure out on its own.
+The code in question looks like this:
 
-New code would have to be written to handle this case.  We might just
-have to emit mutex directives for every compare which will clutter up
-the assembly language.  That would be unfortunate, but maybe it is
-unavoidable for now.
+	cmp4.eq p12, p13 = 6, r14
+	addl r28 = @ltoffx(.LC26), r1
+	mov r40 = r32 ;;
 
-I don't have a lot of time for IA-64 gcc work at the moment.  It might
-be useful to have a gcc bug report for this so we don't lose track of
-it.
--- 
-Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
+  (p13) cmp.eq p16, p17 = 0, r34
+	ld8.mov r41 = [r28], .LC26
+  (p12) br.cond.dpnt .L1108 ;;
 
+  (p16) addl r42 = @ltoffx(.LC28), r1
+  (p17) addl r42 = @ltoffx(.LC27), r1
+
+So, I think the best the bug report could say is "try building the
+Linux kernel and look for spurious dependency-violation warnings".  Is
+this worth putting in a bug-report?
+
+	--david
