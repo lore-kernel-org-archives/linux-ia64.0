@@ -1,7 +1,7 @@
-From: grundler@cup.hp.com (Grant Grundler)
-Date: Fri, 14 Mar 2003 18:17:42 +0000
+From: Jesse Barnes <jbarnes@sgi.com>
+Date: Fri, 14 Mar 2003 19:00:36 +0000
 Subject: Re: [Linux-ia64] page size > 16KB
-Message-Id: <marc-linux-ia64-105590709806105@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709806107@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709806057@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709806057@msgid-missing>
@@ -10,17 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Mar 14, 2003 at 01:33:12PM +0100, Jan Schreckenbach wrote:
-> 2110715 cpu_idle                                 5996.3494
->  12975 sock_poll                                 81.0938
+On Fri, Mar 14, 2003 at 09:33:30AM -0800, Jesse Barnes wrote:
+> On Fri, Mar 14, 2003 at 01:33:12PM +0100, Jan Schreckenbach wrote:
+> > yep, I'm doing some benchmark stuff with SAP/SAPDB and the performance
+> > is not as good as I expected. CONFIG_HUGETLB_PAGE=y is standard on a
+> > SLES8 kernel (2.4.19-SMP). I changed the page size from 16K to 64K
+> > and the performance increase was 2-3 percent. Changing  Huge TLB Page 
+> > Size" seems not to have any effect.
 
-As someone earlier mentioned, cpu_idle should be zero (or near zero).
-I suspect you are IO bound - check mfg specs on IO cards
-and IO devices you are using. Then see what IO rate they
-are actually delivering (perhaps vmstat output is good enough).
+richa pointed out that it would probably be a good idea to use perfmon
+to count L2DTLB_MISSES events for your app to see whether TLB misses
+are really causing a problem.  Another good thing to do might be to
+run vmstat during your app run to see how much I/O wait time you're
+seeing, and whether you're saturating your block device, etc.
 
-And I suggest you look at what configuration HPUX folks are using
-and what performance they are getting.
-
-grant
+Jesse
 
