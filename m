@@ -1,7 +1,7 @@
-From: Peter Chubb <peter@chubb.wattle.id.au>
-Date: Fri, 19 Sep 2003 05:01:02 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Fri, 19 Sep 2003 05:04:29 +0000
 Subject: Re: NS83820 2.6.0-test5 driver seems unstable on IA64
-Message-Id: <marc-linux-ia64-106394769903233@msgid-missing>
+Message-Id: <marc-linux-ia64-106394792803386@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106394503001622@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106394503001622@msgid-missing>
@@ -10,35 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Fri, Sep 19, 2003 at 06:43:15AM +0200, Andi Kleen wrote:
+> It is a mixed blessing, because the result is a non cache line 
+> aligned buffer. Some NIC chipsets don't like this because they have
+> to do a read-modify-write cycle for the first cache line and cannot
+> burst the full packet.
 
- On Thu, Sep 18, 2003 at 09:38:47PM -0700, Grant Grundler wrote:
-> On Fri, Sep 19, 2003 at 02:16:29PM +1000, Peter Chubb wrote: 
->> The
->> obvious approach of realigning the SKB by 2 bytes seems not to 
->> work.
+yeah, that reminds me...tulip can only DMA to word aligned addresses.
+I looked it up again in DEC 21143 HWREF (page 113 of the pdf):
+        Table 4-3. RDES2 Bit Field Description
+    Field      Description
+    31:0       Buffer Address 1
+               Indicates the physical address of buffer 1. 
+               The buffer must be longword aligned (RDES2<1:0> = 00).
 
-> Could you be more detailed about the "obvious approach"?  ie show
-> the diff of what you changed.
+Same is true for TX/RX descriptor addresses.
+Behavior is undefined if the addresses for DMA are not 4-byte aligned.
 
+Anyone know if that's true for NS83820?
+I couldn't find which driver controls that chip/NIC via a quick grep.
 
-It doesn't work as in no error messages, no pings, no interrupts to the
-driver.  And the kernel hangs after a short while.
-
-This is what I changed:
-
-=== drivers/net/ns83820.c 1.19 vs edited ==--- 1.19/drivers/net/ns83820.c  Thu Jun  5 13:50:00 2003
-+++ edited/drivers/net/ns83820.c        Fri Sep 19 13:49:23 2003
-@@ -567,7 +567,7 @@
-                res = (long)skb->tail & 0xf;
-                res = 0x10 - res;
-                res &= 0xf;
--               skb_reserve(skb, res);
-+               skb_reserve(skb, res+2);
- 
-                skb->dev = &dev->net_dev;
-                if (gfp != GFP_ATOMIC)
-
-
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-You are lost in a maze of BitKeeper repositories,   all slightly different.
+grant
