@@ -1,54 +1,39 @@
-From: Juan Quintela <quintela@mandrakesoft.com>
-Date: Mon, 17 Dec 2001 22:46:34 +0000
-Subject: Re: [Linux-ia64] Re: Linux 2.4.17-pre6 drm-4.0
-Message-Id: <marc-linux-ia64-105590698805710@msgid-missing>
+From: "=?gb2312?B?zMYg0+4=?=" <ytang5@hotmail.com>
+Date: Mon, 03 Dec 2001 10:01:05 +0000
+Subject: Re: [Linux-ia64] about linux/ia64 mm
+Message-Id: <marc-linux-ia64-105590698805579@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805654@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805654@msgid-missing>
+References: <marc-linux-ia64-105590698805562@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805562@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="gb2312"
+Content-Transfer-Encoding: base64
 To: linux-ia64@vger.kernel.org
 
->>>>> "marcelo" = Marcelo Tosatti <marcelo@conectiva.com.br> writes:
-
-marcelo> On Sat, 15 Dec 2001, Christoph Hellwig wrote:
-
->> On Fri, Dec 14, 2001 at 11:13:15AM -0800, David Mosberger wrote:
->> > In my opinion it's extremely bad style to remove drm-4.0 from the 2.4
->> > kernel (remember, it's supposed to be a *stable* kernel series).
->> 
->> Agreed.  Stil I don't think specific ports should fix that up - this
->> will sooner or later leed to a full fork.
->> 
->> > As
->> > far as I know, there are binary-only drivers out there that work only
->> > with drm-4.0.  I don't think it's fair to break someones working setup
->> > just because of a kernel upgrade.
->> 
->> _Any_ kernel update may break binary drivers.
->> 
->> > But if there is a good reason to remove it, I'm certainly willing to
->> > listen.  My understanding is that for Keith it's good enough if
->> > drm-4.0 goes away in 2.5.
->> 
->> My opinion is that including the drm changes in the ia64 patch just makes
->> the diff to handle much bigger.
->> 
->> Marcelo, are you willing to put in drm 4.0 as option in 2.4.18 again?
-
-marcelo> Why would I ? 
-
-marcelo> What is wrong with the current drm version ? 
-
-That you need to have XFree 4.1 installed, if you have XFree4.0, then
-you can't have drm :(
-
-Yes, that drm is incompatible sucks :(
-
-Later, Juan.
-
--- 
-In theory, practice and theory are the same, but in practice they 
-are different -- Larry McVoy
-
+b2ssIGkgZm91bmQgbXkgYW5zd2VyOwpmb3IgcmVnaW9uIDcsYml0IHJyLnZlIGlzIDAsIHNvIHRo
+ZSBWSFBUIHdhbGtlciBpcyBkaXNhYmxlZCBmb3IgdGhlc2UgdHdvIApyZWdpb25zOyBmYXVsdCBo
+YW5kbGVyIGFsdF9bZC9pXXRsYl9taXNzIGltcGxlbWVudCByZWdpb24tc3BlY2lmaWMgCnRyYW5z
+bGF0aW9uIGFsZ29yaXRobXMobW9yZSBzaW1wbGUgYW5kIGVmZmVjaWVudCkgZm9yIGl0OwoKdGh4
+IGFnYWluOwoKPkZyb206IERhdmlkIE1vc2JlcmdlciA8ZGF2aWRtQGhwbC5ocC5jb20+Cj5SZXBs
+eS1UbzogZGF2aWRtQGhwbC5ocC5jb20KPlRvOiAizMYg0+4iIDx5dGFuZzVAaG90bWFpbC5jb20+
+Cj5DQzogbGludXgtaWE2NEBsaW51eGlhNjQub3JnCj5TdWJqZWN0OiBSZTogW0xpbnV4LWlhNjRd
+IGFib3V0IGxpbnV4L2lhNjQgbW0KPkRhdGU6IFRodSwgMjkgTm92IDIwMDEgMjE6NDM6MTggLTA4
+MDAKPgo+ID4+Pj4+IE9uIFRodSwgMjkgTm92IDIwMDEgMjM6MTk6NTMgKzA4MDAsICI9P2diMjMx
+Mj9CP3pNWWcwKzQ9Pz0iIAo8eXRhbmc1QGhvdG1haWwuY29tPiBzYWlkOgo+Cj4gICBUYW5nPiBo
+aSBhbGwsIGkgd2FzIGEgbGl0dGxlIGNvbmZ1c2VkIGJ5IGxpbnV4L2lhNjQgbW07IGFzIGkga25v
+dywKPiAgIFRhbmc+IGxpbnV4IHJlcXVpcmVzIHBoeXNpY2FsIG1lbW9yeSB0byBiZSBtYXBwZWQg
+Y29udGlndW91c2x5IHRvCj4gICBUYW5nPiBrZXJuZWwgc3BhY2UoIGRvbid0IGNhcmUgaGlnaG1l
+bSk7IGFuZCBQQUdFX09GRlNFVCBpcyBkZWZpbmVkCj4gICBUYW5nPiB0byAweGUwMDAwMDAwMDAw
+MDAwMDAgaW4gbGludXgvaWE2NDsgdGhhdCdzIHJlZ2lvbiA3LCBpdHMgcGFnZQo+ICAgVGFuZz4g
+c2l6ZSBpcyBmaXhlZCB0byA2NE0oMi40LjEyKS4gaG93IGNvdWxkIF9fZ2V0X2ZyZWVfcGFnZXMo
+KQo+ICAgVGFuZz4gYWxsb2NhdGUgc3VjaCBhIGJpZyBfcGFnZV8/IGl0J3MgYWJzb2x1dGVseSBp
+bXBvc3NpYmxlLiAgc28gaQo+ICAgVGFuZz4gdGhpbmsgaSBtYWRlIGEgYmlnIG1pc3Rha2Ugc29t
+ZXdoZXJlLCB3b3VsZCBzb21lb25lIGhlbHAgbWUKPiAgIFRhbmc+IG91dD8gIHRoeCA6LSkKPgo+
+VGhlIHBhZ2UgYWxsb2NhdG9yIHdvcmtzIGF0IHRoZSBwYWdlIGZyYW1lIGxldmVsLCB3aGljaCBj
+YW4gYmUKPmNvbmZpZ3VyZWQgdG8gaGF2ZSBhIHNpemUgb2YgNCwgOCwgMTYsIG9yIDY0S0IuICBU
+aGUgbGFyZ2UgVExCCj5tYXBwaW5ncyBhcmUgdXNlZCBtZXJlbHkgdG8gYWNjZXNzIHRoZSB1bmRl
+cmx5aW5nIG1lbW9yeSAodGhpbmsgb2YgaXQKPmFzIGEgcGh5c2ljYWwgYWRkcmVzcyBzcGFjZSB3
+aXRoIGEgbm9uLXplcm8gc3RhcnRpbmcgYWRkcmVzcykuCj4KPgktLWRhdmlkCgoKX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+xPq/ydLU1NogTVNOIEhvdG1haWwg1b614yBodHRwOi8vd3d3LmhvdG1haWwuY29tL2NuIMPit9HK
+1beitefX09PKvP4KCgo=
