@@ -1,7 +1,7 @@
-From: Rich Altmaier <richa@engr.sgi.com>
-Date: Thu, 26 Jul 2001 20:19:56 +0000
+From: "Jose Luu" <jluu@mainsoft.com>
+Date: Thu, 26 Jul 2001 22:42:25 +0000
 Subject: Re: [Linux-ia64] gcc 3.0 question: ILP32 mode ?
-Message-Id: <marc-linux-ia64-105590693005930@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005937@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005928@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005928@msgid-missing>
@@ -10,51 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Dear Jose and others, I would like to caution against proceeding
-in this direction (to create ILP32 mode on IA64 systems).
-Although it may seem attractive to be able to port code to IA64
-without doing the 64bit address corrections, the result is a total
-forking of the ABI.
-
-Since 32bit-address and 64bit-address object code cannot be linked
-together, persuing 32-bit address becomes a steadily expanding
-space.   You have to collect each and every library that you need,
-and libraries used by libraries, to get them available in this 32bit
-format.   The library developer has to provide two versions.
-
-Since it is always less engineering work to do the 32bit version,
-some developers will decide to not do the 64bit version.
-Other developers will decide to not do the 32bit version.
-
-The end result will be such fragementation that no application will
-find all the libraries it needs, in either format.
-
-Creating a second ABI for IA64 is not to be taken lightly.  It is a big,
-big step.   It will echo its result for years.
-I urge you to do the 64-bit address cleanup in your code.
-For this little bit of up front work, you will promote IA64's success
-for the next 10 years.   Other approaches will sink it.
-
-Thanks, Rich
-Rich Altmaier
-VP of Foundation Software
-SGI
-richa@sgi.com
-
-
-Jose Luu wrote:
-
-> This report http://www.linuxia64.org/gcc_summit.2001.06.06.html mentions
-> that:
-> > the HP-UX version of GCC on IA-64 supports
-> >   ILP32 as well as LP64
+Hans wrote:
+> Supporting another ABI is very expensive.  The tradeoffs for HP/UX are
+> different.
 >
-> Is this also available on linux gcc 3.0 ?
-> If not, how difficult would it be to make such a version ?
-> In case I want to undertake it, are the changes for HP-UX already
-> incorporated in the opensource tree ?
->
-> Thanks
-> Jose
+
+I am sure I don't realize how expensive it is, but it seems worth
+investigating, for our purposes we need the libc and libX11, little else.
+
+Some code is just not worth cleaning up because it is too big, and will
+never require 64 bit addressing, but still useful to have in native mode,
+mostly because of the performance gap between ia32 and ILP32 which will
+moreover widen with the McKinley chip. Look at netscape, it has never been
+cleaned up, it was ported on linux alpha using the DEC/Compaq/(Intel now?)
+compiler in taso mode (32 bit pointers).
+
+DEC/Compaq developped a technology for VMS where one can mix 32 and 64 bit
+libraries, I am wondering if the same ideas can be applied here (see
+references below), nowadays this technology should be with Intel. This would
+avoid the fork in the ABI.
+
+References:
+http://www.research.compaq.com/wrl/DECarchives/DTJ/DTJM06/DTJM06HM.HTM and
+http://www.research.compaq.com/wrl/DECarchives/DTJ/DTJM07/DTJM07HM.HTM
+
+Jose
 
 
