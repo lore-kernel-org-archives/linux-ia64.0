@@ -1,78 +1,40 @@
-From: navanee navanee <navaneetham@engineer.com>
-Date: Wed, 29 Nov 2000 07:02:48 +0000
-Subject: [Linux-ia64] RE: Linux-IA64 digest, Vol 1 #112 - 1 msg
-Message-Id: <marc-linux-ia64-105590678205776@msgid-missing>
+From: Francis Galiegue <fg@mandrakesoft.com>
+Date: Wed, 15 Nov 2000 09:30:35 +0000
+Subject: [Linux-ia64] Problem compiling latest gcc (001024 snapshot)
+Message-Id: <marc-linux-ia64-105590678205721@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-------Original Message------
-From: linux-ia64-request@linuxia64.org
-To: linux-ia64@linuxia64.org
-Sent: November 28, 2000 8:01:02 PM GMT
-Subject: Linux-IA64 digest, Vol 1 #112 - 1 msg
+I tried to get the latest snapshot of gcc on cygnus to compile... but it fails
+with this error:
 
+/usr/src/RPM/BUILD/src/builddir/gcc/xgcc -B/usr/src/RPM/BUILD/src/builddir/gcc/
+-B/usr/ia64-mandrake-linux/bin/ -I/usr/ia64-mandrake-linux/include -O2
+-DIN_GCC    -O2 -isystem ./include  -fPIC -g1
+-DIN_LIBGCC2 -D__GCC_FLOAT_NOT_NEEDED  -I. -I../../gcc -I../../gcc/config
+-I../../gcc/../include -DL__nonlocal_goto -xassembler-with-cpp -c
+../../gcc/config/ia64/lib1funcs.asm -o libgcc/./__nonlocal_goto.o
+../../gcc/config/ia64/lib1funcs.asm: Assembler messages:
+../../gcc/config/ia64/lib1funcs.asm:655: Error: Unknown opcode `mov.ret.sptk
+rp=in0,.L0'
+make[2]: *** [libgcc/./__nonlocal_goto.o] Error 1
 
-Send Linux-IA64 mailing list submissions to
-linux-ia64@linuxia64.org
+Machine is a BigSur, A0 stepping CPU. Glibc is 2.1.3 (and 2.1.3 patch is
+applied), gcc is 2.9-ia64-000216-final. Kernel is 2.4.0-test7 with ia64 patch.
+I also tried to compile with RCS patches present in the snap directory, up to
+031, but to no avail, still the same error. READMEs in the sources don't help.
 
-To subscribe or unsubscribe via the World Wide Web, visit
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-or, via email, send a message with subject or body 'help' to
-linux-ia64-request@linuxia64.org
+I'm stuck... Do you see what I did wrong? Would the .032 and .033 patches help?
 
-You can reach the person managing the list at
-linux-ia64-admin@linuxia64.org
+Oh, and BTW, .033 is unreadable, it's 600 on the FTP site.
 
-When replying, please edit your Subject line so it is more specific
-than "Re: Contents of Linux-IA64 digest..."
+-- 
+Francis Galiegue, fg@mandrakesoft.com
+"Programming is a race between programmers, who try and make more and more
+idiot-proof software, and universe, which produces more and more remarkable
+idiots. Until now, universe leads the race"  -- R. Cook
 
-
-Today's Topics:
-
-1. Information about EFI. (Sapariya Manish.j)
-
---__--__--
-
-Message: 1
-From: "Sapariya Manish.j" <S.Manish@zensar.com>
-To: linux-ia64@linuxia64.org
-Date: Tue, 28 Nov 2000 14:42:42 +0530
-Subject: [Linux-ia64] Information about EFI.
-
-Hi all,
-I dont know whethere this is the correct place to ask this question or not
-but i couldnt get it anywhere else.
-
-The question is about EFI bios32/ia64 emulator for 32 bit systems.
-
-I want to write a exception handler for my application written in EFI.
-Right now i dont have access to 64 bit machine thats why i am trying it on
-32 bit machine.
-
-But i could nt get any information about how could i do it.
-
-Any suggestions will be of great help.
-
-thanx,
-Manish.
-
-
-
---__--__--
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
-
-End of Linux-IA64 Digest
-
-
-______________________________________________
-FREE Personalized Email at Mail.com
-Sign up at http://www.mail.com/?sr=signup
 
