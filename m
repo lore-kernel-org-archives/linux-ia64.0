@@ -1,7 +1,7 @@
-From: "Chris McDermott" <mcdermoc@us.ibm.com>
-Date: Tue, 01 May 2001 15:49:10 +0000
-Subject: Re: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related orphans from
-Message-Id: <marc-linux-ia64-105590693005496@msgid-missing>
+From: "McCaffity, Ray" <ray.mccaffity@wcg.com>
+Date: Tue, 01 May 2001 16:41:43 +0000
+Subject: RE: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related or
+Message-Id: <marc-linux-ia64-105590693005497@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005460@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005460@msgid-missing>
@@ -9,6 +9,22 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Is there an easy way to tell what stepping your CPU supports?
+
+Ray
+
+-----Original Message-----
+From: Chris McDermott [mailto:mcdermoc@us.ibm.com]
+Sent: Tuesday, May 01, 2001 10:49 AM
+To: scole@lanl.gov
+Cc: alan@lxorguk.ukuu.org.uk; elenstev@mesatop.com; esr@thyrsus.com;
+kaos@ocs.com.au; linux-ia64@linuxia64.org;
+linux-ia64-admin@linuxia64.org
+Subject: Re: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related
+orphans from Configure.help
+
+
 
 Actually, CONFIG_ITANIUM_PTCG is still required if you have systems with
 Itanium
@@ -23,19 +39,32 @@ IA-64 Enablement
 
 
 
-                                                                                                                        
-                    Steven Cole                                                                                         
-                    <scole@lanl.gov>           To:     alan@lxorguk.ukuu.org.uk                                         
-                    Sent by:                   cc:     linux-ia64@linuxia64.org, kaos@ocs.com.au, esr@thyrsus.com,      
-                    linux-ia64-admin@lin        elenstev@mesatop.com                                                    
-                    uxia64.org                 Subject:     [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related  
-                                                orphans from Configure.help                                             
-                                                                                                                        
-                    04/25/01 07:54 AM                                                                                   
-                    Please respond to                                                                                   
-                    scole                                                                                               
-                                                                                                                        
-                                                                                                                        
+ 
+
+                    Steven Cole
+
+                    <scole@lanl.gov>           To:
+alan@lxorguk.ukuu.org.uk                                         
+                    Sent by:                   cc:
+linux-ia64@linuxia64.org, kaos@ocs.com.au, esr@thyrsus.com,      
+                    linux-ia64-admin@lin        elenstev@mesatop.com
+
+                    uxia64.org                 Subject:     [Linux-ia64]
+[PATCH] 2.4.3-ac14 remove three IA-64 related  
+                                                orphans from Configure.help
+
+ 
+
+                    04/25/01 07:54 AM
+
+                    Please respond to
+
+                    scole
+
+ 
+
+ 
+
 
 
 
@@ -83,4 +112,9 @@ http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
 
 
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
