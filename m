@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Tue, 02 Oct 2001 05:50:42 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.4.10)
-Message-Id: <marc-linux-ia64-105590698805287@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 11 Oct 2001 02:47:41 +0000
+Subject: [Linux-ia64] kernel update (relative to 2.4.11)
+Message-Id: <marc-linux-ia64-105590698805329@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -10,8 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-2.4.10-ia64-010924 patches drivers/acpi/Makefile to add driver.o to a
-list of objects.  That is no longer required, Linus's tree already has
-the required code a couple of lines below.
+An updated ia64 patch for 2.4.11 is now available at
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/ in file:
 
+	linux-2.4.11-ia64-011010.diff*
+
+There are no major changes. The patch adds mostly a couple of bug
+fixes, addition of the gettid() system call introduced by 2.4.11, and
+the FPSWA control from Jesse Barnes.
+
+	--david
 
