@@ -1,7 +1,7 @@
 From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Fri, 24 Sep 2004 05:45:53 +0000
-Subject: [PATCH] Updated patches for PCI IRQ resource deallocation support [2/3]
-Message-Id: <4153B491.7050605@jp.fujitsu.com>
+Date: Fri, 24 Sep 2004 05:46:06 +0000
+Subject: [PATCH] Updated patches for PCI IRQ resource deallocation support [3/3]
+Message-Id: <4153B49E.1060403@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4153B472.5020109@jp.fujitsu.com>
 In-Reply-To: <4153B472.5020109@jp.fujitsu.com>
@@ -11,157 +11,348 @@ Content-Transfer-Encoding: 7bit
 To: greg-U8xfFu+wG4EAvxtiuMwx3w@public.gmane.org, len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
 Cc: akpm-3NddpPZAyC0@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-This is a patch for ACPI code that has no dependencies.
-Len, please apply.
+This is a patch for ia64 code that depends on previous two patches.
 
 ----
-Change Log:
-
-    - Fixed some typos in comments.
-
-    - Changed 'unsigned char irq_disabled' to 'unsigned int
-      irq_disabled' because pci_dev.irq is unsigned int.
-
-----
-Name:		IRQ_deallocation_acpi.patch
+Name:		IRQ_deallocation_ia64.patch
 Kernel Version:	2.6.9-rc2-mm1
 Depends:	none
 Description:
 
-This patch is ACPI portion of IRQ deallocation. This patch defines the
-following new interface. The implementation of this interface depends
-on each platform.
+This is an ia64 portion of IRQ resource deallocation. It implements
+pcibios_disable_device() and acpi_unregister_gsi() for ia64.
 
-    o void acpi_unregister_gsi(int irq)
+    o acpi_unregister_gsi()
 
-        This is a opposite portion of acpi_register_gsi(). This has a
-        responsibility for deallocating IRQ resources associated with
-        the specified linux IRQ number.
+        Summary of changes for implementing this interface:
 
-        We need to consider the case of shared interrupt. In the case
-        of shared interrupt, acpi_register_gsi() is called multiple
-        times for one gsi. That is, registrations and unregistrations
-        can be nested.
+        - Add new function iosapic_unregister_intr() into
+          arch/ia64/kernel/iosapic.c. This function frees an interrupt
+          vector and related data structures.
 
-        This function undoes the effect of one call to
-        acpi_register_gsi(). If this matches the last registration,
-        IRQ resources associated with the specified linux IRQ number
-        are freed.
+        - Add new function free_irq_vector() into
+          arch/ia64/kernel/irq_ia64.c. This frees an unused vector.
 
-This patch also adds the following new function.
+        - Change assign_irq_vector() to be able to support
+          free_irq_vector().
 
-    o void acpi_pci_irq_disable (struct pci_dev *dev)
+    o pcibios_disable_device()
 
-        This function is a opposite portion of
-        acpi_pci_enable_irq(). It clears the device's linux IRQ number
-        and calls acpi_unregister_gsi() to deallocate IRQ resources.
+        This calls acpi_pci_irq_disable() to deallocate IRQ resources.
 
 Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
 
 ---
 
- linux-2.6.9-rc2-mm1-kanesige/arch/i386/kernel/acpi/boot.c |   11 +++++
- linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c      |   11 +++++
- linux-2.6.9-rc2-mm1-kanesige/drivers/acpi/pci_irq.c       |   27 ++++++++++++++
- linux-2.6.9-rc2-mm1-kanesige/include/linux/acpi.h         |    2 +
- 4 files changed, 51 insertions(+)
+ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/Kconfig           |    9 +
+ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c     |    3 
+ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/iosapic.c  |   82 +++++++++++++--
+ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/irq.c      |    9 +
+ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/irq_ia64.c |   27 ++++
+ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/pci/pci.c         |    3 
+ linux-2.6.9-rc2-mm1-kanesige/include/asm-ia64/hw_irq.h   |    2 
+ linux-2.6.9-rc2-mm1-kanesige/include/asm-ia64/iosapic.h  |    4 
+ 8 files changed, 124 insertions(+), 15 deletions(-)
 
-diff -puN arch/i386/kernel/acpi/boot.c~IRQ_deallocation_acpi arch/i386/kernel/acpi/boot.c
---- linux-2.6.9-rc2-mm1/arch/i386/kernel/acpi/boot.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/i386/kernel/acpi/boot.c	2004-09-22 20:30:41.000000000 +0900
-@@ -480,6 +480,17 @@ unsigned int acpi_register_gsi(u32 gsi, 
- }
- EXPORT_SYMBOL(acpi_register_gsi);
+diff -puN arch/ia64/Kconfig~IRQ_deallocation_ia64 arch/ia64/Kconfig
+--- linux-2.6.9-rc2-mm1/arch/ia64/Kconfig~IRQ_deallocation_ia64	2004-09-24 13:57:20.108640713 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/Kconfig	2004-09-24 13:57:20.143797166 +0900
+@@ -500,6 +500,15 @@ config IA64_PALINFO
+ 	  To use this option, you have to ensure that the "/proc file system
+ 	  support" (CONFIG_PROC_FS) is enabled, too.
  
-+/*
-+ * This function undoes the effect of one call to acpi_register_gsi().
-+ * If this matches the last registration, any IRQ resources for gsi
-+ * associated with the irq are freed.
-+ */
-+void
-+acpi_unregister_gsi (unsigned int irq)
-+{
-+}
-+EXPORT_SYMBOL(acpi_unregister_gsi);
++config IA64_DEALLOCATE_IRQ
++	bool "IRQ resource deallocation support (EXPERIMENTAL)"
++	depends on IOSAPIC && EXPERIMENTAL
++	default n
++	help
++	  Say Y here to experiment with deallocating IRQ resources
++	  dynamically.
++	  Say N if you want to disable IRQ resource deallocation.
 +
- static unsigned long __init
- acpi_scan_rsdp (
- 	unsigned long		start,
-diff -puN arch/ia64/kernel/acpi.c~IRQ_deallocation_acpi arch/ia64/kernel/acpi.c
---- linux-2.6.9-rc2-mm1/arch/ia64/kernel/acpi.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c	2004-09-24 13:57:16.780496484 +0900
-@@ -516,6 +516,17 @@ acpi_register_gsi (u32 gsi, int edge_lev
- }
- EXPORT_SYMBOL(acpi_register_gsi);
+ source "drivers/firmware/Kconfig"
  
-+/*
-+ * This function undoes the effect of one call to acpi_register_gsi().
-+ * If this matches the last registration, any IRQ resources for gsi
-+ * associated with the irq are freed.
-+ */
-+void
-+acpi_unregister_gsi (unsigned int irq)
-+{
-+}
-+EXPORT_SYMBOL(acpi_unregister_gsi);
-+
- static int __init
- acpi_parse_fadt (unsigned long phys_addr, unsigned long size)
+ source "fs/Kconfig.binfmt"
+diff -puN arch/ia64/kernel/acpi.c~IRQ_deallocation_ia64 arch/ia64/kernel/acpi.c
+--- linux-2.6.9-rc2-mm1/arch/ia64/kernel/acpi.c~IRQ_deallocation_ia64	2004-09-24 13:57:20.110593849 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/acpi.c	2004-09-24 13:57:20.144773734 +0900
+@@ -524,6 +524,9 @@ EXPORT_SYMBOL(acpi_register_gsi);
+ void
+ acpi_unregister_gsi (unsigned int irq)
  {
-diff -puN drivers/acpi/pci_irq.c~IRQ_deallocation_acpi drivers/acpi/pci_irq.c
---- linux-2.6.9-rc2-mm1/drivers/acpi/pci_irq.c~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/drivers/acpi/pci_irq.c	2004-09-22 20:29:23.000000000 +0900
-@@ -390,3 +390,30 @@ acpi_pci_irq_enable (
- 
- 	return_VALUE(dev->irq);
++#ifdef CONFIG_IA64_DEALLOCATE_IRQ
++	iosapic_unregister_intr(irq);
++#endif
  }
+ EXPORT_SYMBOL(acpi_unregister_gsi);
+ 
+diff -puN arch/ia64/kernel/iosapic.c~IRQ_deallocation_ia64 arch/ia64/kernel/iosapic.c
+--- linux-2.6.9-rc2-mm1/arch/ia64/kernel/iosapic.c~IRQ_deallocation_ia64	2004-09-24 13:57:20.112546986 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/iosapic.c	2004-09-24 13:57:20.145750302 +0900
+@@ -111,6 +111,7 @@ static struct iosapic_intr_info {
+ 	unsigned char	dmode	: 3;	/* delivery mode (see iosapic.h) */
+ 	unsigned char 	polarity: 1;	/* interrupt polarity (see iosapic.h) */
+ 	unsigned char	trigger	: 1;	/* trigger mode (see iosapic.h) */
++	int		refcnt;		/* reference counter */
+ } iosapic_intr_info[IA64_NUM_VECTORS];
+ 
+ static struct iosapic {
+@@ -177,7 +178,7 @@ gsi_to_irq (unsigned int gsi)
+ static void
+ set_rte (unsigned int vector, unsigned int dest, int mask)
+ {
+-	unsigned long pol, trigger, dmode, flags;
++	unsigned long pol, trigger, dmode;
+ 	u32 low32, high32;
+ 	char *addr;
+ 	int rte_index;
+@@ -218,13 +219,9 @@ set_rte (unsigned int vector, unsigned i
+ 	/* dest contains both id and eid */
+ 	high32 = (dest << IOSAPIC_DEST_SHIFT);
+ 
+-	spin_lock_irqsave(&iosapic_lock, flags);
+-	{
+-		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
+-		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
+-		iosapic_intr_info[vector].low32 = low32;
+-	}
+-	spin_unlock_irqrestore(&iosapic_lock, flags);
++	iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
++	iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++	iosapic_intr_info[vector].low32 = low32;
+ }
+ 
+ static void
+@@ -475,6 +472,7 @@ register_intr (unsigned int gsi, int vec
+ 	iosapic_intr_info[vector].addr     = iosapic_address;
+ 	iosapic_intr_info[vector].gsi_base = gsi_base;
+ 	iosapic_intr_info[vector].trigger  = trigger;
++	iosapic_intr_info[vector].refcnt++;
+ 
+ 	if (trigger = IOSAPIC_EDGE)
+ 		irq_type = &irq_type_iosapic_edge;
+@@ -576,6 +574,7 @@ iosapic_register_intr (unsigned int gsi,
+ 	{
+ 		vector = gsi_to_vector(gsi);
+ 		if (vector > 0) {
++			iosapic_intr_info[vector].refcnt++;
+ 			spin_unlock_irqrestore(&iosapic_lock, flags);
+ 			return vector;
+ 		}
+@@ -584,6 +583,8 @@ iosapic_register_intr (unsigned int gsi,
+ 		dest = get_target_cpu(gsi, vector);
+ 		register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
+ 			polarity, trigger);
++
++		set_rte(vector, dest, 1);
+ 	}
+ 	spin_unlock_irqrestore(&iosapic_lock, flags);
+ 
+@@ -592,10 +593,73 @@ iosapic_register_intr (unsigned int gsi,
+ 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
+ 	       cpu_logical_id(dest), dest, vector);
+ 
+-	set_rte(vector, dest, 1);
+ 	return vector;
+ }
+ 
++#ifdef CONFIG_IA64_DEALLOCATE_IRQ
++void
++iosapic_unregister_intr (unsigned int irq)
++{
++	unsigned long flags;
++	irq_desc_t *idesc;
++	int rte_index;
++	unsigned int gsi;
++	unsigned long trigger, polarity;
++	ia64_vector vector = irq_to_vector(irq);
++		
++	idesc = irq_descp(irq);
++	spin_lock_irqsave(&idesc->lock, flags);
++	spin_lock(&iosapic_lock);
++	{
++		rte_index = iosapic_intr_info[vector].rte_index;
++		if (rte_index < 0) {
++			spin_unlock(&iosapic_lock);
++			spin_unlock_irqrestore(&idesc->lock, flags);
++			return;		/* not an IOSAPIC interrupt */
++		}
++
++		if (--iosapic_intr_info[vector].refcnt > 0) {
++			spin_unlock(&iosapic_lock);
++			spin_unlock_irqrestore(&idesc->lock, flags);
++			return;
++		}
++
++		/*
++		 * If interrupt handlers still exists on the irq
++		 * associated with the gsi, don't unregister the
++		 * interrupt.
++		 */
++		if (unlikely(idesc->action)) {
++			iosapic_intr_info[vector].refcnt++;
++			spin_unlock_irqrestore(&idesc->lock, flags);
++			printk(KERN_WARNING "Cannot unregister GSI. IRQ %u is still in use.\n", irq);
++			return;
++		}
++
++		/* Clear the interrupt controller descriptor. */
++		idesc->handler = &no_irq_type;
++
++		gsi = iosapic_intr_info[vector].gsi_base + rte_index;
++		trigger  = iosapic_intr_info[vector].trigger;
++		polarity = iosapic_intr_info[vector].polarity;
++
++		/* Clear the interrupt information. */
++		memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
++		iosapic_intr_info[vector].rte_index = -1;	/* mark as unused */
++	}
++	spin_unlock(&iosapic_lock);
++	spin_unlock_irqrestore(&idesc->lock, flags);
++
++	/* Free the interrupt vector */
++	free_irq_vector(vector);
++
++	printk(KERN_INFO "GSI %u (%s, %s) -> vector %d unregisterd.\n",
++	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
++	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
++	       vector);
++}
++#endif /* CONFIG_IA64_DEALLOCATE_IRQ */
++
+ /*
+  * ACPI calls this when it finds an entry for a platform interrupt.
+  * Note that the irq_base and IOSAPIC address must be set in iosapic_init().
+diff -puN arch/ia64/kernel/irq.c~IRQ_deallocation_ia64 arch/ia64/kernel/irq.c
+--- linux-2.6.9-rc2-mm1/arch/ia64/kernel/irq.c~IRQ_deallocation_ia64	2004-09-24 13:57:20.130125212 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/irq.c	2004-09-24 13:57:20.145750302 +0900
+@@ -879,8 +879,11 @@ int setup_irq(unsigned int irq, struct i
+ 	struct irqaction *old, **p;
+ 	irq_desc_t *desc = irq_descp(irq);
+ 
+-	if (desc->handler = &no_irq_type)
++	spin_lock_irqsave(&desc->lock,flags);
++	if (desc->handler = &no_irq_type) {
++		spin_unlock_irqrestore(&desc->lock,flags);
+ 		return -ENOSYS;
++	}
+ 	/*
+ 	 * Some drivers like serial.c use request_irq() heavily,
+ 	 * so we have to be careful not to interfere with a
+@@ -906,7 +909,6 @@ int setup_irq(unsigned int irq, struct i
+ 	/*
+ 	 * The following block of code has to be executed atomically
+ 	 */
+-	spin_lock_irqsave(&desc->lock,flags);
+ 	p = &desc->action;
+ 	if ((old = *p) != NULL) {
+ 		/* Can't share interrupts unless both agree to */
+@@ -1040,6 +1042,9 @@ void move_irq(int irq)
+ 	irq_desc_t *desc = irq_descp(irq);
+ 	int redir = test_bit(irq, pending_irq_redir);
+ 
++	if (unlikely(!desc->handler->set_affinity))
++		return;
++
+ 	if (!cpus_empty(pending_irq_cpumask[irq])) {
+ 		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
+ 		if (unlikely(!cpus_empty(tmp))) {
+diff -puN arch/ia64/kernel/irq_ia64.c~IRQ_deallocation_ia64 arch/ia64/kernel/irq_ia64.c
+--- linux-2.6.9-rc2-mm1/arch/ia64/kernel/irq_ia64.c~IRQ_deallocation_ia64	2004-09-24 13:57:20.132078348 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/kernel/irq_ia64.c	2004-09-24 13:57:20.146726871 +0900
+@@ -74,15 +74,34 @@ irq_exit (void)
+ 	preempt_enable_no_resched();
+ }
+ 
++static unsigned long ia64_vector_mask[BITS_TO_LONGS(IA64_NUM_DEVICE_VECTORS)];
++
+ int
+ assign_irq_vector (int irq)
+ {
+-	static int next_vector = IA64_FIRST_DEVICE_VECTOR;
+-
+-	if (next_vector > IA64_LAST_DEVICE_VECTOR)
++	int pos, vector;
++ again:
++	pos = find_first_zero_bit(ia64_vector_mask, IA64_NUM_DEVICE_VECTORS);
++	vector = IA64_FIRST_DEVICE_VECTOR + pos;
++	if (vector > IA64_LAST_DEVICE_VECTOR)
+ 		/* XXX could look for sharable vectors instead of panic'ing... */
+ 		panic("assign_irq_vector: out of interrupt vectors!");
+-	return next_vector++;
++	if (test_and_set_bit(pos, ia64_vector_mask))
++		goto again;
++	return vector;
++}
 +
 +void
-+acpi_pci_irq_disable (
-+	struct pci_dev		*dev)
++free_irq_vector (int vector)
 +{
-+	unsigned int		irq_disabled;
-+	unsigned char		irq;
++	int pos;
 +
-+	ACPI_FUNCTION_TRACE("acpi_pci_irq_disable");
++	if (vector < IA64_FIRST_DEVICE_VECTOR || vector > IA64_LAST_DEVICE_VECTOR)
++		return;
 +
-+	irq_disabled = dev->irq;
-+
-+	/*
-+	 * dev->irq is cleared by BIOS-assigned IRQ set during boot.
-+	 */
-+	pci_read_config_byte(dev, PCI_INTERRUPT_PIN, &irq);
-+	if (irq)
-+		pci_read_config_byte(dev, PCI_INTERRUPT_LINE, &irq);
-+	dev->irq = irq;
-+
-+	printk(KERN_INFO PREFIX "PCI interrupt for device %s disabled\n",
-+	       pci_name(dev));
-+
-+	acpi_unregister_gsi(irq_disabled);
-+
-+	return_VOID;
-+}
-diff -puN include/linux/acpi.h~IRQ_deallocation_acpi include/linux/acpi.h
---- linux-2.6.9-rc2-mm1/include/linux/acpi.h~IRQ_deallocation_acpi	2004-09-22 20:29:23.000000000 +0900
-+++ linux-2.6.9-rc2-mm1-kanesige/include/linux/acpi.h	2004-09-22 20:29:23.000000000 +0900
-@@ -414,6 +414,7 @@ static inline int acpi_boot_init(void)
- #endif 	/*!CONFIG_ACPI_BOOT*/
++	pos = vector - IA64_FIRST_DEVICE_VECTOR;
++	if (!test_and_clear_bit(pos, ia64_vector_mask))
++		printk(KERN_WARNING "%s: double free!\n", __FUNCTION__);
+ }
  
- unsigned int acpi_register_gsi (u32 gsi, int edge_level, int active_high_low);
-+void acpi_unregister_gsi (unsigned int);
- int acpi_gsi_to_irq (u32 gsi, unsigned int *irq);
+ extern unsigned int do_IRQ(unsigned long irq, struct pt_regs *regs);
+diff -puN arch/ia64/pci/pci.c~IRQ_deallocation_ia64 arch/ia64/pci/pci.c
+--- linux-2.6.9-rc2-mm1/arch/ia64/pci/pci.c~IRQ_deallocation_ia64	2004-09-24 13:57:20.137937757 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/arch/ia64/pci/pci.c	2004-09-24 13:57:20.146726871 +0900
+@@ -451,6 +451,9 @@ pcibios_enable_device (struct pci_dev *d
+ void
+ pcibios_disable_device (struct pci_dev *dev)
+ {
++#ifdef CONFIG_IA64_DEALLOCATE_IRQ
++	acpi_pci_irq_disable(dev);
++#endif /* CONFIG_IA64_DEALLOCATE_IRQ */
+ }
  
- #ifdef CONFIG_ACPI_PCI
-@@ -439,6 +440,7 @@ extern struct acpi_prt_list	acpi_prt;
- struct pci_dev;
+ void
+diff -puN include/asm-ia64/hw_irq.h~IRQ_deallocation_ia64 include/asm-ia64/hw_irq.h
+--- linux-2.6.9-rc2-mm1/include/asm-ia64/hw_irq.h~IRQ_deallocation_ia64	2004-09-24 13:57:20.139890894 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/include/asm-ia64/hw_irq.h	2004-09-24 13:57:20.147703439 +0900
+@@ -50,6 +50,7 @@ typedef u8 ia64_vector;
+  */
+ #define IA64_FIRST_DEVICE_VECTOR	0x30
+ #define IA64_LAST_DEVICE_VECTOR		0xe7
++#define IA64_NUM_DEVICE_VECTORS		(IA64_LAST_DEVICE_VECTOR - IA64_FIRST_DEVICE_VECTOR + 1)
  
- int acpi_pci_irq_enable (struct pci_dev *dev);
-+void acpi_pci_irq_disable (struct pci_dev *dev);
+ #define IA64_MCA_RENDEZ_VECTOR		0xe8	/* MCA rendez interrupt */
+ #define IA64_PERFMON_VECTOR		0xee	/* performanc monitor interrupt vector */
+@@ -83,6 +84,7 @@ extern unsigned long ipi_base_addr;
+ extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
  
- struct acpi_pci_driver {
- 	struct acpi_pci_driver *next;
+ extern int assign_irq_vector (int irq);	/* allocate a free vector */
++extern void free_irq_vector (int vector);
+ extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
+ extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
+ 
+diff -puN include/asm-ia64/iosapic.h~IRQ_deallocation_ia64 include/asm-ia64/iosapic.h
+--- linux-2.6.9-rc2-mm1/include/asm-ia64/iosapic.h~IRQ_deallocation_ia64	2004-09-24 13:57:20.141844030 +0900
++++ linux-2.6.9-rc2-mm1-kanesige/include/asm-ia64/iosapic.h	2004-09-24 13:57:20.147703439 +0900
+@@ -78,6 +78,9 @@ extern int gsi_to_irq (unsigned int gsi)
+ extern void iosapic_enable_intr (unsigned int vector);
+ extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
+ 				  unsigned long trigger);
++#ifdef CONFIG_IA64_DEALLOCATE_IRQ
++extern void iosapic_unregister_intr (unsigned int irq);
++#endif
+ extern void __init iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
+ 				      unsigned long polarity,
+ 				      unsigned long trigger);
+@@ -97,6 +100,7 @@ extern void __init map_iosapic_to_node (
+ #define iosapic_system_init(pcat_compat)			do { } while (0)
+ #define iosapic_init(address,gsi_base)				do { } while (0)
+ #define iosapic_register_intr(gsi,polarity,trigger)		(gsi)
++#define iosapic_unregister_intr(irq)				do { } while (0)
+ #define iosapic_override_isa_irq(isa_irq,gsi,polarity,trigger)	do { } while (0)
+ #define iosapic_register_platform_intr(type,gsi,pmi,eid,id, \
+ 	polarity,trigger)					(gsi)
 
 _
 
