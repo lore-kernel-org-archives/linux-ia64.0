@@ -1,26 +1,24 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 23 Jul 2001 18:47:41 +0000
-Subject: Re: [Linux-ia64] New aic7xxx driver
-Message-Id: <marc-linux-ia64-105590693005875@msgid-missing>
+Date: Tue, 24 Jul 2001 09:09:38 +0000
+Subject: [Linux-ia64] heads up: ucd-snmp 64-bit problem
+Message-Id: <marc-linux-ia64-105590693005894@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005859@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005859@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 23 Jul 2001 09:42:30 +0200 (CEST), Martin Wilck <Martin.Wilck@fujitsu-siemens.com> said:
+Just a quick note: I discovered that there are some ugly 64-bit
+dirtiness issues in the UCD snmp package.  It seems that Bill has
+fixed some of them already, but even with the "rawhide" version of
+ucd-snmp-utils, setting an IP address doesn't work.  For example, a
+command along the lines of:
 
-  Martin> as you may have noticed, Justin Gibbs has published a new
-  Martin> version of the aic7xxx driver on the driver home page
-  Martin> (http://people.freebsd.org/~gibbs/linux/).
+ $ snmpset aws110 public .enterprises.410.1.1.2.1.0 a 192.168.1.10
 
-  Martin> I have run a pretty tough test on the new driver over the
-  Martin> weekend, and I can say the trouble I had with the previous
-  Martin> version have definitely gone (no new troubles, either).
-
-That's good to hear!
+would fail because "snmpset" tries to write the IP address as an eight
+byte quantity.  I hope someone who's more familiar with SNMP can fix
+this.
 
 	--david
 
