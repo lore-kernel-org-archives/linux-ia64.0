@@ -1,39 +1,43 @@
-From: Peter Bergner <bergner@vnet.ibm.com>
-Date: Thu, 24 Jan 2002 13:51:48 +0000
-Subject: Re: [Linux-ia64] IA64 ELF header question...
-Message-Id: <marc-linux-ia64-105590698805926@msgid-missing>
+From: Duraid Madina <Duraid@unsw.edu.au>
+Date: Wed, 30 Jan 2002 05:48:36 +0000
+Subject: [Linux-ia64] What's taking all the system time..?
+Message-Id: <marc-linux-ia64-105590698805950@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805902@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805902@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Cary Coutant wrote:
-> PA-RISC also uses function descriptors. On HP-UX, for both PA-RISC and
-> IA-64, the e_entry field is the address of the code entry point itself,
-> rather than the address of a function descriptor. Our dynamic loader
-> initializes its own gp value, and when it's time for the dynamic loader
-> to call the application's entry point, it knows what the gp value should
-> be, so we don't need a function descriptor.
+Hi guys,
 
-This looks also to be the case for Linux/IA64 (from what I gathered from
-looking at the IA64 kernel and GLIBC source).  Changing our ABI to match
-this doesn't look promising, as we're not the only OS using this ABI.
-This means I'll need to modify the kernel to reloc our function
-descriptor (FD)
-entries.  The only problem is, I don't have enough information in
-start_thread
-to know whether I need to reloc the FD entries or not.  Seems like I'll
-need
-to place some code in fs/binfmt_elf.c to gather up the information
-needed
-to perform the reloc's in start_thread.
+	I've got a big (production) code that depends on a simple 'graph'
+library in C++. To try it out on Itanium, I stripped it down and whipped up
+a tiny 'benchmark' of the graph library. When I tried this on an Itanium
+system here (2.4.9-SMP, gcc/g++ 2.96/3.0.3 and intel c++ 6.0) the code runs
+for about 30 seconds, 20 of which is reported as 'system' time. The thing
+is, this is (supposed to be) a CPU-bound job: on my home x86 system, it runs
+in about 3 seconds, and with negligible system time.
 
-Note I don't really want to reloc the function descriptor entries, just
-the values I copy out of the entries as I stuff them into my pt_regs
-struct.
+	'top' and 'time' show the gobs of system time being used, but
+'strace' picks up nothing out of the ordinary (0.014 seconds system time,
+dominated by calls to brk() (this is expected).
 
-Peter
+	I'm hoping someone with a spare moment could try and reproduce this,
+and perhaps let me know what's going on? Right now, I'm guessing libc
+brokenness on ia64, but perhaps it's VM suckage? :\ Alas, on the box I have
+access to, I can't profile the code because adding -pg when compiling leads
+to a binary that segfaults at startup (ditto with the Intel compiler, so i'm
+guessing the profile libraries are borked).
+
+	You can grab the source (18kB) here:
+
+	http://www.idesign.fl.net.au/why_systime/why_systime.tar.gz
+
+	just 'make' (be sure 'gcc' and 'g++' point to a recent enough
+version of gcc/g++ - preferably 3.0 or later) and then run 'a.out'.
+
+	Lost,
+
+	Duraid
+
 
