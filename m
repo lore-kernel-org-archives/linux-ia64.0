@@ -1,24 +1,42 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Jun 2003 19:16:35 +0000
-Subject: Re: [Linux-ia64] sigaltstack and ar.bspstore
-Message-Id: <marc-linux-ia64-105639585419088@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Tue, 24 Jun 2003 22:21:56 +0000
+Subject: IA-32 support patch: mmap should return ENOMEM
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------070800000900030800080806"
+Message-Id: <marc-linux-ia64-105649349511116@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723706086@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723706086@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Sat, 21 Jun 2003 16:58:59 +1000, Matt Chapman <matthewc@cse.unsw.edu.au> said:
+This is a multi-part message in MIME format.
+--------------070800000900030800080806
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-  Matt> I've tested your patch and it works well for me.
 
-Great!  Thanks for testing it.
+Single Unix Specification says:
+[ENOMEM] MAP_FIXED was specified, and the range [addr, addr + len) exceeds that allowed for the address space of a process.
 
-	--david
+Therefore if addr + len > IA32_PAGE_OFFSET, we should return ENOMEM.
 
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+Please apply to both 2.4 and 2.5.
+
+	-Arun
+
+
+--------------070800000900030800080806
+Content-Type: text/plain;
+ name="mmap-enomem.24.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="mmap-enomem.24.txt"
+
+LS0tIGxpbnV4L2FyY2gvaWE2NC9pYTMyL3N5c19pYTMyLmMtCTIwMDMtMDUtMjcgMTg6NDk6
+NDMuMDAwMDAwMDAwIC0wNzAwDQorKysgbGludXgvYXJjaC9pYTY0L2lhMzIvc3lzX2lhMzIu
+YwkyMDAzLTA1LTI4IDIzOjM3OjAyLjAwMDAwMDAwMCAtMDcwMA0KQEAgLTQ0OCw3ICs0NDgs
+MTIgQEANCiAJCXJldHVybiBhZGRyOw0KIA0KIAlpZiAobGVuID4gSUEzMl9QQUdFX09GRlNF
+VCB8fCBhZGRyID4gSUEzMl9QQUdFX09GRlNFVCAtIGxlbikNCisJew0KKwkJaWYgKGZsYWdz
+ICYgTUFQX0ZJWEVEKQ0KKwkJCXJldHVybiAtRU5PTUVNOw0KKwkJZWxzZQ0KIAkJcmV0dXJu
+IC1FSU5WQUw7DQorCX0NCiANCiAJaWYgKE9GRlNFVDRLKG9mZnNldCkpDQogCQlyZXR1cm4g
+LUVJTlZBTDsNCg0KDQo=
+--------------070800000900030800080806--
+
