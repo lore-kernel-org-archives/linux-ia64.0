@@ -1,25 +1,38 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Tue, 29 Jun 2004 09:51:39 +0000
+Date: Tue, 29 Jun 2004 09:52:32 +0000
 Subject: Re: [PATCH] Quiet corrected errors (CMC/CPE)
-Message-Id: <0I02008TKE239W@fjmail503.fjmail.jp.fujitsu.com>
+Message-Id: <0I0200IEPE3K1Q@fjmail504.fjmail.jp.fujitsu.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------Boundary_Ns5n?WZUkt,0(am"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <0HZS006RBU9VGJ@fjmail504.fjmail.jp.fujitsu.com>
 In-Reply-To: <0HZS006RBU9VGJ@fjmail504.fjmail.jp.fujitsu.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> If Seto-san wants to go for extra credit and submit a patch
-> with a rate limiter ... then I'll bless that.  But if he's
-> busy doing more interesting error recovery and just wants to
-> stick with the current patch, then I'll provide my blessing
-> for that too.
 
-The rate limiter is a good idea, but OTOH there is some user who
-don't want to see such messages from kernel at all.
+--------------Boundary_Ns5n?WZUkt,0(am
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 
-After all, current patch is a good quick-fix, I think.
+Trivial patch to quiet messages about corrected errors.
 
+Signed-off-by: Tony Luck <tony.luck@intel.com>
 
-H.Seto
+--------------Boundary_Ns5n?WZUkt,0(am
+Content-Type: application/octet-stream; name="mca_noprintk.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="mca_noprintk.patch"
+
+ZGlmZiAtTnVyIGxpbnV4LTIuNi43L2FyY2gvaWE2NC9rZXJuZWwvbWNhLmMgbGludXgtMi42
+Ljctbm9wcmludGsvYXJjaC9pYTY0L2tlcm5lbC9tY2EuYwotLS0gbGludXgtMi42LjcvYXJj
+aC9pYTY0L2tlcm5lbC9tY2EuYwkyMDA0LTA2LTI0IDE0OjA0OjMyLjAwMDAwMDAwMCArMDkw
+MAorKysgbGludXgtMi42Ljctbm9wcmludGsvYXJjaC9pYTY0L2tlcm5lbC9tY2EuYwkyMDA0
+LTA2LTI0IDE0OjA1OjE0LjAwMDAwMDAwMCArMDkwMApAQCAtMjUzLDcgKzI1Myw3IEBACiAJ
+c2FsaW5mb19sb2dfd2FrZXVwKHNhbF9pbmZvX3R5cGUsIGJ1ZmZlciwgc2l6ZSwgaXJxX3Nh
+ZmUpOwogCiAJaWYgKGlycV9zYWZlKQotCQlwcmludGsoS0VSTl9JTkZPICJDUFUgJWQ6IFNB
+TCBsb2cgY29udGFpbnMgJXMgZXJyb3IgcmVjb3JkXG4iLAorCQlJQTY0X01DQV9ERUJVRygi
+Q1BVICVkOiBTQUwgbG9nIGNvbnRhaW5zICVzIGVycm9yIHJlY29yZFxuIiwKIAkJCXNtcF9w
+cm9jZXNzb3JfaWQoKSwKIAkJCXNhbF9pbmZvX3R5cGUgPCBBUlJBWV9TSVpFKHJlY19uYW1l
+KSA/IHJlY19uYW1lW3NhbF9pbmZvX3R5cGVdIDogIlVOS05PV04iKTsKIAp=
+
+--------------Boundary_Ns5n?WZUkt,0(am--
