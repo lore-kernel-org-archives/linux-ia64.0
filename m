@@ -1,29 +1,34 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 10 Apr 2003 18:26:09 +0000
+From: Duraid Madina <duraid@octopus.com.au>
+Date: Thu, 10 Apr 2003 20:55:30 +0000
 Subject: Re: [Linux-ia64] Itanium gets supercomputing software
-Message-Id: <marc-linux-ia64-105590723705456@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705457@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705455@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705455@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Apr 10, 2003 at 01:04:04PM -0400, Stephen Gaudet wrote:
->=20
-> http://msnbc-cnet.com.com/2100-1012-996357.html?type=3Dpt&part=3Dmsnbc&ta=
-g=3Dalert
-> &form=FEed&subj=3Dcnetnews
+You and I both know the only real barrier to Itanium adoption is the 
+price. Can anyone here shed some light on this? Why is Itanium hardware 
+still so expensive?
 
-...
-| That barrier has hindered adoption of Itanium in broad business markets,
-| but it's been less of a problem in the supercomputing niche, where
-| customers often control their own software instead of relying on products
-| such as Oracle's database or Computer Associates' management software.
+Seriously, IA64 must be the first architecture in history where a 
+software simulator is still being developed 4 years after commercial 
+availability of silicon (indeed, entire systems).
 
-Gah!
-Both Oracle and Computer Associates have ia64-linux product available.
+Hello? Is anyone home? If Intel thinks an 0.13u respin of Itanium 2 
+going for $1000 a pop is going to save them from the horrible onslaught 
+of horrible hardware (x86-64 ;) it'd seem they have another thing coming!
 
-grant
+We live in Carly times. :\
+
+	Duraid
+
+
+Grant Grundler wrote:
+> Gah!
+> Both Oracle and Computer Associates have ia64-linux product available.
+
 
