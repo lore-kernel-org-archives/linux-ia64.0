@@ -1,51 +1,74 @@
-From: Jack Carter <jcarter@johmar.engr.sgi.com>
-Date: Wed, 02 May 2001 19:30:26 +0000
-Subject: Re: [Linux-ia64] ld --relax should be on by default
-Message-Id: <marc-linux-ia64-105590693005515@msgid-missing>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Thu, 10 May 2001 08:55:13 +0000
+Subject: [Linux-ia64] Replacements for local_irq_xxx()
+Message-Id: <marc-linux-ia64-105590693005562@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005510@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005510@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Yes, it is the SGI compiler with the GNU linker.
+Existing local_irq_xxx() routines clear psr.i which masks all
+interrupts, including NMI.  Then the only way to get the attention of a
+cpu in a disabled spin loop is via INIT which is too drastic.  How
+about these alternatives which set cr.tpr.mmi instead, masking all
+external interrupts except NMI?
 
-The request was not to have the frontend always pass the
-the flag to the linker, but have the linker do the right
-thing and handle these legal cases without error. Many people
-with big projects invoke the linker independantly from the
-rest of the compiler.
+This is not complete, I have to do the debugging versions plus check
+out callers of ia64_{get,set}_tpr and resolve any conflicts.  Before I
+do any more work, is it worth continuing with this or do we live with
+psr.i and accept that the only remedy for a cpu that is hung in a
+disabled spin loop is to reboot the entire machine?
 
-I do not know what the "relax" option does exactly, but if
-it is to relax an optimization then the correct behavior
-would to be to have a flag to enable the optimization
-and have the relax be the default, not the other way around.
-Currently the gentle user has now way of knowing what's
-going on and how to get his/her code linked.
+/* Nothing changes cr.tpr except local_irq_xxx() and they should always
+ * leave tpr in the same state that they found it, so there is no need
+ * to serialize access to tpr.  If this is incorrect, uncomment the
+ * references to psr and the following srlz.d and add r15 to the clobbers.
+ */
 
-Unless of course there is something inherently wrong with
-the user code that is tripping this error. I don't believe
-this is the case.
+# define local_irq_save(x)						\
+do {									\
+	__asm__ __volatile__ (						\
+	";;\n\t"							\
+	"# mov r15=psr;\n\t"						\
+	"mov r17=(1 << 16);\n\t"					\
+	"# ;; rsm psr.i;;\n\t"						\
+	"mov %0=cr.tpr;;\n\t"						\
+	"or r17=r17,%0;;\n\t"						\
+	"mov cr.tpr=r17;;\n\t"						\
+	"srlz.d;;\n\t"							\
+	"# mov psr.l=r15;;\n\t"						\
+	"# srlz.d;;\n\t"						\
+	: "=r" (x) : : "r16", "r17");					\
+} while (0)
 
-If changing the behavior of the IA64 Linux targeting linker
-is not an option, then at a minimum the message should suggest
-using the "relax" option.
+# define local_irq_disable()						\
+do {									\
+	__asm__ __volatile__ (						\
+	";;\n\t"							\
+	"# mov r15=psr;\n\t"						\
+	"mov r17=(1 << 16);\n\t"					\
+	"# ;; rsm psr.i;;\n\t"						\
+	"mov r16=cr.tpr;;\n\t"						\
+	"or r17=r17,r16;;\n\t"						\
+	"mov cr.tpr=r17;;\n\t"						\
+	"srlz.d;;\n\t"							\
+	"# mov psr.l=r15;;\n\t"						\
+	"# srlz.d;;\n\t"						\
+	: : : "r16", "r17");						\
+} while (0)
 
-Regards,
-
-Jack
-
-On May 2, 12:18pm, Jim Wilson wrote:
-> Subject: Re: [Linux-ia64] ld --relax should be on by default
-> Are you running into this problem using the SGI compiler with the GNU linker?
-> That wasn't clear from your message.  That effects the kind of solution we
-> need, since fixing gcc to always pass --relax to the linker isn't going to
-> fix your problem.
->
-> Jim
->-- End of excerpt from Jim Wilson
-
+# define local_irq_restore(x)						\
+do {									\
+	__asm__ __volatile__ (						\
+	";;\n\t"							\
+	"# mov r15=psr;\n\t"						\
+	"# rsm psr.i;;\n\t"						\
+	"mov cr.tpr=%0;;\n\t"						\
+	"srlz.d;;\n\t"							\
+	"# mov psr.l=r15;;\n\t"						\
+	"# srlz.d;;\n\t"						\
+	: : "r" (x) );							\
+} while (0)
 
 
