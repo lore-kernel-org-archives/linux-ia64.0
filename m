@@ -1,8 +1,10 @@
 From: Harish Babu <babu.harish@usa.net>
-Date: Wed, 06 Feb 2002 15:03:17 +0000
+Date: Wed, 06 Feb 2002 15:07:39 +0000
 Subject: Re: [Re: [Linux-ia64] IA64 Link Relocation operators ]
-Message-Id: <marc-linux-ia64-105590698806002@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698806003@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698806002@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698806002@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
