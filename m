@@ -1,59 +1,52 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Tue, 21 Sep 2004 03:02:18 +0000
-Subject: RE: [ACPI] PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject
-Message-Id: <1095735738.3920.29.camel@mythbox>
+From: Dmitry Torokhov <dtor_core@ameritech.net>
+Date: Tue, 21 Sep 2004 05:34:53 +0000
+Subject: Re: [ACPI] PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject interface support
+Message-Id: <200409210034.53554.dtor_core@ameritech.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3ACA40606221794F80A5670F0AF15F84059309EF@pdsmsx403>
-In-Reply-To: <3ACA40606221794F80A5670F0AF15F84059309EF@pdsmsx403>
+References: <20040920092520.A14208@unix-os.sc.intel.com> <200409202020.05776.dtor_core@ameritech.net> <1095730900.8780.76.camel@mythbox>
+In-Reply-To: <1095730900.8780.76.camel@mythbox>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: "Yu, Luming" <luming.yu@intel.com>
-Cc: Dmitry Torokhov <dtor_core@ameritech.net>, acpi-devel@lists.sourceforge.net, "Keshavamurthy, Anil S" <anil.s.keshavamurthy@intel.com>, "Brown, Len" <len.brown@intel.com>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 8bit
+To: Alex Williamson <alex.williamson@hp.com>
+Cc: acpi-devel@lists.sourceforge.net, Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>, "Brown, Len" <len.brown@intel.com>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
 
+On Monday 20 September 2004 08:41 pm, Alex Williamson wrote:
+> Dmitry,
+> 
+>    I imagined the sanitized interfaces would be provided via a userspace
+> library, similar to how lspci provides a clean interface to all of the
+> PCI data.  An "lsacpi" tool could extract the information into something
+> more like you suggest.  If you have objects exposed as human
+> readable/writable files, I think you'll quickly end up with a _STA
+> driver, _HID driver, _CID driver, _ADR driver, _UID driver, _EJx driver,
+> etc, etc, etc...  I don't think we want that kind of bloat in the kernel
+> (that's what userspace is for ;^).  Providing a solid, direct interface
+> to ACPI methods in the kernel seems like the most flexible, powerful
+> interface IMHO.
 
->   This sounds like a good idea. To call the raw AML methods from
-> User space, just need to solve the problem of argument passing.
+Hmm, I do not quite agree. Except for "eject" being writeable to initiate
+eject action the rest of the attributes would reflect kernel's view of the
+device state and not re-evaluated when userspace references them. Monitoring
+(or rather reacting to various events, like DEVICE_CHECK and BUS_CHECK) and
+updating devices' statuses and other data is responsibility of the core ACPI
+system. If system administrator is forced to manually (via libacpi or sysfs)
+query device status to "kick" the device into working state I'd consider it
+a bug, would'nt you agree? 
 
-   Solved, the driver I proposed takes an acpi_object_list for passing
-arguments to the methods.  The kernel-userspace interface replaces the
-pointers in these structures with offsets into the buffer (userspace
-responsibility to pass in offsets, kernel responsibility to pass back
-offsets).  I've modified the sysfs bin_file to allow ACPI object files
-to have backing store on a per-open basis.  There are special commands
-that can be written to the ACPI object files to evaluate attributes of
-them.  Perhaps these could include some of the things we're looking for
-here.
+I see that in your other mail you mention _CRS parsing and chipset discovery.
+I think that if you had an ability to just retrieve raw ACPI data from the
+system that would suffice. In other words during normal operations there
+is no need for "active" ACPI methods (such as _WAK, _S4, etc) to be available
+from userspace. And just exporting raw data solves problem of bloating kernel
+with parsing of vendor-specific data. I wonder if any of these methods need
+arguments to run - if not then we would not need any adjustments to sysfs
+opeen/close methods.
 
-> But, some AML methods are risky to be called directly from user space,
-> Not only because the side effect of its execution, but also because
-> it could trigger potential AML method bug or interpreter bug, or even
-> architectural defect.  All of these headache is due to the AML method
->  is NOT intended for being used by userspace program.
+I am not saying that we should chose one method or another. I think they both
+can co-exist, as they can be used for diffectent purposes - the raw ACPI access 
+can affect state of the box while the sanitized attributes present kernel's
+view and can be used to verify results of some action from kernel's POV.
 
-   I've made an attempt to hide the most obvious dangerous methods, but
-undoubtedly, there will be some.  Why are we any more likely to hit an
-AML method bug, interpreter bug or architectural bug by having a
-userspace interface?  Because we can more easily exercise the code?  It
-calls the same code paths a driver could.  The driver I propose for this
-task does not require any additionally low-level ACPI functions to be
-exported.  I think it's too much complexity in the kernel to abstract
-every possible bit of data someone might find useful into kernel
-drivers.
-
-   Take a simple case of looking for a device with a specific _HID value
-and wanting the _CRS data for it.  The _HID value part is easy, but add
-all the smarts to parse the _CRS data into something human readable, and
-code bloat gets huge.  Then throw in the problem of parsing vendor data
-types, and you'll never get finished.  This is a real example.  The zx1
-ia64 chipset can only be discovered through ACPI namespace.  It's
-physical address is saved in a vendor resource descriptor.  We currently
-have to do some pretty ugly stuff in X to take a reasonable guess a what
-chipset we're using.  We need some mechanism to get this data in
-userspace, and I don't see an approach better than offloading the
-complicated data parsing into userspace.  Adding only the methods needed
-to solve a specific problem sounds like a maintainability nightmare.
-Thanks,
-
-	Alex
-
+-- 
+Dmitry
