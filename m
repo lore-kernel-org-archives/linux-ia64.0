@@ -1,84 +1,72 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 13 Dec 2003 09:11:13 +0000
-Subject: Re: [jakub@redhat.com: Re: [brian.j.vandecoevering@intel.com: RE: [Linux-ia64] problems with ppp/ppp
-Message-Id: <marc-linux-ia64-107130670923227@msgid-missing>
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Wed, 10 Dec 2003 10:29:18 +0000
+Subject: RE: Latest 2.4 IA64 Baseline (Bjorn) + Latest ACPI testing report
+Message-Id: <marc-linux-ia64-107105218122471@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107124350029067@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107124350029067@msgid-missing>
+References: <marc-linux-ia64-106863619315583@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106863619315583@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 12 Dec 2003 10:37:16 -0500, Bill Nottingham <notting@redhat.com> said:
+>> 1. USB mouse doesn't work. ( I need to verify config file)
+>
+>The driver seems to know about the device:
+>
+>	Product: USB Wheel Mouse
+>	host/usb-uhci.c: interrupt, status 3, frame# 1415
+>	input: USB HID v1.00 Mouse [04fc:0003] on usb1:2.0
+>
+>although it looks unhappy about it.  The "interrupt, status 3" message
+>seems to be a warning about an interrupt when the driver didn't expect
+>it.  I wonder whether this can be reproduced on an x86 box?
+>
+>You could also try the CONFIG_USB_UHCI_ALT driver instead of the
+>CONFIG_USB_UHCI one you seem to be using, and see whether that
+>makes a difference.
 
-  Bill> Back long ago, I reported a problem with PPP on ia64:
-  Bill> http://www.gelato.unsw.edu.au/linux-ia64/0105/1641.html
+USB mouse still doesn't work on lion, but it works on tiger, and this kind of symptom cannot be reproduced on ia32 box.
 
-  Bill> We added the workaround in our tree for earlier releases, and
-  Bill> promptly forgot about it; however, someone reported that RHEL
-  Bill> 3 has the same issue (as we took the workaround out.)
+>> 2.PCI: no interrupt route for 00:00:03 pin B
 
-  Bill> Jakub noticed the following - does this explain the problem?
+>You say this is a known issue for 2.6, but I can't find any details
+>or discussion about it.  It looks to me like a firmware problem.
+>The function at 00:00:03.3 (2.6 nicely tells us which function)
+>claims it's using INTB, but ACPI isn't telling us which GSI that
+>corresponds to.  Can you ask your BIOS guys about this?
 
-OK, I fixed this now for 2.6:
+There is only 1 PRT entry in DSDT for bus 0, slot 3,  but it is for pin D  not for pin B . And the error message reflect that fact. 
+This error is for device 00:03.3 --SMBus. I don't know how to test that device.
+Actually 2.6 will call acpi_pci_irq_derive try to derive IRQ from parent bridge, if nothing found from PRT List, But 2.4 will not do that.
+Actually, acpi_pci_irq_enable will not be called in 2.4. Maybe this is a issue. But it will not help this case.
 
-  http://lia64.bkbits.net:8080/to-linus-2.5/cset@1.1504
+                Package (0x04)
+                {
+                    0x0003FFFF, 
+                    0x03, 
+                    0x00, 
+                    0x32
+                }, 
 
-That file really needed some cleanup.  Apart from fixing this
-particular issue, I also consolidated the GCC vs. Intel macros so they
-make more sense and so there is much less code-duplication.
+>> 3.alloc 0x0-0xcf7 from PCI IO for PCI Bus 00:00 failed   (Known issue)
 
-Also, I did a fairly careful analysis of the impact of this bug.
-Basically, I built a kernel with "allyesconfig" and tweaked the
-uaccess macros to emit their arguments to a special string section,
-which I then examined for function calls.  Since the inspection was
-manual and there are _tons_ of get_user/put_user calls in the kernel,
-it's possible I missed a few function calls, but it shouldn't be off
-too far.  Fortunately, the result is that only 28 (out of hundreds) of
-get_user/put_user invocations have real (non-inlined) function-calls
-in their arguments, 18 are for PPP, 1 for PCMCIA (not an issue for
-ia64), 4 for the OSS sound driver and 3 for some watchdog timers which
-most likely are not supported on ia64 anyhow.  read_port() in the
-/dev/mem driver also has this problem, but this function is defined
-only if CONFIG_ISA is on, so we're OK.  The only new issue that came
-to light is that the TIOCOUTQ ioctl also has this problem, so I'd
-expect spurious failures for that ioctl().
+>I poked at this again.  The reason this fails is because the
+>VGA console driver starts up very early and allocates ports
+>0x3c0-0x3df.  It would be nice if we could figure out a way
+>to allocate those ports later, after the PCI bridge has been
+>discovered, so we get the ioport resources correct, but I
+>don't know a reasonable way to do that.
 
-In summary, only PPP and TIOCOUTQ seem to have been affected by this
-bug, which probably explains why the bug remained in hiding for so
-long.
+Since VGA console driver faile to allocate that port range,  why it still can work?
+Does it mean 0x3c0-0x3df is inessential to  VGA console driver.
 
-Anyhow, I included a summary of the problematic calls below for
-reference.
+> 4.> 1. After login, the dmesg return below message. 	(Known issue)
+> > ifup-post(864): <sc1236(0,1008,0,20000000000d5b20)>
 
-	--david
+>I just added a patch to remove these messages, so this should
+>be fixed.
 
-drivers/char/mem.c:321:__put_user: inb(i)
-drivers/char/tty_ioctl.c:465:put_user: tty->driver->chars_in_buffer ? tty->driver->chars_in_buffer(tty) : 0
-drivers/char/watchdog/wdt.c:342:put_user: wdt_status()
-drivers/char/watchdog/wdt.c:342:put_user: wdt_status()
-drivers/char/watchdog/wdt_pci.c:327:put_user: wdtpci_status()
-drivers/net/ppp_async.c:264:put_user: ppp_channel_index(&ap->chan)
-drivers/net/ppp_async.c:264:put_user: ppp_channel_index(&ap->chan)
-drivers/net/ppp_async.c:274:put_user: ppp_unit_number(&ap->chan)
-drivers/net/ppp_async.c:274:put_user: ppp_unit_number(&ap->chan)
-drivers/net/ppp_synctty.c:317:put_user: ppp_channel_index(&ap->chan)
-drivers/net/ppp_synctty.c:317:put_user: ppp_channel_index(&ap->chan)
-drivers/net/ppp_synctty.c:327:put_user: ppp_unit_number(&ap->chan)
-drivers/net/ppp_synctty.c:327:put_user: ppp_unit_number(&ap->chan)
-drivers/pcmcia/ds.c:589:put_user: get_queued_event(user)
-net/atm/pppoatm.c:338:put_user: ppp_channel_index(&atmvcc_to_pvcc(atmvcc)-> chan)
-net/atm/pppoatm.c:338:put_user: ppp_channel_index(&atmvcc_to_pvcc(atmvcc)-> chan)
-net/atm/pppoatm.c:341:put_user: ppp_unit_number(&atmvcc_to_pvcc(atmvcc)-> chan)
-net/atm/pppoatm.c:341:put_user: ppp_unit_number(&atmvcc_to_pvcc(atmvcc)-> chan)
-net/irda/irnet/irnet_ppp.c:668:put_user: ppp_channel_index(&ap->chan)
-net/irda/irnet/irnet_ppp.c:668:put_user: ppp_channel_index(&ap->chan)
-net/irda/irnet/irnet_ppp.c:668:put_user: ppp_channel_index(&ap->chan)
-net/irda/irnet/irnet_ppp.c:676:put_user: ppp_unit_number(&ap->chan)
-net/irda/irnet/irnet_ppp.c:676:put_user: ppp_unit_number(&ap->chan)
-net/irda/irnet/irnet_ppp.c:676:put_user: ppp_unit_number(&ap->chan)
-sound/core/seq/oss/seq_oss_ioctl.c:89:put_user: snd_seq_oss_writeq_get_free_size(dp->writeq)
-sound/core/seq/oss/seq_oss_ioctl.c:89:put_user: snd_seq_oss_writeq_get_free_size(dp->writeq)
-sound/core/seq/oss/seq_oss_ioctl.c:89:put_user: snd_seq_oss_writeq_get_free_size(dp->writeq)
-sound/core/seq/oss/seq_oss_ioctl.c:89:put_user: snd_seq_oss_writeq_get_free_size(dp->writeq)
+It's gone!
+
+
