@@ -1,23 +1,68 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 17 Mar 2004 18:54:06 +0000
-Subject: Re: UCE and NUMA
-Message-Id: <16472.40654.679214.502105@napali.hpl.hp.com>
+From: Andreas Schwab <schwab@suse.de>
+Date: Tue, 02 Mar 2004 23:49:20 +0000
+Subject: Fix staircase effect on Altix serial console.
+Message-Id: <je1xoa7qtb.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40576628.927DEB35@email.mot.com>
-In-Reply-To: <40576628.927DEB35@email.mot.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 17 Mar 2004 10:57:38 -0600, Mario Smarduch <cms063@email.mot.com> said:
+Serial console output on Altix didn't convert NL to CRNL.
 
-  Mario> But I agree practically it would be pretty difficult to (i)
-  Mario> first figure out what is very contentious (ii) and locate all
-  Mario> your locks/data into those UCE pages. So in short UCE is not
-  Mario> used in any kernel version?
+Andreas.
 
-Not as far as I know.  I really don't even know which platforms
-support fetchadd via UCE.
+--- linux-2.6.3/drivers/char/sn_serial.c.~1~	2004-03-02 16:41:09.000000000 =
++0100
++++ linux-2.6.3/drivers/char/sn_serial.c	2004-03-02 22:51:09.049180364 +0100
+@@ -984,6 +984,7 @@ static void
+ sn_sal_console_write(struct console *co, const char *s, unsigned count)
+ {
+ 	unsigned long flags;
++	const char *s1;
+=20
+ 	BUG_ON(!sn_sal_is_asynch);
+=20
+@@ -991,15 +992,36 @@ sn_sal_console_write(struct console *co,
+ 	 * oops, kdb, panic, etc.  make sure they get it. */
+ 	if (spin_is_locked(&sn_sal_lock)) {
+ 		synch_flush_xmit();
++		/* Output '\r' before each '\n' */
++		while ((s1 =3D memchr(s, '\n', count)) !=3D NULL) {
++			sn_func->sal_puts(s, s1 - s);
++			sn_func->sal_puts("\r\n", 2);
++			count -=3D s1 + 1 - s;
++			s =3D s1 + 1;
++		}
+ 		sn_func->sal_puts(s, count);
+ 	}
+ 	else if (in_interrupt()) {
+ 		spin_lock_irqsave(&sn_sal_lock, flags);
+ 		synch_flush_xmit();
+ 		spin_unlock_irqrestore(&sn_sal_lock, flags);
++		/* Output '\r' before each '\n' */
++		while ((s1 =3D memchr(s, '\n', count)) !=3D NULL) {
++			sn_func->sal_puts(s, s1 - s);
++			sn_func->sal_puts("\r\n", 2);
++			count -=3D s1 + 1 - s;
++			s =3D s1 + 1;
++		}
+ 		sn_func->sal_puts(s, count);
+ 	}
+ 	else
++		/* Output '\r' before each '\n' */
++		while ((s1 =3D memchr(s, '\n', count)) !=3D NULL) {
++			sn_sal_write(NULL, 0, s, s1 - s);
++			sn_sal_write(NULL, 0, "\r\n", 2);
++			count -=3D s1 + 1 - s;
++			s =3D s1 + 1;
++		}
+ 		sn_sal_write(NULL, 0, s, count);
+ }
+=20
 
-	--david
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
