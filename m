@@ -1,7 +1,7 @@
 From: Davide Libenzi <davidel@xmailserver.org>
-Date: Sat, 24 May 2003 05:38:44 +0000
+Date: Sat, 24 May 2003 14:43:12 +0000
 Subject: RE: [Linux-ia64] Re: web page on O(1) scheduler
-Message-Id: <marc-linux-ia64-105590723706027@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723706029@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705966@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705966@msgid-missing>
@@ -10,58 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 23 May 2003, Boehm, Hans wrote:
+On Fri, 23 May 2003, Davide Libenzi wrote:
 
-> Thanks for the pointer.  In the statically linked case, I get 200/568/345
-> for custom/pthread_mutex/pthread_spin.
+> You need a write memory barrier even on the unlock. Consider this :
 >
-> I agree that this is not a fair comparison.  That was my point.  An implementation
-> with custom yield/sleep
-> code can do things that you can't do with blocking pthreads primitives at the
-> same performance.  (Of course pthreads_mutex_lock will win in other cases.)
+> 	spinlock = 1;
+> 	...
+> 	protected_resource = NEWVAL;
+> 	spinlock = 0;
 >
-> Please forget about the abort() in the contention case.  I put that there for
-> brevity since it is not exercised by the test.  The intent was to time the
-> noncontention performance of a custom lock that first spins, then yields,
-> and then sleeps, as was stated in the comment.
->
-> You are forgetting two issues in your analysis of what pthreads is/should be doing
-> relative to the spin-lock-like code:
->
-> 1) The unlock code is different.  If you potentially do a waitforunlocks()
-> in the locking code, you need to at least check whether the corresponding
-> notification is necessary when you unlock().  For NPTL that requires another
-> atomic operation, and hence another dozen to a couple of hundred cycles,
-> depending on the processor.  You need to look at both the lock and unlock
-> code.
+> ( where spinlock = 0/1 strip down, but do not lose the concept, the lock
+> operation ). If a CPU reorder those writes, another CPU might see the lock
+> drop before the protected resource assignment. And this is usually bad
+> for obvious reasons.
 
-That code was completely independent by what pthread might do. I didn't
-look at the code but I think the new pthread uses futexes for mutexes.
-The code wanted only to show that a mutex lock does more than a spinlock.
-And this "more" is amplified by your tight loop.
-
-
-
-> 2) (I hadn't mentioned this before.) The (standard interpretation of)
-> the memory barrier semantics of the pthreads primitives is too strong.
-> Arguably they need to be full memory barriers in both directions.
-> The pthread_spin_lock code inserts an extra full
-> memory barrier on IA64 as a result, instead of just
-> using the acquire barrier associated with the cmpxchg.acq instruction.
-> (I think the spin unlock code doesn't do this.  One could argue that that's a bug,
-> though I would argue that the bug is really  in the pthreads spec.)
-
-You need a write memory barrier even on the unlock. Consider this :
-
-	spinlock = 1;
-	...
-	protected_resource = NEWVAL;
-	spinlock = 0;
-
-( where spinlock = 0/1 strip down, but do not lose the concept, the lock
-operation ). If a CPU reorder those writes, another CPU might see the lock
-drop before the protected resource assignment. And this is usually bad
-for obvious reasons.
+David made me notice about a brain misfire here. You need protection even
+for loads crossing the unlock. For the same obvious reasons :) Yes, a
+realease barrier will be sufficent for ia64, while you'll need an mfence
+on P4.
 
 
 
