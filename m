@@ -1,7 +1,7 @@
-From: "David S. Miller" <davem@redhat.com>
-Date: Thu, 15 May 2003 23:27:33 +0000
+From: Colin Ngam <cngam@sgi.com>
+Date: Thu, 15 May 2003 23:32:31 +0000
 Subject: [Linux-ia64] Re: 64 Bits DMA Addresses for Alloc Consistent Interfaces.
-Message-Id: <marc-linux-ia64-105590723705855@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705862@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705823@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705823@msgid-missing>
@@ -10,13 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-   From: Jesse Barnes <jbarnes@sgi.com>
-   Date: Thu, 15 May 2003 13:24:12 -0700
-   
-   How about this: drivers that support PCI-X cards are required to
-   program the full 64 bits of a pci_alloc_consistent DMA address, the
-   top 32 bits of which can be zero for most platforms.
+"David S. Miller" wrote:
 
-How about this: you put the device attributes where they belong,
-in the device struct.
+>    From: Colin Ngam <cngam@sgi.com>
+>    Date: Thu, 15 May 2003 17:14:11 -0500
+>
+>    Now, for PCI-X devices, we need to generate an IOMMU mapped DMA
+>    address that  has the Upper 32 bits non 0s.
+>
+> Then add a consistent_dma_mask attribute to the device struct,
+> problem solved.
+
+Hi David,
+
+I do not understand what you are saying .. how would a consistent_dma_mask
+attribute in the device struct helps pci_alloc_consistent() to return a dma
+hanlde
+that can have the Upper 32 Bits Non 0's, and, moreover, these Upper 32 Bits
+are not constants, but can vary greatly, and is part of the 64 bit Physical
+System
+Memory Address?
+
+Thanks.
+
+colin
+
 
