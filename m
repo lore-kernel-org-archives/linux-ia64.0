@@ -1,103 +1,311 @@
 From: Erich Focht <efocht@ess.nec.de>
-Date: Wed, 10 Jul 2002 17:27:20 +0000
-Subject: [Linux-ia64] switch_mm race condition with Ingo's scheduler
+Date: Fri, 19 Jul 2002 14:55:07 +0000
+Subject: [Linux-ia64] [PATCH]: scheduler complex macros fixes
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------Boundary-00=_K5N18FDJZT5RLQ64YKT4"
-Message-Id: <marc-linux-ia64-105590701905759@msgid-missing>
+Content-Type: multipart/mixed; boundary="------------Boundary-00=_V34I8T6VRB7721QBGJAR"
+Message-Id: <marc-linux-ia64-105590701905784@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
---------------Boundary-00=_K5N18FDJZT5RLQ64YKT4
+--------------Boundary-00=_V34I8T6VRB7721QBGJAR
 Content-Type: text/plain;
-  charset="iso-8859-1"
+  charset="iso-8859-15"
 Content-Transfer-Encoding: quoted-printable
 
-Hi David,
+The attached patch fixes problems with the "complex" macros in the
+scheduler, as discussed about a week ago with Ingo on this mailing list.
+On some platforms (at least IA64, sparc64) the RQ lock must be released
+before the context switch in order to avoid a potential deadlock. The
+macros used in 2.5.26 are buggy and allow the load_balancer to steal the
+prev task right before the context switch occurs. If the prev task
+exits in the mean time, the kernel crashes.
 
-the attached patch fixes the switch_mm -> wrap_mmu_context deadlock which
-can occur in 2.5.18+ia64. We discussed this in January/February...
+These fixes are already in Ingo's patches for the SCHED_BATCH extension
+but didn't make it into 2.5.26. They are a MUST for the platforms using
+complex macros, please consider applying...
 
 Regards,
 Erich
 
---------------Boundary-00=_K5N18FDJZT5RLQ64YKT4
+--------------Boundary-00=_V34I8T6VRB7721QBGJAR
 Content-Type: text/x-diff;
-  charset="iso-8859-1";
-  name="wrap_mmu_ia64.patch"
+  charset="iso-8859-15";
+  name="O1_schedfix-2.5.26.diff"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="wrap_mmu_ia64.patch"
+Content-Disposition: attachment; filename="O1_schedfix-2.5.26.diff"
 
-diff -urNp linux-2.5.18-ia64/arch/ia64/mm/tlb.c linux-2.5.18-ia64-wrap/arch/ia64/mm/tlb.c
---- linux-2.5.18-ia64/arch/ia64/mm/tlb.c	Sat May 25 03:55:29 2002
-+++ linux-2.5.18-ia64-wrap/arch/ia64/mm/tlb.c	Wed Jul 10 17:08:46 2002
-@@ -77,7 +77,11 @@ wrap_mmu_context (struct mm_struct *mm)
- 			ia64_ctx.limit = tsk_context;
- 	}
- 	read_unlock(&tasklist_lock);
--	flush_tlb_all();
-+	//flush_tlb_all(); /* potential race condition with O(1) scheduler [EF] */
-+	for (i=0; i<smp_num_cpus; i++)
-+		cpu_data(i)->tlb_flush = 1;
-+	__flush_tlb_all();
-+	local_cpu_data->tlb_flush = 0;
- }
+diff -urNp linux-2.5.26/include/asm-arm/system.h linux-2.5.26-schedfix/include/asm-arm/system.h
+--- linux-2.5.26/include/asm-arm/system.h	Wed Jul 17 01:49:26 2002
++++ linux-2.5.26-schedfix/include/asm-arm/system.h	Fri Jul 19 15:44:20 2002
+@@ -64,10 +64,9 @@ extern asmlinkage void __backtrace(void)
+ struct thread_info;
+ extern struct task_struct *__switch_to(struct thread_info *, struct thread_info *);
  
- void
-diff -urNp linux-2.5.18-ia64/include/asm-ia64/mmu_context.h linux-2.5.18-ia64-wrap/include/asm-ia64/mmu_context.h
---- linux-2.5.18-ia64/include/asm-ia64/mmu_context.h	Sat May 25 03:55:19 2002
-+++ linux-2.5.18-ia64-wrap/include/asm-ia64/mmu_context.h	Wed Jul 10 17:03:03 2002
-@@ -44,6 +44,23 @@ enter_lazy_tlb (struct mm_struct *mm, st
- {
- }
+-#define prepare_arch_schedule(prev)		do { } while(0)
+-#define finish_arch_schedule(prev)		do { } while(0)
+-#define prepare_arch_switch(rq)			do { } while(0)
+-#define finish_arch_switch(rq)			spin_unlock_irq(&(rq)->lock)
++#define prepare_arch_switch(rq, next)	do { } while(0)
++#define finish_arch_switch(rq, prev)	spin_unlock_irq(&(rq)->lock)
++#define task_running(rq, p)		((rq)->curr == (p))
  
-+/* 
-+ * When the context counter wraps around all TLBs need to be flushed because
-+ * an old context number might have been reused. This is signalled by a bit
-+ * set in ia64_ctx.flush, which is checked in the routine below. Called by
-+ * activate_mm().                                        <efocht@ess.nec.de>
-+ */
-+static inline void
-+delayed_tlb_flush (void)
-+{
-+	extern void __flush_tlb_all (void);
+ #define switch_to(prev,next,last)					\
+ 	do {			 					\
+diff -urNp linux-2.5.26/include/asm-i386/system.h linux-2.5.26-schedfix/include/asm-i386/system.h
+--- linux-2.5.26/include/asm-i386/system.h	Wed Jul 17 01:49:22 2002
++++ linux-2.5.26-schedfix/include/asm-i386/system.h	Fri Jul 19 15:44:10 2002
+@@ -11,10 +11,9 @@
+ struct task_struct;	/* one of the stranger aspects of C forward declarations.. */
+ extern void FASTCALL(__switch_to(struct task_struct *prev, struct task_struct *next));
+ 
+-#define prepare_arch_schedule(prev)		do { } while(0)
+-#define finish_arch_schedule(prev)		do { } while(0)
+-#define prepare_arch_switch(rq)			do { } while(0)
+-#define finish_arch_switch(rq)			spin_unlock_irq(&(rq)->lock)
++#define prepare_arch_switch(rq, next)	do { } while(0)
++#define finish_arch_switch(rq, prev)	spin_unlock_irq(&(rq)->lock)
++#define task_running(rq, p)		((rq)->curr == (p))
+ 
+ #define switch_to(prev,next,last) do {					\
+ 	asm volatile("pushl %%esi\n\t"					\
+diff -urNp linux-2.5.26/include/asm-ia64/system.h linux-2.5.26-schedfix/include/asm-ia64/system.h
+--- linux-2.5.26/include/asm-ia64/system.h	Wed Jul 17 01:49:32 2002
++++ linux-2.5.26-schedfix/include/asm-ia64/system.h	Fri Jul 19 13:40:26 2002
+@@ -429,6 +429,10 @@ extern void ia64_load_extra (struct task
+ } while (0)
+ #endif
+ 
++#define prepare_arch_switch(rq, next)	do {spin_lock(&(next)->switch_lock); spin_unlock(&(rq)->lock);} while(0)
++#define finish_arch_switch(rq, prev)	do {spin_unlock_irq(&(prev)->switch_lock);} while(0)
++#define task_running(rq, p)	(((rq)->curr == (p)) || spin_is_locked(&(p)->switch_lock))
 +
-+	if (unlikely(local_cpu_data->tlb_flush)) {
-+		__flush_tlb_all();
-+		local_cpu_data->tlb_flush = 0;
-+	}
-+}
-+
- static inline void
- get_new_mmu_context (struct mm_struct *mm)
- {
-@@ -54,7 +71,6 @@ get_new_mmu_context (struct mm_struct *m
- 		mm->context = ia64_ctx.next++;
- 	}
- 	spin_unlock(&ia64_ctx.lock);
--
+ #endif /* __KERNEL__ */
+ 
+ #endif /* __ASSEMBLY__ */
+diff -urNp linux-2.5.26/include/asm-ppc/system.h linux-2.5.26-schedfix/include/asm-ppc/system.h
+--- linux-2.5.26/include/asm-ppc/system.h	Wed Jul 17 01:49:32 2002
++++ linux-2.5.26-schedfix/include/asm-ppc/system.h	Fri Jul 19 15:44:35 2002
+@@ -83,10 +83,9 @@ extern void cacheable_memzero(void *p, u
+ struct device_node;
+ extern void note_scsi_host(struct device_node *, void *);
+ 
+-#define prepare_arch_schedule(prev)		do { } while(0)
+-#define finish_arch_schedule(prev)		do { } while(0)
+-#define prepare_arch_switch(rq)			do { } while(0)
+-#define finish_arch_switch(rq)			spin_unlock_irq(&(rq)->lock)
++#define prepare_arch_switch(rq, next)	do { } while(0)
++#define finish_arch_switch(rq, prev)	spin_unlock_irq(&(rq)->lock)
++#define task_running(rq, p)		((rq)->curr == (p))
+ 
+ struct task_struct;
+ extern void __switch_to(struct task_struct *, struct task_struct *);
+diff -urNp linux-2.5.26/include/asm-s390/system.h linux-2.5.26-schedfix/include/asm-s390/system.h
+--- linux-2.5.26/include/asm-s390/system.h	Wed Jul 17 01:49:38 2002
++++ linux-2.5.26-schedfix/include/asm-s390/system.h	Fri Jul 19 15:44:03 2002
+@@ -18,10 +18,9 @@
+ #endif
+ #include <linux/kernel.h>
+ 
+-#define prepare_arch_schedule(prev)		do { } while (0)
+-#define finish_arch_schedule(prev)		do { } while (0)
+-#define prepare_arch_switch(rq)			do { } while (0)
+-#define finish_arch_switch(rq)			spin_unlock_irq(&(rq)->lock)
++#define prepare_arch_switch(rq, next)	do { } while(0)
++#define finish_arch_switch(rq, prev)	spin_unlock_irq(&(rq)->lock)
++#define task_running(rq, p)		((rq)->curr == (p))
+ 
+ #define switch_to(prev,next,last) do {					     \
+ 	if (prev == next)						     \
+diff -urNp linux-2.5.26/include/asm-s390x/system.h linux-2.5.26-schedfix/include/asm-s390x/system.h
+--- linux-2.5.26/include/asm-s390x/system.h	Wed Jul 17 01:49:38 2002
++++ linux-2.5.26-schedfix/include/asm-s390x/system.h	Fri Jul 19 15:44:28 2002
+@@ -18,10 +18,9 @@
+ #endif
+ #include <linux/kernel.h>
+ 
+-#define prepare_arch_schedule(prev)		do { } while (0)
+-#define finish_arch_schedule(prev)		do { } while (0)
+-#define prepare_arch_switch(rq)			do { } while (0)
+-#define finish_arch_switch(rq)			spin_unlock_irq(&(rq)->lock)
++#define prepare_arch_switch(rq, next)	do { } while(0)
++#define finish_arch_switch(rq, prev)	spin_unlock_irq(&(rq)->lock)
++#define task_running(rq, p)		((rq)->curr == (p))
+ 
+ #define switch_to(prev,next),last do {					     \
+ 	if (prev == next)						     \
+diff -urNp linux-2.5.26/include/asm-sparc64/system.h linux-2.5.26-schedfix/include/asm-sparc64/system.h
+--- linux-2.5.26/include/asm-sparc64/system.h	Wed Jul 17 01:49:22 2002
++++ linux-2.5.26-schedfix/include/asm-sparc64/system.h	Fri Jul 19 15:52:41 2002
+@@ -144,13 +144,12 @@ extern void __flushw_user(void);
+ #define flush_user_windows flushw_user
+ #define flush_register_windows flushw_all
+ 
+-#define prepare_arch_schedule(prev)	task_lock(prev)
+-#define finish_arch_schedule(prev)	task_unlock(prev)
+-#define prepare_arch_switch(rq)		\
+-do {	spin_unlock(&(rq)->lock);	\
+-	flushw_all();			\
+-} while (0)
+-#define finish_arch_switch(rq)		__sti()
++#define prepare_arch_switch(rq, next)	do {spin_lock(&(next)->switch_lock); \
++					    spin_unlock(&(rq)->lock);
++					    flushw_all(); \
++					} while(0)
++#define finish_arch_switch(rq, prev)	do {spin_unlock_irq(&(prev)->switch_lock);} while(0)
++#define task_running(rq, p)	(((rq)->curr == (p)) || spin_is_locked(&(p)->switch_lock))
+ 
+ #ifndef CONFIG_DEBUG_SPINLOCK
+ #define CHECK_LOCKS(PREV)	do { } while(0)
+diff -urNp linux-2.5.26/include/asm-x86_64/system.h linux-2.5.26-schedfix/include/asm-x86_64/system.h
+--- linux-2.5.26/include/asm-x86_64/system.h	Wed Jul 17 01:49:29 2002
++++ linux-2.5.26-schedfix/include/asm-x86_64/system.h	Fri Jul 19 15:44:42 2002
+@@ -13,10 +13,9 @@
+ #define LOCK_PREFIX ""
+ #endif
+ 
+-#define prepare_arch_schedule(prev)            do { } while(0)
+-#define finish_arch_schedule(prev)             do { } while(0)
+-#define prepare_arch_switch(rq)                        do { } while(0)
+-#define finish_arch_switch(rq)                 spin_unlock_irq(&(rq)->lock)
++#define prepare_arch_switch(rq, next)	do { } while(0)
++#define finish_arch_switch(rq, prev)	spin_unlock_irq(&(rq)->lock)
++#define task_running(rq, p)		((rq)->curr == (p))
+ 
+ #define __STR(x) #x
+ #define STR(x) __STR(x)
+diff -urNp linux-2.5.26/include/linux/init_task.h linux-2.5.26-schedfix/include/linux/init_task.h
+--- linux-2.5.26/include/linux/init_task.h	Wed Jul 17 01:49:25 2002
++++ linux-2.5.26-schedfix/include/linux/init_task.h	Fri Jul 19 13:42:23 2002
+@@ -78,6 +78,7 @@
+     pending:		{ NULL, &tsk.pending.head, {{0}}},		\
+     blocked:		{{0}},						\
+     alloc_lock:		SPIN_LOCK_UNLOCKED,				\
++    switch_lock:	SPIN_LOCK_UNLOCKED,				\
+     journal_info:	NULL,						\
  }
  
- static inline void
-@@ -113,6 +129,7 @@ activate_mm (struct mm_struct *prev, str
- 	 * We may get interrupts here, but that's OK because interrupt
- 	 * handlers cannot touch user-space.
+diff -urNp linux-2.5.26/include/linux/sched.h linux-2.5.26-schedfix/include/linux/sched.h
+--- linux-2.5.26/include/linux/sched.h	Wed Jul 17 01:49:25 2002
++++ linux-2.5.26-schedfix/include/linux/sched.h	Fri Jul 19 13:40:26 2002
+@@ -359,6 +359,8 @@ struct task_struct {
+    	u32 self_exec_id;
+ /* Protection of (de-)allocation: mm, files, fs, tty */
+ 	spinlock_t alloc_lock;
++/* context-switch lock */
++	spinlock_t switch_lock;
+ 
+ /* journalling filesystem info */
+ 	void *journal_info;
+diff -urNp linux-2.5.26/kernel/#sched.c.rej# linux-2.5.26-schedfix/kernel/#sched.c.rej#
+--- linux-2.5.26/kernel/fork.c	Wed Jul 17 01:49:25 2002
++++ linux-2.5.26-schedfix/kernel/fork.c	Fri Jul 19 13:40:26 2002
+@@ -675,6 +675,7 @@ struct task_struct *do_fork(unsigned lon
+ 		init_completion(&vfork);
+ 	}
+ 	spin_lock_init(&p->alloc_lock);
++	spin_lock_init(&p->switch_lock);
+ 
+ 	clear_tsk_thread_flag(p,TIF_SIGPENDING);
+ 	init_sigpending(&p->pending);
+diff -urNp linux-2.5.26/kernel/sched.c linux-2.5.26-schedfix/kernel/sched.c
+--- linux-2.5.26/kernel/sched.c	Wed Jul 17 01:49:29 2002
++++ linux-2.5.26-schedfix/kernel/sched.c	Fri Jul 19 16:09:39 2002
+@@ -306,7 +306,7 @@ void wait_task_inactive(task_t * p)
+ repeat:
+ 	preempt_disable();
+ 	rq = task_rq(p);
+-	if (unlikely(rq->curr == p)) {
++	if (unlikely(task_running(rq, p))) {
+ 		cpu_relax();
+ 		/*
+ 		 * enable/disable preemption just to make this
+@@ -317,7 +317,7 @@ repeat:
+ 		goto repeat;
+ 	}
+ 	rq = task_rq_lock(p, &flags);
+-	if (unlikely(rq->curr == p)) {
++	if (unlikely(task_running(rq, p))) {
+ 		task_rq_unlock(rq, &flags);
+ 		preempt_enable();
+ 		goto repeat;
+@@ -337,7 +337,7 @@ repeat:
+  */
+ void kick_if_running(task_t * p)
+ {
+-	if (p == task_rq(p)->curr)
++	if ((task_running(task_rq(p), p)) && (p->cpu != smp_processor_id()))
+ 		resched_task(p);
+ }
+ #endif
+@@ -365,7 +365,7 @@ repeat_lock_task:
+ 		 * Fast-migrate the task if it's not running or runnable
+ 		 * currently. Do not violate hard affinity.
+ 		 */
+-		if (unlikely(sync && (rq->curr != p) &&
++		if (unlikely(sync && !task_running(rq, p) &&
+ 			(task_cpu(p) != smp_processor_id()) &&
+ 			(p->cpus_allowed & (1UL << smp_processor_id())))) {
+ 
+@@ -443,8 +443,7 @@ void sched_exit(task_t * p)
+ #if CONFIG_SMP || CONFIG_PREEMPT
+ asmlinkage void schedule_tail(task_t *prev)
+ {
+-	finish_arch_switch(this_rq());
+-	finish_arch_schedule(prev);
++	finish_arch_switch(this_rq(), prev);
+ }
+ #endif
+ 
+@@ -646,7 +645,7 @@ skip_queue:
+ 
+ #define CAN_MIGRATE_TASK(p,rq,this_cpu)					\
+ 	((jiffies - (p)->sleep_timestamp > cache_decay_ticks) &&	\
+-		((p) != (rq)->curr) &&					\
++		((p) != (rq)->curr) &&	!task_running(rq, p)  &&	\
+ 			((p)->cpus_allowed & (1UL << (this_cpu))))
+ 
+ 	if (!CAN_MIGRATE_TASK(tmp, busiest, this_cpu)) {
+@@ -816,7 +815,6 @@ need_resched:
+ 	rq = this_rq();
+ 
+ 	release_kernel_lock(prev, smp_processor_id());
+-	prepare_arch_schedule(prev);
+ 	prev->sleep_timestamp = jiffies;
+ 	spin_lock_irq(&rq->lock);
+ 
+@@ -873,11 +871,11 @@ switch_tasks:
+ 		rq->nr_switches++;
+ 		rq->curr = next;
+ 	
+-		prepare_arch_switch(rq);
++		prepare_arch_switch(rq, next);
+ 		prev = context_switch(prev, next);
+ 		barrier();
+ 		rq = this_rq();
+-		finish_arch_switch(rq);
++		finish_arch_switch(rq, prev);
+ 	} else
+ 		spin_unlock_irq(&rq->lock);
+ 	finish_arch_schedule(prev);
+@@ -1106,7 +1104,7 @@ void set_user_nice(task_t *p, long nice)
+ 		 * If the task is running and lowered its priority,
+ 		 * or increased its priority then reschedule its CPU:
+ 		 */
+-		if ((NICE_TO_PRIO(nice) < p->static_prio) || (p == rq->curr))
++		if ((NICE_TO_PRIO(nice) < p->static_prio) || task_running(rq, p))
+ 			resched_task(rq->curr);
+ 	}
+ out_unlock:
+@@ -1779,7 +1777,7 @@ void set_cpus_allowed(task_t *p, unsigne
+ 	 * If the task is not on a runqueue (and not running), then
+ 	 * it is sufficient to simply update the task's cpu field.
  	 */
-+	delayed_tlb_flush();
- 	ia64_set_kr(IA64_KR_PT_BASE, __pa(next->pgd));
- 	get_mmu_context(next);
- 	reload_context(next);
-diff -urNp linux-2.5.18-ia64/include/asm-ia64/processor.h linux-2.5.18-ia64-wrap/include/asm-ia64/processor.h
---- linux-2.5.18-ia64/include/asm-ia64/processor.h	Thu Jul  4 12:23:26 2002
-+++ linux-2.5.18-ia64-wrap/include/asm-ia64/processor.h	Wed Jul 10 17:05:20 2002
-@@ -151,6 +151,7 @@ extern struct cpuinfo_ia64 {
- 	/* CPUID-derived information: */
- 	__u64 ppn;
- 	__u64 features;
-+	__u8 tlb_flush;		/* flush TLB before next context switch if non-zero */
- 	__u8 number;
- 	__u8 revision;
- 	__u8 model;
+-	if (!p->array && (p != rq->curr)) {
++	if (!p->array && !task_running(rq, p)) {
+ 		set_task_cpu(p, __ffs(p->cpus_allowed));
+ 		task_rq_unlock(rq, &flags);
+ 		goto out;
 
---------------Boundary-00=_K5N18FDJZT5RLQ64YKT4--
+--------------Boundary-00=_V34I8T6VRB7721QBGJAR--
 
 
