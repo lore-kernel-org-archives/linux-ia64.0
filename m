@@ -1,201 +1,93 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Mon, 20 Sep 2004 16:35:33 +0000
-Subject: PATCH-ACPI based CPU hotplug[2/6]-ACPI Eject interface support
-Message-Id: <20040920093532.D14208@unix-os.sc.intel.com>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Fri, 10 Sep 2004 19:48:18 +0000
+Subject: [PATCH] disable sys32_{iopl,ioperm}
+Message-Id: <41420502.5060304@intel.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------070002030003080200070506"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com>
-In-Reply-To: <20040920092520.A14208@unix-os.sc.intel.com>; from anil.s.keshavamurthy@intel.com on Mon, Sep 20, 2004 at 09:25:20AM -0700
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+This is a multi-part message in MIME format.
+--------------070002030003080200070506
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Cc: "Brown, Len" <len.brown@intel.com>, ACPI Developer <acpi-devel@lists.sourceforge.net>, LHNS list <lhns-devel@lists.sourceforge.net>, Linux IA64 <linux-ia64@vger.kernel.org>, Linux Kernel <linux-kernel@vger.kernel.org>
+
+
+The attached patch disables syscalls sys32_iopl() and sys32_ioperm() on 
+ia64. Current code is not safe and no one is complaining. So we think 
+it's better to disable it.
+
+	-Arun
 
 
 
----
-Name:acpi_core_eject.patch
-Status: Tested on 2.6.9-rc2
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-Depends:acpi_core
-Version: applies on 2.6.9-rc2
+--------------070002030003080200070506
+Content-Type: text/plain;
+ name="disable_sys32_iopl_ioperm.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="disable_sys32_iopl_ioperm.patch"
 
-This patch support /sys/firmware/acpi/eject interface where in 
-the ACPI device say "LSB0" can be ejected by echoing "\_SB.LSB0" > 
-/sys/firmware/acpi/eject
-
-The kernel when it receives an hardware sci eject request it simply passes this
-to user mode agent and the agent in turn will offline all the child devices and
-then echo's the ACPI device name onto /sys/firware/acpi/eject file and then the
-kernel will then actually remove the device.
-
----
-
- linux-2.6.9-rc2-askeshav/drivers/acpi/scan.c |  141 +++++++++++++++++++++++++++
- 1 files changed, 141 insertions(+)
-
-diff -puN drivers/acpi/scan.c~acpi_core_eject drivers/acpi/scan.c
---- linux-2.6.9-rc2/drivers/acpi/scan.c~acpi_core_eject	2004-09-17 17:56:46.027451654 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/acpi/scan.c	2004-09-17 17:56:46.114365716 -0700
-@@ -2,6 +2,7 @@
-  * scan.c - support for transforming the ACPI namespace into individual objects
-  */
- 
-+#include <linux/module.h>
- #include <linux/init.h>
- #include <linux/acpi.h>
- 
-@@ -291,6 +292,141 @@ end:
- }
- 
- /* --------------------------------------------------------------------------
-+                              ACPI hotplug Eject support
-+   -------------------------------------------------------------------------- */
-+static ssize_t acpi_eject_store(struct subsystem *subsys, const char *buf, size_t count);
-+static struct subsys_attribute acpi_eject_attr +	__ATTR(eject,0200,NULL,acpi_eject_store);
-+
-+/*
-+ * evaluate _EJ0, detach driver, and remove from ACPI bus
-+ */
-+static int
-+eject_operation(acpi_handle handle, int lockable)
-+{
-+	struct acpi_object_list arg_list;
-+	union acpi_object arg;
-+	acpi_status status = AE_OK;
-+
-+	/*
-+	 * TBD: evaluate _PS3?
-+	 */
-+
-+	if (lockable) {
-+		arg_list.count = 1;
-+		arg_list.pointer = &arg;
-+		arg.type = ACPI_TYPE_INTEGER;
-+		arg.integer.value = 0;
-+		acpi_evaluate_object(handle, "_LCK", &arg_list, NULL);
-+	}
-+
-+	arg_list.count = 1;
-+	arg_list.pointer = &arg;
-+	arg.type = ACPI_TYPE_INTEGER;
-+	arg.integer.value = 1;
-+
-+	/*
-+	 * TBD: _EJD support.
-+	 */
-+
-+	status = acpi_evaluate_object(handle, "_EJ0", &arg_list, NULL);
-+	if (ACPI_FAILURE(status)) {
-+		return(-ENODEV);
-+	}
-+
-+	return(0);
-+}
-+
-+static ssize_t
-+acpi_eject_store(struct subsystem *subsys, const char *buf, size_t count)
-+{
-+	acpi_status status;
-+	acpi_handle hlsb;
-+	struct acpi_device *device = NULL;
-+	int result;
-+	int ret = count;
-+
-+	char *acpi_name;
-+	char *p;
-+	int islockable;
-+	acpi_object_type	type = 0;
-+
-+	if (!count) {
-+		return -EINVAL;
-+	}
-+
-+	acpi_name = kmalloc(count+1, GFP_KERNEL);
-+	if (!acpi_name) {
-+		return -ENOMEM;
-+	}
-+
-+	acpi_name[count] = '\0';
-+	strncpy(acpi_name, buf, count);
-+
-+	for (p = acpi_name+(count-1); p >= acpi_name; --p) {
-+		if (isspace(*p))
-+			*p = '\0';
-+		else
-+			break;
-+	}
-+
-+	status = acpi_get_handle(NULL, acpi_name, &hlsb);
-+	if(ACPI_FAILURE(status)) {
-+		ret = -ENODEV;
-+		goto err;
-+	}
-+
-+	status = acpi_get_type(hlsb, &type);
-+	if (ACPI_FAILURE(status)) {
-+		ret = -ENODEV;
-+		goto err;
-+	}
-+
-+	result = acpi_bus_get_device(hlsb, &device);
-+	if (result) {
-+		ret = -ENODEV;
-+		goto err;
-+	}
-+#ifndef FORCE_EJECT
-+	if (device->driver = NULL) {
-+		ret = -ENODEV;
-+		goto err;
-+	}
-+#endif
-+	if (!device->flags.ejectable) {
-+		ret = -ENODEV;
-+		goto err;
-+	}
-+
-+	islockable = device->flags.lockable;
-+
-+	/*
-+	 * remove from ACPI bus.
-+	 */
-+	if (type = ACPI_BUS_TYPE_PROCESSOR)
-+		acpi_bus_trim(device, 0);
-+	else
-+		acpi_bus_trim(device, 1);
-+		
-+
-+	result = eject_operation(hlsb, islockable);
-+	if (result) {
-+		ret = -EBUSY;
-+	}
-+err:
-+	kfree(acpi_name);
-+	return ret;
-+}
-+
-+
-+static int __init register_acpi_eject(void)
-+{
-+	subsys_create_file(&acpi_subsys, &acpi_eject_attr);
-+	return 0;
-+}
-+
-+
-+/* --------------------------------------------------------------------------
-                               Performance Management
-    -------------------------------------------------------------------------- */
- 
-@@ -1153,6 +1289,11 @@ static int __init acpi_scan_init(void)
- 	if (result)
- 		acpi_device_unregister(acpi_root, ACPI_BUS_REMOVAL_NORMAL);
- 
-+	/*
-+	 * Register hotplug eject interface
-+	 */
-+	register_acpi_eject();
-+
-  Done:
- 	return_VALUE(result);
- }
-_
+RGlzYWJsZSBzeXNjYWxscyBzeXMzMl9pb3BsKCkgYW5kIHN5czMyX2lvcGVybSgpIG9uIGlh
+NjQuDQpUbyBlbXVsYXRlIHRoZXNlIDIgc3lzY2FsbHMgY29ycmVjdGx5LCB3ZSBuZWVkIHRv
+IGd1YXJhbnRlZSB1bmNhY2hlZA0KbWVtb3J5IGF0dHJpYnV0ZXMgb24gaWE2NCwgd2hpY2gg
+aXMgZGlmZmljdWx0LiBUaGUgb25seSB1c2VyIG9mIHRoaXMNCmludGVyZmFjZSB0aGF0IHdl
+IGtub3cgb2YgaXMgWC4gU28gd2UgdGhpbmsgaXQncyBiZXR0ZXIgdG8gZGlzYWJsZSBpdC4N
+Cg0KU2lnbmVkLW9mZi1ieTogR29yZG9uIEppbiA8Z29yZG9uLmppbkBpbnRlbC5jb20+DQpT
+aWduZWQtb2ZmLWJ5OiBBcnVuIFNoYXJtYSA8YXJ1bi5zaGFybWFAaW50ZWwuY29tPg0KDQpk
+aWZmIC1wdXJOIGxpbnV4LTIuNi44L2FyY2gvaWE2NC9pYTMyL2lhMzJfZW50cnkuUyBsaW51
+eC0yLjYuOC1pby9hcmNoL2lhNjQvaWEzMi9pYTMyX2VudHJ5LlMNCi0tLSBsaW51eC0yLjYu
+OC9hcmNoL2lhNjQvaWEzMi9pYTMyX2VudHJ5LlMJMjAwNC0wOC0xNiAxNTozNjozMC4wMDAw
+MDAwMDAgKzA4MDANCisrKyBsaW51eC0yLjYuOC1pby9hcmNoL2lhNjQvaWEzMi9pYTMyX2Vu
+dHJ5LlMJMjAwNC0wOS0wOCAxMDoyODozMC41MTgzOTE5ODUgKzA4MDANCkBAIC0zMTEsNyAr
+MzExLDcgQEAgaWEzMl9zeXNjYWxsX3RhYmxlOg0KIAlkYXRhOCBzeXNfbmlfc3lzY2FsbAkg
+IC8qIG9sZCBwcm9maWwgc3lzY2FsbCBob2xkZXIgKi8NCiAJZGF0YTggY29tcGF0X3N5c19z
+dGF0ZnMNCiAJZGF0YTggY29tcGF0X3N5c19mc3RhdGZzCSAgLyogMTAwICovDQotCWRhdGE4
+IHN5czMyX2lvcGVybQ0KKwlkYXRhOCBzeXNfbmlfc3lzY2FsbAkvKiBpb3Blcm0gKi8NCiAJ
+ZGF0YTggY29tcGF0X3N5c19zb2NrZXRjYWxsDQogCWRhdGE4IHN5c19zeXNsb2cNCiAJZGF0
+YTggY29tcGF0X3N5c19zZXRpdGltZXINCkBAIC0zMjAsNyArMzIwLDcgQEAgaWEzMl9zeXNj
+YWxsX3RhYmxlOg0KIAlkYXRhOCBjb21wYXRfc3lzX25ld2xzdGF0DQogCWRhdGE4IGNvbXBh
+dF9zeXNfbmV3ZnN0YXQNCiAJZGF0YTggc3lzX25pX3N5c2NhbGwNCi0JZGF0YTggc3lzMzJf
+aW9wbAkJICAvKiAxMTAgKi8NCisJZGF0YTggc3lzX25pX3N5c2NhbGwJLyogaW9wbCAqLwkv
+KiAxMTAgKi8NCiAJZGF0YTggc3lzX3ZoYW5ndXANCiAJZGF0YTggc3lzX25pX3N5c2NhbGwJ
+CS8qIHVzZWQgdG8gYmUgc3lzX2lkbGUgKi8NCiAJZGF0YTggc3lzX25pX3N5c2NhbGwNCmRp
+ZmYgLXB1ck4gbGludXgtMi42LjgvYXJjaC9pYTY0L2lhMzIvc3lzX2lhMzIuYyBsaW51eC0y
+LjYuOC1pby9hcmNoL2lhNjQvaWEzMi9zeXNfaWEzMi5jDQotLS0gbGludXgtMi42LjgvYXJj
+aC9pYTY0L2lhMzIvc3lzX2lhMzIuYwkyMDA0LTA4LTE2IDE1OjM2OjMwLjAwMDAwMDAwMCAr
+MDgwMA0KKysrIGxpbnV4LTIuNi44LWlvL2FyY2gvaWE2NC9pYTMyL3N5c19pYTMyLmMJMjAw
+NC0wOS0wOCAxMDoyODoyMS40ODYxNjU1MzMgKzA4MDANCkBAIC0xOTEzLDczICsxOTEzLDYg
+QEAgc3lzMzJfcHRyYWNlIChpbnQgcmVxdWVzdCwgcGlkX3QgcGlkLCB1bg0KIAlyZXR1cm4g
+cmV0Ow0KIH0NCiANCi0vKg0KLSAqICBUaGUgSUE2NCBtYXBzIDQgSS9PIHBvcnRzIGZvciBl
+YWNoIDRLIHBhZ2UNCi0gKi8NCi0jZGVmaW5lIElPTEVOCSgoNjU1MzYgLyA0KSAqIDQwOTYp
+DQotDQotYXNtbGlua2FnZSBsb25nDQotc3lzMzJfaW9wbCAoaW50IGxldmVsKQ0KLXsNCi0J
+ZXh0ZXJuIHVuc2lnbmVkIGxvbmcgaWE2NF9pb2Jhc2U7DQotCWludCBmZDsNCi0Jc3RydWN0
+IGZpbGUgKiBmaWxlOw0KLQl1bnNpZ25lZCBpbnQgb2xkOw0KLQl1bnNpZ25lZCBsb25nIGFk
+ZHI7DQotCW1tX3NlZ21lbnRfdCBvbGRfZnMgPSBnZXRfZnMgKCk7DQotDQotCWlmIChsZXZl
+bCAhPSAzKQ0KLQkJcmV0dXJuKC1FSU5WQUwpOw0KLQkvKiBUcnlpbmcgdG8gZ2FpbiBtb3Jl
+IHByaXZpbGVnZXM/ICovDQotCW9sZCA9IGlhNjRfZ2V0cmVnKF9JQTY0X1JFR19BUl9FRkxB
+Ryk7DQotCWlmICgodW5zaWduZWQgaW50KSBsZXZlbCA+ICgob2xkID4+IDEyKSAmIDMpKSB7
+DQotCQlpZiAoIWNhcGFibGUoQ0FQX1NZU19SQVdJTykpDQotCQkJcmV0dXJuIC1FUEVSTTsN
+Ci0JfQ0KLQlzZXRfZnMoS0VSTkVMX0RTKTsNCi0JZmQgPSBzeXNfb3BlbigiL2Rldi9tZW0i
+LCBPX1NZTkMgfCBPX1JEV1IsIDApOw0KLQlzZXRfZnMob2xkX2ZzKTsNCi0JaWYgKGZkIDwg
+MCkNCi0JCXJldHVybiBmZDsNCi0JZmlsZSA9IGZnZXQoZmQpOw0KLQlpZiAoZmlsZSA9PSBO
+VUxMKSB7DQotCQlzeXNfY2xvc2UoZmQpOw0KLQkJcmV0dXJuKC1FRkFVTFQpOw0KLQl9DQot
+DQotCWRvd25fd3JpdGUoJmN1cnJlbnQtPm1tLT5tbWFwX3NlbSk7DQotCWFkZHIgPSBkb19t
+bWFwX3Bnb2ZmKGZpbGUsIElBMzJfSU9CQVNFLA0KLQkJCSAgICAgSU9MRU4sIFBST1RfUkVB
+RHxQUk9UX1dSSVRFLCBNQVBfU0hBUkVELA0KLQkJCSAgICAgKGlhNjRfaW9iYXNlICYgflBB
+R0VfT0ZGU0VUKSA+PiBQQUdFX1NISUZUKTsNCi0JdXBfd3JpdGUoJmN1cnJlbnQtPm1tLT5t
+bWFwX3NlbSk7DQotDQotCWlmIChhZGRyID49IDApIHsNCi0JCW9sZCA9IChvbGQgJiB+MHgz
+MDAwKSB8IChsZXZlbCA8PCAxMik7DQotCQlpYTY0X3NldHJlZyhfSUE2NF9SRUdfQVJfRUZM
+QUcsIG9sZCk7DQotCX0NCi0NCi0JZnB1dChmaWxlKTsNCi0Jc3lzX2Nsb3NlKGZkKTsNCi0J
+cmV0dXJuIDA7DQotfQ0KLQ0KLWFzbWxpbmthZ2UgbG9uZw0KLXN5czMyX2lvcGVybSAodW5z
+aWduZWQgaW50IGZyb20sIHVuc2lnbmVkIGludCBudW0sIGludCBvbikNCi17DQotDQotCS8q
+DQotCSAqICBTaW5jZSBJQTY0IGRvZXNuJ3QgaGF2ZSBwZXJtaXNzaW9uIGJpdHMgd2UnZCBo
+YXZlIHRvIGdvIHRvDQotCSAqICAgIGEgbG90IG9mIHRyb3VibGUgdG8gc2ltdWxhdGUgdGhl
+bSBpbiBzb2Z0d2FyZS4gIFRoZXJlJ3MNCi0JICogICAgbm8gcG9pbnQsIG9ubHkgdHJ1c3Rl
+ZCBwcm9ncmFtcyBjYW4gbWFrZSB0aGlzIGNhbGwgc28gd2UnbGwNCi0JICogICAganVzdCB0
+dXJuIGl0IGludG8gYW4gaW9wbCBjYWxsIGFuZCBsZXQgdGhlIHByb2Nlc3MgaGF2ZQ0KLQkg
+KiAgICBhY2Nlc3MgdG8gYWxsIEkvTyBwb3J0cy4NCi0JICoNCi0JICogWFhYIHByb3BlciBp
+b3Blcm0oKSBzdXBwb3J0IHNob3VsZCBiZSBlbXVsYXRlZCBieQ0KLQkgKgltYW5pcHVsYXRp
+bmcgdGhlIHBhZ2UgcHJvdGVjdGlvbnMuLi4NCi0JICovDQotCXJldHVybiBzeXMzMl9pb3Bs
+KDMpOw0KLX0NCi0NCiB0eXBlZGVmIHN0cnVjdCB7DQogCXVuc2lnbmVkIGludAlzc19zcDsN
+CiAJdW5zaWduZWQgaW50CXNzX2ZsYWdzOw0K
+--------------070002030003080200070506--
