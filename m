@@ -1,7 +1,7 @@
 From: MAEDA Naoaki <maeda.naoaki@jp.fujitsu.com>
-Date: Fri, 14 May 2004 01:23:09 +0000
+Date: Mon, 24 May 2004 02:54:38 +0000
 Subject: Re: /proc/ioports regression in 2.6.6 on Tiger4
-Message-Id: <20040514.102309.74749888.maeda@jp.fujitsu.com>
+Message-Id: <20040524.115438.122622110.maeda@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040513.182357.104026513.maeda@jp.fujitsu.com>
 In-Reply-To: <20040513.182357.104026513.maeda@jp.fujitsu.com>
@@ -10,15 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Chris,
+Hi, David.
 
-Matthew's patch fix the problem I hit on Tiger4. 
-It seems to be sane if quirk_io_region() won't be used to claim 
-standard PCI regions and expansion ROM. I think it's a reasonable
-assumption.
+Could you consider to apply this Matthew's patch that fixes the regression
+of /proc/ioports? 
 
 Thanks,
 Naoaki Maeda
+
+diff -urp a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+--- a/arch/ia64/pci/pci.c	2004-05-13 12:19:52.000000000 -0700
++++ b/arch/ia64/pci/pci.c	2004-05-13 12:21:32.000000000 -0700
+@@ -323,8 +323,10 @@ pcibios_fixup_device_resources (struct p
+ 	struct pci_controller *controller = PCI_CONTROLLER(dev);
+ 	struct pci_window *window;
+ 	int i, j;
++	int limit = (dev->hdr_type = PCI_HEADER_TYPE_NORMAL) ? \
++		PCI_ROM_RESOURCE : PCI_NUM_RESOURCES;
+ 
+-	for (i = 0; i < PCI_NUM_RESOURCES; i++) {
++	for (i = 0; i < limit; i++) {
+ 		if (!dev->resource[i].start)
+ 			continue;
+
 
 From: Chris McDermott <lcm@us.ibm.com>
 Subject: Re: /proc/ioports regression in 2.6.6 on Tiger4
@@ -113,3 +127,7 @@ Date: Thu, 13 May 2004 12:28:37 -0700
 >  		if (!dev->resource[i].start)
 >  			continue;
 > 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
