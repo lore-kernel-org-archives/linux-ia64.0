@@ -1,23 +1,26 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Fri, 11 Aug 2000 22:57:56 +0000
-Subject: [Linux-ia64] Re: [lia64-kernel] KDB patch for 2.4-test4 available
-Message-Id: <marc-linux-ia64-105590678205322@msgid-missing>
+From: Michael Madore <mmadore@turbolinux.com>
+Date: Wed, 16 Aug 2000 17:52:09 +0000
+Subject: [Linux-ia64] modutil relocations on IA64
+Message-Id: <marc-linux-ia64-105590678205340@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-All,
+Hi,
 
-> You can get the patch from HPLabs ftp site at:
-> 
-> 	ftp://ftp.hpl.hp.com/pub/linux-ia64/kdb-2.4-test4.patch
-> 
+Looking through obj_ia64.c in the modutils, I see that there are functions
+to insert imm14 and imm22 values into instructions during module
+loading.  Does this mean that those instructions do not have the immediate
+values set until load time?  If so, what is the reasoning behind this?
 
-Now, you also have the compressed version (and for 2.4-test1):
+Sorry if this is a naive question.  The local bookstore was all out of
+IA64 Relocations for Dummys. ;-) 
 
- 	ftp://ftp.hpl.hp.com/pub/linux-ia64/kdb-2.4-test4.patch.gz
+Mike Madore
+Software Engineer
+TurboLinux, Inc.
 
---Stephane
+
 
