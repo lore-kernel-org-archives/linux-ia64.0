@@ -1,561 +1,667 @@
-From: Andy Whitcroft <apw@shadowen.org>
-Date: Tue, 13 Apr 2004 17:45:28 +0000
-Subject: HUGETLB commitment tracking patch
-Message-Id: <202530000.1081878328@[192.168.100.2]>
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Wed, 28 Apr 2004 12:44:34 +0000
+Subject: IA64 test report: KVM Monitor is blank screen :2.6.6-rc2  /tiger 2004-4-28: 9/10 pass
+Message-Id: <3ACA40606221794F80A5670F0AF15F84043215F1@PDSMSX403.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org
-Cc: kenneth.w.chen@intel.com, raybry@sgi.com, mbligh@aracnet.com, anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Here is the completed hugetlb commitment tracking patch.  Rediffed
-and tested against 2.6.5-mc4.
+ACPI Test Report  for 2.6 ia64 kernel 
+============Hardware Configuration:
+-----------------------
+System Name: ACPI-Tiger
+System Type: 4 way 900 Itanium2, tiger
+M/B revision: N/A
+Processor version: N/A
+Firmware Versions: N/A
+I/O configuration summary:
+	MPT scsi host driver
+	Seagate ST318406LC boot drive
+	IDE floppy and CDROM
+	Serial console
+	USB mouse 
+	USB keyboard
+	Ethernet Pro 1000
 
-Andrew, please consider for -mm.
+Software Configuration:
+	1. bk pull from http://lia64.bkbits.net:8080/linux-ia64-2.5 
+	2. bk pull from
+http://linux-acpi.bkbits.net:8080/linux-acpi-test-2.6.6
 
--apw
+ACPI Features Tested: (prioritized).
+--------------------	
+1. Boot 					tested ok
+2. serial console				tested ok
+3. ATI (run X window system)		blank screen.
+4. usb keyboard				tested ok
+5. USB mouse				tested ok
+6. NIC (eg. Ping or ftp)			tested ok
+7. IDE (eg. r/w floppy or CDROM)	tested ok
+8. SCI (eg. Press power button)		tested ok
+9. Soft Power off 			tested ok
+10. cat /proc/acpi/event with power button  tested ok
 
---- (070-hugetlb_tracking_R9)
-Handle hugetlb commitment tracking.  Track commitments against the
-fixed hugetlb page pool created by shm and mmap activity.   Ensure
-that we never commit more pages than available even when the pages
-are not allocated immediatly, for example when created via shmget().
-By separating commitment from allocation it provide the necessary
-framework to allow allocation on first reference under demang page
-instantiation and for NUMA placement.
+l of 4 processors activated (8359.04 BogoMIPS).
+NET: Registered protocol family 16
+ACPI: Subsystem revision 20040326
+ tbxface-0117 [03] acpi_load_tables      : ACPI Tables successfully
+acquired
+Parsing all Control
+Methods:................................................................
+........................................................................
+..........................
+Table [DSDT](id F004) - 1385 Objects with 110 Devices 162 Methods 40
+Regions
+ACPI Namespace successfully loaded at root a000000100a95b08
+evxfevnt-0082 [04] acpi_enable           : System is already in ACPI
+mode
+evgpeblk-0867 [06] ev_create_gpe_block   : GPE 00 to 31 [_GPE] 4 regs at
+0000000000000C28 on int 9
+evgpeblk-0925 [06] ev_create_gpe_block   : Found 0 Wake, Enabled 7
+Runtime GPEs in this block
+Completing Region/Field/Buffer/Package
+initialization:.........................................................
+...............
+Initialized 40/40 Regions 1/1 Fields 16/16 Buffers 15/15 Packages (1394
+nodes)
+Executing all Device _STA and_INI
+methods:................................................................
+........................................
+104 Devices found containing: 104 _STA, 3 _INI methods
+ACPI: Interpreter enabled
+ACPI: Using IOSAPIC for interrupt routing
+ACPI: PCI Root Bridge [PCI0] (00:00)
+PCI: Ignoring BAR0-3 of IDE controller 0000:00:1f.1
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI0._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI0.H2PB._PRT]
+ACPI: PCI Root Bridge [PCI1] (00:02)
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI1.P2PA._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI1.P2PB._PRT]
+ACPI: PCI Root Bridge [PCI3] (00:09)
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI3.P2PA._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI3.P2PB._PRT]
+ACPI: PCI Root Bridge [PCI4] (00:0f)
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI4.P2PA._PRT]
+ACPI: PCI Interrupt Routing Table [\_SB_.PCI4.P2PB._PRT]
+SCSI subsystem initialized
+usbcore: registered new driver hub
+IOSAPIC: vector 50 -> CPU 0xc218, enabled
+IOSAPIC: vector 49 -> CPU 0xc218, enabled
+IOSAPIC: vector 48 -> CPU 0xc218, enabled
+ pci_irq-0316 [03] acpi_pci_irq_derive   : Unable to derive IRQ for
+device 0000:00:1f.1
+ACPI: No IRQ known for interrupt pin A of device 0000:00:1f.1
+IOSAPIC: vector 51 -> CPU 0xc218, enabled
+IOSAPIC: vector 67 -> CPU 0xc218, enabled
+IOSAPIC: vector 56 -> CPU 0xc218, enabled
+IOSAPIC: vector 57 -> CPU 0xc218, enabled
+IOSAPIC: vector 58 -> CPU 0xc218, enabled
+IOSAPIC: vector 80 -> CPU 0xc218, enabled
+IOSAPIC: vector 75 -> CPU 0xc218, enabled
+IOSAPIC: vector 90 -> CPU 0xc218, enabled
+IOSAPIC: vector 81 -> CPU 0xc218, enabled
+IOSAPIC: vector 85 -> CPU 0xc218, enabled
+PCI: Using ACPI for IRQ routing
+perfmon: version 2.0 IRQ 238
+perfmon: Itanium 2 PMU detected, 16 PMCs, 18 PMDs, 4 counters (47 bits)
+EFI Variables Facility v0.06 2002-Dec-10
+PAL Information Facility v0.5
+perfmon: added sampling format default_format
+perfmon_default_smpl: default_format v2.0 registered
+Total HugeTLB memory allocated, 0
+Installing knfsd (copyright (C) 1996 okir@monad.swb.de).
+udf: registering filesystem
+Initializing Cryptographic API
+ACPI: Power Button (FF) [PWRF]
+ACPI: Processor [CPU0] (supports C1)
+ACPI: Processor [CPU1] (supports C1)
+ACPI: Processor [CPU2] (supports C1)
+ACPI: Processor [CPU3] (supports C1)
+EFI Time Services Driver v0.4
+Serial: 8250/16550 driver $Revision: 1.90 $ 4 ports, IRQ sharing
+disabled
+acpi_serial_port: zero-length IO port range?
+ttyS0 at I/O 0x3f8 (irq = 44) is a 16550A
+acpi_serial_port: zero-length IO port range?
+ttyS1 at I/O 0x2f8 (irq = 45) is a 16550A
+RAMDISK driver initialized: 16 RAM disks of 4096K size 1024 blocksize
+loop: loaded (max 8 devices)
+Intel(R) PRO/1000 Network Driver - version 5.2.39-k2
+Copyright (c) 1999-2004 Intel Corporation.
+IOSAPIC: vector 51 -> CPU 0xc218, enabled
+eth0: Intel(R) PRO/1000 Network Connection
+IOSAPIC: vector 81 -> CPU 0xc218, enabled
+eth1: Intel(R) PRO/1000 Network Connection
+Ethernet Channel Bonding Driver: v2.6.0 (January 14, 2004)
+bonding: Warning: either miimon or arp_interval and arp_ip_target module
+parameters must be specified, otherwise bonding will not detect link
+failures! see bonding.txt for details.
+Uniform Multi-Platform E-IDE driver Revision: 7.00alpha2
+ide: Assuming 33MHz system bus speed for PIO modes; override with
+idebus=xx
+hda: MATSHITADVD-ROM SR-8177, ATAPI CD/DVD-ROM drive
+hdb: LS-120/240 00 UHD Floppy, ATAPI FLOPPY drive
+Using anticipatory io scheduler
+ide0 at 0x1f0-0x1f7,0x3f6 on irq 34
+hda: ATAPI 24X DVD-ROM drive, 256kB Cache
+Uniform CD-ROM driver Revision: 3.20
+ide-floppy driver 0.99.newide
+hdb: No disk in drive
+hdb: 234752kB, 262/32/56 CHS, 2995 kBps, 512 sector size, 1500 rpm
+st: Version 20040318, fixed bufsize 32768, s/g segs 256
+osst :I: Tape driver with OnStream support version 0.99.1
+osst :I: $Id: osst.c,v 1.70 2003/12/23 14:22:12 wriede Exp $
+Fusion MPT base driver 3.01.03
+Copyright (c) 1999-2004 LSI Logic Corporation
+IOSAPIC: vector 56 -> CPU 0xc218, enabled
+mptbase: Initiating ioc0 bringup
+ioc0: 53C1030: Capabilities={Initiator}
+IOSAPIC: vector 57 -> CPU 0xc218, enabled
+mptbase: Initiating ioc1 bringup
+ioc1: 53C1030: Capabilities={Initiator}
+Fusion MPT SCSI Host driver 3.01.03
+scsi0 : ioc0: LSI53C1030, FwRev030600h, Ports=1, MaxQ%5, IRQV
+  Vendor: SEAGATE   Model: ST318406LC        Rev: 8A03
+  Type:   Direct-Access                      ANSI SCSI revision: 03
+SCSI device sda: 35566478 512-byte hdwr sectors (18210 MB)
+SCSI device sda: drive cache: write through
+ sda: sda1 sda2 sda3
+Attached scsi disk sda at scsi0, channel 0, id 1, lun 0
+Attached scsi generic sg0 at scsi0, channel 0, id 1, lun 0,  type 0
+  Vendor: ESG-SHV   Model: SCA HSBP M17      Rev: 0101
+  Type:   Processor                          ANSI SCSI revision: 02
+Attached scsi generic sg1 at scsi0, channel 0, id 6, lun 0,  type 3
+scsi1 : ioc1: LSI53C1030, FwRev030600h, Ports=1, MaxQ%5, IRQW
+ehci_hcd: block sizes: qh 160 qtd 96 itd 192 sitd 96
+IOSAPIC: vector 48 -> CPU 0xc218, enabled
+ehci_hcd 0000:00:1d.7: Intel Corp. 82801DB USB2
+ehci_hcd 0000:00:1d.7: reset hcs_params 0x102204 dbg=1 cc=2 pcc=2
+ordered !ppc ports=4
+ehci_hcd 0000:00:1d.7: reset hcc_params 6871 thresh 7 uframes 1024 64
+bit addr
+ehci_hcd 0000:00:1d.7: capability 0001 at 68
+ehci_hcd 0000:00:1d.7: irq 48, pci mem c0000000f9ff0000
+ehci_hcd 0000:00:1d.7: new USB bus registered, assigned bus number 1
+ehci_hcd 0000:00:1d.7: reset command 080002 (park)=0 ithresh=8
+period24 Reset HALT
+PCI: slot 0000:00:1d.7 has incorrect PCI cache line size of 0 bytes,
+correcting to 128
+ehci_hcd 0000:00:1d.7: init command 010001 (park)=0 ithresh=1
+period24 RUN
+ehci_hcd 0000:00:1d.7: USB 2.0 enabled, EHCI 1.00, driver 2003-Dec-29
+ehci_hcd 0000:00:1d.7: root hub device address 1
+usb usb1: new device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb1: default language 0x0409
+usb usb1: Product: Intel Corp. 82801DB USB2
+usb usb1: Manufacturer: Linux 2.6.6-rc2 ehci_hcd
+usb usb1: SerialNumber: 0000:00:1d.7
+usb usb1: hotplug
+usb usb1: adding 1-0:1.0 (config #1, interface 0)
+usb 1-0:1.0: hotplug
+hub 1-0:1.0: usb_probe_interface
+hub 1-0:1.0: usb_probe_interface - got id
+hub 1-0:1.0: USB hub found
+hub 1-0:1.0: 4 ports detected
+hub 1-0:1.0: standalone hub
+hub 1-0:1.0: ganged power switching
+hub 1-0:1.0: individual port over-current protection
+hub 1-0:1.0: Single TT
+hub 1-0:1.0: TT requires at most 8 FS bit times
+hub 1-0:1.0: power on to power good time: 20ms
+hub 1-0:1.0: hub controller current requirement: 0mA
+hub 1-0:1.0: local power source is good
+hub 1-0:1.0: enabling power on all ports
+ohci_hcd: 2004 Feb 02 USB 1.1 'Open' Host Controller (OHCI) Driver (PCI)
+ohci_hcd: block sizes: ed 80 td 96
+USB Universal Host Controller Interface driver v2.2
+IOSAPIC: vector 50 -> CPU 0xc218, enabled
+uhci_hcd 0000:00:1d.0: Intel Corp. 82801DB USB (Hub #1)
+uhci_hcd 0000:00:1d.0: irq 50, io base 0000000000004cc0
+ehci_hcd 0000:00:1d.7: GetStatus port 3 status 001803 POWER sig=j  CSC
+CONNECT
+hub 1-0:1.0: port 3, status 501, change 1, 480 Mb/s
+uhci_hcd 0000:00:1d.0: new USB bus registered, assigned bus number 2
+uhci_hcd 0000:00:1d.0: detected 2 ports
+hub 1-0:1.0: debounce: port 3: delay 100ms stable 4 status 0x501
+uhci_hcd 0000:00:1d.0: root hub device address 1
+usb usb2: new device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb2: default language 0x0409
+usb usb2: Product: Intel Corp. 82801DB USB (Hub #1)
+ehci_hcd 0000:00:1d.7: port 3 full speed --> companion
+ehci_hcd 0000:00:1d.7: GetStatus port 3 status 003801 POWER OWNER sig=j
+CONNECT
+usb usb2: Manufacturer: Linux 2.6.6-rc2 uhci_hcd
+usb usb2: SerialNumber: 0000:00:1d.0
+usb usb2: hotplug
+usb usb2: adding 2-0:1.0 (config #1, interface 0)
+usb 2-0:1.0: hotplug
+hub 2-0:1.0: usb_probe_interface
+hub 2-0:1.0: usb_probe_interface - got id
+hub 2-0:1.0: USB hub found
+hub 2-0:1.0: 2 ports detected
+hub 2-0:1.0: standalone hub
+hub 2-0:1.0: no power switching (usb 1.0)
+hub 2-0:1.0: individual port over-current protection
+hub 2-0:1.0: power on to power good time: 2ms
+hub 2-0:1.0: hub controller current requirement: 0mA
+hub 2-0:1.0: local power source is good
+hub 2-0:1.0: enabling power on all ports
+IOSAPIC: vector 49 -> CPU 0xc218, enabled
+uhci_hcd 0000:00:1d.1: Intel Corp. 82801DB USB (Hub #2)
+uhci_hcd 0000:00:1d.1: irq 49, io base 0000000000004ce0
+uhci_hcd 0000:00:1d.1: new USB bus registered, assigned bus number 3
+uhci_hcd 0000:00:1d.1: detected 2 ports
+uhci_hcd 0000:00:1d.1: root hub device address 1
+usb usb3: new device strings: Mfr=3, Product=2, SerialNumber=1
+usb usb3: default language 0x0409
+usb usb3: Product: Intel Corp. 82801DB USB (Hub #2)
+usb usb3: Manufacturer: Linux 2.6.6-rc2 uhci_hcd
+usb usb3: SerialNumber: 0000:00:1d.1
+usb usb3: hotplug
+usb usb3: adding 3-0:1.0 (config #1, interface 0)
+usb 3-0:1.0: hotplug
+hub 3-0:1.0: usb_probe_interface
+hub 3-0:1.0: usb_probe_interface - got id
+hub 3-0:1.0: USB hub found
+hub 3-0:1.0: 2 ports detected
+hub 3-0:1.0: standalone hub
+hub 3-0:1.0: no power switching (usb 1.0)
+hub 3-0:1.0: individual port over-current protection
+hub 3-0:1.0: power on to power good time: 2ms
+hub 3-0:1.0: hub controller current requirement: 0mA
+hub 3-0:1.0: local power source is good
+hub 3-0:1.0: enabling power on all ports
+usbcore: registered new driver hiddev
+usbcore: registered new driver hid
+drivers/usb/input/hid-core.c: v2.0:USB HID core driver
+mice: PS/2 mouse device common for all mice
+serio: i8042 AUX port at 0x60,0x64 irq 36
+uhci_hcd 0000:00:1d.1: port 1 portsc 0093
+hub 3-0:1.0: port 1, status 101, change 1, 12 Mb/s
+atkbd.c: keyboard reset failed on isa0060/serio1
+hub 3-0:1.0: debounce: port 1: delay 100ms stable 4 status 0x101
+usb 3-1: new full speed USB device using address 2
+usb 3-1: new device strings: Mfr=0, Product=1, SerialNumber=0
+usb 3-1: default language 0x0409
+usb 3-1: Product: USB Hub
+usb 3-1: hotplug
+usb 3-1: adding 3-1:1.0 (config #1, interface 0)
+usb 3-1:1.0: hotplug
+hub 3-1:1.0: usb_probe_interface
+hub 3-1:1.0: usb_probe_interface - got id
+hub 3-1:1.0: USB hub found
+serio: i8042 KBD port at 0x60,0x64 irq 32
+hub 3-1:1.0: 7 ports detected
+hub 3-1:1.0: standalone hub
+hub 3-1:1.0: individual port power switching
+hub 3-1:1.0: individual port over-current protection
+hub 3-1:1.0: power on to power good time: 100ms
+hub 3-1:1.0: hub controller current requirement: 100mA
+atkbd.c: keyboard reset failed on isa0060/serio0
+hub 3-1:1.0: local power source is good
+hub 3-1:1.0: enabling power on all ports
+hub 3-1:1.0: port 1, status 301, change 1, 1.5 Mb/s
+hub 3-1:1.0: debounce: port 1: delay 100ms stable 4 status 0x301
+NET: Registered protocol family 2
+IP: routing cache hash table of 16384 buckets, 256Kbytes
+TCP: Hash tables configured (established 131072 bind 65536)
+usb 3-1.1: new low speed USB device using address 3
+usb 3-1.1: skipped 1 class/vendor specific interface descriptors
+usb 3-1.1: skipped 1 class/vendor specific interface descriptors
+usb 3-1.1: new device strings: Mfr=1, Product=2, SerialNumber=0
+usb 3-1.1: default language 0x0409
+usb 3-1.1: Product: USB Composite Keyboard
+usb 3-1.1: Manufacturer: SOLIDTEK
+usb 3-1.1: hotplug
+usb 3-1.1: adding 3-1.1:1.0 (config #1, interface 0)
+usb 3-1.1:1.0: hotplug
+hid 3-1.1:1.0: usb_probe_interface
+hid 3-1.1:1.0: usb_probe_interface - got id
+input: USB HID v1.10 Keyboard [SOLIDTEK USB Composite Keyboard] on
+usb-0000:00:1d.1-1.1
+usb 3-1.1: adding 3-1.1:1.1 (config #1, interface 1)
+usb 3-1.1:1.1: hotplug
+hid 3-1.1:1.1: usb_probe_interface
+hid 3-1.1:1.1: usb_probe_interface - got id
+drivers/usb/input/hid-core.c: ctrl urb status -32 received
+drivers/usb/input/hid-core.c: ctrl urb status -32 received
+drivers/usb/input/hid-core.c: ctrl urb status -32 received
+drivers/usb/core/file.c: looking for a minor, starting at 96
+input,hiddev96: USB HID v1.10 Device [SOLIDTEK USB Composite Keyboard]
+on usb-0000:00:1d.1-1.1
+hub 3-1:1.0: port 3, status 301, change 1, 1.5 Mb/s
+hub 3-1:1.0: debounce: port 3: delay 100ms stable 4 status 0x301
+uhci_hcd 0000:00:1d.0: suspend_hc
+usb 3-1.3: new low speed USB device using address 4
+usb 3-1.3: skipped 1 class/vendor specific interface descriptors
+usb 3-1.3: new device strings: Mfr=1, Product=3, SerialNumber=0
+usb 3-1.3: default language 0x0409
+usb 3-1.3: Product: Microsoft 5-Button Mouse with IntelliEye(TM)
+usb 3-1.3: Manufacturer: Microsoft
+usb 3-1.3: hotplug
+usb 3-1.3: adding 3-1.3:1.0 (config #1, interface 0)
+usb 3-1.3:1.0: hotplug
+hid 3-1.3:1.0: usb_probe_interface
+hid 3-1.3:1.0: usb_probe_interface - got id
+input: USB HID v1.10 Mouse [Microsoft Microsoft 5-Button Mouse with
+IntelliEye(TM)] on usb-0000:00:1d.1-1.3
+hub 3-1:1.0: port 4, status 301, change 1, 1.5 Mb/s
+hub 3-1:1.0: debounce: port 4: delay 100ms stable 4 status 0x301
+arp_tables: (C) 2002 David S. Miller
+NET: Registered protocol family 1
+NET: Registered protocol family 17
+EXT3-fs: INFO: recovery required on readonly filesystem.
+usb 3-1.4: new low speed USB device using address 5
+usb 3-1.4: skipped 1 class/vendor specific interface descriptors
+usb 3-1.4: skipped 1 class/vendor specific interface descriptors
+usb 3-1.4: new device strings: Mfr=1, Product=2, SerialNumber=0
+usb 3-1.4: default language 0x0409
+usb 3-1.4: Product: Generic KVM104UC
+usb 3-1.4: Manufacturer: Tangtop
+usb 3-1.4: hotplug
+usb 3-1.4: adding 3-1.4:1.0 (config #1, interface 0)
+usb 3-1.4:1.0: hotplug
+hid 3-1.4:1.0: usb_probe_interface
+hid 3-1.4:1.0: usb_probe_interface - got id
+input: USB HID v1.00 Keyboard [Tangtop Generic KVM104UC] on
+usb-0000:00:1d.1-1.4
+usb 3-1.4: adding 3-1.4:1.1 (config #1, interface 1)
+usb 3-1.4:1.1: hotplug
+hid 3-1.4:1.1: usb_probe_interface
+hid 3-1.4:1.1: usb_probe_interface - got id
+input: USB HID v1.00 Mouse [Tangtop Generic KVM104UC] on
+usb-0000:00:1d.1-1.4
+EXT3-fs: write access will be enabled during recovery.
+kjournald starting.  Commit interval 5 seconds
+EXT3-fs: recovery complete.
+EXT3-fs: mounted filesystem with ordered data mode.
+VFS: Mounted root (ext3 filesystem) readonly.
+Freeing unused kernel memory: 240kB freed
+EXT3 FS on sda2, internal journal
+Adding 2024144k swap on /dev/sda3.  Priority:-1 extents:1
+partx(454): unaligned access to 0x600000000000ca16,
+ip=0x4000000000002ce1
+partx(454): unaligned access to 0x600000000000ca1a,
+ip=0x4000000000002d01
+partx(454): unaligned access to 0x600000000000ca26,
+ip=0x4000000000002ce1
+partx(454): unaligned access to 0x600000000000ca2a,
+ip=0x4000000000002d01
+e1000: eth0 NIC Link is Up 100 Mbps Full Duplex
+ISO 9660 Extensions: Microsoft Joliet Level 3
+ISO 9660 Extensions: RRIP_1991A
 
----
- arch/i386/mm/hugetlbpage.c    |    7 -
- arch/ia64/mm/hugetlbpage.c    |    7 -
- arch/ppc64/mm/hugetlbpage.c   |    7 -
- arch/sh/mm/hugetlbpage.c      |    7 -
- arch/sparc64/mm/hugetlbpage.c |    7 -
- fs/hugetlbfs/inode.c          |  254 ++++++++++++++++++++++++++++++++++++++++--
- fs/proc/proc_misc.c           |    1
- include/linux/hugetlb.h       |    7 -
- 8 files changed, 249 insertions(+), 48 deletions(-)
 
-diff -upN reference/arch/i386/mm/hugetlbpage.c current/arch/i386/mm/hugetlbpage.c
---- reference/arch/i386/mm/hugetlbpage.c	2004-04-13 12:09:54.000000000 +0100
-+++ current/arch/i386/mm/hugetlbpage.c	2004-04-13 12:12:23.000000000 +0100
-@@ -263,21 +263,14 @@ int hugetlb_prefault(struct address_spac
- 			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
- 		page = find_get_page(mapping, idx);
- 		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
- 			page = alloc_huge_page();
- 			if (!page) {
--				hugetlb_put_quota(mapping);
- 				ret = -ENOMEM;
- 				goto out;
- 			}
- 			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
- 			unlock_page(page);
- 			if (ret) {
--				hugetlb_put_quota(mapping);
- 				free_huge_page(page);
- 				goto out;
- 			}
-diff -upN reference/arch/ia64/mm/hugetlbpage.c current/arch/ia64/mm/hugetlbpage.c
---- reference/arch/ia64/mm/hugetlbpage.c	2004-04-13 12:09:55.000000000 +0100
-+++ current/arch/ia64/mm/hugetlbpage.c	2004-04-13 12:12:23.000000000 +0100
-@@ -283,21 +283,14 @@ int hugetlb_prefault(struct address_spac
- 			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
- 		page = find_get_page(mapping, idx);
- 		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
- 			page = alloc_huge_page();
- 			if (!page) {
--				hugetlb_put_quota(mapping);
- 				ret = -ENOMEM;
- 				goto out;
- 			}
- 			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
- 			unlock_page(page);
- 			if (ret) {
--				hugetlb_put_quota(mapping);
- 				free_huge_page(page);
- 				goto out;
- 			}
-diff -upN reference/arch/ppc64/mm/hugetlbpage.c current/arch/ppc64/mm/hugetlbpage.c
---- reference/arch/ppc64/mm/hugetlbpage.c	2004-04-13 12:09:58.000000000 +0100
-+++ current/arch/ppc64/mm/hugetlbpage.c	2004-04-13 12:12:23.000000000 +0100
-@@ -438,21 +438,14 @@ int hugetlb_prefault(struct address_spac
- 			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
- 		page = find_get_page(mapping, idx);
- 		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
- 			page = alloc_huge_page();
- 			if (!page) {
--				hugetlb_put_quota(mapping);
- 				ret = -ENOMEM;
- 				goto out;
- 			}
- 			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
- 			unlock_page(page);
- 			if (ret) {
--				hugetlb_put_quota(mapping);
- 				free_huge_page(page);
- 				goto out;
- 			}
-diff -upN reference/arch/sh/mm/hugetlbpage.c current/arch/sh/mm/hugetlbpage.c
---- reference/arch/sh/mm/hugetlbpage.c	2004-04-13 12:09:58.000000000 +0100
-+++ current/arch/sh/mm/hugetlbpage.c	2004-04-13 12:12:23.000000000 +0100
-@@ -242,21 +242,14 @@ int hugetlb_prefault(struct address_spac
- 			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
- 		page = find_get_page(mapping, idx);
- 		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
- 			page = alloc_huge_page();
- 			if (!page) {
--				hugetlb_put_quota(mapping);
- 				ret = -ENOMEM;
- 				goto out;
- 			}
- 			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
- 			unlock_page(page);
- 			if (ret) {
--				hugetlb_put_quota(mapping);
- 				free_huge_page(page);
- 				goto out;
- 			}
-diff -upN reference/arch/sparc64/mm/hugetlbpage.c current/arch/sparc64/mm/hugetlbpage.c
---- reference/arch/sparc64/mm/hugetlbpage.c	2004-04-13 12:09:59.000000000 +0100
-+++ current/arch/sparc64/mm/hugetlbpage.c	2004-04-13 12:12:23.000000000 +0100
-@@ -239,21 +239,14 @@ int hugetlb_prefault(struct address_spac
- 			+ (vma->vm_pgoff >> (HPAGE_SHIFT - PAGE_SHIFT));
- 		page = find_get_page(mapping, idx);
- 		if (!page) {
--			/* charge the fs quota first */
--			if (hugetlb_get_quota(mapping)) {
--				ret = -ENOMEM;
--				goto out;
--			}
- 			page = alloc_huge_page();
- 			if (!page) {
--				hugetlb_put_quota(mapping);
- 				ret = -ENOMEM;
- 				goto out;
- 			}
- 			ret = add_to_page_cache(page, mapping, idx, GFP_ATOMIC);
- 			unlock_page(page);
- 			if (ret) {
--				hugetlb_put_quota(mapping);
- 				free_huge_page(page);
- 				goto out;
- 			}
-diff -upN reference/fs/hugetlbfs/inode.c current/fs/hugetlbfs/inode.c
---- reference/fs/hugetlbfs/inode.c	2004-04-13 12:10:15.000000000 +0100
-+++ current/fs/hugetlbfs/inode.c	2004-04-13 12:12:23.000000000 +0100
-@@ -32,6 +32,212 @@
- /* some random number */
- #define HUGETLBFS_MAGIC	0x958458f6
+           CPU0       CPU1       CPU2       CPU3       
+ 29:          0          0          0          0          LSAPIC
+cmc_poll
+ 30:          0          0          0          0  IO-SAPIC-level
+cpe_hndlr
+ 31:          0          0          0          0          LSAPIC
+cmc_hndlr
+ 34:          1          0        111          0   IO-SAPIC-edge  ide0
+ 39:          0          0          3          0  IO-SAPIC-level  acpi
+ 48:          0          0          0          0  IO-SAPIC-level
+ehci_hcd
+ 49:          0          0        694          0  IO-SAPIC-level
+uhci_hcd
+ 50:          0          0          0          0  IO-SAPIC-level
+uhci_hcd
+ 51:          2         24       1295         20  IO-SAPIC-level  eth0
+ 56:         29          2       3641          1  IO-SAPIC-level  ioc0
+ 57:          0          0         44          0  IO-SAPIC-level  ioc1
+232:          0          0          0          0          LSAPIC
+mca_rdzv
+238:          0          0          0          0          LSAPIC
+perfmon
+239:     359775     355417     355169     354952          LSAPIC  timer
+240:          0          0          0          0          LSAPIC
+mca_wkup
+254:         15         76         80         72          LSAPIC  IPI
+NMI:          0          0          0          0 
+ERR:          0
 
-+/* Convert loff_t and PAGE_SIZE counts to hugetlb page counts. */
-+#define VMACCT(x) ((x) >> (HPAGE_SHIFT))
-+#define VMACCTPG(x) ((x) >> (HPAGE_SHIFT - PAGE_SHIFT))
-+
-+atomic_t hugetlbzone_resv = ATOMIC_INIT(0);
-+
-+int hugetlb_acct_memory(long delta)
-+{
-+	atomic_add(delta, &hugetlbzone_resv);
-+	if (delta > 0 && atomic_read(&hugetlbzone_resv) >
-+			VMACCTPG(hugetlb_total_pages())) {
-+		atomic_add(-delta, &hugetlbzone_resv);
-+		return -ENOMEM;
-+	}
-+	return 0;
-+}
-+
-+struct file_region {
-+	struct list_head link;
-+	int from;
-+	int to;
-+};
-+
-+static int region_add(struct list_head *head, int f, int t)
-+{
-+	struct file_region *rg;
-+	struct file_region *nrg;
-+	struct file_region *trg;
-+
-+	/* Locate the region we are either in or before. */
-+	list_for_each_entry(rg, head, link)
-+		if (f <= rg->to)
-+			break;
-+
-+	/* Add a new region if the existing region starts above our end. */
-+	if (!rg || t < rg->from) {
-+		printk(KERN_WARNING "region_add: existing region missing\n");
-+		return -EINVAL;
-+	}
-+
-+	/* Round our left edge to the current segment if it encloses us. */
-+	if (f > rg->from)
-+		f = rg->from;
-+
-+	/* Check for and consume any regions we now overlap with. */
-+	nrg = rg;
-+	list_for_each_entry_safe(rg, trg, rg->link.prev, link) {
-+		if (&rg->link = head)
-+			break;
-+		if (rg->from > t)
-+			break;
-+
-+		/* If this area reaches higher then extend our area to
-+		 * include it completely.  If this is not the first area
-+		 * which we intend to reuse, free it. */
-+		if (rg->to > t)
-+			t = rg->to;
-+		if (rg != nrg) {
-+			list_del(&rg->link);
-+			kfree(rg);
-+		}
-+	}
-+	nrg->from = f;
-+	nrg->to = t;
-+	return 0;
-+}
-+
-+static int region_chg(struct list_head *head, int f, int t)
-+{
-+	struct file_region *rg;
-+	struct file_region *nrg;
-+	loff_t chg = 0;
-+
-+	/* Locate the region we are before or in. */
-+	list_for_each_entry(rg, head, link)
-+		if (f <= rg->to)
-+			break;
-+
-+	/* If we are below the current region then a new region is required.
-+	 * Subtle, allocate a new region at the position but make it zero
-+	 * size such that we can guarentee to record the reservation. */
-+	if (&rg->link = head || t < rg->from) {
-+		nrg = kmalloc(sizeof(*nrg), GFP_KERNEL);
-+		if (nrg = 0)
-+			return -ENOMEM;
-+		nrg->from = f;
-+		nrg->to   = f;
-+		INIT_LIST_HEAD(&nrg->link);
-+		list_add(&nrg->link, rg->link.prev);
-+
-+		return t - f;
-+	}
-+
-+	/* Round our left edge to the current segment if it encloses us. */
-+	if (f > rg->from)
-+		f = rg->from;
-+	chg = t - f;
-+
-+	/* Check for and consume any regions we now overlap with. */
-+	list_for_each_entry(rg, rg->link.prev, link) {
-+		if (&rg->link = head)
-+			break;
-+		if (rg->from > t)
-+			return chg;
-+
-+		/* We overlap with this area, if it extends futher than
-+		 * us then we must extend ourselves.  Account for its
-+		 * existing reservation. */
-+		if (rg->to > t) {
-+			chg += rg->to - t;
-+			t = rg->to;
-+		}
-+		chg -= rg->to - rg->from;
-+	}
-+	return chg;
-+}
-+
-+static int region_truncate(struct list_head *head, int end)
-+{
-+	struct file_region *rg;
-+	struct file_region *trg;
-+	int chg = 0;
-+
-+	/* Locate the region we are either in or before. */
-+	list_for_each_entry(rg, head, link)
-+		if (end <= rg->to)
-+			break;
-+	if (&rg->link = head)
-+		return 0;
-+
-+	/* If we are in the middle of a region then adjust it. */
-+	if (end > rg->from) {
-+		chg = rg->to - end;
-+		rg->to = end;
-+		rg = list_entry(rg->link.next, typeof(*rg), link);
-+	}
-+
-+	/* Drop any remaining regions. */
-+	list_for_each_entry_safe(rg, trg, rg->link.prev, link) {
-+		if (&rg->link = head)
-+			break;
-+		chg += rg->to - rg->from;
-+		list_del(&rg->link);
-+		kfree(rg);
-+	}
-+	return chg;
-+}
-+
-+#if 0
-+static int region_dump(struct list_head *head)
-+{
-+	struct file_region *rg;
-+
-+	list_for_each_entry(rg, head, link)
-+		printk(KERN_WARNING "rg<%p> f<%lld> t<%lld>\n",
-+				rg, rg->from, rg->to);
-+	return 0;
-+}
-+#endif
-+
-+/* Calculate the commitment change that this mapping implies
-+ * and check it against both the commitment and quota limits. */
-+static int hugetlb_acct_prepare(struct inode *inode, int from, int to)
-+{
-+	int chg;
-+	int ret;
-+
-+	chg = region_chg(&inode->i_mapping->private_list, from, to);
-+	if (chg < 0)
-+		return chg;
-+	ret = hugetlb_acct_memory(chg);
-+	if (ret < 0)
-+		return ret;
-+	ret = hugetlb_get_quota(inode->i_mapping, chg);
-+	if (ret < 0)
-+		goto undo_commit;
-+	return chg;
-+
-+undo_commit:
-+	hugetlb_acct_memory(-chg);
-+	return ret;
-+}
-+static int hugetlb_acct_commit(struct inode *inode, int from, int to)
-+{
-+	return region_add(&inode->i_mapping->private_list, from, to);
-+}
-+static void hugetlb_acct_undo(struct inode *inode, int chg)
-+{
-+	hugetlb_put_quota(inode->i_mapping, chg);
-+	hugetlb_acct_memory(-chg);
-+}
-+static void hugetlb_acct_release(struct inode *inode, int to)
-+{
-+	int chg;
-+
-+	chg = region_truncate(&inode->i_mapping->private_list, to);
-+	hugetlb_acct_memory(-chg);
-+	hugetlb_put_quota(inode->i_mapping, chg);
-+}
-+
-+int hugetlbfs_report_meminfo(char *buf)
-+{
-+	long htlb = atomic_read(&hugetlbzone_resv);
-+	return sprintf(buf, "HugePages_Reserved: %5lu\n", htlb);
-+}
-+
- static struct super_operations hugetlbfs_ops;
- static struct address_space_operations hugetlbfs_aops;
- struct file_operations hugetlbfs_file_operations;
-@@ -49,6 +255,7 @@ static int hugetlbfs_file_mmap(struct fi
- 	struct address_space *mapping = inode->i_mapping;
- 	loff_t len, vma_len;
- 	int ret;
-+	int chg;
+00:1d.0 USB Controller: Intel Corp. 82801DB USB (Hub #1) (rev 02)
+(prog-if 00 [UHCI])
+	Subsystem: Intel Corp.: Unknown device 3402
+	Flags: bus master, medium devsel, latency 0, IRQ 50
+	I/O ports at 4cc0 [size2]
 
- 	if (vma->vm_start & ~HPAGE_MASK)
- 		return -EINVAL;
-@@ -62,13 +269,29 @@ static int hugetlbfs_file_mmap(struct fi
- 	vma_len = (loff_t)(vma->vm_end - vma->vm_start);
+00:1d.1 USB Controller: Intel Corp. 82801DB USB (Hub #2) (rev 02)
+(prog-if 00 [UHCI])
+	Subsystem: Intel Corp.: Unknown device 3402
+	Flags: bus master, medium devsel, latency 0, IRQ 49
+	I/O ports at 4ce0 [size2]
 
- 	down(&inode->i_sem);
-+
-+	/* Calculate the commitment implied by this mapping. */
-+	chg = hugetlb_acct_prepare(inode, VMACCTPG(vma->vm_pgoff),
-+			VMACCTPG(vma->vm_pgoff + (vma_len >> PAGE_SHIFT)));
-+	if (chg < 0) {
-+		ret = chg;
-+		goto unlock_out;
-+	}
-+
- 	file_accessed(file);
- 	vma->vm_flags |= VM_HUGETLB | VM_RESERVED;
- 	vma->vm_ops = &hugetlb_vm_ops;
- 	ret = hugetlb_prefault(mapping, vma);
- 	len = vma_len +	((loff_t)vma->vm_pgoff << PAGE_SHIFT);
--	if (ret = 0 && inode->i_size < len)
--		inode->i_size = len;
-+	if (ret = 0) {
-+	       if (inode->i_size < len)
-+			inode->i_size = len;
-+		hugetlb_acct_commit(inode, VMACCTPG(vma->vm_pgoff),
-+			VMACCTPG(vma->vm_pgoff + (vma_len >> PAGE_SHIFT)));
-+	} else
-+		hugetlb_acct_undo(inode, chg);
-+
-+unlock_out:
- 	up(&inode->i_sem);
+00:1d.7 USB Controller: Intel Corp. 82801DB USB2 (rev 02) (prog-if 20
+[EHCI])
+	Subsystem: Intel Corp.: Unknown device 3402
+	Flags: bus master, medium devsel, latency 0, IRQ 48
+	Memory at 00000000f9ff0000 (32-bit, non-prefetchable) [size=1K]
+	Capabilities: [50] Power Management version 2
+	Capabilities: [58] #0a [2080]
 
- 	return ret;
-@@ -181,7 +404,6 @@ void truncate_hugepages(struct address_s
- 			++next;
- 			truncate_huge_page(page);
- 			unlock_page(page);
--			hugetlb_put_quota(mapping);
- 		}
- 		huge_pagevec_release(&pvec);
- 	}
-@@ -200,6 +422,7 @@ static void hugetlbfs_delete_inode(struc
+00:1e.0 PCI bridge: Intel Corp. 82801BA/CA/DB/EB PCI Bridge (rev 82)
+(prog-if 00 [Normal decode])
+	Flags: bus master, fast devsel, latency 0
+	Bus: primary , secondary, subordinate, sec-latencyd
+	I/O behind bridge: 00005000-00005fff
+	Memory behind bridge: fa000000-fbffffff
 
- 	if (inode->i_data.nrpages)
- 		truncate_hugepages(&inode->i_data, 0);
-+	hugetlb_acct_release(inode, 0);
+00:1f.0 ISA bridge: Intel Corp. 82801DB LPC Interface Controller (rev
+02)
+	Flags: bus master, medium devsel, latency 0
 
- 	security_inode_delete(inode);
+00:1f.1 IDE interface: Intel Corp. 82801DB Ultra ATA Storage Controller
+(rev 02) (prog-if 8a [Master SecP PriP])
+	Subsystem: Intel Corp.: Unknown device 3402
+	Flags: bus master, medium devsel, latency 0
+	I/O ports at <unassigned>
+	I/O ports at <unassigned>
+	I/O ports at <unassigned>
+	I/O ports at <unassigned>
+	I/O ports at 1000 [size]
+	Memory at <unassigned> (32-bit, non-prefetchable) [disabled]
+[size=1K]
 
-@@ -241,6 +464,7 @@ out_truncate:
- 	spin_unlock(&inode_lock);
- 	if (inode->i_data.nrpages)
- 		truncate_hugepages(&inode->i_data, 0);
-+	hugetlb_acct_release(inode, 0);
+01:00.0 Ethernet controller: Intel Corp. 82540EM Gigabit Ethernet
+Controller (rev 02)
+	Subsystem: Intel Corp.: Unknown device 3402
+	Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 51
+	Memory at 00000000fbfe0000 (32-bit, non-prefetchable)
+[size8K]
+	I/O ports at 5cc0 [sized]
+	Capabilities: [dc] Power Management version 2
+	Capabilities: [e4] PCI-X non-bridge device.
+	Capabilities: [f0] Message Signalled Interrupts: 64bit+
+Queue=0/0 Enable-
 
- 	if (sbinfo->free_inodes >= 0) {
- 		spin_lock(&sbinfo->stat_lock);
-@@ -326,6 +550,7 @@ static int hugetlb_vmtruncate(struct ino
- 		hugetlb_vmtruncate_list(&mapping->i_mmap_shared, pgoff);
- 	up(&mapping->i_shared_sem);
- 	truncate_hugepages(mapping, offset);
-+	hugetlb_acct_release(inode, VMACCT(offset));
- 	return 0;
- }
+01:01.0 VGA compatible controller: ATI Technologies Inc Rage XL (rev 27)
+(prog-if 00 [VGA])
+	Subsystem: Intel Corp.: Unknown device 3402
+	Flags: bus master, stepping, medium devsel, latency 64
+	Memory at 00000000fa000000 (32-bit, non-prefetchable) [sizeM]
+	I/O ports at 5800 [size%6]
+	Memory at 00000000fbfd0000 (32-bit, non-prefetchable) [size=4K]
+	Expansion ROM at 00000000fbfa0000 [disabled] [size8K]
+	Capabilities: [5c] Power Management version 2
 
-@@ -382,6 +607,7 @@ static struct inode *hugetlbfs_get_inode
- 		inode->i_blocks = 0;
- 		inode->i_mapping->a_ops = &hugetlbfs_aops;
- 		inode->i_mapping->backing_dev_info =&hugetlbfs_backing_dev_info;
-+		INIT_LIST_HEAD(&inode->i_mapping->private_list);
- 		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
- 		switch (mode & S_IFMT) {
- 		default:
-@@ -641,15 +867,15 @@ out_free:
- 	return -ENOMEM;
- }
+02:1c.0 PIC: Intel Corp. 82870P2 P64H2 I/OxAPIC (rev 04) (prog-if 20
+[IO(X)-APIC])
+	Flags: bus master, 66Mhz, fast devsel, latency 0
+	Memory at 00000000f1ff0000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [50] PCI-X non-bridge device.
 
--int hugetlb_get_quota(struct address_space *mapping)
-+int hugetlb_get_quota(struct address_space *mapping, int blocks)
- {
- 	int ret = 0;
- 	struct hugetlbfs_sb_info *sbinfo = HUGETLBFS_SB(mapping->host->i_sb);
+02:1d.0 PCI bridge: Intel Corp. 82870P2 P64H2 Hub PCI Bridge (rev 04)
+(prog-if 00 [Normal decode])
+	Flags: bus master, 66Mhz, fast devsel, latency 64
+	Bus: primary, secondary, subordinate, sec-latencyd
+	I/O behind bridge: 00006000-00007fff
+	Memory behind bridge: f2000000-f5ffffff
+	Prefetchable memory behind bridge:
+00000000e3f00000-00000000ebf00000
+	Capabilities: [50] PCI-X non-bridge device.
 
- 	if (sbinfo->free_blocks > -1) {
- 		spin_lock(&sbinfo->stat_lock);
--		if (sbinfo->free_blocks > 0)
--			sbinfo->free_blocks--;
-+		if (sbinfo->free_blocks >= blocks)
-+			sbinfo->free_blocks -= blocks;
- 		else
- 			ret = -ENOMEM;
- 		spin_unlock(&sbinfo->stat_lock);
-@@ -658,13 +884,13 @@ int hugetlb_get_quota(struct address_spa
- 	return ret;
- }
+02:1e.0 PIC: Intel Corp. 82870P2 P64H2 I/OxAPIC (rev 04) (prog-if 20
+[IO(X)-APIC])
+	Flags: bus master, 66Mhz, fast devsel, latency 0
+	Memory at 00000000f1fe0000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [50] PCI-X non-bridge device.
 
--void hugetlb_put_quota(struct address_space *mapping)
-+void hugetlb_put_quota(struct address_space *mapping, int blocks)
- {
- 	struct hugetlbfs_sb_info *sbinfo = HUGETLBFS_SB(mapping->host->i_sb);
+02:1f.0 PCI bridge: Intel Corp. 82870P2 P64H2 Hub PCI Bridge (rev 04)
+(prog-if 00 [Normal decode])
+	Flags: bus master, 66Mhz, fast devsel, latency 64
+	Bus: primary, secondary, subordinate, sec-latencyd
+	I/O behind bridge: 00008000-00009fff
+	Memory behind bridge: f6000000-f8ffffff
+	Prefetchable memory behind bridge:
+00000000ec000000-00000000f0f00000
+	Capabilities: [50] PCI-X non-bridge device.
 
- 	if (sbinfo->free_blocks > -1) {
- 		spin_lock(&sbinfo->stat_lock);
--		sbinfo->free_blocks++;
-+		sbinfo->free_blocks += blocks;
- 		spin_unlock(&sbinfo->stat_lock);
- 	}
- }
-@@ -710,9 +936,6 @@ struct file *hugetlb_zero_setup(size_t s
- 	if (!capable(CAP_IPC_LOCK))
- 		return ERR_PTR(-EPERM);
+03:1f.0 PCI Hot-plug controller: Intel Corp. 82870P2 P64H2 Hot Plug
+Controller (rev 04)
+	Subsystem: Intel Corp.: Unknown device 03b0
+	Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 67
+	Memory at 00000000e3ff0000 (64-bit, prefetchable) [size%6]
+	Capabilities: [64] PCI-X non-bridge device.
 
--	if (!is_hugepage_mem_enough(size))
--		return ERR_PTR(-ENOMEM);
--
- 	root = hugetlbfs_vfsmount->mnt_root;
- 	snprintf(buf, 16, "%lu", hugetlbfs_counter());
- 	quick_string.name = buf;
-@@ -741,6 +964,15 @@ struct file *hugetlb_zero_setup(size_t s
- 	file->f_mapping = inode->i_mapping;
- 	file->f_op = &hugetlbfs_file_operations;
- 	file->f_mode = FMODE_WRITE | FMODE_READ;
-+
-+	/* Account for the memory usage for this segment at create time.
-+	 * This maintains the commit on shmget() semantics of normal
-+	 * shared memory segments. */
-+	error = hugetlb_acct_prepare(inode, 0, VMACCT(size));
-+	if (error < 0)
-+		goto out_file;
-+	error = hugetlb_acct_commit(inode, 0, VMACCT(size));
-+
- 	return file;
+06:02.0 SCSI storage controller: LSI Logic / Symbios Logic 53c1030 PCI-X
+Fusion-MPT Dual Ultra320 SCSI (rev 07)
+	Subsystem: Intel Corp.: Unknown device 3402
+	Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 56
+	I/O ports at 8800 [size%6]
+	Memory at 00000000f8fd0000 (64-bit, non-prefetchable) [sizedK]
+	Memory at 00000000f8fc0000 (64-bit, non-prefetchable) [sizedK]
+	Expansion ROM at 00000000f8d00000 [disabled] [size=1M]
+	Capabilities: [50] Power Management version 2
+	Capabilities: [58] Message Signalled Interrupts: 64bit+
+Queue=0/0 Enable-
+	Capabilities: [68] PCI-X non-bridge device.
 
- out_file:
-diff -upN reference/fs/proc/proc_misc.c current/fs/proc/proc_misc.c
---- reference/fs/proc/proc_misc.c	2004-04-06 14:17:09.000000000 +0100
-+++ current/fs/proc/proc_misc.c	2004-04-13 12:12:23.000000000 +0100
-@@ -231,6 +231,7 @@ static int meminfo_read_proc(char *page,
- 		vmi.largest_chunk
- 		);
+06:02.1 SCSI storage controller: LSI Logic / Symbios Logic 53c1030 PCI-X
+Fusion-MPT Dual Ultra320 SCSI (rev 07)
+	Subsystem: Intel Corp.: Unknown device 3402
+	Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 57
+	I/O ports at 8c00 [size%6]
+	Memory at 00000000f8ff0000 (64-bit, non-prefetchable) [sizedK]
+	Memory at 00000000f8fe0000 (64-bit, non-prefetchable) [sizedK]
+	Expansion ROM at 00000000f8e00000 [disabled] [size=1M]
+	Capabilities: [50] Power Management version 2
+	Capabilities: [58] Message Signalled Interrupts: 64bit+
+Queue=0/0 Enable-
+	Capabilities: [68] PCI-X non-bridge device.
 
-+		len += hugetlbfs_report_meminfo(page + len);
- 		len += hugetlb_report_meminfo(page + len);
+06:1f.0 PCI Hot-plug controller: Intel Corp. 82870P2 P64H2 Hot Plug
+Controller (rev 04)
+	Subsystem: Intel Corp.: Unknown device 03b0
+	Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 58
+	Memory at 00000000f0ff0000 (64-bit, prefetchable) [size%6]
+	Capabilities: [64] PCI-X non-bridge device.
 
- 	return proc_calc_metrics(page, start, off, count, eof, len);
-diff -upN reference/include/linux/hugetlb.h current/include/linux/hugetlb.h
---- reference/include/linux/hugetlb.h	2004-04-13 12:10:21.000000000 +0100
-+++ current/include/linux/hugetlb.h	2004-04-13 12:12:23.000000000 +0100
-@@ -116,8 +116,8 @@ static inline struct hugetlbfs_sb_info *
- extern struct file_operations hugetlbfs_file_operations;
- extern struct vm_operations_struct hugetlb_vm_ops;
- struct file *hugetlb_zero_setup(size_t);
--int hugetlb_get_quota(struct address_space *mapping);
--void hugetlb_put_quota(struct address_space *mapping);
-+int hugetlb_get_quota(struct address_space *mapping, int blocks);
-+void hugetlb_put_quota(struct address_space *mapping, int blocks);
+09:1c.0 PIC: Intel Corp. 82870P2 P64H2 I/OxAPIC (rev 04) (prog-if 20
+[IO(X)-APIC])
+	Flags: bus master, 66Mhz, fast devsel, latency 0
+	Memory at 00000000dbff0000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [50] PCI-X non-bridge device.
 
- static inline int is_file_hugepages(struct file *file)
- {
-@@ -128,11 +128,14 @@ static inline void set_file_hugepages(st
- {
- 	file->f_op = &hugetlbfs_file_operations;
- }
-+int hugetlbfs_report_meminfo(char *);
-+
- #else /* !CONFIG_HUGETLBFS */
+09:1d.0 PCI bridge: Intel Corp. 82870P2 P64H2 Hub PCI Bridge (rev 04)
+(prog-if 00 [Normal decode])
+	Flags: bus master, 66Mhz, fast devsel, latency 64
+	Bus: primary	, secondary
+, subordinate, sec-latencyd
+	I/O behind bridge: 0000a000-0000afff
+	Memory behind bridge: dc000000-ddffffff
+	Prefetchable memory behind bridge:
+00000000cbf00000-00000000cff00000
+	Capabilities: [50] PCI-X non-bridge device.
 
- #define is_file_hugepages(file)		0
- #define set_file_hugepages(file)	BUG()
- #define hugetlb_zero_setup(size)	ERR_PTR(-ENOSYS)
-+#define hugetlbfs_report_meminfo(buf)	0
+09:1e.0 PIC: Intel Corp. 82870P2 P64H2 I/OxAPIC (rev 04) (prog-if 20
+[IO(X)-APIC])
+	Flags: bus master, 66Mhz, fast devsel, latency 0
+	Memory at 00000000dbfe0000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [50] PCI-X non-bridge device.
 
- #endif /* !CONFIG_HUGETLBFS */
+09:1f.0 PCI bridge: Intel Corp. 82870P2 P64H2 Hub PCI Bridge (rev 04)
+(prog-if 00 [Normal decode])
+	Flags: bus master, 66Mhz, fast devsel, latency 64
+	Bus: primary	, secondary, subordinate, sec-latencyd
+	I/O behind bridge: 0000b000-0000cfff
+	Memory behind bridge: de000000-e2ffffff
+	Prefetchable memory behind bridge:
+00000000d0000000-00000000daf00000
+	Capabilities: [50] PCI-X non-bridge device.
 
+0a:1f.0 PCI Hot-plug controller: Intel Corp. 82870P2 P64H2 Hot Plug
+Controller (rev 04)
+	Subsystem: Intel Corp.: Unknown device 03f0
+	Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 80
+	Memory at 00000000cbff0000 (64-bit, prefetchable) [size%6]
+	Capabilities: [64] PCI-X non-bridge device.
+
+0c:1f.0 PCI Hot-plug controller: Intel Corp. 82870P2 P64H2 Hot Plug
+Controller (rev 04)
+	Subsystem: Intel Corp.: Unknown device 03b0
+	Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 75
+	Memory at 00000000daff0000 (64-bit, prefetchable) [size%6]
+	Capabilities: [64] PCI-X non-bridge device.
+
+0f:1c.0 PIC: Intel Corp. 82870P2 P64H2 I/OxAPIC (rev 04) (prog-if 20
+[IO(X)-APIC])
+	Flags: bus master, 66Mhz, fast devsel, latency 0
+	Memory at 00000000c7ff0000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [50] PCI-X non-bridge device.
+
+0f:1d.0 PCI bridge: Intel Corp. 82870P2 P64H2 Hub PCI Bridge (rev 04)
+(prog-if 00 [Normal decode])
+	Flags: bus master, 66Mhz, fast devsel, latency 64
+	Bus: primary, secondary, subordinate, sec-latencyd
+	I/O behind bridge: 0000d000-0000dfff
+	Memory behind bridge: c8000000-caefffff
+	Prefetchable memory behind bridge:
+00000000c0000000-00000000c6e00000
+	Capabilities: [50] PCI-X non-bridge device.
+
+0f:1e.0 PIC: Intel Corp. 82870P2 P64H2 I/OxAPIC (rev 04) (prog-if 20
+[IO(X)-APIC])
+	Flags: bus master, 66Mhz, fast devsel, latency 0
+	Memory at 00000000c7fe0000 (32-bit, non-prefetchable) [size=4K]
+	Capabilities: [50] PCI-X non-bridge device.
+
+0f:1f.0 PCI bridge: Intel Corp. 82870P2 P64H2 Hub PCI Bridge (rev 04)
+(prog-if 00 [Normal decode])
+	Flags: bus master, 66Mhz, fast devsel, latency 64
+	Bus: primary, secondary, subordinate, sec-latencyd
+	I/O behind bridge: 0000e000-0000efff
+	Memory behind bridge: caf00000-caffffff
+	Prefetchable memory behind bridge:
+00000000c6f00000-00000000c6f00000
+	Capabilities: [50] PCI-X non-bridge device.
+
+10:1f.0 PCI Hot-plug controller: Intel Corp. 82870P2 P64H2 Hot Plug
+Controller (rev 04)
+	Subsystem: Intel Corp.: Unknown device 03f0
+	Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 90
+	Memory at 00000000c6ef0000 (64-bit, prefetchable) [size%6]
+	Capabilities: [64] PCI-X non-bridge device.
+
+12:01.0 Ethernet controller: Intel Corp. 82545EM Gigabit Ethernet
+Controller (Copper) (rev 01)
+	Subsystem: Intel Corp. PRO/1000 MT Server Adapter
+	Flags: bus master, 66Mhz, medium devsel, latency 64, IRQ 81
+	Memory at 00000000cafe0000 (64-bit, non-prefetchable)
+[size8K]
+	I/O ports at ecc0 [sized]
+	Capabilities: [dc] Power Management version 2
+	Capabilities: [e4] PCI-X non-bridge device.
+	Capabilities: [f0] Message Signalled Interrupts: 64bit+
+Queue=0/0 Enable-
+
+12:1f.0 PCI Hot-plug controller: Intel Corp. 82870P2 P64H2 Hot Plug
+Controller (rev 04)
+	Subsystem: Intel Corp.: Unknown device 03f0
+	Flags: bus master, 66Mhz, medium devsel, latency 0, IRQ 85
+	Memory at 00000000c6ff0000 (64-bit, prefetchable) [size%6]
+	Capabilities: [64] PCI-X non-bridge device.
 
