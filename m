@@ -1,7 +1,7 @@
 From: "David S. Miller" <davem@redhat.com>
-Date: Tue, 23 Sep 2003 18:45:04 +0000
+Date: Tue, 23 Sep 2003 18:47:44 +0000
 Subject: Re: NS83820 2.6.0-test5 driver seems unstable on IA64
-Message-Id: <marc-linux-ia64-106434395610139@msgid-missing>
+Message-Id: <marc-linux-ia64-106434395610143@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106394503001622@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106394503001622@msgid-missing>
@@ -10,23 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 23 Sep 2003 14:29:25 -0400
-Benjamin LaHaise <bcrl@kvack.org> wrote:
+On Tue, 23 Sep 2003 11:27:13 -0700
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
 
-> On Tue, Sep 23, 2003 at 11:21:35AM -0700, Luck, Tony wrote:
-> > Looking at a couple of ia64 build servers here I see zero unaligned
-> > access messages in the logs.
-> 
-> ip options can still be an odd number of bytes.  Having itanic spew bogus 
-> log messages is just plain wrong (yet another hardware issue pushed off on 
-> software for no significant gain).
+>  - use the dmesg command to lower the printing threshold below KERN_WARNING
+>    ("dmesg -n4", IIRC)
 
-Also, some TCP implementations sometimes don't align the timestamp
-options in the headers as well.
+Not terribly useful if all the unaligned messages made the one I'm
+interested in get kicked out of the logs.
 
-Also, as I mentioned, try IP over appletalk.
+>  - use prctl --unalign=silent to turn off unaligned printing for a
+>    particular task and its children
 
-Unaligned accesses are perfectly normal, _especially_ in the kernel.
-This is an axiom of the kernel networking decided a long time ago, and
-printing out a silly message when it happens doesn't make that any
-less true.
+What about for the kernel?
+
+No other port is so obstinate about printing out unaligned kernel
+access messages, why does ia64 have to be so different?
+
+Unaligned accesses are not only perfectly fine in the kernel, they
+are in fact expected in certain circumstances.
