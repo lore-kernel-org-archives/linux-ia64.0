@@ -1,23 +1,35 @@
-From: James Bottomley <James.Bottomley@SteelEye.com>
-Date: Tue, 14 Sep 2004 19:00:37 +0000
-Subject: Re: Oops in free_page_and_swap_cache on 2.6.9-rc2
-Message-Id: <1095188442.1762.35.camel@mulgrave>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Wed, 08 Sep 2004 19:45:22 +0000
+Subject: Re: Timer patch V8
+Message-Id: <1094672722.3129.24.camel@tdi>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1095176571.1762.14.camel@mulgrave>
-In-Reply-To: <1095176571.1762.14.camel@mulgrave>
+References: <Pine.LNX.4.58.0408092115500.22817@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0408092115500.22817@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2004-09-14 at 13:21, James Bottomley wrote:
-> It could be.  Jesse Barnes suggested that the problem might be because
-> CONFIG_DISCONTIGMEM isn't set in the zx1_defconfig, so I'm going to try
-> to reproduce with generic_defconfig instead.
 
-OK, with the CONFIG_DISCONTIGMEM=y I can't reproduce this.  It looks
-like pfn_to_page() is only broken when CONFIG_DISCONTIGMEM isn't set.
+   I see this made it upstream.  Unfortunately w/ CONFIG_HPET=y, I now
+get this:
 
-James
+  CC      drivers/char/hpet.o
+drivers/char/hpet.c:669: error: `MC' undeclared here (not in a function)
+drivers/char/hpet.c:669: error: initializer element is not constant
+drivers/char/hpet.c:669: error: (near initialization for `hpet_interpolator.addr')
+drivers/char/hpet.c: In function `hpet_init':
+drivers/char/hpet.c:956: error: `hpet_cycles_per_sec' undeclared (first use in this function)
+drivers/char/hpet.c:956: error: (Each undeclared identifier is reported only once
+drivers/char/hpet.c:956: error: for each function it appears in.)
+drivers/char/hpet.c:960: error: `hpet_nsecs_per_cycle' undeclared (first use in this function)
+make[2]: *** [drivers/char/hpet.o] Error 1
 
+I assume hpet_cycles_per_sec and hpet_nsecs_per_cycle just need to be
+declared again, but I couldn't figure out what MC is supposed to be.
+
+	Alex
+
+-- 
+Alex Williamson                             HP Linux & Open Source Lab
 
