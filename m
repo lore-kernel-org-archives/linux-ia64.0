@@ -1,116 +1,66 @@
-From: Josh Aas <josha@sgi.com>
-Date: Fri, 06 Aug 2004 19:26:27 +0000
-Subject: [PATCH] improve speed of freeing bootmem
-Message-Id: <4113DB63.9020706@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------010806030609030806020404"
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 06 Aug 2004 19:52:16 +0000
+Subject: Re: [PATCH] improve speed of freeing bootmem
+Message-Id: <20040806125216.30405230.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-To: akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------010806030609030806020404
-Content-Type: text/plain; charset=us-ascii; format=flowed
+References: <4113DB63.9020706@sgi.com>
+In-Reply-To: <4113DB63.9020706@sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Josh Aas <josha@sgi.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Attached is a patch that greatly improves the speed of freeing boot 
-memory. On ia64 machines with 2GB or more memory (I didn't test with 
-less, but I can't imagine there being a problem), the speed improvement 
-is about 75% for the function free_all_bootmem_core. This translates to 
-savings on the order of 1 minute / TB of memory during boot time. That 
-number comes from testing on a machine with 512GB, and extrapolating 
-based on profiling of an unpatched 4TB machine. For 4 and 8 TB machines, 
-the time spent in this function is about 1 minutes/TB, which is painful 
-especially given that there is no indication of what is going on put to 
-the console (this issue to possibly be addressed later).
+Josh Aas <josha@sgi.com> wrote:
+>
+> Attached is a patch that greatly improves the speed of freeing boot 
+> memory.
 
-The basic idea is to free higher order pages instead of going through 
-every single one. Also, some unnecessary atomic operations are done away 
-with and replaced with non-atomic equivalents, and prefetching is done 
-where it helps the most. For a more in-depth discusion of this patch, 
-please see the linux-ia64 archives (topic is "free bootmem feedback patch").
+hm, OK.  I have a vague feeling that Bill Irwin had patches to fix this up
+ages ago.
 
-The patch is originally Tony Luck's, and I added some further 
-optimizations (non-atomic ops improvements and prefetching).
 
-Signed-off-by: Tony Luck <tony.luck@intel.com>
-Signed-off-by: Josh Aas <josha@sgi.com>
+A few nits:
 
--- 
-Josh Aas
-Silicon Graphics, Inc. (SGI)
-Linux System Software
-651-683-3068
+> --- a/mm/bootmem.c	2004-08-05 15:33:39.000000000 -0500
+> +++ b/mm/bootmem.c	2004-08-06 13:42:33.000000000 -0500
+> @@ -259,6 +259,7 @@ static unsigned long __init free_all_boo
+>  	unsigned long i, count, total = 0;
+>  	unsigned long idx;
+>  	unsigned long *map; 
+> +	int gofast = 0;
+>  
+>  	BUG_ON(!bdata->node_bootmem_map);
+>  
+> @@ -267,14 +268,32 @@ static unsigned long __init free_all_boo
+>  	page = virt_to_page(phys_to_virt(bdata->node_boot_start));
+>  	idx = bdata->node_low_pfn - (bdata->node_boot_start >> PAGE_SHIFT);
+>  	map = bdata->node_bootmem_map;
+> +	if (bdata->node_boot_start = 0 ||
+> +	    ffs(bdata->node_boot_start) - PAGE_SHIFT > ffs(BITS_PER_LONG))
+> +		gofast = 1;
 
---------------010806030609030806020404
-Content-Type: text/x-patch;
- name="bootmem4.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="bootmem4.patch"
+A comment describing the above reasoning would be nice.
 
---- a/mm/bootmem.c	2004-08-05 15:33:39.000000000 -0500
-+++ b/mm/bootmem.c	2004-08-06 13:42:33.000000000 -0500
-@@ -259,6 +259,7 @@ static unsigned long __init free_all_boo
- 	unsigned long i, count, total = 0;
- 	unsigned long idx;
- 	unsigned long *map; 
-+	int gofast = 0;
- 
- 	BUG_ON(!bdata->node_bootmem_map);
- 
-@@ -267,14 +268,32 @@ static unsigned long __init free_all_boo
- 	page = virt_to_page(phys_to_virt(bdata->node_boot_start));
- 	idx = bdata->node_low_pfn - (bdata->node_boot_start >> PAGE_SHIFT);
- 	map = bdata->node_bootmem_map;
-+	if (bdata->node_boot_start == 0 ||
-+	    ffs(bdata->node_boot_start) - PAGE_SHIFT > ffs(BITS_PER_LONG))
-+		gofast = 1;
- 	for (i = 0; i < idx; ) {
- 		unsigned long v = ~map[i / BITS_PER_LONG];
--		if (v) {
-+		if (gofast && v == ~0UL) {
-+			int j;
-+
-+			count += BITS_PER_LONG;
-+			ClearPageReservedNoAtomic(page);
-+			set_page_count(page, 1);
-+			for (j = 1; j < BITS_PER_LONG; j++) {
-+				if (j + 16 < BITS_PER_LONG) {
-+                      			prefetchw(page + j + 16);
-+                                }
-+				ClearPageReservedNoAtomic(page + j);
-+			}	
-+			__free_pages(page, ffs(BITS_PER_LONG)-1);
-+			i += BITS_PER_LONG;
-+			page += BITS_PER_LONG;
-+		} else if (v) {
- 			unsigned long m;
- 			for (m = 1; m && i < idx; m<<=1, page++, i++) {
- 				if (v & m) {
- 					count++;
--					ClearPageReserved(page);
-+					ClearPageReservedNoAtomic(page);
- 					set_page_count(page, 1);
- 					__free_page(page);
- 				}
-@@ -294,7 +313,7 @@ static unsigned long __init free_all_boo
- 	count = 0;
- 	for (i = 0; i < ((bdata->node_low_pfn-(bdata->node_boot_start >> PAGE_SHIFT))/8 + PAGE_SIZE-1)/PAGE_SIZE; i++,page++) {
- 		count++;
--		ClearPageReserved(page);
-+		ClearPageReservedNoAtomic(page);
- 		set_page_count(page, 1);
- 		__free_page(page);
- 	}
---- a/include/linux/page-flags.h	2004-08-06 13:43:36.000000000 -0500
-+++ b/include/linux/page-flags.h	2004-08-06 13:43:27.000000000 -0500
-@@ -236,6 +236,7 @@ extern unsigned long __read_page_state(u
- #define PageReserved(page)	test_bit(PG_reserved, &(page)->flags)
- #define SetPageReserved(page)	set_bit(PG_reserved, &(page)->flags)
- #define ClearPageReserved(page)	clear_bit(PG_reserved, &(page)->flags)
-+#define ClearPageReservedNoAtomic(page)	(page)->flags &= ~(1UL << PG_reserved)
- 
- #define SetPagePrivate(page)	set_bit(PG_private, &(page)->flags)
- #define ClearPagePrivate(page)	clear_bit(PG_private, &(page)->flags)
+>  	for (i = 0; i < idx; ) {
+>  		unsigned long v = ~map[i / BITS_PER_LONG];
+> -		if (v) {
+> +		if (gofast && v = ~0UL) {
+> +			int j;
+> +
+> +			count += BITS_PER_LONG;
+> +			ClearPageReservedNoAtomic(page);
+> +			set_page_count(page, 1);
+> +			for (j = 1; j < BITS_PER_LONG; j++) {
+> +				if (j + 16 < BITS_PER_LONG) {
+> +                      			prefetchw(page + j + 16);
+> +                                }
 
---------------010806030609030806020404--
+The whitespace/tabbing has gone funny here.
+
+> +#define ClearPageReservedNoAtomic(page)	(page)->flags &= ~(1UL << PG_reserved)
+
+The naming convention we used in 2.4 for the nonatomic operation was
+__ClearPageReserved(), so can we please stick with that?
+
+And this macro can use __clear_bit() rather than open-coding it.
