@@ -1,31 +1,20 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 05 Feb 2004 02:26:43 +0000
-Subject: [patch] 0/6 2.6.2-rc2 mca.c cleanup
-Message-Id: <4481.1075948003@kao2.melbourne.sgi.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 10 Feb 2004 22:15:32 +0000
+Subject: Re: [patch] 0/6 2.6.2-rc2 mca.c cleanup
+Message-Id: <16425.22532.208341.827700@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4481.1075948003@kao2.melbourne.sgi.com>
+In-Reply-To: <4481.1075948003@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Port the ia64 mca.c clean up patches from 2.4.25-pre8 to 2.6.2-rc2.
+>>>>> On Thu, 05 Feb 2004 13:26:43 +1100, Keith Owens <kaos@sgi.com> said:
 
-The following 6 patches do :-
+  Keith> Altogether they shrink mca.c from 2432 to 1339 lines and make it much
+  Keith> more readable.
 
-1 Avoid deadlock when using printk() for MCA and INIT records.
-2 Delete all record printing code, moved to salinfo_decode in user space.
-3 Mark variables and functions static where possible.
-4 Delete dead variables and functions.
-5 Reorder to remove the need for forward declarations and to consolidate
-  related code.
-6 Bjorn's printk cleanup.
+Very nice!
 
-Altogether they shrink mca.c from 2432 to 1339 lines and make it much
-more readable.
-
-The only functional change is the removal of any attempt to print the
-CMC/CPE/MCA/INIT record contents in the kernel plus the addition of an
-info printk to ia64_mca_check_errors(), to match 2.4.  Now we just get
-one line to say that a record has been detected, except for MCA which
-prints nothing at all.
-
+	--david
