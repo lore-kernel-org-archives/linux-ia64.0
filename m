@@ -1,23 +1,28 @@
-From: Randolph Chung <randolph@tausq.org>
-Date: Sat, 01 Feb 2003 22:52:40 +0000
-Subject: [Linux-ia64] clock goes out of sync on itanium
-Message-Id: <marc-linux-ia64-105590709805793@msgid-missing>
+From: "Martin K. Petersen" <mkp@mkp.net>
+Date: Sat, 01 Feb 2003 23:57:00 +0000
+Subject: Re: [Linux-ia64] clock goes out of sync on itanium
+Message-Id: <marc-linux-ia64-105590709805794@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590709805793@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805793@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>>>>> "tausq" = Randolph Chung <randolph@tausq.org> writes:
 
-I've noticed that my i2000 running 2.4.1[89] kernels is pretty poor at
-keeping time. It seems to drift backwards in time ~5-10 minutes a week.
+tausq> Hi, I've noticed that my i2000 running 2.4.1[89] kernels is
+tausq> pretty poor at keeping time. It seems to drift backwards in
+tausq> time ~5-10 minutes a week.
 
-Have anyone else seen this problem?
+tausq> Have anyone else seen this problem?
 
-randolph
+Yes.  My i2000s were notoriously bad at keeping time.  I ran xntpd on
+all of them for that reason.
+
 -- 
-Randolph Chung
-Debian GNU/Linux Developer, hppa/ia64 ports
-http://www.tausq.org/
+Martin K. Petersen	Wild Open Source, Inc.
+mkp@wildopensource.com	http://www.wildopensource.com/
+
 
