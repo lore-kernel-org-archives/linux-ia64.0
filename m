@@ -1,40 +1,38 @@
-From: Michael Madore <mmadore@turbolinux.com>
-Date: Mon, 31 Jul 2000 22:22:09 +0000
-Subject: [Linux-ia64] integer -> pointer question
-Message-Id: <marc-linux-ia64-105590678205250@msgid-missing>
+From: Jes Sorensen <jes@linuxcare.com>
+Date: Mon, 31 Jul 2000 22:34:42 +0000
+Subject: Re: [Linux-ia64] integer -> pointer question
+Message-Id: <marc-linux-ia64-105590678205251@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205250@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205250@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>>>>> "Michael" = Michael Madore <mmadore@turbolinux.com> writes:
 
-When porting packages to IA64, it is very common to come across code where
-integers are being assigned to pointers.  This results in warning messages
-from the compiler about assigning integers to pointers of a different
-size.
+Michael> On the other hand, it is not unusual to see void pointers
+Michael> used for storing integers, and the programmer has no
+Michael> intention of ever de-referencing the pointer.  Glib and GTK+
+Michael> make extensive use of this technique.
 
-This is very helpful in the case where a function prototype has been
-omitted, or the programmer has simply made bad assumptions about the sizes
-of pointers and integers.
+Michael> The problem is that this generates the same warning messages
+Michael> as the first case, and it makes it more difficult to know if
+Michael> a particular package has portability problems.
 
-On the other hand, it is not unusual to see void pointers used for storing
-integers, and the programmer has no intention of ever de-referencing the
-pointer.  Glib and GTK+ make extensive use of this technique.
+Michael> My question is: Is there a way to assign integers to void
+Michael> pointers without triggering warnings from the compiler?
 
-The problem is that this generates the same warning messages as the first
-case, and it makes it more difficult to know if a particular package has
-portability problems.
+Hi Michael
 
-My question is:  Is there a way to assign integers to void pointers
-without triggering warnings from the compiler?
+Storing integers in void pointers without a cast is simply broken and
+nobody should do that or to be more precise you cannot expect void *
+to be the same size as int.
 
-Thanks
+Basically the correct solution is to LART the programmer of the bad
+code.
 
-Mike Madore
-Software Engineer
-TurboLinux, Inc.
-
+Jes
 
 
