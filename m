@@ -1,67 +1,33 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Wed, 11 Feb 2004 21:23:28 +0000
-Subject: Re: [PATCH] Add EXPORT_SYMBOL for physical_node_map
-Message-Id: <20040211212328.GN12142@localhost>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="ZPDwMsyfds7q4mrK"
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 10 Feb 2004 23:11:22 +0000
+Subject: [PATCH] Discover ACPI serial ports before plug-in ports
+Message-Id: <200402101611.22768.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040203185728.GX13322@localhost>
-In-Reply-To: <20040203185728.GX13322@localhost>
-To: linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Russell King <rmk-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>
+Cc: linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 
+I propose the following patch (against 2.6.2).  This makes us
+discover ACPI serial ports before PCI ones.  The ACPI ports
+tend to be built-in, and discovering them late means their ttyS
+names move around if PCI serial ports are added or removed.  I
+think it makes more sense to have relatively predictable and
+consistent names for the built-in hardware.
 
---ZPDwMsyfds7q4mrK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-
-
-On Tue, Feb 10, 2004 at 01:51:43PM -0800, David Mosberger wrote:
-> >>>>> On Tue, 3 Feb 2004 13:57:28 -0500, Martin Hicks <mort@wildopensource.com> said:
-> 
->   Martin> Can you please include this EXPORT_SYMBOL in the next release.  A few
->   Martin> macros that use physical_node_map are used in modules.
-> 
-> I share Christoph's concern but since this code is SGI's and Jesse is
-> apparently OK with it, I'd have applied it---if only the patch
-> actually applied.  I think there is some whitespace breakage in your
-> patch.
-
-Here's another attempt then.  Against Linus' latest bk tree.
-
-mh
-
--- 
-Martin Hicks || mort@bork.org || PGP/GnuPG: 0x4C7F2BEE
-
---ZPDwMsyfds7q4mrK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="physical_node_map-2.patch"
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1610  -> 1.1611 
-#	arch/ia64/sn/kernel/setup.c	1.31    -> 1.32   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/02/11	mort@green.i.bork.org	1.1611
-# Export physical_node_map
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/sn/kernel/setup.c b/arch/ia64/sn/kernel/setup.c
---- a/arch/ia64/sn/kernel/setup.c	Wed Feb 11 16:21:36 2004
-+++ b/arch/ia64/sn/kernel/setup.c	Wed Feb 11 16:21:36 2004
-@@ -71,6 +71,8 @@
+=== drivers/serial/Makefile 1.20 vs edited ==--- 1.20/drivers/serial/Makefile	Tue Sep  9 03:30:53 2003
++++ edited/drivers/serial/Makefile	Tue Feb 10 15:46:15 2004
+@@ -5,11 +5,11 @@
+ #
  
- short physical_node_map[MAX_PHYSNODE_ID];
+ serial-8250-y :+serial-8250-$(CONFIG_SERIAL_8250_ACPI) += 8250_acpi.o
+ serial-8250-$(CONFIG_GSC) += 8250_gsc.o
+ serial-8250-$(CONFIG_PCI) += 8250_pci.o
+ serial-8250-$(CONFIG_PNP) += 8250_pnp.o
+ serial-8250-$(CONFIG_SERIAL_8250_HCDP) += 8250_hcdp.o
+-serial-8250-$(CONFIG_SERIAL_8250_ACPI) += 8250_acpi.o
  
-+EXPORT_SYMBOL(physical_node_map);
-+
- int	numionodes;
- /*
-  * This is the address of the RRegs in the HSpace of the global
+ obj-$(CONFIG_SERIAL_CORE) += serial_core.o
+ obj-$(CONFIG_SERIAL_21285) += 21285.o
 
---ZPDwMsyfds7q4mrK--
