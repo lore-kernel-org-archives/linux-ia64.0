@@ -1,7 +1,7 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Fri, 10 Mar 2000 18:59:21 +0000
+From: Uros Prestor <uros@turbolinux.com>
+Date: Tue, 21 Mar 2000 19:58:07 +0000
 Subject: Re: [Linux-ia64] crosscompiler ?
-Message-Id: <marc-linux-ia64-105590678204979@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678204989@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678204978@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678204978@msgid-missing>
@@ -10,24 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-	Is a crosscompiler for linuix-ia32 available somewhere or is it really
-	necessary to build it by myself ?
+Jim Wilson wrote:
 
-I don't know of anyone publicly distributing native or cross compiler binaries
-at this time.  Most free software groups tend to just distribute sources, not
-binaries.
+>         Is a crosscompiler for linuix-ia32 available somewhere or is it really
+>         necessary to build it by myself ?
 
-Unfortunately, at the present time, there is no easy way to build a cross
-compiler, because not all of the stuff you need is readily available to the
-public.  It is possible, it is just a lot of work, because you need to build
-the compiler and the libraries (glibc) at the same time, which requires a more
-complicated build process than is normal.
+You can get the IA-64 crosscompiler toolchain at
 
-This will all get easier when the linux vendors start releasing alpha quality
-ia64 linux distributions.  Unless you have an immediate need for an ia64
-compiler, you are probably better off waiting, and let the linux vendors do
-the hard work for you.
+     ftp://ftp.turbolinux.com/pub/ia64/RPMS/i386/gnupro-2.9-000303.i386.rpm
 
-Jim
+This RPM is based on the Mar 3 release of the Cygnus toolchain with some patches
+thrown in.  You will get a complete set of binutils and a C compiler.  There is
+no gdb and the libstdc++ is missing at the moment.
+
+We will try to keep the crosscompiler RPM current but be warned that we don't use
+the crosscompilers internally and that we only did minimal testing of this RPM.
+If you have problems with it send email to ia64-dist@turbolinux.com.
+
+Uros
+
+--
+Uros Prestor
+uros@turbolinux.com
+
+
+
 
 
