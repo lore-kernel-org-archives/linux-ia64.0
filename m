@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 27 Aug 2003 16:22:32 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 27 Aug 2003 16:34:42 +0000
 Subject: RE: kernel update (relative to 2.6.0-test4)
-Message-Id: <marc-linux-ia64-106200160512868@msgid-missing>
+Message-Id: <marc-linux-ia64-106200240214008@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106192276030286@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106192276030286@msgid-missing>
@@ -10,43 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 27 Aug 2003 09:01:54 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+>   Tony> Any clues on what the warning from OBJCOPY really means?
+> 
+> Nope.  I don't get that (building for zx1):
 
-  >> The latest ia64 patch is now available at
-  >> ftp://www.kernel.org/pub/linux/kernel/ports/ia64/v2.5/ in
-  >> file:
-  >> 
-  >> linux-2.6.0-test4-ia64-030826.diff.gz
-  >> 
 
-  Tony> Last few lines of the build output (building for Tiger):
+Ok, I found it.  I somehow ended up with CONFIG_PM=y, so "kernel/power"
+got built, and inside kernel/power/main.c there is:
 
-  Tony> KSYM    .tmp_kallsyms2.S
-  Tony> AS      .tmp_kallsyms2.o
-  Tony> LD      vmlinux
-  Tony> OBJCOPY arch/ia64/hp/sim/boot/vmlinux.bin
-  Tony> BFD: arch/ia64/hp/sim/boot/vmlinux.bin: warning: allocated section `.data.nosave' not in segment
-  Tony> GZIP    arch/ia64/hp/sim/boot/vmlinux.gz
-  Tony> LN      vmlinux.gz
-  Tony> Kernel: vmlinux.gz is ready
+  static int in_suspend __nosavedata = 0;
 
-  Tony> Is that .../hp/sim/boot/... path right?
+where __nosavedata is defined in include/linux/init.h as:
 
-Not really, but it doesn't hurt, AFAIK (I'll try to remember to clean
-it up, though).
+#define __nosavedata __attribute__ ((__section__ (".data.nosave")))
 
-  Tony> Any clues on what the warning from OBJCOPY really means?
+We don't have an entry in vmlinux.lds.S to handle this section.
 
-Nope.  I don't get that (building for zx1):
-
-  KSYM    .tmp_kallsyms2.S
-  AS      .tmp_kallsyms2.o
-  LD      vmlinux
-  Building modules, stage 2.
-  OBJCOPY arch/ia64/hp/sim/boot/vmlinux.bin
-  GZIP    arch/ia64/hp/sim/boot/vmlinux.gz
-  MODPOST
-  LN      vmlinux.gz
-  Kernel: vmlinux.gz is ready
-
-	--david
+-Tony
