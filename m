@@ -1,76 +1,25 @@
-From: System Attendant <ODYSSEY-SA@stl.sarov.ru>
-Date: Sat, 11 May 2002 05:05:48 +0000
-Subject: [Linux-ia64] ScanMail Message: To Recipient virus found or matched file blocki
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C1F8A9.83B05F20"
-Message-Id: <marc-linux-ia64-105590701905570@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 31 May 2002 06:08:40 +0000
+Subject: [Linux-ia64] kernel update (relative to v2.5.18)
+Message-Id: <marc-linux-ia64-105590701905623@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905561@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905561@msgid-missing>
+References: <marc-linux-ia64-105590678205111@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+The latest ia64 kernel patch is at
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/ in file:
 
-------_=_NextPart_000_01C1F8A9.83B05F20
-Content-Type: text/plain
+        linux-2.5.18-ia64-020530.diff.gz
 
-ScanMail for Microsoft Exchange has taken action on the message, please
-refer to the contents of this message for further details.
+This kernel seems to work quite well both on Itanium 1 and 2 and the
+HP simulator.  I didn't move all the way to 2.5.19 since it seems to
+have some (small) problems which I expect Linus to fix quickly.
 
-Sender = dolphinproject@bellsouth.net
-Recipient(s) = linux-ia64@linuxia64.org;
-Subject = [Linux-ia64] Fw:linux-ia64,questionnaire
-Scanning Time = 05/11/2002 09:05:47
-Engine/Pattern = 6.150-1001/277
+Enjoy,
 
-Action on message:
-The attachment Va.pif contained WORM_KLEZ.H virus. ScanMail has taken the
-Moved action.  The attachment was moved to C:\Program
-Files\Trend\Smex\Virus\Va3cdca6ab1e.pif_.
-
-Warning to recipient. ScanMail has detected a virus.
-
-------_=_NextPart_000_01C1F8A9.83B05F20
-Content-Type: application/ms-tnef
-Content-Transfer-Encoding: base64
-
-eJ8+IjsFAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA4wQAAAAAAADnAAEIgAcAGAAAAElQTS5NaWNy
-b3NvZnQgTWFpbC5Ob3RlADEIAQWAAwAOAAAA0gcFAAsACQAFADAABgAtAQEggAMADgAAANIHBQAL
-AAkABQAwAAYALQEBCYABACEAAAA1Qzc3NjkxN0EyRTBBMDQ5QTM1M0E4OEE5RjM2QjM4QQAnBwEE
-gAEATQAAAFNjYW5NYWlsIE1lc3NhZ2U6IFRvIFJlY2lwaWVudCB2aXJ1cyBmb3VuZCBvciBtYXRj
-aGVkIGZpbGUgYmxvY2tpbmcgc2V0dGluZy4AzhsBDYAEAAIAAAACAAIAAQOQBgDgBgAAIQAAAAIB
-CRABAAAASAIAAEQCAAA+AwAATFpGdVZ2B9CHAAoBDQNDdGV4dAH3/wKkA+QF6wKDAFAC8wa0AoMm
-MgPFAgBjaArAc2WqdAHQNAAAKgLhYQeADiAHEwKABxMgQ3ly/QKAfQqACM8J2QKACoQLN9cSwgHQ
-BgBjAHBNC3ADIIsCEAXBaQUAb3NvAYDIIEV4E2FuZxSAE3ArBCABkGsJ8CAA0HRpZQIgIBwRdGgU
-gAeBc9JhGwAsIAtQZRtAFIDtFqBmBJAbYG8cYwWgAjD9CfB0BCAaYBxhBAAcphmzfmYIcBxxBcAB
-AAGQAxBzVi4KowqUCgZgbgSBIJY9IMAG8HAfUG5wA2CCagWQdEBiZWwhILMIYBxwLm4TsCFUUgWQ
-RwUgCJACMChzKSJxbBELgHV4LQcwNjRASyWzJhIuBbBnOyG1dSZiI0IicVtMJcddIEhGdzoluCxx
-ClBz+xvyFFBpFqAhtRlBAwAa8AYgB2IicTA1LzExki8B0DAyLBA5OiwgaDo0NyFURRrwC4BlOC9Q
-YQJABJIigDYuYDE1MC0xLJAsYTdbLUUhVEEb5xy1OiFUVDccgS4xANBoB4ACMCBWfGEuJQAfIB6C
-C3EJgCAAV09STV9LTEWgWi5IIHYqkHUhMMcZKBs4HHJNb3YzsRvU9zTwK6Ax/HcbQQRgNqIeEfJD
-MXBcUANgCcAUYCkAdwMQB5A5UFQWoCIwOVBTNQeAeDlQVjSyOxFhM5RjZBlANgGgMWUy8vpfIUtX
-CsArYx4RFqAk5V80/SDRI1E2sjSVfUDQAwD9P+MEAABAADkAIF+wg6n4wQEDAPE/CQQAAB4AMUAB
-AAAAGwAAAE1JQ1JPU09GVCBTWVNURU0gQVRURU5EQU5UAAADABpAAAAAAB4AMEABAAAAGwAAAE1J
-Q1JPU09GVCBTWVNURU0gQVRURU5EQU5UAAADABlAAAAAAAIBcQABAAAAFgAAAAHB+KmDsEG44SBt
-ZUL6mcDkj7cGSbUAAAMAJgAAAAAAAwA2AAAAAAAeAHAAAQAAAE0AAABTY2FuTWFpbCBNZXNzYWdl
-OiBUbyBSZWNpcGllbnQgdmlydXMgZm91bmQgb3IgbWF0Y2hlZCBmaWxlIGJsb2NraW5nIHNldHRp
-bmcuAAAAAAsA8hABAAAAAgFHAAEAAAAuAAAAYz1SVTthPSA7cD1JTlRFTDtsPU9EWVNTRVktMDIw
-NTExMDUwNTQ4Wi04OTM1AAAAAgH5PwEAAABzAAAAAAAAANynQMjAQhAatLkIACsv4YIBAAAAAAAA
-AC9PPUlOVEVML09VPVNBUk9WL0NOPUNPTkZJR1VSQVRJT04vQ049U0VSVkVSUy9DTj1PRFlTU0VZ
-L0NOPU1JQ1JPU09GVCBTWVNURU0gQVRURU5EQU5UAAAeAPg/AQAAABEAAABTeXN0ZW0gQXR0ZW5k
-YW50AAAAAB4AOEABAAAAGwAAAE1JQ1JPU09GVCBTWVNURU0gQVRURU5EQU5UAAACAfs/AQAAAHMA
-AAAAAAAA3KdAyMBCEBq0uQgAKy/hggEAAAAAAAAAL089SU5URUwvT1U9U0FST1YvQ049Q09ORklH
-VVJBVElPTi9DTj1TRVJWRVJTL0NOPU9EWVNTRVkvQ049TUlDUk9TT0ZUIFNZU1RFTSBBVFRFTkRB
-TlQAAB4A+j8BAAAAEQAAAFN5c3RlbSBBdHRlbmRhbnQAAAAAHgA5QAEAAAAbAAAATUlDUk9TT0ZU
-IFNZU1RFTSBBVFRFTkRBTlQAAEAABzCMJKKDqfjBAUAACDDgDs2DqfjBAR4APQABAAAAAQAAAAAA
-AAAeAB0OAQAAAE0AAABTY2FuTWFpbCBNZXNzYWdlOiBUbyBSZWNpcGllbnQgdmlydXMgZm91bmQg
-b3IgbWF0Y2hlZCBmaWxlIGJsb2NraW5nIHNldHRpbmcuAAAAAB4ANRABAAAAMQAAADw1MTUyNEI2
-QzY4OUVENDExOEQ0RjAwOTAyNzNBQ0UzMkREN0VCNkBPRFlTU0VZPgAAAAALACkAAAAAAAsAIwAA
-AAAAAwAGECKmrgADAAcQ4AEAAAMAEBAAAAAAAwAREAEAAAAeAAgQAQAAAGUAAABTQ0FOTUFJTEZP
-Uk1JQ1JPU09GVEVYQ0hBTkdFSEFTVEFLRU5BQ1RJT05PTlRIRU1FU1NBR0UsUExFQVNFUkVGRVJU
-T1RIRUNPTlRFTlRTT0ZUSElTTUVTU0FHRUZPUkZVUlRIAAAAAAIBfwABAAAAMQAAADw1MTUyNEI2
-QzY4OUVENDExOEQ0RjAwOTAyNzNBQ0UzMkREN0VCNkBPRFlTU0VZPgAAAAANwQ==
-
-------_=_NextPart_000_01C1F8A9.83B05F20--
+        --david
 
