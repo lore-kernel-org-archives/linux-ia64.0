@@ -1,55 +1,31 @@
-From: "lyman" <zenithmimi@aufurlaub.com>
-Date: Thu, 20 May 2004 06:08:30 +0000
+From: "christoper" <garybird@balmainboys.com>
+Date: Mon, 31 May 2004 17:15:58 +0000
 Subject: Save a ton on Microsoft Office!
-Message-Id: <1085033310-3790@excite.com>
+Message-Id: <1086023758-15230@excite.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1084633338-21367@excite.com>
 In-Reply-To: <1084633338-21367@excite.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 40free.net.ph@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Incredible DEALS on SOFTWARE you NEED!
+Need software but not the price that comes with it?
+We sell OEM software at major discounts.
+Don't pay the department store markups, buy on the internet.
 
-Save 40% on Windows XP Professional!
-Save 40% on Microsoft Office 2003 Professional!
-Save $90 on Adobe Photoshop!
-Save 60% on Norton AntiVirus!!
+Free Delivery and Extra Discounts on orders over $200!
 
-Save your company thousands of dollars when it needs software!
+Save yourself or your company thousands of dollars, reap the rewards!
 
-That promotion just got closer...
+Q:  How can you sell this software as OEM ? It seems too good to be true - is there a catch?
 
-Click here!!
-http://teddychoice.biz/index.php?su55
-
-
-Software packages you can save big on:
-
-Windows XP Professional
-Norton Antivirus 2004
-Adobe Photoshop 7.0
-Microsoft Office XP Professional
-Microsoft Office 2003 Professional
-Microsoft Money 2004
-Microsoft 2000 Professional
-Adobe Photoshop CS
-Adobe Pagemaker 7.0
-Adobe Illustrator 10
-Corel Draw Graphics Suite 11
-Adobe Acrobat 6.0 Professional
-Borland Delphi 7 Professional
-Visual Studio.Net Enterprise Architecht
-MS SQL Server 2000 Enterprise
-MS Windows Server 2003 Enterprise
-MS Windows 2000 Server
-Red Hat Linux 7.3
+A:  There is no catch - the software versions that we sell are OEM (Original Equipment Manufacturer) which means you will receive the installation CDs only (they do not come in their original retail packing and do not include the manual). We do guarantee that all programs are the 100% full working retail versions - no demos or academic versions! When you order, you will receive all materials required for a complete installation - or your money back! Why pay hundreds of dollars more when you can get exactly the same but OEM-CD? You don't have to pay that much for the fancy box and manuals. 
 
 
 
 Click here!!
-http://teddychoice.biz/index.php?su55
+http://mycomp.biz/index.php?su55
 
 
 
@@ -59,8 +35,8 @@ http://teddychoice.biz/index.php?su55
 
 
 
-softball sunbirdliverpoo sweety bigmac button tootsie mars 
-dougie hansonbigman clipper valentin
-charity money1 young 
+paula abcdeftango shawn gray mailer vermont wombat 
+fun moomoogodzilla amelie arizona
+dan don caesar 
 
-REMOV3: http://teddychoice.biz/soft/chair.php
+REMOV3: http://mycomp.biz/soft/chair.php
