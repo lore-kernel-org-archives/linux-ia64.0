@@ -1,7 +1,7 @@
-From: n0ano@n0ano.com
-Date: Wed, 15 Jan 2003 19:12:53 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 15 Jan 2003 19:35:38 +0000
 Subject: Re: [Linux-ia64] Distributions using gcc 3.2 or later
-Message-Id: <marc-linux-ia64-105590709805687@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805688@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805681@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805681@msgid-missing>
@@ -10,24 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Yes, I read the list.  I pretty much put up whatever the distro's want.
-If anyone wants to change the page let me know and I'll take care of it.
+On Wed, Jan 15, 2003 at 12:12:53PM -0700, n0ano@n0ano.com wrote:
+> Yes, I read the list.  I pretty much put up whatever the distro's want.
+> If anyone wants to change the page let me know and I'll take care of it.
 
-On Wed, Jan 15, 2003 at 06:26:07PM +0000, Matthew Wilcox wrote:
->
->...
-> 
-> I'd think that `initial release' is no longer a very useful thing to
-> have, so perhaps this list should be replaced by a list of `most recent
-> release' instead.  I don't see a `contact the webmaster' link, so maybe
-> he or she reads this list...
-> 
->..
->
+Well, I'd like to change the purpose of that list.  Back when ia64 was new,
+I think there were significant bragging rights for `First Distro!'.  But
+I think we're beyond that now, and it'd be a more useful list if it has
+`Most up to date release distro'.  So I'd be in favour of something like:
+
+<h2>IA-64 Linux Distributions</h2>
+<li>Debian 3.0 (Woody) <a HREF ="http://www.debian.org/distrib/">Download instructions</a> 
+<li>Red Hat Advanced Workstation<a HREF="http://www.redhat.com/somewhere/i/can't/find/anything/on/their/website/">Information</a>
+<li>Red Hat Advanced Server <a HREF="http://www.redhat.com/somewhere/i/can't/find/anything/on/their/website/">Information</a>
+<li>SuSE Enterprise Edition <a HREF="http://www.suse.com/us/business/products/sles/sles7/sles_ia64/index.html">Information</a> 
+
+Obviously representatives from those companies should suggest better
+wording & URLs than this ;-)
+
+Disagreements?
 
 -- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@n0ano.com
-Ph: 303/652-0870x117
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
 
