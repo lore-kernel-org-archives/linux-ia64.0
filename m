@@ -1,47 +1,39 @@
-From: Pat Gefre <pfg@sgi.com>
-Date: Mon, 15 Mar 2004 21:19:31 +0000
-Subject: [PATCH] 2.6 ia64 - Altix console code missing brace
-Message-Id: <200403152119.i2FLJWl3101955@fsgi900.americas.sgi.com>
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 18 Mar 2004 16:51:43 +0000
+Subject: [PATCH] Fill in bridge resources
+Message-Id: <20040318165143.GZ25059@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The last mod to fix the staircase printing - missed some bracing....
 
+We need to call pci_read_bridge_bases() in pcibios_fixup_bus() otherwise
+the bridge resources don't get filled in.  This is a dependency for a
+bugfix that will be going in through the pci hotplug people.
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1695  -> 1.1696 
-#	drivers/char/sn_serial.c	1.7     -> 1.8    
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/03/15	pfg@sgi.com	1.1696
-# drivers/char/sn_serial.c
-#     Last mod left out the braces ....
-# --------------------------------------------
-#
-diff -Nru a/drivers/char/sn_serial.c b/drivers/char/sn_serial.c
---- a/drivers/char/sn_serial.c	Mon Mar 15 14:28:24 2004
-+++ b/drivers/char/sn_serial.c	Mon Mar 15 14:28:24 2004
-@@ -978,7 +978,7 @@
- 		}
- 		sn_func->sal_puts(s, count);
- 	}
--	else
-+	else {
- 		/* Output '\r' before each '\n' */
- 		while ((s1 = memchr(s, '\n', count)) != NULL) {
- 			sn_sal_write(NULL, 0, s, s1 - s);
-@@ -987,6 +987,7 @@
- 			s = s1 + 1;
- 		}
- 		sn_sal_write(NULL, 0, s, count);
-+	}
+Index: arch/ia64/pci/pci.c
+=================================RCS file: /var/cvs/linux-2.6/arch/ia64/pci/pci.c,v
+retrieving revision 1.7
+diff -u -p -r1.7 pci.c
+--- a/arch/ia64/pci/pci.c	16 Mar 2004 15:39:51 -0000	1.7
++++ b/arch/ia64/pci/pci.c	18 Mar 2004 16:48:23 -0000
+@@ -380,8 +379,7 @@ pcibios_fixup_bus (struct pci_bus *b)
+ 
+ 	for (ln = b->devices.next; ln != &b->devices; ln = ln->next)
+ 		pcibios_fixup_device_resources(pci_dev_b(ln), b);
+-
+-	return;
++	pci_read_bridge_bases(b);
  }
  
- static struct tty_driver *
+ void __devinit
+
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
