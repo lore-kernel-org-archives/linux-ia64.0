@@ -1,99 +1,30 @@
-From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
-Date: Fri, 26 Mar 2004 12:38:52 +0000
-Subject: Re: Migrate pages from a ccNUMA node to another
-Message-Id: <4064245C.50B74C67@nospam.org>
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Fri, 26 Mar 2004 17:20:46 +0000
+Subject: Re: Migrate pages from a ccNUMA node to another - patch
+Message-Id: <1080321646.31638.105.camel@nighthawk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4063F188.66DB690A@nospam.org> <20040326103959.GB14360@lnx-holt>
+References: <4063F581.ACC5C511@nospam.org>
+In-Reply-To: <4063F581.ACC5C511@nospam.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Robin Holt in <holt@sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Cc: linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
-Robin Holt wrote:
-> 
-> We have found that "automatic" migration ends to result in the
-> system deciding to move the wrong pieces around.  Since applications
-> can be so varied, I would recommend we let the application decide
-> when it thinks it is beneficial to move a memory range to a nearby
-> node.
+Have you considered any common ground your patch might share with the
+people doing memory hotplug?
 
-I am not saying it is for every application
-(see the paragraph of the "if's").
-There are a couple of applications which run for long time, with
-relatively stable memory working sets. And I can help them.
-You launch your application with and without, and you use if you
-gain enough.
+	http://people.valinux.co.jp/~iwamoto/mh.html
 
-> The placement policy doesn't really fit the bill entirely.  We are
-> currently tracking a problem with repeatability of a benchmark.  We
-> found that the newer libc we are using used to result in a newly
-> forked process touching a page before the parent did and therefore
-> the page, which had been marked COW, would, on the old libc end up
-> on the childs node for the child and parents node for the parent.
-> After the update, both pages ended up on the parents.
+They have a similar problem to your migration that occurs when a user
+wants to remove a whole or partial NUMA node.  
+lhms-devel@lists.sourceforge.net
 
-I haven't modified anything in the existing page fault handler.
-Nor I've changed the placement policy.
-You need to specify explicitly where the pages go for my proposed
-syscall.
+Is your code something that you'd like to see go into the mainline 2.6
+or 2.7 kernel?  
 
-> If you syscall would simply do the copy to the destination node
-> for COW pages, this would have worked terrifically in both cases.
+Also, please don't spam-encode your address when sending to the list. 
+It just makes it harder for people to send feedback.  
 
-The COW pages are referenced by more than one PGDs (by that of the
-parent and its children). As I state in RESTRICTIONS, I skip these
-pages.
+-- Dave
 
-I think this issue with the COW pages is a fork() - exec()
-placement problem, i do not address it with my stuff.
-
-
-> >
-> > 3. NUMA aware scheduler
-> > .......................
-> >
-> 
-> Back to my earlier comment about magic.  This is a second tier of
-> magic.  Here we are talking about infering a reason to migrate based
-> on memory access patterns, but what if that migration results in
-> some other process being hurt more than this one is helped.
-> 
-> Honestly, we have beaten on the scheduler quite a bit and the "allocate
-> memory close to my node" has helped considerably.
-> 
-> One thing that would probably help considerably, in addition to the
-> syscall you seem to be proposing, would be an addition to the
-> task_struct.  The new field would specify which node to attempt
-> allocations on.  Before doing a fork, the parent would do a
-> syscall to set this field to the node the child will target.  It
-> would then call fork.  The PGDs et al and associated memory, including
-> the task struct and pages would end up being allocated based upon
-> that numa node's allocation preference.
-> 
-> What do you think of combining these two items into a single syscall?
-
-I can agree with Robin Holt, it's NUMA API issue.
-I just give a tool, if someone somehow knows that this piece of memory
-would be better on another node, I can do it.
-
-> > NAME
-> >         migrate_ph_pages        - migrate pages to another NUMA node
-> 
-> At first, I thought "Wow, this could result in some nice admin tools."
-> The more I scratch my head on this, the less useful I see it, but
-> would not argue against it.
-
-We are working on the prototype of a device driver to read out the
-"hot page" counters on n-th Scalable Node Controller
-(say: "/dev/snc/n/hotpage").
-An "artificial intelligence" can guess what to move and calls this service.
-
-
-BTW Has someone a machine with a chip set other than i82870 ?
-
-
-Thanks,
-
-
-Zoltan Menyhart
