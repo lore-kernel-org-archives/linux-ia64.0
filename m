@@ -1,72 +1,41 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Tue, 25 Apr 2000 01:06:31 +0000
-Subject: Re: [Linux-ia64] RPM Errors
-Message-Id: <marc-linux-ia64-105590678205031@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 11 Apr 2000 06:22:50 +0000
+Subject: [Linux-ia64] updated kernel diff on kernel.org
+Message-Id: <marc-linux-ia64-105590678205014@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205030@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205030@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It might be easier to get the SRPM for ag-tools and do an 'rpm
---rebuild' on it, instead of installing all the i386 libaries to support
-it.
+OK, the latest kernel diff is now available as
+linux-2.3.51-ia64-000410.diff.gz from:
 
-Jesse
+ ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
 
-"Akhter, Shameem F" wrote:
-> 
-> Hi,
-> 
-> If I get the following errors, what does it really mean. Does it mean that
-> the library files are not in place?
-> Please let me know.
-> 
-> Thanks.
-> 
-> -- Shameem
-> 
-> ----------------------------------------------------------------------------
-> --------
-> IA64-Trillian
-> ----------------------------------------------------------------------------
-> --------
-> 
-> Script started on Tue Oct 12 04:07:52 1999
-> [root@raven4 CygnusJava]# rpm --install ag-tools-1-2.i686.rpm
-> error: failed dependencies:
->         binutils >= 2.9.1.0.21 is needed by ag-tools-1-2
->         cpp = 1.1.2 is needed by ag-tools-1-2
->         ld-linux.so.2 is needed by ag-tools-1-2
->         libc.so.6 is needed by ag-tools-1-2
->         libdl.so.2 is needed by ag-tools-1-2
->         libm.so.6 is needed by ag-tools-1-2
->         libpthread.so.0 is needed by ag-tools-1-2
->         libc.so.6(GLIBC_2.0) is needed by ag-tools-1-2
->         libc.so.6(GLIBC_2.1) is needed by ag-tools-1-2
->         libdl.so.2(GLIBC_2.0) is needed by ag-tools-1-2
->         libm.so.6(GLIBC_2.0) is needed by ag-tools-1-2
->         libm.so.6(GLIBC_2.1) is needed by ag-tools-1-2
->         libpthread.so.0(GLIBC_2.0) is needed by ag-tools-1-2
->         libpthread.so.0(GLIBC_2.1) is needed by ag-tools-1-2
-> [root@raven4 CygnusJava]# exit
-> exit
-> 
-> Script done on Tue Oct 12 04:08:05 1999
-> 
-> ----------------------------
-> 
-> Shameem Akhter
-> 
-> IACG
-> IA64 Tools and Engineering
-> Ph: (503) 264-1644
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+This is basically Friday's patch with the following additions:
+
+	- Don's IA-32 updates (Don, please take a look at this
+	  diff as there were a few changes: I put the trap handler
+	  in ia32/ia32_traps.c and made some other small changes;
+	  e.g., send SIGTRAP via send_sig_info instead of
+	  force_sig_info).
+
+	- Fix for SMP problem that Chuck found in the softirq handling
+	  code (Chuck, you may want to review this as I implemented
+	  this a bit differently and have not had a chance to test it
+	  on SMP).
+
+	- The IA64_UL() change that fixes Jes's grief with the
+	  FPSR_DEFAULT macro
+
+That should be it.  The irq debug printk's are still there, I'm
+afraid.  They'll stay there as long as the IDE secondary channel
+continues to disfunction.
+
+Note: I suspect there is another signal-delivery related bug as
+building gcc with profiling enabled still fails for me.  Stay tuned...
+
+	--david
 
 
