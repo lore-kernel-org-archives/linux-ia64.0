@@ -1,26 +1,32 @@
-From: "Geddes, Brian J" <brian.j.geddes@intel.com>
-Date: Thu, 14 Sep 2000 16:23:03 +0000
-Subject: [Linux-ia64] Serial port communiction in Python
-Message-Id: <marc-linux-ia64-105590678205494@msgid-missing>
+From: "H . J . Lu" <hjl@valinux.com>
+Date: Thu, 28 Sep 2000 01:19:20 +0000
+Subject: [Linux-ia64] Re: test8+0913 patch on B1 BigSur UP
+Message-Id: <marc-linux-ia64-105590678205528@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-All -
+On Wed, Sep 27, 2000 at 03:39:47PM -0700, H . J . Lu wrote:
+> On Wed, Sep 13, 2000 at 06:50:33PM -0700, David Mosberger wrote:
+> > Since the last diff had a few serious problems, including the infamous
+> > ACPI bug and an fph problem that caused xmms not to work on UP
+> > machine, there is now a new diff available at:
+> > 
+> >  ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
+> > 
+> > in file linux-2.4.0-test8-ia64-000913.diff.
+> > 
+> 
+> I couldn't get this kernel to work on my B1 BigSur UP. It hangs at the
+> random places when going to run level 1 to 3. BTW, test8+0908+acpi
+> works fine.
+> 
 
-I asked a question a couple of weeks ago about serial port communication in
-Linux on Big Sur, and got some helpful responses, but haven't yet been able
-to figure out exactly what I'm trying for.  I'm sure I could figure it out
-if I dug through enough books and FAQs, but I'm running low on time.  :(
+Update to modutils 2.3.17 fixed it.
 
-In a nutshell, I need to be able to send and get messages to/from the serial
-port from inside of a Python script on Linux64.  If you have done this, or
-know how to do it, please let me know.  
 
-Thank you!!
-
-- Brian
-
+-- 
+H.J. Lu (hjl@gnu.org)
 
