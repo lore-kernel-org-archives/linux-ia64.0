@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 22 Feb 2002 17:06:24 +0000
+From: "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com>
+Date: Fri, 22 Feb 2002 17:27:15 +0000
 Subject: RE: [Linux-ia64] determining read or write on a page fault
-Message-Id: <marc-linux-ia64-105590701905171@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905172@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905163@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905163@msgid-missing>
@@ -10,7 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 22 Feb 2002 07:58:31 -0800, "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com> said:
+So the slot number is in sigcontext!  That makes things considerably
+easier.  Does anyone have a piece of code that determines whether 
+a given instruction is a load or a store?
+
+Jay
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@hpl.hp.com]
+Sent: Friday, February 22, 2002 11:06 AM
+To: Hoeflinger, Jay P
+Cc: 'Boehm, Hans'; 'linux-ia64@linuxia64.org'
+Subject: RE: [Linux-ia64] determining read or write on a page fault
+
+
+>>>>> On Fri, 22 Feb 2002 07:58:31 -0800, "Hoeflinger, Jay P"
+<jay.p.hoeflinger@intel.com> said:
 
   Jay> Decoding the instruction seems really messy, but maybe I am not
   Jay> familiar enough with the Itanium architecture.
