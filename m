@@ -1,126 +1,29 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Fri, 05 Nov 2004 20:47:52 +0000
-Subject: Serial changes for HP ia64 boxes (MAY BREAK YOUR CONSOLE)
-Message-Id: <200411051347.52640.bjorn.helgaas@hp.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 23 Nov 2004 01:10:44 +0000
+Subject: updated libm available
+Message-Id: <16802.36372.32399.861551@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch [1], which appeared up in 2.6.10-rc1-mm2, changes the way
-serial devices are named.  This only affects machines where firmware
-supplies an HCDP or PCDP table.  As far as I know, only HP has shipped
-such machines.
+Thought this might be of interest to some folks on these lists: we
+recently developed a glibc patch which updates the libm with code
+based on the latest Intel libm release (which is v2.1).  The code
+currently in glibc is based on v1.4 and the Intel libm code has been
+improved a lot since then (some functions run 5 times (!) faster than
+before, many functions have been added, precision has improved, etc.).
 
-If you have an HP machine and you're using the MP serial console port
-(the connector labelled "console" on the 3-headed cable), this patch
-will break your console!
+For details, see this mail:
 
-HOW TO FIX IT:
+  http://sources.redhat.com/ml/libc-hacker/2004-11/msg00045.html
 
- 1) The console device will change from /dev/ttyS0 to /dev/ttyS1,
-    ttyS2, or ttyS3, so:
+There is a gnumeric spreadsheet attached to this mail which contains a
+(rough) summary of the speed improvements.
 
-    1a) Edit /etc/inittab to add a getty entry for
-           /dev/ttyS1 (rx4640, rx5670, rx7620, rx8620, Superdome),
-           /dev/ttyS2 (rx1600), or
-           /dev/ttyS3 (rx2600).
+I hope that the libm update will make it into the official glibc
+sources soon, but thought it would be good to raise awareness for the
+existence of this much improved libm.
 
-    1b) Edit /etc/securetty to add ttyS1, ttyS2, or ttyS3.
-
-    1c) Leave the existing ttyS0 entries in /etc/inittab and
-        /etc/securetty so you can still boot old kernels.
-
- 2) Edit /etc/elilo.conf to remove any "console=" arguments (see [2]).
-
- 3) Run elilo to install the bootloader with new configuration.
-
- 4) Reboot and use the EFI boot option maintenance menu to select
-    exactly one device for console output, input, and standard error.
-    Then do a cold reset so the changes take effect.
-
-    For the MP console, be careful to select the device with
-    "Acpi(HWP0002,700)/Pci(...)/Uart" in the path (see [3]).
-
-DETAILS:
-
-  - Prior to patch [1], serial device names depended on the HCDP,
-    which in turn depends on EFI console settings.  After this patch,
-    the naming always stays the same, regardless of firmware settings.
-
-    For example, an rx1600 with a single built-in serial port plus
-    an MP has these ports:
-                                   Old             Old
-                  MMIO         (EFI console    (EFI console
-                 address        on builtin)     on MP port)      New
-                ----------     ------------    ------------     -----
-    builtin     0xff5e0000        ttyS0           ttyS1         ttyS0
-    MP UPS      0xf8031000        ttyS1           ttyS2         ttyS1
-    MP Console  0xf8030000        ttyS2           ttyS0         ttyS2
-    MP 2        0xf8030010        ttyS3           ttyS3         ttyS3
-    MP 3        0xf8030038        ttyS4           ttyS4         ttyS4
-
-  - If you want to have multiple devices in the EFI console path, you
-    can, but Linux won't be able to deduce which console to use, so it
-    will default to using VGA.  You can use "console=hcdp" (the UART
-    device from the EFI path) or "console=ttyS<n>" to select the
-    device directly.
-
-TROUBLESHOOTING:
-
-  - No kernel output after "Uncompressing Linux... done":
-
-        -> You're using an MP port as the console and specified
-           "console=ttyS0".  This port is now named something else.
-           Remove the "console=" option.
-
-        -> Multiple UARTs selected as EFI console devices, and you're
-           looking at the wrong one.  Make sure only one UART is
-           selected (use the EFI Boot Manager "Boot option maintenance"
-           menu).
-
-        -> You're physically connected to the MP port but have a
-           non-MP UART selected as EFI console device.  Either move
-           the console cable to the non-MP UART, or change the EFI
-           console path to the MP UART (the MP UART is the one with
-           "Acpi(HWP0002,700)/Pci(...)/Uart" in it.)
-
-  - Long pause (60+ seconds) between "Uncompressing Linux... done"
-    and start of kernel output:
-
-        -> No early console, probably because you used "console=ttyS<n>".
-           Remove the "console=" option.
-
-  - Kernel and init script output works fine, but no "login:" prompt:
-
-        -> Add getty entry to /etc/inittab for console tty.  Use the table
-           in (1a) above or look for the "Adding console on ttyS<n>" message
-           that tells you which device is the console.
-
-  - "login:" prompt, but can't login as root:
-
-        -> Add entry to /etc/securetty for console tty.
-
-
-[1] ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.10-rc1/2.6.10-rc1-mm2/broken-out/move-hcdp-pcdp-to-early-uart-console.patch
-
-[2] When the EFI console path contains exactly one device (either
-    serial or VGA), 2.6.6 and newer kernels default to that device
-    automatically.  So if you remove "console=" arguments, you can use
-    the same elilo configuration to boot any 2.6.6 or newer kernel
-    with or without patch [1].
-
-    If you need to boot kernels older than 2.6.6 (including RHEL3 and
-    SLES9), keep an 'append="console=ttyS0"' line in those elilo.conf
-    stanzas.
-
-    Non-HP machines will still need "console=" for serial consoles
-    because they don't supply the HCDP table.
-
-[3] The HP management card (MP) causes confusion because it is always
-    active as an EFI console, even if it doesn't appear in the EFI
-    console path.  If your console path is set to a non-MP UART, and
-    you happen to be attached to the MP UART, everything works in EFI,
-    but the kernel will think the non-MP UART is the console, so you
-    won't see any kernel output.
+	--david
