@@ -1,7 +1,7 @@
-From: Kevin Buettner <kev@primenet.com>
-Date: Fri, 03 Nov 2000 21:32:10 +0000
+From: Jim Wilson <wilson@cygnus.com>
+Date: Fri, 03 Nov 2000 21:42:57 +0000
 Subject: Re: [Linux-ia64] Re: gdb null ptr
-Message-Id: <marc-linux-ia64-105590678205651@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205652@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205647@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205647@msgid-missing>
@@ -10,43 +10,39 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Nov 3,  8:32am, Pete Wyckoff wrote:
+>...ia64-linux gdb core dumps on SGI F90 compiler output in tag_type_to_type
+>in dwarf2read.c because a NULL nameoftype is passed to strcmp...
 
-> wilson@cygnus.com said:
-> > I don't see how this can happen from looking at the source.  We only cache
-> > a type in dwarf2_cached_types if it has a DW_AT_name attribute, and if it
-> > does have such an attribute, then the type should have a name or tag name.
-> > 
-> > Can you provide me with a testcase?  A binary that I can run under gdb should
-> > be sufficient.  You could put it in ftp.cygnus.com/incoming and then mail
-> > the file name to me.
-> > 
-> > Since this doesn't appear to be an ia64 specific problem, if I don't have a
-> > testcase then I will just punt to the gdb developers
-> > 	 http://sources.redhat.com/gdb/#bugs
-> 
-> It may very well be a gdb bug.  Anyway, I put a huge executable in
-> the incoming dir as pw-gdb-bug-ex.
-> 
->     3078a3f848cba6d1f76fbfe3707b0464  pw-gdb-bug-ex
+The SGI compiler emitted debug info for an array type with the name ".array.".
+Gdb ignores DW_AT_name attributes attached to array types.  So we see the
+name, try to use the name to index into our type cache, and then fail the
+check to weed out hash collisions because we did not save the name in the
+type info.
 
-Peter,
+I see 4 ways to fix this:
+1) Handle DW_AT_name when attached to an array type.
+2) Only cache types that we expect to have names, presumably enums, structures,
+   unions, and typedefs.
+3) Check for a null string before doing the hash collision check.
+4) Use something other than the type name to check for hash collisions.
 
-Thanks for sending us this test case.
+1 doesn't solve all possible problems, since arrays may not be the only types
+with unexpected names.  2 seems like a good choice to me.  3 is inefficient,
+because we are storing a value in the cache that we will never be able to use.
+I think 4 would require changing struct type to have a pointer back to the
+original die, so that we can use a die check for the hash collision check.
+This seems like the best choice to me, though it is more work.
 
-I think this problem is arising because the dwarf2 reader had
-problems earlier on.  I.e, I see
+Unfortunately, the problem gets a little more complicated.  I looked at the
+debug info emitted by the SGI F90 compiler using readelf -w.  The type names
+it is using aren't distinct, and hence it is unsafe to use type names for the
+hash collision check.  I think there is some sort of C++ template like
+expansion going on here (I don't know F90), and instead of using mangled names
+for the expanded types it is using the base type name.  I see the same problem
+with structure type names.  This may be a problem with the SGI compiler.
+Or perhaps it is a problem with gdb not having F90 support yet.
 
-During symbol reading, non-constant array bounds form 'DW_FORM_ref4' ignored.
-During symbol reading, unsupported tag: 'DW_TAG_constant'.
+In any case, this is something the gdb developers will have to look at.
 
-My guess is that when these (at the moment) unsupported cases arise,
-the reader fails to properly initialize a name or tag name.
-
-I'll look into it some more and get back to you when I understand the
-problem better.
-
-Thanks again,
-
-Kevin
+Jim
 
