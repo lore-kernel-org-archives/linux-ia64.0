@@ -1,7 +1,7 @@
-From: "John Hawkes" <hawkes@sgi.com>
-Date: Thu, 20 Nov 2003 20:58:20 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 20 Nov 2003 21:27:20 +0000
 Subject: Re: [PATCH] - sched_clock() broken for ia64 SN platform
-Message-Id: <marc-linux-ia64-106936209405237@msgid-missing>
+Message-Id: <marc-linux-ia64-106936365907107@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106928980122896@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106928980122896@msgid-missing>
@@ -10,33 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-From: "David Mosberger" <davidm@napali.hpl.hp.com>
->   Jack Steiner> However, reading the ITC is faster & preferred if intercpu
->   Jack Steiner> drift is not an issue.
->
-> Yes.  Plus we could solve the problem once and for all, not once for
-> each drifty platform.
->
-> As I remember it, sched_clock() was originally invented to measure
-> fine-grained "how long have I run" times.  This can be done with ITC
-> without synchronization, since the start and stop "times" will be
-> measured on the same CPU.  Howver, as John points out, at the moment
-> sched_clock() is also used for migration-decisions.  My guess is that
-> this part is just due to someone trying to be overly clever.  At least
-> on drifty platforms, you can just as easily make this decision based
-> on jiffies.  All it would do is add one word to the task_struct and
-> reading both sched_clock() and jiffies when updating the timestamp(s).
+>>>>> On Thu, 20 Nov 2003 12:58:20 -0800, "John Hawkes" <hawkes@sgi.com> said:
 
-I doubt this double-count would ever be accepted by the wider Linux Community,
-as it bloats mainline arch-independent code, just to fix a problem with a
-handful of drifty platforms.
+  John> I doubt this double-count would ever be accepted by the wider
+  John> Linux Community, as it bloats mainline arch-independent code,
+  John> just to fix a problem with a handful of drifty platforms.
 
-The i386 code is uglier than my patch, as it makes NUMA platforms use the
-gross-granularity "jiffies" as the time base.  So much for any of the benefits
-in the scheduler to a high-precision task->timestamp.  At least with my ia64
-patch, it allows for a platform-specific sched_clock() that returns a
-high-precision value and doesn't appreciably add bloat.
+That's not an argument: the "bloat" can be trivially hidden for
+non-drifty architectures with an inline routine or macro.  I for one
+would be perfectly happy to pay an extra word in the ia64-version of
+task_struct if that would yield a generic and scalable solution to the
+problem.  The problem right now is that the generic kernel code is
+structured in a way that prevents this.
 
-John Hawkes
-
-
+	--david
