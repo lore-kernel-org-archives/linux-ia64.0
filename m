@@ -1,48 +1,44 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Wed, 12 Jan 2005 18:43:26 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Wed, 12 Jan 2005 19:06:00 +0000
 Subject: Re: page table lock patch V15 [0/7]: overview
-Message-Id: <20050112104326.69b99298.akpm@osdl.org>
+Message-Id: <Pine.LNX.4.58.0501121055490.11169@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
-	<Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
-	<Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
-	<Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0412011545060.5721@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0501041129030.805@schroedinger.engr.sgi.com>
-	<Pine.LNX.4.58.0501041137410.805@schroedinger.engr.sgi.com>
-	<m1652ddljp.fsf@muc.de>
-	<Pine.LNX.4.58.0501110937450.32744@schroedinger.engr.sgi.com>
-	<41E4BCBE.2010001@yahoo.com.au>
-	<20050112014235.7095dcf4.akpm@osdl.org>
-	<Pine.LNX.4.58.0501120833060.10380@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0501120833060.10380@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412011545060.5721@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0501041129030.805@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0501041137410.805@schroedinger.engr.sgi.com> <m1652ddljp.fsf@muc.de>
+ <Pine.LNX.4.58.0501110937450.32744@schroedinger.engr.sgi.com>
+ <41E4BCBE.2010001@yahoo.com.au> <20050112014235.7095dcf4.akpm@osdl.org>
+ <Pine.LNX.4.58.0501120833060.10380@schroedinger.engr.sgi.com>
+ <20050112104326.69b99298.akpm@osdl.org>
+In-Reply-To: <20050112104326.69b99298.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@sgi.com>
+To: Andrew Morton <akpm@osdl.org>
 Cc: nickpiggin@yahoo.com.au, torvalds@osdl.org, ak@muc.de, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 
-Christoph Lameter <clameter@sgi.com> wrote:
->
-> > Do we have measurements of the negative and/or positive impact on smaller
->  > machines?
-> 
->  Here is a measurement of 256M allocation on a 2 way SMP machine 2x
->  PIII-500Mhz:
-> 
->   Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
->    0  10    1    0.005s      0.016s   0.002s 54357.280  52261.895
->    0  10    2    0.008s      0.019s   0.002s 43112.368  42463.566
-> 
->  With patch:
-> 
->   Gb Rep Threads   User      System     Wall flt/cpu/s fault/wsec
->    0  10    1    0.005s      0.016s   0.002s 54357.280  53439.357
->    0  10    2    0.008s      0.018s   0.002s 44650.831  44202.412
-> 
->  So only a very minor improvements for old machines (this one from ~ 98).
+On Wed, 12 Jan 2005, Andrew Morton wrote:
 
-OK.  But have you written a test to demonstrate any performance
-regressions?  From, say, the use of atomic ops on ptes?
+> >  So only a very minor improvements for old machines (this one from ~ 98).
+>
+> OK.  But have you written a test to demonstrate any performance
+> regressions?  From, say, the use of atomic ops on ptes?
+
+If I knew of any regressions, I would certain try to deal with them. The
+test is written to check for concurrent page fault performance and it has
+repeatedly helped me to find problems with page faults. I have used it for
+a couple of other patchsets too. If the patch would be available in mm
+then it certainly would get more exposure and it may become clear that
+there are some regressions.
+
+Introduction of the cmpxchg is one atomic operations that replaces the two
+spinlock ops typically necessary in an unpatched kernel. Obtaining the
+spinlock requires an spinlock (which is an atomic operation) and then the
+release involves a barrier. So there is a net win for all SMP cases as far
+as I can see.
