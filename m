@@ -1,326 +1,305 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 15 Mar 2005 19:33:55 +0000
-Subject: [Patch 1/3] Reclaim pmd and pte tables to quicklists.
-Message-Id: <20050315193355.GB25617@lnx-holt.americas.sgi.com>
+From: dann frazier <dannf@hp.com>
+Date: Mon, 14 Mar 2005 01:57:47 +0000
+Subject: [PATCH] fix generic non-SMP builds
+Message-Id: <1110765467.10208.9.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050302183918.GB16517@lnx-holt.americas.sgi.com>
-In-Reply-To: <20050302183918.GB16517@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tony,
+Here is a forward port of Jesse Barnes' fixes for generic, non-SMP
+builds to today's linux-ia64-test-2.6.12 tree.  I built & booted both
+SMP & non-SMP versions on a zx1 box.
 
-This patch introduces using the quicklists for pgd, pmd, and pte levels
-by combining the alloc and free functions into a common set of routines.
-This greatly simplifies the reading of this header file.
+Signed-off-by: dann frazier <dannf@hp.com> 
 
-I ran a full lmbench benchmark before and after this change and did not
-see a significant change in performance on most things.  There is, however
-a marked difference for the lat_proc fork+exit and fork+execve runs.
-
-Signed-off-by: Robin Holt <holt@sgi.com>
-
-
-Before:
-Process fork+exit: 249.8571 microseconds
-Process fork+execve: 840.8333 microseconds
-Process fork+/bin/sh -c: 3322.0000 microseconds
-
-After:
-Process fork+exit: 186.7037 microseconds
-Process fork+execve: 699.0000 microseconds
-Process fork+/bin/sh -c: 2960.0000 microseconds
-
- arch/ia64/mm/contig.c        |    3
- arch/ia64/mm/discontig.c     |    3
- arch/ia64/mm/init.c          |   16 +++-
- include/asm-ia64/pgalloc.h   |  141 ++++++++++++++++--------------------------- include/asm-ia64/processor.h |    3
- 5 files changed, 69 insertions(+), 97 deletions(-)
-
-Index: linux-2.6/arch/ia64/mm/discontig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/discontig.c	2005-03-14 15:28:36.858765952 -0600
-+++ linux-2.6/arch/ia64/mm/discontig.c	2005-03-14 15:28:51.543175549 -0600
-@@ -582,7 +582,8 @@
- 	printk("%d reserved pages\n", total_reserved);
- 	printk("%d pages shared\n", total_shared);
- 	printk("%d pages swap cached\n", total_cached);
--	printk("Total of %ld pages in page table cache\n", pgtable_cache_size);
-+	printk("Total of %ld pages in page table cache\n",
-+		pgtable_quicklist_total_size());
- 	printk("%d free buffer pages\n", nr_free_buffer_pages());
- }
- 
-Index: linux-2.6/arch/ia64/mm/init.c
-=================================--- linux-2.6.orig/arch/ia64/mm/init.c	2005-03-14 15:28:36.858765952 -0600
-+++ linux-2.6/arch/ia64/mm/init.c	2005-03-15 11:53:08.751226566 -0600
-@@ -39,6 +39,9 @@
- 
- DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
- 
-+DEFINE_PER_CPU(unsigned long *, __pgtable_quicklist);
-+DEFINE_PER_CPU(long, __pgtable_quicklist_size);
-+
- extern void ia64_tlb_init (void);
- 
- unsigned long MAX_DMA_ADDRESS = PAGE_OFFSET + 0x100000000UL;
-@@ -64,13 +67,10 @@
- 	high = pgt_cache_water[1];
- 
- 	preempt_disable();
--	if (pgtable_cache_size > (u64) high) {
-+	if (pgtable_quicklist_size > (u64) high) {
- 		do {
--			if (pgd_quicklist)
--				free_page((unsigned long)pgd_alloc_one_fast(NULL));
--			if (pmd_quicklist)
--				free_page((unsigned long)pmd_alloc_one_fast(NULL, 0));
--		} while (pgtable_cache_size > (u64) low);
-+			free_page((unsigned long)pgtable_quicklist_alloc());
-+		} while (pgtable_quicklist_size > (u64) low);
+diff -urN linux-ia64-test-2.6.12-20050313.orig/arch/ia64/kernel/Makefile linux-ia64-test-2.6.12-20050313/arch/ia64/kernel/Makefile
+--- linux-ia64-test-2.6.12-20050313.orig/arch/ia64/kernel/Makefile	2005-03-13 02:13:58.000000000 -0700
++++ linux-ia64-test-2.6.12-20050313/arch/ia64/kernel/Makefile	2005-03-13 14:50:14.846175482 -0700
+@@ -17,6 +17,7 @@
+ obj-$(CONFIG_IOSAPIC)		+= iosapic.o
+ obj-$(CONFIG_MODULES)		+= module.o
+ obj-$(CONFIG_SMP)		+= smp.o smpboot.o domain.o
++obj-$(CONFIG_NUMA)		+= numa.o
+ obj-$(CONFIG_PERFMON)		+= perfmon_default_smpl.o
+ obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
+ obj-$(CONFIG_IA64_MCA_RECOVERY)	+= mca_recovery.o
+diff -urN linux-ia64-test-2.6.12-20050313.orig/arch/ia64/kernel/acpi.c linux-ia64-test-2.6.12-20050313/arch/ia64/kernel/acpi.c
+--- linux-ia64-test-2.6.12-20050313.orig/arch/ia64/kernel/acpi.c	2005-03-13 02:01:26.000000000 -0700
++++ linux-ia64-test-2.6.12-20050313/arch/ia64/kernel/acpi.c	2005-03-13 15:13:33.340298975 -0700
+@@ -642,9 +642,11 @@
+ 			if (smp_boot_data.cpu_phys_id[cpu] != hard_smp_processor_id())
+ 				node_cpuid[i++].phys_id = smp_boot_data.cpu_phys_id[cpu];
  	}
- 	preempt_enable();
- }
-@@ -529,6 +529,10 @@
- 	int i;
- 	static struct kcore_list kcore_mem, kcore_vmem, kcore_kernel;
- 
-+	BUG_ON(PTRS_PER_PGD * sizeof(pgd_t) != PAGE_SIZE);
-+	BUG_ON(PTRS_PER_PMD * sizeof(pmd_t) != PAGE_SIZE);
-+	BUG_ON(PTRS_PER_PTE * sizeof(pte_t) != PAGE_SIZE);
+-	build_cpu_to_node_map();
+ # endif
+ #endif
++#ifdef CONFIG_ACPI_NUMA
++	build_cpu_to_node_map();
++#endif
+ 	/* Make boot-up look pretty */
+ 	printk(KERN_INFO "%d CPUs available, %d CPUs total\n", available_cpus, total_cpus);
+ 	return 0;
+diff -urN linux-ia64-test-2.6.12-20050313.orig/arch/ia64/kernel/numa.c linux-ia64-test-2.6.12-20050313/arch/ia64/kernel/numa.c
+--- linux-ia64-test-2.6.12-20050313.orig/arch/ia64/kernel/numa.c	1969-12-31 17:00:00.000000000 -0700
++++ linux-ia64-test-2.6.12-20050313/arch/ia64/kernel/numa.c	2005-03-13 15:13:09.472135205 -0700
+@@ -0,0 +1,57 @@
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ *
++ * ia64 kernel NUMA specific stuff
++ *
++ * Copyright (C) 2002 Erich Focht <efocht@ess.nec.de>
++ * Copyright (C) 2004 Silicon Graphics, Inc.
++ *   Jesse Barnes <jbarnes@sgi.com>
++ */
++#include <linux/config.h>
++#include <linux/topology.h>
++#include <linux/module.h>
++#include <asm/processor.h>
++#include <asm/smp.h>
 +
- #ifdef CONFIG_PCI
- 	/*
- 	 * This needs to be called _after_ the command line has been parsed but _before_
-Index: linux-2.6/include/asm-ia64/pgalloc.h
-=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-14 15:28:36.859742504 -0600
-+++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-15 11:53:13.456256641 -0600
-@@ -23,146 +23,115 @@
- #include <asm/mmu_context.h>
- #include <asm/processor.h>
- 
--/*
-- * Very stupidly, we used to get new pgd's and pmd's, init their contents
-- * to point to the NULL versions of the next level page table, later on
-- * completely re-init them the same way, then free them up.  This wasted
-- * a lot of work and caused unnecessary memory traffic.  How broken...
-- * We fix this by caching them.
-- */
--#define pgd_quicklist		(local_cpu_data->pgd_quick)
--#define pmd_quicklist		(local_cpu_data->pmd_quick)
--#define pgtable_cache_size	(local_cpu_data->pgtable_cache_sz)
-+DECLARE_PER_CPU(unsigned long *, __pgtable_quicklist);
-+#define pgtable_quicklist __ia64_per_cpu_var(__pgtable_quicklist)
-+DECLARE_PER_CPU(long, __pgtable_quicklist_size);
-+#define pgtable_quicklist_size __ia64_per_cpu_var(__pgtable_quicklist_size)
- 
--static inline pgd_t*
--pgd_alloc_one_fast (struct mm_struct *mm)
-+static inline long pgtable_quicklist_total_size(void)
++u8 cpu_to_node_map[NR_CPUS] __cacheline_aligned;
++EXPORT_SYMBOL(cpu_to_node_map);
++
++cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
++
++/**
++ * build_cpu_to_node_map - setup cpu to node and node to cpumask arrays
++ *
++ * Build cpu to node mapping and initialize the per node cpu masks using
++ * info from the node_cpuid array handed to us by ACPI.
++ */
++void __init build_cpu_to_node_map(void)
 +{
-+	long ql_size;
-+	int cpuid;
++	int cpu, i, node;
 +
-+	for_each_online_cpu(cpuid) {
-+		ql_size += per_cpu(__pgtable_quicklist_size, cpuid);
++	for(node=0; node < MAX_NUMNODES; node++)
++		cpus_clear(node_to_cpu_mask[node]);
++
++	for(cpu = 0; cpu < NR_CPUS; ++cpu) {
++		node = -1;
++		for (i = 0; i < NR_CPUS; ++i)
++			if (cpu_physical_id(cpu) = node_cpuid[i].phys_id) {
++				node = node_cpuid[i].nid;
++				break;
++			}
++		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
++		if (node >= 0)
++			cpu_set(cpu, node_to_cpu_mask[node]);
 +	}
-+	return ql_size;
 +}
-+
-+static inline void *pgtable_quicklist_alloc(void)
- {
- 	unsigned long *ret = NULL;
+diff -urN linux-ia64-test-2.6.12-20050313.orig/arch/ia64/kernel/smpboot.c linux-ia64-test-2.6.12-20050313/arch/ia64/kernel/smpboot.c
+--- linux-ia64-test-2.6.12-20050313.orig/arch/ia64/kernel/smpboot.c	2005-03-13 01:55:51.000000000 -0700
++++ linux-ia64-test-2.6.12-20050313/arch/ia64/kernel/smpboot.c	2005-03-13 15:00:51.576636432 -0700
+@@ -520,47 +520,6 @@
+ 	}
+ }
  
- 	preempt_disable();
- 
--	ret = pgd_quicklist;
-+	ret = pgtable_quicklist;
- 	if (likely(ret != NULL)) {
--		pgd_quicklist = (unsigned long *)(*ret);
-+		pgtable_quicklist = (unsigned long *)(*ret);
- 		ret[0] = 0;
--		--pgtable_cache_size;
--	} else
--		ret = NULL;
-+		--pgtable_quicklist_size;
-+	} else {
-+		ret = (unsigned long *)__get_free_page(GFP_KERNEL | __GFP_ZERO);
-+	}
- 
- 	preempt_enable();
- 
--	return (pgd_t *) ret;
+-#ifdef CONFIG_NUMA
+-
+-/* on which node is each logical CPU (one cacheline even for 64 CPUs) */
+-u8 cpu_to_node_map[NR_CPUS] __cacheline_aligned;
+-EXPORT_SYMBOL(cpu_to_node_map);
+-/* which logical CPUs are on which nodes */
+-cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
+-
+-/*
+- * Build cpu to node mapping and initialize the per node cpu masks.
+- */
+-void __init
+-build_cpu_to_node_map (void)
+-{
+-	int cpu, i, node;
+-
+-	for(node=0; node<MAX_NUMNODES; node++)
+-		cpus_clear(node_to_cpu_mask[node]);
+-	for(cpu = 0; cpu < NR_CPUS; ++cpu) {
+-		/*
+-		 * All Itanium NUMA platforms I know use ACPI, so maybe we
+-		 * can drop this ifdef completely.                    [EF]
+-		 */
+-#ifdef CONFIG_ACPI_NUMA
+-		node = -1;
+-		for (i = 0; i < NR_CPUS; ++i)
+-			if (cpu_physical_id(cpu) = node_cpuid[i].phys_id) {
+-				node = node_cpuid[i].nid;
+-				break;
+-			}
+-#else
+-#		error Fixme: Dunno how to build CPU-to-node map.
+-#endif
+-		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
+-		if (node >= 0)
+-			cpu_set(cpu, node_to_cpu_mask[node]);
+-	}
 -}
 -
--static inline pgd_t*
--pgd_alloc (struct mm_struct *mm)
--{
--	/* the VM system never calls pgd_alloc_one_fast(), so we do it here. */
--	pgd_t *pgd = pgd_alloc_one_fast(mm);
+-#endif /* CONFIG_NUMA */
 -
--	if (unlikely(pgd = NULL)) {
--		pgd = (pgd_t *)__get_free_page(GFP_KERNEL|__GFP_ZERO);
--	}
--	return pgd;
-+	return ret;
+ /*
+  * Cycle through the APs sending Wakeup IPIs to boot each.
+  */
+diff -urN linux-ia64-test-2.6.12-20050313.orig/arch/ia64/mm/discontig.c linux-ia64-test-2.6.12-20050313/arch/ia64/mm/discontig.c
+--- linux-ia64-test-2.6.12-20050313.orig/arch/ia64/mm/discontig.c	2005-03-13 02:10:32.000000000 -0700
++++ linux-ia64-test-2.6.12-20050313/arch/ia64/mm/discontig.c	2005-03-13 15:13:24.740689706 -0700
+@@ -274,6 +274,33 @@
  }
  
--static inline void
--pgd_free (pgd_t *pgd)
-+static inline void pgtable_quicklist_free(void *pgtable_entry)
- {
- 	preempt_disable();
--	*(unsigned long *)pgd = (unsigned long) pgd_quicklist;
--	pgd_quicklist = (unsigned long *) pgd;
--	++pgtable_cache_size;
-+	*(unsigned long *)pgtable_entry = (unsigned long)pgtable_quicklist;
-+	pgtable_quicklist = (unsigned long *)pgtable_entry;
-+	++pgtable_quicklist_size;
- 	preempt_enable();
- }
- 
--static inline void
--pud_populate (struct mm_struct *mm, pud_t *pud_entry, pmd_t *pmd)
-+static inline pgd_t *pgd_alloc(struct mm_struct *mm)
- {
--	pud_val(*pud_entry) = __pa(pmd);
-+	return pgtable_quicklist_alloc();
- }
- 
--static inline pmd_t*
--pmd_alloc_one_fast (struct mm_struct *mm, unsigned long addr)
-+static inline void pgd_free(pgd_t * pgd)
- {
--	unsigned long *ret = NULL;
--
--	preempt_disable();
--
--	ret = (unsigned long *)pmd_quicklist;
--	if (likely(ret != NULL)) {
--		pmd_quicklist = (unsigned long *)(*ret);
--		ret[0] = 0;
--		--pgtable_cache_size;
--	}
--
--	preempt_enable();
--
--	return (pmd_t *)ret;
-+	pgtable_quicklist_free(pgd);
- }
- 
--static inline pmd_t*
--pmd_alloc_one (struct mm_struct *mm, unsigned long addr)
-+static inline void
-+pud_populate(struct mm_struct *mm, pud_t * pud_entry, pmd_t * pmd)
- {
--	pmd_t *pmd = (pmd_t *)__get_free_page(GFP_KERNEL|__GFP_REPEAT|__GFP_ZERO);
-+	pud_val(*pud_entry) = __pa(pmd);
-+}
- 
--	return pmd;
-+static inline pmd_t *pmd_alloc_one(struct mm_struct *mm, unsigned long addr)
+ /**
++ * per_cpu_node_setup - setup per-cpu areas on each node
++ * @cpu_data: per-cpu area on this node
++ * @node: node to setup
++ *
++ * Copy the static per-cpu data into the region we just set aside and then
++ * setup __per_cpu_offset for each CPU on this node.  Return a pointer to
++ * the end of the area.
++ */
++static void *per_cpu_node_setup(void *cpu_data, int node)
 +{
-+	return pgtable_quicklist_alloc();
- }
- 
--static inline void
--pmd_free (pmd_t *pmd)
-+static inline void pmd_free(pmd_t * pmd)
++#ifdef CONFIG_SMP
++	int cpu;
++
++	for (cpu = 0; cpu < NR_CPUS; cpu++) {
++		if (node = node_cpuid[cpu].nid) {
++			memcpy(__va(cpu_data), __phys_per_cpu_start,
++			       __per_cpu_end - __per_cpu_start);
++			__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
++				__per_cpu_start;
++			cpu_data += PERCPU_PAGE_SIZE;
++		}
++	}
++#endif
++	return cpu_data;
++}
++
++/**
+  * find_pernode_space - allocate memory for memory map and per-node structures
+  * @start: physical start of range
+  * @len: length of range
+@@ -304,7 +331,7 @@
+ static int __init find_pernode_space(unsigned long start, unsigned long len,
+ 				     int node)
  {
--	preempt_disable();
--	*(unsigned long *)pmd = (unsigned long) pmd_quicklist;
--	pmd_quicklist = (unsigned long *) pmd;
--	++pgtable_cache_size;
--	preempt_enable();
-+	pgtable_quicklist_free(pmd);
- }
+-	unsigned long epfn, cpu, cpus, phys_cpus;
++	unsigned long epfn, cpus, phys_cpus;
+ 	unsigned long pernodesize = 0, pernode, pages, mapsize;
+ 	void *cpu_data;
+ 	struct bootmem_data *bdp = &mem_data[node].bootmem_data;
+@@ -357,20 +384,7 @@
+ 		mem_data[node].pgdat->bdata = bdp;
+ 		pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
  
- #define __pmd_free_tlb(tlb, pmd)	pmd_free(pmd)
+-		/*
+-		 * Copy the static per-cpu data into the region we
+-		 * just set aside and then setup __per_cpu_offset
+-		 * for each CPU on this node.
+-		 */
+-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
+-			if (node = node_cpuid[cpu].nid) {
+-				memcpy(__va(cpu_data), __phys_per_cpu_start,
+-				       __per_cpu_end - __per_cpu_start);
+-				__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
+-					__per_cpu_start;
+-				cpu_data += PERCPU_PAGE_SIZE;
+-			}
+-		}
++		cpu_data = per_cpu_node_setup(cpu_data, node);
+ 	}
  
- static inline void
--pmd_populate (struct mm_struct *mm, pmd_t *pmd_entry, struct page *pte)
-+pmd_populate(struct mm_struct *mm, pmd_t * pmd_entry, struct page *pte)
+ 	return 0;
+@@ -436,8 +450,8 @@
+  */
+ static void __init initialize_pernode_data(void)
  {
- 	pmd_val(*pmd_entry) = page_to_phys(pte);
- }
+-	int cpu, node;
+ 	pg_data_t *pgdat_list[MAX_NUMNODES];
++	int cpu, node;
  
- static inline void
--pmd_populate_kernel (struct mm_struct *mm, pmd_t *pmd_entry, pte_t *pte)
-+pmd_populate_kernel(struct mm_struct *mm, pmd_t * pmd_entry, pte_t * pte)
- {
- 	pmd_val(*pmd_entry) = __pa(pte);
- }
- 
--static inline struct page *
--pte_alloc_one (struct mm_struct *mm, unsigned long addr)
-+static inline struct page *pte_alloc_one(struct mm_struct *mm,
-+					 unsigned long addr)
- {
--	struct page *pte = alloc_pages(GFP_KERNEL|__GFP_REPEAT|__GFP_ZERO, 0);
+ 	for_each_online_node(node)
+ 		pgdat_list[node] = mem_data[node].pgdat;
+@@ -447,12 +461,22 @@
+ 		memcpy(mem_data[node].node_data->pg_data_ptrs, pgdat_list,
+ 		       sizeof(pgdat_list));
+ 	}
 -
--	return pte;
-+	return virt_to_page(pgtable_quicklist_alloc());
++#ifdef CONFIG_SMP
+ 	/* Set the node_data pointer for each per-cpu struct */
+ 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+ 		node = node_cpuid[cpu].nid;
+ 		per_cpu(cpu_info, cpu).node_data = mem_data[node].node_data;
+ 	}
++#else
++	{
++		struct cpuinfo_ia64 *cpu0_cpu_info;
++		cpu = 0;
++		node = node_cpuid[cpu].nid;
++		cpu0_cpu_info = (struct cpuinfo_ia64 *)(__phys_per_cpu_start +
++			((char *)&per_cpu__cpu_info - __per_cpu_start));
++		cpu0_cpu_info->node_data = mem_data[node].node_data;
++	}
++#endif /* CONFIG_SMP */
  }
  
--static inline pte_t *
--pte_alloc_one_kernel (struct mm_struct *mm, unsigned long addr)
-+static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm,
-+					  unsigned long addr)
+ /**
+@@ -519,6 +543,7 @@
+ 	find_initrd();
+ }
+ 
++#ifdef CONFIG_SMP
+ /**
+  * per_cpu_init - setup per-cpu variables
+  *
+@@ -529,15 +554,15 @@
  {
--	pte_t *pte = (pte_t *)__get_free_page(GFP_KERNEL|__GFP_REPEAT|__GFP_ZERO);
+ 	int cpu;
+ 
+-	if (smp_processor_id() = 0) {
+-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
+-			per_cpu(local_per_cpu_offset, cpu) -				__per_cpu_offset[cpu];
+-		}
+-	}
++	if (smp_processor_id() != 0)
++		return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
++
++	for (cpu = 0; cpu < NR_CPUS; cpu++)
++		per_cpu(local_per_cpu_offset, cpu) = __per_cpu_offset[cpu];
+ 
+ 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
+ }
++#endif /* CONFIG_SMP */
+ 
+ /**
+  * show_mem - give short summary of memory stats
+diff -urN linux-ia64-test-2.6.12-20050313.orig/include/asm-ia64/sn/sn_cpuid.h linux-ia64-test-2.6.12-20050313/include/asm-ia64/sn/sn_cpuid.h
+--- linux-ia64-test-2.6.12-20050313.orig/include/asm-ia64/sn/sn_cpuid.h	2005-03-13 01:53:39.000000000 -0700
++++ linux-ia64-test-2.6.12-20050313/include/asm-ia64/sn/sn_cpuid.h	2005-03-13 15:00:42.341284983 -0700
+@@ -81,11 +81,6 @@
+  *
+  */
+ 
+-#ifndef CONFIG_SMP
+-#define cpu_physical_id(cpuid)			((ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff)
+-#endif
 -
--	return pte;
-+	return pgtable_quicklist_alloc();
- }
+-
+ #define get_node_number(addr)			NASID_GET(addr)
  
--static inline void
--pte_free (struct page *pte)
-+static inline void pte_free(struct page *pte)
- {
--	__free_page(pte);
-+	pgtable_quicklist_free(page_address(pte));
- }
- 
--static inline void
--pte_free_kernel (pte_t *pte)
-+static inline void pte_free_kernel(pte_t * pte)
- {
--	free_page((unsigned long) pte);
-+	pgtable_quicklist_free(pte);
- }
- 
--#define __pte_free_tlb(tlb, pte)	tlb_remove_page((tlb), (pte))
-+#define __pte_free_tlb(tlb, pte)	pte_free(pte)
- 
--extern void check_pgt_cache (void);
-+extern void check_pgt_cache(void);
- 
--#endif /* _ASM_IA64_PGALLOC_H */
-+#endif				/* _ASM_IA64_PGALLOC_H */
-Index: linux-2.6/include/asm-ia64/processor.h
-=================================--- linux-2.6.orig/include/asm-ia64/processor.h	2005-03-14 15:28:36.860719056 -0600
-+++ linux-2.6/include/asm-ia64/processor.h	2005-03-14 15:28:51.548058308 -0600
-@@ -145,9 +145,6 @@
- 	__u64 nsec_per_cyc;	/* (1000000000<<IA64_NSEC_PER_CYC_SHIFT)/itc_freq */
- 	__u64 unimpl_va_mask;	/* mask of unimplemented virtual address bits (from PAL) */
- 	__u64 unimpl_pa_mask;	/* mask of unimplemented physical address bits (from PAL) */
--	__u64 *pgd_quick;
--	__u64 *pmd_quick;
--	__u64 pgtable_cache_sz;
- 	__u64 itc_freq;		/* frequency of ITC counter */
- 	__u64 proc_freq;	/* frequency of processor */
- 	__u64 cyc_per_usec;	/* itc_freq/1000000 */
-Index: linux-2.6/arch/ia64/mm/contig.c
-=================================--- linux-2.6.orig/arch/ia64/mm/contig.c	2005-03-14 15:28:36.859742504 -0600
-+++ linux-2.6/arch/ia64/mm/contig.c	2005-03-14 15:28:51.548058308 -0600
-@@ -61,7 +61,8 @@
- 	printk("%d reserved pages\n", reserved);
- 	printk("%d pages shared\n", shared);
- 	printk("%d pages swap cached\n", cached);
--	printk("%ld pages in page table cache\n", pgtable_cache_size);
-+	printk("%ld pages in page table cache\n",
-+		pgtable_quicklist_total_size());
- }
- 
- /* physical address where the bootmem map is located */
+ /*
+
+-- 
+dann frazier <dannf@hp.com>
+
