@@ -1,77 +1,47 @@
-From: Einar Saltnes <eisa@scali.no>
-Date: Fri, 13 Oct 2000 09:55:10 +0000
-Subject: [Linux-ia64] clock stops on test9
-Message-Id: <marc-linux-ia64-105590678205567@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 13 Oct 2000 16:26:41 +0000
+Subject: Re: [Linux-ia64] clock stops on test9
+Message-Id: <marc-linux-ia64-105590678205568@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205567@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205567@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
-I have upgraded a dual Itanium Workstation SDV from A3-stepping/BIOS 50
-to B1-stepping/BIOS 60. After getting the upgraded box up and running
-stable (had to decrease the FSB speed or move memory as pointed out by
-Intel), I had some hard time trying to get linux up and run.
-RedHat developer distro 0825 did not install. When taking out one cpu I
-could get some further in the installation from the CD, but not finish
-it successfully.
-To install a newer kernel, I had to swap the disk to my UP Itanium
-Workstation SDV A2-stepping/BIOS 50 which has been running stable, more
-or less, on the 0829 kernel update from RedHat. Then compile a new
-kernel
-and swap disks again.
-I am now running the test9 kernel on the dual B1-stepping Itanium and it
-seems to run stable, more or less. I have also installed
-modutils-2.3.17, which was pointed out on this list.
+>>>>> On Fri, 13 Oct 2000 11:55:10 +0200, Einar Saltnes <eisa@scali.no> said:
 
-However, there are some problems with the system clock. The BIOS clock
-seems to run OK, but in linux the clock seems to stop after some random
-time. When using "date", time stands still after some random time! This
-gives me some trouble using other utilities e.g. ping and even shutdown.
-This shows only on the dual B1-stepping box and not the UP A2-stepping
-box. It can run OK for a few minutes or for some hours.
-Anyone got a clue?
+  Einar> However, there are some problems with the system clock. The
+  Einar> BIOS clock seems to run OK, but in linux the clock seems to
+  Einar> stop after some random time. When using "date", time stands
+  Einar> still after some random time! This gives me some trouble
+  Einar> using other utilities e.g. ping and even shutdown.  This
+  Einar> shows only on the dual B1-stepping box and not the UP
+  Einar> A2-stepping box. It can run OK for a few minutes or for some
+  Einar> hours.  Anyone got a clue?
 
-Which configuration settings should I use regarding the A-stepping /
-A1-stepping / B-stepping / B1-stepping settings in menuconfig for my two
-Itanium boxes (see below)?
-What about the settings if I change back to Dual A3-stepping / BIOS 50 ?
-(So far I have been looking at H.J.Lu's settings which was posted on Sep
-08)
+Doesn't sound familiar.  It's very unlikely to be a hardware problem
+because the kernel's timer tick runs off the CPU cycle counter.  Where
+did you get the test9 kernel from and what version of the toolchain
+was used to compile it?
 
+  Einar> Which configuration settings should I use regarding the
+  Einar> A-stepping / A1-stepping / B-stepping / B1-stepping settings
+  Einar> in menuconfig for my two Itanium boxes (see below)?  What
+  Einar> about the settings if I change back to Dual A3-stepping /
+  Einar> BIOS 50 ?  (So far I have been looking at H.J.Lu's settings
+  Einar> which was posted on Sep 08)
 
-Workstation SDV #1:
-- UP A2-stepping
-- Bios 50
-- 1GB memory
-- QLA1280 scsi-adapter
-- SCSI-disk
-- LS-120 floppy drive
-- IDE CD-ROM
-- ATI Rage128 PCI graphics adapter
-- linux-2.4.0-test9 UP configuration
+For A2, turn on the A-step workarounds and nothing else.
+For B1, turn on the B-step workarounds and nothing else.
 
-Workstation SDV #2:
-- Dual B1-stepping
-- BIOS 60
-- 1GB memory
-- QLA1280 scsi-adapter
-- SCSI-disk
-- LS-120 floppy drive
-- IDE CD-ROM
-- ATI Rage128 PCI graphics adapter
-- linux-2.4.0-test9 SMP configuration
+  Einar> BTW, when talking about BigSurs and Lions how can I tell them
+  Einar> apart? It would be nice to know when something on this list
+  Einar> applies to my Itanium boxes.
 
-BTW, when talking about BigSurs and Lions how can I tell them apart? It
-would be nice to know when something on this list applies to my Itanium
-boxes.
+That's real easy: if it's rackmounted, it's a Lion, if it's in a
+deskside case, it's a Big Sur.
 
-Thanks,
-Einar
--- 
-| Einar Saltnes          |         Scali AS         |
-| mailto:eisa@scali.no   |   http://www.scali.com   |
-| Phone:+47 22 62 89 50  |  Scalable Linux Systems  |
-| Fax  :+47 22 62 89 51  |      and Technology      |
+	--david
 
