@@ -1,51 +1,32 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Wed, 28 Jan 2004 18:20:03 +0000
+From: Andi Kleen <ak@suse.de>
+Date: Wed, 28 Jan 2004 19:19:22 +0000
 Subject: Re: [RFC/PATCH, 2/4] readX_check() performance evaluation
-Message-Id: <20040128182003.GL11844@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <20040128201922.2dc7bec7.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <00a301c3e541$c13a6350$2987110a@lsd.css.fujitsu.com> <Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
-In-Reply-To: <Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
+References: <00a301c3e541$c13a6350$2987110a@lsd.css.fujitsu.com>
+	<Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
+	<20040128182003.GL11844@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040128182003.GL11844@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@osdl.org>
-Cc: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>, linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
+To: Matthew Wilcox <willy@debian.org>
+Cc: torvalds@osdl.org, ishii.hironobu@jp.fujitsu.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Tue, Jan 27, 2004 at 06:55:17PM -0800, Linus Torvalds wrote:
-> Quite frankly, I'd much rather have something more like this:
-> 
-> 	clear_pcix_errors(dev);
-> 	..
-> 	x = readX_check(dev, offset);	/* Maybe several ones, maybe in a loop */
-> 	..
-> 	error = read_pcix_errors(dev);
-> 	if (error)
-> 		take_pcix_offline(dev);
-> 
-> in other words, I'd rather _not_ see the "readX_check()" code itself have 
-> the retry logic and error value handling.
-> 
-> Why? Because on a number of architectures it is entirely possible that the 
-> error comes as a _asynchronous_ machine exception or similar. So I'd much 
-> rather have the interfaces be designed for that. Also, it's likely to 
-> perform a lot better, and result in much clearer code this way (ie you can 
-> try to set up the whole command before reading the error just once).
+On Wed, 28 Jan 2004 18:20:03 +0000
+Matthew Wilcox <willy@debian.org> wrote:
 
-Well, read() is a bad example for that -- errors are always going
-to come back straight away for a read.  write() is a better example.
-I'd really like to hear from someone who's done this kind of thing before.
-Are there any actions worth taking when an error occurs *other* than
-taking the card offline and notifying the user?
 
-If there are, Linus' interface is probably the best one.  If not, we could
-simply have readX_check() / writeX_check() call dev->driver->unregister()
-if they notice an error has occurred and then the driver doesn't even
-need to call read_pcix_errors().
+> If there are, Linus' interface is probably the best one.  If not, we could
+> simply have readX_check() / writeX_check() call dev->driver->unregister()
+> if they notice an error has occurred and then the driver doesn't even
+> need to call read_pcix_errors().
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+It just won't really work for platforms with inexact MCEs for IO errors.
+And even for those with exact MCEs it would probably be a nightmare
+to implement (writing MCE handlers is extremly hard because you cannot
+rely on any locking guarantees - even a printk can randomly deadlock)
+
+For those the per pci_dev callback is the only realistic way.
+
+-Andi
