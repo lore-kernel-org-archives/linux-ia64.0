@@ -1,37 +1,23 @@
-From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
-Date: Fri, 25 May 2001 22:54:05 +0000
-Subject: [Linux-ia64] Porting Status
-Message-Id: <marc-linux-ia64-105590693005669@msgid-missing>
+From: Jack Carter <jcarter@johmar.engr.sgi.com>
+Date: Wed, 02 May 2001 17:01:29 +0000
+Subject: [Linux-ia64] ld --relax should be on by default
+Message-Id: <marc-linux-ia64-105590693005510@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Users of our IA64 compiler which uses the Cygnus/GNU
+linker keep hitting a link overflow problem which is
+fixed by using --relax.
 
-Is there anybody who can let us know the status of the following Linux tools
-for Itanium:
+Why is this not on by default?
 
-1. PHP
-2. MySQL
-3. PostgreSQL
-4. SAMBA
+At a very minimum the linker should itself suggest
+using the option when the overflow occurs.
 
-Please let us know ASAP.
+Thanks,
 
-Regards,
-
--- Shameem
-
-Shameem Akhter
-Platform & Technology Enabling
-Solution Enabling Group
-Telephone: (503) 264-1644 (O)
-                      (503) 970-3112 (C)
-
-If you would like to join "Intel Software Community" (ISC), please visit
-http://msllinux.dp.intel.com/mailman/listinfo/isc
-
-
+Jack Carter jcarter@sgi.com
 
