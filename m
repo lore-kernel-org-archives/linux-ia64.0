@@ -1,73 +1,55 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Fri, 04 Apr 2003 14:56:08 +0000
-Subject: [Linux-ia64] Re: spin_unlock() problem
-Message-Id: <marc-linux-ia64-105590723705419@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Thu, 17 Apr 2003 17:54:15 +0000
+Subject: [Linux-ia64] [PATCH] 1/3 sba_iommu workaround removal
+Message-Id: <marc-linux-ia64-105590723705533@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> 
-> Hi,
-> 
-> I have been tracing a problem with tty->count hitting an unidenfied
-> state and I am starting to ponder if our current spin_unlock()
-> implementation is sufficient.
-> 
-> Currently the spin_unlock() implementation looks like this:
-> 
-> #define spin_unlock(x)		do { barrier(); ((spinlock_t *) x)->lock = 0;} while (0)
-> 
-> barrier() doesn't guarantee memory ordering, in other words, we are not
-> guaranteed that writes have been flushed to physical memory on exit. Now
-> Jesse pointed out to me that spin_lock() uses aquire semantics which
-> should take care of this, however this is only the case if the other CPU
-> grabs a spin lock before reading the variable we wrote while holding the
-> lock.
-> 
-> Consider the following example:
-> 
-> cpu1()
-> {
->    spin_lock(&bleh);
->    *a = foo;
->    *b = bar;
->    spin_unlock(&bleh);
-> }
-> 
-> cpu2()
-> {
->    if (*b = bar)
->       boink(*a);
-> }
-> 
-> With our weak memory ordering, b might have been written back to memory
-> while a still hasn't made it out. Or am I missing something here?
+These patches are for 2.5 (against the to-linus-2.5 BK tree).
 
-I think IA64 is ok.
+This removes a workaround for some broken firmware that was
+never released.
 
-spinlock_t defines "lock" as volatile. On IA64, all references to volatile are required
-to use loads/stores with acquire/release semantics. gcc ensures this.
-
-The barrier() statement prevents compiler optimizations. The st.rel [lock]=0
-clears the lock. The "st.rel" ensure that all previously issued stores have reached
-visibilty in the coherency domain before the lock is cleared.
-
-
-> 
-> The question is, shouldn't our spin_unlock() implementation call wmb()
-> instead of barrier()? I noticed Alpha calls mb() in their spin_unlock()
-> implementation.
-> 
-> Cheers,
-> Jes
-> 
-
-
--- 
-Thanks
-
-Jack Steiner    (651-683-5302)   (vnet 233-5302)      steiner@sgi.com
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1052  -> 1.1053 
+#	arch/ia64/hp/common/sba_iommu.c	1.13    -> 1.14   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/04/17	bjorn_helgaas@hp.com	1.1053
+# ia64: sba_iommu: remove workarounds for broken, never released, firmware that
+# didn't program IBASE/IMASK correctly.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/hp/common/sba_iommu.c b/arch/ia64/hp/common/sba_iommu.c
+--- a/arch/ia64/hp/common/sba_iommu.c	Thu Apr 17 11:29:32 2003
++++ b/arch/ia64/hp/common/sba_iommu.c	Thu Apr 17 11:29:32 2003
+@@ -1430,20 +1430,6 @@
+ 	ioc->ibase = READ_REG(ioc->ioc_hpa + IOC_IBASE) & ~0x1UL;
+ 	ioc->iov_size = ~(READ_REG(ioc->ioc_hpa + IOC_IMASK) & 0xFFFFFFFFUL) + 1;
+ 
+-	if (ioc->ibase = 0) {
+-		if (((unsigned long) ioc->ioc_hpa & 0x3000UL) = 0x2000)
+-			ioc->ibase = 0xc0000000;
+-		else
+-			ioc->ibase = 0x80000000;
+-		printk("WARNING: IBASE is zero; setting to 0x%lx\n", ioc->ibase);
+-	}
+-
+-	if (ioc->ibase < 0xfed00000UL && ioc->ibase + ioc->iov_size >= 0xfee00000UL) {
+-		printk("WARNING: IOV space overlaps local config and interrupt message, "
+-		       "truncating\n");
+-		ioc->iov_size /= 2;
+-	}
+-
+ 	/*
+ 	** iov_order is always based on a 1GB IOVA space since we want to
+ 	** turn on the other half for AGP GART.
 
 
