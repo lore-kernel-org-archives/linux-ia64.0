@@ -1,37 +1,50 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 20 Feb 2003 17:52:43 +0000
+From: Volker Birk <vb@ebios.de>
+Date: Thu, 20 Feb 2003 19:59:47 +0000
 Subject: Re: [Linux-ia64] strange performance behaviour with floats
-Message-Id: <marc-linux-ia64-105590709805886@msgid-missing>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="GdbWtwDHkcXqP16f"
+Message-Id: <marc-linux-ia64-105590709805893@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805852@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805852@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 20 Feb 2003 09:35:02 +0100, Volker Birk <vb@ebios.de> said:
+--GdbWtwDHkcXqP16f
+Content-Type: text/plain; charset=iso-8859-1
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-  Volker> On Wed, Feb 19, 2003 at 11:09:36AM -0800, David Mosberger
-  Volker> wrote: Hello, I'm wondering about the strange behaviour of
-  Volker> the Linux scheduling on my rx5670:
+On Thu, Feb 20, 2003 at 09:52:43AM -0800, David Mosberger wrote:
+> Hmmh, that's really strange.  I assume you realize that your
+> test-program doesn't really do what the source code suggests (the
+> loop-body gets optimized away), but regardless the high variation
+> you're seeing seems wrong.
 
-  >> Can you reproduce the behavior with a standard 2.4.xx ia64 kernel
-  >> (not with Red Hat's heavily patched kernel)?
+I think, optimazation does not matter on that point.
 
-  Volker> That is a standard 2.4.xx ia64 kernel (with ia64 patches
-  Volker> from kernel.org).
+> Are you re-directing the kernel console to
+> a serial line?
 
-  Volker> bronto:~ # uname -a Linux bronto 2.4.19 #11 SMP Sat Nov 2
-  Volker> 18:47:02 CET 2002 ia64 GNU/Linux bronto:~ #
+No.
 
-Hmmh, that's really strange.  I assume you realize that your
-test-program doesn't really do what the source code suggests (the
-loop-body gets optimized away), but regardless the high variation
-you're seeing seems wrong.  Are you re-directing the kernel console to
-a serial line?  If so, make sure there is no logging activity when the
-program runs slower (especially a slow baud-rate can "stall" the
-kernel for non-trivial amounts of time).
+VB.
+--=20
+*** ebios Informationssysteme, Germany      ***
+*** Gut-Betha-Platz 1, 88339 Bad Waldsee    ***
+*** Phone +49-7524-93421 Fax +49-7524-93423 ***
+*** mailto:vb@ebios.de                      ***
 
-	--david
+--GdbWtwDHkcXqP16f
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.7 (GNU/Linux)
+
+iD8DBQE+VTOzq2Wx34LtkcYRAkGOAKC4yHYnMCXQzEM+n9TELkqrbbeZPQCfRUAm
+b4s1iyCJRKWy0UQ5/smc2X4=
+=KWpj
+-----END PGP SIGNATURE-----
+
+--GdbWtwDHkcXqP16f--
 
