@@ -1,36 +1,40 @@
-From: Anton Blanchard <anton@samba.org>
-Date: Sun, 14 Mar 2004 04:06:34 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Sun, 14 Mar 2004 05:22:42 +0000
 Subject: Re: [Lse-tech] Re: Hugetlbpages in very large memory machines.......
-Message-Id: <20040314040634.GC19737@krispykreme>
+Message-Id: <16467.60450.471487.490560@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40528383.10305@sgi.com> <20040313034840.GF4638@wotan.suse.de> <20040313184547.6e127b51.akpm@osdl.org>
-In-Reply-To: <20040313184547.6e127b51.akpm@osdl.org>
+References: <40528383.10305@sgi.com>
+	<20040313034840.GF4638@wotan.suse.de>
+	<20040313054910.GA655@holomorphy.com>
+	<20040313161010.GB15118@wotan.suse.de>
+	<20040314000506.GE655@holomorphy.com>
+In-Reply-To: <20040314000506.GE655@holomorphy.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: William Lee Irwin III <wli@holomorphy.com>
+Cc: Andi Kleen <ak@suse.de>, Ray Bryant <raybry@sgi.com>, lse-tech@lists.sourceforge.net, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-kernel@vger.kernel.org
 
+>>>>> "William" = William Lee Irwin, <William> writes:
 
-> Demand-paging the hugepages is a decent feature to have, and ISTR resisting
-> it before for this reason.
-> 
-> Even though it's early in the 2.6 series I'd be a bit worried about
-> breaking existing hugetlb users in this way.  Yes, the pages are
-> preallocated so it is unlikely that a working setup is suddenly going to
-> break.  Unless someone is using the return value from mmap to find out how
-> many pages they can get.
+William> At some point in the past, I wrote:
 
-Hmm what a coincidence, I was chasing a problem where large page
-allocations would fail even though I clearly had enough large page memory
-free.
+William> On Sat, Mar 13, 2004 at 05:10:10PM +0100, Andi Kleen wrote:
+>> Redesigning the low level TLB fault handling for this would not
+>> count as "easily" in my book.
 
-It turns out we were tripping the overcommit logic in do_mmap. I had
-30GB of large page and 2GB of small pages and of course cap_vm_enough_memory
-was looking at the small page pool. Setting overcommit to 1 fixed it.
+William> I make no estimate of ease of implementation of long mode
+William> VHPT support.  The point of the above is that the virtual
+William> placement constraint is an artifact of the implementation and
+William> not inherent in hardware.
 
-It seems we can solve both problems by having a separate hugetlb overcommit
-policy. Make it strict and you wont have OOM problems on large pages
-and I wont hit my 30GB / 2GB problem.
+Ther's a patch available to enable long-format VHPT at
+www.gelato.unsw.edu.au
 
-Anton
+We're waiting for 2.7 to open before pushing it in. The long-format
+vpht is a prerequisite for other work we're doing on super-pagesand
+TLB sharing.
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
