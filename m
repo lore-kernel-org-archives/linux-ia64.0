@@ -1,28 +1,24 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 07 Dec 2000 00:58:24 +0000
-Subject: Re: [Linux-ia64] TurboLinux IA-64 Beta 2 (2000-11-23) Available for download
-Message-Id: <marc-linux-ia64-105590678205803@msgid-missing>
+From: Holger Berger <berger@ehpctc1.nec.tz.uni-stuttgart.de>
+Date: Wed, 13 Dec 2000 19:02:52 +0000
+Subject: [Linux-ia64] agp with bigsur
+Message-Id: <marc-linux-ia64-105590678205822@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205769@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205769@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 6 Dec 2000 16:48:22 -0800, Don Dugger <n0ano@tlaloc.n0ano.com> said:
+Dear *,
 
-  Don> Michael- I tried to re-compile X on this release and came
-  Don> across a problem.  The include file `/usr/include/asm/io.h'
-  Don> defines the in/out functions in terms of new `platform_*'
-  Don> functions, which are not defined for user programs.  Do you
-  Don> know where these `platform_*' functions are supposed to be
-  Don> defined?
+did anybody succeed in building and using agp kernel module?
+Is anybody working on AGP support for the chipset?
+Or does anybody know if it is possible to get hardware accelerated
+3D graphics with this ATI card (with Linux, of course...)?
 
-Why is X including asm/io.h when we have sys/io.h?
-
-At the risk of repeating myself: applications that include kernel
-headers are broken.  Period.
-
-	--david
+best regards
+    Holger Berger
+-- 
+Holger Berger                                   hberger@ess.nec.de
+NEC European Supercomputer Systems, European HPC Technology Center
+Stuttgart, Germany   phone: +49-711-68770-35  fax: +49-711-6877145
 
