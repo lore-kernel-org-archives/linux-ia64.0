@@ -1,28 +1,37 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Tue, 07 Oct 2003 20:42:08 +0000
-Subject: [PATCH] fix sn2 pci discovery in generic kernels
-Message-Id: <marc-linux-ia64-106555967613003@msgid-missing>
+Date: Wed, 08 Oct 2003 23:20:22 +0000
+Subject: [PATCH] move find_memory()
+Message-Id: <marc-linux-ia64-106565533807870@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Don't try to use the sn2 I/O code if we're not on sn2 or we may get into
-trouble.  Only makes a difference for generic kernels.
+Now that the ACPI table parsing stuff has been fixed we can move
+find_memory() back where it belongs--after the SRAT table has been
+parsed.
 
 Thanks,
 Jesse
 
-=== arch/ia64/sn/io/machvec/pci_bus_cvlink.c 1.10 vs edited ==--- 1.10/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Mon Sep  8 05:12:36 2003
-+++ edited/arch/ia64/sn/io/machvec/pci_bus_cvlink.c	Tue Oct  7 11:39:30 2003
-@@ -863,6 +863,9 @@
- 	int i = 0;
- 	struct pci_controller *controller;
+diff -Nru a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
+--- a/arch/ia64/kernel/setup.c	Mon Sep 29 17:06:17 2003
++++ b/arch/ia64/kernel/setup.c	Mon Sep 29 17:06:17 2003
+@@ -239,7 +236,6 @@
+ 	strlcpy(saved_command_line, *cmdline_p, sizeof(saved_command_line));
  
-+	if (!ia64_platform_is("sn2"))
-+	    return 0;
+ 	efi_init();
+-	find_memory();
+ 
+ #ifdef CONFIG_ACPI_BOOT
+ 	/* Initialize the ACPI boot-time table parser */
+@@ -253,6 +249,8 @@
+ # endif
+ #endif /* CONFIG_APCI_BOOT */
+ 
++	find_memory();
 +
- 	/*
- 	 * set pci_raw_ops, etc.
- 	 */
+ 	/* process SAL system table: */
+ 	ia64_sal_init(efi.sal_systab);
+ 
