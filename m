@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 19 Jun 2004 06:58:17 +0000
+Date: Wed, 30 Jun 2004 00:04:43 +0000
 Subject: bk pull on ia64 linux tree
-Message-Id: <200406190658.i5J6wHfY005790@napali.hpl.hp.com>
+Message-Id: <200406300004.i5U04h7p027370@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
 In-Reply-To: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
@@ -22,243 +22,202 @@ Thanks!
 
 	--david
 
- arch/ia64/Kconfig                        |   14 
- arch/ia64/configs/sn2_defconfig          |  106 +--
- arch/ia64/defconfig                      |   23 
- arch/ia64/ia32/binfmt_elf32.c            |    4 
- arch/ia64/ia32/ia32_entry.S              |    2 
- arch/ia64/ia32/ia32_support.c            |   24 
- arch/ia64/ia32/ia32priv.h                |   36 +
- arch/ia64/ia32/sys_ia32.c                |  860 +++++++++++++++++++++++++------
- arch/ia64/kernel/entry.S                 |    6 
- arch/ia64/kernel/fsys.S                  |    3 
- arch/ia64/kernel/gate.S                  |    6 
- arch/ia64/kernel/head.S                  |    6 
- arch/ia64/kernel/iosapic.c               |   16 
- arch/ia64/kernel/irq.c                   |   16 
- arch/ia64/kernel/mca.c                   |   95 ++-
- arch/ia64/kernel/palinfo.c               |    4 
- arch/ia64/kernel/perfmon.c               |   89 +--
- arch/ia64/kernel/process.c               |   20 
- arch/ia64/kernel/unwind.c                |   35 -
- arch/ia64/mm/discontig.c                 |    3 
- arch/ia64/mm/hugetlbpage.c               |    2 
- arch/ia64/sn/io/machvec/pci_bus_cvlink.c |    4 
- arch/ia64/sn/io/sn2/klgraph.c            |    4 
- arch/ia64/sn/io/sn2/ml_iograph.c         |   16 
- arch/ia64/sn/io/sn2/module.c             |   14 
- arch/ia64/sn/kernel/irq.c                |   17 
- arch/ia64/sn/kernel/setup.c              |   23 
- include/asm-ia64/gcc_intrin.h            |   16 
- include/asm-ia64/ia32.h                  |   14 
- include/asm-ia64/irq.h                   |    6 
- include/asm-ia64/pgtable.h               |    6 
- include/asm-ia64/processor.h             |    5 
- include/asm-ia64/sn/module.h             |    2 
- include/asm-ia64/sn/sn_sal.h             |   34 +
- include/asm-ia64/system.h                |    2 
- include/asm-ia64/unistd.h                |    3 
- 36 files changed, 1164 insertions(+), 372 deletions(-)
+ arch/ia64/Kconfig               |    2 
+ arch/ia64/Makefile              |    3 
+ arch/ia64/configs/sn2_defconfig |  486 ++++++++++++++++------------------------
+ arch/ia64/kernel/efi_stub.S     |    6 
+ arch/ia64/kernel/entry.S        |    4 
+ arch/ia64/kernel/head.S         |   22 +
+ arch/ia64/kernel/iosapic.c      |   25 --
+ arch/ia64/kernel/module.c       |   22 +
+ arch/ia64/kernel/pal.S          |   19 +
+ arch/ia64/kernel/setup.c        |   29 ++
+ arch/ia64/mm/discontig.c        |    2 
+ arch/ia64/sn/io/sn2/bte_error.c |    4 
+ arch/ia64/sn/kernel/bte.c       |  148 +++++++-----
+ arch/ia64/sn/kernel/setup.c     |    3 
+ include/asm-ia64/iosapic.h      |   21 +
+ include/asm-ia64/smp.h          |    4 
+ include/asm-ia64/sn/bte.h       |   49 +---
+ include/asm-ia64/sn/pda.h       |    2 
+ include/asm-ia64/sn/sn_cpuid.h  |    1 
+ 19 files changed, 437 insertions(+), 415 deletions(-)
 
 through these ChangeSets:
 
-<yanmin.zhang@intel.com> (04/06/18 1.1794)
-   [PATCH] ia64: fix free_huge_page() call in hugetlb_prefault()
+<tony.luck@intel.com> (04/06/29 1.1808)
+   [PATCH] ia64: fix reloc-out-of-range error on module loading
    
-   In base kernel 2.6.7, there is bug in function hugetlb_prefault().  The
-   call to free_huge_page() is incorrect and should be replaced with a call
-   to page_cache_release().
+   I'm hitting this problem because the module I want to load was
+   compiled with -g, so the filesize is absolutely huge.  kernel/module.c
+   does a vmalloc() to inhale the entire file, and then two calls to
+   module_alloc() (which calls vmalloc() on ia64) to load the 'init' and
+   'core' sections. The 'init' is small and slips into a gap early in the
+   vmalloc playspace, while the 'core' area is allocated after the huge
+   area that was allocated for the inhaled copy of the whole file.
+   
+   I made a one coding change to Jean-Marc's version, adding a check to
+   see whether the init/core sections are close enough together for the
+   PCREL21B to reach (they almost always are).
+   
+   I've kept the test that there are no jumps from core to init (though
+   the message that is printed is almost as unhelpful as the one that you
+   get when you statically link a module into the kernel that has calls
+   to the discarded .exit section :-)
+   
+   This patch stalled out before on the question of whether a PLT was
+   overkill for a section-to-section branch, and whether it would be
+   better to use relaxation techniques to extend the range.  Doing that
+   might be more elegant in some way, but it needs a whole heap of extra
+   code (to count how many relaxed branches need to be added and
+   allocated them as needed).  This seems a lot of extra code that is
+   only ever going to be exercised by maniacs like me with 49MB .ko
+   files.
+   
+   I fixed up the comments to be a little more heplful.
+   
+   Signed-off-by: <tony.luck@intel.com>
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<jbarnes@engr.sgi.com> (04/06/29 1.1807)
+   [PATCH] ia64: update early printk for new console driver
+   
+   The Altix console driver has been replaced in Andrew's tree by a new
+   one that uses the serial core API.  Update the early_console_setup
+   routine to use the new config option so that it's ready when the
+   driver hits Linus' tree.  This will also fix a build bug since the old
+   driver hasn't been updated.
+   
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<kenneth.w.chen@intel.com> (04/06/29 1.1806)
+   [PATCH] ia64: fix incorrect initialization of ar.k4 for BP
+   
+   The patch to move the current pointer for init_task from region 7 to
+   region 5 inadvertendly caused ar.k4 (CURRENT_STACK) to be initialized
+   improperly for the bootstrap processor.  Fix this by initializing it
+   to -1.
    
    Signed-off-by: David Mosberger <davidm@hpl.hp.com>
 
-<eranian@hpl.hp.com> (04/06/18 1.1793)
-   [PATCH] ia64: perfmon stack consumption fix
+<kenneth.w.chen@intel.com> (04/06/29 1.1805)
+   [PATCH] ia64: Clean up needlessly large stack frames in PAL-call stubs
    
-   This patch moves the pfm_ovfl_arg_t structure from the kernel stack
-   into the pfm_context_t structure. This minimizes kernel stack space
-   consumption.
+   The code allocated all 96 stacked registers, for no apparent reason.
    
-   Signed-off-by: Stephane Eranian <eranian@hpl.hp.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<ashok.raj@intel.com> (04/06/18 1.1792)
-   [PATCH] ia64: move move_irq() from iosapic.c to irq.c
-   
-   This patch moves move_irq() from ioaspic.c to irq.c to make this common
-   for ia64 subarches.
-   
-   Signed-off-by: Ashok Raj <ashok.raj@intel.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<arun.sharma@intel.com> (04/06/18 1.1791)
-   [PATCH] ia64: fix ia32 partial-page map support for overlapping mmaps
-   
-   - Handle the overlapping mmaps in the MAP_FIXED case
-   - Handle unmaps correctly i.e. call __ia32_delete_pp_range()
-   - There are now three clear entry points into the pp manipulation code
-           - ia32_set_pp
-           - ia32_unset_pp
-           - ia32_compare_pp
-   - Rename internal functions to __ia32_*pp_*
-   - Grab mmap_sem just once at the main entry point
-   
-   Signed-off-by: Gordon Jin <gordon.jin@intel.com>
-   Signed-off-by: Arun Sharma <arun.sharma@intel.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<tony.luck@intel.com> (04/06/17 1.1790)
-   [PATCH] ia64: switching between CPEI & CPEP
-   
-   A couple of months ago Hidetoshi Seto from Fujitsu proposed
-   a patch to provide similar switching between interrupt mode
-   and polling mode for corrected platform events (CPE) as we
-   have for processor events (CMC) [with the obvious difference
-   that not all platforms support an interrupt for CPE].
-   
-   I dusted it off and made a couple of very minor cleanups (which
-   Seto-san checked out last night on his test setup and confirmed
-   still passes).
-   
-   Signed-off-by: Tony Luck <tony.luck@intel.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<pfg@sgi.com> (04/06/17 1.1789)
-   [PATCH] ia64: fix SN2 interrupt rerouting
-   
-   Signed-off-by: Patrick Gefre <pfg@sgi.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<davidm@tiger.hpl.hp.com> (04/06/17 1.1788)
-   ia64: Fix build-problem when CONFIG_IA32 is not enabled.
-   
-   Without this fix, you'll get unresolved references to
-   sys_rt_sigaction().
-
-<davidm@tiger.hpl.hp.com> (04/06/17 1.1787)
-   ia64: Squish some more hazards & warnings for UP compile.
-
-<davidm@tiger.hpl.hp.com> (04/06/17 1.1786)
-   ia64: Squish compiler-warning in perfmon.c when compiling for UP.
-
-<davidm@tiger.hpl.hp.com> (04/06/16 1.1735.12.50)
-   ia64: Nuke two warnings in mca.c that showed in the simulator configuration.
-
-<davidm@tiger.hpl.hp.com> (04/06/16 1.1735.12.49)
-   ia64: Fix ia32 partial-page-list code to compile cleanly in more configs.
-   
-
-<jbarnes@engr.sgi.com> (04/06/16 1.1735.12.48)
-   [PATCH] ia64: update sn2_defconfig
-   
-   Small patch to update the sn2_defconfig file.  I just did a 'make oldconfig' 
-   with the current sn2_defconfig and removed 8250 support.
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<kaos@sgi.com> (04/06/16 1.1735.12.47)
-   [PATCH] ia64: Support SN platform specific error features
-   
-   The SN prom supports fine grained error handling features, the OS needs
-   to tell the prom if the OS expects to use these platform specific
-   features.
-   
-   Signed-off-by: Keith Owens <kaos@sgi.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<eranian@hpl.hp.com> (04/06/15 1.1735.12.46)
-   [PATCH] ia64: fix info in /proc/pal/*/bus_info
-   
-   This patch fixes to minor bugs:
-    - corrected descriptions for bit 52 and 53 of the /proc/pal/CPU*/bus_info
-      entry; they were swapped
-    - corrected a typo for bit 55 of the /proc/pal/CPU*/bus_info entry
-   
-   Signed-off-by: Stephane Eranian <eranian@hpl.hp.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<davidm@tiger.hpl.hp.com> (04/06/11 1.1735.12.45)
-   ia64: Update defconfig
-
-<kaos@sgi.com> (04/06/11 1.1735.12.44)
-   [PATCH] ia64: Remove warnings when unwind debug is turned on
-   
-   Turning on UNW_DEBUG generates warnings for incorrect number of
-   parameters for formats and several cases of "suggest explicit braces to
-   avoid ambiguous `else'", because UNW_DPRINT contains an if statement.
-   
-   Signed-off-by: Keith Owens <kaos@sgi.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<kenneth.w.chen@intel.com> (04/06/10 1.1735.12.43)
-   [PATCH] ia64: fix race in fsys_bubble_down to avoid fp-register corruption
-   
-   The fast system-call fall-back-path has a race: it reads PSR, modifies
-   some bits, then writes back the new PSR.  Unfortunately, the contents
-   of PSR may change between reading and writing it.  For example, an
-   interrupt could occur which could trigger a context-switch.  The
-   context-switch might in turn flush the floating-point-high (FPH)
-   partition to memory, clear PSR.MFH, and set PSR.DFH.  To prevent this
-   race, the patch below turns off PSR.I before reading PSR.
-   
-   This fixes a floating-point corruption problem that was observed on a
-   system with a libc which has the fast system-call support enabled.
-   
-   The performance impact is minimal (on the order of a handful of cycles).
-   
-   Signed-off-by: Kevin Tian <kevin.tian@intel.com>
-   Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
-   Signed-off-by: Asit Mallick <asit.k.mallick@intel.com>
-   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
-
-<Robert.Picco@hp.com> (04/06/10 1.1735.12.42)
-   [PATCH] ia64: mark non-existent NUMA-nodes as offline
-   
-   I found a problem with HP NUMA configuration in 2.6.7-rc3-mm1.  The
-   node_online_map is incorrect because of actions taken by
-   reassign_cpu_only_nodes in arch/ia64/mm/discontig.c.  The mm1 patch
-   which changes the mempolicy for the init_task uses this invalid
-   node_online_map and eventually uses a non-existent node's zonelist
-   when calling __alloc_pages.
-   
-   The patch below takes care of this issue.  It puts the non-existent
-   nodes offline.
+   Also, fix ia64_pal_call_static() to switch RSE to enforced-lazy, LE
+   mode before the PAL-call.
    
    Signed-off-by: David Mosberger <davidm@hpl.hp.com>
 
-<kaos@sgi.com> (04/06/07 1.1735.12.41)
-   [PATCH] ia64: Rename SN "modules" variable to "sn_modules".
+<kenneth.w.chen@intel.com> (04/06/29 1.1804)
+   [PATCH] ia64: change ia64_switch_mode_{phys,virt}() to preserve bsp/sp
    
-   SN code has a "modules" variable that conflicts with a variable of the
-   same name in kernel/module.c.  This conflict breaks lcrash for ia64.
-   Rename "modules" to "sn_modules".
+   Change ia64_switch_mode_phys() and ia64_switch_mode_virt() to preserve
+   the virtual sp/bsp and update the call-sites accordingly.  This avoids
+   problems with the init_task pointer which lives in region 5 now.
    
-   Signed-off-by: Keith Owens <kaos@sgi.com>
    Signed-off-by: David Mosberger <davidm@hpl.hp.com>
 
-<arun.sharma@intel.com> (04/06/07 1.1735.12.40)
-   [PATCH] ia64: fix ia32 virtual memory leaks due to partial-page mappings
+<hjl@lucon.org> (04/06/29 1.1803)
+   [PATCH] ia64: Don't use -mtune=merced for gcc 3.4
    
-   Certain IA-32 applications which do mmap/munmaps which are not
-   PAGE_SIZE aligned could see temporary (recovered at process exit time)
-   memory leaks, because the kernel didn't have enough data to decide if
-   the complete page could be unmapped. This patch adds a new data
-   structure called the "partial page list" which helps the kernel keep
-   track of precisely which 4k pages are in use by the IA-32 application.
+   Gcc 3.4 has a new DFA scheduler for ia64. Unfortunately, it is not
+   well tested for Itanium 1. When I tried to use gcc 3.4 to compile
+   2.6 kernel configured for Merced, gcc failed in many places:
    
-   Armed with this data, the kernel can make better decisions at munmap
-   and mprotect time. No significant performance degradation was observed
-   in the workloads we tested and in some cases, the performance actually
-   improved!  This is possibly due to the reduced length of the vma list.
+   http://gcc.gnu.org/bugzilla/show_bug.cgi?id598
+   http://gcc.gnu.org/bugzilla/show_bug.cgi?id653
+   http://gcc.gnu.org/bugzilla/show_bug.cgi?id655
+   http://gcc.gnu.org/bugzilla/show_bug.cgi?id130
+   http://gcc.gnu.org/bugzilla/show_bug.cgi?id142
+   http://gcc.gnu.org/bugzilla/show_bug.cgi?id143
    
-   Signed-off-by: Arun Sharma <arun.sharma@intel.com>
-   Signed-off-by: Gordon Jin <gordon.jin@intel.com>
+   Some of them have been fixed. But I am afraid many more remain. I don't
+   know how many Itanium 1 machines left in production use. If people want
+   to optimize kernel for Itanium 1, they can stick with the older gccs.
+   Or they should upgrade their machines. I think the gcc developer's time
+   should be better spent on somewhere else. I have been using this patch
+   for a while, kernel seems to work OK.
+   
    Signed-off-by: David Mosberger <davidm@hpl.hp.com>
 
-<alex.williamson@hp.com> (04/06/07 1.1735.12.38)
-   [PATCH] ia64: delete McKinley A-stepping code
+<bjorn.helgaas@hp.com> (04/06/29 1.1802)
+   [PATCH] ia64: fix a couple of comment typos
    
-   The patch below removes the config option and one bit of code for
-   McKinley A0/A1 CPU workarounds.  These CPUs were never used in
-   production, and IIRC this workaround really only affected X11.
    
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<bjorn.helgaas@hp.com> (04/06/29 1.1801)
+   [PATCH] ia64: define cpu_logical_id() always
+   
+   Define cpu_logical_id() even when !SMP.  I added uses of this in some
+   iosapic printk's, which broke the UP build.
+   
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<alex.williamson@hp.com> (04/06/25 1.1800)
+   [PATCH] ia64: trashing bootmem on non-NUMA boxes
+   
+   call_pernode_memory() is rounding memory regions to page boundaries,
+   but in the non-NUMA case, it's incorrectly passing the rounded start and
+   the original length.  Any reserved memory regions sitting beyond a
+   memory region that isn't nicely aligned is potentially at risk for
+   getting freed and trashed.  This is a fairly nasty bug that can bite in
+   very hard to find ways.  In my case, the EFI memory map was getting
+   overwritten, causing the ACPI methods to access chipset registers
+   cachable instead of uncachable.  It could potentially be causing some of
+   the random hangs and strange behavior we're seeing lately.
+   
+   Signed-off-by: Alex Williamson <alex.williamson@hp.com>
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<jbarnes@engr.sgi.com> (04/06/25 1.1799)
+   [PATCH] ia64: another sn2_defconfig update
+   
+   This update fixes the FAT default NLS options and trims some others.
+   
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<bjorn.helgaas@hp.com> (04/06/25 1.1798)
+   [PATCH] ia64: minor IOSAPIC cleanup
+   
+   Introduce iosapic_{read,write,eoi} to hide the IOSAPIC REG_SELECT
+   stuff.  i386 and x86_64 already do this for io_apic_{read,write}.
+   
+   Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<jbarnes@engr.sgi.com> (04/06/25 1.1797)
+   [PATCH] ia64: make SN2 use 16MB granules, too
+   
+   Altix needs to use 16MB granules to prevent attribute aliasing in low
+   memory space.  This patch makes the kernel configuration system
+   enforce that requirement.
+   
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<holt@sgi.com> (04/06/25 1.1796)
+   [PATCH] ia64: Fixups for the SN2 Block Transfer Engine
+   
+   The attached patch contains some cleanups to the bte code and introduces
+   the ability to excercise bte interfaces on other nodes.  This is an SGI
+   Altix specific piece of hardware.
+   
+   Signed-off by: Robin Holt
+   Signed-off by: Jesse Barnes
+   Signed-off-by: David Mosberger <davidm@hpl.hp.com>
+
+<jbarnes@engr.sgi.com> (04/06/25 1.1795)
+   [PATCH] ia64: early console registration
+   
+   Allow consoles to register early if they're capable of early output.
+   If one of them registers successfully, set CPU 0 online so that
+   printk() will actually call the console drivers.
+   
+   Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
    Signed-off-by: David Mosberger <davidm@hpl.hp.com>
 
