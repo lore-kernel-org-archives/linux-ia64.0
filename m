@@ -1,7 +1,7 @@
-From: Erich Focht <efocht@ess.nec.de>
-Date: Wed, 10 Jul 2002 12:34:07 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Wed, 10 Jul 2002 18:31:03 +0000
 Subject: [Linux-ia64] Re: O(1) scheduler "complex" macros
-Message-Id: <marc-linux-ia64-105590701905756@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905747@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905752@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905752@msgid-missing>
@@ -10,23 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Ingo,
+On Tue, 9 Jul 2002, Erich Focht wrote:
 
-> there is one more detail - wait_task_inactive() needs to consider the
-> ->switch_lock as well - otherwise exit() might end up freeing the
-> pagetables earlier than the context-switch has truly finished. The
-> udelay(100) test should trigger this race.
->
-> i've fixed this and uploaded the -A8 patch:
->
->         http://redhat.com/~mingo/O(1)-scheduler/sched-2.5.25-A8
->
-> does this fix the ia64 crashes? you need to define an ia64-specific
+> Suppose we have 
+>   cpu1: idle1
+>   cpu2: prev2 -> next2  (in the switch)
+> 
+> I don't understand how task_lock(prev2) done on cpu2 can prevent cpu1 to
+> schedule prev2, which it stole after the RQ#2 lock release. It will just
+> try to task_lock(idle1), which will be successfull.
 
-looks good! Rock solid despite udelay. Though a bit slower than before...
+you are right - the 'complex' macros also need to lock the 'next' task,
+not only the 'previous' task - but to do that deadlock-free, they need to
+drop the runqueue lock ...
 
-Thanks a lot for the help!
-
-Erich
+	Ingo
 
 
