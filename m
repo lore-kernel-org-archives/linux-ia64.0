@@ -1,52 +1,100 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 26 Apr 2004 21:12:38 +0000
-Subject: Re: [PATCH] bug w/ shared interrupts
-Message-Id: <16525.31558.89699.660763@napali.hpl.hp.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Tue, 27 Apr 2004 11:57:19 +0000
+Subject: RE: [PATCH] bug w/ shared interrupts
+Message-Id: <MDEEKOKJPMPMKGHIFAMAOEPIDNAA.kaneshige.kenji@jp.fujitsu.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_NextPart_000_000A_01C42C9A.3A7D4350"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1082989740.15656.20.camel@localhost>
 In-Reply-To: <1082989740.15656.20.camel@localhost>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 26 Apr 2004 08:29:00 -0600, Alex Williamson <alex.williamson@hp.com> said:
+This is a multi-part message in MIME format.
 
-  Alex>    I just ran into a bug introduced by cset 1.1371.519.37.
+------=_NextPart_000_000A_01C42C9A.3A7D4350
+Content-Type: text/plain;
+	charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
 
-Note that cset numbers are not globally unique.  Since you didn't specify
-which repository you used, I'm not sure which cset you're referring to.
-To get a globally unique cset id, you can use:
+Hi,
 
-  $ bk changes -k -r1.1371.519.37
+I don't know whether you are referring to my patch. But if so,
+please try a following patch. The patch for sharing vector I sent
+before contains a bug and I think this might cause a similar problem.
 
-I believe you're referring to:
+Thanks,
+Kenji Kaneshige
 
-  kaneshige.kenji@jp.fujitsu.com|ChangeSet|20040412205820|04778
 
-Correct?
+This is a patch to fix the following bug:
 
-  Alex> The scenario is a builtin driver is up and running happily.  A
-  Alex> module loads for a devices that happens to share the same
-  Alex> interrupt vector, in this case a network driver.  The module
-  Alex> calls pci_enable_device() as it should, which eventually lands
-  Alex> in iosapic_enable_intr().  We then proceed to mask the
-  Alex> interrupt and kill the device that's already running.  As a
-  Alex> bonus, request_interrupt() doesn't fix the problem because we
-  Alex> only call the startup for the interrupt handler on the first
-  Alex> action attached to the interrupt.
+Register_intr() changes pin->low32 even when it overrides the
+interrupt info. This destroys the value of pin->low32 which is already
+set by set_rte() or other staffs.
 
-  Alex>    I think the best way out of this is simply to detect when
-  Alex> an action is already attached to a vector and leave it alone.
-  Alex> This also prevents interrupts from moving to other cpus (on
-  Alex> boxes w/o irq redirection) for no good reason.
+This patch is against linux-2.6.6-rc2 with share_vector.patch applied.
 
-Sounds reasonable to me.  I do think that iosapic_enable_intr() is
-misnamed now that it actually leaves the interrupt _masked_.  What
-it's really doing now is that it asserts that the I/O SAPIC routine is
-programmed to a correct/working value.  It would be good to fix that
-when changing the corresponding code in drivers/acpi/pci_irq.c.  IIRC,
-Bjorn already has patches which touch on that file.  If so, could you
-do a rename at the same time, Bjorn?
 
-	--david
+---
+
+ linux-2.6.6-rc2-kanesige/arch/ia64/kernel/iosapic.c |    1 -
+ 1 files changed, 1 deletion(-)
+
+diff -puN arch/ia64/kernel/iosapic.c~share_vector_bugfix
+arch/ia64/kernel/iosapic.c
+--- linux-2.6.6-rc2/arch/ia64/kernel/iosapic.c~share_vector_bugfix
+2004-04-27 18:12:56.000000000 +0900
++++ linux-2.6.6-rc2-kanesige/arch/ia64/kernel/iosapic.c	2004-04-27
+18:12:56.000000000 +0900
+@@ -605,7 +605,6 @@ register_intr (unsigned int gsi, int vec
+ 		pin->polarity = polarity;
+ 		pin->addr     = iosapic_address;
+ 		pin->gsi_base = gsi_base;
+-		pin->low32    = IOSAPIC_MASK;
+ 		iosapic_intr_info[vector].dmode   = delivery;
+ 		iosapic_intr_info[vector].trigger = trigger;
+ 		iosapic_intr_info[vector].type    = type;
+
+_
+
+------=_NextPart_000_000A_01C42C9A.3A7D4350
+Content-Type: application/octet-stream;
+	name="share_vector_bugfix.patch"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="share_vector_bugfix.patch"
+
+=0A=
+This is a patch to fix the following bug:=0A=
+=0A=
+Register_intr() changes pin->low32 even when it overrides the=0A=
+interrupt info. This destroys the value of pin->low32 which is already=0A=
+set by set_rte() or other staffs.=0A=
+=0A=
+This patch is against linux-2.6.6-rc2 with share_vector.patch applied.=0A=
+=0A=
+=0A=
+---=0A=
+=0A=
+ linux-2.6.6-rc2-kanesige/arch/ia64/kernel/iosapic.c |    1 -=0A=
+ 1 files changed, 1 deletion(-)=0A=
+=0A=
+diff -puN arch/ia64/kernel/iosapic.c~share_vector_bugfix =
+arch/ia64/kernel/iosapic.c=0A=
+--- linux-2.6.6-rc2/arch/ia64/kernel/iosapic.c~share_vector_bugfix	=
+2004-04-27 18:12:56.000000000 +0900=0A=
++++ linux-2.6.6-rc2-kanesige/arch/ia64/kernel/iosapic.c	2004-04-27 =
+18:12:56.000000000 +0900=0A=
+@@ -605,7 +605,6 @@ register_intr (unsigned int gsi, int vec=0A=
+ 		pin->polarity =3D polarity;=0A=
+ 		pin->addr     =3D iosapic_address;=0A=
+ 		pin->gsi_base =3D gsi_base;=0A=
+-		pin->low32    =3D IOSAPIC_MASK;=0A=
+ 		iosapic_intr_info[vector].dmode   =3D delivery;=0A=
+ 		iosapic_intr_info[vector].trigger =3D trigger;=0A=
+ 		iosapic_intr_info[vector].type    =3D type;=0A=
+=0A=
+_=0A=
+
+------=_NextPart_000_000A_01C42C9A.3A7D4350--
+
