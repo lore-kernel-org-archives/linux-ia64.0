@@ -1,69 +1,56 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 01 Sep 2004 16:43:54 +0000
-Subject: Re: page fault scalability patch final : i386 tested, x86_64 support
-Message-Id: <Pine.LNX.4.58.0409010938200.9907@schroedinger.engr.sgi.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Date: Wed, 01 Sep 2004 23:09:25 +0000
+Subject: Re: page fault scalability patch final : i386 tested, x86_64
+Message-Id: <1094080164.4025.17.camel@gaston>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com> 
- <20040815130919.44769735.davem@redhat.com>  <Pine.LNX.4.58.0408151552280.3370@schroedinger.engr.sgi.com>
-  <20040815165827.0c0c8844.davem@redhat.com> 
- <Pine.LNX.4.58.0408151703580.3751@schroedinger.engr.sgi.com> 
- <20040815185644.24ecb247.davem@redhat.com>  <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
-  <20040816143903.GY11200@holomorphy.com> 
- <B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com> 
- <B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com> 
- <B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com> 
- <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
- <1094012689.6538.330.camel@gaston>
-In-Reply-To: <1094012689.6538.330.camel@gaston>
+References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
+	 <20040815130919.44769735.davem@redhat.com>
+	 <Pine.LNX.4.58.0408151552280.3370@schroedinger.engr.sgi.com>
+	 <20040815165827.0c0c8844.davem@redhat.com>
+	 <Pine.LNX.4.58.0408151703580.3751@schroedinger.engr.sgi.com>
+	 <20040815185644.24ecb247.davem@redhat.com>
+	 <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
+	 <20040816143903.GY11200@holomorphy.com>
+	 <B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com>
+	 <B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com>
+	 <B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com>
+	 <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
+	 <1094012689.6538.330.camel@gaston>
+	 <Pine.LNX.4.58.0409010938200.9907@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0409010938200.9907@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+To: Christoph Lameter <clameter@sgi.com>
 Cc: Andrew Morton <akpm@osdl.org>, William Lee Irwin III <wli@holomorphy.com>, "David S. Miller" <davem@redhat.com>, raybry@sgi.com, ak@muc.de, manfred@colorfullife.com, linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>, vrajesh@umich.edu, hugh@veritas.com
 
-On Wed, 1 Sep 2004, Benjamin Herrenschmidt wrote:
+On Thu, 2004-09-02 at 02:43, Christoph Lameter wrote:
 
-> The removal of the page table lock has other more subtle side effects
-> on ppc64 (and ppc32 too) that aren't trivial to solve. Typically, due
-> to the way we use the hash table as a TLB cache.
->
-> For example, out ptep_test_and_clear will first clear the PTE and then
-> flush the hash table entry. If in the meantime another CPU gets in,
-> takes a fault, re-populates the PTE and fills the hash table via
-> update_mmu_cache, we may end up with 2 hash PTEs for the same linux
-> PTE at least for a short while. This is a potential cause of checkstop
-> on ppc CPUs.
->
-> There may be other subtle races of that sort I haven't encovered yet.
->
-> We need to spend more time on our (ppc/ppc64) side to figure out what
-> is the extent of the problem. We may have a cheap way to fix most of the
-> issues using the PAGE_BUSY bit we have in the PTEs as a lock, but we
-> don't have that facility on ppc32.
->
-> I think there wouldn't be a problem if we could guarantee exclusion
-> between page fault and clearing of a PTE (that is basically having the
-> swapper take the mm write sem) but I don't think that's realistic, oh
-> well, not that I understand anything about the swap code anyways...
+> This would limit the time that the page_table_lock is held to a minimum
+> and may still offer some of the performance improvements.
+> 
+> Would that be acceptable?
 
-We may be able to accomplish that by generic routines for
-ptep_cmpxchg and so on that would use the page table lock for platforms
-that do not support atomic pte operations.
+Not sure... You probably want to have the set_pte and the later flush_*
+in the same lock to maintain expected semantics with those platforms...
 
-Something along the lines of:
+It's not that a simple issue. I have ways to do sort-of lock-less by
+using my PAGE_BUSY lock bit in the PTE instead on ppc64 and I think
+doing that properly would result in almost no overhead over what we have
+now, so I'm still interested. ppc32 would have to take a global
+spinlock, but that's fine as we aren't looking for scalability on this
+arch.
 
-pte_t ptep_xchg(struct mm_struct *mm, pte_t *ptep, pte_t new) {
-	pte_t old;
+So while I like your idea, I think it needs a bit more thinking & work
+on some platforms. David wrote about potential issues on sparc64, and I
+wonder if it would be worth re-thinking some of the pte invalidation
+semantics a bit (pushing more logic into set-pte, that is making it
+higher level, rather than having the common code split changing of PTEs
+and invalidations, with eventually some beign/end semantics for batches)
 
-	spin_lock(&mm->page_table_lock);
-	old = *ptep
-	set_pte(ptep, new_pte);
-	/* Do rehashing */
-	spin_unlock(&mm->page_table_lock);
-	return old;
-}
+BTW. We should get David's patch in first thing before tackling with
+this complicated issue (the one adding mm & addr to set_pte & friends).
 
-This would limit the time that the page_table_lock is held to a minimum
-and may still offer some of the performance improvements.
+Ben.
 
-Would that be acceptable?
+
