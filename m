@@ -1,106 +1,54 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Wed, 16 Jun 2004 17:34:24 +0000
-Subject: Re: [PATCH 4/4] SGI Altix cross partition functionality
-Message-Id: <20040616173424.GA16166@infradead.org>
+From: Andrew Morton <akpm@osdl.org>
+Date: Mon, 14 Jun 2004 07:29:31 +0000
+Subject: Fw: [Bugme-new] [Bug 2885] New: realtime process can't preempt low
+Message-Id: <20040614002931.00b846a4.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040616163746.GD27891@sgi.com>
-In-Reply-To: <20040616163746.GD27891@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> +config IA64_SGI_SN_XPNET
-> +	tristate "SGI DMA pseudo-ethernet driver"
-> +	depends on IA64_SGI_SN_XPC
-> +	default m if IA64_SGI_SN_XPC
 
-please don't overuse the default statement, just add it to the SN2 defconfig.
+This would appear to indicate that CONFIG_PREEMPT isn't working
+correctly on ia64.
 
-> +	help
-> +	  An SGI machine can be divided into multiple Single System
-> +	  Images which act independently of each other and have
-> +	  hardware based memory protection from the others.  Enabling
-> +	  this feature will produce a network adapter that can be
-> +	  used to communicate directly between SSIs.
-> +
->  config IA64_SGI_SN_SIM
->  	bool "SGI Medusa Simulator Support"
->  	depends on IA64_SGI_SN2
-> Index: linux/arch/ia64/sn/kernel/Makefile
-> =================================> --- linux.orig/arch/ia64/sn/kernel/Makefile	2004-06-14 13:01:24.000000000 -0500
-> +++ linux/arch/ia64/sn/kernel/Makefile	2004-06-14 14:24:53.000000000 -0500
-> @@ -18,3 +18,5 @@
->  CFLAGS_xpc_kdb.o += -I $(TOPDIR)/arch/$(ARCH)/kdb
->  CFLAGS_xpc_channel.o += -I $(TOPDIR)/arch/$(ARCH)/kdb
->  CFLAGS_xpc_partition.o += -I $(TOPDIR)/arch/$(ARCH)/kdb
-> +obj-$(CONFIG_IA64_SGI_SN_XPNET)	+= xpnet.o
-> +CFLAGS_xpnet.o += -I $(TOPDIR)/arch/$(ARCH)/kdb
 
-and that CFLAGS gunk needs to go away.  a) kdb isn't in mainline, b) kdb 4.4 doesn't need it
+Begin forwarded message:
 
-> +/* once Linux 2.4 is no longer supported, eliminate these gyrations */
-> +
-> +#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,4,0) && \
-> +    LINUX_VERSION_CODE <  KERNEL_VERSION(2,5,0)
+Date: Mon, 14 Jun 2004 00:25:22 -0700
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 2885] New: realtime process can't preempt low priority process in kernel
 
-Please don't keep them around in the main driver for 2.6.  Add a small kcompat.h
-that you can add to the 2.4 variant.
 
-> +#else /* LINUX_VERSION_CODE = Linux 2.4 */
-> +
-> +#define EXPORT_NO_SYMBOLS
+http://bugme.osdl.org/show_bug.cgi?id(85
 
-This is wrong and doesn't do anything on 2.6 anymore.
+           Summary: realtime process can't preempt low priority process in
+                    kernel
+    Kernel Version: 2.6.5
+            Status: NEW
+          Severity: normal
+             Owner: rml@tech9.net
+         Submitter: hong.liu@intel.com
+                CC: yi.zhu@intel.com
 
-> +
-> +#endif /* LINUX_VERSION_CODE = Linux 2.4 */
 
-> + * Define the XPNET debug sets and other items used with DPRINTK.
-> + */
-> +#define XPNET_DBG_CONSOLE	0x0000000000000001
-> +#define XPNET_DBG_ERROR		0x0000000000000002
-> +
-> +#define XPNET_DBG_SETUP		0x0000000000000004
-> +
-> +#define XPNET_DBG_SEND		0x0000000000000010
-> +#define XPNET_DBG_RECV		0x0000000000000020
-> +
-> +#define XPNET_DBG_SENDV		0x0000000000000100
-> +#define XPNET_DBG_RECVV		0x0000000000000200
-> +
-> +#define XPNET_DBG_SENDVV	0x0000000000001000
-> +#define XPNET_DBG_RECVVV	0x0000000000002000
+Distribution:
+Hardware Environment: 4 Itanium2 1.4G processors-tiger4
+Software Environment: gcc-3.3.3
+Problem Description:
 
-Please use normal netif_msg_ levels.
+After turning on the CONFIG_PREEMPT option and recompile the kernel source 
+code, the realtime process still can't preempt the low priority process which 
+is doing busy loop in kernel. 
+The test case does pass both on a pentium 4 PC and a Xeon 2.4G smp machine.
 
-> +DECLARE_DPRINTK(xpnet, 1000, XPNET_DBG_DEFCAPTURE_SETS,
-> +		XPNET_DBG_DEFCONSOLE_SETS, XPNET_DBG_SET_DESCRIPTION);
+Steps to reproduce:
+in the directory of the test case, 
+#make
+#insmod ./modules/hog.ko
+#mknod /dev/hog c 126 0
+#./do_hog
 
-What the is this?
-
-> +	DPRINTK(xpnet, XPNET_DBG_RECV,
-> +		"received 0x%lx, %d, %d, %d\n", msg->buf_pa, msg->size,
-> +		msg->leadin_ignore, msg->tailout_ignore);
-> +
-> +
-> +	/* reserve an extra cache line */
-> +	skb = dev_alloc_skb(msg->size + L1_CACHE_BYTES);
-> +	if (!skb) {
-> +		DPRINTK_ALWAYS(xpnet, (XPNET_DBG_RECV | XPNET_DBG_ERROR),
-> +			KERN_ERR "XPNET: failed on dev_alloc_skb(%d)\n",
-> +			msg->size + L1_CACHE_BYTES);
-
-please use standard printk/dev_printk/dev_info/dev_dbg/etc.. helpers.
-
-> +	XP_ASSERT(partid > 0 && partid < MAX_PARTITIONS);
-> +	XP_ASSERT(channel = XPC_NET_CHANNEL);
-
-please use BUG_ON
-
-> +EXPORT_NO_SYMBOLS;
-
-Another one, and still not better.
-
-This driver probably also wants a review on netdev@oss.sgi.com
-
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
