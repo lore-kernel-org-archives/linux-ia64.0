@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 04 Apr 2002 21:59:25 +0000
+From: "Neelakantam, NaveenX" <naveenx.neelakantam@intel.com>
+Date: Thu, 04 Apr 2002 22:49:43 +0000
 Subject: RE: [Linux-ia64] determining read or write on a page fault
-Message-Id: <marc-linux-ia64-105590701905385@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905386@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905163@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905163@msgid-missing>
@@ -10,7 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 3 Apr 2002 08:18:45 -0800 , "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com> said:
+Not at the moment.  :-)
+
+We are looking into it.
+
+Naveen
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
+Sent: Thursday, April 04, 2002 3:59 PM
+To: Hoeflinger, Jay P
+Cc: 'davidm@hpl.hp.com'; linux-ia64@linuxia64.org; Neelakantam, NaveenX
+Subject: RE: [Linux-ia64] determining read or write on a page fault
+
+
+>>>>> On Wed, 3 Apr 2002 08:18:45 -0800 , "Hoeflinger, Jay P"
+<jay.p.hoeflinger@intel.com> said:
 
   Jay> We want to report success using the 2.4.18 kernel and the info
   Jay> sent to the segv handler on a page fault for our distributed
