@@ -1,24 +1,32 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 12 May 2003 22:50:42 +0000
-Subject: Re: [Linux-ia64] [PATCH] 1/4 multi-ioport space support for 2.5
-Message-Id: <marc-linux-ia64-105590723705736@msgid-missing>
+From: Matt Chapman <matthewc@cse.unsw.edu.au>
+Date: Wed, 28 May 2003 02:37:32 +0000
+Subject: [Linux-ia64] Long format VHPT and TLB sharing patches
+Message-Id: <marc-linux-ia64-105590723706052@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705599@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705599@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 12 May 2003 14:58:41 -0600, Bjorn Helgaas <bjorn_helgaas@hp.com> said:
+As part of research we did at UNSW, we implemented the long format VHPT
+as well as some experimental features to improve TLB coverage (sharing
+of RIDs for text regions, and a global shared mmap region with protection
+keys for protection).  We are now making these patches available.
 
-  Bjorn> I think this is a firmware problem.  On my box, the range for
-  Bjorn> Bus 00:01 is more sensible (0x2000-0x2fff)
+The long format VHPT patch should be fairly stable.  It could be used
+as a basis for future work on superpages etc.
 
-OK with me, then.  I can boot my box with MMIO enabled, which is
-probably a good idea anyhow.  Probably nobody else is running firmware
-that old anyhow (I belive the box in question is too old to upgrade to
-the latest firmware and I don't use it much anymore anyhow).
+The sharing patches are experimental, and were intended to evaluate the
+performance effects of such changes.  They are not ready for "prime
+time".
 
-	--david
+All of the relevant information is at:
+
+http://www.gelato.unsw.edu.au/sharedtlb/
+
+Thanks in particular to Ian Wienand for his excellent help in testing,
+benchmarking, and preparing the above page.
+
+Matt
+
 
