@@ -1,46 +1,43 @@
-From: Einar Saltnes <eisa@scali.no>
-Date: Mon, 12 Feb 2001 16:40:47 +0000
-Subject: Re: [Linux-ia64] Serial console during linux boot
-Message-Id: <marc-linux-ia64-105590693005136@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 16 Feb 2001 04:28:48 +0000
+Subject: [Linux-ia64] setjmp cleanup
+Message-Id: <marc-linux-ia64-105590693005155@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005123@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005123@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Stephane Eranian wrote:
-> 
-> You are missing the quotes around the console= command here also.
-> Here is the valid command:
-> 
-> lilo -a -i initrd-2.4.0-0.43smp.img vmlinux-2.4.0-0.43smp root=/dev/sda2
-> console=tty0 console="ttyS0,115200n8"
-> 
-> Hope this fixes it this time !
-> 
-Thanks!
-The quotes made the trick!
-Now I get the kernel messages on both the local monitor and on the
-serial console at the same time! Great!
+Here is a patch to remove the unnecessary "loadrs" from setjmp.
 
-Mike Sklar wrote:
->
-> last I checked with a 2.4.0-test10 kernel on ia64 I was using only
-> ttyS0,115200 and getting kernel startup messages. No 'n8' included, but
-> perhaps that doesn't matter at all. You might want to try checkout redhats
-> 1/31/01 release, I've found it to be of much higher quality than the
-> december beta which I quickly stopped using.
->
-Thanks for the advice! I will download the newer "Fisher" distro and
-check it out soon.
+	--david
 
--
-Einar
--- 
-| Einar Saltnes          |         Scali AS         |
-| mailto:eisa@scali.no   |   http://www.scali.com   |
-| Phone:+47 22 62 89 50  |  Scalable Linux Systems  |
-| Fax  :+47 22 62 89 51  |      and Technology      |
+2001-02-15  David Mosberger  <davidm@hpl.hp.com>
+
+	* sysdeps/unix/sysv/linux/ia64/__longjmp.S (__longjmp): No need to
+	do "loadrs".  Writing to bspstore already takes care of
+	invalidating the "clean" partition.
+
+Index: sysdeps/unix/sysv/linux/ia64/__longjmp.S
+=================================RCS file: /cvs/glibc/libc/sysdeps/unix/sysv/linux/ia64/__longjmp.S,v
+retrieving revision 1.1
+diff -u -r1.1 __longjmp.S
+--- __longjmp.S	2000/06/10 00:14:40	1.1
++++ __longjmp.S	2001/02/16 04:26:46
+@@ -67,7 +67,6 @@
+ 	and r8=0x3f,r8
+ 	;;
+ 	cmp.lt pNeg,pPos=r8,r0
+-	dep r11=r0,r11,16,14	// clear ar.rsc.loadrs
+ 	mov r2=in0
+ 	;;
+ (pPos)	mov r16=r8
+@@ -117,7 +116,6 @@
+ 	ld8.nta r11=[r2],16		// ar.pfs
+ 	ld8.nta r22=[r3],56		// ar.lc
+ 	;;
+-	loadrs			// invalidate stacked regs (must be first in insn group)
+ 	ld8.nta r24=[r2],32		// pr
+ 	mov b0=r16
+ 	;;
 
