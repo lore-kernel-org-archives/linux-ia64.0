@@ -1,69 +1,38 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 11 Feb 2004 20:55:15 +0000
-Subject: [PATCH] Make serial console work for any port
-Message-Id: <200402111355.15835.bjorn.helgaas@hp.com>
+From: Matt_Domsch@Dell.com
+Date: Tue, 03 Feb 2004 19:36:41 +0000
+Subject: removing efibootmgr -t --test option
+Message-Id: <1075837008.12773.6.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Russell King <rmk@arm.linux.org.uk>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-The current serial console code only works for ports that are either
-defined in SERIAL_PORT_DFNS (and set up by serial8250_isa_init_ports())
-or registered by early_serial_setup().
+I received a request a few weeks ago to implement the EFI Boot Manager
+Timeout value in efibootmgr.  This value controls the duration between
+when the EFI Boot Manager displays the boot menu, and when it
+automatically chooses the BootNext option.  I simply hadn't seen Timeout
+in the spec, though it's been there since v0.99 at least.
 
-On ia64, SERIAL_PORT_DFNS is empty because we discover everything
-via ACPI and PCI.  And we only use early_serial_setup() for one port
-described by the HCDP firmware table.
+The most logical efibootmgr option to use would be -t val  to specify a
+timeout of val seconds, and -T  to delete it, following the other uses
+of short-form options.  However, -t is currently short for --test, which
+writes values to a file instead of NVRAM.
 
-This patch against 2.6.3-rc2 makes it work for any valid port.  If we
-don't know about the port early, we just return -ENODEV from the
-setup() function, which leaves the serial console disabled.  After the
-driver has found all the ports, we try to register the serial console
-again if it hasn't been enabled already.
+I expect I'm the only person who's ever used the -t option, it's really
+for debugging purposes.  But, if it's regularly used elsewhere, such
+that changing the meaning of -t would adversely impact someone, I won't
+do it.  I'm looking for feedback.  If you use -t to mean --test, and it
+would adversely affect you to use --test instead of -t, let me know
+soon.
 
-I think the "port->type = PORT_UNKNOWN" test is cleaner than the
-"port->ops" test -- it more clearly gets to the point of "do we know
-about this port".
+Thanks,
+Matt
 
 
-=== drivers/serial/8250.c 1.43 vs edited ==--- 1.43/drivers/serial/8250.c	Fri Jan  2 12:35:07 2004
-+++ edited/drivers/serial/8250.c	Wed Feb 11 13:13:11 2004
-@@ -1976,6 +1976,8 @@
- 	if (co->index >= UART_NR)
- 		co->index = 0;
- 	port = &serial8250_ports[co->index].port;
-+	if (port->type = PORT_UNKNOWN)
-+		return -ENODEV;
- 
- 	/*
- 	 * Temporary fix.
-@@ -2006,6 +2008,14 @@
- 	return 0;
- }
- console_initcall(serial8250_console_init);
-+
-+static int __init serial8250_late_console_init(void)
-+{
-+	if (!(serial8250_console.flags & CON_ENABLED))
-+		register_console(&serial8250_console);
-+	return 0;
-+}
-+late_initcall(serial8250_late_console_init);
- 
- #define SERIAL8250_CONSOLE	&serial8250_console
- #else
-=== drivers/serial/serial_core.c 1.78 vs edited ==--- 1.78/drivers/serial/serial_core.c	Sat Jan 24 14:53:13 2004
-+++ edited/drivers/serial/serial_core.c	Wed Feb 11 12:36:12 2004
-@@ -1871,9 +1871,6 @@
- 	if (flow = 'r')
- 		termios.c_cflag |= CRTSCTS;
- 
--	if (!port->ops)
--		return 0;	/* "console=" on ia64 */
--
- 	port->ops->set_termios(port, &termios, NULL);
- 	co->cflag = termios.c_cflag;
- 
+-- 
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
 
