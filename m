@@ -1,72 +1,23 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Wed, 06 Oct 2004 18:51:44 +0000
-Subject: [PATCH] Support ia32 exec domains without CONFIG_IA32_SUPPORT
-Message-Id: <41643EC0.1010505@intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------050604090403050708010008"
+From: Christoph Hellwig <hch@infradead.org>
+Date: Thu, 07 Oct 2004 13:27:10 +0000
+Subject: Re: [PATCH] Support ia32 exec domains without CONFIG_IA32_SUPPORT
+Message-Id: <20041007142710.A12688@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <41643EC0.1010505@intel.com>
+In-Reply-To: <41643EC0.1010505@intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050604090403050708010008
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7bit
+On Wed, Oct 06, 2004 at 11:51:44AM -0700, Arun Sharma wrote:
+> 
+> The attached patch enables the alternate root feature for programs running with a different personality such as PER_LINUX32, even though in-kernel 32 bit support is turned off.
+> 
+> Although this feature can be emulated at the user level, it's more efficient to do it in the kernel.
+> 
+> Tony, please apply.
 
+This was rejected for qemu on various arches already.  Please do it in your
+userland emulator.
 
-The attached patch enables the alternate root feature for programs running with a different personality such as PER_LINUX32, even though in-kernel 32 bit support is turned off.
-
-Although this feature can be emulated at the user level, it's more efficient to do it in the kernel.
-
-Tony, please apply.
-
-	-Arun
-
-
---------------050604090403050708010008
-Content-Type: text/plain;
- name="ia32-exec-domain.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: inline;
- filename="ia32-exec-domain.patch"
-
-ClJlZ2lzdGVyIHRoZSBpYTMyIGV4ZWMgZG9tYWluIGV2ZW4gdGhvdWdoIENPTkZJR19JQTMy
-X1NVUFBPUlQgYW5kCkNPTkZJR19DT01QQVQgYXJlIHR1cm5lZCBvZmYuIFRoaXMgaXMgbmVj
-ZXNzYXJ5IHRvIHN1cHBvcnQgdGhlIGFsdGVybmF0ZQpyb290IGZlYXR1cmUgZm9yIHByb2dy
-YW1zIHJ1bm5pbmcgd2l0aCBQRVJfTElOVVgzMi4KClNpZ25lZC1vZmYtYnk6IEFydW4gU2hh
-cm1hIDxhcnVuLnNoYXJtYUBpbnRlbC5jb20+CgotLS0gbGludXgyNi9pbmNsdWRlL2FzbS1p
-YTY0L2lhMzIuaC0JMjAwNC0xMC0wNSAxNTozMDowNS4wMDAwMDAwMDAgLTA3MDAKKysrIGxp
-bnV4MjYvaW5jbHVkZS9hc20taWE2NC9pYTMyLmgJMjAwNC0xMC0wNSAxNTozMToxMS4wMDAw
-MDAwMDAgLTA3MDAKQEAgLTExLDYgKzExLDggQEAKIAogI2lmbmRlZiBfX0FTU0VNQkxZX18K
-IAorZXh0ZXJuIGludCByZWdpc3Rlcl9pYTMyX2V4ZWNfZG9tYWluKHZvaWQpOworCiAjIGlm
-ZGVmIENPTkZJR19JQTMyX1NVUFBPUlQKIAogZXh0ZXJuIHZvaWQgaWEzMl9jcHVfaW5pdCAo
-dm9pZCk7Ci0tLSBsaW51eDI2L2FyY2gvaWE2NC9rZXJuZWwvcHJvY2Vzcy5jLQkyMDA0LTEw
-LTA1IDE1OjIwOjA0LjAwMDAwMDAwMCAtMDcwMAorKysgbGludXgyNi9hcmNoL2lhNjQva2Vy
-bmVsL3Byb2Nlc3MuYwkyMDA0LTEwLTA1IDE1OjMwOjU3LjAwMDAwMDAwMCAtMDcwMApAQCAt
-NzY1LDMgKzc2NSwxOSBAQAogfQogCiBFWFBPUlRfU1lNQk9MKG1hY2hpbmVfcG93ZXJfb2Zm
-KTsKKworc3RydWN0IGV4ZWNfZG9tYWluIGlhMzJfZXhlY19kb21haW47CisKK2ludCBfX2lu
-aXQKK3JlZ2lzdGVyX2lhMzJfZXhlY19kb21haW4oKQoreworCWlhMzJfZXhlY19kb21haW4u
-bmFtZSA9ICJMaW51eC94ODYiOworCWlhMzJfZXhlY19kb21haW4uaGFuZGxlciA9IE5VTEw7
-CisJaWEzMl9leGVjX2RvbWFpbi5wZXJzX2xvdyA9IFBFUl9MSU5VWDMyOworCWlhMzJfZXhl
-Y19kb21haW4ucGVyc19oaWdoID0gUEVSX0xJTlVYMzI7CisJaWEzMl9leGVjX2RvbWFpbi5z
-aWduYWxfbWFwID0gZGVmYXVsdF9leGVjX2RvbWFpbi5zaWduYWxfbWFwOworCWlhMzJfZXhl
-Y19kb21haW4uc2lnbmFsX2ludm1hcCA9IGRlZmF1bHRfZXhlY19kb21haW4uc2lnbmFsX2lu
-dm1hcDsKKwlyZXR1cm4gcmVnaXN0ZXJfZXhlY19kb21haW4oJmlhMzJfZXhlY19kb21haW4p
-OworfQorCitfX2luaXRjYWxsKHJlZ2lzdGVyX2lhMzJfZXhlY19kb21haW4pOwotLS0gbGlu
-dXgyNi9hcmNoL2lhNjQvaWEzMi9pYTMyX3N1cHBvcnQuYy0JMjAwNC0xMC0wNSAxNToxOToy
-NC4wMDAwMDAwMDAgLTA3MDAKKysrIGxpbnV4MjYvYXJjaC9pYTY0L2lhMzIvaWEzMl9zdXBw
-b3J0LmMJMjAwNC0xMC0wNSAxNjozNzo1MC4wMDAwMDAwMDAgLTA3MDAKQEAgLTI5LDcgKzI5
-LDYgQEAKIAogZXh0ZXJuIHZvaWQgZGllX2lmX2tlcm5lbCAoY2hhciAqc3RyLCBzdHJ1Y3Qg
-cHRfcmVncyAqcmVncywgbG9uZyBlcnIpOwogCi1zdHJ1Y3QgZXhlY19kb21haW4gaWEzMl9l
-eGVjX2RvbWFpbjsKIHN0cnVjdCBwYWdlICppYTMyX3NoYXJlZF9wYWdlW05SX0NQVVNdOwog
-dW5zaWduZWQgbG9uZyAqaWEzMl9ib290X2dkdDsKIHVuc2lnbmVkIGxvbmcgKmNwdV9nZHRf
-dGFibGVbTlJfQ1BVU107CkBAIC0yMTEsMTQgKzIxMCw2IEBACiBzdGF0aWMgaW50IF9faW5p
-dAogaWEzMl9pbml0ICh2b2lkKQogewotCWlhMzJfZXhlY19kb21haW4ubmFtZSA9ICJMaW51
-eC94ODYiOwotCWlhMzJfZXhlY19kb21haW4uaGFuZGxlciA9IE5VTEw7Ci0JaWEzMl9leGVj
-X2RvbWFpbi5wZXJzX2xvdyA9IFBFUl9MSU5VWDMyOwotCWlhMzJfZXhlY19kb21haW4ucGVy
-c19oaWdoID0gUEVSX0xJTlVYMzI7Ci0JaWEzMl9leGVjX2RvbWFpbi5zaWduYWxfbWFwID0g
-ZGVmYXVsdF9leGVjX2RvbWFpbi5zaWduYWxfbWFwOwotCWlhMzJfZXhlY19kb21haW4uc2ln
-bmFsX2ludm1hcCA9IGRlZmF1bHRfZXhlY19kb21haW4uc2lnbmFsX2ludm1hcDsKLQlyZWdp
-c3Rlcl9leGVjX2RvbWFpbigmaWEzMl9leGVjX2RvbWFpbik7Ci0KICNpZiBQQUdFX1NISUZU
-ID4gSUEzMl9QQUdFX1NISUZUCiAJewogCQlleHRlcm4ga21lbV9jYWNoZV90ICpwYXJ0aWFs
-X3BhZ2VfY2FjaGVwOwo=
---------------050604090403050708010008--
