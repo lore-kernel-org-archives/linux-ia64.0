@@ -1,49 +1,24 @@
-From: Martin Pool <mbp@sourcefrog.net>
-Date: Tue, 26 Aug 2003 00:28:47 +0000
-Subject: Re: [patch] turn off CONFIG_FD on ia64?
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="W,Fh,24+g=.t3_rg"
-Message-Id: <marc-linux-ia64-106185788101534@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 19 Aug 2003 23:49:53 +0000
+Subject: bogus barriers in sym53c8xx_2?
+Message-Id: <marc-linux-ia64-106133886310517@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106015002132453@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106015002132453@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---W,Fh,24+g=.t3_rg
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+In drivers/scsi/sym53c8xx_2/sym_misc.h we find:
 
-On 25 Aug 2003 05:30:30 -0400
-Jes Sorensen <jes@wildopensource.com> wrote:
+#elif	defined	__ia64__
+#define __READ_BARRIER()	__asm__ volatile("mf.a; mf" : : : "memory")
+#define __WRITE_BARRIER()	__asm__ volatile("mf.a; mf" : : : "memory")
 
-> >>>>> "Christoph" == Christoph Hellwig <hch@infradead.org> writes:
-> 
-> Christoph> Anyway, we should test explicitly for configurations
-> Christoph> supported by floppy.c.  So far this would be:
-> 
-> Christoph> CONFIG_ISA CONFIG_M68K CONFIG_SPARC
-> 
-> CONFIG_SPARC64 I believe. No idea about MIPS configurations.
+based on the comments and the other implementations, these barriers
+are bogus and the "mf.a" should be dropped.
 
-Should I send a patch to turn off architectures which will never work? 
-(Who to?)  It seems to me that allowing people to turn on options which
-don't build is not very helpful.
+Anyone know who wrote this code originally and why the mf.a was added?
 
--- 
-Martin 
+mf.a is very slow and should be avoided except were truly needed.
 
-GNU does not eliminate all the world's problems, only some of them.
-		-- The GNU Manifesto
-
---W,Fh,24+g=.t3_rg
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-
-iD8DBQE/SqnBPGPKP6Cz6IsRAkeyAJ4yIAqc7e7oLmimSQiQ2OqPS3syGgCfUx+5
-LYL4OAe4j7pgrLgrr9Tt7Ug=
-=CxB+
------END PGP SIGNATURE-----
-
---W,Fh,24+g=.t3_rg--
+	--david
