@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Sep 2002 20:57:55 +0000
-Subject: RE: [Linux-ia64] running x86 mozilla with "skin" support etc.
-Message-Id: <marc-linux-ia64-105590701906048@msgid-missing>
+From: Don Dugger <n0ano@n0ano.com>
+Date: Wed, 25 Sep 2002 18:21:49 +0000
+Subject: Re: [Linux-ia64] running x86 mozilla with "skin" support etc.
+Message-Id: <marc-linux-ia64-105590701906053@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701906046@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701906046@msgid-missing>
@@ -10,60 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 23 Sep 2002 13:47:45 -0700, David Mosberger <davidm@linux.hpl.hp.com> said:
+Two other case studies I can think of are Netscape and Qauke 3 Arena.  What
+I like about these two programs is that we don't have access to the source
+code at all so the x86 support under IA64 has to be right or else there's
+nothing we can do.
 
-  > For completeness, I appended a list of files that I added to
-  > get the x86-version of /usr/bin/convert to work.  These files
-  > are needed on top of what the "ia32-libs" Debian package
-  > provides.
+Of course, the Quake frame rate on BigSur's are so slow that I always got
+killed but it was a fun exercise :-)  I don't have a Itanium II to see
+what it's like on one of those.
 
-Oops, I forgot to mention that this list of files is of course
-relative to /emul/ia32-linux/
+On Mon, Sep 23, 2002 at 01:47:45PM -0700, David Mosberger wrote:
+> >>>>> On Mon, 23 Sep 2002 12:58:07 -0700, "Wichmann, Mats D" <mats.d.wichmann@intel.com> said:
+> 
+>   Mats> I'm wrapping up pushing through the LSB specification for ia64,
+>   Mats> and making sure we've said the right things about x86 support.
+> 
+> Cool.
+> 
+>   Mats> What I'd really like to have is a serious "case study" or two 
+>   Mats> that I can use to prove that things are okay.
+> 
+>   Mats> Maybe I could use mozilla as one of them....
+> 
 
-	--david
-
-  > ./usr/lib/libXaw.so.6.1
-  > ./usr/lib/libXaw.so.6
-  > ./usr/lib/libgmodule-1.2.so.0.0.10
-  > ./usr/lib/libgmodule-1.2.so.0
-  > ./usr/lib/libglib-1.2.so.0.0.10
-  > ./usr/lib/libglib-1.2.so.0
-  > ./usr/lib/gtk/themes/engines/libmetal.la
-  > ./usr/lib/gtk/themes/engines/libnotif.la
-  > ./usr/lib/gtk/themes/engines/libpixmap.la
-  > ./usr/lib/gtk/themes/engines/libpixmap.so
-  > ./usr/lib/gtk/themes/engines/libraleigh.la
-  > ./usr/lib/gtk/themes/engines/libredmond95.la
-  > ./usr/lib/libgdk_imlib.so.1.9.11
-  > ./usr/lib/libgdk_imlib.so.1
-  > ./usr/lib/libMagick.so.5.0.43
-  > ./usr/lib/libMagick.so.5
-  > ./usr/lib/liblcms.so.1.08
-  > ./usr/lib/liblcms.so.1
-  > ./usr/lib/libtiff.so.3.5.5
-  > ./usr/lib/libtiff.so.3
-  > ./usr/lib/libwmf-0.2.so.2
-  > ./usr/lib/libjpeg.so.62.0.0
-  > ./usr/lib/libjpeg.so.62
-  > ./usr/lib/libpng.so.2.1.0.12
-  > ./usr/lib/libpng.so.2
-  > ./usr/lib/libxml2.so.2
-  > ./usr/lib/gdk-imlib1/libimlib-bmp.so
-  > ./usr/lib/gdk-imlib1/libimlib-gif.so
-  > ./usr/lib/gdk-imlib1/libimlib-jpeg.so
-  > ./usr/lib/gdk-imlib1/libimlib-png.so
-  > ./usr/lib/gdk-imlib1/libimlib-ppm.so
-  > ./usr/lib/gdk-imlib1/libimlib-ps.so
-  > ./usr/lib/gdk-imlib1/libimlib-tiff.so
-  > ./usr/lib/gdk-imlib1/libimlib-xpm.so
-  > ./usr/X11R6/lib/libgtk-1.2.so.0.9.1
-  > ./usr/X11R6/lib/libgtk-1.2.so.0
-  > ./usr/X11R6/lib/libgdk-1.2.so.0.9.1
-  > ./usr/X11R6/lib/libgdk-1.2.so.0
-  > ./usr/X11R6/lib/libdps.so.1.0
-  > ./usr/X11R6/lib/libdpstk.so.1.0
-  > ./usr/X11R6/lib/libdpstk.so.1
-  > ./usr/X11R6/lib/libdps.so.1
-  > ./usr/X11R6/lib/libbz2.so.1.0
-  > ./bin/uname
+-- 
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@n0ano.com
 
