@@ -1,27 +1,46 @@
-From: Pavel Machek <pavel@ucw.cz>
-Date: Tue, 07 Dec 2004 10:51:26 +0000
-Subject: Re: page fault scalability patch V12 [0/7]: Overview and performance tests
-Message-Id: <20041207105126.GA1605@elf.ucw.cz>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Thu, 09 Dec 2004 08:00:10 +0000
+Subject: Re: page fault scalability patch V12 [0/7]: Overview and performance
+Message-Id: <41B8060A.4050402@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain> <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org> <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org> <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0412011608500.22796@ppc970.osdl.org> <41AEB44D.2040805@pobox.com> <20041201223441.3820fbc0.akpm@osdl.org>
-In-Reply-To: <20041201223441.3820fbc0.akpm@osdl.org>
+References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain> <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org> <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org> <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Jeff Garzik <jgarzik@pobox.com>, torvalds@osdl.org, clameter@sgi.com, hugh@veritas.com, benh@kernel.crashing.org, nickpiggin@yahoo.com.au, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Linus Torvalds <torvalds@osdl.org>, Hugh Dickins <hugh@veritas.com>, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hi!
+Christoph Lameter wrote:
+> Changes from V11->V12 of this patch:
+> - dump sloppy_rss in favor of list_rss (Linus' proposal)
+> - keep up against current Linus tree (patch is based on 2.6.10-rc2-bk14)
+> 
 
-> Or start alternating between stable and flakey releases, so 2.6.11 will be
-> a feature release with a 2-month development period and 2.6.12 will be a
-> bugfix-only release, with perhaps a 2-week development period, so people
-> know that the even-numbered releases are better stabilised.
+[snip]
 
-If you expect "feature 2.6.11", you might as well call it 2.7.0, 
-followed by 2.8.0.
+> For more than 8 cpus the page fault rate increases by orders
+> of magnitude. For more than 64 cpus the improvement in performace
+> is 10 times better.
 
-								Pavel
--- 
-People were complaining that M$ turns users into beta-testers...
-...jr ghea gurz vagb qrirybcref, naq gurl frrz gb yvxr vg gung jnl!
+Those numbers are pretty impressive. I thought you'd said with earlier
+patches that performance was about doubled from 8 to 512 CPUS. Did I
+remember correctly? If so, where is the improvement coming from? The
+per-thread RSS I guess?
+
+
+On another note, these patches are basically only helpful to new
+anonymous page faults. I guess this is the main thing you are concerned
+about at the moment, but I wonder if you would see improvements with
+my patch to remove the ptl from the other types of faults as well?
+
+The downside of my patch - well the main downsides - compared to yours
+are its intrusiveness, and the extra cost involved in copy_page_range
+which yours appears not to require.
+
+As I've said earlier though, I wouldn't mind your patches going in. At
+least they should probably get into -mm soon, when Andrew has time (and
+after the 4level patches are sorted out). That wouldn't stop my patch
+(possibly) being merged some time after that if and when it was found
+worthy...
+
