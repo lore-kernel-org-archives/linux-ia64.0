@@ -1,30 +1,22 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 12 Mar 2004 23:34:56 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 12 Mar 2004 23:47:08 +0000
 Subject: Re: RE[PATCH]2.6.4-rc3 MSI Support for IA64
-Message-Id: <16466.18720.70066.525158@napali.hpl.hp.com>
+Message-Id: <200403121647.08404.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403130008.i2D08SMQ011709@snoqualmie.dp.intel.com>
-	<Pine.LNX.4.58.0403121743310.29087@montezuma.fsmlabs.com>
+References: <200403130008.i2D08SMQ011709@snoqualmie.dp.intel.com> <Pine.LNX.4.58.0403121743310.29087@montezuma.fsmlabs.com>
 In-Reply-To: <Pine.LNX.4.58.0403121743310.29087@montezuma.fsmlabs.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zwane Mwaikambo <zwane@linuxpower.ca>
-Cc: long <tlnguyen@snoqualmie.dp.intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, davidm@napali.hpl.hp.com, grep@kroah.com, jgarzik@pobox.com, jun.nakajima@intel.com, tom.l.nguyen@intel.com, tony.luck@intel.com
+To: Zwane Mwaikambo <zwane@linuxpower.ca>, long <tlnguyen@snoqualmie.dp.intel.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, davidm@napali.hpl.hp.com, grep@kroah.com, jgarzik@pobox.com, jun.nakajima@intel.com, tom.l.nguyen@intel.com, tony.luck@intel.com
 
->>>>> On Fri, 12 Mar 2004 18:26:39 -0500 (EST), Zwane Mwaikambo <zwane@linuxpower.ca> said:
+On Friday 12 March 2004 4:26 pm, Zwane Mwaikambo wrote:
+> This one is slightly confusing readability wise since ia64 already does
+> the vector based interrupt numbering. Perhaps CONFIG_PCI_USE_VECTOR should
+> really be CONFIG_MSI but that's up to you.
 
-  Zwane> I wonder if we could consolidate these vector allocators as
-  Zwane> assign_irq_vector(AUTO_ASSIGN) has the same semantics as
-  Zwane> ia64_alloc_vector() and the one for i386 is also almost the
-  Zwane> same as its MSI ilk.
+I don't know much about MSI, but it certainly confused me that the
+config symbol is CONFIG_PCI_USE_VECTOR.  I think CONFIG_PCI_MSI would
+make the most sense, but maybe it's too late.
 
-Agreed.  I don't see any reason why ia64_alloc_vector() and
-assign_irq_vector() couldn't or shouldn't be one and the same thing
-(and assign_irq_vector() is a fine name).
-
-Tom, if you want to send me a patch that converts the existing uses of
-ia64_alloc_vector() to assign_irq_vector(), I'd be happy to apply
-(assuming it's clean etc., as usual).
-
-	--david
