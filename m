@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 10 Dec 2004 00:28:01 +0000
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 10 Dec 2004 01:21:45 +0000
 Subject: Re: [patch 2.6.10-rc3] Add TIF_SIGDELAYED processing
-Message-Id: <200412091628.01643.jbarnes@engr.sgi.com>
+Message-Id: <5284.1102641705@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <15449.1102482344@kao1.melbourne.sgi.com>
 In-Reply-To: <15449.1102482344@kao1.melbourne.sgi.com>
@@ -10,23 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday, December 9, 2004 3:22 pm, David Mosberger wrote:
-> >>>>> On Thu, 9 Dec 2004 15:19:07 -0800, "Luck, Tony" <tony.luck@intel.com>
-> >>>>> said:
->   >>
->   >> I just think stashing away pids in the kernel is a slippery slope
->   >> we do not want to get onto.
->   >>
->   >> Can't you stash away a reference to the task-structure and bump
->   >> the reference count?
->
->   Tony> Can we do that in MCA context (without getting any locks)?
->
-> I'd think you'd have to get the reference much earlier than that,
-> namely at the time you map the MMIO region.
+On Thu, 9 Dec 2004 15:08:35 -0800, 
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
+>Can't you stash away a reference to the task-structure and bump the
+>reference count?   I suspect that might get you into trouble when a
+>task exits with first unmapping all MMIO-memory, but that's might not
+>be so hard to deal with (when task exits, check whether it has any
+>MMIO mappings and if so, kill those, or at least the associated
+>registrations first).
 
-Yeah, that's a good idea.  I'll try that when I port the recovery stuff to 
-Keith's new code and add a comment saying that the recovery agent is 
-responsible for increasing the task usage count.
+Too sensitive to changes in task scheduling and exit code, plus it
+requires extra code in the fast path for task exit.  Saving the pid and
+the task's start timestamp uses stable data that can be obtained
+without any locks.  Apart from exposing the current idle task, my patch
+is isolated to ia64 and requires no extra code on any fast path.
 
-Jesse
