@@ -1,8 +1,10 @@
 From: D S <itanaccount@yahoo.com>
-Date: Sat, 08 Feb 2003 01:11:32 +0000
+Date: Sat, 08 Feb 2003 01:11:39 +0000
 Subject: [Linux-ia64] Oracle Installation on Ia64 Linux
-Message-Id: <marc-linux-ia64-105590709805821@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805822@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590709805821@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590709805821@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
