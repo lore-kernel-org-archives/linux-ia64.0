@@ -1,26 +1,22 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sat, 15 Dec 2001 02:03:53 +0000
-Subject: [Linux-ia64] Re: fpswa patch(es)
-Message-Id: <marc-linux-ia64-105590698805701@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 04 Dec 2001 19:54:43 +0000
+Subject: [Linux-ia64] Re: [proposal] 4-level page-table for Linux/IA64
+Message-Id: <marc-linux-ia64-105590698805600@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 14 Dec 2001 14:35:03 -0800,=20
-David Mosberger <davidm@hpl.hp.com> wrote:
->We could include more info in /proc/cpuinfo.  E.g., we could include a
->count of the total number of fpswa and unaligned faults (on a per CPU
->basis).  (Alpha Linux does this, if you want to look for an example).
->If someone sent me a patch to do that, I'd be much more inclined to
->apply it.
+>>>>> On Tue, 4 Dec 2001 17:07:04 +0800 , "Tang, Yu" <yu.tang@intel.com> said:
 
-FYI, SGI are looking at adding a generic framework for maintaining
-per-cpu counters and providing low overhead access from user space to
-that data.  We can already see performance problems with accessing
-per-cpu counters via /proc, it does not scale.
+  Yu> hi david: I have one proposal here.  i don't know whether it has
+  Yu> been raised before. if so, sorry for that; And here we go:
 
-http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=98578952028153&w=3D2
+Unless I'm missing something, what you're proposing is not a 4-level
+page table but a segmented address space.  The total mappable space
+*at any given time* will still be limited to what you get with a
+normal 3-level page table.  I doubt that's the right direction to go.
 
+	--david
 
