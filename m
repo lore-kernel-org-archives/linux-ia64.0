@@ -1,23 +1,33 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 13 Mar 2003 22:46:32 +0000
-Subject: [Linux-ia64] Re: ia64_spinlock_contention and NEW_LOCK
-Message-Id: <marc-linux-ia64-105590709806090@msgid-missing>
+From: Andy Isaacson <adi@hexapodia.org>
+Date: Wed, 05 Mar 2003 23:30:01 +0000
+Subject: [Linux-ia64] munmap() slowness
+Message-Id: <marc-linux-ia64-105590709805979@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590709806055@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590709806055@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 14 Mar 2003 09:42:41 +1100, Keith Owens <kaos@sgi.com> said:
+munmap on a 15TB anonymous area is extremely slow on our Itanium 2 box.
 
-  Keith> OTOH, if you do not mind changing unw_access_gr(), I will do
-  Keith> it that way and free up r29.
+#include <sys/mman.h>
+int main(void) {
+    size_t s = 1024*1024*1024*1024L * 15;
+    munmap(mmap(0, s, PROT_READ|PROT_WRITE,
+                MAP_NORESERVE|MAP_PRIVATE|MAP_ANONYMOUS, -1, 0),
+           s);
+    return 0;
+}
 
-No, I don't mind fixing that.  ".save rp, r0" is the only way to
-terminate a call-chain in a "race-free" manner, so it needs to work
-anyhow.
+./a.out 0.00s user 1.51s system 100% cpu 1.515 total
 
-	--david
+The kernel is 2.4.19 plus linux-2.4.19-ia64-020821.diff.gz (plus some
+local changes that shouldn't be relevant).
+
+Of course this isn't a real app, but I thought this was an interesting
+result.
+
+Please CC me on any replies, as I am not subscribed to the list.
+
+-andy
 
