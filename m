@@ -1,60 +1,32 @@
-From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
-Date: Wed, 06 Apr 2005 07:51:48 +0000
+From: Rajesh Shah <rajesh.shah@intel.com>
+Date: Wed, 06 Apr 2005 16:49:48 +0000
 Subject: Re: tiger_defconfig build fails for 2.6.12-rc2-mm1
-Message-Id: <42539514.3030803@jp.fujitsu.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------050508080104030604060003"
+Message-Id: <20050406094947.A29114@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050405165047.A21553@unix-os.sc.intel.com>
 In-Reply-To: <20050405165047.A21553@unix-os.sc.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050508080104030604060003
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Rajesh Shah wrote:
-> My ia64 kernel build for 2.6.12-rc2-mm1 failed today for a .config
-> generated from tiger_defconfig. I ran into 2 separate compile
-> failures. Reverting 
-> add-a-clear_pages-function-to-clear-pages-of-higher.patch
-> fixed the first compile error, reverting 
-> bk-acpi-alpha-build-fix.patch
-> fixed the second error. Since I was really just trying to get a
-> booting kernel, I haven't (yet) chased this any further to 
-> identify proper fixes. FYI, in case others are trying to work
-> around these failures too.
+On Tue, Apr 05, 2005 at 06:50:10PM -0700, Andrew Morton wrote:
 > 
-I think I met the same compile errors on tiger4.
-Attached patch fixed the second one.
+> hm, I built and booted that kernel on my tiger box.  Could you send me the
+> actual .config please?
 
-But my kernel haven't boot yet, either.
-(maybe stopped in the middle of init scripts)
+Here's my actual .config. I should have also mentioned that the
+kernel I built after reverting those 2 patches booted fine
+on my tiger system.
 
-my .config is attached, too.
+Thanks,
+Rajesh
 
--- Kame
-
-> Rajesh
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-
---------------050508080104030604060003
-Content-Type: text/plain;
- name=".config"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename=".config"
 
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.12-rc2-mm1
-# Wed Apr  6 15:53:56 2005
+# Tue Apr  5 16:24:25 2005
 #
 
 #
@@ -63,7 +35,7 @@ Content-Disposition: inline;
 CONFIG_EXPERIMENTAL=y
 CONFIG_CLEAN_COMPILE=y
 CONFIG_LOCK_KERNEL=y
-CONFIG_INIT_ENV_ARG_LIMIT=32
+CONFIG_INIT_ENV_ARG_LIMIT2
 
 #
 # General setup
@@ -106,7 +78,7 @@ CONFIG_MODULE_UNLOAD=y
 # CONFIG_MODULE_FORCE_UNLOAD is not set
 CONFIG_OBSOLETE_MODPARM=y
 CONFIG_MODVERSIONS=y
-# CONFIG_MODULE_SRCVERSION_ALL is not set
+CONFIG_MODULE_SRCVERSION_ALL=y
 CONFIG_KMOD=y
 CONFIG_STOP_MACHINE=y
 
@@ -121,8 +93,8 @@ CONFIG_GENERIC_CALIBRATE_DELAY=y
 CONFIG_TIME_INTERPOLATION=y
 CONFIG_EFI=y
 CONFIG_GENERIC_IOMAP=y
-CONFIG_IA64_GENERIC=y
-# CONFIG_IA64_DIG is not set
+# CONFIG_IA64_GENERIC is not set
+CONFIG_IA64_DIG=y
 # CONFIG_IA64_HP_ZX1 is not set
 # CONFIG_IA64_HP_ZX1_SWIOTLB is not set
 # CONFIG_IA64_SGI_SN2 is not set
@@ -134,20 +106,18 @@ CONFIG_MCKINLEY=y
 CONFIG_IA64_PAGE_SIZE_16KB=y
 # CONFIG_IA64_PAGE_SIZE_64KB is not set
 CONFIG_IA64_L1_CACHE_SHIFT=7
-CONFIG_NUMA=y
+# CONFIG_NUMA is not set
 CONFIG_VIRTUAL_MEM_MAP=y
 CONFIG_HOLES_IN_ZONE=y
-CONFIG_ARCH_DISCONTIGMEM_ENABLE=y
 CONFIG_IA64_CYCLONE=y
 CONFIG_IOSAPIC=y
-CONFIG_FORCE_MAX_ZONEORDER=18
+CONFIG_FORCE_MAX_ZONEORDER
 CONFIG_SMP=y
-CONFIG_NR_CPUS=512
+CONFIG_NR_CPUS=4
 CONFIG_HOTPLUG_CPU=y
 # CONFIG_PREEMPT is not set
-# CONFIG_FLATMEM is not set
-CONFIG_DISCONTIGMEM=y
-CONFIG_NEED_MULTIPLE_NODES=y
+CONFIG_FLATMEM=y
+# CONFIG_DISCONTIGMEM is not set
 CONFIG_HAVE_DEC_LOCK=y
 CONFIG_IA32_SUPPORT=y
 CONFIG_COMPAT=y
@@ -176,20 +146,19 @@ CONFIG_ACPI=y
 CONFIG_ACPI_BOOT=y
 CONFIG_ACPI_INTERPRETER=y
 CONFIG_ACPI_BUTTON=m
-CONFIG_ACPI_VIDEO=m
+# CONFIG_ACPI_VIDEO is not set
 CONFIG_ACPI_HOTKEY=m
 CONFIG_ACPI_FAN=m
 CONFIG_ACPI_PROCESSOR=m
-CONFIG_ACPI_HOTPLUG_CPU=y
+# CONFIG_ACPI_HOTPLUG_CPU is not set
 CONFIG_ACPI_THERMAL=m
-CONFIG_ACPI_NUMA=y
 CONFIG_ACPI_BLACKLIST_YEAR=0
 # CONFIG_ACPI_DEBUG is not set
 CONFIG_ACPI_BUS=y
 CONFIG_ACPI_POWER=y
 CONFIG_ACPI_PCI=y
 CONFIG_ACPI_SYSTEM=y
-CONFIG_ACPI_CONTAINER=m
+# CONFIG_ACPI_CONTAINER is not set
 
 #
 # Bus options (PCI, PCMCIA)
@@ -256,10 +225,9 @@ CONFIG_BLK_DEV_CRYPTOLOOP=m
 CONFIG_BLK_DEV_NBD=m
 # CONFIG_BLK_DEV_SX8 is not set
 # CONFIG_BLK_DEV_UB is not set
-CONFIG_BLK_DEV_RAM=y
-CONFIG_BLK_DEV_RAM_COUNT=16
-CONFIG_BLK_DEV_RAM_SIZE=4096
-CONFIG_BLK_DEV_INITRD=y
+CONFIG_BLK_DEV_RAM=m
+CONFIG_BLK_DEV_RAM_COUNT
+CONFIG_BLK_DEV_RAM_SIZE@96
 CONFIG_INITRAMFS_SOURCE=""
 # CONFIG_CDROM_PKTCDVD is not set
 
@@ -271,7 +239,7 @@ CONFIG_IOSCHED_AS=y
 CONFIG_IOSCHED_DEADLINE=y
 CONFIG_IOSCHED_CFQ=y
 # CONFIG_ATA_OVER_ETH is not set
-CONFIG_AOE_PARTITIONS=16
+CONFIG_AOE_PARTITIONS
 
 #
 # ATA/ATAPI/MFM/RLL support
@@ -320,7 +288,6 @@ CONFIG_BLK_DEV_PIIX=y
 # CONFIG_BLK_DEV_PDC202XX_OLD is not set
 # CONFIG_BLK_DEV_PDC202XX_NEW is not set
 # CONFIG_BLK_DEV_SVWKS is not set
-CONFIG_BLK_DEV_SGIIOC4=y
 # CONFIG_BLK_DEV_SIIMAGE is not set
 # CONFIG_BLK_DEV_SLC90E66 is not set
 # CONFIG_BLK_DEV_TRM290 is not set
@@ -387,8 +354,8 @@ CONFIG_SCSI_FC_ATTRS=y
 # CONFIG_SCSI_INIA100 is not set
 CONFIG_SCSI_SYM53C8XX_2=y
 CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE=1
-CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS=16
-CONFIG_SCSI_SYM53C8XX_MAX_TAGS=64
+CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS
+CONFIG_SCSI_SYM53C8XX_MAX_TAGSd
 # CONFIG_SCSI_SYM53C8XX_IOMAPPED is not set
 # CONFIG_SCSI_IPR is not set
 CONFIG_SCSI_QLOGIC_FC=y
@@ -429,7 +396,7 @@ CONFIG_DM_ZERO=m
 # Fusion MPT device support
 #
 CONFIG_FUSION=y
-CONFIG_FUSION_MAX_SGE=40
+CONFIG_FUSION_MAX_SGE@
 # CONFIG_FUSION_CTL is not set
 
 #
@@ -625,8 +592,8 @@ CONFIG_INPUT=y
 #
 CONFIG_INPUT_MOUSEDEV=y
 CONFIG_INPUT_MOUSEDEV_PSAUX=y
-CONFIG_INPUT_MOUSEDEV_SCREEN_X=1024
-CONFIG_INPUT_MOUSEDEV_SCREEN_Y=768
+CONFIG_INPUT_MOUSEDEV_SCREEN_X24
+CONFIG_INPUT_MOUSEDEV_SCREEN_Yv8
 # CONFIG_INPUT_JOYDEV is not set
 # CONFIG_INPUT_TSDEV is not set
 # CONFIG_INPUT_EVDEV is not set
@@ -683,9 +650,6 @@ CONFIG_SERIAL_NONSTANDARD=y
 # CONFIG_SPECIALIX is not set
 # CONFIG_SX is not set
 # CONFIG_STALDRV is not set
-CONFIG_SGI_SNSC=y
-# CONFIG_SGI_TIOCX is not set
-# CONFIG_SGI_MBCS is not set
 
 #
 # Serial drivers
@@ -705,11 +669,10 @@ CONFIG_SERIAL_8250_SHARE_IRQ=y
 #
 CONFIG_SERIAL_CORE=y
 CONFIG_SERIAL_CORE_CONSOLE=y
-CONFIG_SERIAL_SGI_L1_CONSOLE=y
 # CONFIG_SERIAL_JSM is not set
 CONFIG_UNIX98_PTYS=y
 CONFIG_LEGACY_PTYS=y
-CONFIG_LEGACY_PTY_COUNT=256
+CONFIG_LEGACY_PTY_COUNT%6
 
 #
 # IPMI
@@ -731,8 +694,6 @@ CONFIG_EFI_RTC=y
 #
 CONFIG_AGP=m
 CONFIG_AGP_I460=m
-# CONFIG_AGP_HP_ZX1 is not set
-# CONFIG_AGP_SGI_TIOCA is not set
 CONFIG_DRM=m
 CONFIG_DRM_TDFX=m
 CONFIG_DRM_R128=m
@@ -744,8 +705,7 @@ CONFIG_RAW_DRIVER=m
 CONFIG_HPET=y
 # CONFIG_HPET_RTC_IRQ is not set
 CONFIG_HPET_MMAP=y
-CONFIG_MAX_RAW_DEVS=256
-CONFIG_MMTIMER=y
+CONFIG_MAX_RAW_DEVS%6
 
 #
 # TPM devices
@@ -790,98 +750,14 @@ CONFIG_DUMMY_CONSOLE=y
 #
 # Sound
 #
-CONFIG_SOUND=m
-
-#
-# Advanced Linux Sound Architecture
-#
-CONFIG_SND=m
-CONFIG_SND_TIMER=m
-CONFIG_SND_PCM=m
-CONFIG_SND_HWDEP=m
-CONFIG_SND_RAWMIDI=m
-CONFIG_SND_SEQUENCER=m
-CONFIG_SND_SEQ_DUMMY=m
-CONFIG_SND_OSSEMUL=y
-CONFIG_SND_MIXER_OSS=m
-CONFIG_SND_PCM_OSS=m
-CONFIG_SND_SEQUENCER_OSS=y
-CONFIG_SND_VERBOSE_PRINTK=y
-# CONFIG_SND_DEBUG is not set
-
-#
-# Generic devices
-#
-CONFIG_SND_MPU401_UART=m
-CONFIG_SND_OPL3_LIB=m
-CONFIG_SND_DUMMY=m
-CONFIG_SND_VIRMIDI=m
-CONFIG_SND_MTPAV=m
-CONFIG_SND_SERIAL_U16550=m
-CONFIG_SND_MPU401=m
-
-#
-# PCI devices
-#
-CONFIG_SND_AC97_CODEC=m
-# CONFIG_SND_ALI5451 is not set
-# CONFIG_SND_ATIIXP is not set
-# CONFIG_SND_ATIIXP_MODEM is not set
-# CONFIG_SND_AU8810 is not set
-# CONFIG_SND_AU8820 is not set
-# CONFIG_SND_AU8830 is not set
-# CONFIG_SND_AZT3328 is not set
-# CONFIG_SND_BT87X is not set
-CONFIG_SND_CS46XX=m
-CONFIG_SND_CS46XX_NEW_DSP=y
-CONFIG_SND_CS4281=m
-CONFIG_SND_EMU10K1=m
-# CONFIG_SND_EMU10K1X is not set
-# CONFIG_SND_CA0106 is not set
-# CONFIG_SND_KORG1212 is not set
-# CONFIG_SND_MIXART is not set
-# CONFIG_SND_NM256 is not set
-# CONFIG_SND_RME32 is not set
-# CONFIG_SND_RME96 is not set
-# CONFIG_SND_RME9652 is not set
-# CONFIG_SND_HDSP is not set
-# CONFIG_SND_TRIDENT is not set
-# CONFIG_SND_YMFPCI is not set
-# CONFIG_SND_ALS4000 is not set
-# CONFIG_SND_CMIPCI is not set
-# CONFIG_SND_ENS1370 is not set
-# CONFIG_SND_ENS1371 is not set
-# CONFIG_SND_ES1938 is not set
-# CONFIG_SND_ES1968 is not set
-# CONFIG_SND_MAESTRO3 is not set
-CONFIG_SND_FM801=m
-# CONFIG_SND_FM801_TEA575X is not set
-# CONFIG_SND_ICE1712 is not set
-# CONFIG_SND_ICE1724 is not set
-# CONFIG_SND_INTEL8X0 is not set
-# CONFIG_SND_INTEL8X0M is not set
-# CONFIG_SND_SONICVIBES is not set
-# CONFIG_SND_VIA82XX is not set
-# CONFIG_SND_VIA82XX_MODEM is not set
-# CONFIG_SND_VX222 is not set
-# CONFIG_SND_HDA_INTEL is not set
-
-#
-# USB devices
-#
-# CONFIG_SND_USB_AUDIO is not set
-
-#
-# Open Sound System
-#
-# CONFIG_SOUND_PRIME is not set
+# CONFIG_SOUND is not set
 
 #
 # USB support
 #
 CONFIG_USB_ARCH_HAS_HCD=y
 CONFIG_USB_ARCH_HAS_OHCI=y
-CONFIG_USB=m
+CONFIG_USB=y
 # CONFIG_USB_DEBUG is not set
 
 #
@@ -902,15 +778,13 @@ CONFIG_USB_EHCI_HCD=m
 CONFIG_USB_OHCI_HCD=m
 # CONFIG_USB_OHCI_BIG_ENDIAN is not set
 CONFIG_USB_OHCI_LITTLE_ENDIAN=y
-CONFIG_USB_UHCI_HCD=m
+CONFIG_USB_UHCI_HCD=y
 # CONFIG_USB_SL811_HCD is not set
 
 #
 # USB Device Class drivers
 #
-# CONFIG_USB_AUDIO is not set
 # CONFIG_USB_BLUETOOTH_TTY is not set
-# CONFIG_USB_MIDI is not set
 # CONFIG_USB_ACM is not set
 # CONFIG_USB_PRINTER is not set
 
@@ -931,16 +805,10 @@ CONFIG_USB_STORAGE=m
 #
 # USB Input Devices
 #
-CONFIG_USB_HID=m
+CONFIG_USB_HID=y
 CONFIG_USB_HIDINPUT=y
 # CONFIG_HID_FF is not set
 # CONFIG_USB_HIDDEV is not set
-
-#
-# USB HID Boot Protocol drivers
-#
-# CONFIG_USB_KBD is not set
-# CONFIG_USB_MOUSE is not set
 # CONFIG_USB_AIPTEK is not set
 # CONFIG_USB_WACOM is not set
 # CONFIG_USB_KBTAB is not set
@@ -974,7 +842,7 @@ CONFIG_USB_HIDINPUT=y
 # CONFIG_USB_PEGASUS is not set
 # CONFIG_USB_RTL8150 is not set
 # CONFIG_USB_USBNET is not set
-CONFIG_USB_MON=m
+CONFIG_USB_MON=y
 
 #
 # USB port drivers
@@ -1019,11 +887,7 @@ CONFIG_USB_MON=m
 #
 # InfiniBand support
 #
-CONFIG_INFINIBAND=m
-CONFIG_INFINIBAND_MTHCA=m
-# CONFIG_INFINIBAND_MTHCA_DEBUG is not set
-CONFIG_INFINIBAND_IPOIB=m
-# CONFIG_INFINIBAND_IPOIB_DEBUG is not set
+# CONFIG_INFINIBAND is not set
 
 #
 # File systems
@@ -1087,7 +951,7 @@ CONFIG_UDF_NLS=y
 CONFIG_FAT_FS=y
 # CONFIG_MSDOS_FS is not set
 CONFIG_VFAT_FS=y
-CONFIG_FAT_DEFAULT_CODEPAGE=437
+CONFIG_FAT_DEFAULT_CODEPAGEC7
 CONFIG_FAT_DEFAULT_IOCHARSET="iso8859-1"
 CONFIG_NTFS_FS=m
 # CONFIG_NTFS_DEBUG is not set
@@ -1232,13 +1096,6 @@ CONFIG_GENERIC_HARDIRQS=y
 CONFIG_GENERIC_IRQ_PROBE=y
 
 #
-# HP Simulator drivers
-#
-# CONFIG_HP_SIMETH is not set
-# CONFIG_HP_SIMSERIAL is not set
-# CONFIG_HP_SIMSCSI is not set
-
-#
 # Profiling support
 #
 # CONFIG_PROFILING is not set
@@ -1249,7 +1106,7 @@ CONFIG_GENERIC_IRQ_PROBE=y
 # CONFIG_PRINTK_TIME is not set
 CONFIG_DEBUG_KERNEL=y
 CONFIG_MAGIC_SYSRQ=y
-CONFIG_LOG_BUF_SHIFT=20
+CONFIG_LOG_BUF_SHIFT 
 CONFIG_DETECT_SOFTLOCKUP=y
 # CONFIG_SCHEDSTATS is not set
 # CONFIG_DEBUG_SLAB is not set
@@ -1304,32 +1161,3 @@ CONFIG_CRYPTO_DES=m
 #
 # Hardware crypto devices
 #
-
---------------050508080104030604060003
-Content-Type: text/plain;
- name="cleanup.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="cleanup.patch"
-
----
-
- linux-2.6.12-rc2-mm1-kamezawa/drivers/firmware/pcdp.c |    1 +
- 1 files changed, 1 insertion(+)
-
-diff -puN drivers/firmware/pcdp.c~cleanup drivers/firmware/pcdp.c
---- linux-2.6.12-rc2-mm1/drivers/firmware/pcdp.c~cleanup	2005-04-06 15:43:01.000000000 +0900
-+++ linux-2.6.12-rc2-mm1-kamezawa/drivers/firmware/pcdp.c	2005-04-06 15:43:24.000000000 +0900
-@@ -11,6 +11,7 @@
-  * published by the Free Software Foundation.
-  */
- 
-+#include <linux/config.h>
- #include <linux/acpi.h>
- #include <linux/console.h>
- #include <linux/efi.h>
-
-_
-
---------------050508080104030604060003--
-
