@@ -1,206 +1,35 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Thu, 20 Jan 2005 16:11:16 +0000
-Subject: [patch 2/3] spinlock fix #2: generalize [spin|rw]lock yielding
-Message-Id: <20050120161116.GA13812@elte.hu>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 03 Jan 2005 20:30:29 +0000
+Subject: Re: Prezeroing V2 [3/4]: Add support for ZEROED and NOT_ZEROED free
+Message-Id: <Pine.LNX.4.58.0501031225130.22688@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050119080403.GB29037@elte.hu> <16878.9678.73202.771962@wombat.chubb.wattle.id.au> <20050119092013.GA2045@elte.hu> <16878.54402.344079.528038@cargo.ozlabs.ibm.com> <20050120023445.GA3475@taniwha.stupidest.org> <20050119190104.71f0a76f.akpm@osdl.org> <20050120031854.GA8538@taniwha.stupidest.org> <16879.29449.734172.893834@wombat.chubb.wattle.id.au> <Pine.LNX.4.58.0501200747230.8178@ppc970.osdl.org> <20050120160839.GA13067@elte.hu>
-In-Reply-To: <20050120160839.GA13067@elte.hu>
+References: <fa.n0l29ap.1nqg39@ifi.uio.no> <fa.n04s9ar.17sg3f@ifi.uio.no>
+ <E1ChwhG-00011c-00@be1.7eggert.dyndns.org> <87wtv464ty.fsf@deneb.enyo.de>
+ <Pine.LNX.4.58.0412261511030.2353@ppc970.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0412261511030.2353@ppc970.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Linus Torvalds <torvalds@osdl.org>
-Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, Chris Wedgwood <cw@f00f.org>, Andrew Morton <akpm@osdl.org>, paulus@samba.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, dsw@gelato.unsw.edu.au, benh@kernel.crashing.org, linux-ia64@vger.kernel.org, hch@infradead.org, wli@holomorphy.com, jbarnes@sgi.com
+Cc: Florian Weimer <fw@deneb.enyo.de>, 7eggert@gmx.de, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
 
+On Sun, 26 Dec 2004, Linus Torvalds wrote:
 
-[patch respun with s/trylock_test/can_lock/]
+> Anyway, at this point I think the most interesting question is whether it
+> actually improves any macro-benchmark behaviour, rather than just a page
+> fault latency tester microbenchmark..
 
---
-this patch generalizes the facility of targeted lock-yielding originally
-implemented for ppc64. This facility enables a virtual CPU to indicate
-towards the hypervisor which other virtual CPU this CPU is 'blocked on',
-and hence which CPU the hypervisor should yield the current timeslice
-to, in order to make progress on releasing the lock.
+Any suggestion as to what macro-benchmark would allow that kind of
+testing? I tried lmbench but it immediately writes to the complete page
+that was allocated. I tried to vary the number of cache cells touched
+after an allocation of an prezeroed page. Unsurprisingly it degenerates to
+regular behavior if all cache lines are touched. So we would need a
+benchmar that allows sparse memory use testing and preferably is able to
+also allow SMP tests. I will test with some of the typical apps running
+on  Altix machines but those are extremely heavy in terms of memory use
+and  will likely be as positive as my microbenches.
 
-On physical platforms these functions default to cpu_relax(). Since
-physical platforms are in the overwhelming majority i've added the two
-new functions to the new asm-generic/spinlock.h include file - here i
-hope we can later on move more generic spinlock bits as well.
+BTW my bench does simulate the typical behavior of such an app using a
+sparse array and allows the configuration of the number of cache lines
+per page to touch.
 
-this patch solves the ppc64/PREEMPT functionality-regression reported by
-Paul Mackerras. I only tested it on x86, Paul, would you mind to test it
-on ppc64?
-
-	Ingo
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-
---- linux/kernel/spinlock.c.orig
-+++ linux/kernel/spinlock.c
-@@ -184,7 +184,7 @@ void __lockfunc _##op##_lock(locktype##_
- 		if (!(lock)->break_lock)				\
- 			(lock)->break_lock = 1;				\
- 		while (!op##_can_lock(lock) && (lock)->break_lock)	\
--			cpu_relax();					\
-+			locktype##_yield(lock);				\
- 		preempt_disable();					\
- 	}								\
- }									\
-@@ -206,7 +206,7 @@ unsigned long __lockfunc _##op##_lock_ir
- 		if (!(lock)->break_lock)				\
- 			(lock)->break_lock = 1;				\
- 		while (!op##_can_lock(lock) && (lock)->break_lock)	\
--			cpu_relax();					\
-+			locktype##_yield(lock);				\
- 		preempt_disable();					\
- 	}								\
- 	return flags;							\
---- linux/arch/ppc64/lib/locks.c.orig
-+++ linux/arch/ppc64/lib/locks.c
-@@ -23,7 +23,7 @@
- /* waiting for a spinlock... */
- #if defined(CONFIG_PPC_SPLPAR) || defined(CONFIG_PPC_ISERIES)
- 
--void __spin_yield(spinlock_t *lock)
-+void spinlock_yield(spinlock_t *lock)
- {
- 	unsigned int lock_value, holder_cpu, yield_count;
- 	struct paca_struct *holder_paca;
-@@ -54,7 +54,7 @@ void __spin_yield(spinlock_t *lock)
-  * This turns out to be the same for read and write locks, since
-  * we only know the holder if it is write-locked.
-  */
--void __rw_yield(rwlock_t *rw)
-+void rwlock_yield(rwlock_t *rw)
- {
- 	int lock_value;
- 	unsigned int holder_cpu, yield_count;
-@@ -87,7 +87,7 @@ void spin_unlock_wait(spinlock_t *lock)
- 	while (lock->lock) {
- 		HMT_low();
- 		if (SHARED_PROCESSOR)
--			__spin_yield(lock);
-+			spinlock_yield(lock);
- 	}
- 	HMT_medium();
- }
---- linux/include/asm-ia64/spinlock.h.orig
-+++ linux/include/asm-ia64/spinlock.h
-@@ -17,6 +17,8 @@
- #include <asm/intrinsics.h>
- #include <asm/system.h>
- 
-+#include <asm-generic/spinlock.h>
-+
- typedef struct {
- 	volatile unsigned int lock;
- #ifdef CONFIG_PREEMPT
---- linux/include/asm-generic/spinlock.h.orig
-+++ linux/include/asm-generic/spinlock.h
-@@ -0,0 +1,11 @@
-+#ifndef _ASM_GENERIC_SPINLOCK_H
-+#define _ASM_GENERIC_SPINLOCK_H
-+
-+/*
-+ * Virtual platforms might use these to
-+ * yield to specific virtual CPUs:
-+ */
-+#define spinlock_yield(lock)	cpu_relax()
-+#define rwlock_yield(lock)	cpu_relax()
-+
-+#endif /* _ASM_GENERIC_SPINLOCK_H */
---- linux/include/linux/spinlock.h.orig
-+++ linux/include/linux/spinlock.h
-@@ -206,6 +206,8 @@ typedef struct {
- #define _raw_spin_unlock(lock) do { (void)(lock); } while(0)
- #endif /* CONFIG_DEBUG_SPINLOCK */
- 
-+#define spinlock_yield(lock)	(void)(lock)
-+
- /* RW spinlocks: No debug version */
- 
- #if (__GNUC__ > 2)
-@@ -224,6 +226,8 @@ typedef struct {
- #define _raw_read_trylock(lock) ({ (void)(lock); (1); })
- #define _raw_write_trylock(lock) ({ (void)(lock); (1); })
- 
-+#define rwlock_yield(lock)	(void)(lock)
-+
- #define _spin_trylock(lock)	({preempt_disable(); _raw_spin_trylock(lock) ? \
- 				1 : ({preempt_enable(); 0;});})
- 
---- linux/include/asm-i386/spinlock.h.orig
-+++ linux/include/asm-i386/spinlock.h
-@@ -7,6 +7,8 @@
- #include <linux/config.h>
- #include <linux/compiler.h>
- 
-+#include <asm-generic/spinlock.h>
-+
- asmlinkage int printk(const char * fmt, ...)
- 	__attribute__ ((format (printf, 1, 2)));
- 
---- linux/include/asm-ppc64/spinlock.h.orig
-+++ linux/include/asm-ppc64/spinlock.h
-@@ -64,11 +64,11 @@ static __inline__ void _raw_spin_unlock(
- #if defined(CONFIG_PPC_SPLPAR) || defined(CONFIG_PPC_ISERIES)
- /* We only yield to the hypervisor if we are in shared processor mode */
- #define SHARED_PROCESSOR (get_paca()->lppaca.shared_proc)
--extern void __spin_yield(spinlock_t *lock);
--extern void __rw_yield(rwlock_t *lock);
-+extern void spinlock_yield(spinlock_t *lock);
-+extern void rwlock_yield(rwlock_t *lock);
- #else /* SPLPAR || ISERIES */
--#define __spin_yield(x)	barrier()
--#define __rw_yield(x)	barrier()
-+#define spinlock_yield(x)	barrier()
-+#define rwlock_yield(x)	barrier()
- #define SHARED_PROCESSOR	0
- #endif
- extern void spin_unlock_wait(spinlock_t *lock);
-@@ -109,7 +109,7 @@ static void __inline__ _raw_spin_lock(sp
- 		do {
- 			HMT_low();
- 			if (SHARED_PROCESSOR)
--				__spin_yield(lock);
-+				spinlock_yield(lock);
- 		} while (likely(lock->lock != 0));
- 		HMT_medium();
- 	}
-@@ -127,7 +127,7 @@ static void __inline__ _raw_spin_lock_fl
- 		do {
- 			HMT_low();
- 			if (SHARED_PROCESSOR)
--				__spin_yield(lock);
-+				spinlock_yield(lock);
- 		} while (likely(lock->lock != 0));
- 		HMT_medium();
- 		local_irq_restore(flags_dis);
-@@ -201,7 +201,7 @@ static void __inline__ _raw_read_lock(rw
- 		do {
- 			HMT_low();
- 			if (SHARED_PROCESSOR)
--				__rw_yield(rw);
-+				rwlock_yield(rw);
- 		} while (likely(rw->lock < 0));
- 		HMT_medium();
- 	}
-@@ -258,7 +258,7 @@ static void __inline__ _raw_write_lock(r
- 		do {
- 			HMT_low();
- 			if (SHARED_PROCESSOR)
--				__rw_yield(rw);
-+				rwlock_yield(rw);
- 		} while (likely(rw->lock != 0));
- 		HMT_medium();
- 	}
---- linux/include/asm-x86_64/spinlock.h.orig
-+++ linux/include/asm-x86_64/spinlock.h
-@@ -6,6 +6,8 @@
- #include <asm/page.h>
- #include <linux/config.h>
- 
-+#include <asm-generic/spinlock.h>
-+
- extern int printk(const char * fmt, ...)
- 	__attribute__ ((format (printf, 1, 2)));
- 
