@@ -1,43 +1,23 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Mon, 10 Jan 2005 13:19:03 +0000
-Subject: Re: Fix PTRACE_GETEVENTMSG ia32 emulation
-Message-Id: <jer7ktbewo.fsf@sykes.suse.de>
+From: Christoph Hellwig <hch@infradead.org>
+Date: Wed, 05 Jan 2005 11:35:18 +0000
+Subject: Re: [PATCH 2/4] SGI Altix cross partition functionality (1st revision)
+Message-Id: <20050105113518.GB31285@infradead.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <jevfa5bf5x.fsf@sykes.suse.de>
-In-Reply-To: <jevfa5bf5x.fsf@sykes.suse.de>
+References: <20040616163514.GB27891@sgi.com>
+In-Reply-To: <20040616163514.GB27891@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Sorry, I was accidentally using the old patch.
+On Mon, Dec 20, 2004 at 12:45:48PM -0600, Dean Nelson wrote:
+> Having the XP module separate from XPC allows for XPC to come and go
+> as needed without disturbing XPMEM and its users. This allows a site to
+> run a particular partition in isolation for a time (XPC not loaded) and
+> then open it up to the other partitions (XPC loaded).
+> 
+> In light of the above I would like to keep XP and XPC as separate modules.
 
-This patch fixes PTRACE_GETEVENTMSG for the ia32 emulation.  The parameter
-is a pointer, thus needs to be converted.
+I still think it's a bad idea, but I'm fed up with this discussion so go
+ahead.
 
-Signed-off-by: Andreas Schwab <schwab@suse.de>
-
---- linux-2.6.10.orig/arch/ia64/ia32/sys_ia32.c	2004-12-24 22:35:00.0000000=
-00 +0100
-+++ linux-2.6.10/arch/ia64/ia32/sys_ia32.c	2005-01-10 14:17:16.446994918 +0=
-100
-@@ -1894,6 +1894,10 @@ sys32_ptrace (int request, pid_t pid, un
- 					    compat_ptr(data));
- 		break;
-=20
-+	      case PTRACE_GETEVENTMSG:  =20
-+		ret =3D put_user(child->ptrace_message, (unsigned int __user *) compat_p=
-tr(data));
-+		break;
-+
- 	      case PTRACE_SYSCALL:	/* continue, stop after next syscall */
- 	      case PTRACE_CONT:		/* restart after signal. */
- 	      case PTRACE_KILL:
-
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
