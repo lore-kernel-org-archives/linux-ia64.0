@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 04 Jun 2004 22:23:41 +0000
+Date: Fri, 04 Jun 2004 22:52:25 +0000
 Subject: Re: sched_clock
-Message-Id: <16576.63085.459570.276414@napali.hpl.hp.com>
+Message-Id: <16576.64809.757551.150988@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40B4868F.B649611C@nospam.org>
 In-Reply-To: <40B4868F.B649611C@nospam.org>
@@ -10,23 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 4 Jun 2004 05:43:08 -0400 (EDT), Ingo Molnar <mingo@redhat.com> said:
+>>>>> On Fri, 04 Jun 2004 13:11:26 +0200, Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org> said:
 
-  Ingo> On Thu, 3 Jun 2004, David Mosberger wrote:
+  Zoltan> David Mosberger wrote:
+  >>  Yes, you're right, there is an intermediate-result overflow
+  >> problem in sched_clock() that I missed.  How does the attached
+  >> patch work for you?
 
-  >> Ingo, is there something on x86 that guarantees that the
-  >> cycle-counter will start out near zero at boot time?
+  Zoltan> Thank you, it is O.K.
 
-  Ingo> it starts at zero, but there's no guarantee as far as i
-  Ingo> know. Would there be any reason for it to start at another
-  Ingo> reason?
+Thanks for checking it out.
 
-I was thinking that firmware might do some testing of the
-cycle-counter and then leave the counter in an indeterminate state.
-It's reasonable to expect that the firmware would clear the counter to
-zero afterwards, but since it's not required by the specs, I wouldn't
-want to _rely_ on it (especially if the resulting errors could be
-obscure).  I think I'll go ahead and clear the cycle-counter in
-cpu_init().  That ought to be safe.
+  Zoltan> On the other hand, we might have similar problems in
+  Zoltan> fsys.S. Some comments like the one below makes me worry a
+  Zoltan> bit:
+
+  Zoltan> 	// if now < last_tick, set p7 = 1, p8 = 0
+
+  Zoltan> I cannot really say that I fully understand what is in
+  Zoltan> fsys.S, but should not "now" always be after no matter what
+  Zoltan> time stamp, last tick ?
+
+No, the "<" there is done with 64-bit modular arithmetic so this code
+is fine (it's the equivalent of the time_before() macro).
+
+The ia64-specific code is very careful to work correctly even when the
+ITC wraps around.  sched_clock() is a (platform-independent) exception
+and it is OK because, in the worst case, an overflow will lead to a
+scheduling hiccup.  Basically, the scheduler will simply "think" that
+a task slept for NS_MAX_SLEEP_AVG when it may have slept much less
+(there may be some other minor hiccups, but that should be pretty much
+it, AFAICT).
 
 	--david
