@@ -1,137 +1,145 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Tue, 06 Jan 2004 01:34:52 +0000
-Subject: [PATCH] sn2 defconfig update
-Message-Id: <20040106013452.GB21958@sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Fri, 23 Jan 2004 00:36:47 +0000
+Subject: Kconfig cleanups
+Message-Id: <200401221736.47850.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040114065742.GG10711@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040114065742.GG10711@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kernel-janitors@vger.kernel.org
 
-Just a quick update for the sn2_defconfig file now that some more config
-options have been added.
+I've been playing with "make allmodconfig" on ia64 and found lots of
+nits.  Many of them are addressed by your kconfig cleanups patch I
+found on the kernel janitors list.
 
-Jesse
+Here are a few more.  If you want to incorporate them with yours,
+that's fine, or I'm open to other suggestions.
 
-=== arch/ia64/configs/sn2_defconfig 1.1 vs edited ==--- 1.1/arch/ia64/configs/sn2_defconfig	Thu Dec 18 03:59:13 2003
-+++ edited/arch/ia64/configs/sn2_defconfig	Mon Jan  5 17:31:29 2004
-@@ -15,8 +15,6 @@
- CONFIG_SWAP=y
- CONFIG_SYSVIPC=y
- # CONFIG_BSD_PROCESS_ACCT is not set
--CONFIG_PAGG=y
--CONFIG_PAGG_JOB=y
- CONFIG_SYSCTL=y
- CONFIG_LOG_BUF_SHIFT 
- # CONFIG_IKCONFIG is not set
-@@ -27,6 +25,7 @@
- CONFIG_IOSCHED_NOOP=y
- CONFIG_IOSCHED_AS=y
- CONFIG_IOSCHED_DEADLINE=y
-+# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
+HW_RANDOM - looks like the hardware is on Tiger, so maybe should be
+    made to work eventually; currently it requires x86 asm()
+NVRAM - arch depends below reflect #error analysis in driver
+GEN_RTC - requires "asm/rtc.h", which we don't have
+I2O_SCSI - depends !64BIT reflects #error in driver
+VLSI_FIR - depends X86 reflects #error in vlsi_ir.h
+SCSI_BUSLOGIC - I don't see any mention of MCA in the driver, but I
+    could be missing it
+
+PARPORT_PC - shouldn't we have a !IA64 as well?
+
+SYNCLINK, TMS380TR, SCSI_BUSLOGIC, SCSI_EATA, SCSI_FUTURE_DOMAIN -
+    these all require both ISA && PCI.  Or at least, they use bits of
+    the ISA inteface (isa_virt_to_bus, request_dma, etc), that are not
+    available on ia64, and they don't use CONFIG_ISA to conditionally
+    compile those references.
+
+=== drivers/char/Kconfig 1.26 vs edited ==--- 1.26/drivers/char/Kconfig	Thu Jan 15 03:34:16 2004
++++ edited/drivers/char/Kconfig	Thu Jan 22 13:26:06 2004
+@@ -214,7 +214,7 @@
  
- #
- # Loadable module support
-@@ -53,7 +52,6 @@
- CONFIG_IA64_PAGE_SIZE_16KB=y
- # CONFIG_IA64_PAGE_SIZE_64KB is not set
- CONFIG_ACPI=y
--CONFIG_ACPI_EFI=y
- CONFIG_ACPI_INTERPRETER=y
- CONFIG_ACPI_KERNEL_CONFIG=y
- CONFIG_IA64_L1_CACHE_SHIFT=7
-@@ -70,9 +68,10 @@
- # CONFIG_PREEMPT is not set
- CONFIG_IA32_SUPPORT=y
- CONFIG_COMPAT=y
-+CONFIG_HAVE_DEC_LOCK=y
- CONFIG_PERFMON=y
- CONFIG_IA64_PALINFO=y
--CONFIG_IA64_SALINFO=y
-+CONFIG_EFI=y
- # CONFIG_EFI_VARS is not set
- CONFIG_NR_CPUSQ2
- CONFIG_BINFMT_ELF=y
-@@ -145,7 +144,60 @@
- #
- # ATA/ATAPI/MFM/RLL support
- #
--# CONFIG_IDE is not set
-+CONFIG_IDE=y
-+CONFIG_BLK_DEV_IDE=y
-+
-+#
-+# Please see Documentation/ide.txt for help/info on IDE drives
-+#
-+# CONFIG_BLK_DEV_IDEDISK is not set
-+CONFIG_BLK_DEV_IDECD=y
-+# CONFIG_BLK_DEV_IDETAPE is not set
-+# CONFIG_BLK_DEV_IDEFLOPPY is not set
-+# CONFIG_BLK_DEV_IDESCSI is not set
-+# CONFIG_IDE_TASK_IOCTL is not set
-+# CONFIG_IDE_TASKFILE_IO is not set
-+
-+#
-+# IDE chipset support/bugfixes
-+#
-+CONFIG_BLK_DEV_IDEPCI=y
-+CONFIG_IDEPCI_SHARE_IRQ=y
-+# CONFIG_BLK_DEV_OFFBOARD is not set
-+# CONFIG_BLK_DEV_GENERIC is not set
-+# CONFIG_BLK_DEV_OPTI621 is not set
-+CONFIG_BLK_DEV_IDEDMA_PCI=y
-+# CONFIG_BLK_DEV_IDEDMA_FORCED is not set
-+CONFIG_IDEDMA_PCI_AUTO=y
-+# CONFIG_IDEDMA_ONLYDISK is not set
-+# CONFIG_IDEDMA_PCI_WIP is not set
-+CONFIG_BLK_DEV_ADMA=y
-+# CONFIG_BLK_DEV_AEC62XX is not set
-+# CONFIG_BLK_DEV_ALI15X3 is not set
-+# CONFIG_BLK_DEV_AMD74XX is not set
-+# CONFIG_BLK_DEV_CMD64X is not set
-+# CONFIG_BLK_DEV_TRIFLEX is not set
-+# CONFIG_BLK_DEV_CY82C693 is not set
-+# CONFIG_BLK_DEV_CS5520 is not set
-+# CONFIG_BLK_DEV_CS5530 is not set
-+# CONFIG_BLK_DEV_HPT34X is not set
-+# CONFIG_BLK_DEV_HPT366 is not set
-+# CONFIG_BLK_DEV_SC1200 is not set
-+# CONFIG_BLK_DEV_PIIX is not set
-+# CONFIG_BLK_DEV_NS87415 is not set
-+# CONFIG_BLK_DEV_PDC202XX_OLD is not set
-+# CONFIG_BLK_DEV_PDC202XX_NEW is not set
-+# CONFIG_BLK_DEV_SVWKS is not set
-+CONFIG_BLK_DEV_SGIIOC4=y
-+# CONFIG_BLK_DEV_SIIMAGE is not set
-+# CONFIG_BLK_DEV_SLC90E66 is not set
-+# CONFIG_BLK_DEV_TRM290 is not set
-+# CONFIG_BLK_DEV_VIA82CXXX is not set
-+CONFIG_BLK_DEV_IDEDMA=y
-+# CONFIG_IDEDMA_IVB is not set
-+CONFIG_IDEDMA_AUTO=y
-+# CONFIG_DMA_NONPCI is not set
-+# CONFIG_BLK_DEV_HD is not set
+ config SYNCLINK
+ 	tristate "Microgate SyncLink card support"
+-	depends on SERIAL_NONSTANDARD
++	depends on SERIAL_NONSTANDARD && ISA && PCI
+ 	help
+ 	  Provides support for the SyncLink ISA and PCI multiprotocol serial
+ 	  adapters. These adapters support asynchronous and HDLC bit
+@@ -714,7 +715,7 @@
  
- #
- # IEEE 1394 (FireWire) support (EXPERIMENTAL)
-@@ -216,6 +268,7 @@
- # CONFIG_SCSI_QLOGIC_FC is not set
- CONFIG_SCSI_QLOGIC_1280=y
- # CONFIG_SCSI_DC395x is not set
-+# CONFIG_SCSI_DC390T is not set
- # CONFIG_SCSI_NSP32 is not set
- # CONFIG_SCSI_DEBUG is not set
+ config HW_RANDOM
+ 	tristate "Intel/AMD/VIA HW Random Number Generator support"
+-	depends on (X86 || IA64) && PCI
++	depends on X86 && PCI
+ 	---help---
+ 	  This driver provides kernel-side support for the Random Number
+ 	  Generator hardware found on Intel i8xx-based motherboards,
+@@ -729,6 +730,7 @@
  
-@@ -585,11 +638,11 @@
- # CONFIG_ULTRIX_PARTITION is not set
- # CONFIG_SUN_PARTITION is not set
- CONFIG_EFI_PARTITION=y
--CONFIG_NLS=y
+ config NVRAM
+ 	tristate "/dev/nvram support"
++	depends on ATARI || X86 || X86_64 || ARM
+ 	---help---
+ 	  If you say Y here and create a character special file /dev/nvram
+ 	  with major number 10 and minor number 144 using mknod ("man mknod"),
+@@ -780,7 +782,7 @@
  
- #
- # Native Language Support
- #
-+CONFIG_NLS=y
- CONFIG_NLS_DEFAULT="iso8859-1"
- # CONFIG_NLS_CODEPAGE_437 is not set
- # CONFIG_NLS_CODEPAGE_737 is not set
+ config GEN_RTC
+ 	tristate "Generic /dev/rtc emulation"
+-	depends on RTC!=y
++	depends on RTC!=y && !IA64
+ 	---help---
+ 	  If you say Y here and create a character special file /dev/rtc with
+ 	  major number 10 and minor number 135 using mknod ("man mknod"), you
+=== drivers/message/i2o/Kconfig 1.5 vs edited ==--- 1.5/drivers/message/i2o/Kconfig	Thu Sep 11 21:19:35 2003
++++ edited/drivers/message/i2o/Kconfig	Wed Jan 21 17:25:17 2004
+@@ -46,7 +46,7 @@
+ 
+ config I2O_SCSI
+ 	tristate "I2O SCSI OSM"
+-	depends on I2O && SCSI
++	depends on I2O && SCSI && !64BIT
+ 	help
+ 	  Allows direct SCSI access to SCSI devices on a SCSI or FibreChannel
+ 	  I2O controller. You can use both the SCSI and Block OSM together if
+=== drivers/net/irda/Kconfig 1.12 vs edited ==--- 1.12/drivers/net/irda/Kconfig	Wed Sep 24 21:39:20 2003
++++ edited/drivers/net/irda/Kconfig	Thu Jan 22 12:38:26 2004
+@@ -284,7 +284,7 @@
+ 
+ config VLSI_FIR
+ 	tristate "VLSI 82C147 SIR/MIR/FIR (EXPERIMENTAL)"
+-	depends on EXPERIMENTAL && IRDA && PCI
++	depends on EXPERIMENTAL && IRDA && PCI && X86
+ 	help
+ 	  Say Y here if you want to build support for the VLSI 82C147
+ 	  PCI-IrDA Controller. This controller is used by the HP OmniBook 800
+=== drivers/net/tokenring/Kconfig 1.12 vs edited ==--- 1.12/drivers/net/tokenring/Kconfig	Sat Dec 20 19:37:05 2003
++++ edited/drivers/net/tokenring/Kconfig	Thu Jan 22 13:27:21 2004
+@@ -84,7 +84,7 @@
+ 
+ config TMS380TR
+ 	tristate "Generic TMS380 Token Ring ISA/PCI adapter support"
+-	depends on TR && (PCI || ISA)
++	depends on TR && PCI && ISA
+ 	---help---
+ 	  This driver provides generic support for token ring adapters
+ 	  based on the Texas Instruments TMS380 series chipsets.  This
+=== drivers/scsi/Kconfig 1.48 vs edited ==--- 1.48/drivers/scsi/Kconfig	Thu Jan 15 03:18:55 2004
++++ edited/drivers/scsi/Kconfig	Thu Jan 22 14:57:37 2004
+@@ -457,15 +457,13 @@
+ 
+ config SCSI_BUSLOGIC
+ 	tristate "BusLogic SCSI support"
+-	depends on (PCI || ISA || MCA) && SCSI
++	depends on PCI && ISA && SCSI
+ 	---help---
+ 	  This is support for BusLogic MultiMaster and FlashPoint SCSI Host
+ 	  Adapters. Consult the SCSI-HOWTO, available from
+ 	  <http://www.tldp.org/docs.html#howto>, and the files
+ 	  <file:Documentation/scsi/BusLogic.txt> and
+-	  <file:Documentation/scsi/FlashPoint.txt> for more information. If this
+-	  driver does not work correctly without modification, please contact
+-	  the author, Leonard N. Zubkoff, by email to lnz@dandelion.com.
++	  <file:Documentation/scsi/FlashPoint.txt> for more information.
+ 
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called BusLogic.
+@@ -509,7 +507,7 @@
+ 
+ config SCSI_EATA
+ 	tristate "EATA ISA/EISA/PCI (DPT and generic EATA/DMA-compliant boards) support"
+-	depends on (ISA || EISA || PCI) && SCSI
++	depends on ISA && (EISA || PCI) && SCSI
+ 	---help---
+ 	  This driver supports all EATA/DMA-compliant SCSI host adapters.  DPT
+ 	  ISA and all EISA I/O addresses are probed looking for the "EATA"
+@@ -571,7 +569,7 @@
+ 
+ config SCSI_FUTURE_DOMAIN
+ 	tristate "Future Domain 16xx SCSI/AHA-2920A support"
+-	depends on (ISA || PCI) && SCSI
++	depends on ISA && PCI && SCSI
+ 	---help---
+ 	  This is support for Future Domain's 16-bit SCSI host adapters
+ 	  (TMC-1660/1680, TMC-1650/1670, TMC-3260, TMC-1610M/MER/MEX) and
+
