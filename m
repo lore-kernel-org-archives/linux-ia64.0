@@ -1,7 +1,7 @@
-From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
-Date: Tue, 11 Jan 2005 22:26:06 +0000
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 12 Jan 2005 04:10:15 +0000
 Subject: Re: new utility for decoding salinfo records
-Message-Id: <200501112226.j0BMQ6Tt002770@mtv-vpn-hw-mfl-1.corp.sgi.com>
+Message-Id: <15959.1105503015@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1105458388.22104.7.camel@quince.llnl.gov>
 In-Reply-To: <1105458388.22104.7.camel@quince.llnl.gov>
@@ -10,32 +10,49 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->   Matthias> systems which have several tera-bytes of main memory, but
->   Matthias> as I said this really is very platform specific
-> 
-> Probably so.  Still, I think a very interesting systems paper could be
-> written that would spell out at least the basic trends/invariants in
-> memory error behavior.  Hint, hint... ;-)
+On Tue, 11 Jan 2005 07:46:28 -0800, 
+Ben Woodard <woodard@redhat.com> wrote:
+>Here is a new utility for looking into salinfo records. It several
+>things differently than salinfo_decode. We have found that this helps
 
-I'm actually working on such a paper. The real challenge, as you already
-pointed out, is to collect some longer term data. I hope to have something
-ready in the summer time frame as it simply takes time to run experiments.
-Some testing can be done in environmental stress test chambers, but then
-the total sample size is lower. One tool I'm currently looking at would
-try predictive error analysis based on the data collected by salinfo.
+The design of salinfo_decode2 is completely unacceptable for SGI
+hardware, and probably for HP as well.  You have removed all processing
+of the oemdata.
 
-Some other idea I want to explore is to allow to send a signal to the process. 
-(which isn't straight forward ...)
-This obviously would only be interesting for on-line diagnostics. 
-It would allow the diagnostic to focus on a failing location and see if an 
-error is repeatable, if it's data dependant etc. Maybe this feedback mechanism
-can help to develop better testing strategies.
+SGI hardware decodes the oemdata in SAL records using prom code.  This
+decode _must_ be done while the record is still in the prom's memory
+space.  The callback into the prom (via the kernel) must be done after
+the main part of the record is printed and before the record is cleared
+from SAL.  For some error types such as CPE, the SGI oemdata provides
+critical information about which DIMM is failing, including its node
+and serial number.
 
-(I actually have a test system which has known problem DIMMs)
+AFAIK HP decode their oemdata via a user space program.  Again this is
+done after the main part of the record is printed.
 
+To handle both SGI and HP requirements, the existing salinfo_decode
+program calls the optional program salinfo_decode_oemdata.  That call
+is made at the right point in the read/decode/clear cycle to satisfy
+all vendor requirements.  Removing salinfo_decode_oemdata is not an
+option.
 
-Thanks
+The existing salinfo_decode program works fine, including decoding oem
+data.  I agree that we need a summary tool to merge data from multiple
+records together, but there are better ways of doing that, we do not
+need to remove the existing salinfo_decode functionality to get a
+summary.
 
-Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
-Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
+Leave salinfo_decode completely alone, especially the oem decoding.
+To get a summary, add a new package that monitors the contents of
+/var/log/salinfo/decoded, reads new records and summarizes the
+contents.  I am quite happy to add a trigger (pipe or socket) from
+salinfo_decode to the summary program to indicate when new records
+arrive.
+
+Any summary program must be extensible so a vendor can report on data
+that is extracted from their oemdata.
+
+BTW, salinfo_decode2 will spin forever on a kernel < 2.6.9-rc4,
+including all 2.4 kernels.  Once again, salinfo_decode 0.7 gets this
+right.
 
