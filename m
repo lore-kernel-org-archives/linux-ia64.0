@@ -1,20 +1,30 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Tue, 24 Jul 2001 16:42:41 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Tue, 24 Jul 2001 16:49:40 +0000
 Subject: [Linux-ia64] Re: kernel update (relative to 2.4.7)
-Message-Id: <marc-linux-ia64-105590693005899@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005900@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205855@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205855@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Andreas Schwab (schwab@suse.de) said: 
-> Did you try out the UP kernel?  It hangs in ksoftirqd.
+Bill Nottingham <notting@redhat.com> writes:
 
-Are you seeing this right after the EFI variables startup message,
-or someplace else?
+|> Andreas Schwab (schwab@suse.de) said:=20
+|> > Did you try out the UP kernel?  It hangs in ksoftirqd.
+|>=20
+|> Are you seeing this right after the EFI variables startup message,
 
-Bill
+Yes.
+
+Andreas.
+
+--=20
+Andreas Schwab                                  "And now for something
+SuSE Labs                                        completely different."
+Andreas.Schwab@suse.de
+SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
 
