@@ -1,23 +1,39 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 24 Jun 2004 21:59:31 +0000
-Subject: Re: REQ: .config
-Message-Id: <20040624215931.GH6177@cup.hp.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Thu, 24 Jun 2004 06:05:55 +0000
+Subject: [PATCH] Quiet corrected errors (CMC/CPE)
+Message-Id: <0HZS006RBU9VGJ@fjmail504.fjmail.jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <AEBB9AF2F7713A4FAB1397435451162E6281B9@spock.invent.psi.com>
-In-Reply-To: <AEBB9AF2F7713A4FAB1397435451162E6281B9@spock.invent.psi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jun 24, 2004 at 02:43:08PM -0700, John Lee wrote:
-> Can someone send me the .config for linux-2.4.21 on HP zx1 machine?
+Hi,
 
-sorry, the best I can offer is a config file from a hacked 2.4.20
-kernel:
-	ftp://gsyprf10.external.hp.com/kernels/rx2600/config-2.4.20-em19
+I think we don't always need this message to printk.
 
-The ia64 debian kernels also work if you can find one.
-The ia64-patches against the original 2.4.21 also live on kernel.org.
+Is it better to have a choice between a daemon-A which quickly alerts
+a user to the error or a daemon-B which silently takes the error statistic,
+or a quiet with no daemon?
 
-grant
+...BTW, could anyone tell me a link to the most recent salinfo_decode?
+
+
+Thanks,
+H.Seto
+
+-----
+
+diff -Nur linux-2.6.7/arch/ia64/kernel/mca.c linux-2.6.7-noprintk/arch/ia64/kernel/mca.c
+--- linux-2.6.7/arch/ia64/kernel/mca.c  2004-06-24 14:04:32.000000000 +0900
++++ linux-2.6.7-noprintk/arch/ia64/kernel/mca.c 2004-06-24 14:05:14.000000000 +0900
+@@ -253,7 +253,7 @@
+        salinfo_log_wakeup(sal_info_type, buffer, size, irq_safe);
+
+        if (irq_safe)
+-               printk(KERN_INFO "CPU %d: SAL log contains %s error record\n",
++               IA64_MCA_DEBUG("CPU %d: SAL log contains %s error record\n",
+                        smp_processor_id(),
+                        sal_info_type < ARRAY_SIZE(rec_name) ? rec_name[sal_info_type] : "UNKNOWN");
+
+
