@@ -1,32 +1,37 @@
-From: Manfred Spraul <manfreds@colorfullife.com>
-Date: Sat, 05 Feb 2000 23:38:21 +0000
-Subject: [Linux-ia64] Q: TLB flush under SMP
-Message-Id: <marc-linux-ia64-105590678204914@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Sun, 06 Feb 2000 00:13:32 +0000
+Subject: Re: [Linux-ia64] Q: TLB flush under SMP
+Message-Id: <marc-linux-ia64-105590678204915@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678204914@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678204914@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Is the first snapshot supposed to run on SMP hardware/simulator? There
-were subtle race on i386 if the tlb flush IPI arrived between
-switch_mm() [changes %cr3] and switch_to() [change current], and now I'm
-verifying the other SMP capable ports.
+>>>>> On Sun, 06 Feb 2000 00:38:21 +0100, Manfred Spraul <manfreds@colorfullife.com> said:
 
-On ia64, flush_tlb_range() does nothing if the target mm is not the
-active mm on the current processor, but what if that mm is active on
-another cpu?
+  Manfred> Is the first snapshot supposed to run on SMP
+  Manfred> hardware/simulator?
 
-And it seems that the ia64 supports inter processor tlb flushes with
-special instructions [ptc.g], is the documentation publicly available? 
+SMP support is under development.  It works somewhat, but isn't
+stable.  Personally, I don't care for SMP very much until I have an
+SMP system myself... ;-)
 
-And where does the context id come from for "ptc.g"?
+  Manfred> On ia64, flush_tlb_range() does nothing if the target mm is
+  Manfred> not the active mm on the current processor, but what if
+  Manfred> that mm is active on another cpu?
 
-TIA,
-	Manfred
+I don't think everything has been updated for SMP support yet.  This
+certainly does look suspect, though.
 
-Btw, please add version numbers to the name of the diff file - at least
-the target kernel.
+  Manfred> And it seems that the ia64 supports inter processor tlb
+  Manfred> flushes with special instructions [ptc.g], is the
+  Manfred> documentation publicly available?
 
+Not just yet, but it will be available very soon.
+
+	--david
 
 
