@@ -1,57 +1,33 @@
-From: Joseph Landman <landman@scalableinformatics.com>
-Date: Sat, 12 Apr 2003 23:16:03 +0000
-Subject: [Linux-ia64] Re: HPL Benchmark on Itanium 2 box
-Message-Id: <marc-linux-ia64-105590723705489@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 17 Apr 2003 01:50:19 +0000
+Subject: [Linux-ia64] updated 2.5.67 patch
+Message-Id: <marc-linux-ia64-105590723705528@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Brent:
+As a convenience, I just posted a new patch on kernel.org
+(ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/ in file
+linux-2.5.67-ia64-030416.diff.gz) which has all the patches that have
+accumulated for the 2.5.67 so far.
 
-  Looks like either a missing library, or a library order issue. The
-HPL_pdtest.o is trying to find the cblas_dgemv function.  This function
-is likely supplied in the optimized Intel libs (though I don't know
-which library, but it would be one supplying BLAS and LAPACK routines
-optimized for the platform).  You may have a -L/path in front of the
-correct -lcblas (or similar library name).  If you can find out which
-library is supposed to provide that function, try moving it to a
-different position in the link line.
+In particular:
 
-Joe
+	- the kernel boots on Big Sur again (and Tiger, though I
+	  did not verify that myself), along with Ski, and zx1-based
+	  platforms
+	- x86 shared binaries should work again, thanks to Arun
+	- several fixes to improve stability
+	- the AGP-support for zx1-based systems should work again
+	- read-locks have been cleaned up to avoid switching text-sections
+	  within a function (it's not a good thing to do in general and
+	  breaks unwinding)
 
-On Sat, 2003-04-12 at 12:06, Brent M. Clements wrote:
-> Hi Guys,
-> I'm trying to compile the hpl benchmark on a HP zx6000 box.
-> 
-> I have the hp math libraries and the intel 7.0 compilers.
-> 
-> Has anyone ever tried compiling the hpl benchmark using this compile
-> configuration? If so could they send me their Makefile
-> 
-> The reason I'm asking is because I keep on getting the following error
-> 
-> HPL_pdtest.o: In function `HPL_pdtest':
-> HPL_pdtest.o(.text+0x1a82): undefined reference to `cblas_dgemv'
-> HPL_pdtest.o(.text+0x1ad2): undefined reference to `cblas_dgemv'
-> 
-> Anyone have a clue?
-> 
-> Thanks,
-> 
-> 
-> Brentr Clements
-> 
-> 
-> _______________________________________________
-> Beowulf mailing list, Beowulf@beowulf.org
-> To change your subscription (digest mode or unsubscribe) visit http://www.beowulf.org/mailman/listinfo/beowulf
--- 
-Joseph Landman, Ph.D
-Scalable Informatics LLC
-email: landman@scalableinformatics.com
-  web: http://scalableinformatics.com
-phone: +1 734 612 4615
+As usual, detailed changelogs are at http://lia64.bkbits.net:8080/to-linus-2.5
 
+Enjoy,
+
+	--david
 
