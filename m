@@ -1,109 +1,45 @@
-From: "Croxon, Nigel" <nigel.croxon@hp.com>
-Date: Wed, 10 Nov 2004 11:40:22 +0000
-Subject: RE: counting FPSWA faults with pfmon
-Message-Id: <14013A008AB26E42B1FC18DECDCE212406E73304@tayexc14.americas.cpqcorp.net>
+From: Kiran VMS <kiran.vms@gmail.com>
+Date: Mon, 08 Nov 2004 09:13:09 +0000
+Subject: IA-64 "instruction group" query...
+Message-Id: <ff13ce6004110801011d668bbb@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1100086251.22456.20.camel@uluru.grenoble.hp.com>
-In-Reply-To: <1100086251.22456.20.camel@uluru.grenoble.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Stephane,
+Greetings,
 
-We have been running AIM7 benchmarks on RH RHEL3 for weeks now.
-All of a sudden we are getting these errors.
+I am just curious to know if the following instruction bundles are
+valid ones. In particular, I would like to know if the instruction
+group comprised of the slots # 1 ( 3621 ),  # 2 ( 3622 ) of the first
+instruction bundle and slot # 0 ( 3630 ) is a VALID group. If you
+notice, the register R4 is being read as well as modified by these
+instructions belonging to the same group. Is it a potential RAW --
+Read After Write -- violation?
 
-Our hardware configuration has not changed, nor has our RHEL3 bits.
+(Assume that the traget processor is Itanium with its feature that it
+can execute 2 bundles at a time)
 
-multitask(4031): floating-point assist fault at ip 4000000000018921
-multitask(4031): floating-point assist fault at ip 4000000000018921
-multitask(4031): floating-point assist fault at ip 4000000000018921
-multitask(4039): floating-point assist fault at ip 40000000000189e2
-multitask(4039): floating-point assist fault at ip 40000000000189e2
-multitask(4039): floating-point assist fault at ip 40000000000189e2
-multitask(4039): floating-point assist fault at ip 40000000000189a2
-multitask(4039): floating-point assist fault at ip 4000000000011662
-multitask(4039): floating-point assist fault at ip 4000000000011672
-multitask(4034): floating-point assist fault at ip 4000000000018921
-multitask(4034): floating-point assist fault at ip 4000000000018921
-
-I am about to kill the job and try some of your commands you have
-provided.
-If you want to know more about our setup, let me know.
-
--Nigel
-
-
------Original Message-----
-From: linux-ia64-owner@vger.kernel.org
-[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Eranian, Stephane
-Sent: Wednesday, November 10, 2004 6:31 AM
-To: perfmon@napali.hpl.hp.com
-Cc: linux-ia64@vger.kernel.org
-Subject: counting FPSWA faults with pfmon
-
-Hello,
-
-Certain floating-point programs experience slowdowns
-due to excessive floating point traps called "Floating-Point Software
-Assist (FPSWA)".
-
-This happens when the hardware cannot complete a floating
-point operation and requests help (emulation) from software.
-This happens, for instance, with denormals numbers. See
-the following document for more details:
-   http://www.intel.com/design/itanium/downloads/245415.htm
-
-The symptoms are a slower than normal execution, FPSWA
-message in the system log (run dmesg). The average cost of
-a FPSWA fault is quite high around 1000 cycles/fault.
-
-By default, the kernel prints a message similar to the
-following in the system log:
-
-foo(7716): floating-point assist fault at ip 40000000000200e1
-           isr 0000020000000008
-
-The kernel throttles the message in order to avoid flooding
-the console.
-
-It is possible to control the behavior of the kernel on FPSWA
-faults using the prctl command. In particular, it is possible
-to get a signal delivered at the first FPSWA. It is also possible
-to silence the console message. However, it is fairly difficult
-to figure out just how many faults the program is getting.
-
-Using pfmon and the PMU it is fairly easy to figure how many FPSWA
-faults a programs encounters using the following command line:
-
-pfmon -k --drange=fpswa_interface -eloads_retired -- my_test_program
-
-The report number of loads_retired is the number of FPSWA faults:
-
-$ pfmon -k --drange=fpswa_interface -eloads_retired -- test-fpswa
-1.90735e-310
-                         1 LOADS_RETIRED
-
-The actual results reports the number of time the global pointer
-fpswa_interface is loaded into a register. This happens only
-once during the processing of a FPSWA fault with any decent
-compiler.
-
-It is possible to figure the rate by also collecting the number
-of instructions executed:
-
-$ pfmon --no-qual-check -ku --drange=fpswa_interface \
- -eloads_retired,ia64_inst_retired -- test-fpswa
-
-                         1 LOADS_RETIRED
-                   2615140 IA64_INST_RETIRED
-
-Hope this is useful.
+                          { .mmi
+010800458100     3620                 adds    r4 = 44, r4 ;;
+008080400200     3621                 ld4     r8 = [r4]
+010800400480     3622                 adds    r18 = 0, r4
+                           }
+                           { .mmi
+0119F84A8100     3630                 adds    r4 = -44, r4 ;;
+000008000000     3631                 nop.m   0              
+0000B0800200     3632                 sxt4    r8 = r8 ;;
+			   }
 
 
--
-To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Instruction group of my concern 
+;;
+008080400200     3621                 ld4     r8 = [r4]
+010800400480     3622                 adds    r18 = 0, r4
+                           }
+                           { .mmi
+0119F84A8100     3630                 adds    r4 = -44, r4 
+;;
+
+Thanks for your time and attention
