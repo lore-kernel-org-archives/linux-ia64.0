@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 02 Aug 2002 21:08:12 +0000
+From: "Olivier, JeffreyX" <jeffreyx.olivier@intel.com>
+Date: Mon, 05 Aug 2002 15:40:17 +0000
 Subject: RE: [Linux-ia64] mmap and malloc questions on IA-64 linux
-Message-Id: <marc-linux-ia64-105590701905890@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905906@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905877@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905877@msgid-missing>
@@ -10,46 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 2 Aug 2002 08:25:50 -0700 , "Olivier, JeffreyX" <jeffreyx.olivier@intel.com> said:
+>Yes, normally there is one entry per mapped file.  If you use munmap()
+>and mmap() a lot, the merging-logic in the kernel may not be able to
+>keep up and then you'd get fragmented maps, even when they could be
+>merged in theory.  However, from what you have described so far, I do
+>not think this is something you'd be running into.  So something seems
+>strange here.
 
-  Olivier> /proc/PID/maps appears to be showing any entry for every
-  Olivier> single page in the mapped files.  Is this normal?
-  Olivier> Shouldn't there just be one map for the whole file?  At any
-  Olivier> rate, the mappings appear to be in the address range
-  Olivier> described in the next paragraph.
+Your suggestion that munmap() might fragment the map reminded me of
+something else.  Upon receiving a write notice from another node for a page,
+our system uses mprotect on the page so that we can't write to it without
+causing a segmentation fault.  Since we do this on a per-page basis, this is
+likely the cause of the multiple mappings and since we are doing this over
+such a large address space, it is likely that the linux default of 65536
+memory maps is the problem.  Does that seem reasonable?  
 
-Yes, normally there is one entry per mapped file.  If you use munmap()
-and mmap() a lot, the merging-logic in the kernel may not be able to
-keep up and then you'd get fragmented maps, even when they could be
-merged in theory.  However, from what you have described so far, I do
-not think this is something you'd be running into.  So something seems
-strange here.
+I can see two possible solutions:
 
-  Olivier> Also, I started printing the addresses returned by malloc.
-  Olivier> I map the files starting at 0x6000000300000000.  The
-  Olivier> addresses for malloc are not getting anywhere close to that
-  Olivier> limit.  However, something very peculiar happens.  Just
-  Olivier> before the failed malloc, the last 3 or 4 successful
-  Olivier> mallocs return addresses in the 0x2000000000000000 range
-  Olivier> which is region 1 and should(?) be reserved for shared
-  Olivier> memory (according to the figure on page 149 or your ia64
-  Olivier> kernel book).
+1.  Develop an algorithm to efficiently combine memory mappings with the
+same protections.  This would be fairly straight forward for my program but
+for more sporadic memory accesses, it might not work very well.
+2.  Change the default maximum number of mappings.  I noticed a
+/proc/sys/vm/max_map_count variable.  Can this be increased safely?
 
-It's true that region 1 is used for shared memory, but it's also use
-for any mmap() for which you don't specify a mapping address, so this
-by itself doesn't look suspicious.
+Thanks for the help!
 
-  Olivier> Here is the output of free just before it runs out of
-  Olivier> memory total used free shared buffers cached Mem: 952576
-  Olivier> 948448 4128 0 656 836416 -/+ buffers/cache: 111376 841200
-  Olivier> Swap: 1542176 650992 891184
-
-Nothing obviously wrong here.  Clearly it's not an out-of-memory
-situation.
-
-Please provide a minimal test program that reproduces the problem.
-
-Thanks,
-
-	--david
+-Jeff
 
