@@ -1,17 +1,38 @@
-From: Venkatesh Ramamurthy <Venkateshr@ami.com>
-Date: Tue, 15 Feb 2000 20:36:14 +0000
-Subject: [Linux-ia64] LINUX IA64 Memory Support
-Message-Id: <marc-linux-ia64-105590678204939@msgid-missing>
+From: Jes Sorensen <Jes.Sorensen@cern.ch>
+Date: Tue, 15 Feb 2000 21:03:03 +0000
+Subject: Re: [Linux-ia64] LINUX IA64 Memory Support
+Message-Id: <marc-linux-ia64-105590678204940@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678204939@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678204939@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
-Is there any way in which one can allocate memory say below 4 GB ( physical
-address )in drivers.
-TIA
-Venkatesh
+>>>>> "Venkatesh" = Venkatesh Ramamurthy <Venkateshr@ami.com> writes:
+
+Venkatesh> Hi, Is there any way in which one can allocate memory say
+Venkatesh> below 4 GB ( physical address )in drivers.  TIA Venkatesh
+
+This is not IA64 specific actually, so consider it a general answer
+rather than an IA64 one.
+
+A regular GFP_KERNEL should give you memory within the PCI DMA'able
+area, which with the old PCI system meant within the 4GB
+range. GFP_DMA will give you something within the ISA DMA
+space. However, in principle none of the above means that the memory
+is within the lower 4GB memory range, if the machine in question has
+an IOMMU type device, you may be handed memory which is in the middle
+of the memory space, but which is mapped to the 4GB the PCI bus in the
+machine can see.
+
+With the new PCI allocation system it is even more flexible, here you
+may get addresess anywhere and you then tell the PCI subsystem at run
+time to map the memory to the space the PCI bus can address. This
+means it will be possible to support systems with for instance 200 PCI
+busses (if someone feels like building such) etc.
+
+Jes
 
 
