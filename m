@@ -1,33 +1,22 @@
-From: mgross <mgross@unix-os.sc.intel.com>
-Date: Fri, 19 Jul 2002 14:54:18 +0000
+From: Erich Focht <efocht@ess.nec.de>
+Date: Fri, 19 Jul 2002 15:17:08 +0000
 Subject: [Linux-ia64] Re: [PATCH]: scheduler complex macros fixes
-Message-Id: <marc-linux-ia64-105590701905791@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905785@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905791@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905791@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Friday 19 July 2002 01:28 pm, Linus Torvalds wrote:
-> On Sat, 20 Jul 2002, Ingo Molnar wrote:
-> >=A0well, SCHED_BATCH is in fact ready, so we might as well put it in. All
-> > the suggestions mentioned on lkml (or in private) are now included, the=
-re
-> > are no pending (known) problems, no objections, and a number of people
-> > are using it with success.
->
-> Well, I do actually have objections, mainly because I think it modifies
-> code that I'd rather have cleaned up in other ways _first_ (ie the return
-> path to user mode, which has pending irq_count/bh_count/preempt issues
-> that I consider to be about a million times more important than batch
-> scheduling).
->
+Hmmm, somebody must have forwarded the patch from LKML to linux-ia64...
+I would like to clarify that my last O(1) scheduler patch for IA64
+already contains the fixes. That patch was for 2.4.18 kernels.
+The patch which I've sent to LKML is for the 2.5.26 kernel, which we
+don't have on IA64, yet.
 
-Thats too bad.  I've been looking at Ingo's SCHED_BATCH design to help=20
-suspend processes with out lock problems while doing multithreaded core=20
-dumps. =20
+Regards,
+Erich
 
-Is there any ETA on the return path to user mode clean up?
-
---mgross
 
