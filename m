@@ -1,90 +1,291 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 14 Dec 2004 21:06:27 +0000
-Subject: [patch] more swiotlb fixes
-Message-Id: <16831.21971.77310.127388@napali.hpl.hp.com>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Fri, 17 Dec 2004 03:34:36 +0000
+Subject: page fault scalability patch V13 [3/8]: universal cmpxchg for i386
+Message-Id: <Pine.LNX.4.58.0412161933580.11341@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <41BBF923.6040207@yahoo.com.au>
+ <Pine.LNX.4.44.0412120914190.3476-100000@localhost.localdomain>
+ <20041212212456.GB2714@holomorphy.com> <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: William Lee Irwin III <wli@holomorphy.com>
+Cc: Hugh Dickins <hugh@veritas.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hi Tony,
+Changelog
+        * Make cmpxchg and cmpxchg8b generally available on the i386
+	  platform.
+        * Provide emulation of cmpxchg suitable for uniprocessor if
+	  build and run on 386.
+        * Provide emulation of cmpxchg8b suitable for uniprocessor
+	  systems if build and run on 386 or 486.
+	* Provide an inline function to atomically get a 64 bit value
+	  via cmpxchg8b in an SMP system (courtesy of Nick Piggin)
+	  (important for i386 PAE mode and other places where atomic
+	  64 bit operations are useful)
 
-Here are a few more swiotlb fixes.  By code-inspection, I found that
-unmap_single() may end up trying to memcpy() to a NULL pointer (this
-would happen in response to a call to swiotlb_free_coherent() on a
-mapped buffer.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Also, swiotlb_alloc_coherent() may have needlessly returned memory
-that is out of reach of the device.
+Index: linux-2.6.9/arch/i386/Kconfig
+=================================--- linux-2.6.9.orig/arch/i386/Kconfig	2004-12-10 09:58:03.000000000 -0800
++++ linux-2.6.9/arch/i386/Kconfig	2004-12-10 09:59:27.000000000 -0800
+@@ -351,6 +351,11 @@
+ 	depends on !M386
+ 	default y
 
-Finally, I changed swiotlb_dma_supported() so it returns a meaningful
-value.
++config X86_CMPXCHG8B
++	bool
++	depends on !M386 && !M486
++	default y
++
+ config X86_XADD
+ 	bool
+ 	depends on !M386
+Index: linux-2.6.9/arch/i386/kernel/cpu/intel.c
+=================================--- linux-2.6.9.orig/arch/i386/kernel/cpu/intel.c	2004-12-06 17:23:49.000000000 -0800
++++ linux-2.6.9/arch/i386/kernel/cpu/intel.c	2004-12-10 09:59:27.000000000 -0800
+@@ -6,6 +6,7 @@
+ #include <linux/bitops.h>
+ #include <linux/smp.h>
+ #include <linux/thread_info.h>
++#include <linux/module.h>
 
-Since this affects several platforms and architecture, I'm OK to put
-scheduled this for 2.6.11 rather than 2.6.10.
-
-Thanks,
-
-	--david
-
-ia64: Fix swiotlb some more:
-
-    - don't fault in unmap_single() when unmapping a coherent buffer.
-    - make swiotlb_alloc_coherent() more resilient for devices with
-      weird DMA masks
-    - make swiotlb_dma_supported() return a useful value
-
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
-
-diff -Nru a/arch/ia64/lib/swiotlb.c b/arch/ia64/lib/swiotlb.c
---- a/arch/ia64/lib/swiotlb.c	2004-12-14 13:03:01 -08:00
-+++ b/arch/ia64/lib/swiotlb.c	2004-12-14 13:03:01 -08:00
-@@ -243,7 +243,7 @@
- 	/*
- 	 * First, sync the memory before unmapping the entry
- 	 */
--	if ((dir = DMA_FROM_DEVICE) || (dir = DMA_BIDIRECTIONAL))
-+	if (buffer && ((dir = DMA_FROM_DEVICE) || (dir = DMA_BIDIRECTIONAL)))
- 		/*
- 		 * bounce... copy the data back into the original buffer * and delete the
- 		 * bounce buffer.
-@@ -300,13 +300,27 @@
- {
- 	unsigned long dev_addr;
- 	void *ret;
-+	int order = get_order(size);
- 
- 	/* XXX fix me: the DMA API should pass us an explicit DMA mask instead: */
- 	flags |= GFP_DMA;
- 
--	ret = (void *)__get_free_pages(flags, get_order(size));
-+	ret = (void *)__get_free_pages(flags, order);
-+	if (ret && address_needs_mapping(hwdev, virt_to_phys(ret))) {
-+		/*
-+		 * The allocated memory isn't reachable by the device.
-+		 * Fall back on swiotlb_map_single().
-+		 */
-+		free_pages((unsigned long) ret, order);
-+		ret = NULL;
-+	}
- 	if (!ret) {
--		 /* DMA_FROM_DEVICE is to avoid the memcpy in map_single */
-+		/*
-+		 * We are either out of memory or the device can't DMA
-+		 * to GFP_DMA memory; fall back on
-+		 * swiotlb_map_single(), which will grab memory from
-+		 * the lowest available address range.
-+		 */
- 		dma_addr_t handle;
- 		handle = swiotlb_map_single(NULL, NULL, size, DMA_FROM_DEVICE);
- 		if (dma_mapping_error(handle))
-@@ -586,7 +600,7 @@
- int
- swiotlb_dma_supported (struct device *hwdev, u64 mask)
- {
--	return 1;
-+	return (virt_to_phys (io_tlb_end) - 1) <= mask;
+ #include <asm/processor.h>
+ #include <asm/msr.h>
+@@ -287,5 +288,103 @@
+ 	return 0;
  }
- 
- EXPORT_SYMBOL(swiotlb_init);
+
++#ifndef CONFIG_X86_CMPXCHG
++unsigned long cmpxchg_386_u8(volatile void *ptr, u8 old, u8 new)
++{
++	u8 prev;
++	unsigned long flags;
++	/*
++	 * Check if the kernel was compiled for an old cpu but the
++	 * currently running cpu can do cmpxchg after all
++	 * All CPUs except 386 support CMPXCHG
++	 */
++	if (cpu_data->x86 > 3)
++		return __cmpxchg(ptr, old, new, sizeof(u8));
++
++	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
++	local_irq_save(flags);
++	prev = *(u8 *)ptr;
++	if (prev = old)
++		*(u8 *)ptr = new;
++	local_irq_restore(flags);
++	return prev;
++}
++
++EXPORT_SYMBOL(cmpxchg_386_u8);
++
++unsigned long cmpxchg_386_u16(volatile void *ptr, u16 old, u16 new)
++{
++	u16 prev;
++	unsigned long flags;
++	/*
++	 * Check if the kernel was compiled for an old cpu but the
++	 * currently running cpu can do cmpxchg after all
++	 * All CPUs except 386 support CMPXCHG
++	 */
++	if (cpu_data->x86 > 3)
++		return __cmpxchg(ptr, old, new, sizeof(u16));
++
++	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
++	local_irq_save(flags);
++	prev = *(u16 *)ptr;
++	if (prev = old)
++		*(u16 *)ptr = new;
++	local_irq_restore(flags);
++	return prev;
++}
++
++EXPORT_SYMBOL(cmpxchg_386_u16);
++
++unsigned long cmpxchg_386_u32(volatile void *ptr, u32 old, u32 new)
++{
++	u32 prev;
++	unsigned long flags;
++	/*
++	 * Check if the kernel was compiled for an old cpu but the
++	 * currently running cpu can do cmpxchg after all
++	 * All CPUs except 386 support CMPXCHG
++	 */
++	if (cpu_data->x86 > 3)
++		return __cmpxchg(ptr, old, new, sizeof(u32));
++
++	/* Poor man's cmpxchg for 386. Unsuitable for SMP */
++	local_irq_save(flags);
++	prev = *(u32 *)ptr;
++	if (prev = old)
++		*(u32 *)ptr = new;
++	local_irq_restore(flags);
++	return prev;
++}
++
++EXPORT_SYMBOL(cmpxchg_386_u32);
++#endif
++
++#ifndef CONFIG_X86_CMPXCHG8B
++unsigned long long cmpxchg8b_486(volatile unsigned long long *ptr,
++	       unsigned long long old, unsigned long long newv)
++{
++	unsigned long long prev;
++	unsigned long flags;
++
++	/*
++	 * Check if the kernel was compiled for an old cpu but
++	 * we are running really on a cpu capable of cmpxchg8b
++	 */
++
++	if (cpu_has(cpu_data, X86_FEATURE_CX8))
++		return __cmpxchg8b(ptr, old, newv);
++
++	/* Poor mans cmpxchg8b for 386 and 486. Not suitable for SMP */
++	local_irq_save(flags);
++	prev = *ptr;
++	if (prev = old)
++		*ptr = newv;
++	local_irq_restore(flags);
++	return prev;
++}
++
++EXPORT_SYMBOL(cmpxchg8b_486);
++#endif
++
+ // arch_initcall(intel_cpu_init);
+
+Index: linux-2.6.9/include/asm-i386/system.h
+=================================--- linux-2.6.9.orig/include/asm-i386/system.h	2004-12-06 17:23:55.000000000 -0800
++++ linux-2.6.9/include/asm-i386/system.h	2004-12-10 10:00:49.000000000 -0800
+@@ -149,6 +149,9 @@
+ #define __xg(x) ((struct __xchg_dummy *)(x))
+
+
++#define ll_low(x)	*(((unsigned int*)&(x))+0)
++#define ll_high(x)	*(((unsigned int*)&(x))+1)
++
+ /*
+  * The semantics of XCHGCMP8B are a bit strange, this is why
+  * there is a loop and the loading of %%eax and %%edx has to
+@@ -184,8 +187,6 @@
+ {
+ 	__set_64bit(ptr,(unsigned int)(value), (unsigned int)((value)>>32ULL));
+ }
+-#define ll_low(x)	*(((unsigned int*)&(x))+0)
+-#define ll_high(x)	*(((unsigned int*)&(x))+1)
+
+ static inline void __set_64bit_var (unsigned long long *ptr,
+ 			 unsigned long long value)
+@@ -203,6 +204,26 @@
+  __set_64bit(ptr, (unsigned int)(value), (unsigned int)((value)>>32ULL) ) : \
+  __set_64bit(ptr, ll_low(value), ll_high(value)) )
+
++static inline unsigned long long __get_64bit(unsigned long long * ptr)
++{
++	unsigned long long ret;
++	__asm__ __volatile__ (
++		"\n1:\t"
++		"movl (%1), %%eax\n\t"
++		"movl 4(%1), %%edx\n\t"
++		"movl %%eax, %%ebx\n\t"
++		"movl %%edx, %%ecx\n\t"
++		LOCK_PREFIX "cmpxchg8b (%1)\n\t"
++		"jnz 1b"
++		:	"=A"(ret)
++		:	"D"(ptr)
++		:	"ebx", "ecx", "memory");
++	return ret;
++}
++
++#define get_64bit(ptr) __get_64bit(ptr)
++
++
+ /*
+  * Note: no "lock" prefix even on SMP: xchg always implies lock anyway
+  * Note 2: xchg has side effect, so that attribute volatile is necessary,
+@@ -240,7 +261,41 @@
+  */
+
+ #ifdef CONFIG_X86_CMPXCHG
++
+ #define __HAVE_ARCH_CMPXCHG 1
++#define cmpxchg(ptr,o,n)\
++	((__typeof__(*(ptr)))__cmpxchg((ptr), (unsigned long)(o), \
++					(unsigned long)(n), sizeof(*(ptr))))
++
++#else
++
++/*
++ * Building a kernel capable running on 80386. It may be necessary to
++ * simulate the cmpxchg on the 80386 CPU. For that purpose we define
++ * a function for each of the sizes we support.
++ */
++
++extern unsigned long cmpxchg_386_u8(volatile void *, u8, u8);
++extern unsigned long cmpxchg_386_u16(volatile void *, u16, u16);
++extern unsigned long cmpxchg_386_u32(volatile void *, u32, u32);
++
++static inline unsigned long cmpxchg_386(volatile void *ptr, unsigned long old,
++				      unsigned long new, int size)
++{
++	switch (size) {
++	case 1:
++		return cmpxchg_386_u8(ptr, old, new);
++	case 2:
++		return cmpxchg_386_u16(ptr, old, new);
++	case 4:
++		return cmpxchg_386_u32(ptr, old, new);
++	}
++	return old;
++}
++
++#define cmpxchg(ptr,o,n)\
++	((__typeof__(*(ptr)))cmpxchg_386((ptr), (unsigned long)(o), \
++					(unsigned long)(n), sizeof(*(ptr))))
+ #endif
+
+ static inline unsigned long __cmpxchg(volatile void *ptr, unsigned long old,
+@@ -270,12 +325,34 @@
+ 	return old;
+ }
+
+-#define cmpxchg(ptr,o,n)\
+-	((__typeof__(*(ptr)))__cmpxchg((ptr),(unsigned long)(o),\
+-					(unsigned long)(n),sizeof(*(ptr))))
+-
++static inline unsigned long long __cmpxchg8b(volatile unsigned long long *ptr,
++		unsigned long long old, unsigned long long newv)
++{
++	unsigned long long prev;
++	__asm__ __volatile__(
++	LOCK_PREFIX "cmpxchg8b (%4)"
++		: "=A" (prev)
++		: "0" (old), "c" ((unsigned long)(newv >> 32)),
++		  "b" ((unsigned long)(newv & 0xffffffffULL)), "D" (ptr)
++		: "memory");
++	return prev;
++}
++
++#ifdef CONFIG_X86_CMPXCHG8B
++#define cmpxchg8b __cmpxchg8b
++#else
++/*
++ * Building a kernel capable of running on 80486 and 80386. Both
++ * do not support cmpxchg8b. Call a function that emulates the
++ * instruction if necessary.
++ */
++extern unsigned long long cmpxchg8b_486(volatile unsigned long long *,
++		unsigned long long, unsigned long long);
++#define cmpxchg8b cmpxchg8b_486
++#endif
++
+ #ifdef __KERNEL__
+-struct alt_instr {
++struct alt_instr {
+ 	__u8 *instr; 		/* original instruction */
+ 	__u8 *replacement;
+ 	__u8  cpuid;		/* cpuid bit set for replacement */
+
