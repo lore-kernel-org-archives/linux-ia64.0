@@ -1,25 +1,19 @@
-From: "Ross Ridge" <ross@sitraka.com>
-Date: Mon, 06 Nov 2000 15:51:18 +0000
-Subject: Re: [Linux-ia64] RE: Out of memory panic on boot...
-Message-Id: <marc-linux-ia64-105590678205658@msgid-missing>
+From: "Ahna, Christopher J" <christopher.j.ahna@intel.com>
+Date: Wed, 22 Nov 2000 03:17:17 +0000
+Subject: [Linux-ia64] Compiler for glibc 2.2 on glibc 2.1.3 based systems
+Message-Id: <marc-linux-ia64-105590678205765@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205657@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205657@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ken Hill writes:
-> sounds like you copied the kernel to /boot/efi using the copy
-> command instead of using cat.
+Hello,
 
-Just out of curiousity does anyone know why using "cp" rather than
-"cat" would be a problem?  I can't find anything in the archives for
-this mailing list explaining the problem.  My only guess is some sort
-of bug involving sparse files.
+What compiler's have you all been able to use to build glibc 2.2 on glibc
+2.1.3 based systems?  I've run into problems trying to do this with a number
+of different compilers.  Thanks a lot,
 
-                              Ross Ridge
-
+Chris
 
 
