@@ -1,115 +1,52 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 15 May 2001 07:41:57 +0000
-Subject: [Linux-ia64] libffi patch
-Message-Id: <marc-linux-ia64-105590693005575@msgid-missing>
+From: Don Dugger <n0ano@valinux.com>
+Date: Mon, 07 May 2001 16:09:07 +0000
+Subject: Re: [Linux-ia64] IA32 process segfaults on exit
+Message-Id: <marc-linux-ia64-105590693005539@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005574@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005574@msgid-missing>
+References: <marc-linux-ia64-105590693005442@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005442@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Below is a completely unofficial libffi patch.  It is relative to the
-libffi that comes with the CVS tree of gcc3.0.  I'm not sure whether
-this patch will be acceptable to the libffi maintainer, but for now,
-it is what's needed to get mozilla/ia64 working...
+Mike-
 
-	--david
+Well, I'll very confused.  I thought your problem was some registers
+that we stopped initializing that the LIBC startup code expected to
+point to an exit handler.  I spent over a week debugging my initialization
+code (the register was always non-zero in user mode) only to disciver
+today that when I link the process static everything works fine, including
+your test program.  When I try and run a dynamic program the initial
+registers are bogus.  (Did I ever mention that I HATE dynamic linking.)
 
-Index: include/ffi.h.in
-=================================RCS file: /cvs/gcc/gcc/libffi/include/ffi.h.in,v
-retrieving revision 1.7.2.2
-diff -u -r1.7.2.2 ffi.h.in
---- include/ffi.h.in	2001/03/27 00:58:23	1.7.2.2
-+++ include/ffi.h.in	2001/05/15 06:25:31
-@@ -380,6 +380,30 @@
- };
- #define FFI_NATIVE_RAW_API 0
- 
-+#define FFI_STATIC_CLOSURE(name, cif, interp, user_data)		\
-+  __asm__ ("     .data\n"						\
-+           "     .align 8\n"						\
-+           "1:   data8 @fptr(ffi_closure_UNIX)\n"			\
-+           "     data8 1b\n"						\
-+	   "     data8 0\n"						\
-+           "     data8 "#cif"\n"					\
-+           "     data8 @fptr("#interp")\n"				\
-+           "     data8 "#user_data"\n"					\
-+           "     .text\n"						\
-+           "     .global "#name"\n"					\
-+           "     .proc "#name"\n"					\
-+           #name":\n"							\
-+           "     addl r16 = @ltoff(1b), gp;;\n"				\
-+           "     ld8  gp = [r16];;\n"    /* fake gp = &closure */	\
-+           "     ld8  r17 = [gp];;\n"    /* r17 = @fptr(...) */		\
-+	   "     ld8  r19 = [r17],8;\n"  /* r19 = code addr */		\
-+	   "	 adds r18 = 16,gp;;\n"					\
-+	   "     ld8  r20 = [r17];;\n"	 /* r20 = real gp */		\
-+	   "     st8  [r18]=r20;\n"					\
-+           "     mov b6 = r19\n"					\
-+           "     br.cond.sptk.many b6\n"				\
-+           "     .endp\n");
-+
- #elif defined(ALPHA)
- 
- #define FFI_CLOSURES 1
-@@ -406,15 +430,17 @@
- typedef struct {
-   char tramp[FFI_TRAMPOLINE_SIZE];
-   ffi_cif   *cif;
--  void     (*fun)(ffi_cif*,void*,void**,void*);
-+  void     (*fun)(ffi_cif*,void*,void**,void*,void*);
-   void      *user_data;
- } ffi_closure;
- 
- ffi_status
- ffi_prep_closure (ffi_closure*,
- 		  ffi_cif *,
--		  void (*fun)(ffi_cif*,void*,void**,void*),
-+		  void (*fun)(ffi_cif*,void*,void**,void*,void*),
- 		  void *user_data);
-+
-+extern void ffi_prep_incoming_args (ffi_cif *, void *, void **);
- 
- #if !FFI_NO_RAW_API
- 
-Index: src/ia64/ffi.c
-=================================RCS file: /cvs/gcc/gcc/libffi/src/ia64/ffi.c,v
-retrieving revision 1.1
-diff -u -r1.1 ffi.c
---- src/ia64/ffi.c	2000/02/25 19:13:44	1.1
-+++ src/ia64/ffi.c	2001/05/15 06:25:31
-@@ -497,7 +499,7 @@
- 
-   ffi_prep_incoming_args_UNIX(args, (void**)&resp, arg_area, cif);
-   
--  (closure->fun) (cif, resp, arg_area, closure->user_data);
-+  (closure->fun) (cif, resp, arg_area, closure->user_data, args);
- 
-   rtype = cif->flags;
- 
-@@ -633,6 +636,13 @@
-   return;
- }
- 
-+void
-+ffi_prep_incoming_args (ffi_cif *cif, void *raw_args, void **args)
-+{
-+    void *dummy_resp;
-+
-+    ffi_prep_incoming_args_UNIX(raw_args, &dummy_resp, args, cif);
-+}
- 
- /* Fill in a closure to refer to the specified fun and user_data.	*/
- /* cif specifies the argument and result types for fun.			*/
-@@ -648,7 +658,7 @@
- ffi_status
- ffi_prep_closure (ffi_closure* closure,
- 		  ffi_cif* cif,
--		  void (*fun)(ffi_cif*,void*,void**,void*),
-+		  void (*fun)(ffi_cif*,void*,void**,void*,void*),
- 		  void *user_data)
- {
-   struct ffi_ia64_trampoline_struct *tramp 
+Bottom line is I still don't know what the problem is but I think I'm
+making progress.
+
+On Fri, Apr 20, 2001 at 09:46:06AM -0700, Michael Madore wrote:
+> Hi,
+> 
+> The attached 32 bit code will run without error on IA32, but the same binary
+> will generate the following errors when it returns on IA64.
+> 
+> sizeof(elf_gregset_t) (1024) != sizeof(struct pt_regs) (400)
+> Segmentation fault (core dumped)
+> 
+> Is this expected behavior?
+> 
+> -- 
+> Mike Madore
+> Software Engineer
+> TurboLinux, Inc.
+> 
+> _______________________________________________
+> Linux-IA64 mailing list
+> Linux-IA64@linuxia64.org
+> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
+-- 
+Don Dugger
+"Censeo Toto nos in Kansa esse decisse." - D. Gale
+n0ano@valinux.com
+Ph: 303/938-9838
 
