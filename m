@@ -1,7 +1,7 @@
 From: Keith Owens <kaos@ocs.com.au>
-Date: Thu, 21 Sep 2000 22:07:37 +0000
+Date: Thu, 21 Sep 2000 23:44:28 +0000
 Subject: Re: [Linux-ia64] unregister_rebbot_notifier()
-Message-Id: <marc-linux-ia64-105590678205513@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205514@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205511@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205511@msgid-missing>
@@ -17,10 +17,8 @@ On Thu, 21 Sep 2000 14:03:51 -0700,
 >happen on the same two machines listed above.  Are there any known problems
 >in test8 in relation to module loading?
 
-Probably a mismatch between kernel code and modutils.  What does this
-report?
-
-grep -B 5 -A 5 module_arch_init kernel/module.c
-/sbin/depmod --version
+Please try modutils 2.3.16 plus the patch at
+ftp://ftp.ocs.com.au/private/modutils-2.3.16-patch-1, let me know if it
+works so I can release it as modutils 2.3.17.
 
 
