@@ -1,29 +1,25 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 04 Jun 2004 22:25:56 +0000
-Subject: RE: GLIBC IA64 HP_TIMING fixes for SMP systems with unsynchronized ITC
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F016474FF@scsmsx401.amr.corp.intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 03 Jun 2004 17:39:58 +0000
+Subject: Re: Who owns those locks ?
+Message-Id: <200406031139.58964.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0406031313420.32412@server.home>
-In-Reply-To: <Pine.LNX.4.58.0406031313420.32412@server.home>
+References: <40A1F4BE.4A298352@nospam.org>
+In-Reply-To: <40A1F4BE.4A298352@nospam.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Zoltan.Menyhart@bull.net
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
->Only problem is that we can get high precision, but unless we can also
->get access to the NTP daemon's parameters, we don't know the accuracy
->of the result.
->
->Dunno about your systems, but mine drift around the real time by a
->couple of *milliseconds* so nanosecond accuracy in gettimeofday()
->won't buy much.
+On Wednesday 12 May 2004 3:56 am, Zoltan Menyhart wrote:
+> Got a dead lock ?
+> No idea how you got there ?
+> 
+> Why don't you put the ID of the owner of the lock in the lock word ?
+> Here is your patch for IA-64.
+> Doesn't cost any additional instruction, you can have it in your
+> "production" kernel, too.
 
-It depends what you are trying to do.  If you want to time how long
-a short event takes ... then asking for the time of day before and
-after and subtracting is the obvious solution.  If the event only
-takes 5 micro-seconds, a one micro-second granularity in gettimeofday()
-will give a +/- 20% error.  Even if the absolute time you see in the
-two calls is off from UTC by a couple of milli-seconds, the rate of
-drift is presumably small enough for the subtraction to make sense.
-
--Tony
+Whatever happened with this patch?  I really like the idea, but
+it seems like it died on the vine.  Maybe it's time to clean it
+up, pull all the bits together, and repost it.
