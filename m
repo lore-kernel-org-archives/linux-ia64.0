@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 17 Jun 2004 18:30:33 +0000
+From: Mark Haverkamp <markh@osdl.org>
+Date: Thu, 17 Jun 2004 18:31:11 +0000
 Subject: Re: sys_ioctl export
-Message-Id: <16593.58185.61928.622406@napali.hpl.hp.com>
+Message-Id: <1087497071.28235.34.camel@markh1.pdx.osdl.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1087494747.28235.28.camel@markh1.pdx.osdl.net>
 In-Reply-To: <1087494747.28235.28.camel@markh1.pdx.osdl.net>
@@ -10,23 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 17 Jun 2004 10:52:27 -0700, Mark Haverkamp <markh@osdl.org> said:
+On Thu, 2004-06-17 at 11:20, Grant Grundler wrote:
+> On Thu, Jun 17, 2004 at 10:52:27AM -0700, Mark Haverkamp wrote:
+> > The ia64 arch doesn't export sys_ioctl like some other 64 bit
+> > architectures like ppc64, sparc64 and x86_64.  Was this intentional?
+> 
+> Yes. C files export their own symbols now. This is "new" to 2.6.
+> "fgrep EXPORT_SYMBOL arch/ia64/kernel/*.c" for examples.
+> 
+> Did you need to call sys_ioctl() directly from a module?
 
-  Mark> The ia64 arch doesn't export sys_ioctl like some other 64 bit
-  Mark> architectures like ppc64, sparc64 and x86_64.  Was this
-  Mark> intentional?
+Yes, a 32 bit compatible ioctl function needs to call sys_ioctl once it
+has massaged the data, to execute its function. sys_ioctl isn't an arch
+specific function.  It isn't exported normally.  It looks like it is
+exported by 64 bit architectures only.
 
-It's intentional in the sense that Linux doesn't export symbols
-without good reason.  AFAICT, the following arches export sys_ioctl:
+> 
+> grant
+-- 
+Mark Haverkamp <markh@osdl.org>
 
- ppc64
- s390
- sparc64
- x86-64
-
-AFAIK, there is no ia64-specific reason to export the symbol.  If
-there is a platform-independent reason for doing so, then it should be
-exported for all platform, by putting an EXPORT_SYMBOL() after
-fs/ioctl.c:sys_ioctl().
-
-	--david
