@@ -1,86 +1,55 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Mon, 20 Oct 2003 20:50:16 +0000
-Subject: Re: [PATCH] fix topology init take 2
-Message-Id: <marc-linux-ia64-106668311200755@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Thu, 09 Oct 2003 10:25:12 +0000
+Subject: Re: [Gelato-technical] What's still broken?
+Message-Id: <marc-linux-ia64-106569513704299@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106641524132220@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106641524132220@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-jbarnes@sgi.com (Jesse Barnes) writes:
+>>>>> "Ian" = Ian Wienand <ianw@gelato.unsw.edu.au> writes:
 
-> @@ -43,3 +50,49 @@
-> =20
->  	return (i < num_memblks) ? node_memblk[i].nid : (num_memblks ? -1 : 0);
->  }
-> +
-> +static int __init topology_init(void)
-> +{
-> +	int i, err =3D 0;
-> +
-> +	sysfs_nodes =3D kmalloc(sizeof(struct node) * numnodes, GFP_KERNEL);
-> +	if (!sysfs_nodes) {
-> +		err =3D -ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	sysfs_memblks =3D kmalloc(sizeof(struct memblk) * num_memblks,
-> +				GFP_KERNEL);
-> +	if (!sysfs_memblks) {
-> +		kfree(sysfs_nodes);
-> +		err =3D -ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	sysfs_cpus =3D kmalloc(sizeof(struct cpu) * NR_CPUS, GFP_KERNEL);
-> +	if (!sysfs_cpus) {
-> +		kfree(sysfs_memblks);
-> +		kfree(sysfs_nodes);
-> +		err =3D -ENOMEM;
-> +		goto out;
-> +	}
-> +
-> +	for (i =3D 0; i < numnodes; i++)
-> +		if ((err =3D register_node(&sysfs_nodes[i], i, 0)))
-> +			goto out;
-> +=09
-> +	for (i =3D 0; i < num_memblks; i++)
-> +		if ((err =3D register_memblk(&sysfs_memblks[i], i,
-> +					   &sysfs_nodes[memblk_to_node(i)])))
-> +			goto out;
-> +=09
-> +	for (i =3D 0; i < NR_CPUS; i++)
-> +		if (cpu_online(i))
-> +			if((err =3D register_cpu(&sysfs_cpus[i], i,
-> +					       &sysfs_nodes[cpu_to_node(i)])))
-> +				goto out;
+Ian> On Thu, Oct 09, 2003 at 03:43:22PM +1000, Peter Chubb wrote:
+>> >>>>> "Stephane" = Stephane Eranian <eranian@hpl.hp.com> writes:
+Stephane> What about the qla1280 driver? Last time I tried it would
+Stephane> crash during boot.  I don't know if it has been fixed.
 
-You need to clear all kmalloc'd memory before you can pass it to
-register_{node,memblk,cpu}, otherwise sys_device_register may trip over
-the uninitialized sysdev.
+>> It has been fixed.
 
---- linux-2.6.0-test8/arch/ia64/mm/numa.c.~1~	2003-10-20 21:25:23.000000000=
- +0200
-+++ linux-2.6.0-test8/arch/ia64/mm/numa.c	2003-10-20 22:00:21.000000000 +02=
-00
-@@ -76,6 +76,9 @@ static int __init topology_init(void)
- 		err =3D -ENOMEM;
- 		goto out;
- 	}
-+	memset(sysfs_nodes, 0, sizeof(struct node) * numnodes);
-+	memset(sysfs_memblks, 0, sizeof(struct memblk) * num_memblks);
-+	memset(sysfs_cpus, 0, sizeof(struct cpu) * NR_CPUS);
-=20
- 	for (i =3D 0; i < numnodes; i++)
- 		if ((err =3D register_node(&sysfs_nodes[i], i, 0)))
+Ian> Well it still breaks a generic build as discussed in
 
-Andreas.
+Ian> http://www.gelato.unsw.edu.au/linux-ia64/0309/6661.html
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+That's not so much a qla1280 problem, as a generic build problem ---
+it's half baked; it includes ALTIX-specific code in the qla1280
+driver, but doesn't build the SN subtree.
+
+A temporary fix would be to change
+
+#if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_SGI_SN2)
+
+to 
+
+#if defined(CONFIG_IA64_SGI_SN2)
+
+in the QLA1280 driver, at least until the SN2 bits are included in the
+generic kernel.
+
+Jesse, is the SN2 stuff you're working on so hard going to be included
+in generic builds?  Something like this (which doesn't yet work):
+
+--- /tmp/geta1932	2003-10-09 20:13:51.000000000 +1000
++++ linux-2.5-test7/arch/ia64/Makefile		2003-10-09 20:11:04.000000000 +1000
+@@ -57,7 +57,7 @@
+ core-y				+= arch/ia64/kernel/ arch/ia64/mm/
+ core-$(CONFIG_IA32_SUPPORT)	+= arch/ia64/ia32/
+ core-$(CONFIG_IA64_DIG)	+= arch/ia64/dig/
+-core-$(CONFIG_IA64_GENERIC)	+= arch/ia64/dig/
++core-$(CONFIG_IA64_GENERIC)	+= arch/ia64/dig/ arch/ia64/sn/
+ core-$(CONFIG_IA64_HP_ZX1)	+= arch/ia64/dig/
+ core-$(CONFIG_IA64_SGI_SN2)	+= arch/ia64/sn/
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories,   all slightly different.
