@@ -1,25 +1,45 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 31 May 2003 01:16:19 +0000
-Subject: Re: [Linux-ia64] [patch] 2.4.21-rc2-cset-1129 hugetlb, unwind fixes
-Message-Id: <marc-linux-ia64-105590723706098@msgid-missing>
+From: Valdis.Kletnieks@vt.edu
+Date: Tue, 20 May 2003 20:30:01 +0000
+Subject: [Linux-ia64] Re: /proc/kcore - how to fix it
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="==_Exmh_1928944008P"
+Message-Id: <marc-linux-ia64-105590723705961@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723706053@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723706053@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 28 May 2003 17:17:24 +1000, Keith Owens <kaos@ocs.com.au> said:
+--==_Exmh_1928944008P
+Content-Type: text/plain; charset=us-ascii
 
-  Keith> arch/ia64/kernel/unwind.c: Only call get_scratch_regs() when
-  Keith> pt is really needed.  The premature calls to
-  Keith> get_scratch_regs() would pick up the wrong address for pt if
-  Keith> the register was in switch_stack and pt_regs had not been
-  Keith> reached yet, e.g. unw_access_ar(&info, UNW_AR_BSPSTORE,...)
-  Keith> before pt_regs had been reached.
+On Tue, 20 May 2003 13:05:15 PDT, "Luck, Tony" said:
 
-This looks fine to me.  Can you send me a 2.5 patch?
+> What about discontiguous memory.  Since /proc/kcore is super-user only
+> we could continue with the attitude that the user should be careful not
+> to touch memory that doesn't exist, or we could be kind and provide an
+> API so that the architecture specific code that finds the memory can tell
+> /proc/kcore what exists.
 
-	--david
+"don't touch memory that doesn't exist" is a bad idea unless there is *some*
+sort of API that allows the program to intuit what does/doesn't exist.  If
+the program can't find out what is legal without hitting an oops or worse,
+nobody will use /proc/kcore, and then why bother implementing it?
+
+(Note that I'd consider "look *here* for a pointer to known-existing memory,
+then look 24 bytes into there for a pointer to a linked list of memory
+block address/size pairs" sufficient, no need for a fancy /proc interface.
+Of course, that's just my opinion - those who don't have memories of
+pointer chasing in S/360 assembler under OS/MVT may have other opinions ;)
+
+--==_Exmh_1928944008P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQE+ypBIcC3lWbTT17ARAq1KAJ4o/hjlZcsI9Tv9LBpvY9zxbwhO/QCbBoZo
+EBcJ1g8p6RFULfWBxzh0/vk=
+=uCNH
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1928944008P--
 
