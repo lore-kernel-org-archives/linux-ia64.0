@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Thu, 24 Apr 2003 22:37:00 +0000
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Fri, 25 Apr 2003 00:44:41 +0000
 Subject: Re: [Linux-ia64] [PATCH] 1/4 multi-ioport space support for 2.5
-Message-Id: <marc-linux-ia64-105590723705603@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705604@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705599@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705599@msgid-missing>
@@ -10,116 +10,74 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bjorn, what about the patches posted in this thread?
+On Thursday 24 April 2003 4:37 pm, Jesse Barnes wrote:
+> Bjorn, what about the patches posted in this thread?
+> 
+> http://marc.theaimsgroup.com/?t4359481700001&r=1&w=2
+> 
+> They seem to deal with the legacy resource issue quite nicely, and for
+> the non-legacy case, pci_fixup should be making the
+> pci_dev->resource[] arrays contain valid I/O addresss, shouldn't it?
+> 
+> Or do you have something else in mind?
 
-http://marc.theaimsgroup.com/?t4359481700001&r=1&w=2
+I think we're talking about two different things.
 
-They seem to deal with the legacy resource issue quite nicely, and for
-the non-legacy case, pci_fixup should be making the
-pci_dev->resource[] arrays contain valid I/O addresss, shouldn't it?
+If I understand it correctly, the reason for the patch you mentioned
+is to take a device (VGA) that appears at a fixed IO port address,
+and tweak the driver so it can talk to the device at a different
+IO port address.
 
-Or do you have something else in mind?
+It doesn't expand the size of the IO port space, it just gives
+you a hook to say "this hard-coded region of IO port space
+really corresponds to this other region on my platform".
 
-Thanks,
-Jesse
+On the other hand, my patch is completely platform-specific and
+allows us to address new IO port space that was previously not
+accessible at all.  For example, on HP machines, the ia64 64K
+"legacy IO port space" all gets routed to a single IO controller.
+Here's a sample /proc/ioports:
 
-On Thu, Apr 24, 2003 at 04:25:26PM -0600, Bjorn Helgaas wrote:
-> This has been in my 2.4 BK tree for a while, but I should have
-> posted it in case there's feedback from other people working
-> on large machines.  So here it is, in four parts:
-> 
->   1  enhance __ia64_mk_io_addr(port)
->   2  enhance pcibios_scan_root to get multiple mem & io windows
->       from ACPI _CRS, and fixup all the resources
->   3  add support for /proc/iomem and /proc/ioports
->   4  trivial (whitespace, copyright, and move pcibios_fixup_device_resources
->        closer to related code)
-> 
-> The current scheme is that IO ports are 64 bits, with the low 24
-> bits being the port number within an IO port space, and the upper
-> bits identifying the space.  There is currently a limit of 16
-> spaces.
-> 
-> Bjorn
-> 
-> diff -u -ur linux-2.5.67-ia64-030416/arch/ia64/kernel/setup.c linux-2.5.67-ia64-030416-io1/arch/ia64/kernel/setup.c
-> --- linux-2.5.67-ia64-030416/arch/ia64/kernel/setup.c	2003-04-24 10:10:58.000000000 -0600
-> +++ linux-2.5.67-ia64-030416-io1/arch/ia64/kernel/setup.c	2003-04-24 11:01:40.000000000 -0600
-> @@ -63,6 +63,8 @@
->  struct screen_info screen_info;
->  
->  unsigned long ia64_iobase;	/* virtual address for I/O accesses */
-> +struct io_space io_space[MAX_IO_SPACES];
-> +unsigned int num_io_spaces;
->  
->  unsigned char aux_device_present = 0xaa;        /* XXX remove this when legacy I/O is gone */
->  
-> @@ -415,6 +417,11 @@
->  	}
->  	ia64_iobase = (unsigned long) ioremap(phys_iobase, 0);
->  
-> +	/* setup legacy IO port space */
-> +	io_space[0].mmio_base = ia64_iobase;
-> +	io_space[0].sparse = 1;
-> +	num_io_spaces = 1;
-> +
->  #ifdef CONFIG_SMP
->  	cpu_physical_id(0) = hard_smp_processor_id();
->  #endif
-> diff -u -ur linux-2.5.67-ia64-030416/include/asm-ia64/io.h linux-2.5.67-ia64-030416-io1/include/asm-ia64/io.h
-> --- linux-2.5.67-ia64-030416/include/asm-ia64/io.h	2003-04-24 10:10:58.000000000 -0600
-> +++ linux-2.5.67-ia64-030416-io1/include/asm-ia64/io.h	2003-04-24 11:29:59.000000000 -0600
-> @@ -32,6 +32,24 @@
->   */
->  #define IO_SPACE_LIMIT		0xffffffffffffffffUL
->  
-> +#define MAX_IO_SPACES			16
-> +#define IO_SPACE_BITS			24
-> +#define IO_SPACE_SIZE			(1UL << IO_SPACE_BITS)
-> +
-> +#define IO_SPACE_NR(port)		((port) >> IO_SPACE_BITS)
-> +#define IO_SPACE_BASE(space)		((space) << IO_SPACE_BITS)
-> +#define IO_SPACE_PORT(port)		((port) & (IO_SPACE_SIZE - 1))
-> +
-> +#define IO_SPACE_SPARSE_ENCODING(p)	((((p) >> 2) << 12) | (p & 0xfff))
-> +
-> +struct io_space {
-> +	unsigned long mmio_base;	/* base in MMIO space */
-> +	int sparse;
-> +};
-> +
-> +extern struct io_space io_space[];
-> +extern unsigned int num_io_spaces;
-> +
->  # ifdef __KERNEL__
->  
->  #include <asm/machvec.h>
-> @@ -80,11 +98,17 @@
->  static inline void*
->  __ia64_mk_io_addr (unsigned long port)
->  {
-> -	const unsigned long io_base = __ia64_get_io_port_base();
-> -	unsigned long addr;
-> +	struct io_space *space;
-> +	unsigned long offset;
-> +
-> +	space = &io_space[IO_SPACE_NR(port)];
-> +	port = IO_SPACE_PORT(port);
-> +	if (space->sparse)
-> +		offset = IO_SPACE_SPARSE_ENCODING(port);
-> +	else
-> +		offset = port;
->  
-> -	addr = io_base | ((port >> 2) << 12) | (port & 0xfff);
-> -	return (void *) addr;
-> +	return (void *) (space->mmio_base | offset);
->  }
->  
->  /*
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+    00000000-00000fff : PCI Bus 00:00
+      00000060-0000006f : i8042
+      00000500-000005ff : sym53c8xx
+      00000600-000006ff : sym53c8xx
+    00001000-00001fff : PCI Bus 00:04
+    00002000-00003fff : PCI Bus 00:08
+    00004000-00005fff : PCI Bus 00:10
+    00006000-00007fff : PCI Bus 00:18
+    00008000-00009fff : PCI Bus 00:20
+      00008000-000080ff : sym53c8xx
+      00008100-000081ff : sym53c8xx
+    0000a000-0000bfff : PCI Bus 00:28
+    0000c000-0000dfff : PCI Bus 00:30
+    0000e000-0000ffff : PCI Bus 00:38
+
+The above is the legacy IO port space (0-64K).  But the machine
+has another IO controller with another 9 slots and another 64K
+of IO port space that is currently unusable.  My patch just
+makes that accessible, like this:
+
+    01000000-01000fff : PCI Bus 00:40
+      01000500-010005ff : sym53c8xx
+      01000600-010006ff : sym53c8xx
+    01001000-01001fff : PCI Bus 00:44
+      01001000-010010ff : sym53c8xx
+      01001100-010011ff : sym53c8xx
+    01002000-01003fff : PCI Bus 00:48
+    01004000-01005fff : PCI Bus 00:50
+    01006000-01007fff : PCI Bus 00:58
+    01008000-01009fff : PCI Bus 00:60
+    0100a000-0100bfff : PCI Bus 00:68
+    0100c000-0100dfff : PCI Bus 00:70
+    0100e000-0100ffff : PCI Bus 00:78
+
+Of course, the ports outside of the legacy 64K range aren't
+usable by IA32 apps that use IN/OUT instructions, but they work
+fine for the kernel and drivers.  David's book has a good
+section on this, but I don't have it handy to give a specific
+reference.
+
+Bjorn
+
 
