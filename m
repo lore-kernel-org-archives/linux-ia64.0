@@ -3,7 +3,7 @@ Date: Tue, 27 May 2003 00:03:09 +0000
 Subject: Re: [Linux-ia64] offsets.h generation
 MIME-Version: 1
 Content-Type: multipart/mixed; boundary="GB8H7Uo0d8"
-Message-Id: <marc-linux-ia64-105590723706037@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723706038@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705941@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705941@msgid-missing>
