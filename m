@@ -1,60 +1,51 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Fri, 23 Jan 2004 18:45:38 +0000
-Subject: [PATCH] arch/ia64/sn/kernel/sn2/cache.c missing a #include
-Message-Id: <20040123184537.GN15871@localhost>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="IuhbYIxU28t+Kd57"
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 29 Jan 2004 22:14:44 +0000
+Subject: [PATCH] - Move cpu_vm_mask to be closer to mmu_context_t in struct mm
+Message-Id: <20040129221444.GA11032@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: akpm@osdl.org, linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
 
 
---IuhbYIxU28t+Kd57
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+The cpu_vm_mask use to be close to the mmu_context_t field
+in the mm struct. Recently some large members were
+added between "cpu_vm_mask" and "context". I suspect that
+was an oversight. 
+
+Here is a patch that puts the fields close together. This
+makes it likely that both fields are in the same cache line. 
+Since both fields are likely to be updated at the same 
+time, this may improve performance.
 
 
-Hi David,
 
-Here is a small patch which adds a missing #include
 
-thanks
-mh
-
+--- linux.base/./include/linux/sched.h	Mon Jan 26 17:06:13 2004
++++ linux/./include/linux/sched.h	Thu Jan 29 13:28:15 2004
+@@ -206,7 +206,6 @@
+ 	unsigned long arg_start, arg_end, env_start, env_end;
+ 	unsigned long rss, total_vm, locked_vm;
+ 	unsigned long def_flags;
+-	cpumask_t cpu_vm_mask;
+ 
+ 	unsigned long saved_auxv[40]; /* for /proc/PID/auxv */
+ 
+@@ -214,6 +213,8 @@
+ #ifdef CONFIG_HUGETLB_PAGE
+ 	int used_hugetlb;
+ #endif
++	cpumask_t cpu_vm_mask;
++
+ 	/* Architecture-specific MM context */
+ 	mm_context_t context;
+ 
 -- 
-Martin Hicks                Wild Open Source Inc.
-mort@wildopensource.com     613-266-2296
+Thanks
 
---IuhbYIxU28t+Kd57
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sn2-cache-export-symbol.diff"
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1498  -> 1.1499 
-#	arch/ia64/sn/kernel/sn2/cache.c	1.5     -> 1.6    
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 04/01/23	mort@green.i.bork.org	1.1499
-# Get rid of this warning:
-# 
-# arch/ia64/sn/kernel/sn2/cache.c:34: warning: type defaults to `int' in declaration of `EXPORT_SYMBOL'
-# arch/ia64/sn/kernel/sn2/cache.c:34: warning: parameter names (without types) in function declaration
-# arch/ia64/sn/kernel/sn2/cache.c:34: warning: data definition has no type or storage class
-# --------------------------------------------
-#
-diff -Nru a/arch/ia64/sn/kernel/sn2/cache.c b/arch/ia64/sn/kernel/sn2/cache.c
---- a/arch/ia64/sn/kernel/sn2/cache.c	Fri Jan 23 09:42:15 2004
-+++ b/arch/ia64/sn/kernel/sn2/cache.c	Fri Jan 23 09:42:15 2004
-@@ -7,6 +7,7 @@
-  *
-  */
- 
-+#include <linux/module.h>
- #include <asm/pgalloc.h>
- 
- /**
 
---IuhbYIxU28t+Kd57--
