@@ -1,35 +1,35 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Tue, 01 Aug 2000 02:20:47 +0000
-Subject: Re: [Linux-ia64] Re: forwarded message from David Mosberger
-Message-Id: <marc-linux-ia64-105590678205262@msgid-missing>
+From: Manfred Spraul <manfred@colorfullife.com>
+Date: Thu, 31 Aug 2000 17:57:11 +0000
+Subject: [Linux-ia64] SMP TLB flushes
+Message-Id: <marc-linux-ia64-105590678205428@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205257@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205257@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-	Since "inline" isn't really ANSI C either
+Is it correct that the SMP part of the SMP flushing code is still
+missing? I'm just noisy and I don't understand yet how the ia64 cpu is
+supposed to perform tlb flushes.
 
-It is now, though it will be awhile before C9X (C99?) is widespread.
+* ptc.g only gets the address and the size as parameters, but not a
+region id. What if cpu 1 (running kswapd, arbitrary thread context)
+wants to flush a page from another thread, and that thread is running on
+cpu 2?
 
-	I never understood
-	why GNU C is the only C variant to provide statement
-	expressions---it's a critically important feature when translating
-	other languages to C, for example).
+* could you add a big warning to start_lazy_tlb [kernel/exit.c] that the
+function is unsafe?
+Both ppc and ia64 scan the task list and assume that they can find each
+mm_struct. If someone actually uses start_lazy_tlb, then that would be
+incorrect.
 
-There is a debate currently on the gcc lists about this.  It turns out that
-statement expressions conflict with the C++ language standard, and it isn't
-clear if this problem can be solved.  This is a problem for g++ because glibc
-uses statement expressions in some header files, and C++ programs that include
-those header files may not work.  It isn't clear what is going to happen yet,
-but some people are considering eliminating statement expressions.  That
-probably won't happen, but eliminating or restricting statement expressions
-in C++ probably will happen.
+Btw, the i386 tlb flush contained a single instruction race (read x,
+write y instead of write y, read x) and this was enough for corruptions
+- I overlooked one problem with concurrent tlb flushes and thread
+switches.
 
-If you want to use C++, then don't use statement expressions.
+Please cc me, I'm not subscribed to the list.
 
-Jim
-
+--
+	Manfred
 
