@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 05 Aug 2004 18:28:50 +0000
+From: ebiederm@xmission.com (Eric W. Biederman)
+Date: Thu, 05 Aug 2004 18:56:00 +0000
 Subject: Re: [BROKEN PATCH] kexec for ia64
-Message-Id: <20040805182850.GF6526@cup.hp.com>
+Message-Id: <m1d6252z3z.fsf@ebiederm.dsl.xmission.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200407261524.40804.jbarnes@engr.sgi.com>
 In-Reply-To: <200407261524.40804.jbarnes@engr.sgi.com>
@@ -10,64 +10,80 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Aug 05, 2004 at 10:58:50AM -0600, Eric W. Biederman wrote:
-> Ok back onto the fastboot list since this is evolving into discussion
-> again.
+Grant Grundler <iod00d@hp.com> writes:
 
-yes - sorry. I'll add linux-ia64 back again too.
-
-> Grant Grundler <iod00d@hp.com> writes:
-> > Yes - found it.
-> > http://marc.theaimsgroup.com/?l=linux-ia64&m9088102013039&w=2
+> On Thu, Aug 05, 2004 at 10:58:50AM -0600, Eric W. Biederman wrote:
+> > > parisc platforms have a firmware
+> > > call to deal with the reseting the IO subsystem and I've asked for
+> > > the same on ia64. It doesn't look like I'll get it. HP's thinking is
+> > > when we can't trust the OS, use firmware.
 > > 
-> > The patch in the above posting doesn't deal with inflight DMA and
-> > "inflight DMA" is a real problem. 
+> > Ah, but we can get to a point where we can trust the OS even
+> > while ignoring in-flight DMA.  So that should not be a big deal.
 > 
-> Actually it can be totally avoided (see my other reply).
+> Not true. The new kernel will attempt to reprogram the IOMMU
+> and either cause the system to crash fatally or redirect DMA to random
+> regions of memory. HP platforms will crash (as they should) if we
+> get and IOMMU lookup failure because of previous active DMA.
 > 
-> > parisc platforms have a firmware
-> > call to deal with the reseting the IO subsystem and I've asked for
-> > the same on ia64. It doesn't look like I'll get it. HP's thinking is
-> > when we can't trust the OS, use firmware.
+> (well, not really random - page zero is most likely to get clobbered)
+
+Interesting.. One of the things we identified is that the kernel
+that comes up in this scenario will need truly paranoid device
+initialization code, so it can get the devices it chooses to use functioning from
+any state.   For the IOMMU things don't look differently.  The code
+will need to be tweaked so that it is sufficiently paranoid. 
+
+I'm not certain how receiving an unmapped DMA request should be
+handled but there should be methods that are less drastic than
+crashing the kernel.  Crashing the kernel only seems sane
+during driver debugging.
+
+One suggestion and I believe that still applies is to have a delay
+to allow existing in-flight DMA transfers to flush themselves.
+
+It may also make sense to reserve a small portion of the IOMMU
+for the recovery kernel and not use that chunk of the IOMMU
+for the normal kernel.  That would allow valid DMA transactions
+the recovery kernel initiated to be recognized.
+
+> Firmware (a) knows platform/chipset specific bits and (b) is read-only.
+> ie it's not suspectible to corruption like code is.
+
+Given that firmware is quite frequently compressed in flash the
+read-only bit is not especially true.  On given platforms especially
+on the high-end I can see that being the case.
+
+> I agree being able to audit and update the code is a good thing.
+
+ ;)
+
+Anyway kexec on panic is a new thing to the world so we shall have
+to see how it progresses.  So far things look good.
+
+> > If it was not
+> > desirable to get a register dump from them we could probably even
+> > handle this from the new kernel, using some kind of cpu INIT message.
+> > Having a reserved area of memory to run in keeps us safe from both
+> > in-flight DMA and largely from secondary cpus. 
 > 
-> Ah, but we can get to a point where we can trust the OS even
-> while ignoring in-flight DMA.  So that should not be a big deal.
+> If no IOMMU were involved, I agree the reserved mem would work fine.
 
-Not true. The new kernel will attempt to reprogram the IOMMU
-and either cause the system to crash fatally or redirect DMA to random
-regions of memory. HP platforms will crash (as they should) if we
-get and IOMMU lookup failure because of previous active DMA.
+Ok. It looks like the IOMMU case needs some more looking into.  But
+I think we are on the right track.
 
-(well, not really random - page zero is most likely to get clobbered)
-
-> My thinking: What is firmware doing on the Box after boot up?
-> I would rather have code that can be updated and audited doing the
-> work.
-
-Firmware (a) knows platform/chipset specific bits and (b) is read-only.
-ie it's not suspectible to corruption like code is.
-I agree being able to audit and update the code is a good thing.
-
-> > Is CPU syncronization (get all CPUs in rendevous) taken care of
-> > else where? I didn't see anything dealing with it in the patch.
+Would a reserved chunk of the IOMMU address space work?  I know things
+are scarce but we could probably deal with as little as 1M.
+ 
+> > Beyond this we will likely need some actual experience so improve
+> > things and make them more robust.
 > 
-> The strategy on the panic case is to send an IPI to the other cpus and
-> hope they respond, if not timeout and progress anyway.
+> *nod*.
+> 
+> thanks,
 
-Ok - that's reasonable.
+Welcome.
 
-> If it was not
-> desirable to get a register dump from them we could probably even
-> handle this from the new kernel, using some kind of cpu INIT message.
-> Having a reserved area of memory to run in keeps us safe from both
-> in-flight DMA and largely from secondary cpus. 
+Now I just need to time to pull all of the patches together... 
 
-If no IOMMU were involved, I agree the reserved mem would work fine.
-
-> Beyond this we will likely need some actual experience so improve
-> things and make them more robust.
-
-*nod*.
-
-thanks,
-grant
+Eric
