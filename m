@@ -1,7 +1,7 @@
-From: Ashok Raj <ashok.raj@intel.com>
-Date: Fri, 25 Feb 2005 20:27:21 +0000
-Subject: Re: [patch]:MC/MT enabling/identification for IA-64
-Message-Id: <20050225122720.A9055@unix-os.sc.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 25 Feb 2005 20:47:15 +0000
+Subject: RE: [patch]:MC/MT enabling/identification for IA-64
+Message-Id: <16927.36563.804160.355113@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <01EF044AAEE12F4BAAD955CB7506494303077707@scsmsx401.amr.corp.intel.com>
 In-Reply-To: <01EF044AAEE12F4BAAD955CB7506494303077707@scsmsx401.amr.corp.intel.com>
@@ -10,40 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Feb 25, 2005 at 12:12:34PM -0800, Seth, Rohit wrote:
-> 
->    Will following work:
-> 
->    Physical id: Identifying the unique physical package id for LEU
+>>>>> On Fri, 25 Feb 2005 12:12:34 -0800, "Seth, Rohit" <rohit.seth@intel.com> said:
 
-The spec states that physical processor id or (die id) is not required
-to be unique.  Are you depending on this being unique?
+  Rohit> "Cpu Cores" identifying the number of cores in a physical
+  Rohit> package is present in x86_64 and not there in i386 tree.
 
-also PAL_LOGICAL_TO_PHYSICAL states that num_log (or total number of logical
-processors in this die) doesnt necessarily need to be cpp * tpc)
+  Rohit> Will following work:
 
-just fyi: even if the numbers might be the same in most cases, its possible
-that they could be different, because one thread didnt boot due to some 
-failure)
+  Rohit> Physical id: Identifying the unique physical package id for LEU
+  Rohit> Core id: Identifying the unique core id on that specific physical
+  Rohit> package
+  Rohit> Siblings: Identifying the total number LEUs on that physical package.
 
->    Core id: Identifying the unique core id on that specific physical
->    package
->    Siblings: Identifying the total number LEUs on that physical package.
-> 
->    Siblings is the one that apps have already started using on i386.
-> 
->    -rohit
->    -
->    To  unsubscribe from this list: send the line "unsubscribe linux-ia64"
->    in
->    the body of a message to majordomo@vger.kernel.org
->    More majordomo info at  [2]http://vger.kernel.org/majordomo-info.html
-> 
-> References
-> 
->    1. mailto:davidm@napali.hpl.hp.com
->    2. http://vger.kernel.org/majordomo-info.html
+Well, I think it would be useful if we can look at /proc/cpuinfo and
+get a mapping from Linux CPU number to "topological address" (socket
+id, core id, thread id).  With that plus taskset, it would be very
+easy to run a test with, for example, two processes pinned to the two
+threads on the same core or pinned to separate cores, etc.
 
--- 
-Cheers,
-Ashok Raj
+  Rohit> Siblings is the one that apps have already started using on i386.
+
+What is it being used for?
+
+	--david
