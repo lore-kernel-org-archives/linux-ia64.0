@@ -1,7 +1,7 @@
 From: Ingo Molnar <mingo@elte.hu>
-Date: Thu, 20 Jan 2005 16:44:28 +0000
+Date: Thu, 20 Jan 2005 16:47:41 +0000
 Subject: Re: [patch 1/3] spinlock fix #1, *_can_lock() primitives
-Message-Id: <20050120164428.GA16342@elte.hu>
+Message-Id: <20050120164741.GA16660@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16878.9678.73202.771962@wombat.chubb.wattle.id.au> <20050119092013.GA2045@elte.hu> <16878.54402.344079.528038@cargo.ozlabs.ibm.com> <20050120023445.GA3475@taniwha.stupidest.org> <20050119190104.71f0a76f.akpm@osdl.org> <20050120031854.GA8538@taniwha.stupidest.org> <16879.29449.734172.893834@wombat.chubb.wattle.id.au> <Pine.LNX.4.58.0501200747230.8178@ppc970.osdl.org> <20050120160839.GA13067@elte.hu> <Pine.LNX.4.58.0501200823010.8178@ppc970.osdl.org>
 In-Reply-To: <Pine.LNX.4.58.0501200823010.8178@ppc970.osdl.org>
@@ -19,28 +19,27 @@ Cc: Peter Chubb <peterc@gelato.unsw.edu.au>, Chris Wedgwood <cw@f00f.org>, Andre
 > wouldn't you agree that it makes more sense to have the rwlock test
 > variants in asm/rwlock.h?):
 
-this one adds it to x64. (untested at the moment) This patch assumes
-that we are nuking rwlock_is_locked and that there is at least a
-s/rwlock_is_locked/!write_can_lock/ done to kernel/exit.c.
+(untested) ia64 version below. Differs from x86/x64.
 
 	Ingo
 
 Signed-off-by: Ingo Molnar <mingo@elte.hu>
 
---- linux/include/asm-x86_64/spinlock.h.orig
-+++ linux/include/asm-x86_64/spinlock.h
-@@ -161,7 +161,23 @@ typedef struct {
+--- linux/include/asm-ia64/spinlock.h.orig
++++ linux/include/asm-ia64/spinlock.h
+@@ -128,8 +128,27 @@ typedef struct {
+ #define RW_LOCK_UNLOCKED (rwlock_t) { 0, 0 }
  
- #define rwlock_init(x)	do { *(x) = RW_LOCK_UNLOCKED; } while(0)
+ #define rwlock_init(x)		do { *(x) = RW_LOCK_UNLOCKED; } while(0)
+-#define rwlock_is_locked(x)	(*(volatile int *) (x) != 0)
  
--#define rwlock_is_locked(x) ((x)->lock != RW_LOCK_BIAS)
 +/**
 + * read_can_lock - would read_trylock() succeed?
 + * @lock: the rwlock in question.
 + */
 +static inline int read_can_lock(rwlock_t *rw)
 +{
-+	return rw->lock > 0;
++	return *(volatile int *)rw >= 0;
 +}
 +
 +/**
@@ -49,8 +48,11 @@ Signed-off-by: Ingo Molnar <mingo@elte.hu>
 + */
 +static inline int write_can_lock(rwlock_t *rw)
 +{
-+	return rw->lock = RW_LOCK_BIAS;
++	return *(volatile int *)rw = 0;
 +}
- 
- /*
-  * On x86, we implement read-write locks as a 32-bit counter
++ 
++ /*
++  * On x86, we implement read-write locks as a 32-bit counter
+ #define _raw_read_lock(rw)								\
+ do {											\
+ 	rwlock_t *__read_lock_ptr = (rw);						\
