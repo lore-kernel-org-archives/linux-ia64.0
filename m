@@ -1,60 +1,54 @@
-From: Harald Welte <laforge@netfilter.org>
-Date: Thu, 10 Jun 2004 05:46:24 +0000
+From: "David S. Miller" <davem@redhat.com>
+Date: Fri, 11 Jun 2004 05:04:45 +0000
 Subject: Re: Unaligned accesses in net/ipv4/netfilter/arp_tables.c:184
-Message-Id: <20040610054624.GL11490@sunbeam.de.gnumonks.org>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="BOmey7/79ja+7F5w"
+Message-Id: <20040610220445.2116457b.davem@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0406091106210.21291@schroedinger.engr.sgi.com> <1086805676.4288.16.camel@tdi> <20040609130001.37a88da1.davem@redhat.com> <20040610014519.GA3158@taniwha.stupidest.org>
-In-Reply-To: <20040610014519.GA3158@taniwha.stupidest.org>
-To: Chris Wedgwood <cw@f00f.org>
-Cc: "David S. Miller" <davem@redhat.com>, Alex Williamson <alex.williamson@hp.com>, clameter@sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+References: <Pine.LNX.4.58.0406091106210.21291@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0406091106210.21291@schroedinger.engr.sgi.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Christoph Lameter <clameter@sgi.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
+On Wed, 9 Jun 2004 11:09:42 -0700 (PDT)
+Christoph Lameter <clameter@sgi.com> wrote:
 
---BOmey7/79ja+7F5w
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+>         /* Look for ifname matches; this should unroll nicely. */
+>         for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
+>                 ret |= (((const unsigned long *)indev)[i]
+>                         ^ ((const unsigned long *)arpinfo->iniface)[i])
+>                         & ((const unsigned long *)arpinfo->iniface_mask)[i];
+>         }
 
-On Wed, Jun 09, 2004 at 06:45:19PM -0700, Chris Wedgwood wrote:
-> On Wed, Jun 09, 2004 at 01:00:01PM -0700, David S. Miller wrote:
->=20
-> > How can you legitimately change this structure?  It's an exported
-> > userland interface, if you change it all the applications will stop
-> > working.
->=20
-> Why not split the structure for user-space and kernel-space version
-> and cp/frob at/near the syscall boundary?
+This is far from a critical code path, so this is how I'm
+going to fix this.
 
-because it would look like an ugly hack in the setsockopt call, plus
-adding another costly/time consuming parse of the table BLOB. =20
-
-Also note that the kernel currently has no code that supports the
-generation/modification of rulesets. All it can do is iterate over them.
-
->   --cw
-
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---BOmey7/79ja+7F5w
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAx/WwXaXGVTD0i/8RAjesAKCZvTwXcJ1JV9yuVzPfa0sTEFy7OgCeJWpM
-2PJ7uaS2rCOHIT1SEuk5EjU=
-=osOF
------END PGP SIGNATURE-----
-
---BOmey7/79ja+7F5w--
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/06/10 22:05:19-07:00 davem@nuts.davemloft.net 
+#   [IPV4]: Fix unaligned accesses in arp_tables.c
+# 
+# net/ipv4/netfilter/arp_tables.c
+#   2004/06/10 22:05:03-07:00 davem@nuts.davemloft.net +3 -4
+#   [IPV4]: Fix unaligned accesses in arp_tables.c
+# 
+diff -Nru a/net/ipv4/netfilter/arp_tables.c b/net/ipv4/netfilter/arp_tables.c
+--- a/net/ipv4/netfilter/arp_tables.c	2004-06-10 22:05:40 -07:00
++++ b/net/ipv4/netfilter/arp_tables.c	2004-06-10 22:05:40 -07:00
+@@ -179,11 +179,10 @@
+ 		return 0;
+ 	}
+ 
+-	/* Look for ifname matches; this should unroll nicely. */
++	/* Look for ifname matches.  */
+ 	for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
+-		ret |= (((const unsigned long *)indev)[i]
+-			^ ((const unsigned long *)arpinfo->iniface)[i])
+-			& ((const unsigned long *)arpinfo->iniface_mask)[i];
++		ret |= (indev[i] ^ arpinfo->iniface[i])
++			& arpinfo->iniface_mask[i];
+ 	}
+ 
+ 	if (FWINV(ret != 0, ARPT_INV_VIA_IN)) {
