@@ -1,34 +1,80 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Wed, 05 Feb 2003 18:19:02 +0000
-Subject: [Linux-ia64] MAINTAINERS update for 2.4 SN support
-Message-Id: <marc-linux-ia64-105590709805818@msgid-missing>
+From: "Seth, Rohit" <rohit.seth@intel.com>
+Date: Wed, 26 Feb 2003 22:54:17 +0000
+Subject: [Linux-ia64] Update for HugeTLB Page patch for IA-64 2.5.60 kernel
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C2DDE9.FDEF22B2"
+Message-Id: <marc-linux-ia64-105590709805937@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Just a quick add of John Hesterberg as official maintainer of SN
-support in the 2.4 tree.
+This is a multi-part message in MIME format.
 
-Thanks,
-Jesse
+------_=_NextPart_001_01C2DDE9.FDEF22B2
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
+
+Please find attached a small hugetlb page support update for 2.5.60
+IA-64 kernel (+ my previous hugetlb page patch).  This patch adds the
+HAVE_ARCH_HUGETLB_UNMAPPED_AREA define for IA-64 arch.
+hugetlb_get_unmapped_area function is added in
+arch/ia64/mm/hugetlbpage.c
+
+thanks,
+rohit
 
 
---- linux-2.4.20/MAINTAINERS	Thu Nov 28 15:53:08 2002
-+++ linux-2.4.20-ia64/MAINTAINERS	Mon Feb  3 14:35:02 2003
-@@ -710,6 +710,13 @@
- W:	http://www.linuxia64.org/
- S:	Maintained
- 
-+SN-IA64 (Itanium) SUB-PLATFORM
-+P:	John Hesterberg
-+M:	jh@sgi.com
-+L:	linux-ia64@linuxia64.org
-+W:	http://www.sgi.com/altix
-+S:	Maintained
-+
- IBM MCA SCSI SUBSYSTEM DRIVER
- P:	Michael Lang
- M:	langa2@kph.uni-mainz.de
+
+
+
+
+------_=_NextPart_001_01C2DDE9.FDEF22B2
+Content-Type: application/octet-stream;
+	name="patch2560u1"
+Content-Transfer-Encoding: base64
+Content-Description: patch2560u1
+Content-Disposition: attachment;
+	filename="patch2560u1"
+
+LS0tIGluY2x1ZGUvYXNtLWlhNjQvcGFnZS5oLjEJV2VkIEZlYiAyNiAxNDowNzoyNyAyMDAzCisr
+KyBpbmNsdWRlL2FzbS1pYTY0L3BhZ2UuaAlXZWQgRmViIDI2IDE0OjE3OjI5IDIwMDMKQEAgLTU3
+LDYgKzU3LDcgQEAKICMgZGVmaW5lIFJFR0lPTl9TSElGVAk2MQogIyBkZWZpbmUgSFBBR0VfU0la
+RQkoX19JQTY0X1VMX0NPTlNUKDEpIDw8IEhQQUdFX1NISUZUKQogIyBkZWZpbmUgSFBBR0VfTUFT
+SwkofihIUEFHRV9TSVpFIC0gMSkpCisjIGRlZmluZSBIQVZFX0FSQ0hfSFVHRVRMQl9VTk1BUFBF
+RF9BUkVBCiAjZW5kaWYgLyogQ09ORklHX0hVR0VUTEJfUEFHRSAqLwogCiAjaWZkZWYgX19BU1NF
+TUJMWV9fCi0tLSBhcmNoL2lhNjQva2VybmVsL3N5c19pYTY0LmMuMQlXZWQgRmViIDI2IDE0OjAy
+OjMzIDIwMDMKKysrIGFyY2gvaWE2NC9rZXJuZWwvc3lzX2lhNjQuYwlXZWQgRmViIDI2IDE0OjAz
+OjA4IDIwMDMKQEAgLTMzLDE3ICszMyw4IEBACiAJCXJldHVybiAtRU5PTUVNOwogCiAjaWZkZWYg
+Q09ORklHX0hVR0VUTEJfUEFHRQotI2RlZmluZSBDT0xPUl9IQUxJR04oYWRkcikgKChhZGRyICsg
+SFBBR0VfU0laRSAtIDEpICYgfihIUEFHRV9TSVpFIC0gMSkpCi0jZGVmaW5lIFRBU0tfSFBBR0Vf
+QkFTRSAoKFJFR0lPTl9IUEFHRSA8PCBSRUdJT05fU0hJRlQpIHwgSFBBR0VfU0laRSkKLQlpZiAo
+ZmlscCAmJiBpc19maWxlX2h1Z2VwYWdlcyhmaWxwKSkgewotCQlpZiAoKFJFR0lPTl9OVU1CRVIo
+YWRkcikgIT0gUkVHSU9OX0hQQUdFKSB8fCAoYWRkciAmIChIUEFHRV9TSVpFIC0xKSkpCi0JCQlh
+ZGRyID0gVEFTS19IUEFHRV9CQVNFOwotCQlhZGRyID0gQ09MT1JfSEFMSUdOKGFkZHIpOwotCX0K
+LQllbHNlIHsKLQkJaWYgKFJFR0lPTl9OVU1CRVIoYWRkcikgPT0gUkVHSU9OX0hQQUdFKQotCQkJ
+YWRkciA9IDA7Ci0JfQorCWlmIChSRUdJT05fTlVNQkVSKGFkZHIpID09IFJFR0lPTl9IUEFHRSkK
+KwkJYWRkciA9IDA7CiAjZW5kaWYKIAlpZiAoIWFkZHIpCiAJCWFkZHIgPSBUQVNLX1VOTUFQUEVE
+X0JBU0U7Ci0tLSBhcmNoL2lhNjQvbW0vaHVnZXRsYnBhZ2UuYy4xCVdlZCBGZWIgMjYgMTI6MzQ6
+NTkgMjAwMworKysgYXJjaC9pYTY0L21tL2h1Z2V0bGJwYWdlLmMJV2VkIEZlYiAyNiAxNDoyNzo0
+OCAyMDAzCkBAIC0xOSw2ICsxOSw4IEBACiAKICNpbmNsdWRlIDxsaW51eC9zeXNjdGwuaD4KIAor
+I2RlZmluZSBUQVNLX0hQQUdFX0JBU0UgKFJFR0lPTl9IUEFHRSA8PCBSRUdJT05fU0hJRlQpCisK
+IHN0YXRpYyBsb25nICAgIGh0bGJwYWdlbWVtOwogaW50ICAgICBodGxicGFnZV9tYXg7CiBzdGF0
+aWMgbG9uZyAgICBodGxiem9uZV9wYWdlczsKQEAgLTMxMiw2ICszMTQsMjkgQEAKIAlyZXR1cm4g
+cmV0OwogfQogCit1bnNpZ25lZCBsb25nIGh1Z2V0bGJfZ2V0X3VubWFwcGVkX2FyZWEoc3RydWN0
+IGZpbGUgKmZpbGUsIHVuc2lnbmVkIGxvbmcgYWRkciwgdW5zaWduZWQgbG9uZyBsZW4sCisJCXVu
+c2lnbmVkIGxvbmcgcGdvZmYsIHVuc2lnbmVkIGxvbmcgZmxhZ3MpCit7CisJc3RydWN0IHZtX2Fy
+ZWFfc3RydWN0ICp2bW07CisKKwlpZiAobGVuID4gUkdOX01BUF9MSU1JVCkKKwkJcmV0dXJuIC1F
+Tk9NRU07CisJaWYgKGxlbiAmIH5IUEFHRV9NQVNLKQorCQlyZXR1cm4gLUVJTlZBTDsKKwkvKiBU
+aGlzIGNvZGUgYXNzdW1lcyB0aGF0IFJFR0lPTl9IUEFHRSAhPSAwLiAqLworCWlmICgoUkVHSU9O
+X05VTUJFUihhZGRyKSAhPSBSRUdJT05fSFBBR0UpIHx8IChhZGRyICYgKEhQQUdFX1NJWkUgLSAx
+KSkpCisJCWFkZHIgPSBUQVNLX0hQQUdFX0JBU0U7CisJZWxzZQorCQlhZGRyID0gQUxJR04oYWRk
+ciwgSFBBR0VfU0laRSk7CisJZm9yICh2bW0gPSBmaW5kX3ZtYShjdXJyZW50LT5tbSwgYWRkcik7
+IDsgdm1tID0gdm1tLT52bV9uZXh0KSB7CisJCS8qIEF0IHRoaXMgcG9pbnQ6ICAoIXZtbSB8fCBh
+ZGRyIDwgdm1tLT52bV9lbmQpLiAqLworCQlpZiAoUkVHSU9OX09GRlNFVChhZGRyKSArIGxlbiA+
+IFJHTl9NQVBfTElNSVQpCisJCQlyZXR1cm4gLUVOT01FTTsKKwkJaWYgKCF2bW0gfHwgKGFkZHIg
+KyBsZW4pIDw9IHZtbS0+dm1fc3RhcnQpCisJCQlyZXR1cm4gYWRkcjsKKwkJYWRkciA9IEFMSUdO
+KHZtbS0+dm1fZW5kLCBIUEFHRV9TSVpFKTsKKwl9Cit9CiB2b2lkIHVwZGF0ZV9hbmRfZnJlZV9w
+YWdlKHN0cnVjdCBwYWdlICpwYWdlKQogewogCWludCBqOwo=
+
+------_=_NextPart_001_01C2DDE9.FDEF22B2--
 
