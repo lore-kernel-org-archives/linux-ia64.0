@@ -1,57 +1,79 @@
-From: Martin Pool <mbp@samba.org>
-Date: Mon, 28 Apr 2003 23:03:08 +0000
-Subject: Re: [Linux-ia64] building an ia64 cross toolchain on debian?
-Message-Id: <marc-linux-ia64-105590723705619@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 12 Apr 2003 04:28:29 +0000
+Subject: [Linux-ia64] kernel update (relative to v2.5.67)
+Message-Id: <marc-linux-ia64-105590723705486@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723705612@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723705612@msgid-missing>
+References: <marc-linux-ia64-105590678205111@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 28 Apr 2003, "Wichmann, Mats D" <mats.d.wichmann@intel.com> wrote:
+At long last, here is an ia64 patch relative to 2.5.67.  As usual, the
+ia64 kernel patch is at:
 
-> > Please feel free to edit the WiKi with any workarounds you needed.
-> > The bad version of flex was released after I last tested the
-> > instructions -- I've logged a bug against binutils, as the native
-> > driver can't build either at present.
+ ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/
 
-OK, thanks.  
+in file linux-2.5.67-ia64-030411.diff.gz.
 
-I'm just trying to get a whole toolchain up and running first so that
-I can be sure I'm documenting the right thing.
+and a detailed changelog is available at
+(http://lia64.bkbits.net:8080/to-linus-2.5/).
 
-In fact I later discovered that since the kernel requires(?) a
-cvs-head version of binutils to build, using the debian toolchain
-package won't help me anyhow.  I might add another page about how to
-do a plain source build.
+One of more significant (though small) changes: I replaced the
+show_regs() in the MCA INIT platform handler with some code that dumps
+the min-state area instead.  The pt_regs structure doesn't contain
+terribly interesting data when the INIT handler gets called, and the
+backtrace never worked anyhow (because PAL/SAL switch to a different
+memory stack before calling the INIT handler).  Also, I added a 5
+second delay before the dump starts.  This turns out to be handy when
+the console is multiplexed as is the case for zx1-based machines.  On
+those, you can generate an INIT event via the base-management
+controller's command-line interface.  But to avoid losing output, you
+have to switch back in time before the dump starts.  A 5 second delay
+achieves that.  If someone has any objections with the delay, let me
+know.  I don't think it should be an issue, though, because after the
+dump, the machine enters an endless loop anyhow, so what difference
+could 5 seconds make?  Having said that, it _would_ be nice if the
+INIT handler could be improved to support resuming from INIT events
+(when this is possible).  Anyone interested?
 
-> ??? there hasn't been a release of flex source since 1997,
-> according to the date stamps in ftp.gnu.org/non-gnu/flex.
-> Does this mean that there's a bad build floating around?
+This kernel was tested on various zx1-based machines and the HP Ski
+simulator.  I also tried it on a Big Sur, but it failed with ACPI
+errors (attached below).  Perhaps someone who actually understands
+ACPI could look into this?  It's also possible that the firmware on my
+Big Sur is too old.  So before digging into this too deep, you may
+want to make sure you have the latest firmware installed.
 
-Debian have 2.5.4a-24 (which can build the toolchain) and 2.5.31-3
-(which cannot). 
+Also, folks with hp zx1-based machines with a remote console management
+(ECI) card installed: please make sure you have option
+CONFIG_ACPI_8250 turned OFF.  Otherwise, your kernel will get stuck
+right after the init process starts running.  Since the 8250_acpi.c
+code is only needed for very old zx1-prototypes anyhow, this shouldn't
+be any loss.
 
-  http://packages.debian.org/flex
+While it took a while to get this kernel up to speed, it's now working
+quite well for me (I'm even running it on my deskside workstation).
+Thanks to Alex's sba_iommu, even IDE seems to work nicely again (it
+may have been running just fine for some time though, on non-zx1
+machines).
 
-According to the changelog for the new one:
+So, if you haven't tried 2.5 recently, now might be a good time.
 
-lex (2.5.31-1) unstable; urgency=low
- * New upstream release. 
--- Manoj Srivastava <srivasta@debian.org>  Wed,  9 Apr 2003 14:12:18 -0500
+Oh, finally: I hope I didn't miss any patches, but if I did, my
+apologies.  Please resend and I'll try to do better next time.
 
-According to the source tarball, the new site is
-<http://lex.sourceforge.net/> not gnu.org which as you say only has
-older versions.
+Enjoy,
 
-The ldlex.l source says "FIXME: We should not be using a flex internal
-interface in the first place!" (although not in reference to the
-particular line that fails.)  So it looks like ld depends on an older
-version of flex.  (Perhaps it forked from GNU?)
+	--david
 
-Thanks,
--- 
-Martin 
+
+ACPI: Subsystem revision 20030328
+    ACPI-0341: *** Error: Handler for [PCI_Config] returned AE_ERROR
+    ACPI-1121: *** Error: Method execution failed [\_SB_.CBN_._BBN] (Node e000000005340900), AE_ERROR
+    ACPI-0098: *** Error: Method execution failed [\_SB_.CBN_._BBN] (Node e000000005340900), AE_ERROR
+kernel unaligned access to 0x000000000000059d, ip=0xe0000000048a9821
+    ACPI-0341: *** Error: Handler for [PCI_Config] returned AE_ERROR
+    ACPI-1121: *** Error: Method execution failed [\PLAT] (Node e00000003f22f840), AE_AML_NO_RETURN_VALUE
+    ACPI-1121: *** Error: Method execution failed [\_SB_.PCI2._STA] (Node e000000005347e00), AE_AML_NO_RETURN_VALUE
 
