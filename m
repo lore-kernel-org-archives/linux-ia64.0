@@ -1,37 +1,67 @@
-From: Eva Hocks <hocks@SDSC.EDU>
-Date: Tue, 17 Sep 2002 23:58:58 +0000
-Subject: [Linux-ia64] Re: 2.4.19 ACPI build errors
-Message-Id: <marc-linux-ia64-105590701906035@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Thu, 26 Sep 2002 19:19:31 +0000
+Subject: [Linux-ia64] Syscall tracing bug
+Message-Id: <marc-linux-ia64-105590701906071@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701906034@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701906034@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-The trick is not to configure CONFIG_ACPI20 (which I got from the RedHat
-config file). Thanks for the hint.
+There is some problem with tracing syscall(2) in strace.  It sees the
+actual syscall, but the arguments are shifted, with the first arg being
+the syscall number.  For example:
 
-Eva
+$ cat syscall.c
+#include <unistd.h>
+#include <sys/syscall.h>
 
-On Tue, 17 Sep 2002, Bjorn Helgaas wrote:
+int
+main ()
+{
+  write (1, "Hello World\n", 12);
+  syscall (SYS_write, 1, "Hello World\n", 12);
+  return 0;
+}
+$ stace ./syscall
+execve("./syscall", ["./syscall"], [/* 91 vars */]) =3D 0
+uname({sys=3D"Linux", node=3D"sykes", ...}) =3D 0
+brk(0)                                  =3D 0x6000000000000b30
+open("/etc/ld.so.preload", O_RDONLY)    =3D -1 ENOENT (No such file or dire=
+ctory)
+open("/etc/ld.so.cache", O_RDONLY)      =3D 5
+fstat(5, {st_mode=3DS_IFREG|0644, st_size=84982, ...}) =3D 0
+mmap(NULL, 84982, PROT_READ, MAP_PRIVATE, 5, 0) =3D 0x2000000000040000
+close(5)                                =3D 0
+open("/lib/libc.so.6.1", O_RDONLY)      =3D 5
+read(5, "\177ELF\2\1\1\0\0\0\0\0\0\0\0\0\3\0002\0\1\0\0\0\240@\3"..., 1024)=
+ =3D 1024
+fstat(5, {st_mode=3DS_IFREG|0755, st_size#50193, ...}) =3D 0
+mmap(NULL, 2260816, PROT_READ|PROT_EXEC, MAP_PRIVATE, 5, 0) =3D 0x200000000=
+0058000
+mprotect(0x2000000000260000, 130896, PROT_NONE) =3D 0
+mmap(0x2000000000268000, 81920, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED=
+, 5, 0x200000) =3D 0x2000000000268000
+mmap(0x200000000027c000, 16208, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED=
+|MAP_ANONYMOUS, -1, 0) =3D 0x200000000027c000
+close(5)                                =3D 0
+mmap(NULL, 32768, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) =
+=3D 0x2000000000028000
+munmap(0x2000000000040000, 84982)       =3D 0
+write(1, "Hello World\n", 12Hello World
+)           =3D 12
+write(1027, ptrace: umoven: Input/output error
+0x1, 4611686018427389952Hello World
+)   =3D 12
+exit(0)                                 =3D ?
 
-> > iosapic.c:529: `ACPI_INTERRUPT_PMI' undeclared (first use in this function)
-> ...
-> > The config looks like:
-> > CONFIG_ACPI20=y
-> > CONFIG_ACPI_KERNEL_CONFIG=y
-> > CONFIG_ACPI=y
-> > CONFIG_ACPI_INTERPRETER=y
->
-> You need CONFIG_ACPI_BOOT as well.  CONFIG_ACPI20 is mentioned
-> in Documentation/Configure.help but nowhere else, so you don't need
-> that.  arch/ia64/defconfig contains several other ACPI options; I don't
-> know whether you can build a working ia64 kernel with them turned
-> off.
->
-> Bjorn
->
+Is this a bug in strace or in the kernel (maybe <asm/rse.h>)?
 
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
 
