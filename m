@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Thu, 16 Oct 2003 19:40:22 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 16 Oct 2003 20:23:00 +0000
 Subject: Re: PATCH 2.4.23-pre6 add kmap_types.h for CONFIG_CRYPTO
-Message-Id: <marc-linux-ia64-106633326623979@msgid-missing>
+Message-Id: <marc-linux-ia64-106633599727193@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106633278923482@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106633278923482@msgid-missing>
@@ -10,18 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Oct 16, 2003 at 12:29:58PM -0700, Grant Grundler wrote:
-> This doesn't feel like a great solution.
-> Willy suggested the right fix might be to not require all arches to
-> provide asm/kmap_types.h.  I'll let the folks who know WTH kmap_types.h
-> is really for debate and submit this with the hope of getting the
-> ia64-linux to build with CONFIG_CRYPTO.
+On Thu, Oct 16, 2003 at 08:40:22PM +0100, Matthew Wilcox wrote:
+> Cloning kmap_types from i386 is a pretty bad idea since that architecture
+> actually supports highmem.  Better to clone from an arch which has no
+> support for highmem such as ARM.
 
-Cloning kmap_types from i386 is a pretty bad idea since that architecture
-actually supports highmem.  Better to clone from an arch which has no
-support for highmem such as ARM.
+uhm, I would, but...
+grundler@gsyprf3:/usr/src/linux-ia64-2.4-orig$ ls -l include/asm-arm/kma*
+ls: include/asm-arm/kma*: No such file or directory
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+Anyway, given ia64 doesn't otherwise need kmap_types.h, I suspect it
+doesn't matter. Except that it's misleading. Maybe a stripped down version
+of the file would be better.
+
+grant
