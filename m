@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 15 Oct 2003 01:35:50 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Wed, 15 Oct 2003 06:38:49 +0000
 Subject: Re: [Gelato-technical] What's still broken?
-Message-Id: <marc-linux-ia64-106618192210527@msgid-missing>
+Message-Id: <marc-linux-ia64-106619995621339@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106569513704299@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106569513704299@msgid-missing>
@@ -10,11 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I don't understand this entry:
+>>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
 
- Peter> - AGP driver still doesn't build.
+David> I don't understand this entry:
+Peter> - AGP driver still doesn't build.
 
-I build agpgart.ko, i460-gart.ko, and hp-agp.ko on a regular basis.
-I'm not aware of any build issues.
+David> I build agpgart.ko, i460-gart.ko, and hp-agp.ko on a regular
+David> basis.  I'm not aware of any build issues.
 
-	--david
+It seems to be fixed now.  At the time I tried it there were issues.
+I've updated the Wiki.
+
+Petr C
