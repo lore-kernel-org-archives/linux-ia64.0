@@ -1,47 +1,46 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 10 Oct 2003 08:36:59 +0000
-Subject: Re: [PATCH] IO{R,W,RW}_BAD
-Message-Id: <marc-linux-ia64-106577527920616@msgid-missing>
+From: Ionut Georgescu <george@physik.tu-cottbus.de>
+Date: Fri, 24 Oct 2003 15:14:50 +0000
+Subject: Itanium2@900MHz slower than alpha@666MHz ?
+Message-Id: <marc-linux-ia64-106700871121653@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106572723213144@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106572723213144@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Matthew Wilcox <willy@debian.org> writes:
+Hello,
 
-> We need this patch to compile some drivers.  It's a mirror of the patch
-> applied to i386 and other architectures.
->
-> Index: include/asm-ia64/ioctl.h
-> =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D> RCS file: /var/cvs/linux-2.6/include/asm-ia64/=
-ioctl.h,v
-> retrieving revision 1.1
-> diff -u -p -r1.1 ioctl.h
-> --- include/asm-ia64/ioctl.h	29 Jul 2003 17:01:57 -0000	1.1
-> +++ include/asm-ia64/ioctl.h	30 Sep 2003 22:23:28 -0000
-> @@ -54,11 +54,21 @@
->  	 ((nr)   << _IOC_NRSHIFT) | \
->  	 ((size) << _IOC_SIZESHIFT))
-> =20
-> +/* provoke compile error for invalid uses of size argument */
-> +extern int __invalid_size_argument_for_IOC;
-> +#define _IOC_TYPECHECK(t) \
-> +	((sizeof(t) =3D sizeof(t[1]) && \
-> +	  sizeof(t) < (1 << _IOC_SIZEBITS)) ? \
-> +	  sizeof(t) : __invalid_size_argument_for_IOC)
+I am puzzled about the speed of a zx2000 workstation with a 900Mhz CPU.
+According to the SPECfp2000 benchmarks, this workstation should be about
+twice as fast as a DS10 alpha workstation and according to the fftw2
+benchmarks at least 50% faster (double precision, real data, 256x256 FFT
+transforms). I ran the fftw2 benchmark myself and I could reproduce the
+data on fftw.org
 
-This needs to be implemented differently.  Glibc needs to include this
-file for <sys/ioctl.h>, but the use of the undefined symbol will make it
-impossible to compile without optimisation.
+However, my program is about 40% slower on the zx2000 as on the alpha.
+It only does some Fourier transforms (fftw2, 256x256) and some matrix
+operations (sort of an inner product). Both fftw2 and the program have
+been compiled with ecc -O2 -ipo -limf. ecc is Version 7.1, Build
+20030307.
 
-Andreas.
+Both the alpha and the Itanium2 run Debian stable and kernel 2.4.20.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Is there anything else I can do to improve performance ? I tried to some
+profiling (CFLAGS="-g -p -Ob0 -O0 -inline_debug_info"), but the report
+is missing the call-graph and a lot of other information, so that I
+can't trust the quality of those data. Right now I'm trying to dig my
+way through qprof and pfmon (for the moment qprof fails when
+QPROF_HW_EVENT is set).
+
+Thanks a lot,
+Ionut
+
+-- 
+***************
+* Ionut Georgescu
+* http://www.physik.tu-cottbus.de/~george/
+* Registered Linux User #244479
+*
+* "In Windows you can do everything Microsoft wants you to do; in Unix you
+*                can do anything the computer is able to do."
+
