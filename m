@@ -1,7 +1,7 @@
-From: "Alberto Munoz" <amunoz@vmware.com>
-Date: Wed, 05 Nov 2003 17:37:51 +0000
-Subject: RE: [RFC] Better MCA recovery on IPF
-Message-Id: <marc-linux-ia64-106805441113849@msgid-missing>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Thu, 06 Nov 2003 12:03:35 +0000
+Subject: Re: [RFC] Better MCA recovery on IPF
+Message-Id: <marc-linux-ia64-106812072113117@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106724227826901@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106724227826901@msgid-missing>
@@ -10,47 +10,37 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Thanks, all.
+
+I was pleased to hear many thought in active developer's mind.
+
+I want to check some in MCA recovery.
+Here is some steps, roughly say:
+
+ - Stop whole system on MCA even if kernel not suffered.
+ - Keep working except the suffered application.
+ - Keep working, and give a chance to self-rehabilitation for the suffered
+   application.
+
+Just now, Linux is making an effort to step up the second from the first.
+
+It also seems there are some key procedures, such as:
+
+ - Specify process/thread(s) must be killed
+ - Specify damaged resources (for example, poisoned pages)
+
+To specify affected ones, OS requires:
+
+ - Physical address (and if possible, Virtual address) of the offending
+   operation.
+ - Interruption must be synchronized.
+ - States in registers when interrupted.
+
+Is it wrong?
 
 
-> -----Original Message-----
-> From: Matthew Wilcox [mailto:willy@debian.org]
-> Sent: Wednesday, November 05, 2003 9:31 AM
-> To: Alberto Munoz
-> Cc: Luck, Tony; Jack Steiner; Matthias Fouquet-Lapar; Russ Anderson;
-> linux-ia64@vger.kernel.org
-> Subject: Re: [RFC] Better MCA recovery on IPF
-> 
-> 
-> On Wed, Nov 05, 2003 at 09:14:08AM -0800, Alberto Munoz wrote:
-> > What implementation of the Itanium processor supports 
-> avoiding MCAs from
-> > lfetch or code fetch operations? I don't think Itanium 1 or 
-> 2 do this. How
-> > about Madison?
-> 
-> Oops, misunderstanding here.  Madison and Deerfield are also 
-> Itanium 2.
-> It's like Coppermine and Tualatin are both Pentium 3.  When 
-> the difference
-> is only cache size, die size, clock frequency and so on, they're not
-> going to change the number.  For bigger changes, they might ;-)
+------
 
-Not really a misunderstanding. I just got a little lose with the names. I
-should have said Merced, McKinley instead of Itanium 1 and 2.
-
-In any case, it has been my experience that some times there are fairly major
-changes in RAS features (typically addressing shortcomings of a predecessor)
-betweens processors of the same vintage (McKinley, Madison and Deerfield).
-
-Bert Munoz
-> -- 
-> "It's not Hollywood.  War is real, war is primarily not about 
-> defeat or
-> victory, it is about death.  I've seen thousands and 
-> thousands of dead bodies.
-> Do you think I want to have an academic debate on this 
-> subject?" -- Robert Fisk
-> 
-> 
+H.Seto <seto.hidetoshi@jp.fujitsu.com>
 
 
