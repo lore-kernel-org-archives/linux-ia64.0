@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 27 Feb 2004 18:52:46 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 27 Feb 2004 19:24:59 +0000
 Subject: Re: [PATCH] sal cleanup
-Message-Id: <16447.37374.350498.666550@napali.hpl.hp.com>
+Message-Id: <20040227192459.GP25779@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040226213704.GW25779@parcelfarce.linux.theplanet.co.uk>
 In-Reply-To: <20040226213704.GW25779@parcelfarce.linux.theplanet.co.uk>
@@ -10,30 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 26 Feb 2004 22:04:56 +0000, Matthew Wilcox <willy@debian.org> said:
+On Fri, Feb 27, 2004 at 10:52:46AM -0800, David Mosberger wrote:
+> The patch also changes the arguments for ia64_sal_pci_config_read()
+> and ia64_sal_pci_config_write(), without changing any callers.
+> Why?
 
-  Matthew> On Thu, Feb 26, 2004 at 01:55:34PM -0800, David Mosberger
-  Matthew> wrote:
-  >> How about printing "none" or something like that instead?
+Because I made a mistake; I intended to delete that part from that patch.
+It's part of the [3/4] patch I sent you earlier today.
 
-  Matthew> Sure.
+> Also, how about putting a colon after "SAL Platform features"?
 
+Sure.  While we're nitpicking, how about deleting the 'oem=' and `product='
+from the printk?  It currently looks like:
 
-  Matthew> This patch reorganises sal.c and adds two new functions:
+SAL 3.1: oem=HP, product=, version 2.21
 
-  Matthew>  - Split the body of the switch statement in
-  Matthew> ia64_sal_init() into separate functions.  - Delete min/max
-  Matthew> since they were only assigned to, never used.  - Print the
-  Matthew> version of the SAL implementation as well as the spec
-  Matthew> version it supports.  - Stop printing the pal_proc and
-  Matthew> sal_proc entry addresses.  - Print "none" if there are no
-  Matthew> platform features.  - Remember the sal revision and version
-  Matthew> and add two functions to compare them.
+How about instead it reading
 
-The patch also changes the arguments for ia64_sal_pci_config_read()
-and ia64_sal_pci_config_write(), without changing any callers.
-Why?
+SAL 3.1: HP  version 2.21
 
-Also, how about putting a colon after "SAL Platform features"?
+(if we filled in the product field, it'd read something like
+SAL 3.1: HP rx2600 version 2.21
+)
 
-	--david
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
