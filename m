@@ -1,264 +1,57 @@
-From: Erich Focht <focht@ess.nec.de>
-Date: Mon, 14 Jan 2002 18:23:31 +0000
+From: Nick Pollitt <npollitt@sgi.com>
+Date: Tue, 15 Jan 2002 01:07:19 +0000
 Subject: Re: [Linux-ia64] Help with Ingo scheduler on IA64
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="-1916692341-709469618-1011032611=:22009"
-Message-Id: <marc-linux-ia64-105590698805819@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805826@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805816@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805816@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+What .config are you using?  I grabbed the defconfig-bigsur-mp
+and compiled with your patch (had to disable DEVFS_DEBUG).  The
+kernel doesn't get very far into the boot, less than a second,
+and it fails.  Of course you said it would.  But I couldn't get
+any useful info from the console so I ran the kernel in medusa.
 
----1916692341-709469618-1011032611=:22009
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+In case you try this, it executes to about 15301000.  Then it
+fails in acpi_hw_low_level_read.  I also tried with the kernel
+patch I sent out Friday, which dies much sooner than this.  But
+it's definitely not getting into schedule in my machine.
 
-Hi,
+Did you config off other stuff (all the ACPI)? 
 
-I don't think that runqueues(cpu)->idle is set when you try to access it
-from head.S. It is much easier to reintroduce init_tasks and leave head.S
-as it is. Then no changes are needed in Ingo's patch for sched.h and
-sched.c. Ingo, could you please comment?
+Nick
 
-Please find attached an ia64 patch which should be applied over
-2.4.17 + ia64 + sched-O1-2.4.17-H7.patch
-
-
-It doesn't boot yet, the system (2CPU BigSur) crashes in
-  schedule() <- cpu_idle() <- rest_init() <- start_kernel()
-Maybe somebody has an idea?
-
-Thanks,
-
-Erich
-
----
-Erich Focht                                    <efocht@ess.nec.de>
-NEC European Supercomputer Systems, European HPC Technology Center
-
-
-On Fri, 11 Jan 2002, Nick Pollitt wrote:
-
-> I'm trying to get Ingo's scheduler working on IA64 but I've hit a 
-> dead-end with the head.S code.  Ingo's patch removes init_tasks,
-> so I've modified the assembly in head.S to point at 
-> runqueues(cpu)->idle, I think - it dies very early in the boot, 
-> and I'm not familiar with ia64 assembly.
+On Mon, Jan 14, 2002 at 07:23:31PM +0100, Erich Focht wrote:
+> Hi,
 > 
-> Other issues, I had to build offsets.h by hand, and I moved some
-> stuff from sched.c to sched.h.  Other than that, it's H6 + ia64.
+> I don't think that runqueues(cpu)->idle is set when you try to access it
+> from head.S. It is much easier to reintroduce init_tasks and leave head.S
+> as it is. Then no changes are needed in Ingo's patch for sched.h and
+> sched.c. Ingo, could you please comment?
 > 
-> Anyone have any feedback on getting this booting?
-> 
-> Thanks
-> Nick
+> Please find attached an ia64 patch which should be applied over
+> 2.4.17 + ia64 + sched-O1-2.4.17-H7.patch
 > 
 > 
-> On Fri, Jan 11, 2002 at 06:49:28PM +0100, Ingo Molnar wrote:
-> > 
-> > the -H6 patch is available:
-> > 
-> >     http://redhat.com/~mingo/O(1)-scheduler/sched-O1-2.5.2-pre11-H6.patch
-> >     http://redhat.com/~mingo/O(1)-scheduler/sched-O1-2.4.17-H6.patch
-> > 
+> It doesn't boot yet, the system (2CPU BigSur) crashes in
+>   schedule() <- cpu_idle() <- rest_init() <- start_kernel()
+> Maybe somebody has an idea?
 > 
-> -- 
-> Nick Pollitt                                   phone: 650.933.7406
-> Scalable Linux Project                           fax: 650.932.0317
-> Silicon Graphics, Inc.                       npollitt@engr.sgi.com
+> Thanks,
+> 
+> Erich
+> 
+> ---
+> Erich Focht                                    <efocht@ess.nec.de>
+> NEC European Supercomputer Systems, European HPC Technology Center
 > 
 
-
-
-
----1916692341-709469618-1011032611=:22009
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="MQO1sched-2.4.17-H7-ia64add.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.21.0201141923300.22009@sx6.ess.nec.de>
-Content-Description: 
-Content-Disposition: attachment; filename="MQO1sched-2.4.17-H7-ia64add.diff"
-
-ZGlmZiAtdXJOIDIuNC4xNy1PMS9hcmNoL2lhNjQva2VybmVsL3Byb2Nlc3Mu
-YyAyLjQuMTctTzEtSDcvYXJjaC9pYTY0L2tlcm5lbC9wcm9jZXNzLmMNCi0t
-LSAyLjQuMTctTzEvYXJjaC9pYTY0L2tlcm5lbC9wcm9jZXNzLmMJTW9uIEph
-biAgNyAxMTozNTowOCAyMDAyDQorKysgMi40LjE3LU8xLUg3L2FyY2gvaWE2
-NC9rZXJuZWwvcHJvY2Vzcy5jCU1vbiBKYW4gMTQgMTc6NDg6MTggMjAwMg0K
-QEAgLTEyNSw5ICsxMjUsNiBAQA0KIGNwdV9pZGxlICh2b2lkICp1bnVzZWQp
-DQogew0KIAkvKiBlbmRsZXNzIGlkbGUgbG9vcCB3aXRoIG5vIHByaW9yaXR5
-IGF0IGFsbCAqLw0KLQlpbml0X2lkbGUoKTsNCi0JY3VycmVudC0+bmljZSA9
-IDIwOw0KLQljdXJyZW50LT5jb3VudGVyID0gLTEwMDsNCiANCiANCiAJd2hp
-bGUgKDEpIHsNCkBAIC0xMzYsMTEgKzEzMywxMCBAQA0KIAkJCW1pbl94dHAo
-KTsNCiAjZW5kaWYNCiANCi0JCXdoaWxlICghY3VycmVudC0+bmVlZF9yZXNj
-aGVkKSB7DQorCQlpZiAoIWN1cnJlbnQtPm5lZWRfcmVzY2hlZCkgew0KICNp
-ZmRlZiBDT05GSUdfSUE2NF9TR0lfU04NCiAJCQlzbmlkbGUoKTsNCiAjZW5k
-aWYNCi0JCQljb250aW51ZTsNCiAJCX0NCiANCiAjaWZkZWYgQ09ORklHX0lB
-NjRfU0dJX1NODQpkaWZmIC11ck4gMi40LjE3LU8xL2FyY2gvaWE2NC9rZXJu
-ZWwvc2V0dXAuYyAyLjQuMTctTzEtSDcvYXJjaC9pYTY0L2tlcm5lbC9zZXR1
-cC5jDQotLS0gMi40LjE3LU8xL2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYwlN
-b24gSmFuICA3IDExOjM1OjA4IDIwMDINCisrKyAyLjQuMTctTzEtSDcvYXJj
-aC9pYTY0L2tlcm5lbC9zZXR1cC5jCU1vbiBKYW4gMTQgMTY6MTI6MTYgMjAw
-Mg0KQEAgLTM3NSwxMCArMzc1LDEwIEBADQogew0KICNpZmRlZiBDT05GSUdf
-U01QDQogIwlkZWZpbmUgbHBqCWMtPmxvb3BzX3Blcl9qaWZmeQ0KLSMJZGVm
-aW5lIGNwdQljLT5wcm9jZXNzb3INCisjCWRlZmluZSBjcHVtCWMtPnByb2Nl
-c3Nvcg0KICNlbHNlDQogIwlkZWZpbmUgbHBqCWxvb3BzX3Blcl9qaWZmeQ0K
-LSMJZGVmaW5lIGNwdQkwDQorIwlkZWZpbmUgY3B1bQkwDQogI2VuZGlmDQog
-CWNoYXIgZmFtaWx5WzMyXSwgZmVhdHVyZXNbMTI4XSwgKmNwOw0KIAlzdHJ1
-Y3QgY3B1aW5mb19pYTY0ICpjID0gdjsNCkBAIC00MTcsNyArNDE3LDcgQEAN
-CiAJCSAgICJjcHUgTUh6ICAgIDogJWx1LiUwNmx1XG4iDQogCQkgICAiaXRj
-IE1IeiAgICA6ICVsdS4lMDZsdVxuIg0KIAkJICAgIkJvZ29NSVBTICAgOiAl
-bHUuJTAybHVcblxuIiwNCi0JCSAgIGNwdSwgYy0+dmVuZG9yLCBmYW1pbHks
-IGMtPm1vZGVsLCBjLT5yZXZpc2lvbiwgYy0+YXJjaHJldiwNCisJCSAgIGNw
-dW0sIGMtPnZlbmRvciwgZmFtaWx5LCBjLT5tb2RlbCwgYy0+cmV2aXNpb24s
-IGMtPmFyY2hyZXYsDQogCQkgICBmZWF0dXJlcywgYy0+cHBuLCBjLT5udW1i
-ZXIsDQogCQkgICBjLT5wcm9jX2ZyZXEgLyAxMDAwMDAwLCBjLT5wcm9jX2Zy
-ZXEgJSAxMDAwMDAwLA0KIAkJICAgYy0+aXRjX2ZyZXEgLyAxMDAwMDAwLCBj
-LT5pdGNfZnJlcSAlIDEwMDAwMDAsDQpkaWZmIC11ck4gMi40LjE3LU8xL2Fy
-Y2gvaWE2NC9rZXJuZWwvc21wLmMgMi40LjE3LU8xLUg3L2FyY2gvaWE2NC9r
-ZXJuZWwvc21wLmMNCi0tLSAyLjQuMTctTzEvYXJjaC9pYTY0L2tlcm5lbC9z
-bXAuYwlGcmkgRGVjIDIxIDE4OjQxOjUzIDIwMDENCisrKyAyLjQuMTctTzEt
-SDcvYXJjaC9pYTY0L2tlcm5lbC9zbXAuYwlNb24gSmFuIDE0IDEwOjU5OjMz
-IDIwMDINCkBAIC0xODYsNiArMTg2LDEyIEBADQogfQ0KIA0KIHZvaWQNCitz
-bXBfc2VuZF9yZXNjaGVkdWxlX2FsbCh2b2lkKQ0KK3sNCisJc2VuZF9JUElf
-YWxsKElBNjRfSVBJX1JFU0NIRURVTEUpOw0KK30NCisNCit2b2lkDQogc21w
-X2ZsdXNoX3RsYl9hbGwgKHZvaWQpDQogew0KIAlzbXBfY2FsbF9mdW5jdGlv
-biAoKHZvaWQgKCopKHZvaWQgKikpX19mbHVzaF90bGJfYWxsLDAsMSwxKTsN
-CmRpZmYgLXVyTiAyLjQuMTctTzEvYXJjaC9pYTY0L2tlcm5lbC9zbXBib290
-LmMgMi40LjE3LU8xLUg3L2FyY2gvaWE2NC9rZXJuZWwvc21wYm9vdC5jDQot
-LS0gMi40LjE3LU8xL2FyY2gvaWE2NC9rZXJuZWwvc21wYm9vdC5jCU1vbiBK
-YW4gIDcgMTE6MzU6MDggMjAwMg0KKysrIDIuNC4xNy1PMS1INy9hcmNoL2lh
-NjQva2VybmVsL3NtcGJvb3QuYwlNb24gSmFuIDE0IDE4OjI1OjQ0IDIwMDIN
-CkBAIC0yMyw2ICsyMyw3IEBADQogI2luY2x1ZGUgPGxpbnV4L3NtcC5oPg0K
-ICNpbmNsdWRlIDxsaW51eC9zbXBfbG9jay5oPg0KICNpbmNsdWRlIDxsaW51
-eC9zcGlubG9jay5oPg0KKyNpbmNsdWRlIDxsaW51eC9zY2hlZC5oPg0KIA0K
-ICNpbmNsdWRlIDxhc20vYXRvbWljLmg+DQogI2luY2x1ZGUgPGFzbS9iaXRv
-cHMuaD4NCkBAIC0zMjMsNyArMzI0LDcgQEANCiAJZXh0ZXJuIHZvaWQgcGVy
-Zm1vbl9pbml0X3BlcmNwdSh2b2lkKTsNCiAjZW5kaWYNCiANCi0JY3B1aWQg
-PSBzbXBfcHJvY2Vzc29yX2lkKCk7DQorCWNwdWlkID0gY3B1KCk7DQogCXBo
-eXNfaWQgPSBoYXJkX3NtcF9wcm9jZXNzb3JfaWQoKTsNCiANCiAJaWYgKHRl
-c3RfYW5kX3NldF9iaXQoY3B1aWQsICZjcHVfb25saW5lX21hcCkpIHsNCkBA
-IC0zODAsNiArMzgxLDcgQEANCiAJd2hpbGUgKCFhdG9taWNfcmVhZCgmc21w
-X2NvbW1lbmNlZCkpDQogCQk7DQogDQorCWluaXRfaWRsZSgpOw0KIAlEcHJp
-bnRrKCJDUFUgJWQgaXMgc3RhcnRpbmcgaWRsZS5cbiIsIHNtcF9wcm9jZXNz
-b3JfaWQoKSk7DQogCXJldHVybiBjcHVfaWRsZSgpOw0KIH0NCkBAIC00MTYs
-MTEgKzQxOCwxMCBAQA0KIAlpZiAoIWlkbGUpDQogCQlwYW5pYygiTm8gaWRs
-ZSBwcm9jZXNzIGZvciBDUFUgJWQiLCBjcHUpOw0KIA0KLQl0YXNrX3NldF9j
-cHUoaWRsZSwgY3B1KTsJLyogd2Ugc2NoZWR1bGUgdGhlIGZpcnN0IHRhc2sg
-bWFudWFsbHkgKi8NCisJaWRsZS0+Y3B1ID0gY3B1Ow0KIA0KIAlpYTY0X2Nw
-dV90b19zYXBpY2lkW2NwdV0gPSBzYXBpY2lkOw0KIA0KLQlkZWxfZnJvbV9y
-dW5xdWV1ZShpZGxlKTsNCiAJdW5oYXNoX3Byb2Nlc3MoaWRsZSk7DQogCWlu
-aXRfdGFza3NbY3B1XSA9IGlkbGU7DQogDQpAQCAtNDgxLDggKzQ4Miw3IEBA
-DQogCXByaW50aygiQm9vdCBwcm9jZXNzb3IgaWQgMHgleC8weCV4XG4iLCAw
-LCBib290X2NwdV9pZCk7DQogDQogCWdsb2JhbF9pcnFfaG9sZGVyID0gMDsN
-Ci0JY3VycmVudC0+cHJvY2Vzc29yID0gMDsNCi0JaW5pdF9pZGxlKCk7DQor
-CWN1cnJlbnQtPmNwdSA9IDA7DQogDQogCS8qDQogCSAqIElmIFNNUCBzaG91
-bGQgYmUgZGlzYWJsZWQsIHRoZW4gcmVhbGx5IGRpc2FibGUgaXQhDQpkaWZm
-IC11ck4gMi40LjE3LU8xL2FyY2gvaWE2NC9tbS9mYXVsdC5jIDIuNC4xNy1P
-MS1INy9hcmNoL2lhNjQvbW0vZmF1bHQuYw0KLS0tIDIuNC4xNy1PMS9hcmNo
-L2lhNjQvbW0vZmF1bHQuYwlGcmkgTm92ICA5IDIzOjI2OjE3IDIwMDENCisr
-KyAyLjQuMTctTzEtSDcvYXJjaC9pYTY0L21tL2ZhdWx0LmMJTW9uIEphbiAx
-NCAxMDo1OTozMyAyMDAyDQpAQCAtMTk0LDggKzE5NCw3IEBADQogICBvdXRf
-b2ZfbWVtb3J5Og0KIAl1cF9yZWFkKCZtbS0+bW1hcF9zZW0pOw0KIAlpZiAo
-Y3VycmVudC0+cGlkID09IDEpIHsNCi0JCWN1cnJlbnQtPnBvbGljeSB8PSBT
-Q0hFRF9ZSUVMRDsNCi0JCXNjaGVkdWxlKCk7DQorCQl5aWVsZCgpOw0KIAkJ
-ZG93bl9yZWFkKCZtbS0+bW1hcF9zZW0pOw0KIAkJZ290byBzdXJ2aXZlOw0K
-IAl9DQpkaWZmIC11ck4gMi40LjE3LU8xL2FyY2gvaWE2NC90b29scy9wcmlu
-dF9vZmZzZXRzLmMgMi40LjE3LU8xLUg3L2FyY2gvaWE2NC90b29scy9wcmlu
-dF9vZmZzZXRzLmMNCi0tLSAyLjQuMTctTzEvYXJjaC9pYTY0L3Rvb2xzL3By
-aW50X29mZnNldHMuYwlGcmkgTm92ICA5IDIzOjI2OjE3IDIwMDENCisrKyAy
-LjQuMTctTzEtSDcvYXJjaC9pYTY0L3Rvb2xzL3ByaW50X29mZnNldHMuYwlN
-b24gSmFuIDE0IDE2OjM2OjU0IDIwMDINCkBAIC01NCw3ICs1NCw3IEBADQog
-ICAgIHsgIklBNjRfVEFTS19QVFJBQ0VfT0ZGU0VUIiwJb2Zmc2V0b2YgKHN0
-cnVjdCB0YXNrX3N0cnVjdCwgcHRyYWNlKSB9LA0KICAgICB7ICJJQTY0X1RB
-U0tfU0lHUEVORElOR19PRkZTRVQiLAlvZmZzZXRvZiAoc3RydWN0IHRhc2tf
-c3RydWN0LCBzaWdwZW5kaW5nKSB9LA0KICAgICB7ICJJQTY0X1RBU0tfTkVF
-RF9SRVNDSEVEX09GRlNFVCIsCW9mZnNldG9mIChzdHJ1Y3QgdGFza19zdHJ1
-Y3QsIG5lZWRfcmVzY2hlZCkgfSwNCi0gICAgeyAiSUE2NF9UQVNLX1BST0NF
-U1NPUl9PRkZTRVQiLAlvZmZzZXRvZiAoc3RydWN0IHRhc2tfc3RydWN0LCBw
-cm9jZXNzb3IpIH0sDQorICAgIHsgIklBNjRfVEFTS19QUk9DRVNTT1JfT0ZG
-U0VUIiwJb2Zmc2V0b2YgKHN0cnVjdCB0YXNrX3N0cnVjdCwgY3B1KSB9LA0K
-ICAgICB7ICJJQTY0X1RBU0tfVEhSRUFEX09GRlNFVCIsCW9mZnNldG9mIChz
-dHJ1Y3QgdGFza19zdHJ1Y3QsIHRocmVhZCkgfSwNCiAgICAgeyAiSUE2NF9U
-QVNLX1RIUkVBRF9LU1BfT0ZGU0VUIiwJb2Zmc2V0b2YgKHN0cnVjdCB0YXNr
-X3N0cnVjdCwgdGhyZWFkLmtzcCkgfSwNCiAjaWZkZWYgQ09ORklHX1BFUkZN
-T04NCmRpZmYgLXVyTiAyLjQuMTctTzEvaW5jbHVkZS9hc20taWE2NC9iaXRv
-cHMuaCAyLjQuMTctTzEtSDcvaW5jbHVkZS9hc20taWE2NC9iaXRvcHMuaA0K
-LS0tIDIuNC4xNy1PMS9pbmNsdWRlL2FzbS1pYTY0L2JpdG9wcy5oCUZyaSBK
-YW4gMTEgMTc6MjA6NDIgMjAwMg0KKysrIDIuNC4xNy1PMS1INy9pbmNsdWRl
-L2FzbS1pYTY0L2JpdG9wcy5oCU1vbiBKYW4gMTQgMTE6MTU6MTcgMjAwMg0K
-QEAgLTM2OCw2ICszNjgsNyBAQA0KIA0KICNpZmRlZiBfX0tFUk5FTF9fDQog
-DQorI2RlZmluZSBfX2NsZWFyX2JpdChuciwgYWRkcikgICAgICAgIGNsZWFy
-X2JpdChuciwgYWRkcikNCiAjZGVmaW5lIGV4dDJfc2V0X2JpdCAgICAgICAg
-ICAgICAgICAgdGVzdF9hbmRfc2V0X2JpdA0KICNkZWZpbmUgZXh0Ml9jbGVh
-cl9iaXQgICAgICAgICAgICAgICB0ZXN0X2FuZF9jbGVhcl9iaXQNCiAjZGVm
-aW5lIGV4dDJfdGVzdF9iaXQgICAgICAgICAgICAgICAgdGVzdF9iaXQNCmRp
-ZmYgLXVyTiAyLjQuMTctTzEvaW5jbHVkZS9hc20taWE2NC9tbXVfY29udGV4
-dC5oIDIuNC4xNy1PMS1INy9pbmNsdWRlL2FzbS1pYTY0L21tdV9jb250ZXh0
-LmgNCi0tLSAyLjQuMTctTzEvaW5jbHVkZS9hc20taWE2NC9tbXVfY29udGV4
-dC5oCUZyaSBKYW4gMTEgMTc6MjM6NTEgMjAwMg0KKysrIDIuNC4xNy1PMS1I
-Ny9pbmNsdWRlL2FzbS1pYTY0L21tdV9jb250ZXh0LmgJTW9uIEphbiAxNCAx
-NzowMTo0NiAyMDAyDQpAQCAtMTE4LDYgKzExOCw3IEBADQogCXJlbG9hZF9j
-b250ZXh0KG5leHQpOw0KIH0NCiANCisjZGVmaW5lIHNjaGVkX2ZpbmRfZmly
-c3RfemVyb19iaXQoYml0bWFwKSAgICAgIGZmeihiaXRtYXApDQogI2RlZmlu
-ZSBzd2l0Y2hfbW0ocHJldl9tbSxuZXh0X21tLG5leHRfdGFzayxjcHUpCWFj
-dGl2YXRlX21tKHByZXZfbW0sIG5leHRfbW0pDQogDQogIyBlbmRpZiAvKiAh
-IF9fQVNTRU1CTFlfXyAqLw0KZGlmZiAtdXJOIDIuNC4xNy1PMS9pbmNsdWRl
-L2FzbS1pYTY0L3NtcC5oIDIuNC4xNy1PMS1INy9pbmNsdWRlL2FzbS1pYTY0
-L3NtcC5oDQotLS0gMi40LjE3LU8xL2luY2x1ZGUvYXNtLWlhNjQvc21wLmgJ
-RnJpIEphbiAxMSAxNzoyMDo0MiAyMDAyDQorKysgMi40LjE3LU8xLUg3L2lu
-Y2x1ZGUvYXNtLWlhNjQvc21wLmgJTW9uIEphbiAxNCAxMToxNToxNyAyMDAy
-DQpAQCAtMjcsNyArMjcsNyBAQA0KICNkZWZpbmUgU01QX0lSUV9SRURJUkVD
-VElPTgkoMSA8PCAwKQ0KICNkZWZpbmUgU01QX0lQSV9SRURJUkVDVElPTgko
-MSA8PCAxKQ0KIA0KLSNkZWZpbmUgc21wX3Byb2Nlc3Nvcl9pZCgpCShjdXJy
-ZW50LT5wcm9jZXNzb3IpDQorI2RlZmluZSBzbXBfcHJvY2Vzc29yX2lkKCkJ
-KGN1cnJlbnQtPmNwdSkNCiANCiBleHRlcm4gc3RydWN0IHNtcF9ib290X2Rh
-dGEgew0KIAlpbnQgY3B1X2NvdW50Ow0KQEAgLTExMCwxMiArMTEwLDYgQEAN
-CiANCiAjZGVmaW5lIE5PX1BST0NfSUQJCTB4ZmZmZmZmZmYJLyogbm8gcHJv
-Y2Vzc29yIG1hZ2ljIG1hcmtlciAqLw0KIA0KLS8qDQotICogRXh0cmEgb3Zl
-cmhlYWQgdG8gbW92ZSBhIHRhc2sgZnJvbSBvbmUgY3B1IHRvIGFub3RoZXIg
-KGR1ZSB0byBUTEIgYW5kIGNhY2hlIG1pc3NlcykuDQotICogRXhwcmVzc2Vk
-IGluICJuZWdhdGl2ZSBuaWNlIHZhbHVlIiB1bml0cyAobGFyZ2VyIG51bWJl
-ciBtZWFucyBoaWdoZXIgcHJpb3JpdHkvcGVuYWx0eSkuDQotICovDQotI2Rl
-ZmluZSBQUk9DX0NIQU5HRV9QRU5BTFRZCTIwDQotDQogZXh0ZXJuIHZvaWQg
-X19pbml0IGluaXRfc21wX2NvbmZpZyAodm9pZCk7DQogZXh0ZXJuIHZvaWQg
-c21wX2RvX3RpbWVyIChzdHJ1Y3QgcHRfcmVncyAqcmVncyk7DQogDQpkaWZm
-IC11ck4gMi40LjE3LU8xL2tlcm5lbC9wcmludGsuYyAyLjQuMTctTzEtSDcv
-a2VybmVsL3ByaW50ay5jDQotLS0gMi40LjE3LU8xL2tlcm5lbC9wcmludGsu
-YwlNb24gSmFuIDE0IDE2OjMzOjA0IDIwMDINCisrKyAyLjQuMTctTzEtSDcv
-a2VybmVsL3ByaW50ay5jCU1vbiBKYW4gMTQgMTA6MTE6MDcgMjAwMg0KQEAg
-LTI1LDYgKzI1LDggQEANCiAjaW5jbHVkZSA8bGludXgvaW5pdC5oPg0KICNp
-bmNsdWRlIDxsaW51eC9tb2R1bGUuaD4NCiAjaW5jbHVkZSA8bGludXgvaW50
-ZXJydXB0Lmg+CQkJLyogRm9yIGluX2ludGVycnVwdCgpICovDQorI2luY2x1
-ZGUgPGxpbnV4L2NvbmZpZy5oPg0KKyNpbmNsdWRlIDxsaW51eC9kZWxheS5o
-Pg0KIA0KICNpbmNsdWRlIDxhc20vdWFjY2Vzcy5oPg0KIA0KZGlmZiAtdXJO
-IDIuNC4xNy1PMS9rZXJuZWwvc2NoZWQuYyAyLjQuMTctTzEtSDcva2VybmVs
-L3NjaGVkLmMNCi0tLSAyLjQuMTctTzEva2VybmVsL3NjaGVkLmMJTW9uIEph
-biAxNCAxNjozMzowNCAyMDAyDQorKysgMi40LjE3LU8xLUg3L2tlcm5lbC9z
-Y2hlZC5jCU1vbiBKYW4gMTQgMTc6MDA6NTUgMjAwMg0KQEAgLTc1LDYgKzc1
-LDggQEANCiAjZGVmaW5lIHVubG9ja190YXNrX3JxKHJxLHAsZmxhZ3MpCQkJ
-CVwNCiAJc3Bpbl91bmxvY2tfaXJxcmVzdG9yZSgmcnEtPmxvY2ssIGZsYWdz
-KQ0KIA0KK3N0cnVjdCB0YXNrX3N0cnVjdCAqIGluaXRfdGFza3NbTlJfQ1BV
-U10gPSB7JmluaXRfdGFzaywgfTsNCisNCiAvKg0KICAqIEFkZGluZy9yZW1v
-dmluZyBhIHRhc2sgdG8vZnJvbSBhIHByaW9yaXR5IGFycmF5Og0KICAqLw0K
-ZGlmZiAtdXJOIDIuNC4xNy1PMS9rZXJuZWwvdGltZXIuYyAyLjQuMTctTzEt
-SDcva2VybmVsL3RpbWVyLmMNCi0tLSAyLjQuMTctTzEva2VybmVsL3RpbWVy
-LmMJTW9uIEphbiAxNCAxNjozMzowNCAyMDAyDQorKysgMi40LjE3LU8xLUg3
-L2tlcm5lbC90aW1lci5jCU1vbiBKYW4gMTQgMTA6MDc6NDMgMjAwMg0KQEAg
-LTU4NSwxNyArNTg1LDE2IEBADQogDQogCXVwZGF0ZV9vbmVfcHJvY2Vzcyhw
-LCB1c2VyX3RpY2ssIHN5c3RlbSwgY3B1KTsNCiAJaWYgKHAtPnBpZCkgew0K
-LQkJaWYgKC0tcC0+Y291bnRlciA8PSAwKSB7DQotCQkJcC0+Y291bnRlciA9
-IDA7DQotCQkJcC0+bmVlZF9yZXNjaGVkID0gMTsNCi0JCX0NCi0JCWlmIChw
-LT5uaWNlID4gMCkNCisJCWlmIChwLT5fX25pY2UgPiAwKQ0KIAkJCWtzdGF0
-LnBlcl9jcHVfbmljZVtjcHVdICs9IHVzZXJfdGljazsNCiAJCWVsc2UNCiAJ
-CQlrc3RhdC5wZXJfY3B1X3VzZXJbY3B1XSArPSB1c2VyX3RpY2s7DQogCQlr
-c3RhdC5wZXJfY3B1X3N5c3RlbVtjcHVdICs9IHN5c3RlbTsNCi0JfSBlbHNl
-IGlmIChyZWFsbHlfbG9jYWxfYmhfY291bnQoKSB8fCByZWFsbHlfbG9jYWxf
-aXJxX2NvdW50KCkgPiAxKQ0KLQkJa3N0YXQucGVyX2NwdV9zeXN0ZW1bY3B1
-XSArPSBzeXN0ZW07DQorCX0gZWxzZSB7DQorCQlpZiAocmVhbGx5X2xvY2Fs
-X2JoX2NvdW50KCkgfHwgcmVhbGx5X2xvY2FsX2lycV9jb3VudCgpID4gMSkN
-CisJCQlrc3RhdC5wZXJfY3B1X3N5c3RlbVtjcHVdICs9IHN5c3RlbTsNCisJ
-fQ0KKwlzY2hlZHVsZXJfdGljayhwKTsNCiB9DQogDQogLyoNCg==
----1916692341-709469618-1011032611=:22009--
+-- 
+Nick Pollitt                                   phone: 650.933.7406
+Scalable Linux Project                           fax: 650.932.0317
+Silicon Graphics, Inc.                       npollitt@engr.sgi.com
 
