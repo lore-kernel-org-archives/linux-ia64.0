@@ -1,34 +1,26 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 11 Jul 2003 18:49:39 +0000
-Subject: Re: clone testcases in LTP
-Message-Id: <marc-linux-ia64-105795035010280@msgid-missing>
+From: CH Gowri Kumar <gkumar@csa.iisc.ernet.in>
+Date: Tue, 29 Jul 2003 21:54:57 +0000
+Subject: Conversion between different types on IA-64
+Message-Id: <marc-linux-ia64-105951522415896@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105778639326638@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105778639326638@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Nathan Straz <nstraz@sgi.com> writes:
+Hi all,
+Can anyone point me to a source of how to convert from a 
+wider size to narrow size (long to int, int to char etc.) on IA-64?
 
-|> On Fri, Jul 11, 2003 at 11:57:30AM +0200, Andreas Schwab wrote:
-|> > Peter Chubb <peter@chubb.wattle.id.au> writes:
-|> > |> I'm not finding that clone2() works -- We get a segfault in the clo=
-ned
-|> > |> process when it returns.
-|> >=20
-|> > You can't return from the function, only exit() or _exit() works.
-|>=20
-|> That seems really odd that you can't return from the function.
+For the other way round(narrow to wider), I could find SXT(sign extend) 
+and ZXT(zero extend) instructions.
 
-Please forget what I wrote, I've now realized that this is supposed to
-work.
+gcc seems(but not sure) to be storing the original value and loading it 
+using the appropriate LD* instruction.
 
-Andreas.
+I am sorry if it's a too trivial question to be asked on this list.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Regards,
+Gowri Kumar
+
+
