@@ -1,194 +1,170 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 28 Jul 2004 12:17:14 +0000
-Subject: [PATCH] Aviod a problem caused by CMCI/CPEI flood on boot
-Message-Id: <4107994A.10805@jp.fujitsu.com>
+From: Takao Indoh <indou.takao@soft.fujitsu.com>
+Date: Fri, 23 Jul 2004 09:58:50 +0000
+Subject: [PATCH 5/5][Diskdump] IPF(IA64) support
+Message-Id: <19C4709BA75270indou.takao@soft.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <14C4709A99D341indou.takao@soft.fujitsu.com>
+In-Reply-To: <14C4709A99D341indou.takao@soft.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi,
-
-Here is a problem that if CMCI/CPEIs flood on boottime, the system
-can't make the switching between interrupt&polling(CMCI/P,CPEI/P)
-work correctly.
-
-The root cause is that the setup of interruptions(CMCI/CPEI) come
-before the setup of pollings(CMCP/CPEP).  There is a certain period
-that the interruptions are enabled but the pollings are not.  i.g.
-
-   1: Power on - Interrupt...disabled, Poll...disabled
-	The flood of correct error is just ignored.
-
-   2: Setup "I" - Interrupt...enabled, Poll...disabled
-	The errors are reported by Interrupt. If there are enough
-	(over threshold) errors, the vector will be disabled and
-	polling timer will be kicked. ...But in this time, the
-	timer isn't initialized yet, so this timer will do nothing.
-	->> Interrupt...disabled(masked), Poll...disabled
-
-   3: Setup "P" - Interrupt...disabled, Poll...enabled(inactive)
-	Polling timer is initialized, and the timer starts to
-	wait activating from the interrupt.  In fact, the
-	interrupt was already disabled... so no one will kick
-	the timer, no one will report coming new errors.
-
-The solution is very simple: Setup "I" after "P".  This patch does:
-
-   CMCI/P:
-	mask the CMCI vector before init it to each cpu.
-	unmask the vector after the setup of CMCP finished.
-   CPEI/P:
-	move registering CPEI vector to after the setup of CPEP.
-
-As a result, this fix groups concerning codes into ia64_mca_late_init,
-and increases the code visibility.
-
-Tony, could you apply this patch?
-
-Thanks,
-H.Seto
------
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+This is a patch for Fusion-MPT scsi driver.
 
 
-diff -Nur linux-2.6.7-ia64-040619/arch/ia64/kernel/mca.c linux-2.6.7-ia64-040619-cpe/arch/ia64/kernel/mca.c
---- linux-2.6.7-ia64-040619/arch/ia64/kernel/mca.c	2004-06-28 15:53:02.000000000 +0900
-+++ linux-2.6.7-ia64-040619-cpe/arch/ia64/kernel/mca.c	2004-06-28 22:40:50.000000000 +0900
-@@ -540,7 +540,7 @@
-  	}
-
-  	IA64_MCA_DEBUG("%s: corrected platform error "
--		       "vector %#x setup and enabled\n", __FUNCTION__, cpev);
-+		       "vector %#x registered\n", __FUNCTION__, cpev);
-  }
-  #endif /* CONFIG_ACPI */
-
-@@ -549,8 +549,9 @@
-  /*
-   * ia64_mca_cmc_vector_setup
-   *
-- *  Setup the corrected machine check vector register in the processor and
-- *  unmask interrupt.  This function is invoked on a per-processor basis.
-+ *  Setup the corrected machine check vector register in the processor.
-+ *  (The interrupt is masked on boot. ia64_mca_late_init unmask this.)
-+ *  This function is invoked on a per-processor basis.
-   *
-   * Inputs
-   *      None
-@@ -564,12 +565,12 @@
-  	cmcv_reg_t	cmcv;
-
-  	cmcv.cmcv_regval	= 0;
--	cmcv.cmcv_mask		= 0;        /* Unmask/enable interrupt */
-+	cmcv.cmcv_mask		= 1;        /* Mask/disable interrupt at first */
-  	cmcv.cmcv_vector	= IA64_CMC_VECTOR;
-  	ia64_setreg(_IA64_REG_CR_CMCV, cmcv.cmcv_regval);
-
-  	IA64_MCA_DEBUG("%s: CPU %d corrected "
--		       "machine check vector %#x setup and enabled.\n",
-+		       "machine check vector %#x registered.\n",
-  		       __FUNCTION__, smp_processor_id(), IA64_CMC_VECTOR);
-
-  	IA64_MCA_DEBUG("%s: CPU %d CMCV = %#016lx\n",
-@@ -1291,7 +1292,7 @@
-  	 */
-  	register_percpu_irq(IA64_CMC_VECTOR, &cmci_irqaction);
-  	register_percpu_irq(IA64_CMCP_VECTOR, &cmcp_irqaction);
--	ia64_mca_cmc_vector_setup();       /* Setup vector on BSP & enable */
-+	ia64_mca_cmc_vector_setup();       /* Setup vector on BSP */
-
-  	/* Setup the MCA rendezvous interrupt vector */
-  	register_percpu_irq(IA64_MCA_RENDEZ_VECTOR, &mca_rdzv_irqaction);
-@@ -1301,23 +1302,8 @@
-
-  #ifdef CONFIG_ACPI
-  	/* Setup the CPEI/P vector and handler */
--	{
--		irq_desc_t *desc;
--		unsigned int irq;
--
--		cpe_vector = acpi_request_vector(ACPI_INTERRUPT_CPEI);
--
--		if (cpe_vector >= 0) {
--			for (irq = 0; irq < NR_IRQS; ++irq)
--				if (irq_to_vector(irq) = cpe_vector) {
--					desc = irq_descp(irq);
--					desc->status |= IRQ_PER_CPU;
--					setup_irq(irq, &mca_cpe_irqaction);
--				}
--			ia64_mca_register_cpev(cpe_vector);
--		}
--		register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
--	}
-+	cpe_vector = acpi_request_vector(ACPI_INTERRUPT_CPEI);
-+	register_percpu_irq(IA64_CPEP_VECTOR, &mca_cpep_irqaction);
-  #endif
-
-  	/* Initialize the areas set aside by the OS to buffer the
-@@ -1345,21 +1331,43 @@
-  static int __init
-  ia64_mca_late_init(void)
-  {
-+	/* Setup the CMCI/P vector and handler */
-  	init_timer(&cmc_poll_timer);
-  	cmc_poll_timer.function = ia64_mca_cmc_poll;
-
--	/* Reset to the correct state */
-+	/* Unmask/enable the vector */
-  	cmc_polling_enabled = 0;
-+	schedule_work(&cmc_enable_work);
-
-+	IA64_MCA_DEBUG("%s: CMCI/P setup and enabled.\n", __FUNCTION__);
+diff -Nur linux-2.6.7.org/drivers/message/fusion/linux_compat.h linux-2.6.7/drivers/message/fusion/linux_compat.h
+--- linux-2.6.7.org/drivers/message/fusion/linux_compat.h	2004-06-22 10:27:55.000000000 +0900
++++ linux-2.6.7/drivers/message/fusion/linux_compat.h	2004-07-23 15:10:53.110010272 +0900
+@@ -192,6 +192,18 @@
+ #define MPT_INIT_WORK(_task, _func, _data) INIT_WORK(_task, _func, _data)
+ #define mpt_sync_irq(_irq) synchronize_irq(_irq)
+ 
++#define MPT_HOST_LOCK(host_lock)		\
++	if (crashdump_mode()) 			\
++		spin_lock(host_lock);		\
++	else					\
++		spin_lock_irq(host_lock);
 +
-+#ifdef CONFIG_ACPI
-+	/* Setup the CPEI/P vector and handler */
-  	init_timer(&cpe_poll_timer);
-  	cpe_poll_timer.function = ia64_mca_cpe_poll;
-
--#ifdef CONFIG_ACPI
--	/* If platform doesn't support CPEI, get the timer going. */
--	if (cpe_vector < 0 && cpe_poll_enabled) {
--		ia64_mca_cpe_poll(0UL);
--	} else {
--		cpe_poll_enabled = 0;
-+	{
-+		irq_desc_t *desc;
-+		unsigned int irq;
++#define MPT_HOST_UNLOCK(host_lock)		\
++	if (crashdump_mode())			\
++		spin_unlock(host_lock);		\
++	else					\
++		spin_unlock_irq(host_lock);
 +
-+		if (cpe_vector >= 0) {
-+			/* If platform supports CPEI, enable the irq. */
-+			cpe_poll_enabled = 0;
-+			for (irq = 0; irq < NR_IRQS; ++irq)
-+				if (irq_to_vector(irq) = cpe_vector) {
-+					desc = irq_descp(irq);
-+					desc->status |= IRQ_PER_CPU;
-+					setup_irq(irq, &mca_cpe_irqaction);
-+				}
-+			ia64_mca_register_cpev(cpe_vector);
-+			IA64_MCA_DEBUG("%s: CPEI/P setup and enabled.\n", __FUNCTION__);
-+		} else {
-+			/* If platform doesn't support CPEI, get the timer going. */
-+			if (cpe_poll_enabled) {
-+				ia64_mca_cpe_poll(0UL);
-+				IA64_MCA_DEBUG("%s: CPEP setup and enabled.\n", __FUNCTION__);
-+			}
-+		}
-  	}
-  #endif
-
-diff -Nur linux-2.6.7-ia64-040619/arch/ia64/kernel/smpboot.c linux-2.6.7-ia64-040619-cpe/arch/ia64/kernel/smpboot.c
---- linux-2.6.7-ia64-040619/arch/ia64/kernel/smpboot.c	2004-06-28 22:36:40.000000000 +0900
-+++ linux-2.6.7-ia64-040619-cpe/arch/ia64/kernel/smpboot.c	2004-06-28 22:37:38.000000000 +0900
-@@ -299,7 +299,7 @@
-
-  	smp_setup_percpu_timer();
-
--	ia64_mca_cmc_vector_setup();	/* Setup vector on AP & enable */
-+	ia64_mca_cmc_vector_setup();	/* Setup vector on AP */
-
-  #ifdef CONFIG_PERFMON
-  	pfm_init_percpu();
-
+ /*}-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
+ #endif /* _LINUX_COMPAT_H */
+ 
+diff -Nur linux-2.6.7.org/drivers/message/fusion/mptbase.c linux-2.6.7/drivers/message/fusion/mptbase.c
+--- linux-2.6.7.org/drivers/message/fusion/mptbase.c	2004-06-22 10:27:55.000000000 +0900
++++ linux-2.6.7/drivers/message/fusion/mptbase.c	2004-07-23 15:10:53.114009664 +0900
+@@ -6292,6 +6292,17 @@
+ }
+ 
+ /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
++void
++mpt_poll_interrupt(MPT_ADAPTER *ioc)
++{
++	u32 intstat;
++
++	intstat = CHIPREG_READ32(&ioc->chip->IntStatus);
++
++	if(intstat & MPI_HIS_REPLY_MESSAGE_INTERRUPT)
++		mpt_interrupt(0, (void *)ioc, (struct pt_regs *)NULL);
++}
++/*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
+ 
+ EXPORT_SYMBOL(mpt_adapters);
+ EXPORT_SYMBOL(mpt_proc_root_dir);
+@@ -6332,6 +6343,7 @@
+ EXPORT_SYMBOL(mpt_ASCQ_TableSz);
+ EXPORT_SYMBOL(mpt_ScsiOpcodesPtr);
+ 
++EXPORT_SYMBOL(mpt_poll_interrupt);
+ 
+ static struct pci_driver mptbase_driver = {
+ 	.name		= "mptbase",
+diff -Nur linux-2.6.7.org/drivers/message/fusion/mptbase.h linux-2.6.7/drivers/message/fusion/mptbase.h
+--- linux-2.6.7.org/drivers/message/fusion/mptbase.h	2004-06-22 10:27:55.000000000 +0900
++++ linux-2.6.7/drivers/message/fusion/mptbase.h	2004-07-23 15:10:53.115009512 +0900
+@@ -1066,6 +1066,8 @@
+ extern int	 mpt_findImVolumes(MPT_ADAPTER *ioc);
+ extern int	 mpt_read_ioc_pg_3(MPT_ADAPTER *ioc);
+ 
++extern void	 mpt_poll_interrupt(MPT_ADAPTER *ioc);
++
+ /*
+  *  Public data decl's...
+  */
+diff -Nur linux-2.6.7.org/drivers/message/fusion/mptscsih.c linux-2.6.7/drivers/message/fusion/mptscsih.c
+--- linux-2.6.7.org/drivers/message/fusion/mptscsih.c	2004-06-22 10:27:55.000000000 +0900
++++ linux-2.6.7/drivers/message/fusion/mptscsih.c	2004-07-23 15:10:53.119008904 +0900
+@@ -273,6 +273,8 @@
+ 	.max_sectors			= MPT_SCSI_MAX_SECTORS,
+ 	.cmd_per_lun			= MPT_SCSI_CMD_PER_LUN,
+ 	.use_clustering			= ENABLE_CLUSTERING,
++	.dump_sanity_check		= x_scsi_sanity_check,
++	.dump_poll			= x_scsi_poll,
+ };
+ 
+ /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
+@@ -3053,7 +3055,7 @@
+ 	/*  If our attempts to reset the host failed, then return a failed
+ 	 *  status.  The host will be taken off line by the SCSI mid-layer.
+ 	 */
+-	spin_unlock_irq(host_lock);
++	MPT_HOST_UNLOCK(host_lock);
+ 	if (mpt_HardResetHandler(hd->ioc, CAN_SLEEP) < 0){
+ 		status = FAILED;
+ 	} else {
+@@ -3063,7 +3065,7 @@
+ 		hd->tmPending = 0;
+ 		hd->tmState = TM_STATE_NONE;
+ 	}
+-	spin_lock_irq(host_lock);
++	MPT_HOST_LOCK(host_lock)
+ 
+ 
+ 	dtmprintk( ( KERN_WARNING MYNAM ": mptscsih_host_reset: "
+@@ -7272,6 +7274,38 @@
+ }
+ #endif
+ /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
++int
++mptscsih_sanity_check(struct scsi_device *sdev)
++{
++	MPT_ADAPTER    *ioc;
++	MPT_SCSI_HOST  *hd;
++
++	hd = (MPT_SCSI_HOST *)sdev->host->hostdata;
++	if(!hd)
++		return -ENXIO;
++	ioc = hd->ioc;
++
++	/* message frame freeQ is busy */
++	if(spin_is_locked(&ioc->FreeQlock)) {
++		return -EBUSY;
++	}
++
++	return 0;
++}
++
++void
++mptscsih_poll(struct scsi_device *sdev)
++{
++	MPT_SCSI_HOST  *hd;
++
++	hd = (MPT_SCSI_HOST *)sdev->host->hostdata;
++	if(!hd)
++		return;
++
++	/* check interrupt pending */
++	mpt_poll_interrupt(hd->ioc);
++}
++/*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
+ 
+ 
+ module_init(mptscsih_init);
+diff -Nur linux-2.6.7.org/drivers/message/fusion/mptscsih.h linux-2.6.7/drivers/message/fusion/mptscsih.h
+--- linux-2.6.7.org/drivers/message/fusion/mptscsih.h	2004-06-22 10:27:55.000000000 +0900
++++ linux-2.6.7/drivers/message/fusion/mptscsih.h	2004-07-23 15:10:53.120008752 +0900
+@@ -143,6 +143,9 @@
+ #define x_scsi_slave_destroy	mptscsih_slave_destroy
+ #define x_scsi_proc_info	mptscsih_proc_info
+ 
++#define x_scsi_sanity_check	mptscsih_sanity_check
++#define x_scsi_poll		mptscsih_poll
++
+ /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
+ /*
+  *	MPT SCSI Host / Initiator decls...
+@@ -160,6 +163,9 @@
+ extern	void		 x_scsi_slave_destroy(Scsi_Device *);
+ extern	int		 x_scsi_proc_info(struct Scsi_Host *, char *, char **, off_t, int, int);
+ 
++extern	int		 x_scsi_sanity_check(struct scsi_device *);
++extern	void		 x_scsi_poll(struct scsi_device *);
++
+ /*=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=*/
+ 
+ /*  include/scsi/scsi.h may not be quite complete...  */
