@@ -1,146 +1,41 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Thu, 14 Oct 2004 12:48:51 +0000
-Subject: [PATCH] pci_bus_to_phys() for ia64 [2/2]
-Message-Id: <20041014124851.GN16153@parcelfarce.linux.theplanet.co.uk>
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 22 Oct 2004 08:53:42 +0000
+Subject: ia64 get_fs() build fix
+Message-Id: <20041022015342.2add97ee.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Greg KH <greg@kroah.com>
-Cc: linux-pci@atrey.karlin.mff.cuni.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
 
-Switch ia64 to the phys_to_bus / bus_to_phys method of converting PCI
-BARs to and from resources.
+Not sure how I managed to do this, but...
 
-Index: pci-2.6/arch/ia64/pci/pci.c
-=================================RCS file: /var/cvs/linux-2.6/arch/ia64/pci/pci.c,v
-retrieving revision 1.15
-diff -u -p -r1.15 pci.c
---- pci-2.6/arch/ia64/pci/pci.c	30 Sep 2004 12:07:43 -0000	1.15
-+++ pci-2.6/arch/ia64/pci/pci.c	14 Oct 2004 12:38:32 -0000
-@@ -328,35 +328,44 @@ out1:
- 	return NULL;
- }
- 
--void __init
--pcibios_fixup_device_resources (struct pci_dev *dev, struct pci_bus *bus)
-+unsigned long pcibios_phys_to_bus(struct pci_controller *controller,
-+		unsigned long addr, unsigned long flags)
- {
--	struct pci_controller *controller = PCI_CONTROLLER(dev);
--	struct pci_window *window;
--	int i, j;
--	int limit = (dev->hdr_type = PCI_HEADER_TYPE_NORMAL) ? \
--		PCI_BRIDGE_RESOURCES : PCI_NUM_RESOURCES;
--
--	for (i = 0; i < limit; i++) {
--		if (!dev->resource[i].start)
--			continue;
--
--#define contains(win, res)	((res)->start >= (win)->start && \
--				 (res)->end   <= (win)->end)
--
--		for (j = 0; j < controller->windows; j++) {
--			window = &controller->window[j];
--			if (((dev->resource[i].flags & IORESOURCE_MEM &&
--			      window->resource.flags & IORESOURCE_MEM) ||
--			     (dev->resource[i].flags & IORESOURCE_IO &&
--			      window->resource.flags & IORESOURCE_IO)) &&
--			    contains(&window->resource, &dev->resource[i])) {
--				dev->resource[i].start += window->offset;
--				dev->resource[i].end   += window->offset;
--			}
--		}
--		pci_claim_resource(dev, i);
-+	int i;
-+
-+	for (i = 0; i < controller->windows; i++) {
-+		unsigned long bus_addr;
-+		struct pci_window *window = &controller->window[i];
-+		if (!(window->resource.flags & flags))
-+			continue;
-+		bus_addr = addr - window->offset;
-+		if (window->resource.start > bus_addr)
-+			continue;
-+		if (window->resource.end < bus_addr)
-+			continue;
-+		return bus_addr;
- 	}
-+
-+	return addr;
-+}
-+
-+unsigned long pcibios_bus_to_phys(struct pci_controller *controller,
-+		unsigned long addr, unsigned long flags)
-+{
-+	int i;
-+
-+	for (i = 0; i < controller->windows; i++) {
-+		struct pci_window *window = &controller->window[i];
-+		if (!(window->resource.flags & flags))
-+			continue;
-+		if (window->resource.start > addr)
-+			continue;
-+		if (window->resource.end < addr)
-+			continue;
-+		return addr + window->offset;
-+	}
-+
-+	return addr;
- }
- 
- /*
-@@ -365,10 +374,18 @@ pcibios_fixup_device_resources (struct p
- void __devinit
- pcibios_fixup_bus (struct pci_bus *b)
- {
--	struct list_head *ln;
-+	struct pci_dev *dev;
- 
--	for (ln = b->devices.next; ln != &b->devices; ln = ln->next)
--		pcibios_fixup_device_resources(pci_dev_b(ln), b);
-+	list_for_each_entry(dev, &b->devices, bus_list) {
-+		int i, limit = (dev->hdr_type = PCI_HEADER_TYPE_NORMAL) ? \
-+			    PCI_BRIDGE_RESOURCES : PCI_NUM_RESOURCES;
-+
-+		for (i = 0; i < limit; i++) {
-+			if (!dev->resource[i].start)
-+				continue;
-+			pci_claim_resource(dev, i);
-+		}
-+	}
- 
- 	return;
- }
-Index: pci-2.6/include/asm-ia64/pci.h
-=================================RCS file: /var/cvs/linux-2.6/include/asm-ia64/pci.h,v
-retrieving revision 1.6
-diff -u -p -r1.6 pci.h
---- pci-2.6/include/asm-ia64/pci.h	16 Mar 2004 15:40:37 -0000	1.6
-+++ pci-2.6/include/asm-ia64/pci.h	14 Oct 2004 12:38:38 -0000
-@@ -119,6 +119,16 @@ static inline void pcibios_add_platform_
- {
- }
- 
-+extern unsigned long pcibios_phys_to_bus(struct pci_controller *,
-+		unsigned long, unsigned long);
-+extern unsigned long pcibios_bus_to_phys(struct pci_controller *,
-+		unsigned long, unsigned long);
-+
-+#define pci_phys_to_bus(busdev, addr, flags)	\
-+		pcibios_phys_to_bus(PCI_CONTROLLER(busdev), (addr), (flags))
-+#define pci_bus_to_phys(busdev, addr, flags)	\
-+		pcibios_bus_to_phys(PCI_CONTROLLER(busdev), (addr), (flags))
-+
- /* generic pci stuff */
- #include <asm-generic/pci.h>
- 
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+In file included from arch/ia64/ia32/binfmt_elf32.c:22:
+arch/ia64/ia32/elfcore32.h: In function `elf_core_copy_task_fpregs':            arch/ia64/ia32/elfcore32.h:111: warning: implicit declaration of function `get_fs'                                                                              arch/ia64/ia32/elfcore32.h:111: error: incompatible types in assignment
+arch/ia64/ia32/elfcore32.h:112: warning: implicit declaration of function `set_fs'
+arch/ia64/ia32/elfcore32.h:112: error: `KERNEL_DS' undeclared (first use in this function)
+arch/ia64/ia32/elfcore32.h:112: error: (Each undeclared identifier is reported only once
+arch/ia64/ia32/elfcore32.h:112: error: for each function it appears in.)        arch/ia64/ia32/elfcore32.h: In function `elf_core_copy_task_xfpregs':
+arch/ia64/ia32/elfcore32.h:129: error: incompatible types in assignment         arch/ia64/ia32/elfcore32.h:130: error: `KERNEL_DS' undeclared (first use in this function)
+
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ 25-akpm/arch/ia64/ia32/elfcore32.h |    1 +
+ 1 files changed, 1 insertion(+)
+
+diff -puN arch/ia64/ia32/elfcore32.h~ia64-get_fs-build-fix arch/ia64/ia32/elfcore32.h
+--- 25/arch/ia64/ia32/elfcore32.h~ia64-get_fs-build-fix	Fri Oct 22 16:42:20 2004
++++ 25-akpm/arch/ia64/ia32/elfcore32.h	Fri Oct 22 16:42:35 2004
+@@ -9,6 +9,7 @@
+ #define _ELFCORE32_H_
+ 
+ #include <asm/intrinsics.h>
++#include <asm/uaccess.h>
+ 
+ #define USE_ELF_CORE_DUMP 1
+ 
+_
+
