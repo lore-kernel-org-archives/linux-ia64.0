@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 08 Oct 2003 20:51:19 +0000
-Subject: Re: [PATCH 2.6.0test5: 2 of 3] MCA/TLB recovery
-Message-Id: <marc-linux-ia64-106564655631043@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 08 Oct 2003 21:44:04 +0000
+Subject: RE: [PATCH 2.6.0test5: 2 of 3] MCA/TLB recovery
+Message-Id: <marc-linux-ia64-106564946702005@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106522368223247@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106522368223247@msgid-missing>
@@ -10,22 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 3 Oct 2003 16:27:25 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+>   Tony> +/* Bitmasks of implemented registers */
+>   Tony> +static u64 arbits[2] = { 0x11117f2f00ffUL, 0x7UL };
+>   Tony> +static u64 crbits[2] = { 0x3fb0107UL, 0x307ffUL };
+> 
+> Shouldn't these masks be obtained from PAL?
 
-  Tony> This part is just a clean-up of the logging code to only
-  Tony> print registers that are implemented (instead of blindly
-  Tony> dumping CR[0] ... CR[127] and AR[0] ... AR[127].
+You are right ... PAL_REGISTER_INFO returns this information (I
+had forgotten that it existed).
 
-  Tony> +/* Bitmasks of implemented registers */
-  Tony> +static u64 arbits[2] = { 0x11117f2f00ffUL, 0x7UL };
-  Tony> +static u64 crbits[2] = { 0x3fb0107UL, 0x307ffUL };
+>   Tony> +static u64 brbits[1] = { 0xffUL };
+>   Tony> +static u64 rrbits[1] = { 0xffUL };
+> 
+> These look a bit weird to me (since they're architected), but I guess
+> it's your call...
 
-Shouldn't these masks be obtained from PAL?
+This just fell out of sharing the same code to print the register
+values ... it might look less weird if I fix the arbits/crbits code
+to use PAL_REGISTER_INFO.
 
-  Tony> +static u64 brbits[1] = { 0xffUL };
-  Tony> +static u64 rrbits[1] = { 0xffUL };
+Overall this part of the patch is mostly fluff.  Long term the
+right thing to do is remove all these printk()s from the kernel
+and leave paring of SAL error records to some user mode code (using
+some mechanism like Bjorn did in 2.4).
 
-These look a bit weird to me (since they're architected), but I guess
-it's your call...
+Any comments on parts 1 & 3???
 
-	--david
+-Tony
