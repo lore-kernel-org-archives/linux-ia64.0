@@ -1,148 +1,382 @@
-From: "Daniel Blueman" <daniel.blueman@gmx.net>
-Date: Mon, 09 Aug 2004 09:22:24 +0000
-Subject: Re: [2.6.7, ia64] continual memory leak at ~102kB/s...
-Message-Id: <9720.1092043344@www20.gmx.net>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Fri, 13 Aug 2004 18:08:40 +0000
+Subject: [PATCH] add scheduler domains for ia64
+Message-Id: <200408131108.40502.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_oOQHBrWSHZUr5Zz"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040806145451.GI17188@holomorphy.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: William Lee Irwin III <wli@holomorphy.com>
-Cc: linux-ia64@vger.kernel.org, davidm@napali.hpl.hp.com, linux-kernel@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Nick Piggin <nickpiggin@yahoo.com.au>
+Cc: John Hawkes <hawkes@sgi.com>
 
-> On Fri, Aug 06, 2004 at 04:44:18PM +0200, Daniel Blueman wrote:
-> > When running 2.6.7 on a generic ia64 system, I see memory being leaked
-> in
-> > the kernel. Most of the fancy (preempt, hot-plug procs, ...) features
-> are
-> > disabled, and the system in a quiescent state [1].
-> > /proc/meminfo shows the memory as unaccounted for [2], so it seems
-> likely it
-> > has been kmalloc()d somehere. A small script shows memory disappearing
-> at
-> > 102kB/s [3].
-> > Anyone else seen this on ia64?
->=20
-> Could you dump /proc/slabinfo?
 
-Sampling /proc/slabinfo and again after 30 minutes while the system is
-quiescent, nothing looks suspicious:
+--Boundary-00=_oOQHBrWSHZUr5Zz
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
- tcp_tw_bucket  0       0
- tcp_bind_bucket        12      1129
- tcp_open_request       0       0
--inet_peer_cache        0       0
-+inet_peer_cache        1       668
- ip_fib_hash    11      1309
--ip_dst_cache   11      177
-+ip_dst_cache   14      177
- arp_cache      2       253
- raw4_sock      0       0
- udp_sock       6       81
- tcp_sock       18      44
- flow_cache     0       0
--scsi_cmd_cache 11      129
-+scsi_cmd_cache 2       129
- nfs_write_data 36      85
- nfs_read_data  32      88
- nfs_inode_cache        16      72
-@@ -23,8 +23,8 @@
- isofs_inode_cache      0       0
- fat_inode_cache        1       104
- ext2_inode_cache       0       0
--journal_handle 18      885
--journal_head   26      574
-+journal_handle 16      885
-+journal_head   18      574
- revoke_table   2       1559
- revoke_record  0       0
- ext3_inode_cache       981     1080
-@@ -45,42 +45,42 @@
- sgpool-64      32      62
- sgpool-32      32      62
- sgpool-16      32      121
--sgpool-8       41      232
-+sgpool-8       32      232
- cfq_pool       64      798
- crq_pool       0       0
- deadline_drq   0       0
--as_arq 25      474
-+as_arq 16      474
- blkdev_ioc     18      1129
- blkdev_queue   28      75
--blkdev_requests        25      225
-+blkdev_requests        16      225
- biovec-(256)   256     270
- biovec-128     256     279
- biovec-64      256     310
- biovec-16      256     464
- biovec-4       256     727
--biovec-1       265     1559
--bio    265     536
--sock_inode_cache       40      100
--skbuff_head_cache      268     506
-+biovec-1       256     1559
-+bio    256     536
-+sock_inode_cache       39      100
-+skbuff_head_cache      267     506
- sock   2       110
--proc_inode_cache       171     216
--sigqueue       0       404
-+proc_inode_cache       177     216
-+sigqueue       0       0
- radix_tree_node        644     696
- bdev_cache     5       85
- mnt_cache      23      474
- inode_cache    1369    1482
--dentry_cache   3031    3150
--filp   223     478
--names_cache    10      15
-+dentry_cache   3038    3150
-+filp   230     478
-+names_cache    15      15
- idr_layer_cache        31      118
--buffer_head    13792   13936
--mm_struct      35      130
--vm_area_struct 508     648
-+buffer_head    13888   13936
-+mm_struct      34      130
-+vm_area_struct 500     648
- fs_cache       36      727
- files_cache    37      154
- signal_cache   74      503
- sighand_cache  65      123
--anon_vma       292     1309
-+anon_vma       291     1309
- size-131072(DMA)       0       0
- size-131072    0       0
- size-65536(DMA)        0       0
-@@ -92,17 +92,17 @@
- size-8192(DMA) 0       0
- size-8192      25      32
- size-4096(DMA) 0       0
--size-4096      315     315
-+size-4096      314     315
- size-2048(DMA) 0       0
--size-2048      176     186
-+size-2048      175     186
- size-1024(DMA) 0       0
- size-1024      219     682
- size-512(DMA)  0       0
--size-512       496     38720
-+size-512       495     38720
- size-256(DMA)  0       0
--size-256       1094    25984
-+size-256       1092    25984
- size-128(DMA)  0       0
- size-128       2201    6800
- size-64(DMA)   0       0
--size-64        2527    103961
-+size-64        2521    103961
- kmem_cache     120     169
+Nick, how does this look?  It adds scheduler domain code for ia64 and replaces 
+the patch in Andrew's tree.  It also adds SD_NODE_INIT macros to each arch 
+that has ARCH_HAS_SCHED_DOMAIN so that the balance values are more easily 
+tweaked.  Since the cpu span of the nodes on ia64 is smaller than the whole 
+system, I also removed a WARN_ON in active_load_balance, but I'm not sure if 
+that's correct.
 
---=20
-Daniel J Blueman
+Thanks,
+Jesse
 
-NEU: WLAN-Router f=FCr 0,- EUR* - auch f=FCr DSL-Wechsler!
-GMX DSL =3D superg=FCnstig & kabellos http://www.gmx.net/de/go/dsl
+--Boundary-00=_oOQHBrWSHZUr5Zz
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="sched-domains-ia64.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="sched-domains-ia64.patch"
 
+===== arch/ia64/kernel/smpboot.c 1.56 vs edited =====
+--- 1.56/arch/ia64/kernel/smpboot.c	2004-08-04 10:50:16 -07:00
++++ edited/arch/ia64/kernel/smpboot.c	2004-08-13 11:03:29 -07:00
+@@ -719,3 +719,182 @@
+ 		printk(KERN_ERR "SMP: Can't set SAL AP Boot Rendezvous: %s\n",
+ 		       ia64_sal_strerror(sal_ret));
+ }
++
++#ifdef CONFIG_NUMA
++
++/**
++ * find_next_best_node - find the next node to include in a sched_domain
++ * @node: node whose sched_domain we're building
++ * @used_nodes: nodes already in the sched_domain
++ *
++ * Find the next node to include in a given scheduling domain.  Simply
++ * finds the closest node not already in the @used_nodes map.
++ *
++ * Should use nodemask_t.
++ */
++static int __init find_next_best_node(int node, unsigned long *used_nodes)
++{
++	int i, n, val, min_val, best_node = 0;
++
++	min_val = INT_MAX;
++
++	for (i = 0; i < numnodes; i++) {
++		/* Start at @node */
++		n = (node + i) % numnodes;
++
++		/* Skip already used nodes */
++		if (test_bit(n, used_nodes))
++			continue;
++
++		/* Simple min distance search */
++		val = node_distance(node, i);
++
++		if (val < min_val) {
++			min_val = val;
++			best_node = n;
++		}
++	}
++
++	set_bit(best_node, used_nodes);
++	return best_node;
++}
++
++/**
++ * sched_domain_node_span - get a cpumask for a node's sched_domain
++ * @node: node whose cpumask we're constructing
++ * @size: number of nodes to include in this span
++ *
++ * Given a node, construct a good cpumask for its sched_domain to span.  It
++ * should be one that prevents unnecessary balancing, but also spreads tasks
++ * out optimally.
++ */
++cpumask_t __init sched_domain_node_span(int node, int size)
++{
++	int i;
++	cpumask_t span;
++	DECLARE_BITMAP(used_nodes, MAX_NUMNODES);
++
++	cpus_clear(span);
++	bitmap_zero(used_nodes, MAX_NUMNODES);
++
++	for (i = 0; i < size; i++) {
++		int next_node = find_next_best_node(node, used_nodes);
++		cpus_or(span, span, node_to_cpumask(next_node));
++	}
++
++	return span;
++}
++
++static struct sched_group sched_group_cpus[NR_CPUS];
++static DEFINE_PER_CPU(struct sched_domain, cpu_domains);
++
++/* Number of nearby nodes in a node's scheduling domain */
++#define SD_NODES_PER_DOMAIN 4
++
++static struct sched_group sched_group_nodes[MAX_NUMNODES];
++static DEFINE_PER_CPU(struct sched_domain, node_domains);
++void __init arch_init_sched_domains(void)
++{
++	int i;
++	struct sched_group *first_node = NULL, *last_node = NULL;
++
++	/* Set up domains */
++	for_each_cpu(i) {
++		int node = cpu_to_node(i);
++		cpumask_t nodemask = node_to_cpumask(node);
++		struct sched_domain *node_sd = &per_cpu(node_domains, i);
++		struct sched_domain *cpu_sd = &per_cpu(cpu_domains, i);
++
++		*node_sd = SD_NODE_INIT;
++		node_sd->span = sched_domain_node_span(i, SD_NODES_PER_DOMAIN);
++		node_sd->groups = &sched_group_nodes[cpu_to_node(i)];
++
++		*cpu_sd = SD_CPU_INIT;
++		cpus_and(cpu_sd->span, nodemask, cpu_possible_map);
++		cpu_sd->groups = &sched_group_cpus[i];
++		cpu_sd->parent = node_sd;
++	}
++
++	/* Set up groups */
++	for (i = 0; i < MAX_NUMNODES; i++) {
++		cpumask_t tmp = node_to_cpumask(i);
++		cpumask_t nodemask;
++		struct sched_group *first_cpu = NULL, *last_cpu = NULL;
++		struct sched_group *node = &sched_group_nodes[i];
++		int j;
++
++		cpus_and(nodemask, tmp, cpu_possible_map);
++
++		if (cpus_empty(nodemask))
++			continue;
++
++		node->cpumask = nodemask;
++		node->cpu_power = SCHED_LOAD_SCALE * cpus_weight(node->cpumask);
++
++		for_each_cpu_mask(j, node->cpumask) {
++			struct sched_group *cpu = &sched_group_cpus[j];
++
++			cpus_clear(cpu->cpumask);
++			cpu_set(j, cpu->cpumask);
++			cpu->cpu_power = SCHED_LOAD_SCALE;
++
++			if (!first_cpu)
++				first_cpu = cpu;
++			if (last_cpu)
++				last_cpu->next = cpu;
++			last_cpu = cpu;
++		}
++		last_cpu->next = first_cpu;
++
++		if (!first_node)
++			first_node = node;
++		if (last_node)
++			last_node->next = node;
++		last_node = node;
++	}
++	last_node->next = first_node;
++
++	mb();
++	for_each_cpu(i) {
++		struct sched_domain *cpu_sd = &per_cpu(cpu_domains, i);
++		cpu_attach_domain(cpu_sd, i);
++	}
++}
++#else /* !CONFIG_NUMA */
++static void __init arch_init_sched_domains(void)
++{
++	int i;
++	struct sched_group *first_cpu = NULL, *last_cpu = NULL;
++
++	/* Set up domains */
++	for_each_cpu(i) {
++		struct sched_domain *cpu_sd = &per_cpu(cpu_domains, i);
++
++		*cpu_sd = SD_CPU_INIT;
++		cpu_sd->span = cpu_possible_map;
++		cpu_sd->groups = &sched_group_cpus[i];
++	}
++
++	/* Set up CPU groups */
++	for_each_cpu_mask(i, cpu_possible_map) {
++		struct sched_group *cpu = &sched_group_cpus[i];
++
++		cpus_clear(cpu->cpumask);
++		cpu_set(i, cpu->cpumask);
++		cpu->cpu_power = SCHED_LOAD_SCALE;
++
++		if (!first_cpu)
++			first_cpu = cpu;
++		if (last_cpu)
++			last_cpu->next = cpu;
++		last_cpu = cpu;
++	}
++	last_cpu->next = first_cpu;
++
++	mb(); /* domains were modified outside the lock */
++	for_each_cpu(i) {
++		struct sched_domain *cpu_sd = &per_cpu(cpu_domains, i);
++		cpu_attach_domain(cpu_sd, i);
++	}
++}
++#endif /* CONFIG_NUMA */
+===== include/asm-i386/processor.h 1.67 vs edited =====
+--- 1.67/include/asm-i386/processor.h	2004-06-27 00:19:26 -07:00
++++ edited/include/asm-i386/processor.h	2004-08-13 10:37:06 -07:00
+@@ -647,6 +647,24 @@
+ 
+ #ifdef CONFIG_SCHED_SMT
+ #define ARCH_HAS_SCHED_DOMAIN
++#define SD_NODE_INIT (struct sched_domain) {		\
++	.span			= CPU_MASK_NONE,	\
++	.parent			= NULL,			\
++	.groups			= NULL,			\
++	.min_interval		= 8,			\
++	.max_interval		= 32,			\
++	.busy_factor		= 32,			\
++	.imbalance_pct		= 125,			\
++	.cache_hot_time		= (10*1000000),		\
++	.cache_nice_tries	= 1,			\
++	.per_cpu_gain		= 100,			\
++	.flags			= SD_BALANCE_EXEC	\
++				| SD_BALANCE_CLONE	\
++				| SD_WAKE_BALANCE,	\
++	.last_balance		= jiffies,		\
++	.balance_interval	= 1,			\
++	.nr_balance_failed	= 0,			\
++}
+ #define ARCH_HAS_SCHED_WAKE_IDLE
+ #endif
+ 
+===== include/asm-ia64/processor.h 1.61 vs edited =====
+--- 1.61/include/asm-ia64/processor.h	2004-07-26 22:26:50 -07:00
++++ edited/include/asm-ia64/processor.h	2004-08-13 10:08:03 -07:00
+@@ -334,6 +334,29 @@
+ /* Prepare to copy thread state - unlazy all lazy status */
+ #define prepare_to_copy(tsk)	do { } while (0)
+ 
++#ifdef CONFIG_NUMA
++/* smpboot.c defines a numa specific scheduler domain routine */
++#define ARCH_HAS_SCHED_DOMAIN
++#define SD_NODE_INIT (struct sched_domain) {		\
++	.span			= CPU_MASK_NONE,	\
++	.parent			= NULL,			\
++	.groups			= NULL,			\
++	.min_interval		= 80,			\
++	.max_interval		= 320,			\
++	.busy_factor		= 320,			\
++	.imbalance_pct		= 125,			\
++	.cache_hot_time		= (10*1000000),		\
++	.cache_nice_tries	= 1,			\
++	.per_cpu_gain		= 100,			\
++	.flags			= SD_BALANCE_EXEC	\
++				| SD_BALANCE_CLONE	\
++				| SD_WAKE_BALANCE,	\
++	.last_balance		= jiffies,		\
++	.balance_interval	= 10,			\
++	.nr_balance_failed	= 0,			\
++}
++#endif
++
+ /*
+  * This is the mechanism for creating a new kernel thread.
+  *
+===== include/asm-ppc64/processor.h 1.48 vs edited =====
+--- 1.48/include/asm-ppc64/processor.h	2004-07-26 15:13:12 -07:00
++++ edited/include/asm-ppc64/processor.h	2004-08-13 10:37:19 -07:00
+@@ -628,6 +628,24 @@
+ 
+ #ifdef CONFIG_SCHED_SMT
+ #define ARCH_HAS_SCHED_DOMAIN
++#define SD_NODE_INIT (struct sched_domain) {		\
++	.span			= CPU_MASK_NONE,	\
++	.parent			= NULL,			\
++	.groups			= NULL,			\
++	.min_interval		= 8,			\
++	.max_interval		= 32,			\
++	.busy_factor		= 32,			\
++	.imbalance_pct		= 125,			\
++	.cache_hot_time		= (10*1000000),		\
++	.cache_nice_tries	= 1,			\
++	.per_cpu_gain		= 100,			\
++	.flags			= SD_BALANCE_EXEC	\
++				| SD_BALANCE_CLONE	\
++				| SD_WAKE_BALANCE,	\
++	.last_balance		= jiffies,		\
++	.balance_interval	= 1,			\
++	.nr_balance_failed	= 0,			\
++}
+ #define ARCH_HAS_SCHED_WAKE_IDLE
+ #endif
+ 
+===== include/asm-x86_64/processor.h 1.36 vs edited =====
+--- 1.36/include/asm-x86_64/processor.h	2004-06-27 00:19:26 -07:00
++++ edited/include/asm-x86_64/processor.h	2004-08-13 10:37:36 -07:00
+@@ -458,6 +458,24 @@
+ 
+ #ifdef CONFIG_SCHED_SMT
+ #define ARCH_HAS_SCHED_DOMAIN
++#define SD_NODE_INIT (struct sched_domain) {		\
++	.span			= CPU_MASK_NONE,	\
++	.parent			= NULL,			\
++	.groups			= NULL,			\
++	.min_interval		= 8,			\
++	.max_interval		= 32,			\
++	.busy_factor		= 32,			\
++	.imbalance_pct		= 125,			\
++	.cache_hot_time		= (10*1000000),		\
++	.cache_nice_tries	= 1,			\
++	.per_cpu_gain		= 100,			\
++	.flags			= SD_BALANCE_EXEC	\
++				| SD_BALANCE_CLONE	\
++				| SD_WAKE_BALANCE,	\
++	.last_balance		= jiffies,		\
++	.balance_interval	= 1,			\
++	.nr_balance_failed	= 0,			\
++}
+ #define ARCH_HAS_SCHED_WAKE_IDLE
+ #endif
+ 
+===== include/linux/sched.h 1.228 vs edited =====
+--- 1.228/include/linux/sched.h	2004-07-28 21:58:54 -07:00
++++ edited/include/linux/sched.h	2004-08-13 10:06:05 -07:00
+@@ -17,6 +17,7 @@
+ #include <asm/system.h>
+ #include <asm/semaphore.h>
+ #include <asm/page.h>
++#include <asm/processor.h>
+ #include <asm/ptrace.h>
+ #include <asm/mmu.h>
+ 
+@@ -654,6 +655,7 @@
+ }
+ 
+ #ifdef CONFIG_NUMA
++#ifndef ARCH_HAS_SCHED_DOMAIN
+ /* Common values for NUMA nodes */
+ #define SD_NODE_INIT (struct sched_domain) {		\
+ 	.span			= CPU_MASK_NONE,	\
+@@ -673,6 +675,7 @@
+ 	.balance_interval	= 1,			\
+ 	.nr_balance_failed	= 0,			\
+ }
++#endif
+ #endif
+ 
+ extern void cpu_attach_domain(struct sched_domain *sd, int cpu);
+===== kernel/sched.c 1.319 vs edited =====
+--- 1.319/kernel/sched.c	2004-08-02 01:00:40 -07:00
++++ edited/kernel/sched.c	2004-08-13 10:59:53 -07:00
+@@ -1826,10 +1826,8 @@
+ 	for_each_domain(busiest_cpu, sd)
+ 		if (cpu_isset(busiest->push_cpu, sd->span))
+ 			break;
+-	if (!sd) {
+-		WARN_ON(1);
++	if (!sd)
+ 		return;
+-	}
+ 
+  	group = sd->groups;
+ 	while (!cpu_isset(busiest_cpu, group->cpumask))
+
+--Boundary-00=_oOQHBrWSHZUr5Zz--
