@@ -1,28 +1,24 @@
-From: "Nguyen, Tom L" <tom.l.nguyen@intel.com>
-Date: Fri, 16 Apr 2004 15:15:25 +0000
-Subject: RE: [PATCH] PCI MSI Kconfig consolidation
-Message-Id: <C7AB9DA4D0B1F344BF2489FA165E50240405825A@orsmsx404.jf.intel.com>
+From: Srikanta R <r_srikanta1234@yahoo.com>
+Date: Mon, 12 Apr 2004 04:21:50 +0000
+Subject: 32 bit application on IA-64 Linux
+Message-Id: <20040412042150.30706.qmail@web13122.mail.yahoo.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200404131041.06275.bjorn.helgaas@hp.com>
-In-Reply-To: <200404131041.06275.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Andi Kleen <ak@suse.de>, Zwane Mwaikambo <zwane@linuxpower.ca>, Grant Grundler <iod00d@hp.com>
+To: linux-ia64@vger.kernel.org
 
-On Thursday 15 April 2004 2:49 pm, Bjorn Helgaas wrote:
+Hi,
 
->On Thursday 15 April 2004 2:49 pm, Nguyen, Tom L wrote:
->> Based on your PCI MSI Kconfig consolidation patch, the below patch converts the
->> use of CONFIG_PCI_USE_VECTOR to CONFIG_PCI_MSI. Please let us know your comments.
->
->Looks good to me.  We still have the #ifdefs in drivers/acpi/osl.s, but I
->have a patch outstanding to remove that, since everybody now
->implements acpi_gsi_to_irq().  I'll update my patch if yours goes
->in first.
-
-Good!
+I need to compile a 32 bit application on a IA-64
+Linux system, that will run on IA-64 system. I didn't
+find any such option for the compiler on IA-64 Linux
+system. Can someone suggest how can I get this done ?
 
 Thanks,
-Long
+Srikanta.
+
+__________________________________
+Do you Yahoo!?
+Yahoo! Tax Center - File online by April 15th
+http://taxes.yahoo.com/filing.html
