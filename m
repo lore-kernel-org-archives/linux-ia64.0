@@ -1,8 +1,10 @@
 From: Ray Bryant <raybry@sgi.com>
-Date: Sat, 13 Mar 2004 03:44:03 +0000
+Date: Sat, 13 Mar 2004 03:45:09 +0000
 Subject: Hugetlbpages in very large memory machines.......
-Message-Id: <40528383.10305@sgi.com>
+Message-Id: <405283C5.5060702@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <40528383.10305@sgi.com>
+In-Reply-To: <40528383.10305@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
