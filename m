@@ -1,20 +1,63 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 18 Jun 2003 17:54:45 +0000
-Subject: Re: [PATCH] PCI fixes for sn2
-Message-Id: <marc-linux-ia64-105595889222905@msgid-missing>
+From: Chad Talbott <chadt@sgi.com>
+Date: Wed, 18 Jun 2003 21:29:09 +0000
+Subject: [PATCH] early_printk for SGI SN2
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-=-="
+Message-Id: <marc-linux-ia64-105597176305635@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105595346915713@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105595346915713@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I applied your patches.  Speaking of SN2: could someone please give a
-thorough testing for the time-interpolator code on the SN2?  I asked
-in the past whether the current code is working properly and never got
-an answer.
+--=-=-=
+
+This patch requires the console driver that's pending inclusion in
+Linus' tree, but will not get in the way as long as
+IA64_EARLY_PRINTK_SGI_SN is config'd off.
 
 Thanks,
+Chad
 
-	--david
+
+--=-=-=
+Content-Type: text/x-patch
+Content-Disposition: attachment; filename=early_printk.diff
+
+diff -Nru a/kernel/printk.c b/kernel/printk.c
+--- a/kernel/printk.c	Tue Jun 17 14:47:33 2003
++++ b/kernel/printk.c	Tue Jun 17 14:47:33 2003
+@@ -784,6 +784,10 @@
+ 
+ # endif /* CONFIG_IA64_EARLY_PRINTK_UART */
+ 
++#ifdef CONFIG_IA64_EARLY_PRINTK_SGI_SN
++extern int sal_cons_console_out(const char *str, int len);
++#endif
++
+ void early_printk(const char *str, size_t len)
+ {
+ #ifdef CONFIG_IA64_EARLY_PRINTK_UART
+@@ -791,6 +795,9 @@
+ #endif
+ #ifdef CONFIG_IA64_EARLY_PRINTK_VGA
+ 	early_printk_vga(str, len);
++#endif
++#ifdef CONFIG_IA64_EARLY_PRINTK_SGI_SN
++ 	sal_cons_console_out(str, len);
+ #endif
+ }
+ 
+diff -Nru a/arch/ia64/Kconfig b/arch/ia64/Kconfig
+--- a/arch/ia64/Kconfig	Tue Jun 17 14:45:16 2003
++++ b/arch/ia64/Kconfig	Tue Jun 17 14:45:16 2003
+@@ -863,6 +831,10 @@
+ 
+ config IA64_EARLY_PRINTK_VGA
+ 	bool "Early printk on VGA"
++	depends on IA64_EARLY_PRINTK
++
++config IA64_EARLY_PRINTK_SGI_SN
++	bool "Early printk on SGI SN serial console"
+ 	depends on IA64_EARLY_PRINTK
+ 
+ config DEBUG_SLAB
+
+--=-=-=--
