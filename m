@@ -1,19 +1,23 @@
 From: jbarnes@sgi.com (Jesse Barnes)
-Date: Mon, 01 Mar 2004 22:45:26 +0000
-Subject: [PATCH] don't assume iosapic interrupt controller in mca.c
-Message-Id: <20040301224526.GA22182@sgi.com>
+Date: Wed, 03 Mar 2004 17:28:35 +0000
+Subject: [PATCH] don't assume iosapic interrupt controllers
+Message-Id: <20040303172835.GF2026@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040301224526.GA22182@sgi.com>
+In-Reply-To: <20040301224526.GA22182@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Any problems with this patch?  Sn2 doesn't have an iosapic interrupt
-controller, so we'd rather not hardcode that type into mca.c for the CPE
-interrupt vector.
+Some ia64 machines don't use an iosapic interrupt controller (a flagrant
+violation of the DIG64 spec, gasp!), so don't assume it's there in
+mca.c.  This patch got no complaints last time I posted it, so I'm
+proposing it for inclusion.
 
 Thanks,
 Jesse
+
 
 === arch/ia64/kernel/mca.c 1.59 vs edited ==--- 1.59/arch/ia64/kernel/mca.c	Thu Feb 12 16:14:34 2004
 +++ edited/arch/ia64/kernel/mca.c	Mon Mar  1 14:43:35 2004
