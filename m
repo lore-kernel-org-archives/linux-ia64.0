@@ -1,12 +1,30 @@
-From: "Pat O'Rourke" <orourke@mclinux.com>
-Date: Mon, 21 Aug 2000 15:44:35 +0000
-Subject: [Linux-ia64] 2.4.0-test6 boot problems
-Message-Id: <marc-linux-ia64-105590678205358@msgid-missing>
+From: "Rao, Goutham" <goutham.rao@intel.com>
+Date: Mon, 21 Aug 2000 16:11:46 +0000
+Subject: RE: [Linux-ia64] 2.4.0-test6 boot problems
+Message-Id: <marc-linux-ia64-105590678205359@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205358@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205358@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Hello,
+If you are using QLogic, please make sure you have enabled Greater than 4gb
+addressing in the Firmware (use the Alt-Q) option.  If that still failes,
+let me know.
+
+Thanks,
+Goutham
+
+-----Original Message-----
+From: Pat O'Rourke [mailto:orourke@mclinux.com]
+Sent: Monday, August 21, 2000 8:45 AM
+To: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] 2.4.0-test6 boot problems
+
+
 
 We have a Lion w/ 3gb of RAM, 2gb of which begins at 0x100000000 physical
 (i.e. 4gb), that will not boot 2.4.0-test6 unless we limit it to using the
@@ -33,5 +51,11 @@ Pat
 Patrick O'Rourke
 orourke@missioncriticallinux.com
 
+
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
 
