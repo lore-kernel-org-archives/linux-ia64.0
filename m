@@ -1,43 +1,54 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Wed, 30 Jun 2004 18:11:04 +0000
-Subject: Re: BUG 2.6.7 hangs on boot (rx2600)
-Message-Id: <200406301111.04482.jbarnes@engr.sgi.com>
+Date: Fri, 04 Jun 2004 22:51:25 +0000
+Subject: [PATCH] ia64 MAINTAINERS update
+Message-Id: <200406041551.25405.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_tzPwA9DosQhBL93"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040622061505.GA23075@cup.hp.com>
-In-Reply-To: <20040622061505.GA23075@cup.hp.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, davidm@hpl.hp.com, akpm@osdl.org, willy@debian.org
+
+
+--Boundary-00=_tzPwA9DosQhBL93
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Disposition: inline
 
-On Tuesday, June 29, 2004 11:19 am, Chen, Kenneth W wrote:
-> Jesse Barnes wrote on Tuesday, June 29, 2004 11:14 AM
->
-> > > > > > I tried both of these on a machine that doesn't have memory at
-> > > > > > the stock kernel load address, and it failed very early on. 
-> > > > > > However, it works with the attached patch.
-> > > > >
-> > > > > Let me confirm what I understand:
-> > > > > David's bk tree doesn't boot.
-> > > > > David's bk tree + 2 patches I posted this morning doesn't boot.
-> > > > >
-> > > > > Is that correct?
-> > > >
-> > > > Correct.  David's tree hangs at a later point though, after printing
-> > > > "Console: ... 80x25".
-> > >
-> > > I presume David's bk tree plus this patch also hung on your machine?
-> > > http://www.gelato.unsw.edu.au/linux-ia64/0406/10162.html
-> >
-> > Yep.  It gets as far as David's tree plus your patches from this morning.
->
-> Looks like there are more places where kernel does "virt -> phys -> virt".
-> And conversion from phys to virt is setting 3 msb to 1.
-
-Yep, that looks like a problem.  The kernel hangs right after the 
-local_flush_tlb_all in ia64_tlb_init, and if I comment it out I get a "Unable 
-to handle kernel paging request at virtual address a000003004289f70" which, 
-on sn2, looks like a virt -> phys -> virt conversion (i.e. 0x3004289f70 is a 
-valid physical address).
+Dave Hansen pointed out that linux-ia64@linuxia64.org is broken.  Since the 
+list has moved and the domain is gone, update the list address and kill the 
+URL.  I think willy has a new domain for ia64 Linux, but it was down for me, 
+so I'll let him update the file later with the new URL if he wants to.
 
 Jesse
+
+--Boundary-00=_tzPwA9DosQhBL93
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="ia64-maintainers-update.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ia64-maintainers-update.patch"
+
+===== MAINTAINERS 1.216 vs edited =====
+--- 1.216/MAINTAINERS	Mon May 31 18:02:57 2004
++++ edited/MAINTAINERS	Fri Jun  4 15:49:17 2004
+@@ -944,15 +944,14 @@
+ IA64 (Itanium) PLATFORM
+ P:	David Mosberger-Tang
+ M:	davidm@hpl.hp.com
+-L:	linux-ia64@linuxia64.org
+-W:	http://www.linuxia64.org/
++L:	linux-ia64@vger.kernel.org
+ S:	Maintained
+ 
+ SN-IA64 (Itanium) SUB-PLATFORM
+ P:	Jesse Barnes
+ M:	jbarnes@sgi.com
+ L:	linux-altix@sgi.com
+-L:	linux-ia64@linuxia64.org
++L:	linux-ia64@vger.kernel.org
+ W:	http://www.sgi.com/altix
+ S:	Maintained
+ 
+
+--Boundary-00=_tzPwA9DosQhBL93--
