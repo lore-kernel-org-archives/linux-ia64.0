@@ -1,26 +1,104 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 16 May 2003 22:58:31 +0000
-Subject: Re: [Linux-ia64] RE: [PATCH] head.S fix for unusual load addrs
-Message-Id: <marc-linux-ia64-105590723705917@msgid-missing>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 19 May 2003 17:57:03 +0000
+Subject: RE: [Linux-ia64] RE: [PATCH] head.S fix for unusual load addrs
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C31E30.0DA98852"
+Message-Id: <marc-linux-ia64-105590723705947@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705550@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705550@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 16 May 2003 15:54:27 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+This is a multi-part message in MIME format.
 
-  Tony> It's the wrong file ... that's from last November ... it just
-  Tony> happened to be in the folder on my PC where I dump things to
-  Tony> attach to e-mail. I meant to pick up the kcore.diff (now
-  Tony> attached).
+------_=_NextPart_001_01C31E30.0DA98852
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Ah, I see.
+Here's what the kcore change looks like if I take the suggestion
+that Andi Kleen made on LKML
+ =
+http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=3D103556903730989&w=3D2
+to add the kernel to the vmlist.  Combined with the KCORE_BASE
+change (which is 98% included) we avoid the negative addresses
+that required a bunch more changes in Andi's patch.
 
-Definitely something to be discussed on the lkml.  I suspect it would
-be better to avoid creating the PT_NULL header when it's not needed.
+I've juggled the addresses around again, moving the kernel up to
+0xA000004000000000 and VMALLOC_START back down to 0xA000000000030000
+so that the entry for the kernel goes on the *end* of the vmlist,
+so we don't have to uselessly step over it on every call to vmalloc().
 
-	--david
+I picked that kernel start address as it is half-way between
+VMALLOC_START and VMALLOC_END for a PAGE_SIZE=3D4k kernel.  There
+are many alternatives ... choose a different one (between VMALLOC_START
+and VMALLOC_END) if you come up with a good reason for a different
+address.
+
+This builds and boots on Tiger, and now I can run:
+
+	# gdb vmlinux /proc/kcore
+	(gdb) x/s log_buf
+
+and see the contents of kernel memory.
+
+-Tony
+
+------_=_NextPart_001_01C31E30.0DA98852
+Content-Type: application/octet-stream;
+	name="kcore2.diff"
+Content-Transfer-Encoding: base64
+Content-Description: kcore2.diff
+Content-Disposition: attachment;
+	filename="kcore2.diff"
+
+ZGlmZiAtcnUgbDI1NjktbW9zYmVyZ2VyL2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYyBsMjU2OS1h
+ZWdsL2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYw0KLS0tIGwyNTY5LW1vc2Jlcmdlci9hcmNoL2lh
+NjQva2VybmVsL3NldHVwLmMJRnJpIE1heSAxNiAxMTo0Njo1NyAyMDAzDQorKysgbDI1NjktYWVn
+bC9hcmNoL2lhNjQva2VybmVsL3NldHVwLmMJRnJpIE1heSAxNiAxNzoxMToxOCAyMDAzDQpAQCAt
+MzIsNiArMzIsNyBAQA0KICNpbmNsdWRlIDxsaW51eC90dHkuaD4NCiAjaW5jbHVkZSA8bGludXgv
+ZWZpLmg+DQogI2luY2x1ZGUgPGxpbnV4L2luaXRyZC5oPg0KKyNpbmNsdWRlIDxsaW51eC92bWFs
+bG9jLmg+DQogDQogI2luY2x1ZGUgPGFzbS9pYTMyLmg+DQogI2luY2x1ZGUgPGFzbS9wYWdlLmg+
+DQpAQCAtNDcsNyArNDgsNyBAQA0KICMgZXJyb3IgInN0cnVjdCBjcHVpbmZvX2lhNjQgdG9vIGJp
+ZyEiDQogI2VuZGlmDQogDQotZXh0ZXJuIGNoYXIgX2VuZDsNCitleHRlcm4gY2hhciBfc3RleHQs
+IF9lbmQ7DQogDQogI2lmZGVmIENPTkZJR19TTVANCiB1bnNpZ25lZCBsb25nIF9fcGVyX2NwdV9v
+ZmZzZXRbTlJfQ1BVU107DQpAQCAtMzkzLDYgKzM5NCwxOCBAQA0KIHsNCiAJZXh0ZXJuIHVuc2ln
+bmVkIGxvbmcgaWE2NF9pb2Jhc2U7DQogCXVuc2lnbmVkIGxvbmcgcGh5c19pb2Jhc2U7DQorCXN0
+YXRpYyBzdHJ1Y3Qgdm1fc3RydWN0IGtlcm47DQorCXVuc2lnbmVkIGxvbmcgcywgZTsNCisNCisJ
+LyogQWRkIGVudHJ5IHRvIHZtbGlzdCBmb3IgdGhlIGtlcm5lbCAocm91bmQgb3V0IHRvIGhvdyBt
+dWNoIGlzIG1hcHBlZCkgKi8NCisJcyA9ICh1bnNpZ25lZCBsb25nKSZfc3RleHQ7DQorCXMgJj0g
+fihLRVJORUxfVFJfUEFHRV9TSVpFLTEpOw0KKwllID0gKHVuc2lnbmVkIGxvbmcpJl9lbmQ7DQor
+CWUgPSAoZSArIEtFUk5FTF9UUl9QQUdFX1NJWkUtMSkgJiB+KEtFUk5FTF9UUl9QQUdFX1NJWkUt
+MSk7DQorCWtlcm4uYWRkciA9ICh2b2lkICopczsNCisJa2Vybi5zaXplID0gZSAtIHM7DQorCWtl
+cm4ubmV4dCA9IHZtbGlzdDsNCisJdm1saXN0ID0gJmtlcm47DQogDQogCXVud19pbml0KCk7DQog
+DQpkaWZmIC1ydSBsMjU2OS1tb3NiZXJnZXIvZnMvcHJvYy9rY29yZS5jIGwyNTY5LWFlZ2wvZnMv
+cHJvYy9rY29yZS5jDQotLS0gbDI1NjktbW9zYmVyZ2VyL2ZzL3Byb2Mva2NvcmUuYwlUaHUgTWF5
+IDE1IDEwOjEyOjU2IDIwMDMNCisrKyBsMjU2OS1hZWdsL2ZzL3Byb2Mva2NvcmUuYwlNb24gTWF5
+IDE5IDA4OjU3OjE3IDIwMDMNCkBAIC05OSw3ICs5OSw5IEBADQogfQ0KICNlbHNlIC8qIENPTkZJ
+R19LQ09SRV9BT1VUICovDQogDQorI2lmbmRlZiBLQ09SRV9CQVNFDQogI2RlZmluZQlLQ09SRV9C
+QVNFCVBBR0VfT0ZGU0VUDQorI2VuZGlmDQogDQogI2RlZmluZSByb3VuZHVwKHgsIHkpICAoKCgo
+eCkrKCh5KS0xKSkvKHkpKSooeSkpDQogDQpkaWZmIC1ydSBsMjU2OS1tb3NiZXJnZXIvaW5jbHVk
+ZS9hc20taWE2NC9wZ3RhYmxlLmggbDI1NjktYWVnbC9pbmNsdWRlL2FzbS1pYTY0L3BndGFibGUu
+aA0KLS0tIGwyNTY5LW1vc2Jlcmdlci9pbmNsdWRlL2FzbS1pYTY0L3BndGFibGUuaAlGcmkgTWF5
+IDE2IDExOjQ2OjU3IDIwMDMNCisrKyBsMjU2OS1hZWdsL2luY2x1ZGUvYXNtLWlhNjQvcGd0YWJs
+ZS5oCU1vbiBNYXkgMTkgMDk6MDQ6MzAgMjAwMw0KQEAgLTIwNyw3ICsyMDcsOCBAQA0KICNkZWZp
+bmUgUkdOX01BUF9MSU1JVAkoKDFVTCA8PCAoNCpQQUdFX1NISUZUIC0gMTIpKSAtIFBBR0VfU0la
+RSkJLyogcGVyIHJlZ2lvbiBhZGRyIGxpbWl0ICovDQogI2RlZmluZSBSR05fS0VSTkVMCTcNCiAN
+Ci0jZGVmaW5lIFZNQUxMT0NfU1RBUlQJCTB4YTAwMDAwMDIwMDAwMDAwMA0KKyNkZWZpbmUJS0NP
+UkVfQkFTRQkJMHhhMDAwMDAwMDAwMDAwMDAwDQorI2RlZmluZSBWTUFMTE9DX1NUQVJUCQkoMHhh
+MDAwMDAwMDAwMDAwMDAwICsgMypQRVJDUFVfUEFHRV9TSVpFKQ0KICNkZWZpbmUgVk1BTExPQ19W
+TUFERFIoeCkJKCh1bnNpZ25lZCBsb25nKSh4KSkNCiAjaWZkZWYgQ09ORklHX1ZJUlRVQUxfTUVN
+X01BUA0KICMgZGVmaW5lIFZNQUxMT0NfRU5EX0lOSVQJKDB4YTAwMDAwMDAwMDAwMDAwMCArICgx
+VUwgPDwgKDQqUEFHRV9TSElGVCAtIDkpKSkNCmRpZmYgLXJ1IGwyNTY5LW1vc2Jlcmdlci9pbmNs
+dWRlL2FzbS1pYTY0L3N5c3RlbS5oIGwyNTY5LWFlZ2wvaW5jbHVkZS9hc20taWE2NC9zeXN0ZW0u
+aA0KLS0tIGwyNTY5LW1vc2Jlcmdlci9pbmNsdWRlL2FzbS1pYTY0L3N5c3RlbS5oCUZyaSBNYXkg
+MTYgMTE6NDY6NTcgMjAwMw0KKysrIGwyNTY5LWFlZ2wvaW5jbHVkZS9hc20taWE2NC9zeXN0ZW0u
+aAlNb24gTWF5IDE5IDA5OjA1OjI1IDIwMDMNCkBAIC0xOSw3ICsxOSw3IEBADQogI2luY2x1ZGUg
+PGFzbS9wYWwuaD4NCiAjaW5jbHVkZSA8YXNtL3BlcmNwdS5oPg0KIA0KLSNkZWZpbmUgS0VSTkVM
+X1NUQVJUCQkoMHhhMDAwMDAwMTAwMDAwMDAwKQ0KKyNkZWZpbmUgS0VSTkVMX1NUQVJUCQkoMHhh
+MDAwMDA0MDAwMDAwMDAwKQ0KIA0KIC8qIDB4YTAwMDAwMDAwMDAwMDAwMCAtIDB4YTAwMDAwMDAw
+MDAwMDAwMCtQRVJDUFVfTUFYX1NJWkUgcmVtYWluIHVubWFwcGVkICovDQogI2RlZmluZSBQRVJD
+UFVfQUREUgkJKDB4YTAwMDAwMDAwMDAwMDAwMCArIFBFUkNQVV9QQUdFX1NJWkUpDQo=
+
+------_=_NextPart_001_01C31E30.0DA98852--
 
