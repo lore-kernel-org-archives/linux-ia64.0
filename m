@@ -1,7 +1,7 @@
-From: "Van Maren, Kevin" <kevin.vanmaren@unisys.com>
-Date: Fri, 08 Nov 2002 18:05:30 +0000
-Subject: RE: [Linux-ia64] reader-writer livelock problem
-Message-Id: <marc-linux-ia64-105590709805368@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 08 Nov 2002 19:19:07 +0000
+Subject: Re: [Linux-ia64] reader-writer livelock problem
+Message-Id: <marc-linux-ia64-105590709805373@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805355@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805355@msgid-missing>
@@ -10,38 +10,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Absolutely you should minimize the locking contention.
-However, that isn't always possible, such as when you
-have 64 processors contending on the same resource.
-With the current kernel, the trivial example with reader/
-writer locks was having them all call gettimeofday().
-But try having 64 processors fstat() the same file,
-which I have also seen happen (application looping,
-waiting for another process to finish setting up the
-file so they can all mmap it).
+On Fri, Nov 08, 2002 at 12:05:30PM -0600, Van Maren, Kevin wrote:
+> Absolutely you should minimize the locking contention.
+> However, that isn't always possible, such as when you
+> have 64 processors contending on the same resource.
 
-What MCS locks do is they reduce the number of times
-the cacheline has to be flung around the system in
-order to get work done: they "scale" much better with
-the number of processors: O(N) instead of O(N^2).
+if you've got 64 processors contending on the same resource, maybe you
+need to split that resource up so they can have a copy each.  all that
+cacheline bouncing can't do your numa boxes any good.
 
-Kevin
+> With the current kernel, the trivial example with reader/
+> writer locks was having them all call gettimeofday().
 
------Original Message-----
-From: Matthew Wilcox
-To: Van Maren, Kevin
-Cc: 'Linus Torvalds '; 'Jeremy Fitzhardinge '; 'William Lee Irwin III ';
-'linux-ia64@linuxia64.org '; 'Linux Kernel List '; 'rusty@rustcorp.com.au ';
-'dhowells@redhat.com '; 'mingo@elte.hu '
-Sent: 11/8/02 12:52 PM
-Subject: Re: [Linux-ia64] reader-writer livelock problem
+i hear x86-64 has a lockless gettimeofday.  maybe that's the solution.
 
-On Fri, Nov 08, 2002 at 11:41:57AM -0600, Van Maren, Kevin wrote:
-> processor to acquire/release the lock once.  So with 32 processors
-> contending for the lock, at 1us per cache-cache transfer (picked
+> But try having 64 processors fstat() the same file,
+> which I have also seen happen (application looping,
+> waiting for another process to finish setting up the
+> file so they can all mmap it).
 
-if you have 32 processors contending for the same spinlock, you have
-bigger problems.
+umm.. the call trace:
+
+sys_fstat
+|-> vfs_fstat
+|   |-> fget
+|	|-> read_lock(&files->file_lock)
+|   |-> vfs_getattr
+|	|-> inode->i_op->getattr
+|	|-> generic_fillattr
+|-> cp_new_stat64
+    |-> memset
+    |-> copy_to_user
+
+so you're talking about contention on files->file_lock, right?  it's really
+not the kernel's fault that your app is badly written.  that lock's private
+to process & children, so it's not like another application can hurt you.
+
+> What MCS locks do is they reduce the number of times
+> the cacheline has to be flung around the system in
+> order to get work done: they "scale" much better with
+> the number of processors: O(N) instead of O(N^2).
+
+yes, but how slow are they in the uncontended case?
 
 -- 
 Revolutions do not require corporate support.
