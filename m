@@ -1,33 +1,37 @@
-From: Grant Grundler <grundler@cup.hp.com>
-Date: Sat, 06 Apr 2002 01:12:04 +0000
-Subject: Re: [Linux-ia64] Re: Boot hangs "Probing PCI hardware"
-Message-Id: <marc-linux-ia64-105590701905400@msgid-missing>
+From: Richard Hirst <rhirst@linuxcare.com>
+Date: Tue, 16 Apr 2002 20:00:09 +0000
+Subject: [Linux-ia64] gcc type promotion bug?
+Message-Id: <marc-linux-ia64-105590701905457@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905390@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905390@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-=?iso-2022-jp?B?IhskQkRhQG4hIUMjTGkbKEIi?= wrote:
-...
-> In this case, the video device gets 64MB memory space from 0xFC000000 to
-> 0xFFFFFFFF improperly, and it conflicts with System reserve region
-> (0xFCxxxxxx - 0xFExxxxxx) for SAPIC interrupt messages. After that
-> the video device reacts to an SAPIC interrupt improperly.
+#include <stdio.h>
 
-Martin, et al,
-I also believe this is a problem.
-I just haven't seen it because I'm always using serial console.
+int
+main(int argc, char **argv)
+{
+        long a = 0x70000037L;
+        float f = 0.01;
+        long b = a + 1L/f;
 
-This problem might also exist on x86 Foster CPU as well.
-The new x86 CPU also uses IO-xAPIC and Local xAPIC.
-I don't have access to a physical memory map of such a box
-to confirm it though.
+        printf("%lx, %lx\n", b, a + 100L);
+        return 0;
+}
 
-I don't believe this is a problem on HP parisc (also uses
-IO-SAPIC) because of how PCI address routing works.
 
-grant
+
+In the above, 1/f = 100, so the two numbers printed out should be the
+same.  For me it prints out "70000080, 7000009b".  Same for gcc 2.96
+and 3.0.3.
+
+By trying various numbers for 'a', it appears to me that it is demoting
+'a' to a float when evaluating 'b', thus truncating it to 24 significant
+bits.  I thought all mixed mode arithmetic was supposed to be promoted
+to doubles for evaluation.  This is breaking parted 1.6 on ia64.
+
+Richard
+
 
