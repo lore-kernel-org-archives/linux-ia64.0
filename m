@@ -1,41 +1,34 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Wed, 10 Oct 2001 00:17:42 +0000
-Subject: [Linux-ia64] strace update
-Message-Id: <marc-linux-ia64-105590698805313@msgid-missing>
+Date: Thu, 18 Oct 2001 00:56:18 +0000
+Subject: [Linux-ia64] Re: [patch] fix unaligned references inside s/w pipelined loops
+Message-Id: <marc-linux-ia64-105590698805366@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Just FYI: Wichert just got around to update the CVS tree with my
-latest ia64 updates (thanks, Wichert!).  These updates bring the main
-CVS branch in sync with the changes from the ia64 branch.  The latter
-should no longer be needed and I'd recommend switching away from it
-(after sufficient testing, of course...).
+>>>>> On Tue, 16 Oct 2001 08:54:08 -0700, "Luck, Tony" <tony.luck@intel.com> said:
 
-I should say that the old ia64 branch handled the argument printing of
-*some* of the ia32 syscalls a bit better, but OTOH, it failed
-completely on others (often failing with spurious errors or printing
-garbage for some syscall args).  In the main branch, ia32 syscalls
-with arguments that are have a different format than the corresponding
-ia64 syscall are handled simply by printing the arguments as hex
-numbers.  This isn't always very readable, but if it's a real issue,
-we can add proper ia32 argument printing gradually over time.  The
-goal for now was to be on the safe side.  If you see any "umoven"
-errors when stracing x86 binaries, there was an omission somewhere and
-I'd like to hear about it.  In my opinion, the hex printing is usually
-good enough because with recent kernels, you always have the option of
-running the ia32 version of strace.
+  Tony> If an application takes an unaligned trap on a "rotating"
+  Tony> register inside a software pipelined loop[1], then the kernel
+  Tony> will use the wrong register when it fixes the fault.  This
+  Tony> results in corrupted memory or register depending on whether
+  Tony> the unaligned reference was a store or a load respectively.
 
-The other reason why you might want to try out the new strace is that
-it finally supports strace -f across thread creation (not just across
-fork()).
+  Tony> Attached is a patch to fix this (both for the integer case,
+  Tony> which was the one actually reported to me, and the floating
+  Tony> point case too).  Patch is against 2.4.10.
 
-Enjoy,
+Looks good to me.  Patch applied.
+
+  Tony> [1] Don't ask me why someone would go through all the effort
+  Tony> of writing a s/w pipelined loop, but not check for unaligned
+  Tony> access, I don't understand it either ... but they did.
+
+Well, I can think of one reason: it could make sense if the data
+happens to be aligned properly 99.9% of the time.  In any case, this
+was definitely a bug.  Thanks for fixing it.
 
 	--david
-
-PS: And no, this doesn't mean that I want to be the ia64 strace
-    maintainer... ;-)
 
