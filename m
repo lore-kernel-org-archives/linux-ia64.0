@@ -1,7 +1,7 @@
-From: Duraid Madina <duraid@octopus.com.au>
-Date: Wed, 10 Sep 2003 02:57:33 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Wed, 10 Sep 2003 03:27:46 +0000
 Subject: IA32 execution layer
-Message-Id: <marc-linux-ia64-106316277308685@msgid-missing>
+Message-Id: <marc-linux-ia64-106316449509841@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106316528210365@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106316528210365@msgid-missing>
@@ -10,13 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi all,
+>>>>> "Duraid" = Duraid Madina <duraid@octopus.com.au> writes:
 
-	It seems that an IA32 execution layer is going to make its way onto 
-upcoming ia64 windows systems. Is anyone thinking of adding support for 
-such a layer to linux-ia64?
+Duraid> Hi all, It seems that an IA32 execution layer is going to make
+Duraid> its way onto upcoming ia64 windows systems. Is anyone thinking
+Duraid> of adding support for such a layer to linux-ia64?
 
-	Just curious,
+It's already there.  If you have the appropriate libraries, IA32 linux
+programs run perfectly well.
 
-	Duraid
-
+Peter C
