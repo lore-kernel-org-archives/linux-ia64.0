@@ -1,43 +1,28 @@
-From: "petur thors" <peturth@hi.is>
-Date: Thu, 22 Mar 2001 11:25:36 +0000
-Subject: [Linux-ia64] gcc-ia64
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----=_NextPart_000_0013_01C0B2C2.D0C2C9C0"
-Message-Id: <marc-linux-ia64-105590693005336@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Mon, 12 Mar 2001 10:06:24 +0000
+Subject: [Linux-ia64] SuSE Linux 7.1 IA64 available for download
+Message-Id: <marc-linux-ia64-105590693005273@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+The second beta release of SuSE Linux 7.1 for IA64 is now available for
+download.  The ISO images can be found at the following place:
 
-------=_NextPart_000_0013_01C0B2C2.D0C2C9C0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+ftp://ftp.suse.com/pub/suse/ia64/beta-7.1
 
-Hi, I=B4m not very bright.Is there some place were they keep the gcc for =
-ia64 platforms or can I just use the latest gcc 2.96. I would appreciate =
-very much if someone could maybe give me a hint. Thanks
+This release contains kernel 2.4.1 with the 2001-01-31 ia64 patch.  Note
+that A stepping cpus are not supported any more.
 
-------=_NextPart_000_0013_01C0B2C2.D0C2C9C0
-Content-Type: text/html;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Please use our suse-ia64 mailing list for questions related to SuSE Linux
+IA64.  To subscribe send a mail to suse-ia64-subscribe@suse.com.
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
-<META content=3D"text/html; charset=3Diso-8859-1" =
-http-equiv=3DContent-Type>
-<META content=3D"MSHTML 5.00.2919.6307" name=3DGENERATOR>
-<STYLE></STYLE>
-</HEAD>
-<BODY bgColor=3D#d8d0c8>
-<DIV><FONT face=3DArial size=3D2>Hi, I=B4m not very bright.Is there some =
-place were=20
-they keep the gcc for ia64 platforms or can I just use the latest gcc =
-2.96. I=20
-would appreciate very much if someone could maybe give me a hint.=20
-Thanks</FONT></DIV></BODY></HTML>
-
-------=_NextPart_000_0013_01C0B2C2.D0C2C9C0--
-
+--=20
+Andreas Schwab                                  "And now for something
+SuSE Labs                                        completely different."
+Andreas.Schwab@suse.de
+SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
 
