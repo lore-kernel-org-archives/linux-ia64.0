@@ -1,23 +1,22 @@
 From: Gustavo Niemeyer <niemeyer@conectiva.com>
-Date: Tue, 10 Apr 2001 02:59:31 +0000
-Subject: Re: [Linux-ia64] Unresolved symbols when installing modules
-Message-Id: <marc-linux-ia64-105590693005383@msgid-missing>
+Date: Thu, 19 Apr 2001 17:06:07 +0000
+Subject: [Linux-ia64] 2.4.3 + 010405 hanging
+Message-Id: <marc-linux-ia64-105590693005437@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005381@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005381@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I don't know what aci_* does, but as far as isa_* is concerned: DIG64
-> does not support ISA, so you can't link in any drivers that try to
-> access ISA devices.
+Hello!
 
-Thank you David!!
+When I try to do a complex task like kernel compiling and
+I'm running kernel 2.4.3 with ia64 patch 010405, the system
+is hanging frequently.
 
-After removing the necessary modules, everything is working fine. Btw,
-I wasn't aware that DIG64 doesn't support ISA.
+Any known issues about this?
+
+Thanks!
 
 -- 
 Gustavo Niemeyer
