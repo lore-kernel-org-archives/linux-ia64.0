@@ -1,29 +1,33 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 01 Feb 2002 21:28:54 +0000
-Subject: Re: [Linux-ia64] What's taking all the system time..?
-Message-Id: <marc-linux-ia64-105590698805980@msgid-missing>
+From: Jan Schreckenbach <Jan.Schreckenbach@sap.com>
+Date: Thu, 21 Feb 2002 17:28:08 +0000
+Subject: [Linux-ia64] latest working kernel
+Message-Id: <marc-linux-ia64-105590701905159@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805950@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805950@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 30 Jan 2002 20:36:48 +1100, duraid@fl.net.au said:
+Hello,
 
-  >> The kernel DOES NOT generate a printk() for every unaligned
-  >> accesses you get, it's throttled.
+what is the latest kernel running on a C0-step
+Lion with FW 83B?
 
-  Duraid> That's what my intuition told me. But the sysadmin assured
-  Duraid> me that the opposite was true. Bad sysadmin.
+Thx!
 
-If you want to catch all unaligned faults, you can do:
+cu,
+   Jan
 
-	prctl --unaligned=signal gdb PROGNAME
+--
+_______________________________________________________________________
 
-This way, gdb will stop (with a SIGBUS signal) when an unaligned
-access occurs.
+THE BEST RUN E-BUSINESSES RUN SAP
+_______________________________________________________________________
 
-	--david
+Jan Schreckenbach                      email: Jan.Schreckenbach@sap.com
+SAP AG Walldorf/Baden, Germany         Phone: +49 6227  7-47474
+LinuxLab                               Fax  : +49 6227 78-31414
+
+SAP LinuxLab support address: linux@sap.com
+
 
