@@ -1,7 +1,7 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Sat, 17 Jun 2000 02:20:03 +0000
-Subject: Re: [Linux-ia64] Red Hat Linux Release
-Message-Id: <marc-linux-ia64-105590678205158@msgid-missing>
+From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
+Date: Sat, 17 Jun 2000 02:47:41 +0000
+Subject: RE: [Linux-ia64] Red Hat Linux Release
+Message-Id: <marc-linux-ia64-105590678205159@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205156@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205156@msgid-missing>
@@ -10,8 +10,36 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi Bill,
+
+Thanks for your reply. If I would like to get the "Zoot" version of "tar"
+ball, from where can I get it? Please let me know ASAP. 
+
+I really appreciate your feedback.
+
+Thanks.
+
+-- Shameem
+
+Shameem Akhter
+
+IACG
+IA64 Tools Engineering
+Ph: (503) 264-1644
+
+
+
+-----Original Message-----
+From: Bill Nottingham [mailto:notting@redhat.com]
+Sent: Friday, June 16, 2000 7:20 PM
+To: Akhter, Shameem F
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] Red Hat Linux Release
+
+
 Akhter, Shameem F (shameem.f.akhter@intel.com) said: 
-> Could you please let me know the difference in-between the following two Red
+> Could you please let me know the difference in-between the following two
+Red
 > Hat Linux version:
 > 
 > Version 1 - Red Hat Linux release 6.1 (Cartman)
@@ -31,7 +59,8 @@ Bill
 
 
 > 
-> If possible, please specify the changes has been made in these two versions.
+> If possible, please specify the changes has been made in these two
+versions.
 > 
 > Thanks.
 > 
@@ -51,5 +80,6 @@ Bill
 > Linux-IA64@linuxia64.org
 > http://lists.linuxia64.org/lists/listinfo/linux-ia64
 > 
+
 
 
