@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 10 Apr 2003 23:39:46 +0000
+From: Randolph Chung <randolph@tausq.org>
+Date: Thu, 10 Apr 2003 23:56:37 +0000
 Subject: Re: [Linux-ia64] Itanium gets supercomputing software
-Message-Id: <marc-linux-ia64-105590723705458@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705459@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705455@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705455@msgid-missing>
@@ -10,23 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 11 Apr 2003 06:55:30 +1000, Duraid Madina <duraid@octopus.com.au> said:
+> What's a software simulator got to do with anything?  Certain things
+> are easier to develop on a simulator, others are easier to develop on
+> hardware.  Nothing unique to IA64.
 
-  Duraid> You and I both know the only real barrier to Itanium
-  Duraid> adoption is the price. Can anyone here shed some light on
-  Duraid> this? Why is Itanium hardware still so expensive?
+hear hear... i might have access to a bunch of parisc hardware, but i
+would love to get my hands on a good parisc simulator. 
 
-Remember that Intel is targeting Itanium 2 against Power4 and SPARC.
-In that space, the price of Itanium 2 is very competitive.
+i setup the ia64 simulator to play with kernel modules support.. but now
+that david got it working... :-)
 
-  Duraid> Seriously, IA64 must be the first architecture in history
-  Duraid> where a software simulator is still being developed 4 years
-  Duraid> after commercial availability of silicon (indeed, entire
-  Duraid> systems).
-
-What's a software simulator got to do with anything?  Certain things
-are easier to develop on a simulator, others are easier to develop on
-hardware.  Nothing unique to IA64.
-
-	--david
+randolph
+-- 
+Randolph Chung
+Debian GNU/Linux Developer, hppa/ia64 ports
+http://www.tausq.org/
 
