@@ -1,26 +1,26 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Wed, 18 Apr 2001 19:03:56 +0000
-Subject: Re: [Linux-ia64] Endian problems when migrating program from HP-UX to RedHat Linux
-Message-Id: <marc-linux-ia64-105590693005424@msgid-missing>
+From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
+Date: Thu, 26 Apr 2001 09:26:12 +0000
+Subject: [Linux-ia64] glibc 2.3 snapshot ?
+Message-Id: <marc-linux-ia64-105590693005472@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005417@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005417@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Endianness is a feature of the system (CPU+OS).  You can not change it by
-using a compiler option.
+Hi,
 
-ia64-linux is little-endian.  If you want your program to run on ia64-linux,
-then you have to make it work on little-endian systems.
+is ist possible to download snapshots of the glibc CVS version
+somewhere? Due to firewall/proxy problems, I have currently no
+access to the CVS tree.
 
-It would be possible to create a big-endian ia64-linux OS, but that would be
-a great deal of work, and is not a practical solution.
+Regards
+Martin
 
-If you just want to run your program on IA-64 hardware, and don't care about
-the OS, then you could use an ia64-hpux system, which is big-endian.
+-- 
+Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
+FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
 
-Jim
+
+
 
