@@ -1,7 +1,7 @@
-From: Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
-Date: Mon, 14 Apr 2003 12:55:19 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to v2.5.67)
-Message-Id: <marc-linux-ia64-105590723705490@msgid-missing>
+From: "Howell, David P" <david.p.howell@intel.com>
+Date: Mon, 14 Apr 2003 17:00:59 +0000
+Subject: RE: [Linux-ia64] kernel update (relative to v2.5.67)
+Message-Id: <marc-linux-ia64-105590723705496@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
@@ -9,6 +9,48 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+I just downloaded linux-2.5.67 and the linux-2.5.67-ia64-030411.diff
+patch
+and built the kernel, and for a config that was booting with
+linux-2.5.64 
+I now get the same errors reported below on the initial PCI
+configuration.
+
+This is on a tiger4 with 1 Itanium-2 900MHz processor. The same system
+does
+boot properly with RH AS 2.1 with the latest patches.
+
+So it does appear that something bad did happen to the ACPI config
+support 
+for this new cut. For now, back to linux-2.5.64.
+
+Thanks,
+Dave Howell 
+
+These are my opinions and not official opinions of Intel Corp.
+
+David Howell
+Intel Corporation
+Telco Server Development
+Server Products Division
+Voice: (803) 461-6112  Fax: (803) 461-6292
+
+Intel Corporation
+Columbia Design Center, CBA-2
+250 Berryhill Road, Suite 100
+Columbia, SC 29210
+
+david.p.howell@intel.com
+
+
+-----Original Message-----
+From: Takayoshi Kochi [mailto:kochi@hpc.bs1.fc.nec.co.jp] 
+Sent: Monday, April 14, 2003 8:55 AM
+To: davidm@hpl.hp.com
+Cc: linux-ia64@linuxia64.org; greg@kroah.com;
+acpi-devel@lists.sourceforge.net
+Subject: Re: [Linux-ia64] kernel update (relative to v2.5.67)
 
 [Added Cc: to Greg KH and acpi-devel list]
 
@@ -28,12 +70,16 @@ Message-ID: <200304120428.h3C4STTw004554@napali.hpl.hp.com>
 
 > ACPI: Subsystem revision 20030328
 >     ACPI-0341: *** Error: Handler for [PCI_Config] returned AE_ERROR
->     ACPI-1121: *** Error: Method execution failed [\_SB_.CBN_._BBN] (Node e000000005340900), AE_ERROR
->     ACPI-0098: *** Error: Method execution failed [\_SB_.CBN_._BBN] (Node e000000005340900), AE_ERROR
+>     ACPI-1121: *** Error: Method execution failed [\_SB_.CBN_._BBN]
+(Node e000000005340900), AE_ERROR
+>     ACPI-0098: *** Error: Method execution failed [\_SB_.CBN_._BBN]
+(Node e000000005340900), AE_ERROR
 > kernel unaligned access to 0x000000000000059d, ip=0xe0000000048a9821
 >     ACPI-0341: *** Error: Handler for [PCI_Config] returned AE_ERROR
->     ACPI-1121: *** Error: Method execution failed [\PLAT] (Node e00000003f22f840), AE_AML_NO_RETURN_VALUE
->     ACPI-1121: *** Error: Method execution failed [\_SB_.PCI2._STA] (Node e000000005347e00), AE_AML_NO_RETURN_VALUE
+>     ACPI-1121: *** Error: Method execution failed [\PLAT] (Node
+e00000003f22f840), AE_AML_NO_RETURN_VALUE
+>     ACPI-1121: *** Error: Method execution failed [\_SB_.PCI2._STA]
+(Node e000000005347e00), AE_AML_NO_RETURN_VALUE
 
 It seems that newly integrated PCI segment support is incomplete.
 
@@ -91,4 +137,9 @@ on i386.  This is also a problem, though it's not so urgent.
 Thanks,
 ---
 Takayoshi Kochi <kochi@hpc.bs1.fc.nec.co.jp>
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
