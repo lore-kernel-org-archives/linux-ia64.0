@@ -1,23 +1,37 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Thu, 29 Nov 2001 00:41:15 +0000
-Subject: Re: [Linux-ia64] kernel update (relative to 2.4.16)
-Message-Id: <marc-linux-ia64-105590698805559@msgid-missing>
+From: "Siddha, Suresh B" <suresh.b.siddha@intel.com>
+Date: Fri, 16 Nov 2001 02:05:47 +0000
+Subject: [Linux-ia64] PATCH: Fix for 4KB kernel corruption
+Message-Id: <marc-linux-ia64-105590698805523@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205111@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The ia64 patch for 2.4.16 has been updated (in the usual place).  The
-patch fixes the NUMA issue reported by Andreas.  Also, there were a
-couple of cleanups which should make it in theory possible to use this
-source tree for building both x86 and ia64 kernels.  Thanks to John
-Hesterberg for some of those patches.  I suspect this will make some
-people happy and others unhappy (since it increases the patch size,
-slightly).  But the additional changes required to the x86 specific
-files are so small that it shouldn't be a major issue.
+Hi,
 
-	--david
+4KB page size kernel is broken on Lion with 8GB memory. ia64_boot_param
+structure was getting corrupted. Appended patch fixes this problem.
+
+PAGE_ALIGN is required because: rsvd_region[i].end need not be page aligned
+and in the next iteration of the for loop this can potentially become
+bootmap_start. This can lead to corruption of rsvd_region[i] as
+init_bootmem() takes the pfn of bootmap_start and initialises the bootmem.
+
+Thanks,
+Suresh
+
+diff -u linux-2.4.14/arch/ia64/kernel/setup.c~
+linux-2.4.14/arch/ia64/kernel/setup.c
+--- linux-2.4.14/arch/ia64/kernel/setup.c~      Thu Nov 15 16:27:23 2001
++++ linux-2.4.14/arch/ia64/kernel/setup.c       Thu Nov 15 16:28:01 2001
+@@ -175,7 +175,7 @@
+                /* nothing more available in this segment */
+                if (range_end = end) return 0;
+ 
+-               free_start = rsvd_region[i].end;
++               free_start = PAGE_ALIGN(rsvd_region[i].end);
+        }
+        return 0;
+ }
 
