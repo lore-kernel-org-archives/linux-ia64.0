@@ -1,7 +1,7 @@
-From: Don Dugger <n0ano@n0ano.com>
-Date: Thu, 14 Nov 2002 15:10:08 +0000
-Subject: Re: [Linux-ia64] Re: memcpy failure
-Message-Id: <marc-linux-ia64-105590709805427@msgid-missing>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 14 Nov 2002 15:47:34 +0000
+Subject: [Linux-ia64] RE: memcpy failure
+Message-Id: <marc-linux-ia64-105590709805428@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805424@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805424@msgid-missing>
@@ -10,45 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I sometimes prefer a routine to return a pointer, even if the
-pointer is known in advance.  This way you can set a pointer
-in the same statement that does the copy, e.g.:
+David,
 
-	ptr = memcpy(malloc(100), buffer, 100);
+I was thinking along the same line as returning void for memcpy.  And that is what implemented in memcpy_mck.S. r8 is initialized to zero in the code path mainly for copy_user.
 
-rather than:
+I suppose I should follow the convention since everyone except me expect memcpy to return dest pointer and actually use the return value ;-)  I can work on that although I need to shuffle some instruction around to avoid  expand the code size and worsen the copy throughput.
 
-	ptr = malloc(100);
-	memcpy(ptr, buffer, 100);
+- Ken
 
-This is just a stylistic issue, I like to remove lines of code
-whenever possible.
 
-PS:  I would never actually do this code example, using a malloc
-without checking the result is wrong, but you get the idea.
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com]
+Sent: Wednesday, November 13, 2002 9:52 PM
+To: Chen, Kenneth W
+Cc: Christian Cotte-Barrot; David Mosberger; Stephane Eranian
+Subject: RE: memcpy failure
 
-On Thu, Nov 14, 2002 at 10:01:44AM +0100, Christian Cotte-Barrot wrote:
-> "Chen, Kenneth W" wrote:
-> > 
-> > The retrun value for memcpy doesn't follow the user space memcpy exactly.
-> > kernel memcpy always return 0.
-> > - Ken
-> > 
-> 
-> But memcpy from memcpy.S is returning a pointer to dest area.
-> That would lead to quasi non-portable code when the return from memcopy
-> is correctly checked depending on which memcopy function is addressed.
-> But BTW, is it meaningful to take into account a return code
-> that is always the same and which value is known in advance ?
-> Does memcpy suppose to failed in some cases ?
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@n0ano.com
+>>>>> On Tue, 12 Nov 2002 10:29:23 -0800, "Chen, Kenneth W" <kenneth.w.chen@intel.com> said:
+
+  Ken> The retrun value for memcpy doesn't follow the user space
+  Ken> memcpy exactly.  kernel memcpy always return 0.
+
+Why are you saying this?  As far as I know, the kernel memcpy() is
+expected to return the (initial) destination address.  Perhaps you're
+thinking of copy_user()?
+
+(If it was up to me, memcpy() would be returning void...).
+
+	--david
 
