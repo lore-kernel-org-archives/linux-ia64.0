@@ -1,7 +1,7 @@
-From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
-Date: Wed, 19 May 2004 05:25:11 +0000
+From: Paul Jackson <pj@sgi.com>
+Date: Wed, 19 May 2004 09:17:58 +0000
 Subject: Re: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <200405190525.i4J5PCpv001281@mtv-vpn-hw-mfl-1.corp.sgi.com>
+Message-Id: <20040519021758.4c4ddb71.pj@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040513150842.22F5.YGOTO@us.fujitsu.com>
 In-Reply-To: <20040513150842.22F5.YGOTO@us.fujitsu.com>
@@ -10,32 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> The boot already follows the same methodology, the boot cpu comes up, and the rest of the cpu's are brought up. for e.g. smp_init() does call cpu_up() which is the same path for hotplug.
+> My point was that if it would make sense to get one CPU with a mininmal
+> amount of memory through the entire boot sequence, so it can start system
+> daemons ...
 
-My point was that if it would make sense to get one CPU with a mininmal
-amount of memory through the entire boot sequence, so it can start system 
-daemons etc. Depending on the configuration, this typically takes some time. 
+The placement and initialization of system daemons on large systems
+sometimes depends on the system configuration.  Besides the obvious
+set of daemon kernel threads that are established one per cpu or one
+per node, there may be an intentional placement of classic Unix daemons
+to run on a subset of the available cpus or memory, in order to free
+up the rest of the system for dedicated application use.
 
-While this is happening, HW resources can be added on the fly using hotplug
+Also, I suspect that certain critical system resources (kernel arrays)
+are sized according to how many cpus or how much memory or such is
+available.
 
-> Not sure if cpu_up is a time consuming process, i think if you have more cpu's
-> the startup could be faster as you have now more resources to complete the 
-> statup of kernel.
+Such placement and sizing can adapt to a few cpus and nodes coming and
+going later on in the life of that system boot, but having what looks
+like a one-lung system turn into a 512 cpu monster sometime after init
+has gone multi-user could result in considerable misconfiguraiton.
 
-Again my suggestion was to complete the boot of the kernel with a minimal
-set of resources (TBD). To me it's seems like overkill to have all CPUs
-and main memory ready before you an start sendmail, printer daemon etc.
-
-Of course, you might want to have I/O ready before mounting disk drives
-
-> bringup all cpu() and then defer part of the probe/discovery (especially
-> disks) in parallel would provide real benefit i think.
-
-I would take it one step farther in that the system already can go for
-example to multi-user before all HW resources are attached
-
-Thanks
-
-Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
-Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
-
+-- 
+                          I won't rest till it's the best ...
+                          Programmer, Linux Scalability
+                          Paul Jackson <pj@sgi.com> 1.650.933.1373
