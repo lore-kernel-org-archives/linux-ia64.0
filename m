@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Fri, 04 Apr 2003 15:13:25 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 07 Apr 2003 21:09:24 +0000
 Subject: Re: [Linux-ia64] spin_unlock() problem
-Message-Id: <marc-linux-ia64-105590723705420@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705426@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705414@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705414@msgid-missing>
@@ -10,26 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Kevin" = Van Maren, Kevin <kevin.vanmaren@unisys.com> writes:
+>>>>> On Thu, 3 Apr 2003 23:51:04 -0500, Jes Sorensen <jes@wildopensource.com> said:
 
-Kevin> Bleh.  I should have _looked at_ the code: =[snip]
-Kevin> No, this will not work: if you need it to work, you need to add
-Kevin> a wmb between the store to a and the store to b -- because cpu2
-Kevin> is NOT acquiring "bleh", so it CAN see the writes out of order.
-Kevin> If you were using "bleh" "properly" (ie, always acquiring it to
-Kevin> access a/b) then yes, it should work because the lock/unlock
-Kevin> enforce memory consistency.
+  Jes> Hi, I have been tracing a problem with tty->count hitting an
+  Jes> unidenfied state and I am starting to ponder if our current
+  Jes> spin_unlock() implementation is sufficient.
 
-Hi Kevin,
+  Jes> Currently the spin_unlock() implementation looks like this:
 
-The first example I sent out was clearly bogus, please ignore it. I am
-still pondering the second one. Jack pointed out in private email that
-the release semantics of setting a volatible variable should take care
-of it, but I am still trying to grasp it.
+  Jes> #define spin_unlock(x) do { barrier(); ((spinlock_t *) x)->lock
+  Jes> = 0;} while (0)
 
-Now where did I leave my stash of aspirin.
+  Jes> barrier() doesn't guarantee memory ordering, in other words, we
+  Jes> are not guaranteed that writes have been flushed to physical
+  Jes> memory on exit.
 
-Cheers,
-Jes
+Note that "lock" is declared as "volatile", so clearing it will use
+"release" semantics.  (Since I know you have a copy of the ia64 linux
+kernel book: this is described in detail starting on page 302).
 
+	--david
 
