@@ -1,33 +1,91 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Thu, 10 Jun 2004 20:00:20 +0000
-Subject: Re: [PATCH] discontig.c
-Message-Id: <200406101300.20258.jbarnes@engr.sgi.com>
+Date: Thu, 03 Jun 2004 21:49:07 +0000
+Subject: [PATCH] early console registration
+Message-Id: <200406031449.07627.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_Tz5vAQsgVTDHLr4"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40C87CF0.7070206@hp.com>
-In-Reply-To: <40C87CF0.7070206@hp.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <200405141425.59867.jbarnes@engr.sgi.com>
+In-Reply-To: <200405141425.59867.jbarnes@engr.sgi.com>
 To: linux-ia64@vger.kernel.org
 
-On Thursday, June 10, 2004 11:10 am, David Mosberger wrote:
-> >>>>> On Thu, 10 Jun 2004 11:23:28 -0400, Robert Picco
-> >>>>> <Robert.Picco@hp.com> said:
->
->   Rob> Hi David and Andrew: I found a problem with HP NUMA
->   Rob> configuration in 2.6.7-rc3-mm1.  The node_online_map is
->   Rob> incorrect because of actions taken by reassign_cpu_only_nodes
->   Rob> in arch/ia64/mm/discontig.c.  The mm1 patch which changes the
->   Rob> mempolicy for the init_task uses this invalid node_online_map
->   Rob> and eventually uses a non-existent node's zonelist when calling
->   Rob> __alloc_pages.
->
-> The patch looks fine to me.  If there are no objections from others, I
-> shall be happy to apply it in my tree, if that's what you want me to
-> do.
 
-The node_online bitmap is already initialized to 0, isn't it?  Oh no, I see.  
-arch_numa_init sets all the available nodes online, but then 
-reassign_cpu_nodes truncates that number.  The patch looks ok to me.
+--Boundary-00=_Tz5vAQsgVTDHLr4
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
+Here's an updated early console registration patch, how does it look?  There's 
+another piece to update the sn2 console driver with support for it, but I can 
+send that straight to Andrew.  I think Bjorn has a similar patch for the zx1 
+console.
+
+Allow consoles to be registered early if they support doing output very early 
+in the boot process.  Consoles that allow this are subject to the limitations 
+outlined in the comments for the early_console_setup routine.
+
+Thanks,
 Jesse
+
+--Boundary-00=_Tz5vAQsgVTDHLr4
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="early-printk-2.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="early-printk-2.patch"
+
+===== arch/ia64/kernel/setup.c 1.71 vs edited =====
+--- 1.71/arch/ia64/kernel/setup.c	Fri May 14 19:00:11 2004
++++ edited/arch/ia64/kernel/setup.c	Thu Jun  3 14:39:40 2004
+@@ -280,6 +280,36 @@
+ }
+ #endif
+ 
++/**
++ * early_console_setup - setup debugging console
++ *
++ * Consoles started here require little enough setup that we can start using
++ * them very early in the boot process, either right after the machine
++ * vector initialization, or even before if the drivers can detect their hw.
++ *
++ * Since these drivers are initialized and called very early on in the boot
++ * process, some services are unavailable until the system is up:
++ *   o memory allocation
++ *   o per-cpu data
++ *   o interrupts
++ * The driver is free to have an initcall that switches the console ops
++ * though, as is done in the sn2 console driver.
++ *
++ * Returns non-zero if a console couldn't be setup.
++ */
++static int __init early_console_setup(void)
++{
++#ifdef CONFIG_SGI_L1_SERIAL_CONSOLE
++	{
++		extern int sn_serial_console_early_setup(void);
++		if(!sn_serial_console_early_setup())
++			return 0;
++	}
++#endif
++
++	return -1;
++}
++
+ void __init
+ setup_arch (char **cmdline_p)
+ {
+@@ -296,6 +326,10 @@
+ #ifdef CONFIG_IA64_GENERIC
+ 	machvec_init(acpi_get_sysname());
+ #endif
++
++	/* If we register an early console, allow CPU 0 to printk */
++	if (!early_console_setup())
++		cpu_set(smp_processor_id(), cpu_online_map);
+ 
+ #ifdef CONFIG_ACPI_BOOT
+ 	/* Initialize the ACPI boot-time table parser */
+
+--Boundary-00=_Tz5vAQsgVTDHLr4--
