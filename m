@@ -1,40 +1,41 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Tue, 08 Feb 2005 05:35:42 +0000
+From: Christian Hildner <christian.hildner@hob.de>
+Date: Tue, 08 Feb 2005 07:59:14 +0000
 Subject: Re: How to use ski to debug linux kernel ?
-Message-Id: <20050208053542.GD10781@cse.unsw.EDU.AU>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="8X7/QrJGcKSMr1RN"
+Message-Id: <42087152.8030802@hob.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050208051807.92001.qmail@web51109.mail.yahoo.com>
 In-Reply-To: <20050208051807.92001.qmail@web51109.mail.yahoo.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+baswaraj kasture schrieb:
 
---8X7/QrJGcKSMr1RN
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+>Does anybody knows how to use sky to debug  linux
+>kernel ?
+>
+You have to configure the kernel to be used in ski. It is not possible 
+to run a generic kernel under ski since ski only emulates the raw 
+processor and lacks firmware and peripherals. The kernel itself has 
+emulation for these missing things but you have to use CONFIG_IA64_HP_SIM.
 
-On Mon, Feb 07, 2005 at 09:18:07PM -0800, baswaraj kasture wrote:
-> Does anybody knows how to use sky to debug  linux
-> kernel ?
+Also there is a separate mailing list at 
+http://www.hpl.hp.com/research/linux/ski/mail.php
 
-Start here
+On the HP site you'll find also howto docs regarding ski.
 
-http://www.gelato.unsw.edu.au/IA64wiki/SkiSimulator
+Christian
 
--i
+>I used follwing command to debug kernel with ski,
+>
+>#ski iccvmlinux
+>
+>but it stops the simulation displaying the message
+>"Halting Simulation" .
+>Any ideas regarding this ?
+>
+>Thanx,
+>-Baswaraj
+>
 
---8X7/QrJGcKSMr1RN
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFCCE+uWDlSU/gp6ecRAn6jAKCN94U+i4z08Eed0NQD8h62ZCZrTwCg2dBO
-Wn1pcqVbJelWxM9iYv5IPp4=
-=M/vy
------END PGP SIGNATURE-----
-
---8X7/QrJGcKSMr1RN--
