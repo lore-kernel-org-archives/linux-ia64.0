@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 28 Feb 2004 09:39:15 +0000
+From: Keith Owens <kaos@sgi.com>
+Date: Sat, 28 Feb 2004 09:45:38 +0000
 Subject: Re: Oops in pdflush
-Message-Id: <16448.25027.156541.398539@napali.hpl.hp.com>
+Message-Id: <15420.1077961538@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je4qtl7u44.fsf@sykes.suse.de>
 In-Reply-To: <je4qtl7u44.fsf@sykes.suse.de>
@@ -10,195 +10,117 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 27 Feb 2004 22:52:46 -0800, David Mosberger <davidm@linux.hpl.hp.com> said:
+On Fri, 27 Feb 2004 22:52:46 -0800, 
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
+>>>>>> On Sat, 28 Feb 2004 00:58:20 +1100, Keith Owens <kaos@sgi.com> said:
+>  Keith> Ouch.  rbs and stack have collided, kernel stack overflow.  rbs shows
+>  Keith> a normal start, then it loops with the same data over and over again
+>
+>So if I'm reading this right, we get a case that looks like unbounded
+>recursion:
+>
+>	pdflush -> start_one_pdflush_thread -> kernel_thread -> pdflush ...
+>
+>Except, I don't think this is real recursion.  Instead, we effectively
+>get a (potentially unbounded) sequence of one kernel thread creating
+>another thread.  Each new kernel thread gets nested one deeper,
+>eventually leading to a stack overflow...
+>
+>Hmmh, I think perhaps the right way to fix this is to use a separate
+>continuation function, which will then take care of doing the
+>child-specific actions.  Let me see if I can come up with something.
 
-  David> Hmmh, I think perhaps the right way to fix this is to use a separate
-  David> continuation function, which will then take care of doing the
-  David> child-specific actions.  Let me see if I can come up with something.
+Separate the pdflush thread creation and move it to a single master
+thread.  This restricts the maximum stack depth already in use when
+starting a worker pdflush thread.
 
-OK, how about the attached patch?  Does it fix the problem for you,
-Andreas?
-
-	--david
-
-=== arch/ia64/kernel/head.S 1.16 vs edited ==--- 1.16/arch/ia64/kernel/head.S	Wed Dec 10 17:28:59 2003
-+++ edited/arch/ia64/kernel/head.S	Sat Feb 28 00:40:31 2004
-@@ -816,6 +816,19 @@
- 	br.ret.sptk.many rp
- END(ia64_delay_loop)
+--- 2.6.3-pristine/mm/pdflush.c	Thu Dec 18 14:00:02 2003
++++ 2.6.3-pdflush/mm/pdflush.c	Sat Feb 28 20:42:04 2004
+@@ -5,6 +5,9 @@
+  *
+  * 09Apr2002	akpm@zip.com.au
+  *		Initial version
++ * 28Feb2004	kaos@sgi.com
++ *		Move worker thread creation to a master thread to avoid chewing
++ *		up stack space with nested calls to kernel_thread.
+  */
  
-+GLOBAL_ENTRY(ia64_invoke_kernel_thread_helper)
-+	.prologue
-+	.save rp, r0		// this is the end of the call-chain
-+	.body
-+	alloc r2 = ar.pfs, 0, 0, 2, 0
-+	mov out0 = r9
-+	mov out1 = r11;;
-+	br.call.sptk.many rp = kernel_thread_helper;;
-+	mov out0 = r8
-+	br.call.sptk.many rp = sys_exit;;
-+1:	br.sptk.few 1b				// not reached
-+END(ia64_invoke_kernel_thread_helper)
-+
- #ifdef CONFIG_IA64_BRL_EMU
+ #include <linux/sched.h>
+@@ -18,6 +21,7 @@
+ #include <linux/fs.h>		// Needed by writeback.h
+ #include <linux/writeback.h>	// Prototypes pdflush_operation()
+ 
++#include <asm/semaphore.h>
  
  /*
-=== arch/ia64/kernel/process.c 1.51 vs edited ==--- 1.51/arch/ia64/kernel/process.c	Thu Jan  8 17:52:52 2004
-+++ edited/arch/ia64/kernel/process.c	Sat Feb 28 01:19:59 2004
-@@ -259,10 +259,12 @@
-  *
-  * We get here through the following  call chain:
-  *
-- *	<clone syscall>
-- *	sys_clone
-- *	do_fork
-- *	copy_thread
-+ *	from user-level:	from kernel:
-+ *
-+ *	<clone syscall>	        <some kernel call frames>
-+ *	sys_clone		   :
-+ *	do_fork			do_fork
-+ *	copy_thread		copy_thread
-  *
-  * This means that the stack layout is as follows:
-  *
-@@ -276,9 +278,6 @@
-  *	|                     | <-- sp (lowest addr)
-  *	+---------------------+
-  *
-- * Note: if we get called through kernel_thread() then the memory above "(highest addr)"
-- * is valid kernel stack memory that needs to be copied as well.
-- *
-  * Observe that we copy the unat values that are in pt_regs and switch_stack.  Spilling an
-  * integer to address X causes bit N in ar.unat to be set to the NaT bit of the register,
-  * with N=(X & 0x1ff)/8.  Thus, copying the unat value preserves the NaT bits ONLY if the
-@@ -291,9 +290,9 @@
- 	     unsigned long user_stack_base, unsigned long user_stack_size,
- 	     struct task_struct *p, struct pt_regs *regs)
- {
--	unsigned long rbs, child_rbs, rbs_size, stack_offset, stack_top, stack_used;
--	struct switch_stack *child_stack, *stack;
- 	extern char ia64_ret_from_clone, ia32_ret_from_clone;
-+	struct switch_stack *child_stack, *stack;
-+	unsigned long rbs, child_rbs, rbs_size;
- 	struct pt_regs *child_ptregs;
- 	int retval = 0;
+  * Minimum and maximum number of pdflush instances
+@@ -58,6 +62,11 @@ int nr_pdflush_threads = 0;
+ static unsigned long last_empty_jifs;
  
-@@ -306,16 +305,13 @@
- 		return 0;
- #endif
- 
--	stack_top = (unsigned long) current + IA64_STK_OFFSET;
- 	stack = ((struct switch_stack *) regs) - 1;
--	stack_used = stack_top - (unsigned long) stack;
--	stack_offset = IA64_STK_OFFSET - stack_used;
- 
--	child_stack = (struct switch_stack *) ((unsigned long) p + stack_offset);
--	child_ptregs = (struct pt_regs *) (child_stack + 1);
-+	child_ptregs = (struct pt_regs *) ((unsigned long) p + IA64_STK_OFFSET) - 1;
-+	child_stack = (struct switch_stack *) child_ptregs - 1;
- 
- 	/* copy parent's switch_stack & pt_regs to child: */
--	memcpy(child_stack, stack, stack_used);
-+	memcpy(child_stack, stack, sizeof(*child_ptregs) + sizeof(*child_stack));
- 
- 	rbs = (unsigned long) current + IA64_RBS_OFFSET;
- 	child_rbs = (unsigned long) p + IA64_RBS_OFFSET;
-@@ -324,7 +320,7 @@
- 	/* copy the parent's register backing store to the child: */
- 	memcpy((void *) child_rbs, (void *) rbs, rbs_size);
- 
--	if (user_mode(child_ptregs)) {
-+	if (likely(user_mode(child_ptregs))) {
- 		if ((clone_flags & CLONE_SETTLS) && !IS_IA32_PROCESS(regs))
- 			child_ptregs->r13 = regs->r16;	/* see sys_clone2() in entry.S */
- 		if (user_stack_base) {
-@@ -341,14 +337,14 @@
- 		 * been taken care of by the caller of sys_clone()
- 		 * already.
- 		 */
--		child_ptregs->r12 = (unsigned long) (child_ptregs + 1); /* kernel sp */
-+		child_ptregs->r12 = (unsigned long) child_ptregs - 16; /* kernel sp */
- 		child_ptregs->r13 = (unsigned long) p;		/* set `current' pointer */
- 	}
-+	child_stack->ar_bspstore = child_rbs + rbs_size;
- 	if (IS_IA32_PROCESS(regs))
- 		child_stack->b0 = (unsigned long) &ia32_ret_from_clone;
- 	else
- 		child_stack->b0 = (unsigned long) &ia64_ret_from_clone;
--	child_stack->ar_bspstore = child_rbs + rbs_size;
- 
- 	/* copy parts of thread_struct: */
- 	p->thread.ksp = (unsigned long) child_stack - 16;
-@@ -358,8 +354,8 @@
- 	 * therefore we must specify them explicitly here and not include them in
- 	 * IA64_PSR_BITS_TO_CLEAR.
- 	 */
--	child_ptregs->cr_ipsr =  ((child_ptregs->cr_ipsr | IA64_PSR_BITS_TO_SET)
--			      & ~(IA64_PSR_BITS_TO_CLEAR | IA64_PSR_PP | IA64_PSR_UP));
-+	child_ptregs->cr_ipsr = ((child_ptregs->cr_ipsr | IA64_PSR_BITS_TO_SET)
-+				 & ~(IA64_PSR_BITS_TO_CLEAR | IA64_PSR_PP | IA64_PSR_UP));
- 
- 	/*
- 	 * NOTE: The calling convention considers all floating point
-@@ -578,27 +574,43 @@
- pid_t
- kernel_thread (int (*fn)(void *), void *arg, unsigned long flags)
- {
--	struct task_struct *parent = current;
--	int result; 
--	pid_t tid;
-+	extern void ia64_invoke_kernel_thread_helper (void);
-+	unsigned long *helper_fptr = (unsigned long *) &ia64_invoke_kernel_thread_helper;
-+	struct {
-+		struct switch_stack sw;
-+		struct pt_regs pt;
-+	} regs;
+ /*
++ * up() this to start a new pdflush thread.
++ */
++static struct semaphore new_pdflush;
 +
-+	memset(&regs, 0, sizeof(regs));
-+	regs.pt.cr_iip = helper_fptr[0];	/* set entry point (IP) */
-+	regs.pt.r1 = helper_fptr[1];		/* set GP */
-+	regs.pt.r9 = (unsigned long) fn;	/* 1st argument */
-+	regs.pt.r11 = (unsigned long) arg;	/* 2nd argument */
-+	/* Preserve PSR bits, except for bits 32-34 and 37-45, which we can't read.  */
-+	regs.pt.cr_ipsr = ia64_getreg(_IA64_REG_PSR) | IA64_PSR_BN;
-+	regs.pt.cr_ifs = 1UL << 63;		/* mark as valid, empty frame */
-+	regs.sw.ar_fpsr = regs.pt.ar_fpsr = ia64_getreg(_IA64_REG_AR_FPSR);
-+	regs.sw.ar_bspstore = (unsigned long) current + IA64_RBS_OFFSET;
-+
-+	return do_fork(flags | CLONE_VM | CLONE_UNTRACED, 0, &regs.pt, 0, NULL, NULL);
++/*
+  * The pdflush thread.
+  *
+  * Thread pool management algorithm:
+@@ -207,13 +216,31 @@ int pdflush_operation(void (*fn)(unsigne
+ 
+ static void start_one_pdflush_thread(void)
+ {
+-	kernel_thread(pdflush, NULL, CLONE_KERNEL);
++	up(&new_pdflush);
 +}
-+EXPORT_SYMBOL(kernel_thread);
- 
--	tid = clone(flags | CLONE_VM | CLONE_UNTRACED, 0);
--	if (parent != current) {
-+/* This gets called from kernel_thread() via ia64_invoke_thread_helper().  */
-+int
-+kernel_thread_helper (int (*fn)(void *), void *arg)
++
++/*
++ * Create all pdflush worker threads from a single master thread.  Creating
++ * worker threads from inside worker threads chews up kernel stack space and
++ * eventually overflows the kernel stack.
++ */
++static int pdflush_master(void *dummy)
 +{
- #ifdef CONFIG_IA32_SUPPORT
--		if (IS_IA32_PROCESS(ia64_task_regs(current))) {
--			/* A kernel thread is always a 64-bit process. */
--			current->thread.map_base  = DEFAULT_MAP_BASE;
--			current->thread.task_size = DEFAULT_TASK_SIZE;
--			ia64_set_kr(IA64_KR_IO_BASE, current->thread.old_iob);
--			ia64_set_kr(IA64_KR_TSSD, current->thread.old_k1);
--		}
--#endif
--		result = (*fn)(arg);
--		_exit(result);
-+	if (IS_IA32_PROCESS(ia64_task_regs(current))) {
-+		/* A kernel thread is always a 64-bit process. */
-+		current->thread.map_base  = DEFAULT_MAP_BASE;
-+		current->thread.task_size = DEFAULT_TASK_SIZE;
-+		ia64_set_kr(IA64_KR_IO_BASE, current->thread.old_iob);
-+		ia64_set_kr(IA64_KR_TSSD, current->thread.old_k1);
- 	}
--	return tid;
-+#endif
-+	return (*fn)(arg);
++	daemonize("pdflush_master");
++	while (1) {
++		if (down_interruptible(&new_pdflush))
++			continue;
++		kernel_thread(pdflush, NULL, CLONE_KERNEL);
++	}
++	return 0;
  }
--EXPORT_SYMBOL(kernel_thread);
  
- /*
-  * Flush thread state.  This is called when a thread does an execve().
+ static int __init pdflush_init(void)
+ {
+ 	int i;
+ 
++	kernel_thread(pdflush_master, NULL, CLONE_KERNEL);
++
+ 	for (i = 0; i < MIN_PDFLUSH_THREADS; i++)
+ 		start_one_pdflush_thread();
+ 	return 0;
+
+===========================
+
+This is what the ia64 stack for a pdflush worker thread looks like now.
+It has used 560 bytes of stack from creation to sleep.
+
+0xe00000003db08000       16        1  0    2   S  0xe00000003db08570  pdflush
+0xa0000001000830f0 schedule+0xf30
+0xa0000001000dab70 __pdflush+0x230
+0xa0000001000daf00 pdflush+0x20
+0xa000000100016bc0 kernel_thread+0x100
+0xa0000001000db250 pdflush_master+0xb0
+0xa000000100016bc0 kernel_thread+0x100
+0xa000000100650670 pdflush_init+0x30
+0xa000000100641100 do_initcalls+0xc0
+0xa000000100009300 init+0xe0
+0xa000000100016bc0 kernel_thread+0x100
+0xa000000100009090 rest_init+0x30
+0xa000000100640f80 start_kernel+0x460
+0xa0000001000085a0 _start+0x280
+
+It would be nice if kernel_thread reset the stack every time it was
+called, but that requires arch specific helper code.  Until that is
+available for every arch, avoid recursive calls to kernel_thread.
+
