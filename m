@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Mon, 04 Aug 2003 18:41:49 +0000
+From: "David S. Miller" <davem@redhat.com>
+Date: Mon, 04 Aug 2003 18:45:46 +0000
 Subject: Re: milstone reached: ia64 linux builds out of Linus' tree
-Message-Id: <marc-linux-ia64-106002273006654@msgid-missing>
+Message-Id: <marc-linux-ia64-106002327207176@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106001867501939@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106001867501939@msgid-missing>
@@ -10,17 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@napali.hpl.hp.com> writes:
+On Mon, 4 Aug 2003 11:40:25 -0700
+David Mosberger <davidm@napali.hpl.hp.com> wrote:
 
->>>>> On Mon, 4 Aug 2003 10:53:08 -0700, "H. J. Lu" <hjl@lucon.org> said:
-HJ> Does it work on bigsur?
+> For what it's worth, I spend on average about 1 day a week on ia64
+> linux maintenance and that's just about as much as I'd want to (though
+> in recent months it has been a bit more, partly so that we can get
+> into sync with Linus' tree).
 
-David> It should, apart from a qla1280.c glitch (see the latest ia64
-David> diff for the one-liner to get it to work; Jes Sorensen said
-David> he's going to cleanup qla1280 for real).
+I'm not addressing you specifically, but I will note how great
+you tend to say ia64 is when platform performance comparison
+discussions happen on the lists :-)
 
-Yes, I already have in fact. I submitted the updated driver to James
-Bottomley for inclusion in the tree. I'll post it to you shortly.
+In general, I think some platform maintainence drifts way too easily
+into a tail-spin of local changes that take forever to get merged.
 
-Cheers,
-Jes
+My point was that if some random single monkey like me can keep a
+loser platform like sparc64 still building in Linus's tree, a group of
+several trained professionals should be able to fare much better :)
+
