@@ -1,41 +1,74 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Thu, 02 May 2002 16:42:10 +0000
-Subject: Re: [Linux-ia64] readdir(3) return and error code
-Message-Id: <marc-linux-ia64-105590701905546@msgid-missing>
+From: System Attendant <ODYSSEY-SA@stl.sarov.ru>
+Date: Thu, 09 May 2002 19:15:53 +0000
+Subject: [Linux-ia64] ScanMail Message: To Recipient virus found or matched file blocki
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C1F78D.F0042F20"
+Message-Id: <marc-linux-ia64-105590701905561@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905544@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905544@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Jacky Malcles <Jacky.Malcles@bull.net> writes:
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
 
-|> While doing some testing I came across something that is odd for me,
-|> according to readdir(3) EBADF is returned for an invalid argument.
+------_=_NextPart_000_01C1F78D.F0042F20
+Content-Type: text/plain
 
-The POSIX standard says:
+ScanMail for Microsoft Exchange has taken action on the message, please
+refer to the contents of this message for further details.
 
-    The readdir() function may fail if:
+Sender = martin@irt.org
+Recipient(s) = linux-ia64@linuxia64.org;
+Subject = [Linux-ia64] (no subject)
+Scanning Time = 05/09/2002 23:15:50
+Engine/Pattern = 6.150-1001/275
 
-    [EBADF] The dirp argument does not refer to an open directory stream.
+Action on message:
+The attachment cols.scr contained WORM_KLEZ.H virus. ScanMail has taken the
+Moved action.  The attachment was moved to C:\Program
+Files\Trend\Smex\Virus\cols3cdacae718.scr_.
 
-(Note that readdir() is not _required_ to fail in this case.)
+Warning to recipient. ScanMail has detected a virus.
 
-|> I'm doing a basic call with a bad argument i,e:
-|>     struct dirent *dptr;
-|>     dptr =3D readdir("test_dir_1");
+------_=_NextPart_000_01C1F78D.F0042F20
+Content-Type: application/ms-tnef
+Content-Transfer-Encoding: base64
 
-This is complete garbage, so you cannot expect anything usefull according
-to the GIGO priciple.  A string is not remotely anything matching DIR*,
-all bets are off.
+eJ8+Ih4TAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA4wQAAAAAAADnAAEIgAcAGAAAAElQTS5NaWNy
+b3NvZnQgTWFpbC5Ob3RlADEIAQWAAwAOAAAA0gcFAAkAFwAPADUABABGAQEggAMADgAAANIHBQAJ
+ABcADwA6AAQASwEBCYABACEAAABGRUFFMjI4RjIwMkQyRTQwQjgyRDk4QkI5NTkxQjI5QwBTBwEE
+gAEATQAAAFNjYW5NYWlsIE1lc3NhZ2U6IFRvIFJlY2lwaWVudCB2aXJ1cyBmb3VuZCBvciBtYXRj
+aGVkIGZpbGUgYmxvY2tpbmcgc2V0dGluZy4AzhsBDYAEAAIAAAACAAIAAQOQBgDIBgAAIQAAAAIB
+CRABAAAAMAIAACwCAAAlAwAATFpGdRTom4iHAAoBDQNDdGV4dAH3/wKkA+QF6wKDAFAC8wa0AoMm
+MgPFAgBjaArAc2WqdAHQNAAAKgLhYQeADiAHEwKABxMgQ3ly/QKAfQqACM8J2QKACoQLN9cSwgHQ
+BgBjAHBNC3ADIIsCEAXBaQUAb3NvAYDIIEV4E2FuZxSAE3ArBCABkGsJ8CAA0HRpZQIgIBwRdGgU
+gAeBc9JhGwAsIAtQZRtAFIDtFqBmBJAbYG8cYwWgAjD9CfB0BCAaYBxhBAAcphmzfmYIcBxxBcAB
+AAGQAxBzVi4KowqUCgZgbgSBII49HKAKwBvwbkBpACDqLgWwZyFUUgWQBSAIkFECMChzKSJxbAuA
+dcR4LQcwNjRAJNMlMsUjQjshtXViagWQBUAJIoBbTCTnXSAobvUeIHMm1CkhtRlBAwAa8AYgB2Ii
+cTA1LzA5Ai8B0DAyIDIzOrAxNTo1AUAhY0Ua8OELgGUvUGECQASSIoBENi4rMDAtMSrAMWkqoDc1
+IVpBG+cctTrdIVRUHIEsYQDQaAeAAjA/HnEhIQTxHnMLcQmAIFcAT1JNX0tMRVrQLkggdiMQdSEw
+GSjjGzgcck1vdjIBG9QzQHsp0DAsdxtBBGA08h4RQzkvoFxQA2AJwBRgIEZ3AxAHkDegVBagIjA3
+oFN1B4B4N6BWMwI3oDECMwRjZADQYWU3MTj1MUJfIUtXCsApkx4RFqC/JAUzTSDRJwE1AjLlfT9A
+AwD9P+MEAABAADkAIC8E8I33wQEDAPE/CQQAAB4AMUABAAAAGwAAAE1JQ1JPU09GVCBTWVNURU0g
+QVRURU5EQU5UAAADABpAAAAAAB4AMEABAAAAGwAAAE1JQ1JPU09GVCBTWVNURU0gQVRURU5EQU5U
+AAADABlAAAAAAAIBcQABAAAAFgAAAAHB943wBPwp2/076U9nqAp3c2Lw8fcAAAMAJgAAAAAAAwA2
+AAAAAAAeAHAAAQAAAE0AAABTY2FuTWFpbCBNZXNzYWdlOiBUbyBSZWNpcGllbnQgdmlydXMgZm91
+bmQgb3IgbWF0Y2hlZCBmaWxlIGJsb2NraW5nIHNldHRpbmcuAAAAAAsA8hABAAAAAgFHAAEAAAAu
+AAAAYz1SVTthPSA7cD1JTlRFTDtsPU9EWVNTRVktMDIwNTA5MTkxNTUzWi04ODQ2AAAAAgH5PwEA
+AABzAAAAAAAAANynQMjAQhAatLkIACsv4YIBAAAAAAAAAC9PPUlOVEVML09VPVNBUk9WL0NOPUNP
+TkZJR1VSQVRJT04vQ049U0VSVkVSUy9DTj1PRFlTU0VZL0NOPU1JQ1JPU09GVCBTWVNURU0gQVRU
+RU5EQU5UAAAeAPg/AQAAABEAAABTeXN0ZW0gQXR0ZW5kYW50AAAAAB4AOEABAAAAGwAAAE1JQ1JP
+U09GVCBTWVNURU0gQVRURU5EQU5UAAACAfs/AQAAAHMAAAAAAAAA3KdAyMBCEBq0uQgAKy/hggEA
+AAAAAAAAL089SU5URUwvT1U9U0FST1YvQ049Q09ORklHVVJBVElPTi9DTj1TRVJWRVJTL0NOPU9E
+WVNTRVkvQ049TUlDUk9TT0ZUIFNZU1RFTSBBVFRFTkRBTlQAAB4A+j8BAAAAEQAAAFN5c3RlbSBB
+dHRlbmRhbnQAAAAAHgA5QAEAAAAbAAAATUlDUk9TT0ZUIFNZU1RFTSBBVFRFTkRBTlQAAEAABzD2
+KvHvjffBAUAACDBUVQbzjffBAR4APQABAAAAAQAAAAAAAAAeAB0OAQAAAE0AAABTY2FuTWFpbCBN
+ZXNzYWdlOiBUbyBSZWNpcGllbnQgdmlydXMgZm91bmQgb3IgbWF0Y2hlZCBmaWxlIGJsb2NraW5n
+IHNldHRpbmcuAAAAAB4ANRABAAAAMQAAADw1MTUyNEI2QzY4OUVENDExOEQ0RjAwOTAyNzNBQ0Uz
+MkREN0VBNEBPRFlTU0VZPgAAAAALACkAAAAAAAsAIwAAAAAAAwAGENChdhYDAAcQxgEAAAMAEBAA
+AAAAAwAREAEAAAAeAAgQAQAAAGUAAABTQ0FOTUFJTEZPUk1JQ1JPU09GVEVYQ0hBTkdFSEFTVEFL
+RU5BQ1RJT05PTlRIRU1FU1NBR0UsUExFQVNFUkVGRVJUT1RIRUNPTlRFTlRTT0ZUSElTTUVTU0FH
+RUZPUkZVUlRIAAAAAAIBfwABAAAAMQAAADw1MTUyNEI2QzY4OUVENDExOEQ0RjAwOTAyNzNBQ0Uz
+MkREN0VBNEBPRFlTU0VZPgAAAAA3uA==
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE GmbH, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+------_=_NextPart_000_01C1F78D.F0042F20--
 
