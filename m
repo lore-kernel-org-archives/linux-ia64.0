@@ -1,7 +1,7 @@
-From: Kazuto Miyoshi <miyoshi@linux.bs1.fc.nec.co.jp>
-Date: Wed, 15 Sep 2004 16:00:04 +0000
-Subject: Re: INIT dumps broken?
-Message-Id: <20040916.010004.846960466.miyoshi@linux.bs1.fc.nec.co.jp>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 15 Sep 2004 17:35:21 +0000
+Subject: RE: INIT dumps broken?
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F020513B8@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200409141450.i8EEotfk029379@napali.hpl.hp.com>
 In-Reply-To: <200409141450.i8EEotfk029379@napali.hpl.hp.com>
@@ -10,32 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>BTW, I tried INIT on my box but it seemed to produce correct task
+>dump to the console. I will look at it more closely...
 
-Hello, 
+The problem depends on which task is running on the monarch at
+the time of the INIT.  Expanding the SAVE_MIN_WITH_COVER macro
+in ia64_monarch_init_handler, one of the first things done is
+to get "current" ... since MINSTATE_PHYS is defined, we use the
+version that reads:
+   mov reg=IA64_KR(Current);;dep reg=0,reg,61,3
 
-> Can anybody describe why cpu 0 changed from 0xe... to 0xa... for the
-> idle task between 2.6.7-rc3 and 2.6.8?
+So if our task is anything other than the initial "init_task",
+we'll take a nice region 7 address from ar.k6, and convert to
+physical by zapping bits [63:61].  But we happen to be running
+the init_task, then ar.k6 contains a region 5 address, and we
+create a garbage address by clearing the high bits, which can
+lead to an MCA (if the address points somewhere bad) or to
+stomping on some random place (if the address happens to be a
+legal physical address).
 
-init_task is initialized by INIT_TASK macro and it fills the init_task
-with 0xa.. value, which is computed at compilation time. 
-Thus, we observed 0xa.. link lists from 0xe.. mapping and it caused
-panic with components which refer swapper.
+Perhaps MIN_STATE_GET_CURRENT() needs to be smarter and handle
+the region 5 case?  Or perhaps Russ will factor this into a newer
+version of his percpu save area patch????
 
-Actually, there was different approach which is to initialize init_task
-again with 0xe.. value after boot, but it requries future maintainance
-of the re-initialization with the changes of task_struct.
-That is the reason we proposed the patch to maintain coherent view of
-task_struct.
-
-Currently we do not have consistent way to solve the problem,
-but we will try to think about fixing the problem.
-
-BTW, I tried INIT on my box but it seemed to produce correct task
-dump to the console. I will look at it more closely...
-
-Best Regards,
---
-Kazuto Miyoshi, NEC
-miyoshi@hpc.bs1.fc.nec.co.jp
-
-
+-Tony
