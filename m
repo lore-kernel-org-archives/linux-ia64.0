@@ -1,7 +1,7 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Wed, 18 Feb 2004 06:08:16 +0000
-Subject: Announce: kdb v4.3 is available for kernel 2.6.3
-Message-Id: <10769.1077084496@kao2.melbourne.sgi.com>
+Date: Thu, 19 Feb 2004 00:08:30 +0000
+Subject: Announce: kdb v4.3 is available for kernel 2.4.25
+Message-Id: <4517.1077149310@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4730.1076472978@kao2.melbourne.sgi.com>
 In-Reply-To: <4730.1076472978@kao2.melbourne.sgi.com>
@@ -21,21 +21,19 @@ KDB (Linux Kernel Debugger) has been updated.
 ftp://oss.sgi.com/projects/kdb/download/v4.3/
 
 Current versions are :-
-  kdb-v4.3-2.6.3-common-1.bz2
-  kdb-v4.3-2.6.3-i386-1.bz2
-  kdb-v4.3-2.6.3-ia64-1.bz2
+  kdb-v4.3-2.4.25-common-1.bz2
+  kdb-v4.3-2.4.25-i386-1.bz2
+  kdb-v4.3-2.4.25-ia64-040218-1.bz2
 
-The only change since 2.6.3-rc4-common-1 and 2.6.3-rc3-{i386,ia6}-1
-is to update the changelogs to reflect the base 2.6.3 kernel.
-
-Warning: the 2.6 versions of kdb have had minimal testing.  In
-particular they have not been tested with CONFIG_PREEMPT.
+The ia64 patch has changed slightly since kdb-v4.3-2.4.25-rc1, due to
+more clean ups in the base arch/ia64/kernel/mca.c file.  Apart from
+that, the only changes are to the target kernel name in the change logs.
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.1 (GNU/Linux)
 Comment: Exmh version 2.1.1 10/15/1999
 
-iD8DBQFAMwFQi4UHNye0ZOoRAjEIAJ4p5EaPChNDWHLqy7icBCLmBAR9PACbBUqd
-9akaS3silc7r7/v8Od537Z0=Nw1B
+iD8DBQFAM/5+i4UHNye0ZOoRAh8xAJ976UHq7l3gT0FJHVc2o2S/SHdpcQCgq62/
+sWxpv3+3pTZGf+QJfyjcpEg=dXH7
 -----END PGP SIGNATURE-----
 
