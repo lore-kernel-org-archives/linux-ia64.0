@@ -1,38 +1,39 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Mon, 22 Nov 2004 23:14:02 +0000
+From: Andrew Morton <akpm@osdl.org>
+Date: Mon, 22 Nov 2004 23:16:28 +0000
 Subject: Re: deferred rss update instead of sloppy rss
-Message-Id: <41A272BA.9000705@yahoo.com.au>
+Message-Id: <20041122151628.77ab87ca.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain> <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org> <41A26910.7090401@yahoo.com.au> <Pine.LNX.4.58.0411221436570.22895@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0411221436570.22895@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
+	<Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
+	<20041122141148.1e6ef125.akpm@osdl.org>
+	<Pine.LNX.4.58.0411221408540.22895@schroedinger.engr.sgi.com>
+	<20041122144507.484a7627.akpm@osdl.org>
+	<Pine.LNX.4.58.0411221444410.22895@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0411221444410.22895@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Christoph Lameter <clameter@sgi.com>
-Cc: Linus Torvalds <torvalds@osdl.org>, Hugh Dickins <hugh@veritas.com>, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: hugh@veritas.com, torvalds@osdl.org, benh@kernel.crashing.org, nickpiggin@yahoo.com.au, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Christoph Lameter wrote:
-> On Tue, 23 Nov 2004, Nick Piggin wrote:
+Christoph Lameter <clameter@sgi.com> wrote:
+>
+> On Mon, 22 Nov 2004, Andrew Morton wrote:
 > 
+> > > The page fault code only increments rss. For larger transactions that
+> > > increase / decrease rss significantly the page_table_lock is taken and
+> > > mm->rss is updated directly. So no
+> > > gross inaccuracies can result.
+> >
+> > Sure.  Take a million successive pagefaults and mm->rss is grossly
+> > inaccurate.  Hence my suggestion that it be spilled into mm->rss
+> > periodically.
 > 
->>Deferred rss might be a practical solution, but I'd prefer this if it can
->>be made workable.
+> It is spilled into mm->rss periodically. That is the whole point of the
+> patch.
 > 
-> 
-> Both results in an additional field in task_struct that is going to be
-> incremented when the page_table_lock is not held. It would be possible
-> to switch to looping in procfs later. The main question with this patchset
-> is:
-> 
+> The timer tick occurs every 1 ms.
 
-Sure.
-
-> How and when can we get this get into the kernel?
-> 
-
-Well it is a good starting platform for the various PTL reduction patches
-floating around.
-
-I'd say Andrew could be convinced to stick it in -mm after 2.6.10, but we'd
-probably need a clear path to one of the PTL patches before anything would
-move into 2.6.
+That only works if the task happens to have the CPU when the timer tick
+occurs.  There remains no theoretical upper bound to the error in mm->rss,
+and that's very easy to fix.
