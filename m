@@ -1,43 +1,39 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 12 Jul 2004 20:08:54 +0000
+From: Linus Torvalds <torvalds@osdl.org>
+Date: Mon, 12 Jul 2004 20:17:20 +0000
 Subject: Re: serious performance regression due to NX patch
-Message-Id: <16626.61398.906723.300371@napali.hpl.hp.com>
+Message-Id: <Pine.LNX.4.58.0407121315170.1764@ppc970.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200407100528.i6A5SF8h020094@napali.hpl.hp.com>
-	<Pine.LNX.4.58.0407110437310.26065@devserv.devel.redhat.com>
-	<Pine.LNX.4.58.0407110536130.2248@devserv.devel.redhat.com>
-	<Pine.LNX.4.58.0407110550340.4229@devserv.devel.redhat.com>
-	<20040711123803.GD21264@devserv.devel.redhat.com>
-	<Pine.LNX.4.58.0407121402160.2451@devserv.devel.redhat.com>
-	<20040712182431.GB28281@infradead.org>
-	<Pine.LNX.4.58.0407121428270.22224@devserv.devel.redhat.com>
-	<16626.57892.533203.683465@napali.hpl.hp.com>
-	<Pine.LNX.4.58.0407121552210.30965@devserv.devel.redhat.com>
-In-Reply-To: <Pine.LNX.4.58.0407121552210.30965@devserv.devel.redhat.com>
+ <Pine.LNX.4.58.0407110437310.26065@devserv.devel.redhat.com>
+ <Pine.LNX.4.58.0407110536130.2248@devserv.devel.redhat.com>
+ <Pine.LNX.4.58.0407110550340.4229@devserv.devel.redhat.com>
+ <20040711123803.GD21264@devserv.devel.redhat.com>
+ <Pine.LNX.4.58.0407121402160.2451@devserv.devel.redhat.com>
+In-Reply-To: <Pine.LNX.4.58.0407121402160.2451@devserv.devel.redhat.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Ingo Molnar <mingo@redhat.com>
-Cc: davidm@hpl.hp.com, Christoph Hellwig <hch@infradead.org>, Jakub Jelinek <jakub@redhat.com>, suresh.b.siddha@intel.com, jun.nakajima@intel.com, Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Ulrich Drepper <drepper@redhat.com>
+Cc: Jakub Jelinek <jakub@redhat.com>, davidm@hpl.hp.com, suresh.b.siddha@intel.com, jun.nakajima@intel.com, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
->>>>> On Mon, 12 Jul 2004 15:54:56 -0400 (EDT), Ingo Molnar <mingo@redhat.com> said:
 
-  Ingo> On Mon, 12 Jul 2004, David Mosberger wrote:
 
-  Ingo> is it an issue? Each new port will have PT_GNU_STACK, unless they base
-  Ingo> themselves on old compilers.
+On Mon, 12 Jul 2004, Ingo Molnar wrote:
+> 
+> so ... this should be #ifndef ia64?
 
-  >> PT_GNU_STACK is pure bloat on new architectures (and ia64).
+No. Make it a CONFIG_DEFAULT_NOEXEC and make the relevant architectures do
+a
 
-  Ingo> EF_IA_64_LINUX_EXECUTABLE_STACK is using elf_ex->e_flags. I
-  Ingo> did it the same way for x86 originally, but the tools people
-  Ingo> specifically rejected it as a hack. We dont control the ELF
-  Ingo> specification, but a new gcc section like PT_GNU_STACK is fair
-  Ingo> game. So it might be 'bloat' but it's clean and doesnt try to
-  Ingo> hijack.
+	define_bool DEFAULT_NOEXEC y
 
-I know.  All I'm saying is that when the stack permissions match the
-permission which the platform uses by default, the PT_GNU_STACK header
-should be omitted.
+in their Kconfig files.
 
-	--david
+In general, we should _never_ use an architecture-define. They just always
+end up becoming more and more hairy, and less and less obvious what they 
+are all about.
+
+So instead, make a readable and explicit config define, and let each 
+architecture just set it (or not) as they wish.
+
+		Linus
