@@ -1,7 +1,7 @@
-From: Joshua Aas <josha@sgi.com>
-Date: Wed, 14 Jul 2004 16:17:39 +0000
-Subject: Re: free bootmem feedback patch
-Message-Id: <40F55CA3.10706@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 14 Jul 2004 18:34:23 +0000
+Subject: RE: free bootmem feedback patch
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F01A5D4FA@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40F46962.4090604@sgi.com>
 In-Reply-To: <40F46962.4090604@sgi.com>
@@ -10,22 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> On Wed, Jul 14, 2004 at 10:44:31AM +0200, Andi Kleen wrote:
-> 
->>Better would be probably to speed this up.
->>I bet most of the overhead comes from taking locks in free_pages.
->>How about adding a lockless ____free_pages and using that? 
->>Adding an more optimized path for this is also not out of the question.
->>Another way would be to increase the bootmem page size, but
->>this won't cut down the overhead of free_pages.
-> 
-> 
-> That also sounds like an excellent idea.
+There are certainly some opportunities to speed up the code in
+free_all_bootmem_core() ... only one cpu is running, so using
+atomic operations to "ClearPageReserved(page)" is overkill. As
+is calling __free_page() [Which promptly tests that this isn't
+a reserved page, and does more atomic ops to decrement the count
+from 1 (which we just set it to) to zero.   What a waste of time!]
 
-Seems like a good idea to me too. I'll try to come up with a patch that doesn't do locking since it is early enough in the boot process, and maybe I can get rid of some looping/function calls too. This theoretical patch seems like a good idea in any case, but my progress patch might still be necessary on top of that since I'm not sure how much time it will actually save. On machines with 1-8TB of memory the wait might still be considerable (i.e. on the order of 3-8 minutes).
 
--- 
-Josh Aas
-Silicon Graphics, Inc. (SGI)
-Linux System Software
-651-683-3068
+>Also, it may make more sense to speed this up by freeing higher-order
+>pages at a time.
+
+This looks like the most promising way to put a major dent in the
+time taken.  If you make sure that the bits in the bitmap line up
+correctly so that the physical addresses come out right, then you
+have an easy test for "if (v = ~0UL) {" to find larger order pages
+(5 on 32-bit systems, 6 on 64-bit).  A factor 64 speedup would
+turn your 5 minute hang into a 5 second pause :-).
+
+Some prefetches in that loop might help too (so you don't
+have to take a full L3 cache miss on every page structure).
+
+Another approach might be to just free enough pages on each node
+to get all the cpus up and running, and then have one cpu on each
+node free the remaining pages for the node. But this sounds like
+major surgery (and wouldn't help my hypothetical machine that has
+huge memory on just one node).
+
+-Tony
