@@ -1,7 +1,7 @@
 From: Dean Nelson <dcn@sgi.com>
-Date: Thu, 12 Aug 2004 15:10:28 +0000
+Date: Mon, 23 Aug 2004 16:50:59 +0000
 Subject: Re: [PATCH 1/4] SGI Altix cross partition functionality
-Message-Id: <20040812151028.GA5751@sgi.com>
+Message-Id: <20040823165059.GA11321@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040616163339.GA27891@sgi.com>
 In-Reply-To: <20040616163339.GA27891@sgi.com>
@@ -10,38 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Aug 10, 2004 at 02:54:00PM -0500, Dean Nelson wrote:
->
-> Tony,
+On Wed, Jun 16, 2004 at 05:39:44PM +0100, Christoph Hellwig wrote:
+> On Wed, Jun 16, 2004 at 11:33:39AM -0500, Dean Nelson wrote:
+> > --- linux.orig/arch/ia64/sn/kernel/setup.c	Thu Jun 10 16:29:44 2004
+> > +++ linux/arch/ia64/sn/kernel/setup.c	Thu Jun 10 16:31:55 2004
+> > @@ -50,6 +50,7 @@
+> >  #include <asm/sn/sn2/shub.h>
+> >  
+> >  DEFINE_PER_CPU(struct pda_s, pda_percpu);
+> > +EXPORT_SYMBOL(per_cpu__pda_percpu);
 > 
-> I'm interested in your response to what Robin wrote. Care to comment?
-> 
-> And just another data point: we no longer need the sal_lock exported,
-> just ia64_sal, does this affect your thoughts on this matter?
+> Umm, no.  Poking into kernel per-cpu data like the pda from modules sounds
+> like a bad idea.  And if you absolutely must use the proper helpers for
+> exporting it.
 
-Just wanted to add a couple of additional data points to the
-discussion of whether or not to export the SAL call itself.
+Just an FYI, XPC needs to use the enable_shub_wars_1_1() macro which
+accesses pda->shub_1_1_found. So we do need to export per_cpu__pda_percpu.
+I've switched EXPORT_SYMBOL() to EXPORT_PER_CPU_SYMBOL() instead.
 
-It was pointed out to me that the PAL call is exported. You
-can find PAL_CALL() in include/asm-ia64/pal.h and its export
-in arch/ia64/kernel/ia64_ksyms.c, where the necessary symbols
-are exported:
-                                                                                
-        ia64_pal_call_static
-        ia64_load_scratch_fpregs
-        ia64_save_scratch_fpregs
-                                                                                
-(The latter two are needed by SAL_CALL(), which also requires
-the exporting of ia64_sal and sal_lock.)
-                                                                                
-Is there a fundamental difference between PAL and SAL that would
-justify exporting one and not the other?
-                                                                                
-Also, what makes it okay for 'CONFIG_IA64_SGI_SN_XPC=y' to make a
-SAL_CALL() and not okay for 'CONFIG_IA64_SGI_SN_XPC=m'? It's the
-same code, either compiled into the kernel or into a kernel module.
-What makes the first one 'trustworthy' and the second one not?
-
-Thanks,
 Dean
-
