@@ -1,31 +1,23 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 06 Feb 2003 12:02:27 +0000
-Subject: [Linux-ia64] SAL_MC_RENDEZ logic
-Message-Id: <marc-linux-ia64-105590709805820@msgid-missing>
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Thu, 27 Feb 2003 09:33:38 +0000
+Subject: [Linux-ia64] Re: unwind info fix for ia64
+Message-Id: <marc-linux-ia64-105590709805938@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-2.4.20-ia64-021210/arch/ia64/kernel/mca.c::ia64_mca_rendez_int_handler
+David Mosberger wrote:
+> Here is a small bug-fix for libc's __syscall_error to get the unwind
+> info correct.  Did "make check" afterwards and ran a test program to
+> verify that unwinding works correctly now for this function.
 
-        /* Register with the SAL monarch that the slave has
-         * reached SAL
-         */
-        ia64_sal_mc_rendez();
+I've applied the patch.  Thanks,
 
-        /* Wait for the wakeup IPI from the monarch
-         * This waiting is done by polling on the wakeup-interrupt
-         * vector bit in the processor's IRRs
-         */
-        ia64_mca_wakeup_ipi_wait();
-
-The documentation for SAL_MC_RENDEZ (24535901.pdf) says that SAL itself
-spins, looking for the wakeup ipi.  Why is the kernel code doing the
-same work?  Either SAL_MC_RENDEZ does not spin (and the SAL docs are
-wrong) or the kernel code in ia64_mca_wakeup_ipi_wait is redundant.
-
-Why do I care?  I am trying to get kdb/lcrash data after MCA.
+-- 
+--------------.                        ,-.            444 Castro Street
+Ulrich Drepper \    ,-----------------'   \ Mountain View, CA 94041 USA
+Red Hat         `--' drepper at redhat.com `---------------------------
 
 
