@@ -1,130 +1,94 @@
-From: Mark Goodwin <markgw@sgi.com>
-Date: Tue, 15 Mar 2005 21:26:45 +0000
-Subject: [PATCH ia64 2.6.12] Altix SN add support for slots in geoid_t locator
-Message-Id: <Pine.LNX.4.62.0503160813360.19241@woolami.melbourne.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="243703863-414902436-1110922005=:19241"
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 24 Mar 2005 00:51:33 +0000
+Subject: syscall improvement patch [10/12]
+Message-Id: <200503240051.j2O0pXah022316@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+ia64: Annotate __kernel_syscall_via_epc() with McKinley dispatch info.
 
---243703863-414902436-1110922005=:19241
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Two other very minor changes: use "mov.i" instead of "mov" for reading
+ar.pfs (for clarity; doesn't affect the code at all).  Also, predicate
+the load of r14 for consistency.
 
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-This patch against ia64-test-2.6.12 is needed for forthcoming
-Altix chipsets. It renames geoid_any_t to geoid_common_t and
-splits the 8bit 'slab' field into two 4bit fields for 'slab'
-and 'slot'. Similar changes in the Altix SAL will retain backward
-compatibility for old kernels.
-
-Tony, could you please apply, thanks.
-
-Signed-off-by: Mark Goodwin <markgw@sgi.com>
---243703863-414902436-1110922005=:19241
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name=sn_geoid_with_slots.patch
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.62.0503160826450.19241@woolami.melbourne.sgi.com>
-Content-Description: 
-Content-Disposition: attachment; filename=sn_geoid_with_slots.patch
-
-PT09PT0gYXJjaC9pYTY0L3NuL2tlcm5lbC9zbjIvc25faHdwZXJmLmMgMS4x
-MCB2cyBlZGl0ZWQgPT09PT0NCi0tLSAxLjEwL2FyY2gvaWE2NC9zbi9rZXJu
-ZWwvc24yL3NuX2h3cGVyZi5jCTIwMDUtMDMtMTUgMDU6MTY6MTkgKzExOjAw
-DQorKysgZWRpdGVkL2FyY2gvaWE2NC9zbi9rZXJuZWwvc24yL3NuX2h3cGVy
-Zi5jCTIwMDUtMDMtMTUgMTM6MDQ6NDkgKzExOjAwDQpAQCAtMTE2LDcgKzEx
-Niw3IEBADQogCQltb2R1bGVfaWQgPSBnZW9fbW9kdWxlKGdlb2lkKTsNCiAJ
-CXRoaXNfcmFjayA9IE1PRFVMRV9HRVRfUkFDSyhtb2R1bGVfaWQpOw0KIAkJ
-dGhpc19iYXkgPSBNT0RVTEVfR0VUX0JQT1MobW9kdWxlX2lkKTsNCi0JCXRo
-aXNfc2xvdCA9IDA7IC8qIFhYWCAqLw0KKwkJdGhpc19zbG90ID0gZ2VvX3Ns
-b3QoZ2VvaWQpOw0KIAkJdGhpc19zbGFiID0gZ2VvX3NsYWIoZ2VvaWQpOw0K
-IAkJaWYgKHJhY2sgPT0gdGhpc19yYWNrICYmIGJheSA9PSB0aGlzX2JheSAm
-Jg0KIAkJCXNsb3QgPT0gdGhpc19zbG90ICYmIHNsYWIgPT0gdGhpc19zbGFi
-KSB7DQo9PT09PSBpbmNsdWRlL2FzbS1pYTY0L3NuL2dlby5oIDEuNSB2cyBl
-ZGl0ZWQgPT09PT0NCi0tLSAxLjUvaW5jbHVkZS9hc20taWE2NC9zbi9nZW8u
-aAkyMDA0LTEwLTEyIDA2OjA0OjEyICsxMDowMA0KKysrIGVkaXRlZC9pbmNs
-dWRlL2FzbS1pYTY0L3NuL2dlby5oCTIwMDUtMDMtMTYgMDc6NTA6MzMgKzEx
-OjAwDQpAQCAtMTgsMzIgKzE4LDM0IEBADQogI2RlZmluZSBHRU9JRF9TSVpF
-CTgJLyogV291bGQgMTYgYmUgYmV0dGVyPyAgVGhlIHNpemUgY2FuDQogCQkJ
-CSAgIGJlIGRpZmZlcmVudCBvbiBkaWZmZXJlbnQgcGxhdGZvcm1zLiAqLw0K
-IA0KLSNkZWZpbmUgTUFYX1NMQUJTCTB4ZQkvKiBzbGFicyBwZXIgbW9kdWxl
-ICovDQorI2RlZmluZSBNQVhfU0xPVFMJMHhmCS8qIHNsb3RzIHBlciBtb2R1
-bGUgKi8NCisjZGVmaW5lIE1BWF9TTEFCUwkweGYJLyogc2xhYnMgcGVyIHNs
-b3QgKi8NCiANCiB0eXBlZGVmIHVuc2lnbmVkIGNoYXIJZ2VvX3R5cGVfdDsN
-CiANCiAvKiBGaWVsZHMgY29tbW9uIHRvIGFsbCBzdWJzdHJ1Y3R1cmVzICov
-DQotdHlwZWRlZiBzdHJ1Y3QgZ2VvX2FueV9zIHsNCit0eXBlZGVmIHN0cnVj
-dCBnZW9fY29tbW9uX3Mgew0KICAgICBtb2R1bGVpZF90CW1vZHVsZTsJCS8q
-IFRoZSBtb2R1bGUgKGJveCkgdGhpcyBoL3cgbGl2ZXMgaW4gKi8NCiAgICAg
-Z2VvX3R5cGVfdAl0eXBlOwkJLyogV2hhdCB0eXBlIG9mIGgvdyBpcyBuYW1l
-ZCBieSB0aGlzIGdlb2lkX3QgKi8NCi0gICAgc2xhYmlkX3QJc2xhYjsJCS8q
-IFRoZSBsb2dpY2FsIGFzc2VtYmx5IHdpdGhpbiB0aGUgbW9kdWxlICovDQot
-fSBnZW9fYW55X3Q7DQorICAgIHNsYWJpZF90CXNsYWI6NDsJCS8qIHNsYWIg
-KEFTSUMpLCAwIC4uIDE1IHdpdGhpbiBzbG90ICovDQorICAgIHNsb3RpZF90
-CXNsb3Q6NDsJCS8qIHNsb3QgKEJsYWRlKSwgMCAuLiAxNSB3aXRoaW4gbW9k
-dWxlICovDQorfSBnZW9fY29tbW9uX3Q7DQogDQogLyogQWRkaXRpb25hbCBm
-aWVsZHMgZm9yIHBhcnRpY3VsYXIgdHlwZXMgb2YgaGFyZHdhcmUgKi8NCiB0
-eXBlZGVmIHN0cnVjdCBnZW9fbm9kZV9zIHsNCi0gICAgZ2VvX2FueV90CWFu
-eTsJCS8qIE5vIGFkZGl0aW9uYWwgZmllbGRzIG5lZWRlZCAqLw0KKyAgICBn
-ZW9fY29tbW9uX3QJY29tbW9uOwkJLyogTm8gYWRkaXRpb25hbCBmaWVsZHMg
-bmVlZGVkICovDQogfSBnZW9fbm9kZV90Ow0KIA0KIHR5cGVkZWYgc3RydWN0
-IGdlb19ydHJfcyB7DQotICAgIGdlb19hbnlfdAlhbnk7CQkvKiBObyBhZGRp
-dGlvbmFsIGZpZWxkcyBuZWVkZWQgKi8NCisgICAgZ2VvX2NvbW1vbl90CWNv
-bW1vbjsJCS8qIE5vIGFkZGl0aW9uYWwgZmllbGRzIG5lZWRlZCAqLw0KIH0g
-Z2VvX3J0cl90Ow0KIA0KIHR5cGVkZWYgc3RydWN0IGdlb19pb2NudGxfcyB7
-DQotICAgIGdlb19hbnlfdAlhbnk7CQkvKiBObyBhZGRpdGlvbmFsIGZpZWxk
-cyBuZWVkZWQgKi8NCisgICAgZ2VvX2NvbW1vbl90CWNvbW1vbjsJCS8qIE5v
-IGFkZGl0aW9uYWwgZmllbGRzIG5lZWRlZCAqLw0KIH0gZ2VvX2lvY250bF90
-Ow0KIA0KIHR5cGVkZWYgc3RydWN0IGdlb19wY2ljYXJkX3Mgew0KLSAgICBn
-ZW9faW9jbnRsX3QJYW55Ow0KKyAgICBnZW9faW9jbnRsX3QJY29tbW9uOw0K
-ICAgICBjaGFyCQlidXM7CS8qIEJ1cy93aWRnZXQgbnVtYmVyICovDQogICAg
-IGNoYXIJCXNsb3Q7CS8qIFBDSSBzbG90IG51bWJlciAqLw0KIH0gZ2VvX3Bj
-aWNhcmRfdDsNCkBAIC02MiwxNCArNjQsMTQgQEANCiANCiANCiB0eXBlZGVm
-IHVuaW9uIGdlb2lkX3Ugew0KLSAgICBnZW9fYW55X3QJYW55Ow0KLSAgICBn
-ZW9fbm9kZV90CW5vZGU7DQorICAgIGdlb19jb21tb25fdAljb21tb247DQor
-ICAgIGdlb19ub2RlX3QJCW5vZGU7DQogICAgIGdlb19pb2NudGxfdAlpb2Nu
-dGw7DQogICAgIGdlb19wY2ljYXJkX3QJcGNpY2FyZDsNCi0gICAgZ2VvX3J0
-cl90CXJ0cjsNCi0gICAgZ2VvX2NwdV90CWNwdTsNCi0gICAgZ2VvX21lbV90
-CW1lbTsNCi0gICAgY2hhcglwYWRzaXplW0dFT0lEX1NJWkVdOw0KKyAgICBn
-ZW9fcnRyX3QJCXJ0cjsNCisgICAgZ2VvX2NwdV90CQljcHU7DQorICAgIGdl
-b19tZW1fdAkJbWVtOw0KKyAgICBjaGFyCQlwYWRzaXplW0dFT0lEX1NJWkVd
-Ow0KIH0gZ2VvaWRfdDsNCiANCiANCkBAIC0xMDQsMTkgKzEwNiwyNiBAQA0K
-ICNkZWZpbmUgSU5WQUxJRF9DTk9ERUlEICAgICAgICAgKChjbm9kZWlkX3Qp
-LTEpDQogI2RlZmluZSBJTlZBTElEX1BOT0RFSUQgICAgICAgICAoKHBub2Rl
-aWRfdCktMSkNCiAjZGVmaW5lIElOVkFMSURfU0xBQiAgICAgICAgICAgIChz
-bGFiaWRfdCktMQ0KKyNkZWZpbmUgSU5WQUxJRF9TTE9UICAgICAgICAgICAg
-KHNsb3RpZF90KS0xDQogI2RlZmluZSBJTlZBTElEX01PRFVMRSAgICAgICAg
-ICAoKG1vZHVsZWlkX3QpLTEpDQogI2RlZmluZSBJTlZBTElEX1BBUlRJRCAg
-ICAgICAgICAoKHBhcnRpZF90KS0xKQ0KIA0KIHN0YXRpYyBpbmxpbmUgc2xh
-YmlkX3QgZ2VvX3NsYWIoZ2VvaWRfdCBnKQ0KIHsNCi0JcmV0dXJuIChnLmFu
-eS50eXBlID09IEdFT19UWVBFX0lOVkFMSUQpID8NCi0JCUlOVkFMSURfU0xB
-QiA6IGcuYW55LnNsYWI7DQorCXJldHVybiAoZy5jb21tb24udHlwZSA9PSBH
-RU9fVFlQRV9JTlZBTElEKSA/DQorCQlJTlZBTElEX1NMQUIgOiBnLmNvbW1v
-bi5zbGFiOw0KK30NCisNCitzdGF0aWMgaW5saW5lIHNsb3RpZF90IGdlb19z
-bG90KGdlb2lkX3QgZykNCit7DQorCXJldHVybiAoZy5jb21tb24udHlwZSA9
-PSBHRU9fVFlQRV9JTlZBTElEKSA/DQorCQlJTlZBTElEX1NMT1QgOiBnLmNv
-bW1vbi5zbG90Ow0KIH0NCiANCiBzdGF0aWMgaW5saW5lIG1vZHVsZWlkX3Qg
-Z2VvX21vZHVsZShnZW9pZF90IGcpDQogew0KLQlyZXR1cm4gKGcuYW55LnR5
-cGUgPT0gR0VPX1RZUEVfSU5WQUxJRCkgPw0KLQkJSU5WQUxJRF9NT0RVTEUg
-OiBnLmFueS5tb2R1bGU7DQorCXJldHVybiAoZy5jb21tb24udHlwZSA9PSBH
-RU9fVFlQRV9JTlZBTElEKSA/DQorCQlJTlZBTElEX01PRFVMRSA6IGcuY29t
-bW9uLm1vZHVsZTsNCiB9DQogDQogZXh0ZXJuIGdlb2lkX3QgY25vZGVpZF9n
-ZXRfZ2VvaWQoY25vZGVpZF90IGNub2RlKTsNCj09PT09IGluY2x1ZGUvYXNt
-LWlhNjQvc24vdHlwZXMuaCAxLjggdnMgZWRpdGVkID09PT09DQotLS0gMS44
-L2luY2x1ZGUvYXNtLWlhNjQvc24vdHlwZXMuaAkyMDA0LTExLTAzIDA3OjI5
-OjA4ICsxMTowMA0KKysrIGVkaXRlZC9pbmNsdWRlL2FzbS1pYTY0L3NuL3R5
-cGVzLmgJMjAwNS0wMy0xNSAxMjo0NzowOSArMTE6MDANCkBAIC0xNiw3ICsx
-Niw4IEBADQogdHlwZWRlZiBzaWduZWQgY2hhcglwYXJ0aWRfdDsJLyogcGFy
-dGl0aW9uIElEIHR5cGUgKi8NCiB0eXBlZGVmIHVuc2lnbmVkIGludCAgICBt
-b2R1bGVpZF90OyAgICAgLyogdXNlci12aXNpYmxlIG1vZHVsZSBudW1iZXIg
-dHlwZSAqLw0KIHR5cGVkZWYgdW5zaWduZWQgaW50ICAgIGNtb2R1bGVpZF90
-OyAgICAvKiBrZXJuZWwgY29tcGFjdCBtb2R1bGUgaWQgdHlwZSAqLw0KLXR5
-cGVkZWYgc2lnbmVkIGNoYXIgICAgIHNsYWJpZF90Ow0KK3R5cGVkZWYgdW5z
-aWduZWQgY2hhcglzbG90aWRfdDsJLyogc2xvdCAoYmxhZGUpIHdpdGhpbiBt
-b2R1bGUgKi8NCit0eXBlZGVmIHVuc2lnbmVkIGNoYXIJc2xhYmlkX3Q7CS8q
-IHNsYWIgKGFzaWMpIHdpdGhpbiBzbG90ICovDQogdHlwZWRlZiB1NjQgbmlj
-X3Q7DQogdHlwZWRlZiB1bnNpZ25lZCBsb25nIGlvcGFkZHJfdDsNCiB0eXBl
-ZGVmIHVuc2lnbmVkIGxvbmcgcGFkZHJfdDsNCg==
-
---243703863-414902436-1110922005=:19241--
+diff -Nru a/arch/ia64/kernel/gate.S b/arch/ia64/kernel/gate.S
+--- a/arch/ia64/kernel/gate.S	2005-03-23 15:37:01 -08:00
++++ b/arch/ia64/kernel/gate.S	2005-03-23 15:37:01 -08:00
+@@ -72,41 +72,41 @@
+ 	 * bundle get executed.  The remaining code must be safe even if
+ 	 * they do not get executed.
+ 	 */
+-	adds r17=-1024,r15
+-	mov r10=0				// default to successful syscall execution
+-	epc
++	adds r17=-1024,r15			// A
++	mov r10=0				// A    default to successful syscall execution
++	epc					// B	causes split-issue
+ }
+ 	;;
+-	rsm psr.be // note: on McKinley "rsm psr.be/srlz.d" is slightly faster than "rum psr.be"
+-	LOAD_FSYSCALL_TABLE(r14)
++	rsm psr.be				// M2 (5 cyc to srlz.d)
++	LOAD_FSYSCALL_TABLE(r14)		// X
+ 	;;
+-	mov r16=IA64_KR(CURRENT)		// 12 cycle read latency
+-	shladd r18=r17,3,r14
+-	mov r19=NR_syscalls-1
++	mov r16=IA64_KR(CURRENT)		// M2 (12 cyc)
++	shladd r18=r17,3,r14			// A
++	mov r19=NR_syscalls-1			// A
+ 	;;
+ 	lfetch [r18]				// M0|1
+-	mov r29=psr				// read psr (12 cyc load latency)
+-	/* Note: if r17 is a NaT, p6 will be set to zero.  */
+-	cmp.geu p6,p7=r19,r17			// (syscall > 0 && syscall < 1024+NR_syscalls)?
+-	;;
+-	mov r21=ar.fpsr
+-	tnat.nz p10,p9=r15
+-	mov r26=ar.pfs
++	mov r29=psr				// M2 (12 cyc)
++	// If r17 is a NaT, p6 will be zero
++	cmp.geu p6,p7=r19,r17			// A    (sysnr > 0 && sysnr < 1024+NR_syscalls)?
++	;;
++	mov r21=ar.fpsr				// M2 (12 cyc)
++	tnat.nz p10,p9=r15			// I0
++	mov.i r26=ar.pfs			// I0 (would stall anyhow due to srlz.d...)
+ 	;;
+-	srlz.d
+-(p6)	ld8 r18=[r18]
++	srlz.d					// M0 (forces split-issue) ensure PSR.BE=0
++(p6)	ld8 r18=[r18]				// M0|1
+ 	nop.i 0
+ 	;;
+ 	nop.m 0
+-(p6)	mov b7=r18
+-(p6)	tbit.z.unc p8,p0=r18,0
++(p6)	mov b7=r18				// I0
++(p6)	tbit.z.unc p8,p0=r18,0			// I0 (dual-issues with "mov b7=r18"!)
+ 
+ 	nop.m 0
+ 	nop.i 0
+-(p8)	br.dptk.many b7
++(p8)	br.dptk.many b7				// B
+ 
+-	mov r27=ar.rsc
+-(p6)	rsm psr.i
++	mov r27=ar.rsc				// M2 (12 cyc)
++(p6)	rsm psr.i				// M2
+ /*
+  * brl.cond doesn't work as intended because the linker would convert this branch
+  * into a branch to a PLT.  Perhaps there will be a way to avoid this with some
+@@ -114,7 +114,7 @@
+  * instead.
+  */
+ #ifdef CONFIG_ITANIUM
+-	add r14=-8,r14				// r14 <- addr of fsys_bubble_down entry
++(p6)	add r14=-8,r14				// r14 <- addr of fsys_bubble_down entry
+ 	;;
+ (p6)	ld8 r14=[r14]				// r14 <- fsys_bubble_down
+ 	;;
