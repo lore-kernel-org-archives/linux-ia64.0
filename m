@@ -1,7 +1,7 @@
-From: Jim Wilson <wilson@cygnus.com>
-Date: Tue, 05 Feb 2002 21:21:50 +0000
+From: Cary Coutant <cary@cup.hp.com>
+Date: Tue, 05 Feb 2002 21:43:35 +0000
 Subject: Re: [Linux-ia64] IA64 Link Relocation operators
-Message-Id: <marc-linux-ia64-105590698805993@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805997@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805983@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805983@msgid-missing>
@@ -10,19 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Could somebody tell me where i could find documentation on IA64 Link
->relocation operators.
+>The only formal documention I know about is in the Assembly Language
+>Reference Guide available from the Intel web site.  It has a chapter on
+>Link-relocation Operators.  The explanations are very short, and probably
+>not understandable unless you have a good understanding of how IA-64
+>compilers work.
 
-The only formal documention I know about is in the Assembly Language
-Reference Guide available from the Intel web site.  It has a chapter on
-Link-relocation Operators.  The explanations are very short, and probably
-not understandable unless you have a good understanding of how IA-64
-compilers work.
+The Itanium psABI document also has a discussion of this; see the end of 
+Chapter 4.
 
-There is also documentation of sorts in the GNU sources.  Gcc has code to
-emit assembly using link-relocation operators, GNU as has code to create
-relocation entries in object files, and GNU ld has code to evaluate the
-relocation operators at link time.
+   http://www.intel.com/design/Itanium/Downloads/245370.htm
 
-Jim
+-cary
 
