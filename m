@@ -1,41 +1,49 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Mon, 24 Nov 2003 04:58:50 +0000
-Subject: Re: pages already locked on ia64
-Message-Id: <marc-linux-ia64-106964992902155@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 05 Nov 2003 06:34:19 +0000
+Subject: Incorrect definition of pal cache_check info
+Message-Id: <marc-linux-ia64-106801411302949@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106881037208683@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106881037208683@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Christian Hinkelbein <hinkelbein@ti.uni-mannheim.de> wrote:
->
-> David Mosberger schrieb:
-> 
-> >>>>>>On Fri, 14 Nov 2003 11:22:23 +0100, Christian Hinkelbein <hinkelbein@ti.uni-mannheim.de> said:
-> > 
-> >   Christian> On ia32 i succesfully do a lock_page() on every page
-> >   Christian> returned by get_user_pages(), lateron i do unlock_page().
-> >   Christian> On ia64 sometimes (on ia32 seemingly never) the first
-> >   Christian> page is already locked, just after malloc().  For a quick
-> >   Christian> hack ......
-> > 
-> > Umh, what page-size did you use?
-> > 
-> > In any case, a minimal test-program that reproduces the problem would
-> > probably help you get an answer much faster.
-> 
-> Uuuh, thanks for the hint. It was the bigger page-size (16k) that 
-> triggered an old bug in my driver.
-> 
+Both 2.4 and 2.6 kernels define struct pal_cache_check_info_s as
 
-Your driver is still buggy - you usually cannot lock more that one page at
-a time.  Trivial case: mmap the same page of a file at two consecutive
-addresses and ask your driver to access that 2*PAGE_SIZE chunk of memory. 
-It will deadlock.
+typedef struct pal_cache_check_info_s {
+   u64	reserved1       : 16,
+	way             : 5,    /* Way in which the
+				 * error occurred
+				 */
+	reserved2       : 1,
+	mc              : 1,    /* Machine check corrected */
+	tv              : 1,    /* Target address
+				 * structure is valid
+				 */
 
-If you wish to make sure that the pages don't go away then elevating their
-refcount is sufficient.
+	wv              : 1,    /* Way field valid */
+	op              : 3,    /* Type of cache
+				 * operation that
+				 * caused the machine
+				 * check.
+				 */
+
+	dl              : 1,    /* Failure in data part
+				 * of cache line
+				 */
+	tl              : 1,    /* Failure in tag part
+				 * of cache line
+				 */
+	dc              : 1,    /* Failure in dcache */
+	ic              : 1,    /* Failure in icache */
+	index           : 24,   /* Cache line index */
+	mv              : 1,    /* mesi valid */
+	mesi            : 3,    /* Cache line state */
+	level           : 4;    /* Cache level */
+} pal_cache_check_info_t;
+
+which bears very little resemblance to the Cache_Check layout described
+in Intel Itanium Architecture Software Developer's Manual Volume 2:
+System Architecture, under PAL_MC_ERROR_INFO.  It looks like struct
+pal_tlb_check_info_s is wrong as well.  What gives?
 
