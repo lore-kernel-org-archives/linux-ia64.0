@@ -1,65 +1,49 @@
-From: Martin Pool <mbp@samba.org>
-Date: Fri, 02 May 2003 06:43:37 +0000
-Subject: [Linux-ia64] avoid exceptions in copy_from_user?
-Message-Id: <marc-linux-ia64-105590723705628@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 02 May 2003 07:13:12 +0000
+Subject: Re: [Linux-ia64] avoid exceptions in copy_from_user?
+Message-Id: <marc-linux-ia64-105590723705629@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590723705628@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723705628@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is probably a flawed idea but I was just curious: could the
-kernel use speculative loads to avoid taking exceptions when a
-copy_from_user or related function faults?  (Something like the
-routine below.)
+>>>>> On Fri, 2 May 2003 16:43:37 +1000, Martin Pool <mbp@samba.org> said:
 
-I thought that if the chk.s instructions could fit into otherwise
-unused slots, then failing copies would avoid needing to take an
-interrupt and search the fixup table, and could instead branch
-directly to the code to clean up and return.
+  Martin> This is probably a flawed idea but I was just curious: could
+  Martin> the kernel use speculative loads to avoid taking exceptions
+  Martin> when a copy_from_user or related function faults?
+  Martin> (Something like the routine below.)
 
-I suspect the answer is that it's not worthwhile, because if the copy
-fails then the kernel is about to go and do something expensive like
-paging or killing the task, and so a little more overhead is not
-important, and anyhow adding instructions to the non-failing case is
-undesirable.
+You're right, it's flawed. ;-)
 
+First problem: why optimize the _exceptional_ case?  Show me one
+application which suffers from the cost of the exception handling and
+I'll buy you a beer (or two or three).  OTOH, almost every application
+benefits from optimizing the common case of exception-free execution.
 
-// int readit(int *a)
-// return the contents of a, or -1 if a is not a valid pointer
+Second (and perhaps more important) problem: kernel code must not
+assume that a speculative load fails only if the load cannot possibly
+execute successfully (in ia64 lingo, this is called the "recovery"
+model, as opposed to the "no-recovery" model, which I'm not a fan of).
+For example, depending on the DCR settings, a speculative load may
+also fail on a TLB miss.  Of course, you don't want the code to fail
+just because of a TLB miss.
 
-.text
-	.align 16
-	.global readit#
-	.proc readit#
-readit:
-	.prologue
-	// one input, no locals
-	alloc r2 = ar.pfs, 1, 0, 0, 0
-	
-	.body
+  Martin> I suspect the answer is that it's not worthwhile, because if
+  Martin> the copy fails then the kernel is about to go and do
+  Martin> something expensive like paging or killing the task, and so
+  Martin> a little more overhead is not important, and anyhow adding
+  Martin> instructions to the non-failing case is undesirable.
 
-	// Try to read the thing
-	ld8.s ret0 = [in0]
-	;;
+Yup.
 
-	// Did we break?
-	chk.s ret0, .recovery
-	
-	// Return
-	br.ret.sptk.many b0
+My experience so far is that speculative loads are best left to the
+compiler.  Human beings are just not very good at writing recovery
+code and keeping it in sync with the main code (e.g., we had some
+painful experiences with the strncpy() routine).
 
-.recovery:	
-	mov	ret0 = -1
-	;; 
-	br.ret.sptk.many b0
-
-	.end readit#
-
-
--- 
-Martin 
-
-
-
+	--david
 
