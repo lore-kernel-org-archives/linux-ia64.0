@@ -1,145 +1,55 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 23 Dec 2004 19:35:36 +0000
-Subject: Prezeroing V2 [4/4]: Hardware Zeroing through SGI BTE
-Message-Id: <Pine.LNX.4.58.0412231135000.31791@schroedinger.engr.sgi.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Wed, 22 Dec 2004 13:38:28 +0000
+Subject: n-way sampling buffer format for perfmon2
+Message-Id: <20041222133828.GB28622@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
- <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org, linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-o Zeroing driver implemented with the Block Transfer Engine in the Altix SN2 SHub
+Hello All,
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+I have released a first prototype of a sampling buffer format
+which implements a n-way buffer. Many tool developers have
+asked me for a sampling buffer which would do double or
+even triple buffering. The idea is to split the buffer
+in sections. A notification is sent to the tool
+when one section fills up and in the meantime continue to record
+samples in the other sections. If timing works out, monitoring
+will never stop, i.e. achieving fulltime coverage. 
+Of course, the downside is that if monitoring continues, you may
+capture noise caused by the monitoring tool. It is not a systematic
+win and experimentation is important. In any case, one would
+think this is interesting in system-wide where it is obviously
+not possible to "freeze" the system while processing the buffer. 
+The format supports both system-wide and per-thread modes.
 
-Index: linux-2.6.9/arch/ia64/sn/kernel/bte.c
-=================================--- linux-2.6.9.orig/arch/ia64/sn/kernel/bte.c	2004-12-17 14:40:10.000000000 -0800
-+++ linux-2.6.9/arch/ia64/sn/kernel/bte.c	2004-12-22 12:48:23.000000000 -0800
-@@ -4,6 +4,8 @@
-  * for more details.
-  *
-  * Copyright (c) 2000-2003 Silicon Graphics, Inc.  All Rights Reserved.
-+ *
-+ * Support for zeroing pages, Christoph Lameter, SGI, December 2004.
-  */
+This new buffer format is a simple kernel module that plugs into
+the perfmon infrastructure. It is a perfect example of the power
+of the interface. Not a single change is needed in the perfmon core
+to use this buffer format. The default format is still available.
 
- #include <linux/config.h>
-@@ -20,6 +22,8 @@
- #include <linux/bootmem.h>
- #include <linux/string.h>
- #include <linux/sched.h>
-+#include <linux/mm.h>
-+#include <linux/scrub.h>
+Because the number of ways in the buffer depends on what you measure
+and how you measure, the format is very flexible in that it lets you
+choose dynamically the number of ways from 1 to 8. The structure
+of each sample is identical to the default sampling format, as such
+it is fairly easy to migrate existing code to this format.
 
- #include <asm/sn/bte.h>
+If people find this format useful, I will be glad to include it into
+the standard kernel.
 
-@@ -30,7 +34,7 @@
- /* two interfaces on two btes */
- #define MAX_INTERFACES_TO_TRY		4
+The package comes with the kernel module, the module header file and
+a very simple example with lots of comments showing the various features
+of the format and how to parse the samples. You need at least 2.6.5
+to use this new format.
 
--static struct bteinfo_s *bte_if_on_node(nasid_t nasid, int interface)
-+static inline struct bteinfo_s *bte_if_on_node(nasid_t nasid, int interface)
- {
- 	nodepda_t *tmp_nodepda;
+You can grab the tarfile for the package at:
 
-@@ -132,7 +136,6 @@
- 			if (bte = NULL) {
- 				continue;
- 			}
--
- 			if (spin_trylock(&bte->spinlock)) {
- 				if (!(*bte->most_rcnt_na & BTE_WORD_AVAILABLE) ||
- 				    (BTE_LNSTAT_LOAD(bte) & BTE_ACTIVE)) {
-@@ -157,7 +160,7 @@
- 		}
- 	} while (1);
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/nway_smpl-0.1.tar.gz
+	MD5SUM: 7279cad500aca6779917cf63781dcd71
 
--	if (notification = NULL) {
-+	if (notification = NULL || (mode & BTE_NOTIFY_AND_GET_POINTER)) {
- 		/* User does not want to be notified. */
- 		bte->most_rcnt_na = &bte->notify;
- 	} else {
-@@ -192,6 +195,8 @@
+Enjoy,
 
- 	itc_end = ia64_get_itc() + (40000000 * local_cpu_data->cyc_per_usec);
-
-+	if (mode & BTE_NOTIFY_AND_GET_POINTER)
-+		 *(u64 volatile **)(notification) = &bte->notify;
- 	spin_unlock_irqrestore(&bte->spinlock, irq_flags);
-
- 	if (notification != NULL) {
-@@ -449,5 +454,37 @@
- 		mynodepda->bte_if[i].cleanup_active = 0;
- 		mynodepda->bte_if[i].bh_error = 0;
- 	}
-+}
-+
-+u64 *bte_zero_notify[MAX_COMPACT_NODES];
-+
-+static int bte_check_bzero(void)
-+{
-+	int node = get_nasid();
-+
-+	return *(bte_zero_notify[node]) != BTE_WORD_BUSY;
-+}
-+
-+static int bte_start_bzero(void *p, unsigned long len)
-+{
-+	int node = get_nasid();
-+
-+	/* Check limitations.
-+		1. System must be running (weird things happen during bootup)
-+		2. Size >64KB. Smaller requests cause too much bte traffic
-+	 */
-+	if (len >= BTE_MAX_XFER || len < 60000 || system_state != SYSTEM_RUNNING)
-+		return EINVAL;
-+
-+	return bte_zero(ia64_tpa(p), len, BTE_NOTIFY_AND_GET_POINTER, bte_zero_notify+node);
-+}
-+
-+static struct zero_driver bte_bzero = {
-+	.start = bte_start_bzero,
-+	.check = bte_check_bzero,
-+	.rate = 500000000		/* 500 MB /sec */
-+};
-
-+void sn_bte_bzero_init(void) {
-+	register_zero_driver(&bte_bzero);
- }
-Index: linux-2.6.9/arch/ia64/sn/kernel/setup.c
-=================================--- linux-2.6.9.orig/arch/ia64/sn/kernel/setup.c	2004-12-17 14:40:10.000000000 -0800
-+++ linux-2.6.9/arch/ia64/sn/kernel/setup.c	2004-12-22 12:28:00.000000000 -0800
-@@ -243,6 +243,7 @@
- 	int pxm;
- 	int major = sn_sal_rev_major(), minor = sn_sal_rev_minor();
- 	extern void sn_cpu_init(void);
-+	extern void sn_bte_bzero_init(void);
-
- 	/*
- 	 * If the generic code has enabled vga console support - lets
-@@ -333,6 +334,7 @@
- 	screen_info = sn_screen_info;
-
- 	sn_timer_init();
-+	sn_bte_bzero_init();
- }
-
- /**
-Index: linux-2.6.9/include/asm-ia64/sn/bte.h
-=================================--- linux-2.6.9.orig/include/asm-ia64/sn/bte.h	2004-12-17 14:40:16.000000000 -0800
-+++ linux-2.6.9/include/asm-ia64/sn/bte.h	2004-12-22 12:28:00.000000000 -0800
-@@ -48,6 +48,8 @@
- #define BTE_ZERO_FILL (BTE_NOTIFY | IBCT_ZFIL_MODE)
- /* Use a reserved bit to let the caller specify a wait for any BTE */
- #define BTE_WACQUIRE (0x4000)
-+/* Return the pointer to the notification cacheline to the user */
-+#define BTE_NOTIFY_AND_GET_POINTER (0x8000)
- /* Use the BTE on the node with the destination memory */
- #define BTE_USE_DEST (BTE_WACQUIRE << 1)
- /* Use any available BTE interface on any node for the transfer */
-
+-- 
+-Stephane
