@@ -1,7 +1,7 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Date: Fri, 22 Aug 2003 04:46:45 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 22 Aug 2003 14:43:39 +0000
 Subject: Re: build problems/questions (2.6.0-test3)
-Message-Id: <marc-linux-ia64-106152763321778@msgid-missing>
+Message-Id: <marc-linux-ia64-106156348322179@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106151574613417@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106151574613417@msgid-missing>
@@ -10,37 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> On Thu, Aug 21, 2003 at 06:28:50PM -0700, Randy.Dunlap wrote:
->> I'm seeing some build problems and want to see if they are just my
->> problems.  Shoule these build OK on ia64 or are they all just
->> dont-cares for ia64?
->>
->> 1.  driver/block/floppy.c
->
-> Don't-care.  Should be made unselectable in Kconfig.  No ia64 boxes have
-> shipped with that kind of floppy drive (ide-floppy on the first boxes).
->
->> 2.  drivers/char/nvram.c ?? (x86-ism)
->
-> I doubt anyone put an mc146818rtc chip in an ia64 box.
->
->> 3.  drivers/char/hangcheck.c ?
->
-> Do you mean drivers/char/hangcheck-timer.c?  This looks x86-specific to me,
-> monotonic_clock() is in arch/i386 and arch/x86_64 only.
+>>>>> On Thu, 21 Aug 2003 18:28:50 -0700 (PDT), "Randy.Dunlap" <rddunlap@osdl.org> said:
 
-Yes, sorry about that.
+  Randy> Hi, I'm seeing some build problems and want to see if they
+  Randy> are just my problems.  Shoule these build OK on ia64 or are
+  Randy> they all just dont-cares for ia64?
 
->> 4.  ISA PNP support?
->
-> Definitely no ISA on these boxes.  Shouldn't ISAPNP depend on ISA in
-> Kconfig?
+  Randy> 1.  driver/block/floppy.c
 
-OK, that's the answers that I expected.  I'll look at the Kconfig
-changes tomorrow.
+No (there are no ia64 machines if AT-style floppy controllers.).
 
-Thanks,
-~Randy
+  Randy> 2.  drivers/char/nvram.c ?? (x86-ism)
 
+Nope.
 
+  Randy> 3.  drivers/char/hangcheck.c ?
 
+Don't know.
+
+  Randy> 4.  ISA PNP support?
+
+Nope (there is no ISA on ia64 machines).
+
+	--david
