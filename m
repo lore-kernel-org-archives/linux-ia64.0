@@ -1,41 +1,23 @@
 From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Sat, 15 May 2004 17:20:45 +0000
-Subject: [PATCH] ACPI PCI IRQ routing rework
-Message-Id: <200405151120.45753.bjorn.helgaas@hp.com>
+Date: Sat, 15 May 2004 20:23:57 +0000
+Subject: Re: [PATCH] ACPI PCI IRQ routing rework
+Message-Id: <200405151423.57324.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200405151120.45753.bjorn.helgaas@hp.com>
+In-Reply-To: <200405151120.45753.bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: acpi-devel@lists.sourceforge.net
-Cc: Len Brown <len.brown@intel.com>, David Mosberger <davidm@hpl.hp.com>, Andi Kleen <ak@suse.de>, Jun Nakajima <jun.nakajima@intel.com>, linux-ia64@vger.kernel.org
+To: acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Cc: Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, David Mosberger <davidm-sDzT885Ts8HQT0dZR+AlfA@public.gmane.org>, Andi Kleen <ak-l3A5Bk7waGM@public.gmane.org>, Jun Nakajima <jun.nakajima-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 
-This patch changes the way we handle ACPI PRTs (PCI Routing Tables).
+Andi's x86-64 update that showed up in linux-2.5 today touches
+mp_parse_prt(), one of the functions I changed.
 
-Previously, the arch code looked through all the PRT entries once at
-boot-time (in mp_parse_prt() or iosapic_parse_prt()), allocating IRQs
-and programming the IO-APICs or IOSAPICs.
-
-I think it's better to pull all the PRT knowledge out of the arch
-code and do the IRQ allocation and IO-APIC programming at the time
-of pci_enable_device().  That reduces IRQ usage (since many PRT
-entries are never used) and is a step toward allowing the addition
-of new root bridges and PRTs at run-time.
-
-The architecture supplies
-
-    unsigned int
-    acpi_register_gsi(u32 gsi, int edge_level, int active_high_low);
-
-which is called by acpi_pci_irq_enable().  That way ACPI supplies
-all the information from the PRT, and the arch sets up the routing
-and returns the IRQ it allocated.
-
-I've tested this on several ia64 boxes (mostly HP), and a small
-x86_64 box.  It compiles for i386, but I don't have a way to test
-that.  I'm interested in any feedback or testing reports.
+Here's an updated patch:
 
 === arch/i386/kernel/mpparse.c 1.71 vs edited ==--- 1.71/arch/i386/kernel/mpparse.c	Fri Apr 30 23:27:25 2004
-+++ edited/arch/i386/kernel/mpparse.c	Sat May 15 09:13:26 2004
++++ edited/arch/i386/kernel/mpparse.c	Sat May 15 14:16:59 2004
 @@ -1027,94 +1027,58 @@
  
  extern FADT_DESCRIPTOR acpi_fadt;
@@ -145,7 +127,7 @@ that.  I'm interested in any feedback or testing reports.
 +	/* 
 +	 * Avoid pin reprogramming.  PRTs typically include entries  
 +	 * with redundant pin->gsi mappings (but unique PCI devices);
-+	 * we only only program the IOAPIC on the first.
++	 * we only program the IOAPIC on the first.
 +	 */
 +	bit = ioapic_pin % 32;
 +	idx = (ioapic_pin < 32) ? 0 : (ioapic_pin / 32);
@@ -173,9 +155,9 @@ that.  I'm interested in any feedback or testing reports.
 -#endif /*CONFIG_X86_IO_APIC && CONFIG_ACPI_INTERPRETER*/
 +#endif /*CONFIG_X86_IO_APIC*/
  #endif /*CONFIG_ACPI_BOOT*/
-=== arch/i386/kernel/acpi/boot.c 1.60 vs edited ==--- 1.60/arch/i386/kernel/acpi/boot.c	Fri Apr 23 06:39:18 2004
-+++ edited/arch/i386/kernel/acpi/boot.c	Sat May 15 09:13:26 2004
-@@ -438,6 +438,28 @@
+=== arch/i386/kernel/acpi/boot.c 1.61 vs edited ==--- 1.61/arch/i386/kernel/acpi/boot.c	Sat May 15 00:11:59 2004
++++ edited/arch/i386/kernel/acpi/boot.c	Sat May 15 14:12:30 2004
+@@ -428,6 +428,28 @@
  	return 0;
  }
  
@@ -205,7 +187,7 @@ that.  I'm interested in any feedback or testing reports.
  acpi_scan_rsdp (
  	unsigned long		start,
 === arch/i386/pci/acpi.c 1.13 vs edited ==--- 1.13/arch/i386/pci/acpi.c	Fri Apr 30 23:27:25 2004
-+++ edited/arch/i386/pci/acpi.c	Sat May 15 10:56:08 2004
++++ edited/arch/i386/pci/acpi.c	Sat May 15 14:12:31 2004
 @@ -1,6 +1,8 @@
  #include <linux/pci.h>
  #include <linux/acpi.h>
@@ -252,8 +234,8 @@ that.  I'm interested in any feedback or testing reports.
  
  	return 0;
  }
-=== arch/ia64/kernel/acpi.c 1.68 vs edited ==--- 1.68/arch/ia64/kernel/acpi.c	Thu Apr  8 19:30:12 2004
-+++ edited/arch/ia64/kernel/acpi.c	Sat May 15 09:13:27 2004
+=== arch/ia64/kernel/acpi.c 1.69 vs edited ==--- 1.69/arch/ia64/kernel/acpi.c	Sat May 15 00:11:59 2004
++++ edited/arch/ia64/kernel/acpi.c	Sat May 15 14:12:32 2004
 @@ -508,9 +508,14 @@
  #endif /* CONFIG_ACPI_NUMA */
  
@@ -280,7 +262,7 @@ that.  I'm interested in any feedback or testing reports.
  	return 0;
  }
  
-@@ -658,17 +663,5 @@
+@@ -648,17 +653,5 @@
  	}
  	return 0;
  }
@@ -299,7 +281,7 @@ that.  I'm interested in any feedback or testing reports.
  
  #endif /* CONFIG_ACPI_BOOT */
 === arch/ia64/kernel/iosapic.c 1.42 vs edited ==--- 1.42/arch/ia64/kernel/iosapic.c	Fri May 14 20:00:12 2004
-+++ edited/arch/ia64/kernel/iosapic.c	Sat May 15 09:13:27 2004
++++ edited/arch/ia64/kernel/iosapic.c	Sat May 15 14:12:32 2004
 @@ -173,7 +173,7 @@
  }
  
@@ -558,7 +540,7 @@ that.  I'm interested in any feedback or testing reports.
 -
 -#endif /* CONFIG_ACPI */
 === arch/ia64/pci/pci.c 1.48 vs edited ==--- 1.48/arch/ia64/pci/pci.c	Wed Apr 21 15:26:09 2004
-+++ edited/arch/ia64/pci/pci.c	Sat May 15 10:56:31 2004
++++ edited/arch/ia64/pci/pci.c	Sat May 15 14:12:33 2004
 @@ -134,10 +134,18 @@
  static int __init
  pci_acpi_init (void)
@@ -582,9 +564,9 @@ that.  I'm interested in any feedback or testing reports.
  	return 0;
  }
  
-=== arch/x86_64/kernel/mpparse.c 1.26 vs edited ==--- 1.26/arch/x86_64/kernel/mpparse.c	Fri Apr 23 13:43:21 2004
-+++ edited/arch/x86_64/kernel/mpparse.c	Sat May 15 09:13:30 2004
-@@ -887,84 +887,48 @@
+=== arch/x86_64/kernel/mpparse.c 1.27 vs edited ==--- 1.27/arch/x86_64/kernel/mpparse.c	Sat May 15 07:32:27 2004
++++ edited/arch/x86_64/kernel/mpparse.c	Sat May 15 14:16:33 2004
+@@ -887,88 +887,49 @@
  
  extern FADT_DESCRIPTOR acpi_fadt;
  
@@ -601,14 +583,23 @@ that.  I'm interested in any feedback or testing reports.
  	int			idx, bit = 0;
 -	int			edge_level = 0;
 -	int			active_high_low = 0;
--
+ 
 -	/*
 -	 * Parsing through the PCI Interrupt Routing Table (PRT) and program
 -	 * routing for all static (IOAPIC-direct) entries.
 -	 */
 -	list_for_each(node, &acpi_prt.entries) {
 -		entry = list_entry(node, struct acpi_prt_entry, node);
--
++	/* Don't set up the ACPI SCI because it's already set up */
++	if (acpi_fadt.sci_int = gsi)
++		return;
++
++	ioapic = mp_find_ioapic(gsi);
++	if (ioapic < 0) {
++		printk(KERN_WARNING "No IOAPIC for GSI 0x%x\n", gsi);
++		return;
++	}
+ 
 -		/* Need to get gsi for dynamic entry */
 -		if (entry->link.handle) {
 -			gsi = acpi_pci_link_get_irq(entry->link.handle, entry->link.index, &edge_level, &active_high_low);
@@ -622,23 +613,17 @@ that.  I'm interested in any feedback or testing reports.
 -		}
 -
 -		/* Don't set up the ACPI SCI because it's already set up */
--		if (acpi_fadt.sci_int = gsi)
+-		if (acpi_fadt.sci_int = gsi) {
+-			/* we still need to set up the entry's irq */
+-			acpi_gsi_to_irq(gsi, &entry->irq);
 -			continue;
- 
+-		}
+-
 -		ioapic = mp_find_ioapic(gsi);
 -		if (ioapic < 0)
 -			continue;
 -		ioapic_pin = gsi - mp_ioapic_routing[ioapic].gsi_start;
-+	/* Don't set up the ACPI SCI because it's already set up */
-+	if (acpi_fadt.sci_int = gsi)
-+		return;
-+
-+	ioapic = mp_find_ioapic(gsi);
-+	if (ioapic < 0) {
-+		printk(KERN_WARNING "No IOAPIC for GSI 0x%x\n", gsi);
-+		return;
-+	}
- 
+-
 -		/* 
 -		 * Avoid pin reprogramming.  PRTs typically include entries  
 -		 * with redundant pin->gsi mappings (but unique PCI devices);
@@ -658,8 +643,7 @@ that.  I'm interested in any feedback or testing reports.
 -			acpi_gsi_to_irq(gsi, &entry->irq);
 -			continue;
 -		}
-+	ioapic_pin = gsi - mp_ioapic_routing[ioapic].gsi_start;
- 
+-
 -		mp_ioapic_routing[ioapic].pin_programmed[idx] |= (1<<bit);
 -		if (!io_apic_set_pci_routing(ioapic, ioapic_pin, gsi, edge_level, active_high_low)) {
 -			acpi_gsi_to_irq(gsi, &entry->irq);
@@ -669,10 +653,12 @@ that.  I'm interested in any feedback or testing reports.
 -			entry->id.device, ('A' + entry->pin), 
 -			mp_ioapic_routing[ioapic].apic_id, ioapic_pin,
 -			entry->irq);
++	ioapic_pin = gsi - mp_ioapic_routing[ioapic].gsi_start;
++
 +	/* 
 +	 * Avoid pin reprogramming.  PRTs typically include entries  
 +	 * with redundant pin->gsi mappings (but unique PCI devices);
-+	 * we only only program the IOAPIC on the first.
++	 * we only program the IOAPIC on the first.
 +	 */
 +	bit = ioapic_pin % 32;
 +	idx = (ioapic_pin < 32) ? 0 : (ioapic_pin / 32);
@@ -691,18 +677,20 @@ that.  I'm interested in any feedback or testing reports.
 -	print_IO_APIC();
  
 -	return;
+-}
 +	mp_ioapic_routing[ioapic].pin_programmed[idx] |= (1<<bit);
+ 
+-#endif /*CONFIG_ACPI_PCI*/
 +	io_apic_set_pci_routing(ioapic, ioapic_pin, gsi,
 +		edge_level = ACPI_EDGE_SENSITIVE ? 0 : 1,
 +		active_high_low = ACPI_ACTIVE_HIGH ? 0 : 1);
- }
--
--#endif /*CONFIG_ACPI_PCI*/
++}
  
  #endif /*CONFIG_X86_IO_APIC*/
- 
+-
+ #endif /*CONFIG_ACPI_BOOT*/
 === drivers/acpi/pci_irq.c 1.27 vs edited ==--- 1.27/drivers/acpi/pci_irq.c	Sat Apr 24 00:17:22 2004
-+++ edited/drivers/acpi/pci_irq.c	Sat May 15 09:13:31 2004
++++ edited/drivers/acpi/pci_irq.c	Sat May 15 14:12:34 2004
 @@ -35,12 +35,6 @@
  #include <linux/pm.h>
  #include <linux/pci.h>
@@ -907,7 +895,7 @@ that.  I'm interested in any feedback or testing reports.
 -	return_VALUE(0);
  }
 === drivers/acpi/pci_link.c 1.28 vs edited ==--- 1.28/drivers/acpi/pci_link.c	Mon May 10 14:42:35 2004
-+++ edited/drivers/acpi/pci_link.c	Sat May 15 09:13:31 2004
++++ edited/drivers/acpi/pci_link.c	Sat May 15 14:12:35 2004
 @@ -487,13 +487,13 @@
  };
  
@@ -925,7 +913,7 @@ that.  I'm interested in any feedback or testing reports.
  	/*
  	 * Update penalties to facilitate IRQ balancing.
 === drivers/serial/8250_acpi.c 1.8 vs edited ==--- 1.8/drivers/serial/8250_acpi.c	Mon Mar 15 15:53:32 2004
-+++ edited/drivers/serial/8250_acpi.c	Sat May 15 09:13:31 2004
++++ edited/drivers/serial/8250_acpi.c	Sat May 15 14:12:35 2004
 @@ -58,28 +58,18 @@
  static acpi_status acpi_serial_ext_irq(struct serial_struct *req,
  				       struct acpi_resource_ext_irq *ext_irq)
@@ -962,7 +950,7 @@ that.  I'm interested in any feedback or testing reports.
  }
  
 === drivers/serial/8250_hcdp.c 1.6 vs edited ==--- 1.6/drivers/serial/8250_hcdp.c	Tue May  4 10:54:32 2004
-+++ edited/drivers/serial/8250_hcdp.c	Sat May 15 09:13:32 2004
++++ edited/drivers/serial/8250_hcdp.c	Sat May 15 14:12:36 2004
 @@ -183,16 +183,12 @@
  		}
  
@@ -985,7 +973,7 @@ that.  I'm interested in any feedback or testing reports.
  
  			if (HCDP_PCI_UART(hcdp_dev))
 === include/acpi/acpi_drivers.h 1.17 vs edited ==--- 1.17/include/acpi/acpi_drivers.h	Mon Dec 15 17:46:29 2003
-+++ edited/include/acpi/acpi_drivers.h	Sat May 15 09:13:32 2004
++++ edited/include/acpi/acpi_drivers.h	Sat May 15 14:12:36 2004
 @@ -55,7 +55,7 @@
  
  /* ACPI PCI Interrupt Link (pci_link.c) */
@@ -996,7 +984,7 @@ that.  I'm interested in any feedback or testing reports.
  
  /* ACPI PCI Interrupt Routing (pci_irq.c) */
 === include/asm-i386/mpspec.h 1.20 vs edited ==--- 1.20/include/asm-i386/mpspec.h	Mon Apr 12 11:55:30 2004
-+++ edited/include/asm-i386/mpspec.h	Sat May 15 09:13:32 2004
++++ edited/include/asm-i386/mpspec.h	Sat May 15 14:12:37 2004
 @@ -33,7 +33,7 @@
  extern void mp_register_ioapic (u8 id, u32 address, u32 gsi_base);
  extern void mp_override_legacy_irq (u8 bus_irq, u8 polarity, u8 trigger, u32 gsi);
@@ -1007,7 +995,7 @@ that.  I'm interested in any feedback or testing reports.
  
  #define PHYSID_ARRAY_SIZE	BITS_TO_LONGS(MAX_APICS)
 === include/asm-ia64/iosapic.h 1.13 vs edited ==--- 1.13/include/asm-ia64/iosapic.h	Fri Feb 27 04:39:17 2004
-+++ edited/include/asm-ia64/iosapic.h	Sat May 15 09:13:33 2004
++++ edited/include/asm-ia64/iosapic.h	Sat May 15 14:12:37 2004
 @@ -60,7 +60,6 @@
  				    unsigned int gsi_base);
  extern int gsi_to_vector (unsigned int gsi);
@@ -1017,7 +1005,7 @@ that.  I'm interested in any feedback or testing reports.
  extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
  				  unsigned long trigger);
 === include/asm-x86_64/mpspec.h 1.11 vs edited ==--- 1.11/include/asm-x86_64/mpspec.h	Mon Apr 12 11:55:30 2004
-+++ edited/include/asm-x86_64/mpspec.h	Sat May 15 09:13:33 2004
++++ edited/include/asm-x86_64/mpspec.h	Sat May 15 14:12:37 2004
 @@ -189,7 +189,7 @@
  extern void mp_register_ioapic (u8 id, u32 address, u32 gsi_base);
  extern void mp_override_legacy_irq (u8 bus_irq, u8 polarity, u8 trigger, u32 gsi);
@@ -1028,7 +1016,7 @@ that.  I'm interested in any feedback or testing reports.
  #endif
  
 === include/linux/acpi.h 1.33 vs edited ==--- 1.33/include/linux/acpi.h	Fri Apr  2 06:48:53 2004
-+++ edited/include/linux/acpi.h	Sat May 15 09:13:33 2004
++++ edited/include/linux/acpi.h	Sat May 15 14:12:38 2004
 @@ -437,7 +437,7 @@
  struct pci_dev;
  
