@@ -1,7 +1,7 @@
 From: "Lee, Jung-Ik" <jung-ik.lee@intel.com>
-Date: Thu, 24 Oct 2002 18:19:08 +0000
-Subject: RE: [Linux-ia64] RE: PCI Hotplug Drivers for 2.5
-Message-Id: <marc-linux-ia64-105590709805238@msgid-missing>
+Date: Thu, 24 Oct 2002 18:39:35 +0000
+Subject: [Linux-ia64] RE: PCI Hotplug Drivers for 2.5
+Message-Id: <marc-linux-ia64-105590709805239@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805223@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805223@msgid-missing>
@@ -10,38 +10,60 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> > **resource management**
-> > Non-ACPI platforms uses $HRT/EBDA, pcibios_*(), SMBIOS, 
-> etc. for slot
-> > enumeration/configuration.
-> > DIG64/ACPI, and SHPC requires ACPI for this. IPF platforms 
-> only have ACPI
-> > _CRS, _PRT, _HPP, _BBN, _STA, _ADR, _SUN, etc on the 
-> namespace for PHP, and
-> > we have to use them. (as a side note, this functionality is 
-> common for other
-> > hotplug-* as mentioned in first mail. No API will be common for
-> > hotplug-everything, but functionality is common and has not to be
-> > duplicated)
+> > We need this driver as it's the only solution for DIG64 
+> compliant IPF
+> > platforms.
 > 
-> > **event management in terms of controller/slot operations **
-> > ACPI provides only _EJ0, _PS?, _STA, etc for slot 
-> operations but these are
-> > not mandatory. That means, we can use either ACPI method or 
-> controller
-> > driver.
-> > intcphp driver has not enabled ACPI method based solution but uses
-> > controller driver.
-> > intcphp driver is also capable of performing ACPI method 
-> based solution
-> > since it works on ACPI namespace. This is why acpiphp and 
-> intcphp could be
-> > sharing resource management and event management.
-> 
-> Sounds like we want a library of ACPI code that can be used 
-> by individual
-> drivers rather than an ACPI driver with pluggable event management
-> functions then.
+> No, not for all DIG64 compliant IPF platforms.  NEC TX7 is also
+> a DIG64 compliant IPF platform but doesn't need your driver.
 
-Right, that's where we're getting at.
+Well, I forgot acpiphp driver was removed in this driver patch :)
+acpiphp is also for DIG64/ACPI and will do for some DIG64/ACPI machines
+while intcphp is feature full driver for IPF platform PHP.
+
+> 
+> DIG64(2.1) only states that:
+> 
+>  Firmware Support for PCI Hot-Plug
+>                                : Recommended if PCI Hot-Plug is
+>                                  implemented
+>  ACPI Support for PCI Hot-Plug : Recommended for platforms that
+>                                  implement PCI Hot-Plug without SHPC
+>  Using PCI Hot-Plug Specifications
+>                                : Recommended if PCI Hot-Plug is
+>                                  implemented
+
+ACPI IS mandatory for DIG64 PHP resource management by SHPC, while ACPI
+based slot operation is not required.
+The above sentence only could be misleading.
+
+> 
+> The spec also states that any PCI Hot-Plug controller must
+> follow one of PCI Hot-Plug spec 1.1, SHPC 1.0 or CompactPCI Hot Swap
+> spec.  It also strongly recommends SHPC 1.0, which is not covered
+> by J.I.'s driver yet.
+
+intcphp is desined with SHPC on plan in terms of ACPI resource management,
+as SHPC spec says
+"DIG64 compliant platforms must use ACPI to describe resource allocation."
+But it is not completely ready for SHPC yet. It's a matter of deployment
+schedules of dependencies such as HPRT, ACPI methods OSHP, HBRB, etc which
+will need to be enabled in Linux kernel ACPI driver/platform firmware.
+
+> 
+> But anyway Itanium2 platform using intel's hot-plug controller
+> will be shipping soon and J.I.'s driver has much better functionality
+> than acpiphp.  This would be a decent reason for having the
+> driver in the mainline.
+> 
+> And this also motivates us to clean up the duplicated code if
+> it were in mainline:)
+
+\o/ second to this :)
+
+> 
+> Thanks,
+> -- 
+> KOCHI, Takayoshi <t-kouchi@cq.jp.nec.com/t-kouchi@mvf.biglobe.ne.jp>
+> 
 
