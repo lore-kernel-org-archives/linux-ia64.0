@@ -1,35 +1,36 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Wed, 20 Feb 2002 23:06:34 +0000
-Subject: Re: [Linux-ia64] Bug in linker script
-Message-Id: <marc-linux-ia64-105590701905156@msgid-missing>
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Tue, 12 Feb 2002 21:51:22 +0000
+Subject: [Linux-ia64] null pointer dereference patch
+Message-Id: <marc-linux-ia64-105590698806040@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905140@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905140@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 20 Feb 2002 16:34:27 +0100, 
-Andreas Schwab <schwab@suse.de> wrote:
->The linker script for linking vmlinux is discarding the .text.exit
->section, but not the corresponding .IA64_unwind.text.exit and
->.IA64_unwind_info.text.exit sections.  This can cause dangling relocations
->when compiling with gcc3.
->
->Andreas.
->
->--- linux/arch/ia64/vmlinux.lds.S.~1~	Tue Jul 31 19:30:09 2001
->+++ linux/arch/ia64/vmlinux.lds.S	Tue Feb 19 15:34:49 2002
->@@ -13,6 +13,8 @@
-> 	*(.text.exit)
-> 	*(.data.exit)
-> 	*(.exitcall.exit)
->+	*(.IA_64.unwind.text.exit)
->+	*(.IA_64.unwind_info.text.exit)
-> 	}
-> 
+Without the attached patch, unaligned references before
+init_modules() is called result in null pointer dereferences.
+This is against 2.4.17-ia64-011226.
+-- 
+Bjorn Helgaas - bjorn_helgaas@hp.com
+Linux Systems Operation R&D
+Hewlett-Packard
 
-One *(*.text.exit) line would be better - untested.
+
+Index: arch/ia64/mm/extable.c
+=================================RCS file: /var/cvs/linux/arch/ia64/mm/extable.c,v
+retrieving revision 1.2
+diff -u -p -r1.2 extable.c
+--- arch/ia64/mm/extable.c	25 Jan 2002 20:14:42 -0000	1.2
++++ arch/ia64/mm/extable.c	12 Feb 2002 16:42:55 -0000
+@@ -59,6 +59,8 @@ search_exception_table (unsigned long ad
+ 		if (!mp->ex_table_start)
+ 			continue;
+ 		archdata = (struct archdata *) mp->archdata_start;
++		if (!archdata)
++			continue;
+ 		entry = search_one_table(mp->ex_table_start, mp->ex_table_end - 1,
+ 					 addr, (unsigned long) archdata->gp);
+ 		if (entry) {
 
 
