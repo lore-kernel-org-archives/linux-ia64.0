@@ -1,74 +1,25 @@
-From: Harald Welte <laforge@netfilter.org>
-Date: Fri, 09 Jul 2004 08:01:27 +0000
-Subject: Re: [netfilter-core] strict rejection of init -> core references causes problems
-Message-Id: <20040709080127.GA3168@sunbeam2>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="opJtzjQTFsWo+cga"
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 09 Jul 2004 15:59:06 +0000
+Subject: RE: strict rejection of init -> core references causes problems
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F019FB4B2@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16622.17154.117052.31601@napali.hpl.hp.com>
 In-Reply-To: <16622.17154.117052.31601@napali.hpl.hp.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>The recent patch of yours to the kernel module loader is causing some
+>problems with the netfilter modules.  To recap, with that patch
+>applied, calls from the core section of a module to an init section
+>are rejected because that's in general a dangerous thing to do (the
+>called code may be gone by the time the call gets executed).
 
---opJtzjQTFsWo+cga
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I was worried that this might be the case.  I did try loading a
+selection of stuff as modules, and didn't hit the problem, but
+I obviously didn't have netfilter configured as a module.
 
-On Fri, Jul 09, 2004 at 12:02:26AM -0700, David Mosberger wrote:
-> Tony,
->=20
-> To recap, with that patch applied, calls from the core section of a
-> module to an init section are rejected because that's in general a
-> dangerous thing to do (the called code may be gone by the time the
-> call gets executed).
+I'll make a patch to re-allow this later today.
 
-This breaks almost all netfilter modules, indeed.
-
-> I'm not terribly familiar with the netfilter code, but I think the
-> problem there comes from the fact that some code is shared between
-> init and exit handlers and that shared code ends up in the module
-> core.
-
-that's exactly the case.  Since we have fairly long initialization
-functions (allocating/initializing dozens of ressources, where each one
-can fail), we share the code for partial and full de-initialization
-between the failing module_init() routine and the module_exit() routine.
-
-Initially Rusty wrote the modules like this, and I very much agree with
-this decision to not replicate the same code in module_init() and
-_exit() functions. (which would have to be kept in sync every time some
-item is added to the initialization chain).
-
-> it's common practice, I suppose we don't have much choice but to allow
-> calls from core to init sections again.  Perhaps someone from the
-> netfilter team could comment?
-
-I wuold very much appreciate if this was still possible in the future.
-
-> 	--david
-
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---opJtzjQTFsWo+cga
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFA7lDXXaXGVTD0i/8RAo8FAJ4mk5vLTnLmqXCD/NgRjPKTKrSjEwCgnVUJ
-Nz+Wi+2ps9IdJ4g0WkdoSJE=
-=1l8b
------END PGP SIGNATURE-----
-
---opJtzjQTFsWo+cga--
+-Tony
