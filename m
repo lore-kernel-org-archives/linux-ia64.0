@@ -1,50 +1,60 @@
-From: Einar Saltnes <eisa@scali.no>
-Date: Fri, 09 Feb 2001 17:28:27 +0000
-Subject: [Linux-ia64] Serial console during linux boot
-Message-Id: <marc-linux-ia64-105590693005123@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Fri, 09 Feb 2001 18:03:29 +0000
+Subject: Re: [Linux-ia64] Serial console during linux boot
+Message-Id: <marc-linux-ia64-105590693005125@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005123@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005123@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi all,
+Hi,
 
-I'm using the RedHat 7.0 ia64 beta distro (13 Dec 2000) on a couple of
-Dual B1-stepping BigSurs. BIOS 84.
+> possible to adjust the serial port speed at this level to e.g. 9600 or
+> 19200?
+> 
+Not sure about that.
 
-I am trying to get the linux boot messages/output over the serial port
-as I want to operate it remotely by using a serial console switch +
-power switch.
+> When ELI starts to load the linux kernel, I am not able to get any
+> output on the serial console. I have tried with the line
+> 
+> append="console=ttyS0,9600n8"
+> 
+> in the beginning of /boot/efi/eli.cfg. (Console switch port speed also
+> set to 9600)
+> 
+> In the eli README file is says that append commands are implemented, but
+> serial is not listed as a valid command.
 
-Using getty seems to work OK on different serial port speed settings as
-does on common x86 machines.
-Directing standard output, standard input and standard error to serial
-port in EFIs Boot Option Maintenance Boot Menu with speed 115200, seems
-to work OK from power on up to start of linux kernel load. BTW, is it
-possible to adjust the serial port speed at this level to e.g. 9600 or
-19200?
+ELI does not work like the PC LILO. The control over ELI displaying
+on the serial is done by EFI. So for ELI to handle the serial, this would
+mean for it to talk to EFI to switch the console. While possible, this 
+feature is clearly not implemented today (at least as far as I know).
 
-When ELI starts to load the linux kernel, I am not able to get any
-output on the serial console. I have tried with the line
+Also note that the serial command has NOTHING to do with the console= option
+to the kernel. One controls where ELI/LILO would print ITS messages whereas
+the latter controls where the kernel console output is directed.
 
-append="console=ttyS0,9600n8"
+I have the impression you're after the kernel messages.
 
-in the beginning of /boot/efi/eli.cfg. (Console switch port speed also
-set to 9600)
+Have you tried to pass the console="" on the command line of ELI rather than
+in the configuration file. If you do so PLEASE KEEP THE double quotes as follows:
 
-In the eli README file is says that append commands are implemented, but
-serial is not listed as a valid command.
-Is there some way I can direct the linux load-/boot-messages on my
-current machines?
+	fs0:\> eli vmlinux console="ttyS0,9600n8"
 
-Thank you!
+We have seen some strange behavior from the EFI shell with regards to 
+parsing the command line.
 
-Best regards
-Einar Saltnes
+Alternatively, you may want to try the LILO for IA-64 part of the gnu-efi
+package (ftp://ftp.hpl.hp.com/pub/linux-ia64). That is the one I used 
+everyday and I know that the redirection of the kernel console works just
+fine. This would give you a comparison point to try and narrow down your
+problem.
+
+Regards,
+
 -- 
-| Einar Saltnes          |         Scali AS         |
-| mailto:eisa@scali.no   |   http://www.scali.com   |
-| Phone:+47 22 62 89 50  |  Scalable Linux Systems  |
-| Fax  :+47 22 62 89 51  |      and Technology      |
+-Stephane
 
