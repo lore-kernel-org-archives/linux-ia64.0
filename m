@@ -1,165 +1,317 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 30 Oct 2003 08:34:16 +0000
-Subject: [patch 2/4] kernel salinfo changes
-Message-Id: <marc-linux-ia64-106750297018129@msgid-missing>
+From: Jes Sorensen <jes@trained-monkey.org>
+Date: Fri, 17 Oct 2003 13:04:40 +0000
+Subject: [patch] xbow.c kmalloc fixes
+Message-Id: <marc-linux-ia64-106639647908532@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-patch 2 - Clean up kernel salinfo state checking.
+Hi David,
 
-Different bits of arch/ia64/kernel/salinfo.c checked different fields
-to determine what state the processing was in.  Rationalise them all to
-a single state flag.  This also positions for the ability to extend
-kernel salinfo to handle more operations.
+Included is a patch that fixes the kmalloc return value checks in xbow.c
+and while at it also nukes some silly spin_lock wrappers. Patch relative
+to your most recent release.
 
-Get rid of the new_read flag, read the record when the user asks for it
-or after clearing a record.
+Cheers,
+Jes
 
-
-diff -ur 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo1/arch/ia64/kernel/salinfo.c 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo2/arch/ia64/kernel/salinfo.c
---- 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo1/arch/ia64/kernel/salinfo.c	Thu Oct 30 17:06:19 2003
-+++ 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo2/arch/ia64/kernel/salinfo.c	Thu Oct 30 18:40:02 2003
-@@ -85,6 +85,36 @@
- 	int			cpu;
- };
+--- ../linux-2.6.0-test5/arch/ia64/sn/io/sn2/xbow.c	Fri Aug 22 16:54:57 2003
++++ linux/arch/ia64/sn/io/sn2/xbow.c	Fri Oct 17 06:00:13 2003
+@@ -1,5 +1,4 @@
+-/* $Id$
+- *
++/*
+  * This file is subject to the terms and conditions of the GNU General Public
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+@@ -12,6 +11,8 @@
+ #include <linux/module.h>
+ #include <linux/sched.h>
+ #include <linux/interrupt.h>
++#include <linux/mm.h>
++#include <asm/delay.h>
+ #include <asm/sn/sgi.h>
+ #include <asm/sn/intr.h>
+ #include <asm/sn/sn2/sn_private.h>
+@@ -42,9 +43,6 @@
+ #include <asm/sn/hcl_util.h>
  
-+/* State transitions.  Actions are :-
-+ *   Write "read <cpunum>" to the data file.
-+ *   Write "clear <cpunum>" to the data file.
-+ *   Read from the data file.
-+ *   Close the data file.
-+ *
-+ * Start state is NO_DATA.
-+ *
-+ * NO_DATA
-+ *    write "read <cpunum>" -> NO_DATA or LOG_RECORD.
-+ *    write "clear <cpunum>" -> NO_DATA or LOG_RECORD.
-+ *    read data -> return EOF.
-+ *    close -> unchanged.  Free record areas.
-+ *
-+ * LOG_RECORD
-+ *    write "read <cpunum>" -> NO_DATA or LOG_RECORD.
-+ *    write "clear <cpunum>" -> NO_DATA or LOG_RECORD.
-+ *    read data -> return the INIT/MCA/CMC/CPE record.
-+ *    close -> unchanged.  Keep record areas.
-+ *
-+ * Closing the data file does not change the state.  This allows shell scripts
-+ * to manipulate salinfo data, each shell redirection opens the file, does one
-+ * action then closes it again.  The record areas are only freed at close when
-+ * the state is NO_DATA.
-+ */
-+enum salinfo_state {
-+	STATE_NO_DATA,
-+	STATE_LOG_RECORD,
-+};
-+
- struct salinfo_data {
- 	volatile cpumask_t	cpu_event;	/* which cpus have outstanding events */
- 	struct semaphore	sem;		/* count of cpus with outstanding events (bits set in cpu_event) */
-@@ -93,9 +123,8 @@
- 	int			open;		/* single-open to prevent races */
- 	u8			type;
- 	u8			saved_num;	/* using a saved record? */
--	u8			new_read;	/* start of a new read? */
-+	enum salinfo_state	state :8;	/* processing state */
- 	u8			padding;
--	int			cpu_read;	/* "current" cpu for reads */
- 	int			cpu_check;	/* next CPU to check */
- 	struct salinfo_data_saved data_saved[5];/* save last 5 records from mca.c, must be < 255 */
- };
-@@ -241,7 +270,8 @@
- 	data->open = 1;
- 	spin_unlock(&data_lock);
  
--	if (!(data->log_buffer = vmalloc(ia64_sal_get_state_info_size(data->type)))) {
-+	if (data->state = STATE_NO_DATA &&
-+	    !(data->log_buffer = vmalloc(ia64_sal_get_state_info_size(data->type)))) {
- 		data->open = 0;
- 		return -ENOMEM;
+-#define NEW(ptr)	(ptr = kmalloc(sizeof (*(ptr)), GFP_KERNEL))
+-#define DEL(ptr)	(kfree(ptr))
+-
+ /*
+  * This file supports the Xbow chip.  Main functions: initializtion,
+  * error handling, and GBR.
+@@ -229,6 +227,8 @@
+ #ifdef XBRIDGE_REGS_SIM
+     printk("xbow_attach: XBRIDGE_REGS_SIM FIXME: allocating %ld bytes for xbow_s\n", sizeof(xbow_t));
+     xbow = (xbow_t *) kmalloc(sizeof(xbow_t), GFP_KERNEL);
++    if (!xbow)
++	    return -ENOMEM;
+     /*
+      * turn on ports e and f like in a real live ibrick
+      */
+@@ -274,7 +274,9 @@
+      * Allocate the soft state structure and attach
+      * it to the xbow's vertex
+      */
+-    NEW(soft);
++    soft = kmalloc(sizeof(*soft), GFP_KERNEL);
++    if (!soft)
++	    return -ENOMEM;
+     soft->conn = conn;
+     soft->vhdl = vhdl;
+     soft->busv = busv;
+@@ -298,6 +300,10 @@
+     s = dev_to_name(vhdl, devnm, MAXDEVNAME);
+     soft->name = kmalloc(strlen(s) + strlen(XBOW_NUM_SUFFIX_FORMAT) + 1, 
+ 			    GFP_KERNEL);
++    if (!soft->name) {
++	    kfree(soft);
++	    return -ENOMEM;
++    }
+     sprintf(soft->name,"%s"XBOW_NUM_SUFFIX_FORMAT, s,xbow_num);
+ 
+ #ifdef XBRIDGE_REGS_SIM
+@@ -311,12 +317,12 @@
+ #endif /* XBRIDGE_REGS_SIM */
+     rev = XWIDGET_PART_REV_NUM(id);
+ 
+-    mutex_spinlock_init(&soft->xbow_perf_lock);
++    spin_lock_init(&soft->xbow_perf_lock);
+     soft->xbow_perfcnt[0].xp_perf_reg = &xbow->xb_perf_ctr_a;
+     soft->xbow_perfcnt[1].xp_perf_reg = &xbow->xb_perf_ctr_b;
+ 
+     /* Initialization for GBR bw allocation */
+-    mutex_spinlock_init(&soft->xbow_bw_alloc_lock);
++    spin_lock_init(&soft->xbow_bw_alloc_lock);
+ 
+ #define	XBOW_8_BIT_PORT_BW_MAX		(400 * 1000 * 1000)	/* 400 MB/s */
+ #define XBOW_16_BIT_PORT_BW_MAX		(800 * 1000 * 1000)	/* 800 MB/s */
+@@ -764,16 +770,6 @@
+ 			}
+ 		    }
+ 
+-#if !DEBUG
+-		    if (kdebug) {
+-#endif
+-			XEM_ADD_VAR(link_control);
+-			XEM_ADD_VAR(link_status);
+-			XEM_ADD_VAR(link_aux_status);
+-
+-#if !DEBUG
+-		    }
+-#endif
+ 		    fatal++;
+ 		}
+ 	    }
+@@ -805,7 +801,7 @@
+ 	XEM_ADD_VAR(wid_err_upper);
+ 	XEM_ADD_VAR(wid_err_lower);
+ 	XEM_ADD_VAR(wid_err_addr);
+-	PRINT_PANIC("XIO Bus Error");
++	panic("XIO Bus Error");
+     }
+ }
+ 
+@@ -923,18 +919,6 @@
+ 		    "\twith offset 0x%lx",
+ 		    soft->name, port, tmp);
  	}
-@@ -255,8 +285,10 @@
- 	struct proc_dir_entry *entry = (struct proc_dir_entry *) inode->u.generic_ip;
- 	struct salinfo_data *data = entry->data;
+-#if !DEBUG
+-	if (kdebug) {
+-#endif
+-	    XEM_ADD_STR("Raw status values for Crossbow:\n");
+-	    XEM_ADD_VAR(wid_stat);
+-	    XEM_ADD_VAR(wid_err_cmdword);
+-	    XEM_ADD_VAR(wid_err_upper);
+-	    XEM_ADD_VAR(wid_err_lower);
+-	    XEM_ADD_VAR(wid_err_addr);
+-#if !DEBUG
+-	}
+-#endif
  
--	vfree(data->log_buffer);
--	data->log_buffer = NULL;
-+	if (data->state = STATE_NO_DATA) {
-+		vfree(data->log_buffer);
-+		data->log_buffer = NULL;
-+	}
- 	spin_lock(&data_lock);
- 	data->open = 0;
- 	spin_unlock(&data_lock);
-@@ -283,19 +315,18 @@
+ 	/* caller will dump contents of ioerror
+ 	 * in DEBUG and kdebug kernels.
+@@ -980,24 +964,8 @@
+ 		    "\twith offset 0x%lx",
+ 		    soft->name, port, tmp);
+ 	}
+-#if !DEBUG
+-	if (kdebug) {
+-#endif
+-	    XEM_ADD_STR("Raw status values for Crossbow:\n");
+-	    XEM_ADD_VAR(wid_stat);
+-	    XEM_ADD_VAR(wid_err_cmdword);
+-	    XEM_ADD_VAR(wid_err_upper);
+-	    XEM_ADD_VAR(wid_err_lower);
+-	    XEM_ADD_VAR(wid_err_addr);
+-	    XEM_ADD_VAR(port);
+-	    XEM_ADD_VAR(link_control);
+-	    XEM_ADD_VAR(link_status);
+-	    XEM_ADD_VAR(link_aux_status);
+-#if !DEBUG
+-	}
+-#endif
+-	return retval;
+ 
++	return retval;
+     }
+     /* Check that the link is alive.
+      */
+@@ -1064,22 +1032,6 @@
+ 	}
+     }
+ 
+-#if !DEBUG
+-    if (kdebug) {
+-#endif
+-	XEM_ADD_STR("Raw status values for Crossbow:\n");
+-	XEM_ADD_VAR(wid_stat);
+-	XEM_ADD_VAR(wid_err_cmdword);
+-	XEM_ADD_VAR(wid_err_upper);
+-	XEM_ADD_VAR(wid_err_lower);
+-	XEM_ADD_VAR(wid_err_addr);
+-	XEM_ADD_VAR(port);
+-	XEM_ADD_VAR(link_control);
+-	XEM_ADD_VAR(link_status);
+-	XEM_ADD_VAR(link_aux_status);
+-#if !DEBUG
+-    }
+-#endif
+     /* caller will dump raw ioerror data
+      * in DEBUG and kdebug kernels.
+      */
+@@ -1094,14 +1046,13 @@
+     xbow_perf_t            *xbow_perf = xbow_soft->xbow_perfcnt;
+     xbow_perf_link_t       *xbow_plink = xbow_soft->xbow_perflink;
+     xbow_perfcount_t        perf_reg;
+-    unsigned long           s;
+     int                     link, i;
+ 
+     for (i = 0; i < XBOW_PERF_COUNTERS; i++, xbow_perf++) {
+ 	if (xbow_perf->xp_mode = XBOW_MONITOR_NONE)
+ 	    continue;
+ 
+-	s = mutex_spinlock(&xbow_soft->xbow_perf_lock);
++	spin_lock(&xbow_soft->xbow_perf_lock);
+ 
+ 	perf_reg.xb_counter_val = *(xbowreg_t *) xbow_perf->xp_perf_reg;
+ 
+@@ -1111,7 +1062,7 @@
+ 	    ((perf_reg.xb_perf.count - xbow_perf->xp_current) & XBOW_COUNTER_MASK);
+ 	xbow_perf->xp_current = perf_reg.xb_perf.count;
+ 
+-	mutex_spinunlock(&xbow_soft->xbow_perf_lock, s);
++	spin_unlock(&xbow_soft->xbow_perf_lock);
+     }
  }
  
- static void
--salinfo_log_new_read(struct salinfo_data *data)
-+salinfo_log_new_read(int cpu, struct salinfo_data *data)
- {
- 	struct salinfo_data_saved *data_saved;
- 	unsigned long flags;
- 	int i;
- 	int saved_size = ARRAY_SIZE(data->data_saved);
+@@ -1132,7 +1083,6 @@
+     xbow_linkctrl_t         xbow_link_ctrl;
+     xbow_t                 *xbow = xbow_soft->base;
+     xbow_perfcount_t        perf_reg;
+-    unsigned long           s;
+     int                     i;
  
--	data->new_read = 0;
- 	data->saved_num = 0;
- 	spin_lock_irqsave(&data_saved_lock, flags);
- retry:
- 	for (i = 0, data_saved = data->data_saved; i < saved_size; ++i, ++data_saved) {
--		if (data_saved->buffer && data_saved->cpu = data->cpu_read) {
-+		if (data_saved->buffer && data_saved->cpu = cpu) {
- 			sal_log_record_header_t *rh = (sal_log_record_header_t *)(data_saved->buffer);
- 			data->log_size = data_saved->size;
- 			memcpy(data->log_buffer, rh, data->log_size);
-@@ -312,7 +343,8 @@
- 	spin_unlock_irqrestore(&data_saved_lock, flags);
+     link -= BASE_XBOW_PORT;
+@@ -1145,10 +1095,10 @@
+     if ((counter < 0) || (counter >= XBOW_PERF_COUNTERS))
+ 	return -1;
  
- 	if (!data->saved_num)
--		call_on_cpu(data->cpu_read, salinfo_log_read_cpu, data);
-+		call_on_cpu(cpu, salinfo_log_read_cpu, data);
-+	data->state = data->log_size ? STATE_LOG_RECORD : STATE_NO_DATA;
+-    s = mutex_spinlock(&xbow_soft->xbow_perf_lock);
++    spin_lock(&xbow_soft->xbow_perf_lock);
+ 
+     if ((xbow_perf + counter)->xp_mode && mode) {
+-	mutex_spinunlock(&xbow_soft->xbow_perf_lock, s);
++	spin_unlock(&xbow_soft->xbow_perf_lock);
+ 	return -1;
+     }
+     for (i = 0; i < XBOW_PERF_COUNTERS; i++) {
+@@ -1156,7 +1106,7 @@
+ 	    continue;
+ 	if (((xbow_perf + i)->xp_link = link) &&
+ 	    ((xbow_perf + i)->xp_mode)) {
+-	    mutex_spinunlock(&xbow_soft->xbow_perf_lock, s);
++	    spin_unlock(&xbow_soft->xbow_perf_lock);
+ 	    return -1;
+ 	}
+     }
+@@ -1174,7 +1124,7 @@
+     *(xbowreg_t *) xbow_perf->xp_perf_reg = perf_reg.xb_counter_val;
+     xbow_perf->xp_current = perf_reg.xb_perf.count;
+ 
+-    mutex_spinunlock(&xbow_soft->xbow_perf_lock, s);
++    spin_unlock(&xbow_soft->xbow_perf_lock);
+     return 0;
  }
  
- static ssize_t
-@@ -350,11 +382,11 @@
- static int
- salinfo_log_clear(struct salinfo_data *data, int cpu)
- {
-+	data->state = STATE_NO_DATA;
- 	if (!test_bit(cpu, &data->cpu_event))
- 		return 0;
- 	down(&data->sem);
- 	clear_bit(cpu, &data->cpu_event);
--	data->log_size = 0;
- 	if (data->saved_num) {
- 		unsigned long flags;
- 		spin_lock_irqsave(&data_saved_lock, flags);
-@@ -365,10 +397,9 @@
- 	call_on_cpu(cpu, salinfo_log_clear_cpu, data);
+@@ -1262,15 +1212,10 @@
+     xbow_t                 *xbow;
+     xbowreg_t               ctrl;
+     xbwX_stat_t             stat;
+-    unsigned                itick;
++    unsigned long           itick;
+     unsigned                dtick;
+-    static int              ticks_per_ms = 0;
++    static long             ticks_to_wait = HZ / 1000;
  
- 	/* clearing a record may make a new record visible */
--	data->cpu_read = cpu;
--	salinfo_log_new_read(data);
--	if (data->log_size &&
--	    !test_and_set_bit(data->cpu_read,  &data->cpu_event))
-+	salinfo_log_new_read(cpu, data);
-+	if (data->state = STATE_LOG_RECORD &&
-+	    !test_and_set_bit(cpu,  &data->cpu_event))
- 		up(&data->sem);
- 	return 0;
+-    if (!ticks_per_ms) {
+-	itick = get_timestamp();
+-	us_delay(1000);
+-	ticks_per_ms = get_timestamp() - itick;
+-    }
+     widget_info = xwidget_info_get(xconn_vhdl);
+     port = xwidget_info_id_get(widget_info);
+ 
+@@ -1296,16 +1241,16 @@
+      */
+     ctrl = xbow->xb_link(port).link_control;
+     xbow->xb_link(port).link_reset = 0;
+-    itick = get_timestamp();
++    itick = jiffies;
+     while (1) {
+ 	stat.linkstatus = xbow->xb_link(port).link_status;
+ 	if (stat.link_alive)
+ 	    break;
+-	dtick = get_timestamp() - itick;
+-	if (dtick > ticks_per_ms) {
++	dtick = jiffies - itick;
++	if (dtick > ticks_to_wait) {
+ 	    return -1;			/* never came out of reset */
+ 	}
+-	DELAY(2);			/* don't beat on link_status */
++	udelay(2);			/* don't beat on link_status */
+     }
+     xbow->xb_link(port).link_control = ctrl;
+     return 0;
+@@ -1379,7 +1324,6 @@
+     xbow_soft_t             soft = xbow_soft_get(vhdl);
+     volatile xbowreg_t     *xreg;
+     xbowreg_t               mask;
+-    unsigned long           s;
+     int                     error = 0;
+     bandwidth_t             old_bw_BYTES, req_bw_BYTES;
+     xbowreg_t               old_xreg;
+@@ -1393,7 +1337,7 @@
+     ASSERT(XBOW_WIDGET_IS_VALID(src_wid));
+     ASSERT(XBOW_WIDGET_IS_VALID(dest_wid));
+ 
+-    s = mutex_spinlock(&soft->xbow_bw_alloc_lock);
++    spin_lock(&soft->xbow_bw_alloc_lock);
+ 
+     /* Get pointer to the correct register */
+     xreg = XBOW_PRIO_ARBREG_PTR(soft->base, dest_wid, src_wid);
+@@ -1444,7 +1388,7 @@
+ 	error = 1;
+     }
+ 
+-    mutex_spinunlock(&soft->xbow_bw_alloc_lock, s);
++    spin_unlock(&soft->xbow_bw_alloc_lock);
+ 
+-    return (error);
++    return error;
  }
-@@ -390,8 +421,7 @@
- 		return -EFAULT;
- 
- 	if (sscanf(cmd, "read %d", &cpu) = 1) {
--		data->cpu_read = cpu;
--		data->new_read = 1;
-+		salinfo_log_new_read(cpu, data);
- 	} else if (sscanf(cmd, "clear %d", &cpu) = 1) {
- 		int ret;
- 		if ((ret = salinfo_log_clear(data, cpu)))
-
