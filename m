@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 15 Sep 2004 07:16:47 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 15 Sep 2004 07:56:15 +0000
 Subject: Re: INIT dumps broken?
-Message-Id: <16344.1095232607@kao2.melbourne.sgi.com>
+Message-Id: <16711.62879.740326.646780@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200409141450.i8EEotfk029379@napali.hpl.hp.com>
 In-Reply-To: <200409141450.i8EEotfk029379@napali.hpl.hp.com>
@@ -10,29 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 14 Sep 2004 07:50:55 -0700, 
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
->I noticed that with kernel v2.6.9-rc1 INIT dumps appear not to work
->anymore.  The machine just hangs, without ever (visibly) control
->reaching the OS INIT handler.  v2.6.7-rc3 was OK.  Anybody know what
->broke?
+>>>>> On Wed, 15 Sep 2004 17:16:47 +1000, Keith Owens <kaos@sgi.com> said:
 
-cpu 0 is using init_task's original address.
+  Keith> The use of 0xa.. for cpu 0 is causing an MCA when cpu 0
+  Keith> receives INIT.
 
-2.6.7-rc3, kdb ps A
+The MINSTATE_PHYS-version of MINSTATE_GET_CURRENT() looks broken to
+me.  Perhaps changing "dep reg=0,reg,61,3" to a "tpa" is all that's
+needed there.  Can someone check this out?  I probably won't get to it
+today and will be on vacation starting tomorrow.
 
-Task Addr               Pid   Parent [*] cpu State Thread             Command
-0xe0000430148dc000        0        0  1    0   I  0xe0000430148dc4b0 *swapper
-0xe00004b43be70000        0        1  1    1   I  0xe00004b43be704b0  swapper
-0xe00004b43bd68000        0        1  1    2   I  0xe00004b43bd684b0  swapper
-0xe0000430067b0000        0        1  1    3   I  0xe0000430067b04b0  swapper
-
-2.6.8.1, kdb ps A
-
-Task Addr               Pid   Parent [*] cpu State Thread             Command
-0xa0000001008e8000        0        0  1    0   I  0xa0000001008e84d0 *swapper   <=0xe00004b43bd38000        0        1  1    1   I  0xe00004b43bd384d0  swapper
-0xe00004b43bd00000        0        1  1    2   I  0xe00004b43bd004d0  swapper
-0xe00004b0037e0000        0        1  1    3   I  0xe00004b0037e04d0  swapper
-
-The use of 0xa.. for cpu 0 is causing an MCA when cpu 0 receives INIT.
+	--david
 
