@@ -1,41 +1,46 @@
-From: "Raj Pati" <rpatil0299@hotmail.com>
-Date: Mon, 22 Mar 2004 03:00:35 +0000
-Subject: Question about ia64 linux
-Message-Id: <BAY14-F301ImxoKYUVs0007e432@hotmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 22 Mar 2004 06:13:23 +0000
+Subject: RE: Question about ia64 linux
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6FE5CC24@scsmsx401.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <BAY14-F301ImxoKYUVs0007e432@hotmail.com>
+In-Reply-To: <BAY14-F301ImxoKYUVs0007e432@hotmail.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>Is it possible to modify a running code (in a module or kernel)
+>in ia64 linux? (It is not a good practise to do it.
+>But, I need to check  this out as it was done in ia32.....)
 
-Hello,
+Yes it can be done.  Whether it is good practice is in the
+eye of the beholder ... and depends a lot on what you are
+actually doing.  If you have some 1950's code that reads
+auccessive elements from an array my modifying the code that
+loads the address ... then it's time to rewrite :-)  If you
+have some on-the-fly code generation (e.g. a Just-in-time
+compilation system) ... then that's a lot more palatable.
 
-A question wrt to ia64 linux environment:
+>Probably, it is possible. I just wanted to see whether
+>there are any issues one should be aware of other than
+>serialization/flushing. There are couple of pages of
+>documentation regarding self-modifying code in one of
+>the ia64 software developers manual. I am curious
+>whether there are any other notes/writeups or sample
+>code where similar kind of things are done in ia64
+>linux.  I really appreciate if some one can direct me
+>to such doc or code (if they exist) which can give
+>some more ia64  specific information.
 
-Is it possible to modify a running code (in a module or kernel)
-in ia64 linux? (It is not a good practise to do it.
-But, I need to check  this out as it was done in ia32.....)
+The software developers manual covers everything that
+you need to know.  There are some code examples in the
+Linux kernel code (where we modify a load instruction
+to grab the physical address of an object, rather than
+the virtual address ... used because the address won't
+be known for sure until run-time).  These aren't very dynamic
+though ... the instructions are patched during kernel
+initialization, and never touched again. Look at
+ia64_patch_vtop() in arch/kernel/ia64/patch.c
 
-Probably, it is possible. I just wanted to see whether
-there are any issues one should be aware of other than
-serialization/flushing. There are couple of pages of
-documentation regarding self-modifying code in one of
-the ia64 software developers manual. I am curious
-whether there are any other notes/writeups or sample
-code where similar kind of things are done in ia64
-linux.  I really appreciate if some one can direct me
-to such doc or code (if they exist) which can give
-some
-more ia64  specific information.
-
-Thank you very much in advance.
-
-Regards,
-
-Raj
-
-_________________________________________________________________
-FREE pop-up blocking with the new MSN Toolbar =96 get it now!=20
-http://clk.atdmt.com/AVE/go/onm00200415ave/direct/01/
-
+-Tony
