@@ -1,7 +1,7 @@
-From: stefan <stefan@lkcc.org>
-Date: Thu, 11 Oct 2001 11:33:49 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Mon, 15 Oct 2001 18:16:20 +0000
 Subject: Re: [Linux-ia64] use of setcontext()/getcontext()
-Message-Id: <marc-linux-ia64-105590698805334@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805344@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805251@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805251@msgid-missing>
@@ -10,25 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 10 Oct 2001, David Mosberger wrote:
+>>>>> On Thu, 11 Oct 2001 13:26:05 +0200 (CEST), stefan <stefan@lkcc.org> said:
 
-> >>>>> On Tue, 9 Oct 2001 08:01:16 +0200 (CEST), stefan <stefan@lkcc.org> said:
-> 
->   Stefan> One more question about this: The `ucontext_t' structure
->   Stefan> seemed to changed a bit over the weeks. Since when is it
->   Stefan> known to have the sc_ar_bsp member (glibc version) ?
-> 
-> I thought that member was there pretty much "forever".  However, I did
-> add sc_rbs_base and sc_loadrs recently.  This is really for
-> sigcontext, but since ucontext_t is effectively an alias, it would be
-> affected, too.
+  Stefan> On Wed, 10 Oct 2001, David Mosberger wrote: Also I would
+  Stefan> like to know if
+  >>
+  Stefan> extern unsigned long
+  Stefan> __libc_ia64_register_backing_store_base; or extern void *
+  Stefan> __libc_ia64_register_backing_store_base;
+  >>
+  Stefan> is meant to be correct.
+  >>  Either one should work.
 
-I found some ia64 machine which declares `mcontext_t' in <sys/ucontext.h>
-in another way as `sigcontext' in <bits/sigcontext.h>. That is dated on
-May 22nd this year. With members like `ar_bsp_base' and `ar_bspstore'...
-That is why I ask.
+  Stefan> I know that :-) But how is it initially declared ? I just
+  Stefan> need to decide which to chose.
 
-Thanks in advance,
-	stefan@lkcc.org
+Well, it's defined in an assembly file, so there is no initial
+declaration.  I'd recommend to declare it as "unsigned long *".  That
+way, it would be compatible with the rse.h helper functions (not that
+you'd need them... ;-).
 
+	--david
 
