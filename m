@@ -1,36 +1,70 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 11 Feb 2005 14:53:03 +0000
-Subject: Re: [patch 2.6.11-rc3-bk4] Correctly dereference ia64_mca_data
-Message-Id: <200502111453.j1BEr35524613518@clink.americas.sgi.com>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Tue, 01 Feb 2005 04:08:46 +0000
+Subject: Re: page fault scalability patch V16 [3/4]: Drop page_table_lock
+Message-Id: <41FF00CE.8060904@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <23464.1107851114@kao2.melbourne.sgi.com>
-In-Reply-To: <23464.1107851114@kao2.melbourne.sgi.com>
+References: <41E5B7AD.40304@yahoo.com.au> <Pine.LNX.4.58.0501121552170.12669@schroedinger.engr.sgi.com> <41E5BC60.3090309@yahoo.com.au> <Pine.LNX.4.58.0501121611590.12872@schroedinger.engr.sgi.com> <20050113031807.GA97340@muc.de> <Pine.LNX.4.58.0501130907050.18742@schroedinger.engr.sgi.com> <20050113180205.GA17600@muc.de> <Pine.LNX.4.58.0501131701150.21743@schroedinger.engr.sgi.com> <20050114043944.GB41559@muc.de> <Pine.LNX.4.58.0501140838240.27382@schroedinger.engr.sgi.com> <20050114170140.GB4634@muc.de> <Pine.LNX.4.58.0501281233560.19266@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0501281237010.19266@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0501281237010.19266@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Andi Kleen <ak@muc.de>, Andrew Morton <akpm@osdl.org>, torvalds@osdl.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, benh@kernel.crashing.org
 
-Keith Owens wrote:
+Christoph Lameter wrote:
+
+Slightly OT: are you still planning to move the update_mem_hiwater and
+friends crud out of these fastpaths? It looks like at least that function
+is unsafe to be lockless.
+
+> @@ -1316,21 +1318,27 @@ static int do_wp_page(struct mm_struct *
+>  			flush_cache_page(vma, address);
+>  			entry = maybe_mkwrite(pte_mkyoung(pte_mkdirty(pte)),
+>  					      vma);
+> -			ptep_set_access_flags(vma, address, page_table, entry, 1);
+> -			update_mmu_cache(vma, address, entry);
+> +			/*
+> +			 * If the bits are not updated then another fault
+> +			 * will be generated with another chance of updating.
+> +			 */
+> +			if (ptep_cmpxchg(page_table, pte, entry))
+> +				update_mmu_cache(vma, address, entry);
+> +			else
+> +				inc_page_state(cmpxchg_fail_flag_reuse);
+>  			pte_unmap(page_table);
+> -			spin_unlock(&mm->page_table_lock);
+> +			page_table_atomic_stop(mm);
+>  			return VM_FAULT_MINOR;
+>  		}
+>  	}
+>  	pte_unmap(page_table);
+> +	page_table_atomic_stop(mm);
 > 
-> As davidm has pointed out, if the OS MCA handler saves the scratch and
-> preserved registers before calling C and restores the values before
-> returning to SAL then we have no problems.  By definition, the only
-> registers that matter are those in struct pt_regs.  Think of an MCA as
-> just another type of interrupt, with exactly the same requirements for
-> saving registers.
+>  	/*
+>  	 * Ok, we need to copy. Oh, well..
+>  	 */
+>  	if (!PageReserved(old_page))
+>  		page_cache_get(old_page);
+> -	spin_unlock(&mm->page_table_lock);
+> 
 
-That sounds like the right approach.
+I don't think you can do this unless you have done something funky that I
+missed. And that kind of shoots down your lockless COW too, although it
+looks like you can safely have the second part of do_wp_page without the
+lock. Basically - your lockless COW patch itself seems like it should be
+OK, but this hunk does not.
 
-> I am completely dropping the proc_state_dump data area and 90% of the
-> code in os_mca_dump/restore.  Instead of saving everything in sight, I
-> create a struct pt_regs from the current registers plus some data from
-> the min_state_save area.  That has three benefits - it gets rid of the
-> special case RSE stack frame, it gives a real pt_regs for unwinding
-> through the MCA handler and it guarantees that we save the required set
-> of registers.
+I would be very interested if you are seeing performance gains with your
+lockless COW patches, BTW.
 
-Thanks, Keith.
+Basically, getting a reference on a struct page was the only thing I found
+I wasn't able to do lockless with pte cmpxchg. Because it can race with
+unmapping in rmap.c and reclaim and reuse, which probably isn't too good.
+That means: the only operations you are able to do lockless is when there
+is no backing page (ie. the anonymous unpopulated->populated case).
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+A per-pte lock is sufficient for this case, of course, which is why the
+pte-locked system is completely free of the page table lock.
+
+Although I may have some fact fundamentally wrong?
+
