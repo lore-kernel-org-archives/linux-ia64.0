@@ -1,603 +1,713 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Thu, 24 Feb 2005 16:11:48 +0000
-Subject: Re: [patch -mm series] ia64 specific /dev/mem handlers
-Message-Id: <yq0k6oydjjv.fsf@jaguar.mkp.net>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Mon, 28 Feb 2005 00:58:54 +0000
+Subject: take7: vector sharing (Large I/O system support)
+Message-Id: <42226CCE.6070706@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16923.193.128608.607599@jaguar.mkp.net>
-	<20050222020309.4289504c.akpm@osdl.org>
-	<yq0ekf8lksf.fsf@jaguar.mkp.net>
-	<20050222175225.GK28741@parcelfarce.linux.theplanet.co.uk>
-	<20050222112513.4162860d.akpm@osdl.org>
-	<yq0zmxwgqxr.fsf@jaguar.mkp.net>
-	<20050222153456.502c3907.akpm@osdl.org>
-	<yq0sm3negtb.fsf@jaguar.mkp.net>
-	<20050223223404.GA21383@infradead.org>
-In-Reply-To: <20050223223404.GA21383@infradead.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>
-Cc: Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
->>>>> "Christoph" = Christoph Hellwig <hch@infradead.org> writes:
+Hi Tony,
 
-Christoph> Please remove the ifdef by letting every architecture
-Christoph> implement a arch_translate_mem_ptr (and give it a saner
-Christoph> name while you're at it).
+I had a good discussion about vector sharing patch with
+Ashok Raj (Thank you Ashok!!) and I made change to it based
+on the comments from him.
 
-Ok, I thought it was tidier the other way, but I am not biased.
+Summary of Changes are:
+  - Removed sharable flag from iosapic_itr_info structure
+  - Made NR_RTE_CACHE_ENTRIES configurable
 
-Christoph> Also shouldn't the pfn_to_page be done inside
-Christoph> arch_translate_mem_ptr?  The struct page * isn't used
-Christoph> anywhere else.
+Attached patch is against 2.6.11-rc5.
 
-Done!
-
->> + if (!range_is_allowed(p, p + count))
-
-Christoph> isn't the name a little too generic?
-
-Actually, thats an old function, nothing I added - but I renamed it.
-
-Christoph> While you're at it replace the ifdef mania with a #ifdef
-Christoph> __HAVE_ARCH_PAGE_ZERO_MAPPED or something similar.
-
-Using __ARCH_HAS_NO_PAGE_ZERO_MAPPED for it now.
-
-Cheers,
-Jes
-
-Convert /dev/mem read/write calls to use arch_translate_mem_ptr if
-available. Needed on ia64 for pages converted fo uncached mappings to
-avoid it being accessed in cached mode after the conversion which can
-lead to memory corruption. Introduces PG_uncached page flag for
-marking pages uncached.
-
-Also folds do_write_mem into write_mem as it was it's only user.
-
-Use __ARCH_HAS_NO_PAGE_ZERO_MAPPED for architectures to indicate they
-require magic handling of the zero page (Sparc and m68k).
-
-Signed-off-by: Jes Sorensen <jes@wildopensource.com>
+Thanks,
+Kenji Kaneshige
 
 
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/drivers/char/mem.c linux-2.6.11-rc3-mm2-3/drivers/char/mem.c
---- linux-2.6.11-rc3-mm2-vanilla/drivers/char/mem.c	2005-02-16 11:20:55 -08:00
-+++ linux-2.6.11-rc3-mm2-3/drivers/char/mem.c	2005-02-24 04:45:34 -08:00
-@@ -125,39 +125,6 @@
- 	}
- 	return 1;
- }
--static ssize_t do_write_mem(void *p, unsigned long realp,
--			    const char __user * buf, size_t count, loff_t *ppos)
--{
--	ssize_t written;
--	unsigned long copied;
--
--	written = 0;
--#if defined(__sparc__) || (defined(__mc68000__) && defined(CONFIG_MMU))
--	/* we don't have page 0 mapped on sparc and m68k.. */
--	if (realp < PAGE_SIZE) {
--		unsigned long sz = PAGE_SIZE-realp;
--		if (sz > count) sz = count; 
--		/* Hmm. Do something? */
--		buf+=sz;
--		p+=sz;
--		count-=sz;
--		written+=sz;
--	}
--#endif
--	if (!range_is_allowed(realp, realp+count))
--		return -EPERM;
--	copied = copy_from_user(p, buf, count);
--	if (copied) {
--		ssize_t ret = written + (count - copied);
--
--		if (ret)
--			return ret;
--		return -EFAULT;
--	}
--	written += count;
--	*ppos += written;
--	return written;
--}
+Current ia64 linux cannot handle greater than 184 interrupt sources
+because of the lack of vectors. The following patch enables ia64 linux
+to handle greater than 184 interrupt sources by allowing the same
+vector number to be shared by multiple IOSAPIC's RTEs. The design of
+this patch is besed on "Intel(R) Itanium(R) Processor Family Interrupt
+Architecture Guide".
+
+Even if you don't have a large I/O system, you can see the behavior of
+vector sharing by changing IOSAPIC_LAST_DEVICE_VECTOR to fewer value.
+
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+
+---
+
+ linux-2.6.11-rc5-kanesige/arch/ia64/Kconfig           |    8 
+ linux-2.6.11-rc5-kanesige/arch/ia64/kernel/iosapic.c  |  356 +++++++++++++-----
+ linux-2.6.11-rc5-kanesige/arch/ia64/kernel/irq_ia64.c |   16 
+ linux-2.6.11-rc5-kanesige/include/asm-ia64/hw_irq.h   |    1 
+ 4 files changed, 291 insertions(+), 90 deletions(-)
+
+diff -puN arch/ia64/Kconfig~vector_sharing arch/ia64/Kconfig
+--- linux-2.6.11-rc5/arch/ia64/Kconfig~vector_sharing	2005-02-25 09:08:18.000000000 +0900
++++ linux-2.6.11-rc5-kanesige/arch/ia64/Kconfig	2005-02-25 09:08:18.000000000 +0900
+@@ -318,6 +318,14 @@ config ACPI_DEALLOCATE_IRQ
+ 	depends on IOSAPIC && EXPERIMENTAL
+ 	default y
  
- #ifndef ARCH_HAS_DEV_MEM
++config NR_RTE_CACHES
++	int "Number of RTE cache entries"
++	depends on IOSAPIC
++	default "256"
++	help
++	  If your system panic with the message "out of rte cache
++	  entries!(shortage: XX)", please set this to a larger value.
++
+ source "drivers/firmware/Kconfig"
+ 
+ source "fs/Kconfig.binfmt"
+diff -puN arch/ia64/kernel/iosapic.c~vector_sharing arch/ia64/kernel/iosapic.c
+--- linux-2.6.11-rc5/arch/ia64/kernel/iosapic.c~vector_sharing	2005-02-25 09:08:18.000000000 +0900
++++ linux-2.6.11-rc5-kanesige/arch/ia64/kernel/iosapic.c	2005-02-25 09:08:18.000000000 +0900
+@@ -103,15 +103,22 @@ static DEFINE_SPINLOCK(iosapic_lock);
+ 
+ /* These tables map IA-64 vectors to the IOSAPIC pin that generates this vector. */
+ 
+-static struct iosapic_intr_info {
++static struct iosapic_rte_info {
++	struct list_head rte_list;	/* node in list of RTEs sharing the same vector */
+ 	char __iomem	*addr;		/* base address of IOSAPIC */
+-	u32		low32;		/* current value of low word of Redirection table entry */
+ 	unsigned int	gsi_base;	/* first GSI assigned to this IOSAPIC */
+-	char		rte_index;	/* IOSAPIC RTE index (-1 => not an IOSAPIC interrupt) */
++	char		rte_index;	/* IOSAPIC RTE index */
++	int		refcnt;		/* reference counter */
++} iosapic_rte_cache[CONFIG_NR_RTE_CACHES];
++
++static struct iosapic_intr_info {
++	struct list_head rtes;		/* RTEs using this vector (empty => not an IOSAPIC interrupt) */
++	int		count;		/* # of RTEs that shares this vector */
++	u32		low32;		/* current value of low word of Redirection table entry */
++	unsigned int	dest;		/* destination CPU physical ID */
+ 	unsigned char	dmode	: 3;	/* delivery mode (see iosapic.h) */
+ 	unsigned char 	polarity: 1;	/* interrupt polarity (see iosapic.h) */
+ 	unsigned char	trigger	: 1;	/* trigger mode (see iosapic.h) */
+-	int		refcnt;		/* reference counter */
+ } iosapic_intr_info[IA64_NUM_VECTORS];
+ 
+ static struct iosapic {
+@@ -127,6 +134,8 @@ static int num_iosapic;
+ 
+ static unsigned char pcat_compat __initdata;	/* 8259 compatibility flag */
+ 
++static int iosapic_kmalloc_ok;
++static int rte_cache_shortage;
+ 
  /*
-@@ -168,15 +135,16 @@
- 			size_t count, loff_t *ppos)
+  * Find an IOSAPIC associated with a GSI
+@@ -148,10 +157,12 @@ static inline int
+ _gsi_to_vector (unsigned int gsi)
  {
- 	unsigned long p = *ppos;
--	ssize_t read;
-+	ssize_t read, sz;
-+	char *ptr;
+ 	struct iosapic_intr_info *info;
++	struct iosapic_rte_info *rte;
  
- 	if (!valid_phys_addr_range(p, &count))
- 		return -EFAULT;
- 	read = 0;
--#if defined(__sparc__) || (defined(__mc68000__) && defined(CONFIG_MMU))
-+#ifdef __ARCH_HAS_NO_PAGE_ZERO_MAPPED
- 	/* we don't have page 0 mapped on sparc and m68k.. */
- 	if (p < PAGE_SIZE) {
--		unsigned long sz = PAGE_SIZE-p;
-+		sz = PAGE_SIZE - p;
- 		if (sz > count) 
- 			sz = count; 
- 		if (sz > 0) {
-@@ -189,9 +157,31 @@
- 		}
- 	}
- #endif
--	if (copy_to_user(buf, __va(p), count))
--		return -EFAULT;
--	read += count;
-+
-+	while (count > 0) {
-+		/*
-+		 * Handle first page in case it's not aligned
-+		 */
-+		if (-p & (PAGE_SIZE - 1))
-+			sz = -p & (PAGE_SIZE - 1);
-+		else
-+			sz = min(PAGE_SIZE, count);
-+
-+		/*
-+		 * On ia64 if a page has been mapped somewhere as
-+		 * uncached, then it must also be accessed uncached
-+		 * by the kernel or data corruption may occur
-+		 */
-+		ptr = xlate_dev_mem_ptr(p);
-+
-+		if (copy_to_user(buf, ptr, sz))
-+			return -EFAULT;
-+		buf += sz;
-+		p += sz;
-+		count -= sz;
-+		read += sz;
-+	}
-+
- 	*ppos += read;
- 	return read;
+ 	for (info = iosapic_intr_info; info < iosapic_intr_info + IA64_NUM_VECTORS; ++info)
+-		if (info->gsi_base + info->rte_index = gsi)
+-			return info - iosapic_intr_info;
++		list_for_each_entry(rte, &info->rtes, rte_list)
++			if (rte->gsi_base + rte->rte_index = gsi)
++				return info - iosapic_intr_info;
+ 	return -1;
  }
-@@ -200,10 +190,65 @@
- 			 size_t count, loff_t *ppos)
+ 
+@@ -168,33 +179,52 @@ gsi_to_vector (unsigned int gsi)
+ int
+ gsi_to_irq (unsigned int gsi)
  {
- 	unsigned long p = *ppos;
-+	ssize_t written, sz;
-+	unsigned long copied;
-+	void *ptr;
- 
- 	if (!valid_phys_addr_range(p, &count))
- 		return -EFAULT;
--	return do_write_mem(__va(p), p, buf, count, ppos);
-+
-+	if (!range_is_allowed(p, p + count))
-+		return -EPERM;
-+
-+	written = 0;
-+
-+#ifdef __ARCH_HAS_NO_PAGE_ZERO_MAPPED
-+	/* we don't have page 0 mapped on sparc and m68k.. */
-+	if (p < PAGE_SIZE) {
-+		unsigned long sz = PAGE_SIZE - p;
-+		if (sz > count)
-+			sz = count; 
-+		/* Hmm. Do something? */
-+		buf += sz;
-+		p += sz;
-+		count -= sz;
-+		written += sz;
++	unsigned long flags;
++	int irq;
+ 	/*
+ 	 * XXX fix me: this assumes an identity mapping vetween IA-64 vector and Linux irq
+ 	 * numbers...
+ 	 */
+-	return _gsi_to_vector(gsi);
++	spin_lock_irqsave(&iosapic_lock, flags);
++	{
++		irq = _gsi_to_vector(gsi);
 +	}
-+#endif
++	spin_unlock_irqrestore(&iosapic_lock, flags);
 +
-+	while (count > 0) {
-+		/*
-+		 * Handle first page in case it's not aligned
-+		 */
-+		if (-p & (PAGE_SIZE - 1))
-+			sz = -p & (PAGE_SIZE - 1);
-+		else
-+			sz = min(PAGE_SIZE, count);
-+
-+		/*
-+		 * On ia64 if a page has been mapped somewhere as
-+		 * uncached, then it must also be accessed uncached
-+		 * by the kernel or data corruption may occur
-+		 */
-+		ptr = xlate_dev_mem_ptr(p);
-+
-+		copied = copy_from_user(ptr, buf, sz);
-+		if (copied) {
-+			ssize_t ret;
-+
-+			ret = written + (sz - copied);
-+			if (ret)
-+				return ret;
-+			return -EFAULT;
-+		}
-+		buf += sz;
-+		p += sz;
-+		count -= sz;
-+		written += sz;
-+	}
-+
-+	*ppos += written;
-+	return written;
- }
- #endif
- 
-@@ -303,7 +348,7 @@
- 		if (count > (unsigned long) high_memory - p)
- 			read = (unsigned long) high_memory - p;
- 
--#if defined(__sparc__) || (defined(__mc68000__) && defined(CONFIG_MMU))
-+#ifdef __ARCH_HAS_NO_PAGE_ZERO_MAPPED
- 		/* we don't have page 0 mapped on sparc and m68k.. */
- 		if (p < PAGE_SIZE && read > 0) {
- 			size_t tmp = PAGE_SIZE - p;
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-alpha/io.h linux-2.6.11-rc3-mm2-3/include/asm-alpha/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-alpha/io.h	2004-12-24 13:35:28 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-alpha/io.h	2005-02-24 04:41:25 -08:00
-@@ -666,6 +666,12 @@
- #define writeq writeq
- #define readq readq
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __KERNEL__ */
- 
- #endif /* __ALPHA_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-arm/io.h linux-2.6.11-rc3-mm2-3/include/asm-arm/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-arm/io.h	2004-12-24 13:34:30 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-arm/io.h	2005-02-24 04:41:48 -08:00
-@@ -271,5 +271,11 @@
- #define BIOVEC_MERGEABLE(vec1, vec2)	\
- 	((bvec_to_phys((vec1)) + (vec1)->bv_len) = bvec_to_phys((vec2)))
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif	/* __KERNEL__ */
- #endif	/* __ASM_ARM_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-arm26/io.h linux-2.6.11-rc3-mm2-3/include/asm-arm26/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-arm26/io.h	2004-12-24 13:35:00 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-arm26/io.h	2005-02-24 04:41:56 -08:00
-@@ -420,5 +420,11 @@
- #define BIOVEC_MERGEABLE(vec1, vec2)	\
- 	((bvec_to_phys((vec1)) + (vec1)->bv_len) = bvec_to_phys((vec2)))
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif	/* __KERNEL__ */
- #endif	/* __ASM_ARM_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-cris/io.h linux-2.6.11-rc3-mm2-3/include/asm-cris/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-cris/io.h	2004-12-24 13:35:23 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-cris/io.h	2005-02-24 04:42:07 -08:00
-@@ -86,4 +86,10 @@
- #define outsw(x,y,z)
- #define outsl(x,y,z)
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-frv/io.h linux-2.6.11-rc3-mm2-3/include/asm-frv/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-frv/io.h	2005-02-16 11:20:23 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-frv/io.h	2005-02-24 04:42:19 -08:00
-@@ -273,6 +273,13 @@
- 	__asm__ __volatile__ ("membar" : : :"memory");
- }
- 
-+
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __KERNEL__ */
- 
- #endif /* _ASM_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-h8300/io.h linux-2.6.11-rc3-mm2-3/include/asm-h8300/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-h8300/io.h	2004-12-24 13:34:58 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-h8300/io.h	2005-02-24 04:42:32 -08:00
-@@ -317,6 +317,12 @@
- #define virt_to_bus virt_to_phys
- #define bus_to_virt phys_to_virt
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __KERNEL__ */
- 
- #endif /* _H8300_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-i386/io.h linux-2.6.11-rc3-mm2-3/include/asm-i386/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-i386/io.h	2004-12-24 13:35:40 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-i386/io.h	2005-02-24 04:41:07 -08:00
-@@ -49,6 +49,12 @@
- 
- #include <linux/vmalloc.h>
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- /**
-  *	virt_to_phys	-	map virtual addresses to physical
-  *	@address: address to remap
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-ia64/uaccess.h linux-2.6.11-rc3-mm2-3/include/asm-ia64/uaccess.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-ia64/uaccess.h	2005-02-16 11:20:23 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-ia64/uaccess.h	2005-02-24 04:47:01 -08:00
-@@ -35,6 +35,8 @@
- #include <linux/compiler.h>
- #include <linux/errno.h>
- #include <linux/sched.h>
-+#include <linux/page-flags.h>
-+#include <linux/mm.h>
- 
- #include <asm/intrinsics.h>
- #include <asm/pgtable.h>
-@@ -365,6 +367,22 @@
- 		return 1;
- 	}
- 	return 0;
++	return irq;
 +}
 +
-+#define ARCH_HAS_TRANSLATE_MEM_PTR	1
-+static __inline__ char *
-+xlate_dev_mem_ptr (unsigned long p)
++static struct iosapic_rte_info *gsi_vector_to_rte(unsigned int gsi, unsigned int vec)
 +{
-+	struct page *page;
-+	char * ptr;
++	struct iosapic_rte_info *rte;
 +
-+	page = pfn_to_page(p >> PAGE_SHIFT);
-+	if (PageUncached(page))
-+		ptr = (char *)p + __IA64_UNCACHED_OFFSET;
-+	else
-+		ptr = __va(p);
-+
-+	return ptr;
++	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
++		if (rte->gsi_base + rte->rte_index = gsi)
++			return rte;
++	return NULL;
  }
  
- #endif /* _ASM_IA64_UACCESS_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-m32r/io.h linux-2.6.11-rc3-mm2-3/include/asm-m32r/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-m32r/io.h	2004-12-24 13:34:45 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-m32r/io.h	2005-02-24 04:43:02 -08:00
-@@ -216,6 +216,12 @@
- 	memcpy((void __force *) dst, src, count);
+ static void
+-set_rte (unsigned int vector, unsigned int dest, int mask)
++set_rte (unsigned int gsi, unsigned int vector, unsigned int dest, int mask)
+ {
+ 	unsigned long pol, trigger, dmode;
+ 	u32 low32, high32;
+ 	char __iomem *addr;
+ 	int rte_index;
+ 	char redir;
++	struct iosapic_rte_info *rte;
+ 
+ 	DBG(KERN_DEBUG"IOSAPIC: routing vector %d to 0x%x\n", vector, dest);
+ 
+-	rte_index = iosapic_intr_info[vector].rte_index;
+-	if (rte_index < 0)
++	rte = gsi_vector_to_rte(gsi, vector);
++	if (!rte)
+ 		return;		/* not an IOSAPIC interrupt */
+ 
+-	addr    = iosapic_intr_info[vector].addr;
++	rte_index = rte->rte_index;
++	addr	= rte->addr;
+ 	pol     = iosapic_intr_info[vector].polarity;
+ 	trigger = iosapic_intr_info[vector].trigger;
+ 	dmode   = iosapic_intr_info[vector].dmode;
+-	vector &= (~IA64_IRQ_REDIRECTED);
+ 
+ 	redir = (dmode = IOSAPIC_LOWEST_PRIORITY) ? 1 : 0;
+ 
+@@ -222,6 +252,7 @@ set_rte (unsigned int vector, unsigned i
+ 	iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
+ 	iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
+ 	iosapic_intr_info[vector].low32 = low32;
++	iosapic_intr_info[vector].dest = dest;
  }
  
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif  /* __KERNEL__ */
+ static void
+@@ -238,18 +269,20 @@ mask_irq (unsigned int irq)
+ 	u32 low32;
+ 	int rte_index;
+ 	ia64_vector vec = irq_to_vector(irq);
++	struct iosapic_rte_info *rte;
  
- #endif  /* _ASM_M32R_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-m68k/io.h linux-2.6.11-rc3-mm2-3/include/asm-m68k/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-m68k/io.h	2004-12-24 13:35:00 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-m68k/io.h	2005-02-24 04:43:18 -08:00
-@@ -359,4 +359,13 @@
- #endif
- 
- #endif /* __KERNEL__ */
-+
-+#define __ARCH_HAS_NO_PAGE_ZERO_MAPPED		1
-+
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* _IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-m68knommu/io.h linux-2.6.11-rc3-mm2-3/include/asm-m68knommu/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-m68knommu/io.h	2004-12-24 13:34:32 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-m68knommu/io.h	2005-02-24 04:43:31 -08:00
-@@ -187,6 +187,12 @@
- #define virt_to_bus virt_to_phys
- #define bus_to_virt phys_to_virt
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __KERNEL__ */
- 
- #endif /* _M68KNOMMU_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-mips/io.h linux-2.6.11-rc3-mm2-3/include/asm-mips/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-mips/io.h	2005-02-16 11:20:23 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-mips/io.h	2005-02-24 04:43:42 -08:00
-@@ -616,4 +616,10 @@
- #define csr_out32(v,a) (*(volatile u32 *)((unsigned long)(a) + __CSR_32_ADJUST) = (v))
- #define csr_in32(a)    (*(volatile u32 *)((unsigned long)(a) + __CSR_32_ADJUST))
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* _ASM_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-parisc/io.h linux-2.6.11-rc3-mm2-3/include/asm-parisc/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-parisc/io.h	2005-02-16 11:20:23 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-parisc/io.h	2005-02-24 04:43:53 -08:00
-@@ -403,4 +403,10 @@
- 
- #include <asm-generic/iomap.h>
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-ppc/io.h linux-2.6.11-rc3-mm2-3/include/asm-ppc/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-ppc/io.h	2005-02-16 11:20:57 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-ppc/io.h	2005-02-24 04:44:04 -08:00
-@@ -549,4 +549,10 @@
- #include <asm/mpc8260_pci9.h>
- #endif
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __KERNEL__ */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-ppc64/io.h linux-2.6.11-rc3-mm2-3/include/asm-ppc64/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-ppc64/io.h	2005-02-16 11:20:23 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-ppc64/io.h	2005-02-24 04:44:11 -08:00
-@@ -442,6 +442,12 @@
- extern int check_legacy_ioport(unsigned long base_port);
- 
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __KERNEL__ */
- 
- #endif /* _PPC64_IO_H */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-s390/io.h linux-2.6.11-rc3-mm2-3/include/asm-s390/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-s390/io.h	2004-12-24 13:35:01 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-s390/io.h	2005-02-24 04:44:21 -08:00
-@@ -107,6 +107,12 @@
- 
- #define mmiowb()
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __KERNEL__ */
- 
- #endif
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-sparc/io.h linux-2.6.11-rc3-mm2-3/include/asm-sparc/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-sparc/io.h	2005-02-16 11:20:23 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-sparc/io.h	2005-02-24 04:44:28 -08:00
-@@ -274,4 +274,12 @@
- 
- #endif
- 
-+#define __ARCH_HAS_NO_PAGE_ZERO_MAPPED		1
-+
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* !(__SPARC_IO_H) */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-sparc64/io.h linux-2.6.11-rc3-mm2-3/include/asm-sparc64/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-sparc64/io.h	2004-12-24 13:35:25 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-sparc64/io.h	2005-02-24 04:44:38 -08:00
-@@ -485,6 +485,12 @@
- #define dma_cache_wback(_start,_size)		do { } while (0)
- #define dma_cache_wback_inv(_start,_size)	do { } while (0)
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif
- 
- #endif /* !(__SPARC64_IO_H) */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-um/io.h linux-2.6.11-rc3-mm2-3/include/asm-um/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-um/io.h	2004-12-24 13:35:28 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-um/io.h	2005-02-24 04:44:50 -08:00
-@@ -22,4 +22,10 @@
- 	return __va(address);
- }
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-v850/io.h linux-2.6.11-rc3-mm2-3/include/asm-v850/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-v850/io.h	2004-12-24 13:34:00 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-v850/io.h	2005-02-24 04:44:59 -08:00
-@@ -119,4 +119,10 @@
- #define memcpy_fromio(dst, src, len) memcpy (dst, (void *)src, len)
- #define memcpy_toio(dst, src, len) memcpy ((void *)dst, src, len)
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __V850_IO_H__ */
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/asm-x86_64/io.h linux-2.6.11-rc3-mm2-3/include/asm-x86_64/io.h
---- linux-2.6.11-rc3-mm2-vanilla/include/asm-x86_64/io.h	2005-02-16 11:20:24 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/asm-x86_64/io.h	2005-02-24 04:45:07 -08:00
-@@ -329,6 +329,12 @@
- extern int iommu_bio_merge;
- #define BIO_VMERGE_BOUNDARY iommu_bio_merge
- 
-+/*
-+ * Convert a physical pointer to a virtual kernel pointer for /dev/mem
-+ * access
-+ */
-+#define xlate_dev_mem_ptr(p)	__va(p)
-+
- #endif /* __KERNEL__ */
- 
- #endif
-diff -X /usr/people/jes/exclude-linux -urN linux-2.6.11-rc3-mm2-vanilla/include/linux/page-flags.h linux-2.6.11-rc3-mm2-3/include/linux/page-flags.h
---- linux-2.6.11-rc3-mm2-vanilla/include/linux/page-flags.h	2005-02-16 11:20:57 -08:00
-+++ linux-2.6.11-rc3-mm2-3/include/linux/page-flags.h	2005-02-24 02:08:57 -08:00
-@@ -76,7 +76,7 @@
- #define PG_mappedtodisk		17	/* Has blocks allocated on-disk */
- #define PG_reclaim		18	/* To be reclaimed asap */
- #define PG_nosave_free		19	/* Free, should not be written */
+-	addr = iosapic_intr_info[vec].addr;
+-	rte_index = iosapic_intr_info[vec].rte_index;
 -
-+#define PG_uncached		20	/* Page has been mapped as uncached */
+-	if (rte_index < 0)
++	if (list_empty(&iosapic_intr_info[vec].rtes))
+ 		return;			/* not an IOSAPIC interrupt! */
  
+ 	spin_lock_irqsave(&iosapic_lock, flags);
+ 	{
+ 		/* set only the mask bit */
+ 		low32 = iosapic_intr_info[vec].low32 |= IOSAPIC_MASK;
+-		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
++			addr = rte->addr;
++			rte_index = rte->rte_index;
++			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		}
+ 	}
+ 	spin_unlock_irqrestore(&iosapic_lock, flags);
+ }
+@@ -262,16 +295,19 @@ unmask_irq (unsigned int irq)
+ 	u32 low32;
+ 	int rte_index;
+ 	ia64_vector vec = irq_to_vector(irq);
++	struct iosapic_rte_info *rte;
+ 
+-	addr = iosapic_intr_info[vec].addr;
+-	rte_index = iosapic_intr_info[vec].rte_index;
+-	if (rte_index < 0)
++	if (list_empty(&iosapic_intr_info[vec].rtes))
+ 		return;			/* not an IOSAPIC interrupt! */
+ 
+ 	spin_lock_irqsave(&iosapic_lock, flags);
+ 	{
+ 		low32 = iosapic_intr_info[vec].low32 &= ~IOSAPIC_MASK;
+-		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
++			addr = rte->addr;
++			rte_index = rte->rte_index;
++			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		}
+ 	}
+ 	spin_unlock_irqrestore(&iosapic_lock, flags);
+ }
+@@ -287,6 +323,7 @@ iosapic_set_affinity (unsigned int irq, 
+ 	char __iomem *addr;
+ 	int redir = (irq & IA64_IRQ_REDIRECTED) ? 1 : 0;
+ 	ia64_vector vec;
++	struct iosapic_rte_info *rte;
+ 
+ 	irq &= (~IA64_IRQ_REDIRECTED);
+ 	vec = irq_to_vector(irq);
+@@ -296,10 +333,7 @@ iosapic_set_affinity (unsigned int irq, 
+ 
+ 	dest = cpu_physical_id(first_cpu(mask));
+ 
+-	rte_index = iosapic_intr_info[vec].rte_index;
+-	addr = iosapic_intr_info[vec].addr;
+-
+-	if (rte_index < 0)
++	if (list_empty(&iosapic_intr_info[vec].rtes))
+ 		return;			/* not an IOSAPIC interrupt */
+ 
+ 	set_irq_affinity_info(irq, dest, redir);
+@@ -319,8 +353,13 @@ iosapic_set_affinity (unsigned int irq, 
+ 			low32 |= (IOSAPIC_FIXED << IOSAPIC_DELIVERY_SHIFT);
+ 
+ 		iosapic_intr_info[vec].low32 = low32;
+-		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
+-		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		iosapic_intr_info[vec].dest = dest;
++		list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list) {
++			addr = rte->addr;
++			rte_index = rte->rte_index;
++			iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
++			iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++		}
+ 	}
+ 	spin_unlock_irqrestore(&iosapic_lock, flags);
+ #endif
+@@ -341,9 +380,11 @@ static void
+ iosapic_end_level_irq (unsigned int irq)
+ {
+ 	ia64_vector vec = irq_to_vector(irq);
++	struct iosapic_rte_info *rte;
+ 
+ 	move_irq(irq);
+-	iosapic_eoi(iosapic_intr_info[vec].addr, vec);
++	list_for_each_entry(rte, &iosapic_intr_info[vec].rtes, rte_list)
++		iosapic_eoi(rte->addr, vec);
+ }
+ 
+ #define iosapic_shutdown_level_irq	mask_irq
+@@ -423,6 +464,34 @@ iosapic_version (char __iomem *addr)
+ 	return iosapic_read(addr, IOSAPIC_VERSION);
+ }
+ 
++static int iosapic_find_sharable_vector (unsigned long trigger, unsigned long pol)
++{
++	int i, vector = -1, min_count = -1;
++	struct iosapic_intr_info *info;
++
++	/*
++	 * shared vectors for edge-triggered interrupts are not
++	 * supported yet
++	 */
++	if (trigger = IOSAPIC_EDGE)
++		return -1;
++
++	for (i = IA64_FIRST_DEVICE_VECTOR; i <= IA64_LAST_DEVICE_VECTOR; i++) {
++		info = &iosapic_intr_info[i];
++		if (info->trigger = trigger && info->polarity = pol &&
++		    (info->dmode = IOSAPIC_FIXED || info->dmode = IOSAPIC_LOWEST_PRIORITY)) {
++			if (min_count = -1 || info->count < min_count) {
++				vector = i;
++				min_count = info->count;
++			}
++		}
++	}
++	if (vector < 0)
++		panic("%s: out of interrupt vectors!\n", __FUNCTION__);
++
++	return vector;
++}
++
  /*
-  * Global page accounting.  One instance per CPU.  Only unsigned longs are
-@@ -301,6 +301,10 @@
- #else
- #define PageSwapCache(page)	0
+  * if the given vector is already owned by other,
+  *  assign a new vector for the other and make the vector available
+@@ -432,17 +501,60 @@ iosapic_reassign_vector (int vector)
+ {
+ 	int new_vector;
+ 
+-	if (iosapic_intr_info[vector].rte_index >= 0 || iosapic_intr_info[vector].addr
+-	    || iosapic_intr_info[vector].gsi_base || iosapic_intr_info[vector].dmode
+-	    || iosapic_intr_info[vector].polarity || iosapic_intr_info[vector].trigger)
+-	{
++	if (!list_empty(&iosapic_intr_info[vector].rtes)) {
+ 		new_vector = assign_irq_vector(AUTO_ASSIGN);
+ 		printk(KERN_INFO "Reassigning vector %d to %d\n", vector, new_vector);
+ 		memcpy(&iosapic_intr_info[new_vector], &iosapic_intr_info[vector],
+ 		       sizeof(struct iosapic_intr_info));
++		INIT_LIST_HEAD(&iosapic_intr_info[new_vector].rtes);
++		list_move(iosapic_intr_info[vector].rtes.next, &iosapic_intr_info[new_vector].rtes);
+ 		memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
+-		iosapic_intr_info[vector].rte_index = -1;
++		iosapic_intr_info[vector].low32 = IOSAPIC_MASK;
++		INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);
++	}
++}
++
++unsigned long iosapic_rte_cache_mask[BITS_TO_LONGS(CONFIG_NR_RTE_CACHES)];
++
++static struct iosapic_rte_info *iosapic_alloc_rte (void)
++{
++	int index;
++
++	/*
++	 * iosapic_alloc_rte might be called before kmalloc is initialized,
++	 * so several number of iosapic_rte_info structures needs to be
++	 * statically allocated.
++	 */
++	do {
++		index = find_first_zero_bit(iosapic_rte_cache_mask, CONFIG_NR_RTE_CACHES);
++		if (index >= CONFIG_NR_RTE_CACHES) {
++			if (!iosapic_kmalloc_ok) {
++				rte_cache_shortage++;
++				return NULL;
++			}
++			return kmalloc(sizeof(struct iosapic_rte_info), GFP_ATOMIC);
++		}
++	} while (test_and_set_bit(index, iosapic_rte_cache_mask));
++
++	return iosapic_rte_cache + index;
++}
++
++static void iosapic_free_rte (struct iosapic_rte_info *rte)
++{
++	unsigned long index = rte - iosapic_rte_cache;
++
++	if (index < CONFIG_NR_RTE_CACHES) {
++		if (!test_and_clear_bit(index, iosapic_rte_cache_mask))
++			printk(KERN_WARNING "%s: double free!\n", __FUNCTION__);
++		return;
+ 	}
++
++	kfree(rte);
++}
++
++static inline int vector_is_shared (int vector)
++{
++	return (iosapic_intr_info[vector].count > 1);
+ }
+ 
+ static void
+@@ -455,6 +567,7 @@ register_intr (unsigned int gsi, int vec
+ 	int index;
+ 	unsigned long gsi_base;
+ 	void __iomem *iosapic_address;
++	struct iosapic_rte_info *rte;
+ 
+ 	index = find_iosapic(gsi);
+ 	if (index < 0) {
+@@ -465,14 +578,32 @@ register_intr (unsigned int gsi, int vec
+ 	iosapic_address = iosapic_lists[index].addr;
+ 	gsi_base = iosapic_lists[index].gsi_base;
+ 
+-	rte_index = gsi - gsi_base;
+-	iosapic_intr_info[vector].rte_index = rte_index;
++	if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
++		if ((rte = iosapic_alloc_rte()) = NULL) {
++			printk(KERN_WARNING "%s: cannot allocate memory\n", __FUNCTION__);
++			return;
++		}
++
++		memset(rte, 0, sizeof(struct iosapic_rte_info));
++		rte_index = gsi - gsi_base;
++		rte->rte_index	= rte_index;
++		rte->addr	= iosapic_address;
++		rte->gsi_base	= gsi_base;
++		rte->refcnt++;
++		list_add_tail(&rte->rte_list, &iosapic_intr_info[vector].rtes);
++		iosapic_intr_info[vector].count++;
++	}
++	else if (vector_is_shared(vector)) {
++		struct iosapic_intr_info *info = &iosapic_intr_info[vector];
++		if (info->trigger != trigger || info->polarity != polarity) {
++			printk (KERN_WARNING "%s: cannot override the interrupt\n", __FUNCTION__);
++			return;
++		}
++	}
++
+ 	iosapic_intr_info[vector].polarity = polarity;
+ 	iosapic_intr_info[vector].dmode    = delivery;
+-	iosapic_intr_info[vector].addr     = iosapic_address;
+-	iosapic_intr_info[vector].gsi_base = gsi_base;
+ 	iosapic_intr_info[vector].trigger  = trigger;
+-	iosapic_intr_info[vector].refcnt++;
+ 
+ 	if (trigger = IOSAPIC_EDGE)
+ 		irq_type = &irq_type_iosapic_edge;
+@@ -495,6 +626,13 @@ get_target_cpu (unsigned int gsi, int ve
+ 	static int cpu = -1;
+ 
+ 	/*
++	 * In case of vector shared by multiple RTEs, all RTEs that
++	 * share the vector need to use the same destination CPU.
++	 */
++	if (!list_empty(&iosapic_intr_info[vector].rtes))
++		return iosapic_intr_info[vector].dest;
++
++	/*
+ 	 * If the platform supports redirection via XTP, let it
+ 	 * distribute interrupts.
+ 	 */
+@@ -566,10 +704,12 @@ int
+ iosapic_register_intr (unsigned int gsi,
+ 		       unsigned long polarity, unsigned long trigger)
+ {
+-	int vector;
++	int vector, mask = 1;
+ 	unsigned int dest;
+ 	unsigned long flags;
+-
++	struct iosapic_rte_info *rte;
++	u32 low32;
++again:
+ 	/*
+ 	 * If this GSI has already been registered (i.e., it's a
+ 	 * shared interrupt, or we lost a race to register it),
+@@ -579,19 +719,45 @@ iosapic_register_intr (unsigned int gsi,
+ 	{
+ 		vector = gsi_to_vector(gsi);
+ 		if (vector > 0) {
+-			iosapic_intr_info[vector].refcnt++;
++			rte = gsi_vector_to_rte(gsi, vector);
++			rte->refcnt++;
+ 			spin_unlock_irqrestore(&iosapic_lock, flags);
+ 			return vector;
+ 		}
++	}
++	spin_unlock_irqrestore(&iosapic_lock, flags);
++
++	/* If vector is running out, we try to find a sharable vector */
++	vector = assign_irq_vector_nopanic(AUTO_ASSIGN);
++	if (vector < 0)
++		vector = iosapic_find_sharable_vector(trigger, polarity);
++
++	spin_lock_irqsave(&irq_descp(vector)->lock, flags);
++	spin_lock(&iosapic_lock);
++	{
++		if (gsi_to_vector(gsi) > 0) {
++			if (list_empty(&iosapic_intr_info[vector].rtes))
++				free_irq_vector(vector);
++			spin_unlock(&iosapic_lock);
++			spin_unlock_irqrestore(&irq_descp(vector)->lock, flags);
++			goto again;
++		}
+ 
+-		vector = assign_irq_vector(AUTO_ASSIGN);
+ 		dest = get_target_cpu(gsi, vector);
+ 		register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
+-			polarity, trigger);
++			      polarity, trigger);
+ 
+-		set_rte(vector, dest, 1);
++		/*
++		 * If the vector is shared and already unmasked for
++		 * other interrupt sources, don't mask it.
++		 */
++		low32 = iosapic_intr_info[vector].low32;
++		if (vector_is_shared(vector) && !(low32 & IOSAPIC_MASK))
++			mask = 0;
++		set_rte(gsi, vector, dest, mask);
+ 	}
+-	spin_unlock_irqrestore(&iosapic_lock, flags);
++	spin_unlock_irq(&iosapic_lock);
++	spin_unlock_irqrestore(&irq_descp(vector)->lock, flags);
+ 
+ 	printk(KERN_INFO "GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d\n",
+ 	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
+@@ -608,8 +774,10 @@ iosapic_unregister_intr (unsigned int gs
+ 	unsigned long flags;
+ 	int irq, vector;
+ 	irq_desc_t *idesc;
+-	int rte_index;
++	u32 low32;
+ 	unsigned long trigger, polarity;
++	unsigned int dest;
++	struct iosapic_rte_info *rte;
+ 
+ 	/*
+ 	 * If the irq associated with the gsi is not found,
+@@ -628,54 +796,56 @@ iosapic_unregister_intr (unsigned int gs
+ 	spin_lock_irqsave(&idesc->lock, flags);
+ 	spin_lock(&iosapic_lock);
+ 	{
+-		rte_index = iosapic_intr_info[vector].rte_index;
+-		if (rte_index < 0) {
+-			spin_unlock(&iosapic_lock);
+-			spin_unlock_irqrestore(&idesc->lock, flags);
++		if ((rte = gsi_vector_to_rte(gsi, vector)) = NULL) {
+ 			printk(KERN_ERR "iosapic_unregister_intr(%u) unbalanced\n", gsi);
+ 			WARN_ON(1);
+-			return;
++			goto out;
+ 		}
+ 
+-		if (--iosapic_intr_info[vector].refcnt > 0) {
+-			spin_unlock(&iosapic_lock);
+-			spin_unlock_irqrestore(&idesc->lock, flags);
+-			return;
+-		}
+-
+-		/*
+-		 * If interrupt handlers still exist on the irq
+-		 * associated with the gsi, don't unregister the
+-		 * interrupt.
+-		 */
+-		if (idesc->action) {
+-			iosapic_intr_info[vector].refcnt++;
+-			spin_unlock(&iosapic_lock);
+-			spin_unlock_irqrestore(&idesc->lock, flags);
+-			printk(KERN_WARNING "Cannot unregister GSI. IRQ %u is still in use.\n", irq);
+-			return;
+-		}
++		if (--rte->refcnt > 0)
++			goto out;
+ 
+-		/* Clear the interrupt controller descriptor. */
+-		idesc->handler = &no_irq_type;
++		/* Mask the interrupt */
++		low32 = iosapic_intr_info[vector].low32 | IOSAPIC_MASK;
++		iosapic_write(rte->addr, IOSAPIC_RTE_LOW(rte->rte_index), low32);
++
++		/* Remove the rte entry from the list */
++		list_del(&rte->rte_list);
++		iosapic_intr_info[vector].count--;
++		iosapic_free_rte(rte);
+ 
+-		trigger  = iosapic_intr_info[vector].trigger;
++		trigger	 = iosapic_intr_info[vector].trigger;
+ 		polarity = iosapic_intr_info[vector].polarity;
++		dest     = iosapic_intr_info[vector].dest;
++		printk(KERN_INFO "GSI %u (%s, %s) -> CPU %d (0x%04x) vector %d unregistered\n",
++		       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
++		       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
++		       cpu_logical_id(dest), dest, vector);
++
++		if (list_empty(&iosapic_intr_info[vector].rtes)) {
++			/* Sanity check */
++			BUG_ON(iosapic_intr_info[vector].count);
++
++			/* Clear the interrupt controller descriptor */
++			idesc->handler = &no_irq_type;
++
++			/* Clear the interrupt information */
++			memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
++			iosapic_intr_info[vector].low32 |= IOSAPIC_MASK;
++			INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);
++
++			if (idesc->action) {
++				printk(KERN_ERR "interrupt handlers still exist on IRQ %u\n", irq);
++				WARN_ON(1);
++			}
+ 
+-		/* Clear the interrupt information. */
+-		memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
+-		iosapic_intr_info[vector].rte_index = -1;	/* mark as unused */
++			/* Free the interrupt vector */
++			free_irq_vector(vector);
++		}
+ 	}
++ out:
+ 	spin_unlock(&iosapic_lock);
+ 	spin_unlock_irqrestore(&idesc->lock, flags);
+-
+-	/* Free the interrupt vector */
+-	free_irq_vector(vector);
+-
+-	printk(KERN_INFO "GSI %u (%s, %s) -> vector %d unregisterd.\n",
+-	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
+-	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
+-	       vector);
+ }
+ #endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
+ 
+@@ -725,7 +895,7 @@ iosapic_register_platform_intr (u32 int_
+ 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
+ 	       cpu_logical_id(dest), dest, vector);
+ 
+-	set_rte(vector, dest, mask);
++	set_rte(gsi, vector, dest, mask);
+ 	return vector;
+ }
+ 
+@@ -751,7 +921,7 @@ iosapic_override_isa_irq (unsigned int i
+ 	    polarity = IOSAPIC_POL_HIGH ? "high" : "low",
+ 	    cpu_logical_id(dest), dest, vector);
+ 
+-	set_rte(vector, dest, 1);
++	set_rte(gsi, vector, dest, 1);
+ }
+ 
+ void __init
+@@ -759,8 +929,10 @@ iosapic_system_init (int system_pcat_com
+ {
+ 	int vector;
+ 
+-	for (vector = 0; vector < IA64_NUM_VECTORS; ++vector)
+-		iosapic_intr_info[vector].rte_index = -1;	/* mark as unused */
++	for (vector = 0; vector < IA64_NUM_VECTORS; ++vector) {
++		iosapic_intr_info[vector].low32 = IOSAPIC_MASK;
++		INIT_LIST_HEAD(&iosapic_intr_info[vector].rtes);	/* mark as unused */
++	}
+ 
+ 	pcat_compat = system_pcat_compat;
+ 	if (pcat_compat) {
+@@ -826,3 +998,13 @@ map_iosapic_to_node(unsigned int gsi_bas
+ 	return;
+ }
  #endif
 +
-+#define PageUncached(page)	test_bit(PG_uncached, &(page)->flags)
-+#define SetPageUncached(page)	set_bit(PG_uncached, &(page)->flags)
-+#define ClearPageUncached(page)	clear_bit(PG_uncached, &(page)->flags)
++static int __init iosapic_enable_kmalloc (void)
++{
++	iosapic_kmalloc_ok = 1;
++	if (rte_cache_shortage)
++		panic("out of rte cache entries!(shortage: %d)\n",
++		      rte_cache_shortage);
++	return 0;
++}
++core_initcall (iosapic_enable_kmalloc);
+diff -puN arch/ia64/kernel/irq_ia64.c~vector_sharing arch/ia64/kernel/irq_ia64.c
+--- linux-2.6.11-rc5/arch/ia64/kernel/irq_ia64.c~vector_sharing	2005-02-25 09:08:18.000000000 +0900
++++ linux-2.6.11-rc5-kanesige/arch/ia64/kernel/irq_ia64.c	2005-02-25 09:08:18.000000000 +0900
+@@ -63,20 +63,30 @@ EXPORT_SYMBOL(isa_irq_to_vector_map);
+ static unsigned long ia64_vector_mask[BITS_TO_LONGS(IA64_NUM_DEVICE_VECTORS)];
  
- struct page;	/* forward declaration */
+ int
+-assign_irq_vector (int irq)
++assign_irq_vector_nopanic (int irq)
+ {
+ 	int pos, vector;
+  again:
+ 	pos = find_first_zero_bit(ia64_vector_mask, IA64_NUM_DEVICE_VECTORS);
+ 	vector = IA64_FIRST_DEVICE_VECTOR + pos;
+ 	if (vector > IA64_LAST_DEVICE_VECTOR)
+-		/* XXX could look for sharable vectors instead of panic'ing... */
+-		panic("assign_irq_vector: out of interrupt vectors!");
++		return -1;
+ 	if (test_and_set_bit(pos, ia64_vector_mask))
+ 		goto again;
+ 	return vector;
+ }
  
++int
++assign_irq_vector (int irq)
++{
++	int vector = assign_irq_vector_nopanic(irq);
++
++	if (vector < 0)
++		panic("assign_irq_vector: out of interrupt vectors!");
++
++	return vector;
++}
++
+ void
+ free_irq_vector (int vector)
+ {
+diff -puN include/asm-ia64/hw_irq.h~vector_sharing include/asm-ia64/hw_irq.h
+--- linux-2.6.11-rc5/include/asm-ia64/hw_irq.h~vector_sharing	2005-02-25 09:08:18.000000000 +0900
++++ linux-2.6.11-rc5-kanesige/include/asm-ia64/hw_irq.h	2005-02-25 09:08:18.000000000 +0900
+@@ -81,6 +81,7 @@ extern __u8 isa_irq_to_vector_map[16];
+ 
+ extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
+ 
++extern int assign_irq_vector_nopanic (int irq); /* allocate a free vector without panic */
+ extern int assign_irq_vector (int irq);	/* allocate a free vector */
+ extern void free_irq_vector (int vector);
+ extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
+
+_
