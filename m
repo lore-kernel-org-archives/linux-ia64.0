@@ -1,52 +1,60 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 07 Jan 2005 21:12:15 +0000
-Subject: [patch] correct PERCPU_MCA_SIZE and ia64_init_stack size
-Message-Id: <200501072112.j07LCF3S219017@ben.americas.sgi.com>
+From: jes@trained-monkey.org (Jes Sorensen)
+Date: Wed, 19 Jan 2005 13:51:20 +0000
+Subject: [patch] fix PAL_PREFETCH_VISIBILITY call
+Message-Id: <16878.26072.590746.880340@jaguar.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Two changes:
+Hi,
 
-  * PERCPU_MCA_SIZE was the size of the wrong structure.
-  * ia64_init_stack was larger than necessary.
+The following patch fixes the ia64_pal_prefetch_visibility function to
+take a transaction type argument for either virtual or physical memory
+as specified in the System Architechture Manual page 2:358.
 
-Signed-off-by: Russ Anderson <rja@sgi.com>
+Signed-Off-By: Jes Sorensen <jes@trained-monkey.org>
 
---------------------------------------------------------------
-Index: 2.6.11/include/asm-ia64/mca.h
-=================================--- 2.6.11.orig/include/asm-ia64/mca.h	2005-01-07 14:37:22.026643158 -0600
-+++ 2.6.11/include/asm-ia64/mca.h	2005-01-07 14:40:21.986122830 -0600
-@@ -61,8 +61,6 @@
+Cheers,
+Jes
+
+--- linux-2.6.10-mm2-vanilla/include/asm-ia64/pal.h	2004-12-24 13:35:01 -08:00
++++ linux-2.6.10-mm2/include/asm-ia64/pal.h	2005-01-19 05:42:53 -08:00
+@@ -66,7 +66,7 @@
+ #define PAL_CACHE_PROT_INFO	38	/* get i/d cache protection info */
+ #define PAL_REGISTER_INFO	39	/* return AR and CR register information*/
+ #define PAL_SHUTDOWN		40	/* enter processor shutdown state */
+-#define PAL_PREFETCH_VISIBILITY	41
++#define PAL_PREFETCH_VISIBILITY	41	/* Make Processor Prefetches Visible */
  
- } ia64_mc_info_t;
+ #define PAL_COPY_PAL		256	/* relocate PAL procedures and PAL PMI */
+ #define PAL_HALT_INFO		257	/* return the low power capabilities of processor */
+@@ -1537,11 +1537,25 @@
+ 	return iprv.status;
+ }
  
--#define PERCPU_MCA_SIZE sizeof(struct ia64_mc_info_s)
--
- typedef struct ia64_mca_sal_to_os_state_s {
- 	u64		imsto_os_gp;		/* GP of the os registered with the SAL */
- 	u64		imsto_pal_proc;		/* PAL_PROC entry point - physical addr */
-@@ -110,12 +108,14 @@
- 
- typedef struct ia64_mca_cpu_s {
- 	u64	ia64_mca_stack[IA64_MCA_STACK_SIZE] 		__attribute__((aligned(16)));
--	u64	ia64_mca_proc_state_dump[512] 			__attribute__((aligned(16)));
-+	u64	ia64_mca_proc_state_dump[512]			__attribute__((aligned(16)));
- 	u64	ia64_mca_stackframe[32]				__attribute__((aligned(16)));
--	u64	ia64_mca_bspstore[IA64_MCA_BSPSTORE_SIZE] 	__attribute__((aligned(16)));
--	u64	ia64_init_stack[KERNEL_STACK_SIZE] 		__attribute__((aligned(16)));
-+	u64	ia64_mca_bspstore[IA64_MCA_BSPSTORE_SIZE]	__attribute__((aligned(16)));
-+	u64	ia64_init_stack[KERNEL_STACK_SIZE/8] 		__attribute__((aligned(16)));
- } ia64_mca_cpu_t;
- 
-+#define PERCPU_MCA_SIZE sizeof(ia64_mca_cpu_t)
++/*
++ * PAL_PREFETCH_VISIBILITY transaction types
++ */
++#define PAL_VISIBILITY_VIRTUAL		0
++#define PAL_VISIBILITY_PHYSICAL		1
 +
- extern void ia64_mca_init(void);
- extern void ia64_os_mca_dispatch(void);
- extern void ia64_os_mca_dispatch_end(void);
-
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
++/*
++ * PAL_PREFETCH_VISIBILITY return codes
++ */
++#define PAL_VISIBILITY_OK		1
++#define PAL_VISIBILITY_OK_REMOTE_NEEDED	0
++#define PAL_VISIBILITY_INVAL_ARG	-2
++#define PAL_VISIBILITY_ERROR		-3
++
+ static inline s64
+-ia64_pal_prefetch_visibility (void)
++ia64_pal_prefetch_visibility (s64 trans_type)
+ {
+ 	struct ia64_pal_retval iprv;
+-	PAL_CALL(iprv, PAL_PREFETCH_VISIBILITY, 0, 0, 0);
++	PAL_CALL(iprv, PAL_PREFETCH_VISIBILITY, trans_type, 0, 0);
+ 	return iprv.status;
+ }
+ 
