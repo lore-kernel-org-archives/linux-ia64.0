@@ -1,69 +1,38 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Mon, 07 Jul 2003 20:24:46 +0000
-Subject: [PATCH] Use generic pci_scan_bus()
-Message-Id: <marc-linux-ia64-105760950731729@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 12 Jul 2003 08:58:45 +0000
+Subject: ia64 patch for 2.5.75
+Message-Id: <marc-linux-ia64-105800033710325@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+The latest ia64 patch is now available at
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.5/ in file:
 
-Hi David.  With the recent changes in 2.5.74-BK, ia64 can now use the
-generic pci_scan_bus().
+	linux-2.5.75-ia64-030712.diff.gz
 
-diff -urpN linux-2.5.73-pci/arch/ia64/pci/pci.c linux-2.5.73-willy/arch/ia64/pci/pci.c
---- linux-2.5.73-pci/arch/ia64/pci/pci.c	2003-07-04 11:34:39.000000000 -0600
-+++ linux-2.5.73-willy/arch/ia64/pci/pci.c	2003-07-04 13:58:19.000000000 -0600
-@@ -138,37 +138,6 @@ alloc_pci_controller (int seg)
- 	return controller;
- }
- 
--static struct pci_bus *
--scan_root_bus (int bus, struct pci_ops *ops, void *sysdata)
--{
--	struct pci_bus *b;
--
--	/*
--	 * We know this is a new root bus we haven't seen before, so
--	 * scan it, even if we've seen the same bus number in a different
--	 * segment.
--	 */
--	b = kmalloc(sizeof(*b), GFP_KERNEL);
--	if (!b)
--		return NULL;
--
--	memset(b, 0, sizeof(*b));
--	INIT_LIST_HEAD(&b->children);
--	INIT_LIST_HEAD(&b->devices);
--
--	list_add_tail(&b->node, &pci_root_buses);
--
--	b->number = b->secondary = bus;
--	b->resource[0] = &ioport_resource;
--	b->resource[1] = &iomem_resource;
--
--	b->sysdata = sysdata;
--	b->ops = ops;
--	b->subordinate = pci_do_scan_bus(b);
--
--	return b;
--}
--
- static int
- alloc_resource (char *name, struct resource *root, unsigned long start, unsigned long end, unsigned long flags)
- {
-@@ -312,7 +281,7 @@ pci_acpi_scan_root (struct acpi_device *
- 	info.name = name;
- 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, add_window, &info);
- 
--	return scan_root_bus(bus, &pci_root_ops, controller);
-+	return pci_scan_bus(bus, &pci_root_ops, controller);
- 
- out3:
- 	kfree(controller->window);
+It's a "whopping" 10KB in size, so clearly things are heading in the
+right direction.
 
--- 
-"It's not Hollywood.  War is real, war is primarily not about defeat or
-victory, it is about death.  I've seen thousands and thousands of dead bodies.
-Do you think I want to have an academic debate on this subject?" -- Robert Fisk
+The patch mostly fixes the ACPI irq breakage in the main tree (some
+bits haven't made it yet, apparently) and some per-CPU related fixes
+(those are just temporary workarounds; Rusty is working on the proper
+fix).
+
+There is one mildly interesting change: I moved per-CPU data area from
+region 5 to the end of region 7.  This allows us to address this area
+via a simple "addl" (instead of movl or a GOT access).  At the moment,
+this hardly makes a difference because the compiler can't take
+advantage of it.  I have a prototype of a GCC patch which would change
+that though.  Once GCC can take advantage of this feature, addressing
+CPU-local variables will become even cheaper.
+
+This patch hasn't received a huge amount of testing, but it does seem
+to work quite well for me on a 4-way Itanium 2 machine (rx5670) and
+the Ski simulator.
+
+Enjoy,
+
+	--david
