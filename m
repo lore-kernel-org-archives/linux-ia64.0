@@ -1,13 +1,19 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Fri, 23 May 2003 18:15:55 +0000
-Subject: [Linux-ia64] [PATCH] 2.5 - Another user stack size patch
-Message-Id: <marc-linux-ia64-105590723706006@msgid-missing>
+From: "DESAI,RAJESH (HP-Cupertino,ex1)" <rajesh-n.desai@hp.com>
+Date: Fri, 23 May 2003 18:22:56 +0000
+Subject: RE: [Linux-ia64] [PATCH] 2.5 - Another user stack size patch
+Message-Id: <marc-linux-ia64-105590723706007@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590723706006@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723706006@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+So, what kind of apps need 1 TB stacks?
+
+-R
+--------------------------------------
 David,
 
 I hope this user stack size patch is better.  This one places the RBS
@@ -68,16 +74,19 @@ diff -Nru a/arch/ia64/mm/init.c b/arch/ia64/mm/init.c
 -		vma->vm_start = IA64_RBS_BOT;
 +		vma->vm_start = ia64_rbs_bot();
  		vma->vm_end = vma->vm_start + PAGE_SIZE;
- 		vma->vm_page_prot = protection_map[VM_DATA_DEFAULT_FLAGS & 0x7];
- 		vma->vm_flags = VM_READ|VM_WRITE|VM_MAYREAD|VM_MAYWRITE|VM_GROWSUP;
+ 		vma->vm_page_prot = protection_map[VM_DATA_DEFAULT_FLAGS &
+0x7];
+ 		vma->vm_flags VM_READ|VM_WRITE|VM_MAYREAD|VM_MAYWRITE|VM_GROWSUP;
 diff -Nru a/include/asm-ia64/a.out.h b/include/asm-ia64/a.out.h
 --- a/include/asm-ia64/a.out.h	Fri May 23 14:14:06 2003
 +++ b/include/asm-ia64/a.out.h	Fri May 23 14:14:06 2003
 @@ -32,7 +32,7 @@
  #ifdef __KERNEL__
  # include <asm/page.h>
- # define STACK_TOP	(0x6000000000000000UL + (1UL << (4*PAGE_SHIFT - 12)) - PAGE_SIZE)
--# define IA64_RBS_BOT	(STACK_TOP - 0x80000000L + PAGE_SIZE)	/* bottom of reg. backing store */
+ # define STACK_TOP	(0x6000000000000000UL + (1UL << (4*PAGE_SHIFT - 12))
+- PAGE_SIZE)
+-# define IA64_RBS_BOT	(STACK_TOP - 0x80000000L + PAGE_SIZE)	/* bottom of
+reg. backing store */
 +# define MAX_USER_STACK (1UL<<40)
  #endif
  
@@ -91,16 +100,32 @@ diff -Nru a/include/asm-ia64/processor.h b/include/asm-ia64/processor.h
  
 +extern unsigned long ia64_rbs_bot(void);
 +
- #define start_thread(regs,new_ip,new_sp) do {							\
- 	set_fs(USER_DS);									\
- 	regs->cr_ipsr = ((regs->cr_ipsr | (IA64_PSR_BITS_TO_SET | IA64_PSR_CPL))		\
+ #define start_thread(regs,new_ip,new_sp) do {
+\
+ 	set_fs(USER_DS);
+\
+ 	regs->cr_ipsr = ((regs->cr_ipsr | (IA64_PSR_BITS_TO_SET |
+IA64_PSR_CPL))		\
 @@ -303,7 +305,7 @@
- 	regs->cr_iip = new_ip;									\
- 	regs->ar_rsc = 0xf;		/* eager mode, privilege level 3 */			\
- 	regs->ar_rnat = 0;									\
--	regs->ar_bspstore = IA64_RBS_BOT;							\
-+	regs->ar_bspstore = ia64_rbs_bot();							\
- 	regs->ar_fpsr = FPSR_DEFAULT;								\
- 	regs->loadrs = 0;									\
- 	regs->r8 = current->mm->dumpable;	/* set "don't zap registers" flag */		\
+ 	regs->cr_iip = new_ip;
+\
+ 	regs->ar_rsc = 0xf;		/* eager mode, privilege level 3 */
+\
+ 	regs->ar_rnat = 0;
+\
+-	regs->ar_bspstore = IA64_RBS_BOT;
+\
++	regs->ar_bspstore = ia64_rbs_bot();
+\
+ 	regs->ar_fpsr = FPSR_DEFAULT;
+\
+ 	regs->loadrs = 0;
+\
+ 	regs->r8 = current->mm->dumpable;	/* set "don't zap registers"
+flag */		\
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
