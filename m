@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Thu, 05 Aug 2004 18:49:33 +0000
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Fri, 06 Aug 2004 12:17:39 +0000
 Subject: Re: [PATCH&RFC 2/2] OS_MCA Recovery from poisoned memory read
-Message-Id: <20040805184933.GG6526@cup.hp.com>
+Message-Id: <411376E3.5020203@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <41121484.40804@jp.fujitsu.com>
 In-Reply-To: <41121484.40804@jp.fujitsu.com>
@@ -10,43 +10,34 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Aug 05, 2004 at 08:05:40PM +0900, Hidetoshi Seto wrote:
-> The MCA offending process will restart from handler_bh, and
-> will suicide after isolating the poisoned page.
+Thank you for your useful reply.
 
-Hidetoshi,
-Wow! I'm impressed - this is amazing functionality.
+But, there is one thing that I want to confirm.
 
-I only noticed the three new driver files didn't have either
-a copyright nor license embedded in it.
+Keith Owens wrote:
+> +static isolate_status_t
+> +mca_page_isolate(unsigned long paddr)
+> +{
+> +       int i;
+> +       struct page *p;
+> +
+> +       /* whether physical address is valid or not */
+> +       if ( !ia64_phys_addr_valid(paddr) )  
+> 
+> The calls to mca_page_isolate() are racy.  That code is running in
+> normal kernel context after exiting from the MCA handler.  Other cpus
+> could be modifying the page tables at the same time, there could even
+> be two cpus running mca_handler_bh() at the same time for the same
+> page.
 
-I'm told the license is optional because the "linux-2,6/COPYING"
-contains a blanket statement for the rest of the kernel.
-But many lawyers still like to see it in each file.
+I agree that there could be multiple cpus running handler_bh at the
+same time, so (even though it would be a rare case) I think it would be
+better if I avoid the race using something like a spinlock.
 
-grant
+ITOH, what the handler_bh should modify is not the page tables but the
+flag in a struct page which pfn_to_page convert from a physical address.
+Does the result of the translation from a physical address to a page that
+includes the address can be changed? (Do you suppose Memory Hotplugs?)
 
-> +++ linux-2.6.8-rc3-mcadrv-v2/arch/ia64/kernel/mca_drv.c	2004-08-04 19:17:09.676773696 +0900
-> @@ -0,0 +1,647 @@
-> +/*
-> + * File:	mca_drv.c
-> + * Purpose:	Generic MCA handling layer
-> + */
-...
-
-> --- linux-2.6.8-rc3/arch/ia64/kernel/mca_drv.h	1970-01-01 09:00:00.000000000 +0900
-> +++ linux-2.6.8-rc3-mcadrv-v2/arch/ia64/kernel/mca_drv.h	2004-08-04 18:08:39.000000000 +0900
-> @@ -0,0 +1,111 @@
-...
-
-> +/*
-> + * File:	mca_drv.h
-> + * Purpose:	Define helpers for Generic MCA handling
-> + */
-...
-
-> --- linux-2.6.8-rc3/arch/ia64/kernel/mca_drv_asm.S	1970-01-01 09:00:00.000000000 +0900
-> +++ linux-2.6.8-rc3-mcadrv-v2/arch/ia64/kernel/mca_drv_asm.S	2004-08-04 19:16:51.045914549 +0900
-> @@ -0,0 +1,38 @@
-...
-
+Thanks,
+H.Seto
