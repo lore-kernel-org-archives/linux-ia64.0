@@ -1,24 +1,54 @@
 From: William Lee Irwin III <wli@holomorphy.com>
-Date: Sat, 07 Aug 2004 08:13:11 +0000
+Date: Sat, 07 Aug 2004 08:36:13 +0000
 Subject: Re: Hugetlb demanding paging for -mm tree
-Message-Id: <20040807081311.GY17188@holomorphy.com>
+Message-Id: <20040807083613.GZ17188@holomorphy.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040806.013522.74731251.taka@valinux.co.jp> <200408062055.i76KtcY08296@unix-os.sc.intel.com> <20040806210750.GT17188@holomorphy.com>
-In-Reply-To: <20040806210750.GT17188@holomorphy.com>
+References: <20040805133637.GG14358@holomorphy.com> <200408051340.i75De0Y26517@unix-os.sc.intel.com>
+In-Reply-To: <200408051340.i75De0Y26517@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, 'Hirokazu Takahashi' <taka@valinux.co.jp>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, "Seth, Rohit" <rohit.seth@intel.com>
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, "Seth, Rohit" <rohit.seth@intel.com>
 
-On Fri, Aug 06, 2004 at 02:07:50PM -0700, William Lee Irwin III wrote:
-> update_mmu_cache() does not appear to check the size of the translation
-> to be established in many architectures. e.g. on arch/ia64/ it does
-> flush_icache_range(addr, addr + PAGE_SIZE) unconditionally, and only
-> sets PG_arch_1 on a single struct page. Similar comments apply to
-> sparc64 and ppc64; I didn't check any others.
+On Thu, Aug 05, 2004 at 06:39:59AM -0700, Chen, Kenneth W wrote:
+> +static void scrub_one_pmd(pmd_t * pmd)
+> +{
+> +	struct page *page;
+> +
+> +	if (pmd && !pmd_none(*pmd) && !pmd_huge(*pmd)) {
+> +		page = pmd_page(*pmd);
+> +		pmd_clear(pmd);
+> +		dec_page_state(nr_page_table_pages);
+> +		page_cache_release(page);
+> +	}
+> +}
 
-In general not much seems to be getting done about cache coherency in
-hugetlb at all. This may be problematic even in mainline.
+This is needed because we're only freeing pagetables at pgd granularity
+at munmap() -time. It makes more sense to refine it to pmd granularity
+instead of this cleanup pass, as it's a memory leak beyond just hugetlb
+data structure corruption.
+
+I wonder why this bugfix was rolled into the demand paging patch instead
+of shipped separately. And for that matter, this fix applies to mainline.
+
+
+On Thu, Aug 05, 2004 at 06:39:59AM -0700, Chen, Kenneth W wrote:
+> +int
+> +handle_hugetlb_mm_fault(struct mm_struct *mm, struct vm_area_struct * vma,
+> +	unsigned long addr, int write_access)
+> +{
+> +	hugepte_t *pte;
+> +	struct page *page;
+> +	struct address_space *mapping;
+> +	int idx, ret;
+
+Well, to go along with the general theme of this, using a hugepte_t
+type and macros in generic code trivially defined to normal pte bits
+for other arches could easily consolidate this fault handler with the
+others. Of course, this much consolidation makes some rather limiting
+assumptions that will either prevent other improvements or have to be
+partially undone for other improvements.
 
 
 -- wli
