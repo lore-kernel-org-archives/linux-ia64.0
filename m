@@ -1,30 +1,45 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 16 Jul 2004 02:44:13 +0000
-Subject: Re: gettimeofday nanoseconds patch (makes it possible for the
-Message-Id: <Pine.LNX.4.58.0407151941010.24953@schroedinger.engr.sgi.com>
+From: peterc@gelato.unsw.edu.au
+Date: Mon, 05 Jul 2004 01:14:22 +0000
+Subject: Re: [PATCH] Add PCDP console detection support
+Message-Id: <16616.43886.36556.270219@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0407140940260.14704@schroedinger.engr.sgi.com>
- <1089835776.1388.216.camel@cog.beaverton.ibm.com> <40F70C6D.5050506@mvista.com>
-In-Reply-To: <40F70C6D.5050506@mvista.com>
+References: <200406251504.50579.bjorn.helgaas@hp.com>
+In-Reply-To: <200406251504.50579.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: George Anzinger <george@mvista.com>
-Cc: john stultz <johnstul@us.ibm.com>, lkml <linux-kernel@vger.kernel.org>, ia64 <linux-ia64@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-On Thu, 15 Jul 2004, George Anzinger wrote:
+>>>>> "Bjorn" = Bjorn Helgaas <bjorn.helgaas@hp.com> writes:
 
-> As to accuracy, the more "accurate" way is to change get_offset to return
-> nanoseconds.  This way there is only one round off (by the divide) instead of
-> two (the get_offset and the divide).  I ran into this problem in the latest HRT
-> patch.  One of my tests is to do a gettimeofday and a clock_gettime and make
-> sure there is no "backward" stuff happening.  Test failed by 1 micro second
-> "some" of the time because of this double round off.
+Hi Bjorn
+   Changeset rmk@flint.arm.linux.org.uk|ChangeSet|20040701140332|57856
+broke the pcdp.c console setup, because it removes UPF_RESOURCES.
 
-Well yes this is what the interpolator etc does on IA64.
-time_interpolator_get_offset returns nanoseconds. I have done
-tests to insure that no backward stuff happens. Tests were done
-with the mentioned patch and clock_gettime was returning nanosecond
-accuracy.
+P ChangeSet
+C [SERIAL] Remove UPF_RESOURCES
+C 
+C The UPF_RESOURCES flag was added to the serial layer to cater for
+C the idiosyncrasies of the PCMCIA layer, where the PCMCIA core code
+C handles the claiming of busy resources.
+C 
+C However, the PCMCIA core has progressed, and now does not claim busy
+C resources - IOW, it now behaves just like any other bus driver,
+C where resources are allocated non-busy and its up to the drivers to
+C mark their regions busy using request_region / request_mem_region.
+C 
+C The effect of this is that the UPF_RESOURCES hack in the serial
+C layer is now redundant, and can now be removed - 8250 devices
+C should now always use request_region / request_mem_region
+C unconditionally.
+C 
+C Signed-off-by: Russell King.
 
 
+I fixed here temporarily by just removing the UPF_RESOURCES flag, but
+really something more than that is needed.
+
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
