@@ -1,60 +1,49 @@
-From: "Mallick, Asit K" <asit.k.mallick@intel.com>
-Date: Wed, 10 Jan 2001 03:26:31 +0000
-Subject: RE: [Linux-ia64] kernel update (relative to 2.4.0) - copy_user fi
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C07AB5.20704397"
-Message-Id: <marc-linux-ia64-105590693005015@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Fri, 12 Jan 2001 02:30:47 +0000
+Subject: Re: [Linux-ia64] kernel update (relative to 2.4.0)
+Message-Id: <marc-linux-ia64-105590693005036@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205111@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205111@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+>I got the source of the tool chain, but i could find how to build this
+>source to generate the
+>compiler, linker binaries from this.
 
-------_=_NextPart_000_01C07AB5.20704397
-Content-Type: text/plain;
-	charset="ISO-8859-1"
+In general, for most FSF programs, the build process is the same.
+Unpack the sources so that you have a src directory.  Then something like
+       mkdir build
+       cd build
+       ../src/configure
+       make
+       make install
+This will build a native toolchain including everything.
 
-There is one return path in the __copy_user that do not restore the ar.lc
-register. This is causing applications that uses ar.lc to fail. Attached is
-a patch to fix it (file is also attached).
+If you don't want to install in /usr/local, you can change that directory
+name with the configure option --prefix=<path>.
 
-Thanks,
-Asit
+If you don't want the gdb gui, including tcl/tk/tix/itcl/etc, then you
+can use the configure option --disable-gdbtk.
 
---- linux-2.4.0/arch/ia64/lib/copy_user.S       Thu Jan  4 12:50:17 2001
-+++ linux/arch/ia64/lib/copy_user.S     Tue Jan  9 05:35:36 2001
-@@ -319,6 +319,7 @@
-        EX(failure_out,(EPI) st1 [dst1]=val1[PIPE_DEPTH-1],1)
-        br.ctop.dptk.few 5b
-        ;;
-+       mov ar.lc=saved_lc
-        mov pr=saved_pr,0xffffffffffff0000
-        mov ar.pfs=saved_pfs
-        br.ret.dptk.few rp
+For a cross, there are a few extra steps.  You need libraries and header files
+from the target.  You can grab /usr/lib and /usr/include from the target and
+put them on your build machine.  Then use the --with-libs=<path> and
+--with-headers=<path> configure options to point at the target library and
+header files respectively.  You also need the --target=ia64-linux configure
+option to indicate that this is a cross to ia64-linux.
 
+There is documentation on this stuff, but it is scattered around a bit.
+There is a toplevel README file that contains some info, with pointers
+to tool specific README files like gcc/README, which in turn point at other
+files.  Red Hat has some nice printed documentation that we give to customers,
+but it isn't in a convenient form for our purposes.  It is done in FrameMaker
+I believe.  There is also some online stuff, for instance
+http://gcc.gnu.org/install/index.html.  This is gcc specific, but most of
+this stuff is the same for all of the other parts of the toolchain.
 
-
-
-------_=_NextPart_000_01C07AB5.20704397
-Content-Type: application/octet-stream;
-	name="copyu.diff"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
-	filename="copyu.diff"
-
---- linux-2.4.0/arch/ia64/lib/copy_user.S	Thu Jan  4 12:50:17 2001=0A=
-+++ linux/arch/ia64/lib/copy_user.S	Tue Jan  9 05:35:36 2001=0A=
-@@ -319,6 +319,7 @@=0A=
- 	EX(failure_out,(EPI) st1 [dst1]=3Dval1[PIPE_DEPTH-1],1)=0A=
- 	br.ctop.dptk.few 5b=0A=
- 	;;=0A=
-+	mov ar.lc=3Dsaved_lc=0A=
- 	mov pr=3Dsaved_pr,0xffffffffffff0000=0A=
- 	mov ar.pfs=3Dsaved_pfs=0A=
- 	br.ret.dptk.few rp=0A=
-
-------_=_NextPart_000_01C07AB5.20704397--
-
+Jim
 
