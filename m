@@ -1,28 +1,33 @@
-From: Andi Kleen <ak@suse.de>
-Date: Mon, 22 Nov 2004 19:53:49 +0000
-Subject: Re: [Lse-tech] Re: scalability of signal delivery for Posix Threads
-Message-Id: <20041122195348.GB11097@wotan.suse.de>
+From: Jack Steiner <steiner@sgi.com>
+Date: Wed, 03 Nov 2004 20:56:56 +0000
+Subject: Externalize SLIT table
+Message-Id: <20041103205655.GA5084@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41A20AF3.9030408@sgi.com> <20041122160705.GG25636@parcelfarce.linux.theplanet.co.uk> <41A242C1.10600@sgi.com>
-In-Reply-To: <41A242C1.10600@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ray Bryant <raybry@sgi.com>
-Cc: Matthew Wilcox <matthew@wil.cx>, Kernel Mailing List <linux-kernel@vger.kernel.org>, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, lse-tech <lse-tech@lists.sourceforge.net>, holt@sgi.com, Dean Roe <roe@sgi.com>, Brian Sumner <bls@sgi.com>, John Hawkes <hawkes@tomahawk.engr.sgi.com>
+To: linux-ia64@vger.kernel.org
 
-> Well, the sighand->siglock is taken so many places in the kernel (>200 
-> times)
-> that RCUing its usage looks like a daunting change to make.
 
-Agreed.  And having to wait for all CPUs in sigaction would also not
-be nice.
+The SLIT table provides useful information on internode
+distances. Has anyone considered externalizing this
+table via /proc or some equivalent mechanism.
 
-> 
-> In principle, I guess a seqlock could be made to work.  The idea would be 
+For example, something like the following would be useful:
 
-seqlocks are reader only, but for signal delivery you need a writer to 
-update state like the thread load balancing. We got all that gunk
-from POSIX, before NPTL it would have been probably possible ;-)
+	# cat /proc/acpi/slit
+	010 066 046 066
+	066 010 066 046
+	046 066 010 020
+	066 046 020 010
 
--Andi
+
+If this looks ok (or something equivalent), I'll generate a patch....
+
+-- 
+Thanks
+
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
+
