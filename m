@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Tue, 02 Mar 2004 17:57:01 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 02 Mar 2004 18:01:28 +0000
 Subject: Re: [PATCH] sal cleanup
-Message-Id: <20040302175701.GM25779@parcelfarce.linux.theplanet.co.uk>
+Message-Id: <16452.52216.542759.941632@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040226213704.GW25779@parcelfarce.linux.theplanet.co.uk>
 In-Reply-To: <20040226213704.GW25779@parcelfarce.linux.theplanet.co.uk>
@@ -10,42 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Mar 02, 2004 at 09:42:33AM -0800, David Mosberger wrote:
-> >>>>> On Tue, 2 Mar 2004 15:56:01 +0000, Matthew Wilcox <willy@debian.org> said:
-> 
->   Matthew> I don't have an objection to doing that, but how about
->   Matthew> making it Just Work for this particular case?  Something
->   Matthew> like ..
-> 
-> Well, that would be more convenient for me, but I don't know how many
-> other "strange" SAL version numbers are out there in the wild.  It's
-> can be handy to have an override option when dealing with buggy
-> firmware (fortunately, quite rare with production systems, but it's
-> all to common with prototypes).
+>>>>> On Tue, 2 Mar 2004 17:57:01 +0000, Matthew Wilcox <willy@debian.org> said:
 
-Yeah.  That's why I moved it into a separate function so we can add
-other bad version numbers.  If we were really keen, we could even add a
-check for the oem and product IDs matching, or a data table of known-bad
-BIOSes but let's keep it simple until we have to make it complex.
+  Matthew> Yeah.  That's why I moved it into a separate function so we
+  Matthew> can add other bad version numbers.  If we were really keen,
+  Matthew> we could even add a check for the oem and product IDs
+  Matthew> matching, or a data table of known-bad BIOSes but let's
+  Matthew> keep it simple until we have to make it complex.
 
-> Just a caveat:
-> 
->   Matthew> SAL_VERSION_CODE(49, 29)
-> 
-> shouldn't these be in hex?
+Well, I can live with either approach, so it's your call.  It's just that
+a command-line option can come in handy when you're urgently trying to boot
+a kernel and you can't rebuild a kernel (like when trying to demo a new
+machine... ;-).
 
-Nope, that's the beauty of it:
+  Matthew> SAL_VERSION_CODE(49, 29)
 
-#define SAL_VERSION_CODE(major, minor) ((BIN2BCD(major) << 8) | BIN2BCD(minor))
+  >>  shouldn't these be in hex?
 
-BIN2BCD is defined in linux/bcd.h as ((((val)/10)<<4) + (val)%10)
+  Matthew> Nope, that's the beauty of it:
 
-So you get to specify things in decimal.
+  Matthew> #define SAL_VERSION_CODE(major, minor) ((BIN2BCD(major) <<
+  Matthew> 8) | BIN2BCD(minor))
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+  Matthew> BIN2BCD is defined in linux/bcd.h as ((((val)/10)<<4) +
+  Matthew> (val)%10)
+
+  Matthew> So you get to specify things in decimal.
+
+Ah, I missed that.  Nice.
+
+	--daivd
