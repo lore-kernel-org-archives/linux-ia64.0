@@ -1,7 +1,7 @@
-From: Randolph Chung <randolph@tausq.org>
-Date: Sun, 23 Jun 2002 06:28:36 +0000
+From: "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp>
+Date: Mon, 24 Jun 2002 06:48:09 +0000
 Subject: Re: [Linux-ia64] /usr/lib/gcrt1.o on RH 7.2
-Message-Id: <marc-linux-ia64-105590701905714@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905716@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905700@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905700@msgid-missing>
@@ -10,15 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Even if it's statically linked?  Dynamically linked binaries do not
-> work with gprof.  I wasn't aware of any pthread-specific issues.
+ This issue was the known bug.
+ Sorry for bothering all.
 
-yup, static works. dynamic binaries not linked against pthread seems to
-work too...
+ I deeply appreciate that Greg told me this issus has
+ already issued in Feb.
 
-randolph
---  
-Randolph Chung
-Debian GNU/Linux Developer, hppa/ia64 ports
-http://www.tausq.org/
+http://gcc.gnu.org/ml/gcc-bugs/2002-02/msg00777.html
+
+End of my email
+--
+Yours faithfully,
+Hideki Yamamoto   (V).v.(V) # Empowered by Innovation
+
+> 
+> >>>>> On Sat, 22 Jun 2002 15:16:15 +0900, "Hideki Yamamoto" <hideki@hpc.bs1.fc.nec.co.jp> said:
+> 
+>   Hideki>  Let me know glibc version in your site which you did try.
+> 
+> I was just using the latest glibc package from the Debian "testing"
+> archive.
+> 
+> 	--david
+> 
 
