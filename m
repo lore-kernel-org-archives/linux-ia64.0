@@ -1,51 +1,46 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 16 Mar 2005 18:31:28 +0000
-Subject: Re: flush_icache_range
-Message-Id: <16952.31616.352193.514473@napali.hpl.hp.com>
+From: Robin Holt <holt@sgi.com>
+Date: Wed, 09 Mar 2005 17:09:15 +0000
+Subject: ia64 needs to shake memory from quicklists when there is memory pressure.
+Message-Id: <20050309170915.GA1583@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4236D7B5.8050408@bull.net>
-In-Reply-To: <4236D7B5.8050408@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-mm@kvack.org
 
->>>>> On Wed, 16 Mar 2005 11:58:17 +0100, Zoltan Menyhart <Zoltan.Menyhart@bull.net> said:
+Andrew,
 
-  Zoltan> I ran flush_icache_range() for 1000 times for the same page
-  Zoltan> (i.e. the "fc" has really nothing to do).  The other CPUs
-  Zoltan> were idle. No traffic on the bus.  I simply took the ITC
-  Zoltan> value before and after...  Here are the values (average for
-  Zoltan> the 1000 runs):
+I am searching for some direction.  I am in the process of pushing
+changes to the ia64 page table cache (quicklist) code.  One result of
+the changes is I end up changing the algorithm for freeing pages from
+the quicklist being based on a boot-time calculation of a percentage of
+total system memory to a percentage of memory free on the node (whole
+system for non-numa) at the time the shrink call is made.
 
-  Zoltan> With a 64-byte stride: 110143 nsec 187218 cycles
-  Zoltan> With a 32-byte stride: 225606 nsec 383477 cycles
+Right now, there are two places that the shrink is invoked.  One is
+from the tlb_finish_mmu() code which would be immediately after the only
+place that items are added to the list.  The other is from cpu_idle which
+appears to be a carry over from when x86 code was pulled over to ia64.
+The purpose for that appears to have been making the sysctl (which has
+been removed) take effect in situations where a cpu is never calling
+tlb_finish_mmu().
 
-That's definitely a worthwhile improvement.  I re-checked and it turns
-out that I misremembered what I measured: the test-case I had was
-testing whether a better scheduled loop-body would help.  I think I
-actually wrote that in the Merced days, so I couldn't even have tested
-64-byte stride at that time.
+The "ideal" would be to have a node aware slab cache.  Since that
+is probably a long time coming, I was wondering if there would be
+any possibility of getting some sort of hook into wakeup_kswapd(),
+kswapd(), or balance_pgdat().  Since the quicklists are maintained per
+cpu, we would need to perform an smp_call_function_single() for other
+cpus on this node.  Is there some mechanism in place already to handle
+anything similar to this?  Is there a better way to accomplish this?
+Can you offer any suggestions?
 
-I re-ran the test case now and got these results:
+Thanks,
+Robin Holt
 
- page size   cache-line           stride
-	       state       32 bytes	64 bytes
--------------------------------------------------------------
-	       dirty	   32,000	22,000 (86 cyc/line)
- 16 KB
-	       clean	   26,000	12,800 (50 cyc/line)
--------------------------------------------------------------
-	       dirty	  130,000	85,000 (83 cyc/line)
- 64 KB
-	       clean	  105,000	54,000 (52 cyc/line)
--------------------------------------------------------------
+PS:  Some relevant links.
+Discuss the shrink issues:
+http://marc.theaimsgroup.com/?l=linux-ia64&m0990848315823&w=2
 
-While all the numbers are substantially lower than what you're seeing,
-clearly using a 64-byte stride is a big win.  I assume the difference
-between our results is due to chipsets.  My measurements were done
-with a 1.5GHz/6M Madison and the zx1 chipset, which doesn't go beyond
-4-way (hence latency tends to be substantially better than with more
-scalable chipsets).
-
-	--david
+The code change to do the free.
+http://marc.theaimsgroup.com/?l=linux-ia64&m0978917715909&w=2
