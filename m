@@ -1,36 +1,62 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Fri, 24 Aug 2001 18:19:23 +0000
-Subject: Re: [Linux-ia64] Simple question about pointers address space.
-Message-Id: <marc-linux-ia64-105590698805103@msgid-missing>
+From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
+Date: Fri, 10 Aug 2001 13:15:56 +0000
+Subject: [Linux-ia64] ping(8) faster than light (do_get_fast_time) (fwd)
+Message-Id: <marc-linux-ia64-105590698805052@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805102@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805102@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 24 Aug 2001 14:10:23 -0400, "Dominic Duchemin" <DDuchemin@Kaydara.com> said:
+Hi,
 
-  Dominic> 	I would simply like to know if the possible address
-  Dominic> space (2^64) by a pointer is fulllly or partially used in
-  Dominic> the context of a process in the linux ia64 kernel.
+I have encountered the following strange problem that is related
+to the RedHat bug
 
-All 64 bits are used (there are no ignored bits), though depending on
-the OS and CPU, some of the address space may be inaccessible (will
-trigger a fault if accessed).
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id7485
 
-  Dominic> 	In the partial case, which part of the 2^64 is used.
+A "ping localhost" on RedHat 7.1 will generate the warning
 
-  Dominic> 	The anser to this question is important for
-  Dominic> me. Because what i try to do is to mix a reference
-  Dominic> counter&pointer for atomic operation on pointers. So if
-  Dominic> there is unused bits in the 64 bits pointer, I'll use them.
+Warning: time of day goes back, taking countermeasures.
 
-The only bits you might be able use for this purpose are low order
-bits that are zero due to alignment constraints.  E.g., if your
-objects are all 16-byte aligned, you could use the least-significant 4
-bits.
+Tracing ping(8) with tcpdump shows that echo request and echo reply
+packets have exactly the same time stamp.
 
-	--david
+The "RELNOTES" file of the RedHat iputils package says
+
+* By Pekka Savola <pekkas@netcore.fi>
+  - SIOCGSTAMP/SO_TIMESTAMP are sensitive to bug in kernel.
+    When get_fast_time != gettimeofday (f.e. timestampless x86),
+    returned stamp can be out of sync with gettimeofday.
+    Workaround is not to use SIOCGSTAMP/SO_TIMESTAMP on such systems.
+
+It appears that this is actually the reason for the above problem.
+
+The deeper reason is that on IA64, *do_get_fast_time() equals
+do_normal_gettime(), which simply returns xtime. On other architectures
+do_get_fast_time() is set to do_gettimeofday() in time_init(), which
+avoids the problem.
+
+1) Is do_gettimeofday () too slow on IA64 to use it for
+   do_get_fast_time() ?
+
+2) If yes, would it be possible to susbtitute a do_get_fast_time()
+   that is faster and less accurate than do_gettimeofday(), but still
+   better than do_normal_gettime() ?
+
+3) If no, the ping(8) program on IA64 should IMO be changed to not use
+   SO_TIMESTAMP (equivalent to "ping -U" with the RH7.1 ping).
+
+Martin
+
+-- 
+Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
+FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
+
+
+
+
+
+
+
 
