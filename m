@@ -1,99 +1,58 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 19 Nov 2004 19:47:14 +0000
-Subject: page fault scalability patch V11 [7/7]: s390 atomic pte operations
-Message-Id: <Pine.LNX.4.58.0411191146480.24095@schroedinger.engr.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Mon, 22 Nov 2004 16:54:58 +0000
+Subject: [PATCH] ia64 iosapic: ignore offline CPUs when routing interrupts
+Message-Id: <200411220954.59228.bjorn.helgaas@hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_jnhoBbgpQgo0rqo"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.44.0411061527440.3567-100000@localhost.localdomain>
-  <Pine.LNX.4.58.0411181126440.30385@schroedinger.engr.sgi.com> 
- <Pine.LNX.4.58.0411181715280.834@schroedinger.engr.sgi.com> 
- <419D581F.2080302@yahoo.com.au>  <Pine.LNX.4.58.0411181835540.1421@schroedinger.engr.sgi.com>
-  <419D5E09.20805@yahoo.com.au>  <Pine.LNX.4.58.0411181921001.1674@schroedinger.engr.sgi.com>
- <1100848068.25520.49.camel@gaston> <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0411190704330.5145@schroedinger.engr.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+To: linux-ia64@vger.kernel.org
+
+--Boundary-00=_jnhoBbgpQgo0rqo
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: torvalds@osdl.org, akpm@osdl.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, Hugh Dickins <hugh@veritas.com>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Disposition: inline
 
-Changelog
-        * Provide atomic pte operations for s390
+Ignore offline CPUs when registering IOSAPIC interrupts.  We previously
+directed interrupts even to offline CPUs, which means that if you have some
+unused CPUs (e.g., you used "maxcpus="), some interrupts won't work.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+This really hurts because distro installs typically use "maxcpus=1".
 
-Index: linux-2.6.9/include/asm-s390/pgtable.h
-=================================--- linux-2.6.9.orig/include/asm-s390/pgtable.h	2004-10-18 14:54:55.000000000 -0700
-+++ linux-2.6.9/include/asm-s390/pgtable.h	2004-11-19 11:35:08.000000000 -0800
-@@ -567,6 +567,15 @@
- 	return pte;
- }
+--Boundary-00=_jnhoBbgpQgo0rqo
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="diffs"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="diffs"
 
-+#define ptep_xchg_flush(__vma, __address, __ptep, __pteval)            \
-+({                                                                     \
-+	struct mm_struct *__mm = __vma->vm_mm;                          \
-+	pte_t __pte;                                                    \
-+	__pte = ptep_clear_flush(__vma, __address, __ptep);             \
-+	set_pte(__ptep, __pteval);                                      \
-+	__pte;                                                          \
-+})
+Ignore offline CPUs when registering IOSAPIC interrupts.  We previously
+directed interrupts even to offline CPUs, which means that if you have some
+unused CPUs (e.g., you used "maxcpus="), some interrupts won't work.
+
+This really hurts because distro installs typically use "maxcpus=1".
+
+Patch by Alex Williamson.
+
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+
+===== arch/ia64/kernel/iosapic.c 1.48 vs edited =====
+--- 1.48/arch/ia64/kernel/iosapic.c	2004-10-05 12:30:39 -06:00
++++ edited/arch/ia64/kernel/iosapic.c	2004-11-21 20:34:57 -07:00
+@@ -521,7 +521,12 @@
+ 			goto skip_numa_setup;
+ 
+ 		cpu_mask = node_to_cpumask(iosapic_lists[iosapic_index].node);
+-		
 +
- static inline void ptep_set_wrprotect(pte_t *ptep)
- {
- 	pte_t old_pte = *ptep;
-@@ -778,6 +787,14 @@
-
- #define kern_addr_valid(addr)   (1)
-
-+/* Atomic PTE operations */
-+#define __HAVE_ARCH_ATOMIC_TABLE_OPS
++		for_each_cpu_mask(numa_cpu, cpu_mask) {
++			if (!cpu_online(numa_cpu))
++				cpu_clear(numa_cpu, cpu_mask);
++		}
 +
-+static inline int ptep_cmpxchg (struct vm_area_struct *vma, unsigned long address, pte_t *ptep, pte_t oldval, pte_t newval)
-+{
-+	return cmpxchg(ptep, pte_val(oldval), pte_val(newval)) = pte_val(oldval);
-+}
-+
- /*
-  * No page table caches to initialise
-  */
-@@ -791,6 +808,7 @@
- #define __HAVE_ARCH_PTEP_CLEAR_DIRTY_FLUSH
- #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
- #define __HAVE_ARCH_PTEP_CLEAR_FLUSH
-+#define __HAVE_ARCH_PTEP_XCHG_FLUSH
- #define __HAVE_ARCH_PTEP_SET_WRPROTECT
- #define __HAVE_ARCH_PTEP_MKDIRTY
- #define __HAVE_ARCH_PTE_SAME
-Index: linux-2.6.9/include/asm-s390/pgalloc.h
-=================================--- linux-2.6.9.orig/include/asm-s390/pgalloc.h	2004-10-18 14:54:37.000000000 -0700
-+++ linux-2.6.9/include/asm-s390/pgalloc.h	2004-11-19 11:33:25.000000000 -0800
-@@ -97,6 +97,10 @@
- 	pgd_val(*pgd) = _PGD_ENTRY | __pa(pmd);
- }
+ 		num_cpus = cpus_weight(cpu_mask);
+ 
+ 		if (!num_cpus)
 
-+static inline int pgd_test_and_populate(struct mm_struct *mm, pdg_t *pgd, pmd_t *pmd)
-+{
-+	return cmpxchg(pgd, _PAGE_TABLE_INV, _PGD_ENTRY | __pa(pmd)) = _PAGE_TABLE_INV;
-+}
- #endif /* __s390x__ */
-
- static inline void
-@@ -119,6 +123,18 @@
- 	pmd_populate_kernel(mm, pmd, (pte_t *)((page-mem_map) << PAGE_SHIFT));
- }
-
-+static inline int
-+pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *page)
-+{
-+	int rc;
-+	spin_lock(&mm->page_table_lock);
-+
-+	rc=pte_same(*pmd, _PAGE_INVALID_EMPTY);
-+	if (rc) pmd_populate(mm, pmd, page);
-+	spin_unlock(&mm->page_table_lock);
-+	return rc;
-+}
-+
- /*
-  * page table entry allocation/free routines.
-  */
-
+--Boundary-00=_jnhoBbgpQgo0rqo--
