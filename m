@@ -1,174 +1,361 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 17 Dec 2004 03:33:55 +0000
-Subject: page fault scalability patch V13 [2/8]: ia64 atomic pte operations
-Message-Id: <Pine.LNX.4.58.0412161933190.11341@schroedinger.engr.sgi.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Tue, 07 Dec 2004 07:21:10 +0000
+Subject: [PATCH] IRQ resource deallocation [2/2]
+Message-Id: <41B559E6.5090601@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41BBF923.6040207@yahoo.com.au>
- <Pine.LNX.4.44.0412120914190.3476-100000@localhost.localdomain>
- <20041212212456.GB2714@holomorphy.com> <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0412161931460.11341@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: William Lee Irwin III <wli@holomorphy.com>
-Cc: Hugh Dickins <hugh@veritas.com>, Nick Piggin <nickpiggin@yahoo.com.au>, Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>, Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, "Luck, Tony" <tony.luck-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Cc: Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 
-Changelog
-        * Provide atomic pte operations for ia64
-        * Enhanced parallelism in page fault handler if applied together
-          with the generic patch
+This patch is IA64 portion of IRQ resource deallocation.
+This depends on patch [2/2].
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+----
 
-Index: linux-2.6.9/include/asm-ia64/pgalloc.h
-=================================--- linux-2.6.9.orig/include/asm-ia64/pgalloc.h	2004-10-18 14:53:06.000000000 -0700
-+++ linux-2.6.9/include/asm-ia64/pgalloc.h	2004-11-19 07:54:19.000000000 -0800
-@@ -34,6 +34,10 @@
- #define pmd_quicklist		(local_cpu_data->pmd_quick)
- #define pgtable_cache_size	(local_cpu_data->pgtable_cache_sz)
+Kernel Version:	2.6.10-rc3
+Depends:	IRQ_deallocation_acpi.patch
+Description:
 
-+/* Empty entries of PMD and PGD */
-+#define PMD_NONE       0
-+#define PGD_NONE       0
+This is an ia64 portion of IRQ resource deallocation. It implements
+pcibios_disable_device() and acpi_unregister_gsi() for ia64.
+
+    o acpi_unregister_gsi()
+
+        Summary of changes for implementing this interface:
+
+        - Add new function iosapic_unregister_intr() into
+          arch/ia64/kernel/iosapic.c. This function frees an interrupt
+          vector and related data structures.
+
+        - Add new function free_irq_vector() into
+          arch/ia64/kernel/irq_ia64.c. This frees an unused vector.
+
+        - Change assign_irq_vector() to be able to support
+          free_irq_vector().
+
+    o pcibios_disable_device()
+
+        This calls acpi_pci_irq_disable() to deallocate IRQ resources.
+
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+
+---
+
+ linux-2.6.10-rc3-kanesige/arch/ia64/Kconfig           |    9 +
+ linux-2.6.10-rc3-kanesige/arch/ia64/kernel/acpi.c     |    9 +
+ linux-2.6.10-rc3-kanesige/arch/ia64/kernel/iosapic.c  |   96 ++++++++++++++++--
+ linux-2.6.10-rc3-kanesige/arch/ia64/kernel/irq.c      |    3 
+ linux-2.6.10-rc3-kanesige/arch/ia64/kernel/irq_ia64.c |   27 ++++-
+ linux-2.6.10-rc3-kanesige/arch/ia64/pci/pci.c         |    8 +
+ linux-2.6.10-rc3-kanesige/include/asm-ia64/hw_irq.h   |    2 
+ linux-2.6.10-rc3-kanesige/include/asm-ia64/iosapic.h  |    4 
+ 8 files changed, 145 insertions(+), 13 deletions(-)
+
+diff -puN arch/ia64/Kconfig~IRQ_deallocation_ia64 arch/ia64/Kconfig
+--- linux-2.6.10-rc3/arch/ia64/Kconfig~IRQ_deallocation_ia64	2004-12-06 19:58:12.392540698 +0900
++++ linux-2.6.10-rc3-kanesige/arch/ia64/Kconfig	2004-12-06 19:58:12.407189233 +0900
+@@ -302,6 +302,15 @@ config IA64_PALINFO
+ 	  To use this option, you have to ensure that the "/proc file system
+ 	  support" (CONFIG_PROC_FS) is enabled, too.
+ 
++config ACPI_DEALLOCATE_IRQ
++	bool "IRQ resource deallocation support (EXPERIMENTAL)"
++	depends on IOSAPIC && EXPERIMENTAL
++	default n
++	help
++	  Say Y here to experiment with deallocating IRQ resources
++	  dynamically.
++	  Say N if you want to disable IRQ resource deallocation.
 +
- static inline pgd_t*
- pgd_alloc_one_fast (struct mm_struct *mm)
- {
-@@ -78,12 +82,19 @@
- 	preempt_enable();
+ source "drivers/firmware/Kconfig"
+ 
+ source "fs/Kconfig.binfmt"
+diff -puN arch/ia64/kernel/acpi.c~IRQ_deallocation_ia64 arch/ia64/kernel/acpi.c
+--- linux-2.6.10-rc3/arch/ia64/kernel/acpi.c~IRQ_deallocation_ia64	2004-12-06 19:58:12.394493836 +0900
++++ linux-2.6.10-rc3-kanesige/arch/ia64/kernel/acpi.c	2004-12-06 19:58:12.408165802 +0900
+@@ -517,6 +517,15 @@ acpi_register_gsi (u32 gsi, int edge_lev
  }
-
-+
- static inline void
- pgd_populate (struct mm_struct *mm, pgd_t *pgd_entry, pmd_t *pmd)
- {
- 	pgd_val(*pgd_entry) = __pa(pmd);
- }
-
-+/* Atomic populate */
-+static inline int
-+pgd_test_and_populate (struct mm_struct *mm, pgd_t *pgd_entry, pmd_t *pmd)
+ EXPORT_SYMBOL(acpi_register_gsi);
+ 
++#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
++void
++acpi_unregister_gsi (u32 gsi)
 +{
-+	return ia64_cmpxchg8_acq(pgd_entry,__pa(pmd), PGD_NONE) = PGD_NONE;
++	iosapic_unregister_intr(gsi);
 +}
-
- static inline pmd_t*
- pmd_alloc_one_fast (struct mm_struct *mm, unsigned long addr)
-@@ -132,6 +143,13 @@
- 	pmd_val(*pmd_entry) = page_to_phys(pte);
- }
-
-+/* Atomic populate */
-+static inline int
-+pmd_test_and_populate (struct mm_struct *mm, pmd_t *pmd_entry, struct page *pte)
-+{
-+	return ia64_cmpxchg8_acq(pmd_entry, page_to_phys(pte), PMD_NONE) = PMD_NONE;
-+}
++EXPORT_SYMBOL(acpi_unregister_gsi);
++#endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
 +
- static inline void
- pmd_populate_kernel (struct mm_struct *mm, pmd_t *pmd_entry, pte_t *pte)
+ static int __init
+ acpi_parse_fadt (unsigned long phys_addr, unsigned long size)
  {
-Index: linux-2.6.9/include/asm-ia64/pgtable.h
-=================================--- linux-2.6.9.orig/include/asm-ia64/pgtable.h	2004-11-15 11:13:38.000000000 -0800
-+++ linux-2.6.9/include/asm-ia64/pgtable.h	2004-11-19 07:55:35.000000000 -0800
-@@ -30,6 +30,8 @@
- #define _PAGE_P_BIT		0
- #define _PAGE_A_BIT		5
- #define _PAGE_D_BIT		6
-+#define _PAGE_IG_BITS          53
-+#define _PAGE_LOCK_BIT         (_PAGE_IG_BITS+3)       /* bit 56. Aligned to 8 bits */
-
- #define _PAGE_P			(1 << _PAGE_P_BIT)	/* page present bit */
- #define _PAGE_MA_WB		(0x0 <<  2)	/* write back memory attribute */
-@@ -58,6 +60,7 @@
- #define _PAGE_PPN_MASK		(((__IA64_UL(1) << IA64_MAX_PHYS_BITS) - 1) & ~0xfffUL)
- #define _PAGE_ED		(__IA64_UL(1) << 52)	/* exception deferral */
- #define _PAGE_PROTNONE		(__IA64_UL(1) << 63)
-+#define _PAGE_LOCK		(__IA64_UL(1) << _PAGE_LOCK_BIT)
-
- /* Valid only for a PTE with the present bit cleared: */
- #define _PAGE_FILE		(1 << 1)		/* see swap & file pte remarks below */
-@@ -270,6 +273,8 @@
- #define pte_dirty(pte)		((pte_val(pte) & _PAGE_D) != 0)
- #define pte_young(pte)		((pte_val(pte) & _PAGE_A) != 0)
- #define pte_file(pte)		((pte_val(pte) & _PAGE_FILE) != 0)
-+#define pte_locked(pte)		((pte_val(pte) & _PAGE_LOCK)!=0)
-+
- /*
-  * Note: we convert AR_RWX to AR_RX and AR_RW to AR_R by clearing the 2nd bit in the
-  * access rights:
-@@ -281,8 +286,15 @@
- #define pte_mkyoung(pte)	(__pte(pte_val(pte) | _PAGE_A))
- #define pte_mkclean(pte)	(__pte(pte_val(pte) & ~_PAGE_D))
- #define pte_mkdirty(pte)	(__pte(pte_val(pte) | _PAGE_D))
-+#define pte_mkunlocked(pte)	(__pte(pte_val(pte) & ~_PAGE_LOCK))
-
- /*
-+ * Lock functions for pte's
-+ */
-+#define ptep_lock(ptep)		test_and_set_bit(_PAGE_LOCK_BIT, ptep)
-+#define ptep_unlock(ptep)	{ clear_bit(_PAGE_LOCK_BIT,ptep); smp_mb__after_clear_bit(); }
-+#define ptep_unlock_set(ptep, val) set_pte(ptep, pte_mkunlocked(val))
-+/*
-  * Macro to a page protection value as "uncacheable".  Note that "protection" is really a
-  * misnomer here as the protection value contains the memory attribute bits, dirty bits,
-  * and various other bits as well.
-@@ -342,7 +354,6 @@
- #define pte_unmap_nested(pte)		do { } while (0)
-
- /* atomic versions of the some PTE manipulations: */
--
- static inline int
- ptep_test_and_clear_young (pte_t *ptep)
+diff -puN arch/ia64/kernel/iosapic.c~IRQ_deallocation_ia64 arch/ia64/kernel/iosapic.c
+--- linux-2.6.10-rc3/arch/ia64/kernel/iosapic.c~IRQ_deallocation_ia64	2004-12-06 19:58:12.396446974 +0900
++++ linux-2.6.10-rc3-kanesige/arch/ia64/kernel/iosapic.c	2004-12-06 19:58:12.409142371 +0900
+@@ -111,6 +111,7 @@ static struct iosapic_intr_info {
+ 	unsigned char	dmode	: 3;	/* delivery mode (see iosapic.h) */
+ 	unsigned char 	polarity: 1;	/* interrupt polarity (see iosapic.h) */
+ 	unsigned char	trigger	: 1;	/* trigger mode (see iosapic.h) */
++	int		refcnt;		/* reference counter */
+ } iosapic_intr_info[IA64_NUM_VECTORS];
+ 
+ static struct iosapic {
+@@ -177,7 +178,7 @@ gsi_to_irq (unsigned int gsi)
+ static void
+ set_rte (unsigned int vector, unsigned int dest, int mask)
  {
-@@ -414,6 +425,26 @@
- #endif
+-	unsigned long pol, trigger, dmode, flags;
++	unsigned long pol, trigger, dmode;
+ 	u32 low32, high32;
+ 	char __iomem *addr;
+ 	int rte_index;
+@@ -218,13 +219,9 @@ set_rte (unsigned int vector, unsigned i
+ 	/* dest contains both id and eid */
+ 	high32 = (dest << IOSAPIC_DEST_SHIFT);
+ 
+-	spin_lock_irqsave(&iosapic_lock, flags);
+-	{
+-		iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
+-		iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
+-		iosapic_intr_info[vector].low32 = low32;
+-	}
+-	spin_unlock_irqrestore(&iosapic_lock, flags);
++	iosapic_write(addr, IOSAPIC_RTE_HIGH(rte_index), high32);
++	iosapic_write(addr, IOSAPIC_RTE_LOW(rte_index), low32);
++	iosapic_intr_info[vector].low32 = low32;
  }
-
-+/*
-+ * IA-64 doesn't have any external MMU info: the page tables contain all the necessary
-+ * information.  However, we use this routine to take care of any (delayed) i-cache
-+ * flushing that may be necessary.
-+ */
-+extern void update_mmu_cache (struct vm_area_struct *vma, unsigned long vaddr, pte_t pte);
+ 
+ static void
+@@ -475,6 +472,7 @@ register_intr (unsigned int gsi, int vec
+ 	iosapic_intr_info[vector].addr     = iosapic_address;
+ 	iosapic_intr_info[vector].gsi_base = gsi_base;
+ 	iosapic_intr_info[vector].trigger  = trigger;
++	iosapic_intr_info[vector].refcnt++;
+ 
+ 	if (trigger = IOSAPIC_EDGE)
+ 		irq_type = &irq_type_iosapic_edge;
+@@ -581,6 +579,7 @@ iosapic_register_intr (unsigned int gsi,
+ 	{
+ 		vector = gsi_to_vector(gsi);
+ 		if (vector > 0) {
++			iosapic_intr_info[vector].refcnt++;
+ 			spin_unlock_irqrestore(&iosapic_lock, flags);
+ 			return vector;
+ 		}
+@@ -589,6 +588,8 @@ iosapic_register_intr (unsigned int gsi,
+ 		dest = get_target_cpu(gsi, vector);
+ 		register_intr(gsi, vector, IOSAPIC_LOWEST_PRIORITY,
+ 			polarity, trigger);
 +
-+static inline int
-+ptep_cmpxchg (struct vm_area_struct *vma, unsigned long addr, pte_t *ptep, pte_t oldval, pte_t newval)
++		set_rte(vector, dest, 1);
+ 	}
+ 	spin_unlock_irqrestore(&iosapic_lock, flags);
+ 
+@@ -597,10 +598,87 @@ iosapic_register_intr (unsigned int gsi,
+ 	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
+ 	       cpu_logical_id(dest), dest, vector);
+ 
+-	set_rte(vector, dest, 1);
+ 	return vector;
+ }
+ 
++#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
++void
++iosapic_unregister_intr (unsigned int gsi)
 +{
++	unsigned long flags;
++	int irq, vector;
++	irq_desc_t *idesc;
++	int rte_index;
++	unsigned long trigger, polarity;
++	
 +	/*
-+	 * IA64 defers icache flushes. If the new pte is executable we may
-+	 * have to flush the icache to insure cache coherency immediately
-+	 * after the cmpxchg.
++	 * If the irq associated with the gsi is not found,
++	 * iosapic_unregister_intr() is unbalanced. We need to check
++	 * this again after getting locks.
 +	 */
-+	if (pte_exec(newval))
-+		update_mmu_cache(vma, addr, newval);
-+	return ia64_cmpxchg8_acq(&ptep->pte, newval.pte, oldval.pte) = oldval.pte;
++	irq = gsi_to_irq(gsi);
++	if (irq < 0) {
++		printk(KERN_ERR "iosapic_unregister_intr(%u) unbalanced\n", gsi);
++		WARN_ON(1);
++		return;
++	}
++	vector = irq_to_vector(irq);
++
++	idesc = irq_descp(irq);
++	spin_lock_irqsave(&idesc->lock, flags);
++	spin_lock(&iosapic_lock);
++	{
++		rte_index = iosapic_intr_info[vector].rte_index;
++		if (rte_index < 0) {
++			spin_unlock(&iosapic_lock);
++			spin_unlock_irqrestore(&idesc->lock, flags);
++			printk(KERN_ERR "iosapic_unregister_intr(%u) unbalanced\n", gsi);
++			WARN_ON(1);
++			return;
++		}
++
++		if (--iosapic_intr_info[vector].refcnt > 0) {
++			spin_unlock(&iosapic_lock);
++			spin_unlock_irqrestore(&idesc->lock, flags);
++			return;
++		}
++
++		/*
++		 * If interrupt handlers still exist on the irq
++		 * associated with the gsi, don't unregister the
++		 * interrupt.
++		 */
++		if (idesc->action) {
++			iosapic_intr_info[vector].refcnt++;
++			spin_unlock(&iosapic_lock);
++			spin_unlock_irqrestore(&idesc->lock, flags);
++			printk(KERN_WARNING "Cannot unregister GSI. IRQ %u is still in use.\n", irq);
++			return;
++		}
++
++		/* Clear the interrupt controller descriptor. */
++		idesc->handler = &no_irq_type;
++
++		trigger  = iosapic_intr_info[vector].trigger;
++		polarity = iosapic_intr_info[vector].polarity;
++
++		/* Clear the interrupt information. */
++		memset(&iosapic_intr_info[vector], 0, sizeof(struct iosapic_intr_info));
++		iosapic_intr_info[vector].rte_index = -1;	/* mark as unused */
++	}
++	spin_unlock(&iosapic_lock);
++	spin_unlock_irqrestore(&idesc->lock, flags);
++
++	/* Free the interrupt vector */
++	free_irq_vector(vector);
++
++	printk(KERN_INFO "GSI %u (%s, %s) -> vector %d unregisterd.\n",
++	       gsi, (trigger = IOSAPIC_EDGE ? "edge" : "level"),
++	       (polarity = IOSAPIC_POL_HIGH ? "high" : "low"),
++	       vector);
++}
++#endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
++
+ /*
+  * ACPI calls this when it finds an entry for a platform interrupt.
+  * Note that the irq_base and IOSAPIC address must be set in iosapic_init().
+diff -puN arch/ia64/kernel/irq.c~IRQ_deallocation_ia64 arch/ia64/kernel/irq.c
+--- linux-2.6.10-rc3/arch/ia64/kernel/irq.c~IRQ_deallocation_ia64	2004-12-06 19:58:12.398400112 +0900
++++ linux-2.6.10-rc3-kanesige/arch/ia64/kernel/irq.c	2004-12-06 19:58:12.409142371 +0900
+@@ -1030,6 +1030,9 @@ void move_irq(int irq)
+ 	irq_desc_t *desc = irq_descp(irq);
+ 	int redir = test_bit(irq, pending_irq_redir);
+ 
++	if (unlikely(!desc->handler->set_affinity))
++		return;
++
+ 	if (!cpus_empty(pending_irq_cpumask[irq])) {
+ 		cpus_and(tmp, pending_irq_cpumask[irq], cpu_online_map);
+ 		if (unlikely(!cpus_empty(tmp))) {
+diff -puN arch/ia64/kernel/irq_ia64.c~IRQ_deallocation_ia64 arch/ia64/kernel/irq_ia64.c
+--- linux-2.6.10-rc3/arch/ia64/kernel/irq_ia64.c~IRQ_deallocation_ia64	2004-12-06 19:58:12.400353250 +0900
++++ linux-2.6.10-rc3-kanesige/arch/ia64/kernel/irq_ia64.c	2004-12-06 19:58:12.410118940 +0900
+@@ -75,15 +75,34 @@ irq_exit (void)
+ 	preempt_enable_no_resched();
+ }
+ 
++static unsigned long ia64_vector_mask[BITS_TO_LONGS(IA64_NUM_DEVICE_VECTORS)];
++
+ int
+ assign_irq_vector (int irq)
+ {
+-	static int next_vector = IA64_FIRST_DEVICE_VECTOR;
+-
+-	if (next_vector > IA64_LAST_DEVICE_VECTOR)
++	int pos, vector;
++ again:
++	pos = find_first_zero_bit(ia64_vector_mask, IA64_NUM_DEVICE_VECTORS);
++	vector = IA64_FIRST_DEVICE_VECTOR + pos;
++	if (vector > IA64_LAST_DEVICE_VECTOR)
+ 		/* XXX could look for sharable vectors instead of panic'ing... */
+ 		panic("assign_irq_vector: out of interrupt vectors!");
+-	return next_vector++;
++	if (test_and_set_bit(pos, ia64_vector_mask))
++		goto again;
++	return vector;
 +}
 +
- static inline int
- pte_same (pte_t a, pte_t b)
- {
-@@ -476,13 +507,6 @@
- 	struct vm_area_struct * prev, unsigned long start, unsigned long end);
- #endif
++void
++free_irq_vector (int vector)
++{
++	int pos;
++
++	if (vector < IA64_FIRST_DEVICE_VECTOR || vector > IA64_LAST_DEVICE_VECTOR)
++		return;
++
++	pos = vector - IA64_FIRST_DEVICE_VECTOR;
++	if (!test_and_clear_bit(pos, ia64_vector_mask))
++		printk(KERN_WARNING "%s: double free!\n", __FUNCTION__);
+ }
+ 
+ extern unsigned int do_IRQ(unsigned long irq, struct pt_regs *regs);
+diff -puN arch/ia64/pci/pci.c~IRQ_deallocation_ia64 arch/ia64/pci/pci.c
+--- linux-2.6.10-rc3/arch/ia64/pci/pci.c~IRQ_deallocation_ia64	2004-12-06 19:58:12.401329819 +0900
++++ linux-2.6.10-rc3-kanesige/arch/ia64/pci/pci.c	2004-12-06 19:58:12.410118940 +0900
+@@ -480,6 +480,14 @@ pcibios_enable_device (struct pci_dev *d
+ 	return acpi_pci_irq_enable(dev);
+ }
+ 
++#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
++void
++pcibios_disable_device (struct pci_dev *dev)
++{
++	acpi_pci_irq_disable(dev);
++}
++#endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
++
+ void
+ pcibios_align_resource (void *data, struct resource *res,
+ 		        unsigned long size, unsigned long align)
+diff -puN include/asm-ia64/hw_irq.h~IRQ_deallocation_ia64 include/asm-ia64/hw_irq.h
+--- linux-2.6.10-rc3/include/asm-ia64/hw_irq.h~IRQ_deallocation_ia64	2004-12-06 19:58:12.403282957 +0900
++++ linux-2.6.10-rc3-kanesige/include/asm-ia64/hw_irq.h	2004-12-06 19:58:12.410118940 +0900
+@@ -50,6 +50,7 @@ typedef u8 ia64_vector;
+  */
+ #define IA64_FIRST_DEVICE_VECTOR	0x30
+ #define IA64_LAST_DEVICE_VECTOR		0xe7
++#define IA64_NUM_DEVICE_VECTORS		(IA64_LAST_DEVICE_VECTOR - IA64_FIRST_DEVICE_VECTOR + 1)
+ 
+ #define IA64_MCA_RENDEZ_VECTOR		0xe8	/* MCA rendez interrupt */
+ #define IA64_PERFMON_VECTOR		0xee	/* performanc monitor interrupt vector */
+@@ -81,6 +82,7 @@ extern __u8 isa_irq_to_vector_map[16];
+ extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
+ 
+ extern int assign_irq_vector (int irq);	/* allocate a free vector */
++extern void free_irq_vector (int vector);
+ extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
+ extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
+ 
+diff -puN include/asm-ia64/iosapic.h~IRQ_deallocation_ia64 include/asm-ia64/iosapic.h
+--- linux-2.6.10-rc3/include/asm-ia64/iosapic.h~IRQ_deallocation_ia64	2004-12-06 19:58:12.405236095 +0900
++++ linux-2.6.10-rc3-kanesige/include/asm-ia64/iosapic.h	2004-12-06 19:58:12.411095509 +0900
+@@ -78,6 +78,9 @@ extern int gsi_to_irq (unsigned int gsi)
+ extern void iosapic_enable_intr (unsigned int vector);
+ extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
+ 				  unsigned long trigger);
++#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
++extern void iosapic_unregister_intr (unsigned int irq);
++#endif
+ extern void __init iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
+ 				      unsigned long polarity,
+ 				      unsigned long trigger);
+@@ -97,6 +100,7 @@ extern void __init map_iosapic_to_node (
+ #define iosapic_system_init(pcat_compat)			do { } while (0)
+ #define iosapic_init(address,gsi_base)				do { } while (0)
+ #define iosapic_register_intr(gsi,polarity,trigger)		(gsi)
++#define iosapic_unregister_intr(irq)				do { } while (0)
+ #define iosapic_override_isa_irq(isa_irq,gsi,polarity,trigger)	do { } while (0)
+ #define iosapic_register_platform_intr(type,gsi,pmi,eid,id, \
+ 	polarity,trigger)					(gsi)
 
--/*
-- * IA-64 doesn't have any external MMU info: the page tables contain all the necessary
-- * information.  However, we use this routine to take care of any (delayed) i-cache
-- * flushing that may be necessary.
-- */
--extern void update_mmu_cache (struct vm_area_struct *vma, unsigned long vaddr, pte_t pte);
--
- #define __HAVE_ARCH_PTEP_SET_ACCESS_FLAGS
- /*
-  * Update PTEP with ENTRY, which is guaranteed to be a less
-@@ -560,6 +584,8 @@
- #define __HAVE_ARCH_PTEP_MKDIRTY
- #define __HAVE_ARCH_PTE_SAME
- #define __HAVE_ARCH_PGD_OFFSET_GATE
-+#define __HAVE_ARCH_ATOMIC_TABLE_OPS
-+#define __HAVE_ARCH_LOCK_TABLE_OPS
- #include <asm-generic/pgtable.h>
-
- #endif /* _ASM_IA64_PGTABLE_H */
+_
 
