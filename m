@@ -1,7 +1,7 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Fri, 16 Jul 2004 00:11:41 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Fri, 16 Jul 2004 00:18:51 +0000
 Subject: Re: free bootmem feedback patch
-Message-Id: <20040716001141.GA3411@holomorphy.com>
+Message-Id: <20040716001851.GR32326@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40F46962.4090604@sgi.com>
 In-Reply-To: <40F46962.4090604@sgi.com>
@@ -10,18 +10,22 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jul 15, 2004 at 04:16:38PM -0700, William Lee Irwin III wrote:
->> Unfortunately no. It would be nice to have one.
+On Thu, Jul 15, 2004 at 05:09:00PM -0700, David Mosberger wrote:
+> >>>>> On Fri, 16 Jul 2004 00:34:20 +0100, Matthew Wilcox <willy@debian.org> said:
+> 
+>   Matthew> #define log2(x) (ffs(x) - 1)
+> 
+> At the risk of pointing out the obvious, this definition only works
+> for integer-powers of two...
+> 
+> get_order() works for any "unsigned long" value.
 
-On Fri, Jul 16, 2004 at 12:34:20AM +0100, Matthew Wilcox wrote:
-> #define log2(x) (ffs(x) - 1)
-> (ffs returns a value from 0 to 32 whereas log2 wants to return -1 to 31)
-> Obviously it rounds down, but that's entirely consistent with the behaviour
-> of, say, 7/4 in C.
+Oh, um, I didn't realise that ffs() worked backwards.  fls() - 1, then.
 
-The kernel uses __ffs(), which returns from 0 to 31 and is undefined on 0.
-Its rounding behavior is wrong for log2(). Anyhow, we happen to know it's
-a power of 2 and that __ffs() will do.
-
-
--- wli
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
