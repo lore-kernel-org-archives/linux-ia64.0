@@ -1,51 +1,74 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Thu, 23 Sep 2004 16:38:58 +0000
-Subject: Re: [PATCH][0/4] NUMA node handling support for ACPI container driver
-Message-Id: <20040923093858.A12852@unix-os.sc.intel.com>
+From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Date: Wed, 22 Sep 2004 08:34:00 +0000
+Subject: Re: [ACPI] PATCH-ACPI based CPU hotplug[4/6]-Dynamic cpu
+Message-Id: <20040922173400.4e717946.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com> <20040920094719.H14208@unix-os.sc.intel.com> <20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>
-In-Reply-To: <20040924012301.000007c6.tokunaga.keiich@jp.fujitsu.com>; from tokunaga.keiich@jp.fujitsu.com on Fri, Sep 24, 2004 at 01:23:01AM +0900
+References: <20040920092520.A14208@unix-os.sc.intel.com>
+ <20040920094106.F14208@unix-os.sc.intel.com>
+In-Reply-To: <20040920094106.F14208@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Cc: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>, len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Cc: tokunaga.keiich@jp.fujitsu.com, len.brown@intel.com, acpi-devel@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Fri, Sep 24, 2004 at 01:23:01AM +0900, Keiichiro Tokunaga wrote:
-> On Mon, 20 Sep 2004 09:47:19 -0700, Keshavamurthy Anil S wrote:
-> > Changes from previous release:
-> > 1) Typo fix- ACPI004 to ACPI0004
-> > 2) Added depends on EXPERIMENTAL in Kconfig file
-> > 
-> > ---
-> > Name:container_drv.patch
-> > Status: Tested on 2.6.9-rc1
-> > Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-> > Depends:	
-> > Version: applies on 2.6.9-rc1
-> > Description:
-> > This is the very early version on the Container driver which supports
-> > hotplug notifications on ACPI0004, PNP0A05 and PNP0A06 devices.
-> > 	Changes from previous release:
-> > 	1) Mergerd the typo fix patch which changes "ACPI004" to "ACPI0004"
-> > ---
-> 
-> I have made a patchset to add 'NUMA node handling support' to
-> your patchset.  If a container that is identical to NUMA node is
-> hotplugged, this handles NUMA related stuffs.  For instance,
-> creating/deleting sysfs directories and files of node, data structures,
-> and etc...
+On Mon, 20 Sep 2004 09:41:07 -0700 Keshavamurthy Anil S wrote:
+> ---
+> Name:topology.patch
+> Status:Tested on 2.6.9-rc2
+> Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+> Depends:	
+> Version: applies on 2.6.9-rc2	
+> Description:
+> Extends support for dynamic registration and unregistration of the cpu,
+> by implementing and exporting arch_register_cpu()/arch_unregister_cpu().
+> Also combines multiple implementation of topology_init() functions to
+> single topology_init() in case of ia64 architecture.
+> ---
 
-Great!!! 
-> 
->   - numa_hp_base.patch
->   - numa_hp_ia64.patch
->   - acpi_numa_hp.patch
->   - container_for_numa.patch
-I will take a look at all of the above patches and will get back to you soon.
-> 
-> Status: Tested on 2.6.9-rc2 including your patchset posted earlier.
-Sounds good.
+> +void arch_unregister_cpu(int num)
+> +{
+> +	struct node *parent = NULL;
+> +
+> +#ifdef CONFIG_NUMA
+> +	int node = cpu_to_node(num);
+> +	if (node_online(node))
+> +		parent = &sysfs_nodes[node];
+> +#endif /* CONFIG_NUMA */
+> +
+> +	return unregister_cpu(&sysfs_cpus[num].cpu, parent);
+> +}
 
-thanks,
-Anil Keshavamurthy
+I don't think that the check 'if (node_online(node))' is necessary
+because sysfs_nodes[node] is there no matter if the node is online
+or offline.  sysfs_nodes[] is cleared only when unregister_node()
+is called and it would be always called after unregister_cpu().
+
+Thanks,
+Keiichiro Tokunaga
+
+
+Name: arch_register_cpu_fix.patch
+Status: Tested on 2.6.9-rc2
+Signed-off-by: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+
+---
+
+ linux-2.6.9-rc2-fix-kei/arch/ia64/kernel/topology.c |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
+
+diff -puN arch/ia64/kernel/topology.c~arch_register_cpu_fix arch/ia64/kernel/topology.c
+--- linux-2.6.9-rc2-fix/arch/ia64/kernel/topology.c~arch_register_cpu_fix	2004-09-22 11:56:58.793274256 +0900
++++ linux-2.6.9-rc2-fix-kei/arch/ia64/kernel/topology.c	2004-09-22 11:56:58.795227390 +0900
+@@ -46,8 +46,7 @@ void arch_unregister_cpu(int num)
+ 
+ #ifdef CONFIG_NUMA
+ 	int node = cpu_to_node(num);
+-	if (node_online(node))
+-		parent = &sysfs_nodes[node];
++	parent = &sysfs_nodes[node];
+ #endif /* CONFIG_NUMA */
+ 
+ 	return unregister_cpu(&sysfs_cpus[num].cpu, parent);
+
+_
