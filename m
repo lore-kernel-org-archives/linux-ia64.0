@@ -1,32 +1,27 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Wed, 30 Aug 2000 06:04:48 +0000
-Subject: [Linux-ia64] kdb-2.4-test7 available
-Message-Id: <marc-linux-ia64-105590678205417@msgid-missing>
+From: Christoph Rohland <cr@sap.com>
+Date: Fri, 04 Aug 2000 12:15:19 +0000
+Subject: [Linux-ia64] Re: serial console on a lion?
+Message-Id: <marc-linux-ia64-105590678205267@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+"Pat O'Rourke" <orourke@mclinux.com> writes:
 
-I have just uploaded the KDB patch for 2.4.0-test7. No new features
-simply fixes to the smp support to accomodate test7. You need
-David's 0823 IA-64 patch.
+> I've been going through the EFI documentation and it seems possible that
+> you can redirect the shell's input / output to a serial port.  However the
+> steps for doing so are not clear to me.
+> 
+> Any suggestions would be greatly appreciated.
 
-You can get it from the HPLabs FTP site at:
+In the newest (45?) workstation bios there is a menu entry for
+manipulating these EFI settings.
 
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/kdb-2.4-test7.patch.gz
+I did not get the server working with redirected EFI i/o
 
-Enjoy.
+Greetings
+		Christoph
 
-+--------------------------------------------------------------------+
-| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
-| Hewlett-Packard Laboratories            |                          |
-| 1501, Page Mill Road MS 1U-15           |                          |
-| Palo  Alto, CA 94303-096                |                          |
-| USA                                     |                          |
-| Tel : (650) 857-7174                    |                          |
-| Fax : (650) 857-5548                    |                          |
-+--------------------------------------------------------------------+
 
