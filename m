@@ -1,7 +1,7 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Thu, 06 Jan 2005 20:07:57 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Thu, 06 Jan 2005 20:10:55 +0000
 Subject: Re: [PATCH] cleanup swiotlb.c a bit
-Message-Id: <200501061207.57741.jbarnes@engr.sgi.com>
+Message-Id: <20050106201055.GO27371@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200501060945.12364.jbarnes@engr.sgi.com>
 In-Reply-To: <200501060945.12364.jbarnes@engr.sgi.com>
@@ -10,32 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday, January 6, 2005 12:00 pm, David Mosberger wrote:
-> >>>>> On Thu, 6 Jan 2005 11:50:56 -0800, Jesse Barnes
-> >>>>> <jbarnes@engr.sgi.com> said:
->   >>
+On Thu, Jan 06, 2005 at 12:00:11PM -0800, David Mosberger wrote:
 >   >>  It's not opinion, it's reality.  Unless someone goes through all
 >   >> the files in the top-level directories and formats them to 80
 >   >> cols, this won't change.
->
+> 
 >   Jesse> I'd be happy to do that if you're ok with it.
->
+> 
 > Eh, I'm talking about linux/kernel/* etc, so it's really Andrew and
 > Linus who'd have to be OK with it.
->
+> 
 > If you can fix those, I'd be happy to adjust the ia64 files to fit
 > within 80 cols.
 
-Really?  In my experience the core files are generally pretty good (every now 
-and then a long line creeps in, but there aren't that many that I can see).  
-Any big offenders that really bug you?
+$ echo `for i in kernel/*.c; do expand $i |grep -c -E '^.{81,}$'; done`
+0 0 0 3 7 5 0 0 0 0 15 0 12 0 4 1 6 0 0 0 0 0 3 1 2 0 4 13 1 4 0 11 19 11 2
+0 0 22 0 9 4 12 4 2 1 1
+$echo `for i in arch/ia64/kernel/*.c; do expand $i |grep -c -E '^.{81,}$'; done`
+4 31 62 6 6 0 191 3 2 52 15 7 0 3 79 19 108 53 16 398 15 47 183 1 27 0 43 87
+18 36 19 22 44 110 176 0
 
-> I don't particularly like 100 cols.  I'd be happy if all (major) Linux
-> kernel files fit into 80 cols, it's just that in reality, you need 100
-> cols to look at most important kernel files.
+Very few exceptions to the 80-column rule in kernel/*.c.  A ridiculous
+number of exceptions in arch/ia64/kernel/*.c.
 
-Well if you don't like them either (that makes none that I know of), shouldn't 
-we at least fixup the ia64 bits, regardless of what happens with the core 
-kernel files?
-
-Jesse
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
