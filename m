@@ -1,73 +1,89 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 19 Jun 2004 07:24:57 +0000
-Subject: kernel update (relative to 2.6.7)
-Message-Id: <16595.59977.400759.833921@napali.hpl.hp.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 11 Jun 2004 00:15:17 +0000
+Subject: Random fp register corruption due to race in fast system call
+Message-Id: <200406110014.i5B0ErY22055@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The latest ia64 patch can now be found at:
+We recently spent endless hours on chasing a random data corruption in
+high floating point register on a series of 2.6 kernels.  It turns out
+that the fall back path of fast system call has a race.  What happed
+was a staled version of psr value is being stored into pt_regs and causes
+inconsistent lazy FPH state.  For example, the following sequence of
+event can happen:
 
- ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.6/
+App (owns FPH) -> system call
 
-in file:
+	epc
+	takes fallback path
+	cached_psr = read psr	// psr.dfh is 0
 
- linux-2.6.7-ia64-040619.diff.gz
+		<--------- interrupt
+				preemption->context switch (changed FPH owner)
+		<---------- context switch back
+	real psr.dfh = 1 (hardware)
+	disable interrupt (mov psr.l = r9)
 
-1-line summaries of ia64-specific changes since 2.6.6 are attached below.
+	pt_regs = cached_psr | psr_one_bits // this will have psr.dfh=0
 
-One change of interest may be that Arun et al have fixed the ia32
-subsystem such that it doesn't leak virtual address space anymore when
-an ia64 page gets partially mapped.
+At this point pt_regs(ipsr)->dfh is inconsistent with FPH state.  This
+process doesn't own the FPH, but it has permission to access.  Subsequently,
+data corruption occurs in the fp register.
 
-I have tested it with Ski simulator and various (zx1-based) Itanium 2
-machines.  YMMV.
+To prevent this race from happening, psr.i needs to be off before
+reading psr.  Special thanks to Kevin Tian who spent many hours on
+chasing all the random failures and Asit Mallick for inspirational
+discovery, and of course many other people behind the scene.
 
-Enjoy,
 
-	--david
+diff -Nur linux-2.6.5.orig/arch/ia64/kernel/fsys.S linux-2.6.5/arch/ia64/kernel/fsys.S
+--- linux-2.6.5.orig/arch/ia64/kernel/fsys.S	2004-06-04 05:13:38.000000000 -0700
++++ linux-2.6.5/arch/ia64/kernel/fsys.S	2004-06-09 05:11:54.000000000 -0700
+@@ -510,6 +510,7 @@
+ 	adds r17=-1024,r15
+ 	movl r14=sys_call_table
+ 	;;
++	rsm psr.i
+ 	shladd r18=r17,3,r14
+ 	;;
+ 	ld8 r18=[r18]				// load normal (heavy-weight) syscall entry-point
+@@ -550,7 +551,7 @@
+ 	 * to synthesize.
+ 	 */
+ #	define PSR_ONE_BITS		((3 << IA64_PSR_CPL0_BIT) | (0x1 << IA64_PSR_RI_BIT) \
+-					 | IA64_PSR_BN)
++					 | IA64_PSR_BN | IA64_PSR_I)
 
-  [PATCH] ia64: fix free_huge_page() call in hugetlb_prefault()
-  [PATCH] ia64: perfmon stack consumption fix
-  [PATCH] ia64: move move_irq() from iosapic.c to irq.c
-  [PATCH] ia64: fix ia32 partial-page map support for overlapping mmaps
-  [PATCH] ia64: switching between CPEI & CPEP
-  [PATCH] ia64: fix SN2 interrupt rerouting
-  ia64: Fix build-problem when CONFIG_IA32 is not enabled.
-  ia64: Squish some more hazards & warnings for UP compile.
-  ia64: Squish compiler-warning in perfmon.c when compiling for UP.
-  ia64: Nuke two warnings in mca.c that showed in the simulator configuration.
-  ia64: Fix ia32 partial-page-list code to compile cleanly in more configs.
-  [PATCH] ia64: update sn2_defconfig
-  [PATCH] ia64: Support SN platform specific error features
-  [PATCH] ia64: fix info in /proc/pal/*/bus_info
-  [PATCH] ia64: fix race in fsys_bubble_down to avoid fp-register corruption
-  ia64: Update defconfig
-  [PATCH] ia64: Remove warnings when unwind debug is turned on
-  [PATCH] ia64: fix race in fsys_bubble_down to avoid fp-register corruption
-  [PATCH] ia64: mark non-existent NUMA-nodes as offline
-  [PATCH] ia64: Rename SN "modules" variable to "sn_modules".
-  [PATCH] ia64: fix ia32 virtual memory leaks due to partial-page mappings
-  [PATCH] ia64: delete McKinley A-stepping code
-  ia64: Kill unused external declaration of "acpi_legacy_devices".
-  ia64: work around linker bug
-  [PATCH] ia64: uninline find_next_bit on ia64
-  [PATCH] ia64: fix comment-typo in entry.S
-  [PATCH] ia64: Fix early serial console setup regression on the IBM x450 and x455
-  [PATCH] ia64: setup cpu_to_node for cpus not present
-  ia64: Avoid intermediate-overflows in sched_clock().
-  [PATCH] ia64: disable in-kernel ia32 emulation post Madison
-  [PATCH] ia64: tighten FPH state context switch check
-  [PATCH] ia64: for SN2, disable MST errors on probe
-  ia64: fix /proc/ioports regression in 2.6.6 on Tiger4
-  ia64: Add defconfig for Ski simulator (patch by Darren Williams).
-  ia64: define pending_irq_cpumask in irq.c
-  [PATCH] ia64: use new ptep_set_access_flags
-  ia64: Implement race-free ptep_set_access_flags()
-  [PATCH] ia64: don't udelay() in sn_mmiob
-  [PATCH] ia64: fix hotplug config placement
-  ia64: Reserve syscall # for vserver().
-  ia64: Update defconfig
-  ia64: Kill a warning when arch/ia64/kernel/machvec.c gets compiled on UP.
+ 	invala
+ 	movl r8=PSR_ONE_BITS
+diff -Nur linux-2.6.5.orig/arch/ia64/kernel/gate.S linux-2.6.5/arch/ia64/kernel/gate.S
+--- linux-2.6.5.orig/arch/ia64/kernel/gate.S	2004-04-03 19:37:44.000000000 -0800
++++ linux-2.6.5/arch/ia64/kernel/gate.S	2004-06-09 05:36:21.306618017 -0700
+@@ -91,16 +91,18 @@
+ 	cmp.geu p6,p7=r19,r17			// (syscall > 0 && syscall < 1024+NR_syscalls)?
+ 	;;
+ (p6)	ld8 r18=[r18]
+-	mov r29=psr				// read psr (12 cyc load latency)
++	mov r21=ar.fpsr
+ 	add r14=-8,r14				// r14 <- addr of fsys_bubble_down entry
+ 	;;
+ (p6)	mov b7=r18
+ (p6)	tbit.z p8,p0=r18,0
+ (p8)	br.dptk.many b7
+
++(p6)	rsm psr.i
+ 	mov r27=ar.rsc
+-	mov r21=ar.fpsr
+ 	mov r26=ar.pfs
++	;;
++	mov r29=psr				// read psr (12 cyc load latency)
+ /*
+  * brl.cond doesn't work as intended because the linker would convert this branch
+  * into a branch to a PLT.  Perhaps there will be a way to avoid this with some
+
+
+
+
