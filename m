@@ -1,43 +1,62 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed, 01 Sep 2004 04:13:49 +0000
+Date: Wed, 01 Sep 2004 04:24:50 +0000
 Subject: Re: page fault scalability patch final : i386 tested, x86_64
-Message-Id: <1094012028.6539.320.camel@gaston>
+Message-Id: <1094012689.6538.330.camel@gaston>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
+References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
+	 <20040815130919.44769735.davem@redhat.com>
+	 <Pine.LNX.4.58.0408151552280.3370@schroedinger.engr.sgi.com>
+	 <20040815165827.0c0c8844.davem@redhat.com>
+	 <Pine.LNX.4.58.0408151703580.3751@schroedinger.engr.sgi.com>
+	 <20040815185644.24ecb247.davem@redhat.com>
+	 <Pine.LNX.4.58.0408151924250.4480@schroedinger.engr.sgi.com>
 	 <20040816143903.GY11200@holomorphy.com>
 	 <B6E8046E1E28D34EB815A11AC8CA3129027B679F@mtv-atc-605e--n.corp.sgi.com>
 	 <B6E8046E1E28D34EB815A11AC8CA3129027B67A9@mtv-atc-605e--n.corp.sgi.com>
 	 <B6E8046E1E28D34EB815A11AC8CA3129027B67B4@mtv-atc-605e--n.corp.sgi.com>
 	 <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
-	 <20040827233602.GB1024@wotan.suse.de>
-	 <Pine.LNX.4.58.0408271717400.15597@schroedinger.engr.sgi.com>
-	 <20040827172337.638275c3.davem@davemloft.net>
-	 <20040827173641.5cfb79f6.akpm@osdl.org> <20040828010253.GA50329@muc.de>
-	 <20040827183940.33b38bc2.akpm@osdl.org>
-	 <16687.59671.869708.795999@cargo.ozlabs.ibm.com>
-	 <Pine.LNX.4.58.0408272021070.16607@schroedinger.engr.sgi.com>
-	 <20040827204241.25da512b.akpm@osdl.org>
-	 <Pine.LNX.4.58.0408272121300.16949@schroedinger.engr.sgi.com>
-	 <20040827223954.7d021aac.akpm@osdl.org>
-In-Reply-To: <20040827223954.7d021aac.akpm@osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0408271616001.14712@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: Christoph Lameter <clameter@sgi.com>, Paul Mackerras <paulus@samba.org>, ak@muc.de, davem@davemloft.net, Andi Kleen <ak@suse.de>, wli@holomorphy.com, "David S. Miller" <davem@redhat.com>, raybry@sgi.com, manfred@colorfullife.com, linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>, vrajesh@umich.edu, hugh@veritas.com
+To: Christoph Lameter <clameter@sgi.com>
+Cc: Andrew Morton <akpm@osdl.org>, William Lee Irwin III <wli@holomorphy.com>, "David S. Miller" <davem@redhat.com>, raybry@sgi.com, ak@muc.de, manfred@colorfullife.com, linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>, vrajesh@umich.edu, hugh@veritas.com
 
-On Sat, 2004-08-28 at 15:39, Andrew Morton wrote:
-
-> atomic64_t already appears to be implemented on alpha, ia64, mips, s390 and
-> sparc64.
+On Sat, 2004-08-28 at 09:20, Christoph Lameter wrote:
+> Signed-off-by: Christoph Lameter <clameter@sgi.com>
 > 
-> As I said - for both these applications we need a new type which is
-> atomic64_t on 64-bit and atomic_t on 32-bit.
+> This is the fifth (and hopefully final) release of the page fault
+> scalability patches. The scalability patches avoid locking during the
+> creation of page table entries for anonymous memory in a threaded
+> application. The performance increases significantly for more than 2
+> threads running concurrently.
 
-Implementing it on ppc64 is trivial. I'd vote for atomic_long_t though
-that is either 32 bits on 32 bits archs or 64 bits on 64 bits arch, as
-it would be a real pain (spinlock & all) to get a 64 bits atomic on
-ppc32
+Sorry for "waking up" late on this one but we've been kept busy by
+a lot of other things.
+
+The removal of the page table lock has other more subtle side effects
+on ppc64 (and ppc32 too) that aren't trivial to solve. Typically, due
+to the way we use the hash table as a TLB cache.
+
+For example, out ptep_test_and_clear will first clear the PTE and then
+flush the hash table entry. If in the meantime another CPU gets in,
+takes a fault, re-populates the PTE and fills the hash table via
+update_mmu_cache, we may end up with 2 hash PTEs for the same linux
+PTE at least for a short while. This is a potential cause of checkstop
+on ppc CPUs.
+
+There may be other subtle races of that sort I haven't encovered yet.
+
+We need to spend more time on our (ppc/ppc64) side to figure out what
+is the extent of the problem. We may have a cheap way to fix most of the
+issues using the PAGE_BUSY bit we have in the PTEs as a lock, but we
+don't have that facility on ppc32.
+
+I think there wouldn't be a problem if we could guarantee exclusion
+between page fault and clearing of a PTE (that is basically having the
+swapper take the mm write sem) but I don't think that's realistic, oh
+well, not that I understand anything about the swap code anyways...
 
 Ben.
+
 
