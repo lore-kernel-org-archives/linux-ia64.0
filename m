@@ -1,40 +1,25 @@
-From: John Levon <levon@movementarian.org>
-Date: Sat, 11 Oct 2003 14:54:02 +0000
-Subject: [PATCH] select EFI partition support by default
-Message-Id: <marc-linux-ia64-106588409310269@msgid-missing>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Sat, 11 Oct 2003 16:11:34 +0000
+Subject: Re: [PATCH] select EFI partition support by default
+Message-Id: <marc-linux-ia64-106588893114261@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-106588409310269@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106588409310269@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+> +=A0=A0=A0=A0=A0=A0 bool "EFI GUID Partition support" if PARTITION_ADVANC=
+ED
+> +=A0=A0=A0=A0=A0=A0 default y if !PARTITION_ADVANCED && IA64
 
-This makes the EFI choice look like the others, and makes sure it's
-selected by default if the user didn't choose Advanced Partition
-Selection.
+Can we make CONFIG_LBD force on CONFIG_EFI_PARTITION too then?
+-Matt
 
-I fell foul of this, being an IA-64 newbie.
+--=20
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
 
-OK ?
-
-regards
-john
-
-
-Index: linux-cvs/fs/partitions/Kconfig
-=================================RCS file: /home/cvs/linux-2.5/fs/partitions/Kconfig,v
-retrieving revision 1.5
-diff -u -a -p -r1.5 Kconfig
---- linux-cvs/fs/partitions/Kconfig	27 Sep 2003 07:07:08 -0000	1.5
-+++ linux-cvs/fs/partitions/Kconfig	11 Oct 2003 14:51:42 -0000
-@@ -225,8 +225,8 @@ config SUN_PARTITION
- 	  you don't know what all this is about, say N.
- 
- config EFI_PARTITION
--	bool "EFI GUID Partition support"
--	depends on PARTITION_ADVANCED
-+	bool "EFI GUID Partition support" if PARTITION_ADVANCED
-+	default y if !PARTITION_ADVANCED && IA64
- 	select CRC32
- 	help
- 	  Say Y here if you would like to use hard disks under Linux which
