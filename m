@@ -1,63 +1,30 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Wed, 19 Nov 2003 16:30:39 +0000
-Subject: [PATCH] 2.4 make hpzx1 fake pci device safer
-Message-Id: <marc-linux-ia64-106925945515887@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 26 Nov 2003 23:21:07 +0000
+Subject: sigtramp bug-fix (applies to 2.4 and 2.6)
+Message-Id: <marc-linux-ia64-106988919920591@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Laurent Morichetti found a bug in the signal trampoline for which I
+just checked in a fix.  The problem was that the trampoline was using
+a scratch predicate-register in an unwind-directive.  This was wrong,
+because the routine isn't a leaf and that scratch register may get
+clobbered by the signal handler.  To work around the problem, simply
+switch from using p8 to p1 (that's fine because "pr" is already
+saved/restored by the kernel).
 
-   The fake PCI devices created in the 2.4 zx1 machvec provide PCI-like
-config space access to the chipset.  However, there are some registers
-in there that have side effects that you don't just want to stumble
-across.  These are all out beyond the configuration header space, so
-nothing should rely on them.  This patch prevents access to the
-dangerous one that you'd touch looking through /proc/bus/pci.  You can
-probably still shoot yourself in the foot, but you shouldn't be able to
-do it by reading through the proc files.  2.6 has removed these fake
-devices, so the patch is not applicable.  Thanks,
+For details, see this URL:
 
-	Alex
+  http://lia64.bkbits.net:8080/to-linus-2.5/cset@1.1497
 
--- 
-Alex Williamson                             HP Linux & Open Source Lab
+Bjorn, could you apply this patch for 2.4 as well?  If it doesn't
+apply, let me know (it should be very close though, apart from a large
+fuzz).
 
-=== arch/ia64/hp/zx1/hpzx1_misc.c 1.7 vs edited ==--- 1.7/arch/ia64/hp/zx1/hpzx1_misc.c	Thu Oct 16 15:56:24 2003
-+++ edited/arch/ia64/hp/zx1/hpzx1_misc.c	Wed Nov 19 09:16:57 2003
-@@ -50,7 +50,14 @@
- 		fake_dev->sizing = 0; \
- 		return PCIBIOS_SUCCESSFUL; \
- 	} \
--	*value = read##sz(fake_dev->mapped_csrs + where); \
-+	switch (where & ~0x7) { \
-+		case 0x48: /* initiates config cycles */ \
-+		case 0x78: /* elroy suspend mode register */ \
-+			*value = 0; \
-+			break; \
-+		default: \
-+			*value = read##sz(fake_dev->mapped_csrs + where); \
-+	} \
- 	if (where = PCI_COMMAND) \
- 		*value |= PCI_COMMAND_MEMORY; /* SBA omits this */ \
- 	return PCIBIOS_SUCCESSFUL; \
-@@ -68,8 +75,14 @@
- 		if (value = (u##bits) ~0) \
- 			fake_dev->sizing = 1; \
- 		return PCIBIOS_SUCCESSFUL; \
--	} else \
--		write##sz(value, fake_dev->mapped_csrs + where); \
-+	} \
-+	switch (where & ~0x7) { \
-+		case 0x48: /* initiates config cycles */ \
-+		case 0x78: /* elroy suspend mode register */ \
-+			break; \
-+		default: \
-+			write##sz(value, fake_dev->mapped_csrs + where); \
-+	} \
- 	return PCIBIOS_SUCCESSFUL; \
- }
- 
+BTW: If someone were working on an unwind-info validation tool, that
+sure would be useful!
 
-
+	--david
