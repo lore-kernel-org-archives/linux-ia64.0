@@ -1,7 +1,7 @@
-From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
-Date: Thu, 26 Oct 2000 07:13:40 +0000
-Subject: [Linux-ia64] RedHat 8-way xeon server
-Message-Id: <marc-linux-ia64-105590678205632@msgid-missing>
+From: Jonathan Thackray <jthackray@zeus.com>
+Date: Tue, 24 Oct 2000 13:20:12 +0000
+Subject: [Linux-ia64] Signal 11 when compiling kernel
+Message-Id: <marc-linux-ia64-105590678205615@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -10,12 +10,20 @@ To: linux-ia64@vger.kernel.org
 
 Hi,
 
-Is there anybody who has done the RedHat installation on 8-way Xeon Server
-(32-bit). If so, please let me know.
+We've recently got a 2 CPU Lion, but when compiling, it randomly gets
+Signal 11. I assume this is the same as IA32 (faulty hardware) -- I've
+pressed F1 before the EFI boot prompt. Can anyone guide me around the
+maze of options?
 
-Regards,
+Are there any options in there I could tweak to prevent these signals,
+like adjusting RAM timings? This is under 2.4.0test7-000823, btw.
 
--- Shameem
+Many thanks,
+Jon.
 
+-- 
+Jonathan Thackray         Zeus House, Cowley Road, Cambridge CB4 OZT, UK
+Software Engineer                   +44 1223 525000, fax +44 1223 525100
+Zeus Technology                                     http://www.zeus.com/
 
 
