@@ -1,44 +1,26 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 26 Nov 2003 07:55:20 +0000
-Subject: bk pull on ia64 linux tree
-Message-Id: <marc-linux-ia64-106983334020802@msgid-missing>
+From: Arvind Kandhare <arvind.kan@wipro.com>
+Date: Sun, 23 Nov 2003 12:38:10 +0000
+Subject: PFN to virtual address for identity mapped segment
+Message-Id: <marc-linux-ia64-106958992125849@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105942507026161@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105942507026161@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+Hi,
+We are working on porting LKCD (Linux Kernel Crash Dump) to the ia64 platform.
+The normal dumping procedure goes through all the Physical Page Frame Numbers,
+finds out the corresponding virtual addresses for all of them and dumps the data.
 
-please do a
+We are facing difficulty in finding out corresponding virtual address if
+it is in the identity mapped region (region 7). The macro pfn_to_page does not seem to return
+proper page structure for this region although region 7 does seem to have corresponding page
+table entries (in the PTE table).
+But it does not have entries for memory for the pages which are allocated by the alloc_pages call.
 
-	bk pull http://lia64.bkbits.net/to-linus-2.5
+Please let us know whether our understanding is correct. Any more light on this matter will be really helpful.
 
-This will update the files shown below.  Both patches fix serious
-problems.  The first could cause the kernel to crash when dumping core
-from an ia64 binary that's using the new system call stubs and the
-second fixes a bug that prevented gdb from working properly inside the
-kernel's gate DSO.
-
-Thanks much to Rohit Seth for tracking down the coredumping problem!
-(Which I would have sworn was due to race condition; boy was I wrong!)
-
-Thanks!
-
-	--david
-
- arch/ia64/kernel/unwind.c  |    2 +-
- include/asm-ia64/pgtable.h |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
-
-through these ChangeSets:
-
-<davidm@tiger.hpl.hp.com> (03/11/25 1.1486)
-   ia64: Make core-dumps work even when executing in the gate DSO.
-         Tracked down by Rohit Seth.
-
-<davidm@tiger.hpl.hp.com> (03/11/25 1.1485)
-   ia64: Correct FIXADDR_USER_END so that single-stepping in the gate DSO works again.
+Thanks and regards,
+Arvind
 
