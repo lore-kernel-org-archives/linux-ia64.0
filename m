@@ -1,22 +1,18 @@
 From: Prarit Bhargava <prarit@sgi.com>
-Date: Tue, 23 Nov 2004 17:16:28 +0000
+Date: Tue, 23 Nov 2004 18:23:26 +0000
 Subject: Re: SELinux & ia64
-Message-Id: <41A3706C.8080107@sgi.com>
+Message-Id: <41A3801E.1020500@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <41A35397.1080001@sgi.com> <20041123161317.GA2775@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20041123161317.GA2775@parcelfarce.linux.theplanet.co.uk>
+References: <41A35397.1080001@sgi.com>
+In-Reply-To: <41A35397.1080001@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: linux-ia64@vger.kernel.org, selinux@tycho.nsa.gov
+To: linux-ia64@vger.kernel.org
 
-Hi Matthew,
+This is being discussed further on selinux -- sorry for the crosstalk.
 
-Thanks for the reply.  In this instance, buf[0] points to a char* -- it 
-might not be aligned to u16.
-
-Prarit
+P.
 
 Matthew Wilcox wrote:
 
