@@ -1,7 +1,7 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 22 Jul 2004 06:16:17 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 22 Jul 2004 16:16:00 +0000
 Subject: Re: take2: [PATCH] Vector sharing (Large I/O system support)
-Message-Id: <40FF5BB1.4070107@jp.fujitsu.com>
+Message-Id: <20040722161600.GB24487@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40FE09B5.7020109@jp.fujitsu.com>
 In-Reply-To: <40FE09B5.7020109@jp.fujitsu.com>
@@ -10,63 +10,106 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Kenji,
-> Inside HP I've suggested linux use multiple vector domains
-> (one CPU could belong in only one domain). Would that sufficiently
-> solve this same problem or is someone hard coded to share a particular
-> vector?
+Kenji,
+thank you. I'll try answer your questions below. 
 
-Hi Grant,
+On Thu, Jul 22, 2004 at 03:16:17PM +0900, Kenji Kaneshige wrote:
+...
+> (3) Use multiple vector domains on the multi-node system. This method
+> strongly depends on hardware design, and it will be implemented in the
+> architecture specific code. I guess SGI machine is using this method.
+> 
+> I guess the method you mentioned is extension of method (3), which
+> use multiple vector domains on a generic SMP machine (I'll call this
+> "method (4)" below). Is it correct?
 
-As far as I know, there are three methods to handle many
-interrupt sources:
+Yes.
 
-(1) Share a single RTE with multiple level-triggered interrupts (e.g.
-multiple PCI devices share the same interrupt line). Of course,
-current linux can handle it. Whether to use this method depend on
-hardware design.
+> I think method (4) is interesting and it would be able to solve the
+> same problem. I have discussed it a little with Bjorn Helgaas before.
+> (please see http://www.gelato.unsw.edu.au/linux-ia64/0404/9363.html)
+> 
+> However, method (4) will not work if system has only a few CPUs (or
+> it is an UP machine).
 
-(2) Share a single vector with multiple RTEs. This is what my vector
-sharing patch is doing.
+I'll argue that a system with 1 CPU and is consuming 256 vectors
+is just not going to work well. The patch you submitted just
+enables this to work, but poorly (your patch is fine, just the result
+it enables is not IMHO). I personally don't agree we need to
+support such a poor configuration. If david thinks we should,
+then I'm not going to argue.
 
-(3) Use multiple vector domains on the multi-node system. This method
-strongly depends on hardware design, and it will be implemented in the
-architecture specific code. I guess SGI machine is using this method.
+> So vector sharing is still needed. In addition,
+> though I have not investigated it much, I think there would be a lot
+> of issues need to be considered for method (4).
+> For example:
+> 
+>    o How to separate CPUs and devices into multiple vector domains
 
-I guess the method you mentioned is extension of method (3), which
-use multiple vector domains on a generic SMP machine (I'll call this
-"method (4)" below). Is it correct?
+We assume one domain now and assign devices to CPU in round robin.
+No different for multiple vector domains.
 
-I think method (4) is interesting and it would be able to solve the
-same problem. I have discussed it a little with Bjorn Helgaas before.
-(please see http://www.gelato.unsw.edu.au/linux-ia64/0404/9363.html)
+>    o How to associate vector number with IRQ number
 
-However, method (4) will not work if system has only a few CPUs (or
-it is an UP machine). So vector sharing is still needed. In addition,
-though I have not investigated it much, I think there would be a lot
-of issues need to be considered for method (4).
-For example:
+ditto.
 
-    o How to separate CPUs and devices into multiple vector domains
-    o How to associate vector number with IRQ number
-    o How to prepare multiple 'irq_desc' arrays for each vector domains
-    o How to install interrupt handlers into each 'irq_desc'
-    o Need to consider the case some CPUs are hot-removed
-    o How to display the IRQ infomation through /proc filesystem
+>    o How to prepare multiple 'irq_desc' arrays for each vector domains
 
-    and so on...
+No sure what this means offhand...but assume it's just more code.
 
-Most of those need a much time and a lot of changes to kernel.
+>    o How to install interrupt handlers into each 'irq_desc'
 
-After all, I think the good way is to implement vector sharing first,
-and then consider the method (4) next. I beleave vector sharing and
-method (4) can work together.
+Same as now (via request_irq())
 
-By the way, do you have specific reasons to suggest method (4)?
-Performance issue?
-And do you already have a patch for method (4)? If so, can I see
-it?
+>    o Need to consider the case some CPUs are hot-removed
 
-Thanks,
-Kenji Kaneshige
+Yes - vector domain need to go away when last CPU is removed from it.
 
+>    o How to display the IRQ infomation through /proc filesystem
+
+Same as now (ie global IRQ #)
+
+> 
+>    and so on...
+> 
+> Most of those need a much time and a lot of changes to kernel.
+
+That's probably true. But the advantage is simpler and shorter
+code path when handling interrupts on large configs. I would think
+this is more important than all the trouble the setup causes.
+
+> 
+> After all, I think the good way is to implement vector sharing first,
+> and then consider the method (4) next. I beleave vector sharing and
+> method (4) can work together.
+
+I agree.
+
+> By the way, do you have specific reasons to suggest method (4)?
+> Performance issue?
+
+Yes.
+
+> And do you already have a patch for method (4)? If so, can I see
+> it?
+
+I don't. It will have to wait until OLS2005 (or some other conf that
+my management endorses). But I've played enough with IRQ code on parisc
+(both HPUX and parisc-linux) to understand the code path pretty well.
+
+A few years ago, I shortened the interrupt code pathes in HPUX 
+by removing a switch statement and one/two if () tests.
+netperf TCP_RR test improved ~20%. (One interrupt/packet
+at the time, IIRC).
+
+Interrupt mitigation helps avoid this cost (as does NAPI) and
+I'm aware most workloads attempt to avoid interrupts when possible.
+But I still believe there are workloads that will generate
+lots of interrupts - eg 10GiGE - and are latency sensitive.
+
+thanks,
+grant
+
+
+> Thanks,
+> Kenji Kaneshige
