@@ -1,39 +1,55 @@
-From: Christoph Rohland <cr@sap.com>
-Date: Tue, 25 Apr 2000 17:20:32 +0000
-Subject: Re: [Linux-ia64] serial efishell anybody?
-Message-Id: <marc-linux-ia64-105590678205042@msgid-missing>
+From: "Laurent Morichetti" <laurentm@cup.hp.com>
+Date: Sun, 23 Apr 2000 06:45:23 +0000
+Subject: [Linux-ia64] ld-linux.so
+Message-Id: <marc-linux-ia64-105590678205024@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205037@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205037@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Stephane Eranian <eranian@cello.hpl.hp.com> writes:
+In glibc/sysdeps/ia64/dl-machine.h the macro TRAMPOLINE_TEMPLATE saves the
+input registers but not r8 (pointer to value returned in memory). r8 should
+be preserved across the runtime fixup.
 
-> > 115k2 8n1 afaik
-> > 
-> Well, that's the speed of the serial connection by default. That's
-> good enough to connect a Linux serial console.
-> 
-> I think Roland was talking about COMPLETELY booting via serial, i.e. 
-> getting EFI on serial line. 
+The following example fails on linux-ia64:
 
-Yes, that's right. 
+foo.hpp:
+===
+class foo {
+public:
+  long _a;
+  long _b;
+  foo(long a, long b) : _a(a), _b(b) {}
+};
+extern foo bar(long a, long b);
 
-> Yes, that's possible but I haven't certainely tried that yet. I
-> think you have to set some EFI variable in NVRAM and reboot. Check
-> out the EFI spec near the end.
+bar.cpp:
+===
+#include "foo.hpp"
 
-I checked the spec and found the variables to set: 
+foo bar(long a, long b) { return foo(a, b); }
 
-ConIn, ConOut and ErrOut
+foo.cpp:
+===
+#include <stdlib.h>
+#include <stdio.h>
+#include "foo.hpp"
 
-Actually ErrOut is set to the serial line on my machine. But how do I
-change these variables?
+int main() {
+  foo f = bar(1, 2);
+  fprintf(stdout, "a=%ld, b=%ld\n", f._a, f._b);
+  return EXIT_SUCCESS;
+}
 
-Greetings
-		Christoph
+
+$ g++ -fPIC -shared -o libbar.so bar.cpp
+$ g++ -o foo foo.cpp -L. -lbar
+
+-Laurent
+
+
+
+
 
 
