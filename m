@@ -1,12 +1,14 @@
-From: "michel" <ruthnimrod@around-the-traps.com>
-Date: Sat, 15 May 2004 15:02:18 +0000
+From: "dirk" <ledzepabcd@ahhbisto.com>
+Date: Mon, 17 May 2004 11:09:59 +0000
 Subject: Save a ton on Microsoft Office!
-Message-Id: <1084633338-21367@excite.com>
+Message-Id: <1084792199-10891@excite.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1084633338-21367@excite.com>
+In-Reply-To: <1084633338-21367@excite.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: 40free.net.ph@vger.kernel.org
 
 Incredible DEALS on SOFTWARE you NEED!
 
@@ -57,6 +59,6 @@ http://teddychoice.biz/index.php?su55
 
 
 
-roxy birdgibson dodgers ssssss pookie1 nurse diane 
-malcolm metallicakingdom first poiuyt
-paula tracy lucas 
+utopia vermontabcd josh sundance gibson joel t-bone 
+parrot gambitphoenix1 hornet scuba1
+jamaica warriors pirate 
