@@ -1,45 +1,47 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sat, 11 Dec 2004 00:57:45 +0000
-Subject: Re: page fault scalability patch V12 [0/7]: Overview and
-Message-Id: <20041210165745.38c1930e.akpm@osdl.org>
+From: Hugh Dickins <hugh@veritas.com>
+Date: Sat, 11 Dec 2004 09:23:20 +0000
+Subject: Re: page fault scalability patch V12 [0/7]: Overview and performance
+Message-Id: <Pine.LNX.4.44.0412110914280.1535-100000@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20041210161835.5b0b0828.akpm@osdl.org>
-	<Pine.LNX.4.44.0412110036330.807-100000@localhost.localdomain>
-In-Reply-To: <Pine.LNX.4.44.0412110036330.807-100000@localhost.localdomain>
+In-Reply-To: <20041210165745.38c1930e.akpm@osdl.org>
+References: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hugh Dickins <hugh@veritas.com>
+To: Andrew Morton <akpm@osdl.org>
 Cc: clameter@sgi.com, torvalds@osdl.org, benh@kernel.crashing.org, nickpiggin@yahoo.com.au, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hugh Dickins <hugh@veritas.com> wrote:
->
-> On Fri, 10 Dec 2004, Andrew Morton wrote:
-> > Hugh Dickins <hugh@veritas.com> wrote:
-> > > But why is do_anonymous_page adding anything to lru_cache_add_active,
-> > > when its other callers leave it at that?  What's special about the
-> > > do_anonymous_page case?
+On Fri, 10 Dec 2004, Andrew Morton wrote:
+> Hugh Dickins <hugh@veritas.com> wrote:
 > > 
-> > do_swap_page() is effectively doing the same as do_anonymous_page(). 
-> > do_wp_page() and do_no_page() appear to be errant.
+> > My inclination would be simply to remove the mark_page_accessed
+> > from do_anonymous_page; but I have no numbers to back that hunch.
 > 
-> Demur.  do_swap_page has to mark_page_accessed because the page from
-> the swap cache is already on the LRU, and for who knows how long.
+> With the current implementation of page_referenced() the
+> software-referenced bit doesn't matter anyway, as long as the pte's
+> referenced bit got set.  So as long as the thing is on the active list, we
+> can simply remove the mark_page_accessed() call.
 
-Well.  Some of the time.  If the page was just read from swap, it's known
-to be on the active list.
+Yes, you're right.  So we don't need numbers, can just delete that line.
 
-> The others (and count in fs/exec.c's install_arg_page) are dealing
-> with a freshly allocated page they are putting onto the active LRU.
-> 
-> My inclination would be simply to remove the mark_page_accessed
-> from do_anonymous_page; but I have no numbers to back that hunch.
-> 
+> Except one day the VM might get smarter about pages which are both
+> software-referenced and pte-referenced.
 
-With the current implementation of page_referenced() the
-software-referenced bit doesn't matter anyway, as long as the pte's
-referenced bit got set.  So as long as the thing is on the active list, we
-can simply remove the mark_page_accessed() call.
+And on that day, we'd be making other changes, which might well
+involve restoring the mark_page_accessed to do_anonymous_page
+and adding it in the similar places which currently lack it.
 
-Except one day the VM might get smarter about pages which are both
-software-referenced and pte-referenced.
+But for now...
+
+--- 2.6.10-rc3/mm/memory.c	2004-12-05 12:56:12.000000000 +0000
++++ linux/mm/memory.c	2004-12-11 09:18:39.000000000 +0000
+@@ -1464,7 +1464,6 @@ do_anonymous_page(struct mm_struct *mm, 
+ 							 vma->vm_page_prot)),
+ 				      vma);
+ 		lru_cache_add_active(page);
+-		mark_page_accessed(page);
+ 		page_add_anon_rmap(page, vma, addr);
+ 	}
+ 
+
