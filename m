@@ -1,26 +1,26 @@
-From: Jes Sorensen <jes@sunsite.dk>
-Date: Mon, 11 Jun 2001 00:08:01 +0000
-Subject: Re: [Linux-ia64] Porting Status
-Message-Id: <marc-linux-ia64-105590693005704@msgid-missing>
+From: "Li, Shuo" <shuo.li@intel.com>
+Date: Mon, 25 Jun 2001 23:47:28 +0000
+Subject: [Linux-ia64] Red Hat Installer cannot find the hard drive
+Message-Id: <marc-linux-ia64-105590693005762@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005669@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005669@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Shameem" = Akhter, Shameem F <shameem.f.akhter@intel.com> writes:
+Does anybody know what caused the following problem and how to fix it?
 
-Shameem> Hi, Is there anybody who can let us know the status of the
-Shameem> following Linux tools for Itanium:
+The problem happens at Linux install time. After the installer come back
+after trying to detect the hard drive, it reports an error saying
 
-Shameem> 1. PHP 2. MySQL 3. PostgreSQL 4. SAMBA
+Partiition(s)) do not end on cylinder boundary:
 
-Shameem> Please let us know ASAP.
+This occurs because the drive geometry detected by kernel used by the
+installer is different than the drive geometry used when the drive was
+partitioned. This can be corrected by specifying the drive geometry on the
+kernel command line when booting the installer.
 
-I lend Rasmus Lerdorf some access and he tested PHP which seems to
-work just fine under Linux/ia64.
+Shuo 
 
-Jes
+
 
