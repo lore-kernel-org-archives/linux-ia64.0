@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 05 Dec 2000 21:17:14 +0000
-Subject: Re: [Linux-ia64] Information about EFI.
-Message-Id: <marc-linux-ia64-105590678205786@msgid-missing>
+From: "Govezensky, Yosi" <yosi.govezensky@intel.com>
+Date: Tue, 05 Dec 2000 23:51:26 +0000
+Subject: RE: [Linux-ia64] Information about EFI.
+Message-Id: <marc-linux-ia64-105590678205794@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205775@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205775@msgid-missing>
@@ -10,7 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 28 Nov 2000 14:42:42 +0530, "Sapariya Manish.j" <S.Manish@zensar.com> said:
+Sapariya,
+
+The IA-32 development environment that David is referring to is part of the
+sample implementation. You can download from the EFI web site:
+http://developer.intel.com/technology/efi/
+
+Yosi
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@hpl.hp.com]
+Sent: Tuesday, December 05, 2000 11:17 PM
+To: Sapariya Manish.j
+Cc: linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] Information about EFI.
+
+
+>>>>> On Tue, 28 Nov 2000 14:42:42 +0530, "Sapariya Manish.j"
+<S.Manish@zensar.com> said:
 
   Sapariya> Hi all, I dont know whethere this is the correct place to
   Sapariya> ask this question or not but i couldnt get it anywhere
@@ -40,4 +57,10 @@ likely that the IA-32 side will also work, so it may be worth a try.
 Hope this helps,
 
 	--david
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
