@@ -1,7 +1,7 @@
-From: n0ano@indstorage.com
-Date: Fri, 07 Dec 2001 15:13:05 +0000
-Subject: Re: [Linux-ia64] mprotect problem
-Message-Id: <marc-linux-ia64-105590698805640@msgid-missing>
+From: "Hoeflinger, Jay P" <jay.p.hoeflinger@intel.com>
+Date: Fri, 07 Dec 2001 15:18:03 +0000
+Subject: RE: [Linux-ia64] mprotect problem
+Message-Id: <marc-linux-ia64-105590698805641@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805634@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805634@msgid-missing>
@@ -9,6 +9,19 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Is there a clue in the fact that it fails for both RedHat 7.1 and 
+Turbolinux?
+
+Jay
+
+-----Original Message-----
+From: n0ano@indstorage.com [mailto:n0ano@indstorage.com]
+Sent: Friday, December 07, 2001 9:13 AM
+To: Hoeflinger, Jay P
+Cc: David Mosberger; 'linux-ia64@linuxia64.org'
+Subject: Re: [Linux-ia64] mprotect problem
+
 
 Jay-
 
@@ -24,7 +37,8 @@ On Fri, Dec 07, 2001 at 06:27:27AM -0800, Hoeflinger, Jay P wrote:
 > In fact, this is an IA64 program.  Both the runtime library and the
 > "user" code are compiled on IA64.  
 > 
-> Is there anything unusual about the various virtual memory calls on Itanium 
+> Is there anything unusual about the various virtual memory calls on
+Itanium 
 > (mmap, getpagesize, mprotect, shmget, shmat, etc) as compared to
 > for IA32 (maybe there are extra args, or the flags don't mean
 > exactly the same things, or there are new flags we have to use)?
@@ -62,19 +76,23 @@ On Fri, Dec 07, 2001 at 06:27:27AM -0800, Hoeflinger, Jay P wrote:
 > If you're running an IA64 program then this is even more mysterious :-)
 > 
 > On Thu, Dec 06, 2001 at 03:56:20PM -0800, Hoeflinger, Jay P wrote:
-> > We are seeing an apparent problem with mprotect on Itanium.  We have seen
+> > We are seeing an apparent problem with mprotect on Itanium.  We have
+seen
 > > the problem
-> > on two different machines, one running RedHat 7.1 (Seawolf)  [2.4.3-12smp]
+> > on two different machines, one running RedHat 7.1 (Seawolf)
+[2.4.3-12smp]
 > > and one
 > > running Turbolinux [2.4.1-010131-8smp].
 > > 
-> > The mprotect is called from user space, as part of the implementation of a
+> > The mprotect is called from user space, as part of the implementation of
+a
 > 
 > > distributed virtual shared memory system that uses the virtual
 > > memory mechanism to implement a shared address space between two or more
 > > nodes.
 > > 
-> > The code works correctly under RedHat 7.1 for IA32 (and a variety of other
+> > The code works correctly under RedHat 7.1 for IA32 (and a variety of
+other
 > > OS'es and platforms, so
 > > we feel that there aren't coding errors, although maybe there is some
 > > slightly different
@@ -97,9 +115,11 @@ On Fri, Dec 07, 2001 at 06:27:27AM -0800, Hoeflinger, Jay P wrote:
 > > READ and WRITE this time, and return from the SEGV handler.  At this
 > point,
 > > the original instruction
-> > (a READ) is restarted and immediately faults, causing control to go to the
+> > (a READ) is restarted and immediately faults, causing control to go to
+the
 > > SEGV handler 
-> > again.  This time, since we know the page is up-to-date, we do nothing and
+> > again.  This time, since we know the page is up-to-date, we do nothing
+and
 > > return, the 
 > > instruction is again re-started, again faults, again jumps to the SEGV
 > > handler . . . an infinite
