@@ -1,126 +1,60 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 15 Oct 2004 19:06:52 +0000
-Subject: page fault scalability patch V10: [5/7] i386 atomic pte operations
-Message-Id: <Pine.LNX.4.58.0410151206250.26697@schroedinger.engr.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 21 Oct 2004 00:16:15 +0000
+Subject: [patch 2.6.9] SN: Correct bit test for salinfo oem decode
+Message-Id: <13178.1098317775@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0409201348070.4628@schroedinger.engr.sgi.com>
- <20040920205752.GH4242@wotan.suse.de> <200409211841.25507.vda@port.imtp.ilyichevsk.odessa.ua>
- <20040921154542.GB12132@wotan.suse.de> <41527885.8020402@myrealbox.com>
- <20040923090345.GA6146@wotan.suse.de> <Pine.LNX.4.58.0409271204180.31769@schroedinger.engr.sgi.com>
- <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Changelog
-	* Atomic pte operations for i386
+The valid.oem_data bit is in different positions in each section.  Make
+the test for valid oem data a section specific test.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-Index: linux-2.6.9-rc4/include/asm-i386/pgtable.h
-=================================--- linux-2.6.9-rc4.orig/include/asm-i386/pgtable.h	2004-10-10 19:58:24.000000000 -0700
-+++ linux-2.6.9-rc4/include/asm-i386/pgtable.h	2004-10-14 11:32:37.000000000 -0700
-@@ -412,6 +412,7 @@
- #define __HAVE_ARCH_PTEP_SET_WRPROTECT
- #define __HAVE_ARCH_PTEP_MKDIRTY
- #define __HAVE_ARCH_PTE_SAME
-+#define __HAVE_ARCH_ATOMIC_TABLE_OPS
- #include <asm-generic/pgtable.h>
-
- #endif /* _I386_PGTABLE_H */
-Index: linux-2.6.9-rc4/include/asm-i386/pgtable-3level.h
-=================================--- linux-2.6.9-rc4.orig/include/asm-i386/pgtable-3level.h	2004-10-10 19:58:41.000000000 -0700
-+++ linux-2.6.9-rc4/include/asm-i386/pgtable-3level.h	2004-10-14 11:32:37.000000000 -0700
-@@ -6,7 +6,8 @@
-  * tables on PPro+ CPUs.
-  *
-  * Copyright (C) 1999 Ingo Molnar <mingo@redhat.com>
-- */
-+ * August 26, 2004 added ptep_cmpxchg and ptep_xchg <christoph@lameter.com>
-+*/
-
- #define pte_ERROR(e) \
- 	printk("%s:%d: bad pte %p(%08lx%08lx).\n", __FILE__, __LINE__, &(e), (e).pte_high, (e).pte_low)
-@@ -141,4 +142,26 @@
- #define __pte_to_swp_entry(pte)		((swp_entry_t){ (pte).pte_high })
- #define __swp_entry_to_pte(x)		((pte_t){ 0, (x).val })
-
-+/* Atomic PTE operations */
-+static inline pte_t ptep_xchg(struct mm_struct *mm, pte_t *ptep, pte_t newval)
-+{
-+	pte_t res;
-+
-+	/* xchg acts as a barrier before the setting of the high bits.
-+	 * (But we also have a cmpxchg8b. Why not use that? (cl))
-+	  */
-+	res.pte_low = xchg(&ptep->pte_low, newval.pte_low);
-+	res.pte_high = ptep->pte_high;
-+	ptep->pte_high = newval.pte_high;
-+
-+	return res;
-+}
-+
-+
-+static inline int ptep_cmpxchg(struct mm_struct *mm, unsigned long address, pte_t *ptep, pte_t oldval, pte_t newval)
-+{
-+	return cmpxchg(ptep, pte_val(oldval), pte_val(newval)) = pte_val(oldval);
-+}
-+
-+
- #endif /* _I386_PGTABLE_3LEVEL_H */
-Index: linux-2.6.9-rc4/include/asm-i386/pgtable-2level.h
-=================================--- linux-2.6.9-rc4.orig/include/asm-i386/pgtable-2level.h	2004-10-10 19:58:05.000000000 -0700
-+++ linux-2.6.9-rc4/include/asm-i386/pgtable-2level.h	2004-10-14 11:32:37.000000000 -0700
-@@ -82,4 +82,8 @@
- #define __pte_to_swp_entry(pte)		((swp_entry_t) { (pte).pte_low })
- #define __swp_entry_to_pte(x)		((pte_t) { (x).val })
-
-+/* Atomic PTE operations */
-+#define ptep_xchg(mm,xp,a)       __pte(xchg(&(xp)->pte_low, (a).pte_low))
-+#define ptep_cmpxchg(mm,a,xp,oldpte,newpte) (cmpxchg(&(xp)->pte_low, (oldpte).pte_low, (newpte).pte_low)=(oldpte).pte_low)
-+
- #endif /* _I386_PGTABLE_2LEVEL_H */
-Index: linux-2.6.9-rc4/include/asm-i386/pgalloc.h
-=================================--- linux-2.6.9-rc4.orig/include/asm-i386/pgalloc.h	2004-10-10 19:57:02.000000000 -0700
-+++ linux-2.6.9-rc4/include/asm-i386/pgalloc.h	2004-10-14 11:32:37.000000000 -0700
-@@ -7,6 +7,8 @@
- #include <linux/threads.h>
- #include <linux/mm.h>		/* for struct page */
-
-+#define PMD_NONE 0L
-+
- #define pmd_populate_kernel(mm, pmd, pte) \
- 		set_pmd(pmd, __pmd(_PAGE_TABLE + __pa(pte)))
-
-@@ -16,6 +18,19 @@
- 		((unsigned long long)page_to_pfn(pte) <<
- 			(unsigned long long) PAGE_SHIFT)));
+Index: linux/arch/ia64/sn/kernel/mca.c
+=================================--- linux.orig/arch/ia64/sn/kernel/mca.c	Thu Oct 21 09:55:13 2004
++++ linux/arch/ia64/sn/kernel/mca.c	Thu Oct 21 10:10:14 2004
+@@ -102,14 +102,11 @@ sn_init_cpei_timer(void)
+ static int
+ sn_platform_plat_specific_err_print(const u8 *sect_header, u8 **oemdata, u64 *oemdata_size)
+ {
+-	sal_log_plat_specific_err_info_t *psei = (sal_log_plat_specific_err_info_t *)sect_header;
+-	if (!psei->valid.oem_data)
+-		return 0;
+ 	down(&sn_oemdata_mutex);
+ 	sn_oemdata = oemdata;
+ 	sn_oemdata_size = oemdata_size;
+ 	sn_oemdata_bufsize = 0;
+-	ia64_sn_plat_specific_err_print(print_hook, (char *)psei);
++	ia64_sn_plat_specific_err_print(print_hook, (char *)sect_header);
+ 	up(&sn_oemdata_mutex);
+ 	return 0;
  }
-+
-+/* Atomic version */
-+static inline int pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *pte)
-+{
-+#ifdef CONFIG_X86_PAE
-+	return cmpxchg8b( ((unsigned long long *)pmd), PMD_NONE, _PAGE_TABLE +
-+		((unsigned long long)page_to_pfn(pte) <<
-+			(unsigned long long) PAGE_SHIFT) ) = PMD_NONE;
-+#else
-+	return cmpxchg( (unsigned long *)pmd, PMD_NONE, _PAGE_TABLE + (page_to_pfn(pte) << PAGE_SHIFT)) = PMD_NONE;
-+#endif
-+}
-+
- /*
-  * Allocate and free page tables.
-  */
-@@ -49,6 +64,7 @@
- #define pmd_free(x)			do { } while (0)
- #define __pmd_free_tlb(tlb,x)		do { } while (0)
- #define pgd_populate(mm, pmd, pte)	BUG()
-+#define pgd_test_and_populate(mm, pmd, pte)	({ BUG(); 1; })
-
- #define check_pgt_cache()	do { } while (0)
+@@ -120,13 +117,21 @@ sn_platform_plat_specific_err_print(cons
+ int sn_salinfo_platform_oemdata(const u8 *sect_header, u8 **oemdata, u64 *oemdata_size)
+ {
+ 	efi_guid_t guid = *(efi_guid_t *)sect_header;
++	int valid = 0;
+ 	*oemdata_size = 0;
+ 	vfree(*oemdata);
+ 	*oemdata = NULL;
+-	if (efi_guidcmp(guid, SAL_PLAT_SPECIFIC_ERR_SECT_GUID) = 0 ||
+-	    efi_guidcmp(guid, SAL_PLAT_MEM_DEV_ERR_SECT_GUID) = 0)
++	if (efi_guidcmp(guid, SAL_PLAT_SPECIFIC_ERR_SECT_GUID) = 0) {
++		sal_log_plat_specific_err_info_t *psei = (sal_log_plat_specific_err_info_t *)sect_header;
++		valid = psei->valid.oem_data;
++	} else if (efi_guidcmp(guid, SAL_PLAT_MEM_DEV_ERR_SECT_GUID) = 0) {
++		sal_log_mem_dev_err_info_t *mdei = (sal_log_mem_dev_err_info_t *)sect_header;
++		valid = mdei->valid.oem_data;
++	}
++	if (valid)
+ 		return sn_platform_plat_specific_err_print(sect_header, oemdata, oemdata_size);
+-	return 0;
++	else
++		return 0;
+ }
+ 
+ static int __init sn_salinfo_init(void)
 
