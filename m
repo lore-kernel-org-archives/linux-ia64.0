@@ -1,32 +1,30 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Mon, 05 Apr 2004 21:52:16 +0000
-Subject: Re: Missing include in hugetlbpage.c
-Message-Id: <jeptamytwv.fsf@sykes.suse.de>
+From: Jim Garlick <garlick@llnl.gov>
+Date: Thu, 01 Apr 2004 03:23:50 +0000
+Subject: Re: Abnormal behaviour towards "INIT" interrupt management
+Message-Id: <Pine.LNX.4.30.0403311923080.29860-100000@cleomedes.llnl.gov>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <jesmfi7cdl.fsf@sykes.suse.de>
-In-Reply-To: <jesmfi7cdl.fsf@sykes.suse.de>
+References: <40691B80.9070309@Ext.Bull.Net>
+In-Reply-To: <40691B80.9070309@Ext.Bull.Net>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger <davidm@napali.hpl.hp.com> writes:
 
->>>>>> On Mon, 05 Apr 2004 18:56:45 +0200, Andreas Schwab <schwab@suse.de> =
-said:
+On Wed, 31 Mar 2004, Bjorn Helgaas wrote:
+
+> On Tuesday 30 March 2004 11:43 pm, Francois Wellenreiter wrote:
+> > All the processors call the "ia64_monarch_init_handler",
+> > the result is that the same trace appears many times (1 per CPU in fact)
+> > and a kernel oops occurs (I think it is due to a concurrent access
+> > to the same stack without any lock mechanism).
 >
->   Andreas> This has nothing to do with being module or not.
->   Andreas> EXPORT_SYMBOL also needs it.
->
-> But I don't see any EXPORT_SYMBOL in hugetlbpage.c.  What am I missing?
+> What kind of machine is this?  Linux registers different OS_INIT
+> procedures for the monarch and non-monarch processors, so it
+> sounds like a SAL bug if more than one CPU calls
+> ia64_monarch_init_handler().
 
-http://linux.bkbits.net:8080/linux-2.5/cset%401.1772?nav=3Dindex.html|Chang=
-eSet@-3d
+We see this also on Intel Tiger4's.
 
-Andreas.
+Jim
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
