@@ -1,7 +1,7 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Mon, 06 Dec 2004 16:13:04 +0000
+Date: Mon, 06 Dec 2004 16:59:45 +0000
 Subject: Re: [RFC] I/O error handling for userspace
-Message-Id: <200412060813.04801.jbarnes@engr.sgi.com>
+Message-Id: <200412060859.45051.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200412030831.25662.jbarnes@engr.sgi.com>
 In-Reply-To: <200412030831.25662.jbarnes@engr.sgi.com>
@@ -11,53 +11,42 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 On Monday, December 6, 2004 4:42 am, Hidetoshi Seto wrote:
-> > - /* TLB error is only exist in this SAL error record */
-> > - recover = (psp->tc && !(psp->cc || psp->bc || psp->rc || psp->uc))
-> > - /* other error recovery */
-> > -    || (ia64_mca_ucmc_extension
-> > -  && ia64_mca_ucmc_extension(
-> > -   IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA),
-> > -   &ia64_sal_to_os_handoff_state,
-> > -   &ia64_os_to_sal_handoff_state));
+> Jesse Barnes wrote:
+> > On Friday, December 3, 2004 8:31 am, Jesse Barnes wrote:
+> >>This patch adds support for sending a SIGBUS to a userspace application
+> >>using /proc/bus/pci to drive a device if an I/O error occurs.  We're
+> >> using this in house for the X server's BIOS emulator and it seems to be
+> >> working well.
+> >>
+> >>The idea is to track mmaped /proc/bus/pci regions so that the machine
+> >> check handler is able to properly determine which process is responsible
+> >> for any faults that occur (ia64 is interesting in that the error may not
+> >> occur in the process context that actually generated the bad reference).
+> >>  If a match is found, a SIGBUS is sent to the process, along with the
+> >> address that caused the fault.  The machine check record is then cleared
+> >> and recovery takes place (the assumption is that the signal to userspace
+> >> is a sufficient record of the error).
 >
-> Where the ia64_mca_ucmc_extension had go? ... vanished? :-(
+> Cool!
+> BTW I have some short comments.
 
-Oops, that was accidental.  I'll fix it up.
+Does this look a little better?  I've removed the clearing of the error 
+records too, in light of Keith's patch to clear them out quickly if they're 
+corrected (though I'll need more additions to set the recovered flag 
+correctly).
 
->
-> > +  /* TLB errors are fixed up before we get here, so recover */
-> > +  if (psp->tc) {
-> > +   recover = 1;
-> > +   goto return_to_sal;
-> > +  }
-> > +
->
-> I'm not sure because I hadn't get any logs on crazy error situation, but
-> isn't it possible that an error log have both of tc and
-> another(cc|bc|rc|uc)? Why we could omit "!(psp->cc || psp->bc || psp->rc ||
-> psp->uc)" ?
-
-I'm not sure either, I'll readd the check to make sure we haven't taken 
-another error too.
-
-> > +  spin_unlock(&io_range_list_lock);
-> > +
-> > + return_to_sal:
->
 > force_sig_info() takes spinlock in it... I think calling this isn't safe on
 > MCA.
 
-You're right, hmm, maybe I have to create a new kernel thread to wakeup and 
-send the signals with?  Any suggestions here?  Using a thread would 
-invalidate the assumptions I'm making in userspace, since the thread that 
-caused the MCA might resume and get the SIGBUS too late to do anything with 
-it.  Maybe I just need a version of force_sig_info that does a trylock 
-instead and returns a value saying whether the signal was delivered.
+This is the only bit I'm unsure about.  I can't just add a spin_trylock 
+version, since the call path for send_sig_info calls the slab allocator, 
+which takes other locks.
 
-> The rest part of the patch (for legacies) seems to be
-> functionally-independent. I don't have enough ideas for legacy-maps, but I
-> guess you have done good work.
-
-Yeah, I could split that out, that might make more sense.  Thanks for looking!
+Assuming that only the CPU that caused the MCA is in the MCA handler (i.e. 
+rendezvous doesn't occur), then the only time that one of the spinlocks could 
+hang is if the current CPU also owned it, right?  Hmm, maybe the 
+ia64_spinlock_contention routine could check for a machine check condition 
+and promote the failure to an uncorrectable one in that case?  That's pretty 
+ugly though...
 
 Jesse
