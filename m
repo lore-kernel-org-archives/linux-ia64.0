@@ -1,58 +1,67 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Mon, 10 Jan 2005 21:52:04 +0000
-Subject: [PATCH] gcc4 fixes for sn2
-Message-Id: <200501101352.04806.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_Ekv4BnYlQL1PuKc"
+From: Jack Steiner <steiner@sgi.com>
+Date: Tue, 11 Jan 2005 19:14:10 +0000
+Subject: [PATCH] - Delete obsolete header file
+Message-Id: <20050111191409.GA10402@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_Ekv4BnYlQL1PuKc
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-This patch is needed since "warning: use of cast expressions as lvalues is 
-deprecated" turned into an error in gcc4.  We can use the convenience macros 
-for read access and explicit assignments for initialization.  I thought about 
-using Alexandre's fixes, but this seemed a little simpler.
+Delete obsolete header file.
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
+	Signed-off-by: Jack Steiner <steiner@sgi.com>
 
-Thanks,
-Jesse
 
---Boundary-00=_Ekv4BnYlQL1PuKc
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="sn2-io-init-gcc4-fixes.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="sn2-io-init-gcc4-fixes.patch"
 
-===== arch/ia64/sn/kernel/io_init.c 1.7 vs edited =====
---- 1.7/arch/ia64/sn/kernel/io_init.c	2005-01-07 21:44:03 -08:00
-+++ edited/arch/ia64/sn/kernel/io_init.c	2005-01-10 13:50:14 -08:00
-@@ -201,7 +201,7 @@
- 	struct pci_dev *host_pci_dev;
- 	int status = 0;
- 
--	SN_PCIDEV_INFO(dev) = kmalloc(sizeof(struct pcidev_info), GFP_KERNEL);
-+	dev->sysdata = kmalloc(sizeof(struct pcidev_info), GFP_KERNEL);
- 	if (SN_PCIDEV_INFO(dev) <= 0)
- 		BUG();		/* Cannot afford to run out of memory */
- 	memset(SN_PCIDEV_INFO(dev), 0, sizeof(struct pcidev_info));
-@@ -309,8 +309,8 @@
- 	 * after this point.
- 	 */
- 
--	PCI_CONTROLLER(bus) = controller;
--	SN_PCIBUS_BUSSOFT(bus) = provider_soft;
-+	bus->sysdata = controller;
-+	PCI_CONTROLLER(bus)->platform_data = provider_soft;
- 
- 	nasid = NASID_GET(SN_PCIBUS_BUSSOFT(bus)->bs_base);
- 	cnode = nasid_to_cnodeid(nasid);
+Index: linux/arch/ia64/sn/include/shub.h
+=================================--- linux.orig/arch/ia64/sn/include/shub.h	2005-01-10 12:46:58.327704059 -0600
++++ /dev/null	1970-01-01 00:00:00.000000000 +0000
+@@ -1,39 +0,0 @@
+-/*
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Copyright (c) 2001-2004 Silicon Graphics, Inc.  All rights reserved.
+- */
+-
+-#ifndef _ASM_IA64_SN_SHUB_H
+-#define _ASM_IA64_SN_SHUB_H
+-
+-
+-#define MD_MEM_BANKS            4
+-
+-
+-/*
+- * Junk Bus Address Space
+- *   The junk bus is used to access the PROM, LED's, and UART. It's 
+- *   accessed through the local block MMR space. The data path is
+- *   16 bits wide. This space requires address bits 31-27 to be set, and
+- *   is further divided by address bits 26:15.
+- *   The LED addresses are write-only. To read the LEDs, you need to use
+- *   SH_JUNK_BUS_LED0-3, defined in shub_mmr.h
+- *		
+- */
+-#define SH_REAL_JUNK_BUS_LED0           0x7fed00000UL
+-#define SH_REAL_JUNK_BUS_LED1           0x7fed10000UL
+-#define SH_REAL_JUNK_BUS_LED2           0x7fed20000UL
+-#define SH_REAL_JUNK_BUS_LED3           0x7fed30000UL
+-#define SH_JUNK_BUS_UART0               0x7fed40000UL
+-#define SH_JUNK_BUS_UART1               0x7fed40008UL
+-#define SH_JUNK_BUS_UART2               0x7fed40010UL
+-#define SH_JUNK_BUS_UART3               0x7fed40018UL
+-#define SH_JUNK_BUS_UART4               0x7fed40020UL
+-#define SH_JUNK_BUS_UART5               0x7fed40028UL
+-#define SH_JUNK_BUS_UART6               0x7fed40030UL
+-#define SH_JUNK_BUS_UART7               0x7fed40038UL
+-
+-#endif /* _ASM_IA64_SN_SHUB_H */
+-- 
+Thanks
 
---Boundary-00=_Ekv4BnYlQL1PuKc--
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
+
