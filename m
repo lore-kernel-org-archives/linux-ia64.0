@@ -1,7 +1,7 @@
 From: Hanna Linder <hannal@us.ibm.com>
-Date: Tue, 11 Jan 2005 00:22:49 +0000
-Subject: Re: [patch 2/3] Replace pci_find_device with pci_get_device - pci.c
-Message-Id: <177680000.1105402969@w-hlinder.beaverton.ibm.com>
+Date: Tue, 11 Jan 2005 00:23:50 +0000
+Subject: Re: [patch 2/3] Replace pci_find_device with pci_get_device - sba_iommu.c
+Message-Id: <178160000.1105403030@w-hlinder.beaverton.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050110194635.844AE1F203@trashy.coderock.org>
 In-Reply-To: <20050110194635.844AE1F203@trashy.coderock.org>
@@ -25,23 +25,20 @@ To: linux-ia64@vger.kernel.org
 > if you switch to for_each_pci_dev(), you could switch the one
 > in sba_iommu.c, too.
 
-
-Ok. Here is the reroll of the original patch to us for_each_pci_dev:
+Here is the reroll of the sba_iommu.c patch to use for_each_pci_dev.
 
 Signed-off-by: Hanna Linder <hannal@us.ibm.com>
 
-diff -Nrup linux-2.6.10cln/arch/ia64/pci/pci.c linux-2.6.10p/arch/ia64/pci/pci.c
---- linux-2.6.10cln/arch/ia64/pci/pci.c	2005-01-10 15:45:16.000000000 -0800
-+++ linux-2.6.10p/arch/ia64/pci/pci.c	2005-01-10 15:54:35.564251536 -0800
-@@ -154,7 +154,7 @@ extern acpi_status acpi_map_iosapic (acp
- 		printk(KERN_INFO "** was specified.  If this was required to make a driver work,\n");
- 		printk(KERN_INFO "** please email the output of \"lspci\" to bjorn.helgaas@hp.com\n");
- 		printk(KERN_INFO "** so I can fix the driver.\n");
--		while ((dev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, dev)) != NULL)
-+		for_each_pci_dev(dev)
- 			acpi_pci_irq_enable(dev);
- 	} else {
- 		printk(KERN_INFO "** PCI interrupts are no longer routed automatically.  If this\n");
-
-
+diff -Nrup linux-2.6.10cln/arch/ia64/hp/common/sba_iommu.c linux-2.6.10p2/arch/ia64/hp/common/sba_iommu.c
+--- linux-2.6.10cln/arch/ia64/hp/common/sba_iommu.c	2005-01-10 15:45:15.000000000 -0800
++++ linux-2.6.10p2/arch/ia64/hp/common/sba_iommu.c	2005-01-10 15:51:33.602913864 -0800
+@@ -1557,7 +1557,7 @@ ioc_iova_init(struct ioc *ioc)
+ 	** We program the next pdir index after we stop w/ a key for
+ 	** the GART code to handshake on.
+ 	*/
+-	while ((device = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, device)) != NULL)
++	for_each_pci_dev(device)	
+ 		agp_found |= pci_find_capability(device, PCI_CAP_ID_AGP);
+ 
+ 	if (agp_found && reserve_sba_gart) {
 
