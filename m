@@ -1,67 +1,55 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Mon, 04 Jun 2001 22:30:38 +0000
-Subject: [Linux-ia64] new version of NUE (IA-64 LDK) available for downloads
-Message-Id: <marc-linux-ia64-105590693005687@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Fri, 01 Jun 2001 16:12:40 +0000
+Subject: [Linux-ia64] [PATCH] fix RAID autodetect on GPT-partitioned drives
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="liOOAslEiF7prFVr"
+Message-Id: <marc-linux-ia64-105590693005682@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hello,
+--liOOAslEiF7prFVr
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
+The attached fixes RAID autodetection on GPT-partitioned drives;
+the code was never actually compiled before because
+CONFIG_AUTODETECT_RAID is a dead symbol.
 
-I wanted to let you know that there is now a new version of the 
-HP IA-64 Linux Development Kit (LDK) available for free download at:
+Bill
 
-	http://www.software.hp.com/LIA64
+--liOOAslEiF7prFVr
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="linux-2.4.3-efi-raid.patch"
 
-The LDK allows users to easily (most of the time, no makefile modifications 
-required) port/develop Linux/ia64 applications on their Linux/ia32 systems. 
-You can compile, RUN and DEBUG the generated binaries using the HP ski IA-64 
-simulator included in the kit.
+--- linux/fs/partitions/efi.c.foo	Fri Jun  1 11:13:34 2001
++++ linux/fs/partitions/efi.c	Fri Jun  1 11:13:53 2001
+@@ -61,7 +61,7 @@
+ #include "check.h"
+ #include "efi.h"
+ 
+-#if CONFIG_BLK_DEV_MD && CONFIG_AUTODETECT_RAID
++#if CONFIG_BLK_DEV_MD
+ extern void md_autodetect_dev(kdev_t dev);
+ #endif
+ 
+@@ -502,7 +502,7 @@
+ 	u32 i, nummade=0;
+ 
+ 	efi_guid_t unusedGuid = UNUSED_ENTRY_GUID;
+-#if CONFIG_BLK_DEV_MD && CONFIG_AUTODETECT_RAID
++#if CONFIG_BLK_DEV_MD
+ 	efi_guid_t raidGuid = PARTITION_LINUX_RAID_GUID;
+ #endif
+ 
+@@ -525,7 +525,7 @@
+ 				 (ptes[i].EndingLBA-ptes[i].StartingLBA + 1));
+ 
+ 		/* If there's this is a RAID volume, tell md */
+-#if CONFIG_BLK_DEV_MD && CONFIG_AUTODETECT_RAID
++#if CONFIG_BLK_DEV_MD
+ 		if (!efi_guidcmp(raidGuid, ptes[i].PartitionTypeGuid)) {
+ 			md_autodetect_dev(MKDEV(MAJOR(dev),nextminor));
+ 		}
 
-It is also possible to do kernel developments and boot the latest Linux/ia64
-kernel using this simulator.
-
-The full environment has been tested on Redhat6.2, 7.0, 7.1 versions and 
-should be fine on most other RPM-based distributions. You need about 400MB
-of disk space to install the kit. Upgrading from previous versions is supported.
-
-The new version includes:
-	- an updated NUE filesystem 
-
-	- the latest gcc-2.x stable version for Linux/ia64
-
-	- glibc version 2.2
-
-	- an updated version of ski (0.943)
-
-	- an updated root filesystem for booting the Linux kernel with the 
-	  simulator
-
-You can download the 4 RPMS for free from the web site mentioned above
-or have a CDROM sent to you.
-
-Users are encouraged to subscribe to the lia64-sim public mailing-list:
-
-To subscribe:
-	- send mail to majordomo@linux.hpl.hp.com
-	  with "subscribe lia64-sim" in the body of the message
-
-or participate in the discussion forum at:
-
-	http://devresource.hp.com/devresource/Forums/Forums.html
-
-Enjoy,
--- 
-+--------------------------------------------------------------------+
-| Ste'phane ERANIAN                       | Email eranian@hpl.hp.com |
-| Hewlett-Packard Laboratories            |                          |
-| 1501, Page Mill Road MS 1U-15           |                          |
-| Palo  Alto, CA 94303-096                |                          |
-| USA                                     |                          |
-| Tel : (650) 857-7174                    |                          |
-| Fax : (650) 857-5548                    |                          |
-+--------------------------------------------------------------------+
+--liOOAslEiF7prFVr--
 
