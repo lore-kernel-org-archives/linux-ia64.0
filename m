@@ -1,7 +1,7 @@
-From: Martin Hicks <mort@wildopensource.com>
-Date: Thu, 03 Apr 2003 18:31:03 +0000
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Thu, 17 Apr 2003 19:13:44 +0000
 Subject: Re: [Linux-ia64] [patch] logical CPU numbering
-Message-Id: <marc-linux-ia64-105590723705399@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705537@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705277@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705277@msgid-missing>
@@ -10,47 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Mar 20, 2003 at 02:03:57PM -0500, Martin Hicks wrote:
+On Thursday 03 April 2003 11:31 am, Martin Hicks wrote:
+> This patch should be applied.  I finally got around to doing some more
+> testing with it.  If a CPU fails to start, currently we get messages
+> like the following for subsequent CPU's:
 > 
-> Hello,
 > 
-> If a CPU fails to start during smp_boot_cpus(), then the logical CPU
-> numbering gets will have a "hole".  Using the number of booted CPU's
-> instead of the loop index will correct this.
+> CPU 17: nasid 18, slice 0, cnode 9
+> CPU 17: base freq 0.000MHz, ITC ratio/2, ITC freq00.000MHz
+> Calibrating delay loop... 1494.72 BogoMIPS
+> phys CPU#17 (0x12) not responding - cannot use it.               <<-BOGUS
+
+I don't quite understand how this works.  The current code is clearly
+wrong, but if the AP in a 2-CPU system fails to start, won't the new
+code print "phys CPU#0 not responding"?  That doesn't seem accurate.
+
+If we really need this printk, it seems like the logical place to put it
+would be in do_boot_cpu(), where we already print the "Processor X/Y
+is stuck" message.  2.5 seems to have just removed the "not responding"
+printk, though, and I'd be inclined to do the same.  Any objections?
+
+> --- linux-2.4.21-pre5-ia64-030312.pristine/arch/ia64/kernel/smpboot.c	Sun Mar 16 10:18:53 2003
+> +++ linux-2.4.21-pre5-ia64-030312/arch/ia64/kernel/smpboot.c	Thu Mar 20 10:47:07 2003
+> @@ -522,7 +522,7 @@
+>  			/*
+>  			 * Make sure we unmap all failed CPUs
+>  			 */
+> -			if (ia64_cpu_to_sapicid[cpu] = -1)
+> +			if (ia64_cpu_to_sapicid[cpucount] = -1)
+>  				printk("phys CPU#%d not responding - cannot use it.\n", cpu);
+>  		}
+>  
 > 
-> This patch is against 2.4.21-pre5.
+> 
 
-This patch should be applied.  I finally got around to doing some more
-testing with it.  If a CPU fails to start, currently we get messages
-like the following for subsequent CPU's:
-
-
-CPU 17: nasid 18, slice 0, cnode 9
-CPU 17: base freq 0.000MHz, ITC ratio/2, ITC freq00.000MHz
-Calibrating delay loop... 1494.72 BogoMIPS
-phys CPU#17 (0x12) not responding - cannot use it.               <<-BOGUS
-
-
-The patch below fixes this problem.  This is the same patch as before,
-reposted just to make things easier.  It is against
-2.4.21-pre5-ia64-0303012.
-
-Thanks,
-mh
-
--- 
-Wild Open Source Inc.                  mort@wildopensource.com
-
-
---- linux-2.4.21-pre5-ia64-030312.pristine/arch/ia64/kernel/smpboot.c	Sun Mar 16 10:18:53 2003
-+++ linux-2.4.21-pre5-ia64-030312/arch/ia64/kernel/smpboot.c	Thu Mar 20 10:47:07 2003
-@@ -522,7 +522,7 @@
- 			/*
- 			 * Make sure we unmap all failed CPUs
- 			 */
--			if (ia64_cpu_to_sapicid[cpu] = -1)
-+			if (ia64_cpu_to_sapicid[cpucount] = -1)
- 				printk("phys CPU#%d not responding - cannot use it.\n", cpu);
- 		}
- 
 
