@@ -1,7 +1,7 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Thu, 15 Jul 2004 19:31:43 +0000
-Subject: Re: free bootmem feedback patch
-Message-Id: <20040715193143.GL32326@parcelfarce.linux.theplanet.co.uk>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 15 Jul 2004 20:21:35 +0000
+Subject: RE: free bootmem feedback patch
+Message-Id: <16630.59215.559219.214126@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <40F46962.4090604@sgi.com>
 In-Reply-To: <40F46962.4090604@sgi.com>
@@ -10,17 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thu, Jul 15, 2004 at 12:11:07PM -0700, Luck, Tony wrote:
-> Notes and Caveats:
-> 1) Is there a define someplace for log2(BITS_PER_LONG)?  I couldn't
-> find one, which is why I calculate the "order" in this patch.
+>>>>> On Thu, 15 Jul 2004 12:11:07 -0700, "Luck, Tony" <tony.luck@intel.com> said:
 
-ffs()?
+  Tony> Notes and Caveats: 1) Is there a define someplace for
+  Tony> log2(BITS_PER_LONG)?  I couldn't find one, which is why I
+  Tony> calculate the "order" in this patch.
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+BITS_PER_LONG is a power-of-two, so ffs() will do.  For more general
+cases, you may want asm/page.h:get_order() instead.
+
+	--david
