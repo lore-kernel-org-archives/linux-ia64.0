@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 18 Mar 2005 07:17:29 +0000
-Subject: Re: [patch 2.6.11] __copy_user breaks on unaligned src
-Message-Id: <16954.32905.838756.136817@napali.hpl.hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 18 Mar 2005 17:40:02 +0000
+Subject: RE: [patch 2.6.11] __copy_user breaks on unaligned src
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F031D5F3C@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <12404.1111129477@kao2.melbourne.sgi.com>
 In-Reply-To: <12404.1111129477@kao2.melbourne.sgi.com>
@@ -10,31 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 18 Mar 2005 18:04:37 +1100, Keith Owens <kaos@sgi.com> said:
 
-  Keith> memcpy_mck.S::__copy_user breaks in the prefetch code under these
-  Keith> conditions :-
+>That's a good thing to fix (it's definitely a performance bug).  However,
+>lfetch.fault should be safe to use even on unmapped memory.  See this
+>code in ia64_do_page_fault():
+>
+> /*
+>  * This fault was due to a speculative load or lfetch.fault, set the "ed"
+>  * bit in the psr to ensure forward progress.  (Target register will get a
+>  * NaT for ld.s, lfetch will be canceled.)
+>  */
+>
+>I don't see off-hand why this wouldn't work as intended.
 
-  Keith> * src is unaligned and
-  Keith> * dst is near the end of a page and
-  Keith> * the page after dst is unmapped.
+That reminds me ... someone asked why we don't have the same test for
+lfetch a few lines further down in ia64_do_page_fault() in the "no_context"
+case (we only test for speculative access there).
 
-  Keith> The loop count in r21 is 1 value too high.  A length of 0x100 gives
-  Keith> ar.lc = r21 = 2.  .unaligned_src incorrectly copies r21 into ar.lc,
-  Keith> when it should copy cnt, so the lfetch lines are executed 3 times, not
-  Keith> 2.  That takes dst_pre_mem past the end of the page and into an
-  Keith> unallocated area, oops.
+The context for their question was using __copy_from_user_inatomic() after
+calling inc_preempt_count().  On ia64 this just uses the standard code for
+__copy_from_user().  If we happen to fault on the "lfetch", then we end up
+in the "no_context" case because of the "if (in_atomic() || !mm)" test at the
+top of ia64_do_page_fault.
 
-That's a good thing to fix (it's definitely a performance bug).  However,
-lfetch.fault should be safe to use even on unmapped memory.  See this
-code in ia64_do_page_fault():
-
- /*
-  * This fault was due to a speculative load or lfetch.fault, set the "ed"
-  * bit in the psr to ensure forward progress.  (Target register will get a
-  * NaT for ld.s, lfetch will be canceled.)
-  */
-
-I don't see off-hand why this wouldn't work as intended.
-
-	--david
+-Tony
