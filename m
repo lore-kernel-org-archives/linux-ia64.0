@@ -1,7 +1,7 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Sun, 06 Feb 2005 15:58:01 +0000
-Subject: Re: [patch] fix per-CPU MCA mess and make UP kernels work again
-Message-Id: <200502061558.j16Fw1qa20144733@clink.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Mon, 07 Feb 2005 22:58:36 +0000
+Subject: RE: [patch] fix per-CPU MCA mess and make UP kernels work again
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02DC12C5@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <16887.1203.470842.161249@napali.hpl.hp.com>
 In-Reply-To: <16887.1203.470842.161249@napali.hpl.hp.com>
@@ -10,68 +10,45 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tony Luck wrote:
-> 
-> This patch helps some (all uses of ia64_mca_data in
-> mca_asm.S need to deref the pointer to get at the
-> actual space, instead of clobbering thigs in the
-> percpu area).
+>I'm confused about how the offsets are now being computed.
+>Keith's explaination made sense.  How does the current code
+>get the correct link time offsets?
 
-That patch does not work on Altix (discontig & SMP).
-The system wedges in the MCA code.
+Initially I'd imagined that ar.k3 would point at the physical
+address of the base of the per-cpu area ... and then we'd be
+able to access any per-cpu variable with:
 
-The patch (below) helps in that they system gets through the
-MCA code and back to the error injection app, but then
-the system dies.
+	phys(per_cpu_X) = ar.k3 + (virt_per_cpu_X - PERCPU_ADDR);
 
-I'm confused about how the offsets are now being computed.
-Keith's explaination made sense.  How does the current code
-get the correct link time offsets?
+As Keith has pointed out, it's hard to do this because of the
+allocation of addresses to percpu variables at link time.  But
+David observed that we could get around this by assigning ar.k3
+a value so that:
 
-Keith Owens wrote:
-> Russ Anderson <rja@sgi.com> wrote:
-> >OK, just to make sure I understand, it is not practical to have ar.k3
-> >store a pointer to __per_cpu_start, due to the difficulty computing
-> >the offset to per_cpu__cpu_info.  So ar.k3 should point at the
-> >the start of per_cpu__cpu_info (the cpuinfo_ia64 structure).
-> 
-> Right.  We can compute the offset from __per_cpu_start to
-> per_cpu__cpu_info, but that offset can only be computed at link time.
-> That rules out the use of asm-offsets, asm-offsets.h is built at
-> compile time, not link time.  The extra code required to compute the
-> offset at link time and apply that offset to ar.k3 to get from
-> __per_cpu_start to per_cpu__cpu_info is ugly and is not worth the
-> effort.
-> 
-> Put all the MCA related fields in struct cpuinfo_ia64, point ar.k3 at
-> struct cpuinfo_ia64 and we can use compile time offsets for the fields
-> that the MCA handler cares about.  We just need to document that all
-> MCA related fields must be in struct cpuinfo_ia64 or accessed via a
-> pointer that is in struct cpuinfo_ia64.
+	phys(per_cpu_X) = ar.k3 + virt_per_cpu_X;
 
+re-arranging (algebra 101):
 
+	ar.k3 = phys(per_cpu_X) - virt_per_cpu_X;
 
------------------------------------------------------
-Index: linux/arch/ia64/kernel/mca_asm.S
-=================================--- linux.orig/arch/ia64/kernel/mca_asm.S	2005-02-04 09:58:01.241029555 -0600
-+++ linux/arch/ia64/kernel/mca_asm.S	2005-02-05 10:11:46.126571337 -0600
-@@ -342,10 +342,10 @@
- 	// restore the original stack frame here
- 	GET_THIS_PADDR(r2, ia64_mca_data)
- 	;;
--	add r2 = IA64_MCA_CPU_STACKFRAME_OFFSET, r2
--	;;
- 	ld8 r2 = [r2]
- 	;;
-+	add r2 = IA64_MCA_CPU_STACKFRAME_OFFSET, r2
-+	;;
- 	movl    r4=IA64_PSR_MC
- 	;;
- 	rse_return_context(r4,r3,r2)	// switch from interrupt context for RSE
------------------------------------------------------
+This clearly gives the same value for ar.k3 for any per-cpu
+variable (the offsets within the virtual page are the same
+as the offsets within the physical page).  So we can use the
+base of the page itself in setup.c:
 
+        ia64_set_kr(IA64_KR_PER_CPU_DATA,
+                    ia64_tpa(cpu_data) - (long) __per_cpu_start);
 
+Interesting numerical aside ... When I first looked at the values in
+ar.k3 on each cpu, I thought there was an off-by-one error in
+the initialzation ... I saw that ar.k3 on cpu(N) pointed to the
+physical address of the percpu area of cpu(N+1).  But if you think for
+a little while about the addresses that we use for per-cpu variables,
+you realize that they all look like small negative numbers (since we
+anchor the top of the per-cpu area at 0xffffffffffffffff).  So in fact
+the value we end up with in ar.k3 is the physical address of the END
+of that cpu's per area.  E.g. "__per_cpu_start" in the statement above
+has the value "-64K" ... so if ar.k3 points at the end of the structure,
+then ar.k3 - 64K points at the start.
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+-Tony
