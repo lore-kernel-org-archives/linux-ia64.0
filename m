@@ -1,87 +1,242 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 25 Oct 2004 15:33:14 +0000
-Subject: Re: newbie question about 2.6 ia64 linux-gate etc
-Message-Id: <16765.7354.650202.130073@napali.hpl.hp.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 21 Oct 2004 03:52:28 +0000
+Subject: Announce: kdb v4.4 is available for kernel 2.6.9
+Message-Id: <6628.1098330748@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <BAY14-F23L9BGTuAyHs000156b6@hotmail.com>
-In-Reply-To: <BAY14-F23L9BGTuAyHs000156b6@hotmail.com>
+References: <12956.1085377697@kao2.melbourne.sgi.com>
+In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: kdb@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>>> On Mon, 25 Oct 2004 10:57:25 -0400, "Raj Patil" <rpatil0299@hotmail.com> said:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-  Raj> Hello, I am looking for some basic info on how the
-  Raj> linux-gate.so is used and how it gets mapped to the process
-  Raj> address space in 2.6 ia64 and how all the system call function
-  Raj> names gets included here? (I have access to SuSE 9.0, based on
-  Raj> 2.6.5-7.97)
+KDB (Linux Kernel Debugger) has been updated.
 
-  Raj> Can some please point/direct me to some doc/notes, if it exists
-  Raj> or write few lines to give some basic information information
-  Raj> about these?
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
+ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
 
-  Raj> Thank you very much and really appreciate info.
+Current versions are :-
 
-See the last section "Using fast system calls" of
-
-	Documentation/ia64/fsys.txt
-
-I'll append it below for convenience.
-
-BTW: The vDSO approach isn't unique to ia64.  It was invented for x86
-and other platforms use it as well.
-
-	--david
+  kdb-v4.4-2.6.9-common-1.bz2
+  kdb-v4.4-2.6.9-i386-1.bz2
+  kdb-v4.4-2.6.9-ia64-1.bz2
+  kdb-v4.4-2.6.9-rc2-x86-64-1.bz2 (may or may not work with 2.6.9).
 
 
-----
-* Using fast system calls
+Changelog extract since kdb-v4.4-2.6.7-common-1.
 
-To use fast system calls, userspace applications need simply call
-__kernel_syscall_via_epc().  For example
 
--- example fgettimeofday() call --
--- fgettimeofday.S --
+2004-10-19 Keith Owens  <kaos@sgi.com>
 
-#include <asm/asmmacro.h>
+	* kdb v4.4-2.6.9-common-1.
 
-GLOBAL_ENTRY(fgettimeofday)
-.prologue
-.save ar.pfs, r11
-mov r11 = ar.pfs
-.body 
+2004-10-12 Keith Owens  <kaos@sgi.com>
 
-mov r2 = 0xa000000000020660;;  // gate address 
-			       // found by inspection of System.map for the 
-			       // __kernel_syscall_via_epc() function.  See
-			       // below for how to do this for real.
+	* kdb v4.4-2.6.9-rc4-common-1.
 
-mov b7 = r2
-mov r15 = 1087		       // gettimeofday syscall
-;;
-br.call.sptk.many b6 = b7
-;;
+2004-10-01 Keith Owens  <kaos@sgi.com>
 
-.restore sp
+	* kdb v4.4-2.6.9-rc3-common-1.
 
-mov ar.pfs = r11
-br.ret.sptk.many rp;;	      // return to caller
-END(fgettimeofday)
+2004-09-30 Keith Owens  <kaos@sgi.com>
 
--- end fgettimeofday.S --
+	* Add stackdepth command to Documentation/kdb/kdb.mm.  stackdepth is
+	  only supported on i386 and ia64 at the moment.
+	* Skip kdbm_pg memmap build on x86_64.  Scott Lurndal, 3leafnetworks.
+	* Export kdb_serial_str for modular I/O.  Bryan Cardillo, UPenn.
+	* Reinstate tab completion for symbols.
+	* kdb v4.4-2.6.9-rc2-common-2.
 
-In reality, getting the gate address is accomplished by two extra
-values passed via the ELF auxiliary vector (include/asm-ia64/elf.h)
+2004-09-14 Keith Owens  <kaos@sgi.com>
 
- o AT_SYSINFO : is the address of __kernel_syscall_via_epc()
- o AT_SYSINFO_EHDR : is the address of the kernel gate ELF DSO
+	* Add task states C (traCed) and E (dEad).
+	* kdb v4.4-2.6.9-rc2-common-1.
 
-The ELF DSO is a pre-linked library that is mapped in by the kernel at
-the gate page.  It is a proper ELF shared object so, with a dynamic
-loader that recognises the library, you should be able to make calls to
-the exported functions within it as with any other shared library.
-AT_SYSINFO points into the kernel DSO at the
-__kernel_syscall_via_epc() function for historical reasons (it was
-used before the kernel DSO) and as a convenience.
+2004-08-27 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.9-rc1-common-1.
+
+2004-08-14 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.8-common-1.
+
+2004-08-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.8-rc4-common-1.
+
+2004-08-05 Keith Owens  <kaos@sgi.com>
+
+	* Mark kdb_initcall as __attribute_used__ for newer gcc.
+	* kdb v4.4-2.6.8-rc3-common-2.
+
+2004-08-04 Keith Owens  <kaos@sgi.com>
+
+	* Add mdp (memory display physical) comnmand.
+	  Ananth N Mavinakayanahalli, IBM.
+	* kdb v4.4-2.6.8-rc3-common-1.
+
+2004-07-18 Keith Owens  <kaos@sgi.com>
+
+	* Patch for new sn_console.  Erik Jacobson. SGI.
+	* kdb v4.4-2.6.8-rc2-common-1.
+
+2004-07-12 Keith Owens  <kaos@sgi.com>
+
+	* Convert kdbm_task to standard cpumask_t.
+	* Document '*' (all breakpoints) option on bd/be/bc commands.
+	* kdb v4.4-2.6.8-rc1-common-1.
+
+2004-06-30 Keith Owens  <kaos@sgi.com>
+
+	* Common changes to help the x86-64 port.
+	* kdb v4.4-2.6.7-common-3.
+
+2004-06-20 Keith Owens  <kaos@sgi.com>
+
+	* Move kdb includes in mm/swapfile.c to reduce conflicts with other
+	  SGI patches.
+	* kdb v4.4-2.6.7-common-2.
+
+
+Changelog extract since kdb-v4.4-2.6.7-i386-1.
+
+
+2004-10-19 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.9-i386-1.
+
+2004-10-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.9-rc4-i386-1.
+
+2004-10-01 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.9-rc3-i386-1.
+
+2004-09-30 Keith Owens  <kaos@sgi.com>
+
+	* Add stackdepth command.
+	* Handle backtrace with separate soft and hard irq stacks
+          (CONFIG_4KSTACKS).
+	* Work around RESTORE_ALL macro, which can only be used once.
+	* Export kdba_dumpregs.  Bryan Cardillo, UPenn.
+	* kdb v4.4-2.6.9-rc2-i386-2.
+
+2004-09-14 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.9-rc2-i386-1.
+
+2004-08-27 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.9-rc1-i386-1.
+
+2004-08-14 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.8-i386-1.
+
+2004-08-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.8-rc4-i386-1.
+
+2004-08-04 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.8-rc3-i386-1.
+
+2004-07-18 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.8-rc2-i386-1.
+
+2004-07-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.8-rc1-i386-1.
+
+2004-06-16 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.7-i386-1.
+
+
+Changelog extract since kdb v4.4-2.6.7-ia64-040629-1.
+
+
+2004-10-19 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.9-ia64-1.
+
+2004-10-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.9-rc4-ia64-1.
+
+2004-10-01 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.9-rc3-ia64-1.
+
+2004-09-30 Keith Owens  <kaos@sgi.com>
+
+	* Add stackdepth command.
+	* kdb-v4.4-2.6.9-rc2-ia64-3.
+
+2004-09-16 Keith Owens  <kaos@sgi.com>
+
+	* Fixes for current in region 5 instead of 7 (idle task on cpu 0).
+	* kdb-v4.4-2.6.9-rc2-ia64-2.
+
+2004-09-14 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.9-rc2-ia64-1.
+
+2004-08-27 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.9-rc1-ia64-1.
+
+2004-08-14 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.8-ia64-1.
+
+2004-08-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.8-rc4-ia64-1.
+
+2004-08-04 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.8-rc3-ia64-1.
+
+2004-07-18 Keith Owens  <kaos@sgi.com>
+
+	* New config name for SN serial console.
+	* kdb-v4.4-2.6.8-rc2-ia64-1.
+
+2004-07-12 Keith Owens  <kaos@sgi.com>
+
+	* kdb-v4.4-2.6.8-rc1-ia64-1.
+
+
+Changelog extract for kdb v4.4-2.6.9-rc2-x86-64-1.
+
+
+2004-09-30 Keith Owens <kaos@sgi.com>
+
+	* Port to 2.6.9-rc2
+	* Fix line editting characters.  Jim Houston, Comcast.
+	* kdb v4.4-2.6.9-rc2-x86-64-1.
+
+2004-08-15 Jack F. Vogel <jfv@bluesong.net>
+	* Port to 2.6.8
+	* tighten up the code, using the built-in
+	  die_chain notify interface, thanks to
+	  Andi Kleen for pointing this out.
+
+2004-05-15 Jack F. Vogel <jfv@bluesong.net>
+	* port to 2.6.6 for x86_64
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFBdzJ8i4UHNye0ZOoRAmL7AKDuGQLB94/yos2DoSSC5X7AubniVgCguA26
+FQLeGkj6GWY7PjnCgLqdYno=y0AP
+-----END PGP SIGNATURE-----
+
