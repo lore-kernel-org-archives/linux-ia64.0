@@ -1,49 +1,49 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Mon, 03 May 2004 13:25:11 +0000
-Subject: Re: shared memory between 32bit & 64bit applications
-Message-Id: <20040503132511.GJ2281@parcelfarce.linux.theplanet.co.uk>
+From: "ARADHYA, CHINMAYA TM (STSD)" <chinmaya@hp.com>
+Date: Mon, 03 May 2004 13:28:09 +0000
+Subject: shared memory between 32bit & 64bit applications
+Message-Id: <8BF7471D09AA9B4190A9C96778BC2A170108B6EA@qcaexc02.asiapacific.cpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040503132511.GJ2281@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040503132511.GJ2281@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, May 03, 2004 at 06:46:09PM +0530, ARADHYA, CHINMAYA TM (STSD) wrote:
-> The information which is held in the shared memory
-> is interpreted as in the structure
-> typedef struct shmtest
-> {
->         int req;
->         long long id;
->         int abc;
-> }shmtest_t;
-> 
-> The 64 bit application fills in {1,5,5} in the shared
-> memory and when I access these values from a 32 bit application
-> I get it as {1,21474836480,0}. I guess this is due to 
-> switch  of lower and upper significant bytes. 
+hi,
 
-Nope.  You're being bitten by different struct padding rules.
+I am seeing this weird problem when I am trying
+to pass on some data from a 64bit application to 
+a 32bit application via shared memory. 
 
-#include <stdio.h>
-
-struct foo {
+The information which is held in the shared memory
+is interpreted as in the structure
+typedef struct shmtest
+{
         int req;
         long long id;
         int abc;
-};
+}shmtest_t;
 
-int main(void) { return printf("%d\n", sizeof(struct foo)); }
+The 64 bit application fills in {1,5,5} in the shared
+memory and when I access these values from a 32 bit application
+I get it as {1,21474836480,0}. I guess this is due to 
+switch  of lower and upper significant bytes. 
+Strangely when the 64bit application fills in 
+{2,69472139471924,6} the value read by the 32bit application
+would be {2,4481622812292808704,16175}.
 
-On ia64, this prints 24; on i386 it prints 16.
+Could somebody tell me whether I need to do something different
+to handle shared memory b/w 32-64bit applications..or am I missing
+out some thing basic.
 
-You could declare it __attribute__((packed)) or you could reorder the
-elements in the struct to put the largest elements first.
+Kernel version: 2.4.21-4.EL
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+TIA
+-Chinmaya
+
+PS: Please point me to the right group if this question does
+not belong here.
+
+
+ 
