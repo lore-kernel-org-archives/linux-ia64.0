@@ -1,7 +1,7 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Thu, 13 May 2004 04:23:35 +0000
+From: Ashok Raj <ashok.raj@intel.com>
+Date: Thu, 13 May 2004 04:44:16 +0000
 Subject: Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <1084422215.974.25.camel@nighthawk>
+Message-Id: <20040512214416.A12395@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040512205107.16bb82a6.pj@sgi.com>
 In-Reply-To: <20040512205107.16bb82a6.pj@sgi.com>
@@ -10,40 +10,53 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2004-05-12 at 20:51, Paul Jackson wrote:
-> Could someone explain to me who's doing what with cpu, memory and node
-> hotplug?
->
-> And I also just noticed the thread on lkml by Keiichiro, with comments
-> from Dave, mentioning Matthew, hinting at additional interactions that
-> might be desirable between various efforts here.  I even see some SGI
-> work here. 
+On Wed, May 12, 2004 at 08:51:07PM -0700, Paul Jackson wrote:
+> Could someone explain to me who's doing what with cpu, memory and node hotplug?
+Paul back in action :-)
+> 
+> In particular, I haven't noticed much interaction between some cpu
+> hotplug work that Ashok has been posting on linux-ia64 and/or lkml, and
+> either of the email lists lhns-devel or linux-hotplug-devel.  And I also
 
-I'm working on a little corner of memory hotplug: resizing existing
-zones.  I'll be doing it on hardware that is both NUMA and flat SMP
-systems, with no removal of entire NUMA nodes, at least not yet.  
+You dont see any interaction between the cpu hotplug and the one tokunaga-san
+is posting because they can be done independently. So here is the scope,
+i will try to keep it short and sweet.!
 
-We've decided to use CONFIG_NONLINEAR, which has been discussed quite a
-bit before.  It allows you to take discontiguous, nonlinear physical
-memory, and rearrange it so that it can be managed in linear pieces. 
-Basically, this lets us keep the struct zone virtually unchanged because
-we can map any physical memory to any pfn that we like (in certain size
-sections, of course).  This is done for x86, and we're working on
-ppc64.  This code has the potential to replace much of
-CONFIG_DISCONTIGMEM.
+CPU hotplug - Ashok(intel for IA64) Primarily does logical cpuonline/offline
+	support to work with base support released by rusty from 2.6.5
+	PPC64 - Joel Schoop, Vatsa (IBM), x86 (Rusty/Vatsa)
+	ACPI support for cpu hotplug - Anil Keshavamurty (intel) base line 
+	emulation and ACPI patches are ready, we are reviewing it internally 
+	and it should make its way to acpi lists sometime in the next 2 weeks.
+	(on major changes.. just extensions to acpi already in base kernel)
+Memory hotplug - Dave Hansen et all (mostly IBM) + Matt Tolentino (Intel)
+		Goto-san (fujitsu) + Takahashi/Iwamoto San (VA Linux)
+		disscussed in lhms (sourceforgelist)
+	Matt is also co-ordinating ACPI based memory hotplug support for 
+	the work that he requires as necessary.
 
-The second bit of work that I have my eyes on are the sysfs interfaces
-which will end up being the hotplug memory API to userspace.  I hope to
-keep these as simple as possible inside the kernel, exposing enough
-information to userspace that it can do most of the work.  For instance,
-I certainly hope that an offline procedure for an entire node would
-consist of more than one call into the kernel.  offline each memory
-section ... offline each cpu ... offline the struct node ...
+Node Hotplug support - Tokunaga-san (fujitsu) mostly concentrating on 
+		ACPI based numa node hotplug. This work is independent
+of rest of the hotplug (atleast mostly) and would invoke other module
+hotplug code as required.  (roughly @10000 ft level)
 
-Although I haven't thought about it much, I would imagine that most of
-the node hotplug work will involve very similar operations to the cpu
-hotplug work: going through all of the for_each_node() loops and adding
-some locking along with some node_possible() vs. node_online() checks.  
+Iam not sure what specifically you are looking for, please post your specific 
+request to the appropriate lists and iam sure you will get hooked up.
 
--- Dave
+lhcs - cpu hotplug list
+lhms - memory hotplug
+lhns - newly launched node hotplug
 
+all of them hosted from sourceforge.
+
+Hope this helps.
+> just noticed the thread on lkml by Keiichiro, with comments from Dave,
+> mentioning Matthew, hinting at additional interactions that might be
+> desirable between various efforts here.  I even see some SGI work here.
+> 
+> Perhaps if I had been following this for a while, it would all make sense.
+> But I haven't been, and it doesn't.
+
+
+Cheers,
+ashok
