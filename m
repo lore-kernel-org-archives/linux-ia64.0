@@ -1,48 +1,70 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Fri, 25 Mar 2005 05:22:02 +0000
-Subject: Re: [PATCH] pte prefetching
-Message-Id: <42439FFA.7040300@yahoo.com.au>
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 18 Mar 2005 07:04:37 +0000
+Subject: [patch 2.6.11] __copy_user breaks on unaligned src
+Message-Id: <12404.1111129477@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <424269B9.9020306@yahoo.com.au>
-In-Reply-To: <424269B9.9020306@yahoo.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
->>>>>>On Thu, 24 Mar 2005 18:18:17 +1100, Nick Piggin <nickpiggin@yahoo.com.au> said:
-> 
-> 
->   Nick> After applying the recent freepgt patchset from Hugh (on
->   Nick> lkml), the time to fork+exit a process mapping 64GB of address
->   Nick> (32MB of page tables) is 0.471s. With the prefetch patch, this
->   Nick> drops to 0.357s.
-> 
+memcpy_mck.S::__copy_user breaks in the prefetch code under these
+conditions :-
 
-Sorry, above numbers were wrong:
-0.118s versus 0.089s. Improvement ratio is the same, I just used the
-wrong divisor.
+* src is unaligned and
+* dst is near the end of a page and
+* the page after dst is unmapped.
 
-> Looks like a nice improvement to me.
-> 
-> Does prefetching 1 line ahead give the best results?  That's only
-> 128/8 PTEs.  Assuming a 200 cycle latency, this would allow
-> for only 12.5 cycles/iteration.  Especially for large (NUMA) machines,
-> prefetching further out might help more.
-> 
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-Hmm... yeah it may do. Although I don't think that changes your cycles
-/ iteration ratio, does it? Just allows for for a little bit more
-variation.
+Index: linux/arch/ia64/lib/memcpy_mck.S
+=================================--- linux.orig/arch/ia64/lib/memcpy_mck.S	2005-03-02 18:38:38.000000000 +1100
++++ linux/arch/ia64/lib/memcpy_mck.S	2005-03-18 17:49:44.000000000 +1100
+@@ -300,7 +300,7 @@ .unaligned_src
+ 	add	src_pre_mem=0,src0	// prefetch src pointer
+ 	add	dst_pre_mem=0,dst0	// prefetch dest pointer
+ 	and	src0=-8,src0		// 1st src pointer
+-(p7)	mov	ar.lc = r21
++(p7)	mov	ar.lc = cnt
+ (p8)	mov	ar.lc = r0
+ 	;;
+ 	TEXT_ALIGN(32)
 
-I just retested, and prefetching 2 lines ahead gives virtually the same
-performance.
 
-But actually, my tests are set up so each pte page has only a single
-'present' pte (I did it that way to speed up initial faulting time).
-So the loop will almost always get stopped by the pte_none tests. So
-perhaps that is able to complete in close to or less than 12 cycles.
+Test module follows.  vmalloc two pages, they should be contiguous.
+Free the second page.  Using the first page, copy from an unaligned src
+to the end of the page - 0x100, for a length of 0x100.  __copy_user
+breaks at lfetch.fault.excl [dst_pre_mem], 128 in .unaligned_src.
 
-Nick
+The loop count in r21 is 1 value too high.  A length of 0x100 gives
+ar.lc = r21 = 2.  .unaligned_src incorrectly copies r21 into ar.lc,
+when it should copy cnt, so the lfetch lines are executed 3 times, not
+2.  That takes dst_pre_mem past the end of the page and into an
+unallocated area, oops.
+
+#include <linux/config.h>
+#include <linux/vmalloc.h>
+#include <linux/module.h>
+#include <asm/uaccess.h>
+
+MODULE_LICENSE("GPL");
+
+static int __init init_memcpy_test(void)
+{
+	char *p, *p1;
+	printk("%s: start\n", __FUNCTION__);
+	p = vmalloc(PAGE_SIZE);
+	p1 = vmalloc(PAGE_SIZE);
+	printk("%s: p %p p1 %p\n", __FUNCTION__, p, p1);
+	vfree(p1);
+	__copy_user(p+PAGE_SIZE-0x100, p+0x854, 0x100);
+	vfree(p);
+	printk("%s: end\n", __FUNCTION__);
+	return 0;
+}
+
+static void __exit exit_memcpy_test(void) {}
+
+module_init(init_memcpy_test)
+module_exit(exit_memcpy_test)
 
