@@ -1,80 +1,238 @@
-From: Daniel McNeil <daniel@osdl.org>
-Date: Wed, 14 Jul 2004 18:36:41 +0000
-Subject: [PATCH] mmap PROT_NONE fix (was Re: serious performance regression
-Message-Id: <1089830200.2285.25.camel@ibm-c.pdx.osdl.net>
+From: "Goldwyn Rodrigues" <Goldwynr@noida.hcltech.com>
+Date: Fri, 09 Jul 2004 08:12:27 +0000
+Subject: [PATCH] Pushing ext3 file size limits beyond 2TB
+Message-Id: <33BC33A9E76474479B76AD0DE8A169728DB2@exch-ntd.nec.noida.hcltech.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200407100528.i6A5SF8h020094@napali.hpl.hp.com>
-	 <Pine.LNX.4.58.0407110437310.26065@devserv.devel.redhat.com>
-	 <Pine.LNX.4.58.0407110536130.2248@devserv.devel.redhat.com>
-	 <Pine.LNX.4.58.0407110550340.4229@devserv.devel.redhat.com>
-	 <20040711123803.GD21264@devserv.devel.redhat.com>
-	 <Pine.LNX.4.58.0407121402160.2451@devserv.devel.redhat.com>
-	 <Pine.LNX.4.58.0407121315170.1764@ppc970.osdl.org>
-	 <16626.62318.880165.774044@napali.hpl.hp.com>
-	 <Pine.LNX.4.58.0407122358570.13111@devserv.devel.redhat.com>
-	 <1089734729.1356.79.camel@markh1.pdx.osdl.net>
-	 <1089737382.2600.60.camel@ibm-c.pdx.osdl.net>
-In-Reply-To: <1089737382.2600.60.camel@ibm-c.pdx.osdl.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@redhat.com>
-Cc: Mark Haverkamp <markh@osdl.org>, davidm@hpl.hp.com, Linus Torvalds <torvalds@osdl.org>, Jakub Jelinek <jakub@redhat.com>, suresh.b.siddha@intel.com, jun.nakajima@intel.com, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: "Linux-Ia64 (E-mail)" <linux-ia64@vger.kernel.org>, "Linux-Kernel (E-mail)" <linux-kernel@vger.kernel.org>
+Cc: "Andreas Dilger (E-mail)" <adilger@clusterfs.com>, "Jan-Benedict Glaw (E-mail)" <jbglaw@lug-owl.de>
 
-This patch fixes mmap PROT_NONE from elf binaries that do not
-have the PT_GNU_STACK so that the do not have execute permission.
+Hi,
 
-Before this fix, calling access() with a PROT_NONE page
-was returning ENOENT instead of EFAULT.
+This patch is to push file-size limit beyond 2TB. This is done by using 
+some unused fields, namely i_frag and i_fsize, of the ext3_inode to 
+store higher order bits of the i_blocks.
 
-BEFORE: 
-$ x.gcc322
-p2=0x40013000
-pid82
+i_blocks in all references have been changed to data type sector_t in order 
+to accomodate 64 bits.
+
+Changes to previous patch posted (This patch is complete in itself):
+1. Read-only compatibility flag of many blocks is now independent of 
+   file size compatibility flag.
+2. Changed the help of the Kconfig file to demonstrate the same.
+
+Kernel Version Used: 2.6.7
+
+Thanks Andreas for your comments and help.
+
+Regards,
+
+-- 
+Goldwyn :o)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+System Software CoE @ HCLT-Noida
+http://www.hcltechnologies.com
+Ph. : +91-120-2510701/702 Ext : 3155
+FAX : +91-120-2510713
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+diff -rup linux-2.6.7.orig/fs/ext3/inode.c linux-2.6.7/fs/ext3/inode.c
+--- linux-2.6.7.orig/fs/ext3/inode.c	2004-07-01 11:40:30.000000000 +0530
++++ linux-2.6.7/fs/ext3/inode.c	2004-07-09 09:54:28.000000000 +0530
+@@ -353,7 +353,7 @@ static inline int verify_chain(Indirect 
+  */
  
-access 0 ptr (nil) return code -1 errno 14
-access result:: Bad address
-access 1 ptr 0xffffffff return code -1 errno 14
-access result:: Bad address
-access 2 ptr 0x40013000 return code -1 errno 2
-access result:: No such file or directory
-
-AFTER:
-
-$ ./x.gcc322
-p2=0x40017000
-pid$92
-                                                                                
-access 0 ptr (nil) return code -1 errno 14
-access result:: Bad address
-access 1 ptr 0xffffffff return code -1 errno 14
-access result:: Bad address
-access 2 ptr 0x40017000 return code -1 errno 14
-access result:: Bad address
-
-
-Program available at
-http://developer.osdl.org/daniel/mmap.PROT_NONE.bug/
-
-Here is the patch.
-
-Signed-off-by: Daniel McNeil <daniel@osdl.org>
-
-
-=== mm/mmap.c 1.133 vs edited ==--- 1.133/mm/mmap.c	2004-06-29 07:43:12 -07:00
-+++ edited/mm/mmap.c	2004-07-14 09:56:37 -07:00
-@@ -792,6 +792,12 @@
- 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
- 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
+ static int ext3_block_to_path(struct inode *inode,
+-			long i_block, int offsets[4], int *boundary)
++			sector_t i_block, int offsets[4], int *boundary)
+ {
+ 	int ptrs = EXT3_ADDR_PER_BLOCK(inode->i_sb);
+ 	int ptrs_bits = EXT3_ADDR_PER_BLOCK_BITS(inode->i_sb);
+@@ -905,7 +905,7 @@ ext3_direct_io_get_blocks(struct inode *
+  * `handle' can be NULL if create is zero
+  */
+ struct buffer_head *ext3_getblk(handle_t *handle, struct inode * inode,
+-				long block, int create, int * errp)
++				sector_t block, int create, int * errp)
+ {
+ 	struct buffer_head dummy;
+ 	int fatal = 0, err;
+@@ -955,10 +955,10 @@ struct buffer_head *ext3_getblk(handle_t
+ }
  
-+	/*
-+	 * mm->def_flags might have VM_EXEC set, which PROT_NONE does NOT want.
-+	 */
-+	if (prot = PROT_NONE)
-+		vm_flags &= ~VM_EXEC;
+ struct buffer_head *ext3_bread(handle_t *handle, struct inode * inode,
+-			       int block, int create, int *err)
++			       sector_t block, int create, int *err)
+ {
+ 	struct buffer_head * bh;
+-	int prev_blocks;
++	sector_t prev_blocks;
+ 
+ 	prev_blocks = inode->i_blocks;
+ 
+@@ -2136,7 +2136,7 @@ void ext3_truncate(struct inode * inode)
+ 	Indirect *partial;
+ 	int nr = 0;
+ 	int n;
+-	long last_block;
++	sector_t last_block;
+ 	unsigned blocksize = inode->i_sb->s_blocksize;
+ 	struct page *page;
+ 
+@@ -2526,6 +2526,11 @@ void ext3_read_inode(struct inode * inod
+ 					 * (for stat), not the fs block
+ 					 * size */  
+ 	inode->i_blocks = le32_to_cpu(raw_inode->i_blocks);
++#ifdef CONFIG_EXT3_MANY_BLOCKS_SUPPORT
++	inode->i_blocks |= ((__u64)le32_to_cpu(raw_inode->i_blocks_high)) << 32;
++	inode->i_blocks |= ((__u64)le32_to_cpu(raw_inode->i_blocks_high1)) << 40;
++#endif
 +
- 	if (flags & MAP_LOCKED) {
- 		if (!capable(CAP_IPC_LOCK))
- 			return -EPERM;
-
+ 	ei->i_flags = le32_to_cpu(raw_inode->i_flags);
+ #ifdef EXT3_FRAGMENTS
+ 	ei->i_faddr = le32_to_cpu(raw_inode->i_faddr);
+@@ -2638,6 +2643,10 @@ static int ext3_do_update_inode(handle_t
+ 	raw_inode->i_ctime = cpu_to_le32(inode->i_ctime.tv_sec);
+ 	raw_inode->i_mtime = cpu_to_le32(inode->i_mtime.tv_sec);
+ 	raw_inode->i_blocks = cpu_to_le32(inode->i_blocks);
++#ifdef CONFIG_EXT3_MANY_BLOCKS_SUPPORT
++	raw_inode->i_blocks_high = (__u8)cpu_to_le32(inode->i_blocks >> 32);
++	raw_inode->i_blocks_high1 = (__u8)cpu_to_le32(inode->i_blocks >> 40);
++#endif
+ 	raw_inode->i_dtime = cpu_to_le32(ei->i_dtime);
+ 	raw_inode->i_flags = cpu_to_le32(ei->i_flags);
+ #ifdef EXT3_FRAGMENTS
+@@ -2673,6 +2682,29 @@ static int ext3_do_update_inode(handle_t
+ 						EXT3_SB(sb)->s_sbh);
+ 			}
+ 		}
++		if (inode->i_blocks > 0xffffffffULL) {
++			struct super_block *sb = inode->i_sb;
++			if (!EXT3_HAS_RO_COMPAT_FEATURE(sb,
++					EXT3_FEATURE_RO_COMPAT_MANY_BLOCKS) ||
++				EXT3_SB(sb)->s_es->s_rev_level =
++					cpu_to_le32(EXT3_GOOD_OLD_REV)) {
++				/* If this is the first file
++				 * with many blocks created,
++				 * flag the super block
++				 */
++				err = ext3_journal_get_write_access(handle,
++						EXT3_SB(sb)->s_sbh);
++				if (err)
++					goto out_brelse;
++				ext3_update_dynamic_rev(sb);
++				EXT3_SET_RO_COMPAT_FEATURE(sb,
++					EXT3_FEATURE_RO_COMPAT_MANY_BLOCKS);
++				sb->s_dirt = 1;
++				handle->h_sync = 1;
++				err = ext3_journal_dirty_metadata(handle,
++						EXT3_SB(sb)->s_sbh);
++			}
++		}
+ 	}
+ 	raw_inode->i_generation = cpu_to_le32(inode->i_generation);
+ 	if (S_ISCHR(inode->i_mode) || S_ISBLK(inode->i_mode)) {
+diff -rup linux-2.6.7.orig/fs/ext3/super.c linux-2.6.7/fs/ext3/super.c
+--- linux-2.6.7.orig/fs/ext3/super.c	2004-07-01 11:40:30.000000000 +0530
++++ linux-2.6.7/fs/ext3/super.c	2004-07-09 09:49:24.000000000 +0530
+@@ -1172,8 +1172,11 @@ static loff_t ext3_max_size(int bits)
+ 	res += 1LL << (2*(bits-2));
+ 	res += 1LL << (3*(bits-2));
+ 	res <<= bits;
+-	if (res > (512LL << 32) - (1 << bits))
+-		res = (512LL << 32) - (1 << bits);
++#if !defined(CONFIG_EXT3_MANY_BLOCKS_SUPPORT)
++        if (res > (512LL << 32) - (1 << bits))
++                res = (512LL << 32) - (1 << bits);
++#endif
++
+ 	return res;
+ }
+ 
+diff -rup linux-2.6.7.orig/fs/Kconfig linux-2.6.7/fs/Kconfig
+--- linux-2.6.7.orig/fs/Kconfig	2004-07-01 11:40:29.000000000 +0530
++++ linux-2.6.7/fs/Kconfig	2004-07-09 09:49:24.000000000 +0530
+@@ -114,6 +114,26 @@ config EXT3_FS
+ 	  of your root partition (the one containing the directory /) cannot
+ 	  be compiled as a module, and so this may be dangerous.
+ 
++config EXT3_MANY_BLOCKS_SUPPORT
++	bool "Many Blocks Support (EXPERIMENTAL)"
++	depends on EXT3_FS && LBD
++	default n
++	help
++	  Ext3 filesystem currently has a limit of 2TB on i386. This 
++	  limitation comes from the fact that i_blocks in the on-disk
++	  inode can hold only 32-bit unsigned integers. 
++
++	  This experimental release extends this limit by using the 
++	  some unused/ unreserved fields in the inode. This feature 
++	  is compatible with existing EXT3 filesystem. However, if 
++	  you make files greater than the earlier imposed limits, 
++	  you would have to mount the partitions as read-only in 
++	  earlier kernels.
++
++	  If unsure say N.
++		
++
+ config EXT3_FS_XATTR
+ 	bool "Ext3 extended attributes"
+ 	depends on EXT3_FS
+diff -rup linux-2.6.7.orig/include/linux/ext3_fs.h linux-2.6.7/include/linux/ext3_fs.h
+--- linux-2.6.7.orig/include/linux/ext3_fs.h	2004-07-01 11:26:55.000000000 +0530
++++ linux-2.6.7/include/linux/ext3_fs.h	2004-07-09 09:49:24.000000000 +0530
+@@ -296,6 +296,11 @@ struct ext3_inode {
+ 
+ #endif /* defined(__KERNEL__) || defined(__linux__) */
+ 
++#ifdef CONFIG_EXT3_MANY_BLOCKS_SUPPORT
++#define i_blocks_high		i_frag
++#define i_blocks_high1		i_fsize
++#endif
++
+ /*
+  * File system states
+  */
+@@ -505,6 +510,7 @@ static inline struct ext3_inode_info *EX
+ #define EXT3_FEATURE_RO_COMPAT_SPARSE_SUPER	0x0001
+ #define EXT3_FEATURE_RO_COMPAT_LARGE_FILE	0x0002
+ #define EXT3_FEATURE_RO_COMPAT_BTREE_DIR	0x0004
++#define EXT3_FEATURE_RO_COMPAT_MANY_BLOCKS	0x0008
+ 
+ #define EXT3_FEATURE_INCOMPAT_COMPRESSION	0x0001
+ #define EXT3_FEATURE_INCOMPAT_FILETYPE		0x0002
+@@ -518,6 +524,7 @@ static inline struct ext3_inode_info *EX
+ 					 EXT3_FEATURE_INCOMPAT_META_BG)
+ #define EXT3_FEATURE_RO_COMPAT_SUPP	(EXT3_FEATURE_RO_COMPAT_SPARSE_SUPER| \
+ 					 EXT3_FEATURE_RO_COMPAT_LARGE_FILE| \
++					 EXT3_FEATURE_RO_COMPAT_MANY_BLOCKS| \
+ 					 EXT3_FEATURE_RO_COMPAT_BTREE_DIR)
+ 
+ /*
+@@ -718,8 +725,8 @@ extern unsigned long ext3_count_free (st
+ 
+ /* inode.c */
+ extern int ext3_forget(handle_t *, int, struct inode *, struct buffer_head *, int);
+-extern struct buffer_head * ext3_getblk (handle_t *, struct inode *, long, int, int *);
+-extern struct buffer_head * ext3_bread (handle_t *, struct inode *, int, int, int *);
++extern struct buffer_head * ext3_getblk (handle_t *, struct inode *, sector_t, int, int *);
++extern struct buffer_head * ext3_bread (handle_t *, struct inode *, sector_t, int, int *);
+ 
+ extern void ext3_read_inode (struct inode *);
+ extern void ext3_write_inode (struct inode *, int);
+diff -rup linux-2.6.7.orig/include/linux/fs.h linux-2.6.7/include/linux/fs.h
+--- linux-2.6.7.orig/include/linux/fs.h	2004-07-01 11:40:45.000000000 +0530
++++ linux-2.6.7/include/linux/fs.h	2004-07-09 09:49:24.000000000 +0530
+@@ -426,7 +426,7 @@ struct inode {
+ 	unsigned int		i_blkbits;
+ 	unsigned long		i_blksize;
+ 	unsigned long		i_version;
+-	unsigned long		i_blocks;
++	sector_t		i_blocks;
+ 	unsigned short          i_bytes;
+ 	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
+ 	struct semaphore	i_sem;
 
