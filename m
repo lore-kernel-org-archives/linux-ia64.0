@@ -1,7 +1,7 @@
-From: Erich Focht <focht@ess.nec.de>
-Date: Mon, 10 Sep 2001 20:31:46 +0000
-Subject: Re: [Linux-ia64] IA64 Linux Kernel Page Sizes
-Message-Id: <marc-linux-ia64-105590698805159@msgid-missing>
+From: "Seth, Rohit" <rohit.seth@intel.com>
+Date: Mon, 10 Sep 2001 22:48:05 +0000
+Subject: RE: [Linux-ia64] IA64 Linux Kernel Page Sizes
+Message-Id: <marc-linux-ia64-105590698805162@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805131@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805131@msgid-missing>
@@ -9,6 +9,26 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Erich,
+I will put the kernel binary on ftp.intel.com (I'm currently having problems
+ftping to that site) for you to download.  If you want I can put the tar of
+modified files (no patch) on that site also.  And will let you know.
+Meanwhile if you and Donny are in same place (both of you have ....nec... in
+your addresses) then you can get the kernel binary and other info (for apps
+to use this feature) from him.
+
+I'll let you know once I have downloaded the files to ftp site.
+
+rohit
+
+-----Original Message-----
+From: Erich Focht [mailto:focht@ess.nec.de]
+Sent: Monday, September 10, 2001 1:32 PM
+To: Seth, Rohit
+Cc: Donny Cooper; linux-ia64@linuxia64.org
+Subject: Re: [Linux-ia64] IA64 Linux Kernel Page Sizes
+
 
 Dear Rohit,
 
@@ -30,16 +50,23 @@ NEC European Supercomputer Systems, European HPC Technology Center
 On Fri, 7 Sep 2001, Seth, Rohit wrote:
 
 > I have an early prototype of super large page(256MB) implementation.  This
-> is only a proof of concept for large apps (and configurations) to use super
-> large pages.  The use is for apps that need large data regions (Instructions
+> is only a proof of concept for large apps (and configurations) to use
+super
+> large pages.  The use is for apps that need large data regions
+(Instructions
 > and regular data still use regular page size). Current implementation is
 > through shared memory calls (shmat) with either SHM_LPAGE (a new flag) or
-> size of requested segment >=LPAGE_SIZE(256MB).  In either case the size has
-> to be multiple of LPAGE_SIZE to get a large shared memory segment.  Further
+> size of requested segment >=LPAGE_SIZE(256MB).  In either case the size
+has
+> to be multiple of LPAGE_SIZE to get a large shared memory segment.
+Further
 > the whole physical memory is divided in two parts, one that is seen by
-> kernel and the other that is only used to fill in large page requests.  And
-> there is no moving of memory between two parts (in case of shortages). This
-> implementation is based on 2.4.5 kernel.  Currently IA-32 apps don't work in
+> kernel and the other that is only used to fill in large page requests.
+And
+> there is no moving of memory between two parts (in case of shortages).
+This
+> implementation is based on 2.4.5 kernel.  Currently IA-32 apps don't work
+in
 > this environment, but that can be fixed.
 > 
 > Let me know if this fits in your requirements and you want to give this a
@@ -94,5 +121,4 @@ On Fri, 7 Sep 2001, Seth, Rohit wrote:
 > dcooper@atcc.necsys.com
 > www.necservers.com
 > -----------------------------------
-
 
