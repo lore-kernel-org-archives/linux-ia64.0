@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 10 Jan 2002 03:40:34 +0000
+Date: Fri, 11 Jan 2002 05:49:48 +0000
 Subject: [Linux-ia64] Re: can we make anonymous memory non-EXECUTABLE?
-Message-Id: <marc-linux-ia64-105590698805786@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805808@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805771@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805771@msgid-missing>
@@ -10,78 +10,82 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 10 Jan 2002 12:04:22 +1100 (EST), Paul Mackerras <paulus@samba.org> said:
+How about the attached patch?  It gives platform-dependent code the
+option to turn off execute permission on data pages by defining a
+suitable value for DATA_PAGE_DEFAULT_RIGHTS in asm/page.h.  If a
+platform doesn't define this macro, the old behavior applies (data
+pages continue to be executable by default).  For IA-64, the macro is
+defined such that data pages will be executable by default only for
+x86 processes (unlike real x86 CPUs, the x86 hardware emulator inside
+Itanium does check the execute bit, so this is really needed).
 
-  Paul> David Mosberger writes:
-  >> The traditional intended behavior of Linux is that anonymous
-  >> memory has the EXECUTE permission turned on.  The reason I say
-  >> "intended" behavior is that there appears to be an old bug in the
-  >> kernel in this respect.  Specifically, the ELF data section is
-  >> normally mapped with READ+WRITE permission (no EXECUTE
-  >> permission).  The initial break
+I have booted an ia64 machine with this patch applied without any
+problems and also tested an x86 program that does dynamic code
+generation so the basics appear to be right.
 
-  Paul> The permissions come from the ELF program header, so if your
-  Paul> data section is mapped without execute permission, then I
-  Paul> would see that as a binutils issue rather than a kernel issue.
+Oh, I dropped the call to calc_vm_flags() in do_brk().  I didn't see
+the point of it.  Perhaps I missed something, though.
 
-Yes, that's one (among many other possible) solution.
-
-  >> What I'm wondering: how do others feel about this issue?  Since
-  >> x86 wont be affected by this, I'm especially interested in the
-  >> opinion of the maintainers of non-x86 platforms.
-
-  Paul> I think that if you have per-page execute permission, you
-  Paul> should mark dirty pages as non-executable and flush if the
-  Paul> user process tries to execute from them - which sounds like
-  Paul> what you are doing already.  With that there is no performance
-  Paul> advantage to having anonymous memory being non-executable.
-
-That's what we do on ia64 also.  There is a performance penalty though
-for programs that *do* generate code dynamically (in the form of
-additional page faults).  I don't think it's a huge issue, but like I
-said earlier: if there is a simple solution that gets rid of the
-problem entirely, I'd prefer that.
-
-  Paul> BTW, where do you put your sigreturn trampoline?  On PPC we
-  Paul> put it on the stack, as on ia32.  If you do too, and you make
-  Paul> the stack non-executable then clearly you will need to find
-  Paul> somewhere else for it.
-
-On ia64, we simply map the trampoline in the kernel's gate page.  This
-is a special page that can be executed by user level, but not read or
-written (in the future, we may use this page for system calls, too).
-No dynamic code generation needed for this (indeed, we even share the
-TLB entry across all processes ;-).
-
-Wouldn't it be better to use the sa_restorer approach on PPC like x86
-and Alpha (and probably others) do?  That would avoid dynamic code
-generation.
-
-  Paul> As to whether it is better from a security point of view to
-  Paul> make anonymous memory non-executable, it probably is.  I guess
-  Paul> you have the opportunity on ia64 to do that since there aren't
-  Paul> a lot of ia64 machines around yet.  If you want to do that,
-  Paul> now is the time to do it and find whatever bugs there are in
-  Paul> glibc relating to that.
-
-Yes, my thinking exactly.
-
-  Paul> Whatever you decide won't have much impact on PPC since very
-  Paul> few PowerPC chips support per-page execute permission.
-
-Right.  I hope it's fair to say that the principle could/should be:
-
-	- applications must use mprotect() to ensure malloc'd memory
-	  is executable
-
-	- Linux platforms *may* choose to enforce this by making
-	  sbrk() memory not EXECUTABLE by default
-
-This way, we can turn of execute permission on ia64 and the other
-platforms have the choice whether to follow suite or to leave things
-as they are.
-
-Thanks,
+If it looks OK to you, would you mind applying this for 2.5?  (The
+patch is relative to 2.5.0, but it's trivial enough that this won't be
+a problem, hopefully).
 
 	--david
+
+PS: Note that this patch does not solve the original bug I reported
+    for platforms that do have an EXECUTABLE permission bit.  If you
+    don't want to risk breaking backwards compatibility, your best bet
+    is probably to follow Paul's suggestion and modify binutils so the
+    data section gets mapped with RWX rights (won't help with existing
+    binaries, of course).
+
+--- linux-2.5.0/mm/mmap.c	Mon Nov  5 18:29:05 2001
++++ lia64-kdb/mm/mmap.c	Thu Jan 10 18:01:39 2002
+@@ -1046,10 +1052,7 @@
+ 	if (!vm_enough_memory(len >> PAGE_SHIFT))
+ 		return -ENOMEM;
+ 
+-	flags = calc_vm_flags(PROT_READ|PROT_WRITE|PROT_EXEC,
+-				MAP_FIXED|MAP_PRIVATE) | mm->def_flags;
+-
+-	flags |= VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
++	flags = DATA_PAGE_DEFAULT_RIGHTS | mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
+ 
+ 	/* Can we just expand an old anonymous mapping? */
+ 	if (rb_parent && vma_merge(mm, prev, rb_parent, addr, addr + len, flags))
+--- linux-2.5.0/include/linux/mm.h	Mon Nov 26 21:29:07 2001
++++ lia64-kdb/include/linux/mm.h	Thu Jan 10 21:05:41 2002
+@@ -103,7 +103,14 @@
+ #define VM_DONTEXPAND	0x00040000	/* Cannot expand with mremap() */
+ #define VM_RESERVED	0x00080000	/* Don't unmap it from swap_out */
+ 
+-#define VM_STACK_FLAGS	0x00000177
++#ifndef DATA_PAGE_DEFAULT_RIGHTS
++  /* Historically, Linux mapped data with execute rights, but some
++     platforms (e.g., ia64) use non-executable data by default.  Those
++     platforms define their own value for this macro.  */
++# define DATA_PAGE_DEFAULT_RIGHTS	(VM_READ|VM_WRITE|VM_EXEC)
++#endif
++
++#define VM_STACK_FLAGS	(0x00000170 | DATA_PAGE_DEFAULT_RIGHTS)
+ 
+ #define VM_READHINTMASK			(VM_SEQ_READ | VM_RAND_READ)
+ #define VM_ClearReadHint(v)		(v)->vm_flags &= ~VM_READHINTMASK
+--- linux-2.5.0/include/asm-ia64/page.h	Mon Nov 26 11:19:18 2001
++++ lia64-kdb/include/asm-ia64/page.h	Thu Jan 10 18:48:34 2002
+@@ -148,6 +148,13 @@
+ # define __pgprot(x)	(x)
+ #endif /* !STRICT_MM_TYPECHECKS */
+ 
+-#define PAGE_OFFSET		0xe000000000000000
++#define PAGE_OFFSET			0xe000000000000000
++
++#ifdef CONFIG_IA32_SUPPORT
++# define DATA_PAGE_DEFAULT_RIGHTS	(VM_READ|VM_WRITE |					\
++					 ((current->personality = PER_LINUX32) ? VM_EXEC : 0))
++#else
++# define DATA_PAGE_DEFAULT_RIGHTS	(VM_READ|VM_WRITE)
++#endif
+ 
+ #endif /* _ASM_IA64_PAGE_H */
 
