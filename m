@@ -1,65 +1,114 @@
-From: Robin Holt <holt@sgi.com>
-Date: Tue, 15 Mar 2005 19:34:33 +0000
-Subject: [Patch 2/3] Free page tables belonging to remote nodes.
-Message-Id: <20050315193433.GC25617@lnx-holt.americas.sgi.com>
+From: Ashok Raj <ashok.raj@intel.com>
+Date: Mon, 14 Mar 2005 23:50:04 +0000
+Subject: Fix irq_affinity write from /proc for IPF
+Message-Id: <20050314155004.A22573@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050302184103.GC16517@lnx-holt.americas.sgi.com>
-In-Reply-To: <20050302184103.GC16517@lnx-holt.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: akpm@osdl.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, davidm@hpl.hp.com, hch@lst.de
 
-Tony,
+Hi Andrew/Tony
 
-This patch is simple but necessary for large numa configurations.
-It simply ensures that only pages from the local node are added to a
-cpus quicklist.  This prevents the trapping of pages on a remote nodes
-quicklist by starting a process, touching a large number of pages to
-fill pmd and pte entries, migrating to another node, and then unmapping
-or exiting.  With those conditions, the pages get trapped and if the
-machine has more than 100 nodes of the same size, the calculation of
-the pgtable high water mark will be larger than any single node so page
-table cache flushing will never occur.
+This patch is required for IPF to perform deferred write to rte's when
+affinity is programmed via /proc. These entries can only be programmed when 
+interrupt is pending.
 
-I ran lmbench lat_proc fork and lat_proc exec on a zx1 with and without
-this patch and did not notice any change.
+We will eventually need the same method for x86 and x86_64 as well. 
 
-On an sn2 machine, there was a slight improvement which is possibly
-due to pages from other nodes trapped on the test node before starting
-the run.  I did not investigate further.
+This patch is only for IPF though. (the others are comming, more testing and
+changes needed in my sandbox)
 
-Signed-off-by: Robin Holt <holt@sgi.com>
+Could you please queue this up for next mm candidate? if it looks acceptable.
 
-Before:
-Process fork+exit: 186.7037 microseconds
-Process fork+execve: 699.0000 microseconds
-Process fork+/bin/sh -c: 2960.0000 microseconds
+Since iam touching a common file for GENERIC_HARDIRQ, it would be best it its
+reviwed in the -mm releases for any potential conflicts.
 
-After:
-Process fork+exit: 182.2333 microseconds
-Process fork+execve: 692.7500 microseconds
-Process fork+/bin/sh -c: 2905.5000 microseconds
+[ sorry for the cross post to lia64 ]
 
- pgalloc.h |    9 +++++++++
- 1 files changed, 9 insertions(+)
+-- 
+Cheers,
+Ashok Raj
+- Open Source Technology Center
 
-Index: linux-2.6/include/asm-ia64/pgalloc.h
-=================================--- linux-2.6.orig/include/asm-ia64/pgalloc.h	2005-03-15 07:10:18.790421107 -0600
-+++ linux-2.6/include/asm-ia64/pgalloc.h	2005-03-15 07:11:40.862761856 -0600
-@@ -61,6 +61,15 @@
+
+
+---
+fix_ia64_smp_affinity - Make GENERIC_HARDIRQ work for IPF and CPU Hotplug
+
+Signed-off-by: Ashok Raj <ashok.raj@intel.com>
+
+Made GENERIC_HARDIRQ mechanism work for IPF and CPU hotplug. When write to 
+/proc/irq is handled it is not appropriate to perform set_rte immediatly, 
+since there is a race when the interrupt is asserted while the re-program 
+is happening. Hence such programming is only safe when we do the re-program 
+at the time of servicing an interrupt. This got broken when GENERIC_HARDIRQ 
+got introduced for IPF.
+
+- added CONFIG_PENDING_IRQ so default /proc/irq write handler can do the right 
+  thing.
+
+TBD: We currently dont handle redirectable hint either in the display, or when
+we handle writes to /proc/irq/XX/smp_affinity. We need an arch specific way to 
+account for the presence of "r" hint when we handle the proc write.
+---
+
+ release_dir-araj/arch/ia64/kernel/irq.c |   12 ++++++++++--
+ release_dir-araj/kernel/irq/proc.c      |   10 ++++++++--
+ 2 files changed, 18 insertions(+), 4 deletions(-)
+
+diff -puN arch/ia64/kernel/irq.c~fix_ia64_smp_affinity arch/ia64/kernel/irq.c
+--- release_dir/arch/ia64/kernel/irq.c~fix_ia64_smp_affinity	2005-03-14 14:35:44.589293491 -0800
++++ release_dir-araj/arch/ia64/kernel/irq.c	2005-03-14 15:27:54.262106715 -0800
+@@ -94,12 +94,20 @@ skip:
+ /*
+  * This is updated when the user sets irq affinity via /proc
+  */
+-cpumask_t __cacheline_aligned pending_irq_cpumask[NR_IRQS];
++static cpumask_t __cacheline_aligned pending_irq_cpumask[NR_IRQS];
+ static unsigned long pending_irq_redir[BITS_TO_LONGS(NR_IRQS)];
  
- static inline void pgtable_quicklist_free(void *pgtable_entry)
+-static cpumask_t irq_affinity [NR_IRQS] = { [0 ... NR_IRQS-1] = CPU_MASK_ALL };
+ static char irq_redir [NR_IRQS]; // = { [0 ... NR_IRQS-1] = 1 };
+ 
++/*
++ * Arch specific routine for deferred write to iosapic rte to reprogram
++ * intr destination.
++ */
++void proc_set_irq_affinity(unsigned int irq, cpumask_t mask_val)
++{
++	pending_irq_cpumask[irq] = mask_val;
++}
++
+ void set_irq_affinity_info (unsigned int irq, int hwid, int redir)
  {
-+#ifdef CONFIG_NUMA
-+	unsigned long nid = page_to_nid(virt_to_page(pgtable_entry));
+ 	cpumask_t mask = CPU_MASK_NONE;
+diff -puN kernel/irq/proc.c~fix_ia64_smp_affinity kernel/irq/proc.c
+--- release_dir/kernel/irq/proc.c~fix_ia64_smp_affinity	2005-03-14 14:41:05.475031747 -0800
++++ release_dir-araj/kernel/irq/proc.c	2005-03-14 15:27:59.436911339 -0800
+@@ -19,6 +19,13 @@ static struct proc_dir_entry *root_irq_d
+  */
+ static struct proc_dir_entry *smp_affinity_entry[NR_IRQS];
+ 
++void __attribute__((weak))
++proc_set_irq_affinity(unsigned int irq, cpumask_t mask_val)
++{
++	irq_affinity[irq] = mask_val;
++	irq_desc[irq].handler->set_affinity(irq, mask_val);
++}
 +
-+	if (unlikely(nid != numa_node_id())) {
-+		free_page((unsigned long)pgtable_entry);
-+		return;
-+	}
-+#endif
-+
- 	preempt_disable();
- 	*(unsigned long *)pgtable_entry = (unsigned long)pgtable_quicklist;
- 	pgtable_quicklist = (unsigned long *)pgtable_entry;
+ static int irq_affinity_read_proc(char *page, char **start, off_t off,
+ 				  int count, int *eof, void *data)
+ {
+@@ -53,8 +60,7 @@ static int irq_affinity_write_proc(struc
+ 	if (cpus_empty(tmp))
+ 		return -EINVAL;
+ 
+-	irq_affinity[irq] = new_value;
+-	irq_desc[irq].handler->set_affinity(irq, new_value);
++	proc_set_irq_affinity(irq, new_value);
+ 
+ 	return full_count;
+ }
+_
