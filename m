@@ -1,7 +1,7 @@
-From: Christopher Wedgwood <cw@sgi.com>
-Date: Wed, 16 Jul 2003 18:23:58 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 17 Jul 2003 17:42:23 +0000
 Subject: Re: [PATCH] (2.4.21-bjorn-bk) Minimalist PAL mapping for SN2
-Message-Id: <marc-linux-ia64-105838014023148@msgid-missing>
+Message-Id: <marc-linux-ia64-105846378209951@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105832171829546@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105832171829546@msgid-missing>
@@ -10,22 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Jul 16, 2003 at 08:22:37AM -0700, Luck, Tony wrote:
+On Tuesday 15 July 2003 8:14 pm, Christopher Wedgwood wrote:
+> Altix/SN2 presently has the PAL located in a granule that has mixed
+> cachability --- for this reason we need to map the PAL using the
+> smallest mapping possible.
 
-> If SN2 guarantees that the PAL code is the only executable code in
-> the whole of your mixed cacheability granule, then this code is
-> safe.
+We had a big discussion inside HP a while back about a similar
+issue (firmware reported a region that required run-time mapping
+inside a granule that also contained a hole).  We pushed hard to
+make everything inside a granule have the same attributes.
 
-Yes, for SN2 this works and is what I presently use here.
+Given that you're stuck with this situation:
 
-Somewhere I have/had an instrumented version of the ivt code which
-allows to to profile fault patterns across regions and such-like, by
-sucking data our of /proc and making pretty graphs --- I wrote this
-mostly to ensure what I thought was going on really was and also to
-get some idea of the distribution of things.
+- I hate to clutter the generic efi.c with so much platform-
+  specific stuff.  What are the implications of making this
+  a platform vector?  I don't see any obvious dependencies that
+  prevent us from doing machvec_init() earlier.
 
-Since it doesn't affect non-SN2 users I'm hoping to get something like
-this merged if nobody objects...
+- As Tony mentioned, you might want to verify that there's nothing
+  else in the granule that requires run-time mapping.
 
+- If there are different cacheability attributes within a granule,
+  efi_memmap_walk should remove the granule from efi_memmap.  Do
+  you see that happening?  I guess since PAL is mapped with a TR,
+  we probably can live without it being in the EFI memmap, but since
+  we use the memmap to validate accesses to /dev/mem, the wrong
+  thing will probably happen if you try to read the PAL space.
 
-  --cw
+Bjorn
+
