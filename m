@@ -1,38 +1,27 @@
-From: "Aneesh Kumar K.V" <aneesh.kumar@digital.com>
-Date: Mon, 07 Oct 2002 10:09:36 +0000
-Subject: Re: [Linux-ia64] sigcontext structure
-Message-Id: <marc-linux-ia64-105590701906087@msgid-missing>
+From: Jason P Holland <jholland@cs.selu.edu>
+Date: Wed, 30 Oct 2002 16:18:50 +0000
+Subject: [Linux-ia64] PXE boot off HP zx6000
+Message-Id: <marc-linux-ia64-105590709805294@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701906086@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701906086@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi, 
+hello,
+  i'm trying to do a PXE boot from an HP zx6000 workstation.  My tftp 
+server is version 0.29-3 for Redhat ia4.  I'm also using dhcp 3.0p11-9.  I 
+get the following error from the EFI shell trying to do a lanboot
 
-Using sigaction with siginfo will help you in catching those address. 
+PXE-E05:  Download buffer is smaller than the requested file
+Exit status code: Invalid Parameter
 
-siginfo.si_addr carry the faulting  address 
+i've seen a few messages about this in the archives, but nothing i tried
+has worked.  the file i want to boot off of is pxelinux.0 from the
+syslinux package.  its only 10820 bytes, is the buffer really too small or
+is there another problem i'm just not seeing?  if i need to post some
+config files, please let me know.  thanks
 
-and  the below statement shows how it is calcluated  
-siginfo.si_addr = (void *) (regs->cr_iip + ia64_psr(regs)->ri); 
-
-where regs is pt_regs. 
-
-
-
--aneesh 
-
-
-On Sun, 2002-10-06 at 23:13, shiva chetan wrote:
-> where can i find info on sigcontext structure on linux/ia-64 ?
-> specifically which registers hold the faulting address/type on a
-> segmention fault and the trap no on a SIGTRAP ?
->  
-> thanks
-> chetan
-
+jason
 
 
