@@ -1,7 +1,7 @@
-From: Steffen Persvold <sp@scali.com>
-Date: Fri, 03 May 2002 23:36:47 +0000
-Subject: RE: [Linux-ia64] new kernel patch (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905550@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 08 May 2002 17:49:56 +0000
+Subject: [Linux-ia64] new kernel patch (relative to 2.4.18)
+Message-Id: <marc-linux-ia64-105590701905553@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905293@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905293@msgid-missing>
@@ -10,27 +10,50 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 3 May 2002, David Mosberger wrote:
+An updated ia64 patch for 2.4.18 is now at
+ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.4 in file:
 
-> >>>>> On Fri, 3 May 2002 08:35:59 +0100, Ross Elliott <ross.elliott@infoterra-global.com> said:
->
->   Ross> I had this, I then re-read the system type info in Xconfig and
->   Ross> set it to DIG_compliant. This solved the linking problem,
->   Ross> could not get it to load though.
->
-> With the current patch, you'll have to ignore memory above the 1GB
-> boundary.  You can do this with the mem=1G kernel command line option.
-> Even so, I'm not sure whether the current patch will work.  The next
-> one should.
->
+	linux-2.4.18-ia64-020508.diff.gz
 
-And how far away is this next patch ? Will it be against 2.4.18 too ?
+Most of the changes are backports of 2.5 changes.  For those, see the
+changelog entries at
 
-Regards,
--- 
-Steffen Persvold   | Scalable Linux Systems |   Try out the world's best
- mailto:sp@scali.com |  http://www.scali.com  | performing MPI implementation:
-Tel: (+47) 2262 8950 |   Olaf Helsets vei 6   |      - ScaMPI 1.13.8 -
-Fax: (+47) 2262 8951 |   N0621 Oslo, NORWAY   | >320MBytes/s and <4uS latency
+ http://lia64.bkbits.net:8080/to-linus-2.5/ChangeSet@-7d?nav=index.html
 
+Summary of other changes:
+
+	o Rename "McKinley" to "Itanium 2" (only for user-level
+	  visible stuff, CONFIG_MCKINLEY will stay).
+	o Offer 64KB page size only for Itanium 2.
+	o Change local_irq_restore() to restore ONLY the psr.i bit.
+	o Add ia64_set_psr() as the new way for setting psr.l.
+	o Perfmon-update from Stephane (sans McKinley support, until
+	  the necessary info gets released publically).
+	o Updated Fusion driver (needed for some of HP's zx1 platforms)
+	o Fixed scsi_dma.c to support 64KB page size
+
+Some notes/caveats: the 64KB page size seems to work fine on
+McKinley/Itanium 2 except that "swapon" still hangs for me.  I haven't
+had time to look into this.  If you look at the patch, you'll also see
+that I started merging the "mem_map in virtual memory" patch
+(CONFIG_VIRTUAL_MEM_MAP), which is currently needed on zx1 platforms
+with >1GB of memory.  However, the merge isn't complete and the new
+code isn't working yet.  If you are one of those lucky folks with such
+a machine, you'll have to do the following for now:
+
+	o configure for generic DIG platform (this means you won't get
+	  support for the zx1 hardware I/O TLB)
+	o boot with kernel command line option mem=1G (will ignore all
+	  memory above 1GB)
+
+These issues will get fixed over time, but for now the above should at
+least give you a working kernel.
+
+A slightly earlier version of this patch (without the perfmon update)
+has been tested on the Ski simulator, Big Sur, and the HP zx1
+platform.
+
+Enjoy,
+
+	--david
 
