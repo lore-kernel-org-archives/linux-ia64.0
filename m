@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 06 Mar 2004 07:21:32 +0000
+Date: Sat, 06 Mar 2004 08:39:26 +0000
 Subject: Re: [linux-usb-devel] Re: serious 2.6 bug in USB subsystem?
-Message-Id: <16457.31740.99944.563029@napali.hpl.hp.com>
+Message-Id: <16457.36414.613402.726173@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>
 	<20031028013013.GA3991@kroah.com>
@@ -13,59 +13,51 @@ References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>
 	<16457.12968.365287.561596@napali.hpl.hp.com>
 	<404959A5.6040809@pacbell.net>
 	<16457.26208.980359.82768@napali.hpl.hp.com>
-In-Reply-To: <16457.26208.980359.82768@napali.hpl.hp.com>
+	<16457.31740.99944.563029@napali.hpl.hp.com>
+In-Reply-To: <16457.31740.99944.563029@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Brownell <david-b@pacbell.net>, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it, davidm@hpl.hp.com
+To: davidm@hpl.hp.com
+Cc: David Brownell <david-b@pacbell.net>, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
 
->>>>> On Fri, 5 Mar 2004 21:49:20 -0800, David Mosberger <davidm@linux.hpl.hp.com> said:
+>>>>> On Fri, 5 Mar 2004 23:21:32 -0800, David Mosberger <davidm@linux.hpl.hp.com> said:
 
-  David> It's not an issue of DMA coherency, it's an issue of DMA
-  David> vs. interrupt ordering.  I believe the WHD interrupt is
-  David> arriving at the CPU before the DMA update to the HCCA is
-  David> done.
+  David>  (1) Start of Frame -> (2) update HccaFrameNumber -> (3)
+  David> trigger SF interrupt
 
-Actually, it looks like I misunderstood the OHCI spec on first reading.
-It seems like the causal relationship goes like this:
+  David> Now, suppose you get a WDH interrupt between (1) and (2).
+  David> You'd read the old frame-number yet by the time the interrupt
+  David> from (3) arrives the HC might already be accessing the ED
+  David> that you're about to remove.
 
- (1) Start of Frame -> (2) update HccaFrameNumber -> (3) trigger SF interrupt
+Sorry for the monologue---trying to learn how this is all supposed to
+work...
 
-Now, suppose you get a WDH interrupt between (1) and (2).  You'd read
-the old frame-number yet by the time the interrupt from (3) arrives
-the HC might already be accessing the ED that you're about to remove.
+The OHCI spec says that HccaFrameNumber is updated in this fashion:
 
-If this is correct, then the first patch is probably a better
-approach:
+ (a) send Start-of-Frame
+ (b) HccaFrameNumber <- HcFmNumber.StartingFrame
+ (c) start processing ED (& post SF intr if requested)
 
-=== drivers/usb/host/ohci-q.c 1.48 vs edited ==--- 1.48/drivers/usb/host/ohci-q.c	Tue Mar  2 05:52:46 2004
-+++ edited/drivers/usb/host/ohci-q.c	Fri Mar  5 17:25:55 2004
-@@ -438,7 +451,7 @@
- 	 * behave.  frame_no wraps every 2^16 msec, and changes right before
- 	 * SF is triggered.
- 	 */
--	ed->tick = OHCI_FRAME_NO(ohci->hcca) + 1;
-+	ed->tick = OHCI_FRAME_NO(ohci->hcca) + 2;
- 
- 	/* rm_list is just singly linked, for simplicity */
- 	ed->ed_next = ohci->ed_rm_list;
+Since start_ed_unlink() uses the following sequence:
 
-This actually makes tons of sense if you think of it like jiffies: you
-need to make sure you delay at least one full frame-interval.  If you
-set the tick to "+ 1" and the current tick is almost over, that
-requirement is violated.  Setting it to "+ 2" should be safe.  The
-only problem I can think of is if the delay between point (1) and (2)
-were to exceed one frame-interval (1 msec).  While unlikely, the right
-PCI topology and heavy bus traffic perhaps could cause such delays.
-However, even then it's probably OK because the HC would presumably
-stall when trying to update the HccaFrameNumber the second time and
-the previous update hasn't completed yet.
+ (1) ed->hwINFO |= ED_DEQUEUE
+ (2) ed->tick = OHCI_FRAME_NO(ohci->hcca) + 1
 
-Here is one little piece of evidence that's consistent with this
-explanation: last week I tried to rip some audio tracks off a CD.
-With PIO, this caused interrupts to get delayed 2-3msec and that
-caused all kinds of weird effects on the USB bus.  Mostly, I'd
-suddenly lose the keyboard or the mouse, though reconnecting them
-would "fix" the problem for a short time.
+Then as long as (1) is observed by the HC before (2) (which it should
+be), the race I described isn't possible: if (2) read the "old"
+frame-number, then the HC wouldn't have started step (c) yet and hence
+the HC would observe step (1) and notice that the ED is being
+dequeued.  Converseley, if the HC started to process the ED before (1)
+completed (i.e., it missed the ED_DEQUEUE flag), then step (2) must
+have been reading the the new frame-number.
+
+OK, I see now the conundrum...
+
+BTW: does the value 0xf0000000 bear any special meaning in USB?  We
+already considered whether this would be a NULL-pointer after I/O MMU
+translation but it is not: the I/O MMU window is at
+0x40000000-0x80000000 on the machines in question.
 
 	--david
