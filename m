@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 23 Sep 2003 18:27:13 +0000
+From: Benjamin LaHaise <bcrl@kvack.org>
+Date: Tue, 23 Sep 2003 18:29:25 +0000
 Subject: Re: NS83820 2.6.0-test5 driver seems unstable on IA64
-Message-Id: <marc-linux-ia64-106434256308215@msgid-missing>
+Message-Id: <marc-linux-ia64-106434256308210@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106394503001622@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106394503001622@msgid-missing>
@@ -10,27 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 23 Sep 2003 10:57:12 -0700, "David S. Miller" <davem@redhat.com> said:
+On Tue, Sep 23, 2003 at 11:21:35AM -0700, Luck, Tony wrote:
+> Looking at a couple of ia64 build servers here I see zero unaligned
+> access messages in the logs.
 
-  DaveM> On Tue, 23 Sep 2003 12:58:59 -0500
-  DaveM> "Van Maren, Kevin" <kevin.vanmaren@unisys.com> wrote:
+ip options can still be an odd number of bytes.  Having itanic spew bogus 
+log messages is just plain wrong (yet another hardware issue pushed off on 
+software for no significant gain).
 
-  >> Rate-limited unaligned loads in user space make a lot more sense, since
-  >> they _may_ point out issues in the code.
-
-  DaveM> That's what generates the bulk of the noise in people's ia64
-  DaveM> dmesg output.
-
-At the moment, there are two ways to control the unaligned message printing:
-
- - use the dmesg command to lower the printing threshold below KERN_WARNING
-   ("dmesg -n4", IIRC)
-
- - use prctl --unalign=silent to turn off unaligned printing for a
-   particular task and its children
-
-If these mechanisms are not sufficient, there is nothing to stop
-anyone from cooking up a patch.  For my puposes, what's there works
-nicely so I myself have no plans to make changes in this area.
-
-	--david
+		-ben
+-- 
+"The software industry today survives only through an unstated agreement 
+not to stir things up too much.  We must hope this lawsuit [by SCO] isn't 
+the big stirring spoon." -- Ian Lance Taylor, Linux Journal, June 2003
