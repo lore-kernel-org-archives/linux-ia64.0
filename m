@@ -1,24 +1,40 @@
-From: John Marvin <jsm@udlkern.fc.hp.com>
-Date: Mon, 15 Mar 2004 12:40:07 +0000
-Subject: Re: [PATCH]  Revised fix for show_mem panic
-Message-Id: <200403151240.i2FCe7M19805@udlkern.fc.hp.com>
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 18 Mar 2004 23:51:37 +0000
+Subject: [1/3] insert_resource can succeed and return an error
+Message-Id: <20040318235137.GI25059@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040318235024.GH25059@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Matthew Wilcox <willy@debian.org>
+Cc: Linus Torvalds <torvalds@osdl.org>, Andrew Morton <akpm@zip.com.au>, Greg KH <greg@kroah.com>, David Mosberger <davidm@hpl.hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Oops. Usually I forget to include the patch. This time I sent the patch
-without the intro text:
 
-> Would it make sense to do only the first __get_user() _unless_ the
-> "struct page" crosses a page?
+If we start again, we can return an error even if we were successful.
+Reset the result to 0 before beginning again.  Why don't we use a
+tailcall here?
 
-Most likely. Although code that calls ia64_pfn_valid is going to be
-dereferencing the page structure anyway, a page structure will always
-cross a 1st level cache line, and will often cross a second level
-cache line. The code may or may not touch both parts of the the
-structure, so the test may prevent an unecessary cache line load,
-and it won't take that many cycles to test for the case.
+Index: kernel/resource.c
+=================================RCS file: /var/cvs/linux-2.6/kernel/resource.c,v
+retrieving revision 1.12
+diff -u -p -r1.12 resource.c
+--- a/kernel/resource.c	28 Feb 2004 01:51:35 -0000	1.12
++++ b/kernel/resource.c	18 Mar 2004 23:41:01 -0000
+@@ -337,6 +337,7 @@ int insert_resource(struct resource *par
+ 	/* existing resource overlaps end of new resource */
+ 	if (next->end > new->end) {
+ 		parent = next;
++		result = 0;
+ 		goto begin;
+ 	}
+ 
 
-John
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
