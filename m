@@ -1,7 +1,7 @@
 From: Matt Domsch <Matt_Domsch@Dell.com>
-Date: Tue, 11 Dec 2001 21:40:26 +0000
+Date: Wed, 12 Dec 2001 03:55:40 +0000
 Subject: [Linux-ia64] RE: new GPT and uuid patches
-Message-Id: <marc-linux-ia64-105590698805684@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805688@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805681@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805681@msgid-missing>
@@ -10,29 +10,10 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I'll work up a patch.
+> A struct probably would be safer.
 
-OK, here goes.  New files lib/uuid.c, include/linux/uuid.h.  Defines type 
-uuid_t to be char[16].  Deletes all references to efi_guid_t, replaces 
-with uuid_t.  Patch below and at 
-http://domsch.com/linux/ia64/linux-2.4.16-ia64-011128-uuid-20011211.patch
-This applies after the 011128 patch and the GPT patch submitted
-yesterday, it touches fs/partitions/efi.[ch].
-
-There's one drawback I've seen already:
-typedef u8 uuid_t[16];
-  vs
-typedef struct _uuid_t {
-	u8 b[16];
-}__attribute((packed)) uuid_t;
-
-You can't have:
-uuid_t uuid, *puuid;
-as puuid becomes essentially **u8, which isn't what you want.
-
-The only place you see this construct is in drivers/char/random.c, which 
-I'm not touching at the moment.  Need I rework the patch to be a struct 
-rather than just a flat array of char?
+Try try again, now as a struct.  :-)
+http://domsch.com/linux/ia64/linux-2.4.16-ia64-011128-uuid-20011211-2.patch
 
 Thanks,
 Matt
@@ -46,9 +27,10 @@ www.dell.com/linux
 #2 Worldwide Linux Server provider with 17% (IDC Sept 2001)
 #3 Unix provider with 18% in the US (Dataquest)!
 
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/kernel/efi.c linux/arch/ia64/kernel/efi.c
---- linux-2.4.16-ia64/arch/ia64/kernel/efi.c	Fri Nov  9 16:26:17 2001
-+++ linux/arch/ia64/kernel/efi.c	Tue Dec 11 14:15:34 2001
+
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/arch/ia64/kernel/efi.c linux/arch/ia64/kernel/efi.c
+--- linux-2.4.16-ia64-011128/arch/ia64/kernel/efi.c	Fri Nov  9 16:26:17 2001
++++ linux/arch/ia64/kernel/efi.c	Tue Dec 11 16:29:43 2001
 @@ -24,6 +24,7 @@
  #include <linux/types.h>
  #include <linux/time.h>
@@ -62,7 +44,7 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  
  static efi_status_t
 -phys_get_variable (efi_char16_t *name, efi_guid_t *vendor, u32 *attr,
-+phys_get_variable (efi_char16_t *name, uuid_t vendor, u32 *attr,
++phys_get_variable (efi_char16_t *name, uuid_t *vendor, u32 *attr,
  		   unsigned long *data_size, void *data)
  {
  	return efi_call_phys(__va(runtime->get_variable), __pa(name), __pa(vendor), __pa(attr),
@@ -71,7 +53,7 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  
  static efi_status_t
 -phys_get_next_variable (unsigned long *name_size, efi_char16_t *name, efi_guid_t *vendor)
-+phys_get_next_variable (unsigned long *name_size, efi_char16_t *name, uuid_t vendor)
++phys_get_next_variable (unsigned long *name_size, efi_char16_t *name, uuid_t *vendor)
  {
  	return efi_call_phys(__va(runtime->get_next_variable), __pa(name_size), __pa(name),
  			     __pa(vendor));
@@ -79,7 +61,7 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  
  static efi_status_t
 -phys_set_variable (efi_char16_t *name, efi_guid_t *vendor, u32 attr,
-+phys_set_variable (efi_char16_t *name, uuid_t vendor, u32 attr,
++phys_set_variable (efi_char16_t *name, uuid_t *vendor, u32 attr,
  		   unsigned long data_size, void *data)
  {
  	return efi_call_phys(__va(runtime->set_variable), __pa(name), __pa(vendor), attr,
@@ -117,9 +99,9 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  {
  #ifdef CONFIG_PROC_FS
   	remove_proc_entry(efi_dir->name, NULL);
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/kernel/efivars.c linux/arch/ia64/kernel/efivars.c
---- linux-2.4.16-ia64/arch/ia64/kernel/efivars.c	Fri Nov  9 16:26:17 2001
-+++ linux/arch/ia64/kernel/efivars.c	Tue Dec 11 11:56:16 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/arch/ia64/kernel/efivars.c linux/arch/ia64/kernel/efivars.c
+--- linux-2.4.16-ia64-011128/arch/ia64/kernel/efivars.c	Fri Nov  9 16:26:17 2001
++++ linux/arch/ia64/kernel/efivars.c	Tue Dec 11 21:24:19 2001
 @@ -86,7 +86,7 @@ efivar_write(struct file *file, const ch
  
  typedef struct _efi_variable_t {
@@ -158,33 +140,30 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  /*
   * efivar_create_proc_entry()
   * Requires:
-@@ -163,7 +150,7 @@ uuid_unparse(efi_guid_t *guid, char *out
+@@ -163,11 +150,11 @@ uuid_unparse(efi_guid_t *guid, char *out
  static int
  efivar_create_proc_entry(unsigned long variable_name_size,
  			 efi_char16_t *variable_name,
 -			 efi_guid_t *vendor_guid)
-+			 uuid_t        vendor_guid)
++			 uuid_t       *vendor_guid)
  {
  
- 	int i, short_name_size = variable_name_size /
+-	int i, short_name_size = variable_name_size /
+-		sizeof(efi_char16_t) + 38;
++	int i, short_name_size = (variable_name_size / sizeof(efi_char16_t)) +
++                1 + UUID_UNPARSED_SIZE;
+ 	char *short_name = kmalloc(short_name_size+1,
+ 				   GFP_KERNEL);
+ 	efivar_entry_t *new_efivar = kmalloc(sizeof(efivar_entry_t),
 @@ -182,7 +169,7 @@ efivar_create_proc_entry(unsigned long v
  
  	memcpy(new_efivar->var.VariableName, variable_name,
  	       variable_name_size);
 -	memcpy(&(new_efivar->var.VendorGuid), vendor_guid, sizeof(efi_guid_t));
-+	memcpy(new_efivar->var.VendorGuid, vendor_guid, sizeof(uuid_t));
++	memcpy(&(new_efivar->var.VendorGuid), vendor_guid, sizeof(uuid_t));
  
  	/* Convert Unicode to normal chars (assume top bits are 0),
  	   ala UTF-8 */
-@@ -238,7 +225,7 @@ efivar_read(char *page, char **start, of
- 
- 	var_data->DataSize = 1024;
- 	var_data->Status = efi.get_variable(var_data->VariableName,
--					    &var_data->VendorGuid,
-+					    var_data->VendorGuid,
- 					    &var_data->Attributes,
- 					    &var_data->DataSize,
- 					    var_data->Data);
 @@ -304,7 +291,7 @@ efivar_write(struct file *file, const ch
  		if ( strsize1 = strsize2 &&
  		     !memcmp(&(search_efivar->var.VariableName),
@@ -194,24 +173,6 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  				  var_data->VendorGuid)) {
  			found = 1;
  			break;
-@@ -313,7 +300,7 @@ efivar_write(struct file *file, const ch
- 	if (found) efivar = search_efivar;
- 
- 	status = efi.set_variable(var_data->VariableName,
--				  &var_data->VendorGuid,
-+				  var_data->VendorGuid,
- 				  var_data->Attributes,
- 				  var_data->DataSize,
- 				  var_data->Data);
-@@ -339,7 +326,7 @@ efivar_write(struct file *file, const ch
- 		efivar_create_proc_entry(utf8_strsize(var_data->VariableName,
- 						      1024),
- 					 var_data->VariableName,
--					 &var_data->VendorGuid);
-+					 var_data->VendorGuid);
- 	}
- 
- 	kfree(var_data);
 @@ -355,7 +342,7 @@ efivars_init(void)
  {
  
@@ -221,26 +182,9 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  	efi_char16_t *variable_name = kmalloc(1024, GFP_KERNEL);
  	unsigned long variable_name_size = 1024;
  
-@@ -386,14 +373,14 @@ efivars_init(void)
- 
- 		status = efi.get_next_variable(&variable_name_size,
- 					       variable_name,
--					       &vendor_guid);
-+					       vendor_guid);
- 
- 
- 		switch (status) {
- 		case EFI_SUCCESS:
- 			efivar_create_proc_entry(variable_name_size,
- 						 variable_name,
--						 &vendor_guid);
-+						 vendor_guid);
- 			break;
- 		case EFI_NOT_FOUND:
- 			break;
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/kernel/mca.c linux/arch/ia64/kernel/mca.c
---- linux-2.4.16-ia64/arch/ia64/kernel/mca.c	Fri Nov  9 16:26:17 2001
-+++ linux/arch/ia64/kernel/mca.c	Tue Dec 11 12:52:58 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/arch/ia64/kernel/mca.c linux/arch/ia64/kernel/mca.c
+--- linux-2.4.16-ia64-011128/arch/ia64/kernel/mca.c	Fri Nov  9 16:26:17 2001
++++ linux/arch/ia64/kernel/mca.c	Tue Dec 11 21:13:08 2001
 @@ -311,38 +311,6 @@ mca_test(void)
  
  #endif /* #if defined(MCA_TEST) */
@@ -292,65 +236,40 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
   */
  void
 -ia64_log_prt_guid (efi_guid_t *p_guid, prfunc_t prfunc)
-+ia64_log_prt_guid (uuid_t guid, prfunc_t prfunc)
++ia64_log_prt_guid (uuid_t *guid, prfunc_t prfunc)
  {
 -	printk("GUID = { %08x, %04x, %04x, { %#02x, %#02x, %#02x, %#02x, "
 -	       "%#02x, %#02x, %#02x, %#02x, } } \n ", p_guid->data1,
 -	       p_guid->data2, p_guid->data3, p_guid->data4[0], p_guid->data4[1],
 -	       p_guid->data4[2], p_guid->data4[3], p_guid->data4[4],
 -	       p_guid->data4[5], p_guid->data4[6], p_guid->data4[7]);
-+	char buffer[UUID_UNPARSED_LEN];
++	char buffer[UUID_UNPARSED_SIZE];
 +	prfunc("GUID = %s", uuid_unparse(guid, buffer));
  }
  
  static void
-@@ -859,7 +824,7 @@ ia64_log_prt_record_header (sal_log_reco
- 	ia64_log_hexdump((unsigned char *)rh, sizeof(sal_log_record_header_t),
- 			 (prfunc_t)prfunc);
- 	prfunc("Total record length = %d\n", rh->len);
--	ia64_log_prt_guid(&rh->platform_guid, prfunc);
-+	ia64_log_prt_guid(rh->platform_guid, prfunc);
- 	prfunc("End of SAL RECORD HEADER\n");
- }
- 
-@@ -871,7 +836,7 @@ ia64_log_prt_section_header (sal_log_sec
- 	ia64_log_hexdump((unsigned char *)sh, sizeof(sal_log_section_hdr_t),
- 			 (prfunc_t)prfunc);
- 	prfunc("Length of section & header = %d\n", sh->len);
--	ia64_log_prt_guid(&sh->guid, prfunc);
-+	ia64_log_prt_guid(sh->guid, prfunc);
- 	prfunc("End of SAL SECTION HEADER\n");
- }
- #endif  // MCA_PRT_XTRA_DATA for test only @FVL
-@@ -1482,7 +1447,7 @@ ia64_log_plat_specific_err_info_print (s
- 		prfunc(" Error Status: %#lx", psei->err_status);
- 	if (psei->valid.guid) {
- 		prfunc(" GUID: ");
--		ia64_log_prt_guid(&psei->guid, prfunc);
-+		ia64_log_prt_guid(psei->guid, prfunc);
- 	}
- 	if (psei->valid.oem_data) {
- 		ia64_log_prt_oem_data((int)psei->header.len,
-@@ -1690,6 +1655,7 @@ ia64_log_processor_info_print(sal_log_re
+@@ -1690,6 +1655,9 @@ ia64_log_processor_info_print(sal_log_re
  	sal_log_section_hdr_t       *slsh;
  	int                         n_sects;
  	int                         ercd_pos;
-+	char buffer[UUID_UNPARSED_LEN];
++#ifdef IA64_MCA_DEBUG_INFO
++	char buffer[UUID_UNPARSED_SIZE];
++#endif
  
  	if (!lh)
  		return;
-@@ -1716,7 +1682,9 @@ ia64_log_processor_info_print(sal_log_re
+@@ -1716,7 +1684,9 @@ ia64_log_processor_info_print(sal_log_re
  		ia64_log_prt_section_header(slsh, prfunc);
  #endif  // MCA_PRT_XTRA_DATA for test only @FVL
  
 -		if (verify_guid((void *)&slsh->guid, (void *)&(SAL_PROC_DEV_ERR_SECT_GUID))) {
 +		if (uuidcmp(slsh->guid, (SAL_PROC_DEV_ERR_SECT_GUID))) {
 +			IA64_MCA_DEBUG("ia64_mca_print: invalid guid = %s",
-+				       uuid_unparse(slsh->guid, buffer));
++				       uuid_unparse(&slsh->guid, buffer));
  			IA64_MCA_DEBUG("ia64_mca_log_print: unsupported record section\n");
  			continue;
  		}
-@@ -1778,7 +1746,7 @@ ia64_log_platform_info_print (sal_log_re
+@@ -1778,7 +1748,7 @@ ia64_log_platform_info_print (sal_log_re
  #ifdef MCA_PRT_XTRA_DATA    // for test only @FVL
  		ia64_log_prt_section_header(slsh, prfunc);
  
@@ -359,7 +278,7 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  			size_t  d_len = slsh->len - sizeof(sal_log_section_hdr_t);
  			char    *p_data = (char *)&((sal_log_mem_dev_err_info_t *)slsh)->valid;
  
-@@ -1792,39 +1760,39 @@ ia64_log_platform_info_print (sal_log_re
+@@ -1792,39 +1762,39 @@ ia64_log_platform_info_print (sal_log_re
  		/*
  		 *  Now process CPE error record section
  		 */
@@ -408,9 +327,9 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/arch/ia64/ke
  			prfunc("+Platform Bus Error Info Section\n");
  			ia64_log_plat_bus_err_info_print((sal_log_plat_bus_err_info_t *)slsh,
  							 prfunc);
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/fs/partitions/efi.c linux/fs/partitions/efi.c
---- linux-2.4.16-ia64/fs/partitions/efi.c	Tue Dec 11 12:56:29 2001
-+++ linux/fs/partitions/efi.c	Tue Dec 11 11:26:56 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/fs/partitions/efi.c linux/fs/partitions/efi.c
+--- linux-2.4.16-ia64-011128/fs/partitions/efi.c	Tue Dec 11 16:43:09 2001
++++ linux/fs/partitions/efi.c	Tue Dec 11 16:51:50 2001
 @@ -29,6 +29,9 @@
   * TODO:
   *
@@ -476,39 +395,40 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/fs/partition
  		printk(KERN_WARNING "GPT:disk_guids don't match.\n");
  		error_found++;
  	}
-@@ -707,9 +689,9 @@ add_gpt_partitions(struct gendisk *hd, s
+@@ -707,11 +689,6 @@ add_gpt_partitions(struct gendisk *hd, s
  	gpt_entry *ptes = NULL;
  	u32 i, nummade = 0;
  
 -	efi_guid_t unusedGuid = UNUSED_ENTRY_GUID;
-+	uuid_t unusedGuid = UNUSED_ENTRY_GUID;
- #if CONFIG_BLK_DEV_MD
+-#if CONFIG_BLK_DEV_MD
 -	efi_guid_t raidGuid = PARTITION_LINUX_RAID_GUID;
-+	uuid_t raidGuid = PARTITION_LINUX_RAID_GUID;
- #endif
- 
+-#endif
+-
  	if (!hd || !bdev)
-@@ -727,7 +709,7 @@ add_gpt_partitions(struct gendisk *hd, s
+ 		return -1;
+ 
+@@ -727,7 +704,7 @@ add_gpt_partitions(struct gendisk *hd, s
  
  	for (i = 0; i < gpt->num_partition_entries &&
  	     nummade < (hd->max_p - 1); i++) {
 -		if (!efi_guidcmp(unusedGuid, ptes[i].partition_type_guid))
-+		if (!uuidcmp(unusedGuid, ptes[i].partition_type_guid))
++		if (!uuidcmp(ptes[i].partition_type_guid, UNUSED_ENTRY_GUID))
  			continue;
  
  		add_gd_partition(hd, nextminor, ptes[i].starting_lba,
-@@ -736,7 +718,7 @@ add_gpt_partitions(struct gendisk *hd, s
+@@ -736,7 +713,8 @@ add_gpt_partitions(struct gendisk *hd, s
  
  		/* If there's this is a RAID volume, tell md */
  #if CONFIG_BLK_DEV_MD
 -		if (!efi_guidcmp(raidGuid, ptes[i].partition_type_guid)) {
-+		if (!uuidcmp(raidGuid, ptes[i].partition_type_guid)) {
++		if (!uuidcmp(ptes[i].partition_type_guid,
++                             PARTITION_LINUX_RAID_GUID)) {
  			md_autodetect_dev(MKDEV
  					  (MAJOR(to_kdev_t(bdev->bd_dev)),
  					   nextminor));
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/fs/partitions/efi.h linux/fs/partitions/efi.h
---- linux-2.4.16-ia64/fs/partitions/efi.h	Tue Dec 11 12:31:08 2001
-+++ linux/fs/partitions/efi.h	Tue Dec 11 12:31:13 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/fs/partitions/efi.h linux/fs/partitions/efi.h
+--- linux-2.4.16-ia64-011128/fs/partitions/efi.h	Tue Dec 11 16:43:09 2001
++++ linux/fs/partitions/efi.h	Tue Dec 11 17:11:05 2001
 @@ -33,6 +33,7 @@
  #include <linux/major.h>
  #include <linux/string.h>
@@ -522,28 +442,28 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/fs/partition
  
  #define UNUSED_ENTRY_GUID    \
 -    ((efi_guid_t) { 0x00000000, 0x0000, 0x0000, { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }})
-+    ((uuid_t) { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 })
++    ((uuid_t) {{ 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }})
  #define PARTITION_SYSTEM_GUID \
 -((efi_guid_t) { 0xC12A7328, 0xF81F, 0x11d2, { 0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B }})
-+    ((uuid_t) { 0xC1, 0x2A, 0x73, 0x28, 0xF8, 0x1F, 0x11, 0xd2, 0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B })
++    ((uuid_t) {{ 0xC1, 0x2A, 0x73, 0x28, 0xF8, 0x1F, 0x11, 0xd2, 0xBA, 0x4B, 0x00, 0xA0, 0xC9, 0x3E, 0xC9, 0x3B }})
  #define LEGACY_MBR_PARTITION_GUID \
 -    ((efi_guid_t) { 0x024DEE41, 0x33E7, 0x11d3, { 0x9D, 0x69, 0x00, 0x08, 0xC7, 0x81, 0xF3, 0x9F }})
-+    ((uuid_t) { 0x02, 0x4D, 0xEE, 0x41, 0x33, 0xE7, 0x11, 0xd3, 0x9D, 0x69, 0x00, 0x08, 0xC7, 0x81, 0xF3, 0x9F })
++    ((uuid_t) {{ 0x02, 0x4D, 0xEE, 0x41, 0x33, 0xE7, 0x11, 0xd3, 0x9D, 0x69, 0x00, 0x08, 0xC7, 0x81, 0xF3, 0x9F }})
  #define PARTITION_MSFT_RESERVED_GUID \
 -    ((efi_guid_t) { 0xE3C9E316, 0x0B5C, 0x4DB8, { 0x81, 0x7D, 0xF9, 0x2D, 0xF0, 0x02, 0x15, 0xAE }})
-+    ((uuid_t) { 0xE3, 0xC9, 0xE3, 0x16, 0x0B, 0x5C, 0x4D, 0xB8, 0x81, 0x7D, 0xF9, 0x2D, 0xF0, 0x02, 0x15, 0xAE })
++    ((uuid_t) {{ 0xE3, 0xC9, 0xE3, 0x16, 0x0B, 0x5C, 0x4D, 0xB8, 0x81, 0x7D, 0xF9, 0x2D, 0xF0, 0x02, 0x15, 0xAE }})
  #define PARTITION_BASIC_DATA_GUID \
 -    ((efi_guid_t) { 0xEBD0A0A2, 0xB9E5, 0x4433, { 0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 }})
-+    ((uuid_t) { 0xEB, 0xD0, 0xA0, 0xA2, 0xB9, 0xE5, 0x44, 0x33, 0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 })
++    ((uuid_t) {{ 0xEB, 0xD0, 0xA0, 0xA2, 0xB9, 0xE5, 0x44, 0x33, 0x87, 0xC0, 0x68, 0xB6, 0xB7, 0x26, 0x99, 0xC7 }})
  #define PARTITION_LINUX_RAID_GUID \
 -    ((efi_guid_t) { 0xa19d880f, 0x05fc, 0x4d3b, { 0xa0, 0x06, 0x74, 0x3f, 0x0f, 0x84, 0x91, 0x1e  }})
-+    ((uuid_t) { 0xa1, 0x9d, 0x88, 0x0f, 0x05, 0xfc, 0x4d, 0x3b, 0xa0, 0x06, 0x74, 0x3f, 0x0f, 0x84, 0x91, 0x1e })
++    ((uuid_t) {{ 0xa1, 0x9d, 0x88, 0x0f, 0x05, 0xfc, 0x4d, 0x3b, 0xa0, 0x06, 0x74, 0x3f, 0x0f, 0x84, 0x91, 0x1e }})
  #define PARTITION_LINUX_SWAP_GUID \
 -    ((efi_guid_t) { 0x0657fd6d, 0xa4ab, 0x43c4, { 0x84, 0xe5, 0x09, 0x33, 0xc8, 0x4b, 0x4f, 0x4f  }})
-+    ((uuid_t) { 0x06, 0x57, 0xfd, 0x6d, 0xa4, 0xab, 0x43, 0xc4, 0x84, 0xe5, 0x09, 0x33, 0xc8, 0x4b, 0x4f, 0x4f })
++    ((uuid_t) {{ 0x06, 0x57, 0xfd, 0x6d, 0xa4, 0xab, 0x43, 0xc4, 0x84, 0xe5, 0x09, 0x33, 0xc8, 0x4b, 0x4f, 0x4f }})
  #define PARTITION_LINUX_LVM_GUID \
 -    ((efi_guid_t) { 0xe6d6d379, 0xf507, 0x44c2, { 0xa2, 0x3c, 0x23, 0x8f, 0x2a, 0x3d, 0xf9, 0x28 }})
-+    ((uuid_t) { 0xe6, 0xd6, 0xd3, 0x79, 0xf5, 0x07, 0x44, 0xc2, 0xa2, 0x3c, 0x23, 0x8f, 0x2a, 0x3d, 0xf9, 0x28 })
++    ((uuid_t) {{ 0xe6, 0xd6, 0xd3, 0x79, 0xf5, 0x07, 0x44, 0xc2, 0xa2, 0x3c, 0x23, 0x8f, 0x2a, 0x3d, 0xf9, 0x28 }})
  
  typedef struct _gpt_header {
  	u64 signature;
@@ -567,9 +487,9 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/fs/partition
  	u64 starting_lba;
  	u64 ending_lba;
  	gpt_entry_attributes attributes;
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/asm-ia64/efi.h linux/include/asm-ia64/efi.h
---- linux-2.4.16-ia64/include/asm-ia64/efi.h	Tue Jul 31 12:30:09 2001
-+++ linux/include/asm-ia64/efi.h	Tue Dec 11 11:18:38 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/include/asm-ia64/efi.h linux/include/asm-ia64/efi.h
+--- linux-2.4.16-ia64-011128/include/asm-ia64/efi.h	Tue Jul 31 12:30:09 2001
++++ linux/include/asm-ia64/efi.h	Tue Dec 11 17:02:06 2001
 @@ -16,6 +16,7 @@
  #include <linux/time.h>
  #include <linux/types.h>
@@ -597,13 +517,13 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/asm-
  					    efi_time_t *tm);
  typedef efi_status_t efi_set_wakeup_time_t (efi_bool_t enabled, efi_time_t *tm);
 -typedef efi_status_t efi_get_variable_t (efi_char16_t *name, efi_guid_t *vendor, u32 *attr,
-+typedef efi_status_t efi_get_variable_t (efi_char16_t *name, uuid_t vendor, u32 *attr,
++typedef efi_status_t efi_get_variable_t (efi_char16_t *name, uuid_t *vendor, u32 *attr,
  					 unsigned long *data_size, void *data);
  typedef efi_status_t efi_get_next_variable_t (unsigned long *name_size, efi_char16_t *name,
 -					      efi_guid_t *vendor);
 -typedef efi_status_t efi_set_variable_t (efi_char16_t *name, efi_guid_t *vendor, u32 attr,
-+					      uuid_t vendor);
-+typedef efi_status_t efi_set_variable_t (efi_char16_t *name, uuid_t vendor, u32 attr,
++					      uuid_t *vendor);
++typedef efi_status_t efi_set_variable_t (efi_char16_t *name, uuid_t *vendor, u32 attr,
  					 unsigned long data_size, void *data);
  typedef efi_status_t efi_get_next_high_mono_count_t (u64 *count);
  typedef void efi_reset_system_t (int reset_type, efi_status_t status,
@@ -612,23 +532,23 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/asm-
  
  #define MPS_TABLE_GUID    \
 -    ((efi_guid_t) { 0xeb9d2d2f, 0x2d88, 0x11d3, { 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d }})
-+    ((uuid_t) { 0xeb, 0x9d, 0x2d, 0x2f, 0x2d, 0x88, 0x11, 0xd3, 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d })
++    ((uuid_t) {{ 0xeb, 0x9d, 0x2d, 0x2f, 0x2d, 0x88, 0x11, 0xd3, 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d }})
  
  #define ACPI_TABLE_GUID    \
 -    ((efi_guid_t) { 0xeb9d2d30, 0x2d88, 0x11d3, { 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d }})
-+    ((uuid_t) { 0xeb, 0x9d, 0x2d, 0x30, 0x2d, 0x88, 0x11, 0xd3, 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d })
++    ((uuid_t) {{ 0xeb, 0x9d, 0x2d, 0x30, 0x2d, 0x88, 0x11, 0xd3, 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d }})
  
  #define ACPI_20_TABLE_GUID    \
 -    ((efi_guid_t) { 0x8868e871, 0xe4f1, 0x11d3, { 0xbc, 0x22, 0x0, 0x80, 0xc7, 0x3c, 0x88, 0x81 }})
-+    ((uuid_t) { 0x88, 0x68, 0xe8, 0x71, 0xe4, 0xf1, 0x11, 0xd3, 0xbc, 0x22, 0x0, 0x80, 0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0x88, 0x68, 0xe8, 0x71, 0xe4, 0xf1, 0x11, 0xd3, 0xbc, 0x22, 0x0, 0x80, 0xc7, 0x3c, 0x88, 0x81 }})
  
  #define SMBIOS_TABLE_GUID    \
 -    ((efi_guid_t) { 0xeb9d2d31, 0x2d88, 0x11d3, { 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d }})
-+    ((uuid_t) { 0xeb, 0x9d, 0x2d, 0x31, 0x2d, 0x88, 0x11, 0xd3, 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d })
++    ((uuid_t) {{ 0xeb, 0x9d, 0x2d, 0x31, 0x2d, 0x88, 0x11, 0xd3, 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d }})
  
  #define SAL_SYSTEM_TABLE_GUID    \
 -    ((efi_guid_t) { 0xeb9d2d32, 0x2d88, 0x11d3, { 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d }})
-+    ((uuid_t) { 0xeb, 0x9d, 0x2d, 0x32, 0x2d, 0x88, 0x11, 0xd3, 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d })
++    ((uuid_t) {{ 0xeb, 0x9d, 0x2d, 0x32, 0x2d, 0x88, 0x11, 0xd3, 0x9a, 0x16, 0x0, 0x90, 0x27, 0x3f, 0xc1, 0x4d }})
  
  typedef struct {
 -	efi_guid_t guid;
@@ -649,48 +569,48 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/asm-
  extern void efi_init (void);
  extern void efi_map_pal_code (void);
  extern void efi_memmap_walk (efi_freemem_callback_t callback, void *arg);
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/asm-ia64/sal.h linux/include/asm-ia64/sal.h
---- linux-2.4.16-ia64/include/asm-ia64/sal.h	Fri Nov  9 16:26:17 2001
-+++ linux/include/asm-ia64/sal.h	Tue Dec 11 11:25:04 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/include/asm-ia64/sal.h linux/include/asm-ia64/sal.h
+--- linux-2.4.16-ia64-011128/include/asm-ia64/sal.h	Fri Nov  9 16:26:17 2001
++++ linux/include/asm-ia64/sal.h	Tue Dec 11 17:02:15 2001
 @@ -233,32 +233,23 @@ enum {
  
  /* SAL Error Record Section GUID Definitions */
  #define SAL_PROC_DEV_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf1, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf1, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf1, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81 }})
  #define SAL_PLAT_MEM_DEV_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf2, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf2, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf2, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81 }})
  #define SAL_PLAT_SEL_DEV_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf3, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf3, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf3, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x00, 0x80, 0xc7, 0x3c, 0x88, 0x81 }})
  #define SAL_PLAT_PCI_BUS_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf4, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf4, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf4, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 }})
  #define SAL_PLAT_SMBIOS_DEV_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf5, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf5, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf5, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 }})
  #define SAL_PLAT_PCI_COMP_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf6, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf6, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf6, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 }})
  #define SAL_PLAT_SPECIFIC_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf7, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf7, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf7, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 }})
  #define SAL_PLAT_HOST_CTLR_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf8, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf8, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf8, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 }})
  #define SAL_PLAT_BUS_ERR_SECT_GUID  \
 -    ((efi_guid_t) { 0xe429faf9, 0x3cb7, 0x11d4, { 0xbc, 0xa7, 0x0, 0x80, \
 -                    0xc7, 0x3c, 0x88, 0x81 }} )
-+    ((uuid_t) { 0xe4, 0x29, 0xfa, 0xf9, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 })
++    ((uuid_t) {{ 0xe4, 0x29, 0xfa, 0xf9, 0x3c, 0xb7, 0x11, 0xd4, 0xbc, 0xa7, 0x0, 0x80,  0xc7, 0x3c, 0x88, 0x81 }})
  
  #define MAX_CACHE_ERRORS			6
  #define MAX_TLB_ERRORS				6
@@ -719,9 +639,9 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/asm-
      u8              oem_data[1];      /* platform specific variable length data */
  } sal_log_plat_specific_err_info_t;
  
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/asm-ia64/sn/mca.h linux/include/asm-ia64/sn/mca.h
---- linux-2.4.16-ia64/include/asm-ia64/sn/mca.h	Mon Dec 10 11:10:13 2001
-+++ linux/include/asm-ia64/sn/mca.h	Tue Dec 11 11:25:48 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/include/asm-ia64/sn/mca.h linux/include/asm-ia64/sn/mca.h
+--- linux-2.4.16-ia64-011128/include/asm-ia64/sn/mca.h	Tue Dec 11 16:43:02 2001
++++ linux/include/asm-ia64/sn/mca.h	Tue Dec 11 16:26:09 2001
 @@ -82,7 +82,7 @@ sal_log_section_hdr_t header;
  		reserved        : 61;
  	} valid;
@@ -731,14 +651,14 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/asm-
  	__uint64_t shub_nic;
  	sal_log_shub_state_t    shub_state;
  } sal_log_plat_info_t;
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/linux/uuid.h linux/include/linux/uuid.h
---- linux-2.4.16-ia64/include/linux/uuid.h	Wed Dec 31 18:00:00 1969
-+++ linux/include/linux/uuid.h	Tue Dec 11 12:01:55 2001
-@@ -0,0 +1,58 @@
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/include/linux/uuid.h linux/include/linux/uuid.h
+--- linux-2.4.16-ia64-011128/include/linux/uuid.h	Wed Dec 31 18:00:00 1969
++++ linux/include/linux/uuid.h	Tue Dec 11 21:12:36 2001
+@@ -0,0 +1,60 @@
 +#ifndef LINUX_UUID_H
 +#define LINUX_UUID_H
 +/*
-+ * uuid.[ch]
++ * uuid.h
 + *  by Matt Domsch <Matt_Domsch@dell.com>
 + *  Copyright 2001 Dell Computer Corporation
 + *
@@ -760,19 +680,21 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/linu
 +#include<linux/types.h>
 +#include<linux/string.h>
 +
-+/* NB: uuid_t is already a pointer by this definintion */
-+typedef u8 uuid_t[16];
++typedef struct _uuid_t
++{
++        u8 b[16];
++} __attribute__((packed)) uuid_t;
 +
 +static inline int
 +uuidcmp (uuid_t left, uuid_t right)
 +{
-+	return memcmp(left, right, sizeof (uuid_t));
++	return memcmp(&left, &right, sizeof (uuid_t));
 +}
 +
 +/* This includes the NULL character at the end */
-+#define UUID_UNPARSED_LEN 37
++#define UUID_UNPARSED_SIZE 37
 +
-+extern char * uuid_unparse(uuid_t uuid, char *out);
++extern char * uuid_unparse(uuid_t *uuid, char *out);
 +
 +#endif
 +/*
@@ -793,9 +715,9 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/include/linu
 + * tab-width: 8
 + * End:
 + */
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/lib/Makefile linux/lib/Makefile
---- linux-2.4.16-ia64/lib/Makefile	Mon Dec 10 11:10:13 2001
-+++ linux/lib/Makefile	Tue Dec 11 11:10:30 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/lib/Makefile linux/lib/Makefile
+--- linux-2.4.16-ia64-011128/lib/Makefile	Tue Dec 11 16:43:03 2001
++++ linux/lib/Makefile	Tue Dec 11 16:26:09 2001
 @@ -8,9 +8,9 @@
  
  L_TARGET := lib.a
@@ -808,9 +730,9 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/lib/Makefile
  
  obj-$(CONFIG_RWSEM_GENERIC_SPINLOCK) += rwsem-spinlock.o
  obj-$(CONFIG_RWSEM_XCHGADD_ALGORITHM) += rwsem.o
-diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/lib/uuid.c linux/lib/uuid.c
---- linux-2.4.16-ia64/lib/uuid.c	Wed Dec 31 18:00:00 1969
-+++ linux/lib/uuid.c	Tue Dec 11 12:42:46 2001
+diff -burNp --exclude-from=/home/mdomsch/excludes --exclude=offsets.h --exclude=print_offsets linux-2.4.16-ia64-011128/lib/uuid.c linux/lib/uuid.c
+--- linux-2.4.16-ia64-011128/lib/uuid.c	Wed Dec 31 18:00:00 1969
++++ linux/lib/uuid.c	Tue Dec 11 16:29:01 2001
 @@ -0,0 +1,38 @@
 +/*
 + * uuid.c
@@ -836,19 +758,22 @@ diff -burNp --exclude-from=/home/mdomsch/excludes linux-2.4.16-ia64/lib/uuid.c l
 +#include <linux/module.h>
 +#include <linux/uuid.h>
 +
-+char * uuid_unparse(uuid_t guid, char *out)
++char * uuid_unparse(uuid_t *guid, char *out)
 +{
-+        if (out)
++        if (guid && out)
 +                sprintf(out,
 +                        "%02x%02x%02x%02x-%02x%02x-%02x%02xx-%02x%02x-%02x%02x%02x%02x%02x%02x",
-+                        guid[0],  guid[1],  guid[2],  guid[3],
-+			guid[4],  guid[5],  guid[6],  guid[7],
-+			guid[8],  guid[9],  guid[10], guid[11],
-+			guid[12], guid[13], guid[14], guid[15]);
++                        guid->b[0],  guid->b[1],  guid->b[2],  guid->b[3],
++			guid->b[4],  guid->b[5],  guid->b[6],  guid->b[7],
++			guid->b[8],  guid->b[9],  guid->b[10], guid->b[11],
++			guid->b[12], guid->b[13], guid->b[14], guid->b[15]);
 +        return out;
 +}
 +
 +
 +EXPORT_SYMBOL(uuid_unparse);
+
+
+
 
 
