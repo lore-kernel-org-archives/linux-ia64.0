@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 08 Apr 2004 23:39:17 +0000
+From: Jim Wilson <wilson@specifixinc.com>
+Date: Mon, 12 Apr 2004 23:01:48 +0000
 Subject: Re: syscall_linkage
-Message-Id: <16501.58021.512759.797754@napali.hpl.hp.com>
+Message-Id: <1081810908.1054.4.camel@leaf.tuliptree.org>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <407575C0.840593AC@nospam.org>
 In-Reply-To: <407575C0.840593AC@nospam.org>
@@ -10,22 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Zoltan,
+On Thu, 2004-04-08 at 08:54, Zoltan Menyhart wrote:
+> Can somebody explain me, please, what the difference is between an
+> __attribute__((syscall_linkage)) call and a regular one ?
 
-The quick summary can be found in asm-ia64/ptrace.h.
-Also, my book has a fairly extensive discussion of how machine-state
-is handled on ia64 linux.
+It also prohibits use of input registers for local values, thus helping
+to prevent kernel data from accidentally leaking back to application
+code.  The input registers will be visible to the caller after the
+syscall returns because of the register windows.
 
-	--david
+See the gcc code that implements syscall_linkage in
+gcc/config/ia64/ia64.c.
+-- 
+Jim Wilson, GNU Tools Support, http://www.SpecifixInc.com
 
->>>>> On Thu, 08 Apr 2004 17:54:40 +0200, Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org> said:
-
-  Zoltan> Can somebody explain me, please, what the difference is between an
-  Zoltan> __attribute__((syscall_linkage)) call and a regular one ?
-
-  Zoltan> The Itanium Software Conventions & Runtime Architecture Guide does
-  Zoltan> not say a word about it, does it mean it is a non standard way to
-  Zoltan> pass parameters ?
-
-  Zoltan> What registers need / do not need to be saved with respect to what
-  Zoltan> is written in the Intel book ?
