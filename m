@@ -1,29 +1,44 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 08 Apr 2002 17:26:23 +0000
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Mon, 08 Apr 2002 17:51:06 +0000
 Subject: Re: [Linux-ia64] C++ doesn't like asm/atomic.h
-Message-Id: <marc-linux-ia64-105590701905408@msgid-missing>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-XLYXSz9id3jBVh0Qrlwl"
+Message-Id: <marc-linux-ia64-105590701905410@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905396@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905396@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 8 Apr 2002 09:00:42 -0700, Gary Hade <garyhade@us.ibm.com> said:
+--=-XLYXSz9id3jBVh0Qrlwl
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-  Gary> Would it be okay in the Linux world for an application written
-  Gary> in C++ to use a system call such as query_module(2)?
+On Mon, 2002-04-08 at 10:26, David Mosberger wrote:
 
-Of course.
+> No, glibc needs to provide its own headers for this purpose.
 
-  Gary> If so,
-  Gary> the application code would include <linux/module.h>.
-  Gary> <linux/module.h> includes <asm/atomic.h> on a line which is
-  Gary> not within an #ifdef __KERNEL__ region so the same C++ compile
-  Gary> failure will occur.
+Wrong.  If you want this kind of functionality create your own
+module-dev package.  It is unfortunate that we have any such header in
+glibc butnot changeable.  I certainly will not add more.
 
-No, glibc needs to provide its own headers for this purpose.
+--=20
+---------------.                          ,-.   1325 Chesapeake Terrace
+Ulrich Drepper  \    ,-------------------'   \  Sunnyvale, CA 94089 USA
+Red Hat          `--' drepper at redhat.com   `------------------------
 
-	--david
+--=-XLYXSz9id3jBVh0Qrlwl
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
+
+iD8DBQA8sdiK2ijCOnn/RHQRAjXHAJ9ziFilTY0NEQ7oD2x3imqymLmr6ACcD3kX
+lyKyORvXAR49e0z4YZUvcyw=
+=cBcQ
+-----END PGP SIGNATURE-----
+
+--=-XLYXSz9id3jBVh0Qrlwl--
+
 
