@@ -1,61 +1,66 @@
-From: Aaron Young <ayoung@google.engr.sgi.com>
-Date: Tue, 15 Mar 2005 17:11:14 +0000
-Subject: Resend: [PATCH] 2.6.12 Altix: enable poweroff
-Message-Id: <200503151711.JAA39759@google.engr.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 10 Mar 2005 09:02:08 +0000
+Subject: [patch 2.6.11] Tighten up unw_unwind_to_user check
+Message-Id: <17263.1110445328@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Detect user space by the unwind frame with predicate PRED_USER_STACK
+set, instead of a user space IP.  Tighten up the last ditch check for
+running off the top of the kernel stack.
 
+Based on a suggestion by David Mosberger, reworked to fit the current
+tree.  This survives my stress test which used to break 2.6.9 kernels.
+Unlike 2.6.11, the stress test now unwinds to the correct point, so
+gdb can get the user space registers.
 
- Tony, I am resending. I didn't get any comments on the original post - can
- you take this ?
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
- Thanks,
-
- -Aaron Young (ayoung@sgi.com)
-
-------
- This patch adds the necessary "hook" to allow SGI/SN
- machines to perform a system power off upon a 
- 'init 0', 'halt -p', 'poweroff' or 'shutdown -h'.
-
- The "hook" is to set the pm_power_off callback
- to ia64_sn_power_down(). pm_power_off is checked
- in machine_power_off()/do_poweroff() and, if set, is executed. 
- ia64_sn_power_down() is a function already present (but not 
- used currently) in the sn kernel.
- ia64_sn_power_down() makes a SAL call to execute the
- power off.
+Index: linux/arch/ia64/kernel/unwind.c
+=================================--- linux.orig/arch/ia64/kernel/unwind.c	2005-03-02 18:38:34.000000000 +1100
++++ linux/arch/ia64/kernel/unwind.c	2005-03-10 19:56:48.000000000 +1100
+@@ -1943,23 +1943,30 @@ EXPORT_SYMBOL(unw_unwind);
+ int
+ unw_unwind_to_user (struct unw_frame_info *info)
+ {
+-	unsigned long ip, sp;
++	unsigned long ip, sp, pr = 0;
  
- Signed-off-by: Aaron J Young <ayoung@sgi.com>
-
---- linux2.6.12/arch/ia64/sn/kernel/setup.c.orig        2005-03-04 14:14:36 
--06:00
-+++ linux2.6.12/arch/ia64/sn/kernel/setup.c     2005-03-04 14:09:28 -06:00
-@@ -29,6 +29,7 @@
- #include <linux/sched.h>
- #include <linux/root_dev.h>
- #include <linux/nodemask.h>
-+#include <linux/pm.h>
- 
- #include <asm/io.h>
- #include <asm/sal.h>
-@@ -341,6 +342,14 @@ void __init sn_setup(char **cmdline_p)
-        screen_info = sn_screen_info;
- 
-        sn_timer_init();
-+
-+       /*
-+        * set pm_power_off to a SAL call to allow
-+        * sn machines to power off. The SAL call can be replaced
-+        * by an ACPI interface call when ACPI is fully implemented
-+        * for sn.
-+        */
-+       pm_power_off = ia64_sn_power_down;
+ 	while (unw_unwind(info) >= 0) {
+-		if (unw_get_rp(info, &ip) < 0) {
+-			unw_get_ip(info, &ip);
+-			UNW_DPRINT(0, "unwind.%s: failed to read return pointer (ip=0x%lx)\n",
+-				   __FUNCTION__, ip);
+-			return -1;
+-		}
+ 		unw_get_sp(info, &sp);
+-		if (sp >= (unsigned long)info->task + IA64_STK_OFFSET)
++		if ((long)((unsigned long)info->task + IA64_STK_OFFSET - sp)
++		    < IA64_PT_REGS_SIZE) {
++			UNW_DPRINT(0, "unwind.%s: ran off the top of the kernel stack\n",
++				   __FUNCTION__);
+ 			break;
+-		if (ip < FIXADDR_USER_END)
++		}
++		if (unw_is_intr_frame(info) &&
++		    (pr & (1UL << PRED_USER_STACK)))
+ 			return 0;
++		if (unw_get_pr (info, &pr) < 0) {
++			unw_get_rp(info, &ip);
++			UNW_DPRINT(0, "unwind.%s: failed to read "
++				   "predicate register (ip=0x%lx)\n",
++				__FUNCTION__, ip);
++			return -1;
++		}
+ 	}
+ 	unw_get_ip(info, &ip);
+-	UNW_DPRINT(0, "unwind.%s: failed to unwind to user-level (ip=0x%lx)\n", __FUNCTION__, ip);
++	UNW_DPRINT(0, "unwind.%s: failed to unwind to user-level (ip=0x%lx)\n",
++		   __FUNCTION__, ip);
+ 	return -1;
  }
- 
- /**
+ EXPORT_SYMBOL(unw_unwind_to_user);
 
