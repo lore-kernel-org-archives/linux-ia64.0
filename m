@@ -1,42 +1,60 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 14 Apr 2004 05:19:47 +0000
-Subject: RE: Questions on the stack for IA64
-Message-Id: <16508.51699.368241.279836@napali.hpl.hp.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Wed, 14 Apr 2004 05:29:02 +0000
+Subject: Re: Questions on the stack for IA64
+Message-Id: <20040414052902.GD13040@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="HG+GLK89HZ1zG0kk"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040413051722.84368.qmail@web61202.mail.yahoo.com>
 In-Reply-To: <20040413051722.84368.qmail@web61202.mail.yahoo.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 13 Apr 2004 22:05:56 -0700 (PDT), Rahul Chaturvedi <justanotheraliasforrahul@yahoo.com> said:
 
-  Rahul> Does the compiler ever touch this backing store?
+--HG+GLK89HZ1zG0kk
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Not directly.
+On Tue, Apr 13, 2004 at 10:05:56PM -0700, Rahul Chaturvedi wrote:
+> The register stack has more than enough registers to handle 26
+> input's, 26 outputs and 26 local variables, so why would it not put
+> all the locals into registers and pass them onto printf?
 
-  Rahul> I believe it is used during a stack unwind?
+See
 
-Yes (as is the memory stack and the registers).
+"Itanium Software Conventions and Runtime Architecture Guide"
 
-  Rahul>         printf("", a, b, c, d, e, f, g, h, i, j, k, l, m, n,
-  Rahul> o, p, q, r, s, t, u, v, w, x, y, z, aa, bb, cc, dd, ee, ff,
-  Rahul> gg);
+http://www.intel.com/design/itanium/downloads/24535803.pdf
 
-  Rahul> As you can see, almost all the parameters are being "st4'd"
-  Rahul> to memory. From the architecture specification, shouldn't all
-  Rahul> these be moved into registers? I have a total of much lesser
-  Rahul> than 96 parameters?
+on page 43, where it says
 
-You need to look at the software conventions & runtime architecture guide:
+ "The contents of the first eight parameter slots are always passed in
+ registers, while the remaining parameters are always passed on the
+ memory stack"
 
-  http://www.intel.com/design/itanium/downloads/245358.htm
+In general, your best references are probably everything on
 
-It specifies that up to 8 registers are used for argument passing.
+http://www.intel.com/design/itanium/arch_spec.htm
 
-There are also some fine books that might help you get started. ;-)
+and=20
 
-	--david
---
-Interested in learning more about IA-64 Linux?  Try http://www.lia64.org/book/
+http://www.lia64.org/book/
+
+-i
+ianw@gelato.unsw.edu.au
+http://www.gelato.unsw.edu.au
+
+--HG+GLK89HZ1zG0kk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAfMweWDlSU/gp6ecRAh+nAKDkT9cCaY3in7qJGFy4x4TFz3KfEgCdFWFl
+9uUPEBxFTJiGvucljzE69+Q=
+=jgbY
+-----END PGP SIGNATURE-----
+
+--HG+GLK89HZ1zG0kk--
