@@ -1,22 +1,18 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Wed, 08 Jan 2003 21:49:58 +0000
-Subject: [Linux-ia64] Re: disabling nics in efi.
-Message-Id: <marc-linux-ia64-105590709805645@msgid-missing>
+From: Mario Smarduch <cms063@email.mot.com>
+Date: Thu, 23 Jan 2003 23:59:09 +0000
+Subject: [Linux-ia64] Live lock
+Message-Id: <marc-linux-ia64-105590709805744@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Roy Dragseth (royd@cc.uit.no) said: 
-> The reason for wanting to disable the internal nics is that the redhat 
-> installer insists on fetching the kickstart file over eth0 when doing 
-> installations over the network and the external nic that I want to use 
-> becomes eth2.
-> 
-> Any hints is greatly appreciated.
+Is the live lock issue tracked in any defect data base?
+Anotherwords can one refer to some defect number?
+We need this in our platform requirements to reject a
+vendor which does not deal with live lock on an SMP system.
 
-linux ksdevice=eth2
+- Mario.
 
-Bill
 
