@@ -1,24 +1,23 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Fri, 31 Oct 2003 17:14:20 +0000
-Subject: Re: [RFC] Better MCA recovery on IPF
-Message-Id: <marc-linux-ia64-106762047208233@msgid-missing>
+From: Jes Sorensen <jes@wildopensource.com>
+Date: Sun, 05 Oct 2003 16:33:00 +0000
+Subject: Re: [PATCH] kill sn_ksyms.c
+Message-Id: <marc-linux-ia64-106537167010646@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106724227826901@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106724227826901@msgid-missing>
+References: <marc-linux-ia64-106451999732538@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106451999732538@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Oct 31, 2003 at 02:09:12PM +0900, Hidetoshi Seto wrote:
-> In the case of platform premising IPF, I think it is
-> better to regard the Intel's Chipset as the de facto
-> standard.
+>>>>> "Christoph" = Christoph Hellwig <hch@lst.de> writes:
 
-hmm...given ia64 intel boxes I've played with have no error containment
-and softfail on everything, I'm not sure that's a good choice.
-Or has enough been published about the chipset to change those
-behaviors?
+Christoph> None of the exported symbols is referenced by a module,
+Christoph> even more the file doesn't compile shen
+Christoph> CONFIG_IA64_SGI_SN_DEBUG is set.
 
-thanks,
-grant
+There are some device drivers coming that will depend on some of these
+symbols so I'd prefer to keep this file in place, at least for
+now. And yes, said drivers are GPL'ed.
+
+Jes
