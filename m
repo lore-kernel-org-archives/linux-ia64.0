@@ -1,46 +1,54 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 02 Mar 2005 03:13:59 +0000
+Date: Wed, 02 Mar 2005 06:13:05 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <42252F77.3050701@jp.fujitsu.com>
+Message-Id: <42255971.4070608@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <422428EC.3090905@jp.fujitsu.com> <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org> <20050301165904.GN28741@parcelfarce.linux.theplanet.co.uk> <200503010910.29460.jbarnes@engr.sgi.com>
-In-Reply-To: <200503010910.29460.jbarnes@engr.sgi.com>
+References: <422428EC.3090905@jp.fujitsu.com> <20050301144211.GI28741@parcelfarce.linux.theplanet.co.uk> <20050301192711.GE1220@austin.ibm.com>
+In-Reply-To: <20050301192711.GE1220@austin.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@engr.sgi.com>
-Cc: linux-pci@atrey.karlin.mff.cuni.cz, Matthew Wilcox <matthew@wil.cx>, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, Linas Vepstas <linas@austin.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
+To: Linas Vepstas <linas@austin.ibm.com>
+Cc: Matthew Wilcox <matthew@wil.cx>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "Luck, Tony" <tony.luck@intel.com>
 
-Jesse Barnes wrote:
-> This was my thought too last time we had this discussion.  A completely 
-> asynchronous call is probably needed in addition to Hidetoshi's proposed API, 
-> since as you point out, the driver may not be running when an error occurs 
-> (e.g. in the case of a DMA error or more general bus problem).  The async 
-> ->error callback could do a total reset of the card, or something along those 
-> lines as Jeff suggests, while the inline ioerr_clear/ioerr_check API could 
-> potentially deal with errors as they happen (probably in the case of PIO 
-> related errors), when the additional context may allow us to be smarter about 
-> recovery.
+Linas Vepstas wrote:
+ >> I'd prefer to see it as ioerr_clear(), ioerr_read() ...
+ >
+ > I'd prefer pci_io_start() and pci_io_check_err()
+ >
+ > The names should have "pci" in them.
+ >
+ > I don't like "ioerr_clear" because it implies we are clearing the io error; we are not; we are clearing the checker 
+for io errors.
 
-Depend on the bridge implementation, special error handling of PCI-X would be
-available in the case of a DMA error.
+My intention was "clear/read checker(called iochk) to check my I/O."
+(bitmask would be better for error flag, but bits are not defined yet.)
+So I agree that ioerr_clear/read() would be one of good alternatives.
+But still I'd prefer iochk_*, because it doesn't clear error but checker.
+iochecker_* would be bit long.
 
-PCI-X Command register has Uncorrectable Data Error Recovery Enable bit to
-avoid asserting SERR on error. Some bridge generates poisoned data and pass
-it to destination instead of asserting error or passing broken data.
+And then, I don't think it need to have "pci" ... limitation of this
+API's target. It would not be match if there are a recoverable device
+over some PCI to XXX bridge, or if there are some special arch where
+don't have PCI but other recoverable bus system, or if future bus system
+doesn't called pci...
+Currently we would deal only pci, but in future possibly not.
 
-The device driver would be interrupted on the completion of DMA, and check
-status register of controlling device to find a error during the DMA.
-If there was a error, driver could attempt to recover from the error.
+ > Do we really need a cookie?
 
-I don't know whether this is actually possible or not, and also there are
-upcoming drivers implementing such special handling.
+Some do, some not.
+For example, if arch has only a counter of error exception, saving value
+of the counter to the cookie would be make sense.
 
-Though, when and how we should call drivers to do device specific staff is
-one of the problem. My API would provide "a chance" which could be defined by
-driver, at least.
+ > Yes, they should be no-ops. save/restore interrupts would be a bad idea.
+
+I expect that we should not do any operation requires enabled interrupt
+between iochk_clear and iochk_read. If their defaults are no-ops, device
+maintainers who develops their driver on not-implemented arch should be
+more careful. Or are there any bad thing other than waste of steps?
 
 
 Thanks,
 H.Seto
+
 
