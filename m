@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 20 May 2004 05:10:24 +0000
+Date: Fri, 21 May 2004 20:23:46 +0000
 Subject: Re: Kill warnings in 2.6.6
-Message-Id: <16556.15808.385172.779090@napali.hpl.hp.com>
+Message-Id: <16558.25938.462552.233122@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <E1BQFaq-0003bB-KT@wombat.disy.cse.unsw.edu.au>
 In-Reply-To: <E1BQFaq-0003bB-KT@wombat.disy.cse.unsw.edu.au>
@@ -10,18 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 20 May 2004 14:55:06 +1000, Peter Chubb <peterc@gelato.unsw.edu.au> said:
 
-  David> Where does this get rid of a warning?  A driver or something
-  David> else?
+ > -#define cond_syscall(x) asmlinkage long x() __attribute__((weak,alias("sys_ni_syscall")));
+ > +#define cond_syscall(x) asmlinkage long x(void) __attribute__((weak,alias("sys_ni_syscall")));
 
-  Peter> If you configure with GENERIC, then asm/machvec.h is included
-  Peter> which has declarations for struct device, etc, but without
-  Peter> GENERIC the definitions are missing.
-
-Ah, that explains why I didn't see the warnings: I had already fixed
-them by including machvec.h in machvec.c.
-
-Thanks,
+I made this change now.  The Intel compiler certainly compiles it fine
+and it gets rid of the last remaining large blob of annoying warning
+messages in sys.c.  I didn't try building the entire kernel with the
+Intel compiler, but in the unlikely event that Peter's version leads
+to link-time-problems, we can fix that later, when Intel makes the
+script available needed to compile the kernel (hint, hint... ;-).
 
 	--david
