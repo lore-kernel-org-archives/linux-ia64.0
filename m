@@ -1,43 +1,45 @@
 From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Wed, 02 Mar 2005 22:43:48 +0000
+Date: Wed, 02 Mar 2005 22:46:12 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <1109803429.5611.111.camel@gaston>
+Message-Id: <1109803572.5679.113.camel@gaston>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <422428EC.3090905@jp.fujitsu.com>
 	 <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org>
-	 <20050302182205.GI1220@austin.ibm.com>
-	 <200503021041.07090.jbarnes@engr.sgi.com>
-In-Reply-To: <200503021041.07090.jbarnes@engr.sgi.com>
+	 <20050301165904.GN28741@parcelfarce.linux.theplanet.co.uk>
+	 <200503010910.29460.jbarnes@engr.sgi.com>
+	 <20050301183333.GB1220@austin.ibm.com> <1109716047.5679.51.camel@gaston>
+	 <20050302200216.GM1220@austin.ibm.com>
+In-Reply-To: <20050302200216.GM1220@austin.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@engr.sgi.com>
-Cc: linux-pci@atrey.karlin.mff.cuni.cz, Linas Vepstas <linas@austin.ibm.com>, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
+To: Linas Vepstas <linas@austin.ibm.com>
+Cc: Jesse Barnes <jbarnes@engr.sgi.com>, linux-pci@atrey.karlin.mff.cuni.cz, Matthew Wilcox <matthew@wil.cx>, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
 
+On Wed, 2005-03-02 at 14:02 -0600, Linas Vepstas wrote:
+> On Wed, Mar 02, 2005 at 09:27:27AM +1100, Benjamin Herrenschmidt was heard to remark:
 
-> One issue with that is how to notify drivers that they need to make this call.  
-> In may cases, DMA completion will be signalled by an interrupt, but if the 
-> DMA failed, that interrupt may never happen, which means the call to 
-> pci_unmap or the above function from the interrupt handler may never occur.
+> That's a style issue.  Propose an API, I'll code it.   We can have
+> the master recovery thread be a state machine, and so every device
+> driver gets notified of state changes:
 > 
-> Some I/O errors are by nature asynchronous and unpredictable, so I think we 
-> need a separate thread and callback interface to deal with errors where the 
-> beginning of the transaction and the end of the transaction occur in 
-> different contexts, in addition to the PIO transaction interface already 
-> proposed.
+> typedef enum pci_bus_state {
+>      DEVICE_IO_FROZEN=1,
+>      DEVICE_IO_THAWED,
+>      DEVICE_PERM_FAILURE,
+> };
+> 
+> struct pci_driver {
+>    .... 
+>    void (*io_state_change) (struct pci_dev *dev, pci_bus_state);
+> };
+> 
+> would that work?
 
-Yup. As I wrote already. We need a new callback in pci_driver, that's
-the cleanest way. It would take an "event" argument plus some still to
-be defined flags to inform the driver about platform capabilities.
+Too much ppc64-centric.
 
-The driver based on the result code can then request a slot reset  if
-the platform supports it, or just try to recover, or just giveup.
-
-Another callback would come once the slot has been reset & reconfigure,
-etc...
-
-I'm going to write something down real soon now (after I had breakfast
-hopefully :)
+Also, we want to use the re-enable IOs facility of EEH to give the
+driver a chance to extract diagnostic infos from the HW.
 
 Ben.
 
