@@ -1,46 +1,38 @@
-From: Steven Cole <scole@lanl.gov>
-Date: Wed, 25 Apr 2001 14:54:03 +0000
-Subject: [Linux-ia64] [PATCH] 2.4.3-ac14 remove three IA-64 related orphans from Configure.help
-Message-Id: <marc-linux-ia64-105590693005460@msgid-missing>
+From: Bill Nottingham <notting@redhat.com>
+Date: Mon, 16 Apr 2001 15:31:16 +0000
+Subject: [Linux-ia64] Re: Documentation for compiling IA64
+Message-Id: <marc-linux-ia64-105590693005406@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Alan,
+McCaffity, Ray (ray.mccaffity@wcg.com) said: 
+> I downloaded the 2.4.3 kernel from Kernel.org and then the IA64 patch from
+> the ports directory.
+> I patched the Kernel with the 2.4.3-ia64 diff file.
+> I can do a 'make mrproper', and a 'make config' (It even recognizes the IA64
+> CPU), I can even do a
+> 'make dep' but it doesn't let me do a make bzImage or even a make zImage.  I
+> tried looking in the 
+> make.rules and makefile to see what targets were options, but didn't find
+> anything.  What is the target 
+> make file?
 
-The following three Configure.help entries have been confirmed dead, or
-not needing help by Keith Owens.  
+make vmlinux
 
-The last of these, CONFIG_IA64_AZUSA_HACKS,  is listed by Keith as 
-removed by a 2.4.2-ia64-010228 patch, but it still appears in 2.4.3-ac14.
+> One other thing I noticed.  With x86 version, you can select how much memory
+> the Kernel will recognize
+> (4GB, 64GB, etc..)  There is 16GB in this server.  Will the Kernel recognize
+> all of it? 
 
-Steven
+Yes.
 
---- linux/Documentation/Configure.help.ac14     Wed Apr 25 08:14:33 2001
-+++ linux/Documentation/Configure.help  Wed Apr 25 08:40:50 2001
-@@ -18611,22 +18611,6 @@
-   redirect interrupts to different CPUs.  Select N here if you're
-   unsure.
- 
--Enable use of global TLB purge instruction (ptc.g)
--CONFIG_ITANIUM_PTCG
--  Say Y here if you want the kernel to use the IA-64 "ptc.g"
--  instruction to flush the TLB on all CPUs.  Select N here if
--  you're unsure.
--
--Enable SoftSDV hacks
--CONFIG_IA64_SOFTSDV_HACKS
--  Say Y here to enable hacks to make the kernel work on the Intel
--  SoftSDV simulator.  Select N here if you're unsure.
--
--Enable AzusA hacks
--CONFIG_IA64_AZUSA_HACKS
--  Say Y here to enable hacks to make the kernel work on the NEC
--  AzusA platform.  Select N here if you're unsure.
--
- Enable IA-64 Machine Check Abort
- CONFIG_IA64_MCA
-   Say Y here to enable machine check support for IA-64.  If you're
+> Right now I have to
+> do a mem=2G from the ELI loader.
+
+Why?
+
+Bill
 
