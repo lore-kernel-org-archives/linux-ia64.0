@@ -1,1104 +1,585 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Mon, 01 Mar 2004 16:42:12 +0000
-Subject: [PATCH] zx1_defconfig
-Message-Id: <20040301164212.GA25779@parcelfarce.linux.theplanet.co.uk>
+From: Andy Whitcroft <apw@shadowen.org>
+Date: Thu, 25 Mar 2004 17:00:03 +0000
+Subject: [PATCH] [3/6] HUGETLB memory commitment
+Message-Id: <18759855.1080234003@42.150.104.212.access.eclipse.net.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
+In-Reply-To: <18429360.1080233672@42.150.104.212.access.eclipse.net.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Anton Blanchard <anton@samba.org>, Andrew Morton <akpm@osdl.org>, Stephen Smalley <sds@epoch.ncsc.mil>
+Cc: Andi Kleen <ak@suse.de>, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Martin J. Bligh" <mbligh@aracnet.com>
 
+[060-mem_acctdom_commitments]
 
-Here's my attempt at a zx1_defconfig.  I haven't checked it on many
-of the zx1 boxes (only zx2000 and rx2600) but I've set some options
-I know are needed on the other boxes.  Patches accepted ;-)
+Split vm_commited_space per domain
 
---- /dev/null	2004-02-23 13:11:58.000000000 -0500
-+++ linux-2.6/arch/ia64/configs/zx1_defconfig	2004-03-01 11:36:14.620902284 -0500
-@@ -0,0 +1,1078 @@
-+#
-+# Automatically generated make config: don't edit
-+#
-+
-+#
-+# Code maturity level options
-+#
-+CONFIG_EXPERIMENTAL=y
-+# CONFIG_CLEAN_COMPILE is not set
-+CONFIG_STANDALONE=y
-+CONFIG_BROKEN=y
-+CONFIG_BROKEN_ON_SMP=y
-+
-+#
-+# General setup
-+#
-+CONFIG_SWAP=y
-+CONFIG_SYSVIPC=y
-+CONFIG_BSD_PROCESS_ACCT=y
-+CONFIG_SYSCTL=y
-+CONFIG_LOG_BUF_SHIFT
-+CONFIG_HOTPLUG=y
-+# CONFIG_IKCONFIG is not set
-+# CONFIG_EMBEDDED is not set
-+CONFIG_KALLSYMS=y
-+CONFIG_FUTEX=y
-+CONFIG_EPOLL=y
-+CONFIG_IOSCHED_NOOP=y
-+CONFIG_IOSCHED_AS=y
-+CONFIG_IOSCHED_DEADLINE=y
-+# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
-+
-+#
-+# Loadable module support
-+#
-+# CONFIG_MODULES is not set
-+
-+#
-+# Processor type and features
-+#
-+CONFIG_IA64=y
-+CONFIG_64BIT=y
-+CONFIG_MMU=y
-+CONFIG_RWSEM_XCHGADD_ALGORITHM=y
-+CONFIG_TIME_INTERPOLATION=y
-+CONFIG_EFI=y
-+# CONFIG_ITANIUM is not set
-+CONFIG_MCKINLEY=y
-+# CONFIG_IA64_GENERIC is not set
-+# CONFIG_IA64_DIG is not set
-+CONFIG_IA64_HP_ZX1=y
-+# CONFIG_IA64_SGI_SN2 is not set
-+# CONFIG_IA64_HP_SIM is not set
-+# CONFIG_IA64_PAGE_SIZE_4KB is not set
-+# CONFIG_IA64_PAGE_SIZE_8KB is not set
-+CONFIG_IA64_PAGE_SIZE_16KB=y
-+# CONFIG_IA64_PAGE_SIZE_64KB is not set
-+CONFIG_ACPI=y
-+CONFIG_ACPI_INTERPRETER=y
-+CONFIG_ACPI_KERNEL_CONFIG=y
-+CONFIG_IA64_L1_CACHE_SHIFT=7
-+# CONFIG_MCKINLEY_ASTEP_SPECIFIC is not set
-+# CONFIG_NUMA is not set
-+CONFIG_VIRTUAL_MEM_MAP=y
-+CONFIG_IA64_MCA=y
-+# CONFIG_IA64_CYCLONE is not set
-+CONFIG_PM=y
-+CONFIG_IOSAPIC=y
-+CONFIG_FORCE_MAX_ZONEORDER
-+# CONFIG_HUGETLB_PAGE_SIZE_4GB is not set
-+# CONFIG_HUGETLB_PAGE_SIZE_1GB is not set
-+# CONFIG_HUGETLB_PAGE_SIZE_256MB is not set
-+CONFIG_HUGETLB_PAGE_SIZE_64MB=y
-+# CONFIG_HUGETLB_PAGE_SIZE_16MB is not set
-+# CONFIG_HUGETLB_PAGE_SIZE_4MB is not set
-+# CONFIG_HUGETLB_PAGE_SIZE_1MB is not set
-+# CONFIG_HUGETLB_PAGE_SIZE_256KB is not set
-+CONFIG_IA64_PAL_IDLE=y
-+CONFIG_SMP=y
-+CONFIG_NR_CPUS
-+# CONFIG_PREEMPT is not set
-+CONFIG_HAVE_DEC_LOCK=y
-+CONFIG_IA32_SUPPORT=y
-+CONFIG_COMPAT=y
-+CONFIG_PERFMON=y
-+CONFIG_IA64_PALINFO=y
-+CONFIG_EFI_VARS=y
-+CONFIG_BINFMT_ELF=y
-+CONFIG_BINFMT_MISC=y
-+
-+#
-+# ACPI (Advanced Configuration and Power Interface) Support
-+#
-+CONFIG_ACPI_BOOT=y
-+CONFIG_ACPI_BUTTON=y
-+CONFIG_ACPI_FAN=y
-+CONFIG_ACPI_PROCESSOR=y
-+CONFIG_ACPI_THERMAL=y
-+# CONFIG_ACPI_DEBUG is not set
-+CONFIG_ACPI_BUS=y
-+CONFIG_ACPI_POWER=y
-+CONFIG_ACPI_PCI=y
-+CONFIG_ACPI_SYSTEM=y
-+# CONFIG_ACPI_RELAXED_AML is not set
-+CONFIG_PCI=y
-+CONFIG_PCI_DOMAINS=y
-+CONFIG_PCI_LEGACY_PROC=y
-+CONFIG_PCI_NAMES=y
-+
-+#
-+# PCI Hotplug Support
-+#
-+CONFIG_HOTPLUG_PCI=y
-+# CONFIG_HOTPLUG_PCI_FAKE is not set
-+CONFIG_HOTPLUG_PCI_ACPI=y
-+# CONFIG_HOTPLUG_PCI_CPCI is not set
-+# CONFIG_HOTPLUG_PCI_PCIE is not set
-+# CONFIG_HOTPLUG_PCI_SHPC is not set
-+
-+#
-+# PCMCIA/CardBus support
-+#
-+# CONFIG_PCMCIA is not set
-+
-+#
-+# Parallel port support
-+#
-+# CONFIG_PARPORT is not set
-+
-+#
-+# Generic Driver Options
-+#
-+# CONFIG_FW_LOADER is not set
-+
-+#
-+# Memory Technology Devices (MTD)
-+#
-+# CONFIG_MTD is not set
-+
-+#
-+# Plug and Play support
-+#
-+
-+#
-+# Block devices
-+#
-+# CONFIG_BLK_DEV_FD is not set
-+# CONFIG_BLK_CPQ_DA is not set
-+# CONFIG_BLK_CPQ_CISS_DA is not set
-+# CONFIG_BLK_DEV_DAC960 is not set
-+# CONFIG_BLK_DEV_UMEM is not set
-+CONFIG_BLK_DEV_LOOP=y
-+# CONFIG_BLK_DEV_CRYPTOLOOP is not set
-+# CONFIG_BLK_DEV_NBD is not set
-+CONFIG_BLK_DEV_RAM=y
-+CONFIG_BLK_DEV_RAM_SIZE@96
-+CONFIG_BLK_DEV_INITRD=y
-+# CONFIG_DCSSBLK is not set
-+
-+#
-+# ATA/ATAPI/MFM/RLL support
-+#
-+CONFIG_IDE=y
-+CONFIG_BLK_DEV_IDE=y
-+
-+#
-+# Please see Documentation/ide.txt for help/info on IDE drives
-+#
-+CONFIG_BLK_DEV_IDEDISK=y
-+# CONFIG_IDEDISK_MULTI_MODE is not set
-+# CONFIG_IDEDISK_STROKE is not set
-+CONFIG_BLK_DEV_IDECD=y
-+# CONFIG_BLK_DEV_IDETAPE is not set
-+# CONFIG_BLK_DEV_IDEFLOPPY is not set
-+# CONFIG_BLK_DEV_IDESCSI is not set
-+# CONFIG_IDE_TASK_IOCTL is not set
-+# CONFIG_IDE_TASKFILE_IO is not set
-+
-+#
-+# IDE chipset support/bugfixes
-+#
-+CONFIG_IDE_GENERIC=y
-+CONFIG_BLK_DEV_IDEPCI=y
-+CONFIG_IDEPCI_SHARE_IRQ=y
-+# CONFIG_BLK_DEV_OFFBOARD is not set
-+CONFIG_BLK_DEV_GENERIC=y
-+# CONFIG_BLK_DEV_OPTI621 is not set
-+CONFIG_BLK_DEV_IDEDMA_PCI=y
-+# CONFIG_BLK_DEV_IDEDMA_FORCED is not set
-+# CONFIG_IDEDMA_PCI_AUTO is not set
-+CONFIG_BLK_DEV_ADMA=y
-+# CONFIG_BLK_DEV_AEC62XX is not set
-+# CONFIG_BLK_DEV_ALI15X3 is not set
-+# CONFIG_BLK_DEV_AMD74XX is not set
-+CONFIG_BLK_DEV_CMD64X=y
-+# CONFIG_BLK_DEV_TRIFLEX is not set
-+# CONFIG_BLK_DEV_CY82C693 is not set
-+# CONFIG_BLK_DEV_CS5520 is not set
-+# CONFIG_BLK_DEV_CS5530 is not set
-+# CONFIG_BLK_DEV_HPT34X is not set
-+# CONFIG_BLK_DEV_HPT366 is not set
-+# CONFIG_BLK_DEV_SC1200 is not set
-+# CONFIG_BLK_DEV_PIIX is not set
-+# CONFIG_BLK_DEV_NS87415 is not set
-+# CONFIG_BLK_DEV_PDC202XX_OLD is not set
-+# CONFIG_BLK_DEV_PDC202XX_NEW is not set
-+# CONFIG_BLK_DEV_SVWKS is not set
-+# CONFIG_BLK_DEV_SIIMAGE is not set
-+# CONFIG_BLK_DEV_SLC90E66 is not set
-+# CONFIG_BLK_DEV_TRM290 is not set
-+# CONFIG_BLK_DEV_VIA82CXXX is not set
-+CONFIG_BLK_DEV_IDEDMA=y
-+# CONFIG_IDEDMA_IVB is not set
-+# CONFIG_IDEDMA_AUTO is not set
-+# CONFIG_DMA_NONPCI is not set
-+# CONFIG_BLK_DEV_HD is not set
-+
-+#
-+# IEEE 1394 (FireWire) support
-+#
-+# CONFIG_IEEE1394 is not set
-+
-+#
-+# I2O device support
-+#
-+
-+#
-+# Multi-device support (RAID and LVM)
-+#
-+# CONFIG_MD is not set
-+
-+#
-+# Fusion MPT device support
-+#
-+CONFIG_FUSION=y
-+CONFIG_FUSION_BOOT=y
-+CONFIG_FUSION_MAX_SGE@
-+
-+#
-+# SCSI device support
-+#
-+CONFIG_SCSI=y
-+CONFIG_SCSI_PROC_FS=y
-+
-+#
-+# SCSI support type (disk, tape, CD-ROM)
-+#
-+CONFIG_BLK_DEV_SD=y
-+CONFIG_CHR_DEV_ST=y
-+CONFIG_CHR_DEV_OSST=y
-+CONFIG_BLK_DEV_SR=y
-+CONFIG_BLK_DEV_SR_VENDOR=y
-+CONFIG_CHR_DEV_SG=y
-+
-+#
-+# Some SCSI devices (e.g. CD jukebox) support multiple LUNs
-+#
-+CONFIG_SCSI_MULTI_LUN=y
-+CONFIG_SCSI_REPORT_LUNS=y
-+CONFIG_SCSI_CONSTANTS=y
-+CONFIG_SCSI_LOGGING=y
-+
-+#
-+# SCSI low-level drivers
-+#
-+# CONFIG_BLK_DEV_3W_XXXX_RAID is not set
-+# CONFIG_SCSI_ACARD is not set
-+# CONFIG_SCSI_AACRAID is not set
-+# CONFIG_SCSI_AIC7XXX is not set
-+# CONFIG_SCSI_AIC7XXX_OLD is not set
-+# CONFIG_SCSI_AIC79XX is not set
-+# CONFIG_SCSI_ADVANSYS is not set
-+CONFIG_SCSI_MEGARAID=y
-+# CONFIG_SCSI_SATA is not set
-+# CONFIG_SCSI_BUSLOGIC is not set
-+# CONFIG_SCSI_CPQFCTS is not set
-+# CONFIG_SCSI_DMX3191D is not set
-+# CONFIG_SCSI_EATA is not set
-+# CONFIG_SCSI_EATA_PIO is not set
-+# CONFIG_SCSI_FUTURE_DOMAIN is not set
-+# CONFIG_SCSI_GDTH is not set
-+# CONFIG_SCSI_IPS is not set
-+# CONFIG_SCSI_INITIO is not set
-+# CONFIG_SCSI_INIA100 is not set
-+CONFIG_SCSI_SYM53C8XX_2=y
-+CONFIG_SCSI_SYM53C8XX_DMA_ADDRESSING_MODE=1
-+CONFIG_SCSI_SYM53C8XX_DEFAULT_TAGS
-+CONFIG_SCSI_SYM53C8XX_MAX_TAGSd
-+# CONFIG_SCSI_SYM53C8XX_IOMAPPED is not set
-+# CONFIG_SCSI_PCI2000 is not set
-+# CONFIG_SCSI_PCI2220I is not set
-+# CONFIG_SCSI_QLOGIC_ISP is not set
-+# CONFIG_SCSI_QLOGIC_FC is not set
-+CONFIG_SCSI_QLOGIC_1280=y
-+CONFIG_SCSI_QLA2XXX=y
-+# CONFIG_SCSI_QLA21XX is not set
-+# CONFIG_SCSI_QLA22XX is not set
-+# CONFIG_SCSI_QLA2300 is not set
-+# CONFIG_SCSI_QLA2322 is not set
-+# CONFIG_SCSI_QLA6312 is not set
-+# CONFIG_SCSI_QLA6322 is not set
-+# CONFIG_SCSI_DC395x is not set
-+# CONFIG_SCSI_DC390T is not set
-+# CONFIG_SCSI_DEBUG is not set
-+
-+#
-+# Networking support
-+#
-+CONFIG_NET=y
-+
-+#
-+# Networking options
-+#
-+CONFIG_PACKET=y
-+# CONFIG_PACKET_MMAP is not set
-+# CONFIG_NETLINK_DEV is not set
-+CONFIG_UNIX=y
-+# CONFIG_NET_KEY is not set
-+CONFIG_INET=y
-+CONFIG_IP_MULTICAST=y
-+# CONFIG_IP_ADVANCED_ROUTER is not set
-+# CONFIG_IP_PNP is not set
-+# CONFIG_NET_IPIP is not set
-+# CONFIG_NET_IPGRE is not set
-+# CONFIG_IP_MROUTE is not set
-+# CONFIG_ARPD is not set
-+# CONFIG_INET_ECN is not set
-+# CONFIG_SYN_COOKIES is not set
-+# CONFIG_INET_AH is not set
-+# CONFIG_INET_ESP is not set
-+# CONFIG_INET_IPCOMP is not set
-+
-+#
-+# IP: Virtual Server Configuration
-+#
-+# CONFIG_IP_VS is not set
-+# CONFIG_IPV6 is not set
-+# CONFIG_DECNET is not set
-+# CONFIG_BRIDGE is not set
-+CONFIG_NETFILTER=y
-+# CONFIG_NETFILTER_DEBUG is not set
-+
-+#
-+# IP: Netfilter Configuration
-+#
-+# CONFIG_IP_NF_CONNTRACK is not set
-+# CONFIG_IP_NF_QUEUE is not set
-+# CONFIG_IP_NF_IPTABLES is not set
-+CONFIG_IP_NF_ARPTABLES=y
-+# CONFIG_IP_NF_ARPFILTER is not set
-+# CONFIG_IP_NF_ARP_MANGLE is not set
-+# CONFIG_IP_NF_COMPAT_IPCHAINS is not set
-+# CONFIG_IP_NF_COMPAT_IPFWADM is not set
-+
-+#
-+# SCTP Configuration (EXPERIMENTAL)
-+#
-+CONFIG_IPV6_SCTP__=y
-+# CONFIG_IP_SCTP is not set
-+# CONFIG_ATM is not set
-+# CONFIG_VLAN_8021Q is not set
-+# CONFIG_LLC2 is not set
-+# CONFIG_IPX is not set
-+# CONFIG_ATALK is not set
-+# CONFIG_X25 is not set
-+# CONFIG_LAPB is not set
-+# CONFIG_NET_DIVERT is not set
-+# CONFIG_ECONET is not set
-+# CONFIG_WAN_ROUTER is not set
-+# CONFIG_NET_FASTROUTE is not set
-+# CONFIG_NET_HW_FLOWCONTROL is not set
-+
-+#
-+# QoS and/or fair queueing
-+#
-+# CONFIG_NET_SCHED is not set
-+
-+#
-+# Network testing
-+#
-+# CONFIG_NET_PKTGEN is not set
-+CONFIG_NETDEVICES=y
-+
-+#
-+# ARCnet devices
-+#
-+# CONFIG_ARCNET is not set
-+CONFIG_DUMMY=y
-+# CONFIG_BONDING is not set
-+# CONFIG_EQUALIZER is not set
-+# CONFIG_TUN is not set
-+
-+#
-+# Ethernet (10 or 100Mbit)
-+#
-+CONFIG_NET_ETHERNET=y
-+CONFIG_MII=y
-+# CONFIG_HAPPYMEAL is not set
-+# CONFIG_SUNGEM is not set
-+# CONFIG_NET_VENDOR_3COM is not set
-+
-+#
-+# Tulip family network device support
-+#
-+CONFIG_NET_TULIP=y
-+# CONFIG_DE2104X is not set
-+CONFIG_TULIP=y
-+CONFIG_TULIP_MWI=y
-+CONFIG_TULIP_MMIO=y
-+CONFIG_TULIP_NAPI=y
-+CONFIG_TULIP_NAPI_HW_MITIGATION=y
-+# CONFIG_DE4X5 is not set
-+# CONFIG_WINBOND_840 is not set
-+# CONFIG_DM9102 is not set
-+# CONFIG_HP100 is not set
-+CONFIG_NET_PCI=y
-+# CONFIG_PCNET32 is not set
-+# CONFIG_AMD8111_ETH is not set
-+# CONFIG_ADAPTEC_STARFIRE is not set
-+# CONFIG_B44 is not set
-+# CONFIG_FORCEDETH is not set
-+# CONFIG_DGRS is not set
-+# CONFIG_EEPRO100 is not set
-+CONFIG_E100=y
-+# CONFIG_E100_NAPI is not set
-+# CONFIG_FEALNX is not set
-+# CONFIG_NATSEMI is not set
-+# CONFIG_NE2K_PCI is not set
-+# CONFIG_8139CP is not set
-+# CONFIG_8139TOO is not set
-+# CONFIG_SIS900 is not set
-+# CONFIG_EPIC100 is not set
-+# CONFIG_SUNDANCE is not set
-+# CONFIG_VIA_RHINE is not set
-+
-+#
-+# Ethernet (1000 Mbit)
-+#
-+# CONFIG_ACENIC is not set
-+# CONFIG_DL2K is not set
-+CONFIG_E1000=y
-+# CONFIG_E1000_NAPI is not set
-+# CONFIG_NS83820 is not set
-+# CONFIG_HAMACHI is not set
-+# CONFIG_YELLOWFIN is not set
-+# CONFIG_R8169 is not set
-+# CONFIG_SIS190 is not set
-+# CONFIG_SK98LIN is not set
-+CONFIG_TIGON3=y
-+
-+#
-+# Ethernet (10000 Mbit)
-+#
-+# CONFIG_IXGB is not set
-+# CONFIG_FDDI is not set
-+# CONFIG_HIPPI is not set
-+# CONFIG_PPP is not set
-+# CONFIG_SLIP is not set
-+
-+#
-+# Wireless LAN (non-hamradio)
-+#
-+# CONFIG_NET_RADIO is not set
-+
-+#
-+# Token Ring devices
-+#
-+# CONFIG_TR is not set
-+# CONFIG_NET_FC is not set
-+# CONFIG_SHAPER is not set
-+
-+#
-+# Wan interfaces
-+#
-+# CONFIG_WAN is not set
-+
-+#
-+# Amateur Radio support
-+#
-+# CONFIG_HAMRADIO is not set
-+
-+#
-+# IrDA (infrared) support
-+#
-+# CONFIG_IRDA is not set
-+
-+#
-+# Bluetooth support
-+#
-+# CONFIG_BT is not set
-+
-+#
-+# ISDN subsystem
-+#
-+# CONFIG_ISDN is not set
-+
-+#
-+# Input device support
-+#
-+CONFIG_INPUT=y
-+
-+#
-+# Userland interfaces
-+#
-+CONFIG_INPUT_MOUSEDEV=y
-+CONFIG_INPUT_MOUSEDEV_PSAUX=y
-+CONFIG_INPUT_MOUSEDEV_SCREEN_X24
-+CONFIG_INPUT_MOUSEDEV_SCREEN_Yv8
-+CONFIG_INPUT_JOYDEV=y
-+# CONFIG_INPUT_TSDEV is not set
-+CONFIG_INPUT_EVDEV=y
-+# CONFIG_INPUT_EVBUG is not set
-+
-+#
-+# Input I/O drivers
-+#
-+# CONFIG_GAMEPORT is not set
-+CONFIG_SOUND_GAMEPORT=y
-+CONFIG_SERIO=y
-+# CONFIG_SERIO_I8042 is not set
-+# CONFIG_SERIO_SERPORT is not set
-+# CONFIG_SERIO_CT82C710 is not set
-+# CONFIG_SERIO_PCIPS2 is not set
-+
-+#
-+# Input Device Drivers
-+#
-+# CONFIG_INPUT_KEYBOARD is not set
-+# CONFIG_INPUT_MOUSE is not set
-+# CONFIG_INPUT_JOYSTICK is not set
-+# CONFIG_INPUT_TOUCHSCREEN is not set
-+# CONFIG_INPUT_MISC is not set
-+
-+#
-+# Character devices
-+#
-+CONFIG_VT=y
-+CONFIG_VT_CONSOLE=y
-+CONFIG_HW_CONSOLE=y
-+# CONFIG_SERIAL_NONSTANDARD is not set
-+
-+#
-+# Serial drivers
-+#
-+CONFIG_SERIAL_8250=y
-+CONFIG_SERIAL_8250_CONSOLE=y
-+CONFIG_SERIAL_8250_HCDP=y
-+CONFIG_SERIAL_8250_ACPI=y
-+CONFIG_SERIAL_8250_NR_UARTS=8
-+CONFIG_SERIAL_8250_EXTENDED=y
-+CONFIG_SERIAL_8250_SHARE_IRQ=y
-+# CONFIG_SERIAL_8250_DETECT_IRQ is not set
-+# CONFIG_SERIAL_8250_MULTIPORT is not set
-+# CONFIG_SERIAL_8250_RSA is not set
-+
-+#
-+# Non-8250 serial port support
-+#
-+CONFIG_SERIAL_CORE=y
-+CONFIG_SERIAL_CORE_CONSOLE=y
-+CONFIG_UNIX98_PTYS=y
-+CONFIG_LEGACY_PTYS=y
-+CONFIG_LEGACY_PTY_COUNT%6
-+
-+#
-+# Mice
-+#
-+# CONFIG_BUSMOUSE is not set
-+# CONFIG_QIC02_TAPE is not set
-+
-+#
-+# IPMI
-+#
-+# CONFIG_IPMI_HANDLER is not set
-+
-+#
-+# Watchdog Cards
-+#
-+# CONFIG_WATCHDOG is not set
-+# CONFIG_HW_RANDOM is not set
-+# CONFIG_NVRAM is not set
-+# CONFIG_GEN_RTC is not set
-+CONFIG_EFI_RTC=y
-+# CONFIG_DTLK is not set
-+# CONFIG_R3964 is not set
-+# CONFIG_APPLICOM is not set
-+
-+#
-+# Ftape, the floppy tape device driver
-+#
-+# CONFIG_FTAPE is not set
-+CONFIG_AGP=y
-+CONFIG_AGP_HP_ZX1=y
-+CONFIG_DRM=y
-+# CONFIG_DRM_TDFX is not set
-+# CONFIG_DRM_GAMMA is not set
-+# CONFIG_DRM_R128 is not set
-+CONFIG_DRM_RADEON=y
-+# CONFIG_DRM_MGA is not set
-+# CONFIG_DRM_SIS is not set
-+# CONFIG_RAW_DRIVER is not set
-+
-+#
-+# I2C support
-+#
-+CONFIG_I2C=y
-+CONFIG_I2C_CHARDEV=y
-+
-+#
-+# I2C Algorithms
-+#
-+CONFIG_I2C_ALGOBIT=y
-+CONFIG_I2C_ALGOPCF=y
-+
-+#
-+# I2C Hardware Bus support
-+#
-+# CONFIG_I2C_ALI1535 is not set
-+# CONFIG_I2C_ALI15X3 is not set
-+# CONFIG_I2C_AMD756 is not set
-+# CONFIG_I2C_AMD8111 is not set
-+# CONFIG_I2C_ELV is not set
-+# CONFIG_I2C_I801 is not set
-+# CONFIG_I2C_I810 is not set
-+# CONFIG_I2C_ISA is not set
-+# CONFIG_I2C_NFORCE2 is not set
-+# CONFIG_I2C_PARPORT_LIGHT is not set
-+# CONFIG_I2C_PROSAVAGE is not set
-+# CONFIG_I2C_SAVAGE4 is not set
-+# CONFIG_SCx200_ACB is not set
-+# CONFIG_I2C_SIS5595 is not set
-+# CONFIG_I2C_SIS630 is not set
-+# CONFIG_I2C_SIS96X is not set
-+# CONFIG_I2C_VELLEMAN is not set
-+# CONFIG_I2C_VIA is not set
-+# CONFIG_I2C_VIAPRO is not set
-+# CONFIG_I2C_VOODOO3 is not set
-+
-+#
-+# I2C Hardware Sensors Chip support
-+#
-+# CONFIG_I2C_SENSOR is not set
-+# CONFIG_SENSORS_ADM1021 is not set
-+# CONFIG_SENSORS_ASB100 is not set
-+# CONFIG_SENSORS_EEPROM is not set
-+# CONFIG_SENSORS_FSCHER is not set
-+# CONFIG_SENSORS_GL518SM is not set
-+# CONFIG_SENSORS_IT87 is not set
-+# CONFIG_SENSORS_LM75 is not set
-+# CONFIG_SENSORS_LM78 is not set
-+# CONFIG_SENSORS_LM83 is not set
-+# CONFIG_SENSORS_LM85 is not set
-+# CONFIG_SENSORS_LM90 is not set
-+# CONFIG_SENSORS_VIA686A is not set
-+# CONFIG_SENSORS_W83781D is not set
-+# CONFIG_SENSORS_W83L785TS is not set
-+# CONFIG_I2C_DEBUG_CORE is not set
-+# CONFIG_I2C_DEBUG_BUS is not set
-+# CONFIG_I2C_DEBUG_CHIP is not set
-+
-+#
-+# Multimedia devices
-+#
-+# CONFIG_VIDEO_DEV is not set
-+
-+#
-+# Digital Video Broadcasting Devices
-+#
-+# CONFIG_DVB is not set
-+
-+#
-+# File systems
-+#
-+CONFIG_EXT2_FS=y
-+CONFIG_EXT2_FS_XATTR=y
-+# CONFIG_EXT2_FS_POSIX_ACL is not set
-+# CONFIG_EXT2_FS_SECURITY is not set
-+CONFIG_EXT3_FS=y
-+CONFIG_EXT3_FS_XATTR=y
-+# CONFIG_EXT3_FS_POSIX_ACL is not set
-+# CONFIG_EXT3_FS_SECURITY is not set
-+CONFIG_JBD=y
-+# CONFIG_JBD_DEBUG is not set
-+CONFIG_FS_MBCACHE=y
-+# CONFIG_REISERFS_FS is not set
-+# CONFIG_JFS_FS is not set
-+# CONFIG_XFS_FS is not set
-+# CONFIG_MINIX_FS is not set
-+# CONFIG_ROMFS_FS is not set
-+# CONFIG_QUOTA is not set
-+CONFIG_AUTOFS_FS=y
-+# CONFIG_AUTOFS4_FS is not set
-+
-+#
-+# CD-ROM/DVD Filesystems
-+#
-+CONFIG_ISO9660_FS=y
-+CONFIG_JOLIET=y
-+# CONFIG_ZISOFS is not set
-+CONFIG_UDF_FS=y
-+
-+#
-+# DOS/FAT/NT Filesystems
-+#
-+CONFIG_FAT_FS=y
-+CONFIG_MSDOS_FS=y
-+CONFIG_VFAT_FS=y
-+# CONFIG_NTFS_FS is not set
-+
-+#
-+# Pseudo filesystems
-+#
-+CONFIG_PROC_FS=y
-+CONFIG_PROC_KCORE=y
-+# CONFIG_DEVFS_FS is not set
-+# CONFIG_DEVPTS_FS_XATTR is not set
-+CONFIG_TMPFS=y
-+CONFIG_HUGETLBFS=y
-+CONFIG_HUGETLB_PAGE=y
-+CONFIG_RAMFS=y
-+
-+#
-+# Miscellaneous filesystems
-+#
-+# CONFIG_ADFS_FS is not set
-+# CONFIG_AFFS_FS is not set
-+# CONFIG_HFS_FS is not set
-+# CONFIG_HFSPLUS_FS is not set
-+# CONFIG_BEFS_FS is not set
-+# CONFIG_BFS_FS is not set
-+# CONFIG_EFS_FS is not set
-+# CONFIG_CRAMFS is not set
-+# CONFIG_VXFS_FS is not set
-+# CONFIG_HPFS_FS is not set
-+# CONFIG_QNX4FS_FS is not set
-+# CONFIG_SYSV_FS is not set
-+# CONFIG_UFS_FS is not set
-+
-+#
-+# Network File Systems
-+#
-+CONFIG_NFS_FS=y
-+CONFIG_NFS_V3=y
-+CONFIG_NFS_V4=y
-+# CONFIG_NFS_DIRECTIO is not set
-+CONFIG_NFSD=y
-+CONFIG_NFSD_V3=y
-+# CONFIG_NFSD_V4 is not set
-+# CONFIG_NFSD_TCP is not set
-+CONFIG_LOCKD=y
-+CONFIG_LOCKD_V4=y
-+CONFIG_EXPORTFS=y
-+CONFIG_SUNRPC=y
-+CONFIG_SUNRPC_GSS=y
-+# CONFIG_SMB_FS is not set
-+# CONFIG_CIFS is not set
-+# CONFIG_NCP_FS is not set
-+# CONFIG_CODA_FS is not set
-+# CONFIG_INTERMEZZO_FS is not set
-+# CONFIG_AFS_FS is not set
-+
-+#
-+# Partition Types
-+#
-+CONFIG_PARTITION_ADVANCED=y
-+# CONFIG_ACORN_PARTITION is not set
-+# CONFIG_OSF_PARTITION is not set
-+# CONFIG_AMIGA_PARTITION is not set
-+# CONFIG_ATARI_PARTITION is not set
-+# CONFIG_MAC_PARTITION is not set
-+CONFIG_MSDOS_PARTITION=y
-+# CONFIG_BSD_DISKLABEL is not set
-+# CONFIG_MINIX_SUBPARTITION is not set
-+# CONFIG_SOLARIS_X86_PARTITION is not set
-+# CONFIG_UNIXWARE_DISKLABEL is not set
-+# CONFIG_LDM_PARTITION is not set
-+# CONFIG_NEC98_PARTITION is not set
-+# CONFIG_SGI_PARTITION is not set
-+# CONFIG_ULTRIX_PARTITION is not set
-+# CONFIG_SUN_PARTITION is not set
-+CONFIG_EFI_PARTITION=y
-+
-+#
-+# Native Language Support
-+#
-+CONFIG_NLS=y
-+CONFIG_NLS_DEFAULT="iso8859-1"
-+CONFIG_NLS_CODEPAGE_437=y
-+CONFIG_NLS_CODEPAGE_737=y
-+CONFIG_NLS_CODEPAGE_775=y
-+CONFIG_NLS_CODEPAGE_850=y
-+CONFIG_NLS_CODEPAGE_852=y
-+CONFIG_NLS_CODEPAGE_855=y
-+CONFIG_NLS_CODEPAGE_857=y
-+CONFIG_NLS_CODEPAGE_860=y
-+CONFIG_NLS_CODEPAGE_861=y
-+CONFIG_NLS_CODEPAGE_862=y
-+CONFIG_NLS_CODEPAGE_863=y
-+CONFIG_NLS_CODEPAGE_864=y
-+CONFIG_NLS_CODEPAGE_865=y
-+CONFIG_NLS_CODEPAGE_866=y
-+CONFIG_NLS_CODEPAGE_869=y
-+CONFIG_NLS_CODEPAGE_936=y
-+CONFIG_NLS_CODEPAGE_950=y
-+CONFIG_NLS_CODEPAGE_932=y
-+CONFIG_NLS_CODEPAGE_949=y
-+CONFIG_NLS_CODEPAGE_874=y
-+CONFIG_NLS_ISO8859_8=y
-+# CONFIG_NLS_CODEPAGE_1250 is not set
-+CONFIG_NLS_CODEPAGE_1251=y
-+CONFIG_NLS_ISO8859_1=y
-+CONFIG_NLS_ISO8859_2=y
-+CONFIG_NLS_ISO8859_3=y
-+CONFIG_NLS_ISO8859_4=y
-+CONFIG_NLS_ISO8859_5=y
-+CONFIG_NLS_ISO8859_6=y
-+CONFIG_NLS_ISO8859_7=y
-+CONFIG_NLS_ISO8859_9=y
-+CONFIG_NLS_ISO8859_13=y
-+CONFIG_NLS_ISO8859_14=y
-+CONFIG_NLS_ISO8859_15=y
-+CONFIG_NLS_KOI8_R=y
-+CONFIG_NLS_KOI8_U=y
-+CONFIG_NLS_UTF8=y
-+
-+#
-+# Graphics support
-+#
-+CONFIG_FB=y
-+# CONFIG_FB_CIRRUS is not set
-+# CONFIG_FB_PM2 is not set
-+# CONFIG_FB_CYBER2000 is not set
-+# CONFIG_FB_IMSTT is not set
-+# CONFIG_FB_RIVA is not set
-+# CONFIG_FB_MATROX is not set
-+# CONFIG_FB_RADEON_OLD is not set
-+CONFIG_FB_RADEON=y
-+CONFIG_FB_RADEON_I2C=y
-+CONFIG_FB_RADEON_DEBUG=y
-+# CONFIG_FB_ATY128 is not set
-+# CONFIG_FB_ATY is not set
-+# CONFIG_FB_SIS is not set
-+# CONFIG_FB_NEOMAGIC is not set
-+# CONFIG_FB_KYRO is not set
-+# CONFIG_FB_3DFX is not set
-+# CONFIG_FB_VOODOO1 is not set
-+# CONFIG_FB_TRIDENT is not set
-+# CONFIG_FB_PM3 is not set
-+# CONFIG_FB_VIRTUAL is not set
-+
-+#
-+# Console display driver support
-+#
-+CONFIG_VGA_CONSOLE=y
-+# CONFIG_MDA_CONSOLE is not set
-+CONFIG_DUMMY_CONSOLE=y
-+CONFIG_FRAMEBUFFER_CONSOLE=y
-+CONFIG_PCI_CONSOLE=y
-+# CONFIG_FONTS is not set
-+CONFIG_FONT_8x8=y
-+CONFIG_FONT_8x16=y
-+
-+#
-+# Logo configuration
-+#
-+CONFIG_LOGO=y
-+# CONFIG_LOGO_LINUX_MONO is not set
-+# CONFIG_LOGO_LINUX_VGA16 is not set
-+CONFIG_LOGO_LINUX_CLUT224=y
-+
-+#
-+# Sound
-+#
-+CONFIG_SOUND=y
-+
-+#
-+# Advanced Linux Sound Architecture
-+#
-+CONFIG_SND=y
-+CONFIG_SND_SEQUENCER=y
-+# CONFIG_SND_SEQ_DUMMY is not set
-+CONFIG_SND_OSSEMUL=y
-+CONFIG_SND_MIXER_OSS=y
-+CONFIG_SND_PCM_OSS=y
-+CONFIG_SND_SEQUENCER_OSS=y
-+# CONFIG_SND_VERBOSE_PRINTK is not set
-+# CONFIG_SND_DEBUG is not set
-+
-+#
-+# Generic devices
-+#
-+# CONFIG_SND_DUMMY is not set
-+# CONFIG_SND_VIRMIDI is not set
-+# CONFIG_SND_MTPAV is not set
-+# CONFIG_SND_SERIAL_U16550 is not set
-+# CONFIG_SND_MPU401 is not set
-+
-+#
-+# PCI devices
-+#
-+# CONFIG_SND_ALI5451 is not set
-+# CONFIG_SND_AZT3328 is not set
-+# CONFIG_SND_BT87X is not set
-+# CONFIG_SND_CS46XX is not set
-+# CONFIG_SND_CS4281 is not set
-+# CONFIG_SND_EMU10K1 is not set
-+# CONFIG_SND_KORG1212 is not set
-+# CONFIG_SND_NM256 is not set
-+# CONFIG_SND_RME32 is not set
-+# CONFIG_SND_RME96 is not set
-+# CONFIG_SND_RME9652 is not set
-+# CONFIG_SND_HDSP is not set
-+# CONFIG_SND_TRIDENT is not set
-+# CONFIG_SND_YMFPCI is not set
-+# CONFIG_SND_ALS4000 is not set
-+# CONFIG_SND_CMIPCI is not set
-+# CONFIG_SND_ENS1370 is not set
-+# CONFIG_SND_ENS1371 is not set
-+# CONFIG_SND_ES1938 is not set
-+# CONFIG_SND_ES1968 is not set
-+# CONFIG_SND_MAESTRO3 is not set
-+CONFIG_SND_FM801=y
-+# CONFIG_SND_ICE1712 is not set
-+# CONFIG_SND_ICE1724 is not set
-+# CONFIG_SND_INTEL8X0 is not set
-+# CONFIG_SND_SONICVIBES is not set
-+# CONFIG_SND_VIA82XX is not set
-+# CONFIG_SND_VX222 is not set
-+
-+#
-+# ALSA USB devices
-+#
-+# CONFIG_SND_USB_AUDIO is not set
-+
-+#
-+# Open Sound System
-+#
-+# CONFIG_SOUND_PRIME is not set
-+
-+#
-+# USB support
-+#
-+CONFIG_USB=y
-+# CONFIG_USB_DEBUG is not set
-+
-+#
-+# Miscellaneous USB options
-+#
-+# CONFIG_USB_DEVICEFS is not set
-+CONFIG_USB_BANDWIDTH=y
-+# CONFIG_USB_DYNAMIC_MINORS is not set
-+
-+#
-+# USB Host Controller Drivers
-+#
-+CONFIG_USB_EHCI_HCD=y
-+CONFIG_USB_OHCI_HCD=y
-+CONFIG_USB_UHCI_HCD=y
-+
-+#
-+# USB Device Class drivers
-+#
-+# CONFIG_USB_AUDIO is not set
-+# CONFIG_USB_BLUETOOTH_TTY is not set
-+# CONFIG_USB_MIDI is not set
-+# CONFIG_USB_ACM is not set
-+# CONFIG_USB_PRINTER is not set
-+CONFIG_USB_STORAGE=y
-+# CONFIG_USB_STORAGE_DEBUG is not set
-+# CONFIG_USB_STORAGE_DATAFAB is not set
-+# CONFIG_USB_STORAGE_FREECOM is not set
-+# CONFIG_USB_STORAGE_ISD200 is not set
-+# CONFIG_USB_STORAGE_DPCM is not set
-+# CONFIG_USB_STORAGE_HP8200e is not set
-+# CONFIG_USB_STORAGE_SDDR09 is not set
-+# CONFIG_USB_STORAGE_SDDR55 is not set
-+# CONFIG_USB_STORAGE_JUMPSHOT is not set
-+
-+#
-+# USB Human Interface Devices (HID)
-+#
-+CONFIG_USB_HID=y
-+CONFIG_USB_HIDINPUT=y
-+# CONFIG_HID_FF is not set
-+CONFIG_USB_HIDDEV=y
-+# CONFIG_USB_AIPTEK is not set
-+# CONFIG_USB_WACOM is not set
-+# CONFIG_USB_KBTAB is not set
-+# CONFIG_USB_POWERMATE is not set
-+# CONFIG_USB_XPAD is not set
-+
-+#
-+# USB Imaging devices
-+#
-+# CONFIG_USB_MDC800 is not set
-+# CONFIG_USB_MICROTEK is not set
-+# CONFIG_USB_HPUSBSCSI is not set
-+
-+#
-+# USB Multimedia devices
-+#
-+# CONFIG_USB_DABUSB is not set
-+
-+#
-+# Video4Linux support is needed for USB Multimedia device support
-+#
-+
-+#
-+# USB Network adaptors
-+#
-+# CONFIG_USB_CATC is not set
-+# CONFIG_USB_KAWETH is not set
-+# CONFIG_USB_PEGASUS is not set
-+# CONFIG_USB_RTL8150 is not set
-+# CONFIG_USB_USBNET is not set
-+
-+#
-+# USB port drivers
-+#
-+
-+#
-+# USB Serial Converter support
-+#
-+# CONFIG_USB_SERIAL is not set
-+
-+#
-+# USB Miscellaneous drivers
-+#
-+# CONFIG_USB_EMI62 is not set
-+# CONFIG_USB_EMI26 is not set
-+# CONFIG_USB_TIGL is not set
-+# CONFIG_USB_AUERSWALD is not set
-+# CONFIG_USB_RIO500 is not set
-+# CONFIG_USB_LEGOTOWER is not set
-+# CONFIG_USB_BRLVGER is not set
-+# CONFIG_USB_LCD is not set
-+# CONFIG_USB_LED is not set
-+
-+#
-+# USB Gadget Support
-+#
-+# CONFIG_USB_GADGET is not set
-+
-+#
-+# Library routines
-+#
-+CONFIG_CRC32=y
-+
-+#
-+# Profiling support
-+#
-+# CONFIG_PROFILING is not set
-+
-+#
-+# Kernel hacking
-+#
-+CONFIG_IA64_GRANULE_16MB=y
-+# CONFIG_IA64_GRANULE_64MB is not set
-+CONFIG_DEBUG_KERNEL=y
-+CONFIG_IA64_PRINT_HAZARDS=y
-+# CONFIG_DISABLE_VHPT is not set
-+CONFIG_MAGIC_SYSRQ=y
-+# CONFIG_DEBUG_SLAB is not set
-+# CONFIG_DEBUG_SPINLOCK is not set
-+# CONFIG_DEBUG_SPINLOCK_SLEEP is not set
-+# CONFIG_IA64_DEBUG_CMPXCHG is not set
-+# CONFIG_IA64_DEBUG_IRQ is not set
-+# CONFIG_DEBUG_INFO is not set
-+
-+#
-+# Security options
-+#
-+# CONFIG_SECURITY is not set
-+
-+#
-+# Cryptographic options
-+#
-+# CONFIG_CRYPTO is not set
+Currently only normal page commitments are tracked.  This patch
+provides a framework for tracking page commitments in multiple
+independent domains.  With this patch vm_commited_space becomes a
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+---
+ fs/proc/proc_misc.c      |    2 +-
+ include/linux/mm.h       |   13 +++++++++++--
+ include/linux/mman.h     |   12 ++++++------
+ kernel/fork.c            |    8 +++-----
+ mm/memory.c              |   12 +++++++++---
+ mm/mmap.c                |   23 ++++++++++++-----------
+ mm/mprotect.c            |    5 ++---
+ mm/mremap.c              |   12 ++++++------
+ mm/nommu.c               |    3 ++-
+ mm/shmem.c               |   13 +++++++------
+ mm/swap.c                |   17 +++++++++++++----
+ mm/swapfile.c            |    4 +++-
+ security/commoncap.c     |   10 +++++-----
+ security/dummy.c         |   10 +++++-----
+ security/selinux/hooks.c |   10 +++++-----
+ 15 files changed, 90 insertions(+), 64 deletions(-)
+
+diff -upN reference/fs/proc/proc_misc.c current/fs/proc/proc_misc.c
+--- reference/fs/proc/proc_misc.c	2004-03-25 15:03:28.000000000 +0000
++++ current/fs/proc/proc_misc.c	2004-03-25 15:03:32.000000000 +0000
+@@ -174,7 +174,7 @@ static int meminfo_read_proc(char *page,
+ #define K(x) ((x) << (PAGE_SHIFT - 10))
+ 	si_meminfo(&i);
+ 	si_swapinfo(&i);
+-	committed = atomic_read(&vm_committed_space);
++	committed = atomic_read(&vm_committed_space[VM_AD_DEFAULT]);
+ 
+ 	vmtot = (VMALLOC_END-VMALLOC_START)>>10;
+ 	vmi = get_vmalloc_info();
+diff -upN reference/include/linux/mman.h current/include/linux/mman.h
+--- reference/include/linux/mman.h	2004-01-09 06:59:09.000000000 +0000
++++ current/include/linux/mman.h	2004-03-25 15:03:32.000000000 +0000
+@@ -12,20 +12,20 @@
+ 
+ extern int sysctl_overcommit_memory;
+ extern int sysctl_overcommit_ratio;
+-extern atomic_t vm_committed_space;
++extern atomic_t vm_committed_space[];
+ 
+ #ifdef CONFIG_SMP
+-extern void vm_acct_memory(long pages);
++extern void vm_acct_memory(int domain, long pages);
+ #else
+-static inline void vm_acct_memory(long pages)
++static inline void vm_acct_memory(int domain, long pages)
+ {
+-	atomic_add(pages, &vm_committed_space);
++	atomic_add(pages, &vm_committed_space[domain]);
+ }
+ #endif
+ 
+-static inline void vm_unacct_memory(long pages)
++static inline void vm_unacct_memory(int domain, long pages)
+ {
+-	vm_acct_memory(-pages);
++	vm_acct_memory(domain, -pages);
+ }
+ 
+ /*
+diff -upN reference/include/linux/mm.h current/include/linux/mm.h
+--- reference/include/linux/mm.h	2004-03-25 15:03:32.000000000 +0000
++++ current/include/linux/mm.h	2004-03-25 15:03:32.000000000 +0000
+@@ -117,7 +117,16 @@ struct vm_area_struct {
+ #define VM_ACCTDOM(vma) (!!((vma)->vm_flags & VM_HUGETLB))
+ #define VM_AD_DEFAULT	0
+ #define VM_AD_HUGETLB	1
+-
++typedef struct {
++	long vec[VM_ACCTDOM_NR];
++} madv_t;
++#define MADV_NONE { {[0 ... VM_ACCTDOM_NR-1] =  0UL} }
++static inline void madv_add(madv_t *madv, int domain, long size)
++{
++	madv->vec[domain] += size;
++}
++void vm_unacct_memory_domains(madv_t *madv);
++  
+ #ifndef VM_STACK_DEFAULT_FLAGS		/* arch can override this */
+ #define VM_STACK_DEFAULT_FLAGS VM_DATA_DEFAULT_FLAGS
+ #endif
+@@ -446,7 +455,7 @@ void zap_page_range(struct vm_area_struc
+ 			unsigned long size);
+ int unmap_vmas(struct mmu_gather **tlbp, struct mm_struct *mm,
+ 		struct vm_area_struct *start_vma, unsigned long start_addr,
+-		unsigned long end_addr, unsigned long *nr_accounted);
++		unsigned long end_addr, madv_t *nr_accounted);
+ void unmap_page_range(struct mmu_gather *tlb, struct vm_area_struct *vma,
+ 			unsigned long address, unsigned long size);
+ void clear_page_tables(struct mmu_gather *tlb, unsigned long first, int nr);
+diff -upN reference/kernel/fork.c current/kernel/fork.c
+--- reference/kernel/fork.c	2004-03-25 15:03:32.000000000 +0000
++++ current/kernel/fork.c	2004-03-25 15:03:32.000000000 +0000
+@@ -267,7 +267,7 @@ static inline int dup_mmap(struct mm_str
+ 	struct vm_area_struct * mpnt, *tmp, **pprev;
+ 	struct rb_node **rb_link, *rb_parent;
+ 	int retval;
+-	unsigned long charge = 0;
++	madv_t charge = MADV_NONE;
+ 
+ 	down_write(&oldmm->mmap_sem);
+ 	flush_cache_mm(current->mm);
+@@ -303,8 +303,7 @@ static inline int dup_mmap(struct mm_str
+ 			unsigned int len = (mpnt->vm_end - mpnt->vm_start) >> PAGE_SHIFT;
+ 			if (security_vm_enough_memory(VM_ACCTDOM(mpnt), len))
+ 				goto fail_nomem;
+-			if (VM_ACCTDOM(mpnt) = VM_AD_DEFAULT)
+-				charge += len;
++ 			madv_add(&charge, VM_ACCTDOM(mpnt), len);
+ 		}
+ 		tmp = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+ 		if (!tmp)
+@@ -359,8 +358,7 @@ out:
+ fail_nomem:
+ 	retval = -ENOMEM;
+ fail:
+-	if (charge)
+-		vm_unacct_memory(charge);
++	vm_unacct_memory_domains(&charge);
+ 	goto out;
+ }
+ static inline int mm_alloc_pgd(struct mm_struct * mm)
+diff -upN reference/mm/memory.c current/mm/memory.c
+--- reference/mm/memory.c	2004-03-25 15:03:32.000000000 +0000
++++ current/mm/memory.c	2004-03-25 15:03:32.000000000 +0000
+@@ -524,7 +524,7 @@ void unmap_page_range(struct mmu_gather 
+  */
+ int unmap_vmas(struct mmu_gather **tlbp, struct mm_struct *mm,
+ 		struct vm_area_struct *vma, unsigned long start_addr,
+-		unsigned long end_addr, unsigned long *nr_accounted)
++		unsigned long end_addr, madv_t *nr_accounted)
+ {
+ 	unsigned long zap_bytes = ZAP_BLOCK_SIZE;
+ 	unsigned long tlb_start = 0;	/* For tlb_finish_mmu */
+@@ -553,7 +553,8 @@ int unmap_vmas(struct mmu_gather **tlbp,
+ 
+ 		/* We assume that only accountable VMAs are VM_ACCOUNT. */
+ 		if (vma->vm_flags & VM_ACCOUNT)
+-			*nr_accounted += (end - start) >> PAGE_SHIFT;
++			madv_add(nr_accounted,
++				VM_ACCTDOM(vma), (end - start) >> PAGE_SHIFT);
+ 
+ 		ret++;
+ 		while (start != end) {
+@@ -602,7 +603,12 @@ void zap_page_range(struct vm_area_struc
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	struct mmu_gather *tlb;
+ 	unsigned long end = address + size;
+-	unsigned long nr_accounted = 0;
++	madv_t nr_accounted = MADV_NONE;
++
++	/* XXX: we seem to avoid thinking about the memory accounting
++	 * for both the hugepages where don't bother even tracking it and
++	 * in the normal path where we figure it out and do nothing with it??
++	 */
+ 
+ 	might_sleep();
+ 
+diff -upN reference/mm/mmap.c current/mm/mmap.c
+--- reference/mm/mmap.c	2004-03-25 15:03:32.000000000 +0000
++++ current/mm/mmap.c	2004-03-25 15:03:32.000000000 +0000
+@@ -54,7 +54,8 @@ pgprot_t protection_map[16] = {
+ 
+ int sysctl_overcommit_memory = 0;	/* default is heuristic overcommit */
+ int sysctl_overcommit_ratio = 50;	/* default is 50% */
+-atomic_t vm_committed_space = ATOMIC_INIT(0);
++atomic_t vm_committed_space[VM_ACCTDOM_NR] = 
++     { [ 0 ... VM_ACCTDOM_NR-1 ] = ATOMIC_INIT(0) };
+ 
+ EXPORT_SYMBOL(sysctl_overcommit_memory);
+ EXPORT_SYMBOL(sysctl_overcommit_ratio);
+@@ -611,8 +612,8 @@ munmap_back:
+ 	    > current->rlim[RLIMIT_AS].rlim_cur)
+ 		return -ENOMEM;
+ 
+-	if (acctdom = VM_AD_DEFAULT && (!(flags & MAP_NORESERVE) || 
+-	    sysctl_overcommit_memory > 1)) {
++	if (!(flags & MAP_NORESERVE) || 
++	    (acctdom = VM_AD_DEFAULT && sysctl_overcommit_memory > 1)) {
+ 		if (vm_flags & VM_SHARED) {
+ 			/* Check memory availability in shmem_file_setup? */
+ 			vm_flags |= VM_ACCOUNT;
+@@ -730,7 +731,7 @@ free_vma:
+ 	kmem_cache_free(vm_area_cachep, vma);
+ unacct_error:
+ 	if (charged)
+-		vm_unacct_memory(charged);
++		vm_unacct_memory(acctdom, charged);
+ 	return error;
+ }
+ 
+@@ -940,7 +941,7 @@ int expand_stack(struct vm_area_struct *
+ 			((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) >
+ 			current->rlim[RLIMIT_AS].rlim_cur) {
+ 		spin_unlock(&vma->vm_mm->page_table_lock);
+-		vm_unacct_memory(grow);
++		vm_unacct_memory(VM_AD_DEFAULT, grow);
+ 		return -ENOMEM;
+ 	}
+ 	vma->vm_end = address;
+@@ -994,7 +995,7 @@ int expand_stack(struct vm_area_struct *
+ 			((vma->vm_mm->total_vm + grow) << PAGE_SHIFT) >
+ 			current->rlim[RLIMIT_AS].rlim_cur) {
+ 		spin_unlock(&vma->vm_mm->page_table_lock);
+-		vm_unacct_memory(grow);
++		vm_unacct_memory(VM_AD_DEFAULT, grow);
+ 		return -ENOMEM;
+ 	}
+ 	vma->vm_start = address;
+@@ -1152,12 +1153,12 @@ static void unmap_region(struct mm_struc
+ 	unsigned long end)
+ {
+ 	struct mmu_gather *tlb;
+-	unsigned long nr_accounted = 0;
++	madv_t nr_accounted = MADV_NONE;
+ 
+ 	lru_add_drain();
+ 	tlb = tlb_gather_mmu(mm, 0);
+ 	unmap_vmas(&tlb, mm, vma, start, end, &nr_accounted);
+-	vm_unacct_memory(nr_accounted);
++	vm_unacct_memory_domains(&nr_accounted);
+ 
+ 	if (is_hugepage_only_range(start, end - start))
+ 		hugetlb_free_pgtables(tlb, prev, start, end);
+@@ -1397,7 +1398,7 @@ unsigned long do_brk(unsigned long addr,
+ 	 */
+ 	vma = kmem_cache_alloc(vm_area_cachep, SLAB_KERNEL);
+ 	if (!vma) {
+-		vm_unacct_memory(len >> PAGE_SHIFT);
++		vm_unacct_memory(VM_AD_DEFAULT, len >> PAGE_SHIFT);
+ 		return -ENOMEM;
+ 	}
+ 
+@@ -1430,7 +1431,7 @@ void exit_mmap(struct mm_struct *mm)
+ {
+ 	struct mmu_gather *tlb;
+ 	struct vm_area_struct *vma;
+-	unsigned long nr_accounted = 0;
++	madv_t nr_accounted = MADV_NONE;
+ 
+ 	profile_exit_mmap(mm);
+  
+@@ -1443,7 +1444,7 @@ void exit_mmap(struct mm_struct *mm)
+ 	/* Use ~0UL here to ensure all VMAs in the mm are unmapped */
+ 	mm->map_count -= unmap_vmas(&tlb, mm, mm->mmap, 0,
+ 					~0UL, &nr_accounted);
+-	vm_unacct_memory(nr_accounted);
++	vm_unacct_memory_domains(&nr_accounted);
+ 	BUG_ON(mm->map_count);	/* This is just debugging */
+ 	clear_page_tables(tlb, FIRST_USER_PGD_NR, USER_PTRS_PER_PGD);
+ 	tlb_finish_mmu(tlb, 0, MM_VM_SIZE(mm));
+diff -upN reference/mm/mprotect.c current/mm/mprotect.c
+--- reference/mm/mprotect.c	2004-03-25 15:03:32.000000000 +0000
++++ current/mm/mprotect.c	2004-03-25 15:03:32.000000000 +0000
+@@ -173,8 +173,7 @@ mprotect_fixup(struct vm_area_struct *vm
+ 	 * a MAP_NORESERVE private mapping to writable will now reserve.
+ 	 */
+ 	if (newflags & VM_WRITE) {
+-		if (!(vma->vm_flags & (VM_ACCOUNT|VM_WRITE|VM_SHARED)) &&
+-				VM_ACCTDOM(vma) = VM_AD_DEFAULT) {
++		if (!(vma->vm_flags & (VM_ACCOUNT|VM_WRITE|VM_SHARED))) {
+ 			charged = (end - start) >> PAGE_SHIFT;
+ 			if (security_vm_enough_memory(VM_ACCTDOM(vma), charged))
+ 				return -ENOMEM;
+@@ -218,7 +217,7 @@ success:
+ 	return 0;
+ 
+ fail:
+-	vm_unacct_memory(charged);
++	vm_unacct_memory(VM_ACCTDOM(vma), charged);
+ 	return error;
+ }
+ 
+diff -upN reference/mm/mremap.c current/mm/mremap.c
+--- reference/mm/mremap.c	2004-03-25 15:03:32.000000000 +0000
++++ current/mm/mremap.c	2004-03-25 15:03:32.000000000 +0000
+@@ -401,7 +401,7 @@ unsigned long do_mremap(unsigned long ad
+ 	if (vma->vm_flags & VM_ACCOUNT) {
+ 		charged = (new_len - old_len) >> PAGE_SHIFT;
+ 		if (security_vm_enough_memory(VM_ACCTDOM(vma), charged))
+-			goto out_nc;
++			goto out;
+ 	}
+   
+ 	/* old_len exactly to the end of the area..
+@@ -426,7 +426,7 @@ unsigned long do_mremap(unsigned long ad
+ 						   addr + new_len);
+ 			}
+ 			ret = addr;
+-			goto out;
++			goto out_commited;
+ 		}
+ 	}
+ 
+@@ -445,14 +445,14 @@ unsigned long do_mremap(unsigned long ad
+ 						vma->vm_pgoff, map_flags);
+ 			ret = new_addr;
+ 			if (new_addr & ~PAGE_MASK)
+-				goto out;
++				goto out_commited;
+ 		}
+ 		ret = move_vma(vma, addr, old_len, new_len, new_addr);
+ 	}
+-out:
++out_commited:
+ 	if (ret & ~PAGE_MASK)
+-		vm_unacct_memory(charged);
+-out_nc:
++		vm_unacct_memory(VM_ACCTDOM(vma), charged);
++out:
+ 	return ret;
+ }
+ 
+diff -upN reference/mm/nommu.c current/mm/nommu.c
+--- reference/mm/nommu.c	2004-02-04 15:09:16.000000000 +0000
++++ current/mm/nommu.c	2004-03-25 15:03:32.000000000 +0000
+@@ -29,7 +29,8 @@ struct page *mem_map;
+ unsigned long max_mapnr;
+ unsigned long num_physpages;
+ unsigned long askedalloc, realalloc;
+-atomic_t vm_committed_space = ATOMIC_INIT(0);
++atomic_t vm_committed_space[VM_ACCTDOM_NR] = 
++     { [ 0 ... VM_ACCTDOM_NR-1 ] = ATOMIC_INIT(0) };
+ int sysctl_overcommit_memory; /* default is heuristic overcommit */
+ int sysctl_overcommit_ratio = 50; /* default is 50% */
+ 
+diff -upN reference/mm/shmem.c current/mm/shmem.c
+--- reference/mm/shmem.c	2004-03-25 15:03:32.000000000 +0000
++++ current/mm/shmem.c	2004-03-25 15:03:32.000000000 +0000
+@@ -529,7 +529,7 @@ static int shmem_notify_change(struct de
+ 			if (security_vm_enough_memory(VM_AD_DEFAULT, change))
+ 				return -ENOMEM;
+ 		} else if (attr->ia_size < inode->i_size) {
+-			vm_unacct_memory(-change);
++			vm_unacct_memory(VM_AD_DEFAULT, -change);
+ 			/*
+ 			 * If truncating down to a partial page, then
+ 			 * if that page is already allocated, hold it
+@@ -564,7 +564,7 @@ static int shmem_notify_change(struct de
+ 	if (page)
+ 		page_cache_release(page);
+ 	if (error)
+-		vm_unacct_memory(change);
++		vm_unacct_memory(VM_AD_DEFAULT, change);
+ 	return error;
+ }
+ 
+@@ -578,7 +578,7 @@ static void shmem_delete_inode(struct in
+ 		list_del(&info->list);
+ 		spin_unlock(&shmem_ilock);
+ 		if (info->flags & VM_ACCOUNT)
+-			vm_unacct_memory(VM_ACCT(inode->i_size));
++			vm_unacct_memory(VM_AD_DEFAULT, VM_ACCT(inode->i_size));
+ 		inode->i_size = 0;
+ 		shmem_truncate(inode);
+ 	}
+@@ -1271,7 +1271,8 @@ shmem_file_write(struct file *file, cons
+ 
+ 	/* Short writes give back address space */
+ 	if (inode->i_size != maxpos)
+-		vm_unacct_memory(VM_ACCT(maxpos) - VM_ACCT(inode->i_size));
++		vm_unacct_memory(VM_AD_DEFAULT, VM_ACCT(maxpos) -
++			VM_ACCT(inode->i_size));
+ out:
+ 	up(&inode->i_sem);
+ 	return err;
+@@ -1558,7 +1559,7 @@ static int shmem_symlink(struct inode *d
+ 		}
+ 		error = shmem_getpage(inode, 0, &page, SGP_WRITE, NULL);
+ 		if (error) {
+-			vm_unacct_memory(VM_ACCT(1));
++			vm_unacct_memory(VM_AD_DEFAULT, VM_ACCT(1));
+ 			iput(inode);
+ 			return error;
+ 		}
+@@ -1988,7 +1989,7 @@ put_dentry:
+ 	dput(dentry);
+ put_memory:
+ 	if (flags & VM_ACCOUNT)
+-		vm_unacct_memory(VM_ACCT(size));
++		vm_unacct_memory(VM_AD_DEFAULT, VM_ACCT(size));
+ 	return ERR_PTR(error);
+ }
+ 
+diff -upN reference/mm/swap.c current/mm/swap.c
+--- reference/mm/swap.c	2004-03-25 02:43:43.000000000 +0000
++++ current/mm/swap.c	2004-03-25 15:03:32.000000000 +0000
+@@ -368,17 +368,18 @@ unsigned int pagevec_lookup(struct pagev
+  */
+ #define ACCT_THRESHOLD	max(16, NR_CPUS * 2)
+ 
+-static DEFINE_PER_CPU(long, committed_space) = 0;
++/* XXX: zero this????? */
++static DEFINE_PER_CPU(long, committed_space[VM_ACCTDOM_NR]);
+ 
+-void vm_acct_memory(long pages)
++void vm_acct_memory(int domain, long pages)
+ {
+ 	long *local;
+ 
+ 	preempt_disable();
+-	local = &__get_cpu_var(committed_space);
++	local = &__get_cpu_var(committed_space[domain]);
+ 	*local += pages;
+ 	if (*local > ACCT_THRESHOLD || *local < -ACCT_THRESHOLD) {
+-		atomic_add(*local, &vm_committed_space);
++		atomic_add(*local, &vm_committed_space[domain]);
+ 		*local = 0;
+ 	}
+ 	preempt_enable();
+@@ -416,6 +417,14 @@ static int cpu_swap_callback(struct noti
+ #endif /* CONFIG_HOTPLUG_CPU */
+ #endif /* CONFIG_SMP */
+ 
++void vm_unacct_memory_domains(madv_t *adv)
++{
++	if (adv->vec[0])
++		vm_unacct_memory(VM_AD_DEFAULT, adv->vec[0]);
++	if (adv->vec[1])
++		vm_unacct_memory(VM_AD_DEFAULT, adv->vec[1]);
++}
++
+ #ifdef CONFIG_SMP
+ void percpu_counter_mod(struct percpu_counter *fbc, long amount)
+ {
+diff -upN reference/mm/swapfile.c current/mm/swapfile.c
+--- reference/mm/swapfile.c	2004-03-25 15:03:32.000000000 +0000
++++ current/mm/swapfile.c	2004-03-25 15:03:32.000000000 +0000
+@@ -1048,8 +1048,10 @@ asmlinkage long sys_swapoff(const char _
+ 		swap_list_unlock();
+ 		goto out_dput;
+ 	}
++	/* There is an assumption here that we only may have swapped things
++	 * from the default memory accounting domain to this device. */
+ 	if (!security_vm_enough_memory(VM_AD_DEFAULT, p->pages))
+-		vm_unacct_memory(p->pages);
++		vm_unacct_memory(VM_AD_DEFAULT, p->pages);
+ 	else {
+ 		err = -ENOMEM;
+ 		swap_list_unlock();
+diff -upN reference/security/commoncap.c current/security/commoncap.c
+--- reference/security/commoncap.c	2004-03-25 15:03:32.000000000 +0000
++++ current/security/commoncap.c	2004-03-25 15:03:32.000000000 +0000
+@@ -312,14 +312,14 @@ int cap_vm_enough_memory(int domain, lon
+ {
+ 	unsigned long free, allowed;
+ 
++	vm_acct_memory(domain, pages);
++
+ 	/* We only account for the default memory domain, assume overcommit
+ 	 * for all others.
+ 	 */
+ 	if (domain != VM_AD_DEFAULT)
+ 		return 0;
+ 
+-	vm_acct_memory(pages);
+-
+         /*
+ 	 * Sometimes we want to use more memory than we have
+ 	 */
+@@ -360,17 +360,17 @@ int cap_vm_enough_memory(int domain, lon
+ 
+ 		if (free > pages)
+ 			return 0;
+-		vm_unacct_memory(pages);
++		vm_unacct_memory(domain, pages);
+ 		return -ENOMEM;
+ 	}
+ 
+ 	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
+ 	allowed += total_swap_pages;
+ 
+-	if (atomic_read(&vm_committed_space) < allowed)
++	if (atomic_read(&vm_committed_space[domain]) < allowed)
+ 		return 0;
+ 
+-	vm_unacct_memory(pages);
++	vm_unacct_memory(domain, pages);
+ 
+ 	return -ENOMEM;
+ }
+diff -upN reference/security/dummy.c current/security/dummy.c
+--- reference/security/dummy.c	2004-03-25 15:03:32.000000000 +0000
++++ current/security/dummy.c	2004-03-25 15:03:32.000000000 +0000
+@@ -113,14 +113,14 @@ static int dummy_vm_enough_memory(int do
+ {
+ 	unsigned long free, allowed;
+ 
++	vm_acct_memory(domain, pages);
++
+ 	/* We only account for the default memory domain, assume overcommit
+ 	 * for all others.
+ 	 */
+ 	if (domain != VM_AD_DEFAULT)
+ 		return 0;
+ 
+-	vm_acct_memory(pages);
+-
+         /*
+ 	 * Sometimes we want to use more memory than we have
+ 	 */
+@@ -148,17 +148,17 @@ static int dummy_vm_enough_memory(int do
+ 
+ 		if (free > pages)
+ 			return 0;
+-		vm_unacct_memory(pages);
++		vm_unacct_memory(domain, pages);
+ 		return -ENOMEM;
+ 	}
+ 
+ 	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
+ 	allowed += total_swap_pages;
+ 
+-	if (atomic_read(&vm_committed_space) < allowed)
++	if (atomic_read(&vm_committed_space[domain]) < allowed)
+ 		return 0;
+ 
+-	vm_unacct_memory(pages);
++	vm_unacct_memory(domain, pages);
+ 
+ 	return -ENOMEM;
+ }
+diff -upN reference/security/selinux/hooks.c current/security/selinux/hooks.c
+--- reference/security/selinux/hooks.c	2004-03-25 15:03:32.000000000 +0000
++++ current/security/selinux/hooks.c	2004-03-25 15:03:32.000000000 +0000
+@@ -1502,14 +1502,14 @@ static int selinux_vm_enough_memory(int 
+ 	int rc;
+ 	struct task_security_struct *tsec = current->security;
+ 
++	vm_acct_memory(domain, pages);
++
+ 	/* We only account for the default memory domain, assume overcommit
+ 	 * for all others.
+ 	 */
+ 	if (domain != VM_AD_DEFAULT)
+ 		return 0;
+ 
+-	vm_acct_memory(pages);
+-
+         /*
+ 	 * Sometimes we want to use more memory than we have
+ 	 */
+@@ -1546,17 +1546,17 @@ static int selinux_vm_enough_memory(int 
+ 
+ 		if (free > pages)
+ 			return 0;
+-		vm_unacct_memory(pages);
++		vm_unacct_memory(domain, pages);
+ 		return -ENOMEM;
+ 	}
+ 
+ 	allowed = totalram_pages * sysctl_overcommit_ratio / 100;
+ 	allowed += total_swap_pages;
+ 
+-	if (atomic_read(&vm_committed_space) < allowed)
++	if (atomic_read(&vm_committed_space[domain]) < allowed)
+ 		return 0;
+ 
+-	vm_unacct_memory(pages);
++	vm_unacct_memory(domain, pages);
+ 
+ 	return -ENOMEM;
+ }
+
