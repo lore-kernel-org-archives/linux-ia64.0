@@ -1,25 +1,27 @@
-From: "Sunroof P. Poncho" <Labalutsch@dogmail.org>
-Date: Tue, 11 May 2004 22:34:38 +0000
+From: "Minimally D. Ingestion" <texier@radiomexico.com>
+Date: Sat, 22 May 2004 13:02:13 +0000
 Subject: Well!
-Message-Id: <6.0.0.22.1.20040511162745.4b3a2457@dogmail.org>
+Message-Id: <6.0.0.22.1.20040522065627.e00fd5a4@radiomexico.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <6.0.0.22.1.20040511162745.4b3a2457@dogmail.org>
+In-Reply-To: <6.0.0.22.1.20040511162745.4b3a2457@dogmail.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Elloelloello :)
-Hot vacant spots: Work at home manager
-Only honest people for hire!
-Working part-time? A lot of free time and need extra money?
-Are you a student whose class schedule impairs working hours?
-You've won the lottery!
-Are you outgoing and honest? We need someone just like you!
-You will need just a little free time to complete this job.
-We want people from Australia on our team.
-Spots are limited so act now and grab this excellent opportunity.
-ONCE IN A LIFETIME CHANCE! DO NOT TURN DOWN!
-http://140.113.238.194:3333/
-Unanswered questions? Look at our site!
-Any more questions?
+I think you're meant to sprinkle salt on it... :)
+Special open vacancies: Stay-at-home manager
+Honest staff required!
+Working part-time? A lot of free time? 
+Are you a student? Are your studies getting in the way of your work hours?
+Awesome opportunity!
+We want outgoing and honest people as yourself!
+This job is wonderful, it requires only limited amounts of your time. 
+We need workers from Australia.
+Few job offerings, so hurry and grab this wonderful job opportunity.
+SEIZE THE DAY AND APPLY FOR THIS JOB TODAY!
+http://80.178.97.155:3333/
+For further inquiries please check our website.
+Click! (one time)
 
