@@ -1,32 +1,29 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Wed, 10 Sep 2003 21:34:57 +0000
-Subject: [PATCH] protect PAL mapping printk with EFI_DEBUG
-Message-Id: <marc-linux-ia64-106323064411277@msgid-missing>
+From: Jes Sorensen <jes@wildopensource.com>
+Date: Wed, 17 Sep 2003 14:18:14 +0000
+Subject: [patch] include/asm-ia64/acpi.h
+Message-Id: <marc-linux-ia64-106380837411487@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Having this print out for every CPU on a large system was a pain, so
-protect the printk with EFI_DEBUG.
+Hi
 
-Jesse
+asm/acpi.h relies on struct pci_vector_struct which is defined in
+asm/system.h
 
+Cheers,
+Jes
 
-diff -Nru a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
---- a/arch/ia64/kernel/efi.c	Wed Sep 10 14:26:40 2003
-+++ b/arch/ia64/kernel/efi.c	Wed Sep 10 14:26:40 2003
-@@ -446,10 +446,12 @@
- 			panic("Woah!  PAL code size bigger than a granule!");
+--- /usr/tmp/TmpDir.13540-0/linux/include/asm-ia64/acpi.h_1.5	Wed Sep 17 07:16:58 2003
++++ linux/include/asm-ia64/acpi.h	Wed Sep 17 07:10:11 2003
+@@ -30,6 +30,8 @@
  
- 		mask  = ~((1 << IA64_GRANULE_SHIFT) - 1);
-+#if EFI_DEBUG
- 		printk(KERN_INFO "CPU %d: mapping PAL code [0x%lx-0x%lx) into [0x%lx-0x%lx)\n",
- 		       smp_processor_id(), md->phys_addr,
- 		       md->phys_addr + (md->num_pages << EFI_PAGE_SHIFT),
- 		       vaddr & mask, (vaddr & mask) + IA64_GRANULE_SIZE);
-+#endif
+ #ifdef __KERNEL__
  
- 		/*
- 		 * Cannot write to CRx with PSR.ic=1
++#include <asm/system.h>
++
+ #define COMPILER_DEPENDENT_INT64	long
+ #define COMPILER_DEPENDENT_UINT64	unsigned long
+ 
