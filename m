@@ -1,22 +1,25 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 13 May 2004 22:36:23 +0000
-Subject: Re: [PATCH] fix "timer tick before it's due"
-Message-Id: <16547.63591.956029.201518@napali.hpl.hp.com>
+From: Mario Smarduch <cms063@email.mot.com>
+Date: Tue, 04 May 2004 16:30:21 +0000
+Subject: mmap() of /dev/kmem issue
+Message-Id: <4097C51D.71EA0BEA@email.mot.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200405121721.30863.bjorn.helgaas@hp.com>
-In-Reply-To: <200405121721.30863.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 13 May 2004 15:25:31 -0600, Bjorn Helgaas <bjorn.helgaas@hp.com> said:
+I have problem of viewing memory contents via mmap()
+of /dev/kmem. After mmap()'ing /dev/kmem for reading
+it appears that data accessed in the kernel lives in
+different cache lines from data accessed in the user space.
+The lseek()/read() from kernel reflects latest updates,
+but same reads from user space mmap fetches old data, and
+vice versa when updating from user. When I flush the
+caches (cat of a big file to another file), then user mapped
+value reflects the latest changes but then again remains
+frozen. I'm having trouble understanding how can this
+happen since the caches are physically indexed.
+Any ideas what the problem could be?
 
-  Bjorn> I agree.  How about this (same as the first patch, plus the
-  Bjorn> BUG_ON() and removal of the "jumped tick" check):
+- Mario.
 
-Looks great to me (modulo a change to ia64_get_itv() to drop ia64_srlz_d()).
-
-Thanks!
-
-	--david
