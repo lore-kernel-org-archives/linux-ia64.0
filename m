@@ -1,45 +1,88 @@
-From: Alex Williamson <alex_williamson@hp.com>
-Date: Fri, 17 Jan 2003 23:02:38 +0000
-Subject: [Linux-ia64] [PATCH] 2.4/2.5 trivial
+From: "Yu, Fenghua" <fenghua.yu@intel.com>
+Date: Fri, 10 Jan 2003 01:38:36 +0000
+Subject: [Linux-ia64] Patches for Cleaning offsets.h/print_offsets.h/print_offsets.s
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------9584A187E028FC5AC5929E7C"
-Message-Id: <marc-linux-ia64-105590709805717@msgid-missing>
+Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C2B848.FE634570"
+Message-Id: <marc-linux-ia64-105590709805663@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------9584A187E028FC5AC5929E7C
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------_=_NextPart_000_01C2B848.FE634570
+Content-Type: text/plain
+
+Hi,
+
+2.5.52 and tpc.0.18 can't clean arch/ia64/tools/offsets.h, print_offsets.h,
+print_offsets.s under arch/ia64/tools even with make
+distclean/mrproper/clean. The feature is working for 2.4.20.
+
+2.5.52 is supposed to clean the files by "make clean". Tpc.0.18 is supposed
+to clean the files by "make mrproper". Thus, they have different fix
+solutions.
+
+Thanks.
+
+-Fenghua
 
 
-   Happened to notice the attached redundancy.  Thanks,
+------_=_NextPart_000_01C2B848.FE634570
+Content-Type: text/plain;
+	name="kernel-2.4.18-tpc.0.18-clean_offset.diff"
+Content-Disposition: attachment;
+	filename="kernel-2.4.18-tpc.0.18-clean_offset.diff"
 
-	Alex
-
---
-Alex Williamson                                  Linux Development Lab
-alex_williamson@hp.com                                 Hewlett Packard
-970-898-9173                                          Fort Collins, CO
---------------9584A187E028FC5AC5929E7C
-Content-Type: text/plain; charset=us-ascii;
- name="trivial.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="trivial.diff"
-
---- linux/arch/ia64/ia32/ia32_support.c~	2003-01-17 15:56:14.000000000 -0700
-+++ linux/arch/ia64/ia32/ia32_support.c	2003-01-17 15:56:29.000000000 -0700
-@@ -95,8 +95,6 @@
- 	struct pt_regs *regs = ia64_task_regs(t);
- 	int nr = smp_processor_id();	/* LDT and TSS depend on CPU number: */
+diff -Nur A/arch/ia64/tools/Makefile B/arch/ia64/tools/Makefile
+--- A/arch/ia64/tools/Makefile	Thu Jan  9 20:16:16 2003
++++ B/arch/ia64/tools/Makefile	Thu Jan  9 20:16:58 2003
+@@ -4,7 +4,7 @@
  
--	nr = smp_processor_id();
+ all: 
+ 
+-mrproper:
++mrproper: clean
+ 
+ clean:
+ 	rm -f print_offsets.s print_offsets offsets.h
+
+------_=_NextPart_000_01C2B848.FE634570
+Content-Type: text/plain;
+	name="linux-2.5.52-ia64-021221-clean_offset.diff"
+Content-Disposition: attachment;
+	filename="linux-2.5.52-ia64-021221-clean_offset.diff"
+
+diff -Nur A/arch/ia64/Makefile B/arch/ia64/Makefile
+--- A/arch/ia64/Makefile	Thu Jan  9 19:34:56 2003
++++ B/arch/ia64/Makefile	Thu Jan  9 19:35:36 2003
+@@ -61,6 +61,7 @@
+ archmrproper:
+ archclean:
+ 	$(Q)$(MAKE) -f scripts/Makefile.clean obj=arch/ia64/boot
++	$(Q)$(MAKE) -f scripts/Makefile.clean obj=arch/ia64/tools
+ 
+ CLEAN_FILES += include/asm-ia64/offsets.h vmlinux.gz bootloader
+ 
+diff -Nur A/arch/ia64/tools/Makefile B/arch/ia64/tools/Makefile
+--- A/arch/ia64/tools/Makefile	Thu Jan  9 19:34:56 2003
++++ B/arch/ia64/tools/Makefile	Thu Jan  9 19:35:36 2003
+@@ -4,14 +4,7 @@
+ 
+ src = $(obj)
+ 
+-all:
 -
- 	eflag = t->thread.eflag;
- 	fsr = t->thread.fsr;
- 	fcr = t->thread.fcr;
+-fastdep:
+-
+-mrproper: clean
+-
+-clean:
+-	rm -f $(obj)/print_offsets.s $(obj)/print_offsets $(obj)/offsets.h
++clean-files := print_offsets.s print_offsets offsets.h
+ 
+ $(TARGET): $(obj)/offsets.h
+ 	@if ! cmp -s $(obj)/offsets.h ${TARGET}; then	\
 
---------------9584A187E028FC5AC5929E7C--
-
+------_=_NextPart_000_01C2B848.FE634570--
 
