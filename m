@@ -1,55 +1,40 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 20 May 2004 00:17:32 +0000
-Subject: Re: Error handling bug in fsys_rt_sigprocmask
-Message-Id: <16555.63772.361093.311578@napali.hpl.hp.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Tue, 04 May 2004 16:54:09 +0000
+Subject: [RFC] I/O MCA recovery
+Message-Id: <200405040954.09524.jbarnes@engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <jeekplxvah.fsf@sykes.suse.de>
-In-Reply-To: <jeekplxvah.fsf@sykes.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 20 May 2004 00:30:34 +0200, Andreas Schwab <schwab@suse.de> said:
+Background: in an effort to allow option ROM emulation on ia64 (via the X 
+int10+x86 emulator), I've had to look at doing I/O error recovery since many 
+option ROMs expect to do legacy I/O port reads and writes to ports that may 
+or may not respond (one particular ROM that I've looked at continuously polls 
+a register in legacy I/O space until it returns a value).  On sn2, when a 
+device doesn't respond to an I/O (legacy space or otherwise), a PCI master 
+abort is generated, which generally causes an MCA.
 
-  Andreas> I did remove the second check.  But there is now an
-  Andreas> additional bundle and I couldn't find any way to avoid
-  Andreas> that.
+Recovering from such an event requires reprogramming chipset and bridge 
+registers (some to just clear error state and others to re-arm error 
+detection) and as such is very platform specific.  Another issue is that the 
+MCA event may arrive after the processor has switched to a task completely 
+unrelated to the I/O.  The approach I've taken thus far is to register the 
+I/O address range that a process mmaps in /proc/bus/pci (in 
+pci_mmap_page_range), along with its associated PID.  When an MCA occurs, an 
+I/O error recovery routine checks the target identifier value against the 
+linked list of I/O ranges and recovers appropriately (the PID is there so 
+that we can send a SIGBUS or somesuch in the future).  This allows us to 
+avoid calling PAL_MC_DRAIN on every interrupt to try and flush out errors 
+(which I'm guessing would be very expensive), but may have other problems.
 
-I think I'm going to go with the attached patch --- unless you find
-something wrong with it.
+Ultimately, this involves adding a machine vector for I/O error recovery and a 
+linked list of I/O regions and their PIDs.  The I/O error handler could 
+optionally be extended to look for any PCI resource range and call a 
+per-device error handling callback or shutdown routine.
 
-	--david
+Thoughts?  Does this approach sound reasonable?
 
-=== arch/ia64/kernel/fsys.S 1.24 vs edited ==--- 1.24/arch/ia64/kernel/fsys.S	Thu May  6 17:46:45 2004
-+++ edited/arch/ia64/kernel/fsys.S	Wed May 19 16:32:39 2004
-@@ -362,7 +362,7 @@
- 	ld8 r31=[r31]				// r31 <- current->sighand
- #endif
- 	and r9=TIF_ALLWORK_MASK,r9
--	tnat.nz p6,p0=r32
-+	cmp4.ltu p6,p0=SIG_SETMASK,r32
- 	;;
- 	cmp.ne p7,p0=0,r9
- 	tnat.nz.or p6,p0=r35
-@@ -370,6 +370,7 @@
- 	;;
- 	cmp.ne p15,p0=r0,r34			// oset != NULL?
- 	cmp.ne.or p6,p0=_NSIG_WORDS*8,r35
-+	tnat.nz.or p6,p0=r32
- 	tnat.nz.or p8,p0=r33
- 
- (p6)	br.spnt.few .fail_einval		// fail with EINVAL
-@@ -462,12 +463,10 @@
- 	st4.rel [r31]=r0			// release the lock
- #endif
- 	ssm psr.i
--	cmp.ne p9,p0=r8,r0			// check for bad HOW value
- 	;;
- 
- 	srlz.d					// ensure psr.i is set again
- 	mov r18=0					// i must not leak kernel bits...
--(p9)	br.spnt.few .fail_einval		// bail out for bad HOW value
- 
- .store_mask:
- EX(.fail_efault, (p15) probe.w.fault r34, 3)	// verify user has write-access to *oset
+Thanks,
+Jesse
