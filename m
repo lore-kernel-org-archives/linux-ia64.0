@@ -1,232 +1,481 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Wed, 19 Jan 2005 14:34:54 +0000
-Subject: [PATCH] PCI root busses need resources
-Message-Id: <20050119143454.GB25940@parcelfarce.linux.theplanet.co.uk>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Tue, 25 Jan 2005 00:51:47 +0000
+Subject: patch to enable Nvidia v5336 on v2.6.11 kernel (was Re: inter_module_get and __symbol_get)
+Message-Id: <16885.38947.35646.558780@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <16885.32149.788747.550216@napali.hpl.hp.com>
+	<31612.1106607781@ocs3.ocs.com.au>
+In-Reply-To: <31612.1106607781@ocs3.ocs.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Keith Owens <kaos@ocs.com.au>
+Cc: linux-ia64@vger.kernel.org, davidm@hpl.hp.com, tony.luck@intel.com, bgerst@didntduck.org, Terence Ripperda <tripperda@nvidia.com>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
+>>>>> On Tue, 25 Jan 2005 10:03:01 +1100, Keith Owens <kaos@ocs.com.au> said:
 
-Using the generic setup-bus.c code currently fails on HP's Integrity
-servers because the root busses have their resources set to the whole
-of ioport space and the whole of iomem space, instead of just the ranges
-that are routed to that particular bus.
+  Keith> I have always hated the dynamic resolution model used by
+  Keith> DRM/AGP and (originally) MTD.
 
-This patch uses the resources in the pci_windows to provide the ranges
-to each PCI root bus.  In order to do that, I had to change them from
-being bus addresses to system addresses.
+Well, the attached patch does the trick for me for Nvidia driver v5336
+on ia64.  It compiles with a minimum amount of fuss with gcc v3.4
+(just a handful of warnings about deprecated pm_{un,}register() and
+inter_module_put()).
 
-Signed-off-by: Matthew Wilcox <matthew@wil.cx>
+I have only tried it against 2.6.11-rc2 (really: Linus' bk tree as of
+today) but I hope I didn't screw up backwards compatibility for older
+kernels too badly.
 
-Index: linux-2.6/arch/ia64/pci/pci.c
-=================================RCS file: /var/cvs/linux-2.6/arch/ia64/pci/pci.c,v
-retrieving revision 1.18
-diff -u -p -r1.18 pci.c
---- linux-2.6/arch/ia64/pci/pci.c	12 Jan 2005 20:15:26 -0000	1.18
-+++ linux-2.6/arch/ia64/pci/pci.c	19 Jan 2005 14:26:00 -0000
-@@ -187,30 +187,6 @@ alloc_pci_controller (int seg)
- 	return controller;
- }
+Note: I removed the super-user sanity check---I hate that one since it
+prevents me from building the module on an NFS-mounted file-system.
+If you don't care for that bit, just omit the patch to conftest.sh.
+
+	--david
+
+diff -urN -x nv_compiler.h -x '*.mod.c' -x '*.ko' -x '*.d' -x '*.o' -x '*~' -x build -x Makefile -x '.*' NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/Makefile.kbuild NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/Makefile.kbuild
+--- NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/Makefile.kbuild	2004-01-16 12:46:59.000000000 -0800
++++ NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/Makefile.kbuild	2005-01-24 15:49:37.000000000 -0800
+@@ -73,7 +73,7 @@
+ #
  
--static int __devinit
--alloc_resource (char *name, struct resource *root, unsigned long start, unsigned long end,
--		unsigned long flags)
--{
--	struct resource *res;
+ EXTRA_CFLAGS += -I$(src)
+-EXTRA_CFLAGS += -Wall -Wimplicit -Wreturn-type -Wswitch -Wformat -Wchar-subscripts -Wparentheses -Wpointer-arith  -Wno-multichar  -Werror -O -MD $(DEFINES) $(INCLUDES) -Wno-cast-qual -Wno-error
++EXTRA_CFLAGS += -Wall -Wimplicit -Wreturn-type -Wswitch -Wformat -Wchar-subscripts -Wparentheses -Wno-multichar  -Werror -O2 -MD $(DEFINES) $(INCLUDES) -Wno-cast-qual -Wno-error
+ 
+ #
+ # We rely on these two definitions below; if they aren't set, we set them to
+@@ -199,7 +199,7 @@
+ #
+ 
+ module: gcc-sanity-check
+-	@make CC=$(CC) $(KBUILD_PARAMS) modules; \
++	@make CC=$(CC) CROSS_COMPILE=$(CROSS_COMPILE) $(KBUILD_PARAMS) modules; \
+ 	if ! [ -f $(MODULE_OBJECT) ]; then \
+ 	  echo "$(MODULE_OBJECT) failed to build!"; \
+ 	  exit 1; \
+diff -urN -x nv_compiler.h -x '*.mod.c' -x '*.ko' -x '*.d' -x '*.o' -x '*~' -x build -x Makefile -x '.*' NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/conftest.sh NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/conftest.sh
+--- NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/conftest.sh	2004-01-16 12:46:59.000000000 -0800
++++ NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/conftest.sh	2005-01-24 15:49:33.000000000 -0800
+@@ -129,7 +129,7 @@
+             echo -en "\033[1;31m";
+             echo -e  "*** Failed super-user sanity check. Bailing out! ***";
+             echo -en "\033[0m";
+-            exit 1
++            exit 0
+         else
+             exit 0
+         fi
+diff -urN -x nv_compiler.h -x '*.mod.c' -x '*.ko' -x '*.d' -x '*.o' -x '*~' -x build -x Makefile -x '.*' NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/nv-linux.h NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/nv-linux.h
+--- NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/nv-linux.h	2004-01-16 12:46:59.000000000 -0800
++++ NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/nv-linux.h	2005-01-24 16:09:14.000000000 -0800
+@@ -24,7 +24,7 @@
+ #  define KERNEL_2_4
+ #elif LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)
+ #  error This driver does not support 2.5 kernels!
+-#elif LINUX_VERSION_CODE < KERNEL_VERSION(2, 7, 0) && defined(NVCPU_X86)
++#elif LINUX_VERSION_CODE < KERNEL_VERSION(2, 7, 0)
+ #  define KERNEL_2_6
+ #else
+ #  error This driver does not support development kernels!
+@@ -293,13 +293,13 @@
+ #if defined(NVCPU_IA64)
+ #define NV_VMALLOC(ptr, size) \
+     { \
+-        (void *) (ptr) = vmalloc_dma(size); \
++        (ptr) = __vmalloc(size, GFP_KERNEL|GFP_DMA, PAGE_KERNEL); \
+         VM_ALLOC_RECORD(ptr, size, "vm_alloc"); \
+     }
+ #else
+ #define NV_VMALLOC(ptr, size) \
+     { \
+-        (void *) (ptr) = vmalloc_32(size); \
++        (ptr) = vmalloc_32(size); \
+         VM_ALLOC_RECORD(ptr, size, "vm_alloc"); \
+     }
+ #endif
+@@ -333,13 +333,13 @@
+  */
+ #define NV_KMALLOC(ptr, size) \
+     { \
+-        (void *) (ptr) = kmalloc(size, GFP_KERNEL); \
++        (ptr) = kmalloc(size, GFP_KERNEL); \
+         KM_ALLOC_RECORD(ptr, size, "km_alloc"); \
+     }
+ 
+ #define NV_KMALLOC_ATOMIC(ptr, size) \
+     { \
+-        (void *) (ptr) = kmalloc(size, GFP_ATOMIC); \
++        (ptr) = kmalloc(size, GFP_ATOMIC); \
+         KM_ALLOC_RECORD(ptr, size, "km_alloc_atomic"); \
+     }  
+ 
+@@ -352,7 +352,7 @@
+ 
+ #define NV_GET_FREE_PAGES(ptr, order) \
+     { \
+-        (void *) (ptr) = __get_free_pages(NV_GFP_HW, order); \
++        (ptr) = __get_free_pages(NV_GFP_HW, order); \
+     }
+         
+ #define NV_FREE_PAGES(ptr, order) \
+@@ -454,14 +454,22 @@
+  * relevant releases to date use it. This version was backported to 2.4 
+  * without means to identify the change, hence this hack.
+  */
+-#if defined(REMAP_PAGE_RANGE_5)
+-#define NV_REMAP_PAGE_RANGE(a, b...)    remap_page_range(vma, a, ## b)
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
++#define NV_REMAP_PFN_RANGE(a,b,c,d)	remap_pfn_range(vma, a, b, c, d)
++#elif defined(REMAP_PAGE_RANGE_5)
++#define NV_REMAP_PFN_RANGE(a, b...)    remap_page_range(vma, a << PAGE_SHIFT, ## b)
+ #elif defined(REMAP_PAGE_RANGE_4)
+-#define NV_REMAP_PAGE_RANGE(a, b...)    remap_page_range(a, ## b)
++#define NV_REMAP_PFN_RANGE(a, b...)    remap_page_range(a << PAGE_SHIFT, ## b)
+ #else
+ #error "Couldn't determine number of arguments expected by remap_page_range!"
+ #endif
+ 
++#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 11)
++typedef pgd_t pud_t;
++# define pud_offset(pg_dir, address)	(pg_dir);
++# define pud_none(pud)			0
++#endif
++
+ #if defined(pte_offset_atomic)
+ #define NV_PTE_OFFSET(addres, pg_mid_dir, pte) \
+     { \
+@@ -540,17 +548,6 @@
+ #define page_to_pfn(page)  ((page) - mem_map)
+ #endif
+ 
+-/* On IA64 physical memory is partitioned into a cached and an
+- * uncached view controlled by bit 63.  Set this bit when remapping
+- * page ranges.  
+- */
+-#if defined(NVCPU_IA64)
+-#define phys_to_uncached(addr) ((addr) | ((unsigned long) 1<<63))
+-#else
+-/* Some other scheme must be used on this platform */
+-#define phys_to_uncached(addr) (addr)
+-#endif
 -
--	res = kmalloc(sizeof(*res), GFP_KERNEL);
--	if (!res)
--		return -ENOMEM;
--
--	memset(res, 0, sizeof(*res));
--	res->name = name;
--	res->start = start;
--	res->end = end;
--	res->flags = flags;
--
--	if (insert_resource(root, res))	{
--		kfree(res);
--		return -EBUSY;
--	}
--
--	return 0;
--}
--
- static u64 __devinit
- add_io_space (struct acpi_resource_address64 *addr)
+ /*
+  * An allocated bit of memory using NV_MEMORY_ALLOCATION_OFFSET
+  *   looks like this in the driver
+diff -urN -x nv_compiler.h -x '*.mod.c' -x '*.ko' -x '*.d' -x '*.o' -x '*~' -x build -x Makefile -x '.*' NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/nv.c NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/nv.c
+--- NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/nv.c	2004-01-16 12:46:59.000000000 -0800
++++ NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/nv.c	2005-01-24 16:43:33.000000000 -0800
+@@ -212,12 +212,15 @@
+     count = 0;
+     dev = (struct pci_dev *) 0;
+ 
+-    dev = pci_find_class(PCI_CLASS_DISPLAY_VGA << 8, dev);
++    dev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, dev);
+     while (dev)
+     {
+         if ((dev->vendor != 0x10de) || (dev->device < 0x20))
+             goto next;
+ 
++	if (pci_enable_device(dev))
++		goto next;
++
+         /* initialize bus-dependent config state */
+         nvl = &nv_linux_devices[count];
+         nv  = NV_STATE_PTR(nvl);
+@@ -303,7 +306,7 @@
+         }
+ 
+     next:
+-        dev = pci_find_class(PCI_CLASS_DISPLAY_VGA << 8, dev);
++        dev = pci_get_class(PCI_CLASS_DISPLAY_VGA << 8, dev);
+     }
+ 
+     nv_printf(NV_DBG_INFO, "NVRM: found %d device%s\n", count, count ? "" : "s");
+@@ -620,7 +623,7 @@
+     u8     cap_ptr;
+     int    func, slot;
+ 
+-    dev = pci_find_class(class << 8, NULL);
++    dev = pci_get_class(class << 8, NULL);
+     do {
+         for (func = 0; func < 8; func++) {
+             slot = PCI_SLOT(dev->devfn);
+@@ -631,7 +634,7 @@
+             if (cap_ptr)
+                 return fn;
+         }
+-        dev = pci_find_class(class << 8, dev);
++        dev = pci_get_class(class << 8, dev);
+     } while (dev);
+ 
+     return NULL;
+@@ -1070,7 +1073,7 @@
+  * addresses by the CPU.  This nopage handler will fault on CPU
+  * accesses to AGP memory and map the address to the correct page.
+  */
+-struct page *nv_kern_vma_nopage(struct vm_area_struct *vma, unsigned long address, int write_access)
++struct page *nv_kern_vma_nopage(struct vm_area_struct *vma, unsigned long address, int *write_accessp)
  {
-@@ -263,10 +239,9 @@ struct pci_root_info {
- 	char *name;
- };
- 
--static acpi_status __devinit
--add_window (struct acpi_resource *res, void *data)
-+static __devinit acpi_status add_window(struct acpi_resource *res, void *data)
+ #if defined(NVCPU_IA64) && (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 4, 9))
+     nv_alloc_t *at, *tmp;
+@@ -1201,6 +1204,7 @@
  {
--	struct pci_root_info *info = (struct pci_root_info *) data;
-+	struct pci_root_info *info = data;
- 	struct pci_window *window;
- 	struct acpi_resource_address64 addr;
- 	acpi_status status;
-@@ -274,45 +249,71 @@ add_window (struct acpi_resource *res, v
- 	struct resource *root;
+     nv_state_t *nv = (nv_state_t *) 0;
+     nv_linux_state_t *nvl = (nv_linux_state_t *) 0;
++    nv_file_private_t *nv_private;
+     int devnum;
+     int rc = 0, status;
  
- 	status = acpi_resource_to_address64(res, &addr);
--	if (ACPI_SUCCESS(status)) {
--		if (!addr.address_length)
--			return AE_OK;
-+	if (!ACPI_SUCCESS(status))
-+		return AE_OK;
+@@ -1229,7 +1233,8 @@
+     nv_printf(NV_DBG_INFO, "nv_kern_open on device %d\n", devnum);
+     nv_down(nvl->ldata_lock);
  
--		if (addr.resource_type = ACPI_MEMORY_RANGE) {
--			flags = IORESOURCE_MEM;
--			root = &iomem_resource;
--			offset = addr.address_translation_offset;
--		} else if (addr.resource_type = ACPI_IO_RANGE) {
--			flags = IORESOURCE_IO;
--			root = &ioport_resource;
--			offset = add_io_space(&addr);
--			if (offset = ~0)
--				return AE_OK;
--		} else
-+	if (!addr.address_length)
-+		return AE_OK;
-+
-+	if (addr.resource_type = ACPI_MEMORY_RANGE) {
-+		flags = IORESOURCE_MEM;
-+		root = &iomem_resource;
-+		offset = addr.address_translation_offset;
-+	} else if (addr.resource_type = ACPI_IO_RANGE) {
-+		flags = IORESOURCE_IO;
-+		root = &ioport_resource;
-+		offset = add_io_space(&addr);
-+		if (offset = ~0)
- 			return AE_OK;
-+	} else
-+		return AE_OK;
+-    NVL_FROM_FILEP(file) = nvl;
++    nv_private = file->private_data;
++    nv_private->nvptr = nvl;
  
--		window = &info->controller->window[info->controller->windows++];
--		window->resource.flags	= flags;
--		window->resource.start  = addr.min_address_range;
--		window->resource.end    = addr.max_address_range;
--		window->offset		= offset;
--
--		if (alloc_resource(info->name, root, addr.min_address_range + offset,
--			addr.max_address_range + offset, flags))
--			printk(KERN_ERR "alloc 0x%lx-0x%lx from %s for %s failed\n",
--				addr.min_address_range + offset, addr.max_address_range + offset,
--				root->name, info->name);
-+	window = &info->controller->window[info->controller->windows++];
-+	window->resource.name = info->name;
-+	window->resource.flags = flags;
-+	window->resource.start = addr.min_address_range + offset;
-+	window->resource.end = addr.max_address_range + offset;
-+	window->resource.child = NULL;
-+	window->offset = offset;
-+
-+	if (insert_resource(root, &window->resource)) {
-+		printk(KERN_ERR "alloc 0x%lx-0x%lx from %s for %s failed\n",
-+			window->resource.start, window->resource.end,
-+			root->name, info->name);
- 	}
+     /*
+      * map the memory and allocate isr on first open
+@@ -1405,8 +1410,8 @@
+             pages = nv->regs->size / PAGE_SIZE;
  
- 	return AE_OK;
- }
+         vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+-        if (NV_REMAP_PAGE_RANGE(vma->vm_start,
+-                             phys_to_uncached(NV_VMA_OFFSET(vma)),
++        if (NV_REMAP_PFN_RANGE(vma->vm_start,
++                             NV_VMA_OFFSET(vma) >> PAGE_SHIFT,
+                              vma->vm_end - vma->vm_start,
+                              vma->vm_page_prot))
+             return -EAGAIN;
+@@ -1424,8 +1429,8 @@
+             pages = nv->fb->size / PAGE_SIZE;
  
-+static void __devinit
-+pcibios_setup_root_windows(struct pci_bus *bus, struct pci_controller *ctrl)
-+{
-+	int i, j;
-+
-+	j = 0;
-+	for (i = 0; i < ctrl->windows; i++) {
-+		struct resource *res = &ctrl->window[i].resource;
-+		/* HP's firmware has a hack to work around a Windows bug.
-+		 * Ignore these tiny memory ranges */
-+		if ((res->flags & IORESOURCE_MEM) &&
-+		    (res->end - res->start < 16))
-+			continue;
-+		if (j >= PCI_BUS_NUM_RESOURCES) {
-+			printk("Ignoring range [%lx-%lx] (%lx)\n", res->start,
-+					res->end, res->flags);
-+			continue;
-+		}
-+		bus->resource[j++] = res;
-+	}
-+}
-+
- struct pci_bus * __devinit
--pci_acpi_scan_root (struct acpi_device *device, int domain, int bus)
-+pci_acpi_scan_root(struct acpi_device *device, int domain, int bus)
+         vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+-        if (NV_REMAP_PAGE_RANGE(vma->vm_start,
+-                             phys_to_uncached(NV_VMA_OFFSET(vma)),
++        if (NV_REMAP_PFN_RANGE(vma->vm_start,
++                             NV_VMA_OFFSET(vma) >> PAGE_SHIFT,
+                              vma->vm_end - vma->vm_start,
+                              vma->vm_page_prot))
+             return -EAGAIN;
+@@ -1512,7 +1517,8 @@
+         while (pages--)
+         {
+             page = (unsigned long) at->page_table[i++].phys_addr;
+-            if (NV_REMAP_PAGE_RANGE(start, page, PAGE_SIZE, PAGE_SHARED))
++            if (NV_REMAP_PFN_RANGE(start, page >> PAGE_SHIFT, PAGE_SIZE,
++				   PAGE_SHARED))
+                 return -EAGAIN;
+             start += PAGE_SIZE;
+             pos += PAGE_SIZE;
+@@ -1863,6 +1869,7 @@
+     struct file *file
+ )
  {
- 	struct pci_root_info info;
- 	struct pci_controller *controller;
- 	unsigned int windows = 0;
-+	struct pci_bus *pbus;
- 	char *name;
++    nv_file_private_t *nv_private;
+     nv_state_t *nv;
+     nv_linux_state_t *nvl;
+     int rc = 0;
+@@ -1877,7 +1884,8 @@
+     nv->device_number = NV_CONTROL_DEVICE_NUMBER;
  
- 	controller = alloc_pci_controller(domain);
-@@ -321,8 +322,10 @@ pci_acpi_scan_root (struct acpi_device *
+     /* save the nv away in file->private_data */
+-    NVL_FROM_FILEP(file) = nvl;
++    nv_private = file->private_data;
++    nv_private->nvptr = nvl;
  
- 	controller->acpi_handle = device->handle;
+     if (nv->usage_count = 0)
+     {
+@@ -2308,6 +2316,7 @@
+ )
+ {
+     pgd_t *pg_dir;
++    pud_t *pud_dir;
+     pmd_t *pg_mid_dir;
+     pte_t pte;
+     unsigned long retval;
+@@ -2318,7 +2327,11 @@
+     if (pgd_none(*pg_dir))
+         goto failed;
  
--	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window, &windows);
--	controller->window = kmalloc(sizeof(*controller->window) * windows, GFP_KERNEL);
-+	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
-+			&windows);
-+	controller->window = kmalloc(sizeof(*controller->window) * windows,
-+			GFP_KERNEL);
- 	if (!controller->window)
- 		goto out2;
- 
-@@ -333,9 +336,14 @@ pci_acpi_scan_root (struct acpi_device *
- 	sprintf(name, "PCI Bus %04x:%02x", domain, bus);
- 	info.controller = controller;
- 	info.name = name;
--	acpi_walk_resources(device->handle, METHOD_NAME__CRS, add_window, &info);
-+	acpi_walk_resources(device->handle, METHOD_NAME__CRS, add_window,
-+			&info);
+-    pg_mid_dir = pmd_offset(pg_dir, address);
++    pud_dir = pud_offset(pg_dir, address);
++    if (pud_none(*pud_dir))
++	    goto failed;
 +
-+	pbus = pci_scan_bus(bus, &pci_root_ops, controller);
-+	if (pbus)
-+		pcibios_setup_root_windows(pbus, controller);
++    pg_mid_dir = pmd_offset(pud_dir, address);
+     if (pmd_none(*pg_mid_dir))
+         goto failed;
  
--	return pci_scan_bus(bus, &pci_root_ops, controller);
-+	return pbus;
+diff -urN -x nv_compiler.h -x '*.mod.c' -x '*.ko' -x '*.d' -x '*.o' -x '*~' -x build -x Makefile -x '.*' NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/os-agp.c NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/os-agp.c
+--- NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/os-agp.c	2004-01-16 12:46:59.000000000 -0800
++++ NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/os-agp.c	2005-01-24 16:18:34.000000000 -0800
+@@ -47,7 +47,6 @@
  
- out3:
- 	kfree(controller->window);
-@@ -356,9 +364,9 @@ void pcibios_resource_to_bus(struct pci_
- 		struct pci_window *window = &controller->window[i];
- 		if (!(window->resource.flags & res->flags))
- 			continue;
--		if (window->resource.start > res->start - window->offset)
-+		if (window->resource.start > res->start)
- 			continue;
--		if (window->resource.end < res->end - window->offset)
-+		if (window->resource.end < res->end)
- 			continue;
- 		offset = window->offset;
- 		break;
-@@ -379,9 +387,9 @@ void pcibios_bus_to_resource(struct pci_
- 		struct pci_window *window = &controller->window[i];
- 		if (!(window->resource.flags & res->flags))
- 			continue;
--		if (window->resource.start > region->start)
-+		if (window->resource.start - window->offset > region->start)
- 			continue;
--		if (window->resource.end < region->end)
-+		if (window->resource.end - window->offset < region->end)
- 			continue;
- 		offset = window->offset;
- 		break;
-
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+ agp_kern_info         agpinfo;
+ agp_gart              gart;
+-const drm_agp_t       *drm_agp_p;
+ 
+ #if defined(CONFIG_MTRR)
+ #define MTRR_DEL(gart) if ((gart).mtrr > 0) mtrr_del((gart).mtrr, 0, 0);
+@@ -75,12 +74,7 @@
+ 
+     memset( (void *) &gart, 0, sizeof(agp_gart));
+ 
+-    if (!(drm_agp_p = inter_module_get_request("drm_agp", "agpgart")))
+-    {
+-        nv_printf(NV_DBG_ERRORS,
+-            "NVRM: AGPGART: unable to retrieve symbol table\n");
+-        return 1;
+-    }
++    request_module("%s", "agpgart");
+ 
+     /* NOTE: from here down, return an error code of '-1'
+      * that indicates that agpgart is loaded, but we failed to use it
+@@ -88,7 +82,7 @@
+      * the memory controller.
+      */
+ 
+-    if (drm_agp_p->acquire())
++    if (agp_backend_acquire())
+     {
+         nv_printf(NV_DBG_ERRORS, "NVRM: AGPGART: backend in use\n");
+         return -1;
+@@ -113,10 +107,10 @@
+      * chipsets via this function. If this Linux 2.4 kernels behaves the same
+      * way, we have no way to know.
+      */
+-    drm_agp_p->copy_info(&agpinfo);
++    agp_copy_info(&agpinfo);
+ #else
+-    if (drm_agp_p->copy_info(&agpinfo)) {
+-        drm_agp_p->release();
++    if (agp_copy_info(&agpinfo)) {
++        agp_backend_release();
+         inter_module_put("drm_agp");
+         return -1;
+     }
+@@ -134,7 +128,7 @@
+          */
+         nv_printf(NV_DBG_ERRORS, 
+             "NVRM: AGPGART: unable to set MTRR write-combining\n");
+-        drm_agp_p->release();
++        agp_backend_release();
+         inter_module_put("drm_agp");
+         return -1;
+     }
+@@ -151,7 +145,7 @@
+     {
+         nv_printf(NV_DBG_ERRORS, "NVRM: AGPGART: unable to remap aperture\n");
+         MTRR_DEL(gart);
+-        drm_agp_p->release();
++        agp_backend_release();
+         inter_module_put("drm_agp");
+         return -1;
+     }
+@@ -163,7 +157,7 @@
+         nv_printf(NV_DBG_ERRORS, "NVRM: AGPGART: unable to allocate bitmap\n");
+         NV_IOUNMAP(gart.aperture, RM_PAGE_SIZE);
+         MTRR_DEL(gart);
+-        drm_agp_p->release();
++        agp_backend_release();
+         inter_module_put("drm_agp");
+         return -1;
+     }
+@@ -175,7 +169,7 @@
+         os_free_mem(bitmap);
+         NV_IOUNMAP(gart.aperture, RM_PAGE_SIZE);
+         MTRR_DEL(gart);
+-        drm_agp_p->release();
++        agp_backend_release();
+         inter_module_put("drm_agp");
+         return -1;
+     }
+@@ -186,7 +180,7 @@
+     if (!(agp_rate & 0x00000004)) agpinfo.mode &= ~0x00000004;
+     if (!(agp_rate & 0x00000002)) agpinfo.mode &= ~0x00000002;
+     
+-    drm_agp_p->enable(agpinfo.mode);
++    agp_enable(agpinfo.mode);
+ 
+     *ap_phys_base   = (void*) agpinfo.aper_base;
+     *ap_mapped_base = (void*) gart.aperture;
+@@ -221,7 +215,7 @@
+         NV_IOUNMAP(gart.aperture, RM_PAGE_SIZE);
+     }
+ 
+-    drm_agp_p->release();
++    agp_backend_release();
+ 
+     inter_module_put("drm_agp");
+ 
+@@ -270,7 +264,7 @@
+         return RM_ERROR;
+     }
+ 
+-    ptr = drm_agp_p->allocate_memory(PageCount, AGP_NORMAL_MEMORY);
++    ptr = agp_allocate_memory(PageCount, AGP_NORMAL_MEMORY);
+     if (ptr = NULL)
+     {
+         *pAddress = (void*) 0;
+@@ -278,7 +272,7 @@
+         return RM_ERR_NO_FREE_MEM;
+     }
+     
+-    err = drm_agp_p->bind_memory(ptr, *Offset);
++    err = agp_bind_memory(ptr, *Offset);
+     if (err)
+     {
+         // this happens a lot when the aperture itself fills up..
+@@ -295,7 +289,7 @@
+     if (status != RM_OK)
+     {
+         nv_printf(NV_DBG_ERRORS, "NVRM: memory allocation failed\n");
+-        drm_agp_p->unbind_memory(ptr);
++        agp_unbind_memory(ptr);
+         goto fail;
+     }
+ 
+@@ -310,7 +304,7 @@
+     return RM_OK;
+ 
+ fail:
+-    drm_agp_p->free_memory(ptr);
++    agp_free_memory(ptr);
+     *pAddress = (void*) 0;
+ 
+     return RM_ERROR;
+@@ -350,7 +344,7 @@
+     {
+         nv_printf(NV_DBG_ERRORS, "NVRM: AGPGART: unable to remap %lu pages\n",
+             (unsigned long)agp_data->num_pages);
+-        drm_agp_p->unbind_memory(agp_data->ptr);
++        agp_unbind_memory(agp_data->ptr);
+         goto fail;
+     }
+     
+@@ -449,8 +443,8 @@
+     {
+         size_t pages = ptr->page_count;
+ 
+-        drm_agp_p->unbind_memory(ptr);
+-        drm_agp_p->free_memory(ptr);
++        agp_unbind_memory(ptr);
++        agp_free_memory(ptr);
+ 
+         nv_printf(NV_DBG_INFO, "NVRM: AGPGART: freed %ld pages\n",
+             (unsigned long)pages);
+diff -urN -x nv_compiler.h -x '*.mod.c' -x '*.ko' -x '*.d' -x '*.o' -x '*~' -x build -x Makefile -x '.*' NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/os-interface.c NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/os-interface.c
+--- NVIDIA-Linux-ia64-1.0-5336-pkg1/usr/src/nv/os-interface.c	2004-01-16 12:46:59.000000000 -0800
++++ NVIDIA-Linux-ia64-1.0-5336-pkg1-davidm/usr/src/nv/os-interface.c	2005-01-24 16:18:10.000000000 -0800
+@@ -913,8 +913,8 @@
+ 
+     vma = (struct vm_area_struct *) *priv;
+ 
+-    if (NV_REMAP_PAGE_RANGE(vma->vm_start,
+-                start & PAGE_MASK, size_bytes, PAGE_SHARED))
++    if (NV_REMAP_PFN_RANGE(vma->vm_start,
++			   start >> PAGE_SHIFT, size_bytes, PAGE_SHARED))
+         return NULL;
+ 
+     return (void *)(NV_UINTPTR_T) vma->vm_start;
