@@ -1,7 +1,7 @@
-From: "Cook, Steven C" <steven.c.cook@intel.com>
-Date: Fri, 15 Dec 2000 17:57:34 +0000
+From: Jonathan_Kwahk@Dell.com
+Date: Fri, 15 Dec 2000 18:05:34 +0000
 Subject: RE: [Linux-ia64] test11, test12 kernel vs. big sur: Unexpected ir
-Message-Id: <marc-linux-ia64-105590678205856@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205857@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205850@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205850@msgid-missing>
@@ -9,6 +9,29 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
+
+For Big Sur, BIOS builds after I believe build 60 will have the correct
+version in the BIOS string under the CM.  Builds before build 60 (I hope I'm
+recalling the right build) will NOT contain the correct updated BIOS string.
+
+
+"Ver" in the EFI shell is the most reliable way of obtaining SAL, PAL, and
+EFI revisions.
+
+If you can catch the date before the system gets the boot manager, you may
+be able to infer the BIOS build combined with the SAL, PAL, and EFI version
+information.
+
+Jon
+
+-----Original Message-----
+From: Cook, Steven C [mailto:steven.c.cook@intel.com]
+Sent: Friday, December 15, 2000 11:58 AM
+To: Hall, Jenna S; 'Don Dugger'; John Kohl
+Cc: linux-ia64@linuxia64.org
+Subject: RE: [Linux-ia64] test11, test12 kernel vs. big sur: Unexpected
+ir q vector
+
 
 John, Jenna,
 
@@ -581,4 +604,9 @@ Linux-IA64 mailing list
 Linux-IA64@linuxia64.org
 http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
