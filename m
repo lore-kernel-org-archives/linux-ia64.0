@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 13 Sep 2004 19:09:54 +0000
-Subject: RE: BUG: 2.6.8/2.6.9  register corruption with PTRACE_SYSCALL
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02005A70@scsmsx401.amr.corp.intel.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Thu, 16 Sep 2004 02:03:24 +0000
+Subject: Re: BUG: 2.6.8/2.6.9  register corruption with PTRACE_SYSCALL
+Message-Id: <16712.62572.308654.898281@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040913122656.GC30808@frankl.hpl.hp.com>
 In-Reply-To: <20040913122656.GC30808@frankl.hpl.hp.com>
@@ -10,23 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Thanks for tracking this down.  If I'm affected, should I 
->expect something like ls to SEGV when run under strace?
->If so, I'm not seeing this problem with the Debian kernels.
->They are built w/ gcc 3.3.4 and have CONFIG_AUDIT disabled.
->I'm running Debian/sid which uses libc6.1 2.3.2.ds1-16.
+>>>>> "Stephane" = Stephane Eranian <eranian@hpl.hp.com> writes:
 
-The test program that Stephane showed to me just did:
+Stephane> To all, David and I have tracked down a very nasty bug in
+Stephane> the 2.6.8 and higher versions of the Linux/ia64 kernel. The
+Stephane> bug turned out to be due to the compiler. Here is the
+Stephane> description of the problem.
 
-	int pv[2];
-
-	pipe(pv);
-
-	printf("%d %d\n", pv[0], pv[1]);
-
-This coredumps when run under strace on 2.6.8 or later kernel.
-
-The fix is to add -fno-optimize-sibling-calls to cflags-y
-in arch/ia64/Makefile.  I just put it into my tree.
-
--Tony
+Thanksyou thankyou thankyou.... this also fixes a very similar problem
+on ARM.
+-- 
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
