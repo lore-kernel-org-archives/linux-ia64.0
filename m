@@ -1,7 +1,7 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Sat, 18 Oct 2003 00:15:11 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 18 Oct 2003 00:21:13 +0000
 Subject: Re: [RFC] prevent "dd if=/dev/mem" crash
-Message-Id: <marc-linux-ia64-106643594920448@msgid-missing>
+Message-Id: <marc-linux-ia64-106643648820886@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106642876514553@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106642876514553@msgid-missing>
@@ -10,16 +10,31 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Oct 17, 2003 at 04:55:43PM -0700, Andrew Morton wrote:
-> This code was conceived before my time and I don't recall seeing much
-> discussion, so this is all guesswork..
-> I'd say that the high_memory test _is_ superfluous and that if anyone
-> cared, we would remove it and establish a temporary pte against the address if
-> it was outside the direct-mapped area.  But nobody cares enough to have
-> done anything about it.
+>>>>> On Fri, 17 Oct 2003 16:55:43 -0700, Andrew Morton <akpm@osdl.org> said:
 
-I've heard crash dump people mention it and am trying to convince them
-to post their fix(es) here. =)
+  >> If we really believe copy_*_user() must correctly handle *all* faults,
+  >> isn't the "p >= __pa(high_memory)" test superfluous?
 
+  Andrew> This code was conceived before my time and I don't recall seeing much
+  Andrew> discussion, so this is all guesswork..
 
--- wli
+  Andrew> I'd say that the high_memory test _is_ superfluous and that
+  Andrew> if anyone cared, we would remove it and establish a
+  Andrew> temporary pte against the address if it was outside the
+  Andrew> direct-mapped area.  But nobody cares enough to have done
+  Andrew> anything about it.
+
+What about memory-mapped device registers?  Isn't all memory
+physically contiguous on x86 and that's why the "p >__pa(high_memory)" test saves you from that?
+
+  >> On ia64, a read to non-existent physical memory causes the processor
+  >> to time out and take a machine check.  I'm not sure it's even possible
+  >> to recover from that.
+
+  Andrew> ick.  That would be very poor form.
+
+Reasonable people can disagree on that.  One philosophy states that if
+your kernel touches random addresses, it's better to signal a visible
+error (machine-check) than to risk silent data corruption.
+
+	--david
