@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@sgi.com>
-Date: Wed, 15 Dec 2004 22:00:29 +0000
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Thu, 16 Dec 2004 00:25:25 +0000
 Subject: Re: [very very drafty] prezeroing to increase the page fault rate
-Message-Id: <Pine.LNX.4.58.0412151358170.13325@schroedinger.engr.sgi.com>
+Message-Id: <1103156725.5054.10.camel@npiggin-nld.site>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0412141832350.6975@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0412141832350.6975@schroedinger.engr.sgi.com>
@@ -10,45 +10,46 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 15 Dec 2004, Robin Holt wrote:
+On Wed, 2004-12-15 at 13:58 -0800, Christoph Lameter wrote:
+> On Wed, 15 Dec 2004, Robin Holt wrote:
+> 
+> > > I have some spot results here that indicate that a single thread may
+> > > do up to 500000 faults a second with this patch alone.
+> >
+> > This sounds impressive, but from my limited understanding of the patches,
+> > I think it is a misleading figure.  This would require the system to
+> > sit idle for a period of time between large jobs to ensure that
+> > enough pages are free so all allocations could be satisfied from the
+> > pre-zeroed section.
+> 
+> There is enough time for all pages to be zeroed on bootup so there is
+> a large repository of zeroed pages. Of course if the system uses up that
+> reservoir and the zeroing is not effectively keeping up then this
+> will degenerates into the old behavior.
+> 
 
-> > +static inline void check_bzero_complete(void)
-> > +{
-> > +	unsigned long irq_flags;
-> > +	struct bteinfo_s *bte;
-> > +
-> > +	/* CPU 0 (per node) uses bte0 , CPU 1 uses bte1 */
-> > +	bte = bte_if_on_node(get_nasid(), cpuid_to_subnode(smp_processor_id()));
-> > +
-> > +	if (!bte->zp)
-> > +		return;
-> > +	local_irq_save(irq_flags);
-> > +	if (!spin_trylock(&bte->spinlock)) {
-> > +		local_irq_restore(irq_flags);
-> > +		return;
-> > +	}
-> > +	if (*bte->most_rcnt_na = BTE_WORD_BUSY ||
-> > +            (BTE_LNSTAT_LOAD(bte) & BTE_ACTIVE)) {
-> > +                spin_unlock_irqrestore(&bte->spinlock, irq_flags);
-> > +		return;
-> > +	}
-> > +	bte_bzero_complete(bte);
-> > +	spin_unlock_irqrestore(&bte->spinlock, irq_flags);
-> > +}
-> > +
->
-> Why not have a seperate notification line for zereoing operations.
-> Add a seperate bte flag in that says "use the zereoing notification
-> line" and have it return the address of the line being used.
->
-> You start then calls bte_copy with the flags and you get back
-> the notification line you are concerned with.  Alternatively,
-> you could put the notification line into a structure owned
-> by the bte_start_zero() private structures and pass the address
-> in.  This allows the bte_copy code to operation as is.  It will
-> also simplify the bte_start_bzero significantly and make it
-> very easy to keep things consistent.  I also makes understanding
-> the bte_copy code easier since there is no back-door interaction
-> with any other functions.
+Just curious - how does this go on a real workload as opposed to
+raw pagefault performance?
 
-Good idea. Will do that in the next rev
+You said the majority of the time in the fault handler is taken
+in zeroing pages, but that does have the upshot of warming up the
+cache on memory which is likely to be used soon.
+
+I think if there were *no* downsides to this patch, it would
+obviously make sense - because in that case it doesn't really matter
+whether the cache is heated by the fault handler or by the app
+itself... but it does have some downsides (complexity, memory
+bandwidth, cache degradation in the case of idle zeroing, less
+predictable performance).
+
+I'm not saying the negatives outweigh the positives, but I wonder.
+I think this sort of thing has been contentious in the past.
+
+
+Also just a stupid question - would an madvise(..., MADV_PREFAULT)
+be of use to you? Or is that too difficult to get a good NUMA
+allocation layout?
+
+Nick
+
+
