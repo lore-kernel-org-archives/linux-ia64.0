@@ -1,25 +1,28 @@
-From: Nobuhiko Yoshida <n-yoshida@pst.fujitsu.com>
-Date: Tue, 16 Mar 2004 03:15:08 +0000
+From: Hirokazu Takahashi <taka@valinux.co.jp>
+Date: Tue, 16 Mar 2004 03:20:57 +0000
 Subject: Re: Hugetlbpages in very large memory machines.......
-Message-Id: <JM20040316121508.13008671@pst.fujitsu.com>
+Message-Id: <20040316.122057.00477633.taka@valinux.co.jp>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040316015401.GF9931@wotan.suse.de>
-In-Reply-To: <20040316015401.GF9931@wotan.suse.de>
+References: <JP20040316093003.3103921@pst.fujitsu.com>
+	<20040316015401.GF9931@wotan.suse.de>
+	<20040316.113209.63031370.taka@valinux.co.jp>
+In-Reply-To: <20040316.113209.63031370.taka@valinux.co.jp>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>, linux-kernel@vger.kernel.org
-Cc: raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, Hirokazu Takahashi <taka@valinux.co.jp>
+To: ak@suse.de
+Cc: n-yoshida@pst.fujitsu.com, raybry@sgi.com, linux-kernel@vger.kernel.org, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org
 
 Hello,
 
-> > +/*      update_mmu_cache(vma, address, *pte); */
-> 
-> I have not studied low level IA64 VM in detail, but don't you need
-> some kind of TLB flush here?
+> Yes, you are true.
+> In the fault handler, we should use find_lock_page() instead of
+> find_get_page() to find a hugepage associated with the fault address.
 
-Oh! Yes.
-Perhaps, TLB flush is needed here.
+Sorry, locking page is not needed.
 
-Thank you,
-Nobuhiko Yoshida
+> After that pte_none(*pte) should be called again to check whether 
+> some races has happened.
+
+While checking, mm->page_table_lock have to be locked.
+
