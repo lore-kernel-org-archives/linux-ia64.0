@@ -1,61 +1,36 @@
-From: "Boehm, Hans" <hans_boehm@hp.com>
-Date: Mon, 08 Dec 2003 23:41:41 +0000
-Subject: RE: memory fence.
-Message-Id: <marc-linux-ia64-107092735901027@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sun, 21 Dec 2003 10:51:46 +0000
+Subject: kernel update (relative to v2.6.0)
+Message-Id: <marc-linux-ia64-107200392525619@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107092124126396@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107092124126396@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-You might want to look at the atomic operations package that we distribute
-along with qprof (http://www.hpl.hp.com/research/linux/qprof/).  The
-most recent released package is at
+Just released a new ia64 patch that goes on top of v2.6.0.
+It's in the usual place:
 
-http://www.hpl.hp.com/research/linux/qprof/download/ao-0.4.tar.gz
+	ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.6/
 
-Its goal is to implement memory barriers and atomic operations with a portable interface,
-while allowing you to describe exactly the functionality you need, so that
-you can avoid unnecessary run-time costs when porting between architectures.  It
-currently supports X86, IA64, and PA-RISC Linux reasonably well, and has
-the beginnings of ports to various other architectures.
+in file linux-2.6.0-ia64-031221.diff.bz2
 
-Additional ports are always welcome.  And the package is designed to make
-the machine-dependent piece as small as possible, typically on the order of
-100 lines.
+The biggest change is the large MCA updates by Keith, Tony and Bjorn.
+Oh, and for all you workstation nuts, I threw in a patch to get the
+ipaq USB module to work!  (Now if only I could get evolution 1.4 to
+play along, so I could actually synchronize my ipaq with my
+zx2000... ;-)
 
-[Caution: The current version installs as "ao", which is now known to
-conflict with an audio library.  The name will be changed to atomic_ops in
-the next release, which is expected to happen RSN.  In the meantime please be
-careful about installing it in /usr.]
+Detailed changelog is here:
 
-Hans
+  http://lia64.bkbits.net:8080/linux-ia64-2.5/ChangeSet@1.1496.2.37..1.1510
 
+The patch has checked out on zx2000, rx5670 (4-way) and on the Ski
+simulator.  As usual, your mileage may vary.
 
-> -----Original Message-----
-> From: linux-ia64-owner@vger.kernel.org
-> [mailto:linux-ia64-owner@vger.kernel.org]On Behalf Of Umut Aymakoglu
-> Sent: Monday, December 08, 2003 2:02 PM
-> To: linux-ia64@vger.kernel.org
-> Subject: memory fence.
-> 
-> 
-> 
-> 
-> 
-> 
-> Hi -
->  Does anybody know the equivalance of  _Asm_mf() (HP ia64) on 
-> Linux ia64?
-> 
-> thanks,
-> Umut
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe 
-> linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Oh, and before you flood me with patches, I don't expect to work much
+on the kernel until next year.
+
+Happy Holidays!
+
+	--david
