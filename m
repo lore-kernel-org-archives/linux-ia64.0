@@ -1,27 +1,29 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 13 Jun 2000 18:14:04 +0000
-Subject: [Linux-ia64] developer's kit now available
-Message-Id: <marc-linux-ia64-105590678205135@msgid-missing>
+From: Johannes Erdfelt <jerdfelt@valinux.com>
+Date: Tue, 13 Jun 2000 02:34:29 +0000
+Subject: [Linux-ia64] ELI updates
+Message-Id: <marc-linux-ia64-105590678205131@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The IA-64 Linux developer's kit for Linux/x86 based system consists of
-an IA-64 simulator and a Linux development environment and is now
-available for free.  For more information, see the press-release at:
+There's a new version of ELI in CVS which fixes a couple of bugs and
+finally correctly handles memory allocation.
 
-	http://www.hp.com/pressrel/jun00/13jun00a.htm
+I've merged in the 3 patches posted to the lists:
+- Off by one allocation problem for eli.cfg
+- ACPI AML scope parsing bug
+- initrd patches
 
-The software can be downloaded from:
+I've spent some time testing the code, but I haven't test it completely.
+For one, I haven't tried the initrd code since I reorganized some of the
+code.
 
-	http://www.software.hp.com/ia64linux
-  or
-	http://developer.intel.com/design/ia-64/linux.htm
+I'll make a new release soon after I spend some more time testing the
+code and possibly add some more ACPI support needed for the NEC guys.
 
-Enjoy,
+JE
 
-	--david
 
 
