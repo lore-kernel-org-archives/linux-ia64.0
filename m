@@ -1,39 +1,51 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 28 Jan 2004 17:01:53 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 28 Jan 2004 18:20:03 +0000
 Subject: Re: [RFC/PATCH, 2/4] readX_check() performance evaluation
-Message-Id: <20040128170153.GA5494@cup.hp.com>
+Message-Id: <20040128182003.GL11844@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <00a301c3e541$c13a6350$2987110a@lsd.css.fujitsu.com> <Pine.LNX.4.58.0401271847440.10794@home.osdl.org> <20040128085825.A3591@flint.arm.linux.org.uk>
-In-Reply-To: <20040128085825.A3591@flint.arm.linux.org.uk>
+References: <00a301c3e541$c13a6350$2987110a@lsd.css.fujitsu.com> <Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0401271847440.10794@home.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linus Torvalds <torvalds@osdl.org>, Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>, linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Hironobu Ishii <ishii.hironobu@jp.fujitsu.com>, linux-kernel <linux-kernel@vger.kernel.org>, linux-ia64 <linux-ia64@vger.kernel.org>
 
-On Wed, Jan 28, 2004 at 08:58:25AM +0000, Russell King wrote:
-> On Tue, Jan 27, 2004 at 06:55:17PM -0800, Linus Torvalds wrote:
-> > Does anybody see any downsides to something like this?
+On Tue, Jan 27, 2004 at 06:55:17PM -0800, Linus Torvalds wrote:
+> Quite frankly, I'd much rather have something more like this:
 > 
-> What if the failing PCI access happened in an interrupt routine?
-> (I'm thinking of the situation where you may need to read the PCI
-> status registers to find out whether an error occurred.)
+> 	clear_pcix_errors(dev);
+> 	..
+> 	x = readX_check(dev, offset);	/* Maybe several ones, maybe in a loop */
+> 	..
+> 	error = read_pcix_errors(dev);
+> 	if (error)
+> 		take_pcix_offline(dev);
+> 
+> in other words, I'd rather _not_ see the "readX_check()" code itself have 
+> the retry logic and error value handling.
+> 
+> Why? Because on a number of architectures it is entirely possible that the 
+> error comes as a _asynchronous_ machine exception or similar. So I'd much 
+> rather have the interfaces be designed for that. Also, it's likely to 
+> perform a lot better, and result in much clearer code this way (ie you can 
+> try to set up the whole command before reading the error just once).
 
-The driver needs to be able to clean up in any context.
-That's why I'm advocating what willy called an "exception framework".
+Well, read() is a bad example for that -- errors are always going
+to come back straight away for a read.  write() is a better example.
+I'd really like to hear from someone who's done this kind of thing before.
+Are there any actions worth taking when an error occurs *other* than
+taking the card offline and notifying the user?
 
-While I like linus' suggestion is better than the original,
-it spreads the driver error recovery code throughout the driver.
-That upside is it can handle every situation.
-The downside is numerous error paths makes the regular code alot
-harder to read and maintain.
+If there are, Linus' interface is probably the best one.  If not, we could
+simply have readX_check() / writeX_check() call dev->driver->unregister()
+if they notice an error has occurred and then the driver doesn't even
+need to call read_pcix_errors().
 
-> Also, for that matter, what if a network device receives an abort
-> while performing BM-DMA?
-
-The next PIO read will see the error caused by BM-DMA.
-
-> Do we even care about either of these two scenarios?
-
-yes. IO Error recovery has to deal with every scenario.
-
-grant
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
