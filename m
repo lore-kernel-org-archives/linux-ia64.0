@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 05 Aug 2004 12:52:23 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 05 Aug 2004 18:49:33 +0000
 Subject: Re: [PATCH&RFC 2/2] OS_MCA Recovery from poisoned memory read
-Message-Id: <5470.1091710343@ocs3.ocs.com.au>
+Message-Id: <20040805184933.GG6526@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <41121484.40804@jp.fujitsu.com>
 In-Reply-To: <41121484.40804@jp.fujitsu.com>
@@ -10,63 +10,43 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Looks good.  Some minor niggles, without actually testing the code.
+On Thu, Aug 05, 2004 at 08:05:40PM +0900, Hidetoshi Seto wrote:
+> The MCA offending process will restart from handler_bh, and
+> will suicide after isolating the poisoned page.
 
-On Thu, 05 Aug 2004 20:05:40 +0900, 
-Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> wrote:
->+/*
->+ * mca_page_isolate
->+ *
->+ *	isolate a poisoned page	in order not to use it later
->+ * 
->+ *  Input	: paddr (poisoned memory location)
->+ *  Output	: isolate_status (isolation was succeeded or failed.)
->+ */
+Hidetoshi,
+Wow! I'm impressed - this is amazing functionality.
 
-Standard kernel doc headers would be better.  See
-Documentation/kernel-doc-nano-HOWTO.txt.
+I only noticed the three new driver files didn't have either
+a copyright nor license embedded in it.
 
-+       typedef struct ia64_fptr {
-+               unsigned long fp;
-+               unsigned long gp;
-+       } ia64_fptr_t;
+I'm told the license is optional because the "linux-2,6/COPYING"
+contains a blanket statement for the rest of the kernel.
+But many lawyers still like to see it in each file.
 
-Duplicated here and in arch/ia64/kernel/mca.c.  ia64_fptr should be in
-a common header.
+grant
 
-+                       /* change resume address to bottom half */
-+                       pmsa->pmsa_iip = mca_hdlr_bh->fp;
-+                       pmsa->pmsa_gr[1-1] = mca_hdlr_bh->gp;
-+                       /* set cpl with kernel mode */
-+                       psr2 = (struct ia64_psr *)&pmsa->pmsa_ipsr;
-+                       psr2->cpl = 0;
+> +++ linux-2.6.8-rc3-mcadrv-v2/arch/ia64/kernel/mca_drv.c	2004-08-04 19:17:09.676773696 +0900
+> @@ -0,0 +1,647 @@
+> +/*
+> + * File:	mca_drv.c
+> + * Purpose:	Generic MCA handling layer
+> + */
+...
 
-Also psr2->ri = 0; to ensure that pmsa_iip resumes at the start of the
-bottom half.
+> --- linux-2.6.8-rc3/arch/ia64/kernel/mca_drv.h	1970-01-01 09:00:00.000000000 +0900
+> +++ linux-2.6.8-rc3-mcadrv-v2/arch/ia64/kernel/mca_drv.h	2004-08-04 18:08:39.000000000 +0900
+> @@ -0,0 +1,111 @@
+...
 
->+#ifdef MODULE
+> +/*
+> + * File:	mca_drv.h
+> + * Purpose:	Define helpers for Generic MCA handling
+> + */
+...
 
-No need to wrap in #ifdef MODULE, these commands also work when the
-code is built in.
-
->+MODULE_PARM(sal_rec_max, "i");
-
-Use module_param() plus MODULE_PARM_DESC() instead of MODULE_PARM().
-module_param() lets you specify the value at boot time for built in
-code, MODULE_PARM() does not.
-
-+static isolate_status_t
-+mca_page_isolate(unsigned long paddr)
-+{
-+       int i;
-+       struct page *p;
-+
-+       /* whether physical address is valid or not */
-+       if ( !ia64_phys_addr_valid(paddr) )  
-
-The calls to mca_page_isolate() are racy.  That code is running in
-normal kernel context after exiting from the MCA handler.  Other cpus
-could be modifying the page tables at the same time, there could even
-be two cpus running mca_handler_bh() at the same time for the same
-page.
+> --- linux-2.6.8-rc3/arch/ia64/kernel/mca_drv_asm.S	1970-01-01 09:00:00.000000000 +0900
+> +++ linux-2.6.8-rc3-mcadrv-v2/arch/ia64/kernel/mca_drv_asm.S	2004-08-04 19:16:51.045914549 +0900
+> @@ -0,0 +1,38 @@
+...
 
