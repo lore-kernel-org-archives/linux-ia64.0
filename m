@@ -1,30 +1,22 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 13 May 2003 10:52:36 +0000
+From: Bjorn Helgaas <bjorn_helgaas@hp.com>
+Date: Tue, 13 May 2003 21:02:12 +0000
 Subject: Re: [Linux-ia64] [patch] 2.4.21-rc1 Close rmmod race on ia64
-Message-Id: <marc-linux-ia64-105590723705756@msgid-missing>
+Message-Id: <marc-linux-ia64-105590723705763@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705748@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705748@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith Owens <kaos@sgi.com> writes:
+On Tuesday 13 May 2003 12:43 am, Keith Owens wrote:
+> ia64 is not taking the spinlock that closes the race between module
+> removal and traversal of exception tables.  It can result in oops when
+> one cpu takes an exception while another is unloading a module.
+> 
+> Other architectures take this lock.  The patch is almost a cut and
+> paste from i386, plus it removes a dead variable.
 
-|> @@ -51,10 +53,11 @@ search_exception_table (unsigned long ad
-|>  		fix.cont =3D entry->cont + main_gp;
-|>  	return fix;
-|>  #else
-|> -	struct archdata *archdata;
-
-??? archdata is still needed.
-
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+Applied for 2.4 (except I left in the archdata decl).  Thanks!
 
