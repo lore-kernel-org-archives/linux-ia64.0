@@ -1,61 +1,80 @@
-From: Don Dugger <n0ano@valinux.com>
-Date: Mon, 15 Jan 2001 19:57:01 +0000
-Subject: Re: [Linux-ia64] status of debugging ia32 executables on ia64
-Message-Id: <marc-linux-ia64-105590693005045@msgid-missing>
+From: Uros Prestor <uros@turbolinux.com>
+Date: Wed, 10 Jan 2001 02:03:20 +0000
+Subject: [Linux-ia64] Undefined symbols
+Message-Id: <marc-linux-ia64-105590678205911@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005043@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005043@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jose-
+Starting with 2.4.0-test11 kernels, I am getting a whole bunch of
+undefined symbols when trying to load modules.  Strange thing is that
+the undefined symbols are exported from the kernel.  For example, when
+loading the BigSur sound driver I get:
 
-I've found all of my IA32 problems with one of two tools.
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol remap_page_range
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol schedule_timeout
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol __wake_up
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol kmalloc
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol free_irq
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol remove_wait_queue
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol del_timer
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol interruptible_sleep_on
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol __pollwait
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol kfree
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol request_irq
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol add_wait_queue
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol mem_map
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol jiffies
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol printk
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     unresolved symbol add_timer
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     insmod
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o
+     failed
+     /lib/modules/2.4.0-010109-59smp/kernel/drivers/sound/cs4281.o:
+     insmod cs4281 failed
 
-1)  `strace'.  The IA64 version will also trace an IA32 program
-so you can just use it as you normally would.  Most failures these
-days are from bad system calls that should be identified by this tool.
+Symbols such as printk and jiffies are exported in /proc/ksyms:
 
-2)  The IA32 version of `gdb' should work.  If `gdb' from a generic
-IA32 system doesn't work let me know, I've got a version that I've
-created that I know works.
+     [root@borg linux]# egrep ' (jiffies|printk)' /proc/ksyms
+     e000000000b44c58 jiffies_R__ver_jiffies
+     e000000000a869f0 printk_R__ver_printk
 
-Check your system log to make sure there aren't any funny messages.  If
-you program makes a call we haven't implemented yet a message will be
-printed to the console.
+However, cs4281.o references the symbols without the version string
+attached:
 
-Also, are you running the EFI `wkaround' program before you boot your
-kernel?  There are still some CPU erratas that affect IA32 execute that
-are solved by this program.
+     [root@borg linux]# nm cs4281.o | egrep ' (jiffies|printk)'
+                      U jiffies
+                      U printk
 
-On Mon, Jan 15, 2001 at 08:19:36PM +0100, Jose Luu wrote:
-> 
-> Hi,
-> 
-> I have a non functional ia32 executable (which of course works well on a
-> regular ia32 machine).
-> 
-> What are my options for debugging it ?
-> 
-> There has a message from Don in march 2000 on an attempt to make gdb work
-> for ia32 executables, since then no news, do we have a status on this ? What
-> would be involved to make gdb work ?
-> 
-> Thanks
-> Jose
-> 
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+What am I missing here?  I am using modutils-2.4.1 and I enabled
+CONFIG_MODULES, CONFIG_MODVERSIONS and CONFIG_KMOD.
 
--- 
-Don Dugger
-"Censeo Toto nos in Kansa esse decisse." - D. Gale
-n0ano@valinux.com
-Ph: 303/938-9838
+Thanks,
+Uros
+
+--
+Uros Prestor
+uros@turbolinux.com
+
+
+
 
