@@ -1,48 +1,80 @@
-From: John Levon <levon@movementarian.org>
-Date: Wed, 08 Oct 2003 19:37:56 +0000
-Subject: Re: [PATCH] kill pointless perfmon abstractions
-Message-Id: <marc-linux-ia64-106564201225917@msgid-missing>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Wed, 08 Oct 2003 23:52:12 +0000
+Subject: [PATCH] Fix IA64 build with separate source and build trees.
+Message-Id: <marc-linux-ia64-106565735409518@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106562954910433@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106562954910433@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, Oct 08, 2003 at 11:51:14AM -0700, Stephane Eranian wrote:
 
-> Well, it is because you only know part of the story ;-< These abstractions
-> are here to mask differences between the various kernels out there.
 
-I'd suspected that it might be an issue with 2.4 kernels so I checked
-against 2.4.22 - none of the removed macros even exist or are relevant.
-I understand that it can be often be useful to allow easy merges with
-2.4, but it doesn't seem to apply in this case.
+Hi David,
+   This patch against 2.6.0-test7 fixes building in a separate output
+directory.  Without it, offsets.h isn't built, and the check-gas and
+toolchain-flags sscripts aren't found.
 
-> RH EL, and Suse SLES.
 
-I must be missing something here. Why are vendor kernels at all relevant
-to Linus's tree ? Vendor kernels are surely a vendor problem.
-
-Even if they were: there's a much better way to do this. For example,
-instead of pfm_irq_handler_t, simply use irqreturn_t in the source (so
-it looks like 2.6 code). Then vendors can do :
-
-#include "vendor.h"
-
-or whatever that has
-#define irqreturn_t void, #define IRQ_HANDLED /* nothing */, etc.
-
-I believe this is general approach preferred by, for example, the net
-drivers. It means that the Linus kernel tree looks sane, whilst not
-sacrificing any merging ability with older trees.
-
-Another obvious candidate here is pfm_do_munmap()
-
-regards,
-john
-
--- 
-Khendon's Law:
-If the same point is made twice by the same person, the thread is over.
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	v2.6.0-test7 -> 1.1512 
+#	  arch/ia64/Makefile	1.60    -> 1.62   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/10/08	torvalds@home.osdl.org	1.1510
+# Linux 2.6.0-test7
+# --------------------------------------------
+# 03/10/09	peterc@gelato.unsw.edu.au	1.1511
+# Fix IA64 build with separate source and build trees.
+# --------------------------------------------
+# 03/10/09	peterc@gelato.unsw.edu.au	1.1512
+# [IA64] arch/ia64/Makefile: Fix as per Sam Ravnborg's request: use $(srctree) not $(src)
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/Makefile b/arch/ia64/Makefile
+--- a/arch/ia64/Makefile	Thu Oct  9 09:49:12 2003
++++ b/arch/ia64/Makefile	Thu Oct  9 09:49:12 2003
+@@ -25,9 +25,9 @@
+ GCC_VERSION=$(shell $(CC) -v 2>&1 | fgrep 'gcc version' | cut -f3 -d' ' | cut -f1 -d'.')
+ GCC_MINOR_VERSION=$(shell $(CC) -v 2>&1 | fgrep 'gcc version' | cut -f3 -d' ' | cut -f2 -d'.')
+ 
+-GAS_STATUS=$(shell arch/ia64/scripts/check-gas $(CC) $(OBJDUMP))
++GAS_STATUS=$(shell $(srctree)/arch/ia64/scripts/check-gas $(CC) $(OBJDUMP))
+ 
+-CPPFLAGS	+= $(shell arch/ia64/scripts/toolchain-flags $(CC) $(OBJDUMP))
++CPPFLAGS	+= $(shell $(srctree)/arch/ia64/scripts/toolchain-flags $(CC) $(OBJDUMP))
+ 
+ ifeq ($(GAS_STATUS),buggy)
+ $(error Sorry, you need a newer version of the assember, one that is built from	\
+@@ -84,18 +84,21 @@
+ archclean:
+ 	$(Q)$(MAKE) $(clean)=$(boot)
+ 
+-CLEAN_FILES += include/asm-ia64/.offsets.h.stamp include/asm-ia64/offsets.h vmlinux.gz bootloader
++CLEAN_FILES += include/asm-$(ARCH)/.offsets.h.stamp include/asm-$(ARCH)/offsets.h vmlinux.gz bootloader
+ 
+-prepare: include/asm-ia64/offsets.h
++prepare: include/asm-$(ARCH)/offsets.h
++
++arch/$(ARCH)/kernel/asm-offsets.s: include/asm include/linux/version.h
+ 
+ include/asm-$(ARCH)/offsets.h: arch/$(ARCH)/kernel/asm-offsets.s
+ 	$(call filechk,gen-asm-offsets)
+ 
+-arch/ia64/kernel/asm-offsets.s: include/asm-ia64/.offsets.h.stamp
++arch/ia64/kernel/asm-offsets.s: include/asm-$(ARCH)/.offsets.h.stamp
+ 
+-include/asm-ia64/.offsets.h.stamp:
+-	[ -s include/asm-ia64/offsets.h ] \
+-	 || echo "#define IA64_TASK_SIZE 0" > include/asm-ia64/offsets.h
++include/asm-$(ARCH)/.offsets.h.stamp:
++	mkdir -p include/asm-$(ARCH)
++	[ -s include/asm-$(ARCH)/offsets.h ] \
++	 || echo "#define IA64_TASK_SIZE 0" > include/asm-$(ARCH)/offsets.h
+ 	touch $@
+ 
+ boot:	lib/lib.a vmlinux
