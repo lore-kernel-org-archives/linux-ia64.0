@@ -1,51 +1,34 @@
-From: Tim Riker <TimR@CalderaSystems.com>
-Date: Fri, 04 Aug 2000 23:42:51 +0000
-Subject: [Linux-ia64] Caldera OpenLinux ia64 early alpha now available.
-Message-Id: <marc-linux-ia64-105590678205269@msgid-missing>
+From: SCHAN@uk.ibm.com
+Date: Tue, 08 Aug 2000 15:18:19 +0000
+Subject: [Linux-ia64] makecontext/swapcontext/getcontext
+Message-Id: <marc-linux-ia64-105590678205274@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Eric and lists,
 
-ftp://ftp.caldera.com/pub/ia64/
+Hello,
 
-I've just released an early alpha of OpenLinux ia64. Here is the readme
-from the ftp site:
+     Is there any plan to implement the context management functions
+(makecontext/ swapcontext/ getcontext - specified in UNIX95/98) in glibc
+for ia64? We need those functions for the programs we are porting and
+currently those functions exist in the glibc as stubs (return ENOSYS). Is
+there any equivant functions exist in the glibc/kernel which do the same
+job?
 
-ftp://ftp.caldera.com/pub/ia64/20000804/20000804ia64col.txt
+     Thanks!
 
-This is an early access alpha release of Caldera OpenLinux for ia64
 
-There are a number of issues with this release:
+-x-
+Sunny Chan
+Java Technology Center,
+Mail Point 146, IBM UK, Hursley Park, Winchester, England SO21 2JN
 
-o There is no toolchain included. This will be included in the next
-release
+Notes ID: Sunny Chan/UK/IBM
+Email: schan@uk.ibm.com
+Telephones: Internal: 246762 External: 01962 816762 Mobile: 07887-704088
 
-o PAM seems non-functional. This also will be fixed in the next release
 
-o The installation uses a shell script. Lisa (text menus) and Lizard
-  (the Caldera graphical installer) should be included in a furture
-  release. This is not likely to happen in the next release.
-
-o There is no web page yet for information and updates
-
-o There us no mailing list for support yet.
-
-o X is not functioning. This is likely to be included in the next
-  release, but a working toolchain is higher on the priority list.
-
-o This has only been tested on Intel SDV systems. If you are a hardware
-  vendor, you can send me free hardware anytime. ;-)
-
-Thanx for DLing and testing this early alpha! Please contact me directly
-for any support issues. Watch this text file for updated info.
-
-Tim Riker <TimR@CalderaSystems.com>
--- 
-Tim Riker - http://rikers.org/ - short SIGs! <g>
-All I need to know I could have learned in Kindergarten
-... if I'd just been paying attention.
 
