@@ -1,106 +1,155 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Fri, 15 Oct 2004 19:02:44 +0000
-Subject: page fault scalability patch V10: [0/7] overview
-Message-Id: <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
+Date: Fri, 15 Oct 2004 19:05:34 +0000
+Subject: page fault scalability patch V10: [3/7] IA64 atomic pte operations
+Message-Id: <Pine.LNX.4.58.0410151204570.26697@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com>
  <Pine.LNX.4.58.0409201348070.4628@schroedinger.engr.sgi.com>
  <20040920205752.GH4242@wotan.suse.de> <200409211841.25507.vda@port.imtp.ilyichevsk.odessa.ua>
  <20040921154542.GB12132@wotan.suse.de> <41527885.8020402@myrealbox.com>
  <20040923090345.GA6146@wotan.suse.de> <Pine.LNX.4.58.0409271204180.31769@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0409271204180.31769@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0410151201020.26697@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: akpm@osdl.org
 Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
+Changelog
+	* Provide atomic pte operations for ia64
+	* pte lock operations
+	* Enhanced parallelism in page fault handler if applied together
+	  with the generic patch
+
 Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Changes from V9->V10 of this patch:
-- generic: fixes and updates
-- S390: changes after feedback from Martin Schwidefsky
-- x86_64: tested and now works fine.
-- i386: stable
-- ia64: stable. Added support for pte_locking necessary
-	for a planned parallelization of COW.
+Index: linux-2.6.9-rc4/include/asm-ia64/pgalloc.h
+=================================--- linux-2.6.9-rc4.orig/include/asm-ia64/pgalloc.h	2004-10-10 19:56:40.000000000 -0700
++++ linux-2.6.9-rc4/include/asm-ia64/pgalloc.h	2004-10-14 11:32:38.000000000 -0700
+@@ -34,6 +34,10 @@
+ #define pmd_quicklist		(local_cpu_data->pmd_quick)
+ #define pgtable_cache_size	(local_cpu_data->pgtable_cache_sz)
 
-This is a series of patches that increases the scalability of
-the page fault handler for SMP. Typical performance increases in the page
-fault rate are:
++/* Empty entries of PMD and PGD */
++#define PMD_NONE       0
++#define PGD_NONE       0
++
+ static inline pgd_t*
+ pgd_alloc_one_fast (struct mm_struct *mm)
+ {
+@@ -78,12 +82,19 @@
+ 	preempt_enable();
+ }
 
-2 CPUs -> 30%
-4 CPUs -> 45%
-8 CPUs -> 60%
++
+ static inline void
+ pgd_populate (struct mm_struct *mm, pgd_t *pgd_entry, pmd_t *pmd)
+ {
+ 	pgd_val(*pgd_entry) = __pa(pmd);
+ }
 
-With a high number of CPUs (16..512) we are seeing the page fault rate
-roughly doubling.
++/* Atomic populate */
++static inline int
++pgd_test_and_populate (struct mm_struct *mm, pgd_t *pgd_entry, pmd_t *pmd)
++{
++	return ia64_cmpxchg8_acq(pgd_entry,__pa(pmd), PGD_NONE) = PGD_NONE;
++}
 
-The performance increase is accomplished by avoiding the use of the
-page_table_lock spinlock (but not mm->mmap_sem!) through new atomic
-operations on pte's (ptep_xchg, ptep_cmpxchg) and on pmd and pgd's
-(pgd_test_and_populate, pmd_test_and_populate).
+ static inline pmd_t*
+ pmd_alloc_one_fast (struct mm_struct *mm, unsigned long addr)
+@@ -132,6 +143,13 @@
+ 	pmd_val(*pmd_entry) = page_to_phys(pte);
+ }
 
-The page table lock can be avoided in the following situations:
++/* Atomic populate */
++static inline int
++pmd_test_and_populate (struct mm_struct *mm, pmd_t *pmd_entry, struct page *pte)
++{
++	return ia64_cmpxchg8_acq(pmd_entry, page_to_phys(pte), PMD_NONE) = PMD_NONE;
++}
++
+ static inline void
+ pmd_populate_kernel (struct mm_struct *mm, pmd_t *pmd_entry, pte_t *pte)
+ {
+Index: linux-2.6.9-rc4/include/asm-ia64/pgtable.h
+=================================--- linux-2.6.9-rc4.orig/include/asm-ia64/pgtable.h	2004-10-10 19:57:17.000000000 -0700
++++ linux-2.6.9-rc4/include/asm-ia64/pgtable.h	2004-10-14 12:21:06.000000000 -0700
+@@ -30,6 +30,8 @@
+ #define _PAGE_P_BIT		0
+ #define _PAGE_A_BIT		5
+ #define _PAGE_D_BIT		6
++#define _PAGE_IG_BITS          53
++#define _PAGE_LOCK_BIT         (_PAGE_IG_BITS+3)       /* bit 56. Aligned to 8 bits */
 
-1. An empty pte or pmd entry is populated
+ #define _PAGE_P			(1 << _PAGE_P_BIT)	/* page present bit */
+ #define _PAGE_MA_WB		(0x0 <<  2)	/* write back memory attribute */
+@@ -58,6 +60,7 @@
+ #define _PAGE_PPN_MASK		(((__IA64_UL(1) << IA64_MAX_PHYS_BITS) - 1) & ~0xfffUL)
+ #define _PAGE_ED		(__IA64_UL(1) << 52)	/* exception deferral */
+ #define _PAGE_PROTNONE		(__IA64_UL(1) << 63)
++#define _PAGE_LOCK		(__IA64_UL(1) << _PAGE_LOCK_BIT)
 
-This is safe since the swapper may only depopulate them and the
-swapper code has been changed to never set a pte to be empty until the
-page has been evicted. The population of an empty pte is frequent
-if a process touches newly allocated memory.
+ /* Valid only for a PTE with the present bit cleared: */
+ #define _PAGE_FILE		(1 << 1)		/* see swap & file pte remarks below */
+@@ -270,6 +273,8 @@
+ #define pte_dirty(pte)		((pte_val(pte) & _PAGE_D) != 0)
+ #define pte_young(pte)		((pte_val(pte) & _PAGE_A) != 0)
+ #define pte_file(pte)		((pte_val(pte) & _PAGE_FILE) != 0)
++#define pte_locked(pte)		((pte_val(pte) & _PAGE_LOCK)!=0)
++
+ /*
+  * Note: we convert AR_RWX to AR_RX and AR_RW to AR_R by clearing the 2nd bit in the
+  * access rights:
+@@ -281,8 +286,15 @@
+ #define pte_mkyoung(pte)	(__pte(pte_val(pte) | _PAGE_A))
+ #define pte_mkclean(pte)	(__pte(pte_val(pte) & ~_PAGE_D))
+ #define pte_mkdirty(pte)	(__pte(pte_val(pte) | _PAGE_D))
++#define pte_mkunlocked(pte)	(__pte(pte_val(pte) & ~_PAGE_LOCK))
 
-2. Modifications of flags in a pte entry (write/accessed).
+ /*
++ * Lock functions for pte's
++ */
++#define ptep_lock(ptep)		test_and_set_bit(_PAGE_LOCK_BIT, ptep)
++#define ptep_unlock(ptep)	{ clear_bit(_PAGE_LOCK_BIT,ptep); smp_mb__after_clear_bit(); }
++#define ptep_unlock_set(ptep, val) set_pte(ptep, pte_mkunlocked(val))
++/*
+  * Macro to a page protection value as "uncacheable".  Note that "protection" is really a
+  * misnomer here as the protection value contains the memory attribute bits, dirty bits,
+  * and various other bits as well.
+@@ -342,7 +354,6 @@
+ #define pte_unmap_nested(pte)		do { } while (0)
 
-These modifications are done by the CPU or by low level handlers
-on various platforms also bypassing the page_table_lock. So this
-seems to be safe too.
+ /* atomic versions of the some PTE manipulations: */
+-
+ static inline int
+ ptep_test_and_clear_young (pte_t *ptep)
+ {
+@@ -414,6 +425,18 @@
+ #endif
+ }
 
-The patchset is composed of 7 patches:
++static inline pte_t
++ptep_xchg (struct mm_struct *mm, pte_t *ptep, pte_t pteval)
++{
++	return __pte(xchg((long *) ptep, pteval.pte));
++}
++
++static inline int
++ptep_cmpxchg (struct vm_area_struct *vma, unsigned long addr, pte_t *ptep, pte_t oldval, pte_t newval)
++{
++	return ia64_cmpxchg8_acq(&ptep->pte, newval.pte, oldval.pte) = oldval.pte;
++}
++
+ static inline int
+ pte_same (pte_t a, pte_t b)
+ {
+@@ -558,6 +581,8 @@
+ #define __HAVE_ARCH_PTEP_MKDIRTY
+ #define __HAVE_ARCH_PTE_SAME
+ #define __HAVE_ARCH_PGD_OFFSET_GATE
++#define __HAVE_ARCH_ATOMIC_TABLE_OPS
++#define __HAVE_ARCH_LOCK_TABLE_OPS
+ #include <asm-generic/pgtable.h>
 
-1/7: Make mm->rss atomic
-
-   The page table lock is used to protect mm->rss and the first patch
-   makes rss atomic so that it may be changed without holding the
-   page_table_lock.
-   Generic atomic variables are only 32 bit under Linux. However, 32 bits
-   is sufficient for rss even on a 64 bit machine since rss refers to the
-   number of pages allowing still up to 2^(31+12)= 8 terabytes of memory
-   to be in use by a single process. A 64 bit atomic would of course be better.
-
-2/7: Avoid page_table_lock in handle_mm_fault
-
-   This patch defers the acquisition of the page_table_lock as much as
-   possible and uses atomic operations for allocating anonymous memory.
-   These atomic operations are simulated by acquiring the page_table_lock
-   for very small time frames if an architecture does not define
-   __HAVE_ARCH_ATOMIC_TABLE_OPS. It also changes the swapper so that a
-   pte will not be set to empty if a page is in transition to swap.
-
-   If only the first two patches are applied then the time that the page_table_lock
-   is held is simply reduced. The lock may then be acquired multiple
-   times during a page fault.
-
-   The remaining patches introduce the necessary atomic pte operations to avoid
-   the page_table_lock.
-
-3/7: Atomic pte operations for ia64
-
-4/7: Make cmpxchg generally available on i386
-
-   The atomic operations on the page table rely heavily on cmpxchg instructions.
-   This patch adds emulations for cmpxchg and cmpxchg8b for old 80386 and 80486
-   cpus. The emulations are only included if a kernel is build for these old
-   cpus and are skipped for the real cmpxchg instructions if the kernel
-   that is build for 386 or 486 is then run on a more recent cpu.
-
-   This patch may be used independently of the other patches.
-
-5/7: Atomic pte operations for i386
-
-   A generally available cmpxchg (last patch) must be available for this patch to
-   preserve the ability to build kernels for 386 and 486.
-
-6/7: Atomic pte operation for x86_64
-
-7/7: Atomic pte operations for s390
+ #endif /* _ASM_IA64_PGTABLE_H */
