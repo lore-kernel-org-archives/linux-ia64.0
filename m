@@ -1,42 +1,25 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Date: Mon, 23 Jun 2003 14:15:03 +0000
-Subject: [Linux-ia64] 2.5.72 bss initializers
-Message-Id: <marc-linux-ia64-105637930631805@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 23 Jun 2003 18:54:34 +0000
+Subject: Re: [Linux-ia64] 2.5.72 bss initializers
+Message-Id: <marc-linux-ia64-105639453217618@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105637930631805@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105637930631805@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+>>>>> On Mon, 23 Jun 2003 10:15:03 -0400, Jes Sorensen <jes@wildopensource.com> said:
 
-No need to explicitly zero out global pointers in efi.c and efivars.c
+  Jes> No need to explicitly zero out global pointers in efi.c and efivars.c
 
-Cheers,
-Jes
+I applied this now.  In the future _please_ send patches which apply
+with "patch -p1".
 
---- arch/ia64/kernel/efi.c~	Mon Jun 16 21:19:39 2003
-+++ arch/ia64/kernel/efi.c	Mon Jun 23 07:08:53 2003
-@@ -46,7 +46,7 @@
-  * prior to creating their own entries under /proc/efi.
-  */
- #ifdef CONFIG_PROC_FS
--struct proc_dir_entry *efi_dir = NULL;
-+struct proc_dir_entry *efi_dir;
- #endif
- 
- static unsigned long mem_limit = ~0UL;
---- arch/ia64/kernel/efivars.c~	Mon Jun 16 21:20:01 2003
-+++ arch/ia64/kernel/efivars.c	Mon Jun 23 07:09:40 2003
-@@ -119,7 +119,7 @@
- */
- static spinlock_t efivars_lock = SPIN_LOCK_UNLOCKED;
- static LIST_HEAD(efivar_list);
--static struct proc_dir_entry *efi_vars_dir = NULL;
-+static struct proc_dir_entry *efi_vars_dir;
- 
- #define efivar_entry(n) list_entry(n, efivar_entry_t, list)
- 
+Thanks,
+
+	--david
 
 _______________________________________________
 Linux-IA64 mailing list
