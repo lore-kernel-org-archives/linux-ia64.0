@@ -1,38 +1,31 @@
-From: Matt Domsch <Matt_Domsch@Dell.com>
-Date: Tue, 22 May 2001 22:31:29 +0000
-Subject: [Linux-ia64] Announcing efibootmgr-0.3.2
-Message-Id: <marc-linux-ia64-105590693005646@msgid-missing>
+From: Ulrich Drepper <drepper@redhat.com>
+Date: Sun, 27 May 2001 06:45:12 +0000
+Subject: [Linux-ia64] Re: libc patch: update of memcpy et al
+Message-Id: <marc-linux-ia64-105590693005673@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Announcing efibootmgr-0.3.2, a Linux user-space application which
-interacts with the EFI Boot Manager.  It may be downloaded from
-http://domsch.com/linux/ia64/efibootmgr-0.3.2.tar.gz.
+David Mosberger <davidm@hpl.hp.com> writes:
 
-ChangeLog extract:
-* Tue May 22 2001 Matt Domsch <Matt_Domsch@dell.com>
-- Applied patch from Andreas Schwab.  remove_from_boot_order() called
-  read_boot_order() without checking the return status.
-- Changed README to remove os loader args comment
-- Changed efi_status_t to be unsigned long (not uint64_t) as per EFI
-  spec.  This allows efibootmgr to be recompiled as a 32-bit or 64-bit app
-  depending on its running on 32-bit or 64-bit Linux.  Note:  this changes
-  the size of the structure returned in /proc/efi/vars to match the kernel
-  implementation.  32-bit efibootmgr won't work on 64-bit Linux and vice versa.
-- release v0.3.2
+> The patch below bring the performance of memcpy(), memmove(), bcopy(),
+> and bzero() up to more reasonable levels.  I haven't run this through
+> "make check", but I believe the changes to be OK.
 
-I appreciate the feedback (and Andreas' patches!) I've received thus
-far.  Please keep up the good work!
--Matt
+The changes seem fine, I ran make check.  Thanks.  But you were really
+naughty and edited the patch.  Tss, tss, tss, don't do that, it's so
+easy to do it wrong just as in this case.
+
+Also, there is no need to introduce __memmove.  __-protected functions
+are only necessary to prevent namespace problems.  Since memmove is
+defined in the most basic standards there is no problem at all.
+
+Thanks,
 
 -- 
-Matt Domsch
-Sr. Software Engineer
-Dell Linux Solutions
-www.dell.com/linux
-
-
+---------------.                          ,-.   1325 Chesapeake Terrace
+Ulrich Drepper  \    ,-------------------'   \  Sunnyvale, CA 94089 USA
+Red Hat          `--' drepper at redhat.com   `------------------------
 
