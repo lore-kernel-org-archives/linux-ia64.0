@@ -1,59 +1,45 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Thu, 15 Nov 2001 09:08:41 +0000
-Subject: [Linux-ia64] Announce: Kernel Build for 2.5, Release 1.7 is available
-Message-Id: <marc-linux-ia64-105590698805518@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 27 Nov 2001 20:38:31 +0000
+Subject: [Linux-ia64] what's up with 2.5?
+Message-Id: <marc-linux-ia64-105590698805551@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+OK, various people are justly wondering how 2.4 and 2.5 are going to
+be maintained etc.  Here are some of my thoughts.  I'd appreciate your
+thoughts:
 
-Content-Type: text/plain; charset=3Dus-ascii
+ - For the time being, I'm willing to maintain both 2.4 and 2.5.  This
+   assumes that 2.4 will rev infrequently.  If 2.4 revs too
+   frequently, I'd appreciate help.
 
-Release 1.7 of kernel build for kernel 2.5 (kbuild 2.5) has been
-released.  http://sourceforge.net/projects/kbuild/, Package kbuild-2.5,
-download release 1.7.
+ - The big issue on my mind is how we're going to handle McKinley.
+   Even if Linus planned to do so, it's extremely unlikely that 2.6
+   will happen before McKinley is out.  I believe there are really two
+   separate issues here: McKinley support per se and NUMA support.
+   From what I can tell, we should be able to support McKinley in 2.4
+   *without* NUMA quite easily.  My sense is that the NUMA related
+   changes will be quite broad.  Thus, I suggest that we initially
+   focus on 2.5 for this.  As McKinley gets closer, perhaps some of
+   the NUMA-motivated changes can be back ported to 2.4.
 
-http://marc.theaimsgroup.com/?l=3Dlinux-kernel&m=99725412902968&w=3D2
-contains information about the base release.
+ - My first priority is to get the remaining platform-independent
+   differences integrated into the official Linus tree.  The obvious
+   goal being that it should (finally) become possible to build an
+   ia64 kernel out of the box.
 
-Changelog:
+ - There are many things that can be improved in ia64 linux.  I
+   believe the optimizing the system call path, experimenting with
+   superpage (and perhaps subpage) mappings, and experimenting with
+   better TLB sharing are all fruitful directions to consider.  I have
+   a pretty good idea of what can and should be done with the syscall
+   path and am planning to work on that as soon as I can find some
+   time.
 
-  Make CML1 menuconfig handle strings containing special characters
-  like whitespace.
+Comments?
 
-  Add vmlinuz as a target.
-
-  New macro installable() to standardize the definition of installable
-  targets.
-
-  Adjust link order of drivers/char subdirectories to match kbuild 2.4.
-
-  This release does not support CML2, only use it with CML1.  ESR has
-  upgraded CML2 to kernel 2.4.14, I need to add it to kbuild 2.5.
-
-  IA64 support.  That's right, you can compile ia64 using kbuild 2.5.
-  There is a separate ia64 patch kbuild-2.5-2.4.14-ia64-011105-3, read
-  the comments at the start.
-
-  Upgrade the 2.4.15-pre4 patch to track the 2.4.14 changes.  Apply
-  kbuild-2.5-2.4.14-3 and kbuild-2.5-2.4.15-pre4-3 to a clean
-  2.4.15-pre4 kernel.
-
-Files:
-  kbuild-2.5-2.4.14-3 - core kbuild 2.5 and i386 code.
-  kbuild-2.5-2.4.15-pre4-3 - track 2.4.15-pre4 makefile changes.
-  kbuild-2.5-2.4.14-ia64-011105-3 - ia64 support.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.4 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQE784YWi4UHNye0ZOoRAh+/AJ9iheycIQ5lqvoQ2x28FJ1TNPEKRwCfT6qc
-qPVUs23Fhm+XsO7PyjEc/54=3D3g47
------END PGP SIGNATURE-----
-
+	--david
 
