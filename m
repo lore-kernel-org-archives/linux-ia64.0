@@ -1,28 +1,36 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Mon, 19 Nov 2001 17:02:52 +0000
-Subject: Re: [Linux-ia64] Fixed addresses in kernel address space
-Message-Id: <marc-linux-ia64-105590698805534@msgid-missing>
+From: "Pereira, D LailaX E" <d.lailax.e.pereira@intel.com>
+Date: Wed, 28 Nov 2001 17:37:51 +0000
+Subject: [Linux-ia64] unaligned access?
+Message-Id: <marc-linux-ia64-105590698805553@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805533@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805533@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 19 Nov 2001 10:11:08 +0100, Christian Hildner <christian.hildner@hob.de> said:
+HI 
+While running the following  code, 
+define WRITE_CAUSED_SIGBUS_or_SEGV \
+        (((*(unsigned long*)scp->sc_ip)>>21)&1)
+....
+if (WRITE_CAUSED_SIGBUS_or_SEGV){
+........
+}
+else {
+.........
+}
 
-  Christian> Hi everybody!  For a driver I am writing, I would need
-  Christian> access to some storage below e000000004400000. There is a
-  Christian> range from e000000004000000 to e000000004400000 that is
-  Christian> mapped by the kernel translation but not used in
-  Christian> system.map (kernel 2.4.4). Is it possible to use part of
-  Christian> this storage or are there restrictions/other usage? Can I
-  Christian> rely on this unused storage in the future or is this
-  Christian> subject to change?
+I get the following error on the "if " statement: 
+stress.udp(31438): unaligned access to
+0x4000000000003541,ip=0x4000000000015fc1
+Please let me know what is wrong with the macro:
+define WRITE_CAUSED_SIGBUS_or_SEGV \
+        (((*(unsigned long*)scp->sc_ip)>>21)&1)
 
-There should be no need for using absolute addresses.  Please explain
-what you're trying to do.
 
-	--david
+thanks
+d'laila
+
+
+
 
