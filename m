@@ -1,7 +1,7 @@
 From: Roy Dragseth <royd@cc.uit.no>
-Date: Thu, 09 Jan 2003 21:23:11 +0000
-Subject: [Linux-ia64] Re: Re: disabling nics using boot options.
-Message-Id: <marc-linux-ia64-105590709805662@msgid-missing>
+Date: Fri, 10 Jan 2003 21:39:35 +0000
+Subject: Re: [Linux-ia64] Re: Re: disabling nics using boot options.
+Message-Id: <marc-linux-ia64-105590709805664@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805661@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805661@msgid-missing>
@@ -10,38 +10,42 @@ Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Thursday 09 January 2003 21:48, Bill Nottingham wrote:
-> Are there any error messages from the driver?
+I've done some more investigation into this matter, it seems like the whole=
+=20
+problem stems from a timing issue:
 
-I find this in /var/log/messages
+I reconfigured the Gbit interface to use a static ip-adress, but the proble=
+m=20
+persisted: The interface comes up seemingly all right during the init proce=
+ss=20
+in the normal bootup sequence, but the subsequent ypbind fail to find any=20
+ypservers. =20
 
-Jan  9 20:09:51 compute-1-1 kernel: Error seeking in /dev/kmem
-Jan  9 20:09:51 compute-1-1 kernel: Symbol #tg3, value 001bc000
-Jan  9 20:09:51 compute-1-1 kernel: Error adding kernel module table entry.
+So, the problem doesn't have anything to do with dhcp, at least, so it seem=
+s=20
+to me.  But, if I put in a sleep 60 after ifup in the /etc/init.d/network=20
+script, everything is ok. =20
 
-and this in dmesg:
+To me, an illiterate when it comes to drivers and network hardware, it seem=
+s=20
+like the network card (or driver) needs some time to get ready to serve aft=
+er=20
+beeing configured.  Again, the problem only occurs when running Gbit, it=20
+never shows up when I connect to a 100Mbit switch.
 
-tg3.c:v0.99 (Jun 11, 2002)
-PCI: Found IRQ 56 for device 20:02.0
-divert: allocating divert_blk for eth1
-eth1: Tigon3 [partno(BCM95700A6) rev 0105 PHY(5701)] (PCI:66MHz:64-bit)=20
-10/100/1
-000BaseT Ethernet 00:30:6e:38:99:07
-PCI: Found IRQ 65 for device 80:01.0
-divert: allocating divert_blk for eth2
-eth2: Tigon3 [partno(A6825-60101) rev 0105 PHY(5701)] (PCI:66MHz:64-bit)=20
-10/100/
-1000BaseT Ethernet 00:30:6e:2b:cc:05
-eth2: Link is up at 1000 Mbps, full duplex.
-eth2: Flow control is off for TX and off for RX.
-ACPI: Power Button (FF) [PWRF]
-ACPI: Sleep Button (FF) [SLPF]
-eth2: Link is up at 1000 Mbps, full duplex.
-eth2: Flow control is off for TX and off for RX.
+Well, I think I've pulled enough hair out of my head over this.  I'll just =
 
-I don't really know if these are real error messages.
+have to bite the bullet and rig all the machines with an extra cable and us=
+e=20
+the 100Mbit interface for the network installs.  Another day of stretching =
+
+cables, sigh...
+
+A big thanks to all who have replied to me with suggestions, especially Bil=
+l.
 
 r.
+
 
 --=20
 
