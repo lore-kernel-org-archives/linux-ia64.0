@@ -1,50 +1,73 @@
 From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 22 Jan 2002 18:45:50 +0000
-Subject: [Linux-ia64] heads-up: don't treat __FUNCTION__ as a constant
-Message-Id: <marc-linux-ia64-105590698805912@msgid-missing>
+Date: Mon, 07 Jan 2002 17:09:11 +0000
+Subject: [Linux-ia64] lm_sensors anyone?
+Message-Id: <marc-linux-ia64-105590698805759@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-A heads-up about a change that's forthcoming in gcc3.1: the
-__FUNCTION__ macro should no longer be treated as returning a constant
-string literal.  gcc3.1 will still allow it, but issue an ugly warning
-message.  In later releases, the feature will go away completely.
+Anyone interested in adding proper Itanium support to the lm_sensors
+package?  The attached patch is a quick hack to demo that this package
+can be made to work with the current Itanium machines, but I don't
+really have time to finish this up.
 
-The reason for deprecating this feature is that ANSI C pretty much
-disallows it: string literal concatenation is required to be done in a
-phase *before* the name of the current function is known.  The
-solution is to change something of the form:
+If you're interested in this, here is some additional info: the SMBus
+controller that is used to communicate with the sensors is documented
+in the 460GX chipset documentation (see Chapter 14 in
+http://developer.intel.com/design/itanium/downloads/24870321.htm).
 
-	printk(__FUNCTION__": you lose\n");
+As far as I know, this controller is very similar (perhaps identical)
+to the SMBus controller in the PIIX4 chipset.  Running the
+autodetection tool, the following sensors were detected:
 
-into something like this:
+	adm1021 adm1024 lm75 eeprom
 
-	printk("%s: you lose\n", __FUNCTION__);
+The output from adm1021 looked reasonable.  Loading adm1024 increased
+fan speed to maximum, so you may not want to do this (probably it's
+possible to use it to control fan speed; I'm no expert for this).  The
+lm75 output looked bogus (reporting 1 degree centigrade; not exactly
+probable for a machine that sits in the Bay Area! ;-).
 
-I did a quick grep over the ia64 code and found the following files
-are using __FUNCTION__:
+Does anyone have a complete list of what sensors are installed in the
+Big Sur and Lions?
 
-arch/ia64/kernel/efi.c
-arch/ia64/kernel/palinfo.c
-arch/ia64/kernel/perfmon.c
-arch/ia64/kernel/smp.c
-arch/ia64/kernel/unaligned.c
-arch/ia64/sn/io/pci.c
-arch/ia64/sn/io/pci_bus_cvlink.c
-arch/ia64/sn/io/pciba.c
-arch/ia64/sn/io/pciio.c
-arch/ia64/sn/io/sn1/pcibr.c
-arch/ia64/sn/io/sn2/ml_SN_intr.c
-arch/ia64/sn/io/sn2/pcibr/pcibr_dvr.c
-
-It might be a good idea to clean these up as you're working on it.
-It's not urgent, of course, but I wanted to make you aware of this
-issue so we can at least avoid writing new code using this construct.
-
-Thanks,
+Oh, one caveat: I suspect it is possible to damage the machine with
+improper use of the stuff hanging off the SMBus, so tread with care...
 
 	--david
+
+--- kernel/busses/i2c-piix4.c-orig	Sat Oct 13 10:48:43 2001
++++ kernel/busses/i2c-piix4.c	Wed Jan  2 22:08:21 2002
+@@ -80,6 +80,7 @@
+ 
+ static struct sd supported[] = {
+ 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82371AB_3, 3, "PIIX4"},
++	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82372FB_3, 3, "460GX"},
+ 	{PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_OSB4, 0, "OSB4"},
+ 	{PCI_VENDOR_ID_SERVERWORKS, PCI_DEVICE_ID_SERVERWORKS_CSB5, 0, "CSB5"},
+ 	{PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82443MX_3, 3, "440MX"},
+@@ -102,12 +103,21 @@
+ #define SMBSLVDAT (0xC + piix4_smba)
+ 
+ /* PCI Address Constants */
++#if 0
+ #define SMBBA     0x090
+ #define SMBHSTCFG 0x0D2
+ #define SMBSLVC   0x0D3
+ #define SMBSHDW1  0x0D4
+ #define SMBSHDW2  0x0D5
+ #define SMBREV    0x0D6
++#else
++#define SMBBA     0x020
++#define SMBHSTCFG 0x040
++#define SMBSLVC   0x041
++#define SMBSHDW1  0x042
++#define SMBSHDW2  0x043
++#define SMBREV    0x008
++#endif
+ 
+ /* Other settings */
+ #define MAX_TIMEOUT 500
 
