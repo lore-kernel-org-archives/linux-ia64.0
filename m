@@ -1,7 +1,7 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Thu, 02 Oct 2003 01:30:00 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Thu, 02 Oct 2003 01:51:35 +0000
 Subject: Re: [PATCH] long format VHPT
-Message-Id: <marc-linux-ia64-106505830403296@msgid-missing>
+Message-Id: <marc-linux-ia64-106505967304314@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106453902218848@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106453902218848@msgid-missing>
@@ -10,7 +10,8 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Darren Williams wrote:
+
+Aurn> Darren Williams wrote:
 >  
 > -#define ia64_rid(ctx,addr)	(((ctx) << 3) | (addr >> 61))
 > +#ifdef CONFIG_IA64_LONG_FORMAT_VHPT
@@ -21,7 +22,17 @@ Darren Williams wrote:
 > +#define ia64_rid(ctx,addr)	redistribute_rid(((ctx) << 3) | (addr >> 61))
 >  
 
-Hi Darren, Can you explain what this code is trying to do ?
+Arun> Hi Darren, Can you explain what this code is trying to do ?
 
-	-Arun
+If I may comment....
 
+The hash function that the VHPT uses works poorly for consecutive
+RIDs.  The redistribute_rid() macro flips around the low order bits to
+get something that hashes more evenly -- otherwise in the experiments
+we did, we saw major hash collision problems.
+
+I've cc'd Matthew,  the original author of the code, to clarify if necessary.
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+You are lost in a maze of BitKeeper repositories,   all slightly different.
