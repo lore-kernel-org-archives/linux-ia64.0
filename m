@@ -1,108 +1,37 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 18 Jan 2002 03:00:44 +0000
-Subject: [Linux-ia64] Announce: kdb v2.1 is available for kernel 2.4.17
-Message-Id: <marc-linux-ia64-105590698805878@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Fri, 25 Jan 2002 19:33:49 +0000
+Subject: [Linux-ia64] Re: [PATCH] find_next_zero_bit
+Message-Id: <marc-linux-ia64-105590698805935@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Applied.
 
-Content-Type: text/plain; charset=us-ascii
+Thanks,
 
-ftp://oss.sgi.com/projects/kdb/download/v2.1/
+	--david
 
-  kdb-v2.1-2.4.17-common-1.bz2
-  kdb-v2.1-2.4.17-i386-1.bz2
+>>>>> On Fri, 25 Jan 2002 19:08:43 +0100 (MET), Erich Focht <efocht@ess.nec.de> said:
 
-Starting with kdb v2.0 there is a common patch against each kernel which
-contains all the architecture independent code plus separate architecture
-dependent patches.  Apply the common patch for your kernel plus at least
-one architecture dependent patch, the architecture patches activate kdb.
+  Erich> Hi, the following little patch repairs the function
+  Erich> find_next_zero_bit() for ia64 platforms. Somehow this small
+  Erich> piece of code went lost from the ia64 version. The problem is
+  Erich> that the function returns results larger than the size of the
+  Erich> bitmap if all bits are set (ignores stop-bits) and the size
+  Erich> is not a multiple of sizeof(long). This lead to crashes of
+  Erich> Ingo's new scheduler under heavy load.
 
-The naming convention for kdb patches is :-
-
-vx.y    The version of kdb.  x.y is updated as new features are added to kdb.
-- -v.p.s  The kernel version that the patch applies to.  's' may include -pre,
-        -rc or whatever numbering system the kernel keepers have thought up this
-        week.
-- -common The common kdb code.  Everybody needs this.
-- -i386   Architecture dependent code for i386.
-- -ia64   Architecture dependent code for ia64, etc.
-- -n      If there are multiple kdb patches against the same kernel version then
-        the last number is incremented.
-
-To build kdb for your kernel, apply the common kdb patch which is less
-than or equal to the kernel v.p.s, taking the highest value of '-n'
-if there is more than one.  Apply the relevant arch dependent patch
-with the same value of 'vx.y-v.p.s-', taking the highest value of '-n'
-if there is more than one.
-
-For example, to use kdb v2.1 for i386 on kernel 2.4.17, apply
-  kdb-v2.1-2.4.17-common-1
-  kdb-v2.1-2.4.17-i386-1
-in that order.
+  Erich> Regards, Erich
 
 
-Changelog extracts.  The bulk of this release is rewriting the data
-accessing to rely on the MMU instead of trying to validate an address
-by hand.  The auto repeat of commands has been changed, some commands
-auto repeat, others do not.  Dead code has been removed.
-
-common
-
-2002-01-18 Keith Owens <kaos@sgi.com>
-
-	* Ignore single stepping during panic.
-	* Remove kdba_getword, kdba_putword.  Replace with kdb_getword,
-	  kdb_putword that rely on copy_xx_user.  The new functions return
-	  an error code, like copy_xx_user.
-	* New functions kdb_getarea, kdb_putarea for copying areas of data
-	  such as structures.  These functions also return an error code.
-	* Change all common code to use the new functions.
-	* bp command checks that it can read and write the word at the
-	  breakpoint before accepting the address.
-	* Break points are now set FIFO and cleared LIFO so overlapping
-	  entries give sensible results.
-	* Verify address before disassembling code.
-	* Common changes for sparc64.  Ethan Solomita, Tom Duffy.
-	* Remove ss <count>, never supported.
-	* Remove kallsyms entries from arch vmlinux.lds files.
-	* Specify which commands auto repeat.
-	* kdb v2.1-2.4.17-common-1.
-
-i386
-
-2002-01-18 Keith Owens  <kaos@sgi.com>
-
-	* Use new kdb_get/put functions.
-	* Define kdba_{get,put}area_size functions for i386.
-	* Remove over-engineered dblist callback functions.
-	* Correctly handle failing call disp32 in backtrace.
-	* Remove bp_instvalid flag, redundant code.
-	* Remove dead code.
-	* kdb v2.1-2.4.17-i386-1.
-
-ia64-011226
-
-2002-01-18 Keith Owens  <kaos@sgi.com>
-
-	* Replace kdb_get/putword with kdb_get/putarea functions.
-	* Wrap kdb references in #ifdef CONFIG_KDB.
-	* Delete sample i386 code.
-	* Refuse to update kernel text on NUMA systems.
-	* Reject hardware breakpoints, not supported yet.
-	* kdb v2.1-2.4.17-ia64-011226-1.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.4 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQE8R4/ai4UHNye0ZOoRAjJeAJ94HepPodstKmk+Aa5hAjXGv8i+YgCbBdR6
-HBXdtKRGpw2cUBNk9x9Jg+U=j8j6
------END PGP SIGNATURE-----
-
+  Erich> --- 2.4.17-ia64-kdb-j6/include/asm-ia64/bitops.h Tue Jan 15
+  Erich> 15:21:08 2002 +++
+  Erich> 2.4.17-ia64-kdb-j6ia64/include/asm-ia64/bitops.h Fri Jan 25
+  Erich> 19:45:31 2002 @@ -357,6 +357,8 @@ tmp = *p; found_first: tmp
+  Erich> |= ~0UL << size; + if (tmp = ~0UL) /* Are any bits zero? */
+  Erich> + return result + size; /* Nope. */ found_middle: return
+  Erich> result + ffz(tmp); }
 
