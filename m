@@ -1,7 +1,7 @@
-From: Ashok Raj <ashok.raj@intel.com>
-Date: Mon, 17 May 2004 16:00:03 +0000
+From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
+Date: Mon, 17 May 2004 19:15:50 +0000
 Subject: Re: [Lhns-devel] Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <20040517090002.A6922@unix-os.sc.intel.com>
+Message-Id: <200405171915.i4HJFpOH002584@mtv-vpn-hw-mfl-1.corp.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040513150842.22F5.YGOTO@us.fujitsu.com>
 In-Reply-To: <20040513150842.22F5.YGOTO@us.fujitsu.com>
@@ -10,24 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, May 17, 2004 at 10:38:49AM +0200, Matthias Fouquet-Lapar wrote:
-> > But, the story on ppc64 is pretty much that the firmware detects the
-> > kinds of hardware failures that we handle, Linux is just notified of it
-> > afterword.  
+> Don't always equate HOTPLUG with physical removal/addition.
 > 
-> I think I'm not quite sure why you need hotplug to balance CPUs between
-> partitons. (You are not moving physical components for this, right ?)
+> In the above case of balancing between partitions, its a still a hotplug
+> wrt the kernel, where the cpu is removed from os image (say scheduler etc)
+> and reintroduce the new resource to another running partition.
 
-Don't always equate HOTPLUG with physical removal/addition.
+Thanks, this make sense. I was previously working on systems which allowed
+real physical hot swap, i.e. physical replacement of CPU, memory etc without
+OS reboot, hence my questions.
 
-In the above case of balancing between partitions, its a still a hotplug
-wrt the kernel, where the cpu is removed from os image (say scheduler etc)
-and reintroduce the new resource to another running partition.
+[ Just as a site-note, I always wondered if hotplug would be a useful feature
+  for larger configurations to reduce boot-time. For example, on a 64P system 
+  you start the kernel on some "root" CPU with a relativly small amount of
+  memory, so it should boot relativly fast. While the system is going into
+  the desired run-level, hotplug/add now adds in parallel all available CPUs,
+  main memory, I/O etc. The idea is that you probably don't need 64P and
+  1 Terabyte to start system services
+]
 
-Physical removal/addition requires one extra step in addition to what is done
-currently, i.e firmware interaction with the OS to handle device arrival and
-eject notifications... these mechanisms are often platoform independent, one
-example of such a mechanism would be ACPI.
 
-Cheers,
-ashok
+Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
+Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
+
