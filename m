@@ -1,83 +1,75 @@
-From: "Faccini, Bruno" <bruno.faccini@intel.com>
-Date: Sat, 04 Nov 2000 10:53:01 +0000
-Subject: [Linux-ia64] Kernel build from last "linux-2_4_0-test9-ia64-001030_diff.gz" cr
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C0464D.6690B6C0"
-Message-Id: <marc-linux-ia64-105590678205655@msgid-missing>
+From: <portfolio_builder@yahoo.com>
+Date: Sun, 19 Nov 2000 23:37:51 +0000
+Subject: [Linux-ia64] test
+Message-Id: <marc-linux-ia64-105590678205750@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+THE DOUBLER  -  
+NEW BUY OPINION: European American Resources, Inc. 
+Symbol: EPAR (OTCBB)
+Recent Price - $.375 52 Week Range - $.21875 - $1.6875 
+Estimated Float - 5.9 Million Shares Outstanding -
+16.2 Million Shares 
 
-------_=_NextPart_000_01C0464D.6690B6C0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Gold mining stocks have been a neglected group during
+this great Bull Market.  Many financial advisors
+suggest putting a small percentage of a portfolio
+(3-10%) into precious metals as a hedge against
+inflation.  With oil prices hitting multi-year highs,
+we are advising purchase of European American
+Resources (EPAR), currently trading near the low for
+the year.
+
+EPAR'S largest property in Nevada is located
+right between two successful gold mines operated by
+Homestake Mining (HM-NYSE-5 5/8), one of the top gold
+companies in North America.  EPAR recently agreed to a
+joint venture with HM, where Homestake is financing
+100% of the drilling costs.  If the digging is
+promising, European American could be a takeover
+candidate at a high multiple to the current price.  In
+fact, HM has acquired three of the last five companies
+that they entered into similar joint ventures with. 
+Also, Nevada is known as one of the lowest-cost areas
+to mine gold, and EPAR'S Prospect Mountain property is
+right next door to HM'S Ruby Hill, which runs at a
+rock bottom cost of $64 per ounce to mine gold.
+
+Our philosophy is to buy stocks with the potential of
+doubling over a short-term period.  After they reach
+the doubling point, we advise selling half of your
+position, so the remaining shares are in your
+portfolio on a "FREE" basis.  We recommend buying EPAR
+at any price up to $1.50 per share.
+
+DISCLAIMER: 
+The Doubler has received a fee of 5000 shares of
+European American Resources, Inc. 
+common stock for the writing and distribution of this
+report. The Doubler and/or 
+its affiliates currently own shares of EPAR, and may
+buy or sell shares at any 
+time after the dissemination of this report. Because
+the publisher owns this stock, there may be a conflict
+of interest in The Doubler's statements and opinions. The 
+Doubler is not a registered investment advisor,
+broker or dealer. Purchase of this 
+stock may be considered speculative, and may result in
+the loss of some or all of any investment made. 
 
 
-Tried to build a Linux Kernel after applying last
-"linux-2_4_0-test9-ia64-001030_diff.gz" patch, but it failed/crashed solid
-at boot time with the following msgs/symptoms :
+If you would like to be included in our mailing list to receive information regarding possible stock possibilites, e-mail us at portfolio_add@yahoo.com or print out this letter, fill in the blanks and fax us at (727) 942-0341.
 
------------------------
-...
 
-init.c:80: bad pgd 4000210018806000
-Kernel Panic: Out of memory.
-In idle task - not syncing.
+Name_________________
 
-...
+E-mail Address ________________
 
-----------------------
+Telephone Number: (     )___ - _____
 
-Both "-test9" with earlier patch (ie,
-"linux-2.4.0-test9-ia64-001004.diff.gz") and "-test10" kernel builded with
-the same configuration run fine.
-
-Seems that there are some issues + lack of testing with this last "-test9"
-patch.
-
-The target platform is a BigSur IA-64 SDV uni-processor (A2 Stepping) with
-only 1Gbytes memory.
-
-Bruno.
-
-> Bruno Faccini - Tech. Mktg. Engr.
-> Technical Marketing/Internet Solutions Group (EMEA)
-> Intel GmbH, Germany
-> Phone (Intel office): +33-(0)146947228
->       Fax: +33-(0)146947068
->       email: bruno.faccini@intel.com
-> 
- <<Bruno Faccini (E-mail).vcf>> 
-
-------_=_NextPart_000_01C0464D.6690B6C0
-Content-Type: application/octet-stream;
-	name="Bruno Faccini (E-mail).vcf"
-Content-Disposition: attachment;
-	filename="Bruno Faccini (E-mail).vcf"
-
-BEGIN:VCARD
-VERSION:2.1
-N:Faccini;Bruno;;;
-FN:Bruno Faccini
-ORG:Intel;Technical Marketing/Content Group EMEA
-TITLE:Tech. Mktg. Engr.
-TEL;WORK;VOICE:+33 (0) 146947228
-TEL;WORK;VOICE:+33 (0) 155498427
-TEL;HOME;VOICE:
-TEL;CELL;VOICE:
-TEL;WORK;FAX:+33 (0) 146947068
-ADR;WORK;ENCODING=QUOTED-PRINTABLE:;Munich, Germany.;Intel Corporation=0D=0ATour Chenonceaux=0D=0A204 Rond Poin=
-t Du Pont De Sevres;Boulogne Billancourt;Cedex;92516;France
-LABEL;WORK;ENCODING=QUOTED-PRINTABLE:Munich, Germany.=0D=0AIntel Corporation=0D=0ATour Chenonceaux=0D=0A204 Rond =
-Point Du Pont De Sevres=0D=0ABoulogne Billancourt, Cedex 92516=0D=0AFrance
-ADR;HOME:;;20 Rue Du Marechal Joffre;Brie Comte Robert;;77170;France
-LABEL;HOME;ENCODING=QUOTED-PRINTABLE:20 Rue Du Marechal Joffre=0D=0ABrie Comte Robert 77170=0D=0AFrance
-EMAIL;PREF;INTERNET:bruno.faccini@intel.com
-REV:20000527T141533Z
-END:VCARD
-
-------_=_NextPart_000_01C0464D.6690B6C0--
-
+If you would like to be removed from our mailing list, please e-mail us at portfolio_delete@yahoo.com
 
