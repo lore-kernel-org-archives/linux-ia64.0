@@ -1,40 +1,32 @@
-From: Jesse Barnes <jbarnes@sgi.com>
-Date: Fri, 22 Oct 2004 03:05:50 +0000
+From: Greg Banks <gnb@melbourne.sgi.com>
+Date: Fri, 22 Oct 2004 04:26:05 +0000
 Subject: Re: [PATCH] I/O space write barrier
-Message-Id: <200410212205.51672.jbarnes@sgi.com>
+Message-Id: <1098419164.21421.58.camel@hole.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200410211613.19601.jbarnes@engr.sgi.com> <20041022010150.GH3878@cup.hp.com>
-In-Reply-To: <20041022010150.GH3878@cup.hp.com>
+References: <200410211613.19601.jbarnes@engr.sgi.com>
+	 <20041022010150.GH3878@cup.hp.com>  <200410212205.51672.jbarnes@sgi.com>
+In-Reply-To: <200410212205.51672.jbarnes@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: Jesse Barnes <jbarnes@engr.sgi.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org
+To: Jesse Barnes <jbarnes@sgi.com>
+Cc: Grant Grundler <iod00d@hp.com>, Jesse Barnes <jbarnes@engr.sgi.com>, akpm@osdl.org, linux-kernel@vger.kernel.org, tony.luck@intel.com, linux-ia64@vger.kernel.org
 
-On Thursday, October 21, 2004 8:01 pm, Grant Grundler wrote:
-> > +<programlisting>
-> > +       sp->flags |= SRB_SENT;
-> > +       ha->actthreads++;
-> > +       WRT_REG_WORD(&amp;reg->mailbox4, ha->req_ring_index);
-> > +
-> > +       /*
-> > +        * A Memory Mapped I/O Write Barrier is needed to ensure that
-> > this write +        * of the request queue in register is ordered ahead
-> > of writes issued +        * after this one by other CPUs.  Access to the
-> > register is protected +        * by the host_lock.  Without the mmiowb,
-> > however, it is possible for +        * this CPU to release the host lock,
-> > another CPU acquire the host lock, +        * and write to the request
-> > queue in, and have the second write make it +        * to the chip first.
-> > +        */
-> > +       mmiowb(); /* posted write ordering */
-> > +</programlisting>
->
-> This is the example code I'd like to see replaced with your
-> synthetic example above.
+On Fri, 2004-10-22 at 13:05, Jesse Barnes wrote:
+>  I think Greg had some ideas about other 
+> things to cover as well.  Greg?
 
-Ok, that makes sense.  I'd like to update the documentation with a separate 
-patch though, if that's ok with you.  I think Greg had some ideas about other 
-things to cover as well.  Greg?
+You've done most of the stuff I wanted, but it would be nice to see:
 
-Thanks,
-Jesse
+*  a mention of the read-to-flush-writes technique and why mmiowb
+   is better
+
+*  an example of how and where to use read_relaxed and a description
+   of why its better than read
+
+Greg.
+-- 
+Greg Banks, R&D Software Engineer, SGI Australian Software Group.
+I don't speak for SGI.
+
+
