@@ -1,53 +1,56 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 09 Nov 2001 00:54:26 +0000
-Subject: [Linux-ia64] PATCH: fix CONFIG_IA64_EARLY_PRINTK
-Message-Id: <marc-linux-ia64-105590698805458@msgid-missing>
+From: "Pereira, D LailaX E" <d.lailax.e.pereira@intel.com>
+Date: Fri, 30 Nov 2001 18:59:33 +0000
+Subject: [Linux-ia64] pthread lib setting for ia64?
+Message-Id: <marc-linux-ia64-105590698805566@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This was broken in 2.4.10 when "early_printk()" was given
-an extra argument to specify the length of the string to
-print, but head.S wasn't updated to pass such an argument.
-(Oddly enough the "alloc" call in head.S sets up two 'out'
-registers already).
+Hi 
+While running my program on a Linux machine (turbo linux) Itanium processor,
+the program does a segmentation fault on a pthread_create(..) command. I
+checked the arguments of the pthread_create(...) and there is no problem
+with them. So I ran the program thru gdb , and got the following on seg
+fault:
 
-Here is the patch:
+Starting
+program:
+/fxsvrux001/home1/depereir/Tmk_SMP-26/apps/test_C/bin.ia64_linux2/stress.udp
+-- -n2 -N1 -hcopilot{,} -p5001 -i1
+Tmk_startup: SWAPDIR=(null), putting swap file in "/tmp".
 
-diff -ru ../../REF/2.4.14-ia64-011105/arch/ia64/config.in
-linux/arch/ia64/config.in
---- ../../REF/2.4.14-ia64-011105/arch/ia64/config.in	Tue Nov  6 11:34:13
-2001
-+++ linux/arch/ia64/config.in	Thu Nov  8 16:41:15 2001
-@@ -266,8 +266,7 @@
-    bool '  Disable VHPT' CONFIG_DISABLE_VHPT
-    bool '  Magic SysRq key' CONFIG_MAGIC_SYSRQ
-=20
--# early printk is currently broken for SMP: the secondary processors get
-stuck...
--#   bool '  Early printk support (requires VGA!)' CONFIG_IA64_EARLY_PRINTK
-+   bool '  Early printk support (requires VGA!)' CONFIG_IA64_EARLY_PRINTK
-=20
-    bool '  Debug memory allocations' CONFIG_DEBUG_SLAB
-    bool '  Spinlock debugging' CONFIG_DEBUG_SPINLOCK
-diff -ru ../../REF/2.4.14-ia64-011105/arch/ia64/kernel/head.S
-linux/arch/ia64/kernel/head.S
---- ../../REF/2.4.14-ia64-011105/arch/ia64/kernel/head.S	Tue Nov  6
-11:34:13 2001
-+++ linux/arch/ia64/kernel/head.S	Thu Nov  8 16:29:34 2001
-@@ -180,10 +180,12 @@
- 	.rodata
- alive_msg:
- 	stringz "I'm alive and well\n"
-+alive_msg_end:
- 	.previous
-=20
- 	alloc r2=3Dar.pfs,0,0,2,0
- 	movl out0=3Dalive_msg
-+	movl out1=3Dalive_msg_end-alive_msg-1
- 	;;
- 	br.call.sptk.many rp=EArly_printk
- 1:	// force new bundle
+Program received signal SIG32, Real-time event 32.
+0x2000000000217ba2 in rt_sigsuspend () from /lib/libc.so.6.1
+(gdb) where 
+#0  0x2000000000217ba2 in rt_sigsuspend () from /lib/libc.so.6.1
+#1  0x20000000000dc8c0 in sigsuspend () from /lib/libc.so.6.1
+#2  0x2000000000052f70 in __pthread_wait_for_restart_signal ()
+   from /lib/libpthread.so.0
+#3  0x2000000000052280 in pthread_create@@GLIBC_2.2 ()
+   from /lib/libpthread.so.0
+#4  0x4000000000017b50 in Tmk_sigio_create_thread (
+    start_routine=0x4000000000022e50 <_fini+17456>,
+args=0x60000000016cdec8, 
+    callerName=0x4000000000020990 "Tmk_sigio_initialize") at
+../src/sigio.c:364
+#5  0x4000000000017dc0 in Tmk_sigio_initialize () at ../src/sigio.c:396
+#6  0x400000000001b8f0 in Tmk_startup (argc=8, argv=0x80000ffffffff838)
+    at ../src/startup.c:932
+#7  0x4000000000003bc0 in main (argc=8, argv=0x80000ffffffff838)
+    at ../src/stress.c:163
+(gdb) 
+
+
+the program receives a SIG32 signal from rt_sigsuspend(..) .I am unable to
+figure this out. 
+Is there some setting for pthread library that has to be done before running
+on itanium? some patch or something that I am missing?? is there some stack
+size to be set??
+Please let me know.
+
+thanks
+D'laila 
+
 
