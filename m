@@ -1,25 +1,28 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 12 Jan 2004 20:10:24 +0000
-Subject: Re: __ia64_memcpy_fromio my be missing from kernel
-Message-Id: <16386.65328.715328.80107@napali.hpl.hp.com>
+From: jbarnes@sgi.com (Jesse Barnes)
+Date: Fri, 16 Jan 2004 20:15:22 +0000
+Subject: [PATCH] fix cast in irq_lsapic.c
+Message-Id: <20040116201522.GA15454@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <je8ykjivhj.fsf@sykes.suse.de>
-In-Reply-To: <je8ykjivhj.fsf@sykes.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 07 Jan 2004 17:17:28 +0100, Andreas Schwab <schwab@suse.de> said:
+Now that I've disabled dependency violation checking in my build of
+binutils, I can see real warnings much more easily.
 
-  Andreas> When building a highly modular, non-generic kernel it can
-  Andreas> happen that arch/ia64/lib/io.o is not included in the image
-  Andreas> because nothing built-in needs __ia64_memcpy_fromio, etc.,
-  Andreas> yet it may be called from a module.  We should force it to
-  Andreas> be linked in.
+This patch just updates the cast in irq_lsapic.c to use the cpumask_t
+type for the noop cast assignment to smp_affinity.
 
-Sounds correct to me.  Applied.
+Jesse
 
-Thanks,
+=== arch/ia64/kernel/irq_lsapic.c 1.3 vs edited ==--- 1.3/arch/ia64/kernel/irq_lsapic.c	Fri Jul 19 07:02:26 2002
++++ edited/arch/ia64/kernel/irq_lsapic.c	Fri Jan 16 12:11:04 2004
+@@ -34,5 +34,5 @@
+ 	.disable =	lsapic_noop,
+ 	.ack =		lsapic_noop,
+ 	.end =		lsapic_noop,
+-	.set_affinity =	(void (*)(unsigned int, unsigned long)) lsapic_noop
++	.set_affinity =	(void (*)(unsigned int, cpumask_t)) lsapic_noop
+ };
 
-	--david
