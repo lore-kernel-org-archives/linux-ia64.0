@@ -1,7 +1,7 @@
-From: Paul Jackson <pj@sgi.com>
-Date: Thu, 13 May 2004 04:59:43 +0000
+From: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
+Date: Thu, 13 May 2004 06:35:24 +0000
 Subject: Re: Who's doing what with cpu/memory/node hotplug?
-Message-Id: <20040512215943.4c99cefc.pj@sgi.com>
+Message-Id: <20040513153524.79f90589.tokunaga.keiich@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040512205107.16bb82a6.pj@sgi.com>
 In-Reply-To: <20040512205107.16bb82a6.pj@sgi.com>
@@ -10,26 +10,39 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Iam not sure what specifically you are looking for ...
+Ashok Raj has already talked about LHNS and me :)  However,
+I'd like to add something.
 
-I was looking for the short and sweet overview such as you just
-presented ;).  Thanks.
+> Node Hotplug support - Tokunaga-san (fujitsu) mostly concentrating on 
+> 		ACPI based numa node hotplug. This work is independent
+> of rest of the hotplug (atleast mostly) and would invoke other module
+> hotplug code as required.  (roughly @10000 ft level)
 
-I need to start following this hotplug work because it is next door to
-the cpu/memory placement work that I am most focused on, such as
-cpusets, led by Simon Derr of Bull, sitting on top of sched_setaffinity
-and Andi Kleen's numa work.  A cpuset is a set of cpu and memory
-resources that several tasks share, perhaps exclusively (all other
-tasks kept out).
+I'm rather focusing on ACPI based container device hotplug.
+A scope of LHNS includes a container device that contains
+IO devices.  I think such a devices couldn't be handled by NUMA
+hotplug.
 
-At some point, questions such as "what happens when a node is unplugged
-from a cpuset" will need to be answered.  And even earlier, "what happens
-when a cpu is unplugged that was in a tasks cpus_allowed, or a memory
-node unplugged, that was in a vma's list of allowed memory zones."
+Thanks,
+Kei
 
-Or perhaps the answers to these questions are already known ??
 
--- 
-                          I won't rest till it's the best ...
-                          Programmer, Linux Scalability
-                          Paul Jackson <pj@sgi.com> 1.650.933.1373
+On Wed, 12 May 2004 20:51:07 -0700
+Paul Jackson <pj@sgi.com> wrote:
+
+> Could someone explain to me who's doing what with cpu, memory and node hotplug?
+> 
+> In particular, I haven't noticed much interaction between some cpu
+> hotplug work that Ashok has been posting on linux-ia64 and/or lkml, and
+> either of the email lists lhns-devel or linux-hotplug-devel.  And I also
+> just noticed the thread on lkml by Keiichiro, with comments from Dave,
+> mentioning Matthew, hinting at additional interactions that might be
+> desirable between various efforts here.  I even see some SGI work here.
+> 
+> Perhaps if I had been following this for a while, it would all make sense.
+> But I haven't been, and it doesn't.
+> 
+> -- 
+>                           I won't rest till it's the best ...
+>                           Programmer, Linux Scalability
+>                           Paul Jackson <pj@sgi.com> 1.650.933.1373
