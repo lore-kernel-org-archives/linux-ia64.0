@@ -1,45 +1,256 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 04 Jun 2004 22:52:25 +0000
-Subject: Re: sched_clock
-Message-Id: <16576.64809.757551.150988@napali.hpl.hp.com>
+From: Peter Martuccelli <peterm@redhat.com>
+Date: Wed, 30 Jun 2004 15:56:16 +0000
+Subject: [PATCH] IA64 audit support
+Message-Id: <200406301556.i5UFuGg8009251@redrum.boston.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40B4868F.B649611C@nospam.org>
-In-Reply-To: <40B4868F.B649611C@nospam.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: akpm@osdl.org
+Cc: peterm@redhat.com, faith@redhat.com, davidm@hpl.hp.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, ray.lanza@hp.com
 
->>>>> On Fri, 04 Jun 2004 13:11:26 +0200, Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org> said:
 
-  Zoltan> David Mosberger wrote:
-  >>  Yes, you're right, there is an intermediate-result overflow
-  >> problem in sched_clock() that I missed.  How does the attached
-  >> patch work for you?
+Hello Andrew,
 
-  Zoltan> Thank you, it is O.K.
+Here is one of the audit tasks we talked about.  This patch adds=20
+ia64 support to the audit subsystem.  I have tested the ia64 audit=20
+support without any issues to report. The original patch was from
+from Ray Lanza.  Requesting patch to be merged in the next version.=20
 
-Thanks for checking it out.
+Please CC me with any comments, problems, changes, etc.
 
-  Zoltan> On the other hand, we might have similar problems in
-  Zoltan> fsys.S. Some comments like the one below makes me worry a
-  Zoltan> bit:
+Regards,
 
-  Zoltan> 	// if now < last_tick, set p7 = 1, p8 = 0
+Peter
 
-  Zoltan> I cannot really say that I fully understand what is in
-  Zoltan> fsys.S, but should not "now" always be after no matter what
-  Zoltan> time stamp, last tick ?
 
-No, the "<" there is done with 64-bit modular arithmetic so this code
-is fine (it's the equivalent of the time_before() macro).
+diffstat:
+ arch/ia64/ia32/ia32_entry.S    |    8 ++++---
+ arch/ia64/kernel/entry.S       |   10 +++++----
+ arch/ia64/kernel/ivt.S         |    7 ++++--
+ arch/ia64/kernel/ptrace.c      |   43 ++++++++++++++++++++++++++++++++++++=
++++--
+ include/asm-ia64/thread_info.h |    5 +++-
+ init/Kconfig                   |    2 -
+ 6 files changed, 62 insertions(+), 13 deletions(-)
 
-The ia64-specific code is very careful to work correctly even when the
-ITC wraps around.  sched_clock() is a (platform-independent) exception
-and it is OK because, in the worst case, an overflow will lead to a
-scheduling hiccup.  Basically, the scheduler will simply "think" that
-a task slept for NS_MAX_SLEEP_AVG when it may have slept much less
-(there may be some other minor hiccups, but that should be pretty much
-it, AFAICT).
+diff -Naurp linux-2.6.7-pristine/arch/ia64/ia32/ia32_entry.S linux-2.6.7/ar=
+ch/ia64/ia32/ia32_entry.S
+--- linux-2.6.7-pristine/arch/ia64/ia32/ia32_entry.S	2004-06-16 16:32:05.00=
+0000000 -0400
++++ linux-2.6.7/arch/ia64/ia32/ia32_entry.S	2004-06-16 16:34:10.000000000 -=
+0400
+@@ -110,7 +110,9 @@ GLOBAL_ENTRY(ia32_ret_from_clone)
+ 	ld4 r2=3D[r2]
+ 	;;
+ 	mov r8=3D0
+-	tbit.nz p6,p0=3Dr2,TIF_SYSCALL_TRACE
++	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2
++	;;=20
++	cmp.ne p6,p0=3Dr2,r0
+ (p6)	br.cond.spnt .ia32_strace_check_retval
+ 	;;					// prevent RAW on r8
+ END(ia32_ret_from_clone)
+@@ -142,7 +144,7 @@ GLOBAL_ENTRY(ia32_trace_syscall)
+ 	adds r2=3DIA64_PT_REGS_R8_OFFSET+16,sp
+ 	;;
+ 	st8 [r2]=3Dr3				// initialize return code to -ENOSYS
+-	br.call.sptk.few rp=3Dsyscall_trace	// give parent a chance to catch sysc=
+all args
++	br.call.sptk.few rp=3Dsyscall_trace_enter	// give parent a chance to catc=
+h syscall args
+ .ret2:	// Need to reload arguments (they may be changed by the tracing pro=
+cess)
+ 	adds r2=3DIA64_PT_REGS_R1_OFFSET+16,sp	// r2 =3D &pt_regs.r1
+ 	adds r3=3DIA64_PT_REGS_R13_OFFSET+16,sp	// r3 =3D &pt_regs.r13
+@@ -170,7 +172,7 @@ GLOBAL_ENTRY(ia32_trace_syscall)
+ 	adds r2=3DIA64_PT_REGS_R8_OFFSET+16,sp	// r2 =3D &pt_regs.r8
+ 	;;
+ 	st8.spill [r2]=3Dr8			// store return value in slot for r8
+-	br.call.sptk.few rp=3Dsyscall_trace	// give parent a chance to catch retu=
+rn value
++	br.call.sptk.few rp=3Dsyscall_trace_leave	// give parent a chance to catc=
+h return value
+ .ret4:	alloc r2=3Dar.pfs,0,0,0,0			// drop the syscall argument frame
+ 	br.cond.sptk.many ia64_leave_kernel
+ END(ia32_trace_syscall)
+diff -Naurp linux-2.6.7-pristine/arch/ia64/kernel/entry.S linux-2.6.7/arch/=
+ia64/kernel/entry.S
+--- linux-2.6.7-pristine/arch/ia64/kernel/entry.S	2004-06-16 16:32:05.00000=
+0000 -0400
++++ linux-2.6.7/arch/ia64/kernel/entry.S	2004-06-16 16:34:10.000000000 -0400
+@@ -506,7 +506,7 @@ GLOBAL_ENTRY(ia64_trace_syscall)
+ 	;;
+  	stf.spill [r16]=F10
+  	stf.spill [r17]=F11
+-	br.call.sptk.many rp=3Dsyscall_trace // give parent a chance to catch sys=
+call args
++	br.call.sptk.many rp=3Dsyscall_trace_enter // give parent a chance to cat=
+ch syscall args
+ 	adds r16=3DPT(F6)+16,sp
+ 	adds r17=3DPT(F7)+16,sp
+ 	;;
+@@ -546,7 +546,7 @@ GLOBAL_ENTRY(ia64_trace_syscall)
+ .strace_save_retval:
+ .mem.offset 0,0; st8.spill [r2]=3Dr8		// store return value in slot for r8
+ .mem.offset 8,0; st8.spill [r3]=3Dr10		// clear error indication in slot f=
+or r10
+-	br.call.sptk.many rp=3Dsyscall_trace // give parent a chance to catch ret=
+urn value
++	br.call.sptk.many rp=3Dsyscall_trace_leave // give parent a chance to cat=
+ch return value
+ .ret3:	br.cond.sptk ia64_leave_syscall
+=20
+ strace_error:
+@@ -573,7 +573,7 @@ GLOBAL_ENTRY(ia64_strace_leave_kernel)
+ 	 */
+ 	nop.m 0
+ 	nop.i 0
+-	br.call.sptk.many rp=3Dsyscall_trace // give parent a chance to catch ret=
+urn value
++	br.call.sptk.many rp=3Dsyscall_trace_leave // give parent a chance to cat=
+ch return value
+ }
+ .ret4:	br.cond.sptk ia64_leave_kernel
+ END(ia64_strace_leave_kernel)
+@@ -599,7 +599,9 @@ GLOBAL_ENTRY(ia64_ret_from_clone)
+ 	ld4 r2=3D[r2]
+ 	;;
+ 	mov r8=3D0
+-	tbit.nz p6,p0=3Dr2,TIF_SYSCALL_TRACE
++	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2
++	;;
++	cmp.ne p6,p0=3Dr2,r0
+ (p6)	br.cond.spnt .strace_check_retval
+ 	;;					// added stop bits to prevent r8 dependency
+ END(ia64_ret_from_clone)
+diff -Naurp linux-2.6.7-pristine/arch/ia64/kernel/ivt.S linux-2.6.7/arch/ia=
+64/kernel/ivt.S
+--- linux-2.6.7-pristine/arch/ia64/kernel/ivt.S	2004-06-16 16:32:05.0000000=
+00 -0400
++++ linux-2.6.7/arch/ia64/kernel/ivt.S	2004-06-16 16:42:44.000000000 -0400
+@@ -752,7 +752,9 @@ ENTRY(break_fault)
+ 	;;
+ 	ld4 r2=3D[r2]				// r2 =3D current_thread_info()->flags
+ 	;;
+-	tbit.z p8,p0=3Dr2,TIF_SYSCALL_TRACE
++	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2	// mask trace or audit
++	;;=20
++	cmp.eq p8,p0=3Dr2,r0
+ 	mov b6=3Dr20
+ 	;;
+ (p8)	br.call.sptk.many b6=B6			// ignore this return addr
+@@ -1573,10 +1575,11 @@ ENTRY(dispatch_to_ia32_handler)
+ 	ld4 r2=3D[r2]		// r2 =3D current_thread_info()->flags
+ 	;;
+ 	ld8 r16=3D[r16]
+-	tbit.z p8,p0=3Dr2,TIF_SYSCALL_TRACE
++	and r2=3D_TIF_SYSCALL_TRACEAUDIT,r2	// mask trace or audit
+ 	;;
+ 	mov b6=3Dr16
+ 	movl r15=3Dia32_ret_from_syscall
++	cmp.eq p8,p0=3Dr2,r0
+ 	;;
+ 	mov rp=3Dr15
+ (p8)	br.call.sptk.many b6=B6
+diff -Naurp linux-2.6.7-pristine/arch/ia64/kernel/ptrace.c linux-2.6.7/arch=
+/ia64/kernel/ptrace.c
+--- linux-2.6.7-pristine/arch/ia64/kernel/ptrace.c	2004-06-16 16:32:05.0000=
+00000 -0400
++++ linux-2.6.7/arch/ia64/kernel/ptrace.c	2004-06-16 16:34:10.000000000 -04=
+00
+@@ -1447,9 +1447,8 @@ sys_ptrace (long request, pid_t pid, uns
+ 	return ret;
+ }
+=20
+-/* "asmlinkage" so the input arguments are preserved... */
+=20
+-asmlinkage void
++void
+ syscall_trace (void)
+ {
+ 	if (!test_thread_flag(TIF_SYSCALL_TRACE))
+@@ -1472,3 +1471,43 @@ syscall_trace (void)
+ 		current->exit_code =3D 0;
+ 	}
+ }
++
++/* "asmlinkage" so the input arguments are preserved... */
++
++asmlinkage void=20
++syscall_trace_enter (long arg0, long arg1, long arg2, long arg3,
++	  long arg4, long arg5, long arg6, long arg7, long stack)
++{
++	struct pt_regs *regs =3D (struct pt_regs *) &stack;
++	long syscall;
++	unsigned long 	psr =3D regs->cr_ipsr;	/* process status word */
++
++	if (unlikely(current->audit_context)) {
++		if (psr & IA64_PSR_IS)=20
++			syscall =3D regs->r1;
++		else
++			syscall =3D regs->r15;
++
++		audit_syscall_entry(current, syscall, arg0, arg1, arg2, arg3);
++	}
++
++	if (test_thread_flag(TIF_SYSCALL_TRACE)
++	    && (current->ptrace & PT_PTRACED))
++		syscall_trace();
++}
++
++/* "asmlinkage" so the input arguments are preserved... */
++
++asmlinkage void=20
++syscall_trace_leave (long arg0, long arg1, long arg2, long arg3,
++	  long arg4, long arg5, long arg6, long arg7, long stack)
++{
++	struct pt_regs *regs =3D (struct pt_regs *) &stack;
++
++	if (unlikely(current->audit_context))
++		audit_syscall_exit(current, regs->r8);
++
++	if (test_thread_flag(TIF_SYSCALL_TRACE)
++	    && (current->ptrace & PT_PTRACED))
++		syscall_trace();
++}
+diff -Naurp linux-2.6.7-pristine/include/asm-ia64/thread_info.h linux-2.6.7=
+/include/asm-ia64/thread_info.h
+--- linux-2.6.7-pristine/include/asm-ia64/thread_info.h	2004-06-16 16:32:09=
+.000000000 -0400
++++ linux-2.6.7/include/asm-ia64/thread_info.h	2004-06-16 16:34:10.00000000=
+0 -0400
+@@ -73,12 +73,15 @@ struct thread_info {
+ #define TIF_SIGPENDING		1	/* signal pending */
+ #define TIF_NEED_RESCHED	2	/* rescheduling necessary */
+ #define TIF_SYSCALL_TRACE	3	/* syscall trace active */
++#define TIF_SYSCALL_AUDIT	4	/* syscall auditing active */
+ #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_R=
+ESCHED */
+=20
+ #define TIF_WORK_MASK		0x7	/* like TIF_ALLWORK_BITS but sans TIF_SYSCALL_T=
+RACE */
+-#define TIF_ALLWORK_MASK	0xf	/* bits 0..3 are "work to do on user-return" =
+bits */
++#define TIF_ALLWORK_MASK	0x1f	/* bits 0..4 are "work to do on user-return"=
+ bits */
+=20
+ #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
++#define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
++#define _TIF_SYSCALL_TRACEAUDIT	(_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT)
+ #define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
+ #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
+ #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
+diff -Naurp linux-2.6.7-pristine/init/Kconfig linux-2.6.7/init/Kconfig
+--- linux-2.6.7-pristine/init/Kconfig	2004-06-16 16:33:52.000000000 -0400
++++ linux-2.6.7/init/Kconfig	2004-06-16 16:34:10.000000000 -0400
+@@ -149,7 +149,7 @@ config AUDIT
+=20
+ config AUDITSYSCALL
+ 	bool "Enable system-call auditing support"
+-	depends on AUDIT && (X86 || PPC64 || ARCH_S390)
++	depends on AUDIT && (X86 || PPC64 || ARCH_S390 || IA64)
+ 	default y if SECURITY_SELINUX
+ 	default n
+ 	help
 
-	--david
