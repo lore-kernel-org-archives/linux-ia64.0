@@ -1,38 +1,65 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Thu, 23 Aug 2001 16:17:44 +0000
-Subject: Re: [Linux-ia64] mca messages
-Message-Id: <marc-linux-ia64-105590698805099@msgid-missing>
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 21 Aug 2001 15:44:13 +0000
+Subject: [Linux-ia64] Re: problem compiling 2.4.9
+Message-Id: <marc-linux-ia64-105590698805094@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590698805098@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590698805098@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+The attached patch accidentally was dropped from the 2.4.9 patch I put
+out yesterday.  I have updated the patch at linux.kernel.org but if
+you already got it, just apply the patch below and you should be fine.
+Sorry about the inconvenience.
 
-On Thu, Aug 23, 2001 at 10:29:48AM -0500, Van Maren, Kevin wrote:
-> Running 2.4.8+patch on a 4X Lion, I got a bunch of these:
-> 
->     ia64_mca_cpe_int_handler : received interrupt. vector = 0x1e
->     ia64_log_get : Failed to retrieve SAL error record type 3
-> 
-> The VGA went quite wacky on my as well: those two lines were
-> flickering on top of each other in the VTs.  If I <returned>
-> to scroll down, the lines at the bottom were normal, but the
-> lines above still had both lines flickering on top of each other.
-> When I changed VTs, the lines reappeared on the screen.
-> 
-> Anyone know what is up?
-> 
+	--david
 
-I was told that you need a very recent version of the firmware to 
-get the MCA support to work. For the server machines, build 86B
-is just not good enough. You need to disable that option until
-you install a newer version of the FW becomes available. I have
-not yet tried this on the workstations. So turn off CONFIG_IA64_MCA for now.
-
--- 
--Stephane
+diff -urN linux-2.4.9/include/asm-ia64/keyboard.h linux-2.4.9-lia/include/asm-ia64/keyboard.h
+--- linux-2.4.9/include/asm-ia64/keyboard.h	Fri Apr 21 16:38:40 2000
++++ linux-2.4.9-lia/include/asm-ia64/keyboard.h	Tue Aug 21 08:31:41 2001
+@@ -2,16 +2,16 @@
+ #define _ASM_IA64_KEYBOARD_H
+ 
+ /*
+- * This file contains the ia-64 architecture specific keyboard
+- * definitions.
++ * This file contains the ia64 architecture specific keyboard definitions.
+  *
+- * Copyright (C) 1998, 1999 Hewlett-Packard Co
+- * Copyright (C) 1998, 1999 David Mosberger-Tang <davidm@hpl.hp.com>
++ * Copyright (C) 1998, 1999, 2001 Hewlett-Packard Co
++ * Copyright (C) 1998, 1999, 2001 David Mosberger-Tang <davidm@hpl.hp.com>
+  */
+ 
+ # ifdef __KERNEL__
+ 
+ #include <linux/irq.h>
++#include <linux/kd.h>
+ 
+ #define KEYBOARD_IRQ			isa_irq_to_vector(1)
+ #define DISABLE_KBD_DURING_INTERRUPTS	0
+@@ -23,6 +23,7 @@
+ 			   char raw_mode);
+ extern char pckbd_unexpected_up(unsigned char keycode);
+ extern void pckbd_leds(unsigned char leds);
++extern int pckbd_rate(struct kbd_repeat *rep);
+ extern void pckbd_init_hw(void);
+ extern unsigned char pckbd_sysrq_xlate[128];
+ 
+@@ -32,12 +33,14 @@
+ #define kbd_translate		pckbd_translate
+ #define kbd_unexpected_up	pckbd_unexpected_up
+ #define kbd_leds		pckbd_leds
++#define kbd_rate		pckbd_rate
+ #define kbd_init_hw		pckbd_init_hw
+ #define kbd_sysrq_xlate		pckbd_sysrq_xlate
+ 
+ #define INIT_KBD
+ 
+ #define SYSRQ_KEY		0x54
++#define E1_PAUSE   119		/* PAUSE key */
+ 
+ /* resource allocation */
+ #define kbd_request_region()
 
