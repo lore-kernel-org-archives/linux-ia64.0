@@ -1,7 +1,7 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Thu, 25 Sep 2003 05:48:36 +0000
+From: Paul Jackson <pj@sgi.com>
+Date: Thu, 25 Sep 2003 06:09:58 +0000
 Subject: Re: [Lse-tech] Re: CPUSET Proposal
-Message-Id: <marc-linux-ia64-106447093307465@msgid-missing>
+Message-Id: <marc-linux-ia64-106447034207045@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106444308519469@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106444308519469@msgid-missing>
@@ -10,26 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-At some point in the past, someone wrote:
->> BTW: What do cpusets provide that couldn't be done with user-level
->> tools on top of the existing sched_setaffinity() system call?
+> This sounds like it has progressively more commonality with CKRM; the
+> notion is of a workclass, not of a purely cpu-oriented notion.
 
-On Wed, Sep 24, 2003 at 10:39:44PM -0700, Paul Jackson wrote:
-> I don't see how you can do the migrate_cpuset_processes() from a user
-> level daemon.  Just because two tasks happen to be allowed on the same
-> CPUs doesn't mean they are in the same cpuset.  The kernel must track,
-> across forks, which tasks share a given cpuset.
-> There are also some resource management capabilities, such as tracking
-> and controlling how much memory a cpuset takes, and swapping (with
-> possible oom kill) against a cpuset that one can consider extending this
-> to, but only if it's in the kernel.  But I'm not ready to push this
-> point ... yet.
-> And the permission model has to remain a rather primitive "root can do
-> anything, anyone else can just subset their parent" if it lacks kernel
-> hooks to track uid/suid ownership of each cpuset.
+I _knew_ I shouldn't have thrown in that paragraph that began "There are
+also some resource management capabilities, ...".
 
-This sounds like it has progressively more commonality with CKRM; the
-notion is of a workclass, not of a purely cpu-oriented notion.
+There are two aspects to CKRM - a common classification of service levels,
+and hooks in each scheduler of resources to respect those levels.
 
+These cpusets, either as proposed, or possible fancier forms that also
+manage memory, do not replace, cannot be replaced by, and do not compete
+with CKRM.  Rather they cooperate with CKRM, and represent one more
+place, along side network drivers, schedulers and memory allocators,
+that eventually will want to respect CKRM service levels.
 
--- wli
+The point of _this_ subthread was to consider whether this could more or
+less entirely be done in user space.  The two aspects even of Simon's
+current proposal that I don't see can be done in user space are the
+migration, and the permission model.
+
+-- 
+                          I won't rest till it's the best ...
+                          Programmer, Linux Scalability
+                          Paul Jackson <pj@sgi.com> 1.650.933.1373
