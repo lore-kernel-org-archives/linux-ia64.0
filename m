@@ -1,34 +1,52 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 20 Aug 2004 14:57:30 +0000
-Subject: Re: [PATCH] add scheduler domains for ia64
-Message-Id: <200408201057.30813.jbarnes@engr.sgi.com>
+From: Tony Luck <tony.luck@intel.com>
+Date: Wed, 18 Aug 2004 22:09:38 +0000
+Subject: IA64 bitkeeper trees (again)
+Message-Id: <4123D3A2.2050609@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200408131108.40502.jbarnes@engr.sgi.com> <200408192222.35512.jbarnes@engr.sgi.com> <20040819232855.5d919155.akpm@osdl.org>
-In-Reply-To: <20040819232855.5d919155.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: nickpiggin@yahoo.com.au, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, hawkes@sgi.com, mingo@elte.hu
+To: linux-ia64@vger.kernel.org
 
-On Friday, August 20, 2004 2:28 am, Andrew Morton wrote:
-> Jesse Barnes <jbarnes@engr.sgi.com> wrote:
-> > Yep, it's been working ok so far.  There's still more we can do, but this
-> > is a good start I think.  Andrew, this version applies on top of
-> > 2.6.8.1-mm2 but overwrites most of the earlier node-span patch by moving
-> > bits from arch/ia64 to kernel/sched.c, so let me know if you want the
-> > patch in a different format.
->
-> Is OK.  I wiggled it into the logical place so we'll end up with a sane
-> patch series.
->
-> Watch the warnings please...
->
->
->
-> kernel/sched.c:3732: warning: `sched_domain_node_span' defined but not used
+After I posted my description of how I'm using Bitkeeper trees
+to manage the ia64 part of Linux I got some feedback.  Len Brown
+kindly talked me through how he runs a 2-phase/2-stage set of
+trees for ACPI ... and after a while it began to make sense (the
+layout of the trees, not ACPI :-).  So I've set up a similar set
+of four trees:
 
-Oops, sorry about that!  I meant to test with CONFIG_NUMA=n but fell asleep.  
-I'll be more careful in the future.
 
-Jesse
+          +--------------+     +-----------------+
+          | test-2.6.9   |     | release-2.6.9   |
+          +--------------+     +-----------------+
+                  ^                     ^
+                  |                     |
+          +--------------+     +-----------------+
+          | test-2.6.8.1 | ->  | release-2.6.8.1 |
+          +--------------+     +-----------------+
+
+Work begins at the bottom left, which is a clone of Linus's tree when he
+applied the v2.6.8.1 label.  I apply patches there, and do whatever
+compile/boot tests I need to make me feel comfortable about the patches.
+I can then push/pull them up to the test-2.6.9 tree which is based on
+Linus's latest (by pulling each day) and re-compile there to make sure
+that the changes don't conflict with other changes to the base.  Andrew
+Morton can then pull from the upper left tree to feed into "-mm"
+expose the changes to a wider test audience.
+
+Once the changes are suitably aged, I'll pull them over to the "release"
+trees, which are the staging area for Linus to pull from.
+
+The actual names all have "linux-ia64-" prepended.  E.g.
+
+   http://lia64.bkbits.net/linux-ia64-test-2.6.9
+
+The names of the trees all change when Linus makes a release.
+
+Len also gave me a script to create plain patches for non-BK
+users ... I'll make the tweaks to the pathnames and get those
+running soon.
+
+-Tony
+
+
