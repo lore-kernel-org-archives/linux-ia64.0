@@ -1,23 +1,31 @@
-From: Andi Kleen <ak@suse.de>
-Date: Wed, 03 Mar 2004 23:28:44 +0000
-Subject: Re: ia32 sigwait patch
-Message-Id: <20040304002844.3e3f1d80.ak@suse.de>
+From: Keith Owens <kaos@ocs.com.au>
+Date: Fri, 26 Mar 2004 03:39:09 +0000
+Subject: Re: [Lse-tech] Re: [PATCH] [0/6] HUGETLB memory commitment
+Message-Id: <5310.1080272349@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200403031606.16257.bjorn.helgaas@hp.com>
-In-Reply-To: <200403031606.16257.bjorn.helgaas@hp.com>
+In-Reply-To: Your message of "Fri, 26 Mar 2004 14:28:26 +0530."
+             <20040326085826.GA3332@in.ibm.com> 
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: suparna@in.ibm.com
+Cc: Andrew Morton <akpm@osdl.org>, apw@shadowen.org, anton@samba.org, sds@epoch.ncsc.mil, ak@suse.de, raybry@sgi.com, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, mbligh@aracnet.com
 
-On Wed, 3 Mar 2004 16:06:16 -0700
-Bjorn Helgaas <bjorn.helgaas@hp.com> wrote:
+On Fri, 26 Mar 2004 14:28:26 +0530, 
+Suparna Bhattacharya <suparna@in.ibm.com> wrote:
+>On Thu, Mar 25, 2004 at 04:22:32PM -0800, Andrew Morton wrote:
+>> Keith Owens <kaos@sgi.com> wrote:
+>> >
+>> > FWIW, lkcd (crash dump) treats hugetlb pages as normal kernel pages and
+>> > dumps them, which is pointless and wastes a lot of time.  To avoid
+>> > dumping these pages in lkcd, I had to add a PG_hugetlb flag.  lkcd runs
+>
+>This should already be fixed in recent versions of lkcd. It uses a
+>little bit of trickery to avoid an extra page flag -- hugetlb pages are 
+>detected as "in use" as well as reserved, unlike other reserved pages 
+>which helps identify them.
 
-> It looks to me like current 2.4 on x86_64 suffers from the same
-> problem with uts (sys_rt_sigtimedwait() gets a pointer to
-> uninitialized "t" when uts is NULL).
-
-Yes, indeed. Thanks for the hint.
-
--Andi
+Are you sure that this works for hugetlb pages that have been
+preallocated but not yet mapped?  AFAICT the hugetlb pages start off as
+reserved with a zero usecount.
 
