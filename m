@@ -1,28 +1,57 @@
-From: dann frazier <dannf@hp.com>
-Date: Sat, 08 Jan 2005 02:42:42 +0000
-Subject: Re: sn/kernel/bte_error.c build error
-Message-Id: <20050108024242.GB7366@jale>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Mon, 03 Jan 2005 17:52:42 +0000
+Subject: Re: Prezeroing V2 [2/4]: add second parameter to clear_page() for
+Message-Id: <Pine.LNX.4.58.0501030951590.21811@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050106201841.GB6009@jale>
-In-Reply-To: <20050106201841.GB6009@jale>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
+ <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231119540.31791@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231132170.31791@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
+ <20041224090539.40bba423.davem@davemloft.net>
+In-Reply-To: <20041224090539.40bba423.davem@davemloft.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Cc: akpm@osdl.org, linux-ia64@vger.kernel.org, torvalds@osdl.org, linux-mm@kvack.org, linux-kernel@vger.kernel.org
 
-A UP build of 2.6.10 fails in bte_error.c because HZ is undefined.
-Approved by Jesse in Message-Id: <200501061330.48941.jbarnes@engr.sgi.com>
+On Fri, 24 Dec 2004, David S. Miller wrote:
 
-Signed-off-by: dann frazier <dannf@hp.com>
-Signed-off-by: Jesse Barnes <jbarnes@engr.sgi.com>
+> On Thu, 23 Dec 2004 11:33:59 -0800 (PST)
+> Christoph Lameter <clameter@sgi.com> wrote:
+>
+> > Modification made but it would be good to have some feedback from the arch maintainers:
+> >
+>  ...
+> > sparc64
+>
+> I don't see any sparc64 bits in this patch, else I'd
+> review them :-)
+>
 
---- kernel-source-2.6.10/arch/ia64/sn/kernel/bte_error.c.orig	2005-01-06 13:20:10.954478087 -0700
-+++ kernel-source-2.6.10/arch/ia64/sn/kernel/bte_error.c	2005-01-06 12:54:41.483793698 -0700
-@@ -15,6 +15,7 @@
- #include "xtalk/xwidgetdev.h"
- #include "xtalk/hubdev.h"
- #include <asm/sn/bte.h>
-+#include <asm/param.h>
- 
- /*
-  * Bte error handling is done in two parts.  The first captures
+Sorry here it is:
+
+Index: linux-2.6.9/include/asm-sparc64/page.h
+=================================--- linux-2.6.9.orig/include/asm-sparc64/page.h 2004-10-18 14:53:51.000000000 -0700
++++ linux-2.6.9/include/asm-sparc64/page.h      2005-01-03 09:50:16.000000000 -0800
+@@ -15,7 +15,17 @@
+ #ifndef __ASSEMBLY__
+
+ extern void _clear_page(void *page);
+-#define clear_page(X)  _clear_page((void *)(X))
++
++static void inline clear_page(void *page, int order)
++{
++       unsigned int nr = 1 << order;
++
++       while (nr-- > 0) {
++               _clear_page(page);
++               page += PAGE_SIZE;
++       }
++}
++
+ struct page;
+ extern void clear_user_page(void *addr, unsigned long vaddr, struct page *page);
+ #define copy_page(X,Y) memcpy((void *)(X), (void *)(Y), PAGE_SIZE)
+
