@@ -1,7 +1,7 @@
-From: "Maribasavaiah, Prasad" <prasad.maribasavaiah@intel.com>
-Date: Fri, 11 May 2001 00:04:30 +0000
+From: "DE-DINECHIN,CHRISTOPHE (HP-Cupertino,ex1)" <christophe_de-dinechin@hp.com>
+Date: Fri, 11 May 2001 02:24:17 +0000
 Subject: RE: [Linux-ia64] Kernel Bug
-Message-Id: <marc-linux-ia64-105590693005567@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005568@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005565@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005565@msgid-missing>
@@ -9,6 +9,31 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Apparently, I cannot reproduce the original BUG situation, sorry.
+
+On my current kernel, a test case rebuilt from memory causes "Unable to
+handle kernel paging request at VA ...". I believe that the code that
+triggered it was an infinite loop on __get_free_page with the GFP_DMA flag,
+until I would get NULL, followed by a matching loop to free the allocated
+memory.
+
+Unfortunately, since the code was simply to test what kind of physical
+addresses I would get, I never checked it in my CVS tree, so I can't
+guarantee that I'm exactly reproducing the original test case... And since
+the case was seriously broken code anyways, I did not bother reporting the
+issue either...
+
+
+Christophe
+
+-----Original Message-----
+From: Maribasavaiah, Prasad [mailto:prasad.maribasavaiah@intel.com]
+Sent: Thursday, May 10, 2001 5:05 PM
+To: 'DE-DINECHIN,CHRISTOPHE (HP-Cupertino,ex1)';
+'linux-ia64@linuxia64.org'
+Subject: RE: [Linux-ia64] Kernel Bug
+
 
 Chritophe,
 
@@ -177,5 +202,4 @@ _______________________________________________
 Linux-IA64 mailing list
 Linux-IA64@linuxia64.org
 http://lists.linuxia64.org/lists/listinfo/linux-ia64
-
 
