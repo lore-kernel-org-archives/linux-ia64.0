@@ -1,75 +1,63 @@
-From: Patrick Gefre <pfg@sgi.com>
-Date: Wed, 06 Oct 2004 15:32:23 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Wed, 06 Oct 2004 18:57:39 +0000
 Subject: Re: [PATCH] 2.6 SGI Altix I/O code reorganization
-Message-Id: <41641007.5020702@sgi.com>
+Message-Id: <20041006185739.GA25773@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0221C989@scsmsx401.amr.corp.intel.com> <41641007.5020702@sgi.com>
+In-Reply-To: <41641007.5020702@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Luck, Tony" <tony.luck@intel.com>
-Cc: cngam@sgi.com, Matthew Wilcox <matthew@wil.cx>, Grant Grundler <iod00d@hp.com>, Jesse Barnes <jbarnes@engr.sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Patrick Gefre <pfg@sgi.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, cngam@sgi.com, Matthew Wilcox <matthew@wil.cx>, Grant Grundler <iod00d@hp.com>, Jesse Barnes <jbarnes@engr.sgi.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Luck, Tony wrote:
->>It had been suggested that we submit this as new code - since 
->>it can't be transitioned to. And I thought that was what we
->>had decided on - a 'kill' patch and an 'add' patch.
-> 
-> 
-> Sorry ... I must have missed that.
-> 
-> 
->>I can remove any Lindent'ing of older files if you don't want that.
-> 
-> 
-> Yes please.
-> 
-> 
->>I will take out the Kconfig mod.
-> 
-> 
-> Good.
-> 
-> 
->>I believe Christoph is the maintainer of the qla driver (he was one of 
->>the reviewers).
-> 
-> 
-> His fingerprints are all over the revision history.  It looks like the
-> only real change you want here is deleting the ugly hack for SN2:
-> 
-> < #if defined(CONFIG_IA64_GENERIC) || defined(CONFIG_IA64_SGI_SN2)
-> < #include <asm/sn/pci/pciio.h>
-> < /* Ugly hack needed for the virtual channel fix on SN2 */
-> < extern int snia_pcibr_rrb_alloc(struct pci_dev *pci_dev,
-> < 				int *count_vchan0, int *count_vchan1);
-> < #endif
-> 
-> If Christoph signs off on that, then I can feed a separate patch
-> that does that at the same time as the kill/add.
-> 
-> -Tony
-> 
+On Wed, Oct 06, 2004 at 10:32:23AM -0500, Patrick Gefre wrote:
+> o added our own pci_ops (Grant/Matthew's request)
 
+Sorry - my bad.
+I confused the issue by claiming one should replace pci_root_ops.
+It was one possibility but it's not an easy path to take.
 
-Tony,
+Mathew explained replacing the raw_pci_ops pointer is the Right Thing
+and I suspect it's easier to properly implement.
 
-I've updated our ftp site with a new patch.
+Some comments on the implementation:
+o sn_pci_fixup_bus() is a confusing name. "pcibios_fixup_bus" is normally
+  called by generic PCI code after each bus is walked.
+  This code obviously doesn't support that.
+  Maybe, sn_init_pci_controller() or something like that would be clearer.
 
-o Took out the Hotplug Kconfig mod (Tony's request)
-o removed Lindent changes for non-sn files (Tony's request)
-o SN_SAL_IOIF_RRB_ALLOC is gone (Christoph's request)
-o added domain arg to the SAL calls that had bus/device (Christoph's request)
-o improved pci_dma.c (Christoph's request)
-o removed unused SNDRV_SHUB_??? defs (Christoph's request)
-o added our own pci_ops (Grant/Matthew's request)
+o This bit of code belongs in the pcibios_fixup_bus() call path:
+	+       /*
+	+        * Generic Linux PCI Layer has created the pci_bus and pci_dev
+	+        * structures - time for us to add our SN PLatform specific
+	+        * information.
+	+        */
+	+
+	+       while ((pci_dev 	+               pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pci_dev)) != NULL) {
+	+               sn_pci_fixup_slot(pci_dev);
+	+       }
 
-Patches are here:
-ftp://oss.sgi.com/projects/sn2/sn2-update/001-kill-files
-ftp://oss.sgi.com/projects/sn2/sn2-update/002-add-files
+  I realize that's not easy to add/maintain in the arch/ia64 port though
+  since pcibios_fixup_bus() is common code for multiple platforms.
 
-I also put a separate patch for the qla code:
-ftp://oss.sgi.com/projects/sn2/sn2-update/003-qla-mod
+o sn_pci_fixup_bus() should be called for each PCI root bus controller
+  the firmware advertises. The loop in sn_pci_init() is hard coded
+  to loop from 0 to 256 busses.
+  Is ACPI the only way PCI host controllers are advertised?
+  SN2 doesn't use a different method today?
 
+  It means we are telling PCI subsystem to walk root busses that don't
+  exist in all configurations. I hope there are no nasty side effects
+  from that.
 
+o the BUG() in:
+
+  	+       controller = sn_alloc_pci_sysdata();
+	+       if (!controller) {
+	+               BUG();
+	+       }
+  is redundant with the BUG in sn_alloc_pci_sysdata().
+
+sorry for the initial bad advice and I hope this helps,
+grant
