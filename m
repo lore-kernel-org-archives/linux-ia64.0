@@ -1,26 +1,35 @@
-From: Jes Sorensen <jes@sunsite.dk>
-Date: Fri, 22 Jun 2001 13:24:45 +0000
-Subject: Re: [Linux-ia64] Linux installation on HP Netserver LH3
-Message-Id: <marc-linux-ia64-105590693005747@msgid-missing>
+From: Martin Wilck <Martin.Wilck@fujitsu-siemens.com>
+Date: Tue, 12 Jun 2001 08:44:12 +0000
+Subject: [Linux-ia64] IO/TLB bounce buffer space
+Message-Id: <marc-linux-ia64-105590693005716@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005746@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005746@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Pran" = Pran Gaan <gemadya@yahoo.com> writes:
+Hi,
 
-Pran> Dear All, Presently I am Trying to install redhat linux 6.2/7.0
-Pran> on HP NetServer LH3 with NetRAID 5. I am able to boot from cd
-Pran> rom and also able to partition the disk successfully.
+it is becoming apparent that the limited bounce buffer space is the reason
+for the crashes with the new aic7xxx driver and linux-IA64 with >=4GB RAM
+that I reported previously.
 
-Pran> But the big problem starts now.  While formating /filesystems it
-Pran> get stucked and by viewing <ctrl -F4 > i notice some error
-Pran> message which is like this
+If I understand it right,
+the driver uses up to 253 buffers per device, each of which can be 8kB in
+size. Consequently, it almost completely fills up the available IO/TLB
+space.
 
-Sorry you are on the wrong list, this list is about Linux/ia64.
+Question: Would it hurt to increase IO/TLB space on machines with large
+memory? Would it be possible and make sense to make IO/TLB space size a
+kernel configuration option?
 
-Jes
+Regards,
+Martin
+
+-- 
+Martin Wilck     <Martin.Wilck@fujitsu-siemens.com>
+FSC EP PS DS1, Paderborn      Tel. +49 5251 8 15113
+
+
+
 
