@@ -1,35 +1,44 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Date: Sun, 14 Mar 2004 08:48:25 +0000
-Subject: Re: [Lse-tech] Re: Hugetlbpages in very large memory machines.......
-Message-Id: <20040314084825.GQ655@holomorphy.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Sun, 14 Mar 2004 08:57:37 +0000
+Subject: Re: [Lse-tech] Re: Hugetlbpages in very large memory
+Message-Id: <20040314005737.7f57b8ad.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <40528383.10305@sgi.com> <20040313034840.GF4638@wotan.suse.de> <20040313184547.6e127b51.akpm@osdl.org> <40541A09.3050600@sgi.com>
+References: <40528383.10305@sgi.com>
+	<20040313034840.GF4638@wotan.suse.de>
+	<20040313184547.6e127b51.akpm@osdl.org>
+	<40541A09.3050600@sgi.com>
 In-Reply-To: <40541A09.3050600@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Ray Bryant <raybry@sgi.com>
-Cc: Andrew Morton <akpm@osdl.org>, Andi Kleen <ak@suse.de>, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Cc: ak@suse.de, lse-tech@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-On Sun, Mar 14, 2004 at 02:38:33AM -0600, Ray Bryant wrote:
+Ray Bryant <raybry@sgi.com> wrote:
+>
+> 
+> I agree with the compatibility concern, but the other part of the problem
+> is that while hugetlb_prefault() is running, it holds both the mm->mmap_sem in
 > write mode and the mm->page_table_lock.  So not only does it take 500 s for
 > the mmap() to return on our test system, but ps, top, etc all freeze for the
 > duration.  Very irritating, especially on a 64 or 128 P system.
-> My preference would be to do away with bugetlb_prefault() altogether.
-> (If there was a MAP_NO_PREFAULT, we would have to make this the default on
-> Altix to avoid the freeze problem mentioned above.  Can't have an arbitrary
-> user locking up the system.)  As Andi pointed out, perhaps we can do some
-> prereservation of huge pages so that we can return a ENONMEM to the mmap()
-> if there are not enough huge pages to (lazily) be allocated to satisfy the
-> request, but then still allocate the pages at fault time.  A simple count
-> would suffice.
 
-There is a patch which arranges to keep statistics ready in the mm so that
-the mmap_sem need not be taken for /proc/ and furthermore renders
-proc_pid_statm() nothing more than copying integers out of the mm that
-I forward ported to 2.6.0-test*, originally by Ben LaHaise, that may
-also be of interest to those concerned about tripping over other processes'
-mmap_sem's in /proc/.
+Well that's just a dumb implementation.  hugetlb_prefault() doesn't need
+page_table_lock while it is zeroing the page: just drop it, test for
+-EEXIST returned from add_to_page_cache().
 
+In fact we need to do that anyway: the current code is buggy if some other
+process with a different mm gets in there and instantiates the page in the
+pagecache before this process does: hugetlb_prefault() will return -EEXIST
+instead of simply accepting the race and using the page which someone else
+put there.
 
--- wli
+After we have the page in pagecache we need to retake page_table_lock and
+check that the target pte is still pte_none().  If it is not, you know that
+some other thread has already instantiated a pte there so the new ref to
+the pagecache page can simply be dropped.  See how do_no_page() handles it.
+Of course, this only applies if mmap_sem is no longer held in there.
+
+As for holding mmap_sem for too long, well, that can presumably be worked
+around by not mmapping the whole lot in one hit?
+
