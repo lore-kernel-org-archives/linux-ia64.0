@@ -1,96 +1,52 @@
-From: Greg KH <greg@kroah.com>
-Date: Fri, 23 Apr 2004 20:07:51 +0000
-Subject: Re: [Pcihpd-discuss] [RFC] New sysfs tree for hotplug
-Message-Id: <20040423200751.GA7990@kroah.com>
+From: Alex Williamson <alex.williamson@hp.com>
+Date: Mon, 26 Apr 2004 14:29:00 +0000
+Subject: [PATCH] bug w/ shared interrupts
+Message-Id: <1082989740.15656.20.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040415170939.0ff62618.tokunaga.keiich@jp.fujitsu.com> <20040416223436.GB21701@kroah.com> <20040423211816.152dc326.tokunaga.keiich@jp.fujitsu.com>
-In-Reply-To: <20040423211816.152dc326.tokunaga.keiich@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keiichiro Tokunaga <tokunaga.keiich@jp.fujitsu.com>
-Cc: lhcs-devel@lists.sourceforge.net, lhms-devel@lists.sourceforge.net, linux-hotplug-devel@lists.sourceforge.net, pcihpd-discuss@lists.sourceforge.net, lhns-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, acpi-largesys-devel@lists.sourceforge.net
+To: linux-ia64@vger.kernel.org
 
-On Fri, Apr 23, 2004 at 09:18:16PM +0900, Keiichiro Tokunaga wrote:
-> Greg KH wrote:
-> > > 2. Problem
-> > 
-> > There is no problem :)
-> > 
-> > >  Recent large machines have many PCI devices and some boards that
-> > > contain devices (e.g. CPU, memory, and/or I/O devices).  A certain PCI
-> > > device (PCI1) might be connected with other one (PCI2), which means that
-> > > there is a dependency between PCI1 and PCI2.
-> > 
-> > You have this today?  On what platform?  This is the first I have heard
-> > of this.  If needed, we can merely change the pci hotplug core to allow
-> > a hierarchy of pci slots.  Will that solve your problem?
-> 
-> 
-> I meant that a P2P bridge (that has hotpluggable slots) and a PCI device would
-> have such a dependency.
 
-But you don't need to show that for any reason, right?   Today, pci
-slots behind a pluggable P2P bridge work just fine.  I can remove the
-entire drawer full of pci slots and they all go away properly, and if I
-add a new drawer of pci slots, they all show up.
+   I just ran into a bug introduced by cset 1.1371.519.37.  The scenario
+is a builtin driver is up and running happily.  A module loads for a
+devices that happens to share the same interrupt vector, in this case a
+network driver.  The module calls pci_enable_device() as it should,
+which eventually lands in iosapic_enable_intr().  We then proceed to
+mask the interrupt and kill the device that's already running.  As a
+bonus, request_interrupt() doesn't fix the problem because we only call
+the startup for the interrupt handler on the first action attached to
+the interrupt.
 
-Why do you want to show that hierarchy?  Who cares about it?
+   I think the best way out of this is simply to detect when an action
+is already attached to a vector and leave it alone.  This also prevents
+interrupts from moving to other cpus (on boxes w/o irq redirection) for
+no good reason.  Thanks,
 
-> As you suggeted, if the PCI hotplug core is changed that way, the
-> dependency would be represented in sysfs quite well:)
+	Alex
 
-I don't think the PCI Hotplug core needs to change today to support
-these kinds of devices based on the hardware I have seen.  I have spoken
-to some people from other companies, and they also agree with me.  But
-if you have some different kind of hardware that really needs this, I'm
-open to ideas.
+-- 
+Alex Williamson                             HP Linux & Open Source Lab
 
-> However, a board that contains CPU, memory and/or I/O devices still
-> doesn't have a directory in sysfs to represent dependencies...
+=== arch/ia64/kernel/iosapic.c 1.39 vs edited ==--- 1.39/arch/ia64/kernel/iosapic.c	Wed Apr 21 15:26:09 2004
++++ edited/arch/ia64/kernel/iosapic.c	Sun Apr 25 21:13:33 2004
+@@ -648,6 +648,16 @@
+ iosapic_enable_intr (unsigned int vector)
+ {
+ 	unsigned int dest;
++	irq_desc_t *desc;
++
++	/*
++	 * In the case of a shared interrupt, do not re-route the vector, and
++	 * especially do not mask a running interrupt (startup will not get
++	 * called for a shared interrupt).
++	 */
++	desc = irq_descp(vector);
++	if (desc->action)
++		return;
+ 
+ #ifdef CONFIG_SMP
+ 	/*
 
-Why would it need to?
 
-Right now you can determine the CPU that a pci bus is attached to
-through sysfs.  As for the CPU and memory depiction, talk to the NUMA
-developers.  They have been trying for years now to come up with a way
-to do this in a portable and proper manner, and so far have failed :(
-
-> 
-> That's right.  /sys/devices/hotplug/ACPI/ tree becomes hard-wired one.  I was
-> thinking to define the board by using ACPI (as a "generic container device" in
-> ACPI namespace).  Therefore, if there is the new tree I proposed in the kernel,
-> it would be easy to represent the hierarchy, and a directory for the board
-> appears in the new tree.  So I thought that we could put an control file to
-> invoke the board hotplug and an information file under the directory.
-> (Actually, I've made a rough patch for the new tree and it seems to work fine:)
-
-Patches are better seen than spoken about in the abstract :)  Please
-post them if you have them...
-
-> I also thought that interface for hotplug could be unified so that it would become
-> easier for user to use.
-
-But the user doesn't care about ACPI.  Actually they want nothing to do
-with ACPI namespaces :)  They just want to be able to add and remove
-their different devices, be them memory, cpus, or pci slots, right?
-
-I'd point you to the recent ACPI sysfs patches on linux-kernel for more
-information on what people are trying to do in that area.
-
-> However, it's a hard-wired way and the current sysfs trees work fine for all of
-> devices as you mentioned.  Now I have just one thing necessary to sysfs.
-> That's a directory and files for the board.  Should I abstract the "board" and
-> introduce a new directory for board under /sys/devices/system/, like NUMA
-> node directory? (e.g. /sys/devices/system/board/)  The control file, the
-> information file, and etc could be created under the directory, like
-> /sys/devices/hotplug/board/board0/eject.  If it's possible, there might be less
-> impact to the kernel.  I'd appreciate it if you would comment on this :)
-
-But writing to that "eject" file would not be able to go and turn off
-the different CPU's, memory sticks, and pci slots, right?  That still
-needs to be done from userspace.
-
-thanks,
-
-greg k-h
