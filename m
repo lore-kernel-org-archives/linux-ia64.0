@@ -1,63 +1,47 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Thu, 29 May 2003 22:12:34 +0000
-Subject: Re: [Linux-ia64] hp_simserial_driver required for real kernel
-Message-Id: <marc-linux-ia64-105590723706082@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 09 May 2003 23:20:26 +0000
+Subject: Re: [Linux-ia64] [PATCH] 1/4 multi-ioport space support for 2.5
+Message-Id: <marc-linux-ia64-105590723705713@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590723706081@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590723706081@msgid-missing>
+References: <marc-linux-ia64-105590723705599@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590723705599@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Will,
+>>>>> On Thu, 24 Apr 2003 16:25:26 -0600, Bjorn Helgaas <bjorn_helgaas@HP.COM> said:
 
-Yes, there is a bad dependency between hpsim_console.c and the simserial code.
-I ran into it last week but did not get a chance to fix it just yet.
+  Bjorn> 3 add support for /proc/iomem and /proc/ioports
 
-On Thu, May 29, 2003 at 05:49:30PM -0400, Will Cohen wrote:
-> I am starting with the linux-2.5.69.tar.bz2 and 
-> linux-2.5.69-ia64-030521.diff.bz2 to generate kernel sources. It appears 
-> there is a problem with this version of the code. I am building akernel 
-> for a real ia64 machine with the following options turned off:
-> 
-> CONFIG_IA64_GENERIC=y
-> # CONFIG_IA64_HP_SIM is not set
-> 
-> # HP Simulator drivers
-> #
-> # CONFIG_HP_SIMETH is not set
-> # CONFIG_HP_SIMSERIAL is not set
-> # CONFIG_HP_SIMSCSI is not set
-> 
-> The "make compressed" fails with the following error message:
-> 
-> 
->         ld  -static -T arch/ia64/vmlinux.lds.s arch/ia64/kernel/head.o 
-> arch/ia64/kernel/init_task.o   init/built-in.o --start-group 
-> usr/built-in.o  arch/ia64/kernel/built-in.o  arch/ia64/mm/built-in.o 
-> arch/ia64/dig/built-in.o  kernel/built-in.o  mm/built-in.o 
-> fs/built-in.o  ipc/built-in.o  security/built-in.o  crypto/built-in.o 
-> lib/lib.a  arch/ia64/lib/lib.a  drivers/built-in.o  sound/built-in.o 
-> arch/ia64/pci/built-in.o  arch/ia64/hp/common/built-in.o 
-> arch/ia64/hp/zx1/built-in.o  arch/ia64/hp/sim/built-in.o 
-> arch/ia64/oprofile/built-in.o  net/built-in.o --end-group  -o .tmp_vmlinux1
-> arch/ia64/hp/sim/built-in.o(.text+0x101): In function 
-> `simcons_console_device':
-> arch/ia64/hp/sim/hpsim_console.c:64: undefined reference to 
-> `hp_simserial_driver'
-> arch/ia64/hp/sim/built-in.o(.text+0x111):arch/ia64/hp/sim/hpsim_console.c:64: 
-> undefined reference to `hp_simserial_driver'
-> make: *** [.tmp_vmlinux1] Error 1
-> 
-> Certainly when building for a real machine there should be no need for 
-> the simulator serial port. Is there a fix for this? Has anyone 
-> successfully built the  2.5.69 kernel with the patch for a real machine?
-> 
-> -Will
-> 
+I'm suspecting this patch may be causing me some grief on a Big Sur.
+What happens is that the qla1280 is configured to use I/O space by
+default (no idea why that is the case, apart from a small buglet in
+reading the base address) and with the patch applied, it fails to get
+the range from 0x2000-0x20ff.
 
--- 
+I can work around the problem by using memory-mapped I/O.  When I do
+that, /proc/ioports looks like this:
 
--Stephane
+$ cat /proc/ioports
+00000000-000003af : PCI Bus 00:00
+  00000060-0000006f : i8042
+  00000170-00000177 : ide1
+  000001f0-000001f7 : ide0
+  00000376-00000376 : ide1
+000003c0-000003df : vga+
+000003e0-00000cf7 : PCI Bus 00:00
+  000003f6-000003f6 : ide0
+  000003f8-000003ff : serial
+00000d00-00000fff : PCI Bus 00:00
+00001000-00001fff : PCI Bus 00:00
+  00001000-0000103f : eepro100
+  00001040-0000105f : uhci-hcd
+00002000-00002000 : PCI Bus 00:01
+00003000-0000ffff : PCI Bus 00:03
+
+Perhaps the problem is that the reported range for Bus 00:01 is empty?
+Does this make any sense to you?  Perhaps it's a firmware problem.
+
+	--david
 
