@@ -1,24 +1,27 @@
 From: Matthew Wilcox <matthew@wil.cx>
-Date: Thu, 03 Feb 2005 15:15:01 +0000
-Subject: Default preempt_count setting
-Message-Id: <20050203151501.GC20386@parcelfarce.linux.theplanet.co.uk>
+Date: Mon, 07 Feb 2005 02:00:08 +0000
+Subject: Re: Default preempt_count setting
+Message-Id: <20050207020008.GV20386@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050203151501.GC20386@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20050203151501.GC20386@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Mon, Feb 07, 2005 at 11:48:11AM +1100, Peter Chubb wrote:
+> >>>>> "Matthew" = Matthew Wilcox <matthew@wil.cx> writes:
+> Matthew> #define INIT_THREAD_INFO(tsk) \ [...]  .preempt_count = 1, \
+> 
+> It doesn't matter: new processes have preempt_count set to one in
+> sched_fork() (they don't inherit the value) which then drops to zero
+> when they're first run.   So init_task's preempt count will be set to one
+> when the task is created.
 
-I noticed that almost every architecture has some variant of:
-
-#define INIT_THREAD_INFO(tsk)                   \
-[...]
-        .preempt_count  = 1,                    \
-
-except for parisc, ia64 and arm26.  parisc and arm26 don't have functional
-PREEMPT, so I suspect can simply be changed.  How about ia64 though?
-I see PREEMPT is available as an option ... should preempt_count be
-initialised to 1 on ia64?
+But init_task isn't created by copy_process(), it's statically initialised
+in arch/ia64/kernel/init_task.c.  Based on that, I'd say we do need it to
+change ...
 
 -- 
 "Next the statesmen will invent cheap lies, putting the blame upon 
