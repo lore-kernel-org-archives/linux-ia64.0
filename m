@@ -1,25 +1,28 @@
-From: Matthew Wilcox <willy@debian.org>
-Date: Mon, 08 Dec 2003 20:27:40 +0000
-Subject: Re: gcc builtin memcpy is bogus?
-Message-Id: <marc-linux-ia64-107091551518624@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 05 Dec 2003 00:59:02 +0000
+Subject: [RFE] Add stacked registers to SAL records (resend)
+Message-Id: <marc-linux-ia64-107058596016407@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-107090003129207@msgid-missing>
-In-Reply-To: <marc-linux-ia64-107090003129207@msgid-missing>
+References: <marc-linux-ia64-106870740330038@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106870740330038@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Dec 08, 2003 at 05:25:27PM +0100, Andreas Schwab wrote:
-> - Don't use the casted address, but rather the original pointer in the
->   memcpy call.
+Originally sent November 13 with no response, try again.
 
-Thanks, that works nicely.
+SAL error records contain most registers in sal_processor_static_info,
+but not the stacked registers.  What is the process for adding another
+GUID to the SAL specification to contain the stacked registers?
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Layout:
+
+  number of stacked registers in this record
+  cfm for frame at the time of failure
+  stacked registers, ending with the cfm.sof registers
+
+This GUID would be optional, if a particular SAL implementation did not
+produce it then that platform would not have stacked registers printed
+via salinfo.
+
