@@ -1,7 +1,7 @@
-From: Alex Williamson <alex.williamson@hp.com>
-Date: Thu, 09 Sep 2004 15:01:11 +0000
+From: Christoph Lameter <clameter@sgi.com>
+Date: Thu, 09 Sep 2004 15:28:23 +0000
 Subject: Re: Timer patch V8
-Message-Id: <1094742071.27877.6.camel@tdi>
+Message-Id: <Pine.LNX.4.58.0409090825490.32479@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0408092115500.22817@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0408092115500.22817@schroedinger.engr.sgi.com>
@@ -10,48 +10,48 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 2004-09-08 at 16:23 -0700, Christoph Lameter wrote:
-> Sorry. I was too superficial when looking at this issue. The following
-> patch makes the hpet driver build again but I do not have a machine here
-> that would allow me to test this. Could you verify that this works and get
-> back to me?
-> 
+On Thu, 9 Sep 2004, Alex Williamson wrote:
 
-   It builds and boots, so a definite improvement.  I'm not sure how to
-check if the hpet is being used though.  Thanks,
+> On Wed, 2004-09-08 at 16:23 -0700, Christoph Lameter wrote:
+> > Sorry. I was too superficial when looking at this issue. The following
+> > patch makes the hpet driver build again but I do not have a machine here
+> > that would allow me to test this. Could you verify that this works and get
+> > back to me?
+> >
+>
+>    It builds and boots, so a definite improvement.  I'm not sure how to
+> check if the hpet is being used though.  Thanks,
 
-	Alex
+Could you run the following program and sent me the output? The precision
+of the REALTIME clock should be the same as the HPET device.
 
+/*
+ * Display Timers
+ */
 
-> Index: linux-2.6.9-rc1/drivers/char/hpet.c
-> =================================> --- linux-2.6.9-rc1.orig/drivers/char/hpet.c	2004-09-07 18:37:00.000000000 -0700
-> +++ linux-2.6.9-rc1/drivers/char/hpet.c	2004-09-08 16:17:57.000000000 -0700
-> @@ -664,8 +664,7 @@
-> 
->  static struct time_interpolator hpet_interpolator = {
->  	.source = TIME_SOURCE_MMIO64,
-> -	.shift = 10,
-> -	.addr = MC
-> +	.shift = 10
->  };
-> 
->  #endif
-> @@ -953,11 +952,10 @@
->  			struct hpet *hpet;
-> 
->  			hpet = hpets->hp_hpet;
-> -			hpet_cycles_per_sec = hpet_time_div(hpets->hp_period);
-> -			hpet_interpolator.frequency = hpet_cycles_per_sec;
-> -			hpet_interpolator.drift = hpet_cycles_per_sec *
-> +			hpet_interpolator.addr = &hpets->hp_hpet->hpet_mc;
-> +			hpet_interpolator.frequency = hpet_time_div(hpets->hp_period);
-> +			hpet_interpolator.drift = hpet_interpolator.frequency *
->  			    HPET_DRIFT / 1000000;
-> -			hpet_nsecs_per_cycle = 1000000000 / hpet_cycles_per_sec;
->  			register_time_interpolator(&hpet_interpolator);
->  		}
->  #endif
-> 
--- 
-Alex Williamson                             HP Linux & Open Source Lab
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
+void pr(int clock,const char *n)
+{
+        struct timespec tv,res;
+
+        clock_gettime(clock,&tv);
+        clock_getres(clock,&res);
+        printf("%25s=% 11d.%09d resolution=% 2d.%09d\n",n,tv.tv_sec,tv.tv_nsec,res.tv_sec,res.tv_nsec);
+}
+
+int main(char argc, char *argv[])
+{
+        struct timespec tv;
+
+        gettimeofday((struct timeval *)&tv);
+        tv.tv_nsec = tv.tv_nsec*1000;
+        printf("          Gettimeofday() =% 11d.%09d\n",tv.tv_sec,tv.tv_nsec);
+        pr(CLOCK_REALTIME,"CLOCK_REALTIME");
+        pr(CLOCK_MONOTONIC,"CLOCK_MONOTONIC");
+        pr(CLOCK_PROCESS_CPUTIME_ID,"CLOCK_PROCESS_CPUTIME_ID");
+        pr(CLOCK_THREAD_CPUTIME_ID,"CLOCK_THREAD_CPUTIME_ID");
+        printf("\n");
+}
