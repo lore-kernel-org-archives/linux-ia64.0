@@ -1,7 +1,7 @@
-From: nomura@hpc.bs1.fc.nec.co.jp
-Date: Tue, 31 Jul 2001 10:06:28 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Tue, 31 Jul 2001 18:06:16 +0000
 Subject: Re: [Linux-ia64] settings AR.k0 to ia64_iobase is wrong?
-Message-Id: <marc-linux-ia64-105590693005966@msgid-missing>
+Message-Id: <marc-linux-ia64-105590693005968@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005964@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005964@msgid-missing>
@@ -10,44 +10,37 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> This isn't right.  There is no way a VA->PA translation can set bit 63
-> so address 0x80000ffffc000000 could only be generated in physical
-> mode, which Linux (almost) never uses.  The address 0xffffc000000 is
-> correct since Linux will access the memory range only through uncached
-> space (region 6).
+>>>>> On Tue, 31 Jul 2001 19:06:28 +0900, nomura@hpc.bs1.fc.nec.co.jp said:
 
-I didn't talk about VA-PA translation nor I/O memory range access by linux.
-'mapping' was the wrong word, I'm afraid.
+  >> This isn't right.  There is no way a VA->PA translation can set
+  >> bit 63 so address 0x80000ffffc000000 could only be generated in
+  >> physical mode, which Linux (almost) never uses.  The address
+  >> 0xffffc000000 is correct since Linux will access the memory range
+  >> only through uncached space (region 6).
 
-I mean ar.k0 seems to be used by SAL in physical mode and setting ar.k0 to
-cached attribute is problematic.
-I think setting bit63 to 1 (i.e. physical mode uncached) is better and safer
-solution than just putting cached attribute physical address in ar.k0, unless
-anyone or any part of code suffers from the bit.
+  Nomura> I didn't talk about VA-PA translation nor I/O memory range
+  Nomura> access by linux.  'mapping' was the wrong word, I'm afraid.
 
-Here is the updated patch which does not remove ia64_set_kr but set
-uncached attribute bit on ia64_iobase in efi_get_iobase().
-How about it?
+What I'm saying is that an address with bit 63 set is not a proper
+physical address (it's nothing that will ever show up on the physical
+address bus) and therefore cannot be addressed using virtual
+addressing.  Thus, such an address is useless for Linux.
 
---
-NOMURA, Jun'ichi <j-nomura@ce.jp.nec.com, nomura@hpc.bs1.fc.nec.co.jp>
-HPC Operating System Group, 1st Computers Software Division,
-Computers Software Operations Unit, NEC Solutions.
+  Nomura> I mean ar.k0 seems to be used by SAL in physical mode and
+  Nomura> setting ar.k0 to cached attribute is problematic.
 
+I don't know about SAL internals, but if SAL uses it in physical mode,
+it needs to make sure that it's accessing it in uncached mode.  This
+seems to work just fine on all existing Intel and HP systems so it
+certainly seems possible.
 
-Index: arch/ia64/kernel/efi.c
-=================================RCS file: /home/cvsadm/cvsroot/linux/arch/ia64/kernel/efi.c,v
-retrieving revision 1.1.1.7.6.1
-diff -u -r1.1.1.7.6.1 efi.c
---- arch/ia64/kernel/efi.c	2001/07/27 06:54:28	1.1.1.7.6.1
-+++ arch/ia64/kernel/efi.c	2001/07/31 07:37:49
-@@ -473,7 +473,7 @@
- 		if (md->type = EFI_MEMORY_MAPPED_IO_PORT_SPACE) {
- 			/* paranoia attribute checking */
- 			if (md->attribute = (EFI_MEMORY_UC | EFI_MEMORY_RUNTIME))
--				return md->phys_addr;
-+				return (1UL<<63) | md->phys_addr; /* Bit63=1: Uncached */
- 		}
- 	}
- 	return 0;
+  Nomura> I think setting bit63 to 1 (i.e. physical mode uncached) is
+  Nomura> better and safer solution than just putting cached attribute
+  Nomura> physical address in ar.k0, unless anyone or any part of code
+  Nomura> suffers from the bit.
+
+No, setting bit 63 is not a solution.  k0 must contain the physical
+base address of the legacy I/O space, no more, no less.
+
+	--david
 
