@@ -1,50 +1,50 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Mon, 10 Nov 2003 20:23:58 +0000
-Subject: hot cache line due to note_interrupt()
-Message-Id: <marc-linux-ia64-106849604408531@msgid-missing>
+From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
+Date: Sat, 01 Nov 2003 06:39:52 +0000
+Subject: Re: [RFC] Better MCA recovery on IPF
+Message-Id: <marc-linux-ia64-106766923419071@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106849141002215@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106849141002215@msgid-missing>
+References: <marc-linux-ia64-106724227826901@msgid-missing>
+In-Reply-To: <marc-linux-ia64-106724227826901@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I dont know the background on note_interrupt() in arch/ia64/kernel/irq.c, 
-but I had to disable the function on our large systems (IA64).
+Hi,
 
-The function updates a counter in the irq_desc_t table. An entry in this table
-is shared by all cpus that take a specific interrupt #. For most interrupt #'s,
-this is a problem but it is prohibitive for the timer tick on big systems.
+> Of course, I agree with a common frame set.
+> In the case of platform premising IPF, I think it is
+> better to regard the Intel's Chipset as the de facto
+> standard.
 
-Updating the counter causes a cache line to be bounced between
-cpus at a rate of at least HZ*active_cpus. (The number of bus transactions
-is at least 2X higher because the line is first obtained for
-shared usage, then upgraded to modified. In addition, multiple references
-are made to the line for each interrupt. On a big system, it is unlikely that
-a cpu can hold the line for entire time that the interrupt is being
-serviced).
+I think there should be an abstraction layer hiding the underlying
+HW implementation. I think handling for example a memory error 
+by killing the affected user application, should work on any chipset
+and/or CPU architecture (if technically possible). We should not
+restrict ourselves to specific platforms, I think the general trend
+is that the error rate will go up because :
 
-On a 500p system, the system was VERY slowly making forward progres during boot,
-but I didnt have the patience to wait for it finish. After I disabled
-note_interrupt(), I had no problem booting.
+    - faster off-chip frequencies
+	- lower supply voltages decreasing signal/noise ratio
+	- higher suspectibility to cosmis rays causing SEU (Single Event Upsets)
+	  due to smaller process. There are for example estimations that SEUs
+	  will increase by a factor of 100 when going from a .13um process to .9um
 
-Certainly, the problem is much less severe on smaller systems. However, even
-moderate sized systems may see some degradation due to this hot cache line.
+The only alternatives to burrying a system under 50 feet of solid rock to avoid
+cosmic rays and improvements in HW design (chipkill will help) is to improve
+error handling and recovery.
 
+Today we have for example the ability that an application can deal with
+an unexpected event, such as a div by 0. In my eyes it would be possible
+that an application also could make provisions to handle memory (or cache
+errors) up to a certain extend, as long as the offending VA is known.
 
+In other words, I would prefer the option for applications writers to 
+have the option to recover within the application if is possible instead
+of having the application killed (or even the OS in the current state)
 
-I also verified on a system simulator that the counter in note_interrupt() is the
-only line that is bounced between cpus at a HZ rate on an idle system.
-
-The IPI & reschedule interrupts have a similar problem but at a lower rate.
-
-
-
--- 
 Thanks
 
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
+Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
+Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
 
