@@ -1,48 +1,66 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Wed, 03 Mar 2004 05:13:09 +0000
-Subject: Re: per-cpu blk_plug_list
-Message-Id: <20040302211309.500f43fb.akpm@osdl.org>
+From: "Yu, Luming" <luming.yu@intel.com>
+Date: Wed, 17 Mar 2004 12:48:00 +0000
+Subject: [PATCH] current  ( was  RE: cat /proc/acpi/events bad for your system's health!)
+Message-Id: <3ACA40606221794F80A5670F0AF15F8401CBB762@PDSMSX403.ccr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B05667366EE6204181EABE9C1B1C0EB50211E5C8@scsmsx401.sc.intel.com>
-In-Reply-To: <B05667366EE6204181EABE9C1B1C0EB50211E5C8@scsmsx401.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: jbarnes@sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
-
-"Chen, Kenneth W" <kenneth.w.chen@intel.com> wrote:
->
-> I don't understand the proposal here.  There is a per-device lock
-> already.  But the plugged queue need to be on some list outside itself
-> so a group of them can be unplugged later on to flush all the I/O.
+To: linux-ia64@vger.kernel.org
 
 
-here's the proposal:
+> The main difference with 2.4 is signal_pending. From ACPI log, I also
+> noticed that
+> the thread waiting on acpi_bus_event_queue didn't resume proberly,
+> because there
+> is no exit message of acpi_bus_receive_event in ACPI log  as 
+> expected if
+> you turn on
+> full debug flag of acpi.
+
+After comparing the disassembly code of acpi_bus_receive_event() , I
+find the following difference
+introduced by my workaround:
+
+155c155
+<     12d0:     00 00 00 1a b8 11       [MII]       st8.rel [r13]=r0
+---
+>     12d0:     00 40 00 1a b8 15       [MII]       st8.rel [r13]=r0,8
 
 
-Regarding this:
+Perhaps, gcc did something wrong with set_current_state(TASK_RUNNING).
+Because r13 intend for pointer to the current task.
 
- http://www.ussg.iu.edu/hypermail/linux/kernel/0403.0/0179.html
+The following is my patch, which can fix this issue.
 
- And also having looked at Miquel's (currently slightly defective)
- implementation of the any_congested() API for devicemapper:
+--Luming
 
- ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.4-rc1/2.6.4-rc1-mm1/broken-out/queue-congestion-dm-implementation.patch
-
- I am thinking that an appropriate way of solving the blk_run_queues() lock
- contention problem is to nuke the global plug list altogther and make the
- unplug function a method in struct backing_device_info.
-
- This is conceptually the appropriate place to put it - it is almost always
- the case that when we run blk_run_queues() it is on behalf of an
- address_space, and the few remaining case can be simply deleted -
- mm/mempool.c is the last one I think.
-
- The implementation of backing_dev_info.unplug() would have to run the
- unplug_fn of every queue which contributes to the top-level queue (the
- thing which the address_space is sitting on top of).
-
- We discussed this maybe a year ago with Jens but decided against it for
- complexity reasons, but gee, dm_table_any_congested() isn't complex.  Do we
- forsee any particular problem with this?
+diff -Bru 2.6.new/include/asm-ia64/gcc_intrin.h
+patched/include/asm-ia64/gcc_intrin.h
+--- 2.6.new/include/asm-ia64/gcc_intrin.h	2004-03-17
+11:57:34.000000000 +0800
++++ patched/include/asm-ia64/gcc_intrin.h	2004-03-17
+20:39:44.000000000 +0800
+@@ -67,10 +67,7 @@
+ 		asm volatile ("mov %0=psr" : "=r"(ia64_intri_res));
+\
+ 		break;
+\
+ 	case _IA64_REG_TP:	/* for current() */
+\
+-		{
+\
+-			register __u64 ia64_r13 asm ("r13");
+\
+-			ia64_intri_res = ia64_r13;
+\
+-		}
+\
++		asm volatile ("mov %0=r13" : "=r"(ia64_intri_res));
+\
+ 		break;
+\
+ 	case _IA64_REG_AR_KR0 ... _IA64_REG_AR_EC:
+\
+ 		asm volatile ("mov %0=ar%1" : "=r" (ia64_intri_res)
+\
