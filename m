@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 15 Jan 2003 18:15:43 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 15 Jan 2003 18:26:07 +0000
 Subject: Re: [Linux-ia64] Distributions using gcc 3.2 or later
-Message-Id: <marc-linux-ia64-105590709805684@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805685@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805681@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805681@msgid-missing>
@@ -10,23 +10,38 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 15 Jan 2003 09:43:39 -0800, Perry Wagle <wagle@wirex.com> said:
+On Wed, Jan 15, 2003 at 07:05:19PM +0100, Martin Schimmer wrote:
+> can we quickly put together short up-to-date list of "stable" distros for
+> IA64 plafrorm? You can mention what compiler and libc it is based and
+> whether it's free or commercial
+> 
+> I am only aware of:
+> 
+> RedHat 7.2	gcc 2.96/glibc 2.2.4	 freely available
 
-  Perry> Intel has graciously short-term-loaned me a IA64.  Before
-  Perry> Christmas break, I poked around, and all the Linux
-  Perry> distributions for IA64 seemed GCC 2.96 based, except for the
-  Perry> Redhat rawhide distribution.  But, testing with alpha-test
-  Perry> distributions makes me nervous that I would be testing much
-  Perry> more than my changes.  Now that my compiler modification is
-  Perry> starting to work, I thought I'd poke my head out and ask what
-  Perry> distribution I should use that would expect GCC 3.2 or later?
+Boy, are you not looking very hard ;-)  On www.linuxia64.org:
 
-Debian/unstable also uses gcc-3.2.  As you'd expect, this version
-isn't as solid as Debian/stable, but it's definitely usable (I'm
-running it on my McKinley workstation at work).  The main thing is
-that stuff sometimes breaks temporarily (e.g., it seems the X server
-broke a couple of days ago), but usually those can be fixed by
-downgrading to the "stable" version of the package.
+IA-64 Linux Distributions
+# Caldera Systems (initial release 8/4/00) Download at ftp.caldera.com/pub/OpenLinux64
+# Debian (initial release 8/10/01) Download at www.debian.org/ports/ia64
+# Red Hat (initial release 5/17/00) Download at ftp.redhat.com/pub/redhat/ia64
+# SuSE (initial release 6/13/00) Download at ftp.suse.com/pub/suse/ia64
+# TurboLinux (initial release 3/13/00) Download at www.turbolinux.com/ia64.html
 
-	--david
+I'd think that `initial release' is no longer a very useful thing to
+have, so perhaps this list should be replaced by a list of `most recent
+release' instead.  I don't see a `contact the webmaster' link, so maybe
+he or she reads this list...
+
+Debian released Woody in 2002.
+SuSE announced: "Enterprise Server 8 is also available for [...] HP
+Itanium 2-based servers, [...]"
+Red Hat released AS & AW for ia64.
+
+Not aware of any other announcements, but I don't follow that too closely.
+
+-- 
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
 
