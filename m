@@ -1,22 +1,193 @@
-From: Andi Kleen <ak@suse.de>
-Date: Thu, 23 Sep 2004 09:03:45 +0000
-Subject: Re: page fault scalability patch V8: [4/7] universally available cmpxchg on i386
-Message-Id: <20040923090345.GA6146@wotan.suse.de>
+From: Robin Holt <holt@sgi.com>
+Date: Thu, 09 Sep 2004 17:53:39 +0000
+Subject: [RFC 1/2] Add SN2 Special Memory driver.
+Message-Id: <20040909175339.GA23863@lnx-holt.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0408150630560.324@schroedinger.engr.sgi.com> <Pine.LNX.4.58.0409201348070.4628@schroedinger.engr.sgi.com> <20040920205752.GH4242@wotan.suse.de> <200409211841.25507.vda@port.imtp.ilyichevsk.odessa.ua> <20040921154542.GB12132@wotan.suse.de> <41527885.8020402@myrealbox.com>
-In-Reply-To: <41527885.8020402@myrealbox.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andy Lutomirski <luto@myrealbox.com>
-Cc: Andi Kleen <ak@suse.de>, Christoph Lameter <clameter@sgi.com>, akpm@osdl.org, "David S. Miller" <davem@davemloft.net>, benh@kernel.crashing.org, wli@holomorphy.com, davem@redhat.com, raybry@sgi.com, ak@muc.de, manfred@colorfullife.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, vrajesh@umich.edu, hugh@veritas.com
+To: linux-ia64@vger.kernel.org
 
-> Wouldn't alternative_input() choosing between a cmpxchg and a call be 
-> the way to go here?  Or is the overhead too high in an inline function?
 
-It would if you want the absolute micro optimization yes. Disadvantage
-is that you would waste some more space for nops in the !CONFIG_I386 case.
-I personally don't think it matters much and that Christian's original
-code was just fine.
+Really, this is a 2 part patch and not a 4 part.
 
--Andi (last post on the thread) 
+Rename the fetchop.h to mspec.h.
+
+Index: linux-2.6/include/asm-ia64/sn/mspec.h
+=================================--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6/include/asm-ia64/sn/mspec.h	2004-08-31 12:13:43.000000000 -0500
+@@ -0,0 +1,85 @@
++/*
++ *
++ * This file is subject to the terms and conditions of the GNU General Public
++ * License.  See the file "COPYING" in the main directory of this archive
++ * for more details.
++ *
++ * Copyright (c) 2001-2003 Silicon Graphics, Inc.  All rights reserved.
++ */
++
++#ifndef _ASM_IA64_SN_FETCHOP_H
++#define _ASM_IA64_SN_FETCHOP_H
++
++#include <linux/config.h>
++
++#define FETCHOP_BASENAME	"sgi_fetchop"
++#define FETCHOP_FULLNAME	"/dev/sgi_fetchop"
++
++
++
++#define FETCHOP_VAR_SIZE 64 /* 64 byte per fetchop variable */
++
++#define FETCHOP_LOAD		0
++#define FETCHOP_INCREMENT	8
++#define FETCHOP_DECREMENT	16
++#define FETCHOP_CLEAR		24
++
++#define FETCHOP_STORE		0
++#define FETCHOP_AND		24
++#define FETCHOP_OR		32
++
++#define FETCHOP_CLEAR_CACHE	56
++
++#define FETCHOP_LOAD_OP(addr, op) ( \
++         *(volatile long *)((char*) (addr) + (op)))
++
++#define FETCHOP_STORE_OP(addr, op, x) ( \
++         *(volatile long *)((char*) (addr) + (op)) = (long) (x))
++
++#ifdef __KERNEL__
++
++/*
++ * Convert a region 6 (kaddr) address to the address of the fetchop variable
++ */
++#define FETCHOP_KADDR_TO_MSPEC_ADDR(kaddr)	TO_MSPEC(kaddr)
++
++
++/*
++ * Each Atomic Memory Operation (AMO formerly known as fetchop)
++ * variable is 64 bytes long.  The first 8 bytes are used.  The
++ * remaining 56 bytes are unaddressable due to the operation taking
++ * that portion of the address.
++ * 
++ * NOTE: The AMO_t _MUST_ be placed in either the first or second half
++ * of the cache line.  The cache line _MUST NOT_ be used for anything
++ * other than additional AMO_t entries.  This is because there are two
++ * addresses which reference the same physical cache line.  One will
++ * be a cached entry with the memory type bits all set.  This address
++ * may be loaded into processor cache.  The AMO_t will be referenced
++ * uncached via the memory special memory type.  If any portion of the
++ * cached cache-line is modified, when that line is flushed, it will
++ * overwrite the uncached value in physical memory and lead to
++ * inconsistency.
++ */
++typedef struct {
++        u64 variable;
++        u64 unused[7];
++} AMO_t;
++
++
++/*
++ * The following APIs are externalized to the kernel to allocate/free pages of
++ * fetchop variables.
++ *	fetchop_kalloc_page	- Allocate/initialize 1 fetchop page on the
++ *				  specified cnode. 
++ *	fetchop_kfree_page	- Free a previously allocated fetchop page
++ */
++
++unsigned long fetchop_kalloc_page(int nid);
++void fetchop_kfree_page(unsigned long maddr);
++
++
++#endif /* __KERNEL__ */
++
++#endif /* _ASM_IA64_SN_FETCHOP_H */
++
+Index: linux-2.6/include/asm-ia64/sn/fetchop.h
+=================================--- linux-2.6.orig/include/asm-ia64/sn/fetchop.h	2004-08-13 13:26:41.000000000 -0500
++++ /dev/null1970-01-01 00:00:00.000000000 +0000
+@@ -1,85 +0,0 @@
+-/*
+- *
+- * This file is subject to the terms and conditions of the GNU General Public
+- * License.  See the file "COPYING" in the main directory of this archive
+- * for more details.
+- *
+- * Copyright (c) 2001-2003 Silicon Graphics, Inc.  All rights reserved.
+- */
+-
+-#ifndef _ASM_IA64_SN_FETCHOP_H
+-#define _ASM_IA64_SN_FETCHOP_H
+-
+-#include <linux/config.h>
+-
+-#define FETCHOP_BASENAME	"sgi_fetchop"
+-#define FETCHOP_FULLNAME	"/dev/sgi_fetchop"
+-
+-
+-
+-#define FETCHOP_VAR_SIZE 64 /* 64 byte per fetchop variable */
+-
+-#define FETCHOP_LOAD		0
+-#define FETCHOP_INCREMENT	8
+-#define FETCHOP_DECREMENT	16
+-#define FETCHOP_CLEAR		24
+-
+-#define FETCHOP_STORE		0
+-#define FETCHOP_AND		24
+-#define FETCHOP_OR		32
+-
+-#define FETCHOP_CLEAR_CACHE	56
+-
+-#define FETCHOP_LOAD_OP(addr, op) ( \
+-         *(volatile long *)((char*) (addr) + (op)))
+-
+-#define FETCHOP_STORE_OP(addr, op, x) ( \
+-         *(volatile long *)((char*) (addr) + (op)) = (long) (x))
+-
+-#ifdef __KERNEL__
+-
+-/*
+- * Convert a region 6 (kaddr) address to the address of the fetchop variable
+- */
+-#define FETCHOP_KADDR_TO_MSPEC_ADDR(kaddr)	TO_MSPEC(kaddr)
+-
+-
+-/*
+- * Each Atomic Memory Operation (AMO formerly known as fetchop)
+- * variable is 64 bytes long.  The first 8 bytes are used.  The
+- * remaining 56 bytes are unaddressable due to the operation taking
+- * that portion of the address.
+- * 
+- * NOTE: The AMO_t _MUST_ be placed in either the first or second half
+- * of the cache line.  The cache line _MUST NOT_ be used for anything
+- * other than additional AMO_t entries.  This is because there are two
+- * addresses which reference the same physical cache line.  One will
+- * be a cached entry with the memory type bits all set.  This address
+- * may be loaded into processor cache.  The AMO_t will be referenced
+- * uncached via the memory special memory type.  If any portion of the
+- * cached cache-line is modified, when that line is flushed, it will
+- * overwrite the uncached value in physical memory and lead to
+- * inconsistency.
+- */
+-typedef struct {
+-        u64 variable;
+-        u64 unused[7];
+-} AMO_t;
+-
+-
+-/*
+- * The following APIs are externalized to the kernel to allocate/free pages of
+- * fetchop variables.
+- *	fetchop_kalloc_page	- Allocate/initialize 1 fetchop page on the
+- *				  specified cnode. 
+- *	fetchop_kfree_page	- Free a previously allocated fetchop page
+- */
+-
+-unsigned long fetchop_kalloc_page(int nid);
+-void fetchop_kfree_page(unsigned long maddr);
+-
+-
+-#endif /* __KERNEL__ */
+-
+-#endif /* _ASM_IA64_SN_FETCHOP_H */
+-
