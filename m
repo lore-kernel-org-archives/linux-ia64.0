@@ -1,111 +1,68 @@
-From: "Mallick, Asit K" <asit.k.mallick@intel.com>
-Date: Wed, 08 Nov 2000 18:37:59 +0000
-Subject: RE: [Linux-ia64] re-enabling interrupts and interrupt collect
-Message-Id: <marc-linux-ia64-105590678205671@msgid-missing>
+From: Francis Galiegue <fg@mandrakesoft.com>
+Date: Fri, 17 Nov 2000 14:55:30 +0000
+Subject: Re: [Linux-ia64] toolchain status
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="-1463800575-1395061571-974472930=:8285"
+Message-Id: <marc-linux-ia64-105590678205739@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205670@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205670@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Setting the PSR.ic or PSR.i is not implicitly serialized and setting both
-PSR.ic and PSR.i in a single instruction could create a timing window where
-PSR.ic=0 and PSR.i=1. So, software must set the PSR.ic explicitly before
-setting the PSR.i.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-Asit
+---1463800575-1395061571-974472930=:8285
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
+On Thu, 16 Nov 2000, H . J . Lu wrote:
 
-> -----Original Message-----
-> From: Chuck Fleckenstein [mailto:cfleck@co.intel.com]
-> Sent: Wednesday, November 08, 2000 2:07 AM
-> To: Jonathan Case Nicklin
-> Cc: linux-ia64@ia64linux.org
-> Subject: Re: [Linux-ia64] re-enabling interrupts and interrupt collect
+> > > There is no DT_INIT_ARRAY in libc.so. Even if there is DT_INIT_ARRAY,
+> > > I still don't know how to use it to tell where DT_INIT points to.
+> > 
+> > Easy enough -- you know from DT_PLTGOT what the GP is for the DSO.
+> > If *(long *)(DT_INIT + 8) == GP, then you can assume that DT_INIT
+> > is a descriptor instead of an offset.
+> > 
 > 
-> 
-> Since the ssm of psr.i does not require serialization then I 
-> believe this
-> would
-> be expected.
-> 
-> so as you said the guaranteed method of safely reenabling ic 
-> and i would
-> be:
-> 
->     ssm psr.ic
->     ;;
->     srlz.d
->     ssm psr.i
-> 
-> 
-> Chuck
-> 
-> 
-> Jonathan Case Nicklin wrote:
-> 
-> > All,
-> >
-> > Recently, i was working on a section of code that disabled/enable
-> > interrupts
-> > and interrupt collection like so.
-> >
-> >     rsm psr.i | psr.ic
-> >     ;;
-> >     ... //body
-> >     ;;
-> >     ssm psr.i | psr.ic
-> >     ;;
-> >     srlz.d
-> >     ;;
-> >
-> > I found however that this implementation did not work under 
-> heavy loads.
-> >
-> > It took a while to figure out that a pending interrupt that 
-> had occurred
-> >
-> > in the body of code, executed while interrupts were turned off, was
-> > delivered
-> > after the ssm call as expected. However, it was delivered 
-> before the ic
-> > bit
-> > serialized. In the code this caused undesirable results. I 
-> found that
-> > the
-> > proper way to implement the above is to re-enable the ic bit and
-> > serialize
-> > before re-enabling the interrupt bit. Has anyone else come 
-> across this
-> > problem and can anybody shed some light on whether this is 
-> the expected
-> > operation.
-> >
-> > Sincerely,
-> > Jonathan Case Nicklin
-> >
-> > Mission Critical Linux
-> > www.missioncriticallinux.com
-> >
-> > ps. The manual gives an example of the implementation that 
-> works, but
-> > does
-> > not provide any explanation of implementation itself (as 
-> far as I can
-> > see ;-P )
-> >
-> > _______________________________________________
-> > Linux-IA64 mailing list
-> > Linux-IA64@linuxia64.org
-> > http://lists.linuxia64.org/lists/listinfo/linux-ia64
-> 
-> 
-> _______________________________________________
-> Linux-IA64 mailing list
-> Linux-IA64@linuxia64.org
-> http://lists.linuxia64.org/lists/listinfo/linux-ia64
+> Thanks. This patch seems to work for me.
 > 
 
+I don't know which version this patch is supposed to apply to, but it doesn't
+apply as is on the stock FSF tree. "Corrected" patch for this tree is attached,
+in case it is of interest for someone.
+
+Now if only I understood what you were talking about :)
+
+-- 
+Francis Galiegue, fg@mandrakesoft.com
+"Programming is a race between programmers, who try and make more and more
+idiot-proof software, and universe, which produces more and more remarkable
+idiots. Until now, universe leads the race"  -- R. Cook
+
+---1463800575-1395061571-974472930=:8285
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="glibc-2.2-dldt-hjlu.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.21.0011171555300.8285@toy.mandrakesoft.com>
+Content-Description: 
+Content-Disposition: attachment; filename="glibc-2.2-dldt-hjlu.patch"
+
+ZGlmZiAtdXJOIGdsaWJjLTIuMi5vbGQvc3lzZGVwcy9pYTY0L2RsLWxvb2t1
+cGNmZy5oIGdsaWJjLTIuMi9zeXNkZXBzL2lhNjQvZGwtbG9va3VwY2ZnLmgN
+Ci0tLSBnbGliYy0yLjIub2xkL3N5c2RlcHMvaWE2NC9kbC1sb29rdXBjZmcu
+aAlUaHUgTm92IDE2IDE4OjU1OjE2IDIwMDANCisrKyBnbGliYy0yLjIvc3lz
+ZGVwcy9pYTY0L2RsLWxvb2t1cGNmZy5oCVRodSBOb3YgMTYgMTk6MDM6NDYg
+MjAwMA0KQEAgLTM5LDUgKzM5LDEzIEBADQogCQkJCQlFbGZXKEFkZHIpIHN0
+YXJ0KTsNCiANCiAjZGVmaW5lIERMX0ZVTkNUSU9OX0FERFJFU1MobWFwLCBh
+ZGRyKSBfZGxfZnVuY3Rpb25fYWRkcmVzcyAoKG1hcCksIChhZGRyKSkNCisj
+aWYgMA0KICNkZWZpbmUgRExfRFRfSU5JVF9BRERSRVNTKG1hcCwgYWRkcikg
+RExfRlVOQ1RJT05fQUREUkVTUyAoKG1hcCksIChhZGRyKSkNCiAjZGVmaW5l
+IERMX0RUX0ZJTklfQUREUkVTUyhtYXAsIGFkZHIpIERMX0ZVTkNUSU9OX0FE
+RFJFU1MgKChtYXApLCAoYWRkcikpDQorI2Vsc2UNCisjZGVmaW5lIERMX0RU
+X0lOSVRfQUREUkVTUyhtYXAsIGFkZHIpCQkJCQkgICAgICBcDQorICAoKG1h
+cCktPmxfaW5mb1tEVF9QTFRHT1RdLT5kX3VuLmRfcHRyID09ICooRWxmNjRf
+QWRkciAqKSAoKGFkZHIpICsgOCkgICAgICAgXA0KKyAgID8gKGFkZHIpIDog
+RExfRlVOQ1RJT05fQUREUkVTUyAobWFwLCBhZGRyKSkNCisjZGVmaW5lIERM
+X0RUX0ZJTklfQUREUkVTUyhtYXAsIGFkZHIpIERMX0RUX0lOSVRfQUREUkVT
+UyAobWFwLCBhZGRyKQ0KKyNlbmRpZg0KKw0K
+---1463800575-1395061571-974472930=:8285--
 
