@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 19 May 2004 01:35:12 +0000
+From: Matthew Wilcox <willy@debian.org>
+Date: Wed, 19 May 2004 01:59:13 +0000
 Subject: Re: Disable CONFIG_SMP for IA64_HP_SIM
-Message-Id: <16554.47568.611312.489130@napali.hpl.hp.com>
+Message-Id: <20040519015913.GM6484@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040519012326.GA27655@cse.unsw.EDU.AU>
 In-Reply-To: <20040519012326.GA27655@cse.unsw.EDU.AU>
@@ -10,18 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 19 May 2004 11:23:26 +1000, Ian Wienand <ianw@gelato.unsw.edu.au> said:
+On Tue, May 18, 2004 at 06:35:12PM -0700, David Mosberger wrote:
+> CONFIG_SMP probably shouldn't depend on CONFIG_IOSAPIC.
 
-  Ian> CONFIG_SMP depends on CONFIG_IOSAPIC to build (maybe this is
-  Ian> the real problem, I don't know).
+I agree -- I think the SGI machines don't have an IOSAPIC.
 
-  Ian> CONFIG_IOSAPIC excludes IA64_HP_SIM.  Some sample configs [1]
-  Ian> have SMP enabled for the simulator, and it broke my autobuild,
-  Ian> so maybe making it explicit would be good?
-
-SMP must work with the simulator.  It's often useful for
-testing-purposes, even though Ski simulates only one CPU.
-
-CONFIG_SMP probably shouldn't depend on CONFIG_IOSAPIC.
-
-	--david
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
