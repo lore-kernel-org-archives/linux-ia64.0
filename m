@@ -1,120 +1,61 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sat, 25 Dec 2004 12:17:39 +0000
-Subject: Announce: kdb v4.4 is available for kernel 2.6.10
-Message-Id: <18921.1103977059@ocs3.ocs.com.au>
+From: Paulo Marques <pmarques@grupopie.com>
+Date: Mon, 27 Dec 2004 13:00:34 +0000
+Subject: Re: Announce: kdb v4.4 is available for kernel 2.6.10
+Message-Id: <41D00772.1050600@grupopie.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <12956.1085377697@kao2.melbourne.sgi.com>
-In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
+References: <18921.1103977059@ocs3.ocs.com.au>
+In-Reply-To: <18921.1103977059@ocs3.ocs.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kdb@oss.sgi.com
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Keith Owens <kaos@sgi.com>
+Cc: kdb@oss.sgi.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
+Keith Owens wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> KDB (Linux Kernel Debugger) has been updated.
 
-KDB (Linux Kernel Debugger) has been updated.
+Hi,
 
-ftp://oss.sgi.com/projects/kdb/download/v4.4/
-ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
+I browsed the patch quickly to check for kallsyms uses, and validate 
+them, and it generally seems correct.
 
-Current versions are :-
+There is however one comment that makes me wonder:
+*2.6 kallsyms has a "feature" where it unpacks the name into a string.
+*If that string is reused before the caller expects it then the caller
+*sees its string change without warning.
 
-  kdb-v4.4-2.6.10-common-1.bz2
-  kdb-v4.4-2.6.10-i386-1.bz2
-  kdb-v4.4-2.6.10-ia64-1.bz2
-  kdb-v4.4-2.6.9-rc2-x86-64-1.bz2 (may or may not work with 2.6.10).
+kallsyms_lookup always uses the buffer passed to it in the case the 
+symbol is a kernel symbol, as opposed to a module symbol, and so it is 
+not responsible for the buffer.
 
+So this probably only happens when a module symbol is returned directly 
+from its symbol table, and then the module is unloaded (or something 
+like that).
 
-Changelog extract since kdb-v4.4-2.6.9-common-1.
+Later there is another comment:
+* Another 2.6 kallsyms "feature".  Sometimes the sym_name is
+* set but the buffer passed into kallsyms_lookup is not used,
+* so it contains garbage.
 
-2004-12-25 Keith Owens  <kaos@sgi.com>
+It seems to be the same problem. If we modify kallsyms_lookup to always 
+use the buffer passed, even if the symbol comes from a module, maybe we 
+could solve both problems with just one change.
 
-	* Add kobject command.
-	* Ignore low addresses and large offsets in kdbnearsym().
-	* Console updates for sn2 simulator.
-	* kdb v4.4-2.6.10-common-1.
+On the downside, a caller that just wants to print the name, would pay 
+an unnecessary string copy.
 
-2004-12-07 Keith Owens  <kaos@sgi.com>
+On the upside, this would make the interface more coherent with standard 
+C functions like strcpy, where the buffer passed is always the buffer 
+returned.
 
-	* kdb v4.4-2.6.10-rc3-common-1.
+So, is it worth the change?
 
-2004-11-23 Keith Owens  <kaos@sgi.com>
+-- 
+Paulo Marques - www.grupopie.com
 
-	* Remove warning message from kdb_get_one_user_page(), it was too noisy.
-	* kdb v4.4-2.6.10-rc2-common-1.
-
-2004-11-02 Keith Owens  <kaos@sgi.com>
-
-	* Build with kdb patch applied but CONFIG_KDB=n.
-	* kdb v4.4-2.6.10-rc1-common-2.
-
-2004-10-29 Keith Owens  <kaos@sgi.com>
-
-	* Handle new compression scheme for kallsyms.
-	* Handle move of DEAD and ZOMBIE for task->state to task->exit_state.
-	* Tweak the concept of a valid kernel address to get all symbols,
-	  including the symbols in the ia64 gate page.
-	* kdb v4.4-2.6.10-rc1-common-1.
-
-2004-10-21 Keith Owens  <kaos@sgi.com>
-
-	* Handle variable size for the kernel log buffer.
-	* kdb v4.4-2.6.9-common-2.
-
-
-Changelog extract since kdb-v4.4-2.6.9-i386-1.
-
-2004-12-25 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.10-i386-1.
-
-2004-12-07 Keith Owens  <kaos@sgi.com>
-
-	* kdb v4.4-2.6.10-rc3-i386-1.
-
-2004-11-23 Keith Owens  <kaos@sgi.com>
-
-	* Coexist with asmlinkage/fastcall changes.
-	* kdb v4.4-2.6.10-rc2-i386-1.
-
-2004-10-29 Keith Owens  <kaos@sgi.com>
-
-	* Handle change defintions for hard and soft irq context.
-	* Make stack switch in kdb backtrace look more like the oops output.
-	* kdb v4.4-2.6.10-rc1-i386-1.
-
-
-
-Changelog extract since kdb v4.4-2.6.9-ia64-1.
-
-2004-12-25 Keith Owens  <kaos@sgi.com>
-
-	* Add cpuinfo command.
-	* kdb-v4.4-2.6.10-ia64-1.
-
-2004-12-07 Keith Owens  <kaos@sgi.com>
-
-	* Clean up error path in kdba_mca_init.
-	* kdb-v4.4-2.6.10-rc3-ia64-1.
-
-2004-11-15 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.10-rc2-ia64-1.
-
-2004-10-29 Keith Owens  <kaos@sgi.com>
-
-	* kdb-v4.4-2.6.10-rc1-ia64-1.
-
-
-ps.  Bah, Hum{de}bug!
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-Comment: Exmh version 2.1.1 10/15/1999
-
-iD8DBQFBzVpji4UHNye0ZOoRAmy+AJ4iSaztTqGLjr+Ck0X8+TMdXB41IQCghc/P
-p7GtfCEOmVPDj/SVHdecFyw=oO+Z
------END PGP SIGNATURE-----
+"A journey of a thousand miles begins with a single step."
+Lao-tzu, The Way of Lao-tzu
 
