@@ -1,36 +1,46 @@
-From: Mario Smarduch <cms063@email.mot.com>
-Date: Wed, 05 May 2004 16:57:58 +0000
-Subject: Re: mmap() of /dev/kmem issue
-Message-Id: <40991D16.F66CB173@email.mot.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Wed, 26 May 2004 21:49:02 +0000
+Subject: [PATCH] don't udelay() in sn_mmiob
+Message-Id: <200405261749.02254.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_ODRtAYBeqbEKKem"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4097C51D.71EA0BEA@email.mot.com>
-In-Reply-To: <4097C51D.71EA0BEA@email.mot.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-"Luck, Tony" wrote:
 
-> >On Wed, May 05, 2004 at 10:53:10AM -0500, Mario Smarduch wrote:
-> >> That's great but what release is that in?
-> >
-> >This is in 2.6.6-rc3.  I don't know when it was added.
->
-> N.B. your test program will need some changes to work under
-> 2.6 as the kernel is linked into virtual addresses in region 5
-> instead of region 7.
->
-> So "IDENBASE" and "jiffies - IDENBASE" would need to be changed.
->
-> In fact there might be another whole layer of difficulty writing
-> your test program, as figuring the physical address of the kernel
-> object that you want to look at is a lot harder as the bootloader
-> may have picked any physical address to load the kernel (though
-> in practice at the moment it only does this on SGI sn2 machines).
->
-> -Tony
+--Boundary-00=_ODRtAYBeqbEKKem
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Tony thanks for the pointers. I actually need to
-have this work on 2.4 though.
+sn_mmiob is a lightweight way to ensure PCI write ordering, intended to be 
+used as an alternative to doing a PIO read.  Unfortunately, with the udelay() 
+in there, it ends up being slower than a PCI read on small configurations, so 
+remove it.
 
+Thanks,
+Jesse
+
+
+--Boundary-00=_ODRtAYBeqbEKKem
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="no-udelay-mmiob.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="no-udelay-mmiob.patch"
+
+===== arch/ia64/sn/io/machvec/iomv.c 1.8 vs edited =====
+--- 1.8/arch/ia64/sn/io/machvec/iomv.c	Tue Sep 16 12:00:45 2003
++++ edited/arch/ia64/sn/io/machvec/iomv.c	Wed May 26 13:49:19 2004
+@@ -71,6 +71,6 @@
+ {
+ 	while ((((volatile unsigned long) (*pda->pio_write_status_addr)) & SH_PIO_WRITE_STATUS_0_PENDING_WRITE_COUNT_MASK) != 
+ 				SH_PIO_WRITE_STATUS_0_PENDING_WRITE_COUNT_MASK)
+-		udelay(1);
++		;
+ }
+ EXPORT_SYMBOL(sn_mmiob);
+
+--Boundary-00=_ODRtAYBeqbEKKem--
