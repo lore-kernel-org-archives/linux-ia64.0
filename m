@@ -1,59 +1,34 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Mon, 26 Jan 2004 08:05:30 +0000
-Subject: Re: Loadable module and kernel gp
-Message-Id: <4014CA4A.4020504@hob.de>
+From: Jack Steiner <steiner@sgi.com>
+Date: Fri, 30 Jan 2004 21:48:03 +0000
+Subject: [PATCH] - Delete debug code in arch/ia64/sn/kernel/sn2/timer_interrupt.c
+Message-Id: <20040130214803.GA20223@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4010EEC0.7020003@hob.de>
-In-Reply-To: <4010EEC0.7020003@hob.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Luck, Tony schrieb:
+Some debug was left in timer_interrupt.c:
 
->>>>>>>On Fri, 23 Jan 2004 10:52:00 +0100, Christian Hildner 
->>>>>>>              
->>>>>>>
->><christian.hildner@hob.de> said:
->>
->>  Christian> Hi, does anybody know a simple way for a loadable module
->>  Christian> to get the gp value of the kernel? Is there any sample
->>  Christian> code?
->>
->>The safest way is probably to materialize a function pointer for a
->>function that is known to be in the kernel (and exported) and then to
->>read the second word.
->>
-Yes, that's it, thanks. Sometimes good solutions are also simple. I'll 
-try it.
 
->
->In case "materialzie a function pointer" is total greek:
->
->#include <linux/slab.h>
->
->struct fptr {
->	unsigned long func_addr;
->	unsigned long gp;
->};
->
->your_routine()
->{
->	struct fptr = (struct fptr *)kmalloc; /*function known to be in kernel */
->
->	printk("Kernel gp is %lx\n", fptr->gp);
->}
->
->
->Untested ... kmalloc is declared "inline" so that might mess things
->up.  Just choose some other exported thing if it is.
->
-I hope the compiler will not explode if I request the pointer to an 
-inlined function ;-). I like the idea of using kmalloc since this symbol 
-should be present in almost any kernel.
+diff -Naur linux_base/arch/ia64/sn/kernel/sn2/timer_interrupt.c linux/arch/ia64/sn/kernel/sn2/timer_interrupt.c
+--- linux_base/arch/ia64/sn/kernel/sn2/timer_interrupt.c	Thu Jan 29 18:14:23 2004
++++ linux/arch/ia64/sn/kernel/sn2/timer_interrupt.c	Fri Jan 30 14:55:34 2004
+@@ -48,7 +48,6 @@
+ 	if (!pda->hb_count--) {
+ 		pda->hb_count = HZ/2;
+ 		set_led_bits(pda->hb_state ^= LED_CPU_HEARTBEAT, LED_CPU_HEARTBEAT);
+-		printk("Blink\n");
+ 	}
+ 
+ 	if (enable_shub_wars_1_1()) {
 
+
+
+-- 
 Thanks
 
-Christian
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
 
