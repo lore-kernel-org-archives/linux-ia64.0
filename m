@@ -1,24 +1,21 @@
-From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
-Date: Wed, 19 Nov 2003 10:40:20 +0000
-Subject: MAX_CACHE_ERRORS, MAX_TLB_ERRORS, MAX_BUS_ERRORS
-Message-Id: <marc-linux-ia64-106923854724282@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 26 Nov 2003 00:25:59 +0000
+Subject: kernel update (relative to 2.6.0-test10)
+Message-Id: <marc-linux-ia64-106980643201816@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I can see the following defines in sal.h:
+The latest ia64-specific patch is now available at:
 
-#define MAX_CACHE_ERRORS	6
-#define MAX_TLB_ERRORS		6
-#define MAX_BUS_ERRORS		1
+ ftp://ftp.kernel.org/pub/linux/kernel/ports/ia64/v2.6/
 
-As far as I can understand the spec., we've got a 4 bit
-wide field as a counter for each of them, i.e. we may have
-0 ... 15 of each errors. Does the spec. state explicitly
-somewhere how the number of these errors are limited ?
-What about the REG and the MS errors ?
-Thanks.
+in file linux-2.6.0-test10-ia64-031125.diff.gz.  All recent
+fixes/improvements went straight to Linus' tree, so there is nothing
+really new here.
 
-Zoltan Menyhart
+Enjoy,
+
+	--david
