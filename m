@@ -1,7 +1,7 @@
-From: Colin Ngam <cngam@sgi.com>
-Date: Wed, 09 Mar 2005 15:45:18 +0000
-Subject: Re: PCI Express
-Message-Id: <422F1A0D.CFA59C66@sgi.com>
+From: "Nguyen, Tom L" <tom.l.nguyen@intel.com>
+Date: Wed, 09 Mar 2005 16:35:00 +0000
+Subject: RE: PCI Express
+Message-Id: <C7AB9DA4D0B1F344BF2489FA165E502407F93B0F@orsmsx404.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4228F250.7C5E2E3C@sgi.com>
 In-Reply-To: <4228F250.7C5E2E3C@sgi.com>
@@ -10,42 +10,27 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Grant Grundler wrote:
+On Tue, Mar 08, 2005 at 05:29:13PM -0800, Jesse Barnes wrote:
+...
+> An MSI should behave like a processor sending an IPI to itself since
+its 
+> address can be targeted at the processor's interrupt block and set to 
+> generate a local interrupt.  Is that right, Tom & Grant?
 
-Hi Grant,
+MSI address is programmed at 0xfeex_xxxx (based on PCI Specs) to
+generate a memory write to FSB. This address can be configured to target
+a platform interrupt controller (like IOAPIC for example), which in turn
+generates a memory write to a FSB, or be configured to send a memory
+write directly to FSB. Existing MSI support implements a direct
+memory-write mechanism (generic solution without platform dependency and
+limitation to MSI-X support as an example). With existing direct
+memory-write mechanism, a device's MSI address is configured with
+current running CPU as a target. MSI support also implements MSI SMP
+affinity, which supports IRQ rebalance and allows user to select which
+CPU target through /proc/irq/...
 
-Thanks for the info.
+I hope it helps.
 
-Bottomline - Processor Interrupt Block not implemented on Altix.
-
-Thanks.
-
-colin
-
-> On Tue, Mar 08, 2005 at 05:29:13PM -0800, Jesse Barnes wrote:
-> ...
-> > An MSI should behave like a processor sending an IPI to itself since its
-> > address can be targeted at the processor's interrupt block and set to
-> > generate a local interrupt.  Is that right, Tom & Grant?
->
-> Yes - that's how I understand it too.
->
-> > If this won't work for us, no biggie, we just have to abstract things a
-> > little more.  We could make the MSI into a platform specific cookie that
-> > we can store a SHub/PIC/TIO address in and other platforms can use to
-> > target the processor interrupt block.
->
-> Couple more options:
-> o add hooks for MSI quirk/fixup for *after* the MSI has been assigned
->   by generic code.
->
-> o make sure all MSI only go to "node local" processors. I thought
->   platform code has some control over the CPU EID and data portion of
->   the MSI. But I haven't looked over that in a few monthes.
->
-> grant
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks,
+Long 
 
