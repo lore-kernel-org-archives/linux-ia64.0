@@ -1,7 +1,7 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Tue, 11 Jan 2005 21:22:17 +0000
-Subject: Re: new utility for decoding salinfo records
-Message-Id: <200501112122.j0BLMHZQ086482@efs.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 11 Jan 2005 21:23:48 +0000
+Subject: RE: new utility for decoding salinfo records
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F02B4B07D@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1105458388.22104.7.camel@quince.llnl.gov>
 In-Reply-To: <1105458388.22104.7.camel@quince.llnl.gov>
@@ -10,26 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
-> 
-> Yes.  While individual single-bit errors aren't terribly interesting,
-> periodic summaries almost certainly would be.  If only so you know
-> when to order replacement DIMMs... ;-)
+>1) almost all nodes get some SBEs once in a while. Over time these
+>accumulate in the directory. We don't consider this to be a problem.
+>Gamma rays do happen and if you have a big enough target and 
+>you sample for a long enough time, you are bound to catch a few.
 
-The only reason customers care about single bits (a recovered error)
-is out of fear that they will soon lead to a multi-bit error (that
-is not recoverable) that crashes the system.  If the system recovers 
-from multi-bits without crashing, either by killing the app
-that hit the multi-bit or (better) by backing up to the last 
-checkpoint (losing processing time, but not data), then the 
-customer won't even care about single bits.
+<nitpick>The bit flips are more likely the result of neutrons than
+gamma rays ... though the neutrons in question were produced by "cosmic"
+rays hitting the upper atmosphere.</nitpick>
 
-Then the answer is you order the replacement DIMMs after they fail.  :-)
+>Do other people consider 1SBE/hr on a DIMM a real problem that needs to
+>be fixed?
 
-Or maybe not even then.  Hard drives have flaw tables that indicate
-the parts of the disks to avoid.  If memory DIMMs had flaw tables,
-and the equivilent of badblocks, why would you replace a DIMM?
+That's way too high for background neutrons.  Possibly a DIMM that
+got zapped by a static discharge sometime in its life?  Or just a
+manufacturing defect small enough to get past the normal testing
+process?
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+Whether it is a problem depends on the liklihood of it cascading into
+a multi-bit error ... for which I don't have any data.
+
+-Tony
