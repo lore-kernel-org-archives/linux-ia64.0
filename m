@@ -1,33 +1,37 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Tue, 24 Jun 2003 21:07:17 +0000
-Subject: Re: SCSI ERRORS triggered by BIO_VMERGE_BOUNDARY
-Message-Id: <marc-linux-ia64-105648893606349@msgid-missing>
+From: Arun Sharma <arun.sharma@intel.com>
+Date: Tue, 24 Jun 2003 22:16:40 +0000
+Subject: IA-32 support patch: munmap should return EINVAL if size == 0
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------090406080403070706090505"
+Message-Id: <marc-linux-ia64-105649312310734@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105604433402604@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105604433402604@msgid-missing>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Jun 23, 2003 at 03:05:49PM -0700, Grant Grundler wrote:
-> It looks like blk_recount_segments() is only used to gather
-> stastics about how many segments are in the transaction.
-> I tracked back to fs/bio.c to find the consumer of this
-> information (# of segments) but didn't find it.
-> Anyone know off hand?
+This is a multi-part message in MIME format.
+--------------090406080403070706090505
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-James Bottomley explained it to me:
 
-| The second is this nr_phys_segments in the elevator queuing code.  This   
-| counts the number of SG entries that will be required to describe the
-| request.  A lot of devices have fixed size SG tables, so the SG table is
-| the only thing that limits the size of the transfer.  Thus the block
-| layer has code that tries to merge physically contiguous segments of a
-| bio so it can squeeze extra blocks into the transfer.
+Native IA-32 returns EINVAL on a unmap of size 0. Our behavior is currently not compatible.
 
-I don't know if LSI SCSI controllers/drivers have limits in this space
-and what they might be. Will try to figure that out.
+Please apply to both 2.4 and 2.5.
 
-thanks,
-grant
+	-Arun
+
+--------------090406080403070706090505
+Content-Type: text/plain;
+ name="munmap.21.txt"
+Content-Transfer-Encoding: base64
+Content-Disposition: inline;
+ filename="munmap.21.txt"
+
+LS0tIGxpbnV4LTIuNC9hcmNoL2lhNjQvaWEzMi9zeXNfaWEzMi5jCVR1ZSBNYXkgMjcgMTA6
+MjA6MTAgMjAwMw0KKysrIGxpbnV4LWNoYW5nZS9hcmNoL2lhNjQvaWEzMi9zeXNfaWEzMi5j
+CVRodSBNYXkgMjkgMDA6NTA6MzMgMjAwMw0KQEAgLTU0Nyw3ICs1NDcsNyBAQA0KICNpZiBQ
+QUdFX1NISUZUIDw9IElBMzJfUEFHRV9TSElGVA0KIAlyZXQgPSBzeXNfbXVubWFwKHN0YXJ0
+LCBlbmQgLSBzdGFydCk7DQogI2Vsc2UNCi0JaWYgKHN0YXJ0ID4gZW5kKQ0KKwlpZiAoc3Rh
+cnQgPj0gZW5kKQ0KIAkJcmV0dXJuIC1FSU5WQUw7DQogDQogCXN0YXJ0ID0gUEFHRV9BTElH
+TihzdGFydCk7DQoNCg0K
+--------------090406080403070706090505--
+
