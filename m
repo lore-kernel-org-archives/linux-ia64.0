@@ -1,47 +1,37 @@
-From: Dan Pop <Dan.Pop@cern.ch>
-Date: Tue, 26 Jun 2001 02:38:50 +0000
-Subject: Re: [Linux-ia64] Red Hat Installer cannot find the hard drive
-Message-Id: <marc-linux-ia64-105590693005766@msgid-missing>
+From: Andreas Schwab <schwab@suse.de>
+Date: Fri, 01 Jun 2001 08:03:31 +0000
+Subject: Re: [Linux-ia64] Bug report: 4-threaded program gets seg. fault on malloc, on linu x R2.4.3.
+Message-Id: <marc-linux-ia64-105590693005681@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005762@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005762@msgid-missing>
+References: <marc-linux-ia64-105590693005668@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005668@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+"Robboy, David G" <david.g.robboy@intel.com> writes:
 
-On Mon, 25 Jun 2001, Stephane Eranian wrote:
+|> I have reported this on bugzilla also, Bug #42354.  I don't know whether=
+ it
+|> is
+|> a kernel bug, libc, or libpthread.
+|> The attached program spawns 3 new threads, and each of the 4 threads doe=
+s a
+|> malloc.  Run it on a 4P Lion.
+|> On Linux kernel R2.4.3 (Red Hat release 7.0.98), it aborts with a
+|> segmentation fault.  The same binary executable runs correctly on a R2.4=
+.1
+|> kernel.
 
-> Hi,
-> 
-> On Mon, Jun 25, 2001 at 04:47:28PM -0700, Li, Shuo wrote:
-> > Does anybody know what caused the following problem and how to fix it?
+I have no problem running it with 2.4.4 on SuSE 7.2.
 
-It usually happens if the disk has already been partioned by an older
-RH version.  At least, this is what we have seen.  The solution is to
-manually remove all the existing partitions (with fdisk) and then to
-select the "Retry" option.
+Andreas.
 
-> > The problem happens at Linux install time. After the installer come back
-> > after trying to detect the hard drive, it reports an error saying
-> > 
-> > Partiition(s)) do not end on cylinder boundary:
-> 
-> I don't know which version of RH you're trying to install. I know that
-> in the past there was a problem here and that it would abort the install.
-> The fix is to switch to a text console (Alt-Fx where x is maybe 6 or higher,
-> I don't recall).
-
-I think that Alt-F2 should bring you to a root shell session.  Anyway,
-it's easy to find by trial and error.
-
-> Then you invoke fdisk manually on the device. Note that the
-> device entry may not be present.
-
-It's present, but under /tmp.  Something like "fdisk /tmp/sda" should
-do the job.
-
-Dan
-
+--=20
+Andreas Schwab                                  "And now for something
+SuSE Labs                                        completely different."
+Andreas.Schwab@suse.de
+SuSE GmbH, Schanz=E4ckerstr. 10, D-90443 N=FCrnberg
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
 
