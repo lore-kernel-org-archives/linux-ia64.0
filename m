@@ -1,69 +1,46 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Thu, 01 Jun 2000 21:50:32 +0000
-Subject: Re: [Linux-ia64] initrd suport for ELI, kernel
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Nq2Wo0NMKNjxTN9z"
-Message-Id: <marc-linux-ia64-105590678205114@msgid-missing>
+From: roneng@ca.ibm.com
+Date: Tue, 06 Jun 2000 22:34:01 +0000
+Subject: [Linux-ia64] ia64 gcc implementation of alloca
+Message-Id: <marc-linux-ia64-105590678205122@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590678205112@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590678205112@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---Nq2Wo0NMKNjxTN9z
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
 
-Bill Nottingham (notting@redhat.com) said: 
-> Here's some patches that add initrd support to ELI
-> and the kernel. 
+Hi,
+Has anyone had any problem using alloca, or knows where in the gcc code it
+is implemented?
+when I run my program get the following error:
 
-FYI, if you've got a recent toolchain, you need the
-attached patch for gnu-efi for it to build correctly
-(thanks David!).
+Program received signal SIGSEGV, Segmentation fault.
+loose (code, fd=6, name=0x9ffffffffff05ca0 "libnss_files.so.2",
+    realname=0x60000000000115b0 "/lib/libnss_files.so.2", l=0x0,
+    msg=0x200000000002f880 "cannot read file data") at dl-load.c:642
+642       a[0] = fd;
+(gdb)
 
-Bill
+the code around line 642 is the following
+__attribute__ ((noreturn))
+lose (int code, int fd, const char *name, char *realname, struct link_map
+*l,
+      const char *msg)
+{
+  /* The use of `alloca' here looks ridiculous but it helps.  The goal
+     is to avoid the function from being inlined.  There is no official
+     way to do this so we use this trick.  gcc never inlines functions
+     which use `alloca'.  */
+int *a = alloca (sizeof (int));
+a[0] = fd;
 
---Nq2Wo0NMKNjxTN9z
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="gnu-efi.patch"
+simple testcases of alloca seem to work, so this is probably an
+intermittent problem.
 
-2000-04-03  David Mosberger  <davidm@hpl.hp.com>
-
-	* gnuefi/elf_ia64_efi.lds: Include .IA_64.unwind and
-	.IA_64.unwind_info in .data segment to avoid EFI load error
-	"ImageAddress: pointer outside of image" error due to the .dynsym
-	relocations against these sections.
-
-	* gnuefi/reloc_ia64.S: fixed typo: .space directive had constant
-	100 hardcoded instead of using MAX_FUNCTION_DESCRIPTORS
-	macro. Duh.
-
-diff -urN gnu-efi-0.8/gnuefi/elf_ia64_efi.lds gnu-efi-pre0.9/gnuefi/elf_ia64_efi.lds
---- gnu-efi-0.8/gnuefi/elf_ia64_efi.lds	Wed Sep 22 16:53:51 1999
-+++ gnu-efi-pre0.9/gnuefi/elf_ia64_efi.lds	Mon Apr  3 17:35:29 2000
-@@ -27,6 +27,8 @@
-    *(.got.plt)
-    *(.got)
-    *(.plabel)	/* data whose relocs we want to ignore */
-+   *(.IA_64.unwind)
-+   *(.IA_64.unwind_info)
-    /* the EFI loader doesn't seem to like a .bss section, so we stick
-       it all into .data: */
-    *(.sbss)
-diff -urN gnu-efi-0.8/gnuefi/reloc_ia64.S gnu-efi-pre0.9/gnuefi/reloc_ia64.S
---- gnu-efi-0.8/gnuefi/reloc_ia64.S	Thu Sep 23 21:54:21 1999
-+++ gnu-efi-pre0.9/gnuefi/reloc_ia64.S	Mon Apr  3 16:20:51 2000
-@@ -204,5 +204,5 @@
- 	.data
- 	.align 16
- fptr_mem_base:
--	.space	100*16
-+	.space  MAX_FUNCTION_DESCRIPTORS*16
- fptr_mem_limit:
+Thank you,
+Ronen Grosman
+- e-mail roneng@ca.ibm.com
 
 
-
-
---Nq2Wo0NMKNjxTN9z--
 
 
