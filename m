@@ -1,7 +1,7 @@
-From: Ashok Raj <ashok.raj@intel.com>
-Date: Mon, 07 Jun 2004 14:14:22 +0000
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Mon, 07 Jun 2004 16:41:49 +0000
 Subject: Re: [lhcs-devel] Re: [RFC] don't create cpu/online sysfs file
-Message-Id: <20040607071422.B17971@unix-os.sc.intel.com>
+Message-Id: <1086626508.28074.1.camel@nighthawk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1086390257.24915.132.camel@nighthawk>
 In-Reply-To: <1086390257.24915.132.camel@nighthawk>
@@ -10,19 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Jun 07, 2004 at 09:07:38AM -0500, Nathan Lynch wrote:
-> Dave Hansen wrote:
-> > -	if (!error)
-> > +	if (!error && !cpu->can_control)
-> 
-> Should be:
-> +	if (!error && cpu->can_control)
-> 
+On Mon, 2004-06-07 at 07:08, Ashok Raj wrote:plugging.
+> +		if (systemcfg->platform = PLATFORM_PSERIES_LPAR)
+> +			cpu->no_control=1;
 
-Glad someone else also read it the same way as i did 
+That condition is also inverted.  Should read:
 
-the name is now fixed in the new patch posted.... you caught me just 
-few mins before.
+if (systemcfg->platform != PLATFORM_PSERIES_LPAR)
+	cpu->no_control = 1;
 
-Cheers,
-ashok
+
+
+-- Dave
+
