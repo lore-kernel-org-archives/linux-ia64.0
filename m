@@ -1,44 +1,53 @@
 From: Linas Vepstas <linas@austin.ibm.com>
-Date: Wed, 02 Mar 2005 23:30:03 +0000
+Date: Wed, 02 Mar 2005 23:37:57 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <20050302233003.GO1220@austin.ibm.com>
+Message-Id: <20050302233757.GP1220@austin.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <422428EC.3090905@jp.fujitsu.com> <42249A44.4020507@pobox.com> <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org> <20050302182205.GI1220@austin.ibm.com> <1109803303.5611.108.camel@gaston>
-In-Reply-To: <1109803303.5611.108.camel@gaston>
+References: <422428EC.3090905@jp.fujitsu.com> <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org> <20050301165904.GN28741@parcelfarce.linux.theplanet.co.uk> <200503010910.29460.jbarnes@engr.sgi.com> <20050301183333.GB1220@austin.ibm.com> <1109716047.5679.51.camel@gaston> <20050302200216.GM1220@austin.ibm.com> <1109803572.5679.113.camel@gaston>
+In-Reply-To: <1109803572.5679.113.camel@gaston>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-pci@atrey.karlin.mff.cuni.cz, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
+Cc: Jesse Barnes <jbarnes@engr.sgi.com>, linux-pci@atrey.karlin.mff.cuni.cz, Matthew Wilcox <matthew@wil.cx>, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
 
-On Thu, Mar 03, 2005 at 09:41:43AM +1100, Benjamin Herrenschmidt was heard to remark:
-> On Wed, 2005-03-02 at 12:22 -0600, Linas Vepstas wrote:
-> > On Tue, Mar 01, 2005 at 08:49:45AM -0800, Linus Torvalds was heard to remark:
-> > > 
-> > > The new API is what _allows_ a driver to care. It doesn't handle DMA, but
-> > > I think that's because nobody knows how to handle it (ie it's probably
-> > > hw-dependent and all existign implementations would thus be
-> > > driver-specific anyway).
-> > 
-> > ?  
-> > We could add a call 
-> > 
-> > int pci_was_there_an_error_during_dma (struct pci_dev);
-> > 
-> > right?  And it could return true/false, right?  I can certainly 
-> > do that today with ppc64.  I just can't tell you which dma triggered
-> > the problem.
+On Thu, Mar 03, 2005 at 09:46:12AM +1100, Benjamin Herrenschmidt was heard to remark:
+> On Wed, 2005-03-02 at 14:02 -0600, Linas Vepstas wrote:
+> > On Wed, Mar 02, 2005 at 09:27:27AM +1100, Benjamin Herrenschmidt was heard to remark:
 > 
-> That's ugly. I prefer asynchronous notification by far.
+> > That's a style issue.  Propose an API, I'll code it.   We can have
+> > the master recovery thread be a state machine, and so every device
+> > driver gets notified of state changes:
+> > 
+> > typedef enum pci_bus_state {
+> >      DEVICE_IO_FROZEN=1,
+> >      DEVICE_IO_THAWED,
+> >      DEVICE_PERM_FAILURE,
+> > };
+> > 
+> > struct pci_driver {
+> >    .... 
+> >    void (*io_state_change) (struct pci_dev *dev, pci_bus_state);
+> > };
+> > 
+> > would that work?
+> 
+> Too much ppc64-centric.
 
-Well, we've got that, I think the goal was to figure out what the
-PCI-Express folks think they need, and what the dev driver folks want.
+Ah Ben, you are hard to make happy.
 
-Put it another way: a device driver author should have the opportunity
-to poll the pci bus status if they so desire.  Polling for bus status
-on ppc64 is real easy.  Given what Jesse Barnes was saying, it sounded
-like a simple (optional, the dev driver doesn't have to use it) poll 
-is not enough, because some errors might be transactional.
+> Also, we want to use the re-enable IOs facility of EEH to give the
+> driver a chance to extract diagnostic infos from the HW.
 
+Yes, of course. Recovery would have to happen through multiple steps,
+one of which is re-enabling i/o.   (Another one would be to ask all of
+the device drivers affected by the outage if any of them need a 
+device reset.)
+
+Right now, my goal was not to specify the final interface with all the
+bits correct, but to get agreement that this particular approach, of
+modifying struct pci_driver, would make everyone happy.
 
 --linas
+
+
