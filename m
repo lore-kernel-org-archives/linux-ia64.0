@@ -1,124 +1,64 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 27 Feb 2004 13:58:20 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 28 Feb 2004 06:52:46 +0000
 Subject: Re: Oops in pdflush
-Message-Id: <5615.1077890300@ocs3.ocs.com.au>
+Message-Id: <16448.15038.132551.960807@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <je4qtl7u44.fsf@sykes.suse.de>
 In-Reply-To: <je4qtl7u44.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 27 Feb 2004 11:16:03 +0100, 
-Andreas Schwab <schwab@suse.de> wrote:
->pdflush[18140]: Oops 11012296146944 [1]
->
->Pid: 18140, CPU 1, comm:              pdflush
->psr : 0000121008026018 ifs : 8000000000000590 ip  : [<a00000010046e0d1>]    Not tainted
->ip is at nf_iterate+0x111/0x240
->unwind.init_frame_info:
->  task   0xe0000000110e0000
->  rbs = [0xe0000000110e0ef0-0xe0000000110e6ac8)
->  stk = [0xe0000000110e6ac8-0xe0000000110e8000)
->  pr     0x82aa6aa6a55596a7
->  sw     0xe0000000110e6160
->  sp     0xe0000000110e6ac8
+>>>>> On Sat, 28 Feb 2004 00:58:20 +1100, Keith Owens <kaos@sgi.com> said:
 
-Ouch.  rbs and stack have collided, kernel stack overflow.  rbs shows
-a normal start, then it loops with the same data over and over again
+  Keith> On Fri, 27 Feb 2004 11:16:03 +0100,
+  Keith> Andreas Schwab <schwab@suse.de> wrote:
+  >> pdflush[18140]: Oops 11012296146944 [1]
 
-0xe0000000110e0ef0 3d0bf108   ....=.ñ.
-0xe0000000110e0ef8 3fdad668   ....?ÚÖh
-0xe0000000110e0f00 3d376460   ....}`
-0xe0000000110e0f08 3c72c008   ....<rÀ.
-0xe0000000110e0f10 3d376660   ....`
-0xe0000000110e0f18 00000000   ........
-0xe0000000110e0f20 3fd1ebf8   ....?Ñëø
-0xe0000000110e0f28 8000000000000001   ........
-0xe0000000110e0f30 3d376e90   ....=7n.
-0xe0000000110e0f38 3d376a60   ....=7j`
-0xe0000000110e0f40 3d376e80   ....=7n.
-0xe0000000110e0f48 3d376ea8   ....=7n¨
-0xe0000000110e0f50 00000001   ........
-0xe0000000110e0f58 3d376e88   ....=7n.
-0xe0000000110e0f60 3d375810   ....=7X.
-0xe0000000110e0f68 3c91e590   ....<.å.
-0xe0000000110e0f70 3c8d7060   ....<.p`
-0xe0000000110e0f78 00000206   ........
-0xe0000000110e0f80 3cb02000   ....<° .
-0xe0000000110e0f88 3d0bf108   ....=.ñ.
-0xe0000000110e0f90 00001491   ........
-0xe0000000110e0f98 3c8d8b50   ....<..P
-0xe0000000110e0fa0 00000998   ........
-0xe0000000110e0fa8 80000000afb5952b   ....¯µ.+
-0xe0000000110e0fb0 3ff42000   ....?ô .
-0xe0000000110e0fb8 00000001   ........
-0xe0000000110e0fc0 3fdacd90   ....?ÚÍ.
-0xe0000000110e0fc8 a00000010082d898 num_physpages  
-0xe0000000110e0fd0 a0000001000085a0 _start+0x280  
-0xe0000000110e0fd8 00000998   ........
-0xe0000000110e0fe0 a000000100a17200    ....¡r.
-0xe0000000110e0fe8 a00000010068ce90 start_kernel+0x530  
-0xe0000000110e0ff0 00000611   ........
-0xe0000000110e0ff8 00000000   ........
-0xe0000000110e1000 00000611   ........
-0xe0000000110e1008 a000000100680990 __kstrtab_csum_partial_copy_nocheck+0xbc80  
-0xe0000000110e1010 00000000   ........
-0xe0000000110e1018 00000000   ........
-0xe0000000110e1020 e0000000046e0000   à....n..
-0xe0000000110e1028 a000000100009090 rest_init+0x30  
-0xe0000000110e1030 00000186   ........
-0xe0000000110e1038 a000000100a17200    ....¡r.
-0xe0000000110e1040 a0000001006de230 __initcall_pdflush_init  
-0xe0000000110e1048 00000000   ........
-0xe0000000110e1050 a000000100818660 _GLOBAL_OFFSET_TABLE_+0x1460  
-0xe0000000110e1058 a000000100818668 _GLOBAL_OFFSET_TABLE_+0x1468  
-0xe0000000110e1060 a000000100818678 _GLOBAL_OFFSET_TABLE_+0x1478  
-0xe0000000110e1068 a000000100818670 _GLOBAL_OFFSET_TABLE_+0x1470  
-0xe0000000110e1070 a0000001006d38f0 initcall_debug  
-0xe0000000110e1078 a0000001006de4f8 __con_initcall_start  
-0xe0000000110e1080 a000000100015480 kernel_thread+0x100  
-0xe0000000110e1088 00000389   ........
-0xe0000000110e1090 a000000100a17200    ....¡r.
-0xe0000000110e1098 a000000100009600 init+0x460  
-0xe0000000110e10a0 0000058e   ........
-0xe0000000110e10a8 00000000   ........
-0xe0000000110e10b0 a0000001006a6bd0 pdflush_init+0x30  
-0xe0000000110e10b8 00000183   ........
-0xe0000000110e10c0 00000000   ........
-0xe0000000110e10c8 a000000100682540 __kstrtab_csum_partial_copy_nocheck+0xd830  
-0xe0000000110e10d0 00000000   ........
-0xe0000000110e10d8 00000000   ........
-0xe0000000110e10e0 e00000003c738000   à...<s..
-0xe0000000110e10e8 a0000001000eb790 start_one_pdflush_thread+0x30  
-0xe0000000110e10f0 00000186   ........
-0xe0000000110e10f8 a000000100a17200    ....¡r.
-0xe0000000110e1100 a00000010072f670 pdflush_list  
-0xe0000000110e1108 e00000003c65fe18   à...<eþ.
-0xe0000000110e1110 a00000010082d858 pdflush_lock  
-0xe0000000110e1118 e00000003c65fe08   à...<eþ.
-0xe0000000110e1120 e00000003c65fe20   à...<eþ 
-0xe0000000110e1128 a00000010082b8a0 jiffies  
-0xe0000000110e1130 e00000003c65fe28   à...<eþ(
-0xe0000000110e1138 00004000   ......@.
-0xe0000000110e1140 00000001   ........
-0xe0000000110e1148 a00000010082d860 last_empty_jifs  
-0xe0000000110e1150 e00000003c65fe10   à...<eþ.
-0xe0000000110e1158 a00000010081cff8 _GLOBAL_OFFSET_TABLE_+0x5df8  
-0xe0000000110e1160 a00000010082ba80 nr_pdflush_threads  
-0xe0000000110e1168 00000400   ........
-0xe0000000110e1170 a00000010081d000 _GLOBAL_OFFSET_TABLE_+0x5e00  
-0xe0000000110e1178 a00000010072f678 pdflush_list+0x8  
-0xe0000000110e1180 a000000100015480 kernel_thread+0x100  
-0xe0000000110e1188 00000389   ........
-0xe0000000110e1190 a000000100a17200    ....¡r.
-0xe0000000110e1198 a0000001000ebb40 pdflush+0x380  
-0xe0000000110e11a0 00000994   ........
-0xe0000000110e11a8 e00000003c65fcd8   à...<eüØ
-0xe0000000110e11b0 a000000100682540 __kstrtab_csum_partial_copy_nocheck+0xd830  
+  >> Pid: 18140, CPU 1, comm:              pdflush
+  >> psr : 0000121008026018 ifs : 8000000000000590 ip  : [<a00000010046e0d1>]    Not tainted
+  >> ip is at nf_iterate+0x111/0x240
+  >> unwind.init_frame_info:
+  >> task   0xe0000000110e0000
+  >> rbs = [0xe0000000110e0ef0-0xe0000000110e6ac8)
+  >> stk = [0xe0000000110e6ac8-0xe0000000110e8000)
+  >> pr     0x82aa6aa6a55596a7
+  >> sw     0xe0000000110e6160
+  >> sp     0xe0000000110e6ac8
 
-Repeat from __kstrtab_csum_partial_copy_nocheck+0xd830 until the stack
-overflows.  That certainly explains why the backtrace is failing.  Now
-the real question is why did the code loop?
+  Keith> Ouch.  rbs and stack have collided, kernel stack overflow.  rbs shows
+  Keith> a normal start, then it loops with the same data over and over again
 
+So if I'm reading this right, we get a case that looks like unbounded
+recursion:
+
+	pdflush -> start_one_pdflush_thread -> kernel_thread -> pdflush ...
+
+Except, I don't think this is real recursion.  Instead, we effectively
+get a (potentially unbounded) sequence of one kernel thread creating
+another thread.  Each new kernel thread gets nested one deeper,
+eventually leading to a stack overflow...
+
+Argh, this wasn't supposed to happen!  It's not entirely trivial to
+fix.  Obviously we could try to modify copy_thread() so it resets the
+stack to the top, but in doing so, we still must preserve the stack
+frame of kernel_thread().  That wouldn't be a problem---if only we
+knew how big that frame was!  (Well, OK, then there would also be RNaT
+slots to worry about, but that could be handled by ensuring that the
+new and old stacks are congruent in that regard).
+
+Hmmh, I think perhaps the right way to fix this is to use a separate
+continuation function, which will then take care of doing the
+child-specific actions.  Let me see if I can come up with something.
+
+Oh, well, now I'm finding that this is of course exactly how Linus
+changed the x86 code some 19 months ago (for other reasons though, it
+seems):
+
+  http://linux.bkbits.net:8080/linux-2.5/diffs/arch/i386/kernel/process.c@1.19.1.11
+
+Say, Andreas, did you by chance have 3 disk drives in your Tiger?
+Does it boot fine if you remove one or two of the disks?
+
+	--david
