@@ -1,26 +1,28 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Wed, 10 Mar 2004 18:45:43 +0000
+From: Andreas Schwab <schwab@suse.de>
+Date: Wed, 10 Mar 2004 22:54:12 +0000
 Subject: Re: show_mem panic
-Message-Id: <20040310184543.GA9355@sgi.com>
+Message-Id: <jer7w0cnzf.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20040310180923.GA9032@sgi.com>
 In-Reply-To: <20040310180923.GA9032@sgi.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Wed, Mar 10, 2004 at 10:09:23AM -0800, Jesse Barnes wrote:
+jbarnes@sgi.com (Jesse Barnes) writes:
+
 > It's in the inner loop looking at the pages in the first node's
 > node_mem_map.  I'm almost positive that this code worked in the past,
 > Andreas, when you reproduced this on a tiger machine was it with
 > CONFIG_VIRTUAL_MEM_MAP enabled?
 
-Bjorn just informed me that John Marvin was taking a look at this.  It
-looks like we need to make sure the page we're about to look at is
-valid for the virtual mem map case.  And btw, it looks like the contig
-version of show_mem should be fixed: total shouldn't include
-non-existant pages (if we add pfn_valid checks to both the discontig and
-contig versions that should be an easy fix).
+Yes, that's our standard configuration.
 
-Jesse
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
