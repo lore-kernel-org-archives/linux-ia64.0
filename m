@@ -1,18 +1,36 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Sat, 05 Jan 2002 01:03:35 +0000
-Subject: [Linux-ia64] [PATCH]  Support for alternative kernel profiler in a module
+Date: Wed, 09 Jan 2002 21:37:34 +0000
+Subject: RE: [Linux-ia64] [PATCH]  Support for alternative kernel profiler
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C19584.CD119DB0"
-Message-Id: <marc-linux-ia64-105590698805742@msgid-missing>
+Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C19955.D96DDBD0"
+Message-Id: <marc-linux-ia64-105590698805783@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590698805742@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590698805742@msgid-missing>
 To: linux-ia64@vger.kernel.org
 
 This message is in MIME format. Since your mail reader does not understand
 this format, some or all of this message may not be legible.
 
-------_=_NextPart_000_01C19584.CD119DB0
+------_=_NextPart_000_01C19955.D96DDBD0
 Content-Type: text/plain;
 	charset="iso-8859-1"
+
+It turns out that we don't really need to have init_tasks[] exported.
+
+Here is a revised version of the patch with just the change to add
+SA_PERCPU_IRQ to the flags accepted by request_irq()
+
+-Tony
+
+-----Original Message-----
+From: Luck, Tony [mailto:tony.luck@intel.com]
+Sent: Friday, January 04, 2002 5:04 PM
+To: 'davidm@hpl.hp.com'
+Cc: linux-ia64@linuxia64.org
+Subject: [Linux-ia64] [PATCH] Support for alternative kernel profiler in
+a module
+
 
 To allow an alternative kernel profiler using the ia64
 perfomance counters to be loaded as a module, a couple
@@ -31,7 +49,8 @@ tabs and spaces.
 -Tony Luck
 
 
-------_=_NextPart_000_01C19584.CD119DB0
+
+------_=_NextPart_000_01C19955.D96DDBD0
 Content-Type: application/octet-stream;
 	name="DIFF"
 Content-Transfer-Encoding: quoted-printable
@@ -73,20 +92,6 @@ linux/include/asm-ia64/signal.h=0A=
  =0A=
  #endif /* __KERNEL__ */=0A=
  =0A=
-diff -ru ../../REF/2.4.17-ia64-011226/kernel/ksyms.c =
-linux/kernel/ksyms.c=0A=
---- ../../REF/2.4.17-ia64-011226/kernel/ksyms.c	Mon Dec 31 09:02:39 =
-2001=0A=
-+++ linux/kernel/ksyms.c	Fri Jan  4 16:22:11 2002=0A=
-@@ -556,6 +556,7 @@=0A=
- /* init task, for moving kthread roots - ought to export a function ?? =
-*/=0A=
- =0A=
- EXPORT_SYMBOL(init_task_union);=0A=
-+EXPORT_SYMBOL(init_tasks);=0A=
- =0A=
- EXPORT_SYMBOL(tasklist_lock);=0A=
- EXPORT_SYMBOL(pidhash);=0A=
 
-------_=_NextPart_000_01C19584.CD119DB0--
+------_=_NextPart_000_01C19955.D96DDBD0--
 
