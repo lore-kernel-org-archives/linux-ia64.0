@@ -1,7 +1,7 @@
-From: jbarnes@sgi.com (Jesse Barnes)
-Date: Sun, 05 Oct 2003 20:47:05 +0000
+From: Christoph Hellwig <hch@lst.de>
+Date: Mon, 06 Oct 2003 12:19:33 +0000
 Subject: Re: [PATCH] kill sn_ksyms.c
-Message-Id: <marc-linux-ia64-106538699221740@msgid-missing>
+Message-Id: <marc-linux-ia64-106544279227570@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-106451999732538@msgid-missing>
 In-Reply-To: <marc-linux-ia64-106451999732538@msgid-missing>
@@ -21,7 +21,7 @@ On Sun, Oct 05, 2003 at 12:33:00PM -0400, Jes Sorensen wrote:
 > symbols so I'd prefer to keep this file in place, at least for
 > now. And yes, said drivers are GPL'ed.
 
-Or just move that stuff when we submit the drivers.  I think Robin
-looked at this a bit...
+Most of that stuff isn't even used by ioc4 or fetchop and *ksyms.c are
+on their way out.  Add new exports to the files defining the symbols
+when a new drivers needs them.
 
-Jesse
