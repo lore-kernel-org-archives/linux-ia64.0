@@ -1,50 +1,73 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 31 Jul 2001 01:28:38 +0000
-Subject: Re: [Linux-ia64] patch ia32 mode [Threads don't wake up in ia32 mode]
-Message-Id: <marc-linux-ia64-105590693005963@msgid-missing>
+From: Richard Hirst <rhirst@linuxcare.com>
+Date: Thu, 12 Jul 2001 11:16:58 +0000
+Subject: [Linux-ia64] 010626 kernel, copy_from_user() broken?
+Message-Id: <marc-linux-ia64-105590693005846@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590693005927@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590693005927@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch looks correct to me, so I applied.  Don, speak up if you
-object...
+Hi,
+  Summary:  I had to change PIPE_DEPTH in arch/ia64/lib/copy_user.S
+from 21 to 4 to make copy_from_user() work with non-aligned user
+addresses on my B3 cpu.  PIPE_DEPTH was 4 in the 010530 kernel.
 
-	--david
+Long description of how I got to this point:
 
->>>>> On Thu, 26 Jul 2001 19:34:47 +0200, "Jose Luu" <jluu@mainsoft.com> said:
+  I'm working on the debian installer for ia64.  Most of the functionality,
+including /bin/mount, is provided by busybox.  The first thing rcS does
+on booting the installer is "mount proc /proc -t proc".  That worked fine
+with the 010530 kernel, but fails with 010626.
 
-  Jose> This is the solution to the problem I described in june,
+Basically the kernel seems to have trouble reading the filesystem type
+parameter, thinks it is an empty string, and ends up calling modprobe
+for module name "".
 
-  Jose> see test case there:
-  Jose> https://external-lists.valinux.com/archives//linux-ia64/2001-June/001792.htm
-  Jose> l
+Busybox mount uses getopt() to process its arguments, and when it finds
+-t it simply sents char *filesystemtype = optarg.  That means the type
+argument to mount() is different from device and dir, because it is
+referencing env space.  If I make busybox malloc space for the type
+string and copy optarg there, it works fine.
 
-  Jose> There was an oversight on the size of the long, which caused
-  Jose> an improper restoration of the real time signals blocking mask
-  Jose> of the 32 bit frame, 2 of these signals are used by the
-  Jose> pthreads library for wakeup or cancellation.
+I got busybox mount to print the first three args to mount() before and
+after the call:
 
-  Jose> This patch can be applied to all 2.4.x series kernels
-  Jose> including 2.4.7, since the file has not changed.
+0x60000000000150e0=/proc
+0x60000000000160f0=/proc
+0x80000fffffffbf84=proc
 
-  Jose> Jose
+same before and after, as expected.  I got the kernel sys_mount to print
+the address in user space of the type arg, which matched the users idea
+of the value.  sys_mount() calls copy_mount_options (type, &type_page),
+but if I then printk("'%s'\n", (char *)type_page), it yields ''.
+
+I added printk's to copy_mount_options(), and saw it calls
+
+copy_from_user(0xe00000003dc98000,0x80000fffffffbf84, 0x4000), which
+claims to copy 0x7c bytes (i.e. to end of page).
+
+I then did "export a=b" and tried the mount again; this time the type
+param was at user address 0x80000fffffffbf80, and the mount worked.
+
+Checking kernel changes, I found this.  Reverting the change made it work
+again:
+
+ 
+diff -urN linux-2.4.5/arch/ia64/lib/copy_user.S linux-2.4.5-lia/arch/ia64/lib/copy_user.S
+--- linux-2.4.5/arch/ia64/lib/copy_user.S	Sun Apr 29 15:49:26 2001
++++ linux-2.4.5-lia/arch/ia64/lib/copy_user.S	Tue Jun 26 22:31:21 2001
+@@ -35,7 +35,7 @@
+ // Tuneable parameters
+ //
+ #define COPY_BREAK	16	// we do byte copy below (must be >)
+-#define PIPE_DEPTH	4	// pipe depth
++#define PIPE_DEPTH	21	// pipe depth
+ 
+ #define EPI		p[PIPE_DEPTH-1] // PASTE(p,16+PIPE_DEPTH-1)
+ 
 
 
-  Jose> --- 2.4.5/arch/ia64/ia32/ia32_signal.c Tue Oct 10 02:54:53
-  Jose> 2000 +++ new-2.4.5/arch/ia64/ia32/ia32_signal.c Thu Jul 26
-  Jose> 12:49:42 2001 @@ -279,7 +279,7 @@ err |  Jose> setup_sigcontext_ia32(&frame->sc, &frame->fpstate, regs,
-  set-> sig[0]);
+Richard
 
-  Jose>         if (_IA32_NSIG_WORDS > 1) { - err |  Jose> __copy_to_user(frame->extramask, &set->sig[1], + err |  Jose> __copy_to_user(frame->extramask,(((char *) &set->sig) + 4) ,
-  Jose> sizeof(frame->extramask)); }
-
-
-
-  Jose> _______________________________________________ Linux-IA64
-  Jose> mailing list Linux-IA64@linuxia64.org
-  Jose> http://lists.linuxia64.org/lists/listinfo/linux-ia64
 
