@@ -1,7 +1,7 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Tue, 04 Jan 2005 23:14:26 +0000
-Subject: Prezeroing V3 [2/4]: Extension of clear_page to take an order
-Message-Id: <Pine.LNX.4.58.0501041513330.1536@schroedinger.engr.sgi.com>
+Date: Wed, 05 Jan 2005 23:25:20 +0000
+Subject: Re: Prezeroing V3 [2/4]: Extension of clear_page to take an order
+Message-Id: <Pine.LNX.4.58.0501051524020.9911@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.com>
  <41C20E3E.3070209@yahoo.com.au> <Pine.LNX.4.58.0412211154100.1313@schroedinger.engr.sgi.com>
@@ -10,13 +10,16 @@ References: <B8E391BBE9FE384DAA4C5C003888BE6F02900FBD@scsmsx401.amr.corp.intel.c
  <Pine.LNX.4.58.0412231133130.31791@schroedinger.engr.sgi.com>
  <Pine.GSO.4.61.0501011123550.27452@waterleaf.sonytel.be>
  <Pine.LNX.4.58.0501041510430.1536@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.58.0501041510430.1536@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0501041513330.1536@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0501041513330.1536@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-To: Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, Linus Torvalds <torvalds@osdl.org>, linux-mm@kvack.org, Linux Kernel Development <linux-kernel@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>, linux-mm@kvack.org, Linux Kernel Development <linux-kernel@vger.kernel.org>
 
-o Extend clear_page to take an order parameter for all architectures.
+Here is an updated version that is independent of the first patch and
+contains all the necessary modifications to make clear_page take a second
+parameter.
 
 Architecture support:
 ---------------------
@@ -52,13 +55,11 @@ sh
 mips
 m32r
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-
 Index: linux-2.6.10/include/asm-ia64/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-ia64/page.h	2004-=
 12-24 13:34:00.000000000 -0800
-+++ linux-2.6.10/include/asm-ia64/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-ia64/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -56,7 +56,7 @@
  # ifdef __KERNEL__
  #  define STRICT_MM_TYPECHECKS
@@ -80,8 +81,8 @@ Index: linux-2.6.10/include/asm-ia64/page.h
 Index: linux-2.6.10/include/asm-i386/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-i386/page.h	2005-=
-01-04 12:16:41.000000000 -0800
-+++ linux-2.6.10/include/asm-i386/page.h	2005-01-04 12:34:03.000000000 -0800
+01-04 14:17:01.000000000 -0800
++++ linux-2.6.10/include/asm-i386/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -18,7 +18,7 @@
 
  #include <asm/mmx.h>
@@ -110,8 +111,8 @@ der))
 Index: linux-2.6.10/include/asm-x86_64/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-x86_64/page.h	200=
-5-01-04 12:16:41.000000000 -0800
-+++ linux-2.6.10/include/asm-x86_64/page.h	2005-01-04 12:34:03.000000000 -0=
+5-01-04 14:17:01.000000000 -0800
++++ linux-2.6.10/include/asm-x86_64/page.h	2005-01-05 10:09:51.000000000 -0=
 800
 @@ -32,10 +32,10 @@
  #ifdef __KERNEL__
@@ -130,7 +131,7 @@ Index: linux-2.6.10/include/asm-sparc/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sparc/page.h	2004=
 -12-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/include/asm-sparc/page.h	2005-01-04 12:34:03.000000000 -08=
++++ linux-2.6.10/include/asm-sparc/page.h	2005-01-05 10:09:51.000000000 -08=
 00
 @@ -28,10 +28,10 @@
 
@@ -150,7 +151,7 @@ Index: linux-2.6.10/include/asm-s390/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-s390/page.h	2004-=
 12-24 13:34:01.000000000 -0800
-+++ linux-2.6.10/include/asm-s390/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-s390/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -22,12 +22,12 @@
 
  #ifndef __s390x__
@@ -201,7 +202,7 @@ Index: linux-2.6.10/arch/i386/lib/mmx.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/i386/lib/mmx.c	2004-12-2=
 4 13:34:48.000000000 -0800
-+++ linux-2.6.10/arch/i386/lib/mmx.c	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/arch/i386/lib/mmx.c	2005-01-05 10:09:51.000000000 -0800
 @@ -128,7 +128,7 @@
   *	other MMX using processors do not.
   */
@@ -272,7 +273,7 @@ Index: linux-2.6.10/include/asm-x86_64/mmx.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-x86_64/mmx.h	2004=
 -12-24 13:34:57.000000000 -0800
-+++ linux-2.6.10/include/asm-x86_64/mmx.h	2005-01-04 12:34:03.000000000 -08=
++++ linux-2.6.10/include/asm-x86_64/mmx.h	2005-01-05 10:09:51.000000000 -08=
 00
 @@ -8,7 +8,7 @@
  #include <linux/types.h>
@@ -287,7 +288,7 @@ Index: linux-2.6.10/arch/ia64/lib/clear_page.S
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/ia64/lib/clear_page.S	20=
 04-12-24 13:33:50.000000000 -0800
-+++ linux-2.6.10/arch/ia64/lib/clear_page.S	2005-01-04 12:34:03.000000000 -=
++++ linux-2.6.10/arch/ia64/lib/clear_page.S	2005-01-05 10:09:51.000000000 -=
 0800
 @@ -7,6 +7,7 @@
   * 1/06/01 davidm	Tuned for Itanium.
@@ -341,7 +342,7 @@ Index: linux-2.6.10/arch/x86_64/lib/clear_page.S
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/x86_64/lib/clear_page.S	=
 2004-12-24 13:34:33.000000000 -0800
-+++ linux-2.6.10/arch/x86_64/lib/clear_page.S	2005-01-04 12:34:03.000000000=
++++ linux-2.6.10/arch/x86_64/lib/clear_page.S	2005-01-05 10:09:51.000000000=
  -0800
 @@ -7,6 +7,7 @@
  clear_page:
@@ -363,7 +364,7 @@ Index: linux-2.6.10/include/asm-sh/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sh/page.h	2004-12=
 -24 13:35:28.000000000 -0800
-+++ linux-2.6.10/include/asm-sh/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-sh/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -36,12 +36,22 @@
  #ifdef __KERNEL__
  #ifndef __ASSEMBLY__
@@ -403,7 +404,7 @@ Index: linux-2.6.10/include/asm-i386/mmx.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-i386/mmx.h	2004-1=
 2-24 13:34:57.000000000 -0800
-+++ linux-2.6.10/include/asm-i386/mmx.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-i386/mmx.h	2005-01-05 10:09:51.000000000 -0800
 @@ -8,7 +8,7 @@
  #include <linux/types.h>
 
@@ -417,7 +418,7 @@ Index: linux-2.6.10/arch/alpha/lib/clear_page.S
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/alpha/lib/clear_page.S	2=
 004-12-24 13:35:25.000000000 -0800
-+++ linux-2.6.10/arch/alpha/lib/clear_page.S	2005-01-04 12:34:03.000000000 =
++++ linux-2.6.10/arch/alpha/lib/clear_page.S	2005-01-05 10:09:51.000000000 =
 -0800
 @@ -6,11 +6,10 @@
 
@@ -444,7 +445,7 @@ Index: linux-2.6.10/include/asm-sh64/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sh64/page.h	2004-=
 12-24 13:34:33.000000000 -0800
-+++ linux-2.6.10/include/asm-sh64/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-sh64/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -50,12 +50,20 @@
  extern void sh64_page_clear(void *page);
  extern void sh64_page_copy(void *from, void *to);
@@ -472,7 +473,7 @@ Index: linux-2.6.10/include/asm-h8300/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-h8300/page.h	2004=
 -12-24 13:35:25.000000000 -0800
-+++ linux-2.6.10/include/asm-h8300/page.h	2005-01-04 12:34:03.000000000 -08=
++++ linux-2.6.10/include/asm-h8300/page.h	2005-01-05 10:09:51.000000000 -08=
 00
 @@ -24,10 +24,10 @@
  #define get_user_page(vaddr)		__get_free_page(GFP_KERNEL)
@@ -491,7 +492,7 @@ Index: linux-2.6.10/include/asm-arm/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-arm/page.h	2004-1=
 2-24 13:34:01.000000000 -0800
-+++ linux-2.6.10/include/asm-arm/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-arm/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -128,7 +128,7 @@
  		preempt_enable();			\
  	} while (0)
@@ -506,7 +507,7 @@ Index: linux-2.6.10/include/asm-ppc64/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-ppc64/page.h	2004=
 -12-24 13:33:49.000000000 -0800
-+++ linux-2.6.10/include/asm-ppc64/page.h	2005-01-04 12:34:03.000000000 -08=
++++ linux-2.6.10/include/asm-ppc64/page.h	2005-01-05 10:09:51.000000000 -08=
 00
 @@ -102,12 +102,12 @@
  #define REGION_MASK   (((1UL<<REGION_SIZE)-1UL)<<REGION_SHIFT)
@@ -527,7 +528,7 @@ Index: linux-2.6.10/include/asm-m32r/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-m32r/page.h	2004-=
 12-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/include/asm-m32r/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-m32r/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -11,10 +11,22 @@
  #ifdef __KERNEL__
  #ifndef __ASSEMBLY__
@@ -557,7 +558,7 @@ Index: linux-2.6.10/include/asm-alpha/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-alpha/page.h	2004=
 -12-24 13:35:24.000000000 -0800
-+++ linux-2.6.10/include/asm-alpha/page.h	2005-01-04 12:34:03.000000000 -08=
++++ linux-2.6.10/include/asm-alpha/page.h	2005-01-05 10:09:51.000000000 -08=
 00
 @@ -15,8 +15,20 @@
 
@@ -586,7 +587,7 @@ Index: linux-2.6.10/arch/mips/mm/pg-sb1.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/mips/mm/pg-sb1.c	2004-12=
 -24 13:35:50.000000000 -0800
-+++ linux-2.6.10/arch/mips/mm/pg-sb1.c	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/arch/mips/mm/pg-sb1.c	2005-01-05 10:09:51.000000000 -0800
 @@ -42,7 +42,7 @@
  #ifdef CONFIG_SIBYTE_DMA_PAGEOPS
  static inline void clear_page_cpu(void *page)
@@ -624,7 +625,7 @@ Index: linux-2.6.10/include/asm-m68k/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-m68k/page.h	2004-=
 12-24 13:35:49.000000000 -0800
-+++ linux-2.6.10/include/asm-m68k/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-m68k/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -50,7 +50,7 @@
  		       );
  }
@@ -658,7 +659,7 @@ Index: linux-2.6.10/include/asm-mips/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-mips/page.h	2004-=
 12-24 13:34:31.000000000 -0800
-+++ linux-2.6.10/include/asm-mips/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-mips/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -39,7 +39,18 @@
  #ifdef __KERNEL__
  #ifndef __ASSEMBLY__
@@ -692,7 +693,7 @@ Index: linux-2.6.10/include/asm-m68knommu/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-m68knommu/page.h	=
 2004-12-24 13:34:33.000000000 -0800
-+++ linux-2.6.10/include/asm-m68knommu/page.h	2005-01-04 12:34:03.000000000=
++++ linux-2.6.10/include/asm-m68knommu/page.h	2005-01-05 10:09:51.000000000=
  -0800
 @@ -24,10 +24,10 @@
  #define get_user_page(vaddr)		__get_free_page(GFP_KERNEL)
@@ -711,7 +712,7 @@ Index: linux-2.6.10/include/asm-cris/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-cris/page.h	2004-=
 12-24 13:34:30.000000000 -0800
-+++ linux-2.6.10/include/asm-cris/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-cris/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -15,10 +15,10 @@
 
  #ifdef __KERNEL__
@@ -731,7 +732,7 @@ Index: linux-2.6.10/include/asm-v850/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-v850/page.h	2004-=
 12-24 13:35:00.000000000 -0800
-+++ linux-2.6.10/include/asm-v850/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-v850/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -37,11 +37,11 @@
 
  #define STRICT_MM_TYPECHECKS
@@ -751,7 +752,7 @@ Index: linux-2.6.10/include/asm-parisc/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-parisc/page.h	200=
 4-12-24 13:34:26.000000000 -0800
-+++ linux-2.6.10/include/asm-parisc/page.h	2005-01-04 12:34:03.000000000 -0=
++++ linux-2.6.10/include/asm-parisc/page.h	2005-01-05 10:09:51.000000000 -0=
 800
 @@ -13,7 +13,7 @@
  #include <asm/types.h>
@@ -768,7 +769,7 @@ Index: linux-2.6.10/arch/arm/mm/copypage-v6.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/arm/mm/copypage-v6.c	200=
 4-12-24 13:34:31.000000000 -0800
-+++ linux-2.6.10/arch/arm/mm/copypage-v6.c	2005-01-04 12:34:03.000000000 -0=
++++ linux-2.6.10/arch/arm/mm/copypage-v6.c	2005-01-05 10:09:51.000000000 -0=
 800
 @@ -47,7 +47,7 @@
   */
@@ -792,7 +793,7 @@ Index: linux-2.6.10/arch/m32r/mm/page.S
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/m32r/mm/page.S	2004-12-2=
 4 13:34:57.000000000 -0800
-+++ linux-2.6.10/arch/m32r/mm/page.S	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/arch/m32r/mm/page.S	2005-01-05 10:09:51.000000000 -0800
 @@ -51,7 +51,7 @@
  	jmp	r14
 
@@ -815,7 +816,7 @@ Index: linux-2.6.10/include/asm-ppc/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-ppc/page.h	2004-1=
 2-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/include/asm-ppc/page.h	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/include/asm-ppc/page.h	2005-01-05 10:09:51.000000000 -0800
 @@ -85,7 +85,7 @@
 
  struct page;
@@ -830,7 +831,7 @@ Index: linux-2.6.10/arch/alpha/kernel/alpha_ksyms.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/alpha/kernel/alpha_ksyms=
 .c	2004-12-24 13:33:51.000000000 -0800
-+++ linux-2.6.10/arch/alpha/kernel/alpha_ksyms.c	2005-01-04 12:34:03.000000=
++++ linux-2.6.10/arch/alpha/kernel/alpha_ksyms.c	2005-01-05 10:09:51.000000=
 000 -0800
 @@ -88,7 +88,7 @@
  EXPORT_SYMBOL(__memsetw);
@@ -845,7 +846,7 @@ Index: linux-2.6.10/arch/alpha/lib/ev6-clear_page.S
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/alpha/lib/ev6-clear_page=
 .S	2004-12-24 13:35:24.000000000 -0800
-+++ linux-2.6.10/arch/alpha/lib/ev6-clear_page.S	2005-01-04 12:34:03.000000=
++++ linux-2.6.10/arch/alpha/lib/ev6-clear_page.S	2005-01-05 10:09:51.000000=
 000 -0800
 @@ -6,9 +6,9 @@
 
@@ -870,7 +871,7 @@ Index: linux-2.6.10/arch/sh/mm/init.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sh/mm/init.c	2004-12-24 =
 13:35:24.000000000 -0800
-+++ linux-2.6.10/arch/sh/mm/init.c	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/arch/sh/mm/init.c	2005-01-05 10:09:51.000000000 -0800
 @@ -57,7 +57,7 @@
  #endif
 
@@ -893,7 +894,7 @@ Index: linux-2.6.10/arch/sh/mm/pg-dma.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sh/mm/pg-dma.c	2004-12-2=
 4 13:35:00.000000000 -0800
-+++ linux-2.6.10/arch/sh/mm/pg-dma.c	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/arch/sh/mm/pg-dma.c	2005-01-05 10:09:51.000000000 -0800
 @@ -78,7 +78,7 @@
  		return ret;
 
@@ -907,7 +908,7 @@ Index: linux-2.6.10/arch/sh/mm/pg-nommu.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sh/mm/pg-nommu.c	2004-12=
 -24 13:34:32.000000000 -0800
-+++ linux-2.6.10/arch/sh/mm/pg-nommu.c	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/arch/sh/mm/pg-nommu.c	2005-01-05 10:09:51.000000000 -0800
 @@ -27,7 +27,7 @@
  static int __init pg_nommu_init(void)
  {
@@ -921,7 +922,7 @@ Index: linux-2.6.10/arch/mips/mm/pg-r4k.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/mips/mm/pg-r4k.c	2004-12=
 -24 13:34:49.000000000 -0800
-+++ linux-2.6.10/arch/mips/mm/pg-r4k.c	2005-01-04 12:34:03.000000000 -0800
++++ linux-2.6.10/arch/mips/mm/pg-r4k.c	2005-01-05 10:09:51.000000000 -0800
 @@ -39,9 +39,9 @@
 
  static unsigned int clear_page_array[0x130 / 4];
@@ -938,7 +939,7 @@ Index: linux-2.6.10/arch/m32r/kernel/m32r_ksyms.c
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/m32r/kernel/m32r_ksyms.c=
 	2004-12-24 13:34:29.000000000 -0800
-+++ linux-2.6.10/arch/m32r/kernel/m32r_ksyms.c	2005-01-04 12:34:03.00000000=
++++ linux-2.6.10/arch/m32r/kernel/m32r_ksyms.c	2005-01-05 10:09:51.00000000=
 0 -0800
 @@ -102,7 +102,7 @@
  EXPORT_SYMBOL(memcmp);
@@ -953,7 +954,7 @@ Index: linux-2.6.10/include/asm-arm26/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-arm26/page.h	2004=
 -12-24 13:35:22.000000000 -0800
-+++ linux-2.6.10/include/asm-arm26/page.h	2005-01-04 12:34:03.000000000 -08=
++++ linux-2.6.10/include/asm-arm26/page.h	2005-01-05 10:09:51.000000000 -08=
 00
 @@ -25,7 +25,7 @@
  		preempt_enable();			\
@@ -969,7 +970,7 @@ Index: linux-2.6.10/include/asm-sparc64/page.h
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/asm-sparc64/page.h	20=
 04-12-24 13:34:32.000000000 -0800
-+++ linux-2.6.10/include/asm-sparc64/page.h	2005-01-04 12:34:03.000000000 -=
++++ linux-2.6.10/include/asm-sparc64/page.h	2005-01-05 10:09:51.000000000 -=
 0800
 @@ -14,8 +14,8 @@
 
@@ -987,7 +988,7 @@ Index: linux-2.6.10/arch/sparc64/lib/clear_page.S
 =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
 =3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/arch/sparc64/lib/clear_page.S=
 	2004-12-24 13:35:23.000000000 -0800
-+++ linux-2.6.10/arch/sparc64/lib/clear_page.S	2005-01-04 12:34:03.00000000=
++++ linux-2.6.10/arch/sparc64/lib/clear_page.S	2005-01-05 10:09:51.00000000=
 0 -0800
 @@ -28,9 +28,12 @@
  	.text
@@ -1023,4 +1024,55 @@ Index: linux-2.6.10/arch/sparc64/lib/clear_page.S
  	faddd		%f0, %f2, %f4
  	fmuld		%f0, %f2, %f6
  	faddd		%f0, %f2, %f8
+Index: linux-2.6.10/drivers/net/tc35815.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/drivers/net/tc35815.c	2005-01=
+-05 09:43:48.000000000 -0800
++++ linux-2.6.10/drivers/net/tc35815.c	2005-01-05 10:09:51.000000000 -0800
+@@ -657,7 +657,7 @@
+ 		dma_cache_wback_inv((unsigned long)lp->fd_buf, PAGE_SIZE * FD_PAGE_NUM);
+ #endif
+ 	} else {
+-		clear_page(lp->fd_buf);
++		clear_page(lp->fd_buf, 0);
+ #ifdef __mips__
+ 		dma_cache_wback_inv((unsigned long)lp->fd_buf, PAGE_SIZE * FD_PAGE_NUM);
+ #endif
+Index: linux-2.6.10/mm/page_alloc.c
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/mm/page_alloc.c	2005-01-05 09=
+:32:52.000000000 -0800
++++ linux-2.6.10/mm/page_alloc.c	2005-01-05 10:09:51.000000000 -0800
+@@ -550,10 +550,14 @@
+  * or two.
+  */
+ static inline void prep_zero_page(struct page *page, int order) {
+-	int i;
+
+-	for(i =3D 0; i < 1 << order; i++)
+-		clear_highpage(page + i);
++	if (PageHighMem(page)) {
++		int i;
++
++		for(i =3D 0; i < 1 << order; i++)
++			clear_highpage(page + i);
++	} else
++		clear_page(page_address(page), order);
+ }
+
+ static struct page *
+Index: linux-2.6.10/include/linux/highmem.h
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux-2.6.10.orig/include/linux/highmem.h	2005-=
+01-05 10:09:44.000000000 -0800
++++ linux-2.6.10/include/linux/highmem.h	2005-01-05 10:10:08.000000000 -0800
+@@ -45,7 +45,7 @@
+ static inline void clear_highpage(struct page *page)
+ {
+ 	void *kaddr =3D kmap_atomic(page, KM_USER0);
+-	clear_page(kaddr);
++	clear_page(kaddr, 0);
+ 	kunmap_atomic(kaddr, KM_USER0);
+ }
+
 
