@@ -1,43 +1,40 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 23 Feb 2004 19:12:49 +0000
-Subject: bk pull on ia64 linux tree
-Message-Id: <16442.20657.802164.952563@napali.hpl.hp.com>
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 05 Feb 2004 21:50:09 +0000
+Subject: Re: q-tools-0.0 released
+Message-Id: <20040205215009.GA2316@cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
-In-Reply-To: <Pine.LNX.4.58.0401121658240.14305@evo.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Linus,
+On Sat, Dec 06, 2003 at 05:17:20PM -0800, David Mosberger wrote:
+> I finally got around to releasing a _snaphot_ of my profiling tools.
+...
 
-please do a
+> You can get q-tools from:
+> 
+>  ftp://ftp.hpl.hp.com/pub/linux-ia64/q-tools-0.0.tar.gz
 
-	bk pull http://lia64.bkbits.net/to-linus-2.5
+Is there a newer version of the tools?
+I tried to build this on a Debian "testing" box and got:
+gsyprf3:/usr/src/q-tools-0.0# make
+make[1]: Entering directory `/usr/src/q-tools-0.0/q-syscollect'
+cc -g -O2 -Wall -D_GNU_SOURCE -I.  -c -o q-syscollect.o q-syscollect.c
+q-syscollect.c:34:29: perfmon/perfmon.h: No such file or directory
+q-syscollect.c:35:42: perfmon/perfmon_default_smpl.h: No such file or directory
+q-syscollect.c:36:28: perfmon/pfmlib.h: No such file or directory
+q-syscollect.c:37:37: perfmon/pfmlib_itanium2.h: No such file or directory
+q-syscollect.c:131: error: parse error before "pd"
+...
 
-SGI badly wants the 64-bit DMA fix to be in your tree...
 
-Thanks!
+> There is a README in there which should contain everything needed to
+> get you started (if not, complain and I'll fix it).
 
-	--david
+Ok! :^)
 
- arch/ia64/sn/io/machvec/pci_dma.c |   72 +++++++++++++++++---------------------
- include/asm-ia64/tlb.h            |    1 
- 2 files changed, 34 insertions(+), 39 deletions(-)
+thanks,
+grant
 
-through these ChangeSets:
-
-<jeremy@sgi.com> (04/02/20 1.1661)
-   [PATCH] ia64: Fix 64 bit DMA mapping problem with PCI cards on SN2
-   
-   PCI cards were forced to 32 bit addresses.  There is significant
-   extra overhead to DMA setup with 32 bit, and it is fairly easy to
-   run out of mapping resources.
-   
-   This patch reenables 64 bit DMA mapping for PCI cards.
-
-<akpm@osdl.org> (04/02/20 1.1660)
-   [PATCH] ia64: fix sched.c compile warning
-   
-
+ps. looks very cool and I have a need for it.
