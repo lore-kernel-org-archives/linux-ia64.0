@@ -1,28 +1,76 @@
-From: Patrick Mochel <mochel@osdl.org>
-Date: Tue, 02 Sep 2003 16:17:59 +0000
-Subject: Re: [PATCH] efivars update
-Message-Id: <marc-linux-ia64-106252231223237@msgid-missing>
+From: Christoph Hellwig <hch@lst.de>
+Date: Sun, 28 Sep 2003 11:09:30 +0000
+Subject: [PATCH] fix intr_heuristic()
+Message-Id: <marc-linux-ia64-106474754102037@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106219352715985@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106219352715985@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-
-> > That patch is below. I'll be sending it to Linus once he gets back from
-> > vacation, unless anyone has any serious objections to it. Note that it
-> > completely removes any limitation on the length of a kobject (and sysfs
-> > directory) name.
-> 
-> Why keep another copy of the name?  Why not use kobj->dentry->qstr->name?
-
-The problem is defining it. The dentry is not allocated until the kobject 
-is registered, and we call through to sysfs. That's not so much a problem, 
-but we'd have to pass the name along with the object down to sysfs in 
-order to create the dentry, which would be a bit messy, IMO.
+One of the earlier patches missed to call intr_reserve_level()
+for certain cases.  
 
 
-	Pat
-
+--- 1.6/arch/ia64/sn/io/sn2/ml_SN_intr.c	Fri Sep 26 13:38:25 2003
++++ edited/arch/ia64/sn/io/sn2/ml_SN_intr.c	Sun Sep 28 10:26:47 2003
+@@ -285,7 +273,6 @@
+ cpuid_t intr_heuristic(vertex_hdl_t dev, int req_bit, int *resp_bit)
+ {
+ 	cpuid_t		cpuid;
+-	cpuid_t		candidate = CPU_NONE;
+ 	vertex_hdl_t	pconn_vhdl;
+ 	pcibr_soft_t	pcibr_soft;
+ 	int 		bit;
+@@ -293,30 +280,32 @@
+ 	/* XXX: gross layering violation.. */
+ 	if (hwgraph_edge_get(dev, EDGE_LBL_PCI, &pconn_vhdl) = GRAPH_SUCCESS) {
+ 		pcibr_soft = pcibr_soft_get(pconn_vhdl);
+-		if (pcibr_soft && pcibr_soft->bsi_err_intr)
+-			candidate = ((hub_intr_t)pcibr_soft->bsi_err_intr)->i_cpuid;
+-	}
+-
+-	if (candidate != CPU_NONE) {
+-		/*
+-		 * The cpu was chosen already when we assigned
+-		 * the error interrupt.
+-		 */
+-		bit = intr_reserve_level(candidate, req_bit);
+-		if (bit >= 0) {
+-			*resp_bit = bit;
+-			return candidate;
++		if (pcibr_soft && pcibr_soft->bsi_err_intr) {
++			/*
++			 * The cpu was chosen already when we assigned
++			 * the error interrupt.
++			 */
++			cpuid = ((hub_intr_t)pcibr_soft->bsi_err_intr)->i_cpuid;
++			goto done;
+ 		}
+-
+-		printk("Cannot target interrupt to target node (%ld).\n",candidate);
+-		return CPU_NONE;
+ 	}
+ 
+ 	/*
+ 	 * Need to choose one.  Try the controlling c-brick first.
+ 	 */
+ 	cpuid = intr_cpu_choose_from_node(master_node_get(dev));
+-	if (cpuid != CPU_NONE)
+-		return cpuid;
+-	return intr_cpu_choose_node();
++	if (cpuid = CPU_NONE)
++		cpuid = intr_cpu_choose_node();
++
++ done:
++	if (cpuid != CPU_NONE) {
++		bit = intr_reserve_level(req_bit);
++		if (bit >= 0) {
++			*resp_bit = bit;
++			return cpuid;
++		}
++	}
++
++	printk("Cannot target interrupt to target cpu (%ld).\n", cpuid);
++	return CPU_NONE;
+ }
