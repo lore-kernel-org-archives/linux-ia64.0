@@ -1,95 +1,160 @@
-From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 29 Oct 2004 23:58:13 +0000
-Subject: [PATCH] remove redundant macros
-Message-Id: <200410291658.13048.jbarnes@engr.sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_VktgBskSDJC9udv"
+From: Jack Steiner <steiner@sgi.com>
+Date: Mon, 25 Oct 2004 15:34:51 +0000
+Subject: [PATCH] - Delete obsolete code grom SGI console driver
+Message-Id: <20041025153450.GA24620@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_VktgBskSDJC9udv
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
 
-This patch removes some redundant nasid conversion macros from arch.h and 
-updates callers to use the version they were defined to instead.
+Tony - please apply:
 
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
 
-Thanks,
-Jesse
+Delete obsolete code that supports the SGI simulator. This
+support code has been moved into the fakeprom and is no
+longer required in the kernel.
 
---Boundary-00=_VktgBskSDJC9udv
-Content-Type: text/plain;
-  charset="us-ascii";
-  name="remove-redundant-nasid-macros.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="remove-redundant-nasid-macros.patch"
 
-===== arch/ia64/sn/kernel/io_init.c 1.5 vs edited =====
---- 1.5/arch/ia64/sn/kernel/io_init.c	2004-10-26 16:43:02 -07:00
-+++ edited/arch/ia64/sn/kernel/io_init.c	2004-10-29 16:01:27 -07:00
-@@ -136,7 +136,7 @@
+Signed-off-by: Jack Steiner <steiner@sgi.com>
+
+---
+
+--- linux_base/drivers/serial/sn_console.c	2004-10-22 11:36:37 -05:00
++++ linux/drivers/serial/sn_console.c	2004-10-25 10:23:55 -05:00
+@@ -108,7 +108,6 @@ static struct sn_cons_port sal_console_p
+ /* Only used if USE_DYNAMIC_MINOR is set to 1 */
+ static struct miscdevice misc;	/* used with misc_register for dynamic */
  
- 	for (i = 0; i < numionodes; i++) {
- 		hubdev = (struct hubdev_info *)(NODEPDA(i)->pdinfo);
--		nasid = COMPACT_TO_NASID_NODEID(i);
-+		nasid = cnodeid_to_nasid(i);
- 		status = sal_get_hubdev_info(nasid, (uint64_t) __pa(hubdev));
- 		if (status)
- 			continue;
-@@ -313,7 +313,7 @@
- 	SN_PCIBUS_BUSSOFT(bus) = provider_soft;
+-extern u64 __iomem *master_node_bedrock_address;
+ extern void early_sn_setup(void);
  
- 	nasid = NASID_GET(SN_PCIBUS_BUSSOFT(bus)->bs_base);
--	cnode = NASID_TO_COMPACT_NODEID(nasid);
-+	cnode = nasid_to_cnodeid(nasid);
- 	hubdev_info = (struct hubdev_info *)(NODEPDA(cnode)->pdinfo);
- 	SN_PCIBUS_BUSSOFT(bus)->bs_xwidget_info =
- 	    &(hubdev_info->hdi_xwidget_info[SN_PCIBUS_BUSSOFT(bus)->bs_xid]);
-===== arch/ia64/sn/pci/pcibr/pcibr_dma.c 1.2 vs edited =====
---- 1.2/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2004-10-20 13:25:07 -07:00
-+++ edited/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2004-10-29 16:00:49 -07:00
-@@ -226,10 +226,10 @@
- 		return;
+ #undef DEBUG
+@@ -124,9 +123,6 @@ static int snt_hw_puts_raw(const char *,
+ static int snt_hw_puts_buffered(const char *, int);
+ static int snt_poll_getc(void);
+ static int snt_poll_input_pending(void);
+-static int snt_sim_puts(const char *, int);
+-static int snt_sim_getc(void);
+-static int snt_sim_input_pending(void);
+ static int snt_intr_getc(void);
+ static int snt_intr_input_pending(void);
+ static void sn_transmit_chars(struct sn_cons_port *, int);
+@@ -140,14 +136,6 @@ static struct sn_sal_ops poll_ops = {
+ 	.sal_input_pending = snt_poll_input_pending
+ };
  
- 	nasid = NASID_GET(addr);
--	if (-1 == NASID_TO_COMPACT_NODEID(nasid))
-+	if (-1 == nasid_to_cnodeid(nasid))
- 		return;
- 
--	hubinfo = (NODEPDA(NASID_TO_COMPACT_NODEID(nasid)))->pdinfo;
-+	hubinfo = (NODEPDA(nasid_to_cnodeid(nasid)))->pdinfo;
- 
- 	if (!hubinfo) {
- 		BUG();
-===== arch/ia64/sn/pci/pcibr/pcibr_provider.c 1.1 vs edited =====
---- 1.1/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2004-10-11 13:03:57 -07:00
-+++ edited/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2004-10-29 16:01:03 -07:00
-@@ -98,7 +98,7 @@
- 	}
- 
- 	nasid = NASID_GET(soft->pbi_buscommon.bs_base);
--	cnode = NASID_TO_COMPACT_NODEID(nasid);
-+	cnode = nasid_to_cnodeid(nasid);
- 	hubdev_info = (struct hubdev_info *)(NODEPDA(cnode)->pdinfo);
- 
- 	if (hubdev_info->hdi_flush_nasid_list.widget_p) {
-===== include/asm-ia64/sn/arch.h 1.12 vs edited =====
---- 1.12/include/asm-ia64/sn/arch.h	2004-10-29 16:02:43 -07:00
-+++ edited/include/asm-ia64/sn/arch.h	2004-10-29 16:03:13 -07:00
-@@ -24,9 +24,6 @@
- 
- typedef u64	nic_t;
- 
--#define NASID_TO_COMPACT_NODEID(nasid)  (nasid_to_cnodeid(nasid))
--#define COMPACT_TO_NASID_NODEID(cnode)  (cnodeid_to_nasid(cnode))
+-/* A table for the simulator */
+-static struct sn_sal_ops sim_ops = {
+-	.sal_puts_raw = snt_sim_puts,
+-	.sal_puts = snt_sim_puts,
+-	.sal_getc = snt_sim_getc,
+-	.sal_input_pending = snt_sim_input_pending
+-};
 -
- extern void sn_flush_all_caches(long addr, long bytes);
+ /* A table for interrupts enabled */
+ static struct sn_sal_ops intr_ops = {
+ 	.sal_puts_raw = snt_hw_puts_raw,
+@@ -194,53 +182,6 @@ static int snt_poll_input_pending(void)
+ 	return !status && input;
+ }
  
- #endif /* _ASM_IA64_SN_ARCH_H */
+-/* routines for running the console on the simulator */
+-
+-/**
+- * snt_sim_puts - send to the console, used in simulator mode
+- * @str: String to send
+- * @count: length of string
+- *
+- */
+-static int snt_sim_puts(const char *str, int count)
+-{
+-	int counter = count;
+-
+-#ifdef FLAG_DIRECT_CONSOLE_WRITES
+-	/* This is an easy way to pre-pend the output to know whether the output
+-	 * was done via sal or directly */
+-	writeb('[', master_node_bedrock_address + (UART_TX << 3));
+-	writeb('+', master_node_bedrock_address + (UART_TX << 3));
+-	writeb(']', master_node_bedrock_address + (UART_TX << 3));
+-	writeb(' ', master_node_bedrock_address + (UART_TX << 3));
+-#endif				/* FLAG_DIRECT_CONSOLE_WRITES */
+-	while (counter > 0) {
+-		writeb(*str, master_node_bedrock_address + (UART_TX << 3));
+-		counter--;
+-		str++;
+-	}
+-	return count;
+-}
+-
+-/**
+- * snt_sim_getc - Get character from console in simulator mode
+- *
+- */
+-static int snt_sim_getc(void)
+-{
+-	return readb(master_node_bedrock_address + (UART_RX << 3));
+-}
+-
+-/**
+- * snt_sim_input_pending - Check if there is input pending in simulator mode
+- *
+- */
+-static int snt_sim_input_pending(void)
+-{
+-	return readb(master_node_bedrock_address +
+-		     (UART_LSR << 3)) & UART_LSR_DR;
+-}
+-
+ /* routines for an interrupt driven console (normal) */
+ 
+ /**
+@@ -491,11 +432,7 @@ static int sn_debug_printf(const char *f
+ 	printed_len = vsnprintf(printk_buf, sizeof(printk_buf), fmt, args);
+ 
+ 	if (!sal_console_port.sc_ops) {
+-		if (IS_RUNNING_ON_SIMULATOR())
+-			sal_console_port.sc_ops = &sim_ops;
+-		else
+-			sal_console_port.sc_ops = &poll_ops;
+-
++		sal_console_port.sc_ops = &poll_ops;
+ 		early_sn_setup();
+ 	}
+ 	sal_console_port.sc_ops->sal_puts_raw(printk_buf, printed_len);
+@@ -781,12 +718,8 @@ static void __init sn_sal_switch_to_asyn
+ 	spin_lock_irqsave(&port->sc_port.lock, flags);
+ 
+ 	/* early_printk invocation may have done this for us */
+-	if (!port->sc_ops) {
+-		if (IS_RUNNING_ON_SIMULATOR())
+-			port->sc_ops = &sim_ops;
+-		else
+-			port->sc_ops = &poll_ops;
+-	}
++	if (!port->sc_ops)
++		port->sc_ops = &poll_ops;
+ 
+ 	/* we can't turn on the console interrupt (as request_irq
+ 	 * calls kmalloc, which isn't set up yet), so we rely on a
+@@ -1155,11 +1088,7 @@ int __init sn_serial_console_early_setup
+ 	if (!ia64_platform_is("sn2"))
+ 		return -1;
+ 
+-	if (IS_RUNNING_ON_SIMULATOR())
+-		sal_console_port.sc_ops = &sim_ops;
+-	else
+-		sal_console_port.sc_ops = &poll_ops;
+-
++	sal_console_port.sc_ops = &poll_ops;
+ 	early_sn_setup();	/* Find SAL entry points */
+ 	register_console(&sal_console_early);
+ 
+-- 
+Thanks
 
---Boundary-00=_VktgBskSDJC9udv--
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
+
