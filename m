@@ -1,7 +1,7 @@
-From: Stephane Eranian <eranian@frankl.hpl.hp.com>
-Date: Wed, 16 Jan 2002 18:23:41 +0000
+From: Michael Madore <mmadore@turbolinux.com>
+Date: Wed, 16 Jan 2002 18:24:53 +0000
 Subject: Re: [Linux-ia64] PXE Boot
-Message-Id: <marc-linux-ia64-105590698805848@msgid-missing>
+Message-Id: <marc-linux-ia64-105590698805847@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590698805846@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590698805846@msgid-missing>
@@ -10,27 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Mike,
+Hi Tony,
 
-On Wed, Jan 16, 2002 at 10:57:25AM -0800, Michael Madore wrote:
+Hmmm.  Let me try a different tftp server package and see if I have the
+same problem.
+
+Mike
+
+"Luck, Tony" wrote:
 > 
-> I'm trying to boot a Big Sur workstation (Firmware 117C) via the
-> network.  The workstation receives an address via dhcp and when starting
-> to download elilo.efi I get the following error message:
+> Mike,
 > 
-> PXE-E05: Download buffer is smaller than requested file.
-> Load of PXE boot failed:  File not found
+> I saw the same thing a few months ago when I tried it (even when
+> I replaced the elilo.efi with a 1-byte file, I still got the same
+> error ... so the size of the file isn't the issue).  I didn't
+> get around to chasing this ... but I wondered whether there was
+> a failure to communicate the size correctly between the boot server
+> that I was using (Lion running linux ... I forget which versions of
+> dhcp and tftpd were present, and that machine has been re-installed
+> so I can't check) and the bigsur that I was trying to boot.
 > 
-Do you get this everytime? I have already seen this problem but it disappears
-if you retry, if I recall correctly.
-
-> Does this message really indicate the buffer is to small, or is this a
-> symptom of a different problem?
-> 
-Are you using a PXE-aware DHCP server or a standard DHCP server?
-
-
--- 
-
--Stephane
+> -Tony Luck
 
