@@ -1,41 +1,58 @@
-From: Piet/Pete Delaney <piet@sgi.com>
-Date: Tue, 30 Apr 2002 18:25:35 +0000
-Subject: Re: [Linux-ia64] use of gdb for ia64 kernel debug
-Message-Id: <marc-linux-ia64-105590701905543@msgid-missing>
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Thu, 18 Apr 2002 01:17:06 +0000
+Subject: [Linux-ia64] Clean up IA32 support a little...
+Message-Id: <marc-linux-ia64-105590701905482@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905532@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905532@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Apr 30, 2002 at 02:02:10PM +0100, Doug Rabson wrote:
-> On Mon, 29 Apr 2002, David Mosberger wrote:
-> 
-> > >>>>> On Fri, 26 Apr 2002 17:33:37 -0500, Ray Bryant <raybry@engr.sgi.com> said:
-> >
-> >   Ray> Is is possible to use an IA32 system as a gdb host and run a
-> >   Ray> remote debugging session on an IA64 box (e. g. a Big Sur)?
-> >
-> > You need a gdb stub in the kernel for doing that.  I seem to recall
-> > someone wrote such a stub for FreeBSD (or was it NetBSD)?  If so, you
-> > could use that as a starting point.
-> 
-> There is a 'stub of a stub' in the FreeBSD-current kernel but it certainly
-> isn't functional on ia64. I don't yet use gdb for kernel debugging on
-> FreeBSD.
+Hi,
+	The attached patch cleans up IA32 support a little.
+As it's impossible at present to compile and use IA32 support as a
+module, disallow that; and also provide dummy functions to remove
+compilation warnings if CONFIG_IA32_SUPPORT is off.
 
-I notced it don't look compete; I got the impression from "David O'Brien" <obrien@FreeBSD.org>
-that it's working; perhaps they just haven't checked it all in yet:
 
-	"I don't know about ia64, but all the hard core sparc64 developers are
-	using serial console and perfer it."
-
-Often the trap code can take a lot of time to get right; this is the primary
-reason I thought it might be easier to use skdb and leave the ia64 low level
-details to kdb. Once working I was hoping we could add an option to kdb to
-provide checksums on consile I/O like the stub protocol uses.
-
--piet
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.494   -> 1.495  
+#	include/asm-ia64/system.h	1.9     -> 1.10   
+#	 arch/ia64/config.in	1.16    -> 1.17   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 02/04/18	peterc@redback.cse.unsw.edu.au	1.495
+# Disallow compiling IA32 support as a module (it doesn't work) and make sure that 
+# if IA32 support is not enabled, the resulting compilation com,pletes without warnings.
+# --------------------------------------------
+#
+diff -Nru a/arch/ia64/config.in b/arch/ia64/config.in
+--- a/arch/ia64/config.in	Thu Apr 18 11:14:25 2002
++++ b/arch/ia64/config.in	Thu Apr 18 11:14:25 2002
+@@ -83,7 +83,7 @@
+ define_bool CONFIG_KCORE_ELF y	# On IA-64, we always want an ELF /proc/kcore.
+ 
+ bool 'SMP support' CONFIG_SMP
+-tristate 'Support running of Linux/x86 binaries' CONFIG_IA32_SUPPORT
++bool 'Support running of Linux/x86 binaries' CONFIG_IA32_SUPPORT
+ bool 'Performance monitor support' CONFIG_PERFMON
+ tristate '/proc/pal support' CONFIG_IA64_PALINFO
+ tristate '/proc/efi/vars support' CONFIG_EFI_VARS
+diff -Nru a/include/asm-ia64/system.h b/include/asm-ia64/system.h
+--- a/include/asm-ia64/system.h	Thu Apr 18 11:14:25 2002
++++ b/include/asm-ia64/system.h	Thu Apr 18 11:14:25 2002
+@@ -353,6 +353,9 @@
+ # define IS_IA32_PROCESS(regs)	(ia64_psr(regs)->is != 0)
+ #else
+ # define IS_IA32_PROCESS(regs)		0
++struct task_struct;
++static inline void ia32_save_state(struct task_struct *t __attribute__((unused))){}
++static inline void ia32_load_state(struct task_struct *t __attribute__((unused))){}
+ #endif
+ 
+ /*
 
