@@ -1,18 +1,24 @@
 From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Mon, 20 Sep 2004 16:43:52 +0000
-Subject: PATCH-ACPI based CPU hotplug[5/6]-ACPI processor driver extension
-Message-Id: <20040920094352.G14208@unix-os.sc.intel.com>
+Date: Fri, 24 Sep 2004 23:48:38 +0000
+Subject: Re: PATCH-ACPI based CPU hotplug[5/6]-ACPI processor driver extension
+Message-Id: <20040924164837.E27778@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040920092520.A14208@unix-os.sc.intel.com>
-In-Reply-To: <20040920092520.A14208-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Mon, Sep 20, 2004 at 09:25:20AM -0700
+References: <20040920092520.A14208@unix-os.sc.intel.com> <20040920094352.G14208@unix-os.sc.intel.com>
+In-Reply-To: <20040920094352.G14208-39QZ/XbsZ5/mO6KZMuUCQVaTQe2KTcn/@public.gmane.org>; from anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org on Mon, Sep 20, 2004 at 09:43:52AM -0700
 MIME-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-To: Keshavamurthy Anil S <anil.s.keshavamurthy-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Cc: "Brown, Len" <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ACPI Developer <acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, LHNS list <lhns-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, Linux IA64 <linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: linux-ia64@vger.kernel.org
+Cc: Len Brown <len.brown-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, ACPI Developer <acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, LHNS list <lhns-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>, Linux IA64 <linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 
-Changes form previous version
-1) Added depends on EXPERIMENTAL in kconfig file
+On Mon, Sep 20, 2004 at 09:43:52AM -0700, Keshavamurthy Anil S wrote:
+> Changes form previous version
+> 1) Added depends on EXPERIMENTAL in kconfig file
+Changes from previous version
+	Added prink for ACPI_NOTIFY_BUS_CHECK and for ACPI_NOTIFY_DEVICE_CHECK bas=
+ed on
+the community feedback.=20
+
 
 ---
 Name:processor_drv.patch
@@ -25,12 +31,18 @@ Extends the processor driver to support ACPI based Physical CPU hotplug.
 
 ---
 
+ include/linux/cpu.h                               |    0=20
+ kernel/cpu.c                                      |    0=20
+ linux-2.6.9-rc2-askeshav/drivers/acpi/Kconfig     |    8=20
+ linux-2.6.9-rc2-askeshav/drivers/acpi/processor.c |  485 +++++++++++++++++=
++----
+ 4 files changed, 424 insertions(+), 69 deletions(-)
 
 diff -puN drivers/acpi/Kconfig~processor_drv drivers/acpi/Kconfig
---- linux-2.6.9-rc2/drivers/acpi/Kconfig~processor_drv	2004-09-20 06:08:20.=
-085257320 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/acpi/Kconfig	2004-09-20 06:11:00.32689=
-6888 -0700
+--- linux-2.6.9-rc2/drivers/acpi/Kconfig~processor_drv	2004-09-24 15:26:30.=
+480114232 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/Kconfig	2004-09-24 15:26:30.58753=
+6106 -0700
 @@ -129,6 +129,14 @@ config ACPI_PROCESSOR
  	  ACPI C2 and C3 processor states to save power, on systems that
  	  support it.
@@ -49,10 +61,10 @@ diff -puN drivers/acpi/Kconfig~processor_drv drivers/acpi/Kconfig
 diff -puN include/linux/cpu.h~processor_drv include/linux/cpu.h
 diff -puN kernel/cpu.c~processor_drv kernel/cpu.c
 diff -puN drivers/acpi/processor.c~processor_drv drivers/acpi/processor.c
---- linux-2.6.9-rc2/drivers/acpi/processor.c~processor_drv	2004-09-20 06:08=
-:20.102254736 -0700
-+++ linux-2.6.9-rc2-askeshav/drivers/acpi/processor.c	2004-09-20 06:08:20.1=
-85242120 -0700
+--- linux-2.6.9-rc2/drivers/acpi/processor.c~processor_drv	2004-09-24 15:26=
+:30.495739232 -0700
++++ linux-2.6.9-rc2-askeshav/drivers/acpi/processor.c	2004-09-24 15:26:30.5=
+91442356 -0700
 @@ -4,6 +4,8 @@
   *  Copyright (C) 2001, 2002 Andy Grover <andrew.grover@intel.com>
   *  Copyright (C) 2001, 2002 Paul Diefenbaugh <paul.s.diefenbaugh@intel.co=
@@ -92,7 +104,7 @@ om>
  #define _COMPONENT		ACPI_PROCESSOR_COMPONENT
  ACPI_MODULE_NAME		("acpi_processor")
 =20
-@@ -82,12 +87,15 @@ MODULE_LICENSE("GPL");
+@@ -82,12 +87,16 @@ MODULE_LICENSE("GPL");
 =20
 =20
  static int acpi_processor_add (struct acpi_device *device);
@@ -111,10 +123,11 @@ file);
 ata);
 +static acpi_status acpi_processor_hotadd_init(acpi_handle handle, int *p_c=
 pu);
++static int acpi_processor_handle_eject(struct acpi_processor *pr);
 =20
  static struct acpi_driver acpi_processor_driver =3D {
  	.name =3D		ACPI_PROCESSOR_DRIVER_NAME,
-@@ -96,9 +104,12 @@ static struct acpi_driver acpi_processor
+@@ -96,9 +105,12 @@ static struct acpi_driver acpi_processor
  	.ops =3D		{
  				.add =3D		acpi_processor_add,
  				.remove =3D	acpi_processor_remove,
@@ -127,7 +140,7 @@ pu);
 =20
  struct acpi_processor_errata {
  	u8			smp;
-@@ -2237,23 +2248,30 @@ acpi_processor_get_info (
+@@ -2237,23 +2249,30 @@ acpi_processor_get_info (
 =20
  	cpu_index =3D convert_acpiid_to_cpu(pr->acpi_id);
 =20
@@ -175,7 +188,7 @@ pu);
  	ACPI_DEBUG_PRINT((ACPI_DB_INFO, "Processor [%d:%d]\n", pr->id,=20
  		pr->acpi_id));
 =20
-@@ -2292,6 +2310,65 @@ acpi_processor_get_info (
+@@ -2292,6 +2311,65 @@ acpi_processor_get_info (
  }
 =20
 =20
@@ -241,7 +254,7 @@ pu);
  static void
  acpi_processor_notify (
  	acpi_handle		handle,
-@@ -2333,10 +2410,7 @@ static int
+@@ -2333,10 +2411,7 @@ static int
  acpi_processor_add (
  	struct acpi_device	*device)
  {
@@ -252,7 +265,7 @@ pu);
 =20
  	ACPI_FUNCTION_TRACE("acpi_processor_add");
 =20
-@@ -2353,51 +2427,7 @@ acpi_processor_add (
+@@ -2353,51 +2428,7 @@ acpi_processor_add (
  	strcpy(acpi_device_class(device), ACPI_PROCESSOR_CLASS);
  	acpi_driver_data(device) =3D pr;
 =20
@@ -305,7 +318,7 @@ pu);
  }
 =20
 =20
-@@ -2416,6 +2446,21 @@ acpi_processor_remove (
+@@ -2416,17 +2447,27 @@ acpi_processor_remove (
 =20
  	pr =3D (struct acpi_processor *) acpi_driver_data(device);
 =20
@@ -314,29 +327,29 @@ pu);
 +		return_VALUE(0);
 +	}
 +
-+#ifdef CONFIG_ACPI_HOTPLUG_CPU
 +	if (type =3D ACPI_BUS_REMOVAL_EJECT) {
-+		if (cpu_online(pr->id)) {
++		if (acpi_processor_handle_eject(pr))
 +			return_VALUE(-EINVAL);
-+		}
-+		arch_unregister_cpu(pr->id);
-+		acpi_unmap_lsapic(pr->id);
 +	}
-+#endif /* CONFIG_ACPI_HOTPLUG_CPU */
 +
  	/* Unregister the idle handler when processor #0 is removed. */
  	if (pr->id =3D 0) {
  		pm_idle =3D pm_idle_save;
-@@ -2426,7 +2471,7 @@ acpi_processor_remove (
+ 		synchronize_kernel();
+ 	}
+=20
+-	status =3D acpi_remove_notify_handler(pr->handle, ACPI_DEVICE_NOTIFY,=20
++	status =3D acpi_remove_notify_handler(pr->handle, ACPI_DEVICE_NOTIFY,
  		acpi_processor_notify);
  	if (ACPI_FAILURE(status)) {
- 		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,=20
+-		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,=20
 -			"Error removing notify handler\n"));
++		ACPI_DEBUG_PRINT((ACPI_DB_ERROR,
 +			"Error removing device notify handler\n"));
  	}
 =20
  	acpi_processor_remove_fs(device);
-@@ -2439,6 +2484,291 @@ acpi_processor_remove (
+@@ -2439,6 +2480,308 @@ acpi_processor_remove (
  }
 =20
 =20
@@ -469,9 +482,9 @@ pu);
 +	switch (event) {
 +	case ACPI_NOTIFY_BUS_CHECK:
 +	case ACPI_NOTIFY_DEVICE_CHECK:
-+		ACPI_DEBUG_PRINT((ACPI_DB_INFO,
-+			"received %s\n", (event=3DACPI_NOTIFY_BUS_CHECK)?
-+			"ACPI_NOTIFY_BUS_CHECK":"ACPI_NOTIFY_DEVICE_CHECK"));
++		printk("Processor driver received %s event\n",
++			(event=3DACPI_NOTIFY_BUS_CHECK)?
++			"ACPI_NOTIFY_BUS_CHECK":"ACPI_NOTIFY_DEVICE_CHECK");
 +
 +		if (!is_processor_present(handle))
 +			break;
@@ -590,6 +603,18 @@ pu);
 +
 +	return_VALUE(AE_OK);
 +}
++
++
++static int
++acpi_processor_handle_eject(struct acpi_processor *pr)
++{
++	if (cpu_online(pr->id)) {
++		return(-EINVAL);
++	}
++	arch_unregister_cpu(pr->id);
++	acpi_unmap_lsapic(pr->id);
++	return(0);
++}
 +#else
 +static acpi_status
 +acpi_processor_hotadd_init(
@@ -597,6 +622,11 @@ pu);
 +	int			*p_cpu)
 +{
 +	return AE_ERROR;
++}
++static int
++acpi_processor_handle_eject(struct acpi_processor *pr)
++{
++	return(-EINVAL);
 +}
 +#endif
 +
@@ -632,7 +662,7 @@ pu);
  static int __init
  acpi_processor_init (void)
  {
-@@ -2460,6 +2790,8 @@ acpi_processor_init (void)
+@@ -2460,6 +2803,8 @@ acpi_processor_init (void)
  		return_VALUE(-ENODEV);
  	}
 =20
@@ -641,7 +671,7 @@ pu);
  	acpi_thermal_cpufreq_init();
 =20
  	acpi_processor_ppc_init();
-@@ -2477,6 +2809,8 @@ acpi_processor_exit (void)
+@@ -2477,6 +2822,8 @@ acpi_processor_exit (void)
 =20
  	acpi_thermal_cpufreq_exit();
 =20
@@ -651,3 +681,4 @@ pu);
 =20
  	remove_proc_entry(ACPI_PROCESSOR_CLASS, acpi_root_dir);
 _
+
