@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 11 Jan 2005 21:36:14 +0000
-Subject: RE: new utility for decoding salinfo records
-Message-Id: <16868.18126.166479.535592@napali.hpl.hp.com>
+From: Matthias Fouquet-Lapar <mfl@kernel.paris.sgi.com>
+Date: Tue, 11 Jan 2005 21:36:52 +0000
+Subject: Re: new utility for decoding salinfo records
+Message-Id: <200501112136.j0BLarfD002696@mtv-vpn-hw-mfl-1.corp.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1105458388.22104.7.camel@quince.llnl.gov>
 In-Reply-To: <1105458388.22104.7.camel@quince.llnl.gov>
@@ -10,20 +10,37 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 11 Jan 2005 13:23:48 -0800, "Luck, Tony" <tony.luck@intel.com> said:
+>   Ben> We believed rates of SBEs in the neighborhood of 1/hr would
+>   Ben> ultimately lead to MBEs but further testing has shown that we
+>   Ben> really don't see DIMMS with SBEs turing in MBEs.
+> 
+> That's very interesting.
 
-  Tony> Whether it is a problem depends on the liklihood of it
-  Tony> cascading into a multi-bit error ... for which I don't have
-  Tony> any data.
+We have seen both : hard SBEs which never end up in a UCE and bursts of
+SBEs which will lead to UCEs. It is DRAM vendor specific and it depends
+in which phase of the chips life cycle the error occurs (infant mortality
+or not). 
 
-While this is not an area I have experience with, it does seem to me
-that considering how many clusters (really: "machines" with large
-amounts of memory) are out there, there seems an amazing dearth of
-solid data.  The memory manufacturers presumably have it, but are
-disinterested in sharing.  On the other hand, I don't see any reason
-why cluster operators (such as national labs) don't collect & share
-such data more.  It's difficult for systems folks to make good choices
-without such data, especially since the effects often appear to be
-counter-intuitive (like SBEs not turning into MBEs).
+Another important data point is if the error is "soft", i.e. after a scrub
+operation it's corrected (probably caused by an alpha particle hit) or
+"hard", i.e. the error still is there after the memory location has been
+re-written.
 
-	--david
+I think as long as it is possible to log all errors, the following toolchain
+can be adopted. Depending on the system infrastructure it might be useful
+to capture additional information such as :
+  
+  - data pattern including ECC
+  - environmental conditions (voltage, temperature)
+  - DIMM serial numbers
+
+The later is becoming a real issue when dealing with systems which have
+several tera-bytes of main memory, but as I said this really is very 
+platform specific
+
+
+Thanks
+
+Matthias Fouquet-Lapar  Core Platform Software    mfl@sgi.com  VNET 521-8213
+Principal Engineer      Silicon Graphics          Home Office (+33) 1 3047 4127
+
