@@ -1,59 +1,63 @@
 From: Jesse Barnes <jbarnes@engr.sgi.com>
-Date: Fri, 03 Dec 2004 16:31:25 +0000
-Subject: [RFC] I/O error handling for userspace
-Message-Id: <200412030831.25662.jbarnes@engr.sgi.com>
+Date: Fri, 03 Dec 2004 16:43:00 +0000
+Subject: Re: [RFC] I/O error handling for userspace
+Message-Id: <200412030843.00958.jbarnes@engr.sgi.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_dTJsBnHpniBNNlD"
+Content-Type: multipart/mixed; boundary="Boundary-00=_UeJsBnmRpuUhdRo"
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200412030831.25662.jbarnes@engr.sgi.com>
+In-Reply-To: <200412030831.25662.jbarnes@engr.sgi.com>
 To: linux-ia64@vger.kernel.org
 
---Boundary-00=_dTJsBnHpniBNNlD
+--Boundary-00=_UeJsBnmRpuUhdRo
 Content-Type: text/plain;
-  charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
-[This is a repost of an earlier patch now that I've had time to finish it and 
-test it more thoroughly.]
+On Friday, December 3, 2004 8:31 am, Jesse Barnes wrote:
+> [This is a repost of an earlier patch now that I've had time to finish it
+> and test it more thoroughly.]
+>
+> This patch adds support for sending a SIGBUS to a userspace application
+> using /proc/bus/pci to drive a device if an I/O error occurs.  We're using
+> this in house for the X server's BIOS emulator and it seems to be working
+> well.
+>
+> The idea is to track mmaped /proc/bus/pci regions so that the machine check
+> handler is able to properly determine which process is responsible for any
+> faults that occur (ia64 is interesting in that the error may not occur in
+> the process context that actually generated the bad reference).  If a match
+> is found, a SIGBUS is sent to the process, along with the address that
+> caused the fault.  The machine check record is then cleared and recovery
+> takes place (the assumption is that the signal to userspace is a sufficient
+> record of the error).
+>
+> The patch also special cases memory mapping of legacy space, which is the
+> first 64k of I/O space and the first megabyte of memory space.  Sub
+> platforms can optionally remap their bridge to the target bus and setup
+> legacy handling in the callout.
+>
+> Comments?  Given that this is working well for us, I'd like to get it
+> upstream sometime soon.  I also expect that it could be used to deal with
+> more types of I/O errors, perhaps allowing the kernel to call a driver
+> shutdown routine if an I/O error occurs in a kernel driver.
 
-This patch adds support for sending a SIGBUS to a userspace application 
-using /proc/bus/pci to drive a device if an I/O error occurs.  We're using 
-this in house for the X server's BIOS emulator and it seems to be working 
-well.
+Doh!  This is the updated one I meant to send.
 
-The idea is to track mmaped /proc/bus/pci regions so that the machine check 
-handler is able to properly determine which process is responsible for any 
-faults that occur (ia64 is interesting in that the error may not occur in the 
-process context that actually generated the bad reference).  If a match is 
-found, a SIGBUS is sent to the process, along with the address that caused 
-the fault.  The machine check record is then cleared and recovery takes place 
-(the assumption is that the signal to userspace is a sufficient record of the 
-error).
-
-The patch also special cases memory mapping of legacy space, which is the 
-first 64k of I/O space and the first megabyte of memory space.  Sub platforms 
-can optionally remap their bridge to the target bus and setup legacy handling 
-in the callout.
-
-Comments?  Given that this is working well for us, I'd like to get it upstream 
-sometime soon.  I also expect that it could be used to deal with more types 
-of I/O errors, perhaps allowing the kernel to call a driver shutdown routine 
-if an I/O error occurs in a kernel driver.
-
-Thanks,
 Jesse
 
---Boundary-00=_dTJsBnHpniBNNlD
+--Boundary-00=_UeJsBnmRpuUhdRo
 Content-Type: text/plain;
-  charset="us-ascii";
-  name="io-error-sigbus-10.patch"
+  charset="iso-8859-1";
+  name="io-error-sigbus-11.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: attachment;
-	filename="io-error-sigbus-10.patch"
+	filename="io-error-sigbus-11.patch"
 
 ===== arch/ia64/kernel/mca.c 1.71 vs edited =====
 --- 1.71/arch/ia64/kernel/mca.c	2004-11-11 10:04:30 -08:00
-+++ edited/arch/ia64/kernel/mca.c	2004-12-01 09:51:25 -08:00
++++ edited/arch/ia64/kernel/mca.c	2004-12-02 14:30:33 -08:00
 @@ -814,8 +814,10 @@
  	ia64_os_to_sal_handoff_state.imots_sal_check_ra =
  		ia64_sal_to_os_handoff_state.imsto_sal_check_ra;
@@ -66,11 +70,11 @@ Content-Disposition: attachment;
  	else
  		ia64_os_to_sal_handoff_state.imots_os_status = IA64_MCA_COLD_BOOT;
  
-@@ -871,21 +873,70 @@
+@@ -871,21 +873,69 @@
  void
  ia64_mca_ucmc_handler(void)
  {
-+	struct io_range *range;
++	struct io_range *range, *tmp;
 +	unsigned long io_addr = 0;
  	pal_processor_state_info_t *psp = (pal_processor_state_info_t *)
  		&ia64_sal_to_os_handoff_state.proc_state_param;
@@ -119,7 +123,7 @@ Content-Disposition: attachment;
 + 	/*
 + 	 * See if an I/O error occured in a previously registered range
 + 	 */
-+ 	list_for_each_entry(range, &pci_io_ranges, range_list) {
++ 	list_for_each_entry_safe(range, tmp, &pci_io_ranges, range_list) {
 + 		if (range->start <= io_addr && io_addr <= range->end) {
 + 			struct siginfo siginfo;
 + 			struct task_struct *owner = NULL;
@@ -137,7 +141,6 @@ Content-Disposition: attachment;
 + 				 */
 + 				list_del(&range->range_list);
 + 			}
-+ 			break;
 + 		}
 + 	}
 + 	spin_unlock(&io_range_list_lock);
@@ -148,7 +151,7 @@ Content-Disposition: attachment;
  	 *  Wakeup all the processors which are spinning in the rendezvous
 ===== arch/ia64/pci/pci.c 1.59 vs edited =====
 --- 1.59/arch/ia64/pci/pci.c	2004-11-05 11:55:25 -08:00
-+++ edited/arch/ia64/pci/pci.c	2004-12-01 11:01:11 -08:00
++++ edited/arch/ia64/pci/pci.c	2004-12-02 14:30:02 -08:00
 @@ -20,6 +20,7 @@
  #include <linux/slab.h>
  #include <linux/smp_lock.h>
@@ -157,16 +160,15 @@ Content-Disposition: attachment;
  
  #include <asm/machvec.h>
  #include <asm/page.h>
-@@ -36,6 +37,8 @@
+@@ -36,7 +37,6 @@
  #include <asm/irq.h>
  #include <asm/hw_irq.h>
  
-+#include "../sn/include/pci/pcidev.h"
-+#include "../sn/include/pci/pcibus_provider_defs.h"
- 
+-
  #undef DEBUG
  #define DEBUG
-@@ -48,6 +51,9 @@
+ 
+@@ -48,6 +48,9 @@
  
  static int pci_routeirq;
  
@@ -176,7 +178,7 @@ Content-Disposition: attachment;
  /*
   * Low-level SAL-based PCI configuration access functions. Note that SAL
   * calls are already serialized (via sal_lock), so we don't need another
-@@ -501,24 +507,35 @@
+@@ -501,24 +504,35 @@
  pci_mmap_page_range (struct pci_dev *dev, struct vm_area_struct *vma,
  		     enum pci_mmap_state mmap_state, int write_combine)
  {
@@ -225,7 +227,7 @@ Content-Disposition: attachment;
  
  	if (write_combine)
  		vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
-@@ -526,9 +543,78 @@
+@@ -526,9 +540,78 @@
  		vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
  
  	if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
@@ -235,7 +237,7 @@ Content-Disposition: attachment;
 +		ret = -EAGAIN;
 +		goto out;
 +	}
-+
+ 
 +	new_range = kmalloc(sizeof(struct io_range), GFP_KERNEL);
 +	if (!new_range) {
 +		printk(KERN_WARNING "%s: cannot allocate io_range, "
@@ -272,10 +274,10 @@ Content-Disposition: attachment;
 +void
 +pci_mmap_release_dev(struct pci_dev *dev)
 +{
-+	struct io_range *range;
++	struct io_range *range, *tmp;
 +
 +	spin_lock(&io_range_list_lock);
-+	list_for_each_entry(range, &pci_io_ranges, range_list) {
++	list_for_each_entry_safe(range, tmp, &pci_io_ranges, range_list) {
 +		if (range->owner == current->pid) {
 +			list_del(&range->range_list);
 +			printk("I/O range 0x%016lx-0x%016lx de-registered\n",
@@ -285,7 +287,7 @@ Content-Disposition: attachment;
 +	}
 +	spin_unlock(&io_range_list_lock);
 +}
- 
++
 +/**
 + * __ia64_pci_get_legacy_space - for machines w/o a machine vector
 + * @iospace: which space, I/O or memory
@@ -492,4 +494,4 @@ Content-Disposition: attachment;
  struct pci_window {
  	struct resource resource;
 
---Boundary-00=_dTJsBnHpniBNNlD--
+--Boundary-00=_UeJsBnmRpuUhdRo--
