@@ -1,65 +1,45 @@
 From: Linas Vepstas <linas@austin.ibm.com>
-Date: Wed, 02 Mar 2005 19:46:40 +0000
+Date: Wed, 02 Mar 2005 20:02:16 +0000
 Subject: Re: [PATCH/RFC] I/O-check interface for driver's error handling
-Message-Id: <20050302194640.GK1220@austin.ibm.com>
+Message-Id: <20050302200216.GM1220@austin.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <422428EC.3090905@jp.fujitsu.com> <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org> <20050302182205.GI1220@austin.ibm.com> <200503021041.07090.jbarnes@engr.sgi.com>
-In-Reply-To: <200503021041.07090.jbarnes@engr.sgi.com>
+References: <422428EC.3090905@jp.fujitsu.com> <Pine.LNX.4.58.0503010844470.25732@ppc970.osdl.org> <20050301165904.GN28741@parcelfarce.linux.theplanet.co.uk> <200503010910.29460.jbarnes@engr.sgi.com> <20050301183333.GB1220@austin.ibm.com> <1109716047.5679.51.camel@gaston>
+In-Reply-To: <1109716047.5679.51.camel@gaston>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jesse Barnes <jbarnes@engr.sgi.com>
-Cc: linux-pci@atrey.karlin.mff.cuni.cz, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Benjamin Herrenschmidt <benh@kernel.crashing.org>, "Luck, Tony" <tony.luck@intel.com>
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Cc: Jesse Barnes <jbarnes@engr.sgi.com>, linux-pci@atrey.karlin.mff.cuni.cz, Matthew Wilcox <matthew@wil.cx>, Linus Torvalds <torvalds@osdl.org>, Jeff Garzik <jgarzik@pobox.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
 
-On Wed, Mar 02, 2005 at 10:41:06AM -0800, Jesse Barnes was heard to remark:
-> On Wednesday, March 2, 2005 10:22 am, Linas Vepstas wrote:
-> > On Tue, Mar 01, 2005 at 08:49:45AM -0800, Linus Torvalds was heard to 
-> remark:
-> > > The new API is what _allows_ a driver to care. It doesn't handle DMA, but
-> > > I think that's because nobody knows how to handle it (ie it's probably
-> > > hw-dependent and all existign implementations would thus be
-> > > driver-specific anyway).
-> >
-> > ?
-> > We could add a call
-> >
-> > int pci_was_there_an_error_during_dma (struct pci_dev);
-> >
-> > right?  And it could return true/false, right?  I can certainly
-> > do that today with ppc64.  I just can't tell you which dma triggered
-> > the problem.
+On Wed, Mar 02, 2005 at 09:27:27AM +1100, Benjamin Herrenschmidt was heard to remark:
+> On Tue, 2005-03-01 at 12:33 -0600, Linas Vepstas wrote:
 > 
-> One issue with that is how to notify drivers that they need to make this call.  
-> In may cases, DMA completion will be signalled by an interrupt, but if the 
-> DMA failed, that interrupt may never happen, which means the call to 
-> pci_unmap or the above function from the interrupt handler may never occur.
+> > The current proposal (and prototype) has a "master recovery thread"
+> > to handle the coordinated reset of the pci controller.  This master
+> > recovery thyread makes three calls in struct pci_driver:
+> > 
+> >    void (*frozen) (struct pci_dev *);  /* called when dev is first frozen */
+> >    void (*thawed) (struct pci_dev *);  /* called after card is reset */
+> >    void (*perm_failure) (struct pci_dev *);  /* called if card is dead */
+> 
+> See my other emails. I think only one callback is enough, and I think we
+> need more parameters.
 
-Hmm. Well, I notice that e100/e1000 has a heartbeat built into it, so
-that if the card doesn't respond, it resets the card.  So this would 
-be a natural place for them.  And I suspect that *all* scsi drivers
-have timeouts; they initiate a cascade of reset sequences if they
-don't get data back after X seconds.
+That's a style issue.  Propose an API, I'll code it.   We can have
+the master recovery thread be a state machine, and so every device
+driver gets notified of state changes:
 
-I see nothing wrong with adding a requirement, something that says
-"If a device driver wants to be pci-error aware, then yea-verily it 
-must use a dma-timeout timer (say 15 seconds) and check for 
-pci errors in the dma-timeout handler".
+typedef enum pci_bus_state {
+     DEVICE_IO_FROZEN=1,
+     DEVICE_IO_THAWED,
+     DEVICE_PERM_FAILURE,
+};
 
-> Some I/O errors are by nature asynchronous and unpredictable, so I think we 
-> need a separate thread and callback interface to deal with errors where the 
-> beginning of the transaction and the end of the transaction occur in 
-> different contexts, in addition to the PIO transaction interface already 
-> proposed.
+struct pci_driver {
+   .... 
+   void (*io_state_change) (struct pci_dev *dev, pci_bus_state);
+};
 
-I don't know what the pci-express implementation is like, but the 
-ppc64 implementation is *not* transactional, so I don't have that issue.
-
-If some pci chipsets only report dma errors on a transactional basis,
-then we need to modify pci_map_sg() and pci_map_single() and etc. to
-take a cookie as well.  It would be up to the device driver to alloc
-and retire cookies as the dma's complete (and make sure it can find
-its cookies in any context).  Is this or something like this that 
-is needed? 
+would that work?
 
 --linas
-
