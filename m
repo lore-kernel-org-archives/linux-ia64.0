@@ -1,138 +1,26 @@
-From: "Liu, Benjamin" <benjamin.liu@intel.com>
-Date: Fri, 12 Mar 2004 09:25:03 +0000
-Subject: RE: 2.6.3 compilation problem
-Message-Id: <3ACA40606221794F80A5670F0AF15F8401B1A07D@PDSMSX403.ccr.corp.intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C40813.E66106FC"
+From: Andi Kleen <ak@suse.de>
+Date: Sat, 13 Mar 2004 16:10:10 +0000
+Subject: Re: [Lse-tech] Re: Hugetlbpages in very large memory machines.......
+Message-Id: <20040313161010.GB15118@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <002f01c40735$8d2cc880$39624c0f@india.hp.com>
-In-Reply-To: <002f01c40735$8d2cc880$39624c0f@india.hp.com>
-To: linux-ia64@vger.kernel.org
+References: <40528383.10305@sgi.com> <20040313034840.GF4638@wotan.suse.de> <20040313054910.GA655@holomorphy.com>
+In-Reply-To: <20040313054910.GA655@holomorphy.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: William Lee Irwin III <wli@holomorphy.com>, Andi Kleen <ak@suse.de>, Ray Bryant <raybry@sgi.com>, lse-tech@lists.sourceforge.net, "linux-ia64@vger.kernel.org" <linux-ia64@vger.kernel.org>, linux-kernel@vger.kernel.org
 
-This is a multi-part message in MIME format.
+> > fall back to smaller pages if possible (I was told it isn't easily
+> > possible on IA64)
+> 
+> That's not entirely true. Whether it's feasible depends on how the
+> MMU is used. The HPW (Hardware Pagetable Walker) and short mode of the
+> VHPT insist upon pagesize being a per-region attribute, where regions
+> are something like 60-bit areas of virtualspace, which is likely what
+> they're referring to. The VHPT in long mode should be capable of
+> arbitrary virtual placement (modulo alignment of course).
 
-------_=_NextPart_001_01C40813.E66106FC
-Content-Type: text/plain;
-	charset="GB2312"
-Content-Transfer-Encoding: quoted-printable
+Redesigning the low level TLB fault handling for this would not count as
+"easily" in my book.
 
-The linker's error report is kind of misleading in this case, there is =
-no discarded reference from serio_close/serio_init.
-
-To workaround the problem, we can reserve "exit.text" into final vmlinux =
-image, which will enlarge the image size a little bit. I've attached the =
-patch.
-
-Another way is to upgrade binutils package, newer linker will report =
-warning instead of error for this case.
-
-Thanks,
-Pingping (Benjamin) Liu
-Intel China Software Center
-
-
->-----Original Message-----
->From: linux-ia64-owner@vger.kernel.org=20
->[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Liu, Benjamin
->Sent: 2004=C4=EA3=D4=C211=C8=D5 16:33
->To: Sourav Sen; linux-ia64@vger.kernel.org
->Subject: RE: 2.6.3 compilation problem
->
->
->To workaround the problem, you can append=20
->__attribute__((weak)) to the declaration of those discarded=20
->symbols defined in section ".exit.text".
->
->Another workaround is to keep section ".exit.text" by=20
->modifying arch/ia64/vmlinux.lds.S.=20
->
->The device driver author might be able to answer why it is=20
->written that way.
->
->Thanks,
->Pingping (Benjamin) Liu
->Intel China Software Center
->
->
->>-----Original Message-----
->>From: linux-ia64-owner@vger.kernel.org=20
->>[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Sourav Sen
->>Sent: 2004=C4=EA3=D4=C211=C8=D5 14:53
->>To: linux-ia64@vger.kernel.org
->>Subject: 2.6.3 compilation problem
->>
->>
->>Hi,
->>
->>While compiling Linux 2.6.3 + ia64 patch for it, using
->>the following:
->>
->>[sourav]$ gcc --version
->>gcc (GCC) 3.1
->>[sourav]$ as --version
->>GNU assembler 2.13.90 20030125
->>[sourav]$ ld --version
->>GNU ld version 2.12.90 20020604
->>
->>I get the following error while doing
->>make vmlinux
->>
->>------
->>[...]
->> IKCFG   kernel/config_data.h
->>  CC      kernel/configs.o
->>  LD      kernel/built-in.o
->>  GEN     .version
->>  CHK     include/linux/compile.h
->>dnsdomainname: Host name lookup failure
->>  UPD     include/linux/compile.h
->>  CC      init/version.o
->>  LD      init/built-in.o
->>  LD      .tmp_vmlinux1
->>drivers/built-in.o: In function `serio_close':
->>drivers/built-in.o(.text+0x130c02): undefined reference to=20
->>`local symbols in
->>discarded section .exit.text'
->>drivers/built-in.o: In function `serio_init':
->>drivers/built-in.o(.init.text+0x10502): undefined reference to `local
->>symbols in discarded section .exit.text'
->>make: *** [.tmp_vmlinux1] Error 1
->>[...]
->>--------
->>
->>Any idea what I am doing wrong?
->>
->>TIA
->>--Sourav
->>
->>-
->>To unsubscribe from this list: send the line "unsubscribe=20
->>linux-ia64" in
->>the body of a message to majordomo@vger.kernel.org
->>More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
->-
->To unsubscribe from this list: send the line "unsubscribe=20
->linux-ia64" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
-
-------_=_NextPart_001_01C40813.E66106FC
-Content-Type: application/octet-stream;
-	name="text.exit.patch"
-Content-Transfer-Encoding: base64
-Content-Description: text.exit.patch
-Content-Disposition: attachment;
-	filename="text.exit.patch"
-
-LS0tIGFyY2gvaWE2NC9rZXJuZWwvdm1saW51eC5sZHMuUy5vbGQJMjAwNC0wMy0xMiAxNTo0MToy
-NC4wMDAwMDAwMDAgKzA4MDAKKysrIGFyY2gvaWE2NC9rZXJuZWwvdm1saW51eC5sZHMuUwkyMDA0
-LTAzLTEyIDE1OjQxOjU4LjAwMDAwMDAwMCArMDgwMApAQCAtMTYsNyArMTYsNiBAQAogewogICAv
-KiBTZWN0aW9ucyB0byBiZSBkaXNjYXJkZWQgKi8KICAgL0RJU0NBUkQvIDogewotCSooLmV4aXQu
-dGV4dCkKIAkqKC5leGl0LmRhdGEpCiAJKiguZXhpdGNhbGwuZXhpdCkKIAkqKC5JQV82NC51bndp
-bmQuZXhpdC50ZXh0KQpAQCAtMzYsNiArMzUsNyBAQAogCSooLnRleHQuaXZ0KQogCSooLnRleHQp
-CiAJKiguZ251LmxpbmtvbmNlLnQqKQorCSooLmV4aXQudGV4dCkKICAgICB9CiAgIC50ZXh0MiA6
-IEFUKEFERFIoLnRleHQyKSAtIExPQURfT0ZGU0VUKQogCXsgKigudGV4dDIpIH0K
-
-------_=_NextPart_001_01C40813.E66106FC--
+-Andi
