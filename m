@@ -1,41 +1,101 @@
-From: Bob Picco <Robert.Picco@hp.com>
-Date: Wed, 12 Jan 2005 01:39:29 +0000
-Subject: [PATCH] small optimization in ia64_leave_kernel
-Message-Id: <20050112025259.GI6314@localhost.localdomain>
+From: Christoph Lameter <clameter@sgi.com>
+Date: Tue, 04 Jan 2005 19:38:46 +0000
+Subject: page fault scalability patch V14 [6/7]: s390 atomic pte operationsw
+Message-Id: <Pine.LNX.4.58.0501041138200.805@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <Pine.LNX.4.44.0411221457240.2970-100000@localhost.localdomain>
+ <Pine.LNX.4.58.0411221343410.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221419440.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0411221424580.22895@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0411221429050.20993@ppc970.osdl.org>
+ <Pine.LNX.4.58.0412011539170.5721@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0412011545060.5721@schroedinger.engr.sgi.com>
+ <Pine.LNX.4.58.0501041129030.805@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0501041129030.805@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: Hugh Dickins <hugh@veritas.com>, akpm@osdl.org, Nick Piggin <nickpiggin@yahoo.com.au>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Hi Tony:
+Changelog
+        * Provide atomic pte operations for s390
 
-When returning to the kernel and not switching rbs, avoid fetching 
-local_cpu_data.  More could possibly be optimized here but limited registers 
-are available and the number of bundles might increase.  I didn't pursue any 
-further than predicating two instructions which eliminates a memory fetch.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
+Index: linux-2.6.10/include/asm-s390/pgtable.h
+=================================--- linux-2.6.10.orig/include/asm-s390/pgtable.h	2005-01-03 10:31:31.000000000 -0800
++++ linux-2.6.10/include/asm-s390/pgtable.h	2005-01-03 12:12:03.000000000 -0800
+@@ -569,6 +569,15 @@
+ 	return pte;
+ }
 
-thanks,
++#define ptep_xchg_flush(__vma, __address, __ptep, __pteval)            \
++({                                                                     \
++	struct mm_struct *__mm = __vma->vm_mm;                          \
++	pte_t __pte;                                                    \
++	__pte = ptep_clear_flush(__vma, __address, __ptep);             \
++	set_pte(__ptep, __pteval);                                      \
++	__pte;                                                          \
++})
++
+ static inline void ptep_set_wrprotect(pte_t *ptep)
+ {
+ 	pte_t old_pte = *ptep;
+@@ -780,6 +789,14 @@
 
-bob
+ #define kern_addr_valid(addr)   (1)
 
-Signed-off-by: Bob Picco <robert.picco@hp.com>
++/* Atomic PTE operations */
++#define __HAVE_ARCH_ATOMIC_TABLE_OPS
++
++static inline int ptep_cmpxchg (struct vm_area_struct *vma, unsigned long address, pte_t *ptep, pte_t oldval, pte_t newval)
++{
++	return cmpxchg(ptep, pte_val(oldval), pte_val(newval)) = pte_val(oldval);
++}
++
+ /*
+  * No page table caches to initialise
+  */
+@@ -793,6 +810,7 @@
+ #define __HAVE_ARCH_PTEP_CLEAR_DIRTY_FLUSH
+ #define __HAVE_ARCH_PTEP_GET_AND_CLEAR
+ #define __HAVE_ARCH_PTEP_CLEAR_FLUSH
++#define __HAVE_ARCH_PTEP_XCHG_FLUSH
+ #define __HAVE_ARCH_PTEP_SET_WRPROTECT
+ #define __HAVE_ARCH_PTEP_MKDIRTY
+ #define __HAVE_ARCH_PTE_SAME
+Index: linux-2.6.10/include/asm-s390/pgalloc.h
+=================================--- linux-2.6.10.orig/include/asm-s390/pgalloc.h	2004-12-24 13:35:00.000000000 -0800
++++ linux-2.6.10/include/asm-s390/pgalloc.h	2005-01-03 12:12:03.000000000 -0800
+@@ -97,6 +97,10 @@
+ 	pgd_val(*pgd) = _PGD_ENTRY | __pa(pmd);
+ }
 
-diff -ruNp -X /home/picco/losl/dontdiff linux-2.6.10-orig/arch/ia64/kernel/entry.S linux-2.6.10/arch/ia64/kernel/entry.S
---- linux-2.6.10-orig/arch/ia64/kernel/entry.S	2005-01-04 19:06:14.000000000 -0500
-+++ linux-2.6.10/arch/ia64/kernel/entry.S	2005-01-08 15:47:45.000000000 -0500
-@@ -925,9 +925,9 @@ GLOBAL_ENTRY(ia64_leave_kernel)
- 	shr.u r18=r19,16	// get byte size of existing "dirty" partition
- 	;;
- 	mov r16=ar.bsp		// get existing backing store pointer
--	addl r17=THIS_CPU(ia64_phys_stacked_size_p8),r0
-+(pUStk) addl r17=THIS_CPU(ia64_phys_stacked_size_p8),r0
- 	;;
--	ld4 r17=[r17]		// r17 = cpu_data->phys_stacked_size_p8
-+(pUStk) ld4 r17=[r17]		// r17 = cpu_data->phys_stacked_size_p8
- (pKStk)	br.cond.dpnt skip_rbs_switch
- 
- 	/*
++static inline int pgd_test_and_populate(struct mm_struct *mm, pdg_t *pgd, pmd_t *pmd)
++{
++	return cmpxchg(pgd, _PAGE_TABLE_INV, _PGD_ENTRY | __pa(pmd)) = _PAGE_TABLE_INV;
++}
+ #endif /* __s390x__ */
 
+ static inline void
+@@ -119,6 +123,18 @@
+ 	pmd_populate_kernel(mm, pmd, (pte_t *)((page-mem_map) << PAGE_SHIFT));
+ }
+
++static inline int
++pmd_test_and_populate(struct mm_struct *mm, pmd_t *pmd, struct page *page)
++{
++	int rc;
++	spin_lock(&mm->page_table_lock);
++
++	rc=pte_same(*pmd, _PAGE_INVALID_EMPTY);
++	if (rc) pmd_populate(mm, pmd, page);
++	spin_unlock(&mm->page_table_lock);
++	return rc;
++}
++
+ /*
+  * page table entry allocation/free routines.
+  */
 
