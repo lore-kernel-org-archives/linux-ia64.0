@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 21 Apr 2004 23:01:17 +0000
+From: Jean-Marc Saffroy <jean-marc.saffroy@ext.bull.net>
+Date: Fri, 23 Apr 2004 12:43:33 +0000
 Subject: Re: [PATCH] module relocation code
-Message-Id: <16518.64829.417223.202223@napali.hpl.hp.com>
+Message-Id: <Pine.LNX.4.44.0404231304520.1782-100000@daphne.frec.bull.fr>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.44.0404211718200.1782-100000@daphne.frec.bull.fr>
 In-Reply-To: <Pine.LNX.4.44.0404211718200.1782-100000@daphne.frec.bull.fr>
@@ -10,26 +10,34 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 22 Apr 2004 00:50:59 +0200 (CEST), Jean-Marc Saffroy <jean-marc.saffroy@ext.bull.net> said:
+Hello David,
 
-  Jean-Marc> When val and location are both in init or both in core,
-  Jean-Marc> there's nothing to do[*]. When val and location are in
-  Jean-Marc> different areas, I always use a plt (and then a function
-  Jean-Marc> descriptor for val is needed if val is in the module).
+On Wed, 21 Apr 2004, David Mosberger wrote:
 
-Yes, the code is probably fine, but I think it could be structured
-better for better.
+> Yes, the code is probably fine, but I think it could be structured
+> better for better.
 
-  Jean-Marc> [*] unless the text grows larger than 32MB, now that I
-  Jean-Marc> think about it. It may be better to use a plt depending
-  Jean-Marc> on the offset between val and plt, after all.
+Do you mean there should be more generic code to handle the same problem
+for other relocation types? BTW, do you have any hints as to which types
+need to be fixed besides PCREL21B?
 
-The entire kernel is much smaller than that.  Let's not overengineer
-the solution.  As long as the >32MB case is detected and a suitable
-error message is printed, that should be fine.
+Also, you mentioned formatting problems in the patch, but I can't see any.
 
-BTW: a PLT is also a bit of overkill.  What you're doing is similar to
-what the GNU linker calls "relaxation" (extending the reach of a
-branch), since the gp value is the same for the caller and the callee.
+> BTW: a PLT is also a bit of overkill.  What you're doing is similar to
+> what the GNU linker calls "relaxation" (extending the reach of a
+> branch), since the gp value is the same for the caller and the callee.
 
-	--david
+Indeed, but the only benefit I can see is that we could use a smaller plt
+entry that does not update gp and simply branches to the target. Only
+module .init code is impacted, so I'm not sure it is worth handling it
+differently.
+
+Now, I am fairly new to relocations and the like, so maybe I am missing
+something.
+
+
+Best regards,
+
+-- 
+Jean-Marc Saffroy - jean-marc.saffroy@ext.bull.net
+
