@@ -1,26 +1,40 @@
-From: Arun Sharma <arun.sharma@intel.com>
-Date: Tue, 30 Sep 2003 18:25:36 +0000
-Subject: Re: [PATCH] long format VHPT
-Message-Id: <marc-linux-ia64-106494670312945@msgid-missing>
+From: Umut Aymakoglu <umuta@us.ibm.com>
+Date: Fri, 12 Sep 2003 22:45:57 +0000
+Subject: shared library creation using -Bsymbolic
+Message-Id: <marc-linux-ia64-106340698329016@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-106453902218848@msgid-missing>
-In-Reply-To: <marc-linux-ia64-106453902218848@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Darren Williams wrote:
-> Hi Arun
-> 
-> These are useful suggestions and we will need a solution that covers all
-> possible scenarios for the page table walker, I have just begun looking
-> at the Ia64 code and so my responses may be slow until I get my head 
-> around it. One question I do have is that if we are initialising vhpt
-> in do_boot_cpu() are we only talking about SMP machines here, what 
-> about UNI processor machines?
 
-Yes, do_boot_cpu() doesn't work on UP. I'm still looking into allocating the VHPT on secondary CPUs rather than the boot CPU.
 
-	-Arun
+
+
+Hi -
+   I have gcc3(3.0.4) installed on my machine with the ld(2.11.90.0.8). The
+following compile fails. Has anybody seen a similar thing?
+
+thanks,
+Umut
+
+a.c:
+
+a()
+{
+call_func();
+}
+
+void call_func()
+{
+b();
+}
+
+%gcc3 -fPIC -c a.c
+%gcc3 -shared -o a.sl a.o   ---> works
+%gcc3 -Wl,-Bsymbolic -shared -o a.sl a.o   ----> fails
+a.o: In function 'call_func':
+a.c:8 undefined reference to 'b'
+collect2: ld returned 1 exit status
 
