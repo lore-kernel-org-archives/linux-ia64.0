@@ -1,42 +1,50 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 28 Aug 2002 14:42:45 +0000
-Subject: Re: [Linux-ia64] How do I enable direct IOs with ia64 ?
-Message-Id: <marc-linux-ia64-105590701905992@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 08 Aug 2002 04:37:43 +0000
+Subject: [Linux-ia64] Re: A comment on the 2.5.29 patch
+Message-Id: <marc-linux-ia64-105590701905924@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701905991@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701905991@msgid-missing>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jacky Malcles <Jacky.Malcles@bull.net> writes:
+>>>>> On Thu, 8 Aug 2002 13:38:03 +1000, Peter Chubb <peter@chubb.wattle.id.au> said:
 
-|> If I run the following piece of code to an ia64 (azusa) I can see that
-|> direct
-|> io are not enabled, but please,
-|> what do i have to do to have them running?=20
+  Peter> Hi David,
 
-Use getpagesize.
+  Peter> The change to drivers/char/mem.c doesn't look right --- it forces a
+  Peter> successful system call even when there's been an error.
 
-|> compil:
-|> cc -O  -D_GNU_SOURCE voyons.c   -o voyons#include <stdio.h>
-|> #include <stdlib.h>
-|> #include <unistd.h>
-|> #include <signal.h>
-|> #include <string.h>
-|> #include <sys/fcntl.h>
-|> #include <errno.h>
-|>=20
-|> #define BUFSIZE 8192
+  Peter> --- a/drivers/char/mem.c	Thu Aug  1 01:08:13 2002
+  Peter> +++ b/drivers/char/mem.c	Thu Aug  1 01:08:13 2002
+  Peter> @@ -518,6 +518,7 @@
+  Peter> default:
+  Peter> ret = -EINVAL;
+  Peter> }
+  Peter> +	force_successful_syscall_return();
+  Peter> unlock_kernel();
+  Peter> return ret;
+  Peter> }
 
-Page size is 16k by default on ia64, but can be as large as 64k.
+  Peter> Surely that should only be when ret != -EINVAL ???  You could move it
+  Peter> inside the switch, although that's ugly.
 
-Andreas.
+Yes, that's a bug, probably due to a bad merge.  Please understand
+that the 2.5.29 is works-in-progress; there really is a large number
+of outstanding things, so don't expect everything to be all-right.
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux AG, Deutschherrnstr. 15-19, D-90429 N=FCrnberg
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+  Peter> I can't see the point of moving the declaration of extern irq_desc_t
+  Peter> irq_desc [NR_IRQS]; from include/linux/irq.h into asm-i386/hw_irq.,
+
+The idea is simple: remove irq_desc[] and replace it with an irq_desc()
+macro, so that platforms have the option to implement the table any way
+they see fit (e.g., distributed across NUMA nodes).
+
+  Peter> And my remaining comment is that I'm not sure why the changes to the
+  Peter> softirq() names were made.  A rose by any name would smell as sweet...
+
+Specifics please?  There are no just-for-fun renames, but again, it
+could be a bad merge or something along those lines.
+
+	--david
 
