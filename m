@@ -1,33 +1,21 @@
-From: "Hoodye, Morris" <Morris.Hoodye@compaq.com>
-Date: Tue, 10 Jul 2001 16:47:43 +0000
-Subject: [Linux-ia64] linux on ia64
-Message-Id: <marc-linux-ia64-105590693005839@msgid-missing>
+From: Dan Pop <Dan.Pop@cern.ch>
+Date: Tue, 10 Jul 2001 17:57:04 +0000
+Subject: Re: [Linux-ia64] linux on ia64
+Message-Id: <marc-linux-ia64-105590693005842@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590693005839@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590693005839@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Is linux on ia64 big-endian or little endian?
- 
+On Tue, 10 Jul 2001, Hoodye, Morris wrote:
 
-Morris Hoodye
+> Is linux on ia64 big-endian or little endian?
 
-Tandem Division
+Little endian.
 
-Yosemite Project
+Dan
 
-NonStop Software & Group
-
- Compaq Computer Corporation
-
- Phone: (408)285-5163
-
-Fax: (408)285-1637
-
-E-mail:  <mailto:Morris.Hoodye@Compaq.com> Morris.Hoodye@Compaq.com
-
- 
-
- 
 
