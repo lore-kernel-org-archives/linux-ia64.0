@@ -1,77 +1,26 @@
-From: Steven Cole <elenstev@mesatop.com>
-Date: Thu, 12 Sep 2002 02:32:41 +0000
-Subject: Re: [Linux-ia64] [trivial] Request for merging of two sets of
-Message-Id: <marc-linux-ia64-105590701906024@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 23 Sep 2002 19:15:01 +0000
+Subject: [Linux-ia64] running x86 mozilla with "skin" support etc.
+Message-Id: <marc-linux-ia64-105590701906046@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <marc-linux-ia64-105590701906017@msgid-missing>
-In-Reply-To: <marc-linux-ia64-105590701906017@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2002-09-10 at 23:51, Keith Owens wrote:
-> Steven Cole <elenstev@mesatop.com> wrote:
-> >Could one of you help resolve the following very trivial problem.  In
-> >2.4.20-pre5 Documentation/Configure.help, there exists two
-> >Configure.help entries for CONFIG_IA64_SGI_SN_SIM and
-> >CONFIG_IA64_SGI_SN_DEBUG.
-> >
-> >The configurators will of course only display the first of the two.
-> >Would someone please indicate which of the texts is the more accurate or
-> >combine them as you see fit.  You can send me the results or make up a
-> >patch yourself.
-> >
-> >If this is a moot point, deleting the second text would be the default
-> >thing to do.
-> 
-> The first set is wrong.  There is also an error in ia64/config.in for
-> one of these variables.  Patch against 2.4.19.
-> 
-> --- Documentation/Configure.help.orig	Wed Sep 11 15:44:36 2002
-> +++ Documentation/Configure.help	Wed Sep 11 15:45:24 2002
-> @@ -24409,16 +24409,6 @@
->  
->    If you don't know what to do, choose "generic".
->  
-> -CONFIG_IA64_SGI_SN_SIM
-> -  Build a kernel that runs on both the SGI simulator AND on hardware.
-> -  There is a very slight performance penalty on hardware for including this
-> -  option.
-> -
-> -CONFIG_IA64_SGI_SN_DEBUG
-> -  This enables addition debug code that helps isolate
-> -  platform/kernel bugs. There is a small but measurable performance
-> -  degradation when this option is enabled.
-> -
->  # Choice: pagesize
->  Kernel page size
->  CONFIG_IA64_PAGE_SIZE_4KB
-> --- arch/ia64/config.in.orig	Wed Sep 11 15:45:29 2002
-> +++ arch/ia64/config.in	Wed Sep 11 15:49:01 2002
-> @@ -75,7 +75,7 @@
->  
->  if [ "$CONFIG_IA64_SGI_SN1" = "y" ] || [ "$CONFIG_IA64_SGI_SN2" = "y" ]; then
->  	define_bool CONFIG_IA64_SGI_SN y
-> -	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG n
-> +	bool '  Enable extra debugging code' CONFIG_IA64_SGI_SN_DEBUG
->  	bool '  Enable SGI Medusa Simulator Support' CONFIG_IA64_SGI_SN_SIM
->  	bool '  Enable autotest (llsc). Option to run cache test instead of booting' \
->  			CONFIG_IA64_SGI_AUTOTEST n
-> 
-> 
+As you may know, the mozilla/x86 skin support pulls in dependencies on
+a whole bunch x86 libraries and binaries.  Finding those dependencies
+isn't entirely trivial.  I went through this exercise on my ia64
+workstation and it is now set up so that mozilla/x86 works perfectly
+fine (I usually prefer the native mozilla, but mozilla/x86 is still
+useful for web pages that require Java, Flash, or similar plugins).
 
-Thanks Keith.
+The main "trick" to get skin support working is to make sure that
+/emul/ia32-linux is populated with the x86 version of /usr/bin/convert
+(along with all pre-requisite libraries).  A copy of the x86 version
+of the files in /usr/lib/gtk/themes/engines and /usr/lib/gdk-imlib1/
+are also needed.  If someone wants a more detailed list of files, let
+me know.
 
-Alan, please don't apply the patch I sent with this subject line:
-
-[PATCH] 2.4.20-pre5-ac4 Configure.help duplicate entry cleanup.
-
-That patch removes the wrong set of texts according to Keith.
-
-I'll generate another patch next release if I don't hear anything which
-contradicts the above.
-
-Steven
-
+	--david
 
