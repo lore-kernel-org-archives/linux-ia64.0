@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 08 Jan 2003 23:43:22 +0000
+From: Roland McGrath <roland@redhat.com>
+Date: Thu, 09 Jan 2003 07:05:55 +0000
 Subject: [Linux-ia64] Re: strace improvement patch
-Message-Id: <marc-linux-ia64-105590709805652@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805653@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805650@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805650@msgid-missing>
@@ -10,39 +10,33 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 8 Jan 2003 14:17:06 -0800, Roland McGrath <roland@redhat.com> said:
+>  * util.c (arg_setup) [IA64]: Make it work for syscall-stubs that have
+> 	a non-empty local register partition.
+>    (set_arg0) [IA64]: Fix it so it actually works.
+>    (set_arg1) [IA64]: Ditto.
+>    (setbpt): Treat SYS_clone2 like SYS_clone.
 
-  Roland> Thanks, David.  That original patch was indeed by me.  I am
-  Roland> now doing most of the strace maintenance on the sourceforge
-  Roland> version directly.
+Are you sure this really works on IA64?  I've merged the changes, and
+though I fixed some other problems with my original code, the IA64 code in
+util.c is exactly what's in your patch.  It doesn't work for me on IA64.
+The failure mode suggests the argument munging code is munging the wrong
+thing.  I don't know IA64 halfway well enough to figure out how it might be
+wrong, and it looks to me like it matches the code that fetches those
+values in syscall_enter.  When I do "strace -f /usr/bin/time /bin/true",
+both parent and child die with SIGSEGV upon continuing the clone syscall
+whose arguments should have been munged to set the CLONE_PTRACE flag.
+(It executes fine without -f.)
 
-I'm very happy to hear that.  Seems like you have made lots of nice
-improvements already.
+I've committed the changes (along with some more fixes and new support for
+the new threads features in Linux 2.5).  Can you get the current sources
+from sourceforge and try them on IA64?  After getting a cvs checkout,
+you'll need to run "autoreconf -i" with automake-1.7.2 and autoconf-2.57.
 
-  Roland> I was already planning to merge those changes in, along with
-  Roland> some more clone-related changes I have to handle the 2.5
-  Roland> threads stuff that I will finish up and merge.  I will
-  Roland> incorporate your fixes and test it on IA64 before I commit
-  Roland> those changes.
+Unless someone can help me fix this right away, we'll probably go ahead
+with a 4.4.90 test release with this bug still biting IA64.
 
-Thanks!
 
->>>>> On Wed, 8 Jan 2003 14:20:02 -0800, Roland McGrath <roland@redhat.com> said:
+Thanks,
+Roland
 
-  >> Also, I'd recommend to use gcc-3.2 for compiling strace.  I
-  >> encountered some strange bugs with gcc-2.96, though I did not try to
-  >> track them down.  With gcc-3.2, those bugs went away and strace now
-  >> seems to work quite nicely (once again, that is).
-
-  Roland> Can you give me at least a clue what to look for?
-
-Sure thing: what happened is that after an execve(), all syscall
-result values would come out wrong (usually as 0x8000000000000000 or
--9223372036854775808).  It didn't always happen, and the problem
-usually went away whenever I tried to track it down by adding printfs.
-I think the problem was that strace got out of sync and thought that
-the program was returning from a syscall when it was actually entering
-it.
-
-	--david
 
