@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@ocs.com.au>
-Date: Fri, 10 May 2002 05:49:07 +0000
-Subject: [Linux-ia64] Re: new kernel patch (relative to 2.4.18)
-Message-Id: <marc-linux-ia64-105590701905564@msgid-missing>
+From: Grant Grundler <grundler@cup.hp.com>
+Date: Fri, 10 May 2002 06:30:40 +0000
+Subject: Re: [Linux-ia64] Re: new kernel patch (relative to 2.4.18)
+Message-Id: <marc-linux-ia64-105590701905565@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905563@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905563@msgid-missing>
@@ -10,39 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 8 May 2002 10:49:56 -0700, 
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
->	linux-2.4.18-ia64-020508.diff.gz
+Keith Owens wrote:
+> That change has introduced drivers/message/fusion/utils.  None of that
+> code belongs in the kernel, it is not hooked into the kernel build
+> system.  Whoever added drivers/message/fusion/utils, please remove it.
 
-Building with a minimal config.
+Keith,
+good catch.  I'll take some of the blame though I didn't point david
+at drivers in our local ZX1 work tree.
 
-Warnings:
+David, can you remove references to utils and t10.org subdirectories?
+(ie delete lines 198196 to 200390 from linux-2.4.18-ia64-020508.diff)
 
-arch/ia64/kernel/process.c: In function `ia64_save_extra':
-arch/ia64/kernel/process.c:183: warning: implicit declaration of function `ia32_save_state'
-arch/ia64/kernel/process.c: In function `ia64_load_extra':
-arch/ia64/kernel/process.c:203: warning: implicit declaration of function `ia32_load_state'
+I also didn't expect to be part of the path between LSI and kernel.org.
+The fusion 2.0.11 tarball from LSI included several directories that
+don't belong in the kernel: utils, patch, t10.org
 
-mm/slab.c: In function `kmem_cache_sizes_init':
-mm/slab.c:451: warning: long unsigned int format, size_t arg (arg 3)
-mm/slab.c:463: warning: long unsigned int format, size_t arg (arg 3)
+I thought globbing everything from the LSI tarball in our local ZX1 work
+tree would make updates from LSI easier. *sigh*.
 
-drivers/acpi/acpi_tables.c: In function `acpi_table_print_madt_entry':
-drivers/acpi/acpi_tables.c:169: warning: long long unsigned int format, u64 arg (arg 2)
-drivers/acpi/acpi_tables.c:178: warning: long long unsigned int format, u64 arg (arg 4)
-
-CONFIG_ACPI=y, CONFIG_PCI=n still breaks.
-drivers/acpi/acpi_osl.o: In function `acpi_os_initialize':
-drivers/acpi/acpi_osl.o(.text+0x12): undefined reference to `pcibios_config_init'
-drivers/acpi/acpi_osl.o(.text+0x20): undefined reference to `pci_config_read'
-drivers/acpi/acpi_osl.o(.text+0x22): undefined reference to `pci_config_write'
-drivers/acpi/acpi_osl.o: In function `acpi_os_read_pci_configuration':
-drivers/acpi/acpi_osl.o(.text+0x1170): undefined reference to `pci_config_read'
-drivers/acpi/acpi_osl.o(.text+0x11e0): undefined reference to `pci_config_read'
-drivers/acpi/acpi_osl.o(.text+0x1250): undefined reference to `pci_config_read'
-drivers/acpi/acpi_osl.o: In function `acpi_os_write_pci_configuration':
-drivers/acpi/acpi_osl.o(.text+0x13b0): undefined reference to `pci_config_write'
-drivers/acpi/acpi_osl.o(.text+0x1420): undefined reference to `pci_config_write'
-drivers/acpi/acpi_osl.o(.text+0x1490): undefined reference to `pci_config_write'
-
+thanks,
+grant
 
