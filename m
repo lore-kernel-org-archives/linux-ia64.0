@@ -1,12 +1,37 @@
-From: Bill Nottingham <notting@redhat.com>
-Date: Wed, 21 Jun 2000 17:44:53 +0000
-Subject: [Linux-ia64] new Red Hat Linux for IA-64 available
-Message-Id: <marc-linux-ia64-105590678205167@msgid-missing>
+From: "Akhter, Shameem F" <shameem.f.akhter@intel.com>
+Date: Thu, 22 Jun 2000 04:01:51 +0000
+Subject: RE: [Linux-ia64] new Red Hat Linux for IA-64 available
+Message-Id: <marc-linux-ia64-105590678205169@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205167@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205167@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+I am having problem with the "redhat" ftp site, whereas "cygnus" ftp is
+working fine. Any idea?
+
+Thanks.
+
+-- Shameem
+
+Shameem Akhter
+
+IACG
+IA64 Tools Engineering
+Ph: (503) 264-1644
+
+
+
+-----Original Message-----
+From: Bill Nottingham [mailto:notting@redhat.com]
+Sent: Wednesday, June 21, 2000 10:45 AM
+To: linux-ia64@linuxia64.org
+Cc: ia64-tools@napali.hpl.hp.com
+Subject: [Linux-ia64] new Red Hat Linux for IA-64 available
+
 
 A new Red Hat Linux Development Release for IA-64 is available.
 You can download this release from:
@@ -46,5 +71,12 @@ will not run on future releases. Similarly, programs built
 on future releases will not run on this release.
 
 Bill
+
+
+_______________________________________________
+Linux-IA64 mailing list
+Linux-IA64@linuxia64.org
+http://lists.linuxia64.org/lists/listinfo/linux-ia64
+
 
 
