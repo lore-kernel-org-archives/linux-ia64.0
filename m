@@ -1,46 +1,30 @@
-From: Ulrich Drepper <drepper@redhat.com>
-Date: Mon, 08 Apr 2002 20:23:50 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 08 Apr 2002 20:40:38 +0000
 Subject: Re: [Linux-ia64] C++ doesn't like asm/atomic.h
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-/zrP5oDO1vClD7rgASeZ"
-Message-Id: <marc-linux-ia64-105590701905414@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905417@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590701905396@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590701905396@msgid-missing>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---=-/zrP5oDO1vClD7rgASeZ
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+>>>>> On Mon, 8 Apr 2002 12:33:40 -0700, Gary Hade <garyhade@us.ibm.com> said:
 
-On Mon, 2002-04-08 at 13:13, David Mosberger wrote:
+  Gary> David, did you mean to say "... in having glibc not provide
+  Gary> ..."?
 
-> I guess I don't really see the harm in having glibc provide a header
-> for these system call, but as long as the syscall stubs are there,
-> it's probably not a huge issue in practice.
+Nope.  My preference would be for glibc to provide such a header.
+Though I see Uli's point about kernel changes.
 
-David, you are around long enough to see the dangers.  I don't want to
-have any dependencies on the kernel.  Any change in the kernel interface
-would force me to make a new release which isn't going to happen.
+  Gary> I notice that the *_module(2) man pages which
+  Gary> advocate the use of #include <linux/module.h> are installed as
+  Gary> part of the modutils package.  Is is possibly "modutils" that
+  Gary> should provide the header file that avoids sucking in the
+  Gary> possibly problematic kernel-only code.
 
---=20
----------------.                          ,-.   1325 Chesapeake Terrace
-Ulrich Drepper  \    ,-------------------'   \  Sunnyvale, CA 94089 USA
-Red Hat          `--' drepper at redhat.com   `------------------------
+That certainly would work for me.
 
---=-/zrP5oDO1vClD7rgASeZ
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iD8DBQA8sfxW2ijCOnn/RHQRAv+eAJ4gs89icT9ahw8AtZOXm8qeip5jAACgo31j
-ecNTqm8OUDsqESGefkZBMSg=
-=S40G
------END PGP SIGNATURE-----
-
---=-/zrP5oDO1vClD7rgASeZ--
-
+	--david
 
