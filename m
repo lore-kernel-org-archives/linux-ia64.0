@@ -1,7 +1,7 @@
-From: Cary Coutant <cary@cup.hp.com>
-Date: Mon, 08 Mar 2004 17:15:44 +0000
+From: Zack Weinberg <zack@codesourcery.com>
+Date: Mon, 08 Mar 2004 18:08:09 +0000
 Subject: Re: Possible race condition with deferred binding on IPF
-Message-Id: <3BC7D31F-7124-11D8-A2F3-003065589C02@cup.hp.com>
+Message-Id: <87wu5v1aba.fsf@egil.codesourcery.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <BEC72735-6E38-11D8-9E11-003065589C02@cup.hp.com>
 In-Reply-To: <BEC72735-6E38-11D8-9E11-003065589C02@cup.hp.com>
@@ -10,70 +10,62 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> Converting the ld8 to a ld8.acq is a simple matter of changing the
-> second line of this array to
+Cary Coutant <cary@cup.hp.com> writes:
+
+>> Converting the ld8 to a ld8.acq is a simple matter of changing the
+>> second line of this array to
+>>
+>>   0x00, 0x41, 0x3c, 0x70, 0x29, 0xc0,  /*               ld8.acq
+>> r16=[r15],8 */
 >
->   0x00, 0x41, 0x3c, 0x70, 0x29, 0xc0,  /*               ld8.acq 
-> r16=[r15],8 */
+> Yes, this is the same bit pattern Steve Ellcey and I came up with.
 
-Yes, this is the same bit pattern Steve Ellcey and I came up with.
+Ok.  I'll see about testing this and submitting a proper patch.
 
-> 1) If I assemble the sample code above, using GAS 2.14, the first byte
->    of the first bundle is 0a, not 0b.  Hex-editing it to 0b doesn't
->    seem to make any difference to the disassembly, but I would like to
->    know if there is a difference anyway.
+> This code does not need to be patched. The two words loaded here point
+> to the dynamic loader's BOR routine. The dynamic loader must provide
+> the proper values in the linkage table before the program can run;
+> these values will not change, so the ordering isn't important. Adding
+> an ld.acq here would unnecessarily slow the code down.
 
-As you discovered, that's just a missing stop bit.
+Ok, thanks for the clarification.
 
-> 2) There is another code sequence synthesized by the linker that might
->    need the same treatment:
+> I don't see anything wrong with you're reasoning, but changing this
+> will have a binary compatibility impact, as the copy of gp to r14 is
+> now part of the ABI, and will be present in inlined import stubs in
+> existing .o files. I don't think gcc generates inlined import stubs at
+> the moment, but I think Intel's compiler does.
 >
-> static const bfd_byte plt_header[PLT_HEADER_SIZE] > {
->   0x0b, 0x10, 0x00, 0x1c, 0x00, 0x21,  /*   [MMI]       mov r2=r14;;   
->     */
->   0xe0, 0x00, 0x08, 0x00, 0x48, 0x00,  /*               addl r14=0,r2  
->     */
->   0x00, 0x00, 0x04, 0x00,              /*               nop.i 0x0;;    
->     */
->   0x0b, 0x80, 0x20, 0x1c, 0x18, 0x14,  /*   [MMI]       ld8 
-> r16=[r14],8;;  */
->   0x10, 0x41, 0x38, 0x30, 0x28, 0x00,  /*               ld8 
-> r17=[r14],8    */
->   0x00, 0x00, 0x04, 0x00,              /*               nop.i 0x0;;    
->     */
->   0x11, 0x08, 0x00, 0x1c, 0x18, 0x10,  /*   [MIB]       ld8 r1=[r14]   
->     */
->   0x60, 0x88, 0x04, 0x80, 0x03, 0x00,  /*               mov b6=r17     
->     */
->   0x60, 0x00, 0x80, 0x00               /*               br.few b6;;    
->     */
-> };
+> Too bad. It leaves me wondering why we didn't design it this way in
+> the first place.
 
-This code does not need to be patched. The two words loaded here point 
-to the dynamic loader's BOR routine. The dynamic loader must provide 
-the proper values in the linkage table before the program can run; 
-these values will not change, so the ordering isn't important. Adding 
-an ld.acq here would unnecessarily slow the code down.
+Understood.  I can still squeeze PLT0 down to two bundles by moving
+the r2=r14 move into PLT1a, but I suspect that it only fits because
+I didn't put in all the necessary stop bits.  Also it relies on being
+able to express a relocation to PLT_RESERVE+8, which may not be
+possible.  And I'm not sure whether this actually executes any faster.
 
-> I have a related question.  It seems to me that the canonical form of
-> the PLT entries has not been optimized quite as much as it could be.
-> In particular, the use of r14 as the pointer to the function
-> descriptor seems suboptimal.  As I read the document, this register is
-> dead after it's used to load the global pointer.  If r2 were used
-> instead, I think PLT0 could be tightened up a bit, at the cost of
-> pushing the PLT_RESERVE pointer load into the secondary PLT entries
-> (where there is a free bundle slot - the cost is in having to update
-> all of them at load time, but then, that has to happen anyway to set
-> up the PLT index).
+(The idea is, since the ordering doesn't matter, to fetch the branch
+target address first, and then the move to b6 can fit into that bundle -
+but only if I don't need a stop bit between the load and the move to b6.)
 
-I don't see anything wrong with you're reasoning, but changing this 
-will have a binary compatibility impact, as the copy of gp to r14 is 
-now part of the ABI, and will be present in inlined import stubs in 
-existing .o files. I don't think gcc generates inlined import stubs at 
-the moment, but I think Intel's compiler does.
+.PLT0:
+        addl    r2 = @gprel(plt_reserve+8), r2 ;;
+        ld8     r17 = [r2], 8
+        mov     b6 = r17
+        ld8     r1 = [r2], -16
+        ld8     r16 = [r2]
+        br      b6 ;;
+.PLT1:
+        addl    r15 = @pltoff(name1), r1 ;;
+        ld8.acq r16 = [r15], 8
+        mov     r14 = r1 ;;
+        ld8     r1 = [r15]
+        mov     b6 = r16
+        br      b6 ;;
+.PLT1a:
+        mov     r2 = r14
+        mov     r15 = @iplt(name1)
+        br      .PLT0 ;;
 
-Too bad. It leaves me wondering why we didn't design it this way in the 
-first place.
-
--cary
-
+zw
