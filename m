@@ -1,53 +1,25 @@
-From: Greg KH <greg@kroah.com>
-Date: Fri, 13 Dec 2002 05:12:30 +0000
-Subject: [Linux-ia64] Re: [Pcihpd-discuss] Problem with pci_read_config_word_nodev in 2.4.20
-Message-Id: <marc-linux-ia64-105590709805559@msgid-missing>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 16 Dec 2002 23:07:45 +0000
+Subject: [Linux-ia64] free and quick access to McKinley (Itanium 2) machines
+Message-Id: <marc-linux-ia64-105590709805580@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Dec 13, 2002 at 03:05:33AM +0000, Matthew Wilcox wrote:
-> 
-> I'm trying to get the acpiphp driver going on an HP system.
-> Unfortunately, it crashes the machine on zx1 systems due to uninitialised
-> sysdata.  I'm using the 2.4.20 patch from Bjorn, plus the 0.4 acpiphp
-> driver that was submitted for 2.4.21.
-> 
-> Here's the problem:
-> 
-> acpiphp_enable_slot()
-> |-> enable_device()
->     |-> acpiphp_configure_slot()
-> 	|-> pci_read_config_byte_nodev()
-> 	    |-> build_dev()
-> 		|-> pci_read_config_byte(dev)
-> 		    |-> dev->bus->ops->read_byte()
-> 
-> And the zx1 read_byte operation attempts to dereference a struct which
-> sysdata points to.  But build_dev() doesn't fill in sysdata, and it has
-> no easy way to get it.
+It seems that a lot of people are unaware of HP's testdrive program
+(formerly Compaq's testdrive program), so I thought it might be worth
+pointing out: if you want an account on a McKinley (Itanium 2)
+machine, you can get one easily at:
 
-Um, didn't we go over all of this a few weeks ago?  :)
+	http://testdrive.hp.com/
 
-In the end, yes, it's a problem.  And yes, I'd like to fix it.  But I
-haven't gotten a patch from anyone that fixes this correctly.  The only
-one I've seen that is halfway sane just sets sysdata to 0, but that
-only works on one machine type :)
+Since these are shared & public machines, there are some limitations
+on what you can do with them (e.g., no benchmarking), but for basic
+software testing etc., they're very handy and the sign-up process is
+straight-forward and quick (time between sign-up and account available
+is a couple of hours).
 
-> I really don't know the best way to fix this.  Part of me says to fix
-> the _nodev() API to take a struct pci_bus *.  Part of me says that's too
-> big for 2.4 and not necessary for 2.5.  So maybe we should stash the sysdata
-> in the acpiphp_bridge.
-
-Yes, for 2.5 this is not a problem.  The _nodev() functions are big
-already, we could merge slot and function together to devfn, and then
-add another argument if we want to keep it at 6 paramaters...
-
-Any other ideas are welcome.
-
-thanks,
-
-greg k-h
+	--david
 
