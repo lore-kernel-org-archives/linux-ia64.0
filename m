@@ -1,7 +1,7 @@
-From: Matt_Domsch@Dell.com
-Date: Wed, 07 Mar 2001 13:35:09 +0000
-Subject: RE: [Linux-ia64] Two questions
-Message-Id: <marc-linux-ia64-105590693005255@msgid-missing>
+From: Stephane Eranian <eranian@frankl.hpl.hp.com>
+Date: Wed, 07 Mar 2001 17:35:13 +0000
+Subject: Re: [Linux-ia64] Two questions
+Message-Id: <marc-linux-ia64-105590693005257@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590693005254@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590693005254@msgid-missing>
@@ -10,23 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> 2. Where the <beep> are files on EFI GID partitions stored?? 
-> I cleared the
-> first disk for a brand new install but "old" booting files 
-> are still there!
+On Wed, Mar 07, 2001 at 12:19:05PM +0100, Francis Galiegue wrote:
+> 1. Where can I get precise info about firmware revisions, etc etc? I only know
+> about what a 'ver' displays at the EFI prompt and what the files in /proc
+> display... As to noting the 30+ digit BIOS revision, I do it by hand for now...
 
-Since the GPT stores metadata at both the beginning 34 sectors of the disk
-and a backup on the last 33 sectors of the disk,
-you'll need to zero both sets of sectors for it to be "cleared".
-
-Thanks,
-Matt
+Could you explain exactly what do you mean by precise ? version numbers ?
+If so, you can get the pal version in  /proc/pal/cpu0/version_info. As for
+EFI and SAL, at this point, there is no /proc interface to them. So your
+only chance is by dmesg because the kernel prints the versions when it boots.
+The rest is probably coming from ACPI, I guess.
 
 -- 
-Matt Domsch
-Dell Linux Systems Group
-Linux OS Development
-www.dell.com/linux
-
-
+-Stephane
 
