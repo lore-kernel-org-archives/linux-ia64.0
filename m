@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Tue, 20 Jan 2004 17:00:04 +0000
-Subject: Re: [patch] 2.6.1-mm5 compile do not use shared extable code for
-Message-Id: <20040120090004.48995f2a.akpm@osdl.org>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 21 Jan 2004 18:43:17 +0000
+Subject: Re: [patch] 2.6.1-mm5 compile do not use shared extable code for ia64
+Message-Id: <16398.51269.149031.241526@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <E1Aiuv7-0001cS-00@jaguar.mkp.net>
 In-Reply-To: <E1Aiuv7-0001cS-00@jaguar.mkp.net>
@@ -9,17 +9,20 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Jes Sorensen <jes@trained-monkey.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, paulus@samba.org
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Paul Mackerras <paulus@samba.org>
 
-Jes Sorensen <jes@trained-monkey.org> wrote:
->
-> The new sort_extable and shares search_extable code doesn't work on
->  ia64.
+>>>>> On Tue, 20 Jan 2004 07:23:49 -0500, Jes Sorensen <jes@trained-monkey.org> said:
 
-hm, OK.  It would be nice if ia64 could use the generic code at some stage,
-of course.
+  Jes> Hi,
+  Jes> The new sort_extable and shares search_extable code doesn't work on
+  Jes> ia64. I have introduced two new #defines that archs can define to avoid
+  Jes> the common code being built. ARCH_HAS_SEARCH_EXTABLE and
+  Jes> ARCH_HAS_SORT_EXTABLE.
 
-One wonders why the linker dragged lib/extable.c in at all.  Or does it fail at
-compile time?
+  Jes> With this patch, 2.6.1-mm5 builds again on ia64.
 
+What's this about?  Isn't the only reason this doesn't work because
+the "insn" member is called "addr" on ia64?  If so, surely it would
+make more sense to do a little renaming?
 
+	--david
