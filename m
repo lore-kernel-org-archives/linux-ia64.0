@@ -1,7 +1,7 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 20 Jan 2005 00:50:21 +0000
+From: dann frazier <dannf@hp.com>
+Date: Thu, 20 Jan 2005 00:54:11 +0000
 Subject: Re: state of the ia64 linux tree
-Message-Id: <24390.1106182221@kao2.melbourne.sgi.com>
+Message-Id: <1106182451.12129.92.camel@krebs.dannf>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <B8E391BBE9FE384DAA4C5C003888BE6F02C33881@scsmsx401.amr.corp.intel.com>
 In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F02C33881@scsmsx401.amr.corp.intel.com>
@@ -10,13 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 19 Jan 2005 15:19:03 -0800, 
-"Luck, Tony" <tony.luck@intel.com> wrote:
->The 'bk pull' that I just sent to Linus includes all the code
->that has been sitting in the "test-2.6.11" tree.
+On Wed, 2005-01-19 at 15:19 -0800, Luck, Tony wrote:
+> Uni-processor support is a mess right now.  Dan's resurrection
+> of Jesse's patches for generic-up support doesn't apply ... the
+> prime culprit is discontig.c:find_per_node_space() which has been
+> touched by several patches, so we still have lots of build
+> errors for generic-up.  tiger and zx1 systems do compile cleanly
+> with CONFIG_SMP=n, but the tiger stalls:
 
-kdb-v4.4-2.6.11-rc1-bk7-common-1.bz2
-kdb-v4.4-2.6.11-rc1-bk7-ia64-1.bz2
+2/3 patches were pretty trivial, and aren't interdependent:
+http://marc.theaimsgroup.com/?l=linux-ia64&m0504486300806&w=2
+http://marc.theaimsgroup.com/?l=linux-ia64&m0504526410939&w=2
 
-handle the test-2.6.11 changes.
 
