@@ -1,161 +1,94 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Tue, 20 Apr 2004 22:00:26 +0000
-Subject: [PATCH] add some EFI device smarts
-Message-Id: <200404201600.26207.bjorn.helgaas@hp.com>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Tue, 20 Apr 2004 23:50:38 +0000
+Subject: Re: [PATCH] add some EFI device smarts
+Message-Id: <20040420235038.GB29850@lists.us.dell.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="EVF5PPMfhYS0aIcm"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: Matt Tolentino <matthew.e.tolentino@intel.com>, Matt Domsch <Matt_Domsch@dell.com>, linux-kernel@vger.kernel.org
+References: <200404201600.26207.bjorn.helgaas@hp.com>
+In-Reply-To: <200404201600.26207.bjorn.helgaas@hp.com>
+To: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Cc: linux-ia64@vger.kernel.org, Matt Tolentino <matthew.e.tolentino@intel.com>, linux-kernel@vger.kernel.org
 
-This patch against current 2.6 BK adds efi_get_variable() and
-efi_uart_console_only().
 
-The first thing I want to use this for is smarter console detection.
-In the absence of a "console=" argument, we currently always default
-to a VGA console.  But if the EFI ConOut variable includes only UART
-devices, we ought to take advantage of that and use a serial console
-instead.
+--EVF5PPMfhYS0aIcm
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-This is based on previous work by Khalid Aziz and Alex Williamson.
+On Tue, Apr 20, 2004 at 04:00:26PM -0600, Bjorn Helgaas wrote:
+> (Like much of the EFI stuff, this really isn't ia64-specific.  Maybe
+> it's time to move some of it under drivers/efi?  If there's interest,
+> I can look at doing that.)
 
-(Like much of the EFI stuff, this really isn't ia64-specific.  Maybe
-it's time to move some of it under drivers/efi?  If there's interest,
-I can look at doing that.)
+Matt T. had done the work to move it under drivers/efi, though now
+that there's a drivers/firmware, that's more appropraite.  It also
+converted it to use sysfs instead of proc.  There was a bug in
+efivars_exit() where it was removing stuff (which could sleep) while
+holding a spinlock which wasn't good, but that was about the only
+issue anyone had with it.
 
-=== arch/ia64/kernel/efi.c 1.31 vs edited ==--- 1.31/arch/ia64/kernel/efi.c	Mon Apr 12 04:21:11 2004
-+++ edited/arch/ia64/kernel/efi.c	Tue Apr 20 14:46:28 2004
-@@ -747,6 +747,71 @@
- 	return 0;
- }
- 
+> +		/* Convert Unicode to normal chars */
+> +		for (i =3D 0; i < (name_size/sizeof(name_unicode[0])); i++)
+> +			name_utf8[i] =3D name_unicode[i] & 0xff;
+> +		name_utf8[i] =3D 0;
+
+I've never had a clear understanding of this.  It's not really UTF8
+(else straight ASCII text could be used), but more like UCS2.  (Yeah,
+I'm sure I named it wrong myself too in the rest of the file...) =20
+
+> +
+> +		if (strcmp(name_utf8, name))
+> +			continue;
+
+This ignores the fact that someone could create a variable with the
+same name but a different vendor GUID, and it would return the first
+one found.  Unfortunately, you need to request both pieces
+specifically -=20
+
 +int
-+efi_get_variable(char *name, unsigned char *data, unsigned long *size)
-+{
-+	efi_status_t status;
-+	efi_guid_t vendor_guid;
-+	efi_char16_t name_unicode[128];
-+	char name_utf8[ARRAY_SIZE(name_unicode) + 1];
-+	unsigned long name_size;
-+	int i;
-+
-+	memset(name_unicode, 0, sizeof(name_unicode));
-+	for (;;) {
-+		name_size = sizeof(name_unicode);
-+		status = efi.get_next_variable(&name_size, name_unicode,
-+			&vendor_guid);
-+		if (status != EFI_SUCCESS)
-+			return -EINVAL;
-+
-+		/* Convert Unicode to normal chars */
-+		for (i = 0; i < (name_size/sizeof(name_unicode[0])); i++)
-+			name_utf8[i] = name_unicode[i] & 0xff;
-+		name_utf8[i] = 0;
-+
-+		if (strcmp(name_utf8, name))
-+			continue;
-+
-+		status = efi.get_variable(name_unicode, &vendor_guid, NULL,
-+			size, data);
-+		if (status != EFI_SUCCESS)
-+			return -EINVAL;
-+
-+		return 0;
-+	}
-+}
-+
-+int __init
-+efi_uart_console_only(void)
-+{
-+	unsigned char data[1024];
-+	unsigned long size = sizeof(data);
-+	efi_generic_dev_path_t *hdr, *end_addr;
-+	int uart = 0;
-+
-+	if (efi_get_variable("ConOut", data, &size) < 0)
-+		return 0;
-+
-+	hdr = (efi_generic_dev_path_t *) data;
-+	end_addr = (efi_generic_dev_path_t *) ((u8 *) data + size);
-+	while (hdr < end_addr) {
-+		if (hdr->type = EFI_DEV_MSG &&
-+		    hdr->sub_type = EFI_DEV_MSG_UART)
-+			uart = 1;
-+		else if (hdr->type = EFI_DEV_END_PATH ||
-+			  hdr->type = EFI_DEV_END_PATH2) {
-+			if (!uart)
-+				return 0;
-+			if (hdr->sub_type = EFI_DEV_END_ENTIRE)
-+				return 1;
-+			uart = 0;
-+		}
-+		hdr = (efi_generic_dev_path_t *) ((u8 *) hdr + hdr->length);
-+	}
-+	return 0;	/* malformed path (no end) */
-+}
-+
- static void __exit
- efivars_exit (void)
- {
-=== include/linux/efi.h 1.7 vs edited ==--- 1.7/include/linux/efi.h	Tue Feb  3 22:29:14 2004
-+++ edited/include/linux/efi.h	Tue Apr 20 14:47:46 2004
-@@ -294,6 +294,8 @@
- extern u64 efi_get_iobase (void);
- extern u32 efi_mem_type (unsigned long phys_addr);
- extern u64 efi_mem_attributes (unsigned long phys_addr);
-+extern int efi_get_variable (char *name, unsigned char *data, unsigned long *size);
-+extern int __init efi_uart_console_only (void);
- extern void efi_initialize_iomem_resources(struct resource *code_resource,
- 					struct resource *data_resource);
- extern efi_status_t phys_efi_get_time(efi_time_t *tm, efi_time_cap_t *tc);
-@@ -322,6 +324,49 @@
- #define EFI_VARIABLE_BOOTSERVICE_ACCESS 0x0000000000000002
- #define EFI_VARIABLE_RUNTIME_ACCESS     0x0000000000000004
- 
-+/*
-+ * EFI Device Path information
-+ */
-+#define EFI_DEV_HW			0x01
-+#define  EFI_DEV_PCI				 1
-+#define  EFI_DEV_PCCARD				 2
-+#define  EFI_DEV_MEM_MAPPED			 3
-+#define  EFI_DEV_VENDOR				 4
-+#define  EFI_DEV_CONTROLLER			 5
-+#define EFI_DEV_ACPI			0x02
-+#define   EFI_DEV_BASIC_ACPI			 1
-+#define   EFI_DEV_EXPANDED_ACPI			 2
-+#define EFI_DEV_MSG			0x03
-+#define   EFI_DEV_MSG_ATAPI			 1
-+#define   EFI_DEV_MSG_SCSI			 2
-+#define   EFI_DEV_MSG_FC			 3
-+#define   EFI_DEV_MSG_1394			 4
-+#define   EFI_DEV_MSG_USB			 5
-+#define   EFI_DEV_MSG_USB_CLASS			15
-+#define   EFI_DEV_MSG_I20			 6
-+#define   EFI_DEV_MSG_MAC			11
-+#define   EFI_DEV_MSG_IPV4			12
-+#define   EFI_DEV_MSG_IPV6			13
-+#define   EFI_DEV_MSG_INFINIBAND		 9
-+#define   EFI_DEV_MSG_UART			14
-+#define   EFI_DEV_MSG_VENDOR			10
-+#define EFI_DEV_MEDIA			0x04
-+#define   EFI_DEV_MEDIA_HARD_DRIVE		 1
-+#define   EFI_DEV_MEDIA_CDROM			 2
-+#define   EFI_DEV_MEDIA_VENDOR			 3
-+#define   EFI_DEV_MEDIA_FILE			 4
-+#define   EFI_DEV_MEDIA_PROTOCOL		 5
-+#define EFI_DEV_BIOS_BOOT		0x05
-+#define EFI_DEV_END_PATH		0x7F
-+#define EFI_DEV_END_PATH2		0xFF
-+#define   EFI_DEV_END_INSTANCE			0x01
-+#define   EFI_DEV_END_ENTIRE			0xFF
-+
-+typedef struct {
-+	u8 type;
-+	u8 sub_type;
-+	u16 length;
-+} efi_generic_dev_path_t;
- 
- /*
-  * efi_dir is allocated in arch/ia64/kernel/efi.c.
++efi_get_variable(char *name, efi_variable_t *guid, unsigned char *data, un=
+signed long *size)
+
+and do a guidcmp() on them as well as the strcmp() on the name.
+
+> +int __init
+> +efi_uart_console_only(void)
+
+So to be useful, efivars can't be build modular anymore, right?  Then
+Kconfig needs to change as well.  It's module_init(), is that early
+enough to be used?  Where is efi_uart_console_only() called from?
+It's not in this patch.
+
+> +typedef struct {
+> +	u8 type;
+> +	u8 sub_type;
+> +	u16 length;
+> +} efi_generic_dev_path_t;
+
+No typedefs, just struct efi_generic_dev_path, and
+__attribute__((packed)) please just to be safe.
+
+
+Thanks,
+Matt
+
+--=20
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
+
+--EVF5PPMfhYS0aIcm
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+
+iD8DBQFAhbdOIavu95Lw/AkRAp3jAJ9GJpI8YrhKEeNc8pFaYZdfIitEFQCffldB
+YdSmnmd++rFh0klCxsVQ/vk=
+=cgLG
+-----END PGP SIGNATURE-----
+
+--EVF5PPMfhYS0aIcm--
