@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@hpl.hp.com>
-Date: Tue, 08 Aug 2000 17:16:06 +0000
-Subject: RE: [Linux-ia64] Kernel: which machine to choose?
-Message-Id: <marc-linux-ia64-105590678205276@msgid-missing>
+From: Uros Prestor <uros@turbolinux.com>
+Date: Tue, 08 Aug 2000 18:26:09 +0000
+Subject: Re: [Linux-ia64] Kernel: which machine to choose?
+Message-Id: <marc-linux-ia64-105590678205277@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205272@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205272@msgid-missing>
@@ -10,24 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Tue, 8 Aug 2000 09:02:51 -0700 , "Broadfoot, KenX" <kenx.broadfoot@intel.com> said:
+David Mosberger wrote:
 
-  Ken> I use:
-  Ken>	DIG-compliant Enable
-  Ken>  Itanium A-step Enable
-  Ken>  Itanium A1-step Enable
-  Ken>  AzusA hacks Enable
-  Ken>  IA64 Machine Check Abort
-  Ken>  SMP support
+> I wouldn't recommendn turning on AzusA hacks unless you have an AzusA
+> machine.
 
-I wouldn't recommendn turning on AzusA hacks unless you have an AzusA
-machine.
+Why is that?  Our kernels have been compiled with AzusA hacks enabled and we had no problems
+with our kernels running on BigSurs and Lions.
 
-  Ken> I am not using SoftSDV hacks ( strange I know ) I compile SMP
-  Ken> even for the single proc box. It just "seems" more stable.
+On another note, we are getting a lot more segfaults during builds lately.  The 0505 release
+which had the 2.3.99-pre6 kernel was rock solid; after moving to 2.4.0 kernels the segfaults
+came back with a vengeance.  We did upgrade processors from A2 to A3 but I don't think this
+could be a culprit.  Any ideas on this?
 
-SoftSDV is for the (Intel) simulator only.  Do _not_ turn this on for
-real hw.
+Thanks,
+Uros
 
-	--david
+--
+Uros Prestor
+uros@turbolinux.com
+
+
+
 
