@@ -1,7 +1,7 @@
-From: "Wichmann, Mats D" <mats.d.wichmann@intel.com>
-Date: Wed, 05 May 2004 15:15:55 +0000
-Subject: mmap/munmap LSB testing help ???
-Message-Id: <A06801158AE07847B27A52C1A074BC1D04C90F54@fmsmsx404.fm.intel.com>
+From: Pat Gefre <pfg@sgi.com>
+Date: Thu, 27 May 2004 15:31:18 +0000
+Subject: [PATCH 2.6] Altix - disable mst errors on probe
+Message-Id: <200405271531.i4RFVIX3333251@fsgi900.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -9,67 +9,113 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
-Three of the LSB tests in the mmap/munmap area have
-consistently caused trouble on architectures other
-than ia32 (and we think even those will cause trouble
-once someone starts testing with a 4/4 split, which
-at the least would need a different constant).
+An Altix patch for disabling MST errors on probe.
 
-This has been an ongoing problem, we're just about to
-give up and just stop running the tests but before
-doing so I wanted to ask for help, or at least opinions.
-Should this be possible?  Are the test strategies bogus
-(thinking of the ia64 perspective here), and if so
-would there be better ones?  Is this kind of thing even
-worth testing for a large-address-space architecture?
-Feel free to flame the test strategies, I didn't write them :-)
+-- Pat
+
+Patrick Gefre
+Silicon Graphics, Inc.                     (E-Mail)  pfg@sgi.com
+2750 Blue Water Rd                         (Voice)   (651) 683-3127
+Eagan, MN 55121-1400                       (FAX)     (651) 683-3054
 
 
-Thanks for any pointers,
-
-Mats
-
-=============================
-
-Some architecture-specific constant PG is selected
-such that:
-
-mmap test assertion:
-      A call to mmap() when MAP_FIXED is not specified and
-      there is insufficient room in the address space to
-      effect the mapping shall return MAP_FAILED and set errno 
-      to ENOMEM.
-
-test strategy:
-	mmap(0, PG/2 pages, PROT_WRITE, MAP_SHARED, ...)
-	mmap(0, PG-1 pages, PROT_WRITE, MAP_SHARED, ...)
-      ... should fail as in assertion
 
 
-mmap test assertion:
-      A call to mmap() when MAP_FIXED is specified and the
-      range [addr,addr+len] exceeds that allowed for the
-      address space of a process shall return MAP_FAILED
-      and set errno to ENOMEM.
-
-test strategy:
-      mmap(0, PG/2 pages, PROT_WRITE, MAP_SHARED, ...)
-      x = mmap(0, 3 pages, PROT_NONE, MAP_SHARED, ...)
-      munmap(x, 3 pages)
-      mmap(x, PG-1 pages, PROT_WRITE, MAP_FIXED|MAP_SHARED, ...)
-      ... should fail as in assertion
-
-
-munmap test assertion:
-      A call to munmap() when addresses in the range
-      [addr,addr+len] are outside the valid range for the
-      address space of the calling process shall return -1
-      and set errno to EINVAL.
-
-test strategy:
-      mmap(0, PG/2 pages, PROT_READ, MAP_SHARED, ...)
-      x = mmap(0, 2 pages, PROT_READ, MAP_SHARED, ...)
-      munmap(x, PG-1 pages)
-      ... should fail as in assertion
-     
-
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/05/27 10:27:41-05:00 pfg@sgi.com 
+#   Fix for disabling mst timeout errors on probes
+# 
+# arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c
+#   2004/05/27 10:27:34-05:00 pfg@sgi.com +47 -3
+#     
+# 
+diff -Nru a/arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c b/arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c
+--- a/arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c	2004-05-27 10:29:15 -05:00
++++ b/arch/ia64/sn/io/sn2/pcibr/pcibr_slot.c	2004-05-27 10:29:15 -05:00
+@@ -3,7 +3,7 @@
+  * License.  See the file "COPYING" in the main directory of this archive
+  * for more details.
+  *
+- * Copyright (C) 2001-2003 Silicon Graphics, Inc. All rights reserved.
++ * Copyright (C) 2001-2004 Silicon Graphics, Inc. All rights reserved.
+  */
+ 
+ #include <linux/types.h>
+@@ -1615,6 +1615,46 @@
+ 				piomap->bp_kvaddr + offset, len, valp);
+ }
+ 
++static uint64_t
++pcibr_disable_mst_timeout(pcibr_soft_t pcibr_soft)
++{
++    uint64_t		old_enable;
++    uint64_t		new_enable;
++    uint64_t		intr_bits;
++
++    intr_bits = PIC_ISR_PCI_MST_TIMEOUT
++		| PIC_ISR_PCIX_MTOUT | PIC_ISR_PCIX_SPLIT_EMSG;
++    old_enable = pcireg_intr_enable_get(pcibr_soft);
++    pcireg_intr_enable_bit_clr(pcibr_soft, intr_bits);
++    new_enable = pcireg_intr_enable_get(pcibr_soft);
++
++    if (old_enable = new_enable) {
++	return 0;		/* was already disabled */
++    } else {
++	return 1;
++    }
++}
++
++static int
++pcibr_enable_mst_timeout(pcibr_soft_t pcibr_soft)
++{
++    uint64_t		old_enable;
++    uint64_t		new_enable;
++    uint64_t		intr_bits;
++    
++    intr_bits = PIC_ISR_PCI_MST_TIMEOUT
++		| PIC_ISR_PCIX_MTOUT | PIC_ISR_PCIX_SPLIT_EMSG;
++    old_enable = pcireg_intr_enable_get(pcibr_soft);
++    pcireg_intr_enable_bit_set(pcibr_soft, intr_bits);
++    new_enable = pcireg_intr_enable_get(pcibr_soft);
++
++    if (old_enable = new_enable) {
++	return 0;		/* was alread enabled */
++    } else {
++	return 1;
++    }
++}
++
+ /*
+  * pcibr_probe_slot: read a config space word
+  * while trapping any errors; return zero if
+@@ -1628,7 +1668,7 @@
+ 		 int len,
+ 		 void *valp)
+ {
+-    int			rv;
++    int			rv, changed;
+ 
+     /*
+      * Sanity checks ...
+@@ -1642,14 +1682,18 @@
+ 	return -1;				/* invalid alignment */
+     }
+ 
++    changed = pcibr_disable_mst_timeout(pcibr_soft);
++
+     rv = snia_badaddr_val((void *)addr, len, valp);
+ 
+     /* Clear the int_view register incase it was set */
+     pcireg_intr_reset_set(pcibr_soft, BRIDGE_IRR_MULTI_CLR);
+ 
++    if (changed) {
++	pcibr_enable_mst_timeout(pcibr_soft);
++    }
+     return (rv ? 1 : 0);	/* return 1 for snia_badaddr_val error, 0 if ok */
+ }
+-
+ 
+ void
+ pcibr_device_info_free(vertex_hdl_t pcibr_vhdl, pciio_slot_t slot)
