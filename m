@@ -1,75 +1,81 @@
-From: "Zorn, Brian E" <brian.e.zorn@intel.com>
-Date: Sat, 07 Jul 2001 17:10:37 +0000
-Subject: [Linux-ia64] IA64 Stack Unwind on RedHat Linux
-Message-Id: <marc-linux-ia64-105590693005824@msgid-missing>
+From: Branden Robinson <branden@progeny.com>
+Date: Thu, 26 Jul 2001 20:35:09 +0000
+Subject: [Linux-ia64] XFree86 4.1.0, Linux/ia64, and various video cards
+Message-Id: <marc-linux-ia64-105590693005931@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi All,
+Here's a report on some hardware testing we've been doing at Progeny:
 
-In RedHat Linux, I'm working with a software vendor who is looking for
-information on an API for finding the stack unwind table, provided by the
-dynamic loader.  If this is available now, any information on where to get
-it and how to use it would be greatly appreciated.  If this is not currently
-available, could someone please provide me with an expected date when it
-will be, so that the vendor can plan their product roadmap more effectively?
+The tests were conducted using a patched version of 4.1.0 for Debian and
+Progeny that works around a problem with PIC symbols being absent in static
+libraries, which powerpc, ia64, and hppa (among possible others) do not
+tolerate.  At the same time, PIC symbols in X server modules cause the X
+server to segfault.  I'll be submitting this patch to XFree86 shortly.
 
-Here's some further clarification of the issue from the software vendor:
+The tests were run on an HP Workstation i2000.
 
-The information we need is the procedure/API for finding the unwind table
-associated with a given instruction pointer under Linux for IA-64. The
-documentation on IA-64 stack unwinding says this information is necessary
-for stack unwinding, but is OS-specific and not given in the Intel manuals:
-Specifically, in Section 11.1.2 of the IA-64 Software Conventions and
-Runtime Architecture Guide, it says "...the dynamic loader is expected to
-provide an API for finding the unwind table, given a known IP. This API is
-specific to the operating environment, and is not described here."
+1) NVidia Quadro2 AGP
+	Works fairly well.  Not a surprise since this is the stock card for
+	this machine.
 
-Here's a description of what they did on Linux/x86:
+2) 3Dfx Voodoo3 3000 PCI
+	Works.
 
-When someone allocates memory we get a list of address. Each address is the
-return address to the previous stack frame. The entire list should
-describe the entire calls stack of the call to "malloc". When an
-"interesting event" happens to the memory allocated, we go through the list
-of pointers. For each address we find the relevant symbol, module, and
-line information if available.
+3) 3Dfx Voodoo5 5500 AGP
+	Didn't work at all; not even recognized by the BIOS on the machine.
+	I won't say any more about this since it's clearly not (yet) a
+	software problem.
 
-This is roughly what we do on linux/x86
+4) S3 Trio64V2/DX PCI
+	BIOS seemed somewhat confused by this card, and beeped 5 times
+	before driving it.  It also appeared to believe that the card was
+	grayscale only.  The Linux console driver had no problems sending
+	color information to the card in VGA text mode.
 
-void* getSp() {
-asm("mov %ebp, %eax");
-}
+	The 4.1 XFree86 server doesn't support this chipset, but there is a
+	driver in CVS for it, which I imagine I'll get a chance to test.
 
-void *unwindStack() {
-void * sp = getSp;
-void stack[100];
-int i = 0;
+5) ATI Rage Pro Turbo AGP
+	The server crashed on startup with a SIGILL; a log file is
+	attached.  I presume the atimisc driver has not yet been ported to
+	ia64.
 
-// limit is some value beyond which the stack is not interesting
-while (sp > limit) {
-// The return address is the second word of the stack frame
-stack[i++] = sp + 1;
+6) Rendition V1000 PCI (Creative Labs "3D Blaster")
+	The server started, switched the card to graphics mode, but failed
+	to completely initialize it.  On the X server's VT there was
+	nothing but a blank screen.  A VT switch back to vc1 was possible,
+	where I was greeted by a display like that you get on old multisync
+	monitors that didn't shut off when you got out of sync range.
+	I.e., the display was diagnoally skewed and very noisy; however the
+	display manager's greeter was recongizable and the colors appeared
+	to be correct.  My guess is that there are some issues with the VT
+	switching and CRTC code; otherwise this driver might be in good
+	shape.  A logfile is attached.
 
-// The first word of the stack frame is the address of the
-previous stack frame.
-sp = *(void **)sp;
-}
+7) SiS 6326 PCI
+	This card did better than I expected given some legendary problems
+	with SiS video chipsets generally.  The greeter widget was rendered
+	incorrectly, with two copies horizontally offset and a ragged,
+	indistinct boundary with lots of analog noise betweeen them.
+	Interestingly, the red Debian swirl that I should have seen was
+	geometrically correct, but green on the left copy of the greeter
+	and blue on the right.  A log file is attached.
 
-return stack;
-}
-**********************************************
-Thanks for your help,
+				------------------------------------------
+				|     greeter 1     :       greeter2     |
+				|                    :                   |
+				|                   :                    |
+				|                  :                     |
+				|                   :                    |
+				------------------------------------------
 
-Brian E. Zorn
-Application Engineer				Phone:	503-264-6218
-Core eTools - Oregon				email:
-brian.e.zorn@intel.com <mailto:brian.e.zorn@intel.com>
-Solutions Enabling Group
-Intel Corporation
-
-
-
+-- 
+Branden Robinson          | GPG signed/encrypted mail welcome
+branden@progeny.com       | 1024D/9C0BCBFB
+Consultant                | D5F6 D4C9 E25B 3D37 068C
+Progeny Linux Systems     | 72E8 0F42 191A 9C0B CBFB
 
