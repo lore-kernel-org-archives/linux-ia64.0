@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 03 Feb 2005 20:00:20 +0000
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Mon, 07 Feb 2005 02:58:32 +0000
 Subject: Re: take5: vector sharing (Large I/O system support)
-Message-Id: <16898.33492.606251.161178@napali.hpl.hp.com>
+Message-Id: <4206D958.9070409@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4201FC3A.40803@jp.fujitsu.com>
 In-Reply-To: <4201FC3A.40803@jp.fujitsu.com>
@@ -10,38 +10,41 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-After a quick glance over the patch:
+Hi David,
 
- - There are several lines introduced with trailing whitespace (some
-   of them long).  If you use emacs, you can get rid of them
-   with delete-trailing-whitespace.  Please do so.
+Thank you for your comments.
 
- - I'm not a fan of coding retry-loops with labels; I'd much rather
-   have them be do/while-loops.  In this particular case:
+David Mosberger wrote:
+> After a quick glance over the patch:
+> 
+>  - There are several lines introduced with trailing whitespace (some
+>    of them long).  If you use emacs, you can get rid of them
+>    with delete-trailing-whitespace.  Please do so.
 
-+static struct iosapic_rte_info *iosapic_alloc_rte (void)
-+{
-+	int index;
-+again:
-+	/*
-+	 * iosapic_alloc_rte might be called before kmalloc is initialized,
-+	 * so several number of iosapic_rte_info structures needs to be
-+	 * statically allocated.
-+	 */
-+	index = find_first_zero_bit(iosapic_rte_cache_mask, NR_RTE_CACHE_ENTRIES);
-+	if (index < NR_RTE_CACHE_ENTRIES) {
-+		if (test_and_set_bit(index, iosapic_rte_cache_mask))
-+			goto again;
-+		return iosapic_rte_cache + index;
-+	}
-+
-+	return kmalloc(sizeof(struct iosapic_rte_info), GFP_ATOMIC);
-+}
+Oh, sorry.
+I'll fix this.
 
-How does the kernel fail when we're running out of statically
-allocated structures _before_ kmalloc() is initialized?  It better be
-an obvious failure so one goes "oh, I better increase
-NR_RTE_CACHE_ENTRIES" instead of having to debug a weird crash deep in
-the allocator.
+> 
+>  - I'm not a fan of coding retry-loops with labels; I'd much rather
+>    have them be do/while-loops.  In this particular case:
+> 
 
-	--david
+Ok, I'll change the patch to use do/while-loops instead
+of using goto.
+
+> 
+> How does the kernel fail when we're running out of statically
+> allocated structures _before_ kmalloc() is initialized?  It better be
+> an obvious failure so one goes "oh, I better increase
+> NR_RTE_CACHE_ENTRIES" instead of having to debug a weird crash deep in
+> the allocator.
+
+The lack of statically allocated structures is very rare
+case (I think this will happen only if system has many
+platform interrupt sources), so I didn't add the check if
+we're running out of these structures. But, it possibly
+happens and it will be hard to know what is happening. So
+I'll change my patch to display debug messages.
+
+Thanks,
+Kenji Kaneshige
