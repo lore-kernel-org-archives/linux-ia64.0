@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 06 Mar 2004 08:39:26 +0000
+Date: Sat, 06 Mar 2004 09:17:53 +0000
 Subject: Re: [linux-usb-devel] Re: serious 2.6 bug in USB subsystem?
-Message-Id: <16457.36414.613402.726173@napali.hpl.hp.com>
+Message-Id: <16457.38721.119739.816533@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>
 	<20031028013013.GA3991@kroah.com>
@@ -12,52 +12,68 @@ References: <200310272235.h9RMZ9x1000602@napali.hpl.hp.com>
 	<3FA28C9A.5010608@pacbell.net>
 	<16457.12968.365287.561596@napali.hpl.hp.com>
 	<404959A5.6040809@pacbell.net>
-	<16457.26208.980359.82768@napali.hpl.hp.com>
-	<16457.31740.99944.563029@napali.hpl.hp.com>
-In-Reply-To: <16457.31740.99944.563029@napali.hpl.hp.com>
+In-Reply-To: <404959A5.6040809@pacbell.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davidm@hpl.hp.com
-Cc: David Brownell <david-b@pacbell.net>, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
+To: David Brownell <david-b@pacbell.net>
+Cc: davidm@hpl.hp.com, Greg KH <greg@kroah.com>, vojtech@suse.cz, linux-usb-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, pochini@shiny.it
 
->>>>> On Fri, 5 Mar 2004 23:21:32 -0800, David Mosberger <davidm@linux.hpl.hp.com> said:
+>>>>> On Fri, 05 Mar 2004 20:55:01 -0800, David Brownell <david-b@pacbell.net> said:
 
-  David>  (1) Start of Frame -> (2) update HccaFrameNumber -> (3)
-  David> trigger SF interrupt
+  >> Does this sound plausible?
 
-  David> Now, suppose you get a WDH interrupt between (1) and (2).
-  David> You'd read the old frame-number yet by the time the interrupt
-  David> from (3) arrives the HC might already be accessing the ED
-  David> that you're about to remove.
+  David.B> Parts of it.  There's definite recent nastiness.  Of the
+  David.B> type that other eyes sometimes see better.
 
-Sorry for the monologue---trying to learn how this is all supposed to
-work...
+Here is patch #3.  It also Works For Me.  I was wondering whether it
+it is really safe to mess with the OHCI control registers the way
+ed_deschedule() does at a time the OHCI is running.  To test this
+theory, I delayed the ed_deschedule() handling to finish_unlinks(), as
+shown in the patch below.  I don't know whether this is really safe as
+far as the host's lists are concerned, but it does avoid the crashes.
 
-The OHCI spec says that HccaFrameNumber is updated in this fashion:
-
- (a) send Start-of-Frame
- (b) HccaFrameNumber <- HcFmNumber.StartingFrame
- (c) start processing ED (& post SF intr if requested)
-
-Since start_ed_unlink() uses the following sequence:
-
- (1) ed->hwINFO |= ED_DEQUEUE
- (2) ed->tick = OHCI_FRAME_NO(ohci->hcca) + 1
-
-Then as long as (1) is observed by the HC before (2) (which it should
-be), the race I described isn't possible: if (2) read the "old"
-frame-number, then the HC wouldn't have started step (c) yet and hence
-the HC would observe step (1) and notice that the ED is being
-dequeued.  Converseley, if the HC started to process the ED before (1)
-completed (i.e., it missed the ED_DEQUEUE flag), then step (2) must
-have been reading the the new frame-number.
-
-OK, I see now the conundrum...
-
-BTW: does the value 0xf0000000 bear any special meaning in USB?  We
-already considered whether this would be a NULL-pointer after I/O MMU
-translation but it is not: the I/O MMU window is at
-0x40000000-0x80000000 on the machines in question.
+What's the argument as to why it's safe to update the OHCI control
+registers in ed_deschedule() at the time start_ed_unlink() is running?
 
 	--david
+
+=== drivers/usb/host/ohci-q.c 1.48 vs edited ==--- 1.48/drivers/usb/host/ohci-q.c	Tue Mar  2 05:52:46 2004
++++ edited/drivers/usb/host/ohci-q.c	Sat Mar  6 01:09:16 2004
+@@ -274,7 +274,10 @@
+  */
+ static void ed_deschedule (struct ohci_hcd *ohci, struct ed *ed) 
+ {
++#if 0
+ 	ed->hwINFO |= ED_SKIP;
++	wmb();
++#endif
+ 
+ 	switch (ed->type) {
+ 	case PIPE_CONTROL:
+@@ -431,7 +434,12 @@
+ {    
+ 	ed->hwINFO |= ED_DEQUEUE;
+ 	ed->state = ED_UNLINK;
++#if 0
+ 	ed_deschedule (ohci, ed);
++#else
++	ed->hwINFO |= ED_SKIP;
++	wmb();
++#endif
+ 
+ 	/* SF interrupt might get delayed; record the frame counter value that
+ 	 * indicates when the HC isn't looking at it, so concurrent unlinks
+@@ -896,6 +904,11 @@
+ 				last = &ed->ed_next;
+ 				continue;
+ 			}
++
++#if 0
++#else
++			ed_deschedule (ohci, ed);
++#endif
+ 
+ 			if (!list_empty (&ed->td_list)) {
+ 				struct td	*td;
+
