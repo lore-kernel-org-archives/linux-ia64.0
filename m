@@ -1,59 +1,84 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 31 May 2003 00:03:09 +0000
-Subject: [Linux-ia64] fsyscall infrastructure finished (hopefully... ;-)
-Message-Id: <marc-linux-ia64-105590723706094@msgid-missing>
+From: GV <gv_kovai@yahoo.com>
+Date: Sun, 04 May 2003 00:43:25 +0000
+Subject: [Linux-ia64] sys_epoll patch for ia64-linux
+Message-Id: <marc-linux-ia64-105590723705633@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Now that there is a streamlined syscall path (thanks to Rohit,
-Fenghua, & Asit's work), it was time to finish the fsyscall
-infrastructure such that it avoids using the "break" instruction when
-entering the kernel.  I just pushed the necessary code into the
-linux-ia64-2.5 tree.
+Hello All,
 
-The net result is that epc-based stubs are now always faster, even if
-there is no light-weight systemcall handler.  In a nut-shell:
+I am new to this list. Have a sys_epoll patched 2.4.20
+kernel. sys_epoll
+patch adds the following 3 system calls
 
- - null system call with break-based stub:		285 cycles
- - null system call with epc-based stub (fsyscall):	266 cycles
- - null system call with light-weight handler:		 50 cycles
+epoll_create()
+epoll_ctl()
+epoll_wait().
 
- - gettimeofday with break-based stub:			491 cycles
- - gettimeofday with epc-based stub (fsyscall):		466 cycles
- - gettimeofday with light-weight handler:		136 cycles
+As this patch actually targets i386, modified the two
+files for ia64 as
+follows for the kernel compilation.
 
-Relative to older kernels:
-						original w/Rohit's  current
-						2.5.69   patch	    2.5.69
+/usr/src/linux-2.4.20.se1/include/asm-ia64/unistd.h
+/* Added by GV - sys_epoll support */
+#define __NR_epoll_create               1280
+#define __NR_epoll_ctl                  1281
+#define __NR_epoll_wait                 1282
 
- - null system call with break-based stub:	338 cyc  282 cyc    285 cyc
- - null system call with light-weight handler:	 49 cyc    n/a       50 cyc
- - gettimeofday with break-based stub:		544 cyc  491 cyc    491 cyc
- - gettimeofday with light-weight handler:	130 cyc    n/a      136 cyc
+/usr/src/linux-2.4.20.se1/arch/ia64/kernel/entry.S
+        data8 ia64_ni_syscall           // 1279
+reserved for sys_lookup_dcookie
+        data8 sys_epoll_create          // 1280
+        data8 sys_epoll_ctl
+        data8 sys_epoll_wait
 
-So, by and large, the final version should be as good or substantially
-better than what was there before.
+To overcome glibc issue, wrote the simple code as
+follows...
 
-I'm quite certain there is more tuning that could be done in the
-syscall path, but what's there now is reasonably straightforward and
-performs rather well.  A nice thing about the current setup is that
-syscall restart works _exactly_ the same, independent of whether the
-(heavy-weight) system call was entered via break or via epc.  This
-saves a substantial amount of complexity.
 
-I also added a new boot command line option.  If you boot with
-"nolwsys", then the kernel won't be using light-weight system-call
-handlers at all.  This is primarily useful for performance
-measurements, but the code to support it is so trivial that I left it
-in there.
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <errno.h>
 
-Caveat: the current linux-ia64-2.5 breaks execve to ia32 tasks. It'll
-get fixed some day.  In the meantime, sorry about that.
+#define SYS_epoll_create 1280
 
-Enjoy,
+int main() {
 
-	--david
+        int rc;
+
+        rc = syscall(SYS_epoll_create, 10);
+
+        if(rc = -1) {
+                printf("syscall Failed, %s %d\n",
+strerror(errno), errno);
+                return 1;
+        } else {
+                printf("syscall passed\n");
+        }
+}
+
+Note: Also tried with '__NR_' instead of 'SYS'
+
+----------------------------------------
+
+This program returns with error code 38 - Function NOT
+implemented.
+
+Here is the patch :
+http://www.xmailserver.org/linux-patches/epoll-lt-2.4.20-0.5
+.diff
+
+Any help/thoughts will be much appreciated.
+
+Regards,
+GV
+
+
+__________________________________
+Do you Yahoo!?
+The New Yahoo! Search - Faster. Easier. Bingo.
+http://search.yahoo.com
 
