@@ -1,7 +1,7 @@
 From: Christoph Lameter <clameter@sgi.com>
-Date: Thu, 03 Mar 2005 22:14:11 +0000
+Date: Fri, 04 Mar 2005 16:44:01 +0000
 Subject: Re: Page fault scalability patch V18: Drop first acquisition of ptl
-Message-Id: <Pine.LNX.4.58.0503031412040.10731@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.58.0503040842200.17556@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0503011947001.25441@schroedinger.engr.sgi.com>
  <Pine.LNX.4.58.0503011951100.25441@schroedinger.engr.sgi.com>
@@ -20,27 +20,60 @@ Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
 On Thu, 3 Mar 2005, Andrew Morton wrote:
 
-> Christoph Lameter <clameter@sgi.com> wrote:
-> >
-> > On Wed, 2 Mar 2005, Andrew Morton wrote:
-> >
-> >  > >  This is not relevant since it only deals with file pages.
-> >  >
-> >  > OK.   And CONFIG_DEBUG_PAGEALLOC?
-> >
-> >  Its a debug feature that can be fixed if its broken.
->
-> It's broken.
->
 > A fix would be to restore the get_page() if CONFIG_DEBUG_PAGEALLOC.  Not
 > particularly glorious..
 
-Another fix would be to have a global variable "dontunmap" and have
-the map kernel function not change the pte. But this is also not the
-cleanest way.
+Here is the unglorious solution. It also requies that
+CONFIG_ATOMIC_TABLE_OPS not be used together with CONFIG_DEBUG_PAGEALLOC
+(handled in the following patch):
 
-The problem with atomic operations is the difficulty of keeping state. The
-state must essentially all be bound to the atomic value replaced otherwise
-more extensive locking schemes are needed.
+---------------------------------------------------------------------------
 
+We do a page_cache_get in do_wp_page but we check the pte for changes later.
+
+So why do a page_cache_get at all? Do the copy and maybe copy garbage and
+if the pte was changed forget about it. This avoids having to keep state
+on the page copied from.
+
+However this does not work for CONFIG_DEBUG_PAGEALLOC. So leave these in
+if debugging is enabled. This also means that the following patch will not
+allow setting CONFIG_ATOMIC_TABLE_OPS if CONFIG_DEBUG_PAGEALLOC is
+selected.
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.11/mm/memory.c
+=================================--- linux-2.6.11.orig/mm/memory.c	2005-03-04 08:25:22.000000000 -0800
++++ linux-2.6.11/mm/memory.c	2005-03-04 08:26:30.000000000 -0800
+@@ -1318,8 +1318,14 @@ static int do_wp_page(struct mm_struct *
+ 	/*
+ 	 * Ok, we need to copy. Oh, well..
+ 	 */
++#ifdef CONFIG_DEBUG_PAGEALLOC
++	/* For debugging we need to get the page otherwise
++	 * the pte for this kernel page may vanish while
++	 * we copy the page.
++	 */
+ 	if (!PageReserved(old_page))
+ 		page_cache_get(old_page);
++#endif
+ 	spin_unlock(&mm->page_table_lock);
+
+ 	if (unlikely(anon_vma_prepare(vma)))
+@@ -1358,12 +1364,16 @@ static int do_wp_page(struct mm_struct *
+ 	}
+ 	pte_unmap(page_table);
+ 	page_cache_release(new_page);
++#ifdef CONFIG_DEBUG_PAGEALLOC
+ 	page_cache_release(old_page);
++#endif
+ 	spin_unlock(&mm->page_table_lock);
+ 	return VM_FAULT_MINOR;
+
+ no_new_page:
++#ifdef CONFIG_DEBUG_PAGEALLOC
+ 	page_cache_release(old_page);
++#endif
+ 	return VM_FAULT_OOM;
+ }
 
