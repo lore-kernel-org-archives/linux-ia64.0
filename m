@@ -1,68 +1,28 @@
-From: Trent Mick <trentm@activestate.com>
-Date: Mon, 01 May 2000 18:43:59 +0000
-Subject: [Linux-ia64] bug in fmod on trillian [fmod(-10,1) causes core dump]
-Message-Id: <marc-linux-ia64-105590678205058@msgid-missing>
+From: Jim Wilson <wilson@cygnus.com>
+Date: Mon, 01 May 2000 19:35:47 +0000
+Subject: Re: [Linux-ia64] bug in fmod on trillian [fmod(-10,1) causes core dump]
+Message-Id: <marc-linux-ia64-105590678205059@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590678205058@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590678205058@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I hope that someone appropriate (i.e. someone at Cygnus or someone on
-ia64-tools) sees this message.
+I tried your testcase on my system.  It worked fine.
 
-Some arguments to fmod() cause a segmentation fault on trillian. Examples are
-fmod(-10,1), fmod(-10,0.5).
+Your bug report is incomplete.  You didn't mention what compiler version
+you have, or the glibc version, or the kernel version, or the root filesystem
+and/or OS release, or the firmware version or the hardware version.  The
+problem could be any of those, or something else.
 
+It is pretty unlikely that the compiler miscompiled such a simple testcase.
+So I would guess, in order
+1) You have a miscompiled glibc.  Try recompiling it or getting a newer one.
+2) You have an old buggy gcc.  Try getting a newer one.  Repeat step one.
+3) You have old buggy firmware.  Try updating it.
 
-Here is a test case:
-
------------> ls
-Makefile  fmodbug.c
------------> cat fmodbug.c
-#include <stdio.h>
-#include <math.h>
-
-int main(void)
-{
-        int i;
-        double d;
-
-        d = fmod(-10.0, 1.0);
-        printf("fmod(-10,1) = %f\n", d);
-
-        return 0;
-}
------------> cat Makefile
-all : fmodbug
-
-fmodbug : fmodbug.c
-        gcc -lm fmodbug.c -o fmodbug
-
-test :
-        ./fmodbug
-
-clean :
-        -rm -f fmodbug
-        -rm -f core
-        -rm -f *~
------------> make
-gcc -lm fmodbug.c -o fmodbug
------------> make test
-./fmodbug
-make: *** [test] Segmentation fault (core dumped)
------------>
-
-
-I would appreciate a reply if this reaches the proper eyes. Or, if someone
-can tell me to whom this should properly reported...
-
-Thanks,
-Trent
-
---
-Trent Mick
-trentm@activestate.com
-
+Jim
 
 
