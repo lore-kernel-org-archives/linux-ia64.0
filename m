@@ -1,7 +1,7 @@
-From: Jes Sorensen <jes@linuxcare.com>
-Date: Thu, 15 Jun 2000 14:49:39 +0000
+From: David Mosberger <davidm@hpl.hp.com>
+Date: Thu, 15 Jun 2000 15:40:07 +0000
 Subject: Re: [Linux-ia64] signal interface: SIGINFO and sa_sigaction
-Message-Id: <marc-linux-ia64-105590678205141@msgid-missing>
+Message-Id: <marc-linux-ia64-105590678205142@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590678205139@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590678205139@msgid-missing>
@@ -10,16 +10,19 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "David" = David Mosberger <davidm@hpl.hp.com> writes:
+>>>>> On Thu, 15 Jun 2000 16:28:42 +0100, SCHAN@uk.ibm.com said:
 
-David> Yes, I see what you mean.  It looks like the glibc header file
-David> doesn't define sa_sigaction as a (properly typed) synonym of
-David> sa_handler.  Jes, can you fix this?  It looks to me that the
-David> IA-64 "struct sigaction" should be defined like in
-David> sysdeps/unix/sysv/linux/bits/sigaction.h.
+  Sunny> But then the sa_sigaction function does require kernel to
+  Sunny> call the handler with parameters (struct siginfo_t), if I
+  Sunny> just patch the struct sigaction, will the other pieces of
+  Sunny> kernel signal handling routine render those parameters and
+  Sunny> pass it to the signal handler? - I am not an kernel expert,
+  Sunny> so information is really appericated!
 
-I'll make sure it gets fixed in glibc-2.2
+The kernel _always_ passes siginfo and sigcontext as the second and
+third arguments to a signal handler.  sa_sigaction is just syntactic
+sugar.
 
-Jes
+	--david
 
 
