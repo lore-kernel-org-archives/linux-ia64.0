@@ -1,7 +1,7 @@
-From: "Carron, Thierry" <thierry.carron@hp.com>
-Date: Thu, 03 Apr 2003 07:34:26 +0000
-Subject: RE: [Linux-ia64] rx2600 console output with management card
-Message-Id: <marc-linux-ia64-105590723705388@msgid-missing>
+From: Matthew Wilcox <willy@debian.org>
+Date: Thu, 03 Apr 2003 12:30:22 +0000
+Subject: Re: [Linux-ia64] rx2600 console output with management card
+Message-Id: <marc-linux-ia64-105590723705389@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590723705386@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590723705386@msgid-missing>
@@ -10,106 +10,65 @@ Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Hi Ian
+On Thu, Apr 03, 2003 at 08:53:03AM +0200, Bj=F6rn Torkelsson wrote:
+> On Thu, 2003-04-03 at 08:36, Ian Wienand wrote:
+> > Hello,
+> >=20
+> > Does anyone know if there is some trick to getting linux console
+> > output through the management processor on the rx2600?  all the
+> > documentation states that the management card processor output mirrors
+> > the system console when not it it's managment mode -- which it does
+> > until linux starts.
 
-We used the following setting :
+Yes, there's a trick ;-(  Here's how it works:
 
-In order to get the console output to the management board.
-->	Boot option maintenance menu=20
-->	Select active Console Output Device
--> Select the Console Output Device(s)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(PcAnsi)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100+)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(VtUtf8)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(PcAnsi)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100)
-    * Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100+)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(VtUtf8)
-      Acpi(HWP0002,700)/Pci(2|0)
--> Save Settings to NVRAM
--> Exit
--> Select active Console Input Device
--> Select the Console Input Device(s)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(PcAnsi)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100+)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(VtUtf8)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(PcAnsi)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100)
-    * Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100+)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(VtUtf8)
-->  Save Settings to NVRAM
-->  Exit
-->  Select active Console Standard Error Device
-->  Select the Standard Error Device
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(PcAnsi)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100+)
-      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(VtUtf8)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(PcAnsi)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100)
-    * Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100+)
-      Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(VtUtf8)
-      Acpi(HWP0002,700)/Pci(2|0)
-    Save Settings to NVRAM
-    Exit
-->	Cold Reset
+There's three methods for finding serial ports that apply to rx2600
+w/ECI card.  First, we parse the HCDP table.  Second, we search the ACPI
+namespace for serial ports.  Third, we walk the PCI busses looking for
+serial ports.
 
------Message d'origine-----
-De : Ian Wienand [mailto:ianw@gelato.unsw.edu.au]
-Envoy=E9 : jeudi 3 avril 2003 08:37
-=C0 : linux-ia64@linuxia64.org; debian-ia64@lists.debian.org
-Objet : [Linux-ia64] rx2600 console output with management card
+The two built-in serial ports are in the ACPI namespace, the ECI card
+actually contains a PCI bus where we find the serial ports.  Firmware
+determines which port is listed in the HCDP table according to which
+Console Input & Console Output devices were listed first.  Unfortunately,
+you can't tell which one was selected first, so the safe thing to do is
+make sure only one is listed.
 
+> Which version of firmware do you have installed? When I upgraded the
+> System and BMC firmware to 1.05 (System =3D 1.82, BMC =3D 1.40) I suddenly
+> got the same behavior.
+>=20
+> Before the upgrade I had ttyS0 through the management processor,
+> afterwards, however, I have the following mapping:
 
-Hello,
+Yes, after upgrading your firmware, you have to restore your ConIn/ConOut
+to sane values.
 
-Does anyone know if there is some trick to getting linux console
-output through the management processor on the rx2600?  all the
-documentation states that the management card processor output mirrors
-the system console when not it it's managment mode -- which it does
-until linux starts.
+> console/serial A:       ttyS0
+> serial B:               ttyS1
+> console/MP:             ttyS3   (same as through the mangagement lan)
+> remote/MP:              -----
+> ups/MP:                 ttyS2
 
-linux console works fine when plugged into the 'normal' serial port
-(which is labeled 'console'), but when plugged into the console output
-of the management card (via the provided splitter) I see none of
-linux's output.  same problem via telnet -- everything stops when efi
-stops.
+Mmm.. not exactly.  In the instance you quote here, ttyS3 would be
+the mirrored port.  ttyS4 and ttyS5 are the local and remote sessions
+respectively.
 
-our hp support guy said he thinks hpux uses special /dev entries to
-output via the management card, i couldn't verify this.
+Of course, it should be:
 
-some extra info :
+ttyS0		mirrored console
+ttyS1		serial A
+ttyS2		serial B
+ttyS3		UPS
+ttyS4		local session
+ttyS5		remote session
 
-we boot with console=3DttyS0
+once you fix your ConIn/ConOut settings.
 
-From the EFI boot maintenance menu I have
-* Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100)
-* Acpi(HWP0002,700)/Pci(1|1)/Uart(9600 N81)/VenMsg(Vt100)
-* Acpi(HWP0002,700)/Pci(2|0)
-selected as output/input/error devices.
-
-from .config
-#
-# Serial drivers
-#
-CONFIG_SERIAL_8250=3Dy
-# CONFIG_SERIAL_8250_ACPI is not set
-CONFIG_SERIAL_8250_CONSOLE=3Dy
-CONFIG_SERIAL_8250_HCDP=3Dy
-# CONFIG_SERIAL_8250_EXTENDED is not set
-
-any suggestions appreciated!
-
--i
-ianw@gelato.unsw.edu.au
-http://www.gelato.unsw.edu.au
-
-
-
-_______________________________________________
-Linux-IA64 mailing list
-Linux-IA64@linuxia64.org
-http://lists.linuxia64.org/lists/listinfo/linux-ia64
+--=20
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodi=
+es.
+Do you think I want to have an academic debate on this subject?" -- Robert =
+Fisk
 
