@@ -1,76 +1,76 @@
-From: =?ISO-8859-1?Q?C=EDcero?= <cicero.mota@gmail.com>
-Date: Tue, 21 Sep 2004 15:06:07 +0000
-Subject: error while executing q-tools-0.1
-Message-Id: <ce70c4904092108066397882b@mail.gmail.com>
+From: "Martin K. Petersen" <mkp@wildopensource.com>
+Date: Thu, 14 Oct 2004 16:50:43 +0000
+Subject: [PATCH] General purpose zeroed page slab
+Message-Id: <yq1oej5s0po.fsf@wilson.mkp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-
-I'm having some trouble while executing q-tools-0.1 on debian
-(testing/unstable).
-After compiling without any problem, I tried to execute q-syscollect
--k -t 10 and the then the following error occurs:
-
-Call-count sampling not supported by 0 PMU; disabling it.
-pfm_dispatch_events(): invalid parameters
-q-syscollect: child exited with status 1
+To: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, akpm@osdl.org, tony.luck@intel.com
 
 
-I checked the code (q-syscollect/q-syscollect.c) and I realised the
-the error is in the second call of the pfm_dispatch_events() function
+A while back Bill Irwin converted the page table code on ppc64 to use
+a zeroed page slab.  I recently did the same on ia64 and got a
+significant performance improvement in terms of fault time (4 usec ->
+700 nsec).
 
-  memset (&oparam, 0, sizeof (oparam));
-  ret = pfm_dispatch_events (&iparam, NULL, &oparam, NULL);
-  if (ret != PFMLIB_SUCCESS)
-    panic ("pfm_dispatch_events(): %s\n", pfm_strerror (ret));
+This cache needs to be initialized fairly early on and so far we've
+called it from pgtable_cache_init() on both archs.  However, Tony Luck
+thought it might be useful to have a general purpose slab cache with
+zeroed pages.  And other architectures might decide to use it for
+their page tables too.
 
-Then, I changed this function as the first call:
+Consequently here's a patch that puts this functionality in slab.c.
 
-  memset (&i2param, 0, sizeof (i2param));
-  memset (&oparam, 0, sizeof (oparam));
-  ret = pfm_dispatch_events (&iparam, &i2param, &oparam, NULL);
-  if (ret != PFMLIB_SUCCESS)
-    panic ("pfm_dispatch_events(): %s\n", pfm_strerror (ret));
+Signed-off-by: Martin K. Petersen <mkp@wildopensource.com>
 
+-- 
+Martin K. Petersen	Wild Open Source, Inc.
+mkp@wildopensource.com	http://www.wildopensource.com/
 
-After that, the error occured in another part of the code
+diff -urN -X /usr/people/mkp/bin/dontdiff linux-pristine/include/linux/slab.h zero-slab/include/linux/slab.h
+--- linux-pristine/include/linux/slab.h	2004-10-11 14:57:20.000000000 -0700
++++ zero-slab/include/linux/slab.h	2004-10-13 17:49:29.000000000 -0700
+@@ -115,6 +115,7 @@
+ extern kmem_cache_t	*signal_cachep;
+ extern kmem_cache_t	*sighand_cachep;
+ extern kmem_cache_t	*bio_cachep;
++extern kmem_cache_t	*zero_page_cachep;
+ 
+ extern atomic_t slab_reclaim_pages;
+ 
+diff -urN -X /usr/people/mkp/bin/dontdiff linux-pristine/mm/slab.c zero-slab/mm/slab.c
+--- linux-pristine/mm/slab.c	2004-10-11 14:57:20.000000000 -0700
++++ zero-slab/mm/slab.c	2004-10-13 17:49:57.000000000 -0700
+@@ -716,6 +716,13 @@
+ 
+ static struct notifier_block cpucache_notifier = { &cpuup_callback, NULL, 0 };
+ 
++kmem_cache_t *zero_page_cachep;
++
++static void zero_page_ctor(void *pte, kmem_cache_t *cache, unsigned long flags)
++{
++	memset(pte, 0, PAGE_SIZE);
++}
++
+ /* Initialisation.
+  * Called after the gfp() functions have been enabled, and before smp_init().
+  */
+@@ -837,6 +844,16 @@
+ 	/* The reap timers are started later, with a module init call:
+ 	 * That part of the kernel is not yet operational.
+ 	 */
++
++	/* General purpose cache of zeroed pages */
++	zero_page_cachep = kmem_cache_create("zero_page_cache",
++					     PAGE_SIZE, 0,
++					     SLAB_HWCACHE_ALIGN | 
++					     SLAB_MUST_HWCACHE_ALIGN,
++					     zero_page_ctor,
++					     NULL);
++	if (!zero_page_cachep)
++		panic("could not create zero_page_cache!\n");
+ }
+ 
+ static int __init cpucache_init(void)
 
-Call-count sampling not supported by 0  PMU; disabling it.
-perfmonctl(PFM_WRITE_PMCS) failed (Invalid argument)
-q-syscollect: child exited with status 1
-
-This error came from this part of the code
-
-if (perfmonctl (sampling_fd, PFM_WRITE_PMCS, pc, num_pcs) < 0)
-    panic ("perfmonctl(PFM_WRITE_PMCS) failed (%s)\n", strerror (errno));
-
-
-To see the program working I just commented this part and I ran the
-program again
-
-debian#./q-syscollect -k -t 10
-Call-count sampling not supported by 0 PMU; disabling it.
-debian#
-
-
-it creates the .q directory (this the only situation that it happens)
-with only one file
-
--rw-r--r--    1 root     root       396574 Sep 21 11:22 .kallsyms.crc32.ce65a0a9
-
-
-I need some help to solve those problems.
-
-debian:/# uname -a
-Linux peso 2.6.7 #4 Mon Sep 13 12:46:27 BRT 2004 ia64 unknown
-
-
-debian:~# dpkg -l | grep pf
-ii  libpfm2        2.0-3          IA-64 Performance Monitor (PMU) -- run-time
-ii  libpfm3        3.0-3          IA-64 Performance Monitor (PMU) -- run-time
-ii  libpfm3-dev    3.0-3          IA-64 Performance Monitor (PMU) -- developme
-ii  pfmon          3.0-3          Tool for using the IA-64 Performance Monitor
-
-Thanks!
