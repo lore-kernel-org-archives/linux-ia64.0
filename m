@@ -1,8 +1,10 @@
 From: Erich Focht <efocht@ess.nec.de>
-Date: Wed, 10 Jul 2002 09:05:29 +0000
+Date: Wed, 10 Jul 2002 12:34:07 +0000
 Subject: [Linux-ia64] Re: O(1) scheduler "complex" macros
-Message-Id: <marc-linux-ia64-105590701905752@msgid-missing>
+Message-Id: <marc-linux-ia64-105590701905756@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <marc-linux-ia64-105590701905752@msgid-missing>
+In-Reply-To: <marc-linux-ia64-105590701905752@msgid-missing>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -10,26 +12,21 @@ To: linux-ia64@vger.kernel.org
 
 Hi Ingo,
 
-thanks for the quick response!
+> there is one more detail - wait_task_inactive() needs to consider the
+> ->switch_lock as well - otherwise exit() might end up freeing the
+> pagetables earlier than the context-switch has truly finished. The
+> udelay(100) test should trigger this race.
+>
+> i've fixed this and uploaded the -A8 patch:
+>
+>         http://redhat.com/~mingo/O(1)-scheduler/sched-2.5.25-A8
+>
+> does this fix the ia64 crashes? you need to define an ia64-specific
 
-> the best solution might be to just lock the 'next' task - this needs a new
-> per-task irq-safe spinlock, to avoid deadlocks. This way whenever a task
-> is in the middle of a context-switch it cannot be scheduled on another
-> CPU.
+looks good! Rock solid despite udelay. Though a bit slower than before...
 
-We tested this and it looked good. But inserting a udelay(100) like:
-	...
-	prepare_arch_switch(rq, next);
-	udelay(100);
-	prev = context_switch(prev, next);
-	...
-leads to a crash after 10 minutes. Again this looks like accessing an
-empty page.
+Thanks a lot for the help!
 
-Does anything speak against such a test? It is there just to show up
-quickly problems which we might normally get only after hours of running.
-
-Regards,
 Erich
- 
+
 
