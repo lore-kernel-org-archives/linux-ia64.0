@@ -1,49 +1,31 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Tue, 29 Mar 2005 01:58:30 +0000
-Subject: Re: [PATCH] add a clear_pages function to clear pages of higher
-Message-Id: <Pine.LNX.4.58.0503281752280.7580@schroedinger.engr.sgi.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Tue, 15 Mar 2005 12:40:21 +0000
+Subject: flush_icache_range
+Message-Id: <4236D7B5.8050408@bull.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.58.0503101229420.13911@schroedinger.engr.sgi.com>
- <200503111008.12134.vda@port.imtp.ilyichevsk.odessa.ua>
- <Pine.LNX.4.58.0503161720570.1787@schroedinger.engr.sgi.com>
- <200503181154.37414.vda@port.imtp.ilyichevsk.odessa.ua>
- <Pine.LNX.4.58.0503180652350.15022@schroedinger.engr.sgi.com>
- <20050318192808.GB38053@muc.de> <16963.2075.713737.485070@napali.hpl.hp.com>
- <20050327171220.GA18506@muc.de>
-In-Reply-To: <20050327171220.GA18506@muc.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@muc.de>
-Cc: davidm@hpl.hp.com, Christoph Lameter <clameter@sgi.com>, Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>, Dave Hansen <haveblue@us.ibm.com>, Andrew Morton <akpm@osdl.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Mel Gorman <mel@csn.ul.ie>, linux-ia64@vger.kernel.org, Jens.Maurer@gmx.net
+To: linux-ia64@vger.kernel.org
 
-On Sun, 27 Mar 2005, Andi Kleen wrote:
+Apparently, the function flush_icache_range() flushes the
+caches 32 by 32 bytes.
+According to some measures on a Tiger box, an "fc" instruction
+costs 200 nanosec. if no other CPU has the line its cache,
+there is no traffic on the bus, everything is ideal.
+If all the others CPUs have the line in their caches, they post
+bus transactions, then the cost of an "fc" instruction is 5
+microsec.
+To flush a full page of 64 Kbytes, it can take 400 microsec. to
+10 millisec.
 
-> > Clearly, if the CPU that's clearing the page is likely to use that
-> > same page soon after, it'd be useful to use temporal stores.
->
-> That is always the case in the current code (without Christophers
-> pre cleaning daemon). The page fault handler clears and user space
-> is guaranteed to need at least one cacheline from the fresh page
-> because it just did a page fault on it. With non temporal stores
-> you guarantee at least one hard cache miss directly after
-> the return to user space.
+Cannot we test at the boot time the characteristics of the
+CPUs and select the optimal flush_icache_range() ? E.g.:
+- if the CPU has 64 bytes / L1 lines =>
+	flush by use of 64 byte steps
+- if the CPU implements the "fc.i" instruction =>
+	flush the I-caches only
 
-It is not the case that *all* the cachelines of a page are going to be
-used right after zeroing. For the page fault case it is only guaranteed that
-*one* cacheline will be used. In the PTE/PMD/PUD page allocation cases it
-is likely that only a single cacheline is used.
+Thanks,
 
-There are some cases in the code (apart from the fault handler)
-where zeroed pages are allocated with no guarantee of use (f.e. the
-allocations for buffers for shared memory or pipes).
-
-> I suspect even with precleaning the average time from cleaning to use will be
-> quite short.
-
-If the time is short then hot cleaning is the right way to go and then
-prezeroing is of no benefit. Prezeroing can only be of benefit if there is
-sufficient time between the zeroing and the use of the data. It must be
-sufficiently long to cause the the cachelines to no longer be in
-in the caches. Then the loading of these cachelines may be avoided which
-yields the performance benefit.
+Zoltan Menyhart
