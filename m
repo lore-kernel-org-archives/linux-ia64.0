@@ -1,85 +1,37 @@
 From: "Nguyen, Tom L" <tom.l.nguyen@intel.com>
-Date: Sat, 13 Mar 2004 00:14:30 +0000
+Date: Sat, 13 Mar 2004 00:22:00 +0000
 Subject: RE: RE[PATCH]2.6.4-rc3 MSI Support for IA64
-Message-Id: <C7AB9DA4D0B1F344BF2489FA165E502404058150@orsmsx404.jf.intel.com>
+Message-Id: <C7AB9DA4D0B1F344BF2489FA165E502404058151@orsmsx404.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200403130008.i2D08SMQ011709@snoqualmie.dp.intel.com>
 In-Reply-To: <200403130008.i2D08SMQ011709@snoqualmie.dp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zwane Mwaikambo <zwane@linuxpower.ca>, long <tlnguyen@snoqualmie.dp.intel.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, davidm@napali.hpl.hp.com, grep@kroah.com, jgarzik@pobox.com, "Nakajima, Jun" <jun.nakajima@intel.com>, "Luck, Tony" <tony.luck@intel.com>
+To: davidm@hpl.hp.com, Zwane Mwaikambo <zwane@linuxpower.ca>
+Cc: long <tlnguyen@snoqualmie.dp.intel.com>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, grep@kroah.com, jgarzik@pobox.com, "Nakajima, Jun" <jun.nakajima@intel.com>, "Luck, Tony" <tony.luck@intel.com>
 
-On Fri, 12 Mar 2004, Zwane Mwaikambo wrote:
+On Fri, 12 Mar 2004, David Mosberger wrote:
 
->> diff -urN linux-2.6.4-rc3/arch/ia64/kernel/irq_ia64.c linux-2.6.4-rc3-msi/arch/ia64/kernel/irq_ia64.c
->> --- linux-2.6.4-rc3/arch/ia64/kernel/irq_ia64.c	2004-03-09 19:00:26.000000000 -0500
->> +++ linux-2.6.4-rc3-msi/arch/ia64/kernel/irq_ia64.c	2004-03-11 14:52:57.000000000 -0500
->> @@ -60,12 +60,18 @@
->>  int
->>  ia64_alloc_vector (void)
->>  {
->> +#ifdef CONFIG_PCI_USE_VECTOR
->> +	extern int assign_irq_vector(int irq);
->> +
->> +	return assign_irq_vector(AUTO_ASSIGN);
->> +#else
->>  	static int next_vector = IA64_FIRST_DEVICE_VECTOR;
->>
->>  	if (next_vector > IA64_LAST_DEVICE_VECTOR)
->>  		/* XXX could look for sharable vectors instead of panic'ing... */
->>  		panic("ia64_alloc_vector: out of interrupt vectors!");
->>  	return next_vector++;
->> +#endif
->>  }
+>>>>> On Fri, 12 Mar 2004 18:26:39 -0500 (EST), Zwane Mwaikambo <zwane@linuxpower.ca> said:
 
->This one is slightly confusing readability wise since ia64 already does
->the vector based interrupt numbering. Perhaps CONFIG_PCI_USE_VECTOR should
->really be CONFIG_MSI but that's up to you.
- 
-Agree. Perhaps we should change CONFIG_PCI_USE_VECTOR to CONFIG_PCI_MSI.
+>  Zwane> I wonder if we could consolidate these vector allocators as
+>  Zwane> assign_irq_vector(AUTO_ASSIGN) has the same semantics as
+>  Zwane> ia64_alloc_vector() and the one for i386 is also almost the
+>  Zwane> same as its MSI ilk.
 
->I wonder if we could
->consolidate these vector allocators as assign_irq_vector(AUTO_ASSIGN) has
->the same semantics as ia64_alloc_vector() and the one for i386 is also
->almost the same as its MSI ilk.
+> Agreed.  I don't see any reason why ia64_alloc_vector() and
+> assign_irq_vector() couldn't or shouldn't be one and the same thing
+> (and assign_irq_vector() is a fine name).
 
-Agree. Will look into a way to consolidate these vector allocators. 
+Agree. Thanks!
 
->> +static inline int vector_resources(void)
->> +{
->> + 	int res;
->> +#ifndef CONFIG_IA64
->> + 	int i, repeat;
->> + 	for (i = NR_REPEATS; i > 0; i--) {
->> + 		if ((FIRST_DEVICE_VECTOR + i * 8) > FIRST_SYSTEM_VECTOR)
->> + 			continue;
->> + 		break;
->> + 	}
->> + 	i++;
->> + 	repeat = (FIRST_SYSTEM_VECTOR - FIRST_DEVICE_VECTOR)/i;
->> + 	res = i * repeat - NR_RESERVED_VECTORS + 1;
->>  #else
->> -extern void restore_ioapic_irq_handler(int irq);
->> + 	res = LAST_DEVICE_VECTOR - FIRST_DEVICE_VECTOR - 1;
->>  #endif
->> +
->> + 	return res;
->> +}
+> Tom, if you want to send me a patch that converts the existing uses of
+> ia64_alloc_vector() to assign_irq_vector(), I'd be happy to apply
+> (assuming it's clean etc., as usual).
 
->Is this supposed to return number of vectors available for external
->devices? Also regarding vector allocation, assign_irq_vector() in
->drivers/pci/msi.c only can allocate 166 vectors before going -ENOSPC is
->this intentional?
-
-Yes, this serves to return number of vectors available for external 
-devices. Regarding vector allocation, you bring up a very good point of 
-why assign_irq_vector() in drivers/pci/msi.c allocates only 166 vectors 
-before going -ENOSPC. We will look into a way to maximize number of 
-vectors without crossing over FIRST_SYSTEM_VECTOR.
+Thanks! We'll do. I will work with Tony and Jun to consolidate i386/IA64 vector 
+allocators to ensure it is clean.
 
 Thanks,
 Long
-
-
