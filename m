@@ -1,7 +1,7 @@
-From: Randolph Chung <randolph@tausq.org>
-Date: Fri, 15 Nov 2002 02:28:54 +0000
+From: Grant Grundler <grundler@cup.hp.com>
+Date: Fri, 15 Nov 2002 03:41:28 +0000
 Subject: Re: [Linux-ia64] One little, two little, three little endian...
-Message-Id: <marc-linux-ia64-105590709805443@msgid-missing>
+Message-Id: <marc-linux-ia64-105590709805445@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <marc-linux-ia64-105590709805439@msgid-missing>
 In-Reply-To: <marc-linux-ia64-105590709805439@msgid-missing>
@@ -10,19 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> I want a big endian version of Linux for IPF.  Just how crazy am I?
-> 
-> I'm working with a group of customers and software developers who are
-> migrating away from HP's proprietary MPE/iX operating system on the HPe3000
-> systems that HP announced the discontinuance of one year ago today.  Many of
-> these people are already using HP-UX to some degree, and most are interested
-> in the possibility of using Linux in the future.
+Don Dugger wrote:
+> Data compatibility is the only real gotcha I can think of and that's just
+> a translation issue.  Potentially creating the translation utilities will
+> be a problem but I predict it's a smaller problem than coming up with a
+> big endian IA64 Linux.
 
-how about running parisc-linux? :^)
+Have you ever tried to import wrong-endian data?
 
-randolph
--- 
-Randolph Chung
-Debian GNU/Linux Developer, hppa/ia64 ports
-http://www.tausq.org/
+I thought people gave up trying to do that on 16-bit machines.
+I've been in more endian flip-flops than I care to remember.
+(Olivetti flip-flopped about every 2 years in the early 90s, talk
+about customer nightmares...)
+
+Data conversion has to be re-adressed by *every* application
+because of padding. I think the work mostly cannot be amortized over
+lots of customers.
+
+I agree with david. User space libs need to be migrated from the
+desired environment. See how far a per-process approach gets first.
+
+grant
 
