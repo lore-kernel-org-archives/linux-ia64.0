@@ -1,130 +1,187 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sun, 05 Dec 2004 04:19:11 +0000
-Subject: [RFC] Clear all corrected records as they are read from SAL
-Message-Id: <22981.1102220351@ocs3.ocs.com.au>
+From: Brent Casavant <bcasavan@sgi.com>
+Date: Tue, 14 Dec 2004 17:53:20 +0000
+Subject: [PATCH 1/3] alloc_large_system_hash: NUMA interleaving
+Message-Id: <Pine.SGI.4.61.0412141145410.22462@kzerza.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, linux-mm@kvack.org
+Cc: linux-ia64@vger.kernel.org, ak@suse.de
 
-This patch compiles but has not been tested.  I am throwing it open for
-comments while I test the code.  Against 2.6.10-rc2 or -rc3, with or
-without Russ Anderson's per cpu MCA/INIT area patch.
+The following patch against 2.6.10-rc3 modifies alloc_large_system_hash
+to enable the use of vmalloc to alleviate boottime allocation imbalances
+on NUMA systems.
 
-Russ hit a problem while testing recoverable MCA errors.  Because MCA
-events are not irq safe, they cannot be logged via salinfo_decode at
-the time that they occur.  Instead kernel salinfo.c runs a timer every
-few minutes to check for and to clear corrected MCA records.  If a
-second recoverable MCA occurs on the same cpu before salinfo_decode has
-cleared the first record then OS_MCA reads the record for the first MCA
-from SAL, which passes invalid data to the MCA recovery routines.
+Both the 2/3 and 3/3 portions of this set of patches depend on
+this patch (1/3).
 
-This patch treats all corrected records the same way, by clearing the
-records from SAL as soon as they occur.  CMC and CPE records are
-cleared as they are read.  Recoverable MCA records are cleared at the
-time that we decide they can be corrected.  If salinfo_decode is not
-running or is backlogged then we lose some logging, but that has always
-been the case for corrected errors.
+Due to limited vmalloc space on some architectures (i.e. x86),
+the use of vmalloc is enabled by default only on NUMA IA64 kernels.
+There should be no problem enabling this change for any other
+interested NUMA architecture.
 
-I am assuming that all ia64 proms mark CMC and CPE as severity code 2
-(corrected error).  Do any vendors have proms that do not mark CMC/CPE
-as code 2?
+Note also one small bug fix introduced here -- the "table" automatic
+variable in alloc_large_system_hash is now initialized to NULL.  One
+test case tripped over this bug.
 
+Signed-off-by: Brent Casavant <bcasavan@sgi.com>
 
-Index: linux/include/asm-ia64/sal.h
-=================================--- linux.orig/include/asm-ia64/sal.h	Tue Oct 19 07:55:28 2004
-+++ linux/include/asm-ia64/sal.h	Sun Dec  5 14:36:32 2004
-@@ -325,6 +325,10 @@ typedef struct sal_log_record_header {
- 	efi_guid_t platform_guid;	/* Unique OEM Platform ID */
- } sal_log_record_header_t;
+Index: linux/mm/page_alloc.c
+=================================--- linux.orig/mm/page_alloc.c	2004-12-10 18:09:56.325929784 -0600
++++ linux/mm/page_alloc.c	2004-12-10 18:10:39.618232395 -0600
+@@ -32,6 +32,7 @@
+ #include <linux/sysctl.h>
+ #include <linux/cpu.h>
+ #include <linux/nodemask.h>
++#include <linux/vmalloc.h>
  
-+#define sal_log_severity_recoverable	0
-+#define sal_log_severity_fatal		1
-+#define sal_log_severity_corrected	2
+ #include <asm/tlbflush.h>
+ 
+@@ -2023,27 +2024,42 @@
+ 	return 0;
+ }
+ 
++__initdata int hashdist = HASHDIST_DEFAULT;
 +
- /* Definition of log section header structures */
- typedef struct sal_log_sec_header {
-     efi_guid_t guid;			/* Unique Section ID */
-Index: linux/arch/ia64/kernel/mca.c
-=================================--- linux.orig/arch/ia64/kernel/mca.c	Sun Dec  5 14:12:00 2004
-+++ linux/arch/ia64/kernel/mca.c	Sun Dec  5 14:51:11 2004
-@@ -234,6 +234,7 @@ static void
- ia64_mca_log_sal_error_record(int sal_info_type)
- {
- 	u8 *buffer;
-+	sal_log_record_header_t *rh;
- 	u64 size;
- 	int irq_safe = sal_info_type != SAL_INFO_TYPE_MCA && sal_info_type != SAL_INFO_TYPE_INIT;
- #ifdef IA64_MCA_DEBUG_INFO
-@@ -252,7 +253,8 @@ ia64_mca_log_sal_error_record(int sal_in
- 			sal_info_type < ARRAY_SIZE(rec_name) ? rec_name[sal_info_type] : "UNKNOWN");
- 
- 	/* Clear logs from corrected errors in case there's no user-level logger */
--	if (sal_info_type = SAL_INFO_TYPE_CPE || sal_info_type = SAL_INFO_TYPE_CMC)
-+	rh = (sal_log_record_header_t *)buffer;
-+	if (rh->severity = sal_log_severity_corrected)
- 		ia64_sal_clear_state_info(sal_info_type);
- }
- 
-@@ -880,6 +882,11 @@ ia64_mca_ucmc_handler(void)
- 			&ia64_sal_to_os_handoff_state,
- 			&ia64_os_to_sal_handoff_state)); 
- 
-+	if (recover) {
-+		sal_log_record_header_t *rh = IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA);
-+		rh->severity = sal_log_severity_corrected;
-+		ia64_sal_clear_state_info(SAL_INFO_TYPE_MCA);
-+	}
- 	/*
- 	 *  Wakeup all the processors which are spinning in the rendezvous
- 	 *  loop.
-Index: linux/arch/ia64/kernel/salinfo.c
-=================================--- linux.orig/arch/ia64/kernel/salinfo.c	Sat Dec  4 12:55:38 2004
-+++ linux/arch/ia64/kernel/salinfo.c	Sun Dec  5 14:59:01 2004
-@@ -19,6 +19,9 @@
-  *
-  * Jan 28 2004	kaos@sgi.com
-  *   Periodically check for outstanding MCA or INIT records.
-+ *
-+ * Dec  5 2004	kaos@sgi.com
-+ *   Standardize which records are cleared automatically.
++#ifdef CONFIG_NUMA
++static int __init set_hashdist(char *str)
++{
++	if (!str)
++		return 0;
++	hashdist = simple_strtoul(str, &str, 0);
++	return 1;
++}
++__setup("hashdist=", set_hashdist);
++#endif
++
+ /*
+  * allocate a large system hash table from bootmem
+  * - it is assumed that the hash table must contain an exact power-of-2
+  *   quantity of entries
++ * - limit is the number of hash buckets, not the total allocation size
   */
- 
- #include <linux/types.h>
-@@ -382,8 +385,11 @@ static void
- salinfo_log_read_cpu(void *context)
+ void *__init alloc_large_system_hash(const char *tablename,
+ 				     unsigned long bucketsize,
+ 				     unsigned long numentries,
+ 				     int scale,
+-				     int consider_highmem,
++				     int flags,
+ 				     unsigned int *_hash_shift,
+-				     unsigned int *_hash_mask)
++				     unsigned int *_hash_mask,
++				     unsigned long limit)
  {
- 	struct salinfo_data *data = context;
-+	sal_log_record_header_t *rh;
- 	data->log_size = ia64_sal_get_state_info(data->type, (u64 *) data->log_buffer);
--	if (data->type = SAL_INFO_TYPE_CPE || data->type = SAL_INFO_TYPE_CMC)
-+	rh = (sal_log_record_header_t *)(data->log_buffer);
-+	/* Clear corrected errors as they are read from SAL */
-+	if (rh->severity = sal_log_severity_corrected)
- 		ia64_sal_clear_state_info(data->type);
- }
+-	unsigned long long max;
++	unsigned long long max = limit;
+ 	unsigned long log2qty, size;
+-	void *table;
++	void *table = NULL;
  
-@@ -457,6 +463,7 @@ salinfo_log_clear_cpu(void *context)
- static int
- salinfo_log_clear(struct salinfo_data *data, int cpu)
- {
-+	sal_log_record_header_t *rh;
- 	data->state = STATE_NO_DATA;
- 	if (!test_bit(cpu, &data->cpu_event))
- 		return 0;
-@@ -469,10 +476,9 @@ salinfo_log_clear(struct salinfo_data *d
- 		data->saved_num = 0;
- 		spin_unlock_irqrestore(&data_saved_lock, flags);
- 	}
--	/* ia64_mca_log_sal_error_record or salinfo_log_read_cpu already cleared
--	 * CPE and CMC errors
--	 */
--	if (data->type != SAL_INFO_TYPE_CPE && data->type != SAL_INFO_TYPE_CMC)
-+	rh = (sal_log_record_header_t *)(data->log_buffer);
-+	/* Corrected errors have already been cleared from SAL */
-+	if (rh->severity != sal_log_severity_corrected)
- 		call_on_cpu(cpu, salinfo_log_clear_cpu, data);
- 	/* clearing a record may make a new record visible */
- 	salinfo_log_new_read(cpu, data);
+ 	/* allow the kernel cmdline to have a say */
+ 	if (!numentries) {
+ 		/* round applicable memory size up to nearest megabyte */
+-		numentries = consider_highmem ? nr_all_pages : nr_kernel_pages;
++		numentries = (flags & HASH_HIGHMEM) ? nr_all_pages : nr_kernel_pages;
+ 		numentries += (1UL << (20 - PAGE_SHIFT)) - 1;
+ 		numentries >>= 20 - PAGE_SHIFT;
+ 		numentries <<= 20 - PAGE_SHIFT;
+@@ -2057,9 +2073,11 @@
+ 	/* rounded up to nearest power of 2 in size */
+ 	numentries = 1UL << (long_log2(numentries) + 1);
+ 
+-	/* limit allocation size to 1/16 total memory */
+-	max = ((unsigned long long)nr_all_pages << PAGE_SHIFT) >> 4;
+-	do_div(max, bucketsize);
++	/* limit allocation size to 1/16 total memory by default */
++	if (max = 0) {
++		max = ((unsigned long long)nr_all_pages << PAGE_SHIFT) >> 4;
++		do_div(max, bucketsize);
++	}
+ 
+ 	if (numentries > max)
+ 		numentries = max;
+@@ -2068,7 +2086,16 @@
+ 
+ 	do {
+ 		size = bucketsize << log2qty;
+-		table = alloc_bootmem(size);
++		if (flags & HASH_EARLY)
++			table = alloc_bootmem(size);
++		else if (hashdist)
++			table = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL);
++		else {
++			unsigned long order;
++			for (order = 0; ((1UL << order) << PAGE_SHIFT) < size; order++)
++				;
++			table = (void*) __get_free_pages(GFP_ATOMIC, order);
++		}
+ 	} while (!table && size > PAGE_SIZE && --log2qty);
+ 
+ 	if (!table)
+Index: linux/fs/inode.c
+=================================--- linux.orig/fs/inode.c	2004-12-10 18:09:40.416477252 -0600
++++ linux/fs/inode.c	2004-12-10 18:10:39.626044070 -0600
+@@ -1333,9 +1333,10 @@
+ 					sizeof(struct hlist_head),
+ 					ihash_entries,
+ 					14,
+-					0,
++					HASH_EARLY,
+ 					&i_hash_shift,
+-					&i_hash_mask);
++					&i_hash_mask,
++					0);
+ 
+ 	for (loop = 0; loop < (1 << i_hash_shift); loop++)
+ 		INIT_HLIST_HEAD(&inode_hashtable[loop]);
+Index: linux/fs/dcache.c
+=================================--- linux.orig/fs/dcache.c	2004-12-10 18:09:55.313341416 -0600
++++ linux/fs/dcache.c	2004-12-10 18:10:39.630926367 -0600
+@@ -1579,9 +1579,10 @@
+ 					sizeof(struct hlist_head),
+ 					dhash_entries,
+ 					13,
+-					0,
++					HASH_EARLY,
+ 					&d_hash_shift,
+-					&d_hash_mask);
++					&d_hash_mask,
++					0);
+ 
+ 	for (loop = 0; loop < (1 << d_hash_shift); loop++)
+ 		INIT_HLIST_HEAD(&dentry_hashtable[loop]);
+Index: linux/include/linux/bootmem.h
+=================================--- linux.orig/include/linux/bootmem.h	2004-12-10 18:05:25.365287838 -0600
++++ linux/include/linux/bootmem.h	2004-12-10 18:10:39.642643879 -0600
+@@ -74,8 +74,23 @@
+ 					    unsigned long bucketsize,
+ 					    unsigned long numentries,
+ 					    int scale,
+-					    int consider_highmem,
++					    int flags,
+ 					    unsigned int *_hash_shift,
+-					    unsigned int *_hash_mask);
++					    unsigned int *_hash_mask,
++					    unsigned long limit);
++
++#define HASH_HIGHMEM	0x00000001	/* Consider highmem? */
++#define HASH_EARLY	0x00000002	/* Allocating during early boot? */
++
++/* Only NUMA needs hash distribution.
++ * IA64 is known to have sufficient vmalloc space.
++ */
++#if defined(CONFIG_NUMA) && defined(CONFIG_IA64)
++#define HASHDIST_DEFAULT 1
++#else
++#define HASHDIST_DEFAULT 0
++#endif
++extern int hashdist;		/* Distribute hashes across NUMA nodes? */
++
+ 
+ #endif /* _LINUX_BOOTMEM_H */
 
+-- 
+Brent Casavant                          If you had nothing to fear,
+bcasavan@sgi.com                        how then could you be brave?
+Silicon Graphics, Inc.                    -- Queen Dama, Source Wars
