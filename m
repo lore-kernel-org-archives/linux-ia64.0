@@ -1,58 +1,38 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Wed, 16 Jun 2004 16:24:57 +0000
-Subject: [PATCH 0/4] SGI Altix cross partition functionality
-Message-Id: <20040616162457.GA27719@sgi.com>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Wed, 09 Jun 2004 22:06:29 +0000
+Subject: efibootmgr 0.5.0-test4
+Message-Id: <20040609220628.GA25010@lists.us.dell.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+efibootmgr 0.5.0-test4 is now available as a testing version.
 
-    Terminology
+http://linux.dell.com/efibootmgr/testing/efibootmgr-0.5.0-test4.tar.gz
+http://linux.dell.com/efibootmgr/testing/efibootmgr-0.5.0-test4.tar.gz.sign
 
-The term 'partition', adopted by the SGI hardware designers and which
-perculated up into the software, is used in reference to a single SSI
-when multiple SSIs are running on a single Altix. An Altix running
-multiple SSIs is said to be 'partitioned', whereas one that is running
-only a single SSI is said to be 'unpartitioned'.
+- Fixed bug where read_boot_order() would wrongly return EFI_NOT_FOUND
+  when it needed to create a new BootOrder variable.  Reported by
+  Micah Parrish.
+- Added code to recursively walk the PCI bus putting parent PCI bridges
+  in.  This is necessary for Dell PowerEdge 3250 and 7250 servers and
+  Intel Tiger2 and Tiger4 platforms when creating PXE boot entries for
+  the onboard NICs, and if creating EDD30 boot path entries.  Work by Matt
+  and Joshua Giles.
+  - Note, efibootmgr now requires libpci for building.
 
-The term '[a]cross partition' refers to a functionality that spans between
-two SSIs on a multi-SSI Altix. ('XP' is its abbreviation.)
+
+If there are no other issues uncovered, I'd like to release this as
+a stable version in another week.
 
 
-    Introduction
+Thanks,
+Matt
 
-This feature provides cross partition functionality when running multiple
-partitions on a single SGI Altix.
-
-This functionality includes such things as a pseudo-ethernet driver and
-memory sharing, which are provided by functional support modules that sit
-on top of a low-level communication module.
-
-The communication module provides channels for point-to-point communication
-between the partitions. There is support for eight channels between any
-two partitions (currently only two channels are in use, the remainder are
-available for possible future expansion). A functional support module uses
-the same channel number for all of its cross partition communication across
-the entire Altix.
-
-There is a shim module that acts as an interface between the functional
-support modules and the communication module. Its sole purpose is to allow
-for the communication module to be rmmod'd/insmod'd without 'disturbing'
-the functional support modules and the user processes utilizing them. The
-shim module has also proven itself to be invaluable for debugging.
-
-This feature is being submitted as four separate quilt patches:
-
-    exports  - symbols that need to be exported for XP[C|NET]
-    XP       - shim module
-    XPC      - cross partition (low-level) communication module
-    XPNET    - cross partition pseudo-ethernet driver functional support module
-
-The XPC patch is dependent on the SGI fetchop driver patch to be applied
-first. The SGI fetchop driver patch is being pushed out to the community
-separately by Dean Roe.
-
-The XPC patch is also dependent on bte_copy(). This function activates
-the SGI Altix's Block Transfer Engine (BTE).
+-- 
+Matt Domsch
+Sr. Software Engineer, Lead Engineer
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
