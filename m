@@ -1,75 +1,114 @@
-From: "Zephaniah E. Hull" <warp@whitestar.soark.net>
-Date: Tue, 15 Aug 2000 22:12:57 +0000
-Subject: [Linux-ia64] Re: [Glide-patches] Glide patches for IA-64
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="CE+1k2dSO48ffgeK"
-Message-Id: <marc-linux-ia64-105590678205328@msgid-missing>
+From: Michael Madore <mmadore@turbolinux.com>
+Date: Wed, 30 Aug 2000 07:12:25 +0000
+Subject: [Linux-ia64] ANNOUNCE: New TurboLinux IA-64 distribution
+Message-Id: <marc-linux-ia64-105590678205418@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
---CE+1k2dSO48ffgeK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+TurboLinux Frontier IA-64 Beta 1 (2000-08-28)
+--------------------------------------------------------------------------------
 
-Note, I'm just the Debian Glide guy, not someone from 3Dfx.
+This is the first beta release of TurboLinux Frontier IA-64.
+The distribution is available for download at the TurboLinux ftp site:
 
-On Tue, Aug 15, 2000 at 12:22:24AM -0700, David Mosberger wrote:
-> As promised, here is the patch necessary to make Glide_V3 work on
-> IA-64 Linux.  I tested this with an AGP Vodoo 3 1000, though it should
-> work with other cards, too.=20
+    ftp://ftp.turbolinux.com/pub/ia64/TLF-ia64-0828.iso
+    ftp://ftp.turbolinux.com/pub/ia64/TLF-ia64-0828-nox.iso
+    ftp://ftp.turbolinux.com/pub/ia64/0828/{RPMS,SRPMS}
 
-> The patch is relative to Glide_V3-DRI-3.10-6.src.rpm available from
-> 3dfx (sorry, I didn't bother checking out the CVS tree at
-> sourceforge).
+The first URL points to the ISO 9660 image which you can burn on a CD-ROM.
+This will give you a bootable CD from which to install the TurboLinux
+IA-64 distribution on your system.  This image contains a graphical
+installer which is used to install the contents of the CD.  For system
+upgrade, please read "SYSTEM UPGRADE INSTRUCTIONS" section below.
 
-Ick, any chance of getting it against the CVS tree? A lot has changed..
-<snip>
-> In the patch, getting rid of some of the compiler warnings may seem
-> pedantic, but I think it would have been a LOT harder to find some of
-> the bad casts if the other warnings had been left unfixed.  I'd
-> strongly recommend to merge in those changes.  A clean build with gcc
-> -O -Wall" goes a long way towards 64-bit cleanliness.
+The second ISO image contains a script-based installer which can be used
+if you have problems starting the X server during the install process.  
+You can also use this disk as a "rescue disk".
 
-I have patches for glide2 and swlibs to make it all compile with -Wall
--Werror, working on getting them into the CVS tree, probably going to be
-starting on glide3 soon..
->=20
-> On the DRI front: note that you'll still need a 64-bit cleanup patch
-> (and IA-64) support for the X server before DRM/DRI works on IA-64.  I
-> plan to send that patch sometime tomorrow or on Wednesday.
->=20
-> Enjoy,
->=20
-> 	--david
->=20
-> PS: If you're interested in seeing the IA-64 Linux Voodoo in action,
->     visit the HP booth at Linux World Expo in San Jose this week. ;-)
+The third URL gives the locations of the binary and source RPMs.
+Updated RPMs will be available at:
 
-Wish I could be there..
+    ftp://ftp.turbolinux.com/pub/ia64/0828/updates
 
-Zephaniah E. Hull.
+If you are using this release, we highly recommend that you subscribe
+to our ia64-dist mailing list.  All TurboLinux ia64 related questions
+should be directed there.  For instructions on how to subscribe,
+please visit:
 
---=20
- PGP EA5198D1-Zephaniah E. Hull <warp@whitestar.soark.net>-GPG E65A7801
-    Keys available at http://whitestar.soark.net/~warp/public_keys.
-           CCs of replies from mailing lists are encouraged.
+    http://www.turbolinux.com/mailman/listinfo/ia64-dist
 
-"And now, little kittens, we're going to run across red-hot
-motherboards, with our bare feet." -- Buzh.
 
---CE+1k2dSO48ffgeK
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+WHAT'S NEW
+=====
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.2 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
+* Upgraded to the latest kernel (2.4.0-test7 + 000823 patch).
+  The toolchain is Cygnus May 1 release (2.9-ia64-000216-final) with
+  some additional patches (-mconstant-gp, -mauto-pic, gas unwind fixes).
 
-iD8DBQE5mcBpRFMAi+ZaeAERAtiyAJ9m3Gv+TSYo9VSc2rwSvKwHS60vFgCdHcv5
-NPxf+uhj9COSOvleNObERzs=
-=4KjL
------END PGP SIGNATURE-----
+* Kernel modules fully supported.
 
---CE+1k2dSO48ffgeK--
+* XFree86 4.0.1 installed by default.  We have tested the server
+  support for ATI Rage 128 and ATI Rage XL video cards.  If you use
+  the graphical installer you should be able to just type `startx'.
+  Other cards may work but you will have to play with XF86Config file.
+
+* Netscape is installed by default and runs under IA-32 emulation mode.
+
+* SGI Pro64 compiler is installed by default.  the binaries will run
+  under IA-32 emulation mode.  The compiler hasn't been extensively tested.
+
+* Autoboot is enabled by default.  The install process creates startup.nsh
+  file which automatically boots Linux after power-up.
+
+
+KNOWN PROBLEMS
+=======
+
+1) IMPORTANT.  The settings for the QLogic SCSI adapter on Lions MUST be 
+   changed to support >4GB addressing.  If this is not done, the install will
+   fail.  To change the setting, press ALT-Q when the QLogic BIOS screen comes
+   up.  Next, select the following menu items:
+
+   Configuration settings
+      Host adapter settings
+         >4GByte addressing
+
+   Save your changes, and exit from the QLogic configuration program.
+
+   You don't have to enable >4G addressing on BigSur systems.
+
+2) The installer (Both graphical and scripted) can sometimes kernel panic
+   in the swapper process.  If this happens, try passing mem24m as an 
+   argument to lilo.  This seems to mostly be a problem on Lions.  You might
+   have to include this option in the regular boot process.
+
+3) X-Windows.  The release ships with XFree 4.0.1.  Drivers are provided for 
+   both the Rage 128 (PCI and AGP) and Rage XL.  Both drivers can sometimes 
+   lock the machine hard.  Netscape Communicator in particular seems to trigger
+   this problem frequently.  If you have problems using the graphical installer
+   there is a non-graphical install ISO image on the ftp site.  Based on our
+   testing, you will probably need to use the non-graphical installer on Lions.
+
+4) If you press the back button while partitioning your hard disk, you may end
+   up with your partitions listed twice.  This does not effect the actual 
+   partitioning operation.  With this version of the installer, it is best not
+   to use the back buttons.
+
+5) When the configure services screen launches, it takes a long time 
+   (up to 2 minutes) before the list appears.  The system has not crashed.  
+   This is a limitation in the current installer, and will be fixed by the
+   next release.
+
+6) Xaw3d and traceroute both generate unaligned memory accesses.  This should
+   be fixed between now and the next release.
+
+
+Mike Madore
+mmadore@turbolinux.com
+Software Engineer
+TurboLinux, Inc.
+
 
