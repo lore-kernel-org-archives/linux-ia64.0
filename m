@@ -1,17 +1,21 @@
 From: Christoph Hellwig <hch@lst.de>
-Date: Mon, 15 Mar 2004 12:29:54 +0000
-Subject: [PATCH] update simscsi to 2.6 scsi APIs
-Message-Id: <20040315122954.GA15143@lst.de>
+Date: Mon, 15 Mar 2004 12:34:37 +0000
+Subject: Re: [PATCH] update simscsi to 2.6 scsi APIs
+Message-Id: <20040315123437.GA15195@lst.de>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20040315122954.GA15143@lst.de>
+In-Reply-To: <20040315122954.GA15143@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Use the proper (and cleaner) probing API instead of the old
-scsi_module.c hack, don't use the typedefs I plan to kill in 2.7 and
-mark everything static.
+On Mon, Mar 15, 2004 at 01:29:54PM +0100, Christoph Hellwig wrote:
+> Use the proper (and cleaner) probing API instead of the old
+> scsi_module.c hack, don't use the typedefs I plan to kill in 2.7 and
+> mark everything static.
 
+Sorry, wrong patch.  Here's a better one:
 
 --- 1.15/arch/ia64/hp/sim/simscsi.c	Sat May 10 18:49:27 2003
 +++ edited/arch/ia64/hp/sim/simscsi.c	Mon Mar 15 14:20:36 2004
@@ -159,7 +163,7 @@ mark everything static.
 -int
 -simscsi_host_reset (Scsi_Cmnd *sc)
 +static int
-+simscsi_host_reset(struct scsi_cmnd *cmd)
++simscsi_host_reset (struct scsi_cmnd *sc)
  {
  	printk(KERN_ERR "simscsi_host_reset: not implemented\n");
  	return 0;
@@ -187,7 +191,7 @@ mark everything static.
 +{
 +	int error;
 +
-+	host = scsi_register(&driver_template, 0);
++	host = scsi_host_alloc(&driver_template, 0);
 +	if (!host)
 +		return -ENOMEM;
 +
