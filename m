@@ -1,62 +1,38 @@
-From: Zoltan Menyhart <Zoltan.Menyhart_AT_bull.net@nospam.org>
-Date: Tue, 30 Mar 2004 14:32:33 +0000
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Tue, 30 Mar 2004 15:18:05 +0000
 Subject: Re: Migrate pages from a ccNUMA node to another - patch
-Message-Id: <40698501.BD3E12BF@nospam.org>
+Message-Id: <1080659885.3646.2106.camel@nighthawk>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20040330082741.541B77054E@sv1.valinux.co.jp>
-		<20040330.180523.08003015.taka@valinux.co.jp>
-		<40695802.1F13AB0D@nospam.org> <20040330.210804.71938972.taka@valinux.co.jp>
+References: <4063F581.ACC5C511@nospam.org>
+	 <1080321646.31638.105.camel@nighthawk>  <40695C68.4A5F551E@nospam.org>
+In-Reply-To: <40695C68.4A5F551E@nospam.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: Hirokazu Takahashi <taka@valinux.co.jp>
-Cc: haveblue@us.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, iwamoto@valinux.co.jp
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Zoltan.Menyhart@bull.net
+Cc: linux-ia64@vger.kernel.org, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 
-Hirokazu Takahashi wrote:
+On Tue, 2004-03-30 at 03:39, Zoltan Menyhart wrote:
+> Dave Hansen wrote:
+> > 
+> > Have you considered any common ground your patch might share with the
+> > people doing memory hotplug?
+> 
+> Comparing my stuff to their work, I just do some small performance enhancements:
+> 
+> - I do not modify a single line on the existing VM paths - if my stuff has no
+>   improvement for you, then yo will not be obliged to pay any overhead
+...
+> - I handle only the simplest case: private anonymous pages (...a singe PTE...)
 
-[...]
->=20
-> It's not hard to add "no-retry-mode" to "remap_onepage()" function
-> if you want. It may skip to migrate some pages if they are accessed
-> heavily. In paticular if you only want to care about anonymous pages,
-> they will be handled very well.
+By not modifying a single line in the existing VM path, your patch
+simply duplicates functionality from that existing code, which I'm not
+sure is any better.  
 
-Well, why not to give it a try ?
-Yet your code is not really easy to read. :-)
-I do not dare to adapt it on my own, I am afraid of breaking something.
-Could you please provide me a modified version of your "remap_onepage()" ?
-Can we move to 2.6.4 ?
+I think there's a lot of commonality with what the swap code, NUMA page
+migration, and memory removal have to do.  However, none of them share
+any code today.  I think all of the implementations could benefit from
+making them a bit more generic.  
 
-In addition to "no-retry-mode", I need to specify where the new page
-should be allocated from.
+-- Dave
 
-Here is my interface I need to implement with "remap_onepage()":
-
-/*
- * Common part of checking & migrating the pages one by one.
- *
- * Arguments:	src_node:	Source NUMA node
- *		old_p:		-> old page structure
- *		node:		Destination NUMA node
- *		mm:		-> victim "mm_struct"
- *		pte:		-> PTE of the page to be moved
- *
- * Returns:	1:		Migration O. K.
- *		0:		Minor error, no actual migration has been done
- *		-Exxx:		Catastrophic error
- *
- * Notes:	- "mm->page_table_lock" and "mm->mmap_sem" have to be held.
- *		- The old page is "get_page()"-ed on entry to make sure it does not go
- *		  away in the mean time - on return it gets "put_page()"-ed.
- */
-int
-common_check_migrate_1_page(const int src_node, struct page * const old_p,
-			const int node, struct mm_struct * const mm, pte_t * const pte)
-
-Notes: "pte" can be NULL if I do not know it apriori
-       I cannot release "mm->page_table_lock" otherwise I have to re-scan t=
-he "mm->pgd".
-
-Thanks,
-
-Zolt=E1n Menyh=E1rt
