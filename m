@@ -1,167 +1,35 @@
-From: John Levon <levon@movementarian.org>
-Date: Wed, 22 Oct 2003 11:15:33 +0000
-Subject: [PATCH] oprofile perfmon support take 2
-Message-Id: <marc-linux-ia64-106682166331165@msgid-missing>
+From: Keith Owens <kaos@sgi.com>
+Date: Thu, 30 Oct 2003 08:31:01 +0000
+Subject: [patch 1/4] kernel salinfo changes
+Message-Id: <marc-linux-ia64-106750297018132@msgid-missing>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+patch 1 - Print the header from INIT records, correct typo in sal.h.
 
-My previous patch was buggy; due to the way interaction with userspace
-works, we could have left samples arriving after the sample buffers were
-deleted. The simplest solution is to block samples if they arrive.
+diff -ur 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo0/arch/ia64/kernel/mca.c 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo1/arch/ia64/kernel/mca.c
+--- 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo0/arch/ia64/kernel/mca.c	Thu Oct 30 17:06:18 2003
++++ 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo1/arch/ia64/kernel/mca.c	Thu Oct 30 18:33:20 2003
+@@ -2383,7 +2383,8 @@
+ 		ia64_log_rec_header_print(IA64_LOG_CURR_BUFFER(sal_info_type), prfunc);
+ 		break;
+ 	      case SAL_INFO_TYPE_INIT:
+-		prfunc("+MCA INIT ERROR LOG (UNIMPLEMENTED)\n");
++		prfunc("+CPU %d: SAL log contains INIT error record\n", smp_processor_id());
++		ia64_log_rec_header_print(IA64_LOG_CURR_BUFFER(sal_info_type), prfunc);
+ 		break;
+ 	      case SAL_INFO_TYPE_CMC:
+ 		prfunc("+BEGIN HARDWARE ERROR STATE AT CMC\n");
+diff -ur 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo0/include/asm-ia64/sal.h 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo1/include/asm-ia64/sal.h
+--- 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo0/include/asm-ia64/sal.h	Thu Oct 30 17:06:20 2003
++++ 2.4.23-pre8-cset-1.1069.1.143-to-1.1108-salinfo1/include/asm-ia64/sal.h	Thu Oct 30 18:34:11 2003
+@@ -808,4 +808,4 @@
+ 
+ #endif /* __ASSEMBLY__ */
+ 
+-#endif /* _ASM_IA64_PAL_H */
++#endif /* _ASM_IA64_SAL_H */
 
-regards
-john
-
-
-Index: linux-cvs//arch/ia64/oprofile/Makefile
-=================================RCS file: /home/cvs/linux-2.5/arch/ia64/oprofile/Makefile,v
-retrieving revision 1.2
-diff -u -a -p -r1.2 Makefile
---- linux-cvs//arch/ia64/oprofile/Makefile	9 Sep 2003 16:07:11 -0000	1.2
-+++ linux-cvs//arch/ia64/oprofile/Makefile	21 Oct 2003 19:21:43 -0000
-@@ -7,3 +7,4 @@ DRIVER_OBJS := $(addprefix ../../../driv
- 		timer_int.o )
- 
- oprofile-y := $(DRIVER_OBJS) init.o
-+oprofile-$(CONFIG_PERFMON) += perfmon.o
-Index: linux-cvs//arch/ia64/oprofile/init.c
-=================================RCS file: /home/cvs/linux-2.5/arch/ia64/oprofile/init.c,v
-retrieving revision 1.2
-diff -u -a -p -r1.2 init.c
---- linux-cvs//arch/ia64/oprofile/init.c	9 Sep 2003 16:07:11 -0000	1.2
-+++ linux-cvs//arch/ia64/oprofile/init.c	21 Oct 2003 19:21:43 -0000
-@@ -12,14 +12,21 @@
- #include <linux/init.h>
- #include <linux/errno.h>
-  
--extern void timer_init(struct oprofile_operations ** ops);
-+extern int perfmon_init(struct oprofile_operations ** ops);
-+extern void perfmon_exit(void);
- 
- int __init oprofile_arch_init(struct oprofile_operations ** ops)
- {
-+#ifdef CONFIG_PERFMON
-+	return perfmon_init(ops);
-+#endif
- 	return -ENODEV;
- }
- 
- 
- void oprofile_arch_exit(void)
- {
-+#ifdef CONFIG_PERFMON
-+	perfmon_exit();
-+#endif
- }
---- /dev/null	Thu Aug 21 13:36:33 2003
-+++ linux-cvs/arch/ia64/oprofile/perfmon.c	Tue Oct 21 13:49:00 2003
-@@ -0,0 +1,105 @@
-+/**
-+ * @file perfmon.c
-+ *
-+ * @remark Copyright 2003 OProfile authors
-+ * @remark Read the file COPYING
-+ *
-+ * @author John Levon <levon@movementarian.org>
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/config.h>
-+#include <linux/oprofile.h>
-+#include <linux/sched.h>
-+#include <asm/perfmon.h>
-+#include <asm/ptrace.h>
-+#include <asm/errno.h>
-+
-+static int allow_ints;
-+
-+static int
-+perfmon_handler(struct task_struct *task, void *buf, pfm_ovfl_arg_t *arg,
-+                struct pt_regs *regs, unsigned long stamp)
-+{
-+	int cpu = smp_processor_id();
-+	unsigned long eip = instruction_pointer(regs);
-+	int event = arg->pmd_eventid;
-+ 
-+	arg->ovfl_ctrl.bits.reset_ovfl_pmds = 1;
-+
-+	/* the owner of the oprofile event buffer may have exited
-+	 * without perfmon being shutdown (e.g. SIGSEGV)
-+	 */
-+	if (allow_ints)
-+		oprofile_add_sample(eip, !user_mode(regs), event, cpu);
-+	return 0;
-+}
-+
-+
-+static int perfmon_start(void)
-+{
-+	allow_ints = 1;
-+	return 0;
-+}
-+
-+
-+static void perfmon_stop(void)
-+{
-+	allow_ints = 0;
-+}
-+
-+
-+#define OPROFILE_FMT_UUID { \
-+	0x77, 0x7a, 0x6e, 0x61, 0x20, 0x65, 0x73, 0x69, 0x74, 0x6e, 0x72, 0x20, 0x61, 0x65, 0x0a, 0x6c }
-+
-+static pfm_buffer_fmt_t oprofile_fmt = {
-+ 	.fmt_name 	    = "oprofile_format",
-+ 	.fmt_uuid	    = OPROFILE_FMT_UUID,
-+ 	.fmt_handler	    = perfmon_handler,
-+};
-+
-+
-+static char * get_cpu_type(void)
-+{
-+	__u8 family = local_cpu_data->family;
-+
-+	switch (family) {
-+		case 0x07:
-+			return "ia64/itanium";
-+		case 0x1f:
-+			return "ia64/itanium2";
-+		default:
-+			return "ia64/ia64";
-+	}
-+}
-+
-+
-+/* all the ops are handled via userspace for IA64 perfmon */
-+static struct oprofile_operations perfmon_ops = {
-+	.start = perfmon_start,
-+	.stop = perfmon_stop,
-+};
-+
-+static int using_perfmon;
-+
-+int perfmon_init(struct oprofile_operations ** ops)
-+{
-+	int ret = pfm_register_buffer_fmt(&oprofile_fmt);
-+	if (ret)
-+		return -ENODEV;
-+
-+	perfmon_ops.cpu_type = get_cpu_type();
-+	*ops = &perfmon_ops;
-+	using_perfmon = 1;
-+	printk(KERN_INFO "oprofile: using perfmon.\n");
-+	return 0;
-+}
-+
-+
-+void perfmon_exit(void)
-+{
-+	if (!using_perfmon)
-+		return;
-+
-+	pfm_unregister_buffer_fmt(oprofile_fmt.fmt_uuid);
-+}
