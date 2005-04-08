@@ -1,35 +1,75 @@
-From: Horst von Brand <vonbrand@inf.utfsm.cl>
-Date: Fri, 22 Apr 2005 03:37:44 +0000
-Subject: Re: ia64 git pull
-Message-Id: <200504220337.j3M3biAb004521@laptop11.inf.utfsm.cl>
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 08 Apr 2005 17:33:24 +0000
+Subject: Re: [mpm@selenic.com: Re: buggy ia64_fls() ? (was Re: /dev/random
+Message-Id: <20050408103324.6c5231df.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: Message from Petr Baudis <pasky@ucw.cz> 
-   of "Fri, 22 Apr 2005 00:53:24 +0200." <20050421225324.GA1474@pasky.ji.cz> 
-References: <200504212042.j3LKgng04318@unix-os.sc.intel.com>
-In-Reply-To: <200504212042.j3LKgng04318@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Petr Baudis <pasky@ucw.cz>
-Cc: tony.luck@intel.com, Linus Torvalds <torvalds@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Petr Baudis <pasky@ucw.cz> said:
 
-[...]
+I agree that ia64's fls() is broken.
 
-> The way to work around that is to setup separate rsync URIs for each of
-> the trees. ;-) I think I will make git-pasky (Cogito) accept also URIs
-> in form
+So the random driver is presently busted on ia64?
+
+
+Matt Mackall <mpm@selenic.com> wrote:
+>
+> Realized you're not on the cc list. This one's surprising.
 > 
-> 	rsync://host/path!branchname
+> ----- Forwarded message from Matt Mackall <mpm@selenic.com> -----
 > 
-> which will allow you to select the particular branch in the given
-> repository, defaulting to the "master" branch.
-
-Please don't use '!', several bash(1) versions just can't seem to get the
-fact that '!' is quoted and try to do history expansion all over the place.
--- 
-Dr. Horst H. von Brand                   User #22616 counter.li.org
-Departamento de Informatica                     Fono: +56 32 654431
-Universidad Tecnica Federico Santa Maria              +56 32 654239
-Casilla 110-V, Valparaiso, Chile                Fax:  +56 32 797513
+> Date: Fri, 8 Apr 2005 09:27:46 -0700
+> From: Matt Mackall <mpm@selenic.com>
+> To: Simon Derr <Simon.Derr@bull.net>
+> Cc: Yura Pakhuchiy <pakhuchiy@iptel.by>,
+> 	Patrice Martinez <patrice.martinez@ext.bull.net>,
+> 	linux-kernel@vger.kernel.org
+> Subject: Re: buggy ia64_fls() ? (was Re: /dev/random problem on 2.6.12-rc1)
+> 
+> On Fri, Apr 08, 2005 at 02:12:04PM +0200, Simon Derr wrote:
+> > I enabled the debug messages in random.c and I think I found the problem 
+> > lying in the IA64 version of fls().
+> 
+> Good catch.
+>  
+> > It turns out that the generic and IA64 versions of fls() disagree:
+> > 
+> > (output from a small test program)
+> > 
+> >      x   ia64_fls(x)      generic_fls(x)
+> > 
+> > i=-1, t=0, ia64: -65535 et generic:0
+> > i=0, t=1, ia64: 0 et generic:1
+> > i=1, t=2, ia64: 1 et generic:2
+> > i=2, t=4, ia64: 2 et generic:3
+> > i=3, t=8, ia64: 3 et generic:4
+> 
+> Well PPC at least sez:
+> 
+> /*
+>  * fls: find last (most-significant) bit set.
+>  * Note fls(0) = 0, fls(1) = 1, fls(0x80000000) = 32.
+>  */
+> 
+> And that agrees with the generic code (used by x86). So I think IA64
+> is probably wrong here indeed. It's amazing that the other users of
+> fls don't blow up spectacularly.
+> 
+> > I tried to fix it with an ia64 version that would give the same result as 
+> > the generic version, but the kernel did not boot, I guess some functions 
+> > rely on the ""broken"" ia64_fls() behaviour.
+> > 
+> > So I just changed fls() to use generic_fls() instead of ia64_fls().
+> 
+> If the "fixed" version didn't boot, how did the "alternate fixed"
+> version boot?
+> 
+> -- 
+> Mathematics is the supreme nostalgia of our time.
+> 
+> ----- End forwarded message -----
+> 
+> -- 
+> Mathematics is the supreme nostalgia of our time.
