@@ -1,7 +1,7 @@
-From: Matt Mackall <mpm@selenic.com>
-Date: Fri, 08 Apr 2005 23:17:02 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 08 Apr 2005 23:19:57 +0000
 Subject: Re: [mpm@selenic.com: Re: buggy ia64_fls() ? (was Re: /dev/random problem on 2.6.12-rc1)]
-Message-Id: <20050408231702.GG3174@waste.org>
+Message-Id: <16983.4509.724445.31245@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050408103324.6c5231df.akpm@osdl.org>
 In-Reply-To: <20050408103324.6c5231df.akpm@osdl.org>
@@ -10,16 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Apr 08, 2005 at 04:02:15PM -0700, Luck, Tony wrote:
-> >So there's the off-by-one problem. And then there's the huge
-> >discontinuity at 0. Trouble is the bias is 65535 rather than 65536 so
-> >there's no masking trick that works. We could instead to do
-> >exp((x*2)+1).
-> 
-> That will fail for x=0x8000000000000000 ... returns '1' instead of '64'.
+>>>>> On Fri, 8 Apr 2005 16:15:43 -0700, Matt Mackall <mpm@selenic.com> said:
 
-That's ok, the function we actually need to fix is fls(int), not
-ia64_fls(unsigned long).
+  >> Fixing fls() is trivial:
 
--- 
-Mathematics is the supreme nostalgia of our time.
+  >> static inline int fls (int x) { if (!x) return 0; return
+  >> ia64_fls((unsigned int) x) + 1; }
+
+  Matt> I was trying desperately to avoid the branch, as I understand
+  Matt> there are issues there on IA64.
+
+That shouldn't be necessary.  The branch will be predicated anyhow:
+
+                   cmp4.eq p7,p6=0,r32;;
+             (p07) mov r8=r0
+             (p07) br.ret.dptk.many b0
+
+Direct branches (and returns) are generally very fast on Itanium 2.
+Only indirect branches need some help from the compiler, an area
+where GCC/ia64 doesn't do well at the moment.
+
+	--david
