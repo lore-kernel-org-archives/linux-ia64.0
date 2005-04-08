@@ -1,21 +1,45 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Wed, 06 Apr 2005 16:03:24 +0000
-Subject: Re: [PATCH] add a clear_pages function to clear pages of higher order
-Message-Id: <20050406160324.GC29122@esmail.cup.hp.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 08 Apr 2005 22:21:20 +0000
+Subject: Beauties staggering timer interrupt
+Message-Id: <200504082221.j38MLFg20356@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <16979.27158.381388.691910@napali.hpl.hp.com> <E1DJ2sp-0004jm-00@w-gerrit.beaverton.ibm.com>
-In-Reply-To: <E1DJ2sp-0004jm-00@w-gerrit.beaverton.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Gerrit Huizenga <gh@us.ibm.com>
-Cc: davidm@hpl.hp.com, Christoph Lameter <clameter@engr.sgi.com>, Andi Kleen <ak@muc.de>, Christoph Lameter <clameter@sgi.com>, Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>, Dave Hansen <haveblue@us.ibm.com>, Andrew Morton <akpm@osdl.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Mel Gorman <mel@csn.ul.ie>, linux-ia64@vger.kernel.org, Jens.Maurer@gmx.net
+To: linux-ia64@vger.kernel.org
 
-On Tue, Apr 05, 2005 at 10:15:18PM -0700, Gerrit Huizenga wrote:
-> SpecSDET, Aim7 or ReAim from OSDL are probably what you are thinking of.
+This is more or less a teaser patch.  When we initialize local timer
+tick on AP (application processor), we prefer to stagger them.  In a
+perfect world, the staggering should be evenly spaced within a jiffy
+for all the online cpu.  And that's what majority of the code in
+ia64_cpu_local_tick() is trying to do.  However, when it initialize
+itm_next, it didn't make any references to the AP's itm_next.  So we
+end up with random staggering relative to AP's timer interrupt.
 
-SDET isn't publicly available.
-I hope by now osdl-reaim is called "osdl-aim7":
-	http://lkml.org/lkml/2003/8/1/172
+For platforms that has itc drift, this is not an issue since they going to
+be out of sync anyway.  There is no point in trying to space them.  But on
+box that has the itc synchronized, then current code is a bit suboptimal.
+(this probably explains why it is easier to expose a scheduler idle load
+balancing issue on ia64 compare to x86).
 
-grant
+This patch will put the wonderful staggering calculation really in action.
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+
+
+--- linux-2.6.11/arch/ia64/kernel/time.c.orig	2005-04-08 14:39:00.000000000 -0700
++++ linux-2.6.11/arch/ia64/kernel/time.c	2005-04-08 14:56:41.000000000 -0700
+@@ -131,8 +131,9 @@ ia64_cpu_local_tick (void)
+ 	if (cpu) {
+ 		unsigned long hi = 1UL << ia64_fls(cpu);
+ 		shift = (2*(cpu - hi) + 1) * delta/hi/2;
+-	}
+-	local_cpu_data->itm_next = ia64_get_itc() + delta + shift;
++		local_cpu_data->itm_next = cpu_data(0)->itm_next + delta + shift;
++	} else
++		local_cpu_data->itm_next = ia64_get_itc() + delta;
+ 	ia64_set_itm(local_cpu_data->itm_next);
+ }
+
+
+
+
