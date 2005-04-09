@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Sat, 09 Apr 2005 04:05:48 +0000
+Date: Sat, 09 Apr 2005 04:32:36 +0000
 Subject: Re: [mpm@selenic.com: Re: buggy ia64_fls() ? (was Re: /dev/random problem on 2.6.12-rc1)]
-Message-Id: <16983.21660.530098.925@napali.hpl.hp.com>
+Message-Id: <16983.23268.453958.833658@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050408103324.6c5231df.akpm@osdl.org>
 In-Reply-To: <20050408103324.6c5231df.akpm@osdl.org>
@@ -10,23 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 8 Apr 2005 20:00:59 -0700, Grant Grundler <iod00d@hp.com> said:
+>>>>> On Fri, 8 Apr 2005 17:28:27 -0700, Matt Mackall <mpm@selenic.com> said:
 
-  Grant> It requires at least gcc-3.4 for ia64.  gcc-3.3 will fail
-  Grant> with: undefined reference to `__builtin_popcount'
+  Matt> Looks good. Can you verify that
+  Matt> /proc/sys/kernel/random/entropy_avail has sane values in it
+  Matt> (eg building up to ~3500 and then slowly approaching 4096)?
+  Matt> random.c now uses fls and fls(0) was causing all the entropy
+  Matt> to vanish.
 
-If you change:
-
-# define popcount(x)		__builtin_popcountl(x)
-
-into:
-
-#if __GNUC__ >= 4 || (__GNUC__ = 3 && __GNUC_MINOR__ >= 4)
-# define popcount(x)         __builtin_popcountl(x)
-#else
-# define popcount(x)         ia64_popcnt(x)
-#endif
-
-then it should build with pre-v3.4 compilers, too.
+This appears to be the case.  The highest value I saw was 3732 so I
+can't guarantee that it would make it all the way to 4096, but at
+least the tendency seems to be right.
 
 	--david
