@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Sat, 09 Apr 2005 03:00:59 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Sat, 09 Apr 2005 04:05:48 +0000
 Subject: Re: [mpm@selenic.com: Re: buggy ia64_fls() ? (was Re: /dev/random problem on 2.6.12-rc1)]
-Message-Id: <20050409030059.GK3844@esmail.cup.hp.com>
+Message-Id: <16983.21660.530098.925@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050408103324.6c5231df.akpm@osdl.org>
 In-Reply-To: <20050408103324.6c5231df.akpm@osdl.org>
@@ -10,18 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Apr 08, 2005 at 04:49:11PM -0700, David Mosberger wrote:
-> With the attached test-program, I'm seeing these results on a 1.5GHz
-> Madison:
+>>>>> On Fri, 8 Apr 2005 20:00:59 -0700, Grant Grundler <iod00d@hp.com> said:
 
-I've committed test_fls.c to CVS at:
-	http://cvs.parisc-linux.org/build-tools/
+  Grant> It requires at least gcc-3.4 for ia64.  gcc-3.3 will fail
+  Grant> with: undefined reference to `__builtin_popcount'
 
-It requires at least gcc-3.4 for ia64.
-gcc-3.3 will fail with:  undefined reference to `__builtin_popcount'
+If you change:
 
-If someone has more fun with this program and wants to archive
-the changes, please send me a patch.
+# define popcount(x)		__builtin_popcountl(x)
 
-thanks,
-grant
+into:
+
+#if __GNUC__ >= 4 || (__GNUC__ = 3 && __GNUC_MINOR__ >= 4)
+# define popcount(x)         __builtin_popcountl(x)
+#else
+# define popcount(x)         ia64_popcnt(x)
+#endif
+
+then it should build with pre-v3.4 compilers, too.
+
+	--david
