@@ -1,64 +1,28 @@
-From: dann frazier <dannf@hp.com>
-Date: Fri, 08 Apr 2005 21:23:43 +0000
-Subject: [PATCH] salinfo_decode silent exit in older 2.4s
-Message-Id: <1112995423.7189.133.camel@krebs.dannf>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-3SG2wgm+4BF0X6z7mI7R"
+From: Keith Owens <kaos@sgi.com>
+Date: Sun, 10 Apr 2005 23:58:24 +0000
+Subject: Re: [PATCH] salinfo_decode silent exit in older 2.4s
+Message-Id: <6557.1113177504@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <1112995423.7189.133.camel@krebs.dannf>
+In-Reply-To: <1112995423.7189.133.camel@krebs.dannf>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+On Fri, 08 Apr 2005 15:23:43 -0600, 
+dann frazier <dannf@hp.com> wrote:
+>I was playing with salinfo_decode on an older kernel (2.4.21 era) and it
+>would normally die silently right after exec.
+>
+>This no longer happens because of a semantic difference that occurred in
+>later 2.4 kernels.  Older 2.4s would return -EINTR when they wanted
+>userspace to try again, while current 2.4s use -ERESTARTSYS.  (The
+>surrounding code is also somewhat different, but it looks like the idea
+>is the same).
 
---=-3SG2wgm+4BF0X6z7mI7R
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-I was playing with salinfo_decode on an older kernel (2.4.21 era) and it
-would normally die silently right after exec.
-
-This no longer happens because of a semantic difference that occurred in
-later 2.4 kernels.  Older 2.4s would return -EINTR when they wanted
-userspace to try again, while current 2.4s use -ERESTARTSYS.  (The
-surrounding code is also somewhat different, but it looks like the idea
-is the same).
-
-If salinfo_decode detects an EINTR, it will silently exit the main loop.
-This patch corrects the problem for me on older kernels, and should have
-no effect for current kernels.  Hopefully this is what the author
-originally intended.
-
-Signed-off-by: dann frazier <dannf@hp.com>
-
---- salinfo-0.7.orig/salinfo_decode.c	Tue Oct  5 09:23:33 2004
-+++ salinfo-0.7/salinfo_decode.c	Fri Apr  8 15:06:40 2005
-@@ -235,7 +235,7 @@
- 		char filename[PATH_MAX];
- 		if (read(fd_event, text, sizeof(text)) <= 0) {
- 			if (errno == EINTR)
--				ret = 0;
-+				continue;
- 			else
- 				perror(event_filename);
- 			goto out;
-
-
-
-
---=-3SG2wgm+4BF0X6z7mI7R
-Content-Disposition: attachment; filename=salinfo.patch
-Content-Type: text/x-patch; name=salinfo.patch; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
---- salinfo-0.7.orig/salinfo_decode.c	Tue Oct  5 09:23:33 2004
-+++ salinfo-0.7/salinfo_decode.c	Fri Apr  8 15:06:40 2005
-@@ -235,7 +235,7 @@
- 		char filename[PATH_MAX];
- 		if (read(fd_event, text, sizeof(text)) <= 0) {
- 			if (errno == EINTR)
--				ret = 0;
-+				continue;
- 			else
- 				perror(event_filename);
- 			goto out;
-
---=-3SG2wgm+4BF0X6z7mI7R--
+ERESTARTSYS should never be seen by user space code.  The kernel should
+either restart the current syscall or convert the code to EINTR before
+returning to user space.  If you are seeing ERESTARTSYS in user space
+then it is a kernel bug.
 
