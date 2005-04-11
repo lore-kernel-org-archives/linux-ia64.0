@@ -1,21 +1,26 @@
-From: Christoph Hellwig <hch@infradead.org>
-Date: Mon, 04 Apr 2005 13:45:35 +0000
-Subject: Re: [PATCH] ULI 2.6.12
-Message-Id: <20050404134535.GA9920@infradead.org>
+From: Mark Maule <maule@sgi.com>
+Date: Mon, 11 Apr 2005 20:19:32 +0000
+Subject: [PATCH 2.6.12 1/1] altix: fix TIOCA dmamap list_add
+Message-Id: <20050411201932.26788.64806.81672@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050401130602.A123752@goliath.americas.sgi.com>
-In-Reply-To: <20050401130602.A123752@goliath.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, Apr 04, 2005 at 08:31:44AM -0500, Michael Raymond wrote:
->     Again the idea is that the handler function was registered by root or
-> some priviledged developer making a conscious decision.  This is currently
-> protected by permissions on the /dev/uli file.  If you'd like me to add
-> permission checks to the kernel functions I'd be happy to do it.
+Corract a bug where tioca_dma_mapped() is putting tioca dma map structs
+on the wrong list.
 
-No, that's not the point.  User level interrupts are totally pointless if
-they can cause the same problems on misbehaviour.
+Signed-off-by: Mark Maule <maule@sgi.com>
 
+=== arch/ia64/sn/pci/tioca_provider.c 1.2 vs edited ==--- 1.2/arch/ia64/sn/pci/tioca_provider.c	2005-03-16 17:22:12 -06:00
++++ edited/arch/ia64/sn/pci/tioca_provider.c	2005-04-11 15:09:37 -05:00
+@@ -431,7 +431,7 @@
+ 	ca_dmamap->cad_dma_addr = bus_addr;
+ 	ca_dmamap->cad_gart_size = entries;
+ 	ca_dmamap->cad_gart_entry = entry;
+-	list_add(&ca_dmamap->cad_list, &tioca_kern->ca_list);
++	list_add(&ca_dmamap->cad_list, &tioca_kern->ca_dmamaps);
+ 
+ 	if (xio_addr % ps) {
+ 		tioca_kern->ca_pcigart[entry] = tioca_paddr_to_gart(xio_addr);
