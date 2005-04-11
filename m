@@ -1,208 +1,352 @@
-From: Mark Maule <maule@sgi.com>
-Date: Mon, 25 Apr 2005 20:51:25 +0000
-Subject: [PATCH 2.6.12 1/1] pcdp: add PCDP pci interface support
-Message-Id: <20050425205125.4214.56215.sendpatchset@attica.americas.sgi.com>
+From: Jesse Barnes <jbarnes@engr.sgi.com>
+Date: Mon, 11 Apr 2005 19:38:53 +0000
+Subject: [PATCH] make CONFIG_IA64_GENERIC=y && CONFIG_SMP=n work
+Message-Id: <200504111238.53982.jbarnes@engr.sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_NJtWCLA243zoNI4"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050421202619.31042.93421.39277@attica.americas.sgi.com>
-In-Reply-To: <20050421202619.31042.93421.39277@attica.americas.sgi.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Resend 2 with changes per Bjorn Helgaas comments.  Changes from original:
+--Boundary-00=_NJtWCLA243zoNI4
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-+ Change globals to vga_console_iobase/vga_console_membase and make them
-  unconditional.
-+ Address style-related comments.
+Here's the latest version of this patch.  There's an unrelated problem with 
+the TOT tree right now that prevents me from booting all the way, but it gets 
+far enough to give me at least some confidence in this patch.  I've compile 
+tested and partially booted CONFIG_IA64_SGI_SN2=y and CONFIG_IA64_GENERIC=y, 
+CONFIG_SMP=n configurations.
 
-Patch to extend the PCDP vga setup code to support PCI io/mem translations
-for the legacy vga ioport and ram spaces on architectures (e.g. altix) which
-need them.  Diffs were generated against the last available ia64 bk test tree.
+The patch fixes some compile problems when CONFIG_SMP is disabled and 
+refactors out some of the kernel NUMA stuff into its own file that we can use 
+for additional code later.  Some ugliness in discontig.c remains, however.
 
-Summary of the changes:
+Comments, testing, and/or merging upstream appreciated :).
 
-drivers/firmware/pcdp.c
-drivers/firmware/pcdp.h
------------------------
-+ add declaration for the spec-defined PCI interface struct (pcdp_if_pci)
-  as well as support macros.
+ arch/ia64/kernel/Makefile      |    1
+ arch/ia64/kernel/acpi.c        |    4 ++
+ arch/ia64/kernel/numa.c        |   57 +++++++++++++++++++++++++++++++++++++++
+ arch/ia64/kernel/smpboot.c     |   41 ----------------------------
+ arch/ia64/mm/discontig.c       |   58 ++++++++++++++++++++++++++-------------
+ include/asm-ia64/sn/sn_cpuid.h |    4 --
+ 6 files changed, 102 insertions(+), 63 deletions(-)
 
-+ extend setup_vga_console() to know about pcdp_if_pci and add a couple of
-  globals to hold the io and mem translation offsets if present.
+Jesse
 
-arch/ia64/kernel/setup.c
-------------------------
-+ tweek early_console_setup() to allow multiple early console setup routines
-  to be called.
+P.S. I didn't include the fix for mmtimer.c && CONFIG_SMP=n here, Christoph 
+can you fix it?
+drivers/char/mmtimer.c: In function `mmtimer_tasklet':
+drivers/char/mmtimer.c:488: error: structure has no member named `write_lock'
 
-include/asm-ia64/vga.h
-----------------------
-+ make VGA_MAP_MEM vga_console_membase asware
+--Boundary-00=_NJtWCLA243zoNI4
+Content-Type: text/plain;
+  charset="us-ascii";
+  name="ia64-generic-no-smp-6.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="ia64-generic-no-smp-6.patch"
 
-Signed-off-by: Mark Maule <maule@sgi.com>
-
-diff -Nru a/arch/ia64/kernel/setup.c b/arch/ia64/kernel/setup.c
---- a/arch/ia64/kernel/setup.c	2005-04-25 15:47:41 -05:00
-+++ b/arch/ia64/kernel/setup.c	2005-04-25 15:47:41 -05:00
-@@ -72,6 +72,8 @@
- unsigned long ia64_cycles_per_usec;
- struct ia64_boot_param *ia64_boot_param;
- struct screen_info screen_info;
-+unsigned long vga_console_iobase;
-+unsigned long vga_console_membase;
- 
- unsigned long ia64_max_cacheline_size;
- unsigned long ia64_iobase;	/* virtual address for I/O accesses */
-@@ -273,23 +275,25 @@
- static inline int __init
- early_console_setup (char *cmdline)
- {
-+	int earlycons = 0;
-+
- #ifdef CONFIG_SERIAL_SGI_L1_CONSOLE
- 	{
- 		extern int sn_serial_console_early_setup(void);
- 		if (!sn_serial_console_early_setup())
--			return 0;
-+			earlycons++;
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/04/11 12:27:24-07:00 jbarnes@tomahawk.engr.sgi.com 
+#   CONFIG_SMP=n support for generic kernels
+# 
+# arch/ia64/kernel/numa.c
+#   2005/04/11 12:27:11-07:00 jbarnes@tomahawk.engr.sgi.com +57 -0
+# 
+# include/asm-ia64/sn/sn_cpuid.h
+#   2005/04/11 12:27:11-07:00 jbarnes@tomahawk.engr.sgi.com +0 -4
+#   CONFIG_SMP=n support for generic kernels
+# 
+# arch/ia64/mm/discontig.c
+#   2005/04/11 12:27:11-07:00 jbarnes@tomahawk.engr.sgi.com +41 -17
+#   CONFIG_SMP=n support for generic kernels
+# 
+# arch/ia64/kernel/smpboot.c
+#   2005/04/11 12:27:11-07:00 jbarnes@tomahawk.engr.sgi.com +0 -41
+#   CONFIG_SMP=n support for generic kernels
+# 
+# arch/ia64/kernel/numa.c
+#   2005/04/11 12:27:11-07:00 jbarnes@tomahawk.engr.sgi.com +0 -0
+#   BitKeeper file /home/jbarnes/working/linux-2.5-ia64-no-smp/arch/ia64/kernel/numa.c
+# 
+# arch/ia64/kernel/acpi.c
+#   2005/04/11 12:27:11-07:00 jbarnes@tomahawk.engr.sgi.com +3 -1
+#   CONFIG_SMP=n support for generic kernels
+# 
+# arch/ia64/kernel/Makefile
+#   2005/04/11 12:27:11-07:00 jbarnes@tomahawk.engr.sgi.com +1 -0
+#   CONFIG_SMP=n support for generic kernels
+# 
+diff -Nru a/arch/ia64/kernel/Makefile b/arch/ia64/kernel/Makefile
+--- a/arch/ia64/kernel/Makefile	2005-04-11 12:28:22 -07:00
++++ b/arch/ia64/kernel/Makefile	2005-04-11 12:28:22 -07:00
+@@ -17,6 +17,7 @@
+ obj-$(CONFIG_IOSAPIC)		+= iosapic.o
+ obj-$(CONFIG_MODULES)		+= module.o
+ obj-$(CONFIG_SMP)		+= smp.o smpboot.o domain.o
++obj-$(CONFIG_NUMA)		+= numa.o
+ obj-$(CONFIG_PERFMON)		+= perfmon_default_smpl.o
+ obj-$(CONFIG_IA64_CYCLONE)	+= cyclone.o
+ obj-$(CONFIG_IA64_MCA_RECOVERY)	+= mca_recovery.o
+diff -Nru a/arch/ia64/kernel/acpi.c b/arch/ia64/kernel/acpi.c
+--- a/arch/ia64/kernel/acpi.c	2005-04-11 12:28:22 -07:00
++++ b/arch/ia64/kernel/acpi.c	2005-04-11 12:28:22 -07:00
+@@ -642,8 +642,10 @@
+ 			if (smp_boot_data.cpu_phys_id[cpu] != hard_smp_processor_id())
+ 				node_cpuid[i++].phys_id = smp_boot_data.cpu_phys_id[cpu];
  	}
+-	build_cpu_to_node_map();
+ # endif
++#endif
++#ifdef CONFIG_ACPI_NUMA
++	build_cpu_to_node_map();
  #endif
- #ifdef CONFIG_EFI_PCDP
- 	if (!efi_setup_pcdp_console(cmdline))
--		return 0;
-+		earlycons++;
- #endif
- #ifdef CONFIG_SERIAL_8250_CONSOLE
- 	if (!early_serial_console_init(cmdline))
--		return 0;
-+		earlycons++;
- #endif
- 
--	return -1;
-+	return (earlycons) ? 0 : -1;
- }
- 
- static inline void
-diff -Nru a/drivers/firmware/pcdp.c b/drivers/firmware/pcdp.c
---- a/drivers/firmware/pcdp.c	2005-04-25 15:47:41 -05:00
-+++ b/drivers/firmware/pcdp.c	2005-04-25 15:47:41 -05:00
-@@ -15,6 +15,7 @@
- #include <linux/console.h>
- #include <linux/efi.h>
- #include <linux/serial.h>
-+#include <asm/vga.h>
- #include "pcdp.h"
- 
- static int __init
-@@ -36,10 +37,27 @@
- }
- 
- static int __init
--setup_vga_console(struct pcdp_vga *vga)
-+setup_vga_console(struct pcdp_device *dev)
- {
- #if defined(CONFIG_VT) && defined(CONFIG_VGA_CONSOLE)
--	if (efi_mem_type(0xA0000) = EFI_CONVENTIONAL_MEMORY) {
-+	u8 *if_ptr;
+ 	/* Make boot-up look pretty */
+ 	printk(KERN_INFO "%d CPUs available, %d CPUs total\n", available_cpus, total_cpus);
+diff -Nru a/arch/ia64/kernel/numa.c b/arch/ia64/kernel/numa.c
+--- /dev/null	Wed Dec 31 16:00:00 196900
++++ b/arch/ia64/kernel/numa.c	2005-04-11 12:28:22 -07:00
+@@ -0,0 +1,57 @@
++/*
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
++ *
++ * ia64 kernel NUMA specific stuff
++ *
++ * Copyright (C) 2002 Erich Focht <efocht@ess.nec.de>
++ * Copyright (C) 2004 Silicon Graphics, Inc.
++ *   Jesse Barnes <jbarnes@sgi.com>
++ */
++#include <linux/config.h>
++#include <linux/topology.h>
++#include <linux/module.h>
++#include <asm/processor.h>
++#include <asm/smp.h>
 +
-+	if_ptr = ((u8 *)dev + sizeof(struct pcdp_device));
-+	if (if_ptr[0] = PCDP_IF_PCI) {
-+		struct pcdp_if_pci if_pci;
++u8 cpu_to_node_map[NR_CPUS] __cacheline_aligned;
++EXPORT_SYMBOL(cpu_to_node_map);
 +
-+		/* struct copy since ifptr might not be correctly aligned */
++cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
 +
-+		memcpy(&if_pci, if_ptr, sizeof(if_pci));
++/**
++ * build_cpu_to_node_map - setup cpu to node and node to cpumask arrays
++ *
++ * Build cpu to node mapping and initialize the per node cpu masks using
++ * info from the node_cpuid array handed to us by ACPI.
++ */
++void __init build_cpu_to_node_map(void)
++{
++	int cpu, i, node;
 +
-+		if (if_pci.trans & PCDP_PCI_TRANS_IOPORT)
-+			vga_console_iobase = if_pci.ioport_tra;
++	for (node = 0; node < MAX_NUMNODES; node++)
++		cpus_clear(node_to_cpu_mask[node]);
 +
-+		if (if_pci.trans & PCDP_PCI_TRANS_MMIO)
-+			vga_console_membase = if_pci.mmio_tra;
++	for (cpu = 0; cpu < NR_CPUS; cpu++) {
++		node = -1;
++		for (i = 0; i < NR_CPUS; i++)
++			if (cpu_physical_id(cpu) == node_cpuid[i].phys_id) {
++				node = node_cpuid[i].nid;
++				break;
++			}
++		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
++		if (node >= 0)
++			cpu_set(cpu, node_to_cpu_mask[node]);
 +	}
-+
-+	if (efi_mem_type(vga_console_membase + 0xA0000) = EFI_CONVENTIONAL_MEMORY) {
- 		printk(KERN_ERR "PCDP: VGA selected, but frame buffer is not MMIO!\n");
- 		return -ENODEV;
++}
+diff -Nru a/arch/ia64/kernel/smpboot.c b/arch/ia64/kernel/smpboot.c
+--- a/arch/ia64/kernel/smpboot.c	2005-04-11 12:28:22 -07:00
++++ b/arch/ia64/kernel/smpboot.c	2005-04-11 12:28:22 -07:00
+@@ -463,47 +463,6 @@
  	}
-@@ -91,7 +109,7 @@
- 	     dev = (struct pcdp_device *) ((u8 *) dev + dev->length)) {
- 		if (dev->flags & PCDP_PRIMARY_CONSOLE) {
- 			if (dev->type = PCDP_CONSOLE_VGA) {
--				return setup_vga_console((struct pcdp_vga *) dev);
-+				return setup_vga_console(dev);
- 			}
- 		}
+ }
+ 
+-#ifdef CONFIG_NUMA
+-
+-/* on which node is each logical CPU (one cacheline even for 64 CPUs) */
+-u8 cpu_to_node_map[NR_CPUS] __cacheline_aligned;
+-EXPORT_SYMBOL(cpu_to_node_map);
+-/* which logical CPUs are on which nodes */
+-cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
+-
+-/*
+- * Build cpu to node mapping and initialize the per node cpu masks.
+- */
+-void __init
+-build_cpu_to_node_map (void)
+-{
+-	int cpu, i, node;
+-
+-	for(node=0; node<MAX_NUMNODES; node++)
+-		cpus_clear(node_to_cpu_mask[node]);
+-	for(cpu = 0; cpu < NR_CPUS; ++cpu) {
+-		/*
+-		 * All Itanium NUMA platforms I know use ACPI, so maybe we
+-		 * can drop this ifdef completely.                    [EF]
+-		 */
+-#ifdef CONFIG_ACPI_NUMA
+-		node = -1;
+-		for (i = 0; i < NR_CPUS; ++i)
+-			if (cpu_physical_id(cpu) == node_cpuid[i].phys_id) {
+-				node = node_cpuid[i].nid;
+-				break;
+-			}
+-#else
+-#		error Fixme: Dunno how to build CPU-to-node map.
+-#endif
+-		cpu_to_node_map[cpu] = (node >= 0) ? node : 0;
+-		if (node >= 0)
+-			cpu_set(cpu, node_to_cpu_mask[node]);
+-	}
+-}
+-
+-#endif /* CONFIG_NUMA */
+-
+ /*
+  * Cycle through the APs sending Wakeup IPIs to boot each.
+  */
+diff -Nru a/arch/ia64/mm/discontig.c b/arch/ia64/mm/discontig.c
+--- a/arch/ia64/mm/discontig.c	2005-04-11 12:28:22 -07:00
++++ b/arch/ia64/mm/discontig.c	2005-04-11 12:28:22 -07:00
+@@ -4,7 +4,7 @@
+  * Copyright (c) 2001 Tony Luck <tony.luck@intel.com>
+  * Copyright (c) 2002 NEC Corp.
+  * Copyright (c) 2002 Kimio Suganuma <k-suganuma@da.jp.nec.com>
+- * Copyright (c) 2004 Silicon Graphics, Inc
++ * Copyright (c) 2004-2005 Silicon Graphics, Inc
+  *	Russ Anderson <rja@sgi.com>
+  *	Jesse Barnes <jbarnes@sgi.com>
+  *	Jack Steiner <steiner@sgi.com>
+@@ -274,6 +274,31 @@
+ }
+ 
+ /**
++ * per_cpu_node_setup - setup per-cpu areas on each node
++ * @cpu_data: per-cpu area on this node
++ * @node: node to setup
++ *
++ * Copy the static per-cpu data into the region we just set aside and then
++ * setup __per_cpu_offset for each CPU on this node.
++ */
++static void per_cpu_node_setup(void *cpu_data, int node)
++{
++#ifdef CONFIG_SMP
++	int cpu;
++
++	for (cpu = 0; cpu < NR_CPUS; cpu++) {
++		if (node == node_cpuid[cpu].nid) {
++			memcpy(__va(cpu_data), __phys_per_cpu_start,
++			       __per_cpu_end - __per_cpu_start);
++			__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
++				__per_cpu_start;
++			cpu_data += PERCPU_PAGE_SIZE;
++		}
++	}
++#endif
++}
++
++/**
+  * find_pernode_space - allocate memory for memory map and per-node structures
+  * @start: physical start of range
+  * @len: length of range
+@@ -304,7 +329,7 @@
+ static int __init find_pernode_space(unsigned long start, unsigned long len,
+ 				     int node)
+ {
+-	unsigned long epfn, cpu, cpus, phys_cpus;
++	unsigned long epfn, cpus, phys_cpus;
+ 	unsigned long pernodesize = 0, pernode, pages, mapsize;
+ 	void *cpu_data;
+ 	struct bootmem_data *bdp = &mem_data[node].bootmem_data;
+@@ -357,20 +382,7 @@
+ 		mem_data[node].pgdat->bdata = bdp;
+ 		pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
+ 
+-		/*
+-		 * Copy the static per-cpu data into the region we
+-		 * just set aside and then setup __per_cpu_offset
+-		 * for each CPU on this node.
+-		 */
+-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
+-			if (node == node_cpuid[cpu].nid) {
+-				memcpy(__va(cpu_data), __phys_per_cpu_start,
+-				       __per_cpu_end - __per_cpu_start);
+-				__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
+-					__per_cpu_start;
+-				cpu_data += PERCPU_PAGE_SIZE;
+-			}
+-		}
++		per_cpu_node_setup(cpu_data, node);
  	}
-diff -Nru a/drivers/firmware/pcdp.h b/drivers/firmware/pcdp.h
---- a/drivers/firmware/pcdp.h	2005-04-25 15:47:41 -05:00
-+++ b/drivers/firmware/pcdp.h	2005-04-25 15:47:41 -05:00
-@@ -52,11 +52,34 @@
- 	u32				clock_rate;
- 	u8				pci_prog_intfc;
- 	u8				flags;
--};
-+} __attribute__((packed));
-+
-+#define PCDP_IF_PCI	1
-+
-+/* pcdp_if_pci.trans */
-+#define PCDP_PCI_TRANS_IOPORT	0x02
-+#define PCDP_PCI_TRANS_MMIO	0x01
-+
-+struct pcdp_if_pci {
-+	u8			interconnect;
-+	u8			reserved;
-+	u16			length;
-+	u8			segment;
-+	u8			bus;
-+	u8			dev;
-+	u8			fun;
-+	u16			dev_id;
-+	u16			vendor_id;
-+	u32			acpi_interrupt;
-+	u64			mmio_tra;
-+	u64			ioport_tra;
-+	u8			flags;
-+	u8			trans;
-+} __attribute__((packed));
  
- struct pcdp_vga {
- 	u8			count;		/* address space descriptors */
--};
-+} __attribute__((packed));
+ 	return 0;
+@@ -447,12 +459,22 @@
+ 		memcpy(mem_data[node].node_data->pg_data_ptrs, pgdat_list,
+ 		       sizeof(pgdat_list));
+ 	}
+-
++#ifdef CONFIG_SMP
+ 	/* Set the node_data pointer for each per-cpu struct */
+ 	for (cpu = 0; cpu < NR_CPUS; cpu++) {
+ 		node = node_cpuid[cpu].nid;
+ 		per_cpu(cpu_info, cpu).node_data = mem_data[node].node_data;
+ 	}
++#else
++	{
++		struct cpuinfo_ia64 *cpu0_cpu_info;
++		cpu = 0;
++		node = node_cpuid[cpu].nid;
++		cpu0_cpu_info = (struct cpuinfo_ia64 *)(__phys_per_cpu_start +
++			((char *)&per_cpu__cpu_info - __per_cpu_start));
++		cpu0_cpu_info->node_data = mem_data[node].node_data;
++	}
++#endif /* CONFIG_SMP */
+ }
  
- /* pcdp_device.flags */
- #define PCDP_PRIMARY_CONSOLE	1
-@@ -66,7 +89,9 @@
- 	u8			flags;
- 	u16			length;
- 	u16			efi_index;
--};
-+	/* next data is pcdp_if_pci or pcdp_if_acpi (not yet supported) */
-+	/* next data is device specific type (currently only pcdp_vga) */
-+} __attribute__((packed));
+ /**
+@@ -519,6 +541,7 @@
+ 	find_initrd();
+ }
  
- struct pcdp {
- 	u8			signature[4];
-@@ -81,4 +106,4 @@
- 	u32			num_uarts;
- 	struct pcdp_uart	uart[0];	/* actual size is num_uarts */
- 	/* remainder of table is pcdp_device structures */
--};
-+} __attribute__((packed));
-diff -Nru a/include/asm-ia64/vga.h b/include/asm-ia64/vga.h
---- a/include/asm-ia64/vga.h	2005-04-25 15:47:41 -05:00
-+++ b/include/asm-ia64/vga.h	2005-04-25 15:47:41 -05:00
-@@ -14,7 +14,10 @@
-  * videoram directly without any black magic.
++#ifdef CONFIG_SMP
+ /**
+  * per_cpu_init - setup per-cpu variables
+  *
+@@ -538,6 +561,7 @@
+ 
+ 	return __per_cpu_start + __per_cpu_offset[smp_processor_id()];
+ }
++#endif /* CONFIG_SMP */
+ 
+ /**
+  * show_mem - give short summary of memory stats
+diff -Nru a/include/asm-ia64/sn/sn_cpuid.h b/include/asm-ia64/sn/sn_cpuid.h
+--- a/include/asm-ia64/sn/sn_cpuid.h	2005-04-11 12:28:22 -07:00
++++ b/include/asm-ia64/sn/sn_cpuid.h	2005-04-11 12:28:22 -07:00
+@@ -81,10 +81,6 @@
+  *
   */
  
--#define VGA_MAP_MEM(x)	((unsigned long) ioremap((x), 0))
-+extern unsigned long vga_console_iobase;
-+extern unsigned long vga_console_membase;
-+
-+#define VGA_MAP_MEM(x)	((unsigned long) ioremap(vga_console_membase + (x), 0))
+-#ifndef CONFIG_SMP
+-#define cpu_physical_id(cpuid)			((ia64_getreg(_IA64_REG_CR_LID) >> 16) & 0xffff)
+-#endif
+-
  
- #define vga_readb(x)	(*(x))
- #define vga_writeb(x,y)	(*(y) = (x))
+ #define get_node_number(addr)			NASID_GET(addr)
+ 
+
+--Boundary-00=_NJtWCLA243zoNI4--
