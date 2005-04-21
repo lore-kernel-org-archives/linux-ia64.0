@@ -1,91 +1,58 @@
-From: Andreas Hirstius <Andreas.Hirstius@cern.ch>
-Date: Tue, 05 Apr 2005 18:11:51 +0000
-Subject: Serious performance degradation on a RAID with kernel 2.6.11
-Message-Id: <4252D4E7.1020806@cern.ch>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 21 Apr 2005 17:21:53 +0000
+Subject: Re: [ACPI] [RFC/PATCH 2/3] ACPI based I/O APIC hot-plug
+Message-Id: <1114104113.2784.41.camel@eeyore>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <4267AD1B.3040001@jp.fujitsu.com>
+In-Reply-To: <4267AD1B.3040001@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Cc: Andrew Morton <akpm@osdl.org>, Len Brown <len.brown@intel.com>, "Luck, Tony" <tony.luck@intel.com>, Greg KH <greg@kroah.com>, acpi-devel@lists.sourceforge.net, linux-ia64@vger.kernel.org, pcihpd-discuss@lists.sourceforge.net
 
-Hi,
+> +acpi_status __devinit
+>  acpi_map_iosapic (acpi_handle handle, u32 depth, void *context, void **ret)
 
+I think "acpi_map_iosapic" is poorly named.  It's really associating
+an iosapic with a locality domain.
 
-We have a rx4640 with 3x 3Ware 9500 SATA controllers and 24x WD740GD HDD 
-in a software RAID0 configuration (using md).
-With kernel 2.6.11 the read performance on the md is reduced by a factor 
-of 20 (!!) compared to previous kernels.
-The write rate to the md doesn't change!! (it actually improves a bit).
+And there's nothing ia64-specific in acpi_map_iosapic().  It'd be
+nice to figure out a way to move it into generic ACPI code.
 
-The config for the kernels are basically identical.
+But your patch didn't introduce either of these problems, so
+I don't think you have to fix them now.
 
-Here is some vmstat output:
+>  	unsigned short 	num_rte;	/* number of RTE in this IOSAPIC */
+> +	int		count;		/* # of RTEs in use on this IOSAPIC */
 
-kernel 2.6.9: ~1GB/s read
-procs                      memory      swap          io     
-system         cpu
-r  b   swpd   free   buff  cache   si   so    bi    bo   in    cs us sy 
-wa id
-1  1      0  12672   6592 15914112    0    0 1081344    56 15719  1583  
-0 11 14 74
-1  0      0  12672   6592 15915200    0    0 1130496     0 15996  1626  
-0 11 14 74
-0  1      0  12672   6592 15914112    0    0 1081344     0 15891  1570  
-0 11 14 74
-0  1      0  12480   6592 15914112    0    0 1081344     0 15855  1537  
-0 11 14 74
-1  0      0  12416   6592 15914112    0    0 1130496     0 16006  1586  
-0 12 14 74
+"count" isn't very descriptive.  Maybe "rtes_inuse" or similar? 
 
+> -void __init
+> +static inline int iosapic_alloc (void)
 
-kernel 2.6.11: ~55MB/s read
-procs                      memory      swap          io     
-system         cpu
-r  b   swpd   free   buff  cache   si   so    bi    bo   in    cs us sy 
-wa id
-1  1      0  24448  37568 15905984    0    0 56934     0 5166  1862  0  
-1 24 75
-0  1      0  20672  37568 15909248    0    0 57280     0 5168  1871  0  
-1 24 75
-0  1      0  22848  37568 15907072    0    0 57306     0 5173  1874  0  
-1 24 75
-0  1      0  25664  37568 15903808    0    0 57190     0 5171  1870  0  
-1 24 75
-0  1      0  21952  37568 15908160    0    0 57267     0 5168  1871  0  
-1 24 75
+Nitpick: should be
 
+	static inline int
+	iosapic_alloc (void)
 
-Because the filesystem might have an impact on the measurement, a simple 
-"dd" on /dev/md0 was used to get information about the actual 
-performance. This also opens the possibility to test with block sizes 
-larger than the page size.
-And it appears that the performance with kernel 2.6.11 is closely 
-related to the block size.
-For example if the block size is exactly a multiple (>2) of the page 
-size the performance is back to ~1.1GB/s.
-The general behaviour is a bit more complicated:  
+to match the style of the rest of the file.
 
-   1. bs <= 1.5 * ps : ~27-57MB/s (differs with ps)
-   2. bs > 1.5 * ps && bs < 2 * ps : rate increases to max. rate
-   3. bs = n * ps ; (n >= 2) : ~1.1GB/s (= max. rate)
-   4. bs > n * ps && bs < ~(n+0.5) * ps ; (n > 2) : ~27-70MB/s (differs 
-with ps)
-   5. bs > ~(n+0.5) * ps && bs < (n+1) * ps ; (n > 2) : increasing rate 
-in several, more or
-       less, distinct steps (e.g. 1/3 of max. rate and then 2/3 of max 
-rate for 64k pages)
+> +static inline void free_iosapic (int index)
 
-I've tested all four page sizes (4k, 8k, 16k and 64k) and the pattern is 
-always the same!!
+Nitpick: follow style again.
 
-With kernel 2.6.9 the read rate is always at ~1.1GB/s, independent of 
-the block size.
+> +	memset(&iosapic_lists[index], 0, sizeof(struct iosapic));
 
-In order to keep this mail short, I've created a webpage that contains 
-all the information and some plots:
-http://www.cern.ch/openlab-debugging/raid
+What about
+
+	memset(&iosapic_lists[index], 0, sizeof(iosapic_lists[0]));
+
+so you can tell this is correct without looking up the declaration of
+iosapic_lists[]?
+
+> +static inline int iosapic_check (unsigned int gsi_base, unsigned int ver)
+
+Nitpick: follow style again.  And maybe a more descriptive name?
 
 
- Regards,
-
-    Andreas
