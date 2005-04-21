@@ -1,48 +1,35 @@
-From: tony.luck@intel.com
-Date: Thu, 21 Apr 2005 20:42:49 +0000
-Subject: ia64 git pull
-Message-Id: <200504212042.j3LKgng04318@unix-os.sc.intel.com>
+From: Linus Torvalds <torvalds@osdl.org>
+Date: Thu, 21 Apr 2005 21:08:00 +0000
+Subject: Re: ia64 git pull
+Message-Id: <Pine.LNX.4.58.0504211403080.2344@ppc970.osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200504212042.j3LKgng04318@unix-os.sc.intel.com>
+In-Reply-To: <200504212042.j3LKgng04318@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Linus,
 
-First ia64 change is sitting in a GIT repository at:
 
-	http://www.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git
+On Thu, 21 Apr 2005 tony.luck@intel.com wrote:
+> 
+> First ia64 change is sitting in a GIT repository at:
+> 
+> 	http://www.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git
+> 
+> Please pull (and comment if anything is wrong, or could be improved ... e.g.
+> what's the easiest way to name the repository for you to cut&paste?)
 
-Please pull (and comment if anything is wrong, or could be improved ... e.g.
-what's the easiest way to name the repository for you to cut&paste?)
+Looks good. Merged and pushed out.
 
--Tony
+I don't have a good naming convention yet, but since rsync ends up being 
+the easiest way to fetch the data (and I like the irony of using a tool 
+that Tridge helped write ;), the one I use for my merger is
 
-Diffstat:
+	rsync://rsync.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git
 
- include/asm-ia64/bitops.h     |   21 +++++++++++++++++----
- include/asm-ia64/gcc_intrin.h |   10 +++++++---
- 2 files changed, 24 insertions(+), 7 deletions(-)
+but we'll probably _eventually_ have a real git protocol for doing
+transfers more efficiently by just having git-specific knowledge.
 
-Changesets:
-
-tree 2179380ee3eb38fb393719e6ce32b15e934c4a44
-parent d8470b7c13e11c18cf14a7e3180f0b00e715e4f0
-author David Mosberger-Tang <davidm@hpl.hp.com> 1114106879 -0700
-committer Tony Luck <tony.luck@intel.com> 1114106879 -0700
-
-[IA64] fix fls()
-
-The ia64-version of fls() never worked as intended (the bitnumbering
-was off by 1 and fls(0) was undefined).  This patch fixes the problem
-by using a popcnt-based fls(), which on McKinley-derived cores is
-slightly faster than both ia64_fls() and generic_fls().  The resulting
-code, however, is bigger (7-8 bundles instead of about 3 bundles).
-Also switch ia64_popcnt() to __builtin_popcountl() for GCC v3.4 or
-newer since the compiler can predicate that and schedule it better.
-
-Thanks to Simon Derr and Matt Mackall for tracking down this bug.
-
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
-Signed-off-by: Tony Luck <tony.luck@intel.com>
+		Linus
