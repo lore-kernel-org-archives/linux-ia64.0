@@ -1,70 +1,34 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Date: Thu, 21 Apr 2005 23:19:47 +0000
+From: Petr Baudis <pasky@ucw.cz>
+Date: Fri, 22 Apr 2005 00:20:43 +0000
 Subject: Re: ia64 git pull
-Message-Id: <Pine.LNX.4.58.0504211608300.2344@ppc970.osdl.org>
+Message-Id: <20050422002043.GC1474@pasky.ji.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200504212042.j3LKgng04318@unix-os.sc.intel.com>
- <Pine.LNX.4.58.0504211403080.2344@ppc970.osdl.org>
- <200504212155.j3LLtho04949@unix-os.sc.intel.com> <200504212155.j3LLtho04949@unix-os.sc.intel.com>
- <200504212301.j3LN1Do05507@unix-os.sc.intel.com>
-In-Reply-To: <200504212301.j3LN1Do05507@unix-os.sc.intel.com>
+References: <200504212042.j3LKgng04318@unix-os.sc.intel.com> <Pine.LNX.4.58.0504211403080.2344@ppc970.osdl.org> <200504212155.j3LLtho04949@unix-os.sc.intel.com> <200504212155.j3LLtho04949@unix-os.sc.intel.com> <200504212301.j3LN1Do05507@unix-os.sc.intel.com> <Pine.LNX.4.58.0504211608300.2344@ppc970.osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0504211608300.2344@ppc970.osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: tony.luck@intel.com
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Linus Torvalds <torvalds@osdl.org>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-
-
-On Thu, 21 Apr 2005 tony.luck@intel.com wrote:
+Dear diary, on Fri, Apr 22, 2005 at 01:19:47AM CEST, I got a letter
+where Linus Torvalds <torvalds@osdl.org> told me that...
+> So in the long run this issue goes away - we'll just have synchronization 
+> tools that won't get any unnecessary pollution. But in the short run I 
+> actually check my git archive religiously for being clean, and I do
 > 
-> I want to have one "shared objects database" which I keep locally and
-> mirror publicly at kernel.org/pub/scm/...
+> 	fsck-cache --unreachable $(cat .git/HEAD)
+> 
+> quite often - not because git has been flaky, but simply beause I'm anal. 
+> And getting objects from other branches would mess with that..
 
-Ahh, ok. That's easy.
+(Note that when using git-pasky, you need to do
 
-Just set up one repository. Then, make SHA1_FILE_DIRECTORY point to that 
-repository, and everybody will automatically share all file objects.
+	fsck-cache --unreachable $(cat .git/heads/*)
 
-HOWEVER. And this is a big however - I don't think you want to do this at 
-this point.
+instead.)
 
-Why? Because I'm still using the stupid "get all objects" thing when I
-pull. That's not a fundamental design decision, but basically not doing so
-requires that the other end be "git aware", and have some server that is
-trustworthy that you can tell "get me all objects I need".
-
-In the absense of that kind of git-aware server, anybody pulling from you 
-would have to pull _every_ object you have, regardless of whether they 
-wanted to use them or not. I don't think that's very nice.
-
-So in the long run this issue goes away - we'll just have synchronization 
-tools that won't get any unnecessary pollution. But in the short run I 
-actually check my git archive religiously for being clean, and I do
-
-	fsck-cache --unreachable $(cat .git/HEAD)
-
-quite often - not because git has been flaky, but simply beause I'm anal. 
-And getting objects from other branches would mess with that..
-
-> But now I need a way to indicate to consumers of the public shared object
-> data base which HEAD to use.
-
-Yes. You'd just need to document where you put those heads. As you say, 
-you can make it be part of an announcement:
-
-> Perhaps I should just say "merge 821376bf15e692941f9235f13a14987009fd0b10
-> from rsync://rsync.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git"?
-
-..but that doesn't actually work very well even for me, because I'd much 
-rather automate pulling from you, rather than having to cut-and-paste the 
-sha names.
-
-So I think you could just define a head name, and say something like:
-
-  rsync://rsync.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git/HEAD.for-linus
-
-and we're all done. Give andrew a different filename, and you're done. The
-above syntax is trivial for me to automate.
-
-		Linus
+-- 
+				Petr "Pasky" Baudis
+Stuff: http://pasky.or.cz/
+C++: an octopus made by nailing extra legs onto a dog. -- Steve Taylor
