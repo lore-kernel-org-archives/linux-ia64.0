@@ -1,12 +1,16 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Fri, 08 Apr 2005 13:22:41 +0000
+Date: Sat, 23 Apr 2005 07:04:41 +0000
 Subject: [patch 2.6.12-rc2] SAL to OS callbacks cannot call sleeping functions
-Message-Id: <9738.1112966561@ocs3.ocs.com.au>
+Message-Id: <10909.1114239881@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <9738.1112966561@ocs3.ocs.com.au>
+In-Reply-To: <9738.1112966561@ocs3.ocs.com.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Resend from April 8, it has not appeared in ia64 pulls yet.
 
 When SAL calls back into the OS, the OS code is running with preempt
 disabled so it cannot call sleeping functions.
@@ -71,4 +75,5 @@ Index: linux/arch/ia64/sn/kernel/mca.c
  	up(&sn_oemdata_mutex);
  	return 0;
  }
+
 
