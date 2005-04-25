@@ -1,12 +1,16 @@
 From: Mark Maule <maule@sgi.com>
-Date: Mon, 11 Apr 2005 20:19:32 +0000
+Date: Mon, 25 Apr 2005 20:55:05 +0000
 Subject: [PATCH 2.6.12 1/1] altix: fix TIOCA dmamap list_add
-Message-Id: <20050411201932.26788.64806.81672@attica.americas.sgi.com>
+Message-Id: <20050425205505.4811.33810.71146@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050411201932.26788.64806.81672@attica.americas.sgi.com>
+In-Reply-To: <20050411201932.26788.64806.81672@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+
+Resend of a patch originally submitted 4/11:
 
 Corract a bug where tioca_dma_mapped() is putting tioca dma map structs
 on the wrong list.
