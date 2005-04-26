@@ -1,92 +1,102 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 04 Apr 2005 20:29:43 +0000
-Subject: fix AGP code to work again with non-PCI AGP bridges
-Message-Id: <200504042029.j34KThCw012610@napali.hpl.hp.com>
+From: Mark Maule <maule@sgi.com>
+Date: Tue, 26 Apr 2005 15:00:40 +0000
+Subject: [PATCH 2.6.12 1/1] altix: enable vgacon support
+Message-Id: <20050426150040.10738.56345.77906@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davej@redhat.com
-Cc: torvalds@osdl.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Dave,
+Altix patch to enable use of vgacon driver on that platform.  Depends on the
+PCDP generalization patch discussed at:
 
-As mentioned earlier, the current check_bridge_mode() code assumes
-that AGP bridges are PCI devices.  This isn't always true.  Definitely
-not for HP zx1 chipset and the same seems to be the case for SGI's AGP
-bridge.
+	http://marc.theaimsgroup.com/?l=linux-ia64&m1446235101939&w=2
 
-The patch below fixes the problem by picking up the AGP_MODE_3_0 bit
-from bridge->mode.  I feel like I may be missing something, since I
-can't see any reason why check_bridge_mode() wasn't doing that in the
-first place.  According to the AGP 3.0 specs, the AGP_MODE_3_0 bit is
-determined during the hardware reset and cannot be changed, so it
-seems to me it should be safe to pick it up from bridge->mode.
+Signed-off-by: Mark Maule <maule@sgi.com>
 
-With the patch applied, I can definitely use AGP acceleration both
-with AGP 2.0 and AGP 3.0 (one with an Nvidia card, the other with an
-ATI FireGL card).
-
-Unless someone spots a problem, please apply this patch so 3d
-acceleration can work on zx1 boxes again.
-
-Thanks,
-
-	--david
-
-[AGPGART] Replace check_bridge_mode() with (bridge->mode & AGSTAT_MODE_3_0).
-
-This makes AGP work again on machines with an AGP bridge that isn't a
-PCI device.
-
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
-
-=== drivers/char/agp/generic.c 1.87 vs edited ==--- 1.87/drivers/char/agp/generic.c	2005-03-28 14:21:41 -08:00
-+++ edited/drivers/char/agp/generic.c	2005-04-04 13:16:43 -07:00
-@@ -295,19 +295,6 @@
- EXPORT_SYMBOL_GPL(agp_num_entries);
+diff -Nru a/arch/ia64/configs/sn2_defconfig b/arch/ia64/configs/sn2_defconfig
+--- a/arch/ia64/configs/sn2_defconfig	2005-04-26 09:56:26 -05:00
++++ b/arch/ia64/configs/sn2_defconfig	2005-04-26 09:56:26 -05:00
+@@ -99,7 +99,7 @@
+ # Firmware Drivers
+ #
+ CONFIG_EFI_VARS=y
+-# CONFIG_EFI_PCDP is not set
++CONFIG_EFI_PCDP=y
+ CONFIG_BINFMT_ELF=y
+ # CONFIG_BINFMT_MISC is not set
  
+@@ -649,7 +649,7 @@
+ #
+ # Console display driver support
+ #
+-# CONFIG_VGA_CONSOLE is not set
++CONFIG_VGA_CONSOLE=y
+ CONFIG_DUMMY_CONSOLE=y
  
--static int check_bridge_mode(struct pci_dev *dev)
--{
--	u32 agp3;
--	u8 cap_ptr;
--
--	cap_ptr = pci_find_capability(dev, PCI_CAP_ID_AGP);
--	pci_read_config_dword(dev, cap_ptr+AGPSTAT, &agp3);
--	if (agp3 & AGPSTAT_MODE_3_0)
--		return 1;
--	return 0;
--}
--
--
+ #
+diff -Nru a/arch/ia64/sn/kernel/iomv.c b/arch/ia64/sn/kernel/iomv.c
+--- a/arch/ia64/sn/kernel/iomv.c	2005-04-26 09:56:26 -05:00
++++ b/arch/ia64/sn/kernel/iomv.c	2005-04-26 09:56:26 -05:00
+@@ -9,12 +9,16 @@
+ #include <linux/module.h>
+ #include <asm/io.h>
+ #include <asm/delay.h>
++#include <asm/vga.h>
+ #include <asm/sn/nodepda.h>
+ #include <asm/sn/simulator.h>
+ #include <asm/sn/pda.h>
+ #include <asm/sn/sn_cpuid.h>
+ #include <asm/sn/shub_mmr.h>
+ 
++#define IS_LEGACY_VGA_IOPORT(p) \
++	(((p) >= 0x3b0 && (p) <= 0x3bb) || ((p) >= 0x3c0 && (p) <= 0x3df))
++
  /**
-  *	agp_copy_info  -  copy bridge state information
-  *
-@@ -328,7 +315,7 @@
- 	info->version.minor = bridge->version->minor;
- 	info->chipset = SUPPORTED;
- 	info->device = bridge->dev;
--	if (check_bridge_mode(bridge->dev))
-+	if (bridge->mode & AGPSTAT_MODE_3_0)
- 		info->mode = bridge->mode & ~AGP3_RESERVED_MASK;
- 	else
- 		info->mode = bridge->mode & ~AGP2_RESERVED_MASK;
-@@ -661,7 +648,7 @@
- 		bridge_agpstat &= ~AGPSTAT_FW;
+  * sn_io_addr - convert an in/out port to an i/o address
+  * @port: port to convert
+@@ -26,6 +30,8 @@
+ void *sn_io_addr(unsigned long port)
+ {
+ 	if (!IS_RUNNING_ON_SIMULATOR()) {
++		if (IS_LEGACY_VGA_IOPORT(port))
++			port += vga_console_iobase;
+ 		/* On sn2, legacy I/O ports don't point at anything */
+ 		if (port < (64 * 1024))
+ 			return NULL;
+diff -Nru a/arch/ia64/sn/kernel/setup.c b/arch/ia64/sn/kernel/setup.c
+--- a/arch/ia64/sn/kernel/setup.c	2005-04-26 09:56:26 -05:00
++++ b/arch/ia64/sn/kernel/setup.c	2005-04-26 09:56:26 -05:00
+@@ -36,6 +36,7 @@
+ #include <asm/machvec.h>
+ #include <asm/system.h>
+ #include <asm/processor.h>
++#include <asm/vga.h>
+ #include <asm/sn/arch.h>
+ #include <asm/sn/addrs.h>
+ #include <asm/sn/pda.h>
+@@ -265,14 +266,17 @@
+ 	int major = sn_sal_rev_major(), minor = sn_sal_rev_minor();
+ 	extern void sn_cpu_init(void);
  
- 	/* Check to see if we are operating in 3.0 mode */
--	if (check_bridge_mode(agp_bridge->dev))
-+	if (agp_bridge->mode & AGPSTAT_MODE_3_0)
- 		agp_v3_parse_one(&requested_mode, &bridge_agpstat, &vga_agpstat);
- 	else
- 		agp_v2_parse_one(&requested_mode, &bridge_agpstat, &vga_agpstat);
-@@ -732,7 +719,7 @@
- 
- 	/* Do AGP version specific frobbing. */
- 	if (bridge->major_version >= 3) {
--		if (check_bridge_mode(bridge->dev)) {
-+		if (bridge->mode & AGPSTAT_MODE_3_0) {
- 			/* If we have 3.5, we can do the isoch stuff. */
- 			if (bridge->minor_version >= 5)
- 				agp_3_5_enable(bridge);
++#if defined(CONFIG_VT) && defined(CONFIG_VGA_CONSOLE)
+ 	/*
+-	 * If the generic code has enabled vga console support - lets
+-	 * get rid of it again. This is a kludge for the fact that ACPI
+-	 * currtently has no way of informing us if legacy VGA is available
+-	 * or not.
++	 * If there was a primary vga adapter identified through the
++	 * EFI PCDP table, make it the preferred console.  Otherwise
++	 * zero out conswitchp.
+ 	 */
+-#if defined(CONFIG_VT) && defined(CONFIG_VGA_CONSOLE)
+-	if (conswitchp = &vga_con) {
++
++	if (vga_console_membase) {
++		/* usable vga ... make tty0 the preferred default console */
++		add_preferred_console("tty", 0, NULL);
++	} else {
+ 		printk(KERN_DEBUG "SGI: Disabling VGA console\n");
+ #ifdef CONFIG_DUMMY_CONSOLE
+ 		conswitchp = &dummy_con;
