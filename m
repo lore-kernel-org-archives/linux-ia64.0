@@ -1,33 +1,41 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 22 Apr 2005 23:08:28 +0000
-Subject: [patch] MCA recovery module undefined symbol fix
-Message-Id: <200504222308.j3MN8Sdw509401@clink.americas.sgi.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Wed, 27 Apr 2005 18:44:20 +0000
+Subject: [PATCH] time interpolator: Fix settimeofday inaccuracy
+Message-Id: <Pine.LNX.4.58.0504271142500.14542@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+settimeofday will set the time a little bit too early on systems using
+time interpolation since it subtracts the current interpolator offset
+from the time. This used to be necessary with the code in 2.6.9 and earlier
+but the new code resets the time interpolator after setting the time.
+Thus the time is set too early and gettimeofday will return a time slightly
+before the time specified with settimeofday if invoked immeditely after
+settimeofday.
 
-The patch "MCA recovery improvements" (http://marc.theaimsgroup.com/?l=linux-ia64&m1274241707975&w=2)
-added do_exit to mca_drv.c.  That's fine when the mca recovery code
-is built in the kernel (CONFIG_IA64_MCA_RECOVERY=y) but breaks 
-building the mca recovery code as a module (CONFIG_IA64_MCA_RECOVERY=m).
+The following patch removes the obsolete subtraction of the time interpolator
+offset and makes settimeofday set the time accurately.
 
-This patch exports do_exit, so mca_drv.c can build as a module.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+Index: linux-2.6.11/kernel/time.c
+=================================--- linux-2.6.11.orig/kernel/time.c	2005-03-01 23:37:50.000000000 -0800
++++ linux-2.6.11/kernel/time.c	2005-04-26 18:06:03.000000000 -0700
+@@ -505,14 +505,6 @@
 
--------------------------------------------------------------------
-Index: linux/kernel/exit.c
-=================================--- linux.orig/kernel/exit.c	2005-04-01 09:34:10.848943143 -0600
-+++ linux/kernel/exit.c	2005-04-22 17:30:32.517590141 -0500
-@@ -845,6 +845,8 @@
- 	for (;;) ;
- }
- 
-+EXPORT_SYMBOL(do_exit);
-+
- NORET_TYPE void complete_and_exit(struct completion *comp, long code)
- {
- 	if (comp)
+ 	write_seqlock_irq(&xtime_lock);
+ 	{
+-		/*
+-		 * This is revolting. We need to set "xtime" correctly. However, the value
+-		 * in this location is the value at the most recent update of wall time.
+-		 * Discover what correction gettimeofday would have done, and then undo
+-		 * it!
+-		 */
+-		nsec -= time_interpolator_get_offset();
+-
+ 		wtm_sec  = wall_to_monotonic.tv_sec + (xtime.tv_sec - sec);
+ 		wtm_nsec = wall_to_monotonic.tv_nsec + (xtime.tv_nsec - nsec);
+
