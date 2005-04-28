@@ -1,30 +1,36 @@
-From: Mark Maule <maule@sgi.com>
-Date: Mon, 25 Apr 2005 20:55:05 +0000
-Subject: [PATCH 2.6.12 1/1] altix: fix TIOCA dmamap list_add
-Message-Id: <20050425205505.4811.33810.71146@attica.americas.sgi.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Thu, 28 Apr 2005 20:32:35 +0000
+Subject: write_unlock: replace clear_bit with byte store
+Message-Id: <Pine.LNX.4.58.0504281329150.23584@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050411201932.26788.64806.81672@attica.americas.sgi.com>
-In-Reply-To: <20050411201932.26788.64806.81672@attica.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Resend of a patch originally submitted 4/11:
+The rwlocks use IMHO too many semaphore operations.
 
-Corract a bug where tioca_dma_mapped() is putting tioca dma map structs
-on the wrong list.
+write_lock uses a cmpxchg like the regular spin_lock but write_unlock uses
+clear_bit which requires a load and then a loop over a cmpxchg. The
+following patch makes write_unlock simply use a store to clear the highest
+8 bits. We will then still have the lower 3 bytes (24 bits) left to count
+the readers. I would expect the performance of write_lock and
+write_unlock to be the same as regular spinlocks with this patch.
 
-Signed-off-by: Mark Maule <maule@sgi.com>
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-=== arch/ia64/sn/pci/tioca_provider.c 1.2 vs edited ==--- 1.2/arch/ia64/sn/pci/tioca_provider.c	2005-03-16 17:22:12 -06:00
-+++ edited/arch/ia64/sn/pci/tioca_provider.c	2005-04-11 15:09:37 -05:00
-@@ -431,7 +431,7 @@
- 	ca_dmamap->cad_dma_addr = bus_addr;
- 	ca_dmamap->cad_gart_size = entries;
- 	ca_dmamap->cad_gart_entry = entry;
--	list_add(&ca_dmamap->cad_list, &tioca_kern->ca_list);
-+	list_add(&ca_dmamap->cad_list, &tioca_kern->ca_dmamaps);
- 
- 	if (xio_addr % ps) {
- 		tioca_kern->ca_pcigart[entry] = tioca_paddr_to_gart(xio_addr);
+Index: linux-2.6.11/include/asm-ia64/spinlock.h
+=================================--- linux-2.6.11.orig/include/asm-ia64/spinlock.h	2005-03-01 23:37:48.000000000 -0800
++++ linux-2.6.11/include/asm-ia64/spinlock.h	2005-04-28 13:15:38.000000000 -0700
+@@ -201,8 +201,9 @@ do {										\
+
+ #define _raw_write_unlock(x)								\
+ ({											\
+-	smp_mb__before_clear_bit();	/* need barrier before releasing lock... */	\
+-	clear_bit(31, (x));								\
++	u8 *y = (u8 *)x;								\
++	smp_wmb();			/* need barrier before releasing lock... */	\
++	y[3] = 0;									\
+ })
+
+ #endif /*  _ASM_IA64_SPINLOCK_H */
