@@ -1,59 +1,34 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Fri, 08 Apr 2005 00:41:39 +0000
-Subject: Re: per_cpu_pagesets degrades MPI performance
-Message-Id: <4255D343.2090006@yahoo.com.au>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Thu, 28 Apr 2005 08:16:29 +0000
+Subject: [RFC] [PATCH] naming reserved pages and remove PG_uncached [0/3]
+Message-Id: <42709BDD.3040805@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050404192827.GA15142@sgi.com> <4251DE87.10002@yahoo.com.au> <20050407185226.GA23873@sgi.com>
-In-Reply-To: <20050407185226.GA23873@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Jack Steiner <steiner@sgi.com>
-Cc: akpm@osdl.org, hugh@veritas.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Jack Steiner wrote:
+Hi, Jes
 
-> 
-> Good idea. For the specific benchmark that I was running, batch sizes
-> of 0 (pcp disabled), 1, 3, 5, 7, 9, 10, 11, 13 & 15 all produced good results. 
-> Batch sizes of 2, 4 and 8 produced horrible results.
-> 
+I'm now writing a patch and want your comments .
 
-Phew, I hope we won't have to make this a CONFIG_ option!
+(*)This patches add information to Reserved pages using page->private field.
+
+I think pages markd with PG_uncached are not managed by alloc_pages()/free_pages().
+So, instead of using PG_uncached, using (*) and reserved as "reserved_uncached" can
+work enough, I think.
+
+"Allocating and isolating" method cannot work with memory-hotplug stuff.
+
+Can this patch work with your mspec ?
+
+[1/3] function for naming pages using page->private
+[2/3] name reserved_at_boot pages
+[3/3] name reserved_uncached pages
+
+Thanks.
+-- Kame
 
 
-> Surprisingly 7 was not quite as good as the other good values but I attribute that
-> to an anomaly of the reference pattern of the specific benchmark.
-> 
-> Even more suprising (again an anomaly I think) was that a size of 13 ran
-> 10% faster than any of the other sizes. I reproduced this data point several
-> times - it is real.
-> 
 
-Hmm. Yeah, sounds you are getting close to some "resonance" behaviour -
-were 7 and 13 are close to a multiple or divisor of some application
-or cache property.
-
-> Our next step to to run the full benchmark suite. That should happen
-> within 2 weeks.
-> 
-> Tentatively, I'm planning to post a patch to change the batch size to 
-> 2**n-1 but I'll wait for the results of the full benchmark.
-> 
-
-Cool. I would consider (maybe you are) posting the patch ASAP, so you
-can get a wider range of testers, and Andrew can possibly put it in
--mm. Just to get things happening in parallel.
-
-> I also want to finish understanding the issue of excessive memory
-> being trapped in the per_cpu lists.
-> 
-
-Nutty problem, that, on a 256 node, 512 CPU system :(
-
-Thanks,
-Nick
-
--- 
-SUSE Labs, Novell Inc.
 
