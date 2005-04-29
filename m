@@ -1,33 +1,61 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Date: Wed, 06 Apr 2005 19:28:15 +0000
-Subject: Re: [patch] add MCA recovery on/off switch
-Message-Id: <4254384F.8050601@osdl.org>
+From: Andrew Morton <akpm@osdl.org>
+Date: Fri, 29 Apr 2005 13:18:25 +0000
+Subject: Re: [patch] properly stop devices before poweroff
+Message-Id: <20050429061825.36f98cc0.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200504060327.j363REMp8976934@clink.americas.sgi.com>
-In-Reply-To: <200504060327.j363REMp8976934@clink.americas.sgi.com>
+References: <20050421111346.GA21421@elf.ucw.cz>
+In-Reply-To: <20050421111346.GA21421@elf.ucw.cz>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Pavel Machek <pavel@ucw.cz>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Jesse Barnes wrote:
-> On Tuesday, April 5, 2005 8:32 pm, Randy.Dunlap wrote:
+Pavel Machek <pavel@ucw.cz> wrote:
+>
 > 
->>Russ Anderson wrote:
->>
->>>Create /proc/sys/kernel/mca_recovery to turn on/off the MCA recovery
->>>code. This allows the recovery code to be enabled or disabled without
->>>having to reboot.
->>
->>Is there also a way to disable MCA recovery on the command line
->>as a boot option?  Using sysctl for it could be too late.
+> Without this patch, Linux provokes emergency disk shutdowns and
+> similar nastiness. It was in SuSE kernels for some time, IIRC.
 > 
-> 
-> Yeah, we added the 'nomca' option a while back to disable machine check 
-> recovery altogether, but it prevents it from being enabled later on iirc.
 
-Well I searched Documentation/kernel-parameters.txt
-and didn't find it there, so please send a patch for that too.  :)
+With this patch when running `halt -p' my ia64 Tiger (using
+tiger_defconfig) gets a stream of badnesses in iosapic_unregister_intr()
+and then hangs up.
 
--- 
-~Randy
+Unfortunately it all seems to happen after the serial port has been
+disabled because nothing comes out.  I set the console to a squitty font
+and took a piccy.  See
+http://www.zip.com.au/~akpm/linux/patches/stuff/dsc02505.jpg
+
+I guess it's an ia64 problem.  I'll leave the patch in -mm for now.
+
+> 
+> --- clean/kernel/sys.c	2005-03-19 00:32:32.000000000 +0100
+> +++ linux/kernel/sys.c	2005-03-22 12:20:53.000000000 +0100
+> @@ -404,6 +404,7 @@
+>  	case LINUX_REBOOT_CMD_HALT:
+>  		notifier_call_chain(&reboot_notifier_list, SYS_HALT, NULL);
+>  		system_state = SYSTEM_HALT;
+> +		device_suspend(PMSG_SUSPEND);
+>  		device_shutdown();
+>  		printk(KERN_EMERG "System halted.\n");
+>  		machine_halt();
+> @@ -414,6 +415,7 @@
+>  	case LINUX_REBOOT_CMD_POWER_OFF:
+>  		notifier_call_chain(&reboot_notifier_list, SYS_POWER_OFF, NULL);
+>  		system_state = SYSTEM_POWER_OFF;
+> +		device_suspend(PMSG_SUSPEND);
+>  		device_shutdown();
+>  		printk(KERN_EMERG "Power down.\n");
+>  		machine_power_off();
+> @@ -430,6 +432,7 @@
+>  
+>  		notifier_call_chain(&reboot_notifier_list, SYS_RESTART, buffer);
+>  		system_state = SYSTEM_RESTART;
+> +		device_suspend(PMSG_FREEZE);
+>  		device_shutdown();
+>  		printk(KERN_EMERG "Restarting system with command '%s'.\n", buffer);
+>  		machine_restart(buffer);
+> 
+> -- 
+> Boycott Kodak -- for their patent abuse against Java.
