@@ -1,34 +1,29 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 12 Apr 2005 18:03:43 +0000
-Subject: [IA64] fix "section mismatch" compile-time-error
-Message-Id: <200504121803.j3CI3hZY011772@napali.hpl.hp.com>
+Date: Fri, 29 Apr 2005 09:02:19 +0000
+Subject: [patch] fix unwind directive in memset()
+Message-Id: <200504290902.j3T92J6u001342@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I noticed this typo when trying to compile a kernel which had
-CONFIG_HOTPLUG turned off.  In that case, __devinit is no longer a
-no-op and the compiler then detects a section-conflict.  Fix by using
-__devinitdata instead of __devinit.
-
-Please apply into the *test* repository.
-
-Thanks,
-
-	--david
+[IA64] Fix misplaced unwind-directive in memset()
 
 Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-=== arch/ia64/kernel/smpboot.c 1.69 vs edited ==--- 1.69/arch/ia64/kernel/smpboot.c	2005-03-21 10:35:10 -08:00
-+++ edited/arch/ia64/kernel/smpboot.c	2005-04-12 10:55:06 -07:00
-@@ -624,7 +624,7 @@
- 	__u16   thread_id;
- 	__u16   proc_fixed_addr;
- 	__u8    valid;
--}mt_info[NR_CPUS] __devinit;
-+} mt_info[NR_CPUS] __devinitdata;
- 
- #ifdef CONFIG_HOTPLUG_CPU
- static inline void
+Index: arch/ia64/lib/memset.S
+=================================--- a63eb89df905efd86a58940286a63c5f670b1c05/arch/ia64/lib/memset.S  (mode:100644 sha1:bd8cf907fe227d60e488f4817f302da0335e508b)
++++ uncommitted/arch/ia64/lib/memset.S  (mode:100644)
+@@ -57,10 +57,10 @@
+ { .mmi
+ 	.prologue
+ 	alloc	tmp = ar.pfs, 3, 0, 0, 0
+-	.body
+ 	lfetch.nt1 [dest]			//
+ 	.save   ar.lc, save_lc
+ 	mov.i	save_lc = ar.lc
++	.body
+ } { .mmi
+ 	mov	ret0 = dest			// return value
+ 	cmp.ne	p_nz, p_zr = value, r0		// use stf.spill if value is zero
