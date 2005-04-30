@@ -1,63 +1,25 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sat, 30 Apr 2005 09:47:48 +0000
+From: Pavel Machek <pavel@ucw.cz>
+Date: Sat, 30 Apr 2005 13:40:47 +0000
 Subject: Re: [patch] properly stop devices before poweroff
-Message-Id: <20050430024748.19d44a8d.akpm@osdl.org>
+Message-Id: <20050430134046.GD585@openzaurus.ucw.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050421111346.GA21421@elf.ucw.cz>
-	<20050429061825.36f98cc0.akpm@osdl.org>
-	<Pine.LNX.4.61.0504290734220.30771@montezuma.fsmlabs.com>
-In-Reply-To: <Pine.LNX.4.61.0504290734220.30771@montezuma.fsmlabs.com>
+References: <20050421111346.GA21421@elf.ucw.cz> <20050429061825.36f98cc0.akpm@osdl.org> <Pine.LNX.4.61.0504290734220.30771@montezuma.fsmlabs.com> <20050430024748.19d44a8d.akpm@osdl.org>
+In-Reply-To: <20050430024748.19d44a8d.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Zwane Mwaikambo <zwane@arm.linux.org.uk>
-Cc: pavel@ucw.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: Zwane Mwaikambo <zwane@arm.linux.org.uk>, pavel@ucw.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Zwane Mwaikambo <zwane@arm.linux.org.uk> wrote:
->
-> On Fri, 29 Apr 2005, Andrew Morton wrote:
+Hi!
+
+> > It looks like the device 
+> > being suspended never went through pci_device_enable() (e.g. ethernet 
+> > interface wasn't up). It's harmless right now.
 > 
-> > Pavel Machek <pavel@ucw.cz> wrote:
-> > >
-> > > 
-> > > Without this patch, Linux provokes emergency disk shutdowns and
-> > > similar nastiness. It was in SuSE kernels for some time, IIRC.
-> > > 
-> > 
-> > With this patch when running `halt -p' my ia64 Tiger (using
-> > tiger_defconfig) gets a stream of badnesses in iosapic_unregister_intr()
-> > and then hangs up.
-> > 
-> > Unfortunately it all seems to happen after the serial port has been
-> > disabled because nothing comes out.  I set the console to a squitty font
-> > and took a piccy.  See
-> > http://www.zip.com.au/~akpm/linux/patches/stuff/dsc02505.jpg
-> > 
-> > I guess it's an ia64 problem.  I'll leave the patch in -mm for now.
-> 
-> Could you cat /proc/interrupts during runtime?
+> Everything's up.  Perhaps we're trying to disable devices more than once?
 
-           CPU0       CPU1       CPU2       CPU3       
- 28:          0          0          0          0          LSAPIC  cpe_poll
- 29:          0          0          0          0          LSAPIC  cmc_poll
- 30:          0          0          0          0  IO-SAPIC-level  cpe_hndlr
- 31:          0          0          0          0          LSAPIC  cmc_hndlr
- 34:         19          0          0          0   IO-SAPIC-edge  ide0
- 39:          0          0          0          0  IO-SAPIC-level  acpi
- 48:        382          0          0          0  IO-SAPIC-level  eth0
- 49:          0       2835          0          0  IO-SAPIC-level  ioc0
- 50:          0          0         29          0  IO-SAPIC-level  ioc1
- 51:          0          0          0          0  IO-SAPIC-level  uhci_hcd:usb1
- 52:         51          0          0          0  IO-SAPIC-level  uhci_hcd:usb2
-232:          0          0          0          0          LSAPIC  mca_rdzv
-238:          0          0          0          0          LSAPIC  perfmon
-239:     122785     128748     129310     130523          LSAPIC  timer
-240:          0          0          0          0          LSAPIC  mca_wkup
-254:         29         77        101        102          LSAPIC  IPI
-ERR:          0
+Maybe userspace ifconfigs eth0 down, then we device_suspend it?
+-- 
+64 bytes from 195.113.31.123: icmp_seq( ttlQ timeD8769.1 ms         
 
-> It looks like the device 
-> being suspended never went through pci_device_enable() (e.g. ethernet 
-> interface wasn't up). It's harmless right now.
-
-Everything's up.  Perhaps we're trying to disable devices more than once?
