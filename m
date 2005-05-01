@@ -1,18 +1,23 @@
-From: Pavel Machek <pavel@ucw.cz>
-Date: Sun, 01 May 2005 19:57:56 +0000
+From: Adam Belay <ambx1@neo.rr.com>
+Date: Sun, 01 May 2005 22:16:37 +0000
 Subject: Re: [patch] properly stop devices before poweroff
-Message-Id: <20050501195756.GD1909@elf.ucw.cz>
+Message-Id: <20050501221637.GE3951@neo.rr.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050421111346.GA21421@elf.ucw.cz> <20050429061825.36f98cc0.akpm@osdl.org> <42752954.5050600@jp.fujitsu.com>
 In-Reply-To: <42752954.5050600@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>, greg@kroah.org
+Cc: Andrew Morton <akpm@osdl.org>, Pavel Machek <pavel@ucw.cz>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Hi!
-
+On Mon, May 02, 2005 at 04:09:08AM +0900, Kenji Kaneshige wrote:
+> Hi,
+> 
+> Andrew Morton wrote:
+> >Pavel Machek <pavel@ucw.cz> wrote:
+> >
+> >>
 > >>Without this patch, Linux provokes emergency disk shutdowns and
 > >>similar nastiness. It was in SuSE kernels for some time, IIRC.
 > >>
@@ -49,10 +54,27 @@ Hi!
 > By the way, I don't think this stream of badness is related to hang up,
 > because the problem (hang up) was reproduced even on my test kernel that
 > doesn't call pcibios_disable_device().
+> 
+> Thanks,
+> Kenji Kaneshige
+> ---
+> 
+> 
+> There might be some cases that pci_disable_device() is called even if
+> the device is already disabled. In this case, pcibios_disable_device()
+> should not call acpi_pci_irq_disable() for the device.
+> 
+> Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+> 
 
-Looks good to me. Plus I guess we should remove reboot notifier from
-e1000... It should be obsoleted by driver model.
-								Pavel
+Although this would solve the problem, it may or may not be the right thing to
+do.  The bug is not in pci_disable_device(), it's in the fact that we're
+calling pci_disable_device() twice.  Whether pci_disable_device() should ignore
+this or create an error is an implementation decision.  It might make sense to
+have it print a warning. Greg, what are your thoughts?
 
--- 
-Boycott Kodak -- for their patent abuse against Java.
+What's important is that we don't want to suspend the device twice (in this
+case suspend and reboot_notifier).
+
+Thanks,
+Adam
