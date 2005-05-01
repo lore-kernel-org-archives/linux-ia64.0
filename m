@@ -1,28 +1,87 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 25 May 2005 22:55:36 +0000
-Subject: Re: [PATCH] sys_mmap doesn't follow posix.1 when parameter len=0
-Message-Id: <17045.616.536742.996274@napali.hpl.hp.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Sun, 01 May 2005 19:09:08 +0000
+Subject: Re: [patch] properly stop devices before poweroff
+Message-Id: <42752954.5050600@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <8126E4F969BA254AB43EA03C59F44E840222BCA7@pdsmsx404>
-In-Reply-To: <8126E4F969BA254AB43EA03C59F44E840222BCA7@pdsmsx404>
+References: <20050421111346.GA21421@elf.ucw.cz> <20050429061825.36f98cc0.akpm@osdl.org>
+In-Reply-To: <20050429061825.36f98cc0.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>
+Cc: Pavel Machek <pavel@ucw.cz>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
->>>>> On Mon, 23 May 2005 08:47:06 +0800, "Zhang, Yanmin" <yanmin.zhang@intel.com> said:
+Hi,
 
-  Yanmin> In IA64 kernel, sys_mmap calls do_mmap2 and do_mmap2 returns
-  Yanmin> addr if len=0, which means the mmap sys call succeeds.
+Andrew Morton wrote:
+> Pavel Machek <pavel@ucw.cz> wrote:
+> 
+>>
+>>Without this patch, Linux provokes emergency disk shutdowns and
+>>similar nastiness. It was in SuSE kernels for some time, IIRC.
+>>
+> 
+> 
+> With this patch when running `halt -p' my ia64 Tiger (using
+> tiger_defconfig) gets a stream of badnesses in iosapic_unregister_intr()
+> and then hangs up.
+> 
+> Unfortunately it all seems to happen after the serial port has been
+> disabled because nothing comes out.  I set the console to a squitty font
+> and took a piccy.  See
+> http://www.zip.com.au/~akpm/linux/patches/stuff/dsc02505.jpg
+> 
+> I guess it's an ia64 problem.  I'll leave the patch in -mm for now.
+> 
 
-  Yanmin> Posix.1 says: The mmap() function shall fail if: [EINVAL]
-  Yanmin> The value of len is zero.
+I guess the stream of badness was occured as follows:
 
-  Yanmin> Here is a patch to fix it.
+    pcibios_disable_device() for ia64 assumes that pci_enable_device()
+    and pci_disable_device() are balanced. But with 'properly stop
+    devices before power off' patch, pci_disable_device() becomes to be
+    called twice for e1000 device at halt time, through reboot_notifier_list
+    callback and through device_suspend(). As a result, iosapic_unregister_intr()
+    was called for already unregistered gsi and then stream of badness
+    was displayed.
 
-  Yanmin> Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+I think the following patch will remove this stream of badness. I'm
+sorry but I have not checked if the stream of badness is actually
+removed because I'm on vacation and I can't look at my display
+(I'm working via remote console). Could you try this patch?
 
-Looks like Gordon Jin changed mm/mmap.c to be POSIX compliant back in
-March 2005 but didn't update the ia64 code.  Looks fine to me.
+By the way, I don't think this stream of badness is related to hang up,
+because the problem (hang up) was reproduced even on my test kernel that
+doesn't call pcibios_disable_device().
 
-	--david
+Thanks,
+Kenji Kaneshige
+---
+
+
+There might be some cases that pci_disable_device() is called even if
+the device is already disabled. In this case, pcibios_disable_device()
+should not call acpi_pci_irq_disable() for the device.
+
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+
+---
+
+ linux-2.6.12-rc3-mm2-kanesige/arch/ia64/pci/pci.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
+
+diff -puN arch/ia64/pci/pci.c~fix_pcibios_disable_device_ia64 arch/ia64/pci/pci.c
+--- linux-2.6.12-rc3-mm2/arch/ia64/pci/pci.c~fix_pcibios_disable_device_ia64	2005-05-02 03:12:23.000000000 +0900
++++ linux-2.6.12-rc3-mm2-kanesige/arch/ia64/pci/pci.c	2005-05-02 03:12:23.000000000 +0900
+@@ -512,7 +512,8 @@ pcibios_enable_device (struct pci_dev *d
+ void
+ pcibios_disable_device (struct pci_dev *dev)
+ {
+-	acpi_pci_irq_disable(dev);
++	if (dev->is_enabled)
++		acpi_pci_irq_disable(dev);
+ }
+ #endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
+ 
+
+_
