@@ -1,95 +1,62 @@
 From: Prarit Bhargava <prarit@sgi.com>
-Date: Tue, 10 May 2005 19:40:06 +0000
-Subject: [PATCH]: IA64: sparse cleanup of TIOCA files
-Message-Id: <42810E16.6010708@sgi.com>
+Date: Mon, 02 May 2005 12:46:23 +0000
+Subject: [PATCH 0/6]: SN Hotplug Driver: Overview
+Message-Id: <4276211F.6050409@sgi.com>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------000105030704040600030008"
+Content-Type: multipart/mixed; boundary="------------050809040102070207080001"
 List-Id: <linux-ia64.vger.kernel.org>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000105030704040600030008
+--------------050809040102070207080001
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
 
---------------000105030704040600030008
+--------------050809040102070207080001
 Content-Type: text/plain;
- name="cgsparsea.diff"
+ name="overview-0"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="cgsparsea.diff"
+ filename="overview-0"
 
-[PATCH]: IA64: sparse cleanup of TIOCA files
+This patchset adds the SN Hotplug Driver to Linux.  The patches are
+based on 2.6.12-rc1 (I haven't tried git yet ...) .
 
-This patch is a sparse compile cleanup of tioca_provider.c, sn_hwperf.h, and
-tioca_provider.h.  Each of these files had sparse warnings when
-compiled.
+The patches are
 
-Signed-off-by: Prarit Bhargava <prarit@sgi.com>
+[PATCH 1/6]: SN Hotplug Driver: SN IRQ fixes
+[PATCH 2/6]: SN Hotplug Driver: moving of header files
+[PATCH 3/6]: SN Hotplug Driver: pci_find_next_bus export
+[PATCH 4/6]: SN Hotplug Driver: new SN PROM version code
+[PATCH 5/6]: SN Hotplug Driver: SN Hotplug Driver code
+[PATCH 6/6]: SN Hotplug Driver: PREEMPT/pcibus_info fix
 
-Index: arch/ia64/sn/pci/tioca_provider.c
-===================================================================
---- eed337ef5e9ae7d62caa84b7974a11fddc7f06e0/arch/ia64/sn/pci/tioca_provider.c  (mode:100644 sha1:8dae9eb45456d97525a6745a766f903eee2323d6)
-+++ uncommitted/arch/ia64/sn/pci/tioca_provider.c  (mode:100644)
-@@ -336,7 +336,7 @@
- 	if (!ct_addr)
- 		return 0;
- 
--	bus_addr = (dma_addr_t) (ct_addr & 0xffffffffffff);
-+	bus_addr = (dma_addr_t) (ct_addr & 0xffffffffffffUL);
- 	node_upper = ct_addr >> 48;
- 
- 	if (node_upper > 64) {
-@@ -464,7 +464,7 @@
-  * For mappings created using the direct modes (64 or 48) there are no
-  * resources to release.
-  */
--void
-+static void
- tioca_dma_unmap(struct pci_dev *pdev, dma_addr_t bus_addr, int dir)
- {
- 	int i, entry;
-@@ -514,7 +514,7 @@
-  * The mapping mode used is based on the devices dma_mask.  As a last resort
-  * use the GART mapped mode.
-  */
--uint64_t
-+static uint64_t
- tioca_dma_map(struct pci_dev *pdev, uint64_t paddr, size_t byte_count)
- {
- 	uint64_t mapaddr;
-@@ -580,7 +580,7 @@
-  * On successful setup, returns the kernel version of tioca_common back to
-  * the caller.
-  */
--void *
-+static void *
- tioca_bus_fixup(struct pcibus_bussoft *prom_bussoft)
- {
- 	struct tioca_common *tioca_common;
-Index: include/asm-ia64/sn/sn2/sn_hwperf.h
-===================================================================
---- eed337ef5e9ae7d62caa84b7974a11fddc7f06e0/include/asm-ia64/sn/sn2/sn_hwperf.h  (mode:100644 sha1:b0c4d6dd77baf396e59c51b48972fe663ee1ea22)
-+++ uncommitted/include/asm-ia64/sn/sn2/sn_hwperf.h  (mode:100644)
-@@ -223,4 +223,6 @@
- #define SN_HWPERF_OP_RECONFIGURE	253
- #define SN_HWPERF_OP_INVAL		254
- 
-+int sn_topology_open(struct inode *inode, struct file *file);
-+int sn_topology_release(struct inode *inode, struct file *file);
- #endif				/* SN_HWPERF_H */
-Index: include/asm-ia64/sn/tioca_provider.h
-===================================================================
---- eed337ef5e9ae7d62caa84b7974a11fddc7f06e0/include/asm-ia64/sn/tioca_provider.h  (mode:100644 sha1:b6acc22ab2395ba04dbef557311622333d5590ec)
-+++ uncommitted/include/asm-ia64/sn/tioca_provider.h  (mode:100644)
-@@ -201,6 +201,7 @@
- }
- 
- extern uint32_t	tioca_gart_found;
-+extern struct list_head tioca_list;
- extern int tioca_init_provider(void);
- extern void tioca_fastwrite_enable(struct tioca_kernel *tioca_kern);
- #endif /* _ASM_IA64_SN_TIO_CA_AGP_PROVIDER_H */
+The patches are incremental, however, the kernel will still compile
+after applying each patch.
 
---------------000105030704040600030008--
+The first patch fixes the SN IRQ code such that cpu affinity and
+Hotplug can modify IRQ values.  The sn_irq_info structures are now locked
+using a RCU lock mechanism to avoid lock contention in the lost interrupt
+WAR code.
+
+The second patch above moves header files out of the arch/ia64/sn
+directories and into include/asm-ia64/sn.  These files were being included by
+other subsystems and should be under include/asm-ia64/sn.
+
+The third patch exports the pci_find_next_bus function to the
+rest of the kernel.
+
+The fourth patch above is a modification to the method in which the SN PROM
+information is examined in the kernel.
+
+The fifth patch is the SN Hotplug Driver and some additional required
+modifications.  These modifications include changes to the SN io_init.c code
+for memory management, the inclusion of new SAL calls to enable and disable
+PCI slots, and a hotplug-style driver.
+
+The final patch fixes an issue with the PROM and a kernel running with
+CONFIG_PREEMPT enabled.  When CONFIG_PREEMPT is enabled, the size of a
+spinlock_t changes -- resulting in the PROM writing to an incorrect location.
+
+--------------050809040102070207080001--
