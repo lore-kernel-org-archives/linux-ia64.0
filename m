@@ -1,70 +1,45 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 04 May 2005 20:25:15 +0000
-Subject: [patch] speed up lfetch.fault [NULL] (take 3)
-Message-Id: <17017.12203.283489.395534@napali.hpl.hp.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 03 May 2005 19:07:09 +0000
+Subject: [PATCH] ia64: Recognize HP sx2000 chipset
+Message-Id: <200505031307.09144.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Wed, 4 May 2005 13:15:25 -0700, "Chen, Kenneth W" <kenneth.w.chen@intel.com> said:
+No functional change, just identify the device nicely:
 
-  Ken> David Mosberger wrote on Wednesday, May 04, 2005 7:50 AM
-  >> This is a resend of the patch from March 26, with slight tweaking
-  >> to omit the instruction needed to initialize p6.  Please apply to
-  >> test-2.6.
+  -IOC: Unknown (103c:12ec) 0.1 HPA 0xf8020002000 IOVA space 1024Mb at 0x40000000
+  +IOC: sx2000 0.1 HPA 0xf8020002000 IOVA space 1024Mb at 0x40000000
 
-  Ken> David, the pr register need to be restored in the fast path ;-)
-  Ken> otherwise, p6 is clobbered.
+We used to create fake PCI devices for these chips, but we no longer do that.
+So I don't think there's any reason to touch pci_ids.h now.
 
-Duh, makes you wonder how it worked so well (even with "prefetch"
-defined to lfetch.fault I observed no errors).
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Thanks for catching this -- the patch below is hopefully better.
-
-	--david
-
---
-[IA64] Speed up lfetch.fault [NULL]
-
-This patch greatly speeds up the handling of lfetch.fault instructions
-which result in NaT consumption. Due to the NaT-page mapped at address
-0, this is guaranteed to happen when lfetch.fault'ing a NULL pointer.
-With this patch in place, we can even define prefetch()/prefetchw() as
-lfetch.fault without significant performance degradation.  More
-importantly, it allows compilers to be more aggressive with using
-lfetch.fault on pointers that might be NULL.
-
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
-
-Index: arch/ia64/kernel/ivt.S
-=================================--- f52dd11fe8741b6589019c9fa6cff53491e9e853/arch/ia64/kernel/ivt.S  (mode:100644 sha1:d9c05d53435bd1d541538494336cffcc65df83c4)
-+++ uncommitted/arch/ia64/kernel/ivt.S  (mode:100644)
-@@ -1199,6 +1199,25 @@
- // 0x5600 Entry 26 (size 16 bundles) Nat Consumption (11,23,37,50)
- ENTRY(nat_consumption)
- 	DBG_FAULT(26)
-+
-+	mov r16=cr.ipsr
-+	mov r17=cr.isr
-+	mov r31=pr				// save PR
-+	;;
-+	and r18=0xf,r17				// r18 = cr.ipsr.code{3:0}
-+	tbit.z p6,p0=r17,IA64_ISR_NA_BIT
-+	;;
-+	cmp.ne.or p6,p0=IA64_ISR_CODE_LFETCH,r18
-+	dep r16=-1,r16,IA64_PSR_ED_BIT,1
-+(p6)	br.cond.spnt 1f		// branch if (cr.ispr.na = 0 || cr.ipsr.code{3:0} != LFETCH)
-+	;;
-+	mov cr.ipsr=r16		// set cr.ipsr.na
-+	mov pr=r31,-1
-+	;;
-+	rfi
-+
-+1:	mov pr=r31,-1
-+	;;
- 	FAULT(26)
- END(nat_consumption)
+Index: arch/ia64/hp/common/sba_iommu.c
+=================================--- 59c7aae8cab7c4e1e557dd3a4fff6afbffab38e2/arch/ia64/hp/common/sba_iommu.c  (mode:100644 sha1:6a8fcba7a853177996bfcf18213a84fbd3dee9e4)
++++ uncommitted/arch/ia64/hp/common/sba_iommu.c  (mode:100644)
+@@ -156,10 +156,13 @@
+ */
+ #define DELAYED_RESOURCE_CNT	64
  
-
++#define PCI_DEVICE_ID_HP_SX2000_IOC	0x12ec
++
+ #define ZX1_IOC_ID	((PCI_DEVICE_ID_HP_ZX1_IOC << 16) | PCI_VENDOR_ID_HP)
+ #define ZX2_IOC_ID	((PCI_DEVICE_ID_HP_ZX2_IOC << 16) | PCI_VENDOR_ID_HP)
+ #define REO_IOC_ID	((PCI_DEVICE_ID_HP_REO_IOC << 16) | PCI_VENDOR_ID_HP)
+ #define SX1000_IOC_ID	((PCI_DEVICE_ID_HP_SX1000_IOC << 16) | PCI_VENDOR_ID_HP)
++#define SX2000_IOC_ID	((PCI_DEVICE_ID_HP_SX2000_IOC << 16) | PCI_VENDOR_ID_HP)
+ 
+ #define ZX1_IOC_OFFSET	0x1000	/* ACPI reports SBA, we want IOC */
+ 
+@@ -1726,6 +1729,7 @@
+ 	{ ZX1_IOC_ID, "zx1", ioc_zx1_init },
+ 	{ ZX2_IOC_ID, "zx2", NULL },
+ 	{ SX1000_IOC_ID, "sx1000", NULL },
++	{ SX2000_IOC_ID, "sx2000", NULL },
+ };
+ 
+ static struct ioc * __init
