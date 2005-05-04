@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 04 May 2005 20:59:20 +0000
-Subject: RE: catching up on the backlog
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0366B1E6@scsmsx401.amr.corp.intel.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Wed, 04 May 2005 22:11:45 +0000
+Subject: Re: catching up on the backlog
+Message-Id: <200505042211.j44MBjvj1291229@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200505032108.j43L8wc21277@unix-os.sc.intel.com>
 In-Reply-To: <200505032108.j43L8wc21277@unix-os.sc.intel.com>
@@ -10,10 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Ok, I've applied these locally.  I can't connect to kernel.org at the
->moment (I think the machine I need is being upgraded at the 
->moment). I'll push them up as soon as I can.
+Tony Luck wrote:
+> 
+> I've picked through the list of patches in my backlog, and applied
+> this bunch to my release tree ... before I ask Linus to pull, it
+> would be useful to get some SGI testing (since the majority of the
+> changes are SGI related).
 
-Ok. These are now up on kernel.org.
+The MCA recovery code runs on Altix with no noticeable regressions.
+It was tested both integrated in the kernel and as a module.
 
--Tony
+
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
