@@ -1,74 +1,42 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Thu, 26 May 2005 21:25:39 +0000
-Subject: Kprobes IA64 check jprobe break before handling
-Message-Id: <20050526142539.A24770@unix-os.sc.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 05 May 2005 13:39:59 +0000
+Subject: [patch] merge audit fix for fsys.S
+Message-Id: <200505051339.j45DdxNQ028640@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, anil.s.keshavamurthy@intel.com, Rusty Lynch <rusty.lynch@intel.com>, systemtap@sources.redhat.com
+To: linux-ia64@vger.kernel.org
 
-From: anil.s.keshavamurthy@intel.com
-Subject: Kprobes IA64 check jprobe break before handling
+Trying to merge the test-2.6 tree with Linus' tree, a merge conflict
+occurred in fsys.S.  The problem was due to the auditing fix merged by
+Linus and the syscall-path optimizations in the test-2.6 tree.  The
+patch below fixes the conflict.  I have not tested with auditing but
+normal syscalls seem to be fine and performance remains unaffected.
 
-Once the jprobe instrumented function returns, it executes
-a jprobe_break which is a break instruction with
-__IA64_JPROBE_BREAK value. The current patch checks for
-this break value, before assuming that jprobe 
-instrumented function just completed.
+Please apply to test-2.6.
 
-The previous code was not checking for this value and
-that was a bug.
+Thanks,
 
+	--david
 
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-=================================
+[IA64] Merge audit fix for fsyscalls with syscall-optimizations
 
- arch/ia64/kernel/kprobes.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
 
-Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
-=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
-+++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
-@@ -284,10 +284,11 @@ static void prepare_ss(struct kprobe *p,
- 	ia64_psr(regs)->ss = 1;
- }
+Index: arch/ia64/kernel/fsys.S
+=================================--- a63eb89df905efd86a58940286a63c5f670b1c05/arch/ia64/kernel/fsys.S  (mode:100644 sha1:d09a5b8a09820fbe92493c61c99073a767284c55)
++++ uncommitted/arch/ia64/kernel/fsys.S  (mode:100644 sha1:f566ff43a389a6882f91b83ef401c511a689ccb7)
+@@ -630,10 +630,10 @@
+ 	;;
+ 	mov ar.rsc=0x3				// M2   set eager mode, pl 0, LE, loadrs=0
+ 	mov rp=r14				// I0   set the real return addr
+-	nop.i 0
++	and r3=_TIF_SYSCALL_TRACEAUDIT,r3	// A
+ 	;;
+ 	ssm psr.i				// M2   we're on kernel stacks now, reenable irqs
+-	tbit.z p8,p0=r3,TIF_SYSCALL_TRACE	// I0
++	cmp.eq p8,p0=r3,r0			// A
+ (p10)	br.cond.spnt.many ia64_ret_from_syscall	// B    return if bad call-frame or r15 is a NaT
  
--static int pre_kprobes_handler(struct pt_regs *regs)
-+static int pre_kprobes_handler(struct die_args *args)
- {
- 	struct kprobe *p;
- 	int ret = 0;
-+	struct pt_regs *regs = args->regs;
- 	kprobe_opcode_t *addr = (kprobe_opcode_t *)instruction_pointer(regs);
- 
- 	preempt_disable();
-@@ -302,7 +303,7 @@ static int pre_kprobes_handler(struct pt
- 			}
- 			arch_disarm_kprobe(p);
- 			ret = 1;
--		} else {
-+		} else if (args->err = __IA64_BREAK_JPROBE) {
- 			/*
- 			 * jprobe instrumented function just completed
- 			 */
-@@ -310,6 +311,9 @@ static int pre_kprobes_handler(struct pt
- 			if (p->break_handler && p->break_handler(p, regs)) {
- 				goto ss_probe;
- 			}
-+		} else {
-+			/* Not our break */
-+			goto no_kprobe;
- 		}
- 	}
- 
-@@ -380,7 +384,7 @@ int kprobe_exceptions_notify(struct noti
- 	struct die_args *args = (struct die_args *)data;
- 	switch(val) {
- 	case DIE_BREAK:
--		if (pre_kprobes_handler(args->regs))
-+		if (pre_kprobes_handler(args))
- 			return NOTIFY_STOP;
- 		break;
- 	case DIE_SS:
+ 	nop.m 0
