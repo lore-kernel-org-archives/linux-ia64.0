@@ -1,131 +1,47 @@
-From: Darren Williams <dsw@gelato.unsw.edu.au>
-Date: Sat, 14 May 2005 10:10:28 +0000
-Subject: Re: xfs Oops 2.6.12-rc4 Badness in xfs_page_state_convert
-Message-Id: <20050514101028.GJ31449@cse.unsw.EDU.AU>
+From: Khalid Aziz <khalid_aziz@hp.com>
+Date: Mon, 09 May 2005 15:23:07 +0000
+Subject: Divide by zero works on ia64!!!
+Message-Id: <1115652187.28663.4.camel@lyra.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050513155729.GC31449@cse.unsw.EDU.AU>
-In-Reply-To: <20050513155729.GC31449@cse.unsw.EDU.AU>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Following program causes floating point exception on x86 (compiled with
+gcc 3.3.5 (Debian 1:3.3.5-8)) as expected, but runs fine on ia64 when
+compiled with gcc (GCC) 3.3.5 (Debian 1:3.3.5-8).
 
-On Sat, 14 May 2005, Darren Williams wrote:
+main()
+{
+        int a, b;
 
-> Hi Greg
->=20
-> On Fri, 13 May 2005, Greg Edwards wrote:
->=20
-> > On Sat, May 14, 2005 at 01:57:29AM +1000, Darren Williams wrote:
-> > | Hi all
-> > |  I have been benchmarking on an Altix 350 4way and upon
-> > | upgrading from 2.6.12-rc3 -> rc4 Git tree-id=20
-> > | eed337ef5e9ae7d62caa84b7974a11fddc7f06e0 using the sn2_defconfig
-> > | with # CONFIG_MODULES is not set, I am seeing a constant stream of
-> > | the following Oops:
-> > |=20
-> > | Badness in xfs_page_state_convert at=20
-> > | /usr/src/dsw/SanJose/git-linux/fs/xfs/linux-2.6/xfs_aops.c:889
-> > |=20
-> > | Call Trace:
-> > |  [<a000000100010280>] show_stack+0x80/0xa0
-> > |                                 sp=E00000b0f608f8f0 bsp=E00000b0f6089=
-380
-> > |  [<a0000001000102d0>] dump_stack+0x30/0x60
-> > |                                 sp=E00000b0f608fac0 bsp=E00000b0f6089=
-368
-> > |  [<a0000001003a0cf0>] xfs_page_state_convert+0x530/0xac0
-> > |                                 sp=E00000b0f608fac0 bsp=E00000b0f6089=
-290
-> > |  [<a0000001003a1fa0>] linvfs_writepage+0x120/0x240
-> > |                                 sp=E00000b0f608fc00 bsp=E00000b0f6089=
-258
-> > |  [<a00000010018c5d0>] mpage_writepages+0x530/0x7e0
-> > |                                 sp=E00000b0f608fc10 bsp=E00000b0f6089=
-178
-> > |  [<a0000001000fa760>] do_writepages+0xe0/0x100
-> > |                                 sp=E00000b0f608fcb0 bsp=E00000b0f6089=
-150
-> > |  [<a0000001001888d0>] __sync_single_inode+0xb0/0x500
-> > |                                 sp=E00000b0f608fcb0 bsp=E00000b0f6089=
-0e8
-> > |  [<a000000100188e40>] __writeback_single_inode+0x120/0x320
-> > |                                 sp=E00000b0f608fcb0 bsp=E00000b0f6089=
-0a0
-> > |  [<a0000001001894e0>] sync_sb_inodes+0x4a0/0x6e0
-> > |                                 sp=E00000b0f608fd30 bsp=E00000b0f6088=
-fd8
-> > |  [<a0000001001899f0>] writeback_inodes+0x2d0/0x300
-> > |                                 sp=E00000b0f608fd30 bsp=E00000b0f6088=
-f80
-> > |  [<a0000001000fa140>] wb_kupdate+0x220/0x320
-> > |                                 sp=E00000b0f608fd30 bsp=E00000b0f6088=
-f28
-> > |  [<a0000001000fb8a0>] __pdflush+0x240/0x420
-> > |                                 sp=E00000b0f608fda0 bsp=E00000b0f6088=
-e90
-> > |  [<a0000001000fbac0>] pdflush+0x40/0x60
-> > |                                 sp=E00000b0f608fda0 bsp=E00000b0f6088=
-e78
-> > |  [<a0000001000d5d70>] kthread+0x1f0/0x200
-> > |                                 sp=E00000b0f608fdd0 bsp=E00000b0f6088=
-e38
-> > |  [<a0000001000125d0>] kernel_thread_helper+0xd0/0x100
-> > |                                 sp=E00000b0f608fe30 bsp=E00000b0f6088=
-e10
-> > |  [<a000000100009120>] start_kernel_thread+0x20/0x40
-> > |                                 sp=E00000b0f608fe30 bsp=E00000b0f6088=
-e10
-> > |  =20
-> > | This patch introduces the WARN_ON
-> > | http://www.kernel.org/git/gitweb.cgi?p=3Dlinux/kernel/git/torvalds/li=
-nux-2.6.git;a=3Dcommitdiff;h$e17b5fb99d4d1b47fe0847a3a801e36d431ff6
-> >=20
-> > We hit this internally as well with our tests.  Christoph suggested the
-> > following:
-> >=20
-> > We're trylocking now if wbc->sync_mode is WB_SYNC_NONE, so having
-> > page_dirty set on startio isn't fatal.  It should go away with the patch
-> > below:
-> >=20
-> > Index: linux-2.6/fs/xfs/linux-2.6/xfs_aops.c
-> > =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D> > --- linux-2.6.orig/fs/xfs/linux-2.6/xfs_a=
-ops.c	2005-05-06
-> > 13:36:10.000000000 +0200
-> > +++ linux-2.6/fs/xfs/linux-2.6/xfs_aops.c	2005-05-10
-> > 10:33:37.000000000 +0200
-> > @@ -886,7 +886,7 @@
-> >  		SetPageUptodate(page);
-> > =20
-> >  	if (startio) {
-> > -		WARN_ON(page_dirty);
-> > +		WARN_ON(page_dirty && wbc->sync_mode !=3D WB_SYNC_NONE);
-> >  		xfs_submit_page(page, wbc, bh_arr, cnt, 0, !page_dirty);
-> >  	}
->=20
-> Thanks Greg, that fixes it.
+        a = b = 0;
+        printf("a = %d, b = %d, a/b = %d\n", a, b, a/b);
+        a = 1;
+        b = 0;
+        printf("a = %d, b = %d, a/b = %d\n", a, b, a/b);
+}
 
-It just showed up again coping data from xfs -> fat
+Here is what I get on a machine running 2.6.10 kernel:
 
-I also removed 'hch' from CC since I'm getting bounces for that
-name.
+# ./tst
+a = 0, b = 0, a/b = 0
+a = 1, b = 0, a/b = 0
 
- - dsw
-=20
->=20
->  - dsw
->=20
-> --------------------------------------------------
-> Darren Williams <dsw AT gelato.unsw.edu.au>
-> Gelato@UNSW <www.gelato.unsw.edu.au>
-> --------------------------------------------------
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---------------------------------------------------
-Darren Williams <dsw AT gelato.unsw.edu.au>
-Gelato@UNSW <www.gelato.unsw.edu.au>
---------------------------------------------------
+Someone else tried Intel compiler and it generated code that caused
+floating point exception as it should.
+
+Something is busted in gcc.
+
+-- 
+Khalid
+
+==================================
+Khalid Aziz                       Open Source and Linux Organization
+(970)898-9214                                        Hewlett-Packard
+khalid.aziz@hp.com                                  Fort Collins, CO
+
+"The Linux kernel is subject to relentless development" 
+                                - Alessandro Rubini
+
