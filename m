@@ -1,7 +1,7 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Fri, 06 May 2005 15:56:20 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Mon, 09 May 2005 13:31:45 +0000
 Subject: Re: mem_map
-Message-Id: <20050506155620.GA23553@esmail.cup.hp.com>
+Message-Id: <17023.26177.377922.550436@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <851caabb05050607291364149a@mail.gmail.com>
 In-Reply-To: <851caabb05050607291364149a@mail.gmail.com>
@@ -10,19 +10,20 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, May 06, 2005 at 07:59:59PM +0530, Vaibhav Sharma wrote:
-> hi all,
-> Can any body provide any information for the significance of
-> "CONFIG_VIRTUAL_MEM_MAP"?
+>>>>> On Fri, 6 May 2005 19:59:59 +0530, Vaibhav Sharma <vaibhav.sh@gmail.com> said:
 
-	help
-	  Say Y to compile the kernel with support for a virtual mem map.
-	  This code also only takes effect if a memory hole of greater than
-	  1 Gb is found during boot.  You must turn this option on if you
-	  require the DISCONTIGMEM option for your machine. If you are
-	  unsure, say Y.
+  Vaibhav> hi all, Can any body provide any information for the
+  Vaibhav> significance of "CONFIG_VIRTUAL_MEM_MAP"?
 
-The first sentence could define what a virtual mem map is.
-IIRC, it's something to do with non-contiguous page table.
+Turning on this option puts the Linux physical memory-map (mem_map)
+into virtual memory rather than physical memory.  Doing so can be an
+advantage on machines which have holes in the physical memory.  For
+example, on zx1-based machines, physical memory 1GB-4GB shows up at an
+address above 257GB so there is a hole of about 256GB below that
+address.
 
-grant
+There are other ways to manage (huge) holes in physical memory space,
+but with the large page-sizes (64MB or 16MB) we use on ia64 for
+identity-mapping kernel space, this approach seems to work quite well.
+
+	--david
