@@ -1,7 +1,7 @@
-From: Gerald Pfeifer <gp@suse.de>
-Date: Mon, 09 May 2005 20:37:56 +0000
+From: Khalid Aziz <khalid_aziz@hp.com>
+Date: Mon, 09 May 2005 21:25:41 +0000
 Subject: Re: Divide by zero works on ia64!!!
-Message-Id: <Pine.LNX.4.61.0505092229440.16363@lifschitz.suse.de>
+Message-Id: <1115673941.5266.0.camel@lyra.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <1115652187.28663.4.camel@lyra.fc.hp.com>
 In-Reply-To: <1115652187.28663.4.camel@lyra.fc.hp.com>
@@ -10,52 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 9 May 2005, Khalid Aziz wrote:
-> Following program causes floating point exception on x86 (compiled with
-> gcc 3.3.5 (Debian 1:3.3.5-8)) as expected, but runs fine on ia64 when
-> compiled with gcc (GCC) 3.3.5 (Debian 1:3.3.5-8).
-> [...]
-> Here is what I get on a machine running 2.6.10 kernel:
+On Mon, 2005-05-09 at 17:56 +0200, Andreas Schwab wrote:
+> Khalid Aziz <khalid_aziz@hp.com> writes:
 > 
-> # ./tst
-> a = 0, b = 0, a/b = 0
-> a = 1, b = 0, a/b = 0
+> > Something is busted in gcc.
 > 
-> Someone else tried Intel compiler and it generated code that caused
-> floating point exception as it should.
+> Nothing.  Divide by zero is undefined.
 > 
-> Something is busted in gcc.
 
-As Andreas pointed out, this code invokes undefined behavior.  Undefined 
-here means that the result of an operation is not defined by the language 
-standard, and 0 is a valid result when invoking an undefined operation.  
+So, is the inconsistency between x86 and ia64 okay?
 
-Code relying on undefined behavior is non-portable (or busted, if you 
-want) by design.
+-- 
+Khalid
 
-To quote the standard:
+==================================
+Khalid Aziz                       Open Source and Linux Organization
+(970)898-9214                                        Hewlett-Packard
+khalid.aziz@hp.com                                  Fort Collins, CO
 
-  6.5.5 #3: 
+"The Linux kernel is subject to relentless development" 
+                                - Alessandro Rubini
 
-  The result of the / operator is the quotient from the division of the 
-  first operand by the second; the result of the % operator is the 
-  remainder. In both operations, if the value of the second operand is 
-  zero, the behavior is undefined.
- 
-  Regarding what is undefined behaviour, see 3.4.3: undefined behavior 
-  behavior, upon use of a nonportable or erroneous program construct or
-  of  erroneous data, for which this International Standard imposes no 
-  requirements
- 
-  NOTE Possible undefined behavior ranges from ignoring the situation 
-  completely with unpredictable results, to behaving during translation
-  or program execution in a documented manner characteristic of the 
-  environment (with or without the issuance of a diagnostic message),
-  to terminating a translation or execution (with the issuance of a 
-  diagnostic message).
-
-I believe the HP-UX compiler works around this by adding an explicit test 
-for every integer divide, and I am not aware of any plans to make a change 
-like this to GCC.
-
-Gerald
