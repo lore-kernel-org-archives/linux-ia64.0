@@ -1,74 +1,54 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Mon, 23 May 2005 21:17:20 +0000
-Subject: Re: [patch 3/4] ia64 SPARSEMEM - conditional changes for SPARSEMEM
-Message-Id: <20050523211720.GI2783@localhost.localdomain>
+From: Darren Williams <dsw@gelato.unsw.edu.au>
+Date: Mon, 09 May 2005 06:57:11 +0000
+Subject: [patch] fix HP simulator smp build replace __devinit -> __initdata
+Message-Id: <20050509065711.GI5692@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="1UWUbFP1cBYEclgG"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050523175107.GF2783@localhost.localdomain>
-In-Reply-To: <20050523175107.GF2783@localhost.localdomain>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Jesse Barnes wrote:	[Mon May 23 2005, 02:14:48PM EDT]
-> On Monday, May 23, 2005 10:51 am, Bob Picco wrote:
-> > This patch introduces the conditional changes required for the three
-> > memory models.  With [patch 1/4] there are three memory model
-> > FLATMEM, DISCONTIG and SPARSEMEM.  Also a new arch include file
-> > sparemem.h is introduced for defining SPARSEMEM parameters.
-> 
-> This looks like a good start at untangling CONFIG_DISCONTIGMEM and 
-> CONFIG_NUMA.  Yay!
-> 
-> > -#ifdef CONFIG_VIRTUAL_MEM_MAP
-> > +#ifdef	CONFIG_VIRTUAL_MEM_MAP
-> 
-> You can drop this hunk, right?
-Yup.
-> 
-> >  extern int ia64_pfn_valid (unsigned long pfn);
-> > -#else
-> > +#elif	CONFIG_FLATMEM
-> 
-> Space instead of tab?
-Yup.
-> 
-> >  # define ia64_pfn_valid(pfn) 1
-> >  #endif
-> >
-> > -#ifndef CONFIG_DISCONTIGMEM
-> > +#ifdef	CONFIG_FLATMEM
-> 
-> Ditto, and a few more later.
-> 
-> > -#define __pa(x)		({ia64_va _v; _v.l = (long) (x); _v.f.reg = 0;
-> > _v.l;}) -#define __va(x)		({ia64_va _v; _v.l = (long) (x); _v.f.reg > > -1; _v.p;}) +#define __pa(x)	({							\
-> > +	ia64_va _v; 							\
-> > +	_v.l = (long) (x); 						\
-> > +	_v.f.reg = 0; 							\
-> > +	_v.l;								\
-> > +})
-> > +#define __va(x)	({							\
-> > +	ia64_va _v;							\
-> > +	_v.l = (long) (x);						\
-> > +	_v.f.reg = -1;							\
-> > +	_v.p;								\
-> > +})
-> 
-> This looks like unrelated (but good) cleanup.  Should probably be 
-> submitted separately along with similar cleanups for the other macros 
-> (e.g. REGION_NUMBER, REGION_OFFSET).
-Okay. I'll revert and do a separate cleanup later.
-> 
-> > +/* until we think of something better */
-> > +#define	page_is_ram(pfn)	1
-> 
-> This macro could consult the EFI memory map (maybe only returning true 
-> if the page was WB enabled?).  Does it have to be fast?
-Arg.  This is extraneous.  I think it was required to stub around hotplug
-memory simulation.  I'll remove.
-> 
-> Jesse
-thanks,
 
-bob
+--1UWUbFP1cBYEclgG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Since we have updated the Autobuild system to use Cogito
+we can start to report and submit patches on the latest
+check-ins that break the build. 
+
+Currently on the Gelato@UNSW Autobuild system:
+http://www.gelato.unsw.edu.au/kerncomp/
+we are seeing the sim_defconfig build fail, with the
+following error:
+
+arch/ia64/kernel/smpboot.c:627: error: mt_info causes a section type conflict
+
+the following non-git patch fixes the problem, tested
+on simulator, and zx1. I'm not sure why the simulator
+is triggering this build failure since zx1 sn2 are
+building OK?
+
+ - dsw
+
+--------------------------------------------------
+Darren Williams <dsw AT gelato.unsw.edu.au>
+Gelato@UNSW <www.gelato.unsw.edu.au>
+--------------------------------------------------
+
+--1UWUbFP1cBYEclgG
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="smpboot.patch"
+
+--- linux-2.6-orig/arch/ia64/kernel/smpboot.c	2005-05-09 16:25:09.000000000 +1000
++++ linux-2.6-import/arch/ia64/kernel/smpboot.c	2005-05-09 15:53:15.000000000 +1000
+@@ -624,7 +624,7 @@ static struct {
+ 	__u16   thread_id;
+ 	__u16   proc_fixed_addr;
+ 	__u8    valid;
+-}mt_info[NR_CPUS] __devinit;
++}mt_info[NR_CPUS] __initdata;
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+ static inline void
+
+--1UWUbFP1cBYEclgG--
