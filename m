@@ -1,72 +1,24 @@
-From: "Aradhya, Chinmaya Tm (STSD)" <chinmaya@hp.com>
-Date: Wed, 11 May 2005 09:52:26 +0000
-Subject: gettimeofday() goes backwards
-Message-Id: <8BF7471D09AA9B4190A9C96778BC2A1703E81328@qcaexc02.asiapacific.cpqcorp.net>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 11 May 2005 10:01:34 +0000
+Subject: Re: gettimeofday() goes backwards
+Message-Id: <17025.55294.101294.39209@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <8BF7471D09AA9B4190A9C96778BC2A1703E81328@qcaexc02.asiapacific.cpqcorp.net>
+In-Reply-To: <8BF7471D09AA9B4190A9C96778BC2A1703E81328@qcaexc02.asiapacific.cpqcorp.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Hi,
+Aradhya,
 
-On a dual CPU Linux box with kernel version 2.4.9-e.62smp the value
-returned by gettimeofday() goes backwards. This problem occurs only on
-one of our systems and it doesn't occur on any other with the same
-version of the kernel. I noticed this pecuiliar thing on the affected
-system - There was too much difference in value of BogoMips b/w the two
-processors. I am not sure whether this is related to the descrepency
-seen in gettimeofday() o/p. Here is the cpuinfo details of the affected
-system. 
+>>>>> On Wed, 11 May 2005 15:21:57 +0530, "Aradhya, Chinmaya Tm (STSD)" <chinmaya@hp.com> said:
 
-processor       : 0
-vendor_id       : GenuineIntel
-cpu family      : 6
-model           : 5
-model name      : Pentium II (Deschutes)
-stepping        : 2
-cpu MHz         : 449.240
-cache size      : 512 KB
-physical id     : 0
-siblings        : 1
-fdiv_bug        : no
-hlt_bug         : no
-f00f_bug        : no
-coma_bug        : no
-fpu             : yes
-fpu_exception   : yes
-cpuid level     : 2
-wp              : yes
-flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
-mca cmov pat pse36 mmx fx
-sr
-bogomips        : 894.56
+  > model name : Pentium II (Deschutes)
 
-processor       : 1
-vendor_id       : GenuineIntel
-cpu family      : 6
-model           : 5
-model name      : Pentium II (Deschutes)
-stepping        : 2
-cpu MHz         : 449.240
-cache size      : 512 KB
-physical id     : 0
-siblings        : 1
-fdiv_bug        : no
-hlt_bug         : no
-f00f_bug        : no
-coma_bug        : no
-fpu             : yes
-fpu_exception   : yes
-cpuid level     : 2
-wp              : yes
-flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
-mca cmov pat pse36 mmx fx
-sr
-bogomips        : 697.95
+Umh, linux-ia64 is for ia64-based systems (e.g., Integrity machines).
+Please do not post x86-specific questions to this list.
 
-Has any one come acrosss this problem and is there a fix for the same.
+Thanks,
 
-
-Thanks
-Chinmaya
+	--david
