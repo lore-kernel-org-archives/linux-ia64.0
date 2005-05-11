@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Wed, 11 May 2005 06:51:18 +0000
+From: Jesse Barnes <jesse.barnes@intel.com>
+Date: Wed, 11 May 2005 15:29:37 +0000
 Subject: Re: [RFC] pcibus_to_node implementation for ia64
-Message-Id: <Pine.LNX.4.58.0505102347090.19298@schroedinger.engr.sgi.com>
+Message-Id: <200505110829.37451.jesse.barnes@intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.58.0505051707220.6114@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.58.0505051707220.6114@schroedinger.engr.sgi.com>
@@ -10,26 +10,43 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 10 May 2005, colin ngam wrote:
-
-> >How do I make the function return the correct result?
+On Tuesday, May 10, 2005 7:42 pm, colin ngam wrote:
 > This is the correct result - with respect to which node the
-> bus/device/function is directly connected.  Either than using this
-> function in pcibus_to_cpumask(), what other purpose is this routine
-> targeted?  I assume you want the node id for memory placement?  If that
-> is the case it may return the wrong node id.  If you expect this node id
-> to have cpus(to feed the result to get pcibus_to_cpumask()), it may
-> return the wrong node id.
+> bus/device/function is directly connected.
 
-It needs to return a node id that the system knows about. The zonelist
-for the node will take care of memory placement.
+Not really, since the kernel is only aware of nodes (for most purposes) 
+that actually have memory.  If the I/O and memoryless nodes were listed 
+in the SLIT and SRAT tables, this would be the case (the kernel would 
+build empty node structures for those nodes), but it's not at the 
+moment.
+
+> Either than using this 
+> function in pcibus_to_cpumask(), what other purpose is this routine
+> targeted?
+
+You mean 'other than pcibus_to_cpumask'?  The idea is to use it for 
+memory allocation in device drivers, as well as the obvious use in the 
+actual DMA mapping layer (e.g. pci_alloc_consistent).  It could also be 
+used to simplify the interrupt targetting code a little, iirc, assuming 
+the above condition was met (that is, that all nodes, regardless of 
+configuration, had pgdat structures associated with them).
+
+> Depending on what you want, you have to test the node id to see if it
+> contains memory or if it contains cpus or both.
+
+That's certainly another way to go--just make the function do a search 
+to find the closest node with memory (and/or CPUs) all by itself.  The 
+obvious disadvantage is that you'll incur that cost on every function 
+call unless you build a lookup table at boot time or somesuch.
 
 > There is always a node associated with the device - the issue is that
 > the node may not have cpu but has memory, or may not have both memory
-> and cpu.  I am a little bit confused about your comment above and the
-> usage of pcibus_to_cpumask().  Are you using sn_pcibus_to_node() to
-> target memory placement and pcibus_to_cpumask() to target interrupt?
+> and cpu.
 
-pcibus_to_node is currently only used to target memory placement. It can
-return -1 for unknow or any node id that the page allocator knows about.
+That's where things get confusing, since 'node' is an overloaded term 
+here.  It does *not* return a node that you can pass into 
+alloc_pages_node for instance, which I think is what Christoph wants.  
+It does, however, return a node id in the cnodeid sense, but one that 
+could be useless in most parts of the kernel.
 
+Jesse
