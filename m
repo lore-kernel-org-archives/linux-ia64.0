@@ -1,58 +1,72 @@
-From: "Menyhart, Zoltan" <Zoltan.Menyhart@free.fr>
-Date: Sun, 29 May 2005 20:23:23 +0000
-Subject: Re: flush_icache_range
-Message-Id: <429A24BB.3020307@free.fr>
+From: "Aradhya, Chinmaya Tm (STSD)" <chinmaya@hp.com>
+Date: Wed, 11 May 2005 09:52:26 +0000
+Subject: gettimeofday() goes backwards
+Message-Id: <8BF7471D09AA9B4190A9C96778BC2A1703E81328@qcaexc02.asiapacific.cpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <4236D7B5.8050408@bull.net>
-In-Reply-To: <4236D7B5.8050408@bull.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-David Mosberger wrote:
+Hi,
 
-Zoltan> I think we cannot use per-CPU data
- > Why?  I didn't think it was used until per-CPU is initialized.
+On a dual CPU Linux box with kernel version 2.4.9-e.62smp the value
+returned by gettimeofday() goes backwards. This problem occurs only on
+one of our systems and it doesn't occur on any other with the same
+version of the kernel. I noticed this pecuiliar thing on the affected
+system - There was too much difference in value of BogoMips b/w the two
+processors. I am not sure whether this is related to the descrepency
+seen in gettimeofday() o/p. Here is the cpuinfo details of the affected
+system. 
 
-The point is if we used the per-CPU stride size reported by the PAL
-for each CPU, and if we stored these values in their respective per-CPU
-data area, then they could be different - on a hypothetic mixed system.
-We need a stride size that suits for all the CPUs.
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 5
+model name      : Pentium II (Deschutes)
+stepping        : 2
+cpu MHz         : 449.240
+cache size      : 512 KB
+physical id     : 0
+siblings        : 1
+fdiv_bug        : no
+hlt_bug         : no
+f00f_bug        : no
+coma_bug        : no
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 2
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
+mca cmov pat pse36 mmx fx
+sr
+bogomips        : 894.56
 
-  Zoltan> and there is no need for using per-CPU data, because fc.i a
-  Zoltan> global operation, the stride size is a common global value
-  Zoltan> for a give machine.
- > Ugh, where that is say that?  I can easily imagine a processor where
- > your argument would not hold true.
+processor       : 1
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 5
+model name      : Pentium II (Deschutes)
+stepping        : 2
+cpu MHz         : 449.240
+cache size      : 512 KB
+physical id     : 0
+siblings        : 1
+fdiv_bug        : no
+hlt_bug         : no
+f00f_bug        : no
+coma_bug        : no
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 2
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge
+mca cmov pat pse36 mmx fx
+sr
+bogomips        : 697.95
 
-fc.i is a global operation as any of the CPUs may have some old
-instructions in its i-cache(s).
-We need to use the minimum of the stride sizes (that suits for all the
-CPUs) - on a hypothetic mixed system.
-We use a pre-calculated system wide stride size, then why to
-replicate this common value in the per-CPU data areas, why not
-to use simply a global variable?
-
-I prefer not to support mixed configurations as there is not such a
-real machine, => no need to calculate the min. stride size. This is how
-my last patch works.
-Even much simpler, the "#ifdef CONFIG_ITANIUM" based solution,
-(see my patch on 2005-05-23), would be enough in this case:
-http://marc.theaimsgroup.com/?l=linux-ia64&m1685596128411&w=2
-
- > BTW: instead of calculating the min log2 stride, I'd just export the
- > actual stride.  No point doing that in flush_cache over and over
- > again.
-
-We use in "flush_icache_range()" the
-   loop_counter = ( end_address - start_address - 1 )  / stride_size
-equation. It is more efficient to use a shift by log2(stride_size) than
-a division.
-We also need the stride size to increment the address for fc.i.
-
-Thanks,
-
-Zoltan
+Has any one come acrosss this problem and is there a fix for the same.
 
 
+Thanks
+Chinmaya
