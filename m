@@ -1,75 +1,41 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Tue, 17 May 2005 12:47:08 +0000
-Subject: Re: [PATCH 5/6]: hotplug/ia64: SN Hotplug Driver - SN Hotplug Driver
-Message-Id: <4289E7CC.4080900@sgi.com>
+From: Michael.Meduna@Bull.com
+Date: Thu, 12 May 2005 19:15:41 +0000
+Subject: Redirectable IRQs
+Message-Id: <OFC99CCFB1.3123C49E-ON07256FFF.00687D83-07256FFF.0069CEAC@us-phx1.az05.bull.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42835EAB.7010905@sgi.com>
-In-Reply-To: <42835EAB.7010905@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Greg KH wrote:
->>+
->>+	while ((pci_bus = pci_find_next_bus(pci_bus))) {
->>+		if (!pci_bus->sysdata)
->>+			continue;
->>+
->>+		rc = sn_pci_bus_valid(pci_bus);
->>+		if (rc != 1) {
->>+			dev_dbg(pci_bus->self, "not a valid hotplug bus\n");
->>+			continue;
->>+		}
->>+		dev_dbg(pci_bus->self, "valid hotplug bus\n");
->>+
->>+		rc = sn_hotplug_slot_register(pci_bus);
->>+		if (!rc)
->>+			registered = 1;
->>+		else {
->>+			registered = 0;
->>+			break;
->>+		}
->>+	}
-> 
-> 
-> How do you recover if you fail the second (or third, or fourth) hotplug bus register?  It
-> looks like the code will die a horrible death...
-> 
 
-Greg,
 
-The return of sn_hotplug_slot_register is an indication of whether or not all 
-slots had been properly registered.
 
-The error handling is in sn_hotplug_slot_register.  If I fail a second, or 
-third, or an nth hotplug register, the clean up is done in the following code 
-(from sn_hotplug_slot_register).
 
-+               rc = pci_hp_register(bss_hotplug_slot);
-+               if (rc)
-+                       goto register_err;
-+       }
-+       dev_dbg(pci_bus->self, "Registered bus with hotplug\n");
-+       return rc;
-+
-+register_err:
-+       dev_dbg(pci_bus->self, "bus failed to register with err = %d\n",
-+               rc);
-+
-+alloc_err:
-+       if (rc = -ENOMEM)
-+               dev_dbg(pci_bus->self, "Memory allocation error\n");
-+
-+       /* destroy THIS element */
-+       if (bss_hotplug_slot)
-+               sn_release_slot(bss_hotplug_slot);
-+
-+       /* destroy anything else on the list */
-+       while ((bss_hotplug_slot = sn_hp_destroy()))
-+               pci_hp_deregister(bss_hotplug_slot);
-+
-+       return rc;
-+}
+Is there a way to permanently disable interrupts for specific CPUs.  I
+am running on a 2.6 kernel and have designated CPU 0 in lowest priority
+delivery mode.  I understand how to set lowest priority delivery mode or
+fixed delivery mode for a specific IRQ.  What I would like to do is set
+CPU 0 in lowest priority delivery mode for all IRQs but then, have the
+ability to permanently disable interrupts for specific CPUs.
 
-P.
+I realize that I could set CPU 0 to be the only processor to accept all
+interrupts, however it would be best to allow Linux to spread the
+interrupts
+across other processors.  I have a few critical applications each bound to
+a
+cpuset with its own processor.  Ideally, I would not want these CPUs to
+take
+interrupts.
+
+For example:  lets say I have a system with 8 host CPUs.  I create a
+processor set that will contain a pool of CPUs (0-3).  I create another set
+of processor sets (4 of them) that will contain processors 4-7.  All IRQs
+are set to CPU 0 in lowest priority delivery mode.  I do not want
+processors
+4-7 to take an interrupt.  However, I do want interrupts to be spread
+across
+processors 0-3.  Is there a way to set the XTP register such that
+processors
+4-7 will never take an interrupt?
+
