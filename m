@@ -1,38 +1,51 @@
-From: Darren Williams <dsw@gelato.unsw.edu.au>
-Date: Wed, 04 May 2005 00:20:24 +0000
-Subject: Re: Kernel autobuild now uses Git
-Message-Id: <20050504002024.GG26031@cse.unsw.EDU.AU>
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Thu, 12 May 2005 13:45:37 +0000
+Subject: [PATCH 0/6]: hotplug/ia64: SN Hotplug Driver: Overview
+Message-Id: <42835E01.5020701@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050503222951.GE26031@cse.unsw.EDU.AU>
-In-Reply-To: <20050503222951.GE26031@cse.unsw.EDU.AU>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: LKML <linux-kernel@vger.kernel.org>
-Cc: Ia64 Linux <linux-ia64@vger.kernel.org>, Git Mailing List <git@vger.kernel.org>
+To: linux-ia64@vger.kernel.org
 
-Hi Darren
+This patchset adds the SN Hotplug Driver to Linux.  The patches are git
+patches against 2.6.12-rc4.
 
-On Wed, 04 May 2005, Darren Williams wrote:
+The patches are
 
-> Hi All
->   Our ia64 autobuild system has been moved from using
-> BK to Git. Here we do a nightly pull on Linus's 
-> (not so mainline) Git tree and test the ia64 build.
-> 
-> This may be a benefit to the Git developers to see
-> the results of a nightly 'cg-pull'.
-> 
-> Thanks to all for the effort, the conversation from BK
-> to Git was relatively painless.
-> 
->  - dsw
-> 
+[PATCH 1/6]: hotplug/ia64: SN Hotplug Driver: SN IRQ fixes
+[PATCH 2/6]: hotplug/ia64: SN Hotplug Driver: moving of header files
+[PATCH 3/6]: hotplug/ia64: SN Hotplug Driver: pci_find_next_bus export
+[PATCH 4/6]: hotplug/ia64: SN Hotplug Driver: new SN PROM version code
+[PATCH 5/6]: hotplug/ia64: SN Hotplug Driver: SN Hotplug Driver code
+[PATCH 6/6]: hotplug/ia64: SN Hotplug Driver: PREEMPT/pcibus_info fix
 
-Hmmm, how about a URL
-http://www.gelato.unsw.edu.au/kerncomp/ 
+The patches are incremental, however, the kernel will still compile
+after applying each patch.
 
---------------------------------------------------
-Darren Williams <dsw AT gelato.unsw.edu.au>
-Gelato@UNSW <www.gelato.unsw.edu.au>
---------------------------------------------------
+The first patch fixes the SN IRQ code such that cpu affinity and
+Hotplug can modify IRQ values.  The sn_irq_info structures are now locked
+using a RCU lock mechanism to avoid lock contention in the lost interrupt
+WAR code.
+
+The second patch above moves header files out of the arch/ia64/sn
+directories and into include/asm-ia64/sn.  These files were being included by
+other subsystems and should be under include/asm-ia64/sn.
+
+The third patch exports the pci_find_next_bus function to the
+rest of the kernel.
+
+The fourth patch above is a modification to the method in which the SN PROM
+information is examined in the kernel.
+
+The fifth patch is the SN Hotplug Driver and some additional required
+modifications.  These modifications include changes to the SN io_init.c code
+for memory management, the inclusion of new SAL calls to enable and disable
+PCI slots, and a hotplug-style driver.
+
+The final patch fixes an issue with the PROM and a kernel running with
+CONFIG_PREEMPT enabled.  When CONFIG_PREEMPT is enabled, the size of a
+spinlock_t changes -- resulting in the PROM writing to an incorrect location.
+
+
+
