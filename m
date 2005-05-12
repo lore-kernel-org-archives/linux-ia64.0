@@ -1,7 +1,7 @@
-From: Erich Focht <efocht@hpce.nec.com>
-Date: Thu, 12 May 2005 21:06:35 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Thu, 12 May 2005 21:58:15 +0000
 Subject: Re: Redirectable IRQs
-Message-Id: <200505122306.36432.efocht@hpce.nec.com>
+Message-Id: <20050512215815.GC15608@esmail.cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <OFC99CCFB1.3123C49E-ON07256FFF.00687D83-07256FFF.0069CEAC@us-phx1.az05.bull.com>
 In-Reply-To: <OFC99CCFB1.3123C49E-ON07256FFF.00687D83-07256FFF.0069CEAC@us-phx1.az05.bull.com>
@@ -10,15 +10,11 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Thursday 12 May 2005 22:37, Michael.Meduna@bull.com wrote:
-> Thank you for the reply.  I forgot to mention that this is an Intel ia64
-> platform.
+On Thu, May 12, 2005 at 01:37:46PM -0700, Michael.Meduna@Bull.com wrote:
+> Thank you for the reply.
+> I forgot to mention that this is an Intel ia64 platform.
 
-As far as I remember I've been told by Intel that the i870 chipset doesn't
-implement the XTP priority based IRQ rerouting. The NEC TX-7 chipset does and
-allows priority based routing within a cell (ccNUMA node). Maybe fixed
-routing works for you.
+Yes, Intel implements XTP - but that doesn't mean you have to use it.
+You can bind each IRQ source to a single processor.
 
-Regards,
-Erich
-
+grant
