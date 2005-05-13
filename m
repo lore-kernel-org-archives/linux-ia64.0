@@ -1,8 +1,10 @@
 From: Prarit Bhargava <prarit@sgi.com>
-Date: Thu, 12 May 2005 13:48:27 +0000
-Subject: [PATCH 5/6]: hotplug/ia64: SN Hotplug Driver - SN Hotplug Driver
-Message-Id: <42835EAB.7010905@sgi.com>
+Date: Fri, 13 May 2005 00:46:03 +0000
+Subject: [PATCH 5/6]: hotplug/ia64: SN Hotplug Driver - SN Hotplug Driver code
+Message-Id: <20050513004601.17135.36240.sendpatchset@prarit.boston.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42835EAB.7010905@sgi.com>
+In-Reply-To: <42835EAB.7010905@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -23,14 +25,12 @@ author Prarit Bhargava <prarit@sgi.com> 1810126625 -0400
 committer Prarit Bhargava <prarit@sgi.com> 1810126625 -0400
 
 Index: arch/ia64/sn/kernel/io_init.c
-=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/arch/ia64/sn/kernel/io_init.c
-(mode:100644 sha1:ae6628cd41f8cc2f94643fce2c4fe21bdd85d2d9)
-+++ d42322aa13214a5d099019ff0406dfb328960b98/arch/ia64/sn/kernel/io_init.c
-(mode:100644 sha1:29865445a2654c677ab2ebdb223b13b9edcba460)
+=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/arch/ia64/sn/kernel/io_init.c  (mode:100644 sha1:ae6628cd41f8cc2f94643fce2c4fe21bdd85d2d9)
++++ d42322aa13214a5d099019ff0406dfb328960b98/arch/ia64/sn/kernel/io_init.c  (mode:100644 sha1:29865445a2654c677ab2ebdb223b13b9edcba460)
 @@ -23,6 +23,14 @@
-
-  nasid_t master_nasid = INVALID_NASID;	/* Partition Master */
-
+ 
+ nasid_t master_nasid = INVALID_NASID;	/* Partition Master */
+ 
 +static struct list_head sn_sysdata_list;
 +
 +/* sysdata list struct */
@@ -39,13 +39,13 @@ Index: arch/ia64/sn/kernel/io_init.c
 +	void *sysdata;
 +};
 +
-  struct slab_info {
-  	struct hubdev_info hubdev;
-  };
+ struct slab_info {
+ 	struct hubdev_info hubdev;
+ };
 @@ -137,23 +145,6 @@
-  }
-
-  /*
+ }
+ 
+ /*
 - * sn_alloc_pci_sysdata() - This routine allocates a pci controller
 - *	which is expected as the pci_dev and pci_bus sysdata by the Linux
 - *	PCI infrastructure.
@@ -63,13 +63,13 @@ Index: arch/ia64/sn/kernel/io_init.c
 -}
 -
 -/*
-   * sn_fixup_ionodes() - This routine initializes the HUB data strcuture for
-   *	each node in the system.
-   */
+  * sn_fixup_ionodes() - This routine initializes the HUB data strcuture for 
+  *	each node in the system.
+  */
 @@ -220,6 +211,15 @@
-
-  }
-
+ 
+ }
+ 
 +void sn_pci_unfixup_slot(struct pci_dev *dev)
 +{
 +	struct pci_dev *host_pci_dev = SN_PCIDEV_INFO(dev)->host_pci_dev;
@@ -79,43 +79,43 @@ Index: arch/ia64/sn/kernel/io_init.c
 +	pci_dev_put(dev);
 +}
 +
-  /*
-   * sn_pci_fixup_slot() - This routine sets up a slot's resources
-   * consistent with the Linux PCI abstraction layer.  Resources acquired
+ /*
+  * sn_pci_fixup_slot() - This routine sets up a slot's resources
+  * consistent with the Linux PCI abstraction layer.  Resources acquired
 @@ -238,6 +238,7 @@
-   	unsigned long size;
-   	unsigned int bus_no, devfn;
-
+  	unsigned long size;
+  	unsigned int bus_no, devfn;
+ 
 +	pci_dev_get(dev); /* for the sysdata pointer */
-  	dev->sysdata = kmalloc(sizeof(struct pcidev_info), GFP_KERNEL);
-  	if (SN_PCIDEV_INFO(dev) <= 0)
-  		BUG();		/* Cannot afford to run out of memory */
+ 	dev->sysdata = kmalloc(sizeof(struct pcidev_info), GFP_KERNEL);
+ 	if (SN_PCIDEV_INFO(dev) <= 0)
+ 		BUG();		/* Cannot afford to run out of memory */
 @@ -276,7 +277,8 @@
-  			dev->resource[idx].parent = &iomem_resource;
-  	}
-
+ 			dev->resource[idx].parent = &iomem_resource;
+ 	}
+ 
 - 	/* Using the PROMs values for the PCI host bus, get the Linux
 +	/*
 +	 * Using the PROMs values for the PCI host bus, get the Linux
-   	 * PCI host_pci_dev struct and set up host bus linkages
-   	 */
-
+  	 * PCI host_pci_dev struct and set up host bus linkages
+  	 */
+ 
 @@ -313,55 +315,57 @@
-   * sn_pci_controller_fixup() - This routine sets up a bus's resources
-   * consistent with the Linux PCI abstraction layer.
-   */
+  * sn_pci_controller_fixup() - This routine sets up a bus's resources
+  * consistent with the Linux PCI abstraction layer.
+  */
 -static void sn_pci_controller_fixup(int segment, int busnum)
 +void sn_pci_controller_fixup(int segment, int busnum, struct pci_bus *bus)
-  {
-  	int status = 0;
-  	int nasid, cnode;
+ {
+ 	int status = 0;
+ 	int nasid, cnode;
 -	struct pci_bus *bus;
-  	struct pci_controller *controller;
-  	struct pcibus_bussoft *prom_bussoft_ptr;
-  	struct hubdev_info *hubdev_info;
-  	void *provider_soft;
-  	struct sn_pcibus_provider *provider;
-
+ 	struct pci_controller *controller;
+ 	struct pcibus_bussoft *prom_bussoft_ptr;
+ 	struct hubdev_info *hubdev_info;
+ 	void *provider_soft;
+ 	struct sn_pcibus_provider *provider;
+ 
 -	status -	    sal_get_pcibus_info((u64) segment, (u64) busnum,
 -				(u64) ia64_tpa(&prom_bussoft_ptr));
 -	if (status > 0) {
@@ -126,67 +126,67 @@ Index: arch/ia64/sn/kernel/io_init.c
 + 				     (u64) ia64_tpa(&prom_bussoft_ptr));
 + 	if (status > 0)
 +		return;		/*bus # does not exist */
-  	prom_bussoft_ptr = __va(prom_bussoft_ptr);
+ 	prom_bussoft_ptr = __va(prom_bussoft_ptr);
 -	controller = sn_alloc_pci_sysdata();
 -	/* controller non-zero is BUG'd in sn_alloc_pci_sysdata */
-
+ 
 -	bus = pci_scan_bus(busnum, &pci_root_ops, controller);
 + 	controller = kcalloc(1,sizeof(struct pci_controller), GFP_KERNEL);
 + 	if (!controller)
 + 		BUG();
 +
-  	if (bus = NULL) {
+ 	if (bus = NULL) {
 -		return;		/* error, or bus already scanned */
 + 		bus = pci_scan_bus(busnum, &pci_root_ops, controller);
 + 		if (bus = NULL)
 + 			return;	/* error, or bus already scanned */
 + 		bus->sysdata = NULL;
-  	}
-
+ 	}
+ 
 +	if (bus->sysdata)
 +		goto error_return; /* sysdata already alloc'd */
 +
-  	/*
-  	 * Per-provider fixup.  Copies the contents from prom to local
-  	 * area and links SN_PCIBUS_BUSSOFT().
-  	 */
-
+ 	/*
+ 	 * Per-provider fixup.  Copies the contents from prom to local
+ 	 * area and links SN_PCIBUS_BUSSOFT().
+ 	 */
+ 
 -	if (prom_bussoft_ptr->bs_asic_type >= PCIIO_ASIC_MAX_TYPES) {
 +	if (prom_bussoft_ptr->bs_asic_type >= PCIIO_ASIC_MAX_TYPES)
-  		return;		/* unsupported asic type */
+ 		return;		/* unsupported asic type */
 -	}
 +
 +	if (prom_bussoft_ptr->bs_asic_type = PCIIO_ASIC_TYPE_PPB)
 +		goto error_return; /* no further fixup necessary */
-
-  	provider = sn_pci_provider[prom_bussoft_ptr->bs_asic_type];
+ 
+ 	provider = sn_pci_provider[prom_bussoft_ptr->bs_asic_type];
 -	if (provider = NULL) {
 +	if (provider = NULL)
-  		return;		/* no provider registerd for this asic */
+ 		return;		/* no provider registerd for this asic */
 -	}
-
-  	provider_soft = NULL;
+ 
+ 	provider_soft = NULL;
 -	if (provider->bus_fixup) {
 +	if (provider->bus_fixup)
-  		provider_soft = (*provider->bus_fixup) (prom_bussoft_ptr);
+ 		provider_soft = (*provider->bus_fixup) (prom_bussoft_ptr);
 -	}
-
+ 
 -	if (provider_soft = NULL) {
 +	if (provider_soft = NULL)
-  		return;		/* fixup failed or not applicable */
+ 		return;		/* fixup failed or not applicable */
 -	}
-
-  	/*
-  	 * Generic bus fixup goes here.  Don't reference prom_bussoft_ptr
+ 
+ 	/*
+ 	 * Generic bus fixup goes here.  Don't reference prom_bussoft_ptr
 @@ -370,12 +374,47 @@
-
-  	bus->sysdata = controller;
-  	PCI_CONTROLLER(bus)->platform_data = provider_soft;
+ 
+ 	bus->sysdata = controller;
+ 	PCI_CONTROLLER(bus)->platform_data = provider_soft;
 -
-  	nasid = NASID_GET(SN_PCIBUS_BUSSOFT(bus)->bs_base);
-  	cnode = nasid_to_cnodeid(nasid);
-  	hubdev_info = (struct hubdev_info *)(NODEPDA(cnode)->pdinfo);
-  	SN_PCIBUS_BUSSOFT(bus)->bs_xwidget_info   	    &(hubdev_info->hdi_xwidget_info[SN_PCIBUS_BUSSOFT(bus)->bs_xid]);
+ 	nasid = NASID_GET(SN_PCIBUS_BUSSOFT(bus)->bs_base);
+ 	cnode = nasid_to_cnodeid(nasid);
+ 	hubdev_info = (struct hubdev_info *)(NODEPDA(cnode)->pdinfo);
+ 	SN_PCIBUS_BUSSOFT(bus)->bs_xwidget_info  	    &(hubdev_info->hdi_xwidget_info[SN_PCIBUS_BUSSOFT(bus)->bs_xid]);
 +
 +	return;
 +
@@ -223,91 +223,85 @@ Index: arch/ia64/sn/kernel/io_init.c
 +		goto sn_sysdata_free_start;
 +	}
 +	return;
-  }
-
-  /*
+ }
+ 
+ /*
 @@ -413,15 +452,16 @@
-  	ia64_max_iommu_merge_mask = ~PAGE_MASK;
-  	sn_fixup_ionodes();
-  	sn_irq_lh_init();
+ 	ia64_max_iommu_merge_mask = ~PAGE_MASK;
+ 	sn_fixup_ionodes();
+ 	sn_irq_lh_init();
 +	INIT_LIST_HEAD(&sn_sysdata_list);
-  	sn_init_cpei_timer();
-
-  #ifdef CONFIG_PROC_FS
-  	register_sn_procfs();
-  #endif
-
+ 	sn_init_cpei_timer();
+ 
+ #ifdef CONFIG_PROC_FS
+ 	register_sn_procfs();
+ #endif
+ 
 -	for (i = 0; i < PCI_BUSES_TO_SCAN; i++) {
 -		sn_pci_controller_fixup(0, i);
 -	}
 +	/* busses are not known yet ... */
 +	for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
 +		sn_pci_controller_fixup(0, i, NULL);
-
-  	/*
-  	 * Generic Linux PCI Layer has created the pci_bus and pci_dev
+ 
+ 	/*
+ 	 * Generic Linux PCI Layer has created the pci_bus and pci_dev 
 @@ -430,9 +470,8 @@
-  	 */
-
-  	while ((pci_dev -		pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pci_dev)) != NULL) {
+ 	 */
+ 
+ 	while ((pci_dev -		pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pci_dev)) != NULL) {
 +		pci_get_device(PCI_ANY_ID, PCI_ANY_ID, pci_dev)) != NULL)
-  		sn_pci_fixup_slot(pci_dev);
+ 		sn_pci_fixup_slot(pci_dev);
 -	}
-
-  	sn_ioif_inited = 1;	/* sn I/O infrastructure now initialized */
-
+ 
+ 	sn_ioif_inited = 1;	/* sn I/O infrastructure now initialized */
+ 
 @@ -474,3 +513,8 @@
-  }
-
-  subsys_initcall(sn_pci_init);
+ }
+ 
+ subsys_initcall(sn_pci_init);
 +EXPORT_SYMBOL(sn_pci_fixup_slot);
 +EXPORT_SYMBOL(sn_pci_unfixup_slot);
 +EXPORT_SYMBOL(sn_pci_controller_fixup);
 +EXPORT_SYMBOL(sn_bus_store_sysdata);
 +EXPORT_SYMBOL(sn_bus_free_sysdata);
 Index: arch/ia64/sn/kernel/irq.c
-=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/arch/ia64/sn/kernel/irq.c
-(mode:100644 sha1:ee4ac68d745f2c91e39d10e2f82cf624cf655edd)
-+++ d42322aa13214a5d099019ff0406dfb328960b98/arch/ia64/sn/kernel/irq.c
-(mode:100644 sha1:ec5e7a01c5b55f328e0dff8a45b012bc1024e84e)
+=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/arch/ia64/sn/kernel/irq.c  (mode:100644 sha1:ee4ac68d745f2c91e39d10e2f82cf624cf655edd)
++++ d42322aa13214a5d099019ff0406dfb328960b98/arch/ia64/sn/kernel/irq.c  (mode:100644 sha1:ec5e7a01c5b55f328e0dff8a45b012bc1024e84e)
 @@ -284,7 +284,6 @@
-  	int cpu = nasid_slice_to_cpuid(nasid, slice);
-
-  	pci_dev_get(pci_dev);
+ 	int cpu = nasid_slice_to_cpuid(nasid, slice);
+ 
+ 	pci_dev_get(pci_dev);
 -
-  	sn_irq_info->irq_cpuid = cpu;
-  	sn_irq_info->irq_pciioinfo = SN_PCIDEV_INFO(pci_dev);
-
+ 	sn_irq_info->irq_cpuid = cpu;
+ 	sn_irq_info->irq_pciioinfo = SN_PCIDEV_INFO(pci_dev);
+ 
 @@ -305,15 +304,16 @@
-  		return;
-
-  	sn_irq_info = SN_PCIDEV_INFO(pci_dev)->pdi_sn_irq_info;
+ 		return;
+ 
+ 	sn_irq_info = SN_PCIDEV_INFO(pci_dev)->pdi_sn_irq_info;
 -	if (!sn_irq_info || !sn_irq_info->irq_irq)
 +	if (!sn_irq_info || !sn_irq_info->irq_irq) {
 +		kfree(sn_irq_info);
-  		return;
+ 		return;
 +	}
-
-  	unregister_intr_pda(sn_irq_info);
-  	spin_lock(&sn_irq_info_lock);
-  	list_del_rcu(&sn_irq_info->list);
-  	spin_unlock(&sn_irq_info_lock);
-  	call_rcu(&sn_irq_info->rcu, sn_irq_info_free);
+ 
+ 	unregister_intr_pda(sn_irq_info);
+ 	spin_lock(&sn_irq_info_lock);
+ 	list_del_rcu(&sn_irq_info->list);
+ 	spin_unlock(&sn_irq_info_lock);
+ 	call_rcu(&sn_irq_info->rcu, sn_irq_info_free);
 -
-  	pci_dev_put(pci_dev);
-  }
-
+ 	pci_dev_put(pci_dev);
+ }
+ 
 Index: arch/ia64/sn/pci/pcibr/pcibr_provider.c
-=================================---
-94b3c225a19fb0e688da58fa7c9239db0a743e9c/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-  (mode:100644 sha1:9bc4de4a3ec0778aa4724e75457bd253a6b1e45e)
-+++
-d42322aa13214a5d099019ff0406dfb328960b98/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-  (mode:100644 sha1:9813da56d3113c41fb1b413cfa4c7963cda316cb)
+=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/arch/ia64/sn/pci/pcibr/pcibr_provider.c  (mode:100644 sha1:9bc4de4a3ec0778aa4724e75457bd253a6b1e45e)
++++ d42322aa13214a5d099019ff0406dfb328960b98/arch/ia64/sn/pci/pcibr/pcibr_provider.c  (mode:100644 sha1:9813da56d3113c41fb1b413cfa4c7963cda316cb)
 @@ -18,6 +18,40 @@
-  #include "xtalk/xwidgetdev.h"
-  #include "xtalk/hubdev.h"
-
+ #include "xtalk/xwidgetdev.h"
+ #include "xtalk/hubdev.h"
+ 
 +int
 +sal_pcibr_slot_enable(struct pcibus_info *soft, int device, void *resp)
 +{
@@ -342,51 +336,46 @@ d42322aa13214a5d099019ff0406dfb328960b98/arch/ia64/sn/pci/pcibr/pcibr_provider.c
 +	return (int)ret_stuff.v0;
 +}
 +
-  static int sal_pcibr_error_interrupt(struct pcibus_info *soft)
-  {
-  	struct ia64_sal_retval ret_stuff;
+ static int sal_pcibr_error_interrupt(struct pcibus_info *soft)
+ {
+ 	struct ia64_sal_retval ret_stuff;
 @@ -187,3 +221,6 @@
-
-  	return 0;
-  }
+ 
+ 	return 0;
+ }
 +
 +EXPORT_SYMBOL_GPL(sal_pcibr_slot_enable);
 +EXPORT_SYMBOL_GPL(sal_pcibr_slot_disable);
 Index: drivers/pci/hotplug/Kconfig
-=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/drivers/pci/hotplug/Kconfig
-(mode:100644 sha1:1a4d4ca2a4dc386d3f63189ecc9cf30f806b947e)
-+++ d42322aa13214a5d099019ff0406dfb328960b98/drivers/pci/hotplug/Kconfig
-(mode:100644 sha1:9c4a39ee89b57b5065f575b86b2798ed31dc2fc6)
+=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/drivers/pci/hotplug/Kconfig  (mode:100644 sha1:1a4d4ca2a4dc386d3f63189ecc9cf30f806b947e)
++++ d42322aa13214a5d099019ff0406dfb328960b98/drivers/pci/hotplug/Kconfig  (mode:100644 sha1:9c4a39ee89b57b5065f575b86b2798ed31dc2fc6)
 @@ -187,9 +187,10 @@
-
-  config HOTPLUG_PCI_SGI
-  	tristate "SGI PCI Hotplug Support"
+ 
+ config HOTPLUG_PCI_SGI
+ 	tristate "SGI PCI Hotplug Support"
 -	depends on HOTPLUG_PCI && IA64_SGI_SN2
 +	depends on HOTPLUG_PCI && (IA64_SGI_SN2 || IA64_GENERIC)
-  	help
+ 	help
 -	  Say Y here if you have an SGI IA64 Altix system.
 +	  Say Y here if you want to use the SGI Altix Hotplug
 +	  Driver for PCI devices.
-
-  	  When in doubt, say N.
-
+ 
+ 	  When in doubt, say N.
+ 
 Index: drivers/pci/hotplug/Makefile
-=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/drivers/pci/hotplug/Makefile
-(mode:100644 sha1:93c120ddbd395f5ddeddcc3cc5d52bd31a47dcc4)
-+++ d42322aa13214a5d099019ff0406dfb328960b98/drivers/pci/hotplug/Makefile
-(mode:100644 sha1:24ed904514c5043095dfe484877dd38cdfa0f3b6)
+=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/drivers/pci/hotplug/Makefile  (mode:100644 sha1:93c120ddbd395f5ddeddcc3cc5d52bd31a47dcc4)
++++ d42322aa13214a5d099019ff0406dfb328960b98/drivers/pci/hotplug/Makefile  (mode:100644 sha1:24ed904514c5043095dfe484877dd38cdfa0f3b6)
 @@ -14,6 +14,7 @@
-  obj-$(CONFIG_HOTPLUG_PCI_SHPC)		+= shpchp.o
-  obj-$(CONFIG_HOTPLUG_PCI_RPA)		+= rpaphp.o
-  obj-$(CONFIG_HOTPLUG_PCI_RPA_DLPAR)	+= rpadlpar_io.o
+ obj-$(CONFIG_HOTPLUG_PCI_SHPC)		+= shpchp.o
+ obj-$(CONFIG_HOTPLUG_PCI_RPA)		+= rpaphp.o
+ obj-$(CONFIG_HOTPLUG_PCI_RPA_DLPAR)	+= rpadlpar_io.o
 +obj-$(CONFIG_HOTPLUG_PCI_SGI)		+= sgi_hotplug.o
-
-  pci_hotplug-objs	:=	pci_hotplug_core.o
-
+ 
+ pci_hotplug-objs	:=	pci_hotplug_core.o
+ 
 Index: drivers/pci/hotplug/sgi_hotplug.c
 =================================--- /dev/null  (tree:94b3c225a19fb0e688da58fa7c9239db0a743e9c)
-+++ d42322aa13214a5d099019ff0406dfb328960b98/drivers/pci/hotplug/sgi_hotplug.c
-(mode:100644 sha1:323041fd41dc19c20ce88e4ae370272cbe09ea97)
++++ d42322aa13214a5d099019ff0406dfb328960b98/drivers/pci/hotplug/sgi_hotplug.c  (mode:100644 sha1:323041fd41dc19c20ce88e4ae370272cbe09ea97)
 @@ -0,0 +1,611 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
@@ -999,47 +988,37 @@ Index: drivers/pci/hotplug/sgi_hotplug.c
 +module_init(sn_pci_hotplug_init);
 +module_exit(sn_pci_hotplug_exit);
 Index: include/asm-ia64/sn/pcibr_provider.h
-=================================---
-94b3c225a19fb0e688da58fa7c9239db0a743e9c/include/asm-ia64/sn/pcibr_provider.h
-(mode:100644 sha1:0abf539cb0414d752fcf14d9318bf1fa00278d32)
-+++
-d42322aa13214a5d099019ff0406dfb328960b98/include/asm-ia64/sn/pcibr_provider.h
-(mode:100644 sha1:c1bf22505ff339ea7a5255ec9a8a60031397e9a8)
+=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/include/asm-ia64/sn/pcibr_provider.h  (mode:100644 sha1:0abf539cb0414d752fcf14d9318bf1fa00278d32)
++++ d42322aa13214a5d099019ff0406dfb328960b98/include/asm-ia64/sn/pcibr_provider.h  (mode:100644 sha1:c1bf22505ff339ea7a5255ec9a8a60031397e9a8)
 @@ -151,4 +151,8 @@
-  extern int 		pcibr_ate_alloc(struct pcibus_info *, int);
-  extern void 		pcibr_ate_free(struct pcibus_info *, int);
-  extern void 		ate_write(struct pcibus_info *, int, int, uint64_t);
+ extern int 		pcibr_ate_alloc(struct pcibus_info *, int);
+ extern void 		pcibr_ate_free(struct pcibus_info *, int);
+ extern void 		ate_write(struct pcibus_info *, int, int, uint64_t);
 +extern int sal_pcibr_slot_enable(struct pcibus_info *soft, int device,
 +				 void *resp);
 +extern int sal_pcibr_slot_disable(struct pcibus_info *soft, int device,
 +				  int action, void *resp);
-  #endif
+ #endif
 Index: include/asm-ia64/sn/pcidev.h
-=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/include/asm-ia64/sn/pcidev.h
-(mode:100644 sha1:9610fcc635450e57bf9be693fb8fa5e22eb60be1)
-+++ d42322aa13214a5d099019ff0406dfb328960b98/include/asm-ia64/sn/pcidev.h
-(mode:100644 sha1:49711d00ad04f77d90467daf33bfd13d549e2109)
+=================================--- 94b3c225a19fb0e688da58fa7c9239db0a743e9c/include/asm-ia64/sn/pcidev.h  (mode:100644 sha1:9610fcc635450e57bf9be693fb8fa5e22eb60be1)
++++ d42322aa13214a5d099019ff0406dfb328960b98/include/asm-ia64/sn/pcidev.h  (mode:100644 sha1:49711d00ad04f77d90467daf33bfd13d549e2109)
 @@ -23,6 +23,8 @@
-  #define SN_PCIBUS_BUSSOFT(pci_bus) \
-          ((struct pcibus_bussoft *)(PCI_CONTROLLER((pci_bus))->platform_data))
-
+ #define SN_PCIBUS_BUSSOFT(pci_bus) \
+         ((struct pcibus_bussoft *)(PCI_CONTROLLER((pci_bus))->platform_data))
+ 
 +#define SN_PCIBUS_BUSSOFT_INFO(pci_bus) \
-+	(struct pcibus_info *)((struct pcibus_bussoft
-*)(PCI_CONTROLLER((pci_bus))->platform_data))
-  /*
-   * Given a struct pci_dev, return the sn pcibus_bussoft struct.  Note
-   * that this is not equivalent to SN_PCIBUS_BUSSOFT(pci_dev->bus) due
++	(struct pcibus_info *)((struct pcibus_bussoft *)(PCI_CONTROLLER((pci_bus))->platform_data))
+ /*
+  * Given a struct pci_dev, return the sn pcibus_bussoft struct.  Note
+  * that this is not equivalent to SN_PCIBUS_BUSSOFT(pci_dev->bus) due
 @@ -56,6 +58,10 @@
-  extern void sn_irq_fixup(struct pci_dev *pci_dev,
-  			 struct sn_irq_info *sn_irq_info);
-  extern void sn_irq_unfixup(struct pci_dev *pci_dev);
+ extern void sn_irq_fixup(struct pci_dev *pci_dev,
+ 			 struct sn_irq_info *sn_irq_info);
+ extern void sn_irq_unfixup(struct pci_dev *pci_dev);
 +extern void sn_pci_controller_fixup(int segment, int busnum,
 + 				    struct pci_bus *bus);
 +extern void sn_bus_store_sysdata(struct pci_dev *dev);
 +extern void sn_bus_free_sysdata(void);
-  extern void sn_pci_fixup_slot(struct pci_dev *dev);
-  extern void sn_pci_unfixup_slot(struct pci_dev *dev);
-  extern void sn_irq_lh_init(void);
-
-
-
+ extern void sn_pci_fixup_slot(struct pci_dev *dev);
+ extern void sn_pci_unfixup_slot(struct pci_dev *dev);
+ extern void sn_irq_lh_init(void);
