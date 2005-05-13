@@ -1,7 +1,7 @@
 From: "Lu, Hongjiu" <hongjiu.lu@intel.com>
-Date: Fri, 13 May 2005 17:32:19 +0000
+Date: Fri, 13 May 2005 17:44:41 +0000
 Subject: RE: heads up: apparent GAS bug in current (CVS) binutils
-Message-Id: <CBDB88BFD06F7F408399DBCF8776B3DC0424E404@scsmsx403.amr.corp.intel.com>
+Message-Id: <CBDB88BFD06F7F408399DBCF8776B3DC0424E43F@scsmsx403.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200505122155.j4CLteGX024882@napali.hpl.hp.com>
 In-Reply-To: <200505122155.j4CLteGX024882@napali.hpl.hp.com>
@@ -10,8 +10,14 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-I tried binutils 2.15.92.0.2 20040927 and got the same result. What is
-the version of assembler which you think is good?
+Hi David,
+
+It is a linker issue. There are 2 definitions for those functions, the
+generic is weak and the ia64 one is strong. The generic one has unwind
+info and the ia64 one doesn't. When linker combines them, it keeps the
+strong definition, but uses the weak unwind info. I will see what I can
+do about it.
+
 
 H.J. Lu
 Intel Corporation
