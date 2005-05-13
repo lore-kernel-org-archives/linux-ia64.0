@@ -1,8 +1,10 @@
 From: Prarit Bhargava <prarit@sgi.com>
-Date: Thu, 12 May 2005 13:47:19 +0000
+Date: Fri, 13 May 2005 00:45:48 +0000
 Subject: [PATCH 2/6]: hotplug/ia64: SN Hotplug Driver: moving of header files
-Message-Id: <42835E67.4070207@sgi.com>
+Message-Id: <20050513004545.17135.52634.sendpatchset@prarit.boston.redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42835E67.4070207@sgi.com>
+In-Reply-To: <42835E67.4070207@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -22,9 +24,7 @@ author Prarit Bhargava <prarit@sgi.com> 1810126494 -0400
 committer Prarit Bhargava <prarit@sgi.com> 1810126494 -0400
 
 Index: arch/ia64/sn/include/pci/pcibr_provider.h
-=================================---
-d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/pci/pcibr_provider.h
-  (mode:100644 sha1:1cd291d8badd05299c4dc4114bd1e768ddd46f61)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/pci/pcibr_provider.h  (mode:100644 sha1:1cd291d8badd05299c4dc4114bd1e768ddd46f61)
 +++ /dev/null  (tree:609461315376faf97b95c8fded1d5df433168614)
 @@ -1,151 +0,0 @@
 -/*
@@ -49,7 +49,7 @@ d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/pci/pcibr_provider
 -#define IS_PIC_SOFT(ps)     (ps->pbi_bridge_type = PCIBR_BRIDGETYPE_PIC)
 -
 -
--/*
+-/* 
 - * The different PCI Bridge types supported on the SGI Altix platforms
 - */
 -#define PCIBR_BRIDGETYPE_UNKNOWN       -1
@@ -150,14 +150,12 @@ d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/pci/pcibr_provider
 -	spin_lock_irqsave(&pcibus_info->pbi_lock, flag);
 -	return(flag);
 -}
--#define pcibr_unlock(pcibus_info, flag)
-spin_unlock_irqrestore(&pcibus_info->pbi_lock, flag)
+-#define pcibr_unlock(pcibus_info, flag)  spin_unlock_irqrestore(&pcibus_info->pbi_lock, flag)
 -
 -extern int  pcibr_init_provider(void);
 -extern void *pcibr_bus_fixup(struct pcibus_bussoft *);
 -extern dma_addr_t pcibr_dma_map(struct pci_dev *, unsigned long, size_t);
--extern dma_addr_t pcibr_dma_map_consistent(struct pci_dev *, unsigned long,
-size_t);
+-extern dma_addr_t pcibr_dma_map_consistent(struct pci_dev *, unsigned long, size_t);
 -extern void pcibr_dma_unmap(struct pci_dev *, dma_addr_t, int);
 -
 -/*
@@ -169,8 +167,7 @@ size_t);
 -extern uint64_t         pcireg_intr_status_get(struct pcibus_info *);
 -extern void             pcireg_intr_enable_bit_clr(struct pcibus_info *, uint64_t);
 -extern void             pcireg_intr_enable_bit_set(struct pcibus_info *, uint64_t);
--extern void             pcireg_intr_addr_addr_set(struct pcibus_info *, int,
-uint64_t);
+-extern void             pcireg_intr_addr_addr_set(struct pcibus_info *, int, uint64_t);
 -extern void             pcireg_force_intr_set(struct pcibus_info *, int);
 -extern uint64_t         pcireg_wrb_flush_get(struct pcibus_info *, int);
 -extern void             pcireg_int_ate_set(struct pcibus_info *, int, uint64_t);
@@ -182,8 +179,7 @@ uint64_t);
 -extern void 		ate_write(struct pcibus_info *, int, int, uint64_t);
 -#endif
 Index: arch/ia64/sn/include/pci/pic.h
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/pci/pic.h
-(mode:100644 sha1:fd18acecb1e67e783c4085f27eb7e6390af0a47d)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/pci/pic.h  (mode:100644 sha1:fd18acecb1e67e783c4085f27eb7e6390af0a47d)
 +++ /dev/null  (tree:609461315376faf97b95c8fded1d5df433168614)
 @@ -1,261 +0,0 @@
 -/*
@@ -203,7 +199,7 @@ Index: arch/ia64/sn/include/pci/pic.h
 - * PIC handles PCI/X busses.  PCI/X requires that the 'bridge' (i.e. PIC)
 - * be designated as 'device 0'.   That is a departure from earlier SGI
 - * PCI bridges.  Because of that we use config space 1 to access the
-- * config space of the first actual PCI device on the bus.
+- * config space of the first actual PCI device on the bus. 
 - * Here's what the PIC manual says:
 - *
 - *     The current PCI-X bus specification now defines that the parent
@@ -217,14 +213,14 @@ Index: arch/ia64/sn/include/pci/pic.h
 - *     correlated Configs pace and our device space 0 <-> 0, 1 <-> 1, etc.
 - *     PCI-X requires we start a 1, not 0 and currently the PX brick
 - *     does associate our:
-- *
+- * 
 - *         device 0 with configuration space window 1,
-- *         device 1 with configuration space window 2,
+- *         device 1 with configuration space window 2, 
 - *         device 2 with configuration space window 3,
 - *         device 3 with configuration space window 4.
 - *
-- * The net effect is that all config space access are off-by-one with
-- * relation to other per-slot accesses on the PIC.
+- * The net effect is that all config space access are off-by-one with 
+- * relation to other per-slot accesses on the PIC.   
 - * Here is a table that shows some of that:
 - *
 - *                               Internal Slot#
@@ -253,7 +249,7 @@ Index: arch/ia64/sn/include/pci/pic.h
 - *****************************************************************************/
 -
 -/* NOTE: PIC WAR. PV#854697.  PIC does not allow writes just to [31:0]
-- * of a 64-bit register.  When writing PIC registers, always write the
+- * of a 64-bit register.  When writing PIC registers, always write the 
 - * entire 64 bits.
 - */
 -
@@ -352,7 +348,7 @@ Index: arch/ia64/sn/include/pci/pic.h
 -	uint64_t	clear_all;			/* 0x000{438,,,5F8} */
 -    } p_buf_count[8];
 -
--
+-    
 -    /* 0x000600-0x0009FF -- PCI/X registers */
 -    uint64_t		p_pcix_bus_err_addr;		/* 0x000600 */
 -    uint64_t		p_pcix_bus_err_attr;		/* 0x000608 */
@@ -448,8 +444,7 @@ Index: arch/ia64/sn/include/pci/pic.h
 -
 -#endif                          /* _ASM_IA64_SN_PCI_PIC_H */
 Index: arch/ia64/sn/include/pci/tiocp.h
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/pci/tiocp.h
-(mode:100644 sha1:f07c83b2bf6ebb8e9c907c2f9948a1169554601a)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/pci/tiocp.h  (mode:100644 sha1:f07c83b2bf6ebb8e9c907c2f9948a1169554601a)
 +++ /dev/null  (tree:609461315376faf97b95c8fded1d5df433168614)
 @@ -1,256 +0,0 @@
 -/*
@@ -565,7 +560,7 @@ Index: arch/ia64/sn/include/pci/tiocp.h
 -	uint64_t	clear_all;			/* 0x000{438,,,5F8} */
 -    } cp_buf_count[8];
 -
--
+-    
 -    /* 0x000600-0x0009FF -- PCI/X registers */
 -    uint64_t		cp_pcix_bus_err_addr;		/* 0x000600 */
 -    uint64_t		cp_pcix_bus_err_attr;		/* 0x000608 */
@@ -709,137 +704,125 @@ Index: arch/ia64/sn/include/pci/tiocp.h
 -
 -#endif 	/* _ASM_IA64_SN_PCI_TIOCP_H */
 Index: arch/ia64/sn/include/xtalk/hubdev.h
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/xtalk/hubdev.h
-  (mode:100644 sha1:868e7ecae84b7494628c241a26954dcd83fabd48)
-+++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/include/xtalk/hubdev.h
-  (mode:100644 sha1:580a1c0403a73c373c60cf34cc59f985bb5a16f0)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/include/xtalk/hubdev.h  (mode:100644 sha1:868e7ecae84b7494628c241a26954dcd83fabd48)
++++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/include/xtalk/hubdev.h  (mode:100644 sha1:580a1c0403a73c373c60cf34cc59f985bb5a16f0)
 @@ -8,6 +8,8 @@
-  #ifndef _ASM_IA64_SN_XTALK_HUBDEV_H
-  #define _ASM_IA64_SN_XTALK_HUBDEV_H
-
+ #ifndef _ASM_IA64_SN_XTALK_HUBDEV_H
+ #define _ASM_IA64_SN_XTALK_HUBDEV_H
+ 
 +#include "xtalk/xwidgetdev.h"
 +
-  #define HUB_WIDGET_ID_MAX 0xf
-  #define DEV_PER_WIDGET (2*2*8)
-  #define IIO_ITTE_WIDGET_BITS    4       /* size of widget field */
+ #define HUB_WIDGET_ID_MAX 0xf
+ #define DEV_PER_WIDGET (2*2*8)
+ #define IIO_ITTE_WIDGET_BITS    4       /* size of widget field */
 Index: arch/ia64/sn/kernel/io_init.c
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/kernel/io_init.c
-(mode:100644 sha1:cb29bd1d475d1be98d32aa02f81f576e77b327d2)
-+++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/kernel/io_init.c
-(mode:100644 sha1:ae6628cd41f8cc2f94643fce2c4fe21bdd85d2d9)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/kernel/io_init.c  (mode:100644 sha1:cb29bd1d475d1be98d32aa02f81f576e77b327d2)
++++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/kernel/io_init.c  (mode:100644 sha1:ae6628cd41f8cc2f94643fce2c4fe21bdd85d2d9)
 @@ -9,17 +9,17 @@
-  #include <linux/bootmem.h>
-  #include <linux/nodemask.h>
-  #include <asm/sn/types.h>
+ #include <linux/bootmem.h>
+ #include <linux/nodemask.h>
+ #include <asm/sn/types.h>
 -#include <asm/sn/sn_sal.h>
-  #include <asm/sn/addrs.h>
+ #include <asm/sn/addrs.h>
 -#include <asm/sn/pcibus_provider_defs.h>
 -#include <asm/sn/pcidev.h>
 -#include "pci/pcibr_provider.h"
 -#include "xtalk/xwidgetdev.h"
-  #include <asm/sn/geo.h>
+ #include <asm/sn/geo.h>
 -#include "xtalk/hubdev.h"
-  #include <asm/sn/io.h>
+ #include <asm/sn/io.h>
 +#include <asm/sn/pcibr_provider.h>
 +#include <asm/sn/pcibus_provider_defs.h>
 +#include <asm/sn/pcidev.h>
-  #include <asm/sn/simulator.h>
+ #include <asm/sn/simulator.h>
 +#include <asm/sn/sn_sal.h>
-  #include <asm/sn/tioca_provider.h>
+ #include <asm/sn/tioca_provider.h>
 +#include "xtalk/hubdev.h"
 +#include "xtalk/xwidgetdev.h"
-
-  nasid_t master_nasid = INVALID_NASID;	/* Partition Master */
-
+ 
+ nasid_t master_nasid = INVALID_NASID;	/* Partition Master */
+ 
 @@ -226,7 +226,7 @@
-   * from our PCI provider include PIO maps to BAR space and interrupt
-   * objects.
-   */
+  * from our PCI provider include PIO maps to BAR space and interrupt
+  * objects.
+  */
 -static void sn_pci_fixup_slot(struct pci_dev *dev)
 +void sn_pci_fixup_slot(struct pci_dev *dev)
-  {
-  	int idx;
-  	int segment = 0;
+ {
+ 	int idx;
+ 	int segment = 0;
 Index: arch/ia64/sn/kernel/irq.c
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/kernel/irq.c
-(mode:100644 sha1:e6f7551edfda49e8d22e9378a7d09a63ff009d0d)
-+++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/kernel/irq.c
-(mode:100644 sha1:ee4ac68d745f2c91e39d10e2f82cf624cf655edd)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/kernel/irq.c  (mode:100644 sha1:e6f7551edfda49e8d22e9378a7d09a63ff009d0d)
++++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/kernel/irq.c  (mode:100644 sha1:ee4ac68d745f2c91e39d10e2f82cf624cf655edd)
 @@ -10,13 +10,12 @@
-
-  #include <linux/irq.h>
-  #include <linux/spinlock.h>
+ 
+ #include <linux/irq.h>
+ #include <linux/spinlock.h>
 -#include <asm/sn/intr.h>
-  #include <asm/sn/addrs.h>
-  #include <asm/sn/arch.h>
+ #include <asm/sn/addrs.h>
+ #include <asm/sn/arch.h>
 -#include "xtalk/xwidgetdev.h"
 +#include <asm/sn/intr.h>
 +#include <asm/sn/pcibr_provider.h>
-  #include <asm/sn/pcibus_provider_defs.h>
-  #include <asm/sn/pcidev.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/pcidev.h>
 -#include "pci/pcibr_provider.h"
-  #include <asm/sn/shub_mmr.h>
-  #include <asm/sn/sn_sal.h>
-
+ #include <asm/sn/shub_mmr.h>
+ #include <asm/sn/sn_sal.h>
+ 
 @@ -103,7 +102,7 @@
-  		nasid = get_nasid();
-  		event_occurred = HUB_L((uint64_t *) GLOBAL_MMR_ADDR
-  				       (nasid, SH_EVENT_OCCURRED));
+ 		nasid = get_nasid();
+ 		event_occurred = HUB_L((uint64_t *) GLOBAL_MMR_ADDR
+ 				       (nasid, SH_EVENT_OCCURRED));
 -		/* If the UART bit is set here, we may have received an
-+		/* If the UART bit is set here, we may have received an
-  		 * interrupt from the UART that the driver missed.  To
-  		 * make sure, we IPI ourselves to force us to look again.
-  		 */
++		/* If the UART bit is set here, we may have received an 
+ 		 * interrupt from the UART that the driver missed.  To
+ 		 * make sure, we IPI ourselves to force us to look again.
+ 		 */
 Index: arch/ia64/sn/pci/pci_dma.c
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pci_dma.c
-(mode:100644 sha1:5da9bdbde7cb829dbef14774cf5bf2c9d568f8d5)
-+++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pci_dma.c
-(mode:100644 sha1:a2f7a88aefbb0bd925647668acc641438ac73b5c)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pci_dma.c  (mode:100644 sha1:5da9bdbde7cb829dbef14774cf5bf2c9d568f8d5)
++++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pci_dma.c  (mode:100644 sha1:a2f7a88aefbb0bd925647668acc641438ac73b5c)
 @@ -11,9 +11,10 @@
-
-  #include <linux/module.h>
-  #include <asm/dma.h>
+ 
+ #include <linux/module.h>
+ #include <asm/dma.h>
 -#include <asm/sn/sn_sal.h>
 +#include <asm/sn/pcibr_provider.h>
-  #include <asm/sn/pcibus_provider_defs.h>
-  #include <asm/sn/pcidev.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/pcidev.h>
 +#include <asm/sn/sn_sal.h>
-
-  #define SG_ENT_VIRT_ADDRESS(sg)	(page_address((sg)->page) + (sg)->offset)
-  #define SG_ENT_PHYS_ADDRESS(SG)	virt_to_phys(SG_ENT_VIRT_ADDRESS(SG))
+ 
+ #define SG_ENT_VIRT_ADDRESS(sg)	(page_address((sg)->page) + (sg)->offset)
+ #define SG_ENT_PHYS_ADDRESS(SG)	virt_to_phys(SG_ENT_VIRT_ADDRESS(SG))
 Index: arch/ia64/sn/pci/pcibr/pcibr_ate.c
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pcibr/pcibr_ate.c
-  (mode:100644 sha1:0e47bce85f2da0e1494ff5f705c8fa91b59ae161)
-+++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pcibr/pcibr_ate.c
-  (mode:100644 sha1:d1647b863e6106a3d17219c4b9748633dc165630)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pcibr/pcibr_ate.c  (mode:100644 sha1:0e47bce85f2da0e1494ff5f705c8fa91b59ae161)
++++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pcibr/pcibr_ate.c  (mode:100644 sha1:d1647b863e6106a3d17219c4b9748633dc165630)
 @@ -8,9 +8,9 @@
-
-  #include <linux/types.h>
-  #include <asm/sn/sn_sal.h>
+ 
+ #include <linux/types.h>
+ #include <asm/sn/sn_sal.h>
 +#include <asm/sn/pcibr_provider.h>
-  #include <asm/sn/pcibus_provider_defs.h>
-  #include <asm/sn/pcidev.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/pcidev.h>
 -#include "pci/pcibr_provider.h"
-
-  int pcibr_invalidate_ate = 0;	/* by default don't invalidate ATE on free */
-
+ 
+ int pcibr_invalidate_ate = 0;	/* by default don't invalidate ATE on free */
+ 
 Index: arch/ia64/sn/pci/pcibr/pcibr_dma.c
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pcibr/pcibr_dma.c
-  (mode:100644 sha1:64af2b2c17879181e0610cdaa7fb10dfdb8bf26e)
-+++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pcibr/pcibr_dma.c
-  (mode:100644 sha1:b058dc2a0b9d3dfb7a17fe73f2ae35f72266ebd3)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pcibr/pcibr_dma.c  (mode:100644 sha1:64af2b2c17879181e0610cdaa7fb10dfdb8bf26e)
++++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pcibr/pcibr_dma.c  (mode:100644 sha1:b058dc2a0b9d3dfb7a17fe73f2ae35f72266ebd3)
 @@ -8,18 +8,17 @@
-
-  #include <linux/types.h>
-  #include <linux/pci.h>
+ 
+ #include <linux/types.h>
+ #include <linux/pci.h>
 -#include <asm/sn/sn_sal.h>
 +#include <asm/sn/addrs.h>
-  #include <asm/sn/geo.h>
+ #include <asm/sn/geo.h>
 -#include "xtalk/xwidgetdev.h"
 -#include "xtalk/hubdev.h"
 +#include <asm/sn/pcibr_provider.h>
-  #include <asm/sn/pcibus_provider_defs.h>
-  #include <asm/sn/pcidev.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/pcidev.h>
 -#include "pci/tiocp.h"
 -#include "pci/pic.h"
 -#include "pci/pcibr_provider.h"
@@ -847,73 +830,65 @@ Index: arch/ia64/sn/pci/pcibr/pcibr_dma.c
 +#include <asm/sn/pic.h>
 +#include <asm/sn/sn_sal.h>
 +#include <asm/sn/tiocp.h>
-  #include "tio.h"
+ #include "tio.h"
 -#include <asm/sn/addrs.h>
 +#include "xtalk/xwidgetdev.h"
 +#include "xtalk/hubdev.h"
-
-  extern int sn_ioif_inited;
-
+ 
+ extern int sn_ioif_inited;
+ 
 Index: arch/ia64/sn/pci/pcibr/pcibr_provider.c
-=================================---
-d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-  (mode:100644 sha1:3893999d23d8871a7f5f6bf4315b24d713391411)
-+++
-609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-  (mode:100644 sha1:9bc4de4a3ec0778aa4724e75457bd253a6b1e45e)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pcibr/pcibr_provider.c  (mode:100644 sha1:3893999d23d8871a7f5f6bf4315b24d713391411)
++++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pcibr/pcibr_provider.c  (mode:100644 sha1:9bc4de4a3ec0778aa4724e75457bd253a6b1e45e)
 @@ -6,18 +6,17 @@
-   * Copyright (C) 2001-2004 Silicon Graphics, Inc. All rights reserved.
-   */
-
+  * Copyright (C) 2001-2004 Silicon Graphics, Inc. All rights reserved.
+  */
+ 
 -#include <linux/types.h>
-  #include <linux/interrupt.h>
+ #include <linux/interrupt.h>
 +#include <linux/types.h>
-  #include <linux/pci.h>
+ #include <linux/pci.h>
 -#include <asm/sn/sn_sal.h>
 -#include "xtalk/xwidgetdev.h"
 +#include <asm/sn/addrs.h>
-  #include <asm/sn/geo.h>
+ #include <asm/sn/geo.h>
 -#include "xtalk/hubdev.h"
 +#include <asm/sn/pcibr_provider.h>
-  #include <asm/sn/pcibus_provider_defs.h>
-  #include <asm/sn/pcidev.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/pcidev.h>
 -#include "pci/pcibr_provider.h"
 -#include <asm/sn/addrs.h>
 -
 +#include <asm/sn/sn_sal.h>
 +#include "xtalk/xwidgetdev.h"
 +#include "xtalk/hubdev.h"
-
-  static int sal_pcibr_error_interrupt(struct pcibus_info *soft)
-  {
+ 
+ static int sal_pcibr_error_interrupt(struct pcibus_info *soft)
+ {
 Index: arch/ia64/sn/pci/pcibr/pcibr_reg.c
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pcibr/pcibr_reg.c
-  (mode:100644 sha1:865c11c3b50a06cbcd31d39b1bf152bfe12e8606)
-+++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pcibr/pcibr_reg.c
-  (mode:100644 sha1:21426d02fbe6a84fa818535600d145ea850e8c1c)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/arch/ia64/sn/pci/pcibr/pcibr_reg.c  (mode:100644 sha1:865c11c3b50a06cbcd31d39b1bf152bfe12e8606)
++++ 609461315376faf97b95c8fded1d5df433168614/arch/ia64/sn/pci/pcibr/pcibr_reg.c  (mode:100644 sha1:21426d02fbe6a84fa818535600d145ea850e8c1c)
 @@ -6,13 +6,13 @@
-   * Copyright (C) 2004 Silicon Graphics, Inc. All rights reserved.
-   */
-
+  * Copyright (C) 2004 Silicon Graphics, Inc. All rights reserved.
+  */
+ 
 -#include <linux/types.h>
-  #include <linux/interrupt.h>
+ #include <linux/interrupt.h>
 +#include <linux/types.h>
 +#include <asm/sn/pcibr_provider.h>
-  #include <asm/sn/pcibus_provider_defs.h>
-  #include <asm/sn/pcidev.h>
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/pcidev.h>
 -#include "pci/tiocp.h"
 -#include "pci/pic.h"
 -#include "pci/pcibr_provider.h"
 +#include <asm/sn/pic.h>
 +#include <asm/sn/tiocp.h>
-
-  union br_ptr {
-  	struct tiocp tio;
+ 
+ union br_ptr {
+ 	struct tiocp tio;
 Index: include/asm-ia64/sn/pcibr_provider.h
 =================================--- /dev/null  (tree:d53d603c8c1a083db8df0c479b9bf296288dbc74)
-+++
-609461315376faf97b95c8fded1d5df433168614/include/asm-ia64/sn/pcibr_provider.h
-(mode:100644 sha1:0abf539cb0414d752fcf14d9318bf1fa00278d32)
++++ 609461315376faf97b95c8fded1d5df433168614/include/asm-ia64/sn/pcibr_provider.h  (mode:100644 sha1:0abf539cb0414d752fcf14d9318bf1fa00278d32)
 @@ -0,0 +1,154 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
@@ -940,7 +915,7 @@ Index: include/asm-ia64/sn/pcibr_provider.h
 +#define IS_PIC_SOFT(ps)     (ps->pbi_bridge_type = PCIBR_BRIDGETYPE_PIC)
 +
 +
-+/*
++/* 
 + * The different PCI Bridge types supported on the SGI Altix platforms
 + */
 +#define PCIBR_BRIDGETYPE_UNKNOWN       -1
@@ -1041,14 +1016,12 @@ Index: include/asm-ia64/sn/pcibr_provider.h
 +	spin_lock_irqsave(&pcibus_info->pbi_lock, flag);
 +	return(flag);
 +}
-+#define pcibr_unlock(pcibus_info, flag)
-spin_unlock_irqrestore(&pcibus_info->pbi_lock, flag)
++#define pcibr_unlock(pcibus_info, flag)  spin_unlock_irqrestore(&pcibus_info->pbi_lock, flag)
 +
 +extern int  pcibr_init_provider(void);
 +extern void *pcibr_bus_fixup(struct pcibus_bussoft *);
 +extern dma_addr_t pcibr_dma_map(struct pci_dev *, unsigned long, size_t);
-+extern dma_addr_t pcibr_dma_map_consistent(struct pci_dev *, unsigned long,
-size_t);
++extern dma_addr_t pcibr_dma_map_consistent(struct pci_dev *, unsigned long, size_t);
 +extern void pcibr_dma_unmap(struct pci_dev *, dma_addr_t, int);
 +
 +/*
@@ -1060,8 +1033,7 @@ size_t);
 +extern uint64_t         pcireg_intr_status_get(struct pcibus_info *);
 +extern void             pcireg_intr_enable_bit_clr(struct pcibus_info *, uint64_t);
 +extern void             pcireg_intr_enable_bit_set(struct pcibus_info *, uint64_t);
-+extern void             pcireg_intr_addr_addr_set(struct pcibus_info *, int,
-uint64_t);
++extern void             pcireg_intr_addr_addr_set(struct pcibus_info *, int, uint64_t);
 +extern void             pcireg_force_intr_set(struct pcibus_info *, int);
 +extern uint64_t         pcireg_wrb_flush_get(struct pcibus_info *, int);
 +extern void             pcireg_int_ate_set(struct pcibus_info *, int, uint64_t);
@@ -1073,34 +1045,30 @@ uint64_t);
 +extern void 		ate_write(struct pcibus_info *, int, int, uint64_t);
 +#endif
 Index: include/asm-ia64/sn/pcidev.h
-=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/include/asm-ia64/sn/pcidev.h
-(mode:100644 sha1:42aea21ee18710b060cd2d3be8df0defb830468f)
-+++ 609461315376faf97b95c8fded1d5df433168614/include/asm-ia64/sn/pcidev.h
-(mode:100644 sha1:9610fcc635450e57bf9be693fb8fa5e22eb60be1)
+=================================--- d53d603c8c1a083db8df0c479b9bf296288dbc74/include/asm-ia64/sn/pcidev.h  (mode:100644 sha1:42aea21ee18710b060cd2d3be8df0defb830468f)
++++ 609461315376faf97b95c8fded1d5df433168614/include/asm-ia64/sn/pcidev.h  (mode:100644 sha1:9610fcc635450e57bf9be693fb8fa5e22eb60be1)
 @@ -13,6 +13,8 @@
-  #define SN_PCIDEV_INFO(pci_dev) \
-          ((struct pcidev_info *)(pci_dev)->sysdata)
-
+ #define SN_PCIDEV_INFO(pci_dev) \
+         ((struct pcidev_info *)(pci_dev)->sysdata)
+ 
 +#define SN_PCIBUS_BUSSOFT_INFO(pci_bus) \
-+	(struct pcibus_info *)((struct pcibus_bussoft
-*)(PCI_CONTROLLER((pci_bus))->platform_data))
-  /*
-   * Given a pci_bus, return the sn pcibus_bussoft struct.  Note that
-   * this only works for root busses, not for busses represented by PPB's.
++	(struct pcibus_info *)((struct pcibus_bussoft *)(PCI_CONTROLLER((pci_bus))->platform_data))
+ /*
+  * Given a pci_bus, return the sn pcibus_bussoft struct.  Note that
+  * this only works for root busses, not for busses represented by PPB's.
 @@ -53,6 +55,8 @@
-
-  extern void sn_irq_fixup(struct pci_dev *pci_dev,
-  			 struct sn_irq_info *sn_irq_info);
+ 
+ extern void sn_irq_fixup(struct pci_dev *pci_dev,
+ 			 struct sn_irq_info *sn_irq_info);
 -
 +extern void sn_irq_unfixup(struct pci_dev *pci_dev);
 +extern void sn_pci_fixup_slot(struct pci_dev *dev);
 +extern void sn_pci_unfixup_slot(struct pci_dev *dev);
-  extern void sn_irq_lh_init(void);
-  #endif				/* _ASM_IA64_SN_PCI_PCIDEV_H */
+ extern void sn_irq_lh_init(void);
+ #endif				/* _ASM_IA64_SN_PCI_PCIDEV_H */
 Index: include/asm-ia64/sn/pic.h
 =================================--- /dev/null  (tree:d53d603c8c1a083db8df0c479b9bf296288dbc74)
-+++ 609461315376faf97b95c8fded1d5df433168614/include/asm-ia64/sn/pic.h
-(mode:100644 sha1:fd18acecb1e67e783c4085f27eb7e6390af0a47d)
++++ 609461315376faf97b95c8fded1d5df433168614/include/asm-ia64/sn/pic.h  (mode:100644 sha1:fd18acecb1e67e783c4085f27eb7e6390af0a47d)
 @@ -0,0 +1,261 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
@@ -1119,7 +1087,7 @@ Index: include/asm-ia64/sn/pic.h
 + * PIC handles PCI/X busses.  PCI/X requires that the 'bridge' (i.e. PIC)
 + * be designated as 'device 0'.   That is a departure from earlier SGI
 + * PCI bridges.  Because of that we use config space 1 to access the
-+ * config space of the first actual PCI device on the bus.
++ * config space of the first actual PCI device on the bus. 
 + * Here's what the PIC manual says:
 + *
 + *     The current PCI-X bus specification now defines that the parent
@@ -1133,14 +1101,14 @@ Index: include/asm-ia64/sn/pic.h
 + *     correlated Configs pace and our device space 0 <-> 0, 1 <-> 1, etc.
 + *     PCI-X requires we start a 1, not 0 and currently the PX brick
 + *     does associate our:
-+ *
++ * 
 + *         device 0 with configuration space window 1,
-+ *         device 1 with configuration space window 2,
++ *         device 1 with configuration space window 2, 
 + *         device 2 with configuration space window 3,
 + *         device 3 with configuration space window 4.
 + *
-+ * The net effect is that all config space access are off-by-one with
-+ * relation to other per-slot accesses on the PIC.
++ * The net effect is that all config space access are off-by-one with 
++ * relation to other per-slot accesses on the PIC.   
 + * Here is a table that shows some of that:
 + *
 + *                               Internal Slot#
@@ -1169,7 +1137,7 @@ Index: include/asm-ia64/sn/pic.h
 + *****************************************************************************/
 +
 +/* NOTE: PIC WAR. PV#854697.  PIC does not allow writes just to [31:0]
-+ * of a 64-bit register.  When writing PIC registers, always write the
++ * of a 64-bit register.  When writing PIC registers, always write the 
 + * entire 64 bits.
 + */
 +
@@ -1268,7 +1236,7 @@ Index: include/asm-ia64/sn/pic.h
 +	uint64_t	clear_all;			/* 0x000{438,,,5F8} */
 +    } p_buf_count[8];
 +
-+
++    
 +    /* 0x000600-0x0009FF -- PCI/X registers */
 +    uint64_t		p_pcix_bus_err_addr;		/* 0x000600 */
 +    uint64_t		p_pcix_bus_err_attr;		/* 0x000608 */
@@ -1365,8 +1333,7 @@ Index: include/asm-ia64/sn/pic.h
 +#endif                          /* _ASM_IA64_SN_PCI_PIC_H */
 Index: include/asm-ia64/sn/tiocp.h
 =================================--- /dev/null  (tree:d53d603c8c1a083db8df0c479b9bf296288dbc74)
-+++ 609461315376faf97b95c8fded1d5df433168614/include/asm-ia64/sn/tiocp.h
-(mode:100644 sha1:f07c83b2bf6ebb8e9c907c2f9948a1169554601a)
++++ 609461315376faf97b95c8fded1d5df433168614/include/asm-ia64/sn/tiocp.h  (mode:100644 sha1:f07c83b2bf6ebb8e9c907c2f9948a1169554601a)
 @@ -0,0 +1,256 @@
 +/*
 + * This file is subject to the terms and conditions of the GNU General Public
@@ -1481,7 +1448,7 @@ Index: include/asm-ia64/sn/tiocp.h
 +	uint64_t	clear_all;			/* 0x000{438,,,5F8} */
 +    } cp_buf_count[8];
 +
-+
++    
 +    /* 0x000600-0x0009FF -- PCI/X registers */
 +    uint64_t		cp_pcix_bus_err_addr;		/* 0x000600 */
 +    uint64_t		cp_pcix_bus_err_attr;		/* 0x000608 */
@@ -1624,6 +1591,3 @@ Index: include/asm-ia64/sn/tiocp.h
 +};
 +
 +#endif 	/* _ASM_IA64_SN_PCI_TIOCP_H */
-
-
-
