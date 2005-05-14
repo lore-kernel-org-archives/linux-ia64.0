@@ -1,12 +1,15 @@
 From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Fri, 13 May 2005 22:07:27 +0000
+Date: Sat, 14 May 2005 06:11:14 +0000
 Subject: new beta perfmon code base with IA-64/Pentium M/X86-64 support
-Message-Id: <20050513220727.GA3560@frankl.hpl.hp.com>
+Message-Id: <20050514061114.GA3957@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050513220727.GA3560@frankl.hpl.hp.com>
+In-Reply-To: <20050513220727.GA3560@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
 Hello everyone,
 
@@ -89,3 +92,6 @@ You can download the package at:
 	MD5SUM: 24205b9a82e3f5d840b876845cc7edb5
 
 Enjoy,
+
+-- 
+-Stephane
