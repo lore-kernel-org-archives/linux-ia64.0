@@ -1,37 +1,53 @@
 From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Mon, 16 May 2005 04:21:54 +0000
-Subject: [patch] improve SMP reschedule and idle routines
-Message-Id: <42881FE2.2000302@yahoo.com.au>
+Date: Mon, 16 May 2005 05:19:00 +0000
+Subject: Re: [patch] improve SMP reschedule and idle routines
+Message-Id: <42882D44.50302@yahoo.com.au>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------010008090205060201020909"
+Content-Type: multipart/mixed; boundary="------------080302000603080800020900"
 List-Id: <linux-ia64.vger.kernel.org>
-To: Anton Blanchard <anton@samba.org>, "David S. Miller" <davem@davemloft.net>, Paul Mackerras <paulus@samba.org>, linux-ia64@vger.kernel.org, Ingo Molnar <mingo@elte.hu>, linux-kernel <linux-kernel@vger.kernel.org>
+References: <42881FE2.2000302@yahoo.com.au> <20050515.220455.59467677.davem@davemloft.net>
+In-Reply-To: <20050515.220455.59467677.davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>
+Cc: anton@samba.org, paulus@samba.org, linux-ia64@vger.kernel.org, mingo@elte.hu, linux-kernel@vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------010008090205060201020909
+--------------080302000603080800020900
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This has so far been ported to and tested on i386, x86_64,
-ppc64, ia64. I've done an untested hack for sparc64 too.
+David S. Miller wrote:
+> From: Nick Piggin <nickpiggin@yahoo.com.au>
+> Date: Mon, 16 May 2005 14:21:54 +1000
+> 
+> I was about to test this on sparc64 real quick, but noticed
+> the following with just a quick glance of the sparc64 specific
+> changes:
+> 
+> 
+>> void cpu_idle(void)
+>> {
+>>+	cpuinfo_sparc cpuinfo = cpu_data(smp_processor_id());
+> 
+> 
+> Local copy on the stack?  Surely you meant a pointer
+> instead.
+> 
 
-Unfortunately the change will have to touch all architectures,
-but fortunately the above ones are among the more complex.
+Indeed, thank you. How does the following look?
 
-This patch improves cross CPU rescheduling performance, and
-idle reschedule performance by a significant amount on the
-systems I've tested on (SMP G5, quad McKinley, SMP+HT P4 Xeon)
-in microbenchmarks.
+> I'll test this once you work out that obvious bug.
+> 
 
-I bet it could give a measurable boost on real workloads on
-some systems too. And I think it is a good cleanup in general.
+The other obvious problem with sparc64 that I didn't tackle is
+your secondary CPU bringup - those CPUs will be calling cpu_idle
+with preempt enabled as was previously required, but now should
+have preempt disabled (ie. arch/sparc64/kernel/trampoline.S:
+call cpu_idle)
 
-Comments?
+If you haven't got preempt working on your arch, then in practice
+this won't bother you...
 
--- 
-SUSE Labs, Novell Inc.
-
---------------010008090205060201020909
+--------------080302000603080800020900
 Content-Type: text/plain;
  name="sched-resched-opt.patch"
 Content-Transfer-Encoding: 7bit
@@ -908,7 +924,7 @@ Index: linux-2.6/arch/sparc64/kernel/smp.c
 Index: linux-2.6/arch/sparc64/kernel/process.c
 ===================================================================
 --- linux-2.6.orig/arch/sparc64/kernel/process.c	2005-05-16 13:50:53.000000000 +1000
-+++ linux-2.6/arch/sparc64/kernel/process.c	2005-05-16 13:52:16.000000000 +1000
++++ linux-2.6/arch/sparc64/kernel/process.c	2005-05-16 15:13:57.000000000 +1000
 @@ -74,7 +74,9 @@ void cpu_idle(void)
  		while (!need_resched())
  			barrier();
@@ -938,12 +954,12 @@ Index: linux-2.6/arch/sparc64/kernel/process.c
 -#define unidle_me()		(cpu_data(smp_processor_id()).idle_volume = 0)
  void cpu_idle(void)
  {
-+	cpuinfo_sparc cpuinfo = cpu_data(smp_processor_id());
++	cpuinfo_sparc *cpuinfo = &local_cpu_data();
  	set_thread_flag(TIF_POLLING_NRFLAG);
 +
  	while(1) {
  		if (need_resched()) {
-+			cpuinfo.idle_volume = 0;
++			cpuinfo->idle_volume = 0;
  			unidle_me();
 -			clear_thread_flag(TIF_POLLING_NRFLAG);
 +			preempt_enable_no_resched();
@@ -953,10 +969,10 @@ Index: linux-2.6/arch/sparc64/kernel/process.c
  			check_pgt_cache();
  		}
 -		idle_me_harder();
-+		cpuinfo.idle_volume++;
++		cpuinfo->idle_volume++;
  
  		/* The store ordering is so that IRQ handlers on
  		 * other cpus see our increasing idleness for the buddy
 
---------------010008090205060201020909--
+--------------080302000603080800020900--
 
