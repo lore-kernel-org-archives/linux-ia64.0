@@ -1,73 +1,55 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Mon, 16 May 2005 22:30:26 +0000
-Subject: [patch] Set Altix error handling features
-Message-Id: <200505162230.j4GMUQRv13867391@clink.americas.sgi.com>
+From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
+Date: Mon, 16 May 2005 01:07:25 +0000
+Subject: [PATCH] Haunted spurious interrupt
+Message-Id: <8126E4F969BA254AB43EA03C59F44E8402142C6A@pdsmsx404>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C559B3.D3672E87"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org
 
+This is a multi-part message in MIME format.
 
-The 2.6 kernel has CPE error thresholding.
-This patch lets SAL know of this error handling feature.
-The changes are SN specific.
+------_=_NextPart_001_01C559B3.D3672E87
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+On my IA64 machine, after kernel 2.6.12-rc3 boots, an edge-triggered
+interrupt (IRQ 46) keeps triggered over and over again. There is no IRQ
+46 interrupt action handler. It has lots of impact on performance.
+Kernel 2.6.10 and its prior versions have no the problem. Basically,
+kernel 2.6.10 will mask the spurious edge interrupt if the interrupt is
+triggered for the second time and its status includes
+IRQ_DISABLE|IRQ_PENDING. Originally, IA64 kernel has its own specific
+_irq_desc definitions in file arch/ia64/kernel/irq.c. The definition
+initiates _irq_desc[irq].status to IRQ_DISABLE. Since kernel 2.6.11, it
+was moved to architecture independent codes, i.e. kernel/irq/handle.c,
+but kernel/irq/handle.c initiates _irq_desc[irq].status to 0 instead of
+IRQ_DISABLE.
 
-----------------------------------------------------------------------
-Index: linux-2.6/arch/ia64/sn/kernel/setup.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/setup.c	2005-05-16 15:07:53.496366966 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/setup.c	2005-05-16 15:21:49.605220098 -0500
-@@ -271,6 +271,8 @@
- 	int major = sn_sal_rev_major(), minor = sn_sal_rev_minor();
- 	extern void sn_cpu_init(void);
- 
-+	ia64_sn_plat_set_error_handling_features();
-+
- 	/*
- 	 * If the generic code has enabled vga console support - lets
- 	 * get rid of it again. This is a kludge for the fact that ACPI
-Index: linux-2.6/include/asm-ia64/sn/sn_sal.h
-=================================--- linux-2.6.orig/include/asm-ia64/sn/sn_sal.h	2005-05-16 15:07:54.044212418 -0500
-+++ linux-2.6/include/asm-ia64/sn/sn_sal.h	2005-05-16 15:23:27.374641062 -0500
-@@ -115,6 +115,13 @@
- #define SAL_IROUTER_INTR_XMIT	SAL_CONSOLE_INTR_XMIT
- #define SAL_IROUTER_INTR_RECV	SAL_CONSOLE_INTR_RECV
- 
-+/*
-+ * Error Handling Features
-+ */
-+#define SAL_ERR_FEAT_MCA_SLV_TO_OS_INIT_SLV	0x1
-+#define SAL_ERR_FEAT_LOG_SBES			0x2
-+#define SAL_ERR_FEAT_MFR_OVERRIDE		0x4
-+#define SAL_ERR_FEAT_SBE_THRESHOLD		0xffff0000
- 
- /*
-  * SAL Error Codes
-@@ -342,6 +349,25 @@
- }
- 
- /*
-+ * Set Error Handling Features
-+ */
-+static inline u64
-+ia64_sn_plat_set_error_handling_features(void)
-+{
-+	struct ia64_sal_retval ret_stuff;
-+
-+	ret_stuff.status = 0;
-+	ret_stuff.v0 = 0;
-+	ret_stuff.v1 = 0;
-+	ret_stuff.v2 = 0;
-+	SAL_CALL_REENTRANT(ret_stuff, SN_SAL_SET_ERROR_HANDLING_FEATURES,
-+		(SAL_ERR_FEAT_MCA_SLV_TO_OS_INIT_SLV | SAL_ERR_FEAT_LOG_SBES),
-+		0, 0, 0, 0, 0, 0);
-+
-+	return ret_stuff.status;
-+}
-+
-+/*
-  * Checks for console input.
-  */
- static inline u64
+The attachment is a patch against kernel 2.6.12-rc3. I tested it on my
+IA64 and IA32 machines.
+
+Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+
+ <<haunted_interrupt_2.6.12-rc3.patch>>=20
+
+------_=_NextPart_001_01C559B3.D3672E87
+Content-Type: application/octet-stream;
+	name="haunted_interrupt_2.6.12-rc3.patch"
+Content-Transfer-Encoding: base64
+Content-Description: haunted_interrupt_2.6.12-rc3.patch
+Content-Disposition: attachment;
+	filename="haunted_interrupt_2.6.12-rc3.patch"
+
+ZGlmZiAtTnJhdXAgbGludXgtMi42LjEyLXJjMy9rZXJuZWwvaXJxL2hhbmRsZS5jIGxpbnV4LTIu
+Ni4xMi1yYzNfZml4L2tlcm5lbC9pcnEvaGFuZGxlLmMKLS0tIGxpbnV4LTIuNi4xMi1yYzMva2Vy
+bmVsL2lycS9oYW5kbGUuYwkyMDA1LTA0LTIyIDAwOjI0OjQwLjAwMDAwMDAwMCArMDgwMAorKysg
+bGludXgtMi42LjEyLXJjM19maXgva2VybmVsL2lycS9oYW5kbGUuYwkyMDA1LTA1LTEyIDEyOjIx
+OjE0LjkzNDMzMjc1NiArMDgwMApAQCAtMzAsNiArMzAsNyBAQAogICovCiBpcnFfZGVzY190IGly
+cV9kZXNjW05SX0lSUVNdIF9fY2FjaGVsaW5lX2FsaWduZWQgPSB7CiAJWzAgLi4uIE5SX0lSUVMt
+MV0gPSB7CisJCS5zdGF0dXMgPSBJUlFfRElTQUJMRUQsCiAJCS5oYW5kbGVyID0gJm5vX2lycV90
+eXBlLAogCQkubG9jayA9IFNQSU5fTE9DS19VTkxPQ0tFRAogCX0K
+
+------_=_NextPart_001_01C559B3.D3672E87--
