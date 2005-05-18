@@ -1,40 +1,59 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 13 May 2005 16:56:36 +0000
-Subject: [RFC] Override CPE & CMC thresholding defaults
-Message-Id: <200505131656.j4DGuafS13337777@clink.americas.sgi.com>
+From: Prarit Bhargava <prarit@sgi.com>
+Date: Wed, 18 May 2005 13:41:04 +0000
+Subject: Re: [Pcihpd-discuss] Re: [PATCH 3/6]: hotplug/ia64: SN Hotplug Driver
+Message-Id: <428B45F0.6060002@sgi.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------030000030404050807090109"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-CPE (Corrected Processor Errors) and CMC (Corrected Machine Checks)
-handling has thresholding to prevent a burst of errors (such as a
-solid single bit) from overwhelming Linux with interrupts & logging
-overhead.  When the threshold is exceeded, linux goes into polling
-mode.  The values are currently hardcoded.
+This is a multi-part message in MIME format.
+--------------030000030404050807090109
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-#define MAX_CPE_POLL_INTERVAL (15*60*HZ) /* 15 minutes */
-#define MIN_CPE_POLL_INTERVAL (2*60*HZ)  /* 2 minutes */
-#define CMC_POLL_INTERVAL     (1*60*HZ)  /* 1 minute */
-#define CPE_HISTORY_LENGTH    5
-#define CMC_HISTORY_LENGTH    5
+Greg KH wrote:
+> On Thu, May 12, 2005 at 08:45:53PM -0400, Prarit Bhargava wrote:
+> 
+>>+EXPORT_SYMBOL(pci_find_next_bus);
+> 
+> 
+> EXPORT_SYMBOL_GPL() please.
+> 
+> greg k-h
+> 
 
-Those values may be appropriate for some configurations, but
-may not for others.  For example, a CPE threshold of 5 may
-be low for a system with 4 terabytes of memory.  Given the
-variety of system sizes, it may be difficult to agree on
-hardcoded defaults that fit all systems.
 
-One alternative would be /proc/sys/kernel/ entries, so
-that the default values could be overridden.  For example,
-/proc/sys/kernel/cpe_threshold would override the default
-CPE threshhold of 5.
+--------------030000030404050807090109
+Content-Type: text/plain;
+ name="pci_search.patch-3"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="pci_search.patch-3"
 
-Would there be any objection to creating /proc/sys/kernel/
-entries to override the hardcoded default values?
+The pci_find_next_bus function is listed as being exported to drivers.  It is
+not EXPORT_SYMBOL_GPL'd.
 
-Thanks,
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+Signed-off-by: Prarit Bhargava <prarit@sgi.com>
+
+---
+commit e294c434e2b07cd37bd92c4400ddc038bd1fb095
+tree 0074994b061b33a65ec96ee3a8058c4025162add
+parent efa92797b1020a20adb4c0b045026b5b096d18aa
+author Prarit Bhargava <prarit@sgi.com> 1810556612 -0400
+committer Prarit Bhargava <prarit@sgi.com> 1810556612 -0400
+
+Index: drivers/pci/search.c
+===================================================================
+--- 5dfad6510087f1d4f1a791920aafb924a855e5a2/drivers/pci/search.c  (mode:100644 sha1:a90a533eba0fc3f8c7b1b892c4d0b2b4fc159730)
++++ 0074994b061b33a65ec96ee3a8058c4025162add/drivers/pci/search.c  (mode:100644 sha1:11d450ab995e25838e36f34c067eb60006c8395a)
+@@ -379,6 +379,7 @@
+ EXPORT_SYMBOL(pci_dev_present);
+ 
+ EXPORT_SYMBOL(pci_find_bus);
++EXPORT_SYMBOL_GPL(pci_find_next_bus);
+ EXPORT_SYMBOL(pci_find_device);
+ EXPORT_SYMBOL(pci_find_device_reverse);
+ EXPORT_SYMBOL(pci_find_slot);
+
+--------------030000030404050807090109--
