@@ -1,7 +1,7 @@
 From: Rolf Eike Beer <eike-hotplug@sf-tec.de>
-Date: Wed, 18 May 2005 13:43:33 +0000
+Date: Wed, 18 May 2005 13:46:31 +0000
 Subject: Re: [Pcihpd-discuss] [PATCH 5/6]: hotplug/ia64: SN Hotplug Driver - SN Hotplug Driver code
-Message-Id: <200505181543.33888@bilbo.math.uni-mannheim.de>
+Message-Id: <200505181546.31848@bilbo.math.uni-mannheim.de>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200505131003.18143@bilbo.math.uni-mannheim.de>
 In-Reply-To: <200505131003.18143@bilbo.math.uni-mannheim.de>
@@ -11,51 +11,26 @@ Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 Prarit Bhargava wrote:
-> Greg KH wrote:
-> > On Tue, May 17, 2005 at 11:41:01AM -0400, Prarit Bhargava wrote:
-> >>Rolf Eike Beer wrote:
-> >>>>+	sprintf(bss_hotplug_slot->name, "module_%c%c%c%c%.2d_b_%d_s_%d",
-> >>>>+	 '0'+RACK_GET_CLASS(MODULE_GET_RACK(pcibus_info->pbi_moduleid)),
-> >>>>+	 '0'+RACK_GET_GROUP(MODULE_GET_RACK(pcibus_info->pbi_moduleid)),
-> >>>>+		'0'+RACK_GET_NUM(MODULE_GET_RACK(pcibus_info->pbi_moduleid)),
-> >>>>+		MODULE_GET_BTCHAR(pcibus_info->pbi_moduleid),
-> >>>>+		MODULE_GET_BPOS(pcibus_info->pbi_moduleid),
-> >>>>+		((int)pcibus_info->pbi_buscommon.bs_persist_busnum) & 0xf,
-> >>>>+		device + 1);
-> >>>
-> >>>*eek* Sorry, but that looks really ugly. Wouldn't it be enough do name
-> >>> it like the device that would be in slot, something like
-> >>> DOMAIN_BUS_SLOT and maybe one extra number?
-> >>
-> >>Unfortunately, yes, the longer name is prefered in this case.  The rack
-> >>class
-> >>ID, etc., are need to identify locations on the Altix platform.
+> Rolf Eike Beer wrote:
+
+> >>+	num_funcs = pci_scan_slot(slot->pci_bus, PCI_DEVFN(slot->device_num+1,
 > >
-> > No, use additional sysfs files if you need to export this kind of
-> > information to the user somehow.  I think IBM already does this in their
-> > drivers in a sane manner (so you might want to copy them, as they have
-> > already modified the userspace code to handle those sysfs files...)
+> > Add spaces before and after '+'. I don't feel good with this "+1" at all,
+> > this is some kind of strange.
 >
-> Okay -- I'll go with Eike's suggestion above.  D_B_S + 1 number.
-
-D_B_S alone should be a unique identifier, so please don't use anything more 
-if you don't need it to make the slot name unique.
-
-> >>>>+	if (action = PCI_REQ_SLOT_ELIGIBLE && rc = PCI_SLOT_ALREADY_DOWN) {
-> >>>
-> >>>I would feel better if you add extra braces around the tests, but I'm
-> >>>probably just a bit paranoid about this things. Greg?
-> >>
-> >>I was asked to remove the braces in an earlier version.  I too would
-> >> prefer to have them but am going with current comments on the code.
-> >
-> > Who asked you to remove the extra braces?  It was not me.  If you like
-> > them, please add them, I feel more comfortable with them too.
+> Aside from being used in the above calculation, the slot->device_num is
+> also a bitmask.  The 0th bit corresponds to the first device that is
+> active/inactive on a slot.
 >
-> Hrmm ... I can't remember.  But someone did definately tell me that they
-> were not required.
+> In the calculation above, the slot we're scanning is PCI_DEVFN(1,0) -- the
+> first device in the slot.
+>
+> I could flip things around and use slot->device_num to a one-based
+> calculation, but that leads to more "device_num - 1" statements than
+> "device_num" statements in the code.
 
-They are not required (at least not for the compiler). But brain v0.5 can 
-parse it much better if they are in there ;)
+So "+1" is the better way. Maybe you should write a big comment at the first 
+"device_num+1" what magic is going on there. It's likely that someone else 
+will come later and will not understand what's going on here, too.
 
 Eike
