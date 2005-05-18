@@ -1,39 +1,44 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Tue, 31 May 2005 00:26:59 +0000
-Subject: BigSur defconfig compilation fails 2.6.12-rc4 (was: tiger_defconfig build fails for 2.6.12-rc2-mm1)
-Message-Id: <17051.44883.692341.647737@wombat.chubb.wattle.id.au>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Wed, 18 May 2005 17:57:21 +0000
+Subject: [PATCH] ia64: Selectable Timer Interrupt Frequency
+Message-Id: <Pine.LNX.4.62.0505181053180.21019@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Rajesh" = Rajesh Shah <rajesh.shah@intel.com> writes:
+Patch applies on top of the i386/x86_64 frequency patch discussed
+at http://marc.theaimsgroup.com/?t1627646200004&r=1&w=2
+and in the mm tree now.
 
-Rajesh> In file included from drivers/firmware/pcdp.c:18:
-Rajesh> drivers/firmware/pcdp.h:48: error: field `addr' has incomplete type 
-Rajesh> drivers/firmware/pcdp.c: In function `setup_serial_console': 
-Rajesh> drivers/firmware/pcdp.c:27: error:  `ACPI_ADR_SPACE_SYSTEM_MEMORY' undeclared (first use in this  function) 
-Rajesh> drivers/firmware/pcdp.c:27: error: (Each undeclared identifier is reported only once 
-Rajesh> drivers/firmware/pcdp.c:27: error: for each function it appears in.) 
+It allows a selectable timer interrupt frequency of 100, 250 and 1000 HZ.
+Reducing the timer frequency may have important performance benefits on 
+large systems.
 
-Rajesh> KAMEZAWA Hiroyuki had posted this patch, and it fixes it for
-Rajesh> me too:
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-
-This patch is now needed to get a clean compile in mainline, too.
-
-diff -puN drivers/firmware/pcdp.c~cleanup drivers/firmware/pcdp.c
---- linux-2.6.12-rc2-mm1/drivers/firmware/pcdp.c~cleanup	2005-04-06 15:43:01.000000000 +0900
-+++ linux-2.6.12-rc2-mm1-kamezawa/drivers/firmware/pcdp.c	2005-04-06 15:43:24.000000000 +0900
-@@ -11,6 +11,7 @@
-  * published by the Free Software Foundation.
-  */
+Index: linux-2.6.12-rc4/arch/ia64/Kconfig
+=================================--- linux-2.6.12-rc4.orig/arch/ia64/Kconfig	2005-05-12 18:39:27.000000000 -0700
++++ linux-2.6.12-rc4/arch/ia64/Kconfig	2005-05-18 10:27:27.000000000 -0700
+@@ -157,6 +157,8 @@ config IA64_PAGE_SIZE_64KB
  
-+#include <linux/config.h>
- #include <linux/acpi.h>
- #include <linux/console.h>
- #include <linux/efi.h>
--- 
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+ endchoice
+ 
++source kernel/Kconfig.hz
++
+ config IA64_BRL_EMU
+ 	bool
+ 	depends on ITANIUM
+Index: linux-2.6.12-rc4/include/asm-ia64/param.h
+=================================--- linux-2.6.12-rc4.orig/include/asm-ia64/param.h	2005-03-01 23:38:09.000000000 -0800
++++ linux-2.6.12-rc4/include/asm-ia64/param.h	2005-05-18 10:26:45.000000000 -0700
+@@ -27,7 +27,7 @@
+    */
+ #  define HZ	  32
+ # else
+-#  define HZ	1024
++#  define HZ	CONFIG_HZ
+ # endif
+ # define USER_HZ	HZ
+ # define CLOCKS_PER_SEC	HZ	/* frequency at which times() counts */
