@@ -1,36 +1,64 @@
-From: Rusty Lynch <rusty.lynch@intel.com>
-Date: Tue, 24 May 2005 16:47:00 +0000
-Subject: [patch][ia64] Change break 0 notification string
-Message-Id: <200505241647.j4OGl0sK006514@linux.jf.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 20 May 2005 16:17:06 +0000
+Subject: libunwind patch for v2.6 kernel
+Message-Id: <200505201617.j4KGH6Vd023372@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Rusty Lynch <rusty.lynch@intel.com>, Keith Owens <kaos@sgi.com>
+To: linux-ia64@vger.kernel.org
 
-At the point in traps.c where we recieve a break with a zero value, we
-can not say if the break was a result of a kprobe or some other debug
-facility.
+I'm happy to announce that a first version of a libunwind-based ia64
+linux kernel is now available.  A patch relative to the current (May
+20th) GIT tree by Tony is now available at:
 
-This simple patch changes the informational string to a more correct
-"break 0" value, and applies to the 2.6.12-rc2-mm2 tree with all the 
-kprobes patches that were just recently included for the next mm cut.
+ ftp://ftp.hpl.hp.com/pub/linux-ia64/unwind-2.6-050520.diff.gz
 
-    --rusty
+The patch is ~80KB in size --- big enough that I didn't want to spam
+everybody's mailbox.
 
- arch/ia64/kernel/traps.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+From a user-perspective, this patch should make zero difference.  From
+a kernel-perspective, it provides the following advantages:
 
-Index: linux-2.6.12-rc4/arch/ia64/kernel/traps.c
-=================================--- linux-2.6.12-rc4.orig/arch/ia64/kernel/traps.c
-+++ linux-2.6.12-rc4/arch/ia64/kernel/traps.c
-@@ -133,7 +133,7 @@ ia64_bad_break (unsigned long break_num,
- 
- 	switch (break_num) {
- 	      case 0: /* unknown error (used by GCC for __builtin_abort()) */
--		if (notify_die(DIE_BREAK, "kprobe", regs, break_num, TRAP_BRKPT, SIGTRAP)
-+		if (notify_die(DIE_BREAK, "break 0", regs, break_num, TRAP_BRKPT, SIGTRAP)
- 			       	= NOTIFY_STOP) {
- 			return;
- 		}
+ - Same API as for user-level libunwind.
+	o Makes for easier learning.
+	o Gets rid of difficult-to-use unw_init_running() in favor
+	  of a much simpler unw_getcontext()/unw_local_init()
+	  (take a look at process.c to see how much this simplifies
+	   things).
+	o The state-model is MUCH simpler: the register state simply
+	  corresponds to the instruction at which IP points; no need
+	  to make confusing distinctions between frame registers,
+	  preserved registers, etc.
+
+ - 99% of the code is shared with user-level libunwind.
+	o Makes for much easier code-maintainenance.
+	o Kernel unwinder benefits from the stringent testing
+	  done at the user-level.
+
+ - Libunwind is architecture-independent so it could potentially be
+   enabled on other architectures, such as PA-RISC, Alpha, and
+   x86/x86-64.
+
+ - Libunwind supports multiple register backing-stores, which should
+   make it possible to clean up the MCA code significantly, as we
+   discussed earlier.
+
+I should warn that this is still a work-in-progress and not meant for
+inclusion in the official tree just yet.  Having said that, I tested
+INIT dumps, core-dumps, wait-channels, and ran the gdb test-suite with
+no regressions.  On the other hand, I know that stracing an x86
+program doing a fork currently hangs, so there is at least one bug
+still lurking out there.  Also, I expect some more code-factoring to
+happen, especially if support for other architectures were to be added
+(PA-RISC and Alpha are probably the most obvious candidates).  I
+haven't done any performance-measurements yet.  Eventually, I expect
+libunwind to perform about the same as the current kernel-unwinder but
+at the moment a lot of debug-code is enabled.
+
+If you take a look or give it a whirl, please let me know what you
+think.
+
+Thanks,
+
+	--david
