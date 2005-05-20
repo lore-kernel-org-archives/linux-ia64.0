@@ -1,62 +1,127 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Date: Tue, 31 May 2005 21:58:22 +0000
-Subject: RE: [patch 0/4] ia64 SPARSEMEM
-Message-Id: <1117576702.20180.70.camel@localhost>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Fri, 20 May 2005 14:17:51 +0000
+Subject: Re: flush_icache_range
+Message-Id: <428DF18F.8040600@bull.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------010501030701050302080008"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050523175031.GC2783@localhost.localdomain>
-In-Reply-To: <20050523175031.GC2783@localhost.localdomain>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <4236D7B5.8050408@bull.net>
+In-Reply-To: <4236D7B5.8050408@bull.net>
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2005-05-31 at 14:41 -0700, Luck, Tony wrote:
-> >* It has good tlb behavior.
-> True ... definitely better than VIRTUAL_MEM_MAP. But what effect does
-> this have on system level performance?
+This is a multi-part message in MIME format.
+--------------010501030701050302080008
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii; format=flowed
 
-It slightly improves performance on everything I've run it on, at least
-compared to discontigmem.  That means a few ppc64 configurations, x86
-summit, and NUMAQ.
+Here is a small patch that flushes the i-cache 64 bytes
+by 64 bytes on Itanium 2 (or +).
 
-> >* It is faster and has a lower icache footprint than existing
-> >  discontigmem implementations.
-> Did I miss some benchmark results?
+Some measures on a Tiger box with the indicated CPU-s:
 
-I've posted them a few times.  The gain is somewhere in the 1-2% on
-NUMAQ.  Nothing substantial.
+processor  : 0
+vendor     : GenuineIntel
+arch       : IA-64
+family     : Itanium 2
+model      : 1
+revision   : 5
+archrev    : 0
+features   : branchlong
+cpu number : 0
+cpu regs   : 4
+cpu MHz    : 1296.439995
+itc MHz    : 1296.439995
+BogoMIPS   : 1941.96
+etc...
 
-I can dig the results up again, but they're going to mean close to
-nothing on your hardware.  I'd suggest running it yourself, and seeing
-exactly how it behaves.
+Flushing a page of 64 Kbytes (the others do not do anything,
+they have not got anything about my data on their caches):
 
-> >* On a theoretical 16TB ppc64 system with 16MB sections, the overhead of
-> >  the mem_section[] table is 8MB.
-> Back to the "somewhat sparse" arguments of point #1. In fact this theoretical
-> system isn't "sparse" at all!
+With a 32-byte stride:
 
-Well, the overhead is still 8MB, even if the system only has 32MB:
-16MB@0 and 16MB@(1TB-16MB).  That's pretty sparse.
+Modified in d-cache: cycles = 215 K, time = 169 usec
+Valid:               cycles = 222 K, time = 171 usec
+Invalid:             cycles = 222 K, time = 171 usec
 
-In any case, I agree that the current code isn't optimal across all ia64
-platforms.  But, I don't think we're seriously tied to that single, flat
-array.  It's just the easiest way to do it for now.
+Note that for the dirty case, only the 1st flush causes a write-
+back from the L2 / L3 caches, the 3 other flushes find the cache
+entries invalid in the L2 / L3 caches.
 
-> >Also, nothing seriously confines us to a flat array of mem_sections,
-> >that's just the only implementation right now.  The pagetables that are
-> >walked in the TLB miss handler (for vmem_map[]) could just as easily be
-> >a set of two-level mem_section tables that are walked in software.  That
-> >just adds an extra load to the pfn_to_page() path.  Plus, if somebody
->  ^^^^^^^^^^^^^^^^^^^^^^^
-> >does this, all sparsemem architectures can benefit.
-> 
-> What would the performance impacts of this extra load be? pfn_to_page()
-> appears to be a pretty common operation.
+With a 64-byte stride:
 
-On a normal, x86 flatmem system there's a single load to do
-pfn_to_page() from *mem_map.  With today's sparsemem, that goes to two
-loads (page->flags and mem_section[section]).  I haven't been able to
-measure the effect of this extra load on any macro-benchmarks.
+Modified in d-cache: cycles = 63 K, time = 49 usec
+Valid:               cycles = 116 K, time = 89 usec
+Invalid:             cycles = 116 K, time = 89 usec
 
--- Dave
+It is funny to see that the dirty lines can be flushed more
+efficiently. I guess the CPU knows in such a case that the others
+cannot have anything to flush, the flush request may not even be
+issued to the other CPU-s.
 
+I also tried to issue more than one flush per loop-body
+iteration, it did not help.
+
+Thanks,
+
+Zoltan
+
+
+--------------010501030701050302080008
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+ name="diff"
+Content-Disposition: inline;
+ filename="diff"
+
+diff -Nru linux-2.6.11-old/arch/ia64/lib/flush.S linux-2.6.11/arch/ia64/lib/flush.S
+--- linux-2.6.11-old/arch/ia64/lib/flush.S	2005-05-20 15:26:18.330498876 +0200
++++ linux-2.6.11/arch/ia64/lib/flush.S	2005-05-20 15:28:25.639091067 +0200
+@@ -7,6 +7,23 @@
+ #include <asm/asmmacro.h>
+ #include <asm/page.h>
+ 
++
++/*
++ * Note that "L1_CACHE_SHIFT" and "L1_CACHE_BYTES" defined in
++ * include/asm-ia64/cache.h are not what their names suggest.
++ * They actually defines the cache line size for L2.
++ *
++ * We have to flush the L1 i-cache, too.
++ */
++#if	defined(CONFIG_ITANIUM)
++#define L1_CACHE_SHIFT	5
++#else
++#define L1_CACHE_SHIFT	6
++#endif
++
++#define	L1_CACHE_BYTES	(1 << L1_CACHE_SHIFT)
++
++
+ 	/*
+ 	 * flush_icache_range(start,end)
+ 	 *	Must flush range from start to end-1 but nothing else (need to
+@@ -17,7 +34,7 @@
+ 	alloc r2=ar.pfs,2,0,0,0
+ 	sub r8=in1,in0,1
+ 	;;
+-	shr.u r8=r8,5			// we flush 32 bytes per iteration
++	shr.u r8=r8,L1_CACHE_SHIFT	// we flush L1_CACHE_BYTES bytes per iteration
+ 	.save ar.lc, r3
+ 	mov r3=ar.lc			// save ar.lc
+ 	;;
+@@ -26,8 +43,12 @@
+ 
+ 	mov ar.lc=r8
+ 	;;
++#if	defined(CONFIG_ITANIUM)
+ .Loop:	fc in0				// issuable on M0 only
+-	add in0=32,in0
++#else
++.Loop:	fc.i in0
++#endif
++	add in0=L1_CACHE_BYTES,in0
+ 	br.cloop.sptk.few .Loop
+ 	;;
+ 	sync.i
+
+--------------010501030701050302080008--
