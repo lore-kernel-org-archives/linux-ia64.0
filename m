@@ -1,51 +1,28 @@
-From: "Zhang, Yanmin" <yanmin.zhang@intel.com>
-Date: Mon, 23 May 2005 00:47:06 +0000
-Subject: [PATCH] sys_mmap doesn't follow posix.1 when parameter len=0
-Message-Id: <8126E4F969BA254AB43EA03C59F44E840222BCA7@pdsmsx404>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C55F31.55AC374D"
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Wed, 25 May 2005 22:55:36 +0000
+Subject: Re: [PATCH] sys_mmap doesn't follow posix.1 when parameter len=0
+Message-Id: <17045.616.536742.996274@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <8126E4F969BA254AB43EA03C59F44E840222BCA7@pdsmsx404>
+In-Reply-To: <8126E4F969BA254AB43EA03C59F44E840222BCA7@pdsmsx404>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
+>>>>> On Mon, 23 May 2005 08:47:06 +0800, "Zhang, Yanmin" <yanmin.zhang@intel.com> said:
 
-------_=_NextPart_001_01C55F31.55AC374D
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+  Yanmin> In IA64 kernel, sys_mmap calls do_mmap2 and do_mmap2 returns
+  Yanmin> addr if len=0, which means the mmap sys call succeeds.
 
-In IA64 kernel, sys_mmap calls do_mmap2 and do_mmap2 returns addr if
-len=3D0, which means the mmap sys call succeeds.
+  Yanmin> Posix.1 says: The mmap() function shall fail if: [EINVAL]
+  Yanmin> The value of len is zero.
 
-Posix.1 says:
-The mmap() function shall fail if:
-[EINVAL]=20
-The value of len is zero.=20
+  Yanmin> Here is a patch to fix it.
 
-Here is a patch to fix it.
+  Yanmin> Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
 
-Signed-off-by: Zhang Yanmin <yanmin.zhang@intel.com>
+Looks like Gordon Jin changed mm/mmap.c to be POSIX compliant back in
+March 2005 but didn't update the ia64 code.  Looks fine to me.
 
- <<do_mmap2_zero_len_2.6.12_rc4.patch>>=20
-
-------_=_NextPart_001_01C55F31.55AC374D
-Content-Type: application/octet-stream;
-	name="do_mmap2_zero_len_2.6.12_rc4.patch"
-Content-Transfer-Encoding: base64
-Content-Description: do_mmap2_zero_len_2.6.12_rc4.patch
-Content-Disposition: attachment;
-	filename="do_mmap2_zero_len_2.6.12_rc4.patch"
-
-ZGlmZiAtTnJhdXAgbGludXgtMi42LjEyLXJjNC9hcmNoL2lhNjQva2VybmVsL3N5c19pYTY0LmMg
-bGludXgtMi42LjEyLXJjNF9maXgvYXJjaC9pYTY0L2tlcm5lbC9zeXNfaWE2NC5jCi0tLSBsaW51
-eC0yLjYuMTItcmM0L2FyY2gvaWE2NC9rZXJuZWwvc3lzX2lhNjQuYwkyMDA1LTA1LTEzIDE0OjE0
-OjEzLjAwMDAwMDAwMCArMDgwMAorKysgbGludXgtMi42LjEyLXJjNF9maXgvYXJjaC9pYTY0L2tl
-cm5lbC9zeXNfaWE2NC5jCTIwMDUtMDUtMjAgMTM6MTA6MzIuMDAwMDAwMDAwICswODAwCkBAIC0x
-ODIsMTMgKzE4Miw2IEBAIGRvX21tYXAyICh1bnNpZ25lZCBsb25nIGFkZHIsIHVuc2lnbmVkIGwK
-IAkJfQogCX0KIAotCS8qCi0JICogQSB6ZXJvIG1tYXAgYWx3YXlzIHN1Y2NlZWRzIGluIExpbnV4
-LCBpbmRlcGVuZGVudCBvZiB3aGV0aGVyIG9yIG5vdCB0aGUKLQkgKiByZW1haW5pbmcgYXJndW1l
-bnRzIGFyZSB2YWxpZC4KLQkgKi8KLQlpZiAobGVuID09IDApCi0JCWdvdG8gb3V0OwotCiAJLyog
-Q2FyZWZ1bCBhYm91dCBvdmVyZmxvd3MuLiAqLwogCWxlbiA9IFBBR0VfQUxJR04obGVuKTsKIAlp
-ZiAoIWxlbiB8fCBsZW4gPiBUQVNLX1NJWkUpIHsK
-
-------_=_NextPart_001_01C55F31.55AC374D--
+	--david
