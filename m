@@ -1,28 +1,74 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Mon, 16 May 2005 22:19:20 +0000
-Subject: [patch] Make Altix SAL call to POD reentrant
-Message-Id: <200505162219.j4GMJKPS13711736@clink.americas.sgi.com>
+From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Date: Thu, 26 May 2005 21:25:39 +0000
+Subject: Kprobes IA64 check jprobe break before handling
+Message-Id: <20050526142539.A24770@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, anil.s.keshavamurthy@intel.com, Rusty Lynch <rusty.lynch@intel.com>, systemtap@sources.redhat.com
 
-Change the SAL call for POD mode to be reentrant.
-This change is SN specific.
+From: anil.s.keshavamurthy@intel.com
+Subject: Kprobes IA64 check jprobe break before handling
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+Once the jprobe instrumented function returns, it executes
+a jprobe_break which is a break instruction with
+__IA64_JPROBE_BREAK value. The current patch checks for
+this break value, before assuming that jprobe 
+instrumented function just completed.
 
----------------------------------------------------------
-Index: linux-2.6/include/asm-ia64/sn/sn_sal.h
-=================================--- linux-2.6.orig/include/asm-ia64/sn/sn_sal.h	2005-05-16 17:12:15.945378195 -0500
-+++ linux-2.6/include/asm-ia64/sn/sn_sal.h	2005-05-16 17:13:30.769852426 -0500
-@@ -472,7 +472,7 @@
- ia64_sn_pod_mode(void)
+The previous code was not checking for this value and
+that was a bug.
+
+
+Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+=================================
+
+ arch/ia64/kernel/kprobes.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
+
+Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+@@ -284,10 +284,11 @@ static void prepare_ss(struct kprobe *p,
+ 	ia64_psr(regs)->ss = 1;
+ }
+ 
+-static int pre_kprobes_handler(struct pt_regs *regs)
++static int pre_kprobes_handler(struct die_args *args)
  {
- 	struct ia64_sal_retval isrv;
--	SAL_CALL(isrv, SN_SAL_POD_MODE, 0, 0, 0, 0, 0, 0, 0);
-+	SAL_CALL_REENTRANT(isrv, SN_SAL_POD_MODE, 0, 0, 0, 0, 0, 0, 0);
- 	if (isrv.status)
- 		return 0;
- 	return isrv.v0;
+ 	struct kprobe *p;
+ 	int ret = 0;
++	struct pt_regs *regs = args->regs;
+ 	kprobe_opcode_t *addr = (kprobe_opcode_t *)instruction_pointer(regs);
+ 
+ 	preempt_disable();
+@@ -302,7 +303,7 @@ static int pre_kprobes_handler(struct pt
+ 			}
+ 			arch_disarm_kprobe(p);
+ 			ret = 1;
+-		} else {
++		} else if (args->err = __IA64_BREAK_JPROBE) {
+ 			/*
+ 			 * jprobe instrumented function just completed
+ 			 */
+@@ -310,6 +311,9 @@ static int pre_kprobes_handler(struct pt
+ 			if (p->break_handler && p->break_handler(p, regs)) {
+ 				goto ss_probe;
+ 			}
++		} else {
++			/* Not our break */
++			goto no_kprobe;
+ 		}
+ 	}
+ 
+@@ -380,7 +384,7 @@ int kprobe_exceptions_notify(struct noti
+ 	struct die_args *args = (struct die_args *)data;
+ 	switch(val) {
+ 	case DIE_BREAK:
+-		if (pre_kprobes_handler(args->regs))
++		if (pre_kprobes_handler(args))
+ 			return NOTIFY_STOP;
+ 		break;
+ 	case DIE_SS:
