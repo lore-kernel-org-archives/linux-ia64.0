@@ -1,7 +1,7 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Tue, 24 May 2005 16:27:39 +0000
-Subject: Re: [patch 0/4] ia64 SPARSEMEM
-Message-Id: <20050524162739.GA11224@localhost.localdomain>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Thu, 26 May 2005 00:32:54 +0000
+Subject: RE: [patch 0/4] ia64 SPARSEMEM
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F038D0531@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050523175031.GC2783@localhost.localdomain>
 In-Reply-To: <20050523175031.GC2783@localhost.localdomain>
@@ -10,49 +10,32 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:	[Mon May 23 2005, 11:29:47PM EDT]
-> >>>>> On Mon, 23 May 2005 13:50:31 -0400, Bob Picco <bob.picco@hp.com> said:
-> 
->   Bob> Ultimately I would like to eliminate [...] VIRTUAL_MEM_MAP.
-> 
-> Why?
-> 
-> Considering this:
-> 
-> +#ifdef CONFIG_SPARSEMEM
-> + /*
-> + * SECTION_SIZE_BITS            2^N: how big each section will be
-> + * MAX_PHYSADDR_BITS            2^N: how much physical address space we have
-> + * MAX_PHYSMEM_BITS             2^N: how much memory we can have in that space
-> + */
-> 
-> The virtual mem-map seems like a much nicer solution to me.
-> 
-> 	--david
-> -
-Hi David,
 
-I don't perceive VIRTUAL_MEM_MAP as a nicer solution.  Actually SPARSEMEM
-is a very elegant solution for memory holes and hotplug memory.
+>+#ifdef CONFIG_SPARSEMEM
+>+ /*
+>+ * SECTION_SIZE_BITS            2^N: how big each section will be
+>+ * MAX_PHYSADDR_BITS            2^N: how much physical address space we have
+>+ * MAX_PHYSMEM_BITS             2^N: how much memory we can have in that space
+>+ */
 
-VIRTUAL_MEM_MAP accommodates the physical holes in memory for ia64. This is 
-achieved allocating a contiguous virtual region to cover the minimum
-and maximum page structures on node.  The page struct array is stored in
-node_mem_map of pglist_data for each node.  page structs that represent
-holes in memory and span a page of physical memory aren't allocated. 
-CONFIG_HOLES_IN_ZONE in bad_range and calls to ia64_pfn_valid are used to detect
-these holes when in buddy allocator.
+MAX_PHYSADDR_BITS is apparently never used ... what's the distinction
+between it and MAX_PHYSMEM_BITS?  From the comments, I'd guess that you
+really meant to use MAX_PHYSADDR_BITS in this:
 
-SPARSEMEM carves memory into 1<<SECTION_SIZE_BITS. Any section entirely 
-consumed by a hole is marked as invalid.  A section with holes and memory 
-results in the holes being reserved pages.  SPARSEMEM eliminates 
-CONFIG_HOLES_IN_ZONE and ia64_pfn_valid.  
+#define SECTIONS_SHIFT          (MAX_PHYSMEM_BITS - SECTION_SIZE_BITS)
 
-So AFAICS DISCONTIG_MEM+VIRTUAL_MEM_MAP won't provide any advantage should
-SPARSEMEM perform as well or better. We could eventually reduce ia64 memory 
-Kconfig complexity and code in ia64 mm directory significantly.  This could
-all be a pipe dream should performance not win out.  
+Pursuing Jack Steiner's line of questioning on how this works for
+the SGI Altix ... it would appear that he will need to use 50 for
+MAX_PHYSMEM_BITS, and probably 32 for SECTION_SIZE_BITS (but maybe
+a smaller number ... his banks of memory all start on 4G boundaries,
+but could be as small as 1G ... can you have a chunk with an empty
+tail?).  So SGI will end up with 2^(50-32) = 256K entries in mem_section[]
+(or perhaps 4x that if sections must be fully populated).  All allocated
+on the boot node ... and perhaps consuming a significant portion of
+the kernel memory mapped by dtr[0].
 
-thanks,
 
-bob
+It will be interesting to see performance numbers on how this compares
+with against VIRTUAL_MEM_MAP ... trading cache misses vs. TLB misses.
+
+-Tony
