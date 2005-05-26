@@ -1,37 +1,55 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 17 May 2005 20:53:51 +0000
-Subject: RE: heads up: apparent GAS bug in current (CVS) binutils
-Message-Id: <17034.23007.15150.37795@napali.hpl.hp.com>
+From: Rusty Lynch <rusty.lynch@intel.com>
+Date: Thu, 26 May 2005 17:51:45 +0000
+Subject: [patch] Kprobes ia64 qp fix
+Message-Id: <200505261751.j4QHpjei009076@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200505122155.j4CLteGX024882@napali.hpl.hp.com>
-In-Reply-To: <200505122155.j4CLteGX024882@napali.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Rusty Lynch <rusty.lynch@intel.com>
 
->>>>> On Tue, 17 May 2005 13:48:51 -0700, "Luck, Tony" <tony.luck@intel.com> said:
+The following patch is for the 2.6.12-rc5-mm1 + my previous
+"Kprobes ia64 cleanup" patch that fixes a bug where a kprobe still 
+fires when the instruction is predicated off.  So given the p6=0, 
+and we have an instruction like:
 
-  >> +++ linux/arch/ia64/kernel/smpboot.c	2005-05-13 
-  >> -struct pt_regs * __devinit idle_regs(struct pt_regs *regs)
-  >> +struct pt_regs *
-  >> +__devinit __comdatfunc (idle_regs)
-  >> +idle_regs(struct pt_regs *regs)
+(p6) move loc1=0
 
-  >> +++ linux/kernel/fork.c	2005-05-13 13:19:40.000000000 -0700
-  >> -struct pt_regs * __devinit __attribute__((weak)) 
-  >> idle_regs(struct pt_regs *regs)
-  >> +struct pt_regs *
-  >> +__devinit __comdatfunc (idle_regs)
-  >> +idle_regs(struct pt_regs *regs)
+we should not be triggering the kprobe.  This is handled by carrying over
+the qp section of the original instruction into the break instruction.
 
-  Tony> So is there some deeper magic that I don't understand, or is this
-  Tony> wrong?  After this patch is applied, both of these definitions look
-  Tony> identical to me.  So how does the linker know which one to use?
+    --rusty
 
-Please do not apply this patch.  The bug is in the toolchain.
-(The kernel may be ugly in this corner and we may want to fix
-that by getting rid of the weak definitions but that issue is
-entirely independent of the toolchain bug.)
+signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
 
-	--david
+ arch/ia64/kernel/kprobes.c |    6 +++---
+ 1 files changed, 3 insertions(+), 3 deletions(-)
+
+Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+@@ -115,19 +115,19 @@ int arch_prepare_kprobe(struct kprobe *p
+ 	case 0:
+  		major_opcode = (bundle->quad0.slot0 >> SLOT0_OPCODE_SHIFT);
+  		kprobe_inst = bundle->quad0.slot0;
+-		bundle->quad0.slot0 = BREAK_INST;
++		bundle->quad0.slot0 = BREAK_INST | (0x3f & kprobe_inst);
+ 		break;
+ 	case 1:
+  		major_opcode = (bundle->quad1.slot1_p1 >> SLOT1_p1_OPCODE_SHIFT);
+  		kprobe_inst = (bundle->quad0.slot1_p0 |
+  				(bundle->quad1.slot1_p1 << (64-46)));
+-		bundle->quad0.slot1_p0 = BREAK_INST;
++		bundle->quad0.slot1_p0 = BREAK_INST | (0x3f & kprobe_inst);
+ 		bundle->quad1.slot1_p1 = (BREAK_INST >> (64-46));
+ 		break;
+ 	case 2:
+  		major_opcode = (bundle->quad1.slot2 >> SLOT2_OPCODE_SHIFT);
+  		kprobe_inst = bundle->quad1.slot2;
+-		bundle->quad1.slot2 = BREAK_INST;
++		bundle->quad1.slot2 = BREAK_INST | (0x3f & kprobe_inst);
+ 		break;
+ 	}
+ 
