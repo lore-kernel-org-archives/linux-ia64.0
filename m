@@ -1,140 +1,275 @@
-From: Monica Correa <mcorrea@inf.pucrs.br>
-Date: Fri, 27 May 2005 17:10:05 +0000
-Subject: [Fwd: Re: ia64 sched-domains initialisation]
-Message-Id: <4297546D.6040807@inf.pucrs.br>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------ms080101000708070306090608"
+From: Rusty Lynch <rusty.lynch@intel.com>
+Date: Thu, 26 May 2005 17:45:22 +0000
+Subject: [patch] Kprobes ia64 cleanup
+Message-Id: <200505261745.j4QHjMqx008858@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-This is a cryptographically signed message in MIME format.
-
---------------ms080101000708070306090608
-Content-Type: text/plain; charset=ISO-8859-6; format=flowed
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: akpm@osdl.org
+Cc: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Rusty Lynch <rusty.lynch@intel.com>
 
+The following 2.6.12-rc5-mm1 patch is a cleanup of the ia64 kprobes
+implementation such that all of the bundle manipulation logic is 
+concentrated in arch_prepare_kprobe(). 
 
-Hi Jesse and Xavier,
+With the current design for kprobes, the arch specific code only
+has a chance to return failure inside the arch_prepare_kprobe() 
+function.
 
-  Since last February we have implemented a patch for Linux that 
-considers the number of levels a NUMA computer has. We build the sched 
-domains based on the number of levels, which we extract from the SLIT 
-table. We have tested our code on a HP Superdome computer, and we are 
-willing to share it with someone that would try it. We didn't share it 
-before because we could not test our patch in a bigger machine. The 
-machine we have access to is a 1 NUMA level.
+This patch moves all of the work that was happening in arch_copy_kprobe()
+and most of the work that was happening in arch_arm_kprobe() into
+arch_prepare_kprobe().  By doing this we can add further robustness checks
+in arch_arm_kprobe() and refuse to insert kprobes that will cause problems.
 
-  Further, we modelled our strategy using analytical models and 
-simulation and the results we got are promissing. You can find our patch 
-and copies of two papers that describe our strategy in the following 
-address:  http://www.inf.pucrs.br/~peso/loadBalancerEng.htm. We are 
-preparing a paper on the simulation results we got (if you would like to 
-get a copy of the unfinished version of this paper, we can send it 
-directly to you).
+    --rusty
 
-  It would be nice if you could give us some feedback on our approach.
+signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
+Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
 
-  Monica Correa
+ arch/ia64/kernel/kprobes.c |  178 +++++++++++++++++++--------------------------
+ include/asm-ia64/kprobes.h |    7 +
+ 2 files changed, 84 insertions(+), 101 deletions(-)
 
-Jesse Barnes wrote:
-
->On Friday, May 27, 2005 8:57 am, Xavier Bru wrote:
->  
->
->>An other alternative is using the node_distance() that comes from the
->>SLIT to build the sched domains instead of using
->>SD_NODES_PER_DOMAIN on the platform.
->>    
->>
->
->This option seems like the way to go.  The size is far from optimally 
->tuned as well, benchmarking is needed (unless we want boot time 
->heuristics to determine the sched domain layout).
->
->  
->
->>The following patch sets SD_NODES_PER_DOMAIN as a config/boot
->>parameter, and when the value is 0 uses the node_distance to build
->>the sched domains.
->>    
->>
->
->Maybe you could make that the default behavior?
->
->Jesse
->-
->To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->
->  
->
-
---------------ms080101000708070306090608
-Content-Type: application/x-pkcs7-signature; name="smime.p7s"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="smime.p7s"
-Content-Description: S/MIME Cryptographic Signature
-
-MIAGCSqGSIb3DQEHAqCAMIACAQExCzAJBgUrDgMCGgUAMIAGCSqGSIb3DQEHAQAAoIII9TCC
-AtUwggI+oAMCAQICAw0/hDANBgkqhkiG9w0BAQQFADBiMQswCQYDVQQGEwJaQTElMCMGA1UE
-ChMcVGhhd3RlIENvbnN1bHRpbmcgKFB0eSkgTHRkLjEsMCoGA1UEAxMjVGhhd3RlIFBlcnNv
-bmFsIEZyZWVtYWlsIElzc3VpbmcgQ0EwHhcNMDQxMDE4MTMwODQzWhcNMDUxMDE4MTMwODQz
-WjBGMR8wHQYDVQQDExZUaGF3dGUgRnJlZW1haWwgTWVtYmVyMSMwIQYJKoZIhvcNAQkBFhRt
-Y29ycmVhQGluZi5wdWNycy5icjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALbO
-QVy8UowPClJ69O66YubEh80qg1nDqVY4ph0CfkdThKLWUoLA8yrtI2riP4YrqFPbFsTzxu99
-hrW08HHM71WRTeZhIaRQUFdaDTofkC5snF29vmob8Ylac/sPWhqlfaZJr9Ed/zkYXOEtTb8X
-ZLapyuZIWUDZrZ/0WioEWw9gevSU3dp8wXlbqZifboTRypYyFyN7lxvOggn55DCfBZy/Lc2s
-HeDLoljcavC3xrNSoR20qXbirPN7+ZrHKLhyVuWKYpamj9poYvfvsWh5fYqyUkdT14skx1bj
-WwKM2WG31NbafmvxyGRvoQQcSmZCuE/LvzbSCtL0hqrggrUSOAsCAwEAAaMxMC8wHwYDVR0R
-BBgwFoEUbWNvcnJlYUBpbmYucHVjcnMuYnIwDAYDVR0TAQH/BAIwADANBgkqhkiG9w0BAQQF
-AAOBgQA6bsgQOY5spnpaPx91SaYso9lN3y+rlV96nHK3AsUA4BkOldJsmXSL9jwZh1jKnVca
-kCZ4xc4kQVpNfWDZQ01oCc3hpc4bp7w8P4x5EHBQevcCjixDQrZQ7ltt8MlBGKw/I/Zt/WKU
-DaW8LMyx1lkJEgo/xMchdPjd5txPhouSvjCCAtUwggI+oAMCAQICAw0/hDANBgkqhkiG9w0B
-AQQFADBiMQswCQYDVQQGEwJaQTElMCMGA1UEChMcVGhhd3RlIENvbnN1bHRpbmcgKFB0eSkg
-THRkLjEsMCoGA1UEAxMjVGhhd3RlIFBlcnNvbmFsIEZyZWVtYWlsIElzc3VpbmcgQ0EwHhcN
-MDQxMDE4MTMwODQzWhcNMDUxMDE4MTMwODQzWjBGMR8wHQYDVQQDExZUaGF3dGUgRnJlZW1h
-aWwgTWVtYmVyMSMwIQYJKoZIhvcNAQkBFhRtY29ycmVhQGluZi5wdWNycy5icjCCASIwDQYJ
-KoZIhvcNAQEBBQADggEPADCCAQoCggEBALbOQVy8UowPClJ69O66YubEh80qg1nDqVY4ph0C
-fkdThKLWUoLA8yrtI2riP4YrqFPbFsTzxu99hrW08HHM71WRTeZhIaRQUFdaDTofkC5snF29
-vmob8Ylac/sPWhqlfaZJr9Ed/zkYXOEtTb8XZLapyuZIWUDZrZ/0WioEWw9gevSU3dp8wXlb
-qZifboTRypYyFyN7lxvOggn55DCfBZy/Lc2sHeDLoljcavC3xrNSoR20qXbirPN7+ZrHKLhy
-VuWKYpamj9poYvfvsWh5fYqyUkdT14skx1bjWwKM2WG31NbafmvxyGRvoQQcSmZCuE/LvzbS
-CtL0hqrggrUSOAsCAwEAAaMxMC8wHwYDVR0RBBgwFoEUbWNvcnJlYUBpbmYucHVjcnMuYnIw
-DAYDVR0TAQH/BAIwADANBgkqhkiG9w0BAQQFAAOBgQA6bsgQOY5spnpaPx91SaYso9lN3y+r
-lV96nHK3AsUA4BkOldJsmXSL9jwZh1jKnVcakCZ4xc4kQVpNfWDZQ01oCc3hpc4bp7w8P4x5
-EHBQevcCjixDQrZQ7ltt8MlBGKw/I/Zt/WKUDaW8LMyx1lkJEgo/xMchdPjd5txPhouSvjCC
-Az8wggKooAMCAQICAQ0wDQYJKoZIhvcNAQEFBQAwgdExCzAJBgNVBAYTAlpBMRUwEwYDVQQI
-EwxXZXN0ZXJuIENhcGUxEjAQBgNVBAcTCUNhcGUgVG93bjEaMBgGA1UEChMRVGhhd3RlIENv
-bnN1bHRpbmcxKDAmBgNVBAsTH0NlcnRpZmljYXRpb24gU2VydmljZXMgRGl2aXNpb24xJDAi
-BgNVBAMTG1RoYXd0ZSBQZXJzb25hbCBGcmVlbWFpbCBDQTErMCkGCSqGSIb3DQEJARYccGVy
-c29uYWwtZnJlZW1haWxAdGhhd3RlLmNvbTAeFw0wMzA3MTcwMDAwMDBaFw0xMzA3MTYyMzU5
-NTlaMGIxCzAJBgNVBAYTAlpBMSUwIwYDVQQKExxUaGF3dGUgQ29uc3VsdGluZyAoUHR5KSBM
-dGQuMSwwKgYDVQQDEyNUaGF3dGUgUGVyc29uYWwgRnJlZW1haWwgSXNzdWluZyBDQTCBnzAN
-BgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAxKY8VXNV+065yplaHmjAdQRwnd/p/6Me7L3N9Vvy
-Gna9fww6YfK/Uc4B1OVQCjDXAmNaLIkVcI7dyfArhVqqP3FWy688Cwfn8R+RNiQqE88r1fOC
-dz0Dviv+uxg+B79AgAJk16emu59l0cUqVIUPSAR/p7bRPGEEQB5kGXJgt/sCAwEAAaOBlDCB
-kTASBgNVHRMBAf8ECDAGAQH/AgEAMEMGA1UdHwQ8MDowOKA2oDSGMmh0dHA6Ly9jcmwudGhh
-d3RlLmNvbS9UaGF3dGVQZXJzb25hbEZyZWVtYWlsQ0EuY3JsMAsGA1UdDwQEAwIBBjApBgNV
-HREEIjAgpB4wHDEaMBgGA1UEAxMRUHJpdmF0ZUxhYmVsMi0xMzgwDQYJKoZIhvcNAQEFBQAD
-gYEASIzRUIPqCy7MDaNmrGcPf6+svsIXoUOWlJ1/TCG4+DYfqi2fNi/A9BxQIJNwPP2t4WFi
-w9k6GX6EsZkbAMUaC4J0niVQlGLH2ydxVyWN3amcOY6MIE9lX5Xa9/eH1sYITq726jTlEBpb
-NU1341YheILcIRk13iSx0x1G/11fZU8xggM7MIIDNwIBATBpMGIxCzAJBgNVBAYTAlpBMSUw
-IwYDVQQKExxUaGF3dGUgQ29uc3VsdGluZyAoUHR5KSBMdGQuMSwwKgYDVQQDEyNUaGF3dGUg
-UGVyc29uYWwgRnJlZW1haWwgSXNzdWluZyBDQQIDDT+EMAkGBSsOAwIaBQCgggGnMBgGCSqG
-SIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTA1MDUyNzE3MTAwNVowIwYJ
-KoZIhvcNAQkEMRYEFJ0sM6VLX4oX9JZFn2VGU4Wi2Y9kMFIGCSqGSIb3DQEJDzFFMEMwCgYI
-KoZIhvcNAwcwDgYIKoZIhvcNAwICAgCAMA0GCCqGSIb3DQMCAgFAMAcGBSsOAwIHMA0GCCqG
-SIb3DQMCAgEoMHgGCSsGAQQBgjcQBDFrMGkwYjELMAkGA1UEBhMCWkExJTAjBgNVBAoTHFRo
-YXd0ZSBDb25zdWx0aW5nIChQdHkpIEx0ZC4xLDAqBgNVBAMTI1RoYXd0ZSBQZXJzb25hbCBG
-cmVlbWFpbCBJc3N1aW5nIENBAgMNP4QwegYLKoZIhvcNAQkQAgsxa6BpMGIxCzAJBgNVBAYT
-AlpBMSUwIwYDVQQKExxUaGF3dGUgQ29uc3VsdGluZyAoUHR5KSBMdGQuMSwwKgYDVQQDEyNU
-aGF3dGUgUGVyc29uYWwgRnJlZW1haWwgSXNzdWluZyBDQQIDDT+EMA0GCSqGSIb3DQEBAQUA
-BIIBAGxwRAAm9+qKXKdyKRf5hQg7o8GnojzzHV6dWsPAT48NzB9fEqQAnrWSjieO4Kmee5wo
-tkwngb4ZQgtsO0JCFrNKiDXXvnW6mmcVIyrKjneBFQQVUYP9mdaHvoIB866wy4TlMHrmLVNW
-q4vrTJ60SoGBylRWxKHEx5z+t1S9mpusKvo9bjdANqcc+4M/UB8WkvhUeDDTr0LEvgSWAhnJ
-7Kb9jjnJ4Sr0CEqt86LXVOiVfgBG3tQTIqRytIIGwLM6n9g4gvliv+BhGj4YP6G4kbiN7uQr
-Njh1Wbo8dthCpcFlZEKU5aZsbklHkTSVOoKdmQgahdWQo83kXKukVKBQ4ycAAAAAAAA=
---------------ms080101000708070306090608--
-
+Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+@@ -84,121 +84,97 @@ static enum instruction_type bundle_enco
+ int arch_prepare_kprobe(struct kprobe *p)
+ {
+ 	unsigned long addr = (unsigned long) p->addr;
+-	unsigned long bundle_addr = addr & ~0xFULL;
++	unsigned long *bundle_addr = (unsigned long *)(addr & ~0xFULL);
+ 	unsigned long slot = addr & 0xf;
+-	bundle_t bundle;
+ 	unsigned long template;
++ 	unsigned long major_opcode = 0;
++ 	unsigned long lx_type_inst = 0;
++ 	unsigned long kprobe_inst = 0;
++	bundle_t *bundle = &p->ainsn.insn.bundle;
+ 
+-	/*
+-	 * TODO: Verify that a probe is not being inserted
+-	 *       in sensitive regions of code
+-	 * TODO: Verify that the memory holding the probe is rwx
+-	 * TODO: verify this is a kernel address
+-	 */
+-	memcpy(&bundle, (unsigned long *)bundle_addr, sizeof(bundle_t));
+-	template = bundle.quad0.template;
+-	if (((bundle_encoding[template][1] = L) && slot > 1) || (slot > 2)) {
+-		printk(KERN_WARNING "Attempting to insert unaligned kprobe at 0x%lx\n", addr);
+-		return -EINVAL;
+-	}
+-	return 0;
+-}
++	memcpy(&p->opcode.bundle, bundle_addr, sizeof(bundle_t));
++	memcpy(&p->ainsn.insn.bundle, bundle_addr, sizeof(bundle_t));
+ 
+-void arch_copy_kprobe(struct kprobe *p)
+-{
+-	unsigned long addr = (unsigned long)p->addr;
+-	unsigned long bundle_addr = addr & ~0xFULL;
++	p->ainsn.inst_flag = 0;
++	p->ainsn.target_br_reg = 0;
+ 
+-	memcpy(&p->ainsn.insn.bundle, (unsigned long *)bundle_addr,
+-				sizeof(bundle_t));
+-	memcpy(&p->opcode.bundle, &p->ainsn.insn.bundle, sizeof(bundle_t));
+-}
++ 	template = bundle->quad0.template;
+ 
+-void arch_arm_kprobe(struct kprobe *p)
+-{
+-	unsigned long addr = (unsigned long)p->addr;
+-	unsigned long arm_addr = addr & ~0xFULL;
+-	unsigned long slot = addr & 0xf;
+-	unsigned long template;
+-    	unsigned long major_opcode = 0;
+-    	unsigned long lx_type_inst = 0;
+-    	unsigned long kprobe_inst = 0;
+-	bundle_t bundle;
+-
+-   	p->ainsn.inst_flag = 0;
+-   	p->ainsn.target_br_reg = 0;
+-
+-	memcpy(&bundle, &p->ainsn.insn.bundle, sizeof(bundle_t));
+-    	template = bundle.quad0.template;
+-    	if (slot = 1 && bundle_encoding[template][1] = L) {
+-    		lx_type_inst = 1;
+-     		slot = 2;
+-    	}
++	if (((bundle_encoding[template][1] = L) && slot > 1) || (slot > 2)) {
++		printk(KERN_WARNING "Attempting to insert unaligned kprobe at 0x%lx\n",
++				addr);
++		return -EINVAL;
++	}
+ 
++ 	if (slot = 1 && bundle_encoding[template][1] = L) {
++ 		lx_type_inst = 1;
++  		slot = 2;
++ 	}
+ 
+ 	switch (slot) {
+ 	case 0:
+-   		major_opcode = (bundle.quad0.slot0 >> SLOT0_OPCODE_SHIFT);
+-    		kprobe_inst = bundle.quad0.slot0;
+-		bundle.quad0.slot0 = BREAK_INST;
++ 		major_opcode = (bundle->quad0.slot0 >> SLOT0_OPCODE_SHIFT);
++ 		kprobe_inst = bundle->quad0.slot0;
++		bundle->quad0.slot0 = BREAK_INST;
+ 		break;
+ 	case 1:
+-    		major_opcode = (bundle.quad1.slot1_p1 >> SLOT1_p1_OPCODE_SHIFT);
+-    		kprobe_inst = (bundle.quad0.slot1_p0 |
+-    				(bundle.quad1.slot1_p1 << (64-46)));
+-		bundle.quad0.slot1_p0 = BREAK_INST;
+-		bundle.quad1.slot1_p1 = (BREAK_INST >> (64-46));
++ 		major_opcode = (bundle->quad1.slot1_p1 >> SLOT1_p1_OPCODE_SHIFT);
++ 		kprobe_inst = (bundle->quad0.slot1_p0 |
++ 				(bundle->quad1.slot1_p1 << (64-46)));
++		bundle->quad0.slot1_p0 = BREAK_INST;
++		bundle->quad1.slot1_p1 = (BREAK_INST >> (64-46));
+ 		break;
+ 	case 2:
+-    		major_opcode = (bundle.quad1.slot2 >> SLOT2_OPCODE_SHIFT);
+-    		kprobe_inst = bundle.quad1.slot2;
+-		bundle.quad1.slot2 = BREAK_INST;
++ 		major_opcode = (bundle->quad1.slot2 >> SLOT2_OPCODE_SHIFT);
++ 		kprobe_inst = bundle->quad1.slot2;
++		bundle->quad1.slot2 = BREAK_INST;
+ 		break;
+ 	}
+-    	/*
+-    	 * Look for IP relative Branches, IP relative call or
+-    	 * IP relative predicate instructions
+-    	 */
+-    	if (bundle_encoding[template][slot] = B) {
+-    		switch (major_opcode) {
+-    			case INDIRECT_CALL_OPCODE:
+-    				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
+-    				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
+-    				break;
+-    			case IP_RELATIVE_PREDICT_OPCODE:
+-    			case IP_RELATIVE_BRANCH_OPCODE:
+-    				p->ainsn.inst_flag |= INST_FLAG_FIX_RELATIVE_IP_ADDR;
+-    				break;
+-    			case IP_RELATIVE_CALL_OPCODE:
+-    				p->ainsn.inst_flag |= INST_FLAG_FIX_RELATIVE_IP_ADDR;
+-    				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
+-    				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
+-    				break;
+-    			default:
+-    				/* Do nothing */
+-    				break;
+-    		}
+-    	} else if (lx_type_inst) {
+-    		switch (major_opcode) {
+-    			case LONG_CALL_OPCODE:
+-    				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
+-    				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
+-   				break;
+-    			default:
+-    				/* Do nothing */
+-    				break;
+-    		}
+-    	}
+-
+- 	/* Flush icache for the instruction at the emulated address */
+-	flush_icache_range((unsigned long)&p->ainsn.insn.bundle,
+-			(unsigned long)&p->ainsn.insn.bundle +
+-			sizeof(bundle_t));
+-	/*
+-	 * Patch the original instruction with the probe instruction
+-	 * and flush the instruction cache
+-	 */
+-	memcpy((char *) arm_addr, (char *) &bundle, sizeof(bundle_t));
++
++ 	/*
++ 	 * Look for IP relative Branches, IP relative call or
++ 	 * IP relative predicate instructions
++ 	 */
++ 	if (bundle_encoding[template][slot] = B) {
++ 		switch (major_opcode) {
++ 			case INDIRECT_CALL_OPCODE:
++ 				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
++ 				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
++ 				break;
++ 			case IP_RELATIVE_PREDICT_OPCODE:
++ 			case IP_RELATIVE_BRANCH_OPCODE:
++ 				p->ainsn.inst_flag |= INST_FLAG_FIX_RELATIVE_IP_ADDR;
++ 				break;
++ 			case IP_RELATIVE_CALL_OPCODE:
++ 				p->ainsn.inst_flag |= INST_FLAG_FIX_RELATIVE_IP_ADDR;
++ 				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
++ 				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
++ 				break;
++ 			default:
++ 				/* Do nothing */
++ 				break;
++ 		}
++ 	} else if (lx_type_inst) {
++ 		switch (major_opcode) {
++ 			case LONG_CALL_OPCODE:
++ 				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
++ 				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
++				break;
++ 			default:
++ 				/* Do nothing */
++ 				break;
++ 		}
++	}
++
++	return 0;
++}
++
++void arch_arm_kprobe(struct kprobe *p)
++{
++	unsigned long addr = (unsigned long)p->addr;
++	unsigned long arm_addr = addr & ~0xFULL;
++
++	memcpy((char *)arm_addr, &p->ainsn.insn.bundle, sizeof(bundle_t));
+ 	flush_icache_range(arm_addr, arm_addr + sizeof(bundle_t));
+ }
+ 
+@@ -226,7 +202,7 @@ void arch_remove_kprobe(struct kprobe *p
+  */
+ static void resume_execution(struct kprobe *p, struct pt_regs *regs)
+ {
+-  	unsigned long bundle_addr = ((unsigned long) (&p->ainsn.insn.bundle)) & ~0xFULL;
++  	unsigned long bundle_addr = ((unsigned long) (&p->opcode.bundle)) & ~0xFULL;
+   	unsigned long resume_addr = (unsigned long)p->addr & ~0xFULL;
+  	unsigned long template;
+  	int slot = ((unsigned long)p->addr & 0xf);
+@@ -293,7 +269,7 @@ turn_ss_off:
+ 
+ static void prepare_ss(struct kprobe *p, struct pt_regs *regs)
+ {
+-	unsigned long bundle_addr = (unsigned long) &p->ainsn.insn.bundle;
++	unsigned long bundle_addr = (unsigned long) &p->opcode.bundle;
+ 	unsigned long slot = (unsigned long)p->addr & 0xf;
+ 
+ 	/* Update instruction pointer (IIP) and slot number (IPSR.ri) */
+Index: linux-2.6.12-rc5/include/asm-ia64/kprobes.h
+=================================--- linux-2.6.12-rc5.orig/include/asm-ia64/kprobes.h
++++ linux-2.6.12-rc5/include/asm-ia64/kprobes.h
+@@ -30,6 +30,8 @@
+ 
+ #define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
+ 
++struct kprobe;
++
+ typedef struct _bundle {
+ 	struct {
+ 		unsigned long long template : 5;
+@@ -79,6 +81,11 @@ static inline void jprobe_return(void)
+ {
+ }
+ 
++/* ia64 does not need this */
++static inline void arch_copy_kprobe(struct kprobe *p)
++{
++}
++
+ #ifdef CONFIG_KPROBES
+ extern int kprobe_exceptions_notify(struct notifier_block *self,
+ 				    unsigned long val, void *data);
