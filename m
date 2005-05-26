@@ -1,55 +1,35 @@
-From: Rusty Lynch <rusty.lynch@intel.com>
-Date: Thu, 26 May 2005 17:51:45 +0000
-Subject: [patch] Kprobes ia64 qp fix
-Message-Id: <200505261751.j4QHpjei009076@linux.jf.intel.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Thu, 26 May 2005 18:18:09 +0000
+Subject: Re: [patch] Kprobes ia64 qp fix
+Message-Id: <17046.4833.536323.191838@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200505261751.j4QHpjei009076@linux.jf.intel.com>
+In-Reply-To: <200505261751.j4QHpjei009076@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Rusty Lynch <rusty.lynch@intel.com>
+To: Rusty Lynch <rusty.lynch@intel.com>
+Cc: akpm@osdl.org, Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-The following patch is for the 2.6.12-rc5-mm1 + my previous
-"Kprobes ia64 cleanup" patch that fixes a bug where a kprobe still 
-fires when the instruction is predicated off.  So given the p6=0, 
-and we have an instruction like:
+>>>>> On Thu, 26 May 2005 10:51:45 -0700, Rusty Lynch <rusty.lynch@intel.com> said:
 
-(p6) move loc1=0
+  Rusty> The following patch is for the 2.6.12-rc5-mm1 + my previous
+  Rusty> "Kprobes ia64 cleanup" patch that fixes a bug where a kprobe still 
+  Rusty> fires when the instruction is predicated off.  So given the p6=0, 
+  Rusty> and we have an instruction like:
 
-we should not be triggering the kprobe.  This is handled by carrying over
-the qp section of the original instruction into the break instruction.
+  Rusty> (p6) move loc1=0
 
-    --rusty
+  Rusty> we should not be triggering the kprobe.  This is handled by
+  Rusty> carrying over the qp section of the original instruction into
+  Rusty> the break instruction.
 
-signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
+What about:
 
- arch/ia64/kernel/kprobes.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+	(p6) cmp.eq.unc p9,p10=rX,rY
 
-Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
-=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
-+++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
-@@ -115,19 +115,19 @@ int arch_prepare_kprobe(struct kprobe *p
- 	case 0:
-  		major_opcode = (bundle->quad0.slot0 >> SLOT0_OPCODE_SHIFT);
-  		kprobe_inst = bundle->quad0.slot0;
--		bundle->quad0.slot0 = BREAK_INST;
-+		bundle->quad0.slot0 = BREAK_INST | (0x3f & kprobe_inst);
- 		break;
- 	case 1:
-  		major_opcode = (bundle->quad1.slot1_p1 >> SLOT1_p1_OPCODE_SHIFT);
-  		kprobe_inst = (bundle->quad0.slot1_p0 |
-  				(bundle->quad1.slot1_p1 << (64-46)));
--		bundle->quad0.slot1_p0 = BREAK_INST;
-+		bundle->quad0.slot1_p0 = BREAK_INST | (0x3f & kprobe_inst);
- 		bundle->quad1.slot1_p1 = (BREAK_INST >> (64-46));
- 		break;
- 	case 2:
-  		major_opcode = (bundle->quad1.slot2 >> SLOT2_OPCODE_SHIFT);
-  		kprobe_inst = bundle->quad1.slot2;
--		bundle->quad1.slot2 = BREAK_INST;
-+		bundle->quad1.slot2 = BREAK_INST | (0x3f & kprobe_inst);
- 		break;
- 	}
- 
+would the code handle that right?  Similary, you may want to check for
+the correct handling of instructions that cannot be predicated (such
+as "cover").
+
+	--david
