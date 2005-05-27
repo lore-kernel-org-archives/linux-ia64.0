@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 27 May 2005 16:55:42 +0000
+From: Grant Grundler <iod00d@hp.com>
+Date: Fri, 27 May 2005 18:27:00 +0000
 Subject: Re: flush_icache_range
-Message-Id: <17047.20750.664960.404087@napali.hpl.hp.com>
+Message-Id: <20050527182700.GE7444@esmail.cup.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4236D7B5.8050408@bull.net>
 In-Reply-To: <4236D7B5.8050408@bull.net>
@@ -10,27 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 27 May 2005 18:45:19 +0200, Zoltan Menyhart <Zoltan.Menyhart@bull.net> said:
+On Fri, May 27, 2005 at 06:45:19PM +0200, Zoltan Menyhart wrote:
+> Anyway, due to the usage of the #ifdef CONFIG_ITANIUM's
+> and the way how they are used, I think the current kernel
+> does not support mixed Itanium 1 and 2 CPUs.
 
-  Zoltan> I think we cannot use per-CPU data
+I'm not sure how the HW could support given the two
+use a different system bus (Merced vs Mckinley).
 
-Why?  I didn't think it was used until per-CPU is initialized.
+Even if someone made a chipset that could supported it (NumaLink?)
+they might ban such configurations to avoid getting
+dragged to the lowest common denominator in performance
+or have pay obscene amounts to test something few customers
+will actually use.
 
-  Zoltan> and there is no need for using per-CPU data, because fc.i a
-  Zoltan> global operation, the stride size is a common global value
-  Zoltan> for a give machine.
-
-Ugh, where that is say that?  I can easily imagine a processor where
-your argument would not hold true.
-
-  Zoltan> Shall we use the system wide minimum stride ?
-
-Yes, that would be fine, too.
-
-  Zoltan> Why does not the SAL calculate it ? :-)
-
-BTW: instead of calculating the min log2 stride, I'd just export the
-actual stride.  No point doing that in flush_cache over and over
-again.
-
-	--david
+grant
