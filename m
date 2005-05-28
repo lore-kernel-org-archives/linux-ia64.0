@@ -1,60 +1,45 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Tue, 10 May 2005 18:34:45 +0000
-Subject: [patch] fix ptrace "unwind-to-user" code
-Message-Id: <17024.65221.741502.617353@napali.hpl.hp.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Sat, 28 May 2005 06:09:06 +0000
+Subject: [patch 2.6.12-rc5] Extract correct break number for break.b
+Message-Id: <21741.1117260546@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Tony,
+break.b does not store the break number in cr.iim, instead it stores 0,
+which makes all break.b instructions look like BUG().  Extract the
+break number from the instruction itself.
 
-Another patch that would be really good to get into 2.6.12...
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-	--david
-
-[IA64] Correct convert_to_non_syscall()
-
-convert_to_non_syscall() has the same problem that unwind_to_user()
-used to have.  Fix it likewise.
-
-Signed-off-by: David Mosberger-Tang <davidm@hpl.hp.com>
-
-Index: arch/ia64/kernel/ptrace.c
-=================================--- 4efbd8a990df4437fb178c8a705dadc36812f98a/arch/ia64/kernel/ptrace.c  (mode:100644)
-+++ uncommitted/arch/ia64/kernel/ptrace.c  (mode:100644)
-@@ -692,16 +692,30 @@
- 			unsigned long cfm)
- {
- 	struct unw_frame_info info, prev_info;
--	unsigned long ip, pr;
-+	unsigned long ip, sp, pr;
+Index: linux/arch/ia64/kernel/traps.c
+=================================--- linux.orig/arch/ia64/kernel/traps.c	2005-05-28 14:37:42.648499458 +1000
++++ linux/arch/ia64/kernel/traps.c	2005-05-28 14:39:52.436651847 +1000
+@@ -111,6 +111,24 @@ ia64_bad_break (unsigned long break_num,
+ 	siginfo_t siginfo;
+ 	int sig, code;
  
- 	unw_init_from_blocked_task(&info, child);
- 	while (1) {
- 		prev_info = info;
- 		if (unw_unwind(&info) < 0)
- 			return;
--		if (unw_get_rp(&info, &ip) < 0)
++	/* break.b always sets cr.iim to 0, which causes problems for
++	 * debuggers.  Get the real break number from the original instruction,
++	 * but only for kernel code.  User space break.b is left alone, to
++	 * preserve the existing behaviour.  All break codings have the same
++	 * format, so there is no need to check the slot type.
++	 */
++	if (break_num = 0 && !user_mode(regs)) {
++		struct ia64_psr *ipsr = ia64_psr(regs);
++		unsigned long *bundle = (unsigned long *)regs->cr_iip;
++		unsigned long slot;
++		switch (ipsr->ri) {
++		      case 0:  slot = (bundle[0] >>  5); break;
++		      case 1:  slot = (bundle[0] >> 46) | (bundle[1] << 18); break;
++		      default: slot = (bundle[1] >> 23); break;
++		}
++		break_num = ((slot >> 36 & 1) << 20) | (slot >> 6 & 0xfffff);
++	}
 +
-+		unw_get_sp(&info, &sp);
-+		if ((long)((unsigned long)child + IA64_STK_OFFSET - sp)
-+		    < IA64_PT_REGS_SIZE) {
-+			dprintk("ptrace.%s: ran off the top of the kernel "
-+				"stack\n", __FUNCTION__);
-+			return;
-+		}
-+		if (unw_get_pr (&prev_info, &pr) < 0) {
-+			unw_get_rp(&prev_info, &ip);
-+			dprintk("ptrace.%s: failed to read "
-+				"predicate register (ip=0x%lx)\n",
-+				__FUNCTION__, ip);
- 			return;
--		if (ip < FIXADDR_USER_END)
-+		}
-+		if (unw_is_intr_frame(&info)
-+		    && (pr & (1UL << PRED_USER_STACK)))
- 			break;
- 	}
- 
+ 	/* SIGILL, SIGFPE, SIGSEGV, and SIGBUS want these field initialized: */
+ 	siginfo.si_addr = (void __user *) (regs->cr_iip + ia64_psr(regs)->ri);
+ 	siginfo.si_imm = break_num;
+
