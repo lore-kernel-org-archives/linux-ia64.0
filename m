@@ -1,7 +1,7 @@
-From: Jesse Barnes <jesse.barnes@intel.com>
-Date: Fri, 27 May 2005 16:13:06 +0000
-Subject: Re: ia64 sched-domains initialisation
-Message-Id: <200505270913.06854.jesse.barnes@intel.com>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Sun, 29 May 2005 05:49:25 +0000
+Subject: RE: ia64 sched-domains initialisation
+Message-Id: <429957E5.6060803@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42974381.9080000@bull.net>
 In-Reply-To: <42974381.9080000@bull.net>
@@ -10,19 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Friday, May 27, 2005 8:57 am, Xavier Bru wrote:
-> An other alternative is using the node_distance() that comes from the
-> SLIT to build the sched domains instead of using
-> SD_NODES_PER_DOMAIN on the platform.
+Looks like there is some good work happening on the
+sched-domains code.
 
-This option seems like the way to go.  The size is far from optimally 
-tuned as well, benchmarking is needed (unless we want boot time 
-heuristics to determine the sched domain layout).
+I have no specific comments to any patch, but I would
+strongly suggest that if anyone is interested in doing a
+lot of sched-domains tuning, that they start with the
+scheduler patches in the -mm kernels if possible.
 
-> The following patch sets SD_NODES_PER_DOMAIN as a config/boot
-> parameter, and when the value is 0 uses the node_distance to build
-> the sched domains.
+Those patches include a lot of changes, and especially aim
+to improve support for multiple NUMA domains, SMT/HT, and
+more configurable "load" estimation, among other things.
 
-Maybe you could make that the default behavior?
+Thanks,
+Nick
 
-Jesse
+-- 
+SUSE Labs, Novell Inc.
+Send instant messages to your online friends http://au.messenger.yahoo.com 
