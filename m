@@ -1,7 +1,7 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Tue, 31 May 2005 18:15:17 +0000
-Subject: Re: [patch 0/4] ia64 SPARSEMEM
-Message-Id: <20050531181517.GA16283@sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 31 May 2005 21:41:36 +0000
+Subject: RE: [patch 0/4] ia64 SPARSEMEM
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0395C434@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050523175031.GC2783@localhost.localdomain>
 In-Reply-To: <20050523175031.GC2783@localhost.localdomain>
@@ -10,45 +10,42 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, May 30, 2005 at 09:18:22AM +0900, KAMEZAWA Hiroyuki wrote:
-> Hi Bob,
-> >Another point to consider...
-> >
-> >Both RH & SuSE release a single kernel binary image that is used on all
-> >platforms. IA64 discovers the platform type (Dig, SGI, HP, ...) during
-> >boot & sets up platform callouts to platform specific functions. We
-> >will need to select values for both CONFIG_SECTION_BITS &
-> >CONFIG_PHYSICAL_MEMORY_BITS that work on all IA64 platforms (or make these
-> >values configurable at runtime)
-> >
-> After reading e-mails,
-> 	physical address size -- 50bits
-> 	section size	      -- 32bits
+Dave Hansen wrote:
+>* The same implementation works everywhere, on every architecture.
+Truth in advertising might require that this patch be renamed as
+"SOMEWHATSPARSE", as it breaks down for extremely sparse physical
+address space machines.  It looks like the existing SGI Altix is at
+the ragged edge of what can be practically supported.
 
-A significant number of SGI systems contain 2GB memory chunks (4x512MB
-DIMMS configured as a 2GB memory bank). I think these system would prefer
-a section size of 31bits. Right?
+>* It has good tlb behavior.
+True ... definitely better than VIRTUAL_MEM_MAP. But what effect does
+this have on system level performance?
 
-I'm concerned that there may not be value of "section size" & "physical address size"
-that is optimal across all of the various IA64 platforms.
+>* It is faster and has a lower icache footprint than existing
+>  discontigmem implementations.
+Did I miss some benchmark results?
 
-(Functionally, everything appears to work fine. I'm in the process of running a
-few benchmarks on a 64p system. More later....).
+>* On a theoretical 16TB ppc64 system with 16MB sections, the overhead of
+>  the mem_section[] table is 8MB.
+Back to the "somewhat sparse" arguments of point #1. In fact this theoretical
+system isn't "sparse" at all!
 
+>Also, nothing seriously confines us to a flat array of mem_sections,
+>that's just the only implementation right now.  The pagetables that are
+>walked in the TLB miss handler (for vmem_map[]) could just as easily be
+>a set of two-level mem_section tables that are walked in software.  That
+>just adds an extra load to the pfn_to_page() path.  Plus, if somebody
+ ^^^^^^^^^^^^^^^^^^^^^^^
+>does this, all sparsemem architectures can benefit.
 
-> will be good as a default.
-> This can work on any ia64 platforms && Full-sized Hugetlb can be used 
-> without any tuning.
-> 
-> If people want to hot-remove smaller memory sections, he should adjust the 
-> params.
-> 
-> -- Kame
-
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
+What would the performance impacts of this extra load be? pfn_to_page()
+appears to be a pretty common operation.
 
 
+Overall the SPARSEMEM patch is a good clean-up to an area of code that is
+unspeakably complex (because of all the interactions between NUMA, DISCONTIG,
+and VIRT_MEM_MAP).  So I'm in full agreement that something needs to be done.
+I'm just not convinced yet that the existing form of the SPARSEMEM patch is
+the greatest thing since sliced bread.
+
+-Tony
