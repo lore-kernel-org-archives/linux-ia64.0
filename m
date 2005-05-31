@@ -1,48 +1,119 @@
-From: Jesse Barnes <jesse.barnes@intel.com>
-Date: Mon, 09 May 2005 21:52:09 +0000
-Subject: [PATCH] update sn2 maintainer
-Message-Id: <200505091452.09834.jesse.barnes@intel.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="Boundary-00=_Ju9fC6Dt4a76rB5"
+From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Date: Tue, 31 May 2005 23:08:15 +0000
+Subject: [patch 1/1] Kprobes temporary disarming of reentrant probe for IA64
+Message-Id: <20050531160815.B15152@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
---Boundary-00=_Ju9fC6Dt4a76rB5
-Content-Type: text/plain;
-  charset="us-ascii"
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+To: akpm@osdl.org
+Cc: anil.s.keshavamurthy@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, systemtap@sources.redhat.com, prasanna@in.ibm.com, rusty.lynch@intel.com
 
-Now that I'm no longer at SGI and don't have access to Altix equipment, 
-it's time to pass on the job of patch monkey to someone else.  Greg 
-Edwards has foolishly^Wkindly volunteered for the job, so here's a 
-patch to update the MAINTAINERS file with the appropriate information.
 
-Signed-off-by: Jesse Barnes <jesse.barnes@intel.com>
+From: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+Subject: kprobes temporary disarming of reentrant probe for ia64
 
-Jesse
+This patch includes IA64 architecture specific changes(ported form i386)
+to support temporary disarming on reentrancy of probes.
 
---Boundary-00=_Ju9fC6Dt4a76rB5
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="sn2-maintainer-update.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="sn2-maintainer-update.patch"
+In case of reentrancy we single step without calling user handler.
 
-diff -Naurp linux-2.6.12-rc4.orig/MAINTAINERS linux-2.6.12-rc4/MAINTAINERS
---- linux-2.6.12-rc4.orig/MAINTAINERS	2005-05-06 22:20:31.000000000 -0700
-+++ linux-2.6.12-rc4/MAINTAINERS	2005-05-09 14:29:53.000000000 -0700
-@@ -1023,8 +1023,8 @@ W:	http://www.ia64-linux.org/
- S:	Maintained
+
+signed-of-by: Anil S Keshavamurth <anil.s.keshavamurthy@intel.com>
+===================================
+
+ arch/ia64/kernel/kprobes.c |   49 +++++++++++++++++++++++++++++++++++++++------
+ 1 files changed, 43 insertions(+), 6 deletions(-)
+
+Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+@@ -41,8 +41,8 @@ extern void jprobe_inst_return(void);
+ #define KPROBE_HIT_ACTIVE	0x00000001
+ #define KPROBE_HIT_SS		0x00000002
  
- SN-IA64 (Itanium) SUB-PLATFORM
--P:	Jesse Barnes
--M:	jbarnes@sgi.com
-+P:	Greg Edwards
-+M:	edwardsg@sgi.com
- L:	linux-altix@sgi.com
- L:	linux-ia64@vger.kernel.org
- W:	http://www.sgi.com/altix
-
---Boundary-00=_Ju9fC6Dt4a76rB5--
+-static struct kprobe *current_kprobe;
+-static unsigned long kprobe_status;
++static struct kprobe *current_kprobe, *kprobe_prev;
++static unsigned long kprobe_status, kprobe_status_prev;
+ static struct pt_regs jprobe_saved_regs;
+ 
+ enum instruction_type {A, I, M, F, B, L, X, u};
+@@ -81,6 +81,23 @@ static enum instruction_type bundle_enco
+   { u, u, u },  			/* 1F */
+ };
+ 
++static inline void save_previous_kprobe(void)
++{
++	kprobe_prev = current_kprobe;
++	kprobe_status_prev = kprobe_status;
++}
++
++static inline void restore_previous_kprobe(void)
++{
++	current_kprobe = kprobe_prev;
++	kprobe_status = kprobe_status_prev;
++}
++
++static inline void set_current_kprobe(struct kprobe *p)
++{
++	current_kprobe = p;
++}
++
+ int arch_prepare_kprobe(struct kprobe *p)
+ {
+ 	unsigned long addr = (unsigned long) p->addr;
+@@ -301,8 +318,18 @@ static int pre_kprobes_handler(struct di
+ 				unlock_kprobes();
+ 				goto no_kprobe;
+ 			}
+-			arch_disarm_kprobe(p);
+-			ret = 1;
++			/* We have reentered the pre_kprobe_handler(), since
++			 * another probe was hit while within the handler.
++			 * We here save the original kprobes variables and
++			 * just single step on the instruction of the new probe
++			 * without calling any user handlers.
++			 */
++			save_previous_kprobe();
++			set_current_kprobe(p);
++			p->nmissed++;
++			prepare_ss(p, regs);
++			kprobe_status = KPROBE_REENTER;
++			return 1;
+ 		} else if (args->err = __IA64_BREAK_JPROBE) {
+ 			/*
+ 			 * jprobe instrumented function just completed
+@@ -325,7 +352,7 @@ static int pre_kprobes_handler(struct di
+ 	}
+ 
+ 	kprobe_status = KPROBE_HIT_ACTIVE;
+-	current_kprobe = p;
++	set_current_kprobe(p);
+ 
+ 	if (p->pre_handler && p->pre_handler(p, regs))
+ 		/*
+@@ -350,12 +377,22 @@ static int post_kprobes_handler(struct p
+ 	if (!kprobe_running())
+ 		return 0;
+ 
+-	if (current_kprobe->post_handler)
++	if ((kprobe_status != KPROBE_REENTER) && current_kprobe->post_handler) {
++		kprobe_status = KPROBE_HIT_SSDONE;
+ 		current_kprobe->post_handler(current_kprobe, regs, 0);
++	}
+ 
+ 	resume_execution(current_kprobe, regs);
+ 
++	/*Restore back the original saved kprobes variables and continue. */
++	if (kprobe_status = KPROBE_REENTER) {
++		restore_previous_kprobe();
++		goto out;
++	}
++
+ 	unlock_kprobes();
++
++out:
+ 	preempt_enable_no_resched();
+ 	return 1;
+ }
