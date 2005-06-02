@@ -1,7 +1,7 @@
 From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Thu, 02 Jun 2005 18:28:20 +0000
+Date: Thu, 02 Jun 2005 18:31:24 +0000
 Subject: Re: flush_icache_range
-Message-Id: <17055.20420.963242.182611@napali.hpl.hp.com>
+Message-Id: <17055.20604.964545.962436@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4236D7B5.8050408@bull.net>
 In-Reply-To: <4236D7B5.8050408@bull.net>
@@ -10,27 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Thu, 02 Jun 2005 14:12:02 +0200, Zoltan Menyhart <Zoltan.Menyhart@bull.net> said:
+>>>>> On Thu, 02 Jun 2005 16:25:25 +0200, Zoltan Menyhart <Zoltan.Menyhart@bull.net> said:
 
-  Zoltan> Here is my next try.
+  Zoltan> I added a "nop.b. 0" to occupy the original slot of "br".
+  Zoltan> I hope it is fine that my "br" is shifted to the very last slot:
 
-The changes to the assembly-file look mostly OK, except for the usual
-white-space issues (trailing whitespace, introduction of new, useless
-blank lines).
+  Zoltan> 0xa000000100302d00 <flush_icache_range+64>:     [MIB]       fc.i r32
+  Zoltan> 0xa000000100302d01 <flush_icache_range+65>:                 add r32=r21,r32
+  Zoltan> 0xa000000100302d02 <flush_icache_range+66>:                 nop.b 0x0
+  Zoltan> 0xa000000100302d10 <flush_icache_range+80>:     [MFB]       nop.m 0x0
+  Zoltan> 0xa000000100302d11 <flush_icache_range+81>:                 nop.f 0x0
+  Zoltan> 0xa000000100302d12 <flush_icache_range+82>:                 br.cloop.sptk.few 0xa000000100302d00
+  Zoltan> <flush_icache_range+64>;;
 
-More importantly, it looks to me like there is an off-by-one bug:
-ar.lc needs to be initialized to loop_count-1.  Which raises the
-question: how well has this been tested?  Or am I missing something?
-
-As for setup.c: I'd get rid of LOG_2_I_CACHE_STRIDE_SIZE and just
-initialize log_2_i_cache_stride_size to 5 (there is no point in
-initializing it with a random & useless value).
-
-Also, I think you should do take the minimum of _all_ cache-levels,
-not just level 1 (yes, I also have a hard time imagining a system
-where the higher level has a smaller stride, but I don't think there
-is anything that prevents such a system).
-
-Thanks,
+I'd rather use an MMI or MII bundle instead.  B slots are (somewhat)
+liable to cause split issues (though they don't on Itanium 2 if the
+B-slot contains a "nop.b").
 
 	--david
