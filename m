@@ -1,42 +1,68 @@
 From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
-Date: Thu, 02 Jun 2005 12:12:02 +0000
+Date: Thu, 02 Jun 2005 14:25:25 +0000
 Subject: Re: flush_icache_range
-Message-Id: <429EF792.50608@bull.net>
+Message-Id: <429F16D5.7030305@bull.net>
 MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------070102020302010404070500"
+Content-Type: multipart/mixed; boundary="------------060204090909050403050906"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4236D7B5.8050408@bull.net>
 In-Reply-To: <4236D7B5.8050408@bull.net>
 To: linux-ia64@vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------070102020302010404070500
+--------------060204090909050403050906
 Content-Transfer-Encoding: 7bit
 Content-Type: text/plain; charset=us-ascii; format=flowed
 
-David, Jim,
+Jack Steiner wrote:
+> On Thu, Jun 02, 2005 at 02:12:02PM +0200, Zoltan Menyhart wrote:
+> 
+>>+.Loop:	fc.i	in0			// issuable on M0 only
+>>+	add	in0=r21,in0
+>> 	br.cloop.sptk.few .Loop
+>> 	;;
+> 
+> 
+> I noticed that the flush loop has a single bundle loop. I know
+> that this loop was not introduced by your code, but according to 
+> Intel, single bundle loops should not be used in performance critical code.
+> 
+> We ran in to severe performance problems several years ago with single bundle
+> loops. IIRC, the details were posted to the ia64 mail list & the 
+> resolution was "don't use single bundle loops". I don't know if the performance
+> problem exists if the loop contains an fc instruction but you may want
+> to unroll the loop one additional cycle. 
+> 
+> (The problem is that single bundle loops that are not aligned on a
+> 0 mod 32 address will run significantly slower (we observed 3X slower) after 
+> an interrupt).
 
-Here is my next try.
+Thank you for your remark.
 
-I calculate the minimum of the i-cache stride sizes.
-( Good luck for those who want to use mixed systems :-). )
+I added a "nop.b. 0" to occupy the original slot of "br".
+I hope it is fine that my "br" is shifted to the very last slot:
 
-About a single OS image across multiple cache coherence domains:
-I think Linux is designed for a single cache coherence domain,
-see e.g. the atomic operations.
+0xa000000100302d00 <flush_icache_range+64>:     [MIB]       fc.i r32
+0xa000000100302d01 <flush_icache_range+65>:                 add r32=r21,r32
+0xa000000100302d02 <flush_icache_range+66>:                 nop.b 0x0
+0xa000000100302d10 <flush_icache_range+80>:     [MFB]       nop.m 0x0
+0xa000000100302d11 <flush_icache_range+81>:                 nop.f 0x0
+0xa000000100302d12 <flush_icache_range+82>:                 br.cloop.sptk.few 0xa000000100302d00
+									<flush_icache_range+64>;;
 
 Zoltan
 
---------------070102020302010404070500
+
+--------------060204090909050403050906
 Content-Transfer-Encoding: 7bit
 Content-Type: text/plain;
- name="diff"
+ name="diff2"
 Content-Disposition: inline;
- filename="diff"
+ filename="diff2"
 
 --- linux-2.6.11-orig/arch/ia64/lib/flush.S	2005-04-26 15:59:49.000000000 +0200
-+++ linux-2.6.11/arch/ia64/lib/flush.S	2005-05-27 14:26:15.000000000 +0200
-@@ -3,37 +3,51 @@
++++ linux-2.6.11/arch/ia64/lib/flush.S	2005-06-02 16:12:08.655606148 +0200
+@@ -3,37 +3,57 @@
   *
   * Copyright (C) 1999-2001 Hewlett-Packard Co
   * Copyright (C) 1999-2001 David Mosberger-Tang <davidm@hpl.hp.com>
@@ -87,10 +113,16 @@ Content-Disposition: inline;
  	;;
 -.Loop:	fc in0				// issuable on M0 only
 -	add in0=32,in0
++
++	/*
++	 * 32 byte aligned loop, even number of (actually 2) bundles
++	 */
 +.Loop:	fc.i	in0			// issuable on M0 only
 +	add	in0=r21,in0
++	nop.b	0
  	br.cloop.sptk.few .Loop
  	;;
++
  	sync.i
  	;;
  	srlz.i
@@ -167,4 +199,4 @@ Content-Disposition: inline;
  	/*
  	 * We can't pass "local_cpu_data" to identify_cpu() because we haven't called
 
---------------070102020302010404070500--
+--------------060204090909050403050906--
