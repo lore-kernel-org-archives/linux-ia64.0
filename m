@@ -1,56 +1,170 @@
-From: "Jim Hull" <jim.hull@hp.com>
-Date: Thu, 02 Jun 2005 03:00:30 +0000
-Subject: RE: flush_icache_range
-Message-Id: <200506020300.UAA12118@lucy.cup.hp.com>
+From: Zoltan Menyhart <Zoltan.Menyhart@bull.net>
+Date: Thu, 02 Jun 2005 12:12:02 +0000
+Subject: Re: flush_icache_range
+Message-Id: <429EF792.50608@bull.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------070102020302010404070500"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <4236D7B5.8050408@bull.net>
 In-Reply-To: <4236D7B5.8050408@bull.net>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David: 
+This is a multi-part message in MIME format.
+--------------070102020302010404070500
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii; format=flowed
 
-> If a CPU advertises an optimal stride-size of 128 bytes, that better
-> work for all CPUs in the system, even if the optimal stride for
-> another CPU is smaller, say 64 bytes.
+David, Jim,
 
-Unfortunately, that's not how the ia64 architecture works.  Although the flushes
-are broadcast throughout the cache coherence domain, the parameters returned by
-PAL are for that specific processor only.  This is because each PAL knows
-nothing about the other (potentially heterogeneous) processors - that depends on
-system knowledge.
+Here is my next try.
 
-Because there is no SAL interface to query all the PALs and compute the minimum
-for you, this task falls on the OS to do.
+I calculate the minimum of the i-cache stride sizes.
+( Good luck for those who want to use mixed systems :-). )
 
-> If you want to do a global min and store that in a global variable,
-> sure, that's fine too.  I _think_ the per-CPU approach would come out
-> as simpler code, but I could be wrong.
+About a single OS image across multiple cache coherence domains:
+I think Linux is designed for a single cache coherence domain,
+see e.g. the atomic operations.
 
-A single global is sufficient, so long as you don't aspire to optimally run a
-single OS image across multiple cache coherence domains.  If you did, then you'd
-need one value per coherence domain.  If you did want to (someday) allow for
-this, then a per-CPU value, computed initially as the system-wide min, would be
-easier to extend.
+Zoltan
 
->   Zoltan> I prefer not to support mixed configurations as there is not
->   Zoltan> such a real machine, => no need to calculate the min. stride
->   Zoltan> size.
-> 
-> We should write software that fits the architecture, not just today's
-> machines.  Doing the latter just calls for trouble when new machines
-> are being introduced.  Never underestimate the cleverness of future hw
-> designers...
+--------------070102020302010404070500
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+ name="diff"
+Content-Disposition: inline;
+ filename="diff"
 
-It's not as farfetched as you might think.  As I understand Intel's official
-public position, they don't test, and therefore don't support such mixed
-configurations.  However, they also don't expect it not to work, and any OEM who
-wishes to do the testing and assume the support costs is free to do so.  (Note:
-This same position applies to other types of mixing as well, such as multiple
-frequencies.)
+--- linux-2.6.11-orig/arch/ia64/lib/flush.S	2005-04-26 15:59:49.000000000 +0200
++++ linux-2.6.11/arch/ia64/lib/flush.S	2005-05-27 14:26:15.000000000 +0200
+@@ -3,37 +3,51 @@
+  *
+  * Copyright (C) 1999-2001 Hewlett-Packard Co
+  * Copyright (C) 1999-2001 David Mosberger-Tang <davidm@hpl.hp.com>
++ *
++ * 05/28/05 Zoltan Menyhart	Dynamic stride size
+  */
++
+ #include <asm/asmmacro.h>
+ #include <asm/page.h>
+ 
++
+ 	/*
+ 	 * flush_icache_range(start,end)
+-	 *	Must flush range from start to end-1 but nothing else (need to
++	 *
++	 *	Make i-cache(s) coherent with d-caches.
++	 *
++	 *	Must deal with range from start to end-1 but nothing else (need to
+ 	 *	be careful not to touch addresses that may be unmapped).
+ 	 */
+ GLOBAL_ENTRY(flush_icache_range)
++
+ 	.prologue
+-	alloc r2=ar.pfs,2,0,0,0
+-	sub r8=in1,in0,1
+-	;;
+-	shr.u r8=r8,5			// we flush 32 bytes per iteration
+-	.save ar.lc, r3
+-	mov r3=ar.lc			// save ar.lc
++	alloc	r2=ar.pfs,2,0,0,0
++	movl	r3=log_2_i_cache_stride_size
++ 	mov	r21=1
++	;;
++	ld8	r20=[r3]		// r20: log2( stride size of the i-cache(s) )
++	sub	r8=in1,in0,1
++	;;
++	shl	r21=r21,r20		// r21: stride size of the i-cache(s)
++	shr.u	r8=r8,r20		// we flush "stride size" bytes per iteration
++	
++	.save	ar.lc, r3
++	mov	r3=ar.lc		// save ar.lc
+ 	;;
+ 
+ 	.body
+ 
+-	mov ar.lc=r8
++	mov	ar.lc=r8
+ 	;;
+-.Loop:	fc in0				// issuable on M0 only
+-	add in0=32,in0
++.Loop:	fc.i	in0			// issuable on M0 only
++	add	in0=r21,in0
+ 	br.cloop.sptk.few .Loop
+ 	;;
+ 	sync.i
+ 	;;
+ 	srlz.i
+ 	;;
+-	mov ar.lc=r3			// restore ar.lc
++	mov	ar.lc=r3		// restore ar.lc
+ 	br.ret.sptk.many rp
+ END(flush_icache_range)
+--- linux-2.6.11-orig/arch/ia64/kernel/setup.c	2005-04-26 15:59:49.000000000 +0200
++++ linux-2.6.11/arch/ia64/kernel/setup.c	2005-06-02 13:55:23.448675412 +0200
+@@ -15,6 +15,7 @@
+  * 02/01/00 R.Seth	fixed get_cpuinfo for SMP
+  * 01/07/99 S.Eranian	added the support for command line argument
+  * 06/24/99 W.Drummond	added boot_cpu_data.
++ * 05/28/05 Z. Menyhart	Dynamic stride size for "flush_icache_range()"
+  */
+ #include <linux/config.h>
+ #include <linux/module.h>
+@@ -78,6 +79,13 @@
+ EXPORT_SYMBOL(io_space);
+ unsigned int num_io_spaces;
+ 
++/*
++ * "flush_icache_range()" needs to know what processor dependent stride size to use
++ * when it makes i-cache(s) coherent with d-caches.
++ */
++#define	LOG_2_I_CACHE_STRIDE_SIZE	5	/* Safest way to go: 32 bytes by 32 bytes */
++unsigned long log_2_i_cache_stride_size = ~0;
++
+ unsigned char aux_device_present = 0xaa;        /* XXX remove this when legacy I/O is gone */
+ 
+ /*
+@@ -624,6 +632,34 @@
+ 		ia64_max_cacheline_size = max;
+ }
+ 
++
++/*
++ * "flush_icache_range()" needs to know what processor dependent stride size to use
++ * when it makes i-cache(s) coherent with d-caches.
++ * The minimum of the i-cache stride sizes is calculated.
++ */
++static void
++get_i_cache_stride_size (void)
++{
++	pal_cache_config_info_t cci;
++	s64 status;
++
++	/*
++	 * We assume that the stride size of the L2I cache (if exixt) is the same as
++	 * that of the L1I cache.
++	 */
++	status = ia64_pal_cache_config_info(/* cache_level ( 0 means L1 ) */ 0,
++					    /* cache_type (instruction)= */ 1, &cci);
++	if (status != 0) {
++		printk(KERN_ERR
++		       "%s: ia64_pal_cache_config_info(L1I) failed (status=%ld CPU=%d)\n",
++		       __FUNCTION__, status, smp_processor_id());
++		cci.pcci_stride = LOG_2_I_CACHE_STRIDE_SIZE;
++	}
++	if (cci.pcci_stride < log_2_i_cache_stride_size)
++		log_2_i_cache_stride_size = cci.pcci_stride;
++}
++
+ /*
+  * cpu_init() initializes state that is per-CPU.  This function acts
+  * as a 'CPU state barrier', nothing should get across.
+@@ -649,6 +685,7 @@
+ 		    ia64_tpa(cpu_data) - (long) __per_cpu_start);
+ 
+ 	get_max_cacheline_size();
++	get_i_cache_stride_size();
+ 
+ 	/*
+ 	 * We can't pass "local_cpu_data" to identify_cpu() because we haven't called
 
- -- Jim
-
-
+--------------070102020302010404070500--
