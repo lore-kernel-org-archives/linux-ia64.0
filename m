@@ -1,7 +1,7 @@
-From: Robin Holt <holt@sgi.com>
-Date: Fri, 03 Jun 2005 13:58:53 +0000
-Subject: Re: [PATCH] fix setting of sn_hub_info->shub_1_1_found
-Message-Id: <20050603135853.GA27820@lnx-holt.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 03 Jun 2005 18:50:55 +0000
+Subject: RE: [PATCH] fix setting of sn_hub_info->shub_1_1_found
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F039D7FC3@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42A04C38.mailxA351PB0RI@aqua.americas.sgi.com>
 In-Reply-To: <42A04C38.mailxA351PB0RI@aqua.americas.sgi.com>
@@ -10,16 +10,18 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, Jun 03, 2005 at 07:25:28AM -0500, Dean Nelson wrote:
->  		for_each_online_node(cnode) {
->  			if (is_shub_1_1(cnodeid_to_nasid(cnode)))
-> -				sn_hub_info->shub_1_1_found = 1;
-> +				shub_1_1_found = 1;
+>This explains why XPC has been so troublesome to load on older systems.
+>Thanks Dean!
+>
+>Tony, can this still get into 2.6.12?
 
-This explains why XPC has been so troublesome to load on older systems.
-Thanks Dean!
+Probably ... but the first hunk of the patch looks like a no-op,
+and contravenes some style guidlines about initializing global
+variables to 0.
 
-Tony, can this still get into 2.6.12?
+-static int shub_1_1_found __initdata;
++static int __initdata shub_1_1_found = 0;
 
-Thanks,
-Robin
+Presumably you'd still like the second hunk?
+
+-Tony
