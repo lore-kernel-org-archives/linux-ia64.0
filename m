@@ -1,39 +1,20 @@
-From: "Yu, Fenghua" <fenghua.yu@intel.com>
-Date: Mon, 13 Jun 2005 19:17:34 +0000
-Subject: RE: Montecito processor family
-Message-Id: <8A3152FDE2948B42AECCF93BFFA130EC06FE4D89@scsmsx401.amr.corp.intel.com>
+From: Christian Hildner <christian.hildner@hob.de>
+Date: Fri, 03 Jun 2005 09:02:26 +0000
+Subject: Initialization of cr.dcr
+Message-Id: <42A01CA2.8010209@hob.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42ADD890.1010406@free.fr>
-In-Reply-To: <42ADD890.1010406@free.fr>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The family number is 32. Currently there is no text representation yet.
-Probably a piece of text should be there later.
+Hi all,
 
-Thanks.
+playing around with speculation I found that on initialization dcr.dm is 
+not set, while the comment says "Initialize default control register to 
+defer all speculative faults". To be conform to the comment (and also to 
+the expected behavior) the value IA64_DCR_DM should be added in 
+arch/ia64/kernel/setup.c.
 
--Fenghua
+Christian
 
------Original Message-----
-From: linux-ia64-owner@vger.kernel.org
-[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Menyhart, Zoltan
-Sent: Monday, June 13, 2005 12:04 PM
-To: linux-ia64@vger.kernel.org
-Subject: Montecito processor family 
-
-Could someone, please, tell me what the family of the
-Montecito processor will be in /proc/cpuinfo?
-(text representation, numerical ID)
-
-Thanks,
-
-Zoltan
-
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
