@@ -1,32 +1,37 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Fri, 03 Jun 2005 07:52:47 +0000
-Subject: Re: periodically-drain-non-local-pagesets-fix.patch added to -mm
-Message-Id: <Pine.LNX.4.62.0506030050450.23618@schroedinger.engr.sgi.com>
+From: dcn@sgi.com (Dean Nelson)
+Date: Fri, 03 Jun 2005 12:25:28 +0000
+Subject: [PATCH] fix setting of sn_hub_info->shub_1_1_found
+Message-Id: <42A04C38.mailxA351PB0RI@aqua.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050602231057.580dcaa3.akpm@osdl.org>
-In-Reply-To: <20050602231057.580dcaa3.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Fri, 3 Jun 2005, Andrew Morton wrote:
+Fix a bug in which shub_1_1_found is not being properly initialized or set,
+resulting in the improper setting of sn_hub_info->shub_1_1_found.
 
-> OK, thanks.  Could someone please spin up a disable-preempt-on-ia64 patch
-> for the 2.6.12 release?
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
 
-Ok. But .... I hope that we all agree on this?
-
-Index: linux-2.6.12-rc5/arch/ia64/Kconfig
-=================================--- linux-2.6.12-rc5.orig/arch/ia64/Kconfig	2005-06-02 21:59:26.000000000 -0700
-+++ linux-2.6.12-rc5/arch/ia64/Kconfig	2005-06-03 00:49:01.000000000 -0700
-@@ -285,7 +285,7 @@ config SCHED_SMT
- 	  overhead in some places. If unsure say N here.
+Index: test-2.6.git/arch/ia64/sn/kernel/setup.c
+=================================--- test-2.6.git.orig/arch/ia64/sn/kernel/setup.c	2005-06-03 06:46:36.157095014 -0500
++++ test-2.6.git/arch/ia64/sn/kernel/setup.c	2005-06-03 06:50:07.272080003 -0500
+@@ -216,7 +216,7 @@
  
- config PREEMPT
--	bool "Preemptible Kernel"
-+	default n
-         help
-           This option reduces the latency of the kernel when reacting to
-           real-time or interactive events by allowing a low priority process to
+ extern int platform_intr_list[];
+ extern nasid_t master_nasid;
+-static int shub_1_1_found __initdata;
++static int __initdata shub_1_1_found = 0;
+ 
+ /*
+  * sn_check_for_wars
+@@ -245,7 +245,7 @@
+ 	} else {
+ 		for_each_online_node(cnode) {
+ 			if (is_shub_1_1(cnodeid_to_nasid(cnode)))
+-				sn_hub_info->shub_1_1_found = 1;
++				shub_1_1_found = 1;
+ 		}
+ 	}
+ }
