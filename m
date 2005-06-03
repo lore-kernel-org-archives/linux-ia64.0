@@ -1,7 +1,7 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Fri, 03 Jun 2005 07:35:44 +0000
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Fri, 03 Jun 2005 07:52:47 +0000
 Subject: Re: periodically-drain-non-local-pagesets-fix.patch added to -mm
-Message-Id: <20050603003544.3deb0ec2.akpm@osdl.org>
+Message-Id: <Pine.LNX.4.62.0506030050450.23618@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050602231057.580dcaa3.akpm@osdl.org>
 In-Reply-To: <20050602231057.580dcaa3.akpm@osdl.org>
@@ -10,32 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Keith Owens <kaos@sgi.com> wrote:
->
-> On Fri, 3 Jun 2005 00:22:10 -0700, 
-> Andrew Morton <akpm@osdl.org> wrote:
-> >Keith Owens <kaos@sgi.com> wrote:
-> >> Does this fix the problem?  Compiled but not tested.
-> >
-> >Well it'll make the warning go away but I think there's a more fundamental
-> >problem, in that:
-> >
-> >	get_cpu();
-> >	cond = something_which_uses_smp_processor_id();
-> >	put_cpu();
-> >
-> >	/* `cond' can become false at any time from here */
-> 
-> Good point.  The entire fpu load/restore logic on ia64 needs reviewing
-> for preemption.  There is an implicit assumption that the fpu state is
-> atomically saved and restored on the current cpu, while under the
-> control of psr->mfh.  Preempt has the potential to migrate a task while
-> it is in the middle of save/restore fpu, breaking that assumption.
-> Other ia64 register save/restore code might have similar problems.
+On Fri, 3 Jun 2005, Andrew Morton wrote:
 
-OK, thanks.  Could someone please spin up a disable-preempt-on-ia64 patch
-for the 2.6.12 release?
+> OK, thanks.  Could someone please spin up a disable-preempt-on-ia64 patch
+> for the 2.6.12 release?
 
-> Leaving this one to the rest of the list.
 
-Sensible man ;)
+Ok. But .... I hope that we all agree on this?
+
+Index: linux-2.6.12-rc5/arch/ia64/Kconfig
+=================================--- linux-2.6.12-rc5.orig/arch/ia64/Kconfig	2005-06-02 21:59:26.000000000 -0700
++++ linux-2.6.12-rc5/arch/ia64/Kconfig	2005-06-03 00:49:01.000000000 -0700
+@@ -285,7 +285,7 @@ config SCHED_SMT
+ 	  overhead in some places. If unsure say N here.
+ 
+ config PREEMPT
+-	bool "Preemptible Kernel"
++	default n
+         help
+           This option reduces the latency of the kernel when reacting to
+           real-time or interactive events by allowing a low priority process to
