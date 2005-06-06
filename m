@@ -1,155 +1,119 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Thu, 16 Jun 2005 13:28:27 +0000
-Subject: [PATCH 1/4] V3 ia64 SPARSEMEM - Kconfig and Makefile
-Message-Id: <20050616132827.GQ23911@localhost.localdomain>
+From: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+Date: Mon, 06 Jun 2005 17:36:54 +0000
+Subject: [patch 2/3] Kprobes IA64 cmp ctype unc support
+Message-Id: <20050606174058.934378000@csdlinux-2.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050606173652.059047000@csdlinux-2.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: akpm@osdl.org
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, systemtap@sources.redhat.com, rusty.lynch@intel.com, davidm@napali.hpl.hp.com, alen.brunelle@hp.com, anil.s.keshavamurthy@intel.com
 
+The current Kprobes when patching the original instruction
+with the break instruction tries to retain the original
+qualifying predicate(qp), however for cmp.crel.ctype where
+ctype = unc, which is a special instruction always needs to be
+executed irrespective of qp. Hence, if the instruction we are patching
+is of this type, then we should not copy the original qp to 
+the break instruction, this is because we always want the
+break fault to happen so that we can emulate the instruction.
 
-The patch modifies the Kconfig file to introduce the new memory model
-options and other related SPARSEMEM changes. ia64 SPARSEMEM selects
-ARCH_SPARSEMEM_EXTREME. There is also a minor change in the Makefile.
+This patch is based on the feedback given by David Mosberger
 
-Signed-off-by: Bob Picco <bob.picco@hp.com>
+Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+================================= arch/ia64/kernel/kprobes.c |   43 +++++++++++++++++++++++++++++++++++++++++--
+ include/asm-ia64/kprobes.h |   17 +++++++++++++++++
+ 2 files changed, 58 insertions(+), 2 deletions(-)
 
- Kconfig     |   96 +++++++++++++++++++++++++++++++++++++-----------------------
- mm/Makefile |    5 +--
- 2 files changed, 62 insertions(+), 39 deletions(-)
+Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+@@ -137,6 +137,41 @@ static void update_kprobe_inst_flag(uint
+ }
+ 
+ /* 
++ * In this function we check to see if the instruction
++ * (qp) cmpx.crel.ctype p1,p2=r2,r3
++ * on which we are inserting kprobe is cmp instruction
++ * with ctype as unc.
++ */
++static uint is_cmp_ctype_unc_inst(uint template, uint slot, uint major_opcode,
++unsigned long kprobe_inst)
++{
++	cmp_inst_t cmp_inst;
++	uint ctype_unc = 0;
++
++	if (!((bundle_encoding[template][slot] = I) ||
++		(bundle_encoding[template][slot] = M)))
++		goto out;
++
++	if (!((major_opcode = 0xC) || (major_opcode = 0xD) ||
++		(major_opcode = 0xE)))
++		goto out;
++
++	cmp_inst.l = kprobe_inst;
++	if ((cmp_inst.f.x2 = 0) || (cmp_inst.f.x2 = 1)) {
++		/* Integere compare - Register Register (A6 type)*/
++		if ((cmp_inst.f.tb = 0) && (cmp_inst.f.ta = 0)
++				&&(cmp_inst.f.c = 1))
++			ctype_unc = 1;
++	} else if ((cmp_inst.f.x2 = 2)||(cmp_inst.f.x2 = 3)) {
++		/* Integere compare - Immediate Register (A8 type)*/
++		if ((cmp_inst.f.ta = 0) &&(cmp_inst.f.c = 1))
++			ctype_unc = 1;
++	}
++out:
++	return ctype_unc;
++}
++
++/* 
+  * In this function we override the bundle with
+  * the break instruction at the given slot.
+  */
+@@ -148,9 +183,13 @@ static void prepare_break_inst(uint temp
+ 
+ 	/*
+ 	 * Copy the original kprobe_inst qualifying predicate(qp)
+-	 * to the break instruction
++	 * to the break instruction iff !is_cmp_ctype_unc_inst
++	 * because for cmp instruction with ctype equal to unc,
++	 * which is a special instruction always needs to be
++	 * executed regradless of qp
+ 	 */
+-	break_inst |= (0x3f & kprobe_inst);
++	if (!is_cmp_ctype_unc_inst(template, slot, major_opcode, kprobe_inst))
++		break_inst |= (0x3f & kprobe_inst);
+ 
+ 	switch (slot) {
+ 	  case 0:
+Index: linux-2.6.12-rc5/include/asm-ia64/kprobes.h
+=================================--- linux-2.6.12-rc5.orig/include/asm-ia64/kprobes.h
++++ linux-2.6.12-rc5/include/asm-ia64/kprobes.h
+@@ -30,6 +30,23 @@
+ 
+ #define BREAK_INST	(long)(__IA64_BREAK_KPROBE << 6)
+ 
++typedef union cmp_inst {
++	struct {
++	unsigned long long qp : 6;
++	unsigned long long p1 : 6;
++	unsigned long long c  : 1;
++	unsigned long long r2 : 7;
++	unsigned long long r3 : 7;
++	unsigned long long p2 : 6;
++	unsigned long long ta : 1;
++	unsigned long long x2 : 2;
++	unsigned long long tb : 1;
++	unsigned long long opcode : 4;
++	unsigned long long reserved : 23;
++	}f;
++	unsigned long long l;
++} cmp_inst_t; 
++
+ struct kprobe;
+ 
+ typedef struct _bundle {
 
-Index: linux-2.6.12-rc4-mm2-broken-dynamic-sparse/arch/ia64/Kconfig
-=================================--- linux-2.6.12-rc4-mm2-broken-dynamic-sparse.orig/arch/ia64/Kconfig	2005-06-08 15:56:28.000000000 -0400
-+++ linux-2.6.12-rc4-mm2-broken-dynamic-sparse/arch/ia64/Kconfig	2005-06-08 15:57:28.000000000 -0400
-@@ -169,40 +169,6 @@ config IA64_L1_CACHE_SHIFT
- 	default "6" if ITANIUM
- 
- # align cache-sensitive data to 64 bytes
--config NUMA
--	bool "NUMA support"
--	depends on !IA64_HP_SIM
--	default y if IA64_SGI_SN2
--	select ACPI_NUMA
--	help
--	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
--	  Access).  This option is for configuring high-end multiprocessor
--	  server systems.  If in doubt, say N.
--
--config VIRTUAL_MEM_MAP
--	bool "Virtual mem map"
--	default y if !IA64_HP_SIM
--	help
--	  Say Y to compile the kernel with support for a virtual mem map.
--	  This code also only takes effect if a memory hole of greater than
--	  1 Gb is found during boot.  You must turn this option on if you
--	  require the DISCONTIGMEM option for your machine. If you are
--	  unsure, say Y.
--
--config HOLES_IN_ZONE
--	bool
--	default y if VIRTUAL_MEM_MAP
--
--config ARCH_DISCONTIGMEM_ENABLE
--	bool "Discontiguous memory support"
--	depends on (IA64_DIG || IA64_SGI_SN2 || IA64_GENERIC || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB) && NUMA && VIRTUAL_MEM_MAP
--	default y if (IA64_SGI_SN2 || IA64_GENERIC) && NUMA
--	help
--	  Say Y to support efficient handling of discontiguous physical memory,
--	  for architectures which are either NUMA (Non-Uniform Memory Access)
--	  or have huge holes in the physical address space for other reasons.
--	  See <file:Documentation/vm/numa> for more.
--
- config IA64_CYCLONE
- 	bool "Cyclone (EXA) Time Source support"
- 	help
-@@ -232,8 +198,10 @@ config IA64_SGI_SN_XP
- 	  based on a network adapter and DMA messaging.
- 
- config FORCE_MAX_ZONEORDER
--	int
--	default "18"
-+	int "MAX_ORDER (11 - 17)"  if !HUGETLB_PAGE
-+	range 11 17  if !HUGETLB_PAGE
-+	default "17" if HUGETLB_PAGE
-+	default "11"
- 
- config SMP
- 	bool "Symmetric multi-processing support"
-@@ -296,8 +264,64 @@ config PREEMPT
-           Say Y here if you are building a kernel for a desktop, embedded
-           or real-time system.  Say N if you are unsure.
- 
-+config ARCH_SELECT_MEMORY_MODEL
-+	def_bool y
-+
-+config ARCH_FLATMEM_ENABLE
-+       def_bool y
-+
-+config ARCH_DISCONTIGMEM_ENABLE
-+	def_bool y
-+	depends on (IA64_DIG || IA64_SGI_SN2 || IA64_GENERIC || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB)
-+	select NUMA
-+	help
-+	  Say Y to support efficient handling of discontiguous physical memory,
-+	  for architectures which are either NUMA (Non-Uniform Memory Access)
-+	  or have huge holes in the physical address space for other reasons.
-+ 	  See <file:Documentation/vm/numa> for more.
-+
-+config ARCH_DISCONTIGMEM_DEFAULT
-+	def_bool y
-+	depends on ARCH_DISCONTIGMEM_ENABLE
-+
-+config ARCH_FLATMEM_ENABLE
-+	def_bool y
-+
-+config ARCH_SPARSEMEM_ENABLE
-+	def_bool y
-+	depends on ARCH_DISCONTIGMEM_ENABLE
-+	select ARCH_SPARSEMEM_EXTREME
-+
- source "mm/Kconfig"
- 
-+config NUMA
-+	bool "NUMA support"
-+	depends on !IA64_HP_SIM && !FLATMEM
-+	default y if IA64_SGI_SN2
-+	help
-+	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
-+	  Access).  This option is for configuring high-end multiprocessor
-+	  server systems.  If in doubt, say N.
-+
-+config VIRTUAL_MEM_MAP
-+	bool "Virtual mem map"
-+	depends on !SPARSEMEM
-+	default y if !IA64_HP_SIM
-+	help
-+	  Say Y to compile the kernel with support for a virtual mem map.
-+	  This code also only takes effect if a memory hole of greater than
-+	  1 Gb is found during boot.  You must turn this option on if you
-+	  require the DISCONTIGMEM option for your machine. If you are
-+	  unsure, say Y.
-+
-+config HOLES_IN_ZONE
-+	bool
-+	default y if VIRTUAL_MEM_MAP
-+
-+config HAVE_ARCH_EARLY_PFN_TO_NID
-+	def_bool y
-+	depends on NEED_MULTIPLE_NODES
-+
- config HAVE_DEC_LOCK
- 	bool
- 	depends on (SMP || PREEMPT)
-Index: linux-2.6.12-rc4-mm2-broken-dynamic-sparse/arch/ia64/mm/Makefile
-=================================--- linux-2.6.12-rc4-mm2-broken-dynamic-sparse.orig/arch/ia64/mm/Makefile	2005-06-08 15:56:28.000000000 -0400
-+++ linux-2.6.12-rc4-mm2-broken-dynamic-sparse/arch/ia64/mm/Makefile	2005-06-08 15:57:28.000000000 -0400
-@@ -7,6 +7,5 @@ obj-y := init.o fault.o tlb.o extable.o
- obj-$(CONFIG_HUGETLB_PAGE) += hugetlbpage.o
- obj-$(CONFIG_NUMA)	   += numa.o
- obj-$(CONFIG_DISCONTIGMEM) += discontig.o
--ifndef CONFIG_DISCONTIGMEM
--obj-y += contig.o
--endif
-+obj-$(CONFIG_SPARSEMEM)	   += discontig.o
-+obj-$(CONFIG_FLATMEM)	   += contig.o
+--
+
