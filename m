@@ -1,198 +1,254 @@
-From: Rusty Lynch <rusty.lynch@intel.com>
-Date: Tue, 21 Jun 2005 20:53:45 +0000
-Subject: [patch 2/5] Return probe redesign: i386 specific changes
-Message-Id: <20050621205405.455437000@linux.jf.intel.com>
+From: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+Date: Mon, 06 Jun 2005 17:36:53 +0000
+Subject: [patch 1/3] Kprobes IA64 arch prepare kprobes cleanup
+Message-Id: <20050606174058.691662000@csdlinux-2.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050621205343.548977000@linux.jf.intel.com>
+References: <20050606173652.059047000@csdlinux-2.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: akpm@osdl.org
-Cc: linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org, linux-ia64@vger.kernel.org, Prasanna S Panchamukhi <prasanna@in.ibm.com>, Hien Nguyen <hien@us.ibm.com>, Jim Keniston <jkenisto@us.ibm.com>, Rusty Lynch <rusty.lynch@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, systemtap@sources.redhat.com, rusty.lynch@intel.com, davidm@napali.hpl.hp.com, alen.brunelle@hp.com, anil.s.keshavamurthy@intel.com
 
-The following patch contains the i386 specific changes for the new
-return probe design.  Changes include:
- * Removing the architecture specific functions for querying a return probe
-   instance off a stack address
- * Complete rework onf arch_prepare_kretprobe() and trampoline_probe_handler()
- * Removing trampoline_post_handler()
- * Adding arch_init() so that now we handle registering the return probe
-   trampoline instead of kernel/kprobes.c doing it
+arch_prepare_kprobes() was doing lots of functionality
+in just one single function. This patch
+attempts to clean up arch_prepare_kprobes() by moving
+specific sub task to the following (new)functions
+1)valid_kprobe_addr() -->> validate the given kprobe address
+2)get_kprobe_inst(slot..)->> Retrives the instruction for a given slot from the bundle 
+3)prepare_break_inst() -->> Prepares break instruction within the bundle
+	3a)update_kprobe_inst_flag()-->>Updates the internal flags, required
+			for proper emulation of the instruction at later
+			point in time.
 
-signed-off-by: Rusty Lynch <rusty.lynch@intel.com>
+Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
 
- arch/i386/kernel/kprobes.c |  131 +++++++++++++++++++++++----------------------
- 1 files changed, 69 insertions(+), 62 deletions(-)
+================================= arch/ia64/kernel/kprobes.c |  191 ++++++++++++++++++++++++++++-----------------
+ 1 files changed, 121 insertions(+), 70 deletions(-)
 
-Index: linux-2.6.12-mm1/arch/i386/kernel/kprobes.c
-=================================--- linux-2.6.12-mm1.orig/arch/i386/kernel/kprobes.c
-+++ linux-2.6.12-mm1/arch/i386/kernel/kprobes.c
-@@ -127,48 +127,23 @@ static inline void prepare_singlestep(st
- 		regs->eip = (unsigned long)&p->ainsn.insn;
+Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
+@@ -98,90 +98,141 @@ static inline void set_current_kprobe(st
+ 	current_kprobe = p;
  }
  
--struct task_struct  *arch_get_kprobe_task(void *ptr)
--{
--	return ((struct thread_info *) (((unsigned long) ptr) &
--					(~(THREAD_SIZE -1))))->task;
--}
--
- void arch_prepare_kretprobe(struct kretprobe *rp, struct pt_regs *regs)
+-int arch_prepare_kprobe(struct kprobe *p)
++/*
++ * In this function we check to see if the instruction
++ * is IP relative instruction and update the kprobe
++ * inst flag accordingly
++ */
++static void update_kprobe_inst_flag(uint template, uint  slot, uint major_opcode,
++	unsigned long kprobe_inst, struct kprobe *p)
  {
- 	unsigned long *sara = (unsigned long *)&regs->esp;
--	struct kretprobe_instance *ri;
--	static void *orig_ret_addr;
-+        struct kretprobe_instance *ri;
- 
--	/*
--	 * Save the return address when the return probe hits
--	 * the first time, and use it to populate the (krprobe
--	 * instance)->ret_addr for subsequent return probes at
--	 * the same addrress since stack address would have
--	 * the kretprobe_trampoline by then.
--	 */
--	if (((void*) *sara) != kretprobe_trampoline)
--		orig_ret_addr = (void*) *sara;
-+        if ((ri = get_free_rp_inst(rp)) != NULL) {
-+                ri->rp = rp;
-+                ri->task = current;
-+		ri->ret_addr = (kprobe_opcode_t *) *sara;
- 
--	if ((ri = get_free_rp_inst(rp)) != NULL) {
--		ri->rp = rp;
--		ri->stack_addr = sara;
--		ri->ret_addr = orig_ret_addr;
--		add_rp_inst(ri);
- 		/* Replace the return addr with trampoline addr */
- 		*sara = (unsigned long) &kretprobe_trampoline;
--	} else {
--		rp->nmissed++;
--	}
--}
- 
--void arch_kprobe_flush_task(struct task_struct *tk)
--{
--	struct kretprobe_instance *ri;
--	while ((ri = get_rp_inst_tsk(tk)) != NULL) {
--		*((unsigned long *)(ri->stack_addr)) -					(unsigned long) ri->ret_addr;
--		recycle_rp_inst(ri);
--	}
-+                add_rp_inst(ri);
-+        } else {
-+                rp->nmissed++;
-+        }
- }
- 
- /*
-@@ -286,36 +261,59 @@ no_kprobe:
-  */
- int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
- {
--	struct task_struct *tsk;
--	struct kretprobe_instance *ri;
--	struct hlist_head *head;
--	struct hlist_node *node;
--	unsigned long *sara = ((unsigned long *) &regs->esp) - 1;
+-	unsigned long addr = (unsigned long) p->addr;
+-	unsigned long *bundle_addr = (unsigned long *)(addr & ~0xFULL);
+-	unsigned long slot = addr & 0xf;
+-	unsigned long template;
+- 	unsigned long major_opcode = 0;
+- 	unsigned long lx_type_inst = 0;
+- 	unsigned long kprobe_inst = 0;
+-	bundle_t *bundle = &p->ainsn.insn.bundle;
 -
--	tsk = arch_get_kprobe_task(sara);
--	head = kretprobe_inst_table_head(tsk);
+-	memcpy(&p->opcode.bundle, bundle_addr, sizeof(bundle_t));
+-	memcpy(&p->ainsn.insn.bundle, bundle_addr, sizeof(bundle_t));
 -
--	hlist_for_each_entry(ri, node, head, hlist) {
--		if (ri->stack_addr = sara && ri->rp) {
--			if (ri->rp->handler)
--				ri->rp->handler(ri, regs);
--		}
--	}
--	return 0;
--}
-+        struct kretprobe_instance *ri = NULL;
-+        struct hlist_head *head;
-+        struct hlist_node *node, *tmp;
-+	unsigned long orig_ret_address = 0;
-+	unsigned long trampoline_address =(unsigned long)&kretprobe_trampoline;
+ 	p->ainsn.inst_flag = 0;
+ 	p->ainsn.target_br_reg = 0;
  
--void trampoline_post_handler(struct kprobe *p, struct pt_regs *regs,
--						unsigned long flags)
--{
--	struct kretprobe_instance *ri;
--	/* RA already popped */
--	unsigned long *sara = ((unsigned long *)&regs->esp) - 1;
-+        head = kretprobe_inst_table_head(current);
+- 	template = bundle->quad0.template;
++	if (bundle_encoding[template][slot] = B) {
++		switch (major_opcode) {
++		  case INDIRECT_CALL_OPCODE:
++	 		p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
++ 			p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
++ 			break;
++		  case IP_RELATIVE_PREDICT_OPCODE:
++		  case IP_RELATIVE_BRANCH_OPCODE:
++			p->ainsn.inst_flag |= INST_FLAG_FIX_RELATIVE_IP_ADDR;
++ 			break;
++		  case IP_RELATIVE_CALL_OPCODE:
++ 			p->ainsn.inst_flag |= INST_FLAG_FIX_RELATIVE_IP_ADDR;
++ 			p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
++ 			p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
++ 			break;
++		}
++ 	} else if (bundle_encoding[template][slot] = X) {
++		switch (major_opcode) {
++		  case LONG_CALL_OPCODE:
++			p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
++			p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
++		  break;
++		}
++	}
++	return;
++}
+ 
+-	if (((bundle_encoding[template][1] = L) && slot > 1) || (slot > 2)) {
+-		printk(KERN_WARNING "Attempting to insert unaligned kprobe at 0x%lx\n",
+-				addr);
+-		return -EINVAL;
++/* 
++ * In this function we override the bundle with
++ * the break instruction at the given slot.
++ */
++static void prepare_break_inst(uint template, uint  slot, uint major_opcode,
++	unsigned long kprobe_inst, struct kprobe *p)
++{
++	unsigned long break_inst = BREAK_INST;
++	bundle_t *bundle = &p->ainsn.insn.bundle;
 +
 +	/*
-+	 * It is possible to have multiple instances associated with a given
-+	 * task either because an multiple functions in the call path
-+	 * have a return probe installed on them, and/or more then one return
-+	 * return probe was registered for a target function.
-+	 *
-+	 * We can handle this because:
-+	 *     - instances are always inserted at the head of the list
-+	 *     - when multiple return probes are registered for the same
-+         *       function, the first instance's ret_addr will point to the
-+	 *       real return address, and all the rest will point to
-+	 *       kretprobe_trampoline
++	 * Copy the original kprobe_inst qualifying predicate(qp)
++	 * to the break instruction
 +	 */
-+	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
-+                if (ri->task != current)
-+			/* another task is sharing our hash bucket */
-+                        continue;
++	break_inst |= (0x3f & kprobe_inst);
 +
-+		if (ri->rp && ri->rp->handler)
-+			ri->rp->handler(ri, regs);
- 
--	while ((ri = get_rp_inst(sara))) {
--		regs->eip = (unsigned long)ri->ret_addr;
-+		orig_ret_address = (unsigned long)ri->ret_addr;
- 		recycle_rp_inst(ri);
-+
-+		if (orig_ret_address != trampoline_address)
-+			/*
-+			 * This is the real return address. Any other
-+			 * instances associated with this task are for
-+			 * other calls deeper on the call stack
-+			 */
-+			break;
- 	}
--	regs->eflags &= ~TF_MASK;
-+
-+	BUG_ON(!orig_ret_address || (orig_ret_address = trampoline_address));
-+	regs->eip = orig_ret_address;
-+
-+	unlock_kprobes();
-+	preempt_enable_no_resched();
-+
-+        /*
-+         * By returning a non-zero value, we are telling
-+         * kprobe_handler() that we have handled unlocking
-+         * and re-enabling preemption.
-+         */
-+        return 1;
- }
- 
- /*
-@@ -403,8 +401,7 @@ static inline int post_kprobe_handler(st
- 		current_kprobe->post_handler(current_kprobe, regs, 0);
++	switch (slot) {
++	  case 0:
++		bundle->quad0.slot0 = break_inst;
++		break;
++	  case 1:
++		bundle->quad0.slot1_p0 = break_inst;
++		bundle->quad1.slot1_p1 = break_inst >> (64-46);
++		break;
++	  case 2:
++		bundle->quad1.slot2 = break_inst;
++		break;
  	}
  
--	if (current_kprobe->post_handler != trampoline_post_handler)
--		resume_execution(current_kprobe, regs);
-+	resume_execution(current_kprobe, regs);
- 	regs->eflags |= kprobe_saved_eflags;
+- 	if (slot = 1 && bundle_encoding[template][1] = L) {
+- 		lx_type_inst = 1;
+-  		slot = 2;
+- 	}
++	/* 
++	 * Update the instruction flag, so that we can
++	 * emulate the instruction properly after we 
++	 * single step on original instruction
++	 */
++	update_kprobe_inst_flag(template, slot, major_opcode, kprobe_inst, p);
++}
++
++static inline void get_kprobe_inst(bundle_t *bundle, uint slot,
++	       	unsigned long *kprobe_inst, uint *major_opcode)
++{
++	unsigned long kprobe_inst_p0, kprobe_inst_p1;
++	unsigned int template;
++
++	template = bundle->quad0.template;
  
- 	/*Restore back the original saved kprobes variables and continue. */
-@@ -534,3 +531,13 @@ int longjmp_break_handler(struct kprobe 
+ 	switch (slot) {
+-	case 0:
+- 		major_opcode = (bundle->quad0.slot0 >> SLOT0_OPCODE_SHIFT);
+- 		kprobe_inst = bundle->quad0.slot0;
+-		bundle->quad0.slot0 = BREAK_INST | (0x3f & kprobe_inst);
++	  case 0:
++ 		*major_opcode = (bundle->quad0.slot0 >> SLOT0_OPCODE_SHIFT);
++ 		*kprobe_inst = bundle->quad0.slot0;
+ 		break;
+-	case 1:
+- 		major_opcode = (bundle->quad1.slot1_p1 >> SLOT1_p1_OPCODE_SHIFT);
+- 		kprobe_inst = (bundle->quad0.slot1_p0 |
+- 				(bundle->quad1.slot1_p1 << (64-46)));
+-		bundle->quad0.slot1_p0 = BREAK_INST | (0x3f & kprobe_inst);
+-		bundle->quad1.slot1_p1 = (BREAK_INST >> (64-46));
++	  case 1:
++ 		*major_opcode = (bundle->quad1.slot1_p1 >> SLOT1_p1_OPCODE_SHIFT);
++  		kprobe_inst_p0 = bundle->quad0.slot1_p0;
++  		kprobe_inst_p1 = bundle->quad1.slot1_p1;
++  		*kprobe_inst = kprobe_inst_p0 | (kprobe_inst_p1 << (64-46));
+ 		break;
+-	case 2:
+- 		major_opcode = (bundle->quad1.slot2 >> SLOT2_OPCODE_SHIFT);
+- 		kprobe_inst = bundle->quad1.slot2;
+-		bundle->quad1.slot2 = BREAK_INST | (0x3f & kprobe_inst);
++	  case 2:
++ 		*major_opcode = (bundle->quad1.slot2 >> SLOT2_OPCODE_SHIFT);
++ 		*kprobe_inst = bundle->quad1.slot2;
+ 		break;
  	}
++}
+ 
+- 	/*
+- 	 * Look for IP relative Branches, IP relative call or
+- 	 * IP relative predicate instructions
+- 	 */
+- 	if (bundle_encoding[template][slot] = B) {
+- 		switch (major_opcode) {
+- 			case INDIRECT_CALL_OPCODE:
+- 				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
+- 				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
+- 				break;
+- 			case IP_RELATIVE_PREDICT_OPCODE:
+- 			case IP_RELATIVE_BRANCH_OPCODE:
+- 				p->ainsn.inst_flag |= INST_FLAG_FIX_RELATIVE_IP_ADDR;
+- 				break;
+- 			case IP_RELATIVE_CALL_OPCODE:
+- 				p->ainsn.inst_flag |= INST_FLAG_FIX_RELATIVE_IP_ADDR;
+- 				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
+- 				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
+- 				break;
+- 			default:
+- 				/* Do nothing */
+- 				break;
+- 		}
+- 	} else if (lx_type_inst) {
+- 		switch (major_opcode) {
+- 			case LONG_CALL_OPCODE:
+- 				p->ainsn.inst_flag |= INST_FLAG_FIX_BRANCH_REG;
+- 				p->ainsn.target_br_reg = ((kprobe_inst >> 6) & 0x7);
+-				break;
+- 			default:
+- 				/* Do nothing */
+- 				break;
+- 		}
++static int valid_kprobe_addr(int template, int slot, unsigned long addr)
++{
++	if ((slot > 2) || ((bundle_encoding[template][1] = L) && slot > 1)) {
++		printk(KERN_WARNING "Attempting to insert unaligned kprobe at 0x%lx\n",
++				addr);
++		return -EINVAL;
+ 	}
++	return 0;
++}
++
++int arch_prepare_kprobe(struct kprobe *p)
++{
++	unsigned long addr = (unsigned long) p->addr;
++	unsigned long *kprobe_addr = (unsigned long *)(addr & ~0xFULL);
++	unsigned long kprobe_inst=0;
++	unsigned int slot = addr & 0xf, template, major_opcode = 0;
++	bundle_t *bundle = &p->ainsn.insn.bundle;
++
++	memcpy(&p->opcode.bundle, kprobe_addr, sizeof(bundle_t));
++	memcpy(&p->ainsn.insn.bundle, kprobe_addr, sizeof(bundle_t));
++
++ 	template = bundle->quad0.template;
++
++	if(valid_kprobe_addr(template, slot, addr))
++		return -EINVAL;
++
++	/* Move to slot 2, if bundle is MLX type and kprobe slot is 1 */
++ 	if (slot = 1 && bundle_encoding[template][1] = L)
++  		slot++;
++
++	/* Get kprobe_inst and major_opcode from the bundle */
++	get_kprobe_inst(bundle, slot, &kprobe_inst, &major_opcode);
++
++	prepare_break_inst(template, slot, major_opcode, kprobe_inst, p);
+ 
  	return 0;
  }
-+
-+static struct kprobe trampoline_p = {
-+	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
-+	.pre_handler = trampoline_probe_handler
-+};
-+
-+int __init arch_init(void)
-+{
-+	return register_kprobe(&trampoline_p);
-+}
+@@ -277,7 +328,7 @@ static void resume_execution(struct kpro
+  		if (regs->cr_iip = bundle_addr) {
+  			regs->cr_iip = resume_addr;
+  		}
+- 	}
++	}
+ 
+ turn_ss_off:
+   	/* Turn off Single Step bit */
 
 --
+
