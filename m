@@ -1,62 +1,45 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Mon, 06 Jun 2005 17:25:09 +0000
-Subject: Re: [PATCH] fix setting of sn_hub_info->shub_1_1_found
-Message-Id: <17060.34549.590302.820704@napali.hpl.hp.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Mon, 06 Jun 2005 09:04:28 +0000
+Subject: [patch 2.6.12-rc5] Module gp must point to valid memory
+Message-Id: <7136.1118048668@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42A04C38.mailxA351PB0RI@aqua.americas.sgi.com>
-In-Reply-To: <42A04C38.mailxA351PB0RI@aqua.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Mon, 06 Jun 2005 19:04:21 +0200, Andreas Schwab <schwab@suse.de> said:
+Some bits of the kernel assume that gp always points to valid memory,
+in particular PHYSICAL_MODE_ENTER() assumes that both gp and sp are
+valid virtual addresses with associated physical pages.  The IA64
+module loader puts gp well past the end of the module, with no physical
+backing.  Offsets on gp are still valid, but physical mode addressing
+breaks for modules.  Ensure that gp always falls within the module
+body.  Also ensure that gp is 8 byte aligned.
 
-  Andreas> David Mosberger <davidm@napali.hpl.hp.com> writes:
-  >>>>>>> On Sat, 04 Jun 2005 14:18:16 +1000, Keith Owens <kaos@sgi.com> said:
-  >>
-  Keith> On Fri, 3 Jun 2005 11:50:55 -0700,
-  Keith> "Luck, Tony" <tony.luck@intel.com> wrote:
-  >> >>> This explains why XPC has been so troublesome to load on older systems.
-  >> >>> Thanks Dean!
-  >> >>>
-  >> >>> Tony, can this still get into 2.6.12?
-  >> >>
-  >> >> Probably ... but the first hunk of the patch looks like a no-op,
-  >> >> and contravenes some style guidlines about initializing global
-  >> >> variables to 0.
-  >> >>
-  >> >> -static int shub_1_1_found __initdata;
-  >> >> +static int __initdata shub_1_1_found = 0;
-  >>
-  Keith> There is a linker restriction that you must initialise variables that
-  Keith> are to be stored in different sections, which is what __initdata does.
-  Keith> without initialization shub_1_1_found ends up in .bss, with
-  Keith> initialization it ends up in .init.data.
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-  >> Interesting.  Strikes me as a toolchain-bug, though.  Clearly the
-  >> __initdata declaration is in conflict with putting the data in .bss,
-  >> yet there is no warning or error.
+Index: linux/arch/ia64/kernel/module.c
+=================================--- linux.orig/arch/ia64/kernel/module.c	2005-03-02 18:38:07.000000000 +1100
++++ linux/arch/ia64/kernel/module.c	2005-06-06 18:42:47.883261093 +1000
+@@ -825,14 +825,16 @@ apply_relocate_add (Elf64_Shdr *sechdrs,
+ 		 * XXX Should have an arch-hook for running this after final section
+ 		 *     addresses have been selected...
+ 		 */
+-		/* See if gp can cover the entire core module:  */
+-		uint64_t gp = (uint64_t) mod->module_core + MAX_LTOFF / 2;
+-		if (mod->core_size >= MAX_LTOFF)
++		uint64_t gp;
++		if (mod->core_size > MAX_LTOFF)
+ 			/*
+ 			 * This takes advantage of fact that SHF_ARCH_SMALL gets allocated
+ 			 * at the end of the module.
+ 			 */
+-			gp = (uint64_t) mod->module_core + mod->core_size - MAX_LTOFF / 2;
++			gp = mod->core_size - MAX_LTOFF / 2;
++		else
++			gp = mod->core_size / 2;
++		gp = (uint64_t) mod->module_core + ((gp + 7) & -8);
+ 		mod->arch.gp = gp;
+ 		DEBUGP("%s: placing gp at 0x%lx\n", __FUNCTION__, gp);
+ 	}
 
-  Andreas> Can't reproduce that with gcc 3.2, or anything newer.
-
-  Andreas> $ cat section.c
-  Andreas> int __attribute__((section(".init.data"))) foo;
-  Andreas> $ gcc -S section.c
-  Andreas> $ cat section.s
-  Andreas> .file	"section.c"
-  Andreas> .pred.safe_across_calls p1-p5,p16-p63
-  Andreas> .global foo#
-  Andreas> .section	.init.data,"aw",@progbits
-  Andreas> .align 4
-  Andreas> .type	foo#,@object
-  Andreas> .size	foo#,4
-  Andreas> foo:
-  Andreas> .skip	4
-  Andreas> .ident	"GCC: (GNU) 3.2.2"
-
-I remembering GCC 3.x getting more picky about section conflicts.  So
-perhaps these changes also fixed this particular issue.  Good.  I
-guess it's time to declare the documentation officially out-of-date?
-
-	--david
