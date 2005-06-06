@@ -1,110 +1,75 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 09 Jun 2005 12:54:42 +0000
-Subject: [PATCH 05/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42A83C12.6010605@jp.fujitsu.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Mon, 06 Jun 2005 08:40:46 +0000
+Subject: fsys_rt_sigprocmask fastcall not taking lock to read current->blocked
+Message-Id: <Pine.LNX.4.62.0506060115470.15260@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42A8386F.2060100@jp.fujitsu.com>
-In-Reply-To: <42A8386F.2060100@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
-Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: linux-ia64@vger.kernel.org
 
-[This is 5 of 10 patches, "iochk-05-check_bridge.patch"]
+rt_sigprocmask can be called like
 
-- Consider three devices, A, B, and C are placed under a same
-   host bridge H. After A and B checked-in (=passed iochk_clear,
-   doing some I/Os, not come to call iochk_read yet), now C is
-   going to check-in, just entered iochk_clear, but C finds out
-   that H indicates error.
+sigprocmask(how, NULL, &oset)
 
-   It means that A or B hits a bus error, but there is no data
-   which one actually hits the error. So, C should notify the
-   error to both of A and B, and clear the H's status to start
-   its own I/Os.
+in this case oset is set to the current mask. The C code does:
 
-   If there are only two devices, it become more simple. It is
-   clear if one find a bridge error while another is check-in,
-   the error is nothing except for another's.
+ spin_lock_irq(&current->sighand->siglock);
+ old_set = current->blocked;
+ spin_unlock_irq(&current->sighand->siglock);
 
-Well, works concerning registers (devices and bridges) are
-almost shaped up. So, from next, I'll move to deep phase
-to implement more arch-specific codes... see next (6 of 10).
+asm does:
 
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+..
+ add r31=IA64_TASK_SIGHAND_OFFSET,r16
+..
+ ld8 r31=[r31]                           // r31 <- current->sighand
+..
 
----
+ cmp.eq p6,p0=r0,r33                     // set = NULL?
+(p6)    br.dpnt.many .store_mask                // -> short-circuit to just reading the signal mask
 
-  arch/ia64/lib/iomap_check.c |   45 ++++++++++++++++++++++++++++++++++++++++++++
-  1 files changed, 45 insertions(+)
+...
+.store_mask:
+ EX(.fail_efault, (p15) probe.w.fault r34, 3)    // verify user has 
+ write-access to *oset
+ EX(.fail_efault, (p15) st8 [r34]=r3)
+...
+        FSYS_RETURN
 
-Index: linux-2.6.11.11/arch/ia64/lib/iomap_check.c
-=================================--- linux-2.6.11.11.orig/arch/ia64/lib/iomap_check.c
-+++ linux-2.6.11.11/arch/ia64/lib/iomap_check.c
-@@ -17,6 +17,9 @@ DEFINE_SPINLOCK(iochk_lock);	/* all work
-  static struct pci_dev *search_host_bridge(struct pci_dev *dev);
-  static int have_error(struct pci_dev *dev);
+No lock! However it seems that a side effect of siglock is also to 
+guarantee that current->blocked is always in sync with TIF_SIGPENDING. 
 
-+void notify_bridge_error(struct pci_dev *bridge);
-+void clear_bridge_error(struct pci_dev *bridge);
-+
-  void iochk_init(void)
-  {
-  	/* setup */
-@@ -33,6 +36,11 @@ void iochk_clear(iocookie *cookie, struc
-  	cookie->host = search_host_bridge(dev);
+Typical locking for current->blocked is like this (sys_rt_sigtimedwait):
 
-  	spin_lock_irqsave(&iochk_lock, flag);
-+	if(cookie->host && have_error(cookie->host)) {
-+		/* someone under my bridge causes error... */
-+		notify_bridge_error(cookie->host);
-+		clear_bridge_error(cookie->host);
-+	}
-  	list_add(&cookie->list, &iochk_devices);
-  	spin_unlock_irqrestore(&iochk_lock, flag);
+			/* None ready -- temporarily unblock those we're
+                         * interested while we are sleeping in so that we'll
+                         * be awakened when they arrive.  */
+                        current->real_blocked = current->blocked;
+                        sigandsets(&current->blocked, &current->blocked, &these);
+                        recalc_sigpending();
+                        spin_unlock_irq(&current->sighand->siglock);
 
-@@ -93,5 +101,42 @@ static int have_error(struct pci_dev *de
-  	return 0;
-  }
+Without the lock an app calling rt_sicprocmask may see a blocked 
+signal state that is not in sync with TIF_SIGPENDING.
 
-+void notify_bridge_error(struct pci_dev *bridge)
-+{
-+	iocookie *cookie;
-+
-+	if (list_empty(&iochk_devices))
-+		return;
-+
-+	/* notify error to all transactions using this host bridge */
-+	if (bridge) {
-+		/* local notify, ex. Parity, Abort etc. */
-+		list_for_each_entry(cookie, &iochk_devices, list) {
-+			if (cookie->host = bridge)
-+				cookie->error = 1;
-+		}
-+	}
-+}
-+
-+void clear_bridge_error(struct pci_dev *bridge)
-+{
-+	u16 status = ( PCI_STATUS_REC_TARGET_ABORT
-+                     | PCI_STATUS_REC_MASTER_ABORT
-+                     | PCI_STATUS_DETECTED_PARITY );
-+
-+	/* clear bridge status */
-+	switch (bridge->hdr_type) {
-+		case PCI_HEADER_TYPE_NORMAL: /* 0 */
-+			pci_write_config_word(bridge, PCI_STATUS, status);
-+			break;
-+		case PCI_HEADER_TYPE_BRIDGE: /* 1 */
-+			pci_write_config_word(bridge, PCI_SEC_STATUS, status);
-+			break;
-+		case PCI_HEADER_TYPE_CARDBUS: /* 2 */
-+			default:
-+			BUG();
-+	}
-+}
-+
-  EXPORT_SYMBOL(iochk_read);
-  EXPORT_SYMBOL(iochk_clear);
+Is that permissible? TIF_SIGPENDING seems to be important for the end of 
+syscall handling and also be used without a lock. 
+
+Then there is some code that generates intermediate current->blocked 
+values while holding the siglock that may also be cause for concern. F.e. 
+in handle_signal:
+
+		spin_lock_irq(&current->sighand->siglock);
+                {
+                        sigorsets(&current->blocked, &current->blocked, &ka->sa.sa_mask);
+                        sigaddset(&current->blocked, sig);
+                        recalc_sigpending();
+                }
+                spin_unlock_irq(&current->sighand->siglock);
+
+
+The current structure is thread specific so one would think that this will 
+guarantee some protection. But is this always the case?
+
 
