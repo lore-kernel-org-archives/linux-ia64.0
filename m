@@ -1,7 +1,7 @@
-From: Jason Baron <jbaron@redhat.com>
-Date: Wed, 08 Jun 2005 15:49:57 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 08 Jun 2005 17:11:05 +0000
 Subject: RE: gate page oops
-Message-Id: <Pine.LNX.4.61.0506081149110.10247@dhcp83-105.boston.redhat.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03A58929@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.61.0504221524590.31361@dhcp83-105.boston.redhat.com>
 In-Reply-To: <Pine.LNX.4.61.0504221524590.31361@dhcp83-105.boston.redhat.com>
@@ -10,30 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>Unless there are any objections, please apply (for 2.6.12, hopefully).
 
-On Tue, 7 Jun 2005, David Mosberger wrote:
+I still don't really understand why there are still any "PERCPU_PAGE_SIZE"
+references in this code.
 
-> >>>>> On Mon, 6 Jun 2005 17:06:23 -0700, David Mosberger <davidm@linux.hpl.hp.com> said:
-> 
->   David> I (finally) looked into this again and my current thinking is
->   David> that it may be better to go back to mapping the two pages
->   David> consecutively.  The gate-related code has an implicit
->   David> assumption that the gate-area is occupying a single region of
->   David> memory (that _could_ be changed, though).  Re-enabling the
->   David> HAVE_BUGG_SEGREL code unconditionally should do that, at the
->   David> expense of increasing the size of the kernel's ELF image by
->   David> 16KB.  I need to double-check, but I think there won't be any
->   David> other negative side-effects.
-> 
-> Well, it's easier to just map the holes with zero-pages.  The cost is
-> trivial (a few more non-zero kernel page-table entries) and it passes
-> all my testing (including coredumping and gdb single-stepping over an
-> EPC syscall).
-> 
-> Unless there are any objections, please apply (for 2.6.12, hopefully).
-> 
+It looks like if we are building with a buggy linker, then we workaround
+problems by having two separate pages in our vmlinux image, and we map
+them at consecutive virtual pages (of size PAGE_SIZE) at the start of region
+5 (GATE_ADDR = 0xa000000000000000).
 
-Fixes my test case too. thanks.
+With a good linker, there is only one page in the vmlinux image, and we map
+it twice ... but for some unspecified reason we put the mappings on
+PERCPU_PAGE_SIZE boundaries at the start of region 5.  This leaves two holes
+(assuming PERCPU_PAGE_SIZE > PAGE_SIZE ... which it is unless PAGE_SIZEdk).
 
--Jason
+Why do we need the holes?
 
+Should we also map zero pages in the buggy linker case (since there is a hole
+from GATE_ADDR + 2*PAGE_SIZE to FIXADDR_USER_END where there are no mappings).
+Or perhaps FIXADDR_USER_END should only be GATE_ADDR + 2*PAGE_SIZE in the
+buggy linker case?
+
+-Tony
