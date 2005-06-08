@@ -1,193 +1,119 @@
-From: rusty.lynch@intel.com
-Date: Thu, 16 Jun 2005 22:31:44 +0000
-Subject: [patch 5/5] [kprobes] Tweak to the function return probe design - take 2
-Message-Id: <20050616223308.007672000@linux.jf.intel.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Wed, 08 Jun 2005 09:15:33 +0000
+Subject: Fix floating-point preemption problem
+Message-Id: <200506080915.j589FXFm013110@mail08.syd.optusnet.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050616223139.444305000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: systemtap@sources.redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Hien Nguyen <hien@us.ibm.com>, Prasanna S Panchamukhi <prasanna@in.ibm.com>, Andi Kleen <ak@suse.de>, Ananth N Mavinakayanahalli <amavin@redhat.com>, linuxppc64-dev@ozlabs.org
+To: linux-ia64@vger.kernel.org
 
-The following is a patch provided by Ananth Mavinakayanahalli that implements
-the new PPC64 specific parts of the new function return probe design. 
 
-NOTE: Since getting Ananth's patch, I changed trampoline_probe_handler()
-      to consume each of the outstanding return probem instances (feedback
-      on my original RFC after Ananth cut a patch), and also added the 
-      arch_init() function (adding arch specific initialization.) I have
-      cross compiled but have not testing this on a PPC64 machine.
+There've been reports of problems with CONFIG_PREEMPT=y and the high
+floating point partition.  This is caused by the possibility of
+preemption and rescheduling on a different processor while saving or
+restioirng the high partition.
 
-    --rusty
+	The only places where the FPU state is touched are in ptrace,  
+in switch_to(), and where handling a floating-point exception. In
+switch_to() preemption is off.  So it's only in trap.c and ptrace.c
+that we need to prevent preemption.
 
-signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
+Here is a patch that adds commentary to make the conditions clear, and
+adds appropriate preempt_{en,dis}able() calls to make it so.
+In trap.c I use preempt_enable_no_resched(), as we're about to return
+to user space where the preemption flag will be checked anyway.
 
- arch/ppc64/kernel/kprobes.c |   99 ++++++++++++++++++++++++++++++++++++++++++++
- arch/ppc64/kernel/process.c |    4 +
- include/asm-ppc64/kprobes.h |    3 +
- 3 files changed, 106 insertions(+)
+Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
 
-Index: ppc64-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
-=================================--- ppc64-2.6.12-rc6-mm1.orig/arch/ppc64/kernel/kprobes.c
-+++ ppc64-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
-@@ -100,6 +100,23 @@ static inline void restore_previous_kpro
- 	kprobe_saved_msr = kprobe_saved_msr_prev;
- }
- 
-+void arch_prepare_kretprobe(struct kretprobe *rp, struct pt_regs *regs)
-+{
-+	struct kretprobe_instance *ri;
-+
-+	if ((ri = get_free_rp_inst(rp)) != NULL) {
-+		ri->rp = rp;
-+		ri->task = current;
-+		ri->ret_addr = (kprobe_opcode_t *)regs->link;
-+
-+		/* Replace the return addr with trampoline addr */
-+		regs->link = (unsigned long)kretprobe_trampoline;
-+		add_rp_inst(ri);
-+	} else {
-+		rp->nmissed++;
-+	}
-+}
-+
- static inline int kprobe_handler(struct pt_regs *regs)
+ arch/ia64/kernel/ptrace.c    |    6 ++++++
+ arch/ia64/kernel/traps.c     |   11 ++++++++++-
+ include/asm-ia64/processor.h |   10 ++++++++--
+ 3 files changed, 24 insertions(+), 3 deletions(-)
+
+Index: linux-2.6-import/arch/ia64/kernel/ptrace.c
+=================================- --- linux-2.6-import.orig/arch/ia64/kernel/ptrace.c	2005-06-08 10:40:41.857862761 +1000
++++ linux-2.6-import/arch/ia64/kernel/ptrace.c	2005-06-08 10:40:46.902740583 +1000
+@@ -635,11 +635,17 @@
  {
- 	struct kprobe *p;
-@@ -190,6 +207,78 @@ no_kprobe:
+ 	struct ia64_psr *psr = ia64_psr(ia64_task_regs(task));
+ 
++	/*
++	 * Prevent migrating this task while
++	 * we're fiddling with the FPU state
++	 */
++	preempt_disable();
+ 	if (ia64_is_local_fpu_owner(task) && psr->mfh) {
+ 		psr->mfh = 0;
+ 		task->thread.flags |= IA64_THREAD_FPH_VALID;
+ 		ia64_save_fpu(&task->thread.fph[0]);
+ 	}
++	preempt_enable();
  }
  
  /*
-+ * Function return probe trampoline:
-+ * 	- init_kprobes() establishes a probepoint here
-+ * 	- When the probed function returns, this probe
-+ * 		causes the handlers to fire
-+ */
-+void kretprobe_trampoline_holder(void)
-+{
-+	asm volatile(".global kretprobe_trampoline\n"
-+			"kretprobe_trampoline:\n"
-+			"nop\n");
-+}
-+
-+/*
-+ * Called when the probe at kretprobe trampoline is hit
-+ */
-+int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
-+{
-+        struct kretprobe_instance *ri = NULL;
-+        struct hlist_head *head;
-+        struct hlist_node *node, *tmp;
-+	unsigned long orig_ret_address = 0;
-+	unsigned long trampoline_address =(unsigned long)&kretprobe_trampoline;
-+
-+        head = kretprobe_inst_table_head(current);
+Index: linux-2.6-import/arch/ia64/kernel/traps.c
+=================================- --- linux-2.6-import.orig/arch/ia64/kernel/traps.c	2005-06-08 10:40:41.859815869 +1000
++++ linux-2.6-import/arch/ia64/kernel/traps.c	2005-06-08 10:40:46.903717137 +1000
+@@ -202,13 +202,21 @@
+ 
+ 	/* first, grant user-level access to fph partition: */
+ 	psr->dfh = 0;
 +
 +	/*
-+	 * It is possible to have multiple instances associated with a given
-+	 * task either because an multiple functions in the call path
-+	 * have a return probe installed on them, and/or more then one return
-+	 * return probe was registered for a target function.
-+	 *
-+	 * We can handle this because:
-+	 *     - instances are always inserted at the head of the list
-+	 *     - when multiple return probes are registered for the same
-+         *       function, the first instance's ret_addr will point to the
-+	 *       real return address, and all the rest will point to
-+	 *       kretprobe_trampoline
++	 * Make sure that no other task gets in on this processor
++	 * while we're claiming the FPU
 +	 */
-+	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
-+                if (ri->task != current)
-+			/* another task is sharing our hash bucket */
-+                        continue;
-+
-+		if (ri->rp && ri->rp->handler)
-+			ri->rp->handler(ri, regs);
-+
-+		orig_ret_address = (unsigned long)ri->ret_addr;
-+		recycle_rp_inst(ri);
-+
-+		if (orig_ret_address != trampoline_address)
-+			/*
-+			 * This is the real return address. Any other
-+			 * instances associated with this task are for
-+			 * other calls deeper on the call stack
-+			 */
-+			break;
-+	}
-+
-+	BUG_ON(!orig_ret_address || (orig_ret_address = trampoline_address));
-+	regs->nip = orig_ret_address;
-+
-+	unlock_kprobes();
-+
-+        /*
-+         * By returning a non-zero value, we are telling
-+         * kprobe_handler() that we have handled unlocking
-+         * and re-enabling preemption.
-+         */
-+        return 1;
-+}
-+
-+/*
-  * Called after single-stepping.  p->addr is the address of the
-  * instruction whose first byte has been replaced by the "breakpoint"
-  * instruction.  To avoid the SMP problems that can occur when we
-@@ -329,3 +418,13 @@ int longjmp_break_handler(struct kprobe 
- 	memcpy(regs, &jprobe_saved_regs, sizeof(struct pt_regs));
- 	return 1;
- }
-+
-+static struct kprobe trampoline_p = {
-+	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
-+	.pre_handler = trampoline_probe_handler
-+};
-+
-+int __init arch_init(void)
-+{
-+	return register_kprobe(&trampoline_p);
-+}
-Index: ppc64-2.6.12-rc6-mm1/arch/ppc64/kernel/process.c
-=================================--- ppc64-2.6.12-rc6-mm1.orig/arch/ppc64/kernel/process.c
-+++ ppc64-2.6.12-rc6-mm1/arch/ppc64/kernel/process.c
-@@ -37,6 +37,7 @@
- #include <linux/interrupt.h>
- #include <linux/utsname.h>
- #include <linux/perfctr.h>
-+#include <linux/kprobes.h>
- 
- #include <asm/pgtable.h>
- #include <asm/uaccess.h>
-@@ -310,6 +311,8 @@ void show_regs(struct pt_regs * regs)
- 
- void exit_thread(void)
- {
-+	kprobe_flush_task(current);
-+
++	preempt_disable();
  #ifndef CONFIG_SMP
- 	if (last_task_used_math = current)
- 		last_task_used_math = NULL;
-@@ -325,6 +328,7 @@ void flush_thread(void)
- {
- 	struct thread_info *t = current_thread_info();
+ 	{
+ 		struct task_struct *fpu_owner
+ 			= (struct task_struct *)ia64_get_kr(IA64_KR_FPU_OWNER);
  
-+	kprobe_flush_task(current);
- 	if (t->flags & _TIF_ABI_PENDING)
- 		t->flags ^= (_TIF_ABI_PENDING | _TIF_32BIT);
+- -		if (ia64_is_local_fpu_owner(current))
++		if (ia64_is_local_fpu_owner(current)) {
++			preempt_enable_no_resched();
+ 			return;
++		}
  
-Index: ppc64-2.6.12-rc6-mm1/include/asm-ppc64/kprobes.h
-=================================--- ppc64-2.6.12-rc6-mm1.orig/include/asm-ppc64/kprobes.h
-+++ ppc64-2.6.12-rc6-mm1/include/asm-ppc64/kprobes.h
-@@ -42,6 +42,9 @@ typedef unsigned int kprobe_opcode_t;
+ 		if (fpu_owner)
+ 			ia64_flush_fph(fpu_owner);
+@@ -226,6 +234,7 @@
+ 		 */
+ 		psr->mfh = 1;
+ 	}
++	preempt_enable_no_resched();
+ }
  
- #define JPROBE_ENTRY(pentry)	(kprobe_opcode_t *)((func_descr_t *)pentry)
+ static inline int
+Index: linux-2.6-import/include/asm-ia64/processor.h
+=================================- --- linux-2.6-import.orig/include/asm-ia64/processor.h	2005-06-08 10:40:41.861768977 +1000
++++ linux-2.6-import/include/asm-ia64/processor.h	2005-06-08 10:42:19.836500389 +1000
+@@ -403,7 +403,10 @@
+  * task_struct at this point.
+  */
  
-+#define ARCH_SUPPORTS_KRETPROBES
-+void kretprobe_trampoline(void);
-+
- /* Architecture specific copy of original instruction */
- struct arch_specific_insn {
- 	/* copy of original instruction */
+- -/* Return TRUE if task T owns the fph partition of the CPU we're running on. */
++/*
++ * Return TRUE if task T owns the fph partition of the CPU we're running on.
++ * Must be called from code that has preemption disabled.
++ */
+ #define ia64_is_local_fpu_owner(t)								\
+ ({												\
+ 	struct task_struct *__ia64_islfo_task = (t);						\
+@@ -411,7 +414,10 @@
+ 	 && __ia64_islfo_task = (struct task_struct *) ia64_get_kr(IA64_KR_FPU_OWNER));	\
+ })
+ 
+- -/* Mark task T as owning the fph partition of the CPU we're running on. */
++/*
++ * Mark task T as owning the fph partition of the CPU we're running on.
++ * Must be called from code that has preemption disabled.
++ */
+ #define ia64_set_local_fpu_owner(t) do {						\
+ 	struct task_struct *__ia64_slfo_task = (t);					\
+ 	__ia64_slfo_task->thread.last_fph_cpu = smp_processor_id();			\
 
---
+
+---End encapsulation
+
