@@ -1,72 +1,43 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Date: Fri, 10 Jun 2005 23:25:09 +0000
-Subject: Re: [PATCH 00/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <1118445909.5986.57.camel@gaston>
+From: Jack Steiner <steiner@sgi.com>
+Date: Thu, 09 Jun 2005 19:47:13 +0000
+Subject: Re: [patch 0/4] V2 ia64 SPARSEMEM
+Message-Id: <20050609194713.GA13867@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42A8386F.2060100@jp.fujitsu.com>
-	 <20050609173433.GE24611@parcelfarce.linux.theplanet.co.uk>
-	 <42A96C25.9050903@jp.fujitsu.com>
-In-Reply-To: <42A96C25.9050903@jp.fujitsu.com>
+References: <20050525151347.GB23448@localhost.localdomain>
+In-Reply-To: <20050525151347.GB23448@localhost.localdomain>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Cc: Matthew Wilcox <matthew@wil.cx>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linas Vepstas <linas@austin.ibm.com>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: linux-ia64@vger.kernel.org
 
-
-> > I think this is the wrong way to go about it.  For PCI Express, we
-> > have a defined cross-architecture standard which tells us exactly how
-> > all future PCIe devices will behave in the face of errors.  For PCI and
-> > PCI-X, we have a lot of legacy systems, each of which implements error
-> > checking and recovery in a somewhat eclectic way.
-
-We already defined something for recovery that everybody seem to be fine
-with and that isn't tied around PCIe specifics. I do not think PCIe is
-the ultimate panacea that will replace everything.
- 
-> > So, IMO, any implementation of PCI error recovery should start by
-> > implementing the PCI Express AER mechanisms and then each architecture can
-> > look at extending that scheme to fit their own legacy hardware systems.
-
-No, I strongly disagree.
-
-> > That way we have a clean implementation for the future rather than being
-> > tied to any one manufacturer or architecture's quirks.
->>
-> > Also, we can evaluate it based on looking at what the standard says,
-> > rather than all trying to wrap our brains around the idiosyncracies of
-> > a given platform ;-)
-
-> All right, please take it a example of approach from legacy-side.
+On Wed, May 25, 2005 at 05:44:06PM -0500, Jack Steiner wrote:
+> On Wed, May 25, 2005 at 11:13:47AM -0400, Bob Picco wrote:
+> ...
+> > and HPSIM.  An early version of ia64 with SPARSEMEM was tested by Jesse. It
+> > would be optimal to have another test pass on SGI NUMA hardware.
 > 
-> Already there are good working group, includes Linas, BenH, and Long.
-> They are also implementing some PCI error recovery codes (currently
-> setting home to ppc64), and I know their wonderful works are more PCI
-> Express friendly than my mysterious ia64 works :-)
->
-> However, I also know that it doesn't mean my works were useless.
-> Since there is a notable difference between their asynchronous error
-> recovery and my synchronous error detecting, both could live in
-> coexistence with each other.
 > 
-> How cooperate with is interesting coming agenda, I think.
+> I'm away from the office this week, but next week, I'll give the patch
+> another spin on a big SGI system.
+> 
 
-Well, our recovery mecanism is intended to be an addition to the
-synchronous error detection. If you read carefully my document for
-example, I specify places where driver should still do synchronous
-detection, especially in some of the recovery phases themselves.
+Sorry to have taken so long but I had a number of problems getting the latest 
+mm kernel to run reliably on our large systems. 
 
-We have agreed a long time ago that a good mecanism for synchronous
-detection is to sandwitch IOs that way. The actual implementation may
-use AER, pSeries EEH mecanisms, PCI/PCI-X status errors bits (that need
-per-segment locks though) etc... depending on the architecture.
+All of the page fault intensive tests that I ran on a 64p showed essentially
+the same performance with & w/o SPARSEMEM enabled. 
 
-Since the actual error information can be very varied, the error
-"cookie" was suggested as an opaque way to carry that information and
-keep track of other platform specific things. We can then add specific
-accessors to extract useful infos (or dump as ASCII for some logging
-facility) the details of the error cookie.
+I also ran AIM7 but was unsucessful drawing any conclusions from the results.
+Something in the latest tree is causing large run-to-run variations - almost 2:1
+at some load points. I'm trying  to determine the cause of these variations.
 
-Ben.
- 
+I have not had a chance to pull down the latest SPARSEMEM patches. I'll
+do that once I understand the cause of the run-to-run variations.
+
+-- 
+Thanks
+
+Jack Steiner (steiner@sgi.com)          651-683-5302
+Principal Engineer                      SGI - Silicon Graphics, Inc.
+
 
