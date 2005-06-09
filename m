@@ -1,7 +1,7 @@
-From: Greg KH <greg@kroah.com>
-Date: Thu, 09 Jun 2005 16:59:28 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Thu, 09 Jun 2005 17:13:32 +0000
 Subject: Re: [PATCH 00/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <20050609165928.GE9597@kroah.com>
+Message-Id: <20050609171332.GC24611@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42A8386F.2060100@jp.fujitsu.com>
 In-Reply-To: <42A8386F.2060100@jp.fujitsu.com>
@@ -12,20 +12,69 @@ To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
 On Thu, Jun 09, 2005 at 09:39:11PM +0900, Hidetoshi Seto wrote:
-> Hi, long time no see :-D
+> Previously I had post two prototypes to LKML:
+> 1) readX_check() interface
+>    Added new kin of basic readX(), which returns its result of
+>    I/O. But, it would not make sense that device driver have to
+>    check and react after each of I/Os.
+> 2) clear/read_pci_errors() interface
+>    Added new pair-interface to sandwich I/Os. It makes sense that
+>    device driver can adjust the number of checking I/Os and can
+>    react all of them at once. However, this was not generalized,
+>    so I thought that more expandable design would be required.
 > 
-> This is a continuation of previous post quite a while ago:
-> "[PATCH/RFC] I/O-check interface for driver's error handling"
+> Today's patch is 3rd one - iochk_clear/read() interface.
+> - This also adds pair-interface, but not to sandwich only readX().
+>   Depends on platform, starting with ioreadX(), inX(), writeX()
+>   if possible... and so on could be target of error checking.
+
+It makes sense to sandwich other kinds of device accesses.  I don't
+think the previous clear/read_pci_errors() interface was intended *only*
+to sandwich readX().
+
+> - Additionally adds special token - abstract "iocookie" structure
+>   to control/identifies/manage I/Os, by passing it to OS.
+>   Actual type of "iocookie" could be arch-specific. Device drivers
+>   could use the iocookie structure without knowing its detail.
+
+I'm not sure we need this.  Surely it can be deduced from the pci_dev or
+struct device?
+
+> Expected usage(sample) is:
+> ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+> #include <linux/pci.h>
+> #include <asm/io.h>
 > 
-> Reflecting every comments, I brushed up my patch for generic part.
-> So today I'll post it again, and also post "ia64 part", which
-> surely implements ia64-arch specific error checking. I think
-> latter will be a sample of basic implement for other arch.
+> int sample_read_with_iochk(struct pci_dev *dev, u32 *buf, int words)
+> {
+>     unsigned long ofs = pci_resource_start(dev, 0) + DATA_OFFSET;
+>     int i;
+> 
+>     /* Create magical cookie on the stack */
+>     iocookie cookie;
+> 
+>     /* Critical section start */
+>     iochk_clear(&dev, &cookie);
+>     {
+>         /* Get the whole packet of data */
+>         for (i = 0; i < words; i++)
+>             *buf++ = ioread32(dev, ofs);
 
-Overall, the idea and implementation looks very nice.  I just had a few
-comments on the code style and how you implemented the .h and .c files.
-Good job.
+You do know that ioread32() doesn't take a pci_dev, right?  I hope you
+weren't counting on that for the rest of your implementation.
 
-thanks,
+>     }
+>     /* Critical section end. Did we have any trouble? */
+>     if ( iochk_read(&cookie) ) return -1;
+> 
+>     /* OK, all system go. */
+>     return 0;
+> }
 
-greg k-h
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
