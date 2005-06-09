@@ -1,62 +1,230 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Mon, 02 May 2005 12:46:23 +0000
-Subject: [PATCH 0/6]: SN Hotplug Driver: Overview
-Message-Id: <4276211F.6050409@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------050809040102070207080001"
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Thu, 09 Jun 2005 12:58:26 +0000
+Subject: [PATCH 07/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42A83CF2.90304@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-This is a multi-part message in MIME format.
---------------050809040102070207080001
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+References: <42A8386F.2060100@jp.fujitsu.com>
+In-Reply-To: <42A8386F.2060100@jp.fujitsu.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
+[This is 7 of 10 patches, "iochk-07-poison.patch"]
 
---------------050809040102070207080001
-Content-Type: text/plain;
- name="overview-0"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="overview-0"
+- When bus-error occur on write, write data is broken on
+   the bus, so target device gets broken data.
 
-This patchset adds the SN Hotplug Driver to Linux.  The patches are
-based on 2.6.12-rc1 (I haven't tried git yet ...) .
+   There are 2 way for such device to take:
+    - send PERR(Parity Error) to host, expecting immediate panic.
+    - mark status register as error, expecting its driver to read
+      it and decide to retry.
 
-The patches are
+   So it is not difficult for drivers to recover from error on
+   write if it can take latter way, and if it don't worry about
+   taking time to wait completion of write.
 
-[PATCH 1/6]: SN Hotplug Driver: SN IRQ fixes
-[PATCH 2/6]: SN Hotplug Driver: moving of header files
-[PATCH 3/6]: SN Hotplug Driver: pci_find_next_bus export
-[PATCH 4/6]: SN Hotplug Driver: new SN PROM version code
-[PATCH 5/6]: SN Hotplug Driver: SN Hotplug Driver code
-[PATCH 6/6]: SN Hotplug Driver: PREEMPT/pcibus_info fix
+- When bus-error occur on read, read data is broken on
+   the bus, so host bridge gets broken data.
 
-The patches are incremental, however, the kernel will still compile
-after applying each patch.
+   There are 2 way for such bridge to take:
+    - send BERR(Bus Error) to host, expecting immediate panic.
+    - mark data as "poisoned" and throw it to destination,
+      expecting panic if system touched it but cannot stop data
+      pollution.
 
-The first patch fixes the SN IRQ code such that cpu affinity and
-Hotplug can modify IRQ values.  The sn_irq_info structures are now locked
-using a RCU lock mechanism to avoid lock contention in the lost interrupt
-WAR code.
+   Former is traditional way, latter is modern way, called
+   "data poisoning". The important difference is whether OS
+   can get a chance to recover from the error.
+   Usually, sending BERR doesn't tell us "where it comes",
+   "who it orders", so we cannot do anything except panic.
+   In the other hand, poisoned data will reach its destination
+   and will cause a error on there again. Yes, destination is
+   "where who lives".
 
-The second patch above moves header files out of the arch/ia64/sn
-directories and into include/asm-ia64/sn.  These files were being included by
-other subsystems and should be under include/asm-ia64/sn.
+   Well, the idea is quite simple:
+    "driver checks read data, and recover if it was poisoned."
 
-The third patch exports the pci_find_next_bus function to the
-rest of the kernel.
+   Checking all read at once (ex. take a memo of all read
+   addresses touched after iochk_clear and check them all in
+   iochk_read) does not make sense. Practical way is check
+   each read, keep its result, and read it at end.
 
-The fourth patch above is a modification to the method in which the SN PROM
-information is examined in the kernel.
+Touching poisoned data become a MCA, so now it directly means
+a system down. But since the MCA tells us "where it happens",
+we can recover it...? All right, let's see next (8 of 10).
 
-The fifth patch is the SN Hotplug Driver and some additional required
-modifications.  These modifications include changes to the SN io_init.c code
-for memory management, the inclusion of new SAL calls to enable and disable
-PCI slots, and a hotplug-style driver.
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 
-The final patch fixes an issue with the PROM and a kernel running with
-CONFIG_PREEMPT enabled.  When CONFIG_PREEMPT is enabled, the size of a
-spinlock_t changes -- resulting in the PROM writing to an incorrect location.
+---
 
---------------050809040102070207080001--
+  include/asm-ia64/io.h |  110 ++++++++++++++++++++++++++++++++++++++++++++++++++
+  1 files changed, 110 insertions(+)
+
+Index: linux-2.6.11.11/include/asm-ia64/io.h
+=================================--- linux-2.6.11.11.orig/include/asm-ia64/io.h
++++ linux-2.6.11.11/include/asm-ia64/io.h
+@@ -86,6 +86,20 @@ typedef struct __iocookie iocookie;
+  /* enable ia64 iochk - See arch/ia64/lib/iomap_check.c */
+  #define HAVE_ARCH_IOMAP_CHECK
+
++/*
++ * Some I/O bridges may poison the data read, instead of
++ * signaling a BERR.  The consummation of poisoned data
++ * triggers a local, imprecise MCA.
++ * Note that the read operation by itself does not consume
++ * the bad data, you have to do something with it, e.g.:
++ *
++ *	ld.8	r9=[r10];;	// r10 = I/O address
++ *	add.8	r8=r9,r9;;	// fake operation
++ */
++#define ia64_poison_check(val)					\
++{	register unsigned long gr8 asm("r8");			\
++	asm volatile ("add %0=%1,r0" : "=r"(gr8) : "r"(val)); }
++
+  #endif /* CONFIG_IOMAP_CHECK  */
+
+  #include <asm-generic/iomap.h>
+@@ -190,6 +204,8 @@ __ia64_mk_io_addr (unsigned long port)
+   * during optimization, which is why we use "volatile" pointers.
+   */
+
++#ifdef CONFIG_IOMAP_CHECK
++
+  static inline unsigned int
+  ___ia64_inb (unsigned long port)
+  {
+@@ -198,6 +214,8 @@ ___ia64_inb (unsigned long port)
+
+  	ret = *addr;
+  	__ia64_mf_a();
++	ia64_poison_check(ret);
++
+  	return ret;
+  }
+
+@@ -209,6 +227,8 @@ ___ia64_inw (unsigned long port)
+
+  	ret = *addr;
+  	__ia64_mf_a();
++	ia64_poison_check(ret);
++
+  	return ret;
+  }
+
+@@ -220,9 +240,48 @@ ___ia64_inl (unsigned long port)
+
+  	ret = *addr;
+  	__ia64_mf_a();
++	ia64_poison_check(ret);
++
++	return ret;
++}
++
++#else /* CONFIG_IOMAP_CHECK */
++
++static inline unsigned int
++___ia64_inb (unsigned long port)
++{
++	volatile unsigned char *addr = __ia64_mk_io_addr(port);
++	unsigned char ret;
++
++	ret = *addr;
++	__ia64_mf_a();
+  	return ret;
+  }
+
++static inline unsigned int
++___ia64_inw (unsigned long port)
++{
++	volatile unsigned short *addr = __ia64_mk_io_addr(port);
++	unsigned short ret;
++
++	ret = *addr;
++	__ia64_mf_a();
++	return ret;
++}
++
++static inline unsigned int
++___ia64_inl (unsigned long port)
++{
++	volatile unsigned int *addr = __ia64_mk_io_addr(port);
++	unsigned int ret;
++
++	ret = *addr;
++	__ia64_mf_a();
++	return ret;
++}
++
++#endif /* CONFIG_IOMAP_CHECK */
++
+  static inline void
+  ___ia64_outb (unsigned char val, unsigned long port)
+  {
+@@ -339,6 +398,55 @@ __outsl (unsigned long port, const void
+   * a good idea).  Writes are ok though for all existing ia64 platforms (and
+   * hopefully it'll stay that way).
+   */
++
++#ifdef CONFIG_IOMAP_CHECK
++
++static inline unsigned char
++___ia64_readb (const volatile void __iomem *addr)
++{
++	unsigned char val;
++
++	val = *(volatile unsigned char __force *)addr;
++	ia64_poison_check(val);
++
++	return val;
++}
++
++static inline unsigned short
++___ia64_readw (const volatile void __iomem *addr)
++{
++	unsigned short val;
++
++	val = *(volatile unsigned short __force *)addr;
++	ia64_poison_check(val);
++
++	return val;
++}
++
++static inline unsigned int
++___ia64_readl (const volatile void __iomem *addr)
++{
++	unsigned int val;
++
++	val = *(volatile unsigned int __force *) addr;
++	ia64_poison_check(val);
++
++	return val;
++}
++
++static inline unsigned long
++___ia64_readq (const volatile void __iomem *addr)
++{
++	unsigned long val;
++
++	val = *(volatile unsigned long __force *) addr;
++	ia64_poison_check(val);
++
++	return val;
++}
++
++#else /* CONFIG_IOMAP_CHECK */
++
+  static inline unsigned char
+  ___ia64_readb (const volatile void __iomem *addr)
+  {
+@@ -363,6 +471,8 @@ ___ia64_readq (const volatile void __iom
+  	return *(volatile unsigned long __force *) addr;
+  }
+
++#endif /* CONFIG_IOMAP_CHECK */
++
+  static inline void
+  __writeb (unsigned char val, volatile void __iomem *addr)
+  {
+
