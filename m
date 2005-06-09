@@ -1,90 +1,110 @@
-From: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-Date: Mon, 06 Jun 2005 17:36:55 +0000
-Subject: [patch 3/3] Kprobes IA64 safe register kprobe
-Message-Id: <20050606174059.177392000@csdlinux-2.jf.intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Thu, 09 Jun 2005 12:54:42 +0000
+Subject: [PATCH 05/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42A83C12.6010605@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050606173652.059047000@csdlinux-2.jf.intel.com>
+References: <42A8386F.2060100@jp.fujitsu.com>
+In-Reply-To: <42A8386F.2060100@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, systemtap@sources.redhat.com, rusty.lynch@intel.com, davidm@napali.hpl.hp.com, alen.brunelle@hp.com, anil.s.keshavamurthy@intel.com
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-The current kprobes does not yet handle register
-kprobes on some of the following kind of instruction
-which needs to be emulated in a special way.
-1) mov r1=ip
-2) chk -- Speculation check instruction
-This patch attempts to fail register_kprobes() when
-user tries to insert kprobes on the above kind of
-instruction.
+[This is 5 of 10 patches, "iochk-05-check_bridge.patch"]
 
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-================================= arch/ia64/kernel/kprobes.c |   45 +++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 45 insertions(+)
+- Consider three devices, A, B, and C are placed under a same
+   host bridge H. After A and B checked-in (=passed iochk_clear,
+   doing some I/Os, not come to call iochk_read yet), now C is
+   going to check-in, just entered iochk_clear, but C finds out
+   that H indicates error.
 
-Index: linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
-=================================--- linux-2.6.12-rc5.orig/arch/ia64/kernel/kprobes.c
-+++ linux-2.6.12-rc5/arch/ia64/kernel/kprobes.c
-@@ -98,6 +98,48 @@ static inline void set_current_kprobe(st
- 	current_kprobe = p;
- }
- 
-+/* 
-+ * In this function we check to see if the instruction
-+ * on which we are inserting kprobe is supported.
-+ * Returns 0 if supported
-+ * Returns -EINVAL if unsupported
-+ */
-+static int unsupported_inst(uint template, uint  slot, uint major_opcode,
-+	unsigned long kprobe_inst, struct kprobe *p)
+   It means that A or B hits a bus error, but there is no data
+   which one actually hits the error. So, C should notify the
+   error to both of A and B, and clear the H's status to start
+   its own I/Os.
+
+   If there are only two devices, it become more simple. It is
+   clear if one find a bridge error while another is check-in,
+   the error is nothing except for another's.
+
+Well, works concerning registers (devices and bridges) are
+almost shaped up. So, from next, I'll move to deep phase
+to implement more arch-specific codes... see next (6 of 10).
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
+---
+
+  arch/ia64/lib/iomap_check.c |   45 ++++++++++++++++++++++++++++++++++++++++++++
+  1 files changed, 45 insertions(+)
+
+Index: linux-2.6.11.11/arch/ia64/lib/iomap_check.c
+=================================--- linux-2.6.11.11.orig/arch/ia64/lib/iomap_check.c
++++ linux-2.6.11.11/arch/ia64/lib/iomap_check.c
+@@ -17,6 +17,9 @@ DEFINE_SPINLOCK(iochk_lock);	/* all work
+  static struct pci_dev *search_host_bridge(struct pci_dev *dev);
+  static int have_error(struct pci_dev *dev);
+
++void notify_bridge_error(struct pci_dev *bridge);
++void clear_bridge_error(struct pci_dev *bridge);
++
+  void iochk_init(void)
+  {
+  	/* setup */
+@@ -33,6 +36,11 @@ void iochk_clear(iocookie *cookie, struc
+  	cookie->host = search_host_bridge(dev);
+
+  	spin_lock_irqsave(&iochk_lock, flag);
++	if(cookie->host && have_error(cookie->host)) {
++		/* someone under my bridge causes error... */
++		notify_bridge_error(cookie->host);
++		clear_bridge_error(cookie->host);
++	}
+  	list_add(&cookie->list, &iochk_devices);
+  	spin_unlock_irqrestore(&iochk_lock, flag);
+
+@@ -93,5 +101,42 @@ static int have_error(struct pci_dev *de
+  	return 0;
+  }
+
++void notify_bridge_error(struct pci_dev *bridge)
 +{
-+	unsigned long addr = (unsigned long)p->addr;
-+	
-+	if (bundle_encoding[template][slot] = I) {
-+		switch (major_opcode) {
-+			case 0x0: //I_UNIT_MISC_OPCODE:
-+			/*
-+			 * Check for Integer speculation instruction
-+			 * - Bit 33-35 to be equal to 0x1
-+			 */
-+			if (((kprobe_inst >> 33) & 0x7) = 1) {
-+				printk(KERN_WARNING 
-+					"Kprobes on speculation inst at <0x%lx> not supported\n",
-+					addr);
-+				return -EINVAL;
-+			}
++	iocookie *cookie;
 +
-+			/*
-+			 * IP relative mov instruction
-+			 *  - Bit 27-35 to be equal to 0x30
-+			 */
-+			if (((kprobe_inst >> 27) & 0x1FF) = 0x30) {
-+				printk(KERN_WARNING 
-+					"Kprobes on \"mov r1=ip\" at <0x%lx> not supported\n",
-+					addr);
-+				return -EINVAL;
++	if (list_empty(&iochk_devices))
++		return;
 +
-+			}
++	/* notify error to all transactions using this host bridge */
++	if (bridge) {
++		/* local notify, ex. Parity, Abort etc. */
++		list_for_each_entry(cookie, &iochk_devices, list) {
++			if (cookie->host = bridge)
++				cookie->error = 1;
 +		}
 +	}
-+	return 0;
 +}
 +
++void clear_bridge_error(struct pci_dev *bridge)
++{
++	u16 status = ( PCI_STATUS_REC_TARGET_ABORT
++                     | PCI_STATUS_REC_MASTER_ABORT
++                     | PCI_STATUS_DETECTED_PARITY );
 +
- /*
-  * In this function we check to see if the instruction
-  * is IP relative instruction and update the kprobe
-@@ -270,6 +312,9 @@ int arch_prepare_kprobe(struct kprobe *p
- 
- 	/* Get kprobe_inst and major_opcode from the bundle */
- 	get_kprobe_inst(bundle, slot, &kprobe_inst, &major_opcode);
-+	
-+	if (unsupported_inst(template, slot, major_opcode, kprobe_inst, p))
-+			return -EINVAL;
- 
- 	prepare_break_inst(template, slot, major_opcode, kprobe_inst, p);
- 
-
---
++	/* clear bridge status */
++	switch (bridge->hdr_type) {
++		case PCI_HEADER_TYPE_NORMAL: /* 0 */
++			pci_write_config_word(bridge, PCI_STATUS, status);
++			break;
++		case PCI_HEADER_TYPE_BRIDGE: /* 1 */
++			pci_write_config_word(bridge, PCI_SEC_STATUS, status);
++			break;
++		case PCI_HEADER_TYPE_CARDBUS: /* 2 */
++			default:
++			BUG();
++	}
++}
++
+  EXPORT_SYMBOL(iochk_read);
+  EXPORT_SYMBOL(iochk_clear);
 
