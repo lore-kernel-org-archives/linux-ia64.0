@@ -1,45 +1,36 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 24 Jun 2005 21:53:47 +0000
-Subject: Re: [patch] Memory Error Handling Improvement
-Message-Id: <17084.33003.866233.619727@napali.hpl.hp.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Thu, 09 Jun 2005 19:29:10 +0000
+Subject: [PATCH] Fix race condition in the rt_sigprocmask fastcall for IA64.
+Message-Id: <Pine.LNX.4.62.0506091227350.22827@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
-In-Reply-To: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 24 Jun 2005 16:36:02 -0500 (CDT), Russ Anderson <rja@sgi.com> said:
+current->blocked will be set to the value of current->thread_info->flags if the
+cmpxchg to update thread_info->flags fails. For performance reasons the store into
+current->blocked was placed in the cmpxchg loop. However, the cmpxchg overwrites the
+register holding the value to be stored. In the rare case of a retry the value of
+thread_info->flags will be written into current->blocked.
 
-  Russ> David Mosberger wrote:
+The fix is to use another register so that the register containing the current->blocked
+value is not overwritten.
 
-  >> >> Fine, but what about stores?
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-  Tony> Stores have too many extra levels of buffering to have much
-  Tony> hope.  But just because we can't help the store case doesn't
-  Tony> mean that we shouldn't do something about the load case.
-
-  >> Fine, but what about my suggestion of just presuming that the access
-  >> came for user-level unless you can prove otherwise?
-
-  Russ> The key question is how to prove otherwise.
-
-  Russ> Ironicly, my concern was this patch would be seen as too
-  Russ> aggressive and therefore risky.  So the patch is limited to
-  Russ> the interrupt case, which seemed to be a heavy hitter in
-  Russ> testing.  I hadn't expected pushback for not being aggressive
-  Russ> enough.  :-)
-
-I'm not complaining that it's not aggressive enough, but doing
-"random" address-range checks just seems fragile.  I'm sure with a bit
-of thought, a better (and more general scheme) can be thought of.
-
-One thing that you could definitely do is to use an
-exception-table-like approach (see uacess.h), where you'd tag each
-instruction which consumes a user-level value and mark it as
-potentially MCA triggering.  If you defined a suitable macro (e.g.,
-st8.mca), this could be even reasonable and would then capture all
-interesting cases reliably.
-
-	--david
+Index: linux-2.6.11/arch/ia64/kernel/fsys.S
+=================================--- linux-2.6.11.orig/arch/ia64/kernel/fsys.S	2005-03-01 23:38:34.000000000 -0800
++++ linux-2.6.11/arch/ia64/kernel/fsys.S	2005-06-09 11:46:30.000000000 -0700
+@@ -460,9 +460,9 @@ EX(.fail_efault, ld8 r14=[r33])			// r14
+ 	;;
+ 
+ 	st8 [r2]=r14				// update current->blocked with new mask
+-	cmpxchg4.acq r14=[r9],r18,ar.ccv	// current->thread_info->flags <- r18
++	cmpxchg4.acq r8=[r9],r18,ar.ccv		// current->thread_info->flags <- r18
+ 	;;
+-	cmp.ne p6,p0=r17,r14			// update failed?
++	cmp.ne p6,p0=r17,r8			// update failed?
+ (p6)	br.cond.spnt.few 1b			// yes -> retry
+ 
+ #ifdef CONFIG_SMP
