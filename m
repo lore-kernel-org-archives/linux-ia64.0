@@ -1,53 +1,233 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Fri, 24 Jun 2005 04:14:14 +0000
-Subject: Fix another IA64 preemption problem
-Message-Id: <17083.34966.808455.428454@berry.gelato.unsw.EDU.AU>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Thu, 09 Jun 2005 13:04:20 +0000
+Subject: [PATCH 10/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42A83E54.8030603@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42A8386F.2060100@jp.fujitsu.com>
+In-Reply-To: <42A8386F.2060100@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
+[This is 10 of 10 patches, "iochk-10-rwlock.patch"]
 
-There's another problem shown up by MIngo's recent patch to make
-smp_processor_id() complain if it's called with preemption enabled.
-local_finish_flush_tlb_mm() calls activate_context() in a situation
-where it could be rescheduled to another processor.  This patch
-disables preemption around the call.
+- If a read access (i.g. readX/inX) cause a error while SAL
+   gathers system data on other processor ,it could be happen
+   a bridge error status is marked and vanished in a blink.
 
-Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
+   In case of MCA, thanks to rz_always flag, all MCA are
+   handled as global, so all processor except one is paused
+   during its handling.
+   But in case of CPE, as same as other interruption, it
+   have to be handled beside of all other active processors.
 
+   Therefore, to avoid such status crash, exclusive control
+   between read access and SAL_GET_STATE_INFO is required.
 
-Index: arch/ia64/kernel/smp.c
-=================================--- fc736377c5c7e23ee78569392ed31a6030289e44/arch/ia64/kernel/smp.c  (mode:100644)
-+++ uncommitted/arch/ia64/kernel/smp.c  (mode:100644)
-@@ -231,13 +231,16 @@
- void
- smp_flush_tlb_mm (struct mm_struct *mm)
- {
-+	preempt_disable();
- 	/* this happens for the common case of a single-threaded fork():  */
- 	if (likely(mm = current->active_mm && atomic_read(&mm->mm_users) = 1))
- 	{
- 		local_finish_flush_tlb_mm(mm);
-+		preempt_enable();
- 		return;
- 	}
- 
-+	preempt_enable();
- 	/*
- 	 * We could optimize this further by using mm->cpu_vm_mask to track which CPUs
- 	 * have been running in the address space.  It's not clear that this is worth the
-Index: include/asm-ia64/mmu_context.h
-=================================--- fc736377c5c7e23ee78569392ed31a6030289e44/include/asm-ia64/mmu_context.h  (mode:100644)
-+++ uncommitted/include/asm-ia64/mmu_context.h  (mode:100644)
-@@ -132,6 +132,9 @@
- 	ia64_srlz_i();			/* srlz.i implies srlz.d */
- }
- 
-+/*
-+ * Must be called with preemption off
-+ */
- static inline void
- activate_context (struct mm_struct *mm)
- {
+   To realize this, I changed control lock from spin to rw.
+   There would be better way, if so, this part should be
+   replaced.
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
+---
+
+  arch/ia64/kernel/mca.c      |    6 +++---
+  arch/ia64/lib/iomap_check.c |   11 ++++++-----
+  include/asm-ia64/io.h       |   24 ++++++++++++++++++++++++
+  3 files changed, 33 insertions(+), 8 deletions(-)
+
+Index: linux-2.6.11.11/arch/ia64/lib/iomap_check.c
+=================================--- linux-2.6.11.11.orig/arch/ia64/lib/iomap_check.c
++++ linux-2.6.11.11/arch/ia64/lib/iomap_check.c
+@@ -12,7 +12,7 @@ void iochk_clear(iocookie *cookie, struc
+  int  iochk_read(iocookie *cookie);
+
+  struct list_head iochk_devices;
+-DEFINE_SPINLOCK(iochk_lock);	/* all works are excluded on this lock */
++DEFINE_RWLOCK(iochk_lock);	/* all works are excluded on this lock */
+
+  static struct pci_dev *search_host_bridge(struct pci_dev *dev);
+  static int have_error(struct pci_dev *dev);
+@@ -36,14 +36,14 @@ void iochk_clear(iocookie *cookie, struc
+  	cookie->dev = dev;
+  	cookie->host = search_host_bridge(dev);
+
+-	spin_lock_irqsave(&iochk_lock, flag);
++	write_lock_irqsave(&iochk_lock, flag);
+  	if(cookie->host && have_error(cookie->host)) {
+  		/* someone under my bridge causes error... */
+  		notify_bridge_error(cookie->host);
+  		clear_bridge_error(cookie->host);
+  	}
+  	list_add(&cookie->list, &iochk_devices);
+-	spin_unlock_irqrestore(&iochk_lock, flag);
++	write_unlock_irqrestore(&iochk_lock, flag);
+
+  	cookie->error = 0;
+  }
+@@ -53,12 +53,12 @@ int iochk_read(iocookie *cookie)
+  	unsigned long flag;
+  	int ret = 0;
+
+-	spin_lock_irqsave(&iochk_lock, flag);
++	write_lock_irqsave(&iochk_lock, flag);
+  	if( cookie->error || have_error(cookie->dev)
+  		|| (cookie->host && have_error(cookie->host)) )
+  		ret = 1;
+  	list_del(&cookie->list);
+-	spin_unlock_irqrestore(&iochk_lock, flag);
++	write_unlock_irqrestore(&iochk_lock, flag);
+
+  	return ret;
+  }
+@@ -160,6 +160,7 @@ void save_bridge_error(void)
+  	}
+  }
+
++EXPORT_SYMBOL(iochk_lock);
+  EXPORT_SYMBOL(iochk_read);
+  EXPORT_SYMBOL(iochk_clear);
+  EXPORT_SYMBOL(iochk_devices);	/* for MCA driver */
+Index: linux-2.6.11.11/include/asm-ia64/io.h
+=================================--- linux-2.6.11.11.orig/include/asm-ia64/io.h
++++ linux-2.6.11.11/include/asm-ia64/io.h
+@@ -73,6 +73,7 @@ extern unsigned int num_io_spaces;
+
+  #ifdef CONFIG_IOMAP_CHECK
+  #include <linux/list.h>
++#include <linux/spinlock.h>
+
+  /* definition of ia64 iocookie */
+  struct __iocookie {
+@@ -83,6 +84,8 @@ struct __iocookie {
+  };
+  typedef struct __iocookie iocookie;
+
++extern rwlock_t iochk_lock;  /* see arch/ia64/lib/iomap_check.c */
++
+  /* enable ia64 iochk - See arch/ia64/lib/iomap_check.c */
+  #define HAVE_ARCH_IOMAP_CHECK
+
+@@ -211,10 +214,13 @@ ___ia64_inb (unsigned long port)
+  {
+  	volatile unsigned char *addr = __ia64_mk_io_addr(port);
+  	unsigned char ret;
++	unsigned long flags;
+
++	read_lock_irqsave(&iochk_lock,flags);
+  	ret = *addr;
+  	__ia64_mf_a();
+  	ia64_poison_check(ret);
++	read_unlock_irqrestore(&iochk_lock,flags);
+
+  	return ret;
+  }
+@@ -224,10 +230,13 @@ ___ia64_inw (unsigned long port)
+  {
+  	volatile unsigned short *addr = __ia64_mk_io_addr(port);
+  	unsigned short ret;
++	unsigned long flags;
+
++	read_lock_irqsave(&iochk_lock,flags);
+  	ret = *addr;
+  	__ia64_mf_a();
+  	ia64_poison_check(ret);
++	read_unlock_irqrestore(&iochk_lock,flags);
+
+  	return ret;
+  }
+@@ -237,10 +246,13 @@ ___ia64_inl (unsigned long port)
+  {
+  	volatile unsigned int *addr = __ia64_mk_io_addr(port);
+  	unsigned int ret;
++	unsigned long flags;
+
++	read_lock_irqsave(&iochk_lock,flags);
+  	ret = *addr;
+  	__ia64_mf_a();
+  	ia64_poison_check(ret);
++	read_unlock_irqrestore(&iochk_lock,flags);
+
+  	return ret;
+  }
+@@ -405,9 +417,12 @@ static inline unsigned char
+  ___ia64_readb (const volatile void __iomem *addr)
+  {
+  	unsigned char val;
++	unsigned long flags;
+
++	read_lock_irqsave(&iochk_lock,flags);
+  	val = *(volatile unsigned char __force *)addr;
+  	ia64_poison_check(val);
++	read_unlock_irqrestore(&iochk_lock,flags);
+
+  	return val;
+  }
+@@ -416,9 +431,12 @@ static inline unsigned short
+  ___ia64_readw (const volatile void __iomem *addr)
+  {
+  	unsigned short val;
++	unsigned long flags;
+
++	read_lock_irqsave(&iochk_lock,flags);
+  	val = *(volatile unsigned short __force *)addr;
+  	ia64_poison_check(val);
++	read_unlock_irqrestore(&iochk_lock,flags);
+
+  	return val;
+  }
+@@ -427,9 +445,12 @@ static inline unsigned int
+  ___ia64_readl (const volatile void __iomem *addr)
+  {
+  	unsigned int val;
++	unsigned long flags;
+
++	read_lock_irqsave(&iochk_lock,flags);
+  	val = *(volatile unsigned int __force *) addr;
+  	ia64_poison_check(val);
++	read_unlock_irqrestore(&iochk_lock,flags);
+
+  	return val;
+  }
+@@ -438,9 +459,12 @@ static inline unsigned long
+  ___ia64_readq (const volatile void __iomem *addr)
+  {
+  	unsigned long val;
++	unsigned long flags;
+
++	read_lock_irqsave(&iochk_lock,flags);
+  	val = *(volatile unsigned long __force *) addr;
+  	ia64_poison_check(val);
++	read_unlock_irqrestore(&iochk_lock,flags);
+
+  	return val;
+  }
+Index: linux-2.6.11.11/arch/ia64/kernel/mca.c
+=================================--- linux-2.6.11.11.orig/arch/ia64/kernel/mca.c
++++ linux-2.6.11.11/arch/ia64/kernel/mca.c
+@@ -81,7 +81,7 @@
+  #include <linux/pci.h>
+  extern void notify_bridge_error(struct pci_dev *bridge);
+  extern void save_bridge_error(void);
+-extern spinlock_t iochk_lock;
++extern rwlock_t iochk_lock;
+  #endif
+
+  #if defined(IA64_MCA_DEBUG_INFO)
+@@ -306,10 +306,10 @@ ia64_mca_cpe_int_handler (int cpe_irq, v
+  	 * the states from changing by any other I/Os running simultaneously,
+  	 * so this should be handled w/ lock and interrupts disabled.
+  	 */
+-	spin_lock(&iochk_lock);
++	write_lock(&iochk_lock);
+  	save_bridge_error();
+  	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
+-	spin_unlock(&iochk_lock);
++	write_unlock(&iochk_lock);
+
+  	/* Rests can go w/ interrupt enabled as usual */
+  	local_irq_enable();
+
