@@ -1,103 +1,98 @@
-From: Rusty Lynch <rusty.lynch@intel.com>
-Date: Tue, 21 Jun 2005 20:53:43 +0000
-Subject: [patch 0/5] Return probe redesign: overall description
-Message-Id: <20050621205343.548977000@linux.jf.intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Thu, 09 Jun 2005 12:56:03 +0000
+Subject: [PATCH 06/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42A83C63.5080604@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42A8386F.2060100@jp.fujitsu.com>
+In-Reply-To: <42A8386F.2060100@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org, linux-ia64@vger.kernel.org
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
- From my experiences with adding return probes to x86_64 and ia64, and the
-feedback on LKML to those patches, I think we can simplify the design
-for return probes.
+[This is 6 of 10 patches, "iochk-06-mcanotify.patch"]
 
-The following patchset for 2.6.12-mm1 tweaks the original design such that:
+- This is a headache:
+   When ia64 get a problem on hardware, OS could request
+   SAL(System Abstraction Layer: ia64 firmware) to gather
+   system status via calling SAL_GET_STATE_INFO procedure.
 
-* Instead of storing the stack address in the return probe instance, the
-  task pointer is stored.  This gives us all we need in order to:
-    - find the correct return probe instance when we enter the trampoline
-      (even if we are recursing)
-    - find all left-over return probe instances when the task is going away
+   However (depend on implementation of SAL for its platform,
+   hopefully), on the way of gathering, SAL also checks
+   every host bridges and its status, and after that, resets
+   the state...
 
-  This has the side effect of simplifying the implementation since more
-  work can be done in kernel/kprobes.c since architecture specific knowledge
-  of the stack layout is no longer required.  Specifically, we no longer have:
-	- arch_get_kprobe_task()
-	- arch_kprobe_flush_task()
-	- get_rp_inst_tsk()
-	- get_rp_inst()
-	- trampoline_post_handler() <see next bullet>
+   So we should take care of this reset by SAL.
 
-* Instead of splitting the return probe handling and cleanup logic across
-  the pre and post trampoline handlers, all the work is pushed into the 
-  pre function (trampoline_probe_handler), and then we skip single stepping
-  the original function.  In this case the original instruction to be single
-  stepped was just a NOP, and we can do without the extra interruption.
+   Handling MCA(Machine Check Abort) is one of a situation
+   should we take care. Originally MCA is designed as a
+   critical interruption, so when MCA comes, without OS's
+   order, SAL gathers system status before OS gets its control.
+   So since states of bridges are already reset on entrance of
+   MCA, OS should notify "lost of state" to all "check-in"
+   contexts, by marking its error flag, iocookie->error.
 
-The new flow of events to having a return probe handler execute when a target
-function exits is:
+   There would be better way if OS can know the bridge state
+   from data which SAL gathered, but in the meanwhile, I
+   just do simple way.
 
-* At system initialization time, a kprobe is inserted at the beginning of
-  kretprobe_trampoline.  kernel/kprobes.c use to handle this on it's own,
-  but ia64 needed to do this a little differently (i.e. a function pointer
-  is really a pointer to a structure containing the instruction pointer and
-  a global pointer), so I added the notion of arch_init(), so that
-  kernel/kprobes.c:init_kprobes() now allows architecture specific
-  initialization by calling arch_init() before exiting.  Each architecture
-  now registers a kprobe on it's own trampoline function.
+PCI-parity error is one of MCA causes, is it OK?
+Next, "data poisoning" helps us... see next (7 of 10).
 
-* register_kretprobe() will insert a kprobe at the beginning of the targeted
-  function with the kprobe pre_handler set to arch_prepare_kretprobe
-  (still no change)
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 
-* When the target function is entered, the kprobe is fired, calling
-  arch_prepare_kretprobe (still no change)
+---
 
-* In arch_prepare_kretprobe() we try to get a free instance and if one is
-  available then we fill out the instance with a pointer to the return probe,
-  the original return address, and a pointer to the task structure (instead
-  of the stack address.)  Just like before we change the return address
-  to the trampoline function and mark the instance as used.
+  arch/ia64/kernel/mca.c      |   13 +++++++++++++
+  arch/ia64/lib/iomap_check.c |    7 ++++++-
+  2 files changed, 19 insertions(+), 1 deletion(-)
 
-  If multiple return probes are registered for a given target function,
-  then arch_prepare_kretprobe() will get called multiple times for the same 
-  task (since our kprobe implementation is able to handle multiple kprobes 
-  at the same address.)  Past the first call to arch_prepare_kretprobe, 
-  we end up with the original address stored in the return probe instance
-  pointing to our trampoline function. (This is a significant difference
-  from the original arch_prepare_kretprobe design.) 
+Index: linux-2.6.11.11/arch/ia64/kernel/mca.c
+=================================--- linux-2.6.11.11.orig/arch/ia64/kernel/mca.c
++++ linux-2.6.11.11/arch/ia64/kernel/mca.c
+@@ -77,6 +77,11 @@
+  #include <asm/irq.h>
+  #include <asm/hw_irq.h>
 
-* Target function executes like normal and then returns to kretprobe_trampoline.
++#ifdef CONFIG_IOMAP_CHECK
++#include <linux/pci.h>
++extern void notify_bridge_error(struct pci_dev *bridge);
++#endif
++
+  #if defined(IA64_MCA_DEBUG_INFO)
+  # define IA64_MCA_DEBUG(fmt...)	printk(fmt)
+  #else
+@@ -893,6 +898,14 @@ ia64_mca_ucmc_handler(void)
+  		sal_log_record_header_t *rh = IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA);
+  		rh->severity = sal_log_severity_corrected;
+  		ia64_sal_clear_state_info(SAL_INFO_TYPE_MCA);
++
++#ifdef CONFIG_IOMAP_CHECK
++		/*
++		 * SAL already reads and clears error bits on bridge registers,
++		 * so we should have all running transactions to retry.
++		 */
++		notify_bridge_error(0);
++#endif
+  	}
+  	/*
+  	 *  Wakeup all the processors which are spinning in the rendezvous
+Index: linux-2.6.11.11/arch/ia64/lib/iomap_check.c
+=================================--- linux-2.6.11.11.orig/arch/ia64/lib/iomap_check.c
++++ linux-2.6.11.11/arch/ia64/lib/iomap_check.c
+@@ -109,7 +109,12 @@ void notify_bridge_error(struct pci_dev
+  		return;
 
-* kprobe inserted on the first instruction of kretprobe_trampoline is fired
-  and calls trampoline_probe_handler() (no change here)
+  	/* notify error to all transactions using this host bridge */
+-	if (bridge) {
++	if (!bridge) {
++		/* global notify, ex. MCA */
++		list_for_each_entry(cookie, &iochk_devices, list) {
++			cookie->error = 1;
++		}
++	} else {
+  		/* local notify, ex. Parity, Abort etc. */
+  		list_for_each_entry(cookie, &iochk_devices, list) {
+  			if (cookie->host = bridge)
 
-* trampoline_probe_handler() consumes each of the instances associated with
-  the current task by calling the registered handler function and marking 
-  the instance as unused until an instance is found that has a return address
-  different then the trampoline function.
-
-  (change similar to my previous ia64 RFC)
-       
-* If the task is killed with some left-over return probe instances (meaning
-  that a target function was entered, but never returned), then we just
-  free any instances associated with the task.  (Not much different other
-  then we can handle this without calling architecture specific functions.)
-
-  There is a known problem that this patch does not yet solve where
-  registering a return probe flush_old_exec or flush_thread will put us
-  in a bad state.  Most likely the best way to handle this is to not allow
-  registering return probes on these two functions.
-
-  (Significant change)
-
-This patch series applies to the 2.6.12-rc6-mm1 kernel, and provides:
-  * kernel/kprobes.c changes
-  * i386 patch of existing return probes implementation
-  * x86_64 patch of existing return probe implementation
-  * ia64 implementation 
-  * ppc64 implementation
-
-    --rusty
