@@ -1,67 +1,75 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 10 Jun 2005 10:29:58 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 10 Jun 2005 17:25:46 +0000
 Subject: Re: [PATCH 07/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42A96BA6.1070300@jp.fujitsu.com>
+Message-Id: <17065.52506.707169.903319@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42A8386F.2060100@jp.fujitsu.com>	<42A83CF2.90304@jp.fujitsu.com> <17064.32552.507932.62892@napali.hpl.hp.com>
-In-Reply-To: <17064.32552.507932.62892@napali.hpl.hp.com>
+References: <42A8386F.2060100@jp.fujitsu.com>
+	<42A83CF2.90304@jp.fujitsu.com>
+	<17064.32552.507932.62892@napali.hpl.hp.com>
+	<42A96BA6.1070300@jp.fujitsu.com>
+In-Reply-To: <42A96BA6.1070300@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davidm@hpl.hp.com
-Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: davidm@hpl.hp.com, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-Hi David,
+>>>>> On Fri, 10 Jun 2005 19:29:58 +0900, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> said:
 
-David Mosberger wrote:
->>>>>>On Thu, 09 Jun 2005 21:58:26 +0900, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> said:
-> 
->   Hidetoshi> +/*
->   Hidetoshi> + * Some I/O bridges may poison the data read, instead of
->   Hidetoshi> + * signaling a BERR.  The consummation of poisoned data
->   Hidetoshi> + * triggers a local, imprecise MCA.
->   Hidetoshi> + * Note that the read operation by itself does not consume
->   Hidetoshi> + * the bad data, you have to do something with it, e.g.:
->   Hidetoshi> + *
->   Hidetoshi> + *	ld.8	r9=[r10];;	// r10 = I/O address
->   Hidetoshi> + *	add.8	r8=r9,r9;;	// fake operation
->   Hidetoshi> + */
->   Hidetoshi> +#define ia64_poison_check(val)					\
->   Hidetoshi> +{	register unsigned long gr8 asm("r8");			\
->   Hidetoshi> +	asm volatile ("add %0=%1,r0" : "=r"(gr8) : "r"(val)); }
->   Hidetoshi> +
->   Hidetoshi> #endif /* CONFIG_IOMAP_CHECK  */
-> 
-> I have only looked that this briefly and I didn't see off hand where you get
-> the "r9=[r10]" sequence from --- I hope you're not relying on the compiler
-> happening to generate this sequence!
+  Hidetoshi> Hi David,
+  Hidetoshi> David Mosberger wrote:
+  >>>>>>> On Thu, 09 Jun 2005 21:58:26 +0900, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> said:
+  >> 
+  Hidetoshi> +/*
+  Hidetoshi> + * Some I/O bridges may poison the data read, instead of
+  Hidetoshi> + * signaling a BERR.  The consummation of poisoned data
+  Hidetoshi> + * triggers a local, imprecise MCA.
+  Hidetoshi> + * Note that the read operation by itself does not consume
+  Hidetoshi> + * the bad data, you have to do something with it, e.g.:
+  Hidetoshi> + *
+  Hidetoshi> + *	ld.8	r9=[r10];;	// r10 = I/O address
+  Hidetoshi> + *	add.8	r8=r9,r9;;	// fake operation
+  Hidetoshi> + */
+  Hidetoshi> +#define ia64_poison_check(val)					\
+  Hidetoshi> +{	register unsigned long gr8 asm("r8");			\
+  Hidetoshi> +	asm volatile ("add %0=%1,r0" : "=r"(gr8) : "r"(val)); }
+  Hidetoshi> +
+  Hidetoshi> #endif /* CONFIG_IOMAP_CHECK  */
 
-+static inline unsigned char
-+___ia64_readb (const volatile void __iomem *addr)
-+{
-+    unsigned char val;
-+
-+    val = *(volatile unsigned char __force *)addr;
-+    ia64_poison_check(val);
-+
-+    return val;
-+}
+  >> I have only looked that this briefly and I didn't see off hand where you get
+  >> the "r9=[r10]" sequence from --- I hope you're not relying on the compiler
+  >> happening to generate this sequence!
 
-Assigning value from addr to variable val stands for "ld", is it right?
-What I want to do here is making sure that ld actually finishs loading data
-from memory or mmaped register or far place to general register, and make
-sure that the data is healthy enough to operate, not poisoned.
+  Hidetoshi> +static inline unsigned char
+  Hidetoshi> +___ia64_readb (const volatile void __iomem *addr)
+  Hidetoshi> +{
+  Hidetoshi> +    unsigned char val;
+  Hidetoshi> +
+  Hidetoshi> +    val = *(volatile unsigned char __force *)addr;
+  Hidetoshi> +    ia64_poison_check(val);
+  Hidetoshi> +
+  Hidetoshi> +    return val;
+  Hidetoshi> +}
 
-> More importantly: please avoid inline "asm" and use the intrinsics
-> defined by gcc_intrin.h instead (if you need something new, we can add
-> that), but I think ia64_getreg() will do much of what you want already.
+Ah, I see now what you're trying to do.  I think it's really a
+machine-check barrier that you want there.
 
-Umm, I think I need something like ia64_setreg(ANYWHERE_DUMMY_REG, val).
-How do you think?
+I'm doubtful whether this is the right approach, though: your
+ia64_poison_check() will cause _every single_ readX() operation to
+stall the CPU for 1,000+ cycles.  Why not define an explicit
+iochk_barrier() instead?  Then you could do things like this:
 
-Or don't you mind if I move the definition of ia64_poison_check above to
-gcc_intrin.h?
+	a = readb(X);
+	b = readb(Y);
+	c = readb(Z);
+	iochk_barrier(a + b + c);
 
-Thanks,
-H.Seto
+That is, if it's unimportant to know whether the read of X, Y, or Z
+caused the MCA, you can amortize the cost of iochk_barrier() over 3
+reads.
 
+I'd probably make iochk_barrier() an out-of-line no-op assembly
+routine.  The cost of two branches compared to stalling for hundreds
+of cycles is rather trivial.
+
+	--david
