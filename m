@@ -1,56 +1,35 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Thu, 30 Jun 2005 23:05:36 +0000
-Subject: Re: Fast Syscalls and Virtualised Linux on Linux
-Message-Id: <17092.31424.642521.152067@wombat.chubb.wattle.id.au>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 10 Jun 2005 05:31:34 +0000
+Subject: updated libunwind patch for v2.6 kernel
+Message-Id: <200506100531.j5A5VYSB001927@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <17090.8605.481641.322881@wombat.chubb.wattle.id.au>
-In-Reply-To: <17090.8605.481641.322881@wombat.chubb.wattle.id.au>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Christoph" = Christoph Hellwig <hch@infradead.org> writes:
+An updated version of the libunwind patch for the 2.6-kernel is now
+available at:
 
-Christoph> On Wed, Jun 29, 2005 at 02:20:45PM +1000, Peter Chubb
-Christoph> wrote:
->> One approach might be to redefine __BREAK_SYSCALL for the guest OS.
->> That'd require a specially compiled glibc and kernel, and possibly
->> other executables.
->> 
->> Does anyone have a better idea?
+ ftp://ftp.hpl.hp.com/pub/linux-ia64/unwind-2.6-050609.diff.gz
 
-Christoph> Make sure glibc is always doing syscalls via the vdso (and
-Christoph> that the kernel actually support this ;-)) Then the guest
+The only change is that the libunwind API has been exported to
+modules.  The problem I reported earlier with strace'ing an x86 task
+apparently had nothing to do with the libunwind changes as it went
+away before I even had a chance to investigate.
 
-It doesn't, that's the problem (otherwise it's easy).
+This patch passes all my testing so far.  The only thing that I
+haven't tested (at all) is the oprofile call-stack tracing.  I'd be
+interested to hear if/how that works.  (I did drop the old compiler
+support there --- I hope nobody uses such old compilers anymore and
+the code was just gross; but if we have to, we can resurrect it).
 
-Problem areas are:
-	sys_sigreturn
-	sys_clone2
-	sys_syscall
-	sys_vfork
+Tony, I know you're in the middle of making the test-2.6 tree work
+better for you.  For now, the patch above is relative to Linus 2.6
+tree, but if you have no objections, I'd like to feed it into your
+test-2.6 as soon as possible (just let me know when you're ready and I
+will respin the patch relative to test-2.6).
 
+Thanks,
 
-
-In the clone2() commentary there's:
-
-	/*
-	 * clone2() is special: the child cannot execute br.ret right
-	 * after the system call returns, because it starts out
-	 * executing on an empty stack.  Because of this, we can't use
-	 * the new (lightweight) syscall convention here.  Instead, we
-	 * just fall back on always using "break".
-	 *
-	 * Furthermore, since the child starts with an empty stack, we
-	 * need to avoid unwinding past invalid memory.  To that end,
-	 * we'll pretend now that __clone2() is the end of the
-	 * call-chain.  This is wrong for the parent, but only until
-	 * it returns from clone2() but it's better than the
-	 * alternative.
-	 */
-
-
--- 
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+	--david
