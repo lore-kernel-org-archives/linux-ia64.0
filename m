@@ -1,71 +1,197 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Sat, 11 Jun 2005 04:08:56 +0000
-Subject: Re: [RFD] Separating struct task and the kernel stacks
-Message-Id: <11503.1118462936@ocs3.ocs.com.au>
+From: rusty.lynch@intel.com
+Date: Mon, 13 Jun 2005 20:51:56 +0000
+Subject: [patch 3/5] [kprobes] Tweak to the function return probe design
+Message-Id: <20050613205235.839201000@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <9712.1118384111@kao2.melbourne.sgi.com>
-In-Reply-To: <9712.1118384111@kao2.melbourne.sgi.com>
+References: <20050613205153.349171000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org
 
-On Fri, 10 Jun 2005 10:03:14 -0700, 
-David Mosberger <davidm@napali.hpl.hp.com> wrote:
->>>>>> On Fri, 10 Jun 2005 08:11:42 -0700 (PDT), Christoph Lameter <christoph@lameter.com> said:
->
->  >> Switching stacks requires that struct task is copied from the
->  >> original "current" to the MCA/INIT stack, then change current to
->  >> point to the new stack.  Even that is not enough, there are still
->  >> places that are using the old value of "current".  The main
->  >> problem is the scheduler, it tracks tasks by the address of their
->  >> struct task, not by the kernel stack address.  When debugging an
->  >> MCA/INIT, the mismatch between the new value of current and the
->  >> old task addresses in various structures can lead to some very
->  >> confusing results.  The kernel is not designed to have struct
->  >> task move around on the fly.
->
->  Christoph> Could you just move the stack? Put a pointer to the stack
->  Christoph> in task_info. By default this is pointing to the stack in
->  Christoph> task_info. If you have to switch point it elsewhere.
+(The following is a resend from this morning.  The various kernel mailing list
+did not seem to get my email, so I am resending the patch series from another
+machine.)
 
-Exactly what I was suggesting.  Separate struct task from the stack, so
-the stack just contains thread_info and the register and memory stacks,
-with struct task pointing to one of several stacks.  But as David has
-pointed out, that is going to be less efficient.
+The following provides the x86_64 specific changes for the new
+return probe design. Note that with this new design, the dependency
+on calculating a pointer to the task off the stack pointer no longer
+exist (resolving the problem of interruption stacks as pointed out
+in the original feedback to this port.)
 
->Perhaps a more fruitful approach might be to treat the MCA as its own
->task.
+signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
 
-That is a promising idea.  Preformat the MCA/INIT stacks like the init
-task, marking them interrupts disabled, non-preemptible etc.  To avoid
-any disagreement with what the scheduler thinks is the system state,
-mark the MCA/INIT tasks as not running on any cpu, even though they are
-really in control while they are handling the event.
+ arch/x86_64/kernel/kprobes.c |  130 ++++++++++++++++++++++---------------------
+ 1 files changed, 68 insertions(+), 62 deletions(-)
 
-Some of the registers belonging to the interrupted tasks will be in RBS
-on the MCA/INIT stack, which would normally stop us investigating the
-original state.  The MCA/INIT handler would copy those registers back
-to the original stack and add a switch_stack to make it look like the
-original task is blocked.  This assumes that the MCA/INIT event
-occurred while the cpu was running on a kernel stack and that there is
-enough room on stack to save the state.
+Index: linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
+=================================--- linux-2.6.12-rc6-mm1.orig/arch/x86_64/kernel/kprobes.c
++++ linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
+@@ -274,48 +274,23 @@ static void prepare_singlestep(struct kp
+ 		regs->rip = (unsigned long)p->ainsn.insn;
+ }
+ 
+-struct task_struct  *arch_get_kprobe_task(void *ptr)
+-{
+-	return ((struct thread_info *) (((unsigned long) ptr) &
+-					(~(THREAD_SIZE -1))))->task;
+-}
+-
+ void arch_prepare_kretprobe(struct kretprobe *rp, struct pt_regs *regs)
+ {
+ 	unsigned long *sara = (unsigned long *)regs->rsp;
+-	struct kretprobe_instance *ri;
+-	static void *orig_ret_addr;
++        struct kretprobe_instance *ri;
+ 
+-	/*
+-	 * Save the return address when the return probe hits
+-	 * the first time, and use it to populate the (krprobe
+-	 * instance)->ret_addr for subsequent return probes at
+-	 * the same addrress since stack address would have
+-	 * the kretprobe_trampoline by then.
+-	 */
+-	if (((void*) *sara) != kretprobe_trampoline)
+-		orig_ret_addr = (void*) *sara;
++        if ((ri = get_free_rp_inst(rp)) != NULL) {
++                ri->rp = rp;
++                ri->task = current;
++		ri->ret_addr = (kprobe_opcode_t *) *sara;
+ 
+-	if ((ri = get_free_rp_inst(rp)) != NULL) {
+-		ri->rp = rp;
+-		ri->stack_addr = sara;
+-		ri->ret_addr = orig_ret_addr;
+-		add_rp_inst(ri);
+ 		/* Replace the return addr with trampoline addr */
+ 		*sara = (unsigned long) &kretprobe_trampoline;
+-	} else {
+-		rp->nmissed++;
+-	}
+-}
+ 
+-void arch_kprobe_flush_task(struct task_struct *tk)
+-{
+-	struct kretprobe_instance *ri;
+-	while ((ri = get_rp_inst_tsk(tk)) != NULL) {
+-		*((unsigned long *)(ri->stack_addr)) -					(unsigned long) ri->ret_addr;
+-		recycle_rp_inst(ri);
+-	}
++                add_rp_inst(ri);
++        } else {
++                rp->nmissed++;
++        }
+ }
+ 
+ /*
+@@ -428,36 +403,58 @@ no_kprobe:
+  */
+ int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
+ {
+-	struct task_struct *tsk;
+-	struct kretprobe_instance *ri;
+-	struct hlist_head *head;
+-	struct hlist_node *node;
+-	unsigned long *sara = (unsigned long *)regs->rsp - 1;
+-
+-	tsk = arch_get_kprobe_task(sara);
+-	head = kretprobe_inst_table_head(tsk);
+-
+-	hlist_for_each_entry(ri, node, head, hlist) {
+-		if (ri->stack_addr = sara && ri->rp) {
+-			if (ri->rp->handler)
+-				ri->rp->handler(ri, regs);
+-		}
+-	}
+-	return 0;
+-}
++        struct kretprobe_instance *ri = NULL;
++        struct hlist_head *head;
++        struct hlist_node *node, *tmp;
++	unsigned long orig_ret_address = 0;
+ 
+-void trampoline_post_handler(struct kprobe *p, struct pt_regs *regs,
+-						unsigned long flags)
+-{
+-	struct kretprobe_instance *ri;
+-	/* RA already popped */
+-	unsigned long *sara = ((unsigned long *)regs->rsp) - 1;
++        head = kretprobe_inst_table_head(current);
++
++	/*
++	 * It is possible to have multiple instances associated with a given
++	 * task either because an multiple functions in the call path
++	 * have a return probe installed on them, and/or more then one return
++	 * return probe was registered for a target function.
++	 *
++	 * We can handle this because:
++	 *     - instances are always inserted at the head of the list
++	 *     - when multiple return probes are registered for the same
++         *       function, the first instance's ret_addr will point to the
++	 *       real return address, and all the rest will point to
++	 *       kretprobe_trampoline
++	 */
++	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
++                if (ri->task != current)
++			/* another task is sharing our hash bucket */
++                        continue;
++
++		if (ri->rp && ri->rp->handler)
++			ri->rp->handler(ri, regs);
+ 
+-	while ((ri = get_rp_inst(sara))) {
+-		regs->rip = (unsigned long)ri->ret_addr;
++		orig_ret_address = (unsigned long)ri->ret_addr;
+ 		recycle_rp_inst(ri);
++
++		if (orig_ret_address != (unsigned long) &kretprobe_trampoline)
++			/*
++			 * This is the real return address. Any other
++			 * instances associated with this task are for
++			 * other calls deeper on the call stack
++			 */
++			break;
+ 	}
+-	regs->eflags &= ~TF_MASK;
++
++	BUG_ON(!orig_ret_address);
++	regs->rip = orig_ret_address;
++
++	unlock_kprobes();
++	preempt_enable_no_resched();
++
++        /*
++         * By returning a non-zero value, we are telling
++         * kprobe_handler() that we have handled unlocking
++         * and re-enabling preemption.
++         */
++        return 1;
+ }
+ 
+ /*
+@@ -550,8 +547,7 @@ int post_kprobe_handler(struct pt_regs *
+ 		current_kprobe->post_handler(current_kprobe, regs, 0);
+ 	}
+ 
+-	if (current_kprobe->post_handler != trampoline_post_handler)
+-		resume_execution(current_kprobe, regs);
++	resume_execution(current_kprobe, regs);
+ 	regs->eflags |= kprobe_saved_rflags;
+ 
+ 	/* Restore the original saved kprobes variables and continue. */
+@@ -790,3 +786,13 @@ static void free_insn_slot(kprobe_opcode
+ 		}
+ 	}
+ }
++
++static struct kprobe trampoline_p = {
++	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
++	.pre_handler = trampoline_probe_handler
++};
++
++int __init arch_init(void)
++{
++	return register_kprobe(&trampoline_p);
++}
 
-current and its corresponding DTC still have to be switched to point to
-the MCA/INIT stack, there are too many places where current is tested
-and we want almost all of those places to pick up the MCA/INIT state,
-not the original.  For the few cases where we want the original value
-of current (backtrace is the obvious case), we can detect that this is
-the MCA/INIT stack and use the original value for current.  Stack
-switching from the MCA/INIT stack to the original stack is no longer
-required to backtrace the original task, which nicely removes the
-problem of how to switch between kernel stacks when unwinding,
-
-The detection of whether a task is blocked or not would have to change
-slightly.  Currently a task is blocked if it is not on a cpu, which is
-detected by comparing the task pointer against cpu_rq(cpu)->curr.
-During an MCA/INIT event, the cpu_rq(cpu)->curr task will be blocked
-and the MCA/INIT "task" will be active.  Fortunately that distinction
-only affects the MCA/INIT handlers and debuggers like kdb and lcrash, I
-can live with that.
-
+--
