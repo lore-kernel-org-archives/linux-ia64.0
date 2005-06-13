@@ -1,38 +1,45 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Tue, 21 Jun 2005 22:51:36 +0000
-Subject: RE: scheduler cache-hot-auto-tune patch breaks ia64 UP build
-Message-Id: <200506212251.j5LMpag28920@unix-os.sc.intel.com>
+From: Ananth N Mavinakayanahalli <amavin@redhat.com>
+Date: Mon, 13 Jun 2005 19:48:15 +0000
+Subject: Re: [patch 5/5] [kprobes] Tweak to the function return probe design
+Message-Id: <42ADE2FF.5020604@redhat.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <032EB457B9DBC540BFB1B7B519C78B0E076E3C6A@orsmsx404.amr.corp.intel.com>
-References: <032EB457B9DBC540BFB1B7B519C78B0E076E3C6A@orsmsx404.amr.corp.intel.com>
-In-Reply-To: <032EB457B9DBC540BFB1B7B519C78B0E076E3C6A@orsmsx404.amr.corp.intel.com>
+References: <20050613190207.954385000@tuna.jf.intel.com> <20050613190323.672988000@tuna.jf.intel.com>
+In-Reply-To: <20050613190323.672988000@tuna.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Lynch, Rusty" <rusty.lynch@intel.com>, Ingo Molnar <mingo@elte.hu>, Andrew Morton <akpm@osdl.org>
-Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: rusty.lynch@intel.com
+Cc: akpm@osdl.org, systemtap@sources.redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Hien Nguyen <hien@us.ibm.com>, Prasanna S Panchamukhi <prasanna@in.ibm.com>, Andi Kleen <ak@suse.de>, linuxppc64-dev@ozlabs.org
 
-Lynch, Rusty wrote on Tuesday, June 21, 2005 3:04 PM
-> Attempting to build 2.6.12-mm1 on ia64 with CONFIG_SMP disabled will
-> cause the build to break because max_cache_size is undefined.  I haven't
-> spent the time to understand the cache-hot-auto-tune feature, so I don't
-> have a patch to fix the problem.
+rusty.lynch@intel.com wrote:
 
-It needs a #ifdef around max_cache_size.  Patch to fix the build problem.
+Hi Rusty,
 
+Thanks for doing this. However...
 
-Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+> +
+> +		orig_ret_address = (unsigned long)ri->ret_addr;
+> +		recycle_rp_inst(ri);
+> +
+> +		if (orig_ret_address != (unsigned long) &kretprobe_trampoline)
+> +			/*
+> +			 * This is the real return address. Any other
+> +			 * instances associated with this task are for
+> +			 * other calls deeper on the call stack
+> +			 */
+> +			break;
+> +	}
+> +
+> +	BUG_ON(!orig_ret_address);
+> +	regs->nip = orig_ret_address;
+> +
+> +	unlock_kprobes();
+> +	preempt_enable_no_resched();
+         ^^^^^^^
 
---- linux-2.6.12/arch/ia64/kernel/setup.c.orig	2005-06-21 15:46:16.418636538 -0700
-+++ linux-2.6.12/arch/ia64/kernel/setup.c	2005-06-21 15:46:34.496761317 -0700
-@@ -655,7 +655,9 @@ get_max_cacheline_size (void)
- 			cache_size = cci.pcci_cache_size;
-         }
-   out:
-+#ifdef CONFIG_SMP
- 	max_cache_size = max(max_cache_size, cache_size);
-+#endif
- 	if (max > ia64_max_cacheline_size)
- 		ia64_max_cacheline_size = max;
- }
+We don't need this here - on ppc64, we do a preempt_disable/enable in
+kprobe_exceptions_notify() and so this will cause a spurious 
+preempt_enable().
 
+Thanks,
+Ananth
