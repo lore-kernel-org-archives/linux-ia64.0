@@ -1,152 +1,207 @@
-From: Smarduch Mario-CMS063 <CMS063@motorola.com>
-Date: Wed, 22 Jun 2005 20:37:48 +0000
-Subject: RE: 2.4.31 TLB corruption
-Message-Id: <A752C16E6296D711942200065BFCB6941D79BA32@il02exm10>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----_=_NextPart_000_01C5776A.3FF720AA"
+From: rusty.lynch@intel.com
+Date: Mon, 13 Jun 2005 20:51:57 +0000
+Subject: [patch 4/5] [kprobes] Tweak to the function return probe design
+Message-Id: <20050613205236.351353000@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <A752C16E6296D711942200065BFCB6941D79B9F3@il02exm10>
-In-Reply-To: <A752C16E6296D711942200065BFCB6941D79B9F3@il02exm10>
-To: linux-ia64@vger.kernel.org
+References: <20050613205153.349171000@linux.jf.intel.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org
 
-This message is in MIME format. Since your mail reader does not understand
-this format, some or all of this message may not be legible.
+(The following is a resend from this morning.  The various kernel mailing list
+did not seem to get my email, so I am resending the patch series from another
+machine.)
 
-------_=_NextPart_000_01C5776A.3FF720AA
-Content-Type: text/plain
+The following patch implements function return probes for ia64 using
+the revised design.  With this new design we no longer need to do some
+of the odd hacks previous required on the last ia64 return probe port
+that I sent out for comments.
 
+Note that this new implementation still does not resolve the problem noted
+by Keith Owens where backtrace data is lost after a return probe is hit.
 
-Attached is a patch produced by HP LOSL its not quite against
-2.4.31  but I it probably should apply cleanly, the related code
-is indentical to latest 2.4 kernel. If needed I could inquire
-for them to develop a 2.6 patch (I myself don't have 2.6 kernel up)
-please ask if needed. 
+    --rusty
 
-To reproduce the RID range was shrunk to lim/maxctx=1023/2048.
-on an 8-way about 180 copies with an argument of 5 was ran.
-We'd also appreciate feedback on the patch itself. There is stil
-another scenario on NUMA systems I'm concerned about I'll ask
-on the maillist when time permits.
+signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
 
-- mario
--------------------------------------
+ arch/ia64/kernel/kprobes.c |  102 ++++++++++++++++++++++++++++++++++++++++++++-
+ arch/ia64/kernel/process.c |   16 +++++++
+ include/asm-ia64/kprobes.h |    2 
+ 3 files changed, 118 insertions(+), 2 deletions(-)
 
-#include <stdio.h>
-#include <errno.h>
-#include <pthread.h>
-#include <string.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/wait.h>
+Index: linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-rc6.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
+@@ -290,6 +290,93 @@ static inline void set_current_kprobe(st
+ 	current_kprobe = p;
+ }
+ 
++static void kretprobe_trampoline(void)
++{
++}
++
++/*
++ * At this point the target function has been tricked into
++ * returning into our trampoline.  Lookup the associated instance
++ * and then:
++ *    - call the handler function
++ *    - cleanup by marking the instance as unused
++ *    - long jump back to the original return address
++ */
++int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
++{
++	struct kretprobe_instance *ri = NULL;
++	struct hlist_head *head;
++	struct hlist_node *node, *tmp;
++	unsigned long orig_ret_address = 0;
++
++        head = kretprobe_inst_table_head(current);
++
++	/*
++	 * It is possible to have multiple instances associated with a given
++	 * task either because an multiple functions in the call path
++	 * have a return probe installed on them, and/or more then one return
++	 * return probe was registered for a target function.
++	 *
++	 * We can handle this because:
++	 *     - instances are always inserted at the head of the list
++	 *     - when multiple return probes are registered for the same
++	 *       function, the first instance's ret_addr will point to the
++	 *       real return address, and all the rest will point to
++	 *       kretprobe_trampoline
++	 */
++	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
++                if (ri->task != current)
++			/* another task is sharing our hash bucket */
++                        continue;
++
++		if (ri->rp && ri->rp->handler)
++			ri->rp->handler(ri, regs);
++
++		orig_ret_address = (unsigned long)ri->ret_addr;
++		recycle_rp_inst(ri);
++
++		if (orig_ret_address !+		    ((struct fnptr *)kretprobe_trampoline)->ip)
++			/*
++			 * This is the real return address. Any other
++			 * instances associated with this task are for
++			 * other calls deeper on the call stack
++			 */
++			break;
++	}
++
++	BUG_ON(!orig_ret_address);
++	regs->cr_iip = orig_ret_address;
++
++	unlock_kprobes();
++	preempt_enable_no_resched();
++
++        /*
++         * By returning a non-zero value, we are telling
++         * kprobe_handler() that we have handled unlocking
++         * and re-enabling preemption.
++         */
++        return 1;
++}
++
++void arch_prepare_kretprobe(struct kretprobe *rp, struct pt_regs *regs)
++{
++	struct kretprobe_instance *ri;
++
++	if ((ri = get_free_rp_inst(rp)) != NULL) {
++		ri->rp = rp;
++		ri->task = current;
++		ri->ret_addr = (kprobe_opcode_t *)regs->b0;
++
++		/* Replace the return addr with trampoline addr */
++		regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
++
++		add_rp_inst(ri);
++	} else {
++		rp->nmissed++;
++	}
++}
++
+ int arch_prepare_kprobe(struct kprobe *p)
+ {
+ 	unsigned long addr = (unsigned long) p->addr;
+@@ -492,8 +579,8 @@ static int pre_kprobes_handler(struct di
+ 	if (p->pre_handler && p->pre_handler(p, regs))
+ 		/*
+ 		 * Our pre-handler is specifically requesting that we just
+-		 * do a return.  This is handling the case where the
+-		 * pre-handler is really our special jprobe pre-handler.
++		 * do a return.  This is used for both the jprobe pre-handler
++		 * and the kretprobe trampoline
+ 		 */
+ 		return 1;
+ 
+@@ -599,3 +686,14 @@ int longjmp_break_handler(struct kprobe 
+ 	*regs = jprobe_saved_regs;
+ 	return 1;
+ }
++
++static struct kprobe trampoline_p = {
++	.pre_handler = trampoline_probe_handler
++};
++
++int __init arch_init(void)
++{
++	trampoline_p.addr +		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
++	return register_kprobe(&trampoline_p);
++}
+Index: linux-2.6.12-rc6/include/asm-ia64/kprobes.h
+=================================--- linux-2.6.12-rc6.orig/include/asm-ia64/kprobes.h
++++ linux-2.6.12-rc6/include/asm-ia64/kprobes.h
+@@ -63,6 +63,8 @@ typedef struct _bundle {
+ 
+ #define JPROBE_ENTRY(pentry)	(kprobe_opcode_t *)pentry
+ 
++#define ARCH_SUPPORTS_KRETPROBES
++
+ #define SLOT0_OPCODE_SHIFT	(37)
+ #define SLOT1_p1_OPCODE_SHIFT	(37 - (64-46))
+ #define SLOT2_OPCODE_SHIFT 	(37)
+Index: linux-2.6.12-rc6/arch/ia64/kernel/process.c
+=================================--- linux-2.6.12-rc6.orig/arch/ia64/kernel/process.c
++++ linux-2.6.12-rc6/arch/ia64/kernel/process.c
+@@ -27,6 +27,7 @@
+ #include <linux/efi.h>
+ #include <linux/interrupt.h>
+ #include <linux/delay.h>
++#include <linux/kprobes.h>
+ 
+ #include <asm/cpu.h>
+ #include <asm/delay.h>
+@@ -707,6 +708,13 @@ kernel_thread_helper (int (*fn)(void *),
+ void
+ flush_thread (void)
+ {
++	/*
++	 * Remove function-return probe instances associated with this task
++	 * and put them back on the free list. Do not insert an exit probe for
++	 * this function, it will be disabled by kprobe_flush_task if you do.
++	 */
++	kprobe_flush_task(current);
++
+ 	/* drop floating-point and debug-register state if it exists: */
+ 	current->thread.flags &= ~(IA64_THREAD_FPH_VALID | IA64_THREAD_DBG_VALID);
+ 	ia64_drop_fpu(current);
+@@ -721,6 +729,14 @@ flush_thread (void)
+ void
+ exit_thread (void)
+ {
++
++	/*
++	 * Remove function-return probe instances associated with this task
++	 * and put them back on the free list. Do not insert an exit probe for
++	 * this function, it will be disabled by kprobe_flush_task if you do.
++	 */
++	kprobe_flush_task(current);
++
+ 	ia64_drop_fpu(current);
+ #ifdef CONFIG_PERFMON
+        /* if needed, stop monitoring and flush state to perfmon context */
 
-volatile unsigned long udummy1, udummy2, udummy3;
-volatile unsigned long idummy1=100, idummy2=200, idummy3=300;
-
-void * worker(void *self) {
-  int x = -1;
-  FILE *pp = 0;
-  long junk[8192];
-  char buf[1024];
-
-    x = -1;
-    errno = 0;
-    //printf("Thread: %u\n", getpid());
-    pp = popen("ls", "r");
-    x = errno;
-    if(pp) {
-      memset(buf, 0, sizeof(buf));
-      while(fgets(buf, sizeof(buf)-1, pp) != 0) {
-        ;
-        }
-      pclose(pp);
-    udummy1=101;
-    udummy2=102;
-    udummy3=103;
-    idummy1++;
-    idummy2++;
-    idummy3++;
-usleep(5000);
-
-    }
-    else printf("popen failed: %s\n", strerror(errno));
-    //printf("Thread Exit: %ud\n", getpid());
-    pthread_exit(NULL);
-}
-
-int main(int argc, char **argv) {
-  pthread_t pt[512];
-  pthread_t pthr;
-  int x = 0;
-  int thrcnt=5;
-
-  if(argc > 1)
-    thrcnt=atoi(argv[1]);
-  if(!thrcnt)
-        thrcnt=5;
-
-  while(1) {
-        //printf("Creating Thread...");
-        for (x = 0; x < thrcnt; x++)
-                pthread_create(&(pt[x]), 0, worker, (void *)&x);
-        for (x = 0; x < thrcnt; x++)
-                pthread_join( pt[x], NULL);
-        usleep(5000);
-        }
-  return 0;
-}
-
-
-
-
------Original Message-----
-From: David Mosberger [mailto:davidm@napali.hpl.hp.com] 
-Sent: Wednesday, June 22, 2005 12:56 PM
-To: Smarduch Mario-CMS063
-Cc: davidm@hpl.hp.com; linux-ia64@vger.kernel.org
-Subject: RE: 2.4.31 TLB corruption
-
-
->>>>> On Tue, 21 Jun 2005 16:22:50 -0500, Smarduch Mario-CMS063 
->>>>> <CMS063@motorola.com> said:
-
-  Mario> FYI, shrinking the RID range does reproduce the problem
-  Mario> easily. Its also reproducable on 2.6.7.
-
-That's progress.  Could you provide the kernel patch and description of minimal test-case to reproduce the problem?
-
-Thanks,
-
-	--david
-
-
-------_=_NextPart_000_01C5776A.3FF720AA
-Content-Type: application/octet-stream;
-	name="tlb_flush_bug2409.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="tlb_flush_bug2409.patch"
-
-LS0tIGxpbnV4LTIuNC4yMC9hcmNoL2lhNjQvbW0vdGxiLmMJVHVlIE1heSAgMyAxNDoyNzowMSAy
-MDA1DQorKysgbGludXgtMi40LjIwLXRsYnBhdGNoL2FyY2gvaWE2NC9tbS90bGIuYwlNb24gSnVu
-IDIwIDEwOjM1OjA4IDIwMDUNCkBAIC0xMTgsNiArMTE4LDcgQEANCiAJc3RyaWRlMCA9IGxvY2Fs
-X2NwdV9kYXRhLT5wdGNlX3N0cmlkZVswXTsNCiAJc3RyaWRlMSA9IGxvY2FsX2NwdV9kYXRhLT5w
-dGNlX3N0cmlkZVsxXTsNCiANCisJbG9jYWxfY3B1X2RhdGEtPm5lZWRfdGxiX2ZsdXNoID0gMDsN
-CiAJbG9jYWxfaXJxX3NhdmUoZmxhZ3MpOw0KIAlmb3IgKGkgPSAwOyBpIDwgY291bnQwOyArK2kp
-IHsNCiAJCWZvciAoaiA9IDA7IGogPCBjb3VudDE7ICsraikgew0KLS0tIGxpbnV4LTIuNC4yMC9p
-bmNsdWRlL2FzbS1pYTY0L21tdV9jb250ZXh0LmgJTW9uIEp1biAxMyAxNjo1MTowNCAyMDA1DQor
-KysgbGludXgtMi40LjIwLXRsYnBhdGNoL2luY2x1ZGUvYXNtLWlhNjQvbW11X2NvbnRleHQuaAlN
-b24gSnVuIDIwIDEwOjM4OjMxIDIwMDUNCkBAIC01NSw3ICs1NSw2IEBADQogDQogCWlmICh1bmxp
-a2VseShsb2NhbF9jcHVfZGF0YS0+bmVlZF90bGJfZmx1c2gpKSB7DQogCQlsb2NhbF9mbHVzaF90
-bGJfYWxsKCk7DQotCQlsb2NhbF9jcHVfZGF0YS0+bmVlZF90bGJfZmx1c2ggPSAwOw0KIAl9DQog
-fQ0KIA0KQEAgLTEzMiw2ICsxMzEsNyBAQA0KIA0KIAlkbyB7DQogCQljb250ZXh0ID0gZ2V0X21t
-dV9jb250ZXh0KG1tKTsNCisJCWRlbGF5ZWRfdGxiX2ZsdXNoKCk7IC8qIGZsdXNoIHRsYiBiZWZv
-cmUgbG9hZGluZyByZWxvYWRpbmcgKi8NCiAJCXJlbG9hZF9jb250ZXh0KGNvbnRleHQpOw0KIAkJ
-LyogaW4gdGhlIHVubGlrZWx5IGV2ZW50IG9mIGEgVExCLWZsdXNoIGJ5IGFub3RoZXIgdGhyZWFk
-LCByZWRvIHRoZSBsb2FkOiAqLw0KIAl9IHdoaWxlICh1bmxpa2VseShjb250ZXh0ICE9IG1tLT5j
-b250ZXh0KSk7DQpAQCAtMTQzLDggKzE0Myw2IEBADQogc3RhdGljIGlubGluZSB2b2lkDQogYWN0
-aXZhdGVfbW0gKHN0cnVjdCBtbV9zdHJ1Y3QgKnByZXYsIHN0cnVjdCBtbV9zdHJ1Y3QgKm5leHQp
-DQogew0KLQlkZWxheWVkX3RsYl9mbHVzaCgpOw0KLQ0KIAkvKg0KIAkgKiBXZSBtYXkgZ2V0IGlu
-dGVycnVwdHMgaGVyZSwgYnV0IHRoYXQncyBPSyBiZWNhdXNlIGludGVycnVwdCBoYW5kbGVycyBj
-YW5ub3QNCiAJICogdG91Y2ggdXNlci1zcGFjZS4NCg==
-
-------_=_NextPart_000_01C5776A.3FF720AA--
+--
