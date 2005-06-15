@@ -1,203 +1,40 @@
-From: Rusty Lynch <rusty.lynch@intel.com>
-Date: Tue, 21 Jun 2005 20:53:46 +0000
-Subject: [patch 3/5] Return probe redesign: x86_64 specific changes
-Message-Id: <20050621205406.001318000@linux.jf.intel.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 15 Jun 2005 06:31:23 +0000
+Subject: TLB corruption in 2.4.31 scenario?
+Message-Id: <16182.1118817083@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050621205343.548977000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org, linux-ia64@vger.kernel.org, Andi Kleen <ak@suse.de>, Rusty Lynch <rusty.lynch@intel.com>
+To: linux-ia64@vger.kernel.org
 
-The following patch contains the x86_64 specific changes for the new
-return probe design.  Changes include:
- * Removing the architecture specific functions for querying a return probe
-   instance off a stack address
- * Complete rework onf arch_prepare_kretprobe() and trampoline_probe_handler()
- * Removing trampoline_post_handler()
- * Adding arch_init() so that now we handle registering the return probe
-   trampoline instead of kernel/kprobes.c doing it
+Mario cannot get to the ia64 list, so I am forwarding this for him.
+Please cc Mario on any replies.
 
-NOTE:
-Note that with this new design, the dependency on calculating a pointer to 
-the task off the stack pointer no longer exist (resolving the problem of 
-interruption stacks as pointed out in the original feedback to this port.)
+------- Forwarded Message
 
-signed-off-by: Rusty Lynch <rusty.lynch@intel.com>
+  I noticed during a do_fork() -> copy_mm() -> dup_mmap()  - flush_tlb_mm()
+gets called that clears current->mm->context. Now if on another
+CPU is running wrap_mmu_context() it can potenitally
+step over this context number and assign an alias context to
+a new task, then there is a window between the flushing of
+the TLB and some other task getting its new context
+assigned and returning to user space.  Do you think
+there is potential here?
 
- arch/x86_64/kernel/kprobes.c |  131 ++++++++++++++++++++++---------------------
- 1 files changed, 69 insertions(+), 62 deletions(-)
+The question comes from TLB aliasing like core files that
+I've analyzed. We have not been able to isolate this to
+a self-contained executable so the next best thing I could
+do is read the code, the issue is very critical for us.
 
-Index: linux-2.6.12-mm1/arch/x86_64/kernel/kprobes.c
-=================================--- linux-2.6.12-mm1.orig/arch/x86_64/kernel/kprobes.c
-+++ linux-2.6.12-mm1/arch/x86_64/kernel/kprobes.c
-@@ -274,48 +274,23 @@ static void prepare_singlestep(struct kp
- 		regs->rip = (unsigned long)p->ainsn.insn;
- }
- 
--struct task_struct  *arch_get_kprobe_task(void *ptr)
--{
--	return ((struct thread_info *) (((unsigned long) ptr) &
--					(~(THREAD_SIZE -1))))->task;
--}
--
- void arch_prepare_kretprobe(struct kretprobe *rp, struct pt_regs *regs)
- {
- 	unsigned long *sara = (unsigned long *)regs->rsp;
--	struct kretprobe_instance *ri;
--	static void *orig_ret_addr;
-+        struct kretprobe_instance *ri;
- 
--	/*
--	 * Save the return address when the return probe hits
--	 * the first time, and use it to populate the (krprobe
--	 * instance)->ret_addr for subsequent return probes at
--	 * the same addrress since stack address would have
--	 * the kretprobe_trampoline by then.
--	 */
--	if (((void*) *sara) != kretprobe_trampoline)
--		orig_ret_addr = (void*) *sara;
-+        if ((ri = get_free_rp_inst(rp)) != NULL) {
-+                ri->rp = rp;
-+                ri->task = current;
-+		ri->ret_addr = (kprobe_opcode_t *) *sara;
- 
--	if ((ri = get_free_rp_inst(rp)) != NULL) {
--		ri->rp = rp;
--		ri->stack_addr = sara;
--		ri->ret_addr = orig_ret_addr;
--		add_rp_inst(ri);
- 		/* Replace the return addr with trampoline addr */
- 		*sara = (unsigned long) &kretprobe_trampoline;
--	} else {
--		rp->nmissed++;
--	}
--}
- 
--void arch_kprobe_flush_task(struct task_struct *tk)
--{
--	struct kretprobe_instance *ri;
--	while ((ri = get_rp_inst_tsk(tk)) != NULL) {
--		*((unsigned long *)(ri->stack_addr)) -					(unsigned long) ri->ret_addr;
--		recycle_rp_inst(ri);
--	}
-+                add_rp_inst(ri);
-+        } else {
-+                rp->nmissed++;
-+        }
- }
- 
- /*
-@@ -428,36 +403,59 @@ no_kprobe:
-  */
- int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
- {
--	struct task_struct *tsk;
--	struct kretprobe_instance *ri;
--	struct hlist_head *head;
--	struct hlist_node *node;
--	unsigned long *sara = (unsigned long *)regs->rsp - 1;
--
--	tsk = arch_get_kprobe_task(sara);
--	head = kretprobe_inst_table_head(tsk);
--
--	hlist_for_each_entry(ri, node, head, hlist) {
--		if (ri->stack_addr = sara && ri->rp) {
--			if (ri->rp->handler)
--				ri->rp->handler(ri, regs);
--		}
--	}
--	return 0;
--}
-+        struct kretprobe_instance *ri = NULL;
-+        struct hlist_head *head;
-+        struct hlist_node *node, *tmp;
-+	unsigned long orig_ret_address = 0;
-+	unsigned long trampoline_address =(unsigned long)&kretprobe_trampoline;
- 
--void trampoline_post_handler(struct kprobe *p, struct pt_regs *regs,
--						unsigned long flags)
--{
--	struct kretprobe_instance *ri;
--	/* RA already popped */
--	unsigned long *sara = ((unsigned long *)regs->rsp) - 1;
-+        head = kretprobe_inst_table_head(current);
-+
-+	/*
-+	 * It is possible to have multiple instances associated with a given
-+	 * task either because an multiple functions in the call path
-+	 * have a return probe installed on them, and/or more then one return
-+	 * return probe was registered for a target function.
-+	 *
-+	 * We can handle this because:
-+	 *     - instances are always inserted at the head of the list
-+	 *     - when multiple return probes are registered for the same
-+         *       function, the first instance's ret_addr will point to the
-+	 *       real return address, and all the rest will point to
-+	 *       kretprobe_trampoline
-+	 */
-+	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
-+                if (ri->task != current)
-+			/* another task is sharing our hash bucket */
-+                        continue;
-+
-+		if (ri->rp && ri->rp->handler)
-+			ri->rp->handler(ri, regs);
- 
--	while ((ri = get_rp_inst(sara))) {
--		regs->rip = (unsigned long)ri->ret_addr;
-+		orig_ret_address = (unsigned long)ri->ret_addr;
- 		recycle_rp_inst(ri);
-+
-+		if (orig_ret_address != trampoline_address)
-+			/*
-+			 * This is the real return address. Any other
-+			 * instances associated with this task are for
-+			 * other calls deeper on the call stack
-+			 */
-+			break;
- 	}
--	regs->eflags &= ~TF_MASK;
-+
-+	BUG_ON(!orig_ret_address || (orig_ret_address = trampoline_address));
-+	regs->rip = orig_ret_address;
-+
-+	unlock_kprobes();
-+	preempt_enable_no_resched();
-+
-+        /*
-+         * By returning a non-zero value, we are telling
-+         * kprobe_handler() that we have handled unlocking
-+         * and re-enabling preemption.
-+         */
-+        return 1;
- }
- 
- /*
-@@ -550,8 +548,7 @@ int post_kprobe_handler(struct pt_regs *
- 		current_kprobe->post_handler(current_kprobe, regs, 0);
- 	}
- 
--	if (current_kprobe->post_handler != trampoline_post_handler)
--		resume_execution(current_kprobe, regs);
-+	resume_execution(current_kprobe, regs);
- 	regs->eflags |= kprobe_saved_rflags;
- 
- 	/* Restore the original saved kprobes variables and continue. */
-@@ -790,3 +787,13 @@ static void free_insn_slot(kprobe_opcode
- 		}
- 	}
- }
-+
-+static struct kprobe trampoline_p = {
-+	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
-+	.pre_handler = trampoline_probe_handler
-+};
-+
-+int __init arch_init(void)
-+{
-+	return register_kprobe(&trampoline_p);
-+}
+I'd appreciate any insights you may have, btw I can't get
+on the ia64 maillist for some reason.
 
---
+
+- mario
+
+
+
+------- End of Forwarded Message
+
+
