@@ -1,16 +1,25 @@
 From: rusty.lynch@intel.com
-Date: Mon, 13 Jun 2005 20:51:53 +0000
-Subject: [patch 0/5] [kprobes] Tweak to the function return probe design
-Message-Id: <20050613205153.349171000@linux.jf.intel.com>
+Date: Thu, 16 Jun 2005 22:31:39 +0000
+Subject: [patch 0/5] [kprobes] Tweak to the function return probe design - take 2
+Message-Id: <20050616223139.444305000@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050613205153.349171000@linux.jf.intel.com>
+In-Reply-To: <20050613205153.349171000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org
+To: akpm@osdl.org
+Cc: systemtap@sources.redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Hien Nguyen <hien@us.ibm.com>, Prasanna S Panchamukhi <prasanna@in.ibm.com>, Andi Kleen <ak@suse.de>, Ananth N Mavinakayanahalli <amavin@redhat.com>, linuxppc64-dev@ozlabs.org
 
-(The following is a resend from this morning.  The various kernel mailing list
-did not seem to get my email, so I am resending the patch series from another
-machine.)
+The following is the second version of the function return probe patches
+I sent out earlier this week.  Changes since my last submission include:
+
+* Fix in ppc64 code removing an unneeded call to re-enable preemption
+* Fix a build problem in ia64 when kprobes was turned off
+* Added another BUG_ON check to each of the architecture trampoline 
+  handlers
+
+My initial patch description =>
 
  From my experiences with adding return probes to x86_64 and ia64, and the
 feedback on LKML to those patches, I think we can simplify the design
