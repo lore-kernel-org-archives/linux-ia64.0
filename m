@@ -1,17 +1,14 @@
 From: rusty.lynch@intel.com
-Date: Mon, 13 Jun 2005 20:51:58 +0000
-Subject: [patch 5/5] [kprobes] Tweak to the function return probe design
-Message-Id: <20050613205236.873920000@linux.jf.intel.com>
+Date: Thu, 16 Jun 2005 22:31:44 +0000
+Subject: [patch 5/5] [kprobes] Tweak to the function return probe design - take 2
+Message-Id: <20050616223308.007672000@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050613205153.349171000@linux.jf.intel.com>
+References: <20050616223139.444305000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org
-
-(The following is a resend from this morning.  The various kernel mailing list
-did not seem to get my email, so I am resending the patch series from another
-machine.  I also included a fix to the problem that Ananth pointed out.)
+To: akpm@osdl.org
+Cc: systemtap@sources.redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Hien Nguyen <hien@us.ibm.com>, Prasanna S Panchamukhi <prasanna@in.ibm.com>, Andi Kleen <ak@suse.de>, Ananth N Mavinakayanahalli <amavin@redhat.com>, linuxppc64-dev@ozlabs.org
 
 The following is a patch provided by Ananth Mavinakayanahalli that implements
 the new PPC64 specific parts of the new function return probe design. 
@@ -24,14 +21,16 @@ NOTE: Since getting Ananth's patch, I changed trampoline_probe_handler()
 
     --rusty
 
- arch/ppc64/kernel/kprobes.c |   98 ++++++++++++++++++++++++++++++++++++++++++++
+signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
+
+ arch/ppc64/kernel/kprobes.c |   99 ++++++++++++++++++++++++++++++++++++++++++++
  arch/ppc64/kernel/process.c |    4 +
  include/asm-ppc64/kprobes.h |    3 +
- 3 files changed, 105 insertions(+)
+ 3 files changed, 106 insertions(+)
 
-Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
-=================================--- linux-2.6.12-rc6-mm1.orig/arch/ppc64/kernel/kprobes.c
-+++ linux-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
+Index: ppc64-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
+=================================--- ppc64-2.6.12-rc6-mm1.orig/arch/ppc64/kernel/kprobes.c
++++ ppc64-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
 @@ -100,6 +100,23 @@ static inline void restore_previous_kpro
  	kprobe_saved_msr = kprobe_saved_msr_prev;
  }
@@ -56,7 +55,7 @@ Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
  static inline int kprobe_handler(struct pt_regs *regs)
  {
  	struct kprobe *p;
-@@ -190,6 +207,77 @@ no_kprobe:
+@@ -190,6 +207,78 @@ no_kprobe:
  }
  
  /*
@@ -81,6 +80,7 @@ Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
 +        struct hlist_head *head;
 +        struct hlist_node *node, *tmp;
 +	unsigned long orig_ret_address = 0;
++	unsigned long trampoline_address =(unsigned long)&kretprobe_trampoline;
 +
 +        head = kretprobe_inst_table_head(current);
 +
@@ -108,7 +108,7 @@ Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
 +		orig_ret_address = (unsigned long)ri->ret_addr;
 +		recycle_rp_inst(ri);
 +
-+		if (orig_ret_address != (unsigned long) &kretprobe_trampoline)
++		if (orig_ret_address != trampoline_address)
 +			/*
 +			 * This is the real return address. Any other
 +			 * instances associated with this task are for
@@ -117,7 +117,7 @@ Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
 +			break;
 +	}
 +
-+	BUG_ON(!orig_ret_address);
++	BUG_ON(!orig_ret_address || (orig_ret_address = trampoline_address));
 +	regs->nip = orig_ret_address;
 +
 +	unlock_kprobes();
@@ -134,7 +134,7 @@ Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
   * Called after single-stepping.  p->addr is the address of the
   * instruction whose first byte has been replaced by the "breakpoint"
   * instruction.  To avoid the SMP problems that can occur when we
-@@ -329,3 +417,13 @@ int longjmp_break_handler(struct kprobe 
+@@ -329,3 +418,13 @@ int longjmp_break_handler(struct kprobe 
  	memcpy(regs, &jprobe_saved_regs, sizeof(struct pt_regs));
  	return 1;
  }
@@ -148,9 +148,9 @@ Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/kprobes.c
 +{
 +	return register_kprobe(&trampoline_p);
 +}
-Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/process.c
-=================================--- linux-2.6.12-rc6-mm1.orig/arch/ppc64/kernel/process.c
-+++ linux-2.6.12-rc6-mm1/arch/ppc64/kernel/process.c
+Index: ppc64-2.6.12-rc6-mm1/arch/ppc64/kernel/process.c
+=================================--- ppc64-2.6.12-rc6-mm1.orig/arch/ppc64/kernel/process.c
++++ ppc64-2.6.12-rc6-mm1/arch/ppc64/kernel/process.c
 @@ -37,6 +37,7 @@
  #include <linux/interrupt.h>
  #include <linux/utsname.h>
@@ -176,9 +176,9 @@ Index: linux-2.6.12-rc6-mm1/arch/ppc64/kernel/process.c
  	if (t->flags & _TIF_ABI_PENDING)
  		t->flags ^= (_TIF_ABI_PENDING | _TIF_32BIT);
  
-Index: linux-2.6.12-rc6-mm1/include/asm-ppc64/kprobes.h
-=================================--- linux-2.6.12-rc6-mm1.orig/include/asm-ppc64/kprobes.h
-+++ linux-2.6.12-rc6-mm1/include/asm-ppc64/kprobes.h
+Index: ppc64-2.6.12-rc6-mm1/include/asm-ppc64/kprobes.h
+=================================--- ppc64-2.6.12-rc6-mm1.orig/include/asm-ppc64/kprobes.h
++++ ppc64-2.6.12-rc6-mm1/include/asm-ppc64/kprobes.h
 @@ -42,6 +42,9 @@ typedef unsigned int kprobe_opcode_t;
  
  #define JPROBE_ENTRY(pentry)	(kprobe_opcode_t *)((func_descr_t *)pentry)
