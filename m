@@ -1,17 +1,14 @@
 From: rusty.lynch@intel.com
-Date: Mon, 13 Jun 2005 20:51:56 +0000
-Subject: [patch 3/5] [kprobes] Tweak to the function return probe design
-Message-Id: <20050613205235.839201000@linux.jf.intel.com>
+Date: Thu, 16 Jun 2005 22:31:42 +0000
+Subject: [patch 3/5] [kprobes] Tweak to the function return probe design - take 2
+Message-Id: <20050616223306.883491000@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050613205153.349171000@linux.jf.intel.com>
+References: <20050616223139.444305000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org
-
-(The following is a resend from this morning.  The various kernel mailing list
-did not seem to get my email, so I am resending the patch series from another
-machine.)
+To: akpm@osdl.org
+Cc: systemtap@sources.redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Hien Nguyen <hien@us.ibm.com>, Prasanna S Panchamukhi <prasanna@in.ibm.com>, Andi Kleen <ak@suse.de>, Ananth N Mavinakayanahalli <amavin@redhat.com>, linuxppc64-dev@ozlabs.org
 
 The following provides the x86_64 specific changes for the new
 return probe design. Note that with this new design, the dependency
@@ -21,8 +18,8 @@ in the original feedback to this port.)
 
 signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
 
- arch/x86_64/kernel/kprobes.c |  130 ++++++++++++++++++++++---------------------
- 1 files changed, 68 insertions(+), 62 deletions(-)
+ arch/x86_64/kernel/kprobes.c |  131 ++++++++++++++++++++++---------------------
+ 1 files changed, 69 insertions(+), 62 deletions(-)
 
 Index: linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
 =================================--- linux-2.6.12-rc6-mm1.orig/arch/x86_64/kernel/kprobes.c
@@ -84,7 +81,7 @@ Index: linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
  }
  
  /*
-@@ -428,36 +403,58 @@ no_kprobe:
+@@ -428,36 +403,59 @@ no_kprobe:
   */
  int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
  {
@@ -109,6 +106,7 @@ Index: linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
 +        struct hlist_head *head;
 +        struct hlist_node *node, *tmp;
 +	unsigned long orig_ret_address = 0;
++	unsigned long trampoline_address =(unsigned long)&kretprobe_trampoline;
  
 -void trampoline_post_handler(struct kprobe *p, struct pt_regs *regs,
 -						unsigned long flags)
@@ -144,7 +142,7 @@ Index: linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
 +		orig_ret_address = (unsigned long)ri->ret_addr;
  		recycle_rp_inst(ri);
 +
-+		if (orig_ret_address != (unsigned long) &kretprobe_trampoline)
++		if (orig_ret_address != trampoline_address)
 +			/*
 +			 * This is the real return address. Any other
 +			 * instances associated with this task are for
@@ -154,7 +152,7 @@ Index: linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
  	}
 -	regs->eflags &= ~TF_MASK;
 +
-+	BUG_ON(!orig_ret_address);
++	BUG_ON(!orig_ret_address || (orig_ret_address = trampoline_address));
 +	regs->rip = orig_ret_address;
 +
 +	unlock_kprobes();
@@ -169,7 +167,7 @@ Index: linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
  }
  
  /*
-@@ -550,8 +547,7 @@ int post_kprobe_handler(struct pt_regs *
+@@ -550,8 +548,7 @@ int post_kprobe_handler(struct pt_regs *
  		current_kprobe->post_handler(current_kprobe, regs, 0);
  	}
  
@@ -179,7 +177,7 @@ Index: linux-2.6.12-rc6-mm1/arch/x86_64/kernel/kprobes.c
  	regs->eflags |= kprobe_saved_rflags;
  
  	/* Restore the original saved kprobes variables and continue. */
-@@ -790,3 +786,13 @@ static void free_insn_slot(kprobe_opcode
+@@ -790,3 +787,13 @@ static void free_insn_slot(kprobe_opcode
  		}
  	}
  }
