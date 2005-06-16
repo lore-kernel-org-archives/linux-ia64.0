@@ -1,210 +1,155 @@
-From: Rusty Lynch <rusty.lynch@intel.com>
-Date: Tue, 21 Jun 2005 20:53:48 +0000
-Subject: [patch 5/5] Return probe redesign: ppc64 specific implementation
-Message-Id: <20050621205407.571189000@linux.jf.intel.com>
+From: Bob Picco <bob.picco@hp.com>
+Date: Thu, 16 Jun 2005 13:28:27 +0000
+Subject: [PATCH 1/4] V3 ia64 SPARSEMEM - Kconfig and Makefile
+Message-Id: <20050616132827.GQ23911@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050621205343.548977000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org, linux-ia64@vger.kernel.org, Ananth N Mavinakayanahali <ananth@in.ibm.com>, Rusty Lynch <rusty.lynch@intel.com>
+To: linux-ia64@vger.kernel.org
 
-The following is a patch provided by Ananth Mavinakayanahalli that implements
-the new PPC64 specific parts of the new function return probe design. 
 
-Changes include:
- * Addition of kretprobe_trampoline to act as a dummy function for instrumented
-   functions to return to, and for the return probe infrastructure to place
-   a kprobe on on, gaining control so that the return probe handler
-   can be called, and so that the instruction pointer can be moved back
-   to the original return address.
- * Addition of arch_init(), allowing a kprobe to be registered on
-   kretprobe_trampoline
- * Addition of trampoline_probe_handler() which is used as the pre_handler
-   for the kprobe inserted on kretprobe_implementation.  This is the function
-   that handles the details for calling the return probe handler function
-   and returning control back at the original return address
- * Addition of arch_prepare_kretprobe() which is setup as the pre_handler
-   for a kprobe registered at the beginning of the target function by
-   kernel/kprobes.c so that a return probe instance can be setup when
-   a caller enters the target function.  (A return probe instance contains
-   all the needed information for trampoline_probe_handler to do it's job.)
- * Hooks added to the exit path of a task so that we can cleanup any left-over
-   return probe instances (i.e. if a task dies while inside a targeted function
-   then the return probe instance was reserved at the beginning of the function
-   but the function never returns so we need to mark the instance as unused.)
+The patch modifies the Kconfig file to introduce the new memory model
+options and other related SPARSEMEM changes. ia64 SPARSEMEM selects
+ARCH_SPARSEMEM_EXTREME. There is also a minor change in the Makefile.
 
-    --rusty
+Signed-off-by: Bob Picco <bob.picco@hp.com>
 
-signed-off-by: Ananth N Mavinakayanahali <ananth@in.ibm.com>
-signed-off-by: Rusty Lynch <rusty.lynch@intel.com>
+ Kconfig     |   96 +++++++++++++++++++++++++++++++++++++-----------------------
+ mm/Makefile |    5 +--
+ 2 files changed, 62 insertions(+), 39 deletions(-)
 
- arch/ppc64/kernel/kprobes.c |   99 ++++++++++++++++++++++++++++++++++++++++++++
- arch/ppc64/kernel/process.c |    4 +
- include/asm-ppc64/kprobes.h |    3 +
- 3 files changed, 106 insertions(+)
-
-Index: linux-2.6.12-mm1/arch/ppc64/kernel/kprobes.c
-=================================--- linux-2.6.12-mm1.orig/arch/ppc64/kernel/kprobes.c
-+++ linux-2.6.12-mm1/arch/ppc64/kernel/kprobes.c
-@@ -105,6 +105,23 @@ static inline void restore_previous_kpro
- 	kprobe_saved_msr = kprobe_saved_msr_prev;
- }
+Index: linux-2.6.12-rc4-mm2-broken-dynamic-sparse/arch/ia64/Kconfig
+=================================--- linux-2.6.12-rc4-mm2-broken-dynamic-sparse.orig/arch/ia64/Kconfig	2005-06-08 15:56:28.000000000 -0400
++++ linux-2.6.12-rc4-mm2-broken-dynamic-sparse/arch/ia64/Kconfig	2005-06-08 15:57:28.000000000 -0400
+@@ -169,40 +169,6 @@ config IA64_L1_CACHE_SHIFT
+ 	default "6" if ITANIUM
  
-+void arch_prepare_kretprobe(struct kretprobe *rp, struct pt_regs *regs)
-+{
-+	struct kretprobe_instance *ri;
-+
-+	if ((ri = get_free_rp_inst(rp)) != NULL) {
-+		ri->rp = rp;
-+		ri->task = current;
-+		ri->ret_addr = (kprobe_opcode_t *)regs->link;
-+
-+		/* Replace the return addr with trampoline addr */
-+		regs->link = (unsigned long)kretprobe_trampoline;
-+		add_rp_inst(ri);
-+	} else {
-+		rp->nmissed++;
-+	}
-+}
-+
- static inline int kprobe_handler(struct pt_regs *regs)
- {
- 	struct kprobe *p;
-@@ -195,6 +212,78 @@ no_kprobe:
- }
+ # align cache-sensitive data to 64 bytes
+-config NUMA
+-	bool "NUMA support"
+-	depends on !IA64_HP_SIM
+-	default y if IA64_SGI_SN2
+-	select ACPI_NUMA
+-	help
+-	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
+-	  Access).  This option is for configuring high-end multiprocessor
+-	  server systems.  If in doubt, say N.
+-
+-config VIRTUAL_MEM_MAP
+-	bool "Virtual mem map"
+-	default y if !IA64_HP_SIM
+-	help
+-	  Say Y to compile the kernel with support for a virtual mem map.
+-	  This code also only takes effect if a memory hole of greater than
+-	  1 Gb is found during boot.  You must turn this option on if you
+-	  require the DISCONTIGMEM option for your machine. If you are
+-	  unsure, say Y.
+-
+-config HOLES_IN_ZONE
+-	bool
+-	default y if VIRTUAL_MEM_MAP
+-
+-config ARCH_DISCONTIGMEM_ENABLE
+-	bool "Discontiguous memory support"
+-	depends on (IA64_DIG || IA64_SGI_SN2 || IA64_GENERIC || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB) && NUMA && VIRTUAL_MEM_MAP
+-	default y if (IA64_SGI_SN2 || IA64_GENERIC) && NUMA
+-	help
+-	  Say Y to support efficient handling of discontiguous physical memory,
+-	  for architectures which are either NUMA (Non-Uniform Memory Access)
+-	  or have huge holes in the physical address space for other reasons.
+-	  See <file:Documentation/vm/numa> for more.
+-
+ config IA64_CYCLONE
+ 	bool "Cyclone (EXA) Time Source support"
+ 	help
+@@ -232,8 +198,10 @@ config IA64_SGI_SN_XP
+ 	  based on a network adapter and DMA messaging.
  
- /*
-+ * Function return probe trampoline:
-+ * 	- init_kprobes() establishes a probepoint here
-+ * 	- When the probed function returns, this probe
-+ * 		causes the handlers to fire
-+ */
-+void kretprobe_trampoline_holder(void)
-+{
-+	asm volatile(".global kretprobe_trampoline\n"
-+			"kretprobe_trampoline:\n"
-+			"nop\n");
-+}
-+
-+/*
-+ * Called when the probe at kretprobe trampoline is hit
-+ */
-+int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
-+{
-+        struct kretprobe_instance *ri = NULL;
-+        struct hlist_head *head;
-+        struct hlist_node *node, *tmp;
-+	unsigned long orig_ret_address = 0;
-+	unsigned long trampoline_address =(unsigned long)&kretprobe_trampoline;
-+
-+        head = kretprobe_inst_table_head(current);
-+
-+	/*
-+	 * It is possible to have multiple instances associated with a given
-+	 * task either because an multiple functions in the call path
-+	 * have a return probe installed on them, and/or more then one return
-+	 * return probe was registered for a target function.
-+	 *
-+	 * We can handle this because:
-+	 *     - instances are always inserted at the head of the list
-+	 *     - when multiple return probes are registered for the same
-+         *       function, the first instance's ret_addr will point to the
-+	 *       real return address, and all the rest will point to
-+	 *       kretprobe_trampoline
-+	 */
-+	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
-+                if (ri->task != current)
-+			/* another task is sharing our hash bucket */
-+                        continue;
-+
-+		if (ri->rp && ri->rp->handler)
-+			ri->rp->handler(ri, regs);
-+
-+		orig_ret_address = (unsigned long)ri->ret_addr;
-+		recycle_rp_inst(ri);
-+
-+		if (orig_ret_address != trampoline_address)
-+			/*
-+			 * This is the real return address. Any other
-+			 * instances associated with this task are for
-+			 * other calls deeper on the call stack
-+			 */
-+			break;
-+	}
-+
-+	BUG_ON(!orig_ret_address || (orig_ret_address = trampoline_address));
-+	regs->nip = orig_ret_address;
-+
-+	unlock_kprobes();
-+
-+        /*
-+         * By returning a non-zero value, we are telling
-+         * kprobe_handler() that we have handled unlocking
-+         * and re-enabling preemption.
-+         */
-+        return 1;
-+}
-+
-+/*
-  * Called after single-stepping.  p->addr is the address of the
-  * instruction whose first byte has been replaced by the "breakpoint"
-  * instruction.  To avoid the SMP problems that can occur when we
-@@ -331,3 +420,13 @@ int longjmp_break_handler(struct kprobe 
- 	memcpy(regs, &jprobe_saved_regs, sizeof(struct pt_regs));
- 	return 1;
- }
-+
-+static struct kprobe trampoline_p = {
-+	.addr = (kprobe_opcode_t *) &kretprobe_trampoline,
-+	.pre_handler = trampoline_probe_handler
-+};
-+
-+int __init arch_init(void)
-+{
-+	return register_kprobe(&trampoline_p);
-+}
-Index: linux-2.6.12-mm1/arch/ppc64/kernel/process.c
-=================================--- linux-2.6.12-mm1.orig/arch/ppc64/kernel/process.c
-+++ linux-2.6.12-mm1/arch/ppc64/kernel/process.c
-@@ -37,6 +37,7 @@
- #include <linux/interrupt.h>
- #include <linux/utsname.h>
- #include <linux/perfctr.h>
-+#include <linux/kprobes.h>
+ config FORCE_MAX_ZONEORDER
+-	int
+-	default "18"
++	int "MAX_ORDER (11 - 17)"  if !HUGETLB_PAGE
++	range 11 17  if !HUGETLB_PAGE
++	default "17" if HUGETLB_PAGE
++	default "11"
  
- #include <asm/pgtable.h>
- #include <asm/uaccess.h>
-@@ -310,6 +311,8 @@ void show_regs(struct pt_regs * regs)
+ config SMP
+ 	bool "Symmetric multi-processing support"
+@@ -296,8 +264,64 @@ config PREEMPT
+           Say Y here if you are building a kernel for a desktop, embedded
+           or real-time system.  Say N if you are unsure.
  
- void exit_thread(void)
- {
-+	kprobe_flush_task(current);
++config ARCH_SELECT_MEMORY_MODEL
++	def_bool y
 +
- #ifndef CONFIG_SMP
- 	if (last_task_used_math = current)
- 		last_task_used_math = NULL;
-@@ -325,6 +328,7 @@ void flush_thread(void)
- {
- 	struct thread_info *t = current_thread_info();
- 
-+	kprobe_flush_task(current);
- 	if (t->flags & _TIF_ABI_PENDING)
- 		t->flags ^= (_TIF_ABI_PENDING | _TIF_32BIT);
- 
-Index: linux-2.6.12-mm1/include/asm-ppc64/kprobes.h
-=================================--- linux-2.6.12-mm1.orig/include/asm-ppc64/kprobes.h
-+++ linux-2.6.12-mm1/include/asm-ppc64/kprobes.h
-@@ -42,6 +42,9 @@ typedef unsigned int kprobe_opcode_t;
- 
- #define JPROBE_ENTRY(pentry)	(kprobe_opcode_t *)((func_descr_t *)pentry)
- 
-+#define ARCH_SUPPORTS_KRETPROBES
-+void kretprobe_trampoline(void);
++config ARCH_FLATMEM_ENABLE
++       def_bool y
 +
- /* Architecture specific copy of original instruction */
- struct arch_specific_insn {
- 	/* copy of original instruction */
-
---
++config ARCH_DISCONTIGMEM_ENABLE
++	def_bool y
++	depends on (IA64_DIG || IA64_SGI_SN2 || IA64_GENERIC || IA64_HP_ZX1 || IA64_HP_ZX1_SWIOTLB)
++	select NUMA
++	help
++	  Say Y to support efficient handling of discontiguous physical memory,
++	  for architectures which are either NUMA (Non-Uniform Memory Access)
++	  or have huge holes in the physical address space for other reasons.
++ 	  See <file:Documentation/vm/numa> for more.
++
++config ARCH_DISCONTIGMEM_DEFAULT
++	def_bool y
++	depends on ARCH_DISCONTIGMEM_ENABLE
++
++config ARCH_FLATMEM_ENABLE
++	def_bool y
++
++config ARCH_SPARSEMEM_ENABLE
++	def_bool y
++	depends on ARCH_DISCONTIGMEM_ENABLE
++	select ARCH_SPARSEMEM_EXTREME
++
+ source "mm/Kconfig"
+ 
++config NUMA
++	bool "NUMA support"
++	depends on !IA64_HP_SIM && !FLATMEM
++	default y if IA64_SGI_SN2
++	help
++	  Say Y to compile the kernel to support NUMA (Non-Uniform Memory
++	  Access).  This option is for configuring high-end multiprocessor
++	  server systems.  If in doubt, say N.
++
++config VIRTUAL_MEM_MAP
++	bool "Virtual mem map"
++	depends on !SPARSEMEM
++	default y if !IA64_HP_SIM
++	help
++	  Say Y to compile the kernel with support for a virtual mem map.
++	  This code also only takes effect if a memory hole of greater than
++	  1 Gb is found during boot.  You must turn this option on if you
++	  require the DISCONTIGMEM option for your machine. If you are
++	  unsure, say Y.
++
++config HOLES_IN_ZONE
++	bool
++	default y if VIRTUAL_MEM_MAP
++
++config HAVE_ARCH_EARLY_PFN_TO_NID
++	def_bool y
++	depends on NEED_MULTIPLE_NODES
++
+ config HAVE_DEC_LOCK
+ 	bool
+ 	depends on (SMP || PREEMPT)
+Index: linux-2.6.12-rc4-mm2-broken-dynamic-sparse/arch/ia64/mm/Makefile
+=================================--- linux-2.6.12-rc4-mm2-broken-dynamic-sparse.orig/arch/ia64/mm/Makefile	2005-06-08 15:56:28.000000000 -0400
++++ linux-2.6.12-rc4-mm2-broken-dynamic-sparse/arch/ia64/mm/Makefile	2005-06-08 15:57:28.000000000 -0400
+@@ -7,6 +7,5 @@ obj-y := init.o fault.o tlb.o extable.o
+ obj-$(CONFIG_HUGETLB_PAGE) += hugetlbpage.o
+ obj-$(CONFIG_NUMA)	   += numa.o
+ obj-$(CONFIG_DISCONTIGMEM) += discontig.o
+-ifndef CONFIG_DISCONTIGMEM
+-obj-y += contig.o
+-endif
++obj-$(CONFIG_SPARSEMEM)	   += discontig.o
++obj-$(CONFIG_FLATMEM)	   += contig.o
