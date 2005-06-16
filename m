@@ -1,17 +1,14 @@
 From: rusty.lynch@intel.com
-Date: Mon, 13 Jun 2005 20:51:57 +0000
-Subject: [patch 4/5] [kprobes] Tweak to the function return probe design
-Message-Id: <20050613205236.351353000@linux.jf.intel.com>
+Date: Thu, 16 Jun 2005 22:31:43 +0000
+Subject: [patch 4/5] [kprobes] Tweak to the function return probe design - take 2
+Message-Id: <20050616223307.395436000@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050613205153.349171000@linux.jf.intel.com>
+References: <20050616223139.444305000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org
-
-(The following is a resend from this morning.  The various kernel mailing list
-did not seem to get my email, so I am resending the patch series from another
-machine.)
+To: akpm@osdl.org
+Cc: systemtap@sources.redhat.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, Hien Nguyen <hien@us.ibm.com>, Prasanna S Panchamukhi <prasanna@in.ibm.com>, Andi Kleen <ak@suse.de>, Ananth N Mavinakayanahalli <amavin@redhat.com>, linuxppc64-dev@ozlabs.org
 
 The following patch implements function return probes for ia64 using
 the revised design.  With this new design we no longer need to do some
@@ -25,15 +22,15 @@ by Keith Owens where backtrace data is lost after a return probe is hit.
 
 signed-off-by: Rusty Lynch <Rusty.lynch@intel.com>
 
- arch/ia64/kernel/kprobes.c |  102 ++++++++++++++++++++++++++++++++++++++++++++-
- arch/ia64/kernel/process.c |   16 +++++++
- include/asm-ia64/kprobes.h |    2 
- 3 files changed, 118 insertions(+), 2 deletions(-)
+ arch/ia64/kernel/kprobes.c |  103 ++++++++++++++++++++++++++++++++++++++++++++-
+ arch/ia64/kernel/process.c |   16 ++++++
+ include/asm-ia64/kprobes.h |   13 +++--
+ 3 files changed, 125 insertions(+), 7 deletions(-)
 
 Index: linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
 =================================--- linux-2.6.12-rc6.orig/arch/ia64/kernel/kprobes.c
 +++ linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
-@@ -290,6 +290,93 @@ static inline void set_current_kprobe(st
+@@ -290,6 +290,94 @@ static inline void set_current_kprobe(st
  	current_kprobe = p;
  }
  
@@ -55,6 +52,7 @@ Index: linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
 +	struct hlist_head *head;
 +	struct hlist_node *node, *tmp;
 +	unsigned long orig_ret_address = 0;
++	unsigned long trampoline_address +		((struct fnptr *)kretprobe_trampoline)->ip;
 +
 +        head = kretprobe_inst_table_head(current);
 +
@@ -82,7 +80,7 @@ Index: linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
 +		orig_ret_address = (unsigned long)ri->ret_addr;
 +		recycle_rp_inst(ri);
 +
-+		if (orig_ret_address !+		    ((struct fnptr *)kretprobe_trampoline)->ip)
++		if (orig_ret_address != trampoline_address)
 +			/*
 +			 * This is the real return address. Any other
 +			 * instances associated with this task are for
@@ -91,7 +89,7 @@ Index: linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
 +			break;
 +	}
 +
-+	BUG_ON(!orig_ret_address);
++	BUG_ON(!orig_ret_address || (orig_ret_address = trampoline_address));
 +	regs->cr_iip = orig_ret_address;
 +
 +	unlock_kprobes();
@@ -126,7 +124,7 @@ Index: linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
  int arch_prepare_kprobe(struct kprobe *p)
  {
  	unsigned long addr = (unsigned long) p->addr;
-@@ -492,8 +579,8 @@ static int pre_kprobes_handler(struct di
+@@ -492,8 +580,8 @@ static int pre_kprobes_handler(struct di
  	if (p->pre_handler && p->pre_handler(p, regs))
  		/*
  		 * Our pre-handler is specifically requesting that we just
@@ -137,7 +135,7 @@ Index: linux-2.6.12-rc6/arch/ia64/kernel/kprobes.c
  		 */
  		return 1;
  
-@@ -599,3 +686,14 @@ int longjmp_break_handler(struct kprobe 
+@@ -599,3 +687,14 @@ int longjmp_break_handler(struct kprobe 
  	*regs = jprobe_saved_regs;
  	return 1;
  }
@@ -163,6 +161,31 @@ Index: linux-2.6.12-rc6/include/asm-ia64/kprobes.h
  #define SLOT0_OPCODE_SHIFT	(37)
  #define SLOT1_p1_OPCODE_SHIFT	(37 - (64-46))
  #define SLOT2_OPCODE_SHIFT 	(37)
+@@ -94,11 +96,6 @@ struct arch_specific_insn {
+ };
+ 
+ /* ia64 does not need this */
+-static inline void jprobe_return(void)
+-{
+-}
+-
+-/* ia64 does not need this */
+ static inline void arch_copy_kprobe(struct kprobe *p)
+ {
+ }
+@@ -106,6 +103,12 @@ static inline void arch_copy_kprobe(stru
+ #ifdef CONFIG_KPROBES
+ extern int kprobe_exceptions_notify(struct notifier_block *self,
+ 				    unsigned long val, void *data);
++
++/* ia64 does not need this */
++static inline void jprobe_return(void)
++{
++}
++
+ #else				/* !CONFIG_KPROBES */
+ static inline int kprobe_exceptions_notify(struct notifier_block *self,
+ 					   unsigned long val, void *data)
 Index: linux-2.6.12-rc6/arch/ia64/kernel/process.c
 =================================--- linux-2.6.12-rc6.orig/arch/ia64/kernel/process.c
 +++ linux-2.6.12-rc6/arch/ia64/kernel/process.c
