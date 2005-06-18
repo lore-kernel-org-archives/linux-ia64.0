@@ -1,42 +1,178 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Thu, 02 Jun 2005 01:56:37 +0000
-Subject: Re: [RFC] vmalloc with the ability to specify a node
-Message-Id: <Pine.LNX.4.62.0506011852010.11935@schroedinger.engr.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Sat, 18 Jun 2005 06:19:40 +0000
+Subject: Announce: kdb v4.4 is available for kernel 2.6.12
+Message-Id: <22161.1119075580@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.62.0506011551240.10915@schroedinger.engr.sgi.com>
- <20050602013421.GS25321@esmail.cup.hp.com>
-In-Reply-To: <20050602013421.GS25321@esmail.cup.hp.com>
+References: <12956.1085377697@kao2.melbourne.sgi.com>
+In-Reply-To: <12956.1085377697@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>
-Cc: linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: kdb@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On Wed, 1 Jun 2005, Grant Grundler wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> grundler@gsyprf3:/usr/src/linux-2.6$ fgrep vmalloc drivers/net/*/*c
-> drivers/net/e1000/e1000.mod.c:  { 0xd6ee688f, "vmalloc" },
-> drivers/net/e1000/e1000_main.c: txdr->buffer_info = vmalloc(size);
-> drivers/net/e1000/e1000_main.c: rxdr->buffer_info = vmalloc(size);
-> drivers/net/ixgb/ixgb.mod.c:    { 0xd6ee688f, "vmalloc" },
-> drivers/net/ixgb/ixgb_main.c:   txdr->buffer_info = vmalloc(size);
-> drivers/net/ixgb/ixgb_main.c:   rxdr->buffer_info = vmalloc(size);
-> grundler@gsyprf3:/usr/src/linux-2.6$ fgrep vmalloc drivers/scsi/*/*c
-> drivers/scsi/qla2xxx/qla2xxx.mod.c:     { 0xd6ee688f, "vmalloc" },
-> drivers/scsi/qla2xxx/qla_os.c:#include <linux/vmalloc.h>
-> drivers/scsi/qla2xxx/qla_os.c:                  ha->fw_dump_buffer = (char *)vmalloc(dump_size);
+KDB (Linux Kernel Debugger) has been updated.
 
-Thanks. We use the qla2xxx so it would also help us.
- 
-> Could someone explain to me why this is a bad thing on NUMA machines?
+ftp://oss.sgi.com/projects/kdb/download/v4.4/
+ftp://ftp.ocs.com.au/pub/mirrors/oss.sgi.com/projects/kdb/download/v4.4/
 
-Because the vmalloc now allocated memory from the node of the cpu that 
-is executing the initialization code and not memory on the node where the 
-device is located. Its best to service the device on the node of the device 
-accessing device local memory. vmalloc_node would allow to specify where 
-to place device control structures.
+Current versions are :-
 
-> I assume it has something to do with mem locality and how the memory
-> is used.
+  kdb-v4.4-2.6.12-common-1.bz2
+  kdb-v4.4-2.6.12-i386-1.bz2
+  kdb-v4.4-2.6.12-ia64-1.bz2
+  kdb-v4.4-2.6.11-x86-64-1.bz2 (may or may not work with 2.6.12).
 
-Correct.
+
+Changelog extract since kdb-v4.4-2.6.11-common-1.
+
+2005-06-18 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-common-1.
+
+2005-06-08 Keith Owens  <kaos@sgi.com>
+
+	* Correct early exit from bd *.
+	* kdb v4.4-2.6.12-rc6-common-1.
+
+2005-05-25 Keith Owens  <kaos@sgi.com>
+
+	* Delete Documentation/kdb/dump.txt.  lkcd now has reasonable
+	  integration with kdb.
+	* kdb v4.4-2.6.12-rc5-common-1.
+
+2005-05-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc4-common-1.
+
+2005-04-21 Keith Owens  <kaos@sgi.com>
+
+	* Add rpte command (find the pte for a physical page).
+	* kdb v4.4-2.6.12-rc3-common-1.
+
+2005-04-06 Keith Owens  <kaos@sgi.com>
+
+	* Add rq and rqa commands.  John Hawkes, SGI.
+	* kdb v4.4-2.6.12-rc2-common-1.
+
+2005-03-29 Keith Owens  <kaos@sgi.com>
+
+	* Use register_sysctl_table() instead of patching kernel/sysctl.c.
+	* Non-ASCII characters are not printable.
+	* kdb v4.4-2.6.12-rc1-common-1.
+
+2005-03-15 Keith Owens  <kaos@sgi.com>
+
+	* More coexistence patches for lkcd.  Jason Uhlenkott, SGI.
+	* kdb v4.4-2.6.11-common-3.
+
+2005-03-08 Keith Owens  <kaos@sgi.com>
+
+	* Coexistence patches for lkcd.  Jason Uhlenkott, SGI.
+	* kdb v4.4-2.6.11-common-2.
+
+
+Changelog extract since kdb-v4.4-2.6.11-i386-1.
+
+2005-06-18 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-i386-1.
+
+2005-06-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc6-i386-1.
+
+2005-05-25 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc5-i386-1.
+
+2005-05-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc4-i386-1.
+
+2005-04-21 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc3-i386-1.
+
+2005-04-06 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc2-i386-1.
+
+2005-03-29 Keith Owens  <kaos@sgi.com>
+
+	* Replace __copy_to_user with __copy_to_user_inatomic.
+	* kdb v4.4-2.6.12-rc1-i386-1.
+
+2005-03-08 Keith Owens  <kaos@sgi.com>
+
+	* Coexistence patches for lkcd.
+	* kdb v4.4-2.6.11-i386-2.
+
+
+Changelog extract since kdb v4.4-2.6.11-ia64-1.
+
+2005-06-18 Keith Owens  <kaos@sgi.com>
+
+	* Standard IA64 code now works around break.b setting cr.iim to 0
+	  instead of the break number.  Remove the kdb workaround.
+	* kdb v4.4-2.6.12-ia64-1.
+
+2005-06-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc6-ia64-1.
+
+2005-05-25 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc5-ia64-1.
+
+2005-05-24 Keith Owens  <kaos@sgi.com>
+
+	* break.b sets cr.iim to 0 instead of the break number.  Deal with it.
+	* kdb v4.4-2.6.12-rc4-ia64-3.
+
+2005-05-14 Keith Owens  <kaos@sgi.com>
+
+	* Correct MCA path after calling kdba_mca_bspstore_fixup().
+	  Mark Larson, SGI.
+	* Tell the user that MCA/INIT is recoverable so kdb is not entered.
+	* kdb v4.4-2.6.12-rc4-ia64-2.
+
+2005-05-08 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc4-ia64-1.
+
+2005-04-21 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc3-ia64-1.
+
+2005-04-06 Keith Owens  <kaos@sgi.com>
+
+	* kdb v4.4-2.6.12-rc2-ia64-1.
+
+2005-04-04 Keith Owens  <kaos@sgi.com>
+
+	* More tweaks to cope with invalid old bspstore in MCA handler.
+	* kdb v4.4-2.6.12-rc1-ia64-2.
+
+2005-03-29 Keith Owens  <kaos@sgi.com>
+
+	* Replace __copy_to_user with __copy_to_user_inatomic.
+	* MCA handler, do not use old_bspstore if it is in region 4 or below.
+	* kdb v4.4-2.6.12-rc1-ia64-1.
+
+2005-03-08 Keith Owens  <kaos@sgi.com>
+
+	* Coexistence patches for lkcd.  Jason Uhlenkott, SGI.
+	* kdb v4.4-2.6.11-ia64-2.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+Comment: Exmh version 2.1.1 10/15/1999
+
+iD8DBQFCs7z8i4UHNye0ZOoRAs5IAKDiQW/sXUhPouVtpbvZjVn9G5P6gACfdWAz
+Agp0JZbtUvmrS074UEvYygw=z5/a
+-----END PGP SIGNATURE-----
+
