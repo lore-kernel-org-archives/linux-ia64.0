@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Wed, 15 Jun 2005 16:25:38 +0000
-Subject: Re: 2.4.31 TLB corruption
-Message-Id: <17072.22146.49484.844380@napali.hpl.hp.com>
+From: Smarduch Mario-CMS063 <CMS063@motorola.com>
+Date: Tue, 21 Jun 2005 21:22:50 +0000
+Subject: RE: 2.4.31 TLB corruption
+Message-Id: <A752C16E6296D711942200065BFCB6941D79BA22@il02exm10>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <A752C16E6296D711942200065BFCB6941D79B9F3@il02exm10>
 In-Reply-To: <A752C16E6296D711942200065BFCB6941D79B9F3@il02exm10>
@@ -10,16 +10,26 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+FYI, shrinking the RID range does reproduce the
+problem easily. Its also reproducable on 2.6.7.
+
+- Mario
+
+-----Original Message-----
+From: David Mosberger [mailto:davidm@napali.hpl.hp.com] 
+Sent: Wednesday, June 15, 2005 11:26 AM
+To: Smarduch Mario-CMS063
+Cc: linux-ia64@vger.kernel.org
+Subject: Re: 2.4.31 TLB corruption
+
+
 It does look to me like there is a race-condition between
-delayed_tlb_flush() and wrap_mmu_context().  I can't say I have seen
-of heard any such problem on 2.6, but a worthwhile experiment to try
-might be to claim an artifically small number of region-ids (8 or 16
-should be enough).  That way, wrap_mmu_context() will be called much
-more frequently and it should be easier to demonstrate any problems.
+delayed_tlb_flush() and wrap_mmu_context().  I can't say I have seen of heard any such problem on 2.6, but a worthwhile experiment to try might be to claim an artifically small number of region-ids (8 or 16 should be enough).  That way, wrap_mmu_context() will be called much more frequently and it should be easier to demonstrate any problems.
 
 	--david
 
->>>>> On Wed, 15 Jun 2005 10:34:23 -0500, Smarduch Mario-CMS063 <CMS063@motorola.com> said:
+>>>>> On Wed, 15 Jun 2005 10:34:23 -0500, Smarduch Mario-CMS063 
+>>>>> <CMS063@motorola.com> said:
 
   Mario> Here's the race condition that appears possible. Considering
   Mario> a context range (for per task RID selection) 1-100.  The real
