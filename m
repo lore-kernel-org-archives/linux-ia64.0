@@ -1,38 +1,61 @@
-From: domen@coderock.org
-Date: Mon, 20 Jun 2005 21:49:43 +0000
-Subject: [patch 1/1] printk : arch/ia64/kernel/smp.c
-Message-Id: <20050620214942.822812000@nd47.coderock.org>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Wed, 22 Jun 2005 03:19:28 +0000
+Subject: Variation in measure_migration_cost() with scheduler-cache-hot-autodetect.patch in -mm
+Message-Id: <200506220319.j5M3JRg30716@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050319131906.E934A1F245@trashy.coderock.org>
-In-Reply-To: <20050319131906.E934A1F245@trashy.coderock.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: 'Ingo Molnar' <mingo@elte.hu>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-From: Christophe Lucas <clucas@rotomalug.org>
+I'm consistently getting a smaller than expected cache migration cost
+as measured by Ingo's scheduler-cache-hot-autodetect.patch currently
+in -mm tree.  In this patch, the memory used to calibrate migration
+cost is obtained by vmalloc call.  Would it make sense to use
+__get_free_pages() instead?  I did the following experiments on a
+variety of machines I have access to:
+
+				migration cost		migration cost
+				with vmalloc mem		with __get_free_pages
+3.0GHz Xeon, 8MB cache		6.23 ms		6.32 ms
+3.4GHz Xeon, 2MB cache		1.62 ms		2.00 ms
+1.6GHz Itanium2, 9MB		9.2 ms		10.2 ms
+1.4GHz Itanium2, 4MB		4.2 ms		 4.4 ms
+
+Why the discrepancy?  Possible cache coloring issue?
 
 
 
-printk() calls should include appropriate KERN_* constant.
-
-Signed-off-by: Christophe Lucas <clucas@rotomalug.org>
-Signed-off-by: Domen Puncer <domen@coderock.org>
----
- smp.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-Index: quilt/arch/ia64/kernel/smp.c
-=================================--- quilt.orig/arch/ia64/kernel/smp.c
-+++ quilt/arch/ia64/kernel/smp.c
-@@ -269,7 +269,7 @@ smp_call_function_single (int cpuid, voi
- 	int me = get_cpu(); /* prevent preemption and reschedule on another processor */
+--- linux-2.6.12/kernel/sched.c.orig	2005-06-21 19:42:45.067876790 -0700
++++ linux-2.6.12/kernel/sched.c	2005-06-21 19:43:42.580571398 -0700
+@@ -5420,7 +5420,7 @@ measure_cost(int cpu1, int cpu2, void *c
+ __init static unsigned long long measure_migration_cost(int cpu1, int cpu2)
+ {
+ 	unsigned long long max_cost = 0, fluct = 0, avg_fluct = 0;
+-	unsigned int max_size, size, size_found = 0;
++	unsigned int order, max_size, size, size_found = 0;
+ 	long long cost = 0, prev_cost;
+ 	void *cache;
  
- 	if (cpuid = me) {
--		printk("%s: trying to call self\n", __FUNCTION__);
-+		printk(KERN_INFO "%s: trying to call self\n", __FUNCTION__);
- 		put_cpu();
- 		return -EBUSY;
- 	}
+@@ -5448,7 +5448,10 @@ __init static unsigned long long measure
+ 	/*
+ 	 * Allocate the working set:
+ 	 */
+-	cache = vmalloc(max_size);
++	for (order = 0; PAGE_SIZE << order < max_size; order++)
++		;
++	cache = (void *) __get_free_pages(GFP_KERNEL, order);
++
+ 	if (!cache) {
+ 		printk("could not vmalloc %d bytes for cache!\n", 2*max_size);
+ 		return 1000000; // return 1 msec on very small boxen
+@@ -5508,7 +5511,7 @@ __init static unsigned long long measure
+ 		printk("[%d][%d] working set size found: %d, cost: %Ld\n",
+ 			cpu1, cpu2, size_found, max_cost);
+ 
+-	vfree(cache);
++	free_pages((unsigned long) cache, order);
+ 
+ 	/*
+ 	 * A task is considered 'cache cold' if at least 2 times
 
---
