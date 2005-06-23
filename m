@@ -1,36 +1,41 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Fri, 10 Jun 2005 10:31:21 +0000
-Subject: Re: [PATCH 03/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42A96BF9.2050608@jp.fujitsu.com>
+From: Rusty Lynch <rusty.lynch@intel.com>
+Date: Thu, 23 Jun 2005 02:32:42 +0000
+Subject: [ia64][patch] Refuse inserting kprobe on slot 1
+Message-Id: <200506230232.j5N2WgwS018522@linux.jf.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42A8386F.2060100@jp.fujitsu.com> <42A83B6D.8010703@jp.fujitsu.com> <20050609172035.GD24611@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20050609172035.GD24611@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: Andrew Morton <akpm@osdl.org>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Matthew Wilcox wrote:
-> On Thu, Jun 09, 2005 at 09:51:57PM +0900, Hidetoshi Seto wrote:
-> 
->>+	switch (dev->hdr_type) {
->>+	case PCI_HEADER_TYPE_NORMAL: /* 0 */
->>+		pci_read_config_word(dev, PCI_STATUS, &status);
->>+		break;
->>+	case PCI_HEADER_TYPE_BRIDGE: /* 1 */
->>+		pci_read_config_word(dev, PCI_SEC_STATUS, &status);
->>+		break;
->>+	case PCI_HEADER_TYPE_CARDBUS: /* 2 */
->>+	default:
->>+		BUG();
-> 
-> If somebody plugs a cardbus card into an ia64 machine, we BUG()?
-> Unacceptable.  Just return 0 if you don't know what to do with a
-> particular device.
+Without the ability to atomically write 16 bytes, we can not update the
+middle slot of a bundle, slot 1, unless we stop the machine first.  This 
+patch will ensure the ability to robustly insert and remove a kprobe by
+refusing to insert a kprobe on slot 1 until a mechanism is in place to 
+safely handle this case.
 
-Sure, you are right. I'll fix it.
+	--rusty
 
-Thanks,
-H.Seto
+Signed-off-by: Rusty Lynch <rusty.lynch@intel.com>
 
+ arch/ia64/kernel/kprobes.c |    7 +++++++
+ 1 files changed, 7 insertions(+)
+
+Index: linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-mm1.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
+@@ -270,6 +270,13 @@ static int valid_kprobe_addr(int templat
+ 				addr);
+ 		return -EINVAL;
+ 	}
++
++	if (slot = 1) {
++		printk(KERN_WARNING "Inserting kprobes on slot #1 "
++		       "is not supported\n");
++		return -EINVAL;
++	}
++
+ 	return 0;
+ }
+ 
