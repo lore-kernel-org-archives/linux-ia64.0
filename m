@@ -1,7 +1,7 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 24 Jun 2005 20:18:04 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 24 Jun 2005 20:36:25 +0000
 Subject: Re: [patch] Memory Error Handling Improvement
-Message-Id: <200506242018.j5OKI4qs870202@clink.americas.sgi.com>
+Message-Id: <17084.28361.563291.602215@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
 In-Reply-To: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
@@ -10,35 +10,35 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hidetoshi Seto wrote:
-> Russ Anderson wrote:
-> 
-> > +	pmsa = (pal_min_state_area_t *)(sal_to_os_handoff_state->pal_min_state | (6ul<<61));
-> > +	if (psr1->cpl != 0 || (pmsa->pmsa_iip >= (unsigned long)&interrupt &&
-> > +			       pmsa->pmsa_iip <  (unsigned long)&interrupt_pnr)) {
-> 
-> It seems that the latter state just means "this was in early of interrupt."
-> You shoud also make sure that the interrupt has happen in user context, right?
+>>>>> On Fri, 24 Jun 2005 15:11:09 -0500 (CDT), Russ Anderson <rja@sgi.com> said:
 
-Yes, that is a good point.   The updated patch has that change.
+  Russ> Testing with error injection showed a significant number of
+  Russ> cases where the MCA surfaced early in the interrupt routine,
+  Russ> even though the load of the bad data was launched from a user
+  Russ> process.  Adding the second condition to look for these cases
+  Russ> allowed them to be recovered.  Analysis of the recovered MCA
+  Russ> records showed 7-10% of the recoverys were this condition,
+  Russ> when running the error recovery code with other activity that
+  Russ> caused interrupts.
 
-------------------------------------------------------------------------------
-        psr1 =(struct ia64_psr *)&(peidx_minstate_area(peidx)->pmsa_ipsr);
-+       psr2 =(struct ia64_psr *)&(peidx_minstate_area(peidx)->pmsa_xpsr);
+  Russ> Previously, if the MCA surfaced while the cpu was in privilage
+  Russ> mode the code would not try to recover.  This change adds a
+  Russ> second condition, to see if the kernel is early in the
+  Russ> interrupt routine.  It does this by checking the instruction
+  Russ> range.  As Hidetoshi Seto points out, the check should also
+  Russ> make sure the interrupted process was in user mode.  That has
+  Russ> been added to the patch and tested.
 
-        /*
-         *  Check the privilege level of interrupted context.
-         *   If it is user-mode, then terminate affected process.
-         */
--       if (psr1->cpl != 0) {
-+       pmsa = (pal_min_state_area_t *)(sal_to_os_handoff_state->pal_min_state | (6ul<<61));
-+
-+       if (psr1->cpl != 0 || ((psr2->cpl != 0) &&
-+                              (pmsa->pmsa_iip >= (unsigned long)ia64_ivt+0x3000 &&
-+                               pmsa->pmsa_iip <  (unsigned long)&interrupt_pnr))) {
-                smei = peidx_bus_check(peidx, 0);
+Sorry, but this doesn't make any sense to me.  If an application
+spends a lot of time handling TLB faults or unaligned access faults,
+it's very likely the MCA will hit in those handlers and your patch
+will not help at all.  Furthermore, if MCA delivery timing changes for
+some reason, the user-triggered MCA might show up much later, i.e.,
+pretty much anywhere in the kernel no?
 
+Isn't there a more reliably method to handle this?  What if you just
+_assumed_ that MCAs are triggered by user-level (unless you can prove
+that it was kernel-only memory, perhaps).
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+	--david
+
