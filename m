@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@Intel.com>
-Date: Fri, 24 Jun 2005 21:31:28 +0000
-Subject: RE: [patch] Memory Error Handling Improvement
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03C689E8@scsmsx401.amr.corp.intel.com>
+From: Russ Anderson <rja@sgi.com>
+Date: Fri, 24 Jun 2005 21:36:02 +0000
+Subject: Re: [patch] Memory Error Handling Improvement
+Message-Id: <200506242136.j5OLa2p8933745@clink.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
 In-Reply-To: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
@@ -10,10 +10,24 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Fine, but what about my suggestion of just presuming that the access
->came for user-level unless you can prove otherwise?
+David Mosberger wrote:
+> 
+>   >> Fine, but what about stores?
+> 
+>   Tony> Stores have too many extra levels of buffering to have much
+>   Tony> hope.  But just because we can't help the store case doesn't
+>   Tony> mean that we shouldn't do something about the load case.
+> 
+> Fine, but what about my suggestion of just presuming that the access
+> came for user-level unless you can prove otherwise?
 
-If the presumption is wrong, then you'll kill an innocent user process.
-Worse, you will let a corrupted kernel carry on running.
+The key question is how to prove otherwise. 
 
--Tony
+Ironicly, my concern was this patch would be seen as too aggressive and
+therefore risky.  So the patch is limited to the interrupt case, which
+seemed to be a heavy hitter in testing.  I hadn't expected pushback for 
+not being aggressive enough.  :-)
+
+-- 
+Russ Anderson, OS RAS/Partitioning Project Lead  
+SGI - Silicon Graphics Inc          rja@sgi.com
