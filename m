@@ -1,7 +1,7 @@
-From: Russ Anderson <rja@sgi.com>
-Date: Fri, 24 Jun 2005 21:36:02 +0000
-Subject: Re: [patch] Memory Error Handling Improvement
-Message-Id: <200506242136.j5OLa2p8933745@clink.americas.sgi.com>
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 24 Jun 2005 21:36:18 +0000
+Subject: RE: [patch] Memory Error Handling Improvement
+Message-Id: <17084.31954.385948.362059@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
 In-Reply-To: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
@@ -10,24 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-David Mosberger wrote:
-> 
->   >> Fine, but what about stores?
-> 
->   Tony> Stores have too many extra levels of buffering to have much
->   Tony> hope.  But just because we can't help the store case doesn't
->   Tony> mean that we shouldn't do something about the load case.
-> 
-> Fine, but what about my suggestion of just presuming that the access
-> came for user-level unless you can prove otherwise?
+>>>>> On Fri, 24 Jun 2005 14:31:28 -0700, "Luck, Tony" <tony.luck@Intel.com> said:
 
-The key question is how to prove otherwise. 
+  >> Fine, but what about my suggestion of just presuming that the access
+  >> came for user-level unless you can prove otherwise?
 
-Ironicly, my concern was this patch would be seen as too aggressive and
-therefore risky.  So the patch is limited to the interrupt case, which
-seemed to be a heavy hitter in testing.  I hadn't expected pushback for 
-not being aggressive enough.  :-)
+  Tony> If the presumption is wrong, then you'll kill an innocent user process.
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+As opposed to panic'ing the kernel?  That doesn't strike me as a big
+problem. ;-)
+
+  Tony> Worse, you will let a corrupted kernel carry on running.
+
+It'd boil down to the question of what the likelihood is that the
+kernel would be touching a user-mapped page whose contents it depends
+on for correct operation. (If it is not a user-mapped page, you'd
+obviously _not_ conclude that the MCA was triggered by user-level.)
+
+	--david
