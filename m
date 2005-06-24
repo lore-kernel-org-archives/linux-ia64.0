@@ -1,58 +1,102 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 24 Jun 2005 01:38:33 +0000
+From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Date: Fri, 24 Jun 2005 18:45:46 +0000
 Subject: Re: [patch][ia64]Refuse kprobe on ivt code
-Message-Id: <17083.25625.991516.736507@napali.hpl.hp.com>
+Message-Id: <20050624114545.A4826@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050623172832.B26121@unix-os.sc.intel.com>
-In-Reply-To: <20050623172832.B26121@unix-os.sc.intel.com>
+References: <20050623172832.B26121@unix-os.sc.intel.com> <17083.25625.991516.736507@napali.hpl.hp.com>
+In-Reply-To: <17083.25625.991516.736507@napali.hpl.hp.com>; from davidm@napali.hpl.hp.com on Thu, Jun 23, 2005 at 06:38:33PM -0700
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Cc: akpm@osdl.org, Linux Kernel <linux-kernel@vger.kernel.org>, Linux IA64 <linux-ia64@vger.kernel.org>
+To: davidm@hpl.hp.com
+Cc: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>, akpm@osdl.org, Linux Kernel <linux-kernel@vger.kernel.org>, Linux IA64 <linux-ia64@vger.kernel.org>
 
-Please do the checking based on the .text.ivt section instead (and add
-the necessary labels to vmlinux.S and asm-ia64/sections.h).
+On Thu, Jun 23, 2005 at 06:38:33PM -0700, David Mosberger wrote:
+> Please do the checking based on the .text.ivt section instead (and add
+> the necessary labels to vmlinux.S and asm-ia64/sections.h).
 
-Thanks,
+Subject: Refuse kprobe insert on IVT code
 
-	--david
+Not safe to insert kprobes on IVT code.
 
->>>>> On Thu, 23 Jun 2005 17:28:33 -0700, Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com> said:
+This patch checks to see if the address on which Kprobes is being
+inserted is  in ivt code and if it is in ivt code then
+refuse to register kprobe.
 
-  Anil> Subject: Refuse kprobe insert on IVT code
+Take 1: This patch is based on review comments from David Mosberger,
+now checking based on .text.ivt
 
-  Anil> Not safe to insert kprobes on IVT code.
+Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
 
-  Anil> This patch checks to see if the address on which Kprobes is
-  Anil> being inserted is in ivt code and if it is in ivt code then
-  Anil> refuse to register kprobe.
+======================= arch/ia64/kernel/kprobes.c     |   14 ++++++++++++++
+ arch/ia64/kernel/vmlinux.lds.S |    7 ++++++-
+ include/asm-ia64/sections.h    |    1 +
+ 3 files changed, 21 insertions(+), 1 deletion(-)
 
-  Anil> Signed-off-by: Anil S Keshavamurthy
-  Anil> <anil.s.keshavamurthy@intel.com>
-
-  Anil> =======================  Anil> arch/ia64/kernel/kprobes.c | 13 +++++++++++++ 1 files changed,
-  Anil> 13 insertions(+)
-
-  Anil> Index: linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
-  Anil> =================================  Anil> --- linux-2.6.12-mm1.orig/arch/ia64/kernel/kprobes.c +++
-  Anil> linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c @@ -263,6 +263,13
-  Anil> @@ static inline void get_kprobe_inst(bundl } }
+Index: linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.12-mm1.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
+@@ -263,6 +263,14 @@ static inline void get_kprobe_inst(bundl
+ 	}
+ }
  
-  Anil> +/* Returns non-zero if the PC is in the Interrupt Vector
-  Anil> Table */ +static inline int in_ivt_code(unsigned long pc) +{ +
-  Anil> extern char ia64_ivt[]; + return (pc >= (u_long)ia64_ivt && pc
-  Anil> < (u_long)ia64_ivt+32768); +} + static int
-  Anil> valid_kprobe_addr(int template, int slot, unsigned long addr)
-  Anil> { if ((slot > 2) || ((bundle_encoding[template][1] = L) &&
-  Anil> slot > 1)) { @@ -271,6 +278,12 @@ static int
-  Anil> valid_kprobe_addr(int templat return -EINVAL; }
++/* Returns non-zero if the addr is in the Interrupt Vector Table */
++static inline int in_ivt_functions(unsigned long addr)
++{
++	extern char __start_ivt_text[], __end_ivt_text[];
++	return (addr >= (unsigned long)__start_ivt_text
++		&& addr < (unsigned long)__end_ivt_text);
++}
++
+ static int valid_kprobe_addr(int template, int slot, unsigned long addr)
+ {
+ 	if ((slot > 2) || ((bundle_encoding[template][1] = L) && slot > 1)) {
+@@ -271,6 +279,12 @@ static int valid_kprobe_addr(int templat
+ 		return -EINVAL;
+ 	}
  
-  Anil> + if (in_ivt_code(addr)) { + printk(KERN_WARNING "Kprobes
-  Anil> can't be inserted inside " + "IVT code at 0x%lx\n", addr); +
-  Anil> return -EINVAL; + } + if (slot = 1) { printk(KERN_WARNING
-  Anil> "Inserting kprobes on slot #1 " "is not supported\n"); - To
-  Anil> unsubscribe from this list: send the line "unsubscribe
-  Anil> linux-ia64" in the body of a message to
-  Anil> majordomo@vger.kernel.org More majordomo info at
-  Anil> http://vger.kernel.org/majordomo-info.html
++ 	if (in_ivt_functions(addr)) {
++ 		printk(KERN_WARNING "Kprobes can't be inserted inside "
++				"IVT code at 0x%lx\n", addr);
++ 		return -EINVAL;
++ 	}
++
+ 	if (slot = 1) {
+ 		printk(KERN_WARNING "Inserting kprobes on slot #1 "
+ 		       "is not supported\n");
+Index: linux-2.6.12-mm1/arch/ia64/kernel/vmlinux.lds.S
+=================================--- linux-2.6.12-mm1.orig/arch/ia64/kernel/vmlinux.lds.S
++++ linux-2.6.12-mm1/arch/ia64/kernel/vmlinux.lds.S
+@@ -8,6 +8,11 @@
+ #define LOAD_OFFSET	(KERNEL_START - KERNEL_TR_PAGE_SIZE)
+ #include <asm-generic/vmlinux.lds.h>
+ 
++#define IVT_TEXT							\
++		VMLINUX_SYMBOL(__start_ivt_text) = .;			\
++		*(.text.ivt)						\
++		VMLINUX_SYMBOL(__end_ivt_text) = .;
++
+ OUTPUT_FORMAT("elf64-ia64-little")
+ OUTPUT_ARCH(ia64)
+ ENTRY(phys_start)
+@@ -39,7 +44,7 @@ SECTIONS
+ 
+   .text : AT(ADDR(.text) - LOAD_OFFSET)
+     {
+-	*(.text.ivt)
++	IVT_TEXT
+ 	*(.text)
+ 	SCHED_TEXT
+ 	LOCK_TEXT
+Index: linux-2.6.12-mm1/include/asm-ia64/sections.h
+=================================--- linux-2.6.12-mm1.orig/include/asm-ia64/sections.h
++++ linux-2.6.12-mm1/include/asm-ia64/sections.h
+@@ -17,6 +17,7 @@ extern char __start_gate_vtop_patchlist[
+ extern char __start_gate_fsyscall_patchlist[], __end_gate_fsyscall_patchlist[];
+ extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_fsys_bubble_down_patchlist[];
+ extern char __start_unwind[], __end_unwind[];
++extern char __start_ivt_text[], __end_ivt_text[];
+ 
+ #endif /* _ASM_IA64_SECTIONS_H */
+ 
+
