@@ -1,7 +1,7 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Date: Fri, 24 Jun 2005 21:11:24 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 24 Jun 2005 21:20:17 +0000
 Subject: RE: [patch] Memory Error Handling Improvement
-Message-Id: <17084.30460.517853.610660@napali.hpl.hp.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03C689B4@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
 In-Reply-To: <200506231730.j5NHUNa96698484@clink.americas.sgi.com>
@@ -10,35 +10,21 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> On Fri, 24 Jun 2005 14:05:00 -0700, "Luck, Tony" <tony.luck@intel.com> said:
 
-  >> will not help at all.  Furthermore, if MCA delivery timing changes for
-  >> some reason, the user-triggered MCA might show up much later, i.e.,
-  >> pretty much anywhere in the kernel no?
+>Fine, but what about stores?
 
-  Tony> Not really.  Suppose there is some location in memory that has a multi-bit
-  Tony> ECC error, and the user reads this location:
+Stores have too many extra levels of buffering to have much hope.  But just
+because we can't help the store case doesn't mean that we shouldn't do
+something about the load case.
 
-  Tony> ld8 r17=[r18]
+>Furthermore, there are many ways to enter the kernel, so it still
+>makes no sense to me to consider external interrupts only.  System
+>calls for one are certainly quite common, too.
 
-  Tony> Now the MCA mechanism is asynchronous ... so nothing may
-  Tony> happen right away, but there is a guarantee that at the very
-  Tony> latest the MCA will be delivered before the poisoned data is
-  Tony> consumed.  So suppose that we happen to try to enter the
-  Tony> kernel for some reason before the MCA is delivered.  Since the
-  Tony> kernel saves all the users registers, it will attempt to
-  Tony> consume the data, and so the MCA will be delivered.
+Agreed.  It would be much better if we had some clean & easy way to tag
+all of the kernel entry sequences for a check like this.  The cost of
+checking to see whether we are in any of these code regions could be
+quite high ... but we only pay it if there is an error, so as long as
+it isn't outrageous it should be okay.
 
-Fine, but what about stores?
-
-Furthermore, there are many ways to enter the kernel, so it still
-makes no sense to me to consider external interrupts only.  System
-calls for one are certainly quite common, too.
-
-  Tony> For the user-mode MCA to survive to an arbitrary point in the
-  Tony> kernel would mean that we didn't save some user mode register.
-
-Again, what about stores?
-
-	--david
-
+-Tony
