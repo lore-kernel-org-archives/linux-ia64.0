@@ -1,102 +1,51 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Fri, 24 Jun 2005 18:45:46 +0000
+From: David Mosberger <davidm@napali.hpl.hp.com>
+Date: Fri, 24 Jun 2005 19:10:38 +0000
 Subject: Re: [patch][ia64]Refuse kprobe on ivt code
-Message-Id: <20050624114545.A4826@unix-os.sc.intel.com>
+Message-Id: <17084.23214.237084.224128@napali.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050623172832.B26121@unix-os.sc.intel.com> <17083.25625.991516.736507@napali.hpl.hp.com>
-In-Reply-To: <17083.25625.991516.736507@napali.hpl.hp.com>; from davidm@napali.hpl.hp.com on Thu, Jun 23, 2005 at 06:38:33PM -0700
+References: <20050623172832.B26121@unix-os.sc.intel.com>
+	<17083.25625.991516.736507@napali.hpl.hp.com>
+	<20050624114545.A4826@unix-os.sc.intel.com>
+In-Reply-To: <20050624114545.A4826@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: davidm@hpl.hp.com
-Cc: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>, akpm@osdl.org, Linux Kernel <linux-kernel@vger.kernel.org>, Linux IA64 <linux-ia64@vger.kernel.org>
+To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Cc: davidm@hpl.hp.com, akpm@osdl.org, Linux Kernel <linux-kernel@vger.kernel.org>, Linux IA64 <linux-ia64@vger.kernel.org>
 
-On Thu, Jun 23, 2005 at 06:38:33PM -0700, David Mosberger wrote:
-> Please do the checking based on the .text.ivt section instead (and add
-> the necessary labels to vmlinux.S and asm-ia64/sections.h).
+>>>>> On Fri, 24 Jun 2005 11:45:46 -0700, Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com> said:
 
-Subject: Refuse kprobe insert on IVT code
+  Anil> On Thu, Jun 23, 2005 at 06:38:33PM -0700, David Mosberger wrote:
+  >> Please do the checking based on the .text.ivt section instead (and add
+  >> the necessary labels to vmlinux.S and asm-ia64/sections.h).
 
-Not safe to insert kprobes on IVT code.
+  Anil> Subject: Refuse kprobe insert on IVT code
 
-This patch checks to see if the address on which Kprobes is being
-inserted is  in ivt code and if it is in ivt code then
-refuse to register kprobe.
+  Anil> Not safe to insert kprobes on IVT code.
 
-Take 1: This patch is based on review comments from David Mosberger,
-now checking based on .text.ivt
+  Anil> This patch checks to see if the address on which Kprobes is being
+  Anil> inserted is  in ivt code and if it is in ivt code then
+  Anil> refuse to register kprobe.
 
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+  Anil> Take 1: This patch is based on review comments from David Mosberger,
+  Anil> now checking based on .text.ivt
 
-======================= arch/ia64/kernel/kprobes.c     |   14 ++++++++++++++
- arch/ia64/kernel/vmlinux.lds.S |    7 ++++++-
- include/asm-ia64/sections.h    |    1 +
- 3 files changed, 21 insertions(+), 1 deletion(-)
+  Anil> Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
 
-Index: linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
-=================================--- linux-2.6.12-mm1.orig/arch/ia64/kernel/kprobes.c
-+++ linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
-@@ -263,6 +263,14 @@ static inline void get_kprobe_inst(bundl
- 	}
- }
- 
-+/* Returns non-zero if the addr is in the Interrupt Vector Table */
-+static inline int in_ivt_functions(unsigned long addr)
-+{
-+	extern char __start_ivt_text[], __end_ivt_text[];
-+	return (addr >= (unsigned long)__start_ivt_text
-+		&& addr < (unsigned long)__end_ivt_text);
-+}
-+
- static int valid_kprobe_addr(int template, int slot, unsigned long addr)
- {
- 	if ((slot > 2) || ((bundle_encoding[template][1] = L) && slot > 1)) {
-@@ -271,6 +279,12 @@ static int valid_kprobe_addr(int templat
- 		return -EINVAL;
- 	}
- 
-+ 	if (in_ivt_functions(addr)) {
-+ 		printk(KERN_WARNING "Kprobes can't be inserted inside "
-+				"IVT code at 0x%lx\n", addr);
-+ 		return -EINVAL;
-+ 	}
-+
- 	if (slot = 1) {
- 		printk(KERN_WARNING "Inserting kprobes on slot #1 "
- 		       "is not supported\n");
-Index: linux-2.6.12-mm1/arch/ia64/kernel/vmlinux.lds.S
-=================================--- linux-2.6.12-mm1.orig/arch/ia64/kernel/vmlinux.lds.S
-+++ linux-2.6.12-mm1/arch/ia64/kernel/vmlinux.lds.S
-@@ -8,6 +8,11 @@
- #define LOAD_OFFSET	(KERNEL_START - KERNEL_TR_PAGE_SIZE)
- #include <asm-generic/vmlinux.lds.h>
- 
-+#define IVT_TEXT							\
-+		VMLINUX_SYMBOL(__start_ivt_text) = .;			\
-+		*(.text.ivt)						\
-+		VMLINUX_SYMBOL(__end_ivt_text) = .;
-+
- OUTPUT_FORMAT("elf64-ia64-little")
- OUTPUT_ARCH(ia64)
- ENTRY(phys_start)
-@@ -39,7 +44,7 @@ SECTIONS
- 
-   .text : AT(ADDR(.text) - LOAD_OFFSET)
-     {
--	*(.text.ivt)
-+	IVT_TEXT
- 	*(.text)
- 	SCHED_TEXT
- 	LOCK_TEXT
-Index: linux-2.6.12-mm1/include/asm-ia64/sections.h
-=================================--- linux-2.6.12-mm1.orig/include/asm-ia64/sections.h
-+++ linux-2.6.12-mm1/include/asm-ia64/sections.h
-@@ -17,6 +17,7 @@ extern char __start_gate_vtop_patchlist[
- extern char __start_gate_fsyscall_patchlist[], __end_gate_fsyscall_patchlist[];
- extern char __start_gate_brl_fsys_bubble_down_patchlist[], __end_gate_brl_fsys_bubble_down_patchlist[];
- extern char __start_unwind[], __end_unwind[];
-+extern char __start_ivt_text[], __end_ivt_text[];
- 
- #endif /* _ASM_IA64_SECTIONS_H */
- 
+Looks fine, except:
 
+  Anil> +/* Returns non-zero if the addr is in the Interrupt Vector Table */
+  Anil> +static inline int in_ivt_functions(unsigned long addr)
+  Anil> +{
+  Anil> +	extern char __start_ivt_text[], __end_ivt_text[];
+		^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+  Anil> +	return (addr >= (unsigned long)__start_ivt_text
+  Anil> +		&& addr < (unsigned long)__end_ivt_text);
+  Anil> +}
+
+Surely you meant to use the declaration from sections.h instead?
+
+Thanks,
+
+	--david
