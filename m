@@ -1,160 +1,53 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Thu, 09 Jun 2005 13:00:44 +0000
-Subject: [PATCH 08/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42A83D7C.2010101@jp.fujitsu.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Fri, 24 Jun 2005 04:14:14 +0000
+Subject: Fix another IA64 preemption problem
+Message-Id: <17083.34966.808455.428454@berry.gelato.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42A8386F.2060100@jp.fujitsu.com>
-In-Reply-To: <42A8386F.2060100@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
-Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: linux-ia64@vger.kernel.org
 
-[This is 8 of 10 patches, "iochk-08-mcadrv.patch"]
 
-- Touching poisoned data become a MCA, so now it assumed as
-   a fatal error, directly will be a system down. But since
-   the MCA tells us a physical address - "where it happens",
-   we can do some action to survive.
+There's another problem shown up by MIngo's recent patch to make
+smp_processor_id() complain if it's called with preemption enabled.
+local_finish_flush_tlb_mm() calls activate_context() in a situation
+where it could be rescheduled to another processor.  This patch
+disables preemption around the call.
 
-   If the address is present in resource of "check-in" device,
-   it is guaranteed that its driver will call iochk_read in
-   the very near future, and that now the driver have a
-   ability and responsibility of recovery from the error.
+Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
 
-   So if it was "check-in" address, what OS should do is mark
-   "check-in" devices and just restart usual works. Soon
-   the driver will notice the error and operate it properly.
 
-   Note:
-     We can identify a affected device, but because of SAL
-     behavior (mentioned at 6 of 10), we need to mark all
-     "check-in" devices. Fix in future, if possible.
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-
----
-
-  arch/ia64/kernel/mca_drv.c  |   85 ++++++++++++++++++++++++++++++++++++++++++++
-  arch/ia64/lib/iomap_check.c |    1
-  2 files changed, 86 insertions(+)
-
-Index: linux-2.6.11.11/arch/ia64/lib/iomap_check.c
-=================================--- linux-2.6.11.11.orig/arch/ia64/lib/iomap_check.c
-+++ linux-2.6.11.11/arch/ia64/lib/iomap_check.c
-@@ -145,3 +145,4 @@ void clear_bridge_error(struct pci_dev *
-
-  EXPORT_SYMBOL(iochk_read);
-  EXPORT_SYMBOL(iochk_clear);
-+EXPORT_SYMBOL(iochk_devices);	/* for MCA driver */
-Index: linux-2.6.11.11/arch/ia64/kernel/mca_drv.c
-=================================--- linux-2.6.11.11.orig/arch/ia64/kernel/mca_drv.c
-+++ linux-2.6.11.11/arch/ia64/kernel/mca_drv.c
-@@ -35,6 +35,13 @@
-
-  #include "mca_drv.h"
-
-+#ifdef CONFIG_IOMAP_CHECK
-+#include <linux/pci.h>
-+#include <asm/io.h>
-+extern struct list_head iochk_devices;
-+#endif
-+
-+
-  /* max size of SAL error record (default) */
-  static int sal_rec_max = 10000;
-
-@@ -378,6 +385,80 @@ is_mca_global(peidx_table_t *peidx, pal_
-  	return MCA_IS_GLOBAL;
-  }
-
-+
-+#ifdef CONFIG_IOMAP_CHECK
-+
-+/**
-+ * get_target_identifier - get address of target_identifier
-+ * @peidx:	pointer of index of processor error section
-+ *
-+ * Return value:
-+ *	addr if valid / 0 if not valid
+Index: arch/ia64/kernel/smp.c
+=================================--- fc736377c5c7e23ee78569392ed31a6030289e44/arch/ia64/kernel/smp.c  (mode:100644)
++++ uncommitted/arch/ia64/kernel/smp.c  (mode:100644)
+@@ -231,13 +231,16 @@
+ void
+ smp_flush_tlb_mm (struct mm_struct *mm)
+ {
++	preempt_disable();
+ 	/* this happens for the common case of a single-threaded fork():  */
+ 	if (likely(mm = current->active_mm && atomic_read(&mm->mm_users) = 1))
+ 	{
+ 		local_finish_flush_tlb_mm(mm);
++		preempt_enable();
+ 		return;
+ 	}
+ 
++	preempt_enable();
+ 	/*
+ 	 * We could optimize this further by using mm->cpu_vm_mask to track which CPUs
+ 	 * have been running in the address space.  It's not clear that this is worth the
+Index: include/asm-ia64/mmu_context.h
+=================================--- fc736377c5c7e23ee78569392ed31a6030289e44/include/asm-ia64/mmu_context.h  (mode:100644)
++++ uncommitted/include/asm-ia64/mmu_context.h  (mode:100644)
+@@ -132,6 +132,9 @@
+ 	ia64_srlz_i();			/* srlz.i implies srlz.d */
+ }
+ 
++/*
++ * Must be called with preemption off
 + */
-+static u64 get_target_identifier(peidx_table_t *peidx)
-+{
-+	sal_log_mod_error_info_t *smei;
-+
-+	smei = peidx_bus_check(peidx, 0);
-+	if (smei->valid.target_identifier)
-+		return (smei->target_identifier);
-+	return 0;
-+}
-+
-+/**
-+ * offending_addr_in_check - Check if the addr is in checking resource.
-+ * @addr:	address offending this MCA
-+ *
-+ * Return value:
-+ *	1 if in / 0 if out
-+ */
-+static int offending_addr_in_check(u64 addr)
-+{
-+	int i;
-+	struct pci_dev *tdev;
-+	iocookie *cookie;
-+
-+	if (list_empty(&iochk_devices))
-+		return 0;
-+
-+	list_for_each_entry(cookie, &iochk_devices, list) {
-+		tdev = cookie->dev;
-+		for (i = 0; i < PCI_ROM_RESOURCE; i++) {
-+		  if (tdev->resource[i].start <= addr
-+		      && addr <= tdev->resource[i].end)
-+			return 1;
-+		  if ((tdev->resource[i].flags
-+		      & (PCI_BASE_ADDRESS_SPACE|PCI_BASE_ADDRESS_MEM_TYPE_MASK))
-+		      = (PCI_BASE_ADDRESS_SPACE_MEMORY|PCI_BASE_ADDRESS_MEM_TYPE_64))
-+			i++;
-+		}
-+	}
-+	return 0;
-+}
-+
-+/**
-+ * pci_error_recovery - Check if MCA occur on transaction in iochk.
-+ * @peidx:	pointer of index of processor error section
-+ *
-+ * Return value:
-+ *	1 if error could be cought in driver / 0 if not
-+ */
-+static int pci_error_recovery(peidx_table_t *peidx)
-+{
-+	u64 addr;
-+
-+	addr = get_target_identifier(peidx);
-+	if(!addr) return 0;
-+
-+	if(offending_addr_in_check(addr))
-+		return 1;
-+
-+	return 0;
-+}
-+
-+#endif /* CONFIG_IOMAP_CHECK */
-+
-+
-  /**
-   * recover_from_read_error - Try to recover the errors which type are "read"s.
-   * @slidx:	pointer of index of SAL error record
-@@ -400,6 +481,10 @@ recover_from_read_error(slidx_table_t *s
-  	if (!pbci->tv)
-  		return 0;
-
-+#ifdef CONFIG_IOMAP_CHECK
-+	if ( pci_error_recovery(peidx) ) return 1;
-+#endif
-+
-  	/*
-  	 * cpu read or memory-mapped io read
-  	 *
-
+ static inline void
+ activate_context (struct mm_struct *mm)
+ {
