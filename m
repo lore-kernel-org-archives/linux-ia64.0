@@ -1,7 +1,7 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 29 Jun 2005 21:17:07 +0000
-Subject: Re: problem booting -mm2 kernel on rx2600
-Message-Id: <200506291517.07088.bjorn.helgaas@hp.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 29 Jun 2005 21:29:06 +0000
+Subject: RE: problem booting -mm2 kernel on rx2600
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03D0B56F@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200506291236.14024.bjorn.helgaas@hp.com>
 In-Reply-To: <200506291236.14024.bjorn.helgaas@hp.com>
@@ -10,25 +10,23 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wednesday 29 June 2005 3:08 pm, Luck, Tony wrote:
-> >No.  Current upstream + the patch you mention boots fine for me no
-> >zx2000, both with "console=ttyS0" and with no "console=" argument
-> >at all.
-> >
-> >How does it fail for you?
-> 
-> It just hangs after the "uncompressing" message.  But when I added
-> 
-> 	console=uart,mmio,0xff5e0000
-> 
-> to see what was going on, it came all the way up!!!
+>What "console=" argument do you normally use?  What is your
+>EFI console configuration (particularly ConOut)?
 
-What "console=" argument do you normally use?  What is your
-EFI console configuration (particularly ConOut)?
+The EFI boot maintenance menu shows this in the "Console Output
+Device(s)" menu:
 
-IIUC, your kernel works fine without Mark's patch, and fails
-with it.  Right?
+    * Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(PcAnsi)
+      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100)
+      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(Vt100+)
+      Acpi(PNP0501,0)/Uart(9600 N81)/VenMsg(VtUtf8)
+    * Acpi(HWP0003,0)/Pci(0|0)
 
-Documentation/ia64/serial.txt has some troubleshooting hints,
-but I didn't expect Mark's patch to make a difference in this
-area.
+>IIUC, your kernel works fine without Mark's patch, and fails
+>with it.  Right?
+
+Yes ... though to expand from my recent discoveries ... until I added
+Mark's patch I could boot without a "console=something" option.  Now
+it seems to be required.
+
+-Tony
