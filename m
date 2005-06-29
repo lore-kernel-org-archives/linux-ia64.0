@@ -1,36 +1,42 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 30 Jun 2005 17:23:56 +0000
-Subject: RE: problem booting -mm2 kernel on rx2600
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03D0BD34@scsmsx401.amr.corp.intel.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Wed, 29 Jun 2005 04:20:45 +0000
+Subject: Fast Syscalls and Virtualised Linux on Linux
+Message-Id: <17090.8605.481641.322881@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200506291236.14024.bjorn.helgaas@hp.com>
-In-Reply-To: <200506291236.14024.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->Matt Chapman found a work around for my problem with
->booting 2.6.12-mm2 on my rx2600. Basically it can boot in
->SMP mode, if we bypass some of the migration cost
->measurements using the command line option migration_cost
-Interesting.
 
->Given that the same kernel boots on some other rx2600, it
->seems like there may be a timing bug/race in this code.
->Could your GIT bisect method identify a change in that 
->piece of code?
+Hi,
+	I'm working on a user-mode-linux like thing for IA64.  I have
+something working. but performance is awful.  The reason is
+syscall-via-break.
 
-It's Linus' bisect method ... and it *might* be useful here if
-you have a start point (where the bug definitely isn't present)
-and end point (where it is).  Since we suspect a timing problem
-though, it may not be very amenable to the bisection search as
-other changes may tweak the timing enough to hide the problem
-in some test ... which would send us along the wrong path in
-the bisection :-(
+When a process running in the guest OS calls a system call via break
+(or a system call is restarted, and so falls back to syscall via
+break) the host OS catches it and tries to execute the system call.
+This is obviously undesireable.
 
-Can you give more details of your workaound.  Did you make
-any code changes, or did you just use the "migration_cost="
-option?  What value did you provide?
+The trick I'm using at present (not my own, Matt Chapman implemented
+it) is to ptrace the Virtual Machine Monitor, catch all system calls,
+and redirect ones that are for the guest OS to the guest.
 
--Tony
+Obviously, when a process running under the guest uses the fast system
+call path, the host doesn't see it, and so it can run at full speed.
+But there are enough cases where things fall back to the old via-break
+path that the ptrace hack is still needed.  And because it intercepts
+*every* system call even virtualised operations like read/write to the
+virtual disks cop the overhead.
+
+One approach might be to redefine __BREAK_SYSCALL for the guest OS.
+That'd require a specially compiled glibc and kernel, and possibly
+other executables.
+
+Does anyone have a better idea?
+
+
+-- 
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
