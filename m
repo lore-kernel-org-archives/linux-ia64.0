@@ -1,252 +1,580 @@
-From: Rusty Lynch <rusty.lynch@intel.com>
-Date: Tue, 21 Jun 2005 20:53:47 +0000
-Subject: [patch 4/5] Return probe redesign: ia64 specific implementation
-Message-Id: <20050621205406.996100000@linux.jf.intel.com>
+From: Bob Picco <bob.picco@hp.com>
+Date: Thu, 30 Jun 2005 16:51:48 +0000
+Subject: [PATCH] memory-less-nodes repost
+Message-Id: <20050630165148.GM25758@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050621205343.548977000@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: linux-kernel@vger.kernel.org, linuxppc64-dev@ozlabs.org, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>, Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>, Rusty Lynch <rusty.lynch@intel.com>
+To: linux-ia64@vger.kernel.org
 
-The following patch implements function return probes for ia64 using
-the revised design.  With this new design we no longer need to do some
-of the odd hacks previous required on the last ia64 return probe port
-that I sent out for comments.
+Tony,
 
-Note that this new implementation still does not resolve the problem noted
-by Keith Owens where backtrace data is lost after a return probe is hit.
+This is a repost of memory-less-node patch submitted back in early May. There
+isn't any change.  This iteration was tested for memory less
+nodes and all nodes populated with memory.  An rx2600 boot test was also made.
+There shouldn't be further testing required by SGI because of testing Greg did
+on the previous identical patch.  This patch is required before ia64 SPARSEMEM
+can be sent to -mm because of a minor patch conflict.
 
-Changes include:
- * Addition of kretprobe_trampoline to act as a dummy function for instrumented
-   functions to return to, and for the return probe infrastructure to place
-   a kprobe on on, gaining control so that the return probe handler
-   can be called, and so that the instruction pointer can be moved back 
-   to the original return address.
- * Addition of arch_init(), allowing a kprobe to be registered on 
-   kretprobe_trampoline
- * Addition of trampoline_probe_handler() which is used as the pre_handler
-   for the kprobe inserted on kretprobe_implementation.  This is the function
-   that handles the details for calling the return probe handler function
-   and returning control back at the original return address
- * Addition of arch_prepare_kretprobe() which is setup as the pre_handler
-   for a kprobe registered at the beginning of the target function by 
-   kernel/kprobes.c so that a return probe instance can be setup when
-   a caller enters the target function.  (A return probe instance contains
-   all the needed information for trampoline_probe_handler to do it's job.)
- * Hooks added to the exit path of a task so that we can cleanup any left-over
-   return probe instances (i.e. if a task dies while inside a targeted function
-   then the return probe instance was reserved at the beginning of the function
-   but the function never returns so we need to mark the instance as unused.)
+Below are the details of the original post and the current patch.
+The original thread is at:
+http://marc.theaimsgroup.com/?l=linux-ia64&m1530710817786&w=2
 
-    --rusty
+thanks,
 
-signed-off-by: Rusty Lynch <rusty.lynch@intel.com>
+bob
 
- arch/ia64/kernel/kprobes.c |  103 ++++++++++++++++++++++++++++++++++++++++++++-
- arch/ia64/kernel/process.c |   16 ++++++
- include/asm-ia64/kprobes.h |   13 +++--
- 3 files changed, 125 insertions(+), 7 deletions(-)
+I reworked how nodes with only CPUs are treated.  The patch below seems
+simpler to me and has eliminated the complicated routine
+reassign_cpu_only_nodes.  There isn't any longer the requirement
+to modify ACPI NUMA information which was in large part the
+complexity introduced in reassign_cpu_only_nodes. 
 
-Index: linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
-=================================--- linux-2.6.12-mm1.orig/arch/ia64/kernel/kprobes.c
-+++ linux-2.6.12-mm1/arch/ia64/kernel/kprobes.c
-@@ -290,6 +290,94 @@ static inline void set_current_kprobe(st
- 	current_kprobe = p;
- }
- 
-+static void kretprobe_trampoline(void)
-+{
-+}
-+
-+/*
-+ * At this point the target function has been tricked into
-+ * returning into our trampoline.  Lookup the associated instance
-+ * and then:
-+ *    - call the handler function
-+ *    - cleanup by marking the instance as unused
-+ *    - long jump back to the original return address
-+ */
-+int trampoline_probe_handler(struct kprobe *p, struct pt_regs *regs)
-+{
-+	struct kretprobe_instance *ri = NULL;
-+	struct hlist_head *head;
-+	struct hlist_node *node, *tmp;
-+	unsigned long orig_ret_address = 0;
-+	unsigned long trampoline_address +		((struct fnptr *)kretprobe_trampoline)->ip;
-+
-+        head = kretprobe_inst_table_head(current);
-+
-+	/*
-+	 * It is possible to have multiple instances associated with a given
-+	 * task either because an multiple functions in the call path
-+	 * have a return probe installed on them, and/or more then one return
-+	 * return probe was registered for a target function.
-+	 *
-+	 * We can handle this because:
-+	 *     - instances are always inserted at the head of the list
-+	 *     - when multiple return probes are registered for the same
-+	 *       function, the first instance's ret_addr will point to the
-+	 *       real return address, and all the rest will point to
-+	 *       kretprobe_trampoline
-+	 */
-+	hlist_for_each_entry_safe(ri, node, tmp, head, hlist) {
-+                if (ri->task != current)
-+			/* another task is sharing our hash bucket */
-+                        continue;
-+
-+		if (ri->rp && ri->rp->handler)
-+			ri->rp->handler(ri, regs);
-+
-+		orig_ret_address = (unsigned long)ri->ret_addr;
-+		recycle_rp_inst(ri);
-+
-+		if (orig_ret_address != trampoline_address)
-+			/*
-+			 * This is the real return address. Any other
-+			 * instances associated with this task are for
-+			 * other calls deeper on the call stack
-+			 */
-+			break;
-+	}
-+
-+	BUG_ON(!orig_ret_address || (orig_ret_address = trampoline_address));
-+	regs->cr_iip = orig_ret_address;
-+
-+	unlock_kprobes();
-+	preempt_enable_no_resched();
-+
-+        /*
-+         * By returning a non-zero value, we are telling
-+         * kprobe_handler() that we have handled unlocking
-+         * and re-enabling preemption.
-+         */
-+        return 1;
-+}
-+
-+void arch_prepare_kretprobe(struct kretprobe *rp, struct pt_regs *regs)
-+{
-+	struct kretprobe_instance *ri;
-+
-+	if ((ri = get_free_rp_inst(rp)) != NULL) {
-+		ri->rp = rp;
-+		ri->task = current;
-+		ri->ret_addr = (kprobe_opcode_t *)regs->b0;
-+
-+		/* Replace the return addr with trampoline addr */
-+		regs->b0 = ((struct fnptr *)kretprobe_trampoline)->ip;
-+
-+		add_rp_inst(ri);
-+	} else {
-+		rp->nmissed++;
-+	}
-+}
-+
- int arch_prepare_kprobe(struct kprobe *p)
- {
- 	unsigned long addr = (unsigned long) p->addr;
-@@ -492,8 +580,8 @@ static int pre_kprobes_handler(struct di
- 	if (p->pre_handler && p->pre_handler(p, regs))
- 		/*
- 		 * Our pre-handler is specifically requesting that we just
--		 * do a return.  This is handling the case where the
--		 * pre-handler is really our special jprobe pre-handler.
-+		 * do a return.  This is used for both the jprobe pre-handler
-+		 * and the kretprobe trampoline
- 		 */
- 		return 1;
- 
-@@ -599,3 +687,14 @@ int longjmp_break_handler(struct kprobe 
- 	*regs = jprobe_saved_regs;
- 	return 1;
- }
-+
-+static struct kprobe trampoline_p = {
-+	.pre_handler = trampoline_probe_handler
-+};
-+
-+int __init arch_init(void)
-+{
-+	trampoline_p.addr +		(kprobe_opcode_t *)((struct fnptr *)kretprobe_trampoline)->ip;
-+	return register_kprobe(&trampoline_p);
-+}
-Index: linux-2.6.12-mm1/include/asm-ia64/kprobes.h
-=================================--- linux-2.6.12-mm1.orig/include/asm-ia64/kprobes.h
-+++ linux-2.6.12-mm1/include/asm-ia64/kprobes.h
-@@ -63,6 +63,8 @@ typedef struct _bundle {
- 
- #define JPROBE_ENTRY(pentry)	(kprobe_opcode_t *)pentry
- 
-+#define ARCH_SUPPORTS_KRETPROBES
-+
- #define SLOT0_OPCODE_SHIFT	(37)
- #define SLOT1_p1_OPCODE_SHIFT	(37 - (64-46))
- #define SLOT2_OPCODE_SHIFT 	(37)
-@@ -94,11 +96,6 @@ struct arch_specific_insn {
+This patch will produce a different number of nodes. For example,
+reassign_cpu_only_nodes would reduce two CPUonly nodes and one memory node
+configuration to one memory+CPUs node configuration.  This patch
+doesn't change the number of nodes which means the user will see three.  Two
+nodes without memory and one node with all the memory.
+
+While doing this patch, I noticed that early_nr_phys_cpus_node isn't serving
+any useful purpose.  It is called once in find_pernode_space but the value
+isn't used to computer pernode space.  
+
+Signed-off-by: bob.picco <bob.picco@hp.com>
+
+ discontig.c |  394 +++++++++++++++++++++++++-----------------------------------
+ init.c      |    5 
+ 2 files changed, 170 insertions(+), 229 deletions(-)
+
+Index: linux-aegl-2.6.git-patches/arch/ia64/mm/discontig.c
+=================================--- linux-aegl-2.6.git-patches.orig/arch/ia64/mm/discontig.c	2005-06-28 15:27:26.000000000 -0400
++++ linux-aegl-2.6.git-patches/arch/ia64/mm/discontig.c	2005-06-28 15:48:21.000000000 -0400
+@@ -44,150 +44,7 @@ struct early_node_data {
  };
  
- /* ia64 does not need this */
--static inline void jprobe_return(void)
--{
--}
+ static struct early_node_data mem_data[MAX_NUMNODES] __initdata;
 -
--/* ia64 does not need this */
- static inline void arch_copy_kprobe(struct kprobe *p)
- {
+-/**
+- * reassign_cpu_only_nodes - called from find_memory to move CPU-only nodes to a memory node
+- *
+- * This function will move nodes with only CPUs (no memory)
+- * to a node with memory which is at the minimum numa_slit distance.
+- * Any reassigments will result in the compression of the nodes
+- * and renumbering the nid values where appropriate.
+- * The static declarations below are to avoid large stack size which
+- * makes the code not re-entrant.
+- */
+-static void __init reassign_cpu_only_nodes(void)
+-{
+-	struct node_memblk_s *p;
+-	int i, j, k, nnode, nid, cpu, cpunid, pxm;
+-	u8 cslit, slit;
+-	static DECLARE_BITMAP(nodes_with_mem, MAX_NUMNODES) __initdata;
+-	static u8 numa_slit_fix[MAX_NUMNODES * MAX_NUMNODES] __initdata;
+-	static int node_flip[MAX_NUMNODES] __initdata;
+-	static int old_nid_map[NR_CPUS] __initdata;
+-
+-	for (nnode = 0, p = &node_memblk[0]; p < &node_memblk[num_node_memblks]; p++)
+-		if (!test_bit(p->nid, (void *) nodes_with_mem)) {
+-			set_bit(p->nid, (void *) nodes_with_mem);
+-			nnode++;
+-		}
+-
+-	/*
+-	 * All nids with memory.
+-	 */
+-	if (nnode = num_online_nodes())
+-		return;
+-
+-	/*
+-	 * Change nids and attempt to migrate CPU-only nodes
+-	 * to the best numa_slit (closest neighbor) possible.
+-	 * For reassigned CPU nodes a nid can't be arrived at
+-	 * until after this loop because the target nid's new
+-	 * identity might not have been established yet. So
+-	 * new nid values are fabricated above num_online_nodes() and
+-	 * mapped back later to their true value.
+-	 */
+-	/* MCD - This code is a bit complicated, but may be unnecessary now.
+-	 * We can now handle much more interesting node-numbering.
+-	 * The old requirement that 0 <= nid <= numnodes <= MAX_NUMNODES
+-	 * and that there be no holes in the numbering 0..numnodes
+-	 * has become simply 0 <= nid <= MAX_NUMNODES.
+-	 */
+-	nid = 0;
+-	for_each_online_node(i)  {
+-		if (test_bit(i, (void *) nodes_with_mem)) {
+-			/*
+-			 * Save original nid value for numa_slit
+-			 * fixup and node_cpuid reassignments.
+-			 */
+-			node_flip[nid] = i;
+-
+-			if (i = nid) {
+-				nid++;
+-				continue;
+-			}
+-
+-			for (p = &node_memblk[0]; p < &node_memblk[num_node_memblks]; p++)
+-				if (p->nid = i)
+-					p->nid = nid;
+-
+-			cpunid = nid;
+-			nid++;
+-		} else
+-			cpunid = MAX_NUMNODES;
+-
+-		for (cpu = 0; cpu < NR_CPUS; cpu++)
+-			if (node_cpuid[cpu].nid = i) {
+-				/*
+-				 * For nodes not being reassigned just
+-				 * fix the cpu's nid and reverse pxm map
+-				 */
+-				if (cpunid < MAX_NUMNODES) {
+-					pxm = nid_to_pxm_map[i];
+-					pxm_to_nid_map[pxm] -					          node_cpuid[cpu].nid = cpunid;
+-					continue;
+-				}
+-
+-				/*
+-				 * For nodes being reassigned, find best node by
+-				 * numa_slit information and then make a temporary
+-				 * nid value based on current nid and num_online_nodes().
+-				 */
+-				slit = 0xff;
+-				k = 2*num_online_nodes();
+-				for_each_online_node(j) {
+-					if (i = j)
+-						continue;
+-					else if (test_bit(j, (void *) nodes_with_mem)) {
+-						cslit = numa_slit[i * num_online_nodes() + j];
+-						if (cslit < slit) {
+-							k = num_online_nodes() + j;
+-							slit = cslit;
+-						}
+-					}
+-				}
+-
+-				/* save old nid map so we can update the pxm */
+-				old_nid_map[cpu] = node_cpuid[cpu].nid;
+-				node_cpuid[cpu].nid = k;
+-			}
+-	}
+-
+-	/*
+-	 * Fixup temporary nid values for CPU-only nodes.
+-	 */
+-	for (cpu = 0; cpu < NR_CPUS; cpu++)
+-		if (node_cpuid[cpu].nid = (2*num_online_nodes())) {
+-			pxm = nid_to_pxm_map[old_nid_map[cpu]];
+-			pxm_to_nid_map[pxm] = node_cpuid[cpu].nid = nnode - 1;
+-		} else {
+-			for (i = 0; i < nnode; i++) {
+-				if (node_flip[i] != (node_cpuid[cpu].nid - num_online_nodes()))
+-					continue;
+-
+-				pxm = nid_to_pxm_map[old_nid_map[cpu]];
+-				pxm_to_nid_map[pxm] = node_cpuid[cpu].nid = i;
+-				break;
+-			}
+-		}
+-
+-	/*
+-	 * Fix numa_slit by compressing from larger
+-	 * nid array to reduced nid array.
+-	 */
+-	for (i = 0; i < nnode; i++)
+-		for (j = 0; j < nnode; j++)
+-			numa_slit_fix[i * nnode + j] -				numa_slit[node_flip[i] * num_online_nodes() + node_flip[j]];
+-
+-	memcpy(numa_slit, numa_slit_fix, sizeof (numa_slit));
+-
+-	nodes_clear(node_online_map);
+-	for (i = 0; i < nnode; i++)
+-		node_set_online(i);
+-
+-	return;
+-}
++static nodemask_t memory_less_mask __initdata;
+ 
+ /*
+  * To prevent cache aliasing effects, align per-node structures so that they
+@@ -233,46 +90,88 @@ static int __init build_node_maps(unsign
  }
-@@ -106,6 +103,12 @@ static inline void arch_copy_kprobe(stru
- #ifdef CONFIG_KPROBES
- extern int kprobe_exceptions_notify(struct notifier_block *self,
- 				    unsigned long val, void *data);
-+
-+/* ia64 does not need this */
-+static inline void jprobe_return(void)
+ 
+ /**
+- * early_nr_phys_cpus_node - return number of physical cpus on a given node
++ * early_nr_cpus_node - return number of cpus on a given node
+  * @node: node to check
+  *
+- * Count the number of physical cpus on @node.  These are cpus that actually
+- * exist.  We can't use nr_cpus_node() yet because
++ * Count the number of cpus on @node.  We can't use nr_cpus_node() yet because
+  * acpi_boot_init() (which builds the node_to_cpu_mask array) hasn't been
+- * called yet.
++ * called yet.  Note that node 0 will also count all non-existent cpus.
+  */
+-static int early_nr_phys_cpus_node(int node)
++static int __init early_nr_cpus_node(int node)
+ {
+ 	int cpu, n = 0;
+ 
+ 	for (cpu = 0; cpu < NR_CPUS; cpu++)
+ 		if (node = node_cpuid[cpu].nid)
+-			if ((cpu = 0) || node_cpuid[cpu].phys_id)
+-				n++;
++			n++;
+ 
+ 	return n;
+ }
+ 
++/**
++ * compute_pernodesize - compute size of pernode data
++ * @node: the node id.
++ */
++static unsigned long __init compute_pernodesize(int node)
 +{
++	unsigned long pernodesize = 0, cpus;
++
++	cpus = early_nr_cpus_node(node);
++	pernodesize += PERCPU_PAGE_SIZE * cpus;
++	pernodesize += node * L1_CACHE_BYTES;
++	pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
++	pernodesize += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
++	pernodesize = PAGE_ALIGN(pernodesize);
++	return pernodesize;
++}
+ 
+ /**
+- * early_nr_cpus_node - return number of cpus on a given node
+- * @node: node to check
+- *
+- * Count the number of cpus on @node.  We can't use nr_cpus_node() yet because
+- * acpi_boot_init() (which builds the node_to_cpu_mask array) hasn't been
+- * called yet.  Note that node 0 will also count all non-existent cpus.
++ * fill_pernode - initialize pernode data.
++ * @node: the node id.
++ * @pernode: physical address of pernode data
++ * @pernodesize: size of the pernode data
+  */
+-static int early_nr_cpus_node(int node)
++static void __init fill_pernode(int node, unsigned long pernode,
++	unsigned long pernodesize)
+ {
+-	int cpu, n = 0;
++	void *cpu_data;
++	int cpus = early_nr_cpus_node(node), cpu;
++	struct bootmem_data *bdp = &mem_data[node].bootmem_data;
+ 
+-	for (cpu = 0; cpu < NR_CPUS; cpu++)
+-		if (node = node_cpuid[cpu].nid)
+-			n++;
++	mem_data[node].pernode_addr = pernode;
++	mem_data[node].pernode_size = pernodesize;
++	memset(__va(pernode), 0, pernodesize);
++
++	cpu_data = (void *)pernode;
++	pernode += PERCPU_PAGE_SIZE * cpus;
++	pernode += node * L1_CACHE_BYTES;
+ 
+-	return n;
+-}
++	mem_data[node].pgdat = __va(pernode);
++	pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
++
++	mem_data[node].node_data = __va(pernode);
++	pernode += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
+ 
++	mem_data[node].pgdat->bdata = bdp;
++	pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
++
++	/*
++	 * Copy the static per-cpu data into the region we
++	 * just set aside and then setup __per_cpu_offset
++	 * for each CPU on this node.
++	 */
++	for (cpu = 0; cpu < NR_CPUS; cpu++) {
++		if (node = node_cpuid[cpu].nid) {
++			memcpy(__va(cpu_data), __phys_per_cpu_start,
++			       __per_cpu_end - __per_cpu_start);
++			__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
++				__per_cpu_start;
++			cpu_data += PERCPU_PAGE_SIZE;
++		}
++	}
++
++	return;
++}
+ /**
+  * find_pernode_space - allocate memory for memory map and per-node structures
+  * @start: physical start of range
+@@ -304,9 +203,8 @@ static int early_nr_cpus_node(int node)
+ static int __init find_pernode_space(unsigned long start, unsigned long len,
+ 				     int node)
+ {
+-	unsigned long epfn, cpu, cpus, phys_cpus;
++	unsigned long epfn;
+ 	unsigned long pernodesize = 0, pernode, pages, mapsize;
+-	void *cpu_data;
+ 	struct bootmem_data *bdp = &mem_data[node].bootmem_data;
+ 
+ 	epfn = (start + len) >> PAGE_SHIFT;
+@@ -329,49 +227,12 @@ static int __init find_pernode_space(uns
+ 	 * Calculate total size needed, incl. what's necessary
+ 	 * for good alignment and alias prevention.
+ 	 */
+-	cpus = early_nr_cpus_node(node);
+-	phys_cpus = early_nr_phys_cpus_node(node);
+-	pernodesize += PERCPU_PAGE_SIZE * cpus;
+-	pernodesize += node * L1_CACHE_BYTES;
+-	pernodesize += L1_CACHE_ALIGN(sizeof(pg_data_t));
+-	pernodesize += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
+-	pernodesize = PAGE_ALIGN(pernodesize);
++	pernodesize = compute_pernodesize(node);
+ 	pernode = NODEDATA_ALIGN(start, node);
+ 
+ 	/* Is this range big enough for what we want to store here? */
+-	if (start + len > (pernode + pernodesize + mapsize)) {
+-		mem_data[node].pernode_addr = pernode;
+-		mem_data[node].pernode_size = pernodesize;
+-		memset(__va(pernode), 0, pernodesize);
+-
+-		cpu_data = (void *)pernode;
+-		pernode += PERCPU_PAGE_SIZE * cpus;
+-		pernode += node * L1_CACHE_BYTES;
+-
+-		mem_data[node].pgdat = __va(pernode);
+-		pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
+-
+-		mem_data[node].node_data = __va(pernode);
+-		pernode += L1_CACHE_ALIGN(sizeof(struct ia64_node_data));
+-
+-		mem_data[node].pgdat->bdata = bdp;
+-		pernode += L1_CACHE_ALIGN(sizeof(pg_data_t));
+-
+-		/*
+-		 * Copy the static per-cpu data into the region we
+-		 * just set aside and then setup __per_cpu_offset
+-		 * for each CPU on this node.
+-		 */
+-		for (cpu = 0; cpu < NR_CPUS; cpu++) {
+-			if (node = node_cpuid[cpu].nid) {
+-				memcpy(__va(cpu_data), __phys_per_cpu_start,
+-				       __per_cpu_end - __per_cpu_start);
+-				__per_cpu_offset[cpu] = (char*)__va(cpu_data) -
+-					__per_cpu_start;
+-				cpu_data += PERCPU_PAGE_SIZE;
+-			}
+-		}
+-	}
++	if (start + len > (pernode + pernodesize + mapsize))
++		fill_pernode(node, pernode, pernodesize);
+ 
+ 	return 0;
+ }
+@@ -411,6 +272,9 @@ static void __init reserve_pernode_space
+ 	for_each_online_node(node) {
+ 		pg_data_t *pdp = mem_data[node].pgdat;
+ 
++		if (node_isset(node, memory_less_mask))
++			continue;
++
+ 		bdp = pdp->bdata;
+ 
+ 		/* First the bootmem_map itself */
+@@ -456,6 +320,83 @@ static void __init initialize_pernode_da
+ }
+ 
+ /**
++ * memory_less_node_alloc - * attempt to allocate memory on the best NUMA slit
++ * 	node but fall back to any other node when __alloc_bootmem_node fails
++ *	for best.
++ * @nid: node id
++ * @pernodesize: size of this node's pernode data
++ * @align: alignment to use for this node's pernode data
++ */
++static void __init *memory_less_node_alloc(int nid, unsigned long pernodesize,
++	unsigned long align)
++{
++	void *ptr = NULL;
++	u8 best = 0xff;
++	int bestnode = -1, node;
++
++	for_each_online_node(node) {
++		if (node_isset(node, memory_less_mask))
++			continue;
++		else if (node_distance(nid, node) < best) {
++			best = node_distance(nid, node);
++			bestnode = node;
++		}
++	}
++
++	ptr = __alloc_bootmem_node(mem_data[bestnode].pgdat,
++		pernodesize, align, __pa(MAX_DMA_ADDRESS));
++
++	if (!ptr)
++		panic("NO memory for memory less node\n");
++	return ptr;
 +}
 +
- #else				/* !CONFIG_KPROBES */
- static inline int kprobe_exceptions_notify(struct notifier_block *self,
- 					   unsigned long val, void *data)
-Index: linux-2.6.12-mm1/arch/ia64/kernel/process.c
-=================================--- linux-2.6.12-mm1.orig/arch/ia64/kernel/process.c
-+++ linux-2.6.12-mm1/arch/ia64/kernel/process.c
-@@ -27,6 +27,7 @@
- #include <linux/efi.h>
- #include <linux/interrupt.h>
- #include <linux/delay.h>
-+#include <linux/kprobes.h>
++/**
++ * pgdat_insert - insert the pgdat into global pgdat_list
++ * @pgdat: the pgdat for a node.
++ */
++static void __init pgdat_insert(pg_data_t *pgdat)
++{
++	pg_data_t *prev = NULL, *next;
++
++	for_each_pgdat(next)
++		if (pgdat->node_id < next->node_id)
++			break;
++		else
++			prev = next;
++
++	if (prev) {
++		prev->pgdat_next = pgdat;
++		pgdat->pgdat_next = next;
++	} else {
++		pgdat->pgdat_next = pgdat_list;
++		pgdat_list = pgdat;
++	}
++
++	return;
++}
++
++/**
++ * memory_less_nodes - allocate and initialize CPU only nodes pernode
++ *	information.
++ */
++static void __init memory_less_nodes(void)
++{
++	unsigned long pernodesize;
++	void *pernode;
++	int node;
++
++	for_each_node_mask(node, memory_less_mask) {
++		pernodesize = compute_pernodesize(node);
++		pernode = memory_less_node_alloc(node, pernodesize,
++			(node) ? (node * PERCPU_PAGE_SIZE) : (1024*1024));
++		fill_pernode(node, __pa(pernode), pernodesize);
++	}
++
++	return;
++}
++
++/**
+  * find_memory - walk the EFI memory map and setup the bootmem allocator
+  *
+  * Called early in boot to setup the bootmem allocator, and to
+@@ -472,16 +413,19 @@ void __init find_memory(void)
+ 		node_set_online(0);
+ 	}
  
- #include <asm/cpu.h>
- #include <asm/delay.h>
-@@ -707,6 +708,13 @@ kernel_thread_helper (int (*fn)(void *),
- void
- flush_thread (void)
- {
++	nodes_or(memory_less_mask, memory_less_mask, node_online_map);
+ 	min_low_pfn = -1;
+ 	max_low_pfn = 0;
+ 
+-	if (num_online_nodes() > 1)
+-		reassign_cpu_only_nodes();
+-
+ 	/* These actually end up getting called by call_pernode_memory() */
+ 	efi_memmap_walk(filter_rsvd_memory, build_node_maps);
+ 	efi_memmap_walk(filter_rsvd_memory, find_pernode_space);
+ 
++	for_each_online_node(node)
++		if (mem_data[node].bootmem_data.node_low_pfn) {
++			node_clear(node, memory_less_mask);
++			mem_data[node].min_pfn = ~0UL;
++		}
+ 	/*
+ 	 * Initialize the boot memory maps in reverse order since that's
+ 	 * what the bootmem allocator expects
+@@ -492,17 +436,14 @@ void __init find_memory(void)
+ 
+ 		if (!node_online(node))
+ 			continue;
++		else if (node_isset(node, memory_less_mask))
++			continue;
+ 
+ 		bdp = &mem_data[node].bootmem_data;
+ 		pernode = mem_data[node].pernode_addr;
+ 		pernodesize = mem_data[node].pernode_size;
+ 		map = pernode + pernodesize;
+ 
+-		/* Sanity check... */
+-		if (!pernode)
+-			panic("pernode space for node %d "
+-			      "could not be allocated!", node);
+-
+ 		init_bootmem_node(mem_data[node].pgdat,
+ 				  map>>PAGE_SHIFT,
+ 				  bdp->node_boot_start>>PAGE_SHIFT,
+@@ -512,6 +453,7 @@ void __init find_memory(void)
+ 	efi_memmap_walk(filter_rsvd_memory, free_node_bootmem);
+ 
+ 	reserve_pernode_space();
++	memory_less_nodes();
+ 	initialize_pernode_data();
+ 
+ 	max_pfn = max_low_pfn;
+@@ -680,12 +622,13 @@ void __init paging_init(void)
+ 
+ 	max_dma = virt_to_phys((void *) MAX_DMA_ADDRESS) >> PAGE_SHIFT;
+ 
+-	/* so min() will work in count_node_pages */
+-	for_each_online_node(node)
+-		mem_data[node].min_pfn = ~0UL;
+-
+ 	efi_memmap_walk(filter_rsvd_memory, count_node_pages);
+ 
++	vmalloc_end -= PAGE_ALIGN(max_low_pfn * sizeof(struct page));
++	vmem_map = (struct page *) vmalloc_end;
++	efi_memmap_walk(create_mem_map_page_table, NULL);
++	printk("Virtual mem_map starts at 0x%p\n", vmem_map);
++
+ 	for_each_online_node(node) {
+ 		memset(zones_size, 0, sizeof(zones_size));
+ 		memset(zholes_size, 0, sizeof(zholes_size));
+@@ -719,15 +662,6 @@ void __init paging_init(void)
+ 				 mem_data[node].num_dma_physpages);
+ 		}
+ 
+-		if (node = 0) {
+-			vmalloc_end --				PAGE_ALIGN(max_low_pfn * sizeof(struct page));
+-			vmem_map = (struct page *) vmalloc_end;
+-
+-			efi_memmap_walk(create_mem_map_page_table, NULL);
+-			printk("Virtual mem_map starts at 0x%p\n", vmem_map);
+-		}
+-
+ 		pfn_offset = mem_data[node].min_pfn;
+ 
+ 		NODE_DATA(node)->node_mem_map = vmem_map + pfn_offset;
+@@ -735,5 +669,11 @@ void __init paging_init(void)
+ 				    pfn_offset, zholes_size);
+ 	}
+ 
 +	/*
-+	 * Remove function-return probe instances associated with this task
-+	 * and put them back on the free list. Do not insert an exit probe for
-+	 * this function, it will be disabled by kprobe_flush_task if you do.
++	 * Make memory less nodes become a member of the known nodes.
 +	 */
-+	kprobe_flush_task(current);
++	for_each_node_mask(node, memory_less_mask)
++		pgdat_insert(mem_data[node].pgdat);
 +
- 	/* drop floating-point and debug-register state if it exists: */
- 	current->thread.flags &= ~(IA64_THREAD_FPH_VALID | IA64_THREAD_DBG_VALID);
- 	ia64_drop_fpu(current);
-@@ -721,6 +729,14 @@ flush_thread (void)
- void
- exit_thread (void)
- {
-+
-+	/*
-+	 * Remove function-return probe instances associated with this task
-+	 * and put them back on the free list. Do not insert an exit probe for
-+	 * this function, it will be disabled by kprobe_flush_task if you do.
-+	 */
-+	kprobe_flush_task(current);
-+
- 	ia64_drop_fpu(current);
- #ifdef CONFIG_PERFMON
-        /* if needed, stop monitoring and flush state to perfmon context */
-
---
+ 	zero_page_memmap_ptr = virt_to_page(ia64_imva(empty_zero_page));
+ }
+Index: linux-aegl-2.6.git-patches/arch/ia64/mm/init.c
+=================================--- linux-aegl-2.6.git-patches.orig/arch/ia64/mm/init.c	2005-06-28 15:27:26.000000000 -0400
++++ linux-aegl-2.6.git-patches/arch/ia64/mm/init.c	2005-06-28 15:48:21.000000000 -0400
+@@ -596,8 +596,9 @@ mem_init (void)
+ 	kclist_add(&kcore_vmem, (void *)VMALLOC_START, VMALLOC_END-VMALLOC_START);
+ 	kclist_add(&kcore_kernel, _stext, _end - _stext);
+ 
+-	for_each_pgdat(pgdat)
+-		totalram_pages += free_all_bootmem_node(pgdat);
++	for_each_pgdat(pgdat) 
++		if (pgdat->bdata->node_bootmem_map)
++			totalram_pages += free_all_bootmem_node(pgdat);
+ 
+ 	reserved_pages = 0;
+ 	efi_memmap_walk(count_reserved_pages, &reserved_pages);
