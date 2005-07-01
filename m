@@ -1,55 +1,92 @@
-From: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>
-Date: Thu, 14 Jul 2005 22:07:56 +0000
-Subject: RE: autocompilation hosed?
-Message-Id: <516F50407E01324991DD6D07B0531AD54FA830@cacexc12.americas.cpqcorp.net>
+From: KAMEZAWA Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+Date: Fri, 01 Jul 2005 08:41:49 +0000
+Subject: [PATCH] enable to read region 5 from /dev/kmem
+Message-Id: <42C501CD.4010907@jp.fujitsu.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="------------010906060904060201010600"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <ed5aea4305071214283aada0f2@mail.gmail.com>
-In-Reply-To: <ed5aea4305071214283aada0f2@mail.gmail.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Very educational.  Thanks! 
+This is a multi-part message in MIME format.
+--------------010906060904060201010600
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> -----Original Message-----
-> From: James E Wilson [mailto:wilson@tuliptree.org] 
-> Sent: Thursday, July 14, 2005 4:02 PM
-> To: Magenheimer, Dan (HP Labs Fort Collins)
-> Cc: David Mosberger; Tony Luck; Ian Wienand; 
-> linux-ia64@vger.kernel.org
-> Subject: RE: autocompilation hosed?
-> 
-> On Thu, 2005-07-14 at 08:23, Magenheimer, Dan (HP Labs Fort Collins)
-> wrote:
-> > IIRC as of gcc3.2, attribute(packed) on ia64 meant roughly the
-> > equivalent of specifying "generate the worst case possible
-> > code even for things that are aligned".  Is that still the
-> > case in gcc-4?
-> 
-> attribute((packed)) means that the type has alignment of 1 byte.  Thus
-> we must use unaligned/bit-field load/store instructions.  Some targets
-> have efficient instructions for that, some don't.  Some ports can use
-> those instructions efficiently, some can't.
-> 
-> If a variable has greater alignment than its type, then we 
-> can make use
-> of that info to generate better code.  For instance, if a variable is
-> allocated on the stack, then we know that it must have a certain
-> alignment which may be greater than the alignment of its type.
-> 
-> You can also specify alignment by using __attribute__((aligned(X))).
-> This can be added either to a type or to a variable, to specify an
-> alignment greater than the default alignment for the type or variable.
-> 
-> Consider the attached testcase.  Compile with -O -S.  The code emitted
-> for loading the variable "tmp" is good, because we know it has stack
-> alignment.  The code for loading "bar" is bad, because it inherits
-> 1-byte alignment from its type.  The code for loading "baz" is good,
-> because we explicitly aligned it via an attribute.
-> 
-> We don't emit run time checks for alignment, so if something has a
-> default alignment of 1 byte, but accidentally happens to have 8-byte
-> alignment at runtime, then you still have to execute the slow code for
-> it.
-> 
+This patch allows users to read region 5 from /dev/kmem and enhances range check of it.
+
+Regards,
+-- Kamezawa Hiroyuki.
+
+--------------010906060904060201010600
+Content-Type: text/plain;
+ name="ia64_region5_kmem.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ia64_region5_kmem.patch"
+
+
+enables reading region 5 from /dev/kmem
+
+This patch enables to read region 5 from /dev/kmem.
+And 'cat /dev/kmem' never cause panic.
+"Don't do that" is good advise :).
+
+Signed-Off-By: Kamezawa Hiroyuki <kamezawa.hiroyu@jp.fujitsu.com>
+
+
+---
+
+ linux-2.6.13-rc1-kamezawa/drivers/char/mem.c         |    3 +-
+ linux-2.6.13-rc1-kamezawa/include/asm-ia64/uaccess.h |   22 +++++++++++++++++--
+ 2 files changed, 22 insertions(+), 3 deletions(-)
+
+diff -puN include/asm-ia64/uaccess.h~ia64_region5_kmem include/asm-ia64/uaccess.h
+--- linux-2.6.13-rc1/include/asm-ia64/uaccess.h~ia64_region5_kmem	2005-07-01 17:10:05.000000000 +0900
++++ linux-2.6.13-rc1-kamezawa/include/asm-ia64/uaccess.h	2005-07-01 17:12:51.000000000 +0900
+@@ -395,8 +395,26 @@ xlate_dev_kmem_ptr (char * p)
+ {
+ 	struct page *page;
+ 	char * ptr;
+-
+-	page = virt_to_page((unsigned long)p >> PAGE_SHIFT);
++	unsigned long pfn;
++	int region;
++	region = REGION_NUMBER(p);
++	switch(region) {
++		case 5:
++			return p;
++		case 6:
++			pfn = ((unsigned long)p - __IA64_UNCACHED_OFFSET) >> PAGE_SHIFT;
++			break;
++		case 7:
++			pfn = __pa(p) >> PAGE_SHIFT;
++			break;
++		default:
++			return NULL;
++	}
++	if (!pfn_valid(pfn))
++		return NULL;
++	if (region == 6)
++		return p;
++	page = pfn_to_page(pfn);
+ 	if (PageUncached(page))
+ 		ptr = (char *)__pa(p) + __IA64_UNCACHED_OFFSET;
+ 	else
+diff -puN drivers/char/mem.c~ia64_region5_kmem drivers/char/mem.c
+--- linux-2.6.13-rc1/drivers/char/mem.c~ia64_region5_kmem	2005-07-01 17:13:06.000000000 +0900
++++ linux-2.6.13-rc1-kamezawa/drivers/char/mem.c	2005-07-01 17:13:15.000000000 +0900
+@@ -155,7 +155,8 @@ static ssize_t read_mem(struct file * fi
+ 		 * by the kernel or data corruption may occur
+ 		 */
+ 		ptr = xlate_dev_mem_ptr(p);
+-
++		if (!ptr)
++			return -EFAULT;
+ 		if (copy_to_user(buf, ptr, sz))
+ 			return -EFAULT;
+ 		buf += sz;
+
+_
+
+--------------010906060904060201010600--
+
