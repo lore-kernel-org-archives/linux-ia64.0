@@ -1,218 +1,133 @@
-From: Matt Tolentino <metolent@snoqualmie.dp.intel.com>
-Date: Thu, 14 Jul 2005 00:59:22 +0000
-Subject: [patch] fix ACPI table discovery from EFI for x86
-Message-Id: <200507140109.j6E19a58013012@snoqualmie.dp.intel.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Fri, 01 Jul 2005 09:53:10 +0000
+Subject: [patch 2.6.13-rc1] assign_irq_vector() should not panic
+Message-Id: <42C51286.5020507@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: akpm@osdl.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
+To: linux-ia64@vger.kernel.org
+
+Hi,
+
+This is the updated version of the patch I've posted at:
+
+http://marc.theaimsgroup.com/?l=linux-ia64&m1803534229544&w=2
+
+Tony, could you consider applying this?
+
+Thanks,
+Kenji Kaneshige
 
 
-This patch addresses a problem on x86 EFI systems with larger memory
-configurations.  Up until now, we've relied on the fact that the 
-ACPI RSDT would reside somewhere in low memory that could be permanently 
-mapped in kernel address space - so __va() has been sufficient.  However,
-on EFI systems, the RSDT is often anywhere in the lower 4GB of physical
-address space.  So, we may need to remap it on x86 systems.  
+Current assign_irq_vector() will panic if interrupt vectors is running
+out. But I think how to handle the case of lack of interrupt vectors
+should be handled by the caller of this function. For example, some
+PCI devices can raise the interrupt signal via both MSI and I/O
+APIC. So even if the driver for these device fails to allocate a
+vector for MSI, the driver still has a chance to use I/O APIC based
+interrupt. But currently there is no chance for these driver to use
+I/O APIC based interrupt because kernel will panic when
+assign_irq_vector() fails to allocate interrupt vector.
 
-Second, this fixes some miscalculations in one of the EFI memmap 
-callback functions.  
+The following patch changes assign_irq_vector() for ia64 to return
+negative value on error instead of panic.
 
-Lastly, this also removes all of the va->pa->va contortions and 
-stores the physical location in the efi struct while preserving the 
-validity checks.  This change is the only reason this impacts 
-ia64. 
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-Tested on x86 EFI machines and boot tested on one ia64 machine
-thanks to Tony.  Additional testing on ia64 machines would be 
-appreciated!  
 
-Problem reported and original patch proposed by Ping Wei.
-
-Signed-off-by: Matt Tolentino <matthew.e.tolentino@intel.com>
 ---
-diff -urNp linux-2.6.13-rc3/arch/i386/kernel/acpi/boot.c linux-2.6.13-rc3-efi/arch/i386/kernel/acpi/boot.c
---- linux-2.6.13-rc3/arch/i386/kernel/acpi/boot.c	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/arch/i386/kernel/acpi/boot.c	2005-07-13 10:32:54.073297792 -0400
-@@ -682,10 +682,10 @@ acpi_find_rsdp (void)
- 	unsigned long		rsdp_phys = 0;
- 
- 	if (efi_enabled) {
--		if (efi.acpi20)
--			return __pa(efi.acpi20);
--		else if (efi.acpi)
--			return __pa(efi.acpi);
-+		if (efi.phys_acpi20 != EFI_INVALID_ACPI_TABLE_ADDR)
-+			return efi.phys_acpi20;
-+		else if (efi.phys_acpi != EFI_INVALID_ACPI_TABLE_ADDR)
-+			return efi.phys_acpi;
+
+ linux-2.6.13-rc1-kanesige/arch/ia64/kernel/iosapic.c  |   13 +++++++++----
+ linux-2.6.13-rc1-kanesige/arch/ia64/kernel/irq_ia64.c |   13 +------------
+ linux-2.6.13-rc1-kanesige/include/asm-ia64/hw_irq.h   |    1 -
+ 3 files changed, 10 insertions(+), 17 deletions(-)
+
+diff -puN arch/ia64/kernel/iosapic.c~remove-panic-assign_irq_vector-ia64 arch/ia64/kernel/iosapic.c
+--- linux-2.6.13-rc1/arch/ia64/kernel/iosapic.c~remove-panic-assign_irq_vector-ia64	2005-06-30 15:26:19.000000000 +0900
++++ linux-2.6.13-rc1-kanesige/arch/ia64/kernel/iosapic.c	2005-06-30 15:27:16.000000000 +0900
+@@ -489,8 +489,6 @@ static int iosapic_find_sharable_vector 
+ 			}
+ 		}
  	}
- 	/*
- 	 * Scan memory looking for the RSDP signature. First search EBDA (low
-diff -urNp linux-2.6.13-rc3/arch/i386/kernel/efi.c linux-2.6.13-rc3-efi/arch/i386/kernel/efi.c
---- linux-2.6.13-rc3/arch/i386/kernel/efi.c	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/arch/i386/kernel/efi.c	2005-07-13 10:32:04.731798840 -0400
-@@ -376,17 +376,20 @@ void __init efi_init(void)
- 	if (config_tables = NULL)
- 		printk(KERN_ERR PFX "Could not map EFI Configuration Table!\n");
+-	if (vector < 0)
+-		panic("%s: out of interrupt vectors!\n", __FUNCTION__);
  
-+	efi.phys_acpi20 = EFI_INVALID_ACPI_TABLE_ADDR;
-+	efi.phys_acpi = EFI_INVALID_ACPI_TABLE_ADDR;
-+
- 	for (i = 0; i < num_config_tables; i++) {
- 		if (efi_guidcmp(config_tables[i].guid, MPS_TABLE_GUID) = 0) {
- 			efi.mps = (void *)config_tables[i].table;
- 			printk(KERN_INFO " MPS=0x%lx ", config_tables[i].table);
- 		} else
- 		    if (efi_guidcmp(config_tables[i].guid, ACPI_20_TABLE_GUID) = 0) {
--			efi.acpi20 = __va(config_tables[i].table);
-+			efi.phys_acpi20 = config_tables[i].table;
- 			printk(KERN_INFO " ACPI 2.0=0x%lx ", config_tables[i].table);
- 		} else
- 		    if (efi_guidcmp(config_tables[i].guid, ACPI_TABLE_GUID) = 0) {
--			efi.acpi = __va(config_tables[i].table);
-+			efi.phys_acpi = config_tables[i].table;
- 			printk(KERN_INFO " ACPI=0x%lx ", config_tables[i].table);
- 		} else
- 		    if (efi_guidcmp(config_tables[i].guid, SMBIOS_TABLE_GUID) = 0) {
-diff -urNp linux-2.6.13-rc3/arch/i386/kernel/setup.c linux-2.6.13-rc3-efi/arch/i386/kernel/setup.c
---- linux-2.6.13-rc3/arch/i386/kernel/setup.c	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/arch/i386/kernel/setup.c	2005-07-13 10:24:25.149665944 -0400
-@@ -1034,10 +1034,10 @@ static int __init
- free_available_memory(unsigned long start, unsigned long end, void *arg)
- {
- 	/* check max_low_pfn */
--	if (start >= ((max_low_pfn + 1) << PAGE_SHIFT))
-+	if (start >= (max_low_pfn << PAGE_SHIFT))
- 		return 0;
--	if (end >= ((max_low_pfn + 1) << PAGE_SHIFT))
--		end = (max_low_pfn + 1) << PAGE_SHIFT;
-+	if (end >= (max_low_pfn << PAGE_SHIFT))
-+		end = max_low_pfn << PAGE_SHIFT;
- 	if (start < end)
- 		free_bootmem(start, end - start);
- 
-diff -urNp linux-2.6.13-rc3/arch/ia64/kernel/acpi.c linux-2.6.13-rc3-efi/arch/ia64/kernel/acpi.c
---- linux-2.6.13-rc3/arch/ia64/kernel/acpi.c	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/arch/ia64/kernel/acpi.c	2005-07-13 10:33:51.614550192 -0400
-@@ -615,9 +615,9 @@ acpi_find_rsdp (void)
- {
- 	unsigned long rsdp_phys = 0;
- 
--	if (efi.acpi20)
--		rsdp_phys = __pa(efi.acpi20);
--	else if (efi.acpi)
-+	if (efi.phys_acpi20 != EFI_INVALID_ACPI_TABLE_ADDR)
-+		rsdp_phys = efi.phys_acpi20;
-+	else if (efi.phys_acpi != EFI_INVALID_ACPI_TABLE_ADDR)
- 		printk(KERN_WARNING PREFIX "v1.0/r0.71 tables no longer supported\n");
- 	return rsdp_phys;
+ 	return vector;
  }
-diff -urNp linux-2.6.13-rc3/arch/ia64/kernel/efi.c linux-2.6.13-rc3-efi/arch/ia64/kernel/efi.c
---- linux-2.6.13-rc3/arch/ia64/kernel/efi.c	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/arch/ia64/kernel/efi.c	2005-07-13 10:33:32.002531672 -0400
-@@ -596,15 +596,18 @@ efi_init (void)
- 	printk(KERN_INFO "EFI v%u.%.02u by %s:",
- 	       efi.systab->hdr.revision >> 16, efi.systab->hdr.revision & 0xffff, vendor);
+@@ -506,6 +504,8 @@ iosapic_reassign_vector (int vector)
  
-+	efi.phys_acpi20 = EFI_INVALID_ACPI_TABLE_ADDR;
-+	efi.phys_acpi = EFI_INVALID_ACPI_TABLE_ADDR;
-+
- 	for (i = 0; i < (int) efi.systab->nr_tables; i++) {
- 		if (efi_guidcmp(config_tables[i].guid, MPS_TABLE_GUID) = 0) {
- 			efi.mps = __va(config_tables[i].table);
- 			printk(" MPS=0x%lx", config_tables[i].table);
- 		} else if (efi_guidcmp(config_tables[i].guid, ACPI_20_TABLE_GUID) = 0) {
--			efi.acpi20 = __va(config_tables[i].table);
-+			efi.phys_acpi20 = config_tables[i].table;
- 			printk(" ACPI 2.0=0x%lx", config_tables[i].table);
- 		} else if (efi_guidcmp(config_tables[i].guid, ACPI_TABLE_GUID) = 0) {
--			efi.acpi = __va(config_tables[i].table);
-+			efi.phys_acpi = config_tables[i].table;
- 			printk(" ACPI=0x%lx", config_tables[i].table);
- 		} else if (efi_guidcmp(config_tables[i].guid, SMBIOS_TABLE_GUID) = 0) {
- 			efi.smbios = __va(config_tables[i].table);
-diff -urNp linux-2.6.13-rc3/drivers/acpi/osl.c linux-2.6.13-rc3-efi/drivers/acpi/osl.c
---- linux-2.6.13-rc3/drivers/acpi/osl.c	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/drivers/acpi/osl.c	2005-07-13 10:34:25.417411376 -0400
-@@ -163,12 +163,12 @@ acpi_os_get_root_pointer(u32 flags, stru
+ 	if (!list_empty(&iosapic_intr_info[vector].rtes)) {
+ 		new_vector = assign_irq_vector(AUTO_ASSIGN);
++		if (new_vector < 0)
++			panic("%s: out of interrupt vectors!\n", __FUNCTION__);
+ 		printk(KERN_INFO "Reassigning vector %d to %d\n", vector, new_vector);
+ 		memcpy(&iosapic_intr_info[new_vector], &iosapic_intr_info[vector],
+ 		       sizeof(struct iosapic_intr_info));
+@@ -734,9 +734,12 @@ again:
+ 	spin_unlock_irqrestore(&iosapic_lock, flags);
+ 
+ 	/* If vector is running out, we try to find a sharable vector */
+-	vector = assign_irq_vector_nopanic(AUTO_ASSIGN);
+-	if (vector < 0)
++	vector = assign_irq_vector(AUTO_ASSIGN);
++	if (vector < 0) {
+ 		vector = iosapic_find_sharable_vector(trigger, polarity);
++		if (vector < 0)
++			panic("%s: out of interrupt vectors!\n", __FUNCTION__);
++	}
+ 
+ 	spin_lock_irqsave(&irq_descp(vector)->lock, flags);
+ 	spin_lock(&iosapic_lock);
+@@ -884,6 +887,8 @@ iosapic_register_platform_intr (u32 int_
+ 		break;
+ 	      case ACPI_INTERRUPT_INIT:
+ 		vector = assign_irq_vector(AUTO_ASSIGN);
++		if (vector < 0)
++			panic("%s: out of interrupt vectors!\n", __FUNCTION__);
+ 		delivery = IOSAPIC_INIT;
+ 		break;
+ 	      case ACPI_INTERRUPT_CPEI:
+diff -puN arch/ia64/kernel/irq_ia64.c~remove-panic-assign_irq_vector-ia64 arch/ia64/kernel/irq_ia64.c
+--- linux-2.6.13-rc1/arch/ia64/kernel/irq_ia64.c~remove-panic-assign_irq_vector-ia64	2005-06-30 15:26:19.000000000 +0900
++++ linux-2.6.13-rc1-kanesige/arch/ia64/kernel/irq_ia64.c	2005-06-30 15:26:19.000000000 +0900
+@@ -63,7 +63,7 @@ EXPORT_SYMBOL(isa_irq_to_vector_map);
+ static unsigned long ia64_vector_mask[BITS_TO_LONGS(IA64_NUM_DEVICE_VECTORS)];
+ 
+ int
+-assign_irq_vector_nopanic (int irq)
++assign_irq_vector (int irq)
  {
- 	if (efi_enabled) {
- 		addr->pointer_type = ACPI_PHYSICAL_POINTER;
--		if (efi.acpi20)
-+		if (efi.phys_acpi20 != EFI_INVALID_ACPI_TABLE_ADDR)
- 			addr->pointer.physical -				(acpi_physical_address) virt_to_phys(efi.acpi20);
--		else if (efi.acpi)
-+				(acpi_physical_address)efi.phys_acpi20;
-+		else if (efi.phys_acpi != EFI_INVALID_ACPI_TABLE_ADDR)
- 			addr->pointer.physical -				(acpi_physical_address) virt_to_phys(efi.acpi);
-+				(acpi_physical_address)efi.phys_acpi;
- 		else {
- 			printk(KERN_ERR PREFIX "System description tables not found\n");
- 			return AE_NOT_FOUND;
-@@ -187,7 +187,9 @@ acpi_status
- acpi_os_map_memory(acpi_physical_address phys, acpi_size size, void __iomem **virt)
+ 	int pos, vector;
+  again:
+@@ -76,17 +76,6 @@ assign_irq_vector_nopanic (int irq)
+ 	return vector;
+ }
+ 
+-int
+-assign_irq_vector (int irq)
+-{
+-	int vector = assign_irq_vector_nopanic(irq);
+-
+-	if (vector < 0)
+-		panic("assign_irq_vector: out of interrupt vectors!");
+-
+-	return vector;
+-}
+-
+ void
+ free_irq_vector (int vector)
  {
- 	if (efi_enabled) {
--		if (EFI_MEMORY_WB & efi_mem_attributes(phys)) {
-+		/* determine whether or not we need to call ioremap */
-+		if ((EFI_MEMORY_WB & efi_mem_attributes(phys)) && 
-+			((unsigned long)phys < (unsigned long)__pa(high_memory))) {
- 			*virt = (void __iomem *) phys_to_virt(phys);
- 		} else {
- 			*virt = ioremap(phys, size);
-diff -urNp linux-2.6.13-rc3/drivers/acpi/tables.c linux-2.6.13-rc3-efi/drivers/acpi/tables.c
---- linux-2.6.13-rc3/drivers/acpi/tables.c	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/drivers/acpi/tables.c	2005-07-13 10:24:25.180661232 -0400
-@@ -581,7 +581,8 @@ acpi_table_init (void)
- 		return -ENODEV;
- 	}
+diff -puN include/asm-ia64/hw_irq.h~remove-panic-assign_irq_vector-ia64 include/asm-ia64/hw_irq.h
+--- linux-2.6.13-rc1/include/asm-ia64/hw_irq.h~remove-panic-assign_irq_vector-ia64	2005-06-30 15:27:55.000000000 +0900
++++ linux-2.6.13-rc1-kanesige/include/asm-ia64/hw_irq.h	2005-06-30 15:28:15.000000000 +0900
+@@ -81,7 +81,6 @@ extern __u8 isa_irq_to_vector_map[16];
  
--	rsdp = (struct acpi_table_rsdp *) __va(rsdp_phys);
-+	rsdp = (struct acpi_table_rsdp *) __acpi_map_table(rsdp_phys, 
-+		sizeof(struct acpi_table_rsdp));
- 	if (!rsdp) {
- 		printk(KERN_WARNING PREFIX "Unable to map RSDP\n");
- 		return -ENODEV;
-diff -urNp linux-2.6.13-rc3/drivers/firmware/efivars.c linux-2.6.13-rc3-efi/drivers/firmware/efivars.c
---- linux-2.6.13-rc3/drivers/firmware/efivars.c	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/drivers/firmware/efivars.c	2005-07-13 10:24:25.183660776 -0400
-@@ -570,10 +570,10 @@ systab_read(struct subsystem *entry, cha
+ extern struct hw_interrupt_type irq_type_ia64_lsapic;	/* CPU-internal interrupt controller */
  
- 	if (efi.mps)
- 		str += sprintf(str, "MPS=0x%lx\n", __pa(efi.mps));
--	if (efi.acpi20)
--		str += sprintf(str, "ACPI20=0x%lx\n", __pa(efi.acpi20));
--	if (efi.acpi)
--		str += sprintf(str, "ACPI=0x%lx\n", __pa(efi.acpi));
-+	if (efi.phys_acpi20 != ~0UL)
-+		str += sprintf(str, "ACPI20=0x%lx\n", efi.phys_acpi20);
-+	if (efi.phys_acpi != ~0UL)
-+		str += sprintf(str, "ACPI=0x%lx\n", efi.phys_acpi);
- 	if (efi.smbios)
- 		str += sprintf(str, "SMBIOS=0x%lx\n", __pa(efi.smbios));
- 	if (efi.hcdp)
-diff -urNp linux-2.6.13-rc3/include/linux/efi.h linux-2.6.13-rc3-efi/include/linux/efi.h
---- linux-2.6.13-rc3/include/linux/efi.h	2005-07-13 00:46:46.000000000 -0400
-+++ linux-2.6.13-rc3-efi/include/linux/efi.h	2005-07-13 10:36:24.999232176 -0400
-@@ -246,14 +246,16 @@ struct efi_memory_map {
- 	unsigned long desc_version;
- };
- 
-+#define EFI_INVALID_ACPI_TABLE_ADDR	(~0UL)
-+
- /*
-  * All runtime access to EFI goes through this structure:
-  */
- extern struct efi {
- 	efi_system_table_t *systab;	/* EFI system table */
- 	void *mps;			/* MPS table */
--	void *acpi;			/* ACPI table  (IA64 ext 0.71) */
--	void *acpi20;			/* ACPI table  (ACPI 2.0) */
-+	unsigned long phys_acpi;	/* ACPI table  */
-+	unsigned long phys_acpi20;	/* ACPI table  (ACPI 2.0) */
- 	void *smbios;			/* SM BIOS table */
- 	void *sal_systab;		/* SAL system table */
- 	void *boot_info;		/* boot info table */
+-extern int assign_irq_vector_nopanic (int irq); /* allocate a free vector without panic */
+ extern int assign_irq_vector (int irq);	/* allocate a free vector */
+ extern void free_irq_vector (int vector);
+ extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
+
+_
