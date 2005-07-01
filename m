@@ -1,74 +1,67 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 22 Jul 2005 06:41:16 +0000
-Subject: [patch 2.6.13-rc3] unwind.c uses wrong unat from switch_stack
-Message-Id: <12005.1122014476@kao2.melbourne.sgi.com>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 01 Jul 2005 21:06:57 +0000
+Subject: 2.6.12-mm2 perfmon2 patch and beta libpfm-3.2 available
+Message-Id: <20050701210657.GA26014@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: linux-ia64@vger.kernel.org, perfmon@napali.hpl.hp.com, akpm@osdl.org, mikpe@csd.uu.se, david@gibson.dropbear.id.au, maynardj@us.ibm.com, bill.brantley@amd.com, mucci@cs.utk.edu, reeja.john@amd.com, brad.chen@intel.com, charles.spirakis@intel.com, Stephane Eranian <eranian@hpl.hp.com>, "Lynn, Brian" <brian_lynn@hp.com>
 
-unwind.c can read the wrong unat bits from switch_stack.
-sw->caller_unat is the value of ar.unat when the task was blocked.
-sw->ar_unat is the value of ar.unat after doing st8.spill for r4-7.
-IOW, ar_unat is caller_unat with 4 bits changed.
+Hello everyone,
 
-unw_access_gr() uses sw->ar_unat for r4-7 (correct), but it also uses
-sw->ar_unat for other scratch registers (incorrect).  sw->ar_unat
-should only be used for r4-7, everything else should use
-sw->caller_unat, unless modified by unwind info.  Using sw->ar_unat
-risks picking up the 4 bits that were overwritten when r4-7 were saved.
+I am pleased to announce that I have now released an updated version
+of the perfmon2 new code base. This release includes some major improvements
+such as better kernel integration and a preliminary port to PPC64. This new
+patch is against Andrew Morton's 2.6.12-mm2 kernel. 
 
-Also this line is wrong
-	unw.sw_off[unw.preg_index[UNW_REG_PFS]] = SW(AR_UNAT);
-and should be
-	unw.sw_off[unw.preg_index[UNW_REG_PFS]] = SW(AR_PFS);
+As some of you know, 2.6.12-mm2 already includes the perfctr subsystem by Mikael
+Pettersson on X86-64, IA-32 and PPC64.  The new perfmon patch provides seamless
+integration with perfctr. In particular, the kernel hooks have been unified
+between the two subsystems. On X86-64, IA-32 and also on PPC64, you can chose
+which subsystem you want at kernel compile time (see Processor type and
+features options).
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+The goal is for people to evaluate side by side the benefits of perfmon2
+compared to perfctr. The short term goal is to unify the two subsystems
+as we believe it is not practical, especially for developers and Linux
+distributors, to have two interfaces to access the same hardware resource.
 
-Index: linux/arch/ia64/kernel/unwind.c
-=================================--- linux.orig/arch/ia64/kernel/unwind.c	2005-06-24 15:19:56.245556835 +1000
-+++ linux/arch/ia64/kernel/unwind.c	2005-06-24 15:22:08.194843143 +1000
-@@ -362,7 +362,7 @@ unw_access_gr (struct unw_frame_info *in
- 			if (info->pri_unat_loc)
- 				nat_addr = info->pri_unat_loc;
- 			else
--				nat_addr = &info->sw->ar_unat;
-+				nat_addr = &info->sw->caller_unat;
- 			nat_mask = (1UL << ((long) addr & 0x1f8)/8);
- 		}
- 	} else {
-@@ -524,7 +524,7 @@ unw_access_ar (struct unw_frame_info *in
- 	      case UNW_AR_UNAT:
- 		addr = info->unat_loc;
- 		if (!addr)
--			addr = &info->sw->ar_unat;
-+			addr = &info->sw->caller_unat;
- 		break;
- 
- 	      case UNW_AR_LC:
-@@ -1775,7 +1775,7 @@ run_script (struct unw_script *script, s
- 
- 		      case UNW_INSN_SETNAT_MEMSTK:
- 			if (!state->pri_unat_loc)
--				state->pri_unat_loc = &state->sw->ar_unat;
-+				state->pri_unat_loc = &state->sw->caller_unat;
- 			/* register off. is a multiple of 8, so the least 3 bits (type) are 0 */
- 			s[dst+1] = ((unsigned long) state->pri_unat_loc - s[dst]) | UNW_NAT_MEMSTK;
- 			break;
-@@ -2243,11 +2243,11 @@ unw_init (void)
- 	if (8*sizeof(unw_hash_index_t) < UNW_LOG_HASH_SIZE)
- 		unw_hash_index_t_is_too_narrow();
- 
--	unw.sw_off[unw.preg_index[UNW_REG_PRI_UNAT_GR]] = SW(AR_UNAT);
-+	unw.sw_off[unw.preg_index[UNW_REG_PRI_UNAT_GR]] = SW(CALLER_UNAT);
- 	unw.sw_off[unw.preg_index[UNW_REG_BSPSTORE]] = SW(AR_BSPSTORE);
--	unw.sw_off[unw.preg_index[UNW_REG_PFS]] = SW(AR_UNAT);
-+	unw.sw_off[unw.preg_index[UNW_REG_PFS]] = SW(AR_PFS);
- 	unw.sw_off[unw.preg_index[UNW_REG_RP]] = SW(B0);
--	unw.sw_off[unw.preg_index[UNW_REG_UNAT]] = SW(AR_UNAT);
-+	unw.sw_off[unw.preg_index[UNW_REG_UNAT]] = SW(CALLER_UNAT);
- 	unw.sw_off[unw.preg_index[UNW_REG_PR]] = SW(PR);
- 	unw.sw_off[unw.preg_index[UNW_REG_LC]] = SW(AR_LC);
- 	unw.sw_off[unw.preg_index[UNW_REG_FPSR]] = SW(AR_FPSR);
+See the included ChangeLog for a summary of the many changes that went into
+this new release.
 
+I would like to thank all the people who have contributed feedback and
+patches, especially David Gibson for a preliminary patch for PPC64.
+
+In order for people to better evaluate what the perfmon interface can do
+I have also released a beta version for libpfm-3.2, a helper library which
+can be used by performance tools to setup the PMU counters. The library
+supports all Itanium processors, X86-64 and the P6 processors (incl Pentium M).
+Note that the library does NOT make any perfmon call per se, all it does is given a set
+of events it returns how they should be assigned to the various counters.
+Applications then make the perfmon system calls to actually access the counters.
+
+The library is not required to access the interface. But it is used by tools such
+as pfmon and PAPI on IA-64. The package comes with lots of examples
+of how the library and the kernel interfaces can be used to build tools.
+The examples used the exact same code for all platforms. The package includes man
+pages for all entry points. 
+
+At this point, the event tables for X86-64 and P6 processor family are partial
+but there is enough to evaluate the interface. There is currently no PPC64 support
+for libpfm. For practical reasons, the package also contains the header files to
+program the kernel interface.
+
+You can download the two packages at:
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/perfmon-new-base-050701.tar.gz
+	MD5SUM: 4d6f34ddecfd9542790a06386db4f708
+
+	ftp://ftp.hpl.hp.com/pub/linux-ia64/libpfm-3.2-050701.tar.gz
+	MD5SUM: 297c3e2e536860ce3f7b6b6e1521f002
+
+Enjoy,
+
+-- 
+-Stephane
