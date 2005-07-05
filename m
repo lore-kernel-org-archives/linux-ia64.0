@@ -1,232 +1,345 @@
 From: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>
-Date: Mon, 04 Jul 2005 18:26:32 +0000
+Date: Tue, 05 Jul 2005 20:20:45 +0000
 Subject: RE: Xen and the Art of Linux/ia64 Virtualization
-Message-Id: <516F50407E01324991DD6D07B0531AD54FA3A2@cacexc12.americas.cpqcorp.net>
+Message-Id: <516F50407E01324991DD6D07B0531AD54FA3E6@cacexc12.americas.cpqcorp.net>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----_=_NextPart_001_01C5819E.FE80165C"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <516F50407E01324991DD6D07B0531AD54FA228@cacexc12.americas.cpqcorp.net>
 In-Reply-To: <516F50407E01324991DD6D07B0531AD54FA228@cacexc12.americas.cpqcorp.net>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-Thanks for the reply and very useful feedback!
+This is a multi-part message in MIME format.
 
-> > but also run natively on hardware (called "transparent
-> > paravirtualization").  This should be appealing to Linux/ia64
->=20
-> Very cool, and I think xen/x86 will have to adopt that model
-> aswell if it wants to get in mainline.  Maybe you can clean up
-> the ia64 patches soon enough so we get xen/ia64 merged before
-> xen/x86?
+------_=_NextPart_001_01C5819E.FE80165C
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-Yes, but this is much harder on Xen/x86 as the memory model is
-somewhat different on Xen/x86 than on Linux/x86.  On Xen/ia64,
-the differences can be completely hidden from Linux because
-all mapping is done through the TLB (which requires a privileged
-instruction that can be trapped).  The Xen/x86 guys have proposed
-some ideas (e.g. a special linker that links in both Xen and
-standard Linux routines and selects at runtime) but I don't think
-anyone has tried to do it.
+Thanks to excellent feedback from David Mosberger and
+Christophe Hellwig, I have greatly cleaned up the attached
+patch by using some very nice abstractions.  In fact,
+most of the bulk in the attached patch results from
+moving some code from asm-ia64/{delay,processor}.h to
+a new file, asm-ia64/privop.h.  And the number of
+CONFIG_XEN ifdefs is dramatically reduced.
 
-In any case, I agree that getting the xen/ia64 changes merged
-in can be done prior to the xen/x86 changes.
+More feedback appreciated (including comments about how
+close this might be to be ready for submission to Tony).
 
-> > I would like to submit a series of CONFIG_XEN patches to
-> > this list for review over the next few weeks.  The first
-> > patch will be a few syntactic changes that will make
-> > subsequent patches easier.  For example, there are a number of
-> > places where ia64_getreg(REG_X) is used where abstracting
-> > at a slightly higher level, e.g. with ia64_get_regX() would
-> > make CONFIG_XEN easier.
->=20
-> Yes, absolutely.  That's always a good thing and the ifdef mess
-> in the current patch is quite bad.
+Thanks,
+Dan Magenheimer
 
-Understood.  This was just a "get it to work" patch and intended
-to solicit useful feedback (like yours below).
-=20
-> > For preliminary discussion, I have attached the current
-> > patch for existing files for 2.6.11.  There are many other
-> > files required (in arch/ia64/xen, include/asm-ia64/xen, and
-> > drivers/xen) for everything to work, but I'd like to
-> > initiate discussion and review on existing Linux/ia64 files
-> > that would change.
->=20
-> Can you please post those bits aswell, at least the per-arch bits -
-> the last time I saw a patch for drivers/xen the code there was
-> really horrible, but I hope it has changed by now.  I also think
-> IA64 Xen arch bits can be merged before it, we support botting with
-> initrd and out of tree drivers quite well these days.
+P.S. Anybody who is attending OLS who wants to talk about
+Xen (and specifically Xen/ia64)?  I'll be there... send
+me email.
 
-The code in drivers/xen is still x86-specific.  We are working
-on merging in some changes to accommodate ia64 (and other future
-architectures) but they're not quite ready yet.
+------_=_NextPart_001_01C5819E.FE80165C
+Content-Type: application/octet-stream;
+	name="xenia64.patch"
+Content-Transfer-Encoding: base64
+Content-Description: xenia64.patch
+Content-Disposition: attachment;
+	filename="xenia64.patch"
 
-The arch/ia64/xen code includes a 95% identical IVT and 95%
-identical ia64_leave_kernel/ia64_leave_syscall and a few others.
-(The switch between the original and xen versions is handled
-dynamically because the impact on the real IVT would be very
-ugly.)  These are still evolving somewhat as I tune performance.
-I can send you the current versions (off-list) if you like.
+ZGlmZiAtTmF1ciBsaW51eC0yLjYuMTIvYXJjaC9pYTY0L2hwL3NpbS9NYWtlZmlsZSBsaW51eC0y
+LjYuMTItWGVuUGF0Y2gvYXJjaC9pYTY0L2hwL3NpbS9NYWtlZmlsZQotLS0gbGludXgtMi42LjEy
+L2FyY2gvaWE2NC9ocC9zaW0vTWFrZWZpbGUJMjAwNS0wNi0xNyAxMzo0ODoyOS4wMDAwMDAwMDAg
+LTA2MDAKKysrIGxpbnV4LTIuNi4xMi1YZW5QYXRjaC9hcmNoL2lhNjQvaHAvc2ltL01ha2VmaWxl
+CTIwMDUtMDctMDUgMTM6Mjc6MzQuMDAwMDAwMDAwIC0wNjAwCkBAIC0xNCwzICsxNCw1IEBACiBv
+YmotJChDT05GSUdfSFBfU0lNU0VSSUFMKSArPSBzaW1zZXJpYWwubwogb2JqLSQoQ09ORklHX0hQ
+X1NJTVNFUklBTF9DT05TT0xFKSArPSBocHNpbV9jb25zb2xlLm8KIG9iai0kKENPTkZJR19IUF9T
+SU1TQ1NJKSArPSBzaW1zY3NpLm8KK29iai0kKENPTkZJR19YRU4pICs9IHNpbXNlcmlhbC5vCitv
+YmotJChDT05GSUdfWEVOKSArPSBocHNpbV9jb25zb2xlLm8KZGlmZiAtTmF1ciBsaW51eC0yLjYu
+MTIvYXJjaC9pYTY0L2lhMzIvaWEzMl9zdXBwb3J0LmMgbGludXgtMi42LjEyLVhlblBhdGNoL2Fy
+Y2gvaWE2NC9pYTMyL2lhMzJfc3VwcG9ydC5jCi0tLSBsaW51eC0yLjYuMTIvYXJjaC9pYTY0L2lh
+MzIvaWEzMl9zdXBwb3J0LmMJMjAwNS0wNi0xNyAxMzo0ODoyOS4wMDAwMDAwMDAgLTA2MDAKKysr
+IGxpbnV4LTIuNi4xMi1YZW5QYXRjaC9hcmNoL2lhNjQvaWEzMi9pYTMyX3N1cHBvcnQuYwkyMDA1
+LTA3LTA1IDExOjUwOjAzLjAwMDAwMDAwMCAtMDYwMApAQCAtMTAwLDcgKzEwMCw3IEBACiB2b2lk
+CiBpYTMyX3NhdmVfc3RhdGUgKHN0cnVjdCB0YXNrX3N0cnVjdCAqdCkKIHsKLQl0LT50aHJlYWQu
+ZWZsYWcgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfRUZMQUcpOworCXQtPnRocmVhZC5lZmxh
+ZyA9IGlhNjRfZ2V0X2VmbGFnKCk7CiAJdC0+dGhyZWFkLmZzciAgID0gaWE2NF9nZXRyZWcoX0lB
+NjRfUkVHX0FSX0ZTUik7CiAJdC0+dGhyZWFkLmZjciAgID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVH
+X0FSX0ZDUik7CiAJdC0+dGhyZWFkLmZpciAgID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0FSX0ZJ
+Uik7CkBAIC0xMjIsNyArMTIyLDcgQEAKIAlmZHIgPSB0LT50aHJlYWQuZmRyOwogCXRzc2QgPSBs
+b2FkX2Rlc2MoX1RTUyk7CQkJCQkvKiBUU1NEICovCiAKLQlpYTY0X3NldHJlZyhfSUE2NF9SRUdf
+QVJfRUZMQUcsIGVmbGFnKTsKKwlpYTY0X3NldF9lZmxhZyhlZmxhZyk7CiAJaWE2NF9zZXRyZWco
+X0lBNjRfUkVHX0FSX0ZTUiwgZnNyKTsKIAlpYTY0X3NldHJlZyhfSUE2NF9SRUdfQVJfRkNSLCBm
+Y3IpOwogCWlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9GSVIsIGZpcik7CmRpZmYgLU5hdXIgbGlu
+dXgtMi42LjEyL2FyY2gvaWE2NC9rZXJuZWwvZW50cnkuUyBsaW51eC0yLjYuMTItWGVuUGF0Y2gv
+YXJjaC9pYTY0L2tlcm5lbC9lbnRyeS5TCi0tLSBsaW51eC0yLjYuMTIvYXJjaC9pYTY0L2tlcm5l
+bC9lbnRyeS5TCTIwMDUtMDYtMTcgMTM6NDg6MjkuMDAwMDAwMDAwIC0wNjAwCisrKyBsaW51eC0y
+LjYuMTItWGVuUGF0Y2gvYXJjaC9pYTY0L2tlcm5lbC9lbnRyeS5TCTIwMDUtMDctMDUgMTM6MjU6
+MjcuMDAwMDAwMDAwIC0wNjAwCkBAIC0xODEsNyArMTgxLDcgQEAKICAqCWNhbGxlZC4gIFRoZSBj
+b2RlIHN0YXJ0aW5nIGF0IC5tYXAgcmVsaWVzIG9uIHRoaXMuICBUaGUgcmVzdCBvZiB0aGUgY29k
+ZQogICoJZG9lc24ndCBjYXJlIGFib3V0IHRoZSBpbnRlcnJ1cHQgbWFza2luZyBzdGF0dXMuCiAg
+Ki8KLUdMT0JBTF9FTlRSWShpYTY0X3N3aXRjaF90bykKK0dMT0JBTF9FTlRSWShfX2lhNjRfc3dp
+dGNoX3RvKQogCS5wcm9sb2d1ZQogCWFsbG9jIHIxNj1hci5wZnMsMSwwLDAsMAogCURPX1NBVkVf
+U1dJVENIX1NUQUNLCkBAIC0yMzUsNyArMjM1LDcgQEAKIAk7OwogCWl0ci5kIGR0cltyMjVdPXIy
+MwkJLy8gd2lyZSBpbiBuZXcgbWFwcGluZy4uLgogCWJyLmNvbmQuc3B0ayAuZG9uZQotRU5EKGlh
+NjRfc3dpdGNoX3RvKQorRU5EKF9faWE2NF9zd2l0Y2hfdG8pCiAKIC8qCiAgKiBOb3RlIHRoYXQg
+aW50ZXJydXB0cyBhcmUgZW5hYmxlZCBkdXJpbmcgc2F2ZV9zd2l0Y2hfc3RhY2sgYW5kIGxvYWRf
+c3dpdGNoX3N0YWNrLiAgVGhpcwpAQCAtMzc2LDcgKzM3Niw3IEBACiAgKgktIGI3IGhvbGRzIGFk
+ZHJlc3MgdG8gcmV0dXJuIHRvCiAgKgktIG11c3Qgbm90IHRvdWNoIHI4LXIxMQogICovCi1FTlRS
+WShsb2FkX3N3aXRjaF9zdGFjaykKK0dMT0JBTF9FTlRSWShsb2FkX3N3aXRjaF9zdGFjaykKIAku
+cHJvbG9ndWUKIAkuYWx0cnAgYjcKIApAQCAtNTg2LDcgKzU4Niw3IEBACiAJbm9wLmkgMAogCWJy
+LmNhbGwuc3B0ay5tYW55IHJwPXN5c2NhbGxfdHJhY2VfbGVhdmUgLy8gZ2l2ZSBwYXJlbnQgYSBj
+aGFuY2UgdG8gY2F0Y2ggcmV0dXJuIHZhbHVlCiB9Ci0ucmV0NDoJYnIuY29uZC5zcHRrIGlhNjRf
+bGVhdmVfa2VybmVsCisucmV0NDoJYnIuY29uZC5zcHRrIF9faWE2NF9sZWF2ZV9rZXJuZWwKIEVO
+RChpYTY0X3N0cmFjZV9sZWF2ZV9rZXJuZWwpCiAKIEdMT0JBTF9FTlRSWShpYTY0X3JldF9mcm9t
+X2Nsb25lKQpAQCAtNzg1LDcgKzc4NSw3IEBACiBFTkQoaWE2NF9yZXRfZnJvbV9pYTMyX2V4ZWN2
+ZSkKIAkvLyBmYWxsIHRocm91Z2gKICNlbmRpZiAvKiBDT05GSUdfSUEzMl9TVVBQT1JUICovCi1H
+TE9CQUxfRU5UUlkoaWE2NF9sZWF2ZV9rZXJuZWwpCitHTE9CQUxfRU5UUlkoX19pYTY0X2xlYXZl
+X2tlcm5lbCkKIAlQVF9SRUdTX1VOV0lORF9JTkZPKDApCiAJLyoKIAkgKiB3b3JrLm5lZWRfcmVz
+Y2hlZCBldGMuIG11c3RuJ3QgZ2V0IGNoYW5nZWQgYnkgdGhpcyBDUFUgYmVmb3JlIGl0IHJldHVy
+bnMgdG8KQEAgLTExMzEsNyArMTEzMSw3IEBACiAJbGQ4IHIxMD1bcjNdCiAJYnIuY29uZC5zcHRr
+Lm1hbnkgLndvcmtfcHJvY2Vzc2VkX3N5c2NhbGwJLy8gcmUtY2hlY2sKIAotRU5EKGlhNjRfbGVh
+dmVfa2VybmVsKQorRU5EKF9faWE2NF9sZWF2ZV9rZXJuZWwpCiAKIEVOVFJZKGhhbmRsZV9zeXNj
+YWxsX2Vycm9yKQogCS8qCkBAIC0xMTcxLDcgKzExNzEsNyBAQAogCSAqIGJlIHNldCB1cCBieSB0
+aGUgY2FsbGVyLiAgV2UgZGVjbGFyZSA4IGlucHV0IHJlZ2lzdGVycyBzbyB0aGUgc3lzdGVtIGNh
+bGwKIAkgKiBhcmdzIGdldCBwcmVzZXJ2ZWQsIGluIGNhc2Ugd2UgbmVlZCB0byByZXN0YXJ0IGEg
+c3lzdGVtIGNhbGwuCiAJICovCi1FTlRSWShub3RpZnlfcmVzdW1lX3VzZXIpCitHTE9CQUxfRU5U
+Ulkobm90aWZ5X3Jlc3VtZV91c2VyKQogCS5wcm9sb2d1ZSBBU01fVU5XX1BSTEdfUlB8QVNNX1VO
+V19QUkxHX1BGUywgQVNNX1VOV19QUkxHX0dSU0FWRSg4KQogCWFsbG9jIGxvYzE9YXIucGZzLDgs
+MiwzLDAgLy8gcHJlc2VydmUgYWxsIGVpZ2h0IGlucHV0IHJlZ3MgaW4gY2FzZSBvZiBzeXNjYWxs
+IHJlc3RhcnQhCiAJbW92IHI5PWFyLnVuYXQKQEAgLTEyNTksNyArMTI1OSw3IEBACiAJYWRkcyBz
+cD0xNixzcAogCTs7CiAJbGQ4IHI5PVtzcF0JCQkJLy8gbG9hZCBuZXcgYXIudW5hdAotCW1vdi5z
+cHRrIGI3PXI4LGlhNjRfbGVhdmVfa2VybmVsCisJbW92LnNwdGsgYjc9cjgsX19pYTY0X2xlYXZl
+X2tlcm5lbAogCTs7CiAJbW92IGFyLnVuYXQ9cjkKIAlici5tYW55IGI3CmRpZmYgLU5hdXIgbGlu
+dXgtMi42LjEyL2FyY2gvaWE2NC9rZXJuZWwvaGVhZC5TIGxpbnV4LTIuNi4xMi1YZW5QYXRjaC9h
+cmNoL2lhNjQva2VybmVsL2hlYWQuUwotLS0gbGludXgtMi42LjEyL2FyY2gvaWE2NC9rZXJuZWwv
+aGVhZC5TCTIwMDUtMDYtMTcgMTM6NDg6MjkuMDAwMDAwMDAwIC0wNjAwCisrKyBsaW51eC0yLjYu
+MTItWGVuUGF0Y2gvYXJjaC9pYTY0L2tlcm5lbC9oZWFkLlMJMjAwNS0wNy0wNSAxMzoyMDo1My4w
+MDAwMDAwMDAgLTA2MDAKQEAgLTM3MCw2ICszNzAsOSBAQAogCiAJLy8gVGhpcyBpcyBleGVjdXRl
+ZCBieSB0aGUgYm9vdHN0cmFwIHByb2Nlc3NvciAoYnNwKSBvbmx5OgogCisjaWZkZWYgQ09ORklH
+X1hFTgorCWJyLmNhbGwuc3B0ay5tYW55IHJwPWVhcmx5X3hlbl9zZXR1cAorI2VuZGlmCiAjaWZk
+ZWYgQ09ORklHX0lBNjRfRldfRU1VCiAJLy8gaW5pdGlhbGl6ZSBQQUwgJiBTQUwgZW11bGF0b3I6
+CiAJYnIuY2FsbC5zcHRrLm1hbnkgcnA9c3lzX2Z3X2luaXQKZGlmZiAtTmF1ciBsaW51eC0yLjYu
+MTIvYXJjaC9pYTY0L2tlcm5lbC9pcnFfaWE2NC5jIGxpbnV4LTIuNi4xMi1YZW5QYXRjaC9hcmNo
+L2lhNjQva2VybmVsL2lycV9pYTY0LmMKLS0tIGxpbnV4LTIuNi4xMi9hcmNoL2lhNjQva2VybmVs
+L2lycV9pYTY0LmMJMjAwNS0wNi0xNyAxMzo0ODoyOS4wMDAwMDAwMDAgLTA2MDAKKysrIGxpbnV4
+LTIuNi4xMi1YZW5QYXRjaC9hcmNoL2lhNjQva2VybmVsL2lycV9pYTY0LmMJMjAwNS0wNy0wNSAx
+MTo0MjozOC4wMDAwMDAwMDAgLTA2MDAKQEAgLTE1MSwxMSArMTUxLDExIEBACiAJICogdG8ga2Vy
+bmVsIHN0YWNrIG92ZXJmbG93cykuCiAJICovCiAJaXJxX2VudGVyKCk7Ci0Jc2F2ZWRfdHByID0g
+aWE2NF9nZXRyZWcoX0lBNjRfUkVHX0NSX1RQUik7CisJc2F2ZWRfdHByID0gaWE2NF9nZXRfdHBy
+KCk7CiAJaWE2NF9zcmx6X2QoKTsKIAl3aGlsZSAodmVjdG9yICE9IElBNjRfU1BVUklPVVNfSU5U
+X1ZFQ1RPUikgewogCQlpZiAoIUlTX1JFU0NIRURVTEUodmVjdG9yKSkgewotCQkJaWE2NF9zZXRy
+ZWcoX0lBNjRfUkVHX0NSX1RQUiwgdmVjdG9yKTsKKwkJCWlhNjRfc2V0X3Rwcih2ZWN0b3IpOwog
+CQkJaWE2NF9zcmx6X2QoKTsKIAogCQkJX19kb19JUlEobG9jYWxfdmVjdG9yX3RvX2lycSh2ZWN0
+b3IpLCByZWdzKTsKQEAgLTE2NCw3ICsxNjQsNyBAQAogCQkJICogRGlzYWJsZSBpbnRlcnJ1cHRz
+IGFuZCBzZW5kIEVPSToKIAkJCSAqLwogCQkJbG9jYWxfaXJxX2Rpc2FibGUoKTsKLQkJCWlhNjRf
+c2V0cmVnKF9JQTY0X1JFR19DUl9UUFIsIHNhdmVkX3Rwcik7CisJCQlpYTY0X3NldF90cHIoc2F2
+ZWRfdHByKTsKIAkJfQogCQlpYTY0X2VvaSgpOwogCQl2ZWN0b3IgPSBpYTY0X2dldF9pdnIoKTsK
+QEAgLTE5MSw3ICsxOTEsNyBAQAogCXZlY3RvciA9IGlhNjRfZ2V0X2l2cigpOwogCiAJIGlycV9l
+bnRlcigpOwotCSBzYXZlZF90cHIgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQ1JfVFBSKTsKKwkg
+c2F2ZWRfdHByID0gaWE2NF9nZXRfdHByKCk7CiAJIGlhNjRfc3Jsel9kKCk7CiAKIAkgLyoKQEAg
+LTE5OSw3ICsxOTksNyBAQAogCSAgKi8KIAl3aGlsZSAodmVjdG9yICE9IElBNjRfU1BVUklPVVNf
+SU5UX1ZFQ1RPUikgewogCQlpZiAoIUlTX1JFU0NIRURVTEUodmVjdG9yKSkgewotCQkJaWE2NF9z
+ZXRyZWcoX0lBNjRfUkVHX0NSX1RQUiwgdmVjdG9yKTsKKwkJCWlhNjRfc2V0X3Rwcih2ZWN0b3Ip
+OwogCQkJaWE2NF9zcmx6X2QoKTsKIAogCQkJLyoKQEAgLTIxNSw3ICsyMTUsNyBAQAogCQkJICog
+RGlzYWJsZSBpbnRlcnJ1cHRzIGFuZCBzZW5kIEVPSQogCQkJICovCiAJCQlsb2NhbF9pcnFfZGlz
+YWJsZSgpOwotCQkJaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0NSX1RQUiwgc2F2ZWRfdHByKTsKKwkJ
+CWlhNjRfc2V0X3RwcihzYXZlZF90cHIpOwogCQl9CiAJCWlhNjRfZW9pKCk7CiAJCXZlY3RvciA9
+IGlhNjRfZ2V0X2l2cigpOwpkaWZmIC1OYXVyIGxpbnV4LTIuNi4xMi9hcmNoL2lhNjQva2VybmVs
+L3BhbC5TIGxpbnV4LTIuNi4xMi1YZW5QYXRjaC9hcmNoL2lhNjQva2VybmVsL3BhbC5TCi0tLSBs
+aW51eC0yLjYuMTIvYXJjaC9pYTY0L2tlcm5lbC9wYWwuUwkyMDA1LTA2LTE3IDEzOjQ4OjI5LjAw
+MDAwMDAwMCAtMDYwMAorKysgbGludXgtMi42LjEyLVhlblBhdGNoL2FyY2gvaWE2NC9rZXJuZWwv
+cGFsLlMJMjAwNS0wNy0wNSAxMzoyMTozMy4wMDAwMDAwMDAgLTA2MDAKQEAgLTE2LDYgKzE2LDcg
+QEAKICNpbmNsdWRlIDxhc20vcHJvY2Vzc29yLmg+CiAKIAkuZGF0YQorCS5nbG9ibCBwYWxfZW50
+cnlfcG9pbnQKIHBhbF9lbnRyeV9wb2ludDoKIAlkYXRhOCBpYTY0X3BhbF9kZWZhdWx0X2hhbmRs
+ZXIKIAkudGV4dApkaWZmIC1OYXVyIGxpbnV4LTIuNi4xMi9hcmNoL2lhNjQva2VybmVsL3NldHVw
+LmMgbGludXgtMi42LjEyLVhlblBhdGNoL2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYwotLS0gbGlu
+dXgtMi42LjEyL2FyY2gvaWE2NC9rZXJuZWwvc2V0dXAuYwkyMDA1LTA2LTE3IDEzOjQ4OjI5LjAw
+MDAwMDAwMCAtMDYwMAorKysgbGludXgtMi42LjEyLVhlblBhdGNoL2FyY2gvaWE2NC9rZXJuZWwv
+c2V0dXAuYwkyMDA1LTA3LTA1IDEzOjE3OjAxLjAwMDAwMDAwMCAtMDYwMApAQCAtMjczLDYgKzI3
+Myw5IEBACiBzdGF0aWMgaW5saW5lIGludCBfX2luaXQKIGVhcmx5X2NvbnNvbGVfc2V0dXAgKGNo
+YXIgKmNtZGxpbmUpCiB7CisjaWZkZWYgQ09ORklHX1hFTgorCWVhcmx5X3hlbl9jb25zb2xlX3Nl
+dHVwKGNtZGxpbmUpOworI2VuZGlmCiAjaWZkZWYgQ09ORklHX1NFUklBTF9TR0lfTDFfQ09OU09M
+RQogCXsKIAkJZXh0ZXJuIGludCBzbl9zZXJpYWxfY29uc29sZV9lYXJseV9zZXR1cCh2b2lkKTsK
+ZGlmZiAtTmF1ciBsaW51eC0yLjYuMTIvYXJjaC9pYTY0L01ha2VmaWxlIGxpbnV4LTIuNi4xMi1Y
+ZW5QYXRjaC9hcmNoL2lhNjQvTWFrZWZpbGUKLS0tIGxpbnV4LTIuNi4xMi9hcmNoL2lhNjQvTWFr
+ZWZpbGUJMjAwNS0wNi0xNyAxMzo0ODoyOS4wMDAwMDAwMDAgLTA2MDAKKysrIGxpbnV4LTIuNi4x
+Mi1YZW5QYXRjaC9hcmNoL2lhNjQvTWFrZWZpbGUJMjAwNS0wNy0wNSAxMzozMDo1OC4wMDAwMDAw
+MDAgLTA2MDAKQEAgLTU3LDYgKzU3LDcgQEAKIGNvcmUtJChDT05GSUdfSUE2NF9IUF9aWDEpCSs9
+IGFyY2gvaWE2NC9kaWcvCiBjb3JlLSQoQ09ORklHX0lBNjRfSFBfWlgxX1NXSU9UTEIpICs9IGFy
+Y2gvaWE2NC9kaWcvCiBjb3JlLSQoQ09ORklHX0lBNjRfU0dJX1NOMikJKz0gYXJjaC9pYTY0L3Nu
+LworY29yZS0kKENPTkZJR19YRU4pCQkrPSBhcmNoL2lhNjQveGVuLyBhcmNoL2lhNjQvaHAvc2lt
+LwogCiBkcml2ZXJzLSQoQ09ORklHX1BDSSkJCSs9IGFyY2gvaWE2NC9wY2kvCiBkcml2ZXJzLSQo
+Q09ORklHX0lBNjRfSFBfU0lNKQkrPSBhcmNoL2lhNjQvaHAvc2ltLwpkaWZmIC1OYXVyIGxpbnV4
+LTIuNi4xMi9pbmNsdWRlL2FzbS1pYTY0L2RlbGF5LmggbGludXgtMi42LjEyLVhlblBhdGNoL2lu
+Y2x1ZGUvYXNtLWlhNjQvZGVsYXkuaAotLS0gbGludXgtMi42LjEyL2luY2x1ZGUvYXNtLWlhNjQv
+ZGVsYXkuaAkyMDA1LTA2LTE3IDEzOjQ4OjI5LjAwMDAwMDAwMCAtMDYwMAorKysgbGludXgtMi42
+LjEyLVhlblBhdGNoL2luY2x1ZGUvYXNtLWlhNjQvZGVsYXkuaAkyMDA1LTA3LTA1IDEwOjU2OjE5
+LjAwMDAwMDAwMCAtMDYwMApAQCAtMjAsNTkgKzIwLDYgQEAKICNpbmNsdWRlIDxhc20vaW50cmlu
+c2ljcy5oPgogI2luY2x1ZGUgPGFzbS9wcm9jZXNzb3IuaD4KIAotc3RhdGljIF9faW5saW5lX18g
+dm9pZAotaWE2NF9zZXRfaXRtICh1bnNpZ25lZCBsb25nIHZhbCkKLXsKLQlpYTY0X3NldHJlZyhf
+SUE2NF9SRUdfQ1JfSVRNLCB2YWwpOwotCWlhNjRfc3Jsel9kKCk7Ci19Ci0KLXN0YXRpYyBfX2lu
+bGluZV9fIHVuc2lnbmVkIGxvbmcKLWlhNjRfZ2V0X2l0bSAodm9pZCkKLXsKLQl1bnNpZ25lZCBs
+b25nIHJlc3VsdDsKLQotCXJlc3VsdCA9IGlhNjRfZ2V0cmVnKF9JQTY0X1JFR19DUl9JVE0pOwot
+CWlhNjRfc3Jsel9kKCk7Ci0JcmV0dXJuIHJlc3VsdDsKLX0KLQotc3RhdGljIF9faW5saW5lX18g
+dm9pZAotaWE2NF9zZXRfaXR2ICh1bnNpZ25lZCBsb25nIHZhbCkKLXsKLQlpYTY0X3NldHJlZyhf
+SUE2NF9SRUdfQ1JfSVRWLCB2YWwpOwotCWlhNjRfc3Jsel9kKCk7Ci19Ci0KLXN0YXRpYyBfX2lu
+bGluZV9fIHVuc2lnbmVkIGxvbmcKLWlhNjRfZ2V0X2l0diAodm9pZCkKLXsKLQlyZXR1cm4gaWE2
+NF9nZXRyZWcoX0lBNjRfUkVHX0NSX0lUVik7Ci19Ci0KLXN0YXRpYyBfX2lubGluZV9fIHZvaWQK
+LWlhNjRfc2V0X2l0YyAodW5zaWduZWQgbG9uZyB2YWwpCi17Ci0JaWE2NF9zZXRyZWcoX0lBNjRf
+UkVHX0FSX0lUQywgdmFsKTsKLQlpYTY0X3NybHpfZCgpOwotfQotCi1zdGF0aWMgX19pbmxpbmVf
+XyB1bnNpZ25lZCBsb25nCi1pYTY0X2dldF9pdGMgKHZvaWQpCi17Ci0JdW5zaWduZWQgbG9uZyBy
+ZXN1bHQ7Ci0KLQlyZXN1bHQgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfSVRDKTsKLQlpYTY0
+X2JhcnJpZXIoKTsKLSNpZmRlZiBDT05GSUdfSVRBTklVTQotCXdoaWxlICh1bmxpa2VseSgoX19z
+MzIpIHJlc3VsdCA9PSAtMSkpIHsKLQkJcmVzdWx0ID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0FS
+X0lUQyk7Ci0JCWlhNjRfYmFycmllcigpOwotCX0KLSNlbmRpZgotCXJldHVybiByZXN1bHQ7Ci19
+Ci0KIGV4dGVybiB2b2lkIGlhNjRfZGVsYXlfbG9vcCAodW5zaWduZWQgbG9uZyBsb29wcyk7CiAK
+IHN0YXRpYyBfX2lubGluZV9fIHZvaWQKZGlmZiAtTmF1ciBsaW51eC0yLjYuMTIvaW5jbHVkZS9h
+c20taWE2NC9wcml2b3AuaCBsaW51eC0yLjYuMTItWGVuUGF0Y2gvaW5jbHVkZS9hc20taWE2NC9w
+cml2b3AuaAotLS0gbGludXgtMi42LjEyL2luY2x1ZGUvYXNtLWlhNjQvcHJpdm9wLmgJMTk2OS0x
+Mi0zMSAxNzowMDowMC4wMDAwMDAwMDAgLTA3MDAKKysrIGxpbnV4LTIuNi4xMi1YZW5QYXRjaC9p
+bmNsdWRlL2FzbS1pYTY0L3ByaXZvcC5oCTIwMDUtMDctMDUgMTM6MjM6MzEuMDAwMDAwMDAwIC0w
+NjAwCkBAIC0wLDAgKzEsMTU5IEBACisjaWZuZGVmIF9BU01fSUE2NF9QUklWT1BfSAorI2RlZmlu
+ZSBfQVNNX0lBNjRfUFJJVk9QX0gKKworLyoKKyAqIENvcHlyaWdodCAoQykgMjAwNSBIZXdsZXR0
+LVBhY2thcmQgQ28KKyAqCURhbiBNYWdlbmhlaW1lciA8ZGFuLm1hZ2VuaGVpbWVyQGhwLmNvbT4K
+KyAqIFJlb3JnYW5pemF0aW9uIGZyb20gYXNtLWlhNjQvcHJvY2Vzc29yLmgKKyAqCisgKi8KKwor
+I2luY2x1ZGUgPGxpbnV4L2NvbmZpZy5oPgorCisjaW5jbHVkZSA8YXNtL2ludHJpbnNpY3MuaD4K
+KworI2lmbmRlZiBfX0FTU0VNQkxZX18KK2V4dGVybiB2b2lkIGlhNjRfZ2V0cmVnX3Vua25vd25f
+a3IgKHZvaWQpOworZXh0ZXJuIHZvaWQgaWE2NF9zZXRyZWdfdW5rbm93bl9rciAodm9pZCk7CisK
+KyNkZWZpbmUgX19pYTY0X2dldF9rcihyZWdudW0pCQkJCQlcCisoewkJCQkJCQkJXAorCXVuc2ln
+bmVkIGxvbmcgciA9IDA7CQkJCQlcCisJCQkJCQkJCVwKKwlzd2l0Y2ggKHJlZ251bSkgewkJCQkJ
+XAorCSAgICBjYXNlIDA6IHIgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfS1IwKTsgYnJlYWs7
+CVwKKwkgICAgY2FzZSAxOiByID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0FSX0tSMSk7IGJyZWFr
+OwlcCisJICAgIGNhc2UgMjogciA9IGlhNjRfZ2V0cmVnKF9JQTY0X1JFR19BUl9LUjIpOyBicmVh
+azsJXAorCSAgICBjYXNlIDM6IHIgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfS1IzKTsgYnJl
+YWs7CVwKKwkgICAgY2FzZSA0OiByID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0FSX0tSNCk7IGJy
+ZWFrOwlcCisJICAgIGNhc2UgNTogciA9IGlhNjRfZ2V0cmVnKF9JQTY0X1JFR19BUl9LUjUpOyBi
+cmVhazsJXAorCSAgICBjYXNlIDY6IHIgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfS1I2KTsg
+YnJlYWs7CVwKKwkgICAgY2FzZSA3OiByID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0FSX0tSNyk7
+IGJyZWFrOwlcCisJICAgIGRlZmF1bHQ6IGlhNjRfZ2V0cmVnX3Vua25vd25fa3IoKTsgYnJlYWs7
+CQlcCisJfQkJCQkJCQlcCisJcjsJCQkJCQkJXAorfSkKKworI2RlZmluZSBfX2lhNjRfc2V0X2ty
+KHJlZ251bSwgcikgCQkJCQlcCisoewkJCQkJCQkJXAorCXN3aXRjaCAocmVnbnVtKSB7CQkJCQlc
+CisJICAgIGNhc2UgMDogaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0FSX0tSMCwgcik7IGJyZWFrOwlc
+CisJICAgIGNhc2UgMTogaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0FSX0tSMSwgcik7IGJyZWFrOwlc
+CisJICAgIGNhc2UgMjogaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0FSX0tSMiwgcik7IGJyZWFrOwlc
+CisJICAgIGNhc2UgMzogaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0FSX0tSMywgcik7IGJyZWFrOwlc
+CisJICAgIGNhc2UgNDogaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0FSX0tSNCwgcik7IGJyZWFrOwlc
+CisJICAgIGNhc2UgNTogaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0FSX0tSNSwgcik7IGJyZWFrOwlc
+CisJICAgIGNhc2UgNjogaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0FSX0tSNiwgcik7IGJyZWFrOwlc
+CisJICAgIGNhc2UgNzogaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0FSX0tSNywgcik7IGJyZWFrOwlc
+CisJICAgIGRlZmF1bHQ6IGlhNjRfc2V0cmVnX3Vua25vd25fa3IoKTsgYnJlYWs7CQlcCisJfQkJ
+CQkJCQlcCit9KQorCitzdGF0aWMgaW5saW5lIHVuc2lnbmVkIGxvbmcKK19faWE2NF9nZXRfaXZy
+ICh2b2lkKQoreworCXVuc2lnbmVkIGxvbmcgcjsKKwlpYTY0X3NybHpfZCgpOworCXIgPSBpYTY0
+X2dldHJlZyhfSUE2NF9SRUdfQ1JfSVZSKTsKKwlpYTY0X3NybHpfZCgpOworCXJldHVybiByOwor
+fQorCitzdGF0aWMgaW5saW5lIHZvaWQKK19faWE2NF9lb2kgKHZvaWQpCit7CisJaWE2NF9zZXRy
+ZWcoX0lBNjRfUkVHX0NSX0VPSSwgMCk7CisJaWE2NF9zcmx6X2QoKTsKK30KKworI2RlZmluZSBf
+X2NwdV9yZWxheCgpCWlhNjRfaGludChpYTY0X2hpbnRfcGF1c2UpCisKKyNkZWZpbmUgX19pYTY0
+X2dldF90cHIodmVjdG9yKQlpYTY0X2dldHJlZyhfSUE2NF9SRUdfQ1JfVFBSKQorI2RlZmluZSBf
+X2lhNjRfc2V0X3Rwcih2ZWN0b3IpCWlhNjRfc2V0cmVnKF9JQTY0X1JFR19DUl9UUFIsdmVjdG9y
+KQorCisjZGVmaW5lIF9faWE2NF9nZXRfZWZsYWcoKQlpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJf
+RUZMQUcpCisjZGVmaW5lIF9faWE2NF9zZXRfZWZsYWcoZWZsYWcpCWlhNjRfc2V0cmVnKF9JQTY0
+X1JFR19BUl9FRkxBRyxlZmxhZykKKworI2RlZmluZQlfX2lhNjRfZ2V0X3Bzcl9pKCkJaWE2NF9n
+ZXRyZWcoX0lBNjRfUkVHX1BTUikKKyNkZWZpbmUgX19pYTY0X3JzbV9pKCkJCWlhNjRfcnNtKElB
+NjRfUFNSX0kpCisjZGVmaW5lIF9faWE2NF9zc21faSgpCQlpYTY0X3NzbShJQTY0X1BTUl9JKQor
+I2RlZmluZQlfX2lhNjRfbG9jYWxfaXJxX3Jlc3RvcmUoeCkJaWE2NF9pbnRyaW5fbG9jYWxfaXJx
+X3Jlc3RvcmUoeCkKKworc3RhdGljIF9faW5saW5lX18gdm9pZAorX19pYTY0X3NldF9pdG0gKHVu
+c2lnbmVkIGxvbmcgdmFsKQoreworCWlhNjRfc2V0cmVnKF9JQTY0X1JFR19DUl9JVE0sIHZhbCk7
+CisJaWE2NF9zcmx6X2QoKTsKK30KKworc3RhdGljIF9faW5saW5lX18gdW5zaWduZWQgbG9uZwor
+aWE2NF9nZXRfaXRtICh2b2lkKQoreworCXVuc2lnbmVkIGxvbmcgcmVzdWx0OworCisJcmVzdWx0
+ID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0NSX0lUTSk7CisJaWE2NF9zcmx6X2QoKTsKKwlyZXR1
+cm4gcmVzdWx0OworfQorCitzdGF0aWMgX19pbmxpbmVfXyB2b2lkCitpYTY0X3NldF9pdHYgKHVu
+c2lnbmVkIGxvbmcgdmFsKQoreworCWlhNjRfc2V0cmVnKF9JQTY0X1JFR19DUl9JVFYsIHZhbCk7
+CisJaWE2NF9zcmx6X2QoKTsKK30KKworc3RhdGljIF9faW5saW5lX18gdW5zaWduZWQgbG9uZwor
+aWE2NF9nZXRfaXR2ICh2b2lkKQoreworCXJldHVybiBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQ1Jf
+SVRWKTsKK30KKworc3RhdGljIF9faW5saW5lX18gdm9pZAoraWE2NF9zZXRfaXRjICh1bnNpZ25l
+ZCBsb25nIHZhbCkKK3sKKwlpYTY0X3NldHJlZyhfSUE2NF9SRUdfQVJfSVRDLCB2YWwpOworCWlh
+NjRfc3Jsel9kKCk7Cit9CisKK3N0YXRpYyBfX2lubGluZV9fIHVuc2lnbmVkIGxvbmcKK2lhNjRf
+Z2V0X2l0YyAodm9pZCkKK3sKKwl1bnNpZ25lZCBsb25nIHJlc3VsdDsKKworCXJlc3VsdCA9IGlh
+NjRfZ2V0cmVnKF9JQTY0X1JFR19BUl9JVEMpOworCWlhNjRfYmFycmllcigpOworI2lmZGVmIENP
+TkZJR19JVEFOSVVNCisJd2hpbGUgKHVubGlrZWx5KChfX3MzMikgcmVzdWx0ID09IC0xKSkgewor
+CQlyZXN1bHQgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfSVRDKTsKKwkJaWE2NF9iYXJyaWVy
+KCk7CisJfQorI2VuZGlmCisJcmV0dXJuIHJlc3VsdDsKK30KKyNlbmRpZiAvKiAhX19BU1NFTUJM
+WV9fICovCisKKyNpZmRlZiBDT05GSUdfWEVOCisjaW5jbHVkZSA8YXNtL3hlbi9wcml2b3AuaD4K
+KyNlbHNlCisjZGVmaW5lIGlhNjRfZ2V0X2tyKHJlZ251bSkJCV9faWE2NF9nZXRfa3IocmVnbnVt
+KQorI2RlZmluZSBpYTY0X3NldF9rcihyZWdudW0sIHIpCQlfX2lhNjRfc2V0X2tyKHJlZ251bSxy
+KQorI2RlZmluZSBpYTY0X2dldF9pdnIJCQlfX2lhNjRfZ2V0X2l2cgorI2RlZmluZSBpYTY0X2Vv
+aQkJCV9faWE2NF9lb2kKKyNkZWZpbmUgaWE2NF9zZXRfaXRtKHZhbCkJCV9faWE2NF9zZXRfaXRt
+KHZhbCkKKyNkZWZpbmUgY3B1X3JlbGF4CQkJX19jcHVfcmVsYXgKKyNkZWZpbmUgaWE2NF9nZXRf
+dHByCQkJX19pYTY0X2dldF90cHIKKyNkZWZpbmUgaWE2NF9zZXRfdHByKHZlY3RvcikJCV9faWE2
+NF9zZXRfdHByKHZlY3RvcikKKyNkZWZpbmUgaWE2NF9nZXRfZWZsYWcJCQlfX2lhNjRfZ2V0X2Vm
+bGFnCisjZGVmaW5lIGlhNjRfc2V0X2VmbGFnKGVmbGFnKQkJX19pYTY0X3NldF9lZmxhZyhlZmxh
+ZykKKyNkZWZpbmUgaWE2NF9wYWxfaGFsdF9saWdodAkJX19pYTY0X3BhbF9oYWx0X2xpZ2h0Cisj
+ZGVmaW5lCWlhNjRfZ2V0X3Bzcl9pCQkJX19pYTY0X2dldF9wc3JfaQorI2RlZmluZSBpYTY0X3Jz
+bV9pCQkJX19pYTY0X3JzbV9pCisjZGVmaW5lIGlhNjRfc3NtX2kJCQlfX2lhNjRfc3NtX2kKKyNk
+ZWZpbmUJaWE2NF9sb2NhbF9pcnFfcmVzdG9yZSh4KQlfX2lhNjRfbG9jYWxfaXJxX3Jlc3RvcmUo
+eCkKKyNkZWZpbmUJaWE2NF9sZWF2ZV9rZXJuZWwJCV9faWE2NF9sZWF2ZV9rZXJuZWwKKyNkZWZp
+bmUJaWE2NF9zd2l0Y2hfdG8JCQlfX2lhNjRfc3dpdGNoX3RvCisjZGVmaW5lCWlhNjRfcGFsX2Nh
+bGxfc3RhdGljCQlfX2lhNjRfcGFsX2NhbGxfc3RhdGljCisjZW5kaWYKKworI2VuZGlmIC8qIF9B
+U01fSUE2NF9QUklWT1BfSCAqLwpkaWZmIC1OYXVyIGxpbnV4LTIuNi4xMi9pbmNsdWRlL2FzbS1p
+YTY0L3Byb2Nlc3Nvci5oIGxpbnV4LTIuNi4xMi1YZW5QYXRjaC9pbmNsdWRlL2FzbS1pYTY0L3By
+b2Nlc3Nvci5oCi0tLSBsaW51eC0yLjYuMTIvaW5jbHVkZS9hc20taWE2NC9wcm9jZXNzb3IuaAky
+MDA1LTA2LTE3IDEzOjQ4OjI5LjAwMDAwMDAwMCAtMDYwMAorKysgbGludXgtMi42LjEyLVhlblBh
+dGNoL2luY2x1ZGUvYXNtLWlhNjQvcHJvY2Vzc29yLmgJMjAwNS0wNy0wNSAxMTo1MTowNy4wMDAw
+MDAwMDAgLTA2MDAKQEAgLTE5LDYgKzE5LDcgQEAKICNpbmNsdWRlIDxhc20va3JlZ3MuaD4KICNp
+bmNsdWRlIDxhc20vcHRyYWNlLmg+CiAjaW5jbHVkZSA8YXNtL3VzdGFjay5oPgorI2luY2x1ZGUg
+PGFzbS9wcml2b3AuaD4KIAogLyogT3VyIGFyY2ggc3BlY2lmaWMgYXJjaF9pbml0X3NjaGVkX2Rv
+bWFpbiBpcyBpbiBhcmNoL2lhNjQva2VybmVsL2RvbWFpbi5jICovCiAjZGVmaW5lIEFSQ0hfSEFT
+X1NDSEVEX0RPTUFJTgpAQCAtMzYyLDQyICszNjMsNiBAQAogLyogUmV0dXJuIHN0YWNrIHBvaW50
+ZXIgb2YgYmxvY2tlZCB0YXNrIFRTSy4gICovCiAjZGVmaW5lIEtTVEtfRVNQKHRzaykgICgodHNr
+KS0+dGhyZWFkLmtzcCkKIAotZXh0ZXJuIHZvaWQgaWE2NF9nZXRyZWdfdW5rbm93bl9rciAodm9p
+ZCk7Ci1leHRlcm4gdm9pZCBpYTY0X3NldHJlZ191bmtub3duX2tyICh2b2lkKTsKLQotI2RlZmlu
+ZSBpYTY0X2dldF9rcihyZWdudW0pCQkJCQlcCi0oewkJCQkJCQkJXAotCXVuc2lnbmVkIGxvbmcg
+ciA9IDA7CQkJCQlcCi0JCQkJCQkJCVwKLQlzd2l0Y2ggKHJlZ251bSkgewkJCQkJXAotCSAgICBj
+YXNlIDA6IHIgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfS1IwKTsgYnJlYWs7CVwKLQkgICAg
+Y2FzZSAxOiByID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0FSX0tSMSk7IGJyZWFrOwlcCi0JICAg
+IGNhc2UgMjogciA9IGlhNjRfZ2V0cmVnKF9JQTY0X1JFR19BUl9LUjIpOyBicmVhazsJXAotCSAg
+ICBjYXNlIDM6IHIgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfS1IzKTsgYnJlYWs7CVwKLQkg
+ICAgY2FzZSA0OiByID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0FSX0tSNCk7IGJyZWFrOwlcCi0J
+ICAgIGNhc2UgNTogciA9IGlhNjRfZ2V0cmVnKF9JQTY0X1JFR19BUl9LUjUpOyBicmVhazsJXAot
+CSAgICBjYXNlIDY6IHIgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdfQVJfS1I2KTsgYnJlYWs7CVwK
+LQkgICAgY2FzZSA3OiByID0gaWE2NF9nZXRyZWcoX0lBNjRfUkVHX0FSX0tSNyk7IGJyZWFrOwlc
+Ci0JICAgIGRlZmF1bHQ6IGlhNjRfZ2V0cmVnX3Vua25vd25fa3IoKTsgYnJlYWs7CQlcCi0JfQkJ
+CQkJCQlcCi0JcjsJCQkJCQkJXAotfSkKLQotI2RlZmluZSBpYTY0X3NldF9rcihyZWdudW0sIHIp
+IAkJCQkJXAotKHsJCQkJCQkJCVwKLQlzd2l0Y2ggKHJlZ251bSkgewkJCQkJXAotCSAgICBjYXNl
+IDA6IGlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9LUjAsIHIpOyBicmVhazsJXAotCSAgICBjYXNl
+IDE6IGlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9LUjEsIHIpOyBicmVhazsJXAotCSAgICBjYXNl
+IDI6IGlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9LUjIsIHIpOyBicmVhazsJXAotCSAgICBjYXNl
+IDM6IGlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9LUjMsIHIpOyBicmVhazsJXAotCSAgICBjYXNl
+IDQ6IGlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9LUjQsIHIpOyBicmVhazsJXAotCSAgICBjYXNl
+IDU6IGlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9LUjUsIHIpOyBicmVhazsJXAotCSAgICBjYXNl
+IDY6IGlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9LUjYsIHIpOyBicmVhazsJXAotCSAgICBjYXNl
+IDc6IGlhNjRfc2V0cmVnKF9JQTY0X1JFR19BUl9LUjcsIHIpOyBicmVhazsJXAotCSAgICBkZWZh
+dWx0OiBpYTY0X3NldHJlZ191bmtub3duX2tyKCk7IGJyZWFrOwkJXAotCX0JCQkJCQkJXAotfSkK
+LQogLyoKICAqIFRoZSBmb2xsb3dpbmcgdGhyZWUgbWFjcm9zIGNhbid0IGJlIGlubGluZSBmdW5j
+dGlvbnMgYmVjYXVzZSB3ZSBkb24ndCBoYXZlIHN0cnVjdAogICogdGFza19zdHJ1Y3QgYXQgdGhp
+cyBwb2ludC4KQEAgLTU1NCwxNSArNTE5LDYgQEAKIH0KIAogc3RhdGljIGlubGluZSB2b2lkCi1p
+YTY0X2VvaSAodm9pZCkKLXsKLQlpYTY0X3NldHJlZyhfSUE2NF9SRUdfQ1JfRU9JLCAwKTsKLQlp
+YTY0X3NybHpfZCgpOwotfQotCi0jZGVmaW5lIGNwdV9yZWxheCgpCWlhNjRfaGludChpYTY0X2hp
+bnRfcGF1c2UpCi0KLXN0YXRpYyBpbmxpbmUgdm9pZAogaWE2NF9zZXRfbHJyMCAodW5zaWduZWQg
+bG9uZyB2YWwpCiB7CiAJaWE2NF9zZXRyZWcoX0lBNjRfUkVHX0NSX0xSUjAsIHZhbCk7CkBAIC02
+MjMsMTYgKzU3OSw2IEBACiAjZGVmaW5lIGN1cnJlbnRfdGV4dF9hZGRyKCkgXAogCSh7IHZvaWQg
+Kl9wYzsgX3BjID0gKHZvaWQgKilpYTY0X2dldHJlZyhfSUE2NF9SRUdfSVApOyBfcGM7IH0pCiAK
+LXN0YXRpYyBpbmxpbmUgX191NjQKLWlhNjRfZ2V0X2l2ciAodm9pZCkKLXsKLQlfX3U2NCByOwot
+CWlhNjRfc3Jsel9kKCk7Ci0JciA9IGlhNjRfZ2V0cmVnKF9JQTY0X1JFR19DUl9JVlIpOwotCWlh
+NjRfc3Jsel9kKCk7Ci0JcmV0dXJuIHI7Ci19Ci0KIHN0YXRpYyBpbmxpbmUgdm9pZAogaWE2NF9z
+ZXRfZGJyIChfX3U2NCByZWdudW0sIF9fdTY0IHZhbHVlKQogewpkaWZmIC1OYXVyIGxpbnV4LTIu
+Ni4xMi9pbmNsdWRlL2FzbS1pYTY0L3N5c3RlbS5oIGxpbnV4LTIuNi4xMi1YZW5QYXRjaC9pbmNs
+dWRlL2FzbS1pYTY0L3N5c3RlbS5oCi0tLSBsaW51eC0yLjYuMTIvaW5jbHVkZS9hc20taWE2NC9z
+eXN0ZW0uaAkyMDA1LTA2LTE3IDEzOjQ4OjI5LjAwMDAwMDAwMCAtMDYwMAorKysgbGludXgtMi42
+LjEyLVhlblBhdGNoL2luY2x1ZGUvYXNtLWlhNjQvc3lzdGVtLmgJMjAwNS0wNy0wNSAxMjo0NDox
+OS4wMDAwMDAwMDAgLTA2MDAKQEAgLTEyNCwxOCArMTI0LDE4IEBACiAjZGVmaW5lIF9fbG9jYWxf
+aXJxX3NhdmUoeCkJCQlcCiBkbyB7CQkJCQkJXAogCWlhNjRfc3RvcCgpOwkJCQlcCi0JKHgpID0g
+aWE2NF9nZXRyZWcoX0lBNjRfUkVHX1BTUik7CVwKKwkoeCkgPSBpYTY0X2dldF9wc3JfaSgpOwkJ
+CVwKIAlpYTY0X3N0b3AoKTsJCQkJXAotCWlhNjRfcnNtKElBNjRfUFNSX0kpOwkJCVwKKwlpYTY0
+X3JzbV9pKCk7CQkJCVwKIH0gd2hpbGUgKDApCiAKICNkZWZpbmUgX19sb2NhbF9pcnFfZGlzYWJs
+ZSgpCQkJXAogZG8gewkJCQkJCVwKIAlpYTY0X3N0b3AoKTsJCQkJXAotCWlhNjRfcnNtKElBNjRf
+UFNSX0kpOwkJCVwKKwlpYTY0X3JzbV9pKCk7CQkJCVwKIH0gd2hpbGUgKDApCiAKLSNkZWZpbmUg
+X19sb2NhbF9pcnFfcmVzdG9yZSh4KQlpYTY0X2ludHJpbl9sb2NhbF9pcnFfcmVzdG9yZSgoeCkg
+JiBJQTY0X1BTUl9JKQorI2RlZmluZSBfX2xvY2FsX2lycV9yZXN0b3JlKHgpCWlhNjRfbG9jYWxf
+aXJxX3Jlc3RvcmUoKHgpICYgSUE2NF9QU1JfSSkKIAogI2lmZGVmIENPTkZJR19JQTY0X0RFQlVH
+X0lSUQogCkBAIC0xNzEsOCArMTcxLDggQEAKICMgZGVmaW5lIGxvY2FsX2lycV9yZXN0b3JlKHgp
+CV9fbG9jYWxfaXJxX3Jlc3RvcmUoeCkKICNlbmRpZiAvKiAhQ09ORklHX0lBNjRfREVCVUdfSVJR
+ICovCiAKLSNkZWZpbmUgbG9jYWxfaXJxX2VuYWJsZSgpCSh7IGlhNjRfc3RvcCgpOyBpYTY0X3Nz
+bShJQTY0X1BTUl9JKTsgaWE2NF9zcmx6X2QoKTsgfSkKLSNkZWZpbmUgbG9jYWxfc2F2ZV9mbGFn
+cyhmbGFncykJKHsgaWE2NF9zdG9wKCk7IChmbGFncykgPSBpYTY0X2dldHJlZyhfSUE2NF9SRUdf
+UFNSKTsgfSkKKyNkZWZpbmUgbG9jYWxfaXJxX2VuYWJsZSgpCSh7IGlhNjRfc3RvcCgpOyBpYTY0
+X3NzbV9pKCk7IGlhNjRfc3Jsel9kKCk7IH0pCisjZGVmaW5lIGxvY2FsX3NhdmVfZmxhZ3MoZmxh
+Z3MpCSh7IGlhNjRfc3RvcCgpOyAoZmxhZ3MpID0gaWE2NF9nZXRfcHNyX2koKTsgfSkKIAogI2Rl
+ZmluZSBpcnFzX2Rpc2FibGVkKCkJCQkJXAogKHsJCQkJCQlcCg==
 
-> --- 1.10/include/asm-ia64/delay.h	Thu Dec 16 12:57:15 2004
-> +++ 1.12/include/asm-ia64/delay.h	Wed Jun 29 13:46:08 2005
-> @@ -20,12 +20,17 @@
->  #include <asm/intrinsics.h>
->  #include <asm/processor.h>
-> =20
-> +#ifdef CONFIG_XEN
-> +extern void xen_set_itm (unsigned long);
-> +#define ia64_set_itm(val) xen_set_itm(val)
->=20
-> Any reason you don't call the Xen version ia64_set_itm directly?
-
-Do you mean just change the code in arch/ia64/time.c?  Actually,
-what I was going to try was to move this out of delay.h and
-into processor.h (or privop.h, see below).
-=20
-> +#ifdef CONFIG_XEN
-> +	flag =3D xen_get_eflag();
-> +#else
->  	flag =3D ia64_getreg(_IA64_REG_AR_EFLAG);
-> +#endif
->=20
-> So this is repeated all over, and an ia64_get_eflag() would be
-> cool (I suspect you're already planning it, but I'd like to offer
-> my opinion on the abstractions anyway, feel free to disacard them
-> if they're boring and duplicate what you already plan)
-
-Yep, that was the direction I am headed.  I'm glad you are
-offering your opinion as it helps to reinforce the direction.
-However, I am sure I will get some of the details wrong (or at
-least that there will be varied opinions about the "right" way).
-
-> --- 1.74/arch/ia64/Makefile	Fri Jan 28 16:32:45 2005
-> +++ 1.80/arch/ia64/Makefile	Tue Jun 28 16:59:42 2005
-> @@ -11,6 +11,8 @@
->  NM :=3D $(CROSS_COMPILE)nm -B
->  READELF :=3D $(CROSS_COMPILE)readelf
-> =20
-> +NOSTDINC_FLAGS +=3D -Iinclude/asm-xen
->=20
-> Please don't do that.  Use '#include <asm-xen/foo.h>', but in reality
-> that stuff shouldn't be in include/asm-xen anyway but include/xen/.
-
-Yeah the Xen team is still debating how best to structure the xen
-code in the linux tree.  Hopefully that will be resolved at OLS.
-In the meantime, I have a problem because there are two "asm" trees
-that need to be include'd.  IOW, the NOSTDINC_FLAGS should go away.
-
->  drivers-$(CONFIG_PCI)		+=3D arch/ia64/pci/
-> +ifneq ($(CONFIG_XEN),y)
->  drivers-$(CONFIG_IA64_HP_SIM)	+=3D arch/ia64/hp/sim/
-> +endif
-> +drivers-$(CONFIG_XEN)		+=3D arch/ia64/hp/sim/
->=20
-> I think you can =FEave two drivers- lines for different symbols and let
-> the build system sort it out. Atleast it works for obj-, if it doesn't
-> work for drivers- ask the build system maintainers for a little
-> help.
->=20
-> Any particular reason you use the HP SIM bits but Xen/x86 doesn't?
-> their far less messy then what xen/x86 uses at least, and a=20
-> lot simpler..
-
-Actually I'm using both (the x86-based and the HP SIM).  One of my
-side projects is to turn the HP SIM code into a ia64 CONFIG_ option rather
-than a machvec (similar to what Greg Edwards just did with the
-SGI simulator).
-
->  /*
->   * Architecture-specific setup.
->   *
-> @@ -270,6 +271,16 @@
->  static inline int __init
->  early_console_setup (char *cmdline)
->  {
-> +#ifdef CONFIG_XEN
-> +#ifndef CONFIG_IA64_HP_SIM
-> +	extern int running_on_xen;
-> +	if (running_on_xen) {
-> +		extern struct console hpsim_cons;
-> +		register_console(&hpsim_cons);
-> +		return 0;
-> +	}
-> +#endif
->=20
-> why the #ifndef CONFIG_IA64_HP_SIM? =20
-
-Because I am doing some debugging on the HP simulator :-) and CONFIG_IA64_H=
-P_SIM
-is currently required to build a Linux that runs on the simulator.  Hopeful=
-ly
-this will become unnecessary.
-
-> =3D=3D=3D include/asm-ia64/processor.h 1.72 vs 1.79 =3D=3D> --- 1.72/incl=
-ude/asm-ia64/processor.h	Wed Jan 26 11:01:41 2005
-> +#define ia64_eoi xen_eoi
->=20
-> Same comment as for xen_set_itm().
-> =20
-> +#define ia64_get_ivr xen_get_ivr
->=20
-> Dito. It might also be useful to regroup the inlines so all that
-> are overriden by Xen are in a single place.
-
-Yes.  Actually, does it make sense to pull these into a separate
-include file (e.g. asm/privop.h)?  Then I think I can get rid
-of all CONFIG_XEN in processor.h... and privop.h may be more
-appropriate since it is privileged operations that Xen is primarily
-concerned with.
- =20
->  #endif /* !__ASSEMBLY__ */
-> +
-> +#ifdef CONFIG_XEN
-> +#include <asm/xen/processor.h>
-> +#endif
->=20
-> This is a bit ugly.  How big is asm/xen/processor.h? Can you=20
-> just inline
-> it here, or maybe some of this should become machvecs?
-
-I don't think machvec is an option as CONFIG_XEN should work
-regardless of the machvec.
-
-xen/processor.h is not real big but it is ugly
-
-> --- 1.6/drivers/acpi/motherboard.c	Wed Nov 10 15:57:35 2004
-> +++ 1.7/drivers/acpi/motherboard.c	Fri Apr 22 16:47:41 2005
-> @@ -120,6 +120,9 @@
->  static void __init
->  acpi_reserve_resources (void)
->  {
-> +#ifdef CONFIG_XEN
-> +	if (!acpi_gbl_FADT) return;
-> +#endif
->=20
-> Should be unconditional.
-
-Agreed.  Should I submit a patch to the ACPI maintainer?
-
-> --- 1.85/arch/ia64/Kconfig	Fri Jan 28 16:32:25 2005
-> +++ 1.86/arch/ia64/Kconfig	Fri Apr 22 16:52:50 2005
-> @@ -46,6 +46,10 @@
->  	bool
->  	default y
-> =20
-> +config XEN
-> +	bool
-> +	default y
->=20
-> You should make it user-selectable by adding a prompt text, and while
-> you're at it also add a help text.
-
-Will do.  Haven't gotten around to many aesthetics yet as I was primarily
-focused on proving that transparent paravirtualization would work.
-
-Thanks again for the great feedback.  After I make another round
-of cleanups, I will send the patch (at least phase 1) for another
-review.
-
-Dan
+------_=_NextPart_001_01C5819E.FE80165C--
