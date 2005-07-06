@@ -1,56 +1,101 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 15 Jul 2005 19:16:03 +0000
-Subject: [announce] linux kernel performance project launch at sourceforge.net
-Message-Id: <200507151916.j6FJG3g16619@unix-os.sc.intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 06 Jul 2005 05:14:07 +0000
+Subject: [PATCH 2.6.13-rc1 06/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42CB689F.6040208@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42CB63B2.6000505@jp.fujitsu.com>
+In-Reply-To: <42CB63B2.6000505@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
+Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-Forward for people who might missed the "linux kernel performance"
-announcement on LKML yesterday. It has performance data for ia64,
-in case if you are interested, you are welcome to browse the data
-and join the discussion on kernel performance.
+[This is 6 of 10 patches, "iochk-06-mcanotify.patch"]
 
-		Ken Chen <kenneth.w.chen@intel.com>
-		Intel Open Source Technology Center
+- This is a headache:
+   When ia64 get a problem on hardware, OS could request
+   SAL(System Abstraction Layer: ia64 firmware) to gather
+   system status via calling SAL_GET_STATE_INFO procedure.
 
+   However (depend on implementation of SAL for its platform,
+   hopefully), on the way of gathering, SAL also checks
+   every host bridges and its status, and after that, resets
+   the state...
 
+   So we should take care of this reset by SAL.
 
------Original Message-----
-From: Chen, Kenneth W [mailto:kenneth.w.chen@intel.com] 
-Sent: Thursday, July 14, 2005 1:21 PM
-To: linux-kernel@vger.kernel.org
-Subject: [announce] linux kernel performance project launch at sourceforge.net
+   Handling MCA(Machine Check Abort) is one of a situation
+   should we take care. Originally MCA is designed as a
+   critical interruption, so when MCA comes, without OS's
+   order, SAL gathers system status before OS gets its control.
+   So since states of bridges are already reset on entrance of
+   MCA, OS should notify "lost of state" to all "check-in"
+   contexts, by marking its error flag, iocookie->error.
 
-I'm pleased to announce that we have established a linux kernel
-performance project, hosted at sourceforge.net:
+   There would be better way if OS can know the bridge state
+   from data which SAL gathered, but in the meanwhile, I
+   just do simple way.
 
-http://kernel-perf.sourceforge.net
+PCI-parity error is one of MCA causes, is it OK?
+Next, "data poisoning" helps us... see next (7 of 10).
 
-As much as discussed various time in the past on LKML that Linux
-kernel needs a systematic and disciplined way to measure and track
-kernel performance on a regular basis.  To do that, we decided to
-run a large set of benchmarks covering core components of the Linux
-kernel (virtual memory management, I/O subsystem, process scheduler,
-file system, network, device driver, etc) on a regular basis.
-Benchmarks are run on a variety of platforms (4P Intel Xeon processor,
-2P Xeon, several ia64 server boxes etc) every week, measuring the
-latest snapshot of Linus' git development tree. Comprehensive performance
-data from our tests will be published for easy access.
+Changes from previous one for 2.6.11.11:
+   - (non)
 
-Our goal is to work with the Linux community to further enhance the
-performance of the Linux kernel. The data available on the site allows
-community members to closely track performance gains and losses with
-every version of the kernel. Ultimately, we hope that this data will
-result in performance increases in Linux kernel development.
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 
-The benchmark result pages are populated with a few benchmarks at the
-moment.  In the coming weeks, we will be populating more benchmark data.
-Happy surfing and hacking!!
+---
 
+  arch/ia64/kernel/mca.c      |   13 +++++++++++++
+  arch/ia64/lib/iomap_check.c |    7 ++++++-
+  2 files changed, 19 insertions(+), 1 deletion(-)
 
-		Ken Chen <kenneth.w.chen@intel.com>
-		Intel Open Source Technology Center
+Index: linux-2.6.13-rc1/arch/ia64/kernel/mca.c
+=================================--- linux-2.6.13-rc1.orig/arch/ia64/kernel/mca.c
++++ linux-2.6.13-rc1/arch/ia64/kernel/mca.c
+@@ -77,6 +77,11 @@
+  #include <asm/irq.h>
+  #include <asm/hw_irq.h>
+
++#ifdef CONFIG_IOMAP_CHECK
++#include <linux/pci.h>
++extern void notify_bridge_error(struct pci_dev *bridge);
++#endif
++
+  #if defined(IA64_MCA_DEBUG_INFO)
+  # define IA64_MCA_DEBUG(fmt...)	printk(fmt)
+  #else
+@@ -893,6 +898,14 @@ ia64_mca_ucmc_handler(void)
+  		sal_log_record_header_t *rh = IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA);
+  		rh->severity = sal_log_severity_corrected;
+  		ia64_sal_clear_state_info(SAL_INFO_TYPE_MCA);
++
++#ifdef CONFIG_IOMAP_CHECK
++		/*
++		 * SAL already reads and clears error bits on bridge registers,
++		 * so we should have all running transactions to retry.
++		 */
++		notify_bridge_error(0);
++#endif
+  	}
+  	/*
+  	 *  Wakeup all the processors which are spinning in the rendezvous
+Index: linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
+=================================--- linux-2.6.13-rc1.orig/arch/ia64/lib/iomap_check.c
++++ linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
+@@ -111,7 +111,12 @@ void notify_bridge_error(struct pci_dev
+  		return;
+
+  	/* notify error to all transactions using this host bridge */
+-	if (bridge) {
++	if (!bridge) {
++		/* global notify, ex. MCA */
++		list_for_each_entry(cookie, &iochk_devices, list) {
++			cookie->error = 1;
++		}
++	} else {
+  		/* local notify, ex. Parity, Abort etc. */
+  		list_for_each_entry(cookie, &iochk_devices, list) {
+  			if (cookie->host = bridge)
 
