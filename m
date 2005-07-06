@@ -1,58 +1,146 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Fri, 29 Jul 2005 01:58:36 +0000
-Subject: Re: Change ia64 prefetch to use lfetch.fault
-Message-Id: <ed5aea430507281858377ea50a@mail.gmail.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 06 Jul 2005 05:04:14 +0000
+Subject: [PATCH 2.6.13-rc1 03/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42CB664E.1050003@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200507282153.j6SLr0g01028@unix-os.sc.intel.com>
-In-Reply-To: <200507282153.j6SLr0g01028@unix-os.sc.intel.com>
+References: <42CB63B2.6000505@jp.fujitsu.com>
+In-Reply-To: <42CB63B2.6000505@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
+Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-No, it doesn't --- it actually hurt performance last time I measured
-it.  Basically, Linux uses prefetch() too often with bad/NULL
-pointers, IIRC.  Check my earlier mails where I fixed the IVT code to
-properly handle lfetch.fault (from a couple of months ago).
+[This is 3 of 10 patches, "iochk-03-register.patch"]
 
-  --david
+- Implement ia64 version of basic codes:
+     iochk_clear, iochk_read, iochk_init, and iocookie
 
-On 7/28/05, Chen, Kenneth W <kenneth.w.chen@intel.com> wrote:
-> I don't remember whether this has been discussed earlier, won't
-> it make sense to use the fault variant of lfetch for prefetch()
-> and prefetchw()?  After all, the caller has high confidence that
-> the cache line will be used in the future.
-> 
-> 
-> Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
-> 
-> --- linux-2.6.12/include/asm-ia64/processor.h.orig      2005-07-28 14:46:26.629519713 -0700
-> +++ linux-2.6.12/include/asm-ia64/processor.h   2005-07-28 14:48:17.037721485 -0700
-> @@ -682,13 +682,13 @@ ia64_imva (void *addr)
->  static inline void
->  prefetch (const void *x)
->  {
-> -        ia64_lfetch(ia64_lfhint_none, x);
-> +       ia64_lfetch_fault(ia64_lfhint_none, x);
->  }
-> 
->  static inline void
->  prefetchw (const void *x)
->  {
-> -       ia64_lfetch_excl(ia64_lfhint_none, x);
-> +       ia64_lfetch_fault_excl(ia64_lfhint_none, x);
->  }
-> 
->  #define spin_lock_prefetch(x)  prefetchw(x)
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+   The direction is:
 
+     - Have a "now in check" global list, "iochk_devices",
+       for future use.
 
--- 
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
+     - Take a lock, "iochk_lock", to protect the global list.
+
+     - iochk_clear packs *dev into iocookie, and add it to
+       the global list. After all prepared, clear error-flag
+       in cookie to start io-critical-session.
+
+     - iochk_read checks error-flag and device's status
+       register. After removing iocookie from list, return
+       the result.
+
+This is too simple. We need more codes... See next (4 of 10).
+
+Changes from previous one for 2.6.11.11:
+   - trivial coding style fix.
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
+---
+
+  arch/ia64/lib/iomap_check.c |   55 ++++++++++++++++++++++++++++++++++++++++++--
+  include/asm-ia64/io.h       |    5 +++-
+  2 files changed, 57 insertions(+), 3 deletions(-)
+
+Index: linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
+=================================--- linux-2.6.13-rc1.orig/arch/ia64/lib/iomap_check.c
++++ linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
+@@ -4,24 +4,75 @@
+   */
+
+  #include <linux/pci.h>
++#include <linux/list.h>
++#include <linux/spinlock.h>
+
+  void iochk_init(void);
+  void iochk_clear(iocookie *cookie, struct pci_dev *dev);
+  int  iochk_read(iocookie *cookie);
+
++struct list_head iochk_devices;
++DEFINE_SPINLOCK(iochk_lock);	/* all works are excluded on this lock */
++
++static int have_error(struct pci_dev *dev);
++
+  void iochk_init(void)
+  {
+  	/* setup */
++	INIT_LIST_HEAD(&iochk_devices);
+  }
+
+  void iochk_clear(iocookie *cookie, struct pci_dev *dev)
+  {
+-	/* register device etc. */
++	unsigned long flag;
++
++	INIT_LIST_HEAD(&(cookie->list));
++
++	cookie->dev = dev;
++
++	spin_lock_irqsave(&iochk_lock, flag);
++	list_add(&cookie->list, &iochk_devices);
++	spin_unlock_irqrestore(&iochk_lock, flag);
++
++	cookie->error = 0;
+  }
+
+  int iochk_read(iocookie *cookie)
+  {
+-	/* check error etc. */
++	unsigned long flag;
++	int ret = 0;
++
++	spin_lock_irqsave(&iochk_lock, flag);
++	if (cookie->error || have_error(cookie->dev))
++		ret = 1;
++	list_del(&cookie->list);
++	spin_unlock_irqrestore(&iochk_lock, flag);
++
++	return ret;
++}
++
++static int have_error(struct pci_dev *dev)
++{
++	u16 status;
++
++	/* check status */
++	switch (dev->hdr_type) {
++	case PCI_HEADER_TYPE_NORMAL: /* 0 */
++		pci_read_config_word(dev, PCI_STATUS, &status);
++		break;
++	case PCI_HEADER_TYPE_BRIDGE: /* 1 */
++		pci_read_config_word(dev, PCI_SEC_STATUS, &status);
++		break;
++	case PCI_HEADER_TYPE_CARDBUS: /* 2 */
++		return 0; /* FIX ME */
++	default:
++		BUG();
++	}
++
++	if ( (status & PCI_STATUS_REC_TARGET_ABORT)
++		|| (status & PCI_STATUS_REC_MASTER_ABORT)
++		|| (status & PCI_STATUS_DETECTED_PARITY) )
++		return 1;
+
+  	return 0;
+  }
+Index: linux-2.6.13-rc1/include/asm-ia64/io.h
+=================================--- linux-2.6.13-rc1.orig/include/asm-ia64/io.h
++++ linux-2.6.13-rc1/include/asm-ia64/io.h
+@@ -72,10 +72,13 @@ extern unsigned int num_io_spaces;
+  #include <asm/system.h>
+
+  #ifdef CONFIG_IOMAP_CHECK
++#include <linux/list.h>
+
+  /* ia64 iocookie */
+  typedef struct {
+-	int dummy;
++	struct list_head	list;
++	struct pci_dev		*dev;	/* target device */
++	unsigned long		error;	/* error flag */
+  } iocookie;
+
+  /* Enable ia64 iochk - See arch/ia64/lib/iomap_check.c */
+
