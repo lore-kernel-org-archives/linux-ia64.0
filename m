@@ -1,94 +1,113 @@
-From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Fri, 15 Jul 2005 02:43:27 +0000
-Subject: Re: [PATCH] gurantee DMA area for alloc_bootmem_low()
-Message-Id: <20050715113303.2EB8.Y-GOTO@jp.fujitsu.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 06 Jul 2005 05:11:42 +0000
+Subject: [PATCH 2.6.13-rc1 05/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42CB680E.2010103@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050713152030.1B11.Y-GOTO@jp.fujitsu.com> <20050713220351.GA19439@w-mikek2.ibm.com>
-In-Reply-To: <20050713220351.GA19439@w-mikek2.ibm.com>
+References: <42CB63B2.6000505@jp.fujitsu.com>
+In-Reply-To: <42CB63B2.6000505@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Mike Kravetz <kravetz@us.ibm.com>
-Cc: linux-mm <linux-mm@kvack.org>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "Martin J. Bligh" <mbligh@mbligh.org>
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
+Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-> I was thinking more about something like the following to eliminate
-> all the users of __pa(MAX_DMA_ADDRESS).  This patch is NOT complete
-> as I didn't change arch dependent code using __pa(MAX_DMA_ADDRESS).
-> 
-> Just curious if people think this is overkill, or is there a better
-> way to address this?
+[This is 5 of 10 patches, "iochk-05-check_bridge.patch"]
 
-There is no objection at present, I suppose this patch is 
-the best way. :)
+- Consider three devices, A, B, and C are placed under a same
+   host bridge H. After A and B checked-in (=passed iochk_clear,
+   doing some I/Os, not come to call iochk_read yet), now C is
+   going to check-in, just entered iochk_clear, but C finds out
+   that H indicates error.
 
-Thanks.
+   It means that A or B hits a bus error, but there is no data
+   which one actually hits the error. So, C should notify the
+   error to both of A and B, and clear the H's status to start
+   its own I/Os.
 
-> diff -Naupr linux-2.6.13-rc2-mm2/include/linux/bootmem.h linux-2.6.13-rc2-mm2.work/include/linux/bootmem.h
-> --- linux-2.6.13-rc2-mm2/include/linux/bootmem.h	2005-07-06 03:46:33.000000000 +0000
-> +++ linux-2.6.13-rc2-mm2.work/include/linux/bootmem.h	2005-07-13 21:14:14.000000000 +0000
-> @@ -40,6 +40,14 @@ typedef struct bootmem_data {
->  					 * up searching */
->  } bootmem_data_t;
->  
-> +#ifndef MAX_DMA_PHYSADDR
-> +#if MAX_DMA_ADDRESS = ~0UL
-> +#define MAX_DMA_PHYSADDR MAX_DMA_ADDRESS
-> +#else
-> +#define MAX_DMA_PHYSADDR (__pa(MAX_DMA_ADDRESS))
-> +#endif
-> +#endif
-> +
->  extern unsigned long __init bootmem_bootmap_pages (unsigned long);
->  extern unsigned long __init init_bootmem (unsigned long addr, unsigned long memend);
->  extern void __init free_bootmem (unsigned long addr, unsigned long size);
-> @@ -47,11 +55,11 @@ extern void * __init __alloc_bootmem (un
->  #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
->  extern void __init reserve_bootmem (unsigned long addr, unsigned long size);
->  #define alloc_bootmem(x) \
-> -	__alloc_bootmem((x), SMP_CACHE_BYTES, __pa(MAX_DMA_ADDRESS))
-> +	__alloc_bootmem((x), SMP_CACHE_BYTES, MAX_DMA_PHYSADDR)
->  #define alloc_bootmem_low(x) \
->  	__alloc_bootmem((x), SMP_CACHE_BYTES, 0)
->  #define alloc_bootmem_pages(x) \
-> -	__alloc_bootmem((x), PAGE_SIZE, __pa(MAX_DMA_ADDRESS))
-> +	__alloc_bootmem((x), PAGE_SIZE, MAX_DMA_PHYSADDR)
->  #define alloc_bootmem_low_pages(x) \
->  	__alloc_bootmem((x), PAGE_SIZE, 0)
->  #endif /* !CONFIG_HAVE_ARCH_BOOTMEM_NODE */
-> @@ -64,9 +72,9 @@ extern unsigned long __init free_all_boo
->  extern void * __init __alloc_bootmem_node (pg_data_t *pgdat, unsigned long size, unsigned long align, unsigned long goal);
->  #ifndef CONFIG_HAVE_ARCH_BOOTMEM_NODE
->  #define alloc_bootmem_node(pgdat, x) \
-> -	__alloc_bootmem_node((pgdat), (x), SMP_CACHE_BYTES, __pa(MAX_DMA_ADDRESS))
-> +	__alloc_bootmem_node((pgdat), (x), SMP_CACHE_BYTES, MAX_DMA_PHYSADDR)
->  #define alloc_bootmem_pages_node(pgdat, x) \
-> -	__alloc_bootmem_node((pgdat), (x), PAGE_SIZE, __pa(MAX_DMA_ADDRESS))
-> +	__alloc_bootmem_node((pgdat), (x), PAGE_SIZE, MAX_DMA_PHYSADDR)
->  #define alloc_bootmem_low_pages_node(pgdat, x) \
->  	__alloc_bootmem_node((pgdat), (x), PAGE_SIZE, 0)
->  #endif /* !CONFIG_HAVE_ARCH_BOOTMEM_NODE */
-> diff -Naupr linux-2.6.13-rc2-mm2/mm/bootmem.c linux-2.6.13-rc2-mm2.work/mm/bootmem.c
-> --- linux-2.6.13-rc2-mm2/mm/bootmem.c	2005-07-06 03:46:33.000000000 +0000
-> +++ linux-2.6.13-rc2-mm2.work/mm/bootmem.c	2005-07-13 21:18:40.000000000 +0000
-> @@ -387,10 +387,16 @@ void * __init __alloc_bootmem (unsigned 
->  	pg_data_t *pgdat = pgdat_list;
->  	void *ptr;
->  
-> -	for_each_pgdat(pgdat)
-> +	for_each_pgdat(pgdat){
-> +
-> +		if (goal < MAX_DMA_PHYSADDR &&
-> +		    pgdat->bdata->node_boot_start >= MAX_DMA_PHYSADDR)
-> +			continue; /* Skip No DMA node */
-> +
->  		if ((ptr = __alloc_bootmem_core(pgdat->bdata, size,
->  						align, goal)))
->  			return(ptr);
-> +	}
->  
->  	/*
->  	 * Whoops, we cannot satisfy the allocation request.
+   If there are only two devices, it become more simple. It is
+   clear if one find a bridge error while another is check-in,
+   the error is nothing except for another's.
 
--- 
-Yasunori Goto 
+Well, works concerning registers (devices and bridges) are
+almost shaped up. So, from next, I'll move to deep phase
+to implement more arch-specific codes... see next (6 of 10).
+
+Changes from previous one for 2.6.11.11:
+   - (non)
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
+---
+
+  arch/ia64/lib/iomap_check.c |   45 ++++++++++++++++++++++++++++++++++++++++++++
+  1 files changed, 45 insertions(+)
+
+Index: linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
+=================================--- linux-2.6.13-rc1.orig/arch/ia64/lib/iomap_check.c
++++ linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
+@@ -17,6 +17,9 @@ DEFINE_SPINLOCK(iochk_lock);	/* all work
+  static struct pci_dev *search_host_bridge(struct pci_dev *dev);
+  static int have_error(struct pci_dev *dev);
+
++void notify_bridge_error(struct pci_dev *bridge);
++void clear_bridge_error(struct pci_dev *bridge);
++
+  void iochk_init(void)
+  {
+  	/* setup */
+@@ -33,6 +36,11 @@ void iochk_clear(iocookie *cookie, struc
+  	cookie->host = search_host_bridge(dev);
+
+  	spin_lock_irqsave(&iochk_lock, flag);
++	if (cookie->host && have_error(cookie->host)) {
++		/* someone under my bridge causes error... */
++		notify_bridge_error(cookie->host);
++		clear_bridge_error(cookie->host);
++	}
+  	list_add(&cookie->list, &iochk_devices);
+  	spin_unlock_irqrestore(&iochk_lock, flag);
+
+@@ -95,5 +103,42 @@ static int have_error(struct pci_dev *de
+  	return 0;
+  }
+
++void notify_bridge_error(struct pci_dev *bridge)
++{
++	iocookie *cookie;
++
++	if (list_empty(&iochk_devices))
++		return;
++
++	/* notify error to all transactions using this host bridge */
++	if (bridge) {
++		/* local notify, ex. Parity, Abort etc. */
++		list_for_each_entry(cookie, &iochk_devices, list) {
++			if (cookie->host = bridge)
++				cookie->error = 1;
++		}
++	}
++}
++
++void clear_bridge_error(struct pci_dev *bridge)
++{
++	u16 status = ( PCI_STATUS_REC_TARGET_ABORT
++                     | PCI_STATUS_REC_MASTER_ABORT
++                     | PCI_STATUS_DETECTED_PARITY );
++
++	/* clear bridge status */
++	switch (bridge->hdr_type) {
++		case PCI_HEADER_TYPE_NORMAL: /* 0 */
++			pci_write_config_word(bridge, PCI_STATUS, status);
++			break;
++		case PCI_HEADER_TYPE_BRIDGE: /* 1 */
++			pci_write_config_word(bridge, PCI_SEC_STATUS, status);
++			break;
++		case PCI_HEADER_TYPE_CARDBUS: /* 2 */
++			default:
++			BUG();
++	}
++}
++
+  EXPORT_SYMBOL(iochk_read);
+  EXPORT_SYMBOL(iochk_clear);
 
