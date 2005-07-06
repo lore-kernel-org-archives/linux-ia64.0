@@ -1,47 +1,138 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 27 Jul 2005 22:03:38 +0000
-Subject: [PATCH] ia64: remove useless asm-ia64/segment.h includes
-Message-Id: <200507271603.38034.bjorn.helgaas@hp.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Wed, 06 Jul 2005 05:20:15 +0000
+Subject: [PATCH 2.6.13-rc1 09/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42CB6A0F.4080304@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42CB63B2.6000505@jp.fujitsu.com>
+In-Reply-To: <42CB63B2.6000505@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
+Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-Remove references to asm-ia64/segment.h, which is empty.
+[This is 9 of 10 patches, "iochk-09-cpeh.patch"]
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+- SAL behavior doesn't affect only MCA. There are other
+   chances to call SAL_GET_STATE_INFO, that's when CMC, CPE,
+   and INIT is happen.
 
-Index: work/arch/ia64/pci/pci.c
-=================================--- work.orig/arch/ia64/pci/pci.c	2005-07-25 15:04:19.000000000 -0600
-+++ work/arch/ia64/pci/pci.c	2005-07-25 15:10:55.000000000 -0600
-@@ -24,7 +24,6 @@
- 
- #include <asm/machvec.h>
- #include <asm/page.h>
--#include <asm/segment.h>
- #include <asm/system.h>
- #include <asm/io.h>
- #include <asm/sal.h>
-Index: work/arch/ia64/ia32/ia32_signal.c
-=================================--- work.orig/arch/ia64/ia32/ia32_signal.c	2005-07-25 15:04:19.000000000 -0600
-+++ work/arch/ia64/ia32/ia32_signal.c	2005-07-25 15:10:55.000000000 -0600
-@@ -29,7 +29,6 @@
- #include <asm/uaccess.h>
- #include <asm/rse.h>
- #include <asm/sigcontext.h>
--#include <asm/segment.h>
- 
- #include "ia32priv.h"
- 
-Index: work/arch/ia64/sn/kernel/sn2/sn_hwperf.c
-=================================--- work.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-07-25 15:04:19.000000000 -0600
-+++ work/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-07-25 15:10:55.000000000 -0600
-@@ -36,7 +36,6 @@
- #include <asm/topology.h>
- #include <asm/smp.h>
- #include <asm/semaphore.h>
--#include <asm/segment.h>
- #include <asm/uaccess.h>
- #include <asm/sal.h>
- #include <asm/sn/io.h>
+    - CMC(Corrected Machine Check) is for non-fatal, processor
+      local errors. Fortunately, calling SAL_GET_STATE_INFO for
+      CMC only collect data from a processor issued it, without
+      touching any bridge and its status. So, this is safe.
+
+    - CPE(Corrected Platform Error) is for non-fatal, platform
+      related errors. Even it says corrected, but calling
+      SAL procedure for CPE touchs every bridge on the platform,
+      and "correct" bridge status that's bad for iochk works.
+
+    - INIT is a kind of system reset request, as far as I know.
+      So restarting from INIT is out of design, also iochk after
+      INIT is not required at this time.
+
+   In short, only MCA and CPE have the problem of SAL behavior.
+   One of the difference from MCA is that SAL will not gather
+   data before OS actually request it.
+
+   MCA:
+       1) SAL gathers data and keep it internally
+       2) OS gets control
+       3) if OS requests, SAL returns data gathered at beginning.
+   CPE:
+       1) OS gets control
+       2) OS request to SAL
+       3) SAL gathers data and return it to OS
+
+   Therefore, we can make CPE handler to care bridge states,
+   to check states before calling SAL procedure.
+
+Changes from previous one for 2.6.11.11:
+   - (non)
+
+Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+
+---
+
+  arch/ia64/kernel/mca.c      |   21 +++++++++++++++++++++
+  arch/ia64/lib/iomap_check.c |   17 +++++++++++++++++
+  2 files changed, 38 insertions(+)
+
+Index: linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
+=================================--- linux-2.6.13-rc1.orig/arch/ia64/lib/iomap_check.c
++++ linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
+@@ -19,6 +19,7 @@ static int have_error(struct pci_dev *de
+
+  void notify_bridge_error(struct pci_dev *bridge);
+  void clear_bridge_error(struct pci_dev *bridge);
++void save_bridge_error(void);
+
+  void iochk_init(void)
+  {
+@@ -145,6 +146,22 @@ void clear_bridge_error(struct pci_dev *
+  	}
+  }
+
++void save_bridge_error(void)
++{
++	iocookie *cookie;
++
++	if (list_empty(&iochk_devices))
++		return;
++
++	/* mark devices if its root bus bridge have errors */
++	list_for_each_entry(cookie, &iochk_devices, list) {
++		if (cookie->error)
++			continue;
++		if (have_error(cookie->host))
++			notify_bridge_error(cookie->host);
++	}
++}
++
+  EXPORT_SYMBOL(iochk_read);
+  EXPORT_SYMBOL(iochk_clear);
+  EXPORT_SYMBOL(iochk_devices);	/* for MCA driver */
+Index: linux-2.6.13-rc1/arch/ia64/kernel/mca.c
+=================================--- linux-2.6.13-rc1.orig/arch/ia64/kernel/mca.c
++++ linux-2.6.13-rc1/arch/ia64/kernel/mca.c
+@@ -80,6 +80,8 @@
+  #ifdef CONFIG_IOMAP_CHECK
+  #include <linux/pci.h>
+  extern void notify_bridge_error(struct pci_dev *bridge);
++extern void save_bridge_error(void);
++extern spinlock_t iochk_lock;
+  #endif
+
+  #if defined(IA64_MCA_DEBUG_INFO)
+@@ -288,11 +290,30 @@ ia64_mca_cpe_int_handler (int cpe_irq, v
+  	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
+  		       __FUNCTION__, cpe_irq, smp_processor_id());
+
++#ifndef CONFIG_IOMAP_CHECK
++
+  	/* SAL spec states this should run w/ interrupts enabled */
+  	local_irq_enable();
+
+  	/* Get the CPE error record and log it */
+  	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
++#else
++	/*
++	 * Because SAL_GET_STATE_INFO for CPE might clear bridge states
++	 * in process of gathering error information from the system,
++	 * we should check the states before clearing it.
++	 * While OS and SAL are handling bridge status, we have to protect
++	 * the states from changing by any other I/Os running simultaneously,
++	 * so this should be handled w/ lock and interrupts disabled.
++	 */
++	spin_lock(&iochk_lock);
++	save_bridge_error();
++	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
++	spin_unlock(&iochk_lock);
++
++	/* Rests can go w/ interrupt enabled as usual */
++	local_irq_enable();
++#endif
+
+  	spin_lock(&cpe_history_lock);
+  	if (!cpe_poll_enabled && cpe_vector >= 0) {
+
