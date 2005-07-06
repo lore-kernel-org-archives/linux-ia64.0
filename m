@@ -1,7 +1,7 @@
 From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 06 Jul 2005 05:14:07 +0000
-Subject: [PATCH 2.6.13-rc1 06/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42CB689F.6040208@jp.fujitsu.com>
+Date: Wed, 06 Jul 2005 05:07:39 +0000
+Subject: [PATCH 2.6.13-rc1 04/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <42CB671B.5000604@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42CB63B2.6000505@jp.fujitsu.com>
 In-Reply-To: <42CB63B2.6000505@jp.fujitsu.com>
@@ -11,91 +11,89 @@ Content-Transfer-Encoding: 7bit
 To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
 Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-[This is 6 of 10 patches, "iochk-06-mcanotify.patch"]
+[This is 4 of 10 patches, "iochk-04-register_bridge.patch"]
 
-- This is a headache:
-   When ia64 get a problem on hardware, OS could request
-   SAL(System Abstraction Layer: ia64 firmware) to gather
-   system status via calling SAL_GET_STATE_INFO procedure.
+- Since there could be a (PCI-)bus-error, some kind of error
+   cannot detected on the device but on its hosting bridge.
+   So, it is also required to check the bridge's register.
 
-   However (depend on implementation of SAL for its platform,
-   hopefully), on the way of gathering, SAL also checks
-   every host bridges and its status, and after that, resets
-   the state...
+   In other words, to check a bus-error correctly, we need to
+   check both end of the bus, device and its host bridge.
 
-   So we should take care of this reset by SAL.
-
-   Handling MCA(Machine Check Abort) is one of a situation
-   should we take care. Originally MCA is designed as a
-   critical interruption, so when MCA comes, without OS's
-   order, SAL gathers system status before OS gets its control.
-   So since states of bridges are already reset on entrance of
-   MCA, OS should notify "lost of state" to all "check-in"
-   contexts, by marking its error flag, iocookie->error.
-
-   There would be better way if OS can know the bridge state
-   from data which SAL gathered, but in the meanwhile, I
-   just do simple way.
-
-PCI-parity error is one of MCA causes, is it OK?
-Next, "data poisoning" helps us... see next (7 of 10).
+OK, but often bridges are shared by multiple devices, right?
+So we need care to handle it... Yes, see next (5 of 10).
 
 Changes from previous one for 2.6.11.11:
-   - (non)
+   - trivial coding style fix.
 
 Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 
 ---
 
-  arch/ia64/kernel/mca.c      |   13 +++++++++++++
-  arch/ia64/lib/iomap_check.c |    7 ++++++-
-  2 files changed, 19 insertions(+), 1 deletion(-)
+  arch/ia64/lib/iomap_check.c |   20 +++++++++++++++++++-
+  include/asm-ia64/io.h       |    1 +
+  2 files changed, 20 insertions(+), 1 deletion(-)
 
-Index: linux-2.6.13-rc1/arch/ia64/kernel/mca.c
-=================================--- linux-2.6.13-rc1.orig/arch/ia64/kernel/mca.c
-+++ linux-2.6.13-rc1/arch/ia64/kernel/mca.c
-@@ -77,6 +77,11 @@
-  #include <asm/irq.h>
-  #include <asm/hw_irq.h>
-
-+#ifdef CONFIG_IOMAP_CHECK
-+#include <linux/pci.h>
-+extern void notify_bridge_error(struct pci_dev *bridge);
-+#endif
-+
-  #if defined(IA64_MCA_DEBUG_INFO)
-  # define IA64_MCA_DEBUG(fmt...)	printk(fmt)
-  #else
-@@ -893,6 +898,14 @@ ia64_mca_ucmc_handler(void)
-  		sal_log_record_header_t *rh = IA64_LOG_CURR_BUFFER(SAL_INFO_TYPE_MCA);
-  		rh->severity = sal_log_severity_corrected;
-  		ia64_sal_clear_state_info(SAL_INFO_TYPE_MCA);
-+
-+#ifdef CONFIG_IOMAP_CHECK
-+		/*
-+		 * SAL already reads and clears error bits on bridge registers,
-+		 * so we should have all running transactions to retry.
-+		 */
-+		notify_bridge_error(0);
-+#endif
-  	}
-  	/*
-  	 *  Wakeup all the processors which are spinning in the rendezvous
 Index: linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
 =================================--- linux-2.6.13-rc1.orig/arch/ia64/lib/iomap_check.c
 +++ linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
-@@ -111,7 +111,12 @@ void notify_bridge_error(struct pci_dev
-  		return;
+@@ -14,6 +14,7 @@ int  iochk_read(iocookie *cookie);
+  struct list_head iochk_devices;
+  DEFINE_SPINLOCK(iochk_lock);	/* all works are excluded on this lock */
 
-  	/* notify error to all transactions using this host bridge */
--	if (bridge) {
-+	if (!bridge) {
-+		/* global notify, ex. MCA */
-+		list_for_each_entry(cookie, &iochk_devices, list) {
-+			cookie->error = 1;
-+		}
-+	} else {
-  		/* local notify, ex. Parity, Abort etc. */
-  		list_for_each_entry(cookie, &iochk_devices, list) {
-  			if (cookie->host = bridge)
++static struct pci_dev *search_host_bridge(struct pci_dev *dev);
+  static int have_error(struct pci_dev *dev);
+
+  void iochk_init(void)
+@@ -29,6 +30,7 @@ void iochk_clear(iocookie *cookie, struc
+  	INIT_LIST_HEAD(&(cookie->list));
+
+  	cookie->dev = dev;
++	cookie->host = search_host_bridge(dev);
+
+  	spin_lock_irqsave(&iochk_lock, flag);
+  	list_add(&cookie->list, &iochk_devices);
+@@ -43,7 +45,8 @@ int iochk_read(iocookie *cookie)
+  	int ret = 0;
+
+  	spin_lock_irqsave(&iochk_lock, flag);
+-	if (cookie->error || have_error(cookie->dev))
++	if ( cookie->error || have_error(cookie->dev)
++		|| (cookie->host && have_error(cookie->host)) )
+  		ret = 1;
+  	list_del(&cookie->list);
+  	spin_unlock_irqrestore(&iochk_lock, flag);
+@@ -51,6 +54,21 @@ int iochk_read(iocookie *cookie)
+  	return ret;
+  }
+
++struct pci_dev *search_host_bridge(struct pci_dev *dev)
++{
++	struct pci_bus *pbus;
++
++	/* there is no bridge */
++	if (!dev->bus->self)
++		return NULL;
++
++	/* find root bus bridge */
++	for (pbus = dev->bus; pbus->parent && pbus->parent->self;
++		pbus = pbus->parent);
++
++	return pbus->self;
++}
++
+  static int have_error(struct pci_dev *dev)
+  {
+  	u16 status;
+Index: linux-2.6.13-rc1/include/asm-ia64/io.h
+=================================--- linux-2.6.13-rc1.orig/include/asm-ia64/io.h
++++ linux-2.6.13-rc1/include/asm-ia64/io.h
+@@ -78,6 +78,7 @@ extern unsigned int num_io_spaces;
+  typedef struct {
+  	struct list_head	list;
+  	struct pci_dev		*dev;	/* target device */
++	struct pci_dev		*host;	/* hosting bridge */
+  	unsigned long		error;	/* error flag */
+  } iocookie;
+
 
