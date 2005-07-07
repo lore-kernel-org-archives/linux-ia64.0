@@ -1,60 +1,87 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Sat, 30 Jul 2005 18:02:49 +0000
-Subject: Re: 2.6.13-rc3-mm3
-Message-Id: <20050730110249.481ebb2d.akpm@osdl.org>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Thu, 07 Jul 2005 23:59:21 +0000
+Subject: [PATCH] pcibus_to_node implementation for IA64
+Message-Id: <Pine.LNX.4.62.0507071657040.5277@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050728025840.0596b9cb.akpm@osdl.org>
-	<1122678354.20867.48.camel@lyra.fc.hp.com>
-	<20050729161751.34705ac6.akpm@osdl.org>
-	<1122737595.3133.7.camel@minuet.fc.hp.com>
-In-Reply-To: <1122737595.3133.7.camel@minuet.fc.hp.com>
+References: <Pine.LNX.4.62.0506231400360.13123@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.62.0506231400360.13123@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Khalid Aziz <khalid.aziz@hp.com>
-Cc: khalid_aziz@hp.com, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@intel.com
+To: linux-ia64@vger.kernel.org
 
-Khalid Aziz <khalid.aziz@hp.com> wrote:
->
-> On Fri, 2005-07-29 at 16:17 -0700, Andrew Morton wrote:
->  > Khalid Aziz <khalid_aziz@hp.com> wrote:
->  > >
->  > > Serial console is broken on ia64 on an HP rx2600 machine on
->  > > 2.6.13-rc3-mm3. When kernel is booted up with "console=ttyS,...", no
->  > > output ever appears on the console and system is hung. So I booted the
->  > > kernel with "console=uart,mmio,0xff5e0000" to enable early console and
->  > > here is how far the kernel got before hanging:
->  > 
->  > (cc the ia64 and acpi lists)
->  > 
->  > OK, thanks.  There have been a few serial driver changes recently, but
->  > there's also a tremendous ACPI patch in -mm.  I'm wondering about those
->  > ACPI error messages:
->  > 
->  > > -------
->  > > Linux version 2.6.13-rc3-mm3 (root@mars) (gcc version 3.3.5 (Debian 1:3.3.5-12)) #4 SMP Fri Jul 29 16:30:41 MDT 2005
->  > > EFI v1.10 by HP: SALsystab=0x3fb38000 ACPI 2.0=0x3fb2e000 SMBIOS=0x3fb3a000 HCDP=0x3fb2c000
->  > > booting generic kernel on platform hpzx1
->  > > PCDP: v0 at 0x3fb2c000
->  > > Explicit "console="; ignoring PCDP
->  > ..............
->  > > NET: Registered protocol family 16
->  > > ACPI: bus type pci registered
->  > > ACPI: Subsystem revision 20050708
->  > >     ACPI-0509: *** Error: Method execution failed [\PARS.GFIT] (Node e0000002ffff8a00), AE_BAD_PARAMETER
->  > >     ACPI-0509: *** Error: Method execution failed [\_SB_.SBA0._INI] (Node e0000002ffffa780), AE_BAD_PARAMETER
->  > > ACPI: Interpreter enabled
->  > > ACPI: Using IOSAPIC for interrupt routing
->  > 
->  > Does the above happen on 2.6.13-rc3 or 2.6.13-rc4?
-> 
->  No, I do not see this on 2.6.13-rc3. It does seem ACPI is busted on
->  2.6.13-rc3-mm3 which is leading to kernel not being able to scan PCI bus
->  and set up IRQ routing.
-> 
+pcibus_to_node provides a way for the Linux kernel to identify to which node
+a certain pcibus connects to. Allocations of control structures for devices can then be
+made on the node where the pci bus is located to allow local access during interrupt and
+other device manipulation.
 
-OK, thanks.  Could I suggest that you raise a bug against ACPI 20050708 at
-bugzilla.kernel.org containing the info we've generated thus far?
+This patch provides a new "node" field in the the pci_controller 
+structure. The node field will be set based on ACPI information (thanks to 
+Alex Williamson  <alex.williamson@hp.com for that piece).
 
-And thanks for testing -mm: we really don't want to permit this to leak
-into mainline...
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.13-rc2/include/asm-ia64/pci.h
+=================================--- linux-2.6.13-rc2.orig/include/asm-ia64/pci.h	2005-07-05 20:46:33.000000000 -0700
++++ linux-2.6.13-rc2/include/asm-ia64/pci.h	2005-07-06 12:20:02.000000000 -0700
+@@ -128,6 +128,7 @@ struct pci_controller {
+ 	void *acpi_handle;
+ 	void *iommu;
+ 	int segment;
++	int node;		/* nearest node with memory or -1 for global allocation */
+ 
+ 	unsigned int windows;
+ 	struct pci_window *window;
+Index: linux-2.6.13-rc2/include/asm-ia64/topology.h
+=================================--- linux-2.6.13-rc2.orig/include/asm-ia64/topology.h	2005-07-05 20:46:33.000000000 -0700
++++ linux-2.6.13-rc2/include/asm-ia64/topology.h	2005-07-06 12:20:02.000000000 -0700
+@@ -40,6 +40,11 @@
+  */
+ #define node_to_first_cpu(node) (__ffs(node_to_cpumask(node)))
+ 
++/*
++ * Determines the node for a given pci bus
++ */
++#define pcibus_to_node(bus) PCI_CONTROLLER(bus)->node
++
+ void build_cpu_to_node_map(void);
+ 
+ #define SD_CPU_INIT (struct sched_domain) {		\
+Index: linux-2.6.13-rc2/arch/ia64/pci/pci.c
+=================================--- linux-2.6.13-rc2.orig/arch/ia64/pci/pci.c	2005-07-05 20:46:33.000000000 -0700
++++ linux-2.6.13-rc2/arch/ia64/pci/pci.c	2005-07-07 16:35:27.000000000 -0700
+@@ -157,6 +157,7 @@ alloc_pci_controller (int seg)
+ 
+ 	memset(controller, 0, sizeof(*controller));
+ 	controller->segment = seg;
++	controller->node = -1;
+ 	return controller;
+ }
+ 
+@@ -288,6 +289,7 @@ pci_acpi_scan_root(struct acpi_device *d
+ 	unsigned int windows = 0;
+ 	struct pci_bus *pbus;
+ 	char *name;
++	int pxm;
+ 
+ 	controller = alloc_pci_controller(domain);
+ 	if (!controller)
+@@ -295,10 +297,16 @@ pci_acpi_scan_root(struct acpi_device *d
+ 
+ 	controller->acpi_handle = device->handle;
+ 
++	pxm = acpi_get_pxm(controller->acpi_handle);
++#ifdef CONFIG_NUMA
++	if (pxm >= 0)
++		controller->node = pxm_to_nid_map[pxm];
++#endif
++
+ 	acpi_walk_resources(device->handle, METHOD_NAME__CRS, count_window,
+ 			&windows);
+-	controller->window = kmalloc(sizeof(*controller->window) * windows,
+-			GFP_KERNEL);
++	controller->window = kmalloc_node(sizeof(*controller->window) * windows,
++			GFP_KERNEL, controller->node);
+ 	if (!controller->window)
+ 		goto out2;
+ 
