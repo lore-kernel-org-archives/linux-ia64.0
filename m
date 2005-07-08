@@ -1,32 +1,26 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Mon, 11 Jul 2005 21:56:32 +0000
-Subject: [patch] CREDITS update
-Message-Id: <ed5aea4305071114561bdaeffd@mail.gmail.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="----=_Part_2827_6079062.1121118992473"
+From: "H. J. Lu" <hjl@lucon.org>
+Date: Fri, 08 Jul 2005 19:24:52 +0000
+Subject: Fix a typo in arch/ia64/kernel/entry.S
+Message-Id: <20050708192452.GA29642@lucon.org>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-------=_Part_2827_6079062.1121118992473
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Both 2.4 and 2.6 kernels need this patch for the next binutils.
 
-Trivial patch.
 
-  --david
-
-------=_Part_2827_6079062.1121118992473
-Content-Type: text/x-patch; name="credits.diff"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="credits.diff"
-
-U2lnbmVkLW9mZi1ieTogRGF2aWQgTW9zYmVyZ2VyLVRhbmcgPERhdmlkLk1vc2JlcmdlckBhY20u
-b3JnPgoKZGlmZiAtLWdpdCBhL0NSRURJVFMgYi9DUkVESVRTCi0tLSBhL0NSRURJVFMKKysrIGIv
-Q1JFRElUUwpAQCAtMjM4OSw4ICsyMzg5LDggQEAgUzogU3BpdCBKdW5jdGlvbiBOU1cgMjA4OAog
-UzogQXVzdHJhbGlhCiAKIE46IERhdmlkIE1vc2Jlcmdlci1UYW5nCi1FOiBkYXZpZG1AaHBsLmhw
-LmNvbSBpZiBJQS02NCByZWxhdGVkLCBlbHNlIERhdmlkLk1vc2JlcmdlckBhY20ub3JnCi1EOiBM
-aW51eC9BbHBoYSBhbmQgTGludXgvaWE2NAorRTogRGF2aWQuTW9zYmVyZ2VyQGFjbS5vcmcKK0Q6
-IExpbnV4L2lhNjQKIFM6IDM1NzA2IFJ1bmNrZWwgTGFuZQogUzogRnJlbW9udCwgQ2FsaWZvcm5p
-YSA5NDUzNgogUzogVVNBCg==
-------=_Part_2827_6079062.1121118992473--
+H.J.
+----
+--- linux-2.4.21/arch/ia64/kernel/entry.S.bad	2005-07-08 11:33:33.000000000 -0700
++++ linux-2.4.21/arch/ia64/kernel/entry.S	2005-07-08 12:14:00.000000000 -0700
+@@ -970,7 +970,7 @@ ENTRY(sys_rt_sigreturn)
+ 	;;
+ 	adds out0,sp				// out0 = &sigscratch
+ 	br.call.sptk.many rp=ia64_rt_sigreturn
+-.ret19:	.restore sp 0
++.ret19:	.restore sp,0
+ 	adds sp,sp
+ 	;;
+ 	ld8 r9=[sp]				// load new ar.unat
