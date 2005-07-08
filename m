@@ -1,239 +1,25 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 06 Jul 2005 05:17:21 +0000
-Subject: [PATCH 2.6.13-rc1 07/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42CB6961.2060508@jp.fujitsu.com>
+From: david mosberger <dmosberger@gmail.com>
+Date: Fri, 08 Jul 2005 04:37:15 +0000
+Subject: Re: [PATCH 2.6.13-rc1 07/10] IOCHK interface for I/O error handling/detecting
+Message-Id: <ed5aea4305070721373480591d@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42CB63B2.6000505@jp.fujitsu.com>
-In-Reply-To: <42CB63B2.6000505@jp.fujitsu.com>
+References: <42CB63B2.6000505@jp.fujitsu.com> <42CB6961.2060508@jp.fujitsu.com>
+In-Reply-To: <42CB6961.2060508@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
-Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-[This is 7 of 10 patches, "iochk-07-poison.patch"]
+On 7/5/05, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com> wrote:
 
-- When bus-error occur on write, write data is broken on
-   the bus, so target device gets broken data.
+>    - could anyone write same barrier for intel compiler?
+>      Tony or David, could you help me?
 
-   There are 2 way for such device to take:
-    - send PERR(Parity Error) to host, expecting immediate panic.
-    - mark status register as error, expecting its driver to read
-      it and decide to retry.
+I think it might be best to make ia64_mca_barrier() a proper
+subroutine written in assembly code.  Yes, that costs some time, but
+we're talking about wasting 1,000+ cycles just to consume the value
+read via readX(), so the call-overhead is actually overlapped and
+completely trivial.
 
-   So it is not difficult for drivers to recover from error on
-   write if it can take latter way, and if it don't worry about
-   taking time to wait completion of write.
-
-- When bus-error occur on read, read data is broken on
-   the bus, so host bridge gets broken data.
-
-   There are 2 way for such bridge to take:
-    - send BERR(Bus Error) to host, expecting immediate panic.
-    - mark data as "poisoned" and throw it to destination,
-      expecting panic if system touched it but cannot stop data
-      pollution.
-
-   Former is traditional way, latter is modern way, called
-   "data poisoning". The important difference is whether OS
-   can get a chance to recover from the error.
-   Usually, sending BERR doesn't tell us "where it comes",
-   "who it orders", so we cannot do anything except panic.
-   In the other hand, poisoned data will reach its destination
-   and will cause a error on there again. Yes, destination is
-   "where who lives".
-
-   Well, the idea is quite simple:
-    "driver checks read data, and recover if it was poisoned."
-
-   Checking all read at once (ex. take a memo of all read
-   addresses touched after iochk_clear and check them all in
-   iochk_read) does not make sense. Practical way is check
-   each read, keep its result, and read it at end.
-
-Touching poisoned data become a MCA, so now it directly means
-a system down. But since the MCA tells us "where it happens",
-we can recover it...? All right, let's see next (8 of 10).
-
-Changes from previous one for 2.6.11.11:
-   - move barrier function macro into gcc_inirin.h.
-   - could anyone write same barrier for intel compiler?
-     Tony or David, could you help me?
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-
----
-
-  include/asm-ia64/gcc_intrin.h |   16 +++++++
-  include/asm-ia64/io.h         |   96 ++++++++++++++++++++++++++++++++++++++++++
-  2 files changed, 112 insertions(+)
-
-Index: linux-2.6.13-rc1/include/asm-ia64/io.h
-=================================--- linux-2.6.13-rc1.orig/include/asm-ia64/io.h
-+++ linux-2.6.13-rc1/include/asm-ia64/io.h
-@@ -189,6 +189,8 @@ __ia64_mk_io_addr (unsigned long port)
-   * during optimization, which is why we use "volatile" pointers.
-   */
-
-+#ifdef CONFIG_IOMAP_CHECK
-+
-  static inline unsigned int
-  ___ia64_inb (unsigned long port)
-  {
-@@ -197,6 +199,8 @@ ___ia64_inb (unsigned long port)
-
-  	ret = *addr;
-  	__ia64_mf_a();
-+	ia64_mca_barrier(ret);
-+
-  	return ret;
-  }
-
-@@ -208,6 +212,8 @@ ___ia64_inw (unsigned long port)
-
-  	ret = *addr;
-  	__ia64_mf_a();
-+	ia64_mca_barrier(ret);
-+
-  	return ret;
-  }
-
-@@ -219,9 +225,48 @@ ___ia64_inl (unsigned long port)
-
-  	ret = *addr;
-  	__ia64_mf_a();
-+	ia64_mca_barrier(ret);
-+
-+	return ret;
-+}
-+
-+#else /* CONFIG_IOMAP_CHECK */
-+
-+static inline unsigned int
-+___ia64_inb (unsigned long port)
-+{
-+	volatile unsigned char *addr = __ia64_mk_io_addr(port);
-+	unsigned char ret;
-+
-+	ret = *addr;
-+	__ia64_mf_a();
-+	return ret;
-+}
-+
-+static inline unsigned int
-+___ia64_inw (unsigned long port)
-+{
-+	volatile unsigned short *addr = __ia64_mk_io_addr(port);
-+	unsigned short ret;
-+
-+	ret = *addr;
-+	__ia64_mf_a();
-  	return ret;
-  }
-
-+static inline unsigned int
-+___ia64_inl (unsigned long port)
-+{
-+	volatile unsigned int *addr = __ia64_mk_io_addr(port);
-+	unsigned int ret;
-+
-+	ret = *addr;
-+	__ia64_mf_a();
-+	return ret;
-+}
-+
-+#endif /* CONFIG_IOMAP_CHECK */
-+
-  static inline void
-  ___ia64_outb (unsigned char val, unsigned long port)
-  {
-@@ -338,6 +383,55 @@ __outsl (unsigned long port, const void
-   * a good idea).  Writes are ok though for all existing ia64 platforms (and
-   * hopefully it'll stay that way).
-   */
-+
-+#ifdef CONFIG_IOMAP_CHECK
-+
-+static inline unsigned char
-+___ia64_readb (const volatile void __iomem *addr)
-+{
-+	unsigned char val;
-+
-+	val = *(volatile unsigned char __force *)addr;
-+	ia64_mca_barrier(val);
-+
-+	return val;
-+}
-+
-+static inline unsigned short
-+___ia64_readw (const volatile void __iomem *addr)
-+{
-+	unsigned short val;
-+
-+	val = *(volatile unsigned short __force *)addr;
-+	ia64_mca_barrier(val);
-+
-+	return val;
-+}
-+
-+static inline unsigned int
-+___ia64_readl (const volatile void __iomem *addr)
-+{
-+	unsigned int val;
-+
-+	val = *(volatile unsigned int __force *) addr;
-+	ia64_mca_barrier(val);
-+
-+	return val;
-+}
-+
-+static inline unsigned long
-+___ia64_readq (const volatile void __iomem *addr)
-+{
-+	unsigned long val;
-+
-+	val = *(volatile unsigned long __force *) addr;
-+	ia64_mca_barrier(val);
-+
-+	return val;
-+}
-+
-+#else /* CONFIG_IOMAP_CHECK */
-+
-  static inline unsigned char
-  ___ia64_readb (const volatile void __iomem *addr)
-  {
-@@ -362,6 +456,8 @@ ___ia64_readq (const volatile void __iom
-  	return *(volatile unsigned long __force *) addr;
-  }
-
-+#endif /* CONFIG_IOMAP_CHECK */
-+
-  static inline void
-  __writeb (unsigned char val, volatile void __iomem *addr)
-  {
-Index: linux-2.6.13-rc1/include/asm-ia64/gcc_intrin.h
-=================================--- linux-2.6.13-rc1.orig/include/asm-ia64/gcc_intrin.h
-+++ linux-2.6.13-rc1/include/asm-ia64/gcc_intrin.h
-@@ -598,4 +598,20 @@ do {								\
-  		      :: "r"((x)) : "p6", "p7", "memory");	\
-  } while (0)
-
-+/*
-+ * Some I/O bridges may poison the data read, instead of
-+ * signaling a BERR. The consummation of poisoned data
-+ * triggers a MCA, which tells us the polluted address.
-+ * Note that the read operation by itself does not consume
-+ * the bad data, you have to do something with it, e.g.:
-+ *
-+ *	ld.8	r9=[r10];;	// r10 = I/O address
-+ *	add.8	r8=r9,0;;	// fake operation
-+ */
-+#define ia64_mca_barrier(val)					\
-+({								\
-+	register unsigned long gr8 asm("r8");			\
-+        asm volatile ("add %0=%1,r0" : "=r"(gr8) : "r"(val)); 	\
-+})
-+
-  #endif /* _ASM_IA64_GCC_INTRIN_H */
-
+  --david
