@@ -1,42 +1,67 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 13 Jul 2005 01:59:50 +0000
-Subject: Re: [PATCH 2.6.13-rc1 07/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42D475D7.2090307@jp.fujitsu.com>
+From: Nishanth Aravamudan <nacc@us.ibm.com>
+Date: Sat, 09 Jul 2005 00:10:22 +0000
+Subject: [PATCH 6/14] ia64/sn: use msleep_interruptible() instead of schedule_timeout()
+Message-Id: <20050709001022.GL2596@us.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42CB63B2.6000505@jp.fujitsu.com> <42CB6961.2060508@jp.fujitsu.com> <20050712211401.GF26607@austin.ibm.com>
-In-Reply-To: <20050712211401.GF26607@austin.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linas Vepstas <linas@austin.ibm.com>
-Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: kernel-janitors@vger.kernel.org
 
-Linas Vepstas wrote:
-> On Wed, Jul 06, 2005 at 02:17:21PM +0900, Hidetoshi Seto was heard to remark:
-> 
->>Touching poisoned data become a MCA, so now it directly means
-> 
-> Several questions: 
-> 
-> Is MCA an exception or fault of some sort, so at some point, 
-> the kernel would catch a fault?
-> 
-> So when you say "Touching poisoned data become a MCA", you mean that
-> if the CPU attempts to read poisoned data through the pci-to-host
-> bridge, it will (at some point) catch an exception?
+From: Nishanth Aravamudan <nacc@us.ibm.com>
 
-Yes.
-More specifically, transferring poisoned data doesn't cause MCA,
-but loading it to CPU register cause MCA. At the end of load,
-CPU checks the data and deliver MCA if it was poisoned.
+Description: Replace schedule_timeout() with msleep_interruptible() to
+guarantee the task delays as expected.
 
->>+	ia64_mca_barrier(ret);
-> 
-> I assume that the point of this barrier is to make sure that the fault,
-> if any, is delivered before this routine returns?
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 
-Yes, that's what I expecting.
+---
 
-Thanks,
-H.Seto
+ xpc_main.c |   15 +++++----------
+ 1 files changed, 5 insertions(+), 10 deletions(-)
 
+diff -urp 2.6.13-rc2-kj/arch/ia64/sn/kernel/xpc_main.c 2.6.13-rc2-kj-dev/arch/ia64/sn/kernel/xpc_main.c
+--- 2.6.13-rc2-kj/arch/ia64/sn/kernel/xpc_main.c	2005-07-06 07:57:02.000000000 -0700
++++ 2.6.13-rc2-kj-dev/arch/ia64/sn/kernel/xpc_main.c	2005-07-08 15:29:46.000000000 -0700
+@@ -53,6 +53,7 @@
+ #include <linux/cache.h>
+ #include <linux/interrupt.h>
+ #include <linux/slab.h>
++#include <linux/delay.h>
+ #include <asm/sn/intr.h>
+ #include <asm/sn/sn_sal.h>
+ #include <asm/uaccess.h>
+@@ -308,8 +309,7 @@ xpc_make_first_contact(struct xpc_partit
+ 			"partition %d\n", XPC_PARTID(part));
+ 
+ 		/* wait a 1/4 of a second or so */
+-		set_current_state(TASK_INTERRUPTIBLE);
+-		(void) schedule_timeout(0.25 * HZ);
++		msleep_interruptible(250);
+ 
+ 		if (part->act_state = XPC_P_DEACTIVATING) {
+ 			return part->reason;
+@@ -841,9 +841,7 @@ xpc_do_exit(void)
+ 	down(&xpc_discovery_exited);
+ 
+ 
+-	set_current_state(TASK_INTERRUPTIBLE);
+-	schedule_timeout(0.3 * HZ);
+-	set_current_state(TASK_RUNNING);
++	msleep_interruptible(300);
+ 
+ 
+ 	/* wait for all partitions to become inactive */
+@@ -860,11 +858,8 @@ xpc_do_exit(void)
+ 			}
+ 		}
+ 
+-		if (active_part_count) {
+-			set_current_state(TASK_INTERRUPTIBLE);
+-			schedule_timeout(0.3 * HZ);
+-			set_current_state(TASK_RUNNING);
+-		}
++		if (active_part_count)
++			msleep_interruptible(300);
+ 
+ 	} while (active_part_count > 0);
