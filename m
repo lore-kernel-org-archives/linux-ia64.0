@@ -1,43 +1,32 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Tue, 12 Jul 2005 23:34:50 +0000
-Subject: [PATCH] __read_mostly for IA64
-Message-Id: <Pine.LNX.4.62.0507121633530.5062@schroedinger.engr.sgi.com>
+From: david mosberger <dmosberger@gmail.com>
+Date: Mon, 11 Jul 2005 21:56:32 +0000
+Subject: [patch] CREDITS update
+Message-Id: <ed5aea4305071114561bdaeffd@mail.gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_Part_2827_6079062.1121118992473"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-i386, x86_64 and sparc64 support the __read_mostly attribute to place
-frequently read variables separately from variables that may be frequently
-written to thereby optimizing cacheline use and avoiding false aliasing.
+------=_Part_2827_6079062.1121118992473
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-This patch implements __read_mostly for IA64.
+Trivial patch.
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+  --david
 
-Index: linux-2.6.13-rc2/arch/ia64/kernel/vmlinux.lds.S
-=================================--- linux-2.6.13-rc2.orig/arch/ia64/kernel/vmlinux.lds.S	2005-07-05 20:46:33.000000000 -0700
-+++ linux-2.6.13-rc2/arch/ia64/kernel/vmlinux.lds.S	2005-07-12 16:13:47.000000000 -0700
-@@ -179,6 +179,9 @@ SECTIONS
-   .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET)
-         { *(.data.cacheline_aligned) }
- 
-+  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET)
-+        { *(.data.read_mostly) }
-+
-   /* Per-cpu data: */
-   percpu : { } :percpu
-   . = ALIGN(PERCPU_PAGE_SIZE);
-Index: linux-2.6.13-rc2/include/linux/cache.h
-=================================--- linux-2.6.13-rc2.orig/include/linux/cache.h	2005-07-12 16:18:41.000000000 -0700
-+++ linux-2.6.13-rc2/include/linux/cache.h	2005-07-12 16:19:00.000000000 -0700
-@@ -13,7 +13,7 @@
- #define SMP_CACHE_BYTES L1_CACHE_BYTES
- #endif
- 
--#if defined(CONFIG_X86) || defined(CONFIG_SPARC64)
-+#if defined(CONFIG_X86) || defined(CONFIG_SPARC64) || defined(CONFIG_IA64)
- #define __read_mostly __attribute__((__section__(".data.read_mostly")))
- #else
- #define __read_mostly
+------=_Part_2827_6079062.1121118992473
+Content-Type: text/x-patch; name="credits.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="credits.diff"
+
+U2lnbmVkLW9mZi1ieTogRGF2aWQgTW9zYmVyZ2VyLVRhbmcgPERhdmlkLk1vc2JlcmdlckBhY20u
+b3JnPgoKZGlmZiAtLWdpdCBhL0NSRURJVFMgYi9DUkVESVRTCi0tLSBhL0NSRURJVFMKKysrIGIv
+Q1JFRElUUwpAQCAtMjM4OSw4ICsyMzg5LDggQEAgUzogU3BpdCBKdW5jdGlvbiBOU1cgMjA4OAog
+UzogQXVzdHJhbGlhCiAKIE46IERhdmlkIE1vc2Jlcmdlci1UYW5nCi1FOiBkYXZpZG1AaHBsLmhw
+LmNvbSBpZiBJQS02NCByZWxhdGVkLCBlbHNlIERhdmlkLk1vc2JlcmdlckBhY20ub3JnCi1EOiBM
+aW51eC9BbHBoYSBhbmQgTGludXgvaWE2NAorRTogRGF2aWQuTW9zYmVyZ2VyQGFjbS5vcmcKK0Q6
+IExpbnV4L2lhNjQKIFM6IDM1NzA2IFJ1bmNrZWwgTGFuZQogUzogRnJlbW9udCwgQ2FsaWZvcm5p
+YSA5NDUzNgogUzogVVNBCg==
+------=_Part_2827_6079062.1121118992473--
