@@ -1,46 +1,29 @@
-From: dcn@sgi.com (Dean Nelson)
-Date: Tue, 12 Jul 2005 19:30:45 +0000
-Subject: [PATCH] fix call of smp_processor_id() by XPC while preemptible
-Message-Id: <42D41A65.mailx8QB11670O@aqua.americas.sgi.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 12 Jul 2005 19:39:55 +0000
+Subject: RE: [PATCH] fix call of smp_processor_id() by XPC while preemptible
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03E3D6D5@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42D41A65.mailx8QB11670O@aqua.americas.sgi.com>
+In-Reply-To: <42D41A65.mailx8QB11670O@aqua.americas.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-XPC calls smp_processor_id() twice from xpc_setup_infrastructure() with
-preemption enabled, which gets flagged if 'DEBUG_PREEMPT=y'. This patch
-disables preemption around a now single call to smp_processor_id(). Note
-that it doesn't matter if the thread is moved to another processor once
-it has the processor ID.
+>XPC calls smp_processor_id() twice from xpc_setup_infrastructure() with
+>preemption enabled, which gets flagged if 'DEBUG_PREEMPT=y'. This patch
+>disables preemption around a now single call to smp_processor_id(). Note
+>that it doesn't matter if the thread is moved to another processor once
+>it has the processor ID.
 
-Signed-off-by: Dean Nelson <dcn@sgi.com>
+So the code becomes effectively:
 
+	cpuid = pick_a_random_online_cpuid();
 
-Index: linux-2.6/arch/ia64/sn/kernel/xpc_channel.c
-=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_channel.c	2005-07-12 12:09:14.026288661 -0500
-+++ linux-2.6/arch/ia64/sn/kernel/xpc_channel.c	2005-07-12 13:23:34.976151339 -0500
-@@ -72,7 +72,7 @@
- enum xpc_retval
- xpc_setup_infrastructure(struct xpc_partition *part)
- {
--	int ret;
-+	int ret, cpuid;
- 	struct timer_list *timer;
- 	partid_t partid = XPC_PARTID(part);
- 
-@@ -223,9 +223,13 @@
- 	xpc_vars_part[partid].openclose_args_pa  					__pa(part->local_openclose_args);
- 	xpc_vars_part[partid].IPI_amo_pa = __pa(part->local_IPI_amo_va);
--	xpc_vars_part[partid].IPI_nasid = cpuid_to_nasid(smp_processor_id());
--	xpc_vars_part[partid].IPI_phys_cpuid -					cpu_physical_id(smp_processor_id());
-+
-+	preempt_disable();
-+	cpuid = smp_processor_id();
-+	preempt_enable();
-+	xpc_vars_part[partid].IPI_nasid = cpuid_to_nasid(cpuid);
-+	xpc_vars_part[partid].IPI_phys_cpuid = cpu_physical_id(cpuid);
-+
- 	xpc_vars_part[partid].nchannels = part->nchannels;
- 	xpc_vars_part[partid].magic = XPC_VP_MAGIC1;
- 
+What is the higher level function that you are doing here that is OK
+with that?
+
+-Tony
+
+P.S. The cpu number you picked may not still be online by the time
+you use it.
