@@ -1,31 +1,33 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Mon, 11 Jul 2005 19:21:55 +0000
+From: Linas Vepstas <linas@austin.ibm.com>
+Date: Tue, 12 Jul 2005 21:14:01 +0000
 Subject: Re: [PATCH 2.6.13-rc1 07/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <ed5aea4305071112212756924@mail.gmail.com>
+Message-Id: <20050712211401.GF26607@austin.ibm.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42CB6961.2060508@jp.fujitsu.com>
+References: <42CB63B2.6000505@jp.fujitsu.com> <42CB6961.2060508@jp.fujitsu.com>
 In-Reply-To: <42CB6961.2060508@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
 
-Yeah, PAL calls are very expensive.  On a zx1-type machine, I/O reads
-take on the order of 1,000 cycles, so a PAL call would be an order of
-magnitude more expensive.  Is PAL_MC_FLUSH really needed in that case?
+On Wed, Jul 06, 2005 at 02:17:21PM +0900, Hidetoshi Seto was heard to remark:
+> 
+> Touching poisoned data become a MCA, so now it directly means
 
-  --david
+Several questions: 
 
-On 7/11/05, Luck, Tony <tony.luck@intel.com> wrote:
-> 
-> >Why not be extra safe and call PAL_MC_FLUSH?  Or would that be too
-> >expensive?
-> 
-> Just timed a call to PAL_MC_DRAIN (which is what I assume you meant).
-> 
-> Just over 13,000 cycles.
-> 
-> Is that too expensive?  How long does an i/o read take from a typical device?
-> 
-> -Tony
->
+Is MCA an exception or fault of some sort, so at some point, 
+the kernel would catch a fault?
+
+So when you say "Touching poisoned data become a MCA", you mean that
+if the CPU attempts to read poisoned data through the pci-to-host
+bridge, it will (at some point) catch an exception?
+
+> +	ia64_mca_barrier(ret);
+
+I assume that the point of this barrier is to make sure that the fault,
+if any, is delivered before this routine returns?
+
+--linas
+
