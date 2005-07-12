@@ -1,52 +1,46 @@
-From: Linas Vepstas <linas@austin.ibm.com>
-Date: Wed, 13 Jul 2005 22:42:44 +0000
-Subject: Re: [PATCH 2.6.13-rc1 03/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <20050713224244.GM26607@austin.ibm.com>
+From: dcn@sgi.com (Dean Nelson)
+Date: Tue, 12 Jul 2005 19:30:45 +0000
+Subject: [PATCH] fix call of smp_processor_id() by XPC while preemptible
+Message-Id: <42D41A65.mailx8QB11670O@aqua.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42CB63B2.6000505@jp.fujitsu.com> <42CB664E.1050003@jp.fujitsu.com> <20050712195120.GE26607@austin.ibm.com> <1121213938.31924.406.camel@gaston>
-In-Reply-To: <1121213938.31924.406.camel@gaston>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Cc: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: linux-ia64@vger.kernel.org
 
-Hi,
+XPC calls smp_processor_id() twice from xpc_setup_infrastructure() with
+preemption enabled, which gets flagged if 'DEBUG_PREEMPT=y'. This patch
+disables preemption around a now single call to smp_processor_id(). Note
+that it doesn't matter if the thread is moved to another processor once
+it has the processor ID.
 
-Yes, but ...
-
-On Wed, Jul 13, 2005 at 10:18:57AM +1000, Benjamin Herrenschmidt was heard to remark:
-> 
-> > Are you assuming that a device driver will use an iochk_read() for
-> > every DMA operation? for every MMIO to the card?  
-> > 
-> > For high performance devices, it seems to me that this will cause
-> > a rather large performance burden, especially if its envisioned that
-> > all architectures will do something similar.
-> > 
-> > My concern is that (at least on ppc64) the call pci_read_config_word()
-> > requires a call into "firmware" aka "BIOS", which takes thousands upon
-> > thousands of cpu cycles.  There are hundreds of cycles of gratuitous
-> > crud just to get into the firmware, and then lord-knows-what the
-> > firmware does while its in there; probably doing all sorts of crazy
-> > math to compute bus addresses and other arcane things.  I would imagine
-> > that most architectures, includig ia64, are similar.
-> > 
-> > Thus, one wouldn't want to perform an iochk_read() in this way unless
-> > one was already pretty sure that an error had already occured ... 
-> > 
-> > Am I misunderstanding something?
-> 
-> I would expect pSeries not to use the "default" error checking (that
-> tests the status register) but rather use EEH.
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
 
-OK, it wasn't clear to me if every possible case of the "detected parity
-error" bit being set on the pci adapter is converted into an EEH error.
-I had the impression that the adapter can set the bit, but not signal a 
-#PERR, adn thus have no EEH event.   I am investigating this now.
-
-If a given device driver is expecting iochk_read() to catch this situation, 
-then we'd be screwed.
-
---linas
+Index: linux-2.6/arch/ia64/sn/kernel/xpc_channel.c
+=================================--- linux-2.6.orig/arch/ia64/sn/kernel/xpc_channel.c	2005-07-12 12:09:14.026288661 -0500
++++ linux-2.6/arch/ia64/sn/kernel/xpc_channel.c	2005-07-12 13:23:34.976151339 -0500
+@@ -72,7 +72,7 @@
+ enum xpc_retval
+ xpc_setup_infrastructure(struct xpc_partition *part)
+ {
+-	int ret;
++	int ret, cpuid;
+ 	struct timer_list *timer;
+ 	partid_t partid = XPC_PARTID(part);
+ 
+@@ -223,9 +223,13 @@
+ 	xpc_vars_part[partid].openclose_args_pa  					__pa(part->local_openclose_args);
+ 	xpc_vars_part[partid].IPI_amo_pa = __pa(part->local_IPI_amo_va);
+-	xpc_vars_part[partid].IPI_nasid = cpuid_to_nasid(smp_processor_id());
+-	xpc_vars_part[partid].IPI_phys_cpuid -					cpu_physical_id(smp_processor_id());
++
++	preempt_disable();
++	cpuid = smp_processor_id();
++	preempt_enable();
++	xpc_vars_part[partid].IPI_nasid = cpuid_to_nasid(cpuid);
++	xpc_vars_part[partid].IPI_phys_cpuid = cpu_physical_id(cpuid);
++
+ 	xpc_vars_part[partid].nchannels = part->nchannels;
+ 	xpc_vars_part[partid].magic = XPC_VP_MAGIC1;
+ 
