@@ -1,31 +1,31 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Mon, 11 Jul 2005 23:00:17 +0000
-Subject: curious compiler-warning
-Message-Id: <ed5aea430507111600684085cc@mail.gmail.com>
+From: James E Wilson <wilson@tuliptree.org>
+Date: Tue, 12 Jul 2005 01:55:22 +0000
+Subject: Re: curious compiler-warning
+Message-Id: <1121133322.9211.75.camel@aretha.corp.specifix.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <ed5aea430507111600684085cc@mail.gmail.com>
+In-Reply-To: <ed5aea430507111600684085cc@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi Jim,
+On Mon, 2005-07-11 at 16:00, david mosberger wrote:
+> arch/ia64/kernel/time.c:198: warning: format '%u' expects type
+> 'unsigned int', but argument 5 has type 'unsigned int'
+> Argument 5 here is a bit field declared as:
+>   unsigned long field : 32;
 
-I tried to make the ia64-specific files in the Linux kernel compile
-cleanly with gcc v4.0.1 and ended up with this curious warning
-message:
+This looks like a bug to me.  There have been some significant changes
+to the bit-field support over the last few years.  There were some cases
+where we were non-conforming with respect to C89: getting sign/zero
+extension wrong, performing operations with the wrong precision.  Plus
+some changes were needed for C99 support.  It looks like these changes
+have accidentally broken the -Wformat support.
 
-arch/ia64/kernel/time.c:198: warning: format '%u' expects type
-'unsigned int', but argument 5 has type 'unsigned int'
+Just taking a quick look, I don't see any existing bug report for this,
+so I created a new one.  This is now FSF gcc bug 22421.
+    http://gcc.gnu.org/bugzilla/show_bug.cgi?id"421
 
-Argument 5 here is a bit field declared as:
 
-  unsigned long field : 32;
 
-and if I use a format of '%lu' (what we used so far), I also get a
-warning, which wasn't the case with pre-4.x compilers.
-
-Do you know what's wrong here?
-
-Thanks,
-
-  --david
