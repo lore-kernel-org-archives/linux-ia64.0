@@ -1,67 +1,43 @@
-From: Stephane Eranian <eranian@hpl.hp.com>
-Date: Fri, 01 Jul 2005 21:06:57 +0000
-Subject: 2.6.12-mm2 perfmon2 patch and beta libpfm-3.2 available
-Message-Id: <20050701210657.GA26014@frankl.hpl.hp.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Tue, 12 Jul 2005 23:34:50 +0000
+Subject: [PATCH] __read_mostly for IA64
+Message-Id: <Pine.LNX.4.62.0507121633530.5062@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org, perfmon@napali.hpl.hp.com, akpm@osdl.org, mikpe@csd.uu.se, david@gibson.dropbear.id.au, maynardj@us.ibm.com, bill.brantley@amd.com, mucci@cs.utk.edu, reeja.john@amd.com, brad.chen@intel.com, charles.spirakis@intel.com, Stephane Eranian <eranian@hpl.hp.com>, "Lynn, Brian" <brian_lynn@hp.com>
+To: linux-ia64@vger.kernel.org
 
-Hello everyone,
+i386, x86_64 and sparc64 support the __read_mostly attribute to place
+frequently read variables separately from variables that may be frequently
+written to thereby optimizing cacheline use and avoiding false aliasing.
 
-I am pleased to announce that I have now released an updated version
-of the perfmon2 new code base. This release includes some major improvements
-such as better kernel integration and a preliminary port to PPC64. This new
-patch is against Andrew Morton's 2.6.12-mm2 kernel. 
+This patch implements __read_mostly for IA64.
 
-As some of you know, 2.6.12-mm2 already includes the perfctr subsystem by Mikael
-Pettersson on X86-64, IA-32 and PPC64.  The new perfmon patch provides seamless
-integration with perfctr. In particular, the kernel hooks have been unified
-between the two subsystems. On X86-64, IA-32 and also on PPC64, you can chose
-which subsystem you want at kernel compile time (see Processor type and
-features options).
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-The goal is for people to evaluate side by side the benefits of perfmon2
-compared to perfctr. The short term goal is to unify the two subsystems
-as we believe it is not practical, especially for developers and Linux
-distributors, to have two interfaces to access the same hardware resource.
-
-See the included ChangeLog for a summary of the many changes that went into
-this new release.
-
-I would like to thank all the people who have contributed feedback and
-patches, especially David Gibson for a preliminary patch for PPC64.
-
-In order for people to better evaluate what the perfmon interface can do
-I have also released a beta version for libpfm-3.2, a helper library which
-can be used by performance tools to setup the PMU counters. The library
-supports all Itanium processors, X86-64 and the P6 processors (incl Pentium M).
-Note that the library does NOT make any perfmon call per se, all it does is given a set
-of events it returns how they should be assigned to the various counters.
-Applications then make the perfmon system calls to actually access the counters.
-
-The library is not required to access the interface. But it is used by tools such
-as pfmon and PAPI on IA-64. The package comes with lots of examples
-of how the library and the kernel interfaces can be used to build tools.
-The examples used the exact same code for all platforms. The package includes man
-pages for all entry points. 
-
-At this point, the event tables for X86-64 and P6 processor family are partial
-but there is enough to evaluate the interface. There is currently no PPC64 support
-for libpfm. For practical reasons, the package also contains the header files to
-program the kernel interface.
-
-You can download the two packages at:
-
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/perfmon-new-base-050701.tar.gz
-	MD5SUM: 4d6f34ddecfd9542790a06386db4f708
-
-	ftp://ftp.hpl.hp.com/pub/linux-ia64/libpfm-3.2-050701.tar.gz
-	MD5SUM: 297c3e2e536860ce3f7b6b6e1521f002
-
-Enjoy,
-
--- 
--Stephane
+Index: linux-2.6.13-rc2/arch/ia64/kernel/vmlinux.lds.S
+=================================--- linux-2.6.13-rc2.orig/arch/ia64/kernel/vmlinux.lds.S	2005-07-05 20:46:33.000000000 -0700
++++ linux-2.6.13-rc2/arch/ia64/kernel/vmlinux.lds.S	2005-07-12 16:13:47.000000000 -0700
+@@ -179,6 +179,9 @@ SECTIONS
+   .data.cacheline_aligned : AT(ADDR(.data.cacheline_aligned) - LOAD_OFFSET)
+         { *(.data.cacheline_aligned) }
+ 
++  .data.read_mostly : AT(ADDR(.data.read_mostly) - LOAD_OFFSET)
++        { *(.data.read_mostly) }
++
+   /* Per-cpu data: */
+   percpu : { } :percpu
+   . = ALIGN(PERCPU_PAGE_SIZE);
+Index: linux-2.6.13-rc2/include/linux/cache.h
+=================================--- linux-2.6.13-rc2.orig/include/linux/cache.h	2005-07-12 16:18:41.000000000 -0700
++++ linux-2.6.13-rc2/include/linux/cache.h	2005-07-12 16:19:00.000000000 -0700
+@@ -13,7 +13,7 @@
+ #define SMP_CACHE_BYTES L1_CACHE_BYTES
+ #endif
+ 
+-#if defined(CONFIG_X86) || defined(CONFIG_SPARC64)
++#if defined(CONFIG_X86) || defined(CONFIG_SPARC64) || defined(CONFIG_IA64)
+ #define __read_mostly __attribute__((__section__(".data.read_mostly")))
+ #else
+ #define __read_mostly
