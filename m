@@ -1,7 +1,7 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Tue, 12 Jul 2005 21:39:20 +0000
-Subject: Re: [PATCH] enable to read region 5 from /dev/kmem
-Message-Id: <ed5aea430507121439364f9d0@mail.gmail.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 12 Jul 2005 22:08:39 +0000
+Subject: RE: [PATCH] enable to read region 5 from /dev/kmem
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03E3D99C@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <42C501CD.4010907@jp.fujitsu.com>
 In-Reply-To: <42C501CD.4010907@jp.fujitsu.com>
@@ -10,13 +10,28 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 7/12/05, Luck, Tony <tony.luck@intel.com> wrote:
+>> It comes down to what the real semantics of /dev/kmem are supposed
+>> to be.
+>
+>That is certainly true.  I thought we had settled that pages with the
+>WB attribute would _only_ be accessible in a cacheable fashion and
+>pages without the WB attribute would _only_ be accessible uncached.
 
-> It comes down to what the real semantics of /dev/kmem are supposed
-> to be.
+So what is the right thing to do when a user goes through /dev/kmem
+and tries to violate this rule?  For region 7 addresses we silently
+redirect the access to region 6 for uncacheable pages.  At the time
+this seemed a reasonable thing to do as it might be hard for a kmem
+using program to track down whether a page is marked uncacheable ...
+and the "kernel virtual = physical + PAGE_OFFSET" rule works on many
+architectures, so doing this may magically make some kmem readers
+get the right answers without crashing.
 
-That is certainly true.  I thought we had settled that pages with the
-WB attribute would _only_ be accessible in a cacheable fashion and
-pages without the WB attribute would _only_ be accessible uncached.
+We could do a similar thing for region 6 and silently remap to region
+7 for pages that should only be accessed cacheably ... but what if the
+user going through /dev/kmem and seeking into region 6 knows what they
+are doing and wants to perform uncacheable access?  If the user is
+accessing region 6, then they didn't get there by blind chance.
 
- --david
+Which gets back to the semantics of /dev/kmem.
+
+-Tony
