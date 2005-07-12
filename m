@@ -1,32 +1,63 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Fri, 29 Jul 2005 17:30:12 +0000
-Subject: RE: Delete scheduler SD_WAKE_AFFINE and SD_WAKE_BALANCE flags
-Message-Id: <200507291730.j6THUCg15426@unix-os.sc.intel.com>
+From: Yasunori Goto <y-goto@jp.fujitsu.com>
+Date: Tue, 12 Jul 2005 06:50:09 +0000
+Subject: [PATCH] gurantee DMA area for alloc_bootmem_low()
+Message-Id: <20050712152715.44CD.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20050729112616.GA24965@elte.hu>
-References: <200507282308.j6SN8Tg01993@unix-os.sc.intel.com>
-In-Reply-To: <200507282308.j6SN8Tg01993@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: 'Ingo Molnar' <mingo@elte.hu>
-Cc: 'Nick Piggin' <nickpiggin@yahoo.com.au>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-mm <linux-mm@kvack.org>
+Cc: "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "Martin J. Bligh" <mbligh@mbligh.org>
 
-Ingo Molnar wrote on Friday, July 29, 2005 4:26 AM
-> * Chen, Kenneth W <kenneth.w.chen@intel.com> wrote:
-> > To demonstrate the problem, we turned off these two flags in the cpu 
-> > sd domain and measured a stunning 2.15% performance gain!  And 
-> > deleting all the code in the try_to_wake_up() pertain to load 
-> > balancing gives us another 0.2% gain.
-> 
-> another thing: do you have a HT-capable ia64 CPU, and do you have 
-> CONFIG_SCHED_SMT turned on? If yes then could you try to turn off 
-> SD_WAKE_IDLE too, i found it to bring further performance improvements 
-> in certain workloads.
+Hello.
 
-The scheduler experiments done so far are on non-SMT CPU (Madison processor).
-We have another db setup with multi-thread capable ia64 cpu (montecito, and to
-be precise, it is SOEMT capable).  We are just about to do scheduler experiments
-on that setup.
+This is a patch to guarantee that alloc_bootmem_low() allocate DMA area.
 
+Current alloc_bootmem_low() is just specify "goal=0". And it is 
+used for __alloc_bootmem_core() to decide which address is better.
+However, there is no guarantee that __alloc_bootmem_core()
+allocate DMA area when goal=0 is specified.
+Even if there is no DMA'ble area in searching node, it allocates
+higher address than MAX_DMA_ADDRESS.
+
+__alloc_bootmem_core() is called by order of for_each_pgdat()
+in __alloc_bootmem(). So, if first node (node_id = 0) has
+DMA'ble area, no trouble will occur. However, our new Itanium2 server
+can change which node has lower address. And panic really occurred on it.
+The message was "bounce buffer is not DMA'ble" in swiothl_map_single().
+
+To avoid this panic, following patch skips no DMA'ble node when 
+lower address is required.
+I tested this patch on my Tiger 4 and our new server.
+
+Please apply.
+
+Thanks.
+
+Signed-off by Yasunori Goto <y-goto@jp.fujitsu.com>
+
+Index: allocbootmem/mm/bootmem.c
+=================================--- allocbootmem.orig/mm/bootmem.c	2005-06-30 11:57:13.000000000 +0900
++++ allocbootmem/mm/bootmem.c	2005-07-08 20:46:56.209040741 +0900
+@@ -387,10 +387,16 @@
+ 	pg_data_t *pgdat = pgdat_list;
+ 	void *ptr;
+ 
+-	for_each_pgdat(pgdat)
++	for_each_pgdat(pgdat){
++
++		if (goal < __pa(MAX_DMA_ADDRESS) &&
++		    pgdat->bdata->node_boot_start >= __pa(MAX_DMA_ADDRESS))
++			continue; /* Skip No DMA node */
++
+ 		if ((ptr = __alloc_bootmem_core(pgdat->bdata, size,
+ 						align, goal)))
+ 			return(ptr);
++	}
+ 
+ 	/*
+ 	 * Whoops, we cannot satisfy the allocation request.
+
+-- 
+Yasunori Goto 
 
