@@ -1,92 +1,20 @@
-From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Wed, 13 Jul 2005 01:52:30 +0000
-Subject: [PATCH]Kprobes IA64 - Fix race when break hits and kprobe not found
-Message-Id: <20050712185230.A8528@unix-os.sc.intel.com>
+From: Andrew Morton <akpm@osdl.org>
+Date: Wed, 13 Jul 2005 02:02:31 +0000
+Subject: Re: [PATCH]Kprobes IA64 - Fix race when break hits and kprobe not
+Message-Id: <20050712190231.789da83c.akpm@osdl.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050712185230.A8528@unix-os.sc.intel.com>
+In-Reply-To: <20050712185230.A8528@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: akpm@osdl.org
-Cc: anil.s.keshavamurthy@intel.com, Linux Kernel <linux-kernel@vger.kernel.org>, Linux IA64 <linux-ia64@vger.kernel.org>, prasanna@in.ibm.com
+To: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, prasanna@in.ibm.com
 
-This patch addresses a potential race condition for a case where
-Kprobe has been removed right after another CPU has taken
-a break hit.
+Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com> wrote:
+>
+> This patch applies on top of  "Prasanna S Panchamukhi's" recent postings
+>  Kprobes: Prevent possible race condition ia64 changes
 
-The way this is addressed here is when the CPU that has taken a break hit
-does not find its corresponding kprobe, then we check to see if the
-original instruction got replaced with other than break. If it got
-replaced with other than break instruction, then we continue to execute
-from the replaced instruction, else if we find that it is still a break, then
-we let the kernel handle this, as this might be the break instruction inserted by
-other than kprobe(may be kernel debugger).
-
-This patch applies on top of  "Prasanna S Panchamukhi's" recent postings
-Kprobes: Prevent possible race condition ia64 changes
-
-Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
-=================================== arch/ia64/kernel/kprobes.c |   45 +++++++++++++++++++++++++++++++++++++++++++++
- 1 files changed, 45 insertions(+)
-
-Index: linux-2.6.13-rc1-mm1-systemtap/arch/ia64/kernel/kprobes.c
-=================================--- linux-2.6.13-rc1-mm1-systemtap.orig/arch/ia64/kernel/kprobes.c
-+++ linux-2.6.13-rc1-mm1-systemtap/arch/ia64/kernel/kprobes.c
-@@ -554,6 +554,38 @@ static void __kprobes prepare_ss(struct 
- 	ia64_psr(regs)->ss = 1;
- }
- 
-+static int __kprobes is_ia64_break_inst(struct pt_regs *regs)
-+{
-+	unsigned int slot = ia64_psr(regs)->ri;
-+	unsigned int template, major_opcode;
-+	unsigned long kprobe_inst;
-+	unsigned long *kprobe_addr = (unsigned long *)regs->cr_iip;
-+	bundle_t bundle;
-+
-+	memcpy(&bundle, kprobe_addr, sizeof(bundle_t));
-+	template = bundle.quad0.template;
-+
-+	/* Move to slot 2, if bundle is MLX type and kprobe slot is 1 */
-+	if (slot = 1 && bundle_encoding[template][1] = L)
-+  		slot++;
-+
-+	/* Get Kprobe probe instruction at given slot*/
-+	get_kprobe_inst(&bundle, slot, &kprobe_inst, &major_opcode);
-+
-+	/* For break instruction,
-+	 * Bits 37:40 Major opcode to be zero
-+	 * Bits 27:32 X6 to be zero
-+	 * Bits 32:35 X3 to be zero
-+	 */
-+	if (major_opcode || ((kprobe_inst >> 27) & 0x1FF) ) {
-+		/* Not a break instruction */
-+		return 0;
-+	}
-+
-+	/* Is a break instruction */
-+	return 1;
-+}
-+
- static int __kprobes pre_kprobes_handler(struct die_args *args)
- {
- 	struct kprobe *p;
-@@ -601,6 +633,19 @@ static int __kprobes pre_kprobes_handler
- 	p = get_kprobe(addr);
- 	if (!p) {
- 		unlock_kprobes();
-+		if (!is_ia64_break_inst(regs)) {
-+			/*
-+			 * The breakpoint instruction was removed right
-+			 * after we hit it.  Another cpu has removed
-+			 * either a probepoint or a debugger breakpoint
-+			 * at this address.  In either case, no further
-+			 * handling of this interrupt is appropriate.
-+			 */
-+			ret = 1;
-+
-+		}
-+
-+		/* Not one of our break, let kernel handle it */
- 		goto no_kprobe;
- 	}
- 
+I am not aware of such a patch.  Your patch hit a reject when I tried to
+apply it to Linus's tree.  So I don't know what's going on..
