@@ -1,7 +1,7 @@
 From: Keshavamurthy Anil S <anil.s.keshavamurthy@intel.com>
-Date: Wed, 13 Jul 2005 03:56:21 +0000
+Date: Wed, 13 Jul 2005 04:51:02 +0000
 Subject: Re: [PATCH]Kprobes IA64 - Fix race when break hits and kprobe not found
-Message-Id: <20050712205620.A9292@unix-os.sc.intel.com>
+Message-Id: <20050712215101.A9616@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050712185230.A8528@unix-os.sc.intel.com> <20050712190231.789da83c.akpm@osdl.org>
 In-Reply-To: <20050712190231.789da83c.akpm@osdl.org>; from akpm@osdl.org on Tue, Jul 12, 2005 at 07:02:31PM -0700
@@ -21,10 +21,87 @@ On Tue, Jul 12, 2005 at 07:02:31PM -0700, Andrew Morton wrote:
 > apply it to Linus's tree.  So I don't know what's going on..
 
 Andrew,
-	I thought you might have applied http://marc.theaimsgroup.com/?l=linux-kernel&m2082142008250&w=2 hence I generated my patch on top of this.
+	This should apply cleanly ontop of Linus's tree.
 
-No problem, I will generate this patch against Linus's tree (as this does not really depend on any other patches) and submit it again in couple of hours. 
-Let me know if this is okay.
+----------------------------------------------------------
+This patch addresses a potential race condition for a case where
+Kprobe has been removed right after another CPU has taken
+a break hit.
 
--thanks,
--Anil
+The way this is addressed here is when the CPU that has taken a break hit
+does not find its corresponding kprobe, then we check to see if the
+original instruction got replaced with other than break. If it got
+replaced with other than break instruction, then we continue to execute
+from the replaced instruction, else if we find that it is still a break, then
+we let the kernel handle this, as this might be the break instruction inserted by
+other than kprobe(may be kernel debugger).
+
+This patch applies on top of  "Prasanna S Panchamukhi's" recent postings
+Kprobes: Prevent possible race condition ia64 changes
+
+Signed-off-by: Anil S Keshavamurthy <anil.s.keshavamurthy@intel.com>
+=================================== arch/ia64/kernel/kprobes.c |   45 +++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 45 insertions(+)
+
+Index: linux-2.6.13-rc2-mm2/arch/ia64/kernel/kprobes.c
+=================================--- linux-2.6.13-rc2-mm2.orig/arch/ia64/kernel/kprobes.c
++++ linux-2.6.13-rc2-mm2/arch/ia64/kernel/kprobes.c
+@@ -545,6 +545,38 @@ static void prepare_ss(struct kprobe *p,
+ 	ia64_psr(regs)->ss = 1;
+ }
+ 
++static int is_ia64_break_inst(struct pt_regs *regs)
++{
++	unsigned int slot = ia64_psr(regs)->ri;
++	unsigned int template, major_opcode;
++	unsigned long kprobe_inst;
++	unsigned long *kprobe_addr = (unsigned long *)regs->cr_iip;
++	bundle_t bundle;
++
++	memcpy(&bundle, kprobe_addr, sizeof(bundle_t));
++	template = bundle.quad0.template;
++
++	/* Move to slot 2, if bundle is MLX type and kprobe slot is 1 */
++ 	if (slot = 1 && bundle_encoding[template][1] = L)
++   		slot++;
++
++	/* Get Kprobe probe instruction at given slot*/
++	get_kprobe_inst(&bundle, slot, &kprobe_inst, &major_opcode);
++
++ 	/* For break instruction,
++ 	 * Bits 37:40 Major opcode to be zero
++	 * Bits 27:32 X6 to be zero
++	 * Bits 32:35 X3 to be zero
++	 */
++	if (major_opcode || ((kprobe_inst >> 27) & 0x1FF) ) {
++		/* Not a break instruction */
++		return 0;
++	}
++
++ 	/* Is a break instruction */
++	return 1;
++}
++
+ static int pre_kprobes_handler(struct die_args *args)
+ {
+ 	struct kprobe *p;
+@@ -592,6 +624,19 @@ static int pre_kprobes_handler(struct di
+ 	p = get_kprobe(addr);
+ 	if (!p) {
+ 		unlock_kprobes();
++		if (!is_ia64_break_inst(regs)) {
++			/*
++			 * The breakpoint instruction was removed right
++			 * after we hit it.  Another cpu has removed
++			 * either a probepoint or a debugger breakpoint
++			 * at this address.  In either case, no further
++			 * handling of this interrupt is appropriate.
++			 */
++			ret = 1;
++
++		}
++
++		/* Not one of our break, let kernel handle it */
+ 		goto no_kprobe;
+ 	}
+ 
