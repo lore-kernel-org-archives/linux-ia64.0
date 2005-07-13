@@ -1,40 +1,57 @@
 From: Yasunori Goto <y-goto@jp.fujitsu.com>
-Date: Wed, 13 Jul 2005 05:09:19 +0000
+Date: Wed, 13 Jul 2005 06:34:48 +0000
 Subject: Re: [PATCH] gurantee DMA area for alloc_bootmem_low()
-Message-Id: <20050713110109.F796.Y-GOTO@jp.fujitsu.com>
+Message-Id: <20050713152030.1B11.Y-GOTO@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050712152715.44CD.Y-GOTO@jp.fujitsu.com> <9320000.1121179193@[10.10.2.4]>
-In-Reply-To: <9320000.1121179193@[10.10.2.4]>
+References: <20050712152715.44CD.Y-GOTO@jp.fujitsu.com> <20050712183021.GC3987@w-mikek2.ibm.com>
+In-Reply-To: <20050712183021.GC3987@w-mikek2.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Martin J. Bligh" <mbligh@mbligh.org>
-Cc: linux-mm <linux-mm@kvack.org>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org
+To: Mike Kravetz <kravetz@us.ibm.com>
+Cc: linux-mm <linux-mm@kvack.org>, "Luck, Tony" <tony.luck@intel.com>, linux-ia64@vger.kernel.org, "Martin J. Bligh" <mbligh@mbligh.org>
 
-
-> > To avoid this panic, following patch skips no DMA'ble node when 
-> > lower address is required.
-> > I tested this patch on my Tiger 4 and our new server.
+> On Tue, Jul 12, 2005 at 03:50:09PM +0900, Yasunori Goto wrote:
+> > Index: allocbootmem/mm/bootmem.c
+> > =================================> > --- allocbootmem.orig/mm/bootmem.c	2005-06-30 11:57:13.000000000 +0900
+> > +++ allocbootmem/mm/bootmem.c	2005-07-08 20:46:56.209040741 +0900
+> > @@ -387,10 +387,16 @@
+> >  	pg_data_t *pgdat = pgdat_list;
+> >  	void *ptr;
+> >  
+> > -	for_each_pgdat(pgdat)
+> > +	for_each_pgdat(pgdat){
+> > +
+> > +		if (goal < __pa(MAX_DMA_ADDRESS) &&
+> > +		    pgdat->bdata->node_boot_start >= __pa(MAX_DMA_ADDRESS))
+> > +			continue; /* Skip No DMA node */
+> > +
+> >  		if ((ptr = __alloc_bootmem_core(pgdat->bdata, size,
+> >  						align, goal)))
+> >  			return(ptr);
+> > +	}
+> >  
+> >  	/*
+> >  	 * Whoops, we cannot satisfy the allocation request.
 > 
-> Seems reasonable ... but do you not want to check that the returned
-> ptr is actually less than MAX_DMA_ADDRESS as well? 
+> Need to be careful about the use of MAX_DMA_ADDRESS.  It is not always
+> the case that archs define MAX_DMA_ADDRESS as a real address.  In some
+> cases, MAX_DMA_ADDRESS is defined as something like -1 to indicate that
+> all addresses are available for DMA.  I'm not sure that the above code
+> will always work as desired in such cases.
 
-Well... If there isn't enough DMA area in a node by too much
-lower memory request or by something strange memory map in the node,
-its case might occur.
-I don't know it will really happen. But, the after check might be better
-than nothing.
+Hmm... Thanks for your advise.
 
-To tell the truth, I did the after check at first
-"instead of" previous check like this patch. 
-In its patch, if its DMA check failed, 
-allocated area are should be freed by free_bootmem_core(). 
-But hung up occurred by it, and I changed my patch to previous check
-instead of deep investigation of its hung up.
+If MAX_DMA_ADDRESS is like -1, then all of memory can be DMA'ble, 
+right?  How is like this? One more comparison is added.
 
-Ok. I'll investigate more.
+	if (MAX_DMA_ADDRESS != ~0UL  &&
+		goal < __pa(MAX_DMA_ADDRESS) &&
+		pgdat->bdata->node_boot_start >= 
+		__pa(MAX_DMA_ADDRESS))
 
 Thanks.
+
 -- 
 Yasunori Goto 
 
