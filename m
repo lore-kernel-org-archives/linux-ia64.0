@@ -1,47 +1,37 @@
 From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 28 Jul 2005 07:53:45 +0000
-Subject: [PATCH 2.6.13-rc3 3/6] failure of acpi_register_gsi() should be handled
-Message-Id: <42E88F09.2000904@jp.fujitsu.com>
+Date: Thu, 14 Jul 2005 09:31:05 +0000
+Subject: [RFC][patch 6/10] Multiple vector domain support - change irq_to_vector
+Message-Id: <42D630D9.8070709@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42E88DC8.7050507@jp.fujitsu.com>
-In-Reply-To: <42E88DC8.7050507@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
-Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+To: linux-ia64@vger.kernel.org
 
 
-This patch adds the error check of acpi_register_gsi() into hpet
-driver.
+This patch changes irq_to_vector() to abolish the identity mapping
+between IA-64 vector and Linux IRQ.
 
 Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-
 ---
 
- linux-2.6.13-rc3-kanesige/drivers/char/hpet.c |    8 ++++++--
- 1 files changed, 6 insertions(+), 2 deletions(-)
+ linux-2.6.13-rc1-kanesige/include/asm-ia64/hw_irq.h |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/char/hpet.c~handle-error-acpi_register_gsi-hpet drivers/char/hpet.c
---- linux-2.6.13-rc3/drivers/char/hpet.c~handle-error-acpi_register_gsi-hpet	2005-07-28 01:01:16.000000000 +0900
-+++ linux-2.6.13-rc3-kanesige/drivers/char/hpet.c	2005-07-28 01:01:16.000000000 +0900
-@@ -906,11 +906,15 @@ static acpi_status hpet_resources(struct
- 		if (irqp->number_of_interrupts > 0) {
- 			hdp->hd_nirqs = irqp->number_of_interrupts;
+diff -puN include/asm-ia64/hw_irq.h~vector-domain-ia64-change-irq_to_vector include/asm-ia64/hw_irq.h
+--- linux-2.6.13-rc1/include/asm-ia64/hw_irq.h~vector-domain-ia64-change-irq_to_vector	2005-07-13 16:12:49.000000000 +0900
++++ linux-2.6.13-rc1-kanesige/include/asm-ia64/hw_irq.h	2005-07-13 16:12:49.000000000 +0900
+@@ -207,7 +207,7 @@ irq_descp (int irq)
+ static inline ia64_vector
+ irq_to_vector (int irq)
+ {
+-	return (ia64_vector) irq;
++	return (ia64_vector) gsv_to_vector(irq_to_gsv(irq));
+ }
  
--			for (i = 0; i < hdp->hd_nirqs; i++)
--				hdp->hd_irq[i] +			for (i = 0; i < hdp->hd_nirqs; i++) {
-+				int rc  				    acpi_register_gsi(irqp->interrupts[i],
- 						      irqp->edge_level,
- 						      irqp->active_high_low);
-+				if (rc < 0)
-+					return AE_ERROR;
-+				hdp->hd_irq[i] = rc;
-+			}
- 		}
- 	}
- 
+ /*
 
 _
+
 
