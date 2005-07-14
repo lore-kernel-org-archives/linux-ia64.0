@@ -1,49 +1,72 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 07 Jul 2005 01:35:53 +0000
-Subject: RE: [PATCH] fix generic/up builds in 2.6.12
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03D924C2@scsmsx401.amr.corp.intel.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Thu, 14 Jul 2005 04:09:10 +0000
+Subject: Fix undefined reference to can_cpei_retarget for simulator build
+Message-Id: <20050714040909.GB15249@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="0vzXIDBeUiKkjNJl"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1120073612.8358.44.camel@localhost>
-In-Reply-To: <1120073612.8358.44.camel@localhost>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->On Wed, Jun 29, 2005 at 01:33:32PM -0600, dann frazier wrote:
->| Resending with a fixed subject & correct cc addr :)
->| 
->| Here is a resubmittal of Jesse Barnes' fix for generic UP 
->builds, ported
->| to 2.6.12.  I've boot tested it on an rx2600.
->| 
->| Can someone test on an sn2 system?
->
->Dann,
->
->Yep, works fine on various sn2 configs except for one particular
->hardware/prom configuation, which I believe is unrelated to this patch
->(we're still looking at it).
 
-There was a conflict in discontig.c with Bob Picco's memory-less nodes
-patch ... which I resolved, it would be helpful if someone looked at
-it to see that I got it right.  Patch is in my GIT tree (or will be
-when kernel.org mirroring makes it visible).
+--0vzXIDBeUiKkjNJl
+Content-Type: multipart/mixed; boundary="cvVnyQ+4j833TQvp"
+Content-Disposition: inline
 
-Generic kernels don't boot on Tiger ... they oops in tiocx_init().
-Turning off CONFIG_SGI_TIOCX works around this for now, but this needs
-to be fixed.
 
-Oh ... apologies to Dann ... in the commit commentary I said that
-Greg had dug this back up out of obscurity.
+--cvVnyQ+4j833TQvp
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
->It would probably be worthwhile to incorporate Jesse's comments to
->the last post of this:
->
->http://marc.theaimsgroup.com/?l=linux-ia64&m1077582813691&w=2
+Hi,
 
-Yes, it would be nice to apply some more cleanup ... but I've let
-this patch get too stale before, so I put it in as-is for now.
+The change @ http://tinyurl.com/dsxf4 broke the simulator build
+(http://www.gelato.unsw.edu.au/kerncomp).
 
--Tony
+The simulator build doesn't turn on ACPI, so doesn't have a definition
+of can_cpei_retarget.  Suggested patch attached.
 
+Thanks,
+
+-i
+ianw@gelato.unsw.edu.au
+http://www.gelato.unsw.edu.au
+
+--cvVnyQ+4j833TQvp
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="topology.c-acpi.diff"
+
+diff --git a/arch/ia64/kernel/topology.c b/arch/ia64/kernel/topology.c
+--- a/arch/ia64/kernel/topology.c
++++ b/arch/ia64/kernel/topology.c
+@@ -36,12 +36,14 @@ int arch_register_cpu(int num)
+ 	parent = &sysfs_nodes[cpu_to_node(num)];
+ #endif /* CONFIG_NUMA */
+ 
++#ifdef CONFIG_ACPI_BOOT
+ 	/*
+ 	 * If CPEI cannot be re-targetted, and this is
+ 	 * CPEI target, then dont create the control file
+ 	 */
+ 	if (!can_cpei_retarget() && is_cpu_cpei_target(num))
+ 		sysfs_cpus[num].cpu.no_control = 1;
++#endif
+ 
+ 	return register_cpu(&sysfs_cpus[num].cpu, num, parent);
+ }
+
+--cvVnyQ+4j833TQvp--
+
+--0vzXIDBeUiKkjNJl
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFC1eVlWDlSU/gp6ecRAqPIAKDCqKAU//SAqp8AtBCANyI8wM+QIwCdH1/3
+Iva2hiDoa80DJVciIRiK5QI=
+=rh01
+-----END PGP SIGNATURE-----
+
+--0vzXIDBeUiKkjNJl--
