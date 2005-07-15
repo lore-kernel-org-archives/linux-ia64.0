@@ -1,53 +1,52 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Fri, 15 Jul 2005 21:20:12 +0000
-Subject: Re: [NUMA] Display and modify the memory policy of a process through
-Message-Id: <Pine.LNX.4.62.0507151413360.11563@schroedinger.engr.sgi.com>
+From: Andi Kleen <ak@suse.de>
+Date: Fri, 15 Jul 2005 21:47:01 +0000
+Subject: Re: [NUMA] Display and modify the memory policy of a process through /proc/<pid>/numa_policy
+Message-Id: <20050715214700.GJ15783@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200507150452.j6F4q9g10274@unix-os.sc.intel.com>
- <Pine.LNX.4.62.0507142152400.2139@schroedinger.engr.sgi.com>
- <20050714230501.4a9df11e.pj@sgi.com> <Pine.LNX.4.62.0507150901500.8556@schroedinger.engr.sgi.com>
- <20050715140437.7399921f.pj@sgi.com> <20050715211210.GI15783@wotan.suse.de>
-In-Reply-To: <20050715211210.GI15783@wotan.suse.de>
+References: <200507150452.j6F4q9g10274@unix-os.sc.intel.com> <Pine.LNX.4.62.0507142152400.2139@schroedinger.engr.sgi.com> <20050714230501.4a9df11e.pj@sgi.com> <Pine.LNX.4.62.0507150901500.8556@schroedinger.engr.sgi.com> <20050715140437.7399921f.pj@sgi.com> <20050715211210.GI15783@wotan.suse.de> <Pine.LNX.4.62.0507151413360.11563@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.62.0507151413360.11563@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: Paul Jackson <pj@sgi.com>, kenneth.w.chen@intel.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org
+To: Christoph Lameter <clameter@engr.sgi.com>
+Cc: Andi Kleen <ak@suse.de>, Paul Jackson <pj@sgi.com>, kenneth.w.chen@intel.com, linux-mm@kvack.org, linux-ia64@vger.kernel.org
 
-On Fri, 15 Jul 2005, Andi Kleen wrote:
+> It is very useful to a batch scheduler that can dynamically move memory 
+> between nodes. It needs to know exactly where the pages are including the 
+> vma information. 
 
-> > These questions of interface style (filesys or syscall) probably don't
-> > matter, however. at least not yet.  First we need to make sense of
-> > the larger issues that Ken and Andi raise, of whether this is a good
-> > thing to do.
-> 
-> In my opinion detailed reporting of node affinity to external
-> processes of specific memory areas is a mistake. It's too finegrained and 
-> not useful outside the process itself (external users don't or shouldn't
-> know anything about process virtual addresses). The information
-> is too volatile and can change every time without nice 
-> ways to lock (no SIGSTOP is not a acceptable way) 
+You mean for relative placement in node groups? 
+Ray's code was supposed to handle that in the kernel.
+You pass an mapping array to the syscall and it does the rest.
 
-It is very useful to a batch scheduler that can dynamically move memory 
-between nodes. It needs to know exactly where the pages are including the 
-vma information. It is also of utmost importance to a sysadmin that wants 
-to control the memory placement of an important application to have 
-information about the process and be able to influence future allocations 
-as well as to move existing pages.
+We had a big discussion about that some months ago; I suggest
+you review it.
 
-The volatility has to be taken into account by the batch scheduler or by 
-the sysadmin manipulating the program. Typically both know much more about 
-the expected and future behavior of the application than the kernel.
+So for what does that batch monstrosity need to know 
+about the VMAs? 
 
-And yes SIGSTOP is acceptable if the application behavior on STOP -> 
-Continue is know by the administrator or the batch scheduler. I do not 
-think that this is required though.
+> It is also of utmost importance to a sysadmin that wants 
+> to control the memory placement of an important application to have 
+> information about the process and be able to influence future allocations 
+> as well as to move existing pages.
 
-Image an important batch data run that has been running for 2 days and 
-will run 3 more days. Now some nodes are running out of memory and the 
-performance suffers. The batch scheduler / or sysadmin will be able to 
-inspect the situation and improve the performance by changing memory 
-policies and/or moving pages. The batch scheduler / admin knows about 
-which processes are important and may stop other processes in order for 
-the critical process to finish in time.
+I don't believe any admin will mess with virtual addresses.
 
+I added the capability to numactl for shared memory
+areas because I first thought it would be useful, but as far
+as I know nobody was interested in it. (will probably remove
+it again) 
+
+But for "uncooperative" programs working on bigger objects
+like threads/files/shm areas/processes makes much more sense. And gives
+much cleaner interfaces too.
+
+Now I can see some people being interested in more fine grained
+policy, but the only sane way to do that is to change the source
+code and use libnuma.
+
+Basically to mess with finegrained virtual addresses you need code access,
+and when you have that you can as well do it well and add 
+libnuma and recompile.
+
+-Andi
