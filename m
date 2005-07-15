@@ -1,37 +1,56 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 14 Jul 2005 09:31:05 +0000
-Subject: [RFC][patch 6/10] Multiple vector domain support - change irq_to_vector
-Message-Id: <42D630D9.8070709@jp.fujitsu.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 15 Jul 2005 19:16:03 +0000
+Subject: [announce] linux kernel performance project launch at sourceforge.net
+Message-Id: <200507151916.j6FJG3g16619@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Forward for people who might missed the "linux kernel performance"
+announcement on LKML yesterday. It has performance data for ia64,
+in case if you are interested, you are welcome to browse the data
+and join the discussion on kernel performance.
 
-This patch changes irq_to_vector() to abolish the identity mapping
-between IA-64 vector and Linux IRQ.
+		Ken Chen <kenneth.w.chen@intel.com>
+		Intel Open Source Technology Center
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
----
 
- linux-2.6.13-rc1-kanesige/include/asm-ia64/hw_irq.h |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+-----Original Message-----
+From: Chen, Kenneth W [mailto:kenneth.w.chen@intel.com] 
+Sent: Thursday, July 14, 2005 1:21 PM
+To: linux-kernel@vger.kernel.org
+Subject: [announce] linux kernel performance project launch at sourceforge.net
 
-diff -puN include/asm-ia64/hw_irq.h~vector-domain-ia64-change-irq_to_vector include/asm-ia64/hw_irq.h
---- linux-2.6.13-rc1/include/asm-ia64/hw_irq.h~vector-domain-ia64-change-irq_to_vector	2005-07-13 16:12:49.000000000 +0900
-+++ linux-2.6.13-rc1-kanesige/include/asm-ia64/hw_irq.h	2005-07-13 16:12:49.000000000 +0900
-@@ -207,7 +207,7 @@ irq_descp (int irq)
- static inline ia64_vector
- irq_to_vector (int irq)
- {
--	return (ia64_vector) irq;
-+	return (ia64_vector) gsv_to_vector(irq_to_gsv(irq));
- }
- 
- /*
+I'm pleased to announce that we have established a linux kernel
+performance project, hosted at sourceforge.net:
 
-_
+http://kernel-perf.sourceforge.net
 
+As much as discussed various time in the past on LKML that Linux
+kernel needs a systematic and disciplined way to measure and track
+kernel performance on a regular basis.  To do that, we decided to
+run a large set of benchmarks covering core components of the Linux
+kernel (virtual memory management, I/O subsystem, process scheduler,
+file system, network, device driver, etc) on a regular basis.
+Benchmarks are run on a variety of platforms (4P Intel Xeon processor,
+2P Xeon, several ia64 server boxes etc) every week, measuring the
+latest snapshot of Linus' git development tree. Comprehensive performance
+data from our tests will be published for easy access.
+
+Our goal is to work with the Linux community to further enhance the
+performance of the Linux kernel. The data available on the site allows
+community members to closely track performance gains and losses with
+every version of the kernel. Ultimately, we hope that this data will
+result in performance increases in Linux kernel development.
+
+The benchmark result pages are populated with a few benchmarks at the
+moment.  In the coming weeks, we will be populating more benchmark data.
+Happy surfing and hacking!!
+
+
+		Ken Chen <kenneth.w.chen@intel.com>
+		Intel Open Source Technology Center
 
