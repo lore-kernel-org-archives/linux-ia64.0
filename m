@@ -1,7 +1,7 @@
 From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Sun, 17 Jul 2005 05:56:12 +0000
+Date: Sun, 17 Jul 2005 06:00:12 +0000
 Subject: Re: [NUMA] Display and modify the memory policy of a process through
-Message-Id: <Pine.LNX.4.62.0507162253020.28788@schroedinger.engr.sgi.com>
+Message-Id: <Pine.LNX.4.62.0507162256180.28788@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050715214700.GJ15783@wotan.suse.de>
  <Pine.LNX.4.62.0507151450570.11656@schroedinger.engr.sgi.com>
@@ -10,9 +10,9 @@ References: <20050715214700.GJ15783@wotan.suse.de>
  <20050715225635.GM15783@wotan.suse.de> <Pine.LNX.4.62.0507151602390.12530@schroedinger.engr.sgi.com>
  <20050715234402.GN15783@wotan.suse.de> <Pine.LNX.4.62.0507151647300.12832@schroedinger.engr.sgi.com>
  <20050716020141.GO15783@wotan.suse.de> <20050716163030.0147b6ba.pj@sgi.com>
- <Pine.LNX.4.62.0507161842090.26674@schroedinger.engr.sgi.com>
- <20050716205038.48c05e96.pj@sgi.com>
-In-Reply-To: <20050716205038.48c05e96.pj@sgi.com>
+ <Pine.LNX.4.62.0507162016470.27506@schroedinger.engr.sgi.com>
+ <20050716215121.6c04ffb0.pj@sgi.com>
+In-Reply-To: <20050716215121.6c04ffb0.pj@sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
@@ -21,32 +21,30 @@ Cc: ak@suse.de, kenneth.w.chen@intel.com, linux-mm@kvack.org, linux-ia64@vger.ke
 
 On Sat, 16 Jul 2005, Paul Jackson wrote:
 
-> I'm missing something here.  Are you saying that just a change to
-> libnuma would suffice to accomplish what you sought with this patch?
+> Christoph wrote:
+> > Here is one approach to locking using xchg.
+> 
+> What I see here doesn't change the behaviour of the
+> kernel any - just adds some locked exchanges, right?
 
-Its a quite significant change but yes of course you can do that if you 
-really favor libnuma and IMHO want to make it difficult to maintain and to 
-use.
-
-> If that's the case, we don't need a kernel patch, right?
-
-Sure.
-
-> And despite Andi's urging us to only access these facilities via
-> libnuma, there is no law to that affect that I know of.  At the least,
-> you could present user level only code that accomplished the object
-> of this patch set, with no kernel change.
-
-Sure you can write a series of tools that accomplish the same.
+Correct.
  
-> I don't think that is possible, short of gross hackery on /dev/mem.
-> I think some sort of kernel change is required to enable one task to
-> change the numa policy of another task.
+> I thought the hard part was having some other task
+> change the current tasks mempolicy.  For example,
+> how does one task sync another tasks mempolicy up
+> with its cpuset, or synchronously get the policies
+> zonelist or preferred node set correctly?
 
-Yes doing what I said to libnuma would require a significant rework of the 
-APIs and the kernel libnuma stuff. Its easier to implement the whole thing 
-using /proc, then no libraries would need to be modified, no tools need to 
-be written. Just accept the patch that I posted, fix up whatever has to be 
-fixed and we are done.
+Could you give me some more detail on how this should integrate with 
+cpusets? I am not aware of any thing that I would call "hard".
 
+What do you mean by synchronously? The proc changes do best effort 
+modifications. There is no transactional behavior that allows the changes 
+of multiple items at once, nor is there any guarantee that the vma you are 
+changing is still there after you have read /proc/<pid>/numa_maps. Why 
+would such synchronicity be necessary?
 
+> I guess that this approach is intended to show how
+> to make it easy to add that hard part, right?
+
+This is intended to provide race free update of the memory policy.
