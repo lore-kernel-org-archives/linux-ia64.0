@@ -1,30 +1,38 @@
 From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Tue, 19 Jul 2005 01:22:10 +0000
-Subject: [PATCH] Fix uninitalised value in do_copy_task_regs
-Message-Id: <20050719012210.GB10518@cse.unsw.EDU.AU>
+Date: Tue, 19 Jul 2005 01:15:06 +0000
+Subject: Fix some warnings when building with gcc 4
+Message-Id: <20050719011506.GE20534@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Fix
+Hi,
 
-arch/ia64/kernel/process.c:503: warning: 'ip' may be used uninitialized in this function
+Following are some patches to fix some IA64 specific warnings I am
+seeing when building with gcc 4.  I'm pretty sure they can't hurt
+people not using gcc 4.
 
---
+The only IA64 specific one that I still see is
 
-Signed-Off-By: Ian Wienand <ianw@gelato.unsw.edu.au>
+ include/asm/mmu_context.h:67: warning: type qualifiers ignored on
+ function return type
 
-diff --git a/arch/ia64/kernel/process.c b/arch/ia64/kernel/process.c
---- a/arch/ia64/kernel/process.c
-+++ b/arch/ia64/kernel/process.c
-@@ -500,7 +500,7 @@ copy_thread (int nr, unsigned long clone
- static void
- do_copy_task_regs (struct task_struct *task, struct unw_frame_info *info, void *arg)
- {
--	unsigned long mask, sp, nat_bits = 0, ip, ar_rnat, urbs_end, cfm;
-+	unsigned long mask, sp, nat_bits = 0, ip = 0, ar_rnat, urbs_end, cfm;
- 	elf_greg_t *dst = arg;
- 	struct pt_regs *pt;
- 	char nat;
+This is because mmu_context_t is defined as volatile for a good reason
+
+ /*
+  * Type for a context number.  We declare it volatile to ensure
+  * proper ordering when it's accessed outside of spinlock'd critical
+  * sections (e.g., as done in activate_mm() and init_new_context()).
+  */
+
+However, when a function returns a mmu_context_t it ends up with the
+qualified return type (which according to this old message
+http://gcc.gnu.org/ml/gcc-patches/2000-10/msg00814.html doesn't mean
+anything, unless something has changed).  So I'm not sure what the
+best solution is for that one.
+
+Thanks,
+
+-i
