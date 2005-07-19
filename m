@@ -1,55 +1,35 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 29 Jul 2005 14:13:11 +0000
-Subject: [sched, patch] better wake-balancing
-Message-Id: <20050729141311.GA4154@elte.hu>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Tue, 19 Jul 2005 01:28:08 +0000
+Subject: [PATCH] Fix uninitalised values in ia64_tlb_init
+Message-Id: <20050719012808.GE10518@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42E98DEA.9090606@yahoo.com.au> <200507290627.j6T6Rrg06842@unix-os.sc.intel.com> <20050729114822.GA25249@elte.hu>
-In-Reply-To: <20050729114822.GA25249@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: 'Nick Piggin' <nickpiggin@yahoo.com.au>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+To: linux-ia64@vger.kernel.org
 
+Fix 
 
-another approach would be the patch below, to do wakeup-balancing only 
-if the wakeup CPU or the task CPU is idle.
+arch/ia64/mm/tlb.c: In function 'ia64_tlb_init':
+arch/ia64/mm/tlb.c:171: warning: 'ptce_info.base' may be used uninitialized in this function
+arch/ia64/mm/tlb.c:171: warning: 'ptce_info.count[0]' may be used uninitialized in this function
+arch/ia64/mm/tlb.c:171: warning: 'ptce_info.count[1]' may be used uninitialized in this function
+arch/ia64/mm/tlb.c:171: warning: 'ptce_info.stride[0]' may be used uninitialized in this function
+arch/ia64/mm/tlb.c:171: warning: 'ptce_info.stride[1]' may be used uninitialized in this function
 
-I've measured half-loaded tbench and unless total wakeup-balancing 
-removal it does not degrade with this patch applied, while fully loaded 
-tbench and other workloads clearly improve.
+--
 
-Ken, could you give this one a try? (It's against the current scheduler 
-queue in -mm, but also applies fine to current Linus trees.)
+Signed-Off-By: Ian Wienand <ianw@gelato.unsw.edu.au>
 
-	Ingo
-
----
-
-do wakeup-balancing only if the wakeup-CPU or the task-CPU is idle.
-
-this prevents excessive wakeup-balancing while the system is highly
-loaded, but helps spread out the workload on partly idle systems.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-
- kernel/sched.c |    6 ++++++
- 1 files changed, 6 insertions(+)
-
-Index: linux-sched-curr/kernel/sched.c
-=================================--- linux-sched-curr.orig/kernel/sched.c
-+++ linux-sched-curr/kernel/sched.c
-@@ -1252,7 +1252,13 @@ static int try_to_wake_up(task_t *p, uns
- 	if (unlikely(task_running(rq, p)))
- 		goto out_activate;
+diff --git a/arch/ia64/mm/tlb.c b/arch/ia64/mm/tlb.c
+--- a/arch/ia64/mm/tlb.c
++++ b/arch/ia64/mm/tlb.c
+@@ -172,6 +172,8 @@ ia64_tlb_init (void)
+ 	unsigned long tr_pgbits;
+ 	long status;
  
-+	/*
-+	 * If neither this CPU, nor the previous CPU the task was
-+	 * running on is idle then skip wakeup-balancing:
-+	 */
- 	new_cpu = cpu;
-+	if (!idle_cpu(this_cpu) && !idle_cpu(cpu))
-+		goto out_set_cpu;
- 
- 	schedstat_inc(rq, ttwu_cnt);
- 	if (cpu = this_cpu) {
++	memset(&ptce_info, 0, sizeof(ptce_info));
++
+ 	if ((status = ia64_pal_vm_page_size(&tr_pgbits, &purge.mask)) != 0) {
+ 		printk(KERN_ERR "PAL_VM_PAGE_SIZE failed with status=%ld;"
+ 		       "defaulting to architected purge page-sizes.\n", status);
