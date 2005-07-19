@@ -1,73 +1,32 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 14 Jul 2005 09:18:10 +0000
-Subject: [RFC][patch 1/10] Multiple vector domain support - change ia64 Kconfig
-Message-Id: <42D62DD2.9000701@jp.fujitsu.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Tue, 19 Jul 2005 01:26:43 +0000
+Subject: [PATCH] Fix uninitalised values in efi_memmap_walk
+Message-Id: <20050719012643.GD10518@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch adds the following configs options into arch/ia64/Kconfig
+Fix
 
-    o VECTOR_DOMAIN	      Multiple vector domain support
-    o NR_VECTOR_DOMAINS	      # of vector domains
+arch/ia64/kernel/efi.c: In function 'efi_memmap_walk':
+arch/ia64/kernel/efi.c:306: warning: 'prev.start' may be used uninitialized in this function
+arch/ia64/kernel/efi.c:306: warning: 'prev.end' may be used uninitialized in this function
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
- 
+--
 
----
+Signed-Off-By: Ian Wienand <ianw@gelato.unsw.edu.au>
 
- linux-2.6.13-rc1-kanesige/arch/ia64/Kconfig      |   17 +++++++++++++++++
- linux-2.6.13-rc1-kanesige/include/asm-ia64/irq.h |    8 +++++++-
- 2 files changed, 24 insertions(+), 1 deletion(-)
-
-diff -puN arch/ia64/Kconfig~vector-domain-ia64-change-Kconfig arch/ia64/Kconfig
---- linux-2.6.13-rc1/arch/ia64/Kconfig~vector-domain-ia64-change-Kconfig	2005-07-13 14:33:47.000000000 +0900
-+++ linux-2.6.13-rc1-kanesige/arch/ia64/Kconfig	2005-07-13 14:51:35.000000000 +0900
-@@ -350,6 +350,23 @@ config ACPI_DEALLOCATE_IRQ
- 	depends on IOSAPIC && EXPERIMENTAL
- 	default y
- 
-+config VECTOR_DOMAIN
-+	bool "Multiple vector domain support"
-+	depends on (SMP && !HOTPLUG_CPU && !PCI_MSI)
-+	default n
-+	help
-+	  This option enables multiple vector domain support. If you
-+	  system has many interrupt sources, you should say Y here. If
-+	  unsure, say N here.
-+
-+config NR_VECTOR_DOMAINS
-+	int "Maximum number of vector domains (2-512)"
-+	range 2 512
-+	depends on VECTOR_DOMAIN
-+	default 2
-+	help
-+	  This option specifies muximum number of vector domains.
-+
- source "drivers/firmware/Kconfig"
- 
- source "fs/Kconfig.binfmt"
-diff -puN include/asm-ia64/irq.h~vector-domain-ia64-change-Kconfig include/asm-ia64/irq.h
---- linux-2.6.13-rc1/include/asm-ia64/irq.h~vector-domain-ia64-change-Kconfig	2005-07-13 14:33:47.000000000 +0900
-+++ linux-2.6.13-rc1-kanesige/include/asm-ia64/irq.h	2005-07-13 14:50:34.000000000 +0900
-@@ -11,7 +11,13 @@
-  * 02/29/00     D.Mosberger	moved most things into hw_irq.h
-  */
- 
--#define NR_IRQS		256
-+#ifndef CONFIG_VECTOR_DOMAIN
-+#define NR_VECTOR_DOMAINS	(1)
-+#else
-+#define NR_VECTOR_DOMAINS	CONFIG_NR_VECTOR_DOMAINS
-+#endif /* CONFIG_VECTOR_DOMAIN */
-+
-+#define NR_IRQS		(256 * NR_VECTOR_DOMAINS)
- #define NR_IRQ_VECTORS	NR_IRQS
- 
- static __inline__ int
-
-_
-
-
+diff --git a/arch/ia64/kernel/efi.c b/arch/ia64/kernel/efi.c
+--- a/arch/ia64/kernel/efi.c
++++ b/arch/ia64/kernel/efi.c
+@@ -303,7 +303,7 @@ efi_memmap_walk (efi_freemem_callback_t 
+ 	struct range {
+ 		u64 start;
+ 		u64 end;
+-	} prev, curr;
++	} prev = {0}, curr = {0};
+ 	void *efi_map_start, *efi_map_end, *p, *q;
+ 	efi_memory_desc_t *md, *check_md;
+ 	u64 efi_desc_size, start, end, granule_addr, last_granule_addr, first_non_wb_addr = 0;
