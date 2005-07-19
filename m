@@ -1,22 +1,35 @@
-From: Dean Nelson <dcn@sgi.com>
-Date: Mon, 11 Jul 2005 12:52:56 +0000
-Subject: Re: [PATCH 6/14] ia64/sn: use msleep_interruptible() instead of schedule_timeout()
-Message-Id: <20050711125256.GA26049@sgi.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Tue, 19 Jul 2005 01:20:27 +0000
+Subject: [PATCH] Type qualifiers in __ia64_get_io_port_base
+Message-Id: <20050719012027.GA10518@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050709001022.GL2596@us.ibm.com>
-In-Reply-To: <20050709001022.GL2596@us.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: kernel-janitors@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-On Fri, Jul 08, 2005 at 05:10:22PM -0700, Nishanth Aravamudan wrote:
-> From: Nishanth Aravamudan <nacc@us.ibm.com>
-> 
-> Description: Replace schedule_timeout() with msleep_interruptible() to
-> guarantee the task delays as expected.
-> 
-> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Fix
 
-Your changes to arch/ia64/sn/kernel/xpc_main.c looked good to me. Thanks.
+include/asm/io.h:125: warning: type qualifiers ignored on function return type
 
+produced by gcc 4
+
+According to http://gcc.gnu.org/ml/gcc-patches/2000-10/msg00814.html
+the type qualifier is superfluous.
+
+--
+
+Signed-Off-By: Ian Wienand <ianw@gelato.unsw.edu.au>
+
+diff --git a/include/asm-ia64/io.h b/include/asm-ia64/io.h
+--- a/include/asm-ia64/io.h
++++ b/include/asm-ia64/io.h
+@@ -120,7 +120,7 @@ static inline void ___ia64_mmiowb(void)
+ 	ia64_mfa();
+ }
+ 
+-static inline const unsigned long
++static inline unsigned long
+ __ia64_get_io_port_base (void)
+ {
+ 	extern unsigned long ia64_iobase;
