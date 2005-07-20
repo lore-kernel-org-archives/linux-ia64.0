@@ -1,70 +1,45 @@
-From: Ian Wienand <ianw@gelato.unsw.edu.au>
-Date: Wed, 20 Jul 2005 05:31:39 +0000
-Subject: Simulator bootloader fails with gcc 4
-Message-Id: <20050720053139.GC13188@cse.unsw.EDU.AU>
+From: James E Wilson <wilson@tuliptree.org>
+Date: Wed, 20 Jul 2005 22:34:16 +0000
+Subject: Re: Simulator bootloader fails with gcc 4
+Message-Id: <1121898856.27487.44.camel@aretha.corp.specifix.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <20050720053139.GC13188@cse.unsw.EDU.AU>
+In-Reply-To: <20050720053139.GC13188@cse.unsw.EDU.AU>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+On Tue, 2005-07-19 at 22:31, Ian Wienand wrote:
+> After some investigation I believe this is do with differences between
+> the alignment of variables on the stack between gcc 3 and 4 and the
+> ski simulator.
 
-After building a fresh tree with gcc 4 I can't boot the simulator as
-the bootloader loader dies with 
+There has been no change to the natural alignment for the variable
+here.  It has always been 4 bytes.  There has been a change to the
+placement of variables into stack slots.  This stuff was completely
+written as part of the tree-ssa work.
 
-loading /home/ianw/kerntest/kerncomp//build/sim_defconfig/vmlinux...
-failed to read phdr
+If gcc-3.4 and earlier, some structures (BLKmode structures) were being
+over-aligned when allocated to stack slots.  They always got the maximum
+alignment (16 bytes for IA-64) instead of their natural alignment.  It
+isn't clear why.  I think this was an accident of implementation.  We
+were basing variable alignment on modes instead of type alignment, and
+since some BLKmode structures do require max alignment, we had to give
+it to all of them.
 
-After some investigation I believe this is do with differences between
-the alignment of variables on the stack between gcc 3 and 4 and the
-ski simulator.  If you trace through with the simulator you can see
-that the disk_stat structure value returned from the
-SSC_WAIT_COMPLETION call seems to be only half loaded.  I guess it
-doesn't like the alignment of the input.  I confirmed that things do
-get aligned differently thusly :
+In gcc-4.0, we get this right.  The variable/type alignment is used to
+determine the stack alignment needed.  If the alignment is less than the
+stack slot size, then we don't pad to the next stack slot regardless of
+the size or type or mode of the variable.  We only pad to the alignment
+boundary.  This results in smaller frame sizes.  In this case though, we
+end up with the structure being allocated across two stack slots, even
+though it would fit in one.  Again, I think this is an accident of
+implementation.  We might get better code if this structure was
+allocated to a single stack slot, as then we could use ld8/st8 to move
+it around.  This would be at the expense of a small increase in frame
+size in general, though we would still have smaller frames than gcc-3.4
+and earlier.  Probably no one has considered this issue because no one
+has noticed it before.
 
-ianw@lime:/tmp$ cat test.c
-#include <stdio.h>
 
-struct disk_stat {
-        int fd;
-        unsigned count;
-};
-
-int main(void)
-{
-        int blah;
-        struct disk_stat test;
-
-        printf("%p\n", &test);
-}
-ianw@lime:/tmp$ gcc-3.4 -o test test.c
-ianw@lime:/tmp$ ./test
-0x60000fffffc2f480
-ianw@lime:/tmp$ gcc-4.0 -o test test.c
-ianw@lime:/tmp$ ./test
-0x60000fffff813484
-
-The patch below at least fixes it for me.
-
-Thanks,
-
--i
-
-Signed-Off-By: Ian Wienand <ianw@gelato.unsw.edu.au>
-
---
-
-diff --git a/arch/ia64/hp/sim/boot/bootloader.c b/arch/ia64/hp/sim/boot/bootloader.c
---- a/arch/ia64/hp/sim/boot/bootloader.c
-+++ b/arch/ia64/hp/sim/boot/bootloader.c
-@@ -33,7 +33,7 @@ struct disk_req {
- struct disk_stat {
- 	int fd;
- 	unsigned count;
--};
-+} __attribute__ ((aligned (16)));
- 
- extern void jmp_to_kernel (unsigned long bp, unsigned long e_entry);
- extern struct ia64_boot_param *sys_fw_init (const char *args, int arglen);
