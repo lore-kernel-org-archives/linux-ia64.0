@@ -1,45 +1,41 @@
-From: James E Wilson <wilson@tuliptree.org>
-Date: Wed, 20 Jul 2005 22:34:16 +0000
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Fri, 22 Jul 2005 04:58:08 +0000
 Subject: Re: Simulator bootloader fails with gcc 4
-Message-Id: <1121898856.27487.44.camel@aretha.corp.specifix.com>
+Message-Id: <20050722045808.GC765@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="OXfL5xGRrasGEqWY"
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050720053139.GC13188@cse.unsw.EDU.AU>
 In-Reply-To: <20050720053139.GC13188@cse.unsw.EDU.AU>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2005-07-19 at 22:31, Ian Wienand wrote:
+
+--OXfL5xGRrasGEqWY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Jul 20, 2005 at 03:31:39PM +1000, Ian Wienand wrote:
 > After some investigation I believe this is do with differences between
 > the alignment of variables on the stack between gcc 3 and 4 and the
 > ski simulator.
 
-There has been no change to the natural alignment for the variable
-here.  It has always been 4 bytes.  There has been a change to the
-placement of variables into stack slots.  This stuff was completely
-written as part of the tree-ssa work.
+For tracking purposes I've put this in the gcc bugzilla
 
-If gcc-3.4 and earlier, some structures (BLKmode structures) were being
-over-aligned when allocated to stack slots.  They always got the maximum
-alignment (16 bytes for IA-64) instead of their natural alignment.  It
-isn't clear why.  I think this was an accident of implementation.  We
-were basing variable alignment on modes instead of type alignment, and
-since some BLKmode structures do require max alignment, we had to give
-it to all of them.
+http://gcc.gnu.org/bugzilla/show_bug.cgi?id=22605
 
-In gcc-4.0, we get this right.  The variable/type alignment is used to
-determine the stack alignment needed.  If the alignment is less than the
-stack slot size, then we don't pad to the next stack slot regardless of
-the size or type or mode of the variable.  We only pad to the alignment
-boundary.  This results in smaller frame sizes.  In this case though, we
-end up with the structure being allocated across two stack slots, even
-though it would fit in one.  Again, I think this is an accident of
-implementation.  We might get better code if this structure was
-allocated to a single stack slot, as then we could use ld8/st8 to move
-it around.  This would be at the expense of a small increase in frame
-size in general, though we would still have smaller frames than gcc-3.4
-and earlier.  Probably no one has considered this issue because no one
-has noticed it before.
+-i
 
+--OXfL5xGRrasGEqWY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFC4HzgWDlSU/gp6ecRAlHGAJ9K/CWzRhamLStvpIsHsUnyYd87ywCgi9U9
+U1iuBIp0YW3tDaX1dHARNe4=
+=hpB1
+-----END PGP SIGNATURE-----
+
+--OXfL5xGRrasGEqWY--
