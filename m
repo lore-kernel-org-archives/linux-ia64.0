@@ -1,105 +1,74 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 14 Jul 2005 09:34:47 +0000
-Subject: [RFC][patch 8/10] Multiple vector domain support - stop hardware
-Message-Id: <42D631B7.6020400@jp.fujitsu.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Fri, 22 Jul 2005 06:41:16 +0000
+Subject: [patch 2.6.13-rc3] unwind.c uses wrong unat from switch_stack
+Message-Id: <12005.1122014476@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+unwind.c can read the wrong unat bits from switch_stack.
+sw->caller_unat is the value of ar.unat when the task was blocked.
+sw->ar_unat is the value of ar.unat after doing st8.spill for r4-7.
+IOW, ar_unat is caller_unat with 4 bits changed.
 
-This patch is to stop hardware interrupt redirection.
+unw_access_gr() uses sw->ar_unat for r4-7 (correct), but it also uses
+sw->ar_unat for other scratch registers (incorrect).  sw->ar_unat
+should only be used for r4-7, everything else should use
+sw->caller_unat, unless modified by unwind info.  Using sw->ar_unat
+risks picking up the 4 bits that were overwritten when r4-7 were saved.
 
-TBD: We might not ought to stop hardware interrupt redirection for
-systems that interrupts are redirected on each node. That is, we might
-be able to use hardware redirection on each vector domain if it
-doesn't redirect interrupts to other domain.
+Also this line is wrong
+	unw.sw_off[unw.preg_index[UNW_REG_PFS]] = SW(AR_UNAT);
+and should be
+	unw.sw_off[unw.preg_index[UNW_REG_PFS]] = SW(AR_PFS);
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
----
-
- linux-2.6.13-rc1-kanesige/arch/ia64/kernel/iosapic.c |   22 +++++++++++++++----
- linux-2.6.13-rc1-kanesige/arch/ia64/kernel/sal.c     |    2 -
- 2 files changed, 19 insertions(+), 5 deletions(-)
-
-diff -puN arch/ia64/kernel/iosapic.c~vector-domain-ia64-stop-hw-interrupt-redirection arch/ia64/kernel/iosapic.c
---- linux-2.6.13-rc1/arch/ia64/kernel/iosapic.c~vector-domain-ia64-stop-hw-interrupt-redirection	2005-07-13 16:12:51.000000000 +0900
-+++ linux-2.6.13-rc1-kanesige/arch/ia64/kernel/iosapic.c	2005-07-13 16:12:51.000000000 +0900
-@@ -318,7 +318,8 @@ iosapic_set_affinity (unsigned int irq, 
- 	u32 high32, low32;
- 	int cpu, dest, rte_index, gsv;
- 	char __iomem *addr;
--	int redir = (irq & IA64_IRQ_REDIRECTED) ? 1 : 0;
-+	int redir = ((smp_int_redirect & SMP_IRQ_REDIRECTION) &&
-+		     (irq & IA64_IRQ_REDIRECTED)) ? 1 : 0;
- 	struct iosapic_rte_info *rte;
- 
- 	irq &= (~IA64_IRQ_REDIRECTED);
-@@ -792,6 +793,7 @@ iosapic_register_intr (unsigned int gsi,
- 	struct iosapic_rte_info *rte;
- 	u32 low32;
- 	irq_desc_t *idesc;
-+	unsigned char dmode;
- again:
- 	/*
- 	 * If this GSI has already been registered (i.e., it's a
-@@ -832,8 +834,12 @@ again:
+Index: linux/arch/ia64/kernel/unwind.c
+=================================--- linux.orig/arch/ia64/kernel/unwind.c	2005-06-24 15:19:56.245556835 +1000
++++ linux/arch/ia64/kernel/unwind.c	2005-06-24 15:22:08.194843143 +1000
+@@ -362,7 +362,7 @@ unw_access_gr (struct unw_frame_info *in
+ 			if (info->pri_unat_loc)
+ 				nat_addr = info->pri_unat_loc;
+ 			else
+-				nat_addr = &info->sw->ar_unat;
++				nat_addr = &info->sw->caller_unat;
+ 			nat_mask = (1UL << ((long) addr & 0x1f8)/8);
  		}
- 
- 		dest = get_target_cpu(gsi, gsv);
--		register_intr(gsi, gsv, IOSAPIC_LOWEST_PRIORITY,
--			      polarity, trigger);
-+		if (smp_int_redirect & SMP_IRQ_REDIRECTION)
-+			dmode = IOSAPIC_LOWEST_PRIORITY;
-+		else
-+			dmode = IOSAPIC_FIXED;
-+
-+		register_intr(gsi, gsv, dmode, polarity, trigger);
- 
- 		/*
- 		 * If the vector is shared and already unmasked for
-@@ -971,7 +977,10 @@ iosapic_register_platform_intr (u32 int_
+ 	} else {
+@@ -524,7 +524,7 @@ unw_access_ar (struct unw_frame_info *in
+ 	      case UNW_AR_UNAT:
+ 		addr = info->unat_loc;
+ 		if (!addr)
+-			addr = &info->sw->ar_unat;
++			addr = &info->sw->caller_unat;
  		break;
- 	      case ACPI_INTERRUPT_CPEI:
- 		gsv = domain_vector_to_gsv(domain, IA64_CPE_VECTOR);
--		delivery = IOSAPIC_LOWEST_PRIORITY;
-+		if (smp_int_redirect & SMP_IRQ_REDIRECTION)
-+			delivery = IOSAPIC_LOWEST_PRIORITY;
-+		else
-+			delivery = IOSAPIC_FIXED;
- 		mask = 1;
- 		break;
- 	      default:
-@@ -1005,9 +1014,14 @@ iosapic_override_isa_irq (unsigned int i
- 	unsigned int gsv;
- 	unsigned int dest = cpu_physical_id(smp_processor_id());
- 	unsigned int domain = ia64_cpu_to_domain(smp_processor_id());
-+	unsigned char dmode;
  
- 	vector = isa_irq_to_vector(isa_irq);
- 	gsv = domain_vector_to_gsv(domain, vector);
-+	if (smp_int_redirect & SMP_IRQ_REDIRECTION)
-+		dmode = IOSAPIC_LOWEST_PRIORITY;
-+	else
-+		dmode = IOSAPIC_FIXED;
+ 	      case UNW_AR_LC:
+@@ -1775,7 +1775,7 @@ run_script (struct unw_script *script, s
  
- 	register_intr(gsi, gsv, IOSAPIC_LOWEST_PRIORITY, polarity, trigger);
+ 		      case UNW_INSN_SETNAT_MEMSTK:
+ 			if (!state->pri_unat_loc)
+-				state->pri_unat_loc = &state->sw->ar_unat;
++				state->pri_unat_loc = &state->sw->caller_unat;
+ 			/* register off. is a multiple of 8, so the least 3 bits (type) are 0 */
+ 			s[dst+1] = ((unsigned long) state->pri_unat_loc - s[dst]) | UNW_NAT_MEMSTK;
+ 			break;
+@@ -2243,11 +2243,11 @@ unw_init (void)
+ 	if (8*sizeof(unw_hash_index_t) < UNW_LOG_HASH_SIZE)
+ 		unw_hash_index_t_is_too_narrow();
  
-diff -puN arch/ia64/kernel/sal.c~vector-domain-ia64-stop-hw-interrupt-redirection arch/ia64/kernel/sal.c
---- linux-2.6.13-rc1/arch/ia64/kernel/sal.c~vector-domain-ia64-stop-hw-interrupt-redirection	2005-07-13 16:12:51.000000000 +0900
-+++ linux-2.6.13-rc1-kanesige/arch/ia64/kernel/sal.c	2005-07-13 16:12:51.000000000 +0900
-@@ -123,7 +123,7 @@ sal_desc_entry_point (void *p)
- static void __init
- set_smp_redirect (int flag)
- {
--#ifndef CONFIG_HOTPLUG_CPU
-+#if (!CONFIG_HOTPLUG_CPU && !CONFIG_VECTOR_DOMAIN)
- 	if (no_int_routing)
- 		smp_int_redirect &= ~flag;
- 	else
-
-_
-
+-	unw.sw_off[unw.preg_index[UNW_REG_PRI_UNAT_GR]] = SW(AR_UNAT);
++	unw.sw_off[unw.preg_index[UNW_REG_PRI_UNAT_GR]] = SW(CALLER_UNAT);
+ 	unw.sw_off[unw.preg_index[UNW_REG_BSPSTORE]] = SW(AR_BSPSTORE);
+-	unw.sw_off[unw.preg_index[UNW_REG_PFS]] = SW(AR_UNAT);
++	unw.sw_off[unw.preg_index[UNW_REG_PFS]] = SW(AR_PFS);
+ 	unw.sw_off[unw.preg_index[UNW_REG_RP]] = SW(B0);
+-	unw.sw_off[unw.preg_index[UNW_REG_UNAT]] = SW(AR_UNAT);
++	unw.sw_off[unw.preg_index[UNW_REG_UNAT]] = SW(CALLER_UNAT);
+ 	unw.sw_off[unw.preg_index[UNW_REG_PR]] = SW(PR);
+ 	unw.sw_off[unw.preg_index[UNW_REG_LC]] = SW(AR_LC);
+ 	unw.sw_off[unw.preg_index[UNW_REG_FPSR]] = SW(AR_FPSR);
 
