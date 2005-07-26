@@ -1,208 +1,66 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 14 Jul 2005 09:37:37 +0000
-Subject: [RFC][patch 9/10] Multiple vector domain support - inter domain interrupt
-Message-Id: <42D63261.6070208@jp.fujitsu.com>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 26 Jul 2005 19:02:00 +0000
+Subject: RE: [patch] properly stop devices before poweroff
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F03FCF24C@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>, Andrew Morton <akpm@osdl.org>
+Cc: Adam Belay <ambx1@neo.rr.com>, greg@kroah.org, pavel@ucw.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
+I started on my OLS homework from Andrew ... and began looking
+into what is going on here.
 
-This patch adds inter domain interrupt migration for IOSAPIC. This is
-needed when all CPUs in the domain is hot-removed.
+The story so far: Pavel added calls to device_suspend() to three of
+the cases in the sys_reboot() path.  This stopped ia64 from being
+able to shutdown.  There is a oops with a stacktrace pointing back
+at the sys_reboot call.
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Initial analysis from Kenji Kaneshige said that we might fix this
+by adding a patch to the ia64 version of pcibios_disable_device()
+to make it check whether the device was enabled before calling
+acpi_pci_irq_disable().  This might fix things if the issue was
+simply problems with this being called twice.  Pavel sent a
+"Looks good", Adam said "Is it the right fix?"
 
----
+I just tried it ... it doesn't work, we still see an oops from
+the sys_reboot() ... so shutdown hangs, and we can sidestep the
+issue of whether this is ideologically correct.
 
- linux-2.6.13-rc1-kanesige/arch/ia64/kernel/iosapic.c  |   68 ++++++++++++------
- linux-2.6.13-rc1-kanesige/arch/ia64/kernel/irq_ia64.c |   36 ++++++++-
- linux-2.6.13-rc1-kanesige/include/asm-ia64/hw_irq.h   |    1 
- 3 files changed, 83 insertions(+), 22 deletions(-)
+Then I wondered whether it was just an e1000 problem (since Pavel
+had also commented that we should perhaps removed the reboot notifier
+from the e1000 driver).  So I rebuilt my kernel with e1000 as a module
+and ran "rmmod e1000" before running shutdown.  Which promptly failed
+with a stack trace that ran through mptscsih driver instead of e1000.
+[N.B. Kaneshige-san has also noted that his i386 system which has the
+mptfusion also hangs executing a SYNCHRONIZE_CACHE command]. 
 
-diff -puN arch/ia64/kernel/iosapic.c~vector-domain-ia64-migrate-irq-domain arch/ia64/kernel/iosapic.c
---- linux-2.6.13-rc1/arch/ia64/kernel/iosapic.c~vector-domain-ia64-migrate-irq-domain	2005-07-13 16:12:53.000000000 +0900
-+++ linux-2.6.13-rc1-kanesige/arch/ia64/kernel/iosapic.c	2005-07-13 16:12:53.000000000 +0900
-@@ -311,6 +311,25 @@ unmask_irq (unsigned int irq)
- 
- 
- static void
-+iosapic_move_gsv (unsigned int src, unsigned int dst)
-+{
-+	struct iosapic_intr_info *info_src = &iosapic_intr_info[src];
-+	struct iosapic_intr_info *info_dst = &iosapic_intr_info[dst];
-+	struct iosapic_rte_info *rte, *next;
-+
-+	memcpy(info_dst, info_src, sizeof(*info_dst));
-+	info_dst->low32 &= ~0xff;
-+	info_dst->low32 |= (ia64_vector)gsv_to_vector(dst);
-+	INIT_LIST_HEAD(&info_dst->rtes);
-+	list_for_each_entry_safe(rte, next, &info_src->rtes, rte_list)
-+		list_move_tail(&rte->rte_list, &info_dst->rtes);
-+	memset(info_src, 0, sizeof(*info_src));
-+	info_src->low32 = IOSAPIC_MASK;
-+	INIT_LIST_HEAD(&info_src->rtes);
-+}
-+
-+
-+static void
- iosapic_set_affinity (unsigned int irq, cpumask_t mask)
- {
- #ifdef CONFIG_SMP
-@@ -331,15 +350,24 @@ iosapic_set_affinity (unsigned int irq, 
- 	cpu = first_cpu(mask);
- 	dest = cpu_physical_id(cpu);
- 
--	/*
--	 * XXX - IRQ migration between different domains is not supported yet.
--	 */
--	if (!cpu_isset(cpu, ia64_domain_to_cpumask(gsv_to_domain(gsv))))
--		return;
--
- 	if (list_empty(&iosapic_intr_info[gsv].rtes))
- 		return;			/* not an IOSAPIC interrupt */
- 
-+	/*
-+	 * IRQ migration between different domains
-+	 */
-+	if (!cpu_isset(cpu, ia64_domain_to_cpumask(gsv_to_domain(gsv)))) {
-+		int src = gsv;
-+		spin_lock_irqsave(&iosapic_lock, flags);
-+		gsv = reassign_irq_gsv(irq, ia64_cpu_to_domain(cpu));
-+		if (gsv < 0) {
-+			spin_unlock_irqrestore(&iosapic_lock, flags);
-+			return;
-+		}
-+		iosapic_move_gsv(src, gsv);
-+		spin_unlock_irqrestore(&iosapic_lock, flags);
-+	}
-+
- 	set_irq_affinity_info(irq, dest, redir);
- 
- 	/* dest contains both id and eid */
-@@ -384,10 +412,17 @@ static void
- iosapic_end_level_irq (unsigned int irq)
- {
- 	unsigned int gsv = irq_to_gsv(irq);
--	ia64_vector vec = gsv_to_vector(gsv);
-+	ia64_vector vec;
- 	struct iosapic_rte_info *rte;
- 
- 	move_irq(irq);
-+	/*
-+	 * In the case of irq migration to other domain, irq might be
-+	 * associated to another gsv.
-+	 */
-+	gsv = irq_to_gsv(irq);
-+	vec = gsv_to_vector(gsv);
-+
- 	list_for_each_entry(rte, &iosapic_intr_info[gsv].rtes, rte_list)
- 		iosapic_eoi(rte->addr, vec);
- }
-@@ -525,18 +560,13 @@ iosapic_reassign_gsv (unsigned int gsv)
- {
- 	int new_gsv;
- 
--	if (!list_empty(&iosapic_intr_info[gsv].rtes)) {
--		new_gsv = assign_irq_gsv(AUTO_ASSIGN, gsv_to_domain(gsv));
--		printk(KERN_INFO "Reassigning vector %d to %d\n",
--			gsv_to_vector(gsv), gsv_to_vector(new_gsv));
--		memcpy(&iosapic_intr_info[new_gsv], &iosapic_intr_info[gsv],
--		       sizeof(struct iosapic_intr_info));
--		INIT_LIST_HEAD(&iosapic_intr_info[new_gsv].rtes);
--		list_move(iosapic_intr_info[gsv].rtes.next, &iosapic_intr_info[new_gsv].rtes);
--		memset(&iosapic_intr_info[gsv], 0, sizeof(struct iosapic_intr_info));
--		iosapic_intr_info[gsv].low32 = IOSAPIC_MASK;
--		INIT_LIST_HEAD(&iosapic_intr_info[gsv].rtes);
--	}
-+	if (list_empty(&iosapic_intr_info[gsv].rtes))
-+		return;
-+
-+	new_gsv = assign_irq_gsv(AUTO_ASSIGN, gsv_to_domain(gsv));
-+	printk(KERN_INFO "Reassigning vector %d to %d\n",
-+	       gsv_to_vector(gsv), gsv_to_vector(new_gsv));
-+	iosapic_move_gsv(gsv, new_gsv);
- }
- 
- static struct iosapic_rte_info *iosapic_alloc_rte (void)
-diff -puN arch/ia64/kernel/irq_ia64.c~vector-domain-ia64-migrate-irq-domain arch/ia64/kernel/irq_ia64.c
---- linux-2.6.13-rc1/arch/ia64/kernel/irq_ia64.c~vector-domain-ia64-migrate-irq-domain	2005-07-13 16:12:53.000000000 +0900
-+++ linux-2.6.13-rc1-kanesige/arch/ia64/kernel/irq_ia64.c	2005-07-13 16:12:53.000000000 +0900
-@@ -97,14 +97,21 @@ ia64_free_vector (unsigned int domain, u
- static unsigned long ia64_irq_mask[BITS_TO_LONGS(NR_IRQS)];
- 
- static int
--ia64_alloc_irq (void)
-+ia64_alloc_irq (int irq)
- {
--	int irq;
-+	if (irq != AUTO_ASSIGN) {
-+		if (!test_and_set_bit(irq, ia64_irq_mask))
-+			return irq;
-+		else
-+			return -1;
-+	}
-+
- 	do {
- 		irq = find_first_zero_bit(ia64_irq_mask, NR_IRQS);
- 		if (irq > NR_IRQS)
- 			return -1;
- 	} while (test_and_set_bit(irq, ia64_irq_mask));
-+
- 	return irq;
- }
- 
-@@ -126,7 +133,7 @@ assign_irq_gsv_domain (int irq, int doma
- 	if ((vector = ia64_alloc_vector(domain)) < 0)
- 		return -ENOSPC;
- 
--	if ((irq = ia64_alloc_irq()) < 0) {
-+	if ((irq = ia64_alloc_irq(irq)) < 0) {
- 		ia64_free_vector(domain, vector);
- 		return -ENOSPC;
- 	}
-@@ -178,6 +185,29 @@ free_irq_gsv (int gsv)
- }
- 
- int
-+reassign_irq_gsv (int irq, int domain)
-+{
-+	int new_vector, new_gsv, old_gsv, old_vector, old_domain;
-+
-+	new_vector = ia64_alloc_vector(domain);
-+	if (new_vector < 0)
-+		return -ENOSPC;
-+
-+	old_gsv = irq_to_gsv(irq);
-+	new_gsv = domain_vector_to_gsv(domain, new_vector);
-+
-+	ia64_irq_to_gsv_map[irq] = new_gsv;
-+	ia64_gsv_to_irq_map[new_gsv] = irq;
-+	ia64_gsv_to_irq_map[old_gsv] = -1;
-+
-+	old_domain = gsv_to_domain(old_gsv);
-+	old_vector = gsv_to_vector(old_gsv);
-+	ia64_free_vector(old_domain, old_vector);
-+
-+	return new_gsv;
-+}
-+
-+int
- assign_irq_vector (int irq)
- {
- 	return gsv_to_vector(assign_irq_gsv(irq, 0));
-diff -puN include/asm-ia64/hw_irq.h~vector-domain-ia64-migrate-irq-domain include/asm-ia64/hw_irq.h
---- linux-2.6.13-rc1/include/asm-ia64/hw_irq.h~vector-domain-ia64-migrate-irq-domain	2005-07-13 16:12:53.000000000 +0900
-+++ linux-2.6.13-rc1-kanesige/include/asm-ia64/hw_irq.h	2005-07-14 13:13:49.000000000 +0900
-@@ -96,6 +96,7 @@ extern struct hw_interrupt_type irq_type
- extern int assign_irq_vector (int irq);	/* allocate a free vector */
- extern int assign_irq_gsv (int irq, int domain);
- extern void free_irq_gsv (int gsv);
-+extern int reassign_irq_gsv (int irq, int domain);
- extern void ia64_send_ipi (int cpu, int vector, int delivery_mode, int redirect);
- extern void register_percpu_irq (ia64_vector vec, struct irqaction *action);
- extern void __init ia64_vector_domain_init(void);
+Code examination in the e1000 case shows that we are a bit confused
+and call first:
 
-_
+notifier_call_chain(reboot_notifier, ...)
+  e1000_notify_reboot(...)
+    e1000_suspend(...)
+      pci_disable_device(...)
+      pci_set_power_state(...)
 
+and then:
+
+device_suspend(...)
+   suspend_device() = dev->bus->suspend = pci_device_suspend
+     e1000_suspend()
+       pci_disable_device()
+       pciset_power_state()
+
+So it looks like Pavel is right ... registering the reboot notifier is
+bogus in e1000.  Commenting out the register/unregister also allows
+me to get past the e1000 so that I can fail in mptscsih_suspend() path.
+But the fusion driver doesn't register a reboot notifier, so I can't
+try the same trick there :-)
+
+Andrew: How did you get the squitty font on ia64?  The stack trace
+from the oops flies off the top of the screen.  I've tried a few
+"vga=0x0f07" type options, but I keep getting a big font.
+
+-Tony
