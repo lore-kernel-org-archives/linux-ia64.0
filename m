@@ -1,20 +1,23 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Thu, 28 Jul 2005 01:41:44 +0000
-Subject: Re: [patch] properly stop devices before poweroff
-Message-Id: <20050727184144.27aae085.akpm@osdl.org>
+From: david mosberger <dmosberger@gmail.com>
+Date: Tue, 26 Jul 2005 05:20:21 +0000
+Subject: fix possible mm_context wrap-around race
+Message-Id: <ed5aea430507252220db22b1c@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F03FCF24C@scsmsx401.amr.corp.intel.com>
-	<42E836F5.2050803@jp.fujitsu.com>
-In-Reply-To: <42E836F5.2050803@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Cc: tony.luck@intel.com, ambx1@neo.rr.com, greg@kroah.org, pavel@ucw.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com> wrote:
->
-> After all, I think ia64-halt-hangup-fix.patch should be removed
->  from -mm tree.
+Tony, since I can't test the patch on anything but a UP machine at
+this time (which is uninteresting, since the race doesn't trigger
+there), I'd suggest to put this into the "testing" tree.  Hopefully,
+somebody could run some tests which involve multi-threaded apps doing
+a lot of fork/exec'ing.
 
-yup, I already tested-and-dropped it, thanks.
+Thanks,
+
+  --david
+-- 
+Mosberger Consulting LLC, voice/fax: 510-744-9372,
+http://www.mosberger-consulting.com/
+35706 Runckel Lane, Fremont, CA 94536
