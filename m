@@ -1,22 +1,18 @@
-From: Andrew Morton <akpm@osdl.org>
-Date: Wed, 27 Jul 2005 00:23:28 +0000
+From: Pavel Machek <pavel@ucw.cz>
+Date: Wed, 27 Jul 2005 07:40:33 +0000
 Subject: Re: [patch] properly stop devices before poweroff
-Message-Id: <20050726172328.1bb5c812.akpm@osdl.org>
+Message-Id: <20050727074033.GC4115@elf.ucw.cz>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F03FCF24C@scsmsx401.amr.corp.intel.com>
-	<200507270014.j6R0EYMv005786@agluck-lia64.sc.intel.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F03FCF24C@scsmsx401.amr.corp.intel.com> <200507270014.j6R0EYMv005786@agluck-lia64.sc.intel.com>
 In-Reply-To: <200507270014.j6R0EYMv005786@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: tony.luck@intel.com
-Cc: kaneshige.kenji@jp.fujitsu.com, ambx1@neo.rr.com, greg@kroah.org, pavel@ucw.cz, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, kaneshige.kenji@jp.fujitsu.com, ambx1@neo.rr.com, greg@kroah.org, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Len Brown <len.brown@intel.com>
 
-tony.luck@intel.com wrote:
->
-> Andrew Morton wrote:
-> > "Luck, Tony" <tony.luck@intel.com> wrote:
-> > >
+Hi!
+
 > > > I started on my OLS homework from Andrew ... and began looking
 > > > into what is going on here.
 > > > 
@@ -39,9 +35,8 @@ tony.luck@intel.com wrote:
 > +
 >  	pci_disable_device(pdev);
 >  	pci_set_power_state(pdev, device_state);
->  
 
-OK, great.  Pavel, can you check this over please?
+Looks good, but check with Len Brown. He did relevant ACPI changes.
 
 > But even this doesn't fix the hang during shutdown :-(
 > 
@@ -54,13 +49,12 @@ OK, great.  Pavel, can you check this over please?
 > device_shutdown() calls sd_shutdown() which prints:
 > 
 >   Synchronizing SCSI cache for disk sdb
-> 
-> and then calls sd_sync_cache().  Now since we suspended mpt/fusion, this is
-> going to go nowhere.
-> 
-> I don't know how to fix this.  Re-ordering the suspend & shutdown just looks
-> wrong.
 
-Again, Pavel has been working on this code and might be able to suggest
-something which is appropriate for 2.6.13...
+Okay, looks to me like sd_shutdown should be done from
+device_suspend(), not device_shutdown [because it needs scsi subsystem
+to be functional]. Also for reboot we probably want PMSG_FREEZE (not
+PMSG_SUSPEND), to keep it slightly faster.
 
+								Pavel
+-- 
+teflon -- maybe it is a trademark, but it should not be.
