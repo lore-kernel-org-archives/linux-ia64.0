@@ -1,48 +1,47 @@
-From: takeuchi satoru <takeuchi_satoru@jp.fujitsu.com>
-Date: Fri, 29 Jul 2005 07:33:26 +0000
-Subject: [PATCH 2.6.13-rc4] Remove unnecessary function declarations
-Message-Id: <20050729.163326.65874239.takeuchi_satoru@jp.fujitsu.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Wed, 27 Jul 2005 22:03:38 +0000
+Subject: [PATCH] ia64: remove useless asm-ia64/segment.h includes
+Message-Id: <200507271603.38034.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Hi,
+Remove references to asm-ia64/segment.h, which is empty.
 
-I resend this patch because I sent the previous mail
-without Subject: line.
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
 
-Thanks,
-Satoru Takeuchi
-
-This patch removes unnecessary function declarations in
-<include/asm-ia64/iosapic.h>.
-
-Signed-off-by: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
-
----
-
- include/asm-ia64/iosapic.h |    2 --
- 1 files changed, 2 deletions(-)
-
-diff -puN include/asm-ia64/iosapic.h~my-patch include/asm-ia64/iosapic.h
---- linux-2.6.13-rc4/include/asm-ia64/iosapic.h~my-patch	2005-07-29 15:23:18.000000000 +0900
-+++ linux-2.6.13-rc4-takeuchi/include/asm-ia64/iosapic.h	2005-07-29 15:23:18.000000000 +0900
-@@ -78,7 +78,6 @@ extern int iosapic_remove (unsigned int 
- #endif /* CONFIG_HOTPLUG */
- extern int gsi_to_vector (unsigned int gsi);
- extern int gsi_to_irq (unsigned int gsi);
--extern void iosapic_enable_intr (unsigned int vector);
- extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
- 				  unsigned long trigger);
- #ifdef CONFIG_ACPI_DEALLOCATE_IRQ
-@@ -95,7 +94,6 @@ extern int __init iosapic_register_platf
- 					   unsigned long trigger);
- extern unsigned int iosapic_version (char __iomem *addr);
+Index: work/arch/ia64/pci/pci.c
+=================================--- work.orig/arch/ia64/pci/pci.c	2005-07-25 15:04:19.000000000 -0600
++++ work/arch/ia64/pci/pci.c	2005-07-25 15:10:55.000000000 -0600
+@@ -24,7 +24,6 @@
  
--extern void iosapic_pci_fixup (int);
- #ifdef CONFIG_NUMA
- extern void __devinit map_iosapic_to_node (unsigned int, int);
- #endif
-_
+ #include <asm/machvec.h>
+ #include <asm/page.h>
+-#include <asm/segment.h>
+ #include <asm/system.h>
+ #include <asm/io.h>
+ #include <asm/sal.h>
+Index: work/arch/ia64/ia32/ia32_signal.c
+=================================--- work.orig/arch/ia64/ia32/ia32_signal.c	2005-07-25 15:04:19.000000000 -0600
++++ work/arch/ia64/ia32/ia32_signal.c	2005-07-25 15:10:55.000000000 -0600
+@@ -29,7 +29,6 @@
+ #include <asm/uaccess.h>
+ #include <asm/rse.h>
+ #include <asm/sigcontext.h>
+-#include <asm/segment.h>
+ 
+ #include "ia32priv.h"
+ 
+Index: work/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+=================================--- work.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-07-25 15:04:19.000000000 -0600
++++ work/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-07-25 15:10:55.000000000 -0600
+@@ -36,7 +36,6 @@
+ #include <asm/topology.h>
+ #include <asm/smp.h>
+ #include <asm/semaphore.h>
+-#include <asm/segment.h>
+ #include <asm/uaccess.h>
+ #include <asm/sal.h>
+ #include <asm/sn/io.h>
