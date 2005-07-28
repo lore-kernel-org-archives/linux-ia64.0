@@ -1,80 +1,37 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Thu, 28 Jul 2005 10:29:20 +0000
-Subject: Re: Add prefetch switch stack hook in scheduler function
-Message-Id: <42E8B380.1070003@yahoo.com.au>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 28 Jul 2005 19:14:53 +0000
+Subject: RE: Add prefetch switch stack hook in scheduler function
+Message-Id: <200507281914.j6SJErg31398@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <10613.1122538148@kao2.melbourne.sgi.com> <42E897FD.6060506@yahoo.com.au> <20050728083544.GA22740@elte.hu> <42E89BE6.6040304@yahoo.com.au> <20050728091638.GA25846@elte.hu> <42E8A688.7070802@yahoo.com.au> <20050728100429.GA27030@elte.hu>
-In-Reply-To: <20050728100429.GA27030@elte.hu>
+In-Reply-To: <20050728090948.GA24222@elte.hu>
+References: <200507272207.j6RM7fg18695@unix-os.sc.intel.com>
+In-Reply-To: <200507272207.j6RM7fg18695@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>
-Cc: Keith Owens <kaos@ocs.com.au>, David.Mosberger@acm.org, Andrew Morton <akpm@osdl.org>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: 'Ingo Molnar' <mingo@elte.hu>, Keith Owens <kaos@ocs.com.au>
+Cc: David.Mosberger@acm.org, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Ingo Molnar wrote:
-> * Nick Piggin <nickpiggin@yahoo.com.au> wrote:
-
-[...]
-
-> 	prefetch_area(void *first_addr, void *last_addr)
+> i.e. like the patch below. Boot-tested on x86. x86, x64 and ia64 have a 
+> real kernel_stack() implementation, the other architectures all return 
+> 'next'. (I've also cleaned up a couple of other things in the 
+> prefetch-next area, see the changelog below.)
 > 
-> (or as addr,len)
-> 
+> Ken, would this patch generate a sufficient amount of prefetching on 
+> ia64?
 
-Yep. We have prefetch_range.
+Sorry, this is not enough.  Switch stack on ia64 is 528 bytes.  We need to
+prefetch 5 lines.  It probably should use prefetch_range().  But on ia64,
+prefetch_range stride L1_CACHE_BYTES, where I really want to stride L3 cache
+line size.
 
+We also want to prefetch switch stack for current task, since processor
+state is saved onto the stack for outgoing process.  And that stack is
+almost guaranteed to be cold because switch stack is created below current
+stack pointer. 
 
->>
->>Yeah, then a specific field _within_ next->mm or thread_info may want 
->>to be fetched. In short, I don't see any argument why we shouldn't 
->>call the function prefetch_task().
-> 
-> 
-> it's a fundamental thing: we _dont_ want to push generic code into 
-> architectures, and there's nothing per-arch about next->mm.
-> 
+Can we just go back to prefetch_stack() or prefetch_task() (or use plural
+name) and let each arch decide what to do with it?
 
-Yeah, I mean within mm, ie. prefetch(&mm->random_cacheline).
+- Ken
 
->>Secondly, I don't really like your prefetch(kernel_stack()) function 
->>because it doesn't really give architectures enough control over 
->>exactly what cachelines they get in memory.
-> 
-> 
-> my point is, it comes down to concrete examples, it may or may not make 
-> sense to do things per-arch.
-> 
-
-I thought the concrete example there was ia64's switch_stack,
-which looks to be over half a K... oh I see you've asked Ken
-whether this will be sufficient. OK in that case let's wait and
-see.
-
-> 
->>[...] I see nothing wrong with having a prefetch_task() call.  
->>(Although I agree things like thread_info->flags and next->mm can be 
->>done in generic code).
-> 
-> 
-> great that we now agree wrt. thread_info and next->mm. My remaining 
-> point is, once we prefetch ->thread_info, ->mm and the kernel stack, 
-> nothing else significant remains! (It's still very much possible that 
-> something needs to be prefetched per-arch, but i'd like to see a robust 
-> case be made for it, instead of your global 'it might happen' argument.)
-> 
-
-Well to be clear, I think we have always agreed, except that I
-thought it 'did happen' with the ia64 example. If it turns out
-that your prefetch is good enough then I will have been mistaken.
-
-Actually to be even clearer, I was never really arguing about what
-to prefetch or whether to prefetch from arch code or not. Just that
-the name, if any, should be prefetch_task as opposed to
-prefetch_stack :)
-
-Nick
-
--- 
-SUSE Labs, Novell Inc.
-
-Send instant messages to your online friends http://au.messenger.yahoo.com 
