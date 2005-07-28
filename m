@@ -1,58 +1,27 @@
 From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Thu, 14 Jul 2005 09:15:07 +0000
-Subject: [RFC][patch 0/10] Multiple vector domain support
-Message-Id: <42D62D1B.8000105@jp.fujitsu.com>
+Date: Thu, 28 Jul 2005 07:48:24 +0000
+Subject: [PATCH 2.6.13-rc3 0/6] failure of acpi_register_gsi() should be handled
+Message-Id: <42E88DC8.7050507@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
 Hi,
 
-I'm attaching the series of patches for handling huge number of
-interrtupt sources. This patch is to increase vector spaces by
-separating processors into some domains. This idea is the same as "per
-node IDT" posted by Zwane Mwaikambo at:
+Current acpi_register_gsi() function has no way to indicate errors to
+its callers even though acpi_register_gsi() can fail to register gsi
+because of some reasons (out of memory, lack of interrupt vectors,
+incorrect BIOS, and so on). As a result, caller of acpi_register_gsi()
+cannot handle the case that acpi_register_gsi() fails. I think failure
+of acpi_register_gsi() should be handled properly.
 
-    http://marc.theaimsgroup.com/?l=linux-kernel&m2103551401596&w=2
-
-The ia64 linux already have vector sharing to handle huge number of
-level-triggered interrupt sources via I/O SAPIC, but I think we also
-need per domain vector approach because:
-
-    o Supporting vector shairng for edge-triggered interrupts is
-      difficult (or impossible)
-
-    o Vector domain approach has better performance than vector
-      sharing
-
-    o Need to support MSI based interrupts
-
-This series of patches is still under development, and has following
-TBD items.
-
-    o How to create vector domains
-
-      Need to consider how to create vector domains(per CPU?, per
-      node? or others...)
-
-    o MSI support
-
-      Attached patch only supports vector domain for I/O SAPIC
-      interrupts. We need to consider how to support vector domain for
-      MSI interrupts.
-
-    o /proc interface
-
-    o How to handle CPU hotplug
-
-    o and so on..
-
-
-Any comments and questions are welcomed.
+This series of patches changes acpi_register_gsi() to return negative
+value on error, and also changes callers of acpi_register_gsi() to
+handle failure of acpi_register_gsi().
 
 Thanks,
 Kenji Kaneshige
-
 
