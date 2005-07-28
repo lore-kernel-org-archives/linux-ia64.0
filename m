@@ -1,27 +1,47 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 13 Jul 2005 01:36:51 +0000
-Subject: Re: [PATCH 2.6.13-rc1 08/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42D47033.6030004@jp.fujitsu.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 28 Jul 2005 23:08:28 +0000
+Subject: Delete scheduler SD_WAKE_AFFINE and SD_WAKE_BALANCE flags
+Message-Id: <200507282308.j6SN8Tg01993@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42CB63B2.6000505@jp.fujitsu.com> <42CB69BD.1090607@jp.fujitsu.com> <20050712222203.GG26607@austin.ibm.com>
-In-Reply-To: <20050712222203.GG26607@austin.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linas Vepstas <linas@austin.ibm.com>
-Cc: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: Ingo Molnar <mingo@elte.hu>, 'Nick Piggin' <nickpiggin@yahoo.com.au>
+Cc: linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Linas Vepstas wrote:
-> On Wed, Jul 06, 2005 at 02:18:53PM +0900, Hidetoshi Seto was heard to remark:
-> 
->>+static int pci_error_recovery(peidx_table_t *peidx)
-> 
-> Minor comment:
-> Maybe a different name for this routine would be good;
-> this potentially conflicts with generic pci routines.
+What sort of workload needs SD_WAKE_AFFINE and SD_WAKE_BALANCE?
+SD_WAKE_AFFINE are not useful in conjunction with interrupt binding.
+In fact, it creates more harm than usefulness, causing detrimental
+process migration and destroy process cache affinity etc.  Also
+SD_WAKE_BALANCE is giving us performance grief with our industry
+standard OLTP workload.
 
-Good point. I'll fix it.
+To demonstrate the problem, we turned off these two flags in the cpu
+sd domain and measured a stunning 2.15% performance gain!  And deleting
+all the code in the try_to_wake_up() pertain to load balancing gives us
+another 0.2% gain.
 
-Thanks,
-H.Seto
+The wake up patch should be made simple, just put the waking task on
+the previously ran cpu runqueue.  Simple and elegant.
+
+I'm proposing we either delete these two flags or make them run time
+configurable.
+
+- Ken
+
+
+
+--- linux-2.6.12/include/linux/topology.h.orig	2005-07-28 15:54:05.007399685 -0700
++++ linux-2.6.12/include/linux/topology.h	2005-07-28 15:54:39.292555515 -0700
+@@ -118,9 +118,7 @@
+ 	.flags			= SD_LOAD_BALANCE	\
+ 				| SD_BALANCE_NEWIDLE	\
+ 				| SD_BALANCE_EXEC	\
+-				| SD_WAKE_AFFINE	\
+-				| SD_WAKE_IDLE		\
+-				| SD_WAKE_BALANCE,	\
++				| SD_WAKE_IDLE,		\
+ 	.last_balance		= jiffies,		\
+ 	.balance_interval	= 1,			\
+ 	.nr_balance_failed	= 0,			\
 
