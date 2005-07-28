@@ -1,43 +1,37 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Sat, 16 Jul 2005 01:41:41 +0000
-Subject: Re: [RFC][patch 2/10] Multiple vector domain support - cpu and domain
-Message-Id: <42D865D5.5090305@jp.fujitsu.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Thu, 28 Jul 2005 21:53:00 +0000
+Subject: Change ia64 prefetch to use lfetch.fault
+Message-Id: <200507282153.j6SLr0g01028@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42D62E73.1050108@jp.fujitsu.com>
-In-Reply-To: <42D62E73.1050108@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Ashok Raj wrote:
-> On Thu, Jul 14, 2005 at 06:20:51PM +0900, Kenji Kaneshige wrote:
-> 
->>This patch add the code to handle the relationship between cpu and
->>domains. We need more consideration about how to separate vector
->>domains.
->>
->>Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
->>
->>---
->>
-> 
-> 
-> Should we consider this based on some mach-* like schemes, so for e.g in
-> NUMA case we could use node as a VECTOR_DOMAIN? ... or maybe we could
-> somehow tie this into CPUSETS?..
->  
-> 
+I don't remember whether this has been discussed earlier, won't
+it make sense to use the fault variant of lfetch for prefetch()
+and prefetchw()?  After all, the caller has high confidence that
+the cache line will be used in the future.
 
-I think some hardware implements hardware interrupt
-redirection on each node. For such system, I think it
-is good idea to use NUMA node as a VECTOR_DOMAIN to
-make it possible to use hardware interrupt redirection.
-Currently I don't have other reasons to use the set of
-processors as a vector domain instead of per-CPU approach.
 
-Does anyone have other reasons to use other approach than
-per-CPU approach?
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
-Thanks,
-Kenji Kaneshige
+--- linux-2.6.12/include/asm-ia64/processor.h.orig	2005-07-28 14:46:26.629519713 -0700
++++ linux-2.6.12/include/asm-ia64/processor.h	2005-07-28 14:48:17.037721485 -0700
+@@ -682,13 +682,13 @@ ia64_imva (void *addr)
+ static inline void
+ prefetch (const void *x)
+ {
+-	 ia64_lfetch(ia64_lfhint_none, x);
++	ia64_lfetch_fault(ia64_lfhint_none, x);
+ }
+ 
+ static inline void
+ prefetchw (const void *x)
+ {
+-	ia64_lfetch_excl(ia64_lfhint_none, x);
++	ia64_lfetch_fault_excl(ia64_lfhint_none, x);
+ }
+ 
+ #define spin_lock_prefetch(x)	prefetchw(x)
+
