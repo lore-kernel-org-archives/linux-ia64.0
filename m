@@ -1,44 +1,29 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Wed, 27 Jul 2005 23:23:37 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Thu, 28 Jul 2005 07:41:18 +0000
 Subject: Re: Add prefetch switch stack hook in scheduler function
-Message-Id: <ed5aea4305072716233491f7f8@mail.gmail.com>
+Message-Id: <20050728074118.GA20581@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200507272207.j6RM7fg18695@unix-os.sc.intel.com>
-	 <20050727161316.0593d762.akpm@osdl.org>
-In-Reply-To: <20050727161316.0593d762.akpm@osdl.org>
+References: <200507272207.j6RM7fg18695@unix-os.sc.intel.com> <20050727161316.0593d762.akpm@osdl.org> <ed5aea4305072716233491f7f8@mail.gmail.com>
+In-Reply-To: <ed5aea4305072716233491f7f8@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>
-Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, mingo@elte.hu, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
+To: David.Mosberger@acm.org
+Cc: Andrew Morton <akpm@osdl.org>, "Chen, Kenneth W" <kenneth.w.chen@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-Also, should this be called prefetch_stack() or perhaps even just
-prefetch_task()?  Not every architecture defines a switch_stack
-structure.
 
-  --david
+* david mosberger <dmosberger@gmail.com> wrote:
 
--- 
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
+> Also, should this be called prefetch_stack() or perhaps even just 
+> prefetch_task()?  Not every architecture defines a switch_stack 
+> structure.
 
-On 7/27/05, Andrew Morton <akpm@osdl.org> wrote:
-> "Chen, Kenneth W" <kenneth.w.chen@intel.com> wrote:
-> >
-> > +#ifdef ARCH_HAS_PREFETCH_SWITCH_STACK
-> >  +extern void prefetch_switch_stack(struct task_struct*);
-> >  +#else
-> >  +#define prefetch_switch_stack(task) do { } while (0)
-> >  +#endif
-> 
-> It is better to use
-> 
-> static inline void prefetch_switch_stack(struct task_struct *t) { }
-> 
-> in the second case, rather than a macro.  It provides typechecking.
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
+yeah. I'd too suggest to call it prefetch_stack(), and not make it a 
+macro & hook but something defined on all arches, with for now only ia64 
+having any real code in the inline function.
+
+i'm wondering, is the switch_stack at the same/similar place as 
+next->thread_info? If yes then we could simply do a 
+prefetch(next->thread_info).
+
+	Ingo
