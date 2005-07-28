@@ -1,35 +1,47 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 01 Jul 2005 05:52:56 +0000
-Subject: [patch 2.6.13-rc1] restore_sigcontext is not preempt safe
-Message-Id: <8043.1120197176@kao2.melbourne.sgi.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Thu, 28 Jul 2005 07:53:45 +0000
+Subject: [PATCH 2.6.13-rc3 3/6] failure of acpi_register_gsi() should be handled
+Message-Id: <42E88F09.2000904@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42E88DC8.7050507@jp.fujitsu.com>
+In-Reply-To: <42E88DC8.7050507@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Andrew Morton <akpm@osdl.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-restore_sigcontext calls ia64_set_local_fpu_owner() which requires that
-preempt be disabled.
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
+This patch adds the error check of acpi_register_gsi() into hpet
+driver.
 
-Index: linux/arch/ia64/kernel/signal.c
-=================================--- linux.orig/arch/ia64/kernel/signal.c	2005-07-01 12:27:44.891940980 +1000
-+++ linux/arch/ia64/kernel/signal.c	2005-07-01 15:57:08.479428221 +1000
-@@ -143,6 +143,7 @@ restore_sigcontext (struct sigcontext __
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+
+---
+
+ linux-2.6.13-rc3-kanesige/drivers/char/hpet.c |    8 ++++++--
+ 1 files changed, 6 insertions(+), 2 deletions(-)
+
+diff -puN drivers/char/hpet.c~handle-error-acpi_register_gsi-hpet drivers/char/hpet.c
+--- linux-2.6.13-rc3/drivers/char/hpet.c~handle-error-acpi_register_gsi-hpet	2005-07-28 01:01:16.000000000 +0900
++++ linux-2.6.13-rc3-kanesige/drivers/char/hpet.c	2005-07-28 01:01:16.000000000 +0900
+@@ -906,11 +906,15 @@ static acpi_status hpet_resources(struct
+ 		if (irqp->number_of_interrupts > 0) {
+ 			hdp->hd_nirqs = irqp->number_of_interrupts;
  
- 		__copy_from_user(current->thread.fph, &sc->sc_fr[32], 96*16);
- 		psr->mfh = 0;	/* drop signal handler's fph contents... */
-+		preempt_disable();
- 		if (psr->dfh)
- 			ia64_drop_fpu(current);
- 		else {
-@@ -150,6 +151,7 @@ restore_sigcontext (struct sigcontext __
- 			__ia64_load_fpu(current->thread.fph);
- 			ia64_set_local_fpu_owner(current);
+-			for (i = 0; i < hdp->hd_nirqs; i++)
+-				hdp->hd_irq[i] +			for (i = 0; i < hdp->hd_nirqs; i++) {
++				int rc  				    acpi_register_gsi(irqp->interrupts[i],
+ 						      irqp->edge_level,
+ 						      irqp->active_high_low);
++				if (rc < 0)
++					return AE_ERROR;
++				hdp->hd_irq[i] = rc;
++			}
  		}
-+		preempt_enable();
  	}
- 	return err;
- }
+ 
+
+_
 
