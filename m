@@ -1,138 +1,66 @@
-From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
-Date: Wed, 06 Jul 2005 05:20:15 +0000
-Subject: [PATCH 2.6.13-rc1 09/10] IOCHK interface for I/O error handling/detecting
-Message-Id: <42CB6A0F.4080304@jp.fujitsu.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Thu, 28 Jul 2005 07:56:18 +0000
+Subject: [PATCH 2.6.13-rc3 5/6] failure of acpi_register_gsi() should be handled
+Message-Id: <42E88FA2.5010707@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42CB63B2.6000505@jp.fujitsu.com>
-In-Reply-To: <42CB63B2.6000505@jp.fujitsu.com>
+References: <42E88DC8.7050507@jp.fujitsu.com>
+In-Reply-To: <42E88DC8.7050507@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Linux Kernel list <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org, "Luck, Tony" <tony.luck@intel.com>
-Cc: Linas Vepstas <linas@austin.ibm.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>, long <tlnguyen@snoqualmie.dp.intel.com>, linux-pci@atrey.karlin.mff.cuni.cz, linuxppc64-dev <linuxppc64-dev@ozlabs.org>
+To: Andrew Morton <akpm@osdl.org>, Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-[This is 9 of 10 patches, "iochk-09-cpeh.patch"]
 
-- SAL behavior doesn't affect only MCA. There are other
-   chances to call SAL_GET_STATE_INFO, that's when CMC, CPE,
-   and INIT is happen.
+This patch adds the error check of acpi_register_gsi() into ACPI based
+8250 serial driver.
 
-    - CMC(Corrected Machine Check) is for non-fatal, processor
-      local errors. Fortunately, calling SAL_GET_STATE_INFO for
-      CMC only collect data from a processor issued it, without
-      touching any bridge and its status. So, this is safe.
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
 
-    - CPE(Corrected Platform Error) is for non-fatal, platform
-      related errors. Even it says corrected, but calling
-      SAL procedure for CPE touchs every bridge on the platform,
-      and "correct" bridge status that's bad for iochk works.
-
-    - INIT is a kind of system reset request, as far as I know.
-      So restarting from INIT is out of design, also iochk after
-      INIT is not required at this time.
-
-   In short, only MCA and CPE have the problem of SAL behavior.
-   One of the difference from MCA is that SAL will not gather
-   data before OS actually request it.
-
-   MCA:
-       1) SAL gathers data and keep it internally
-       2) OS gets control
-       3) if OS requests, SAL returns data gathered at beginning.
-   CPE:
-       1) OS gets control
-       2) OS request to SAL
-       3) SAL gathers data and return it to OS
-
-   Therefore, we can make CPE handler to care bridge states,
-   to check states before calling SAL procedure.
-
-Changes from previous one for 2.6.11.11:
-   - (non)
-
-Signed-off-by: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
 
 ---
 
-  arch/ia64/kernel/mca.c      |   21 +++++++++++++++++++++
-  arch/ia64/lib/iomap_check.c |   17 +++++++++++++++++
-  2 files changed, 38 insertions(+)
+ linux-2.6.13-rc3-kanesige/drivers/serial/8250_acpi.c |   20 +++++++++++++++----
+ 1 files changed, 16 insertions(+), 4 deletions(-)
 
-Index: linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
-=================================--- linux-2.6.13-rc1.orig/arch/ia64/lib/iomap_check.c
-+++ linux-2.6.13-rc1/arch/ia64/lib/iomap_check.c
-@@ -19,6 +19,7 @@ static int have_error(struct pci_dev *de
-
-  void notify_bridge_error(struct pci_dev *bridge);
-  void clear_bridge_error(struct pci_dev *bridge);
-+void save_bridge_error(void);
-
-  void iochk_init(void)
-  {
-@@ -145,6 +146,22 @@ void clear_bridge_error(struct pci_dev *
-  	}
-  }
-
-+void save_bridge_error(void)
-+{
-+	iocookie *cookie;
+diff -puN drivers/serial/8250_acpi.c~handle-error-acpi_register_gsi-8250_acpi drivers/serial/8250_acpi.c
+--- linux-2.6.13-rc3/drivers/serial/8250_acpi.c~handle-error-acpi_register_gsi-8250_acpi	2005-07-28 01:01:18.000000000 +0900
++++ linux-2.6.13-rc3-kanesige/drivers/serial/8250_acpi.c	2005-07-28 01:01:18.000000000 +0900
+@@ -47,18 +47,30 @@ static acpi_status acpi_serial_port(stru
+ static acpi_status acpi_serial_ext_irq(struct uart_port *port,
+ 				       struct acpi_resource_ext_irq *ext_irq)
+ {
+-	if (ext_irq->number_of_interrupts > 0)
+-		port->irq = acpi_register_gsi(ext_irq->interrupts[0],
++	int rc;
 +
-+	if (list_empty(&iochk_devices))
-+		return;
-+
-+	/* mark devices if its root bus bridge have errors */
-+	list_for_each_entry(cookie, &iochk_devices, list) {
-+		if (cookie->error)
-+			continue;
-+		if (have_error(cookie->host))
-+			notify_bridge_error(cookie->host);
++	if (ext_irq->number_of_interrupts > 0) {
++		rc = acpi_register_gsi(ext_irq->interrupts[0],
+ 	                   ext_irq->edge_level, ext_irq->active_high_low);
++		if (rc < 0)
++			return AE_ERROR;
++		port->irq = rc;
 +	}
-+}
+ 	return AE_OK;
+ }
+ 
+ static acpi_status acpi_serial_irq(struct uart_port *port,
+ 				   struct acpi_resource_irq *irq)
+ {
+-	if (irq->number_of_interrupts > 0)
+-		port->irq = acpi_register_gsi(irq->interrupts[0],
++	int rc;
 +
-  EXPORT_SYMBOL(iochk_read);
-  EXPORT_SYMBOL(iochk_clear);
-  EXPORT_SYMBOL(iochk_devices);	/* for MCA driver */
-Index: linux-2.6.13-rc1/arch/ia64/kernel/mca.c
-=================================--- linux-2.6.13-rc1.orig/arch/ia64/kernel/mca.c
-+++ linux-2.6.13-rc1/arch/ia64/kernel/mca.c
-@@ -80,6 +80,8 @@
-  #ifdef CONFIG_IOMAP_CHECK
-  #include <linux/pci.h>
-  extern void notify_bridge_error(struct pci_dev *bridge);
-+extern void save_bridge_error(void);
-+extern spinlock_t iochk_lock;
-  #endif
++	if (irq->number_of_interrupts > 0) {
++		rc = acpi_register_gsi(irq->interrupts[0],
+ 	                   irq->edge_level, irq->active_high_low);
++		if (rc < 0)
++			return AE_ERROR;
++		port->irq = rc;
++	}
+ 	return AE_OK;
+ }
+ 
 
-  #if defined(IA64_MCA_DEBUG_INFO)
-@@ -288,11 +290,30 @@ ia64_mca_cpe_int_handler (int cpe_irq, v
-  	IA64_MCA_DEBUG("%s: received interrupt vector = %#x on CPU %d\n",
-  		       __FUNCTION__, cpe_irq, smp_processor_id());
-
-+#ifndef CONFIG_IOMAP_CHECK
-+
-  	/* SAL spec states this should run w/ interrupts enabled */
-  	local_irq_enable();
-
-  	/* Get the CPE error record and log it */
-  	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
-+#else
-+	/*
-+	 * Because SAL_GET_STATE_INFO for CPE might clear bridge states
-+	 * in process of gathering error information from the system,
-+	 * we should check the states before clearing it.
-+	 * While OS and SAL are handling bridge status, we have to protect
-+	 * the states from changing by any other I/Os running simultaneously,
-+	 * so this should be handled w/ lock and interrupts disabled.
-+	 */
-+	spin_lock(&iochk_lock);
-+	save_bridge_error();
-+	ia64_mca_log_sal_error_record(SAL_INFO_TYPE_CPE);
-+	spin_unlock(&iochk_lock);
-+
-+	/* Rests can go w/ interrupt enabled as usual */
-+	local_irq_enable();
-+#endif
-
-  	spin_lock(&cpe_history_lock);
-  	if (!cpe_poll_enabled && cpe_vector >= 0) {
+_
 
