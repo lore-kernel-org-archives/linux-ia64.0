@@ -1,7 +1,7 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Fri, 29 Jul 2005 18:22:04 +0000
+From: Khalid Aziz <khalid_aziz@hp.com>
+Date: Fri, 29 Jul 2005 19:40:06 +0000
 Subject: Re: [PATCH] /proc/iomem update
-Message-Id: <ed5aea43050729112247944246@mail.gmail.com>
+Message-Id: <1122666006.20867.38.camel@lyra.fc.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <E1DyZJE-0006Au-00@lyra.fc.hp.com>
 In-Reply-To: <E1DyZJE-0006Au-00@lyra.fc.hp.com>
@@ -10,16 +10,29 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Is the "continue" here spurious?  If not, it would cause
-memory-leaking since "res" has been allocated already.
+That "continue" is intentional and you are right, it will cause memory
+leak. It should be preceded by kfree(res). I will fix that.
 
-+                       case EFI_MEMORY_MAPPED_IO:
-+                       case EFI_MEMORY_MAPPED_IO_PORT_SPACE:
-+                               continue;
-+                               break;
+Thanks,
+Khalid
 
-  --david
+On Fri, 2005-07-29 at 11:22 -0700, david mosberger wrote:
+> Is the "continue" here spurious?  If not, it would cause
+> memory-leaking since "res" has been allocated already.
+> 
+> +                       case EFI_MEMORY_MAPPED_IO:
+> +                       case EFI_MEMORY_MAPPED_IO_PORT_SPACE:
+> +                               continue;
+> +                               break;
+> 
+>   --david
 -- 
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
+
+==================================
+Khalid Aziz                       Open Source and Linux Organization
+(970)898-9214                                        Hewlett-Packard
+khalid.aziz@hp.com                                  Fort Collins, CO
+
+"The Linux kernel is subject to relentless development" 
+                                - Alessandro Rubini
+
