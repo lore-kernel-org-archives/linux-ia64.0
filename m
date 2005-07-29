@@ -1,78 +1,55 @@
-From: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Date: Wed, 27 Jul 2005 22:05:38 +0000
-Subject: [PATCH] ia64: remove IOSAPIC locality domain mapping from pci.c
-Message-Id: <200507271605.38999.bjorn.helgaas@hp.com>
+From: Ingo Molnar <mingo@elte.hu>
+Date: Fri, 29 Jul 2005 14:13:11 +0000
+Subject: [sched, patch] better wake-balancing
+Message-Id: <20050729141311.GA4154@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <42E98DEA.9090606@yahoo.com.au> <200507290627.j6T6Rrg06842@unix-os.sc.intel.com> <20050729114822.GA25249@elte.hu>
+In-Reply-To: <20050729114822.GA25249@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Cc: 'Nick Piggin' <nickpiggin@yahoo.com.au>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>
 
-Move acpi_map_iosapics() from pci.c to acpi.c, since it doesn't
-have anything to do with PCI.
 
-Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+another approach would be the patch below, to do wakeup-balancing only 
+if the wakeup CPU or the task CPU is idle.
 
-Index: work/arch/ia64/kernel/acpi.c
-=================================--- work.orig/arch/ia64/kernel/acpi.c	2005-07-25 15:54:59.000000000 -0600
-+++ work/arch/ia64/kernel/acpi.c	2005-07-25 15:57:09.000000000 -0600
-@@ -826,7 +826,7 @@
-  
+I've measured half-loaded tbench and unless total wakeup-balancing 
+removal it does not degrade with this patch applied, while fully loaded 
+tbench and other workloads clearly improve.
+
+Ken, could you give this one a try? (It's against the current scheduler 
+queue in -mm, but also applies fine to current Linus trees.)
+
+	Ingo
+
+---
+
+do wakeup-balancing only if the wakeup-CPU or the task-CPU is idle.
+
+this prevents excessive wakeup-balancing while the system is highly
+loaded, but helps spread out the workload on partly idle systems.
+
+Signed-off-by: Ingo Molnar <mingo@elte.hu>
+
+ kernel/sched.c |    6 ++++++
+ 1 files changed, 6 insertions(+)
+
+Index: linux-sched-curr/kernel/sched.c
+=================================--- linux-sched-curr.orig/kernel/sched.c
++++ linux-sched-curr/kernel/sched.c
+@@ -1252,7 +1252,13 @@ static int try_to_wake_up(task_t *p, uns
+ 	if (unlikely(task_running(rq, p)))
+ 		goto out_activate;
  
- #ifdef CONFIG_ACPI_NUMA
--acpi_status __devinit
-+static acpi_status __devinit
- acpi_map_iosapic (acpi_handle handle, u32 depth, void *context, void **ret)
- {
- 	struct acpi_buffer buffer = {ACPI_ALLOCATE_BUFFER, NULL};
-@@ -878,7 +878,16 @@
- 	map_iosapic_to_node(gsi_base, node);
- 	return AE_OK;
- }
--#endif /* CONFIG_NUMA */
-+
-+static int __init
-+acpi_map_iosapics (void)
-+{
-+	acpi_get_devices(NULL, acpi_map_iosapic, NULL, NULL);
-+	return 0;
-+}
-+
-+fs_initcall(acpi_map_iosapics);
-+#endif /* CONFIG_ACPI_NUMA */
++	/*
++	 * If neither this CPU, nor the previous CPU the task was
++	 * running on is idle then skip wakeup-balancing:
++	 */
+ 	new_cpu = cpu;
++	if (!idle_cpu(this_cpu) && !idle_cpu(cpu))
++		goto out_set_cpu;
  
- int
- acpi_register_ioapic (acpi_handle handle, u64 phys_addr, u32 gsi_base)
-Index: work/arch/ia64/pci/pci.c
-=================================--- work.orig/arch/ia64/pci/pci.c	2005-07-25 15:56:43.000000000 -0600
-+++ work/arch/ia64/pci/pci.c	2005-07-25 15:58:07.000000000 -0600
-@@ -120,29 +120,6 @@
- 	.write = pci_write,
- };
- 
--#ifdef CONFIG_NUMA
--extern acpi_status acpi_map_iosapic(acpi_handle, u32, void *, void **);
--static void acpi_map_iosapics(void)
--{
--	acpi_get_devices(NULL, acpi_map_iosapic, NULL, NULL);
--}
--#else
--static void acpi_map_iosapics(void)
--{
--	return;
--}
--#endif /* CONFIG_NUMA */
--
--static int __init
--pci_acpi_init (void)
--{
--	acpi_map_iosapics();
--
--	return 0;
--}
--
--subsys_initcall(pci_acpi_init);
--
- /* Called by ACPI when it finds a new root bus.  */
- 
- static struct pci_controller * __devinit
+ 	schedstat_inc(rq, ttwu_cnt);
+ 	if (cpu = this_cpu) {
