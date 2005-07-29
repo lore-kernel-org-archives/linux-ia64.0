@@ -1,55 +1,48 @@
-From: Olaf Hering <olh@suse.de>
-Date: Sun, 10 Jul 2005 19:35:11 +0000
-Subject: [PATCH 3/82] remove linux/version.h include from arch/ia64
-Message-Id: <20050710193511.3.HkjxyJ2330.2247.olh@nectarine.suse.de>
+From: takeuchi satoru <takeuchi_satoru@jp.fujitsu.com>
+Date: Fri, 29 Jul 2005 07:33:26 +0000
+Subject: [PATCH 2.6.13-rc4] Remove unnecessary function declarations
+Message-Id: <20050729.163326.65874239.takeuchi_satoru@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <20050710193508.0.PmFpst2252.2247.olh@nectarine.suse.de>  
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org
-Cc: linux-ia64@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
+Hi,
 
-changing CONFIG_LOCALVERSION rebuilds too much, for no appearent reason.
+I resend this patch because I sent the previous mail
+without Subject: line.
 
-Signed-off-by: Olaf Hering <olh@suse.de>
+Thanks,
+Satoru Takeuchi
 
-arch/ia64/kernel/perfmon.c  |    1 -
-arch/ia64/sn/kernel/tiocx.c |    1 -
-include/asm-ia64/sn/xp.h    |    1 -
-3 files changed, 3 deletions(-)
+This patch removes unnecessary function declarations in
+<include/asm-ia64/iosapic.h>.
 
-Index: linux-2.6.13-rc2-mm1/arch/ia64/kernel/perfmon.c
-=================================--- linux-2.6.13-rc2-mm1.orig/arch/ia64/kernel/perfmon.c
-+++ linux-2.6.13-rc2-mm1/arch/ia64/kernel/perfmon.c
-@@ -37,7 +37,6 @@
-#include <linux/vfs.h>
-#include <linux/pagemap.h>
-#include <linux/mount.h>
--#include <linux/version.h>
-#include <linux/bitops.h>
-#include <linux/rcupdate.h>
+Signed-off-by: Satoru Takeuchi <takeuchi_satoru@jp.fujitsu.com>
 
-Index: linux-2.6.13-rc2-mm1/arch/ia64/sn/kernel/tiocx.c
-=================================--- linux-2.6.13-rc2-mm1.orig/arch/ia64/sn/kernel/tiocx.c
-+++ linux-2.6.13-rc2-mm1/arch/ia64/sn/kernel/tiocx.c
-@@ -8,7 +8,6 @@
+---
 
-#include <linux/module.h>
-#include <linux/kernel.h>
--#include <linux/version.h>
-#include <linux/slab.h>
-#include <linux/spinlock.h>
-#include <linux/proc_fs.h>
-Index: linux-2.6.13-rc2-mm1/include/asm-ia64/sn/xp.h
-=================================--- linux-2.6.13-rc2-mm1.orig/include/asm-ia64/sn/xp.h
-+++ linux-2.6.13-rc2-mm1/include/asm-ia64/sn/xp.h
-@@ -16,7 +16,6 @@
-#define _ASM_IA64_SN_XP_H
+ include/asm-ia64/iosapic.h |    2 --
+ 1 files changed, 2 deletions(-)
 
-
--#include <linux/version.h>
-#include <linux/cache.h>
-#include <linux/hardirq.h>
-#include <asm/sn/types.h>
+diff -puN include/asm-ia64/iosapic.h~my-patch include/asm-ia64/iosapic.h
+--- linux-2.6.13-rc4/include/asm-ia64/iosapic.h~my-patch	2005-07-29 15:23:18.000000000 +0900
++++ linux-2.6.13-rc4-takeuchi/include/asm-ia64/iosapic.h	2005-07-29 15:23:18.000000000 +0900
+@@ -78,7 +78,6 @@ extern int iosapic_remove (unsigned int 
+ #endif /* CONFIG_HOTPLUG */
+ extern int gsi_to_vector (unsigned int gsi);
+ extern int gsi_to_irq (unsigned int gsi);
+-extern void iosapic_enable_intr (unsigned int vector);
+ extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
+ 				  unsigned long trigger);
+ #ifdef CONFIG_ACPI_DEALLOCATE_IRQ
+@@ -95,7 +94,6 @@ extern int __init iosapic_register_platf
+ 					   unsigned long trigger);
+ extern unsigned int iosapic_version (char __iomem *addr);
+ 
+-extern void iosapic_pci_fixup (int);
+ #ifdef CONFIG_NUMA
+ extern void __devinit map_iosapic_to_node (unsigned int, int);
+ #endif
+_
