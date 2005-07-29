@@ -1,80 +1,41 @@
-From: Peter Zijlstra <a.p.zijlstra@chello.nl>
-Date: Fri, 29 Jul 2005 09:17:55 +0000
+From: Ingo Molnar <mingo@elte.hu>
+Date: Fri, 29 Jul 2005 09:45:19 +0000
 Subject: Re: Add prefetch switch stack hook in scheduler function
-Message-Id: <1122628675.14892.9.camel@twins>
+Message-Id: <20050729094519.GA12975@elte.hu>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050728090948.GA24222@elte.hu>
-	 <200507281914.j6SJErg31398@unix-os.sc.intel.com>
-	 <20050729070447.GA3032@elte.hu>  <20050729070702.GA3327@elte.hu>
-In-Reply-To: <20050729070702.GA3327@elte.hu>
+References: <20050729070447.GA3032@elte.hu> <200507290722.j6T7Mig07477@unix-os.sc.intel.com> <20050729082826.GA6144@elte.hu> <20050729100257.A10345@flint.arm.linux.org.uk>
+In-Reply-To: <20050729100257.A10345@flint.arm.linux.org.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Ingo Molnar <mingo@elte.hu>
+To: Russell King <rmk+lkml@arm.linux.org.uk>
 Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, Keith Owens <kaos@ocs.com.au>, David.Mosberger@acm.org, Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
 
-> ---------
-> unroll prefetch_range() loops manually.
+* Russell King <rmk+lkml@arm.linux.org.uk> wrote:
+
+> On Fri, Jul 29, 2005 at 10:28:26AM +0200, Ingo Molnar wrote:
+> > @@ -2872,10 +2878,10 @@ go_idle:
+> >  	/*
+> >  	 * Prefetch (at least) a cacheline below the current
+> >  	 * kernel stack (in expectation of any new task touching
+> > -	 * the stack at least minimally), and a cacheline above
+> > -	 * the stack:
+> > +	 * the stack at least minimally), and at least a cacheline
+> > +	 * above the stack:
+> >  	 */
+> > -	prefetch_range(kernel_stack(next) - MIN_KERNEL_STACK_FOOTPRINT,
+> > +	prefetch_range(kernel_stack(next) - L1_CACHE_BYTES,
+> >  		       MIN_KERNEL_STACK_FOOTPRINT + L1_CACHE_BYTES);
 > 
-> Signed-off-by: Ingo Molnar <mingo@elte.hu>
-> 
->  include/linux/prefetch.h |   31 +++++++++++++++++++++++++++++--
->  1 files changed, 29 insertions(+), 2 deletions(-)
-> 
-> Index: linux/include/linux/prefetch.h
-> =================================> --- linux.orig/include/linux/prefetch.h
-> +++ linux/include/linux/prefetch.h
-> @@ -58,11 +58,38 @@ static inline void prefetchw(const void 
->  static inline void prefetch_range(void *addr, size_t len)
->  {
->  #ifdef ARCH_HAS_PREFETCH
-> -	char *cp;
-> +	char *cp = addr;
->  	char *end = addr + len;
->  
-> -	for (cp = addr; cp < end; cp += PREFETCH_STRIDE)
-> +	/*
-> +	 * Unroll agressively:
-> +	 */
-> +	if (len <= PREFETCH_STRIDE)
->  		prefetch(cp);
-> +	else if (len <= 2*PREFETCH_STRIDE) {
-> +		prefetch(cp);
-> +		prefetch(cp + PREFETCH_STRIDE);
-> +	}
-> +	else if (len <= 3*PREFETCH_STRIDE) {
-> +		prefetch(cp);
-> +		prefetch(cp + PREFETCH_STRIDE);
-> +		prefetch(cp + 2*PREFETCH_STRIDE);
-> +	}
-> +	else if (len <= 4*PREFETCH_STRIDE) {
-> +		prefetch(cp);
-> +		prefetch(cp + PREFETCH_STRIDE);
-> +		prefetch(cp + 2*PREFETCH_STRIDE);
-> +		prefetch(cp + 3*PREFETCH_STRIDE);
-> +	}
-> +	else if (len <= 5*PREFETCH_STRIDE) {
-> +		prefetch(cp);
-> +		prefetch(cp + PREFETCH_STRIDE);
-> +		prefetch(cp + 2*PREFETCH_STRIDE);
-> +		prefetch(cp + 3*PREFETCH_STRIDE);
-> +		prefetch(cp + 4*PREFETCH_STRIDE);
-> +	} else
-> +		for (; cp < end; cp += PREFETCH_STRIDE)
-> +			prefetch(cp);
->  #endif
->  }
->  
+> This needs to ensure that we don't prefetch outside the page of the 
+> kernel stack - otherwise we risk weird problems on architectures which 
+> support prefetching but not DMA cache coherency.
 
-code like that always makes me think of duffs-device
-  http://www.lysator.liu.se/c/duffs-device.html
+ok, agreed. Since kernel_stack(next) defaults to 'next', we go below 
+that structure which has unknown coherency attributes. I guess the 
+easiest solution would be to default kernel_stack(next) to '(void *)next 
++ L1_CACHE_BYTES'? That way the default prefetching would happen for the 
+[next...next+2*L1_BYTES] range.
 
-although it might be that the compiler generates better code from the
-current incarnation; just my .02 ;-)
-
-regards,
-
--- 
-Peter Zijlstra <a.p.zijlstra@chello.nl>
-
+	Ingo
