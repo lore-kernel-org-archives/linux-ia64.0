@@ -1,54 +1,45 @@
-From: Ingo Molnar <mingo@elte.hu>
-Date: Fri, 29 Jul 2005 16:21:08 +0000
-Subject: [sched, patch] better wake-balancing, #3
-Message-Id: <20050729162108.GA10243@elte.hu>
+From: Nick Piggin <nickpiggin@yahoo.com.au>
+Date: Sat, 30 Jul 2005 00:08:36 +0000
+Subject: Re: [sched, patch] better wake-balancing, #3
+Message-Id: <42EAC504.3000300@yahoo.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <42E98DEA.9090606@yahoo.com.au> <200507290627.j6T6Rrg06842@unix-os.sc.intel.com> <20050729114822.GA25249@elte.hu> <20050729141311.GA4154@elte.hu> <20050729150207.GA6332@elte.hu>
-In-Reply-To: <20050729150207.GA6332@elte.hu>
+References: <42E98DEA.9090606@yahoo.com.au> <200507290627.j6T6Rrg06842@unix-os.sc.intel.com> <20050729114822.GA25249@elte.hu> <20050729141311.GA4154@elte.hu> <20050729150207.GA6332@elte.hu> <20050729162108.GA10243@elte.hu>
+In-Reply-To: <20050729162108.GA10243@elte.hu>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Cc: 'Nick Piggin' <nickpiggin@yahoo.com.au>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>
+To: Ingo Molnar <mingo@elte.hu>
+Cc: "Chen, Kenneth W" <kenneth.w.chen@intel.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, Andrew Morton <akpm@osdl.org>
 
+Ingo Molnar wrote:
+> * Ingo Molnar <mingo@elte.hu> wrote:
+> 
+> 
+>>there's an even simpler way: only do wakeup-balancing if this_cpu is 
+>>idle. (tbench results are still OK, and other workloads improved.)
+> 
+> 
+> here's an updated patch. It handles one more detail: on SCHED_SMT we 
+> should check the idleness of siblings too. Benchmark numbers still look 
+> good.
+> 
 
-* Ingo Molnar <mingo@elte.hu> wrote:
+Maybe. Ken hasn't measured the effect of wake balancing in
+2.6.13, which is quite a lot different to that found in 2.6.12.
 
-> there's an even simpler way: only do wakeup-balancing if this_cpu is 
-> idle. (tbench results are still OK, and other workloads improved.)
+I don't really like having a hard cutoff like that -wake
+balancing can be important for IO workloads, though I haven't
+measured for a long time. In IPC workloads, the cache affinity
+of local wakeups becomes less apparent when the runqueue gets
+lots of tasks on it, however benefits of IO affinity will
+generally remain. Especially on NUMA systems.
 
-here's an updated patch. It handles one more detail: on SCHED_SMT we 
-should check the idleness of siblings too. Benchmark numbers still look 
-good.
+fork/clone/exec/etc balancing really doesn't do anything to
+capture this kind of relationship between tasks and between
+tasks and IRQ sources. Without wake balancing we basically have
+a completely random scattering of tasks.
 
-	Ingo
+-- 
+SUSE Labs, Novell Inc.
 
-----
-do wakeup-balancing only if the wakeup-CPU (or any of its siblings)
-is idle.
-
-this prevents excessive wakeup-balancing while the system is highly
-loaded, but helps spread out the workload on partly idle systems.
-
-Signed-off-by: Ingo Molnar <mingo@elte.hu>
-
- kernel/sched.c |    6 ++++++
- 1 files changed, 6 insertions(+)
-
-Index: linux-sched-curr/kernel/sched.c
-=================================--- linux-sched-curr.orig/kernel/sched.c
-+++ linux-sched-curr/kernel/sched.c
-@@ -1253,7 +1253,13 @@ static int try_to_wake_up(task_t *p, uns
- 	if (unlikely(task_running(rq, p)))
- 		goto out_activate;
- 
-+	/*
-+	 * Only do wakeup-balancing (= potentially migrate the task)
-+	 * if this CPU (or any SMT sibling) is idle:
-+	 */
- 	new_cpu = cpu;
-+	if (!idle_cpu(this_cpu) && this_cpu = wake_idle(this_cpu, p))
-+		goto out_set_cpu;
- 
- 	schedstat_inc(rq, ttwu_cnt);
- 	if (cpu = this_cpu) {
+Send instant messages to your online friends http://au.messenger.yahoo.com 
