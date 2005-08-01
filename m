@@ -1,38 +1,36 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Fri, 26 Aug 2005 01:32:34 +0000
-Subject: Re: [PATCH 2.6.13-rc7 2/2] completely disable cpu_exclusive sched
-Message-Id: <430E7132.9060800@yahoo.com.au>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Mon, 01 Aug 2005 15:36:47 +0000
+Subject: Re: 2.6.13-rc3-mm3
+Message-Id: <200508010936.47741.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050825194750.7341.75723.sendpatchset@jackhammer.engr.sgi.com> <20050825194756.7341.83327.sendpatchset@jackhammer.engr.sgi.com>
-In-Reply-To: <20050825194756.7341.83327.sendpatchset@jackhammer.engr.sgi.com>
+References: <20050728025840.0596b9cb.akpm@osdl.org> <1122678354.20867.48.camel@lyra.fc.hp.com> <20050729161751.34705ac6.akpm@osdl.org>
+In-Reply-To: <20050729161751.34705ac6.akpm@osdl.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Paul Jackson <pj@sgi.com>
-Cc: torvalds@osdl.org, Andrew Morton <akpm@osdl.org>, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, paulus@samba.org, mingo@elte.hu, hawkes@sgi.com, dino@in.ibm.com
+To: Andrew Morton <akpm@osdl.org>
+Cc: Khalid Aziz <khalid_aziz@hp.com>, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org, linux-acpi@intel.com
 
-Paul Jackson wrote:
-> At the suggestion of Nick Piggin and Dinakar, totally disable
-> the facility to allow cpu_exclusive cpusets to define dynamic
-> sched domains in Linux 2.6.13, in order to avoid problems
-> first reported by John Hawkes (corrupt sched data structures
-> and kernel oops).
-> 
-> This has been built for ppc64, i386, ia64, x86_64, sparc, alpha.
-> It has been built, booted and tested for cpuset functionality
-> on an SN2 (ia64).
-> 
-> Dinakar or Nick - could you verify that it for sure does avoid
-> the problems Hawkes reported.  Hawkes is out of town, and I don't
-> have the recipe to reproduce what he found.
-> 
+On Friday 29 July 2005 5:17 pm, Andrew Morton wrote:
+> Khalid Aziz <khalid_aziz@hp.com> wrote:
+> >
+> > Serial console is broken on ia64 on an HP rx2600 machine on
+> > 2.6.13-rc3-mm3. When kernel is booted up with "console=ttyS,...", no
+> > output ever appears on the console and system is hung. So I booted the
+> > kernel with "console=uart,mmio,0xff5e0000" to enable early console and
+> > here is how far the kernel got before hanging:
 
-Thanks Paul, I was never able to reproduce the problem, but
-I'm sure Dinakar should be able to test.
+> > Serial: 8250/16550 driver $Revision: 1.90 $ 6 ports, IRQ sharing enabled
+> > ...
+> > No ttyS device at MMIO 0xff5e0000 for console
+> > 
+> > Serial driver failed to find any serial ports. I am using defconfig. A
+> > 2.6.13-rc3 kernel (no mm3 patch) compiled with defconfig boots up fine
+> > and finds all serial ports.
 
-Acked-by: Nick Piggin <npiggin@suse.de>
+Your rc3-mm3 boot is also missing this:
 
--- 
-SUSE Labs, Novell Inc.
+IOC: zx1 2.2 HPA 0xfed01000 IOVA space 1024Mb at 0x40000000
 
-Send instant messages to your online friends http://au.messenger.yahoo.com 
+So something's busted with ACPI.  Both the IOC and the rx2600 serial
+ports should be discovered via ACPI.
