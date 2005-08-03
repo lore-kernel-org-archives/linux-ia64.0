@@ -1,137 +1,45 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 17 Aug 2005 05:39:51 +0000
-Subject: [Review 4/7] MCA/INIT Remove the physical mode path from minstate.h.
-Message-Id: <7836.1124257191@kao2.melbourne.sgi.com>
+From: Mark Maule <maule@sgi.com>
+Date: Wed, 03 Aug 2005 21:05:42 +0000
+Subject: [PATCH 2.6.13 1/4] altix: cosmetic rename of SGI_PCIBR_ERROR
+Message-Id: <20050803210542.785.24366.24259@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Remove the physical mode path from minstate.h.
+Cosmetic altix patch to rename SGI_PCIBR_ERROR to something more generic and
+remove a duplicate #define.
 
- minstate.h |   88 ++++++++++++-------------------------------------------------
- 1 files changed, 18 insertions(+), 70 deletions(-)
+Signed-off-by: Mark Maule <maule@sgi.com>
 
-Index: linux/arch/ia64/kernel/minstate.h
-=================================--- linux.orig/arch/ia64/kernel/minstate.h	2005-08-17 14:34:38.404220401 +1000
-+++ linux/arch/ia64/kernel/minstate.h	2005-08-17 14:36:24.052711993 +1000
-@@ -5,73 +5,6 @@
- #include "entry.h"
+Index: ce-devel/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+=================================--- ce-devel.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-07-18 13:49:11.646487537 -0500
++++ ce-devel/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-07-18 14:03:15.776717561 -0500
+@@ -115,7 +115,7 @@
+ 	/*
+ 	 * register the bridge's error interrupt handler
+ 	 */
+-	if (request_irq(SGI_PCIBR_ERROR, (void *)pcibr_error_intr_handler,
++	if (request_irq(SGI_PCIASIC_ERROR, (void *)pcibr_error_intr_handler,
+ 			SA_SHIRQ, "PCIBR error", (void *)(soft))) {
+ 		printk(KERN_WARNING
+ 		       "pcibr cannot allocate interrupt for error handler\n");
+Index: ce-devel/include/asm-ia64/sn/intr.h
+=================================--- ce-devel.orig/include/asm-ia64/sn/intr.h	2005-07-18 13:53:29.656740423 -0500
++++ ce-devel/include/asm-ia64/sn/intr.h	2005-07-18 14:03:15.778670490 -0500
+@@ -12,13 +12,12 @@
+ #include <linux/rcupdate.h>
  
- /*
-- * For ivt.s we want to access the stack virtually so we don't have to disable translation
-- * on interrupts.
-- *
-- *  On entry:
-- *	r1:	pointer to current task (ar.k6)
-- */
--#define MINSTATE_START_SAVE_MIN_VIRT								\
--(pUStk)	mov ar.rsc=0;		/* set enforced lazy mode, pl 0, little-endian, loadrs=0 */	\
--	;;											\
--(pUStk)	mov.m r24=ar.rnat;									\
--(pUStk)	addl r22=IA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
--(pKStk) mov r1=sp;					/* get sp  */				\
--	;;											\
--(pUStk) lfetch.fault.excl.nt1 [r22];								\
--(pUStk)	addl r1=IA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of memory stack */	\
--(pUStk)	mov r23=ar.bspstore;				/* save ar.bspstore */			\
--	;;											\
--(pUStk)	mov ar.bspstore=r22;				/* switch to kernel RBS */		\
--(pKStk) addl r1=-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r12) */	\
--	;;											\
--(pUStk)	mov r18=ar.bsp;										\
--(pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */
--
--#define MINSTATE_END_SAVE_MIN_VIRT								\
--	bsw.1;			/* switch back to bank 1 (must be last in insn group) */	\
--	;;
--
--/*
-- * For mca_asm.S we want to access the stack physically since the state is saved before we
-- * go virtual and don't want to destroy the iip or ipsr.
-- */
--#define MINSTATE_START_SAVE_MIN_PHYS								\
--(pKStk) mov r3=IA64_KR(PER_CPU_DATA);;								\
--(pKStk) addl r3=THIS_CPU(ia64_mca_data),r3;;							\
--(pKStk) ld8 r3 = [r3];;										\
--(pKStk) addl r3=IA64_MCA_CPU_INIT_STACK_OFFSET,r3;;						\
--(pKStk) addl r1=IA64_STK_OFFSET-IA64_PT_REGS_SIZE,r3;						\
--(pUStk)	mov ar.rsc=0;		/* set enforced lazy mode, pl 0, little-endian, loadrs=0 */	\
--(pUStk)	addl r22=IA64_RBS_OFFSET,r1;		/* compute base of register backing store */	\
--	;;											\
--(pUStk)	mov r24=ar.rnat;									\
--(pUStk)	addl r1=IA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of memory stack */	\
--(pUStk)	mov r23=ar.bspstore;				/* save ar.bspstore */			\
--(pUStk)	dep r22=-1,r22,61,3;			/* compute kernel virtual addr of RBS */	\
--	;;											\
--(pUStk)	mov ar.bspstore=r22;			/* switch to kernel RBS */			\
--	;;											\
--(pUStk)	mov r18=ar.bsp;										\
--(pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */		\
--
--#define MINSTATE_END_SAVE_MIN_PHYS								\
--	dep r12=-1,r12,61,3;		/* make sp a kernel virtual address */			\
--	;;
--
--#ifdef MINSTATE_VIRT
--# define MINSTATE_GET_CURRENT(reg)	mov reg=IA64_KR(CURRENT)
--# define MINSTATE_START_SAVE_MIN	MINSTATE_START_SAVE_MIN_VIRT
--# define MINSTATE_END_SAVE_MIN		MINSTATE_END_SAVE_MIN_VIRT
--#endif
--
--#ifdef MINSTATE_PHYS
--# define MINSTATE_GET_CURRENT(reg)	mov reg=IA64_KR(CURRENT);; tpa reg=reg
--# define MINSTATE_START_SAVE_MIN	MINSTATE_START_SAVE_MIN_PHYS
--# define MINSTATE_END_SAVE_MIN		MINSTATE_END_SAVE_MIN_PHYS
--#endif
--
--/*
-  * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
-  * the minimum state necessary that allows us to turn psr.ic back
-  * on.
-@@ -97,7 +30,7 @@
-  * we can pass interruption state as arguments to a handler.
-  */
- #define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
--	MINSTATE_GET_CURRENT(r16);	/* M (or M;;I) */					\
-+	mov r16=IA64_KR(CURRENT);	/* M */							\
- 	mov r27=ar.rsc;			/* M */							\
- 	mov r20=r1;			/* A */							\
- 	mov r25=ar.unat;		/* M */							\
-@@ -118,7 +51,21 @@
- 	SAVE_IFS;										\
- 	cmp.eq pKStk,pUStk=r0,r17;		/* are we in kernel mode already? */		\
- 	;;											\
--	MINSTATE_START_SAVE_MIN									\
-+(pUStk)	mov ar.rsc=0;		/* set enforced lazy mode, pl 0, little-endian, loadrs=0 */	\
-+	;;											\
-+(pUStk)	mov.m r24=ar.rnat;									\
-+(pUStk)	addl r22=IA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
-+(pKStk) mov r1=sp;					/* get sp  */				\
-+	;;											\
-+(pUStk) lfetch.fault.excl.nt1 [r22];								\
-+(pUStk)	addl r1=IA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of memory stack */	\
-+(pUStk)	mov r23=ar.bspstore;				/* save ar.bspstore */			\
-+	;;											\
-+(pUStk)	mov ar.bspstore=r22;				/* switch to kernel RBS */		\
-+(pKStk) addl r1=-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r12) */	\
-+	;;											\
-+(pUStk)	mov r18=ar.bsp;										\
-+(pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */		\
- 	adds r17=2*L1_CACHE_BYTES,r1;		/* really: biggest cache-line size */		\
- 	adds r16=PT(CR_IPSR),r1;								\
- 	;;											\
-@@ -181,7 +128,8 @@
- 	EXTRA;											\
- 	movl r1=__gp;		/* establish kernel global pointer */				\
- 	;;											\
--	MINSTATE_END_SAVE_MIN
-+	bsw.1;			/* switch back to bank 1 (must be last in insn group) */	\
-+	;;
+ #define SGI_UART_VECTOR		(0xe9)
+-#define SGI_PCIBR_ERROR		(0x33)
  
- /*
-  * SAVE_REST saves the remainder of pt_regs (with psr.ic on).
-
-
-
+ /* Reserved IRQs : Note, not to exceed IA64_SN2_FIRST_DEVICE_VECTOR */
+ #define SGI_XPC_ACTIVATE                (0x30)
+ #define SGI_II_ERROR                    (0x31)
+ #define SGI_XBOW_ERROR                  (0x32)
+-#define SGI_PCIBR_ERROR                 (0x33)
++#define SGI_PCIASIC_ERROR               (0x33)
+ #define SGI_ACPI_SCI_INT                (0x34)
+ #define SGI_TIOCA_ERROR                 (0x35)
+ #define SGI_TIO_ERROR                   (0x36)
