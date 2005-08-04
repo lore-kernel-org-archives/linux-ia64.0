@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 03 Aug 2005 17:25:37 +0000
-Subject: RE: 2.6.13-rc5 does not boot on Tiger4
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F040F6EF9@scsmsx401.amr.corp.intel.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Thu, 04 Aug 2005 01:42:08 +0000
+Subject: Re: 2.6.13-rc5 does not boot on Tiger4
+Message-Id: <17137.29296.265484.891374@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <jeoe8fyrfb.fsf@sykes.suse.de>
 In-Reply-To: <jeoe8fyrfb.fsf@sykes.suse.de>
@@ -10,18 +10,17 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>>>>> "Andreas" = Andreas Schwab <schwab@suse.de> writes:
 
->>I can't get 2.6.13-rc5 to boot, it crashes very early without any sign of
->>life, not even kdb can catch it.  Any idea?
->
->Bother ... looks like generic-smp kernel is hosed.  Boots ok with tiger-defconfig
->(which is what I've been testing for the past couple of weeks).
+Andreas> I can't get 2.6.13-rc5 to boot, it crashes very early without
+Andreas> any sign of life, not even kdb can catch it.  Any idea?
 
+I'm seeing a similar problem with ZX machines... and serial console
+*is* enabled...
 
-Strike that ... I thought I had serial console enabled, but it wasn't.
-Right after I clicked "Send" the "login:" prompt showed up.
+I used configs/zx1_defconfig
 
-I'm actually 4 commits past -rc5 ... the last of which does something
-obscure with PCI bus resources.
-
--Tony
+Peter c
+-- 
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
