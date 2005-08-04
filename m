@@ -1,27 +1,76 @@
-From: "Moore, Robert" <robert.moore@intel.com>
-Date: Wed, 31 Aug 2005 22:04:24 +0000
-Subject: RE: [ACPI] RE: One-line patch for systems with ACPI enabled but incomplete tree
-Message-Id: <971FCB6690CD0E4898387DBF7552B90E029620CC@orsmsx403.amr.corp.intel.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 04 Aug 2005 22:07:35 +0000
+Subject: Re: [patch] fix ACPI table discovery from EFI for x86
+Message-Id: <200508041607.35914.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <971FCB6690CD0E4898387DBF7552B90E02961E28@orsmsx403.amr.corp.intel.com>
-In-Reply-To: <971FCB6690CD0E4898387DBF7552B90E02961E28@orsmsx403.amr.corp.intel.com>
+References: <200507140109.j6E19a58013012@snoqualmie.dp.intel.com>
+In-Reply-To: <200507140109.j6E19a58013012@snoqualmie.dp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>, "Brown, Len" <len.brown@intel.com>
-Cc: acpi-devel@lists.sourceforge.net, hch@infradead.org, linux-ia64@vger.kernel.org
+To: Matt Tolentino <metolent@snoqualmie.dp.intel.com>
+Cc: linux-kernel@vger.kernel.org, akpm@osdl.org, linux-ia64@vger.kernel.org, tony.luck@intel.com
 
-> there is no check in the kernel code.  However, it still seems
-> like a bug to me as everything else works if the FADT pointer
-> is zero (with the above one line patch).
-[Moore, Robert] 
+On Wednesday 13 July 2005 7:09 pm, Matt Tolentino wrote:
+> This patch addresses a problem on x86 EFI systems with larger memory
+> configurations.  Up until now, we've relied on the fact that the 
+> ACPI RSDT would reside somewhere in low memory that could be permanently 
+> mapped in kernel address space - so __va() has been sufficient.  However,
+> on EFI systems, the RSDT is often anywhere in the lower 4GB of physical
+> address space.  So, we may need to remap it on x86 systems.  
 
-This is some legacy overkill in the code that we should remove or
-change.  Once the ACPI tables are loaded, the FADT pointer should be
-always valid.  There are some inconsistencies in detecting and handling
-the error case where external ACPI CA interfaces are called before the
-tables are loaded -- I believe that is the real purpose of the checks
-for NULL table pointers scattered throughout.
+The hunk below breaks HP rx7620, rx8620, and Superdome (all ia64)
+systems.  This is from 2.6.13-rc4-mm1, in
 
-Bob
+    acpi-fix-table-discovery-from-efi-for-x86.patch
 
+> @@ -187,7 +187,9 @@ acpi_status
+>  acpi_os_map_memory(acpi_physical_address phys, acpi_size size, void __iomem **virt)
+>  {
+>  	if (efi_enabled) {
+> -		if (EFI_MEMORY_WB & efi_mem_attributes(phys)) {
+> +		/* determine whether or not we need to call ioremap */
+> +		if ((EFI_MEMORY_WB & efi_mem_attributes(phys)) && 
+> +			((unsigned long)phys < (unsigned long)__pa(high_memory))) {
+>  			*virt = (void __iomem *) phys_to_virt(phys);
+>  		} else {
+>  			*virt = ioremap(phys, size);
+
+If "phys >= __pa(high_memory)", we use ioremap(), but there's no
+guarantee that phys is in memory that supports UC.  On the systems
+I mentioned, phys is above high_memory, but in memory that only
+supports WB, which leads to an MCA.
+
+Here's a bit of the memmap:
+
+available  0000000100000000-00000007FDFFFFFF  00000000006FE000 0000000000000008
+reserved   00000040000A0000-00000040000BFFFF  0000000000000020 0000000000000008
+available  0000004080000000-00000040FED9FFFF  000000000007EDA0 0000000000000008
+BS_data    00000040FEDA0000-00000040FEDA1FFF  0000000000000002 0000000000000008
+available  00000040FEDA2000-00000040FEDA7FFF  0000000000000006 0000000000000008
+BS_data    00000040FEDA8000-00000040FF1FFFFF  0000000000000458 0000000000000008
+available  00000040FF200000-00000040FF555FFF  0000000000000356 0000000000000008
+RT_code    00000040FF556000-00000040FF5BFFFF  000000000000006A 8000000000000008
+BS_code    00000040FF5C0000-00000040FF5FFFFF  0000000000000040 0000000000000008
+available  00000040FF600000-00000040FF641FFF  0000000000000042 0000000000000008
+RT_code    00000040FF642000-00000040FF67FFFF  000000000000003E 8000000000000008
+available  00000040FF680000-00000040FF7DFFFF  0000000000000160 0000000000000008
+RT_data    00000040FF7E0000-00000040FF7FFFFF  0000000000000020 8000000000000008
+RT_code    00000703FF000000-00000703FFFFFFFF  0000000000001000 8000000000000008
+PAL_code   00000723FF000000-00000723FF03FFFF  0000000000000040 8000000000000008
+RT_code    00000723FF040000-00000723FFBAFFFF  0000000000000B70 8000000000000008
+reserved   00000723FFBB0000-00000723FFE8FFFF  00000000000002E0 8000000000000008
+RT_code    00000723FFE90000-00000723FFFFFFFF  0000000000000170 8000000000000008
+MemMapIO   00000F0000000000-00000F003FFFFFFF  0000000000040000 8000000000000001
+
+The firmware tables are up in the reserved section at 0x723FFBB0000:
+
+    EFI v1.10 by HP: SALsystab=0x723ff7e7640 ACPI 2.0=0x723ffbb0000 HCDP=0x723ffbf27f0 SMBIOS=0x7fffe000
+
+But high_memory is only 0x00000040ff000000 because there's no available
+memory for the OS to use above that point (there are a few pages marked
+"available", but we ignore them to avoid attribute aliasing on ia64).
+
+So we erroneously try to ioremap the ACPI tables, which causes uncached
+accesses to them, which blows up because they really live in memory that
+doesn't support UC.
