@@ -1,201 +1,243 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Fri, 26 Aug 2005 00:39:18 +0000
-Subject: RE: Allow /proc/pal/cpu0/vm_info under the simulator
-Message-Id: <17166.25782.457377.46172@berry.gelato.unsw.EDU.AU>
+From: =?ISO-8859-1?Q?Fran=E7ois_Guay?= <guay.francois@ireq.ca>
+Date: Thu, 04 Aug 2005 18:12:02 +0000
+Subject: IA-64 : Map PCI Bar into user virtual space from Physical address
+Message-Id: <42F25A72.7030603@ireq.ca>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <17165.4305.205911.684685@berry.gelato.unsw.EDU.AU>
-In-Reply-To: <17165.4305.205911.684685@berry.gelato.unsw.EDU.AU>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
+I'm working to build a linux kernel module for a PCI card to run on SGI=20
+Altix IA-64
 
-Hi Tony,
-	Here's an even more tolerant version of palinfo.c.
-I don't much like gotos if there's a reasonable alternative, so I just
-used the else branches to avoid printing guff that wasn't valid.
+I'm using Kernel 2.6.5-7.145-rt IA-64
 
-Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
+I have read the Linux Device Driver Programmers's - Guide - Porting to=20
+SGI Altix Systems, 007-4520-005
 
-diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
---- a/arch/ia64/kernel/palinfo.c
-+++ b/arch/ia64/kernel/palinfo.c
-@@ -240,7 +240,7 @@ cache_info(char *page)
- 			}
- 			p += sprintf(p,
- 				     "%s Cache level %lu:\n"
--				     "\tSize           : %lu bytes\n"
-+				     "\tSize           : %u bytes\n"
- 				     "\tAttributes     : ",
- 				     cache_types[j+cci.pcci_unified], i+1,
- 				     cci.pcci_cache_size);
-@@ -307,11 +307,9 @@ vm_info(char *page)
- 
- 	if ((status = ia64_pal_vm_summary(&vm_info_1, &vm_info_2)) !=0) {
- 		printk(KERN_ERR "ia64_pal_vm_summary=%ld\n", status);
--		return 0;
--	}
-+	} else {
- 
--
--	p += sprintf(p,
-+		p += sprintf(p,
- 		     "Physical Address Space         : %d bits\n"
- 		     "Virtual Address Space          : %d bits\n"
- 		     "Protection Key Registers(PKR)  : %d\n"
-@@ -322,47 +320,44 @@ vm_info(char *page)
- 		     vm_info_2.pal_vm_info_2_s.impl_va_msb+1, vm_info_1.pal_vm_info_1_s.max_pkr+1,
- 		     vm_info_1.pal_vm_info_1_s.key_size, vm_info_1.pal_vm_info_1_s.hash_tag_id,
- 		     vm_info_2.pal_vm_info_2_s.rid_size);
-+	}
- 
--	if (ia64_pal_mem_attrib(&attrib) != 0)
--		return 0;
--
--	p += sprintf(p, "Supported memory attributes    : ");
--	sep = "";
--	for (i = 0; i < 8; i++) {
--		if (attrib & (1 << i)) {
--			p += sprintf(p, "%s%s", sep, mem_attrib[i]);
--			sep = ", ";
-+	if (ia64_pal_mem_attrib(&attrib) = 0) {
-+		p += sprintf(p, "Supported memory attributes    : ");
-+		sep = "";
-+		for (i = 0; i < 8; i++) {
-+			if (attrib & (1 << i)) {
-+				p += sprintf(p, "%s%s", sep, mem_attrib[i]);
-+				sep = ", ";
-+			}
- 		}
-+		p += sprintf(p, "\n");
- 	}
--	p += sprintf(p, "\n");
- 
- 	if ((status = ia64_pal_vm_page_size(&tr_pages, &vw_pages)) !=0) {
- 		printk(KERN_ERR "ia64_pal_vm_page_size=%ld\n", status);
--		return 0;
--	}
--
--	p += sprintf(p,
--		     "\nTLB walker                     : %simplemented\n"
--		     "Number of DTR                  : %d\n"
--		     "Number of ITR                  : %d\n"
--		     "TLB insertable page sizes      : ",
--		     vm_info_1.pal_vm_info_1_s.vw ? "" : "not ",
--		     vm_info_1.pal_vm_info_1_s.max_dtr_entry+1,
--		     vm_info_1.pal_vm_info_1_s.max_itr_entry+1);
-+	} else {
- 
-+		p += sprintf(p,
-+			     "\nTLB walker                     : %simplemented\n"
-+			     "Number of DTR                  : %d\n"
-+			     "Number of ITR                  : %d\n"
-+			     "TLB insertable page sizes      : ",
-+			     vm_info_1.pal_vm_info_1_s.vw ? "" : "not ",
-+			     vm_info_1.pal_vm_info_1_s.max_dtr_entry+1,
-+			     vm_info_1.pal_vm_info_1_s.max_itr_entry+1);
- 
--	p = bitvector_process(p, tr_pages);
- 
--	p += sprintf(p, "\nTLB purgeable page sizes       : ");
-+		p = bitvector_process(p, tr_pages);
- 
--	p = bitvector_process(p, vw_pages);
-+		p += sprintf(p, "\nTLB purgeable page sizes       : ");
- 
-+		p = bitvector_process(p, vw_pages);
-+	}
- 	if ((status=ia64_get_ptce(&ptce)) != 0) {
- 		printk(KERN_ERR "ia64_get_ptce=%ld\n", status);
--		return 0;
--	}
--
--	p += sprintf(p,
-+	} else {
-+		p += sprintf(p,
- 		     "\nPurge base address             : 0x%016lx\n"
- 		     "Purge outer loop count         : %d\n"
- 		     "Purge inner loop count         : %d\n"
-@@ -370,23 +365,23 @@ vm_info(char *page)
- 		     "Purge inner loop stride        : %d\n",
- 		     ptce.base, ptce.count[0], ptce.count[1], ptce.stride[0], ptce.stride[1]);
- 
--	p += sprintf(p,
-+		p += sprintf(p,
- 		     "TC Levels                      : %d\n"
- 		     "Unique TC(s)                   : %d\n",
- 		     vm_info_1.pal_vm_info_1_s.num_tc_levels,
- 		     vm_info_1.pal_vm_info_1_s.max_unique_tcs);
- 
--	for(i=0; i < vm_info_1.pal_vm_info_1_s.num_tc_levels; i++) {
--		for (j=2; j>0 ; j--) {
--			tc_pages = 0; /* just in case */
-+		for(i=0; i < vm_info_1.pal_vm_info_1_s.num_tc_levels; i++) {
-+			for (j=2; j>0 ; j--) {
-+				tc_pages = 0; /* just in case */
- 
- 
--			/* even without unification, some levels may not be present */
--			if ((status=ia64_pal_vm_info(i,j, &tc_info, &tc_pages)) != 0) {
--				continue;
--			}
-+				/* even without unification, some levels may not be present */
-+				if ((status=ia64_pal_vm_info(i,j, &tc_info, &tc_pages)) != 0) {
-+					continue;
-+				}
- 
--			p += sprintf(p,
-+				p += sprintf(p,
- 				     "\n%s Translation Cache Level %d:\n"
- 				     "\tHash sets           : %d\n"
- 				     "\tAssociativity       : %d\n"
-@@ -395,16 +390,21 @@ vm_info(char *page)
- 				     cache_types[j+tc_info.tc_unified], i+1, tc_info.tc_num_sets,
- 				     tc_info.tc_associativity, tc_info.tc_num_entries);
- 
--			if (tc_info.tc_pf) p += sprintf(p, "PreferredPageSizeOptimized ");
--			if (tc_info.tc_unified) p += sprintf(p, "Unified ");
--			if (tc_info.tc_reduce_tr) p += sprintf(p, "TCReduction");
--
--			p += sprintf(p, "\n\tSupported page sizes: ");
--
--			p = bitvector_process(p, tc_pages);
--
--			/* when unified date (j=2) is enough */
--			if (tc_info.tc_unified) break;
-+				if (tc_info.tc_pf) 
-+					p += sprintf(p, "PreferredPageSizeOptimized ");
-+				if (tc_info.tc_unified) 
-+					p += sprintf(p, "Unified ");
-+				if (tc_info.tc_reduce_tr)
-+					p += sprintf(p, "TCReduction");
-+
-+				p += sprintf(p, "\n\tSupported page sizes: ");
-+
-+				p = bitvector_process(p, tc_pages);
-+
-+				/* when unified date (j=2) is enough */
-+				if (tc_info.tc_unified) 
-+					break;
-+			}
- 		}
- 	}
- 	p += sprintf(p, "\n");
-@@ -440,14 +440,14 @@ register_info(char *page)
- 		p += sprintf(p, "\n");
- 	}
- 
--	if (ia64_pal_rse_info(&phys_stacked, &hints) != 0) return 0;
-+	if (ia64_pal_rse_info(&phys_stacked, &hints) = 0) {
- 
- 	p += sprintf(p,
- 		     "RSE stacked physical registers   : %ld\n"
- 		     "RSE load/store hints             : %ld (%s)\n",
- 		     phys_stacked, hints.ph_data,
- 		     hints.ph_data < RSE_HINTS_COUNT ? rse_hints[hints.ph_data]: "(??)");
--
-+	}
- 	if (ia64_pal_debug_info(&iregs, &dregs))
- 		return 0;
- 
+I'm using a Linux software package from PLX version 4.4 for linux 2.6
+http://www.plxtech.com/products/tools/software/default.asp
+
+I load the module in the kernel
+In the user side, I have a program to open the device, map the device
+
+My problem actually is that I can not access the Bar[2] address in my=20
+user program after mapped this Bar in my user memory, the PCI Bar[2] memory=
+ region
+
+This is what I'm doing to map the memory :
+
+1- In the kernel module, the function pci_ressource_start return an=20
+address for Bar[2] :  0xc00000080fa00000
+I can access these address in the kernel and print data or whatever.
+The real physical address in the Bar[2] is 0x400000 but I read in the=20
+SGI manual that I can not use these address.
+
+2- My user program ask the Linux Kernel Module to map these Bar[2] in=20
+the user memory so the kernel return a user address 0x2000000000500000=20
+mapped for the user program
+You can see the output in the kernel Mapped Physical address=20
+0xc00000080fa00000 =3D> User space 0x2000000000500000
+
+3- When I try to access (RD) these 0x2000000000500000 address, the Altix is=
+=20
+not responding!
+
+The module support IOCTL calls and works very good
+
+So this is my problem!
+
+Thank you for your help!
+
+Regards
+
+
+This is my PCI register
+-------------------------------------------------------------------------
+PCI Registers:
+  0x000: 40713c5  Device ID|Vendor ID
+  0x004: 2800007  Status|Command
+  0x008: ff000000  Base Class|Sub Class|Interface|Revision ID
+  0x00c: 2000  BIST|Header Type|Latency Timer|Cache Line Size
+  0x010: 200000  PCI Base Address 0 for Memory Mapped Runtime Regs
+  0x014: 200001  PCI Base Address 1 for I/O Mapped Runtime Regs
+  0x018: 400000  PCI Base Address 2 for Local Address Space 0
+  0x01c: 1000000  PCI Base Address 3 for Local Address Space 1
+  0x020: 0  PCI Base Address 4 for Local Address Space 2
+  0x024: 0  PCI Base Address 5 for Local Address Space 3
+  0x028: 0  Cardbus CIS Pointer
+  0x02c: 40713c5  Subsystem ID|Subsystem Vendor ID
+  0x030: 0  PCI Base Address to Local Expansion ROM
+  0x034: 0  Reserved
+  0x038: 0  Reserved
+  0x03c: 13f  Max_Lat|Min_Grant|Interrupt Pin|Interrupt Line
+
+lspci -v
+-------------------------------------------------------------------------
+0000:02:02.0 Class ff00: Alphi Technology Corp: Unknown device 0407
+        Subsystem: Alphi Technology Corp: Unknown device 0407
+        Flags: bus master, medium devsel, latency 32, IRQ 63
+        Memory at c00000080fe00000 (32-bit, non-prefetchable) [size2M]
+        I/O ports at c00000080fc00000 [size%6]
+        Memory at c00000080fa00000 (32-bit, non-prefetchable) [size=3D2M]
+        Memory at c0000008a1000000 (32-bit, non-prefetchable) [size=16M]
+        Expansion ROM at 0000000000000800 [disabled]
+
+
+printk output module
+-------------------------------------------------------------------------
+
+<7>Pci9080: Received message =3D> OPEN_DEVICE
+<7>Pci9080: Opening Management interface...
+<7>Pci9080: ...device opened
+
+PLX_IOCTL_PCI_DEVICE_FIND
+
+<7>Pci9080: Received message =3D> CLOSE_DEVICE
+<7>Pci9080: Closing Management interface...
+<7>Pci9080: ...device closed
+
+<7>Pci9080: Received message =3D> OPEN_DEVICE
+<7>Pci9080: Opening Management interface...
+<7>Pci9080: ...device opened
+
+PLX_IOCTL_PCI_DEVICE_FIND
+
+<7>Pci9080: Received message =3D> CLOSE_DEVICE
+<7>Pci9080: Closing Management interface...
+<7>Pci9080: ...device closed
+
+<7>Pci9080: Received message =3D> OPEN_DEVICE
+<7>Pci9080: Opening Management interface...
+<7>Pci9080: ...device opened
+
+PLX_IOCTL_PCI_DEVICE_FIND
+
+<7>Pci9080: Received message =3D> CLOSE_DEVICE
+<7>Pci9080: Closing Management interface...
+<7>Pci9080: ...device closed
+
+<7>Pci9080: Received message =3D> OPEN_DEVICE
+<7>Pci9080: Opening device (Pci9080-0)...
+<7>Pci9080: Dispatch spin_lock...
+<7>Pci9080:    StartDevice
+<7>Pci9080:    Resource 00
+<7>Pci9080:      Physical.QuadPart  : c00000080fe00000
+<7>Pci9080:      Type     : Memory Space
+<7>Pci9080:      Address  : c00000080fe00000
+<7>Pci9080:      Size     : 100  (256 bytes)
+<7>Pci9080:      PCI BAR  : 0
+<7>Pci9080:  Request memory region
+<7>Pci9080:  Get a kernel-mapped virtual address ioremap
+<7>Pci9080:      Kernel VA: c00000080fe00000
+<7>Pci9080:    Resource 01
+<7>Pci9080:      Physical.QuadPart  : c00000080fc00000
+<7>Pci9080:      Type     : I/O Port
+<7>Pci9080:      Address  : c00000080fc00000
+<7>Pci9080:      Size     : 100  (256 bytes)
+<7>Pci9080:      PCI BAR  : 1
+<7>Pci9080:  Request I/O port region
+<7>Pci9080:    Resource 02
+<7>Pci9080:      Physical.QuadPart  : c00000080fa00000
+<7>Pci9080:     Physical Bar 2[0] =3D 0
+<7>Pci9080:     Physical Bar 2[4] =3D 0
+<7>Pci9080:     Physical Bar 2[8] =3D 0
+<7>Pci9080:     Physical Bar 2[12] =3D 0
+<7>Pci9080:     Physical Bar 2[16] =3D 0
+<7>Pci9080:     Physical Bar 2[20] =3D 0
+<7>Pci9080:     Physical Bar 2[24] =3D 0
+<7>Pci9080:     Physical Bar 2[28] =3D 0
+<7>Pci9080:      Type     : Memory Space
+<7>Pci9080:      Address  : c00000080fa00000
+<7>Pci9080:      Size     : 200000  (2048 Kb)
+<7>Pci9080:      PCI BAR  : 2
+<7>Pci9080:  Request memory region
+<7>Pci9080:  Get a kernel-mapped virtual address ioremap
+<7>Pci9080:      Kernel VA: c00000080fa00000
+<7>Pci9080:    Resource 03
+<7>Pci9080:      Physical.QuadPart  : c0000008a1000000
+<7>Pci9080:      Type     : Memory Space
+<7>Pci9080:      Address  : c0000008a1000000
+<7>Pci9080:      Size     : 1000000  (16384 Kb)
+<7>Pci9080:      PCI BAR  : 3
+<7>Pci9080:  Request memory region
+<7>Pci9080:  Get a kernel-mapped virtual address ioremap
+<7>Pci9080:      Kernel VA: c0000008a1000000
+<7>Pci9080: Disable the PCI interrupt...
+<7>Pci9080: ...device opened
+
+PLX_IOCTL_DRIVER_VERSION
+
+PLX_IOCTL_DEVICE_INIT
+
+PLX_IOCTL_CHIP_TYPE_GET
+
+PLX_IOCTL_PCI_BAR_RANGE_GET
+
+PLX_IOCTL_PCI_BAR_GET
+
+<7>Pci9080: Received message =3D=3D> MMAP
+<7>Pci9080: Added map object (0x713bfc80) to list
+<7>Pci9080: ...Completed message
+
+PLX_IOCTL_PHYSICAL_MEM_MAP
+<7>Pci9080: Found and removed map object (0xe0000030713bfc80) from list
+<7>Pci9080:  Plx_io_remap_page_range ...
+<7>Pci9080: Mapped Physical address (0xc00000080fe00000) =3D> User space (0=
+x2000000000400000)
+
+PLX_IOCTL_PCI_BAR_RANGE_GET
+
+PLX_IOCTL_PCI_BAR_GET
+
+PLX_IOCTL_PCI_BAR_RANGE_GET
+
+PLX_IOCTL_PCI_BAR_GET
+
+<7>Pci9080: Received message =3D=3D> MMAP
+<7>Pci9080: Added map object (0x713bfc80) to list
+<7>Pci9080: ...Completed message
+
+PLX_IOCTL_PHYSICAL_MEM_MAP
+<7>Pci9080: Found and removed map object (0xe0000030713bfc80) from list
+<7>Pci9080:  Plx_io_remap_page_range ...
+<7>Pci9080: Mapped Physical address (0xc00000080fa00000) =3D> User space (0=
+x2000000000500000)
+
+PLX_IOCTL_PCI_BAR_RANGE_GET
+
+PLX_IOCTL_PCI_BAR_GET
+
+<7>Pci9080: Received message =3D=3D> MMAP
+<7>Pci9080: Added map object (0x713bfc80) to list
+<7>Pci9080: ...Completed message
+
+PLX_IOCTL_PHYSICAL_MEM_MAP
+<7>Pci9080: Found and removed map object (0xe0000030713bfc80) from list
+<7>Pci9080:  Plx_io_remap_page_range ...
+<7>Pci9080: Mapped Physical address (0xc0000008a1000000) =3D> User space (0=
+x2000000000700000)
+
+PLX_IOCTL_PCI_BAR_RANGE_GET
+
+PLX_IOCTL_PCI_BAR_RANGE_GET
+
+
+
+--=20
+Francois Guay, ing.
+Laboratoire Simulation de r=E9seaux=20
+Institut de Recherche d'Hydro-Qu=E9bec (IREQ)
+1800, boul. Lionel-Boule, Varennes, Qu=E9bec, Canada, J3X 1S1
+T=E9l.: 450-652-8367 | Fax: 450-652-8180
+Email: guay.francois@ireq.ca
+Web: www.ireq.ca
+
+
+
+
+
+
+
+
