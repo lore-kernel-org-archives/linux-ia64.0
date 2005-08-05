@@ -1,68 +1,72 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 17 Aug 2005 05:39:13 +0000
-Subject: [Review 1/7] MCA/INIT scheduler hooks
-Message-Id: <7788.1124257153@kao2.melbourne.sgi.com>
+From: Mark Maule <maule@sgi.com>
+Date: Fri, 05 Aug 2005 21:13:28 +0000
+Subject: [PATCH 2.6.13 6/6] altix: enable TIOCE pci express chip provider
+Message-Id: <20050805211328.5173.59058.20604@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Scheduler hooks to change which process is deemed to be on a cpu.
+Altix patch to enable pci provider for TIOCE, SGI's PCI Express chip.
 
- include/linux/sched.h |    2 ++
- kernel/sched.c        |   28 ++++++++++++++++++++++++++++
- 2 files changed, 30 insertions(+)
+Correct a build warning in io_init.c.
 
-Index: linux/include/linux/sched.h
-=================================--- linux.orig/include/linux/sched.h	2005-08-01 11:49:17.130276812 +1000
-+++ linux/include/linux/sched.h	2005-08-01 12:03:13.857267716 +1000
-@@ -883,6 +883,8 @@ extern int task_curr(const task_t *p);
- extern int idle_cpu(int cpu);
- extern int sched_setscheduler(struct task_struct *, int, struct sched_param *);
- extern task_t *idle_task(int cpu);
-+extern task_t *curr_task(int cpu);
-+extern void set_curr_task(int cpu, task_t *p);
+Signed-off-by: Mark Maule <maule@sgi.com>
+
+Index: ce-submit2/arch/ia64/sn/pci/Makefile
+=================================--- ce-submit2.orig/arch/ia64/sn/pci/Makefile	2005-08-05 15:47:01.123312425 -0500
++++ ce-submit2/arch/ia64/sn/pci/Makefile	2005-08-05 15:54:27.401924836 -0500
+@@ -7,4 +7,4 @@
+ #
+ # Makefile for the sn pci general routines.
  
- void yield(void);
+-obj-y := pci_dma.o tioca_provider.o pcibr/ 
++obj-y := pci_dma.o tioca_provider.o tioce_provider.o pcibr/
+Index: ce-submit2/include/asm-ia64/sn/pcibus_provider_defs.h
+=================================--- ce-submit2.orig/include/asm-ia64/sn/pcibus_provider_defs.h	2005-08-05 15:47:01.124288890 -0500
++++ ce-submit2/include/asm-ia64/sn/pcibus_provider_defs.h	2005-08-05 15:54:27.413642414 -0500
+@@ -18,8 +18,9 @@
+ #define PCIIO_ASIC_TYPE_PIC	2
+ #define PCIIO_ASIC_TYPE_TIOCP	3
+ #define PCIIO_ASIC_TYPE_TIOCA	4
++#define PCIIO_ASIC_TYPE_TIOCE	5
  
-Index: linux/kernel/sched.c
-=================================--- linux.orig/kernel/sched.c	2005-08-01 11:49:19.642973411 +1000
-+++ linux/kernel/sched.c	2005-08-01 12:03:13.860197405 +1000
-@@ -3471,6 +3471,34 @@ task_t *idle_task(int cpu)
- }
+-#define PCIIO_ASIC_MAX_TYPES	5
++#define PCIIO_ASIC_MAX_TYPES	6
  
- /**
-+ * curr_task - return the current task for a given cpu.
-+ * @cpu: the processor in question.
-+ */
-+task_t *curr_task(int cpu)
-+{
-+	return cpu_rq(cpu)->curr;
-+}
-+EXPORT_SYMBOL_GPL(curr_task);
-+
-+/**
-+ * set_curr_task - set the current task for a given cpu.
-+ * @cpu: the processor in question.
-+ * @p: the task pointer to set.
-+ *
-+ * Description: This function must only be used when non-maskable interrupts
-+ * are serviced on a separate stack.  It allows the architecture to switch the
-+ * notion of the current task on a cpu in a non-blocking manner.  This function
-+ * must be called with interrupts disabled, the caller must save the original
-+ * value of the current task (see curr_task() above) and restore that value
-+ * before reenabling interrupts.
-+ */
-+void set_curr_task(int cpu, task_t *p)
-+{
-+	cpu_rq(cpu)->curr = p;
-+}
-+EXPORT_SYMBOL_GPL(set_curr_task);
-+
-+/**
-  * find_process_by_pid - find a process with a matching PID value.
-  * @pid: the pid in question.
-  */
-
-
+ /*
+  * Common pciio bus provider data.  There should be one of these as the
+Index: ce-submit2/arch/ia64/sn/kernel/io_init.c
+=================================--- ce-submit2.orig/arch/ia64/sn/kernel/io_init.c	2005-08-05 15:47:01.123312425 -0500
++++ ce-submit2/arch/ia64/sn/kernel/io_init.c	2005-08-05 16:11:56.277336017 -0500
+@@ -18,6 +18,7 @@
+ #include <asm/sn/simulator.h>
+ #include <asm/sn/sn_sal.h>
+ #include <asm/sn/tioca_provider.h>
++#include <asm/sn/tioce_provider.h>
+ #include "xtalk/hubdev.h"
+ #include "xtalk/xwidgetdev.h"
+ 
+@@ -406,9 +407,11 @@
+ 	if (controller->node >= num_online_nodes()) {
+ 		struct pcibus_bussoft *b = SN_PCIBUS_BUSSOFT(bus);
+ 
+-		printk(KERN_WARNING "Device ASIC=%u XID=%u PBUSNUM=%lu"
++		printk(KERN_WARNING "Device ASIC=%u XID=%u "
++				    "PSEGNUM=%x PBUSNUM=%x "
+ 				    "L_IO=%lx L_MEM=%lx BASE=%lx\n",
+-			b->bs_asic_type, b->bs_xid, b->bs_persist_busnum,
++			b->bs_asic_type, b->bs_xid,
++			b->bs_persist_segment, b->bs_persist_busnum,
+ 			b->bs_legacy_io, b->bs_legacy_mem, b->bs_base);
+ 		printk(KERN_WARNING "on node %d but only %d nodes online."
+ 			"Association set to undetermined.\n",
+@@ -481,6 +484,7 @@
+ 
+ 	pcibr_init_provider();
+ 	tioca_init_provider();
++	tioce_init_provider();
+ 
+ 	/*
+ 	 * This is needed to avoid bounce limit checks in the blk layer
