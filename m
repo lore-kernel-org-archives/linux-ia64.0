@@ -1,40 +1,126 @@
-From: Robin Holt <holt@sgi.com>
-Date: Wed, 31 Aug 2005 11:28:03 +0000
-Subject: Re: git pull on ia64 linux tree
-Message-Id: <20050831112803.GB9951@lnx-holt.americas.sgi.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Fri, 05 Aug 2005 03:33:33 +0000
+Subject: IA64 Spinlock optimizations
+Message-Id: <Pine.LNX.4.62.0508042031300.3346@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
-In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Aug 30, 2005 at 08:56:25PM -0700, Tony Luck wrote:
-> On 8/30/05, Keith Owens <kaos@sgi.com> wrote:
-> > Tony, can you give some indication on your plans for my MCA/INIT
-> > rewrite?  Will you send it to Linus in the next couple of weeks or will
-> > it have to wait for 2.6.15 to open?
-> 
-> Keith,
-> 
-> It is a big enough piece that I don't expect to get to dig through it and test
-> before Linus hits us with 2.6.14-rc1 and issues the "slow-down" command.
-> So, realistically this looks to be 2.6.15 material (unless there are others
-> on the list that would like to see this in earlier and provide comments and
-> test run results ... hint hint).
+Spinlock optimizations for IA64
 
-I would really like this in for the next distributor pull of the kernel
-so it gets more exposure there.  I have used the stuff Keith posted on
-8/17 and did not see anything handled incorrectly.  I will retest with
-the latest today.  The machine even handled simulataneous failures the
-three times I three them at it.  I only tried one nmi and did not attempt
-to resume from it, but at least the register information made sense.
-Compared to what I have seen in the past from NMIs, this was a vast
-improvement.
+1. Nontemporal store for spin unlock.
 
-What testing would you like to see?  I do not understand the issues enough
-to comment on the patches, but could possibly coax a couple other people
-who are into spending a half-day on it.
+A nontemporal store will not update the LRU setting for the cacheline. The
+cacheline with the lock may therefore be evicted faster from the cpu
+caches. Doing so may be useful since it increases the chance that the
+exclusive cache line has been evicted when another cpu is trying to
+acquire the lock.
 
-Thanks, Robin
+The time between dropping and reacquiring a lock on the same cpu is
+typically very small so the danger of the cacheline being
+evicted is negligible.
+
+2. Avoid semaphore operation in write_unlock and use nontemporal store
+
+write_lock uses a cmpxchg like the regular spin_lock but write_unlock uses
+clear_bit which requires a load and then a loop over a cmpxchg. The
+following patch makes write_unlock simply use a nontemporal store to clear
+the highest 8 bits. We will then still have the lower 3 bytes (24 bits)
+left to count the readers.
+
+Doing the byte store will reduce the number of possible readers from 2^31
+to 2^24 = 16 million.
+
+These patches were discussed already:
+
+http://marc.theaimsgroup.com/?t1472054400001&r=1&w=2
+http://marc.theaimsgroup.com/?l=linux-ia64&m1401837707849&w=2
+
+The nontemporal stores will only work using GCC. If a compiler is used
+that does not support inline asm then fallback C code is used. This
+will preserve the byte store but not be able to do the nontemporal stores.
+
+This means that kernels compiled with Intel C Compiler will be slightly
+less efficient since they do not support inline asm. The patch has been
+out there reviewed since April. I have been promised repeatedly
+that the patch will be in soon. There is a certain connection between
+the IA64 maintainer and Intel. Am I paranoid?
+
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
+
+Index: linux-2.6.13-rc5/include/asm-ia64/spinlock.h
+=================================--- linux-2.6.13-rc5.orig/include/asm-ia64/spinlock.h	2005-08-01 21:45:48.000000000 -0700
++++ linux-2.6.13-rc5/include/asm-ia64/spinlock.h	2005-08-04 20:09:59.000000000 -0700
+@@ -93,7 +93,15 @@ _raw_spin_lock_flags (spinlock_t *lock, 
+ # endif /* CONFIG_MCKINLEY */
+ #endif
+ }
++
+ #define _raw_spin_lock(lock) _raw_spin_lock_flags(lock, 0)
++
++/* Unlock by doing an ordered store and releasing the cacheline with nta */
++static inline void _raw_spin_unlock(spinlock_t *x) {
++	barrier();
++	asm volatile ("st4.rel.nta [%0] = r0\n\t" :: "r"(x));
++}
++
+ #else /* !ASM_SUPPORTED */
+ #define _raw_spin_lock_flags(lock, flags) _raw_spin_lock(lock)
+ # define _raw_spin_lock(x)								\
+@@ -109,16 +117,16 @@ do {											\
+ 		} while (ia64_spinlock_val);						\
+ 	}										\
+ } while (0)
++#define _raw_spin_unlock(x)	do { barrier(); ((spinlock_t *) x)->lock = 0; } while (0)
+ #endif /* !ASM_SUPPORTED */
+ 
+ #define spin_is_locked(x)	((x)->lock != 0)
+-#define _raw_spin_unlock(x)	do { barrier(); ((spinlock_t *) x)->lock = 0; } while (0)
+ #define _raw_spin_trylock(x)	(cmpxchg_acq(&(x)->lock, 0, 1) = 0)
+ #define spin_unlock_wait(x)	do { barrier(); } while ((x)->lock)
+ 
+ typedef struct {
+-	volatile unsigned int read_counter	: 31;
+-	volatile unsigned int write_lock	:  1;
++	volatile unsigned int read_counter	: 24;
++	volatile unsigned int write_lock	:  8;
+ #ifdef CONFIG_PREEMPT
+ 	unsigned int break_lock;
+ #endif
+@@ -174,6 +182,13 @@ do {										\
+ 	(result = 0);								\
+ })
+ 
++static inline void _raw_write_unlock(rwlock_t *x)
++{
++	u8 *y = (u8 *)x;
++	barrier();
++	asm volatile ("st1.rel.nta [%0] = r0\n\t" :: "r"(y+3) : "memory" );
++}
++
+ #else /* !ASM_SUPPORTED */
+ 
+ #define _raw_write_lock(l)								\
+@@ -195,14 +210,14 @@ do {										\
+ 	(ia64_val = 0);						\
+ })
+ 
++static inline void _raw_write_unlock(rwlock_t *x)
++{
++	barrier();
++	x-&gt;write_lock = 0;
++}
++
+ #endif /* !ASM_SUPPORTED */
+ 
+ #define _raw_read_trylock(lock) generic_raw_read_trylock(lock)
+ 
+-#define _raw_write_unlock(x)								\
+-({											\
+-	smp_mb__before_clear_bit();	/* need barrier before releasing lock... */	\
+-	clear_bit(31, (x));								\
+-})
+-
+ #endif /*  _ASM_IA64_SPINLOCK_H */
