@@ -1,134 +1,45 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 18 Aug 2005 09:08:13 +0000
-Subject: [patch 2.6.13-rc6] salinfo changes for new MCA/INIT handlers
-Message-Id: <11759.1124356093@kao2.melbourne.sgi.com>
+From: Mark Maule <maule@sgi.com>
+Date: Fri, 05 Aug 2005 21:13:03 +0000
+Subject: [PATCH 2.6.13 1/6] altix: cosmetic rename of SGI_PCIBR_ERROR
+Message-Id: <20050805211303.5173.73432.32967@attica.americas.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Reading the INIT record from SAL during the INIT event has proved to be
-unreliable, and a source of hangs during INIT processing.  The new
-MCA/INIT handlers remove the need to get the INIT record from SAL.
-Change salinfo.c so mca.c can just flag that a new record is available,
-without having to read the record during INIT processing.  This patch
-can be applied without the new MCA/INIT handlers.
+Cosmetic altix patch to rename SGI_PCIBR_ERROR to something more generic and
+remove a duplicate #define.
 
-Also clean up some usage of NR_CPUS which should have been using
-cpu_online().
+Signed-off-by: Mark Maule <maule@sgi.com>
 
-Signed-off-by: Keith Owens <kaos@sgi.com>
-
- salinfo.c |   62 ++++++++++++++++++++++++++++++++++----------------------------
- 1 files changed, 34 insertions(+), 28 deletions(-)
-
-Index: linux/arch/ia64/kernel/salinfo.c
-=================================--- linux.orig/arch/ia64/kernel/salinfo.c	2005-08-18 17:21:51.991680310 +1000
-+++ linux/arch/ia64/kernel/salinfo.c	2005-08-18 17:32:18.440243239 +1000
-@@ -22,6 +22,11 @@
-  *
-  * Dec  5 2004	kaos@sgi.com
-  *   Standardize which records are cleared automatically.
-+ *
-+ * Aug 18 2005	kaos@sgi.com
-+ *   mca.c may not pass a buffer, a NULL buffer just indicates that a new
-+ *   record is available in SAL.
-+ *   Replace some NR_CPUS by cpus_online, for hotplug cpu.
-  */
+Index: ce-devel/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+=================================--- ce-devel.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-07-18 13:49:11.646487537 -0500
++++ ce-devel/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-07-18 14:03:15.776717561 -0500
+@@ -115,7 +115,7 @@
+ 	/*
+ 	 * register the bridge's error interrupt handler
+ 	 */
+-	if (request_irq(SGI_PCIBR_ERROR, (void *)pcibr_error_intr_handler,
++	if (request_irq(SGI_PCIASIC_ERROR, (void *)pcibr_error_intr_handler,
+ 			SA_SHIRQ, "PCIBR error", (void *)(soft))) {
+ 		printk(KERN_WARNING
+ 		       "pcibr cannot allocate interrupt for error handler\n");
+Index: ce-devel/include/asm-ia64/sn/intr.h
+=================================--- ce-devel.orig/include/asm-ia64/sn/intr.h	2005-07-18 13:53:29.656740423 -0500
++++ ce-devel/include/asm-ia64/sn/intr.h	2005-07-18 14:03:15.778670490 -0500
+@@ -12,13 +12,12 @@
+ #include <linux/rcupdate.h>
  
- #include <linux/types.h>
-@@ -193,7 +198,7 @@ shift1_data_saved (struct salinfo_data *
-  * The buffer passed from mca.c points to the output from ia64_log_get. This is
-  * a persistent buffer but its contents can change between the interrupt and
-  * when user space processes the record.  Save the record id to identify
-- * changes.
-+ * changes.  If the buffer is NULL then just update the bitmap.
-  */
- void
- salinfo_log_wakeup(int type, u8 *buffer, u64 size, int irqsafe)
-@@ -206,27 +211,29 @@ salinfo_log_wakeup(int type, u8 *buffer,
+ #define SGI_UART_VECTOR		(0xe9)
+-#define SGI_PCIBR_ERROR		(0x33)
  
- 	BUG_ON(type >= ARRAY_SIZE(salinfo_log_name));
- 
--	if (irqsafe)
--		spin_lock_irqsave(&data_saved_lock, flags);
--	for (i = 0, data_saved = data->data_saved; i < saved_size; ++i, ++data_saved) {
--		if (!data_saved->buffer)
--			break;
--	}
--	if (i = saved_size) {
--		if (!data->saved_num) {
--			shift1_data_saved(data, 0);
--			data_saved = data->data_saved + saved_size - 1;
--		} else
--			data_saved = NULL;
--	}
--	if (data_saved) {
--		data_saved->cpu = smp_processor_id();
--		data_saved->id = ((sal_log_record_header_t *)buffer)->id;
--		data_saved->size = size;
--		data_saved->buffer = buffer;
-+	if (buffer) {
-+		if (irqsafe)
-+			spin_lock_irqsave(&data_saved_lock, flags);
-+		for (i = 0, data_saved = data->data_saved; i < saved_size; ++i, ++data_saved) {
-+			if (!data_saved->buffer)
-+				break;
-+		}
-+		if (i = saved_size) {
-+			if (!data->saved_num) {
-+				shift1_data_saved(data, 0);
-+				data_saved = data->data_saved + saved_size - 1;
-+			} else
-+				data_saved = NULL;
-+		}
-+		if (data_saved) {
-+			data_saved->cpu = smp_processor_id();
-+			data_saved->id = ((sal_log_record_header_t *)buffer)->id;
-+			data_saved->size = size;
-+			data_saved->buffer = buffer;
-+		}
-+		if (irqsafe)
-+			spin_unlock_irqrestore(&data_saved_lock, flags);
- 	}
--	if (irqsafe)
--		spin_unlock_irqrestore(&data_saved_lock, flags);
- 
- 	if (!test_and_set_bit(smp_processor_id(), &data->cpu_event)) {
- 		if (irqsafe)
-@@ -244,7 +251,7 @@ salinfo_timeout_check(struct salinfo_dat
- 	int i;
- 	if (!data->open)
- 		return;
--	for (i = 0; i < NR_CPUS; ++i) {
-+	for_each_online_cpu(i) {
- 		if (test_bit(i, &data->cpu_event)) {
- 			/* double up() is not a problem, user space will see no
- 			 * records for the additional "events".
-@@ -291,7 +298,7 @@ retry:
- 
- 	n = data->cpu_check;
- 	for (i = 0; i < NR_CPUS; i++) {
--		if (test_bit(n, &data->cpu_event)) {
-+		if (test_bit(n, &data->cpu_event) && cpu_online(n)) {
- 			cpu = n;
- 			break;
- 		}
-@@ -585,11 +592,10 @@ salinfo_init(void)
- 
- 		/* we missed any events before now */
- 		online = 0;
--		for (j = 0; j < NR_CPUS; j++)
--			if (cpu_online(j)) {
--				set_bit(j, &data->cpu_event);
--				++online;
--			}
-+		for_each_online_cpu(j) {
-+			set_bit(j, &data->cpu_event);
-+			++online;
-+		}
- 		sema_init(&data->sem, online);
- 
- 		*sdir++ = dir;
-
+ /* Reserved IRQs : Note, not to exceed IA64_SN2_FIRST_DEVICE_VECTOR */
+ #define SGI_XPC_ACTIVATE                (0x30)
+ #define SGI_II_ERROR                    (0x31)
+ #define SGI_XBOW_ERROR                  (0x32)
+-#define SGI_PCIBR_ERROR                 (0x33)
++#define SGI_PCIASIC_ERROR               (0x33)
+ #define SGI_ACPI_SCI_INT                (0x34)
+ #define SGI_TIOCA_ERROR                 (0x35)
+ #define SGI_TIO_ERROR                   (0x36)
