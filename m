@@ -1,74 +1,29 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Wed, 31 Aug 2005 19:53:18 +0000
-Subject: [PATCH] remove die_notifiers if CONFIG_DEBUG_KERNEL not set
-Message-Id: <Pine.LNX.4.62.0508311247130.28674@schroedinger.engr.sgi.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Mon, 08 Aug 2005 22:24:33 +0000
+Subject: fix nohalt boot option
+Message-Id: <200508082224.j78MOcg20827@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Andi Kleen <ak@suse.de>
-Cc: "Lynch, Rusty" <rusty.lynch@intel.com>, linux-mm@kvack.org, prasanna@in.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Keshavamurthy, Anil S" <anil.s.keshavamurthy@intel.com>, "Luck, Tony" <tony.luck@intel.com>
+Content-Type: text/plain; charset="macroman"
+Content-Transfer-Encoding: base64
+To: linux-ia64@vger.kernel.org
 
-Use of die_notifiers is a debugging feature that is only used if 
-CONFIG_DEBUG_KERNEL is set. For a kernel without debugging there is no 
-need of die notifiers. This will generate no code for notify_die if 
-debugging is not on. Seems that there is an expectation that future distro 
-releases will have CONFIG_KPROBES on. They will therefore also have 
-CONFIG_DEBUG_KERNEL set and thus the die notifiers will work and the 
-notifier will be enabled in do_ia64_page_fault.
-
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
-
-Index: linux-2.6.13/include/asm-ia64/kdebug.h
-=================================--- linux-2.6.13.orig/include/asm-ia64/kdebug.h	2005-08-28 16:41:01.000000000 -0700
-+++ linux-2.6.13/include/asm-ia64/kdebug.h	2005-08-31 12:35:17.000000000 -0700
-@@ -35,14 +35,15 @@ struct die_args {
- 	int signr;
- };
- 
--int register_die_notifier(struct notifier_block *nb);
--extern struct notifier_block *ia64die_chain;
--
- enum die_val {
- 	DIE_BREAK = 1,
- 	DIE_SS,
- 	DIE_PAGE_FAULT,
- };
-+#ifdef CONFIG_DEBUG_KERNEL
-+extern struct notifier_block *ia64die_chain;
-+
-+int register_die_notifier(struct notifier_block *nb);
- 
- static inline int notify_die(enum die_val val, char *str, struct pt_regs *regs,
- 			     long err, int trap, int sig)
-@@ -57,5 +58,11 @@ static inline int notify_die(enum die_va
- 
- 	return notifier_call_chain(&ia64die_chain, val, &args);
- }
-+#else
-+
-+#define notify_die(val, str, regs, err, trap, sig) 0
-+#define register_die_notifier(nb) do { } while (0)
-+
-+#endif
- 
- #endif
-Index: linux-2.6.13/arch/ia64/kernel/traps.c
-=================================--- linux-2.6.13.orig/arch/ia64/kernel/traps.c	2005-08-28 16:41:01.000000000 -0700
-+++ linux-2.6.13/arch/ia64/kernel/traps.c	2005-08-31 12:35:17.000000000 -0700
-@@ -28,6 +28,7 @@ extern spinlock_t timerlist_lock;
- fpswa_interface_t *fpswa_interface;
- EXPORT_SYMBOL(fpswa_interface);
- 
-+#ifdef CONFIG_DEBUG_KERNEL
- struct notifier_block *ia64die_chain;
- static DEFINE_SPINLOCK(die_notifier_lock);
- 
-@@ -40,6 +41,7 @@ int register_die_notifier(struct notifie
- 	spin_unlock_irqrestore(&die_notifier_lock, flags);
- 	return err;
- }
-+#endif
- 
- void __init
- trap_init (void)
+QXBwYXJlbnQsIHRoaXMgY2hhbmdlc2V0IGJyb2tlIHRoZSAibm9oYWx0IiBrZXJuZWwgYm9vdCBv
+cHRpb24uCgpodHRwOi8vd3d3Lmtlcm5lbC5vcmcvZ2l0L2dpdHdlYi5jZ2k/cD1saW51eC9rZXJu
+ZWwvZ2l0L3RvcnZhbGRzL2xpbnV4LTIuNi5naXQ7YT1jb21taXQ7aI1mNWE1MDBhM2U5N2Y3ODEx
+Y2RjZTBmNTUzY2ExOTE3Y2NkNDIyMAoKZGVmYXVsdF9pZGxlKCkgaXMgbG9va2luZyBhdCBuZXcg
+dmFyaWFibGUgY2FuX2RvX3BhbF9oYWx0LiAgSG93ZXZlciwKdGhhdCB2YXJpYWJsZSBkaWQgbm90
+IGdldCBjbGVhcmVkIHVwb24gIm5vaGFsdCIgYm9vdCBvcHRpb24uICBSZXN1bHRpbmcKYSB3YWNr
+eSBiZWhhdmlvciB0aGF0IHRoZSBrZXJuZWwgb3B0aW9uIGNhbiBvbmx5IGhhdmUgZWZmZWN0IHdo
+ZW4gcGVyZm1vbgppcyBleGVyY2lzZWQuCgoKU2lnbmVkLW9mZi1ieTogS2VuIENoZW4gPGtlbm5l
+dGgudy5jaGVuQGludGVsLmNvbT4KCgotLS0gbGludXgtMi42LjEyL2FyY2gvaWE2NC9rZXJuZWwv
+cHJvY2Vzcy5jLm9yaWcJMjAwNS0wOC0wOCAxNTowNTo0Ny4zMTkwMzQ5NjkgLTA3MDAKKysrIGxp
+bnV4LTIuNi4xMi9hcmNoL2lhNjQva2VybmVsL3Byb2Nlc3MuYwkyMDA1LTA4LTA4IDE1OjA1OjU5
+LjE0NzE1OTgyNCAtMDcwMApAQCAtMTc4LDcgKzE3OCw3IEBAIHN0YXRpYyBpbnQgY2FuX2RvX3Bh
+bF9oYWx0ID0gMTsKIAogc3RhdGljIGludCBfX2luaXQgbm9oYWx0X3NldHVwKGNoYXIgKiBzdHIp
+CiB7Ci0JcGFsX2hhbHQgPSAwOworCXBhbF9oYWx0ID0gY2FuX2RvX3BhbF9oYWx0ID0gMDsKIAly
+ZXR1cm4gMTsKIH0KIF9fc2V0dXAoIm5vaGFsdCIsIG5vaGFsdF9zZXR1cCk7CgotClRvIHVuc3Vi
+c2NyaWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eC1p
+YTY0IiBpbgp0aGUgYm9keSBvZiBhIG1lc3NhZ2UgdG8gbWFqb3Jkb21vQHZnZXIua2VybmVsLm9y
+ZwpNb3JlIG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9t
+by1pbmZvLmh0bWw=
