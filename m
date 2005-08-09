@@ -1,155 +1,209 @@
-From: Mark Maule <maule@sgi.com>
-Date: Wed, 03 Aug 2005 21:06:02 +0000
-Subject: [PATCH 2.6.13 2/4] altix: abstract force_interrupt() mechanism
-Message-Id: <20050803210602.785.48692.56968@attica.americas.sgi.com>
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Tue, 09 Aug 2005 23:32:52 +0000
+Subject: Re: [PATCH] PNPACPI: fix IRQ and 64-bit address decoding
+Message-Id: <200508091732.52575.bjorn.helgaas@hp.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="Boundary-00=_k0T+Cum5+RUg0MY"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+References: <200508041726.19336.bjorn.helgaas@hp.com>
+In-Reply-To: <200508041726.19336.bjorn.helgaas-VXdhtT5mjnY@public.gmane.org>
+To: Andrew Morton <akpm-3NddpPZAyC0@public.gmane.org>
+Cc: Adam Belay <ambx1-IBH0VoN/3vPQT0dZR+AlfA@public.gmane.org>, Matthieu Castet <castet.matthieu-GANU6spQydw@public.gmane.org>, Li Shaohua <shaohua.li-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, Kenji Kaneshige <kaneshige.kenji-+CUm20s59erQFUHtdCDX3A@public.gmane.org>, acpi-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-ia64-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+
+--Boundary-00=_k0T+Cum5+RUg0MY
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Disposition: inline
 
-Altix patch to abstract the force_interrupt() mechanism away from the
-pcibr provider.
+On Thursday 04 August 2005 5:26 pm, Bjorn Helgaas wrote:
+> Maybe the third time's the charm :-)  Added a bugfix
+> (pcibios_penalize_isa_irq()) and a workaround for HP
+> HPET firmware description since last time.  The workaround
+> accepts stuff that is illegal according to the spec,
+> so speak up if you think this is a problem.  It seems
+> fairly safe to me.
 
-Signed-off-by: Mark Maule <maule@sgi.com>
+This patch is in 2.6.13-rc5-mm1 as
+	pnpacpi-fix-irq-and-64-bit-address-decoding.patch
+and it works fine for me.
 
-Index: ce-devel/arch/ia64/sn/kernel/irq.c
-=================================--- ce-devel.orig/arch/ia64/sn/kernel/irq.c	2005-08-02 15:36:46.190240937 -0500
-+++ ce-devel/arch/ia64/sn/kernel/irq.c	2005-08-02 15:39:52.990001754 -0500
-@@ -317,6 +317,16 @@
- 	pci_dev_put(pci_dev);
+But plain 2.6.13-rc5, with CONFIG_PNPACPI turned on, hangs
+at boot on HP ia64 boxes.  This is because 8250_pnp now
+knows about MMIO UARTs, so it tries to poke one using a
+64-bit address corrupted by PNPACPI.
+
+CONFIG_PNPACPI is still marked experimental, but we may
+want to consider putting the PNPACPI patch in 2.6.14
+to fix the hang.
+
+The patch in -mm doesn't apply cleanly, so I rediffed
+it against 2.6.13-rc5 and attached it.
+
+
+--Boundary-00=_k0T+Cum5+RUg0MY
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="pnpacpi"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="pnpacpi"
+
+PNPACPI: fix IRQ and 64-bit address decoding
+
+Use types that match the ACPI resource structures.  Previously
+the u64 value from an RSTYPE_ADDRESS64 was passed as an int,
+which corrupts the value.
+
+Move pcibios_penalize_isa_irq() to pnpacpi_parse_allocated_irqresource().
+Previously we passed the GSI, not the IRQ, and we did it even if parsing
+the IRQ resource failed.
+
+Parse IRQ descriptors that contain multiple interrupts.  This violates
+the spec (in _CRS, only one interrupt per descriptor is allowed), but
+some firmware does this.  HP rx7620 and rx8620 HPETs have this bug.
+
+Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+
+Index: work-vga/drivers/pnp/pnpacpi/rsparser.c
+===================================================================
+--- work-vga.orig/drivers/pnp/pnpacpi/rsparser.c	2005-08-09 16:54:57.000000000 -0600
++++ work-vga/drivers/pnp/pnpacpi/rsparser.c	2005-08-09 16:55:50.000000000 -0600
+@@ -73,25 +73,35 @@
  }
  
-+static inline void
-+sn_call_force_intr_provider(struct sn_irq_info *sn_irq_info)
-+{
-+	struct sn_pcibus_provider *pci_provider;
-+
-+	pci_provider = sn_pci_provider[sn_irq_info->irq_bridge_type];
-+	if (pci_provider && pci_provider->force_interrupt)
-+		(*pci_provider->force_interrupt)(sn_irq_info);
-+}
-+
- static void force_interrupt(int irq)
+ static void
+-pnpacpi_parse_allocated_irqresource(struct pnp_resource_table * res, int irq)
++pnpacpi_parse_allocated_irqresource(struct pnp_resource_table * res, u32 gsi,
++	int edge_level, int active_high_low)
  {
- 	struct sn_irq_info *sn_irq_info;
-@@ -325,11 +335,9 @@
- 		return;
- 
- 	rcu_read_lock();
--	list_for_each_entry_rcu(sn_irq_info, sn_irq_lh[irq], list) {
--		if (IS_PCI_BRIDGE_ASIC(sn_irq_info->irq_bridge_type) &&
--		    (sn_irq_info->irq_bridge != NULL))
--			pcibr_force_interrupt(sn_irq_info);
--	}
-+	list_for_each_entry_rcu(sn_irq_info, sn_irq_lh[irq], list)
-+		sn_call_force_intr_provider(sn_irq_info);
+ 	int i = 0;
++	int irq;
 +
- 	rcu_read_unlock();
++	if (!valid_IRQ(gsi))
++		return;
++
+ 	while (!(res->irq_resource[i].flags & IORESOURCE_UNSET) &&
+ 			i < PNP_MAX_IRQ)
+ 		i++;
+-	if (i < PNP_MAX_IRQ) {
+-		res->irq_resource[i].flags = IORESOURCE_IRQ;  //Also clears _UNSET flag
+-		if (irq == -1) {
+-			res->irq_resource[i].flags |= IORESOURCE_DISABLED;
+-			return;
+-		}
+-		res->irq_resource[i].start =(unsigned long) irq;
+-		res->irq_resource[i].end = (unsigned long) irq;
++	if (i >= PNP_MAX_IRQ)
++		return;
++
++	res->irq_resource[i].flags = IORESOURCE_IRQ;  // Also clears _UNSET flag
++	irq = acpi_register_gsi(gsi, edge_level, active_high_low);
++	if (irq < 0) {
++		res->irq_resource[i].flags |= IORESOURCE_DISABLED;
++		return;
+ 	}
++
++	res->irq_resource[i].start = irq;
++	res->irq_resource[i].end = irq;
++	pcibios_penalize_isa_irq(irq, 1);
  }
  
-@@ -351,6 +359,14 @@
- 	struct pcidev_info *pcidev_info;
- 	struct pcibus_info *pcibus_info;
+ static void
+-pnpacpi_parse_allocated_dmaresource(struct pnp_resource_table * res, int dma)
++pnpacpi_parse_allocated_dmaresource(struct pnp_resource_table * res, u32 dma)
+ {
+ 	int i = 0;
+ 	while (i < PNP_MAX_DMA &&
+@@ -103,14 +113,14 @@
+ 			res->dma_resource[i].flags |= IORESOURCE_DISABLED;
+ 			return;
+ 		}
+-		res->dma_resource[i].start =(unsigned long) dma;
+-		res->dma_resource[i].end = (unsigned long) dma;
++		res->dma_resource[i].start = dma;
++		res->dma_resource[i].end = dma;
+ 	}
+ }
  
-+	/*
-+	 * Bridge types attached to TIO (anything but PIC) do not need this WAR
-+	 * since they do not target Shub II interrupt registers.  If that
-+	 * ever changes, this check needs to accomodate.
-+	 */
-+	if (sn_irq_info->irq_bridge_type != PCIIO_ASIC_TYPE_PIC)
-+		return;
-+
- 	pcidev_info = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
- 	if (!pcidev_info)
- 		return;
-@@ -377,16 +393,12 @@
+ static void
+ pnpacpi_parse_allocated_ioresource(struct pnp_resource_table * res,
+-	int io, int len)
++	u32 io, u32 len)
+ {
+ 	int i = 0;
+ 	while (!(res->port_resource[i].flags & IORESOURCE_UNSET) &&
+@@ -122,14 +132,14 @@
+ 			res->port_resource[i].flags |= IORESOURCE_DISABLED;
+ 			return;
+ 		}
+-		res->port_resource[i].start = (unsigned long) io;
+-		res->port_resource[i].end = (unsigned long)(io + len - 1);
++		res->port_resource[i].start = io;
++		res->port_resource[i].end = io + len - 1;
+ 	}
+ }
+ 
+ static void
+ pnpacpi_parse_allocated_memresource(struct pnp_resource_table * res,
+-	int mem, int len)
++	u64 mem, u64 len)
+ {
+ 	int i = 0;
+ 	while (!(res->mem_resource[i].flags & IORESOURCE_UNSET) &&
+@@ -141,8 +151,8 @@
+ 			res->mem_resource[i].flags |= IORESOURCE_DISABLED;
+ 			return;
+ 		}
+-		res->mem_resource[i].start = (unsigned long) mem;
+-		res->mem_resource[i].end = (unsigned long)(mem + len - 1);
++		res->mem_resource[i].start = mem;
++		res->mem_resource[i].end = mem + len - 1;
+ 	}
+ }
+ 
+@@ -151,27 +161,28 @@
+ 	void *data)
+ {
+ 	struct pnp_resource_table * res_table = (struct pnp_resource_table *)data;
++	int i;
+ 
+ 	switch (res->id) {
+ 	case ACPI_RSTYPE_IRQ:
+-		if ((res->data.irq.number_of_interrupts > 0) &&
+-			valid_IRQ(res->data.irq.interrupts[0])) {
+-			pnpacpi_parse_allocated_irqresource(res_table, 
+-				acpi_register_gsi(res->data.irq.interrupts[0],
+-					res->data.irq.edge_level,
+-					res->data.irq.active_high_low));
+-			pcibios_penalize_isa_irq(res->data.irq.interrupts[0], 1);
++		/*
++		 * Per spec, only one interrupt per descriptor is allowed in
++		 * _CRS, but some firmware violates this, so parse them all.
++		 */
++		for (i = 0; i < res->data.irq.number_of_interrupts; i++) {
++			pnpacpi_parse_allocated_irqresource(res_table,
++				res->data.irq.interrupts[i],
++				res->data.irq.edge_level,
++				res->data.irq.active_high_low);
+ 		}
  		break;
- 	}
- 	if (!test_bit(irr_bit, &irr_reg)) {
--		if (!test_bit(irq, pda->sn_soft_irr)) {
--			if (!test_bit(irq, pda->sn_in_service_ivecs)) {
--				regval &= 0xff;
--				if (sn_irq_info->irq_int_bit & regval &
--				    sn_irq_info->irq_last_intr) {
--					regval &-					    ~(sn_irq_info->
--					      irq_int_bit & regval);
--					pcibr_force_interrupt(sn_irq_info);
--				}
-+		if (!test_bit(irq, pda->sn_in_service_ivecs)) {
-+			regval &= 0xff;
-+			if (sn_irq_info->irq_int_bit & regval &
-+			    sn_irq_info->irq_last_intr) {
-+				regval &= ~(sn_irq_info->irq_int_bit & regval);
-+				sn_call_force_intr_provider(sn_irq_info);
- 			}
+ 
+ 	case ACPI_RSTYPE_EXT_IRQ:
+-		if ((res->data.extended_irq.number_of_interrupts > 0) &&
+-			valid_IRQ(res->data.extended_irq.interrupts[0])) {
+-			pnpacpi_parse_allocated_irqresource(res_table, 
+-				acpi_register_gsi(res->data.extended_irq.interrupts[0],
+-					res->data.extended_irq.edge_level,
+-					res->data.extended_irq.active_high_low));
+-			pcibios_penalize_isa_irq(res->data.extended_irq.interrupts[0], 1);
++		for (i = 0; i < res->data.extended_irq.number_of_interrupts; i++) {
++			pnpacpi_parse_allocated_irqresource(res_table,
++				res->data.extended_irq.interrupts[i],
++				res->data.extended_irq.edge_level,
++				res->data.extended_irq.active_high_low);
  		}
- 	}
-@@ -404,13 +416,7 @@
- 	rcu_read_lock();
- 	for (i = pda->sn_first_irq; i <= pda->sn_last_irq; i++) {
- 		list_for_each_entry_rcu(sn_irq_info, sn_irq_lh[i], list) {
--			/*
--			 * Only call for PCI bridges that are fully
--			 * initialized.
--			 */
--			if (IS_PCI_BRIDGE_ASIC(sn_irq_info->irq_bridge_type) &&
--			    (sn_irq_info->irq_bridge != NULL))
--				sn_check_intr(i, sn_irq_info);
-+			sn_check_intr(i, sn_irq_info);
- 		}
- 	}
- 	rcu_read_unlock();
-Index: ce-devel/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-=================================--- ce-devel.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-08-02 15:39:43.278078407 -0500
-+++ ce-devel/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-08-02 15:39:52.992931150 -0500
-@@ -170,6 +170,9 @@
- 	struct pcibus_info *pcibus_info;
- 	int bit = sn_irq_info->irq_int_bit;
- 
-+	if (! sn_irq_info->irq_bridge)
-+		return;
-+
- 	pcidev_info = (struct pcidev_info *)sn_irq_info->irq_pciioinfo;
- 	if (pcidev_info) {
- 		pcibus_info @@ -214,6 +217,7 @@
- 	.dma_map_consistent = pcibr_dma_map_consistent,
- 	.dma_unmap = pcibr_dma_unmap,
- 	.bus_fixup = pcibr_bus_fixup,
-+	.force_interrupt = pcibr_force_interrupt
- };
- 
- int
-Index: ce-devel/arch/ia64/sn/pci/tioca_provider.c
-=================================--- ce-devel.orig/arch/ia64/sn/pci/tioca_provider.c	2005-08-02 15:38:06.829674677 -0500
-+++ ce-devel/arch/ia64/sn/pci/tioca_provider.c	2005-08-02 15:39:52.995860546 -0500
-@@ -655,6 +655,7 @@
- 	.dma_map_consistent = tioca_dma_map,
- 	.dma_unmap = tioca_dma_unmap,
- 	.bus_fixup = tioca_bus_fixup,
-+	.force_interrupt = NULL
- };
- 
- /**
-Index: ce-devel/include/asm-ia64/sn/pcibus_provider_defs.h
-=================================--- ce-devel.orig/include/asm-ia64/sn/pcibus_provider_defs.h	2005-08-02 15:38:06.824792351 -0500
-+++ ce-devel/include/asm-ia64/sn/pcibus_provider_defs.h	2005-08-02 15:39:52.998789942 -0500
-@@ -47,6 +47,7 @@
- 	dma_addr_t	(*dma_map_consistent)(struct pci_dev *, unsigned long, size_t);
- 	void		(*dma_unmap)(struct pci_dev *, dma_addr_t, int);
- 	void *		(*bus_fixup)(struct pcibus_bussoft *);
-+	void		(*force_interrupt)(struct sn_irq_info *);
- };
- 
- extern struct sn_pcibus_provider *sn_pci_provider[];
-Index: ce-devel/include/asm-ia64/sn/pda.h
-=================================--- ce-devel.orig/include/asm-ia64/sn/pda.h	2005-08-02 15:36:58.086517822 -0500
-+++ ce-devel/include/asm-ia64/sn/pda.h	2005-08-02 15:39:53.000742872 -0500
-@@ -39,7 +39,6 @@
- 	unsigned long pio_write_status_val;
- 	volatile unsigned long *pio_shub_war_cam_addr;
- 
--	unsigned long	sn_soft_irr[4];
- 	unsigned long	sn_in_service_ivecs[4];
- 	int		sn_lb_int_war_ticks;
- 	int		sn_last_irq;
+ 		break;
+ 	case ACPI_RSTYPE_DMA:
+
+--Boundary-00=_k0T+Cum5+RUg0MY--
