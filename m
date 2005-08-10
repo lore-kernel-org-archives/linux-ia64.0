@@ -1,45 +1,36 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Tue, 09 Aug 2005 23:02:35 +0000
+From: Dave Hansen <haveblue@us.ibm.com>
+Date: Wed, 10 Aug 2005 03:06:28 +0000
 Subject: Re: [PATCH] gurantee DMA area for alloc_bootmem_low() ver. 2.
-Message-Id: <17145.13835.592008.577583@wombat.chubb.wattle.id.au>
+Message-Id: <1123643188.7069.8.camel@localhost>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050809194115.C370.Y-GOTO@jp.fujitsu.com>
-In-Reply-To: <20050809194115.C370.Y-GOTO@jp.fujitsu.com>
+	 <20050809211501.GB6235@w-mikek2.ibm.com>
+In-Reply-To: <20050809211501.GB6235@w-mikek2.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Yasunori Goto <y-goto@jp.fujitsu.com>
-Cc: linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>, "Martin J. Bligh" <mbligh@mbligh.org>, linux-ia64@vger.kernel.org, Mike Kravetz <kravetz@us.ibm.com>, "Luck, Tony" <tony.luck@intel.com>
+To: Mike Kravetz <kravetz@us.ibm.com>
+Cc: Yasunori Goto <y-goto@jp.fujitsu.com>, linux-mm <linux-mm@kvack.org>, Andrew Morton <akpm@osdl.org>, "Martin J. Bligh" <mbligh@mbligh.org>, ia64 list <linux-ia64@vger.kernel.org>, "Luck, Tony" <tony.luck@intel.com>
 
->>>>> "Yasunori" = Yasunori Goto <y-goto@jp.fujitsu.com> writes:
+On Tue, 2005-08-09 at 14:15 -0700, Mike Kravetz wrote:
+> On Tue, Aug 09, 2005 at 08:11:20PM +0900, Yasunori Goto wrote:
+> > I modified the patch which guarantees allocation of DMA area
+> > at alloc_bootmem_low().
+> 
+> I was going to replace more instances of __pa(MAX_DMA_ADDRESS) with
+> max_dma_physaddr().  However, when grepping for MAX_DMA_ADDRESS I
+> noticed instances of virt_to_phys(MAX_DMA_ADDRESS) as well.  Can
+> someone tell me what the differences are between __pa() and virt_to_phys().
 
-Yasunori>     (Note: Mike Kravez-san's code was defined by MACRO like
-Yasunori> this.  #ifndef MAX_DMA_PHYSADDR #if MAX_DMA_ADDRESS = ~0UL
-Yasunori> : : However, MAX_DMA_ADDRESS is defined with cast "(unsigned
-Yasunori> long)" in some architecture like i386. And, preprocessor
-Yasunori> doesn't like this cast in #IF sentence and displays error
-Yasunori> message as "missing binary operator befor token "long"".
-Yasunori> So, I changed it to static inline function.)
+At least one is that virt_to_phys()'s argument is usually 'volatile'
+while __pa() is not.  This, of course, varies from arch to arch. 
 
-Yasunori> +static inline unsigned long max_dma_physaddr(void) 
-Yasunori> +{
-Yasunori> + 
-Yasunori> +  if (MAX_DMA_ADDRESS = ~0UL) 
-Yasunori> +	return MAX_DMA_ADDRESS; 
-Yasunori> +  else 
-Yasunori> +	return __pa(MAX_DMA_ADDRESS); 
-Yasunori> +} 
+If somebody wants to go and rip __pa() out from all of the arches, I
+won't be especially sorry :)
 
-This code illustrates one of my pet coding-style hates:  there's no
-need for the `else' as the return statement means it'll never be
-reached.
+Actually, it would be nice to have one arch-generic version which is
+just the usual (vaddr - PAGE_OFFSET).  That would probably take care of
+80% of the individual implementations.
 
-	if (MAX_DMA_ADDRESS = ~0UL)
-	    return MAX_DMA_ADDRESS;
-	return __pa(MAX_DMA_ADDRESS);
+-- Dave
 
-is all that's needed.
-
---
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
