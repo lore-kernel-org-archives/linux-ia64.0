@@ -1,56 +1,48 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 11 Aug 2005 23:01:50 +0000
+From: Bjorn Helgaas <bjorn.helgaas@hp.com>
+Date: Thu, 11 Aug 2005 23:07:30 +0000
 Subject: Re: [PATCH] IDE: don't offer IDE_GENERIC on ia64
-Message-Id: <20050811230150.GB9964@sgi.com>
+Message-Id: <200508111707.30861.bjorn.helgaas@hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200508111424.43150.bjorn.helgaas@hp.com> <200508111445.41428.bjorn.helgaas@hp.com> <42FBBB6F.1030306@pobox.com> <200508111542.07851.bjorn.helgaas@hp.com>
-In-Reply-To: <200508111542.07851.bjorn.helgaas@hp.com>
+References: <200508111424.43150.bjorn.helgaas@hp.com> <20050811214807.GA9775@havoc.gtf.org> <42FBC985.4030602@pobox.com>
+In-Reply-To: <42FBC985.4030602@pobox.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Jeff Garzik <jgarzik@pobox.com>, B.Zolnierkiewicz@elka.pw.edu.pl, linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Cc: B.Zolnierkiewicz@elka.pw.edu.pl, linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>
 
-On Thu, Aug 11, 2005 at 03:42:07PM -0600, Bjorn Helgaas wrote:
-> On Thursday 11 August 2005 2:56 pm, Jeff Garzik wrote:
-> > Bjorn Helgaas wrote:
-> > > On Thursday 11 August 2005 2:36 pm, Jeff Garzik wrote:
-> > >>Bjorn Helgaas wrote:
-> > >>> config IDE_GENERIC
-> > >>> 	tristate "generic/default IDE chipset support"
-> > >>>+	depends on !IA64
-> > >>
-> > >>hmmmmmmmmm.  Are you POSITIVE that the legacy IDE ports are never enabled?
-> > >>
-> > >>In modern Intel chipsets, this still occurs with e.g. combined mode.
-> > > 
-> > > I don't know about combined mode.  If the legacy IDE ports are
-> > > enabled, shouldn't they be described via ACPI, and hence usable
-> > > via the ide_pnp - PNPACPI - ACPI path?
+On Thursday 11 August 2005 3:56 pm, Jeff Garzik wrote:
+> Jeff Garzik wrote:
+> > 00:1f.1 IDE interface: Intel Corporation 82801EB/ER (ICH5/ICH5R) IDE Controller 
+> > (rev 02) (prog-if 8a [Master SecP PriP])
+> >         Subsystem: Hewlett-Packard Company d530 CMT (DG746A)
+> >         Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Step
+> > ping- SERR- FastB2B-
+> >         Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort
+> > - <MAbort- >SERR- <PERR-
+> >         Latency: 0
+> >         Interrupt: pin A routed to IRQ 169
+> >         Region 0: I/O ports at <ignored>
+> >         Region 1: I/O ports at <ignored>
+> >         Region 2: I/O ports at <ignored>
+> >         Region 3: I/O ports at <ignored>
+> >         Region 4: I/O ports at 14c0 [size]
+> >         Region 5: Memory at 40000000 (32-bit, non-prefetchable) [size=1K]
 > > 
-> > No idea...  that's more for platform IA64 people to answer :/
+> > Trust me, IDE on PCI is still quite weird.
 > 
-> OK, well, I assert that failure to describe an IDE device that
-> uses legacy ports would be an ACPI defect.
-> 
-> Tony, others, does this change give you any heartburn?  On
-> the 460GX and 870 boxes I have, IDE is a PCI device.
-> 
-> (I have been told that the SGI ia64 simulator depends on
-> IDE_GENERIC.  But it really should make the IDE device
-> appear in PCI (or describe it via ACPI)).
+> The above configuration also indicates that the IRQs for the PCI device 
+> are 14 and 15, _not_ 169.
 
-Yes - we use IDE_GENERIC for the simulator. ACPI at this point is not an option
-for us because (unfortunately) SN is not ACPI compliant. We plan additional
-ACPI support in the future but it will take a while to get there.
+You deduce this by the absence of SecO and PriO?  I wonder if lspci
+should be enhanced to notice this, too.  I assume that the IRQ 169
+doesn't correspond to anything in /proc/interrupts.
 
-I'm checking to see if we have any short term alternatives. More later....
+So the scenario in question (correct me if I'm wrong) is that we
+have a PCI IDE device that is handed off in compatibility mode (and
+may only work in that mode).  In that case, the PCI *device* still
+exists, so shouldn't the IDE PCI code claim that device, notice that
+it's in compatibility mode, and use the legacy ports and IRQs if
+necessary?
 
-
--- 
-Thanks
-
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
-
-
+It seems like that all should work even if we don't have IDE_GENERIC.
