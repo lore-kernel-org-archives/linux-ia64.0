@@ -1,52 +1,55 @@
-From: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>
-Date: Wed, 03 Aug 2005 19:57:17 +0000
-Subject: RE: xen patch
-Message-Id: <516F50407E01324991DD6D07B0531AD55F6518@cacexc12.americas.cpqcorp.net>
+From: Matt Domsch <Matt_Domsch@dell.com>
+Date: Thu, 11 Aug 2005 18:10:28 +0000
+Subject: efibootmgr 0.5.2.2 for testing
+Message-Id: <20050811181028.GA12525@lists.us.dell.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F040F7016@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F040F7016@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-> From: Luck, Tony [mailto:tony.luck@intel.com] 
-> Sent: Wednesday, August 03, 2005 12:16 PM
-> To: Magenheimer, Dan (HP Labs Fort Collins)
-> Cc: linux-ia64@vger.kernel.org
-> Subject: xen patch
-> 
-> Dan,
-> 
-> Can you send me <asm/xen/privop.h> so I can see where all
-> this indirection is leading to?
+I've put out a test version of efibootmgr, I'd appreciate people with
+the capabilities to test this and report back.  I'm hoping this fixes
+the cases reported where a 32-bit efibootmgr on a 32-bit kernel wasn't
+working correctly, but I don't have such equipment to test myself.  If
+it's all good, I'll release it as 0.5.3.
 
-OK, it's not quite ready for primetime but take a look at:
+Rogerio, I gave -@ a long option --append-binary-args, rather than
+--@, to be consistent with the other long options.
 
-http://xenbits.xensource.com/ext/xenlinux-ia64-2.6.12.hg?cmd=file;fileno
-de.f68fa5385f2dcd1610f67dbfcee0d3d2c7bb37;file=include/asm-ia64/xen/pr
-ivop.h 
+Thanks to Brad Chen and Ping Wei from Intel for their debugging and patch
+suggestions.
 
-(If this hg link is problematic, let me know and I will send it
-as an attachment.)
 
-> Like David Mosberger I'm a bit sceptical about the need to replace
-> constructs like:
-> 
-> 	ia64_getreg(_IA64_REG_AR_EFLAG)
-> 
-> with
-> 	ia64_get_eflag()
-> 
-> but I can't see the whole picture at the moment.
+* Thu Aug 11 2005 Matt Domsch <Matt_Domsch@dell.com>
+- applied patch from Rogerio Timmers which adds a new option -@ <file>,
+  which takes extra variable parameters from <file>, or - from stdin.
+  This lets you pass binary (non-unicode, non-ascii) formatted options to
+  your bootloader.
+- cleaned up Rogerio's patch some.
+- moved definition of _FILE_OFFSET_BITSd into Makefile and out of the
+  individual .c files.  This fixes a bug reported by Red Flag, where
+  variable data was getting incorrectly set with a 32-bit copy of
+  efibootmgr on a 32-bit kernel.
+- made efi_variable_t.DataSize be an unsigned long to match the kernel.
+  This lets a 32-bit copy of efibootmgr run on a 32-bit kernel.  This
+  means you've got to have a 32-bit efibootmgr on a 32-bit kernel, and a
+  64-bit efibootmgr on a 64-bit kernel, but since efi_status_t is also a
+  long, this was really going to be the case anyway.
+- valgrind caught the app exiting without freeing some malloc'd
+  structures, fix that.
+- v0.5.2.2 released for testing	
 
-Well, with both Tony and David voting for this, I will just
-try to regen the patch to avoid replacing those constructs.
 
-It looks like I will have to either move the extra level of
-abstraction to several define's in both gcc_intrin.h and
-intel_intrin.h -- or use an #ifdef __INTEL_COMPILER in
-xen/privop.h.  Any preference which approach is better?
+http://linux.dell.com/efibootmgr/testing/efibootmgr-0.5.2.2.tar.gz
+http://linux.dell.com/efibootmgr/testing/efibootmgr-0.5.2.2.tar.gz.sign
+
 
 Thanks,
-Dan
+Matt
+
+-- 
+Matt Domsch
+Software Architect
+Dell Linux Solutions linux.dell.com & www.dell.com/linux
+Linux on Dell mailing lists @ http://lists.us.dell.com
