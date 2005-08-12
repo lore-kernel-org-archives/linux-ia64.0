@@ -1,29 +1,34 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Date: Fri, 12 Aug 2005 08:40:12 +0000
+From: "Maciej W. Rozycki" <macro@linux-mips.org>
+Date: Fri, 12 Aug 2005 10:33:31 +0000
 Subject: Re: [PATCH] IDE: don't offer IDE_GENERIC on ia64
-Message-Id: <1123836012.22460.16.camel@localhost.localdomain>
+Message-Id: <Pine.LNX.4.61L.0508121121080.1472@blysk.ds.pg.gda.pl>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200508111424.43150.bjorn.helgaas@hp.com>
-In-Reply-To: <200508111424.43150.bjorn.helgaas@hp.com>
+References: <200508111424.43150.bjorn.helgaas@hp.com> <20050811214807.GA9775@havoc.gtf.org>
+ <42FBC985.4030602@pobox.com> <200508111707.30861.bjorn.helgaas@hp.com>
+In-Reply-To: <200508111707.30861.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: B.Zolnierkiewicz@elka.pw.edu.pl, linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, B.Zolnierkiewicz@elka.pw.edu.pl, linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org, Tony Luck <tony.luck@intel.com>
 
-On Iau, 2005-08-11 at 14:24 -0600, Bjorn Helgaas wrote:
-> IA64 boxes only have PCI IDE devices, so there's no need to blindly poke
-> around in I/O port space.  Poking at things that don't exist causes MCAs
-> on HP ia64 systems.
-> 
-> Signed-off-by: Bjorn Helgaas <bjorn.helgaas@hp.com>
+On Thu, 11 Aug 2005, Bjorn Helgaas wrote:
 
-Nak-by: Alan Cox <alan@redhat.com>
+> So the scenario in question (correct me if I'm wrong) is that we
+> have a PCI IDE device that is handed off in compatibility mode (and
+> may only work in that mode).  In that case, the PCI *device* still
+> exists, so shouldn't the IDE PCI code claim that device, notice that
+> it's in compatibility mode, and use the legacy ports and IRQs if
+> necessary?
 
-Assuming all IA-64 boxes are PCI or better then you actually want to
-edit include/asm-ia64/ide.h and edit ide_default_io_base where someone
-years ago cut and pasted x86-32 values so that case 2-5 are removed.
-Then you will just probe the compatibility mode PCI addresses for system
-IDE channels.
+ You may have a look at how we've solved this for MIPS, where we have a 
+mixture of bus arrangements for different platforms, starting from pure 
+ISA/EISA ones, ones with PCI and a PCI-(E)ISA bridge, legacy-free PCI ones 
+and systems with no Intel-style buses at all, like TURBOchannel ones.  
+See "asm-mips/mach-generic/ide.h" for a simple solution that fits all so 
+far.  I'm not sure whether the most recent version of the file has been 
+merged upstream -- you may have to have look at: 
+"http://www.linux-mips.org/cvsweb/linux/include/asm-mips/mach-generic/ide.h" 
+instead.
 
-
+  Maciej
