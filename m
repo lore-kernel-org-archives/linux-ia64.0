@@ -1,25 +1,42 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Wed, 31 Aug 2005 20:36:33 +0000
-Subject: Re: Testing Keith's MCA/INIT patch (was RE: git pull on ia64 linux tree)
-Message-Id: <200508312036.j7VKaX7O2330190@efs.americas.sgi.com>
+From: Ian Wienand <ianw@gelato.unsw.edu.au>
+Date: Mon, 15 Aug 2005 01:49:59 +0000
+Subject: Re: Simulator bootloader fails with gcc 4
+Message-Id: <20050815014959.GH29115@cse.unsw.EDU.AU>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="9ADF8FXzFeE7X4jE"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F044726E4@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F044726E4@scsmsx401.amr.corp.intel.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+References: <20050720053139.GC13188@cse.unsw.EDU.AU>
+In-Reply-To: <20050720053139.GC13188@cse.unsw.EDU.AU>
 To: linux-ia64@vger.kernel.org
 
-Tony Luck wrote:
-> 
-> MCA testing is somewhat harder as it requires specialized h/w
-> and/or s/w to inject the error.  But I know that some of you can
-> do this ... so I'd like to hear what happens.
 
-I've run the memory error injection code with Keith's patch
-without any noticeable regression.  I vote to accept his
-patch.
+--9ADF8FXzFeE7X4jE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
+On Thu, Jul 21, 2005 at 11:00:56PM -0700, david mosberger wrote:
+> > http://gcc.gnu.org/bugzilla/show_bug.cgi?id=22605
+
+> Dan, do you want to take a quick look to see if anything obvious is
+> wrong in that area?
+
+Did anyone end up deciding if the kernel or the simulator should be
+fixed?  I'd like the simulator autobuild to "just work" with gcc4
+without having to copy in an old bootloader or something.
+
+-i
+
+--9ADF8FXzFeE7X4jE
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.1 (GNU/Linux)
+
+iD8DBQFC//THWDlSU/gp6ecRAqj6AJ907DlUQH+myzaUhISgEsfqOf/c2ACgk6A8
+Jdt+WrWboUL+37uulMJFCEw=
+=WT6c
+-----END PGP SIGNATURE-----
+
+--9ADF8FXzFeE7X4jE--
