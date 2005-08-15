@@ -1,24 +1,42 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 11 Aug 2005 05:04:05 +0000
-Subject: RE: 2.6.13-rc6 doesn't build with hotplug option off
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F041DA4B3@scsmsx401.amr.corp.intel.com>
+From: david mosberger <dmosberger@gmail.com>
+Date: Mon, 15 Aug 2005 21:52:14 +0000
+Subject: updated libunwind kernel patch
+Message-Id: <ed5aea4305081514526149997a@mail.gmail.com>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="----=_Part_485_32608522.1124142734955"
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200508100132.j7A1Wqg05828@unix-os.sc.intel.com>
-In-Reply-To: <200508100132.j7A1Wqg05828@unix-os.sc.intel.com>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->I tested the following patch with CONFIG_HOTPLUG off and
->with CONFIG_HOTPLUG on, and confirmed that it removes the
->issue.
+------=_Part_485_32608522.1124142734955
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-It looks ok with all the config files that I build too.
+Attached below is an updated libunwind kernel patch relative to Tony's
+linux-2.6 git repository.  On the ia64-side, I just updated it
+slightly to account for minor changes in Tony's tree.  There is also
+the beginning of some x86-64 support (to demonstrate the portability
+of the API), but that code isn't ready for prime-time.  I haven't made
+a final decision on what to do about that.  On the one hand, I'd like
+to have libunwind support for more than one platform but on the other,
+there are some GCC issues which are standing in the way for libunwind
+being used as the primary unwinder on DWARF-based platforms (at least
+as of last time I checked) so I may still decide to push for an
+initial ia64-only version, since that's where we'd get the biggest
+benefit (single source tree which can be shared 95% with the
+user-level libunwind & lots of bug-fixes compared to the old kernel
+unwinder).
 
->Tony, could you apply this patch?
->(This patch is same as I posted in the previous mail).
+  --david
+--=20
+Mosberger Consulting LLC, voice/fax: 510-744-9372,
+http://www.mosberger-consulting.com/
+35706 Runckel Lane, Fremont, CA 94536
 
-Ok.  Will apply.
+------=_Part_485_32608522.1124142734955
+Content-Type: application/x-gzip; name="libunwind-050815.diff.gz"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="libunwind-050815.diff.gz"
 
--Tony
+
+------=_Part_485_32608522.1124142734955--
