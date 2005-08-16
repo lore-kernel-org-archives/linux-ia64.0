@@ -1,39 +1,48 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Fri, 26 Aug 2005 00:38:41 +0000
-Subject: Re: Global Purge Translation Cache on NUM systems
-Message-Id: <7735.1125016721@ocs3.ocs.com.au>
+From: Jason Uhlenkott <jasonuhl@sgi.com>
+Date: Tue, 16 Aug 2005 19:59:16 +0000
+Subject: [PATCH] Make sched_clock() work in early boot
+Message-Id: <20050816195916.GA753838@dragonfly.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <A752C16E6296D711942200065BFCB69424BFFF47@il02exm10>
-In-Reply-To: <A752C16E6296D711942200065BFCB69424BFFF47@il02exm10>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 To: linux-ia64@vger.kernel.org
 
-On Thu, 25 Aug 2005 13:15:33 -0500, 
-Smarduch Mario-CMS063 <CMS063@motorola.com> wrote:
->
->We've been noticing some TLB issues on 2.4 and 2.6.10 kernels running
->on IA64 NUMA architecture. To this end I have some questions regarding
->TLB purging, please bare through with the initial introduction.
->
->IA64 Inst Set Manual points out that propogation of ptc.g across local
->cache coherence domains is platform dependent and must be handled by
->software. I'm trying to understand how would this work on a ccNUMA and
->whether or not software beyond what hw offers to propgate a ptc.ga
->(Purte TC bus transaction) is needed.
+Turning on PRINTK_TIME causes us to die in early boot when sched_clock()
+tries to access per-cpu data which isn't set up yet.
 
-See platform_global_tlb_purge.  On ccNUMA boxes it gets defined to a
-platform specific routine.  On SGI's SN2, platform_global_tlb_purge
-ends up calling sn2_global_tlb_purge().  That routine works out if the
-flush is for the current cpu, for a cpu on the same node or for a
-remote node and handles the flush accordingly.
+We can avoid this by doing a speculative load on the per-cpu data and
+just returning zero if we fail.  This matches the way sched_clock()
+appears to behave on most other arches if it gets called before we
+know the cpu frequency.
 
->When a Purge TC global is issued is hardware responsible for keeping the xaction from completion (TND#
->assertion) until the xaction has become visible to all nodes?
+Signed-off-by: Jason Uhlenkott <jasonuhl@sgi.com>
 
-The platform's tlb purge routine is responsible for synchronization.
-It must not return to the caller of platform_global_tlb_purge() until
-the tlb has been flushed on all the target nodes.  IOW, software make
-non-sync hardware look synchronous.
-
+Index: linux/arch/ia64/kernel/head.S
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D--- linux.orig/arch/ia64/kernel/head.S	2005-08-15 1=
+5:54:56.130313231 -0700
++++ linux/arch/ia64/kernel/head.S	2005-08-16 12:49:23.843747550 -0700
+@@ -983,9 +983,10 @@
+ 	addl r8=3DTHIS_CPU(cpu_info) + IA64_CPUINFO_NSEC_PER_CYC_OFFSET,r0
+ 	mov.m r9=3Dar.itc		// fetch cycle-counter				(35 cyc)
+ 	;;
+-	ldf8 f8=3D[r8]
++	ldf8.s f8=3D[r8]
+ 	;;
+ 	setf.sig f9=3Dr9		// certain to stall, so issue it _after_ ldf8...
++	chk.s r8, .recover
+ 	;;
+ 	xmpy.lu f10=F9,f8	// calculate low 64 bits of 128-bit product	(4 cyc)
+ 	xmpy.hu f11=F9,f8	// calculate high 64 bits of 128-bit product
+@@ -995,6 +996,10 @@
+ 	;;
+ 	shrp r8=3Dr9,r8,IA64_NSEC_PER_CYC_SHIFT
+ 	br.ret.sptk.many rp
++.recover:			// per-cpu data isn't set up yet,
++				// so just return 0.
++	mov r8=3Dr0
++	br.ret.sptk.many rp
+ END(sched_clock)
+=20
+ GLOBAL_ENTRY(start_kernel_thread)
