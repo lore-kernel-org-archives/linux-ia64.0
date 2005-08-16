@@ -1,32 +1,52 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Thu, 11 Aug 2005 15:14:27 +0000
-Subject: Re: [PATCH] update CONFIG_PCI description
-Message-Id: <20050811151427.GC28067@parcelfarce.linux.theplanet.co.uk>
+From: Andi Kleen <ak@suse.de>
+Date: Tue, 16 Aug 2005 15:57:47 +0000
+Subject: [PATCH] Fix gcc 4 warnings on ia64
+Message-Id: <20050816155747.GN20749@wotan.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050809203800.GA28917@lst.de>
-In-Reply-To: <20050809203800.GA28917@lst.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Aug 09, 2005 at 10:38:00PM +0200, Christoph Hellwig wrote:
-> The current one doesn't even make sense anymore on i386 where it
-> apparently came from.
-> +	  There is no IA64 hardware without PCI/PCI-X/PCI-Express busses.
-> +	  Say Y here unless running on the HP simulator.
->  
 
-Hm, I thought I already updated that one.  I think it's bad style to write
-in the negative like that ... how about:
+I was compiling an IA64 2.6.13rc6 kernel on a machine with gcc 4 
+to test something. The compile spew a incredibly large number
+of warnings. This patch fixes the most annoying ones from
+commonly included makefiles. In these two cases  gcc was complaining
+that functions cannot be volatile or const.
 
-	All IA-64 machines use PCI/PCI-X/PCI Express busses.  Unless you
-	are using a simulator without PCI support, you should say Y here.
+There are a lot more warnings left, but they're in individual files.
+Most seem to be uninitialized variables because gcc 4 can track
+individual structure members for that now. 
 
--- 
-"Next the statesmen will invent cheap lies, putting the blame upon 
-the nation that is attacked, and every man will be glad of those
-conscience-soothing falsities, and will diligently study them, and refuse
-to examine any refutations of them; and thus he will by and by convince 
-himself that the war is just, and will thank God for the better sleep 
-he enjoys after this process of grotesque self-deception." -- Mark Twain
+Signed-off-by: Andi Kleen <ak@suse.de>
+
+diff -u linux-2.6.13rc6/include/asm-ia64/mmu.h-o linux-2.6.13rc6/include/asm-ia64/mmu.h
+diff -u linux-2.6.13rc6/include/asm-ia64/io.h-o linux-2.6.13rc6/include/asm-ia64/io.h
+--- linux-2.6.13rc6/include/asm-ia64/io.h-o	2005-06-17 21:48:29.000000000 +0200
++++ linux-2.6.13rc6/include/asm-ia64/io.h	2005-08-16 17:37:56.539836121 +0200
+@@ -120,7 +120,7 @@
+ 	ia64_mfa();
+ }
+ 
+-static inline const unsigned long
++static inline unsigned long
+ __ia64_get_io_port_base (void)
+ {
+ 	extern unsigned long ia64_iobase;
+diff -u linux-2.6.13rc6/include/asm-ia64/mmu_context.h-o linux-2.6.13rc6/include/asm-ia64/mmu_context.h
+--- linux-2.6.13rc6/include/asm-ia64/mmu_context.h-o	2005-08-16 17:33:16.000000000 +0200
++++ linux-2.6.13rc6/include/asm-ia64/mmu_context.h	2005-08-16 17:45:14.310318038 +0200
+@@ -62,7 +62,7 @@
+ 	}
+ }
+ 
+-static inline mm_context_t
++static inline unsigned long
+ get_mmu_context (struct mm_struct *mm)
+ {
+ 	unsigned long flags;
+
+
+
+
