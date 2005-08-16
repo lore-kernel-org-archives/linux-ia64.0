@@ -1,190 +1,368 @@
-From: Colin Ngam <cngam@sgi.com>
-Date: Wed, 03 Aug 2005 20:34:44 +0000
-Subject: [PATCH 2.6-test 0/0] Altix only: Add PCI Domain number support.
-Message-Id: <20050803203444.10877.61020.29766@attica.americas.sgi.com>
+From: Mark Goodwin <markgw@sgi.com>
+Date: Tue, 16 Aug 2005 07:50:25 +0000
+Subject: [PATCH 2/3] - SGI SN hwperf enhancements - sn_hwperf_get_nearest_node
+Message-Id: <Pine.LNX.4.62.0508161739420.7676@woolami.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This patch enables PCI Domain numbering on Altix.
 
-Signed-off-by: Colin Ngam <cngam@sgi.com>
+Add a new exported function for determining the nearest node
+with CPUs for I/O nodes and fix a bug where the hwperf dynamic
+misc device was being registered before misc_init().
 
-Index: test-2.6/arch/ia64/sn/kernel/io_init.c
-=================================--- test-2.6.orig/arch/ia64/sn/kernel/io_init.c	2005-07-28 16:02:04.466055779 -0500
-+++ test-2.6/arch/ia64/sn/kernel/io_init.c	2005-08-02 13:40:32.572471100 -0500
-@@ -44,6 +44,9 @@
+Signed-off-by: Mark Goodwin <markgw@sgi.com>
+
+Index: linux/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+=================================--- linux.orig/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-08-15 13:37:23.409691255 +1000
++++ linux/arch/ia64/sn/kernel/sn2/sn_hwperf.c	2005-08-16 06:22:57.735504289 +1000
+@@ -59,7 +59,7 @@
+ 	struct sn_hwperf_object_info *objbuf = NULL;
  
- struct sn_pcibus_provider *sn_pci_provider[PCIIO_ASIC_MAX_TYPES];	/* indexed by asic type */
+ 	if ((e = sn_hwperf_init()) < 0) {
+-		printk("sn_hwperf_init failed: err %d\n", e);
++		printk(KERN_ERR "sn_hwperf_init failed: err %d\n", e);
+ 		goto out;
+ 	}
  
-+static int max_segment_number = 0; /* Default highest segment number */
-+static int max_pcibus_number = 255; /* Default highest pci bus number */
+@@ -111,7 +111,7 @@
+ 	if (sn_hwperf_location_to_bpos(location, &rack, &bay, &slot, &slab))
+ 		return -1;
+ 
+-	for (cnode = 0; cnode < numionodes; cnode++) {
++	for_each_node(cnode) {
+ 		geoid = cnodeid_get_geoid(cnode);
+ 		module_id = geo_module(geoid);
+ 		this_rack = MODULE_GET_RACK(module_id);
+@@ -124,11 +124,13 @@
+ 		}
+ 	}
+ 
+-	return cnode < numionodes ? cnode : -1;
++	return node_possible(cnode) ? cnode : -1;
+ }
+ 
+ static int sn_hwperf_obj_to_cnode(struct sn_hwperf_object_info * obj)
+ {
++	if (!SN_HWPERF_IS_NODE(obj) && !SN_HWPERF_IS_IONODE(obj))
++		BUG();
+ 	if (!obj->sn_hwp_this_part)
+ 		return -1;
+ 	return sn_hwperf_geoid_to_cnode(obj->location);
+@@ -192,6 +194,179 @@
+ 	}
+ }
+ 
++static inline int sn_hwperf_has_cpus(cnodeid_t node)
++{
++	return node_online(node) && nr_cpus_node(node);
++}
 +
- /*
-  * Hooks and struct for unsupported pci providers
-  */
-@@ -157,13 +160,28 @@
- 	uint64_t nasid;
- 	int i, widget;
- 
-+	/*
-+	 * Get SGI Specific HUB chipset information.
-+	 * Inform Prom that this kernel can support domain bus numbering.
-+	 */
- 	for (i = 0; i < numionodes; i++) {
- 		hubdev = (struct hubdev_info *)(NODEPDA(i)->pdinfo);
- 		nasid = cnodeid_to_nasid(i);
-+		hubdev->max_segment_number = 0xffffffff;
-+		hubdev->max_pcibus_number = 0xff;
- 		status = sal_get_hubdev_info(nasid, (uint64_t) __pa(hubdev));
- 		if (status)
- 			continue;
- 
-+		/* Save the largest Domain and pcibus numbers found. */
-+		if (hubdev->max_segment_number) {
-+			/*
-+			 * Dealing with a Prom that supports segments.
-+			 */
-+			max_segment_number = hubdev->max_segment_number;
-+			max_pcibus_number = hubdev->max_pcibus_number;
++static inline int sn_hwperf_has_mem(cnodeid_t node)
++{
++	return node_online(node) && NODE_DATA(node)->node_present_pages;
++}
++
++static struct sn_hwperf_object_info *
++sn_hwperf_findobj_id(struct sn_hwperf_object_info *objbuf,
++	int nobj, int id)
++{
++	int i;
++	struct sn_hwperf_object_info *p = objbuf;
++
++	for (i=0; i < nobj; i++, p++) {
++		if (p->id = id)
++			return p;
++	}
++
++	return NULL;
++
++}
++
++static int sn_hwperf_get_nearest_node_objdata(struct sn_hwperf_object_info *objbuf,
++	int nobj, cnodeid_t node, cnodeid_t *near_mem_node, cnodeid_t *near_cpu_node)
++{
++	int e;
++	struct sn_hwperf_object_info *nodeobj = NULL;
++	struct sn_hwperf_object_info *op;
++	struct sn_hwperf_object_info *dest;
++	struct sn_hwperf_object_info *router;
++	struct sn_hwperf_port_info ptdata[16];
++	int sz, i, j;
++	cnodeid_t c;
++	int found_mem = 0;
++	int found_cpu = 0;
++
++	if (!node_possible(node))
++		return -EINVAL;
++
++	if (sn_hwperf_has_cpus(node)) {
++		if (near_cpu_node)
++			*near_cpu_node = node;
++		found_cpu++;
++	}
++
++	if (sn_hwperf_has_mem(node)) {
++		if (near_mem_node)
++			*near_mem_node = node;
++		found_mem++;
++	}
++
++	if (found_cpu && found_mem)
++		return 0; /* trivially successful */
++
++	/* find the argument node object */
++	for (i=0, op=objbuf; i < nobj; i++, op++) {
++		if (node = sn_hwperf_obj_to_cnode(op)) {
++			nodeobj = op;
++			break;
++		}
++	}
++	if (!nodeobj) {
++		e = -ENOENT;
++		goto err;
++	}
++
++	/* get it's interconnect topology */
++	sz = op->ports * sizeof(struct sn_hwperf_port_info);
++	if (sz > sizeof(ptdata))
++		BUG();
++	e = ia64_sn_hwperf_op(sn_hwperf_master_nasid,
++			      SN_HWPERF_ENUM_PORTS, nodeobj->id, sz,
++			      (u64)&ptdata, 0, 0, NULL);
++	if (e != SN_HWPERF_OP_OK) {
++		e = -EINVAL;
++		goto err;
++	}
++
++	/* find nearest node with cpus and nearest memory */
++	for (router=NULL, j=0; j < op->ports; j++) {
++		dest = sn_hwperf_findobj_id(objbuf, nobj, ptdata[j].conn_id);
++		if (!dest || SN_HWPERF_FOREIGN(dest) ||
++		    !SN_HWPERF_IS_NODE(dest) || SN_HWPERF_IS_IONODE(dest)) {
++			continue;
++		}
++		c = sn_hwperf_obj_to_cnode(dest);
++		if (!found_cpu && sn_hwperf_has_cpus(c)) {
++			if (near_cpu_node)
++				*near_cpu_node = c;
++			found_cpu++;
++		}
++		if (!found_mem && sn_hwperf_has_mem(c)) {
++			if (near_mem_node)
++				*near_mem_node = c;
++			found_mem++;
++		}
++		if (SN_HWPERF_IS_ROUTER(dest))
++			router = dest;
++	}
++
++	if (router && (!found_cpu || !found_mem)) {
++		/* search for a node connected to the same router */
++		sz = router->ports * sizeof(struct sn_hwperf_port_info);
++		if (sz > sizeof(ptdata))
++			BUG();
++		e = ia64_sn_hwperf_op(sn_hwperf_master_nasid,
++				      SN_HWPERF_ENUM_PORTS, router->id, sz,
++				      (u64)&ptdata, 0, 0, NULL);
++		if (e != SN_HWPERF_OP_OK) {
++			e = -EINVAL;
++			goto err;
++		}
++		for (j=0; j < router->ports; j++) {
++			dest = sn_hwperf_findobj_id(objbuf, nobj,
++				ptdata[j].conn_id);
++			if (!dest || dest->id = node ||
++			    SN_HWPERF_FOREIGN(dest) ||
++			    !SN_HWPERF_IS_NODE(dest) ||
++			    SN_HWPERF_IS_IONODE(dest)) {
++				continue;
++			}
++			c = sn_hwperf_obj_to_cnode(dest);
++			if (!found_cpu && sn_hwperf_has_cpus(c)) {
++				if (near_cpu_node)
++					*near_cpu_node = c;
++				found_cpu++;
++			}
++			if (!found_mem && sn_hwperf_has_mem(c)) {
++				if (near_mem_node)
++					*near_mem_node = c;
++				found_mem++;
++			}
++			if (found_cpu && found_mem)
++				break;
++		}
++	}
++
++	if (!found_cpu || !found_mem) {
++		/* resort to _any_ node with CPUs and memory */
++		for (i=0, op=objbuf; i < nobj; i++, op++) {
++			if (SN_HWPERF_FOREIGN(op) ||
++			    SN_HWPERF_IS_IONODE(op) ||
++			    !SN_HWPERF_IS_NODE(op)) {
++				continue;
++			}
++			c = sn_hwperf_obj_to_cnode(op);
++			if (!found_cpu && sn_hwperf_has_cpus(c)) {
++				if (near_cpu_node)
++					*near_cpu_node = c;
++				found_cpu++;
++			}
++			if (!found_mem && sn_hwperf_has_mem(c)) {
++				if (near_mem_node)
++					*near_mem_node = c;
++				found_mem++;
++			}
++			if (found_cpu && found_mem)
++				break;
++		}
++	}
++
++	if (!found_cpu || !found_mem)
++		e = -ENODATA;
++
++err:
++	return e;
++}
++
++
+ static int sn_topology_show(struct seq_file *s, void *d)
+ {
+ 	int sz;
+@@ -265,11 +440,24 @@
+ 	if (!SN_HWPERF_IS_NODE(obj) && !SN_HWPERF_IS_IONODE(obj))
+ 		seq_putc(s, '\n');
+ 	else {
++		cnodeid_t near_mem = -1;
++		cnodeid_t near_cpu = -1;
++
+ 		seq_printf(s, ", nasid 0x%x", cnodeid_to_nasid(ordinal));
+-		for (i=0; i < numionodes; i++) {
+-			seq_printf(s, i ? ":%d" : ", dist %d",
+-				node_distance(ordinal, i));
++
++		if (sn_hwperf_get_nearest_node_objdata(objs, sn_hwperf_obj_cnt,
++			ordinal, &near_mem, &near_cpu) = 0) {
++			seq_printf(s, ", near_mem_nodeid %d, near_cpu_nodeid %d",
++				near_mem, near_cpu);
 +		}
 +
- 		/* Attach the error interrupt handlers */
- 		if (nasid & 1)
- 			ice_error_init(hubdev);
-@@ -229,7 +247,7 @@
- void sn_pci_fixup_slot(struct pci_dev *dev)
- {
- 	int idx;
--	int segment = 0;
-+	int segment = pci_domain_nr(dev->bus);
- 	int status = 0;
- 	struct pcibus_bussoft *bs;
-  	struct pci_bus *host_pci_bus;
-@@ -282,9 +300,9 @@
-  	 * PCI host_pci_dev struct and set up host bus linkages
-  	 */
++		if (!SN_HWPERF_IS_IONODE(obj)) {
++			for_each_online_node(i) {
++				seq_printf(s, i ? ":%d" : ", dist %d",
++					node_distance(ordinal, i));
++			}
+ 		}
++
+ 		seq_putc(s, '\n');
  
-- 	bus_no = SN_PCIDEV_INFO(dev)->pdi_slot_host_handle >> 32;
-+ 	bus_no = (SN_PCIDEV_INFO(dev)->pdi_slot_host_handle >> 32) & 0xff;
-  	devfn = SN_PCIDEV_INFO(dev)->pdi_slot_host_handle & 0xffffffff;
-- 	host_pci_bus = pci_find_bus(pci_domain_nr(dev->bus), bus_no);
-+ 	host_pci_bus = pci_find_bus(segment, bus_no);
-  	host_pci_dev = pci_get_slot(host_pci_bus, devfn);
+ 		/*
+@@ -554,6 +742,8 @@
+ 		if ((r = sn_hwperf_enum_objects(&nobj, &objs)) = 0) {
+ 			memset(p, 0, a.sz);
+ 			for (i = 0; i < nobj; i++) {
++				if (!SN_HWPERF_IS_NODE(objs + i))
++					continue;
+ 				node = sn_hwperf_obj_to_cnode(objs + i);
+ 				for_each_online_cpu(j) {
+ 					if (node != cpu_to_node(j))
+@@ -580,7 +770,7 @@
  
- 	SN_PCIDEV_INFO(dev)->host_pci_dev = host_pci_dev;
-@@ -332,6 +350,7 @@
- 	prom_bussoft_ptr = __va(prom_bussoft_ptr);
+ 	case SN_HWPERF_GET_NODE_NASID:
+ 		if (a.sz != sizeof(u64) ||
+-		   (node = a.arg) < 0 || node >= numionodes) {
++		   (node = a.arg) < 0 || !node_possible(node)) {
+ 			r = -EINVAL;
+ 			goto error;
+ 		}
+@@ -674,6 +864,7 @@
  
-  	controller = kcalloc(1,sizeof(struct pci_controller), GFP_KERNEL);
-+	controller->segment = segment;
-  	if (!controller)
-  		BUG();
+ 	/* single threaded, once-only initialization */
+ 	down(&sn_hwperf_init_mutex);
++
+ 	if (sn_hwperf_salheap) {
+ 		up(&sn_hwperf_init_mutex);
+ 		return e;
+@@ -724,19 +915,6 @@
+ 		sn_hwperf_salheap = NULL;
+ 		sn_hwperf_obj_cnt = 0;
+ 	}
+-
+-	if (!e) {
+-		/*
+-		 * Register a dynamic misc device for ioctl. Platforms
+-		 * supporting hotplug will create /dev/sn_hwperf, else
+-		 * user can to look up the minor number in /proc/misc.
+-		 */
+-		if ((e = misc_register(&sn_hwperf_dev)) != 0) {
+-			printk(KERN_ERR "sn_hwperf_init: misc register "
+-			       "for \"sn_hwperf\" failed, err %d\n", e);
+-		}
+-	}
+-
+ 	up(&sn_hwperf_init_mutex);
+ 	return e;
+ }
+@@ -764,3 +942,41 @@
+ 	vfree(seq->private);
+ 	return seq_release(inode, file);
+ }
++
++int sn_hwperf_get_nearest_node(cnodeid_t node,
++	cnodeid_t *near_mem_node, cnodeid_t *near_cpu_node)
++{
++	int e;
++	int nobj;
++	struct sn_hwperf_object_info *objbuf;
++
++	if ((e = sn_hwperf_enum_objects(&nobj, &objbuf)) = 0) {
++		e = sn_hwperf_get_nearest_node_objdata(objbuf, nobj,
++			node, near_mem_node, near_cpu_node);
++		vfree(objbuf);
++	}
++
++	return e;
++}
++
++static int __devinit sn_hwperf_misc_register_init(void)
++{
++	int e;
++
++	sn_hwperf_init();
++
++	/*
++	 * Register a dynamic misc device for hwperf ioctls. Platforms
++	 * supporting hotplug will create /dev/sn_hwperf, else user
++	 * can to look up the minor number in /proc/misc.
++	 */
++	if ((e = misc_register(&sn_hwperf_dev)) != 0) {
++		printk(KERN_ERR "sn_hwperf_misc_register_init: failed to "
++		"register misc device for \"%s\"\n", sn_hwperf_dev.name);
++	}
++
++	return e;
++}
++
++device_initcall(sn_hwperf_misc_register_init); /* after misc_init() */
++EXPORT_SYMBOL(sn_hwperf_get_nearest_node);
+Index: linux/include/asm-ia64/sn/sn2/sn_hwperf.h
+=================================--- linux.orig/include/asm-ia64/sn/sn2/sn_hwperf.h	2005-08-15 13:37:23.411644381 +1000
++++ linux/include/asm-ia64/sn/sn2/sn_hwperf.h	2005-08-15 13:38:30.501522481 +1000
+@@ -214,6 +214,15 @@
+  */
+ #define SN_HWPERF_GET_NODE_NASID	(102|SN_HWPERF_OP_MEM_COPYOUT)
  
-@@ -426,6 +445,7 @@
- static int __init sn_pci_init(void)
- {
- 	int i = 0;
-+	int j = 0;
- 	struct pci_dev *pci_dev = NULL;
- 	extern void sn_init_cpei_timer(void);
- #ifdef CONFIG_PROC_FS
-@@ -460,8 +480,9 @@
- #endif
- 
- 	/* busses are not known yet ... */
--	for (i = 0; i < PCI_BUSES_TO_SCAN; i++)
--		sn_pci_controller_fixup(0, i, NULL);
-+	for (i = 0; i <= max_segment_number; i++)
-+		for (j = 0; j <= max_pcibus_number; j++)
-+			sn_pci_controller_fixup(i, j, NULL);
- 
- 	/*
- 	 * Generic Linux PCI Layer has created the pci_bus and pci_dev 
-Index: test-2.6/arch/ia64/sn/include/xtalk/hubdev.h
-=================================--- test-2.6.orig/arch/ia64/sn/include/xtalk/hubdev.h	2005-07-28 16:02:04.462149924 -0500
-+++ test-2.6/arch/ia64/sn/include/xtalk/hubdev.h	2005-08-01 10:55:51.959801006 -0500
-@@ -34,7 +34,8 @@
- 	unsigned long sfdl_force_int_addr;
- 	unsigned long sfdl_flush_value;
- 	volatile unsigned long *sfdl_flush_addr;
--	uint64_t sfdl_persistent_busnum;
-+	uint32_t sfdl_persistent_busnum;
-+	uint32_t sfdl_persistent_segment;
- 	struct pcibus_info *sfdl_pcibus_info;
- 	spinlock_t sfdl_flush_lock;
- };
-@@ -58,7 +59,8 @@
- 
- 	void				*hdi_nodepda;
- 	void				*hdi_node_vertex;
--	void				*hdi_xtalk_vertex;
-+	uint32_t			max_segment_number;
-+	uint32_t			max_pcibus_number;
- };
- 
- extern void hubdev_init_node(nodepda_t *, cnodeid_t);
-Index: test-2.6/include/asm-ia64/sn/pcibus_provider_defs.h
-=================================--- test-2.6.orig/include/asm-ia64/sn/pcibus_provider_defs.h	2005-07-28 16:02:13.888931637 -0500
-+++ test-2.6/include/asm-ia64/sn/pcibus_provider_defs.h	2005-08-01 10:55:52.071117705 -0500
-@@ -30,7 +30,8 @@
- struct pcibus_bussoft {
- 	uint32_t		bs_asic_type;	/* chipset type */
- 	uint32_t		bs_xid;		/* xwidget id */
--	uint64_t		bs_persist_busnum; /* Persistent Bus Number */
-+	uint32_t		bs_persist_busnum; /* Persistent Bus Number */
-+	uint32_t		bs_persist_segment; /* Segment Number */
- 	uint64_t		bs_legacy_io;	/* legacy io pio addr */
- 	uint64_t		bs_legacy_mem;	/* legacy mem pio addr */
- 	uint64_t		bs_base;	/* widget base */
-Index: test-2.6/arch/ia64/sn/pci/pcibr/pcibr_provider.c
-=================================--- test-2.6.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-07-28 16:02:04.523667144 -0500
-+++ test-2.6/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-08-01 10:55:52.198057801 -0500
-@@ -60,7 +60,7 @@
- 	ret_stuff.status = 0;
- 	ret_stuff.v0 = 0;
- 
--	segment = 0;
-+	segment = soft->pbi_buscommon.bs_persist_segment;
- 	busnum = soft->pbi_buscommon.bs_persist_busnum;
- 	SAL_CALL_NOLOCK(ret_stuff,
- 			(u64) SN_SAL_IOIF_ERROR_INTERRUPT,
-@@ -142,9 +142,12 @@
- 			     j++, sn_flush_device_list++) {
- 				if (sn_flush_device_list->sfdl_slot = -1)
- 					continue;
--				if (sn_flush_device_list->
--				    sfdl_persistent_busnum =
--				    soft->pbi_buscommon.bs_persist_busnum)
-+				if ((sn_flush_device_list->
-+				     sfdl_persistent_segment =
-+				     soft->pbi_buscommon.bs_persist_segment) &&
-+				     (sn_flush_device_list->
-+				     sfdl_persistent_busnum =
-+				     soft->pbi_buscommon.bs_persist_busnum))
- 					sn_flush_device_list->sfdl_pcibus_info  					    soft;
- 			}
-Index: test-2.6/arch/ia64/sn/pci/tioca_provider.c
-=================================--- test-2.6.orig/arch/ia64/sn/pci/tioca_provider.c	2005-07-28 16:02:04.524643608 -0500
-+++ test-2.6/arch/ia64/sn/pci/tioca_provider.c	2005-08-01 15:54:37.849344268 -0500
-@@ -559,7 +559,7 @@
- 	ret_stuff.status = 0;
- 	ret_stuff.v0 = 0;
- 
--	segment = 0;
-+	segment = soft->ca_common.bs_persist_segment;
- 	busnum = soft->ca_common.bs_persist_busnum;
- 
- 	SAL_CALL_NOLOCK(ret_stuff,
-@@ -622,7 +622,8 @@
- 	    nasid_to_cnodeid(tioca_common->ca_closest_nasid);
- 	tioca_common->ca_kernel_private = (uint64_t) tioca_kern;
- 
--	bus = pci_find_bus(0, tioca_common->ca_common.bs_persist_busnum);
-+	bus = pci_find_bus(tioca_common->ca_common.bs_persist_segment,
-+		tioca_common->ca_common.bs_persist_busnum);
- 	BUG_ON(!bus);
- 	tioca_kern->ca_devices = &bus->devices;
- 
++/*
++ * Given a node id, determine the id of the nearest node with CPUs
++ * and the id of the nearest node that has memory. The argument
++ * node would normally be a "headless" node, e.g. an "IO node".
++ * Return 0 on success.
++ */
++extern int sn_hwperf_get_nearest_node(cnodeid_t node,
++	cnodeid_t *near_mem, cnodeid_t *near_cpu);
++
+ /* return codes */
+ #define SN_HWPERF_OP_OK			0
+ #define SN_HWPERF_OP_NOMEM		1
