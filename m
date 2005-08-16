@@ -1,28 +1,24 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Tue, 16 Aug 2005 20:41:39 +0000
-Subject: Re: Multiple virtual address mapping for the same code on IA-64 linux kernel.
-Message-Id: <je1x4tbon0.fsf@sykes.suse.de>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Tue, 16 Aug 2005 20:44:50 +0000
+Subject: RE: Multiple virtual address mapping for the same code on IA-64 linux kernel.
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F04294461@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <3faf056805081613365f5237de@mail.gmail.com>
-In-Reply-To: <3faf056805081613365f5237de@mail.gmail.com> (vamsi krishna's
-	message of "Wed, 17 Aug 2005 02:06:26 +0530")
+References: <je1x4tbon0.fsf@sykes.suse.de>
+In-Reply-To: <je1x4tbon0.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-To: vamsi krishna <vamsi.krishnak@gmail.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: vamsi krishna <vamsi.krishnak@gmail.com>, linux-ia64@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 
-vamsi krishna <vamsi.krishnak@gmail.com> writes:
 
-> example /lib/libc-2.2.4.so size 6094859    got mapped 3 times with
-> permissions 'r-xp' , '---p' and 'rw-p' from the bottom.
+>I have been investigating a problem in which there has been a dramatic
+> core size (complete program size) of a program running on a IA-64
+>machine running kernel version 2.4.21-4.0.1 (A redhat advanced server
+>distribution) compared to other 64-bit architectures like amd64 and
+>EM64T. There has been an increase of around 20% of the size.
 
-Note the file offset.
+Itanium instruction set is not as compact as some other architectures,
+so the same program will typically require more bytes of code.
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+-Tony
