@@ -1,26 +1,30 @@
-From: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
-Date: Tue, 16 Aug 2005 10:02:00 +0000
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Date: Tue, 16 Aug 2005 12:55:58 +0000
 Subject: Re: [PATCH] IDE: don't offer IDE_GENERIC on ia64
-Message-Id: <58cb370e050816030248e6283c@mail.gmail.com>
+Message-Id: <1124196958.17555.8.camel@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200508111424.43150.bjorn.helgaas@hp.com>
-	 <20050811203437.GA9265@infradead.org>
-In-Reply-To: <20050811203437.GA9265@infradead.org>
+	 <1123836012.22460.16.camel@localhost.localdomain>
+	 <200508151507.22776.bjorn.helgaas@hp.com>
+	 <58cb370e050816023845b57a74@mail.gmail.com>
+In-Reply-To: <58cb370e050816023845b57a74@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Hellwig <hch@infradead.org>, Bjorn Helgaas <bjorn.helgaas@hp.com>, B.Zolnierkiewicz@elka.pw.edu.pl, linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org
+To: Bartlomiej Zolnierkiewicz <bzolnier@gmail.com>
+Cc: Bjorn Helgaas <bjorn.helgaas@hp.com>, B.Zolnierkiewicz@elka.pw.edu.pl, linux-kernel@vger.kernel.org, linux-ide@vger.kernel.org, linux-ia64@vger.kernel.org
 
-On 8/11/05, Christoph Hellwig <hch@infradead.org> wrote:
-> On Thu, Aug 11, 2005 at 02:24:43PM -0600, Bjorn Helgaas wrote:
-> > IA64 boxes only have PCI IDE devices, so there's no need to blindly poke
-> > around in I/O port space.  Poking at things that don't exist causes MCAs
-> > on HP ia64 systems.
-> 
-> Maybe it should instead depend on those systems where it is available.
-> Anything but X86?
+On Maw, 2005-08-16 at 11:38 +0200, Bartlomiej Zolnierkiewicz wrote:
+> * removing IDE_ARCH_OBSOLETE_INIT define has some implications,
+>   * non-functional ide-cs driver (but there is no PCMCIA on IA64?)
 
-Don't forget that arch specific drivers use IDE_GENERIC *indirectly*
-to probe for devices.
+IA64 systems can support PCI->Cardbus/PCMCIA cards so they do actually
+need this support. They could also do with cardbus IDE support but that
+means a whole pile of patches still although the refcounting stuff means
+its a lot closer to doable now
 
-Bartlomiej
+>   * ordering change for ide-pnp interfaces in case of no IDE devices
+>     on default IDE PCI ports, (but there aren't any ide-pnp devices on IA64?)
+
+No ISAPnP
+
