@@ -1,36 +1,61 @@
-From: Bob Picco <bob.picco@hp.com>
-Date: Mon, 22 Aug 2005 14:20:36 +0000
-Subject: Re: updated libunwind kernel patch
-Message-Id: <20050822142036.GO8919@localhost.localdomain>
+From: Mark Goodwin <markgw@sgi.com>
+Date: Tue, 16 Aug 2005 07:50:36 +0000
+Subject: [PATCH 3/3] - SGI SN hwperf enhancements - pcibr_bus_fixup_for_tio_busses
+Message-Id: <Pine.LNX.4.62.0508161741540.7676@woolami.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <ed5aea4305081514526149997a@mail.gmail.com>
-In-Reply-To: <ed5aea4305081514526149997a@mail.gmail.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-david mosberger wrote:	[Mon Aug 15 2005, 05:52:14PM EDT]
-> Attached below is an updated libunwind kernel patch relative to Tony's
-> linux-2.6 git repository.  On the ia64-side, I just updated it
-> slightly to account for minor changes in Tony's tree.  There is also
-> the beginning of some x86-64 support (to demonstrate the portability
-> of the API), but that code isn't ready for prime-time.  I haven't made
-> a final decision on what to do about that.  On the one hand, I'd like
-> to have libunwind support for more than one platform but on the other,
-> there are some GCC issues which are standing in the way for libunwind
-> being used as the primary unwinder on DWARF-based platforms (at least
-> as of last time I checked) so I may still decide to push for an
-> initial ia64-only version, since that's where we'd get the biggest
-> benefit (single source tree which can be shared 95% with the
-> user-level libunwind & lots of bug-fixes compared to the old kernel
-> unwinder).
-> 
->   --david
-Hi David:
 
-Any chance you can post the attachment?  It appears to be empty.
+Update the SN pci device info to use the nearest node function
+to allocate driver memory on the nearest node (rather than
+defaulting to node 0).
 
-thanks,
+Signed-off-by: Mark Goodwin <markgw@sgi.com>
 
-bob
+Index: linux/arch/ia64/sn/pci/pcibr/pcibr_provider.c
+=================================--- linux.orig/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-08-15 13:23:40.613371546 +1000
++++ linux/arch/ia64/sn/pci/pcibr/pcibr_provider.c	2005-08-16 06:22:01.168092514 +1000
+@@ -15,6 +15,7 @@
+ #include <asm/sn/pcibus_provider_defs.h>
+ #include <asm/sn/pcidev.h>
+ #include <asm/sn/sn_sal.h>
++#include <asm/sn/sn2/sn_hwperf.h>
+ #include "xtalk/xwidgetdev.h"
+ #include "xtalk/hubdev.h"
+ 
+@@ -88,6 +89,7 @@
+ pcibr_bus_fixup(struct pcibus_bussoft *prom_bussoft, struct pci_controller *controller)
+ {
+ 	int nasid, cnode, j;
++	cnodeid_t near_cnode;
+ 	struct hubdev_info *hubdev_info;
+ 	struct pcibus_info *soft;
+ 	struct sn_flush_device_list *sn_flush_device_list;
+@@ -158,12 +160,18 @@
+ 	memset(soft->pbi_int_ate_resource.ate, 0,
+  	       (soft->pbi_int_ate_size * sizeof(uint64_t)));
+ 
+-	if (prom_bussoft->bs_asic_type = PCIIO_ASIC_TYPE_TIOCP)
+-		/*
+-		 * TIO PCI Bridge with no closest node information.
+-		 * FIXME: Find another way to determine the closest node
+-		 */
+-		controller->node = -1;
++	if (prom_bussoft->bs_asic_type = PCIIO_ASIC_TYPE_TIOCP) {
++		/* TIO PCI Bridge: find nearest node with CPUs */
++		int e = sn_hwperf_get_nearest_node(cnode, NULL, &near_cnode);
++
++		if (e < 0) {
++			near_cnode = (cnodeid_t)-1; /* use any node */
++			printk(KERN_WARNING "pcibr_bus_fixup: failed to find "
++				"near node with CPUs to TIO node %d, err=%d\n",
++				cnode, e);
++		}
++		controller->node = near_cnode;
++	}
+ 	else
+ 		controller->node = cnode;
+ 	return soft;
