@@ -1,42 +1,28 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Wed, 03 Aug 2005 05:35:22 +0000
-Subject: Re: [lia64-sim] ski fails to complete boot with debian root fs
-Message-Id: <42F0579A.1030904@hob.de>
+From: Andreas Schwab <schwab@suse.de>
+Date: Tue, 16 Aug 2005 20:41:39 +0000
+Subject: Re: Multiple virtual address mapping for the same code on IA-64 linux kernel.
+Message-Id: <je1x4tbon0.fsf@sykes.suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <17133.28762.225647.407409@berry.gelato.unsw.EDU.AU>
-In-Reply-To: <17133.28762.225647.407409@berry.gelato.unsw.EDU.AU>
+References: <3faf056805081613365f5237de@mail.gmail.com>
+In-Reply-To: <3faf056805081613365f5237de@mail.gmail.com> (vamsi krishna's
+	message of "Wed, 17 Aug 2005 02:06:26 +0530")
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: vamsi krishna <vamsi.krishnak@gmail.com>
+Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Peter Chubb schrieb:
+vamsi krishna <vamsi.krishnak@gmail.com> writes:
 
->Hi,
->	Using the current kernel (2.6.13-rc3), and sim_defconfig, and
->a debian root filesystem created with debootstrap, the kernel boots,
->then when attempting to log in as root, displays /etc/issue then hangs.
->
->At this point, it is constantly calling
->do_page_fault->handle_mm_fault->pte_fault to try to populate address
->0x6007fffffff8000 (Is that the right number of Fs ?) apparently
->succeeding, then retrying the fault on return to user space (the value
->in question is held in the bspst register)
->
->Rebuilding with CONFIG_ITANIUM works around the problem.
->
->
->Is there any way to tell Ski which processor to simulate?  It seems to
->return Itanium 2 in the cpuid register.
->
-What Ski simulates is quite close to an Itanium 2. Can you catch the bug 
-with the tracing facility?
+> example /lib/libc-2.2.4.so size 6094859    got mapped 3 times with
+> permissions 'r-xp' , '---p' and 'rw-p' from the bottom.
 
->I'm using Glibc 2.3.2.ds1-22 (debian unstable), bash 3.0-15, and ski
->version v0.9.81-1 on IA64.
->
-The current version is 0.9.81-l6. But I don't know the current 
-maintainer at HP. Maybe someone from HP want to comment on this.
+Note the file offset.
 
-Christian
+Andreas.
 
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
