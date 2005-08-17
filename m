@@ -1,178 +1,355 @@
-From: Mark Maule <maule@sgi.com>
-Date: Wed, 03 Aug 2005 21:06:22 +0000
-Subject: [PATCH 2.6.13 3/4] altix: add support for TIO huge-window addresses
-Message-Id: <20050803210622.785.75564.78469@attica.americas.sgi.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Wed, 17 Aug 2005 00:26:37 +0000
+Subject: Updated zx1 defconfig
+Message-Id: <17154.33853.725478.789499@berry.gelato.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Altix patch to add TIO "huge-window" address support to sn_dma_flush().
 
-Update copyright in affected files.
+Hi,
+	Just `make oldconfig' doesn't help for the zx1 defconfig ---
+because we need the MPT Fusion drivers, which are picked up as not
+selected.
+Tested on HP ZX2000 and ZX2600.
 
-Signed-off-by: Mark Maule <maule@sgi.com>
+Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
 
-Index: ce-devel/arch/ia64/sn/include/tio.h
-=================================--- ce-devel.orig/arch/ia64/sn/include/tio.h	2005-07-20 17:45:22.704257555 -0500
-+++ ce-devel/arch/ia64/sn/include/tio.h	2005-07-20 17:45:32.540165827 -0500
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (C) 2000-2004 Silicon Graphics, Inc. All rights reserved.
-+ * Copyright (C) 2000-2005 Silicon Graphics, Inc. All rights reserved.
-  */
+
+Index: linux-2.6-ia64/arch/ia64/configs/zx1_defconfig
+=================================--- linux-2.6-ia64.orig/arch/ia64/configs/zx1_defconfig	2005-08-01 15:21:46.135968631 +1000
++++ linux-2.6-ia64/arch/ia64/configs/zx1_defconfig	2005-08-17 10:25:30.820735227 +1000
+@@ -1,7 +1,7 @@
+ #
+ # Automatically generated make config: don't edit
+-# Linux kernel version: 2.6.13-rc1-20050629
+-# Wed Jun 29 15:31:11 2005
++# Linux kernel version: 2.6.13-rc6
++# Wed Aug 17 10:02:43 2005
+ #
  
- #ifndef _ASM_IA64_SN_TIO_H
-@@ -26,6 +26,10 @@
- #define TIO_ITTE_VALID_MASK	0x1
- #define TIO_ITTE_VALID_SHIFT	16
+ #
+@@ -132,6 +132,7 @@
+ CONFIG_ACPI_INTERPRETER=y
+ CONFIG_ACPI_BUTTON=y
+ CONFIG_ACPI_VIDEO=m
++CONFIG_ACPI_HOTKEY=m
+ CONFIG_ACPI_FAN=y
+ CONFIG_ACPI_PROCESSOR=y
+ CONFIG_ACPI_THERMAL=y
+@@ -169,6 +170,83 @@
+ # CONFIG_PCCARD is not set
  
-+#define TIO_ITTE_WIDGET(itte) \
-+	(((itte) >> TIO_ITTE_WIDGET_SHIFT) & TIO_ITTE_WIDGET_MASK)
-+#define TIO_ITTE_VALID(itte) \
-+	(((itte) >> TIO_ITTE_VALID_SHIFT) & TIO_ITTE_VALID_MASK)
- 
- #define TIO_ITTE_PUT(nasid, bigwin, widget, addr, valid) \
-         REMOTE_HUB_S((nasid), TIO_ITTE(bigwin), \
-Index: ce-devel/arch/ia64/sn/include/xtalk/hubdev.h
-=================================--- ce-devel.orig/arch/ia64/sn/include/xtalk/hubdev.h	2005-07-20 17:45:22.706210481 -0500
-+++ ce-devel/arch/ia64/sn/include/xtalk/hubdev.h	2005-07-20 17:45:32.546024602 -0500
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (C) 1992 - 1997, 2000-2004 Silicon Graphics, Inc. All rights reserved.
-+ * Copyright (C) 1992 - 1997, 2000-2005 Silicon Graphics, Inc. All rights reserved.
-  */
- #ifndef _ASM_IA64_SN_XTALK_HUBDEV_H
- #define _ASM_IA64_SN_XTALK_HUBDEV_H
-@@ -16,6 +16,9 @@
- #define IIO_ITTE_WIDGET_MASK    ((1<<IIO_ITTE_WIDGET_BITS)-1)
- #define IIO_ITTE_WIDGET_SHIFT   8
- 
-+#define IIO_ITTE_WIDGET(itte)	\
-+	(((itte) >> IIO_ITTE_WIDGET_SHIFT) & IIO_ITTE_WIDGET_MASK)
+ #
++# Networking
++#
++CONFIG_NET=y
 +
- /*
-  * Use the top big window as a surrogate for the first small window
-  */
-Index: ce-devel/arch/ia64/sn/pci/pcibr/pcibr_dma.c
-=================================--- ce-devel.orig/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2005-07-20 17:45:22.706210481 -0500
-+++ ce-devel/arch/ia64/sn/pci/pcibr/pcibr_dma.c	2005-07-21 11:41:37.380432167 -0500
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (C) 2001-2004 Silicon Graphics, Inc. All rights reserved.
-+ * Copyright (C) 2001-2005 Silicon Graphics, Inc. All rights reserved.
-  */
- 
- #include <linux/types.h>
-@@ -215,8 +215,8 @@
- 	int is_tio;
- 	int wid_num;
- 	int i, j;
--	int bwin;
- 	uint64_t flags;
-+	uint64_t itte;
- 	struct hubdev_info *hubinfo;
- 	volatile struct sn_flush_device_list *p;
- 	struct sn_flush_nasid_entry *flush_nasid_list;
-@@ -233,31 +233,36 @@
- 	if (!hubinfo) {
- 		BUG();
- 	}
--	is_tio = (nasid & 1);
--	if (is_tio) {
--		wid_num = TIO_SWIN_WIDGETNUM(addr);
--		bwin = TIO_BWIN_WINDOWNUM(addr);
--	} else {
--		wid_num = SWIN_WIDGETNUM(addr);
--		bwin = BWIN_WINDOWNUM(addr);
--	}
- 
- 	flush_nasid_list = &hubinfo->hdi_flush_nasid_list;
- 	if (flush_nasid_list->widget_p = NULL)
- 		return;
--	if (bwin > 0) {
--		uint64_t itte = flush_nasid_list->iio_itte[bwin];
- 
--		if (is_tio) {
--			wid_num = (itte >> TIO_ITTE_WIDGET_SHIFT) &
--			    TIO_ITTE_WIDGET_MASK;
--		} else {
--			wid_num = (itte >> IIO_ITTE_WIDGET_SHIFT) &
--			    IIO_ITTE_WIDGET_MASK;
--		}
-+	is_tio = (nasid & 1);
-+	if (is_tio) {
-+		int itte_index;
++#
++# Networking options
++#
++CONFIG_PACKET=y
++# CONFIG_PACKET_MMAP is not set
++CONFIG_UNIX=y
++# CONFIG_NET_KEY is not set
++CONFIG_INET=y
++CONFIG_IP_MULTICAST=y
++# CONFIG_IP_ADVANCED_ROUTER is not set
++CONFIG_IP_FIB_HASH=y
++# CONFIG_IP_PNP is not set
++# CONFIG_NET_IPIP is not set
++# CONFIG_NET_IPGRE is not set
++# CONFIG_IP_MROUTE is not set
++# CONFIG_ARPD is not set
++# CONFIG_SYN_COOKIES is not set
++# CONFIG_INET_AH is not set
++# CONFIG_INET_ESP is not set
++# CONFIG_INET_IPCOMP is not set
++# CONFIG_INET_TUNNEL is not set
++# CONFIG_IP_TCPDIAG is not set
++# CONFIG_IP_TCPDIAG_IPV6 is not set
++# CONFIG_TCP_CONG_ADVANCED is not set
++CONFIG_TCP_CONG_BIC=y
 +
-+		if (TIO_HWIN(addr))
-+			itte_index = 0;
-+		else if (TIO_BWIN_WINDOWNUM(addr))
-+			itte_index = TIO_BWIN_WINDOWNUM(addr);
-+		else
-+			itte_index = -1;
++#
++# IP: Virtual Server Configuration
++#
++# CONFIG_IP_VS is not set
++# CONFIG_IPV6 is not set
++CONFIG_NETFILTER=y
++# CONFIG_NETFILTER_DEBUG is not set
 +
-+		if (itte_index >= 0) {
-+			itte = flush_nasid_list->iio_itte[itte_index];
-+			if (! TIO_ITTE_VALID(itte))
-+				return;
-+			wid_num = TIO_ITTE_WIDGET(itte);
-+		} else
-+			wid_num = TIO_SWIN_WIDGETNUM(addr);
-+	} else {
-+		if (BWIN_WINDOWNUM(addr)) {
-+			itte = flush_nasid_list->iio_itte[BWIN_WINDOWNUM(addr)];
-+			wid_num = IIO_ITTE_WIDGET(itte);
-+		} else
-+			wid_num = SWIN_WIDGETNUM(addr);
- 	}
--	if (flush_nasid_list->widget_p = NULL)
--		return;
- 	if (flush_nasid_list->widget_p[wid_num] = NULL)
- 		return;
- 	p = &flush_nasid_list->widget_p[wid_num][0];
-@@ -283,9 +288,15 @@
- 	/*
- 	 * For TIOCP use the Device(x) Write Request Buffer Flush Bridge
- 	 * register since it ensures the data has entered the coherence
--	 * domain, unlike PIC
-+	 * domain, unlike PIC.
- 	 */
- 	if (is_tio) {
-+		/*
-+	 	 * Note:  devices behind TIOCE should never be matched in the
-+		 * above code, and so the following code is PIC/CP centric.
-+		 * If CE ever needs the sn_dma_flush mechanism, we will have
-+		 * to account for that here and in tioce_bus_fixup().
-+	 	 */
- 		uint32_t tio_id = REMOTE_HUB_L(nasid, TIO_NODE_ID);
- 		uint32_t revnum = XWIDGET_PART_REV_NUM(tio_id);
++#
++# IP: Netfilter Configuration
++#
++# CONFIG_IP_NF_CONNTRACK is not set
++# CONFIG_IP_NF_CONNTRACK_MARK is not set
++# CONFIG_IP_NF_QUEUE is not set
++# CONFIG_IP_NF_IPTABLES is not set
++CONFIG_IP_NF_ARPTABLES=y
++# CONFIG_IP_NF_ARPFILTER is not set
++# CONFIG_IP_NF_ARP_MANGLE is not set
++
++#
++# SCTP Configuration (EXPERIMENTAL)
++#
++# CONFIG_IP_SCTP is not set
++# CONFIG_ATM is not set
++# CONFIG_BRIDGE is not set
++# CONFIG_VLAN_8021Q is not set
++# CONFIG_DECNET is not set
++# CONFIG_LLC2 is not set
++# CONFIG_IPX is not set
++# CONFIG_ATALK is not set
++# CONFIG_X25 is not set
++# CONFIG_LAPB is not set
++# CONFIG_NET_DIVERT is not set
++# CONFIG_ECONET is not set
++# CONFIG_WAN_ROUTER is not set
++# CONFIG_NET_SCHED is not set
++# CONFIG_NET_CLS_ROUTE is not set
++
++#
++# Network testing
++#
++# CONFIG_NET_PKTGEN is not set
++# CONFIG_HAMRADIO is not set
++# CONFIG_IRDA is not set
++# CONFIG_BT is not set
++
++#
+ # Device Drivers
+ #
  
-Index: ce-devel/include/asm-ia64/sn/addrs.h
-=================================--- ce-devel.orig/include/asm-ia64/sn/addrs.h	2005-07-20 17:45:22.722810346 -0500
-+++ ce-devel/include/asm-ia64/sn/addrs.h	2005-07-20 17:45:32.584106646 -0500
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (c) 1992-1999,2001-2004 Silicon Graphics, Inc. All rights reserved.
-+ * Copyright (c) 1992-1999,2001-2005 Silicon Graphics, Inc. All rights reserved.
-  */
+@@ -349,6 +427,7 @@
+ # CONFIG_SCSI_QLA2300 is not set
+ # CONFIG_SCSI_QLA2322 is not set
+ # CONFIG_SCSI_QLA6312 is not set
++# CONFIG_SCSI_QLA24XX is not set
+ # CONFIG_SCSI_LPFC is not set
+ # CONFIG_SCSI_DC395x is not set
+ # CONFIG_SCSI_DC390T is not set
+@@ -362,9 +441,11 @@
+ #
+ # Fusion MPT device support
+ #
+-# CONFIG_FUSION is not set
+-# CONFIG_FUSION_SPI is not set
+-# CONFIG_FUSION_FC is not set
++CONFIG_FUSION=y
++CONFIG_FUSION_SPI=y
++CONFIG_FUSION_FC=y
++CONFIG_FUSION_MAX_SGE8
++CONFIG_FUSION_CTL=m
  
- #ifndef _ASM_IA64_SN_ADDRS_H
-@@ -191,7 +191,8 @@
- #define TIO_BWIN_WINDOW_SELECT_MASK	0x7
- #define TIO_BWIN_WINDOWNUM(x)		(((x) >> TIO_BWIN_SIZE_BITS) & TIO_BWIN_WINDOW_SELECT_MASK)
+ #
+ # IEEE 1394 (FireWire) support
+@@ -377,87 +458,8 @@
+ # CONFIG_I2O is not set
  
+ #
+-# Networking support
+-#
+-CONFIG_NET=y
 -
-+#define TIO_HWIN_SHIFT_BITS		33
-+#define TIO_HWIN(x)			(NODE_OFFSET(x) >> TIO_HWIN_SHIFT_BITS)
+-#
+-# Networking options
+-#
+-CONFIG_PACKET=y
+-# CONFIG_PACKET_MMAP is not set
+-CONFIG_UNIX=y
+-# CONFIG_NET_KEY is not set
+-CONFIG_INET=y
+-CONFIG_IP_MULTICAST=y
+-# CONFIG_IP_ADVANCED_ROUTER is not set
+-CONFIG_IP_FIB_HASH=y
+-# CONFIG_IP_PNP is not set
+-# CONFIG_NET_IPIP is not set
+-# CONFIG_NET_IPGRE is not set
+-# CONFIG_IP_MROUTE is not set
+-# CONFIG_ARPD is not set
+-# CONFIG_SYN_COOKIES is not set
+-# CONFIG_INET_AH is not set
+-# CONFIG_INET_ESP is not set
+-# CONFIG_INET_IPCOMP is not set
+-# CONFIG_INET_TUNNEL is not set
+-# CONFIG_IP_TCPDIAG is not set
+-# CONFIG_IP_TCPDIAG_IPV6 is not set
+-# CONFIG_TCP_CONG_ADVANCED is not set
+-CONFIG_TCP_CONG_BIC=y
+-
+-#
+-# IP: Virtual Server Configuration
+-#
+-# CONFIG_IP_VS is not set
+-# CONFIG_IPV6 is not set
+-CONFIG_NETFILTER=y
+-# CONFIG_NETFILTER_DEBUG is not set
+-
+-#
+-# IP: Netfilter Configuration
++# Network device support
+ #
+-# CONFIG_IP_NF_CONNTRACK is not set
+-# CONFIG_IP_NF_CONNTRACK_MARK is not set
+-# CONFIG_IP_NF_QUEUE is not set
+-# CONFIG_IP_NF_IPTABLES is not set
+-CONFIG_IP_NF_ARPTABLES=y
+-# CONFIG_IP_NF_ARPFILTER is not set
+-# CONFIG_IP_NF_ARP_MANGLE is not set
+-
+-#
+-# SCTP Configuration (EXPERIMENTAL)
+-#
+-# CONFIG_IP_SCTP is not set
+-# CONFIG_ATM is not set
+-# CONFIG_BRIDGE is not set
+-# CONFIG_VLAN_8021Q is not set
+-# CONFIG_DECNET is not set
+-# CONFIG_LLC2 is not set
+-# CONFIG_IPX is not set
+-# CONFIG_ATALK is not set
+-# CONFIG_X25 is not set
+-# CONFIG_LAPB is not set
+-# CONFIG_NET_DIVERT is not set
+-# CONFIG_ECONET is not set
+-# CONFIG_WAN_ROUTER is not set
+-
+-#
+-# QoS and/or fair queueing
+-#
+-# CONFIG_NET_SCHED is not set
+-# CONFIG_NET_CLS_ROUTE is not set
+-
+-#
+-# Network testing
+-#
+-# CONFIG_NET_PKTGEN is not set
+-# CONFIG_NETPOLL is not set
+-# CONFIG_NET_POLL_CONTROLLER is not set
+-# CONFIG_HAMRADIO is not set
+-# CONFIG_IRDA is not set
+-# CONFIG_BT is not set
+ CONFIG_NETDEVICES=y
+ CONFIG_DUMMY=y
+ # CONFIG_BONDING is not set
+@@ -555,6 +557,8 @@
+ # CONFIG_NET_FC is not set
+ # CONFIG_SHAPER is not set
+ # CONFIG_NETCONSOLE is not set
++# CONFIG_NETPOLL is not set
++# CONFIG_NET_POLL_CONTROLLER is not set
  
- /*
-  * The following definitions pertain to the IO special address
+ #
+ # ISDN subsystem
+@@ -659,6 +663,7 @@
+ CONFIG_DRM_RADEON=y
+ # CONFIG_DRM_MGA is not set
+ # CONFIG_DRM_SIS is not set
++# CONFIG_DRM_VIA is not set
+ # CONFIG_RAW_DRIVER is not set
+ # CONFIG_HPET is not set
+ # CONFIG_HANGCHECK_TIMER is not set
+@@ -706,47 +711,10 @@
+ # CONFIG_I2C_VIAPRO is not set
+ # CONFIG_I2C_VOODOO3 is not set
+ # CONFIG_I2C_PCA_ISA is not set
+-
+-#
+-# Hardware Sensors Chip support
+-#
+ # CONFIG_I2C_SENSOR is not set
+-# CONFIG_SENSORS_ADM1021 is not set
+-# CONFIG_SENSORS_ADM1025 is not set
+-# CONFIG_SENSORS_ADM1026 is not set
+-# CONFIG_SENSORS_ADM1031 is not set
+-# CONFIG_SENSORS_ADM9240 is not set
+-# CONFIG_SENSORS_ASB100 is not set
+-# CONFIG_SENSORS_ATXP1 is not set
+-# CONFIG_SENSORS_DS1621 is not set
+-# CONFIG_SENSORS_FSCHER is not set
+-# CONFIG_SENSORS_FSCPOS is not set
+-# CONFIG_SENSORS_GL518SM is not set
+-# CONFIG_SENSORS_GL520SM is not set
+-# CONFIG_SENSORS_IT87 is not set
+-# CONFIG_SENSORS_LM63 is not set
+-# CONFIG_SENSORS_LM75 is not set
+-# CONFIG_SENSORS_LM77 is not set
+-# CONFIG_SENSORS_LM78 is not set
+-# CONFIG_SENSORS_LM80 is not set
+-# CONFIG_SENSORS_LM83 is not set
+-# CONFIG_SENSORS_LM85 is not set
+-# CONFIG_SENSORS_LM87 is not set
+-# CONFIG_SENSORS_LM90 is not set
+-# CONFIG_SENSORS_LM92 is not set
+-# CONFIG_SENSORS_MAX1619 is not set
+-# CONFIG_SENSORS_PC87360 is not set
+-# CONFIG_SENSORS_SMSC47B397 is not set
+-# CONFIG_SENSORS_SIS5595 is not set
+-# CONFIG_SENSORS_SMSC47M1 is not set
+-# CONFIG_SENSORS_VIA686A is not set
+-# CONFIG_SENSORS_W83781D is not set
+-# CONFIG_SENSORS_W83L785TS is not set
+-# CONFIG_SENSORS_W83627HF is not set
+-# CONFIG_SENSORS_W83627EHF is not set
+ 
+ #
+-# Other I2C Chip support
++# Miscellaneous I2C Chip support
+ #
+ # CONFIG_SENSORS_DS1337 is not set
+ # CONFIG_SENSORS_DS1374 is not set
+@@ -767,6 +735,11 @@
+ # CONFIG_W1 is not set
+ 
+ #
++# Hardware Monitoring support
++#
++# CONFIG_HWMON is not set
++
++#
+ # Misc devices
+ #
+ 
+@@ -782,7 +755,6 @@
+ #
+ # Video Adapters
+ #
+-# CONFIG_TUNER_MULTI_I2C is not set
+ # CONFIG_VIDEO_BT848 is not set
+ # CONFIG_VIDEO_CPIA is not set
+ # CONFIG_VIDEO_SAA5246A is not set
+@@ -1025,6 +997,7 @@
+ # CONFIG_USB_EGALAX is not set
+ # CONFIG_USB_XPAD is not set
+ # CONFIG_USB_ATI_REMOTE is not set
++# CONFIG_USB_KEYSPAN_REMOTE is not set
+ 
+ #
+ # USB Imaging devices
+@@ -1080,6 +1053,7 @@
+ # CONFIG_USB_PHIDGETSERVO is not set
+ # CONFIG_USB_IDMOUSE is not set
+ # CONFIG_USB_SISUSBVGA is not set
++# CONFIG_USB_LD is not set
+ 
+ #
+ # USB DSL modem support
+@@ -1121,6 +1095,7 @@
+ CONFIG_FS_MBCACHE=y
+ # CONFIG_REISERFS_FS is not set
+ # CONFIG_JFS_FS is not set
++# CONFIG_FS_POSIX_ACL is not set
+ 
+ #
+ # XFS support
+@@ -1128,6 +1103,7 @@
+ # CONFIG_XFS_FS is not set
+ # CONFIG_MINIX_FS is not set
+ # CONFIG_ROMFS_FS is not set
++# CONFIG_INOTIFY is not set
+ # CONFIG_QUOTA is not set
+ CONFIG_DNOTIFY=y
+ CONFIG_AUTOFS_FS=y
