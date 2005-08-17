@@ -1,153 +1,137 @@
-From: Jack Steiner <steiner@sgi.com>
-Date: Thu, 11 Aug 2005 17:25:24 +0000
-Subject: [PATCH 1/7] - New SN hardware support - addr_macros
-Message-Id: <20050811172524.GA17747@sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Wed, 17 Aug 2005 05:39:51 +0000
+Subject: [Review 4/7] MCA/INIT Remove the physical mode path from minstate.h.
+Message-Id: <7836.1124257191@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Remove the physical mode path from minstate.h.
 
-Update the SN address macros so that they work on both shub1 
-and shub2. Most of the code to support shub2 was added last year
-but this patch fixes a few bugs and adds macros to help generate
-both processor-specific physical addresses & numalink physical
-addresses. More cleanup & optimization will be done later.
+ minstate.h |   88 ++++++++++++-------------------------------------------------
+ 1 files changed, 18 insertions(+), 70 deletions(-)
 
-
-	Signed-off-by: Jack Steiner <steiner@sgi.com>
-
-
-
-
-Index: linux/include/asm-ia64/sn/addrs.h
-=================================--- linux.orig/include/asm-ia64/sn/addrs.h	2005-08-09 16:01:56.796624102 -0500
-+++ linux/include/asm-ia64/sn/addrs.h	2005-08-10 14:30:07.055771427 -0500
-@@ -3,7 +3,7 @@
-  * License.  See the file "COPYING" in the main directory of this archive
-  * for more details.
-  *
-- * Copyright (c) 1992-1999,2001-2004 Silicon Graphics, Inc. All rights reserved.
-+ * Copyright (c) 1992-1999,2001-2005 Silicon Graphics, Inc. All rights reserved.
-  */
- 
- #ifndef _ASM_IA64_SN_ADDRS_H
-@@ -126,6 +126,7 @@
- #define GLOBAL_MMR_PHYS_ADDR(n,a) (GLOBAL_PHYS_MMR_SPACE | REMOTE_ADDR(n,a))
- #define GLOBAL_CAC_ADDR(n,a)	(CAC_BASE | REMOTE_ADDR(n,a))
- #define CHANGE_NASID(n,x)	((void *)(((u64)(x) & ~NASID_MASK) | NASID_SPACE(n)))
-+#define IS_TIO_NASID(n)		((n) & 1)
- 
- 
- /* non-II mmr's start at top of big window space (4G) */
-@@ -155,10 +156,28 @@
-  *           the chiplet id is zero.  If we implement TIO-TIO dma, we might need
-  *           to insert a chiplet id into this macro.  However, it is our belief
-  *           right now that this chiplet id will be ICE, which is also zero.
-- *           Nasid starts on bit 40.
-  */
--#define PHYS_TO_TIODMA(x)	( (((u64)(NASID_GET(x))) << 40) | NODE_OFFSET(x))
--#define PHYS_TO_DMA(x)          ( (((u64)(x) & NASID_MASK) >> 2) | NODE_OFFSET(x))
-+#define SH1_TIO_PHYS_TO_DMA(x) 						\
-+	((((u64)(NASID_GET(x))) << 40) | NODE_OFFSET(x))
-+
-+#define SH2_NETWORK_BANK_OFFSET(x) 					\
-+        ((u64)(x) & ((1UL << (sn_hub_info->nasid_shift - 4)) -1))
-+
-+#define SH2_NETWORK_BANK_SELECT(x) 					\
-+        ((((u64)(x) & (0x3UL << (sn_hub_info->nasid_shift - 4)))	\
-+        	>> (sn_hub_info->nasid_shift - 4)) << 36)
-+
-+#define SH2_NETWORK_ADDRESS(x) 						\
-+	(SH2_NETWORK_BANK_OFFSET(x) | SH2_NETWORK_BANK_SELECT(x))
-+
-+#define SH2_TIO_PHYS_TO_DMA(x) 						\
-+        (((u64)(NASID_GET(x)) << 40) | 	SH2_NETWORK_ADDRESS(x))
-+
-+#define PHYS_TO_TIODMA(x)						\
-+	(is_shub1() ? SH1_TIO_PHYS_TO_DMA(x) : SH2_TIO_PHYS_TO_DMA(x))
-+
-+#define PHYS_TO_DMA(x)							\
-+	((((u64)(x) & NASID_MASK) >> 2) | NODE_OFFSET(x))
- 
+Index: linux/arch/ia64/kernel/minstate.h
+=================================--- linux.orig/arch/ia64/kernel/minstate.h	2005-08-17 14:34:38.404220401 +1000
++++ linux/arch/ia64/kernel/minstate.h	2005-08-17 14:36:24.052711993 +1000
+@@ -5,73 +5,6 @@
+ #include "entry.h"
  
  /*
-@@ -187,6 +206,7 @@
- #define RAW_NODE_SWIN_BASE(n, w)	(NODE_IO_BASE(n) + ((u64) (w) << SWIN_SIZE_BITS))
- #define BWIN_WIDGET_MASK		0x7
- #define BWIN_WINDOWNUM(x)		(((x) >> BWIN_SIZE_BITS) & BWIN_WIDGET_MASK)
-+#define SH1_IS_BIG_WINDOW_ADDR(x)	((x) & BWIN_TOP)
- 
- #define TIO_BWIN_WINDOW_SELECT_MASK	0x7
- #define TIO_BWIN_WINDOWNUM(x)		(((x) >> TIO_BWIN_SIZE_BITS) & TIO_BWIN_WINDOW_SELECT_MASK)
-@@ -216,10 +236,6 @@
- #define TIO_SWIN_WIDGETNUM(x)		(((x)  >> TIO_SWIN_SIZE_BITS) & TIO_SWIN_WIDGET_MASK)
- 
- 
--#define TIO_IOSPACE_ADDR(n,x)					\
--	/* Move in the Chiplet ID for TIO Local Block MMR */	\
--	(REMOTE_ADDR(n,x) | 1UL << (NASID_SHIFT - 2))
+- * For ivt.s we want to access the stack virtually so we don't have to disable translation
+- * on interrupts.
+- *
+- *  On entry:
+- *	r1:	pointer to current task (ar.k6)
+- */
+-#define MINSTATE_START_SAVE_MIN_VIRT								\
+-(pUStk)	mov ar.rsc=0;		/* set enforced lazy mode, pl 0, little-endian, loadrs=0 */	\
+-	;;											\
+-(pUStk)	mov.m r24=ar.rnat;									\
+-(pUStk)	addl r22=IA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
+-(pKStk) mov r1=sp;					/* get sp  */				\
+-	;;											\
+-(pUStk) lfetch.fault.excl.nt1 [r22];								\
+-(pUStk)	addl r1=IA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of memory stack */	\
+-(pUStk)	mov r23=ar.bspstore;				/* save ar.bspstore */			\
+-	;;											\
+-(pUStk)	mov ar.bspstore=r22;				/* switch to kernel RBS */		\
+-(pKStk) addl r1=-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r12) */	\
+-	;;											\
+-(pUStk)	mov r18=ar.bsp;										\
+-(pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */
 -
- /*
-  * The following macros produce the correct base virtual address for
-  * the hub registers. The REMOTE_HUB_* macro produce
-@@ -234,18 +250,40 @@
-  *	Otherwise, the recommended approach is to use *_HUB_L() and *_HUB_S().
-  *	They're always safe.
+-#define MINSTATE_END_SAVE_MIN_VIRT								\
+-	bsw.1;			/* switch back to bank 1 (must be last in insn group) */	\
+-	;;
+-
+-/*
+- * For mca_asm.S we want to access the stack physically since the state is saved before we
+- * go virtual and don't want to destroy the iip or ipsr.
+- */
+-#define MINSTATE_START_SAVE_MIN_PHYS								\
+-(pKStk) mov r3=IA64_KR(PER_CPU_DATA);;								\
+-(pKStk) addl r3=THIS_CPU(ia64_mca_data),r3;;							\
+-(pKStk) ld8 r3 = [r3];;										\
+-(pKStk) addl r3=IA64_MCA_CPU_INIT_STACK_OFFSET,r3;;						\
+-(pKStk) addl r1=IA64_STK_OFFSET-IA64_PT_REGS_SIZE,r3;						\
+-(pUStk)	mov ar.rsc=0;		/* set enforced lazy mode, pl 0, little-endian, loadrs=0 */	\
+-(pUStk)	addl r22=IA64_RBS_OFFSET,r1;		/* compute base of register backing store */	\
+-	;;											\
+-(pUStk)	mov r24=ar.rnat;									\
+-(pUStk)	addl r1=IA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of memory stack */	\
+-(pUStk)	mov r23=ar.bspstore;				/* save ar.bspstore */			\
+-(pUStk)	dep r22=-1,r22,61,3;			/* compute kernel virtual addr of RBS */	\
+-	;;											\
+-(pUStk)	mov ar.bspstore=r22;			/* switch to kernel RBS */			\
+-	;;											\
+-(pUStk)	mov r18=ar.bsp;										\
+-(pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */		\
+-
+-#define MINSTATE_END_SAVE_MIN_PHYS								\
+-	dep r12=-1,r12,61,3;		/* make sp a kernel virtual address */			\
+-	;;
+-
+-#ifdef MINSTATE_VIRT
+-# define MINSTATE_GET_CURRENT(reg)	mov reg=IA64_KR(CURRENT)
+-# define MINSTATE_START_SAVE_MIN	MINSTATE_START_SAVE_MIN_VIRT
+-# define MINSTATE_END_SAVE_MIN		MINSTATE_END_SAVE_MIN_VIRT
+-#endif
+-
+-#ifdef MINSTATE_PHYS
+-# define MINSTATE_GET_CURRENT(reg)	mov reg=IA64_KR(CURRENT);; tpa reg=reg
+-# define MINSTATE_START_SAVE_MIN	MINSTATE_START_SAVE_MIN_PHYS
+-# define MINSTATE_END_SAVE_MIN		MINSTATE_END_SAVE_MIN_PHYS
+-#endif
+-
+-/*
+  * DO_SAVE_MIN switches to the kernel stacks (if necessary) and saves
+  * the minimum state necessary that allows us to turn psr.ic back
+  * on.
+@@ -97,7 +30,7 @@
+  * we can pass interruption state as arguments to a handler.
   */
-+/* Shub1 TIO & MMR addressing macros */
-+#define SH1_TIO_IOSPACE_ADDR(n,x)					\
-+	GLOBAL_MMR_ADDR(n,x)
-+
-+#define SH1_REMOTE_BWIN_MMR(n,x)					\
-+	GLOBAL_MMR_ADDR(n,x)
-+
-+#define SH1_REMOTE_SWIN_MMR(n,x)					\
-+	(NODE_SWIN_BASE(n,1) + 0x800000UL + (x))
-+
-+#define SH1_REMOTE_MMR(n,x)						\
-+	(SH1_IS_BIG_WINDOW_ADDR(x) ? SH1_REMOTE_BWIN_MMR(n,x) :		\
-+	 	SH1_REMOTE_SWIN_MMR(n,x))
-+
-+/* Shub1 TIO & MMR addressing macros */
-+#define SH2_TIO_IOSPACE_ADDR(n,x)					\
-+	((UNCACHED | REMOTE_ADDR(n,x) | 1UL << (NASID_SHIFT - 2)))
-+
-+#define SH2_REMOTE_MMR(n,x)						\
-+	GLOBAL_MMR_ADDR(n,x)
-+
-+
-+/* TIO & MMR addressing macros that work on both shub1 & shub2 */
-+#define TIO_IOSPACE_ADDR(n,x)						\
-+	((u64 *)(is_shub1() ? SH1_TIO_IOSPACE_ADDR(n,x) :		\
-+		 SH2_TIO_IOSPACE_ADDR(n,x)))
-+
-+#define SH_REMOTE_MMR(n,x)						\
-+	(is_shub1() ? SH1_REMOTE_MMR(n,x) : SH2_REMOTE_MMR(n,x))
-+
- #define REMOTE_HUB_ADDR(n,x)						\
--	((n & 1) ?							\
--	/* TIO: */							\
--	(is_shub2() ?							\
--	/* TIO on Shub2 */						\
--	(volatile u64 *)(TIO_IOSPACE_ADDR(n,x))				\
--	: /* TIO on shub1 */						\
--	(volatile u64 *)(GLOBAL_MMR_ADDR(n,x)))				\
--									\
--	: /* SHUB1 and SHUB2 MMRs: */					\
--	(((x) & BWIN_TOP) ? ((volatile u64 *)(GLOBAL_MMR_ADDR(n,x)))	\
--	: ((volatile u64 *)(NODE_SWIN_BASE(n,1) + 0x800000 + (x)))))
-+	(IS_TIO_NASID(n) ?  ((volatile u64*)TIO_IOSPACE_ADDR(n,x)) :	\
-+	 ((volatile u64*)SH_REMOTE_MMR(n,x)))
-+
+ #define DO_SAVE_MIN(COVER,SAVE_IFS,EXTRA)							\
+-	MINSTATE_GET_CURRENT(r16);	/* M (or M;;I) */					\
++	mov r16=IA64_KR(CURRENT);	/* M */							\
+ 	mov r27=ar.rsc;			/* M */							\
+ 	mov r20=r1;			/* A */							\
+ 	mov r25=ar.unat;		/* M */							\
+@@ -118,7 +51,21 @@
+ 	SAVE_IFS;										\
+ 	cmp.eq pKStk,pUStk=r0,r17;		/* are we in kernel mode already? */		\
+ 	;;											\
+-	MINSTATE_START_SAVE_MIN									\
++(pUStk)	mov ar.rsc=0;		/* set enforced lazy mode, pl 0, little-endian, loadrs=0 */	\
++	;;											\
++(pUStk)	mov.m r24=ar.rnat;									\
++(pUStk)	addl r22=IA64_RBS_OFFSET,r1;			/* compute base of RBS */		\
++(pKStk) mov r1=sp;					/* get sp  */				\
++	;;											\
++(pUStk) lfetch.fault.excl.nt1 [r22];								\
++(pUStk)	addl r1=IA64_STK_OFFSET-IA64_PT_REGS_SIZE,r1;	/* compute base of memory stack */	\
++(pUStk)	mov r23=ar.bspstore;				/* save ar.bspstore */			\
++	;;											\
++(pUStk)	mov ar.bspstore=r22;				/* switch to kernel RBS */		\
++(pKStk) addl r1=-IA64_PT_REGS_SIZE,r1;			/* if in kernel mode, use sp (r12) */	\
++	;;											\
++(pUStk)	mov r18=ar.bsp;										\
++(pUStk)	mov ar.rsc=0x3;		/* set eager mode, pl 0, little-endian, loadrs=0 */		\
+ 	adds r17=2*L1_CACHE_BYTES,r1;		/* really: biggest cache-line size */		\
+ 	adds r16=PT(CR_IPSR),r1;								\
+ 	;;											\
+@@ -181,7 +128,8 @@
+ 	EXTRA;											\
+ 	movl r1=__gp;		/* establish kernel global pointer */				\
+ 	;;											\
+-	MINSTATE_END_SAVE_MIN
++	bsw.1;			/* switch back to bank 1 (must be last in insn group) */	\
++	;;
  
- #define HUB_L(x)			(*((volatile typeof(*x) *)x))
- #define	HUB_S(x,d)			(*((volatile typeof(*x) *)x) = (d))
--- 
-Thanks
+ /*
+  * SAVE_REST saves the remainder of pt_regs (with psr.ic on).
 
-Jack Steiner (steiner@sgi.com)          651-683-5302
-Principal Engineer                      SGI - Silicon Graphics, Inc.
 
 
