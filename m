@@ -1,25 +1,24 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Fri, 19 Aug 2005 16:37:04 +0000
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Fri, 19 Aug 2005 18:35:35 +0000
 Subject: Re: debian/testing cannot compile static with gcc3.3.5
-Message-Id: <jeu0hlq3wv.fsf@sykes.suse.de>
+Message-Id: <Pine.LNX.4.62.0508191135090.15808@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050819162011.GB6405@frankl.hpl.hp.com>
 In-Reply-To: <20050819162011.GB6405@frankl.hpl.hp.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Stephane Eranian <eranian@hpl.hp.com> writes:
+On Fri, 19 Aug 2005, Stephane Eranian wrote:
 
+> I recently upgraded my system to the latest testing.
 > Since then, I cannot comile any program with static linking:
+> 
+> $ cc hello.c -o hello -g -static
+> /usr/bin/ld: __libc_errno: TLS definition in /usr/lib/gcc-lib/ia64-linux/3.3.5/../../../libc.a(errno.o) section .tbss mismatches non-TLS reference in /usr/lib/gcc-lib/ia64-linux/3.3.5/../../../libc.a(check_fds.o)
+> /usr/lib/gcc-lib/ia64-linux/3.3.5/../../../libc.a: could not read symbols: Bad value
+> collect2: ld returned 1 exit status
 
-What does this have to do with the kernel?
+gcc-4.0 issue? Try rebuilding glibc.
 
-Andreas.
-
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
