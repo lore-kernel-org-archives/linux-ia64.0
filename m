@@ -1,41 +1,27 @@
-From: Russ Anderson <rja@efs.americas.sgi.com>
-Date: Mon, 15 Aug 2005 21:46:18 +0000
-Subject: [PATCH] fix bte_copy() calling smp_processor_id() while preemptible
-Message-Id: <200508152146.j7FLkIRa2014013@efs.americas.sgi.com>
+From: Matt Chapman <matthewc@cse.unsw.edu.au>
+Date: Fri, 19 Aug 2005 05:02:49 +0000
+Subject: minor ia64_leave_syscall bug
+Message-Id: <20050819050249.GA3069@cse.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-[PATCH] fix bte_copy() calling smp_processor_id() while preemptible
+I noticed something strange about the ia64_leave_syscall path,
+though I guess it only affects performance monitoring in the
+presence of kernel syscalls, and hence is not very serious.
 
-bte_copy() calls calls smp_processor_id(), which will get flagged if
-preemption if enabled.  raw_smp_processor_id() is used instead 
-because we are just using it to pick a BTE interface and are not 
-tied to a specific cpu.
+r22 seems to be cleared before being consumed:
 
-This patch applied on top of Jack Steiner's shub2 patches.
+ia64_leave_syscall:
+735:  (pKStk) mov r22=psr             // M2 read PSR now that interrupts are disabled
+756:          mov r22=r0              // clear r22
+768:  (pKStk) br.cond.dpnt.many skip_rbs_switch
+skip_rbs_switch:
+1045: (pKStk) extr.u r22=r22,21,1     // I0 extract current value of psr.pp from r22
 
-Signed-off-by: Russ Anderson (rja@sgi.com)
+Perhaps the mov r22=r0 should be predicated with (pUStk)?
 
---------------------------------------------------------------
+Matt
 
- arch/ia64/sn/kernel/bte.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-Index: test-2.6/arch/ia64/sn/kernel/bte.c
-=================================--- test-2.6.orig/arch/ia64/sn/kernel/bte.c	2005-08-15 14:46:12.429921262 -0500
-+++ test-2.6/arch/ia64/sn/kernel/bte.c	2005-08-15 16:04:05.655539040 -0500
-@@ -105,7 +105,7 @@ bte_result_t bte_copy(u64 src, u64 dest,
- 	/*
- 	 * Start with interface corresponding to cpu number
- 	 */
--	bte_first = get_cpu() % btes_per_node;
-+	bte_first = raw_smp_processor_id() % btes_per_node;
- 
- 	if (mode & BTE_USE_DEST) {
- 		/* try remote then local */
--- 
-Russ Anderson, OS RAS/Partitioning Project Lead  
-SGI - Silicon Graphics Inc          rja@sgi.com
