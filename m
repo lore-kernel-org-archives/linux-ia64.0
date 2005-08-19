@@ -1,7 +1,7 @@
-From: Matt Chapman <matthewc@cse.unsw.edu.au>
-Date: Fri, 19 Aug 2005 09:48:57 +0000
+From: david mosberger <dmosberger@gmail.com>
+Date: Fri, 19 Aug 2005 18:30:44 +0000
 Subject: Re: Understanding XIP, XPSR, XFS registers
-Message-Id: <20050819094857.GA3497@cse.unsw.EDU.AU>
+Message-Id: <ed5aea430508191130d6e7c78@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <8491.1124435294@kao2.melbourne.sgi.com>
 In-Reply-To: <8491.1124435294@kao2.melbourne.sgi.com>
@@ -10,15 +10,13 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-My understanding is that X{IP,PSR,FS} contain the old values of
-I{IP,PSR,FS}, and I{IP,PSR,FS} contain the real IP,PSR,CFM.
-I've always found this counterintuitive too, though it might
-simplify the silicon.
+The manual is correct.  You can see that in the (old) MCA backtrace
+code where we pick up the state from the X registers if PSR.ic=0.  I
+verified at some point that this works as well as it can.
 
-Matt
+  --david
 
-
-On Fri, Aug 19, 2005 at 05:08:14PM +1000, Keith Owens wrote:
+On 8/19/05, Keith Owens <kaos@sgi.com> wrote:
 > Resuming after MCA/INIT when psr.ic = 1 is relatively easy and it
 > appears to work with the new MCA/INIT handlers.  Resuming after
 > MCA/INIT when psr.ic = 0 (i.e. the event occurred in an interrupt
@@ -41,3 +39,10 @@ On Fri, Aug 19, 2005 at 05:08:14PM +1000, Keith Owens wrote:
 > To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
 > the body of a message to majordomo@vger.kernel.org
 > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
+
+
+-- 
+Mosberger Consulting LLC, voice/fax: 510-744-9372,
+http://www.mosberger-consulting.com/
+35706 Runckel Lane, Fremont, CA 94536
