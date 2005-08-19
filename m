@@ -1,27 +1,47 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Wed, 17 Aug 2005 01:30:09 +0000
-Subject: Re: [PATCH] Fix gcc 4 warnings on ia64
-Message-Id: <ed5aea43050816183044205495@mail.gmail.com>
+From: Greg Edwards <edwardsg@sgi.com>
+Date: Fri, 19 Aug 2005 21:52:18 +0000
+Subject: clean up sn2 region definitions
+Message-Id: <20050819215218.GA21689@sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050816155747.GN20749@wotan.suse.de>
-In-Reply-To: <20050816155747.GN20749@wotan.suse.de>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On 8/16/05, Andi Kleen <ak@suse.de> wrote:
+Clean up some region definitions we had in sn2 code.  Requires Peter's
+patch:
 
-> And for an inline __attribute__((const)) is a nop because the compiler
-> always looks at the code inside the inline and decides based
-> on that if the return value is constant or not.
+Rationalise Region Definitions
+http://marc.theaimsgroup.com/?l=linux-ia64&m2424745806814&w=2
 
-Not if the function contains an "asm", which is what used to be there.
- It later got changed to reading a global, so I agree that the
-__attribute_const__ is no longer necessary.
+Signed-off-by: Greg Edwards <edwardsg@sgi.com>
 
-  --david
--- 
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
+
+ include/asm-ia64/sn/addrs.h |    8 ++++----
+ 1 files changed, 4 insertions(+), 4 deletions(-)
+
+Index: git-linus/include/asm-ia64/sn/addrs.h
+=================================--- git-linus.orig/include/asm-ia64/sn/addrs.h	2005-08-19 16:06:57.517692735 -0500
++++ git-linus/include/asm-ia64/sn/addrs.h	2005-08-19 16:12:34.967177871 -0500
+@@ -65,7 +65,7 @@
+ 
+ #define NASID_MASK              ((u64)NASID_BITMASK << NASID_SHIFT)
+ #define AS_MASK			((u64)AS_BITMASK << AS_SHIFT)
+-#define REGION_BITS		0xe000000000000000UL
++#define REGION_BITS		RGN_BASE(KHIGH)
+ 
+ 
+ /*
+@@ -82,9 +82,9 @@
+ /*
+  * Base addresses for various address ranges.
+  */
+-#define CACHED			0xe000000000000000UL
+-#define UNCACHED                0xc000000000000000UL
+-#define UNCACHED_PHYS           0x8000000000000000UL
++#define CACHED			RGN_BASE(RGN_KERNEL)
++#define UNCACHED                RGN_BASE(RGN_UNCACHED)
++#define UNCACHED_PHYS           RGN_BASE(RGN_HPAGE)
+ 
+ 
+ /* 
