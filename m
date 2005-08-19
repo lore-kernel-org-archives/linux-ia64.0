@@ -1,38 +1,43 @@
-From: Andreas Schwab <schwab@suse.de>
-Date: Wed, 31 Aug 2005 16:33:11 +0000
-Subject: Re: 2.6.13 does not boot on Eiger
-Message-Id: <jefysq9id4.fsf@sykes.suse.de>
+From: Stephane Eranian <eranian@hpl.hp.com>
+Date: Fri, 19 Aug 2005 16:20:11 +0000
+Subject: debian/testing cannot compile static with gcc3.3.5
+Message-Id: <20050819162011.GB6405@frankl.hpl.hp.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <jefysr9gc7.fsf@sykes.suse.de>
-In-Reply-To: <jefysr9gc7.fsf@sykes.suse.de>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Bjorn Helgaas <bjorn.helgaas@hp.com> writes:
+Hello,
 
-> If you can boot a working kernel, salinfod will also
-> extract the logs and drop them in /var/log/salinfo.
-> There's a decoded/ directory, which is basically the
-> same output as "errdump",
+I recently upgraded my system to the latest testing.
+Since then, I cannot comile any program with static linking:
 
-They all say: "UNCORRECTED PROCESSOR ERROR: Cache Check".  I don't know
-what is needed from the files to make this useful.
+$ cc hello.c -o hello -g -static
+/usr/bin/ld: __libc_errno: TLS definition in /usr/lib/gcc-lib/ia64-linux/3.3.5/../../../libc.a(errno.o) section .tbss mismatches non-TLS reference in /usr/lib/gcc-lib/ia64-linux/3.3.5/../../../libc.a(check_fds.o)
+/usr/lib/gcc-lib/ia64-linux/3.3.5/../../../libc.a: could not read symbols: Bad value
+collect2: ld returned 1 exit status
 
->> > P.S.  What is your firmware "acpiconfig" mode? My eiger is
->> > in "default" mode,
->>=20
->> Likewise.
->
-> Type "acpiconfig" at the EFI shell prompt.
+I have the following packages installed. So it seems that somehow libc6.1-dev 
+has a problem compared to the shared libc.
 
-"Likewise" was actually referring to "default".
+ii  binutils       2.16.1-2       The GNU assembler, linker and binary utiliti
+ii  binutils-dev   2.16.1-2       The GNU binary utilities (BFD development fi
+ii  binutils-doc   2.15-5         Documentation for the GNU assembler, linker
+ii  libc6.1        2.3.2.ds1-22   GNU C Library: Shared libraries and Timezone
+ii  libc6.1-dbg    2.3.2.ds1-22   GNU C Library: Libraries with debugging symb
+ii  libc6.1-dev    2.3.2.ds1-22   GNU C Library: Development Libraries and Hea
+ii  libc6.1-pic    2.3.2.ds1-22   GNU C Library: PIC archive library
+ii  libc6.1-prof   2.3.2.ds1-22   GNU C Library: Profiling Libraries
+ii  gcc            3.3.5-1        The GNU C compiler
+ii  gcc-3.3        3.3.5-8        The GNU C compiler
+ii  gcc-3.3-base   3.3.5-8        The GNU Compiler Collection (base package)
+ii  gcc-3.4        3.4.3-6        The GNU C compiler
+ii  gcc-3.4-base   3.4.3-6        The GNU Compiler Collection (base package)
+ii  gcc-4.0        4.0.1-2        The GNU C compiler
+ii  gcc-4.0-base   4.0.1-2        The GNU Compiler Collection (base package)
+ii  libgcc1        4.0.1-2        GCC support library
 
-Andreas.
+-- 
 
---=20
-Andreas Schwab, SuSE Labs, schwab@suse.de
-SuSE Linux Products GmbH, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
-Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
-"And now for something completely different."
+-Stephane
