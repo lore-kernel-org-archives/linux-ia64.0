@@ -1,7 +1,7 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Fri, 19 Aug 2005 23:55:26 +0000
-Subject: Re: Simulator bootloader fails with gcc 4
-Message-Id: <17158.29038.870370.10020@wombat.chubb.wattle.id.au>
+From: Gerald Pfeifer <gp@suse.de>
+Date: Mon, 22 Aug 2005 13:00:31 +0000
+Subject: RE: Simulator bootloader fails with gcc 4
+Message-Id: <Pine.LNX.4.61.0508220849580.1311@rana.dbai.tuwien.ac.at>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050720053139.GC13188@cse.unsw.EDU.AU>
 In-Reply-To: <20050720053139.GC13188@cse.unsw.EDU.AU>
@@ -10,30 +10,30 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Stephane" = Stephane Eranian <eranian@hpl.hp.com> writes:
+Tony,
 
-Stephane> Peter,
-Stephane> Ok, this change seems to work for both gcc-4.0 and
-Stephane> gcc-3.3.5. So what this is saying is that we got lucky with
-Stephane> the older compilers that the variables were somehow laid out
-Stephane> slightly differently on the stack.
+On Thu, 18 Aug 2005, Luck, Tony wrote:
+> Ah ... but gcc has an unpleasant habit of inlining memcpy() calls.  This
+> is really annoying when you have taken the trouble to replace code
+> does a structure copy with an explicit call to memcpy() becuase
+> you know that one of the source or destination is unaligned, only
+> to have gcc generate some inline ld8/st8 instructions.
 
->> I can't run ski at present to check it (it segfaults immediately)
->> 
-Stephane> Well, that will be the next thing I need to check. It dies
-Stephane> on both IA64 and I386?
+have you considered using one of the following options in some of these
+cases?
 
-Well, yes and no.
+  `-fno-builtin-FUNCTION'
+      Don't recognize built-in functions that do not begin with
+      `__builtin_' as prefix.
 
-on IA64 it segfaults.  On IA32, I get `can't open console window',
-because Ski appears to be passing a FD that's closed to xterm.
-(It invokes xterm with -S/63 but fd 63 isn't open --- only fds 0, 1, 2
-and 4, so xterm dies with:
+  `-mmemcpy'
+  `-mno-memcpy'
+      The `-mmemcpy' switch makes all block moves call the appropriate
+      string function (`memcpy' or `bcopy') instead of possibly
+      generating inline code.
 
-Linux/ia64 Console: Error 12, errno 9: Bad file descriptor
-Reason: main: ioctl() failed on F_GETFL
+(I'm currently offline and only have GCC 3.3 docs available, but I'm
+pretty sure GCC 3.4 and 4.x support these as well.)
 
+Gerald
 
--- 
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
