@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Mon, 22 Aug 2005 20:26:17 +0000
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Mon, 22 Aug 2005 20:31:45 +0000
 Subject: Re: [PATCH] Remove rwsem limitation of 32k waiters
-Message-Id: <Pine.LNX.4.62.0508221320350.8094@schroedinger.engr.sgi.com>
+Message-Id: <20050822203145.GC3150@parcelfarce.linux.theplanet.co.uk>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.62.0508221215370.7633@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.62.0508221215370.7633@schroedinger.engr.sgi.com>
@@ -10,21 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Mon, 22 Aug 2005, Matthew Wilcox wrote:
+On Mon, Aug 22, 2005 at 01:26:17PM -0700, Christoph Lameter wrote:
+> The adjustment is RWSEM_WAITING_BIAS - RWSEM_ACTIVE bias. This eliminates
+> the RWSEM_ACTIVE_BIAS but adds RWSEM_WAITING_BIAS for each waiter.
 
-> > Changing the bias value reduces the maximum number of waiting 
-> > processes as you noted. Note "processes" not processors. One processor can 
-> > have multiple processes waiting on semaphores. These are not spinlocks.
-> 
-> No, but you didn't look at the implementation in lib/rwsem.c.
-> 
-> static inline struct rw_semaphore *
-> rwsem_down_failed_common(struct rw_semaphore *sem,
->                         struct rwsem_waiter *waiter, signed long adjustment)
-> ...
->         /* we're now waiting on the lock, but no longer actively read-locking */
->         count = rwsem_atomic_update(adjustment, sem);
+You're looking at rwsem_down_read_failed() instead of rwsem_down_write_failed()
 
-The adjustment is RWSEM_WAITING_BIAS - RWSEM_ACTIVE bias. This eliminates
-the RWSEM_ACTIVE_BIAS but adds RWSEM_WAITING_BIAS for each waiter.
-
+-- 
+"Next the statesmen will invent cheap lies, putting the blame upon 
+the nation that is attacked, and every man will be glad of those
+conscience-soothing falsities, and will diligently study them, and refuse
+to examine any refutations of them; and thus he will by and by convince 
+himself that the war is just, and will thank God for the better sleep 
+he enjoys after this process of grotesque self-deception." -- Mark Twain
