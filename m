@@ -1,667 +1,138 @@
-From: Greg Edwards <edwardsg@sgi.com>
-Date: Tue, 16 Aug 2005 20:05:58 +0000
-Subject: Re: refresh ia64 build configs?
-Message-Id: <20050816200558.GE9858@sgi.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Mon, 22 Aug 2005 19:20:13 +0000
+Subject: [PATCH] Remove rwsem limitation of 32k waiters
+Message-Id: <Pine.LNX.4.62.0508221215370.7633@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <F7DC2337C7631D4386A2DF6E8FB22B300456A0CD@hdsmsx401.amr.corp.intel.com>
-In-Reply-To: <F7DC2337C7631D4386A2DF6E8FB22B300456A0CD@hdsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Refresh arch/ia64/configs/sn2_defconfig.
+We ran into the limit with the maximum number of waiters at one of our sites.
 
-Signed-off-by: Greg Edwards <edwardsg@sgi.com>
+This patch increases the number of possible waiters from 2^15 to 2^31 by using
+a long for the counter in struct rw_semaphore.
 
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
- arch/ia64/configs/sn2_defconfig |  262 +++++++++++++++++++++++++---------------
- 1 files changed, 164 insertions(+), 98 deletions(-)
-
-Index: git-linus/arch/ia64/configs/sn2_defconfig
-=================================--- git-linus.orig/arch/ia64/configs/sn2_defconfig	2005-07-15 12:19:07.204311102 -0500
-+++ git-linus/arch/ia64/configs/sn2_defconfig	2005-08-16 14:52:48.864319499 -0500
-@@ -1,7 +1,7 @@
- #
- # Automatically generated make config: don't edit
--# Linux kernel version: 2.6.10
--# Mon Jan 10 13:57:35 2005
-+# Linux kernel version: 2.6.13-rc6
-+# Tue Aug 16 14:40:41 2005
- #
+Index: linux-2.6.13-rc6/include/asm-ia64/rwsem.h
+=================================--- linux-2.6.13-rc6.orig/include/asm-ia64/rwsem.h	2005-08-07 11:18:56.000000000 -0700
++++ linux-2.6.13-rc6/include/asm-ia64/rwsem.h	2005-08-22 12:17:13.000000000 -0700
+@@ -3,6 +3,7 @@
+  *
+  * Copyright (C) 2003 Ken Chen <kenneth.w.chen@intel.com>
+  * Copyright (C) 2003 Asit Mallick <asit.k.mallick@intel.com>
++ * Copyright (C) 2005 Christoph Lameter <clameter@sgi.com>
+  *
+  * Based on asm-i386/rwsem.h and other architecture implementation.
+  *
+@@ -11,9 +12,9 @@
+  *
+  * The lock count is initialized to 0 (no active and no waiting lockers).
+  *
+- * When a writer subtracts WRITE_BIAS, it'll get 0xffff0001 for the case
+- * of an uncontended lock. Readers increment by 1 and see a positive value
+- * when uncontended, negative if there are writers (and maybe) readers
++ * When a writer subtracts WRITE_BIAS, it'll get 0xffffffff00000001 for
++ * the case of an uncontended lock. Readers increment by 1 and see a positive
++ * value when uncontended, negative if there are writers (and maybe) readers
+  * waiting (in which case it goes to sleep).
+  */
  
- #
-@@ -10,6 +10,7 @@
- CONFIG_EXPERIMENTAL=y
- CONFIG_CLEAN_COMPILE=y
- CONFIG_LOCK_KERNEL=y
-+CONFIG_INIT_ENV_ARG_LIMIT2
+@@ -29,7 +30,7 @@
+  * the semaphore definition
+  */
+ struct rw_semaphore {
+-	signed int		count;
++	signed long		count;
+ 	spinlock_t		wait_lock;
+ 	struct list_head	wait_list;
+ #if RWSEM_DEBUG
+@@ -37,10 +38,10 @@ struct rw_semaphore {
+ #endif
+ };
  
- #
- # General setup
-@@ -21,24 +22,26 @@ CONFIG_POSIX_MQUEUE=y
- # CONFIG_BSD_PROCESS_ACCT is not set
- CONFIG_SYSCTL=y
- # CONFIG_AUDIT is not set
--CONFIG_LOG_BUF_SHIFT 
- CONFIG_HOTPLUG=y
- CONFIG_KOBJECT_UEVENT=y
- # CONFIG_IKCONFIG is not set
-+CONFIG_CPUSETS=y
- # CONFIG_EMBEDDED is not set
- CONFIG_KALLSYMS=y
- CONFIG_KALLSYMS_ALL=y
- # CONFIG_KALLSYMS_EXTRA_PASS is not set
-+CONFIG_PRINTK=y
-+CONFIG_BUG=y
-+CONFIG_BASE_FULL=y
- CONFIG_FUTEX=y
- CONFIG_EPOLL=y
--CONFIG_CPUSETS=y
--# CONFIG_CC_OPTIMIZE_FOR_SIZE is not set
- CONFIG_SHMEM=y
- CONFIG_CC_ALIGN_FUNCTIONS=0
- CONFIG_CC_ALIGN_LABELS=0
- CONFIG_CC_ALIGN_LOOPS=0
- CONFIG_CC_ALIGN_JUMPS=0
- # CONFIG_TINY_SHMEM is not set
-+CONFIG_BASE_SMALL=0
+-#define RWSEM_UNLOCKED_VALUE		0x00000000
+-#define RWSEM_ACTIVE_BIAS		0x00000001
+-#define RWSEM_ACTIVE_MASK		0x0000ffff
+-#define RWSEM_WAITING_BIAS		(-0x00010000)
++#define RWSEM_UNLOCKED_VALUE		__IA64_UL_CONST(0x0000000000000000)
++#define RWSEM_ACTIVE_BIAS		__IA64_UL_CONST(0x0000000000000001)
++#define RWSEM_ACTIVE_MASK		__IA64_UL_CONST(0x00000000ffffffff)
++#define RWSEM_WAITING_BIAS		-__IA64_UL_CONST(0x0000000100000000)
+ #define RWSEM_ACTIVE_READ_BIAS		RWSEM_ACTIVE_BIAS
+ #define RWSEM_ACTIVE_WRITE_BIAS		(RWSEM_WAITING_BIAS + RWSEM_ACTIVE_BIAS)
  
- #
- # Loadable module support
-@@ -63,9 +66,12 @@ CONFIG_GENERIC_CALIBRATE_DELAY=y
- CONFIG_TIME_INTERPOLATION=y
- CONFIG_EFI=y
- CONFIG_GENERIC_IOMAP=y
-+CONFIG_SCHED_NO_NO_OMIT_FRAME_POINTER=y
-+CONFIG_IA64_UNCACHED_ALLOCATOR=y
- # CONFIG_IA64_GENERIC is not set
- # CONFIG_IA64_DIG is not set
- # CONFIG_IA64_HP_ZX1 is not set
-+# CONFIG_IA64_HP_ZX1_SWIOTLB is not set
- CONFIG_IA64_SGI_SN2=y
- # CONFIG_IA64_HP_SIM is not set
- # CONFIG_ITANIUM is not set
-@@ -74,6 +80,10 @@ CONFIG_MCKINLEY=y
- # CONFIG_IA64_PAGE_SIZE_8KB is not set
- CONFIG_IA64_PAGE_SIZE_16KB=y
- # CONFIG_IA64_PAGE_SIZE_64KB is not set
-+# CONFIG_HZ_100 is not set
-+CONFIG_HZ_250=y
-+# CONFIG_HZ_1000 is not set
-+CONFIG_HZ%0
- CONFIG_IA64_L1_CACHE_SHIFT=7
- CONFIG_NUMA=y
- CONFIG_VIRTUAL_MEM_MAP=y
-@@ -81,11 +91,20 @@ CONFIG_HOLES_IN_ZONE=y
- CONFIG_ARCH_DISCONTIGMEM_ENABLE=y
- # CONFIG_IA64_CYCLONE is not set
- CONFIG_IOSAPIC=y
-+CONFIG_IA64_SGI_SN_XP=m
- CONFIG_FORCE_MAX_ZONEORDER
- CONFIG_SMP=y
- CONFIG_NR_CPUSQ2
- # CONFIG_HOTPLUG_CPU is not set
-+CONFIG_SCHED_SMT=y
- CONFIG_PREEMPT=y
-+CONFIG_SELECT_MEMORY_MODEL=y
-+# CONFIG_FLATMEM_MANUAL is not set
-+CONFIG_DISCONTIGMEM_MANUAL=y
-+# CONFIG_SPARSEMEM_MANUAL is not set
-+CONFIG_DISCONTIGMEM=y
-+CONFIG_FLAT_NODE_MEM_MAP=y
-+CONFIG_NEED_MULTIPLE_NODES=y
- CONFIG_HAVE_DEC_LOCK=y
- CONFIG_IA32_SUPPORT=y
- CONFIG_COMPAT=y
-@@ -105,6 +124,7 @@ CONFIG_BINFMT_ELF=y
- #
- # Power management and ACPI
- #
-+CONFIG_PM=y
- CONFIG_ACPI=y
+@@ -83,7 +84,7 @@ init_rwsem (struct rw_semaphore *sem)
+ static inline void
+ __down_read (struct rw_semaphore *sem)
+ {
+-	int result = ia64_fetchadd4_acq((unsigned int *)&sem->count, 1);
++	long result = ia64_fetchadd8_acq((unsigned long *)&sem->count, 1);
  
- #
-@@ -114,6 +134,7 @@ CONFIG_ACPI_BOOT=y
- CONFIG_ACPI_INTERPRETER=y
- # CONFIG_ACPI_BUTTON is not set
- CONFIG_ACPI_VIDEO=m
-+CONFIG_ACPI_HOTKEY=m
- # CONFIG_ACPI_FAN is not set
- # CONFIG_ACPI_PROCESSOR is not set
- CONFIG_ACPI_NUMA=y
-@@ -133,6 +154,7 @@ CONFIG_PCI_DOMAINS=y
- # CONFIG_PCI_MSI is not set
- CONFIG_PCI_LEGACY_PROC=y
- CONFIG_PCI_NAMES=y
-+# CONFIG_PCI_DEBUG is not set
+ 	if (result < 0)
+ 		rwsem_down_read_failed(sem);
+@@ -95,7 +96,7 @@ __down_read (struct rw_semaphore *sem)
+ static inline void
+ __down_write (struct rw_semaphore *sem)
+ {
+-	int old, new;
++	long old, new;
  
- #
- # PCI Hotplug Support
-@@ -141,7 +163,6 @@ CONFIG_HOTPLUG_PCI=y
- # CONFIG_HOTPLUG_PCI_FAKE is not set
- # CONFIG_HOTPLUG_PCI_ACPI is not set
- # CONFIG_HOTPLUG_PCI_CPCI is not set
--# CONFIG_HOTPLUG_PCI_PCIE is not set
- # CONFIG_HOTPLUG_PCI_SHPC is not set
- CONFIG_HOTPLUG_PCI_SGI=y
+ 	do {
+ 		old = sem->count;
+@@ -112,7 +113,7 @@ __down_write (struct rw_semaphore *sem)
+ static inline void
+ __up_read (struct rw_semaphore *sem)
+ {
+-	int result = ia64_fetchadd4_rel((unsigned int *)&sem->count, -1);
++	long result = ia64_fetchadd8_rel((unsigned long *)&sem->count, -1);
  
-@@ -151,8 +172,70 @@ CONFIG_HOTPLUG_PCI_SGI=y
- # CONFIG_PCCARD is not set
+ 	if (result < 0 && (--result & RWSEM_ACTIVE_MASK) = 0)
+ 		rwsem_wake(sem);
+@@ -124,7 +125,7 @@ __up_read (struct rw_semaphore *sem)
+ static inline void
+ __up_write (struct rw_semaphore *sem)
+ {
+-	int old, new;
++	long old, new;
  
- #
--# PC-card bridges
-+# Networking
-+#
-+CONFIG_NET=y
-+
-+#
-+# Networking options
-+#
-+CONFIG_PACKET=y
-+CONFIG_PACKET_MMAP=y
-+CONFIG_UNIX=y
-+# CONFIG_NET_KEY is not set
-+CONFIG_INET=y
-+CONFIG_IP_MULTICAST=y
-+# CONFIG_IP_ADVANCED_ROUTER is not set
-+CONFIG_IP_FIB_HASH=y
-+# CONFIG_IP_PNP is not set
-+# CONFIG_NET_IPIP is not set
-+# CONFIG_NET_IPGRE is not set
-+# CONFIG_IP_MROUTE is not set
-+# CONFIG_ARPD is not set
-+CONFIG_SYN_COOKIES=y
-+# CONFIG_INET_AH is not set
-+# CONFIG_INET_ESP is not set
-+# CONFIG_INET_IPCOMP is not set
-+# CONFIG_INET_TUNNEL is not set
-+CONFIG_IP_TCPDIAG=y
-+# CONFIG_IP_TCPDIAG_IPV6 is not set
-+# CONFIG_TCP_CONG_ADVANCED is not set
-+CONFIG_TCP_CONG_BIC=y
-+CONFIG_IPV6=m
-+# CONFIG_IPV6_PRIVACY is not set
-+# CONFIG_INET6_AH is not set
-+# CONFIG_INET6_ESP is not set
-+# CONFIG_INET6_IPCOMP is not set
-+# CONFIG_INET6_TUNNEL is not set
-+# CONFIG_IPV6_TUNNEL is not set
-+# CONFIG_NETFILTER is not set
-+
-+#
-+# SCTP Configuration (EXPERIMENTAL)
-+#
-+# CONFIG_IP_SCTP is not set
-+# CONFIG_ATM is not set
-+# CONFIG_BRIDGE is not set
-+# CONFIG_VLAN_8021Q is not set
-+# CONFIG_DECNET is not set
-+# CONFIG_LLC2 is not set
-+# CONFIG_IPX is not set
-+# CONFIG_ATALK is not set
-+# CONFIG_X25 is not set
-+# CONFIG_LAPB is not set
-+# CONFIG_NET_DIVERT is not set
-+# CONFIG_ECONET is not set
-+# CONFIG_WAN_ROUTER is not set
-+# CONFIG_NET_SCHED is not set
-+# CONFIG_NET_CLS_ROUTE is not set
-+
-+#
-+# Network testing
- #
-+# CONFIG_NET_PKTGEN is not set
-+# CONFIG_HAMRADIO is not set
-+# CONFIG_IRDA is not set
-+# CONFIG_BT is not set
+ 	do {
+ 		old = sem->count;
+@@ -141,7 +142,7 @@ __up_write (struct rw_semaphore *sem)
+ static inline int
+ __down_read_trylock (struct rw_semaphore *sem)
+ {
+-	int tmp;
++	long tmp;
+ 	while ((tmp = sem->count) >= 0) {
+ 		if (tmp = cmpxchg_acq(&sem->count, tmp, tmp+1)) {
+ 			return 1;
+@@ -156,7 +157,7 @@ __down_read_trylock (struct rw_semaphore
+ static inline int
+ __down_write_trylock (struct rw_semaphore *sem)
+ {
+-	int tmp = cmpxchg_acq(&sem->count, RWSEM_UNLOCKED_VALUE,
++	long tmp = cmpxchg_acq(&sem->count, RWSEM_UNLOCKED_VALUE,
+ 			      RWSEM_ACTIVE_WRITE_BIAS);
+ 	return tmp = RWSEM_UNLOCKED_VALUE;
+ }
+@@ -167,7 +168,7 @@ __down_write_trylock (struct rw_semaphor
+ static inline void
+ __downgrade_write (struct rw_semaphore *sem)
+ {
+-	int old, new;
++	long old, new;
  
- #
- # Device Drivers
-@@ -163,7 +246,7 @@ CONFIG_HOTPLUG_PCI_SGI=y
- #
- CONFIG_STANDALONE=y
- CONFIG_PREVENT_FIRMWARE_BUILD=y
--CONFIG_FW_LOADER=m
-+CONFIG_FW_LOADER=y
- # CONFIG_DEBUG_DRIVER is not set
+ 	do {
+ 		old = sem->count;
+@@ -182,7 +183,7 @@ __downgrade_write (struct rw_semaphore *
+  * Implement atomic add functionality.  These used to be "inline" functions, but GCC v3.1
+  * doesn't quite optimize this stuff right and ends up with bad calls to fetchandadd.
+  */
+-#define rwsem_atomic_add(delta, sem)	atomic_add(delta, (atomic_t *)(&(sem)->count))
+-#define rwsem_atomic_update(delta, sem)	atomic_add_return(delta, (atomic_t *)(&(sem)->count))
++#define rwsem_atomic_add(delta, sem)	atomic64_add(delta, (atomic64_t *)(&(sem)->count))
++#define rwsem_atomic_update(delta, sem)	atomic64_add_return(delta, (atomic64_t *)(&(sem)->count))
  
- #
-@@ -188,6 +271,7 @@ CONFIG_FW_LOADER=m
- # CONFIG_BLK_CPQ_CISS_DA is not set
- # CONFIG_BLK_DEV_DAC960 is not set
- # CONFIG_BLK_DEV_UMEM is not set
-+# CONFIG_BLK_DEV_COW_COMMON is not set
- CONFIG_BLK_DEV_LOOP=y
- CONFIG_BLK_DEV_CRYPTOLOOP=m
- CONFIG_BLK_DEV_NBD=m
-@@ -252,6 +336,7 @@ CONFIG_IDEDMA_PCI_AUTO=y
- # CONFIG_BLK_DEV_HPT366 is not set
- # CONFIG_BLK_DEV_SC1200 is not set
- # CONFIG_BLK_DEV_PIIX is not set
-+# CONFIG_BLK_DEV_IT821X is not set
- # CONFIG_BLK_DEV_NS87415 is not set
- # CONFIG_BLK_DEV_PDC202XX_OLD is not set
- # CONFIG_BLK_DEV_PDC202XX_NEW is not set
-@@ -282,6 +367,7 @@ CONFIG_CHR_DEV_ST=m
- CONFIG_BLK_DEV_SR=m
- # CONFIG_BLK_DEV_SR_VENDOR is not set
- CONFIG_CHR_DEV_SG=m
-+CONFIG_CHR_DEV_SCH=m
- 
- #
- # Some SCSI devices (e.g. CD jukebox) support multiple LUNs
-@@ -315,24 +401,20 @@ CONFIG_SCSI_SATA=y
- # CONFIG_SCSI_ATA_PIIX is not set
- # CONFIG_SCSI_SATA_NV is not set
- # CONFIG_SCSI_SATA_PROMISE is not set
-+# CONFIG_SCSI_SATA_QSTOR is not set
- # CONFIG_SCSI_SATA_SX4 is not set
- # CONFIG_SCSI_SATA_SIL is not set
- # CONFIG_SCSI_SATA_SIS is not set
- # CONFIG_SCSI_SATA_ULI is not set
- # CONFIG_SCSI_SATA_VIA is not set
- CONFIG_SCSI_SATA_VITESSE=y
--# CONFIG_SCSI_BUSLOGIC is not set
- # CONFIG_SCSI_DMX3191D is not set
--# CONFIG_SCSI_EATA is not set
--# CONFIG_SCSI_EATA_PIO is not set
- # CONFIG_SCSI_FUTURE_DOMAIN is not set
--# CONFIG_SCSI_GDTH is not set
- # CONFIG_SCSI_IPS is not set
- # CONFIG_SCSI_INITIO is not set
- # CONFIG_SCSI_INIA100 is not set
- # CONFIG_SCSI_SYM53C8XX_2 is not set
- # CONFIG_SCSI_IPR is not set
--# CONFIG_SCSI_QLOGIC_ISP is not set
- # CONFIG_SCSI_QLOGIC_FC is not set
- CONFIG_SCSI_QLOGIC_1280=y
- # CONFIG_SCSI_QLOGIC_1280_1040 is not set
-@@ -342,6 +424,8 @@ CONFIG_SCSI_QLA22XX=y
- CONFIG_SCSI_QLA2300=y
- CONFIG_SCSI_QLA2322=y
- # CONFIG_SCSI_QLA6312 is not set
-+# CONFIG_SCSI_QLA24XX is not set
-+# CONFIG_SCSI_LPFC is not set
- # CONFIG_SCSI_DC395x is not set
- # CONFIG_SCSI_DC390T is not set
- # CONFIG_SCSI_DEBUG is not set
-@@ -364,11 +448,15 @@ CONFIG_DM_CRYPT=m
- CONFIG_DM_SNAPSHOT=m
- CONFIG_DM_MIRROR=m
- CONFIG_DM_ZERO=m
-+CONFIG_DM_MULTIPATH=m
-+CONFIG_DM_MULTIPATH_EMC=m
- 
- #
- # Fusion MPT device support
- #
- CONFIG_FUSION=y
-+CONFIG_FUSION_SPI=y
-+CONFIG_FUSION_FC=y
- CONFIG_FUSION_MAX_SGE8
- CONFIG_FUSION_CTL=m
- 
-@@ -383,82 +471,13 @@ CONFIG_FUSION_CTL=m
- # CONFIG_I2O is not set
- 
- #
--# Networking support
--#
--CONFIG_NET=y
--
--#
--# Networking options
--#
--CONFIG_PACKET=y
--CONFIG_PACKET_MMAP=y
--CONFIG_NETLINK_DEV=y
--CONFIG_UNIX=y
--# CONFIG_NET_KEY is not set
--CONFIG_INET=y
--CONFIG_IP_MULTICAST=y
--# CONFIG_IP_ADVANCED_ROUTER is not set
--# CONFIG_IP_PNP is not set
--# CONFIG_NET_IPIP is not set
--# CONFIG_NET_IPGRE is not set
--# CONFIG_IP_MROUTE is not set
--# CONFIG_ARPD is not set
--CONFIG_SYN_COOKIES=y
--# CONFIG_INET_AH is not set
--# CONFIG_INET_ESP is not set
--# CONFIG_INET_IPCOMP is not set
--# CONFIG_INET_TUNNEL is not set
--CONFIG_IP_TCPDIAG=y
--# CONFIG_IP_TCPDIAG_IPV6 is not set
--CONFIG_IPV6=m
--# CONFIG_IPV6_PRIVACY is not set
--# CONFIG_INET6_AH is not set
--# CONFIG_INET6_ESP is not set
--# CONFIG_INET6_IPCOMP is not set
--# CONFIG_INET6_TUNNEL is not set
--# CONFIG_IPV6_TUNNEL is not set
--# CONFIG_NETFILTER is not set
--
--#
--# SCTP Configuration (EXPERIMENTAL)
--#
--# CONFIG_IP_SCTP is not set
--# CONFIG_ATM is not set
--# CONFIG_BRIDGE is not set
--# CONFIG_VLAN_8021Q is not set
--# CONFIG_DECNET is not set
--# CONFIG_LLC2 is not set
--# CONFIG_IPX is not set
--# CONFIG_ATALK is not set
--# CONFIG_X25 is not set
--# CONFIG_LAPB is not set
--# CONFIG_NET_DIVERT is not set
--# CONFIG_ECONET is not set
--# CONFIG_WAN_ROUTER is not set
--
--#
--# QoS and/or fair queueing
--#
--# CONFIG_NET_SCHED is not set
--# CONFIG_NET_CLS_ROUTE is not set
--
--#
--# Network testing
-+# Network device support
- #
--# CONFIG_NET_PKTGEN is not set
--CONFIG_NETPOLL=y
--# CONFIG_NETPOLL_RX is not set
--# CONFIG_NETPOLL_TRAP is not set
--CONFIG_NET_POLL_CONTROLLER=y
--# CONFIG_HAMRADIO is not set
--# CONFIG_IRDA is not set
--# CONFIG_BT is not set
- CONFIG_NETDEVICES=y
- # CONFIG_DUMMY is not set
- # CONFIG_BONDING is not set
- # CONFIG_EQUALIZER is not set
- # CONFIG_TUN is not set
--# CONFIG_ETHERTAP is not set
- 
- #
- # ARCnet devices
-@@ -480,8 +499,10 @@ CONFIG_NETDEVICES=y
- # CONFIG_HAMACHI is not set
- # CONFIG_YELLOWFIN is not set
- # CONFIG_R8169 is not set
-+# CONFIG_SKGE is not set
- # CONFIG_SK98LIN is not set
- CONFIG_TIGON3=y
-+# CONFIG_BNX2 is not set
- 
- #
- # Ethernet (10000 Mbit)
-@@ -512,6 +533,10 @@ CONFIG_S2IO=m
- # CONFIG_NET_FC is not set
- # CONFIG_SHAPER is not set
- CONFIG_NETCONSOLE=y
-+CONFIG_NETPOLL=y
-+# CONFIG_NETPOLL_RX is not set
-+# CONFIG_NETPOLL_TRAP is not set
-+CONFIG_NET_POLL_CONTROLLER=y
- 
- #
- # ISDN subsystem
-@@ -541,14 +566,6 @@ CONFIG_INPUT_MOUSEDEV_SCREEN_Yv8
- # CONFIG_INPUT_EVBUG is not set
- 
- #
--# Input I/O drivers
--#
--# CONFIG_GAMEPORT is not set
--CONFIG_SOUND_GAMEPORT=y
--# CONFIG_SERIO is not set
--# CONFIG_SERIO_I8042 is not set
--
--#
- # Input Device Drivers
- #
- # CONFIG_INPUT_KEYBOARD is not set
-@@ -558,6 +575,12 @@ CONFIG_SOUND_GAMEPORT=y
- # CONFIG_INPUT_MISC is not set
- 
- #
-+# Hardware I/O ports
-+#
-+# CONFIG_SERIO is not set
-+# CONFIG_GAMEPORT is not set
-+
-+#
- # Character devices
- #
- CONFIG_VT=y
-@@ -568,9 +591,10 @@ CONFIG_SERIAL_NONSTANDARD=y
- # CONFIG_CYCLADES is not set
- # CONFIG_MOXA_SMARTIO is not set
- # CONFIG_ISI is not set
--# CONFIG_SYNCLINK is not set
- # CONFIG_SYNCLINKMP is not set
- # CONFIG_N_HDLC is not set
-+# CONFIG_SPECIALIX is not set
-+# CONFIG_SX is not set
- # CONFIG_STALDRV is not set
- CONFIG_SGI_SNSC=y
- CONFIG_SGI_TIOCX=y
-@@ -587,6 +611,7 @@ CONFIG_SGI_MBCS=m
- CONFIG_SERIAL_CORE=y
- CONFIG_SERIAL_CORE_CONSOLE=y
- CONFIG_SERIAL_SGI_L1_CONSOLE=y
-+# CONFIG_SERIAL_JSM is not set
- CONFIG_SERIAL_SGI_IOC4=y
- CONFIG_UNIX98_PTYS=y
- CONFIG_LEGACY_PTYS=y
-@@ -615,12 +640,19 @@ CONFIG_EFI_RTC=y
- CONFIG_RAW_DRIVER=m
- # CONFIG_HPET is not set
- CONFIG_MAX_RAW_DEVS%6
-+# CONFIG_HANGCHECK_TIMER is not set
- CONFIG_MMTIMER=y
- 
- #
-+# TPM devices
-+#
-+# CONFIG_TCG_TPM is not set
-+
-+#
- # I2C support
- #
- # CONFIG_I2C is not set
-+# CONFIG_I2C_SENSOR is not set
- 
- #
- # Dallas's 1-wire bus
-@@ -628,6 +660,11 @@ CONFIG_MMTIMER=y
- # CONFIG_W1 is not set
- 
- #
-+# Hardware Monitoring support
-+#
-+# CONFIG_HWMON is not set
-+
-+#
- # Misc devices
- #
- 
-@@ -660,6 +697,8 @@ CONFIG_DUMMY_CONSOLE=y
- #
- # USB support
- #
-+CONFIG_USB_ARCH_HAS_HCD=y
-+CONFIG_USB_ARCH_HAS_OHCI=y
- CONFIG_USB=m
- # CONFIG_USB_DEBUG is not set
- 
-@@ -669,9 +708,8 @@ CONFIG_USB=m
- # CONFIG_USB_DEVICEFS is not set
- # CONFIG_USB_BANDWIDTH is not set
- # CONFIG_USB_DYNAMIC_MINORS is not set
-+# CONFIG_USB_SUSPEND is not set
- # CONFIG_USB_OTG is not set
--CONFIG_USB_ARCH_HAS_HCD=y
--CONFIG_USB_ARCH_HAS_OHCI=y
- 
- #
- # USB Host Controller Drivers
-@@ -679,7 +717,10 @@ CONFIG_USB_ARCH_HAS_OHCI=y
- CONFIG_USB_EHCI_HCD=m
- # CONFIG_USB_EHCI_SPLIT_ISO is not set
- # CONFIG_USB_EHCI_ROOT_HUB_TT is not set
-+# CONFIG_USB_ISP116X_HCD is not set
- CONFIG_USB_OHCI_HCD=m
-+# CONFIG_USB_OHCI_BIG_ENDIAN is not set
-+CONFIG_USB_OHCI_LITTLE_ENDIAN=y
- CONFIG_USB_UHCI_HCD=m
- # CONFIG_USB_SL811_HCD is not set
- 
-@@ -710,12 +751,15 @@ CONFIG_USB_HIDINPUT=y
- # CONFIG_USB_MOUSE is not set
- # CONFIG_USB_AIPTEK is not set
- # CONFIG_USB_WACOM is not set
-+# CONFIG_USB_ACECAD is not set
- # CONFIG_USB_KBTAB is not set
- # CONFIG_USB_POWERMATE is not set
- # CONFIG_USB_MTOUCH is not set
-+# CONFIG_USB_ITMTOUCH is not set
- # CONFIG_USB_EGALAX is not set
- # CONFIG_USB_XPAD is not set
- # CONFIG_USB_ATI_REMOTE is not set
-+# CONFIG_USB_KEYSPAN_REMOTE is not set
- 
- #
- # USB Imaging devices
-@@ -740,6 +784,7 @@ CONFIG_USB_HIDINPUT=y
- # CONFIG_USB_PEGASUS is not set
- # CONFIG_USB_RTL8150 is not set
- # CONFIG_USB_USBNET is not set
-+CONFIG_USB_MON=y
- 
- #
- # USB port drivers
-@@ -763,9 +808,12 @@ CONFIG_USB_HIDINPUT=y
- # CONFIG_USB_CYTHERM is not set
- # CONFIG_USB_PHIDGETKIT is not set
- # CONFIG_USB_PHIDGETSERVO is not set
-+# CONFIG_USB_IDMOUSE is not set
-+# CONFIG_USB_SISUSBVGA is not set
-+# CONFIG_USB_LD is not set
- 
- #
--# USB ATM/DSL drivers
-+# USB DSL modem support
- #
- 
- #
-@@ -782,6 +830,7 @@ CONFIG_USB_HIDINPUT=y
- # InfiniBand support
- #
- CONFIG_INFINIBAND=m
-+CONFIG_INFINIBAND_USER_VERBS=m
- CONFIG_INFINIBAND_MTHCA=m
- # CONFIG_INFINIBAND_MTHCA_DEBUG is not set
- CONFIG_INFINIBAND_IPOIB=m
-@@ -799,6 +848,7 @@ CONFIG_EXT2_FS=y
- CONFIG_EXT2_FS_XATTR=y
- CONFIG_EXT2_FS_POSIX_ACL=y
- CONFIG_EXT2_FS_SECURITY=y
-+# CONFIG_EXT2_FS_XIP is not set
- CONFIG_EXT3_FS=y
- CONFIG_EXT3_FS_XATTR=y
- CONFIG_EXT3_FS_POSIX_ACL=y
-@@ -814,13 +864,19 @@ CONFIG_REISERFS_FS_POSIX_ACL=y
- CONFIG_REISERFS_FS_SECURITY=y
- # CONFIG_JFS_FS is not set
- CONFIG_FS_POSIX_ACL=y
-+
-+#
-+# XFS support
-+#
- CONFIG_XFS_FS=y
-+CONFIG_XFS_EXPORT=y
- CONFIG_XFS_RT=y
- CONFIG_XFS_QUOTA=y
- # CONFIG_XFS_SECURITY is not set
- CONFIG_XFS_POSIX_ACL=y
- # CONFIG_MINIX_FS is not set
- # CONFIG_ROMFS_FS is not set
-+CONFIG_INOTIFY=y
- CONFIG_QUOTA=y
- # CONFIG_QFMT_V1 is not set
- # CONFIG_QFMT_V2 is not set
-@@ -854,7 +910,6 @@ CONFIG_FAT_DEFAULT_IOCHARSET="iso8859-1"
- CONFIG_PROC_FS=y
- CONFIG_PROC_KCORE=y
- CONFIG_SYSFS=y
--# CONFIG_DEVFS_FS is not set
- # CONFIG_DEVPTS_FS_XATTR is not set
- CONFIG_TMPFS=y
- CONFIG_TMPFS_XATTR=y
-@@ -885,15 +940,18 @@ CONFIG_RAMFS=y
- #
- CONFIG_NFS_FS=m
- CONFIG_NFS_V3=y
-+# CONFIG_NFS_V3_ACL is not set
- CONFIG_NFS_V4=y
- CONFIG_NFS_DIRECTIO=y
- CONFIG_NFSD=m
- CONFIG_NFSD_V3=y
-+# CONFIG_NFSD_V3_ACL is not set
- CONFIG_NFSD_V4=y
- CONFIG_NFSD_TCP=y
- CONFIG_LOCKD=m
- CONFIG_LOCKD_V4=y
--CONFIG_EXPORTFS=m
-+CONFIG_EXPORTFS=y
-+CONFIG_NFS_COMMON=y
- CONFIG_SUNRPC=m
- CONFIG_SUNRPC_GSS=m
- CONFIG_RPCSEC_GSS_KRB5=m
-@@ -980,6 +1038,9 @@ CONFIG_CRC32=y
- # CONFIG_LIBCRC32C is not set
- CONFIG_ZLIB_INFLATE=m
- CONFIG_ZLIB_DEFLATE=m
-+CONFIG_GENERIC_ALLOCATOR=y
-+CONFIG_GENERIC_HARDIRQS=y
-+CONFIG_GENERIC_IRQ_PROBE=y
- 
- #
- # Profiling support
-@@ -989,15 +1050,19 @@ CONFIG_ZLIB_DEFLATE=m
- #
- # Kernel hacking
- #
-+# CONFIG_PRINTK_TIME is not set
- CONFIG_DEBUG_KERNEL=y
- CONFIG_MAGIC_SYSRQ=y
-+CONFIG_LOG_BUF_SHIFT 
- # CONFIG_SCHEDSTATS is not set
- # CONFIG_DEBUG_SLAB is not set
-+CONFIG_DEBUG_PREEMPT=y
- # CONFIG_DEBUG_SPINLOCK is not set
- # CONFIG_DEBUG_SPINLOCK_SLEEP is not set
- # CONFIG_DEBUG_KOBJECT is not set
- CONFIG_DEBUG_INFO=y
- # CONFIG_DEBUG_FS is not set
-+# CONFIG_KPROBES is not set
- CONFIG_IA64_GRANULE_16MB=y
- # CONFIG_IA64_GRANULE_64MB is not set
- # CONFIG_IA64_PRINT_HAZARDS is not set
-@@ -1019,11 +1084,12 @@ CONFIG_CRYPTO=y
- CONFIG_CRYPTO_HMAC=y
- # CONFIG_CRYPTO_NULL is not set
- # CONFIG_CRYPTO_MD4 is not set
--CONFIG_CRYPTO_MD5=m
-+CONFIG_CRYPTO_MD5=y
- CONFIG_CRYPTO_SHA1=m
- # CONFIG_CRYPTO_SHA256 is not set
- # CONFIG_CRYPTO_SHA512 is not set
- # CONFIG_CRYPTO_WP512 is not set
-+# CONFIG_CRYPTO_TGR192 is not set
- CONFIG_CRYPTO_DES=m
- # CONFIG_CRYPTO_BLOWFISH is not set
- # CONFIG_CRYPTO_TWOFISH is not set
+ #endif /* _ASM_IA64_RWSEM_H */
