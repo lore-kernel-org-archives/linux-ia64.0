@@ -1,7 +1,7 @@
 From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 17 Aug 2005 17:57:17 +0000
+Date: Tue, 23 Aug 2005 15:01:54 +0000
 Subject: git pull on ia64 linux tree
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F04294DCF@scsmsx401.amr.corp.intel.com>
+Message-Id: <200508231501.j7NF1s1s022971@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
 In-Reply-To: <200504222203.j3MM3fV17003@unix-os.sc.intel.com>
@@ -12,11 +12,11 @@ To: linux-ia64@vger.kernel.org
 
 Hi Linus,
 
+Last few ia64 fixes for 2.6.13 ... 
+
 please pull from:
 
-	
-rsync://rsync.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git
-release
+	rsync://rsync.kernel.org/pub/scm/linux/kernel/git/aegl/linux-2.6.git release
 
 This will update the files shown below.
 
@@ -24,37 +24,22 @@ Thanks!
 
 -Tony
 
- arch/ia64/Kconfig                 |   11 -
- arch/ia64/configs/sn2_defconfig   |  262
-+++++++++++++++++++++++---------------
- arch/ia64/configs/tiger_defconfig |  149 +++++++++++----------
- arch/ia64/configs/zx1_defconfig   |  224
-++++++++++++++------------------
- arch/ia64/kernel/perfmon.c        |    1 
- arch/ia64/kernel/salinfo.c        |    3 
- arch/ia64/sn/kernel/io_init.c     |    1 
- drivers/serial/sn_console.c       |    1 
- include/asm-ia64/iosapic.h        |    4 
- 9 files changed, 354 insertions(+), 302 deletions(-)
+ arch/ia64/hp/sim/boot/boot_head.S  |    2 +-
+ arch/ia64/hp/sim/boot/bootloader.c |   12 ++++++------
+ arch/ia64/sn/kernel/io_init.c      |   18 ++++++++++--------
+ include/asm-ia64/io.h              |    8 --------
+ 4 files changed, 17 insertions(+), 23 deletions(-)
 
-Christoph Hellwig:
-  [IA64] update CONFIG_PCI description
-
-Greg Edwards:
-  [IA64] Refresh arch/ia64/configs/sn2_defconfig.
-
-Keith Owens:
-  [IA64] Initialize some spinlocks
-
-Kenji Kaneshige:
-  [IA64] fix iosapic_remove build error for !HOTPLUG
+Ian Wienand:
+  [IA64] Simulator bootloader fails with gcc 4
 
 Peter Chubb:
-  [IA64] Updated zx1 defconfig
+  [IA64] Fix simulator boot (for real this time).
 
-stephane.eranian@hp.com:
-  [IA64] fix perfmon context load
+Prarit Bhargava:
+  [IA64]: SN fix bus->sysdata pointer and memory cleanups
 
 Tony Luck:
-  [IA64] Updated tiger defconfig
+  [IA64] remove unused function __ia64_get_io_port_base
+  [IA64] backout incorrect fix for simulator boot issue
 
