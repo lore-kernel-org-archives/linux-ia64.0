@@ -1,62 +1,75 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Tue, 09 Aug 2005 17:00:06 +0000
-Subject: RE: 2.6.13-rc5 does not boot on Tiger4
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F041A1C5F@scsmsx401.amr.corp.intel.com>
+From: Kumar Gala <galak@freescale.com>
+Date: Wed, 24 Aug 2005 16:53:23 +0000
+Subject: [PATCH 05/15] ia64: remove use of asm/segment.h
+Message-Id: <Pine.LNX.4.61.0508241152380.23956@nylon.am.freescale.net>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <jeoe8fyrfb.fsf@sykes.suse.de>
-In-Reply-To: <jeoe8fyrfb.fsf@sykes.suse.de>
+References: <Pine.LNX.4.61.0508241139100.23956@nylon.am.freescale.net>
+In-Reply-To: <Pine.LNX.4.61.0508241139100.23956@nylon.am.freescale.net>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org
 
->Tony> The attribute field tells you which modes are
->Tony> *possible*.
->
->Ok if thats the case we really have to check for equals to and not the
->bit flag. We're trying to pick out spill pages that can be used for
->the uncached allocator and if pages can be supported in multiple ways
->we will have to pull out the full granule and convert it to uncached
->if we wish to use it, which may conflict with the use the rest of the
->granule is currently being used for.
+Removed IA64 architecture specific users of asm/segment.h and
+asm-ia64/segment.h itself
 
-The kernel is only using complete granules of WB memory.  So many of the
-trimmed off pieces that the kernel ignores will be usable as UC even
-if they happen to support other attributes too.
+Signed-off-by: Kumar Gala <kumar.gala@freescale.com>
 
->EFI_CONVENTIONAL_MEMORY and EFI_MEMORY_MAPPED_IO are all part of the
->same type as the EFI_LOAD_DATA enum, at least according to
->include/linux/efi.h. In other words it's going to be one or the other,
->not both EFI_CONVENTIONAL_MEMORY + EFI_BOOT_SERVICES_DATA for the same
->block.
+---
+commit 53cbc8f4b0d47965e2d673bcc9dc5e6a8388350b
+tree d05c25c406d023dce7c797ede8119b8ab68767e5
+parent 352a43ca6e4cb29ca7ee1742a00f3b6d98465a0d
+author Kumar K. Gala <kumar.gala@freescale.com> Wed, 24 Aug 2005 10:54:23 -0500
+committer Kumar K. Gala <kumar.gala@freescale.com> Wed, 24 Aug 2005 10:54:23 -0500
 
-That's correct ... the "type" field isn't a bitmap, you only get to
-choose one of the possible options.  My point here is that many of
-these types refer to ordinary memory that happens to have been assigned
-some purpose.  E.g. EFI allocates some memory for elilo.efi.  This memory
-would have been EFI_CONVENTIONAL_MEMORY, but now it is being used for
-a specific purpose, so it gets a different type.  Linux sees that and
-knows that once it has copied out anything it may need (e.g. the
-command line arguments) it can use that memory.
+ arch/ia64/ia32/ia32_signal.c        |    1 -
+ arch/ia64/pci/pci.c                 |    1 -
+ arch/ia64/sn/kernel/sn2/sn_hwperf.c |    1 -
+ include/asm-ia64/segment.h          |    6 ------
+ 4 files changed, 0 insertions(+), 9 deletions(-)
 
-
-> The patch I sent you did check for the five types,
->EFI_LOADER_CODE, EFI_LOADER_DATA, EFI_BOOT_SERVICES_CODE,
->EFI_BOOT_SERVICES_DATA, and EFI_CONVENTIONAL_MEMORY which should be
->valid for the driver if they are just UC capable and nothing else.
-
-While safe, this is being overly restrictive.
-
->SN2 has a couple of blocks marked just UC, they are the ones I am
->trying to grab.
->
->I think the patch I sent you yesterday does exactly this.
-
-But this is trying to grow up to be a generic UC allocator
-for use on systems other than SN2 ... so it needs to be
-smart enough to find some memory to use on those systems
-as well.
-
--Tony
-
-
+diff --git a/arch/ia64/ia32/ia32_signal.c b/arch/ia64/ia32/ia32_signal.c
+--- a/arch/ia64/ia32/ia32_signal.c
++++ b/arch/ia64/ia32/ia32_signal.c
+@@ -29,7 +29,6 @@
+ #include <asm/uaccess.h>
+ #include <asm/rse.h>
+ #include <asm/sigcontext.h>
+-#include <asm/segment.h>
+ 
+ #include "ia32priv.h"
+ 
+diff --git a/arch/ia64/pci/pci.c b/arch/ia64/pci/pci.c
+--- a/arch/ia64/pci/pci.c
++++ b/arch/ia64/pci/pci.c
+@@ -24,7 +24,6 @@
+ 
+ #include <asm/machvec.h>
+ #include <asm/page.h>
+-#include <asm/segment.h>
+ #include <asm/system.h>
+ #include <asm/io.h>
+ #include <asm/sal.h>
+diff --git a/arch/ia64/sn/kernel/sn2/sn_hwperf.c b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+--- a/arch/ia64/sn/kernel/sn2/sn_hwperf.c
++++ b/arch/ia64/sn/kernel/sn2/sn_hwperf.c
+@@ -36,7 +36,6 @@
+ #include <asm/topology.h>
+ #include <asm/smp.h>
+ #include <asm/semaphore.h>
+-#include <asm/segment.h>
+ #include <asm/uaccess.h>
+ #include <asm/sal.h>
+ #include <asm/sn/io.h>
+diff --git a/include/asm-ia64/segment.h b/include/asm-ia64/segment.h
+deleted file mode 100644
+--- a/include/asm-ia64/segment.h
++++ /dev/null
+@@ -1,6 +0,0 @@
+-#ifndef _ASM_IA64_SEGMENT_H
+-#define _ASM_IA64_SEGMENT_H
+-
+-/* Only here because we have some old header files that expect it.. */
+-
+-#endif /* _ASM_IA64_SEGMENT_H */
