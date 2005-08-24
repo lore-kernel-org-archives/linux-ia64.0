@@ -1,68 +1,24 @@
-From: Dinakar Guniguntala <dino@in.ibm.com>
-Date: Tue, 23 Aug 2005 15:19:57 +0000
+From: "John Hawkes" <hawkes@sgi.com>
+Date: Wed, 24 Aug 2005 00:19:07 +0000
 Subject: Re: [PATCH 2.6.13-rc6] cpu_exclusive sched domains on partial nodes temp fix
-Message-Id: <20050823150757.GA8580@in.ibm.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
+Message-Id: <01de01c5a841$71ed60d0$6900a8c0@comcast.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <20050823080427.14740.20177.sendpatchset@jackhammer.engr.sgi.com>
-In-Reply-To: <20050823080427.14740.20177.sendpatchset@jackhammer.engr.sgi.com>
-To: Paul Jackson <pj@sgi.com>
-Cc: Andrew Morton <akpm@osdl.org>, nickpiggin@yahoo.com.au, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, torvalds@osdl.org, mingo@elte.hu, hawkes@sgi.com
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: Paul Jackson <pj@sgi.com>, Andrew Morton <akpm@osdl.org>
+Cc: nickpiggin@yahoo.com.au, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, torvalds@osdl.org, mingo@elte.hu, Paul Jackson <pj@sgi.com>, dino@in.ibm.com
+
+> + for_each_cpu_mask(i, cur->cpus_allowed) {
+> + for_each_cpu_mask(j, node_to_cpumask(cpu_to_node(i))) {
+> + if (!cpu_isset(j, cur->cpus_allowed))
+> + return;
+
+Looks good to me.
+Feel free to add:
+Acked-by: John Hawkes <hawkes@sgi.com>
 
 
---gKMricLos+KVdGMg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+John Hawkes
 
-On Tue, Aug 23, 2005 at 01:04:27AM -0700, Paul Jackson wrote:
-> If Dinakar, Hawkes and Nick concur (and no one else complains too
-> loud) then the following should go into 2.6.13, to avoid the potential
-> kernel oops that Hawkes reported in Dinakar's feature to allow user
-> control of dynamic sched domain placement using cpu_exclusive cpusets.
-
-I agree this is the way to go for 2.6.13 before we fix things the
-right way for 2.6.14. Thanks for the patch Paul.
-
-> This patch should allow proceeding with this new feature in 2.6.13 for
-> the configurations in which it is useful (node alligned sched domains)
-> while avoiding trying to setup sched domains in the less useful cases
-> that can cause the kernel corruption and oops.
-> 
-
-Dunno if it is something in my setup (4 CPU Power5 box with NUMA enabled)
-but this patch causes some hard hangs when I run the attached script.
-The same script runs for much longer with Ingo's changes but panics
-as I had described earlier. I am still debugging what causes this.
-
-	-Dinakar
-
-
-
---gKMricLos+KVdGMg
-Content-Type: application/x-gzip
-Content-Disposition: attachment; filename="sd-stress.tar.gz"
-Content-Transfer-Encoding: base64
-
-H4sIAGQ5C0MAA+1YW2/bNhT2q/UrWNsP3YMjkr5tGVxg6II2gJMGidc+FMWgWXQsTBdDlJPu
-3+9QsinqGipRgz7ovMgiP57znaskc3sc+OyM73o/TjDBeDGb9TDGZDEj4orJdBpfhcznix7B
-E0wn88l0AThCpgvcQ/gHcpJy4JEVItSzHT+ox7GQvwah15XhG/Mfxzf5zjDY930QRujqen3z
-6fJ6vTQ3e3A64qeN9cXVzZ+Xt2Q5OkHMiHn7s9FoTHIYuhyd0BJDpYX3N3/dXS3xeKIuwD1R
-7z+SJc7c0yWRGr58vlNYPD5wMCAprGEPAGaUUr+4/gC0Ycdk/j1RVqlcpafV1So57roZwsJk
-jrKwhMdUXYoN4dyKYK6sgIGJYdy9v728WUOEluYu8Jgp6k9E3A48k29CZw/sjZFEmdwe8yhk
-nJ+JXLWWf1Vta0pzUt//hGBKc/1PKZl1/f8aovS/Fxz8CI0jlPQ98uHBgGSXIfoOmTZ7MP0D
-dMbGTncMY4igjMg5uoNT7PvGPXDngaHAR49OtAM9sUaDbXYBGmggB4b3r+2EaLxHcozEFuVN
-zDnWh9E75DGPK0sElkDN31J/bNkImWUfqdICge1WMoAW5ehrurcP2YMTHLj7H/D8lnrxAiWD
-nAP1bCfn6A/bTlRGAbIUk0mmUk5PQge1cUr3RmJQJfu8QGhalb90xXIFXjibkmt0rJ5ontEs
-8ZtbHkOidINtEgOLg3KHR45/DzpZJiWZZD5TwUA3ZPPKYlH1pXz08M3qaKGhUyZgu03JNDzY
-jNWv5+iWeQGoiAO+DQOvtsT18I3q/COpSttvuX7ya4g9jdWuFoLPUeiJEVhtrhozyE7nBJTO
-zoKxsnEcD4/jcyDONId3lNg3hUGzg02meiY6Lxz2pDioj3Nnb4XMz9W14l6jc/VFX/Ccqp7T
-QkHStnyf6PugTJ9GxwZVSSzSq/BZw49ptrnUAlPKf+e4NvBTHGl0rtKTOClXld06KxlJ9ZbQ
-W8d12b3l/qJwfYmaeurVA47Mn2G0wPz5Sup5l7LeuMzyD/uj+eNdTk925lHtgZjovPAjFopy
-EZ8GEUq+j1DEOIzWGPcIXjD0FUXhgaFvvxt2YPQzJvpHG/DRmH1vNvrpKIDN5Fj8o6TT+7lw
-CG3HiPTruqd2U2UAH7AJg/iHBgPAtctgtUoIiKuG/dWqXfPicz0hkPzSoCCArZOgkgTVJUHb
-ICFzf6zXJArpDTWUCj31jYKHtFVXPmwNkfj3J24dXkCWvA70M138RCTKHKp7CGtHKjN79C1W
-Hqun8lKi6XCvIVOaIxnoZrnIqG45R0UiNEOEFt0vawRJZajTACU+loS9ikUTtdkXCWCXAQ7r
-UquVjTws/xx8og5s+MRt76/FTjrppJNOOumkk0466aSTTjrp5CeR/wHARxE1ACgAAA==
-
---gKMricLos+KVdGMg--
