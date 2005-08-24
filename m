@@ -1,68 +1,42 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Wed, 17 Aug 2005 05:40:18 +0000
-Subject: [Review 6/7] MCA/INIT Remove obsolete unwind code
-Message-Id: <7879.1124257218@kao2.melbourne.sgi.com>
+From: Adrian Bunk <bunk@stusta.de>
+Date: Wed, 24 Aug 2005 10:57:38 +0000
+Subject: [2.6 patch] arch/ia64/hp/sim/boot/fw-emu.c: remove egcs workaround
+Message-Id: <20050824105738.GK5603@stusta.de>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: David Mosberger-Tang <davidm@hpl.hp.com>
+Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
 
-Delete the special case unwind code that was only used by the old
-MCA/INIT handler.
+Kernel 2.6 doesn't support egcs, and I didn't find any user of this 
+function.
 
- arch/ia64/kernel/unwind.c |   22 ----------------------
- include/asm-ia64/unwind.h |    7 -------
- 2 files changed, 29 deletions(-)
 
-Index: linux/arch/ia64/kernel/unwind.c
-=================================--- linux.orig/arch/ia64/kernel/unwind.c	2005-08-12 17:19:20.903916664 +1000
-+++ linux/arch/ia64/kernel/unwind.c	2005-08-12 17:22:26.545613275 +1000
-@@ -2020,28 +2020,6 @@ init_frame_info (struct unw_frame_info *
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+Note: I haven't tested the compilation of this patch.
+
+--- linux-2.6.13-rc6-mm2-full/arch/ia64/hp/sim/boot/fw-emu.c.old	2005-08-24 12:38:22.000000000 +0200
++++ linux-2.6.13-rc6-mm2-full/arch/ia64/hp/sim/boot/fw-emu.c	2005-08-24 12:38:58.000000000 +0200
+@@ -237,17 +237,6 @@
+ 	return ((struct sal_ret_values) {status, r9, r10, r11});
  }
  
- void
--unw_init_from_interruption (struct unw_frame_info *info, struct task_struct *t,
--			    struct pt_regs *pt, struct switch_stack *sw)
--{
--	unsigned long sof;
 -
--	init_frame_info(info, t, sw, pt->r12);
--	info->cfm_loc = &pt->cr_ifs;
--	info->unat_loc = &pt->ar_unat;
--	info->pfs_loc = &pt->ar_pfs;
--	sof = *info->cfm_loc & 0x7f;
--	info->bsp = (unsigned long) ia64_rse_skip_regs((unsigned long *) info->regstk.top, -sof);
--	info->ip = pt->cr_iip + ia64_psr(pt)->ri;
--	info->pt = (unsigned long) pt;
--	UNW_DPRINT(3, "unwind.%s:\n"
--		   "  bsp    0x%lx\n"
--		   "  sof    0x%lx\n"
--		   "  ip     0x%lx\n",
--		   __FUNCTION__, info->bsp, sof, info->ip);
--	find_save_locs(info);
+-/*
+- * This is here to work around a bug in egcs-1.1.1b that causes the
+- * compiler to crash (seems like a bug in the new alias analysis code.
+- */
+-void *
+-id (long addr)
+-{
+-	return (void *) addr;
 -}
 -
--void
- unw_init_frame_info (struct unw_frame_info *info, struct task_struct *t, struct switch_stack *sw)
+ struct ia64_boot_param *
+ sys_fw_init (const char *args, int arglen)
  {
- 	unsigned long sol;
-Index: linux/include/asm-ia64/unwind.h
-=================================--- linux.orig/include/asm-ia64/unwind.h	2005-08-12 17:19:20.900986975 +1000
-+++ linux/include/asm-ia64/unwind.h	2005-08-12 17:22:32.848350877 +1000
-@@ -114,13 +114,6 @@ extern void unw_remove_unwind_table (voi
-  */
- extern void unw_init_from_blocked_task (struct unw_frame_info *info, struct task_struct *t);
- 
--/*
-- * Prepare to unwind from interruption.  The pt-regs and switch-stack structures must have
-- * be "adjacent" (no state modifications between pt-regs and switch-stack).
-- */
--extern void unw_init_from_interruption (struct unw_frame_info *info, struct task_struct *t,
--					struct pt_regs *pt, struct switch_stack *sw);
--
- extern void unw_init_frame_info (struct unw_frame_info *info, struct task_struct *t,
- 				 struct switch_stack *sw);
- 
-
 
