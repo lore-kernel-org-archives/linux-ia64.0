@@ -1,39 +1,36 @@
-From: Nick Piggin <nickpiggin@yahoo.com.au>
-Date: Wed, 24 Aug 2005 12:01:02 +0000
+From: "John Hawkes" <hawkes@sgi.com>
+Date: Wed, 24 Aug 2005 16:09:40 +0000
 Subject: Re: [PATCH 2.6.13-rc6] cpu_exclusive sched domains build fix
-Message-Id: <430C617E.8080002@yahoo.com.au>
+Message-Id: <006a01c5a8c6$3c2006d0$6600a8c0@PCJohn>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050824111510.11478.49764.sendpatchset@jackhammer.engr.sgi.com>	<20050824112640.GB5197@in.ibm.com> <20050824044648.66f7e25a.pj@sgi.com>
-In-Reply-To: <20050824044648.66f7e25a.pj@sgi.com>
+References: <20050824111510.11478.49764.sendpatchset@jackhammer.engr.sgi.com> <20050824112640.GB5197@in.ibm.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Paul Jackson <pj@sgi.com>
-Cc: dino@in.ibm.com, paulus@samba.org, akpm@osdl.org, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, torvalds@osdl.org, mingo@elte.hu, hawkes@sgi.com
+To: dino@in.ibm.com, Paul Jackson <pj@sgi.com>
+Cc: paulus@samba.org, Andrew Morton <akpm@osdl.org>, nickpiggin@yahoo.com.au, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, torvalds@osdl.org, mingo@elte.hu
 
-Paul Jackson wrote:
-> Dinakar wrote:
-> 
->>Can we hold on to this patch for a while, as I reported yesterday,
-> 
-> 
-> Sure - though I guess it's Linus or Andrew who will have to do
-> the holding.
-> 
-> I sent it off contingent on the approval of yourself, Hawkes and Nick.
-> 
+From: "Dinakar Guniguntala" <dino@in.ibm.com>
+> Can we hold on to this patch for a while, as I reported yesterday,
+> this hangs up my ppc64 box on doing rmdir on a exclusive cpuset.
+> Still debugging the problem, hope to have a fix soon, Thanks
 
-I get the feeling that the problem would be present in more
-than just misaligned nodes.
+Paul's patch simply constrains the scope of cpuset configurations that will 
+invoke the "dynamic sched domains" functionality, which means that some 
+cpu-exclusive (a.k.a. "isolated") cpusets will continue to have the 
+2.6.12-and-earlier behavior of being periodically examined by the CPU 
+Scheduler in load-balancing activities.  That is, Paul's patch simply reverts 
+cpuset/sched domain behavior to pre-2.6.13 status (for some cpusets).
 
-On the POWER5 for example, Dinakar probably has SMT enabled,
-which may cause something similar to pop up.
+The pre-2.6.13 non-"dynamic sched domains" behavior will in fact produce bad 
+load-balancing behavior if a cpu-exclusive cpuset is so heavily loaded with 
+executing processes, all pinned to the cpu(s) in the cpuset, that the other 
+cpus in the system see this cpu(s)/node as the most-heavily-loaded and just 
+focus on it during load-balancing -- which would be futile, of course, since 
+the processes pinned to this highest-load cpu (and node) cannot be offloaded. 
+Since load-balancing looks only at the most-heavily-loaded cpu as a cpu to 
+offload, this means that all system load-balancing would be effectively turned 
+off.
 
-I get the feeling that exclusive cpusets should just be
-completely disabled for 2.6.13, and John & Ingo's complete
-fix put in 2.6.14-early
+John Hawkes 
 
--- 
-SUSE Labs, Novell Inc.
-
-Send instant messages to your online friends http://au.messenger.yahoo.com 
