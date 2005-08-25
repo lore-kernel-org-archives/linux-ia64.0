@@ -1,24 +1,53 @@
 From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Fri, 19 Aug 2005 22:49:20 +0000
-Subject: Re: debian/testing cannot compile static with gcc3.3.5
-Message-Id: <17158.25072.945051.784334@wombat.chubb.wattle.id.au>
+Date: Thu, 25 Aug 2005 00:29:05 +0000
+Subject: Allow /proc/pal/cpu0/vm_info under the simulator
+Message-Id: <17165.4305.205911.684685@berry.gelato.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050819162011.GB6405@frankl.hpl.hp.com>
-In-Reply-To: <20050819162011.GB6405@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Stephane" = Stephane Eranian <eranian@hpl.hp.com> writes:
 
-Stephane> Hello, I recently upgraded my system to the latest testing.
-Stephane> Since then, I cannot comile any program with static linking:
+Currently the palinfo code aborts without printing anything on the
+first pal call that fails.
 
-It's a glibc bug.  Get a glibc after 2.3.5.
+The appended patch makes it a little more tolerant... if a call fails,
+then it'll display what it already has.
 
-See http://bugs.debian.org/cgi-bin/bugreport.cgi?bug19115
+Signed-off-by: Peter Chubb <peterc@gelato.unsw.edu.au>
 
--- 
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+diff --git a/arch/ia64/kernel/palinfo.c b/arch/ia64/kernel/palinfo.c
+--- a/arch/ia64/kernel/palinfo.c
++++ b/arch/ia64/kernel/palinfo.c
+@@ -323,8 +323,10 @@ vm_info(char *page)
+ 		     vm_info_1.pal_vm_info_1_s.key_size, vm_info_1.pal_vm_info_1_s.hash_tag_id,
+ 		     vm_info_2.pal_vm_info_2_s.rid_size);
+ 
+-	if (ia64_pal_mem_attrib(&attrib) != 0)
+-		return 0;
++	if (ia64_pal_mem_attrib(&attrib) != 0){
++		*p++ = '\n';
++		return p-page;
++	}
+ 
+ 	p += sprintf(p, "Supported memory attributes    : ");
+ 	sep = "";
+@@ -338,7 +340,7 @@ vm_info(char *page)
+ 
+ 	if ((status = ia64_pal_vm_page_size(&tr_pages, &vw_pages)) !=0) {
+ 		printk(KERN_ERR "ia64_pal_vm_page_size=%ld\n", status);
+-		return 0;
++		return p-page;
+ 	}
+ 
+ 	p += sprintf(p,
+@@ -359,7 +361,7 @@ vm_info(char *page)
+ 
+ 	if ((status=ia64_get_ptce(&ptce)) != 0) {
+ 		printk(KERN_ERR "ia64_get_ptce=%ld\n", status);
+-		return 0;
++		return p-page;
+ 	}
+ 
+ 	p += sprintf(p,
