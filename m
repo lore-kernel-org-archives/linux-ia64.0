@@ -1,31 +1,88 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 18 Aug 2005 23:54:15 +0000
-Subject: small glitch in my "test" branch
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F042C82C9@scsmsx401.amr.corp.intel.com>
+From: Len Brown <len.brown@intel.com>
+Date: Thu, 25 Aug 2005 14:57:03 +0000
+Subject: IA64 allnoconfig buildfix
+Message-Id: <1124982076.16880.8.camel@toshiba>
+MIME-Version: 1
+Content-Type: multipart/mixed; boundary="=-XH3cWEXZ73e4iKM/77oi"
 List-Id: <linux-ia64.vger.kernel.org>
-MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-It seems that a couple of days ago I managed to create a commit
-that contained lots of changes from an earlier failed merge with
-Linus.  While this left the contents of the files ok (as all the
-extra changes were legitimately part of Linus' tree), it meant
-that I had a commit with my Signed-off-by line that included
-changes to ten files that I didn't want to change.
 
-I've done some open-heart surgery on the test branch to fix this
-(luckily I only had a few changes after this point ... and my
-new strategy of having changes stashed in other branches in my
-local tree made this even easier to fix).
+--=-XH3cWEXZ73e4iKM/77oi
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-But this does mean that anyone who has done a "git pull" from
-my test branch might have some "interesting" times when they
-next update from that branch.  You will definitely have some
-cruft in your objects data base for all the commit objects that
-I recreated when fixing this.
+Tony,
+The ia64 allnoconfig build fails for some ACPI vs PCI reasons I've fixed
+in my tree, but this small IA64 specific fix is needed also.
+It stems from allnoconfig choosing CONFIG_PROC_FS=n
+and sn_forc_interrupt_flag being defined within
+CONFIG_PROC_FS, but used outside it.
 
-Sorry for any inconvenience.
+cheers,
+-Len
 
--Tony
+Index: linux-acpi-2.6/arch/ia64/sn/kernel/irq.c
+===================================================================
+--- linux-acpi-2.6.orig/arch/ia64/sn/kernel/irq.c
++++ linux-acpi-2.6/arch/ia64/sn/kernel/irq.c
+@@ -23,7 +23,7 @@ static void force_interrupt(int irq);
+ static void register_intr_pda(struct sn_irq_info *sn_irq_info);
+ static void unregister_intr_pda(struct sn_irq_info *sn_irq_info);
+ 
+-extern int sn_force_interrupt_flag;
++int sn_force_interrupt_flag = 1;
+ extern int sn_ioif_inited;
+ static struct list_head **sn_irq_lh;
+ static spinlock_t sn_irq_info_lock = SPIN_LOCK_UNLOCKED; /* non-IRQ
+lock */
+Index: linux-acpi-2.6/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
+===================================================================
+--- linux-acpi-2.6.orig/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
++++ linux-acpi-2.6/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
+@@ -52,7 +52,7 @@ static int licenseID_open(struct inode *
+  * the bridge chip.  The hardware will then send an interrupt message
+if the
+  * interrupt line is active.  This mimics a level sensitive interrupt.
+  */
+-int sn_force_interrupt_flag = 1;
++extern int sn_force_interrupt_flag;
+ 
+ static int sn_force_interrupt_show(struct seq_file *s, void *p)
+ {
+
+
+--=-XH3cWEXZ73e4iKM/77oi
+Content-Disposition: attachment; filename="SN-vs-CONFIG_PROC_FS=n.patch"
+Content-Type: text/x-patch; name="SN-vs-CONFIG_PROC_FS=n.patch"; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+Index: linux-acpi-2.6/arch/ia64/sn/kernel/irq.c
+===================================================================
+--- linux-acpi-2.6.orig/arch/ia64/sn/kernel/irq.c
++++ linux-acpi-2.6/arch/ia64/sn/kernel/irq.c
+@@ -23,7 +23,7 @@ static void force_interrupt(int irq);
+ static void register_intr_pda(struct sn_irq_info *sn_irq_info);
+ static void unregister_intr_pda(struct sn_irq_info *sn_irq_info);
+ 
+-extern int sn_force_interrupt_flag;
++int sn_force_interrupt_flag = 1;
+ extern int sn_ioif_inited;
+ static struct list_head **sn_irq_lh;
+ static spinlock_t sn_irq_info_lock = SPIN_LOCK_UNLOCKED; /* non-IRQ lock */
+Index: linux-acpi-2.6/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
+===================================================================
+--- linux-acpi-2.6.orig/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
++++ linux-acpi-2.6/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
+@@ -52,7 +52,7 @@ static int licenseID_open(struct inode *
+  * the bridge chip.  The hardware will then send an interrupt message if the
+  * interrupt line is active.  This mimics a level sensitive interrupt.
+  */
+-int sn_force_interrupt_flag = 1;
++extern int sn_force_interrupt_flag;
+ 
+ static int sn_force_interrupt_show(struct seq_file *s, void *p)
+ {
+
+--=-XH3cWEXZ73e4iKM/77oi--
+
