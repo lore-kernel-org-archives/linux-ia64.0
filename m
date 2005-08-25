@@ -1,48 +1,28 @@
-From: david mosberger <dmosberger@gmail.com>
-Date: Fri, 19 Aug 2005 18:30:44 +0000
-Subject: Re: Understanding XIP, XPSR, XFS registers
-Message-Id: <ed5aea430508191130d6e7c78@mail.gmail.com>
+From: Smarduch Mario-CMS063 <CMS063@motorola.com>
+Date: Thu, 25 Aug 2005 18:15:33 +0000
+Subject: RE: Global Purge Translation Cache on NUM systems
+Message-Id: <A752C16E6296D711942200065BFCB69424BFFF47@il02exm10>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <8491.1124435294@kao2.melbourne.sgi.com>
-In-Reply-To: <8491.1124435294@kao2.melbourne.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The manual is correct.  You can see that in the (old) MCA backtrace
-code where we pick up the state from the X registers if PSR.ic=0.  I
-verified at some point that this works as well as it can.
 
-  --david
+We've been noticing some TLB issues on 2.4 and 2.6.10 kernels running
+on IA64 NUMA architecture. To this end I have some questions regarding
+TLB purging, please bare through with the initial introduction.
 
-On 8/19/05, Keith Owens <kaos@sgi.com> wrote:
-> Resuming after MCA/INIT when psr.ic = 1 is relatively easy and it
-> appears to work with the new MCA/INIT handlers.  Resuming after
-> MCA/INIT when psr.ic = 0 (i.e. the event occurred in an interrupt
-> handler) is proving to be a problem.
-> 
-> When MCA/INIT occurs and psr.ic = 0, what is in X{IP,PSR,FS} in PAL
-> minstate?  Is it the original values of I{IP,PSR,FS}, with I{IP,PSR,FS}
-> replaced by the values when MCA/INIT was delivered?  Or is I{IP,PSR,FS}
-> left alone (i.e. they still contain the values delivered to the
-> interrupt handler), with X{IP,PSR,FS} set to the values when MCA/INIT
-> was delivered?
-> 
-> Common sense says that I{IP,PSR,FS} is left alone when psr.ic = 0, with
-> the new values being stored in X{IP,PSR,FS}.  However Intel Itanium
-> Architecture Software Developer's Manual Volume 2: System Architecture
-> (24531804.pdf), 11.3.3 Returning to the Interrupted Process, implies
-> the reverse.
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-
-
--- 
-Mosberger Consulting LLC, voice/fax: 510-744-9372,
-http://www.mosberger-consulting.com/
-35706 Runckel Lane, Fremont, CA 94536
+IA64 Inst Set Manual points out that propogation of ptc.g across local cache coherence domains is platform dependent and must be handled by software. I'm trying to understand how would this work on a ccNUMA and whether or not software beyond what hw offers to propgate a ptc.ga (Purte TC bus transaction) is needed.
+ 
+From my understanding ccNUMA is coherent, but local node bus transactions to remote nodes is supported by some external circuitry like for example directory based cache coherence protocol. Remote transactions may be terminated with deferred or retry responses, while the underlying hw figures out who owns the block runs the 
+xaction on that bus and ships it back to the requesting node. So is a whole ccNUMA system considered as a Cache Coherence domain or is each one of the local nodes a cache coherent domain with respect to a purge xaction?
+ 
+When a Purge TC global is issued is hardware responsible for keeping the xaction from completion (TND#
+assertion) until the xaction has become visible to all nodes?
+ 
+Is additional software needed to synchronize the purge?
+ 
+Is there a possibility that after a purge is issued on a local node the transaction is completed on the local node but in progress on remote nodes? 
+ 
+- Mario
