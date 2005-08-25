@@ -1,62 +1,38 @@
-From: dann frazier <dannf@hp.com>
-Date: Tue, 09 Aug 2005 17:59:11 +0000
-Subject: Re: Debian kernel and /proc/pal
-Message-Id: <1123610477.16997.50.camel@krebs.dannf>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Thu, 25 Aug 2005 20:14:26 +0000
+Subject: [PATCH] Only process_die notifier in ia64_do_page_fault if KPROBES
+Message-Id: <Pine.LNX.4.62.0508251312010.7100@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <1123241814.30015.5.camel@uluru.grenoble.hp.com>
-In-Reply-To: <1123241814.30015.5.camel@uluru.grenoble.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
+Cc: linux-mm@kvack.org, prasanna@in.ibm.com
 
-On Tue, 2005-08-09 at 10:43 -0700, Stephane Eranian wrote:
-> Dann,
-> 
-> On Tue, Aug 09, 2005 at 10:40:16AM -0600, dann frazier wrote:
-> > On Mon, 2005-08-08 at 10:17 +1000, Ian Wienand wrote:
-> > > On Fri, Aug 05, 2005 at 01:36:54PM +0200, Stephane Eranian wrote:
-> > > > I recently used an Itanium machine booted with a 2.6 Linux kernel.
-> > > > The exact package is:
-> > > >         kernel-image-2.6.11-1-mckinley-smp_2.6.11-6_ia64.deb
-> > > > 
-> > > > It does appear that this kernel is compiled without CONFIG_PALINFO
-> > > > which means there is no /proc/pal/cpu* entries.
-> > > 
-> > > I filed this under
-> > > 
-> > > http://bugs.debian.org/cgi-bin/bugreport.cgi?bug21885
-> > > 
-> > > for the latest 2.6.12 packages which have the same thing.
-> > > 
-> > 
-> > Note that CONFIG_PALINFO was set to m - most things in Debian kernels
-> > are set to build as a module, if possible.
-> > 
-> 
-> What's the value of having PALINFO as module?
+ia64_do_page_fault is a path critical for system performance. The code to call
+notify_die() should not be compiled into that critical path if the system
+is not configured to use KPROBES.
 
-(cc'ing debian-ia64, since this is really a debian issue not a kernel
-one)
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-We don't examine all the bits of code that can be built as modules and
-make a decision based on potential performance impact, security risks,
-etc - its easier/more consistent to just build as a module if possible.
-
-I don't know of any significant reason to leave palinfo as a module,
-which is why I changed it :)  However, users who build their own kernels
-may still build it as a module.  If they do, it'd be good if userspace
-utilities either attempted to load it or complained that it wasn't
-available.  (I've no idea if pfmon already does this or not)
-
-> The firmware interface does not evolve very often.
-> 
-> If module is preferred then, some rc scripts should load it automatically
-> somehow. 
-
-If a user has a made a conscious choice to build it as a module, then it
-probably means that they don't want the code loaded all the time.  In
-such a situation, its probably better to load on demand or tell the user
-to run modprobe themselves instead of auto-loading at boot.
-
-
+Index: linux-2.6.13-rc7/arch/ia64/mm/fault.c
+=================================--- linux-2.6.13-rc7.orig/arch/ia64/mm/fault.c	2005-08-23 20:39:14.000000000 -0700
++++ linux-2.6.13-rc7/arch/ia64/mm/fault.c	2005-08-25 13:04:57.000000000 -0700
+@@ -103,12 +103,16 @@ ia64_do_page_fault (unsigned long addres
+ 		goto bad_area_no_up;
+ #endif
+ 
++#ifdef CONFIG_KPROBES
+ 	/*
+-	 * This is to handle the kprobes on user space access instructions
++	 * This is to handle the kprobes on user space access instructions.
++	 * This is a path criticial for system performance. So only
++	 * process this notifier if we are compiled with kprobes support.
+ 	 */
+ 	if (notify_die(DIE_PAGE_FAULT, "page fault", regs, code, TRAP_BRKPT,
+ 					SIGSEGV) = NOTIFY_STOP)
+ 		return;
++#endif
+ 
+ 	down_read(&mm->mmap_sem);
+ 
