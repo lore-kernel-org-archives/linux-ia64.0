@@ -1,42 +1,38 @@
-From: Adrian Bunk <bunk@stusta.de>
-Date: Wed, 24 Aug 2005 10:57:38 +0000
-Subject: [2.6 patch] arch/ia64/hp/sim/boot/fw-emu.c: remove egcs workaround
-Message-Id: <20050824105738.GK5603@stusta.de>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Fri, 26 Aug 2005 21:56:45 +0000
+Subject: Delete erroneous copy_page.o in global lib-y list
+Message-Id: <200508262156.j7QLujg26042@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David Mosberger-Tang <davidm@hpl.hp.com>
-Cc: tony.luck@intel.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Kernel 2.6 doesn't support egcs, and I didn't find any user of this 
-function.
+copy_page.o appeared twice in arch/ia64/lib/Makefile. The
+one in global lib-y is wrong where it should be just in
+lib-$(CONFIG_ITANIUM).
+
+Both copy_page.o and copy_page_mck.o are build for Itanium2
+processor and the link order will pick up the low performing
+copy_page function (originally written for itanium processor).
+In this case, we really want the copy_page_mck.o for optimized
+version.
+
+Patch to delete the erroneous lib-y list.  Please apply, and
+It would be nice to get this merged for 2.6.13.
 
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Signed-off-by: Kenneth Chen <kenneth.w.chen@intel.com>
 
----
-
-Note: I haven't tested the compilation of this patch.
-
---- linux-2.6.13-rc6-mm2-full/arch/ia64/hp/sim/boot/fw-emu.c.old	2005-08-24 12:38:22.000000000 +0200
-+++ linux-2.6.13-rc6-mm2-full/arch/ia64/hp/sim/boot/fw-emu.c	2005-08-24 12:38:58.000000000 +0200
-@@ -237,17 +237,6 @@
- 	return ((struct sal_ret_values) {status, r9, r10, r11});
- }
+--- ./arch/ia64/lib/Makefile.orig	2005-08-26 14:45:58.070506150 -0700
++++ ./arch/ia64/lib/Makefile	2005-08-26 14:46:38.280466595 -0700
+@@ -6,7 +6,7 @@ obj-y := io.o
  
--
--/*
-- * This is here to work around a bug in egcs-1.1.1b that causes the
-- * compiler to crash (seems like a bug in the new alias analysis code.
-- */
--void *
--id (long addr)
--{
--	return (void *) addr;
--}
--
- struct ia64_boot_param *
- sys_fw_init (const char *args, int arglen)
- {
+ lib-y := __divsi3.o __udivsi3.o __modsi3.o __umodsi3.o			\
+ 	__divdi3.o __udivdi3.o __moddi3.o __umoddi3.o			\
+-	bitop.o checksum.o clear_page.o csum_partial_copy.o copy_page.o	\
++	bitop.o checksum.o clear_page.o csum_partial_copy.o		\
+ 	clear_user.o strncpy_from_user.o strlen_user.o strnlen_user.o	\
+ 	flush.o ip_fast_csum.o do_csum.o				\
+ 	memset.o strlen.o swiotlb.o
 
