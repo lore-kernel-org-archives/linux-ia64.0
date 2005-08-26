@@ -1,38 +1,25 @@
 From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Thu, 25 Aug 2005 20:14:26 +0000
-Subject: [PATCH] Only process_die notifier in ia64_do_page_fault if KPROBES
-Message-Id: <Pine.LNX.4.62.0508251312010.7100@schroedinger.engr.sgi.com>
+Date: Fri, 26 Aug 2005 23:05:50 +0000
+Subject: Re:[PATCH] Only process_die notifier in ia64_do_page_fault if KPROBES
+Message-Id: <Pine.LNX.4.62.0508261559450.17433@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <200508262246.j7QMkEoT013490@linux.jf.intel.com>
+In-Reply-To: <200508262246.j7QMkEoT013490@linux.jf.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
-Cc: linux-mm@kvack.org, prasanna@in.ibm.com
+To: Rusty Lynch <rusty.lynch@intel.com>
+Cc: linux-mm@kvack.org, prasanna@in.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, anil.s.keshavamurthy@intel.com
 
-ia64_do_page_fault is a path critical for system performance. The code to call
-notify_die() should not be compiled into that critical path if the system
-is not configured to use KPROBES.
+On Fri, 26 Aug 2005, Rusty Lynch wrote:
 
-Signed-off-by: Christoph Lameter <clameter@sgi.com>
+> Just to be sure everyone understands the overhead involved, kprobes only 
+> registers a single notifier.  If kprobes is disabled (CONFIG_KPROBES is
+> off) then the overhead on a page fault is the overhead to execute an empty
+> notifier chain.
 
-Index: linux-2.6.13-rc7/arch/ia64/mm/fault.c
-=================================--- linux-2.6.13-rc7.orig/arch/ia64/mm/fault.c	2005-08-23 20:39:14.000000000 -0700
-+++ linux-2.6.13-rc7/arch/ia64/mm/fault.c	2005-08-25 13:04:57.000000000 -0700
-@@ -103,12 +103,16 @@ ia64_do_page_fault (unsigned long addres
- 		goto bad_area_no_up;
- #endif
- 
-+#ifdef CONFIG_KPROBES
- 	/*
--	 * This is to handle the kprobes on user space access instructions
-+	 * This is to handle the kprobes on user space access instructions.
-+	 * This is a path criticial for system performance. So only
-+	 * process this notifier if we are compiled with kprobes support.
- 	 */
- 	if (notify_die(DIE_PAGE_FAULT, "page fault", regs, code, TRAP_BRKPT,
- 					SIGSEGV) = NOTIFY_STOP)
- 		return;
-+#endif
- 
- 	down_read(&mm->mmap_sem);
- 
+Its the overhead of using registers to pass parameters, performing a 
+function call that does nothing etc. A waste of computing resources. All 
+of that unconditionally in a performance critical execution path that 
+is executed a gazillion times for an optional feature that I frankly 
+find not useful at all and that is disabled by default.
