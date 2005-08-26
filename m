@@ -1,7 +1,7 @@
-From: Peter Chubb <peterc@gelato.unsw.edu.au>
-Date: Wed, 24 Aug 2005 03:22:33 +0000
-Subject: Re: Nasty VMLPT problem...
-Message-Id: <17163.59385.243864.934098@wombat.chubb.wattle.id.au>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Fri, 26 Aug 2005 19:06:17 +0000
+Subject: RE: Nasty VMLPT problem...
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F043F45CD@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <17163.58446.637451.839535@wombat.chubb.wattle.id.au>
 In-Reply-To: <17163.58446.637451.839535@wombat.chubb.wattle.id.au>
@@ -10,17 +10,16 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->>>>> "Peter" = Peter Chubb <peterc@gelato.unsw.edu.au> writes:
 
-Peter> Hi Folks, I've solved the problem I was having with the
-Peter> simulator and not booting Debian.
+>+	if ((mapped_space_bits - PAGE_SHIFT > vmlpt_bits - pte_bits) || (mapped_space_bits > impl_va_bits - 1))
 
-Peter> The problem is that the number of bits for the virtual linear
-Peter> array short-format VHPT (Virtually mapped linear page table,
-Peter> VMLPT for short) is being calculated incorrectly.
-				 s/calculated/tested/
+I can't quite wrap my brain around what the first half of this test is
+checking.  It triggers for a 64K pagesize when impl_va_bits is 51..54,
+but what does it mean?
 
-Sorry.
--- 
-Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
-The technical we do immediately,  the political takes *forever*
+Note also the second half of this test also catches those 4 cases too
+(and also the pagesize 64K with impl_va_bitsU), so whatever the first
+part is checking is a subset of the 2nd check.  So we could survive with
+just "if (mapped_space_bits > impl_va_bits - 1)"
+
+-Tony
