@@ -1,24 +1,35 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Wed, 31 Aug 2005 22:07:00 +0000
-Subject: RE: [PATCH] Reserve syscall number for sys_migrate_pages
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F04472C1F@scsmsx401.amr.corp.intel.com>
+From: Peter Chubb <peterc@gelato.unsw.edu.au>
+Date: Mon, 29 Aug 2005 02:41:04 +0000
+Subject: ip_contrack module refuses to load...
+Message-Id: <17170.30144.755169.205802@berry.gelato.unsw.EDU.AU>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.62.0508311347470.29108@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.62.0508311347470.29108@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
 
->There is general agreement on sys_migrate_pages. See the linux-mm 
->archives.
+With linux 2.6.13-rc7, compiled with either gcc 4.0 or 3.4 I see:
 
-Can you provide pointers to threads with this general agreement.
 
-My searches of the archive aren't very conclusive. I found some
-discussions between Andi Kleen and yourself, but at that point
-(mid July) you seemed to be arguing _against_ the current suggestions
-for migration.
+ip_tables: (C) 2000-2002 Netfilter core team
+ip_conntrack: value -6917529019048071580 out of IMM22 range
 
--Tony
+in dmesg.
+
+That value doesn't correspond to any symbol I can find in
+/proc/kallsyms (it's A0000002002EEE64: symbols near there are:
+
+a0000002002b6ed0 s now  [autofs4]
+a0000002002c7000 ? __mod_description35  [ip_tables]
+a0000002002c7020 ? __mod_author34       [ip_tables]
+a0000002002c7058 ? __mod_license33      [ip_tables]
+a0000002002c7068 ? __module_depends     [ip_tables]
+a0000002002c7078 ? __mod_vermagic5      [ip_tables]
+ffffffffffff0028 U per_cpu__cpu_info    [e1000]
+ffffffffffff0028 U per_cpu__cpu_info    [snd_ac97_codec]
+ffffffffffff0028 U per_cpu__cpu_info    [snd_fm801]
+ffffffffffff0028 U per_cpu__cpu_info    [snd_mpu401_uart]
+)
+
+Any ideas?
