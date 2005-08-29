@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Mon, 29 Aug 2005 04:09:02 +0000
+From: Peter Chubb <peter@chubb.wattle.id.au>
+Date: Mon, 29 Aug 2005 07:29:30 +0000
 Subject: RE: ip_contrack module refuses to load...
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F043F4CB9@scsmsx401.amr.corp.intel.com>
+Message-Id: <17170.47450.53390.386410@wombat.chubb.wattle.id.au>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <17170.30144.755169.205802@berry.gelato.unsw.EDU.AU>
 In-Reply-To: <17170.30144.755169.205802@berry.gelato.unsw.EDU.AU>
@@ -10,24 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+>>>>> "Tony" = Tony Luck <Luck> writes:
 
->ip_tables: (C) 2000-2002 Netfilter core team
->ip_conntrack: value -6917529019048071580 out of IMM22 range
->
->in dmesg.
->
->That value doesn't correspond to any symbol I can find in
->/proc/kallsyms (it's A0000002002EEE64: symbols near there are:
+>> ip_tables: (C) 2000-2002 Netfilter core team ip_conntrack: value
+>> -6917529019048071580 out of IMM22 range
+>> 
+>> in dmesg.
+>> 
+>> That value doesn't correspond to any symbol I can find in
+>> /proc/kallsyms (it's A0000002002EEE64: symbols near there are:
 
-What an unhelpful error message!  That value will be the address
-in the module that failed to load.  But to do something useful
-with it you'd need to know the base address at which the
-kernel was loading the module ... but since the load failed,
-there is no way to find that.
+Tony> What an unhelpful error message!  That value will be the address
+Tony> in the module that failed to load.  But to do something useful
 
-You might make some intelligent guesses by looking at the low
-order PAGE_SHIFT-1 bits, which will remain the same whatever
-the base address is.  Use objdump -d, and objdump --reloc on
-the ip_conntrack.ko at look at each offset that matches.
+Actually, it's the target, no the address of the relocation.  Turning
+on module debugging helped... turns out it's trying to get at a
+per-cpu variable.  The kernel is built UP.
 
--Tony
+Should the module loader do anything special for per-cpu variables?
+
+--
+Dr Peter Chubb  http://www.gelato.unsw.edu.au  peterc AT gelato.unsw.edu.au
+The technical we do immediately,  the political takes *forever*
