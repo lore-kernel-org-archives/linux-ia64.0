@@ -1,50 +1,70 @@
 From: Keith Owens <kaos@sgi.com>
-Date: Wed, 17 Aug 2005 05:39:25 +0000
-Subject: [Review 2/7] MCA/INIT add an extra thread_info flag
-Message-Id: <7803.1124257165@kao2.melbourne.sgi.com>
+Date: Tue, 30 Aug 2005 05:04:19 +0000
+Subject: [PATCH 2.6.13 1/7] MCA/INIT: scheduler hooks
+Message-Id: <20050830050419.7997.29280.sendpatchset@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Add an extra thread_info flag to indicate the special MCA/INIT stacks.
-Mainly for debuggers
+Scheduler hooks to change which process is deemed to be on a cpu.
 
- ptrace.h      |    2 +-
- thread_info.h |    2 ++
- 2 files changed, 3 insertions(+), 1 deletion(-)
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-Index: linux/include/asm-ia64/ptrace.h
-=================================--- linux.orig/include/asm-ia64/ptrace.h	2005-06-18 05:48:29.000000000 +1000
-+++ linux/include/asm-ia64/ptrace.h	2005-08-01 12:25:33.360883229 +1000
-@@ -119,7 +119,7 @@ struct pt_regs {
- 	unsigned long ar_unat;		/* interrupted task's NaT register (preserved) */
- 	unsigned long ar_pfs;		/* prev function state  */
- 	unsigned long ar_rsc;		/* RSE configuration */
--	/* The following two are valid only if cr_ipsr.cpl > 0: */
-+	/* The following two are valid only if cr_ipsr.cpl > 0 || ti->flags & _TIF_MCA_INIT */
- 	unsigned long ar_rnat;		/* RSE NaT */
- 	unsigned long ar_bspstore;	/* RSE bspstore */
+---
+
+ include/linux/sched.h |    2 ++
+ kernel/sched.c        |   28 ++++++++++++++++++++++++++++
+ 2 files changed, 30 insertions(+)
+
+Index: linux/include/linux/sched.h
+=================================--- linux.orig/include/linux/sched.h	2005-08-30 13:53:13.714211731 +1000
++++ linux/include/linux/sched.h	2005-08-30 13:53:55.601081759 +1000
+@@ -883,6 +883,8 @@ extern int task_curr(const task_t *p);
+ extern int idle_cpu(int cpu);
+ extern int sched_setscheduler(struct task_struct *, int, struct sched_param *);
+ extern task_t *idle_task(int cpu);
++extern task_t *curr_task(int cpu);
++extern void set_curr_task(int cpu, task_t *p);
  
-Index: linux/include/asm-ia64/thread_info.h
-=================================--- linux.orig/include/asm-ia64/thread_info.h	2005-08-01 11:49:13.053126287 +1000
-+++ linux/include/asm-ia64/thread_info.h	2005-08-01 12:25:48.541555064 +1000
-@@ -76,6 +76,7 @@ struct thread_info {
- #define TIF_SIGDELAYED		5	/* signal delayed from MCA/INIT/NMI/PMI context */
- #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_RESCHED */
- #define TIF_MEMDIE		17
-+#define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
+ void yield(void);
  
- #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
- #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
-@@ -85,6 +86,7 @@ struct thread_info {
- #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
- #define _TIF_SIGDELAYED	(1 << TIF_SIGDELAYED)
- #define _TIF_POLLING_NRFLAG	(1 << TIF_POLLING_NRFLAG)
-+#define _TIF_MCA_INIT		(1 << TIF_MCA_INIT)
+Index: linux/kernel/sched.c
+=================================--- linux.orig/kernel/sched.c	2005-08-30 13:53:13.714211731 +1000
++++ linux/kernel/sched.c	2005-08-30 13:56:15.981358192 +1000
+@@ -3471,6 +3471,34 @@ task_t *idle_task(int cpu)
+ }
  
- /* "work to do on user-return" bits */
- #define TIF_ALLWORK_MASK	(_TIF_NOTIFY_RESUME|_TIF_SIGPENDING|_TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SIGDELAYED)
-
-
+ /**
++ * curr_task - return the current task for a given cpu.
++ * @cpu: the processor in question.
++ */
++task_t *curr_task(int cpu)
++{
++	return cpu_curr(cpu);
++}
++EXPORT_SYMBOL_GPL(curr_task);
++
++/**
++ * set_curr_task - set the current task for a given cpu.
++ * @cpu: the processor in question.
++ * @p: the task pointer to set.
++ *
++ * Description: This function must only be used when non-maskable interrupts
++ * are serviced on a separate stack.  It allows the architecture to switch the
++ * notion of the current task on a cpu in a non-blocking manner.  This function
++ * must be called with interrupts disabled, the caller must save the original
++ * value of the current task (see curr_task() above) and restore that value
++ * before reenabling interrupts.
++ */
++void set_curr_task(int cpu, task_t *p)
++{
++	cpu_curr(cpu) = p;
++}
++EXPORT_SYMBOL_GPL(set_curr_task);
++
++/**
+  * find_process_by_pid - find a process with a matching PID value.
+  * @pid: the pid in question.
+  */
