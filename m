@@ -1,69 +1,144 @@
-From: Qin Xiaohan <xhqin@redflag-linux.com>
-Date: Fri, 12 Aug 2005 01:47:11 +0000
-Subject: Re: efibootmgr 0.5.2.2 for testing
-Message-Id: <200508120947.11103.xhqin@redflag-linux.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Tue, 30 Aug 2005 05:04:14 +0000
+Subject: [PATCH 2.6.13 0/7] MCA/INIT: summary
+Message-Id: <20050830050414.7997.92549.sendpatchset@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <20050811181028.GA12525@lists.us.dell.com>
-In-Reply-To: <20050811181028.GA12525@lists.us.dell.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Dear Matt:
-	I just do simply testing,It works fine,I will ask our developer 
-Starney(zxni@redflag-linux.com) do more testing and give you a report later.
-On Friday 12 August 2005 02:10, Matt Domsch wrote:
-> I've put out a test version of efibootmgr, I'd appreciate people with
-> the capabilities to test this and report back.  I'm hoping this fixes
-> the cases reported where a 32-bit efibootmgr on a 32-bit kernel wasn't
-> working correctly, but I don't have such equipment to test myself.  If
-> it's all good, I'll release it as 0.5.3.
->
-> Rogerio, I gave -@ a long option --append-binary-args, rather than
-> --@, to be consistent with the other long options.
->
-> Thanks to Brad Chen and Ping Wei from Intel for their debugging and patch
-> suggestions.
->
->
-> * Thu Aug 11 2005 Matt Domsch <Matt_Domsch@dell.com>
-> - applied patch from Rogerio Timmers which adds a new option -@ <file>,
->   which takes extra variable parameters from <file>, or - from stdin.
->   This lets you pass binary (non-unicode, non-ascii) formatted options to
->   your bootloader.
-> - cleaned up Rogerio's patch some.
-> - moved definition of _FILE_OFFSET_BITSd into Makefile and out of the
->   individual .c files.  This fixes a bug reported by Red Flag, where
->   variable data was getting incorrectly set with a 32-bit copy of
->   efibootmgr on a 32-bit kernel.
-> - made efi_variable_t.DataSize be an unsigned long to match the kernel.
->   This lets a 32-bit copy of efibootmgr run on a 32-bit kernel.  This
->   means you've got to have a 32-bit efibootmgr on a 32-bit kernel, and a
->   64-bit efibootmgr on a 64-bit kernel, but since efi_status_t is also a
->   long, this was really going to be the case anyway.
-> - valgrind caught the app exiting without freeing some malloc'd
->   structures, fix that.
-> - v0.5.2.2 released for testing
->
->
-> http://linux.dell.com/efibootmgr/testing/efibootmgr-0.5.2.2.tar.gz
-> http://linux.dell.com/efibootmgr/testing/efibootmgr-0.5.2.2.tar.gz.sign
->
->
-> Thanks,
-> Matt
+The patches in the following mails are a rewrite of the MCA/INIT
+handlers.  They are ready for inclusion in 2.6.13.
 
--- 
-Best Regards
+Some background might be useful.  The current MCA/INIT handlers have
+several shortcomings :-
 
-Qin Xiaohan
-Product Manager 
-Red Flag Software Co., Ltd.
-Tel:(8610)82656655 Ext.2637
-Fax:(8610)82658096
-Address: 6/F, Zijin Bldg., 68 Wanquanhe Rd.,
-              Haidian Dist., Beijing, P.R.China
-Zip:100086
-Email:xhqin@redflag-linux.com
-Http://www.redflag-linux.com
+(1) Only one MCA stack, so we cannot handle concurrent MCA on multiple
+    cpus.
+
+(2) Only one INIT stack, for the monarch.  Slave INIT events never get
+    into the C code, which gives no data for the slave processes.
+
+(3) The lack of slave INIT processing also means that some MCA events
+    that could normally be recovered may turn into fatal events.  If
+    one or more cpus are spinning disabled when an MCA occurs then SAL
+    will eventually hit the disabled cpus with a slave INIT event.
+    Even if the MCA is recoverable (e.g. DBE in user space), the cpus
+    that were hit by INIT are now dead, which makes MCA recovery
+    pointless.
+
+(4) A monarch INIT event assumes that it can use the existing stack.
+    If the INIT was delivered while the cpu was in physical mode then
+    the OS monarch handler gets a recursive error.  Ditto if the kernel
+    stack has overflowed.
+
+(5) MCA and INIT stacks are completely non-standard.  You cannot get a
+    backtrace nor debug the MCA/INIT handlers.  We even have a special
+    entry point in the unwind code just for MCA/INIT.  Only the kernel
+    knows about that unwind routine, external code such as libunwind
+    does not.
+
+(6) The current code relies on getting data from the MCA/INIT record.
+    If we hang trying to retrieve that record then we get no useful
+    data.  A side effect of using the MCA/INIT record is that we may
+    read a record from an earlier event, it may not have been cleared
+    when a second event occurs.
+
+(7) Some horrible assembler code in minstate.h, to handle both the
+    normal stacks and the non-standard MCA/INIT stacks.
+
+(8) Only one copy of the SAL to OS state, which prevents multiple cpus
+    from returning to SAL.
+
+My MCA/INIT rewrite addresses these problems by :-
+
+(1) Using per cpu MCA stacks.
+
+(2) Using per cpu INIT stacks.
+
+(3) Using a common code path for both monarch and slave INIT events,
+    passing in a flag to indicate if the event is monarch or slave.
+
+(4) Neither MCA nor INIT will use any part of the current stack until
+    they have verified that it is safe to do so.
+
+(5) MCA/INIT stacks look like normal process stacks.  I can even get a
+    backtrace through the MCA/INIT handlers :).  This removes the need
+    for the special unwind routine.
+
+(6) All data is obtained from PAL/SAL data areas.  There is no need to
+    call SAL to get the record, and the problem of stale data goes
+    away.
+
+(7) minstate.h is now all virtual mode code.
+
+(8) Each cpu gets its own copy of the SAL to OS state.
+
+
+The original plan was to treat an MCA/INIT as an interrupt that
+switched stacks, even if a cpu was already using a kernel stack.
+However that caused problems with the notion of "current", mainly
+because the task structure is stored in the stack area.  Separating the
+task structure from the rest of the stack was vetoed on performance
+grounds, it would require extra TLB entries.  This plan would also have
+required changes to unwinders, both in the kernel and in external
+packages such as lcrash.
+
+Plan B involves switching to the MCA/INIT stacks, making them look like
+normal processes with no dependency on data in other stacks.  The
+process that was running at the time of MCA/INIT is converted to look
+like a sleeping task, complete with its state at the time of interrupt.
+The MCA/INIT stack has a pointer to the interrupted task; in addition
+the pid of the interrupted task is placed in the 'comm' field of the
+MCA/INIT process for humans to read.  This approach does not require
+extra TLBs and it works with the existing unwind code.  The only
+downside is that it requires two small hooks in the scheduler code to
+adjust the scheduler's notion of "this process is on this cpu".
+
+The following 7 patches contain :-
+
+1) Scheduler hooks to change which process is deemed to be on a cpu.
+
+2) Add an extra thread_info flag to indicate the special MCA/INIT
+   stacks.  Mainly for debuggers.
+
+3) Avoid reading the INIT record from SAL during the INIT event.  Just
+   tell salinfo.c that a new rcord is available, it will be read and
+   processed in a normal context.
+
+4) The bulk of the change.  Use per cpu MCA/INIT stacks.  Change the
+   SAL to OS state (sos) to be per process.  Do all the assembler work
+   on the MCA/INIT stacks, leaving the original stack alone.  Pass per
+   cpu state data to the C handlers for MCA and INIT, which also means
+   changing the mca_drv interfaces slightly.  Lots of verification on
+   whether the original stack is usable before converting it to a
+   sleeping process.
+
+5) Remove the physical mode path from minstate.h.
+
+6) Align the stack for the initial task to be the same alignment as all
+   other process stacks.  Otherwise the validation code needs special
+   cases for the intial task, it is currently only page aligned.
+
+7) Delete the special case unwind code that was only used by the old
+   MCA/INIT handler.
+
+
+TODO:
+
+Although we could theoretically handle concurrent MCA with these
+patches, MCA is still single threaded by ia64_mca_serialize.  It is not
+clear what our model should be for handling concurrent MCA on multiple
+cpus, some discussion is required first.
+
+Now that MCA/INIT is recoverable, we will have to address the SCSI
+timeouts that occur if interrupts are disabled for long periods.  MCA
+can disable interrupts for up to 20 seconds while it does the
+rendezvous.  On resume, the timer code tries to bring jiffies in sync
+with itc, time runs too fast and we get spurious timeouts.  There is no
+point in recovering from MCA if the disk dies as a side effect of the
+lost interrupts.
+
+Convert mca_drv.c to use the pt_regs, switch_stack and minstate areas
+instead of reading the MCA record.
