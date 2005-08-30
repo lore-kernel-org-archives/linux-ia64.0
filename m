@@ -1,80 +1,95 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Date: Tue, 30 Aug 2005 18:40:06 +0000
-Subject: [rfc patch] swiotlb: consolidate swiotlb_sync_sg_* implementations
-Message-Id: <20050830184006.GG18998@tuxdriver.com>
+Date: Tue, 30 Aug 2005 17:58:03 +0000
+Subject: [patch 2.6.13] swiotlb: add swiotlb_sync_single_range_for_{cpu,device}
+Message-Id: <20050830175803.GC18998@tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0443A4B5@scsmsx401.amr.corp.intel.com> <20050830180912.GE18998@tuxdriver.com> <20050830183337.GF18998@tuxdriver.com>
-In-Reply-To: <20050830183337.GF18998@tuxdriver.com>
+References: <20050829200916.GI3716@tuxdriver.com> <200508292254.53476.ak@suse.de> <20050829214828.GA6314@tuxdriver.com> <200508300314.35177.ak@suse.de> <20050830175436.GB18998@tuxdriver.com>
+In-Reply-To: <20050830175436.GB18998@tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-kernel@vger.kernel.org
-Cc: Andi Kleen <ak@suse.de>, discuss@x86-64.org, tony.luck@intel.com, linux-ia64@vger.kernel.org, Asit.K.Mallick@intel.com
+Cc: Andi Kleen <ak@suse.de>, discuss@x86-64.org, tony.luck@intel.com, linux-ia64@vger.kernel.org
 
-On Tue, Aug 30, 2005 at 02:33:39PM -0400, John W. Linville wrote:
-> On Tue, Aug 30, 2005 at 02:09:14PM -0400, John W. Linville wrote:
-> > On Tue, Aug 30, 2005 at 11:03:35AM -0700, Luck, Tony wrote:
-> > > 
-> > > >+swiotlb_sync_single_range_for_cpu(struct device *hwdev, 
-> > > >+swiotlb_sync_single_range_for_device(struct device *hwdev, 
-> > > 
-> > > Huh?  These look identical ... same args, same code, just a
-> > > different name.
-> > 
-> > Have you looked at the implementations for swiotlb_sync_single_for_cpu
-> > and swiotlb_sync_single_for_device?  Those are already identical.
-> 
-> How about a patch like this?  Just for comment...I'll repost if people
-> want it...
+Add swiotlb_sync_single_range_for_{cpu,device} implementations.  This is
+used to support implementation of dma_sync_single_range_for_{cpu,device}
+on x86_64.
 
-Probably should include the swiotlb_sync_sg_* variations too...
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
 
-Whaddya think?  Again, I'll repost if this is viewed favorably.
+ arch/ia64/lib/swiotlb.c      |   33 +++++++++++++++++++++++++++++++++
+ include/asm-x86_64/swiotlb.h |    8 ++++++++
+ 2 files changed, 41 insertions(+)
 
-John
-
---- linux-8_29_2005/arch/ia64/lib/swiotlb.c.orig	2005-08-30 14:35:35.000000000 -0400
-+++ linux-8_29_2005/arch/ia64/lib/swiotlb.c	2005-08-30 14:37:05.000000000 -0400
-@@ -612,9 +612,9 @@ swiotlb_unmap_sg(struct device *hwdev, s
-  * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
-  * and usage.
-  */
--void
--swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
--			int nelems, int dir)
-+static inline void
-+swiotlb_sync_sg(struct device *hwdev, struct scatterlist *sg,
-+		int nelems, int dir)
- {
- 	int i;
- 
-@@ -628,18 +628,17 @@ swiotlb_sync_sg_for_cpu(struct device *h
+diff --git a/arch/ia64/lib/swiotlb.c b/arch/ia64/lib/swiotlb.c
+--- a/arch/ia64/lib/swiotlb.c
++++ b/arch/ia64/lib/swiotlb.c
+@@ -522,6 +522,37 @@ swiotlb_sync_single_for_device(struct de
  }
  
- void
-+swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
-+			int nelems, int dir)
+ /*
++ * Same as above, but for a sub-range of the mapping.
++ */
++void
++swiotlb_sync_single_range_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
++				  unsigned long offset, size_t size, int dir)
 +{
-+	swiotlb_sync_sg(hwdev, sg, nelems, dir);
++	char *dma_addr = phys_to_virt(dev_addr) + offset;
++
++	if (dir = DMA_NONE)
++		BUG();
++	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
++		sync_single(hwdev, dma_addr, size, dir);
++	else if (dir = DMA_FROM_DEVICE)
++		mark_clean(dma_addr, size);
 +}
 +
 +void
- swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
- 			   int nelems, int dir)
- {
--	int i;
--
--	if (dir = DMA_NONE)
--		BUG();
--
--	for (i = 0; i < nelems; i++, sg++)
--		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
--			sync_single(hwdev, (void *) sg->dma_address,
--				    sg->dma_length, dir);
-+	swiotlb_sync_sg(hwdev, sg, nelems, dir);
- }
- 
- int
++swiotlb_sync_single_range_for_device(struct device *hwdev, dma_addr_t dev_addr,
++				     unsigned long offset, size_t size, int dir)
++{
++	char *dma_addr = phys_to_virt(dev_addr) + offset;
++
++	if (dir = DMA_NONE)
++		BUG();
++	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
++		sync_single(hwdev, dma_addr, size, dir);
++	else if (dir = DMA_FROM_DEVICE)
++		mark_clean(dma_addr, size);
++}
++
++/*
+  * Map a set of buffers described by scatterlist in streaming mode for DMA.
+  * This is the scatter-gather version of the above swiotlb_map_single
+  * interface.  Here the scatter gather list elements are each tagged with the
+@@ -650,6 +681,8 @@ EXPORT_SYMBOL(swiotlb_map_sg);
+ EXPORT_SYMBOL(swiotlb_unmap_sg);
+ EXPORT_SYMBOL(swiotlb_sync_single_for_cpu);
+ EXPORT_SYMBOL(swiotlb_sync_single_for_device);
++EXPORT_SYMBOL_GPL(swiotlb_sync_single_range_for_cpu);
++EXPORT_SYMBOL_GPL(swiotlb_sync_single_range_for_device);
+ EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
+ EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
+ EXPORT_SYMBOL(swiotlb_dma_mapping_error);
+diff --git a/include/asm-x86_64/swiotlb.h b/include/asm-x86_64/swiotlb.h
+--- a/include/asm-x86_64/swiotlb.h
++++ b/include/asm-x86_64/swiotlb.h
+@@ -15,6 +15,14 @@ extern void swiotlb_sync_single_for_cpu(
+ extern void swiotlb_sync_single_for_device(struct device *hwdev,
+ 					    dma_addr_t dev_addr,
+ 					    size_t size, int dir);
++extern void swiotlb_sync_single_range_for_cpu(struct device *hwdev,
++					      dma_addr_t dev_addr,
++					      unsigned long offset,
++					      size_t size, int dir);
++extern void swiotlb_sync_single_range_for_device(struct device *hwdev,
++						 dma_addr_t dev_addr,
++						 unsigned long offset,
++						 size_t size, int dir);
+ extern void swiotlb_sync_sg_for_cpu(struct device *hwdev,
+ 				     struct scatterlist *sg, int nelems,
+ 				     int dir);
 -- 
 John W. Linville
 linville@tuxdriver.com
