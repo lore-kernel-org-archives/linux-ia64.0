@@ -1,107 +1,52 @@
-From: Prarit Bhargava <prarit@sgi.com>
-Date: Tue, 02 Aug 2005 17:08:22 +0000
-Subject: [PATCH]: SN fix bus->sysdata pointer and memory cleanups
-Message-Id: <42EFA886.9020503@sgi.com>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="------------080107020501010905070202"
+From: Keith Owens <kaos@sgi.com>
+Date: Tue, 30 Aug 2005 05:04:24 +0000
+Subject: [PATCH 2.6.13 2/7] MCA/INIT: add an extra thread_info flag
+Message-Id: <20050830050424.7997.56925.sendpatchset@kao2.melbourne.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------080107020501010905070202
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Add an extra thread_info flag to indicate the special MCA/INIT stacks.
+Mainly for debuggers.
 
-This patch fixes two things
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-The main issue is that bus_fixup calls may potentially call
-functions that require a valid bus->sysdata pointer.  Since
-this is the case, we must set the bus->sysdata pointer before
-calling the bus_fixup functions.  The remaining changes are
-simple fixes to make sure memory is cleaned up in the function.
+---
 
-This patch was generated against Tony Luck's latest ia64 tree.
+ ptrace.h      |    2 +-
+ thread_info.h |    2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-Signed-off-by: Prarit Bhargava <prarit@sgi.com>
-
-P.
-
---------------080107020501010905070202
-Content-Type: text/plain;
- name="tioca_fixup.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tioca_fixup.patch"
-
-This patch fixes two things
-
-The main issue is that bus_fixup calls may potentially call
-functions that require a valid bus->sysdata pointer.  Since
-this is the case, we must set the bus->sysdata pointer before
-calling the bus_fixup functions.  The remaining changes are
-simple fixes to make sure memory is cleaned up in the function.
-
-This patch was generated against Tony Luck's latest ia64 tree.
-
-Signed-off-by: Prarit Bhargava <prarit@sgi.com>
-
-diff --git a/arch/ia64/sn/kernel/io_init.c b/arch/ia64/sn/kernel/io_init.c
---- a/arch/ia64/sn/kernel/io_init.c
-+++ b/arch/ia64/sn/kernel/io_init.c
-@@ -322,7 +322,7 @@ void sn_pci_controller_fixup(int segment
- 	struct pci_controller *controller;
- 	struct pcibus_bussoft *prom_bussoft_ptr;
- 	struct hubdev_info *hubdev_info;
--	void *provider_soft;
-+	void *provider_soft = NULL;
- 	struct sn_pcibus_provider *provider;
+Index: linux/include/asm-ia64/ptrace.h
+=================================--- linux.orig/include/asm-ia64/ptrace.h	2005-06-18 05:48:29.000000000 +1000
++++ linux/include/asm-ia64/ptrace.h	2005-08-01 12:25:33.360883229 +1000
+@@ -119,7 +119,7 @@ struct pt_regs {
+ 	unsigned long ar_unat;		/* interrupted task's NaT register (preserved) */
+ 	unsigned long ar_pfs;		/* prev function state  */
+ 	unsigned long ar_rsc;		/* RSE configuration */
+-	/* The following two are valid only if cr_ipsr.cpl > 0: */
++	/* The following two are valid only if cr_ipsr.cpl > 0 || ti->flags & _TIF_MCA_INIT */
+ 	unsigned long ar_rnat;		/* RSE NaT */
+ 	unsigned long ar_bspstore;	/* RSE bspstore */
  
-  	status = sal_get_pcibus_info((u64) segment, (u64) busnum,
-@@ -338,7 +338,7 @@ void sn_pci_controller_fixup(int segment
- 	if (bus == NULL) {
-  		bus = pci_scan_bus(busnum, &pci_root_ops, controller);
-  		if (bus == NULL)
-- 			return;	/* error, or bus already scanned */
-+ 			goto error_return; /* error, or bus already scanned */
-  		bus->sysdata = NULL;
- 	}
+Index: linux/include/asm-ia64/thread_info.h
+=================================--- linux.orig/include/asm-ia64/thread_info.h	2005-08-01 11:49:13.053126287 +1000
++++ linux/include/asm-ia64/thread_info.h	2005-08-01 12:25:48.541555064 +1000
+@@ -76,6 +76,7 @@ struct thread_info {
+ #define TIF_SIGDELAYED		5	/* signal delayed from MCA/INIT/NMI/PMI context */
+ #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_RESCHED */
+ #define TIF_MEMDIE		17
++#define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
  
-@@ -351,28 +351,30 @@ void sn_pci_controller_fixup(int segment
- 	 */
+ #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
+ #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
+@@ -85,6 +86,7 @@ struct thread_info {
+ #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
+ #define _TIF_SIGDELAYED	(1 << TIF_SIGDELAYED)
+ #define _TIF_POLLING_NRFLAG	(1 << TIF_POLLING_NRFLAG)
++#define _TIF_MCA_INIT		(1 << TIF_MCA_INIT)
  
- 	if (prom_bussoft_ptr->bs_asic_type >= PCIIO_ASIC_MAX_TYPES)
--		return;		/* unsupported asic type */
-+		goto error_return; /* unsupported asic type */
- 
- 	if (prom_bussoft_ptr->bs_asic_type == PCIIO_ASIC_TYPE_PPB)
- 		goto error_return; /* no further fixup necessary */
- 
- 	provider = sn_pci_provider[prom_bussoft_ptr->bs_asic_type];
- 	if (provider == NULL)
--		return;		/* no provider registerd for this asic */
-+		goto error_return; /* no provider registerd for this asic */
- 
--	provider_soft = NULL;
-+	bus->sysdata = controller;
- 	if (provider->bus_fixup)
- 		provider_soft = (*provider->bus_fixup) (prom_bussoft_ptr, controller);
- 
--	if (provider_soft == NULL)
--		return;		/* fixup failed or not applicable */
-+	if (provider_soft == NULL) {
-+		/* fixup failed or not applicable */
-+		bus->sysdata = NULL;
-+		goto error_return;
-+	}
- 
- 	/*
- 	 * Generic bus fixup goes here.  Don't reference prom_bussoft_ptr
- 	 * after this point.
- 	 */
- 
--	bus->sysdata = controller;
- 	PCI_CONTROLLER(bus)->platform_data = provider_soft;
- 	nasid = NASID_GET(SN_PCIBUS_BUSSOFT(bus)->bs_base);
- 	cnode = nasid_to_cnodeid(nasid);
-
---------------080107020501010905070202--
+ /* "work to do on user-return" bits */
+ #define TIF_ALLWORK_MASK	(_TIF_NOTIFY_RESUME|_TIF_SIGPENDING|_TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SIGDELAYED)
