@@ -1,88 +1,74 @@
-From: Len Brown <len.brown@intel.com>
-Date: Thu, 25 Aug 2005 14:57:03 +0000
-Subject: IA64 allnoconfig buildfix
-Message-Id: <1124982076.16880.8.camel@toshiba>
-MIME-Version: 1
-Content-Type: multipart/mixed; boundary="=-XH3cWEXZ73e4iKM/77oi"
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Wed, 31 Aug 2005 19:53:18 +0000
+Subject: [PATCH] remove die_notifiers if CONFIG_DEBUG_KERNEL not set
+Message-Id: <Pine.LNX.4.62.0508311247130.28674@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-To: linux-ia64@vger.kernel.org
-
-
---=-XH3cWEXZ73e4iKM/77oi
-Content-Type: text/plain
+MIME-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+To: Andi Kleen <ak@suse.de>
+Cc: "Lynch, Rusty" <rusty.lynch@intel.com>, linux-mm@kvack.org, prasanna@in.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Keshavamurthy, Anil S" <anil.s.keshavamurthy@intel.com>, "Luck, Tony" <tony.luck@intel.com>
 
-Tony,
-The ia64 allnoconfig build fails for some ACPI vs PCI reasons I've fixed
-in my tree, but this small IA64 specific fix is needed also.
-It stems from allnoconfig choosing CONFIG_PROC_FS=n
-and sn_forc_interrupt_flag being defined within
-CONFIG_PROC_FS, but used outside it.
+Use of die_notifiers is a debugging feature that is only used if 
+CONFIG_DEBUG_KERNEL is set. For a kernel without debugging there is no 
+need of die notifiers. This will generate no code for notify_die if 
+debugging is not on. Seems that there is an expectation that future distro 
+releases will have CONFIG_KPROBES on. They will therefore also have 
+CONFIG_DEBUG_KERNEL set and thus the die notifiers will work and the 
+notifier will be enabled in do_ia64_page_fault.
 
-cheers,
--Len
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Index: linux-acpi-2.6/arch/ia64/sn/kernel/irq.c
-===================================================================
---- linux-acpi-2.6.orig/arch/ia64/sn/kernel/irq.c
-+++ linux-acpi-2.6/arch/ia64/sn/kernel/irq.c
-@@ -23,7 +23,7 @@ static void force_interrupt(int irq);
- static void register_intr_pda(struct sn_irq_info *sn_irq_info);
- static void unregister_intr_pda(struct sn_irq_info *sn_irq_info);
+Index: linux-2.6.13/include/asm-ia64/kdebug.h
+=================================--- linux-2.6.13.orig/include/asm-ia64/kdebug.h	2005-08-28 16:41:01.000000000 -0700
++++ linux-2.6.13/include/asm-ia64/kdebug.h	2005-08-31 12:35:17.000000000 -0700
+@@ -35,14 +35,15 @@ struct die_args {
+ 	int signr;
+ };
  
--extern int sn_force_interrupt_flag;
-+int sn_force_interrupt_flag = 1;
- extern int sn_ioif_inited;
- static struct list_head **sn_irq_lh;
- static spinlock_t sn_irq_info_lock = SPIN_LOCK_UNLOCKED; /* non-IRQ
-lock */
-Index: linux-acpi-2.6/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
-===================================================================
---- linux-acpi-2.6.orig/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
-+++ linux-acpi-2.6/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
-@@ -52,7 +52,7 @@ static int licenseID_open(struct inode *
-  * the bridge chip.  The hardware will then send an interrupt message
-if the
-  * interrupt line is active.  This mimics a level sensitive interrupt.
-  */
--int sn_force_interrupt_flag = 1;
-+extern int sn_force_interrupt_flag;
+-int register_die_notifier(struct notifier_block *nb);
+-extern struct notifier_block *ia64die_chain;
+-
+ enum die_val {
+ 	DIE_BREAK = 1,
+ 	DIE_SS,
+ 	DIE_PAGE_FAULT,
+ };
++#ifdef CONFIG_DEBUG_KERNEL
++extern struct notifier_block *ia64die_chain;
++
++int register_die_notifier(struct notifier_block *nb);
  
- static int sn_force_interrupt_show(struct seq_file *s, void *p)
- {
-
-
---=-XH3cWEXZ73e4iKM/77oi
-Content-Disposition: attachment; filename="SN-vs-CONFIG_PROC_FS=n.patch"
-Content-Type: text/x-patch; name="SN-vs-CONFIG_PROC_FS=n.patch"; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-
-Index: linux-acpi-2.6/arch/ia64/sn/kernel/irq.c
-===================================================================
---- linux-acpi-2.6.orig/arch/ia64/sn/kernel/irq.c
-+++ linux-acpi-2.6/arch/ia64/sn/kernel/irq.c
-@@ -23,7 +23,7 @@ static void force_interrupt(int irq);
- static void register_intr_pda(struct sn_irq_info *sn_irq_info);
- static void unregister_intr_pda(struct sn_irq_info *sn_irq_info);
+ static inline int notify_die(enum die_val val, char *str, struct pt_regs *regs,
+ 			     long err, int trap, int sig)
+@@ -57,5 +58,11 @@ static inline int notify_die(enum die_va
  
--extern int sn_force_interrupt_flag;
-+int sn_force_interrupt_flag = 1;
- extern int sn_ioif_inited;
- static struct list_head **sn_irq_lh;
- static spinlock_t sn_irq_info_lock = SPIN_LOCK_UNLOCKED; /* non-IRQ lock */
-Index: linux-acpi-2.6/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
-===================================================================
---- linux-acpi-2.6.orig/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
-+++ linux-acpi-2.6/arch/ia64/sn/kernel/sn2/sn_proc_fs.c
-@@ -52,7 +52,7 @@ static int licenseID_open(struct inode *
-  * the bridge chip.  The hardware will then send an interrupt message if the
-  * interrupt line is active.  This mimics a level sensitive interrupt.
-  */
--int sn_force_interrupt_flag = 1;
-+extern int sn_force_interrupt_flag;
+ 	return notifier_call_chain(&ia64die_chain, val, &args);
+ }
++#else
++
++#define notify_die(val, str, regs, err, trap, sig) 0
++#define register_die_notifier(nb) do { } while (0)
++
++#endif
  
- static int sn_force_interrupt_show(struct seq_file *s, void *p)
- {
-
---=-XH3cWEXZ73e4iKM/77oi--
-
+ #endif
+Index: linux-2.6.13/arch/ia64/kernel/traps.c
+=================================--- linux-2.6.13.orig/arch/ia64/kernel/traps.c	2005-08-28 16:41:01.000000000 -0700
++++ linux-2.6.13/arch/ia64/kernel/traps.c	2005-08-31 12:35:17.000000000 -0700
+@@ -28,6 +28,7 @@ extern spinlock_t timerlist_lock;
+ fpswa_interface_t *fpswa_interface;
+ EXPORT_SYMBOL(fpswa_interface);
+ 
++#ifdef CONFIG_DEBUG_KERNEL
+ struct notifier_block *ia64die_chain;
+ static DEFINE_SPINLOCK(die_notifier_lock);
+ 
+@@ -40,6 +41,7 @@ int register_die_notifier(struct notifie
+ 	spin_unlock_irqrestore(&die_notifier_lock, flags);
+ 	return err;
+ }
++#endif
+ 
+ void __init
+ trap_init (void)
