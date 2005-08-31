@@ -1,31 +1,38 @@
-From: "David S. Miller" <davem@davemloft.net>
-Date: Tue, 30 Aug 2005 23:56:31 +0000
-Subject: Re: [PATCH] Only process_die notifier in ia64_do_page_fault if
-Message-Id: <20050830.165631.122559296.davem@davemloft.net>
+From: Andi Kleen <ak@suse.de>
+Date: Wed, 31 Aug 2005 00:05:00 +0000
+Subject: Re: [PATCH] Only process_die notifier in ia64_do_page_fault if KPROBES is configured.
+Message-Id: <200508310205.00965.ak@suse.de>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F0443A9A1@scsmsx401.amr.corp.intel.com>
-	<200508310138.09841.ak@suse.de>
-In-Reply-To: <200508310138.09841.ak@suse.de>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F0443A9A1@scsmsx401.amr.corp.intel.com> <200508310138.09841.ak@suse.de> <Pine.LNX.4.62.0508301642570.20548@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.62.0508301642570.20548@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: ak@suse.de
-Cc: tony.luck@intel.com, clameter@engr.sgi.com, rusty@linux.intel.com, rusty.lynch@intel.com, linux-mm@kvack.org, prasanna@in.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, anil.s.keshavamurthy@intel.com
+To: Christoph Lameter <clameter@engr.sgi.com>
+Cc: "Luck, Tony" <tony.luck@intel.com>, Rusty Lynch <rusty@linux.intel.com>, "Lynch, Rusty" <rusty.lynch@intel.com>, linux-mm@kvack.org, prasanna@in.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, "Keshavamurthy, Anil S" <anil.s.keshavamurthy@intel.com>
 
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] Only process_die notifier in ia64_do_page_fault if KPROBES is configured.
-Date: Wed, 31 Aug 2005 01:38:08 +0200
+On Wednesday 31 August 2005 01:54, Christoph Lameter wrote:
 
-> On Wednesday 31 August 2005 01:05, Luck, Tony wrote:
-> > >Please do not generate any code if the feature cannot ever be
-> > >used (CONFIG_KPROBES off). With this patch we still have lots of
-> > >unnecessary code being executed on each page fault.
-> >
-> > I can (eventually) wrap this call inside the #ifdef CONFIG_KPROBES.
-> 
-> At least the original die notifiers were designed as a generic debugger
-> interface, not a kprobes specific thing. So I don't think it's a good idea.
+> Certainly not a big effect (if we make sure the compiler knows that
+> this test mostly fails and insure that the variable is in
+> __mostly_read) 
 
-Me neither, I think a way too big deal is being made about
-about this by the ia64 folks.  Just put the dang hook in
-there unconditionally already :-)
+Currently neither, but that could be easily fixed.
+
+> but this is a frequently executed code path and the code 
+> is there without purpose if CONFIG_KPROBES is off.
+
+Well if you really worry about it then it might be better to do some dynamic
+code patching to make generic and distribution kernels too.
+
+> It wont get too bad unless lots of other people have similar ideas about
+> fixing their race conditions using similar methods. But we will be setting
+> a bad precedent if we allow this.
+
+Agreed on the general direction, but I didn't see an alternative
+for kprobes for this. Well actually the hook could be maybe
+right now moved into the part before kernel oops which is much less
+frequently executed, but then it'll likely move up again once
+kprobes support user space probes.
+
+-Andi
