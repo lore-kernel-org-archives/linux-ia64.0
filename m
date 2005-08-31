@@ -1,29 +1,86 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Date: Wed, 24 Aug 2005 22:49:29 +0000
-Subject: Re: [PATCH 05/15] ia64: remove use of asm/segment.h
-Message-Id: <20050824224929.GB2714@linux-mips.org>
+From: tony.luck@intel.com
+Date: Wed, 31 Aug 2005 23:43:15 +0000
+Subject: testing mca/init patch
+Message-Id: <200508312343.j7VNhFOZ012157@agluck-lia64.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.61.0508241139100.23956@nylon.am.freescale.net> <Pine.LNX.4.61.0508241152380.23956@nylon.am.freescale.net> <200508241409.55570.bjorn.helgaas@hp.com>
-In-Reply-To: <200508241409.55570.bjorn.helgaas@hp.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-To: Bjorn Helgaas <bjorn.helgaas@hp.com>
-Cc: Kumar Gala <galak@freescale.com>, linux-kernel@vger.kernel.org, Andrew Morton <akpm@osdl.org>, tony.luck@intel.com, linux-ia64@vger.kernel.org
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+To: linux-ia64@vger.kernel.org
 
-On Wed, Aug 24, 2005 at 02:09:55PM -0600, Bjorn Helgaas wrote:
+To make life easier for testers, I've applied Keith's patches
+and put them into my test tree.
 
-> On Wednesday 24 August 2005 10:53 am, Kumar Gala wrote:
-> > Removed IA64 architecture specific users of asm/segment.h and
-> > asm-ia64/segment.h itself
-> 
-> I posted a similar patch a month ago, but I only removed the
-> arch/ia64 includes of asm/segment.h.
-> 
-> There are still a few drivers that include asm/segment.h, so
-> I don't think we should remove asm/segment.h itself just yet.
+I locally applied one insignificant change in ia64_init_handler()
+to print the cpu number and the state of sos->monarch in the
+initial printk in that routine (because there was once a bug where
+Tiger SAL sent all cpus to the registered "master" INIT entry point.
+The output below shows that I have a good SAL that didn't do this).
+I haven't applied this change to my GIT tree.
 
-<asm/segment.h> was replaced by <asm/uaccess.h> in 2.1.4 and we still have
-references ...
 
-  Ralf
+Here's a trimmed down version of the output after I hit the INIT
+button with some comments by me about timing inside {} brackets:
+
+{nothing for a few seconds ... felt like more than 5}
+CPU1: Entered OS INIT handler. PSP=FFe301a0 monarch=3D1
+Delaying for 5 seconds...
+{another delay, perhaps this one was 5 seconds}
+Processes interrupted by INIT - 0 (cpu 1 task 0xe0000001ffe90000)
+
+
+Backtrace of pid 1 (init)
+
+Call Trace:
+ [<a000000100704ed0>] schedule+0xb90/0x14e0
+                                sp=E0000001fef77d80 bsp=E0000001fef710e0
+ [<a000000100706f40>] schedule_timeout+0xe0/0x1e0
+                                sp=E0000001fef77d90 bsp=E0000001fef710a8
+ [<a000000100166710>] do_select+0x330/0x7e0
+                                sp=E0000001fef77dd0 bsp=E0000001fef70f78
+ [<a000000100167130>] sys_select+0x570/0x9a0
+                                sp=E0000001fef77df0 bsp=E0000001fef70e98
+ [<a00000010000bd20>] ia64_ret_from_syscall+0x0/0x20
+                                sp=E0000001fef77e30 bsp=E0000001fef70e98
+ [<a000000000010640>] __kernel_syscall_via_break+0x0/0x20
+                                sp=E0000001fef78000 bsp=E0000001fef70e98
+
+{snipped dumps of lots of processes, all looked plausible}
+
+Backtrace of pid 4684 (bash)
+
+Call Trace:
+ [<a000000100704ed0>] schedule+0xb90/0x14e0
+                                sp=E00000018659fd60 bsp=E000000186599118
+ [<a000000100707010>] schedule_timeout+0x1b0/0x1e0
+                                sp=E00000018659fd70 bsp=E0000001865990e0
+ [<a00000010043e9a0>] read_chan+0x5c0/0x13c0
+                                sp=E00000018659fdb0 bsp=E000000186598fc0
+ [<a000000100430460>] tty_read+0x1c0/0x1e0
+                                sp=E00000018659fe20 bsp=E000000186598f78
+ [<a000000100135a20>] vfs_read+0x180/0x380
+                                sp=E00000018659fe20 bsp=E000000186598f20
+ [<a000000100136250>] sys_read+0x70/0xe0
+                                sp=E00000018659fe20 bsp=E000000186598ea8
+ [<a00000010000bd20>] ia64_ret_from_syscall+0x0/0x20
+                                sp=E00000018659fe30 bsp=E000000186598ea8
+ [<a000000000010640>] __kernel_syscall_via_break+0x0/0x20
+                                sp=E0000001865a0000 bsp=E000000186598ea8
+
+INIT dump complete.  Monarch on cpu 1 returning to normal service.
+{another several second delay}
+CPU3: Entered OS INIT handler. PSP=FFe301a0 monarch=3D0
+{another several second delay}
+CPU2: Entered OS INIT handler. PSP=FFe301a0 monarch=3D0
+{another several second delay}
+CPU0: Entered OS INIT handler. PSP=FFe301a0 monarch=3D0
+{another several second delay}
+CPU1: Entered OS INIT handler. PSP=FFe301a0 monarch=3D0
+cpu 1, INIT inconsistent r12 and r13, original stack not modified
+{system hung}
+
+The above is at least as good as the previous behaivour, but something
+bad happened there at the end.  There were also more delays than I
+was expecting.
+
+-Tony
