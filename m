@@ -1,7 +1,7 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Wed, 31 Aug 2005 21:45:38 +0000
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 31 Aug 2005 22:07:00 +0000
 Subject: RE: [PATCH] Reserve syscall number for sys_migrate_pages
-Message-Id: <Pine.LNX.4.62.0508311443030.29514@schroedinger.engr.sgi.com>
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F04472C1F@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.62.0508311347470.29108@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.62.0508311347470.29108@schroedinger.engr.sgi.com>
@@ -10,17 +10,15 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 31 Aug 2005, Luck, Tony wrote:
 
-> >There is general agreement on sys_migrate_pages. See the linux-mm 
-> >archives.
-> 
-> So send the patch to Andrew Morton, and he'll coordinate adding
-> it to all the architectures.
+>There is general agreement on sys_migrate_pages. See the linux-mm 
+>archives.
 
-sys_migrate_pages is going to be available first on ia64. And it will take 
-awhile to get the sequence of memory hotplug and page migration 
-patches through this. Without this patchset the number for the system call 
-may change multiple times and require repeated changes to the libraries, 
-tools and patches.
+Can you provide pointers to threads with this general agreement.
 
+My searches of the archive aren't very conclusive. I found some
+discussions between Andi Kleen and yourself, but at that point
+(mid July) you seemed to be arguing _against_ the current suggestions
+for migration.
+
+-Tony
