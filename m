@@ -1,144 +1,45 @@
-From: Paul Jackson <pj@sgi.com>
-Date: Mon, 22 Aug 2005 20:38:23 +0000
-Subject: Re: [PATCH] ia64 cpuset + build_sched_domains() mangles structures
-Message-Id: <20050822133823.6b206d87.pj@sgi.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Wed, 31 Aug 2005 20:59:54 +0000
+Subject: [PATCH] Reserve syscall number for sys_migrate_pages
+Message-Id: <Pine.LNX.4.62.0508311347470.29108@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <43074328.MailOXV1UXUHF@jackhammer.engr.sgi.com>
-In-Reply-To: <43074328.MailOXV1UXUHF@jackhammer.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: John Hawkes <hawkes@jackhammer.engr.sgi.com>
-Cc: linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, mingo@elte.hu, dino@in.ibm.com, nickpiggin@yahoo.com.au, akpm@osdl.org
+To: linux-ia64@vger.kernel.org
 
-[P.S. - I just noticed that Dinakar is reporting another problem,
-        something about a panic on stress testing.  Dinakar - should
-	we adapt what I call choice (2) below, to disable this feature
-	in 2.6.13, instead of the choice (3) I recommend below? -pj ]
+This patch adds a reservation for the sys_migrate_pages system call. I 
+just had to rework Ray's page migration patchset because the syscall has 
+been taken for inotify. This patch is will make sure that we are not 
+continuing to do this.
 
-In separate email, Nick suggested disabling some of this mechanism in
-2.6.13, in order to provide more soak time for Hawkes dynamic sched
-domain fix for partial nodes in 2.6.14.
+Signed-off-by: Christoph Lameter <clameter@sgi.com>
 
-Nick's hope was to find some quick and easy (and safe) way to avoid the
-oops that Hawkes found for 2.6.13 (which is almost out the door).
-
-There are three easy ways I see offhand one might do to avoid this
-oops in 2.6.13
-
- 1) disable 'cpu_exclusive' cpusets
- 2) disable Dinakar's patch entirely.
- 3) disable Dinakar's patch just for partial node cpusets.
+Index: linux-2.6.13/include/asm-ia64/unistd.h
+=================================--- linux-2.6.13.orig/include/asm-ia64/unistd.h	2005-08-28 16:41:01.000000000 -0700
++++ linux-2.6.13/include/asm-ia64/unistd.h	2005-08-31 13:55:18.000000000 -0700
+@@ -269,12 +269,13 @@
+ #define __NR_inotify_init		1277
+ #define __NR_inotify_add_watch		1278
+ #define __NR_inotify_rm_watch		1279
++#define __NR_sys_migrate_pages		1280
  
-The 'cpu_exclusive' cpusets are already in the kernel, as of 2.6.12,
-though until Dinakar's patch is added, they are of limited usefulness.
-I'd mildly prefer not to disable them in 2.6.13 (choice (1) above),
-unless we can't find a better way.  A few poor folks off in some corner
-of cpuset land would probably notice that something that worked in
-2.6.12 was disconnected in 2.6.13.
-
-What Dinakar's patch, added for 2.6.13, does is (roughly):
-
-  If the cpuset code notices that it is setting up a cpuset
-  marked 'cpu_exclusive', then the cpuset code calls the
-  dynamic sched domain code to define a sched domain along
-  the boundaries of that cpuset.
-
-The safest, mind numbingly simple thing to do that would avoid
-the oops that Hawkes reported is to simply not have the cpuset
-code call the code to setup a dynamic sched domain.  This is
-choice (2) above, and could be done at the last hour with
-relative safety.
-
-Here is an untested patch that does (2):
-
-==
-Index: linux-2.6.13-cpuset-mempolicy-migrate/kernel/cpuset.c
-=================================--- linux-2.6.13-cpuset-mempolicy-migrate.orig/kernel/cpuset.c
-+++ linux-2.6.13-cpuset-mempolicy-migrate/kernel/cpuset.c
-@@ -627,6 +627,15 @@ static int validate_change(const struct 
-  * Call with cpuset_sem held.  May nest a call to the
-  * lock_cpu_hotplug()/unlock_cpu_hotplug() pair.
-  */
-+
-+/*
-+ * Hack to avoid 2.6.13 partial node dynamic sched domain bug.
-+ * Disable letting 'cpu_exclusive' cpusets define dynamic sched
-+ * domains, until the sched domain can handle partial nodes.
-+ * Remove this ifdef hackery when sched domains fixed.
-+ */
-+#define DISABLE_EXCLUSIVE_CPU_DOMAINS 1
-+#ifdef DISABLE_EXCLUSIVE_CPU_DOMAINS
- static void update_cpu_domains(struct cpuset *cur)
- {
- 	struct cpuset *c, *par = cur->parent;
-@@ -667,6 +676,11 @@ static void update_cpu_domains(struct cp
- 	partition_sched_domains(&pspan, &cspan);
- 	unlock_cpu_hotplug();
- }
-+#else
-+static void update_cpu_domains(struct cpuset *cur)
-+{
-+}
-+#endif
+ #ifdef __KERNEL__
  
- static int update_cpumask(struct cpuset *cs, char *buf)
- {
-
-
-==
-For a half-dozen easy lines of code, if we have a few hours and
-a chance for Dinakar and Hawkes to concur, the best solution is
-choice (3) above.  The cpuset code that calls out to the code
-to setup a dynamic sched domain already avoides that call out for
-a variety of conditions (such as an empty cpuset or the top
-cpuset).  It can just as easily avoid the call out for one more
-reason, that being that the cpuset in question is not on node
-boundaries (for some node, uses a proper non-empty subset of the
-cpus on that node).
-
-Here is an untested patch that does this:
-
-==
-Index: linux-2.6.13-cpuset-mempolicy-migrate/kernel/cpuset.c
-=================================--- linux-2.6.13-cpuset-mempolicy-migrate.orig/kernel/cpuset.c
-+++ linux-2.6.13-cpuset-mempolicy-migrate/kernel/cpuset.c
-@@ -636,6 +636,23 @@ static void update_cpu_domains(struct cp
- 		return;
+ #include <linux/config.h>
  
- 	/*
-+	 * Hack to avoid 2.6.13 partial node dynamic sched domain bug.
-+	 * Require the 'cpu_exclusive' cpuset to include all (or none)
-+	 * of the CPUs on each node, or return w/o changing sched domains.
-+	 * Remove this hack when dynamic sched domains fixed.
-+	 */
-+	{
-+		int i, j;
-+
-+		for_each_cpu_mask(i, cur->cpus_allowed) {
-+			for_each_cpu_mask(j, node_to_cpumask(cpu_to_node(i))) {
-+				if (!cpu_isset(j, cur->cpus_allowed))
-+					return;
-+			}
-+		}
-+	}
-+
-+	/*
- 	 * Get all cpus from parent's cpus_allowed not part of exclusive
- 	 * children
- 	 */
-
-==
-I recommend this last patch above - choice (3).  It provides what
-Dinakar intended to allow user control of sched domains, while
-avoiding the corner case that Hawkes reported, where a sched
-domain not on a node boundary could oops the kernel.
-
-I will prepare a real patch that does (3), and send it out later
-today.
-
-
--- 
-                  I won't rest till it's the best ...
-                  Programmer, Linux Scalability
-                  Paul Jackson <pj@sgi.com> 1.925.600.0401
+-#define NR_syscalls			256 /* length of syscall table */
++#define NR_syscalls			257 /* length of syscall table */
+ 
+ #define __ARCH_WANT_SYS_RT_SIGACTION
+ 
+Index: linux-2.6.13/arch/ia64/kernel/entry.S
+=================================--- linux-2.6.13.orig/arch/ia64/kernel/entry.S	2005-08-28 16:41:01.000000000 -0700
++++ linux-2.6.13/arch/ia64/kernel/entry.S	2005-08-31 13:44:12.000000000 -0700
+@@ -1577,5 +1577,6 @@ sys_call_table:
+ 	data8 sys_inotify_init
+ 	data8 sys_inotify_add_watch
+ 	data8 sys_inotify_rm_watch
++	data8 sys_ni_syscall			// reserved for sys_migrate_pages
+ 
+ 	.org sys_call_table + 8*NR_syscalls	// guard against failures to increase NR_syscalls
