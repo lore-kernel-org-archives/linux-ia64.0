@@ -1,36 +1,32 @@
-From: Christian Hildner <christian.hildner@hob.de>
-Date: Fri, 19 Aug 2005 06:19:51 +0000
-Subject: Re: Update to Software Developer's Manual
-Message-Id: <43057A07.6030502@hob.de>
+From: "Luck, Tony" <tony.luck@intel.com>
+Date: Wed, 31 Aug 2005 17:15:17 +0000
+Subject: Testing Keith's MCA/INIT patch (was RE: git pull on ia64 linux tree)
+Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F044726E4@scsmsx401.amr.corp.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F042C7BF6@scsmsx401.amr.corp.intel.com>
-In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F042C7BF6@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-Luck, Tony schrieb:
+>What testing would you like to see?
 
->There is a specification update to the Itanium Architecture
->Software Developer's Manual available at:
->
->http://developer.intel.com/design/itanium/downloads/248699.htm
->
->One new goody is a new PAL call for error injection (which should
->help a lot with testing the MCA paths ... bad news is that you'll
->have to wait for Montecito to see a PAL that implements it).
->
-Just for interest. Did anyone already boot Linux on Montecito hardware? 
-Are additional patches necessary to do so?
+As much testing as possible :-)
 
-Christian
+I think most platforms have some way to generate an INIT (either
+a front panel button like on Tiger, or by asking the maintenance
+processor to generate one).  So it would be good to hear an Ack
+from as many different platforms as possible.
 
->-Tony
->
->P.S. Sunglasses may be required for pages 15-17 ... the authors
->of those pages seem to have gone a little wild with their use
->of colour :-)
->
-PPS: I wasn't careful enough and even burned my skin ;-).
+MCA testing is somewhat harder as it requires specialized h/w
+and/or s/w to inject the error.  But I know that some of you can
+do this ... so I'd like to hear what happens.
 
+>I do not understand the issues enough
+>to comment on the patches, but could possibly coax a couple other people
+>who are into spending a half-day on it.
+
+The more eyes the better.  Even better than coaxing someone to
+look at this would be coaxing them to explain it to you (they'll
+have to look harder, and you'll learn more about this code).
+
+-Tony
