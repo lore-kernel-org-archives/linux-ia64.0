@@ -1,72 +1,51 @@
-From: Keith Owens <kaos@sgi.com>
-Date: Thu, 01 Sep 2005 03:20:46 +0000
+From: david mosberger <dmosberger@gmail.com>
+Date: Thu, 01 Sep 2005 04:58:58 +0000
 Subject: Re: testing mca/init patch
-Message-Id: <12725.1125544846@kao2.melbourne.sgi.com>
+Message-Id: <ed5aea430508312158755646b7@mail.gmail.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <200508312343.j7VNhFOZ012157@agluck-lia64.sc.intel.com>
 In-Reply-To: <200508312343.j7VNhFOZ012157@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Wed, 31 Aug 2005 16:43:15 -0700,=20
-tony.luck@intel.com wrote:
->To make life easier for testers, I've applied Keith's patches
->and put them into my test tree.
->
->I locally applied one insignificant change in ia64_init_handler()
->to print the cpu number and the state of sos->monarch in the
->initial printk in that routine (because there was once a bug where
->Tiger SAL sent all cpus to the registered "master" INIT entry point.
->The output below shows that I have a good SAL that didn't do this).
->I haven't applied this change to my GIT tree.
->
->
->Here's a trimmed down version of the output after I hit the INIT
->button with some comments by me about timing inside {} brackets:
->
->{nothing for a few seconds ... felt like more than 5}
+Keith,
 
-That delay is coming from your SAL, nothing I can do about it.
+I took a closer look at your patch set and, by and large, I like it a
+lot.  I suppose there will be more debate as to whether treating
+MCA/INIT events as an asynchronous task-switch is the right way to go
+about it, but so far it looks to me that it does indeed simplify a lot
+while creating only a managable set of new headaches.  I guess a key
+point is whether or not the generic scheduler mods will be accepted...
 
->CPU1: Entered OS INIT handler. PSP=FFe301a0 monarch=3D1
->Delaying for 5 seconds...
->{another delay, perhaps this one was 5 seconds}
+Some other points:
 
-Probably 10 seconds.  5 in ia64_init_handler(), then another 5 in
-ia64_wait_for_slaves().  See below.
+- In several places there are checks of the form:
 
->Processes interrupted by INIT - 0 (cpu 1 task 0xe0000001ffe90000)
++ if ((r12 & -KERNEL_STACK_SIZE) != r13) {
 
-Only one cpu was entered for INIT, not good.
+  I don't understand why you're doing this.  You should check for (r12
+- r13) <  KERNEL_STACK_SIZE.  That does the same without relying on
+alignments (which is something we have been careful to avoid in all
+other ia64 code).  This should also let you drop the patch to
+vmlinux.lds.S.
 
->INIT dump complete.  Monarch on cpu 1 returning to normal service.
->{another several second delay}
+- In ia64_os_mca_virtual_begin(), I'd suggest to use the idiom:
 
-This is wrong.  The slave INIT handler was not invoked when the monarch
-was delivered, instead the slave events were delivered _after_ the
-monarch returned to the interrupted context.  It works for me on SGI's
-SAL, all the cpus enter INIT at the same time, without any noticeable
-delay.  There is no delay nor lockout in the INIT handler code before
-it gets to the first printk, so all the delay and out of order
-execution has to be coming from your SAL.
+    .save rp, r0
 
->CPU3: Entered OS INIT handler. PSP=FFe301a0 monarch=3D0
->{another several second delay}
->CPU2: Entered OS INIT handler. PSP=FFe301a0 monarch=3D0
->{another several second delay}
->CPU0: Entered OS INIT handler. PSP=FFe301a0 monarch=3D0
->{another several second delay}
->CPU1: Entered OS INIT handler. PSP=FFe301a0 monarch=3D0
->cpu 1, INIT inconsistent r12 and r13, original stack not modified
+  to terminate the call-chain.  That should simplify this function.
 
-And why was cpu 1 entered again, this time as a slave and with wrong
-registers?  Looks like another SAL error.
+- I worry about copying machine-state from the MCA/INIT stack to the
+"old" (process) stack.  What if an MCA was caused by an ECC error on
+that old stack?  Wouldn't this prevent you from recovering from what
+might otherwise be a recoverable error?
 
->{system hung}
+Thanks,
 
-Because all 4 cpus are driven as slaves.  All the slaves are waiting
-for the monarch to arrive.  All of the above tells me that the OS code
-is working fine, SAL is not.
-
+  --david
+--
+Mosberger Consulting LLC, voice/fax: 510-744-9372,
+http://www.mosberger-consulting.com/
+35706 Runckel Lane, Fremont, CA 94536
