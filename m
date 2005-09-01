@@ -1,47 +1,58 @@
-From: Sam Ravnborg <sam@ravnborg.org>
-Date: Tue, 13 Sep 2005 19:44:29 +0000
-Subject: Re: 2.6.14-rc1 ia64 rebuilds everything every time
-Message-Id: <20050913194429.GA18319@mars.ravnborg.org>
+From: "John Ik Lee \(WA\)" <jlee@platsolns.com>
+Date: Thu, 01 Sep 2005 22:14:45 +0000
+Subject: RE: Update to Software Developer's Manual
+Message-Id: <AEBB9AF2F7713A4FAB1397435451162E018A4BC9@spock.invent.psi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <23363.1126593124@kao2.melbourne.sgi.com>
-In-Reply-To: <23363.1126593124@kao2.melbourne.sgi.com>
+References: <B8E391BBE9FE384DAA4C5C003888BE6F042C7BF6@scsmsx401.amr.corp.intel.com>
+In-Reply-To: <B8E391BBE9FE384DAA4C5C003888BE6F042C7BF6@scsmsx401.amr.corp.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, Sep 13, 2005 at 07:34:44PM +1000, Peter Chubb wrote:
-> >>>>> "Keith" = Keith Owens <kaos@sgi.com> writes:
-> 
-> 
-> Keith> Best solution: remove (and forbid) recursive definitions in
-> Keith> asm-offset.c.
-> 
-> Unfortunately,I'm not sure that's possible.
-> 
-> 
-> Keith> Kludge 2: Build arch/$(ARCH)/kernel/asm-offsets.s as a
-> Keith> temporary file then check if it has changed or not, only
-> Keith> updating the real arch/$(ARCH)/kernel/asm-offsets.s if there is
-> Keith> any change.
-> 
-> This is what used to happen.
-What actually used to happen was that asm-offsets.h seldom was rebuild
-despite included file had changed in the meantime.
-When it then got rebuild - then we did the "has file changed" trick.
+Hi,
 
-That I can be convinced to add back. On the other hand this is no more
-special than any other fundamental .h file - when it changes we
-recompile was uses it.
+Could you IPF platform makers share when the new PAL entry
+PAL_MC_ERROR_INJECT is going to be available in your platforms?
 
+Thanks,
+John Ik Lee (J.I.)
+Sr. Staff Engineer
+Platform Solutions, Inc
 
-The reason why it hit us hard with ia64 is that is gets rebuild due to
-the circular dependency where the file used to build asm-offsets.h uses
-asm-offsets.h.
-If we solve that problem the 'recompile everything' issue disappear.
+-----Original Message-----
+From: linux-ia64-owner@vger.kernel.org
+[mailto:linux-ia64-owner@vger.kernel.org] On Behalf Of Christian Hildner
+Sent: Thursday, August 18, 2005 11:20 PM
+To: Luck, Tony
+Cc: linux-ia64@vger.kernel.org
+Subject: Re: Update to Software Developer's Manual
 
-Tony already posted an ugly patch to solve most of this.
-I agree fully with Tony this is an ugly patch - did I have better
-ideas how to solve it I would have posted a patch.
+Luck, Tony schrieb:
 
-	Sam
+>There is a specification update to the Itanium Architecture
+>Software Developer's Manual available at:
+>
+>http://developer.intel.com/design/itanium/downloads/248699.htm
+>
+>One new goody is a new PAL call for error injection (which should
+>help a lot with testing the MCA paths ... bad news is that you'll
+>have to wait for Montecito to see a PAL that implements it).
+>
+Just for interest. Did anyone already boot Linux on Montecito hardware? 
+Are additional patches necessary to do so?
+
+Christian
+
+>-Tony
+>
+>P.S. Sunglasses may be required for pages 15-17 ... the authors
+>of those pages seem to have gone a little wild with their use
+>of colour :-)
+>
+PPS: I wasn't careful enough and even burned my skin ;-).
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-ia64" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
