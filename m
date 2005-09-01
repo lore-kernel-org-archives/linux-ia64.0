@@ -1,42 +1,35 @@
-From: Tony Luck <tony.luck@gmail.com>
-Date: Tue, 27 Sep 2005 02:47:43 +0000
-Subject: Re: [patch 2.6.14-rc2 0/5] swiotlb maintenance and x86_64 dma_sync_single_range_for_{cpu,device}
-Message-Id: <12c511ca050926194784b63e5@mail.gmail.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Thu, 01 Sep 2005 00:06:17 +0000
+Subject: RE: [PATCH] Reserve syscall number for sys_migrate_pages
+Message-Id: <Pine.LNX.4.62.0508311701030.30361@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <B8E391BBE9FE384DAA4C5C003888BE6F047E9021@scsmsx401.amr.corp.intel.com>
-	 <20050926224603.GD16113@esmail.cup.hp.com>
-	 <20050927001427.GC5640@tuxdriver.com>
-In-Reply-To: <20050927001427.GC5640@tuxdriver.com>
+References: <Pine.LNX.4.62.0508311347470.29108@schroedinger.engr.sgi.com>
+In-Reply-To: <Pine.LNX.4.62.0508311347470.29108@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Grant Grundler <iod00d@hp.com>, "Luck, Tony" <tony.luck@intel.com>, Matthew Wilcox <matthew@wil.cx>, linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz, ak@suse.de, "Mallick, Asit K" <asit.k.mallick@intel.com>, gregkh@suse.de
+To: linux-ia64@vger.kernel.org
 
-> OK...I read Tony's patch post to imply that he is consenting to lib/ as
-> the location as well.  Tony, please speak-up if that is not the case.
+On Wed, 31 Aug 2005, Luck, Tony wrote:
 
-lib/ is certainly better than drivers/pci ... so unless anyone has a better
-location, we'll go with that.
+> 
+> >There is general agreement on sys_migrate_pages. See the linux-mm 
+> >archives.
+> 
+> Can you provide pointers to threads with this general agreement.
+> 
+> My searches of the archive aren't very conclusive. I found some
+> discussions between Andi Kleen and yourself, but at that point
+> (mid July) you seemed to be arguing _against_ the current suggestions
+> for migration.
 
-> If everyone agrees, I'll re-collect the patches moving everything to
-> lib/ (plus the one I forgot to repost) and Tony's patch and repost.
+The discussions took place between Andi and Ray over the first half of 
+2005. The approach that I advocated recently was not acceptable it seems 
+and thus I am simply continuing to push and improve on the earlier 
+approach by Ray that was negotiated and agreed upon by various parties. 
+These patches are also currently being tested by others.
 
-My patch only removed the include for linux/pci.h and asm/pci.h
-(as per Mathhew Wilcox's suggestion) and then cleaned  up the
-resulting compilation fluff.  There are a few more PCI references in
-comments and printk messages that should be cleaned up too.
-Oh, I only compile tested for ia64 ... so it needs compile-testing
-for x86-64, and boot testing for both archs.
+http://marc.theaimsgroup.com/?l=linux-mm&m2025806616190&w=2
 
-> So, who is the proper committer for this?  Tony?  Or should I send
-> them directly to Andrew?
+http://marc.theaimsgroup.com/?l=linux-mm&m1945947315561&w=2
 
-I have one other change to swiotlb.c (from Alex Williamson) sitting
-in my "test" tree, which needs to not get lost.  I'm happy to drive
-this (target 2.6.15 ... this isn't 2.6.14 bug fix material). So long as
-I don't get burned to a crisp for offloading this Intel specific[1] stuff
-into the generic part of the tree.
-
--Tony
-
-[1] Only ia64 and em64t use this right now.
