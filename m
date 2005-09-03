@@ -1,43 +1,51 @@
-From: Grant Grundler <iod00d@hp.com>
-Date: Fri, 02 Sep 2005 22:23:52 +0000
-Subject: Re: [PATCH 2.6.13] IOCHK interface for I/O error handling/detecting (for ia64)
-Message-Id: <20050902222352.GB12105@esmail.cup.hp.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Sat, 03 Sep 2005 09:36:56 +0000
+Subject: Re: [PATCH 2.6.13] IOCHK interface for I/O error handling/detecting
+Message-Id: <43196EB8.9090207@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <431694DB.90400@jp.fujitsu.com> <20050901172917.I10072@chenjesu.americas.sgi.com> <20050902164828.GA10587@esmail.cup.hp.com> <ed5aea430509021116233eeb39@mail.gmail.com>
-In-Reply-To: <ed5aea430509021116233eeb39@mail.gmail.com>
+References: <431694DB.90400@jp.fujitsu.com> <20050901172917.I10072@chenjesu.americas.sgi.com> <20050902182453.GB28254@parisc-linux.org>
+In-Reply-To: <20050902182453.GB28254@parisc-linux.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: David.Mosberger@acm.org
-Cc: Grant Grundler <iod00d@hp.com>, Brent Casavant <bcasavan@sgi.com>, Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>, linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>
+To: Matthew Wilcox <matthew@wil.cx>
+Cc: Brent Casavant <bcasavan@sgi.com>, linux-ia64@vger.kernel.org, Linux Kernel list <linux-kernel@vger.kernel.org>
 
-On Fri, Sep 02, 2005 at 11:16:10AM -0700, david mosberger wrote:
-> > Sorry - I think this is BS.
-> > 
-> > Please run mmio_test on your box and share the results.
-> > mmio_test is available here:
-> >         svn co http://svn.gnumonks.org/trunk/mmio_test/
+Matthew Wilcox wrote:
+> On Thu, Sep 01, 2005 at 05:45:54PM -0500, Brent Casavant wrote:
 > 
-> Reads are slow, sure, but writes are not (or should not).
+>>I am extremely concerned about the performance implications of this
+>>implementation.  These changes have several deleterious effects on I/O
+>>performance.
+> 
+> 
+> I agree.  I think the iochk patches should be abandoned and the feature
+> reimplemented on top of the asynchronous PCI error notification patches
+> from Linas Vepstas.
 
-Sure, MMIO writes are generally posted. But those aren't always "free".
-At some point, I expect MMIO reads typically will flush those writes
-and thus stall until 2 (or more) PCI bus transactions complete.
+Do you mean that all architecture especially other than PPC64 already
+have enough synchronization point or enough infrastructure to invoke
+those notifiers effectively?  I don't think so.
 
-ISTR locking around MMIO writes was necessary if the box
-to enforce syncronization of the error with the driver.
-ISTR this syncronization was neccessary.  Was that wrong?
+As far as I know, PPC64 is enveloped by a favorable situation.
+At least in situation of readX and inX on PPC64, they already have
+a error check point, and the EEH technology and the firmware make their
+error recovery easier.
+Because PPC64 firmware (or hardware? - I'm not sure) automatically detects
+errors, isolates erroneous device and returns "(type)~0" to kernel,
+readX/inX doesn't need to do any expensive thing unless it get "(type)~0."
+Therefore PPC64 can have a nice chance to invoke notifiers by extending
+the codes in the error check point.
+It is clear that doing same thing on other architecture will be quite
+painful and expensive.
 
-Complicating the MMIO perf picture are fabrics connecting the NUMA cells
-which do NOT enforce MMIO ordering (e.g. Altix).
-In that case, arch code will sometimes need to enforce the write ordering
-by flushing MMIO writes before a driver releases a spinlock or other
-syncronization primitive. This was discussed before and is archived in
-the dialog between Jesse Barns and myself in late 2004 (IIRC).
-
-In any case, mmio_test currently only tests MMIO read perf.
-I need to think about how we might also test MMIO write perf.
-Ie how much more expensive is MMIO read when it follows an MMIO write.
+Why don't you think that it would be useful if the error notifier
+could be invoked from iochk_read()?  I believe the iochk patches
+will help implementing PCI error notification on not only IA64 but
+also i386 and so on.
+Or do you mean we would be happy if we all have a PPC64 box?
 
 
-grant
+Thanks,
+H.Seto
+
