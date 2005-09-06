@@ -1,68 +1,38 @@
-From: Khalid Aziz <khalid.aziz@hp.com>
-Date: Tue, 13 Sep 2005 22:52:55 +0000
-Subject: Re: [RFC] /proc/efi_memmap
-Message-Id: <1126651975.29344.35.camel@lyra.fc.hp.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Tue, 06 Sep 2005 23:05:23 +0000
+Subject: [patch] make exception handler in copy_user more robust
+Message-Id: <200509062306.j86N64g19803@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200509092346.j89NkDdo001318@agluck-lia64.sc.intel.com>
-In-Reply-To: <200509092346.j89NkDdo001318@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-On Tue, 2005-09-13 at 12:30 -0700, Luck, Tony wrote:
-> On Tue, Sep 13, 2005 at 10:05:03AM -0600, Khalid Aziz wrote:
-> > The userspace kexec tools looks at the memory map to verify a new kernel
-> > being loaded in memory will be loaded in memory that is normally
-> > available for it. Same goes for initial ramdisk as well. kexec
-> > opens /proc/iomem on x86 for this. I had sent a patch in July (subject
-> > "[PATCH] /proc/iomem update") that provides same info in /proc/iomem as
-> > x86 does and that will take care of kexec needs. I have already tested
-> > kexec tool for ia64 with that patch and it works fine.
-> 
-> I should dust that off and take a look at it.  /proc/iomem seems a curious
-> name for a file that contains this information.
-> 
-> So what is the current state of kexec for ia64?  I think that there
-> are two modes of operation:
-> 
-> 1) Fast reboot (bypasses f/w ... which takes a significant amount of
->    the reboot time).
-> 
-> 2) A means to getting a running kernel to take a crash dump.
-> 
-> In case 1, the system is still running ... so kexec can load the new
-> kernel from disk, and arrange for an orderly transfer of control from
-> the old kernel to the new.
-> 
-> In case 2, we need to plan ahead, and have the new kernel pre-loaded
-> into some reserved memory so when the panic hits (or the INIT button
-> is pressed) we don't need to do any I/O or memory allocation.  We just
-> leap to the new kernel.  For this case ia64 would appear to have an
-> advantage over other architectures ... we don't need to locate the new
-> kernel at any particular address, so we can leave the original kernel
-> untouched while we boot just using the reserved block of memory.
-> 
-> What's working?  What's still being developed?  Can we get this into
-> shape for 2.6.15?
-> 
-> -Tony
+The exception handler in copy user always expects fault occurs only on
+user space address and the fall back recovery code is written with that
+very assumption in mind.  Recent source code inspection revealed that
+while it worked splendid and to the expectation under normal circumstances,
+It broke down under unexpected condition where some address calculation
+might go outside the legal address range the original copy_user was
+called for.  This patch is to make copy_user exception handler more robust
+and to prevent potential memory corruption.
 
-A working kexec patch requires the EFI memory map walk rewrite patch (so
-we can pass a pristine EFI memory map to the kernel being kexec'd)
-and /proc/iomem patch (for kexec-tool to work). I have been dragging my
-feet on kexec patch partially since those two have not been accepted
-yet :) If you add those two patches, it makes it lot easier for me to
-give you a final kexec patch.
 
--- 
-Khalid
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
 
-==================================
-Khalid Aziz                       Open Source and Linux Organization
-(970)898-9214                                        Hewlett-Packard
-khalid.aziz@hp.com                                  Fort Collins, CO
 
-"The Linux kernel is subject to relentless development" 
-                                - Alessandro Rubini
+--- linux-2.6.13/arch/ia64/lib/memcpy_mck.S.orig	2005-09-06 15:15:29.560795174 -0700
++++ linux-2.6.13/arch/ia64/lib/memcpy_mck.S	2005-09-06 15:21:46.798095240 -0700
+@@ -625,8 +625,11 @@ EK(.ex_handler,  (p17)	st8	[dst1]=r39,8)
+ 	clrrrb
+ 	;;
+ 	alloc	saved_pfs_stack=ar.pfs,3,3,3,0
++	cmp.lt	p8,p0=A,r0
+ 	sub	B = dst0, saved_in0	// how many byte copied so far
+ 	;;
++(p8)	mov	A = 0;			// A shouldn't be negative, cap it
++	;;
+ 	sub	C = A, B
+ 	sub	D = saved_in2, A
+ 	;;
 
