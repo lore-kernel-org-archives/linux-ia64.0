@@ -1,1398 +1,736 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Date: Mon, 26 Sep 2005 21:01:19 +0000
-Subject: [patch 2.6.14-rc2 1/5] swiotlb: move from arch/ia64/lib to drivers/pci
-Message-Id: <09262005170119.15684@bilbo.tuxdriver.com>
+From: David Gibson <david@gibson.dropbear.id.au>
+Date: Tue, 06 Sep 2005 05:14:32 +0000
+Subject: Re: [Perfctr-devel] new perfmon2 kernel patch available
+Message-Id: <20050906051432.GC8628@localhost.localdomain>
 List-Id: <linux-ia64.vger.kernel.org>
-In-Reply-To: <09262005170119.15628@bilbo.tuxdriver.com>
+References: <20050808210230.GA13092@frankl.hpl.hp.com>
+In-Reply-To: <20050808210230.GA13092@frankl.hpl.hp.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org, linux-pci@atrey.karlin.mff.cuni.cz
-Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com, gregkh@suse.de
+To: Stephane Eranian <eranian@hpl.hp.com>
+Cc: perfctr-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org, linux-ia64@vger.kernel.org
 
-The swiotlb implementation is shared by both IA-64 and EM64T. However,
-the source itself lives under arch/ia64. This patch moves swiotlb.c
-from arch/ia64/lib to drivers/pci and fixes-up the appropriate Makefile
-and Kconfig files. No actual changes are made to swiotlb.c.
+On Mon, Aug 08, 2005 at 02:02:31PM -0700, Stephane Eranian wrote:
+> Hello,
+> 
+> I have released a new version of the perfmon2  kernel patch
+> along with a new version of the libpfm user library.
+> 
+> The kernel patch is relative to 2.6.13-rc4-mm1. You need to
+> apply Andrew Morton's -mm1 to rc4.
+> 
+> This new release includes:
+> 	- update to newer kernel
+> 	- code  reformatting to fit kernel coding style
+> 	- switch from single system call to multi syscalls
+> 	- some more cleanups of macros vs. inline
+> 
+> The patch has been tested on IA-64, Pentium M (with Local APIC)
+> and X86-64. I have updated the PPC64 but could not test it.
+> 
+> The new version of libpfm is required to exploit the new multi
+> system call interface. Older versions (incl. 3.2-050701) will
+> not work. Note that on IA-64, older applications using the
+> single syscall interface are still supported. At this point,
+> I have not yet updated the specification document to reflect
+> the switch to multiple system calls.
+> 
+> 
+> You can download the two packages from our new SourceForget.net
+> project site (still under construction). The new kernel
+> patch and libpfm are dated 050805.
+> 
+> 		http://www.sf.net/projects/perfmon2
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
+Ok, below is a patch which updates the ppc64 stuff.  This fixes a
+problem which meant it didn't even build before, but also does a bunch
+of stuff: it mangles the ppc64 files to be closer in layout to the
+i386 version, it fixes up the syscall entry points, and adds a
+callback to pfm_handle_work() (I *think* it's in the right place).  I
+think it's still quite a long way from actually working, but it's
+closer.
 
- arch/ia64/Kconfig           |    4 
- arch/ia64/lib/Makefile      |    2 
- arch/ia64/lib/swiotlb.c     |  657 --------------------------------------------
- arch/x86_64/kernel/Makefile |    2 
- drivers/pci/Makefile        |    2 
- drivers/pci/swiotlb.c       |  657 ++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 664 insertions(+), 660 deletions(-)
+A couple of other questions:
+	- do you have an up-to-date version of the little
+self_standalone test program you send me a while ago - the one I have
+is still expecting perfmonctl() instead of individual syscalls
+	- where can I get the current version of the perfmon
+specification?  I've poked around on the perfmon site, but can't find
+it.
 
---- a/drivers/pci/swiotlb.c
-+++ b/drivers/pci/swiotlb.c
-@@ -0,0 +1,657 @@
-+/*
-+ * Dynamic DMA mapping support.
-+ *
-+ * This implementation is for IA-64 platforms that do not support
-+ * I/O TLBs (aka DMA address translation hardware).
-+ * Copyright (C) 2000 Asit Mallick <Asit.K.Mallick@intel.com>
-+ * Copyright (C) 2000 Goutham Rao <goutham.rao@intel.com>
-+ * Copyright (C) 2000, 2003 Hewlett-Packard Co
-+ *	David Mosberger-Tang <davidm@hpl.hp.com>
-+ *
-+ * 03/05/07 davidm	Switch from PCI-DMA to generic device DMA API.
-+ * 00/12/13 davidm	Rename to swiotlb.c and add mark_clean() to avoid
-+ *			unnecessary i-cache flushing.
-+ * 04/07/.. ak          Better overflow handling. Assorted fixes.
-+ */
-+
-+#include <linux/cache.h>
-+#include <linux/mm.h>
-+#include <linux/module.h>
-+#include <linux/pci.h>
-+#include <linux/spinlock.h>
-+#include <linux/string.h>
-+#include <linux/types.h>
-+#include <linux/ctype.h>
-+
-+#include <asm/io.h>
-+#include <asm/pci.h>
-+#include <asm/dma.h>
-+
-+#include <linux/init.h>
-+#include <linux/bootmem.h>
-+
-+#define OFFSET(val,align) ((unsigned long)	\
-+	                   ( (val) & ( (align) - 1)))
-+
-+#define SG_ENT_VIRT_ADDRESS(sg)	(page_address((sg)->page) + (sg)->offset)
-+#define SG_ENT_PHYS_ADDRESS(SG)	virt_to_phys(SG_ENT_VIRT_ADDRESS(SG))
-+
-+/*
-+ * Maximum allowable number of contiguous slabs to map,
-+ * must be a power of 2.  What is the appropriate value ?
-+ * The complexity of {map,unmap}_single is linearly dependent on this value.
-+ */
-+#define IO_TLB_SEGSIZE	128
-+
-+/*
-+ * log of the size of each IO TLB slab.  The number of slabs is command line
-+ * controllable.
-+ */
-+#define IO_TLB_SHIFT 11
-+
-+int swiotlb_force;
-+
-+/*
-+ * Used to do a quick range check in swiotlb_unmap_single and
-+ * swiotlb_sync_single_*, to see if the memory was in fact allocated by this
-+ * API.
-+ */
-+static char *io_tlb_start, *io_tlb_end;
-+
-+/*
-+ * The number of IO TLB blocks (in groups of 64) betweeen io_tlb_start and
-+ * io_tlb_end.  This is command line adjustable via setup_io_tlb_npages.
-+ */
-+static unsigned long io_tlb_nslabs;
-+
-+/*
-+ * When the IOMMU overflows we return a fallback buffer. This sets the size.
-+ */
-+static unsigned long io_tlb_overflow = 32*1024;
-+
-+void *io_tlb_overflow_buffer;
-+
-+/*
-+ * This is a free list describing the number of free entries available from
-+ * each index
-+ */
-+static unsigned int *io_tlb_list;
-+static unsigned int io_tlb_index;
-+
-+/*
-+ * We need to save away the original address corresponding to a mapped entry
-+ * for the sync operations.
-+ */
-+static unsigned char **io_tlb_orig_addr;
-+
-+/*
-+ * Protect the above data structures in the map and unmap calls
-+ */
-+static DEFINE_SPINLOCK(io_tlb_lock);
-+
-+static int __init
-+setup_io_tlb_npages(char *str)
-+{
-+	if (isdigit(*str)) {
-+		io_tlb_nslabs = simple_strtoul(str, &str, 0);
-+		/* avoid tail segment of size < IO_TLB_SEGSIZE */
-+		io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
-+	}
-+	if (*str = ',')
-+		++str;
-+	if (!strcmp(str, "force"))
-+		swiotlb_force = 1;
-+	return 1;
-+}
-+__setup("swiotlb=", setup_io_tlb_npages);
-+/* make io_tlb_overflow tunable too? */
-+
-+/*
-+ * Statically reserve bounce buffer space and initialize bounce buffer data
-+ * structures for the software IO TLB used to implement the PCI DMA API.
-+ */
-+void
-+swiotlb_init_with_default_size (size_t default_size)
-+{
-+	unsigned long i;
-+
-+	if (!io_tlb_nslabs) {
-+		io_tlb_nslabs = (default_size >> IO_TLB_SHIFT);
-+		io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
-+	}
-+
-+	/*
-+	 * Get IO TLB memory from the low pages
-+	 */
-+	io_tlb_start = alloc_bootmem_low_pages(io_tlb_nslabs *
-+					       (1 << IO_TLB_SHIFT));
-+	if (!io_tlb_start)
-+		panic("Cannot allocate SWIOTLB buffer");
-+	io_tlb_end = io_tlb_start + io_tlb_nslabs * (1 << IO_TLB_SHIFT);
-+
-+	/*
-+	 * Allocate and initialize the free list array.  This array is used
-+	 * to find contiguous free memory regions of size up to IO_TLB_SEGSIZE
-+	 * between io_tlb_start and io_tlb_end.
-+	 */
-+	io_tlb_list = alloc_bootmem(io_tlb_nslabs * sizeof(int));
-+	for (i = 0; i < io_tlb_nslabs; i++)
-+ 		io_tlb_list[i] = IO_TLB_SEGSIZE - OFFSET(i, IO_TLB_SEGSIZE);
-+	io_tlb_index = 0;
-+	io_tlb_orig_addr = alloc_bootmem(io_tlb_nslabs * sizeof(char *));
-+
-+	/*
-+	 * Get the overflow emergency buffer
-+	 */
-+	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
-+	printk(KERN_INFO "Placing software IO TLB between 0x%lx - 0x%lx\n",
-+	       virt_to_phys(io_tlb_start), virt_to_phys(io_tlb_end));
-+}
-+
-+void
-+swiotlb_init (void)
-+{
-+	swiotlb_init_with_default_size(64 * (1<<20));	/* default to 64MB */
-+}
-+
-+static inline int
-+address_needs_mapping(struct device *hwdev, dma_addr_t addr)
-+{
-+	dma_addr_t mask = 0xffffffff;
-+	/* If the device has a mask, use it, otherwise default to 32 bits */
-+	if (hwdev && hwdev->dma_mask)
-+		mask = *hwdev->dma_mask;
-+	return (addr & ~mask) != 0;
-+}
-+
-+/*
-+ * Allocates bounce buffer and returns its kernel virtual address.
-+ */
-+static void *
-+map_single(struct device *hwdev, char *buffer, size_t size, int dir)
-+{
-+	unsigned long flags;
-+	char *dma_addr;
-+	unsigned int nslots, stride, index, wrap;
-+	int i;
-+
-+	/*
-+	 * For mappings greater than a page, we limit the stride (and
-+	 * hence alignment) to a page size.
-+	 */
-+	nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
-+	if (size > PAGE_SIZE)
-+		stride = (1 << (PAGE_SHIFT - IO_TLB_SHIFT));
-+	else
-+		stride = 1;
-+
-+	if (!nslots)
-+		BUG();
-+
-+	/*
-+	 * Find suitable number of IO TLB entries size that will fit this
-+	 * request and allocate a buffer from that IO TLB pool.
-+	 */
-+	spin_lock_irqsave(&io_tlb_lock, flags);
-+	{
-+		wrap = index = ALIGN(io_tlb_index, stride);
-+
-+		if (index >= io_tlb_nslabs)
-+			wrap = index = 0;
-+
-+		do {
-+			/*
-+			 * If we find a slot that indicates we have 'nslots'
-+			 * number of contiguous buffers, we allocate the
-+			 * buffers from that slot and mark the entries as '0'
-+			 * indicating unavailable.
-+			 */
-+			if (io_tlb_list[index] >= nslots) {
-+				int count = 0;
-+
-+				for (i = index; i < (int) (index + nslots); i++)
-+					io_tlb_list[i] = 0;
-+				for (i = index - 1; (OFFSET(i, IO_TLB_SEGSIZE) != IO_TLB_SEGSIZE -1) && io_tlb_list[i]; i--)
-+					io_tlb_list[i] = ++count;
-+				dma_addr = io_tlb_start + (index << IO_TLB_SHIFT);
-+
-+				/*
-+				 * Update the indices to avoid searching in
-+				 * the next round.
-+				 */
-+				io_tlb_index = ((index + nslots) < io_tlb_nslabs
-+						? (index + nslots) : 0);
-+
-+				goto found;
-+			}
-+			index += stride;
-+			if (index >= io_tlb_nslabs)
-+				index = 0;
-+		} while (index != wrap);
-+
-+		spin_unlock_irqrestore(&io_tlb_lock, flags);
-+		return NULL;
-+	}
-+  found:
-+	spin_unlock_irqrestore(&io_tlb_lock, flags);
-+
-+	/*
-+	 * Save away the mapping from the original address to the DMA address.
-+	 * This is needed when we sync the memory.  Then we sync the buffer if
-+	 * needed.
-+	 */
-+	io_tlb_orig_addr[index] = buffer;
-+	if (dir = DMA_TO_DEVICE || dir = DMA_BIDIRECTIONAL)
-+		memcpy(dma_addr, buffer, size);
-+
-+	return dma_addr;
-+}
-+
-+/*
-+ * dma_addr is the kernel virtual address of the bounce buffer to unmap.
-+ */
-+static void
-+unmap_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
-+{
-+	unsigned long flags;
-+	int i, count, nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
-+	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
-+	char *buffer = io_tlb_orig_addr[index];
-+
-+	/*
-+	 * First, sync the memory before unmapping the entry
-+	 */
-+	if (buffer && ((dir = DMA_FROM_DEVICE) || (dir = DMA_BIDIRECTIONAL)))
-+		/*
-+		 * bounce... copy the data back into the original buffer * and
-+		 * delete the bounce buffer.
-+		 */
-+		memcpy(buffer, dma_addr, size);
-+
-+	/*
-+	 * Return the buffer to the free list by setting the corresponding
-+	 * entries to indicate the number of contigous entries available.
-+	 * While returning the entries to the free list, we merge the entries
-+	 * with slots below and above the pool being returned.
-+	 */
-+	spin_lock_irqsave(&io_tlb_lock, flags);
-+	{
-+		count = ((index + nslots) < ALIGN(index + 1, IO_TLB_SEGSIZE) ?
-+			 io_tlb_list[index + nslots] : 0);
-+		/*
-+		 * Step 1: return the slots to the free list, merging the
-+		 * slots with superceeding slots
-+		 */
-+		for (i = index + nslots - 1; i >= index; i--)
-+			io_tlb_list[i] = ++count;
-+		/*
-+		 * Step 2: merge the returned slots with the preceding slots,
-+		 * if available (non zero)
-+		 */
-+		for (i = index - 1; (OFFSET(i, IO_TLB_SEGSIZE) != IO_TLB_SEGSIZE -1) && io_tlb_list[i]; i--)
-+			io_tlb_list[i] = ++count;
-+	}
-+	spin_unlock_irqrestore(&io_tlb_lock, flags);
-+}
-+
-+static void
-+sync_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
-+{
-+	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
-+	char *buffer = io_tlb_orig_addr[index];
-+
-+	/*
-+	 * bounce... copy the data back into/from the original buffer
-+	 * XXX How do you handle DMA_BIDIRECTIONAL here ?
-+	 */
-+	if (dir = DMA_FROM_DEVICE)
-+		memcpy(buffer, dma_addr, size);
-+	else if (dir = DMA_TO_DEVICE)
-+		memcpy(dma_addr, buffer, size);
-+	else
-+		BUG();
-+}
-+
-+void *
-+swiotlb_alloc_coherent(struct device *hwdev, size_t size,
-+		       dma_addr_t *dma_handle, int flags)
-+{
-+	unsigned long dev_addr;
-+	void *ret;
-+	int order = get_order(size);
-+
-+	/*
-+	 * XXX fix me: the DMA API should pass us an explicit DMA mask
-+	 * instead, or use ZONE_DMA32 (ia64 overloads ZONE_DMA to be a ~32
-+	 * bit range instead of a 16MB one).
-+	 */
-+	flags |= GFP_DMA;
-+
-+	ret = (void *)__get_free_pages(flags, order);
-+	if (ret && address_needs_mapping(hwdev, virt_to_phys(ret))) {
-+		/*
-+		 * The allocated memory isn't reachable by the device.
-+		 * Fall back on swiotlb_map_single().
-+		 */
-+		free_pages((unsigned long) ret, order);
-+		ret = NULL;
-+	}
-+	if (!ret) {
-+		/*
-+		 * We are either out of memory or the device can't DMA
-+		 * to GFP_DMA memory; fall back on
-+		 * swiotlb_map_single(), which will grab memory from
-+		 * the lowest available address range.
-+		 */
-+		dma_addr_t handle;
-+		handle = swiotlb_map_single(NULL, NULL, size, DMA_FROM_DEVICE);
-+		if (dma_mapping_error(handle))
-+			return NULL;
-+
-+		ret = phys_to_virt(handle);
-+	}
-+
-+	memset(ret, 0, size);
-+	dev_addr = virt_to_phys(ret);
-+
-+	/* Confirm address can be DMA'd by device */
-+	if (address_needs_mapping(hwdev, dev_addr)) {
-+		printk("hwdev DMA mask = 0x%016Lx, dev_addr = 0x%016lx\n",
-+		       (unsigned long long)*hwdev->dma_mask, dev_addr);
-+		panic("swiotlb_alloc_coherent: allocated memory is out of "
-+		      "range for device");
-+	}
-+	*dma_handle = dev_addr;
-+	return ret;
-+}
-+
-+void
-+swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
-+		      dma_addr_t dma_handle)
-+{
-+	if (!(vaddr >= (void *)io_tlb_start
-+                    && vaddr < (void *)io_tlb_end))
-+		free_pages((unsigned long) vaddr, get_order(size));
-+	else
-+		/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
-+		swiotlb_unmap_single (hwdev, dma_handle, size, DMA_TO_DEVICE);
-+}
-+
-+static void
-+swiotlb_full(struct device *dev, size_t size, int dir, int do_panic)
-+{
-+	/*
-+	 * Ran out of IOMMU space for this operation. This is very bad.
-+	 * Unfortunately the drivers cannot handle this operation properly.
-+	 * unless they check for pci_dma_mapping_error (most don't)
-+	 * When the mapping is small enough return a static buffer to limit
-+	 * the damage, or panic when the transfer is too big.
-+	 */
-+	printk(KERN_ERR "PCI-DMA: Out of SW-IOMMU space for %lu bytes at "
-+	       "device %s\n", size, dev ? dev->bus_id : "?");
-+
-+	if (size > io_tlb_overflow && do_panic) {
-+		if (dir = PCI_DMA_FROMDEVICE || dir = PCI_DMA_BIDIRECTIONAL)
-+			panic("PCI-DMA: Memory would be corrupted\n");
-+		if (dir = PCI_DMA_TODEVICE || dir = PCI_DMA_BIDIRECTIONAL)
-+			panic("PCI-DMA: Random memory would be DMAed\n");
-+	}
-+}
-+
-+/*
-+ * Map a single buffer of the indicated size for DMA in streaming mode.  The
-+ * PCI address to use is returned.
-+ *
-+ * Once the device is given the dma address, the device owns this memory until
-+ * either swiotlb_unmap_single or swiotlb_dma_sync_single is performed.
-+ */
-+dma_addr_t
-+swiotlb_map_single(struct device *hwdev, void *ptr, size_t size, int dir)
-+{
-+	unsigned long dev_addr = virt_to_phys(ptr);
-+	void *map;
-+
-+	if (dir = DMA_NONE)
-+		BUG();
-+	/*
-+	 * If the pointer passed in happens to be in the device's DMA window,
-+	 * we can safely return the device addr and not worry about bounce
-+	 * buffering it.
-+	 */
-+	if (!address_needs_mapping(hwdev, dev_addr) && !swiotlb_force)
-+		return dev_addr;
-+
-+	/*
-+	 * Oh well, have to allocate and map a bounce buffer.
-+	 */
-+	map = map_single(hwdev, ptr, size, dir);
-+	if (!map) {
-+		swiotlb_full(hwdev, size, dir, 1);
-+		map = io_tlb_overflow_buffer;
-+	}
-+
-+	dev_addr = virt_to_phys(map);
-+
-+	/*
-+	 * Ensure that the address returned is DMA'ble
-+	 */
-+	if (address_needs_mapping(hwdev, dev_addr))
-+		panic("map_single: bounce buffer is not DMA'ble");
-+
-+	return dev_addr;
-+}
-+
-+/*
-+ * Since DMA is i-cache coherent, any (complete) pages that were written via
-+ * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
-+ * flush them when they get mapped into an executable vm-area.
-+ */
-+static void
-+mark_clean(void *addr, size_t size)
-+{
-+	unsigned long pg_addr, end;
-+
-+	pg_addr = PAGE_ALIGN((unsigned long) addr);
-+	end = (unsigned long) addr + size;
-+	while (pg_addr + PAGE_SIZE <= end) {
-+		struct page *page = virt_to_page(pg_addr);
-+		set_bit(PG_arch_1, &page->flags);
-+		pg_addr += PAGE_SIZE;
-+	}
-+}
-+
-+/*
-+ * Unmap a single streaming mode DMA translation.  The dma_addr and size must
-+ * match what was provided for in a previous swiotlb_map_single call.  All
-+ * other usages are undefined.
-+ *
-+ * After this call, reads by the cpu to the buffer are guaranteed to see
-+ * whatever the device wrote there.
-+ */
-+void
-+swiotlb_unmap_single(struct device *hwdev, dma_addr_t dev_addr, size_t size,
-+		     int dir)
-+{
-+	char *dma_addr = phys_to_virt(dev_addr);
-+
-+	if (dir = DMA_NONE)
-+		BUG();
-+	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
-+		unmap_single(hwdev, dma_addr, size, dir);
-+	else if (dir = DMA_FROM_DEVICE)
-+		mark_clean(dma_addr, size);
-+}
-+
-+/*
-+ * Make physical memory consistent for a single streaming mode DMA translation
-+ * after a transfer.
-+ *
-+ * If you perform a swiotlb_map_single() but wish to interrogate the buffer
-+ * using the cpu, yet do not wish to teardown the PCI dma mapping, you must
-+ * call this function before doing so.  At the next point you give the PCI dma
-+ * address back to the card, you must first perform a
-+ * swiotlb_dma_sync_for_device, and then the device again owns the buffer
-+ */
-+void
-+swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
-+			    size_t size, int dir)
-+{
-+	char *dma_addr = phys_to_virt(dev_addr);
-+
-+	if (dir = DMA_NONE)
-+		BUG();
-+	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
-+		sync_single(hwdev, dma_addr, size, dir);
-+	else if (dir = DMA_FROM_DEVICE)
-+		mark_clean(dma_addr, size);
-+}
-+
-+void
-+swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
-+			       size_t size, int dir)
-+{
-+	char *dma_addr = phys_to_virt(dev_addr);
-+
-+	if (dir = DMA_NONE)
-+		BUG();
-+	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
-+		sync_single(hwdev, dma_addr, size, dir);
-+	else if (dir = DMA_FROM_DEVICE)
-+		mark_clean(dma_addr, size);
-+}
-+
-+/*
-+ * Map a set of buffers described by scatterlist in streaming mode for DMA.
-+ * This is the scatter-gather version of the above swiotlb_map_single
-+ * interface.  Here the scatter gather list elements are each tagged with the
-+ * appropriate dma address and length.  They are obtained via
-+ * sg_dma_{address,length}(SG).
-+ *
-+ * NOTE: An implementation may be able to use a smaller number of
-+ *       DMA address/length pairs than there are SG table elements.
-+ *       (for example via virtual mapping capabilities)
-+ *       The routine returns the number of addr/length pairs actually
-+ *       used, at most nents.
-+ *
-+ * Device ownership issues as mentioned above for swiotlb_map_single are the
-+ * same here.
-+ */
-+int
-+swiotlb_map_sg(struct device *hwdev, struct scatterlist *sg, int nelems,
-+	       int dir)
-+{
-+	void *addr;
-+	unsigned long dev_addr;
-+	int i;
-+
-+	if (dir = DMA_NONE)
-+		BUG();
-+
-+	for (i = 0; i < nelems; i++, sg++) {
-+		addr = SG_ENT_VIRT_ADDRESS(sg);
-+		dev_addr = virt_to_phys(addr);
-+		if (swiotlb_force || address_needs_mapping(hwdev, dev_addr)) {
-+			sg->dma_address = (dma_addr_t) virt_to_phys(map_single(hwdev, addr, sg->length, dir));
-+			if (!sg->dma_address) {
-+				/* Don't panic here, we expect map_sg users
-+				   to do proper error handling. */
-+				swiotlb_full(hwdev, sg->length, dir, 0);
-+				swiotlb_unmap_sg(hwdev, sg - i, i, dir);
-+				sg[0].dma_length = 0;
-+				return 0;
-+			}
-+		} else
-+			sg->dma_address = dev_addr;
-+		sg->dma_length = sg->length;
-+	}
-+	return nelems;
-+}
-+
-+/*
-+ * Unmap a set of streaming mode DMA translations.  Again, cpu read rules
-+ * concerning calls here are the same as for swiotlb_unmap_single() above.
-+ */
-+void
-+swiotlb_unmap_sg(struct device *hwdev, struct scatterlist *sg, int nelems,
-+		 int dir)
-+{
-+	int i;
-+
-+	if (dir = DMA_NONE)
-+		BUG();
-+
-+	for (i = 0; i < nelems; i++, sg++)
-+		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
-+			unmap_single(hwdev, (void *) phys_to_virt(sg->dma_address), sg->dma_length, dir);
-+		else if (dir = DMA_FROM_DEVICE)
-+			mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
-+}
-+
-+/*
-+ * Make physical memory consistent for a set of streaming mode DMA translations
-+ * after a transfer.
-+ *
-+ * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
-+ * and usage.
-+ */
-+void
-+swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
-+			int nelems, int dir)
-+{
-+	int i;
-+
-+	if (dir = DMA_NONE)
-+		BUG();
-+
-+	for (i = 0; i < nelems; i++, sg++)
-+		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
-+			sync_single(hwdev, (void *) sg->dma_address,
-+				    sg->dma_length, dir);
-+}
-+
-+void
-+swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
-+			   int nelems, int dir)
-+{
-+	int i;
-+
-+	if (dir = DMA_NONE)
-+		BUG();
-+
-+	for (i = 0; i < nelems; i++, sg++)
-+		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
-+			sync_single(hwdev, (void *) sg->dma_address,
-+				    sg->dma_length, dir);
-+}
-+
-+int
-+swiotlb_dma_mapping_error(dma_addr_t dma_addr)
-+{
-+	return (dma_addr = virt_to_phys(io_tlb_overflow_buffer));
-+}
-+
-+/*
-+ * Return whether the given PCI device DMA address mask can be supported
-+ * properly.  For example, if your device can only drive the low 24-bits
-+ * during PCI bus mastering, then you would pass 0x00ffffff as the mask to
-+ * this function.
-+ */
-+int
-+swiotlb_dma_supported (struct device *hwdev, u64 mask)
-+{
-+	return (virt_to_phys (io_tlb_end) - 1) <= mask;
-+}
-+
-+EXPORT_SYMBOL(swiotlb_init);
-+EXPORT_SYMBOL(swiotlb_map_single);
-+EXPORT_SYMBOL(swiotlb_unmap_single);
-+EXPORT_SYMBOL(swiotlb_map_sg);
-+EXPORT_SYMBOL(swiotlb_unmap_sg);
-+EXPORT_SYMBOL(swiotlb_sync_single_for_cpu);
-+EXPORT_SYMBOL(swiotlb_sync_single_for_device);
-+EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
-+EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
-+EXPORT_SYMBOL(swiotlb_dma_mapping_error);
-+EXPORT_SYMBOL(swiotlb_alloc_coherent);
-+EXPORT_SYMBOL(swiotlb_free_coherent);
-+EXPORT_SYMBOL(swiotlb_dma_supported);
---- a/drivers/pci/Makefile
-+++ b/drivers/pci/Makefile
-@@ -44,3 +44,5 @@ endif
- # Build PCI Express stuff if needed
- obj-$(CONFIG_PCIEPORTBUS) += pcie/
+Index: working-2.6/arch/ppc64/perfmon/perfmon.c
+=================================--- working-2.6.orig/arch/ppc64/perfmon/perfmon.c	2005-09-06 14:52:16.000000000 +1000
++++ working-2.6/arch/ppc64/perfmon/perfmon.c	2005-09-06 14:52:16.000000000 +1000
+@@ -11,6 +11,63 @@
+ #include <linux/interrupt.h>
+ #include <linux/perfmon.h>
  
-+# Build swiotlb stuff if needed
-+obj-$(CONFIG_SWIOTLB) += swiotlb.o
---- a/arch/x86_64/kernel/Makefile
-+++ b/arch/x86_64/kernel/Makefile
-@@ -27,7 +27,6 @@ obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
- obj-$(CONFIG_EARLY_PRINTK)	+= early_printk.o
- obj-$(CONFIG_GART_IOMMU)	+= pci-gart.o aperture.o
- obj-$(CONFIG_DUMMY_IOMMU)	+= pci-nommu.o pci-dma.o
--obj-$(CONFIG_SWIOTLB)		+= swiotlb.o
- obj-$(CONFIG_KPROBES)		+= kprobes.o
- obj-$(CONFIG_X86_PM_TIMER)	+= pmtimer.o
- 
-@@ -41,7 +40,6 @@ CFLAGS_vsyscall.o		:= $(PROFILING) -g0
- bootflag-y			+= ../../i386/kernel/bootflag.o
- cpuid-$(subst m,y,$(CONFIG_X86_CPUID))  += ../../i386/kernel/cpuid.o
- topology-y                     += ../../i386/mach-default/topology.o
--swiotlb-$(CONFIG_SWIOTLB)      += ../../ia64/lib/swiotlb.o
- microcode-$(subst m,y,$(CONFIG_MICROCODE))  += ../../i386/kernel/microcode.o
- intel_cacheinfo-y		+= ../../i386/kernel/cpu/intel_cacheinfo.o
- quirks-y			+= ../../i386/kernel/quirks.o
---- a/arch/ia64/Kconfig
-+++ b/arch/ia64/Kconfig
-@@ -26,6 +26,10 @@ config MMU
- 	bool
- 	default y
- 
-+config SWIOTLB
-+       bool
-+       default y
++extern void ppc64_enable_pmcs(void);
 +
- config RWSEM_XCHGADD_ALGORITHM
- 	bool
- 	default y
---- a/arch/ia64/lib/swiotlb.c
-+++ b/arch/ia64/lib/swiotlb.c
-@@ -1,657 +0,0 @@
--/*
-- * Dynamic DMA mapping support.
++void pfm_arch_init_percpu(void)
++{
++	ppc64_enable_pmcs();
++}
++
++void pfm_arch_context_initialize(struct pfm_context *ctx, u32 ctx_flags)
++{
++}
++
++/*
++ * function called from pfm_load_context_*(). Task is not guaranteed to be
++ * current task. If not that other task is guaranteed stopped and off any CPU.
++ * context is locked and interrupts are masked.
++ *
++ *
++ * function must ensure that monitoring is stopped, i.e. no counter is active.
++ * On PFM_LOAD_CONTEXT, the interface guarantees monitoring is stopped.
++ *
++ * called for per-thread and system-wide. For system-wide task is NULL
++ */
++void pfm_arch_load_context(struct pfm_context *ctx, struct task_struct *task)
++{
++}
++
++/*
++ * function called from pfm_unload_context_*(). Context is locked.
++ * interrupts are masked. task is not guaranteed to be current task.
++ * Access to PMU is not guaranteed.
++ *
++ * function must do whatever arch-specific action is required on unload
++ * of a context.
++ *
++ * called for both system-wide and per-thread. task is NULL for ssytem-wide
++ */
++void pfm_arch_unload_context(struct pfm_context *ctx, struct task_struct *task)
++{
++	DPRINT(("pfm_arch_unload_context()\n"));
++}
++
++void pfm_arch_intr_freeze_pmu(struct pfm_context *ctx)
++{
++	mtspr(SPRN_MMCR0, MMCR0_FC);
++}
++
++/*
++ * unfreeze PMU from pfm_do_interrupt_handler()
++ * ctx may be NULL for spurious
++ */
++void pfm_arch_intr_unfreeze_pmu(struct pfm_context *ctx)
++{
++	if (ctx = NULL)
++		return;
++	pfm_arch_restore_pmcs(ctx->ctx_active_set, ctx->ctx_fl_masked);
++}
++
+ /*
+  * called  from pfm_ctxswout_thread(). Interrupts are masked.
+  * the routine needs to stop monitoring and save enough state
+@@ -18,16 +75,16 @@
+  * task is guaranteed to be the current task.
+  */
+ void pfm_arch_ctxswout_thread(struct task_struct *task, struct pfm_context *ctx,
+-		struct pfm_event_set *set)
++			      struct pfm_event_set *set)
+ {
+ 	/*
+-	 * we could avoid clearing if we know monitoring is
+-	 * not active (no PFM_START)
++	 * we could avoid clearing if we know monitoring is not active
++	 * (no PFM_START)
+ 	 */
+ 	mtspr(SPRN_MMCR0, MMCR0_FC);
+ 
+ 	/*
+-	 * disable lazy restore.
++	 * disable lazy restore on ctxswin.
+ 	 */
+ 	if (set)
+ 		set->set_priv_flags |= PFM_SETFL_PRIV_MODIFIED_PMCS;
+@@ -40,8 +97,8 @@
+  * must reactivate monitoring. Note that caller has already restored
+  * all PMD and PMC registers.
+  */
+-void pfm_arch_ctxswin_thread(struct task_struct *task,
+-		struct pfm_context *ctx, struct pfm_event_set *set)
++void pfm_arch_ctxswin_thread(struct task_struct *task, struct pfm_context *ctx,
++			     struct pfm_event_set *set)
+ {
+ 	/* nothing to do will be restored correctly */
+ }
+@@ -55,7 +112,7 @@
+  * must disable active monitoring.
+  */
+ void pfm_arch_stop(struct task_struct *task, struct pfm_context *ctx,
+-		struct pfm_event_set *aset)
++		   struct pfm_event_set *aset)
+ {
+ 	struct pfm_event_set *set;
+ 
+@@ -71,25 +128,11 @@
+ 	if (task != current)
+ 		return;
+ 
++	DPRINT(("clearing actual PMC\n"));
+ 	mtspr(SPRN_MMCR0, MMCR0_FC);
+ }
+ 
+ /*
+- * function called from pfm_unload_context_*(). Context is locked.
+- * interrupts are masked. task is not guaranteed to be current task.
+- * Access to PMU is not guaranteed.
 - *
-- * This implementation is for IA-64 platforms that do not support
-- * I/O TLBs (aka DMA address translation hardware).
-- * Copyright (C) 2000 Asit Mallick <Asit.K.Mallick@intel.com>
-- * Copyright (C) 2000 Goutham Rao <goutham.rao@intel.com>
-- * Copyright (C) 2000, 2003 Hewlett-Packard Co
-- *	David Mosberger-Tang <davidm@hpl.hp.com>
+- * function must do whatever arch-specific action is required on unload
+- * of a context.
 - *
-- * 03/05/07 davidm	Switch from PCI-DMA to generic device DMA API.
-- * 00/12/13 davidm	Rename to swiotlb.c and add mark_clean() to avoid
-- *			unnecessary i-cache flushing.
-- * 04/07/.. ak          Better overflow handling. Assorted fixes.
+- * called for both system-wide and per-thread. task is NULL for ssytem-wide
 - */
--
--#include <linux/cache.h>
--#include <linux/mm.h>
--#include <linux/module.h>
--#include <linux/pci.h>
--#include <linux/spinlock.h>
--#include <linux/string.h>
--#include <linux/types.h>
--#include <linux/ctype.h>
--
--#include <asm/io.h>
--#include <asm/pci.h>
--#include <asm/dma.h>
--
--#include <linux/init.h>
--#include <linux/bootmem.h>
--
--#define OFFSET(val,align) ((unsigned long)	\
--	                   ( (val) & ( (align) - 1)))
--
--#define SG_ENT_VIRT_ADDRESS(sg)	(page_address((sg)->page) + (sg)->offset)
--#define SG_ENT_PHYS_ADDRESS(SG)	virt_to_phys(SG_ENT_VIRT_ADDRESS(SG))
--
--/*
-- * Maximum allowable number of contiguous slabs to map,
-- * must be a power of 2.  What is the appropriate value ?
-- * The complexity of {map,unmap}_single is linearly dependent on this value.
-- */
--#define IO_TLB_SEGSIZE	128
--
--/*
-- * log of the size of each IO TLB slab.  The number of slabs is command line
-- * controllable.
-- */
--#define IO_TLB_SHIFT 11
--
--int swiotlb_force;
--
--/*
-- * Used to do a quick range check in swiotlb_unmap_single and
-- * swiotlb_sync_single_*, to see if the memory was in fact allocated by this
-- * API.
-- */
--static char *io_tlb_start, *io_tlb_end;
--
--/*
-- * The number of IO TLB blocks (in groups of 64) betweeen io_tlb_start and
-- * io_tlb_end.  This is command line adjustable via setup_io_tlb_npages.
-- */
--static unsigned long io_tlb_nslabs;
--
--/*
-- * When the IOMMU overflows we return a fallback buffer. This sets the size.
-- */
--static unsigned long io_tlb_overflow = 32*1024;
--
--void *io_tlb_overflow_buffer;
--
--/*
-- * This is a free list describing the number of free entries available from
-- * each index
-- */
--static unsigned int *io_tlb_list;
--static unsigned int io_tlb_index;
--
--/*
-- * We need to save away the original address corresponding to a mapped entry
-- * for the sync operations.
-- */
--static unsigned char **io_tlb_orig_addr;
--
--/*
-- * Protect the above data structures in the map and unmap calls
-- */
--static DEFINE_SPINLOCK(io_tlb_lock);
--
--static int __init
--setup_io_tlb_npages(char *str)
+-void pfm_arch_unload_context(struct pfm_context *ctx, struct task_struct *task)
 -{
--	if (isdigit(*str)) {
--		io_tlb_nslabs = simple_strtoul(str, &str, 0);
--		/* avoid tail segment of size < IO_TLB_SEGSIZE */
--		io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
--	}
--	if (*str = ',')
--		++str;
--	if (!strcmp(str, "force"))
--		swiotlb_force = 1;
--	return 1;
--}
--__setup("swiotlb=", setup_io_tlb_npages);
--/* make io_tlb_overflow tunable too? */
--
--/*
-- * Statically reserve bounce buffer space and initialize bounce buffer data
-- * structures for the software IO TLB used to implement the PCI DMA API.
-- */
--void
--swiotlb_init_with_default_size (size_t default_size)
--{
--	unsigned long i;
--
--	if (!io_tlb_nslabs) {
--		io_tlb_nslabs = (default_size >> IO_TLB_SHIFT);
--		io_tlb_nslabs = ALIGN(io_tlb_nslabs, IO_TLB_SEGSIZE);
--	}
--
--	/*
--	 * Get IO TLB memory from the low pages
--	 */
--	io_tlb_start = alloc_bootmem_low_pages(io_tlb_nslabs *
--					       (1 << IO_TLB_SHIFT));
--	if (!io_tlb_start)
--		panic("Cannot allocate SWIOTLB buffer");
--	io_tlb_end = io_tlb_start + io_tlb_nslabs * (1 << IO_TLB_SHIFT);
--
--	/*
--	 * Allocate and initialize the free list array.  This array is used
--	 * to find contiguous free memory regions of size up to IO_TLB_SEGSIZE
--	 * between io_tlb_start and io_tlb_end.
--	 */
--	io_tlb_list = alloc_bootmem(io_tlb_nslabs * sizeof(int));
--	for (i = 0; i < io_tlb_nslabs; i++)
-- 		io_tlb_list[i] = IO_TLB_SEGSIZE - OFFSET(i, IO_TLB_SEGSIZE);
--	io_tlb_index = 0;
--	io_tlb_orig_addr = alloc_bootmem(io_tlb_nslabs * sizeof(char *));
--
--	/*
--	 * Get the overflow emergency buffer
--	 */
--	io_tlb_overflow_buffer = alloc_bootmem_low(io_tlb_overflow);
--	printk(KERN_INFO "Placing software IO TLB between 0x%lx - 0x%lx\n",
--	       virt_to_phys(io_tlb_start), virt_to_phys(io_tlb_end));
+-	DPRINT(("pfm_arch_unload_context()\n"));
 -}
 -
--void
--swiotlb_init (void)
+-/*
+  * called from pfm_start(). Task is not necessarily current.
+  * If not current task, then task  is guaranteed stopped and
+  * off any cpu. Access to PMU is not guaranteed.
+@@ -97,25 +140,28 @@
+  *
+  * must enable active monitoring.
+  */
+-void pfm_arch_start(struct task_struct *task, struct pfm_context *ctx,
+-		struct pfm_event_set *fset)
++static void __pfm_arch_start(struct task_struct *task, struct pfm_context *ctx,
++			     struct pfm_event_set *fset)
+ {
+ 	struct pfm_event_set *set;
+ 
+-	if (ctx->ctx_state = PFM_CTX_MASKED)
+-		return;
+-
+ 	for (set = ctx->ctx_sets; set; set = set->set_next)
+ 		set->set_pmcs[0] &= ~MMCR0_FC;
+ 
+ 	if (task != current)
+ 		return;
+ 
++	DPRINT(("actual PMC start\n"));
+ 	mtspr(SPRN_MMCR0, fset->set_pmcs[0]);
+ 	mtspr(SPRN_MMCR1, fset->set_pmcs[1]);
+ 	mtspr(SPRN_MMCRA, fset->set_pmcs[2]);
+ }
+ 
++void pfm_arch_start(struct task_struct *task, struct pfm_context *ctx,
++		    struct pfm_event_set *fset)
++{
++	__pfm_arch_start(task, ctx, fset);
++}
+ 
+ /*
+  * function called from pfm_switch_sets(), pfm_context_load_thread(),
+@@ -131,9 +177,9 @@
+ 	unsigned int num_cnt;
+ 	u64 ovfl_mask, val, *pmds;
+ 
+-	num_cnt   = pfm_pmu_conf->num_pmds;
++	num_cnt = pfm_pmu_conf->num_pmds;
+ 	ovfl_mask = pfm_pmu_conf->ovfl_mask;
+-	pmds      = set->set_view->set_pmds;
++	pmds = set->set_view->set_pmds;
+ 
+ 	/* start at 1 to skip TB */
+ 	for (i = 1; i < num_cnt; i++) {
+@@ -144,8 +190,8 @@
+ 
+ /*
+  * function called from pfm_switch_sets(), pfm_context_load_thread(),
+- * pfm_context_load_sys(), pfm_ctxswin_thread(), pfm_switch_sets()
+- * context is locked. Interrupts are masked. set cannot be NULL.
++ * pfm_context_load_sys(), pfm_ctxswin_thread().
++ * Context is locked. Interrupts are masked. set cannot be NULL.
+  * Access to the PMU is guaranteed.
+  *
+  * function must restore all PMC registers from set. Privilege level
+@@ -159,16 +205,22 @@
+ {
+ 	unsigned int i, num_cnt;
+ 
+-	num_cnt   = pfm_pmu_conf->num_pmcs;
++	num_cnt = pfm_pmu_conf->num_pmcs;
+ 
++	/*
++	 * - by default all pmcs are cleared
++	 * - on ctxswout, all used PMCs are cleared
++	 * hence when masked we do not need to restore anything
++	 */
+ 	if (masked)
+ 		return;
+ 
+ 	/*
+ 	 * restore all pmcs
+ 	 */
+-	for (i = 0; i < num_cnt; i++)
++	for (i = 0; i < num_cnt; i++) {
+ 		pfm_arch_write_pmc(i, set->set_pmcs[i]);
++	}
+ }
+ 
+ /*
+@@ -186,7 +238,7 @@
+ 
+ 	ovfl_mask = pfm_pmu_conf->ovfl_mask;
+ 	used_mask = set->set_used_pmds[0];
+-	pmds      = set->set_view->set_pmds;
++	pmds = set->set_view->set_pmds;
+ 
+ 	/*
+ 	 * save all used pmds
+@@ -200,33 +252,48 @@
+ 	}
+ }
+ 
+-void pfm_intr_handler(struct pt_regs *regs)
++asmlinkage void pfm_intr_handler(struct pt_regs *regs)
+ {
+-	pfm_interrupt_handler(PFM_PERFMON_VECTOR, NULL, regs);
++	pfm_interrupt_handler(0, NULL, regs);
+ }
+-	
++
++static void pfm_stop_one_pmu(void *data)
++{
++	mtspr(SPRN_MMCR0, MMCR0_FC);
++}
++
++/*
++ * called from pfm_register_pmu_config() after the new
++ * config has been validated and installed. The pfm_session_lock
++ * is held. Interrupts are not masked. This function cannot sleep.
++ *
++ * The role of the function is, based on the PMU description, to
++ * put the PMU into a quiet state on each CPU. This function is only
++ * needed when there is no architected way to do this operation. In
++ * that case nothing can be done before a pmu description is registered.
++ */
++void pfm_arch_pmu_config_init(struct pfm_pmu_config *cfg)
++{
++	on_each_cpu(pfm_stop_one_pmu, cfg, 1, 1);
++}
++
+ int pfm_arch_initialize(void)
+ {
+ 	return 0;
+ }
+ 
+-void pfm_arch_init_percpu(void)
++void pfm_arch_mask_monitoring(struct pfm_context *ctx)
+ {
++	mtspr(SPRN_MMCR0, MMCR0_FC);
+ }
+ 
+-/*
+- * function called from pfm_load_context_*(). Task is not guaranteed to be
+- * current task. If not that other task is guaranteed stopped and off any CPU.
+- * context is locked and interrupts are masked.
+- *
+- *
+- * function must ensure that monitoring is stopped, i.e. no counter is active.
+- * On PFM_LOAD_CONTEXT, the interface guarantees monitoring is stopped.
+- *
+- * called for per-thread and system-wide. For system-wide task is NULL
+- */
+-void pfm_arch_load_context(struct pfm_context *ctx, struct task_struct *task)
++void pfm_arch_unmask_monitoring(struct pfm_context *ctx)
+ {
++	/*
++	 * on ppc64 masking/unmasking uses start/stop
++	 * mechanism
++	 */
++	__pfm_arch_start(current, ctx, ctx->ctx_active_set);
+ }
+ 
+ /*
+@@ -234,76 +301,41 @@
+  */
+ int pfm_arch_get_ovfl_pmds(struct pfm_context *ctx, struct pfm_event_set *set)
+ {
+-	unsigned int i, num_cnt;
+- 	u64 new_val, bv, *pmds, used_mask;
++	unsigned int i, width;
++	u64 new_val, bv, used_mask, *pmds;
+ 
+-	used_mask = set->set_used_pmds[0];
+-	pmds      = set->set_view->set_pmds;
+-
+-	if (!ctx)
++	if (ctx = NULL)
+ 		return 0;
+ 
++	width = pfm_pmu_conf->counter_width;
++	used_mask = set->set_used_pmds[0];
++	pmds = set->set_view->set_pmds;
++
+ 	BUG_ON(set->set_hw_ovfl_pmds[0]);
+ 
+ 	bv = 0;
+ 
+ 	for (i = 0; used_mask; i++, used_mask >>=1) {
++
+ 		if (likely(used_mask & 0x1)) {
+ 			new_val = pfm_arch_read_pmd(i);
+- 			DPRINT(("pmd%u new_val=0x%llx bit=%d\n",
+-  				i, new_val, (new_val&(PFM_ONE_64<<width)) ? 1 : 0));
+-  			if ((new_val & (PFM_ONE_64 << width)) = 0) {
++			DPRINT(("pmd%u new_val=0x%lx bit31=%d\n",
++				i, new_val, (new_val&(PFM_ONE_64<<width)) ? 1 : 0));
++
++			if ((new_val & (PFM_ONE_64 << width)) = 0) {
+ 				bv |= PFM_ONE_64 << i;
+ 			}
+ 		}
+ 	}
+ 	set->set_hw_ovfl_pmds[0] = bv;
+-	return bv != 0;
+-}
+ 
+-void pfm_arch_intr_freeze_pmu(struct pfm_context *ctx)
 -{
--	swiotlb_init_with_default_size(64 * (1<<20));	/* default to 64MB */
+-	mtspr(SPRN_MMCR0, MMCR0_FC);
+-}
++	DPRINT(("bv=0x%lx\n", bv));
+ 
+-/*
+- * unfreeze PMU from pfm_do_interrupt_handler()
+- * ctx may be NULL for spurious
+- */
+-void pfm_arch_intr_unfreeze_pmu(struct pfm_context *ctx)
+-{
+-	if (! ctx)
+-		return;
+-	pfm_arch_restore_pmcs(ctx->ctx_active_set, ctx->ctx_fl_masked);
 -}
 -
+-void pfm_arch_mask_monitoring(struct pfm_context *ctx)
+-{
+-	mtspr(SPRN_MMCR0, MMCR0_FC);
+-}
+-
+-void pfm_arch_unmask_monitoring(struct pfm_context *ctx)
+-{
+-	pfm_arch_restore_pmds(ctx->ctx_active_set);
+-	pfm_arch_restore_pmcs(ctx->ctx_active_set, 0);
++	return bv != 0;
+ }
+ 
+-static void pfm_stop_one_pmu(void *data)
++void ppc64_pfm_handle_work(void)
+ {
+-	mtspr(SPRN_MMCR0, MMCR0_FC);
++	pfm_handle_work();
+ }
+ 
+-/*
+- * called from pfm_register_pmu_config() after the new
+- * config has been validated and installed. The pfm_session_lock
+- * is held. Interrupts are not masked. This function cannot sleep.
+- *
+- * The role of the function is, based on the PMU description, to
+- * put the PMU into a quiet state on each CPU. This function is only
+- * needed when there is no architected way to do this operation. In
+- * that case nothing can be done before a pmu description is registered.
+- */
+-void pfm_arch_pmu_config_init(struct pfm_pmu_config *cfg)
+-{
+-	on_each_cpu(pfm_stop_one_pmu, cfg, 1, 1);
+-}
+Index: working-2.6/include/asm-ppc64/perfmon.h
+=================================--- working-2.6.orig/include/asm-ppc64/perfmon.h	2005-09-06 14:52:16.000000000 +1000
++++ working-2.6/include/asm-ppc64/perfmon.h	2005-09-06 14:52:16.000000000 +1000
+@@ -15,28 +15,28 @@
+ 
+ #ifdef __KERNEL__
+ 
+-static inline void
+-pfm_arch_resend_irq(int vec)
++struct pfm_arch_pmu_info {
++	/* empty */
++};
++
++static inline void pfm_arch_resend_irq(void)
+ {
+ 	/* nothing needed */
+ }
+ 
+ #define pfm_arch_serialize()	/* nothing */
+ 
+-static inline void
+-pfm_arch_unfreeze_pmu(void)
++static inline void pfm_arch_unfreeze_pmu(void)
+ {
+ 	printk(KERN_ERR "pfm_arch_unfreeze_pmu() called\n");
+ }
+ 
+-static inline u64
+-pfm_arch_get_itc(void)
++static inline u64 pfm_arch_get_itc(void)
+ {
+ 	return mftb();
+ }
+ 
+-static inline void
+-pfm_arch_write_pmc(unsigned int cnum, u64 value)
++static inline void pfm_arch_write_pmc(unsigned int cnum, u64 value)
+ {
+ 	switch (cnum) {
+ 	case 0:
+@@ -53,8 +53,7 @@
+ 	}
+ }
+ 
+-static inline void
+-pfm_arch_write_pmd(unsigned int cnum, u64 value)
++static inline void pfm_arch_write_pmd(unsigned int cnum, u64 value)
+ {
+ 	switch (cnum) {
+ 	case 1:
+@@ -86,8 +85,7 @@
+ 	}
+ }
+ 
+-static inline u64
+-pfm_arch_read_pmd(unsigned int cnum)
++static inline u64 pfm_arch_read_pmd(unsigned int cnum)
+ {
+ 	switch (cnum) {
+ 	case 0:
+@@ -119,11 +117,11 @@
+ 		break;
+ 	default:
+ 		BUG();
++		return 0; /* Suppress gcc4 warning */
+ 	}
+ }
+ 
+-static inline u64
+-pfm_arch_read_pmc(unsigned int cnum)
++static inline u64 pfm_arch_read_pmc(unsigned int cnum)
+ {
+ 	switch (cnum) {
+ 	case 0:
+@@ -137,15 +135,10 @@
+ 		break;
+ 	default:
+ 		BUG();
++		return 0; /* Suppress gcc4 warning */
+ 	}
+ }
+ 
 -static inline int
--address_needs_mapping(struct device *hwdev, dma_addr_t addr)
+-pfm_arch_is_monitoring_active(struct pfm_context *ctx)
 -{
--	dma_addr_t mask = 0xffffffff;
--	/* If the device has a mask, use it, otherwise default to 32 bits */
--	if (hwdev && hwdev->dma_mask)
--		mask = *hwdev->dma_mask;
--	return (addr & ~mask) != 0;
+-	return !(mfspr(SPRN_MMCR0) & MMCR0_FC);
 -}
 -
--/*
-- * Allocates bounce buffer and returns its kernel virtual address.
-- */
--static void *
--map_single(struct device *hwdev, char *buffer, size_t size, int dir)
--{
--	unsigned long flags;
--	char *dma_addr;
--	unsigned int nslots, stride, index, wrap;
--	int i;
--
--	/*
--	 * For mappings greater than a page, we limit the stride (and
--	 * hence alignment) to a page size.
--	 */
--	nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
--	if (size > PAGE_SIZE)
--		stride = (1 << (PAGE_SHIFT - IO_TLB_SHIFT));
--	else
--		stride = 1;
--
--	if (!nslots)
--		BUG();
--
--	/*
--	 * Find suitable number of IO TLB entries size that will fit this
--	 * request and allocate a buffer from that IO TLB pool.
--	 */
--	spin_lock_irqsave(&io_tlb_lock, flags);
--	{
--		wrap = index = ALIGN(io_tlb_index, stride);
--
--		if (index >= io_tlb_nslabs)
--			wrap = index = 0;
--
--		do {
--			/*
--			 * If we find a slot that indicates we have 'nslots'
--			 * number of contiguous buffers, we allocate the
--			 * buffers from that slot and mark the entries as '0'
--			 * indicating unavailable.
--			 */
--			if (io_tlb_list[index] >= nslots) {
--				int count = 0;
--
--				for (i = index; i < (int) (index + nslots); i++)
--					io_tlb_list[i] = 0;
--				for (i = index - 1; (OFFSET(i, IO_TLB_SEGSIZE) != IO_TLB_SEGSIZE -1) && io_tlb_list[i]; i--)
--					io_tlb_list[i] = ++count;
--				dma_addr = io_tlb_start + (index << IO_TLB_SHIFT);
--
--				/*
--				 * Update the indices to avoid searching in
--				 * the next round.
--				 */
--				io_tlb_index = ((index + nslots) < io_tlb_nslabs
--						? (index + nslots) : 0);
--
--				goto found;
--			}
--			index += stride;
--			if (index >= io_tlb_nslabs)
--				index = 0;
--		} while (index != wrap);
--
--		spin_unlock_irqrestore(&io_tlb_lock, flags);
--		return NULL;
--	}
--  found:
--	spin_unlock_irqrestore(&io_tlb_lock, flags);
--
--	/*
--	 * Save away the mapping from the original address to the DMA address.
--	 * This is needed when we sync the memory.  Then we sync the buffer if
--	 * needed.
--	 */
--	io_tlb_orig_addr[index] = buffer;
--	if (dir = DMA_TO_DEVICE || dir = DMA_BIDIRECTIONAL)
--		memcpy(dma_addr, buffer, size);
--
--	return dma_addr;
--}
--
--/*
-- * dma_addr is the kernel virtual address of the bounce buffer to unmap.
-- */
--static void
--unmap_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
--{
--	unsigned long flags;
--	int i, count, nslots = ALIGN(size, 1 << IO_TLB_SHIFT) >> IO_TLB_SHIFT;
--	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
--	char *buffer = io_tlb_orig_addr[index];
--
--	/*
--	 * First, sync the memory before unmapping the entry
--	 */
--	if (buffer && ((dir = DMA_FROM_DEVICE) || (dir = DMA_BIDIRECTIONAL)))
--		/*
--		 * bounce... copy the data back into the original buffer * and
--		 * delete the bounce buffer.
--		 */
--		memcpy(buffer, dma_addr, size);
--
--	/*
--	 * Return the buffer to the free list by setting the corresponding
--	 * entries to indicate the number of contigous entries available.
--	 * While returning the entries to the free list, we merge the entries
--	 * with slots below and above the pool being returned.
--	 */
--	spin_lock_irqsave(&io_tlb_lock, flags);
--	{
--		count = ((index + nslots) < ALIGN(index + 1, IO_TLB_SEGSIZE) ?
--			 io_tlb_list[index + nslots] : 0);
--		/*
--		 * Step 1: return the slots to the free list, merging the
--		 * slots with superceeding slots
--		 */
--		for (i = index + nslots - 1; i >= index; i--)
--			io_tlb_list[i] = ++count;
--		/*
--		 * Step 2: merge the returned slots with the preceding slots,
--		 * if available (non zero)
--		 */
--		for (i = index - 1; (OFFSET(i, IO_TLB_SEGSIZE) != IO_TLB_SEGSIZE -1) && io_tlb_list[i]; i--)
--			io_tlb_list[i] = ++count;
--	}
--	spin_unlock_irqrestore(&io_tlb_lock, flags);
--}
--
--static void
--sync_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
--{
--	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
--	char *buffer = io_tlb_orig_addr[index];
--
--	/*
--	 * bounce... copy the data back into/from the original buffer
--	 * XXX How do you handle DMA_BIDIRECTIONAL here ?
--	 */
--	if (dir = DMA_FROM_DEVICE)
--		memcpy(buffer, dma_addr, size);
--	else if (dir = DMA_TO_DEVICE)
--		memcpy(dma_addr, buffer, size);
--	else
--		BUG();
--}
--
--void *
--swiotlb_alloc_coherent(struct device *hwdev, size_t size,
--		       dma_addr_t *dma_handle, int flags)
--{
--	unsigned long dev_addr;
--	void *ret;
--	int order = get_order(size);
--
--	/*
--	 * XXX fix me: the DMA API should pass us an explicit DMA mask
--	 * instead, or use ZONE_DMA32 (ia64 overloads ZONE_DMA to be a ~32
--	 * bit range instead of a 16MB one).
--	 */
--	flags |= GFP_DMA;
--
--	ret = (void *)__get_free_pages(flags, order);
--	if (ret && address_needs_mapping(hwdev, virt_to_phys(ret))) {
--		/*
--		 * The allocated memory isn't reachable by the device.
--		 * Fall back on swiotlb_map_single().
--		 */
--		free_pages((unsigned long) ret, order);
--		ret = NULL;
--	}
--	if (!ret) {
--		/*
--		 * We are either out of memory or the device can't DMA
--		 * to GFP_DMA memory; fall back on
--		 * swiotlb_map_single(), which will grab memory from
--		 * the lowest available address range.
--		 */
--		dma_addr_t handle;
--		handle = swiotlb_map_single(NULL, NULL, size, DMA_FROM_DEVICE);
--		if (dma_mapping_error(handle))
--			return NULL;
--
--		ret = phys_to_virt(handle);
--	}
--
--	memset(ret, 0, size);
--	dev_addr = virt_to_phys(ret);
--
--	/* Confirm address can be DMA'd by device */
--	if (address_needs_mapping(hwdev, dev_addr)) {
--		printk("hwdev DMA mask = 0x%016Lx, dev_addr = 0x%016lx\n",
--		       (unsigned long long)*hwdev->dma_mask, dev_addr);
--		panic("swiotlb_alloc_coherent: allocated memory is out of "
--		      "range for device");
--	}
--	*dma_handle = dev_addr;
--	return ret;
--}
--
--void
--swiotlb_free_coherent(struct device *hwdev, size_t size, void *vaddr,
--		      dma_addr_t dma_handle)
--{
--	if (!(vaddr >= (void *)io_tlb_start
--                    && vaddr < (void *)io_tlb_end))
--		free_pages((unsigned long) vaddr, get_order(size));
--	else
--		/* DMA_TO_DEVICE to avoid memcpy in unmap_single */
--		swiotlb_unmap_single (hwdev, dma_handle, size, DMA_TO_DEVICE);
--}
--
--static void
--swiotlb_full(struct device *dev, size_t size, int dir, int do_panic)
--{
--	/*
--	 * Ran out of IOMMU space for this operation. This is very bad.
--	 * Unfortunately the drivers cannot handle this operation properly.
--	 * unless they check for pci_dma_mapping_error (most don't)
--	 * When the mapping is small enough return a static buffer to limit
--	 * the damage, or panic when the transfer is too big.
--	 */
--	printk(KERN_ERR "PCI-DMA: Out of SW-IOMMU space for %lu bytes at "
--	       "device %s\n", size, dev ? dev->bus_id : "?");
--
--	if (size > io_tlb_overflow && do_panic) {
--		if (dir = PCI_DMA_FROMDEVICE || dir = PCI_DMA_BIDIRECTIONAL)
--			panic("PCI-DMA: Memory would be corrupted\n");
--		if (dir = PCI_DMA_TODEVICE || dir = PCI_DMA_BIDIRECTIONAL)
--			panic("PCI-DMA: Random memory would be DMAed\n");
--	}
--}
--
--/*
-- * Map a single buffer of the indicated size for DMA in streaming mode.  The
-- * PCI address to use is returned.
-- *
-- * Once the device is given the dma address, the device owns this memory until
-- * either swiotlb_unmap_single or swiotlb_dma_sync_single is performed.
-- */
--dma_addr_t
--swiotlb_map_single(struct device *hwdev, void *ptr, size_t size, int dir)
--{
--	unsigned long dev_addr = virt_to_phys(ptr);
--	void *map;
--
--	if (dir = DMA_NONE)
--		BUG();
--	/*
--	 * If the pointer passed in happens to be in the device's DMA window,
--	 * we can safely return the device addr and not worry about bounce
--	 * buffering it.
--	 */
--	if (!address_needs_mapping(hwdev, dev_addr) && !swiotlb_force)
--		return dev_addr;
--
--	/*
--	 * Oh well, have to allocate and map a bounce buffer.
--	 */
--	map = map_single(hwdev, ptr, size, dir);
--	if (!map) {
--		swiotlb_full(hwdev, size, dir, 1);
--		map = io_tlb_overflow_buffer;
--	}
--
--	dev_addr = virt_to_phys(map);
--
--	/*
--	 * Ensure that the address returned is DMA'ble
--	 */
--	if (address_needs_mapping(hwdev, dev_addr))
--		panic("map_single: bounce buffer is not DMA'ble");
--
--	return dev_addr;
--}
--
--/*
-- * Since DMA is i-cache coherent, any (complete) pages that were written via
-- * DMA can be marked as "clean" so that lazy_mmu_prot_update() doesn't have to
-- * flush them when they get mapped into an executable vm-area.
-- */
--static void
--mark_clean(void *addr, size_t size)
--{
--	unsigned long pg_addr, end;
--
--	pg_addr = PAGE_ALIGN((unsigned long) addr);
--	end = (unsigned long) addr + size;
--	while (pg_addr + PAGE_SIZE <= end) {
--		struct page *page = virt_to_page(pg_addr);
--		set_bit(PG_arch_1, &page->flags);
--		pg_addr += PAGE_SIZE;
--	}
--}
--
--/*
-- * Unmap a single streaming mode DMA translation.  The dma_addr and size must
-- * match what was provided for in a previous swiotlb_map_single call.  All
-- * other usages are undefined.
-- *
-- * After this call, reads by the cpu to the buffer are guaranteed to see
-- * whatever the device wrote there.
-- */
--void
--swiotlb_unmap_single(struct device *hwdev, dma_addr_t dev_addr, size_t size,
--		     int dir)
--{
--	char *dma_addr = phys_to_virt(dev_addr);
--
--	if (dir = DMA_NONE)
--		BUG();
--	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
--		unmap_single(hwdev, dma_addr, size, dir);
--	else if (dir = DMA_FROM_DEVICE)
--		mark_clean(dma_addr, size);
--}
--
--/*
-- * Make physical memory consistent for a single streaming mode DMA translation
-- * after a transfer.
-- *
-- * If you perform a swiotlb_map_single() but wish to interrogate the buffer
-- * using the cpu, yet do not wish to teardown the PCI dma mapping, you must
-- * call this function before doing so.  At the next point you give the PCI dma
-- * address back to the card, you must first perform a
-- * swiotlb_dma_sync_for_device, and then the device again owns the buffer
-- */
--void
--swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
--			    size_t size, int dir)
--{
--	char *dma_addr = phys_to_virt(dev_addr);
--
--	if (dir = DMA_NONE)
--		BUG();
--	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
--		sync_single(hwdev, dma_addr, size, dir);
--	else if (dir = DMA_FROM_DEVICE)
--		mark_clean(dma_addr, size);
--}
--
--void
--swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
--			       size_t size, int dir)
--{
--	char *dma_addr = phys_to_virt(dev_addr);
--
--	if (dir = DMA_NONE)
--		BUG();
--	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
--		sync_single(hwdev, dma_addr, size, dir);
--	else if (dir = DMA_FROM_DEVICE)
--		mark_clean(dma_addr, size);
--}
--
--/*
-- * Map a set of buffers described by scatterlist in streaming mode for DMA.
-- * This is the scatter-gather version of the above swiotlb_map_single
-- * interface.  Here the scatter gather list elements are each tagged with the
-- * appropriate dma address and length.  They are obtained via
-- * sg_dma_{address,length}(SG).
-- *
-- * NOTE: An implementation may be able to use a smaller number of
-- *       DMA address/length pairs than there are SG table elements.
-- *       (for example via virtual mapping capabilities)
-- *       The routine returns the number of addr/length pairs actually
-- *       used, at most nents.
-- *
-- * Device ownership issues as mentioned above for swiotlb_map_single are the
-- * same here.
-- */
--int
--swiotlb_map_sg(struct device *hwdev, struct scatterlist *sg, int nelems,
--	       int dir)
--{
--	void *addr;
--	unsigned long dev_addr;
--	int i;
--
--	if (dir = DMA_NONE)
--		BUG();
--
--	for (i = 0; i < nelems; i++, sg++) {
--		addr = SG_ENT_VIRT_ADDRESS(sg);
--		dev_addr = virt_to_phys(addr);
--		if (swiotlb_force || address_needs_mapping(hwdev, dev_addr)) {
--			sg->dma_address = (dma_addr_t) virt_to_phys(map_single(hwdev, addr, sg->length, dir));
--			if (!sg->dma_address) {
--				/* Don't panic here, we expect map_sg users
--				   to do proper error handling. */
--				swiotlb_full(hwdev, sg->length, dir, 0);
--				swiotlb_unmap_sg(hwdev, sg - i, i, dir);
--				sg[0].dma_length = 0;
--				return 0;
--			}
--		} else
--			sg->dma_address = dev_addr;
--		sg->dma_length = sg->length;
--	}
--	return nelems;
--}
--
--/*
-- * Unmap a set of streaming mode DMA translations.  Again, cpu read rules
-- * concerning calls here are the same as for swiotlb_unmap_single() above.
-- */
--void
--swiotlb_unmap_sg(struct device *hwdev, struct scatterlist *sg, int nelems,
--		 int dir)
--{
--	int i;
--
--	if (dir = DMA_NONE)
--		BUG();
--
--	for (i = 0; i < nelems; i++, sg++)
--		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
--			unmap_single(hwdev, (void *) phys_to_virt(sg->dma_address), sg->dma_length, dir);
--		else if (dir = DMA_FROM_DEVICE)
--			mark_clean(SG_ENT_VIRT_ADDRESS(sg), sg->dma_length);
--}
--
--/*
-- * Make physical memory consistent for a set of streaming mode DMA translations
-- * after a transfer.
-- *
-- * The same as swiotlb_sync_single_* but for a scatter-gather list, same rules
-- * and usage.
-- */
--void
--swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
--			int nelems, int dir)
--{
--	int i;
--
--	if (dir = DMA_NONE)
--		BUG();
--
--	for (i = 0; i < nelems; i++, sg++)
--		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
--			sync_single(hwdev, (void *) sg->dma_address,
--				    sg->dma_length, dir);
--}
--
--void
--swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
--			   int nelems, int dir)
--{
--	int i;
--
--	if (dir = DMA_NONE)
--		BUG();
--
--	for (i = 0; i < nelems; i++, sg++)
--		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
--			sync_single(hwdev, (void *) sg->dma_address,
--				    sg->dma_length, dir);
--}
--
--int
--swiotlb_dma_mapping_error(dma_addr_t dma_addr)
--{
--	return (dma_addr = virt_to_phys(io_tlb_overflow_buffer));
--}
--
--/*
-- * Return whether the given PCI device DMA address mask can be supported
-- * properly.  For example, if your device can only drive the low 24-bits
-- * during PCI bus mastering, then you would pass 0x00ffffff as the mask to
-- * this function.
-- */
--int
--swiotlb_dma_supported (struct device *hwdev, u64 mask)
--{
--	return (virt_to_phys (io_tlb_end) - 1) <= mask;
--}
--
--EXPORT_SYMBOL(swiotlb_init);
--EXPORT_SYMBOL(swiotlb_map_single);
--EXPORT_SYMBOL(swiotlb_unmap_single);
--EXPORT_SYMBOL(swiotlb_map_sg);
--EXPORT_SYMBOL(swiotlb_unmap_sg);
--EXPORT_SYMBOL(swiotlb_sync_single_for_cpu);
--EXPORT_SYMBOL(swiotlb_sync_single_for_device);
--EXPORT_SYMBOL(swiotlb_sync_sg_for_cpu);
--EXPORT_SYMBOL(swiotlb_sync_sg_for_device);
--EXPORT_SYMBOL(swiotlb_dma_mapping_error);
--EXPORT_SYMBOL(swiotlb_alloc_coherent);
--EXPORT_SYMBOL(swiotlb_free_coherent);
--EXPORT_SYMBOL(swiotlb_dma_supported);
---- a/arch/ia64/lib/Makefile
-+++ b/arch/ia64/lib/Makefile
-@@ -9,7 +9,7 @@ lib-y := __divsi3.o __udivsi3.o __modsi3
- 	bitop.o checksum.o clear_page.o csum_partial_copy.o		\
- 	clear_user.o strncpy_from_user.o strlen_user.o strnlen_user.o	\
- 	flush.o ip_fast_csum.o do_csum.o				\
--	memset.o strlen.o swiotlb.o
-+	memset.o strlen.o
+ //void pfm_arch_ctxswout_sys(struct task_struct *task, struct pfm_context *ctx);
+ #define pfm_arch_ctxswout_sys(_t, _c)
  
- lib-$(CONFIG_ITANIUM)	+= copy_page.o copy_user.o memcpy.o
- lib-$(CONFIG_MCKINLEY)	+= copy_page_mck.o memcpy_mck.o
+@@ -153,30 +146,39 @@
+ #define pfm_arch_ctxswin_sys(_t, _c)
+ 
+ extern void pfm_arch_init_percpu(void);
+-extern int  pfm_arch_is_monitoring_active(struct pfm_context *ctx);
+-extern void pfm_arch_ctxswout_thread(struct task_struct *task, struct pfm_context *ctx, struct pfm_event_set *set);
+-extern void pfm_arch_ctxswin_thread(struct task_struct *task, struct pfm_context *ctx, struct pfm_event_set *set);
+-extern void pfm_arch_stop(struct task_struct *task, struct pfm_context *ctx, struct pfm_event_set *set);
+-extern void pfm_arch_start(struct task_struct *task, struct pfm_context *ctx, struct pfm_event_set *set);
++extern void pfm_arch_ctxswout_thread(struct task_struct *task,
++			struct pfm_context *ctx, struct pfm_event_set *set);
++extern void pfm_arch_ctxswin_thread(struct task_struct *task,
++			struct pfm_context *ctx, struct pfm_event_set *set);
++extern void pfm_arch_stop(struct task_struct *task,
++			struct pfm_context *ctx, struct pfm_event_set *set);
++extern void pfm_arch_start(struct task_struct *task,
++			struct pfm_context *ctx, struct pfm_event_set *set);
+ extern void pfm_arch_restore_pmds(struct pfm_event_set *set);
+ extern void pfm_arch_save_pmds(struct pfm_event_set *set);
+-extern void pfm_arch_restore_pmcs(struct pfm_event_set *set, int masked);
+-extern int  pfm_arch_get_ovfl_pmds(struct pfm_context *ctx, struct pfm_event_set *set);
++extern void pfm_arch_restore_pmcs(struct pfm_event_set *set, int plm_mask);
+ extern void pfm_arch_intr_freeze_pmu(struct pfm_context *ctx);
+ extern void pfm_arch_intr_unfreeze_pmu(struct pfm_context *ctx);
++extern void pfm_arch_pmu_config_init(struct pfm_pmu_config *cfg);
+ extern int  pfm_arch_initialize(void);
+ extern void pfm_arch_mask_monitoring(struct pfm_context *ctx);
+ extern void pfm_arch_unmask_monitoring(struct pfm_context *ctx);
+-extern void pfm_arch_pmu_config_init(struct pfm_pmu_config *cfg);
++extern int  pfm_arch_get_ovfl_pmds(struct pfm_context *ctx,
++			struct pfm_event_set *set);
++static inline int pfm_arch_is_monitoring_active(struct pfm_context *ctx)
++{
++	return !(mfspr(SPRN_MMCR0) & MMCR0_FC);
++}
+ 
+-//static inline void pfm_arch_context_initialize(struct pfm_context *ctx, u32 ctx_flags);
+-#define pfm_arch_context_initialize(ctx, ctx_flags) /* nothing */
+ 
+-extern void pfm_arch_load_context(struct pfm_context *ctx, struct task_struct *task);
+-extern void pfm_arch_unload_context(struct pfm_context *ctx, struct task_struct *task);
++extern void pfm_arch_context_initialize(struct pfm_context *ctx, u32 ctx_flags);
++extern void pfm_arch_unload_context(struct pfm_context *ctx,
++		struct task_struct *task);
++extern void pfm_arch_load_context(struct pfm_context *ctx,
++		struct task_struct *task);
+ 
+-static inline int
+-pfm_arch_reserve_session(struct pfm_context *ctx, unsigned int cpu)
++static inline int pfm_arch_reserve_session(struct pfm_context *ctx,
++					   unsigned int cpu)
+ {
+ 	return 0;
+ }
+@@ -184,7 +186,6 @@
+ //static inline void pfm_arch_unreserve_session(struct pfm_context *ctx, unsigned int cpu)
+ #define pfm_arch_unreserve_session(ctx, cpu) /* nothing */
+ 
+-
+ /*
+  * function called from pfm_setfl_sane(). Context is locked
+  * and interrupts are masked.
+@@ -196,38 +197,37 @@
+  * 	1 when flags are valid
+  *      0 on error
+  */
+-static inline int
+-pfm_arch_setfl_sane(struct pfm_context *ctx, u32 flags)
++static inline int pfm_arch_setfl_sane(struct pfm_context *ctx, u32 flags)
+ {
+ 	return 0;
+ }
+ 
+-static inline void
+-pfm_arch_stop_thread(struct task_struct *task, struct pfm_context *ctx, struct pfm_event_set *set)
++static inline void pfm_arch_stop_thread(struct task_struct *task,
++			struct pfm_context *ctx, struct pfm_event_set *set)
+ {
+ 	pfm_arch_stop(task, ctx, set);
+ }
+ 
+-static inline void
+-pfm_arch_start_thread(struct task_struct *task, struct pfm_context *ctx, struct pfm_event_set *set)
++static inline void pfm_arch_start_thread(struct task_struct *task,
++		struct pfm_context *ctx, struct pfm_event_set *set)
+ {
+ 	pfm_arch_start(task, ctx, set);
+ }
+ 
+-static inline void
+-pfm_arch_stop_sys(struct task_struct *task, struct pfm_context *ctx, struct pfm_event_set *set)
++static inline void pfm_arch_stop_sys(struct task_struct *task,
++		struct pfm_context *ctx, struct pfm_event_set *set)
+ {
+ 	pfm_arch_stop(task, ctx, set);
+ }
+ 
+-static inline void
+-pfm_arch_start_sys(struct task_struct *task, struct pfm_context *ctx, struct pfm_event_set *set)
++static inline void pfm_arch_start_sys(struct task_struct *task,
++		struct pfm_context *ctx, struct pfm_event_set *set)
+ {
+ 	pfm_arch_start(task, ctx, set);
+ }
+ 
+-static inline int
+-pfm_arch_load_checks(struct pfm_context *ctx, struct task_struct *task)
++static inline int pfm_arch_load_checks(struct pfm_context *ctx,
++		struct task_struct *task)
+ {
+ 	return 0;
+ }
+@@ -235,15 +235,11 @@
+ //static inline void pfm_arch_show_session(struct seq_file *m);
+ #define pfm_arch_show_session(m) /* nothing */
+ 
+-struct pfm_arch_pmu_info {
+-	/* empty */
+-};
+-
+ struct pfm_arch_context {
+ 	/* empty */
+ };
+ 
+-#define PFM_ARCH_CTX_SIZE	sizeof(struct pfm_arch_context)
++#define PFM_ARCH_CTX_SIZE	(sizeof(struct pfm_arch_context))
+ 
+ #endif /* __KERNEL__ */
+ #endif /* _ASM_PPC64_PERFMON_H_ */
+Index: working-2.6/arch/ppc64/kernel/entry.S
+=================================--- working-2.6.orig/arch/ppc64/kernel/entry.S	2005-09-06 14:51:26.000000000 +1000
++++ working-2.6/arch/ppc64/kernel/entry.S	2005-09-06 15:05:39.000000000 +1000
+@@ -597,6 +597,9 @@
+ 	b	.ret_from_except_lite
+ 
+ 1:	bl	.save_nvgprs
++#ifdef CONFIG_PERFMON
++	bl	.ppc64_pfm_handle_work
++#endif /* CONFIG_PERFMON */
+ 	li	r3,0
+ 	addi	r4,r1,STACK_FRAME_OVERHEAD
+ 	bl	.do_signal
+Index: working-2.6/arch/ppc64/kernel/misc.S
+=================================--- working-2.6.orig/arch/ppc64/kernel/misc.S	2005-09-06 14:52:16.000000000 +1000
++++ working-2.6/arch/ppc64/kernel/misc.S	2005-09-06 15:04:26.000000000 +1000
+@@ -1138,6 +1138,18 @@
+ 	.llong .sys_vperfctr_control
+ 	.llong .sys_vperfctr_write
+ 	.llong .sys_vperfctr_read	/* 280 */
++	.llong .sys_pfm_create_context	/* 281 */
++	.llong .sys_pfm_write_pmcs
++	.llong .sys_pfm_write_pmds
++	.llong .sys_pfm_read_pmds
++	.llong .sys_pfm_load_context	/* 285 *
++	.llong .sys_pfm_start
++	.llong .sys_pfm_stop
++	.llong .sys_pfm_restart
++	.llong .sys_pfm_create_evtsets
++	.llong .sys_pfm_getinfo_evtsets /* 290 */
++	.llong .sys_pfm_delete_evtsets
++	.llong .sys_pfm_unload_context
+ 
+ 	.balign 8
+ _GLOBAL(sys_call_table)
+@@ -1425,16 +1437,16 @@
+ 	.llong .sys_vperfctr_control
+ 	.llong .sys_vperfctr_write
+ 	.llong .sys_vperfctr_read	/* 280 */
+-	.llong sys_pfm_create_context	/* 281 */
+-	.llong sys_pfm_write_pmcs
+-	.llong sys_pfm_write_pmds
+-	.llong sys_pfm_read_pmds
+-	.llong sys_pfm_load_context	/* 285 *
+-	.llong sys_pfm_start
+-	.llong sys_pfm_stop
+-	.llong sys_pfm_restart
+-	.llong sys_pfm_create_evtsets
+-	.llong sys_pfm_getinfo_evtsets /* 290 */
+-	.llong sys_pfm_delete_evtsets
+-	.llong sys_pfm_unload_context
++	.llong .sys_pfm_create_context	/* 281 */
++	.llong .sys_pfm_write_pmcs
++	.llong .sys_pfm_write_pmds
++	.llong .sys_pfm_read_pmds
++	.llong .sys_pfm_load_context	/* 285 *
++	.llong .sys_pfm_start
++	.llong .sys_pfm_stop
++	.llong .sys_pfm_restart
++	.llong .sys_pfm_create_evtsets
++	.llong .sys_pfm_getinfo_evtsets /* 290 */
++	.llong .sys_pfm_delete_evtsets
++	.llong .sys_pfm_unload_context
+ 
+
+
+-- 
+David Gibson			| I'll have my music baroque, and my code
+david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
+				| _way_ _around_!
+http://www.ozlabs.org/people/dgibson
