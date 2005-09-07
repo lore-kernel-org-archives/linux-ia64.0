@@ -1,34 +1,19 @@
-From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-Date: Wed, 07 Sep 2005 05:04:14 +0000
-Subject: [PATCH 2.6.13 1/3] Minor cleanups - remove unnecessary function prototype
-Message-Id: <431E74CE.2090305@jp.fujitsu.com>
+From: Matthew Wilcox <matthew@wil.cx>
+Date: Wed, 07 Sep 2005 15:35:57 +0000
+Subject: Re: [PATCH 2.6.13 1/3] Minor cleanups - remove unnecessary function prototype in irq.h
+Message-Id: <20050907153557.GA17847@parisc-linux.org>
 List-Id: <linux-ia64.vger.kernel.org>
+References: <431E74CE.2090305@jp.fujitsu.com>
+In-Reply-To: <431E74CE.2090305@jp.fujitsu.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-The function prototype for handl_IRQ_event() in include/asm-ia64/irq.h
-is no longer needed. This patch removes it.
+On Wed, Sep 07, 2005 at 02:04:14PM +0900, Kenji Kaneshige wrote:
+> The function prototype for handl_IRQ_event() in include/asm-ia64/irq.h
+> is no longer needed. This patch removes it.
 
-Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
-
----
-
- include/asm-ia64/irq.h |    4 ----
- 1 files changed, 4 deletions(-)
-
-diff -puN include/asm-ia64/irq.h~ia64-cleanup-remove-handle_IRQ_event include/asm-ia64/irq.h
---- linux-2.6.13/include/asm-ia64/irq.h~ia64-cleanup-remove-handle_IRQ_event	2005-09-07 11:53:11.000000000 +0900
-+++ linux-2.6.13-kanesige/include/asm-ia64/irq.h	2005-09-07 11:53:11.000000000 +0900
-@@ -36,8 +36,4 @@ extern void move_irq(int irq);
- #define move_irq(irq)
- #endif
- 
--struct irqaction;
--struct pt_regs;
--int handle_IRQ_event(unsigned int, struct pt_regs *, struct irqaction *);
--
- #endif /* _ASM_IA64_IRQ_H */
-_
-
+Seems to me it can go away from every other architecture that's using
+GENERIC_HARDIRQS (ie frv i386 ia64 m32r mips parisc ppc ppc64 sh sh64
+um x86_64 xtensa).  Mind doing that for everyone?
