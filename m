@@ -1,32 +1,109 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 02 Sep 2005 03:45:32 +0000
-Subject: RE: ip_contrack module refuses to load...
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F044B0A3D@scsmsx401.amr.corp.intel.com>
+From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
+Date: Wed, 07 Sep 2005 08:28:47 +0000
+Subject: Prefetch kernel stacks to speed up context switch
+Message-Id: <200509070829.j878TSg25898@unix-os.sc.intel.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <17170.30144.755169.205802@berry.gelato.unsw.EDU.AU>
-In-Reply-To: <17170.30144.755169.205802@berry.gelato.unsw.EDU.AU>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: Linux Kernel <linux-kernel@vger.kernel.org>, linux-ia64@vger.kernel.org
+Cc: Andrew Morton <akpm@osdl.org>
 
->doesn't that mean that those variables are a
->special kind of (per-CPU) variables and should
->get a special handling anyway?
->
->if not, then I'd agree with Peter that a per-cpu 
->variable on UP should not be treated any different 
->from a normal variable ...
->
->maybe you could clarify
+Repost previously discussed patch (on Jul 27, 2005). Ingo did
+the same thing for all arch with 471 lines of patch.  I'm still
+advocating this little 30 lines patch, of 6 lines introduces
+prefetch_stack() generic interface.
 
-On ia64 we always map per-cpu variables into the top
-64k of the kernel virtual address space ... it doesn't
-matter whether the kernel is UP or SMP.  So the module
-loader should not have any special cases for UP.
+Andrew, please consider -mm inclusion. Or advise me what I need
+to do to take this forward.  Thanks.
 
-This is different from most (all?) other architectures
-where per-cpu variables are automagically redefined to
-be normal kernel variables in the UP case.
+- Ken
 
--Tony
+
+------
+
+For architecture like ia64, the switch stack structure is fairly large
+(currently 528 bytes).  For context switch intensive application, we
+found that significant amount of cache misses occurs in switch_to()
+function.  The following patch adds a hook in the schedule() function to
+prefetch switch stack structure as soon as 'next' task is determined. 
+This allows maximum overlap in prefetch cache lines for that structure.
+
+Signed-off-by: Ken Chen <kenneth.w.chen@intel.com>
+
+ arch/ia64/kernel/entry.S  |   23 +++++++++++++++++++++++
+ include/asm-ia64/system.h |    1 +
+ include/linux/sched.h     |    5 +++++
+ kernel/sched.c            |    1 +
+ 4 files changed, 30 insertions(+)
+
+
+--- ./arch/ia64/kernel/entry.S.orig	2005-08-09 15:32:47.778894000 -0700
++++ ./arch/ia64/kernel/entry.S	2005-08-09 16:14:17.839410590 -0700
+@@ -470,6 +470,29 @@ ENTRY(load_switch_stack)
+ 	br.cond.sptk.many b7
+ END(load_switch_stack)
+ 
++GLOBAL_ENTRY(prefetch_stack)
++	add r14 = -IA64_SWITCH_STACK_SIZE, sp
++	add r15 = IA64_TASK_THREAD_KSP_OFFSET, in0
++	;;
++	ld8 r16 = [r15]				// load next's stack pointer
++	lfetch.fault.excl [r14], 128
++	;;
++	lfetch.fault.excl [r14], 128
++	lfetch.fault [r16], 128
++	;;
++	lfetch.fault.excl [r14], 128
++	lfetch.fault [r16], 128
++	;;
++	lfetch.fault.excl [r14], 128
++	lfetch.fault [r16], 128
++	;;
++	lfetch.fault.excl [r14], 128
++	lfetch.fault [r16], 128
++	;;
++	lfetch.fault [r16], 128
++	br.ret.sptk.many rp
++END(prefetch_switch_stack)
++
+ GLOBAL_ENTRY(execve)
+ 	mov r15=__NR_execve			// put syscall number in place
+ 	break __BREAK_SYSCALL
+--- ./include/asm-ia64/system.h.orig	2005-08-09 15:32:51.100183000 -0700
++++ ./include/asm-ia64/system.h	2005-08-09 16:10:08.942929264 -0700
+@@ -274,6 +274,7 @@ extern void ia64_load_extra (struct task
+  */
+ #define __ARCH_WANT_UNLOCKED_CTXSW
+ 
++#define ARCH_HAS_PREFETCH_SWITCH_STACK
+ #define ia64_platform_is(x) (strcmp(x, platform_name) = 0)
+ 
+ void cpu_idle_wait(void);
+--- ./include/linux/sched.h.orig	2005-08-09 15:32:51.339441000 -0700
++++ ./include/linux/sched.h	2005-08-09 16:02:35.378481695 -0700
+@@ -592,6 +592,11 @@ extern int groups_search(struct group_in
+ #define GROUP_AT(gi, i) \
+     ((gi)->blocks[(i)/NGROUPS_PER_BLOCK][(i)%NGROUPS_PER_BLOCK])
+ 
++#ifdef ARCH_HAS_PREFETCH_SWITCH_STACK
++extern void prefetch_stack(struct task_struct*);
++#else
++static inline void prefetch_stack(struct task_struct *t) { }
++#endif
+ 
+ struct audit_context;		/* See audit.c */
+ struct mempolicy;
+--- ./kernel/sched.c.orig	2005-08-09 15:32:51.429284000 -0700
++++ ./kernel/sched.c	2005-08-09 16:02:51.929262743 -0700
+@@ -2887,6 +2887,7 @@ switch_tasks:
+ 	if (next = rq->idle)
+ 		schedstat_inc(rq, sched_goidle);
+ 	prefetch(next);
++	prefetch_stack(next);
+ 	clear_tsk_need_resched(prev);
+ 	rcu_qsctr_inc(task_cpu(prev));
+ 
+
+
+
