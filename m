@@ -1,31 +1,34 @@
-From: Matthew Wilcox <matthew@wil.cx>
-Date: Fri, 23 Sep 2005 00:58:04 +0000
-Subject: Re: [PATCH] Increase maximum kmalloc size to 256K
-Message-Id: <20050923005804.GI26389@parisc-linux.org>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Wed, 07 Sep 2005 05:04:14 +0000
+Subject: [PATCH 2.6.13 1/3] Minor cleanups - remove unnecessary function prototype
+Message-Id: <431E74CE.2090305@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <Pine.LNX.4.62.0509221306380.18133@schroedinger.engr.sgi.com> <20050922131521.77da1684.akpm@osdl.org> <Pine.LNX.4.62.0509221329270.18240@schroedinger.engr.sgi.com>
-In-Reply-To: <Pine.LNX.4.62.0509221329270.18240@schroedinger.engr.sgi.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Christoph Lameter <clameter@engr.sgi.com>
-Cc: Andrew Morton <akpm@osdl.org>, linux-mm@kvack.org, linux-ia64@vger.kernel.org, manfred@colorfulllife.com
+To: linux-ia64@vger.kernel.org
 
-On Thu, Sep 22, 2005 at 01:55:43PM -0700, Christoph Lameter wrote:
-> On Thu, 22 Sep 2005, Andrew Morton wrote:
-> 
-> > Christoph Lameter <clameter@engr.sgi.com> wrote:
-> > >
-> > >  The workqueue structure can grow larger than 128k under 2.6.14-rc2 (with 
-> > >  all debugging features enabled on 64 bit platforms)
-> > 
-> > Would it be better to use alloc_percpu() in there?  Bearing in mind that
-> > one day we'll probably have an alloc_percpu() which incurs one less
-> > indirection and which allocates things node-affinely.
-> 
-> Yes I am working on a patch like that right now. But there is still the 
-> danger that other structures also may get big in the future. It would 
-> be best to raise the limit.
+The function prototype for handl_IRQ_event() in include/asm-ia64/irq.h
+is no longer needed. This patch removes it.
 
-It would be better to leave the limit alone so other structures which
-get ridiculously big are also caught and fixed.
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+
+---
+
+ include/asm-ia64/irq.h |    4 ----
+ 1 files changed, 4 deletions(-)
+
+diff -puN include/asm-ia64/irq.h~ia64-cleanup-remove-handle_IRQ_event include/asm-ia64/irq.h
+--- linux-2.6.13/include/asm-ia64/irq.h~ia64-cleanup-remove-handle_IRQ_event	2005-09-07 11:53:11.000000000 +0900
++++ linux-2.6.13-kanesige/include/asm-ia64/irq.h	2005-09-07 11:53:11.000000000 +0900
+@@ -36,8 +36,4 @@ extern void move_irq(int irq);
+ #define move_irq(irq)
+ #endif
+ 
+-struct irqaction;
+-struct pt_regs;
+-int handle_IRQ_event(unsigned int, struct pt_regs *, struct irqaction *);
+-
+ #endif /* _ASM_IA64_IRQ_H */
+_
+
