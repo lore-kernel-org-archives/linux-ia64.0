@@ -1,56 +1,155 @@
-From: Christoph Lameter <clameter@engr.sgi.com>
-Date: Mon, 19 Sep 2005 18:22:04 +0000
-Subject: Re: [PATCH] Only process_die notifier in ia64_do_page_fault if
-Message-Id: <Pine.LNX.4.62.0509191119020.25963@schroedinger.engr.sgi.com>
+From: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+Date: Wed, 07 Sep 2005 05:06:25 +0000
+Subject: [PATCH 2.6.13 2/3] Minor cleanups - remove CONFIG_ACPI_DEALLOCATE_IRQ
+Message-Id: <431E7551.60304@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200508262246.j7QMkEoT013490@linux.jf.intel.com>
- <Pine.LNX.4.62.0508261559450.17433@schroedinger.engr.sgi.com>
- <200508270224.26423.ak@suse.de> <20050830001905.GA18279@linux.jf.intel.com>
- <20050830111830.GI26314@parcelfarce.linux.theplanet.co.uk>
-In-Reply-To: <20050830111830.GI26314@parcelfarce.linux.theplanet.co.uk>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Matthew Wilcox <matthew@wil.cx>
-Cc: Rusty Lynch <rusty@linux.intel.com>, Andi Kleen <ak@suse.de>, Rusty Lynch <rusty.lynch@intel.com>, linux-mm@kvack.org, prasanna@in.ibm.com, linux-ia64@vger.kernel.org, linux-kernel@vger.kernel.org, anil.s.keshavamurthy@intel.com
+To: linux-ia64@vger.kernel.org
 
-On Tue, 30 Aug 2005, Matthew Wilcox wrote:
+The config option 'CONFIG_ACPI_DEALLOCATE_IRQ' is no longer
+needed. This patch removes it.
 
-> On Mon, Aug 29, 2005 at 05:19:05PM -0700, Rusty Lynch wrote:
-> > So, assuming inlining the notifier_call_chain would address Christoph's
-> > conserns, is the following patch something like what you are sugesting?  
-> > This would make all the kdebug.h::notify_die() calls use the inline version. 
-> 
-> I think we need something more like this ...
-> 
-> include/linux/notifier.h:
-> +static inline int notifier_call_chain(struct notifier_block **n,
-> +					unsigned long val, void *v)
-> +{
-> +	if (n)
-> +		return __notifier_call_chain(n, val, v);
-> +	return NOTIFY_DONE;
-> +}
-> kernel/sys.c:
-> -int notifier_call_chain(struct notifier_block **n, unsigned long val, void *v)
-> +int __notifier_call_chain(struct notifier_block **n, unsigned long val, void *v)
-> -EXPORT_SYMBOL(notifier_call_chain);
-> +EXPORT_SYMBOL(__notifier_call_chain);
-> 
-> That way everyone gets both the quick test and the global size reduction.
+Signed-off-by: Kenji Kaneshige <kaneshige.kenji@jp.fujitsu.com>
+---
 
-And then do
+ arch/ia64/Kconfig                 |    5 -----
+ arch/ia64/configs/sn2_defconfig   |    1 -
+ arch/ia64/configs/tiger_defconfig |    1 -
+ arch/ia64/configs/zx1_defconfig   |    1 -
+ arch/ia64/defconfig               |    1 -
+ arch/ia64/kernel/acpi.c           |    2 --
+ arch/ia64/kernel/iosapic.c        |    2 --
+ arch/ia64/pci/pci.c               |    2 --
+ include/asm-ia64/iosapic.h        |    2 --
+ 9 files changed, 17 deletions(-)
 
-#ifndef CONFIG_KPROBES
-
-#define ia64die_chain 0
-
-#endif
-
-in include/asm-ia64/kdebug.h?
-
-Otherwise we still check a notifier chain that cannot ever be 
-activated.
-
-But then the patch is essentially the same as the last one I proposed.
+diff -puN arch/ia64/configs/sn2_defconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ arch/ia64/configs/sn2_defconfig
+--- linux-2.6.13/arch/ia64/configs/sn2_defconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/arch/ia64/configs/sn2_defconfig	2005-09-07 11:53:18.000000000 +0900
+@@ -111,7 +111,6 @@ CONFIG_COMPAT=y
+ CONFIG_IA64_MCA_RECOVERY=y
+ CONFIG_PERFMON=y
+ CONFIG_IA64_PALINFO=y
+-CONFIG_ACPI_DEALLOCATE_IRQ=y
+ 
+ #
+ # Firmware Drivers
+diff -puN arch/ia64/configs/tiger_defconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ arch/ia64/configs/tiger_defconfig
+--- linux-2.6.13/arch/ia64/configs/tiger_defconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/arch/ia64/configs/tiger_defconfig	2005-09-07 11:53:18.000000000 +0900
+@@ -109,7 +109,6 @@ CONFIG_COMPAT=y
+ CONFIG_IA64_MCA_RECOVERY=y
+ CONFIG_PERFMON=y
+ CONFIG_IA64_PALINFO=y
+-CONFIG_ACPI_DEALLOCATE_IRQ=y
+ 
+ #
+ # Firmware Drivers
+diff -puN arch/ia64/configs/zx1_defconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ arch/ia64/configs/zx1_defconfig
+--- linux-2.6.13/arch/ia64/configs/zx1_defconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/arch/ia64/configs/zx1_defconfig	2005-09-07 11:53:18.000000000 +0900
+@@ -109,7 +109,6 @@ CONFIG_COMPAT=y
+ CONFIG_IA64_MCA_RECOVERY=y
+ CONFIG_PERFMON=y
+ CONFIG_IA64_PALINFO=y
+-CONFIG_ACPI_DEALLOCATE_IRQ=y
+ 
+ #
+ # Firmware Drivers
+diff -puN arch/ia64/defconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ arch/ia64/defconfig
+--- linux-2.6.13/arch/ia64/defconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/arch/ia64/defconfig	2005-09-07 11:53:18.000000000 +0900
+@@ -99,7 +99,6 @@ CONFIG_COMPAT=y
+ CONFIG_IA64_MCA_RECOVERY=y
+ CONFIG_PERFMON=y
+ CONFIG_IA64_PALINFO=y
+-CONFIG_ACPI_DEALLOCATE_IRQ=y
+ 
+ #
+ # Firmware Drivers
+diff -puN arch/ia64/Kconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ arch/ia64/Kconfig
+--- linux-2.6.13/arch/ia64/Kconfig~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/arch/ia64/Kconfig	2005-09-07 11:53:18.000000000 +0900
+@@ -338,11 +338,6 @@ config IA64_PALINFO
+ 	  To use this option, you have to ensure that the "/proc file system
+ 	  support" (CONFIG_PROC_FS) is enabled, too.
+ 
+-config ACPI_DEALLOCATE_IRQ
+-	bool
+-	depends on IOSAPIC && EXPERIMENTAL
+-	default y
+-
+ source "drivers/firmware/Kconfig"
+ 
+ source "fs/Kconfig.binfmt"
+diff -puN arch/ia64/kernel/acpi.c~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ arch/ia64/kernel/acpi.c
+--- linux-2.6.13/arch/ia64/kernel/acpi.c~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/arch/ia64/kernel/acpi.c	2005-09-07 11:53:18.000000000 +0900
+@@ -575,14 +575,12 @@ acpi_register_gsi (u32 gsi, int edge_lev
+ }
+ EXPORT_SYMBOL(acpi_register_gsi);
+ 
+-#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
+ void
+ acpi_unregister_gsi (u32 gsi)
+ {
+ 	iosapic_unregister_intr(gsi);
+ }
+ EXPORT_SYMBOL(acpi_unregister_gsi);
+-#endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
+ 
+ static int __init
+ acpi_parse_fadt (unsigned long phys_addr, unsigned long size)
+diff -puN arch/ia64/kernel/iosapic.c~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ arch/ia64/kernel/iosapic.c
+--- linux-2.6.13/arch/ia64/kernel/iosapic.c~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/arch/ia64/kernel/iosapic.c	2005-09-07 11:53:18.000000000 +0900
+@@ -776,7 +776,6 @@ again:
+ 	return vector;
+ }
+ 
+-#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
+ void
+ iosapic_unregister_intr (unsigned int gsi)
+ {
+@@ -859,7 +858,6 @@ iosapic_unregister_intr (unsigned int gs
+ 	spin_unlock(&iosapic_lock);
+ 	spin_unlock_irqrestore(&idesc->lock, flags);
+ }
+-#endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
+ 
+ /*
+  * ACPI calls this when it finds an entry for a platform interrupt.
+diff -puN arch/ia64/pci/pci.c~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ arch/ia64/pci/pci.c
+--- linux-2.6.13/arch/ia64/pci/pci.c~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/arch/ia64/pci/pci.c	2005-09-07 11:53:18.000000000 +0900
+@@ -499,13 +499,11 @@ pcibios_enable_device (struct pci_dev *d
+ 	return acpi_pci_irq_enable(dev);
+ }
+ 
+-#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
+ void
+ pcibios_disable_device (struct pci_dev *dev)
+ {
+ 	acpi_pci_irq_disable(dev);
+ }
+-#endif /* CONFIG_ACPI_DEALLOCATE_IRQ */
+ 
+ void
+ pcibios_align_resource (void *data, struct resource *res,
+diff -puN include/asm-ia64/iosapic.h~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ include/asm-ia64/iosapic.h
+--- linux-2.6.13/include/asm-ia64/iosapic.h~ia64-cleanup-remove-CONFIG_ACPI_DEALLOCATE_IRQ	2005-09-07 11:53:18.000000000 +0900
++++ linux-2.6.13-kanesige/include/asm-ia64/iosapic.h	2005-09-07 11:53:18.000000000 +0900
+@@ -83,9 +83,7 @@ extern int gsi_to_irq (unsigned int gsi)
+ extern void iosapic_enable_intr (unsigned int vector);
+ extern int iosapic_register_intr (unsigned int gsi, unsigned long polarity,
+ 				  unsigned long trigger);
+-#ifdef CONFIG_ACPI_DEALLOCATE_IRQ
+ extern void iosapic_unregister_intr (unsigned int irq);
+-#endif
+ extern void __init iosapic_override_isa_irq (unsigned int isa_irq, unsigned int gsi,
+ 				      unsigned long polarity,
+ 				      unsigned long trigger);
+_
 
