@@ -1,7 +1,7 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Fri, 09 Sep 2005 22:36:01 +0000
-Subject: RE: [RFC] timer_interrupt: Avoid device timeouts by freezing time if system froze
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F045A8A97@scsmsx401.amr.corp.intel.com>
+From: Christoph Lameter <clameter@engr.sgi.com>
+Date: Fri, 09 Sep 2005 23:13:03 +0000
+Subject: Re: [RFC] timer_interrupt: Avoid device timeouts by freezing time
+Message-Id: <Pine.LNX.4.62.0509091549390.13330@schroedinger.engr.sgi.com>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.62.0509091501240.12956@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.62.0509091501240.12956@schroedinger.engr.sgi.com>
@@ -10,25 +10,25 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
->I am aware of at least two ia64 virtualization systems
->that rely on the existing behavior to compensate for
->the fact that one guest linux may be inactive while another
->is active.  This isn't to say that another solution
->couldn't be found, but just turning off the existing
->behavior doesn't seem like a good alternative. 
+On Fri, 9 Sep 2005, David Mosberger-Tang wrote:
 
-There must be some minimum frequency at which a hypervisor
-allows a guest to run in order for it to operate normally
-[e.g. a guest that gets no cpu time for several seconds at
-a stretch will experience network time-outs with external
-systems that it is unable to supply with "keep-alive" packets].
+> I also would be nervous about the proposed patch.
 
-I'm not sure what that minimum frequency is, but I expect that
-it may be contrained by some of the shorter TCP timeouts.  I
-think that there is one around the 200 milli-second mark.
+Yes, I am also a bit concerned but there seems to be no other 
+good solution.
+ 
+> I'm wondering: could the problem be avoided perhaps by running all
+> other pending (lower-priority) interrupts first when you detect a
+> large jump in elapsed time?  In other words, when you detect a jump
+> from time T1 to T2 with (T2-T1) greater than some threshold, you make
+> sure you run all pending interrupts while still at time T1 and only
+> after that is done you let time catch up to T2.
 
-So possibly a hypervisor that starves a guest for long enough
-to trigger Christoph's patch has other problems than just
-keeping time correct in the guest.
+I think we are not talking about hardware interupts. Those can happen 
+anytime and given the system was frozen for an extended time period 
+likely have already completed before the timer interrupt happens for 
+the first time after the system begins to unfreeze.
 
--Tony
+I think the main issue are drivers events. These are dependent on jiffies 
+(which may be checked by drivers in a varity of ways) or are timer events 
+(which also may expect jiffies to have a certain value).
