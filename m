@@ -1,7 +1,7 @@
 From: "Magenheimer, Dan (HP Labs Fort Collins)" <dan.magenheimer@hp.com>
-Date: Fri, 09 Sep 2005 23:19:56 +0000
+Date: Sun, 11 Sep 2005 17:04:54 +0000
 Subject: RE: [RFC] timer_interrupt: Avoid device timeouts by freezing time if system froze
-Message-Id: <516F50407E01324991DD6D07B0531AD569596C@cacexc12.americas.cpqcorp.net>
+Message-Id: <516F50407E01324991DD6D07B0531AD5695995@cacexc12.americas.cpqcorp.net>
 List-Id: <linux-ia64.vger.kernel.org>
 References: <Pine.LNX.4.62.0509091501240.12956@schroedinger.engr.sgi.com>
 In-Reply-To: <Pine.LNX.4.62.0509091501240.12956@schroedinger.engr.sgi.com>
@@ -10,38 +10,62 @@ Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
-We've found that guests are pretty resilient to
-"timeouts", though its quite possible they've never
-really exceeded 200 milliseconds.
+It seems like both "test for too much time passed"
+and "recover from too much time passed" at least ought
+to be out-of-line and easily overridden, e.g. by adding
+a level of abstraction along the lines of default_idle.
 
 > -----Original Message-----
-> From: Luck, Tony [mailto:tony.luck@intel.com] 
-> Sent: Friday, September 09, 2005 4:36 PM
-> To: Magenheimer, Dan (HP Labs Fort Collins); Christoph 
-> Lameter; linux-ia64@vger.kernel.org
-> Subject: RE: [RFC] timer_interrupt: Avoid device timeouts by 
+> From: dmosberger@gmail.com [mailto:dmosberger@gmail.com] On 
+> Behalf Of David Mosberger-Tang
+> Sent: Friday, September 09, 2005 5:18 PM
+> To: Christoph Lameter
+> Cc: Magenheimer, Dan (HP Labs Fort Collins); 
+> linux-ia64@vger.kernel.org
+> Subject: Re: [RFC] timer_interrupt: Avoid device timeouts by 
 > freezing time if system froze
 > 
-> >I am aware of at least two ia64 virtualization systems
-> >that rely on the existing behavior to compensate for
-> >the fact that one guest linux may be inactive while another
-> >is active.  This isn't to say that another solution
-> >couldn't be found, but just turning off the existing
-> >behavior doesn't seem like a good alternative. 
+> I see your point about non-interrupt sources but the idea can be
+> generalized: rather than letting time catch up in a single huge jump,
+> do it gradually.  Say for every timer tick, you advance by one extra
+> tick.  I _think_ that could work well in practice.
 > 
-> There must be some minimum frequency at which a hypervisor
-> allows a guest to run in order for it to operate normally
-> [e.g. a guest that gets no cpu time for several seconds at
-> a stretch will experience network time-outs with external
-> systems that it is unable to supply with "keep-alive" packets].
+>   --david
 > 
-> I'm not sure what that minimum frequency is, but I expect that
-> it may be contrained by some of the shorter TCP timeouts.  I
-> think that there is one around the 200 milli-second mark.
+> On 9/9/05, Christoph Lameter <clameter@engr.sgi.com> wrote:
+> > On Fri, 9 Sep 2005, David Mosberger-Tang wrote:
+> > 
+> > > I also would be nervous about the proposed patch.
+> > 
+> > Yes, I am also a bit concerned but there seems to be no other
+> > good solution.
+> > 
+> > > I'm wondering: could the problem be avoided perhaps by running all
+> > > other pending (lower-priority) interrupts first when you detect a
+> > > large jump in elapsed time?  In other words, when you 
+> detect a jump
+> > > from time T1 to T2 with (T2-T1) greater than some 
+> threshold, you make
+> > > sure you run all pending interrupts while still at time 
+> T1 and only
+> > > after that is done you let time catch up to T2.
+> > 
+> > I think we are not talking about hardware interupts. Those 
+> can happen
+> > anytime and given the system was frozen for an extended time period
+> > likely have already completed before the timer interrupt happens for
+> > the first time after the system begins to unfreeze.
+> > 
+> > I think the main issue are drivers events. These are 
+> dependent on jiffies
+> > (which may be checked by drivers in a varity of ways) or 
+> are timer events
+> > (which also may expect jiffies to have a certain value).
+> > 
 > 
-> So possibly a hypervisor that starves a guest for long enough
-> to trigger Christoph's patch has other problems than just
-> keeping time correct in the guest.
 > 
-> -Tony
+> -- 
+> Mosberger Consulting LLC, voice/fax: 510-744-9372,
+> http://www.mosberger-consulting.com/
+> 35706 Runckel Lane, Fremont, CA 94536
 > 
