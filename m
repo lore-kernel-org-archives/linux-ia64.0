@@ -1,60 +1,54 @@
-From: hawkes@sgi.com
-Date: Sat, 03 Sep 2005 16:21:13 +0000
-Subject: [PATCH 0/3] 2.6.13: cpuset + build_sched_domains() fix
-Message-Id: <20050903162113.22561.80700.sendpatchset@tomahawk.engr.sgi.com>
+From: Keith Owens <kaos@sgi.com>
+Date: Sun, 11 Sep 2005 07:20:14 +0000
+Subject: [PATCH 2.6.13 2/6] MCA/INIT: add an extra thread_info flag
+Message-Id: <25347.1126423214@ocs3.ocs.com.au>
 List-Id: <linux-ia64.vger.kernel.org>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: Dinakar Guniguntala <dino@in.ibm.com>, Andrew Morton <akpm@osdl.org>, Ingo Molnar <mingo@elte.hu>
-Cc: Nick Piggin <nickpiggin@yahoo.com.au>, linux-ia64@vger.kernel.org, hawkes@sgi.com, Paul Jackson <pj@sgi.com>, linux-kernel@vger.kernel.org
+To: linux-ia64@vger.kernel.org
 
-Dinakar Guniguntala's "dynamic sched domains" functionality was been merged
-into 2.6.13-rcN, although it was disabled at the last minute in the final
-2.6.13 because it triggers a fatal bug for NUMA systems with more than one
-CPU per node.
+Add an extra thread_info flag to indicate the special MCA/INIT stacks.
+Mainly for debuggers.
 
-Conceptually, when a user/sysadmin declares a cpu-exclusive (a.k.a.
-"isolated") cpuset, the cpuset code calls build_sched_domains() to isolate
-the cpu-exclusive CPU(s) such that these CPU(s) only load-balance among
-themselves and the remaining CPU(s) only load-balance among themselves.
-Thus, the non-isolated CPU(s) spend no load-balancing effort trying to
-offload tasks cannot be migrated away from their isolated CPU(s).
-Otherwise, for example, if an isolated CPU were to be the systemwide
-most-heavily-loaded CPU, then this would effectively disable all dynamic
-load-balancing in the Scheduler because the non-isolated CPU(s) would
-keep making futile efforts to offload isolated, non-migratable tasks.
+Signed-off-by: Keith Owens <kaos@sgi.com>
 
-Unfortunately, the 2.6.13 bug is that build_sched_domains() expects that
-a sched domain will include all the CPUs of each node in the domain; more
-accurately, that no node will belong in both an isolated cpuset and a
-non-isolated cpuset.  Declaring a cpuset that violates this presumption
-will produce flawed data structures and will oops the kernel.  Hence,
-for 2.6.13, the cpuset code that would otherwise call build_sched_domains()
-is #ifdef'ed disabled.
+---
 
-To trigger the problem (on a NUMA system with >1 CPUs per node, if the
-kernel/cpuset.c disabling #ifdef is removed):
-   cd /dev/cpuset
-   mkdir newcpuset
-   cd newcpuset
-   echo 0 >cpus
-   echo 0 >mems
-   echo 1 >cpu_exclusive
+ ptrace.h      |    2 +-
+ thread_info.h |    2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
 
-The fix is in three parts:
-1) A contribution from Ingo Molnar to pull the arch-specific ia64
-   build_sched_domains() (et al) routines into kernel/sched.c to form
-   a unified set of build and destroy routines.
-2) My fix to the 2.6.13 problem:  dynamically allocate sched_group_nodes[]
-   and sched_group_allnodes[] for each invocation of build_sched_domains(),
-   rather than use global arrays for these structures, taking care to
-   remember kmalloc() addresses so that arch_destroy_sched_domains() can
-   properly kfree() them.
-3) Undo the #ifdef disabling hack that was put into 2.6.13 to disable
-   dynamic sched domains.
+Index: linux/include/asm-ia64/ptrace.h
+=================================--- linux.orig/include/asm-ia64/ptrace.h	2005-06-18 05:48:29.000000000 +1000
++++ linux/include/asm-ia64/ptrace.h	2005-08-01 12:25:33.360883229 +1000
+@@ -119,7 +119,7 @@ struct pt_regs {
+ 	unsigned long ar_unat;		/* interrupted task's NaT register (preserved) */
+ 	unsigned long ar_pfs;		/* prev function state  */
+ 	unsigned long ar_rsc;		/* RSE configuration */
+-	/* The following two are valid only if cr_ipsr.cpl > 0: */
++	/* The following two are valid only if cr_ipsr.cpl > 0 || ti->flags & _TIF_MCA_INIT */
+ 	unsigned long ar_rnat;		/* RSE NaT */
+ 	unsigned long ar_bspstore;	/* RSE bspstore */
+ 
+Index: linux/include/asm-ia64/thread_info.h
+=================================--- linux.orig/include/asm-ia64/thread_info.h	2005-08-01 11:49:13.053126287 +1000
++++ linux/include/asm-ia64/thread_info.h	2005-08-01 12:25:48.541555064 +1000
+@@ -76,6 +76,7 @@ struct thread_info {
+ #define TIF_SIGDELAYED		5	/* signal delayed from MCA/INIT/NMI/PMI context */
+ #define TIF_POLLING_NRFLAG	16	/* true if poll_idle() is polling TIF_NEED_RESCHED */
+ #define TIF_MEMDIE		17
++#define TIF_MCA_INIT		18	/* this task is processing MCA or INIT */
+ 
+ #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
+ #define _TIF_SYSCALL_AUDIT	(1 << TIF_SYSCALL_AUDIT)
+@@ -85,6 +86,7 @@ struct thread_info {
+ #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
+ #define _TIF_SIGDELAYED	(1 << TIF_SIGDELAYED)
+ #define _TIF_POLLING_NRFLAG	(1 << TIF_POLLING_NRFLAG)
++#define _TIF_MCA_INIT		(1 << TIF_MCA_INIT)
+ 
+ /* "work to do on user-return" bits */
+ #define TIF_ALLWORK_MASK	(_TIF_NOTIFY_RESUME|_TIF_SIGPENDING|_TIF_NEED_RESCHED|_TIF_SYSCALL_TRACE|_TIF_SYSCALL_AUDIT|_TIF_SIGDELAYED)
 
-This is a patch against 2.6.13.  I have posted a previous similar patch
-against 2.6.13-mm1.
 
-John Hawkes
