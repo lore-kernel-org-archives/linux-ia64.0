@@ -1,31 +1,41 @@
-From: "Luck, Tony" <tony.luck@intel.com>
-Date: Thu, 08 Sep 2005 18:05:45 +0000
-Subject: RE: efi_memmapwalk re-write (please test)
-Message-Id: <B8E391BBE9FE384DAA4C5C003888BE6F0456EAF6@scsmsx401.amr.corp.intel.com>
+From: Hidetoshi Seto <seto.hidetoshi@jp.fujitsu.com>
+Date: Mon, 12 Sep 2005 06:59:04 +0000
+Subject: [RFC] SAL_MC_RENDEZ logic
+Message-Id: <43252738.8030303@jp.fujitsu.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200509062048.j86KmBPD004877@agluck-lia64.sc.intel.com>
-In-Reply-To: <200509062048.j86KmBPD004877@agluck-lia64.sc.intel.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 To: linux-ia64@vger.kernel.org
 
+Hi all,
 
->-		start += PAGE_ALIGN(k->start);
->-		end = (start + (k->num_pages << EFI_PAGE_SHIFT)) & PAGE_MASK;
+I'm now testing the MCA codes on brand-new system,
+and bump into a problem that slave processors infinitely
+loop in ia64_mca_wakeup_ipi_wait().
 
-But this is just two lines ... I can't see how the unaligned "end" is
-escaping past this point!
+The cause was that the SAL clears the IRR bit just after its
+spin in SAL_MC_RENDEZ procedure, and OS spins again until the
+IRR bit be set in ia64_mca_wakeup_ipi_wait().
 
-I do see a bug that the second line should be:
+According to the SAL spec, it says:
+   (SAL_MC_RENDEZ:)
+   When this procedure returns, it is the responsibility of the
+   operating system to clear the IRR bits for the MC_rendezvous
+   interrupt and the wake up interrupt, if any.
 
-    end = (k->start + (k->num_pages << EFI_PAGE_SHIFT)) & PAGE_MASK;
+I'm not sure but it seems "if any" means that SAL can clear
+the IRR bits on behalf of OS.  So OS shouldn't expect the IRR
+always be set on returning from SAL_MC_RENDEZ, is this right?
 
-since the "num_pages" size starts at the start of the block, not
-at the possibly rounded up "start".
+I found a archive 2 years ago, from Keith:
+   http://marc.theaimsgroup.com/?l=linux-ia64&m5590709805820
+However there was no responce...
 
-I'll apply this, and the clean-up bits.  I'd already made a similar
-change to uncached.c (which I had mailed out yesterday, but seems to
-have disappeared into the ether).
+I don't know whether there is any old SAL never spins in
+SAL_MC_RENDEZ or not.  Or is this the beginning of nightmare,
+having different MCA codes depend on the SAL version?
 
--Tony
+Thanks,
+H.Seto
+
