@@ -1,27 +1,186 @@
-From: "Chen, Kenneth W" <kenneth.w.chen@intel.com>
-Date: Wed, 07 Sep 2005 02:11:08 +0000
-Subject: RE: [patch] make exception handler in copy_user more robust
-Message-Id: <200509070211.j872Bng21886@unix-os.sc.intel.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Date: Mon, 12 Sep 2005 14:48:51 +0000
+Subject: [patch 2.6.13 4/6] swiotlb: support syncing DMA_BIDIRECTIONAL mappings
+Message-Id: <09122005104851.31120@bilbo.tuxdriver.com>
 List-Id: <linux-ia64.vger.kernel.org>
-References: <200509062306.j86N64g19803@unix-os.sc.intel.com>
-In-Reply-To: <200509062306.j86N64g19803@unix-os.sc.intel.com>
+In-Reply-To: <09122005104851.31056@bilbo.tuxdriver.com>
 MIME-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-To: linux-ia64@vger.kernel.org
+To: linux-kernel@vger.kernel.org, discuss@x86-64.org, linux-ia64@vger.kernel.org
+Cc: ak@suse.de, tony.luck@intel.com, Asit.K.Mallick@intel.com
 
-david mosberger wrote on Tuesday, September 06, 2005 7:08 PM
-> On 9/6/05, Chen, Kenneth W <kenneth.w.chen@intel.com> wrote:
-> 
-> > Does anyone need precise partial copy_user,
-> > meaning copy all the bytes up until faulting address?
-> 
-> Yes, I'm pretty sure that's the case.  I recall seeing problems with
-> mount option copying when copy_user doesn't give the exact number of
-> bytes that haven't been copied.
+The current implementation of sync_single in swiotlb.c chokes on
+DMA_BIDIRECTIONAL mappings. This patch adds the capability to sync
+those mappings, and optimizes other syncs by accounting for the
+sync target (i.e. cpu or device) in addition to the DMA direction of
+the mapping.
 
-OK, in that case, we won't be able to simplify too much code in the
-exception handler.  Good for me :-p
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
 
-- Ken
+ lib/swiotlb.c |   62 +++++++++++++++++++++++++++++++++++++---------------------
+ 1 files changed, 40 insertions(+), 22 deletions(-)
 
+diff --git a/lib/swiotlb.c b/lib/swiotlb.c
+--- a/lib/swiotlb.c
++++ b/lib/swiotlb.c
+@@ -49,6 +49,14 @@
+  */
+ #define IO_TLB_SHIFT 11
+ 
++/*
++ * Enumeration for sync targets
++ */
++enum dma_sync_target {
++	SYNC_FOR_CPU = 0,
++	SYNC_FOR_DEVICE = 1,
++};
++
+ int swiotlb_force;
+ 
+ /*
+@@ -295,21 +303,28 @@ unmap_single(struct device *hwdev, char 
+ }
+ 
+ static void
+-sync_single(struct device *hwdev, char *dma_addr, size_t size, int dir)
++sync_single(struct device *hwdev, char *dma_addr, size_t size,
++	    int dir, int target)
+ {
+ 	int index = (dma_addr - io_tlb_start) >> IO_TLB_SHIFT;
+ 	char *buffer = io_tlb_orig_addr[index];
+ 
+-	/*
+-	 * bounce... copy the data back into/from the original buffer
+-	 * XXX How do you handle DMA_BIDIRECTIONAL here ?
+-	 */
+-	if (dir = DMA_FROM_DEVICE)
+-		memcpy(buffer, dma_addr, size);
+-	else if (dir = DMA_TO_DEVICE)
+-		memcpy(dma_addr, buffer, size);
+-	else
++	switch (target) {
++	case SYNC_FOR_CPU:
++		if (likely(dir = DMA_FROM_DEVICE || dir = DMA_BIDIRECTIONAL))
++			memcpy(buffer, dma_addr, size);
++		else if (dir != DMA_TO_DEVICE && dir != DMA_NONE)
++			BUG();
++		break;
++	case SYNC_FOR_DEVICE:
++		if (likely(dir = DMA_TO_DEVICE || dir = DMA_BIDIRECTIONAL))
++			memcpy(dma_addr, buffer, size);
++		else if (dir != DMA_FROM_DEVICE && dir != DMA_NONE)
++			BUG();
++		break;
++	default:
+ 		BUG();
++	}
+ }
+ 
+ void *
+@@ -494,14 +509,14 @@ swiotlb_unmap_single(struct device *hwde
+  */
+ static inline void
+ swiotlb_sync_single(struct device *hwdev, dma_addr_t dev_addr,
+-		    size_t size, int dir)
++		    size_t size, int dir, int target)
+ {
+ 	char *dma_addr = phys_to_virt(dev_addr);
+ 
+ 	if (dir = DMA_NONE)
+ 		BUG();
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+-		sync_single(hwdev, dma_addr, size, dir);
++		sync_single(hwdev, dma_addr, size, dir, target);
+ 	else if (dir = DMA_FROM_DEVICE)
+ 		mark_clean(dma_addr, size);
+ }
+@@ -510,14 +525,14 @@ void
+ swiotlb_sync_single_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
+ 			    size_t size, int dir)
+ {
+-	swiotlb_sync_single(hwdev, dev_addr, size, dir);
++	swiotlb_sync_single(hwdev, dev_addr, size, dir, SYNC_FOR_CPU);
+ }
+ 
+ void
+ swiotlb_sync_single_for_device(struct device *hwdev, dma_addr_t dev_addr,
+ 			       size_t size, int dir)
+ {
+-	swiotlb_sync_single(hwdev, dev_addr, size, dir);
++	swiotlb_sync_single(hwdev, dev_addr, size, dir, SYNC_FOR_DEVICE);
+ }
+ 
+ /*
+@@ -525,14 +540,15 @@ swiotlb_sync_single_for_device(struct de
+  */
+ static inline void
+ swiotlb_sync_single_range(struct device *hwdev, dma_addr_t dev_addr,
+-			  unsigned long offset, size_t size, int dir)
++			  unsigned long offset, size_t size,
++			  int dir, int target)
+ {
+ 	char *dma_addr = phys_to_virt(dev_addr) + offset;
+ 
+ 	if (dir = DMA_NONE)
+ 		BUG();
+ 	if (dma_addr >= io_tlb_start && dma_addr < io_tlb_end)
+-		sync_single(hwdev, dma_addr, size, dir);
++		sync_single(hwdev, dma_addr, size, dir, target);
+ 	else if (dir = DMA_FROM_DEVICE)
+ 		mark_clean(dma_addr, size);
+ }
+@@ -541,14 +557,16 @@ void
+ swiotlb_sync_single_range_for_cpu(struct device *hwdev, dma_addr_t dev_addr,
+ 				  unsigned long offset, size_t size, int dir)
+ {
+-	swiotlb_sync_single_range(hwdev, dev_addr, offset, size, dir);
++	swiotlb_sync_single_range(hwdev, dev_addr, offset, size, dir,
++				  SYNC_FOR_CPU);
+ }
+ 
+ void
+ swiotlb_sync_single_range_for_device(struct device *hwdev, dma_addr_t dev_addr,
+ 				     unsigned long offset, size_t size, int dir)
+ {
+-	swiotlb_sync_single_range(hwdev, dev_addr, offset, size, dir);
++	swiotlb_sync_single_range(hwdev, dev_addr, offset, size, dir,
++				  SYNC_FOR_DEVICE);
+ }
+ 
+ /*
+@@ -627,7 +645,7 @@ swiotlb_unmap_sg(struct device *hwdev, s
+  */
+ static inline void
+ swiotlb_sync_sg(struct device *hwdev, struct scatterlist *sg,
+-		int nelems, int dir)
++		int nelems, int dir, int target)
+ {
+ 	int i;
+ 
+@@ -637,21 +655,21 @@ swiotlb_sync_sg(struct device *hwdev, st
+ 	for (i = 0; i < nelems; i++, sg++)
+ 		if (sg->dma_address != SG_ENT_PHYS_ADDRESS(sg))
+ 			sync_single(hwdev, (void *) sg->dma_address,
+-				    sg->dma_length, dir);
++				    sg->dma_length, dir, target);
+ }
+ 
+ void
+ swiotlb_sync_sg_for_cpu(struct device *hwdev, struct scatterlist *sg,
+ 			int nelems, int dir)
+ {
+-	swiotlb_sync_sg(hwdev, sg, nelems, dir);
++	swiotlb_sync_sg(hwdev, sg, nelems, dir, SYNC_FOR_CPU);
+ }
+ 
+ void
+ swiotlb_sync_sg_for_device(struct device *hwdev, struct scatterlist *sg,
+ 			   int nelems, int dir)
+ {
+-	swiotlb_sync_sg(hwdev, sg, nelems, dir);
++	swiotlb_sync_sg(hwdev, sg, nelems, dir, SYNC_FOR_DEVICE);
+ }
+ 
+ int
